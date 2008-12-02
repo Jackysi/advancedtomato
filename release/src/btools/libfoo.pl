@@ -395,6 +395,7 @@ genSO("${root}/lib/libutil.so.0", "${uclibc}/lib/libutil.a");
 #	genSO("${root}/lib/libdl.so.0", "${uclibc}/lib/libdl.a");
 #  genSO("${root}/lib/libnsl.so.0", "${uclibc}/lib/libnsl.a");
 
+genSO("${root}/usr/lib/libssl.so", "${router}/openssl/libssl.a");
 genSO("${root}/usr/lib/libcrypto.so", "${router}/openssl/libcrypto.a");
 genSO("${root}/usr/lib/libzebra.so", "${router}/zebra/lib/libzebra.a");
 genSO("${root}/usr/lib/liblzo2.so.2", "${router}/lzo/src/.libs/liblzo2.a");

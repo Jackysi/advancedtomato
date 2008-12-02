@@ -300,8 +300,8 @@ openssl-install:
 #	perl -e 'while (<>) { s/.SECS/time()-(24*60*60)/e; print; }' < httpd/gencert.sh > $(INSTALLDIR)/openssl/usr/sbin/gencert.sh
 #	chmod 0500 $(INSTALLDIR)/openssl/usr/sbin/gencert.sh
 
-#	install -D openssl/libssl.so $(INSTALLDIR)/openssl/usr/lib/libssl.so
-#	$(STRIP) $(INSTALLDIR)/openssl/usr/lib/libssl.so
+	install -D openssl/libssl.so $(INSTALLDIR)/openssl/usr/lib/libssl.so
+	$(STRIP) $(INSTALLDIR)/openssl/usr/lib/libssl.so
 
 mssl:	matrixssl
 
