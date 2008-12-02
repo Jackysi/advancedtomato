@@ -2,6 +2,7 @@
 # Pattern attributes: good notsofast notsofast subset
 # Protocol groups: file
 
+# Copyright (C) 2008 Matthew Strait, Ethan Sommer; See ../LICENSE
 tar
 # /usr/share/magic
 ## POSIX tar archives

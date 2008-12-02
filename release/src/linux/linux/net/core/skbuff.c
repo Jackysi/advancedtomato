@@ -248,6 +248,9 @@ static inline void skb_headerinit(void *p, kmem_cache_t *cache,
 #ifdef CONFIG_NETFILTER_DEBUG
 	skb->nf_debug = 0;
 #endif
+#if defined(CONFIG_BRIDGE) || defined(CONFIG_BRIDGE_MODULE)
+	skb->nf_bridge	  = NULL;
+#endif
 #endif
 #ifdef CONFIG_NET_SCHED
 	skb->tc_index = 0;
@@ -332,6 +335,9 @@ void __kfree_skb(struct sk_buff *skb)
 	}
 #ifdef CONFIG_NETFILTER
 	nf_conntrack_put(skb->nfct);
+#if defined(CONFIG_BRIDGE) || defined(CONFIG_BRIDGE_MODULE)
+	nf_bridge_put(skb->nf_bridge);
+#endif
 #endif
 	skb_headerinit(skb, NULL, 0);  /* clean state */
 	kfree_skbmem(skb);
@@ -398,6 +404,9 @@ struct sk_buff *skb_clone(struct sk_buff *skb, int gfp_mask)
 #ifdef CONFIG_NETFILTER_DEBUG
 	C(nf_debug);
 #endif
+#if defined(CONFIG_BRIDGE) || defined(CONFIG_BRIDGE_MODULE)
+	C(nf_bridge);
+#endif
 #endif /*CONFIG_NETFILTER*/
 #if defined(CONFIG_HIPPI)
 	C(private);
@@ -414,6 +423,9 @@ struct sk_buff *skb_clone(struct sk_buff *skb, int gfp_mask)
 	skb->cloned = 1;
 #ifdef CONFIG_NETFILTER
 	nf_conntrack_get(skb->nfct);
+#if defined(CONFIG_BRIDGE) || defined(CONFIG_BRIDGE_MODULE)
+	nf_bridge_get(skb->nf_bridge);
+#endif
 #endif
 	return n;
 }
@@ -447,6 +459,10 @@ static void copy_skb_header(struct sk_buff *new, const struct sk_buff *old)
 	nf_conntrack_get(new->nfct);
 #ifdef CONFIG_NETFILTER_DEBUG
 	new->nf_debug=old->nf_debug;
+#endif
+#if defined(CONFIG_BRIDGE) || defined(CONFIG_BRIDGE_MODULE)
+	new->nf_bridge=old->nf_bridge;
+	nf_bridge_get(new->nf_bridge);
 #endif
 #endif
 #ifdef CONFIG_NET_SCHED
@@ -738,9 +754,9 @@ struct sk_buff *skb_copy_expand(const struct sk_buff *skb,
 	/* Set the tail pointer and length */
 	skb_put(n,skb->len);
 
-	/* Copy the data only. */
-	if (skb_copy_bits(skb, 0, n->data, skb->len))
-		BUG();
+       /* Copy the linear data and header. */
+       if (skb_copy_bits(skb, -newheadroom, n->head, newheadroom + skb->len))
+                BUG();
 
 	copy_skb_header(n, skb);
 	return n;

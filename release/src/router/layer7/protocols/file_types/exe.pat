@@ -2,6 +2,7 @@
 # Pattern attributes: good notsofast notsofast subset
 # Protocol groups: file
 
+# Copyright (C) 2008 Matthew Strait, Ethan Sommer; See ../LICENSE
 # Thanks to Brandon Enright [bmenrighATucsd.edu]
 
 # This pattern doesn't techincally match the PE file format but rather the

@@ -7,11 +7,9 @@
  * Licensed under the GPL v2, see the file LICENSE in this tarball.
  */
 
-#include <time.h>
-#include <unistd.h>
 #include "libbb.h"
 
-void bb_do_delay(int seconds)
+void FAST_FUNC bb_do_delay(int seconds)
 {
 	time_t start, now;
 

@@ -4,20 +4,7 @@
  *
  * Copyright (C) 2003  Manuel Novoa III  <mjn3@codepoet.org>
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
- *
+ * Licensed under GPLv2 or later, see file LICENSE in this tarball for details.
  */
 
 /* BB_AUDIT SUSv3 compliant */
@@ -31,56 +18,87 @@
  * time suffixes for seconds, minutes, hours, and days.
  */
 
-#include <stdlib.h>
-#include <limits.h>
-#include <unistd.h>
-#include "busybox.h"
+#include "libbb.h"
 
-#ifdef CONFIG_FEATURE_FANCY_SLEEP
-static const struct suffix_mult sleep_suffixes[] = {
+/* This is a NOFORK applet. Be very careful! */
+
+
+#if ENABLE_FEATURE_FANCY_SLEEP || ENABLE_FEATURE_FLOAT_SLEEP
+static const struct suffix_mult sfx[] = {
 	{ "s", 1 },
 	{ "m", 60 },
 	{ "h", 60*60 },
 	{ "d", 24*60*60 },
-	{ NULL, 0 }
+	{ }
 };
 #endif
 
-int sleep_main(int argc, char **argv)
+int sleep_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
+int sleep_main(int argc UNUSED_PARAM, char **argv)
 {
-	unsigned int duration;
-
-#ifdef CONFIG_FEATURE_FANCY_SLEEP
-
-	if (argc < 2) {
-		bb_show_usage();
-	}
-
-	++argv;
-	duration = 0;
-	do {
-		duration += bb_xgetularg_bnd_sfx(*argv, 10,
-										 0, UINT_MAX-duration,
-										 sleep_suffixes);
-	} while (*++argv);
-
-#else  /* CONFIG_FEATURE_FANCY_SLEEP */
-
-	if (argc != 2) {
-		bb_show_usage();
-	}
-
-#if UINT_MAX == ULONG_MAX
-	duration = bb_xgetularg10(argv[1]);
+#if ENABLE_FEATURE_FLOAT_SLEEP
+	double duration;
+	struct timespec ts;
 #else
-	duration = bb_xgetularg10_bnd(argv[1], 0, UINT_MAX);
+	unsigned duration;
 #endif
 
-#endif /* CONFIG_FEATURE_FANCY_SLEEP */
+	++argv;
+	if (!*argv)
+		bb_show_usage();
 
-	if (sleep(duration)) {
-		bb_perror_nomsg_and_die();
+#if ENABLE_FEATURE_FLOAT_SLEEP
+
+	duration = 0;
+	do {
+		char *arg = *argv;
+		if (strchr(arg, '.')) {
+			double d;
+			int len = strspn(arg, "0123456789.");
+			char sv = arg[len];
+			arg[len] = '\0';
+			d = bb_strtod(arg, NULL);
+			if (errno)
+				bb_show_usage();
+			arg[len] = sv;
+			len--;
+			sv = arg[len];
+			arg[len] = '1';
+			duration += d * xatoul_sfx(&arg[len], sfx);
+			arg[len] = sv;
+		} else
+			duration += xatoul_sfx(arg, sfx);
+	} while (*++argv);
+
+	ts.tv_sec = MAXINT(typeof(ts.tv_sec));
+	ts.tv_nsec = 0;
+	if (duration >= 0 && duration < ts.tv_sec) {
+		ts.tv_sec = duration;
+		ts.tv_nsec = (duration - ts.tv_sec) * 1000000000;
 	}
+	do {
+		errno = 0;
+		nanosleep(&ts, &ts);
+	} while (errno == EINTR);
+
+#elif ENABLE_FEATURE_FANCY_SLEEP
+
+	duration = 0;
+	do {
+		duration += xatou_range_sfx(*argv, 0, UINT_MAX - duration, sfx);
+	} while (*++argv);
+	sleep(duration);
+
+#else /* simple */
+
+	duration = xatou(*argv);
+	sleep(duration);
+	// Off. If it's really needed, provide example why
+	//if (sleep(duration)) {
+	//	bb_perror_nomsg_and_die();
+	//}
+
+#endif
 
 	return EXIT_SUCCESS;
 }

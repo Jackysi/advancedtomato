@@ -7,22 +7,22 @@
  * Licensed under GPLv2 or later, see file LICENSE in this tarball for details.
  */
 
-#include <stdio.h>
-#include <fcntl.h>
 #include "libbb.h"
 
-
 /* try to open up the specified device */
-int device_open(const char *device, int mode)
+int FAST_FUNC device_open(const char *device, int mode)
 {
-	int m, f, fd = -1;
+	int m, f, fd;
 
 	m = mode | O_NONBLOCK;
 
 	/* Retry up to 5 times */
-	for (f = 0; f < 5; f++)
-		if ((fd = open(device, m, 0600)) >= 0)
+	/* TODO: explain why it can't be considered insane */
+	for (f = 0; f < 5; f++) {
+		fd = open(device, m, 0600);
+		if (fd >= 0)
 			break;
+	}
 	if (fd < 0)
 		return fd;
 	/* Reset original flags. */

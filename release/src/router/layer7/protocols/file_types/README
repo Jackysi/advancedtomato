@@ -2,6 +2,7 @@ Patterns in this directory are not for network protocols, but rather for
 file types.  They are for cases in which you would like to
 promote/restrict transfer of one file type regardless of what protocol
 it is being transfered over.
+# Copyright (C) 2008 Matthew Strait, Ethan Sommer; See ../LICENSE
 
 Writing patterns for this directory is pretty easy.  Often
 /usr/share/magic has everything you need to know. If you'd like

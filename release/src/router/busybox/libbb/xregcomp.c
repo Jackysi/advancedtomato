@@ -8,19 +8,25 @@
  * Licensed under GPLv2 or later, see file LICENSE in this tarball for details.
  */
 
-#include <stdio.h>
 #include "libbb.h"
 #include "xregex.h"
 
-
-
-void xregcomp(regex_t *preg, const char *regex, int cflags)
+char* FAST_FUNC regcomp_or_errmsg(regex_t *preg, const char *regex, int cflags)
 {
-	int ret;
-	if ((ret = regcomp(preg, regex, cflags)) != 0) {
+	int ret = regcomp(preg, regex, cflags);
+	if (ret) {
 		int errmsgsz = regerror(ret, preg, NULL, 0);
 		char *errmsg = xmalloc(errmsgsz);
 		regerror(ret, preg, errmsg, errmsgsz);
-		bb_error_msg_and_die("xregcomp: %s", errmsg);
+		return errmsg;
+	}
+	return NULL;
+}
+
+void FAST_FUNC xregcomp(regex_t *preg, const char *regex, int cflags)
+{
+	char *errmsg = regcomp_or_errmsg(preg, regex, cflags);
+	if (errmsg) {
+		bb_error_msg_and_die("bad regex '%s': %s", regex, errmsg);
 	}
 }

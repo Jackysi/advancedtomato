@@ -2,6 +2,7 @@
 # Pattern attributes: good veryfast fast undermatch overmatch
 # Protocol groups: mail
 # Wiki: http://www.protocolinfo.org/wiki/Biff
+# Copyright (C) 2008 Matthew Strait, Ethan Sommer; See ../LICENSE
 #
 # Usually runs on port 512
 #

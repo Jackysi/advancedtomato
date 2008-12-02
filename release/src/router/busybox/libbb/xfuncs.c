@@ -3,242 +3,289 @@
  * Utility routines.
  *
  * Copyright (C) 1999-2004 by Erik Andersen <andersen@codepoet.org>
+ * Copyright (C) 2006 Rob Landley
+ * Copyright (C) 2006 Denys Vlasenko
  *
- * Licensed under GPLv2 or later, see file LICENSE in this tarball for details.
+ * Licensed under GPL version 2, see file LICENSE in this tarball for details.
  */
 
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <sys/wait.h>
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <fcntl.h>
-#include "busybox.h"
+/* We need to have separate xfuncs.c and xfuncs_printf.c because
+ * with current linkers, even with section garbage collection,
+ * if *.o module references any of XXXprintf functions, you pull in
+ * entire printf machinery. Even if you do not use the function
+ * which uses XXXprintf.
+ *
+ * xfuncs.c contains functions (not necessarily xfuncs)
+ * which do not pull in printf, directly or indirectly.
+ * xfunc_printf.c contains those which do.
+ *
+ * TODO: move xmalloc() and xatonum() here.
+ */
 
-#ifndef DMALLOC
-#ifdef L_xmalloc
-void *xmalloc(size_t size)
+#include "libbb.h"
+
+/* Turn on nonblocking I/O on a fd */
+int FAST_FUNC ndelay_on(int fd)
 {
-	void *ptr = malloc(size);
-	if (ptr == NULL && size != 0)
-		bb_error_msg_and_die(bb_msg_memory_exhausted);
-	return ptr;
+	return fcntl(fd, F_SETFL, fcntl(fd,F_GETFL) | O_NONBLOCK);
 }
-#endif
 
-#ifdef L_xrealloc
-void *xrealloc(void *ptr, size_t size)
+int FAST_FUNC ndelay_off(int fd)
 {
-	ptr = realloc(ptr, size);
-	if (ptr == NULL && size != 0)
-		bb_error_msg_and_die(bb_msg_memory_exhausted);
-	return ptr;
+	return fcntl(fd, F_SETFL, fcntl(fd,F_GETFL) & ~O_NONBLOCK);
 }
-#endif
 
-#ifdef L_xzalloc
-void *xzalloc(size_t size)
+int FAST_FUNC close_on_exec_on(int fd)
 {
-	void *ptr = xmalloc(size);
-	memset(ptr, 0, size);
-	return ptr;
+	return fcntl(fd, F_SETFD, FD_CLOEXEC);
 }
-#endif
 
-#ifdef L_xcalloc
-void *xcalloc(size_t nmemb, size_t size)
+/* Convert unsigned long long value into compact 4-char
+ * representation. Examples: "1234", "1.2k", " 27M", "123T"
+ * String is not terminated (buf[4] is untouched) */
+void FAST_FUNC smart_ulltoa4(unsigned long long ul, char buf[5], const char *scale)
 {
-	void *ptr = calloc(nmemb, size);
-	if (ptr == NULL && nmemb != 0 && size != 0)
-		bb_error_msg_and_die(bb_msg_memory_exhausted);
-	return ptr;
-}
-#endif
-#endif /* DMALLOC */
+	const char *fmt;
+	char c;
+	unsigned v, u, idx = 0;
 
-#ifdef L_xstrdup
-char * bb_xstrdup (const char *s)
-{
-	char *t;
-
-	if (s == NULL)
-		return NULL;
-
-	t = strdup (s);
-
-	if (t == NULL)
-		bb_error_msg_and_die(bb_msg_memory_exhausted);
-
-	return t;
-}
-#endif
-
-#ifdef L_xstrndup
-char * bb_xstrndup (const char *s, int n)
-{
-	char *t;
-
-	if (ENABLE_DEBUG && s == NULL)
-		bb_error_msg_and_die("bb_xstrndup bug");
-
-	t = xmalloc(++n);
-
-	return safe_strncpy(t,s,n);
-}
-#endif
-
-#ifdef L_xfopen
-FILE *bb_xfopen(const char *path, const char *mode)
-{
-	FILE *fp;
-	if ((fp = fopen(path, mode)) == NULL)
-		bb_perror_msg_and_die("%s", path);
-	return fp;
-}
-#endif
-
-#ifdef L_xopen
-int bb_xopen(const char *pathname, int flags)
-{
-	return bb_xopen3(pathname, flags, 0777);
-}
-#endif
-
-#ifdef L_xopen3
-int bb_xopen3(const char *pathname, int flags, int mode)
-{
-	int ret;
-
-	ret = open(pathname, flags, mode);
-	if (ret < 0) {
-		bb_perror_msg_and_die("%s", pathname);
+	if (ul > 9999) { // do not scale if 9999 or less
+		ul *= 10;
+		do {
+			ul /= 1024;
+			idx++;
+		} while (ul >= 10000);
 	}
+	v = ul; // ullong divisions are expensive, avoid them
+
+	fmt = " 123456789";
+	u = v / 10;
+	v = v % 10;
+	if (!idx) {
+		// 9999 or less: use "1234" format
+		// u is value/10, v is last digit
+		c = buf[0] = " 123456789"[u/100];
+		if (c != ' ') fmt = "0123456789";
+		c = buf[1] = fmt[u/10%10];
+		if (c != ' ') fmt = "0123456789";
+		buf[2] = fmt[u%10];
+		buf[3] = "0123456789"[v];
+	} else {
+		// u is value, v is 1/10ths (allows for 9.2M format)
+		if (u >= 10) {
+			// value is >= 10: use "123M', " 12M" formats
+			c = buf[0] = " 123456789"[u/100];
+			if (c != ' ') fmt = "0123456789";
+			v = u % 10;
+			u = u / 10;
+			buf[1] = fmt[u%10];
+		} else {
+			// value is < 10: use "9.2M" format
+			buf[0] = "0123456789"[u];
+			buf[1] = '.';
+		}
+		buf[2] = "0123456789"[v];
+		buf[3] = scale[idx]; /* typically scale = " kmgt..." */
+	}
+}
+
+/* Convert unsigned long long value into compact 5-char representation.
+ * String is not terminated (buf[5] is untouched) */
+void FAST_FUNC smart_ulltoa5(unsigned long long ul, char buf[6], const char *scale)
+{
+	const char *fmt;
+	char c;
+	unsigned v, u, idx = 0;
+
+	if (ul > 99999) { // do not scale if 99999 or less
+		ul *= 10;
+		do {
+			ul /= 1024;
+			idx++;
+		} while (ul >= 100000);
+	}
+	v = ul; // ullong divisions are expensive, avoid them
+
+	fmt = " 123456789";
+	u = v / 10;
+	v = v % 10;
+	if (!idx) {
+		// 99999 or less: use "12345" format
+		// u is value/10, v is last digit
+		c = buf[0] = " 123456789"[u/1000];
+		if (c != ' ') fmt = "0123456789";
+		c = buf[1] = fmt[u/100%10];
+		if (c != ' ') fmt = "0123456789";
+		c = buf[2] = fmt[u/10%10];
+		if (c != ' ') fmt = "0123456789";
+		buf[3] = fmt[u%10];
+		buf[4] = "0123456789"[v];
+	} else {
+		// value has been scaled into 0..9999.9 range
+		// u is value, v is 1/10ths (allows for 92.1M format)
+		if (u >= 100) {
+			// value is >= 100: use "1234M', " 123M" formats
+			c = buf[0] = " 123456789"[u/1000];
+			if (c != ' ') fmt = "0123456789";
+			c = buf[1] = fmt[u/100%10];
+			if (c != ' ') fmt = "0123456789";
+			v = u % 10;
+			u = u / 10;
+			buf[2] = fmt[u%10];
+		} else {
+			// value is < 100: use "92.1M" format
+			c = buf[0] = " 123456789"[u/10];
+			if (c != ' ') fmt = "0123456789";
+			buf[1] = fmt[u%10];
+			buf[2] = '.';
+		}
+		buf[3] = "0123456789"[v];
+		buf[4] = scale[idx]; /* typically scale = " kmgt..." */
+	}
+}
+
+
+// Convert unsigned integer to ascii, writing into supplied buffer.
+// A truncated result contains the first few digits of the result ala strncpy.
+// Returns a pointer past last generated digit, does _not_ store NUL.
+void BUG_sizeof_unsigned_not_4(void);
+char* FAST_FUNC utoa_to_buf(unsigned n, char *buf, unsigned buflen)
+{
+	unsigned i, out, res;
+	if (sizeof(unsigned) != 4)
+		BUG_sizeof_unsigned_not_4();
+	if (buflen) {
+		out = 0;
+		for (i = 1000000000; i; i /= 10) {
+			res = n / i;
+			if (res || out || i == 1) {
+				if (!--buflen) break;
+				out++;
+				n -= res*i;
+				*buf++ = '0' + res;
+			}
+		}
+	}
+	return buf;
+}
+
+/* Convert signed integer to ascii, like utoa_to_buf() */
+char* FAST_FUNC itoa_to_buf(int n, char *buf, unsigned buflen)
+{
+	if (buflen && n < 0) {
+		n = -n;
+		*buf++ = '-';
+		buflen--;
+	}
+	return utoa_to_buf((unsigned)n, buf, buflen);
+}
+
+// The following two functions use a static buffer, so calling either one a
+// second time will overwrite previous results.
+//
+// The largest 32 bit integer is -2 billion plus null terminator, or 12 bytes.
+// It so happens that sizeof(int) * 3 is enough for 32+ bits.
+// (sizeof(int) * 3 + 2 is correct for any width, even 8-bit)
+
+static char local_buf[sizeof(int) * 3];
+
+// Convert unsigned integer to ascii using a static buffer (returned).
+char* FAST_FUNC utoa(unsigned n)
+{
+	*(utoa_to_buf(n, local_buf, sizeof(local_buf))) = '\0';
+
+	return local_buf;
+}
+
+/* Convert signed integer to ascii using a static buffer (returned). */
+char* FAST_FUNC itoa(int n)
+{
+	*(itoa_to_buf(n, local_buf, sizeof(local_buf))) = '\0';
+
+	return local_buf;
+}
+
+/* Emit a string of hex representation of bytes */
+char* FAST_FUNC bin2hex(char *p, const char *cp, int count)
+{
+	while (count) {
+		unsigned char c = *cp++;
+		/* put lowercase hex digits */
+		*p++ = 0x20 | bb_hexdigits_upcase[c >> 4];
+		*p++ = 0x20 | bb_hexdigits_upcase[c & 0xf];
+		count--;
+	}
+	return p;
+}
+
+/* Return how long the file at fd is, if there's any way to determine it. */
+#ifdef UNUSED
+off_t FAST_FUNC fdlength(int fd)
+{
+	off_t bottom = 0, top = 0, pos;
+	long size;
+
+	// If the ioctl works for this, return it.
+
+	if (ioctl(fd, BLKGETSIZE, &size) >= 0) return size*512;
+
+	// FIXME: explain why lseek(SEEK_END) is not used here!
+
+	// If not, do a binary search for the last location we can read.  (Some
+	// block devices don't do BLKGETSIZE right.)
+
+	do {
+		char temp;
+
+		pos = bottom + (top - bottom) / 2;
+
+		// If we can read from the current location, it's bigger.
+
+		if (lseek(fd, pos, SEEK_SET)>=0 && safe_read(fd, &temp, 1)==1) {
+			if (bottom == top) bottom = top = (top+1) * 2;
+			else bottom = pos;
+
+		// If we can't, it's smaller.
+
+		} else {
+			if (bottom == top) {
+				if (!top) return 0;
+				bottom = top/2;
+			}
+			else top = pos;
+		}
+	} while (bottom + 1 != top);
+
+	return pos + 1;
+}
+#endif
+
+/* It is perfectly ok to pass in a NULL for either width or for
+ * height, in which case that value will not be set.  */
+int FAST_FUNC get_terminal_width_height(int fd, unsigned *width, unsigned *height)
+{
+	struct winsize win = { 0, 0, 0, 0 };
+	int ret = ioctl(fd, TIOCGWINSZ, &win);
+
+	if (height) {
+		if (!win.ws_row) {
+			char *s = getenv("LINES");
+			if (s) win.ws_row = atoi(s);
+		}
+		if (win.ws_row <= 1 || win.ws_row >= 30000)
+			win.ws_row = 24;
+		*height = (int) win.ws_row;
+	}
+
+	if (width) {
+		if (!win.ws_col) {
+			char *s = getenv("COLUMNS");
+			if (s) win.ws_col = atoi(s);
+		}
+		if (win.ws_col <= 1 || win.ws_col >= 30000)
+			win.ws_col = 80;
+		*width = (int) win.ws_col;
+	}
+
 	return ret;
 }
-#endif
-
-#ifdef L_xread
-ssize_t bb_xread(int fd, void *buf, size_t count)
-{
-	ssize_t size;
-
-	size = read(fd, buf, count);
-	if (size < 0) {
-		bb_perror_msg_and_die(bb_msg_read_error);
-	}
-	return(size);
-}
-#endif
-
-#ifdef L_xread_all
-void bb_xread_all(int fd, void *buf, size_t count)
-{
-	ssize_t size;
-
-	while (count) {
-		if ((size = bb_xread(fd, buf, count)) == 0) {	/* EOF */
-			bb_error_msg_and_die("Short read");
-		}
-		count -= size;
-		buf = ((char *) buf) + size;
-	}
-	return;
-}
-#endif
-
-#ifdef L_xread_char
-unsigned char bb_xread_char(int fd)
-{
-	char tmp;
-
-	bb_xread_all(fd, &tmp, 1);
-
-	return(tmp);
-}
-#endif
-
-#ifdef L_xferror
-void bb_xferror(FILE *fp, const char *fn)
-{
-	if (ferror(fp)) {
-		bb_error_msg_and_die("%s", fn);
-	}
-}
-#endif
-
-#ifdef L_xferror_stdout
-void bb_xferror_stdout(void)
-{
-	bb_xferror(stdout, bb_msg_standard_output);
-}
-#endif
-
-#ifdef L_xfflush_stdout
-void bb_xfflush_stdout(void)
-{
-	if (fflush(stdout)) {
-		bb_perror_msg_and_die(bb_msg_standard_output);
-	}
-}
-#endif
-
-#ifdef L_spawn
-// This does a fork/exec in one call, using vfork().
-pid_t bb_spawn(char **argv)
-{
-	static int failed;
-	pid_t pid;
-	void *app = find_applet_by_name(argv[0]);
-
-	// Be nice to nommu machines.
-	failed = 0;
-	pid = vfork();
-	if (pid < 0) return pid;
-	if (!pid) {
-		execvp(app ? CONFIG_BUSYBOX_EXEC_PATH : *argv, argv);
-
-		// We're sharing a stack with blocked parent, let parent know we failed
-		// and then exit to unblock parent (but don't run atexit() stuff, which
-		// would screw up parent.)
-
-		failed = -1;
-		_exit(0);
-	}
-	return failed ? failed : pid;
-}
-#endif
-
-#ifdef L_xspawn
-pid_t bb_xspawn(char **argv)
-{
-	pid_t pid = bb_spawn(argv);
-	if (pid < 0) bb_perror_msg_and_die("%s", *argv);
-	return pid;
-}
-#endif
-
-#ifdef L_wait4
-int wait4pid(int pid)
-{
-	int status;
-
-	if (pid == -1 || waitpid(pid, &status, 0) == -1) return -1;
-	if (WIFEXITED(status)) return WEXITSTATUS(status);
-	if (WIFSIGNALED(status)) return WTERMSIG(status);
-	return 0;
-}
-#endif	
-
-#ifdef L_setuid
-void xsetgid(gid_t gid)
-{
-	if (setgid(gid)) bb_error_msg_and_die("setgid");
-}
-
-void xsetuid(uid_t uid)
-{
-	if (setuid(uid)) bb_error_msg_and_die("setuid");
-}
-#endif
