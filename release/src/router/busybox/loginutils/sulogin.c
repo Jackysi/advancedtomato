@@ -1,159 +1,116 @@
 /* vi: set sw=4 ts=4: */
-#include <fcntl.h>
-#include <signal.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+/*
+ * Mini sulogin implementation for busybox
+ *
+ * Licensed under GPLv2 or later, see file LICENSE in this tarball for details.
+ */
+
+#include "libbb.h"
 #include <syslog.h>
-#include <unistd.h>
-#include <utmp.h>
-#include <sys/resource.h>
-#include <sys/stat.h>
-#include <sys/types.h>
-#include <ctype.h>
-#include <time.h>
 
-#include "busybox.h"
+//static void catchalarm(int UNUSED_PARAM junk)
+//{
+//	exit(EXIT_FAILURE);
+//}
 
 
-#define SULOGIN_PROMPT "\nGive root password for system maintenance\n" \
-	"(or type Control-D for normal startup):"
-
-static const char * const forbid[] = {
-	"ENV",
-	"BASH_ENV",
-	"HOME",
-	"IFS",
-	"PATH",
-	"SHELL",
-	"LD_LIBRARY_PATH",
-	"LD_PRELOAD",
-	"LD_TRACE_LOADED_OBJECTS",
-	"LD_BIND_NOW",
-	"LD_AOUT_LIBRARY_PATH",
-	"LD_AOUT_PRELOAD",
-	"LD_NOWARN",
-	"LD_KEEPDIR",
-	(char *) 0
-};
-
-
-
-static void catchalarm(int ATTRIBUTE_UNUSED junk)
-{
-	exit(EXIT_FAILURE);
-}
-
-
-int sulogin_main(int argc, char **argv)
+int sulogin_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
+int sulogin_main(int argc UNUSED_PARAM, char **argv)
 {
 	char *cp;
-	char *device = NULL;
-	const char *name = "root";
 	int timeout = 0;
-
-#define pass bb_common_bufsiz1
-
-	struct passwd pwent;
 	struct passwd *pwd;
-	const char * const *p;
+	const char *shell;
 #if ENABLE_FEATURE_SHADOWPASSWDS
-	struct spwd *spwd = NULL;
+	/* Using _r function to avoid pulling in static buffers */
+	char buffer[256];
+	struct spwd spw;
 #endif
 
-	openlog("sulogin", LOG_PID | LOG_CONS | LOG_NOWAIT, LOG_AUTH);
-	if (argc > 1) {
-		if (strncmp(argv[1], "-t", 2) == 0) {
-			if (argv[1][2] == '\0') { /* -t NN */
-				if (argc > 2) {
-					timeout = atoi(argv[2]);
-					if (argc > 3) {
-						device = argv[3];
-					}
-				}
-			} else { /* -tNNN */
-				timeout = atoi(&argv[1][2]);
-				if (argc > 2) {
-					device = argv[2];
-				}
-			}
-		} else {
-			device = argv[1];
-		}
-		if (device) {
-			close(0);
-			close(1);
-			close(2);
-			if (open(device, O_RDWR) == 0) {
-				dup(0);
-				dup(0);
-			} else {
-				syslog(LOG_WARNING, "cannot open %s\n", device);
-				exit(EXIT_FAILURE);
-			}
-		}
+	logmode = LOGMODE_BOTH;
+	openlog(applet_name, 0, LOG_AUTH);
+
+	opt_complementary = "t+"; /* -t N */
+	getopt32(argv, "t:", &timeout);
+
+	if (argv[optind]) {
+		close(0);
+		close(1);
+		dup(xopen(argv[optind], O_RDWR));
+		close(2);
+		dup(0);
 	}
-	if (access(bb_path_passwd_file, 0) == -1) {
-		syslog(LOG_WARNING, "No password file\n");
-		bb_error_msg_and_die("No password file\n");
-	}
+
+	/* Malicious use like "sulogin /dev/sda"? */
 	if (!isatty(0) || !isatty(1) || !isatty(2)) {
-		exit(EXIT_FAILURE);
+		logmode = LOGMODE_SYSLOG;
+		bb_error_msg_and_die("not a tty");
 	}
 
+	/* Clear dangerous stuff, set PATH */
+	sanitize_env_if_suid();
 
-	/* Clear out anything dangerous from the environment */
-	for (p = forbid; *p; p++)
-		unsetenv(*p);
+// bb_askpass() already handles this
+//	signal(SIGALRM, catchalarm);
 
-
-	signal(SIGALRM, catchalarm);
-	if (!(pwd = getpwnam(name))) {
-		syslog(LOG_WARNING, "No password entry for `root'\n");
-		bb_error_msg_and_die("No password entry for `root'\n");
+	pwd = getpwuid(0);
+	if (!pwd) {
+		goto auth_error;
 	}
-	pwent = *pwd;
+
 #if ENABLE_FEATURE_SHADOWPASSWDS
-	spwd = NULL;
-	if (pwd && ((strcmp(pwd->pw_passwd, "x") == 0)
-				|| (strcmp(pwd->pw_passwd, "*") == 0))) {
-		endspent();
-		spwd = getspnam(name);
-		if (spwd) {
-			pwent.pw_passwd = spwd->sp_pwdp;
+	{
+		/* getspnam_r may return 0 yet set result to NULL.
+		 * At least glibc 2.4 does this. Be extra paranoid here. */
+		struct spwd *result = NULL;
+		int r = getspnam_r(pwd->pw_name, &spw, buffer, sizeof(buffer), &result);
+		if (r || !result) {
+			goto auth_error;
 		}
+		pwd->pw_passwd = result->sp_pwdp;
 	}
 #endif
+
 	while (1) {
-		cp = bb_askpass(timeout, SULOGIN_PROMPT);
+		char *encrypted;
+		int r;
+
+		/* cp points to a static buffer that is zeroed every time */
+		cp = bb_askpass(timeout,
+				"Give root password for system maintenance\n"
+				"(or type Control-D for normal startup):");
+
 		if (!cp || !*cp) {
-			puts("\n");
-			fflush(stdout);
-			syslog(LOG_INFO, "Normal startup\n");
-			exit(EXIT_SUCCESS);
-		} else {
-			safe_strncpy(pass, cp, sizeof(pass));
-			memset(cp, 0, strlen(cp));
+			bb_info_msg("Normal startup");
+			return 0;
 		}
-		if (strcmp(pw_encrypt(pass, pwent.pw_passwd), pwent.pw_passwd) == 0) {
+		encrypted = pw_encrypt(cp, pwd->pw_passwd, 1);
+		r = strcmp(encrypted, pwd->pw_passwd);
+		free(encrypted);
+		if (r == 0) {
 			break;
 		}
 		bb_do_delay(FAIL_DELAY);
-		puts("Login incorrect");
-		fflush(stdout);
-		syslog(LOG_WARNING, "Incorrect root password\n");
+		bb_error_msg("login incorrect");
 	}
-	memset(pass, 0, strlen(pass));
-	signal(SIGALRM, SIG_DFL);
-	puts("Entering System Maintenance Mode\n");
-	fflush(stdout);
-	syslog(LOG_INFO, "System Maintenance Mode\n");
+	memset(cp, 0, strlen(cp));
+//	signal(SIGALRM, SIG_DFL);
 
-#if ENABLE_SELINUX
-	renew_current_security_context();
-#endif
+	bb_info_msg("System Maintenance Mode");
 
-	run_shell(pwent.pw_shell, 1, 0, 0);
+	USE_SELINUX(renew_current_security_context());
 
-	return (0);
+	shell = getenv("SUSHELL");
+	if (!shell)
+		shell = getenv("sushell");
+	if (!shell) {
+		shell = "/bin/sh";
+		if (pwd->pw_shell[0])
+			shell = pwd->pw_shell;
+	}
+	/* Exec login shell with no additional parameters. Never returns. */
+	run_shell(shell, 1, NULL, NULL);
+
+ auth_error:
+	bb_error_msg_and_die("no password entry for root");
 }

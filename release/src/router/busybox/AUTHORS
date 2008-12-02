@@ -95,7 +95,7 @@ Stephan Linz <linz@li-pro.net>
 John Lombardo <john@deltanet.com>
     tr
 
-Glenn McGrath <bug1@iinet.net.au>
+Glenn McGrath <glenn.l.mcgrath@gmail.com>
     Common unarchiving code and unarchiving applets, ifupdown, ftpgetput,
     nameif, sed, patch, fold, install, uudecode.
     Various bugfixes, review and apply numerous patches.
@@ -113,7 +113,7 @@ Manuel Novoa III <mjn3@codepoet.org>
 
 Vladimir Oleynik <dzo@simtreas.ru>
     cmdedit; bb_mkdep, xargs(current), httpd(current);
-    ports: ash, crond, fdisk (initial, unmaintained now), inetd, stty, traceroute, 
+    ports: ash, crond, fdisk (initial, unmaintained now), inetd, stty, traceroute,
     top;
     locale, various fixes
     and irreconcilable critic of everything not perfect.

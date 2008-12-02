@@ -1,21 +1,30 @@
 /* vi: set sw=4 ts=4: */
-#include "busybox.h"
-#include <ctype.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
+/*
+ * Licensed under GPLv2 or later, see file LICENSE in this tarball for details.
+ */
+
+#include "libbb.h"
 #include <math.h>
 
 /* Tiny RPN calculator, because "expr" didn't give me bitwise operations. */
 
-static double stack[100];
-static unsigned int pointer;
-static unsigned char base;
+
+struct globals {
+	unsigned pointer;
+	unsigned base;
+	double stack[1];
+};
+enum { STACK_SIZE = (COMMON_BUFSIZE - offsetof(struct globals, stack)) / sizeof(double) };
+#define G (*(struct globals*)&bb_common_bufsiz1)
+#define pointer   (G.pointer   )
+#define base      (G.base      )
+#define stack     (G.stack     )
+#define INIT_G() do { } while (0)
+
 
 static void push(double a)
 {
-	if (pointer >= (sizeof(stack) / sizeof(*stack)))
+	if (pointer >= STACK_SIZE)
 		bb_error_msg_and_die("stack overflow");
 	stack[pointer++] = a;
 }
@@ -60,51 +69,51 @@ static void divide(void)
 
 static void mod(void)
 {
-	unsigned int d = pop();
+	unsigned d = pop();
 
-	push((unsigned int) pop() % d);
+	push((unsigned) pop() % d);
 }
 
 static void and(void)
 {
-	push((unsigned int) pop() & (unsigned int) pop());
+	push((unsigned) pop() & (unsigned) pop());
 }
 
 static void or(void)
 {
-	push((unsigned int) pop() | (unsigned int) pop());
+	push((unsigned) pop() | (unsigned) pop());
 }
 
 static void eor(void)
 {
-	push((unsigned int) pop() ^ (unsigned int) pop());
+	push((unsigned) pop() ^ (unsigned) pop());
 }
 
 static void not(void)
 {
-	push(~(unsigned int) pop());
+	push(~(unsigned) pop());
 }
 
 static void set_output_base(void)
 {
-	base=(unsigned char)pop();
+	base = (unsigned)pop();
 	if ((base != 10) && (base != 16)) {
-		fprintf(stderr, "Error: base = %d is not supported.\n", base);
-		base=10;
+		bb_error_msg("error, base %d is not supported", base);
+		base = 10;
 	}
 }
 
 static void print_base(double print)
 {
 	if (base == 16)
-		printf("%x\n", (unsigned int)print);
+		printf("%x\n", (unsigned)print);
 	else
-	printf("%g\n", print);
+		printf("%g\n", print);
 }
 
 static void print_stack_no_pop(void)
 {
-	unsigned int i=pointer;
+	unsigned i = pointer;
 	while (i)
 		print_base(stack[--i]);
 }
@@ -115,7 +124,7 @@ static void print_no_pop(void)
 }
 
 struct op {
-	const char *name;
+	const char name[4];
 	void (*function) (void);
 };
 
@@ -141,12 +150,12 @@ static const struct op operators[] = {
 	{"p", print_no_pop},
 	{"f", print_stack_no_pop},
 	{"o", set_output_base},
-	{0,     0}
+	{ /* zero filled */ }
 };
 
 static void stack_machine(const char *argument)
 {
-	char *endPointer = 0;
+	char *endPointer;
 	double d;
 	const struct op *o = operators;
 
@@ -160,14 +169,14 @@ static void stack_machine(const char *argument)
 		return;
 	}
 
-	while (o->name != 0) {
+	while (o->name[0]) {
 		if (strcmp(o->name, argument) == 0) {
-			(*(o->function)) ();
+			o->function();
 			return;
 		}
 		o++;
 	}
-	bb_error_msg_and_die("%s: syntax error.", argument);
+	bb_error_msg_and_die("%s: syntax error", argument);
 }
 
 /* return pointer to next token in buffer and set *buffer to one char
@@ -175,53 +184,41 @@ static void stack_machine(const char *argument)
  */
 static char *get_token(char **buffer)
 {
-	char *start   = NULL;
-	char *current = *buffer;
-
-	while (isspace(*current)) { current++; }
-	if (*current != 0) {
-		start = current;
-		while (!isspace(*current) && *current != 0) { current++; }
-		*buffer = current;
+	char *current = skip_whitespace(*buffer);
+	if (*current != '\0') {
+		*buffer = skip_non_whitespace(current);
+		return current;
 	}
-	return start;
+	return NULL;
 }
 
-/* In Perl one might say, scalar m|\s*(\S+)\s*|g */
-static int number_of_tokens(char *buffer)
+int dc_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
+int dc_main(int argc UNUSED_PARAM, char **argv)
 {
-	int   i = 0;
-	char *b = buffer;
-	while (get_token(&b)) { i++; }
-	return i;
-}
+	INIT_G();
 
-int dc_main(int argc, char **argv)
-{
-	/* take stuff from stdin if no args are given */
-	if (argc <= 1) {
-		int i, len;
-		char *line   = NULL;
-		char *cursor = NULL;
-		char *token  = NULL;
-		while ((line = bb_get_chomped_line_from_file(stdin))) {
+	argv++;
+	if (!argv[0]) {
+		/* take stuff from stdin if no args are given */
+		char *line;
+		char *cursor;
+		char *token;
+		while ((line = xmalloc_fgetline(stdin)) != NULL) {
 			cursor = line;
-			len = number_of_tokens(line);
-			for (i = 0; i < len; i++) {
+			while (1) {
 				token = get_token(&cursor);
-				*cursor++ = 0;
+				if (!token) break;
+				*cursor++ = '\0';
 				stack_machine(token);
 			}
 			free(line);
 		}
 	} else {
-		if (*argv[1]=='-')
+		if (argv[0][0] == '-')
 			bb_show_usage();
-		while (argc >= 2) {
-			stack_machine(argv[1]);
-			argv++;
-			argc--;
-		}
+		do {
+			stack_machine(*argv);
+		} while (*++argv);
 	}
 	return EXIT_SUCCESS;
 }

@@ -1,140 +1,164 @@
 #!/bin/sh
 
-[ -n "$srcdir" ] || srcdir=$(pwd)
-[ -n "$bindir" ] || bindir=$(dirname $(pwd))
-PATH=$bindir:$PATH
+# Usage:
+# runtest [applet1] [applet2...]
 
-# Run old-style test.
+# Helper for helpers. Oh my...
+test x"$ECHO" != x"" || {
+	ECHO="echo"
+	test x"`echo -ne`" = x"" || {
+		# Compile and use a replacement 'echo' which understands -e -n
+		ECHO="$PWD/echo-ne"
+		test -x "$ECHO" || {
+			gcc -Os -o "$ECHO" ../scripts/echo.c || exit 1
+		}
+	}
+	export ECHO
+}
 
-function run_applet_testcase
+# Run one old-style test.
+# Tests are stored in applet/testcase shell scripts.
+# They are run using "sh -x -e applet/testcase".
+# Option -e will make testcase stop on the first failed command.
+run_applet_testcase()
 {
-	local applet=$1
-	local testcase=$2
+	local applet="$1"
+	local testcase="$2"
 
 	local status=0
-	local RES=
+	local uc_applet=$(echo "$applet" | tr a-z A-Z)
+	local testname="$testcase"
 
-	local uc_applet=$(echo $applet | tr a-z A-Z)
-	local testname=$(basename $testcase)
-
-	if grep -q "^# CONFIG_${uc_applet} is not set$" $bindir/.config; then
-		echo UNTESTED: $testname
+	testname="${testname##*/}" # take basename
+	if grep "^# CONFIG_$uc_applet is not set$" "$bindir/.config" >/dev/null; then
+		echo "UNTESTED: $testname"
 		return 0
 	fi
 
-	if grep -q "^# FEATURE: " $testcase; then
-		local feature=`sed -ne 's/^# FEATURE: //p' $testcase`
+	if grep "^# FEATURE: " "$testcase" >/dev/null; then
+		local feature=$(sed -ne 's/^# FEATURE: //p' "$testcase")
 
-		if grep -q "^# ${feature} is not set$" $bindir/.config; then
-			echo UNTESTED: $testname
+		if grep "^# $feature is not set$" "$bindir/.config" >/dev/null; then
+			echo "UNTESTED: $testname"
 			return 0
 		fi
 	fi
 
-	rm -rf tmp
-	mkdir -p tmp
-	pushd tmp > /dev/null
+	rm -rf ".tmpdir.$applet"
+	mkdir -p ".tmpdir.$applet"
+	cd ".tmpdir.$applet" || return 1
 
-	d=$srcdir sh -x -e $testcase >.logfile.txt 2>&1 || status=$?
-
-	if [ $status -ne 0 ] ; then
-		echo FAIL: $testname
-		if [ $verbose -gt 0 ]; then
-			cat .logfile.txt
+#	echo "Running testcase $testcase"
+	d="$tsdir" \
+		sh -x -e "$testcase" >"$testname.stdout.txt" 2>&1 || status=$?
+	if [ $status -ne 0 ]; then
+		echo "FAIL: $testname"
+		if [ x"$VERBOSE" != x ]; then
+			cat "$testname.stdout.txt"
 		fi
-		status=$?
 	else
-		echo PASS: $testname
-		rm -f .logfile.txt
-		status=$?
+		echo "PASS: $testname"
 	fi
 
-	popd > /dev/null
-	rm -rf tmp
+	cd ..
+	rm -rf ".tmpdir.$applet"
 
 	return $status
 }
 
-run_applet_tests ()
+# Run all old-style tests for given applet
+run_oldstyle_applet_tests()
 {
-	local applet=$1
-
+	local applet="$1"
 	local status=0
 
-	for testcase in $srcdir/$applet/*; do
-		if [ "$testcase" = "$srcdir/$applet/CVS" ]; then
-			continue
-		fi
-
-		if run_applet_testcase $applet $testcase; then
-			:
-		else
-			status=1
-		fi
+	for testcase in "$tsdir/$applet"/*; do
+		# switch on basename of $testcase
+		case "${testcase##*/}" in
+			.*)     continue ;;    # .svn, .git etc
+			*~)     continue ;;    # backup files
+			"CVS")  continue ;;
+			\#*)    continue ;;    # CVS merge residues
+			*.mine) continue ;;    # svn-produced junk
+			*.r[0-9]*) continue ;; # svn-produced junk
+		esac
+		run_applet_testcase "$applet" "$testcase" || status=1
 	done
-
 	return $status
 }
 
 
-status=0
-verbose=0
+
+lcwd=$(pwd)
+[ x"$tsdir" != x ] || tsdir="$lcwd"
+[ x"$bindir" != x ] || bindir="${lcwd%/*}" # one directory up from $lcwd
+PATH="$bindir:$PATH"
+
+if [ x"$VERBOSE" = x ]; then
+	export VERBOSE=
+fi
 
 if [ x"$1" = x"-v" ]; then
-	verbose=1
-	export VERBOSE=$verbose
+	export VERBOSE=1
 	shift
 fi
 
+implemented=$(
+	"$bindir/busybox" 2>&1 |
+	while read line; do
+		if [ x"$line" = x"Currently defined functions:" ]; then
+			xargs | sed 's/,//g'
+			break
+		fi
+	done
+	)
+
+applets="$implemented"
 if [ $# -ne 0 ]; then
-	applets=$(cd $srcdir ; for i in $@; do ls ${i}* ; done)
-else
-	applets=$(ls $srcdir)
+	applets="$@"
 fi
 
 # Populate a directory with links to all busybox applets
 
-LINKSDIR="${bindir}/runtest-tempdir-links"
+LINKSDIR="$bindir/runtest-tempdir-links"
 rm -rf "$LINKSDIR" 2>/dev/null
 mkdir "$LINKSDIR"
-for i in $(sed 's@/[a-z0-9/\[]*/@@' $bindir/busybox.links 2>/dev/null)
-do
-	ln -s $bindir/busybox "$LINKSDIR"/$i
+for i in $implemented; do
+	ln -s "$bindir/busybox" "$LINKSDIR/$i"
 done
 
 # Set up option flags so tests can be selective.
+export OPTIONFLAGS=:$(
+	sed -nr 's/^CONFIG_//p' "$bindir/.config" |
+	sed 's/=.*//' | xargs | sed 's/ /:/g'
+	)
 
-configfile=${bindir:-../../}/.config
-export OPTIONFLAGS=:$(echo $(sed -nr 's/^CONFIG_(.*)=.*/\1/p' $configfile) | sed 's/ /:/g')
-
+status=0
 for applet in $applets; do
-	if [ "$applet" = "links" ]; then continue; fi
-	if [ "$applet" != "CVS" -a -d "$srcdir/$applet" ]; then
-		if run_applet_tests $applet; then
-			:
-		else
-			status=1
-		fi
+	# Any old-style tests for this applet?
+	if [ -d "$tsdir/$applet" ]; then
+		run_oldstyle_applet_tests "$applet" || status=1
 	fi
 
 	# Is this a new-style test?
-	applet=$(echo "$applet" | sed -n 's/\.tests$//p')
-	if [ ${#applet} -ne 0 ]
-	then
-		if [ ! -h "$LINKSDIR/$applet" ] && [ "${applet:0:4}" != "all_" ]
-		then
-			echo "SKIPPED: $applet (not built)"
-			continue
+	if [ -f "$applet.tests" ]; then
+		if [ ! -h "$LINKSDIR/$applet" ]; then
+			# (avoiding bash'ism "${applet:0:4}")
+			if ! echo "$applet" | grep "^all_" >/dev/null; then
+				echo "SKIPPED: $applet (not built)"
+				continue
+			fi
 		fi
-		if PATH="$LINKSDIR":$srcdir:$bindir:$PATH \
-			"${srcdir:-.}/$applet".tests
-		then
-		  :
-		else
-		  status=1
-		fi
+#		echo "Running test $tsdir/$applet.tests"
+		PATH="$LINKSDIR:$tsdir:$bindir:$PATH" \
+			"$tsdir/$applet.tests" || status=1
 	fi
-
 done
-rm -rf "$LINKSDIR"
+
+# Leaving the dir makes it somewhat easier to run failed test by hand
+#rm -rf "$LINKSDIR"
+
+if [ $status -ne 0 ] && [ x"$VERBOSE" = x ]; then
+	echo "Failures detected, running with -v (verbose) will give more info"
+fi
 exit $status

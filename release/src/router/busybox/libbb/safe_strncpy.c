@@ -7,14 +7,21 @@
  * Licensed under GPLv2 or later, see file LICENSE in this tarball for details.
  */
 
-#include <string.h>
 #include "libbb.h"
 
-
-
 /* Like strncpy but make sure the resulting string is always 0 terminated. */
-char * safe_strncpy(char *dst, const char *src, size_t size)
+char* FAST_FUNC safe_strncpy(char *dst, const char *src, size_t size)
 {
-	dst[size-1] = '\0';
-	return strncpy(dst, src, size-1);
+	if (!size) return dst;
+	dst[--size] = '\0';
+	return strncpy(dst, src, size);
+}
+
+/* Like strcpy but can copy overlapping strings. */
+void FAST_FUNC overlapping_strcpy(char *dst, const char *src)
+{
+	while ((*dst = *src) != '\0') {
+		dst++;
+		src++;
+	}
 }

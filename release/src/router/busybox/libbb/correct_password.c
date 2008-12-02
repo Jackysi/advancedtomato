@@ -28,50 +28,53 @@
  * SUCH DAMAGE.
  */
 
-#include <stdio.h>
-#include <errno.h>
-#include <unistd.h>
-#include <string.h>
-#include <stdlib.h>
-#include <syslog.h>
-#include <ctype.h>
-#include <crypt.h>
-
 #include "libbb.h"
 
-
-
 /* Ask the user for a password.
-   Return 1 if the user gives the correct password for entry PW,
-   0 if not.  Return 1 without asking for a password if run by UID 0
-   or if PW has an empty password.  */
+ * Return 1 if the user gives the correct password for entry PW,
+ * 0 if not.  Return 1 without asking if PW has an empty password.
+ *
+ * NULL pw means "just fake it for login with bad username" */
 
-int correct_password ( const struct passwd *pw )
+int FAST_FUNC correct_password(const struct passwd *pw)
 {
-	char *unencrypted, *encrypted, *correct;
-
-#ifdef CONFIG_FEATURE_SHADOWPASSWDS
-	if (( strcmp ( pw-> pw_passwd, "x" ) == 0 ) || ( strcmp ( pw-> pw_passwd, "*" ) == 0 )) {
-		struct spwd *sp = getspnam ( pw-> pw_name );
-
-		if ( !sp )
-			bb_error_msg_and_die ( "\nno valid shadow password" );
-
-		correct = sp-> sp_pwdp;
-	}
-	else
+	char *unencrypted, *encrypted;
+	const char *correct;
+	int r;
+#if ENABLE_FEATURE_SHADOWPASSWDS
+	/* Using _r function to avoid pulling in static buffers */
+	struct spwd spw;
+	char buffer[256];
 #endif
-		correct = pw-> pw_passwd;
 
-	if ( correct == 0 || correct[0] == '\0' )
+	/* fake salt. crypt() can choke otherwise. */
+	correct = "aa";
+	if (!pw) {
+		/* "aa" will never match */
+		goto fake_it;
+	}
+	correct = pw->pw_passwd;
+#if ENABLE_FEATURE_SHADOWPASSWDS
+	if ((correct[0] == 'x' || correct[0] == '*') && !correct[1]) {
+		/* getspnam_r may return 0 yet set result to NULL.
+		 * At least glibc 2.4 does this. Be extra paranoid here. */
+		struct spwd *result = NULL;
+		r = getspnam_r(pw->pw_name, &spw, buffer, sizeof(buffer), &result);
+		correct = (r || !result) ? "aa" : result->sp_pwdp;
+	}
+#endif
+
+	if (!correct[0]) /* empty password field? */
 		return 1;
 
-	unencrypted = bb_askpass ( 0, "Password: " );
-	if ( !unencrypted )
-	{
+ fake_it:
+	unencrypted = bb_askpass(0, "Password: ");
+	if (!unencrypted) {
 		return 0;
 	}
-	encrypted = crypt ( unencrypted, correct );
-	memset ( unencrypted, 0, strlen ( unencrypted ));
-	return ( strcmp ( encrypted, correct ) == 0 ) ? 1 : 0;
+	encrypted = pw_encrypt(unencrypted, correct, 1);
+	r = (strcmp(encrypted, correct) == 0);
+	free(encrypted);
+	memset(unencrypted, 0, strlen(unencrypted));
+	return r;
 }

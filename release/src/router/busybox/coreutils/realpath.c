@@ -5,16 +5,15 @@
 /* Mar 16, 2003      Manuel Novoa III   (mjn3@codepoet.org)
  *
  * Now does proper error checking on output and returns a failure exit code
- * if one or more paths can not be resolved.
+ * if one or more paths cannot be resolved.
  *
  * Licensed under GPLv2 or later, see file LICENSE in this tarball for details.
  */
 
-#include <limits.h>
-#include <stdlib.h>
-#include "busybox.h"
+#include "libbb.h"
 
-int realpath_main(int argc, char **argv)
+int realpath_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
+int realpath_main(int argc UNUSED_PARAM, char **argv)
 {
 	int retval = EXIT_SUCCESS;
 
@@ -26,23 +25,22 @@ int realpath_main(int argc, char **argv)
 # define resolved_path_MUST_FREE 0
 #endif
 
-	if (--argc == 0) {
+	if (!*++argv) {
 		bb_show_usage();
 	}
 
 	do {
-		argv++;
 		if (realpath(*argv, resolved_path) != NULL) {
 			puts(resolved_path);
 		} else {
 			retval = EXIT_FAILURE;
-			bb_perror_msg("%s", *argv);
+			bb_simple_perror_msg(*argv);
 		}
-	} while (--argc);
+	} while (*++argv);
 
 #if ENABLE_FEATURE_CLEAN_UP && resolved_path_MUST_FREE
 	RELEASE_CONFIG_BUFFER(resolved_path);
 #endif
 
-	bb_fflush_stdout_and_exit(retval);
+	fflush_stdout_and_exit(retval);
 }

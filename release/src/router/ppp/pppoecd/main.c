@@ -496,11 +496,11 @@ main(argc, argv)
 		/*
 		 * Print connect time and statistics.
 		 */
+		LOGX_NOTICE("Disconnected.");
 		if (link_stats_valid) {
 		    int tt = (link_connect_time + 5) / 6;    /* 1/10ths of minutes */
-		    LOGX_INFO("Connect time %d.%d minutes.", tt/10, tt%10);
-		    LOGX_INFO("Sent %u bytes, received %u bytes.",
-			 link_stats.bytes_out, link_stats.bytes_in);
+		    LOGX_NOTICE("Connect time %d.%d minutes.", tt / 10, tt % 10);
+		    LOGX_NOTICE("Sent %u bytes, received %u bytes.", link_stats.bytes_out, link_stats.bytes_in);
 		}
 
 		/*
@@ -839,7 +839,7 @@ reopen_log()
 #else
     openlog("pppoe", LOG_PID | LOG_NDELAY, LOG_PPP);
 #endif
-    setlogmask(LOG_UPTO(LOG_INFO));
+    setlogmask(LOG_UPTO(logmask));
 #endif
 }
 
@@ -1253,17 +1253,10 @@ chld(sig)
  *
  * Toggle debug flag.
  */
-/*ARGSUSED*/
-static void
-toggle_debug(sig)
-    int sig;
+static void toggle_debug(int sig)
 {
     debug = !debug;
-    if (debug) {
-	setlogmask(LOG_UPTO(LOG_DEBUG));
-    } else {
-	setlogmask(LOG_UPTO(LOG_WARNING));
-    }
+	setlogmask(LOG_UPTO(debug ? LOG_DEBUG : logmask));
 }
 
 

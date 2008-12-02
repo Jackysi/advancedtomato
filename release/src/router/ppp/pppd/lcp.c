@@ -2126,10 +2126,10 @@ void LcpLinkFailure (f)
     fsm *f;
 {
     if (f->state == OPENED) {
-		LOGX_INFO("LCP appears to be disconnected (pending: %d).", lcp_echos_pending);
+		LOGX_WARN("LCP appears to be disconnected (pending: %d).", lcp_echos_pending);
 
-		info("No response to %d echo-requests", lcp_echos_pending);
-        notice("Serial link appears to be disconnected.");
+//		info("No response to %d echo-requests", lcp_echos_pending);
+//        notice("Serial link appears to be disconnected.");
         lcp_close(f->unit, "Peer not responding");
 		status = EXIT_PEER_DEAD;
     }

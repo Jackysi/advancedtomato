@@ -4,28 +4,29 @@
 #
 # License is GPLv2, see LICENSE in the busybox tarball for full license text.
 
-# This file defines two functions, "testing" and "optionflag"
+# This file defines two functions, "testing" and "optional"
+# and a couple more...
 
 # The following environment variables may be set to enable optional behavior
 # in "testing":
 #    VERBOSE - Print the diff -u of each failed test case.
 #    DEBUG - Enable command tracing.
-#    SKIP - do not perform this test (this is set by "optionflag")
+#    SKIP - do not perform this test (this is set by "optional")
 #
 # The "testing" function takes five arguments:
-#	$1) Description to display when running command
-#	$2) Command line arguments to command
-#	$3) Expected result (on stdout)
-#	$4) Data written to file "input"
-#	$5) Data written to stdin
+#	$1) Test description
+#	$2) Command(s) to run. May have pipes, redirects, etc
+#	$3) Expected result on stdout
+#	$4) Data to be written to file "input"
+#	$5) Data to be written to stdin
 #
-# The exit value of testing is the exit value of the command it ran.
+# The exit value of testing is the exit value of $2 it ran.
 #
 # The environment variable "FAILCOUNT" contains a cumulative total of the
 # number of failed tests.
 
 # The "optional" function is used to skip certain tests, ala:
-#   optionflag CONFIG_FEATURE_THINGY
+#   optional CONFIG_FEATURE_THINGY
 #
 # The "optional" function checks the environment variable "OPTIONFLAGS",
 # which is either empty (in which case it always clears SKIP) or
@@ -39,11 +40,11 @@ export SKIP=
 
 optional()
 {
-  option=`echo "$OPTIONFLAGS" | egrep "(^|:)$1(:|\$)"`
+  option=`echo ":$OPTIONFLAGS:" | grep ":$1:"`
   # Not set?
   if [ -z "$1" ] || [ -z "$OPTIONFLAGS" ] || [ ${#option} -ne 0 ]
   then
-    SKIP=""
+    SKIP=
     return
   fi
   SKIP=1
@@ -51,18 +52,18 @@ optional()
 
 # The testing function
 
-testing ()
+testing()
 {
   NAME="$1"
-  [ -z "$1" ] && NAME=$2
+  [ -n "$1" ] || NAME="$2"
 
   if [ $# -ne 5 ]
   then
-    echo "Test $NAME has the wrong number of arguments ($# $*)" >&2
-    exit
+    echo "Test $NAME has wrong number of arguments (must be 5) ($# $*)" >&2
+    exit 1
   fi
 
-  [ -n "$DEBUG" ] && set -x
+  [ -z "$DEBUG" ] || set -x
 
   if [ -n "$SKIP" ]
   then
@@ -70,24 +71,23 @@ testing ()
     return 0
   fi
 
-  echo -ne "$3" > expected
-  echo -ne "$4" > input
+  $ECHO -ne "$3" > expected
+  $ECHO -ne "$4" > input
   [ -z "$VERBOSE" ] || echo "echo '$5' | $2"
-  echo -ne "$5" | eval "$2" > actual
+  $ECHO -ne "$5" | eval "$2" > actual
   RETVAL=$?
 
-  cmp expected actual > /dev/null 
-  if [ $? -ne 0 ]
+  if cmp expected actual >/dev/null 2>/dev/null
   then
-    FAILCOUNT=$[$FAILCOUNT+1]
-    echo "FAIL: $NAME"
-    [ -n "$VERBOSE" ] && diff -u expected actual
-  else
     echo "PASS: $NAME"
+  else
+    FAILCOUNT=$(($FAILCOUNT + 1))
+    echo "FAIL: $NAME"
+    [ -z "$VERBOSE" ] || diff -u expected actual
   fi
   rm -f input expected actual
 
-  [ -n "$DEBUG" ] && set +x
+  [ -z "$DEBUG" ] || set +x
 
   return $RETVAL
 }
@@ -97,17 +97,18 @@ testing ()
 # the file is assumed to already be there and only its library dependencies
 # are copied.
 
-function mkchroot
+mkchroot()
 {
   [ $# -lt 2 ] && return
 
-  echo -n .
+  $ECHO -n .
 
   dest=$1
   shift
   for i in "$@"
   do
-    [ "${i:0:1}" == "/" ] || i=$(which $i)
+    #bashism: [ "${i:0:1}" == "/" ] || i=$(which $i)
+    i=$(which $i) # no-op for /bin/prog
     [ -f "$dest/$i" ] && continue
     if [ -e "$i" ]
     then
@@ -126,7 +127,7 @@ function mkchroot
 # Needed commands listed on command line
 # Script fed to stdin.
 
-function dochroot
+dochroot()
 {
   mkdir tmpdir4chroot
   mount -t ramfs tmpdir4chroot tmpdir4chroot
@@ -135,7 +136,7 @@ function dochroot
 
   # Copy utilities from command line arguments
 
-  echo -n "Setup chroot"
+  $ECHO -n "Setup chroot"
   mkchroot tmpdir4chroot $*
   echo
 
@@ -151,4 +152,3 @@ function dochroot
   umount -l tmpdir4chroot
   rmdir tmpdir4chroot
 }
-

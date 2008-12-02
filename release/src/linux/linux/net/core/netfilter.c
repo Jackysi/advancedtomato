@@ -341,32 +341,29 @@ static unsigned int nf_iterate(struct list_head *head,
 			       const struct net_device *indev,
 			       const struct net_device *outdev,
 			       struct list_head **i,
-			       int (*okfn)(struct sk_buff *))
+			       int (*okfn)(struct sk_buff *),
+			       int hook_thresh)
 {
+	unsigned int verdict;
+
 	for (*i = (*i)->next; *i != head; *i = (*i)->next) {
 		struct nf_hook_ops *elem = (struct nf_hook_ops *)*i;
-		switch (elem->hook(hook, skb, indev, outdev, okfn)) {
-		case NF_QUEUE:
-			return NF_QUEUE;
 
-		case NF_STOLEN:
-			return NF_STOLEN;
+		if (hook_thresh > elem->priority)
+			continue;
 
-		case NF_DROP:
-			return NF_DROP;
-
-		case NF_REPEAT:
-			*i = (*i)->prev;
-			break;
-
+		verdict = elem->hook(hook, skb, indev, outdev, okfn);
+		if (verdict != NF_ACCEPT) {
 #ifdef CONFIG_NETFILTER_DEBUG
-		case NF_ACCEPT:
-			break;
-
-		default:
-			NFDEBUG("Evil return from %p(%u).\n", 
-				elem->hook, hook);
+			if (unlikely(verdict > NF_MAX_VERDICT)) {
+				NFDEBUG("Evil return from %p(%u).\n",
+				        elem->hook, hook);
+				continue;
+			}
 #endif
+			if (verdict != NF_REPEAT)
+				return verdict;
+			*i = (*i)->prev;
 		}
 	}
 	return NF_ACCEPT;
@@ -412,6 +409,10 @@ static void nf_queue(struct sk_buff *skb,
 {
 	int status;
 	struct nf_info *info;
+#if defined(CONFIG_BRIDGE) || defined(CONFIG_BRIDGE_MODULE)
+	struct net_device *physindev = NULL;
+	struct net_device *physoutdev = NULL;
+#endif
 
 	if (!queue_handler[pf].outfn) {
 		kfree_skb(skb);
@@ -434,36 +435,52 @@ static void nf_queue(struct sk_buff *skb,
 	if (indev) dev_hold(indev);
 	if (outdev) dev_hold(outdev);
 
+#if defined(CONFIG_BRIDGE) || defined(CONFIG_BRIDGE_MODULE)
+	if (skb->nf_bridge) {
+		physindev = skb->nf_bridge->physindev;
+		if (physindev) dev_hold(physindev);
+		physoutdev = skb->nf_bridge->physoutdev;
+		if (physoutdev) dev_hold(physoutdev);
+	}
+#endif
+
 	status = queue_handler[pf].outfn(skb, info, queue_handler[pf].data);
 	if (status < 0) {
 		/* James M doesn't say fuck enough. */
 		if (indev) dev_put(indev);
 		if (outdev) dev_put(outdev);
+#if defined(CONFIG_BRIDGE) || defined(CONFIG_BRIDGE_MODULE)
+		if (physindev) dev_put(physindev);
+		if (physoutdev) dev_put(physoutdev);
+#endif
 		kfree(info);
 		kfree_skb(skb);
 		return;
 	}
 }
 
-int nf_hook_slow(int pf, unsigned int hook, struct sk_buff *skb,
+/* Returns 1 if okfn() needs to be executed by the caller,
+ * -EPERM for NF_DROP, 0 otherwise. */
+int nf_hook_slow(int pf, unsigned int hook, struct sk_buff **pskb,
 		 struct net_device *indev,
 		 struct net_device *outdev,
-		 int (*okfn)(struct sk_buff *))
+		 int (*okfn)(struct sk_buff *),
+		 int hook_thresh)
 {
 	struct list_head *elem;
 	unsigned int verdict;
 	int ret = 0;
 
 	/* This stopgap cannot be removed until all the hooks are audited. */
-	if (skb_is_nonlinear(skb) && skb_linearize(skb, GFP_ATOMIC) != 0) {
-		kfree_skb(skb);
+	if (skb_is_nonlinear(*pskb) && skb_linearize(*pskb, GFP_ATOMIC) != 0) {
+		kfree_skb(*pskb);
 		return -ENOMEM;
 	}
-	if (skb->ip_summed == CHECKSUM_HW) {
+	if ((*pskb)->ip_summed == CHECKSUM_HW) {
 		if (outdev == NULL) {
-			skb->ip_summed = CHECKSUM_NONE;
+			(*pskb)->ip_summed = CHECKSUM_NONE;
 		} else {
-			skb_checksum_help(skb);
+			skb_checksum_help(*pskb);
 		}
 	}
 
@@ -471,30 +488,24 @@ int nf_hook_slow(int pf, unsigned int hook, struct sk_buff *skb,
 	br_read_lock_bh(BR_NETPROTO_LOCK);
 
 #ifdef CONFIG_NETFILTER_DEBUG
-	if (skb->nf_debug & (1 << hook)) {
+	if (unlikely((*pskb)->nf_debug & (1 << hook))) {
 		printk("nf_hook: hook %i already set.\n", hook);
-		nf_dump_skb(pf, skb);
+		nf_dump_skb(pf, *pskb);
 	}
-	skb->nf_debug |= (1 << hook);
+	(*pskb)->nf_debug |= (1 << hook);
 #endif
 
 	elem = &nf_hooks[pf][hook];
-	verdict = nf_iterate(&nf_hooks[pf][hook], &skb, hook, indev,
-			     outdev, &elem, okfn);
-	if (verdict == NF_QUEUE) {
-		NFDEBUG("nf_hook: Verdict = QUEUE.\n");
-		nf_queue(skb, elem, pf, hook, indev, outdev, okfn);
-	}
-
-	switch (verdict) {
-	case NF_ACCEPT:
-		ret = okfn(skb);
-		break;
-
-	case NF_DROP:
-		kfree_skb(skb);
+	verdict = nf_iterate(&nf_hooks[pf][hook], pskb, hook, indev,
+			     outdev, &elem, okfn, hook_thresh);
+	if (verdict == NF_ACCEPT || verdict == NF_STOP)
+		ret = 1;
+	else if (verdict == NF_DROP) {
+		kfree_skb(*pskb);
 		ret = -EPERM;
-		break;
+	} else if (verdict == NF_QUEUE) {
+		NFDEBUG("nf_hook: Verdict = QUEUE.\n");
+		nf_queue(*pskb, elem, pf, hook, indev, outdev, okfn);
 	}
 
 	br_read_unlock_bh(BR_NETPROTO_LOCK);
@@ -509,6 +520,14 @@ void nf_reinject(struct sk_buff *skb, struct nf_info *info,
 
 	/* We don't have BR_NETPROTO_LOCK here */
 	br_read_lock_bh(BR_NETPROTO_LOCK);
+#if defined(CONFIG_BRIDGE) || defined(CONFIG_BRIDGE_MODULE)
+	if (skb->nf_bridge) {
+		if (skb->nf_bridge->physindev)
+			dev_put(skb->nf_bridge->physindev);
+		if (skb->nf_bridge->physoutdev)
+			dev_put(skb->nf_bridge->physoutdev);
+	}
+#endif
 	for (i = nf_hooks[info->pf][info->hook].next; i != elem; i = i->next) {
 		if (i == &nf_hooks[info->pf][info->hook]) {
 			/* The module which sent it to userspace is gone. */
@@ -529,7 +548,7 @@ void nf_reinject(struct sk_buff *skb, struct nf_info *info,
 		verdict = nf_iterate(&nf_hooks[info->pf][info->hook],
 				     &skb, info->hook, 
 				     info->indev, info->outdev, &elem,
-				     info->okfn);
+				     info->okfn, INT_MIN);
 	}
 
 	switch (verdict) {
