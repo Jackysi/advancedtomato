@@ -54,3 +54,8 @@ config TCONFIG_LZO
 	bool "LZO Compression"
 	default y
 
+config TCONFIG_OPENVPN
+	bool "OpenVPN"
+	depends on TCONFIG_LZO
+	default y
+
