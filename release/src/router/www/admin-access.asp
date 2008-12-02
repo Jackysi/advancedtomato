@@ -110,7 +110,10 @@ function verifyFields(focused, quiet)
 	}
 	
 	a = E('_rmgt_sip');
-	if ((a.value.length) && (!v_iptip(a))) return 0;
+	if ((a.value.length) && (!v_iptip(a,true)) && (!v_domain(a,true))) {
+		ferror.set(a, 'Invalid restriction.', quiet);
+		ok = 0;
+	}
 
 	a = E('_set_password_1');
 	b = E('_set_password_2');
@@ -248,8 +251,8 @@ W('<input type="button" value="' + (sdup ? 'Stop' : 'Start') + ' Now" onclick="t
 <div class='section'>
 <script type='text/javascript'>
 createFieldTable('', [
-	{ title: 'Allowed IP Address', name: 'rmgt_sip', type: 'text', maxlen: 32, size: 32, value: nvram.rmgt_sip,
-		suffix: '&nbsp;<small>(optional; ex: "1.1.1.1", "1.1.1.0/24" or "1.1.1.1 - 2.2.2.2")</small>' }
+	{ title: 'Access restricted to:', name: 'rmgt_sip', type: 'text', maxlen: 32, size: 25, value: nvram.rmgt_sip,
+		suffix: '&nbsp;<small>(optional; ex: "1.1.1.1", "1.1.1.0/24", "1.1.1.1-2.2.2.2", "me.example.com")</small>' }
 ]);
 </script>
 </div>

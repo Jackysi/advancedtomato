@@ -114,8 +114,11 @@ static void get_src(const char *nv, char *src)
 {
 	char *p;
 
-	if (((p = nvram_get(nv)) != NULL) && (*p) && (strlen(p) < 32)) {
-		sprintf(src, "-%s %s", strchr(p, '-') ? "m iprange --src-range" : "s", p);
+	if (((p=nvram_get(nv)) != NULL) && (*p) && (strlen(p) < 32)) {
+		if (sscanf(p,"%*d.%*d.%*d.%*d-%*d.%*d.%*d.%*d") == 8)
+			sprintf(src, "-m iprange --src-range %s", p);
+		else
+			sprintf(src, "-s %s", p);
 	}
 	else {
 		*src = 0;
