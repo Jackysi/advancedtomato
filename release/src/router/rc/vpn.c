@@ -7,6 +7,9 @@
 */
 
 #include "rc.h"
+#include <sys/types.h>
+#include <dirent.h>
+#include <string.h>
 
 #define CLIENT_IF_START 10
 #define SERVER_IF_START 20
@@ -567,44 +570,29 @@ void stop_vpnserver(int serverNum)
 			_eval(argv, NULL, 0, NULL);
 	}
 }
-#if 0
+
 void run_vpn_firewall_scripts()
 {
-	FILE *fp;
-	char fn[32], *argv[2];
+	DIR *dir;
+	struct dirent *file;
+	char *fn;
+	char *match = "-fw.sh";
+	char *argv[2];
 
-	fp = popen("ls /etc/openvpn/*-fw.sh 2> /dev/null", "r");
+	dir = opendir("/etc/openvpn");
 
-	while (fgets(&fn[0], 32, fp) != NULL)
+	while ( (file = readdir(dir)) != NULL )
 	{
-		if (&fn[strlen(&fn[0])-1] == '\n') fn[strlen(&fn[0])-1] = '\0';
-		DEBUG("Running firewall script:");
-		DEBUG(&fn[0]);
-		argv[0] = &fn[0];
-		argv[1] = NULL;
-		_eval(argv, NULL, 0, NULL);
+		fn = file->d_name;
+		if ( strlen(fn) >= strlen(match) && !strcmp(&fn[strlen(fn)-strlen(match)],match) )
+		{
+			DEBUG("Running firewall script:");
+			DEBUG(fn);
+			argv[0] = fn;
+			argv[1] = NULL;
+			_eval(argv, NULL, 0, NULL);
+		}
 	}
 
-	pclose(fp);
+	closedir(dir);
 }
-#else
-void run_vpn_firewall_scripts()
-{
-	char *fn[4], *argv[2];
-	int i;
-
-	fn[0] = "/etc/openvpn/server1-fw.sh";
-	fn[1] = "/etc/openvpn/server2-fw.sh";
-	fn[2] = "/etc/openvpn/client1-fw.sh";
-	fn[3] = "/etc/openvpn/client2-fw.sh";
-
-	for(i=0;i<4;i++)
-	{
-		DEBUG("Running firewall script:");
-		DEBUG(fn[i]);
-		argv[0] = fn[i];
-		argv[1] = NULL;
-		_eval(argv, NULL, 0, NULL);
-	}
-}
-#endif
