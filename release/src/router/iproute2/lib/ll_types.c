@@ -17,19 +17,22 @@
 #include <sys/ioctl.h>
 #include <sys/socket.h>
 #include <sys/ioctl.h>
-#include <linux/netdevice.h>
-#include <linux/if_arp.h>
-#include <linux/sockios.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <string.h>
 
-char * ll_type_n2a(int type, char *buf, int len)
+#include <linux/netdevice.h>
+#include <linux/if_arp.h>
+#include <linux/sockios.h>
+
+#include "rt_names.h"
+
+const char * ll_type_n2a(int type, char *buf, int len)
 {
 #define __PF(f,n) { ARPHRD_##f, #n },
 static struct {
 	int type;
-	char *name;
+	const char *name;
 } arphrd_names[] = {
 { 0, "generic" },
 __PF(ETHER,ether)
@@ -45,9 +48,16 @@ __PF(IEEE802,tr)
 __PF(ARCNET,arcnet)
 __PF(APPLETLK,atalk)
 __PF(DLCI,dlci)
+#ifdef ARPHRD_ATM
 __PF(ATM,atm)
+#endif
 __PF(METRICOM,metricom)
+#ifdef ARPHRD_IEEE1394
 __PF(IEEE1394,ieee1394)
+#endif
+#ifdef ARPHRD_INFINIBAND
+__PF(INFINIBAND,infiniband)
+#endif
 
 __PF(SLIP,slip)
 __PF(CSLIP,cslip)
@@ -57,12 +67,18 @@ __PF(RSRVD,rsrvd)
 __PF(ADAPT,adapt)
 __PF(ROSE,rose)
 __PF(X25,x25)
+#ifdef ARPHRD_HWX25
 __PF(HWX25,hwx25)
+#endif
 __PF(PPP,ppp)
 __PF(HDLC,hdlc)
 __PF(LAPB,lapb)
+#ifdef ARPHRD_DDCMP
 __PF(DDCMP,ddcmp)
+#endif
+#ifdef ARPHRD_RAWHDLC
 __PF(RAWHDLC,rawhdlc)
+#endif
 
 __PF(TUNNEL,ipip)
 __PF(TUNNEL6,tunnel6)
@@ -99,7 +115,9 @@ __PF(FCFABRIC+12,fcfb12)
 #ifdef ARPHRD_IEEE802_TR
 __PF(IEEE802_TR,tr)
 #endif
+#ifdef ARPHRD_IEEE80211
 __PF(IEEE80211,ieee802.11)
+#endif
 #ifdef ARPHRD_VOID
 __PF(VOID,void)
 #endif

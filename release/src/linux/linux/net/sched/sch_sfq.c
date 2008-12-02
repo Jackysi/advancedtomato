@@ -218,6 +218,7 @@ static int sfq_drop(struct Qdisc *sch)
 	struct sfq_sched_data *q = (struct sfq_sched_data *)sch->data;
 	sfq_index d = q->max_depth;
 	struct sk_buff *skb;
+	int len;
 
 	/* Queue is full! Find the longest slot and
 	   drop a packet from it */
@@ -225,12 +226,13 @@ static int sfq_drop(struct Qdisc *sch)
 	if (d > 1) {
 		sfq_index x = q->dep[d+SFQ_DEPTH].next;
 		skb = q->qs[x].prev;
+		len = skb->len;
 		__skb_unlink(skb, &q->qs[x]);
 		kfree_skb(skb);
 		sfq_dec(q, x);
 		sch->q.qlen--;
 		sch->stats.drops++;
-		return 1;
+		return len;
 	}
 
 	if (d == 1) {
@@ -239,13 +241,14 @@ static int sfq_drop(struct Qdisc *sch)
 		q->next[q->tail] = q->next[d];
 		q->allot[q->next[d]] += q->quantum;
 		skb = q->qs[d].prev;
+		len = skb->len;
 		__skb_unlink(skb, &q->qs[d]);
 		kfree_skb(skb);
 		sfq_dec(q, d);
 		sch->q.qlen--;
 		q->ht[q->hash[d]] = SFQ_DEPTH;
 		sch->stats.drops++;
-		return 1;
+		return len;
 	}
 
 	return 0;
@@ -342,6 +345,7 @@ sfq_dequeue(struct Qdisc* sch)
 
 	/* Is the slot empty? */
 	if (q->qs[a].qlen == 0) {
+		q->ht[q->hash[a]] = SFQ_DEPTH;
 		a = q->next[a];
 		if (a == old_a) {
 			q->tail = SFQ_DEPTH;

@@ -35,7 +35,7 @@
 typedef u_int64_t ipq_id_t;
 #else
 #include <linux/netfilter_ipv4/ip_queue.h>
-typedef u_int32_t ipq_id_t;
+typedef unsigned long ipq_id_t;
 #endif
 
 #ifdef DEBUG_LIBIPQ
@@ -45,6 +45,7 @@ typedef u_int32_t ipq_id_t;
 #define LDEBUG(x...)
 #endif	/* DEBUG_LIBIPQ */
 
+/* FIXME: glibc sucks */
 #ifndef MSG_TRUNC
 #define MSG_TRUNC 0x20
 #endif

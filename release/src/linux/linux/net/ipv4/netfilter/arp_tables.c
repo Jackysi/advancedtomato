@@ -986,13 +986,12 @@ static int do_add_counters(void *user, unsigned int len)
 		goto free;
 
 	write_lock_bh(&t->lock);
-	/*************************************
-	 * modify by tanghui @ 2006-10-11
-	 * for a RACE CONDITION in the "do_add_counters()" function
-	 *************************************/
-	//if (t->private->number != paddc->num_counters) {
-	if (t->private->number != tmp.num_counters) {
-	/*************************************/
+
+#if 0	// removed 1.11 forward bug test
+	//	43011 (09?): checkme: modify by tanghui @ 2006-10-11 for a RACE CONDITION in the "do_add_counters()" function
+	//	if (t->private->number != tmp.num_counters) {
+#endif
+	if (t->private->number != paddc->num_counters) {
 		ret = -EINVAL;
 		goto unlock_up_free;
 	}

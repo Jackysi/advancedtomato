@@ -65,6 +65,12 @@ unsigned long _dl_linux_resolver(unsigned long sym_index,
 	_dl_dprintf(2, "      SYMBOL: %s\n\n", strtab + sym->st_name);
 #endif
 
+#if 1	// zzz
+	if (value == 0) {
+		_dl_dprintf(2, "*** Unresolved: %s\n", strtab + sym->st_name);
+	}
+#endif
+
 	return value;
 }
 

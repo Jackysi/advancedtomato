@@ -1,0 +1,1847 @@
+Various bug fixes that apply to busybox 1.2.1, cherry-picked from the
+ongoing development branch.  This will form the basis for busybox 1.2.2.
+
+I'll append fixes to this as they come up.  (Check the file date, or the bug
+list below.)  This file is basically a concatenation of the following:
+
+http://busybox.net/downloads/patches/svn-15746.patch
+http://busybox.net/downloads/patches/svn-15751.patch
+http://busybox.net/downloads/patches/svn-15753.patch
+http://busybox.net/downloads/patches/svn-15769.patch
+http://busybox.net/downloads/patches/svn-15745.patch
+http://busybox.net/downloads/patches/svn-15765.patch
+http://busybox.net/downloads/patches/svn-15766.patch
+http://busybox.net/downloads/patches/svn-15772.patch
+http://busybox.net/downloads/patches/svn-15773.patch
+http://busybox.net/downloads/patches/svn-15782.patch
+http://busybox.net/downloads/patches/svn-15787.patch
+http://busybox.net/downloads/patches/svn-15788.patch
+http://busybox.net/downloads/patches/svn-15795.patch
+http://busybox.net/downloads/patches/svn-15800.patch
+http://busybox.net/downloads/patches/svn-15806.patch
+http://busybox.net/downloads/patches/svn-15826.patch
+http://busybox.net/downloads/patches/svn-15855.patch
+http://busybox.net/downloads/patches/svn-15890.patch
+http://busybox.net/downloads/patches/svn-15905.patch
+http://busybox.net/downloads/patches/svn-15906.patch
+http://busybox.net/downloads/patches/svn-15984.patch
+http://busybox.net/downloads/patches/svn-16004.patch
+http://busybox.net/downloads/patches/svn-16008.patch
+http://busybox.net/downloads/patches/svn-16026.patch
+http://busybox.net/downloads/patches/svn-16032.patch
+http://busybox.net/downloads/patches/svn-16033.patch
+http://busybox.net/downloads/patches/svn-16045.patch
+http://busybox.net/downloads/patches/svn-16056.patch
+http://busybox.net/downloads/patches/svn-16057.patch
+http://busybox.net/downloads/patches/svn-16062.patch
+http://busybox.net/downloads/patches/svn-16067.patch
+http://busybox.net/downloads/patches/svn-16109.patch
+And an otherwise unmerged patch to dnsd (at the very end).
+
+That's a bugfix to sed, two fixes to documentation generation (BusyBox.html
+shouldn't have USE() macros showing up in it anymore), fix umount to report
+the right errno on failure and to handle umount block devices by name with
+newer kernels, fix mount to handle symlinks properly, make mdev delete
+device nodes when called for hotplug remove, a segfault in traceroute, a minor
+portability fix to md5sum option parsing, a build fix for httpd with old gccs,
+an options parsing tweak to hdparm, make test fail gracefully when getgroups()
+returns -1, fix a race condition in modprobe when two instances run at once
+(hotplug does this), make "tar xf foo.tar dir/dir" extract all subdirectories,
+make our getty initialize the terminal more like mingetty, an selinux build
+fix, endianness issue in ping6, fix for zcip defending addresses, clean up some
+global variables in gzip to save memory, fix sulogin -tNNN, a help text tweak,
+several warning fixes and build fixes, the dnsd fix, and a partridge in a pear
+tree.
+
+It might have been nice to include 16042 and 16044, but they don't apply and
+I'm not fixing them up right now.  16081 mixes unrelated changes in
+with a bug fix, and thus disqualifies itself.
+
+This is the last release of BusyBox under the old "GPLv2 or later" dual
+license.  Future versions (containing changes after svn 16112) will just be
+GPLv2 only, without the "or later".  If this makes you mad enough to fork the
+project, this release or svn-16112 are what to fork from.
+
+See http://busybox.net/license.html for details.
+
+It was fun, guys.  Later...
+
+ ------------------------------------------------------------------------
+r15745 | landley | 2006-07-26 12:10:39 -0400 (Wed, 26 Jul 2006) | 2 lines
+Changed paths:
+   M /trunk/busybox/coreutils/md5_sha1_sum.c
+
+Patch from Shaun Jackman, set optind by hand if we don't call getopt.
+
+ ------------------------------------------------------------------------
+Index: coreutils/md5_sha1_sum.c
+===================================================================
+--- coreutils/md5_sha1_sum.c	(revision 15744)
++++ coreutils/md5_sha1_sum.c	(revision 15745)
+@@ -98,6 +98,7 @@
+ 
+ 	if (ENABLE_FEATURE_MD5_SHA1_SUM_CHECK)
+ 		flags = bb_getopt_ulflags(argc, argv, "scw");
++	else optind = 1;
+ 
+ 	if (ENABLE_FEATURE_MD5_SHA1_SUM_CHECK && !(flags & FLAG_CHECK)) {
+ 		if (flags & FLAG_SILENT) {
+ ------------------------------------------------------------------------
+r15746 | landley | 2006-07-26 13:25:08 -0400 (Wed, 26 Jul 2006) | 5 lines
+Changed paths:
+   M /trunk/busybox/editors/sed.c
+   M /trunk/busybox/testsuite/sed.tests
+
+Rich Filker spotted that sed -e 's/xxx/[/' didn't work right.  Did a smaller
+fix than his, and shrank the code a bit on top of that so the net size is
+smaller, and added a test to the test suite for this case.  Plus I cleaned up
+the #includes and removed unnecessary "const"s while I was there.
+
+ ------------------------------------------------------------------------
+Index: testsuite/sed.tests
+===================================================================
+--- testsuite/sed.tests	(revision 15745)
++++ testsuite/sed.tests	(revision 15746)
+@@ -174,6 +174,8 @@
+ 	"yes\n" "" ""
+ rm ./-     # Clean up
+ 
++testing "sed s/xxx/[/" "sed -e 's/xxx/[/'" "[\n" "" "xxx\n"
++
+ # Ponder this a bit more, why "woo not found" from gnu version?
+ #testing "sed doesn't substitute in deleted line" \
+ #	"sed -e '/ook/d;s/ook//;t woo;a bang;'" "bang" "" "ook\n"
+Index: editors/sed.c
+===================================================================
+--- editors/sed.c	(revision 15745)
++++ editors/sed.c	(revision 15746)
+@@ -58,12 +58,6 @@
+ 	Reference http://www.opengroup.org/onlinepubs/007904975/utilities/sed.html
+ */
+ 
+-#include <stdio.h>
+-#include <unistd.h>		/* for getopt() */
+-#include <errno.h>
+-#include <ctype.h>		/* for isspace() */
+-#include <stdlib.h>
+-#include <string.h>
+ #include "busybox.h"
+ #include "xregex.h"
+ 
+@@ -94,8 +88,6 @@
+     struct sed_cmd_s *next;	/* Next command (linked list, NULL terminated) */
+ } sed_cmd_t;
+ 
+-static const char bad_format_in_subst[] =
+-	"bad format in substitution expression";
+ static const char *const semicolon_whitespace = "; \n\r\t\v";
+ 
+ struct sed_globals
+@@ -175,7 +167,7 @@
+ 
+ /* strdup, replacing "\n" with '\n', and "\delimiter" with 'delimiter' */
+ 
+-static void parse_escapes(char *dest, const char *string, int len, char from, char to)
++static void parse_escapes(char *dest, char *string, int len, char from, char to)
+ {
+ 	int i=0;
+ 
+@@ -192,7 +184,7 @@
+ 	*dest=0;
+ }
+ 
+-static char *copy_parsing_escapes(const char *string, int len)
++static char *copy_parsing_escapes(char *string, int len)
+ {
+ 	char *dest=xmalloc(len+1);
+ 
+@@ -205,18 +197,22 @@
+  * index_of_next_unescaped_regexp_delim - walks left to right through a string
+  * beginning at a specified index and returns the index of the next regular
+  * expression delimiter (typically a forward * slash ('/')) not preceded by
+- * a backslash ('\').
++ * a backslash ('\').  A negative delimiter disables square bracket checking.
+  */
+-static int index_of_next_unescaped_regexp_delim(const char delimiter,
+-	const char *str)
++static int index_of_next_unescaped_regexp_delim(int delimiter, char *str)
+ {
+ 	int bracket = -1;
+ 	int escaped = 0;
+ 	int idx = 0;
+ 	char ch;
+ 
++	if (delimiter < 0) {
++		bracket--;
++		delimiter *= -1;
++	}
++
+ 	for (; (ch = str[idx]); idx++) {
+-		if (bracket != -1) {
++		if (bracket >= 0) {
+ 			if (ch == ']' && !(bracket == idx - 1 || (bracket == idx - 2
+ 					&& str[idx - 1] == '^')))
+ 				bracket = -1;
+@@ -224,43 +220,38 @@
+ 			escaped = 0;
+ 		else if (ch == '\\')
+ 			escaped = 1;
+-		else if (ch == '[')
++		else if (bracket == -1 && ch == '[')
+ 			bracket = idx;
+ 		else if (ch == delimiter)
+ 			return idx;
+ 	}
+ 
+ 	/* if we make it to here, we've hit the end of the string */
+-	return -1;
++	bb_error_msg_and_die("unmatched '%c'",delimiter);
+ }
+ 
+ /*
+  *  Returns the index of the third delimiter
+  */
+-static int parse_regex_delim(const char *cmdstr, char **match, char **replace)
++static int parse_regex_delim(char *cmdstr, char **match, char **replace)
+ {
+-	const char *cmdstr_ptr = cmdstr;
++	char *cmdstr_ptr = cmdstr;
+ 	char delimiter;
+ 	int idx = 0;
+ 
+ 	/* verify that the 's' or 'y' is followed by something.  That something
+ 	 * (typically a 'slash') is now our regexp delimiter... */
+-	if (*cmdstr == '\0') bb_error_msg_and_die(bad_format_in_subst);
++	if (*cmdstr == '\0')
++		bb_error_msg_and_die("bad format in substitution expression");
+ 	delimiter = *(cmdstr_ptr++);
+ 
+ 	/* save the match string */
+ 	idx = index_of_next_unescaped_regexp_delim(delimiter, cmdstr_ptr);
+-	if (idx == -1) {
+-		bb_error_msg_and_die(bad_format_in_subst);
+-	}
+ 	*match = copy_parsing_escapes(cmdstr_ptr, idx);
+ 
+ 	/* save the replacement string */
+ 	cmdstr_ptr += idx + 1;
+-	idx = index_of_next_unescaped_regexp_delim(delimiter, cmdstr_ptr);
+-	if (idx == -1) {
+-		bb_error_msg_and_die(bad_format_in_subst);
+-	}
++	idx = index_of_next_unescaped_regexp_delim(-delimiter, cmdstr_ptr);
+ 	*replace = copy_parsing_escapes(cmdstr_ptr, idx);
+ 
+ 	return ((cmdstr_ptr - cmdstr) + idx);
+@@ -287,21 +278,18 @@
+ 		if (*my_str == '\\') delimiter = *(++pos);
+ 		else delimiter = '/';
+ 		next = index_of_next_unescaped_regexp_delim(delimiter, ++pos);
+-		if (next == -1)
+-			bb_error_msg_and_die("unterminated match expression");
+-
+-		temp=copy_parsing_escapes(pos,next);
++		temp = copy_parsing_escapes(pos,next);
+ 		*regex = (regex_t *) xmalloc(sizeof(regex_t));
+ 		xregcomp(*regex, temp, bbg.regex_type|REG_NEWLINE);
+ 		free(temp);
+ 		/* Move position to next character after last delimiter */
+-		pos+=(next+1);
++		pos += (next+1);
+ 	}
+ 	return pos - my_str;
+ }
+ 
+ /* Grab a filename.  Whitespace at start is skipped, then goes to EOL. */
+-static int parse_file_cmd(sed_cmd_t *sed_cmd, const char *filecmdstr, char **retval)
++static int parse_file_cmd(sed_cmd_t *sed_cmd, char *filecmdstr, char **retval)
+ {
+ 	int start = 0, idx, hack=0;
+ 
+@@ -318,7 +306,7 @@
+ 	return idx;
+ }
+ 
+-static int parse_subst_cmd(sed_cmd_t *const sed_cmd, char *substr)
++static int parse_subst_cmd(sed_cmd_t *sed_cmd, char *substr)
+ {
+ 	int cflags = bbg.regex_type;
+ 	char *match;
+@@ -569,7 +557,7 @@
+ 	bbg.pipeline.buf[bbg.pipeline.idx++] = c;
+ }
+ 
+-static void do_subst_w_backrefs(const char *line, const char *replace)
++static void do_subst_w_backrefs(char *line, char *replace)
+ {
+ 	int i,j;
+ 
+@@ -669,7 +657,7 @@
+ }
+ 
+ /* Set command pointer to point to this label.  (Does not handle null label.) */
+-static sed_cmd_t *branch_to(const char *label)
++static sed_cmd_t *branch_to(char *label)
+ {
+ 	sed_cmd_t *sed_cmd;
+ 
+ ------------------------------------------------------------------------
+r15751 | landley | 2006-07-27 10:59:36 -0400 (Thu, 27 Jul 2006) | 7 lines
+Changed paths:
+   M /trunk/busybox/docs/autodocifier.pl
+
+I touched perl.  I feel dirty.
+
+Make autodocifier suck less.  It still doesn't handle nested USE( USE() ) case
+(the inner USE() winds up in the output), but making it recursive involves
+getting perl to accept a "for" loop and it's telling me that "break" is an
+unrecognized bareword and I hate perl.  This is at least an improvement.
+
+ ------------------------------------------------------------------------
+Index: docs/autodocifier.pl
+===================================================================
+--- docs/autodocifier.pl	(revision 15750)
++++ docs/autodocifier.pl	(revision 15751)
+@@ -21,8 +21,8 @@
+ # regex && eval away unwanted strings from documentation
+ sub beautify {
+ 	my $text = shift;
+-	$text =~ s/USAGE_NOT\w+\(.*?"\s*\)//sxg;
+-	$text =~ s/USAGE_\w+\(\s*?(.*?)"\s*\)/$1"/sxg;
++	$text =~ s/SKIP_\w+\(.*?"\s*\)//sxg;
++	$text =~ s/USE_\w+\(\s*?(.*?)"\s*\)/$1"/sxg;
+ 	$text =~ s/"\s*"//sg;
+ 	my @line = split("\n", $text);
+ 	$text = join('',
+ ------------------------------------------------------------------------
+r15753 | landley | 2006-07-27 11:12:21 -0400 (Thu, 27 Jul 2006) | 2 lines
+Changed paths:
+   M /trunk/busybox/docs/autodocifier.pl
+
+And now, with a for loop, so it can handle the nested USE() case.
+
+ ------------------------------------------------------------------------
+Index: docs/autodocifier.pl
+===================================================================
+--- docs/autodocifier.pl	(revision 15752)
++++ docs/autodocifier.pl	(revision 15753)
+@@ -21,8 +21,12 @@
+ # regex && eval away unwanted strings from documentation
+ sub beautify {
+ 	my $text = shift;
+-	$text =~ s/SKIP_\w+\(.*?"\s*\)//sxg;
+-	$text =~ s/USE_\w+\(\s*?(.*?)"\s*\)/$1"/sxg;
++	for (;;) {
++		my $text2 = $text;
++		$text =~ s/SKIP_\w+\(.*?"\s*\)//sxg;
++		$text =~ s/USE_\w+\(\s*?(.*?)"\s*\)/$1"/sxg;
++		last if ( $text2 eq $text );
++	}
+ 	$text =~ s/"\s*"//sg;
+ 	my @line = split("\n", $text);
+ 	$text = join('',
+ ------------------------------------------------------------------------
+r15765 | rpjday | 2006-08-03 06:50:39 -0400 (Thu, 03 Aug 2006) | 2 lines
+Changed paths:
+   M /trunk/busybox/networking/httpd.c
+
+Move declaration to be compatible with older gcc's.
+
+ ------------------------------------------------------------------------
+Index: networking/httpd.c
+===================================================================
+--- networking/httpd.c	(revision 15764)
++++ networking/httpd.c	(revision 15765)
+@@ -863,6 +863,7 @@
+ {
+   struct sockaddr_in lsocket;
+   int fd;
++  int on = 1;
+ 
+   /* create the socket right now */
+   /* inet_addr() returns a value that is already in network order */
+@@ -873,7 +874,6 @@
+   fd = bb_xsocket(AF_INET, SOCK_STREAM, 0);
+   /* tell the OS it's OK to reuse a previous address even though */
+   /* it may still be in a close down state.  Allows bind to succeed. */
+-  int on = 1;
+ #ifdef SO_REUSEPORT
+   setsockopt(fd, SOL_SOCKET, SO_REUSEPORT, (void *)&on, sizeof(on)) ;
+ #else
+ ------------------------------------------------------------------------
+r15766 | rpjday | 2006-08-03 07:28:36 -0400 (Thu, 03 Aug 2006) | 2 lines
+Changed paths:
+   M /trunk/busybox/loginutils/Config.in
+
+Remove apparent typo in "bool" line.
+
+ ------------------------------------------------------------------------
+Index: loginutils/Config.in
+===================================================================
+--- loginutils/Config.in	(revision 15765)
++++ loginutils/Config.in	(revision 15766)
+@@ -14,7 +14,7 @@
+ 	  publicly readable.
+ 
+ config CONFIG_USE_BB_SHADOW
+-	bool #"  Use busybox shadow password functions"
++	bool "  Use busybox shadow password functions"
+ 	default y
+ 	depends on CONFIG_USE_BB_PWD_GRP && CONFIG_FEATURE_SHADOWPASSWDS
+ 	help
+ ------------------------------------------------------------------------
+r15769 | landley | 2006-08-03 13:54:45 -0400 (Thu, 03 Aug 2006) | 5 lines
+Changed paths:
+   M /trunk/busybox/util-linux/umount.c
+
+Fix umount so loop device disassociation hopefully doesn't screw up errno on
+a failed mount.  And while I'm at it, legacy mdev removal was only being done
+in the _failure_ case?  That can't be right.  Plus minor header cleanups
+and an option parsing tweak.
+
+ ------------------------------------------------------------------------
+Index: util-linux/umount.c
+===================================================================
+--- util-linux/umount.c	(revision 15768)
++++ util-linux/umount.c	(revision 15769)
+@@ -13,17 +13,15 @@
+ #include "busybox.h"
+ #include <mntent.h>
+ #include <errno.h>
+-#include <string.h>
+ #include <getopt.h>
+ 
+-#define OPTION_STRING		"flDnrvad"
++#define OPTION_STRING		"flDnravd"
+ #define OPT_FORCE			1
+ #define OPT_LAZY			2
+ #define OPT_DONTFREELOOP	4
+ #define OPT_NO_MTAB			8
+ #define OPT_REMOUNT			16
+-#define OPT_IGNORED			32	// -v is ignored
+-#define OPT_ALL				(ENABLE_FEATURE_UMOUNT_ALL ? 64 : 0)
++#define OPT_ALL				(ENABLE_FEATURE_UMOUNT_ALL ? 32 : 0)
+ 
+ int umount_main(int argc, char **argv)
+ {
+@@ -77,8 +74,6 @@
+ 		m = 0;
+ 		if (!argc) bb_show_usage();
+ 	}
+-
+-
+ 	
+ 	// Loop through everything we're supposed to umount, and do so.
+ 	for (;;) {
+@@ -114,19 +109,20 @@
+ 						 "%s busy - remounted read-only", m->device);
+ 		}
+ 
+-		/* De-allocate the loop device.  This ioctl should be ignored on any
+-		 * non-loop block devices. */
+-		if (ENABLE_FEATURE_MOUNT_LOOP && !(opt & OPT_DONTFREELOOP) && m)
+-			del_loop(m->device);
+-
+ 		if (curstat) {
+-			/* Yes, the ENABLE is redundant here, but the optimizer for ARM
+-			 * can't do simple constant propagation in local variables... */
+-			if(ENABLE_FEATURE_MTAB_SUPPORT && !(opt & OPT_NO_MTAB) && m)
+-				erase_mtab(m->dir);
+ 			status = EXIT_FAILURE;
+ 			bb_perror_msg("Couldn't umount %s", path);
++		} else {
++			/* De-allocate the loop device.  This ioctl should be ignored on
++			 * any non-loop block devices. */
++			if (ENABLE_FEATURE_MOUNT_LOOP && !(opt & OPT_DONTFREELOOP) && m)
++				del_loop(m->device);
++			if (ENABLE_FEATURE_MTAB_SUPPORT && !(opt & OPT_NO_MTAB) && m)
++				erase_mtab(m->dir);
+ 		}
++
++
++
+ 		// Find next matching mtab entry for -a or umount /dev
+ 		while (m && (m = m->next))
+ 			if ((opt & OPT_ALL) || !strcmp(path,m->device))
+ ------------------------------------------------------------------------
+r15772 | landley | 2006-08-03 16:22:37 -0400 (Thu, 03 Aug 2006) | 2 lines
+Changed paths:
+   M /trunk/busybox/miscutils/hdparm.c
+
+Patch from tito to improve options parsing.
+
+ ------------------------------------------------------------------------
+Index: miscutils/hdparm.c
+===================================================================
+--- miscutils/hdparm.c	(revision 15771)
++++ miscutils/hdparm.c	(revision 15772)
+@@ -1481,7 +1481,7 @@
+ {
+ 	unsigned int t;
+ 
+-
++	printf(" (");
+ 	if (standby == 0)
+ 		printf("off");
+ 	else if (standby == 252)
+@@ -2082,7 +2082,7 @@
+ 	USE_FEATURE_HDPARM_GET_IDENTITY("iI")
+ 	USE_FEATURE_HDPARM_HDIO_GETSET_DMA("d::")
+ #ifdef HDIO_DRIVE_CMD
+-									"S::D::P::X::K::A::L::W::CyYzZ"
++									"S:D:P:X:K:A:L:W:CyYzZ"
+ #endif
+ 	USE_FEATURE_HDPARM_HDIO_UNREGISTER_HWIF("U:")
+ #ifdef HDIO_GET_QDMA
+ ------------------------------------------------------------------------
+r15773 | landley | 2006-08-03 16:39:59 -0400 (Thu, 03 Aug 2006) | 3 lines
+Changed paths:
+   M /trunk/busybox/modutils/lsmod.c
+
+Try to make a "type-punned pointer" warning go away for somebody on the
+buildroot list.
+
+ ------------------------------------------------------------------------
+Index: modutils/lsmod.c
+===================================================================
+--- modutils/lsmod.c	(revision 15772)
++++ modutils/lsmod.c	(revision 15773)
+@@ -93,8 +93,7 @@
+ 	size_t bufsize, depsize, nmod, count, i, j;
+ 
+ 	module_names = xmalloc(bufsize = 256);
+-	if (my_query_module(NULL, QM_MODULES, (void **)&module_names, &bufsize,
+-				&nmod)) {
++	if (my_query_module(NULL, QM_MODULES, &module_names, &bufsize, &nmod)) {
+ 		bb_perror_msg_and_die("QM_MODULES");
+ 	}
+ 
+@@ -111,7 +110,7 @@
+ 			/* else choke */
+ 			bb_perror_msg_and_die("module %s: QM_INFO", mn);
+ 		}
+-		if (my_query_module(mn, QM_REFS, (void **)&deps, &depsize, &count)) {
++		if (my_query_module(mn, QM_REFS, &deps, &depsize, &count)) {
+ 			if (errno == ENOENT) {
+ 				/* The module was removed out from underneath us. */
+ 				continue;
+ ------------------------------------------------------------------------
+r15782 | landley | 2006-08-04 17:12:14 -0400 (Fri, 04 Aug 2006) | 2 lines
+Changed paths:
+   M /trunk/busybox/archival/Makefile.in
+
+We haven't got a CONFIG_APT_GET.
+
+ ------------------------------------------------------------------------
+Index: archival/Makefile.in
+===================================================================
+--- archival/Makefile.in	(revision 15781)
++++ archival/Makefile.in	(revision 15782)
+@@ -11,7 +11,6 @@
+ srcdir=$(top_srcdir)/archival
+ 
+ ARCHIVAL-y:=
+-ARCHIVAL-$(CONFIG_APT_GET)	+=
+ ARCHIVAL-$(CONFIG_AR)		+= ar.o
+ ARCHIVAL-$(CONFIG_BUNZIP2)	+= bunzip2.o
+ ARCHIVAL-$(CONFIG_UNLZMA)	+= unlzma.o
+ ------------------------------------------------------------------------
+r15787 | landley | 2006-08-06 16:41:11 -0400 (Sun, 06 Aug 2006) | 2 lines
+Changed paths:
+   M /trunk/busybox/util-linux/readprofile.c
+
+Make a warning go away on 64-bit systems.
+
+ ------------------------------------------------------------------------
+Index: util-linux/readprofile.c
+===================================================================
+--- util-linux/readprofile.c	(revision 15786)
++++ util-linux/readprofile.c	(revision 15787)
+@@ -47,7 +47,7 @@
+ 	int proFd;
+ 	const char *mapFile, *proFile, *mult=0;
+ 	unsigned long len=0, indx=1;
+-	unsigned long long add0=0;
++	uint64_t add0=0;
+ 	unsigned int step;
+ 	unsigned int *buf, total, fn_len;
+ 	unsigned long long fn_add, next_add;          /* current and next address */
+@@ -223,7 +223,7 @@
+ 					printf ("%s:\n", fn_name);
+ 					header_printed = 1;
+ 				}
+-				printf ("\t%llx\t%u\n", (indx - 1)*step + add0, buf[indx]);
++				printf ("\t%"PRIx64"\t%u\n", (indx - 1)*step + add0, buf[indx]);
+ 			}
+ 			this += buf[indx++];
+ 		}
+ ------------------------------------------------------------------------
+r15788 | landley | 2006-08-07 20:47:17 -0400 (Mon, 07 Aug 2006) | 3 lines
+Changed paths:
+   M /trunk/busybox/util-linux/mount.c
+
+Using lstat() instead of stat() means that attempting to loopback mount
+a symlink doesn't work.
+
+ ------------------------------------------------------------------------
+Index: util-linux/mount.c
+===================================================================
+--- util-linux/mount.c	(revision 15787)
++++ util-linux/mount.c	(revision 15788)
+@@ -285,7 +285,7 @@
+ 	// Look at the file.  (Not found isn't a failure for remount, or for
+ 	// a synthetic filesystem like proc or sysfs.)
+ 
+-	if (lstat(mp->mnt_fsname, &st));
++	if (stat(mp->mnt_fsname, &st));
+ 	else if (!(vfsflags & (MS_REMOUNT | MS_BIND | MS_MOVE))) {
+ 		// Do we need to allocate a loopback device for it?
+ 
+ ------------------------------------------------------------------------
+r15795 | landley | 2006-08-09 21:09:37 -0400 (Wed, 09 Aug 2006) | 2 lines
+Changed paths:
+   M /trunk/busybox/util-linux/mdev.c
+
+Patch from Chris Steel to fix mdev deleting device nodes.
+
+ ------------------------------------------------------------------------
+Index: util-linux/mdev.c
+===================================================================
+--- util-linux/mdev.c	(revision 15794)
++++ util-linux/mdev.c	(revision 15795)
+@@ -37,18 +37,19 @@
+ 	 * because sscanf() will stop at the first nondigit, which \n is.  We
+ 	 * also depend on path having writeable space after it. */
+ 
+-	strcat(path, "/dev");
+-	fd = open(path, O_RDONLY);
+-	len = read(fd, temp + 1, 64);
+-	*temp++ = 0;
+-	close(fd);
+-	if (len < 1) return;
++	if (!delete) {
++		strcat(path, "/dev");
++		fd = open(path, O_RDONLY);
++		len = read(fd, temp + 1, 64);
++		*temp++ = 0;
++		close(fd);
++		if (len < 1) return;
++	}
+ 
+ 	/* Determine device name, type, major and minor */
+ 
+ 	device_name = strrchr(path, '/') + 1;
+ 	type = path[5]=='c' ? S_IFCHR : S_IFBLK;
+-	if (sscanf(temp, "%d:%d", &major, &minor) != 2) return;
+ 
+ 	/* If we have a config file, look up permissions for this device */
+ 
+@@ -164,6 +165,7 @@
+ 
+ 	umask(0);
+ 	if (!delete) {
++		if (sscanf(temp, "%d:%d", &major, &minor) != 2) return;
+ 		if (mknod(device_name, mode | type, makedev(major, minor)) && errno != EEXIST)
+ 			bb_perror_msg_and_die("mknod %s failed", device_name);
+ 
+ ------------------------------------------------------------------------
+r15800 | landley | 2006-08-10 17:46:43 -0400 (Thu, 10 Aug 2006) | 2 lines
+Changed paths:
+   M /trunk/busybox/shell/msh.c
+
+Make a warning go away when standalone shell is disabled.
+
+ ------------------------------------------------------------------------
+Index: shell/msh.c
+===================================================================
+--- shell/msh.c	(revision 15799)
++++ shell/msh.c	(revision 15800)
+@@ -3126,18 +3126,17 @@
+ 	int i;
+ 	char *sp, *tp;
+ 	int eacces = 0, asis = 0;
+-
+-#ifdef CONFIG_FEATURE_SH_STANDALONE_SHELL
+ 	char *name = c;
+ 
+-	optind = 1;
+-	if (find_applet_by_name(name)) {
+-		/* We have to exec here since we vforked.  Running
+-		 * run_applet_by_name() won't work and bad things
+-		 * will happen. */
+-		execve(CONFIG_BUSYBOX_EXEC_PATH, v, envp);
++	if (ENABLE_FEATURE_SH_STANDALONE_SHELL) {
++		optind = 1;
++		if (find_applet_by_name(name)) {
++			/* We have to exec here since we vforked.  Running
++			 * run_applet_by_name() won't work and bad things
++			 * will happen. */
++			execve(CONFIG_BUSYBOX_EXEC_PATH, v, envp);
++		}
+ 	}
+-#endif
+ 
+ 	DBGPRINTF(("REXECVE: c=%p, v=%p, envp=%p\n", c, v, envp));
+ 
+ ------------------------------------------------------------------------
+r15806 | landley | 2006-08-17 15:07:20 -0400 (Thu, 17 Aug 2006) | 13 lines
+Changed paths:
+   M /trunk/busybox/util-linux/umount.c
+
+The kernel can't handle umount /dev/hdc, we have to do it through mtab,
+except that we still have to work when there is no mtab.
+
+Oh, and while we're at it, take advantage of the fact that modern processors
+avoid branches via conditional assignment where possible.  ("x = a ? b : c;"
+turns into "x = c; if (a) x = b;" because that way there's no branch to
+potentially mispredict and thus never a bubble in the pipeline.  The if(a)
+turns into an assembly test followed by a conditional assignment (rather
+than a conditional jump).)  So since the compiler is going to do that _anyway_,
+we might as well take advantage of it to produce a slightly smaller binary.
+
+So there.
+
+ ------------------------------------------------------------------------
+Index: util-linux/umount.c
+===================================================================
+--- util-linux/umount.c	(revision 15805)
++++ util-linux/umount.c	(revision 15806)
+@@ -78,6 +78,7 @@
+ 	// Loop through everything we're supposed to umount, and do so.
+ 	for (;;) {
+ 		int curstat;
++		char *zapit = *argv;
+ 
+ 		// Do we already know what to umount this time through the loop?
+ 		if (m) safe_strncpy(path, m->dir, PATH_MAX);
+@@ -86,32 +87,37 @@
+ 		// Get next command line argument (and look it up in mtab list)
+ 		else if (!argc--) break;
+ 		else {
+-			realpath(*argv++, path);
++			argv++;
++			realpath(zapit, path);
+ 			for (m = mtl; m; m = m->next)
+ 				if (!strcmp(path, m->dir) || !strcmp(path, m->device))
+ 					break;
+ 		}
++		// If we couldn't find this sucker in /etc/mtab, punt by passing our
++		// command line argument straight to the umount syscall.  Otherwise,
++		// umount the directory even if we were given the block device.
++		if (m) zapit = m->dir;
+ 
+ 		// Let's ask the thing nicely to unmount.
+-		curstat = umount(path);
++		curstat = umount(zapit);
+ 
+ 		// Force the unmount, if necessary.
+ 		if (curstat && doForce) {
+-			curstat = umount2(path, doForce);
++			curstat = umount2(zapit, doForce);
+ 			if (curstat)
+-				bb_error_msg_and_die("forced umount of %s failed!", path);
++				bb_error_msg_and_die("forced umount of %s failed!", zapit);
+ 		}
+ 
+ 		// If still can't umount, maybe remount read-only?
+ 		if (curstat && (opt & OPT_REMOUNT) && errno == EBUSY && m) {
+-			curstat = mount(m->device, path, NULL, MS_REMOUNT|MS_RDONLY, NULL);
++			curstat = mount(m->device, zapit, NULL, MS_REMOUNT|MS_RDONLY, NULL);
+ 			bb_error_msg(curstat ? "Cannot remount %s read-only" :
+ 						 "%s busy - remounted read-only", m->device);
+ 		}
+ 
+ 		if (curstat) {
+ 			status = EXIT_FAILURE;
+-			bb_perror_msg("Couldn't umount %s", path);
++			bb_perror_msg("Couldn't umount %s", zapit);
+ 		} else {
+ 			/* De-allocate the loop device.  This ioctl should be ignored on
+ 			 * any non-loop block devices. */
+@@ -121,9 +127,9 @@
+ 				erase_mtab(m->dir);
+ 		}
+ 
+-
+-
+ 		// Find next matching mtab entry for -a or umount /dev
++		// Note this means that "umount /dev/blah" will unmount all instances
++		// of /dev/blah, not just the most recent.
+ 		while (m && (m = m->next))
+ 			if ((opt & OPT_ALL) || !strcmp(path,m->device))
+ 				break;
+ ------------------------------------------------------------------------
+r15826 | aldot | 2006-08-18 14:29:40 -0400 (Fri, 18 Aug 2006) | 2 lines
+Changed paths:
+   M /trunk/busybox/networking/traceroute.c
+
+- typo: s/optarg/nprobes_str; fixes segfault as reported by Raphael HUCK
+
+ ------------------------------------------------------------------------
+Index: networking/traceroute.c
+===================================================================
+--- networking/traceroute.c	(revision 15825)
++++ networking/traceroute.c	(revision 15826)
+@@ -1003,7 +1003,7 @@
+ 	if(port_str)
+ 		port = (u_short)str2val(port_str, "port", 1, (1 << 16) - 1);
+ 	if(nprobes_str)
+-		nprobes = str2val(optarg, "nprobes", 1, -1);
++		nprobes = str2val(nprobes_str, "nprobes", 1, -1);
+ 	if(source) {
+ 	    /*
+ 	     * set the ip source address of the outbound
+ ------------------------------------------------------------------------
+r15855 | landley | 2006-08-20 19:13:33 -0400 (Sun, 20 Aug 2006) | 2 lines
+Changed paths:
+   M /trunk/busybox/Rules.mak
+
+Yann E. Morin spotted a broken check_ld macro.
+
+ ------------------------------------------------------------------------
+Index: Rules.mak
+===================================================================
+--- Rules.mak	(revision 15854)
++++ Rules.mak	(revision 15855)
+@@ -267,7 +267,7 @@
+ else
+     CFLAGS +=-DNDEBUG
+     CHECKED_LDFLAGS += $(call check_ld,$(LD),--sort-common,)
+-    CHECKED_LDFLAGS += $(call check_ld,--gc-sections,)
++    CHECKED_LDFLAGS += $(call check_ld,$(LD),--gc-sections,)
+ endif
+ 
+ ifneq ($(strip $(CONFIG_DEBUG_PESSIMIZE)),y)
+ ------------------------------------------------------------------------
+r15890 | landley | 2006-08-21 13:42:03 -0400 (Mon, 21 Aug 2006) | 2 lines
+Changed paths:
+   M /trunk/busybox/miscutils/Makefile.in
+
+Michael Opdenacker spotted that makefile should use () instead of {}.
+
+ ------------------------------------------------------------------------
+Index: miscutils/Makefile.in
+===================================================================
+--- miscutils/Makefile.in	(revision 15889)
++++ miscutils/Makefile.in	(revision 15890)
+@@ -20,7 +20,7 @@
+ MISCUTILS-$(CONFIG_EJECT)       += eject.o
+ MISCUTILS-$(CONFIG_HDPARM)      += hdparm.o
+ MISCUTILS-$(CONFIG_LAST)        += last.o
+-MISCUTILS-${CONFIG_LESS}        += less.o
++MISCUTILS-$(CONFIG_LESS)        += less.o
+ MISCUTILS-$(CONFIG_MAKEDEVS)    += makedevs.o
+ MISCUTILS-$(CONFIG_MOUNTPOINT)  += mountpoint.o
+ MISCUTILS-$(CONFIG_MT)          += mt.o
+ ------------------------------------------------------------------------
+r15905 | landley | 2006-08-22 19:40:28 -0400 (Tue, 22 Aug 2006) | 9 lines
+Changed paths:
+   M /trunk/busybox/coreutils/test.c
+
+"Jordan Crouse" <jordan.crouse@amd.com> says:
+The following patch makes coreutils/test.c act fail gracefully if getgroups() 
+returns a -1.  This fixes a problem on the One Laptop Per Child ROM image
+whereby we were getting odd Memory exhausted messages for '[' and 'test'.
+
+Found by Mitch Bradley <wmb@firmworks.com>
+(Tweaked by Rob: no need to initialize a static to NULL, or realloc something
+that's only allocated when it's NULL.)
+
+ ------------------------------------------------------------------------
+Index: coreutils/test.c
+===================================================================
+--- coreutils/test.c	(revision 15904)
++++ coreutils/test.c	(revision 15905)
+@@ -151,7 +151,7 @@
+ 
+ static char **t_wp;
+ static struct t_op const *t_wp_op;
+-static gid_t *group_array = NULL;
++static gid_t *group_array;
+ static int ngroups;
+ 
+ static enum token t_lex(char *s);
+@@ -547,8 +547,10 @@
+ static void initialize_group_array(void)
+ {
+ 	ngroups = getgroups(0, NULL);
+-	group_array = xrealloc(group_array, ngroups * sizeof(gid_t));
+-	getgroups(ngroups, group_array);
++	if (ngroups > 0) {
++		group_array = xmalloc(ngroups * sizeof(gid_t));
++		getgroups(ngroups, group_array);
++	}
+ }
+ 
+ /* Return non-zero if GID is one that we have in our groups list. */
+ ------------------------------------------------------------------------
+r15906 | landley | 2006-08-22 19:50:11 -0400 (Tue, 22 Aug 2006) | 3 lines
+Changed paths:
+   M /trunk/busybox/modutils/modprobe.c
+
+Patch from Yann Morin so modprobe won't return failure if the module gets
+loaded while it's running (ala multi-device hotplug).
+
+ ------------------------------------------------------------------------
+Index: modutils/modprobe.c
+===================================================================
+--- modutils/modprobe.c	(revision 15905)
++++ modutils/modprobe.c	(revision 15906)
+@@ -679,7 +679,7 @@
+ 			}
+ 			if (!show_only) {
+ 				int rc2 = wait4pid(bb_spawn(argv));
+-				
++
+ 				if (do_insert) {
+ 					rc = rc2; /* only last module matters */
+ 				}
+@@ -859,7 +859,16 @@
+ 		}
+ 
+ 		// process tail ---> head
+-		rc = mod_process ( tail, 1 );
++		if ((rc = mod_process ( tail, 1 )) != 0) {
++			/*
++			 * In case of using udev, multiple instances of modprobe can be
++			 * spawned to load the same module (think of two same usb devices,
++			 * for example; or cold-plugging at boot time). Thus we shouldn't
++			 * fail if the module was loaded, and not by us.
++			 */
++			if (already_loaded (mod) )
++				rc = 0;
++		}
+ 	}
+ 	else
+ 		rc = 1;
+ ------------------------------------------------------------------------
+r15984 | landley | 2006-08-24 16:00:44 -0400 (Thu, 24 Aug 2006) | 6 lines
+Changed paths:
+   M /trunk/busybox/loginutils/getty.c
+
+Antti Seppala (with dots over the last two a's) wants our getty to initialize
+the terminal the way mingetty does instead of the way agetty does.  It's
+a bit ugly for somebody else to be writing to a console sitting at a
+login: prompt, but it's uglier when newline doesn't work as expected if
+they do.
+
+ ------------------------------------------------------------------------
+Index: loginutils/getty.c
+===================================================================
+--- loginutils/getty.c	(revision 15983)
++++ loginutils/getty.c	(revision 15984)
+@@ -474,7 +474,8 @@
+ 		tp->c_cflag |= CLOCAL;
+ 	}
+ 
+-	tp->c_iflag = tp->c_lflag = tp->c_oflag = tp->c_line = 0;
++	tp->c_iflag = tp->c_lflag = tp->c_line = 0;
++	tp->c_oflag = OPOST | ONLCR;
+ 	tp->c_cc[VMIN] = 1;
+ 	tp->c_cc[VTIME] = 0;
+ 
+ ------------------------------------------------------------------------
+r16004 | landley | 2006-08-28 16:04:46 -0400 (Mon, 28 Aug 2006) | 3 lines
+Changed paths:
+   M /trunk/busybox/libbb/Makefile.in
+
+Jordan Crouse submitted a patch to only include xregcomp.c when we actually
+use it, thus fixing building against uClibc with regex support disabled.
+
+ ------------------------------------------------------------------------
+Index: libbb/Makefile.in
+===================================================================
+--- libbb/Makefile.in	(revision 16003)
++++ libbb/Makefile.in	(revision 16004)
+@@ -29,7 +29,7 @@
+ 	safe_strncpy.c setup_environment.c sha1.c simplify_path.c \
+ 	trim.c u_signal_names.c vdprintf.c verror_msg.c \
+ 	vherror_msg.c vperror_msg.c wfopen.c xconnect.c xgetcwd.c xstat.c \
+-	xgethostbyname.c xgethostbyname2.c xreadlink.c xregcomp.c xgetlarg.c \
++	xgethostbyname.c xgethostbyname2.c xreadlink.c xgetlarg.c \
+ 	bb_xsocket.c bb_xdaemon.c bb_xbind.c bb_xlisten.c bb_xchdir.c \
+ 	get_terminal_width_height.c fclose_nonstdin.c fflush_stdout_and_exit.c \
+ 	getopt_ulflags.c default_error_retval.c wfopen_input.c speed_table.c \
+@@ -49,6 +49,20 @@
+ LIBBB-$(CONFIG_DF)+= find_mount_point.c
+ LIBBB-$(CONFIG_EJECT)+= find_mount_point.c
+ 
++# We shouldn't build xregcomp.c if we don't need it - this ensures we don't
++# require regex.h to be in the include dir even if we don't need it thereby
++# allowing us to build busybox even if uclibc regex support is disabled.
++
++regex-y:=
++
++regex-$(CONFIG_AWK) += xregcomp.c
++regex-$(CONFIG_SED) += xregcomp.c
++regex-$(CONFIG_LESS) += xregcomp.c
++regex-$(CONFIG_DEVFSD) += xregcomp.c
++
++# Sort has the happy side efect of returning a unique list
++LIBBB-y += $(sort $(regex-y))
++
+ LIBBB-y:=$(patsubst %,$(srcdir)/%,$(LIBBB-y))
+ 
+ get-file-subparts = $(addsuffix .o,$(shell sed -n -e "s/^\#ifdef L_//p" ${1}))
+ ------------------------------------------------------------------------
+r16008 | vapier | 2006-08-28 19:24:38 -0400 (Mon, 28 Aug 2006) | 1 line
+Changed paths:
+   M /trunk/busybox/Rules.mak
+
+need libsepol in addtion to libselinux
+ ------------------------------------------------------------------------
+Index: Rules.mak
+===================================================================
+--- Rules.mak	(revision 16007)
++++ Rules.mak	(revision 16008)
+@@ -298,7 +298,7 @@
+ endif
+ 
+ ifeq ($(strip $(CONFIG_SELINUX)),y)
+-    LIBRARIES += -lselinux
++    LIBRARIES += -lselinux -lsepol
+ endif
+ 
+ ifeq ($(strip $(PREFIX)),)
+ ------------------------------------------------------------------------
+r16026 | vda | 2006-09-02 12:11:44 -0400 (Sat, 02 Sep 2006) | 2 lines
+Changed paths:
+   M /trunk/busybox/networking/ping6.c
+
+Fix endianness issue in ping6
+
+ ------------------------------------------------------------------------
+Index: networking/ping6.c
+===================================================================
+--- networking/ping6.c	(revision 16025)
++++ networking/ping6.c	(revision 16026)
+@@ -198,7 +198,7 @@
+ 	pkt->icmp6_type = ICMP6_ECHO_REQUEST;
+ 	pkt->icmp6_code = 0;
+ 	pkt->icmp6_cksum = 0;
+-	pkt->icmp6_seq = ntransmitted++;
++	pkt->icmp6_seq = SWAP_BE16(ntransmitted++);
+ 	pkt->icmp6_id = myid;
+ 	CLR(pkt->icmp6_seq % MAX_DUP_CHK);
+ 
+ ------------------------------------------------------------------------
+r16032 | vda | 2006-09-02 14:40:10 -0400 (Sat, 02 Sep 2006) | 4 lines
+Changed paths:
+   M /trunk/busybox/archival/libunarchive/find_list_entry.c
+   M /trunk/busybox/testsuite/README
+   A /trunk/busybox/testsuite/tar/tar-extracts-all-subdirs
+
+tar: tar xf foo.tar dir/dir did not extract all subdirs.
+Added testsuite entry for this
+
+
+ ------------------------------------------------------------------------
+Index: archival/libunarchive/find_list_entry.c
+===================================================================
+--- archival/libunarchive/find_list_entry.c	(revision 16031)
++++ archival/libunarchive/find_list_entry.c	(revision 16032)
+@@ -13,7 +13,7 @@
+ const llist_t *find_list_entry(const llist_t *list, const char *filename)
+ {
+ 	while (list) {
+-		if (fnmatch(list->data, filename, 0) == 0) {
++		if (fnmatch(list->data, filename, FNM_LEADING_DIR) == 0) {
+ 			return (list);
+ 		}
+ 		list = list->link;
+Index: testsuite/tar/tar-extracts-all-subdirs
+===================================================================
+--- testsuite/tar/tar-extracts-all-subdirs	(revision 0)
++++ testsuite/tar/tar-extracts-all-subdirs	(revision 16032)
+@@ -0,0 +1,12 @@
++# FEATURE: CONFIG_FEATURE_TAR_CREATE
++mkdir -p foo/{1,2,3}
++mkdir -p foo/1/{10,11}
++mkdir -p foo/1/10/{100,101,102}
++tar cf foo.tar -C foo .
++rm -rf foo/*
++busybox tar xf foo.tar -C foo ./1/10
++find foo | sort >logfile.bb
++rm -rf foo/*
++tar xf foo.tar -C foo ./1/10
++find foo | sort >logfile.gnu
++cmp logfile.gnu logfile.bb
+Index: testsuite/README
+===================================================================
+--- testsuite/README	(revision 16031)
++++ testsuite/README	(revision 16032)
+@@ -1,3 +1,6 @@
++Update: doesn't work as described. Try "make check" from parent dir...
++* * *
++
+ To run the test suite, change to this directory and run "./runtest".  It will
+ run all of the test cases, and list those with unexpected outcomes.  Adding the
+ -v option will cause it to show expected outcomes as well.  To only run the test
+ ------------------------------------------------------------------------
+r16033 | vda | 2006-09-03 08:20:36 -0400 (Sun, 03 Sep 2006) | 5 lines
+Changed paths:
+   M /trunk/busybox/networking/zcip.c
+
+zcip: apply patch from
+      http://bugs.busybox.net/view.php?id=1005
+      zcip does not claim another IP after defending
+
+
+ ------------------------------------------------------------------------
+Index: networking/zcip.c
+===================================================================
+--- networking/zcip.c	(revision 16032)
++++ networking/zcip.c	(revision 16033)
+@@ -15,7 +15,7 @@
+  * certainly be used.  Its naming is built over multicast DNS.
+  */
+ 
+-// #define      DEBUG
++//#define DEBUG
+ 
+ // TODO:
+ // - more real-world usage/testing, especially daemon mode
+@@ -43,12 +43,7 @@
+ 
+ struct arp_packet {
+ 	struct ether_header hdr;
+-	// FIXME this part is netinet/if_ether.h "struct ether_arp"
+-	struct arphdr arp;
+-	struct ether_addr source_addr;
+-	struct in_addr source_ip;
+-	struct ether_addr target_addr;
+-	struct in_addr target_ip;
++	struct ether_arp arp;
+ } ATTRIBUTE_PACKED;
+ 
+ enum {
+@@ -68,10 +63,19 @@
+ 	DEFEND_INTERVAL = 10
+ };
+ 
+-static const struct in_addr null_ip = { 0 };
+-static const struct ether_addr null_addr = { {0, 0, 0, 0, 0, 0} };
++/* States during the configuration process. */
++enum {
++	PROBE = 0,
++	RATE_LIMIT_PROBE,
++	ANNOUNCE,
++	MONITOR,
++	DEFEND
++};
+ 
+-static int verbose = 0;
++/* Implicitly zero-initialized */
++static const struct in_addr null_ip;
++static const struct ether_addr null_addr;
++static int verbose;
+ 
+ #define DBG(fmt,args...) \
+ 	do { } while (0)
+@@ -100,6 +104,7 @@
+ 	const struct ether_addr *target_addr, struct in_addr target_ip)
+ {
+ 	struct arp_packet p;
++	memset(&p, 0, sizeof(p));
+ 
+ 	// ether header
+ 	p.hdr.ether_type = htons(ETHERTYPE_ARP);
+@@ -107,15 +112,15 @@
+ 	memset(p.hdr.ether_dhost, 0xff, ETH_ALEN);
+ 
+ 	// arp request
+-	p.arp.ar_hrd = htons(ARPHRD_ETHER);
+-	p.arp.ar_pro = htons(ETHERTYPE_IP);
+-	p.arp.ar_hln = ETH_ALEN;
+-	p.arp.ar_pln = 4;
+-	p.arp.ar_op = htons(op);
+-	memcpy(&p.source_addr, source_addr, ETH_ALEN);
+-	memcpy(&p.source_ip, &source_ip, sizeof (p.source_ip));
+-	memcpy(&p.target_addr, target_addr, ETH_ALEN);
+-	memcpy(&p.target_ip, &target_ip, sizeof (p.target_ip));
++	p.arp.arp_hrd = htons(ARPHRD_ETHER);
++	p.arp.arp_pro = htons(ETHERTYPE_IP);
++	p.arp.arp_hln = ETH_ALEN;
++	p.arp.arp_pln = 4;
++	p.arp.arp_op = htons(op);
++	memcpy(&p.arp.arp_sha, source_addr, ETH_ALEN);
++	memcpy(&p.arp.arp_spa, &source_ip, sizeof (p.arp.arp_spa));
++	memcpy(&p.arp.arp_tha, target_addr, ETH_ALEN);
++	memcpy(&p.arp.arp_tpa, &target_ip, sizeof (p.arp.arp_tpa));
+ 
+ 	// send it
+ 	if (sendto(fd, &p, sizeof (p), 0, saddr, sizeof (*saddr)) < 0) {
+@@ -196,11 +201,11 @@
+ 	int fd;
+ 	int ready = 0;
+ 	suseconds_t timeout = 0;	// milliseconds
+-	time_t defend = 0;
+ 	unsigned conflicts = 0;
+ 	unsigned nprobes = 0;
+ 	unsigned nclaims = 0;
+ 	int t;
++	int state = PROBE;
+ 
+ 	// parse commandline: prog [options] ifname script
+ 	while ((t = getopt(argc, argv, "fqr:v")) != EOF) {
+@@ -307,6 +312,9 @@
+ 		fds[0].events = POLLIN;
+ 		fds[0].revents = 0;
+ 
++		int source_ip_conflict = 0;
++		int target_ip_conflict = 0;
++
+ 		// poll, being ready to adjust current timeout
+ 		if (!timeout) {
+ 			timeout = ms_rdelay(PROBE_WAIT);
+@@ -314,6 +322,7 @@
+ 			// make the kernel filter out all packets except
+ 			// ones we'd care about.
+ 		}
++		// set tv1 to the point in time when we timeout
+ 		gettimeofday(&tv1, NULL);
+ 		tv1.tv_usec += (timeout % 1000) * 1000;
+ 		while (tv1.tv_usec > 1000000) {
+@@ -326,64 +335,113 @@
+ 				timeout, intf, nprobes, nclaims);
+ 		switch (poll(fds, 1, timeout)) {
+ 
+-		// timeouts trigger protocol transitions
++		// timeout
+ 		case 0:
+-			// probes
+-			if (nprobes < PROBE_NUM) {
+-				nprobes++;
+-				VDBG("probe/%d %s@%s\n",
+-						nprobes, intf, inet_ntoa(ip));
+-				(void)arp(fd, &saddr, ARPOP_REQUEST,
+-						&addr, null_ip,
+-						&null_addr, ip);
++			VDBG("state = %d\n", state);
++			switch (state) {
++			case PROBE:
++				// timeouts in the PROBE state means no conflicting ARP packets
++				// have been received, so we can progress through the states
+ 				if (nprobes < PROBE_NUM) {
++					nprobes++;
++					VDBG("probe/%d %s@%s\n",
++							nprobes, intf, inet_ntoa(ip));
++					(void)arp(fd, &saddr, ARPOP_REQUEST,
++							&addr, null_ip,
++							&null_addr, ip);
+ 					timeout = PROBE_MIN * 1000;
+ 					timeout += ms_rdelay(PROBE_MAX
+ 							- PROBE_MIN);
+-				} else
+-					timeout = ANNOUNCE_WAIT * 1000;
+-			}
+-			// then announcements
+-			else if (nclaims < ANNOUNCE_NUM) {
+-				nclaims++;
++				}
++				else {
++					// Switch to announce state.
++					state = ANNOUNCE;
++					nclaims = 0;
++					VDBG("announce/%d %s@%s\n",
++							nclaims, intf, inet_ntoa(ip));
++					(void)arp(fd, &saddr, ARPOP_REQUEST,
++							&addr, ip,
++							&addr, ip);
++					timeout = ANNOUNCE_INTERVAL * 1000;
++				}
++				break;
++			case RATE_LIMIT_PROBE:
++				// timeouts in the RATE_LIMIT_PROBE state means no conflicting ARP packets
++				// have been received, so we can move immediately to the announce state
++				state = ANNOUNCE;
++				nclaims = 0;
+ 				VDBG("announce/%d %s@%s\n",
+ 						nclaims, intf, inet_ntoa(ip));
+ 				(void)arp(fd, &saddr, ARPOP_REQUEST,
+ 						&addr, ip,
+ 						&addr, ip);
++				timeout = ANNOUNCE_INTERVAL * 1000;
++				break;
++			case ANNOUNCE:
++				// timeouts in the ANNOUNCE state means no conflicting ARP packets
++				// have been received, so we can progress through the states
+ 				if (nclaims < ANNOUNCE_NUM) {
++					nclaims++;
++					VDBG("announce/%d %s@%s\n",
++							nclaims, intf, inet_ntoa(ip));
++					(void)arp(fd, &saddr, ARPOP_REQUEST,
++							&addr, ip,
++							&addr, ip);
+ 					timeout = ANNOUNCE_INTERVAL * 1000;
+-				} else {
++				}
++				else {
++					// Switch to monitor state.
++					state = MONITOR;
+ 					// link is ok to use earlier
++					// FIXME update filters
+ 					run(script, "config", intf, &ip);
+ 					ready = 1;
+ 					conflicts = 0;
+-					timeout = -1;
++					timeout = -1; // Never timeout in the monitor state.
+ 
+ 					// NOTE:  all other exit paths
+ 					// should deconfig ...
+ 					if (quit)
+ 						return EXIT_SUCCESS;
+-					// FIXME update filters
+ 				}
+-			}
+-			break;
+-
++				break;
++			case DEFEND:
++				// We won!  No ARP replies, so just go back to monitor.
++				state = MONITOR;
++				timeout = -1;
++				conflicts = 0;
++				break;
++			default:
++				// Invalid, should never happen.  Restart the whole protocol.
++				state = PROBE;
++				pick(&ip);
++				timeout = 0;
++				nprobes = 0;
++				nclaims = 0;
++				break;
++			} // switch (state)
++			break; // case 0 (timeout)
+ 		// packets arriving
+ 		case 1:
+-			// maybe adjust timeout
++			// We need to adjust the timeout in case we didn't receive
++			// a conflicting packet.
+ 			if (timeout > 0) {
+ 				struct timeval tv2;
+ 
+ 				gettimeofday(&tv2, NULL);
+ 				if (timercmp(&tv1, &tv2, <)) {
++					// Current time is greater than the expected timeout time.
++					// Should never happen.
++					VDBG("missed an expected timeout\n");
+ 					timeout = 0;
+ 				} else {
++					VDBG("adjusting timeout\n");
+ 					timersub(&tv1, &tv2, &tv1);
+ 					timeout = 1000 * tv1.tv_sec
+ 							+ tv1.tv_usec / 1000;
+ 				}
+ 			}
++
+ 			if ((fds[0].revents & POLLIN) == 0) {
+ 				if (fds[0].revents & POLLERR) {
+ 					// FIXME: links routinely go down;
+@@ -397,6 +455,7 @@
+ 				}
+ 				continue;
+ 			}
++
+ 			// read ARP packet
+ 			if (recv(fd, &p, sizeof (p), 0) < 0) {
+ 				why = "recv";
+@@ -405,71 +464,102 @@
+ 			if (p.hdr.ether_type != htons(ETHERTYPE_ARP))
+ 				continue;
+ 
+-			VDBG("%s recv arp type=%d, op=%d,\n",
++#ifdef DEBUG
++			{
++				struct ether_addr * sha = (struct ether_addr *) p.arp.arp_sha;
++				struct ether_addr * tha = (struct ether_addr *) p.arp.arp_tha;
++				struct in_addr * spa = (struct in_addr *) p.arp.arp_spa;
++				struct in_addr * tpa = (struct in_addr *) p.arp.arp_tpa;
++				VDBG("%s recv arp type=%d, op=%d,\n",
+ 					intf, ntohs(p.hdr.ether_type),
+-					ntohs(p.arp.ar_op));
+-			VDBG("\tsource=%s %s\n",
+-					ether_ntoa(&p.source_addr),
+-					inet_ntoa(p.source_ip));
+-			VDBG("\ttarget=%s %s\n",
+-					ether_ntoa(&p.target_addr),
+-					inet_ntoa(p.target_ip));
+-			if (p.arp.ar_op != htons(ARPOP_REQUEST)
+-					&& p.arp.ar_op != htons(ARPOP_REPLY))
++					ntohs(p.arp.arp_op));
++				VDBG("\tsource=%s %s\n",
++					ether_ntoa(sha),
++					inet_ntoa(*spa));
++				VDBG("\ttarget=%s %s\n",
++					ether_ntoa(tha),
++					inet_ntoa(*tpa));
++			}
++#endif
++			if (p.arp.arp_op != htons(ARPOP_REQUEST)
++					&& p.arp.arp_op != htons(ARPOP_REPLY))
+ 				continue;
+ 
+-			// some cases are always conflicts
+-			if ((p.source_ip.s_addr == ip.s_addr)
+-					&& (memcmp(&addr, &p.source_addr,
+-							ETH_ALEN) != 0)) {
+-collision:
+-				VDBG("%s ARP conflict from %s\n", intf,
+-						ether_ntoa(&p.source_addr));
+-				if (ready) {
+-					time_t now = time(0);
++			if (memcmp(p.arp.arp_spa, &ip.s_addr, sizeof(struct in_addr)) == 0 &&
++				memcmp(&addr, &p.arp.arp_sha, ETH_ALEN) != 0) {
++				source_ip_conflict = 1;
++			}
++			if (memcmp(p.arp.arp_tpa, &ip.s_addr, sizeof(struct in_addr)) == 0 &&
++				p.arp.arp_op == htons(ARPOP_REQUEST) &&
++				memcmp(&addr, &p.arp.arp_tha, ETH_ALEN) != 0) {
++				target_ip_conflict = 1;
++			}
+ 
+-					if ((defend + DEFEND_INTERVAL)
+-							< now) {
+-						defend = now;
+-						(void)arp(fd, &saddr,
+-								ARPOP_REQUEST,
+-								&addr, ip,
+-								&addr, ip);
+-						VDBG("%s defend\n", intf);
+-						timeout = -1;
+-						continue;
++			VDBG("state = %d, source ip conflict = %d, target ip conflict = %d\n", 
++				state, source_ip_conflict, target_ip_conflict);
++			switch (state) {
++			case PROBE:
++			case ANNOUNCE:
++				// When probing or announcing, check for source IP conflicts
++				// and other hosts doing ARP probes (target IP conflicts).
++				if (source_ip_conflict || target_ip_conflict) {
++					conflicts++;
++					if (conflicts >= MAX_CONFLICTS) {
++						VDBG("%s ratelimit\n", intf);
++						timeout = RATE_LIMIT_INTERVAL * 1000;
++						state = RATE_LIMIT_PROBE;
+ 					}
+-					defend = now;
++
++					// restart the whole protocol
++					pick(&ip);
++					timeout = 0;
++					nprobes = 0;
++					nclaims = 0;
++				}
++				break;
++			case MONITOR:
++				// If a conflict, we try to defend with a single ARP probe.
++				if (source_ip_conflict) {
++					VDBG("monitor conflict -- defending\n");
++					state = DEFEND;
++					timeout = DEFEND_INTERVAL * 1000;
++					(void)arp(fd, &saddr,
++							ARPOP_REQUEST,
++							&addr, ip,
++							&addr, ip);
++				}
++				break;
++			case DEFEND:
++				// Well, we tried.  Start over (on conflict).
++				if (source_ip_conflict) {
++					state = PROBE;
++					VDBG("defend conflict -- starting over\n");
+ 					ready = 0;
+ 					run(script, "deconfig", intf, &ip);
+-					// FIXME rm filters: setsockopt(fd,
+-					// SO_DETACH_FILTER, ...)
++
++					// restart the whole protocol
++					pick(&ip);
++					timeout = 0;
++					nprobes = 0;
++					nclaims = 0;
+ 				}
+-				conflicts++;
+-				if (conflicts >= MAX_CONFLICTS) {
+-					VDBG("%s ratelimit\n", intf);
+-					sleep(RATE_LIMIT_INTERVAL);
+-				}
+-				// restart the whole protocol
++				break;
++			default:
++				// Invalid, should never happen.  Restart the whole protocol.
++				VDBG("invalid state -- starting over\n");
++				state = PROBE;
+ 				pick(&ip);
+ 				timeout = 0;
+ 				nprobes = 0;
+ 				nclaims = 0;
+-			}
+-			// two hosts probing one address is a collision too
+-			else if (p.target_ip.s_addr == ip.s_addr
+-					&& nclaims == 0
+-					&& p.arp.ar_op == htons(ARPOP_REQUEST)
+-					&& memcmp(&addr, &p.target_addr,
+-							ETH_ALEN) != 0) {
+-				goto collision;
+-			}
+-			break;
++				break;
++			} // switch state
+ 
++			break; // case 1 (packets arriving)
+ 		default:
+ 			why = "poll";
+ 			goto bad;
+-		}
++		} // switch poll
+ 	}
+ bad:
+ 	if (foreground)
+ ------------------------------------------------------------------------
+r16045 | vda | 2006-09-03 13:11:34 -0400 (Sun, 03 Sep 2006) | 3 lines
+Changed paths:
+   M /trunk/busybox/loginutils/sulogin.c
+
+sulogin: fix bug: -tNNN didn't work
+
+
+ ------------------------------------------------------------------------
+Index: loginutils/sulogin.c
+===================================================================
+--- loginutils/sulogin.c	(revision 16044)
++++ loginutils/sulogin.c	(revision 16045)
+@@ -52,7 +52,7 @@
+ int sulogin_main(int argc, char **argv)
+ {
+ 	char *cp;
+-	char *device = (char *) 0;
++	char *device = NULL;
+ 	const char *name = "root";
+ 	int timeout = 0;
+ 
+@@ -68,14 +68,15 @@
+ 	openlog("sulogin", LOG_PID | LOG_CONS | LOG_NOWAIT, LOG_AUTH);
+ 	if (argc > 1) {
+ 		if (strncmp(argv[1], "-t", 2) == 0) {
+-			if (strcmp(argv[1], "-t") == 0) {
++			if (argv[1][2] == '\0') { /* -t NN */
+ 				if (argc > 2) {
+ 					timeout = atoi(argv[2]);
+ 					if (argc > 3) {
+ 						device = argv[3];
+ 					}
+ 				}
+-			} else {
++			} else { /* -tNNN */
++				timeout = atoi(&argv[1][2]);
+ 				if (argc > 2) {
+ 					device = argv[2];
+ 				}
+@@ -87,7 +88,7 @@
+ 			close(0);
+ 			close(1);
+ 			close(2);
+-			if (open(device, O_RDWR) >= 0) {
++			if (open(device, O_RDWR) == 0) {
+ 				dup(0);
+ 				dup(0);
+ 			} else {
+ ------------------------------------------------------------------------
+r16056 | aldot | 2006-09-06 09:24:39 -0400 (Wed, 06 Sep 2006) | 2 lines
+Changed paths:
+   M /trunk/busybox/libbb/Makefile.in
+
+- mdev and grep use xregcomp. Closes bug #1021
+
+ ------------------------------------------------------------------------
+Index: libbb/Makefile.in
+===================================================================
+--- libbb/Makefile.in	(revision 16055)
++++ libbb/Makefile.in	(revision 16056)
+@@ -56,11 +56,12 @@
+ # allowing us to build busybox even if uclibc regex support is disabled.
+ 
+ regex-y:=
+-
+ regex-$(CONFIG_AWK) += xregcomp.c
+ regex-$(CONFIG_SED) += xregcomp.c
+ regex-$(CONFIG_LESS) += xregcomp.c
+ regex-$(CONFIG_DEVFSD) += xregcomp.c
++regex-$(CONFIG_MDEV) += xregcomp.c
++regex-$(CONFIG_GREP) += xregcomp.c
+ 
+ # Sort has the happy side efect of returning a unique list
+ LIBBB-y += $(sort $(regex-y))
+ ------------------------------------------------------------------------
+r16057 | aldot | 2006-09-06 11:28:32 -0400 (Wed, 06 Sep 2006) | 16 lines
+Changed paths:
+   M /trunk/busybox/archival/libunarchive/decompress_uncompress.c
+
+- strip 399424 off the bss by making decompress_uncompress buffers config buffers.
+  Compile tested (too lazy to look for a small .Z on the net).
+$ size busybox.old busybox
+   text    data     bss     dec     hex filename
+ 859555   10232  645732 1515519  171fff busybox.old
+ 859683   10232  246308 1116223  11083f busybox
+$ make bloatcheck
+function                                             old     new   delta
+uncompress                                          1036    1160    +124
+inbuf                                               2116       4   -2112
+outbuf                                              4100       4   -4096
+htab                                              131072       - -131072
+codetab                                           262144       - -262144
+ ------------------------------------------------------------------------------
+(add/remove: 0/2 grow/shrink: 1/2 up/down: 124/-399424)   Total: -399300 bytes
+
+ ------------------------------------------------------------------------
+Index: archival/libunarchive/decompress_uncompress.c
+===================================================================
+--- archival/libunarchive/decompress_uncompress.c	(revision 16056)
++++ archival/libunarchive/decompress_uncompress.c	(revision 16057)
+@@ -70,22 +70,12 @@
+ /* user settable max # bits/code */
+ static int maxbits = BITS;
+ 
+-/* Input buffer */
+-static unsigned char inbuf[IBUFSIZ + 64];
+-
+-/* Output buffer */
+-static unsigned char outbuf[OBUFSIZ + 2048];
+-
+-
+-static unsigned char htab[HSIZE];
+-static unsigned short codetab[HSIZE];
+-
+ #define	htabof(i)				htab[i]
+ #define	codetabof(i)			codetab[i]
+ #define	tab_prefixof(i)			codetabof(i)
+ #define	tab_suffixof(i)			((unsigned char *)(htab))[i]
+ #define	de_stack				((unsigned char *)&(htab[HSIZE-1]))
+-#define	clear_htab()			memset(htab, -1, sizeof(htab))
++#define	clear_htab()			memset(htab, -1, HSIZE)
+ #define	clear_tab_prefixof()	memset(codetab, 0, 256);
+ 
+ 
+@@ -113,6 +103,12 @@
+ 	long int maxmaxcode;
+ 	int n_bits;
+ 	int rsize = 0;
++	RESERVE_CONFIG_UBUFFER(inbuf, IBUFSIZ + 64);
++	RESERVE_CONFIG_UBUFFER(outbuf, OBUFSIZ + 2048);
++	unsigned char htab[HSIZE];
++	unsigned short codetab[HSIZE];
++	memset(inbuf, 0, IBUFSIZ + 64);
++	memset(outbuf, 0, OBUFSIZ + 2048);
+ 
+ 	insize = 0;
+ 
+@@ -160,7 +156,7 @@
+ 			posbits = 0;
+ 		}
+ 
+-		if (insize < (int) sizeof(inbuf) - IBUFSIZ) {
++		if (insize < (int) (IBUFSIZ + 64) - IBUFSIZ) {
+ 			rsize = safe_read(fd_in, inbuf + insize, IBUFSIZ);
+ 			insize += rsize;
+ 		}
+@@ -286,5 +282,7 @@
+ 		write(fd_out, outbuf, outpos);
+ 	}
+ 
++	RELEASE_CONFIG_BUFFER(inbuf);
++	RELEASE_CONFIG_BUFFER(outbuf);
+ 	return 0;
+ }
+ ------------------------------------------------------------------------
+r16062 | vda | 2006-09-07 01:43:38 -0400 (Thu, 07 Sep 2006) | 4 lines
+Changed paths:
+   M /trunk/busybox/Config.in
+
+CONFIG_FEATURE_COMPRESS_USAGE was impossible to turn on
+if !CONFIG_NITPICK
+
+
+ ------------------------------------------------------------------------
+Index: Config.in
+===================================================================
+--- Config.in	(revision 16061)
++++ Config.in	(revision 16062)
+@@ -76,7 +76,7 @@
+ config CONFIG_FEATURE_COMPRESS_USAGE
+ 	bool "Store applet usage messages in compressed form"
+ 	default y
+-	depends on CONFIG_SHOW_USAGE && CONFIG_NITPICK
++	depends on CONFIG_SHOW_USAGE
+ 	help
+ 	  Store usage messages in compressed form, uncompress them on-the-fly
+ 	  when <applet> --help is called.
+ ------------------------------------------------------------------------
+r16067 | landley | 2006-09-07 20:01:02 -0400 (Thu, 07 Sep 2006) | 2 lines
+Changed paths:
+   M /trunk/busybox/editors/sed.c
+
+Bugfix for: echo '123456789' | sed 's/./|&/5'
+
+ ------------------------------------------------------------------------
+Index: editors/sed.c
+===================================================================
+--- editors/sed.c	(revision 16066)
++++ editors/sed.c	(revision 16067)
+@@ -627,7 +627,7 @@
+ 		   end of match and continue */
+ 		if(sed_cmd->which_match && sed_cmd->which_match!=match_count) {
+ 			for(i=0;i<bbg.regmatch[0].rm_eo;i++)
+-				pipe_putc(oldline[i]);
++				pipe_putc(*(oldline++));
+ 			continue;
+ 		}
+ 
+ ------------------------------------------------------------------------
+r16109 | landley | 2006-09-12 16:29:22 -0400 (Tue, 12 Sep 2006) | 2 lines
+Changed paths:
+   M /trunk/busybox/include/platform.h
+
+Fix from Bernhard for somebody trying to limp along with gcc 2.95.4.
+
+ ------------------------------------------------------------------------
+Index: include/platform.h
+===================================================================
+--- include/platform.h	(revision 16108)
++++ include/platform.h	(revision 16109)
+@@ -83,6 +83,14 @@
+ # endif
+ #endif
+ 
++/* gcc-2.95 had no va_copy but only __va_copy. */
++#if !__GNUC_PREREQ (3,0)
++# include <stdarg.h>
++# if !defined va_copy && defined __va_copy
++#  define va_copy(d,s) __va_copy((d),(s))
++# endif
++#endif
++
+ /* ---- Endian Detection ------------------------------------ */
+ 
+ #if (defined __digital__ && defined __unix__)
+
+ ------------------------------------------------------------------------
+Patch from Roberto Foglietta to fix various things in dnsd (for example,
+don't segfault if dnsd.conf doesn't exist).
+
+--- networking/dnsd.c	2006-07-01 00:42:02.000000000 +0200
++++ networking/dnsd.c	2006-10-17 18:11:22.000000000 +0200
+@@ -29,6 +29,11 @@ static char *fileconf = "/etc/dnsd.conf"
+ #define LOCK_FILE       "/var/run/dnsd.lock"
+ #define LOG_FILE        "/var/log/dnsd.log"
+ 
++#define is_daemon()  (flags&16)
++#define is_verbose() (flags&32)
++//#define DEBUG 
++
++
+ enum {
+ 	MAX_HOST_LEN = 16,      // longest host name allowed is 15
+ 	IP_STRING_LEN = 18,     // .xxx.xxx.xxx.xxx\0
+@@ -223,29 +228,35 @@ static int listen_socket(char *iface_add
+ static int table_lookup(uint16_t type, uint8_t * as, uint8_t * qs)
+ {
+ 	int i;
+-	struct dns_entry *d=dnsentry;
++	struct dns_entry *d = dnsentry;
+ 
+-	do {
++	if(d) do {
+ #ifdef DEBUG
+-		char *p,*q;
+-		q = (char *)&(qs[1]);
+-		p = &(d->name[1]);
+-		fprintf(stderr, "\ntest: %d <%s> <%s> %d", strlen(p), p, q, strlen(q));
++		if(qs && d) {
++			char *p,*q;
++			q = (char *)&(qs[1]);
++			p = &(d->name[1]);
++			fprintf(stderr, "\n%s: %d/%d p:%s q:%s %d", 
++				__FUNCTION__, strlen(p), (int)(d->name[0]), 
++				p, q, strlen(q));
++		}
+ #endif
+-		if (type == REQ_A) { /* search by host name */
++		if (type == REQ_A) { 			/* search by host name */
+ 			for(i = 1; i <= (int)(d->name[0]); i++)
+ 				if(tolower(qs[i]) != d->name[i])
+-					continue;
++					break;
++			if(i > (int)(d->name[0])) {
+ #ifdef DEBUG
+-			fprintf(stderr, " OK");
++				fprintf(stderr, " OK");
+ #endif
+-			strcpy((char *)as, d->ip);
++				strcpy((char *)as, d->ip);
+ #ifdef DEBUG
+-			fprintf(stderr, " %s ", as);
++				fprintf(stderr, " as:%s\n", as);
+ #endif
+-					return 0;
+-				}
+-		else if (type == REQ_PTR) { /* search by IP-address */
++				return 0;
++			}
++		} else 
++		if (type == REQ_PTR) { 			/* search by IP-address */
+ 			if (!strncmp((char*)&d->rip[1], (char*)&qs[1], strlen(d->rip)-1)) {
+ 				strcpy((char *)as, d->name);
+ 				return 0;
+@@ -281,7 +292,7 @@ static int process_packet(uint8_t * buf)
+ 		eret("ignoring response packet");
+ 
+ 	from = (void *)&head[1];	//  start of query string
+-	next = answb = from + strlen((char *)&head[1]) + 1 + sizeof(struct dns_prop);   // where to append answer block
++	next = answb = from + strlen((char *)from) + 1 + sizeof(struct dns_prop);   // where to append answer block
+ 
+ 	outr.rlen = 0;			// may change later
+ 	outr.r = NULL;
+@@ -305,9 +316,8 @@ static int process_packet(uint8_t * buf)
+ 		goto empty_packet;
+ 
+ 	// We have a standard query
+-
+-	log_message(LOG_FILE, (char *)head);
+-	lookup_result = table_lookup(type, answstr, (uint8_t*)(&head[1]));
++	log_message(LOG_FILE, (char *)from);
++	lookup_result = table_lookup(type, answstr, (uint8_t*)from);
+ 	if (lookup_result != 0) {
+ 		outr.flags = 3 | 0x0400;	//name do not exist and auth
+ 		goto empty_packet;
+@@ -341,8 +351,7 @@ static int process_packet(uint8_t * buf)
+ 	memcpy(next, (void *)answstr, outr.rlen);
+ 	next += outr.rlen;
+ 
+-      empty_packet:
+-
++empty_packet:
+ 	flags = ntohs(head->flags);
+ 	// clear rcode and RA, set responsebit and our new flags
+ 	flags |= (outr.flags & 0xff80) | 0x8000;
+@@ -364,9 +373,6 @@ static void interrupt(int x)
+ 	exit(2);
+ }
+ 
+-#define is_daemon()  (flags&16)
+-#define is_verbose() (flags&32)
+-//#define DEBUG 1
+ 
+ int dnsd_main(int argc, char **argv)
+ {
+@@ -437,8 +443,8 @@ int dnsd_main(int argc, char **argv)
+ 				     (struct sockaddr *)&from,
+ 				     (void *)&fromlen);
+ 			if(is_verbose())
+-				fprintf(stderr, "\n--- Got UDP  ");
+-			log_message(LOG_FILE, "\n--- Got UDP  ");
++				fprintf(stderr, "\n--- Got UDP size=%d ", r);
++			log_message(LOG_FILE, "\n--- Got UDP ");
+ 
+ 			if (r < 12 || r > 512) {
+ 				bb_error_msg("invalid packet size");

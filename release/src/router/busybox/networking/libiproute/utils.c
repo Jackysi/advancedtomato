@@ -1,26 +1,22 @@
 /*
  * utils.c
  *
- *		This program is free software; you can redistribute it and/or
- *		modify it under the terms of the GNU General Public License
- *		as published by the Free Software Foundation; either version
- *		2 of the License, or (at your option) any later version.
+ * Licensed under GPLv2 or later, see file LICENSE in this tarball for details.
  *
  * Authors:	Alexey Kuznetsov, <kuznet@ms2.inr.ac.ru>
- *
  *
  * Changes:
  *
  * Rani Assaf <rani@magic.metawire.com> 980929:	resolve addresses
  */
 
-#include <stdlib.h>
+#include "libbb.h"
+
 #include <string.h>
 #include <unistd.h>
-#include <arpa/inet.h>
 
 #include "utils.h"
-#include "libbb.h"
+#include "inet_common.h"
 
 int get_integer(int *val, char *arg, int base)
 {
@@ -128,7 +124,7 @@ int get_addr_1(inet_prefix * addr, char *name, int family)
 
 	memset(addr, 0, sizeof(*addr));
 
-	if (strcmp(name, "default") == 0 ||
+	if (strcmp(name, bb_INET_default) == 0 ||
 		strcmp(name, "all") == 0 || strcmp(name, "any") == 0) {
 		addr->family = family;
 		addr->bytelen = (family == AF_INET6 ? 16 : 4);
@@ -167,12 +163,12 @@ int get_addr_1(inet_prefix * addr, char *name, int family)
 int get_prefix_1(inet_prefix * dst, char *arg, int family)
 {
 	int err;
-	unsigned plen;
+	int plen;
 	char *slash;
 
 	memset(dst, 0, sizeof(*dst));
 
-	if (strcmp(arg, "default") == 0 || strcmp(arg, "any") == 0) {
+	if (strcmp(arg, bb_INET_default) == 0 || strcmp(arg, "any") == 0) {
 		dst->family = family;
 		dst->bytelen = 0;
 		dst->bitlen = 0;
@@ -238,15 +234,15 @@ __u32 get_addr32(char *name)
 	return addr.data[0];
 }
 
-void incomplete_command()
+void incomplete_command(void)
 {
 	bb_error_msg("Command line is not complete. Try option \"help\"");
 	exit(-1);
 }
 
-void invarg(char *msg, char *arg)
+void invarg(const char * const arg, const char * const opt)
 {
-	bb_error_msg("argument \"%s\" is wrong: %s", arg, msg);
+	bb_error_msg(bb_msg_invalid_arg, arg, opt);
 	exit(-1);
 }
 
@@ -320,7 +316,8 @@ int __get_hz(void)
 	return sysconf(_SC_CLK_TCK);
 }
 
-const char *rt_addr_n2a(int af, int len, void *addr, char *buf, int buflen)
+const char *rt_addr_n2a(int af, int ATTRIBUTE_UNUSED len,
+		void *addr, char *buf, int buflen)
 {
 	switch (af) {
 	case AF_INET:

@@ -4,9 +4,9 @@
 #include "libbb.h"
 #include "unarchive.h"
 
-extern void header_verbose_list(const file_header_t *file_header)
+void header_verbose_list(const file_header_t *file_header)
 {
-	struct tm *mtime = localtime(&file_header->mtime);
+	struct tm *mtime = localtime(&(file_header->mtime));
 
 	printf("%s %d/%d%10u %4u-%02u-%02u %02u:%02u:%02u %s",
 		bb_mode_string(file_header->mode),

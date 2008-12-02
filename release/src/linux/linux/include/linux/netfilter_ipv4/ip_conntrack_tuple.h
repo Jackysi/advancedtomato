@@ -57,7 +57,6 @@ struct ip_conntrack_tuple
 			} tcp;
 			struct {
 				u_int16_t port;
-				unsigned int init_cookie;//xiaoqin add for multi-ipsec passthrough,2005.12.19
 			} udp;
 			struct {
 				u_int8_t type, code;

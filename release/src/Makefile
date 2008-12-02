@@ -3,62 +3,156 @@
 #
 # Copyright 2005, Broadcom Corporation
 # All Rights Reserved.
-# 
+#
 # THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
 # KIND, EXPRESS OR IMPLIED, BY STATUTE, COMMUNICATION OR OTHERWISE. BROADCOM
 # SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
 # FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
 #
-# $Id: Makefile,v 1.53.22.6 2006/07/20 01:22:37 honor Exp $
+# $Id: Makefile,v 1.53 2005/04/25 03:54:37 tallest Exp $
 #
 
 SRCBASE := $(shell pwd)
 RELEASEDIR := $(shell (cd $(SRCBASE)/.. && pwd -P))
 PATH := $(RELEASEDIR)/tools:$(PATH)
 
-install: cytools all
-	install -d $(RELEASEDIR)/image
-	$(MAKE) -C router install
-	#-cp router/mipsel/linux.trx $(RELEASEDIR)/image/linux-glibc.trx
-	-cp router/mipsel-uclibc/linux.trx $(RELEASEDIR)/image/linux.trx
-	-cp router/mipsel-uclibc/linux.bin $(RELEASEDIR)/image/linux.bin
-ifneq ($(wildcard pmon),)
-	cp pmon/pmon_lg.bin $(RELEASEDIR)/image/
-endif
-ifneq ($(wildcard cfe),)
-	cp cfe/build/broadcom/bcm947xx/cfe.bin $(RELEASEDIR)/image/
-	# Make CFE again for self-decompression support
-	$(MAKE) -C cfe
-	cp cfe/build/broadcom/bcm947xx/compressed/cfez.bin $(RELEASEDIR)/image/
-endif
-	rm -rf shared/nvram/*4320*.txt 
-	-cp shared/nvram/*.txt $(RELEASEDIR)/image/
+-include tomato_profile.mak
 
-	# add CyberTAN header
-	addpattern -i $(RELEASEDIR)/image/linux.trx -o $(RELEASEDIR)/image/code.bin -g
-	# below for multiple language
-	if grep -q "MULTILANG_SUPPORT=1" cy_conf.mak ; then \
-		rm -rf ../image/*lang.trx ; \
-		rm -rf ../image/*lang.bin ; \
-		rm -rf ../image/*lcode.* ; \
-		cp router/mipsel-uclibc/lcode.trx $(RELEASEDIR)/image/lcode.trx ;\
-		cp router/mipsel-uclibc/default_lang.trx $(RELEASEDIR)/image/default_lang.trx ;\
-		addlang -i $(RELEASEDIR)/image/default_lang.trx -o $(RELEASEDIR)/image/default_lang.bin ;\
-		appendfile -i $(RELEASEDIR)/image/lcode.trx -o $(RELEASEDIR)/image/lcode.bin -g ;\
-		cat $(RELEASEDIR)/image/lcode.bin $(RELEASEDIR)/image/default_lang.bin > $(RELEASEDIR)/image/tmp_lcode.bin ;\
-		addpattern -i $(RELEASEDIR)/image/tmp_lcode.bin -o $(RELEASEDIR)/image/def_code.bin ;\
-	fi
+ifeq ($(TOMATO_PROFILE),)
 
-all clean:
-	$(MAKE) -C router $@
+all:
+	$(MAKE) libc
+	$(MAKE) g
+	$(MAKE)
 
-ifneq ($(wildcard pmon),)
-	$(MAKE) -C pmon $@
-endif
-ifneq ($(wildcard cfe),)
-	$(MAKE) -C cfe $@
+else
+
+all:
+	@echo -e "\n\n$(TOMATO_PROFILE_NAME) Profile"
+	@btools/uversion.pl --gen
+	@echo -e "\n\n"
+	
+	@$(MAKE) -C router all
+	@$(MAKE) -C router install
+	@$(MAKE) -C btools
+
+	@rm -rf image
+	@mkdir image
+ifeq ($(wildcard include/bcm20xx.h),)
+	@btools/fpkg -i linux/linux/arch/mips/brcm-boards/bcm947xx/compressed/vmlinuz -i router/mipsel-uclibc/target.image \
+		-t image/tomato.trx \
+		-l W54G,image/WRT54G_WRT54GL.bin \
+		-l W54S,image/WRT54GS.bin \
+		-l W54s,image/WRT54GSv4.bin \
+		-l W54U,image/WRTSL54GS.bin \
+		-m 0x10577050,image/WR850G.bin \
+		| tee fpkg.log
+else
+	@btools/fpkg -i linux/linux/arch/mips/brcm-boards/bcm947xx/compressed/vmlinuz -i router/mipsel-uclibc/target.image \
+		-t image/tomato-ND.trx
+#		-l WR41,image/WRH54G.bin
 endif
 
-cytools:
+	
+	@echo -e "\n-----------------\n" `cat router/shared/tomato_version` " ready\n-----------------"
 
-.PHONY: all clean install
+ifneq ($(NOVERSION),1)	
+	@cp router/shared/tomato_version router/shared/tomato_version_last
+	@btools/uversion.pl --bump
+endif
+
+
+clean: cleanimage
+	@$(MAKE) -C router $@
+	@rm -f fpkg.log
+
+cleanimage:
+	@rm -rf image
+
+cleantools:
+	@$(MAKE) -C linux/linux/scripts/squashfs clean
+	@$(MAKE) -C btools clean
+	
+cleankernel:
+	@cd linux/linux && \
+	mv .config save-config && \
+	$(MAKE) distclean; \
+	mv save-config .config
+
+distclean: clean cleankernel cleantools cleanlibc
+ifneq ($(INSIDE_MAK),1)
+	@$(MAKE) -C router $@ INSIDE_MAK=1
+endif
+	@$(MAKE) -C router/busybox distclean
+	@rm -f router/busybox/config_current
+	@rm -f router/config_current
+	@rm -f router/.config.cmd router/.config.old
+	@rm -f router/libfoo_xref.txt
+	@rm -f tomato_profile.mak router/shared/tomato_profile.h
+
+prepk:
+	$(MAKE) -C linux/linux oldconfig dep
+
+what:
+	@echo -e "\n$(TOMATO_PROFILE_NAME) Profile\n"
+
+endif
+
+
+g:
+	@$(MAKE) setprofile U=G L=g N=G
+
+setprofile:
+	@echo -e "\
+#ifndef TOMATO_PROFILE\n\
+#define TOMATO_$(U) 1\n\
+#define PROFILE_G 1\n\
+#define PROFILE_N 2\n\
+#define TOMATO_PROFILE PROFILE_$(U)\n\
+#define TOMATO_PROFILE_NAME \"$(N)\"\n\
+#endif\n" > router/shared/tomato_profile.h
+
+	@echo -e "\
+TOMATO_$(U) = 1\n\
+PROFILE_G = 1\n\
+PROFILE_N = 2\n\
+TOMATO_PROFILE = \$$(PROFILE_$(U))\n\
+TOMATO_PROFILE_NAME = \"$(N)\"\n\
+TOMATO_PROFILE_L = $(L)\n\
+TOMATO_PROFILE_U = $(U)\n" > tomato_profile.mak
+
+	@cd router && \
+		[ -s .config ] && cat .config > config_current; \
+		rm -f config_current && \
+		ln -s config_$(L) config_current && \
+		cp config_$(L) .config
+	@$(MAKE) -C router oldconfig
+
+	@cd router/busybox && \
+		[ -s .config ] && cat .config > config_current; \
+		rm -f config_current && \
+		ln -s config_$(L) config_current && \
+		cp config_$(L) .config
+	@$(MAKE) -C router/busybox oldconfig
+
+	@echo -e "\nUsing $(N) profile.\n"
+
+
+cleanlibc:
+	@$(MAKE) -C ../../tools-src/uClibc clean
+
+libc: cleanlibc
+	@$(MAKE) -C ../../tools-src/uClibc
+	@$(MAKE) -C ../../tools-src/uClibc install
+	
+help:
+	@echo "g            use G profile"
+	@echo "clean        -C router clean"
+	@echo "cleanimage   rm -rf image"
+	@echo "cleantools   clean btools, mksquashfs"
+	@echo "cleankernel  -C linux/linux distclean (but preserves .config)"
+	@echo "prepk        -C linux/linux oldconfig dep"
+	@echo "libc         -C uClibc clean, all, install"
+	
+.PHONY: all clean distclean cleanimage cleantools cleankernel prepk what setprofile libc help
+.PHONY: g

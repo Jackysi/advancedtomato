@@ -47,15 +47,8 @@ static struct option opts[] = {
 	{0}
 };
 
-/* Initialize the match. */
 static void
-init(struct ipt_entry_match *m, unsigned int *nfcache)
-{
-	*nfcache |= NFC_IP_TOS;
-}
-
-static void
-parse_tos(const unsigned char *s, struct ipt_tos_info *info)
+parse_tos(const char *s, struct ipt_tos_info *info)
 {
 	unsigned int i;
 	unsigned int tos;
@@ -91,6 +84,11 @@ parse(int c, char **argv, int invert, unsigned int *flags,
 
 	switch (c) {
 	case '1':
+		/* Ensure that `--tos' haven't been used yet. */
+		if (*flags == 1)
+			exit_error(PARAMETER_PROBLEM,
+					"tos match: only use --tos once!");
+
 		check_inverse(optarg, &invert, &optind, 0);
 		parse_tos(argv[optind-1], tosinfo);
 		if (invert)
@@ -105,12 +103,9 @@ parse(int c, char **argv, int invert, unsigned int *flags,
 }
 
 static void
-print_tos(u_int8_t tos, int invert, int numeric)
+print_tos(u_int8_t tos, int numeric)
 {
 	unsigned int i;
-
-	if (invert)
-		fputc('!', stdout);
 
 	if (!numeric) {
 		for (i = 0; i<sizeof(TOS_values)/sizeof(struct TOS_value); i++)
@@ -137,34 +132,38 @@ print(const struct ipt_ip *ip,
       const struct ipt_entry_match *match,
       int numeric)
 {
+	const struct ipt_tos_info *info = (const struct ipt_tos_info *)match->data;
+    
 	printf("TOS match ");
-	print_tos(((struct ipt_tos_info *)match->data)->tos,
-		  ((struct ipt_tos_info *)match->data)->invert, numeric);
+	if (info->invert)
+		printf("!");
+	print_tos(info->tos, numeric);
 }
 
 /* Saves the union ipt_matchinfo in parsable form to stdout. */
 static void
 save(const struct ipt_ip *ip, const struct ipt_entry_match *match)
 {
+	const struct ipt_tos_info *info = (const struct ipt_tos_info *)match->data;
+    
+	if (info->invert)
+		printf("! ");
 	printf("--tos ");
-	print_tos(((struct ipt_tos_info *)match->data)->tos,
-		  ((struct ipt_tos_info *)match->data)->invert, 0);
+	print_tos(info->tos, 0);
 }
 
-static
-struct iptables_match tos
-= { NULL,
-    "tos",
-    IPTABLES_VERSION,
-    IPT_ALIGN(sizeof(struct ipt_tos_info)),
-    IPT_ALIGN(sizeof(struct ipt_tos_info)),
-    &help,
-    &init,
-    &parse,
-    &final_check,
-    &print,
-    &save,
-    opts
+static struct iptables_match tos = { 
+	.next		= NULL,
+	.name		= "tos",
+	.version	= IPTABLES_VERSION,
+	.size		= IPT_ALIGN(sizeof(struct ipt_tos_info)),
+	.userspacesize	= IPT_ALIGN(sizeof(struct ipt_tos_info)),
+	.help		= &help,
+	.parse		= &parse,
+	.final_check	= &final_check,
+	.print		= &print,
+	.save		= &save,
+	.extra_opts	= opts
 };
 
 void _init(void)

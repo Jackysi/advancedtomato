@@ -26,14 +26,6 @@ static struct option opts[] = {
 	{0}
 };
 
-/* Initialize the match. */
-static void
-init(struct ip6t_entry_match *m, unsigned int *nfcache)
-{
-	/* Can't cache this */
-	*nfcache |= NFC_UNKNOWN;
-}
-
 /* Function which parses command options; returns true if it
    ate an option */
 static int
@@ -65,20 +57,17 @@ static void save(const struct ip6t_ip6 *ip, const struct ip6t_entry_match *match
 
 }
 
-static
-struct ip6tables_match eui64
-= { NULL,
-    "eui64",
-    IPTABLES_VERSION,
-    IP6T_ALIGN(sizeof(int)),
-    IP6T_ALIGN(sizeof(int)),
-    &help,
-    &init,
-    &parse,
-    &final_check,
-    &print,
-    &save,
-    opts
+static struct ip6tables_match eui64 = {
+	.name 		= "eui64",
+	.version	= IPTABLES_VERSION,
+	.size		= IP6T_ALIGN(sizeof(int)),
+	.userspacesize	= IP6T_ALIGN(sizeof(int)),
+	.help		= &help,
+	.parse		= &parse,
+	.final_check	= &final_check,
+	.print		= &print,
+	.save		= &save,
+	.extra_opts	= opts,
 };
 
 void _init(void)

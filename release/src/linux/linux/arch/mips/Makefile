@@ -636,10 +636,12 @@ archclean:
 	$(MAKE) -C arch/$(ARCH)/tools clean
 	$(MAKE) -C arch/mips/baget clean
 	$(MAKE) -C arch/mips/lasat clean
+	$(MAKE) -C arch/mips/brcm-boards/bcm947xx/compressed clean
 
 archmrproper:
 	@$(MAKEBOOT) mrproper
 	$(MAKE) -C arch/$(ARCH)/tools mrproper
+	$(MAKE) -C arch/mips/brcm-boards/bcm947xx/compressed mrproper
 
 archdep:
 	if [ ! -f $(TOPDIR)/include/asm-$(ARCH)/offset.h ]; then \

@@ -34,11 +34,11 @@
  */
 
 /*
- * Modified by Vladimir Oleynik <andersen@codepoet.org> (C) 2003
- * - corretion "-" option usage
+ * Modified by Vladimir Oleynik <dzo@simtreas.ru> (C) 2003
+ * - correct "-" option usage
  * - multiple "-u unsetenv" support
  * - GNU long option support
- * - save errno after exec failed before bb_perror_msg()
+ * - use bb_default_error_retval
  */
 
 
@@ -47,26 +47,30 @@
 #include <stdlib.h>
 #include <errno.h>
 #include <unistd.h>
-#include <getopt.h>
+#include <getopt.h> /* struct option */
 #include "busybox.h"
 
-
+#if ENABLE_FEATURE_ENV_LONG_OPTIONS
 static const struct option env_long_options[] = {
 	{ "ignore-environment", 0, NULL, 'i' },
 	{ "unset", 1, NULL, 'u' },
 	{ 0, 0, 0, 0 }
 };
+#endif
 
-extern int env_main(int argc, char** argv)
+int env_main(int argc, char** argv)
 {
+	static char *cleanenv[1] = { NULL };
+
 	char **ep, *p;
-	char *cleanenv[1] = { NULL };
 	unsigned long opt;
-	llist_t *unset_env;
+	llist_t *unset_env = NULL;
 	extern char **environ;
 
-	bb_opt_complementaly = "u*";
+	bb_opt_complementally = "u::";
+#if ENABLE_FEATURE_ENV_LONG_OPTIONS
 	bb_applet_long_options = env_long_options;
+#endif
 
 	opt = bb_getopt_ulflags(argc, argv, "+iu:", &unset_env);
 
@@ -93,12 +97,10 @@ extern int env_main(int argc, char** argv)
 	}
 
 	if (*argv) {
-		int er;
-
 		execvp(*argv, argv);
-		er = errno;
-		bb_perror_msg("%s", *argv);     /* Avoid multibyte problems. */
-		return (er == ENOENT) ? 127 : 126;   /* SUSv3-mandated exit codes. */
+		/* SUSv3-mandated exit codes. */
+		bb_default_error_retval = (errno == ENOENT) ? 127 : 126;
+		bb_perror_msg_and_die("%s", *argv);
 	}
 
 	for (ep = environ; *ep; ep++) {

@@ -31,6 +31,7 @@
 #include "ip_common.h"
 
 #define NUD_VALID	(NUD_PERMANENT|NUD_NOARP|NUD_REACHABLE|NUD_PROBE|NUD_STALE|NUD_DELAY)
+#define MAX_ROUNDS	10
 
 static struct
 {
@@ -43,7 +44,6 @@ static struct
 	char *flushb;
 	int flushp;
 	int flushe;
-	struct rtnl_handle *rth;
 } filter;
 
 static void usage(void) __attribute__((noreturn));
@@ -86,36 +86,9 @@ int nud_state_a2n(unsigned *state, char *arg)
 	return 0;
 }
 
-char * nud_state_n2a(__u8 state, char *buf, int len)
-{
-	switch (state) {
-	case NUD_NONE:	
-		return "none";
-	case NUD_INCOMPLETE:	
-		return "incomplete";
-	case NUD_REACHABLE:	
-		return "reachable";
-	case NUD_STALE:	
-		return "stale";
-	case NUD_DELAY:	
-		return "delay";
-	case NUD_PROBE:	
-		return "probe";
-	case NUD_FAILED:	
-		return "failed";
-	case NUD_NOARP:	
-		return "noarp";
-	case NUD_PERMANENT:	
-		return "permanent";
-	default:	
-		snprintf(buf, len, "%x", state);
-		return buf;
-	}
-}
-
 static int flush_update(void)
 {
-	if (rtnl_send(filter.rth, filter.flushb, filter.flushp) < 0) {
+	if (rtnl_send(&rth, filter.flushb, filter.flushp) < 0) {
 		perror("Failed to send flush request\n");
 		return -1;
 	}
@@ -126,7 +99,6 @@ static int flush_update(void)
 
 static int ipneigh_modify(int cmd, int flags, int argc, char **argv)
 {
-	struct rtnl_handle rth;
 	struct {
 		struct nlmsghdr 	n;
 		struct ndmsg 		ndm;
@@ -193,15 +165,12 @@ static int ipneigh_modify(int cmd, int flags, int argc, char **argv)
 	addattr_l(&req.n, sizeof(req), NDA_DST, &dst.data, dst.bytelen);
 
 	if (lla && strcmp(lla, "null")) {
-		__u8 llabuf[16];
+		char llabuf[20];
 		int l;
 
 		l = ll_addr_a2n(llabuf, sizeof(llabuf), lla);
 		addattr_l(&req.n, sizeof(req), NDA_LLADDR, llabuf, l);
 	}
-
-	if (rtnl_open(&rth, 0) < 0)
-		exit(1);
 
 	ll_init_map(&rth);
 
@@ -213,11 +182,11 @@ static int ipneigh_modify(int cmd, int flags, int argc, char **argv)
 	if (rtnl_talk(&rth, &req.n, 0, 0, NULL, NULL, NULL) < 0)
 		exit(2);
 
-	exit(0);
+	return 0;
 }
 
 
-int print_neigh(struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
+int print_neigh(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
 {
 	FILE *fp = (FILE*)arg;
 	struct ndmsg *r = NLMSG_DATA(n);
@@ -249,7 +218,6 @@ int print_neigh(struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
              (r->ndm_family != AF_DECnet))
 		return 0;
 
-	memset(tb, 0, sizeof(tb));
 	parse_rtattr(tb, NDA_MAX, NDA_RTA(r), n->nlmsg_len - NLMSG_LENGTH(sizeof(*r)));
 
 	if (tb[NDA_DST]) {
@@ -278,7 +246,7 @@ int print_neigh(struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
 		memcpy(fn, n, n->nlmsg_len);
 		fn->nlmsg_type = RTM_DELNEIGH;
 		fn->nlmsg_flags = NLM_F_REQUEST;
-		fn->nlmsg_seq = ++filter.rth->seq;
+		fn->nlmsg_seq = ++rth.seq;
 		filter.flushp = (((char*)fn) + n->nlmsg_len) - filter.flushb;
 		filter.flushed++;
 		if (show_stats < 2)
@@ -315,9 +283,28 @@ int print_neigh(struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
 		       ci->ndm_confirmed/hz, ci->ndm_updated/hz);
 	}
 
+#ifdef NDA_PROBES
+	if (tb[NDA_PROBES] && show_stats) {
+		__u32 p = *(__u32 *) RTA_DATA(tb[NDA_PROBES]);
+		fprintf(fp, " probes %u", p);
+	}
+#endif
+
 	if (r->ndm_state) {
-		SPRINT_BUF(b1);
-		fprintf(fp, " nud %s", nud_state_n2a(r->ndm_state, b1, sizeof(b1)));
+		int nud = r->ndm_state;
+		fprintf(fp, " ");
+
+#define PRINT_FLAG(f) if (nud & NUD_##f) { \
+	nud &= ~NUD_##f; fprintf(fp, #f "%s", nud ? "," : ""); }
+		PRINT_FLAG(INCOMPLETE);
+		PRINT_FLAG(REACHABLE);
+		PRINT_FLAG(STALE);
+		PRINT_FLAG(DELAY);
+		PRINT_FLAG(PROBE);
+		PRINT_FLAG(FAILED);
+		PRINT_FLAG(NOARP);
+		PRINT_FLAG(PERMANENT);
+#undef PRINT_FLAG
 	}
 	fprintf(fp, "\n");
 
@@ -334,7 +321,6 @@ void ipneigh_reset_filter()
 int do_show_or_flush(int argc, char **argv, int flush)
 {
 	char *filter_dev = NULL;
-	struct rtnl_handle rth;
 	int state_given = 0;
 
 	ipneigh_reset_filter();
@@ -389,9 +375,6 @@ int do_show_or_flush(int argc, char **argv, int flush)
 		argc--; argv++;
 	}
 
-	if (rtnl_open(&rth, 0) < 0)
-		exit(1);
-
 	ll_init_map(&rth);
 
 	if (filter_dev) {
@@ -408,10 +391,9 @@ int do_show_or_flush(int argc, char **argv, int flush)
 		filter.flushb = flushb;
 		filter.flushp = 0;
 		filter.flushe = sizeof(flushb);
-		filter.rth = &rth;
 		filter.state &= ~NUD_FAILED;
 
-		for (;;) {
+		while (round < MAX_ROUNDS) {
 			if (rtnl_wilddump_request(&rth, filter.family, RTM_GETNEIGH) < 0) {
 				perror("Cannot send dump request");
 				exit(1);
@@ -437,6 +419,9 @@ int do_show_or_flush(int argc, char **argv, int flush)
 				fflush(stdout);
 			}
 		}
+		printf("*** Flush not complete bailing out after %d rounds\n",
+			MAX_ROUNDS);
+		return 1;
 	}
 
 	if (rtnl_wilddump_request(&rth, filter.family, RTM_GETNEIGH) < 0) {

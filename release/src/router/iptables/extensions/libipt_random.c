@@ -5,7 +5,7 @@
    License (GPL). Copies of the GPL can be obtained from:
    ftp://prep.ai.mit.edu/pub/gnu/GPL
 
-   2001-10-14 Fabrice MARIE <fabrice@celestix.com> : initial development.
+   2001-10-14 Fabrice MARIE <fabrice@netfilter.org> : initial development.
 */
 
 #include <stdio.h>
@@ -35,7 +35,7 @@ help(void)
 {
 	printf(
 "random v%s options:\n"
-"  [--average]     percent      The probability in percentage of the match\n"
+"  [--average      percent ]    The probability in percentage of the match\n"
 "                               If ommited, a probability of 50%% percent is set.\n"
 "                               Percentage must be within : 1 <= percent <= 99.\n\n",
 IPTABLES_VERSION);
@@ -51,7 +51,6 @@ static void
 init(struct ipt_entry_match *m, unsigned int *nfcache)
 {
 	struct ipt_rand_info *randinfo = (struct ipt_rand_info *)(m)->data;
-	*nfcache |= NFC_UNKNOWN;
 
 	/* We assign the average to be 50 which is our default value */
 	/* 50 * 2.55 = 128 */
@@ -130,19 +129,19 @@ save(const struct ipt_ip *ip, const struct ipt_entry_match *match)
 	printf("--average %u ", result.quot);
 }
 
-struct iptables_match rand_match
-= { NULL,
-    "random",
-    IPTABLES_VERSION,
-    IPT_ALIGN(sizeof(struct ipt_rand_info)),
-    IPT_ALIGN(sizeof(struct ipt_rand_info)),
-    &help,
-    &init,
-    &parse,
-    &final_check,
-    &print,
-    &save,
-    opts
+struct iptables_match rand_match = { 
+	.next		= NULL,
+	.name		= "random",
+	.version	= IPTABLES_VERSION,
+	.size		= IPT_ALIGN(sizeof(struct ipt_rand_info)),
+	.userspacesize	= IPT_ALIGN(sizeof(struct ipt_rand_info)),
+	.help		= &help,
+	.init		= &init,
+	.parse		= &parse,
+	.final_check	= &final_check,
+	.print		= &print,
+	.save		= &save,
+	.extra_opts	= opts
 };
 
 void _init(void)

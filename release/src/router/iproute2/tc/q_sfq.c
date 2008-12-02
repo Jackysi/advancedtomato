@@ -25,7 +25,7 @@
 
 static void explain(void)
 {
-	fprintf(stderr, "Usage: ... sfq [ perturb SECS ] [ quantum BYTES ]\n");
+	fprintf(stderr, "Usage: ... sfq [ limit NUMBER ] [ perturb SECS ] [ quantum BYTES ]\n");
 }
 
 #define usage() return(-1)
@@ -49,6 +49,17 @@ static int sfq_parse_opt(struct qdisc_util *qu, int argc, char **argv, struct nl
 			NEXT_ARG();
 			if (get_integer(&opt.perturb_period, *argv, 0)) {
 				fprintf(stderr, "Illegal \"perturb\"\n");
+				return -1;
+			}
+			ok++;
+		} else if (strcmp(*argv, "limit") == 0) {
+			NEXT_ARG();
+			if (get_u32(&opt.limit, *argv, 0)) {
+				fprintf(stderr, "Illegal \"limit\"\n");
+				return -1;
+			}
+			if (opt.limit < 2) {
+				fprintf(stderr, "Illegal \"limit\", must be > 1\n");
 				return -1;
 			}
 			ok++;
@@ -79,26 +90,18 @@ static int sfq_print_opt(struct qdisc_util *qu, FILE *f, struct rtattr *opt)
 	if (RTA_PAYLOAD(opt)  < sizeof(*qopt))
 		return -1;
 	qopt = RTA_DATA(opt);
+	fprintf(f, "limit %up ", qopt->limit);
 	fprintf(f, "quantum %s ", sprint_size(qopt->quantum, b1));
 	if (show_details) {
-		fprintf(f, "limit %up flows %u/%u ",
-			qopt->limit, qopt->flows, qopt->divisor);
+		fprintf(f, "flows %u/%u ", qopt->flows, qopt->divisor);
 	}
 	if (qopt->perturb_period)
 		fprintf(f, "perturb %dsec ", qopt->perturb_period);
 	return 0;
 }
 
-static int sfq_print_xstats(struct qdisc_util *qu, FILE *f, struct rtattr *xstats)
-{
-	return 0;
-}
-
-
-struct qdisc_util sfq_util = {
-	NULL,
-	"sfq",
-	sfq_parse_opt,
-	sfq_print_opt,
-	sfq_print_xstats,
+struct qdisc_util sfq_qdisc_util = {
+	.id		= "sfq",
+	.parse_qopt	= sfq_parse_opt,
+	.print_qopt	= sfq_print_opt,
 };

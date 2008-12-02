@@ -121,6 +121,12 @@ rb_root_t;
 extern void rb_insert_color(rb_node_t *, rb_root_t *);
 extern void rb_erase(rb_node_t *, rb_root_t *);
 
+/* Find logical next and previous nodes in a tree */
+extern rb_node_t *rb_next(rb_node_t *);
+extern rb_node_t *rb_prev(rb_node_t *);
+extern rb_node_t *rb_first(rb_root_t *);
+extern rb_node_t *rb_last(rb_root_t *);
+
 static inline void rb_link_node(rb_node_t * node, rb_node_t * parent, rb_node_t ** rb_link)
 {
 	node->rb_parent = parent;

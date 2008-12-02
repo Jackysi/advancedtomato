@@ -1,4 +1,4 @@
-/* Code to take an iptables-style command line and do it. */
+/* Code to take an ip6tables-style command line and do it. */
 
 /*
  * Author: Paul.Russell@rustcorp.com.au and mneuling@radlogic.com.au
@@ -50,10 +50,6 @@
 #define FALSE 0
 #endif
 
-#ifndef IP6T_LIB_DIR
-#define IP6T_LIB_DIR "/usr/local/lib/iptables"
-#endif
-
 #ifndef PROC_SYS_MODPROBE
 #define PROC_SYS_MODPROBE "/proc/sys/kernel/modprobe"
 #endif
@@ -85,8 +81,7 @@
 #define CMD_NEW_CHAIN		0x0100U
 #define CMD_DELETE_CHAIN	0x0200U
 #define CMD_SET_POLICY		0x0400U
-#define CMD_CHECK		0x0800U
-#define CMD_RENAME_CHAIN	0x1000U
+#define CMD_RENAME_CHAIN	0x0800U
 #define NUMBER_OF_CMD	13
 static const char cmdflags[] = { 'I', 'D', 'D', 'R', 'A', 'L', 'F', 'Z',
 				 'N', 'X', 'P', 'E' };
@@ -107,7 +102,7 @@ static const char cmdflags[] = { 'I', 'D', 'D', 'R', 'A', 'L', 'F', 'Z',
 #define OPT_COUNTERS	0x00400U
 #define NUMBER_OF_OPT	11
 static const char optflags[NUMBER_OF_OPT]
-= { 'n', 's', 'd', 'p', 'j', 'v', 'x', 'i', 'o', '3', 'c'};
+= { 'n', 's', 'd', 'p', 'j', 'v', 'x', 'i', 'o', '0', 'c'};
 
 static struct option original_opts[] = {
 	{ "append", 1, 0, 'A' },
@@ -119,7 +114,7 @@ static struct option original_opts[] = {
 	{ "zero", 2, 0,  'Z' },
 	{ "new-chain", 1, 0,  'N' },
 	{ "delete-chain", 2, 0,  'X' },
-	{ "rename-chain", 2, 0,  'E' },
+	{ "rename-chain", 1, 0,  'E' },
 	{ "policy", 1, 0,  'P' },
 	{ "source", 1, 0, 's' },
 	{ "destination", 1, 0,  'd' },
@@ -142,13 +137,11 @@ static struct option original_opts[] = {
 	{ 0 }
 };
 
-#ifndef __OPTIMIZE__
-struct ip6t_entry_target *
-ip6t_get_target(struct ip6t_entry *e)
-{
-	return (void *)e + e->target_offset;
-}
-#endif
+/* we need this for ip6tables-restore. ip6tables-restore.c sets line to the
+ * current line of the input file, in order to give a more precise error
+ * message. ip6tables itself doesn't need this, so it is initialized to the
+ * magic number of -1 */
+int line = -1;
 
 static struct option *opts = original_opts;
 static unsigned int global_option_offset = 0;
@@ -165,20 +158,19 @@ static unsigned int global_option_offset = 0;
 static char commands_v_options[NUMBER_OF_CMD][NUMBER_OF_OPT] =
 /* Well, it's better than "Re: Linux vs FreeBSD" */
 {
-	/*     -n  -s  -d  -p  -j  -v  -x  -i  -o  --line */
-/*INSERT*/    {'x',' ',' ',' ',' ',' ','x',' ',' ','x'},
-/*DELETE*/    {'x',' ',' ',' ',' ',' ','x',' ',' ','x'},
-/*DELETE_NUM*/{'x','x','x','x','x',' ','x','x','x','x'},
-/*REPLACE*/   {'x',' ',' ',' ',' ',' ','x',' ',' ','x'},
-/*APPEND*/    {'x',' ',' ',' ',' ',' ','x',' ',' ','x'},
-/*LIST*/      {' ','x','x','x','x',' ',' ','x','x',' '},
-/*FLUSH*/     {'x','x','x','x','x',' ','x','x','x','x'},
-/*ZERO*/      {'x','x','x','x','x',' ','x','x','x','x'},
-/*NEW_CHAIN*/ {'x','x','x','x','x',' ','x','x','x','x'},
-/*DEL_CHAIN*/ {'x','x','x','x','x',' ','x','x','x','x'},
-/*SET_POLICY*/{'x','x','x','x','x',' ','x','x','x','x'},
-/*CHECK*/     {'x','+','+','+','x',' ','x',' ',' ','x'},
-/*RENAME*/    {'x','x','x','x','x',' ','x','x','x','x'}
+	/*     -n  -s  -d  -p  -j  -v  -x  -i  -o  --line -c */
+/*INSERT*/    {'x',' ',' ',' ',' ',' ','x',' ',' ','x',' '},
+/*DELETE*/    {'x',' ',' ',' ',' ',' ','x',' ',' ','x','x'},
+/*DELETE_NUM*/{'x','x','x','x','x',' ','x','x','x','x','x'},
+/*REPLACE*/   {'x',' ',' ',' ',' ',' ','x',' ',' ','x',' '},
+/*APPEND*/    {'x',' ',' ',' ',' ',' ','x',' ',' ','x',' '},
+/*LIST*/      {' ','x','x','x','x',' ',' ','x','x',' ','x'},
+/*FLUSH*/     {'x','x','x','x','x',' ','x','x','x','x','x'},
+/*ZERO*/      {'x','x','x','x','x',' ','x','x','x','x','x'},
+/*NEW_CHAIN*/ {'x','x','x','x','x',' ','x','x','x','x','x'},
+/*DEL_CHAIN*/ {'x','x','x','x','x',' ','x','x','x','x','x'},
+/*SET_POLICY*/{'x','x','x','x','x',' ','x','x','x','x','x'},
+/*RENAME*/    {'x','x','x','x','x',' ','x','x','x','x','x'}
 };
 
 static int inverse_for_options[NUMBER_OF_OPT] =
@@ -192,11 +184,16 @@ static int inverse_for_options[NUMBER_OF_OPT] =
 /* -x */ 0,
 /* -i */ IP6T_INV_VIA_IN,
 /* -o */ IP6T_INV_VIA_OUT,
-/*--line*/ 0
+/*--line*/ 0,
+/* -c */ 0,
 };
 
 const char *program_version;
 const char *program_name;
+char *lib_dir;
+
+/* the path to command to load kernel module */
+const char *modprobe = NULL;
 
 /* Keeping track of external matches and targets: linked lists.  */
 struct ip6tables_match *ip6tables_matches = NULL;
@@ -214,14 +211,22 @@ struct pprot {
 
 /* Primitive headers... */
 /* defined in netinet/in.h */
+#if 0
+#ifndef IPPROTO_ESP
+#define IPPROTO_ESP 50
+#endif
+#ifndef IPPROTO_AH
+#define IPPROTO_AH 51
+#endif
+#endif
 
 static const struct pprot chain_protos[] = {
 	{ "tcp", IPPROTO_TCP },
 	{ "udp", IPPROTO_UDP },
 	{ "icmpv6", IPPROTO_ICMPV6 },
+	{ "ipv6-icmp", IPPROTO_ICMPV6 },
 	{ "esp", IPPROTO_ESP },
 	{ "ah", IPPROTO_AH },
-	{ "all", 0 },
 };
 
 static char *
@@ -242,11 +247,45 @@ proto_to_name(u_int8_t proto, int nolookup)
 	return NULL;
 }
 
+int
+service_to_port(const char *name, const char *proto)
+{
+	struct servent *service;
+
+	if ((service = getservbyname(name, proto)) != NULL)
+		return ntohs((unsigned short) service->s_port);
+
+	return -1;
+}
+
+u_int16_t
+parse_port(const char *port, const char *proto)
+{
+	unsigned int portnum;
+
+	if ((string_to_number(port, 0, 65535, &portnum)) != -1 ||
+	    (portnum = service_to_port(port, proto)) != -1)
+		return (u_int16_t)portnum;
+
+	exit_error(PARAMETER_PROBLEM,
+		   "invalid port/service `%s' specified", port);
+}
+
 static void
 in6addrcpy(struct in6_addr *dst, struct in6_addr *src)
 {
 	memcpy(dst, src, sizeof(struct in6_addr));
 	/* dst->s6_addr = src->s6_addr; */
+}
+
+static void free_opts(int reset_offset)
+{
+	if (opts != original_opts) {
+		free(opts);
+		opts = original_opts;
+		if (reset_offset)
+			global_option_offset = 0;
+	}
 }
 
 void
@@ -263,22 +302,27 @@ exit_error(enum exittype status, char *msg, ...)
 		exit_tryhelp(status);
 	if (status == VERSION_PROBLEM)
 		fprintf(stderr,
-			"Perhaps iptables or your kernel needs to be upgraded.\n");
+			"Perhaps ip6tables or your kernel needs to be upgraded.\n");
+	/* On error paths, make sure that we don't leak memory */
+	free_opts(1);
 	exit(status);
 }
 
 void
 exit_tryhelp(int status)
 {
+	if (line != -1)
+		fprintf(stderr, "Error occurred at line: %d\n", line);
 	fprintf(stderr, "Try `%s -h' or '%s --help' for more information.\n",
 			program_name, program_name );
+	free_opts(1);
 	exit(status);
 }
 
 void
-exit_printhelp(void)
+exit_printhelp(struct ip6tables_rule_match *matches)
 {
-	struct ip6tables_match *m = NULL;
+	struct ip6tables_rule_match *matchp = NULL;
 	struct ip6tables_target *t = NULL;
 
 	printf("%s v%s\n\n"
@@ -343,14 +387,16 @@ exit_printhelp(void)
 
 	/* Print out any special helps. A user might like to be able to add a --help 
 	   to the commandline, and see expected results. So we call help for all 
-	   matches & targets */
-	for (t=ip6tables_targets;t;t=t->next) {
-		printf("\n");
-		t->help();
+	   specified matches & targets */
+	for (t = ip6tables_targets; t; t = t->next) {
+		if (t->used) {
+			printf("\n");
+			t->help();
+		}
 	}
-	for (m=ip6tables_matches;m;m=m->next) {
+	for (matchp = matches; matchp; matchp = matchp->next) {
 		printf("\n");
-		m->help();
+		matchp->match->help();
 	}
 	exit(0);
 }
@@ -410,7 +456,8 @@ cmd2char(int option)
 }
 
 static void
-add_command(int *cmd, const int newcmd, const int othercmds, int invert)
+add_command(unsigned int *cmd, const int newcmd, const int othercmds,
+	    int invert)
 {
 	if (invert)
 		exit_error(PARAMETER_PROBLEM, "unexpected ! flag");
@@ -562,10 +609,13 @@ addr_to_host(const struct in6_addr *addr)
 static char *
 mask_to_numeric(const struct in6_addr *addrp)
 {
-	static char buf[20];
+	static char buf[50+2];
 	int l = ipv6_prefix_length(addrp);
-	if (l == -1)
-		return addr_to_numeric(addrp);
+	if (l == -1) {
+		strcpy(buf, "/");
+		strcat(buf, addr_to_numeric(addrp));
+		return buf;
+	}
 	sprintf(buf, "/%d", l);
 	return buf;
 }
@@ -656,6 +706,7 @@ parse_hostnetworkmask(const char *name, struct in6_addr **addrpp,
 	int i, j, n;
 
 	strncpy(buf, name, sizeof(buf) - 1);
+	buf[sizeof(buf) - 1] = '\0';
 	if ((p = strrchr(buf, '/')) != NULL) {
 		*p = '\0';
 		addrp = parse_mask(p + 1);
@@ -685,41 +736,50 @@ parse_hostnetworkmask(const char *name, struct in6_addr **addrpp,
 }
 
 struct ip6tables_match *
-find_match(const char *name, enum ip6t_tryload tryload)
+find_match(const char *match_name, enum ip6t_tryload tryload, struct ip6tables_rule_match **matches)
 {
 	struct ip6tables_match *ptr;
- 	int icmphack = 0;
+ 	const char *icmp6 = "icmp6";
+ 	const char *name;
   
 	/* This is ugly as hell. Nonetheless, there is no way of changing
 	 * this without hurting backwards compatibility */
- 	if ( (strcmp(name,"icmpv6") == 0) ||
- 	     (strcmp(name,"ipv6-icmp") == 0) ||
- 	     (strcmp(name,"icmp6") == 0) ) icmphack = 1;
+ 	if ( (strcmp(match_name,"icmpv6") == 0) ||
+ 	     (strcmp(match_name,"ipv6-icmp") == 0) ||
+ 	     (strcmp(match_name,"icmp6") == 0) )
+ 	     	name = icmp6;
+ 	else
+ 		name = match_name;
  
- 	if (!icmphack) {
- 		for (ptr = ip6tables_matches; ptr; ptr = ptr->next) {
- 			if (strcmp(name, ptr->name) == 0)
- 				break;
- 		}
- 	} else {
- 		for (ptr = ip6tables_matches; ptr; ptr = ptr->next) {
- 			if (strcmp("icmp6", ptr->name) == 0)
- 				break;
- 		}
-  	}
+	for (ptr = ip6tables_matches; ptr; ptr = ptr->next) {
+ 		if (strcmp(name, ptr->name) == 0) {
+			struct ip6tables_match *clone;
+			
+			/* First match of this type: */
+			if (ptr->m == NULL)
+				break;
+
+			/* Second and subsequent clones */
+			clone = fw_malloc(sizeof(struct ip6tables_match));
+			memcpy(clone, ptr, sizeof(struct ip6tables_match));
+			clone->mflags = 0;
+			/* This is a clone: */
+			clone->next = clone;
+
+			ptr = clone;
+			break;
+		}
+	}
 
 #ifndef NO_SHARED_LIBS
-	if (!ptr && tryload != DONT_LOAD) {
-		char path[sizeof(IP6T_LIB_DIR) + sizeof("/libip6t_.so")
+	if (!ptr && tryload != DONT_LOAD && tryload != DURING_LOAD) {
+		char path[strlen(lib_dir) + sizeof("/libip6t_.so")
 			 + strlen(name)];
-		if (!icmphack)
-			sprintf(path, IP6T_LIB_DIR "/libip6t_%s.so", name);
-		else
-			sprintf(path, IP6T_LIB_DIR "/libip6t_%s.so", "icmpv6");
+		sprintf(path, "%s/libip6t_%s.so", lib_dir, name);
 		if (dlopen(path, RTLD_NOW)) {
 			/* Found library.  If it didn't register itself,
 			   maybe they specified target as match. */
-			ptr = find_match(name, DONT_LOAD);
+			ptr = find_match(name, DONT_LOAD, NULL);
 
 			if (!ptr)
 				exit_error(PARAMETER_PROBLEM,
@@ -743,15 +803,28 @@ find_match(const char *name, enum ip6t_tryload tryload)
 	}
 #endif
 
-	if (ptr)
-		ptr->used = 1;
+	if (ptr && matches) {
+		struct ip6tables_rule_match **i;
+		struct ip6tables_rule_match *newentry;
+
+		newentry = fw_malloc(sizeof(struct ip6tables_rule_match));
+
+		for (i = matches; *i; i = &(*i)->next) {
+			if (strcmp(name, (*i)->match->name) == 0)
+				(*i)->completed = 1;
+		}
+		newentry->match = ptr;
+		newentry->completed = 0;
+		newentry->next = NULL;
+		*i = newentry;
+	}
 
 	return ptr;
 }
 
 /* Christophe Burki wants `-p 6' to imply `-m tcp'.  */
 static struct ip6tables_match *
-find_proto(const char *pname, enum ip6t_tryload tryload, int nolookup)
+find_proto(const char *pname, enum ip6t_tryload tryload, int nolookup, struct ip6tables_rule_match **matches)
 {
 	unsigned int proto;
 
@@ -759,9 +832,9 @@ find_proto(const char *pname, enum ip6t_tryload tryload, int nolookup)
 		char *protoname = proto_to_name(proto, nolookup);
 
 		if (protoname)
-			return find_match(protoname, tryload);
+			return find_match(protoname, tryload, matches);
 	} else
-		return find_match(pname, tryload);
+		return find_match(pname, tryload, matches);
 
 	return NULL;
 }
@@ -773,6 +846,13 @@ parse_protocol(const char *s)
 
 	if (string_to_number(s, 0, 255, &proto) == -1) {
 		struct protoent *pent;
+
+		/* first deal with the special case of 'all' to prevent
+		 * people from being able to redefine 'all' in nsswitch
+		 * and/or provoke expensive [not working] ldap/nis/... 
+		 * lookups */
+		if (!strcmp(s, "all"))
+			return 0;
 
 		if ((pent = getprotobyname(s)))
 			proto = pent->p_proto;
@@ -796,8 +876,18 @@ parse_protocol(const char *s)
 	return (u_int16_t)proto;
 }
 
-static void
-parse_interface(const char *arg, char *vianame, unsigned char *mask)
+/* proto means IPv6 extension header ? */
+static int is_exthdr(u_int16_t proto)
+{
+	return (proto == IPPROTO_HOPOPTS ||
+		proto == IPPROTO_ROUTING ||
+		proto == IPPROTO_FRAGMENT ||
+		proto == IPPROTO_ESP ||
+		proto == IPPROTO_AH ||
+		proto == IPPROTO_DSTOPTS);
+}
+
+void parse_interface(const char *arg, char *vianame, unsigned char *mask)
 {
 	int vialen = strlen(arg);
 	unsigned int i;
@@ -811,7 +901,7 @@ parse_interface(const char *arg, char *vianame, unsigned char *mask)
 			   " (%i)", arg, IFNAMSIZ-1);
 
 	strcpy(vianame, arg);
-	if (vialen == 0)
+	if ((vialen == 0) || (vialen == 1 && vianame[0] == '+'))
 		memset(mask, 0, IFNAMSIZ);
 	else if (vianame[vialen - 1] == '+') {
 		memset(mask, 0xFF, vialen - 1);
@@ -822,10 +912,10 @@ parse_interface(const char *arg, char *vianame, unsigned char *mask)
 		memset(mask, 0xFF, vialen + 1);
 		memset(mask + vialen + 1, 0, IFNAMSIZ - vialen - 1);
 		for (i = 0; vianame[i]; i++) {
-			if (!isalnum(vianame[i]) 
-			    && vianame[i] != '_' 
-			    && vianame[i] != '.') {
-				printf("Warning: wierd character in interface"
+			if (vianame[i] == ':' ||
+			    vianame[i] == '!' ||
+			    vianame[i] == '*') {
+				printf("Warning: weird character in interface"
 				       " `%s' (No aliases, :, ! or *).\n",
 				       vianame);
 				break;
@@ -858,8 +948,8 @@ parse_target(const char *targetname)
 
 	if (strlen(targetname)+1 > sizeof(ip6t_chainlabel))
 		exit_error(PARAMETER_PROBLEM,
-			   "Invalid target name `%s' (%i chars max)",
-			   targetname, sizeof(ip6t_chainlabel)-1);
+			   "Invalid target name `%s' (%u chars max)",
+			   targetname, (unsigned int)sizeof(ip6t_chainlabel)-1);
 
 	for (ptr = targetname; *ptr; ptr++)
 		if (isspace(*ptr))
@@ -869,23 +959,48 @@ parse_target(const char *targetname)
 }
 
 int
-string_to_number(const char *s, unsigned int min, unsigned int max,
-		 unsigned int *ret)
+string_to_number_ll(const char *s, unsigned long long min, unsigned long long max,
+		 unsigned long long *ret)
 {
-	long number;
+	unsigned long long number;
 	char *end;
 
 	/* Handle hex, octal, etc. */
 	errno = 0;
-	number = strtol(s, &end, 0);
+	number = strtoull(s, &end, 0);
 	if (*end == '\0' && end != s) {
 		/* we parsed a number, let's see if we want this */
-		if (errno != ERANGE && min <= number && number <= max) {
+		if (errno != ERANGE && min <= number && (!max || number <= max)) {
 			*ret = number;
 			return 0;
 		}
 	}
 	return -1;
+}
+
+int
+string_to_number_l(const char *s, unsigned long min, unsigned long max,
+		 unsigned long *ret)
+{
+	int result;
+	unsigned long long number;
+
+	result = string_to_number_ll(s, min, max, &number);
+	*ret = (unsigned long)number;
+
+	return result;
+}
+
+int string_to_number(const char *s, unsigned int min, unsigned int max,
+		unsigned int *ret)
+{
+	int result;
+	unsigned long number;
+
+	result = string_to_number_l(s, min, max, &number);
+	*ret = (unsigned int)number;
+
+	return result;
 }
 
 static void
@@ -928,10 +1043,10 @@ find_target(const char *name, enum ip6t_tryload tryload)
 	}
 
 #ifndef NO_SHARED_LIBS
-	if (!ptr && tryload != DONT_LOAD) {
-		char path[sizeof(IP6T_LIB_DIR) + sizeof("/libip6t_.so")
+	if (!ptr && tryload != DONT_LOAD && tryload != DURING_LOAD) {
+		char path[strlen(lib_dir) + sizeof("/libip6t_.so")
 			 + strlen(name)];
-		sprintf(path, IP6T_LIB_DIR "/libip6t_%s.so", name);
+		sprintf(path, "%s/libip6t_%s.so", lib_dir, name);
 		if (dlopen(path, RTLD_NOW)) {
 			/* Found library.  If it didn't register itself,
 			   maybe they specified match as a target. */
@@ -979,6 +1094,7 @@ merge_options(struct option *oldopts, const struct option *newopts,
 
 	merge = malloc(sizeof(struct option) * (num_new + num_old + 1));
 	memcpy(merge, oldopts, num_old * sizeof(struct option));
+	free_opts(0); /* Release previous options merged if any */
 	for (i = 0; i < num_new; i++) {
 		merge[num_old + i] = newopts[i];
 		merge[num_old + i].val += *option_offset;
@@ -988,10 +1104,53 @@ merge_options(struct option *oldopts, const struct option *newopts,
 	return merge;
 }
 
+static int compatible_revision(const char *name, u_int8_t revision, int opt)
+{
+	struct ip6t_get_revision rev;
+	socklen_t s = sizeof(rev);
+	int max_rev, sockfd;
+
+	sockfd = socket(AF_INET6, SOCK_RAW, IPPROTO_RAW);
+	if (sockfd < 0) {
+		fprintf(stderr, "Could not open socket to kernel: %s\n",
+			strerror(errno));
+		exit(1);
+	}
+
+	strcpy(rev.name, name);
+	rev.revision = revision;
+
+	load_ip6tables_ko(modprobe);
+
+	max_rev = getsockopt(sockfd, IPPROTO_IPV6, opt, &rev, &s);
+	if (max_rev < 0) {
+		/* Definitely don't support this? */
+		if (errno == EPROTONOSUPPORT) {
+			close(sockfd);
+			return 0;
+		} else if (errno == ENOPROTOOPT) {
+			close(sockfd);
+			/* Assume only revision 0 support (old kernel) */
+			return (revision == 0);
+		} else {
+			fprintf(stderr, "getsockopt failed strangely: %s\n",
+				strerror(errno));
+			exit(1);
+		}
+	}
+	close(sockfd);
+	return 1;
+}
+
+static int compatible_match_revision(const char *name, u_int8_t revision)
+{
+	return compatible_revision(name, revision, IP6T_SO_GET_REVISION_MATCH);
+}
+
 void
 register_match6(struct ip6tables_match *me)
 {
-	struct ip6tables_match **i;
+	struct ip6tables_match **i, *old;
 
 	if (strcmp(me->version, program_version) != 0) {
 		fprintf(stderr, "%s: match `%s' v%s (I'm v%s).\n",
@@ -999,15 +1158,39 @@ register_match6(struct ip6tables_match *me)
 		exit(1);
 	}
 
-	if (find_match(me->name, DONT_LOAD)) {
-		fprintf(stderr, "%s: match `%s' already registered.\n",
+	/* Revision field stole a char from name. */
+	if (strlen(me->name) >= IP6T_FUNCTION_MAXNAMELEN-1) {
+		fprintf(stderr, "%s: target `%s' has invalid name\n",
 			program_name, me->name);
 		exit(1);
 	}
 
+	old = find_match(me->name, DURING_LOAD, NULL);
+	if (old) {
+		if (old->revision == me->revision) {
+			fprintf(stderr,
+				"%s: match `%s' already registered.\n",
+				program_name, me->name);
+			exit(1);
+		}
+
+		/* Now we have two (or more) options, check compatibility. */
+		if (compatible_match_revision(old->name, old->revision)
+		    && old->revision > me->revision)
+			return;
+
+		/* Replace if compatible. */
+		if (!compatible_match_revision(me->name, me->revision))
+			return;
+
+		/* Delete old one. */
+		for (i = &ip6tables_matches; *i!=old; i = &(*i)->next);
+		*i = old->next;
+	}
+	
 	if (me->size != IP6T_ALIGN(me->size)) {
 		fprintf(stderr, "%s: match `%s' has invalid size %u.\n",
-			program_name, me->name, me->size);
+			program_name, me->name, (unsigned int)me->size);
 		exit(1);
 	}
 
@@ -1029,7 +1212,7 @@ register_target6(struct ip6tables_target *me)
 		exit(1);
 	}
 
-	if (find_target(me->name, DONT_LOAD)) {
+	if (find_target(me->name, DURING_LOAD)) {
 		fprintf(stderr, "%s: target `%s' already registered.\n",
 			program_name, me->name);
 		exit(1);
@@ -1037,7 +1220,7 @@ register_target6(struct ip6tables_target *me)
 
 	if (me->size != IP6T_ALIGN(me->size)) {
 		fprintf(stderr, "%s: target `%s' has invalid size %u.\n",
-			program_name, me->name, me->size);
+			program_name, me->name, (unsigned int)me->size);
 		exit(1);
 	}
 
@@ -1060,17 +1243,17 @@ print_num(u_int64_t number, unsigned int format)
 					number = (number + 500) / 1000;
 					if (number > 9999) {
 						number = (number + 500) / 1000;
-						printf(FMT("%4lluT ","%lluT "), number);
+						printf(FMT("%4lluT ","%lluT "), (unsigned long long)number);
 					}
-					else printf(FMT("%4lluG ","%lluG "), number);
+					else printf(FMT("%4lluG ","%lluG "), (unsigned long long)number);
 				}
-				else printf(FMT("%4lluM ","%lluM "), number);
+				else printf(FMT("%4lluM ","%lluM "), (unsigned long long)number);
 			} else
-				printf(FMT("%4lluK ","%lluK "), number);
+				printf(FMT("%4lluK ","%lluK "), (unsigned long long)number);
 		} else
-			printf(FMT("%5llu ","%llu "), number);
+			printf(FMT("%5llu ","%llu "), (unsigned long long)number);
 	} else
-		printf(FMT("%8llu ","%llu "), number);
+		printf(FMT("%8llu ","%llu "), (unsigned long long)number);
 }
 
 
@@ -1129,7 +1312,7 @@ print_match(const struct ip6t_entry_match *m,
 	    const struct ip6t_ip6 *ip,
 	    int numeric)
 {
-	struct ip6tables_match *match = find_match(m->u.user.name, TRY_LOAD);
+	struct ip6tables_match *match = find_match(m->u.user.name, TRY_LOAD, NULL);
 
 	if (match) {
 		if (match->print)
@@ -1260,7 +1443,7 @@ print_firewall(const struct ip6t_entry *fw,
 			target->print(&fw->ipv6, t, format & FMT_NUMERIC);
 	} else if (t->u.target_size != sizeof(*t))
 		printf("[%u bytes of unknown target data] ",
-		       t->u.target_size - sizeof(*t));
+		       (unsigned int)(t->u.target_size - sizeof(*t)));
 
 	if (!(format & FMT_NONEWLINE))
 		fputc('\n', stdout);
@@ -1347,20 +1530,16 @@ insert_entry(const ip6t_chainlabel chain,
 }
 
 static unsigned char *
-make_delete_mask(struct ip6t_entry *fw)
+make_delete_mask(struct ip6t_entry *fw, struct ip6tables_rule_match *matches)
 {
 	/* Establish mask for comparison */
 	unsigned int size;
-	struct ip6tables_match *m;
+	struct ip6tables_rule_match *matchp;
 	unsigned char *mask, *mptr;
 
 	size = sizeof(struct ip6t_entry);
-	for (m = ip6tables_matches; m; m = m->next) {
-		if (!m->used)
-			continue;
-
-		size += IP6T_ALIGN(sizeof(struct ip6t_entry_match)) + m->size;
-	}
+	for (matchp = matches; matchp; matchp = matchp->next)
+		size += IP6T_ALIGN(sizeof(struct ip6t_entry_match)) + matchp->match->size;
 
 	mask = fw_calloc(1, size
 			 + IP6T_ALIGN(sizeof(struct ip6t_entry_target))
@@ -1369,14 +1548,11 @@ make_delete_mask(struct ip6t_entry *fw)
 	memset(mask, 0xFF, sizeof(struct ip6t_entry));
 	mptr = mask + sizeof(struct ip6t_entry);
 
-	for (m = ip6tables_matches; m; m = m->next) {
-		if (!m->used)
-			continue;
-
+	for (matchp = matches; matchp; matchp = matchp->next) {
 		memset(mptr, 0xFF,
 		       IP6T_ALIGN(sizeof(struct ip6t_entry_match))
-		       + m->userspacesize);
-		mptr += IP6T_ALIGN(sizeof(struct ip6t_entry_match)) + m->size;
+		       + matchp->match->userspacesize);
+		mptr += IP6T_ALIGN(sizeof(struct ip6t_entry_match)) + matchp->match->size;
 	}
 
 	memset(mptr, 0xFF, 
@@ -1394,13 +1570,14 @@ delete_entry(const ip6t_chainlabel chain,
 	     unsigned int ndaddrs,
 	     const struct in6_addr daddrs[],
 	     int verbose,
-	     ip6tc_handle_t *handle)
+	     ip6tc_handle_t *handle,
+	     struct ip6tables_rule_match *matches)
 {
 	unsigned int i, j;
 	int ret = 1;
 	unsigned char *mask;
 
-	mask = make_delete_mask(fw);
+	mask = make_delete_mask(fw, matches);
 	for (i = 0; i < nsaddrs; i++) {
 		fw->ipv6.src = saddrs[i];
 		for (j = 0; j < ndaddrs; j++) {
@@ -1410,6 +1587,8 @@ delete_entry(const ip6t_chainlabel chain,
 			ret &= ip6tc_delete_entry(chain, fw, mask, handle);
 		}
 	}
+	free(mask);
+
 	return ret;
 }
 
@@ -1440,7 +1619,7 @@ for_each_chain(int (*fn)(const ip6t_chainlabel, int, ip6tc_handle_t *),
 	for (i = 0; i < chaincount; i++) {
 		if (!builtinstoo
 		    && ip6tc_builtin(chains + i*sizeof(ip6t_chainlabel),
-				    *handle))
+				    *handle) == 1)
 			continue;
 	        ret &= fn(chains + i*sizeof(ip6t_chainlabel), verbose, handle);
 	}
@@ -1543,15 +1722,17 @@ static char *get_modprobe(void)
 	int procfile;
 	char *ret;
 
+#define PROCFILE_BUFSIZ 1024
 	procfile = open(PROC_SYS_MODPROBE, O_RDONLY);
 	if (procfile < 0)
 		return NULL;
 
-	ret = malloc(1024);
+	ret = malloc(PROCFILE_BUFSIZ);
 	if (ret) {
-		switch (read(procfile, ret, 1024)) {
+		memset(ret, 0, PROCFILE_BUFSIZ);
+		switch (read(procfile, ret, PROCFILE_BUFSIZ)) {
 		case -1: goto fail;
-		case 1024: goto fail; /* Partial read.  Wierd */
+		case PROCFILE_BUFSIZ: goto fail; /* Partial read.  Wierd */
 		}
 		if (ret[strlen(ret)-1]=='\n') 
 			ret[strlen(ret)-1]=0;
@@ -1568,6 +1749,7 @@ int ip6tables_insmod(const char *modname, const char *modprobe)
 {
 	char *buf = NULL;
 	char *argv[3];
+	int status;
 
 	/* If they don't explicitly set it, read out of kernel */
 	if (!modprobe) {
@@ -1585,34 +1767,45 @@ int ip6tables_insmod(const char *modname, const char *modprobe)
 		execv(argv[0], argv);
 
 		/* not usually reached */
-		exit(0);
+		exit(1);
 	case -1:
 		return -1;
 
 	default: /* parent */
-		wait(NULL);
+		wait(&status);
 	}
 
 	free(buf);
-	return 0;
+	if (WIFEXITED(status) && WEXITSTATUS(status) == 0)
+		return 0;
+	return -1;
+}
+
+int load_ip6tables_ko(const char *modprobe)
+{
+	static int loaded = 0;
+	static int ret = -1;
+
+	if (!loaded) {
+		ret = ip6tables_insmod("ip6_tables", modprobe);
+		loaded = 1;
+	}
+
+	return ret;
 }
 
 static struct ip6t_entry *
 generate_entry(const struct ip6t_entry *fw,
-	       struct ip6tables_match *matches,
+	       struct ip6tables_rule_match *matches,
 	       struct ip6t_entry_target *target)
 {
 	unsigned int size;
-	struct ip6tables_match *m;
+	struct ip6tables_rule_match *matchp;
 	struct ip6t_entry *e;
 
 	size = sizeof(struct ip6t_entry);
-	for (m = matches; m; m = m->next) {
-		if (!m->used)
-			continue;
-
-		size += m->m->u.match_size;
-	}
+	for (matchp = matches; matchp; matchp = matchp->next)
+		size += matchp->match->m->u.match_size;
 
 	e = fw_malloc(size + target->u.target_size);
 	*e = *fw;
@@ -1620,16 +1813,42 @@ generate_entry(const struct ip6t_entry *fw,
 	e->next_offset = size + target->u.target_size;
 
 	size = 0;
-	for (m = matches; m; m = m->next) {
-		if (!m->used)
-			continue;
-
-		memcpy(e->elems + size, m->m, m->m->u.match_size);
-		size += m->m->u.match_size;
+	for (matchp = matches; matchp; matchp = matchp->next) {
+		memcpy(e->elems + size, matchp->match->m, matchp->match->m->u.match_size);
+		size += matchp->match->m->u.match_size;
 	}
 	memcpy(e->elems + size, target, target->u.target_size);
 
 	return e;
+}
+
+void clear_rule_matches(struct ip6tables_rule_match **matches)
+{
+	struct ip6tables_rule_match *matchp, *tmp;
+
+	for (matchp = *matches; matchp;) {
+		tmp = matchp->next;
+		if (matchp->match->m) {
+			free(matchp->match->m);
+			matchp->match->m = NULL;
+		}
+		if (matchp->match == matchp->match->next) {
+			free(matchp->match);
+			matchp->match = NULL;
+		}
+		free(matchp);
+		matchp = tmp;
+	}
+
+	*matches = NULL;
+}
+
+static void set_revision(char *name, u_int8_t revision)
+{
+	/* Old kernel sources don't have ".revision" field,
+	   but we stole a byte from name. */
+	name[IP6T_FUNCTION_MAXNAMELEN - 2] = '\0';
+	name[IP6T_FUNCTION_MAXNAMELEN - 1] = revision;
 }
 
 int do_command6(int argc, char *argv[], char **table, ip6tc_handle_t *handle)
@@ -1647,18 +1866,15 @@ int do_command6(int argc, char *argv[], char **table, ip6tc_handle_t *handle)
 	const char *pcnt = NULL, *bcnt = NULL;
 	int ret = 1;
 	struct ip6tables_match *m;
+	struct ip6tables_rule_match *matches = NULL;
+	struct ip6tables_rule_match *matchp;
 	struct ip6tables_target *target = NULL;
 	struct ip6tables_target *t;
 	const char *jumpto = "";
 	char *protocol = NULL;
-	const char *modprobe = NULL;
 	int proto_used = 0;
-	char icmp6p[] = "icmpv6";
 
 	memset(&fw, 0, sizeof(fw));
-
-	opts = original_opts;
-	global_option_offset = 0;
 
 	/* re-set optind to 0 in case do_command gets called
 	 * a second time */
@@ -1666,10 +1882,8 @@ int do_command6(int argc, char *argv[], char **table, ip6tc_handle_t *handle)
 
 	/* clear mflags in case do_command gets called a second time
 	 * (we clear the global list of all matches for security)*/
-	for (m = ip6tables_matches; m; m = m->next) {
+	for (m = ip6tables_matches; m; m = m->next)
 		m->mflags = 0;
-		m->used = 0;
-	}
 
 	for (t = ip6tables_targets; t; t = t->next) {
 		t->tflags = 0;
@@ -1755,10 +1969,10 @@ int do_command6(int argc, char *argv[], char **table, ip6tc_handle_t *handle)
 			break;
 
 		case 'N':
-			if (optarg && *optarg == '-')
+			if (optarg && (*optarg == '-' || *optarg == '!'))
 				exit_error(PARAMETER_PROBLEM,
 					   "chain name not allowed to start "
-					   "with `-'\n");
+					   "with `%c'\n", *optarg);
 			if (find_target(optarg, TRY_LOAD))
 				exit_error(PARAMETER_PROBLEM,
 					   "chain name may not clash "
@@ -1808,11 +2022,11 @@ int do_command6(int argc, char *argv[], char **table, ip6tc_handle_t *handle)
 			if (!optarg)
 				optarg = argv[optind];
 
-			/* iptables -p icmp -h */
-			if (!ip6tables_matches && protocol)
-				find_match(protocol, TRY_LOAD);
+			/* ip6tables -p icmp -h */
+			if (!matches && protocol)
+				find_match(protocol, TRY_LOAD, &matches);
 
-			exit_printhelp();
+			exit_printhelp(matches);
 
 			/*
 			 * Option selection
@@ -1827,8 +2041,6 @@ int do_command6(int argc, char *argv[], char **table, ip6tc_handle_t *handle)
 				*protocol = tolower(*protocol);
 
 			protocol = argv[optind-1];
-			if ( strcmp(protocol,"ipv6-icmp") == 0)
-				protocol = icmp6p;
 			fw.ipv6.proto = parse_protocol(protocol);
 			fw.ipv6.flags |= IP6T_F_PROTO;
 
@@ -1836,7 +2048,11 @@ int do_command6(int argc, char *argv[], char **table, ip6tc_handle_t *handle)
 			    && (fw.ipv6.invflags & IP6T_INV_PROTO))
 				exit_error(PARAMETER_PROBLEM,
 					   "rule would never match protocol");
-			fw.nfcache |= NFC_IP6_PROTO;
+			
+			if (fw.ipv6.proto != IPPROTO_ESP &&
+			    is_exthdr(fw.ipv6.proto))
+				printf("Warning: never matched protocol: %s. "
+				       "use exension match instead.", protocol);
 			break;
 
 		case 's':
@@ -1844,7 +2060,6 @@ int do_command6(int argc, char *argv[], char **table, ip6tc_handle_t *handle)
 			set_option(&options, OPT_SOURCE, &fw.ipv6.invflags,
 				   invert);
 			shostnetworkmask = argv[optind-1];
-			fw.nfcache |= NFC_IP6_SRC;
 			break;
 
 		case 'd':
@@ -1852,7 +2067,6 @@ int do_command6(int argc, char *argv[], char **table, ip6tc_handle_t *handle)
 			set_option(&options, OPT_DESTINATION, &fw.ipv6.invflags,
 				   invert);
 			dhostnetworkmask = argv[optind-1];
-			fw.nfcache |= NFC_IP6_DST;
 			break;
 
 		case 'j':
@@ -1871,7 +2085,8 @@ int do_command6(int argc, char *argv[], char **table, ip6tc_handle_t *handle)
 				target->t = fw_calloc(1, size);
 				target->t->u.target_size = size;
 				strcpy(target->t->u.user.name, jumpto);
-				target->init(target->t, &fw.nfcache);
+				if (target->init != NULL)
+					target->init(target->t, &fw.nfcache);
 				opts = merge_options(opts, target->extra_opts, &target->option_offset);
 			}
 			break;
@@ -1884,7 +2099,6 @@ int do_command6(int argc, char *argv[], char **table, ip6tc_handle_t *handle)
 			parse_interface(argv[optind-1],
 					fw.ipv6.iniface,
 					fw.ipv6.iniface_mask);
-			fw.nfcache |= NFC_IP6_IF_IN;
 			break;
 
 		case 'o':
@@ -1894,7 +2108,6 @@ int do_command6(int argc, char *argv[], char **table, ip6tc_handle_t *handle)
 			parse_interface(argv[optind-1],
 					fw.ipv6.outiface,
 					fw.ipv6.outiface_mask);
-			fw.nfcache |= NFC_IP6_IF_OUT;
 			break;
 
 		case 'v':
@@ -1911,14 +2124,18 @@ int do_command6(int argc, char *argv[], char **table, ip6tc_handle_t *handle)
 				exit_error(PARAMETER_PROBLEM,
 					   "unexpected ! flag before --match");
 
-			m = find_match(optarg, LOAD_MUST_SUCCEED);
+			m = find_match(optarg, LOAD_MUST_SUCCEED, &matches);
 			size = IP6T_ALIGN(sizeof(struct ip6t_entry_match))
 					 + m->size;
 			m->m = fw_calloc(1, size);
 			m->m->u.match_size = size;
 			strcpy(m->m->u.user.name, m->name);
-			m->init(m->m, &fw.nfcache);
-			opts = merge_options(opts, m->extra_opts, &m->option_offset);
+			set_revision(m->m->u.user.name, m->revision);
+			if (m->init != NULL)
+				m->init(m->m, &fw.nfcache);
+			if (m != m->next)
+				/* Merge options for non-cloned matches */
+				opts = merge_options(opts, m->extra_opts, &m->option_offset);
 		}
 		break;
 
@@ -1969,12 +2186,12 @@ int do_command6(int argc, char *argv[], char **table, ip6tc_handle_t *handle)
 					"-%c requires packet and byte counter",
 					opt2char(OPT_COUNTERS));
 
-			if (sscanf(pcnt, "%llu", &fw.counters.pcnt) != 1)
+			if (sscanf(pcnt, "%llu", (unsigned long long *)&fw.counters.pcnt) != 1)
 				exit_error(PARAMETER_PROBLEM,
 					"-%c packet counter not numeric",
 					opt2char(OPT_COUNTERS));
 
-			if (sscanf(bcnt, "%llu", &fw.counters.bcnt) != 1)
+			if (sscanf(bcnt, "%llu", (unsigned long long *)&fw.counters.bcnt) != 1)
 				exit_error(PARAMETER_PROBLEM,
 					"-%c byte counter not numeric",
 					opt2char(OPT_COUNTERS));
@@ -2001,24 +2218,24 @@ int do_command6(int argc, char *argv[], char **table, ip6tc_handle_t *handle)
 					       argv, invert,
 					       &target->tflags,
 					       &fw, &target->t))) {
-				for (m = ip6tables_matches; m; m = m->next) {
-					if (!m->used)
+				for (matchp = matches; matchp; matchp = matchp->next) {
+					if (matchp->completed) 
 						continue;
-
-					if (m->parse(c - m->option_offset,
+					if (matchp->match->parse(c - matchp->match->option_offset,
 						     argv, invert,
-						     &m->mflags,
+						     &matchp->match->mflags,
 						     &fw,
 						     &fw.nfcache,
-						     &m->m))
+						     &matchp->match->m))
 						break;
 				}
+				m = matchp ? matchp->match : NULL;
 
 				/* If you listen carefully, you can
 				   actually hear this code suck. */
 
 				/* some explanations (after four different bugs
-				 * in 3 different releases): If we encountere a
+				 * in 3 different releases): If we encounter a
 				 * parameter, that has not been parsed yet,
 				 * it's not an option of an explicitly loaded
 				 * match or a target.  However, we support
@@ -2033,20 +2250,20 @@ int do_command6(int argc, char *argv[], char **table, ip6tc_handle_t *handle)
 				 * - a protocol has been specified
 				 * - the protocol extension has not been
 				 *   loaded yet, or is loaded and unused
-				 *   [think of iptables-restore!]
+				 *   [think of ip6tables-restore!]
 				 * - the protocol extension can be successively
 				 *   loaded
 				 */
 				if (m == NULL
 				    && protocol
 				    && (!find_proto(protocol, DONT_LOAD,
-						   options&OPT_NUMERIC) 
+						   options&OPT_NUMERIC, NULL) 
 					|| (find_proto(protocol, DONT_LOAD,
-							options&OPT_NUMERIC)
+							options&OPT_NUMERIC, NULL)
 					    && (proto_used == 0))
 				       )
 				    && (m = find_proto(protocol, TRY_LOAD,
-						       options&OPT_NUMERIC))) {
+						       options&OPT_NUMERIC, &matches))) {
 					/* Try loading protocol */
 					size_t size;
 					
@@ -2058,7 +2275,10 @@ int do_command6(int argc, char *argv[], char **table, ip6tc_handle_t *handle)
 					m->m = fw_calloc(1, size);
 					m->m->u.match_size = size;
 					strcpy(m->m->u.user.name, m->name);
-					m->init(m->m, &fw.nfcache);
+					set_revision(m->m->u.user.name,
+						     m->revision);
+					if (m->init != NULL)
+						m->init(m->m, &fw.nfcache);
 
 					opts = merge_options(opts,
 					    m->extra_opts, &m->option_offset);
@@ -2076,12 +2296,8 @@ int do_command6(int argc, char *argv[], char **table, ip6tc_handle_t *handle)
 		invert = FALSE;
 	}
 
-	for (m = ip6tables_matches; m; m = m->next) {
-		if (!m->used)
-			continue;
-
-		m->final_check(m->mflags);
-	}
+	for (matchp = matches; matchp; matchp = matchp->next)
+		matchp->match->final_check(matchp->match->mflags);
 
 	if (target)
 		target->final_check(target->tflags);
@@ -2132,11 +2348,9 @@ int do_command6(int argc, char *argv[], char **table, ip6tc_handle_t *handle)
 	if (!*handle)
 		*handle = ip6tc_init(*table);
 
-	if (!*handle) {
-		/* try to insmod the module if iptc_init failed */
-		ip6tables_insmod("ip6_tables", modprobe);
+	/* try to insmod the module if iptc_init failed */
+	if (!*handle && load_ip6tables_ko(modprobe) != -1)
 		*handle = ip6tc_init(*table);
-	}
 
 	if (!*handle)
 		exit_error(VERSION_PROBLEM,
@@ -2171,6 +2385,9 @@ int do_command6(int argc, char *argv[], char **table, ip6tc_handle_t *handle)
 			printf("Warning: using chain %s, not extension\n",
 			       jumpto);
 
+			if (target->t)
+				free(target->t);
+
 			target = NULL;
 		}
 
@@ -2189,7 +2406,8 @@ int do_command6(int argc, char *argv[], char **table, ip6tc_handle_t *handle)
 			target->t = fw_calloc(1, size);
 			target->t->u.target_size = size;
 			strcpy(target->t->u.user.name, jumpto);
-			target->init(target->t, &fw.nfcache);
+			if (target->init != NULL)
+				target->init(target->t, &fw.nfcache);
 		}
 
 		if (!target) {
@@ -2199,7 +2417,8 @@ int do_command6(int argc, char *argv[], char **table, ip6tc_handle_t *handle)
 			 * chain. */
 			find_target(jumpto, LOAD_MUST_SUCCEED);
 		} else {
-			e = generate_entry(&fw, ip6tables_matches, target->t);
+			e = generate_entry(&fw, matches, target->t);
+			free(target->t);
 		}
 	}
 
@@ -2214,7 +2433,7 @@ int do_command6(int argc, char *argv[], char **table, ip6tc_handle_t *handle)
 		ret = delete_entry(chain, e,
 				   nsaddrs, saddrs, ndaddrs, daddrs,
 				   options&OPT_VERBOSE,
-				   handle);
+				   handle, matches);
 		break;
 	case CMD_DELETE_NUM:
 		ret = ip6tc_delete_num_entry(chain, rulenum - 1, handle);
@@ -2274,6 +2493,21 @@ int do_command6(int argc, char *argv[], char **table, ip6tc_handle_t *handle)
 
 	if (verbose > 1)
 		dump_entries6(*handle);
+
+	clear_rule_matches(&matches);
+
+	if (e != NULL) {
+		free(e);
+		e = NULL;
+	}
+
+	for (c = 0; c < nsaddrs; c++)
+		free(&saddrs[c]);
+
+	for (c = 0; c < ndaddrs; c++)
+		free(&daddrs[c]);
+
+	free_opts(1);
 
 	return ret;
 }

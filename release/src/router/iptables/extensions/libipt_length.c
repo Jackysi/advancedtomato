@@ -25,13 +25,6 @@ static struct option opts[] = {
 	{0}
 };
 
-/* Initialize the match. */
-static void
-init(struct ipt_entry_match *m, unsigned int *nfcache)
-{
-	*nfcache |= NFC_UNKNOWN;
-}
-
 static u_int16_t
 parse_length(const char *s)
 {
@@ -112,7 +105,7 @@ static void
 print_length(struct ipt_length_info *info)
 {
 	if (info->invert)
-		fputc('!', stdout);
+		printf("! ");
 	
 	if (info->max == info->min)
 		printf("%u ", info->min);
@@ -138,20 +131,18 @@ save(const struct ipt_ip *ip, const struct ipt_entry_match *match)
 	print_length((struct ipt_length_info *)match->data);
 }
 
-static
-struct iptables_match length
-= { NULL,
-    "length",
-    IPTABLES_VERSION,
-    IPT_ALIGN(sizeof(struct ipt_length_info)),
-    IPT_ALIGN(sizeof(struct ipt_length_info)),
-    &help,
-    &init,
-    &parse,
-    &final_check,
-    &print,
-    &save,
-    opts
+static struct iptables_match length = { 
+	.next		= NULL,
+	.name		= "length",
+	.version	= IPTABLES_VERSION,
+	.size		= IPT_ALIGN(sizeof(struct ipt_length_info)),
+	.userspacesize	= IPT_ALIGN(sizeof(struct ipt_length_info)),
+	.help		= &help,
+	.parse		= &parse,
+	.final_check	= &final_check,
+	.print		= &print,
+	.save		= &save,
+	.extra_opts	= opts
 };
 
 void _init(void)

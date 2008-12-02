@@ -77,13 +77,13 @@ struct ip_ct_gre_expect {
 };
 
 #ifdef __KERNEL__
+struct ip_conntrack_expect;
 
 /* structure for original <-> reply keymap */
 struct ip_ct_gre_keymap {
 	struct list_head list;
 
 	struct ip_conntrack_tuple tuple;
-	struct ip_conntrack_expect *master;
 };
 
 
@@ -96,6 +96,8 @@ int ip_ct_gre_keymap_add(struct ip_conntrack_expect *exp,
 void ip_ct_gre_keymap_change(struct ip_ct_gre_keymap *km,
 			     struct ip_conntrack_tuple *t);
 
+/* delete keymap entries */
+void ip_ct_gre_keymap_destroy(struct ip_conntrack_expect *exp);
 
 
 /* get pointer to gre key, if present */

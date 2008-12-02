@@ -22,6 +22,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <string.h>
+#include <errno.h>
 
 #include "SNAPSHOT.h"
 #include "utils.h"
@@ -31,7 +32,11 @@ int preferred_family = AF_UNSPEC;
 int show_stats = 0;
 int resolve_hosts = 0;
 int oneline = 0;
+int timestamp = 0;
 char * _SL_ = NULL;
+char *batch_file = NULL;
+int force = 0;
+struct rtnl_handle rth;
 
 static void usage(void) __attribute__((noreturn));
 
@@ -39,12 +44,97 @@ static void usage(void)
 {
 	fprintf(stderr,
 "Usage: ip [ OPTIONS ] OBJECT { COMMAND | help }\n"
-"where  OBJECT := { link | addr | route | rule | neigh | tunnel |\n"
-"                   maddr | mroute | monitor }\n"
+"       ip [ -force ] [-batch filename\n"
+"where  OBJECT := { link | addr | route | rule | neigh | ntable | tunnel |\n"
+"                   maddr | mroute | monitor | xfrm }\n"
 "       OPTIONS := { -V[ersion] | -s[tatistics] | -r[esolve] |\n"
-"                    -f[amily] { inet | inet6 | ipx | dnet | link } | -o[neline] }\n");
+"                    -f[amily] { inet | inet6 | ipx | dnet | link } |\n"
+"                    -o[neline] | -t[imestamp] }\n");
 	exit(-1);
 }
+
+static int do_help(int argc, char **argv)
+{
+	usage();
+}
+
+static const struct cmd {
+	const char *cmd;
+	int (*func)(int argc, char **argv);
+} cmds[] = {
+	{ "address", 	do_ipaddr },
+	{ "maddress",	do_multiaddr },
+	{ "route",	do_iproute },
+	{ "rule",	do_iprule },
+	{ "neighbor",	do_ipneigh },
+	{ "neighbour",	do_ipneigh },
+	{ "ntable",	do_ipntable },
+	{ "ntbl",	do_ipntable },
+	{ "link",	do_iplink },
+	{ "tunnel",	do_iptunnel },
+	{ "tunl",	do_iptunnel },
+	{ "monitor",	do_ipmonitor },
+	{ "xfrm",	do_xfrm },
+	{ "mroute",	do_multiroute },
+	{ "help",	do_help },
+	{ 0 }
+};
+
+static int do_cmd(const char *argv0, int argc, char **argv)
+{
+	const struct cmd *c;
+
+	for (c = cmds; c->cmd; ++c) {
+		if (matches(argv0, c->cmd) == 0)
+			return c->func(argc-1, argv+1);
+	}
+
+	fprintf(stderr, "Object \"%s\" is unknown, try \"ip help\".\n", argv0);
+	return -1;
+}
+
+static int batch(const char *name)
+{
+	char *line = NULL;
+	size_t len = 0;
+	int ret = 0;
+	int lineno = 0;
+
+	if (name && strcmp(name, "-") != 0) {
+		if (freopen(name, "r", stdin) == NULL) {
+			fprintf(stderr, "Cannot open file \"%s\" for reading: %s=n",
+				name, strerror(errno));
+			return -1;
+		}
+	}
+
+	if (rtnl_open(&rth, 0) < 0) {
+		fprintf(stderr, "Cannot open rtnetlink\n");
+		return -1;
+	}
+
+	while (getcmdline(&line, &len, stdin) != -1) {
+		char *largv[100];
+		int largc;
+
+		largc = makeargs(line, largv, 100);
+		if (largc == 0)
+			continue;	/* blank line */
+
+		if (do_cmd(largv[0], largc, largv)) {
+			fprintf(stderr, "Command failed %s:%d\n", name, lineno);
+			ret = 1;
+			if (!force)
+				break;
+		}
+	}
+	if (line)
+		free(line);
+
+	rtnl_close(&rth);
+	return ret;
+}
+
 
 int main(int argc, char **argv)
 {
@@ -102,6 +192,8 @@ int main(int argc, char **argv)
 			++resolve_hosts;
 		} else if (matches(opt, "-oneline") == 0) {
 			++oneline;
+		} else if (matches(opt, "-timestamp") == 0) {
+			++timestamp;
 #if 0
 		} else if (matches(opt, "-numeric") == 0) {
 			rtnl_names_numeric++;
@@ -109,6 +201,14 @@ int main(int argc, char **argv)
 		} else if (matches(opt, "-Version") == 0) {
 			printf("ip utility, iproute2-ss%s\n", SNAPSHOT);
 			exit(0);
+		} else if (matches(opt, "-force") == 0) {
+			++force;
+		} else if (matches(opt, "-batch") == 0) {
+			argc--;
+			argv++;
+			if (argc <= 1)
+				usage();
+			batch_file = argv[1];
 		} else if (matches(opt, "-help") == 0) {
 			usage();
 		} else {
@@ -120,48 +220,18 @@ int main(int argc, char **argv)
 
 	_SL_ = oneline ? "\\" : "\n" ;
 
-	if (strcmp(basename, "ipaddr") == 0)
-		return do_ipaddr(argc-1, argv+1);
-	if (strcmp(basename, "ipmaddr") == 0)
-		return do_multiaddr(argc-1, argv+1);
-	if (strcmp(basename, "iproute") == 0)
-		return do_iproute(argc-1, argv+1);
-	if (strcmp(basename, "iprule") == 0)
-		return do_iprule(argc-1, argv+1);
-	if (strcmp(basename, "ipneigh") == 0)
-		return do_ipneigh(argc-1, argv+1);
-	if (strcmp(basename, "iplink") == 0)
-		return do_iplink(argc-1, argv+1);
-	if (strcmp(basename, "iptunnel") == 0)
-		return do_iptunnel(argc-1, argv+1);
-	if (strcmp(basename, "ipmonitor") == 0)
-		return do_ipmonitor(argc-1, argv+1);
+	if (batch_file) 
+		return batch(batch_file);
+		
+	if (rtnl_open(&rth, 0) < 0)
+		exit(1);
 
-	if (argc > 1) {
-		if (matches(argv[1], "address") == 0)
-			return do_ipaddr(argc-2, argv+2);
-		if (matches(argv[1], "maddress") == 0)
-			return do_multiaddr(argc-2, argv+2);
-		if (matches(argv[1], "route") == 0)
-			return do_iproute(argc-2, argv+2);
-		if (matches(argv[1], "rule") == 0)
-			return do_iprule(argc-2, argv+2);
-		if (matches(argv[1], "mroute") == 0)
-			return do_multiroute(argc-2, argv+2);
-		if (matches(argv[1], "neighbor") == 0 ||
-		    matches(argv[1], "neighbour") == 0)
-			return do_ipneigh(argc-2, argv+2);
-		if (matches(argv[1], "link") == 0)
-			return do_iplink(argc-2, argv+2);
-		if (matches(argv[1], "tunnel") == 0 ||
-		    strcmp(argv[1], "tunl") == 0)
-			return do_iptunnel(argc-2, argv+2);
-		if (matches(argv[1], "monitor") == 0)
-			return do_ipmonitor(argc-2, argv+2);
-		if (matches(argv[1], "help") == 0)
-			usage();
-		fprintf(stderr, "Object \"%s\" is unknown, try \"ip help\".\n", argv[1]);
-		exit(-1);
-	}
+	if (strlen(basename) > 2) 
+		return do_cmd(basename+2, argc, argv);
+
+	if (argc > 1) 
+		return do_cmd(argv[1], argc-1, argv+1);
+
+	rtnl_close(&rth);
 	usage();
 }

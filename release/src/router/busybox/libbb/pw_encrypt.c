@@ -2,7 +2,7 @@
 /*
  * Utility routine.
  *
- * Copyright (C) 1999-2003 by Erik Andersen <andersen@codepoet.org>
+ * Copyright (C) 1999-2004 by Erik Andersen <andersen@codepoet.org>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -20,12 +20,12 @@
  *
  */
 
+#include "libbb.h"
 #include <string.h>
 #include <crypt.h>
-#include "libbb.h"
 
 
-extern char *pw_encrypt(const char *clear, const char *salt)
+char *pw_encrypt(const char *clear, const char *salt)
 {
 	static char cipher[128];
 	char *cp;

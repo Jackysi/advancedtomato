@@ -5,19 +5,7 @@
  * Copyright (c) 1980, 1987
  *	The Regents of the University of California.  All rights reserved.
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+ * Licensed under the GPL v2 or later, see the file LICENSE in this tarball.
  *
  * Original copyright notice is retained at the end of this file.
  *
@@ -25,105 +13,83 @@
  * Badly hacked by Tito Ragusa <farmatito@tiscali.it>
  */
 
+#include "busybox.h"
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 #include <getopt.h>
-#include <unistd.h>
 #include <ctype.h>
-#include "busybox.h"
 
-#define ISSTR(ch)	(isprint(ch) || ch == '\t')
+#define WHOLE_FILE		1
+#define PRINT_NAME		2
+#define PRINT_OFFSET	4
+#define SIZE			8
 
 int strings_main(int argc, char **argv)
 {
-	int n=4, c, i, opt=0, a=0, status=EXIT_SUCCESS;
-	long t=0, count;
-	FILE *file;
-	char *string=NULL;
+	int n, c, i = 0, status = EXIT_SUCCESS;
+	unsigned long opt;
+	unsigned long count;
+	FILE *file = stdin;
+	char *string;
+	const char *fmt = "%s: ";
+	char *n_arg = "4";
 
-	while ((i = getopt(argc, argv, "afon:")) > 0)
-		switch(i)
-		{
-			case 'a':
-				break;
-			case 'f':
-				opt+=1;
-				break;
-			case 'o':
-				opt+=2;
-				break;
-			case 'n':
-				n = bb_xgetlarg(optarg, 10, 1, INT_MAX);
-				break;
-			default:
-				bb_show_usage();
-		}
+	opt = bb_getopt_ulflags(argc, argv, "afon:", &n_arg);
+	/* -a is our default behaviour */
 
 	argc -= optind;
 	argv += optind;
 
-	i=0;
+	n = bb_xgetlarg(n_arg, 10, 1, INT_MAX);
+	string = xzalloc(n + 1);
+	n--;
 
-	string=xmalloc(n+1);
-	string[n]='\0';
-	n-=1;
-
-	if(!argc )
-	{
-		file = stdin;
-		goto pipe;
+	if (argc == 0) {
+		fmt = "{%s}: ";
+		*argv = (char *)bb_msg_standard_input;
+		goto PIPE;
 	}
 
-	for(a=0;a<argc;a++)
-	{
-		if((file=fopen(argv[a],"r")))
-		{
-pipe:
-
-			count=0;
-			do
-			{
-				c=fgetc(file);
-				if(ISSTR(c))
-				{
-					if(i==0)
-						t=count;
-					if(i<=n)
-						string[i]=c;
-					if(i==n)
-					{
-						if(opt == 1 || opt == 3 )
-							printf("%s: ", (!argv[a])? "{stdin}" : argv[a]);
-						if(opt >= 2 )
-							printf("%7lo ", t);
+	do {
+		if ((file = bb_wfopen(*argv, "r"))) {
+PIPE:
+			count = 0;
+			do {
+				c = fgetc(file);
+				if (isprint(c) || c == '\t') {
+					if (i <= n) {
+						string[i] = c;
+					} else {
+						putchar(c);
+					}
+					if (i == n) {
+						if (opt & PRINT_NAME) {
+							printf(fmt, *argv);
+						}
+						if (opt & PRINT_OFFSET) {
+							printf("%7lo ", count - n);
+						}
 						printf("%s", string);
 					}
-					if(i>n)
-						putchar(c);
 					i++;
-				}
-				else
-				{
-					if(i>n)
-						puts("");
-					i=0;
+				} else {
+					if (i > n) {
+						putchar('\n');
+					}
+					i = 0;
 				}
 				count++;
-			}
-			while(c!=EOF);
+			} while (c != EOF);
+			bb_fclose_nonstdin(file);
+		} else {
+			status = EXIT_FAILURE;
+		}
+	} while (--argc > 0);
 
-			if(file!=stdin)
-				fclose(file);
-		}
-		else
-		{
-			bb_perror_msg("%s",argv[a]);
-			status=EXIT_FAILURE;
-		}
-	}
-	free(string);
-	exit(status);
+	if (ENABLE_FEATURE_CLEAN_UP)
+		free(string);
+
+	bb_fflush_stdout_and_exit(status);
 }
 
 /*
@@ -140,7 +106,7 @@ pipe:
  *    documentation and/or other materials provided with the distribution.
  *
  * 3. <BSD Advertising Clause omitted per the July 22, 1999 licensing change
- *		ftp://ftp.cs.berkeley.edu/pub/4bsd/README.Impt.License.Change> 
+ *		ftp://ftp.cs.berkeley.edu/pub/4bsd/README.Impt.License.Change>
  *
  * 4. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software

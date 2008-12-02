@@ -1,306 +1,292 @@
-
 /*
- *********************************************************
- *   Copyright 2003, CyberTAN  Inc.  All Rights Reserved *
- *********************************************************
 
- This is UNPUBLISHED PROPRIETARY SOURCE CODE of CyberTAN Inc.
- the contents of this file may not be disclosed to third parties,
- copied or duplicated in any form without the prior written
- permission of CyberTAN Inc.
+	Tomato Firmware
+	Copyright (C) 2006-2008 Jonathan Zarate
 
- This software should be used as a reference only, and it not
- intended for production use!
-
-
- THIS SOFTWARE IS OFFERED "AS IS", AND CYBERTAN GRANTS NO WARRANTIES OF ANY
- KIND, EXPRESS OR IMPLIED, BY STATUTE, COMMUNICATION OR OTHERWISE.  CYBERTAN
- SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
- FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE
 */
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <signal.h>
-#include <unistd.h>
-#include <errno.h>
-#include <sys/ioctl.h>
+#include "rc.h"
+
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
 #include <time.h>
-#include <sys/time.h>
-#include <syslog.h>
-#include <sys/wait.h>
+#include <arpa/inet.h>
 
-#include <bcmnvram.h>
-#include <netconf.h>
-#include <shutils.h>
-#include <utils.h>
-#include <rc.h>
 
-char service[10];
-char disable_ip[20];
-char _username[] = "ddns_username_X";
-char _passwd[] = "ddns_passwd_X";
-char _hostname[] = "ddns_hostname_X";
-int get_public_ip(void);
+//	#define DLOG(args...) syslog(LOG_DEBUG, args)
+#define DLOG(args...) do { } while(0)
 
-int
-init_ddns(void)
+static void update(int num, int *dirty, int force)
 {
-	int flag = 0;
-
-	if(nvram_match("ddns_enable","0")) {			// disable from ui or default
-		if(nvram_match("ddns_enable_buf","1")){		// before disable is dyndns, so we want to disable dyndns
-			if(!nvram_get("ddns_service"))
-				strcpy(service,"dyndns");
-			else
-				strcpy(service, nvram_safe_get("ddns_service"));
-			strcpy(disable_ip,"192.168.1.1");	// send this address to disable dyndns
-			flag = 1;
-		}
-		else if(nvram_match("ddns_enable_buf","2")){	// before disable is tzo, so we want to disable tz
-			strcpy(service,"tzo");
-			strcpy(disable_ip,"0.0.0.0");
-			flag = 2;
-		}
-		else return -1;					// default 
-	}
-	else if(nvram_match("ddns_enable","1")){
-		if(!nvram_get("ddns_service"))
-			strcpy(service,"dyndns");
-		else
-			strcpy(service, nvram_safe_get("ddns_service"));
-		flag = 1;
-	}
-	else if(nvram_match("ddns_enable","2")){
-		strcpy(service,"tzo");
-		flag = 2;
-	}
-
-	if(flag == 1){
-		snprintf(_username, sizeof(_username),"%s","ddns_username");
-		snprintf(_passwd, sizeof(_passwd),"%s","ddns_passwd");
-		snprintf(_hostname, sizeof(_hostname),"%s","ddns_hostname");
-	}
-	else{
-		snprintf(_username, sizeof(_username),"ddns_username_%d", flag);
-		snprintf(_passwd, sizeof(_passwd),"ddns_passwd_%d", flag);
-		snprintf(_hostname, sizeof(_hostname),"ddns_hostname_%d", flag);
-	}
-
-	return 0;
-}
-
-int
-start_ddns(void)
-{
-	int ret;
-	FILE *fp;
-	pid_t pid;
-	char string[80]="";
-
-	/* Get correct username, password and hostname */
-	if(init_ddns() < 0)
-		return -1;
-
-	/* We don't want to update, if user don't input below field */
-	if(nvram_match(_username,"")||
-	   nvram_match(_passwd,"")||
-	   nvram_match(_hostname,""))
-		return -1;
-
+	char config[2048];
+	char *p;
+	char *serv, *user, *pass, *host, *wild, *mx, *bmx, *cust;
+	time_t t;
+	struct tm *tm;
+	int n;
+	char ddnsx[16];
+	char ddnsx_path[32];
+	char s[128];
+	char v[128];
+	char cache_fn[32];
+	char conf_fn[32];
+	char cache_nv[32];
+	char msg_fn[32];
+	char ip[32];
+	int exitcode;
+	int errors;
+	FILE *f;
 	
-	/* We want to re-update if user change some value from UI */
-//	if(strcmp(nvram_safe_get("ddns_enable_buf"),nvram_safe_get("ddns_enable")) ||	// ddns mode change
-//            strcmp(nvram_safe_get("ddns_username_buf"),nvram_safe_get(_username)) ||	// ddns username chane
-//            strcmp(nvram_safe_get("ddns_passwd_buf"),nvram_safe_get(_passwd)) ||	// ddns password change
-//            strcmp(nvram_safe_get("ddns_hostname_buf"),nvram_safe_get(_hostname))){  // ddns hostname change
-//	    cprintf("Some value had been changed , need to update\n");
-	    
-	    if(nvram_match("action_service", "ddns") || !file_to_buf("/tmp/ddns_msg", string, sizeof(string))
-                ){
-		    cprintf("Upgrade from UI or first time\n");
-		    nvram_unset("ddns_cache");	// The will let program to re-update
-		    unlink("/tmp/ddns_msg");	// We want to get new message
-	    }
-//	}
+	DLOG("%s", __FUNCTION__);
+	
+	sprintf(s, "cru d ddns%d", num);
+	system(s);
+	DLOG("%s: %s", __FUNCTION__, s);
+	
+	sprintf(s, "cru d ddnsf%d", num);
+	system(s);
+	DLOG("%s: %s", __FUNCTION__, s);
 
-	/* Some message we want to stop to update */
-	if(file_to_buf("/tmp/ddns_msg", string, sizeof(string))){
-		cprintf("string=[%s]\n", string);
-		if(strcmp(string, "") && 
-		   !strstr(string, "_good") && 
-		   !strstr(string, "noupdate") &&
-		   !strstr(string, "nochg") &&
-		   !strstr(string, "all_")){
-			cprintf("Last update have error message : %s, don't re-update\n", string);
-			return -1;
-		}
+	sprintf(ddnsx, "ddnsx%d", num);
+	sprintf(ddnsx_path, "/var/lib/mdu/%s", ddnsx);
+	strlcpy(config, nvram_safe_get(ddnsx), sizeof(config));
+	
+	mkdir("/var/lib/mdu", 0700);
+	sprintf(msg_fn, "%s.msg", ddnsx_path);
+	
+	if ((vstrsep(config, "<", &serv, &user, &host, &wild, &mx, &bmx, &cust) != 7) || (*serv == 0)) {
+		_dprintf("%s: msg=''\n", __FUNCTION__);
+		f_write(msg_fn, NULL, 0, 0, 0);
+		return;
+	}
+	
+	if ((pass = strchr(user, ':')) != NULL) *pass++ = 0;
+		else pass = "";
+		
+	for (n = 120; (n > 0) && (time(0) < Y2K); --n) {
+		sleep(1);
+	}
+	if (n <= 0) {
+		syslog(LOG_INFO, "Time not yet set.");
 	}
 
-	if(nvram_match("ddns_enable", "0") && nvram_invmatch("action_service", "ddns"))
-		return -1;
-	
-	/* Generate ddns configuration file */
-       	if ((fp = fopen("/tmp/ddns.conf", "w"))) {
-     		fprintf(fp, "service-type=%s\n",service); 
-     	  	fprintf(fp, "user=%s:%s\n",nvram_safe_get(_username),nvram_safe_get(_passwd)); 
-       		fprintf(fp, "host=%s\n",nvram_safe_get(_hostname)); 
+	if (!wait_action_idle(10)) {
+		DLOG("%s: !wait_action_idle", __FUNCTION__);
+		return;
+	}
 
-		if(nvram_match("ddns_enable","0")){
-			fprintf(fp, "address=%s\n",disable_ip);	// send error ip address
+	if (!check_wanup()) {
+		DLOG("%s: !check_wanup", __FUNCTION__);
+		return;
+	}
+
+	sprintf(cache_nv, "%s_cache", ddnsx);
+	if (force) {
+		DLOG("%s: force=1", __FUNCTION__);
+		nvram_set(cache_nv, "");
+	}
+
+	simple_lock("ddns");
+
+	strlcpy(ip, nvram_safe_get("ddnsx_ip"), sizeof(ip));
+	if (ip[0] == '@') {
+		if ((strcmp(serv, "zoneedit") == 0) || (strcmp(serv, "tzo") == 0) || (strcmp(serv, "noip") == 0) || (strcmp(serv, "dnsomatic") == 0)) {
+			strcpy(ip + 1, serv);
 		}
 		else {
-			if(nvram_match("ddns_enable","2")) {
-				//if(nvram_match("public_ip", "") || first_time())	
-					get_public_ip();
-	       			fprintf(fp, "address=%s\n",nvram_safe_get("public_ip")); 
+			strcpy(ip + 1, "dyndns");
+		}
+	}
+	else if (inet_addr(ip) == -1) {		
+		strcpy(ip, get_wanip());
+	}
+	
+	sprintf(cache_fn, "%s.cache", ddnsx_path);
+	f_write_string(cache_fn, nvram_safe_get(cache_nv), 0, 0);
+	
+	if (!f_exists(msg_fn)) {
+		DLOG("%s: !f_exist(%s)", __FUNCTION__, msg_fn);
+		f_write(msg_fn, NULL, 0, 0, 0);
+	}
+	
+	
+	sprintf(conf_fn, "%s.conf", ddnsx_path);
+	if ((f = fopen(conf_fn, "w")) == NULL) goto CLEANUP;
+	// note: options not needed for the service are ignored by mdu
+	fprintf(f,
+		"user %s\n"
+		"pass %s\n"
+		"host %s\n"
+		"addr %s\n"
+		"mx %s\n"
+		"backmx %s\n"
+		"wildcard %s\n"
+		"url %s\n"
+		"ahash %s\n"
+		"msg %s\n"
+		"cookie %s\n"
+		"addrcache extip\n"
+		"",
+		user,
+		pass,
+		host,
+		ip,
+		mx,
+		bmx,
+		wild,
+		cust,
+		cust,
+		msg_fn,
+		cache_fn);
+
+	if (nvram_match("debug_ddns", "1")) {
+		fprintf(f, "dump /tmp/mdu-%s.txt\n", serv);
+	}
+
+	fclose(f);
+	
+	exitcode = eval("mdu", "--service", serv, "--conf", conf_fn);
+	DLOG("%s: mdu exitcode=%d", __FUNCTION__, exitcode);
+	
+	sprintf(s, "%s_errors", ddnsx);
+	if ((exitcode == 1) || (exitcode == 2)) {
+		if (nvram_match("ddnsx_retry", "0")) goto CLEANUP;
+
+		if (force) {
+			errors = 0;
+		}
+		else {
+			errors = nvram_get_int(s) + 1;
+			if (errors < 1) errors = 1;
+			if (errors >= 3) {
+				nvram_unset(s);
+				goto CLEANUP;
 			}
-			else
-                        {
-                             /******** modify by zg 2006.11.14 for cdrouter v3.3 dyndns module bugs in pptp mode ********/
-                             if(nvram_match("wan_proto","pptp"))
-                             {
-                                 fprintf(fp, "address=%s\n",nvram_safe_get("pptp_get_ip"));
-                             }
-                             else
-                             {
-	       			fprintf(fp, "address=%s\n",nvram_safe_get("wan_ipaddr")); 
-                             }
-                             /******** end by zg 2006.11.14 for cdrouter v3.3 dyndns module bugs in pptp mode ********/
-                        }
+		}
+		sprintf(v, "%d", errors);
+		nvram_set(s, v);
+		goto SCHED;
+	}
+	else {
+		nvram_unset(s);
+		errors = 0;
+	}
+
+	f_read_string(cache_fn, s, sizeof(s));
+	if ((p = strchr(s, '\n')) != NULL) *p = 0;
+	t = strtoul(s, &p, 10);
+	if (*p != ',') goto CLEANUP;
+	
+	if (!nvram_match(cache_nv, s)) {
+		nvram_set(cache_nv, s);
+		if (strncmp(serv, "dyndns", 6) == 0) *dirty = 1;
+	}
+
+	n = 28;
+	if (((p = nvram_get("ddnsx_refresh")) != NULL) && (*p != 0)) {
+		n = atoi(p);
+	}
+	if (n) {
+		if ((n < 0) || (n > 90)) n = 28;
+		t += (n * 86400);	// refresh every n days
+		tm = localtime(&t);
+		sprintf(s, "cru a ddnsf%d \"%d %d %d %d * ddns-update %d force\"", num,
+			tm->tm_min, tm->tm_hour, tm->tm_mday, tm->tm_mon + 1, num);
+		DLOG("%s: %s", __FUNCTION__, s);
+		system(s);
+	}
+
+	if (ip[0] == '@') {
+SCHED:
+		DLOG("%s: SCHED", __FUNCTION__);
+#if 0
+		t = time(0);
+		tm = localtime(&t);
+		DLOG("%s: now: %d:%d errors=%d", __FUNCTION__, tm->tm_hour, tm->tm_min, errors);
+#endif
+
+		// need at least 10m spacing for checkip
+		// +1m to not trip over mdu's ip caching
+		// +5m for every error
+		n = (11 + (errors * 5));
+		if ((exitcode == 1) || (exitcode == 2)) {
+			if (exitcode == 2) n = 30;
+			sprintf(s, "\n#RETRY %d %d\n", n, errors);	// should be localized in basic-ddns.asp
+			f_write_string(msg_fn, s, FW_APPEND, 0);
+			DLOG("%s: msg='retry n=%d errors=%d'", __FUNCTION__, n, errors);
 		}
 
-		if(nvram_match("ddns_enable", "1")) {	// For DynDNS
-			if(nvram_get("ddns_mx") && !nvram_match("ddns_mx", ""))
-				fprintf(fp, "mx=%s\n", nvram_safe_get("ddns_mx"));
-	
-			if(nvram_get("ddns_backmx") && nvram_match("ddns_backmx", "YES"))
-				fprintf(fp, "backmx=YES\n");
-			else
-				fprintf(fp, "backmx=NO\n");
+		t = time(0) + (n * 60);
+		tm = localtime(&t);
+		DLOG("%s: sch: %d:%d\n", __FUNCTION__, tm->tm_hour, tm->tm_min);
+		
+		sprintf(s, "cru a ddns%d \"%d * * * * ddns-update %d\"", num, tm->tm_min, num);
+		DLOG("%s: %s", __FUNCTION__, s);
+		system(s);
+			
+		//	sprintf(s, "cru a ddns%d \"*/10 * * * * ddns-update %d\"", num);
+		//	system(s);
+	}
 
-			if(nvram_get("ddns_wildcard") && nvram_match("ddns_wildcard","ON"))
-				fprintf(fp, "wildcard\n");
+CLEANUP:
+	DLOG("%s: CLEANUP", __FUNCTION__);
+/*
+	if (!nvram_match("debug_keepfiles", "1")) {
+		unlink(cache_fn);
+		unlink(conf_fn);
+	}
+*/
+	simple_unlock("ddns");
+}
+
+int ddns_update_main(int argc, char **argv)
+{
+	int num;
+	int dirty;
+
+	DLOG("%s: %s %s", __FUNCTION__, (argc >= 2) ? argv[1] : "", (argc >= 3) ? argv[2] : "");
+	
+	dirty = 0;
+	umask(077);
+	
+	if (argc == 1) {
+		update(0, &dirty, 0);
+		update(1, &dirty, 0);
+	}
+	else if ((argc == 2) || (argc == 3)) {
+		num = atoi(argv[1]);
+		if ((num == 0) || (num == 1)) {
+			update(num, &dirty, (argc == 3) && (strcmp(argv[2], "force") == 0));
 		}
-
-		fclose(fp);
 	}
-	else{
-        	perror("/tmp/ddns.conf");
-        	return -1;
+	if (dirty) {
+		if (!nvram_match("debug_nocommit", "1")) nvram_commit();
 	}
-
-	/* Restore cache data to file */
-	if(nvram_invmatch("ddns_enable", ""))	
-		nvram2file("ddns_cache", "/tmp/ddns.cache");
-	
-	{
-		char *argv[] = {"ez-ipupdate",
-		      //"-i", nvram_safe_get("wan_ifname"),
-		      "-D",
-		      //"-P", "3600",
-		      "-e", "ddns_success",
-		      "-c", "/tmp/ddns.conf",
-		      "-b", "/tmp/ddns.cache", 
-		      NULL };
-
-		ret = _eval(argv, ">/dev/console", 0, &pid);
-	}
-
-
-	dprintf("done\n");
-	
-	return ret;
-}
-
-int
-stop_ddns(void)
-{
-        int ret;
-	
-        ret = eval("killall","-9","ez-ipupdate");
-
-        dprintf("done\n");
-
-        return ret;
-}
-
-int
-ddns_success_main(int argc, char *argv[])
-{
-	char buf[80];
-	
-	init_ddns();
-
-	snprintf(buf, sizeof(buf), "%ld,%s", time(NULL), argv[1]);
-	cprintf("DDNS update successfully, save [%s] to ddns_cache\n", buf);
-	
-	nvram_set("ddns_cache", buf);
-	nvram_set("ddns_status", "1");
-	nvram_set("ddns_enable_buf", nvram_safe_get("ddns_enable"));
-	nvram_set("ddns_username_buf", nvram_safe_get(_username));
-	nvram_set("ddns_passwd_buf", nvram_safe_get(_passwd));
-	nvram_set("ddns_hostname_buf", nvram_safe_get(_hostname));
-	nvram_set("ddns_change", "");
-
-	if(nvram_match("ddns_enable","2"))
-	{	
-	//	buf_to_file("/tmp/ddns_msg", "tzo_good");
-	}
-	nvram_commit();
-
-	dprintf("done\n");
-
 	return 0;
 }
 
-int
-get_public_ip(void)
+void start_ddns(void)
 {
-	int ret = 0;
+	DLOG("%s", __FUNCTION__);
 
-	ret = system("/sbin/ddns_checkip -t tzo-echo -n public_ip -w 3 -d");
-	// 0: Success
-	// -1: Failure
-	printf("ret=%d\n", ret);
+	stop_ddns();
 
-	if(ret == 0) {
-		char *ddns_cache = nvram_safe_get("ddns_cache");
-		char *public_ip = nvram_safe_get("public_ip");		
-		char ip[20];
-		char buf[20];
+	// cleanup
+	simple_unlock("ddns");
+	nvram_unset("ddnsx0_errors");
+	nvram_unset("ddnsx1_errors");
 
-		sscanf(ddns_cache, "%*d,%s", ip);
-		printf("ip=[%s] public_ip=[%s]\n", ip, public_ip);
-		if(strcmp(ip, public_ip))	// Different public ip
-			return 1;
-
-		file_to_buf("/tmp/ddns_msg", buf, sizeof(buf));	
-		printf("buf=[%s]\n", buf);
-		if(!strcmp(buf, "dyn_strange")) {
-			printf("buf=[%s]\n", buf);
-			return 1;
-		}
-	}
-
-	return ret;
+	xstart("ddns-update");
 }
 
-void 
-ddns_check_main(timer_t t, int arg)
+void stop_ddns(void)
 {
-	if(check_action() == ACT_IDLE && check_wan_link(0)) {	// Don't execute during upgrading
-		if(nvram_match("ddns_enable", "2")) {	// Only for TZO
-			if(get_public_ip() == 1) {
-				nvram_set("action_service","ddns");
-                        	kill(1,SIGUSR1);
-			}
-		}
-	}
+	DLOG("%s", __FUNCTION__);
+
+	system("cru d ddns0");
+	system("cru d ddns1");
+	system("cru d ddnsf0");
+	system("cru d ddnsf1");
+	killall("ddns-update", SIGKILL);
+	killall("mdu", SIGKILL);	
 }

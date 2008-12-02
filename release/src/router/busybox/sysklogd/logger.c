@@ -2,24 +2,12 @@
 /*
  * Mini logger implementation for busybox
  *
- * Copyright (C) 1999-2003 by Erik Andersen <andersen@codepoet.org>
+ * Copyright (C) 1999-2004 by Erik Andersen <andersen@codepoet.org>
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
- *
+ * Licensed under GPLv2 or later, see file LICENSE in this tarball for details.
  */
 
+#include "busybox.h"
 #include <stdio.h>
 #include <unistd.h>
 #include <sys/types.h>
@@ -28,7 +16,6 @@
 #include <string.h>
 #include <stdlib.h>
 
-#include "busybox.h"
 #if !defined CONFIG_SYSLOGD
 
 #define SYSLOG_NAMES
@@ -49,11 +36,11 @@
 #  endif
 #endif
 
-/* Decode a symbolic name to a numeric value 
+/* Decode a symbolic name to a numeric value
  * this function is based on code
  * Copyright (c) 1983, 1993
  * The Regents of the University of California.  All rights reserved.
- *  
+ *
  * Original copyright notice is retained at the end of this file.
  */
 static int decode(char *name, CODE * codetab)
@@ -71,7 +58,7 @@ static int decode(char *name, CODE * codetab)
 	return (-1);
 }
 
-/* Decode a symbolic name to a numeric value 
+/* Decode a symbolic name to a numeric value
  * this function is based on code
  * Copyright (c) 1983, 1993
  * The Regents of the University of California.  All rights reserved.
@@ -100,7 +87,7 @@ static int pencode(char *s)
 }
 
 
-extern int logger_main(int argc, char **argv)
+int logger_main(int argc, char **argv)
 {
 	int pri = LOG_USER | LOG_NOTICE;
 	int option = 0;
@@ -108,7 +95,7 @@ extern int logger_main(int argc, char **argv)
 	char buf[1024], name[128];
 
 	/* Fill out the name string early (may be overwritten later) */
-	my_getpwuid(name, geteuid());
+	bb_getpwuid(name, geteuid(), sizeof(name));
 
 	/* Parse any options */
 	while ((opt = getopt(argc, argv, "p:st:")) > 0) {
@@ -127,12 +114,12 @@ extern int logger_main(int argc, char **argv)
 		}
 	}
 
-	openlog(name, option, (pri | LOG_FACMASK));
+	openlog(name, option, 0);
 	if (optind == argc) {
 		do {
 			/* read from stdin */
 			i = 0;
-			while ((c = getc(stdin)) != EOF && c != '\n' && 
+			while ((c = getc(stdin)) != EOF && c != '\n' &&
 					i < (sizeof(buf)-1)) {
 				buf[i++] = c;
 			}
@@ -152,8 +139,8 @@ extern int logger_main(int argc, char **argv)
 			message = xrealloc(message, len);
 			if(!i)
 				message[0] = 0;
-			 else
-			strcat(message, " ");
+			else
+				strcat(message, " ");
 			strcat(message, *argv);
 			argv++;
 		}
@@ -180,8 +167,8 @@ extern int logger_main(int argc, char **argv)
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * 3. <BSD Advertising Clause omitted per the July 22, 1999 licensing change 
- *		ftp://ftp.cs.berkeley.edu/pub/4bsd/README.Impt.License.Change> 
+ * 3. <BSD Advertising Clause omitted per the July 22, 1999 licensing change
+ *		ftp://ftp.cs.berkeley.edu/pub/4bsd/README.Impt.License.Change>
  *
  * 4. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software

@@ -33,14 +33,6 @@ static struct option opts[] = {
 	{ 0 }
 };
 
-/* Initialize the target. */
-static void
-init(struct ipt_entry_target *t, unsigned int *nfcache)
-{
-	/* Can't cache this */
-	*nfcache |= NFC_UNKNOWN;
-}
-
 static struct ipt_natinfo *
 append_range(struct ipt_natinfo *info, const struct ip_nat_range *range)
 {
@@ -65,7 +57,7 @@ static struct ipt_entry_target *
 parse_to(char *arg, int portok, struct ipt_natinfo *info)
 {
 	struct ip_nat_range range;
-	char *colon, *dash;
+	char *colon, *dash, *error;
 	struct in_addr *ip;
 
 	memset(&range, 0, sizeof(range));
@@ -81,9 +73,14 @@ parse_to(char *arg, int portok, struct ipt_natinfo *info)
 		range.flags |= IP_NAT_RANGE_PROTO_SPECIFIED;
 
 		port = atoi(colon+1);
-		if (port == 0 || port > 65535)
+		if (port <= 0 || port > 65535)
 			exit_error(PARAMETER_PROBLEM,
 				   "Port `%s' not valid\n", colon+1);
+
+		error = strchr(colon+1, ':');
+		if (error)
+			exit_error(PARAMETER_PROBLEM,
+				   "Invalid port:port syntax - use dash\n");
 
 		dash = strchr(colon, '-');
 		if (!dash) {
@@ -94,7 +91,7 @@ parse_to(char *arg, int portok, struct ipt_natinfo *info)
 			int maxport;
 
 			maxport = atoi(dash + 1);
-			if (maxport == 0 || maxport > 65535)
+			if (maxport <= 0 || maxport > 65535)
 				exit_error(PARAMETER_PROBLEM,
 					   "Port `%s' not valid\n", dash+1);
 			if (maxport < port)
@@ -146,7 +143,8 @@ parse(int c, char **argv, int invert, unsigned int *flags,
 	int portok;
 
 	if (entry->ip.proto == IPPROTO_TCP
-	    || entry->ip.proto == IPPROTO_UDP)
+	    || entry->ip.proto == IPPROTO_UDP
+	    || entry->ip.proto == IPPROTO_ICMP)
 		portok = 1;
 	else
 		portok = 0;
@@ -157,6 +155,13 @@ parse(int c, char **argv, int invert, unsigned int *flags,
 			exit_error(PARAMETER_PROBLEM,
 				   "Unexpected `!' after --to-source");
 
+		if (*flags) {
+			if (!kernel_version)
+				get_kernel_version();
+			if (kernel_version > LINUX_VERSION(2, 6, 10))
+				exit_error(PARAMETER_PROBLEM,
+					   "Multiple --to-source not supported");
+		}
 		*target = parse_to(optarg, portok, info);
 		*flags = 1;
 		return 1;
@@ -224,20 +229,18 @@ save(const struct ipt_ip *ip, const struct ipt_entry_target *target)
 	}
 }
 
-static
-struct iptables_target snat
-= { NULL,
-    "SNAT",
-    IPTABLES_VERSION,
-    IPT_ALIGN(sizeof(struct ip_nat_multi_range)),
-    IPT_ALIGN(sizeof(struct ip_nat_multi_range)),
-    &help,
-    &init,
-    &parse,
-    &final_check,
-    &print,
-    &save,
-    opts
+static struct iptables_target snat = {
+	.next		= NULL,
+	.name		= "SNAT",
+	.version	= IPTABLES_VERSION,
+	.size		= IPT_ALIGN(sizeof(struct ip_nat_multi_range)),
+	.userspacesize	= IPT_ALIGN(sizeof(struct ip_nat_multi_range)),
+	.help		= &help,
+	.parse		= &parse,
+	.final_check	= &final_check,
+	.print		= &print,
+	.save		= &save,
+	.extra_opts	= opts
 };
 
 void _init(void)

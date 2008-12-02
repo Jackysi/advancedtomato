@@ -112,20 +112,19 @@ save(const struct ipt_ip *ip, const struct ipt_entry_target *target)
 	printf("--set-ftos 0x%02x ", finfo->ftos);
 }
 
-static
-struct iptables_target ftos
-= { NULL,
-    "FTOS",
-    IPTABLES_VERSION,
-    IPT_ALIGN(sizeof(struct ipt_FTOS_info)),
-    IPT_ALIGN(sizeof(struct ipt_FTOS_info)),
-    &help,
-    &init,
-    &parse,
-    &final_check,
-    &print,
-    &save,
-    opts
+static struct iptables_target ftos = {
+	.next		= NULL,
+	.name		= "FTOS",
+	.version	= IPTABLES_VERSION,
+	.size		= IPT_ALIGN(sizeof(struct ipt_FTOS_info)),
+	.userspacesize	= IPT_ALIGN(sizeof(struct ipt_FTOS_info)),
+	.help		= &help,
+	.init		= &init,
+	.parse		= &parse,
+	.final_check	= &final_check,
+	.print		= &print,
+	.save		= &save,
+	.extra_opts	= opts
 };
 
 void _init(void)

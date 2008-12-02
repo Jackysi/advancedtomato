@@ -2,71 +2,66 @@
 /*
  * Utility routines.
  *
- * Copyright (C) tons of folks.  Tracking down who wrote what
- * isn't something I'm going to worry about...  If you wrote something
- * here, please feel free to acknowledge your work.
+ * Copyright (C) 2005, 2006 Rob Landley <rob@landley.net>
+ * Copyright (C) 2004 Erik Andersen <andersen@codepoet.org>
+ * Copyright (C) 2001 Matt Krai
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
- *
- * Based in part on code from sash, Copyright (c) 1999 by David I. Bell 
- * Permission has been granted to redistribute this code under the GPL.
- *
+ * Licensed under GPLv2 or later, see file LICENSE in this tarball for details.
  */
 
 #include <stdio.h>
+#include <stdlib.h>
 #include "libbb.h"
 
+/* get_line_from_file() - This function reads an entire line from a text file,
+ * up to a newline or NUL byte.  It returns a malloc'ed char * which must be
+ * stored and free'ed  by the caller.  If end is null '\n' isn't considered
+ * and of line.  If end isn't null, length of the chunk read is stored in it. */
 
-
-/* get_line_from_file() - This function reads an entire line from a text file
- * up to a newline. It returns a malloc'ed char * which must be stored and
- * free'ed  by the caller. */
-extern char *get_line_from_file(FILE *file)
+char *bb_get_chunk_from_file(FILE * file, int *end)
 {
-	static const int GROWBY = 80; /* how large we will grow strings by */
-
 	int ch;
 	int idx = 0;
 	char *linebuf = NULL;
 	int linebufsz = 0;
 
-	while (1) {
-		ch = fgetc(file);
-		if (ch == EOF)
-			break;
+	while ((ch = getc(file)) != EOF) {
 		/* grow the line buffer as necessary */
-		while (idx > linebufsz-2)
-			linebuf = xrealloc(linebuf, linebufsz += GROWBY);
-		linebuf[idx++] = (char)ch;
-		if ((char)ch == '\n')
+		if (idx > linebufsz - 2) {
+			linebuf = xrealloc(linebuf, linebufsz += 80);
+		}
+		linebuf[idx++] = (char) ch;
+		if (!ch || (end && ch == '\n'))
 			break;
 	}
-
-	if (idx == 0)
-		return NULL;
-
-	linebuf[idx] = 0;
+	if (end)
+		*end = idx;
+	if (linebuf) {
+		if (ferror(file)) {
+			free(linebuf);
+			return NULL;
+		}
+		linebuf[idx] = 0;
+	}
 	return linebuf;
 }
 
+/* Get line, including trailing /n if any */
+char *bb_get_line_from_file(FILE * file)
+{
+	int i;
 
-/* END CODE */
-/*
-Local Variables:
-c-file-style: "linux"
-c-basic-offset: 4
-tab-width: 4
-End:
-*/
+	return bb_get_chunk_from_file(file, &i);
+}
+
+/* Get line.  Remove trailing /n */
+char *bb_get_chomped_line_from_file(FILE * file)
+{
+	int i;
+	char *c = bb_get_chunk_from_file(file, &i);
+
+	if (i && c[--i] == '\n')
+		c[i] = 0;
+
+	return c;
+}

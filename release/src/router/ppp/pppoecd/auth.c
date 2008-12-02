@@ -90,8 +90,9 @@ link_terminated(unit)
     int unit;
 {
     if (phase == PHASE_DEAD)
-	return;
+		return;
     new_phase(PHASE_DEAD);
+	LOGX_INFO("Connection terminated.");
     notice("Connection terminated.");
 }
 
@@ -375,7 +376,10 @@ check_idle(arg)
     tlim = idle_time_limit - itime;
     if (tlim <= 0) {
 	/* link is idle: shut it down. */
+
+	LOGX_INFO("Terminating connection due to lack of activity.");
 	notice("Terminating connection due to lack of activity.");
+
 	lcp_close(0, "Link inactive");
 	need_holdoff = 0;
 	status = EXIT_IDLE_TIMEOUT;

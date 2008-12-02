@@ -179,12 +179,12 @@ static int atm_parse_class_opt(struct qdisc_util *qu, int argc, char **argv,
 			perror("ioctl ATMARP_MKIP");
 			return -1;
 		}
-	tail = (struct rtattr *) (((void *) n)+NLMSG_ALIGN(n->nlmsg_len));
+	tail = NLMSG_TAIL(n);
 	addattr_l(n,1024,TCA_OPTIONS,NULL,0);
 	addattr_l(n,1024,TCA_ATM_FD,&s,sizeof(s));
 	if (excess) addattr_l(n,1024,TCA_ATM_EXCESS,&excess,sizeof(excess));
 	if (hdr_len != -1) addattr_l(n,1024,TCA_ATM_HDR,hdr,hdr_len);
-	tail->rta_len = (((void *) n)+NLMSG_ALIGN(n->nlmsg_len))-(void *) tail;
+	tail->rta_len = (void *) NLMSG_TAIL(n) - (void *) tail;
 	return 0;
 }
 
@@ -195,9 +195,10 @@ static int atm_print_opt(struct qdisc_util *qu, FILE *f, struct rtattr *opt)
 	struct rtattr *tb[TCA_ATM_MAX+1];
 	char buffer[MAX_ATM_ADDR_LEN+1];
 
-	if (!opt) return 0;
-	memset(tb, 0, sizeof(tb));
-	parse_rtattr(tb, TCA_ATM_MAX, RTA_DATA(opt), RTA_PAYLOAD(opt));
+	if (opt == NULL)
+		return 0;
+
+	parse_rtattr_nested(tb, TCA_ATM_MAX, opt);
 	if (tb[TCA_ATM_ADDR]) {
 		if (RTA_PAYLOAD(tb[TCA_ATM_ADDR]) <
 		    sizeof(struct sockaddr_atmpvc))
@@ -250,19 +251,10 @@ static int atm_print_opt(struct qdisc_util *qu, FILE *f, struct rtattr *opt)
 }
 
 
-static int atm_print_xstats(struct qdisc_util *qu, FILE *f, struct rtattr *xstats)
-{
-	return 0;
-}
-
-
-struct qdisc_util atm_util = {
-	NULL,
-	"atm",
-	atm_parse_opt,
-	atm_print_opt,
-	atm_print_xstats,
-
-	atm_parse_class_opt,
-	atm_print_opt
+struct qdisc_util atm_qdisc_util = {
+	.id 		= "atm",
+	.parse_qopt	= atm_parse_opt,
+	.print_qopt	= atm_print_opt,
+	.parse_copt	= atm_parse_class_opt,
+	.print_copt	= atm_print_opt,
 };

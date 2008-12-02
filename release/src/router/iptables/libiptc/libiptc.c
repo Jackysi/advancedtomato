@@ -1,4 +1,4 @@
-/* Library which manipulates firewall rules.  Version $Revision: 1.1.1.2 $ */
+/* Library which manipulates firewall rules.  Version $Revision: 6665 $ */
 
 /* Architecture of firewall rules is as follows:
  *
@@ -8,22 +8,44 @@
  * and a POLICY for built-ins.
  */
 
-/* (C)1999 Paul ``Rusty'' Russell - Placed under the GNU GPL (See
-   COPYING for details). */
+/* (C) 1999 Paul ``Rusty'' Russell - Placed under the GNU GPL (See
+ * COPYING for details). 
+ * (C) 2000-2004 by the Netfilter Core Team <coreteam@netfilter.org>
+ *
+ * 2003-Jun-20: Harald Welte <laforge@netfilter.org>:
+ *	- Reimplementation of chain cache to use offsets instead of entries
+ * 2003-Jun-23: Harald Welte <laforge@netfilter.org>:
+ * 	- performance optimization, sponsored by Astaro AG (http://www.astaro.com/)
+ * 	  don't rebuild the chain cache after every operation, instead fix it
+ * 	  up after a ruleset change.  
+ * 2004-Aug-18: Harald Welte <laforge@netfilter.org>:
+ * 	- futher performance work: total reimplementation of libiptc.
+ * 	- libiptc now has a real internal (linked-list) represntation of the
+ * 	  ruleset and a parser/compiler from/to this internal representation
+ * 	- again sponsored by Astaro AG (http://www.astaro.com/)
+ */
+#include <sys/types.h>
+#include <sys/socket.h>
+
+#include "linux_list.h"
+
+//#define IPTC_DEBUG2 1
+
+#ifdef IPTC_DEBUG2
+#include <fcntl.h>
+#define DEBUGP(x, args...)	fprintf(stderr, "%s: " x, __FUNCTION__, ## args)
+#define DEBUGP_C(x, args...)	fprintf(stderr, x, ## args)
+#else
+#define DEBUGP(x, args...)
+#define DEBUGP_C(x, args...)
+#endif
 
 #ifndef IPT_LIB_DIR
 #define IPT_LIB_DIR "/usr/local/lib/iptables"
 #endif
 
-#ifndef __OPTIMIZE__
-STRUCT_ENTRY_TARGET *
-GET_TARGET(STRUCT_ENTRY *e)
-{
-	return (void *)e + e->target_offset;
-}
-#endif
-
 static int sockfd = -1;
+static int sockfd_use = 0;
 static void *iptc_fn = NULL;
 
 static const char *hooknames[]
@@ -37,6 +59,16 @@ static const char *hooknames[]
 #endif
 };
 
+/* Convenience structures */
+struct ipt_error_target
+{
+	STRUCT_ENTRY_TARGET t;
+	char error[TABLE_MAXNAMELEN];
+};
+
+struct chain_head;
+struct rule_head;
+
 struct counter_map
 {
 	enum {
@@ -48,59 +80,95 @@ struct counter_map
 	unsigned int mappos;
 };
 
-/* Convenience structures */
-struct ipt_error_target
-{
-	STRUCT_ENTRY_TARGET t;
-	char error[TABLE_MAXNAMELEN];
+enum iptcc_rule_type {
+	IPTCC_R_STANDARD,		/* standard target (ACCEPT, ...) */
+	IPTCC_R_MODULE,			/* extension module (SNAT, ...) */
+	IPTCC_R_FALLTHROUGH,		/* fallthrough rule */
+	IPTCC_R_JUMP,			/* jump to other chain */
 };
 
-struct chain_cache
+struct rule_head
 {
+	struct list_head list;
+	struct chain_head *chain;
+	struct counter_map counter_map;
+
+	unsigned int index;		/* index (needed for counter_map) */
+	unsigned int offset;		/* offset in rule blob */
+
+	enum iptcc_rule_type type;
+	struct chain_head *jump;	/* jump target, if IPTCC_R_JUMP */
+
+	unsigned int size;		/* size of entry data */
+	STRUCT_ENTRY entry[0];
+};
+
+struct chain_head
+{
+	struct list_head list;
 	char name[TABLE_MAXNAMELEN];
-	/* This is the first rule in chain. */
-	STRUCT_ENTRY *start;
-	/* Last rule in chain */
-	STRUCT_ENTRY *end;
+	unsigned int hooknum;		/* hook number+1 if builtin */
+	unsigned int references;	/* how many jumps reference us */
+	int verdict;			/* verdict if builtin */
+
+	STRUCT_COUNTERS counters;	/* per-chain counters */
+	struct counter_map counter_map;
+
+	unsigned int num_rules;		/* number of rules in list */
+	struct list_head rules;		/* list of rules */
+
+	unsigned int index;		/* index (needed for jump resolval) */
+	unsigned int head_offset;	/* offset in rule blob */
+	unsigned int foot_index;	/* index (needed for counter_map) */
+	unsigned int foot_offset;	/* offset in rule blob */
 };
 
 STRUCT_TC_HANDLE
 {
-	/* Have changes been made? */
-	int changed;
-	/* Size in here reflects original state. */
+	int changed;			 /* Have changes been made? */
+
+	struct list_head chains;
+	
+	struct chain_head *chain_iterator_cur;
+	struct rule_head *rule_iterator_cur;
+
 	STRUCT_GETINFO info;
-
-	struct counter_map *counter_map;
-	/* Array of hook names */
-	const char **hooknames;
-
-	/* Cached position of chain heads (NULL = no cache). */
-	unsigned int cache_num_chains;
-	unsigned int cache_num_builtins;
-	struct chain_cache *cache_chain_heads;
-
-	/* Chain iterator: current chain cache entry. */
-	struct chain_cache *cache_chain_iteration;
-
-	/* Rule iterator: terminal rule */
-	STRUCT_ENTRY *cache_rule_end;
-
-	/* Number in here reflects current state. */
-	unsigned int new_number;
-	STRUCT_GET_ENTRIES entries;
+	STRUCT_GET_ENTRIES *entries;
 };
 
+/* allocate a new chain head for the cache */
+static struct chain_head *iptcc_alloc_chain_head(const char *name, int hooknum)
+{
+	struct chain_head *c = malloc(sizeof(*c));
+	if (!c)
+		return NULL;
+	memset(c, 0, sizeof(*c));
+
+	strncpy(c->name, name, TABLE_MAXNAMELEN);
+	c->hooknum = hooknum;
+	INIT_LIST_HEAD(&c->rules);
+
+	return c;
+}
+
+/* allocate and initialize a new rule for the cache */
+static struct rule_head *iptcc_alloc_rule(struct chain_head *c, unsigned int size)
+{
+	struct rule_head *r = malloc(sizeof(*r)+size);
+	if (!r)
+		return NULL;
+	memset(r, 0, sizeof(*r));
+
+	r->chain = c;
+	r->size = size;
+
+	return r;
+}
+
+/* notify us that the ruleset has been modified by the user */
 static void
 set_changed(TC_HANDLE_T h)
 {
-	if (h->cache_chain_heads) {
-		free(h->cache_chain_heads);
-		h->cache_chain_heads = NULL;
-		h->cache_num_chains = 0;
-		h->cache_chain_iteration = NULL;
-		h->cache_rule_end = NULL;
-	}
 	h->changed = 1;
 }
 
@@ -111,8 +179,13 @@ static void do_check(TC_HANDLE_T h, unsigned int line);
 #define CHECK(h)
 #endif
 
+
+/**********************************************************************
+ * iptc blob utility functions (iptcb_*)
+ **********************************************************************/
+
 static inline int
-get_number(const STRUCT_ENTRY *i,
+iptcb_get_number(const STRUCT_ENTRY *i,
 	   const STRUCT_ENTRY *seek,
 	   unsigned int *pos)
 {
@@ -122,22 +195,8 @@ get_number(const STRUCT_ENTRY *i,
 	return 0;
 }
 
-static unsigned int
-entry2index(const TC_HANDLE_T h, const STRUCT_ENTRY *seek)
-{
-	unsigned int pos = 0;
-
-	if (ENTRY_ITERATE(h->entries.entrytable, h->entries.size,
-			  get_number, seek, &pos) == 0) {
-		fprintf(stderr, "ERROR: offset %i not an entry!\n",
-			(char *)seek - (char *)h->entries.entrytable);
-		abort();
-	}
-	return pos;
-}
-
 static inline int
-get_entry_n(STRUCT_ENTRY *i,
+iptcb_get_entry_n(STRUCT_ENTRY *i,
 	    unsigned int number,
 	    unsigned int *pos,
 	    STRUCT_ENTRY **pe)
@@ -150,50 +209,555 @@ get_entry_n(STRUCT_ENTRY *i,
 	return 0;
 }
 
-static STRUCT_ENTRY *
-index2entry(TC_HANDLE_T h, unsigned int index)
+static inline STRUCT_ENTRY *
+iptcb_get_entry(TC_HANDLE_T h, unsigned int offset)
+{
+	return (STRUCT_ENTRY *)((char *)h->entries->entrytable + offset);
+}
+
+static unsigned int
+iptcb_entry2index(const TC_HANDLE_T h, const STRUCT_ENTRY *seek)
 {
 	unsigned int pos = 0;
-	STRUCT_ENTRY *ret = NULL;
 
-	ENTRY_ITERATE(h->entries.entrytable, h->entries.size,
-		      get_entry_n, index, &pos, &ret);
-
-	return ret;
+	if (ENTRY_ITERATE(h->entries->entrytable, h->entries->size,
+			  iptcb_get_number, seek, &pos) == 0) {
+		fprintf(stderr, "ERROR: offset %u not an entry!\n",
+			(unsigned int)((char *)seek - (char *)h->entries->entrytable));
+		abort();
+	}
+	return pos;
 }
 
 static inline STRUCT_ENTRY *
-get_entry(TC_HANDLE_T h, unsigned int offset)
+iptcb_offset2entry(TC_HANDLE_T h, unsigned int offset)
 {
-	return (STRUCT_ENTRY *)((char *)h->entries.entrytable + offset);
+	return (STRUCT_ENTRY *) ((void *)h->entries->entrytable+offset);
 }
+
 
 static inline unsigned long
-entry2offset(const TC_HANDLE_T h, const STRUCT_ENTRY *e)
+iptcb_entry2offset(const TC_HANDLE_T h, const STRUCT_ENTRY *e)
 {
-	return (char *)e - (char *)h->entries.entrytable;
+	return (void *)e - (void *)h->entries->entrytable;
 }
 
-static unsigned long
-index2offset(TC_HANDLE_T h, unsigned int index)
+static inline unsigned int
+iptcb_offset2index(const TC_HANDLE_T h, unsigned int offset)
 {
-	return entry2offset(h, index2entry(h, index));
+	return iptcb_entry2index(h, iptcb_offset2entry(h, offset));
 }
 
-static const char *
-get_errorlabel(TC_HANDLE_T h, unsigned int offset)
+/* Returns 0 if not hook entry, else hooknumber + 1 */
+static inline unsigned int
+iptcb_ent_is_hook_entry(STRUCT_ENTRY *e, TC_HANDLE_T h)
 {
-	STRUCT_ENTRY *e;
+	unsigned int i;
 
-	e = get_entry(h, offset);
-	if (strcmp(GET_TARGET(e)->u.user.name, ERROR_TARGET) != 0) {
-		fprintf(stderr, "ERROR: offset %u not an error node!\n",
-			offset);
-		abort();
+	for (i = 0; i < NUMHOOKS; i++) {
+		if ((h->info.valid_hooks & (1 << i))
+		    && iptcb_get_entry(h, h->info.hook_entry[i]) == e)
+			return i+1;
+	}
+	return 0;
+}
+
+
+/**********************************************************************
+ * iptc cache utility functions (iptcc_*)
+ **********************************************************************/
+
+/* Is the given chain builtin (1) or user-defined (0) */
+static unsigned int iptcc_is_builtin(struct chain_head *c)
+{
+	return (c->hooknum ? 1 : 0);
+}
+
+/* Get a specific rule within a chain */
+static struct rule_head *iptcc_get_rule_num(struct chain_head *c,
+					    unsigned int rulenum)
+{
+	struct rule_head *r;
+	unsigned int num = 0;
+
+	list_for_each_entry(r, &c->rules, list) {
+		num++;
+		if (num == rulenum)
+			return r;
+	}
+	return NULL;
+}
+
+/* Get a specific rule within a chain backwards */
+static struct rule_head *iptcc_get_rule_num_reverse(struct chain_head *c,
+					    unsigned int rulenum)
+{
+	struct rule_head *r;
+	unsigned int num = 0;
+
+	list_for_each_entry_reverse(r, &c->rules, list) {
+		num++;
+		if (num == rulenum)
+			return r;
+	}
+	return NULL;
+}
+
+/* Returns chain head if found, otherwise NULL. */
+static struct chain_head *
+iptcc_find_chain_by_offset(TC_HANDLE_T handle, unsigned int offset)
+{
+	struct list_head *pos;
+
+	if (list_empty(&handle->chains))
+		return NULL;
+
+	list_for_each(pos, &handle->chains) {
+		struct chain_head *c = list_entry(pos, struct chain_head, list);
+		if (offset >= c->head_offset && offset <= c->foot_offset)
+			return c;
 	}
 
-	return (const char *)GET_TARGET(e)->data;
+	return NULL;
 }
+/* Returns chain head if found, otherwise NULL. */
+static struct chain_head *
+iptcc_find_label(const char *name, TC_HANDLE_T handle)
+{
+	struct list_head *pos;
+
+	if (list_empty(&handle->chains))
+		return NULL;
+
+	list_for_each(pos, &handle->chains) {
+		struct chain_head *c = list_entry(pos, struct chain_head, list);
+		if (!strcmp(c->name, name))
+			return c;
+	}
+
+	return NULL;
+}
+
+/* called when rule is to be removed from cache */
+static void iptcc_delete_rule(struct rule_head *r)
+{
+	DEBUGP("deleting rule %p (offset %u)\n", r, r->offset);
+	/* clean up reference count of called chain */
+	if (r->type == IPTCC_R_JUMP
+	    && r->jump)
+		r->jump->references--;
+
+	list_del(&r->list);
+	free(r);
+}
+
+
+/**********************************************************************
+ * RULESET PARSER (blob -> cache)
+ **********************************************************************/
+
+/* Delete policy rule of previous chain, since cache doesn't contain
+ * chain policy rules.
+ * WARNING: This function has ugly design and relies on a lot of context, only
+ * to be called from specific places within the parser */
+static int __iptcc_p_del_policy(TC_HANDLE_T h, unsigned int num)
+{
+	if (h->chain_iterator_cur) {
+		/* policy rule is last rule */
+		struct rule_head *pr = (struct rule_head *)
+			h->chain_iterator_cur->rules.prev;
+
+		/* save verdict */
+		h->chain_iterator_cur->verdict = 
+			*(int *)GET_TARGET(pr->entry)->data;
+
+		/* save counter and counter_map information */
+		h->chain_iterator_cur->counter_map.maptype = 
+						COUNTER_MAP_NORMAL_MAP;
+		h->chain_iterator_cur->counter_map.mappos = num-1;
+		memcpy(&h->chain_iterator_cur->counters, &pr->entry->counters, 
+			sizeof(h->chain_iterator_cur->counters));
+
+		/* foot_offset points to verdict rule */
+		h->chain_iterator_cur->foot_index = num;
+		h->chain_iterator_cur->foot_offset = pr->offset;
+
+		/* delete rule from cache */
+		iptcc_delete_rule(pr);
+		h->chain_iterator_cur->num_rules--;
+
+		return 1;
+	}
+	return 0;
+}
+
+/* alphabetically insert a chain into the list */
+static inline void iptc_insert_chain(TC_HANDLE_T h, struct chain_head *c)
+{
+	struct chain_head *tmp;
+
+	/* sort only user defined chains */
+	if (!c->hooknum) {
+		list_for_each_entry(tmp, &h->chains, list) {
+			if (!tmp->hooknum && strcmp(c->name, tmp->name) <= 0) {
+				list_add(&c->list, tmp->list.prev);
+				return;
+			}
+		}
+	}
+
+	/* survived till end of list: add at tail */
+	list_add_tail(&c->list, &h->chains);
+}
+
+/* Another ugly helper function split out of cache_add_entry to make it less
+ * spaghetti code */
+static void __iptcc_p_add_chain(TC_HANDLE_T h, struct chain_head *c,
+				unsigned int offset, unsigned int *num)
+{
+	__iptcc_p_del_policy(h, *num);
+
+	c->head_offset = offset;
+	c->index = *num;
+
+	iptc_insert_chain(h, c);
+	
+	h->chain_iterator_cur = c;
+}
+
+/* main parser function: add an entry from the blob to the cache */
+static int cache_add_entry(STRUCT_ENTRY *e, 
+			   TC_HANDLE_T h, 
+			   STRUCT_ENTRY **prev,
+			   unsigned int *num)
+{
+	unsigned int builtin;
+	unsigned int offset = (char *)e - (char *)h->entries->entrytable;
+
+	DEBUGP("entering...");
+
+	/* Last entry ("policy rule"). End it.*/
+	if (iptcb_entry2offset(h,e) + e->next_offset == h->entries->size) {
+		/* This is the ERROR node at the end of the chain */
+		DEBUGP_C("%u:%u: end of table:\n", *num, offset);
+
+		__iptcc_p_del_policy(h, *num);
+
+		h->chain_iterator_cur = NULL;
+		goto out_inc;
+	}
+
+	/* We know this is the start of a new chain if it's an ERROR
+	 * target, or a hook entry point */
+
+	if (strcmp(GET_TARGET(e)->u.user.name, ERROR_TARGET) == 0) {
+		struct chain_head *c = 
+			iptcc_alloc_chain_head((const char *)GET_TARGET(e)->data, 0);
+		DEBUGP_C("%u:%u:new userdefined chain %s: %p\n", *num, offset, 
+			(char *)c->name, c);
+		if (!c) {
+			errno = -ENOMEM;
+			return -1;
+		}
+
+		__iptcc_p_add_chain(h, c, offset, num);
+
+	} else if ((builtin = iptcb_ent_is_hook_entry(e, h)) != 0) {
+		struct chain_head *c =
+			iptcc_alloc_chain_head((char *)hooknames[builtin-1], 
+						builtin);
+		DEBUGP_C("%u:%u new builtin chain: %p (rules=%p)\n", 
+			*num, offset, c, &c->rules);
+		if (!c) {
+			errno = -ENOMEM;
+			return -1;
+		}
+
+		c->hooknum = builtin;
+
+		__iptcc_p_add_chain(h, c, offset, num);
+
+		/* FIXME: this is ugly. */
+		goto new_rule;
+	} else {
+		/* has to be normal rule */
+		struct rule_head *r;
+new_rule:
+
+		if (!(r = iptcc_alloc_rule(h->chain_iterator_cur, 
+					   e->next_offset))) {
+			errno = ENOMEM;
+			return -1;
+		}
+		DEBUGP_C("%u:%u normal rule: %p: ", *num, offset, r);
+
+		r->index = *num;
+		r->offset = offset;
+		memcpy(r->entry, e, e->next_offset);
+		r->counter_map.maptype = COUNTER_MAP_NORMAL_MAP;
+		r->counter_map.mappos = r->index;
+
+		/* handling of jumps, etc. */
+		if (!strcmp(GET_TARGET(e)->u.user.name, STANDARD_TARGET)) {
+			STRUCT_STANDARD_TARGET *t;
+
+			t = (STRUCT_STANDARD_TARGET *)GET_TARGET(e);
+			if (t->target.u.target_size
+			    != ALIGN(sizeof(STRUCT_STANDARD_TARGET))) {
+				errno = EINVAL;
+				return -1;
+			}
+
+			if (t->verdict < 0) {
+				DEBUGP_C("standard, verdict=%d\n", t->verdict);
+				r->type = IPTCC_R_STANDARD;
+			} else if (t->verdict == r->offset+e->next_offset) {
+				DEBUGP_C("fallthrough\n");
+				r->type = IPTCC_R_FALLTHROUGH;
+			} else {
+				DEBUGP_C("jump, target=%u\n", t->verdict);
+				r->type = IPTCC_R_JUMP;
+				/* Jump target fixup has to be deferred
+				 * until second pass, since we migh not
+				 * yet have parsed the target */
+			}
+		} else {
+			DEBUGP_C("module, target=%s\n", GET_TARGET(e)->u.user.name);
+			r->type = IPTCC_R_MODULE;
+		}
+
+		list_add_tail(&r->list, &h->chain_iterator_cur->rules);
+		h->chain_iterator_cur->num_rules++;
+	}
+out_inc:
+	(*num)++;
+	return 0;
+}
+
+
+/* parse an iptables blob into it's pieces */
+static int parse_table(TC_HANDLE_T h)
+{
+	STRUCT_ENTRY *prev;
+	unsigned int num = 0;
+	struct chain_head *c;
+
+	/* First pass: over ruleset blob */
+	ENTRY_ITERATE(h->entries->entrytable, h->entries->size,
+			cache_add_entry, h, &prev, &num);
+
+	/* Second pass: fixup parsed data from first pass */
+	list_for_each_entry(c, &h->chains, list) {
+		struct rule_head *r;
+		list_for_each_entry(r, &c->rules, list) {
+			struct chain_head *c;
+			STRUCT_STANDARD_TARGET *t;
+
+			if (r->type != IPTCC_R_JUMP)
+				continue;
+
+			t = (STRUCT_STANDARD_TARGET *)GET_TARGET(r->entry);
+			c = iptcc_find_chain_by_offset(h, t->verdict);
+			if (!c)
+				return -1;
+			r->jump = c;
+			c->references++;
+		}
+	}
+
+	/* FIXME: sort chains */
+
+	return 1;
+}
+
+
+/**********************************************************************
+ * RULESET COMPILATION (cache -> blob)
+ **********************************************************************/
+
+/* Convenience structures */
+struct iptcb_chain_start{
+	STRUCT_ENTRY e;
+	struct ipt_error_target name;
+};
+#define IPTCB_CHAIN_START_SIZE	(sizeof(STRUCT_ENTRY) +			\
+				 ALIGN(sizeof(struct ipt_error_target)))
+
+struct iptcb_chain_foot {
+	STRUCT_ENTRY e;
+	STRUCT_STANDARD_TARGET target;
+};
+#define IPTCB_CHAIN_FOOT_SIZE	(sizeof(STRUCT_ENTRY) +			\
+				 ALIGN(sizeof(STRUCT_STANDARD_TARGET)))
+
+struct iptcb_chain_error {
+	STRUCT_ENTRY entry;
+	struct ipt_error_target target;
+};
+#define IPTCB_CHAIN_ERROR_SIZE	(sizeof(STRUCT_ENTRY) +			\
+				 ALIGN(sizeof(struct ipt_error_target)))
+
+
+
+/* compile rule from cache into blob */
+static inline int iptcc_compile_rule (TC_HANDLE_T h, STRUCT_REPLACE *repl, struct rule_head *r)
+{
+	/* handle jumps */
+	if (r->type == IPTCC_R_JUMP) {
+		STRUCT_STANDARD_TARGET *t;
+		t = (STRUCT_STANDARD_TARGET *)GET_TARGET(r->entry);
+		/* memset for memcmp convenience on delete/replace */
+		memset(t->target.u.user.name, 0, FUNCTION_MAXNAMELEN);
+		strcpy(t->target.u.user.name, STANDARD_TARGET);
+		/* Jumps can only happen to builtin chains, so we
+		 * can safely assume that they always have a header */
+		t->verdict = r->jump->head_offset + IPTCB_CHAIN_START_SIZE;
+	} else if (r->type == IPTCC_R_FALLTHROUGH) {
+		STRUCT_STANDARD_TARGET *t;
+		t = (STRUCT_STANDARD_TARGET *)GET_TARGET(r->entry);
+		t->verdict = r->offset + r->size;
+	}
+	
+	/* copy entry from cache to blob */
+	memcpy((char *)repl->entries+r->offset, r->entry, r->size);
+
+	return 1;
+}
+
+/* compile chain from cache into blob */
+static int iptcc_compile_chain(TC_HANDLE_T h, STRUCT_REPLACE *repl, struct chain_head *c)
+{
+	int ret;
+	struct rule_head *r;
+	struct iptcb_chain_start *head;
+	struct iptcb_chain_foot *foot;
+
+	/* only user-defined chains have heaer */
+	if (!iptcc_is_builtin(c)) {
+		/* put chain header in place */
+		head = (void *)repl->entries + c->head_offset;
+		head->e.target_offset = sizeof(STRUCT_ENTRY);
+		head->e.next_offset = IPTCB_CHAIN_START_SIZE;
+		strcpy(head->name.t.u.user.name, ERROR_TARGET);
+		head->name.t.u.target_size = 
+				ALIGN(sizeof(struct ipt_error_target));
+		strcpy(head->name.error, c->name);
+	} else {
+		repl->hook_entry[c->hooknum-1] = c->head_offset;	
+		repl->underflow[c->hooknum-1] = c->foot_offset;
+	}
+
+	/* iterate over rules */
+	list_for_each_entry(r, &c->rules, list) {
+		ret = iptcc_compile_rule(h, repl, r);
+		if (ret < 0)
+			return ret;
+	}
+
+	/* put chain footer in place */
+	foot = (void *)repl->entries + c->foot_offset;
+	foot->e.target_offset = sizeof(STRUCT_ENTRY);
+	foot->e.next_offset = IPTCB_CHAIN_FOOT_SIZE;
+	strcpy(foot->target.target.u.user.name, STANDARD_TARGET);
+	foot->target.target.u.target_size =
+				ALIGN(sizeof(STRUCT_STANDARD_TARGET));
+	/* builtin targets have verdict, others return */
+	if (iptcc_is_builtin(c))
+		foot->target.verdict = c->verdict;
+	else
+		foot->target.verdict = RETURN;
+	/* set policy-counters */
+	memcpy(&foot->e.counters, &c->counters, sizeof(STRUCT_COUNTERS));
+
+	return 0;
+}
+
+/* calculate offset and number for every rule in the cache */
+static int iptcc_compile_chain_offsets(TC_HANDLE_T h, struct chain_head *c,
+				       unsigned int *offset, unsigned int *num)
+{
+	struct rule_head *r;
+
+	c->head_offset = *offset;
+	DEBUGP("%s: chain_head %u, offset=%u\n", c->name, *num, *offset);
+
+	if (!iptcc_is_builtin(c))  {
+		/* Chain has header */
+		*offset += sizeof(STRUCT_ENTRY) 
+			     + ALIGN(sizeof(struct ipt_error_target));
+		(*num)++;
+	}
+
+	list_for_each_entry(r, &c->rules, list) {
+		DEBUGP("rule %u, offset=%u, index=%u\n", *num, *offset, *num);
+		r->offset = *offset;
+		r->index = *num;
+		*offset += r->size;
+		(*num)++;
+	}
+
+	DEBUGP("%s; chain_foot %u, offset=%u, index=%u\n", c->name, *num, 
+		*offset, *num);
+	c->foot_offset = *offset;
+	c->foot_index = *num;
+	*offset += sizeof(STRUCT_ENTRY)
+		   + ALIGN(sizeof(STRUCT_STANDARD_TARGET));
+	(*num)++;
+
+	return 1;
+}
+
+/* put the pieces back together again */
+static int iptcc_compile_table_prep(TC_HANDLE_T h, unsigned int *size)
+{
+	struct chain_head *c;
+	unsigned int offset = 0, num = 0;
+	int ret = 0;
+
+	/* First pass: calculate offset for every rule */
+	list_for_each_entry(c, &h->chains, list) {
+		ret = iptcc_compile_chain_offsets(h, c, &offset, &num);
+		if (ret < 0)
+			return ret;
+	}
+
+	/* Append one error rule at end of chain */
+	num++;
+	offset += sizeof(STRUCT_ENTRY)
+		  + ALIGN(sizeof(struct ipt_error_target));
+
+	/* ruleset size is now in offset */
+	*size = offset;
+	return num;
+}
+
+static int iptcc_compile_table(TC_HANDLE_T h, STRUCT_REPLACE *repl)
+{
+	struct chain_head *c;
+	struct iptcb_chain_error *error;
+
+	/* Second pass: copy from cache to offsets, fill in jumps */
+	list_for_each_entry(c, &h->chains, list) {
+		int ret = iptcc_compile_chain(h, repl, c);
+		if (ret < 0)
+			return ret;
+	}
+
+	/* Append error rule at end of chain */
+	error = (void *)repl->entries + repl->size - IPTCB_CHAIN_ERROR_SIZE;
+	error->entry.target_offset = sizeof(STRUCT_ENTRY);
+	error->entry.next_offset = IPTCB_CHAIN_ERROR_SIZE;
+	error->target.t.u.user.target_size = 
+		ALIGN(sizeof(struct ipt_error_target));
+	strcpy((char *)&error->target.t.u.user.name, ERROR_TARGET);
+	strcpy((char *)&error->target.error, "ERROR");
+
+	return 1;
+}
+
+/**********************************************************************
+ * EXTERNAL API (operates on cache only)
+ **********************************************************************/
 
 /* Allocate handle of given size */
 static TC_HANDLE_T
@@ -202,80 +766,139 @@ alloc_handle(const char *tablename, unsigned int size, unsigned int num_rules)
 	size_t len;
 	TC_HANDLE_T h;
 
-	len = sizeof(STRUCT_TC_HANDLE)
-		+ size
-		+ num_rules * sizeof(struct counter_map);
+	len = sizeof(STRUCT_TC_HANDLE) + size;
 
-	if ((h = malloc(len)) == NULL) {
+	h = malloc(sizeof(STRUCT_TC_HANDLE));
+	if (!h) {
 		errno = ENOMEM;
 		return NULL;
 	}
-
-	h->changed = 0;
-	h->cache_num_chains = 0;
-	h->cache_chain_heads = NULL;
-	h->counter_map = (void *)h
-		+ sizeof(STRUCT_TC_HANDLE)
-		+ size;
+	memset(h, 0, sizeof(*h));
+	INIT_LIST_HEAD(&h->chains);
 	strcpy(h->info.name, tablename);
-	strcpy(h->entries.name, tablename);
+
+	h->entries = malloc(sizeof(STRUCT_GET_ENTRIES) + size);
+	if (!h->entries)
+		goto out_free_handle;
+
+	strcpy(h->entries->name, tablename);
+	h->entries->size = size;
 
 	return h;
+
+out_free_handle:
+	free(h);
+
+	return NULL;
 }
+
 
 TC_HANDLE_T
 TC_INIT(const char *tablename)
 {
 	TC_HANDLE_T h;
 	STRUCT_GETINFO info;
-	unsigned int i;
-	int tmp;
+	unsigned int tmp;
 	socklen_t s;
 
 	iptc_fn = TC_INIT;
 
-	if (sockfd != -1)
-		close(sockfd);
-
-	sockfd = socket(TC_AF, SOCK_RAW, IPPROTO_RAW);
-	if (sockfd < 0)
-		return NULL;
-
-	s = sizeof(info);
 	if (strlen(tablename) >= TABLE_MAXNAMELEN) {
 		errno = EINVAL;
 		return NULL;
 	}
+	
+	if (sockfd_use == 0) {
+		sockfd = socket(TC_AF, SOCK_RAW, IPPROTO_RAW);
+		if (sockfd < 0)
+			return NULL;
+	}
+	sockfd_use++;
+
+	s = sizeof(info);
+
 	strcpy(info.name, tablename);
-	if (getsockopt(sockfd, TC_IPPROTO, SO_GET_INFO, &info, &s) < 0)
-		return NULL;
-
-	if ((h = alloc_handle(info.name, info.size, info.num_entries))
-	    == NULL)
-		return NULL;
-
-/* Too hard --RR */
-	h->hooknames = hooknames;
-
-	/* Initialize current state */
-	h->info = info;
-	h->new_number = h->info.num_entries;
-	for (i = 0; i < h->info.num_entries; i++)
-		h->counter_map[i]
-			= ((struct counter_map){COUNTER_MAP_NORMAL_MAP, i});
-
-	h->entries.size = h->info.size;
-
-	tmp = sizeof(STRUCT_GET_ENTRIES) + h->info.size;
-
-	if (getsockopt(sockfd, TC_IPPROTO, SO_GET_ENTRIES, &h->entries,
-		       &tmp) < 0) {
-		free(h);
+	if (getsockopt(sockfd, TC_IPPROTO, SO_GET_INFO, &info, &s) < 0) {
+		if (--sockfd_use == 0) {
+			close(sockfd);
+			sockfd = -1;
+		}
 		return NULL;
 	}
 
+	DEBUGP("valid_hooks=0x%08x, num_entries=%u, size=%u\n",
+		info.valid_hooks, info.num_entries, info.size);
+
+	if ((h = alloc_handle(info.name, info.size, info.num_entries))
+	    == NULL) {
+		if (--sockfd_use == 0) {
+			close(sockfd);
+			sockfd = -1;
+		}
+		return NULL;
+	}
+
+	/* Initialize current state */
+	h->info = info;
+
+	h->entries->size = h->info.size;
+
+	tmp = sizeof(STRUCT_GET_ENTRIES) + h->info.size;
+
+	if (getsockopt(sockfd, TC_IPPROTO, SO_GET_ENTRIES, h->entries,
+		       &tmp) < 0)
+		goto error;
+
+#ifdef IPTC_DEBUG2
+	{
+		int fd = open("/tmp/libiptc-so_get_entries.blob", 
+				O_CREAT|O_WRONLY);
+		if (fd >= 0) {
+			write(fd, h->entries, tmp);
+			close(fd);
+		}
+	}
+#endif
+
+	if (parse_table(h) < 0)
+		goto error;
+
 	CHECK(h);
 	return h;
+error:
+	if (--sockfd_use == 0) {
+		close(sockfd);
+		sockfd = -1;
+	}
+	TC_FREE(&h);
+	return NULL;
+}
+
+void
+TC_FREE(TC_HANDLE_T *h)
+{
+	struct chain_head *c, *tmp;
+
+	iptc_fn = TC_FREE;
+	if (--sockfd_use == 0) {
+		close(sockfd);
+		sockfd = -1;
+	}
+
+	list_for_each_entry_safe(c, tmp, &(*h)->chains, list) {
+		struct rule_head *r, *rtmp;
+
+		list_for_each_entry_safe(r, rtmp, &c->rules, list) {
+			free(r);
+		}
+
+		free(c);
+	}
+
+	free((*h)->entries);
+	free(*h);
+
+	*h = NULL;
 }
 
 static inline int
@@ -285,16 +908,18 @@ print_match(const STRUCT_ENTRY_MATCH *m)
 	return 0;
 }
 
+#if 0
 static int dump_entry(STRUCT_ENTRY *e, const TC_HANDLE_T handle);
+#endif
  
 void
 TC_DUMP_ENTRIES(const TC_HANDLE_T handle)
 {
+	iptc_fn = TC_DUMP_ENTRIES;
 	CHECK(handle);
-
-	printf("libiptc v%s.  %u entries, %u bytes.\n",
-	       IPTABLES_VERSION,
-	       handle->new_number, handle->entries.size);
+#if 0
+	printf("libiptc v%s. %u bytes.\n",
+	       IPTABLES_VERSION, handle->entries->size);
 	printf("Table `%s'\n", handle->info.name);
 	printf("Hooks: pre/in/fwd/out/post = %u/%u/%u/%u/%u\n",
 	       handle->info.hook_entry[HOOK_PRE_ROUTING],
@@ -309,286 +934,245 @@ TC_DUMP_ENTRIES(const TC_HANDLE_T handle)
 	       handle->info.underflow[HOOK_LOCAL_OUT],
 	       handle->info.underflow[HOOK_POST_ROUTING]);
 
-	ENTRY_ITERATE(handle->entries.entrytable, handle->entries.size,
+	ENTRY_ITERATE(handle->entries->entrytable, handle->entries->size,
 		      dump_entry, handle);
-}
-
-/* Returns 0 if not hook entry, else hooknumber + 1 */
-static inline unsigned int
-is_hook_entry(STRUCT_ENTRY *e, TC_HANDLE_T h)
-{
-	unsigned int i;
-
-	for (i = 0; i < NUMHOOKS; i++) {
-		if ((h->info.valid_hooks & (1 << i))
-		    && get_entry(h, h->info.hook_entry[i]) == e)
-			return i+1;
-	}
-	return 0;
-}
-
-static inline int
-add_chain(STRUCT_ENTRY *e, TC_HANDLE_T h, STRUCT_ENTRY **prev)
-{
-	unsigned int builtin;
-
-	/* Last entry.  End it. */
-	if (entry2offset(h, e) + e->next_offset == h->entries.size) {
-		/* This is the ERROR node at end of the table */
-		h->cache_chain_heads[h->cache_num_chains-1].end = *prev;
-		return 0;
-	}
-
-	/* We know this is the start of a new chain if it's an ERROR
-	   target, or a hook entry point */
-	if (strcmp(GET_TARGET(e)->u.user.name, ERROR_TARGET) == 0) {
-		/* prev was last entry in previous chain */
-		h->cache_chain_heads[h->cache_num_chains-1].end
-			= *prev;
-
-		strcpy(h->cache_chain_heads[h->cache_num_chains].name,
-		       (const char *)GET_TARGET(e)->data);
-		h->cache_chain_heads[h->cache_num_chains].start
-			= (void *)e + e->next_offset;
-		h->cache_num_chains++;
-	} else if ((builtin = is_hook_entry(e, h)) != 0) {
-		if (h->cache_num_chains > 0)
-			/* prev was last entry in previous chain */
-			h->cache_chain_heads[h->cache_num_chains-1].end
-				= *prev;
-
-		strcpy(h->cache_chain_heads[h->cache_num_chains].name,
-		       h->hooknames[builtin-1]);
-		h->cache_chain_heads[h->cache_num_chains].start
-			= (void *)e;
-		h->cache_num_chains++;
-	}
-
-	*prev = e;
-	return 0;
-}
-
-static int alphasort(const void *a, const void *b)
-{
-	return strcmp(((struct chain_cache *)a)->name,
-		      ((struct chain_cache *)b)->name);
-}
-
-static int populate_cache(TC_HANDLE_T h)
-{
-	unsigned int i;
-	STRUCT_ENTRY *prev;
-
-	/* # chains < # rules / 2 + num builtins - 1 */
-	h->cache_chain_heads = malloc((h->new_number / 2 + 4)
-				      * sizeof(struct chain_cache));
-	if (!h->cache_chain_heads) {
-		errno = ENOMEM;
-		return 0;
-	}
-
-	h->cache_num_chains = 0;
-	h->cache_num_builtins = 0;
-
-	/* Count builtins */
-	for (i = 0; i < NUMHOOKS; i++) {
-		if (h->info.valid_hooks & (1 << i))
-			h->cache_num_builtins++;
-	}
-
-	prev = NULL;
-	ENTRY_ITERATE(h->entries.entrytable, h->entries.size,
-		      add_chain, h, &prev);
-
-	qsort(h->cache_chain_heads + h->cache_num_builtins,
-	      h->cache_num_chains - h->cache_num_builtins,
-	      sizeof(struct chain_cache), alphasort);
-
-	return 1;
-}
-
-/* Returns cache ptr if found, otherwise NULL. */
-static struct chain_cache *
-find_label(const char *name, TC_HANDLE_T handle)
-{
-	unsigned int i;
-
-	if (handle->cache_chain_heads == NULL
-	    && !populate_cache(handle))
-		return NULL;
-
-	for (i = 0; i < handle->cache_num_chains; i++) {
-		if (strcmp(handle->cache_chain_heads[i].name, name) == 0)
-			return &handle->cache_chain_heads[i];
-	}
-
-	return NULL;
+#endif
 }
 
 /* Does this chain exist? */
 int TC_IS_CHAIN(const char *chain, const TC_HANDLE_T handle)
 {
-	return find_label(chain, handle) != NULL;
+	iptc_fn = TC_IS_CHAIN;
+	return iptcc_find_label(chain, handle) != NULL;
 }
 
-/* Returns the position of the final (ie. unconditional) element. */
-static unsigned int
-get_chain_end(const TC_HANDLE_T handle, unsigned int start)
+static void iptcc_chain_iterator_advance(TC_HANDLE_T handle)
 {
-	unsigned int last_off, off;
-	STRUCT_ENTRY *e;
+	struct chain_head *c = handle->chain_iterator_cur;
 
-	last_off = start;
-	e = get_entry(handle, start);
-
-	/* Terminate when we meet a error label or a hook entry. */
-	for (off = start + e->next_offset;
-	     off < handle->entries.size;
-	     last_off = off, off += e->next_offset) {
-		STRUCT_ENTRY_TARGET *t;
-		unsigned int i;
-
-		e = get_entry(handle, off);
-
-		/* We hit an entry point. */
-		for (i = 0; i < NUMHOOKS; i++) {
-			if ((handle->info.valid_hooks & (1 << i))
-			    && off == handle->info.hook_entry[i])
-				return last_off;
-		}
-
-		/* We hit a user chain label */
-		t = GET_TARGET(e);
-		if (strcmp(t->u.user.name, ERROR_TARGET) == 0)
-			return last_off;
-	}
-	/* SHOULD NEVER HAPPEN */
-	fprintf(stderr, "ERROR: Off end (%u) of chain from %u!\n",
-		handle->entries.size, off);
-	abort();
+	if (c->list.next == &handle->chains)
+		handle->chain_iterator_cur = NULL;
+	else
+		handle->chain_iterator_cur = 
+			list_entry(c->list.next, struct chain_head, list);
 }
 
 /* Iterator functions to run through the chains. */
 const char *
 TC_FIRST_CHAIN(TC_HANDLE_T *handle)
 {
-	if ((*handle)->cache_chain_heads == NULL
-	    && !populate_cache(*handle))
+	struct chain_head *c = list_entry((*handle)->chains.next,
+					  struct chain_head, list);
+
+	iptc_fn = TC_FIRST_CHAIN;
+
+
+	if (list_empty(&(*handle)->chains)) {
+		DEBUGP(": no chains\n");
 		return NULL;
+	}
 
-	(*handle)->cache_chain_iteration
-		= &(*handle)->cache_chain_heads[0];
+	(*handle)->chain_iterator_cur = c;
+	iptcc_chain_iterator_advance(*handle);
 
-	return (*handle)->cache_chain_iteration->name;
+	DEBUGP(": returning `%s'\n", c->name);
+	return c->name;
 }
 
 /* Iterator functions to run through the chains.  Returns NULL at end. */
 const char *
 TC_NEXT_CHAIN(TC_HANDLE_T *handle)
 {
-	(*handle)->cache_chain_iteration++;
+	struct chain_head *c = (*handle)->chain_iterator_cur;
 
-	if ((*handle)->cache_chain_iteration - (*handle)->cache_chain_heads
-	    == (*handle)->cache_num_chains)
+	iptc_fn = TC_NEXT_CHAIN;
+
+	if (!c) {
+		DEBUGP(": no more chains\n");
 		return NULL;
+	}
 
-	return (*handle)->cache_chain_iteration->name;
+	iptcc_chain_iterator_advance(*handle);
+	
+	DEBUGP(": returning `%s'\n", c->name);
+	return c->name;
 }
 
 /* Get first rule in the given chain: NULL for empty chain. */
 const STRUCT_ENTRY *
 TC_FIRST_RULE(const char *chain, TC_HANDLE_T *handle)
 {
-	struct chain_cache *c;
+	struct chain_head *c;
+	struct rule_head *r;
 
-	c = find_label(chain, *handle);
+	iptc_fn = TC_FIRST_RULE;
+
+	DEBUGP("first rule(%s): ", chain);
+
+	c = iptcc_find_label(chain, *handle);
 	if (!c) {
 		errno = ENOENT;
 		return NULL;
 	}
 
 	/* Empty chain: single return/policy rule */
-	if (c->start == c->end)
+	if (list_empty(&c->rules)) {
+		DEBUGP_C("no rules, returning NULL\n");
 		return NULL;
+	}
 
-	(*handle)->cache_rule_end = c->end;
-	return c->start;
+	r = list_entry(c->rules.next, struct rule_head, list);
+	(*handle)->rule_iterator_cur = r;
+	DEBUGP_C("%p\n", r);
+
+	return r->entry;
 }
 
 /* Returns NULL when rules run out. */
 const STRUCT_ENTRY *
 TC_NEXT_RULE(const STRUCT_ENTRY *prev, TC_HANDLE_T *handle)
 {
-	if ((void *)prev + prev->next_offset
-	    == (void *)(*handle)->cache_rule_end)
+	struct rule_head *r;
+
+	iptc_fn = TC_NEXT_RULE;
+	DEBUGP("rule_iterator_cur=%p...", (*handle)->rule_iterator_cur);
+
+	if (!(*handle)->rule_iterator_cur) {
+		DEBUGP_C("returning NULL\n");
 		return NULL;
+	}
+	
+	r = list_entry((*handle)->rule_iterator_cur->list.next, 
+			struct rule_head, list);
 
-	return (void *)prev + prev->next_offset;
-}
+	iptc_fn = TC_NEXT_RULE;
 
+	DEBUGP_C("next=%p, head=%p...", &r->list, 
+		&(*handle)->rule_iterator_cur->chain->rules);
 
-static const char *
-target_name(TC_HANDLE_T handle, const STRUCT_ENTRY *ce)
-{
-	int spos;
-	unsigned int labelidx;
-	STRUCT_ENTRY *jumpto;
-
-	/* To avoid const warnings */
-	STRUCT_ENTRY *e = (STRUCT_ENTRY *)ce;
-
-	if (strcmp(GET_TARGET(e)->u.user.name, STANDARD_TARGET) != 0)
-		return GET_TARGET(e)->u.user.name;
-
-	/* Standard target: evaluate */
-	spos = *(int *)GET_TARGET(e)->data;
-	if (spos < 0) {
-		if (spos == RETURN)
-			return LABEL_RETURN;
-		else if (spos == -NF_ACCEPT-1)
-			return LABEL_ACCEPT;
-		else if (spos == -NF_DROP-1)
-			return LABEL_DROP;
-		else if (spos == -NF_QUEUE-1)
-			return LABEL_QUEUE;
-
-		fprintf(stderr, "ERROR: off %lu/%u not a valid target (%i)\n",
-			entry2offset(handle, e), handle->entries.size,
-			spos);
-		abort();
+	if (&r->list == &(*handle)->rule_iterator_cur->chain->rules) {
+		(*handle)->rule_iterator_cur = NULL;
+		DEBUGP_C("finished, returning NULL\n");
+		return NULL;
 	}
 
-	jumpto = get_entry(handle, spos);
+	(*handle)->rule_iterator_cur = r;
 
-	/* Fall through rule */
-	if (jumpto == (void *)e + e->next_offset)
-		return "";
+	/* NOTE: prev is without any influence ! */
+	DEBUGP_C("returning rule %p\n", r);
+	return r->entry;
+}
 
-	/* Must point to head of a chain: ie. after error rule */
-	labelidx = entry2index(handle, jumpto) - 1;
-	return get_errorlabel(handle, index2offset(handle, labelidx));
+/* How many rules in this chain? */
+unsigned int
+TC_NUM_RULES(const char *chain, TC_HANDLE_T *handle)
+{
+	struct chain_head *c;
+	iptc_fn = TC_NUM_RULES;
+	CHECK(*handle);
+
+	c = iptcc_find_label(chain, *handle);
+	if (!c) {
+		errno = ENOENT;
+		return (unsigned int)-1;
+	}
+	
+	return c->num_rules;
+}
+
+const STRUCT_ENTRY *TC_GET_RULE(const char *chain,
+				unsigned int n,
+				TC_HANDLE_T *handle)
+{
+	struct chain_head *c;
+	struct rule_head *r;
+	
+	iptc_fn = TC_GET_RULE;
+
+	CHECK(*handle);
+
+	c = iptcc_find_label(chain, *handle);
+	if (!c) {
+		errno = ENOENT;
+		return NULL;
+	}
+
+	r = iptcc_get_rule_num(c, n);
+	if (!r)
+		return NULL;
+	return r->entry;
 }
 
 /* Returns a pointer to the target name of this position. */
-const char *TC_GET_TARGET(const STRUCT_ENTRY *e,
-			  TC_HANDLE_T *handle)
+const char *standard_target_map(int verdict)
 {
-	return target_name(*handle, e);
+	switch (verdict) {
+		case RETURN:
+			return LABEL_RETURN;
+			break;
+		case -NF_ACCEPT-1:
+			return LABEL_ACCEPT;
+			break;
+		case -NF_DROP-1:
+			return LABEL_DROP;
+			break;
+		case -NF_QUEUE-1:
+			return LABEL_QUEUE;
+			break;
+		default:
+			fprintf(stderr, "ERROR: %d not a valid target)\n",
+				verdict);
+			abort();
+			break;
+	}
+	/* not reached */
+	return NULL;
 }
 
+/* Returns a pointer to the target name of this position. */
+const char *TC_GET_TARGET(const STRUCT_ENTRY *ce,
+			  TC_HANDLE_T *handle)
+{
+	STRUCT_ENTRY *e = (STRUCT_ENTRY *)ce;
+	struct rule_head *r = container_of(e, struct rule_head, entry[0]);
+
+	iptc_fn = TC_GET_TARGET;
+
+	switch(r->type) {
+		int spos;
+		case IPTCC_R_FALLTHROUGH:
+			return "";
+			break;
+		case IPTCC_R_JUMP:
+			DEBUGP("r=%p, jump=%p, name=`%s'\n", r, r->jump, r->jump->name);
+			return r->jump->name;
+			break;
+		case IPTCC_R_STANDARD:
+			spos = *(int *)GET_TARGET(e)->data;
+			DEBUGP("r=%p, spos=%d'\n", r, spos);
+			return standard_target_map(spos);
+			break;
+		case IPTCC_R_MODULE:
+			return GET_TARGET(e)->u.user.name;
+			break;
+	}
+	return NULL;
+}
 /* Is this a built-in chain?  Actually returns hook + 1. */
 int
 TC_BUILTIN(const char *chain, const TC_HANDLE_T handle)
 {
-	unsigned int i;
+	struct chain_head *c;
+	
+	iptc_fn = TC_BUILTIN;
 
-	for (i = 0; i < NUMHOOKS; i++) {
-		if ((handle->info.valid_hooks & (1 << i))
-		    && handle->hooknames[i]
-		    && strcmp(handle->hooknames[i], chain) == 0)
-			return i+1;
+	c = iptcc_find_label(chain, handle);
+	if (!c) {
+		errno = ENOENT;
+		return 0;
 	}
-	return 0;
+
+	return iptcc_is_builtin(c);
 }
 
 /* Get the policy of a given built-in chain */
@@ -597,189 +1181,30 @@ TC_GET_POLICY(const char *chain,
 	      STRUCT_COUNTERS *counters,
 	      TC_HANDLE_T *handle)
 {
-	unsigned int start;
-	STRUCT_ENTRY *e;
-	int hook;
+	struct chain_head *c;
 
-	hook = TC_BUILTIN(chain, *handle);
-	if (hook != 0)
-		start = (*handle)->info.hook_entry[hook-1];
-	else
+	iptc_fn = TC_GET_POLICY;
+
+	DEBUGP("called for chain %s\n", chain);
+
+	c = iptcc_find_label(chain, *handle);
+	if (!c) {
+		errno = ENOENT;
+		return NULL;
+	}
+
+	if (!iptcc_is_builtin(c))
 		return NULL;
 
-	e = get_entry(*handle, get_chain_end(*handle, start));
-	*counters = e->counters;
+	*counters = c->counters;
 
-	return target_name(*handle, e);
+	return standard_target_map(c->verdict);
 }
 
 static int
-correct_verdict(STRUCT_ENTRY *e,
-		char *base,
-		unsigned int offset, int delta_offset)
+iptcc_standard_map(struct rule_head *r, int verdict)
 {
-	STRUCT_STANDARD_TARGET *t = (void *)GET_TARGET(e);
-	unsigned int curr = (char *)e - base;
-
-	/* Trap: insert of fall-through rule.  Don't change fall-through
-	   verdict to jump-over-next-rule. */
-	if (strcmp(t->target.u.user.name, STANDARD_TARGET) == 0
-	    && t->verdict > (int)offset
-	    && !(curr == offset &&
-		 t->verdict == curr + e->next_offset)) {
-		t->verdict += delta_offset;
-	}
-
-	return 0;
-}
-
-/* Adjusts standard verdict jump positions after an insertion/deletion. */
-static int
-set_verdict(unsigned int offset, int delta_offset, TC_HANDLE_T *handle)
-{
-	ENTRY_ITERATE((*handle)->entries.entrytable,
-		      (*handle)->entries.size,
-		      correct_verdict, (char *)(*handle)->entries.entrytable,
-		      offset, delta_offset);
-
-	set_changed(*handle);
-	return 1;
-}
-
-/* If prepend is set, then we are prepending to a chain: if the
- * insertion position is an entry point, keep the entry point. */
-static int
-insert_rules(unsigned int num_rules, unsigned int rules_size,
-	     const STRUCT_ENTRY *insert,
-	     unsigned int offset, unsigned int num_rules_offset,
-	     int prepend,
-	     TC_HANDLE_T *handle)
-{
-	TC_HANDLE_T newh;
-	STRUCT_GETINFO newinfo;
-	unsigned int i;
-
-	if (offset >= (*handle)->entries.size) {
-		errno = EINVAL;
-		return 0;
-	}
-
-	newinfo = (*handle)->info;
-
-	/* Fix up entry points. */
-	for (i = 0; i < NUMHOOKS; i++) {
-		/* Entry points to START of chain, so keep same if
-                   inserting on at that point. */
-		if ((*handle)->info.hook_entry[i] > offset)
-			newinfo.hook_entry[i] += rules_size;
-
-		/* Underflow always points to END of chain (policy),
-		   so if something is inserted at same point, it
-		   should be advanced. */
-		if ((*handle)->info.underflow[i] >= offset)
-			newinfo.underflow[i] += rules_size;
-	}
-
-	newh = alloc_handle((*handle)->info.name,
-			    (*handle)->entries.size + rules_size,
-			    (*handle)->new_number + num_rules);
-	if (!newh)
-		return 0;
-	newh->info = newinfo;
-
-	/* Copy pre... */
-	memcpy(newh->entries.entrytable, (*handle)->entries.entrytable,offset);
-	/* ... Insert new ... */
-	memcpy((char *)newh->entries.entrytable + offset, insert, rules_size);
-	/* ... copy post */
-	memcpy((char *)newh->entries.entrytable + offset + rules_size,
-	       (char *)(*handle)->entries.entrytable + offset,
-	       (*handle)->entries.size - offset);
-
-	/* Move counter map. */
-	/* Copy pre... */
-	memcpy(newh->counter_map, (*handle)->counter_map,
-	       sizeof(struct counter_map) * num_rules_offset);
-	/* ... copy post */
-	memcpy(newh->counter_map + num_rules_offset + num_rules,
-	       (*handle)->counter_map + num_rules_offset,
-	       sizeof(struct counter_map) * ((*handle)->new_number
-					     - num_rules_offset));
-	/* Set intermediates to no counter copy */
-	for (i = 0; i < num_rules; i++)
-		newh->counter_map[num_rules_offset+i]
-			= ((struct counter_map){ COUNTER_MAP_SET, 0 });
-
-	newh->new_number = (*handle)->new_number + num_rules;
-	newh->entries.size = (*handle)->entries.size + rules_size;
-	newh->hooknames = (*handle)->hooknames;
-
-	if ((*handle)->cache_chain_heads)
-		free((*handle)->cache_chain_heads);
-	free(*handle);
-	*handle = newh;
-
-	return set_verdict(offset, rules_size, handle);
-}
-
-static int
-delete_rules(unsigned int num_rules, unsigned int rules_size,
-	     unsigned int offset, unsigned int num_rules_offset,
-	     TC_HANDLE_T *handle)
-{
-	unsigned int i;
-
-	if (offset + rules_size > (*handle)->entries.size) {
-		errno = EINVAL;
-		return 0;
-	}
-
-	/* Fix up entry points. */
-	for (i = 0; i < NUMHOOKS; i++) {
-		/* In practice, we never delete up to a hook entry,
-		   since the built-in chains are always first,
-		   so these two are never equal */
-		if ((*handle)->info.hook_entry[i] >= offset + rules_size)
-			(*handle)->info.hook_entry[i] -= rules_size;
-		else if ((*handle)->info.hook_entry[i] > offset) {
-			fprintf(stderr, "ERROR: Deleting entry %u %u %u\n",
-				i, (*handle)->info.hook_entry[i], offset);
-			abort();
-		}
-
-		/* Underflow points to policy (terminal) rule in
-                   built-in, so sequality is valid here (when deleting
-                   the last rule). */
-		if ((*handle)->info.underflow[i] >= offset + rules_size)
-			(*handle)->info.underflow[i] -= rules_size;
-		else if ((*handle)->info.underflow[i] > offset) {
-			fprintf(stderr, "ERROR: Deleting uflow %u %u %u\n",
-				i, (*handle)->info.underflow[i], offset);
-			abort();
-		}
-	}
-
-	/* Move the rules down. */
-	memmove((char *)(*handle)->entries.entrytable + offset,
-		(char *)(*handle)->entries.entrytable + offset + rules_size,
-		(*handle)->entries.size - (offset + rules_size));
-
-	/* Move the counter map down. */
-	memmove(&(*handle)->counter_map[num_rules_offset],
-		&(*handle)->counter_map[num_rules_offset + num_rules],
-		sizeof(struct counter_map)
-		* ((*handle)->new_number - (num_rules + num_rules_offset)));
-
-	/* Fix numbers */
-	(*handle)->new_number -= num_rules;
-	(*handle)->entries.size -= rules_size;
-
-	return set_verdict(offset, -(int)rules_size, handle);
-}
-
-static int
-standard_map(STRUCT_ENTRY *e, int verdict)
-{
+	STRUCT_ENTRY *e = r->entry;
 	STRUCT_STANDARD_TARGET *t;
 
 	t = (STRUCT_STANDARD_TARGET *)GET_TARGET(e);
@@ -794,62 +1219,60 @@ standard_map(STRUCT_ENTRY *e, int verdict)
 	strcpy(t->target.u.user.name, STANDARD_TARGET);
 	t->verdict = verdict;
 
+	r->type = IPTCC_R_STANDARD;
+
 	return 1;
 }
 
 static int
-map_target(const TC_HANDLE_T handle,
-	   STRUCT_ENTRY *e,
-	   unsigned int offset,
-	   STRUCT_ENTRY_TARGET *old)
+iptcc_map_target(const TC_HANDLE_T handle,
+	   struct rule_head *r)
 {
+	STRUCT_ENTRY *e = r->entry;
 	STRUCT_ENTRY_TARGET *t = GET_TARGET(e);
 
-	/* Save old target (except data, which we don't change, except for
-	   standard case, where we don't care). */
-	*old = *t;
-
 	/* Maybe it's empty (=> fall through) */
-	if (strcmp(t->u.user.name, "") == 0)
-		return standard_map(e, offset + e->next_offset);
+	if (strcmp(t->u.user.name, "") == 0) {
+		r->type = IPTCC_R_FALLTHROUGH;
+		return 1;
+	}
 	/* Maybe it's a standard target name... */
 	else if (strcmp(t->u.user.name, LABEL_ACCEPT) == 0)
-		return standard_map(e, -NF_ACCEPT - 1);
+		return iptcc_standard_map(r, -NF_ACCEPT - 1);
 	else if (strcmp(t->u.user.name, LABEL_DROP) == 0)
-		return standard_map(e, -NF_DROP - 1);
+		return iptcc_standard_map(r, -NF_DROP - 1);
 	else if (strcmp(t->u.user.name, LABEL_QUEUE) == 0)
-		return standard_map(e, -NF_QUEUE - 1);
+		return iptcc_standard_map(r, -NF_QUEUE - 1);
 	else if (strcmp(t->u.user.name, LABEL_RETURN) == 0)
-		return standard_map(e, RETURN);
+		return iptcc_standard_map(r, RETURN);
 	else if (TC_BUILTIN(t->u.user.name, handle)) {
 		/* Can't jump to builtins. */
 		errno = EINVAL;
 		return 0;
 	} else {
 		/* Maybe it's an existing chain name. */
-		struct chain_cache *c;
+		struct chain_head *c;
+		DEBUGP("trying to find chain `%s': ", t->u.user.name);
 
-		c = find_label(t->u.user.name, handle);
-		if (c)
-			return standard_map(e, entry2offset(handle, c->start));
+		c = iptcc_find_label(t->u.user.name, handle);
+		if (c) {
+			DEBUGP_C("found!\n");
+			r->type = IPTCC_R_JUMP;
+			r->jump = c;
+			c->references++;
+			return 1;
+		}
+		DEBUGP_C("not found :(\n");
 	}
 
 	/* Must be a module?  If not, kernel will reject... */
-	/* memset to all 0 for your memcmp convenience. */
+	/* memset to all 0 for your memcmp convenience: don't clear version */
 	memset(t->u.user.name + strlen(t->u.user.name),
 	       0,
-	       FUNCTION_MAXNAMELEN - strlen(t->u.user.name));
+	       FUNCTION_MAXNAMELEN - 1 - strlen(t->u.user.name));
+	r->type = IPTCC_R_MODULE;
+	set_changed(handle);
 	return 1;
-}
-
-static void
-unmap_target(STRUCT_ENTRY *e, STRUCT_ENTRY_TARGET *old)
-{
-	STRUCT_ENTRY_TARGET *t = GET_TARGET(e);
-
-	/* Save old target (except data, which we don't change, except for
-	   standard case, where we don't care). */
-	*t = *old;
 }
 
 /* Insert the entry `fw' in chain `chain' into position `rulenum'. */
@@ -859,36 +1282,56 @@ TC_INSERT_ENTRY(const IPT_CHAINLABEL chain,
 		unsigned int rulenum,
 		TC_HANDLE_T *handle)
 {
-	unsigned int chainindex, offset;
-	STRUCT_ENTRY_TARGET old;
-	struct chain_cache *c;
-	STRUCT_ENTRY *tmp;
-	int ret;
+	struct chain_head *c;
+	struct rule_head *r;
+	struct list_head *prev;
 
 	iptc_fn = TC_INSERT_ENTRY;
-	if (!(c = find_label(chain, *handle))) {
+
+	if (!(c = iptcc_find_label(chain, *handle))) {
 		errno = ENOENT;
 		return 0;
 	}
 
-	chainindex = entry2index(*handle, c->start);
-
-	tmp = index2entry(*handle, chainindex + rulenum);
-	if (!tmp || tmp > c->end) {
+	/* first rulenum index = 0
+	   first c->num_rules index = 1 */
+	if (rulenum > c->num_rules) {
 		errno = E2BIG;
 		return 0;
 	}
-	offset = index2offset(*handle, chainindex + rulenum);
 
-	/* Mapping target actually alters entry, but that's
-           transparent to the caller. */
-	if (!map_target(*handle, (STRUCT_ENTRY *)e, offset, &old))
+	/* If we are inserting at the end just take advantage of the
+	   double linked list, insert will happen before the entry
+	   prev points to. */
+	if (rulenum == c->num_rules) {
+		prev = &c->rules;
+	} else if (rulenum + 1 <= c->num_rules/2) {
+		r = iptcc_get_rule_num(c, rulenum + 1);
+		prev = &r->list;
+	} else {
+		r = iptcc_get_rule_num_reverse(c, c->num_rules - rulenum);
+		prev = &r->list;
+	}
+
+	if (!(r = iptcc_alloc_rule(c, e->next_offset))) {
+		errno = ENOMEM;
 		return 0;
+	}
 
-	ret = insert_rules(1, e->next_offset, e, offset,
-			   chainindex + rulenum, rulenum == 0, handle);
-	unmap_target((STRUCT_ENTRY *)e, &old);
-	return ret;
+	memcpy(r->entry, e, e->next_offset);
+	r->counter_map.maptype = COUNTER_MAP_SET;
+
+	if (!iptcc_map_target(*handle, r)) {
+		free(r);
+		return 0;
+	}
+
+	list_add_tail(&r->list, prev);
+	c->num_rules++;
+
+	set_changed(*handle);
+
+	return 1;
 }
 
 /* Atomically replace rule `rulenum' in `chain' with `fw'. */
@@ -898,40 +1341,47 @@ TC_REPLACE_ENTRY(const IPT_CHAINLABEL chain,
 		 unsigned int rulenum,
 		 TC_HANDLE_T *handle)
 {
-	unsigned int chainindex, offset;
-	STRUCT_ENTRY_TARGET old;
-	struct chain_cache *c;
-	STRUCT_ENTRY *tmp;
-	int ret;
+	struct chain_head *c;
+	struct rule_head *r, *old;
 
 	iptc_fn = TC_REPLACE_ENTRY;
 
-	if (!(c = find_label(chain, *handle))) {
+	if (!(c = iptcc_find_label(chain, *handle))) {
 		errno = ENOENT;
 		return 0;
 	}
 
-	chainindex = entry2index(*handle, c->start);
-
-	tmp = index2entry(*handle, chainindex + rulenum);
-	if (!tmp || tmp >= c->end) {
+	if (rulenum >= c->num_rules) {
 		errno = E2BIG;
 		return 0;
 	}
 
-	offset = index2offset(*handle, chainindex + rulenum);
-	/* Replace = delete and insert. */
-	if (!delete_rules(1, get_entry(*handle, offset)->next_offset,
-			  offset, chainindex + rulenum, handle))
-		return 0;
+	/* Take advantage of the double linked list if possible. */
+	if (rulenum + 1 <= c->num_rules/2) {
+		old = iptcc_get_rule_num(c, rulenum + 1);
+	} else {
+		old = iptcc_get_rule_num_reverse(c, c->num_rules - rulenum);
+	}
 
-	if (!map_target(*handle, (STRUCT_ENTRY *)e, offset, &old))
+	if (!(r = iptcc_alloc_rule(c, e->next_offset))) {
+		errno = ENOMEM;
 		return 0;
+	}
 
-	ret = insert_rules(1, e->next_offset, e, offset,
-			   chainindex + rulenum, 1, handle);
-	unmap_target((STRUCT_ENTRY *)e, &old);
-	return ret;
+	memcpy(r->entry, e, e->next_offset);
+	r->counter_map.maptype = COUNTER_MAP_SET;
+
+	if (!iptcc_map_target(*handle, r)) {
+		free(r);
+		return 0;
+	}
+
+	list_add(&r->list, &old->list);
+	iptcc_delete_rule(old);
+
+	set_changed(*handle);
+
+	return 1;
 }
 
 /* Append entry `fw' to chain `chain'.  Equivalent to insert with
@@ -941,26 +1391,37 @@ TC_APPEND_ENTRY(const IPT_CHAINLABEL chain,
 		const STRUCT_ENTRY *e,
 		TC_HANDLE_T *handle)
 {
-	struct chain_cache *c;
-	STRUCT_ENTRY_TARGET old;
-	int ret;
+	struct chain_head *c;
+	struct rule_head *r;
 
 	iptc_fn = TC_APPEND_ENTRY;
-	if (!(c = find_label(chain, *handle))) {
+	if (!(c = iptcc_find_label(chain, *handle))) {
+		DEBUGP("unable to find chain `%s'\n", chain);
 		errno = ENOENT;
 		return 0;
 	}
 
-	if (!map_target(*handle, (STRUCT_ENTRY *)e,
-			entry2offset(*handle, c->end), &old))
+	if (!(r = iptcc_alloc_rule(c, e->next_offset))) {
+		DEBUGP("unable to allocate rule for chain `%s'\n", chain);
+		errno = ENOMEM;
 		return 0;
+	}
 
-	ret = insert_rules(1, e->next_offset, e,
-			   entry2offset(*handle, c->end),
-			   entry2index(*handle, c->end),
-			   0, handle);
-	unmap_target((STRUCT_ENTRY *)e, &old);
-	return ret;
+	memcpy(r->entry, e, e->next_offset);
+	r->counter_map.maptype = COUNTER_MAP_SET;
+
+	if (!iptcc_map_target(*handle, r)) {
+		DEBUGP("unable to map target of rule for chain `%s'\n", chain);
+		free(r);
+		return 0;
+	}
+
+	list_add_tail(&r->list, &c->rules);
+	c->num_rules++;
+
+	set_changed(*handle);
+
+	return 1;
 }
 
 static inline int
@@ -991,20 +1452,42 @@ match_different(const STRUCT_ENTRY_MATCH *a,
 }
 
 static inline int
-target_different(const unsigned char *a_targdata,
-		 const unsigned char *b_targdata,
-		 unsigned int tdatasize,
-		 const unsigned char *mask)
+target_same(struct rule_head *a, struct rule_head *b,const unsigned char *mask)
 {
 	unsigned int i;
-	for (i = 0; i < tdatasize; i++)
-		if (((a_targdata[i] ^ b_targdata[i]) & mask[i]) != 0)
-			return 1;
+	STRUCT_ENTRY_TARGET *ta, *tb;
 
-	return 0;
+	if (a->type != b->type)
+		return 0;
+
+	ta = GET_TARGET(a->entry);
+	tb = GET_TARGET(b->entry);
+
+	switch (a->type) {
+	case IPTCC_R_FALLTHROUGH:
+		return 1;
+	case IPTCC_R_JUMP:
+		return a->jump == b->jump;
+	case IPTCC_R_STANDARD:
+		return ((STRUCT_STANDARD_TARGET *)ta)->verdict
+			== ((STRUCT_STANDARD_TARGET *)tb)->verdict;
+	case IPTCC_R_MODULE:
+		if (ta->u.target_size != tb->u.target_size)
+			return 0;
+		if (strcmp(ta->u.user.name, tb->u.user.name) != 0)
+			return 0;
+
+		for (i = 0; i < ta->u.target_size - sizeof(*ta); i++)
+			if (((ta->data[i] ^ tb->data[i]) & mask[i]) != 0)
+				return 0;
+		return 1;
+	default:
+		fprintf(stderr, "ERROR: bad type %i\n", a->type);
+		abort();
+	}
 }
 
-static int
+static unsigned char *
 is_same(const STRUCT_ENTRY *a,
 	const STRUCT_ENTRY *b,
 	unsigned char *matchmask);
@@ -1016,49 +1499,70 @@ TC_DELETE_ENTRY(const IPT_CHAINLABEL chain,
 		unsigned char *matchmask,
 		TC_HANDLE_T *handle)
 {
-	unsigned int offset;
-	struct chain_cache *c;
-	STRUCT_ENTRY *e, *fw;
+	struct chain_head *c;
+	struct rule_head *r, *i;
 
 	iptc_fn = TC_DELETE_ENTRY;
-	if (!(c = find_label(chain, *handle))) {
+	if (!(c = iptcc_find_label(chain, *handle))) {
 		errno = ENOENT;
 		return 0;
 	}
 
-	fw = malloc(origfw->next_offset);
-	if (fw == NULL) {
+	/* Create a rule_head from origfw. */
+	r = iptcc_alloc_rule(c, origfw->next_offset);
+	if (!r) {
 		errno = ENOMEM;
 		return 0;
 	}
 
-	for (offset = entry2offset(*handle, c->start);
-	     offset < entry2offset(*handle, c->end);
-	     offset += e->next_offset) {
-		STRUCT_ENTRY_TARGET discard;
-
-		memcpy(fw, origfw, origfw->next_offset);
-
-		if (!map_target(*handle, fw, offset, &discard)) {
-			free(fw);
-			return 0;
-		}
-		e = get_entry(*handle, offset);
-
-		if (is_same(e, fw, matchmask)) {
-			int ret;
-			ret = delete_rules(1, e->next_offset,
-					   offset, entry2index(*handle, e),
-					   handle);
-			free(fw);
-			return ret;
-		}
+	memcpy(r->entry, origfw, origfw->next_offset);
+	r->counter_map.maptype = COUNTER_MAP_NOMAP;
+	if (!iptcc_map_target(*handle, r)) {
+		DEBUGP("unable to map target of rule for chain `%s'\n", chain);
+		free(r);
+		return 0;
+	} else {
+		/* iptcc_map_target increment target chain references
+		 * since this is a fake rule only used for matching
+		 * the chain references count is decremented again. 
+		 */
+		if (r->type == IPTCC_R_JUMP
+		    && r->jump)
+			r->jump->references--;
 	}
 
-	free(fw);
+	list_for_each_entry(i, &c->rules, list) {
+		unsigned char *mask;
+
+		mask = is_same(r->entry, i->entry, matchmask);
+		if (!mask)
+			continue;
+
+		if (!target_same(r, i, mask))
+			continue;
+
+		/* If we are about to delete the rule that is the
+		 * current iterator, move rule iterator back.  next
+		 * pointer will then point to real next node */
+		if (i == (*handle)->rule_iterator_cur) {
+			(*handle)->rule_iterator_cur = 
+				list_entry((*handle)->rule_iterator_cur->list.prev,
+					   struct rule_head, list);
+		}
+
+		c->num_rules--;
+		iptcc_delete_rule(i);
+
+		set_changed(*handle);
+		free(r);
+		return 1;
+	}
+
+	free(r);
 	errno = ENOENT;
 	return 0;
 }
+
 
 /* Delete the rule in position `rulenum' in `chain'. */
 int
@@ -1066,33 +1570,43 @@ TC_DELETE_NUM_ENTRY(const IPT_CHAINLABEL chain,
 		    unsigned int rulenum,
 		    TC_HANDLE_T *handle)
 {
-	unsigned int index;
-	int ret;
-	STRUCT_ENTRY *e;
-	struct chain_cache *c;
+	struct chain_head *c;
+	struct rule_head *r;
 
 	iptc_fn = TC_DELETE_NUM_ENTRY;
-	if (!(c = find_label(chain, *handle))) {
+
+	if (!(c = iptcc_find_label(chain, *handle))) {
 		errno = ENOENT;
 		return 0;
 	}
 
-	index = entry2index(*handle, c->start) + rulenum;
-
-	if (index >= entry2index(*handle, c->end)) {
+	if (rulenum >= c->num_rules) {
 		errno = E2BIG;
 		return 0;
 	}
 
-	e = index2entry(*handle, index);
-	if (e == NULL) {
-		errno = EINVAL;
-		return 0;
+	/* Take advantage of the double linked list if possible. */
+	if (rulenum + 1 <= c->num_rules/2) {
+		r = iptcc_get_rule_num(c, rulenum + 1);
+	} else {
+		r = iptcc_get_rule_num_reverse(c, c->num_rules - rulenum);
 	}
 
-	ret = delete_rules(1, e->next_offset, entry2offset(*handle, e),
-			   index, handle);
-	return ret;
+	/* If we are about to delete the rule that is the current
+	 * iterator, move rule iterator back.  next pointer will then
+	 * point to real next node */
+	if (r == (*handle)->rule_iterator_cur) {
+		(*handle)->rule_iterator_cur = 
+			list_entry((*handle)->rule_iterator_cur->list.prev,
+				   struct rule_head, list);
+	}
+
+	c->num_rules--;
+	iptcc_delete_rule(r);
+
+	set_changed(*handle);
+
+	return 1;
 }
 
 /* Check the packet `fw' on chain `chain'.  Returns the verdict, or
@@ -1102,6 +1616,7 @@ TC_CHECK_PACKET(const IPT_CHAINLABEL chain,
 		STRUCT_ENTRY *entry,
 		TC_HANDLE_T *handle)
 {
+	iptc_fn = TC_CHECK_PACKET;
 	errno = ENOSYS;
 	return NULL;
 }
@@ -1110,44 +1625,47 @@ TC_CHECK_PACKET(const IPT_CHAINLABEL chain,
 int
 TC_FLUSH_ENTRIES(const IPT_CHAINLABEL chain, TC_HANDLE_T *handle)
 {
-	unsigned int startindex, endindex;
-	struct chain_cache *c;
-	int ret;
+	struct chain_head *c;
+	struct rule_head *r, *tmp;
 
 	iptc_fn = TC_FLUSH_ENTRIES;
-	if (!(c = find_label(chain, *handle))) {
+	if (!(c = iptcc_find_label(chain, *handle))) {
 		errno = ENOENT;
 		return 0;
 	}
-	startindex = entry2index(*handle, c->start);
-	endindex = entry2index(*handle, c->end);
 
-	ret = delete_rules(endindex - startindex,
-			   (char *)c->end - (char *)c->start,
-			   entry2offset(*handle, c->start), startindex,
-			   handle);
-	return ret;
+	list_for_each_entry_safe(r, tmp, &c->rules, list) {
+		iptcc_delete_rule(r);
+	}
+
+	c->num_rules = 0;
+
+	set_changed(*handle);
+
+	return 1;
 }
 
 /* Zeroes the counters in a chain. */
 int
 TC_ZERO_ENTRIES(const IPT_CHAINLABEL chain, TC_HANDLE_T *handle)
 {
-	unsigned int i, end;
-	struct chain_cache *c;
+	struct chain_head *c;
+	struct rule_head *r;
 
-	if (!(c = find_label(chain, *handle))) {
+	iptc_fn = TC_ZERO_ENTRIES;
+	if (!(c = iptcc_find_label(chain, *handle))) {
 		errno = ENOENT;
 		return 0;
 	}
 
-	i = entry2index(*handle, c->start);
-	end = entry2index(*handle, c->end);
+	if (c->counter_map.maptype == COUNTER_MAP_NORMAL_MAP)
+		c->counter_map.maptype = COUNTER_MAP_ZEROED;
 
-	for (; i <= end; i++) {
-		if ((*handle)->counter_map[i].maptype ==COUNTER_MAP_NORMAL_MAP)
-			(*handle)->counter_map[i].maptype = COUNTER_MAP_ZEROED;
+	list_for_each_entry(r, &c->rules, list) {
+		if (r->counter_map.maptype == COUNTER_MAP_NORMAL_MAP)
+			r->counter_map.maptype = COUNTER_MAP_ZEROED;
 	}
+
 	set_changed(*handle);
 
 	return 1;
@@ -1158,29 +1676,23 @@ TC_READ_COUNTER(const IPT_CHAINLABEL chain,
 		unsigned int rulenum,
 		TC_HANDLE_T *handle)
 {
-	STRUCT_ENTRY *e;
-	struct chain_cache *c;
-	unsigned int chainindex, end;
+	struct chain_head *c;
+	struct rule_head *r;
 
 	iptc_fn = TC_READ_COUNTER;
 	CHECK(*handle);
 
-	if (!(c = find_label(chain, *handle))) {
+	if (!(c = iptcc_find_label(chain, *handle))) {
 		errno = ENOENT;
 		return NULL;
 	}
 
-	chainindex = entry2index(*handle, c->start);
-	end = entry2index(*handle, c->end);
-
-	if (chainindex + rulenum > end) {
+	if (!(r = iptcc_get_rule_num(c, rulenum))) {
 		errno = E2BIG;
 		return NULL;
 	}
 
-	e = index2entry(*handle, chainindex + rulenum);
-
-	return &e->counters;
+	return &r->entry[0].counters;
 }
 
 int
@@ -1188,33 +1700,24 @@ TC_ZERO_COUNTER(const IPT_CHAINLABEL chain,
 		unsigned int rulenum,
 		TC_HANDLE_T *handle)
 {
-	STRUCT_ENTRY *e;
-	struct chain_cache *c;
-	unsigned int chainindex, end;
+	struct chain_head *c;
+	struct rule_head *r;
 	
 	iptc_fn = TC_ZERO_COUNTER;
 	CHECK(*handle);
 
-	if (!(c = find_label(chain, *handle))) {
+	if (!(c = iptcc_find_label(chain, *handle))) {
 		errno = ENOENT;
 		return 0;
 	}
 
-	chainindex = entry2index(*handle, c->start);
-	end = entry2index(*handle, c->end);
-
-	if (chainindex + rulenum > end) {
+	if (!(r = iptcc_get_rule_num(c, rulenum))) {
 		errno = E2BIG;
 		return 0;
 	}
 
-	e = index2entry(*handle, chainindex + rulenum);
-
-	if ((*handle)->counter_map[chainindex + rulenum].maptype
-			== COUNTER_MAP_NORMAL_MAP) {
-		(*handle)->counter_map[chainindex + rulenum].maptype
-			 = COUNTER_MAP_ZEROED;
-	}
+	if (r->counter_map.maptype == COUNTER_MAP_NORMAL_MAP)
+		r->counter_map.maptype = COUNTER_MAP_ZEROED;
 
 	set_changed(*handle);
 
@@ -1227,30 +1730,25 @@ TC_SET_COUNTER(const IPT_CHAINLABEL chain,
 	       STRUCT_COUNTERS *counters,
 	       TC_HANDLE_T *handle)
 {
+	struct chain_head *c;
+	struct rule_head *r;
 	STRUCT_ENTRY *e;
-	struct chain_cache *c;
-	unsigned int chainindex, end;
 
 	iptc_fn = TC_SET_COUNTER;
 	CHECK(*handle);
 
-	if (!(c = find_label(chain, *handle))) {
+	if (!(c = iptcc_find_label(chain, *handle))) {
 		errno = ENOENT;
 		return 0;
 	}
 
-	chainindex = entry2index(*handle, c->start);
-	end = entry2index(*handle, c->end);
-
-	if (chainindex + rulenum > end) {
+	if (!(r = iptcc_get_rule_num(c, rulenum))) {
 		errno = E2BIG;
 		return 0;
 	}
 
-	e = index2entry(*handle, chainindex + rulenum);
-
-	(*handle)->counter_map[chainindex + rulenum].maptype
-		= COUNTER_MAP_SET;
+	e = r->entry;
+	r->counter_map.maptype = COUNTER_MAP_SET;
 
 	memcpy(&e->counters, counters, sizeof(STRUCT_COUNTERS));
 
@@ -1265,71 +1763,42 @@ TC_SET_COUNTER(const IPT_CHAINLABEL chain,
 int
 TC_CREATE_CHAIN(const IPT_CHAINLABEL chain, TC_HANDLE_T *handle)
 {
-	int ret;
-	struct {
-		STRUCT_ENTRY head;
-		struct ipt_error_target name;
-		STRUCT_ENTRY ret;
-		STRUCT_STANDARD_TARGET target;
-	} newc;
+	static struct chain_head *c;
 
 	iptc_fn = TC_CREATE_CHAIN;
 
 	/* find_label doesn't cover built-in targets: DROP, ACCEPT,
            QUEUE, RETURN. */
-	if (find_label(chain, *handle)
+	if (iptcc_find_label(chain, *handle)
 	    || strcmp(chain, LABEL_DROP) == 0
 	    || strcmp(chain, LABEL_ACCEPT) == 0
 	    || strcmp(chain, LABEL_QUEUE) == 0
 	    || strcmp(chain, LABEL_RETURN) == 0) {
+		DEBUGP("Chain `%s' already exists\n", chain);
 		errno = EEXIST;
 		return 0;
 	}
 
 	if (strlen(chain)+1 > sizeof(IPT_CHAINLABEL)) {
+		DEBUGP("Chain name `%s' too long\n", chain);
 		errno = EINVAL;
 		return 0;
 	}
 
-	memset(&newc, 0, sizeof(newc));
-	newc.head.target_offset = sizeof(STRUCT_ENTRY);
-	newc.head.next_offset
-		= sizeof(STRUCT_ENTRY)
-		+ ALIGN(sizeof(struct ipt_error_target));
-	strcpy(newc.name.t.u.user.name, ERROR_TARGET);
-	newc.name.t.u.target_size = ALIGN(sizeof(struct ipt_error_target));
-	strcpy(newc.name.error, chain);
+	c = iptcc_alloc_chain_head(chain, 0);
+	if (!c) {
+		DEBUGP("Cannot allocate memory for chain `%s'\n", chain);
+		errno = ENOMEM;
+		return 0;
 
-	newc.ret.target_offset = sizeof(STRUCT_ENTRY);
-	newc.ret.next_offset
-		= sizeof(STRUCT_ENTRY)
-		+ ALIGN(sizeof(STRUCT_STANDARD_TARGET));
-	strcpy(newc.target.target.u.user.name, STANDARD_TARGET);
-	newc.target.target.u.target_size
-		= ALIGN(sizeof(STRUCT_STANDARD_TARGET));
-	newc.target.verdict = RETURN;
-
-	/* Add just before terminal entry */
-	ret = insert_rules(2, sizeof(newc), &newc.head,
-			   index2offset(*handle, (*handle)->new_number - 1),
-			   (*handle)->new_number - 1,
-			   0, handle);
-	return ret;
-}
-
-static int
-count_ref(STRUCT_ENTRY *e, unsigned int offset, unsigned int *ref)
-{
-	STRUCT_STANDARD_TARGET *t;
-
-	if (strcmp(GET_TARGET(e)->u.user.name, STANDARD_TARGET) == 0) {
-		t = (STRUCT_STANDARD_TARGET *)GET_TARGET(e);
-
-		if (t->verdict == offset)
-			(*ref)++;
 	}
 
-	return 0;
+	DEBUGP("Creating chain `%s'\n", chain);
+	list_add_tail(&c->list, &(*handle)->chains);
+
+	set_changed(*handle);
+
+	return 1;
 }
 
 /* Get the number of references to this chain. */
@@ -1337,17 +1806,16 @@ int
 TC_GET_REFERENCES(unsigned int *ref, const IPT_CHAINLABEL chain,
 		  TC_HANDLE_T *handle)
 {
-	struct chain_cache *c;
+	struct chain_head *c;
 
-	if (!(c = find_label(chain, *handle))) {
+	iptc_fn = TC_GET_REFERENCES;
+	if (!(c = iptcc_find_label(chain, *handle))) {
 		errno = ENOENT;
 		return 0;
 	}
 
-	*ref = 0;
-	ENTRY_ITERATE((*handle)->entries.entrytable,
-		      (*handle)->entries.size,
-		      count_ref, entry2offset(*handle, c->start), ref);
+	*ref = c->references;
+
 	return 1;
 }
 
@@ -1355,45 +1823,53 @@ TC_GET_REFERENCES(unsigned int *ref, const IPT_CHAINLABEL chain,
 int
 TC_DELETE_CHAIN(const IPT_CHAINLABEL chain, TC_HANDLE_T *handle)
 {
-	unsigned int labelidx, labeloff;
 	unsigned int references;
-	struct chain_cache *c;
-	int ret;
-
-	if (!TC_GET_REFERENCES(&references, chain, handle))
-		return 0;
+	struct chain_head *c;
 
 	iptc_fn = TC_DELETE_CHAIN;
 
-	if (TC_BUILTIN(chain, *handle)) {
-		errno = EINVAL;
-		return 0;
-	}
-
-	if (references > 0) {
-		errno = EMLINK;
-		return 0;
-	}
-
-	if (!(c = find_label(chain, *handle))) {
+	if (!(c = iptcc_find_label(chain, *handle))) {
+		DEBUGP("cannot find chain `%s'\n", chain);
 		errno = ENOENT;
 		return 0;
 	}
 
-	if ((void *)c->start != c->end) {
+	if (TC_BUILTIN(chain, *handle)) {
+		DEBUGP("cannot remove builtin chain `%s'\n", chain);
+		errno = EINVAL;
+		return 0;
+	}
+
+	if (!TC_GET_REFERENCES(&references, chain, handle)) {
+		DEBUGP("cannot get references on chain `%s'\n", chain);
+		return 0;
+	}
+
+	if (references > 0) {
+		DEBUGP("chain `%s' still has references\n", chain);
+		errno = EMLINK;
+		return 0;
+	}
+
+	if (c->num_rules) {
+		DEBUGP("chain `%s' is not empty\n", chain);
 		errno = ENOTEMPTY;
 		return 0;
 	}
 
-	/* Need label index: preceeds chain start */
-	labelidx = entry2index(*handle, c->start) - 1;
-	labeloff = index2offset(*handle, labelidx);
+	/* If we are about to delete the chain that is the current
+	 * iterator, move chain iterator firward. */
+	if (c == (*handle)->chain_iterator_cur)
+		iptcc_chain_iterator_advance(*handle);
 
-	ret = delete_rules(2,
-			   get_entry(*handle, labeloff)->next_offset
-			   + c->start->next_offset,
-			   labeloff, labelidx, handle);
-	return ret;
+	list_del(&c->list);
+	free(c);
+
+	DEBUGP("chain `%s' deleted\n", chain);
+
+	set_changed(*handle);
+
+	return 1;
 }
 
 /* Renames a chain. */
@@ -1401,15 +1877,12 @@ int TC_RENAME_CHAIN(const IPT_CHAINLABEL oldname,
 		    const IPT_CHAINLABEL newname,
 		    TC_HANDLE_T *handle)
 {
-	unsigned int labeloff, labelidx;
-	struct chain_cache *c;
-	struct ipt_error_target *t;
-
+	struct chain_head *c;
 	iptc_fn = TC_RENAME_CHAIN;
 
 	/* find_label doesn't cover built-in targets: DROP, ACCEPT,
            QUEUE, RETURN. */
-	if (find_label(newname, *handle)
+	if (iptcc_find_label(newname, *handle)
 	    || strcmp(newname, LABEL_DROP) == 0
 	    || strcmp(newname, LABEL_ACCEPT) == 0
 	    || strcmp(newname, LABEL_QUEUE) == 0
@@ -1418,7 +1891,7 @@ int TC_RENAME_CHAIN(const IPT_CHAINLABEL oldname,
 		return 0;
 	}
 
-	if (!(c = find_label(oldname, *handle))
+	if (!(c = iptcc_find_label(oldname, *handle))
 	    || TC_BUILTIN(oldname, *handle)) {
 		errno = ENOENT;
 		return 0;
@@ -1429,15 +1902,8 @@ int TC_RENAME_CHAIN(const IPT_CHAINLABEL oldname,
 		return 0;
 	}
 
-	/* Need label index: preceeds chain start */
-	labelidx = entry2index(*handle, c->start) - 1;
-	labeloff = index2offset(*handle, labelidx);
-
-	t = (struct ipt_error_target *)
-		GET_TARGET(get_entry(*handle, labeloff));
-
-	memset(t->error, 0, sizeof(t->error));
-	strcpy(t->error, newname);
+	strncpy(c->name, newname, sizeof(IPT_CHAINLABEL));
+	
 	set_changed(*handle);
 
 	return 1;
@@ -1450,51 +1916,37 @@ TC_SET_POLICY(const IPT_CHAINLABEL chain,
 	      STRUCT_COUNTERS *counters,
 	      TC_HANDLE_T *handle)
 {
-	unsigned int hook;
-	unsigned int policyoff, ctrindex;
-	STRUCT_ENTRY *e;
-	STRUCT_STANDARD_TARGET *t;
+	struct chain_head *c;
 
 	iptc_fn = TC_SET_POLICY;
-	/* Figure out which chain. */
-	hook = TC_BUILTIN(chain, *handle);
-	if (hook == 0) {
-		errno = ENOENT;
-		return 0;
-	} else
-		hook--;
 
-	policyoff = get_chain_end(*handle, (*handle)->info.hook_entry[hook]);
-	if (policyoff != (*handle)->info.underflow[hook]) {
-		printf("ERROR: Policy for `%s' offset %u != underflow %u\n",
-		       chain, policyoff, (*handle)->info.underflow[hook]);
+	if (!(c = iptcc_find_label(chain, *handle))) {
+		DEBUGP("cannot find chain `%s'\n", chain);
+		errno = ENOENT;
 		return 0;
 	}
 
-	e = get_entry(*handle, policyoff);
-	t = (STRUCT_STANDARD_TARGET *)GET_TARGET(e);
+	if (!iptcc_is_builtin(c)) {
+		DEBUGP("cannot set policy of userdefinedchain `%s'\n", chain);
+		errno = ENOENT;
+		return 0;
+	}
 
 	if (strcmp(policy, LABEL_ACCEPT) == 0)
-		t->verdict = -NF_ACCEPT - 1;
+		c->verdict = -NF_ACCEPT - 1;
 	else if (strcmp(policy, LABEL_DROP) == 0)
-		t->verdict = -NF_DROP - 1;
+		c->verdict = -NF_DROP - 1;
 	else {
 		errno = EINVAL;
 		return 0;
 	}
 
-	ctrindex = entry2index(*handle, e);
-
 	if (counters) {
 		/* set byte and packet counters */
-		memcpy(&e->counters, counters, sizeof(STRUCT_COUNTERS));
-
-		(*handle)->counter_map[ctrindex].maptype
-			= COUNTER_MAP_SET;
-
+		memcpy(&c->counters, counters, sizeof(STRUCT_COUNTERS));
+		c->counter_map.maptype = COUNTER_MAP_SET;
 	} else {
-		(*handle)->counter_map[ctrindex]
-			= ((struct counter_map){ COUNTER_MAP_NOMAP, 0 });
+		c->counter_map.maptype = COUNTER_MAP_NOMAP;
 	}
 
 	set_changed(*handle);
@@ -1517,112 +1969,209 @@ subtract_counters(STRUCT_COUNTERS *answer,
 	answer->bcnt = a->bcnt - b->bcnt;
 }
 
+
+static void counters_nomap(STRUCT_COUNTERS_INFO *newcounters,
+			   unsigned int index)
+{
+	newcounters->counters[index] = ((STRUCT_COUNTERS) { 0, 0});
+	DEBUGP_C("NOMAP => zero\n");
+}
+
+static void counters_normal_map(STRUCT_COUNTERS_INFO *newcounters,
+				STRUCT_REPLACE *repl,
+				unsigned int index,
+				unsigned int mappos)
+{
+	/* Original read: X.
+	 * Atomic read on replacement: X + Y.
+	 * Currently in kernel: Z.
+	 * Want in kernel: X + Y + Z.
+	 * => Add in X + Y
+	 * => Add in replacement read.
+	 */
+	newcounters->counters[index] = repl->counters[mappos];
+	DEBUGP_C("NORMAL_MAP => mappos %u \n", mappos);
+}
+
+static void counters_map_zeroed(STRUCT_COUNTERS_INFO *newcounters,
+				STRUCT_REPLACE *repl,
+				unsigned int index,
+				unsigned int mappos,
+				STRUCT_COUNTERS *counters)
+{
+	/* Original read: X.
+	 * Atomic read on replacement: X + Y.
+	 * Currently in kernel: Z.
+	 * Want in kernel: Y + Z.
+	 * => Add in Y.
+	 * => Add in (replacement read - original read).
+	 */
+	subtract_counters(&newcounters->counters[index],
+			  &repl->counters[mappos],
+			  counters);
+	DEBUGP_C("ZEROED => mappos %u\n", mappos);
+}
+
+static void counters_map_set(STRUCT_COUNTERS_INFO *newcounters,
+			     unsigned int index,
+			     STRUCT_COUNTERS *counters)
+{
+	/* Want to set counter (iptables-restore) */
+
+	memcpy(&newcounters->counters[index], counters,
+		sizeof(STRUCT_COUNTERS));
+
+	DEBUGP_C("SET\n");
+}
+
+
 int
 TC_COMMIT(TC_HANDLE_T *handle)
 {
 	/* Replace, then map back the counters. */
 	STRUCT_REPLACE *repl;
 	STRUCT_COUNTERS_INFO *newcounters;
-	unsigned int i;
-	size_t counterlen
-		= sizeof(STRUCT_COUNTERS_INFO)
-		+ sizeof(STRUCT_COUNTERS) * (*handle)->new_number;
+	struct chain_head *c;
+	int ret;
+	size_t counterlen;
+	int new_number;
+	unsigned int new_size;
 
+	iptc_fn = TC_COMMIT;
 	CHECK(*handle);
 
 	/* Don't commit if nothing changed. */
 	if (!(*handle)->changed)
 		goto finished;
 
-	repl = malloc(sizeof(*repl) + (*handle)->entries.size);
+	new_number = iptcc_compile_table_prep(*handle, &new_size);
+	if (new_number < 0) {
+		errno = ENOMEM;
+		goto out_zero;
+	}
+
+	repl = malloc(sizeof(*repl) + new_size);
 	if (!repl) {
 		errno = ENOMEM;
-		return 0;
+		goto out_zero;
 	}
+	memset(repl, 0, sizeof(*repl) + new_size);
+
+#if 0
+	TC_DUMP_ENTRIES(*handle);
+#endif
+
+	counterlen = sizeof(STRUCT_COUNTERS_INFO)
+			+ sizeof(STRUCT_COUNTERS) * new_number;
 
 	/* These are the old counters we will get from kernel */
 	repl->counters = malloc(sizeof(STRUCT_COUNTERS)
 				* (*handle)->info.num_entries);
 	if (!repl->counters) {
-		free(repl);
 		errno = ENOMEM;
-		return 0;
+		goto out_free_repl;
 	}
-
 	/* These are the counters we're going to put back, later. */
 	newcounters = malloc(counterlen);
 	if (!newcounters) {
-		free(repl->counters);
-		free(repl);
 		errno = ENOMEM;
-		return 0;
+		goto out_free_repl_counters;
 	}
+	memset(newcounters, 0, counterlen);
 
 	strcpy(repl->name, (*handle)->info.name);
-	repl->num_entries = (*handle)->new_number;
-	repl->size = (*handle)->entries.size;
-	memcpy(repl->hook_entry, (*handle)->info.hook_entry,
-	       sizeof(repl->hook_entry));
-	memcpy(repl->underflow, (*handle)->info.underflow,
-	       sizeof(repl->underflow));
+	repl->num_entries = new_number;
+	repl->size = new_size;
+
 	repl->num_counters = (*handle)->info.num_entries;
 	repl->valid_hooks = (*handle)->info.valid_hooks;
-	memcpy(repl->entries, (*handle)->entries.entrytable,
-	       (*handle)->entries.size);
 
-	if (setsockopt(sockfd, TC_IPPROTO, SO_SET_REPLACE, repl,
-		       sizeof(*repl) + (*handle)->entries.size) < 0) {
-		free(repl->counters);
-		free(repl);
-		free(newcounters);
-		return 0;
+	DEBUGP("num_entries=%u, size=%u, num_counters=%u\n",
+		repl->num_entries, repl->size, repl->num_counters);
+
+	ret = iptcc_compile_table(*handle, repl);
+	if (ret < 0) {
+		errno = ret;
+		goto out_free_newcounters;
 	}
+
+
+#ifdef IPTC_DEBUG2
+	{
+		int fd = open("/tmp/libiptc-so_set_replace.blob", 
+				O_CREAT|O_WRONLY);
+		if (fd >= 0) {
+			write(fd, repl, sizeof(*repl) + repl->size);
+			close(fd);
+		}
+	}
+#endif
+
+	ret = setsockopt(sockfd, TC_IPPROTO, SO_SET_REPLACE, repl,
+			 sizeof(*repl) + repl->size);
+	if (ret < 0)
+		goto out_free_newcounters;
 
 	/* Put counters back. */
 	strcpy(newcounters->name, (*handle)->info.name);
-	newcounters->num_counters = (*handle)->new_number;
-	for (i = 0; i < (*handle)->new_number; i++) {
-		unsigned int mappos = (*handle)->counter_map[i].mappos;
-		switch ((*handle)->counter_map[i].maptype) {
-		case COUNTER_MAP_NOMAP:
-			newcounters->counters[i]
-				= ((STRUCT_COUNTERS){ 0, 0 });
-			break;
+	newcounters->num_counters = new_number;
 
-		case COUNTER_MAP_NORMAL_MAP:
-			/* Original read: X.
-			 * Atomic read on replacement: X + Y.
-			 * Currently in kernel: Z.
-			 * Want in kernel: X + Y + Z.
-			 * => Add in X + Y
-			 * => Add in replacement read.
-			 */
-			newcounters->counters[i] = repl->counters[mappos];
-			break;
+	list_for_each_entry(c, &(*handle)->chains, list) {
+		struct rule_head *r;
 
-		case COUNTER_MAP_ZEROED:
-			/* Original read: X.
-			 * Atomic read on replacement: X + Y.
-			 * Currently in kernel: Z.
-			 * Want in kernel: Y + Z.
-			 * => Add in Y.
-			 * => Add in (replacement read - original read).
-			 */
-			subtract_counters(&newcounters->counters[i],
-					  &repl->counters[mappos],
-					  &index2entry(*handle, i)->counters);
-			break;
+		/* Builtin chains have their own counters */
+		if (iptcc_is_builtin(c)) {
+			DEBUGP("counter for chain-index %u: ", c->foot_index);
+			switch(c->counter_map.maptype) {
+			case COUNTER_MAP_NOMAP:
+				counters_nomap(newcounters, c->foot_index);
+				break;
+			case COUNTER_MAP_NORMAL_MAP:
+				counters_normal_map(newcounters, repl,
+						    c->foot_index, 
+						    c->counter_map.mappos);
+				break;
+			case COUNTER_MAP_ZEROED:
+				counters_map_zeroed(newcounters, repl,
+						    c->foot_index, 
+						    c->counter_map.mappos,
+						    &c->counters);
+				break;
+			case COUNTER_MAP_SET:
+				counters_map_set(newcounters, c->foot_index,
+						 &c->counters);
+				break;
+			}
+		}
 
-		case COUNTER_MAP_SET:
-			/* Want to set counter (iptables-restore) */
+		list_for_each_entry(r, &c->rules, list) {
+			DEBUGP("counter for index %u: ", r->index);
+			switch (r->counter_map.maptype) {
+			case COUNTER_MAP_NOMAP:
+				counters_nomap(newcounters, r->index);
+				break;
 
-			memcpy(&newcounters->counters[i],
-			       &index2entry(*handle, i)->counters,
-			       sizeof(STRUCT_COUNTERS));
+			case COUNTER_MAP_NORMAL_MAP:
+				counters_normal_map(newcounters, repl,
+						    r->index, 
+						    r->counter_map.mappos);
+				break;
 
-			break;
+			case COUNTER_MAP_ZEROED:
+				counters_map_zeroed(newcounters, repl,
+						    r->index,
+						    r->counter_map.mappos,
+						    &r->entry->counters);
+				break;
+
+			case COUNTER_MAP_SET:
+				counters_map_set(newcounters, r->index,
+						 &r->entry->counters);
+				break;
+			}
 		}
 	}
+
 
 #ifdef KERNEL_64_USERSPACE_32
 	{
@@ -1639,24 +2188,38 @@ TC_COMMIT(TC_HANDLE_T *handle)
 	}
 #endif /* KERNEL_64_USERSPACE_32 */
 
-	if (setsockopt(sockfd, TC_IPPROTO, SO_SET_ADD_COUNTERS,
-		       newcounters, counterlen) < 0) {
-		free(repl->counters);
-		free(repl);
-		free(newcounters);
-		return 0;
+#ifdef IPTC_DEBUG2
+	{
+		int fd = open("/tmp/libiptc-so_set_add_counters.blob", 
+				O_CREAT|O_WRONLY);
+		if (fd >= 0) {
+			write(fd, newcounters, counterlen);
+			close(fd);
+		}
 	}
+#endif
+
+	ret = setsockopt(sockfd, TC_IPPROTO, SO_SET_ADD_COUNTERS,
+			 newcounters, counterlen);
+	if (ret < 0)
+		goto out_free_newcounters;
 
 	free(repl->counters);
 	free(repl);
 	free(newcounters);
 
- finished:
-	if ((*handle)->cache_chain_heads)
-		free((*handle)->cache_chain_heads);
-	free(*handle);
-	*handle = NULL;
+finished:
+	TC_FREE(handle);
 	return 1;
+
+out_free_newcounters:
+	free(newcounters);
+out_free_repl_counters:
+	free(repl->counters);
+out_free_repl:
+	free(repl);
+out_zero:
+	return 0;
 }
 
 /* Get raw socket. */

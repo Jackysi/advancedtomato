@@ -6,12 +6,8 @@
 
 #include <ip6tables.h>
 #include <linux/netfilter_ipv6/ip6_tables.h>
-#include <linux/netfilter_ipv6/ip6t_MARK.h>
-
-struct markinfo {
-	struct ip6t_entry_target t;
-	struct ip6t_mark_target_info mark;
-};
+/* For 64bit kernel / 32bit userspace */
+#include "../include/linux/netfilter_ipv6/ip6t_MARK.h"
 
 /* Function which prints out usage message. */
 static void
@@ -25,8 +21,8 @@ IPTABLES_VERSION);
 }
 
 static struct option opts[] = {
-	{ "set-mark", 1, 0, '1' },
-	{ 0 }
+	{ .name = "set-mark", .has_arg = 1, .flag = 0, .val = '1' },
+	{ .name = 0 }
 };
 
 /* Initialize the target. */
@@ -46,10 +42,14 @@ parse(int c, char **argv, int invert, unsigned int *flags,
 		= (struct ip6t_mark_target_info *)(*target)->data;
 
 	switch (c) {
-		char *end;
 	case '1':
-		markinfo->mark = strtoul(optarg, &end, 0);
-		if (*end != '\0' || end == optarg)
+#ifdef KERNEL_64_USERSPACE_32
+		if (string_to_number_ll(optarg, 0, 0, 
+				     &markinfo->mark))
+#else
+		if (string_to_number_l(optarg, 0, 0, 
+				     &markinfo->mark))
+#endif
 			exit_error(PARAMETER_PROBLEM, "Bad MARK value `%s'", optarg);
 		if (*flags)
 			exit_error(PARAMETER_PROBLEM,
@@ -72,11 +72,19 @@ final_check(unsigned int flags)
 		           "MARK target: Parameter --set-mark is required");
 }
 
+#ifdef KERNEL_64_USERSPACE_32
 static void
-print_mark(unsigned long mark, int numeric)
+print_mark(unsigned long long mark)
+{
+	printf("0x%llx ", mark);
+}
+#else
+static void
+print_mark(unsigned long mark)
 {
 	printf("0x%lx ", mark);
 }
+#endif
 
 /* Prints out the targinfo. */
 static void
@@ -86,8 +94,9 @@ print(const struct ip6t_ip6 *ip,
 {
 	const struct ip6t_mark_target_info *markinfo =
 		(const struct ip6t_mark_target_info *)target->data;
+
 	printf("MARK set ");
-	print_mark(markinfo->mark, numeric);
+	print_mark(markinfo->mark);
 }
 
 /* Saves the union ipt_targinfo in parsable form to stdout. */
@@ -97,23 +106,23 @@ save(const struct ip6t_ip6 *ip, const struct ip6t_entry_target *target)
 	const struct ip6t_mark_target_info *markinfo =
 		(const struct ip6t_mark_target_info *)target->data;
 
-	printf("--set-mark 0x%lx ", markinfo->mark);
+	printf("--set-mark ");
+	print_mark(markinfo->mark);
 }
 
 static
-struct ip6tables_target mark
-= { NULL,
-    "MARK",
-    IPTABLES_VERSION,
-    IP6T_ALIGN(sizeof(struct ip6t_mark_target_info)),
-    IP6T_ALIGN(sizeof(struct ip6t_mark_target_info)),
-    &help,
-    &init,
-    &parse,
-    &final_check,
-    &print,
-    &save,
-    opts
+struct ip6tables_target mark = {
+	.name          = "MARK",
+	.version       = IPTABLES_VERSION,
+	.size          = IP6T_ALIGN(sizeof(struct ip6t_mark_target_info)),
+	.userspacesize = IP6T_ALIGN(sizeof(struct ip6t_mark_target_info)),
+	.help          = &help,
+	.init          = &init,
+	.parse         = &parse,
+	.final_check   = &final_check,
+	.print         = &print,
+	.save          = &save,
+	.extra_opts    = opts
 };
 
 void _init(void)

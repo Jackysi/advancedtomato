@@ -1,10 +1,8 @@
+/* vi: set sw=4 ts=4: */
 /*
  * iproute.c		"ip route".
  *
- *		This program is free software; you can redistribute it and/or
- *		modify it under the terms of the GNU General Public License
- *		as published by the Free Software Foundation; either version
- *		2 of the License, or (at your option) any later version.
+ * Licensed under the GPL v2 or later, see the file LICENSE in this tarball.
  *
  * Authors:	Alexey Kuznetsov, <kuznet@ms2.inr.ac.ru>
  *
@@ -15,17 +13,17 @@
  * Kunihiro Ishiguro <kunihiro@zebra.org> 001102: rtnh_ifindex was not initialized
  */
 
+#include "libbb.h"
+
 #include <sys/socket.h>
 
-#include <stdlib.h>
 #include <string.h>
 #include <fcntl.h>
 #include <unistd.h>
 
 #include "rt_names.h"
 #include "utils.h"
-
-#include "libbb.h"
+#include "ip_common.h"
 
 #ifndef RTAX_RTTVAR
 #define RTAX_RTTVAR RTAX_HOPS
@@ -65,7 +63,8 @@ static int flush_update(void)
 	return 0;
 }
 
-static int print_route(struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
+static int print_route(struct sockaddr_nl *who ATTRIBUTE_UNUSED,
+		struct nlmsghdr *n, void *arg)
 {
 	FILE *fp = (FILE*)arg;
 	struct rtmsg *r = NLMSG_DATA(n);
@@ -76,7 +75,7 @@ static int print_route(struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
 	inet_prefix src;
 	int host_len = -1;
 	SPRINT_BUF(b1);
-	
+
 
 	if (n->nlmsg_type != RTM_NEWROUTE && n->nlmsg_type != RTM_DELROUTE) {
 		fprintf(stderr, "Not a route: %08x %08x %08x\n",
@@ -228,7 +227,7 @@ static int print_route(struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
 		fprintf(fp, "from 0/%u ", r->rtm_src_len);
 	}
 	if (tb[RTA_GATEWAY] && filter.rvia.bitlen != host_len) {
-		fprintf(fp, "via %s ", 
+		fprintf(fp, "via %s ",
 			format_host(r->rtm_family,
 				    RTA_PAYLOAD(tb[RTA_GATEWAY]),
 				    RTA_DATA(tb[RTA_GATEWAY]),
@@ -242,7 +241,7 @@ static int print_route(struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
 		/* Do not use format_host(). It is our local addr
 		   and symbolic name will not be useful.
 		 */
-		fprintf(fp, " src %s ", 
+		fprintf(fp, " src %s ",
 			rt_addr_n2a(r->rtm_family,
 				    RTA_PAYLOAD(tb[RTA_PREFSRC]),
 				    RTA_DATA(tb[RTA_PREFSRC]),
@@ -287,9 +286,9 @@ static int iproute_modify(int cmd, unsigned flags, int argc, char **argv)
 {
 	struct rtnl_handle rth;
 	struct {
-		struct nlmsghdr 	n;
-		struct rtmsg 		r;
-		char   			buf[1024];
+		struct nlmsghdr		n;
+		struct rtmsg		r;
+		char			buf[1024];
 	} req;
 	char  mxbuf[256];
 	struct rtattr * mxrta = (void*)mxbuf;
@@ -344,14 +343,14 @@ static int iproute_modify(int cmd, unsigned flags, int argc, char **argv)
 				NEXT_ARG();
 			}
 			if (get_unsigned(&mtu, *argv, 0)) {
-				invarg("\"mtu\" value is invalid\n", *argv);
+				invarg(*argv, "mtu");
 			}
 			rta_addattr32(mxrta, sizeof(mxbuf), RTAX_MTU, mtu);
 		} else if (matches(*argv, "protocol") == 0) {
-			int prot;
+			uint32_t prot;
 			NEXT_ARG();
 			if (rtnl_rtprot_a2n(&prot, *argv))
-				invarg("\"protocol\" value is invalid\n", *argv);
+				invarg(*argv, "protocol");
 			req.r.rtm_protocol = prot;
 			proto_ok =1;
 		} else if (strcmp(*argv, "dev") == 0 ||
@@ -488,18 +487,18 @@ static int iproute_list_or_flush(int argc, char **argv, int flush)
 	filter.tb = RT_TABLE_MAIN;
 
 	if (flush && argc <= 0) {
-		fprintf(stderr, "\"ip route flush\" requires arguments.\n");
+		bb_error_msg(bb_msg_requires_arg, "\"ip route flush\"");
 		return -1;
 	}
 
 	while (argc > 0) {
 		if (matches(*argv, "protocol") == 0) {
-			int prot = 0;
+			uint32_t prot = 0;
 			NEXT_ARG();
 			filter.protocolmask = -1;
 			if (rtnl_rtprot_a2n(&prot, *argv)) {
 				if (strcmp(*argv, "all") != 0) {
-					invarg("invalid \"protocol\"\n", *argv);
+					invarg(*argv, "protocol");
 				}
 				prot = 0;
 				filter.protocolmask = 0;
@@ -537,6 +536,15 @@ static int iproute_list_or_flush(int argc, char **argv, int flush)
 			} else if (matches(*argv, "match") == 0) {
 				NEXT_ARG();
 				get_prefix(&filter.mdst, *argv, do_ipv6);
+			} else if (matches(*argv, "table") == 0) {
+				NEXT_ARG();
+				if (matches(*argv, "cache") == 0) {
+					filter.tb = -1;
+				} else if (matches(*argv, "main") != 0) {
+					invarg(*argv, "table");
+				}
+			} else if (matches(*argv, "cache") == 0) {
+				filter.tb = -1;
 			} else {
 				if (matches(*argv, "exact") == 0) {
 					NEXT_ARG();
@@ -579,7 +587,6 @@ static int iproute_list_or_flush(int argc, char **argv, int flush)
 	}
 
 	if (flush) {
-		int round = 0;
 		char flushb[4096-512];
 
 		if (filter.tb == -1) {
@@ -605,14 +612,9 @@ static int iproute_list_or_flush(int argc, char **argv, int flush)
 				return -1;
 			}
 			if (filter.flushed == 0) {
-				if (round == 0) {
-					if (filter.tb != -1 || do_ipv6 == AF_INET6)
-						fprintf(stderr, "Nothing to flush.\n");
-				}
 				fflush(stdout);
 				return 0;
 			}
-			round++;
 			if (flush_update() < 0)
 				exit(1);
 		}
@@ -640,15 +642,16 @@ static int iproute_get(int argc, char **argv)
 {
 	struct rtnl_handle rth;
 	struct {
-		struct nlmsghdr 	n;
-		struct rtmsg 		r;
-		char   			buf[1024];
+		struct nlmsghdr		n;
+		struct rtmsg		r;
+		char			buf[1024];
 	} req;
 	char  *idev = NULL;
 	char  *odev = NULL;
 	int connected = 0;
 	int from_ok = 0;
-	const char *options[] = { "from", "iif", "oif", "dev", "notify", "connected", "to", 0 };
+	static const char * const options[] =
+		{ "from", "iif", "oif", "dev", "notify", "connected", "to", 0 };
 
 	memset(&req, 0, sizeof(req));
 
@@ -665,7 +668,7 @@ static int iproute_get(int argc, char **argv)
 	req.r.rtm_src_len = 0;
 	req.r.rtm_dst_len = 0;
 	req.r.rtm_tos = 0;
-	
+
 	while (argc > 0) {
 		switch (compare_string_array(options, *argv)) {
 			case 0: /* from */
@@ -807,9 +810,10 @@ static int iproute_get(int argc, char **argv)
 
 int do_iproute(int argc, char **argv)
 {
-	const char *ip_route_commands[] = { "add", "append", "change", "chg",
-		"delete", "get", "list", "show", "prepend", "replace", "test", "flush", 0 };
-	unsigned short command_num = 6;
+	static const char * const ip_route_commands[] =
+		{ "add", "append", "change", "chg", "delete", "del", "get",
+		"list", "show", "prepend", "replace", "test", "flush", 0 };
+	int command_num = 7;
 	unsigned int flags = 0;
 	int cmd = RTM_NEWROUTE;
 
@@ -828,20 +832,21 @@ int do_iproute(int argc, char **argv)
 			flags = NLM_F_REPLACE;
 			break;
 		case 4: /* delete */
+		case 5: /* del */
 			cmd = RTM_DELROUTE;
 			break;
-		case 5: /* get */
+		case 6: /* get */
 			return iproute_get(argc-1, argv+1);
-		case 6: /* list */
-		case 7: /* show */
+		case 7: /* list */
+		case 8: /* show */
 			return iproute_list_or_flush(argc-1, argv+1, 0);
-		case 8: /* prepend */
+		case 9: /* prepend */
 			flags = NLM_F_CREATE;
-		case 9: /* replace */
+		case 10: /* replace */
 			flags = NLM_F_CREATE|NLM_F_REPLACE;
-		case 10: /* test */
+		case 11: /* test */
 			flags = NLM_F_EXCL;
-		case 11: /* flush */
+		case 12: /* flush */
 			return iproute_list_or_flush(argc-1, argv+1, 1);
 		default:
 			bb_error_msg_and_die("Unknown command %s", *argv);
@@ -849,4 +854,3 @@ int do_iproute(int argc, char **argv)
 
 	return iproute_modify(cmd, flags, argc-1, argv+1);
 }
-

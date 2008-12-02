@@ -1,5 +1,5 @@
 /*
- * ip_conntrack_proto_gre.c - Version 1.11
+ * ip_conntrack_proto_gre.c - Version 1.2 
  *
  * Connection tracking protocol helper module for GRE.
  *
@@ -17,7 +17,7 @@
  *
  * Documentation about PPTP can be found in RFC 2637
  *
- * (C) 2000-2002 by Harald Welte <laforge@gnumonks.org>
+ * (C) 2000-2003 by Harald Welte <laforge@gnumonks.org>
  *
  * Development of this code funded by Astaro AG (http://www.astaro.com/)
  *
@@ -54,8 +54,18 @@ MODULE_DESCRIPTION("netfilter connection tracking protocol helper for GRE");
 #define GRE_TIMEOUT		(30*HZ)
 #define GRE_STREAM_TIMEOUT	(180*HZ)
 
+#if 0
+#define DEBUGP(format, args...) printk(KERN_DEBUG __FILE__ ":" __FUNCTION__ \
+		                       ": " format, ## args)
+#define DUMP_TUPLE_GRE(x) printk("%u.%u.%u.%u:0x%x -> %u.%u.%u.%u:0x%x:%u:0x%x\n", \
+			NIPQUAD((x)->src.ip), ntohl((x)->src.u.gre.key), \
+			NIPQUAD((x)->dst.ip), ntohl((x)->dst.u.gre.key), \
+			(x)->dst.u.gre.version, \
+			ntohs((x)->dst.u.gre.protocol))
+#else
 #define DEBUGP(x, args...)
 #define DUMP_TUPLE_GRE(x)
+#endif
 				
 /* GRE KEYMAP HANDLING FUNCTIONS */
 static LIST_HEAD(gre_keymap_list);
@@ -103,7 +113,6 @@ int ip_ct_gre_keymap_add(struct ip_conntrack_expect *exp,
 	memset(km, 0, sizeof(*km));
 
 	memcpy(&km->tuple, t, sizeof(*t));
-	km->master = exp;
 
 	if (!reply)
 		exp->proto.gre.keymap_orig = km;
@@ -129,6 +138,26 @@ void ip_ct_gre_keymap_change(struct ip_ct_gre_keymap *km,
 
 	WRITE_LOCK(&ip_ct_gre_lock);
 	memcpy(&km->tuple, t, sizeof(km->tuple));
+	WRITE_UNLOCK(&ip_ct_gre_lock);
+}
+
+/* destroy the keymap entries associated with specified expect */
+void ip_ct_gre_keymap_destroy(struct ip_conntrack_expect *exp)
+{
+	DEBUGP("entering for exp %p\n", exp);
+	WRITE_LOCK(&ip_ct_gre_lock);
+	if (exp->proto.gre.keymap_orig) {
+		DEBUGP("removing %p from list\n", exp->proto.gre.keymap_orig);
+		list_del(&exp->proto.gre.keymap_orig->list);
+		kfree(exp->proto.gre.keymap_orig);
+		exp->proto.gre.keymap_orig = NULL;
+	}
+	if (exp->proto.gre.keymap_reply) {
+		DEBUGP("removing %p from list\n", exp->proto.gre.keymap_reply);
+		list_del(&exp->proto.gre.keymap_reply->list);
+		kfree(exp->proto.gre.keymap_reply);
+		exp->proto.gre.keymap_reply = NULL;
+	}
 	WRITE_UNLOCK(&ip_ct_gre_lock);
 }
 
@@ -186,6 +215,10 @@ static int gre_pkt_to_tuple(const void *datah, size_t datalen,
 
 	srckey = gre_keymap_lookup(tuple);
 
+#if 0
+	DEBUGP("found src key %x for tuple ", ntohl(srckey));
+	DUMP_TUPLE_GRE(tuple);
+#endif
 	tuple->src.u.gre.key = srckey;
 
 	return 1;
@@ -256,18 +289,7 @@ static void gre_destroy(struct ip_conntrack *ct)
 		return;
 	}
 
-	WRITE_LOCK(&ip_ct_gre_lock);
-	if (master->proto.gre.keymap_orig) {
-		DEBUGP("removing %p from list\n", master->proto.gre.keymap_orig);
-		list_del(&master->proto.gre.keymap_orig->list);
-		kfree(master->proto.gre.keymap_orig);
-	}
-	if (master->proto.gre.keymap_reply) {
-		DEBUGP("removing %p from list\n", master->proto.gre.keymap_reply);
-		list_del(&master->proto.gre.keymap_reply->list);
-		kfree(master->proto.gre.keymap_reply);
-	}
-	WRITE_UNLOCK(&ip_ct_gre_lock);
+	ip_ct_gre_keymap_destroy(master);
 }
 
 /* protocol helper struct */
@@ -304,7 +326,7 @@ static void __exit fini(void)
 	/* delete all keymap entries */
 	WRITE_LOCK(&ip_ct_gre_lock);
 	list_for_each_safe(pos, n, &gre_keymap_list) {
-		DEBUGP("deleting keymap %p\n", pos);
+		DEBUGP("deleting keymap %p at module unload time\n", pos);
 		list_del(pos);
 		kfree(pos);
 	}
@@ -315,6 +337,7 @@ static void __exit fini(void)
 
 EXPORT_SYMBOL(ip_ct_gre_keymap_add);
 EXPORT_SYMBOL(ip_ct_gre_keymap_change);
+EXPORT_SYMBOL(ip_ct_gre_keymap_destroy);
 
 module_init(init);
 module_exit(fini);

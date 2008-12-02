@@ -1,6 +1,8 @@
 /* vi: set sw=4 ts=4: */
 /*
- * Copyright (C) 2003 Erik Andersen <andersen@codepoet.org>
+ * Copyright (C) 2003-2004 Erik Andersen <andersen@codepoet.org>
+ *
+ * Licensed under GPLv2 or later, see file LICENSE in this tarball for details.
  */
 
 
@@ -11,9 +13,9 @@
 #include <assert.h>
 #include <ctype.h>
 
-#include "busybox.h"
+#include "libbb.h"
 
-extern long bb_xgetlarg(const char *arg, int base, long lower, long upper)
+long bb_xgetlarg(const char *arg, int base, long lower, long upper)
 {
 	long result;
 	char *endptr;
@@ -21,8 +23,10 @@ extern long bb_xgetlarg(const char *arg, int base, long lower, long upper)
 
 	assert(arg!=NULL);
 
-	/* Don't allow leading whitespace. */
-	if ((isspace)(*arg)) {	/* Use an actual funciton call for minimal size. */
+	/* Don't allow leading whitespace.
+	 * Wrap isspace in () to make sure we call the
+	 * function rather than the macro. */
+	if ((isspace)(*arg)) {
 		bb_show_usage();
 	}
 

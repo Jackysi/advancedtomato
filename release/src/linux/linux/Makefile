@@ -236,7 +236,9 @@ CLEAN_FILES = \
 	drivers/tc/lk201-map.c \
 	net/khttpd/make_times_h \
 	net/khttpd/times.h \
-	submenu*
+	submenu* \
+	drivers/net/hnd/shared_ksyms.c
+
 # directories removed with 'make clean'
 CLEAN_DIRS = \
 	modules
@@ -460,7 +462,7 @@ modules modules_install: dummy
 endif
 
 clean:	archclean
-	find . \( -name '*.[oas]' -o -name core -o -name '.*.flags' \) -type f -print \
+	find . \( -name '*.[oas]' -o -name core -o -name '.*.flags' \) -type f -not -name diag_led.o -not -name ctmisc.o -print \
 		| grep -v lxdialog/ | xargs rm -f
 	rm -f $(CLEAN_FILES)
 	rm -rf $(CLEAN_DIRS)

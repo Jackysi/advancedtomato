@@ -173,7 +173,7 @@ static int tcp_packet(struct ip_conntrack *conntrack,
 	   have an established connection: this is a fairly common
 	   problem case, so we can delete the conntrack
 	   immediately.  --RR */
-	if (!(conntrack->status & IPS_SEEN_REPLY) && tcph->rst) {
+	if (!test_bit(IPS_SEEN_REPLY_BIT, &conntrack->status) && tcph->rst) {
 		WRITE_UNLOCK(&tcp_lock);
 		if (del_timer(&conntrack->timeout))
 			conntrack->timeout.function((unsigned long)conntrack);
@@ -207,12 +207,6 @@ static int tcp_new(struct ip_conntrack *conntrack,
 
 	/* Invalid: delete conntrack */
 	if (newconntrack == TCP_CONNTRACK_MAX) {
-		DEBUGP("ip_conntrack_tcp: invalid new deleting.\n");
-		return 0;
-	}
-
-	if (tcph->syn && tcph->ack) 
-	{
 		DEBUGP("ip_conntrack_tcp: invalid new deleting.\n");
 		return 0;
 	}

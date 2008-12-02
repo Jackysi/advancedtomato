@@ -9,7 +9,7 @@ endif
 all:		bidi tap
 
 clean:
-		rcsclean *
+		-rcsclean *
 		rm -f *~
 		rm -f bidi
 		rm -f tap

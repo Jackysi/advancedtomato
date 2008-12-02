@@ -66,4 +66,43 @@ extern int wl_get_val(char *name, char *var, void *val, int len);
 extern int wl_set_int(char *name, char *var, int val);
 extern int wl_get_int(char *name, char *var, int *val);
 
+
+#if 1
+/*
+ * Set/Get named variable.
+ * @param	ifname		interface name
+ * @param	iovar		variable name
+ * @param	param		input param value/buffer
+ * @param	paramlen	input param value/buffer length
+ * @param	bufptr		io buffer
+ * @param	buflen		io buffer length
+ * @param	val		val or val pointer for int routines
+ * @return	success == 0, failure != 0
+ */
+extern int wl_iovar_setbuf(char *ifname, char *iovar, void *param, int paramlen, void *bufptr, int buflen);
+extern int wl_iovar_getbuf(char *ifname, char *iovar, void *param, int paramlen, void *bufptr, int buflen);
+extern int wl_iovar_set(char *ifname, char *iovar, void *param, int paramlen);
+extern int wl_iovar_get(char *ifname, char *iovar, void *bufptr, int buflen);
+extern int wl_iovar_setint(char *ifname, char *iovar, int val);
+extern int wl_iovar_getint(char *ifname, char *iovar, int *val);
+
+/*
+ * Set/Get named variable indexed by BSS Configuration
+ * @param	ifname		interface name
+ * @param	iovar		variable name
+ * @param	bssidx		bsscfg index
+ * @param	param		input param value/buffer
+ * @param	paramlen	input param value/buffer length
+ * @param	bufptr		io buffer
+ * @param	buflen		io buffer length
+ * @param	val		val or val pointer for int routines
+ * @return	success == 0, failure != 0
+ */
+extern int wl_bssiovar_setbuf(char *ifname, char *iovar, int bssidx, void *param, int paramlen, void *bufptr, int buflen);
+extern int wl_bssiovar_getbuf(char *ifname, char *iovar, int bssidx, void *param, int paramlen, void *bufptr, int buflen);
+extern int wl_bssiovar_get(char *ifname, char *iovar, int bssidx, void *outbuf, int len);
+extern int wl_bssiovar_set(char *ifname, char *iovar, int bssidx, void *param, int paramlen);
+extern int wl_bssiovar_setint(char *ifname, char *iovar, int bssidx, int val);
+#endif
+
 #endif /* _wlutils_h_ */

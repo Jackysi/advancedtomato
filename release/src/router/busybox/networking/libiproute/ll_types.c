@@ -13,7 +13,9 @@
 
 #include <linux/if_arp.h>
 
-char * ll_type_n2a(int type, char *buf, int len)
+#include "rt_names.h"
+
+const char * ll_type_n2a(int type, char *buf, int len)
 {
 #define __PF(f,n) { ARPHRD_##f, #n },
 static struct {
@@ -105,11 +107,11 @@ __PF(VOID,void)
 };
 #undef __PF
 
-        int i;
-        for (i=0; i<sizeof(arphrd_names)/sizeof(arphrd_names[0]); i++) {
-                 if (arphrd_names[i].type == type)
+	int i;
+	for (i=0; i<sizeof(arphrd_names)/sizeof(arphrd_names[0]); i++) {
+		 if (arphrd_names[i].type == type)
 			return arphrd_names[i].name;
 	}
-        snprintf(buf, len, "[%d]", type);
-        return buf;
+	snprintf(buf, len, "[%d]", type);
+	return buf;
 }

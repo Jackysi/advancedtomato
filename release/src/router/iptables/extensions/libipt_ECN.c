@@ -6,7 +6,7 @@
  *
  * libipt_ECN.c borrowed heavily from libipt_DSCP.c
  *
- * $Id: libipt_ECN.c,v 1.1.1.4 2003/10/14 08:09:41 sparq Exp $
+ * $Id: libipt_ECN.c 3507 2004-12-28 13:11:59Z /C=DE/ST=Berlin/L=Berlin/O=Netfilter Project/OU=Development/CN=rusty/emailAddress=rusty@netfilter.org $
  */
 #include <stdio.h>
 #include <string.h>
@@ -29,6 +29,12 @@ static void help(void)
 		IPTABLES_VERSION);
 }
 
+#if 0
+"ECN target v%s EXPERIMENTAL options (use with extreme care!)\n"
+"  --ecn-ip-ect			Set the IPv4 ECT codepoint (0 to 3)\n"
+"  --ecn-tcp-cwr		Set the IPv4 CWR bit (0 or 1)\n"
+"  --ecn-tcp-ece		Set the IPv4 ECE bit (0 or 1)\n",
+#endif
 
 
 static struct option opts[] = {
@@ -103,7 +109,7 @@ final_check(unsigned int flags)
 {
 	if (!flags)
 		exit_error(PARAMETER_PROBLEM,
-		           "ECN target: Parameter --ecn-remove is required");
+		           "ECN target: Parameter --ecn-tcp-remove is required");
 }
 
 /* Prints out the targinfo. */
@@ -158,19 +164,19 @@ save(const struct ipt_ip *ip, const struct ipt_entry_target *target)
 }
 
 static
-struct iptables_target ecn
-= { NULL,
-    "ECN",
-    IPTABLES_VERSION,
-    IPT_ALIGN(sizeof(struct ipt_ECN_info)),
-    IPT_ALIGN(sizeof(struct ipt_ECN_info)),
-    &help,
-    &init,
-    &parse,
-    &final_check,
-    &print,
-    &save,
-    opts
+struct iptables_target ecn = { 
+	.next		= NULL,
+	.name		= "ECN",
+	.version	= IPTABLES_VERSION,
+	.size		= IPT_ALIGN(sizeof(struct ipt_ECN_info)),
+	.userspacesize	= IPT_ALIGN(sizeof(struct ipt_ECN_info)),
+	.help		= &help,
+	.init		= &init,
+	.parse		= &parse,
+	.final_check	= &final_check,
+	.print		= &print,
+	.save		= &save,
+	.extra_opts	= opts
 };
 
 void _init(void)

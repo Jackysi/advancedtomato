@@ -1,4 +1,4 @@
-/* Header file for IP tables userspace logging, Version 1.8 
+/* Header file for IP tables userspace logging, Version 1.8
  *
  * (C) 2000-2002 by Harald Welte <laforge@gnumonks.org>
  * 
@@ -10,6 +10,9 @@
 #ifndef NETLINK_NFLOG
 #define NETLINK_NFLOG 	5
 #endif
+
+#define ULOG_DEFAULT_NLGROUP	1
+#define ULOG_DEFAULT_QTHRESHOLD	1
 
 #define ULOG_MAC_LEN	80
 #define ULOG_PREFIX_LEN	32
@@ -23,8 +26,13 @@
 /* private data structure for each rule with a ULOG target */
 struct ipt_ulog_info {
 	unsigned int nl_group;
+#ifdef KERNEL_64_USERSPACE_32
+	unsigned long long copy_range;
+	unsigned long long qthreshold;
+#else
 	size_t copy_range;
 	size_t qthreshold;
+#endif
 	char prefix[ULOG_PREFIX_LEN];
 };
 

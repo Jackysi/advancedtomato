@@ -4,23 +4,11 @@
  *
  * Copyright (C) 1999 by Randolph Chung <tausq@debian.org>
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+ * Licensed under GPLv2 or later, see file LICENSE in this tarball for details.
  *
  * This is a from-scratch implementation of fbset; but the de facto fbset
  * implementation was a good reference. fbset (original) is released under
- * the GPL, and is (c) 1995-1999 by: 
+ * the GPL, and is (c) 1995-1999 by:
  *     Geert Uytterhoeven (Geert.Uytterhoeven@cs.kuleuven.ac.be)
  */
 
@@ -35,14 +23,14 @@
 #include <sys/ioctl.h>
 #include "busybox.h"
 
-#define DEFAULTFBDEV  "/dev/fb0"
+#define DEFAULTFBDEV  FB_0
 #define DEFAULTFBMODE "/etc/fb.modes"
 
-static const int OPT_CHANGE   = (1 << 0);
-static const int OPT_INFO     = (1 << 1);
-static const int OPT_READMODE = (1 << 2);
-
 enum {
+	OPT_CHANGE   = (1 << 0),
+	OPT_INFO     = (1 << 1),
+	OPT_READMODE = (1 << 2),
+
 	CMD_FB = 1,
 	CMD_DB = 2,
 	CMD_GEOMETRY = 3,
@@ -52,7 +40,7 @@ enum {
 	CMD_VSYNC = 7,
 	CMD_LACED = 8,
 	CMD_DOUBLE = 9,
-/* 	CMD_XCOMPAT =     10, */
+/*	CMD_XCOMPAT =     10, */
 	CMD_ALL = 11,
 	CMD_INFO = 12,
 	CMD_CHANGE = 13,
@@ -84,13 +72,15 @@ enum {
 static unsigned int g_options = 0;
 
 /* Stuff stolen from the kernel's fb.h */
-static const int FBIOGET_VSCREENINFO = 0x4600;
-static const int FBIOPUT_VSCREENINFO = 0x4601;
+enum {
+	FBIOGET_VSCREENINFO = 0x4600,
+	FBIOPUT_VSCREENINFO = 0x4601
+};
 struct fb_bitfield {
 	uint32_t offset;			/* beginning of bitfield	*/
 	uint32_t length;			/* length of bitfield		*/
-	uint32_t msb_right;		/* != 0 : Most significant bit is */ 
-					/* right */ 
+	uint32_t msb_right;		/* != 0 : Most significant bit is */
+					/* right */
 };
 struct fb_var_screeninfo {
 	uint32_t xres;			/* visible resolution		*/
@@ -106,7 +96,7 @@ struct fb_var_screeninfo {
 	struct fb_bitfield red;		/* bitfield in fb mem if true color, */
 	struct fb_bitfield green;	/* else only length is significant */
 	struct fb_bitfield blue;
-	struct fb_bitfield transp;	/* transparency			*/	
+	struct fb_bitfield transp;	/* transparency			*/
 
 	uint32_t nonstd;			/* != 0 Non standard pixel format */
 
@@ -131,7 +121,7 @@ struct fb_var_screeninfo {
 };
 
 
-const static struct cmdoptions_t {
+static const struct cmdoptions_t {
 	const char *name;
 	const unsigned char param_count;
 	const unsigned char code;
@@ -179,12 +169,14 @@ const static struct cmdoptions_t {
 
 #ifdef CONFIG_FEATURE_FBSET_READMODE
 /* taken from linux/fb.h */
-static const int FB_VMODE_INTERLACED = 1;	/* interlaced	*/
-static const int FB_VMODE_DOUBLE = 2;	/* double scan */
-static const int FB_SYNC_HOR_HIGH_ACT = 1;	/* horizontal sync high active	*/
-static const int FB_SYNC_VERT_HIGH_ACT = 2;	/* vertical sync high active	*/
-static const int FB_SYNC_EXT = 4;	/* external sync		*/
-static const int FB_SYNC_COMP_HIGH_ACT = 8;	/* composite sync high active   */
+enum {
+	FB_VMODE_INTERLACED = 1,	/* interlaced	*/
+	FB_VMODE_DOUBLE = 2,	/* double scan */
+	FB_SYNC_HOR_HIGH_ACT = 1,	/* horizontal sync high active	*/
+	FB_SYNC_VERT_HIGH_ACT = 2,	/* vertical sync high active	*/
+	FB_SYNC_EXT = 4,	/* external sync		*/
+	FB_SYNC_COMP_HIGH_ACT = 8	/* composite sync high active   */
+};
 #endif
 static int readmode(struct fb_var_screeninfo *base, const char *fn,
 					const char *mode)
@@ -207,71 +199,71 @@ static int readmode(struct fb_var_screeninfo *base, const char *fn,
 				while (!feof(f)) {
 					fgets(buf, sizeof(buf), f);
 
-                    if ((p = strstr(buf, "geometry "))) {
-                        p += 9;
+		    if ((p = strstr(buf, "geometry "))) {
+			p += 9;
 
-                        sscanf(p, "%d %d %d %d %d", 
-                                &(base->xres), &(base->yres), 
-                                &(base->xres_virtual), &(base->yres_virtual), 
-                                &(base->bits_per_pixel));
-                    } else if ((p = strstr(buf, "timings "))) {
-                        p += 8;
-                        
-                        sscanf(p, "%d %d %d %d %d %d %d",
-                                &(base->pixclock),
-                                &(base->left_margin), &(base->right_margin),
-                                &(base->upper_margin), &(base->lower_margin),
-                                &(base->hsync_len), &(base->vsync_len));
-                    } else if ((p = strstr(buf, "laced "))) {
-                        p += 6;
+			sscanf(p, "%d %d %d %d %d",
+				&(base->xres), &(base->yres),
+				&(base->xres_virtual), &(base->yres_virtual),
+				&(base->bits_per_pixel));
+		    } else if ((p = strstr(buf, "timings "))) {
+			p += 8;
 
-                        if (strstr(buf, "false")) {
-                            base->vmode &= ~FB_VMODE_INTERLACED;
-                        } else {
-                            base->vmode |= FB_VMODE_INTERLACED;
-                        }
-                    } else if ((p = strstr(buf, "double "))) {
-                        p += 7;
+			sscanf(p, "%d %d %d %d %d %d %d",
+				&(base->pixclock),
+				&(base->left_margin), &(base->right_margin),
+				&(base->upper_margin), &(base->lower_margin),
+				&(base->hsync_len), &(base->vsync_len));
+		    } else if ((p = strstr(buf, "laced "))) {
+			p += 6;
 
-                        if (strstr(buf, "false")) {
-                            base->vmode &= ~FB_VMODE_DOUBLE;
-                        } else {
-                            base->vmode |= FB_VMODE_DOUBLE;
-                        }
-                    } else if ((p = strstr(buf, "vsync "))) {
-                        p += 6;
+			if (strstr(buf, "false")) {
+			    base->vmode &= ~FB_VMODE_INTERLACED;
+			} else {
+			    base->vmode |= FB_VMODE_INTERLACED;
+			}
+		    } else if ((p = strstr(buf, "double "))) {
+			p += 7;
 
-                        if (strstr(buf, "low")) {
-                            base->sync &= ~FB_SYNC_VERT_HIGH_ACT;
-                        } else {
-                            base->sync |= FB_SYNC_VERT_HIGH_ACT;
-                        }
-                    } else if ((p = strstr(buf, "hsync "))) {
-                        p += 6;
+			if (strstr(buf, "false")) {
+			    base->vmode &= ~FB_VMODE_DOUBLE;
+			} else {
+			    base->vmode |= FB_VMODE_DOUBLE;
+			}
+		    } else if ((p = strstr(buf, "vsync "))) {
+			p += 6;
 
-                        if (strstr(buf, "low")) {
-                            base->sync &= ~FB_SYNC_HOR_HIGH_ACT;
-                        } else {
-                            base->sync |= FB_SYNC_HOR_HIGH_ACT;
-                        }
-                    } else if ((p = strstr(buf, "csync "))) {
-                        p += 6;
+			if (strstr(buf, "low")) {
+			    base->sync &= ~FB_SYNC_VERT_HIGH_ACT;
+			} else {
+			    base->sync |= FB_SYNC_VERT_HIGH_ACT;
+			}
+		    } else if ((p = strstr(buf, "hsync "))) {
+			p += 6;
 
-                        if (strstr(buf, "low")) {
-                            base->sync &= ~FB_SYNC_COMP_HIGH_ACT;
-                        } else {
-                            base->sync |= FB_SYNC_COMP_HIGH_ACT;
-                        }
-                    } else if ((p = strstr(buf, "extsync "))) {
-                        p += 8;
+			if (strstr(buf, "low")) {
+			    base->sync &= ~FB_SYNC_HOR_HIGH_ACT;
+			} else {
+			    base->sync |= FB_SYNC_HOR_HIGH_ACT;
+			}
+		    } else if ((p = strstr(buf, "csync "))) {
+			p += 6;
 
-                        if (strstr(buf, "false")) {
-                            base->sync &= ~FB_SYNC_EXT;
-                        } else {
-                            base->sync |= FB_SYNC_EXT;
-                        }
-                    }
-                    
+			if (strstr(buf, "low")) {
+			    base->sync &= ~FB_SYNC_COMP_HIGH_ACT;
+			} else {
+			    base->sync |= FB_SYNC_COMP_HIGH_ACT;
+			}
+		    } else if ((p = strstr(buf, "extsync "))) {
+			p += 8;
+
+			if (strstr(buf, "false")) {
+			    base->sync &= ~FB_SYNC_EXT;
+			} else {
+			    base->sync |= FB_SYNC_EXT;
+			}
+		    }
+
 					if (strstr(buf, "endmode"))
 						return 1;
 				}
@@ -332,7 +324,7 @@ static inline void showmode(struct fb_var_screeninfo *v)
 #ifdef STANDALONE
 int main(int argc, char **argv)
 #else
-extern int fbset_main(int argc, char **argv)
+int fbset_main(int argc, char **argv)
 #endif
 {
 	struct fb_var_screeninfo var, varset;
@@ -374,9 +366,9 @@ extern int fbset_main(int argc, char **argv)
 					varset.hsync_len = strtoul(argv[6], 0, 0);
 					varset.vsync_len = strtoul(argv[7], 0, 0);
 					break;
-                case CMD_CHANGE:
-                    g_options |= OPT_CHANGE;
-                    break;
+		case CMD_CHANGE:
+		    g_options |= OPT_CHANGE;
+		    break;
 #ifdef CONFIG_FEATURE_FBSET_FANCY
 				case CMD_XRES:
 					varset.xres = strtoul(argv[1], 0, 0);
@@ -404,8 +396,7 @@ extern int fbset_main(int argc, char **argv)
 		}
 	}
 
-	if ((fh = open(fbdev, O_RDONLY)) < 0)
-		bb_perror_msg_and_die("fbset(open)");
+	fh = bb_xopen(fbdev, O_RDONLY);
 	if (ioctl(fh, FBIOGET_VSCREENINFO, &var))
 		bb_perror_msg_and_die("fbset(ioctl)");
 	if (g_options & OPT_READMODE) {

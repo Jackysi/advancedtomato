@@ -1824,7 +1824,7 @@ out:
  * We may have to extend the file.
  */
 
-int cont_prepare_write(struct page *page, unsigned offset, unsigned to, get_block_t *get_block, unsigned long *bytes)
+int cont_prepare_write(struct page *page, unsigned offset, unsigned to, get_block_t *get_block, loff_t *bytes)
 {
 	struct address_space *mapping = page->mapping;
 	struct inode *inode = mapping->host;
@@ -2808,6 +2808,8 @@ void wakeup_bdflush(void)
 	wake_up_interruptible(&bdflush_wait);
 }
 
+EXPORT_SYMBOL(wakeup_bdflush);
+
 /* 
  * Here we attempt to write back old buffers.  We also try to flush inodes 
  * and supers as well, since this function is essentially "update", and 
@@ -3009,4 +3011,3 @@ static int __init bdflush_init(void)
 }
 
 module_init(bdflush_init)
-

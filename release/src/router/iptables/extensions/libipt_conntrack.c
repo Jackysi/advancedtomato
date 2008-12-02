@@ -11,7 +11,12 @@
 #include <iptables.h>
 #include <linux/netfilter_ipv4/ip_conntrack.h>
 #include <linux/netfilter_ipv4/ip_conntrack_tuple.h>
-#include <linux/netfilter_ipv4/ipt_conntrack.h>
+/* For 64bit kernel / 32bit userspace */
+#include "../include/linux/netfilter_ipv4/ipt_conntrack.h"
+
+#ifndef IPT_CONNTRACK_STATE_UNTRACKED
+#define IPT_CONNTRACK_STATE_UNTRACKED (1 << (IP_CT_NUMBER + 3))
+#endif
 
 /* Function which prints out usage message. */
 static void
@@ -19,7 +24,7 @@ help(void)
 {
 	printf(
 "conntrack match v%s options:\n"
-" [!] --ctstate [INVALID|ESTABLISHED|NEW|RELATED|SNAT|DNAT][,...]\n"
+" [!] --ctstate [INVALID|ESTABLISHED|NEW|RELATED|UNTRACKED|SNAT|DNAT][,...]\n"
 "				State(s) to match\n"
 " [!] --ctproto	proto		Protocol to match; by number or name, eg. `tcp'\n"
 "     --ctorigsrc  [!] address[/mask]\n"
@@ -30,7 +35,7 @@ help(void)
 "				Reply source specification\n"
 "     --ctrepldst  [!] address[/mask]\n"
 "				Reply destination specification\n"
-" [!] --ctstatus [NONE|EXPECTED|SEEN_REPLY|ASSURED][,...]\n"
+" [!] --ctstatus [NONE|EXPECTED|SEEN_REPLY|ASSURED|CONFIRMED][,...]\n"
 "				Status(es) to match\n"
 " [!] --ctexpire time[:time]	Match remaining lifetime in seconds against\n"
 "				value or range of values (inclusive)\n"
@@ -51,14 +56,6 @@ static struct option opts[] = {
 	{0}
 };
 
-/* Initialize the match. */
-static void
-init(struct ipt_entry_match *m, unsigned int *nfcache)
-{
-	/* Can't cache this */
-	*nfcache |= NFC_UNKNOWN;
-}
-
 static int
 parse_state(const char *state, size_t strlen, struct ipt_conntrack_info *sinfo)
 {
@@ -70,6 +67,8 @@ parse_state(const char *state, size_t strlen, struct ipt_conntrack_info *sinfo)
 		sinfo->statemask |= IPT_CONNTRACK_STATE_BIT(IP_CT_ESTABLISHED);
 	else if (strncasecmp(state, "RELATED", strlen) == 0)
 		sinfo->statemask |= IPT_CONNTRACK_STATE_BIT(IP_CT_RELATED);
+	else if (strncasecmp(state, "UNTRACKED", strlen) == 0)
+		sinfo->statemask |= IPT_CONNTRACK_STATE_UNTRACKED;
 	else if (strncasecmp(state, "SNAT", strlen) == 0)
 		sinfo->statemask |= IPT_CONNTRACK_STATE_SNAT;
 	else if (strncasecmp(state, "DNAT", strlen) == 0)
@@ -105,6 +104,10 @@ parse_status(const char *status, size_t strlen, struct ipt_conntrack_info *sinfo
 		sinfo->statusmask |= IPS_SEEN_REPLY;
 	else if (strncasecmp(status, "ASSURED", strlen) == 0)
 		sinfo->statusmask |= IPS_ASSURED;
+#ifdef IPS_CONFIRMED
+	else if (strncasecmp(status, "CONFIRMED", strlen) == 0)
+		sinfo->stausmask |= IPS_CONFIRMED;
+#endif
 	else
 		return 0;
 	return 1;
@@ -125,17 +128,29 @@ parse_statuses(const char *arg, struct ipt_conntrack_info *sinfo)
 		exit_error(PARAMETER_PROBLEM, "Bad ctstatus `%s'", arg);
 }
 
-
+#ifdef KERNEL_64_USERSPACE_32
+static unsigned long long
+parse_expire(const char *s)
+{
+	unsigned long long len;
+	
+	if (string_to_number_ll(s, 0, 0, &len) == -1)
+		exit_error(PARAMETER_PROBLEM, "expire value invalid: `%s'\n", s);
+	else
+		return len;
+}
+#else
 static unsigned long
 parse_expire(const char *s)
 {
 	unsigned int len;
 	
-	if (string_to_number(s, 0, 0xFFFFFFFF, &len) == -1)
+	if (string_to_number(s, 0, 0, &len) == -1)
 		exit_error(PARAMETER_PROBLEM, "expire value invalid: `%s'\n", s);
 	else
 		return len;
 }
+#endif
 
 /* If a single value is provided, min and max are both set to the value */
 static void
@@ -152,15 +167,19 @@ parse_expires(const char *s, struct ipt_conntrack_info *sinfo)
 		cp++;
 
 		sinfo->expires_min = buffer[0] ? parse_expire(buffer) : 0;
-		sinfo->expires_max = cp[0] ? parse_expire(cp) : 0xFFFFFFFF;
+		sinfo->expires_max = cp[0] ? parse_expire(cp) : -1;
 	}
 	free(buffer);
 	
 	if (sinfo->expires_min > sinfo->expires_max)
 		exit_error(PARAMETER_PROBLEM,
+#ifdef KERNEL_64_USERSPACE_32
+		           "expire min. range value `%llu' greater than max. "
+		           "range value `%llu'", sinfo->expires_min, sinfo->expires_max);
+#else
 		           "expire min. range value `%lu' greater than max. "
 		           "range value `%lu'", sinfo->expires_min, sinfo->expires_max);
-	
+#endif
 }
 
 /* Function which parses command options; returns true if it
@@ -345,6 +364,10 @@ print_state(unsigned int statemask)
 		printf("%sESTABLISHED", sep);
 		sep = ",";
 	}
+	if (statemask & IPT_CONNTRACK_STATE_UNTRACKED) {
+		printf("%sUNTRACKED", sep);
+		sep = ",";
+	}
 	if (statemask & IPT_CONNTRACK_STATE_SNAT) {
 		printf("%sSNAT", sep);
 		sep = ",";
@@ -373,6 +396,12 @@ print_status(unsigned int statusmask)
 		printf("%sASSURED", sep);
 		sep = ",";
 	}
+#ifdef IPS_CONFIRMED
+	if (statusmask & IPS_CONFIRMED) {
+		printf("%sCONFIRMED", sep);
+		sep =",";
+	}
+#endif
 	if (statusmask == 0) {
 		printf("%sNONE", sep);
 		sep = ",";
@@ -385,8 +414,8 @@ print_addr(struct in_addr *addr, struct in_addr *mask, int inv, int numeric)
 {
 	char buf[BUFSIZ];
 
-        if (inv)
-               	fputc('!', stdout);
+        if (inv) 
+               	printf("! ");
 
 	if (mask->s_addr == 0L && !numeric)
 		printf("%s ", "anywhere");
@@ -409,8 +438,15 @@ matchinfo_print(const struct ipt_ip *ip, const struct ipt_entry_match *match, in
 	if(sinfo->flags & IPT_CONNTRACK_STATE) {
 		printf("%sctstate ", optpfx);
         	if (sinfo->invflags & IPT_CONNTRACK_STATE)
-                	fputc('!', stdout);
+                	printf("! ");
 		print_state(sinfo->statemask);
+	}
+
+	if(sinfo->flags & IPT_CONNTRACK_PROTO) {
+		printf("%sctproto ", optpfx);
+        	if (sinfo->invflags & IPT_CONNTRACK_PROTO)
+                	printf("! ");
+		printf("%u ", sinfo->tuple[IP_CT_DIR_ORIGINAL].dst.protonum);
 	}
 
 	if(sinfo->flags & IPT_CONNTRACK_ORIGSRC) {
@@ -434,7 +470,7 @@ matchinfo_print(const struct ipt_ip *ip, const struct ipt_entry_match *match, in
 	}
 
 	if(sinfo->flags & IPT_CONNTRACK_REPLSRC) {
-		printf("%sctorigsrc ", optpfx);
+		printf("%sctreplsrc ", optpfx);
 
 		print_addr(
 		    (struct in_addr *)&sinfo->tuple[IP_CT_DIR_REPLY].src.ip,
@@ -444,7 +480,7 @@ matchinfo_print(const struct ipt_ip *ip, const struct ipt_entry_match *match, in
 	}
 
 	if(sinfo->flags & IPT_CONNTRACK_REPLDST) {
-		printf("%sctorigdst ", optpfx);
+		printf("%sctrepldst ", optpfx);
 
 		print_addr(
 		    (struct in_addr *)&sinfo->tuple[IP_CT_DIR_REPLY].dst.ip,
@@ -455,20 +491,27 @@ matchinfo_print(const struct ipt_ip *ip, const struct ipt_entry_match *match, in
 
 	if(sinfo->flags & IPT_CONNTRACK_STATUS) {
 		printf("%sctstatus ", optpfx);
-        	if (sinfo->invflags & IPT_CONNTRACK_STATE)
-                	fputc('!', stdout);
+        	if (sinfo->invflags & IPT_CONNTRACK_STATUS)
+                	printf("! ");
 		print_status(sinfo->statusmask);
 	}
 
 	if(sinfo->flags & IPT_CONNTRACK_EXPIRES) {
 		printf("%sctexpire ", optpfx);
         	if (sinfo->invflags & IPT_CONNTRACK_EXPIRES)
-                	fputc('!', stdout);
+                	printf("! ");
 
+#ifdef KERNEL_64_USERSPACE_32
+        	if (sinfo->expires_max == sinfo->expires_min)
+                	printf("%llu ", sinfo->expires_min);
+        	else
+                	printf("%llu:%llu ", sinfo->expires_min, sinfo->expires_max);
+#else
         	if (sinfo->expires_max == sinfo->expires_min)
                 	printf("%lu ", sinfo->expires_min);
         	else
                 	printf("%lu:%lu ", sinfo->expires_min, sinfo->expires_max);
+#endif
 	}
 }
 
@@ -484,23 +527,21 @@ print(const struct ipt_ip *ip,
 /* Saves the matchinfo in parsable form to stdout. */
 static void save(const struct ipt_ip *ip, const struct ipt_entry_match *match)
 {
-	matchinfo_print(ip, match, 0, "--");
+	matchinfo_print(ip, match, 1, "--");
 }
 
-static
-struct iptables_match conntrack
-= { NULL,
-    "conntrack",
-    IPTABLES_VERSION,
-    IPT_ALIGN(sizeof(struct ipt_conntrack_info)),
-    IPT_ALIGN(sizeof(struct ipt_conntrack_info)),
-    &help,
-    &init,
-    &parse,
-    &final_check,
-    &print,
-    &save,
-    opts
+static struct iptables_match conntrack = { 
+	.next 		= NULL,
+	.name		= "conntrack",
+	.version	= IPTABLES_VERSION,
+	.size		= IPT_ALIGN(sizeof(struct ipt_conntrack_info)),
+	.userspacesize	= IPT_ALIGN(sizeof(struct ipt_conntrack_info)),
+	.help		= &help,
+	.parse		= &parse,
+	.final_check	= &final_check,
+	.print		= &print,
+	.save		= &save,
+	.extra_opts	= opts
 };
 
 void _init(void)

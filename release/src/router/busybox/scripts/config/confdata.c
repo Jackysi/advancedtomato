@@ -1,11 +1,9 @@
 /*
  * Copyright (C) 2002 Roman Zippel <zippel@linux-m68k.org>
  * Released under the terms of the GNU GPL v2.0.
- *
- * Allow 'n' as a symbol value.
- * 2002-11-05 Petr Baudis <pasky@ucw.cz>
  */
 
+#include <sys/stat.h>
 #include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -17,7 +15,7 @@
 
 const char conf_def_filename[] = ".config";
 
-const char conf_defname[] = "sysdeps/linux/defconfig";
+const char conf_defname[] = "defconfig";
 
 const char *conf_confnames[] = {
 	".config",
@@ -38,7 +36,7 @@ static char *conf_expand_value(const char *in)
 		strncat(res_value, in, src - in);
 		src++;
 		dst = name;
-		while (isalnum((int)*src) || *src == '_')
+		while (isalnum(*src) || *src == '_')
 			*dst++ = *src++;
 		*dst = 0;
 		sym = sym_lookup(name, 0);
@@ -53,7 +51,18 @@ static char *conf_expand_value(const char *in)
 
 char *conf_get_default_confname(void)
 {
-	return conf_expand_value(conf_defname);
+	struct stat buf;
+	static char fullname[PATH_MAX+1];
+	char *env, *name;
+
+	name = conf_expand_value(conf_defname);
+	env = getenv(SRCTREE);
+	if (env) {
+		sprintf(fullname, "%s/%s", env, name);
+		if (!stat(fullname, &buf))
+			return fullname;
+	}
+	return name;
 }
 
 int conf_read(const char *name)
@@ -68,12 +77,12 @@ int conf_read(const char *name)
 	int i;
 
 	if (name) {
-		in = fopen(name, "r");
+		in = zconf_fopen(name);
 	} else {
 		const char **names = conf_confnames;
 		while ((name = *names++)) {
 			name = conf_expand_value(name);
-			in = fopen(name, "r");
+			in = zconf_fopen(name);
 			if (in) {
 				printf("#\n"
 				       "# using defaults found in %s\n"
@@ -93,44 +102,42 @@ int conf_read(const char *name)
 		case S_INT:
 		case S_HEX:
 		case S_STRING:
-			if (S_VAL(sym->def))
-				free(S_VAL(sym->def));
+			free(sym->user.val);
 		default:
-			S_VAL(sym->def) = NULL;
-			S_TRI(sym->def) = no;
-			;
+			sym->user.val = NULL;
+			sym->user.tri = no;
 		}
 	}
 
 	while (fgets(line, sizeof(line), in)) {
 		lineno++;
+		sym = NULL;
 		switch (line[0]) {
-		case '\n':
-			break;
-		case ' ':
-			break;
 		case '#':
-			p = strchr(line, ' ');
-			if (!p)
+			if (line[1]!=' ')
 				continue;
-			*p++ = 0;
-			p = strchr(p, ' ');
+			p = strchr(line + 2, ' ');
 			if (!p)
 				continue;
 			*p++ = 0;
 			if (strncmp(p, "is not set", 10))
 				continue;
-			sym = sym_lookup(line+2, 0);
+			sym = sym_find(line + 2);
+			if (!sym) {
+				fprintf(stderr, "%s:%d: trying to assign nonexistent symbol %s\n", name, lineno, line + 2);
+				break;
+			}
 			switch (sym->type) {
 			case S_BOOLEAN:
 			case S_TRISTATE:
-				sym->def = symbol_no.curr;
+				sym->user.tri = no;
 				sym->flags &= ~SYMBOL_NEW;
 				break;
 			default:
 				;
 			}
 			break;
+
 		case 'A' ... 'Z':
 			p = strchr(line, '=');
 			if (!p)
@@ -145,24 +152,24 @@ int conf_read(const char *name)
 				break;
 			}
 			switch (sym->type) {
-  			case S_TRISTATE:
+			case S_TRISTATE:
 				if (p[0] == 'm') {
-					S_TRI(sym->def) = mod;
+					sym->user.tri = mod;
 					sym->flags &= ~SYMBOL_NEW;
 					break;
 				}
 			case S_BOOLEAN:
 				if (p[0] == 'y') {
-					S_TRI(sym->def) = yes;
+					sym->user.tri = yes;
 					sym->flags &= ~SYMBOL_NEW;
 					break;
 				}
 				if (p[0] == 'n') {
-					S_TRI(sym->def) = no;
+					sym->user.tri = no;
 					sym->flags &= ~SYMBOL_NEW;
 					break;
 				}
-  				break;
+				break;
 			case S_STRING:
 				if (*p++ != '"')
 					break;
@@ -173,48 +180,73 @@ int conf_read(const char *name)
 					}
 					memmove(p2, p2 + 1, strlen(p2));
 				}
+				if (!p2) {
+					fprintf(stderr, "%s:%d: invalid string found\n", name, lineno);
+					exit(1);
+				}
 			case S_INT:
 			case S_HEX:
 				if (sym_string_valid(sym, p)) {
-					S_VAL(sym->def) = strdup(p);
+					sym->user.val = strdup(p);
 					sym->flags &= ~SYMBOL_NEW;
-				} else
-					fprintf(stderr, "%s:%d:symbol value '%s' invalid for %s\n", name, lineno, p, sym->name);
+				} else {
+					fprintf(stderr, "%s:%d: symbol value '%s' invalid for %s\n", name, lineno, p, sym->name);
+					exit(1);
+				}
 				break;
 			default:
 				;
 			}
-			if (sym_is_choice_value(sym)) {
-				prop = sym_get_choice_prop(sym);
-				switch (S_TRI(sym->def)) {
-				case mod:
-					if (S_TRI(prop->def->def) == yes)
-						/* warn? */;
-					break;
-				case yes:
-					if (S_TRI(prop->def->def) != no)
-						/* warn? */;
-					S_VAL(prop->def->def) = sym;
-					break;
-				case no:
-					break;
-				}
-				S_TRI(prop->def->def) = S_TRI(sym->def);
-			}
+			break;
+		case '\n':
 			break;
 		default:
 			continue;
 		}
+		if (sym && sym_is_choice_value(sym)) {
+			struct symbol *cs = prop_get_symbol(sym_get_choice_prop(sym));
+			switch (sym->user.tri) {
+			case no:
+				break;
+			case mod:
+				if (cs->user.tri == yes)
+					/* warn? */;
+				break;
+			case yes:
+				if (cs->user.tri != no)
+					/* warn? */;
+				cs->user.val = sym;
+				break;
+			}
+			cs->user.tri = E_OR(cs->user.tri, sym->user.tri);
+			cs->flags &= ~SYMBOL_NEW;
+		}
 	}
 	fclose(in);
 
+	if (modules_sym)
+		sym_calc_value(modules_sym);
 	for_all_symbols(i, sym) {
+		sym_calc_value(sym);
+		if (sym_has_value(sym) && !sym_is_choice_value(sym)) {
+			if (sym->visible == no)
+				sym->flags |= SYMBOL_NEW;
+			switch (sym->type) {
+			case S_STRING:
+			case S_INT:
+			case S_HEX:
+				if (!sym_string_within_range(sym, sym->user.val))
+					sym->flags |= SYMBOL_NEW;
+			default:
+				break;
+			}
+		}
 		if (!sym_is_choice(sym))
 			continue;
 		prop = sym_get_choice_prop(sym);
-		for (e = prop->dep; e; e = e->left.expr)
-			sym->flags |= e->right.sym->flags & SYMBOL_NEW;
-		sym->flags &= ~SYMBOL_NEW;
+		for (e = prop->expr; e; e = e->left.expr)
+			if (e->right.sym->visible != no)
+				sym->flags |= e->right.sym->flags & SYMBOL_NEW;
 	}
 
 	sym_change_count = 1;
@@ -222,37 +254,97 @@ int conf_read(const char *name)
 	return 0;
 }
 
+struct menu *next_menu(struct menu *menu)
+{
+	if (menu->list) return menu->list;
+	do {
+		if (menu->next) {
+			menu = menu->next;
+			break;
+		}
+	} while ((menu = menu->parent));
+
+	return menu;
+}
+
+#define SYMBOL_FORCEWRITE (1<<31)
+
 int conf_write(const char *name)
 {
 	FILE *out, *out_h;
 	struct symbol *sym;
 	struct menu *menu;
-	char oldname[128];
+	const char *basename;
+	char dirname[128], tmpname[128], newname[128];
 	int type, l;
 	const char *str;
 
-	out = fopen(".tmpconfig", "w");
+	/* busybox`s code */
+	const char *opt_name;
+	int use_flg;
+
+	dirname[0] = 0;
+	if (name && name[0]) {
+		struct stat st;
+		char *slash;
+
+		if (!stat(name, &st) && S_ISDIR(st.st_mode)) {
+			strcpy(dirname, name);
+			strcat(dirname, "/");
+			basename = conf_def_filename;
+		} else if ((slash = strrchr(name, '/'))) {
+			int size = slash - name + 1;
+			memcpy(dirname, name, size);
+			dirname[size] = 0;
+			if (slash[1])
+				basename = slash + 1;
+			else
+				basename = conf_def_filename;
+		} else
+			basename = name;
+	} else
+		basename = conf_def_filename;
+
+	sprintf(newname, "%s.tmpconfig.%d", dirname, (int)getpid());
+	out = fopen(newname, "w");
 	if (!out)
 		return 1;
-	out_h = fopen(".tmpconfig.h", "w");
-	if (!out_h)
-		return 1;
+	out_h = NULL;
+	if (!name) {
+		out_h = fopen(".tmpconfig.h", "w");
+		if (!out_h)
+			return 1;
+	}
 	fprintf(out, "#\n"
 		     "# Automatically generated make config: don't edit\n"
 		     "#\n");
-	fprintf(out_h, "/*\n"
-		       " * Automatically generated header file: don't edit\n"
-		       " */\n\n"
-		       "#define AUTOCONF_INCLUDED\n\n"
-		       "/* Version Number */\n"
-		       "#define BB_VER \"%s\"\n"
-		       "#define BB_BT \"%s\"\n\n",
-		       getenv("VERSION"),
-		       getenv("BUILDTIME")
-       );
+
+	/* busybox`s code */
+	if (out_h) {
+		fprintf(out_h, "#ifndef BB_CONFIG_H\n#define BB_CONFIG_H\n");
+		fprintf(out_h, "/*\n"
+			     " * Automatically generated header file: don't edit\n"
+			     " */\n\n"
+			     "/* Version Number */\n"
+			     "#define BB_VER \"%s\"\n"
+			     "#define BB_BT \"%s\"\n",
+			     getenv("VERSION"),
+			     getenv("BUILDTIME"));
+		if (getenv("EXTRA_VERSION"))
+			fprintf(out_h, "#define BB_EXTRA_VERSION \"%s\"\n",
+				     getenv("EXTRA_VERSION"));
+		fprintf(out_h, "\n");
+	}
+	/* end busybox`s code */
 
 	if (!sym_change_count)
 		sym_clear_all_valid();
+
+	/* Force write of all non-duplicate symbols. */
+
+	/* Write out everything by default. */
+	for(menu = rootmenu.list; menu; menu = next_menu(menu))
+		if (menu->sym) menu->sym->flags |= SYMBOL_FORCEWRITE;
 
 	menu = rootmenu.list;
 	while (menu) {
@@ -265,38 +357,54 @@ int conf_write(const char *name)
 				     "#\n"
 				     "# %s\n"
 				     "#\n", str);
-			fprintf(out_h, "\n"
-				       "/*\n"
-				       " * %s\n"
-				       " */\n", str);
+			if (out_h)
+				fprintf(out_h, "\n"
+					       "/*\n"
+					       " * %s\n"
+					       " */\n", str);
 		} else if (!(sym->flags & SYMBOL_CHOICE)) {
 			sym_calc_value(sym);
-			if (!(sym->flags & SYMBOL_WRITE))
+			if (!(sym->flags & SYMBOL_FORCEWRITE))
 				goto next;
-			sym->flags &= ~SYMBOL_WRITE;
+
+			sym->flags &= ~SYMBOL_FORCEWRITE;
 			type = sym->type;
 			if (type == S_TRISTATE) {
 				sym_calc_value(modules_sym);
-				if (S_TRI(modules_sym->curr) == no)
+				if (modules_sym->curr.tri == no)
 					type = S_BOOLEAN;
 			}
+
+			/* busybox`s code */
+			opt_name = strchr(sym->name, '_');
+			if(opt_name == NULL)
+				opt_name = sym->name;
+			else
+				opt_name++;
+			use_flg = 1;
+			/* end busybox`s code */
+
 			switch (type) {
 			case S_BOOLEAN:
 			case S_TRISTATE:
 				switch (sym_get_tristate_value(sym)) {
 				case no:
 					fprintf(out, "# %s is not set\n", sym->name);
-					fprintf(out_h, "#undef %s\n", sym->name);
+					if (out_h)
+						fprintf(out_h, "#undef %s\n", sym->name);
+					use_flg = 0;    /* busybox`s code */
 					break;
 				case mod:
-#if 0
+#if 0   /* busybox`s code */
 					fprintf(out, "%s=m\n", sym->name);
-					fprintf(out_h, "#define __%s__MODULE 1\n", sym->name);
-#endif
+					if (out_h)
+						fprintf(out_h, "#define %s_MODULE 1\n", sym->name);
+#endif  /* busybox`s code */
 					break;
 				case yes:
 					fprintf(out, "%s=y\n", sym->name);
-					fprintf(out_h, "#define %s 1\n", sym->name);
+					if (out_h)
+						fprintf(out_h, "#define %s 1\n", sym->name);
 					break;
 				}
 				break;
@@ -304,65 +412,70 @@ int conf_write(const char *name)
 				// fix me
 				str = sym_get_string_value(sym);
 				fprintf(out, "%s=\"", sym->name);
-				fprintf(out_h, "#define %s \"", sym->name);
+				if (out_h)
+					fprintf(out_h, "#define %s \"", sym->name);
 				do {
 					l = strcspn(str, "\"\\");
 					if (l) {
 						fwrite(str, l, 1, out);
-						fwrite(str, l, 1, out_h);
+						if (out_h)
+							fwrite(str, l, 1, out_h);
 					}
 					str += l;
 					while (*str == '\\' || *str == '"') {
 						fprintf(out, "\\%c", *str);
-						fprintf(out_h, "\\%c", *str);
+						if (out_h)
+							fprintf(out_h, "\\%c", *str);
 						str++;
 					}
 				} while (*str);
 				fputs("\"\n", out);
-				fputs("\"\n", out_h);
+				if (out_h)
+					fputs("\"\n", out_h);
 				break;
 			case S_HEX:
 				str = sym_get_string_value(sym);
 				if (str[0] != '0' || (str[1] != 'x' && str[1] != 'X')) {
-					fprintf(out, "%s=%s\n", sym->name, str);
-					fprintf(out_h, "#define %s 0x%s\n", sym->name, str);
+					fprintf(out, "%s=%s\n", sym->name, *str ? str : "0");
+					if (out_h)
+						fprintf(out_h, "#define %s 0x%s\n", sym->name, str);
 					break;
 				}
 			case S_INT:
 				str = sym_get_string_value(sym);
-				fprintf(out, "%s=%s\n", sym->name, str);
-				fprintf(out_h, "#define %s %s\n", sym->name, str);
+				fprintf(out, "%s=%s\n", sym->name, *str ? str : "0");
+				if (out_h)
+					fprintf(out_h, "#define %s %s\n", sym->name, str);
 				break;
 			}
-		}
-
-	next:
-		if (menu->list) {
-			menu = menu->list;
-			continue;
-		}
-		if (menu->next)
-			menu = menu->next;
-		else while ((menu = menu->parent)) {
-			if (menu->next) {
-				menu = menu->next;
-				break;
+			/* busybox`s code */
+			if (out_h) {
+				fprintf(out_h, "#define ENABLE_%s %d\n", opt_name, use_flg);
+				fprintf(out_h, "#define USE_%s(...)%s\n", opt_name,
+					(use_flg ? "  __VA_ARGS__" : ""));
+				fprintf(out_h, "#define SKIP_%s(...)%s\n\n", opt_name,
+					(use_flg ? "" : "  __VA_ARGS__"));
 			}
+			/* end busybox`s code */
 		}
+next:
+		menu = next_menu(menu);
 	}
 	fclose(out);
-	fclose(out_h);
-
-	if (!name) {
-		rename(".tmpconfig.h", "include/config.h");
-		name = conf_def_filename;
+	if (out_h) {
+		fprintf(out_h, "#endif /* BB_CONFIG_H */\n");   /* busybox`s code */
+		fclose(out_h);
+		rename(".tmpconfig.h", "include/bb_config.h");  /* busybox`s config name */
 		file_write_dep(NULL);
-	} else
-		unlink(".tmpconfig.h");
-
-	sprintf(oldname, "%s.old", name);
-	rename(name, oldname);
-	if (rename(".tmpconfig", name))
+	}
+	if (!name || basename != conf_def_filename) {
+		if (!name)
+			name = conf_def_filename;
+		sprintf(tmpname, "%s.old", name);
+		rename(name, tmpname);
+	}
+	sprintf(tmpname, "%s%s", dirname, basename);
+	if (rename(newname, tmpname))
 		return 1;
 
 	sym_change_count = 0;

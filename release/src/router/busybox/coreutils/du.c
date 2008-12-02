@@ -6,20 +6,7 @@
  * Copyright (C) 1999,2000,2001 by John Beppu <beppu@codepoet.org>
  * Copyright (C) 2002  Edward Betts <edward@debian.org>
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
- *
+ * Licensed under GPLv2 or later, see file LICENSE in this tarball for details.
  */
 
 /* BB_AUDIT SUSv3 compliant (unless default blocksize set to 1k) */
@@ -44,19 +31,19 @@
 #include "busybox.h"
 
 #ifdef CONFIG_FEATURE_HUMAN_READABLE
-# ifdef CONFIG_FEATURE_DU_DEFALT_BLOCKSIZE_1K
+# ifdef CONFIG_FEATURE_DU_DEFAULT_BLOCKSIZE_1K
 static unsigned long disp_hr = KILOBYTE;
 # else
 static unsigned long disp_hr = 512;
 # endif
-#elif defined CONFIG_FEATURE_DU_DEFALT_BLOCKSIZE_1K
+#elif defined CONFIG_FEATURE_DU_DEFAULT_BLOCKSIZE_1K
 static unsigned int disp_k = 1;
 #else
 static unsigned int disp_k;	/* bss inits to 0 */
 #endif
 
 static int max_print_depth = INT_MAX;
-static int count_hardlinks = INT_MAX;
+static nlink_t count_hardlinks = 1;
 
 static int status
 #if EXIT_SUCCESS == 0
@@ -77,7 +64,11 @@ static void print(long size, char *filename)
 	bb_printf("%s\t%s\n", make_human_readable_str(size, 512, disp_hr),
 		   filename);
 #else
-	bb_printf("%ld\t%s\n", size >> disp_k, filename);
+	if (disp_k) {
+		size++;
+		size >>= 1;
+	}
+	bb_printf("%ld\t%s\n", size, filename);
 #endif
 }
 
@@ -130,9 +121,8 @@ static long du(char *filename)
 		struct dirent *entry;
 		char *newfile;
 
-		dir = opendir(filename);
+		dir = bb_opendir(filename);
 		if (!dir) {
-			bb_perror_msg("%s", filename);
 			status = EXIT_FAILURE;
 			return sum;
 		}
@@ -170,14 +160,14 @@ int du_main(int argc, char **argv)
 	char *smax_print_depth;
 	unsigned long opt;
 
-#ifdef CONFIG_FEATURE_DU_DEFALT_BLOCKSIZE_1K
+#ifdef CONFIG_FEATURE_DU_DEFUALT_BLOCKSIZE_1K
 	if (getenv("POSIXLY_CORRECT")) {	/* TODO - a new libbb function? */
 #ifdef CONFIG_FEATURE_HUMAN_READABLE
 		disp_hr = 512;
 #else
 		disp_k = 0;
 #endif
-	} 
+	}
 #endif
 
 	/* Note: SUSv3 specifies that -a and -s options can not be used together
@@ -187,7 +177,7 @@ int du_main(int argc, char **argv)
 	 * ignore -a.  This is consistent with -s being equivalent to -d 0.
 	 */
 #ifdef CONFIG_FEATURE_HUMAN_READABLE
-	bb_opt_complementaly = "h-km:k-hm:m-hk:H-L:L-H:s-d:d-s";
+	bb_opt_complementally = "h-km:k-hm:m-hk:H-L:L-H:s-d:d-s";
 	opt = bb_getopt_ulflags(argc, argv, "aHkLsx" "d:" "lc" "hm", &smax_print_depth);
 	if((opt & (1 << 9))) {
 		/* -h opt */
@@ -202,9 +192,9 @@ int du_main(int argc, char **argv)
 			disp_hr = KILOBYTE;
 	}
 #else
-	bb_opt_complementaly = "H-L:L-H:s-d:d-s";
+	bb_opt_complementally = "H-L:L-H:s-d:d-s";
 	opt = bb_getopt_ulflags(argc, argv, "aHkLsx" "d:" "lc", &smax_print_depth);
-#if !defined CONFIG_FEATURE_DU_DEFALT_BLOCKSIZE_1K
+#if !defined CONFIG_FEATURE_DU_DEFAULT_BLOCKSIZE_1K
 	if((opt & (1 << 2))) {
 		/* -k opt */
 			disp_k = 1;
@@ -234,7 +224,7 @@ int du_main(int argc, char **argv)
 	}
 	if((opt & (1 << 7))) {
 		/* -l opt */
-		count_hardlinks = 1;
+		count_hardlinks = INT_MAX;
 	}
 	print_final_total = opt & (1 << 8); /* -c opt */
 

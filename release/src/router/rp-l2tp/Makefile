@@ -29,7 +29,8 @@ OBJS=auth.o debug.o dgram.o main.o md5.o network.o options.o peer.o session.o tu
 EXTRA_LIBS=libevent/*.o -ldl
 
 SRCS=$(OBJS:.o=.c)
-CFLAGS=-g -I.. -Ilibevent -Wall -Wstrict-prototypes -pedantic -D_GNU_SOURCE -DVERSION=\"$(VERSION)\" -DPREFIX=\"$(prefix)\" -I$(SRCBASE)/include
+#CFLAGS=-g -I.. -Ilibevent -Wall -Wstrict-prototypes -pedantic -D_GNU_SOURCE -DVERSION=\"$(VERSION)\" -DPREFIX=\"$(prefix)\" -I$(SRCBASE)/include
+CFLAGS=-g -I.. -Ilibevent -Wall -Wstrict-prototypes -D_GNU_SOURCE -DVERSION=\"$(VERSION)\" -DPREFIX=\"$(prefix)\" -I$(SRCBASE)/include
 
 TARGETS=l2tpd libl2tp.a handlers
 
@@ -68,9 +69,10 @@ release: FORCE
 	gzip -v -9 rp-l2tp-$(VERSION).tar
 
 clean:
-	rm -f *.o *.a *~
+	rm -f *.o *.a *~ .depend
 	rm -f l2tpd
 	$(MAKE) -C handlers clean
+	rm -f libevent/*.o libevent/*.a
 
 distclean: clean
 	rm -f Makefile config.cache

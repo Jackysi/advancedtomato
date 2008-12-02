@@ -33,9 +33,13 @@ static void usage(void)
 }
 
 
-int accept_msg(struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
+int accept_msg(const struct sockaddr_nl *who,
+	       struct nlmsghdr *n, void *arg)
 {
 	FILE *fp = (FILE*)arg;
+
+	if (timestamp)
+		print_timestamp(fp);
 
 	if (n->nlmsg_type == RTM_NEWROUTE || n->nlmsg_type == RTM_DELROUTE) {
 		print_route(who, n, arg);
@@ -52,6 +56,10 @@ int accept_msg(struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
 	}
 	if (n->nlmsg_type == RTM_NEWNEIGH || n->nlmsg_type == RTM_DELNEIGH) {
 		print_neigh(who, n, arg);
+		return 0;
+	}
+	if (n->nlmsg_type == RTM_NEWPREFIX) {
+		print_prefix(who, n, arg);
 		return 0;
 	}
 	if (n->nlmsg_type == 15) {
@@ -80,13 +88,14 @@ int accept_msg(struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
 
 int do_ipmonitor(int argc, char **argv)
 {
-	struct rtnl_handle rth;
 	char *file = NULL;
 	unsigned groups = ~RTMGRP_TC;
 	int llink=0;
 	int laddr=0;
 	int lroute=0;
+	int lprefix=0;
 
+	rtnl_close(&rth);
 	ipaddr_reset_filter(1);
 	iproute_reset_filter();
 	ipneigh_reset_filter();
@@ -103,6 +112,9 @@ int do_ipmonitor(int argc, char **argv)
 			groups = 0;
 		} else if (matches(*argv, "route") == 0) {
 			lroute=1;
+			groups = 0;
+		} else if (matches(*argv, "prefix") == 0) {
+			lprefix=1;
 			groups = 0;
 		} else if (strcmp(*argv, "all") == 0) {
 			groups = ~RTMGRP_TC;
@@ -129,6 +141,10 @@ int do_ipmonitor(int argc, char **argv)
 		if (!preferred_family || preferred_family == AF_INET6)
 			groups |= RTMGRP_IPV6_ROUTE;
 	}
+	if (lprefix) {
+		if (!preferred_family || preferred_family == AF_INET6)
+			groups |= RTMGRP_IPV6_PREFIX;
+	}
 
 	if (file) {
 		FILE *fp;
@@ -137,16 +153,15 @@ int do_ipmonitor(int argc, char **argv)
 			perror("Cannot fopen");
 			exit(-1);
 		}
-		return rtnl_from_file(fp, accept_msg, (void*)stdout);
+		return rtnl_from_file(fp, accept_msg, stdout);
 	}
 
 	if (rtnl_open(&rth, groups) < 0)
 		exit(1);
-
 	ll_init_map(&rth);
 
-	if (rtnl_listen(&rth, accept_msg, (void*)stdout) < 0)
+	if (rtnl_listen(&rth, accept_msg, stdout) < 0)
 		exit(2);
 
-	exit(0);
+	return 0;
 }

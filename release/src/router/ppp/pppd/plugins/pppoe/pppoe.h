@@ -1,3 +1,4 @@
+!UNUSED!
 /* PPPoE support library "libpppoe"
  *
  * Copyright 2000 Michal Ostrowski <mostrows@styx.uwaterloo.ca>,

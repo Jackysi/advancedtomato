@@ -23,12 +23,17 @@
 #include <syslog.h>
 #include <fcntl.h>
 #include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 #include <sys/ioctl.h>
 #include <linux/if.h>
 #include <linux/if_arp.h>
-#include <netinet/in.h>
-#include <netinet/ip.h>
-#include <arpa/inet.h>
+#include <linux/ip.h>
+
+#ifndef __constant_htons
+#define __constant_htons(x)  htons(x)
+#endif
+
 #include <linux/if_tunnel.h>
 
 #include "rt_names.h"
@@ -51,13 +56,13 @@ static void usage(void)
 	exit(-1);
 }
 
-static int do_ioctl_get_ifindex(char *dev)
+static int do_ioctl_get_ifindex(const char *dev)
 {
 	struct ifreq ifr;
 	int fd;
 	int err;
 
-	strcpy(ifr.ifr_name, dev);
+	strncpy(ifr.ifr_name, dev, IFNAMSIZ);
 	fd = socket(AF_INET, SOCK_DGRAM, 0);
 	err = ioctl(fd, SIOCGIFINDEX, &ifr);
 	if (err) {
@@ -68,13 +73,13 @@ static int do_ioctl_get_ifindex(char *dev)
 	return ifr.ifr_ifindex;
 }
 
-static int do_ioctl_get_iftype(char *dev)
+static int do_ioctl_get_iftype(const char *dev)
 {
 	struct ifreq ifr;
 	int fd;
 	int err;
 
-	strcpy(ifr.ifr_name, dev);
+	strncpy(ifr.ifr_name, dev, IFNAMSIZ);
 	fd = socket(AF_INET, SOCK_DGRAM, 0);
 	err = ioctl(fd, SIOCGIFHWADDR, &ifr);
 	if (err) {
@@ -104,14 +109,13 @@ static char * do_ioctl_get_ifname(int idx)
 }
 
 
-
-static int do_get_ioctl(char *basedev, struct ip_tunnel_parm *p)
+static int do_get_ioctl(const char *basedev, struct ip_tunnel_parm *p)
 {
 	struct ifreq ifr;
 	int fd;
 	int err;
 
-	strcpy(ifr.ifr_name, basedev);
+	strncpy(ifr.ifr_name, basedev, IFNAMSIZ);
 	ifr.ifr_ifru.ifru_data = (void*)p;
 	fd = socket(AF_INET, SOCK_DGRAM, 0);
 	err = ioctl(fd, SIOCGETTUNNEL, &ifr);
@@ -121,16 +125,16 @@ static int do_get_ioctl(char *basedev, struct ip_tunnel_parm *p)
 	return err;
 }
 
-static int do_add_ioctl(int cmd, char *basedev, struct ip_tunnel_parm *p)
+static int do_add_ioctl(int cmd, const char *basedev, struct ip_tunnel_parm *p)
 {
 	struct ifreq ifr;
 	int fd;
 	int err;
 
 	if (cmd == SIOCCHGTUNNEL && p->name[0])
-		strcpy(ifr.ifr_name, p->name);
+		strncpy(ifr.ifr_name, p->name, IFNAMSIZ);
 	else
-		strcpy(ifr.ifr_name, basedev);
+		strncpy(ifr.ifr_name, basedev, IFNAMSIZ);
 	ifr.ifr_ifru.ifru_data = (void*)p;
 	fd = socket(AF_INET, SOCK_DGRAM, 0);
 	err = ioctl(fd, cmd, &ifr);
@@ -140,16 +144,16 @@ static int do_add_ioctl(int cmd, char *basedev, struct ip_tunnel_parm *p)
 	return err;
 }
 
-static int do_del_ioctl(char *basedev, struct ip_tunnel_parm *p)
+static int do_del_ioctl(const char *basedev, struct ip_tunnel_parm *p)
 {
 	struct ifreq ifr;
 	int fd;
 	int err;
 
 	if (p->name[0])
-		strcpy(ifr.ifr_name, p->name);
+		strncpy(ifr.ifr_name, p->name, IFNAMSIZ);
 	else
-		strcpy(ifr.ifr_name, basedev);
+		strncpy(ifr.ifr_name, basedev, IFNAMSIZ);
 	ifr.ifr_ifru.ifru_data = (void*)p;
 	fd = socket(AF_INET, SOCK_DGRAM, 0);
 	err = ioctl(fd, SIOCDELTUNNEL, &ifr);
@@ -399,31 +403,36 @@ int do_del(int argc, char **argv)
 
 void print_tunnel(struct ip_tunnel_parm *p)
 {
-	char s1[256];
-	char s2[256];
+	char s1[1024];
+	char s2[1024];
 	char s3[64];
 	char s4[64];
 
-	format_host(AF_INET, 4, &p->iph.daddr, s1, sizeof(s1));
-	format_host(AF_INET, 4, &p->iph.saddr, s2, sizeof(s2));
 	inet_ntop(AF_INET, &p->i_key, s3, sizeof(s3));
 	inet_ntop(AF_INET, &p->o_key, s4, sizeof(s4));
 
+	/* Do not use format_host() for local addr,
+	 * symbolic name will not be useful.
+	 */
 	printf("%s: %s/ip  remote %s  local %s ",
 	       p->name,
 	       p->iph.protocol == IPPROTO_IPIP ? "ip" :
 	       (p->iph.protocol == IPPROTO_GRE ? "gre" :
 		(p->iph.protocol == IPPROTO_IPV6 ? "ipv6" : "unknown")),
-	       p->iph.daddr ? s1 : "any", p->iph.saddr ? s2 : "any");
+	       p->iph.daddr ? format_host(AF_INET, 4, &p->iph.daddr, s1, sizeof(s1))  : "any",
+	       p->iph.saddr ? rt_addr_n2a(AF_INET, 4, &p->iph.saddr, s2, sizeof(s2)) : "any");
+
 	if (p->link) {
 		char *n = do_ioctl_get_ifname(p->link);
 		if (n)
 			printf(" dev %s ", n);
 	}
+
 	if (p->iph.ttl)
 		printf(" ttl %d ", p->iph.ttl);
 	else
 		printf(" ttl inherit ");
+	
 	if (p->iph.tos) {
 		SPRINT_BUF(b1);
 		printf(" tos");
@@ -433,6 +442,7 @@ void print_tunnel(struct ip_tunnel_parm *p)
 			printf("%c%s ", p->iph.tos&1 ? '/' : ' ',
 			       rtnl_dsfield_n2a(p->iph.tos&~1, b1, sizeof(b1)));
 	}
+
 	if (!(p->iph.frag_off&htons(IP_DF)))
 		printf(" nopmtudisc");
 

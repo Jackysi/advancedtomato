@@ -187,19 +187,19 @@ save(const struct ipt_ip *ip, const struct ipt_entry_target *target)
 	printf("--trigger-relate %hu-%hu ", info->ports.rport[0], info->ports.rport[1]);
 }
 
-struct iptables_target trigger
-= { NULL,
-    "TRIGGER",
-    IPTABLES_VERSION,
-    IPT_ALIGN(sizeof(struct ipt_trigger_info)),
-    IPT_ALIGN(sizeof(struct ipt_trigger_info)),
-    &help,
-    &init,
-    &parse,
-    &final_check,
-    &print,
-    &save,
-    opts
+static struct iptables_target trigger = {
+	.next		= NULL, 
+	.name		= "TRIGGER",
+	.version	= IPTABLES_VERSION,
+	.size		= IPT_ALIGN(sizeof(struct ipt_trigger_info)),
+	.userspacesize	= IPT_ALIGN(sizeof(struct ipt_trigger_info)),
+	.help		= &help,
+	.init		= &init,
+	.parse		= &parse,
+	.final_check	= &final_check,
+	.print		= &print,
+	.save		= &save,
+	.extra_opts	= opts 
 };
 
 void _init(void)

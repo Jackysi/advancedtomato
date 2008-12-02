@@ -187,13 +187,13 @@ static int tbf_parse_opt(struct qdisc_util *qu, int argc, char **argv, struct nl
 		opt.peakrate.mpu = mpu;
 	}
 
-	tail = (struct rtattr*)(((void*)n)+NLMSG_ALIGN(n->nlmsg_len));
+	tail = NLMSG_TAIL(n);
 	addattr_l(n, 1024, TCA_OPTIONS, NULL, 0);
 	addattr_l(n, 2024, TCA_TBF_PARMS, &opt, sizeof(opt));
 	addattr_l(n, 3024, TCA_TBF_RTAB, rtab, 1024);
 	if (opt.peakrate.rate)
 		addattr_l(n, 4096, TCA_TBF_PTAB, ptab, 1024);
-	tail->rta_len = (((void*)n)+NLMSG_ALIGN(n->nlmsg_len)) - (void*)tail;
+	tail->rta_len = (void *) NLMSG_TAIL(n) - (void *) tail;
 	return 0;
 }
 
@@ -209,8 +209,7 @@ static int tbf_print_opt(struct qdisc_util *qu, FILE *f, struct rtattr *opt)
 	if (opt == NULL)
 		return 0;
 
-	memset(tb, 0, sizeof(tb));
-	parse_rtattr(tb, TCA_TBF_PTAB, RTA_DATA(opt), RTA_PAYLOAD(opt));
+	parse_rtattr_nested(tb, TCA_TBF_PTAB, opt);
 
 	if (tb[TCA_TBF_PARMS] == NULL)
 		return -1;
@@ -257,16 +256,9 @@ static int tbf_print_opt(struct qdisc_util *qu, FILE *f, struct rtattr *opt)
 	return 0;
 }
 
-static int tbf_print_xstats(struct qdisc_util *qu, FILE *f, struct rtattr *xstats)
-{
-	return 0;
-}
-
-struct qdisc_util tbf_util = {
-	NULL,
-	"tbf",
-	tbf_parse_opt,
-	tbf_print_opt,
-	tbf_print_xstats,
+struct qdisc_util tbf_qdisc_util = {
+	.id		= "tbf",
+	.parse_qopt	= tbf_parse_opt,
+	.print_qopt	= tbf_print_opt,
 };
 

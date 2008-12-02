@@ -1,3 +1,4 @@
+/* vi: set sw=4 ts=4: */
 /* ifconfig
  *
  * Similar to the standard Unix ifconfig, but with only the necessary
@@ -6,17 +7,10 @@
  * Bjorn Wesen, Axis Communications AB
  *
  *
- * Authors of the original ifconfig was:      
+ * Authors of the original ifconfig was:
  *              Fred N. van Kempen, <waltje@uwalt.nl.mugnet.org>
  *
- * This program is free software; you can redistribute it
- * and/or  modify it under  the terms of  the GNU General
- * Public  License as  published  by  the  Free  Software
- * Foundation;  either  version 2 of the License, or  (at
- * your option) any later version.
- *
- * $Id: ifconfig.c,v 1.1.3.1 2004/12/29 07:07:46 honor Exp $
- *
+ * Licensed under GPLv2 or later, see file LICENSE in this tarball for details.
  */
 
 /*
@@ -37,6 +31,8 @@
 #include <string.h>		/* strcmp and friends */
 #include <ctype.h>		/* isdigit and friends */
 #include <stddef.h>		/* offsetof */
+#include <unistd.h>
+#include <netdb.h>
 #include <sys/ioctl.h>
 #include <net/if.h>
 #include <net/if_arp.h>
@@ -45,8 +41,8 @@
 #include <netpacket/packet.h>
 #include <net/ethernet.h>
 #else
-#include <asm/types.h>
-#include <linux/if_ether.h>
+#include <sys/types.h>
+#include <netinet/if_ether.h>
 #endif
 #include "inet_common.h"
 #include "busybox.h"
@@ -163,7 +159,7 @@ struct in6_ifreq {
 #define ARG_NETMASK      (A_ARG_REQ | A_CAST_HOST_COPY_RESOLVE | A_NETMASK)
 #define ARG_BROADCAST    (A_ARG_REQ | A_CAST_HOST_COPY_RESOLVE | A_SET_AFTER | A_BROADCAST)
 #define ARG_HW           (A_ARG_REQ | A_CAST_HOST_COPY_IN_ETHER)
-#define ARG_POINTOPOINT  (A_CAST_HOST_COPY_RESOLVE | A_SET_AFTER)
+#define ARG_POINTOPOINT  (A_ARG_REQ | A_CAST_HOST_COPY_RESOLVE | A_SET_AFTER)
 #define ARG_KEEPALIVE    (A_ARG_REQ | A_CAST_CHAR_PTR)
 #define ARG_OUTFILL      (A_ARG_REQ | A_CAST_CHAR_PTR)
 #define ARG_HOSTNAME     (A_CAST_HOST_COPY_RESOLVE | A_SET_AFTER | A_COLON_CHK | A_HOSTNAME)
@@ -176,7 +172,7 @@ struct in6_ifreq {
 
 struct arg1opt {
 	const char *name;
-	unsigned short selector;
+	int selector;
 	unsigned short ifr_offset;
 };
 
@@ -333,9 +329,7 @@ int ifconfig_main(int argc, char **argv)
 	}
 
 	/* Create a channel to the NET kernel. */
-	if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
-		bb_perror_msg_and_die("socket");
-	}
+	sockfd = bb_xsocket(AF_INET, SOCK_DGRAM, 0);
 
 	/* get interface name */
 	safe_strncpy(ifr.ifr_name, *argv, IFNAMSIZ);
@@ -351,7 +345,7 @@ int ifconfig_main(int argc, char **argv)
 		for (op = OptArray; op->name; op++) {	/* Find table entry. */
 			if (strcmp(p, op->name) == 0) {	/* If name matches... */
 				if ((mask &= op->flags)) {	/* set the mask and go. */
-					goto FOUND_ARG;;
+					goto FOUND_ARG;
 				}
 				/* If we get here, there was a valid arg with an */
 				/* invalid '-' prefix. */
@@ -394,8 +388,9 @@ int ifconfig_main(int argc, char **argv)
 						safe_strncpy(host, *argv, (sizeof host));
 #ifdef CONFIG_FEATURE_IPV6
 						if ((prefix = strchr(host, '/'))) {
-							prefix_len = atol(prefix + 1);
-							if ((prefix_len < 0) || (prefix_len > 128)) {
+							if (safe_strtoi(prefix + 1, &prefix_len) ||
+								(prefix_len < 0) || (prefix_len > 128))
+							{
 								++goterr;
 								goto LOOP;
 							}
@@ -442,8 +437,13 @@ int ifconfig_main(int argc, char **argv)
 #endif
 						} else if (inet_aton(host, &sai.sin_addr) == 0) {
 							/* It's not a dotted quad. */
-							++goterr;
-							continue;
+							struct hostent *hp;
+							if ((hp = gethostbyname(host)) == (struct hostent *)NULL) {
+								++goterr;
+								continue;
+							}
+							memcpy((char *) &sai.sin_addr, (char *) hp->h_addr_list[0],
+							sizeof(struct in_addr));
 						}
 #ifdef CONFIG_FEATURE_IFCONFIG_BROADCAST_PLUS
 						if (mask & A_HOSTNAME) {
@@ -472,7 +472,7 @@ int ifconfig_main(int argc, char **argv)
 					memcpy((((char *) (&ifr)) + a1op->ifr_offset),
 						   p, sizeof(struct sockaddr));
 				} else {
-					unsigned int i = strtoul(*argv, NULL, 0);
+					unsigned long i = strtoul(*argv, NULL, 0);
 
 					p = ((char *) (&ifr)) + a1op->ifr_offset;
 #ifdef CONFIG_FEATURE_IFCONFIG_MEMSTART_IOADDR_IRQ
@@ -509,7 +509,7 @@ int ifconfig_main(int argc, char **argv)
 					 * a - at the end, since it's deleted already! - Roman
 					 *
 					 * Should really use regex.h here, not sure though how well
-					 * it'll go with the cross-platform support etc. 
+					 * it'll go with the cross-platform support etc.
 					 */
 					char *ptr;
 					short int found_colon = 0;
@@ -551,6 +551,7 @@ int ifconfig_main(int argc, char **argv)
 		continue;
 	}					/* end of while-loop */
 
+	if (ENABLE_FEATURE_CLEAN_UP) close(sockfd);
 	return goterr;
 }
 
@@ -558,7 +559,7 @@ int ifconfig_main(int argc, char **argv)
 /* Input an Ethernet address and convert to binary. */
 static int in_ether(char *bufp, struct sockaddr *sap)
 {
-	unsigned char *ptr;
+	char *ptr;
 	int i, j;
 	unsigned char val;
 	unsigned char c;

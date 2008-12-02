@@ -763,12 +763,11 @@ do_bindings(struct ip_conntrack *ct,
 			/* if this expectation is already established, skip */
 			if (exp->sibling)
 			{
-				//lzh add 2007/3/16 for fix sip alg CDROUTE test
-				exp = NULL;
-				//lzh end
+#if 0	// removed 1.11 forward bug test
+				exp = NULL;	//	lzh add 2007/3/16 for fix sip alg CDROUTE test
+#endif
 				continue;
 			}
-			
 
 			if (exp_for_packet(exp, pskb)) {
 				DEBUGP("calling nat helper (exp=%p) for packet\n",

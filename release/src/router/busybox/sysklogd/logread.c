@@ -6,24 +6,11 @@
  *
  * Maintainer: Gennady Feldman <gfeldman@gena01.com> as of Mar 12, 2001
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
- * 02111-1307 USA
- *
+ * Licensed under GPLv2 or later, see file LICENSE in this tarball for details.
  */
 
 
+#include "busybox.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -33,7 +20,7 @@
 #include <sys/shm.h>
 #include <signal.h>
 #include <setjmp.h>
-#include "busybox.h"
+#include <unistd.h>
 
 static const long KEY_ID = 0x414e4547; /*"GENA"*/
 
@@ -61,65 +48,112 @@ static void interrupted(int sig);
  */
 static inline void sem_up(int semid)
 {
-	if ( semop(semid, SMrup, 1) == -1 ) 
+	if ( semop(semid, SMrup, 1) == -1 )
 		error_exit("semop[SMrup]");
 }
 
 /*
  * sem_down - down()'s a semaphore
- */				
+ */
 static inline void sem_down(int semid)
 {
 	if ( semop(semid, SMrdn, 2) == -1 )
 		error_exit("semop[SMrdn]");
 }
 
-extern int logread_main(int argc, char **argv)
+int logread_main(int argc, char **argv)
 {
 	int i;
-	
-	/* no options, no getopt */
-	if (argc > 1)
-		bb_show_usage();
-	
-	// handle intrrupt signal
+	int follow=0;
+
+	if (argc == 2 && argv[1][0]=='-' && argv[1][1]=='f') {
+		follow = 1;
+	} else {
+		/* no options, no getopt */
+		if (argc > 1)
+			bb_show_usage();
+	}
+
+	// handle interrupt signal
 	if (setjmp(jmp_env)) goto output_end;
-	
+
 	// attempt to redefine ^C signal
 	signal(SIGINT, interrupted);
-	
+
 	if ( (log_shmid = shmget(KEY_ID, 0, 0)) == -1)
 		error_exit("Can't find circular buffer");
-	
+
 	// Attach shared memory to our char*
 	if ( (buf = shmat(log_shmid, NULL, SHM_RDONLY)) == NULL)
 		error_exit("Can't get access to circular buffer from syslogd");
 
 	if ( (log_semid = semget(KEY_ID, 0, 0)) == -1)
-	    	error_exit("Can't get access to semaphone(s) for circular buffer from syslogd");
+		error_exit("Can't get access to semaphone(s) for circular buffer from syslogd");
 
-	sem_down(log_semid);	
-	// Read Memory 
-	i=buf->head;
+	// Suppose atomic memory move
+	i = follow ? buf->tail : buf->head;
 
-	//printf("head: %i tail: %i size: %i\n",buf->head,buf->tail,buf->size);
-	if (buf->head == buf->tail) {
-		printf("<empty syslog>\n");
-	}
-	
-	while ( i != buf->tail) {
-		printf("%s", buf->data+i);
-		i+= strlen(buf->data+i) + 1;
-		if (i >= buf->size )
-			i=0;
-	}
-	sem_up(log_semid);
+	do {
+#ifdef CONFIG_FEATURE_LOGREAD_REDUCED_LOCKING
+		char *buf_data;
+		int log_len,j;
+#endif
+
+		sem_down(log_semid);
+
+		//printf("head: %i tail: %i size: %i\n",buf->head,buf->tail,buf->size);
+		if (buf->head == buf->tail || i==buf->tail) {
+			if (follow) {
+				sem_up(log_semid);
+				sleep(1);	/* TODO: replace me with a sleep_on */
+				continue;
+			} else {
+				printf("<empty syslog>\n");
+			}
+		}
+
+		// Read Memory
+#ifdef CONFIG_FEATURE_LOGREAD_REDUCED_LOCKING
+		log_len = buf->tail - i;
+		if (log_len < 0)
+			log_len += buf->size;
+		buf_data = (char *)xmalloc(log_len);
+
+		if (buf->tail < i) {
+			memcpy(buf_data, buf->data+i, buf->size-i);
+			memcpy(buf_data+buf->size-i, buf->data, buf->tail);
+		} else {
+			memcpy(buf_data, buf->data+i, buf->tail-i);
+		}
+		i = buf->tail;
+
+#else
+		while ( i != buf->tail) {
+			printf("%s", buf->data+i);
+			i+= strlen(buf->data+i) + 1;
+			if (i >= buf->size )
+				i=0;
+		}
+#endif
+		// release the lock on the log chain
+		sem_up(log_semid);
+
+#ifdef CONFIG_FEATURE_LOGREAD_REDUCED_LOCKING
+		for (j=0; j < log_len; j+=strlen(buf_data+j)+1) {
+			printf("%s", buf_data+j);
+			if (follow)
+				fflush(stdout);
+		}
+		free(buf_data);
+#endif
+		fflush(stdout);
+	} while (follow);
 
 output_end:
-	if (log_shmid != -1) 
+	if (log_shmid != -1)
 		shmdt(buf);
-		
-	return EXIT_SUCCESS;		
+
+	return EXIT_SUCCESS;
 }
 
 static void interrupted(int sig){
@@ -128,9 +162,9 @@ static void interrupted(int sig){
 }
 
 static void error_exit(const char *str){
-	perror(str);
+	bb_perror_msg(str);
 	//release all acquired resources
-	if (log_shmid != -1) 
+	if (log_shmid != -1)
 		shmdt(buf);
 
 	exit(1);

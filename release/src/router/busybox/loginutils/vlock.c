@@ -5,20 +5,7 @@
  * Copyright (C) 2000 by spoon <spoon@ix.netcom.com>
  * Written by spoon <spon@ix.netcom.com>
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
- *
+ * Licensed under GPLv2 or later, see file LICENSE in this tarball for details.
  */
 
 /* Shoutz to Michael K. Johnson <johnsonm@redhat.com>, author of the
@@ -45,29 +32,7 @@ static struct passwd *pw;
 static struct vt_mode ovtm;
 static struct termios oterm;
 static int vfd;
-static int o_lock_all = 0;
-
-#ifdef CONFIG_FEATURE_SHADOWPASSWDS
-static struct spwd *spw;
-
-/* getspuid - get a shadow entry by uid */
-struct spwd *getspuid(uid_t uid)
-{
-	struct spwd *sp;
-	struct passwd *mypw;
-
-	if ((mypw = getpwuid(getuid())) == NULL) {
-		return (NULL);
-	}
-	setspent();
-	while ((sp = getspent()) != NULL) {
-		if (strcmp(mypw->pw_name, sp->sp_namp) == 0)
-			break;
-	}
-	endspent();
-	return (sp);
-}
-#endif
+static unsigned long o_lock_all;
 
 static void release_vt(int signo)
 {
@@ -88,57 +53,28 @@ static void restore_terminal(void)
 	tcsetattr(STDIN_FILENO, TCSANOW, &oterm);
 }
 
-extern int vlock_main(int argc, char **argv)
+int vlock_main(int argc, char **argv)
 {
 	sigset_t sig;
 	struct sigaction sa;
 	struct vt_mode vtm;
-	int times = 0;
 	struct termios term;
 
 	if (argc > 2) {
 		bb_show_usage();
 	}
 
-	if (argc == 2) {
-		if (strncmp(argv[1], "-a", 2)) {
-			bb_show_usage();
-		} else {
-			o_lock_all = 1;
-		}
+	o_lock_all = bb_getopt_ulflags (argc, argv, "a");
+
+	if((pw = getpwuid(getuid())) == NULL) {
+		bb_error_msg_and_die("Unknown uid %d", getuid());
 	}
 
-	if ((pw = getpwuid(getuid())) == NULL) {
-		bb_error_msg_and_die("no password for uid %d\n", getuid());
-	}
-#ifdef CONFIG_FEATURE_SHADOWPASSWDS
-	if ((strcmp(pw->pw_passwd, "x") == 0)
-		|| (strcmp(pw->pw_passwd, "*") == 0)) {
-
-		if ((spw = getspuid(getuid())) == NULL) {
-			bb_error_msg_and_die("could not read shadow password for uid %d: %s\n",
-					   getuid(), strerror(errno));
-		}
-		if (spw->sp_pwdp) {
-			pw->pw_passwd = spw->sp_pwdp;
-		}
-	}
-#endif							/* CONFIG_FEATURE_SHADOWPASSWDS */
-	if (pw->pw_passwd[0] == '!' || pw->pw_passwd[0] == '*') {
-		bb_error_msg_and_die("Account disabled for uid %d\n", getuid());
-	}
-
-	/* we no longer need root privs */
-	setuid(getuid());
-	setgid(getgid());
-
-	if ((vfd = open("/dev/tty", O_RDWR)) < 0) {
-		bb_error_msg_and_die("/dev/tty");
-	};
+	vfd = bb_xopen(CURRENT_TTY, O_RDWR);
 
 	if (ioctl(vfd, VT_GETMODE, &vtm) < 0) {
-		bb_error_msg_and_die("/dev/tty");
-	};
+		bb_perror_msg_and_die("VT_GETMODE");
+	}
 
 	/* mask a bunch of signals */
 	sigprocmask(SIG_SETMASK, NULL, &sig);
@@ -181,53 +117,14 @@ extern int vlock_main(int argc, char **argv)
 	tcsetattr(STDIN_FILENO, TCSANOW, &term);
 
 	do {
-		char *pass, *crypt_pass;
-		char prompt[100];
-
-		if (o_lock_all) {
-			printf("All Virtual Consoles locked.\n");
-		} else {
-			printf("This Virtual Console locked.\n");
-		}
+		printf("Virtual Console%s locked.\n%s's ", (o_lock_all) ? "s" : "", pw->pw_name);
 		fflush(stdout);
-
-		snprintf(prompt, 100, "%s's password: ", pw->pw_name);
-
-		if ((pass = getpass(prompt)) == NULL) {
-			perror("getpass");
-			restore_terminal();
-			exit(1);
+		if (correct_password (pw)) {
+			break;
 		}
-
-		crypt_pass = pw_encrypt(pass, pw->pw_passwd);
-		if (strncmp(crypt_pass, pw->pw_passwd, sizeof(crypt_pass)) == 0) {
-			memset(pass, 0, strlen(pass));
-			memset(crypt_pass, 0, strlen(crypt_pass));
-			restore_terminal();
-			return 0;
-		}
-		memset(pass, 0, strlen(pass));
-		memset(crypt_pass, 0, strlen(crypt_pass));
-
-		if (isatty(STDIN_FILENO) == 0) {
-			perror("isatty");
-			restore_terminal();
-			exit(1);
-		}
-
-		sleep(++times);
-		printf("Password incorrect.\n");
-		if (times >= 3) {
-			sleep(15);
-			times = 2;
-		}
+		bb_do_delay(FAIL_DELAY);
+		puts("Password incorrect.");
 	} while (1);
+	restore_terminal();
+	return 0;
 }
-
-/*
-Local Variables:
-c-file-style: "linux"
-c-basic-offset: 4
-tab-width: 4
-End:
-*/

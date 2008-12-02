@@ -3,7 +3,7 @@
  * cut.c - minimalist version of cut
  *
  * Copyright (C) 1999,2000,2001 by Lineo, inc.
- * Written by Mark Whitley <markw@lineo.com>, <markw@codepoet.org>
+ * Written by Mark Whitley <markw@codepoet.org>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -23,7 +23,6 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <getopt.h>
 #include <unistd.h>
 #include <string.h>
 #include <limits.h>
@@ -46,9 +45,11 @@ struct cut_list {
 	int endpos;
 };
 
-static const int BOL = 0;
-static const int EOL = INT_MAX;
-static const int NON_RANGE = -1;
+enum {
+	BOL = 0,
+	EOL = INT_MAX,
+	NON_RANGE = -1
+};
 
 static struct cut_list *cut_lists = NULL; /* growable array holding a series of lists */
 static unsigned int nlists = 0; /* number of elements in above list */
@@ -69,8 +70,8 @@ static int cmpfunc(const void *a, const void *b)
 
 /*
  * parse_lists() - parses a list and puts values into startpos and endpos.
- * valid list formats: N, N-, N-M, -M 
- * more than one list can be seperated by commas
+ * valid list formats: N, N-, N-M, -M
+ * more than one list can be separated by commas
  */
 static void parse_lists(char *lists)
 {
@@ -79,7 +80,7 @@ static void parse_lists(char *lists)
 	char *junk;
 	int s = 0, e = 0;
 
-	/* take apart the lists, one by one (they are seperated with commas */
+	/* take apart the lists, one by one (they are separated with commas */
 	while ((ltok = strsep(&lists, ",")) != NULL) {
 
 		/* it's actually legal to pass an empty list */
@@ -96,7 +97,7 @@ static void parse_lists(char *lists)
 			s = strtoul(ntok, &junk, 10);
 			if(*junk != '\0' || s < 0)
 				bb_error_msg_and_die("invalid byte or field list");
-			
+
 			/* account for the fact that arrays are zero based, while the user
 			 * expects the first char on the line to be char # 1 */
 			if (s != 0)
@@ -125,7 +126,7 @@ static void parse_lists(char *lists)
 		/* if there's something left to tokenize, the user past an invalid list */
 		if (ltok)
 			bb_error_msg_and_die("invalid byte or field list");
-		
+
 		/* add the new list */
 		cut_lists = xrealloc(cut_lists, sizeof(struct cut_list) * (++nlists));
 		cut_lists[nlists-1].startpos = s;
@@ -227,7 +228,7 @@ static void cut_file_by_lines(const char *line, unsigned int linenum)
 {
 	static int c = 0;
 	static int l = -1;
-	
+
 	/* I can't initialize this above cuz the "initializer isn't
 	 * constant" *sigh* */
 	if (l == -1)
@@ -290,17 +291,17 @@ static void cut_file(FILE *file)
 }
 
 
-extern int cut_main(int argc, char **argv)
+int cut_main(int argc, char **argv)
 {
 	unsigned long opt;
 	char *sopt, *sdopt;
 
-	bb_opt_complementaly = "b~bcf:c~bcf:f~bcf";
+	bb_opt_complementally = "b--bcf:c--bcf:f--bcf";
 	opt = bb_getopt_ulflags(argc, argv, optstring, &sopt, &sopt, &sopt, &sdopt);
 	part = opt & (OPT_BYTE_FLGS|OPT_CHAR_FLGS|OPT_FIELDS_FLGS);
 	if(part == 0)
 		bb_error_msg_and_die("you must specify a list of bytes, characters, or fields");
-	if(opt & 0x80000000UL)
+	if(opt & BB_GETOPT_ERROR)
 		bb_error_msg_and_die("only one type of list may be specified");
 	parse_lists(sopt);
 	if((opt & (OPT_DELIM_FLGS))) {

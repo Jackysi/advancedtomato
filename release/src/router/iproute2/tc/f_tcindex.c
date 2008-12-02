@@ -43,7 +43,7 @@ static int tcindex_parse_opt(struct filter_util *qu, char *handle, int argc,
 		}
 	}
 	if (!argc) return 0;
-	tail = (struct rtattr*)(((void*)n)+NLMSG_ALIGN(n->nlmsg_len));
+	tail = NLMSG_TAIL(n);
 	addattr_l(n,4096,TCA_OPTIONS,NULL,0);
 	while (argc) {
 		if (!strcmp(*argv,"hash")) {
@@ -117,7 +117,7 @@ static int tcindex_parse_opt(struct filter_util *qu, char *handle, int argc,
 		argc--;
 		argv++;
 	}
-	tail->rta_len = (((void*)n)+n->nlmsg_len) - (void*)tail;
+	tail->rta_len = (void *) NLMSG_TAIL(n) - (void *) tail;
 	return 0;
 }
 
@@ -127,10 +127,10 @@ static int tcindex_print_opt(struct filter_util *qu, FILE *f,
 {
 	struct rtattr *tb[TCA_TCINDEX_MAX+1];
 
-	if (!opt) return 0;
+	if (opt == NULL)
+		return 0;
 
-	memset(tb, 0, sizeof(tb));
-	parse_rtattr(tb, TCA_TCINDEX_MAX, RTA_DATA(opt), RTA_PAYLOAD(opt));
+	parse_rtattr_nested(tb, TCA_TCINDEX_MAX, opt);
 
 	if (handle != ~0) fprintf(f,"handle 0x%04x ",handle);
 	if (tb[TCA_TCINDEX_HASH]) {
@@ -178,9 +178,8 @@ static int tcindex_print_opt(struct filter_util *qu, FILE *f,
 	return 0;
 }
 
-struct filter_util tcindex_util = {
-	NULL,
-	"tcindex",
-	tcindex_parse_opt,
-	tcindex_print_opt,
+struct filter_util tcindex_filter_util = {
+	.id = "tcindex",
+	.parse_fopt = tcindex_parse_opt,
+	.print_fopt = tcindex_print_opt,
 };

@@ -53,16 +53,17 @@ int setdevname_pppoe(const char *cp);
 struct session *ses = NULL;
 static int connect_pppoe_ses(void)
 {
-    int err=-1;
+    int err;
 
-    client_init_ses(ses,devnam);
+    client_init_ses(ses, devnam);
 
     strlcpy(ppp_devnam, devnam, sizeof(ppp_devnam));
 
-    err= session_connect ( ses );
-
-    if(err < 0){
-	poe_fatal(ses,"Failed to negotiate PPPoE connection: %d %m",errno,errno);
+    err = session_connect(ses);
+	LOGX_DEBUG("%s: session_connect()=%d", __FUNCTION__, err);
+    if (err < 0) {
+		poe_error(ses,"Failed to negotiate PPPoE connection: %d %m",errno,errno);
+		return err;
     }
 
 
@@ -73,12 +74,13 @@ static int connect_pppoe_ses(void)
 
     err = connect(ses->fd, (struct sockaddr*)&ses->sp,
 		  sizeof(struct sockaddr_pppox));
+	LOGX_DEBUG("%s: connect()=%d", __FUNCTION__, err);
 
-
-    if( err < 0 ){
-	poe_fatal(ses,"Failed to connect PPPoE socket: %d %m",errno,errno);
-	return err;
+    if (err < 0) {
+		poe_error(ses,"Failed to connect PPPoE socket: %d %m",errno,errno);
+		return err;
     }
+
     /* Once the logging is fixed, print a message here indicating
        connection parameters */
 
@@ -131,8 +133,7 @@ static void init_device_pppoe(void)
 
     if (pppoe_srv_name !=NULL) {
 	if (strlen (pppoe_srv_name) > 255) {
-	    poe_error (ses," Service name too long
-	                (maximum allowed 256 chars)");
+	    poe_error (ses," Service name too long (maximum allowed 256 chars)");
 	    poe_die(-1);
 	}
 	ses->filt->stag = make_filter_tag(PTT_SRV_NAME,
@@ -171,8 +172,10 @@ static void send_config_pppoe(int mtu,
     int sock;
     struct ifreq ifr;
 
-    if (mtu > PPPOE_MTU)
+    if (mtu > PPPOE_MTU) {
 	warn("Couldn't increase MTU to %d", mtu);
+		mtu = PPPOE_MTU;
+	}
     sock = socket(AF_INET, SOCK_DGRAM, 0);
     if (sock < 0)
 	fatal("Couldn't create IP socket: %m");
@@ -189,8 +192,8 @@ static void recv_config_pppoe(int mru,
 			      int pcomp,
 			      int accomp)
 {
-    if (mru > PPPOE_MTU)
-	error("Couldn't increase MRU to %d", mru);
+//    if (mru > PPPOE_MTU)
+//	error("Couldn't increase MRU to %d", mru);
 }
 
 struct channel pppoe_channel;

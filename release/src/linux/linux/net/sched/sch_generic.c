@@ -29,6 +29,9 @@
 #include <linux/skbuff.h>
 #include <linux/rtnetlink.h>
 #include <linux/init.h>
+#if defined(CONFIG_IMQ) || defined(CONFIG_IMQ_MODULE)
+#include <linux/imq.h>
+#endif
 #include <net/sock.h>
 #include <net/pkt_sched.h>
 
@@ -79,6 +82,10 @@ int qdisc_restart(struct net_device *dev)
 	struct Qdisc *q = dev->qdisc;
 	struct sk_buff *skb;
 
+	/* BRCM: bail out if queue is null */
+	if (!q)
+		return 0;
+
 	/* Dequeue packet */
 	if ((skb = q->dequeue(q)) != NULL) {
 		if (spin_trylock(&dev->xmit_lock)) {
@@ -89,7 +96,11 @@ int qdisc_restart(struct net_device *dev)
 			spin_unlock(&dev->queue_lock);
 
 			if (!netif_queue_stopped(dev)) {
-				if (netdev_nit)
+				if (netdev_nit
+#if defined(CONFIG_IMQ) || defined(CONFIG_IMQ_MODULE)
+				    && !(skb->imq_flags & IMQ_F_ENQUEUE)
+#endif
+				    )
 					dev_queue_xmit_nit(skb, dev);
 
 				if (dev->hard_start_xmit(skb, dev) == 0) {

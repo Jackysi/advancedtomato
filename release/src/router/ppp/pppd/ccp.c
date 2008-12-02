@@ -408,6 +408,10 @@ ccp_extcode(f, code, id, p, len)
     u_char *p;
     int len;
 {
+	if ((code > 0) && (code < 16) && (code_log_details[code][0] != '#')) {
+		LOGX_INFO("Received %s %s", PNAME(f), code_log_details[code]);
+	}
+
     switch (code) {
     case CCP_RESETREQ:
 	if (f->state != OPENED)
@@ -1209,6 +1213,7 @@ ccp_datainput(unit, pkt, len)
 {
     fsm *f;
 
+ 	LOGX_INFO("Received a CCP Error-Code packet.");
     f = &ccp_fsm[unit];
     if (f->state == OPENED) {
 	if (ccp_fatal_error(unit)) {

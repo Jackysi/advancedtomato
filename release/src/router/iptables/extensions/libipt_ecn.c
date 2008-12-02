@@ -16,11 +16,6 @@
 #include <linux/netfilter_ipv4/ip_tables.h>
 #include <linux/netfilter_ipv4/ipt_ecn.h>
 
-static void init(struct ipt_entry_match *m, unsigned int *nfcache) 
-{
-	*nfcache |= NFC_IP_TOS;
-}
-
 static void help(void) 
 {
 	printf(
@@ -32,10 +27,10 @@ static void help(void)
 }
 
 static struct option opts[] = {
-	{ "ecn-tcp-cwr", 0, 0, 'F' },
-	{ "ecn-tcp-ece", 0, 0, 'G' },
-	{ "ecn-ip-ect", 1, 0, 'H' },
-	{ 0 }
+	{ .name = "ecn-tcp-cwr", .has_arg = 0, .flag = 0, .val = 'F' },
+	{ .name = "ecn-tcp-ece", .has_arg = 0, .flag = 0, .val = 'G' },
+	{ .name = "ecn-ip-ect",  .has_arg = 1, .flag = 0, .val = 'H' },
+	{ .name = 0 }
 };
 
 static int
@@ -100,15 +95,6 @@ final_check(unsigned int flags)
 		           "ECN match: some option required");
 }
 
-static void
-print_dscp(u_int8_t dscp, int invert, int numeric)
-{
-	if (invert)
-		fputc('!', stdout);
-
- 	printf("0x%02x ", dscp);
-}
-
 /* Prints out the matchinfo. */
 static void
 print(const struct ipt_ip *ip,
@@ -167,18 +153,16 @@ save(const struct ipt_ip *ip, const struct ipt_entry_match *match)
 
 static
 struct iptables_match ecn
-= { NULL,
-    "ecn",
-    IPTABLES_VERSION,
-    IPT_ALIGN(sizeof(struct ipt_ecn_info)),
-    IPT_ALIGN(sizeof(struct ipt_ecn_info)),
-    &help,
-    &init,
-    &parse,
-    &final_check,
-    &print,
-    &save,
-    opts
+= { .name          = "ecn",
+    .version       = IPTABLES_VERSION,
+    .size          = IPT_ALIGN(sizeof(struct ipt_ecn_info)),
+    .userspacesize = IPT_ALIGN(sizeof(struct ipt_ecn_info)),
+    .help          = &help,
+    .parse         = &parse,
+    .final_check   = &final_check,
+    .print         = &print,
+    .save          = &save,
+    .extra_opts    = opts
 };
 
 void _init(void)

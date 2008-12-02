@@ -41,20 +41,19 @@ final_check(unsigned int flags)
 {
 }
 
-static
-struct iptables_target mirror
-= { NULL,
-    "MIRROR",
-    IPTABLES_VERSION,
-    IPT_ALIGN(0),
-    IPT_ALIGN(0),
-    &help,
-    &init,
-    &parse,
-    &final_check,
-    NULL, /* print */
-    NULL, /* save */
-    opts
+static struct iptables_target mirror = {
+	.next		= NULL,
+	.name		= "MIRROR",
+	.version	= IPTABLES_VERSION,
+	.size		= IPT_ALIGN(0),
+	.userspacesize	= IPT_ALIGN(0),
+ 	.help		= &help,
+	.init		= &init,
+ 	.parse		= &parse,
+	.final_check 	= &final_check,
+	.print		= NULL,
+	.save		= NULL,
+	.extra_opts	= opts
 };
 
 void _init(void)

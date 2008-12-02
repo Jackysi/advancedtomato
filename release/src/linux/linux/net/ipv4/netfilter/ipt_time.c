@@ -10,6 +10,7 @@
   2001-26-09 Fabrice MARIE <fabrice@netfilter.org> : force the match to be in LOCAL_IN or PRE_ROUTING only.
   2001-30-11 Fabrice : added the possibility to use the match in FORWARD/OUTPUT with a little hack,
      added Nguyen Dang Phuoc Dong <dongnd@tlnet.com.vn> patch to support timezones.
+  2004-05-02 Fabrice : added support for date matching, from an idea of Fabien COELHO.
 */
 
 #include <linux/module.h>
@@ -19,7 +20,7 @@
 #include <linux/time.h>
 
 MODULE_AUTHOR("Fabrice MARIE <fabrice@netfilter.org>");
-MODULE_DESCRIPTION("Match arrival timestamp");
+MODULE_DESCRIPTION("Match arrival timestamp/date");
 MODULE_LICENSE("GPL");
 
 struct tm
@@ -53,7 +54,8 @@ match(const struct sk_buff *skb,
 {
 	const struct ipt_time_info *info = matchinfo;   /* match info for rule */
 	struct tm currenttime;                          /* time human readable */
-	unsigned int packet_time;
+	u_int8_t days_of_week[7] = {64, 32, 16, 8, 4, 2, 1};
+	u_int16_t packet_time;
 	struct timeval kerneltimeval;
 	time_t packet_local_time;
 
@@ -66,22 +68,21 @@ match(const struct sk_buff *skb,
 	else
 		packet_local_time = skb->stamp.tv_sec;
 
+	/* First we make sure we are in the date start-stop boundaries */
+	if ((packet_local_time < info->date_start) || (packet_local_time > info->date_stop))
+		return 0; /* We are outside the date boundaries */
+
 	/* Transform the timestamp of the packet, in a human readable form */
 	localtime(&packet_local_time, &currenttime);
 
 	/* check if we match this timestamp, we start by the days... */
-	if (!((1 << currenttime.tm_wday) & info->days_match))
+	if ((days_of_week[currenttime.tm_wday] & info->days_match) != days_of_week[currenttime.tm_wday])
 		return 0; /* the day doesn't match */
 
 	/* ... check the time now */
-	packet_time = (currenttime.tm_hour * 60 * 60) + (currenttime.tm_min * 60) + currenttime.tm_sec;
-	if (info->time_start < info->time_stop) {
-		if ((packet_time < info->time_start) || (packet_time > info->time_stop))
-			return 0;
-	} else {
-		if ((packet_time < info->time_start) && (packet_time > info->time_stop))
-			return 0;
-	}
+	packet_time = (currenttime.tm_hour * 60) + currenttime.tm_min;
+	if ((packet_time < info->time_start) || (packet_time > info->time_stop))
+		return 0;
 
 	/* here we match ! */
 	return 1;
@@ -96,24 +97,25 @@ checkentry(const char *tablename,
 {
 	struct ipt_time_info *info = matchinfo;   /* match info for rule */
 
-	/* First, check that we are in the correct hook */
-	/* PRE_ROUTING, LOCAL_IN or FROWARD */
+	/* First, check that we are in the correct hooks */
 	if (hook_mask
             & ~((1 << NF_IP_PRE_ROUTING) | (1 << NF_IP_LOCAL_IN) | (1 << NF_IP_FORWARD) | (1 << NF_IP_LOCAL_OUT)))
 	{
 		printk("ipt_time: error, only valid for PRE_ROUTING, LOCAL_IN, FORWARD and OUTPUT)\n");
 		return 0;
 	}
-
-	/* always use kerneltime */
+	/* we use the kerneltime if we are in forward or output */
 	info->kerneltime = 1;
+	if (hook_mask & ~((1 << NF_IP_FORWARD) | (1 << NF_IP_LOCAL_OUT))) 
+		/* we use the skb time */
+		info->kerneltime = 0;
 
 	/* Check the size */
-	if (matchsize < IPT_ALIGN(sizeof(struct ipt_time_info)))
+	if (matchsize != IPT_ALIGN(sizeof(struct ipt_time_info)))
 		return 0;
 	/* Now check the coherence of the data ... */
-	if ((info->time_start > 86399) ||        /* 24*60*60-1 = 86399*/
-	    (info->time_stop  > 86399))
+	if ((info->time_start > 1439) ||        /* 23*60+59 = 1439*/
+	    (info->time_stop  > 1439))
 	{
 		printk(KERN_WARNING "ipt_time: invalid argument\n");
 		return 0;
@@ -122,8 +124,12 @@ checkentry(const char *tablename,
 	return 1;
 }
 
-static struct ipt_match time_match
-= { { NULL, NULL }, "time", &match, &checkentry, NULL, THIS_MODULE };
+static struct ipt_match time_match = {
+	.name		= "time",
+	.match		= match,
+	.checkentry	= checkentry,
+	.me		= THIS_MODULE,
+};
 
 static int __init init(void)
 {

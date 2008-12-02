@@ -7,6 +7,7 @@
  * Adapted for busybox David Kimdon <dwhedon@gordian.com>
  */
 
+#include "busybox.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -16,32 +17,27 @@
 #include <sys/stat.h>
 #include <dirent.h>
 #include <unistd.h>
-#include <getopt.h>
-
-#include "busybox.h"
+#include <getopt.h> /* struct option */
 #include "pwd_.h"
 
-static int start = 0;
-static int stop = 0;
-static int fork_before_exec = 0;
 static int signal_nr = 15;
 static int user_id = -1;
+static int quiet;
 static char *userspec = NULL;
 static char *cmdname = NULL;
 static char *execname = NULL;
-static char *startas = NULL;
+static char *pidfile = NULL;
 
-typedef struct pid_list {
+struct pid_list {
 	struct pid_list *next;
-	int pid;
-} pid_list;
+	pid_t pid;
+};
 
-static pid_list *found = NULL;
+static struct pid_list *found = NULL;
 
-static inline void
-push(int pid)
+static inline void push(pid_t pid)
 {
-	pid_list *p;
+	struct pid_list *p;
 
 	p = xmalloc(sizeof(*p));
 	p->next = found;
@@ -49,25 +45,21 @@ push(int pid)
 	found = p;
 }
 
-static int
-pid_is_exec(int pid, const char *exec)
+static int pid_is_exec(pid_t pid, const char *name)
 {
-	char buf[PATH_MAX];
-	FILE *fp;
+	char buf[32];
+	struct stat sb, exec_stat;
 
-	sprintf(buf, "/proc/%d/cmdline", pid);
-	fp = fopen(buf, "r");
-	if (fp && fgets (buf, sizeof (buf), fp) ) {
-		fclose(fp);
-	    if (strncmp (buf, exec, strlen(exec)) == 0)
-		return 1;
-	}
-	return 0;
+	if (name)
+		xstat(name, &exec_stat);
+
+	sprintf(buf, "/proc/%d/exe", pid);
+	if (stat(buf, &sb) != 0)
+		return 0;
+	return (sb.st_dev == exec_stat.st_dev && sb.st_ino == exec_stat.st_ino);
 }
 
-
-static int
-pid_is_user(int pid, int uid)
+static int pid_is_user(int pid, int uid)
 {
 	struct stat sb;
 	char buf[32];
@@ -78,9 +70,7 @@ pid_is_user(int pid, int uid)
 	return (sb.st_uid == uid);
 }
 
-
-static int
-pid_is_cmd(int pid, const char *name)
+static int pid_is_cmd(pid_t pid, const char *name)
 {
 	char buf[32];
 	FILE *f;
@@ -104,8 +94,7 @@ pid_is_cmd(int pid, const char *name)
 }
 
 
-static void
-check(int pid)
+static void check(int pid)
 {
 	if (execname && !pid_is_exec(pid, execname)) {
 		return;
@@ -120,17 +109,33 @@ check(int pid)
 }
 
 
+static void do_pidfile(void)
+{
+	FILE *f;
+	pid_t pid;
 
-static void
-do_procfs(void)
+	f = fopen(pidfile, "r");
+	if (f) {
+		if (fscanf(f, "%d", &pid) == 1)
+			check(pid);
+		fclose(f);
+	} else if (errno != ENOENT)
+		bb_perror_msg_and_die("open pidfile %s", pidfile);
+
+}
+
+static void do_procinit(void)
 {
 	DIR *procdir;
 	struct dirent *entry;
 	int foundany, pid;
 
-	procdir = opendir("/proc");
-	if (!procdir)
-		bb_perror_msg_and_die ("opendir /proc");
+	if (pidfile) {
+		do_pidfile();
+		return;
+	}
+
+	procdir = bb_xopendir("/proc");
 
 	foundany = 0;
 	while ((entry = readdir(procdir)) != NULL) {
@@ -145,111 +150,157 @@ do_procfs(void)
 }
 
 
-static void
-do_stop(void)
+static int do_stop(void)
 {
-	char what[1024];
-	pid_list *p;
+	RESERVE_CONFIG_BUFFER(what, 1024);
+	struct pid_list *p;
 	int killed = 0;
+
+	do_procinit();
 
 	if (cmdname)
 		strcpy(what, cmdname);
 	else if (execname)
 		strcpy(what, execname);
+	else if (pidfile)
+		sprintf(what, "process in pidfile `%.200s'", pidfile);
 	else if (userspec)
 		sprintf(what, "process(es) owned by `%s'", userspec);
 	else
 		bb_error_msg_and_die ("internal error, please report");
 
 	if (!found) {
-		printf("no %s found; none killed.\n", what);
-		return;
+		if (!quiet)
+			printf("no %s found; none killed.\n", what);
+		if (ENABLE_FEATURE_CLEAN_UP)
+			RELEASE_CONFIG_BUFFER(what);
+		return -1;
 	}
 	for (p = found; p; p = p->next) {
 		if (kill(p->pid, signal_nr) == 0) {
 			p->pid = -p->pid;
 			killed++;
 		} else {
-			bb_perror_msg("warning: failed to kill %d:", p->pid);
+			bb_perror_msg("warning: failed to kill %d", p->pid);
 		}
 	}
-	if (killed) {
+	if (!quiet && killed) {
 		printf("stopped %s (pid", what);
 		for (p = found; p; p = p->next)
 			if(p->pid < 0)
 				printf(" %d", -p->pid);
 		printf(").\n");
 	}
+	if (ENABLE_FEATURE_CLEAN_UP)
+		RELEASE_CONFIG_BUFFER(what);
+	return killed;
 }
 
-
+#if ENABLE_FEATURE_START_STOP_DAEMON_LONG_OPTIONS
 static const struct option ssd_long_options[] = {
-	{ "stop",		0,		NULL,		'K' },
-	{ "start",		0,		NULL,		'S' },
-	{ "background",	0,		NULL,		'b' },
-	{ "startas",	1,		NULL,		'a' },
-	{ "name",		1,		NULL,		'n' },
-	{ "signal",		1,		NULL,		's' },
-	{ "user",		1,		NULL,		'u' },
-	{ "exec",		1,		NULL,		'x' },
-	{ 0,			0,		0,			0 }
+	{ "stop",			0,		NULL,		'K' },
+	{ "start",			0,		NULL,		'S' },
+	{ "background",		0,		NULL,		'b' },
+	{ "quiet",			0,		NULL,		'q' },
+	{ "make-pidfile",	0,		NULL,		'm' },
+#if ENABLE_FEATURE_START_STOP_DAEMON_FANCY
+	{ "oknodo",			0,		NULL,		'o' },
+	{ "verbose",		0,		NULL,		'v' },
+#endif
+	{ "startas",		1,		NULL,		'a' },
+	{ "name",			1,		NULL,		'n' },
+	{ "signal",			1,		NULL,		's' },
+	{ "user",			1,		NULL,		'u' },
+	{ "exec",			1,		NULL,		'x' },
+	{ "pidfile",		1,		NULL,		'p' },
+#if ENABLE_FEATURE_START_STOP_DAEMON_FANCY
+	{ "retry",			1,		NULL,		'R' },
+#endif
+	{ 0,				0,		0,		0 }
 };
+#endif
 
-int
-start_stop_daemon_main(int argc, char **argv)
+#define SSD_CTX_STOP		1
+#define SSD_CTX_START		2
+#define SSD_OPT_BACKGROUND	4
+#define SSD_OPT_QUIET		8
+#define SSD_OPT_MAKEPID		16
+#if ENABLE_FEATURE_START_STOP_DAEMON_FANCY
+#define SSD_OPT_OKNODO		32
+#define SSD_OPT_VERBOSE		64
+
+#endif
+
+int start_stop_daemon_main(int argc, char **argv)
 {
-	int flags;
+	unsigned long opt;
 	char *signame = NULL;
+	char *startas = NULL;
+#if ENABLE_FEATURE_START_STOP_DAEMON_FANCY
+//	char *retry_arg = NULL;
+//	int retries = -1;
+#endif
+#if ENABLE_FEATURE_START_STOP_DAEMON_LONG_OPTIONS
 	bb_applet_long_options = ssd_long_options;
+#endif
 
-	flags = bb_getopt_ulflags(argc, argv, "KSba:n:s:u:x:", 
-			&startas, &cmdname, &signame, &userspec, &execname);
+	/* Check required one context option was given */
+	bb_opt_complementally = "K:S:?:K--S:S--K:m?p:K?xpun:S?xa";
+	opt = bb_getopt_ulflags(argc, argv, "KSbqm"
+//		USE_FEATURE_START_STOP_DAEMON_FANCY("ovR:")
+		USE_FEATURE_START_STOP_DAEMON_FANCY("ov")
+		"a:n:s:u:x:p:"
+//		USE_FEATURE_START_STOP_DAEMON_FANCY(,&retry_arg)
+		,&startas, &cmdname, &signame, &userspec, &execname, &pidfile);
 
-	/* Be sneaky and avoid branching */
-	stop = (flags & 1);
-	start = (flags & 2);
-	fork_before_exec = (flags & 4);
+	quiet = (opt & SSD_OPT_QUIET)
+			USE_FEATURE_START_STOP_DAEMON_FANCY(&& !(opt & SSD_OPT_VERBOSE));
 
 	if (signame) {
 		signal_nr = bb_xgetlarg(signame, 10, 0, NSIG);
 	}
 
-	if (start == stop)
-		bb_error_msg_and_die ("need exactly one of -S or -K");
-
-	if (!execname && !userspec)
-		bb_error_msg_and_die ("need at least one of -x or -u");
-
 	if (!startas)
 		startas = execname;
 
-	if (start && !startas)
-		bb_error_msg_and_die ("-S needs -x or -a");
-
+//	USE_FEATURE_START_STOP_DAEMON_FANCY(
+//		if (retry_arg)
+//			retries = bb_xgetlarg(retry_arg, 10, 0, INT_MAX);
+//	)
 	argc -= optind;
 	argv += optind;
 
 	if (userspec && sscanf(userspec, "%d", &user_id) != 1)
-		user_id = my_getpwnam(userspec);
+		user_id = bb_xgetpwnam(userspec);
 
-	do_procfs();
-
-	if (stop) {
-		do_stop();
-		return EXIT_SUCCESS;
+	if (opt & SSD_CTX_STOP) {
+		int i = do_stop();
+		return
+			USE_FEATURE_START_STOP_DAEMON_FANCY((opt & SSD_OPT_OKNODO)
+				? 0 :) !!(i<=0);
 	}
+
+	do_procinit();
 
 	if (found) {
-		printf("%s already running.\n%d\n", execname ,found->pid);
-		return EXIT_SUCCESS;
+		if (!quiet)
+			printf("%s already running.\n%d\n", execname ,found->pid);
+		USE_FEATURE_START_STOP_DAEMON_FANCY(return !(opt & SSD_OPT_OKNODO);)
+		SKIP_FEATURE_START_STOP_DAEMON_FANCY(return EXIT_FAILURE;)
 	}
 	*--argv = startas;
-	if (fork_before_exec) {
-		if (daemon(0, 0) == -1)
-			bb_perror_msg_and_die ("unable to fork");
+	if (opt & SSD_OPT_BACKGROUND) {
+		bb_xdaemon(0, 0);
+		setsid();
 	}
-	setsid();
+	if (opt & SSD_OPT_MAKEPID) {
+		/* user wants _us_ to make the pidfile */
+		FILE *pidf = bb_xfopen(pidfile, "w");
+
+		pid_t pidt = getpid();
+		fprintf(pidf, "%d\n", pidt);
+		fclose(pidf);
+	}
 	execv(startas, argv);
 	bb_perror_msg_and_die ("unable to start %s", startas);
 }
-

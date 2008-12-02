@@ -3,7 +3,7 @@ CC := $(CC) -Wall -c -g
 all:			libbridge.a
 
 clean:
-			rcsclean *
+			-rcsclean *
 			rm -f *~
 			rm -f *.o
 			rm -f libbridge.a

@@ -1,10 +1,7 @@
 /*
  * ip.c		"ip" utility frontend.
  *
- *		This program is free software; you can redistribute it and/or
- *		modify it under the terms of the GNU General Public License
- *		as published by the Free Software Foundation; either version
- *		2 of the License, or (at your option) any later version.
+ * Licensed under the GPL v2 or later, see the file LICENSE in this tarball.
  *
  * Authors:	Alexey Kuznetsov, <kuznet@ms2.inr.ac.ru>
  *
@@ -23,8 +20,8 @@
 #include <netinet/in.h>
 #include <string.h>
 
-#include "./libiproute/utils.h"
-#include "./libiproute/ip_common.h"
+#include "libiproute/utils.h"
+#include "libiproute/ip_common.h"
 
 #include "busybox.h"
 
@@ -62,7 +59,7 @@ void ip_parse_common_args(int *argcp, char ***argvp)
 			else if (strcmp(argv[1], "link") == 0)
 				preferred_family = AF_PACKET;
 			else
-				invarg(argv[1], "invalid protocol family");
+				invarg(bb_msg_invalid_arg, argv[1], "-family");
 		} else if (strcmp(opt, "-4") == 0) {
 			preferred_family = AF_INET;
 		} else if (strcmp(opt, "-6") == 0) {
@@ -93,17 +90,17 @@ int ip_main(int argc, char **argv)
 		}
 #endif
 #ifdef CONFIG_FEATURE_IP_ROUTE
-		else if (matches(argv[1], "route") == 0) {
+		if (matches(argv[1], "route") == 0) {
 			ret = do_iproute(argc-2, argv+2);
 		}
 #endif
 #ifdef CONFIG_FEATURE_IP_LINK
-		else if (matches(argv[1], "link") == 0) {
+		if (matches(argv[1], "link") == 0) {
 			ret = do_iplink(argc-2, argv+2);
 		}
 #endif
 #ifdef CONFIG_FEATURE_IP_TUNNEL
-		else if (matches(argv[1], "tunnel") == 0 || strcmp(argv[1], "tunl") == 0) {
+		if (matches(argv[1], "tunnel") == 0 || strcmp(argv[1], "tunl") == 0) {
 			ret = do_iptunnel(argc-2, argv+2);
 		}
 #endif

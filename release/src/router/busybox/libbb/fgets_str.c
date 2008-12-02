@@ -1,17 +1,23 @@
+/* vi: set sw=4 ts=4: */
 /*
- *  This program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2 of the License, or
- *  (at your option) any later version.
+ * Utility routines.
  *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU Library General Public License for more details.
+ * Copyright (C) many different people.
+ * If you wrote this, please acknowledge your work.
  *
- *  You should have received a copy of the GNU General Public License
- *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
 
 
@@ -19,11 +25,10 @@
 #include <stdlib.h>
 #include <string.h>
 
-/*
- * Continue reading from file until the terminating string is encountered.
- * Return data as string.
- * e.g. fgets_str(file, "\n"); will read till end of file
- */
+#include "libbb.h"
+
+/* Read up to (and including) TERMINATING_STRING from FILE and return it.
+ * Return NULL on EOF.  */
 
 char *fgets_str(FILE *file, const char *terminating_string)
 {
@@ -37,12 +42,13 @@ char *fgets_str(FILE *file, const char *terminating_string)
 	while (1) {
 		ch = fgetc(file);
 		if (ch == EOF) {
-			break;
+			free(linebuf);
+			return NULL;
 		}
 
 		/* grow the line buffer as necessary */
 		while (idx > linebufsz - 2) {
-			linebuf = realloc(linebuf, linebufsz += 1000); /* GROWBY */
+			linebuf = xrealloc(linebuf, linebufsz += 1000);
 		}
 
 		linebuf[idx] = ch;
@@ -54,9 +60,6 @@ char *fgets_str(FILE *file, const char *terminating_string)
 			idx -= term_length;
 			break;
 		}
-	}
-	if (idx == 0) {
-		return NULL;
 	}
 	linebuf[idx] = '\0';
 	return(linebuf);

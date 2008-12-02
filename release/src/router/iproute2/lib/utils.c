@@ -25,11 +25,15 @@
 #include <netdb.h>
 #include <arpa/inet.h>
 #include <resolv.h>
+#include <asm/types.h>
 #include <linux/pkt_sched.h>
+#include <time.h>
+#include <sys/time.h>
+
 
 #include "utils.h"
 
-int get_integer(int *val, char *arg, int base)
+int get_integer(int *val, const char *arg, int base)
 {
 	long res;
 	char *ptr;
@@ -43,7 +47,7 @@ int get_integer(int *val, char *arg, int base)
 	return 0;
 }
 
-int get_unsigned(unsigned *val, char *arg, int base)
+int get_unsigned(unsigned *val, const char *arg, int base)
 {
 	unsigned long res;
 	char *ptr;
@@ -57,7 +61,21 @@ int get_unsigned(unsigned *val, char *arg, int base)
 	return 0;
 }
 
-int get_u32(__u32 *val, char *arg, int base)
+int get_u64(__u64 *val, const char *arg, int base)
+{
+	unsigned long long res;
+	char *ptr;
+
+	if (!arg || !*arg)
+		return -1;
+	res = strtoull(arg, &ptr, base);
+	if (!ptr || ptr == arg || *ptr || res == 0xFFFFFFFFULL)
+ 		return -1;
+ 	*val = res;
+ 	return 0;
+}
+
+int get_u32(__u32 *val, const char *arg, int base)
 {
 	unsigned long res;
 	char *ptr;
@@ -71,7 +89,7 @@ int get_u32(__u32 *val, char *arg, int base)
 	return 0;
 }
 
-int get_u16(__u16 *val, char *arg, int base)
+int get_u16(__u16 *val, const char *arg, int base)
 {
 	unsigned long res;
 	char *ptr;
@@ -85,7 +103,7 @@ int get_u16(__u16 *val, char *arg, int base)
 	return 0;
 }
 
-int get_u8(__u8 *val, char *arg, int base)
+int get_u8(__u8 *val, const char *arg, int base)
 {
 	unsigned long res;
 	char *ptr;
@@ -99,7 +117,7 @@ int get_u8(__u8 *val, char *arg, int base)
 	return 0;
 }
 
-int get_s16(__s16 *val, char *arg, int base)
+int get_s16(__s16 *val, const char *arg, int base)
 {
 	long res;
 	char *ptr;
@@ -113,7 +131,7 @@ int get_s16(__s16 *val, char *arg, int base)
 	return 0;
 }
 
-int get_s8(__s8 *val, char *arg, int base)
+int get_s8(__s8 *val, const char *arg, int base)
 {
 	long res;
 	char *ptr;
@@ -127,9 +145,9 @@ int get_s8(__s8 *val, char *arg, int base)
 	return 0;
 }
 
-int get_addr_1(inet_prefix *addr, char *name, int family)
+int get_addr_1(inet_prefix *addr, const char *name, int family)
 {
-	char *cp;
+	const char *cp;
 	unsigned char *ap = (unsigned char*)addr->data;
 	int i;
 
@@ -193,7 +211,9 @@ int get_prefix_1(inet_prefix *dst, char *arg, int family)
 
 	memset(dst, 0, sizeof(*dst));
 
-	if (strcmp(arg, "default") == 0 || strcmp(arg, "any") == 0) {
+	if (strcmp(arg, "default") == 0 ||
+	    strcmp(arg, "any") == 0 ||
+	    strcmp(arg, "all") == 0) {
 		if (family == AF_DECnet)
 			return -1;
 		dst->family = family;
@@ -205,6 +225,7 @@ int get_prefix_1(inet_prefix *dst, char *arg, int family)
 	slash = strchr(arg, '/');
 	if (slash)
 		*slash = 0;
+
 	err = get_addr_1(dst, arg, family);
 	if (err == 0) {
 		switch(dst->family) {
@@ -219,10 +240,11 @@ int get_prefix_1(inet_prefix *dst, char *arg, int family)
 				dst->bitlen = 32;
 		}
 		if (slash) {
-			if (get_integer(&plen, slash+1, 0) || plen > dst->bitlen) {
+			if (get_unsigned(&plen, slash+1, 0) || plen > dst->bitlen) {
 				err = -1;
 				goto done;
 			}
+			dst->flags |= PREFIXLEN_SPECIFIED;
 			dst->bitlen = plen;
 		}
 	}
@@ -232,7 +254,7 @@ done:
 	return err;
 }
 
-int get_addr(inet_prefix *dst, char *arg, int family)
+int get_addr(inet_prefix *dst, const char *arg, int family)
 {
 	if (family == AF_PACKET) {
 		fprintf(stderr, "Error: \"%s\" may be inet address, but it is not allowed in this context.\n", arg);
@@ -258,7 +280,7 @@ int get_prefix(inet_prefix *dst, char *arg, int family)
 	return 0;
 }
 
-__u32 get_addr32(char *name)
+__u32 get_addr32(const char *name)
 {
 	inet_prefix addr;
 	if (get_addr_1(&addr, name, AF_INET)) {
@@ -268,31 +290,37 @@ __u32 get_addr32(char *name)
 	return addr.data[0];
 }
 
-void incomplete_command()
+void incomplete_command(void)
 {
 	fprintf(stderr, "Command line is not complete. Try option \"help\"\n");
 	exit(-1);
 }
 
-void invarg(char *msg, char *arg)
+void missarg(const char *key)
+{
+	fprintf(stderr, "Error: argument \"%s\" is required\n", key);
+	exit(-1);
+}
+
+void invarg(const char *msg, const char *arg)
 {
 	fprintf(stderr, "Error: argument \"%s\" is wrong: %s\n", arg, msg);
 	exit(-1);
 }
 
-void duparg(char *key, char *arg)
+void duparg(const char *key, const char *arg)
 {
 	fprintf(stderr, "Error: duplicate \"%s\": \"%s\" is the second value.\n", key, arg);
 	exit(-1);
 }
 
-void duparg2(char *key, char *arg)
+void duparg2(const char *key, const char *arg)
 {
 	fprintf(stderr, "Error: either \"%s\" is duplicate, or \"%s\" is a garbage.\n", key, arg);
 	exit(-1);
 }
 
-int matches(char *cmd, char *pattern)
+int matches(const char *cmd, const char *pattern)
 {
 	int len = strlen(cmd);
 	if (len > strlen(pattern))
@@ -300,7 +328,7 @@ int matches(char *cmd, char *pattern)
 	return memcmp(pattern, cmd, len);
 }
 
-int inet_addr_match(inet_prefix *a, inet_prefix *b, int bits)
+int inet_addr_match(const inet_prefix *a, const inet_prefix *b, int bits)
 {
 	__u32 *a1 = a->data;
 	__u32 *a2 = b->data;
@@ -332,8 +360,21 @@ int __iproute2_hz_internal;
 
 int __get_hz(void)
 {
+	char name[1024];
 	int hz = 0;
-	FILE *fp = fopen("/proc/net/psched", "r");
+	FILE *fp;
+
+	if (getenv("HZ"))
+		return atoi(getenv("HZ")) ? : HZ;
+
+	if (getenv("PROC_NET_PSCHED")) {
+		snprintf(name, sizeof(name)-1, "%s", getenv("PROC_NET_PSCHED"));
+	} else if (getenv("PROC_ROOT")) {
+		snprintf(name, sizeof(name)-1, "%s/net/psched", getenv("PROC_ROOT"));
+	} else {
+		strcpy(name, "/proc/net/psched");
+	}
+	fp = fopen(name, "r");
 
 	if (fp) {
 		unsigned nom, denom;
@@ -347,7 +388,14 @@ int __get_hz(void)
 	return HZ;
 }
 
-const char *rt_addr_n2a(int af, int len, void *addr, char *buf, int buflen)
+int __iproute2_user_hz_internal;
+
+int __get_user_hz(void)
+{
+	return sysconf(_SC_CLK_TCK);
+}
+
+const char *rt_addr_n2a(int af, int len, const void *addr, char *buf, int buflen)
 {
 	switch (af) {
 	case AF_INET:
@@ -366,12 +414,66 @@ const char *rt_addr_n2a(int af, int len, void *addr, char *buf, int buflen)
 	}
 }
 
+#ifdef RESOLVE_HOSTNAMES
+struct namerec
+{
+	struct namerec *next;
+	inet_prefix addr;
+	char	    *name;
+};
 
-const char *format_host(int af, int len, void *addr, char *buf, int buflen)
+static struct namerec *nht[256];
+
+char *resolve_address(const char *addr, int len, int af)
+{
+	struct namerec *n;
+	struct hostent *h_ent;
+	unsigned hash;
+	static int notfirst;
+
+
+	if (af == AF_INET6 && ((__u32*)addr)[0] == 0 &&
+	    ((__u32*)addr)[1] == 0 && ((__u32*)addr)[2] == htonl(0xffff)) {
+		af = AF_INET;
+		addr += 12;
+		len = 4;
+	}
+
+	hash = addr[len-1] ^ addr[len-2] ^ addr[len-3] ^ addr[len-4];
+
+	for (n = nht[hash]; n; n = n->next) {
+		if (n->addr.family == af &&
+		    n->addr.bytelen == len &&
+		    memcmp(n->addr.data, addr, len) == 0)
+			return n->name;
+	}
+	if ((n = malloc(sizeof(*n))) == NULL)
+		return NULL;
+	n->addr.family = af;
+	n->addr.bytelen = len;
+	n->name = NULL;
+	memcpy(n->addr.data, addr, len);
+	n->next = nht[hash];
+	nht[hash] = n;
+	if (++notfirst == 1)
+		sethostent(1);
+	fflush(stdout);
+
+	if ((h_ent = gethostbyaddr(addr, len, af)) != NULL)
+		n->name = strdup(h_ent->h_name);
+
+	/* Even if we fail, "negative" entry is remembered. */
+	return n->name;
+}
+#endif
+
+
+const char *format_host(int af, int len, const void *addr,
+			char *buf, int buflen)
 {
 #ifdef RESOLVE_HOSTNAMES
 	if (resolve_hosts) {
-		struct hostent *h_ent;
+		char *n;
 		if (len <= 0) {
 			switch (af) {
 			case AF_INET:
@@ -394,11 +496,145 @@ const char *format_host(int af, int len, void *addr, char *buf, int buflen)
 			}
 		}
 		if (len > 0 &&
-		    (h_ent = gethostbyaddr(addr, len, af)) != NULL) {
-			snprintf(buf, buflen-1, "%s", h_ent->h_name);
-			return buf;
-		}
+		    (n = resolve_address(addr, len, af)) != NULL)
+			return n;
 	}
 #endif
 	return rt_addr_n2a(af, len, addr, buf, buflen);
+}
+
+
+char *hexstring_n2a(const __u8 *str, int len, char *buf, int blen)
+{
+	char *ptr = buf;
+	int i;
+
+	for (i=0; i<len; i++) {
+		if (blen < 3)
+			break;
+		sprintf(ptr, "%02x", str[i]);
+		ptr += 2;
+		blen -= 2;
+		if (i != len-1 && blen > 1) {
+			*ptr++ = ':';
+			blen--;
+		}
+	}
+	return buf;
+}
+
+__u8* hexstring_a2n(const char *str, __u8 *buf, int blen)
+{
+	int cnt = 0;
+
+	for (;;) {
+		unsigned acc;
+		char ch;
+
+		acc = 0;
+
+		while ((ch = *str) != ':' && ch != 0) {
+			if (ch >= '0' && ch <= '9')
+				ch -= '0';
+			else if (ch >= 'a' && ch <= 'f')
+				ch -= 'a'-10;
+			else if (ch >= 'A' && ch <= 'F')
+				ch -= 'A'-10;
+			else
+				return NULL;
+			acc = (acc<<4) + ch;
+			str++;
+		}
+
+		if (acc > 255)
+			return NULL;
+		if (cnt < blen) {
+			buf[cnt] = acc;
+			cnt++;
+		}
+		if (ch == 0)
+			break;
+		++str;
+	}
+	if (cnt < blen)
+		memset(buf+cnt, 0, blen-cnt);
+	return buf;
+}
+
+int print_timestamp(FILE *fp)
+{
+	struct timeval tv;
+	char *tstr;
+
+	memset(&tv, 0, sizeof(tv));
+	gettimeofday(&tv, NULL);
+
+	tstr = asctime(localtime(&tv.tv_sec));
+	tstr[strlen(tstr)-1] = 0;
+	fprintf(fp, "Timestamp: %s %lu usec\n", tstr, tv.tv_usec);
+	return 0;
+}
+
+int cmdlineno;
+
+/* Like glibc getline but handle continuation lines and comments */
+size_t getcmdline(char **linep, size_t *lenp, FILE *in)
+{
+	size_t cc;
+	char *cp;
+		
+	if ((cc = getline(linep, lenp, in)) < 0)
+		return cc;	/* eof or error */
+	++cmdlineno;
+
+	cp = strchr(*linep, '#');
+	if (cp) 
+		*cp = '\0';
+	
+	while ((cp = strstr(*linep, "\\\n")) != NULL) {
+		char *line1 = NULL;
+		size_t len1 = 0;
+		size_t cc1;
+
+		if ((cc1 = getline(&line1, &len1, in)) < 0) {
+			fprintf(stderr, "Missing continuation line\n");
+			return cc1;
+		}
+
+		++cmdlineno;
+		*cp = 0;
+
+		cp = strchr(line1, '#');
+		if (cp) 
+			*cp = '\0';
+
+		*linep = realloc(*linep, strlen(*linep) + strlen(line1) + 1);
+		if (!*linep) {
+			fprintf(stderr, "Out of memory\n");
+			return -1;
+		}
+		cc += cc1 - 2;
+		strcat(*linep, line1);
+		free(line1);
+	}
+	return cc;
+}
+
+/* split command line into argument vector */
+int makeargs(char *line, char *argv[], int maxargs)
+{
+	static const char ws[] = " \t\r\n";
+	char *cp;
+	int argc = 0;
+
+	for (cp = strtok(line, ws); cp; cp = strtok(NULL, ws)) {
+		if (argc >= (maxargs - 1)) {
+			fprintf(stderr, "Too many arguments to command\n");
+			exit(1);
+		}
+		argv[argc++] = cp;
+	}
+	argv[argc] = NULL;
+
+	return argc;
 }

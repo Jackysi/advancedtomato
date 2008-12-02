@@ -632,7 +632,7 @@ int main(int ac, char **av)
 	backtitle = malloc(128);
 	sym = sym_lookup("VERSION", 0);
 	sym_calc_value(sym);
-	snprintf(backtitle, 128, "Broadcom Linux Router Configuration");
+	snprintf(backtitle, 128, "Tomato Configuration");
 
 	mode = getenv("MENUCONFIG_MODE");
 	if (mode) {

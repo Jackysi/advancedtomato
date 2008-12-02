@@ -31,39 +31,40 @@
 #include <dirent.h>
 #include <errno.h>
 #include <stdlib.h>
-#include <getopt.h>
+#include <getopt.h> /* struct option */
 #include "busybox.h"
 #include "libcoreutils/coreutils.h"
 
+#if ENABLE_FEATURE_MV_LONG_OPTIONS
 static const struct option mv_long_options[] = {
 	{ "interactive", 0, NULL, 'i' },
 	{ "force", 0, NULL, 'f' },
 	{ 0, 0, 0, 0 }
 };
+#endif
 
-static const char mv_getopt_short_option[] = "fi";
 #define OPT_FILEUTILS_FORCE       1
 #define OPT_FILEUTILS_INTERACTIVE 2
 
 static const char fmt[] = "cannot overwrite %sdirectory with %sdirectory";
 
-extern int mv_main(int argc, char **argv)
+int mv_main(int argc, char **argv)
 {
-	struct stat source_stat;
 	struct stat dest_stat;
 	const char *last;
 	const char *dest;
-	int dest_exists;
-	int source_exists;
 	unsigned long flags;
+	int dest_exists;
 	int status = 0;
 
+#if ENABLE_FEATURE_MV_LONG_OPTIONS
 	bb_applet_long_options = mv_long_options;
-	bb_opt_complementaly = "f-i:i-f";
-	flags = bb_getopt_ulflags(argc, argv, mv_getopt_short_option);
-
-	if (optind + 2 > argc)
+#endif
+	bb_opt_complementally = "f-i:i-f";
+	flags = bb_getopt_ulflags(argc, argv, "fi");
+	if (optind + 2 > argc) {
 		bb_show_usage();
+	}
 
 	last = argv[argc - 1];
 	argv += optind;
@@ -78,7 +79,7 @@ extern int mv_main(int argc, char **argv)
 			goto DO_MOVE;
 		}
 	}
-	
+
 	do {
 		dest = concat_path_file(last, bb_get_last_path_component(*argv));
 
@@ -86,30 +87,34 @@ extern int mv_main(int argc, char **argv)
 			goto RET_1;
 		}
 
-	DO_MOVE:
-		
+DO_MOVE:
+
 		if (dest_exists && !(flags & OPT_FILEUTILS_FORCE) &&
 			((access(dest, W_OK) < 0 && isatty(0)) ||
-			 (flags & OPT_FILEUTILS_INTERACTIVE))) {
-				 if (fprintf(stderr, "mv: overwrite `%s'? ", dest) < 0) {
-					 goto RET_1;	/* Ouch! fprintf failed! */
-				 }
-				 if (!bb_ask_confirmation())
-					 goto RET_0;
-		 }
-		
+			(flags & OPT_FILEUTILS_INTERACTIVE))) {
+			if (fprintf(stderr, "mv: overwrite `%s'? ", dest) < 0) {
+				goto RET_1;	/* Ouch! fprintf failed! */
+			}
+			if (!bb_ask_confirmation()) {
+				goto RET_0;
+			}
+		}
 		if (rename(*argv, dest) < 0) {
-			if (errno != EXDEV) {
+			struct stat source_stat;
+			int source_exists;
+
+			if (errno != EXDEV ||
+				(source_exists = cp_mv_stat(*argv, &source_stat)) < 1) {
 				bb_perror_msg("unable to rename `%s'", *argv);
-			} else if ((source_exists = cp_mv_stat(*argv, &source_stat)) >= 0) {
+			} else {
 				if (dest_exists) {
-					if (dest_exists & 2) {
-						if (!(source_exists & 2)) {
+					if (dest_exists == 3) {
+						if (source_exists != 3) {
 							bb_error_msg(fmt, "", "non-");
 							goto RET_1;
 						}
 					} else {
-						if (source_exists & 2) {
+						if (source_exists == 3) {
 							bb_error_msg(fmt, "non-", "");
 							goto RET_1;
 						}
@@ -119,25 +124,20 @@ extern int mv_main(int argc, char **argv)
 						goto RET_1;
 					}
 				}
-				
 				if ((copy_file(*argv, dest,
-							   FILEUTILS_RECUR | FILEUTILS_PRESERVE_STATUS) >= 0)
-					&& (remove_file(*argv, FILEUTILS_RECUR | FILEUTILS_FORCE) >= 0)
-					) {
+					FILEUTILS_RECUR | FILEUTILS_PRESERVE_STATUS) >= 0) &&
+					(remove_file(*argv, FILEUTILS_RECUR | FILEUTILS_FORCE) >= 0)) {
 					goto RET_0;
 				}
-				
 			}
-		RET_1:
+RET_1:
 			status = 1;
 		}
-
-	RET_0:
+RET_0:
 		if (dest != last) {
 			free((void *) dest);
 		}
-		
 	} while (*++argv != last);
-	
-	exit(status);
+
+	return (status);
 }

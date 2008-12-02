@@ -7,6 +7,75 @@
  * modify it under the terms of the GNU Library General Public
  * License as published by the Free Software Foundation; either
  * version 2 of the License, or (at your option) any later version.
+*/
+
+/*
+ * Portions Copyright (c) 1985, 1993
+ *    The Regents of the University of California.  All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ * 4. Neither the name of the University nor the names of its contributors
+ *    may be used to endorse or promote products derived from this software
+ *    without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE REGENTS AND CONTRIBUTORS ``AS IS'' AND
+ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED.  IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+ * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+ * SUCH DAMAGE.
+ */
+
+/*
+ * Portions Copyright (c) 1993 by Digital Equipment Corporation.
+ *
+ * Permission to use, copy, modify, and distribute this software for any
+ * purpose with or without fee is hereby granted, provided that the above
+ * copyright notice and this permission notice appear in all copies, and that
+ * the name of Digital Equipment Corporation not be used in advertising or
+ * publicity pertaining to distribution of the document or software without
+ * specific, written prior permission.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS" AND DIGITAL EQUIPMENT CORP. DISCLAIMS ALL
+ * WARRANTIES WITH REGARD TO THIS SOFTWARE, INCLUDING ALL IMPLIED WARRANTIES
+ * OF MERCHANTABILITY AND FITNESS.   IN NO EVENT SHALL DIGITAL EQUIPMENT
+ * CORPORATION BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL
+ * DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR
+ * PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS
+ * ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS
+ * SOFTWARE.
+ */
+
+/*
+ * Portions Copyright (c) 1996-1999 by Internet Software Consortium.
+ *
+ * Permission to use, copy, modify, and distribute this software for any
+ * purpose with or without fee is hereby granted, provided that the above
+ * copyright notice and this permission notice appear in all copies.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS" AND INTERNET SOFTWARE CONSORTIUM DISCLAIMS
+ * ALL WARRANTIES WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES
+ * OF MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL INTERNET SOFTWARE
+ * CONSORTIUM BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL
+ * DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR
+ * PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS
+ * ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS
+ * SOFTWARE.
+ */
+
+/*
  *
  *  5-Oct-2000 W. Greathouse  wgreathouse@smva.com
  *                              Fix memory leak and memory corruption.
@@ -42,8 +111,8 @@
  *   and read_etc_hosts; getnameinfo() port from glibc; defined
  *   defined ip6addr_any and in6addr_loopback)
  *
- * 2-Feb-2002 Erik Andersen <andersee@debian.org>
- * Added gethostent(), sethostent(), and endhostent()
+ * 2-Feb-2002 Erik Andersen <andersen@codepoet.org>
+ *   Added gethostent(), sethostent(), and endhostent()
  *
  * 17-Aug-2002 Manuel Novoa III <mjn3@codepoet.org>
  *   Fixed __read_etc_hosts_r to return alias list, and modified buffer
@@ -54,6 +123,13 @@
  *   Fixed __decode_dotted to count the terminating null character
  *   in a host name.
  *
+ * 02-Oct-2003 Tony J. White <tjw@tjw.org>
+ *   Lifted dn_expand() and dependent ns_name_uncompress(), ns_name_unpack(),
+ *   and ns_name_ntop() from glibc 2.3.2 for compatibility with ipsec-tools
+ *   and openldap.
+ *
+ * 7-Sep-2004 Erik Andersen <andersen@codepoet.org>
+ *   Added gethostent_r()
  *
  */
 
@@ -79,7 +155,7 @@
 
 #define MAX_RECURSE 5
 #define REPLY_TIMEOUT 10
-#define MAX_RETRIES 15
+#define MAX_RETRIES 3
 #define MAX_SERVERS 3
 #define MAX_SEARCH 4
 
@@ -89,7 +165,7 @@
 #define 	ALIAS_DIM		(2 + MAX_ALIASES + 1)
 
 #undef DEBUG
-/*#define DEBUG*/
+/* #define DEBUG */
 
 #ifdef DEBUG
 #define DPRINTF(X,args...) fprintf(stderr, X, ##args)
@@ -140,6 +216,9 @@ struct resolv_answer {
 	int rdlength;
 	unsigned char * rdata;
 	int rdoffset;
+	char* buf;
+	size_t buflen;
+	size_t add_count;
 };
 
 enum etc_hosts_action {
@@ -166,11 +245,11 @@ extern int __read_etc_hosts_r(FILE *fp, const char * name, int type,
 			    char * buf, size_t buflen,
 			    struct hostent ** result,
 			    int * h_errnop);
-extern int __dns_lookup(const char * name, int type, int nscount, 
+extern int __dns_lookup(const char * name, int type, int nscount,
 	char ** nsip, unsigned char ** outpacket, struct resolv_answer * a);
 
 extern int __encode_dotted(const char * dotted, unsigned char * dest, int maxlen);
-extern int __decode_dotted(const unsigned char * message, int offset, 
+extern int __decode_dotted(const unsigned char * message, int offset,
 	char * dest, int maxlen);
 extern int __length_dotted(const unsigned char * message, int offset);
 extern int __encode_header(struct resolv_header * h, unsigned char * dest, int maxlen);
@@ -186,6 +265,13 @@ extern int __decode_answer(unsigned char * message, int offset,
 extern int __length_question(unsigned char * message, int offset);
 extern int __open_nameservers(void);
 extern void __close_nameservers(void);
+extern int __dn_expand(const u_char *, const u_char *, const u_char *,
+	char *, int);
+extern int __ns_name_uncompress(const u_char *, const u_char *,
+		const u_char *, char *, size_t);
+extern int __ns_name_ntop(const u_char *, char *, size_t);
+extern int __ns_name_unpack(const u_char *, const u_char *, const u_char *,
+               u_char *, size_t);
 
 
 #ifdef L_encodeh
@@ -198,8 +284,8 @@ int __encode_header(struct resolv_header *h, unsigned char *dest, int maxlen)
 	dest[1] = (h->id & 0x00ff) >> 0;
 	dest[2] = (h->qr ? 0x80 : 0) |
 		((h->opcode & 0x0f) << 3) |
-		(h->aa ? 0x04 : 0) | 
-		(h->tc ? 0x02 : 0) | 
+		(h->aa ? 0x04 : 0) |
+		(h->tc ? 0x02 : 0) |
 		(h->rd ? 0x01 : 0);
 	dest[3] = (h->ra ? 0x80 : 0) | (h->rcode & 0x0f);
 	dest[4] = (h->qdcount & 0xff00) >> 8;
@@ -573,8 +659,8 @@ static pthread_mutex_t mylock = PTHREAD_MUTEX_INITIALIZER;
 #endif
 
 /* Just for the record, having to lock __dns_lookup() just for these two globals
- * is pretty lame.  I think these two variables can probably be de-global-ized, 
- * which should eliminate the need for doing locking here...  Needs a closer 
+ * is pretty lame.  I think these two variables can probably be de-global-ized,
+ * which should eliminate the need for doing locking here...  Needs a closer
  * look anyways. */
 static int ns=0, id=1;
 
@@ -586,11 +672,14 @@ int __dns_lookup(const char *name, int type, int nscount, char **nsip,
 	fd_set fds;
 	struct resolv_header h;
 	struct resolv_question q;
+	struct resolv_answer ma;
+	int first_answer = 1;
 	int retries = 0;
 	unsigned char * packet = malloc(PACKETSZ);
 	char *dns, *lookup = malloc(MAXDNAME);
-	int variant = 0;
+	int variant = -1;
 	struct sockaddr_in sa;
+	int local_ns = -1, local_id = -1;
 #ifdef __UCLIBC_HAS_IPV6__
 	int v6;
 	struct sockaddr_in6 sa6;
@@ -603,11 +692,13 @@ int __dns_lookup(const char *name, int type, int nscount, char **nsip,
 
 	DPRINTF("Looking up type %d answer for '%s'\n", type, name);
 
+	/* Mess with globals while under lock */
 	LOCK;
-	ns %= nscount;
+	local_ns = ns % nscount;
+	local_id = id;
 	UNLOCK;
 
-	while (retries++ < MAX_RETRIES) {
+	while (retries < MAX_RETRIES) {
 		if (fd != -1)
 			close(fd);
 
@@ -615,13 +706,10 @@ int __dns_lookup(const char *name, int type, int nscount, char **nsip,
 
 		memset(&h, 0, sizeof(h));
 
-		/* Mess with globals while under lock */
-		LOCK;
-		++id;
-		id &= 0xffff;
-		h.id = id;
-		dns = nsip[ns];
-		UNLOCK;
+		++local_id;
+		local_id &= 0xffff;
+		h.id = local_id;
+		dns = nsip[local_ns];
 
 		h.qdcount = 1;
 		h.rd = 1;
@@ -633,13 +721,14 @@ int __dns_lookup(const char *name, int type, int nscount, char **nsip,
 			goto fail;
 
 		strncpy(lookup,name,MAXDNAME);
-		BIGLOCK;
-		if (variant < __searchdomains && strchr(lookup, '.') == NULL)
-		{
-		    strncat(lookup,".", MAXDNAME);
-		    strncat(lookup,__searchdomain[variant], MAXDNAME);
-		}
-		BIGUNLOCK;
+		if (variant >= 0) {
+                        BIGLOCK;
+                        if (variant < __searchdomains) {
+                                strncat(lookup,".", MAXDNAME);
+                                strncat(lookup,__searchdomain[variant], MAXDNAME);
+                        }
+                        BIGUNLOCK;
+                }
 		DPRINTF("lookup name: %s\n", lookup);
 		q.dotted = (char *)lookup;
 		q.qtype = type;
@@ -652,7 +741,7 @@ int __dns_lookup(const char *name, int type, int nscount, char **nsip,
 		len = i + j;
 
 		DPRINTF("On try %d, sending query to port %d of machine %s\n",
-				retries, NAMESERVER_PORT, dns);
+				retries+1, NAMESERVER_PORT, dns);
 
 #ifdef __UCLIBC_HAS_IPV6__
 		v6 = inet_pton(AF_INET6, dns, &sa6.sin6_addr) > 0;
@@ -661,10 +750,11 @@ int __dns_lookup(const char *name, int type, int nscount, char **nsip,
 		fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
 #endif
 		if (fd < 0) {
+                    retries++;
 		    continue;
 		}
 
-		/* Connect to the UDP socket so that asyncronous errors are returned */		 
+		/* Connect to the UDP socket so that asyncronous errors are returned */
 #ifdef __UCLIBC_HAS_IPV6__
 		if (v6) {
 		    sa6.sin6_family = AF_INET6;
@@ -686,6 +776,7 @@ int __dns_lookup(const char *name, int type, int nscount, char **nsip,
 			goto tryall;
 		    } else
 			/* retry */
+                        retries++;
 			continue;
 		}
 
@@ -701,13 +792,13 @@ int __dns_lookup(const char *name, int type, int nscount, char **nsip,
 		if (select(fd + 1, &fds, NULL, NULL, &tv) <= 0) {
 		    DPRINTF("Timeout\n");
 
-			/* timed out, so retry send and receive, 
+			/* timed out, so retry send and receive,
 			 * to next nameserver on queue */
-			goto again;
+			goto tryall;
 		}
 
-		i = recv(fd, packet, 512, 0);
-		if (i < HFIXEDSZ) {
+		len = recv(fd, packet, 512, 0);
+		if (len < HFIXEDSZ) {
 			/* too short ! */
 			goto again;
 		}
@@ -716,13 +807,10 @@ int __dns_lookup(const char *name, int type, int nscount, char **nsip,
 
 		DPRINTF("id = %d, qr = %d\n", h.id, h.qr);
 
-		LOCK;
-		if ((h.id != id) || (!h.qr)) {
-			UNLOCK;
+		if ((h.id != local_id) || (!h.qr)) {
 			/* unsolicited */
 			goto again;
 		}
-		UNLOCK;
 
 
 		DPRINTF("Got response %s\n", "(i think)!");
@@ -748,21 +836,56 @@ int __dns_lookup(const char *name, int type, int nscount, char **nsip,
 		}
 		DPRINTF("Decoding answer at pos %d\n", pos);
 
-		for (j=0;j<h.ancount;j++)
+		first_answer = 1;
+		for (j=0;j<h.ancount;j++,pos += i)
 		{
-		    i = __decode_answer(packet, pos, a);
+		    i = __decode_answer(packet, pos, &ma);
 
 		    if (i<0) {
 			DPRINTF("failed decode %d\n", i);
 			goto again;
 		    }
-		    /* For all but T_SIG, accept first answer */
-		    if (a->atype != T_SIG)
-			break;
 
-		    DPRINTF("skipping T_SIG %d\n", i);
-		    free(a->dotted);
-		    pos += i;
+		    if ( first_answer )
+		    {
+			ma.buf = a->buf;
+			ma.buflen = a->buflen;
+			ma.add_count = a->add_count;
+			memcpy(a, &ma, sizeof(ma));
+			if (a->atype != T_SIG && (0 == a->buf || (type != T_A && type != T_AAAA)))
+			{
+			    break;
+			}
+			if (a->atype != type)
+			{
+			    free(a->dotted);
+			    continue;
+			}
+			a->add_count = h.ancount - j - 1;
+			if ((a->rdlength + sizeof(struct in_addr*)) * a->add_count > a->buflen)
+			{
+			    break;
+			}
+			a->add_count = 0;
+			first_answer = 0;
+		    }
+		    else
+		    {
+			free(ma.dotted);
+			if (ma.atype != type)
+			{
+			    continue;
+			}
+			if (a->rdlength != ma.rdlength)
+			{
+			    free(a->dotted);
+			    DPRINTF("Answer address len(%u) differs from original(%u)\n",
+				    ma.rdlength, a->rdlength);
+			    goto again;
+			}
+			memcpy(a->buf + (a->add_count * ma.rdlength), ma.rdata, ma.rdlength);
+			++a->add_count;
+		    }
 		}
 
 		DPRINTF("Answer name = |%s|\n", a->dotted);
@@ -775,20 +898,25 @@ int __dns_lookup(const char *name, int type, int nscount, char **nsip,
 		else
 			free(packet);
 		free(lookup);
-		return (0);				/* success! */
+
+		/* Mess with globals while under lock */
+		LOCK;
+		ns = local_ns;
+		id = local_id;
+		UNLOCK;
+
+		return (len);				/* success! */
 
 	  tryall:
 		/* if there are other nameservers, give them a go,
 		   otherwise return with error */
 		{
-		    int sdomains;
+		    variant = -1;
+                    local_ns = (local_ns + 1) % nscount;
+                    if (local_ns == 0)
+                      retries++;
 
-		    BIGLOCK;
-		    sdomains=__searchdomains;
-		    BIGUNLOCK;
-		    variant = 0;
-		    if (retries >= nscount*(sdomains+1))
-			goto fail;
+                    continue;
 		}
 
 	  again:
@@ -799,15 +927,16 @@ int __dns_lookup(const char *name, int type, int nscount, char **nsip,
 		    sdomains=__searchdomains;
 		    BIGUNLOCK;
 
-		    if (variant < sdomains) {
+		    if (variant < sdomains - 1) {
 			/* next search */
 			variant++;
 		    } else {
 			/* next server, first search */
-			LOCK;
-			ns = (ns + 1) % nscount;
-			UNLOCK;
-			variant = 0;
+			local_ns = (local_ns + 1) % nscount;
+                        if (local_ns == 0)
+                          retries++;
+
+			variant = -1;
 		    }
 		}
 	}
@@ -819,6 +948,14 @@ fail:
 	    free(lookup);
 	if (packet)
 	    free(packet);
+	h_errno = NETDB_INTERNAL;
+	/* Mess with globals while under lock */
+	if (local_ns != -1) {
+	    LOCK;
+	    ns = local_ns;
+	    id = local_id;
+	    UNLOCK;
+	}
 	return -1;
 }
 #endif
@@ -847,13 +984,14 @@ int __open_nameservers()
 	int argc;
 
 	BIGLOCK;
-	if (__nameservers > 0) { 
+	if (__nameservers > 0) {
 	    BIGUNLOCK;
 	    return 0;
 	}
 
 	if ((fp = fopen("/etc/resolv.conf", "r")) ||
-			(fp = fopen("/etc/config/resolv.conf", "r"))) {
+			(fp = fopen("/etc/config/resolv.conf", "r")))
+	{
 
 		while (fgets(szBuffer, sizeof(szBuffer), fp) != NULL) {
 
@@ -890,12 +1028,14 @@ int __open_nameservers()
 			}
 		}
 		fclose(fp);
-	} else {
-	    DPRINTF("failed to open %s\n", "resolv.conf");
+		DPRINTF("nameservers = %d\n", __nameservers);
+		BIGUNLOCK;
+		return 0;
 	}
-	DPRINTF("nameservers = %d\n", __nameservers);
+	DPRINTF("failed to open %s\n", "resolv.conf");
+	h_errno = NO_RECOVERY;
 	BIGUNLOCK;
-	return 0;
+	return -1;
 }
 #endif
 
@@ -924,7 +1064,7 @@ struct hostent *gethostbyname(const char *name)
 	static struct hostent h;
 	static char buf[sizeof(struct in_addr) +
 			sizeof(struct in_addr *)*2 +
-			sizeof(char *)*(ALIAS_DIM) + 256/*namebuffer*/ + 32/* margin */];
+			sizeof(char *)*(ALIAS_DIM) + 384/*namebuffer*/ + 32/* margin */];
 	struct hostent *hp;
 
 	gethostbyname_r(name, &h, buf, sizeof(buf), &hp, &h_errno);
@@ -943,7 +1083,7 @@ struct hostent *gethostbyname2(const char *name, int family)
 	static struct hostent h;
 	static char buf[sizeof(struct in6_addr) +
 			sizeof(struct in6_addr *)*2 +
-			sizeof(char *)*(ALIAS_DIM) + 256/*namebuffer*/ + 32/* margin */];
+			sizeof(char *)*(ALIAS_DIM) + 384/*namebuffer*/ + 32/* margin */];
 	struct hostent *hp;
 
 	gethostbyname2_r(name, family, &h, buf, sizeof(buf), &hp, &h_errno);
@@ -953,13 +1093,6 @@ struct hostent *gethostbyname2(const char *name, int family)
 }
 #endif
 
-#ifdef L_getnetbyname
-
-struct netent * getnetbyname(const char * name)
-{
-	return NULL;
-}
-#endif
 
 
 #ifdef L_res_init
@@ -1035,10 +1168,11 @@ int res_query(const char *dname, int class, int type,
 	char ** __nameserverXX;
 
 	__open_nameservers();
-	
-	if (!dname || class != 1 /* CLASS_IN */)
+	if (!dname || class != 1 /* CLASS_IN */) {
+		h_errno = NO_RECOVERY;
 		return(-1);
-		
+	}
+
 	memset((char *) &a, '\0', sizeof(a));
 
 	BIGLOCK;
@@ -1046,23 +1180,218 @@ int res_query(const char *dname, int class, int type,
 	__nameserverXX=__nameserver;
 	BIGUNLOCK;
 	i = __dns_lookup(dname, type, __nameserversXX, __nameserverXX, &packet, &a);
-	
-	if (i < 0)
+
+	if (i < 0) {
+		h_errno = TRY_AGAIN;
 		return(-1);
-			
+	}
+
 	free(a.dotted);
-		
+
 	if (a.atype == type) { /* CNAME*/
-		if (anslen && answer)
-			memcpy(answer, a.rdata, MIN(anslen, a.rdlength));
+		int len = MIN(anslen, i);
+		memcpy(answer, packet, len);
 		if (packet)
 			free(packet);
-		return(MIN(anslen, a.rdlength));
+		return(len);
 	}
 	if (packet)
 		free(packet);
-	return 0;
+	return i;
 }
+
+/*
+ * Formulate a normal query, send, and retrieve answer in supplied buffer.
+ * Return the size of the response on success, -1 on error.
+ * If enabled, implement search rules until answer or unrecoverable failure
+ * is detected.  Error code, if any, is left in h_errno.
+ */
+int res_search(name, class, type, answer, anslen)
+	const char *name;	/* domain name */
+	int class, type;	/* class and type of query */
+	u_char *answer;		/* buffer to put answer */
+	int anslen;		/* size of answer */
+{
+	const char *cp, * const *domain;
+	HEADER *hp = (HEADER *)(void *)answer;
+	u_int dots;
+	int trailing_dot, ret, saved_herrno;
+	int got_nodata = 0, got_servfail = 0, tried_as_is = 0;
+
+	if ((!name || !answer) || ((_res.options & RES_INIT) == 0 && res_init() == -1)) {
+		h_errno = NETDB_INTERNAL;
+		return (-1);
+	}
+
+	errno = 0;
+	h_errno = HOST_NOT_FOUND;	/* default, if we never query */
+	dots = 0;
+	for (cp = name; *cp; cp++)
+		dots += (*cp == '.');
+	trailing_dot = 0;
+	if (cp > name && *--cp == '.')
+		trailing_dot++;
+
+	/*
+	 * If there are dots in the name already, let's just give it a try
+	 * 'as is'.  The threshold can be set with the "ndots" option.
+	 */
+	saved_herrno = -1;
+	if (dots >= _res.ndots) {
+		ret = res_querydomain(name, NULL, class, type, answer, anslen);
+		if (ret > 0)
+			return (ret);
+		saved_herrno = h_errno;
+		tried_as_is++;
+	}
+
+	/*
+	 * We do at least one level of search if
+	 *	- there is no dot and RES_DEFNAME is set, or
+	 *	- there is at least one dot, there is no trailing dot,
+	 *	  and RES_DNSRCH is set.
+	 */
+	if ((!dots && (_res.options & RES_DEFNAMES)) ||
+	    (dots && !trailing_dot && (_res.options & RES_DNSRCH))) {
+		int done = 0;
+
+		for (domain = (const char * const *)_res.dnsrch;
+		   *domain && !done;
+		   domain++) {
+
+			ret = res_querydomain(name, *domain, class, type,
+			    answer, anslen);
+			if (ret > 0)
+				return (ret);
+
+			/*
+			 * If no server present, give up.
+			 * If name isn't found in this domain,
+			 * keep trying higher domains in the search list
+			 * (if that's enabled).
+			 * On a NO_DATA error, keep trying, otherwise
+			 * a wildcard entry of another type could keep us
+			 * from finding this entry higher in the domain.
+			 * If we get some other error (negative answer or
+			 * server failure), then stop searching up,
+			 * but try the input name below in case it's
+			 * fully-qualified.
+			 */
+			if (errno == ECONNREFUSED) {
+				h_errno = TRY_AGAIN;
+				return (-1);
+			}
+
+			switch (h_errno) {
+			case NO_DATA:
+				got_nodata++;
+				/* FALLTHROUGH */
+			case HOST_NOT_FOUND:
+				/* keep trying */
+				break;
+			case TRY_AGAIN:
+				if (hp->rcode == SERVFAIL) {
+					/* try next search element, if any */
+					got_servfail++;
+					break;
+				}
+				/* FALLTHROUGH */
+			default:
+				/* anything else implies that we're done */
+				done++;
+			}
+			/*
+			 * if we got here for some reason other than DNSRCH,
+			 * we only wanted one iteration of the loop, so stop.
+			 */
+			if (!(_res.options & RES_DNSRCH))
+				done++;
+		}
+	}
+
+	/*
+	 * if we have not already tried the name "as is", do that now.
+	 * note that we do this regardless of how many dots were in the
+	 * name or whether it ends with a dot.
+	 */
+	if (!tried_as_is) {
+		ret = res_querydomain(name, NULL, class, type, answer, anslen);
+		if (ret > 0)
+			return (ret);
+	}
+
+	/*
+	 * if we got here, we didn't satisfy the search.
+	 * if we did an initial full query, return that query's h_errno
+	 * (note that we wouldn't be here if that query had succeeded).
+	 * else if we ever got a nodata, send that back as the reason.
+	 * else send back meaningless h_errno, that being the one from
+	 * the last DNSRCH we did.
+	 */
+	if (saved_herrno != -1)
+		h_errno = saved_herrno;
+	else if (got_nodata)
+		h_errno = NO_DATA;
+	else if (got_servfail)
+		h_errno = TRY_AGAIN;
+	return (-1);
+}
+
+/*
+ * Perform a call on res_query on the concatenation of name and domain,
+ * removing a trailing dot from name if domain is NULL.
+ */
+int res_querydomain(name, domain, class, type, answer, anslen)
+	const char *name, *domain;
+	int class, type;	/* class and type of query */
+	u_char *answer;		/* buffer to put answer */
+	int anslen;		/* size of answer */
+{
+	char nbuf[MAXDNAME];
+	const char *longname = nbuf;
+	size_t n, d;
+
+	if ((!name || !answer) || ((_res.options & RES_INIT) == 0 && res_init() == -1)) {
+		h_errno = NETDB_INTERNAL;
+		return (-1);
+	}
+
+#ifdef DEBUG
+	if (_res.options & RES_DEBUG)
+		printf(";; res_querydomain(%s, %s, %d, %d)\n",
+			name, domain?domain:"<Nil>", class, type);
+#endif
+	if (domain == NULL) {
+		/*
+		 * Check for trailing '.';
+		 * copy without '.' if present.
+		 */
+		n = strlen(name);
+		if (n + 1 > sizeof(nbuf)) {
+			h_errno = NO_RECOVERY;
+			return (-1);
+		}
+		if (n > 0 && name[--n] == '.') {
+			strncpy(nbuf, name, n);
+			nbuf[n] = '\0';
+		} else
+			longname = name;
+	} else {
+		n = strlen(name);
+		d = strlen(domain);
+		if (n + 1 + d + 1 > sizeof(nbuf)) {
+			h_errno = NO_RECOVERY;
+			return (-1);
+		}
+		snprintf(nbuf, sizeof(nbuf), "%s.%s", name, domain);
+	}
+	return (res_query(longname, class, type, answer, anslen));
+}
+
+/* res_mkquery */
+/* res_send */
+/* dn_comp */
+/* dn_expand */
 #endif
 
 #ifdef L_gethostbyaddr
@@ -1075,11 +1404,11 @@ struct hostent *gethostbyaddr (const void *addr, socklen_t len, int type)
 #else
 		sizeof(struct in6_addr) + sizeof(struct in6_addr *)*2 +
 #endif /* __UCLIBC_HAS_IPV6__ */
-		sizeof(char *)*(ALIAS_DIM) + 256/*namebuffer*/ + 32/* margin */];
+		sizeof(char *)*(ALIAS_DIM) + 384/*namebuffer*/ + 32/* margin */];
 	struct hostent *hp;
 
 	gethostbyaddr_r(addr, len, type, &h, buf, sizeof(buf), &hp, &h_errno);
-        
+
 	return hp;
 }
 #endif
@@ -1108,10 +1437,8 @@ int __read_etc_hosts_r(FILE * fp, const char * name, int type,
 	struct in6_addr	*in6=NULL;
 	struct in6_addr	**addr_list6=NULL;
 #endif /* __UCLIBC_HAS_IPV6__ */
-	char					*cp;
-	char					**alias;
-	int						aliases, i;
-	int		ret=HOST_NOT_FOUND;
+	char *cp, **alias;
+	int aliases, i, ret=HOST_NOT_FOUND;
 
 	if (buflen < sizeof(char *)*(ALIAS_DIM))
 		return ERANGE;
@@ -1188,7 +1515,7 @@ int __read_etc_hosts_r(FILE * fp, const char * name, int type,
 
 		if (aliases < 2)
 			continue; /* syntax error really */
-		
+
 		if (action==GETHOSTENT) {
 			/* Return whatever the next entry happens to be. */
 			break;
@@ -1233,7 +1560,7 @@ int __read_etc_hosts_r(FILE * fp, const char * name, int type,
 			ret=TRY_AGAIN;
 			break; /* bad ip address */
         }
-        
+
 		if (action!=GETHOSTENT) {
 			fclose(fp);
 		}
@@ -1278,6 +1605,29 @@ void sethostent (int stay_open)
     UNLOCK;
 }
 
+int gethostent_r(struct hostent *result_buf, char *buf, size_t buflen,
+	struct hostent **result, int *h_errnop)
+{
+    int ret;
+
+    LOCK;
+    if (__gethostent_fp == NULL) {
+	__open_etc_hosts(&__gethostent_fp);
+	if (__gethostent_fp == NULL) {
+	    UNLOCK;
+	    *result=NULL;
+	    return 0;
+	}
+    }
+
+    ret = __read_etc_hosts_r(__gethostent_fp, NULL, AF_INET, GETHOSTENT,
+		   result_buf, buf, buflen, result, h_errnop);
+    if (__stay_open==0) {
+	fclose(__gethostent_fp);
+    }
+    UNLOCK;
+    return(ret);
+}
 
 struct hostent *gethostent (void)
 {
@@ -1293,19 +1643,7 @@ struct hostent *gethostent (void)
     struct hostent *host;
 
     LOCK;
-    if (__gethostent_fp == NULL) {
-	__open_etc_hosts(&__gethostent_fp);
-	if (__gethostent_fp == NULL) {
-	    UNLOCK;
-	    return((struct hostent *)NULL);
-	}
-    }
-
-    __read_etc_hosts_r(__gethostent_fp, NULL, AF_INET, GETHOSTENT, 
-		   &h, buf, sizeof(buf), &host, &h_errno);
-    if (__stay_open==0) {
-	fclose(__gethostent_fp);
-    }
+    gethostent_r(&h, buf, sizeof(buf), &host, &h_errno);
     UNLOCK;
     return(host);
 }
@@ -1319,7 +1657,8 @@ int __get_hosts_byname_r(const char * name, int type,
 			    struct hostent ** result,
 			    int * h_errnop)
 {
-	return(__read_etc_hosts_r(NULL, name, type, GET_HOSTS_BYNAME, result_buf, buf, buflen, result, h_errnop));
+	return(__read_etc_hosts_r(NULL, name, type, GET_HOSTS_BYNAME,
+		    result_buf, buf, buflen, result, h_errnop));
 }
 #endif
 
@@ -1354,7 +1693,7 @@ int __get_hosts_byaddr_r(const char * addr, int len, int type,
 
 	inet_ntop(type, addr, ipaddr, sizeof(ipaddr));
 
-	return(__read_etc_hosts_r(NULL, ipaddr, type, GET_HOSTS_BYADDR, 
+	return(__read_etc_hosts_r(NULL, ipaddr, type, GET_HOSTS_BYADDR,
 		    result_buf, buf, buflen, result, h_errnop));
 }
 #endif
@@ -1372,8 +1711,8 @@ int getnameinfo (const struct sockaddr *sa, socklen_t addrlen, char *host,
 	int serrno = errno;
 	int ok = 0;
 	struct hostent *h = NULL;
-    char domain[256];
-    
+	char domain[256];
+
 	if (flags & ~(NI_NUMERICHOST|NI_NUMERICSERV|NI_NOFQDN|NI_NAMEREQD|NI_DGRAM))
 		return EAI_BADFLAGS;
 
@@ -1406,7 +1745,8 @@ int getnameinfo (const struct sockaddr *sa, socklen_t addrlen, char *host,
 			if (!(flags & NI_NUMERICHOST)) {
 #ifdef __UCLIBC_HAS_IPV6__
 				if (sa->sa_family == AF_INET6)
-					h = gethostbyaddr ((const void *) &(((const struct sockaddr_in6 *) sa)->sin6_addr),
+					h = gethostbyaddr ((const void *)
+						&(((const struct sockaddr_in6 *) sa)->sin6_addr),
 						sizeof(struct in6_addr), AF_INET6);
 				else
 #endif /* __UCLIBC_HAS_IPV6__ */
@@ -1445,7 +1785,7 @@ int getnameinfo (const struct sockaddr *sa, socklen_t addrlen, char *host,
 						c = inet_ntop (AF_INET6,
 							(const void *) &sin6p->sin6_addr, host, hostlen);
 #if 0
-/* Does scope id need to be supported? */
+						/* Does scope id need to be supported? */
 						uint32_t scopeid;
 						scopeid = sin6p->sin6_scope_id;
 						if (scopeid != 0) {
@@ -1468,7 +1808,7 @@ int getnameinfo (const struct sockaddr *sa, socklen_t addrlen, char *host,
 									scopelen = strlen (scopebuf);
 							} else {
 								++ni_numericscope;
-                            }
+							}
 
 							if (ni_numericscope)
 								scopelen = 1 + snprintf (scopeptr,
@@ -1484,8 +1824,8 @@ int getnameinfo (const struct sockaddr *sa, socklen_t addrlen, char *host,
 #endif
 					} else
 #endif /* __UCLIBC_HAS_IPV6__ */
-						c = inet_ntop (AF_INET,
-							(const void *) &(((const struct sockaddr_in *) sa)->sin_addr),
+						c = inet_ntop (AF_INET, (const void *)
+							&(((const struct sockaddr_in *) sa)->sin_addr),
 							host, hostlen);
 
 					if (c == NULL) {
@@ -1563,34 +1903,39 @@ int gethostbyname_r(const char * name,
 {
 	struct in_addr *in;
 	struct in_addr **addr_list;
+	char **alias;
 	unsigned char *packet;
 	struct resolv_answer a;
 	int i;
-	int nest = 0;
 	int __nameserversXX;
 	char ** __nameserverXX;
 
 	__open_nameservers();
-
 	*result=NULL;
 	if (!name)
 		return EINVAL;
 
 	/* do /etc/hosts first */
-	if ((i=__get_hosts_byname_r(name, AF_INET, result_buf,
-				  buf, buflen, result, h_errnop))==0)
-		return i;
-	switch (*h_errnop) {
-		case HOST_NOT_FOUND:
-		case NO_ADDRESS:
-			break;
-		case NETDB_INTERNAL:
-			if (errno == ENOENT) {
-			    break;
-			}
-			/* else fall through */
-		default:
+	{
+		int old_errno = errno;	/* Save the old errno and reset errno */
+		__set_errno(0);			/* to check for missing /etc/hosts. */
+
+		if ((i=__get_hosts_byname_r(name, AF_INET, result_buf,
+				buf, buflen, result, h_errnop))==0)
 			return i;
+		switch (*h_errnop) {
+			case HOST_NOT_FOUND:
+			case NO_ADDRESS:
+				break;
+			case NETDB_INTERNAL:
+				if (errno == ENOENT) {
+					break;
+				}
+				/* else fall through */
+			default:
+				return i;
+		}
+		__set_errno(old_errno);
 	}
 
 	DPRINTF("Nothing found in /etc/hosts\n");
@@ -1610,10 +1955,19 @@ int gethostbyname_r(const char * name,
 
 	addr_list[0] = in;
 	addr_list[1] = 0;
-	
+
+	if (buflen < sizeof(char *)*(ALIAS_DIM))
+		return ERANGE;
+	alias=(char **)buf;
+	buf+=sizeof(char **)*(ALIAS_DIM);
+	buflen-=sizeof(char **)*(ALIAS_DIM);
+
 	if (buflen<256)
 		return ERANGE;
 	strncpy(buf, name, buflen);
+
+	alias[0] = buf;
+	alias[1] = NULL;
 
 	/* First check if this is already an address */
 	if (inet_aton(name, in)) {
@@ -1621,6 +1975,7 @@ int gethostbyname_r(const char * name,
 	    result_buf->h_addrtype = AF_INET;
 	    result_buf->h_length = sizeof(*in);
 	    result_buf->h_addr_list = (char **) addr_list;
+	    result_buf->h_aliases = alias;
 	    *result=result_buf;
 	    *h_errnop = NETDB_SUCCESS;
 	    return NETDB_SUCCESS;
@@ -1628,53 +1983,65 @@ int gethostbyname_r(const char * name,
 
 	for (;;) {
 
-	BIGLOCK;
-	__nameserversXX=__nameservers;
-	__nameserverXX=__nameserver;
-	BIGUNLOCK;
-		i = __dns_lookup(buf, T_A, __nameserversXX, __nameserverXX, &packet, &a);
+	    BIGLOCK;
+	    __nameserversXX=__nameservers;
+	    __nameserverXX=__nameserver;
+	    BIGUNLOCK;
+	    a.buf = buf;
+	    a.buflen = buflen;
+	    a.add_count = 0;
+	    i = __dns_lookup(name, T_A, __nameserversXX, __nameserverXX, &packet, &a);
 
-		if (i < 0) {
-			*h_errnop = HOST_NOT_FOUND;
-			DPRINTF("__dns_lookup\n");
-			return TRY_AGAIN;
-		}
+	    if (i < 0) {
+		*h_errnop = HOST_NOT_FOUND;
+		DPRINTF("__dns_lookup\n");
+		return TRY_AGAIN;
+	    }
 
-		strncpy(buf, a.dotted, buflen);
+	    if ((a.rdlength + sizeof(struct in_addr*)) * a.add_count + 256 > buflen)
+	    {
 		free(a.dotted);
+		free(packet);
+		*h_errnop = NETDB_INTERNAL;
+		DPRINTF("buffer too small for all addresses\n");
+		return ERANGE;
+	    }
+	    else if(a.add_count > 0)
+	    {
+		memmove(buf - sizeof(struct in_addr*)*2, buf, a.add_count * a.rdlength);
+		addr_list = (struct in_addr**)(buf + a.add_count * a.rdlength);
+		addr_list[0] = in;
+		for (i = a.add_count-1; i>=0; --i)
+		    addr_list[i+1] = (struct in_addr*)(buf - sizeof(struct in_addr*)*2 + a.rdlength * i);
+		addr_list[a.add_count + 1] = 0;
+		buflen -= (((char*)&(addr_list[a.add_count + 2])) - buf);
+		buf = (char*)&addr_list[a.add_count + 2];
+	    }
 
-		if (a.atype == T_CNAME) {		/* CNAME */
-			DPRINTF("Got a CNAME in gethostbyname()\n");
-			i = __decode_dotted(packet, a.rdoffset, buf, buflen);
-			free(packet);
+	    strncpy(buf, a.dotted, buflen);
+	    free(a.dotted);
 
-			if (i < 0) {
-				*h_errnop = NO_RECOVERY;
-				DPRINTF("__decode_dotted\n");
-				return -1;
-			}
-			if (++nest > MAX_RECURSE) {
-				*h_errnop = NO_RECOVERY;
-				DPRINTF("recursion\n");
-				return -1;
-			}
-			continue;
-		} else if (a.atype == T_A) {	/* ADDRESS */
-			memcpy(in, a.rdata, sizeof(*in));
-			result_buf->h_name = buf;
-			result_buf->h_addrtype = AF_INET;
-			result_buf->h_length = sizeof(*in);
-			result_buf->h_addr_list = (char **) addr_list;
-			free(packet);
-			break;
-		} else {
-			free(packet);
-			*h_errnop=HOST_NOT_FOUND;
-			return TRY_AGAIN;
-		}
+	    if (a.atype == T_A) { /* ADDRESS */
+		memcpy(in, a.rdata, sizeof(*in));
+		result_buf->h_name = buf;
+		result_buf->h_addrtype = AF_INET;
+		result_buf->h_length = sizeof(*in);
+		result_buf->h_addr_list = (char **) addr_list;
+#ifdef __UCLIBC_MJN3_ONLY__
+#warning TODO -- generate the full list
+#endif
+		result_buf->h_aliases = alias; /* TODO: generate the full list */
+		free(packet);
+		break;
+	    } else {
+		free(packet);
+		*h_errnop=HOST_NOT_FOUND;
+		return TRY_AGAIN;
+	    }
 	}
 
 	*result=result_buf;
+	*h_errnop = NETDB_SUCCESS;
 	return NETDB_SUCCESS;
 }
 #endif
@@ -1688,7 +2055,8 @@ int gethostbyname2_r(const char *name, int family,
 			    int * h_errnop)
 {
 #ifndef __UCLIBC_HAS_IPV6__
-	return family == AF_INET ? gethostbyname_r(name, result_buf, buf, buflen, result, h_errnop) : HOST_NOT_FOUND;
+	return family == (AF_INET)? gethostbyname_r(name, result_buf,
+		buf, buflen, result, h_errnop) : HOST_NOT_FOUND;
 #else /* __UCLIBC_HAS_IPV6__ */
 	struct in6_addr *in;
 	struct in6_addr **addr_list;
@@ -1701,26 +2069,36 @@ int gethostbyname2_r(const char *name, int family,
 
 	if (family == AF_INET)
 		return gethostbyname_r(name, result_buf, buf, buflen, result, h_errnop);
-		
+
 	if (family != AF_INET6)
 		return EINVAL;
-		
-	__open_nameservers();
 
+	__open_nameservers();
 	*result=NULL;
 	if (!name)
 		return EINVAL;
 
 	/* do /etc/hosts first */
-	if ((i=__get_hosts_byname_r(name, family, result_buf,
-				  buf, buflen, result, h_errnop))==0)
-		return i;
-	switch (*h_errnop) {
-		case HOST_NOT_FOUND:
-		case NO_ADDRESS:
-			break;
-		default:
+	{
+		int old_errno = errno;	/* Save the old errno and reset errno */
+		__set_errno(0);			/* to check for missing /etc/hosts. */
+
+		if ((i=__get_hosts_byname_r(name, AF_INET, result_buf,
+				buf, buflen, result, h_errnop))==0)
 			return i;
+		switch (*h_errnop) {
+			case HOST_NOT_FOUND:
+			case NO_ADDRESS:
+				break;
+			case NETDB_INTERNAL:
+				if (errno == ENOENT) {
+					break;
+				}
+				/* else fall through */
+			default:
+				return i;
+		}
+		__set_errno(old_errno);
 	}
 
 	DPRINTF("Nothing found in /etc/hosts\n");
@@ -1740,7 +2118,7 @@ int gethostbyname2_r(const char *name, int family,
 
 	addr_list[0] = in;
 	addr_list[1] = 0;
-	
+
 	if (buflen<256)
 		return ERANGE;
 	strncpy(buf, name, buflen);
@@ -1755,6 +2133,8 @@ int gethostbyname2_r(const char *name, int family,
 	    *h_errnop = NETDB_SUCCESS;
 	    return NETDB_SUCCESS;
 	}
+
+	memset((char *) &a, '\0', sizeof(a));
 
 	for (;;) {
 	BIGLOCK;
@@ -1802,6 +2182,7 @@ int gethostbyname2_r(const char *name, int family,
 	}
 
 	*result=result_buf;
+	*h_errnop = NETDB_SUCCESS;
 	return NETDB_SUCCESS;
 #endif /* __UCLIBC_HAS_IPV6__ */
 }
@@ -1833,7 +2214,9 @@ int gethostbyaddr_r (const void *addr, socklen_t len, int type,
 	*result=NULL;
 	if (!addr)
 		return EINVAL;
-        
+
+	memset((char *) &a, '\0', sizeof(a));
+
 	switch (type) {
 		case AF_INET:
 			if (len != sizeof(struct in_addr))
@@ -1894,8 +2277,8 @@ int gethostbyaddr_r (const void *addr, socklen_t len, int type,
 	qp+=sizeof(*addr_list6)*2;
 	plen-=sizeof(*addr_list6)*2;
 
-	if (len < buflen) {
-		buflen=len;
+	if (plen < buflen) {
+		buflen=plen;
 		buf=qp;
 	}
 #endif /* __UCLIBC_HAS_IPV6__ */
@@ -1984,6 +2367,238 @@ int gethostbyaddr_r (const void *addr, socklen_t len, int type,
 	}
 
 	*result=result_buf;
+	*h_errnop = NETDB_SUCCESS;
 	return NETDB_SUCCESS;
 }
 #endif
+
+#ifdef L_res_comp
+/*
+ * Expand compressed domain name 'comp_dn' to full domain name.
+ * 'msg' is a pointer to the begining of the message,
+ * 'eomorig' points to the first location after the message,
+ * 'exp_dn' is a pointer to a buffer of size 'length' for the result.
+ * Return size of compressed name or -1 if there was an error.
+ */
+int __dn_expand(const u_char *msg, const u_char *eom, const u_char *src,
+          char *dst, int dstsiz)
+{
+	int n = ns_name_uncompress(msg, eom, src, dst, (size_t)dstsiz);
+
+	if (n > 0 && dst[0] == '.')
+		dst[0] = '\0';
+	return (n);
+}
+#endif /* L_res_comp */
+
+#ifdef L_ns_name
+/*
+ * printable(ch)
+ *      Thinking in noninternationalized USASCII (per the DNS spec),
+ *      is this character visible and not a space when printed ?
+ * return:
+ *      boolean.
+ */
+static int printable(int ch)
+{
+        return (ch > 0x20 && ch < 0x7f);
+}
+
+/*
+ * special(ch)
+ *      Thinking in noninternationalized USASCII (per the DNS spec),
+ *      is this characted special ("in need of quoting") ?
+ * return:
+ *      boolean.
+ */
+static int special(int ch)
+{
+        switch (ch) {
+        case 0x22: /* '"' */
+        case 0x2E: /* '.' */
+        case 0x3B: /* ';' */
+        case 0x5C: /* '\\' */
+        /* Special modifiers in zone files. */
+        case 0x40: /* '@' */
+        case 0x24: /* '$' */
+                return (1);
+        default:
+                return (0);
+        }
+}
+
+/*
+ * ns_name_uncompress(msg, eom, src, dst, dstsiz)
+ *      Expand compressed domain name to presentation format.
+ * return:
+ *      Number of bytes read out of `src', or -1 (with errno set).
+ * note:
+ *      Root domain returns as "." not "".
+ */
+int __ns_name_uncompress(const u_char *msg, const u_char *eom,
+		const u_char *src, char *dst, size_t dstsiz)
+{
+	u_char tmp[NS_MAXCDNAME];
+	int n;
+
+	if ((n = ns_name_unpack(msg, eom, src, tmp, sizeof tmp)) == -1)
+		return (-1);
+	if (ns_name_ntop(tmp, dst, dstsiz) == -1)
+		return (-1);
+	return (n);
+}
+
+
+/*
+ * ns_name_ntop(src, dst, dstsiz)
+ *      Convert an encoded domain name to printable ascii as per RFC1035.
+ * return:
+ *      Number of bytes written to buffer, or -1 (with errno set)
+ * notes:
+ *      The root is returned as "."
+ *      All other domains are returned in non absolute form
+ */
+int __ns_name_ntop(const u_char *src, char *dst, size_t dstsiz) {
+	const u_char *cp;
+	char *dn, *eom;
+	u_char c;
+	u_int n;
+	const char digits[] = "0123456789";
+
+	cp = src;
+	dn = dst;
+	eom = dst + dstsiz;
+
+	while ((n = *cp++) != 0) {
+		if ((n & NS_CMPRSFLGS) != 0) {
+			/* Some kind of compression pointer. */
+			__set_errno (EMSGSIZE);
+			return (-1);
+		}
+		if (dn != dst) {
+			if (dn >= eom) {
+				__set_errno (EMSGSIZE);
+				return (-1);
+			}
+			*dn++ = '.';
+		}
+		if (dn + n >= eom) {
+			__set_errno (EMSGSIZE);
+			return (-1);
+		}
+		for ((void)NULL; n > 0; n--) {
+			c = *cp++;
+			if (special(c)) {
+				if (dn + 1 >= eom) {
+					__set_errno (EMSGSIZE);
+					return (-1);
+				}
+				*dn++ = '\\';
+				*dn++ = (char)c;
+			} else if (!printable(c)) {
+				if (dn + 3 >= eom) {
+					__set_errno (EMSGSIZE);
+					return (-1);
+				}
+				*dn++ = '\\';
+				*dn++ = digits[c / 100];
+				*dn++ = digits[(c % 100) / 10];
+				*dn++ = digits[c % 10];
+			} else {
+				if (dn >= eom) {
+					__set_errno (EMSGSIZE);
+					return (-1);
+				}
+				*dn++ = (char)c;
+			}
+		}
+	}
+	if (dn == dst) {
+		if (dn >= eom) {
+			__set_errno (EMSGSIZE);
+			return (-1);
+		}
+		*dn++ = '.';
+	}
+	if (dn >= eom) {
+		__set_errno (EMSGSIZE);
+		return (-1);
+	}
+	*dn++ = '\0';
+        return (dn - dst);
+}
+
+/*
+ * ns_name_unpack(msg, eom, src, dst, dstsiz)
+ *      Unpack a domain name from a message, source may be compressed.
+ * return:
+ *      -1 if it fails, or consumed octets if it succeeds.
+ */
+int __ns_name_unpack(const u_char *msg, const u_char *eom, const u_char *src,
+               u_char *dst, size_t dstsiz)
+{
+	const u_char *srcp, *dstlim;
+	u_char *dstp;
+	int n, len, checked;
+
+	len = -1;
+	checked = 0;
+	dstp = dst;
+	srcp = src;
+	dstlim = dst + dstsiz;
+	if (srcp < msg || srcp >= eom) {
+		__set_errno (EMSGSIZE);
+		return (-1);
+	}
+	/* Fetch next label in domain name. */
+	while ((n = *srcp++) != 0) {
+		/* Check for indirection. */
+		switch (n & NS_CMPRSFLGS) {
+		case 0:
+			/* Limit checks. */
+			if (dstp + n + 1 >= dstlim || srcp + n >= eom) {
+				__set_errno (EMSGSIZE);
+				return (-1);
+			}
+			checked += n + 1;
+			*dstp++ = n;
+			memcpy(dstp, srcp, n);
+			dstp += n;
+			srcp += n;
+			break;
+
+		case NS_CMPRSFLGS:
+			if (srcp >= eom) {
+				__set_errno (EMSGSIZE);
+				return (-1);
+			}
+			if (len < 0)
+				len = srcp - src + 1;
+			srcp = msg + (((n & 0x3f) << 8) | (*srcp & 0xff));
+			if (srcp < msg || srcp >= eom) {  /* Out of range. */
+				__set_errno (EMSGSIZE);
+				return (-1);
+			}
+			checked += 2;
+			/*
+			 * Check for loops in the compressed name;
+			 * if we've looked at the whole message,
+			 * there must be a loop.
+			 */
+			if (checked >= eom - msg) {
+				__set_errno (EMSGSIZE);
+				return (-1);
+			}
+			break;
+
+		default:
+			__set_errno (EMSGSIZE);
+			return (-1);                    /* flag error */
+		}
+	}
+	*dstp = '\0';
+	if (len < 0)
+		len = srcp - src;
+	return (len);
+}
+#endif /* L_ns_name */

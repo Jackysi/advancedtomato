@@ -1,0 +1,41 @@
+a {
+	color: #b35a00;
+}
+a:hover {
+	background: #ff8000;
+	color: #fff;
+}
+
+input[type='button']:hover {
+	background: #ff8000;
+	color: #fff;
+}
+
+#header {
+	background: #b35a00;
+}
+
+#navi a {
+	color: #b35a00;
+}
+#navi a:hover {
+	background: #ff8000;
+	color: #fff;
+}
+
+#tabs a.active {
+	background: #b35a00;
+	color: #fff;
+}
+#tabs a:hover {
+	background: #ff8000;
+	color: #fff;
+}
+
+.tomato-grid .odd:hover,
+.tomato-grid .even:hover {
+	background: #FFD9BF;
+}
+.tomato-grid a {
+	color: #b35a00;
+}

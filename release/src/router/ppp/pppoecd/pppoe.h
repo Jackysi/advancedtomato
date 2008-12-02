@@ -67,7 +67,6 @@
 #define LOG_PPPOE LOG_DAEMON
 #endif
 
-
 #define VERSION_MAJOR 0
 #define VERSION_MINOR 4
 #define VERSION_DATE 991120
@@ -117,6 +116,7 @@ struct pppoe_packet{
 #define TAG_GEN_ERR  	8
 #define TAG_EOL		9
 
+/*
 static int tag_map[] = { PTT_SRV_NAME,
 			 PTT_AC_NAME,
 			 PTT_HOST_UNIQ,
@@ -128,7 +128,7 @@ static int tag_map[] = { PTT_SRV_NAME,
 			 PTT_GEN_ERR,
 			 PTT_EOL
 };
-
+*/
 
 /* Debug flags */
 int DEB_DISC,DEB_DISC2;
@@ -274,13 +274,15 @@ extern int ppp_connect(struct session *ses);
 
 #define poe_die die
 
-#ifdef DEBUG
+//	#ifdef DEBUG
 #define poe_dbglog(ses,a,b...) dbglog(a, ## b)
 #define poe_info(ses,a,b...) info(a, ## b)
 #define poe_notice(ses,a,b...) notice(a, ## b)
 #define poe_warn(ses,a,b...) warn(a, ## b)
 #define poe_error(ses,a,b...) error(a, ## b)
-#define poe_fatal(ses,a,b...) fatal(a, ## b)
+//	#define poe_fatal(ses,a,b...) fatal(a, ## b)
+#define poe_fatal(ses,a,b...) error(a, ## b)
+/*
 #else
 #define poe_dbglog(a,b...)
 #define poe_info(a,b...)
@@ -289,5 +291,6 @@ extern int ppp_connect(struct session *ses);
 #define poe_error(a,b...)
 #define poe_fatal(a,b...)
 #endif
+*/
 
 #endif

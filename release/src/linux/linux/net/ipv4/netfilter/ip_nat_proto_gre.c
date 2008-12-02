@@ -1,5 +1,5 @@
 /*
- * ip_nat_proto_gre.c - Version 1.11
+ * ip_nat_proto_gre.c - Version 1.2
  *
  * NAT protocol helper module for GRE.
  *
@@ -17,7 +17,7 @@
  *
  * Documentation about PPTP can be found in RFC 2637
  *
- * (C) 2000-2002 by Harald Welte <laforge@gnumonks.org>
+ * (C) 2000-2003 by Harald Welte <laforge@gnumonks.org>
  *
  * Development of this code funded by Astaro AG (http://www.astaro.com/)
  *
@@ -35,7 +35,12 @@ MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Harald Welte <laforge@gnumonks.org>");
 MODULE_DESCRIPTION("Netfilter NAT protocol helper module for GRE");
 
+#if 0
+#define DEBUGP(format, args...) printk(KERN_DEBUG __FILE__ ":" __FUNCTION__ \
+				       ": " format, ## args)
+#else
 #define DEBUGP(x, args...)
+#endif
 
 /* is key in given range between min and max */
 static int
@@ -44,8 +49,15 @@ gre_in_range(const struct ip_conntrack_tuple *tuple,
 	     const union ip_conntrack_manip_proto *min,
 	     const union ip_conntrack_manip_proto *max)
 {
-	return ntohl(tuple->src.u.gre.key) >= ntohl(min->gre.key)
-		&& ntohl(tuple->src.u.gre.key) <= ntohl(max->gre.key);
+	u_int32_t key;
+
+	if (maniptype == IP_NAT_MANIP_SRC)
+		key = tuple->src.u.gre.key;
+	else
+		key = tuple->dst.u.gre.key;
+
+	return ntohl(key) >= ntohl(min->gre.key)
+		&& ntohl(key) <= ntohl(max->gre.key);
 }
 
 /* generate unique tuple ... */
@@ -122,6 +134,7 @@ gre_manip_pkt(struct iphdr *iph, size_t len,
 				break;
 			}
 			if (greh->csum) {
+				/* FIXME: Never tested this code... */
 				*(gre_csum(greh)) = 
 					ip_nat_cheat_check(~*(gre_key(greh)),
 							manip->u.gre.key,

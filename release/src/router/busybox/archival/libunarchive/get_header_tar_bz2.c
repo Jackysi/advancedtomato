@@ -15,6 +15,7 @@
  */
 
 #include <sys/types.h>
+#include <sys/wait.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -23,20 +24,15 @@
 #include "libbb.h"
 #include "unarchive.h"
 
-extern char get_header_tar_bz2(archive_handle_t *archive_handle)
+char get_header_tar_bz2(archive_handle_t *archive_handle)
 {
-	BZ2_bzReadOpen(archive_handle->src_fd, NULL, 0);
-
-	archive_handle->read = read_bz2;
+	/* Cant lseek over pipe's */
 	archive_handle->seek = seek_by_char;
 
+	archive_handle->src_fd = open_transformer(archive_handle->src_fd, uncompressStream);
 	archive_handle->offset = 0;
 	while (get_header_tar(archive_handle) == EXIT_SUCCESS);
 
-	/* Cleanup */
-	BZ2_bzReadClose();
-	
-	/* Can only do one tar.bz2 per archive */
+	/* Can only do one file at a time */
 	return(EXIT_FAILURE);
 }
-

@@ -4,17 +4,17 @@
  *
  * Heavily modified by Manuel Novoa III       Mar 12, 2001
  *
- * Version:     $Id: inet_common.c,v 1.1.3.1 2004/12/29 07:07:45 honor Exp $
+ * Version:     $Id: inet_common.c,v 1.8 2004/03/10 07:42:38 mjn3 Exp $
  *
  */
 
+#include "libbb.h"
 #include "inet_common.h"
 #include <stdio.h>
 #include <errno.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include "libbb.h"
 
 #ifdef DEBUG
 # include <resolv.h>
@@ -62,7 +62,6 @@ int INET_resolve(const char *name, struct sockaddr_in *s_in, int hostfirst)
 	}
 	if (hostfirst) {
 		/* Don't try again */
-		errno = h_errno;
 		return -1;
 	}
 #ifdef DEBUG
@@ -74,7 +73,6 @@ int INET_resolve(const char *name, struct sockaddr_in *s_in, int hostfirst)
 	bb_error_msg("gethostbyname (%s)", name);
 #endif
 	if ((hp = gethostbyname(name)) == (struct hostent *) NULL) {
-		errno = h_errno;
 		return -1;
 	}
 	memcpy((char *) &s_in->sin_addr, (char *) hp->h_addr_list[0],
@@ -186,7 +184,7 @@ int INET_rresolve(char *name, size_t len, struct sockaddr_in *s_in,
 
 #ifdef CONFIG_FEATURE_IPV6
 
-int INET6_resolve(char *name, struct sockaddr_in6 *sin6)
+int INET6_resolve(const char *name, struct sockaddr_in6 *sin6)
 {
 	struct addrinfo req, *ai;
 	int s;
@@ -206,8 +204,8 @@ int INET6_resolve(char *name, struct sockaddr_in6 *sin6)
 
 #ifndef IN6_IS_ADDR_UNSPECIFIED
 # define IN6_IS_ADDR_UNSPECIFIED(a) \
-        (((__u32 *) (a))[0] == 0 && ((__u32 *) (a))[1] == 0 && \
-         ((__u32 *) (a))[2] == 0 && ((__u32 *) (a))[3] == 0)
+	(((uint32_t *) (a))[0] == 0 && ((uint32_t *) (a))[1] == 0 && \
+	 ((uint32_t *) (a))[2] == 0 && ((uint32_t *) (a))[3] == 0)
 #endif
 
 

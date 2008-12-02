@@ -250,7 +250,6 @@ int ingress_init(struct Qdisc *sch,struct rtattr *opt)
 	}
 
 	DPRINTK("ingress_init(sch %p,[qdisc %p],opt %p)\n",sch,p,opt);
-	memset(p, 0, sizeof(*p));
 	p->filter_list = NULL;
 	p->q = &noop_qdisc;
 	MOD_INC_USE_COUNT;
@@ -286,10 +285,7 @@ static void ingress_destroy(struct Qdisc *sch)
 		p->filter_list = tp->next;
 		tp->ops->destroy(tp);
 	}
-	memset(p, 0, sizeof(*p));
-	p->filter_list = NULL;
 
- 
 	MOD_DEC_USE_COUNT;
 
 }

@@ -2,53 +2,25 @@
 /*
  * Stuff shared between init, reboot, halt, and poweroff
  *
- * Copyright (C) 1999-2003 by Erik Andersen <andersen@codepoet.org>
+ * Copyright (C) 1999-2004 by Erik Andersen <andersen@codepoet.org>
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
- *
+ * Licensed under GPLv2 or later, see file LICENSE in this tarball for details.
  */
 
+#include "busybox.h"
 #include <signal.h>
 #include <stdlib.h>
+#include <sys/types.h>
 #include <unistd.h>
 #include <getopt.h>
 #include <sys/reboot.h>
-#include <sys/reboot.h>
 #include <sys/syslog.h>
-#include "busybox.h"
 #include "init_shared.h"
 
-extern int kill_init(int sig)
-{
-#ifdef CONFIG_FEATURE_INITRD
-	/* don't assume init's pid == 1 */
-	long *pid = find_pid_by_name("init");
-	if (!pid || *pid<=0) {
-		pid = find_pid_by_name("linuxrc");
-		if (!pid || *pid<=0)
-			bb_error_msg_and_die("no process killed");
-	}
-	return(kill(*pid, sig));
-#else
-	return(kill(1, sig));
-#endif
-}
-
+const char * const init_sending_format = "Sending SIG%s to all processes.";
 #ifndef CONFIG_INIT
 const char * const bb_shutdown_format = "\r%s\n";
-extern int bb_shutdown_system(unsigned long magic)
+int bb_shutdown_system(unsigned long magic)
 {
 	int pri = LOG_KERN|LOG_NOTICE|LOG_FACMASK;
 	const char *message;
@@ -56,7 +28,7 @@ extern int bb_shutdown_system(unsigned long magic)
 	/* Don't kill ourself */
 	signal(SIGTERM,SIG_IGN);
 	signal(SIGHUP,SIG_IGN);
-	setpgrp();
+	bb_setpgrp;
 
 	/* Allow Ctrl-Alt-Del to reboot system. */
 #ifndef RB_ENABLE_CAD
@@ -73,16 +45,16 @@ extern int bb_shutdown_system(unsigned long magic)
 	sync();
 
 	/* Send signals to every process _except_ pid 1 */
-	message = "Sending SIGTERM to all processes.";
-	syslog(pri, "%s", message);
+	message = "TERM";
+	syslog(pri, init_sending_format, message);
 	printf(bb_shutdown_format, message);
 
 	kill(-1, SIGTERM);
 	sleep(1);
 	sync();
 
-	message = "Sending SIGKILL to all processes.";
-	syslog(pri, "%s", message);
+	message = "KILL";
+	syslog(pri, init_sending_format, message);
 	printf(bb_shutdown_format, message);
 
 	kill(-1, SIGKILL);
@@ -94,4 +66,3 @@ extern int bb_shutdown_system(unsigned long magic)
 	return 0; /* Shrug */
 }
 #endif
-

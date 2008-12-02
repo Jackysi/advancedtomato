@@ -1,504 +1,382 @@
 #
 # Broadcom Linux Router Makefile
-# 
+#
 # Copyright 2005, Broadcom Corporation
 # All Rights Reserved.
-# 
+#
 # THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
 # KIND, EXPRESS OR IMPLIED, BY STATUTE, COMMUNICATION OR OTHERWISE. BROADCOM
 # SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
 # FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
 #
-# $Id: Makefile,v 1.65.26.5 2006/07/20 01:22:42 honor Exp $
 #
 
-include .config
-ifneq ($(wildcard ../cy_conf.mak),)
-  include ../cy_conf.mak
+include common.mak
+
+
+#
+#
+#
+ifeq ($(TOMATO_DEV),jon)
+SEP=echo -e "\033[41;1m   $@   \033[0m"
+else
+SEP=true
 endif
 
 #
-# Paths
+# standard packages
 #
+obj-y += nvram
+obj-y += shared
+obj-y += prebuilt
+obj-y += iptables
+obj-y += rc
+obj-y += iproute2
+obj-y += rom
+obj-y += others
+obj-y += busybox
+obj-y += httpd
+obj-y += www
+obj-y += bridge
+obj-y += dnsmasq
+obj-y += etc
+obj-y += vlan
+obj-y += ppp
+obj-y += ttcp
+obj-y += ntpc
+obj-y += rstats
+#	obj-y += libbcm
+#	obj-y += libbcmcrypto
+#	obj-y += nas
+#	obj-y += wlconf
 
-# Source bases
-export PLATFORM LINUXDIR LIBDIR USRLIBDIR
-export TOP := $(shell pwd)
-export SRCBASE := $(shell (cd $(TOP)/.. && pwd -P))
+obj-y += mssl
+obj-y += mdu
 
-#
-# Cross-compile environment variables
-#
-
-# Build platform
-export BUILD := i386-pc-linux-gnu
-export HOSTCC := gcc
-
-# uClibc wrapper
-ifeq ($(CONFIG_UCLIBC),y)
-export PLATFORM := $(PLATFORM)-uclibc
+ifeq ($(TEST_MINIUPNPD),1)
+obj-y += miniupnpd
+else
+obj-y += upnp
 endif
 
-ifeq ($(PLATFORM),mipsel)
-export CROSS_COMPILE := mipsel-linux-
-export CONFIGURE := ./configure mipsel-linux --build=$(BUILD)
-export TOOLCHAIN := $(shell cd $(dir $(shell which $(CROSS_COMPILE)gcc))/../mipsel-linux && pwd -P)
-endif
-
-ifeq ($(PLATFORM),mipsel-uclibc)
-export CROSS_COMPILE := mipsel-uclibc-
-export CONFIGURE := ./configure mipsel-linux --build=$(BUILD)
-export TOOLCHAIN := $(shell cd $(dir $(shell which $(CROSS_COMPILE)gcc))/.. && pwd -P)
-endif
-
-
-ifeq ($(CONFIG_BCMWPA2),y)
-export CFLAGS += -DBCMWPA2 
-endif
-
-export CC := $(CROSS_COMPILE)gcc
-export AR := $(CROSS_COMPILE)ar
-export AS := $(CROSS_COMPILE)as
-export LD := $(CROSS_COMPILE)ld
-export NM := $(CROSS_COMPILE)nm
-export RANLIB := $(CROSS_COMPILE)ranlib
-export STRIP := $(CROSS_COMPILE)strip
-export SIZE := $(CROSS_COMPILE)size
 
 #
-# Install and target directories
+# configurable packages
 #
+obj-$(TCONFIG_L2TP) += rp-l2tp
+obj-$(TCONFIG_PPTP) += pptp-client
+#	obj-$(TCONFIG_HEARTBEAT) += bpalogin
+#	obj-$(TCONFIG_DDNS) += ipupdate
+obj-$(TCONFIG_HTTPS) += openssl
+obj-$(TCONFIG_HTTPS) += matrixssl
+obj-$(TCONFIG_SSH) += dropbear
+obj-$(TCONFIG_ZEBRA) += zebra
+obj-$(TCONFIG_IPP2P) += ipp2p
 
-export PLATFORMDIR := $(TOP)/$(PLATFORM)
-export INSTALLDIR := $(PLATFORMDIR)/install
-export TARGETDIR := $(PLATFORMDIR)/target
+ifeq ($(TCONFIG_L2TP),y)
+NEED_PPPD = y
+endif
+ifeq ($(TCONFIG_PPTP),y)
+NEED_PPPD = y
+endif
+obj-$(NEED_PPPD) += pppd
 
-# always build libbcmcrypto
-obj-y += libbcmcrypto 
-
-#
-# Configuration
-#
-CONFIG_IPTABLES=y
-
-obj-$(CONFIG_NVRAM) += nvram
-obj-$(CONFIG_SHARED) += shared
-obj-$(CONFIG_LIBBCM) += libbcm
-obj-$(CONFIG_HTTPD) += httpd
-obj-$(CONFIG_RC) += rc
-obj-$(CONFIG_WWW) += www
-obj-$(CONFIG_GLIBC) += lib
-obj-$(CONFIG_UCLIBC) += lib
-obj-$(CONFIG_WLCONF) += wlconf
-obj-$(CONFIG_BRIDGE) += bridge
-obj-$(CONFIG_BUSYBOX) += busybox
-obj-$(CONFIG_DNSMASQ) += dnsmasq
-obj-$(CONFIG_IPTABLES) += iptables
-obj-$(CONFIG_LIBIPT) += iptables
-obj-$(CONFIG_NAS) += nas
-obj-$(CONFIG_SES) += ses
-obj-$(CONFIG_EZC) += ezc
-obj-$(CONFIG_NETCONF) += netconf
-obj-$(CONFIG_NTP) += ntpclient
-obj-$(CONFIG_PPP) += ppp
-obj-$(CONFIG_UDHCPD) += udhcpd
-obj-$(CONFIG_UPNP) += upnp
-obj-$(CONFIG_UTILS) += utils
-obj-$(CONFIG_ETC) += etc
-obj-$(CONFIG_VLAN) += vlan
-
-obj-$(CONFIG_OPENSSL) += openssl
-#obj-$(CONFIG_LIBNET) += net
-#obj-$(CONFIG_LIBPCAP) += pcap
-
-##################################################################
-CONFIG_OTHERS=y
-
-ifeq ($(HSIAB_SUPPORT),1)
-CONFIG_OPENSSL=y
-CONFIG_HTTPD_R=y
-CONFIG_HSIAB=y
-CONFIG_SSLCLIENT=y
-obj-$(CONFIG_HTTPD_R) += httpd_r
-obj-$(CONFIG_HSIAB) += hsiab
-obj-$(CONFIG_SSLCLIENT) += sslclient
-endif
-ifeq ($(HTTPS_SUPPORT),1)
-CONFIG_OPENSSL=y
-endif
-ifeq ($(SNMP_SUPPORT),1)
-CONFIG_OPENSSL=y
-endif
-ifeq ($(MDNS_SUPPORT),1)
-CONFIG_MDNS=y
-obj-$(CONFIG_MDNS) += mDNS
-endif
-ifeq ($(EMI_TEST),1)
-CONFIG_EMITEST=y
-CONFIG_WLTEST=y
-obj-$(CONFIG_EMITEST) += emi
-obj-$(CONFIG_WLTEST) += wltest
-endif
-ifeq ($(SNMP_SUPPORT),1)
-obj-$(CONFIG_SNMP) += snmp
-endif
-ifeq ($(L2TP_SUPPORT),1)
-obj-$(CONFIG_L2TP) += rp-l2tp
-endif
-ifeq ($(HEARTBEAT_SUPPORT),1)
-obj-$(CONFIG_HEARTBEAT) += bpalogin
-endif
-ifeq ($(PARENTAL_CONTROL_SUPPORT),1)
- ifeq ($(LOCALE),EUROPE)
- obj-$(CONFIG_PARENTAL_CONTROL) += artemis_old
- else
- obj-$(CONFIG_PARENTAL_CONTROL) += artemis
- endif
-endif
-
-ifeq ($(WAKE_ON_LAN_SUPPORT),1)
-obj-$(CONFIG_WAKE_ON_LAN) += wol
-endif
-
-ifeq ($(TINYLOGIN_SUPPORT),1)
-obj-$(CONFIG_TINYLOGIN) += tinylogin
-endif
-
-ifeq ($(SAMBA_SUPPORT),1)
-obj-$(CONFIG_SAMBA) += samba
-endif
-
-ifeq ($(MULTICAST_SUPPORT),1)
-obj-$(CONFIG_MULTICAST) += igmp-proxy
-endif
-
-ifeq ($(VERIZON_LAN_SUPPORT),1)
-obj-$(CONFIG_VERIZON_LAN) += dhcprelay
-endif
-
-obj-$(CONFIG_TFTPD) += tftpd
-obj-$(CONFIG_CRON) += cron
-obj-$(CONFIG_PPTP) += pptp-client
-obj-$(CONFIG_PPPD) += pppd
-#obj-$(CONFIG_ZEBRA) += zebra
-obj-$(CONFIG_DDNS) += ipupdate
-obj-$(CONFIG_OPENSSL) += openssl
-obj-$(CONFIG_OTHERS) += others
-obj-$(CONFIG_DIAG) += traceroute
-
-ifeq ($(RXP_SUPPORT),1)
-obj-$(CONFIG_RXP) += rxp
-endif
-
-ifeq ($(PEANUTHULL_SUPPORT),1)
-obj-$(CONFIG_PEANUTHULL) += peanuthull 
-endif
-
-ifeq ($(EOU_SUPPORT),1)
-obj-$(CONFIG_EOU) += eou
-endif
-
-ifeq ($(HW_QOS_SUPPORT),1)
-obj-$(CONFIG_HW_QOS) += iproute2
-endif
-
-ifeq ($(PPPOE_SERVER_SUPPORT),1)
-obj-$(CONFIG_PPPOE_SERVER) += rp-pppoe
-endif
-ifeq ($(PPPOE_RELAY_SUPPORT),1)
-obj-$(CONFIG_PPPOE_RELAY) += rp-pppoe
-endif
-ifeq ($(UTELNETD_SUPPORT),1)
-obj-$(CONFIG_UTELNETD) += utelnetd
-endif
-
-
-obj-$(CONFIG_ZEBRA) += zebra
 
 obj-clean := $(foreach obj,$(obj-y) $(obj-n),$(obj)-clean)
 obj-install := $(foreach obj,$(obj-y),$(obj)-install)
+
+
 
 #
 # Basic rules
 #
 
-all: clean_target $(obj-y) $(LINUXDIR)/.config
-	# Also build kernel
-	# first make dep
-	$(MAKE) -C $(LINUXDIR) dep
-	if ! grep -q "CONFIG_EMBEDDED_RAMDISK=y" $(LINUXDIR)/.config ; then \
+all: clean-build $(obj-y) kernel
+
+
+kernel: $(LINUXDIR)/.config
+	@$(SEP)
+
+	@if ! grep -q "CONFIG_EMBEDDED_RAMDISK=y" $(LINUXDIR)/.config ; then \
 	    $(MAKE) -C $(LINUXDIR) zImage ; \
 	fi
 	if grep -q "CONFIG_MODULES=y" $(LINUXDIR)/.config ; then \
 	    $(MAKE) -C $(LINUXDIR) modules ; \
 	fi
 
-clean: $(obj-clean)
-	rm -rf $(TARGETDIR)
-	rm -f $(PLATFORMDIR)/linux.trx $(PLATFORMDIR)/vmlinuz $(PLATFORMDIR)/target.image
-	if grep -q "MULTILANG_SUPPORT=1" ../cy_conf.mak ; then \
-		rm -f $(PLATFORMDIR)/*lang.trx ; \
-		rm -f $(PLATFORMDIR)/*lang.image ; \
-		rm -f $(PLATFORMDIR)/lcode.* ; \
-	fi
 
-clean_target: 
-	rm -rf $(TARGETDIR)
-	rm -f $(PLATFORMDIR)/linux.trx $(PLATFORMDIR)/vmlinuz $(PLATFORMDIR)/target.image
+kmod: dummy
+	$(MAKE) -C $(LINUXDIR) modules
 
-distclean mrproper: clean
-	rm -f .config $(LINUXDIR)/.config
+fooit:
+	@../btools/libfoo.pl
 
-optimize-lib:
-	#../../tools/optimize_lib.sh netconf/ libnetconf.so libnetconf.a libnetconf_min.so $(TARGETDIR) $(TARGETDIR)/usr/lib/libnetconf.so
-	find $(TARGETDIR) -name ".svn" | xargs rm -rf
-ifeq ($(CONFIG_OPENSSL),y)
-	../../tools/optimize_lib.sh openssl/ libcrypto.so libcrypto.a libcrypto_min.so $(TARGETDIR) $(TARGETDIR)/usr/lib/libcrypto.so
-	../../tools/optimize_lib.sh openssl/ libssl.so libssl.a libssl_min.so $(TARGETDIR) $(TARGETDIR)/usr/lib/libssl.so
-endif
-ifeq ($(ZEBRA_SUPPORT),1)
-	../../tools/optimize_lib.sh zebra/lib/ libzebra.so libzebra.a libzebra_min.so $(TARGETDIR) $(TARGETDIR)/usr/lib/libzebra.so
-endif
-	../../tools/optimize_lib.sh shared/ libshared.so libshared.a libshared_min.so $(TARGETDIR) $(TARGETDIR)/usr/lib/libshared.so
-	../../tools/optimize_lib.sh lib/ libm.so libm.a libm_min.so $(TARGETDIR) $(TARGETDIR)/lib/libm.so.0
-	../../tools/optimize_lib.sh busybox/ libbb.so libbb.a libbb_min.so $(TARGETDIR) $(TARGETDIR)/usr/lib/libbb.so
-	../../tools/optimize_lib.sh iptables/ libiptables.so libiptables.a libiptables_min.so $(TARGETDIR) $(TARGETDIR)/usr/lib/libiptables.so
+install package: $(obj-install) $(LINUXDIR)/.config
+	@$(SEP)
 
-install package: $(filter-out lib-install,$(obj-install)) $(LINUXDIR)/.config
-	# Install binaries into target directory
 	install -d $(TARGETDIR)
+
+
+# kernel modules
+	$(MAKE) -C $(LINUXDIR) modules_install DEPMOD=/bin/true INSTALL_MOD_PATH=$(TARGETDIR)
+	find $(TARGETDIR)/lib/modules -name *.o -exec mipsel-linux-strip --strip-unneeded {} \;
+
+	-cd $(TARGETDIR)/lib/modules/2.4.20/kernel/drivers/net && mv diag/* . && rm -rf diag
+
+# nice and clean
+	-cd $(TARGETDIR)/lib/modules/2.4.20/kernel/drivers/net && mv et.4702/* . && rm -rf et.4702 || true
+	cd $(TARGETDIR)/lib/modules/2.4.20/kernel/drivers/net && mv et/* . && rm -rf et
+	cd $(TARGETDIR)/lib/modules/2.4.20/kernel/drivers/net && mv wl/* . && rm -rf wl
+	cd $(TARGETDIR)/lib/modules/2.4.20/kernel/fs && mv cifs/* . && rm -rf cifs
+	cd $(TARGETDIR)/lib/modules/2.4.20/kernel/fs && mv jffs2/* . && rm -rf jffs2
+	cd $(TARGETDIR)/lib/modules/2.4.20/kernel/lib && mv zlib_inflate/* . && rm -rf zlib_inflate
+	cd $(TARGETDIR)/lib/modules/2.4.20/kernel/lib && mv zlib_deflate/* . && rm -rf zlib_deflate
+	rm -rf $(TARGETDIR)/lib/modules/2.4.20/pcmcia
+
+# misc
 	for dir in $(wildcard $(patsubst %,$(INSTALLDIR)/%,$(obj-y))) ; do \
 	    (cd $${dir} && tar cpf - .) | (cd $(TARGETDIR) && tar xpf -) \
 	done
-	# optimize the crypto library by removing unneeded symbols
-	[ ! -d libbcmcrypto ] || $(MAKE) -C libbcmcrypto optimize
-	# Install (and possibly optimize) C library
-	$(MAKE) lib-install
-	# optimize the others library by removing unneeded symbols
-	$(MAKE) optimize-lib
-	# Install modules into filesystem
-	if grep -q "CONFIG_MODULES=y" $(LINUXDIR)/.config ; then \
-	    $(MAKE) -C $(LINUXDIR) modules_install DEPMOD=/bin/true INSTALL_MOD_PATH=$(TARGETDIR) ; \
-	fi
-	find $(TARGETDIR) -name "wl_*.o"  | xargs rm -rf
-	# Prepare filesystem
-	cd $(TARGETDIR) && $(TOP)/misc/rootprep.sh
-	cd $(TARGETDIR)  &&  find . -iname "CVS" | xargs rm -rf
-	# Make sure mkcramfs-2.0 is used
-	if grep -q "CONFIG_SQUASHFS=y" $(LINUXDIR)/.config ; then \
-	    $(MAKE) -C $(LINUXDIR)/scripts/squashfs ; \
-	    $(LINUXDIR)/scripts/squashfs/mksquashfs $(TARGETDIR) $(PLATFORMDIR)/target.image -info ; \
-	    if grep -q "MULTILANG_SUPPORT=1" ../cy_conf.mak ; then \
-	            rm -f $(PLATFORMDIR)/*lang.* ; \
-	            rm -f $(PLATFORMDIR)/lcode.trx ; \
-		    $(LINUXDIR)/scripts/squashfs/mksquashfs www/$(WEB_PAGE) $(PLATFORMDIR)/default_lang.image -info ; \
-	    fi \
-	elif grep -q "CONFIG_CRAMFS=y" $(LINUXDIR)/.config ; then \
-	    $(MAKE) -C $(LINUXDIR)/scripts/cramfs mkcramfs ; \
-	    if grep -q "CONFIG_LZMA_FS_INFLATE=y" $(LINUXDIR)/.config ; then \
-	        $(LINUXDIR)/scripts/cramfs/mkcramfs -l $(TARGETDIR) $(PLATFORMDIR)/target.image ; \
-		    if grep -q "MULTILANG_SUPPORT=1" ../cy_conf.mak ; then \
-		            rm -f $(PLATFORMDIR)/*lang.* ; \
-		            rm -f $(PLATFORMDIR)/lcode.trx ; \
-			    $(LINUXDIR)/scripts/cramfs/mkcramfs -l www/$(WEB_PAGE) $(PLATFORMDIR)/default_lang.image ; \
-		    fi \
-	    else \
-	        $(LINUXDIR)/scripts/cramfs/mkcramfs $(TARGETDIR) $(PLATFORMDIR)/target.image ; \
-		    if grep -q "MULTILANG_SUPPORT=1" ../cy_conf.mak ; then \
-		            rm -f $(PLATFORMDIR)/*lang.* ; \
-		            rm -f $(PLATFORMDIR)/lcode.trx ; \
-			    $(LINUXDIR)/scripts/cramfs/mkcramfs www/$(WEB_PAGE) $(PLATFORMDIR)/default_lang.image ; \
-		    fi \
-	    fi \
-	fi
-	# Package kernel and filesystem
-	if grep -q "CONFIG_EMBEDDED_RAMDISK=y" $(LINUXDIR)/.config ; then \
-	    cp $(PLATFORMDIR)/target.image $(LINUXDIR)/arch/mips/ramdisk/$${CONFIG_EMBEDDED_RAMDISK_IMAGE} ; \
-	    $(MAKE) -C $(LINUXDIR) zImage ; \
-	else \
-	    cp $(LINUXDIR)/arch/mips/brcm-boards/bcm947xx/compressed/vmlinuz $(PLATFORMDIR)/ ; \
-	    trx -o $(PLATFORMDIR)/linux.trx $(PLATFORMDIR)/vmlinuz $(PLATFORMDIR)/target.image ; \
-	    if grep -q "MULTILANG_SUPPORT=1" ../cy_conf.mak ; then \
-		    trx -o $(PLATFORMDIR)/lcode.trx $(PLATFORMDIR)/vmlinuz $(PLATFORMDIR)/target.image ; \
-		    trx -o $(PLATFORMDIR)/default_lang.trx $(PLATFORMDIR)/default_lang.image ; \
-	    fi \
-	fi
 
-	# Pad self-booting Linux to a 64 KB boundary
-	cp $(LINUXDIR)/arch/mips/brcm-boards/bcm947xx/compressed/zImage $(PLATFORMDIR)/
-	dd conv=sync bs=64k < $(PLATFORMDIR)/zImage > $(PLATFORMDIR)/linux.bin
-	# Append filesystem to self-booting Linux
-	cat $(PLATFORMDIR)/target.image >> $(PLATFORMDIR)/linux.bin
+ifneq ($(TCONFIG_JFFS2),y)
+	rm -f $(TARGETDIR)/lib/modules/2.4.20/kernel/fs/jffs2.o
+	rm -rf $(TARGETDIR)/lib/modules/2.4.20/kernel/lib/zlib_*
+endif
+
+ifneq ($(TCONFIG_CIFS),y)
+	rm -f $(TARGETDIR)/lib/modules/2.4.20/kernel/fs/cifs.o
+endif
+
+ifneq ($(TCONFIG_L7),y)
+	rm -f $(TARGETDIR)/lib/modules/2.4.20/kernel/net/ipv4/netfilter/ipt_layer7.o
+	rm -f $(TARGETDIR)/usr/lib/iptables/libipt_layer7.so
+endif
+
+# separated extra stuff
+	@rm -rf $(PLATFORMDIR)/extras
+	@mkdir $(PLATFORMDIR)/extras
+	@mv $(TARGETDIR)/lib/modules/2.4.20/kernel/net/ipv4/ip_gre.o $(PLATFORMDIR)/extras/
+	@mv $(TARGETDIR)/lib/modules/2.4.20/kernel/drivers/net/tun.o $(PLATFORMDIR)/extras/
+
+# uClibc
+	install $(LIBDIR)/ld-uClibc.so.0 $(TARGETDIR)/lib/
+	install $(LIBDIR)/libcrypt.so.0 $(TARGETDIR)/lib/
+	install $(LIBDIR)/libc.so.0 $(TARGETDIR)/lib/
+	install $(LIBDIR)/libdl.so.0 $(TARGETDIR)/lib/
+	install $(LIBDIR)/libm.so.0 $(TARGETDIR)/lib/
+	install $(LIBDIR)/libutil.so.0 $(TARGETDIR)/lib/
+	install $(LIBDIR)/libnsl.so.0 $(TARGETDIR)/lib/
+
+	@cd $(TARGETDIR) && $(TOP)/others/rootprep.sh
+
+	@echo ---
+	busybox/examples/depmod.pl -k $(LINUXDIR)/vmlinux -b $(TARGETDIR)/lib/modules/2.4.20/
+	@echo ---
+
+	@rm -f $(TARGETDIR)/lib/modules/2.4.20/build
+
+	@../btools/libfoo.pl
+	@chmod 0555 $(TARGETDIR)/lib/*.so*
+
+
+	@mkdir -p $(TARGETDIR)/rom/etc/l7-protocols
+ifeq ($(TCONFIG_L7PAT),y)
+	@cd layer7 && ./squish.sh
+	cp layer7/squished/*.pat $(TARGETDIR)/rom/etc/l7-protocols
+endif
+
+	@$(MAKE) -C $(SRCBASE)/linux/linux/scripts/squashfs mksquashfs-lzma
+	@$(SRCBASE)/linux/linux/scripts/squashfs/mksquashfs-lzma $(TARGETDIR) $(PLATFORMDIR)/target.image
+
+#	Package kernel and filesystem
+#	if grep -q "CONFIG_EMBEDDED_RAMDISK=y" $(LINUXDIR)/.config ; then \
+#	    cp $(PLATFORMDIR)/target.image $(LINUXDIR)/arch/mips/ramdisk/$${CONFIG_EMBEDDED_RAMDISK_IMAGE} ; \
+#	    $(MAKE) -C $(LINUXDIR) zImage ; \
+#	else \
+#	    cp $(LINUXDIR)/arch/mips/brcm-boards/bcm947xx/compressed/vmlinuz $(PLATFORMDIR)/ ; \
+#	    trx -o $(PLATFORMDIR)/linux.trx $(PLATFORMDIR)/vmlinuz $(PLATFORMDIR)/target.image ; \
+#	fi
+
+# 	Pad self-booting Linux to a 64 KB boundary
+#	cp $(LINUXDIR)/arch/mips/brcm-boards/bcm947xx/compressed/zImage $(PLATFORMDIR)/
+#	dd conv=sync bs=64k < $(PLATFORMDIR)/zImage > $(PLATFORMDIR)/linux.bin
+# 	Append filesystem to self-booting Linux
+#	cat $(PLATFORMDIR)/target.image >> $(PLATFORMDIR)/linux.bin
+
+
 
 #
-# Configuration rules
+# cleaners
 #
 
-conf mconf:
-	$(MAKE) -C config
-	@./config/$@ ./config/Config
-	# Also configure kernel
-	$(MAKE) k$@
+clean: clean-build $(obj-clean)
+	rm -rf layer7/squished
 
-oldconf: .config
-	$(MAKE) -C config
-	@./config/conf -o ./config/Config
-	# Also configure kernel
-	$(MAKE) k$@
+clean-build: dummy
+	rm -rf $(TARGETDIR)
+	rm -rf $(INSTALLDIR)
+	rm -f $(PLATFORMDIR)/linux.trx $(PLATFORMDIR)/vmlinuz $(PLATFORMDIR)/target.image
+	rm -rf $(PLATFORMDIR)/extras
+
+distclean: clean
+ifneq ($(INSIDE_MAK),1)
+	$(MAKE) -C .. $@ INSIDE_MAK=1
+endif
+
+#
+# configuration
+#
+
+CONFIG_IN := config/config.in
+
+config/conf config/mconf:
+	@$(MAKE) -C config
+
+rconf: config/conf
+	@config/conf $(CONFIG_IN)
+
+rmconf: config/mconf
+	@config/mconf $(CONFIG_IN)
+
+roldconf: config/conf
+	@config/conf -o $(CONFIG_IN)
 
 kconf:
-	$(MAKE) -C $(LINUXDIR) config
+	@$(MAKE) -C $(LINUXDIR) config
 
 kmconf:
-	$(MAKE) -C $(LINUXDIR) menuconfig
+	@$(MAKE) -C $(LINUXDIR) menuconfig
 
-koldconf: $(LINUXDIR)/.config
-	$(MAKE) -C $(LINUXDIR) oldconfig
+koldconf:
+	@$(MAKE) -C $(LINUXDIR) oldconfig
 
-# Convenience
-config: conf
+config conf: rconf kconf
 
-menuconfig: mconf
+menuconfig mconf: rmconf kmconf
 
-oldconfig: oldconf
+oldconfig oldconf: roldconf koldconf
 
-# Default configurations
-.config:
-	cp config/defconfig $@
-	$(MAKE) oldconfig
-
-$(LINUXDIR)/.config:
-	cp $(LINUXDIR)/arch/mips/defconfig-bcm947xx $@
 
 #
-# Overrides
+# overrides and extra dependencies
 #
 
-OLDBBCFG=$(shell basename $$(readlink busybox/Config.h))
-CURBBCFG=$(CONFIG_BUSYBOX_CONFIG).h
-
-busybox/Config.h: dummy
-ifneq ($(OLDBBCFG),$(CURBBCFG))
-	cd busybox && rm -f Config.h && ln -sf configs/$(CURBBCFG) Config.h && touch Config.h
-endif
-
-busybox: busybox/Config.h
-	$(MAKE) -C busybox STRIPTOOL=$(STRIP)
-
+# 1.2:
+busybox: busybox/include/bb_config.h
+	@$(MAKE) -C busybox CROSS_CFLAGS="-mips2"
+busybox/include/bb_config.h:
+	@$(MAKE) -C busybox oldconfig
+	@$(MAKE) -C busybox clean
 busybox-install:
-	$(MAKE) -C busybox STRIPTOOL=$(STRIP) PREFIX=$(INSTALLDIR)/busybox install
+	rm -rf $(INSTALLDIR)/busybox
+	$(MAKE) -C busybox install PREFIX=$(INSTALLDIR)/busybox
 
-httpd: nvram shared openssl hsiab
-	$(MAKE) -C httpd
+httpd: matrixssl shared nvram mssl
+	@$(SEP)
+	@$(MAKE) -C httpd
 
-rc: netconf nvram shared openssl hsiab libnet
-ifneq ($(CONFIG_BUSYBOX),)
-rc: busybox/Config.h
-endif
 
-www www-%:
-	$(MAKE) -C www/$(WEB_PAGE) $* INSTALLDIR=$(INSTALLDIR)/www
+matrixssl:
+	@$(SEP)
+	@$(MAKE) -C matrixssl/src
+
+matrixssl-install:
+	@true
+
+matrixssl-clean:
+	$(MAKE) -C matrixssl/src clean
+
+
+openssl-install:
+	install -D openssl/libcrypto.so $(INSTALLDIR)/openssl/usr/lib/libcrypto.so
+	$(STRIP) $(INSTALLDIR)/openssl/usr/lib/libcrypto.so
+
+	install -D -m 500 openssl/apps/openssl $(INSTALLDIR)/openssl/usr/sbin/openssl
+	$(STRIP) $(INSTALLDIR)/openssl/usr/sbin/openssl
+
+	install -D -m 0500 httpd/gencert.sh $(INSTALLDIR)/openssl/usr/sbin/gencert.sh
+
+#	perl -e 'while (<>) { s/.SECS/time()-(24*60*60)/e; print; }' < httpd/gencert.sh > $(INSTALLDIR)/openssl/usr/sbin/gencert.sh
+#	chmod 0500 $(INSTALLDIR)/openssl/usr/sbin/gencert.sh
+
+#	install -D openssl/libssl.so $(INSTALLDIR)/openssl/usr/lib/libssl.so
+#	$(STRIP) $(INSTALLDIR)/openssl/usr/lib/libssl.so
+
+mssl:	matrixssl
+
+mdu:	shared mssl
+
+rc: nvram shared
+
 
 bridge:
-	$(MAKE) -C bridge brctl/brctl
+	@$(SEP)
+	@$(MAKE) -C bridge brctl/brctl
 
 bridge-install:
 	install -D bridge/brctl/brctl $(INSTALLDIR)/bridge/usr/sbin/brctl
 	$(STRIP) $(INSTALLDIR)/bridge/usr/sbin/brctl
 
+
 dnsmasq-install:
-	install -D dnsmasq/dnsmasq $(INSTALLDIR)/dnsmasq/usr/sbin/dnsmasq
+	install -D dnsmasq/src/dnsmasq $(INSTALLDIR)/dnsmasq/usr/sbin/dnsmasq
 	$(STRIP) $(INSTALLDIR)/dnsmasq/usr/sbin/dnsmasq
 
 iptables:
+	@$(SEP)
 	$(MAKE) -C iptables BINDIR=/usr/sbin LIBDIR=/usr/lib KERNEL_DIR=$(LINUXDIR)
 
 iptables-install:
-ifeq ($(CONFIG_IPTABLES),y)
-	install -d $(INSTALLDIR)/iptables/usr/lib/iptables
-	install iptables/extensions/*.so $(INSTALLDIR)/iptables/usr/lib/iptables
-	$(STRIP) $(INSTALLDIR)/iptables/usr/lib/iptables/*.so
 	install -D iptables/iptables $(INSTALLDIR)/iptables/usr/sbin/iptables
+	cd $(INSTALLDIR)/iptables/usr/sbin && \
+		ln -sf iptables iptables-restore
+
+	install -d $(INSTALLDIR)/iptables/usr/lib/iptables
+	install -D iptables/extensions/*.so $(INSTALLDIR)/iptables/usr/lib/iptables/
+
+	install -D iptables/libiptc.so $(INSTALLDIR)/iptables/usr/lib/libiptc.so
+
 	$(STRIP) $(INSTALLDIR)/iptables/usr/sbin/iptables
-	install -D iptables/iptables-restore $(INSTALLDIR)/iptables/usr/sbin/iptables-restore
-	$(STRIP) $(INSTALLDIR)/iptables/usr/sbin/iptables-restore
-	install -D iptables/libiptables.so $(INSTALLDIR)/iptables/usr/lib/libiptables.so
-	$(STRIP) $(INSTALLDIR)/iptables/usr/lib/libiptables.so
-else
-	# So that generic rule does not take precedence
-	@true
-endif
+	$(STRIP) $(INSTALLDIR)/iptables/usr/lib/iptables/*.so
+	$(STRIP) $(INSTALLDIR)/iptables/usr/lib/libiptc.so
 
 iptables-clean:
 	-$(MAKE) -C iptables KERNEL_DIR=$(LINUXDIR) clean
 
+ppp:
+	@$(SEP)
+	$(MAKE) -C ppp/pppoecd $* INSTALLDIR=$(INSTALLDIR)/ppp 
+#	$(MAKE) -C ppp/pppoecd $* INSTALLDIR=$(INSTALLDIR)/ppp DFLAGS="-DDEBUG -DDEBUGALL"
 
-netconf: iptables
-
-ntpclient-install:
-	install -D ntpclient/ntpclient $(INSTALLDIR)/ntpclient/usr/sbin/ntpclient
-	$(STRIP) $(INSTALLDIR)/ntpclient/usr/sbin/ntpclient
-
-ppp ppp-%:
+ppp-%:
 	$(MAKE) -C ppp/pppoecd $* INSTALLDIR=$(INSTALLDIR)/ppp
 
-udhcpd: shared nvram
 
-udhcpd-install:
-	install -D udhcpd/udhcpd $(INSTALLDIR)/udhcpd/usr/sbin/udhcpd
-	install -D udhcpd/dumpleases $(INSTALLDIR)/udhcpd/usr/sbin/dumpleases
-	$(STRIP) $(INSTALLDIR)/udhcpd/usr/sbin/udhcpd
-	$(STRIP) $(INSTALLDIR)/udhcpd/usr/sbin/dumpleases
-	cd $(INSTALLDIR)/udhcpd/usr/sbin && ln -sf udhcpd udhcpc
 
-upnp: netconf nvram shared
+upnp: nvram shared iptables
 
-wlconf: nvram shared
+#	miniupnpd-install:
+#		install -D miniupnpd/miniupnpd $(INSTALLDIR)/miniupnpd/usr/sbin/miniupnpd
+#		$(STRIP) $(INSTALLDIR)/miniupnpd/usr/sbin/miniupnpd
+
+nvram: shared
 
 vlan:
-	$(MAKE) -C vlan CROSS=$(CROSS_COMPILE) STRIPTOOL=$(STRIP)
+	@$(SEP)
+	@$(MAKE) -C vlan CROSS=$(CROSS_COMPILE) STRIPTOOL=$(STRIP)
 
 vlan-install:
 	$(MAKE) -C vlan CROSS=$(CROSS_COMPILE) STRIPTOOL=$(STRIP) INSTALLDIR=$(INSTALLDIR) install
 
-vlan-clean:
-	$(MAKE) -C vlan clean
-
-nas-install:
-	cd $(INSTALLDIR)/nas/usr/sbin && ln -sf nas nas4not
-
-libbcm:
-	[ ! -f libbcm/Makefile ] || $(MAKE) -C libbcm
-
-libbcm-install:
-	install -D libbcm/libbcm.so $(INSTALLDIR)/libbcm/usr/lib/libbcm.so
-	$(STRIP) $(INSTALLDIR)/libbcm/usr/lib/libbcm.so
-
-ses:
-	[ ! -f ses/Makefile ] || $(MAKE) -C ses
-
-ses-install:
-	install -D ses/ses/ses $(INSTALLDIR)/ses/usr/sbin/ses
-	$(STRIP) $(INSTALLDIR)/ses/usr/sbin/ses
-
-########################################################################
-# Below is added by CT
-
-tftpd-install:
-	[ ! -d tftpd ] || install -D tftpd/tftpd $(INSTALLDIR)/tftpd/usr/sbin/tftpd
-	$(STRIP) $(INSTALLDIR)/tftpd/usr/sbin/tftpd
-
-cron-install:
-	#install -d $(INSTALLDIR)/cron/etc/cron.d
-	install -D cron/cron $(INSTALLDIR)/cron/usr/sbin/cron
-	$(STRIP) $(INSTALLDIR)/cron/usr/sbin/cron
 
 pptp-client-install:
 	install -D pptp-client/pptp $(INSTALLDIR)/pptp-client/usr/sbin/pptp
 	$(STRIP) $(INSTALLDIR)/pptp-client/usr/sbin/pptp
 
+
 pppd:
-	$(MAKE) -C pppd/pppd
+	@$(SEP)
+	@$(MAKE) -C pppd/pppd
 
 pppd-clean:
 	$(MAKE) -C pppd/pppd clean
@@ -507,12 +385,14 @@ pppd-install:
 	install -D pppd/pppd/pppd $(INSTALLDIR)/pppd/usr/sbin/pppd
 	$(STRIP) $(INSTALLDIR)/pppd/usr/sbin/pppd
 
-ipupdate-install:
-	install -D ipupdate/ez-ipupdate $(INSTALLDIR)/ipupdate/usr/sbin/ez-ipupdate
-	$(STRIP) $(INSTALLDIR)/ipupdate/usr/sbin/ez-ipupdate
+#	ipupdate-install:
+#		install -D ipupdate/ez-ipupdate $(INSTALLDIR)/ipupdate/usr/sbin/ez-ipupdate
+#		$(STRIP) $(INSTALLDIR)/ipupdate/usr/sbin/ez-ipupdate
+
 
 zebra:
-	$(MAKE) -C zebra CC=$(CC) AR=$(AR) RANLIB=$(RANLIB)
+	@$(SEP)
+	@$(MAKE) -C zebra CC=$(CC) AR=$(AR) RANLIB=$(RANLIB)
 
 zebra-install:
 	install -D zebra/zebra/zebra $(INSTALLDIR)/zebra/usr/sbin/zebra
@@ -522,66 +402,7 @@ zebra-install:
 	$(STRIP) $(INSTALLDIR)/zebra/usr/sbin/ripd
 	$(STRIP) $(INSTALLDIR)/zebra/usr/lib/libzebra.so
 
-openssl-install:
-	install -D openssl/libcrypto.so $(INSTALLDIR)/openssl/usr/lib/libcrypto.so
-	$(STRIP) $(INSTALLDIR)/openssl/usr/lib/libcrypto.so
-	install -D openssl/libssl.so $(INSTALLDIR)/openssl/usr/lib/libssl.so
-	$(STRIP) $(INSTALLDIR)/openssl/usr/lib/libssl.so
-	install -D openssl/apps/openssl $(INSTALLDIR)/openssl/usr/sbin/openssl
-	$(STRIP) $(INSTALLDIR)/openssl/usr/sbin/openssl
 
-ifeq ($(PEANUTHULL_SUPPORT),1)
-peanuthull-install:
-	install -D peanuthull/peanuthull $(INSTALLDIR)/peanuthull/usr/sbin/peanuthull
-	$(STRIP) $(INSTALLDIR)/peanuthull/usr/sbin/peanuthull
-endif
-
-ifeq ($(HSIAB_SUPPORT),1)
-httpd_r-install:
-	install -D httpd_r/httpd_r $(INSTALLDIR)/httpd_r/usr/sbin/httpd_r
-	$(STRIP) $(INSTALLDIR)/httpd_r/usr/sbin/httpd_r
-
-hsiab-install:
-	install -D hsiab/libhsiab.so $(INSTALLDIR)/hsiab/usr/lib/libhsiab.so
-	install -D hsiab/test/test_register $(INSTALLDIR)/hsiab/usr/sbin/test_register
-	install -D hsiab/test/test_hsiab $(INSTALLDIR)/hsiab/usr/sbin/test_hsiab
-	$(STRIP) $(INSTALLDIR)/hsiab/usr/lib/libhsiab.so
-	$(STRIP) $(INSTALLDIR)/hsiab/usr/sbin/test_register
-	$(STRIP) $(INSTALLDIR)/hsiab/usr/sbin/test_hsiab
-
-sslclient: openssl
-	$(MAKE) -C sslclient
-
-sslclient-install:
-	install -D sslclient/sslclient $(INSTALLDIR)/sslclient/usr/sbin/sslclient
-	install -D sslclient/root.pem $(INSTALLDIR)/sslclient/etc/root.pem
-	install -D sslclient/client.pem $(INSTALLDIR)/sslclient/etc/client.pem
-	$(STRIP) $(INSTALLDIR)/sslclient/usr/sbin/sslclient
-endif
-
-ifeq ($(MDNS_SUPPORT),1)
-mDNS:
-	$(MAKE) -C mDNS/mDNSPosix os=linux
-
-mDNS-clean:
-	$(MAKE) -C mDNS/mDNSPosix clean
-
-mDNS-install:
-	install -D mDNS/mDNSPosix/build/mDNSResponderPosix $(INSTALLDIR)/mDNS/usr/sbin/mDNSResponderPosix
-	$(STRIP) $(INSTALLDIR)/mDNS/usr/sbin/mDNSResponderPosix
-endif
-
-ifeq ($(EMI_TEST),1)
-emi-install:
-	install -d $(INSTALLDIR)/emi/usr/sbin/
-	cp -f emi/*_* $(INSTALLDIR)/emi/usr/sbin/
-
-wltest-install:
-	install -D wltest/wltest $(INSTALLDIR)/wltest/usr/sbin/wltest
-	$(STRIP) $(INSTALLDIR)/wltest/usr/sbin/wltest
-endif
-
-ifeq ($(L2TP_SUPPORT),1)
 rp-l2tp-install:
 	install -d $(INSTALLDIR)/rp-l2tp/usr/lib/l2tp
 	install rp-l2tp/handlers/*.so $(INSTALLDIR)/rp-l2tp/usr/lib/l2tp
@@ -590,163 +411,81 @@ rp-l2tp-install:
 	$(STRIP) $(INSTALLDIR)/rp-l2tp/usr/sbin/l2tp-control
 	install -D rp-l2tp/l2tpd $(INSTALLDIR)/rp-l2tp/usr/sbin/l2tpd
 	$(STRIP) $(INSTALLDIR)/rp-l2tp/usr/sbin/l2tpd
-endif
 
-ifeq ($(HEARTBEAT_SUPPORT),1)
+
 bpalogin-install:
 	install -D bpalogin/bpalogin $(INSTALLDIR)/bpalogin/usr/sbin/bpalogin
 	$(STRIP) $(INSTALLDIR)/bpalogin/usr/sbin/bpalogin
-endif
 
-ifeq ($(MULTICAST_SUPPORT),1)
-igmp-proxy-install:
-	[ ! -d igmp-proxy ] || install -D igmp-proxy/igmprt $(INSTALLDIR)/igmp-proxy/usr/sbin/igmprt
-	$(STRIP) $(INSTALLDIR)/igmp-proxy/usr/sbin/igmprt
-endif
 
-ifeq ($(VERIZON_LAN_SUPPORT),1)
-dhcprelay-install:
-	install -D dhcprelay/dhcrelay $(INSTALLDIR)/dhcprelay/usr/sbin/dhcrelay
-	$(STRIP) $(INSTALLDIR)/dhcprelay/usr/sbin/dhcrelay
-endif
+#	libnet:
+#		@$(SEP)
+#		@-mkdir -p libnet/lib
+#		@$(MAKE) -C libnet CC=$(CC) AR=$(AR) RANLIB=$(RANLIB)
 
-ifeq ($(SNMP_SUPPORT),1)
-snm/libp: openssl
-	$(MAKE) -C snmp CC=$(CC) SHLIB_LD_CMD="$(AR) cr"
-snmp-install:
-	install -D snmp/agent/snmpd $(INSTALLDIR)/snmp/usr/sbin/snmpd
-	$(STRIP) $(INSTALLDIR)/snmp/usr/sbin/snmpd
-	install -D snmp/snmplib/libsnmp.so $(INSTALLDIR)/snmp/usr/lib/libsnmp.so
-	$(STRIP) $(INSTALLDIR)/snmp/usr/lib/libsnmp.so
-	install -D snmp/apps/snmptrap $(INSTALLDIR)/snmp/usr/sbin/snmptrap
-	$(STRIP) $(INSTALLDIR)/snmp/usr/sbin/snmptrap
-	install -D snmp/gen_snmpd_conf/gen_snmpd_conf $(INSTALLDIR)/snmp/usr/sbin/gen_snmpd_conf
-	$(STRIP) $(INSTALLDIR)/snmp/usr/sbin/gen_snmpd_conf
-	install -D snmp/agent/snmpd.conf $(INSTALLDIR)/snmp/usr/local/share/snmp/snmpd.conf
-endif
+#	libpcap:
+#		@$(SEP)
+#		@$(MAKE) -C libpcap CC=$(CC) AR=$(AR) RANLIB=$(RANLIB)
 
-ifeq ($(PARENTAL_CONTROL_SUPPORT),1)
-artemis: nvram
-	[ ! -d artemis ] || $(MAKE) -C artemis deps
-	[ ! -d artemis ] || $(MAKE) -C artemis CC=$(CC) AR=$(AR)
+libbcm:
+	@[ ! -f libbcm/Makefile ] || $(MAKE) -C libbcm
 
-artemis-install:
-	[ ! -d artemis ] || install -D artemis/LINUX/artemis $(INSTALLDIR)/artemis/usr/sbin/artemis
-	[ ! -d artemis ] || install -D artemis/LINUX/artmain $(INSTALLDIR)/artemis/usr/sbin/artmain
-	$(STRIP) $(INSTALLDIR)/artemis/usr/sbin/artemis
-	$(STRIP) $(INSTALLDIR)/artemis/usr/sbin/artmain
-artemis_old: nvram
-	[ ! -d artemis_old ] || $(MAKE) -C artemis_old deps
-	[ ! -d artemis_old ] || $(MAKE) -C artemis_old CC=$(CC) AR=$(AR)
+libbcm-install:
+	install -D libbcm/libbcm.so $(INSTALLDIR)/libbcm/usr/lib/libbcm.so
+	$(STRIP) $(INSTALLDIR)/libbcm/usr/lib/libbcm.so
 
-artemis_old-install:
-	[ ! -d artemis_old ] || install -D artemis_old/LINUX/artemis $(INSTALLDIR)/artemis_old/usr/sbin/artemis
-	[ ! -d artemis_old ] || install -D artemis_old/LINUX/artmain $(INSTALLDIR)/artemis_old/usr/sbin/artmain
-	$(STRIP) $(INSTALLDIR)/artemis_old/usr/sbin/artemis
-	$(STRIP) $(INSTALLDIR)/artemis_old/usr/sbin/artmain
-endif
 
-ifeq ($(EOU_SUPPORT),1)
-eou: libnet libpcap
-	[ ! -d eou ] || $(MAKE) -C eou
-
-eou-install:
-	[ ! -d eou ] || install -D eou/eou $(INSTALLDIR)/eou/usr/sbin/eou
-	$(STRIP) $(INSTALLDIR)/eou/usr/sbin/eou
-
-libnet:
-	-mkdir -p libnet/lib
-	$(MAKE) -C libnet CC=$(CC) AR=$(AR) RANLIB=$(RANLIB)
-
-libpcap:
-	$(MAKE) -C libpcap CC=$(CC) AR=$(AR) RANLIB=$(RANLIB)
-endif
-
-ifeq ($(WAKE_ON_LAN_SUPPORT),1)
-wol: 
-	[ ! -d wol ] || $(MAKE) -C wol
-wol-install:
-	[ ! -d wol ] || install -D wol/ether-wake $(INSTALLDIR)/wol/usr/sbin/ether-wake
-	$(STRIP) $(INSTALLDIR)/wol/usr/sbin/ether-wake
-endif
-
-ifeq ($(SAMBA_SUPPORT),1)
-samba:
-	[ ! -d samba ] || $(MAKE) -C samba CC=$(CC)
-samba-install:
-	[ ! -d samba ] || install -D samba/bin/smbclient $(INSTALLDIR)/samba/usr/sbin/smbclient
-	[ ! -d samba ] || install -D samba/bin/nmblookup $(INSTALLDIR)/samba/usr/sbin/nmblookup 
-	$(STRIP) $(INSTALLDIR)/samba/usr/sbin/smbclient
-	$(STRIP) $(INSTALLDIR)/samba/usr/sbin/nmblookup
-endif
-
-ifeq ($(TINYLOGIN_SUPPORT),1)
-tinylogin:
-	[ ! -d tinylogin ] || $(MAKE) -C tinylogin
-tinylogin-install:
-	[ ! -d tinylogin ] || $(MAKE) -C tinylogin PREFIX=$(INSTALLDIR)/tinylogin install
-endif
-
-traceroute:
-	$(MAKE) -C traceroute CC=$(CC)
-traceroute-install:
-	install -D traceroute/traceroute $(INSTALLDIR)/traceroute/usr/sbin/traceroute
-	$(STRIP) $(INSTALLDIR)/traceroute/usr/sbin/traceroute
-
-ifeq ($(HW_QOS_SUPPORT),1)
 iproute2-install:
 	install -D iproute2/tc/tc $(INSTALLDIR)/iproute2/usr/sbin/tc
 	$(STRIP) $(INSTALLDIR)/iproute2/usr/sbin/tc
-	#install -D iproute2/ip/ip $(INSTALLDIR)/iproute2/usr/sbin/ip
-	#$(STRIP) $(INSTALLDIR)/iproute2/usr/sbin/ip
-	#install -D iproute2/tc/prio.sh $(INSTALLDIR)/iproute2/usr/sbin/prio.sh
-	#install -D iproute2/tc/cbq.sh $(INSTALLDIR)/iproute2/usr/sbin/cbq.sh
-	#install -D iproute2/tc/sfq.sh $(INSTALLDIR)/iproute2/usr/sbin/sfq.sh
-	#install -D iproute2/tc/vlan1.sh $(INSTALLDIR)/iproute2/usr/sbin/vlan1.sh
-endif
+	install -D iproute2/ip/ip $(INSTALLDIR)/iproute2/usr/sbin/ip
+	$(STRIP) $(INSTALLDIR)/iproute2/usr/sbin/ip
 
-ifeq ($(PPPOE_SERVER_SUPPORT),1)
-rp-pppoe:
-	$(MAKE) -C rp-pppoe/src/ pppoe
-	$(MAKE) -C rp-pppoe/src/ pppoe-server
-rp-pppoe-install:
-	install -D rp-pppoe/src/pppoe-server $(INSTALLDIR)/rp-pppoe/usr/sbin/pppoe-server
-	install -D rp-pppoe/src/pppoe $(INSTALLDIR)/rp-pppoe/usr/sbin/pppoe
-	$(STRIP) $(INSTALLDIR)/rp-pppoe/usr/sbin/pppoe-server
-	$(STRIP) $(INSTALLDIR)/rp-pppoe/usr/sbin/pppoe
-endif
 
-ifeq ($(PPPOE_RELAY_SUPPORT),1)
-rp-pppoe:
-	$(MAKE) -C rp-pppoe/src/ pppoe-relay
-rp-pppoe-install:
-	install -D rp-pppoe/src/pppoe-relay $(INSTALLDIR)/rp-pppoe/usr/sbin/pppoe-relay
-	$(STRIP) $(INSTALLDIR)/rp-pppoe/usr/sbin/pppoe-relay
-endif
-ifeq ($(RXP_SUPPORT),1)
-rxp:
-	$(MAKE) -C rxp CC=$(CC) AR=$(AR) RANLIB=$(RANLIB)
-	$(MAKE) -C rxp/example xmlparser1 CC=$(CC)
-rxp-install: 
-	install -D rxp/rxp $(INSTALLDIR)/rxp/usr/sbin/rxp
-	install -D rxp/example/xmlparser1 $(INSTALLDIR)/rxp/usr/sbin/xmlparser1
-	$(STRIP) $(INSTALLDIR)/rxp/usr/sbin/rxp
-	$(STRIP) $(INSTALLDIR)/rxp/usr/sbin/xmlparser1
+ntpc: nvram shared
 
-endif
+
+dropbear: dropbear/config.h
+	@$(SEP)
+	@make -C dropbear PROGRAMS="dropbear dbclient dropbearkey scp" MULTI=1
+
+dropbear-install:
+	install -D dropbear/dropbearmulti $(INSTALLDIR)/dropbear/usr/bin/dropbearmulti
+	$(STRIP) $(INSTALLDIR)/dropbear/usr/bin/dropbearmulti
+	cd $(INSTALLDIR)/dropbear/usr/bin && \
+	ln -sf dropbearmulti dropbear && \
+	ln -sf dropbearmulti dropbearconvert && \
+	ln -sf dropbearmulti dropbearkey && \
+	ln -sf dropbearmulti dbclient && \
+	ln -sf dropbearmulti ssh && \
+	ln -sf dropbearmulti scp
+
+dropbear-clean:
+	@make -C dropbear clean
+
+dropbear/config.h:
+	cd dropbear && CFLAGS="-O2 -Wall" ac_cv_func_logout=no ac_cv_func_logwtmp=no ./configure --host=mipsel-linux --disable-zlib --enable-syslog --disable-lastlog --disable-utmp --disable-utmpx --disable-wtmp --disable-wtmpx --disable-pututline --disable-pututxline --disable-loginfunc --disable-largefile
+	make -C dropbear clean
+
+
+
 
 #
 # Generic rules
 #
 
 %:
-	[ ! -d $* ] || $(MAKE) -C $*
+	@[ ! -d $* ] || ( $(SEP); $(MAKE) -C $* )
+
 
 %-clean:
-	[ ! -d $* ] || $(MAKE) -C $* clean
+	@-[ ! -d $* ] || $(MAKE) -C $* clean
 
 %-install:
-	[ ! -d $* ] || $(MAKE) -C $* install INSTALLDIR=$(INSTALLDIR)/$*
+	@[ ! -d $* ] || $(MAKE) -C $* install INSTALLDIR=$(INSTALLDIR)/$*
+
+%-build:
+	$(MAKE) $*-clean $*
 
 $(obj-y) $(obj-n) $(obj-clean) $(obj-install): dummy
 

@@ -11,7 +11,8 @@
 #include <iptables.h>
 #include <stddef.h>
 #include <linux/netfilter_ipv4/ip_tables.h>
-#include <linux/netfilter_ipv4/ipt_limit.h>
+/* For 64bit kernel / 32bit userspace */
+#include "../include/linux/netfilter_ipv4/ipt_limit.h"
 
 #define IPT_LIMIT_AVG	"3/hour"
 #define IPT_LIMIT_BURST	5
@@ -80,10 +81,13 @@ init(struct ipt_entry_match *m, unsigned int *nfcache)
 	parse_rate(IPT_LIMIT_AVG, &r->avg);
 	r->burst = IPT_LIMIT_BURST;
 
-	/* Can't cache this */
-	*nfcache |= NFC_UNKNOWN;
 }
 
+/* FIXME: handle overflow:
+	if (r->avg*r->burst/r->burst != r->avg)
+		exit_error(PARAMETER_PROBLEM,
+			   "Sorry: burst too large for that avg rate.\n");
+*/
 
 /* Function which parses command options; returns true if it
    ate an option */
@@ -98,19 +102,14 @@ parse(int c, char **argv, int invert, unsigned int *flags,
 
 	switch(c) {
 	case '%':
-		if (check_inverse(optarg, &invert, NULL, 0))
-			exit_error(PARAMETER_PROBLEM,
-				   "Unexpected `!' after --limit");
+		if (check_inverse(argv[optind-1], &invert, &optind, 0)) break;
 		if (!parse_rate(optarg, &r->avg))
 			exit_error(PARAMETER_PROBLEM,
 				   "bad rate `%s'", optarg);
 		break;
 
 	case '$':
-		if (check_inverse(optarg, &invert, NULL, 0))
-			exit_error(PARAMETER_PROBLEM,
-				   "Unexpected `!' after --limit-burst");
-
+		if (check_inverse(argv[optind-1], &invert, &optind, 0)) break;
 		if (string_to_number(optarg, 0, 10000, &num) == -1)
 			exit_error(PARAMETER_PROBLEM,
 				   "bad --limit-burst `%s'", optarg);
@@ -120,6 +119,10 @@ parse(int c, char **argv, int invert, unsigned int *flags,
 	default:
 		return 0;
 	}
+
+	if (invert)
+		exit_error(PARAMETER_PROBLEM,
+			   "limit does not support invert");
 
 	return 1;
 }
@@ -162,6 +165,7 @@ print(const struct ipt_ip *ip,
 	printf("burst %u ", r->burst);
 }
 
+/* FIXME: Make minimalist: only print rate if not default --RR */
 static void save(const struct ipt_ip *ip, const struct ipt_entry_match *match)
 {
 	struct ipt_rateinfo *r = (struct ipt_rateinfo *)match->data;
@@ -171,20 +175,19 @@ static void save(const struct ipt_ip *ip, const struct ipt_entry_match *match)
 		printf("--limit-burst %u ", r->burst);
 }
 
-static
-struct iptables_match limit
-= { NULL,
-    "limit",
-    IPTABLES_VERSION,
-    IPT_ALIGN(sizeof(struct ipt_rateinfo)),
-    offsetof(struct ipt_rateinfo, prev),
-    &help,
-    &init,
-    &parse,
-    &final_check,
-    &print,
-    &save,
-    opts
+static struct iptables_match limit = { 
+	.next		= NULL,
+	.name		= "limit",
+	.version	= IPTABLES_VERSION,
+	.size		= IPT_ALIGN(sizeof(struct ipt_rateinfo)),
+	.userspacesize	= offsetof(struct ipt_rateinfo, prev),
+	.help		= &help,
+	.init		= &init,
+	.parse		= &parse,
+	.final_check	= &final_check,
+	.print		= &print,
+	.save		= &save,
+	.extra_opts	= opts
 };
 
 void _init(void)

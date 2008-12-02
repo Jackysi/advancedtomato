@@ -435,6 +435,7 @@ int slprintf __P((char *, int, char *, ...));		/* sprintf++ */
 int vslprintf __P((char *, int, char *, va_list));	/* vsprintf++ */
 size_t strlcpy __P((char *, const char *, size_t));	/* safe strcpy */
 size_t strlcat __P((char *, const char *, size_t));	/* safe strncpy */
+void fatal __P((char *, ...));	/* log an error message and die(1) */
 #ifdef DEBUG
 void log_packet __P((u_char *, int, char *, int));
 				/* Format a packet and log it with syslog */
@@ -445,22 +446,21 @@ void info __P((char *, ...));	/* log an informational message */
 void notice __P((char *, ...));	/* log a notice-level message */
 void warn __P((char *, ...));	/* log a warning message */
 void error __P((char *, ...));	/* log an error message */
-void fatal __P((char *, ...));	/* log an error message and die(1) */
 void init_pr_log __P((char *, int));	/* initialize for using pr_log */
 void pr_log __P((void *, char *, ...));	/* printer fn, output to syslog */
 void end_pr_log __P((void));	/* finish up after using pr_log */
 #else
-#define log_packet(a,b,c,d)
-#define print_string(a,b,c,d)
-#define dbglog(a,b...)
-#define info(a,b...)
-#define notice(a,b...)
-#define warn(a,b...)
-#define error(a,b...)
-#define fatal(a,b...)
-#define init_pr_log(a,b)
-#define pr_log (NULL)
-#define end_pr_log()
+#define log_packet(a,b,c,d)		do { } while (0)
+#define print_string(a,b,c,d)	do { } while (0)
+#define dbglog(a,b...)			do { } while (0)
+#define info(a,b...)			do { } while (0)
+#define notice(a,b...)			do { } while (0)
+#define warn(a,b...)			do { } while (0)
+#define error(a,b...)			do { } while (0)
+//	#define fatal(a,b...)			do { } while (0)
+#define init_pr_log(a,b)		do { } while (0)
+#define pr_log (NULL)			do { } while (0)
+#define end_pr_log()			do { } while (0)
 #endif
 
 /* Procedures exported from auth.c */
@@ -553,10 +553,10 @@ int  sifaddr __P((int, u_int32_t, u_int32_t, u_int32_t));
 				/* Configure IPv4 addresses for i/f */
 int  cifaddr __P((int, u_int32_t, u_int32_t));
 				/* Reset i/f IP addresses */
-// remove by tallest #define sifdefaultroute(a,b,c) (0)
-#define cifdefaultroute(a,b,c) (0)
+int  sifdefaultroute __P((int, u_int32_t, u_int32_t));
+#define cifdefaultroute(a,b,c) do { } while(0)
 #define sifproxyarp(a,b) (0)
-#define cifproxyarp(a,b) (0)
+#define cifproxyarp(a,b)  do { } while(0)
 u_int32_t GetMask __P((u_int32_t)); /* Get appropriate netmask for address */
 #define lock(a) (0)
 #define relock(a) (0)
@@ -776,7 +776,21 @@ extern void (*ip_choose_hook) __P((u_int32_t *));
 #define MAX(a, b)	((a) > (b)? (a): (b))
 #endif
 
-#endif /* __PPP_H__ */
-
 extern int log_to_file(char *buf);
 extern int my_gettimeofday(struct timeval *timenow, struct timezone *tz);
+
+
+#include <syslog.h>
+
+#define IP_FMT(x) (x) & 0xff, ((x) >> 8) & 0xff, ((x) >> 16) & 0xff, ((x) >> 24) & 0xff
+
+#define LOGX_INFO(args ...)		syslog(LOG_INFO, args)
+#define LOGX_WARN(args ...)		syslog(LOG_WARNING, args)
+#define LOGX_ERROR(args ...)	syslog(LOG_ERR, args)
+//	#define LOGX_DEBUG(args ...)	syslog(LOG_NOTICE, args)
+#define LOGX_DEBUG(args ...)	syslog(LOG_DEBUG, args)
+//	#define LOGX_DEBUG(args ...)	do { } while (0);
+
+extern const char pppoe_disc_file[];
+
+#endif /* __PPP_H__ */

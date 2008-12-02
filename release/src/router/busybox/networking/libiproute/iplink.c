@@ -1,21 +1,17 @@
 /*
  * iplink.c		"ip link".
  *
- *		This program is free software; you can redistribute it and/or
- *		modify it under the terms of the GNU General Public License
- *		as published by the Free Software Foundation; either version
- *		2 of the License, or (at your option) any later version.
- *
  * Authors:	Alexey Kuznetsov, <kuznet@ms2.inr.ac.ru>
  *
+ * Licensed under GPLv2 or later, see file LICENSE in this tarball for details.
  */
+
+#include "libbb.h"
 
 #include <sys/ioctl.h>
 #include <sys/socket.h>
-#include <linux/version.h>
 
 #include <errno.h>
-#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
@@ -23,18 +19,11 @@
 #include <net/if_packet.h>
 #include <netpacket/packet.h>
 
-#if __GLIBC__ >=2 && __GLIBC_MINOR >= 1
 #include <net/ethernet.h>
-#else
-#include <linux/if_ether.h>
-#endif
 
 #include "rt_names.h"
 #include "utils.h"
 #include "ip_common.h"
-
-#include "libbb.h"
-
 
 /* take from linux/sockios.h */
 #define SIOCSIFNAME	0x8923		/* set interface name */
@@ -96,7 +85,6 @@ static int do_chflags(char *dev, __u32 flags, __u32 mask)
 
 static int do_changename(char *dev, char *newdev)
 {
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 4, 0)
 	struct ifreq ifr;
 	int fd;
 	int err;
@@ -114,8 +102,6 @@ static int do_changename(char *dev, char *newdev)
 	}
 	close(fd);
 	return err;
-#endif
-	return 0;
 }
 
 static int set_qlen(char *dev, int qlen)
@@ -128,8 +114,8 @@ static int set_qlen(char *dev, int qlen)
 		return -1;
 
 	memset(&ifr, 0, sizeof(ifr));
-	strcpy(ifr.ifr_name, dev); 
-	ifr.ifr_qlen = qlen; 
+	strcpy(ifr.ifr_name, dev);
+	ifr.ifr_qlen = qlen;
 	if (ioctl(s, SIOCSIFTXQLEN, &ifr) < 0) {
 		perror("SIOCSIFXQLEN");
 		close(s);
@@ -137,7 +123,7 @@ static int set_qlen(char *dev, int qlen)
 	}
 	close(s);
 
-	return 0; 
+	return 0;
 }
 
 static int set_mtu(char *dev, int mtu)
@@ -150,8 +136,8 @@ static int set_mtu(char *dev, int mtu)
 		return -1;
 
 	memset(&ifr, 0, sizeof(ifr));
-	strcpy(ifr.ifr_name, dev); 
-	ifr.ifr_mtu = mtu; 
+	strcpy(ifr.ifr_name, dev);
+	ifr.ifr_mtu = mtu;
 	if (ioctl(s, SIOCSIFMTU, &ifr) < 0) {
 		perror("SIOCSIFMTU");
 		close(s);
@@ -159,18 +145,18 @@ static int set_mtu(char *dev, int mtu)
 	}
 	close(s);
 
-	return 0; 
+	return 0;
 }
 
 static int get_address(char *dev, int *htype)
 {
 	struct ifreq ifr;
 	struct sockaddr_ll me;
-	int alen;
+	socklen_t alen;
 	int s;
 
 	s = socket(PF_PACKET, SOCK_DGRAM, 0);
-	if (s < 0) { 
+	if (s < 0) {
 		perror("socket(PF_PACKET)");
 		return -1;
 	}
@@ -211,14 +197,14 @@ static int parse_address(char *dev, int hatype, int halen, char *lla, struct ifr
 	memset(ifr, 0, sizeof(*ifr));
 	strcpy(ifr->ifr_name, dev);
 	ifr->ifr_hwaddr.sa_family = hatype;
-	alen = ll_addr_a2n(ifr->ifr_hwaddr.sa_data, 14, lla);
+	alen = ll_addr_a2n((unsigned char *)(ifr->ifr_hwaddr.sa_data), 14, lla);
 	if (alen < 0)
 		return -1;
 	if (alen != halen) {
 		bb_error_msg("Wrong address (%s) length: expected %d bytes", lla, halen);
 		return -1;
 	}
-	return 0; 
+	return 0;
 }
 
 static int set_address(struct ifreq *ifr, int brd)
@@ -234,7 +220,7 @@ static int set_address(struct ifreq *ifr, int brd)
 		return -1;
 	}
 	close(s);
-	return 0; 
+	return 0;
 }
 
 
@@ -266,7 +252,7 @@ static int do_set(int argc, char **argv)
 			if (mtu != -1)
 				duparg("mtu", *argv);
 			if (get_integer(&mtu, *argv, 0))
-				invarg("Invalid \"mtu\" value\n", *argv);
+				invarg(*argv, "mtu");
 		} else if (strcmp(*argv, "multicast") == 0) {
 			NEXT_ARG();
 			mask |= IFF_MULTICAST;
@@ -285,8 +271,11 @@ static int do_set(int argc, char **argv)
 				flags |= IFF_NOARP;
 			} else
 				return on_off("noarp");
+		} else if (strcmp(*argv, "addr") == 0) {
+			NEXT_ARG();
+			newaddr = *argv;
 		} else {
-                        if (strcmp(*argv, "dev") == 0) {
+			if (strcmp(*argv, "dev") == 0) {
 				NEXT_ARG();
 			}
 			if (dev)
@@ -297,7 +286,7 @@ static int do_set(int argc, char **argv)
 	}
 
 	if (!dev) {
-		bb_error_msg("Not enough of information: \"dev\" argument is required.");
+		bb_error_msg(bb_msg_requires_arg, "\"dev\"");
 		exit(-1);
 	}
 
@@ -311,7 +300,7 @@ static int do_set(int argc, char **argv)
 		}
 		if (newbrd) {
 			if (parse_address(dev, htype, halen, newbrd, &ifr1) < 0)
-				return -1; 
+				return -1;
 		}
 	}
 
@@ -320,18 +309,18 @@ static int do_set(int argc, char **argv)
 			return -1;
 		dev = newname;
 	}
-	if (qlen != -1) { 
+	if (qlen != -1) {
 		if (set_qlen(dev, qlen) < 0)
-			return -1; 
+			return -1;
 	}
-	if (mtu != -1) { 
+	if (mtu != -1) {
 		if (set_mtu(dev, mtu) < 0)
-			return -1; 
+			return -1;
 	}
 	if (newaddr || newbrd) {
 		if (newbrd) {
 			if (set_address(&ifr1, 1) < 0)
-				return -1; 
+				return -1;
 		}
 		if (newaddr) {
 			if (set_address(&ifr0, 0) < 0)
@@ -362,6 +351,6 @@ int do_iplink(int argc, char **argv)
 	} else
 		return ipaddr_list_link(0, NULL);
 
-	bb_error_msg("Command \"%s\" is unknown, try \"ip link help\".", *argv);
+	bb_error_msg("Command \"%s\" is unknown.", *argv);
 	exit(-1);
 }

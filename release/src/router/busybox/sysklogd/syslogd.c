@@ -2,7 +2,7 @@
 /*
  * Mini syslogd implementation for busybox
  *
- * Copyright (C) 1999-2003 by Erik Andersen <andersen@codepoet.org>
+ * Copyright (C) 1999-2004 by Erik Andersen <andersen@codepoet.org>
  *
  * Copyright (C) 2000 by Karl M. Hegbloom <karlheg@debian.org>
  *
@@ -10,31 +10,21 @@
  *
  * Maintainer: Gennady Feldman <gfeldman@gena01.com> as of Mar 12, 2001
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
- *
+ * Licensed under the GPL v2 or later, see the file LICENSE in this tarball.
  */
 
+#include "busybox.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <getopt.h>
 #include <netdb.h>
 #include <paths.h>
 #include <signal.h>
 #include <stdarg.h>
+#include <stdbool.h>
 #include <time.h>
 #include <string.h>
 #include <unistd.h>
@@ -42,8 +32,6 @@
 #include <sys/types.h>
 #include <sys/un.h>
 #include <sys/param.h>
-
-#include "busybox.h"
 
 /* SYSLOG_NAMES defined to pull some extra junk from syslog.h */
 #define SYSLOG_NAMES
@@ -56,7 +44,15 @@
 /* Path to the unix socket */
 static char lfile[MAXPATHLEN];
 
-static char *logFilePath = __LOG_FILE;
+static const char *logFilePath = __LOG_FILE;
+
+#ifdef CONFIG_FEATURE_ROTATE_LOGFILE
+/* max size of message file before being rotated */
+static int logFileSize = 200 * 1024;
+
+/* number of rotated message files */
+static int logFileRotate = 1;
+#endif
 
 /* interval between marks in seconds */
 static int MarkInterval = 20 * 60;
@@ -68,6 +64,7 @@ static char LocalHostName[64];
 #include <netinet/in.h>
 /* udp socket for logging to remote host */
 static int remotefd = -1;
+static struct sockaddr_in remoteaddr;
 
 /* where do we log? */
 static char *RemoteHost;
@@ -80,12 +77,21 @@ static int doRemoteLog = FALSE;
 static int local_logging = FALSE;
 #endif
 
+/* Make loging output smaller. */
+static bool small = false;
+
 
 #define MAXLINE         1024	/* maximum line length */
 
 
 /* circular buffer variables/structures */
 #ifdef CONFIG_FEATURE_IPC_SYSLOG
+
+#if CONFIG_FEATURE_IPC_SYSLOG_BUFFER_SIZE < 4
+#error Sorry, you must set the syslogd buffer size to at least 4KB.
+#error Please check CONFIG_FEATURE_IPC_SYSLOG_BUFFER_SIZE
+#endif
+
 #include <sys/ipc.h>
 #include <sys/sem.h>
 #include <sys/shm.h>
@@ -106,8 +112,7 @@ static struct sembuf SMwdn[3] = { {0, 0}, {1, 0}, {1, +1} };	// set SMwdn
 
 static int shmid = -1;	// ipc shared memory id
 static int s_semid = -1;	// ipc semaphore id
-int data_size = 16000;	// data size
-int shm_size = 16000 + sizeof(*buf);	// our buffer size
+static int shm_size = ((CONFIG_FEATURE_IPC_SYSLOG_BUFFER_SIZE)*1024);	// default shm size
 static int circular_logging = FALSE;
 
 /*
@@ -131,7 +136,7 @@ static inline void sem_down(int semid)
 }
 
 
-void ipcsyslog_cleanup(void)
+static void ipcsyslog_cleanup(void)
 {
 	printf("Exiting Syslogd!\n");
 	if (shmid != -1) {
@@ -146,7 +151,7 @@ void ipcsyslog_cleanup(void)
 	}
 }
 
-void ipcsyslog_init(void)
+static void ipcsyslog_init(void)
 {
 	if (buf == NULL) {
 		if ((shmid = shmget(KEY_ID, shm_size, IPC_CREAT | 1023)) == -1) {
@@ -157,7 +162,7 @@ void ipcsyslog_init(void)
 			bb_perror_msg_and_die("shmat");
 		}
 
-		buf->size = data_size;
+		buf->size = shm_size - sizeof(*buf);
 		buf->head = buf->tail = 0;
 
 		// we'll trust the OS to set initial semval to 0 (let's hope)
@@ -176,7 +181,7 @@ void ipcsyslog_init(void)
 }
 
 /* write message to buffer */
-void circ_message(const char *msg)
+static void circ_message(const char *msg)
 {
 	int l = strlen(msg) + 1;	/* count the whole message w/ '\0' included */
 
@@ -203,7 +208,7 @@ void circ_message(const char *msg)
 	 *      "tail" are actually offsets from the beginning of the buffer.
 	 *
 	 * Note: This algorithm uses Linux IPC mechanism w/ shared memory and semaphores to provide
-	 *       a threasafe way of handling shared memory operations.
+	 *       a threadsafe way of handling shared memory operations.
 	 */
 	if ((buf->tail + l) < buf->size) {
 		/* before we append the message we need to check the HEAD so that we won't
@@ -230,7 +235,7 @@ void circ_message(const char *msg)
 					/* Note: HEAD is only used to "retrieve" messages, it's not used
 					   when writing messages into our buffer */
 				} else {	/* show an error message to know we messed up? */
-					printf("Weird! Can't find the terminator token??? \n");
+					printf("Weird! Can't find the terminator token?\n");
 					buf->head = 0;
 				}
 			}
@@ -267,7 +272,7 @@ void circ_message(const char *msg)
 			buf->tail = k + 1;
 		} else {
 			printf
-				("Weird! Can't find the terminator token from the beginning??? \n");
+				("Weird! Can't find the terminator token from the beginning?\n");
 			buf->head = buf->tail = 0;	/* reset buffer, since it's probably corrupted */
 		}
 
@@ -300,12 +305,41 @@ static void message(char *fmt, ...)
 
 	} else
 #endif
-	if ((fd =
-			 device_open(logFilePath,
-							 O_WRONLY | O_CREAT | O_NOCTTY | O_APPEND |
+	if ((fd = device_open(logFilePath,
+					O_WRONLY | O_CREAT | O_NOCTTY | O_APPEND |
 							 O_NONBLOCK)) >= 0) {
 		fl.l_type = F_WRLCK;
 		fcntl(fd, F_SETLKW, &fl);
+#ifdef CONFIG_FEATURE_ROTATE_LOGFILE
+		if ( logFileSize > 0 ) {
+			struct stat statf;
+			int r = fstat(fd, &statf);
+			if( !r && (statf.st_mode & S_IFREG)
+				&& (lseek(fd,0,SEEK_END) > logFileSize) ) {
+				if(logFileRotate > 0) {
+					int i;
+					char oldFile[(strlen(logFilePath)+4)], newFile[(strlen(logFilePath)+4)];
+					for(i=logFileRotate-1;i>0;i--) {
+						sprintf(oldFile, "%s.%d", logFilePath, i-1);
+						sprintf(newFile, "%s.%d", logFilePath, i);
+						rename(oldFile, newFile);
+					}
+					sprintf(newFile, "%s.%d", logFilePath, 0);
+					fl.l_type = F_UNLCK;
+					fcntl (fd, F_SETLKW, &fl);
+					close(fd);
+					rename(logFilePath, newFile);
+					fd = device_open (logFilePath,
+						   O_WRONLY | O_CREAT | O_NOCTTY | O_APPEND |
+						   O_NONBLOCK);
+					fl.l_type = F_WRLCK;
+					fcntl (fd, F_SETLKW, &fl);
+				} else {
+					ftruncate( fd, 0 );
+				}
+			}
+		}
+#endif
 		va_start(arguments, fmt);
 		vdprintf(fd, fmt, arguments);
 		va_end(arguments);
@@ -314,8 +348,7 @@ static void message(char *fmt, ...)
 		close(fd);
 	} else {
 		/* Always send console messages to /dev/console so people will see them. */
-		if ((fd =
-			 device_open(_PATH_CONSOLE,
+		if ((fd = device_open(_PATH_CONSOLE,
 						 O_WRONLY | O_NOCTTY | O_NONBLOCK)) >= 0) {
 			va_start(arguments, fmt);
 			vdprintf(fd, fmt, arguments);
@@ -331,11 +364,25 @@ static void message(char *fmt, ...)
 	}
 }
 
+#ifdef CONFIG_FEATURE_REMOTE_LOG
+static void init_RemoteLog(void)
+{
+	memset(&remoteaddr, 0, sizeof(remoteaddr));
+	remotefd = bb_xsocket(AF_INET, SOCK_DGRAM, 0);
+	remoteaddr.sin_family = AF_INET;
+	remoteaddr.sin_addr = *(struct in_addr *) *(xgethostbyname(RemoteHost))->h_addr_list;
+	remoteaddr.sin_port = htons(RemotePort);
+}
+#endif
+
 static void logMessage(int pri, char *msg)
 {
 	time_t now;
 	char *timestamp;
-	static char res[20] = "";
+	static char res[20];
+#ifdef CONFIG_FEATURE_REMOTE_LOG
+	static char line[MAXLINE + 1];
+#endif
 	CODE *c_pri, *c_fac;
 
 	if (pri != 0) {
@@ -364,29 +411,39 @@ static void logMessage(int pri, char *msg)
 	/* todo: supress duplicates */
 
 #ifdef CONFIG_FEATURE_REMOTE_LOG
-	/* send message to remote logger */
-	if (-1 != remotefd) {
-		static const int IOV_COUNT = 2;
-		struct iovec iov[IOV_COUNT];
-		struct iovec *v = iov;
+	if (doRemoteLog == TRUE) {
+		/* trying connect the socket */
+		if (-1 == remotefd) {
+			init_RemoteLog();
+		}
 
-		memset(&res, 0, sizeof(res));
-		snprintf(res, sizeof(res), "<%d>", pri);
-		v->iov_base = res;
-		v->iov_len = strlen(res);
-		v++;
+		/* if we have a valid socket, send the message */
+		if (-1 != remotefd) {
+			now = 1;
+			snprintf(line, sizeof(line), "<%d>%s", pri, msg);
 
-		v->iov_base = msg;
-		v->iov_len = strlen(msg);
-	  writev_retry:
-		if ((-1 == writev(remotefd, iov, IOV_COUNT)) && (errno == EINTR)) {
-			goto writev_retry;
+		retry:
+			/* send message to remote logger */
+			if(( -1 == sendto(remotefd, line, strlen(line), 0,
+							(struct sockaddr *) &remoteaddr,
+							sizeof(remoteaddr))) && (errno == EINTR)) {
+				/* sleep now seconds and retry (with now * 2) */
+				sleep(now);
+				now *= 2;
+				goto retry;
+			}
 		}
 	}
+
 	if (local_logging == TRUE)
 #endif
+	{
 		/* now spew out the message to wherever it is supposed to go */
-		message("%s %s %s %s\n", timestamp, LocalHostName, res, msg);
+		if (small)
+			message("%s %s\n", timestamp, msg);
+		else
+			message("%s %s %s %s\n", timestamp, LocalHostName, res, msg);
+	}
 }
 
 static void quit_signal(int sig)
@@ -451,41 +508,7 @@ static int serveConnection(char *tmpbuf, int n_read)
 	return n_read;
 }
 
-
-#ifdef CONFIG_FEATURE_REMOTE_LOG
-static void init_RemoteLog(void)
-{
-
-	struct sockaddr_in remoteaddr;
-	struct hostent *hostinfo;
-	int len = sizeof(remoteaddr);
-
-	memset(&remoteaddr, 0, len);
-
-	remotefd = socket(AF_INET, SOCK_DGRAM, 0);
-
-	if (remotefd < 0) {
-		bb_error_msg_and_die("cannot create socket");
-	}
-
-	hostinfo = xgethostbyname(RemoteHost);
-
-	remoteaddr.sin_family = AF_INET;
-	remoteaddr.sin_addr = *(struct in_addr *) *hostinfo->h_addr_list;
-	remoteaddr.sin_port = htons(RemotePort);
-
-	/* Since we are using UDP sockets, connect just sets the default host and port
-	 * for future operations
-	 */
-	if (0 != (connect(remotefd, (struct sockaddr *) &remoteaddr, len))) {
-		bb_error_msg_and_die("cannot connect to remote host %s:%d", RemoteHost,
-						  RemotePort);
-	}
-
-}
-#endif
-
-static void doSyslogd(void) __attribute__ ((noreturn));
+static void doSyslogd(void) ATTRIBUTE_NORETURN;
 static void doSyslogd(void)
 {
 	struct sockaddr_un sunx;
@@ -514,11 +537,7 @@ static void doSyslogd(void)
 	memset(&sunx, 0, sizeof(sunx));
 	sunx.sun_family = AF_UNIX;
 	strncpy(sunx.sun_path, lfile, sizeof(sunx.sun_path));
-	if ((sock_fd = socket(AF_UNIX, SOCK_DGRAM, 0)) < 0) {
-		bb_perror_msg_and_die("Couldn't get file descriptor for socket "
-						   _PATH_LOG);
-	}
-
+	sock_fd = bb_xsocket(AF_UNIX, SOCK_DGRAM, 0);
 	addrLength = sizeof(sunx.sun_family) + strlen(sunx.sun_path);
 	if (bind(sock_fd, (struct sockaddr *) &sunx, addrLength) < 0) {
 		bb_perror_msg_and_die("Could not connect to socket " _PATH_LOG);
@@ -539,7 +558,7 @@ static void doSyslogd(void)
 	}
 #endif
 
-	logMessage(LOG_SYSLOG | LOG_INFO, "syslogd started: " BB_BANNER);
+	logMessage(LOG_SYSLOG | LOG_INFO, "syslogd started: " "BusyBox v" BB_VER );
 
 	for (;;) {
 
@@ -556,44 +575,52 @@ static void doSyslogd(void)
 
 		if (FD_ISSET(sock_fd, &fds)) {
 			int i;
+#if MAXLINE > BUFSIZ
+# define TMP_BUF_SZ BUFSIZ
+#else
+# define TMP_BUF_SZ MAXLINE
+#endif
+#define tmpbuf bb_common_bufsiz1
 
-			RESERVE_CONFIG_BUFFER(tmpbuf, MAXLINE + 1);
-
-			memset(tmpbuf, '\0', MAXLINE + 1);
-			if ((i = recv(sock_fd, tmpbuf, MAXLINE, 0)) > 0) {
+			if ((i = recv(sock_fd, tmpbuf, TMP_BUF_SZ, 0)) > 0) {
+				tmpbuf[i] = '\0';
 				serveConnection(tmpbuf, i);
 			} else {
 				bb_perror_msg_and_die("UNIX socket error");
 			}
-			RELEASE_CONFIG_BUFFER(tmpbuf);
 		}				/* FD_ISSET() */
 	}					/* for main loop */
 }
 
-extern int syslogd_main(int argc, char **argv)
+int syslogd_main(int argc, char **argv)
 {
 	int opt;
 
-#if ! defined(__uClinux__)
 	int doFork = TRUE;
-#endif
 
 	char *p;
 
 	/* do normal option parsing */
-	while ((opt = getopt(argc, argv, "m:nO:R:LC")) > 0) {
+	while ((opt = getopt(argc, argv, "m:nO:s:Sb:R:LC::")) > 0) {
 		switch (opt) {
 		case 'm':
 			MarkInterval = atoi(optarg) * 60;
 			break;
-#if ! defined(__uClinux__)
 		case 'n':
 			doFork = FALSE;
 			break;
-#endif
 		case 'O':
-			logFilePath = bb_xstrdup(optarg);
+			logFilePath = optarg;
 			break;
+#ifdef CONFIG_FEATURE_ROTATE_LOGFILE
+		case 's':
+			logFileSize = atoi(optarg) * 1024;
+			break;
+		case 'b':
+			logFileRotate = atoi(optarg);
+			if( logFileRotate > 99 ) logFileRotate = 99;
+			break;
+#endif
 #ifdef CONFIG_FEATURE_REMOTE_LOG
 		case 'R':
 			RemoteHost = bb_xstrdup(optarg);
@@ -609,9 +636,18 @@ extern int syslogd_main(int argc, char **argv)
 #endif
 #ifdef CONFIG_FEATURE_IPC_SYSLOG
 		case 'C':
+			if (optarg) {
+				int buf_size = atoi(optarg);
+				if (buf_size >= 4) {
+					shm_size = buf_size * 1024;
+				}
+			}
 			circular_logging = TRUE;
 			break;
 #endif
+		case 'S':
+			small = true;
+			break;
 		default:
 			bb_show_usage();
 		}
@@ -627,26 +663,19 @@ extern int syslogd_main(int argc, char **argv)
 	/* Store away localhost's name before the fork */
 	gethostname(LocalHostName, sizeof(LocalHostName));
 	if ((p = strchr(LocalHostName, '.'))) {
-		*p++ = '\0';
+		*p = '\0';
 	}
 
 	umask(0);
 
-	if ((doFork == TRUE) && (daemon(0, 1) < 0)) {
-		bb_perror_msg_and_die("daemon");
-#if ! defined(__uClinux__)
-		vfork_daemon_rexec(argc, argv, "-n");
+	if (doFork == TRUE) {
+#ifdef BB_NOMMU
+		vfork_daemon_rexec(0, 1, argc, argv, "-n");
+#else
+		bb_xdaemon(0, 1);
 #endif
 	}
 	doSyslogd();
 
 	return EXIT_SUCCESS;
 }
-
-/*
-Local Variables
-c-file-style: "linux"
-c-basic-offset: 4
-tab-width: 4
-End:
-*/

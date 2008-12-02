@@ -8,14 +8,12 @@ comment 'Library routines'
 # Do we need the compression support?
 #
 if [ "$CONFIG_CRAMFS" = "y" -o \
-     "$CONFIG_SQUASHFS" = "y" -o \
      "$CONFIG_PPP_DEFLATE" = "y" -o \
      "$CONFIG_JFFS2_FS" = "y" -o \
      "$CONFIG_ZISOFS_FS" = "y" ]; then
    define_tristate CONFIG_ZLIB_INFLATE y
 else
   if [ "$CONFIG_CRAMFS" = "m" -o \
-       "$CONFIG_SQUASHFS" = "m" -o \
        "$CONFIG_PPP_DEFLATE" = "m" -o \
        "$CONFIG_JFFS2_FS" = "m" -o \
        "$CONFIG_ZISOFS_FS" = "m" ]; then

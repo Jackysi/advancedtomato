@@ -30,13 +30,13 @@ subdir-m += diag
 #subdir-m += ext_io
 #subdir-m += ctmisc
 
-ifeq ($(CONFIG_HW_QOS),y)
-subdir-m += port_based_qos
-else
-	ifeq ($(CONFIG_PERFORMANCE),y)
-	subdir-m += port_based_qos
-	endif
-endif
+#	ifeq ($(CONFIG_HW_QOS),y)
+#	subdir-m += port_based_qos
+#	else
+#		ifeq ($(CONFIG_PERFORMANCE),y)
+#		subdir-m += port_based_qos
+#		endif
+#	endif
 
 ifeq ($(CONFIG_TULIP),y)
   obj-y += tulip/tulip.o
@@ -174,6 +174,7 @@ endif
 
 obj-$(CONFIG_STRIP) += strip.o
 obj-$(CONFIG_DUMMY) += dummy.o
+obj-$(CONFIG_IMQ) += imq.o
 obj-$(CONFIG_BONDING) += bonding.o
 obj-$(CONFIG_DE600) += de600.o
 obj-$(CONFIG_DE620) += de620.o

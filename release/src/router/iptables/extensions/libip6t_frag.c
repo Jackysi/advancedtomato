@@ -24,13 +24,13 @@ IPTABLES_VERSION);
 }
 
 static struct option opts[] = {
-	{ "fragid", 1, 0, '1' },
-	{ "fraglen", 1, 0, '2' },
-	{ "fragres", 0, 0, '3' },
-	{ "fragfirst", 0, 0, '4' },
-	{ "fragmore", 0, 0, '5' },
-	{ "fraglast", 0, 0, '6' },
-	{0}
+	{ .name = "fragid",    .has_arg = 1, .flag = 0, .val = '1' },
+	{ .name = "fraglen",   .has_arg = 1, .flag = 0, .val = '2' },
+	{ .name = "fragres",   .has_arg = 0, .flag = 0, .val = '3' },
+	{ .name = "fragfirst", .has_arg = 0, .flag = 0, .val = '4' },
+	{ .name = "fragmore",  .has_arg = 0, .flag = 0, .val = '5' },
+	{ .name = "fraglast",  .has_arg = 0, .flag = 0, .val = '6' },
+	{ .name = 0 }
 };
 
 static u_int32_t
@@ -39,7 +39,7 @@ parse_frag_id(const char *idstr, const char *typestr)
 	unsigned long int id;
 	char* ep;
 
-	id =  strtoul(idstr,&ep,0) ;
+	id = strtoul(idstr, &ep, 0);
 
 	if ( idstr == ep ) {
 		exit_error(PARAMETER_PROBLEM,
@@ -171,16 +171,10 @@ print_ids(const char *name, u_int32_t min, u_int32_t max,
 
 	if (min != 0 || max != 0xFFFFFFFF || invert) {
 		printf("%s", name);
-		if (min == max) {
-			printf(":%s", inv);
-			printf("%u", min);
-		} else {
-			printf("s:%s", inv);
-			printf("%u",min);
-			printf(":");
-			printf("%u",max);
-		}
-		printf(" ");
+		if (min == max)
+			printf(":%s%u ", inv, min);
+		else
+			printf("s:%s%u:%u ", inv, min, max);
 	}
 }
 
@@ -194,16 +188,25 @@ print(const struct ip6t_ip6 *ip,
 	printf("frag ");
 	print_ids("id", frag->ids[0], frag->ids[1],
 		    frag->invflags & IP6T_FRAG_INV_IDS);
+
 	if (frag->flags & IP6T_FRAG_LEN) {
-		printf("length");
-		printf(":%s", frag->invflags & IP6T_FRAG_INV_LEN ? "!" : "");
-		printf("%u", frag->hdrlen);
-		printf(" ");
+		printf("length:%s%u ",
+			frag->invflags & IP6T_FRAG_INV_LEN ? "!" : "",
+			frag->hdrlen);
 	}
-	if (frag->flags & IP6T_FRAG_RES) printf("reserved ");
-	if (frag->flags & IP6T_FRAG_FST) printf("first ");
-	if (frag->flags & IP6T_FRAG_MF) printf("more ");
-	if (frag->flags & IP6T_FRAG_NMF) printf("last ");
+
+	if (frag->flags & IP6T_FRAG_RES)
+		printf("reserved ");
+
+	if (frag->flags & IP6T_FRAG_FST)
+		printf("first ");
+
+	if (frag->flags & IP6T_FRAG_MF)
+		printf("more ");
+
+	if (frag->flags & IP6T_FRAG_NMF)
+		printf("last ");
+
 	if (frag->invflags & ~IP6T_FRAG_INV_MASK)
 		printf("Unknown invflags: 0x%X ",
 		       frag->invflags & ~IP6T_FRAG_INV_MASK);
@@ -234,27 +237,32 @@ static void save(const struct ip6t_ip6 *ip, const struct ip6t_entry_match *match
 			fraginfo->hdrlen);
 	}
 
-	if (fraginfo->flags & IP6T_FRAG_RES) printf("--fragres ");
-	if (fraginfo->flags & IP6T_FRAG_FST) printf("--fragfirst ");
-	if (fraginfo->flags & IP6T_FRAG_MF) printf("--fragmore ");
-	if (fraginfo->flags & IP6T_FRAG_NMF) printf("--fraglast ");
+	if (fraginfo->flags & IP6T_FRAG_RES)
+		printf("--fragres ");
 
+	if (fraginfo->flags & IP6T_FRAG_FST)
+		printf("--fragfirst ");
+
+	if (fraginfo->flags & IP6T_FRAG_MF)
+		printf("--fragmore ");
+
+	if (fraginfo->flags & IP6T_FRAG_NMF)
+		printf("--fraglast ");
 }
 
 static
-struct ip6tables_match frag
-= { NULL,
-    "frag",
-    IPTABLES_VERSION,
-    IP6T_ALIGN(sizeof(struct ip6t_frag)),
-    IP6T_ALIGN(sizeof(struct ip6t_frag)),
-    &help,
-    &init,
-    &parse,
-    &final_check,
-    &print,
-    &save,
-    opts
+struct ip6tables_match frag = {
+	.name          = "frag",
+	.version       = IPTABLES_VERSION,
+	.size          = IP6T_ALIGN(sizeof(struct ip6t_frag)),
+	.userspacesize = IP6T_ALIGN(sizeof(struct ip6t_frag)),
+	.help          = &help,
+	.init          = &init,
+	.parse         = &parse,
+	.final_check   = &final_check,
+	.print         = &print,
+	.save          = &save,
+	.extra_opts    = opts
 };
 
 void

@@ -47,20 +47,17 @@ save(const struct ip6t_ip6 *ip6, const struct ip6t_entry_target *target)
 {
 }
 
-static
-struct ip6tables_target standard
-= { NULL,
-    "standard",
-    IPTABLES_VERSION,
-    IP6T_ALIGN(sizeof(int)),
-    IP6T_ALIGN(sizeof(int)),
-    &help,
-    &init,
-    &parse,
-    &final_check,
-    NULL, /* print */
-    &save,
-    opts
+static struct ip6tables_target standard = {
+	.name		= "standard",
+	.version	= IPTABLES_VERSION,
+	.size		= IP6T_ALIGN(sizeof(int)),
+	.userspacesize	= IP6T_ALIGN(sizeof(int)),
+	.help		= &help,
+	.init		= &init,
+	.parse		= &parse,
+	.final_check	= &final_check,
+	.save		= &save,
+	.extra_opts	= opts,
 };
 
 void _init(void)

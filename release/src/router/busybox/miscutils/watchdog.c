@@ -3,63 +3,52 @@
  * Mini watchdog implementation for busybox
  *
  * Copyright (C) 2003  Paul Mundt <lethal@linux-sh.org>
+ * Copyright (C) 2006  Bernhard Fischer <busybox@busybox.net>
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
- *
+ * Licensed under the GPL v2 or later, see the file LICENSE in this tarball.
  */
 
+#include "busybox.h"
 #include <stdio.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <stdlib.h>
 #include <signal.h>
-#include "busybox.h"
 
-/* Userspace timer duration, in seconds */
-static unsigned int timer_duration = 30;
+#define OPT_FOREGROUND 0x01
+#define OPT_TIMER      0x02
 
 /* Watchdog file descriptor */
 static int fd;
 
-static void watchdog_shutdown(int unused)
+static void watchdog_shutdown(int ATTRIBUTE_UNUSED unused)
 {
-	write(fd, "V", 1);	/* Magic */
+	write(fd, "V", 1);	/* Magic, see watchdog-api.txt in kernel */
 	close(fd);
 	exit(0);
 }
 
-extern int watchdog_main(int argc, char **argv)
+int watchdog_main(int argc, char **argv)
 {
-	int opt;
+	unsigned long opts;
+	unsigned long timer_duration = 30; /* Userspace timer duration, in seconds */
+	char *t_arg;
 
-	while ((opt = getopt(argc, argv, "t:")) > 0) {
-		switch (opt) {
-			case 't':
-				timer_duration = bb_xgetlarg(optarg, 10, 0, INT_MAX);
-				break;
-			default:
-				bb_show_usage();
-		}
-	}
+	opts = bb_getopt_ulflags(argc, argv, "Ft:", &t_arg);
+
+	if (opts & OPT_TIMER)
+		timer_duration = bb_xgetlarg(t_arg, 10, 0, INT_MAX);
 
 	/* We're only interested in the watchdog device .. */
 	if (optind < argc - 1 || argc == 1)
 		bb_show_usage();
 
-	if (daemon(0, 1) < 0)
-		bb_perror_msg_and_die("Failed forking watchdog daemon");
+#ifdef BB_NOMMU
+	if (!(opts & OPT_FOREGROUND))
+		vfork_daemon_rexec(0, 1, argc, argv, "-F");
+#else
+	bb_xdaemon(0, 1);
+#endif
 
 	signal(SIGHUP, watchdog_shutdown);
 	signal(SIGINT, watchdog_shutdown);
@@ -67,7 +56,7 @@ extern int watchdog_main(int argc, char **argv)
 	fd = bb_xopen(argv[argc - 1], O_WRONLY);
 
 	while (1) {
-		/* 
+		/*
 		 * Make sure we clear the counter before sleeping, as the counter value
 		 * is undefined at this point -- PFM
 		 */

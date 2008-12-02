@@ -1,10 +1,9 @@
-/* $Id: telnetd.c,v 1.1.3.1 2004/12/29 07:07:46 honor Exp $
- *
+/* vi: set sw=4 ts=4: */
+/*
  * Simple telnet server
  * Bjorn Wesen, Axis Communications AB (bjornw@axis.com)
  *
- * This file is distributed under the Gnu Public License (GPL),
- * please see the file LICENSE for further information.
+ * Licensed under GPLv2 or later, see file LICENSE in this tarball for details.
  *
  * ---------------------------------------------------------------------------
  * (C) Copyright 2000, Axis Communications AB, LUND, SWEDEN
@@ -23,15 +22,17 @@
  */
 
 /*#define DEBUG 1 */
+#undef DEBUG
 
-#include <sys/time.h>
 #include <sys/socket.h>
 #include <sys/wait.h>
+#include <sys/ioctl.h>
 #include <string.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <errno.h>
 #include <netinet/in.h>
+#include <arpa/inet.h>
 #include <fcntl.h>
 #include <stdio.h>
 #include <signal.h>
@@ -48,11 +49,19 @@
 
 #define BUFSIZE 4000
 
-static const char *loginpath = 
-#ifdef CONFIG_LOGIN
-"/bin/login";
+#ifdef CONFIG_FEATURE_IPV6
+#define SOCKET_TYPE	AF_INET6
+typedef struct sockaddr_in6 sockaddr_type;
 #else
-"/bin/sh";
+#define SOCKET_TYPE	AF_INET
+typedef struct sockaddr_in sockaddr_type;
+#endif
+
+
+#ifdef CONFIG_LOGIN
+static const char *loginpath = "/bin/login";
+#else
+static const char *loginpath;
 #endif
 static const char *issuefile = "/etc/issue.net";
 
@@ -100,7 +109,7 @@ static struct tsession *sessions;
 
 /*
 
-   Remove all IAC's from the buffer pointed to by bf (recieved IACs are ignored
+   Remove all IAC's from the buffer pointed to by bf (received IACs are ignored
    and must be removed so as to not be interpreted by the terminal).  Make an
    uninterrupted string of characters fit for the terminal.  Do this by packing
    all characters meant for the terminal sequentially towards the end of bf.
@@ -116,10 +125,12 @@ static struct tsession *sessions;
    FIXME - if we mean to send 0xFF to the terminal then it will be escaped,
    what is the escape character?  We aren't handling that situation here.
 
+   CR-LF ->'s CR mapping is also done here, for convenience
+
   */
 static char *
 remove_iacs(struct tsession *ts, int *pnum_totty) {
-	unsigned char *ptr0 = ts->buf1 + ts->wridx1;
+	unsigned char *ptr0 = (unsigned char *)ts->buf1 + ts->wridx1;
 	unsigned char *ptr = ptr0;
 	unsigned char *totty = ptr;
 	unsigned char *end = ptr + MIN(BUFSIZE - ts->wridx1, ts->size1);
@@ -128,22 +139,45 @@ remove_iacs(struct tsession *ts, int *pnum_totty) {
 
 	while (ptr < end) {
 		if (*ptr != IAC) {
+			int c = *ptr;
 			*totty++ = *ptr++;
+			/* We now map \r\n ==> \r for pragmatic reasons.
+			 * Many client implementations send \r\n when
+			 * the user hits the CarriageReturn key.
+			 */
+			if (c == '\r' && (*ptr == '\n' || *ptr == 0) && ptr < end)
+				ptr++;
 		}
 		else {
-			if ((ptr+2) < end) {
-			/* the entire IAC is contained in the buffer
-			we were asked to process. */
-#ifdef DEBUG
-				fprintf(stderr, "Ignoring IAC %s,%s\n",
-				    *ptr, TELCMD(*(ptr+1)), TELOPT(*(ptr+2)));
-#endif
-				ptr += 3;
-			} else {
+			/*
+			 * TELOPT_NAWS support!
+			 */
+			if ((ptr+2) >= end) {
 				/* only the beginning of the IAC is in the
 				buffer we were asked to process, we can't
 				process this char. */
 				break;
+			}
+
+			/*
+			 * IAC -> SB -> TELOPT_NAWS -> 4-byte -> IAC -> SE
+			 */
+			else if (ptr[1] == SB && ptr[2] == TELOPT_NAWS) {
+				struct winsize ws;
+				if ((ptr+8) >= end)
+					break;	/* incomplete, can't process */
+				ws.ws_col = (ptr[3] << 8) | ptr[4];
+				ws.ws_row = (ptr[5] << 8) | ptr[6];
+				(void) ioctl(ts->ptyfd, TIOCSWINSZ, (char *)&ws);
+				ptr += 9;
+			}
+			else {
+				/* skip 3-byte IAC non-SB cmd */
+#ifdef DEBUG
+				fprintf(stderr, "Ignoring IAC %s,%s\n",
+					TELCMD(*(ptr+1)), TELOPT(*(ptr+2)));
+#endif
+				ptr += 3;
 			}
 		}
 	}
@@ -189,6 +223,9 @@ getpty(char *line)
 		}
 		for (j = 0; j < 16; j++) {
 			line[9] = j < 10 ? j + '0' : j - 10 + 'a';
+#ifdef DEBUG
+			fprintf(stderr, "Trying to open device: %s\n", line);
+#endif
 			if ((p = open(line, O_RDWR | O_NOCTTY)) >= 0) {
 				line[5] = 't';
 				return p;
@@ -223,27 +260,23 @@ make_new_session(int sockfd)
 	struct termios termbuf;
 	int pty, pid;
 	char tty_name[32];
-	struct tsession *ts = malloc(sizeof(struct tsession) + BUFSIZE * 2);
+	struct tsession *ts = xzalloc(sizeof(struct tsession) + BUFSIZE * 2);
 
 	ts->buf1 = (char *)(&ts[1]);
 	ts->buf2 = ts->buf1 + BUFSIZE;
 
 #ifdef CONFIG_FEATURE_TELNETD_INETD
-	ts->sockfd_read = 0;
 	ts->sockfd_write = 1;
 #else /* CONFIG_FEATURE_TELNETD_INETD */
 	ts->sockfd = sockfd;
 #endif /* CONFIG_FEATURE_TELNETD_INETD */
-
-	ts->rdidx1 = ts->wridx1 = ts->size1 = 0;
-	ts->rdidx2 = ts->wridx2 = ts->size2 = 0;
 
 	/* Got a new connection, set up a tty and spawn a shell.  */
 
 	pty = getpty(tty_name);
 
 	if (pty < 0) {
-		syslog_msg(LOG_USER, LOG_ERR, "All network ports in use!");
+		syslog(LOG_ERR, "All terminals in use!");
 		return 0;
 	}
 
@@ -259,13 +292,13 @@ make_new_session(int sockfd)
 	 */
 
 	send_iac(ts, DO, TELOPT_ECHO);
+	send_iac(ts, DO, TELOPT_NAWS);
 	send_iac(ts, DO, TELOPT_LFLOW);
 	send_iac(ts, WILL, TELOPT_ECHO);
 	send_iac(ts, WILL, TELOPT_SGA);
 
-
 	if ((pid = fork()) < 0) {
-		syslog_msg(LOG_USER, LOG_ERR, "Can`t forking");
+		syslog(LOG_ERR, "Could not fork");
 	}
 	if (pid == 0) {
 		/* In child, open the child's side of the tty.  */
@@ -277,9 +310,9 @@ make_new_session(int sockfd)
 		setsid();
 
 		if (open(tty_name, O_RDWR /*| O_NOCTTY*/) < 0) {
-			syslog_msg(LOG_USER, LOG_ERR, "Could not open tty");
+			syslog(LOG_ERR, "Could not open tty");
 			exit(1);
-			}
+		}
 		dup(0);
 		dup(0);
 
@@ -303,7 +336,7 @@ make_new_session(int sockfd)
 		execv(loginpath, (char *const *)argv_init);
 
 		/* NOT REACHED */
-		syslog_msg(LOG_USER, LOG_ERR, "execv error");
+		syslog(LOG_ERR, "execv error");
 		exit(1);
 	}
 
@@ -319,7 +352,7 @@ free_session(struct tsession *ts)
 	struct tsession *t = sessions;
 
 	/* Unlink this telnet session from the session list.  */
-	if(t == ts)
+	if (t == ts)
 		sessions = ts->next;
 	else {
 		while(t->next != ts)
@@ -334,9 +367,9 @@ free_session(struct tsession *ts)
 	close(ts->ptyfd);
 	close(ts->sockfd);
 
-	if(ts->ptyfd == maxfd || ts->sockfd == maxfd)
+	if (ts->ptyfd == maxfd || ts->sockfd == maxfd)
 		maxfd--;
-	if(ts->ptyfd == maxfd || ts->sockfd == maxfd)
+	if (ts->ptyfd == maxfd || ts->sockfd == maxfd)
 		maxfd--;
 
 	free(ts);
@@ -347,7 +380,7 @@ int
 telnetd_main(int argc, char **argv)
 {
 #ifndef CONFIG_FEATURE_TELNETD_INETD
-	struct sockaddr_in sa;
+	sockaddr_type sa;
 	int master_fd;
 #endif /* CONFIG_FEATURE_TELNETD_INETD */
 	fd_set rdfdset, wrfdset;
@@ -355,29 +388,38 @@ telnetd_main(int argc, char **argv)
 #ifndef CONFIG_FEATURE_TELNETD_INETD
 	int on = 1;
 	int portnbr = 23;
+	struct in_addr bind_addr = { .s_addr = 0x0 };
 #endif /* CONFIG_FEATURE_TELNETD_INETD */
 	int c;
 	static const char options[] =
 #ifdef CONFIG_FEATURE_TELNETD_INETD
 		"f:l:";
 #else /* CONFIG_EATURE_TELNETD_INETD */
-		"f:l:p:";
+		"f:l:p:b:";
 #endif /* CONFIG_FEATURE_TELNETD_INETD */
 	int maxlen, w, r;
+
+#ifndef CONFIG_LOGIN
+	loginpath = DEFAULT_SHELL;
+#endif
 
 	for (;;) {
 		c = getopt( argc, argv, options);
 		if (c == EOF) break;
 		switch (c) {
 			case 'f':
-				issuefile = strdup (optarg);
+				issuefile = optarg;
 				break;
 			case 'l':
-				loginpath = strdup (optarg);
+				loginpath = optarg;
 				break;
 #ifndef CONFIG_FEATURE_TELNETD_INETD
 			case 'p':
 				portnbr = atoi(optarg);
+				break;
+			case 'b':
+				if (inet_aton(optarg, &bind_addr) == 0)
+					bb_show_usage();
 				break;
 #endif /* CONFIG_FEATURE_TELNETD_INETD */
 			default:
@@ -391,6 +433,8 @@ telnetd_main(int argc, char **argv)
 
 	argv_init[0] = loginpath;
 
+	openlog(bb_applet_name, 0, LOG_USER);
+
 #ifdef CONFIG_FEATURE_TELNETD_INETD
 	maxfd = 1;
 	sessions = make_new_session();
@@ -399,29 +443,25 @@ telnetd_main(int argc, char **argv)
 
 	/* Grab a TCP socket.  */
 
-	master_fd = socket(AF_INET, SOCK_STREAM, 0);
-	if (master_fd < 0) {
-		bb_perror_msg_and_die("socket");
-	}
+	master_fd = bb_xsocket(SOCKET_TYPE, SOCK_STREAM, 0);
 	(void)setsockopt(master_fd, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on));
 
 	/* Set it to listen to specified port.  */
 
 	memset((void *)&sa, 0, sizeof(sa));
+#ifdef CONFIG_FEATURE_IPV6
+	sa.sin6_family = AF_INET6;
+	sa.sin6_port = htons(portnbr);
+	/* sa.sin6_addr = bind_addr6; */
+#else
 	sa.sin_family = AF_INET;
 	sa.sin_port = htons(portnbr);
+	sa.sin_addr = bind_addr;
+#endif
 
-	if (bind(master_fd, (struct sockaddr *) &sa, sizeof(sa)) < 0) {
-		bb_perror_msg_and_die("bind");
-	}
-
-	if (listen(master_fd, 1) < 0) {
-		bb_perror_msg_and_die("listen");
-	}
-
-	if (daemon(0, 0) < 0)
-		bb_perror_msg_and_die("daemon");
-
+	bb_xbind(master_fd, (struct sockaddr *) &sa, sizeof(sa));
+	bb_xlisten(master_fd, 1);
+	bb_xdaemon(0, 0);
 
 	maxfd = master_fd;
 #endif /* CONFIG_FEATURE_TELNETD_INETD */
@@ -480,7 +520,8 @@ telnetd_main(int argc, char **argv)
 #ifndef CONFIG_FEATURE_TELNETD_INETD
 		/* First check for and accept new sessions.  */
 		if (FD_ISSET(master_fd, &rdfdset)) {
-			int fd, salen;
+			int fd;
+			socklen_t salen;
 
 			salen = sizeof(sa);
 			if ((fd = accept(master_fd, (struct sockaddr *)&sa,
@@ -509,7 +550,7 @@ telnetd_main(int argc, char **argv)
 #ifndef CONFIG_FEATURE_TELNETD_INETD
 			struct tsession *next = ts->next; /* in case we free ts. */
 #endif /* CONFIG_FEATURE_TELNETD_INETD */
-			
+
 			if (ts->size1 && FD_ISSET(ts->ptyfd, &wrfdset)) {
 				int num_totty;
 				char *ptr;
@@ -578,9 +619,9 @@ telnetd_main(int argc, char **argv)
 					continue;
 				}
 #endif /* CONFIG_FEATURE_TELNETD_INETD */
-				if(!*(ts->buf1 + ts->rdidx1 + r - 1)) {
+				if (!*(ts->buf1 + ts->rdidx1 + r - 1)) {
 					r--;
-					if(!r)
+					if (!r)
 						continue;
 				}
 				ts->rdidx1 += r;

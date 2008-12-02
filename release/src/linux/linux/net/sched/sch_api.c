@@ -1232,6 +1232,9 @@ int __init pktsched_init(void)
 #ifdef CONFIG_NET_SCH_SFQ
 	INIT_QDISC(sfq);
 #endif
+#ifdef CONFIG_NET_SCH_ESFQ
+	INIT_QDISC(esfq);
+#endif
 #ifdef CONFIG_NET_SCH_TBF
 	INIT_QDISC(tbf);
 #endif

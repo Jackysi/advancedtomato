@@ -271,15 +271,15 @@ int conf_write(const char *name)
 				switch (sym_get_tristate_value(sym)) {
 				case no:
 					fprintf(out, "# %s is not set\n", sym->name);
-					fprintf(out_h, "#undef __%s__\n", sym->name);
+					fprintf(out_h, "#undef %s\n", sym->name);
 					break;
 				case mod:
 					fprintf(out, "%s=m\n", sym->name);
-					fprintf(out_h, "#define __%s__MODULE 1\n", sym->name);
+					fprintf(out_h, "#define %s__MODULE 1\n", sym->name);
 					break;
 				case yes:
 					fprintf(out, "%s=y\n", sym->name);
-					fprintf(out_h, "#define __%s__ 1\n", sym->name);
+					fprintf(out_h, "#define %s 1\n", sym->name);
 					break;
 				}
 				break;
@@ -287,7 +287,7 @@ int conf_write(const char *name)
 				// fix me
 				str = sym_get_string_value(sym);
 				fprintf(out, "%s=", sym->name);
-				fprintf(out_h, "#define __%s__ \"", sym->name);
+				fprintf(out_h, "#define %s \"", sym->name);
 				do {
 					l = strcspn(str, "\"\\");
 					if (l) {
@@ -308,13 +308,13 @@ int conf_write(const char *name)
 				str = sym_get_string_value(sym);
 				if (str[0] != '0' || (str[1] != 'x' && str[1] != 'X')) {
 					fprintf(out, "%s=%s\n", sym->name, str);
-					fprintf(out_h, "#define __%s__ 0x%s\n", sym->name, str);
+					fprintf(out_h, "#define %s 0x%s\n", sym->name, str);
 					break;
 				}
 			case S_INT:
 				str = sym_get_string_value(sym);
 				fprintf(out, "%s=%s\n", sym->name, str);
-				fprintf(out_h, "#define __%s__ %s\n", sym->name, str);
+				fprintf(out_h, "#define %s %s\n", sym->name, str);
 				break;
 			}
 		}
@@ -337,7 +337,7 @@ int conf_write(const char *name)
 	fclose(out_h);
 
 	if (!name) {
-		rename(".tmpconfig.h", "shared/bcmconfig.h");
+		rename(".tmpconfig.h", "shared/tomato_config.h");
 		name = conf_def_filename;
 		file_write_dep(NULL);
 	} else

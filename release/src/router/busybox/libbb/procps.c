@@ -4,23 +4,38 @@
  *
  * Copyright 1998 by Albert Cahalan; all rights reserved.
  * Copyright (C) 2002 by Vladimir Oleynik <dzo@simtreas.ru>
- * GNU Library General Public License Version 2, or any later version
  *
+ * Licensed under GPLv2 or later, see file LICENSE in this tarball for details.
  */
 
 #include <dirent.h>
 #include <string.h>
 #include <stdlib.h>
+#include <sys/param.h>
 #include <unistd.h>
-#include <asm/page.h>
+#include <fcntl.h>
 
 #include "libbb.h"
 
-extern procps_status_t * procps_scan(int save_user_arg0
-#ifdef CONFIG_SELINUX
-	, int use_selinux , security_id_t *sid
-#endif
-	)
+
+#define PROCPS_BUFSIZE 1024
+
+static int read_to_buf(const char *filename, void *buf)
+{
+	int fd;
+	ssize_t ret;
+
+	fd = open(filename, O_RDONLY);
+	if(fd < 0)
+		return -1;
+	ret = read(fd, buf, PROCPS_BUFSIZE-1);
+	((char *)buf)[ret > 0 ? ret : 0] = 0;
+	close(fd);
+	return ret;
+}
+
+
+procps_status_t * procps_scan(int save_user_arg0)
 {
 	static DIR *dir;
 	struct dirent *entry;
@@ -28,17 +43,15 @@ extern procps_status_t * procps_scan(int save_user_arg0
 	char *name;
 	int n;
 	char status[32];
-	char buf[1024];
-	FILE *fp;
+	char *status_tail;
+	char buf[PROCPS_BUFSIZE];
 	procps_status_t curstatus;
 	int pid;
 	long tasknice;
 	struct stat sb;
 
 	if (!dir) {
-		dir = opendir("/proc");
-		if(!dir)
-			bb_error_msg_and_die("Can't open /proc");
+		dir = bb_xopendir("/proc");
 	}
 	for(;;) {
 		if((entry = readdir(dir)) == NULL) {
@@ -54,23 +67,15 @@ extern procps_status_t * procps_scan(int save_user_arg0
 		pid = atoi(name);
 		curstatus.pid = pid;
 
-		sprintf(status, "/proc/%d/stat", pid);
-		if((fp = fopen(status, "r")) == NULL)
+		status_tail = status + sprintf(status, "/proc/%d", pid);
+		if(stat(status, &sb))
 			continue;
-#ifdef CONFIG_SELINUX
-		if(use_selinux)
-		{
-			if(fstat_secure(fileno(fp), &sb, sid))
-				continue;
-		}
-		else
-#endif
-		if(fstat(fileno(fp), &sb))
-			continue;
-		my_getpwuid(curstatus.user, sb.st_uid);
-		name = fgets(buf, sizeof(buf), fp);
-		fclose(fp);
-		if(name == NULL)
+		bb_getpwuid(curstatus.user, sb.st_uid, sizeof(curstatus.user));
+
+		/* see proc(5) for some details on this */
+		strcpy(status_tail, "/stat");
+		n = read_to_buf(status, buf);
+		if(n < 0)
 			continue;
 		name = strrchr(buf, ')'); /* split into "PID (cmd" and "<rest>" */
 		if(name == 0 || name[1] != ' ')
@@ -81,23 +86,23 @@ extern procps_status_t * procps_scan(int save_user_arg0
 		"%c %d "
 		"%*s %*s %*s %*s "     /* pgrp, session, tty, tpgid */
 		"%*s %*s %*s %*s %*s " /* flags, min_flt, cmin_flt, maj_flt, cmaj_flt */
-#ifdef FEATURE_CPU_USAGE_PERCENTAGE
-		"%lu %lu "
+#ifdef CONFIG_FEATURE_TOP_CPU_USAGE_PERCENTAGE
+		"%lu %lu "             /* utime, stime */
 #else
-		"%*s %*s "
+		"%*s %*s "             /* utime, stime */
 #endif
 		"%*s %*s %*s "         /* cutime, cstime, priority */
-		"%ld "
+		"%ld "                 /* nice */
 		"%*s %*s %*s "         /* timeout, it_real_value, start_time */
 		"%*s "                 /* vsize */
-		"%ld",
+		"%ld",                 /* rss */
 		curstatus.state, &curstatus.ppid,
-#ifdef FEATURE_CPU_USAGE_PERCENTAGE
+#ifdef CONFIG_FEATURE_TOP_CPU_USAGE_PERCENTAGE
 		&curstatus.utime, &curstatus.stime,
 #endif
 		&tasknice,
 		&curstatus.rss);
-#ifdef FEATURE_CPU_USAGE_PERCENTAGE
+#ifdef CONFIG_FEATURE_TOP_CPU_USAGE_PERCENTAGE
 		if(n != 6)
 #else
 		if(n != 4)
@@ -115,13 +120,16 @@ extern procps_status_t * procps_scan(int save_user_arg0
 		else
 			curstatus.state[2] = ' ';
 
+#ifdef PAGE_SHIFT
 		curstatus.rss <<= (PAGE_SHIFT - 10);     /* 2**10 = 1kb */
+#else
+		curstatus.rss *= (getpagesize() >> 10);     /* 2**10 = 1kb */
+#endif
 
 		if(save_user_arg0) {
-			sprintf(status, "/proc/%d/cmdline", pid);
-			if((fp = fopen(status, "r")) == NULL)
-				continue;
-			if((n=fread(buf, 1, sizeof(buf)-1, fp)) > 0) {
+			strcpy(status_tail, "/cmdline");
+			n = read_to_buf(status, buf);
+			if(n > 0) {
 				if(buf[n-1]=='\n')
 					buf[--n] = 0;
 				name = buf;
@@ -136,17 +144,7 @@ extern procps_status_t * procps_scan(int save_user_arg0
 					curstatus.cmd = strdup(buf);
 				/* if NULL it work true also */
 			}
-			fclose(fp);
 		}
 		return memcpy(&ret_status, &curstatus, sizeof(procps_status_t));
 	}
 }
-
-/* END CODE */
-/*
-Local Variables:
-c-file-style: "linux"
-c-basic-offset: 4
-tab-width: 4
-End:
-*/

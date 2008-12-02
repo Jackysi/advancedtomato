@@ -1,10 +1,7 @@
 /*
  * ipaddress.c		"ip address".
  *
- *		This program is free software; you can redistribute it and/or
- *		modify it under the terms of the GNU General Public License
- *		as published by the Free Software Foundation; either version
- *		2 of the License, or (at your option) any later version.
+ * Licensed under GPLv2 or later, see file LICENSE in this tarball for details.
  *
  * Authors:	Alexey Kuznetsov, <kuznet@ms2.inr.ac.ru>
  *
@@ -12,23 +9,21 @@
  *	Laszlo Valko <valko@linux.karinthy.hu> 990223: address label must be zero terminated
  */
 
+#include "libbb.h"
 #include <sys/socket.h>
 #include <sys/ioctl.h>
 
 #include <fnmatch.h>
-#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-
-#include <arpa/inet.h>
 
 #include <net/if.h>
 #include <net/if_arp.h>
 
 #include "rt_names.h"
 #include "utils.h"
+#include "ip_common.h"
 
-#include "libbb.h"
 
 static struct
 {
@@ -48,13 +43,13 @@ static struct
 	struct rtnl_handle *rth;
 } filter;
 
-void print_link_flags(FILE *fp, unsigned flags, unsigned mdown)
+static void print_link_flags(FILE *fp, unsigned flags, unsigned mdown)
 {
 	fprintf(fp, "<");
 	flags &= ~IFF_RUNNING;
 #define _PF(f) if (flags&IFF_##f) { \
-                  flags &= ~IFF_##f ; \
-                  fprintf(fp, #f "%s", flags ? "," : ""); }
+		  flags &= ~IFF_##f ; \
+		  fprintf(fp, #f "%s", flags ? "," : ""); }
 	_PF(LOOPBACK);
 	_PF(BROADCAST);
 	_PF(POINTOPOINT);
@@ -73,7 +68,7 @@ void print_link_flags(FILE *fp, unsigned flags, unsigned mdown)
 #endif
 	_PF(UP);
 #undef _PF
-        if (flags)
+	if (flags)
 		fprintf(fp, "%x", flags);
 	if (mdown)
 		fprintf(fp, ",M-DOWN");
@@ -91,7 +86,7 @@ static void print_queuelen(char *name)
 
 	memset(&ifr, 0, sizeof(ifr));
 	strcpy(ifr.ifr_name, name);
-	if (ioctl(s, SIOCGIFTXQLEN, &ifr) < 0) { 
+	if (ioctl(s, SIOCGIFTXQLEN, &ifr) < 0) {
 		perror("SIOCGIFXQLEN");
 		close(s);
 		return;
@@ -102,7 +97,8 @@ static void print_queuelen(char *name)
 		printf("qlen %d", ifr.ifr_qlen);
 }
 
-static int print_linkinfo(struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
+static int print_linkinfo(struct sockaddr_nl ATTRIBUTE_UNUSED *who,
+		struct nlmsghdr *n, void ATTRIBUTE_UNUSED *arg)
 {
 	FILE *fp = (FILE*)arg;
 	struct ifinfomsg *ifi = NLMSG_DATA(n);
@@ -166,7 +162,7 @@ static int print_linkinfo(struct sockaddr_nl *who, struct nlmsghdr *n, void *arg
 #endif
 	if (filter.showqueue)
 		print_queuelen((char*)RTA_DATA(tb[IFLA_IFNAME]));
-	
+
 	if (!filter.family || filter.family == AF_PACKET) {
 		SPRINT_BUF(b1);
 		fprintf(fp, "%s", _SL_);
@@ -204,7 +200,8 @@ static int flush_update(void)
 	return 0;
 }
 
-static int print_addrinfo(struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
+static int print_addrinfo(struct sockaddr_nl ATTRIBUTE_UNUSED *who,
+		struct nlmsghdr *n, void ATTRIBUTE_UNUSED *arg)
 {
 	FILE *fp = (FILE*)arg;
 	struct ifaddrmsg *ifa = NLMSG_DATA(n);
@@ -378,7 +375,7 @@ static int print_selected_addrinfo(int ifindex, struct nlmsg_list *ainfo, FILE *
 		if (n->nlmsg_len < NLMSG_LENGTH(sizeof(ifa)))
 			return -1;
 
-		if (ifa->ifa_index != ifindex || 
+		if (ifa->ifa_index != ifindex ||
 		    (filter.family && filter.family != ifa->ifa_family))
 			continue;
 
@@ -414,9 +411,10 @@ static void ipaddr_reset_filter(int _oneline)
 	filter.oneline = _oneline;
 }
 
-extern int ipaddr_list_or_flush(int argc, char **argv, int flush)
+int ipaddr_list_or_flush(int argc, char **argv, int flush)
 {
-	const char *option[] = { "to", "scope", "up", "label", "dev", 0 };
+	static const char *const option[] = { "to", "scope", "up", "label", "dev", 0 };
+
 	struct nlmsg_list *linfo = NULL;
 	struct nlmsg_list *ainfo = NULL;
 	struct nlmsg_list *l;
@@ -432,17 +430,17 @@ extern int ipaddr_list_or_flush(int argc, char **argv, int flush)
 
 	if (flush) {
 		if (argc <= 0) {
-			fprintf(stderr, "Flush requires arguments.\n");
+			bb_error_msg(bb_msg_requires_arg, "flush");
 			return -1;
 		}
 		if (filter.family == AF_PACKET) {
-			fprintf(stderr, "Cannot flush link addresses.\n");
+			bb_error_msg("Cannot flush link addresses.");
 			return -1;
 		}
 	}
 
 	while (argc > 0) {
-		const unsigned short option_num = compare_string_array(option, *argv);
+		const int option_num = compare_string_array(option, *argv);
 		switch (option_num) {
 			case 0: /* to */
 				NEXT_ARG();
@@ -453,12 +451,12 @@ extern int ipaddr_list_or_flush(int argc, char **argv, int flush)
 				break;
 			case 1: /* scope */
 			{
-				int scope = 0;
+				uint32_t scope = 0;
 				NEXT_ARG();
 				filter.scopemask = -1;
 				if (rtnl_rtscope_a2n(&scope, *argv)) {
 					if (strcmp(*argv, "all") != 0) {
-						invarg("invalid \"scope\"\n", *argv);
+						invarg(*argv, "scope");
 					}
 					scope = RT_SCOPE_NOWHERE;
 					filter.scopemask = 0;
@@ -499,13 +497,12 @@ extern int ipaddr_list_or_flush(int argc, char **argv, int flush)
 	if (filter_dev) {
 		filter.ifindex = ll_name_to_index(filter_dev);
 		if (filter.ifindex <= 0) {
-			bb_error_msg("Device \"%s\" does not exist.", filter_dev);
+			bb_error_msg("Device \"%s\" does not exist", filter_dev);
 			return -1;
 		}
 	}
 
 	if (flush) {
-		int round = 0;
 		char flushb[4096-512];
 
 		filter.flushb = flushb;
@@ -524,14 +521,9 @@ extern int ipaddr_list_or_flush(int argc, char **argv, int flush)
 				exit(1);
 			}
 			if (filter.flushed == 0) {
-#if 0
-				if (round == 0)
-					fprintf(stderr, "Nothing to flush.\n");
-#endif
 				fflush(stdout);
 				return 0;
 			}
-			round++;
 			if (flush_update() < 0)
 				exit(1);
 		}
@@ -564,7 +556,7 @@ extern int ipaddr_list_or_flush(int argc, char **argv, int flush)
 				struct nlmsghdr *n = &a->h;
 				struct ifaddrmsg *ifa = NLMSG_DATA(n);
 
-				if (ifa->ifa_index != ifi->ifi_index || 
+				if (ifa->ifa_index != ifi->ifi_index ||
 				    (filter.family && filter.family != ifa->ifa_family))
 					continue;
 				if ((filter.scope^ifa->ifa_scope)&filter.scopemask)
@@ -631,13 +623,16 @@ static int default_scope(inet_prefix *lcl)
 
 static int ipaddr_modify(int cmd, int argc, char **argv)
 {
-	const char *option[] = { "peer", "remote", "broadcast", "brd",
-		"anycast", "scope", "dev", "label", "local", 0 };
+	static const char *const option[] = {
+		"peer", "remote", "broadcast", "brd",
+		"anycast", "scope", "dev", "label", "local", 0
+	};
+
 	struct rtnl_handle rth;
 	struct {
-		struct nlmsghdr 	n;
-		struct ifaddrmsg 	ifa;
-		char   			buf[256];
+		struct nlmsghdr		n;
+		struct ifaddrmsg	ifa;
+		char			buf[256];
 	} req;
 	char  *d = NULL;
 	char  *l = NULL;
@@ -657,7 +652,7 @@ static int ipaddr_modify(int cmd, int argc, char **argv)
 	req.ifa.ifa_family = preferred_family;
 
 	while (argc > 0) {
-		const unsigned short option_num = compare_string_array(option, *argv);
+		const int option_num = compare_string_array(option, *argv);
 		switch (option_num) {
 			case 0: /* peer */
 			case 1: /* remote */
@@ -713,10 +708,10 @@ static int ipaddr_modify(int cmd, int argc, char **argv)
 			}
 			case 5: /* scope */
 			{
-				int scope = 0;
+				uint32_t scope = 0;
 				NEXT_ARG();
 				if (rtnl_rtscope_a2n(&scope, *argv)) {
-					invarg(*argv, "invalid scope value.");
+					invarg(*argv, "scope");
 				}
 				req.ifa.ifa_scope = scope;
 				scoped = 1;
@@ -749,11 +744,11 @@ static int ipaddr_modify(int cmd, int argc, char **argv)
 	}
 
 	if (d == NULL) {
-		bb_error_msg("Not enough information: \"dev\" argument is required.");
+		bb_error_msg(bb_msg_requires_arg,"\"dev\"");
 		return -1;
 	}
 	if (l && matches(d, l) != 0) {
-		bb_error_msg_and_die("\"dev\" (%s) must match \"label\" (%s).", d, l);
+		bb_error_msg_and_die("\"dev\" (%s) must match \"label\" (%s)", d, l);
 	}
 
 	if (peer_len == 0 && local_len && cmd != RTM_DELADDR) {
@@ -801,10 +796,13 @@ static int ipaddr_modify(int cmd, int argc, char **argv)
 	exit(0);
 }
 
-extern int do_ipaddr(int argc, char **argv)
+int do_ipaddr(int argc, char **argv)
 {
-	const char *commands[] = { "add", "delete", "list", "show", "lst", "flush", 0 };
-	unsigned short command_num = 2;
+	static const char *const commands[] = {
+		"add", "delete", "list", "show", "lst", "flush", 0
+	};
+
+	int command_num = 2;
 
 	if (*argv) {
 		command_num = compare_string_array(commands, *argv);

@@ -26,18 +26,11 @@ static struct option opts[] = {
 	{0}
 };
 
-/* Initialize the match. */
-static void
-init(struct ip6t_entry_match *m, unsigned int *nfcache)
-{
-	*nfcache |= NFC_UNKNOWN;
-}
-
 static u_int16_t
 parse_length(const char *s)
 {
 
-	int len;
+	unsigned int len;
 	
 	if (string_to_number(s, 0, 0xFFFF, &len) == -1)
 		exit_error(PARAMETER_PROBLEM, "length invalid: `%s'\n", s);
@@ -114,7 +107,7 @@ static void
 print_length(struct ip6t_length_info *info)
 {
 	if (info->invert)
-		fputc('!', stdout);
+		printf("! ");
 	
 	if (info->max == info->min)
 		printf("%u ", info->min);
@@ -140,19 +133,17 @@ save(const struct ip6t_ip6 *ip, const struct ip6t_entry_match *match)
 	print_length((struct ip6t_length_info *)match->data);
 }
 
-struct ip6tables_match length
-= { NULL,
-    "length",
-    IPTABLES_VERSION,
-    IP6T_ALIGN(sizeof(struct ip6t_length_info)),
-    IP6T_ALIGN(sizeof(struct ip6t_length_info)),
-    &help,
-    &init,
-    &parse,
-    &final_check,
-    &print,
-    &save,
-    opts
+struct ip6tables_match length = {
+	.name		= "length",
+	.version	= IPTABLES_VERSION,
+	.size		= IP6T_ALIGN(sizeof(struct ip6t_length_info)),
+	.userspacesize	= IP6T_ALIGN(sizeof(struct ip6t_length_info)),
+	.help		= &help,
+	.parse		= &parse,
+	.final_check	= &final_check,
+	.print		= &print,
+	.save		= &save,
+	.extra_opts	= opts,
 };
 
 void _init(void)

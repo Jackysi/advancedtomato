@@ -282,6 +282,8 @@ struct elf_resolve *_dl_load_shared_library(int secure, struct dyn_elf **rpnt,
 	if(_dl_debug) _dl_dprintf(_dl_debug_file, "searching full lib path list\n");
 #endif
 	if ((tpnt1 = search_for_named_library(libname, secure, 
+//			"/opt/lib:"
+//			"/opt/usr/lib:"
 			UCLIBC_TARGET_PREFIX "/usr/X11R6/lib:"
 			UCLIBC_TARGET_PREFIX "/usr/lib:"
 			UCLIBC_TARGET_PREFIX "/lib:"

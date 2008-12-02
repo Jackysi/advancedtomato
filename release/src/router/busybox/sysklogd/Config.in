@@ -16,12 +16,20 @@ config CONFIG_SYSLOGD
 	  application that generated the message.  When used in
 	  conjunction with klogd, messages from the Linux kernel
 	  can also be recorded.  This is terribly useful,
-	  especially for finding what happened when somthing goes
+	  especially for finding what happened when something goes
 	  wrong.  And something almost always will go wrong if
 	  you wait long enough....
 
+config CONFIG_FEATURE_ROTATE_LOGFILE
+	bool "Rotate message files"
+	default n
+	depends on CONFIG_SYSLOGD
+	help
+	  This enables syslogd to rotate the message files
+	  on his own. No need to use an external rotatescript.
+
 config CONFIG_FEATURE_REMOTE_LOG
-	bool "  Remote Log support"
+	bool "Remote Log support"
 	default n
 	depends on CONFIG_SYSLOGD
 	help
@@ -35,21 +43,29 @@ config CONFIG_FEATURE_REMOTE_LOG
 	  by an intruder.
 
 config CONFIG_FEATURE_IPC_SYSLOG
-	bool "  Circular Buffer support"
+	bool "Circular Buffer support"
 	default n
 	depends on CONFIG_SYSLOGD
 	help
 	  When you enable this feature, the syslogd utility will
 	  use a circular buffer to record system log messages.
 	  When the buffer is filled it will continue to overwrite
-	  the oldest messaged.  This can be very useful for
-	  systems with little or no perminant storage, since
+	  the oldest messages.  This can be very useful for
+	  systems with little or no permanent storage, since
 	  otherwise system logs can eventually fill up your
 	  entire filesystem, which may cause your system to
 	  break badly.
 
+config CONFIG_FEATURE_IPC_SYSLOG_BUFFER_SIZE
+	int "    Circular buffer size in Kbytes (minimum 4KB)"
+	default 16
+	depends on CONFIG_FEATURE_IPC_SYSLOG
+	help
+	  This option sets the size of the circular buffer
+	  used to record system log messages.
+
 config CONFIG_LOGREAD
-	bool "  logread"
+	bool "logread"
 	default y
 	depends on CONFIG_FEATURE_IPC_SYSLOG
 	help
@@ -58,12 +74,23 @@ config CONFIG_LOGREAD
 	  utility will allow you to read the messages that are
 	  stored in the syslogd circular buffer.
 
+config CONFIG_FEATURE_LOGREAD_REDUCED_LOCKING
+	bool "logread double buffering"
+	default n
+	depends on CONFIG_LOGREAD
+	help
+	  'logread' ouput to slow serial terminals can have
+	  side effects on syslog because of the semaphore.
+	  This option make logread to double buffer copy
+	  from circular buffer, minimizing semaphore
+	  contention at some minor memory expense.
+
 config CONFIG_KLOGD
 	bool "klogd"
 	default n
 	depends on CONFIG_SYSLOGD
 	help
-	  klogd is a utility which which intercepts and logs all
+	  klogd is a utility which intercepts and logs all
 	  messages from the Linux kernel and sends the messages
 	  out to the 'syslogd' utility so they can be logged.  If
 	  you wish to record the messages produced by the kernel,

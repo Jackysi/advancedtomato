@@ -8,19 +8,7 @@
  * Created: Thu Apr  7 13:29:41 1994 too
  * Last modified: Fri Jun  9 14:34:24 2000 too
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+ * Licensed under the GPL v2 or later, see the file LICENSE in this tarball.
  *
  * HISTORY
  * Revision 3.1  1994/04/17  11:31:54  too
@@ -28,6 +16,8 @@
  * Modified 2000/06/13 for inclusion into BusyBox by Erik Andersen <andersen@codepoet.org>
  * Modified 2001/05/07 to add ability to pass TTYPE to remote host by Jim McQuillan
  * <jam@ltsp.org>
+ * Modified 2004/02/11 to add ability to pass the USER variable to remote host
+ * by Fernando Silveira <swrh@gmx.net>
  *
  */
 
@@ -44,39 +34,28 @@
 #include <netinet/in.h>
 #include "busybox.h"
 
-#ifdef CONFIG_FEATURE_AUTOWIDTH
-#   include <sys/ioctl.h>
-#endif
-
 #if 0
-static const int DOTRACE = 1;
+enum { DOTRACE = 1 };
 #endif
 
 #ifdef DOTRACE
 #include <arpa/inet.h> /* for inet_ntoa()... */
 #define TRACE(x, y) do { if (x) printf y; } while (0)
 #else
-#define TRACE(x, y) 
-#endif
-
-#if 0
-#define USE_POLL
-#include <sys/poll.h>
-#else
-#include <sys/time.h>
+#define TRACE(x, y)
 #endif
 
 #define DATABUFSIZE  128
 #define IACBUFSIZE   128
 
-static const int CHM_TRY = 0;
-static const int CHM_ON = 1;
-static const int CHM_OFF = 2;
-
-static const int UF_ECHO = 0x01;
-static const int UF_SGA = 0x02;
-
 enum {
+	CHM_TRY = 0,
+	CHM_ON = 1,
+	CHM_OFF = 2,
+
+	UF_ECHO = 0x01,
+	UF_SGA = 0x02,
+
 	TS_0 = 1,
 	TS_IAC = 2,
 	TS_OPT = 3,
@@ -98,11 +77,12 @@ static struct Globalvars {
 	byte    charmode;
 	byte    telflags;
 	byte	gotsig;
+	byte	do_termios;
 	/* buffer to handle telnet negotiations */
 	char    iacbuf[IACBUFSIZE];
 	short	iaclen; /* could even use byte */
-	struct termios termios_def;	
-	struct termios termios_raw;	
+	struct termios termios_def;
+	struct termios termios_raw;
 } G;
 
 #define xUSE_GLOBALVAR_PTR /* xUSE... -> don't use :D (makes smaller code) */
@@ -133,6 +113,10 @@ static int one = 1;
 static char *ttype;
 #endif
 
+#ifdef CONFIG_FEATURE_TELNET_AUTOLOGIN
+static const char *autologin;
+#endif
+
 #ifdef CONFIG_FEATURE_AUTOWIDTH
 static int win_width, win_height;
 #endif
@@ -141,7 +125,7 @@ static void doexit(int ev)
 {
 	cookmode();
 	exit(ev);
-}	
+}
 
 static void conescape(void)
 {
@@ -188,10 +172,10 @@ static void conescape(void)
 
 	if (G.gotsig)
 		cookmode();
-	
+
  rrturn:
 	G.gotsig = 0;
-	
+
 }
 static void handlenetoutput(int len)
 {
@@ -213,7 +197,7 @@ static void handlenetoutput(int len)
 	 */
 
 	int i, j;
-	byte * p = G.buf;
+	byte * p = (byte*)G.buf;
 	byte outbuf[4*DATABUFSIZE];
 
 	for (i = len, j = 0; i > 0; i--, p++)
@@ -359,6 +343,34 @@ static void putiac_subopt(byte c, char *str)
 }
 #endif
 
+#ifdef CONFIG_FEATURE_TELNET_AUTOLOGIN
+static void putiac_subopt_autologin(void)
+{
+	int len = strlen(autologin) + 6;	// (2 + 1 + 1 + strlen + 2)
+	char *user = "USER";
+
+	if (G.iaclen + len > IACBUFSIZE)
+		iacflush();
+
+	putiac(IAC);
+	putiac(SB);
+	putiac(TELOPT_NEW_ENVIRON);
+	putiac(TELQUAL_IS);
+	putiac(NEW_ENV_VAR);
+
+	while(*user)
+		putiac(*user++);
+
+	putiac(NEW_ENV_VALUE);
+
+	while(*autologin)
+		putiac(*autologin++);
+
+	putiac(IAC);
+	putiac(SE);
+}
+#endif
+
 #ifdef CONFIG_FEATURE_AUTOWIDTH
 static void putiac_naws(byte c, int x, int y)
 {
@@ -412,7 +424,7 @@ static void will_charmode(void)
 	G.charmode = CHM_TRY;
 	G.telflags |= (UF_ECHO | UF_SGA);
 	setConMode();
-  
+
 	putiac2(DO, TELOPT_ECHO);
 	putiac2(DO, TELOPT_SGA);
 	iacflush();
@@ -442,7 +454,7 @@ static inline void to_echo(void)
 	/* if server requests ECHO, don't agree */
 	if      (G.telwish == DO) {	putiac2(WONT, TELOPT_ECHO);	return; }
 	else if (G.telwish == DONT)	return;
-  
+
 	if (G.telflags & UF_ECHO)
 	{
 		if (G.telwish == WILL)
@@ -476,7 +488,7 @@ static inline void to_sga(void)
 	else
 		if (G.telwish == WONT)
 			return;
-  
+
 	if ((G.telflags ^= UF_SGA) & UF_SGA) /* toggle */
 		putiac2(DO, TELOPT_SGA);
 	else
@@ -499,13 +511,27 @@ static inline void to_ttype(void)
 }
 #endif
 
+#ifdef CONFIG_FEATURE_TELNET_AUTOLOGIN
+static inline void to_new_environ(void)
+{
+	/* Tell server we will (or will not) do AUTOLOGIN */
+
+	if (autologin)
+		putiac2(WILL, TELOPT_NEW_ENVIRON);
+	else
+		putiac2(WONT, TELOPT_NEW_ENVIRON);
+
+	return;
+}
+#endif
+
 #ifdef CONFIG_FEATURE_AUTOWIDTH
 static inline void to_naws(void)
-{ 
+{
 	/* Tell server we will do NAWS */
 	putiac2(WILL, TELOPT_NAWS);
 	return;
-}         
+}
 #endif
 
 static void telopt(byte c)
@@ -516,6 +542,9 @@ static void telopt(byte c)
 		case TELOPT_SGA:		to_sga();	break;
 #ifdef CONFIG_FEATURE_TELNET_TTYPE
 		case TELOPT_TTYPE:		to_ttype();break;
+#endif
+#ifdef CONFIG_FEATURE_TELNET_AUTOLOGIN
+		case TELOPT_NEW_ENVIRON:	to_new_environ();	break;
 #endif
 #ifdef CONFIG_FEATURE_AUTOWIDTH
 		case TELOPT_NAWS:		to_naws();
@@ -544,6 +573,11 @@ static int subneg(byte c)
 		if (c == TELOPT_TTYPE)
 			putiac_subopt(TELOPT_TTYPE,ttype);
 #endif
+#ifdef CONFIG_FEATURE_TELNET_AUTOLOGIN
+		else
+		if (c == TELOPT_NEW_ENVIRON)
+			putiac_subopt_autologin();
+#endif
 		break;
 	case TS_SUB2:
 		if (c == SE)
@@ -564,32 +598,27 @@ static void fgotsig(int sig)
 
 static void rawmode(void)
 {
-	tcsetattr(0, TCSADRAIN, &G.termios_raw);
-}	
+	if (G.do_termios) tcsetattr(0, TCSADRAIN, &G.termios_raw);
+}
 
 static void cookmode(void)
 {
-	tcsetattr(0, TCSADRAIN, &G.termios_def);
+	if (G.do_termios) tcsetattr(0, TCSADRAIN, &G.termios_def);
 }
 
-extern int telnet_main(int argc, char** argv)
+int telnet_main(int argc, char** argv)
 {
-	char *host;
-	char *port;
 	int len;
+	struct sockaddr_in s_in;
 #ifdef USE_POLL
 	struct pollfd ufds[2];
-#else	
+#else
 	fd_set readfds;
 	int maxfd;
-#endif	
+#endif
 
 #ifdef CONFIG_FEATURE_AUTOWIDTH
-    struct winsize winp;
-    if( ioctl(0, TIOCGWINSZ, &winp) == 0 ) {
-	win_width  = winp.ws_col;
-	win_height = winp.ws_row;
-    }
+	get_terminal_width_height(0, &win_width, &win_height);
 #endif
 
 #ifdef CONFIG_FEATURE_TELNET_TTYPE
@@ -598,18 +627,34 @@ extern int telnet_main(int argc, char** argv)
 
 	memset(&G, 0, sizeof G);
 
-	if (tcgetattr(0, &G.termios_def) < 0)
-		exit(1);
-	
-	G.termios_raw = G.termios_def;
-	cfmakeraw(&G.termios_raw);
-	
-	if (argc < 2)	bb_show_usage();
-	port = (argc > 2)? argv[2] : "23";
-	
-	host = argv[1];
-	
-	G.netfd = xconnect(host, port);
+	if (tcgetattr(0, &G.termios_def) >= 0) {
+		G.do_termios = 1;
+
+		G.termios_raw = G.termios_def;
+		cfmakeraw(&G.termios_raw);
+	}
+
+	if (argc < 2)
+		bb_show_usage();
+
+#ifdef CONFIG_FEATURE_TELNET_AUTOLOGIN
+	if (1 & bb_getopt_ulflags(argc, argv, "al:", &autologin))
+		autologin = getenv("USER");
+
+	if (optind < argc) {
+		bb_lookup_host(&s_in, argv[optind++]);
+		s_in.sin_port = bb_lookup_port((optind < argc) ? argv[optind++] :
+				"telnet", "tcp", 23);
+		if (optind < argc)
+			bb_show_usage();
+	} else
+		bb_show_usage();
+#else
+	bb_lookup_host(&s_in, argv[1]);
+	s_in.sin_port = bb_lookup_port((argc == 3) ? argv[2] : "telnet", "tcp", 23);
+#endif
+
+	G.netfd = xconnect(&s_in);
 
 	setsockopt(G.netfd, SOL_SOCKET, SO_KEEPALIVE, &one, sizeof one);
 
@@ -618,22 +663,22 @@ extern int telnet_main(int argc, char** argv)
 #ifdef USE_POLL
 	ufds[0].fd = 0; ufds[1].fd = G.netfd;
 	ufds[0].events = ufds[1].events = POLLIN;
-#else	
+#else
 	FD_ZERO(&readfds);
 	FD_SET(0, &readfds);
 	FD_SET(G.netfd, &readfds);
 	maxfd = G.netfd + 1;
 #endif
-	
+
 	while (1)
 	{
 #ifndef USE_POLL
 		fd_set rfds = readfds;
-		
+
 		switch (select(maxfd, &rfds, NULL, NULL, NULL))
 #else
 		switch (poll(ufds, 2, -1))
-#endif			
+#endif
 		{
 		case 0:
 			/* timeout */
@@ -648,9 +693,9 @@ extern int telnet_main(int argc, char** argv)
 
 #ifdef USE_POLL
 			if (ufds[0].revents) /* well, should check POLLIN, but ... */
-#else				
+#else
 			if (FD_ISSET(0, &rfds))
-#endif				
+#endif
 			{
 				len = read(0, G.buf, DATABUFSIZE);
 
@@ -658,15 +703,15 @@ extern int telnet_main(int argc, char** argv)
 					doexit(0);
 
 				TRACE(0, ("Read con: %d\n", len));
-				
+
 				handlenetoutput(len);
 			}
 
 #ifdef USE_POLL
 			if (ufds[1].revents) /* well, should check POLLIN, but ... */
-#else				
+#else
 			if (FD_ISSET(G.netfd, &rfds))
-#endif				
+#endif
 			{
 				len = read(G.netfd, G.buf, DATABUFSIZE);
 
@@ -682,11 +727,3 @@ extern int telnet_main(int argc, char** argv)
 		}
 	}
 }
-
-/*
-Local Variables:
-c-file-style: "linux"
-c-basic-offset: 4
-tab-width: 4
-End:
-*/

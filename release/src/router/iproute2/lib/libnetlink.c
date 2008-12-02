@@ -30,15 +30,28 @@ void rtnl_close(struct rtnl_handle *rth)
 	close(rth->fd);
 }
 
-int rtnl_open(struct rtnl_handle *rth, unsigned subscriptions)
+int rtnl_open_byproto(struct rtnl_handle *rth, unsigned subscriptions,
+		      int protocol)
 {
-	int addr_len;
+	socklen_t addr_len;
+	int sndbuf = 32768;
+	int rcvbuf = 32768;
 
 	memset(rth, 0, sizeof(rth));
 
-	rth->fd = socket(AF_NETLINK, SOCK_RAW, NETLINK_ROUTE);
+	rth->fd = socket(AF_NETLINK, SOCK_RAW, protocol);
 	if (rth->fd < 0) {
 		perror("Cannot open netlink socket");
+		return -1;
+	}
+
+	if (setsockopt(rth->fd,SOL_SOCKET,SO_SNDBUF,&sndbuf,sizeof(sndbuf)) < 0) {
+		perror("SO_SNDBUF");
+		return -1;
+	}
+
+	if (setsockopt(rth->fd,SOL_SOCKET,SO_RCVBUF,&rcvbuf,sizeof(rcvbuf)) < 0) {
+		perror("SO_RCVBUF");
 		return -1;
 	}
 
@@ -67,6 +80,11 @@ int rtnl_open(struct rtnl_handle *rth, unsigned subscriptions)
 	return 0;
 }
 
+int rtnl_open(struct rtnl_handle *rth, unsigned subscriptions)
+{
+	return rtnl_open_byproto(rth, subscriptions, NETLINK_ROUTE);
+}
+
 int rtnl_wilddump_request(struct rtnl_handle *rth, int family, int type)
 {
 	struct {
@@ -78,6 +96,7 @@ int rtnl_wilddump_request(struct rtnl_handle *rth, int family, int type)
 	memset(&nladdr, 0, sizeof(nladdr));
 	nladdr.nl_family = AF_NETLINK;
 
+	memset(&req, 0, sizeof(req));
 	req.nlh.nlmsg_len = sizeof(req);
 	req.nlh.nlmsg_type = type;
 	req.nlh.nlmsg_flags = NLM_F_ROOT|NLM_F_MATCH|NLM_F_REQUEST;
@@ -85,10 +104,11 @@ int rtnl_wilddump_request(struct rtnl_handle *rth, int family, int type)
 	req.nlh.nlmsg_seq = rth->dump = ++rth->seq;
 	req.g.rtgen_family = family;
 
-	return sendto(rth->fd, (void*)&req, sizeof(req), 0, (struct sockaddr*)&nladdr, sizeof(nladdr));
+	return sendto(rth->fd, (void*)&req, sizeof(req), 0,
+		      (struct sockaddr*)&nladdr, sizeof(nladdr));
 }
 
-int rtnl_send(struct rtnl_handle *rth, char *buf, int len)
+int rtnl_send(struct rtnl_handle *rth, const char *buf, int len)
 {
 	struct sockaddr_nl nladdr;
 
@@ -102,12 +122,15 @@ int rtnl_dump_request(struct rtnl_handle *rth, int type, void *req, int len)
 {
 	struct nlmsghdr nlh;
 	struct sockaddr_nl nladdr;
-	struct iovec iov[2] = { { &nlh, sizeof(nlh) }, { req, len } };
+	struct iovec iov[2] = {
+		{ .iov_base = &nlh, .iov_len = sizeof(nlh) },
+		{ .iov_base = req, .iov_len = len }
+	};
 	struct msghdr msg = {
-		(void*)&nladdr, sizeof(nladdr),
-		iov,	2,
-		NULL,	0,
-		0
+		.msg_name = &nladdr,
+		.msg_namelen = 	sizeof(nladdr),
+		.msg_iov = iov,
+		.msg_iovlen = 2,
 	};
 
 	memset(&nladdr, 0, sizeof(nladdr));
@@ -123,26 +146,27 @@ int rtnl_dump_request(struct rtnl_handle *rth, int type, void *req, int len)
 }
 
 int rtnl_dump_filter(struct rtnl_handle *rth,
-		     int (*filter)(struct sockaddr_nl *, struct nlmsghdr *n, void *),
+		     rtnl_filter_t filter,
 		     void *arg1,
-		     int (*junk)(struct sockaddr_nl *,struct nlmsghdr *n, void *),
+		     rtnl_filter_t junk,
 		     void *arg2)
 {
-	char	buf[8192];
 	struct sockaddr_nl nladdr;
-	struct iovec iov = { buf, sizeof(buf) };
+	struct iovec iov;
+	struct msghdr msg = {
+		.msg_name = &nladdr,
+		.msg_namelen = sizeof(nladdr),
+		.msg_iov = &iov,
+		.msg_iovlen = 1,
+	};
+	char buf[16384];
 
+	iov.iov_base = buf;
 	while (1) {
 		int status;
 		struct nlmsghdr *h;
 
-		struct msghdr msg = {
-			(void*)&nladdr, sizeof(nladdr),
-			&iov,	1,
-			NULL,	0,
-			0
-		};
-
+		iov.iov_len = sizeof(buf);
 		status = recvmsg(rth->fd, &msg, 0);
 
 		if (status < 0) {
@@ -151,20 +175,18 @@ int rtnl_dump_filter(struct rtnl_handle *rth,
 			perror("OVERRUN");
 			continue;
 		}
+
 		if (status == 0) {
 			fprintf(stderr, "EOF on netlink\n");
 			return -1;
-		}
-		if (msg.msg_namelen != sizeof(nladdr)) {
-			fprintf(stderr, "sender address length == %d\n", msg.msg_namelen);
-			exit(1);
 		}
 
 		h = (struct nlmsghdr*)buf;
 		while (NLMSG_OK(h, status)) {
 			int err;
 
-			if (h->nlmsg_pid != rth->local.nl_pid ||
+			if (nladdr.nl_pid != 0 ||
+			    h->nlmsg_pid != rth->local.nl_pid ||
 			    h->nlmsg_seq != rth->dump) {
 				if (junk) {
 					err = junk(&nladdr, h, arg2);
@@ -206,21 +228,24 @@ skip_it:
 
 int rtnl_talk(struct rtnl_handle *rtnl, struct nlmsghdr *n, pid_t peer,
 	      unsigned groups, struct nlmsghdr *answer,
-	      int (*junk)(struct sockaddr_nl *,struct nlmsghdr *n, void *),
+	      rtnl_filter_t junk,
 	      void *jarg)
 {
 	int status;
 	unsigned seq;
 	struct nlmsghdr *h;
 	struct sockaddr_nl nladdr;
-	struct iovec iov = { (void*)n, n->nlmsg_len };
-	char   buf[8192];
-	struct msghdr msg = {
-		(void*)&nladdr, sizeof(nladdr),
-		&iov,	1,
-		NULL,	0,
-		0
+	struct iovec iov = {
+		.iov_base = (void*) n,
+		.iov_len = n->nlmsg_len
 	};
+	struct msghdr msg = {
+		.msg_name = &nladdr,
+		.msg_namelen = sizeof(nladdr),
+		.msg_iov = &iov,
+		.msg_iovlen = 1,
+	};
+	char   buf[16384];
 
 	memset(&nladdr, 0, sizeof(nladdr));
 	nladdr.nl_family = AF_NETLINK;
@@ -228,6 +253,7 @@ int rtnl_talk(struct rtnl_handle *rtnl, struct nlmsghdr *n, pid_t peer,
 	nladdr.nl_groups = groups;
 
 	n->nlmsg_seq = seq = ++rtnl->seq;
+
 	if (answer == NULL)
 		n->nlmsg_flags |= NLM_F_ACK;
 
@@ -237,6 +263,8 @@ int rtnl_talk(struct rtnl_handle *rtnl, struct nlmsghdr *n, pid_t peer,
 		perror("Cannot talk to rtnetlink");
 		return -1;
 	}
+
+	memset(buf,0,sizeof(buf));
 
 	iov.iov_base = buf;
 
@@ -272,13 +300,17 @@ int rtnl_talk(struct rtnl_handle *rtnl, struct nlmsghdr *n, pid_t peer,
 				exit(1);
 			}
 
-			if (h->nlmsg_pid != rtnl->local.nl_pid ||
+			if (nladdr.nl_pid != peer ||
+			    h->nlmsg_pid != rtnl->local.nl_pid ||
 			    h->nlmsg_seq != seq) {
 				if (junk) {
 					err = junk(&nladdr, h, jarg);
 					if (err < 0)
 						return err;
 				}
+				/* Don't forget to skip that message. */
+				status -= NLMSG_ALIGN(len);
+				h = (struct nlmsghdr*)((char*)h + NLMSG_ALIGN(len));
 				continue;
 			}
 
@@ -318,30 +350,28 @@ int rtnl_talk(struct rtnl_handle *rtnl, struct nlmsghdr *n, pid_t peer,
 	}
 }
 
-int rtnl_listen(struct rtnl_handle *rtnl, 
-	      int (*handler)(struct sockaddr_nl *,struct nlmsghdr *n, void *),
-	      void *jarg)
+int rtnl_listen(struct rtnl_handle *rtnl,
+		rtnl_filter_t handler,
+		void *jarg)
 {
 	int status;
 	struct nlmsghdr *h;
 	struct sockaddr_nl nladdr;
 	struct iovec iov;
-	char   buf[8192];
 	struct msghdr msg = {
-		(void*)&nladdr, sizeof(nladdr),
-		&iov,	1,
-		NULL,	0,
-		0
+		.msg_name = &nladdr,
+		.msg_namelen = sizeof(nladdr),
+		.msg_iov = &iov,
+		.msg_iovlen = 1,
 	};
+	char   buf[8192];
 
 	memset(&nladdr, 0, sizeof(nladdr));
 	nladdr.nl_family = AF_NETLINK;
 	nladdr.nl_pid = 0;
 	nladdr.nl_groups = 0;
 
-
 	iov.iov_base = buf;
-
 	while (1) {
 		iov.iov_len = sizeof(buf);
 		status = recvmsg(rtnl->fd, &msg, 0);
@@ -392,9 +422,8 @@ int rtnl_listen(struct rtnl_handle *rtnl,
 	}
 }
 
-int rtnl_from_file(FILE *rtnl, 
-	      int (*handler)(struct sockaddr_nl *,struct nlmsghdr *n, void *),
-	      void *jarg)
+int rtnl_from_file(FILE *rtnl, rtnl_filter_t handler,
+		   void *jarg)
 {
 	int status;
 	struct sockaddr_nl nladdr;
@@ -452,9 +481,11 @@ int addattr32(struct nlmsghdr *n, int maxlen, int type, __u32 data)
 {
 	int len = RTA_LENGTH(4);
 	struct rtattr *rta;
-	if (NLMSG_ALIGN(n->nlmsg_len) + len > maxlen)
+	if (NLMSG_ALIGN(n->nlmsg_len) + len > maxlen) {
+		fprintf(stderr,"addattr32: Error! max allowed bound %d exceeded\n",maxlen);
 		return -1;
-	rta = (struct rtattr*)(((char*)n) + NLMSG_ALIGN(n->nlmsg_len));
+	}
+	rta = NLMSG_TAIL(n);
 	rta->rta_type = type;
 	rta->rta_len = len;
 	memcpy(RTA_DATA(rta), &data, 4);
@@ -462,18 +493,34 @@ int addattr32(struct nlmsghdr *n, int maxlen, int type, __u32 data)
 	return 0;
 }
 
-int addattr_l(struct nlmsghdr *n, int maxlen, int type, void *data, int alen)
+int addattr_l(struct nlmsghdr *n, int maxlen, int type, const void *data,
+	      int alen)
 {
 	int len = RTA_LENGTH(alen);
 	struct rtattr *rta;
 
-	if (NLMSG_ALIGN(n->nlmsg_len) + len > maxlen)
+	if (NLMSG_ALIGN(n->nlmsg_len) + RTA_ALIGN(len) > maxlen) {
+		fprintf(stderr, "addattr_l ERROR: message exceeded bound of %d\n",maxlen);
 		return -1;
-	rta = (struct rtattr*)(((char*)n) + NLMSG_ALIGN(n->nlmsg_len));
+	}
+	rta = NLMSG_TAIL(n);
 	rta->rta_type = type;
 	rta->rta_len = len;
 	memcpy(RTA_DATA(rta), data, alen);
-	n->nlmsg_len = NLMSG_ALIGN(n->nlmsg_len) + len;
+	n->nlmsg_len = NLMSG_ALIGN(n->nlmsg_len) + RTA_ALIGN(len);
+	return 0;
+}
+
+int addraw_l(struct nlmsghdr *n, int maxlen, const void *data, int len)
+{
+	if (NLMSG_ALIGN(n->nlmsg_len) + NLMSG_ALIGN(len) > maxlen) {
+		fprintf(stderr, "addraw_l ERROR: message exceeded bound of %d\n",maxlen);
+		return -1;
+	}
+
+	memcpy(NLMSG_TAIL(n), data, len);
+	memset((void *) NLMSG_TAIL(n) + len, 0, NLMSG_ALIGN(len) - len);
+	n->nlmsg_len = NLMSG_ALIGN(n->nlmsg_len) + NLMSG_ALIGN(len);
 	return 0;
 }
 
@@ -482,8 +529,10 @@ int rta_addattr32(struct rtattr *rta, int maxlen, int type, __u32 data)
 	int len = RTA_LENGTH(4);
 	struct rtattr *subrta;
 
-	if (RTA_ALIGN(rta->rta_len) + len > maxlen)
+	if (RTA_ALIGN(rta->rta_len) + len > maxlen) {
+		fprintf(stderr,"rta_addattr32: Error! max allowed bound %d exceeded\n",maxlen);
 		return -1;
+	}
 	subrta = (struct rtattr*)(((char*)rta) + RTA_ALIGN(rta->rta_len));
 	subrta->rta_type = type;
 	subrta->rta_len = len;
@@ -492,24 +541,27 @@ int rta_addattr32(struct rtattr *rta, int maxlen, int type, __u32 data)
 	return 0;
 }
 
-int rta_addattr_l(struct rtattr *rta, int maxlen, int type, void *data, int alen)
+int rta_addattr_l(struct rtattr *rta, int maxlen, int type,
+		  const void *data, int alen)
 {
 	struct rtattr *subrta;
 	int len = RTA_LENGTH(alen);
 
-	if (RTA_ALIGN(rta->rta_len) + len > maxlen)
+	if (RTA_ALIGN(rta->rta_len) + RTA_ALIGN(len) > maxlen) {
+		fprintf(stderr,"rta_addattr_l: Error! max allowed bound %d exceeded\n",maxlen);
 		return -1;
+	}
 	subrta = (struct rtattr*)(((char*)rta) + RTA_ALIGN(rta->rta_len));
 	subrta->rta_type = type;
 	subrta->rta_len = len;
 	memcpy(RTA_DATA(subrta), data, alen);
-	rta->rta_len = NLMSG_ALIGN(rta->rta_len) + len;
+	rta->rta_len = NLMSG_ALIGN(rta->rta_len) + RTA_ALIGN(len);
 	return 0;
 }
 
-
 int parse_rtattr(struct rtattr *tb[], int max, struct rtattr *rta, int len)
 {
+	memset(tb, 0, sizeof(struct rtattr *) * (max + 1));
 	while (RTA_OK(rta, len)) {
 		if (rta->rta_type <= max)
 			tb[rta->rta_type] = rta;
@@ -518,4 +570,19 @@ int parse_rtattr(struct rtattr *tb[], int max, struct rtattr *rta, int len)
 	if (len)
 		fprintf(stderr, "!!!Deficit %d, rta_len=%d\n", len, rta->rta_len);
 	return 0;
+}
+
+int parse_rtattr_byindex(struct rtattr *tb[], int max, struct rtattr *rta, int len)
+{
+	int i = 0;
+
+	memset(tb, 0, sizeof(struct rtattr *) * max);
+	while (RTA_OK(rta, len)) {
+		if (rta->rta_type <= max && i < max)
+			tb[i++] = rta;
+		rta = RTA_NEXT(rta,len);
+	}
+	if (len)
+		fprintf(stderr, "!!!Deficit %d, rta_len=%d\n", len, rta->rta_len);
+	return i;
 }

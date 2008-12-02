@@ -27,7 +27,7 @@
  *
  * Original version majorly reworked for SUSv3 compliance, bug fixes, and
  * size optimizations.  Changes include:
- * 1) Now correctly distingusishes between errors and actual file differences.
+ * 1) Now correctly distinguishes between errors and actual file differences.
  * 2) Proper handling of '-' args.
  * 3) Actual error checking of i/o.
  * 4) Accept SUSv3 -l option.  Note that we use the slightly nicer gnu format
@@ -52,11 +52,8 @@ static FILE *cmp_xfopen_input(const char *filename)
 
 static const char fmt_eof[] = "cmp: EOF on %s\n";
 static const char fmt_differ[] = "%s %s differ: char %d, line %d\n";
-#if 0
-static const char fmt_l_opt[] = "%.0s%.0s%d %o %o\n";	/* SUSv3 format */
-#else
-static const char fmt_l_opt[] = "%.0s%.0s%d %3o %3o\n";	/* nicer gnu format */
-#endif
+// This fmt_l_opt uses gnu-isms.  SUSv3 would be "%.0s%.0s%d %o %o\n"
+static const char fmt_l_opt[] = "%.0s%.0s%d %3o %3o\n";
 
 static const char opt_chars[] = "sl";
 

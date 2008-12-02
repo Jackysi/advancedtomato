@@ -176,6 +176,7 @@ int MAIN(int argc, char **argv)
 	int need_rand = 0;
 	int checkend=0,checkoffset=0;
 	unsigned long nmflag = 0;
+	ASN1_INTEGER *sno = NULL;	// zzz
 
 	reqfile=0;
 
@@ -294,6 +295,12 @@ int MAIN(int argc, char **argv)
 			{
 			if (--argc < 1) goto bad;
 			CAserial= *(++argv);
+			}
+		else if (strcmp(*argv,"-set_serial") == 0)	// zzz
+			{
+			if (--argc < 1) goto bad;
+			if (!(sno = s2i_ASN1_INTEGER(NULL, *(++argv))))
+				goto bad;
 			}
 		else if (strcmp(*argv,"-addtrust") == 0)
 			{
@@ -555,7 +562,10 @@ bad:
 		if ((x=X509_new()) == NULL) goto end;
 		ci=x->cert_info;
 
-		if (!ASN1_INTEGER_set(X509_get_serialNumber(x),0)) goto end;
+		if (sno) {	// zzz
+			if (!X509_set_serialNumber(x, sno)) goto end;
+		}
+		else if (!ASN1_INTEGER_set(X509_get_serialNumber(x),0)) goto end;
 		if (!X509_set_issuer_name(x,req->req_info->subject)) goto end;
 		if (!X509_set_subject_name(x,req->req_info->subject)) goto end;
 

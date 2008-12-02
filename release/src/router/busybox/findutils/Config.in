@@ -11,23 +11,41 @@ config CONFIG_FIND
 	help
 	  find is used to search your system to find specified files.
 
+config CONFIG_FEATURE_FIND_PRINT0
+	bool "Enable -print0 option"
+	default y
+	depends on CONFIG_FIND
+	help
+	  Causes output names to be separated by a null character
+	  rather than a newline.  This allows names that contain
+	  newlines and other whitespace to be more easily
+	  interpreted by other programs.
+
 config CONFIG_FEATURE_FIND_MTIME
-	bool "  Enable modified time matching (-mtime) option"
+	bool "Enable modified time matching (-mtime) option"
 	default y
 	depends on CONFIG_FIND
 	help
 	  Allow searching based on the modification time of
-	  files.
+	  files, in days.
+
+config CONFIG_FEATURE_FIND_MMIN
+	bool "Enable modified time matching (-min) option"
+	default y
+	depends on CONFIG_FIND
+	help
+	  Allow searching based on the modification time of
+	  files, in minutes.
 
 config CONFIG_FEATURE_FIND_PERM
-	bool "  Enable permissions matching (-perm) option"
+	bool "Enable permissions matching (-perm) option"
 	default y
 	depends on CONFIG_FIND
 	help
 	  Enable searching based on file permissions.
 
 config CONFIG_FEATURE_FIND_TYPE
-	bool "  Enable filetype matching (-type) option"
+	bool "Enable filetype matching (-type) option"
 	default y
 	depends on CONFIG_FIND
 	help
@@ -35,15 +53,15 @@ config CONFIG_FEATURE_FIND_TYPE
 	  directory, socket, device, etc.).
 
 config CONFIG_FEATURE_FIND_XDEV
-	bool "  Enable stay in filesystem (-xdev) option"
+	bool "Enable stay in filesystem (-xdev) option"
 	default y
 	depends on CONFIG_FIND
 	help
-	  This option will restrict find to a single
+	  This option will allow find to restrict searches to a single
 	  filesystem.
 
 config CONFIG_FEATURE_FIND_NEWER
-	bool "  Enable -newer option for comparing file mtimes"
+	bool "Enable -newer option for comparing file mtimes"
 	default y
 	depends on CONFIG_FIND
 	help
@@ -51,11 +69,19 @@ config CONFIG_FEATURE_FIND_NEWER
 	  a modified time that is more recent than the specified FILE.
 
 config CONFIG_FEATURE_FIND_INUM
-	bool "  Enable inode number matching (-inum) option"
+	bool "Enable inode number matching (-inum) option"
 	default y
 	depends on CONFIG_FIND
 	help
-	  Support the 'fine -inum' option for searching by inode number.
+	  Support the 'find -inum' option for searching by inode number.
+
+config CONFIG_FEATURE_FIND_EXEC
+	bool "Enable (-exec) option allowing execution of commands"
+	default y
+	depends on CONFIG_FIND
+	help
+	  Support the 'find -exec' option for executing commands based upon
+	  the files matched.
 
 config CONFIG_GREP
 	bool "grep"
@@ -64,7 +90,7 @@ config CONFIG_GREP
 	  grep is used to search files for a specified pattern.
 
 config CONFIG_FEATURE_GREP_EGREP_ALIAS
-	bool "  Support extended regular expressions (egrep & grep -E)"
+	bool "Support extended regular expressions (egrep & grep -E)"
 	default y
 	depends on CONFIG_GREP
 	help
@@ -73,16 +99,16 @@ config CONFIG_FEATURE_GREP_EGREP_ALIAS
 	  and various repetition operators.
 
 config CONFIG_FEATURE_GREP_FGREP_ALIAS
-	bool "  Alias fgrep to grep -f"
+	bool "Alias fgrep to grep -F"
 	default y
 	depends on CONFIG_GREP
 	help
-          fgrep sees the search pattern as a normal sting rather than
+	  fgrep sees the search pattern as a normal string rather than
 	  regular expressions.
-	  grep -f is always builtin, this just creates the fgrep alias.
+	  grep -F is always builtin, this just creates the fgrep alias.
 
 config CONFIG_FEATURE_GREP_CONTEXT
-	bool "  Enable before and after context flags (-A, -B and -C)"
+	bool "Enable before and after context flags (-A, -B and -C)"
 	default y
 	depends on CONFIG_GREP
 	help
@@ -95,7 +121,39 @@ config CONFIG_XARGS
 	default n
 	help
 	  xargs is used to execute a specified command on
-	  every item from standard input.  
+	  every item from standard input.
+
+config CONFIG_FEATURE_XARGS_SUPPORT_CONFIRMATION
+	bool "Enable prompt and confirmation option -p"
+	default n
+	depends on CONFIG_XARGS
+	help
+	  Support prompt the user about whether to run each command
+	  line and read a line from the terminal.
+
+config CONFIG_FEATURE_XARGS_SUPPORT_QUOTES
+	bool "Enable support single and double quotes and backslash"
+	default n
+	depends on CONFIG_XARGS
+	help
+	  Default xargs unsupport single and double quotes
+	  and backslash for can use aruments with spaces.
+
+config CONFIG_FEATURE_XARGS_SUPPORT_TERMOPT
+	bool "Enable support options -x"
+	default n
+	depends on CONFIG_XARGS
+	help
+	  Enable support exit if the size (see the -s or -n option)
+	  is exceeded.
+
+config CONFIG_FEATURE_XARGS_SUPPORT_ZERO_TERM
+	bool "Enable options -0"
+	default n
+	depends on CONFIG_XARGS
+	help
+	  Enable input filenames are terminated by a null character
+	  instead of by whitespace, and the quotes and backslash
+	  are not special.
 
 endmenu
-

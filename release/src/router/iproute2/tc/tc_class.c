@@ -25,7 +25,7 @@
 #include "tc_util.h"
 #include "tc_common.h"
 
-static void usage(void) __attribute__((noreturn));
+static void usage(void);
 
 static void usage(void)
 {
@@ -37,12 +37,11 @@ static void usage(void)
 	fprintf(stderr, "Where:\n");
 	fprintf(stderr, "QDISC_KIND := { prio | cbq | etc. }\n");
 	fprintf(stderr, "OPTIONS := ... try tc class add <desired QDISC_KIND> help\n");
-	exit(-1);
+	return;
 }
 
 int tc_class_modify(int cmd, unsigned flags, int argc, char **argv)
 {
-	struct rtnl_handle rth;
 	struct {
 		struct nlmsghdr 	n;
 		struct tcmsg 		t;
@@ -77,10 +76,13 @@ int tc_class_modify(int cmd, unsigned flags, int argc, char **argv)
 			if (get_tc_classid(&handle, *argv))
 				invarg(*argv, "invalid class ID");
 			req.t.tcm_handle = handle;
-		} else if (strcmp(*argv, "root") == 0) {
+		} else if (strcmp(*argv, "handle") == 0) {
+			fprintf(stderr, "Error: try \"classid\" instead of \"handle\"\n");
+			return -1;
+ 		} else if (strcmp(*argv, "root") == 0) {
 			if (req.t.tcm_parent) {
 				fprintf(stderr, "Error: \"root\" is duplicate parent ID.\n");
-				exit(-1);
+				return -1;
 			}
 			req.t.tcm_parent = TC_H_ROOT;
 		} else if (strcmp(*argv, "parent") == 0) {
@@ -114,22 +116,17 @@ int tc_class_modify(int cmd, unsigned flags, int argc, char **argv)
 	if (q) {
 		if (q->parse_copt == NULL) {
 			fprintf(stderr, "Error: Qdisc \"%s\" is classless.\n", k);
-			exit(1);
+			return 1;
 		}
 		if (q->parse_copt(q, argc, argv, &req.n))
-			exit(1);
+			return 1;
 	} else {
 		if (argc) {
 			if (matches(*argv, "help") == 0)
 				usage();
 			fprintf(stderr, "Garbage instead of arguments \"%s ...\". Try \"tc class help\".", *argv);
-			exit(-1);
+			return -1;
 		}
-	}
-
-	if (rtnl_open(&rth, 0) < 0) {
-		fprintf(stderr, "Cannot open rtnetlink\n");
-		exit(1);
 	}
 
 	if (d[0])  {
@@ -137,46 +134,21 @@ int tc_class_modify(int cmd, unsigned flags, int argc, char **argv)
 
 		if ((req.t.tcm_ifindex = ll_name_to_index(d)) == 0) {
 			fprintf(stderr, "Cannot find device \"%s\"\n", d);
-			exit(1);
+			return 1;
 		}
 	}
 
 	if (rtnl_talk(&rth, &req.n, 0, 0, NULL, NULL, NULL) < 0)
-		exit(2);
+		return 2;
 
-	rtnl_close(&rth);
 	return 0;
-}
-
-void print_class_tcstats(FILE *fp, struct tc_stats *st)
-{
-	SPRINT_BUF(b1);
-
-	fprintf(fp, " Sent %llu bytes %u pkts (dropped %u, overlimits %u) ",
-		(unsigned long long)st->bytes, st->packets, st->drops, st->overlimits);
-	if (st->bps || st->pps || st->qlen || st->backlog) {
-		fprintf(fp, "\n ");
-		if (st->bps || st->pps) {
-			fprintf(fp, "rate ");
-			if (st->bps)
-				fprintf(fp, "%s ", sprint_rate(st->bps, b1));
-			if (st->pps)
-				fprintf(fp, "%upps ", st->pps);
-		}
-		if (st->qlen || st->backlog) {
-			fprintf(fp, "backlog ");
-			if (st->backlog)
-				fprintf(fp, "%s ", sprint_size(st->backlog, b1));
-			if (st->qlen)
-				fprintf(fp, "%up ", st->qlen);
-		}
-	}
 }
 
 int filter_ifindex;
 __u32 filter_qdisc;
 
-int print_class(struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
+static int print_class(const struct sockaddr_nl *who, 
+		       struct nlmsghdr *n, void *arg)
 {
 	FILE *fp = (FILE*)arg;
 	struct tcmsg *t = NLMSG_DATA(n);
@@ -201,7 +173,7 @@ int print_class(struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
 	parse_rtattr(tb, TCA_MAX, TCA_RTA(t), len);
 
 	if (tb[TCA_KIND] == NULL) {
-		fprintf(stderr, "NULL kind\n");
+		fprintf(stderr, "print_class: NULL kind\n");
 		return -1;
 	}
 
@@ -232,25 +204,22 @@ int print_class(struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
 	if (t->tcm_info)
 		fprintf(fp, "leaf %x: ", t->tcm_info>>16);
 	q = get_qdisc_kind(RTA_DATA(tb[TCA_KIND]));
-	if (q && q->print_copt)
-		q->print_copt(q, fp, tb[TCA_OPTIONS]);
-	else
-		fprintf(fp, "[UNKNOWN]");
+	if (tb[TCA_OPTIONS]) {
+		if (q && q->print_copt)
+			q->print_copt(q, fp, tb[TCA_OPTIONS]);
+		else
+			fprintf(fp, "[cannot parse class parameters]");
+	}
 	fprintf(fp, "\n");
 	if (show_stats) {
-		if (tb[TCA_STATS]) {
-			//if (RTA_PAYLOAD(tb[TCA_STATS]) < sizeof(struct tc_stats))
-			if (RTA_PAYLOAD(tb[TCA_STATS]) < 36)
-				fprintf(fp, "statistics truncated");
-			else {
-				struct tc_stats st;
-				memcpy(&st, RTA_DATA(tb[TCA_STATS]), sizeof(st));
-				print_class_tcstats(fp, &st);
-				fprintf(fp, "\n");
-			}
+		struct rtattr *xstats = NULL;
+		
+		if (tb[TCA_STATS] || tb[TCA_STATS2]) {
+			print_tcstats_attr(fp, tb, " ", &xstats);
+			fprintf(fp, "\n");
 		}
-		if (q && tb[TCA_XSTATS]) {
-			q->print_xstats(q, fp, tb[TCA_XSTATS]);
+		if (q && (xstats || tb[TCA_XSTATS]) && q->print_xstats) {
+			q->print_xstats(q, fp, xstats ? : tb[TCA_XSTATS]);
 			fprintf(fp, "\n");
 		}
 	}
@@ -262,7 +231,6 @@ int print_class(struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
 int tc_class_list(int argc, char **argv)
 {
 	struct tcmsg t;
-	struct rtnl_handle rth;
 	char d[16];
 
 	memset(&t, 0, sizeof(t));
@@ -284,7 +252,7 @@ int tc_class_list(int argc, char **argv)
 		} else if (strcmp(*argv, "root") == 0) {
 			if (t.tcm_parent) {
 				fprintf(stderr, "Error: \"root\" is duplicate parent ID\n");
-				exit(-1);
+				return -1;
 			}
 			t.tcm_parent = TC_H_ROOT;
 		} else if (strcmp(*argv, "parent") == 0) {
@@ -299,38 +267,32 @@ int tc_class_list(int argc, char **argv)
 			usage();
 		} else {
 			fprintf(stderr, "What is \"%s\"? Try \"tc class help\".\n", *argv);
-			exit(-1);
+			return -1;
 		}
 
 		argc--; argv++;
 	}
 
-	if (rtnl_open(&rth, 0) < 0) {
-		fprintf(stderr, "Cannot open rtnetlink\n");
-		exit(1);
-	}
-
-	ll_init_map(&rth);
+ 	ll_init_map(&rth);
 
 	if (d[0]) {
 		if ((t.tcm_ifindex = ll_name_to_index(d)) == 0) {
 			fprintf(stderr, "Cannot find device \"%s\"\n", d);
-			exit(1);
+			return 1;
 		}
 		filter_ifindex = t.tcm_ifindex;
 	}
 
-	if (rtnl_dump_request(&rth, RTM_GETTCLASS, &t, sizeof(t)) < 0) {
+ 	if (rtnl_dump_request(&rth, RTM_GETTCLASS, &t, sizeof(t)) < 0) {
 		perror("Cannot send dump request");
-		exit(1);
+		return 1;
 	}
 
-	if (rtnl_dump_filter(&rth, print_class, stdout, NULL, NULL) < 0) {
+ 	if (rtnl_dump_filter(&rth, print_class, stdout, NULL, NULL) < 0) {
 		fprintf(stderr, "Dump terminated\n");
-		exit(1);
+		return 1;
 	}
 
-	rtnl_close(&rth);
 	return 0;
 }
 

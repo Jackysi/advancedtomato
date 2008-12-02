@@ -2,7 +2,7 @@
 /*
  * Mini dirname implementation for busybox
  *
- * Copyright (C) 1999-2003 by Erik Andersen <andersen@codepoet.org>
+ * Copyright (C) 1999-2004 by Erik Andersen <andersen@codepoet.org>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -27,7 +27,7 @@
 #include <stdlib.h>
 #include "busybox.h"
 
-extern int dirname_main(int argc, char **argv)
+int dirname_main(int argc, char **argv)
 {
 	if (argc != 2) {
 		bb_show_usage();

@@ -1,42 +1,22 @@
 /* vi: set sw=4 ts=4: */
 /*
- * $Id: ping.c,v 1.1.3.1 2004/12/29 07:07:46 honor Exp $
+ * $Id: ping.c,v 1.56 2004/03/15 08:28:48 andersen Exp $
  * Mini ping implementation for busybox
  *
  * Copyright (C) 1999 by Randolph Chung <tausq@debian.org>
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
- *
- * This version of ping is adapted from the ping in netkit-base 0.10,
- * which is:
- *
+ * Adapted from the ping in netkit-base 0.10:
  * Copyright (c) 1989 The Regents of the University of California.
- * All rights reserved.
+ * Derived from software contributed to Berkeley by Mike Muuss.
  *
- * This code is derived from software contributed to Berkeley by
- * Mike Muuss.
- * 
- * Original copyright notice is retained at the end of this file.
+ * Licensed under GPLv2 or later, see file LICENSE in this tarball for details.
  */
 
 #include <sys/param.h>
 #include <sys/socket.h>
 #include <sys/file.h>
-#include <sys/time.h>
 #include <sys/times.h>
-#include <sys/signal.h>
+#include <signal.h>
 
 #include <netinet/in.h>
 #include <netinet/ip.h>
@@ -52,13 +32,15 @@
 #include "busybox.h"
 
 
-static const int DEFDATALEN = 56;
-static const int MAXIPLEN = 60;
-static const int MAXICMPLEN = 76;
-static const int MAXPACKET = 65468;
-#define	MAX_DUP_CHK	(8 * 128)
-static const int MAXWAIT = 10;
-static const int PINGINTERVAL = 1;		/* second */
+enum {
+	DEFDATALEN = 56,
+	MAXIPLEN = 60,
+	MAXICMPLEN = 76,
+	MAXPACKET = 65468,
+	MAX_DUP_CHK = (8 * 128),
+	MAXWAIT = 10,
+	PINGINTERVAL = 1		/* second */
+};
 
 #define O_QUIET         (1 << 0)
 
@@ -125,18 +107,20 @@ static void ping(const char *host)
 	pkt->icmp_type = ICMP_ECHO;
 	pkt->icmp_cksum = in_cksum((unsigned short *) pkt, sizeof(packet));
 
-	c = sendto(pingsock, packet, sizeof(packet), 0,
+	c = sendto(pingsock, packet, DEFDATALEN + ICMP_MINLEN, 0,
 			   (struct sockaddr *) &pingaddr, sizeof(struct sockaddr_in));
 
-	if (c < 0 || c != sizeof(packet))
+	if (c < 0) {
+		if (ENABLE_FEATURE_CLEAN_UP) close(pingsock);
 		bb_perror_msg_and_die("sendto");
+	}
 
 	signal(SIGALRM, noresp);
 	alarm(5);					/* give the host 5000ms to respond */
 	/* listen for replies */
 	while (1) {
 		struct sockaddr_in from;
-		size_t fromlen = sizeof(from);
+		socklen_t fromlen = sizeof(from);
 
 		if ((c = recvfrom(pingsock, packet, sizeof(packet), 0,
 						  (struct sockaddr *) &from, &fromlen)) < 0) {
@@ -153,11 +137,12 @@ static void ping(const char *host)
 				break;
 		}
 	}
+	if (ENABLE_FEATURE_CLEAN_UP) close(pingsock);
 	printf("%s is alive!\n", hostname);
 	return;
 }
 
-extern int ping_main(int argc, char **argv)
+int ping_main(int argc, char **argv)
 {
 	argc--;
 	argv++;
@@ -178,7 +163,10 @@ static int myid, options;
 static unsigned long tmin = ULONG_MAX, tmax, tsum;
 static char rcvd_tbl[MAX_DUP_CHK / 8];
 
-struct hostent *hostent;
+#ifndef CONFIG_FEATURE_FANCY_PING6
+static
+#endif
+	struct hostent *hostent;
 
 static void sendping(int);
 static void pingstats(int);
@@ -216,18 +204,18 @@ static void sendping(int junk)
 {
 	struct icmp *pkt;
 	int i;
-	char packet[datalen + 8];
+	char packet[datalen + ICMP_MINLEN];
 
 	pkt = (struct icmp *) packet;
 
 	pkt->icmp_type = ICMP_ECHO;
 	pkt->icmp_code = 0;
 	pkt->icmp_cksum = 0;
-	pkt->icmp_seq = ntransmitted++;
+	pkt->icmp_seq = htons(ntransmitted++);
 	pkt->icmp_id = myid;
-	CLR(pkt->icmp_seq % MAX_DUP_CHK);
+	CLR(ntohs(pkt->icmp_seq) % MAX_DUP_CHK);
 
-	gettimeofday((struct timeval *) &packet[8], NULL);
+	gettimeofday((struct timeval *) &pkt->icmp_dun, NULL);
 	pkt->icmp_cksum = in_cksum((unsigned short *) pkt, sizeof(packet));
 
 	i = sendto(pingsock, packet, sizeof(packet), 0,
@@ -252,20 +240,20 @@ static void sendping(int junk)
 static char *icmp_type_name (int id)
 {
 	switch (id) {
-	case ICMP_ECHOREPLY: 		return "Echo Reply";
-	case ICMP_DEST_UNREACH: 	return "Destination Unreachable";
-	case ICMP_SOURCE_QUENCH: 	return "Source Quench";
-	case ICMP_REDIRECT: 		return "Redirect (change route)";
-	case ICMP_ECHO: 			return "Echo Request";
-	case ICMP_TIME_EXCEEDED: 	return "Time Exceeded";
-	case ICMP_PARAMETERPROB: 	return "Parameter Problem";
-	case ICMP_TIMESTAMP: 		return "Timestamp Request";
-	case ICMP_TIMESTAMPREPLY: 	return "Timestamp Reply";
-	case ICMP_INFO_REQUEST: 	return "Information Request";
-	case ICMP_INFO_REPLY: 		return "Information Reply";
-	case ICMP_ADDRESS: 			return "Address Mask Request";
-	case ICMP_ADDRESSREPLY: 	return "Address Mask Reply";
-	default: 					return "unknown ICMP type";
+	case ICMP_ECHOREPLY:		return "Echo Reply";
+	case ICMP_DEST_UNREACH:		return "Destination Unreachable";
+	case ICMP_SOURCE_QUENCH:	return "Source Quench";
+	case ICMP_REDIRECT:			return "Redirect (change route)";
+	case ICMP_ECHO:				return "Echo Request";
+	case ICMP_TIME_EXCEEDED:	return "Time Exceeded";
+	case ICMP_PARAMETERPROB:	return "Parameter Problem";
+	case ICMP_TIMESTAMP:		return "Timestamp Request";
+	case ICMP_TIMESTAMPREPLY:	return "Timestamp Reply";
+	case ICMP_INFO_REQUEST:		return "Information Request";
+	case ICMP_INFO_REPLY:		return "Information Reply";
+	case ICMP_ADDRESS:			return "Address Mask Request";
+	case ICMP_ADDRESSREPLY:		return "Address Mask Reply";
+	default:					return "unknown ICMP type";
 	}
 }
 
@@ -293,6 +281,7 @@ static void unpack(char *buf, int sz, struct sockaddr_in *from)
 	    return;				/* not our ping */
 
 	if (icmppkt->icmp_type == ICMP_ECHOREPLY) {
+		u_int16_t recv_seq = ntohs(icmppkt->icmp_seq);
 	    ++nreceived;
 		tp = (struct timeval *) icmppkt->icmp_data;
 
@@ -309,12 +298,12 @@ static void unpack(char *buf, int sz, struct sockaddr_in *from)
 		if (triptime > tmax)
 			tmax = triptime;
 
-		if (TST(icmppkt->icmp_seq % MAX_DUP_CHK)) {
+		if (TST(recv_seq % MAX_DUP_CHK)) {
 			++nrepeats;
 			--nreceived;
 			dupflag = 1;
 		} else {
-			SET(icmppkt->icmp_seq % MAX_DUP_CHK);
+			SET(recv_seq % MAX_DUP_CHK);
 			dupflag = 0;
 		}
 
@@ -323,16 +312,17 @@ static void unpack(char *buf, int sz, struct sockaddr_in *from)
 
 		printf("%d bytes from %s: icmp_seq=%u", sz,
 			   inet_ntoa(*(struct in_addr *) &from->sin_addr.s_addr),
-			   icmppkt->icmp_seq);
+			   recv_seq);
 		printf(" ttl=%d", iphdr->ttl);
 		printf(" time=%lu.%lu ms", triptime / 10, triptime % 10);
 		if (dupflag)
 			printf(" (DUP!)");
 		printf("\n");
-	} else 
+	} else
 		if (icmppkt->icmp_type != ICMP_ECHO)
 			bb_error_msg("Warning: Got ICMP %d (%s)",
 					icmppkt->icmp_type, icmp_type_name (icmppkt->icmp_type));
+	fflush(stdout);
 }
 
 static void ping(const char *host)
@@ -391,7 +381,7 @@ static void ping(const char *host)
 	pingstats(0);
 }
 
-extern int ping_main(int argc, char **argv)
+int ping_main(int argc, char **argv)
 {
 	char *thisarg;
 
@@ -434,39 +424,3 @@ extern int ping_main(int argc, char **argv)
 	return EXIT_SUCCESS;
 }
 #endif /* ! CONFIG_FEATURE_FANCY_PING */
-
-/*
- * Copyright (c) 1989 The Regents of the University of California.
- * All rights reserved.
- *
- * This code is derived from software contributed to Berkeley by
- * Mike Muuss.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
- * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
- * 2. Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in the
- *    documentation and/or other materials provided with the distribution.
- *
- * 3. <BSD Advertising Clause omitted per the July 22, 1999 licensing change 
- *		ftp://ftp.cs.berkeley.edu/pub/4bsd/README.Impt.License.Change> 
- *
- * 4. Neither the name of the University nor the names of its contributors
- *    may be used to endorse or promote products derived from this software
- *    without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE REGENTS AND CONTRIBUTORS ``AS IS'' AND
- * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED.  IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE LIABLE
- * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
- * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
- * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
- * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
- * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
- * SUCH DAMAGE.
- */

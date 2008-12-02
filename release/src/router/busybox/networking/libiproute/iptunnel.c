@@ -1,10 +1,7 @@
 /*
  * iptunnel.c	       "ip tunnel"
  *
- *		This program is free software; you can redistribute it and/or
- *		modify it under the terms of the GNU General Public License
- *		as published by the Free Software Foundation; either version
- *		2 of the License, or (at your option) any later version.
+ * Licensed under the GPL v2 or later, see the file LICENSE in this tarball.
  *
  * Authors:	Alexey Kuznetsov, <kuznet@ms2.inr.ac.ru>
  *
@@ -16,28 +13,28 @@
  * Phil Karn <karn@ka9q.ampr.org>	990408:	"pmtudisc" flag
  */
 
+#include "libbb.h"
 #include <sys/socket.h>
 #include <sys/ioctl.h>
 
-#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
-#include <arpa/inet.h>
 #include <netinet/ip.h>
-#include <netinet/in.h>
 
 #include <net/if.h>
 #include <net/if_arp.h>
 
 #include <asm/types.h>
+#ifndef __constant_htons
 #define __constant_htons htons
+#endif
 #include <linux/if_tunnel.h>
 
 #include "rt_names.h"
 #include "utils.h"
+#include "ip_common.h"
 
-#include "libbb.h"
 
 static int do_ioctl_get_ifindex(char *dev)
 {
@@ -262,9 +259,9 @@ static int parse_args(int argc, char **argv, int cmd, struct ip_tunnel_parm *p)
 			NEXT_ARG();
 			if (strcmp(*argv, "inherit") != 0) {
 				if (get_unsigned(&uval, *argv, 0))
-					invarg("invalid TTL\n", *argv);
+					invarg(*argv, "TTL");
 				if (uval > 255)
-					invarg("TTL must be <=255\n", *argv);
+					invarg(*argv, "TTL must be <=255");
 				p->iph.ttl = uval;
 			}
 		} else if (strcmp(*argv, "tos") == 0 ||
@@ -273,7 +270,7 @@ static int parse_args(int argc, char **argv, int cmd, struct ip_tunnel_parm *p)
 			NEXT_ARG();
 			if (strcmp(*argv, "inherit") != 0) {
 				if (rtnl_dsfield_a2n(&uval, *argv))
-					invarg("bad TOS value", *argv);
+					invarg(*argv, "TOS");
 				p->iph.tos = uval;
 			} else
 				p->iph.tos = 1;
@@ -354,14 +351,14 @@ static int do_add(int cmd, int argc, char **argv)
 		return do_add_ioctl(cmd, "gre0", &p);
 	case IPPROTO_IPV6:
 		return do_add_ioctl(cmd, "sit0", &p);
-	default:	
+	default:
 		bb_error_msg("cannot determine tunnel mode (ipip, gre or sit)");
 		return -1;
 	}
 	return -1;
 }
 
-int do_del(int argc, char **argv)
+static int do_del(int argc, char **argv)
 {
 	struct ip_tunnel_parm p;
 
@@ -375,13 +372,13 @@ int do_del(int argc, char **argv)
 		return do_del_ioctl("gre0", &p);
 	case IPPROTO_IPV6:
 		return do_del_ioctl("sit0", &p);
-	default:	
+	default:
 		return do_del_ioctl(p.name, &p);
 	}
 	return -1;
 }
 
-void print_tunnel(struct ip_tunnel_parm *p)
+static void print_tunnel(struct ip_tunnel_parm *p)
 {
 	char s1[256];
 	char s2[256];
@@ -467,7 +464,7 @@ static int do_tunnels_list(struct ip_tunnel_parm *p)
 			bb_error_msg("Wrong format of /proc/net/dev. Sorry.");
 			return -1;
 		}
-		if (sscanf(ptr, "%ld%ld%ld%ld%ld%ld%ld%*d%ld%ld%ld%ld%ld%ld%ld",
+		if (sscanf(ptr, "%lu%lu%lu%lu%lu%lu%lu%*d%lu%lu%lu%lu%lu%lu%lu",
 			   &rx_bytes, &rx_packets, &rx_errs, &rx_drops,
 			   &rx_fifo, &rx_frame, &rx_multi,
 			   &tx_bytes, &tx_packets, &tx_errs, &tx_drops,
@@ -506,7 +503,7 @@ static int do_show(int argc, char **argv)
 		return -1;
 
 	switch (p.iph.protocol) {
-	case IPPROTO_IPIP:	
+	case IPPROTO_IPIP:
 		err = do_get_ioctl(p.name[0] ? p.name : "tunl0", &p);
 		break;
 	case IPPROTO_GRE:
@@ -543,6 +540,6 @@ int do_iptunnel(int argc, char **argv)
 	} else
 		return do_show(0, NULL);
 
-	bb_error_msg("Command \"%s\" is unknown, try \"ip tunnel help\".", *argv);
+	bb_error_msg("Command \"%s\" is unknown.", *argv);
 	exit(-1);
 }

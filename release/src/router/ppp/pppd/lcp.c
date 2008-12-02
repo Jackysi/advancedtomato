@@ -26,12 +26,16 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <sys/sysinfo.h>
+#include <time.h>
+#include <unistd.h>
 
 #include <pppd.h>
 #include "fsm.h"
 #include "lcp.h"
 #include "chap.h"
 #include "magic.h"
+
 
 static const char rcsid[] = RCSID;
 
@@ -54,6 +58,8 @@ bool	lax_recv = 0;		/* accept control chars in asyncmap */
 bool	noendpoint = 0;		/* don't send/accept endpoint discriminator */
 
 static int noopt __P((char **));
+
+static time_t echo_time = 0;
 
 #ifdef HAVE_MULTILINK
 static int setendpoint __P((char **));
@@ -175,7 +181,7 @@ static int lcp_echo_number   = 0;	/* ID number of next echo frame */
 static int lcp_echo_timer_running = 0;  /* set if a timer is running */
 
 static u_char nak_buffer[PPP_MRU];	/* where we construct a nak packet */
-static int now_unit;
+//	static int now_unit;
 
 /*
  * Callbacks for fsm code.  (CI = Configuration Information)
@@ -270,6 +276,15 @@ int lcp_loopbackfail = DEFLOOPBACKFAIL;
 
 #define CODENAME(x)	((x) == CONFACK ? "ACK" : \
 			 (x) == CONFNAK ? "NAK" : "REJ")
+
+time_t get_time(void)
+{
+	struct sysinfo info;
+ 
+	sysinfo(&info);
+ 
+	return info.uptime;
+}
 
 /*
  * noopt - Disable all options (why?).
@@ -487,7 +502,11 @@ lcp_extcode(f, code, id, inp, len)
 {
     u_char *magp;
 
-    switch( code ){
+	if ((code > 0) && (code < 16) && (code_log_details[code][0] != '#')) {
+		LOGX_INFO("Received %s %s", PNAME(f), code_log_details[code]);
+	}
+
+   switch( code ){
     case PROTREJ:
 	lcp_rprotrej(f, inp, len);
 	break;
@@ -498,6 +517,10 @@ lcp_extcode(f, code, id, inp, len)
 	magp = inp;
 	PUTLONG(lcp_gotoptions[f->unit].magicnumber, magp);
 	fsm_sdata(f, ECHOREP, id, inp, len);
+
+	/* Reset the number of outstanding echo frames */
+	lcp_echos_pending = 0;
+	echo_time = get_time();
 	break;
     
     case ECHOREP:
@@ -569,6 +592,8 @@ lcp_protrej(unit)
     /*
      * Can't reject LCP!
      */
+
+	LOGX_ERROR("Received Protocol-Reject for LCP.");
     error("Received Protocol-Reject for LCP!");
     fsm_protreject(&lcp_fsm[unit]);
 }
@@ -1223,6 +1248,7 @@ lcp_nakci(f, p, len)
     if (f->state != OPENED) {
 	if (looped_back) {
 	    if (++try.numloops >= lcp_loopbackfail) {
+		//	LOGX_INFO("Serial line is looped back.");
 		notice("Serial line is looped back.");
 		lcp_close(f->unit, "Loopback detected");
 		status = EXIT_LOOPBACK;
@@ -1456,6 +1482,17 @@ lcp_reqci(f, inp, lenp, reject_if_disagree)
 	next += cilen;			/* Step to next CI */
 
 	switch (citype) {		/* Check CI type */
+#if 1 //fixed by crazy 20070613: bug id unknown(20070613)
+	//FIXME: Maybe we can define 0 and 9 in the head file...
+	// Please see line 74 on sheet 'WAN_Broadband' in document 'WG414-Q-LS_V1.0 Product Verification Plan(IN).xls'.
+	case 0: /* Reserved */
+		/* Same as case 9, send a Configure-Reject */
+// Please see line 109 on sheet 'WAN_Broadband' in document 'WG414-Q-LS_V1.0 Product Verification Plan(IN).xls'.
+	case 9: /* Field Check Sequence (FCS) Alternatives */
+		orc = CONFREJ;
+		LOGX_DEBUG("%s: citype=%d", __FUNCTION__, citype);
+		break;
+#endif					
 	case CI_MRU:
 	    if (!ao->neg_mru ||		/* Allow option? */
 		cilen != CILEN_SHORT) {	/* Check CI length */
@@ -1476,6 +1513,13 @@ lcp_reqci(f, inp, lenp, reject_if_disagree)
 		PUTSHORT(MINMRU, nakp);	/* Give him a hint */
 		break;
 	    }
+#if 1 //Fixed by crazy 20070424: bug id 6439(20070423)
+	    if (cishort > REJECT_MAXMRU) {
+			orc = CONFREJ;		/* Reject CI */
+			LOGX_DEBUG("%s: cishort(%d) > REJECT_MAXMRU", __FUNCTION__, cishort);
+			break;
+	    }
+#endif
 	    ho->neg_mru = 1;		/* Remember he sent MRU */
 	    ho->mru = cishort;		/* And remember value */
 	    break;
@@ -1695,7 +1739,13 @@ lcp_reqci(f, inp, lenp, reject_if_disagree)
 
 	default:
 	    LCPDEBUG(("lcp_reqci: rcvd unknown option %d", citype));
+#if 0 //fixed by crazy 20070424: bug id 6438(20070423)
 	    orc = CONFREJ;
+#else
+		//FIXME: maybe it is a wrong packet...
+	    orc = CONFNAK; //Received an unknown option type(like 0xFF), send a LCP  Configure-Nak message. 
+		LOGX_DEBUG("%s: unknown option %d", __FUNCTION__, citype);
+#endif
 	    break;
 	}
 
@@ -2076,13 +2126,16 @@ void LcpLinkFailure (f)
     fsm *f;
 {
     if (f->state == OPENED) {
-	info("No response to %d echo-requests", lcp_echos_pending);
+		LOGX_INFO("LCP appears to be disconnected (pending: %d).", lcp_echos_pending);
+
+		info("No response to %d echo-requests", lcp_echos_pending);
         notice("Serial link appears to be disconnected.");
         lcp_close(f->unit, "Peer not responding");
-	status = EXIT_PEER_DEAD;
+		status = EXIT_PEER_DEAD;
     }
 }
 
+#if 0	// timer -> timer ???	-- zzz
 /*
  * Check if we have been received "echo reply" packet
  */
@@ -2093,11 +2146,14 @@ LcpCheckReply (arg)
 {
     fsm *f1 = &lcp_fsm[ifunit];
 
+#if 0
     if(lcp_echos_pending >= 1)
         TIMEOUT (LcpEchoTimeout, f1, 1);
     else
+#endif
         TIMEOUT (LcpEchoTimeout, f1, lcp_echo_interval-1);
 }
+#endif	// 0
 
 /*
  * Timer expired for the LCP echo requests from this process.
@@ -2114,11 +2170,15 @@ LcpEchoCheck (f)
     /*
      * Start the timer for the next interval.
      */
+#if 1	// zzz
+	TIMEOUT (LcpEchoTimeout, f, lcp_echo_interval);
+#else
     if (lcp_echo_timer_running)
-	warn("assertion lcp_echo_timer_running==0 failed");
+		warn("assertion lcp_echo_timer_running==0 failed");
     
     TIMEOUT (LcpCheckReply, f, 1);
-    
+#endif
+
     lcp_echo_timer_running = 1;
 }
 
@@ -2175,26 +2235,50 @@ LcpSendEchoRequest (f)
 {
     u_int32_t lcp_magic;
     u_char pkt[4], *pktp;
+	struct ppp_idle idle;
+	unsigned long echo_interval;
+
+	echo_interval = get_time() - echo_time;
+	if (echo_interval <= lcp_echo_interval) {
+//		LOGX_DEBUG("(echo_interval %lu <= lcp_echo_interval %d)", echo_interval, lcp_echo_interval);
+		return;
+	}
+
+/*	
+	LOGX_DEBUG("echo_interval=%lu lcp_echo_interval=%d lcp_echos_pending=%d lcp_echo_fails=%d",
+		echo_interval, lcp_echo_interval,
+		lcp_echos_pending, lcp_echo_fails);
+*/
 
     /*
      * Detect the failure of the peer at this point.
      */
     if (lcp_echo_fails != 0) {
-        if (lcp_echos_pending >= lcp_echo_fails) {
-            LcpLinkFailure(f);
-	    lcp_echos_pending = 0;
-	}
+        if (lcp_echos_pending >= lcp_echo_fails) {		
+//			LOGX_DEBUG("lcp_echos_pending=%d lcp_echo_fails=%d", lcp_echos_pending, lcp_echo_fails);		
+			if (get_idle_time(0, &idle)) {
+//				LOGX_DEBUG("idle.recv_idle=%ld", idle.recv_idle);
+				if (idle.recv_idle < lcp_echo_fails * lcp_echo_interval) {
+					lcp_echos_pending--;
+					goto SendEchoRequest;
+				}
+			}
+//			LOGX_DEBUG("check echo reply failed");
+			LcpLinkFailure(f);
+			lcp_echos_pending = 0;
+		}
     }
 
+SendEchoRequest:
     /*
      * Make and send the echo request frame.
      */
     if (f->state == OPENED) {
         lcp_magic = lcp_gotoptions[f->unit].magicnumber;
-	pktp = pkt;
-	PUTLONG(lcp_magic, pktp);
+		pktp = pkt;
+		PUTLONG(lcp_magic, pktp);
         fsm_sdata(f, ECHOREQ, lcp_echo_number++ & 0xFF, pkt, pktp - pkt);
-	++lcp_echos_pending;
+		++lcp_echos_pending;
     }
 }
 
@@ -2233,3 +2317,4 @@ lcp_echo_lowerdown (unit)
         lcp_echo_timer_running = 0;
     }
 }
+

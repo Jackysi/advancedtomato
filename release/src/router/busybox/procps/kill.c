@@ -3,25 +3,12 @@
  * Mini kill/killall implementation for busybox
  *
  * Copyright (C) 1995, 1996 by Bruce Perens <bruce@pixar.com>.
- * Copyright (C) 1999-2003 by Erik Andersen <andersen@codepoet.org>
+ * Copyright (C) 1999-2004 by Erik Andersen <andersen@codepoet.org>
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
- *
+ * Licensed under the GPL v2 or later, see the file LICENSE in this tarball.
  */
 
-
+#include "busybox.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
@@ -30,20 +17,20 @@
 #include <ctype.h>
 #include <string.h>
 #include <unistd.h>
-#include "busybox.h"
 
-static const int KILL = 0;
-static const int KILLALL = 1;
+#define KILL 0
+#define KILLALL 1
 
-extern int kill_main(int argc, char **argv)
+int kill_main(int argc, char **argv)
 {
-	int whichApp, signo = SIGTERM, quiet = 0;
+	int whichApp, signo = SIGTERM;
 	const char *name;
 	int errors = 0;
 
 #ifdef CONFIG_KILLALL
+	int quiet=0;
 	/* Figure out what we are trying to do here */
-	whichApp = (strcmp(bb_applet_name, "killall") == 0)? KILLALL : KILL; 
+	whichApp = (strcmp(bb_applet_name, "killall") == 0)? KILLALL : KILL;
 #else
 	whichApp = KILL;
 #endif
@@ -86,15 +73,17 @@ extern int kill_main(int argc, char **argv)
 		return EXIT_SUCCESS;
 	}
 
+#ifdef CONFIG_KILLALL
 	/* The -q quiet option */
-	if(argv[1][1]=='q' && argv[1][2]=='\0'){
+	if(whichApp != KILL && argv[1][1]=='q' && argv[1][2]=='\0'){
 		quiet++;
 		argv++;
 		argc--;
-		if(argv[1][0] != '-'){
+		if(argc<2 || argv[1][0] != '-'){
 			goto do_it_now;
 		}
 	}
+#endif
 
 	if(!u_signal_names(argv[1]+1, &signo, 0))
 		bb_error_msg_and_die( "bad signal name '%s'", argv[1]+1);
@@ -103,12 +92,16 @@ extern int kill_main(int argc, char **argv)
 
 do_it_now:
 
+	/* Pid or name required */
+	if (argc <= 0)
+		bb_show_usage();
+
 	if (whichApp == KILL) {
 		/* Looks like they want to do a kill. Do that */
 		while (--argc >= 0) {
 			int pid;
 
-			if (!isdigit(**argv))
+			if (!isdigit(**argv) && **argv != '-')
 				bb_error_msg_and_die( "Bad PID '%s'", *argv);
 			pid = strtol(*argv, NULL, 0);
 			if (kill(pid, signo) != 0) {
@@ -118,7 +111,7 @@ do_it_now:
 			argv++;
 		}
 
-	} 
+	}
 #ifdef CONFIG_KILLALL
 	else {
 		pid_t myPid=getpid();

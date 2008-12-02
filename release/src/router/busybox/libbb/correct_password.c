@@ -49,30 +49,29 @@
 int correct_password ( const struct passwd *pw )
 {
 	char *unencrypted, *encrypted, *correct;
-	
+
 #ifdef CONFIG_FEATURE_SHADOWPASSWDS
 	if (( strcmp ( pw-> pw_passwd, "x" ) == 0 ) || ( strcmp ( pw-> pw_passwd, "*" ) == 0 )) {
 		struct spwd *sp = getspnam ( pw-> pw_name );
-		
+
 		if ( !sp )
-			bb_error_msg_and_die ( "no valid shadow password" );
-		
+			bb_error_msg_and_die ( "\nno valid shadow password" );
+
 		correct = sp-> sp_pwdp;
 	}
 	else
 #endif
-    	correct = pw-> pw_passwd;
+		correct = pw-> pw_passwd;
 
 	if ( correct == 0 || correct[0] == '\0' )
 		return 1;
 
-	unencrypted = getpass ( "Password: " );
+	unencrypted = bb_askpass ( 0, "Password: " );
 	if ( !unencrypted )
 	{
-		fputs ( "getpass: cannot open /dev/tty\n", stderr );
 		return 0;
 	}
 	encrypted = crypt ( unencrypted, correct );
-	memset ( unencrypted, 0, bb_strlen ( unencrypted ));
+	memset ( unencrypted, 0, strlen ( unencrypted ));
 	return ( strcmp ( encrypted, correct ) == 0 ) ? 1 : 0;
 }

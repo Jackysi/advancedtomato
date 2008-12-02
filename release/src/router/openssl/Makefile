@@ -57,7 +57,7 @@ OPENSSLDIR=/usr/local/ssl
 
 #export CC= mipsel-linux-gcc
 #export LD= mipsel-linux-ld
-CFLAG= -DL_ENDIAN -DTERMIO -O3 -fomit-frame-pointer -m486 -Wall -Wuninitialized -DSHA1_ASM -DMD5_ASM -DRMD160_ASM
+#CFLAG= -DL_ENDIAN -DTERMIO -O3 -fomit-frame-pointer -m486 -Wall -Wuninitialized -DSHA1_ASM -DMD5_ASM -DRMD160_ASM
 CFLAG= -DL_ENDIAN -DTERMIO -O3 -fomit-frame-pointer -Wall
 DEPFLAG= 
 PEX_LIBS= 
@@ -707,36 +707,5 @@ install_docs:
 shared-library:
 	$(LD) -shared -o libcrypto.so $(shell find crypto -iname "*.o")
 	$(LD) -shared -o libssl.so $(shell find ssl -iname "*.o")
-
-# Find all ELF binaries (including extra libraries)
-BINARIES := $(shell find $(TARGETDIR) -path $(TARGETDIR)/lib -prune -o -type f -print | file -f - | grep ELF | cut -d':' -f1)
-MAP := .map
-UNR := .unresolved
-SYM := .symbols
-# optimize the crypto library by removing unneeded symbols
-optmize:
-	$(NM) -o --defined-only --no-sort libcrypto.so | cut -d' ' -f3 > $(MAP)
-	$(NM) --dynamic -u --no-sort $(BINARIES) | sort -u > $(UNR)
-	rm -rf $(SYM)
-	for symbol in `cat $(UNR)` ; do \
-	if grep -q "^$${symbol}$$" $(MAP) ; then echo "-u $${symbol}" >> $(SYM) ;  \
-	fi ; done 
-	if ls $(SYM) ; then \
-	xargs -t $(LD) -shared -o libcrypto_min.so libcrypto.a < $(SYM) ; \
-	install libcrypto_min.so $(TARGETDIR)/usr/lib/libcrypto.so ; \
-	$(STRIP) $(TARGETDIR)/usr/lib/libcrypto.so ; \
-	fi
-
-	$(NM) -o --defined-only --no-sort libssl.so | cut -d' ' -f3 > $(MAP)
-	$(NM) --dynamic -u --no-sort $(BINARIES) | sort -u > $(UNR)
-	rm -rf $(SYM)
-	for symbol in `cat $(UNR)` ; do \
-	if grep -q "^$${symbol}$$" $(MAP) ; then echo "-u $${symbol}" >> $(SYM) ;  \
-	fi ; done 
-	if ls $(SYM) ; then \
-	xargs -t $(LD) -shared -o libssl_min.so libssl.a < $(SYM) ; \
-	install libssl_min.so $(TARGETDIR)/usr/lib/libssl.so ; \
-	$(STRIP) $(TARGETDIR)/usr/lib/libssl.so ; \
-	fi
 
 # DO NOT DELETE THIS LINE -- make depend depends on it.

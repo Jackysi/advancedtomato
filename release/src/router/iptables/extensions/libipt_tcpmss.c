@@ -24,13 +24,6 @@ static struct option opts[] = {
 	{0}
 };
 
-/* Initialize the match. */
-static void
-init(struct ipt_entry_match *m, unsigned int *nfcache)
-{
-	*nfcache |= NFC_IP_PROTO_UNKNOWN;
-}
-
 static u_int16_t
 parse_tcp_mssvalue(const char *mssvalue)
 {
@@ -99,9 +92,9 @@ print_tcpmss(u_int16_t mss_min, u_int16_t mss_max, int invert, int numeric)
 		printf("! ");
 
 	if (mss_min == mss_max)
-		printf("%u", mss_min);
+		printf("%u ", mss_min);
 	else
-		printf("%u:%u", mss_min, mss_max);
+		printf("%u:%u ", mss_min, mss_max);
 }
 
 /* Final check; must have specified --mss. */
@@ -139,20 +132,18 @@ save(const struct ipt_ip *ip, const struct ipt_entry_match *match)
 		     mssinfo->invert, 0);
 }
 
-static
-struct iptables_match tcpmss
-= { NULL,
-    "tcpmss",
-    IPTABLES_VERSION,
-    IPT_ALIGN(sizeof(struct ipt_tcpmss_match_info)),
-    IPT_ALIGN(sizeof(struct ipt_tcpmss_match_info)),
-    &help,
-    &init,
-    &parse,
-    &final_check,
-    &print,
-    &save,
-    opts
+static struct iptables_match tcpmss = {
+	.next		= NULL,
+	.name		= "tcpmss",
+	.version	= IPTABLES_VERSION,
+	.size		= IPT_ALIGN(sizeof(struct ipt_tcpmss_match_info)),
+	.userspacesize	= IPT_ALIGN(sizeof(struct ipt_tcpmss_match_info)),
+	.help		= &help,
+	.parse		= &parse,
+	.final_check	= &final_check,
+	.print		= &print,
+	.save		= &save,
+	.extra_opts	= opts
 };
 
 void _init(void)

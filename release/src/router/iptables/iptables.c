@@ -39,16 +39,13 @@
 #include <iptables.h>
 #include <fcntl.h>
 #include <sys/wait.h>
+#include <sys/utsname.h>
 
 #ifndef TRUE
 #define TRUE 1
 #endif
 #ifndef FALSE
 #define FALSE 0
-#endif
-
-#ifndef IPT_LIB_DIR
-#define IPT_LIB_DIR "/usr/local/lib/iptables"
 #endif
 
 #ifndef PROC_SYS_MODPROBE
@@ -82,8 +79,7 @@
 #define CMD_NEW_CHAIN		0x0100U
 #define CMD_DELETE_CHAIN	0x0200U
 #define CMD_SET_POLICY		0x0400U
-#define CMD_CHECK		0x0800U
-#define CMD_RENAME_CHAIN	0x1000U
+#define CMD_RENAME_CHAIN	0x0800U
 #define NUMBER_OF_CMD	13
 static const char cmdflags[] = { 'I', 'D', 'D', 'R', 'A', 'L', 'F', 'Z',
 				 'N', 'X', 'P', 'E' };
@@ -105,7 +101,7 @@ static const char cmdflags[] = { 'I', 'D', 'D', 'R', 'A', 'L', 'F', 'Z',
 #define OPT_COUNTERS	0x00800U
 #define NUMBER_OF_OPT	12
 static const char optflags[NUMBER_OF_OPT]
-= { 'n', 's', 'd', 'p', 'j', 'v', 'x', 'i', 'o', 'f', '3', 'c'};
+= { 'n', 's', 'd', 'p', 'j', 'v', 'x', 'i', 'o', 'f', '0', 'c'};
 
 static struct option original_opts[] = {
 	{ "append", 1, 0, 'A' },
@@ -117,7 +113,7 @@ static struct option original_opts[] = {
 	{ "zero", 2, 0,  'Z' },
 	{ "new-chain", 1, 0,  'N' },
 	{ "delete-chain", 2, 0,  'X' },
-	{ "rename-chain", 2, 0,  'E' },
+	{ "rename-chain", 1, 0,  'E' },
 	{ "policy", 1, 0,  'P' },
 	{ "source", 1, 0, 's' },
 	{ "destination", 1, 0,  'd' },
@@ -138,16 +134,15 @@ static struct option original_opts[] = {
 	{ "line-numbers", 0, 0, '0' },
 	{ "modprobe", 1, 0, 'M' },
 	{ "set-counters", 1, 0, 'c' },
+	{ "goto", 1, 0, 'g' },
 	{ 0 }
 };
 
-#ifndef __OPTIMIZE__
-struct ipt_entry_target *
-ipt_get_target(struct ipt_entry *e)
-{
-	return (void *)e + e->target_offset;
-}
-#endif
+/* we need this for iptables-restore.  iptables-restore.c sets line to the
+ * current line of the input file, in order  to give a more precise error
+ * message.  iptables itself doesn't need this, so it is initialized to the
+ * magic number of -1 */
+int line = -1;
 
 static struct option *opts = original_opts;
 static unsigned int global_option_offset = 0;
@@ -164,20 +159,19 @@ static unsigned int global_option_offset = 0;
 static char commands_v_options[NUMBER_OF_CMD][NUMBER_OF_OPT] =
 /* Well, it's better than "Re: Linux vs FreeBSD" */
 {
-	/*     -n  -s  -d  -p  -j  -v  -x  -i  -o  -f  --line */
-/*INSERT*/    {'x',' ',' ',' ',' ',' ','x',' ',' ',' ','x'},
-/*DELETE*/    {'x',' ',' ',' ',' ',' ','x',' ',' ',' ','x'},
-/*DELETE_NUM*/{'x','x','x','x','x',' ','x','x','x','x','x'},
-/*REPLACE*/   {'x',' ',' ',' ',' ',' ','x',' ',' ',' ','x'},
-/*APPEND*/    {'x',' ',' ',' ',' ',' ','x',' ',' ',' ','x'},
-/*LIST*/      {' ','x','x','x','x',' ',' ','x','x','x',' '},
-/*FLUSH*/     {'x','x','x','x','x',' ','x','x','x','x','x'},
-/*ZERO*/      {'x','x','x','x','x',' ','x','x','x','x','x'},
-/*NEW_CHAIN*/ {'x','x','x','x','x',' ','x','x','x','x','x'},
-/*DEL_CHAIN*/ {'x','x','x','x','x',' ','x','x','x','x','x'},
-/*SET_POLICY*/{'x','x','x','x','x',' ','x','x','x','x','x'},
-/*CHECK*/     {'x','+','+','+','x',' ','x',' ',' ',' ','x'},
-/*RENAME*/    {'x','x','x','x','x',' ','x','x','x','x','x'}
+	/*     -n  -s  -d  -p  -j  -v  -x  -i  -o  -f  --line -c */
+/*INSERT*/    {'x',' ',' ',' ',' ',' ','x',' ',' ',' ','x',' '},
+/*DELETE*/    {'x',' ',' ',' ',' ',' ','x',' ',' ',' ','x','x'},
+/*DELETE_NUM*/{'x','x','x','x','x',' ','x','x','x','x','x','x'},
+/*REPLACE*/   {'x',' ',' ',' ',' ',' ','x',' ',' ',' ','x',' '},
+/*APPEND*/    {'x',' ',' ',' ',' ',' ','x',' ',' ',' ','x',' '},
+/*LIST*/      {' ','x','x','x','x',' ',' ','x','x','x',' ','x'},
+/*FLUSH*/     {'x','x','x','x','x',' ','x','x','x','x','x','x'},
+/*ZERO*/      {'x','x','x','x','x',' ','x','x','x','x','x','x'},
+/*NEW_CHAIN*/ {'x','x','x','x','x',' ','x','x','x','x','x','x'},
+/*DEL_CHAIN*/ {'x','x','x','x','x',' ','x','x','x','x','x','x'},
+/*SET_POLICY*/{'x','x','x','x','x',' ','x','x','x','x','x','x'},
+/*RENAME*/    {'x','x','x','x','x',' ','x','x','x','x','x','x'}
 };
 
 static int inverse_for_options[NUMBER_OF_OPT] =
@@ -192,11 +186,18 @@ static int inverse_for_options[NUMBER_OF_OPT] =
 /* -i */ IPT_INV_VIA_IN,
 /* -o */ IPT_INV_VIA_OUT,
 /* -f */ IPT_INV_FRAG,
-/*--line*/ 0
+/*--line*/ 0,
+/* -c */ 0,
 };
 
 const char *program_version;
 const char *program_name;
+char *lib_dir;
+
+int kernel_version;
+
+/* the path to command to load kernel module */
+const char *modprobe = NULL;
 
 /* Keeping track of external matches and targets: linked lists.  */
 struct iptables_match *iptables_matches = NULL;
@@ -214,6 +215,14 @@ struct pprot {
 
 /* Primitive headers... */
 /* defined in netinet/in.h */
+#if 0
+#ifndef IPPROTO_ESP
+#define IPPROTO_ESP 50
+#endif
+#ifndef IPPROTO_AH
+#define IPPROTO_AH 51
+#endif
+#endif
 
 static const struct pprot chain_protos[] = {
 	{ "tcp", IPPROTO_TCP },
@@ -221,7 +230,7 @@ static const struct pprot chain_protos[] = {
 	{ "icmp", IPPROTO_ICMP },
 	{ "esp", IPPROTO_ESP },
 	{ "ah", IPPROTO_AH },
-	{ "all", 0 },
+	{ "sctp", IPPROTO_SCTP },
 };
 
 static char *
@@ -242,8 +251,37 @@ proto_to_name(u_int8_t proto, int nolookup)
 	return NULL;
 }
 
-struct in_addr *
-dotted_to_addr(const char *dotted)
+int
+service_to_port(const char *name, const char *proto)
+{
+	struct servent *service;
+
+	if ((service = getservbyname(name, proto)) != NULL)
+		return ntohs((unsigned short) service->s_port);
+
+	return -1;
+}
+
+u_int16_t
+parse_port(const char *port, const char *proto)
+{
+	unsigned int portnum;
+
+	if ((string_to_number(port, 0, 65535, &portnum)) != -1 ||
+	    (portnum = service_to_port(port, proto)) != -1)
+		return (u_int16_t)portnum;
+
+	exit_error(PARAMETER_PROBLEM,
+		   "invalid port/service `%s' specified", port);
+}
+
+enum {
+	IPT_DOTTED_ADDR = 0,
+	IPT_DOTTED_MASK
+};
+
+static struct in_addr *
+__dotted_to_addr(const char *dotted, int type)
 {
 	static struct in_addr addr;
 	unsigned char *addrp;
@@ -254,12 +292,25 @@ dotted_to_addr(const char *dotted)
 
 	/* copy dotted string, because we need to modify it */
 	strncpy(buf, dotted, sizeof(buf) - 1);
+	buf[sizeof(buf) - 1] = '\0';
 	addrp = (unsigned char *) &(addr.s_addr);
 
 	p = buf;
 	for (i = 0; i < 3; i++) {
-		if ((q = strchr(p, '.')) == NULL)
-			return (struct in_addr *) NULL;
+		if ((q = strchr(p, '.')) == NULL) {
+			if (type == IPT_DOTTED_ADDR) {
+				/* autocomplete, this is a network address */
+				if (string_to_number(p, 0, 255, &onebyte) == -1)
+					return (struct in_addr *) NULL;
+
+				addrp[i] = (unsigned char) onebyte;
+				while (i < 3)
+					addrp[++i] = 0;
+
+				return &addr;
+			} else
+				return (struct in_addr *) NULL;
+		}
 
 		*q = '\0';
 		if (string_to_number(p, 0, 255, &onebyte) == -1)
@@ -276,6 +327,18 @@ dotted_to_addr(const char *dotted)
 	addrp[3] = (unsigned char) onebyte;
 
 	return &addr;
+}
+
+struct in_addr *
+dotted_to_addr(const char *dotted)
+{
+	return __dotted_to_addr(dotted, IPT_DOTTED_ADDR);
+}
+
+struct in_addr *
+dotted_to_mask(const char *dotted)
+{
+	return __dotted_to_addr(dotted, IPT_DOTTED_MASK);
 }
 
 static struct in_addr *
@@ -301,6 +364,16 @@ inaddrcpy(struct in_addr *dst, struct in_addr *src)
 	dst->s_addr = src->s_addr;
 }
 
+static void free_opts(int reset_offset)
+{
+	if (opts != original_opts) {
+		free(opts);
+		opts = original_opts;
+		if (reset_offset)
+			global_option_offset = 0;
+	}
+}
+
 void
 exit_error(enum exittype status, char *msg, ...)
 {
@@ -316,21 +389,26 @@ exit_error(enum exittype status, char *msg, ...)
 	if (status == VERSION_PROBLEM)
 		fprintf(stderr,
 			"Perhaps iptables or your kernel needs to be upgraded.\n");
+	/* On error paths, make sure that we don't leak memory */
+	free_opts(1);
 	exit(status);
 }
 
 void
 exit_tryhelp(int status)
 {
+	if (line != -1)
+		fprintf(stderr, "Error occurred at line: %d\n", line);
 	fprintf(stderr, "Try `%s -h' or '%s --help' for more information.\n",
 			program_name, program_name );
+	free_opts(1);
 	exit(status);
 }
 
 void
-exit_printhelp(void)
+exit_printhelp(struct iptables_rule_match *matches)
 {
-	struct iptables_match *m = NULL;
+	struct iptables_rule_match *matchp = NULL;
 	struct iptables_target *t = NULL;
 
 	printf("%s v%s\n\n"
@@ -379,6 +457,10 @@ exit_printhelp(void)
 "				network interface name ([+] for wildcard)\n"
 "  --jump	-j target\n"
 "				target for rule (may load target extension)\n"
+#ifdef IPT_F_GOTO
+"  --goto      -g chain\n"
+"                              jump to chain with no return\n"
+#endif
 "  --match	-m match\n"
 "				extended match (may load extension)\n"
 "  --numeric	-n		numeric output of addresses and ports\n"
@@ -395,14 +477,16 @@ exit_printhelp(void)
 
 	/* Print out any special helps. A user might like to be able
 	   to add a --help to the commandline, and see expected
-	   results. So we call help for all matches & targets */
-	for (t=iptables_targets;t;t=t->next) {
-		printf("\n");
-		t->help();
+	   results. So we call help for all specified matches & targets */
+	for (t = iptables_targets; t ;t = t->next) {
+		if (t->used) {
+			printf("\n");
+			t->help();
+		}
 	}
-	for (m=iptables_matches;m;m=m->next) {
+	for (matchp = matches; matchp; matchp = matchp->next) {
 		printf("\n");
-		m->help();
+		matchp->match->help();
 	}
 	exit(0);
 }
@@ -462,7 +546,8 @@ cmd2char(int option)
 }
 
 static void
-add_command(int *cmd, const int newcmd, const int othercmds, int invert)
+add_command(unsigned int *cmd, const int newcmd, const int othercmds, 
+	    int invert)
 {
 	if (invert)
 		exit_error(PARAMETER_PROBLEM, "unexpected ! flag");
@@ -531,7 +616,7 @@ host_to_addr(const char *name, unsigned int *naddr)
 
 		while (host->h_addr_list[*naddr] != (char *) NULL)
 			(*naddr)++;
-		addr = fw_calloc(*naddr, sizeof(struct in_addr));
+		addr = fw_calloc(*naddr, sizeof(struct in_addr) * *naddr);
 		for (i = 0; i < *naddr; i++)
 			inaddrcpy(&(addr[i]),
 				  (struct in_addr *) host->h_addr_list[i]);
@@ -592,7 +677,7 @@ parse_mask(char *mask)
 		maskaddr.s_addr = 0xFFFFFFFF;
 		return &maskaddr;
 	}
-	if ((addrp = dotted_to_addr(mask)) != NULL)
+	if ((addrp = dotted_to_mask(mask)) != NULL)
 		/* dotted_to_addr already returns a network byte order addr */
 		return addrp;
 	if (string_to_number(mask, 0, 32, &bits) == -1)
@@ -617,6 +702,7 @@ parse_hostnetworkmask(const char *name, struct in_addr **addrpp,
 	int i, j, k, n;
 
 	strncpy(buf, name, sizeof(buf) - 1);
+	buf[sizeof(buf) - 1] = '\0';
 	if ((p = strrchr(buf, '/')) != NULL) {
 		*p = '\0';
 		addrp = parse_mask(p + 1);
@@ -643,24 +729,45 @@ parse_hostnetworkmask(const char *name, struct in_addr **addrpp,
 }
 
 struct iptables_match *
-find_match(const char *name, enum ipt_tryload tryload)
+find_match(const char *name, enum ipt_tryload tryload, struct iptables_rule_match **matches)
 {
 	struct iptables_match *ptr;
 
 	for (ptr = iptables_matches; ptr; ptr = ptr->next) {
-		if (strcmp(name, ptr->name) == 0)
+		if (strcmp(name, ptr->name) == 0) {
+			struct iptables_match *clone;
+			
+			/* First match of this type: */
+			if (ptr->m == NULL)
+				break;
+
+			/* Second and subsequent clones */
+			clone = fw_malloc(sizeof(struct iptables_match));
+			memcpy(clone, ptr, sizeof(struct iptables_match));
+			clone->mflags = 0;
+			/* This is a clone: */
+			clone->next = clone;
+
+			ptr = clone;
 			break;
-	}
+		}
+	}		
 
 #ifndef NO_SHARED_LIBS
-	if (!ptr && tryload != DONT_LOAD) {
-		char path[sizeof(IPT_LIB_DIR) + sizeof("/libipt_.so")
+	if (!ptr && tryload != DONT_LOAD && tryload != DURING_LOAD) {
+		char path[strlen(lib_dir) + sizeof("/libipt_.so")
 			 + strlen(name)];
-		sprintf(path, IPT_LIB_DIR "/libipt_%s.so", name);
+#if 1	// for easier testing	zzz
+		char s[256];
+		sprintf(s, "%s/libipt_%s.so", "/etc/iptext/", name);
+		if (dlopen(s, RTLD_NOW)) goto OPENED;
+#endif
+		sprintf(path, "%s/libipt_%s.so", lib_dir, name);
 		if (dlopen(path, RTLD_NOW)) {
+OPENED:
 			/* Found library.  If it didn't register itself,
 			   maybe they specified target as match. */
-			ptr = find_match(name, DONT_LOAD);
+			ptr = find_match(name, DONT_LOAD, NULL);
 
 			if (!ptr)
 				exit_error(PARAMETER_PROBLEM,
@@ -684,15 +791,28 @@ find_match(const char *name, enum ipt_tryload tryload)
 	}
 #endif
 
-	if (ptr)
-		ptr->used = 1;
+	if (ptr && matches) {
+		struct iptables_rule_match **i;
+		struct iptables_rule_match *newentry;
+
+		newentry = fw_malloc(sizeof(struct iptables_rule_match));
+
+		for (i = matches; *i; i = &(*i)->next) {
+			if (strcmp(name, (*i)->match->name) == 0)
+				(*i)->completed = 1;
+		}
+		newentry->match = ptr;
+		newentry->completed = 0;
+		newentry->next = NULL;
+		*i = newentry;
+	}
 
 	return ptr;
 }
 
 /* Christophe Burki wants `-p 6' to imply `-m tcp'.  */
 static struct iptables_match *
-find_proto(const char *pname, enum ipt_tryload tryload, int nolookup)
+find_proto(const char *pname, enum ipt_tryload tryload, int nolookup, struct iptables_rule_match **matches)
 {
 	unsigned int proto;
 
@@ -700,9 +820,9 @@ find_proto(const char *pname, enum ipt_tryload tryload, int nolookup)
 		char *protoname = proto_to_name(proto, nolookup);
 
 		if (protoname)
-			return find_match(protoname, tryload);
+			return find_match(protoname, tryload, matches);
 	} else
-		return find_match(pname, tryload);
+		return find_match(pname, tryload, matches);
 
 	return NULL;
 }
@@ -714,6 +834,13 @@ parse_protocol(const char *s)
 
 	if (string_to_number(s, 0, 255, &proto) == -1) {
 		struct protoent *pent;
+
+		/* first deal with the special case of 'all' to prevent
+		 * people from being able to redefine 'all' in nsswitch
+		 * and/or provoke expensive [not working] ldap/nis/... 
+		 * lookups */
+		if (!strcmp(s, "all"))
+			return 0;
 
 		if ((pent = getprotobyname(s)))
 			proto = pent->p_proto;
@@ -737,8 +864,7 @@ parse_protocol(const char *s)
 	return (u_int16_t)proto;
 }
 
-static void
-parse_interface(const char *arg, char *vianame, unsigned char *mask)
+void parse_interface(const char *arg, char *vianame, unsigned char *mask)
 {
 	int vialen = strlen(arg);
 	unsigned int i;
@@ -752,7 +878,7 @@ parse_interface(const char *arg, char *vianame, unsigned char *mask)
 			   " (%i)", arg, IFNAMSIZ-1);
 
 	strcpy(vianame, arg);
-	if (vialen == 0)
+	if ((vialen == 0) || (vialen == 1 && vianame[0] == '+'))
 		memset(mask, 0, IFNAMSIZ);
 	else if (vianame[vialen - 1] == '+') {
 		memset(mask, 0xFF, vialen - 1);
@@ -763,10 +889,10 @@ parse_interface(const char *arg, char *vianame, unsigned char *mask)
 		memset(mask, 0xFF, vialen + 1);
 		memset(mask + vialen + 1, 0, IFNAMSIZ - vialen - 1);
 		for (i = 0; vianame[i]; i++) {
-			if (!isalnum(vianame[i]) 
-			    && vianame[i] != '_' 
-			    && vianame[i] != '.') {
-				printf("Warning: wierd character in interface"
+			if (vianame[i] == ':' ||
+			    vianame[i] == '!' ||
+			    vianame[i] == '*') {
+				printf("Warning: weird character in interface"
 				       " `%s' (No aliases, :, ! or *).\n",
 				       vianame);
 				break;
@@ -799,8 +925,8 @@ parse_target(const char *targetname)
 
 	if (strlen(targetname)+1 > sizeof(ipt_chainlabel))
 		exit_error(PARAMETER_PROBLEM,
-			   "Invalid target name `%s' (%i chars max)",
-			   targetname, sizeof(ipt_chainlabel)-1);
+			   "Invalid target name `%s' (%u chars max)",
+			   targetname, (unsigned int)sizeof(ipt_chainlabel)-1);
 
 	for (ptr = targetname; *ptr; ptr++)
 		if (isspace(*ptr))
@@ -870,23 +996,48 @@ mask_to_dotted(const struct in_addr *mask)
 }
 
 int
-string_to_number(const char *s, unsigned int min, unsigned int max,
-		 unsigned int *ret)
+string_to_number_ll(const char *s, unsigned long long min, unsigned long long max,
+		 unsigned long long *ret)
 {
-	long number;
+	unsigned long long number;
 	char *end;
 
 	/* Handle hex, octal, etc. */
 	errno = 0;
-	number = strtol(s, &end, 0);
+	number = strtoull(s, &end, 0);
 	if (*end == '\0' && end != s) {
 		/* we parsed a number, let's see if we want this */
-		if (errno != ERANGE && min <= number && number <= max) {
+		if (errno != ERANGE && min <= number && (!max || number <= max)) {
 			*ret = number;
 			return 0;
 		}
 	}
 	return -1;
+}
+
+int
+string_to_number_l(const char *s, unsigned long min, unsigned long max,
+		 unsigned long *ret)
+{
+	int result;
+	unsigned long long number;
+
+	result = string_to_number_ll(s, min, max, &number);
+	*ret = (unsigned long)number;
+
+	return result;
+}
+
+int string_to_number(const char *s, unsigned int min, unsigned int max,
+		unsigned int *ret)
+{
+	int result;
+	unsigned long number;
+
+	result = string_to_number_l(s, min, max, &number);
+	*ret = (unsigned int)number;
+
+	return result;
 }
 
 static void
@@ -929,11 +1080,17 @@ find_target(const char *name, enum ipt_tryload tryload)
 	}
 
 #ifndef NO_SHARED_LIBS
-	if (!ptr && tryload != DONT_LOAD) {
-		char path[sizeof(IPT_LIB_DIR) + sizeof("/libipt_.so")
+	if (!ptr && tryload != DONT_LOAD && tryload != DURING_LOAD) {
+		char path[strlen(lib_dir) + sizeof("/libipt_.so")
 			 + strlen(name)];
-		sprintf(path, IPT_LIB_DIR "/libipt_%s.so", name);
+#if 1	// for easier testing	zzz
+		char s[256];
+		sprintf(s, "%s/libipt_%s.so", "/etc/iptext/", name);
+		if (dlopen(s, RTLD_NOW)) goto OPENED;
+#endif
+		sprintf(path, "%s/libipt_%s.so", lib_dir, name);
 		if (dlopen(path, RTLD_NOW)) {
+OPENED:
 			/* Found library.  If it didn't register itself,
 			   maybe they specified match as a target. */
 			ptr = find_target(name, DONT_LOAD);
@@ -980,6 +1137,7 @@ merge_options(struct option *oldopts, const struct option *newopts,
 
 	merge = malloc(sizeof(struct option) * (num_new + num_old + 1));
 	memcpy(merge, oldopts, num_old * sizeof(struct option));
+	free_opts(0); /* Release previous options merged if any */
 	for (i = 0; i < num_new; i++) {
 		merge[num_old + i] = newopts[i];
 		merge[num_old + i].val += *option_offset;
@@ -989,10 +1147,58 @@ merge_options(struct option *oldopts, const struct option *newopts,
 	return merge;
 }
 
+static int compatible_revision(const char *name, u_int8_t revision, int opt)
+{
+	struct ipt_get_revision rev;
+	socklen_t s = sizeof(rev);
+	int max_rev, sockfd;
+
+	sockfd = socket(AF_INET, SOCK_RAW, IPPROTO_RAW);
+	if (sockfd < 0) {
+		fprintf(stderr, "Could not open socket to kernel: %s\n",
+			strerror(errno));
+		exit(1);
+	}
+
+	load_iptables_ko(modprobe);
+
+	strcpy(rev.name, name);
+	rev.revision = revision;
+
+	max_rev = getsockopt(sockfd, IPPROTO_IP, opt, &rev, &s);
+	if (max_rev < 0) {
+		/* Definitely don't support this? */
+		if (errno == EPROTONOSUPPORT) {
+			close(sockfd);
+			return 0;
+		} else if (errno == ENOPROTOOPT) {
+			close(sockfd);
+			/* Assume only revision 0 support (old kernel) */
+			return (revision == 0);
+		} else {
+			fprintf(stderr, "getsockopt failed strangely: %s\n",
+				strerror(errno));
+			exit(1);
+		}
+	}
+	close(sockfd);
+	return 1;
+}
+
+static int compatible_match_revision(const char *name, u_int8_t revision)
+{
+	return compatible_revision(name, revision, IPT_SO_GET_REVISION_MATCH);
+}
+
+static int compatible_target_revision(const char *name, u_int8_t revision)
+{
+	return compatible_revision(name, revision, IPT_SO_GET_REVISION_TARGET);
+}
+
 void
 register_match(struct iptables_match *me)
 {
-	struct iptables_match **i;
+	struct iptables_match **i, *old;
 
 	if (strcmp(me->version, program_version) != 0) {
 		fprintf(stderr, "%s: match `%s' v%s (I'm v%s).\n",
@@ -1000,15 +1206,39 @@ register_match(struct iptables_match *me)
 		exit(1);
 	}
 
-	if (find_match(me->name, DONT_LOAD)) {
-		fprintf(stderr, "%s: match `%s' already registered.\n",
+	/* Revision field stole a char from name. */
+	if (strlen(me->name) >= IPT_FUNCTION_MAXNAMELEN-1) {
+		fprintf(stderr, "%s: target `%s' has invalid name\n",
 			program_name, me->name);
 		exit(1);
 	}
 
+	old = find_match(me->name, DURING_LOAD, NULL);
+	if (old) {
+		if (old->revision == me->revision) {
+			fprintf(stderr,
+				"%s: match `%s' already registered.\n",
+				program_name, me->name);
+			exit(1);
+		}
+
+		/* Now we have two (or more) options, check compatibility. */
+		if (compatible_match_revision(old->name, old->revision)
+		    && old->revision > me->revision)
+			return;
+
+		/* Replace if compatible. */
+		if (!compatible_match_revision(me->name, me->revision))
+			return;
+
+		/* Delete old one. */
+		for (i = &iptables_matches; *i!=old; i = &(*i)->next);
+		*i = old->next;
+	}
+
 	if (me->size != IPT_ALIGN(me->size)) {
 		fprintf(stderr, "%s: match `%s' has invalid size %u.\n",
-			program_name, me->name, me->size);
+			program_name, me->name, (unsigned int)me->size);
 		exit(1);
 	}
 
@@ -1024,21 +1254,49 @@ register_match(struct iptables_match *me)
 void
 register_target(struct iptables_target *me)
 {
+	struct iptables_target *old;
+
 	if (strcmp(me->version, program_version) != 0) {
 		fprintf(stderr, "%s: target `%s' v%s (I'm v%s).\n",
 			program_name, me->name, me->version, program_version);
 		exit(1);
 	}
 
-	if (find_target(me->name, DONT_LOAD)) {
-		fprintf(stderr, "%s: target `%s' already registered.\n",
+	/* Revision field stole a char from name. */
+	if (strlen(me->name) >= IPT_FUNCTION_MAXNAMELEN-1) {
+		fprintf(stderr, "%s: target `%s' has invalid name\n",
 			program_name, me->name);
 		exit(1);
 	}
 
+	old = find_target(me->name, DURING_LOAD);
+	if (old) {
+		struct iptables_target **i;
+
+		if (old->revision == me->revision) {
+			fprintf(stderr,
+				"%s: target `%s' already registered.\n",
+				program_name, me->name);
+			exit(1);
+		}
+
+		/* Now we have two (or more) options, check compatibility. */
+		if (compatible_target_revision(old->name, old->revision)
+		    && old->revision > me->revision)
+			return;
+
+		/* Replace if compatible. */
+		if (!compatible_target_revision(me->name, me->revision))
+			return;
+
+		/* Delete old one. */
+		for (i = &iptables_targets; *i!=old; i = &(*i)->next);
+		*i = old->next;
+	}
+
 	if (me->size != IPT_ALIGN(me->size)) {
 		fprintf(stderr, "%s: target `%s' has invalid size %u.\n",
-			program_name, me->name, me->size);
+			program_name, me->name, (unsigned int)me->size);
 		exit(1);
 	}
 
@@ -1061,17 +1319,17 @@ print_num(u_int64_t number, unsigned int format)
 					number = (number + 500) / 1000;
 					if (number > 9999) {
 						number = (number + 500) / 1000;
-						printf(FMT("%4lluT ","%lluT "), number);
+						printf(FMT("%4lluT ","%lluT "), (unsigned long long)number);
 					}
-					else printf(FMT("%4lluG ","%lluG "), number);
+					else printf(FMT("%4lluG ","%lluG "), (unsigned long long)number);
 				}
-				else printf(FMT("%4lluM ","%lluM "), number);
+				else printf(FMT("%4lluM ","%lluM "), (unsigned long long)number);
 			} else
-				printf(FMT("%4lluK ","%lluK "), number);
+				printf(FMT("%4lluK ","%lluK "), (unsigned long long)number);
 		} else
-			printf(FMT("%5llu ","%llu "), number);
+			printf(FMT("%5llu ","%llu "), (unsigned long long)number);
 	} else
-		printf(FMT("%8llu ","%llu "), number);
+		printf(FMT("%8llu ","%llu "), (unsigned long long)number);
 }
 
 
@@ -1130,7 +1388,7 @@ print_match(const struct ipt_entry_match *m,
 	    const struct ipt_ip *ip,
 	    int numeric)
 {
-	struct iptables_match *match = find_match(m->u.user.name, TRY_LOAD);
+	struct iptables_match *match = find_match(m->u.user.name, TRY_LOAD, NULL);
 
 	if (match) {
 		if (match->print)
@@ -1238,18 +1496,23 @@ print_firewall(const struct ipt_entry *fw,
 
 	fputc(fw->ip.invflags & IPT_INV_DSTIP ? '!' : ' ', stdout);
 	if (fw->ip.dmsk.s_addr == 0L && !(format & FMT_NUMERIC))
-		printf(FMT("%-19s","-> %s"), "anywhere");
+		printf(FMT("%-19s ","-> %s"), "anywhere");
 	else {
 		if (format & FMT_NUMERIC)
 			sprintf(buf, "%s", addr_to_dotted(&(fw->ip.dst)));
 		else
 			sprintf(buf, "%s", addr_to_anyname(&(fw->ip.dst)));
 		strcat(buf, mask_to_dotted(&(fw->ip.dmsk)));
-		printf(FMT("%-19s","-> %s"), buf);
+		printf(FMT("%-19s ","-> %s"), buf);
 	}
 
 	if (format & FMT_NOTABLE)
 		fputs("  ", stdout);
+
+#ifdef IPT_F_GOTO
+	if(fw->ip.flags & IPT_F_GOTO)
+		printf("[goto] ");
+#endif
 
 	IPT_MATCH_ITERATE(fw, print_match, &fw->ip, format & FMT_NUMERIC);
 
@@ -1259,7 +1522,7 @@ print_firewall(const struct ipt_entry *fw,
 			target->print(&fw->ip, t, format & FMT_NUMERIC);
 	} else if (t->u.target_size != sizeof(*t))
 		printf("[%u bytes of unknown target data] ",
-		       t->u.target_size - sizeof(*t));
+		       (unsigned int)(t->u.target_size - sizeof(*t)));
 
 	if (!(format & FMT_NONEWLINE))
 		fputc('\n', stdout);
@@ -1346,20 +1609,16 @@ insert_entry(const ipt_chainlabel chain,
 }
 
 static unsigned char *
-make_delete_mask(struct ipt_entry *fw)
+make_delete_mask(struct ipt_entry *fw, struct iptables_rule_match *matches)
 {
 	/* Establish mask for comparison */
 	unsigned int size;
-	struct iptables_match *m;
+	struct iptables_rule_match *matchp;
 	unsigned char *mask, *mptr;
 
 	size = sizeof(struct ipt_entry);
-	for (m = iptables_matches; m; m = m->next) {
-		if (!m->used)
-			continue;
-
-		size += IPT_ALIGN(sizeof(struct ipt_entry_match)) + m->size;
-	}
+	for (matchp = matches; matchp; matchp = matchp->next)
+		size += IPT_ALIGN(sizeof(struct ipt_entry_match)) + matchp->match->size;
 
 	mask = fw_calloc(1, size
 			 + IPT_ALIGN(sizeof(struct ipt_entry_target))
@@ -1368,14 +1627,11 @@ make_delete_mask(struct ipt_entry *fw)
 	memset(mask, 0xFF, sizeof(struct ipt_entry));
 	mptr = mask + sizeof(struct ipt_entry);
 
-	for (m = iptables_matches; m; m = m->next) {
-		if (!m->used)
-			continue;
-
+	for (matchp = matches; matchp; matchp = matchp->next) {
 		memset(mptr, 0xFF,
 		       IPT_ALIGN(sizeof(struct ipt_entry_match))
-		       + m->userspacesize);
-		mptr += IPT_ALIGN(sizeof(struct ipt_entry_match)) + m->size;
+		       + matchp->match->userspacesize);
+		mptr += IPT_ALIGN(sizeof(struct ipt_entry_match)) + matchp->match->size;
 	}
 
 	memset(mptr, 0xFF,
@@ -1393,13 +1649,14 @@ delete_entry(const ipt_chainlabel chain,
 	     unsigned int ndaddrs,
 	     const struct in_addr daddrs[],
 	     int verbose,
-	     iptc_handle_t *handle)
+	     iptc_handle_t *handle,
+	     struct iptables_rule_match *matches)
 {
 	unsigned int i, j;
 	int ret = 1;
 	unsigned char *mask;
 
-	mask = make_delete_mask(fw);
+	mask = make_delete_mask(fw, matches);
 	for (i = 0; i < nsaddrs; i++) {
 		fw->ip.src.s_addr = saddrs[i].s_addr;
 		for (j = 0; j < ndaddrs; j++) {
@@ -1409,6 +1666,8 @@ delete_entry(const ipt_chainlabel chain,
 			ret &= iptc_delete_entry(chain, fw, mask, handle);
 		}
 	}
+	free(mask);
+
 	return ret;
 }
 
@@ -1439,7 +1698,7 @@ for_each_chain(int (*fn)(const ipt_chainlabel, int, iptc_handle_t *),
 	for (i = 0; i < chaincount; i++) {
 		if (!builtinstoo
 		    && iptc_builtin(chains + i*sizeof(ipt_chainlabel),
-				    *handle))
+				    *handle) == 1)
 			continue;
 	        ret &= fn(chains + i*sizeof(ipt_chainlabel), verbose, handle);
 	}
@@ -1539,18 +1798,22 @@ list_entries(const ipt_chainlabel chain, int verbose, int numeric,
 
 static char *get_modprobe(void)
 {
+	return strdup("/sbin/modprobe");
+#if 0
 	int procfile;
 	char *ret;
 
+#define PROCFILE_BUFSIZ	1024
 	procfile = open(PROC_SYS_MODPROBE, O_RDONLY);
 	if (procfile < 0)
 		return NULL;
 
-	ret = malloc(1024);
+	ret = (char *) malloc(PROCFILE_BUFSIZ);
 	if (ret) {
-		switch (read(procfile, ret, 1024)) {
+		memset(ret, 0, PROCFILE_BUFSIZ);
+		switch (read(procfile, ret, PROCFILE_BUFSIZ)) {
 		case -1: goto fail;
-		case 1024: goto fail; /* Partial read.  Wierd */
+		case PROCFILE_BUFSIZ: goto fail; /* Partial read.  Wierd */
 		}
 		if (ret[strlen(ret)-1]=='\n') 
 			ret[strlen(ret)-1]=0;
@@ -1561,12 +1824,14 @@ static char *get_modprobe(void)
 	free(ret);
 	close(procfile);
 	return NULL;
+#endif
 }
 
 int iptables_insmod(const char *modname, const char *modprobe)
 {
 	char *buf = NULL;
 	char *argv[3];
+	int status;
 
 	/* If they don't explicitly set it, read out of kernel */
 	if (!modprobe) {
@@ -1584,34 +1849,49 @@ int iptables_insmod(const char *modname, const char *modprobe)
 		execv(argv[0], argv);
 
 		/* not usually reached */
-		exit(0);
+		exit(1);
 	case -1:
 		return -1;
 
 	default: /* parent */
-		wait(NULL);
+		wait(&status);
 	}
 
 	free(buf);
+	if (WIFEXITED(status) && WEXITSTATUS(status) == 0)
+		return 0;
+	return -1;
+}
+
+int load_iptables_ko(const char *modprobe)
+{
+	// not needed, modprobe will be just noisy -- zzz
 	return 0;
+/*
+	static int loaded = 0;
+	static int ret = -1;
+
+	if (!loaded) {
+		ret = iptables_insmod("ip_tables", NULL);
+		loaded = 1;
+	}
+
+	return ret;
+*/
 }
 
 static struct ipt_entry *
 generate_entry(const struct ipt_entry *fw,
-	       struct iptables_match *matches,
+	       struct iptables_rule_match *matches,
 	       struct ipt_entry_target *target)
 {
 	unsigned int size;
-	struct iptables_match *m;
+	struct iptables_rule_match *matchp;
 	struct ipt_entry *e;
 
 	size = sizeof(struct ipt_entry);
-	for (m = matches; m; m = m->next) {
-		if (!m->used)
-			continue;
-
-		size += m->m->u.match_size;
-	}
+	for (matchp = matches; matchp; matchp = matchp->next)
+		size += matchp->match->m->u.match_size;
 
 	e = fw_malloc(size + target->u.target_size);
 	*e = *fw;
@@ -1619,16 +1899,57 @@ generate_entry(const struct ipt_entry *fw,
 	e->next_offset = size + target->u.target_size;
 
 	size = 0;
-	for (m = matches; m; m = m->next) {
-		if (!m->used)
-			continue;
-
-		memcpy(e->elems + size, m->m, m->m->u.match_size);
-		size += m->m->u.match_size;
+	for (matchp = matches; matchp; matchp = matchp->next) {
+		memcpy(e->elems + size, matchp->match->m, matchp->match->m->u.match_size);
+		size += matchp->match->m->u.match_size;
 	}
 	memcpy(e->elems + size, target, target->u.target_size);
 
 	return e;
+}
+
+void clear_rule_matches(struct iptables_rule_match **matches)
+{
+	struct iptables_rule_match *matchp, *tmp;
+
+	for (matchp = *matches; matchp;) {
+		tmp = matchp->next;
+		if (matchp->match->m) {
+			free(matchp->match->m);
+			matchp->match->m = NULL;
+		}
+		if (matchp->match == matchp->match->next) {
+			free(matchp->match);
+			matchp->match = NULL;
+		}
+		free(matchp);
+		matchp = tmp;
+	}
+
+	*matches = NULL;
+}
+
+static void set_revision(char *name, u_int8_t revision)
+{
+	/* Old kernel sources don't have ".revision" field,
+	   but we stole a byte from name. */
+	name[IPT_FUNCTION_MAXNAMELEN - 2] = '\0';
+	name[IPT_FUNCTION_MAXNAMELEN - 1] = revision;
+}
+
+void
+get_kernel_version(void) {
+	static struct utsname uts;
+	int x = 0, y = 0, z = 0;
+
+	if (uname(&uts) == -1) {
+		fprintf(stderr, "Unable to retrieve kernel version.\n");
+		free_opts(1);
+		exit(1); 
+	}
+
+	sscanf(uts.release, "%d.%d.%d", &x, &y, &z);
+	kernel_version = LINUX_VERSION(x, y, z);
 }
 
 int do_command(int argc, char *argv[], char **table, iptc_handle_t *handle)
@@ -1646,17 +1967,15 @@ int do_command(int argc, char *argv[], char **table, iptc_handle_t *handle)
 	const char *pcnt = NULL, *bcnt = NULL;
 	int ret = 1;
 	struct iptables_match *m;
+	struct iptables_rule_match *matches = NULL;
+	struct iptables_rule_match *matchp;
 	struct iptables_target *target = NULL;
 	struct iptables_target *t;
 	const char *jumpto = "";
 	char *protocol = NULL;
-	const char *modprobe = NULL;
 	int proto_used = 0;
 
 	memset(&fw, 0, sizeof(fw));
-
-	opts = original_opts;
-	global_option_offset = 0;
 
 	/* re-set optind to 0 in case do_command gets called
 	 * a second time */
@@ -1664,10 +1983,8 @@ int do_command(int argc, char *argv[], char **table, iptc_handle_t *handle)
 
 	/* clear mflags in case do_command gets called a second time
 	 * (we clear the global list of all matches for security)*/
-	for (m = iptables_matches; m; m = m->next) {
+	for (m = iptables_matches; m; m = m->next)
 		m->mflags = 0;
-		m->used = 0;
-	}
 
 	for (t = iptables_targets; t; t = t->next) {
 		t->tflags = 0;
@@ -1679,7 +1996,7 @@ int do_command(int argc, char *argv[], char **table, iptc_handle_t *handle)
 	opterr = 0;
 
 	while ((c = getopt_long(argc, argv,
-	   "-A:D:R:I:L::M:F::Z::N:X::E:P:Vh::o:p:s:d:j:i:fbvnt:m:xc:",
+	   "-A:D:R:I:L::M:F::Z::N:X::E:P:Vh::o:p:s:d:j:i:fbvnt:m:xc:g:",
 					   opts, NULL)) != -1) {
 		switch (c) {
 			/*
@@ -1753,10 +2070,10 @@ int do_command(int argc, char *argv[], char **table, iptc_handle_t *handle)
 			break;
 
 		case 'N':
-			if (optarg && *optarg == '-')
+			if (optarg && (*optarg == '-' || *optarg == '!'))
 				exit_error(PARAMETER_PROBLEM,
 					   "chain name not allowed to start "
-					   "with `-'\n");
+					   "with `%c'\n", *optarg);
 			if (find_target(optarg, TRY_LOAD))
 				exit_error(PARAMETER_PROBLEM,
 					   "chain name may not clash "
@@ -1807,10 +2124,10 @@ int do_command(int argc, char *argv[], char **table, iptc_handle_t *handle)
 				optarg = argv[optind];
 
 			/* iptables -p icmp -h */
-			if (!iptables_matches && protocol)
-				find_match(protocol, TRY_LOAD);
+			if (!matches && protocol)
+				find_match(protocol, TRY_LOAD, &matches);
 
-			exit_printhelp();
+			exit_printhelp(matches);
 
 			/*
 			 * Option selection
@@ -1831,7 +2148,6 @@ int do_command(int argc, char *argv[], char **table, iptc_handle_t *handle)
 			    && (fw.ip.invflags & IPT_INV_PROTO))
 				exit_error(PARAMETER_PROBLEM,
 					   "rule would never match protocol");
-			fw.nfcache |= NFC_IP_PROTO;
 			break;
 
 		case 's':
@@ -1839,7 +2155,6 @@ int do_command(int argc, char *argv[], char **table, iptc_handle_t *handle)
 			set_option(&options, OPT_SOURCE, &fw.ip.invflags,
 				   invert);
 			shostnetworkmask = argv[optind-1];
-			fw.nfcache |= NFC_IP_SRC;
 			break;
 
 		case 'd':
@@ -1847,8 +2162,16 @@ int do_command(int argc, char *argv[], char **table, iptc_handle_t *handle)
 			set_option(&options, OPT_DESTINATION, &fw.ip.invflags,
 				   invert);
 			dhostnetworkmask = argv[optind-1];
-			fw.nfcache |= NFC_IP_DST;
 			break;
+
+#ifdef IPT_F_GOTO
+		case 'g':
+			set_option(&options, OPT_JUMP, &fw.ip.invflags,
+				   invert);
+			fw.ip.flags |= IPT_F_GOTO;
+			jumpto = parse_target(optarg);
+			break;
+#endif
 
 		case 'j':
 			set_option(&options, OPT_JUMP, &fw.ip.invflags,
@@ -1866,7 +2189,10 @@ int do_command(int argc, char *argv[], char **table, iptc_handle_t *handle)
 				target->t = fw_calloc(1, size);
 				target->t->u.target_size = size;
 				strcpy(target->t->u.user.name, jumpto);
-				target->init(target->t, &fw.nfcache);
+				set_revision(target->t->u.user.name,
+					     target->revision);
+				if (target->init != NULL)
+					target->init(target->t, &fw.nfcache);
 				opts = merge_options(opts, target->extra_opts, &target->option_offset);
 			}
 			break;
@@ -1879,7 +2205,6 @@ int do_command(int argc, char *argv[], char **table, iptc_handle_t *handle)
 			parse_interface(argv[optind-1],
 					fw.ip.iniface,
 					fw.ip.iniface_mask);
-			fw.nfcache |= NFC_IP_IF_IN;
 			break;
 
 		case 'o':
@@ -1889,14 +2214,12 @@ int do_command(int argc, char *argv[], char **table, iptc_handle_t *handle)
 			parse_interface(argv[optind-1],
 					fw.ip.outiface,
 					fw.ip.outiface_mask);
-			fw.nfcache |= NFC_IP_IF_OUT;
 			break;
 
 		case 'f':
 			set_option(&options, OPT_FRAGMENT, &fw.ip.invflags,
 				   invert);
 			fw.ip.flags |= IPT_F_FRAG;
-			fw.nfcache |= NFC_IP_FRAG;
 			break;
 
 		case 'v':
@@ -1913,14 +2236,18 @@ int do_command(int argc, char *argv[], char **table, iptc_handle_t *handle)
 				exit_error(PARAMETER_PROBLEM,
 					   "unexpected ! flag before --match");
 
-			m = find_match(optarg, LOAD_MUST_SUCCEED);
+			m = find_match(optarg, LOAD_MUST_SUCCEED, &matches);
 			size = IPT_ALIGN(sizeof(struct ipt_entry_match))
 					 + m->size;
 			m->m = fw_calloc(1, size);
 			m->m->u.match_size = size;
 			strcpy(m->m->u.user.name, m->name);
-			m->init(m->m, &fw.nfcache);
-			opts = merge_options(opts, m->extra_opts, &m->option_offset);
+			set_revision(m->m->u.user.name, m->revision);
+			if (m->init != NULL)
+				m->init(m->m, &fw.nfcache);
+			if (m != m->next)
+				/* Merge options for non-cloned matches */
+				opts = merge_options(opts, m->extra_opts, &m->option_offset);
 		}
 		break;
 
@@ -1971,12 +2298,12 @@ int do_command(int argc, char *argv[], char **table, iptc_handle_t *handle)
 					"-%c requires packet and byte counter",
 					opt2char(OPT_COUNTERS));
 
-			if (sscanf(pcnt, "%llu", &fw.counters.pcnt) != 1)
+			if (sscanf(pcnt, "%llu", (unsigned long long *)&fw.counters.pcnt) != 1)
 				exit_error(PARAMETER_PROBLEM,
 					"-%c packet counter not numeric",
 					opt2char(OPT_COUNTERS));
 
-			if (sscanf(bcnt, "%llu", &fw.counters.bcnt) != 1)
+			if (sscanf(bcnt, "%llu", (unsigned long long *)&fw.counters.bcnt) != 1)
 				exit_error(PARAMETER_PROBLEM,
 					"-%c byte counter not numeric",
 					opt2char(OPT_COUNTERS));
@@ -2003,24 +2330,24 @@ int do_command(int argc, char *argv[], char **table, iptc_handle_t *handle)
 					       argv, invert,
 					       &target->tflags,
 					       &fw, &target->t))) {
-				for (m = iptables_matches; m; m = m->next) {
-					if (!m->used)
+				for (matchp = matches; matchp; matchp = matchp->next) {
+					if (matchp->completed) 
 						continue;
-
-					if (m->parse(c - m->option_offset,
+					if (matchp->match->parse(c - matchp->match->option_offset,
 						     argv, invert,
-						     &m->mflags,
+						     &matchp->match->mflags,
 						     &fw,
 						     &fw.nfcache,
-						     &m->m))
+						     &matchp->match->m))
 						break;
 				}
+				m = matchp ? matchp->match : NULL;
 
 				/* If you listen carefully, you can
 				   actually hear this code suck. */
 
 				/* some explanations (after four different bugs
-				 * in 3 different releases): If we encountere a
+				 * in 3 different releases): If we encounter a
 				 * parameter, that has not been parsed yet,
 				 * it's not an option of an explicitly loaded
 				 * match or a target.  However, we support
@@ -2042,13 +2369,13 @@ int do_command(int argc, char *argv[], char **table, iptc_handle_t *handle)
 				if (m == NULL
 				    && protocol
 				    && (!find_proto(protocol, DONT_LOAD,
-						   options&OPT_NUMERIC) 
+						   options&OPT_NUMERIC, NULL) 
 					|| (find_proto(protocol, DONT_LOAD,
-							options&OPT_NUMERIC)
+							options&OPT_NUMERIC, NULL)
 					    && (proto_used == 0))
 				       )
 				    && (m = find_proto(protocol, TRY_LOAD,
-						       options&OPT_NUMERIC))) {
+						       options&OPT_NUMERIC, &matches))) {
 					/* Try loading protocol */
 					size_t size;
 					
@@ -2060,7 +2387,10 @@ int do_command(int argc, char *argv[], char **table, iptc_handle_t *handle)
 					m->m = fw_calloc(1, size);
 					m->m->u.match_size = size;
 					strcpy(m->m->u.user.name, m->name);
-					m->init(m->m, &fw.nfcache);
+					set_revision(m->m->u.user.name,
+						     m->revision);
+					if (m->init != NULL)
+						m->init(m->m, &fw.nfcache);
 
 					opts = merge_options(opts,
 					    m->extra_opts, &m->option_offset);
@@ -2077,12 +2407,8 @@ int do_command(int argc, char *argv[], char **table, iptc_handle_t *handle)
 		invert = FALSE;
 	}
 
-	for (m = iptables_matches; m; m = m->next) {
-		if (!m->used)
-			continue;
-
-		m->final_check(m->mflags);
-	}
+	for (matchp = matches; matchp; matchp = matchp->next)
+		matchp->match->final_check(matchp->match->mflags);
 
 	if (target)
 		target->final_check(target->tflags);
@@ -2133,11 +2459,9 @@ int do_command(int argc, char *argv[], char **table, iptc_handle_t *handle)
 	if (!*handle)
 		*handle = iptc_init(*table);
 
-	if (!*handle) {
-		/* try to insmod the module if iptc_init failed */
-		iptables_insmod("ip_tables", modprobe);
+	/* try to insmod the module if iptc_init failed */
+	if (!*handle && load_iptables_ko(modprobe) != -1)
 		*handle = iptc_init(*table);
-	}
 
 	if (!*handle)
 		exit_error(VERSION_PROBLEM,
@@ -2172,6 +2496,9 @@ int do_command(int argc, char *argv[], char **table, iptc_handle_t *handle)
 			printf("Warning: using chain %s, not extension\n",
 			       jumpto);
 
+			if (target->t)
+				free(target->t);
+
 			target = NULL;
 		}
 
@@ -2190,7 +2517,11 @@ int do_command(int argc, char *argv[], char **table, iptc_handle_t *handle)
 			target->t = fw_calloc(1, size);
 			target->t->u.target_size = size;
 			strcpy(target->t->u.user.name, jumpto);
-			target->init(target->t, &fw.nfcache);
+			if (!iptc_is_chain(jumpto, *handle))
+				set_revision(target->t->u.user.name,
+					     target->revision);
+			if (target->init != NULL)
+				target->init(target->t, &fw.nfcache);
 		}
 
 		if (!target) {
@@ -2198,9 +2529,15 @@ int do_command(int argc, char *argv[], char **table, iptc_handle_t *handle)
 			 * We cannot know if the plugin is corrupt, non
 			 * existant OR if the user just misspelled a
 			 * chain. */
+#ifdef IPT_F_GOTO
+			if (fw.ip.flags & IPT_F_GOTO)
+				exit_error(PARAMETER_PROBLEM,
+					   "goto '%s' is not a chain\n", jumpto);
+#endif
 			find_target(jumpto, LOAD_MUST_SUCCEED);
 		} else {
-			e = generate_entry(&fw, iptables_matches, target->t);
+			e = generate_entry(&fw, matches, target->t);
+			free(target->t);
 		}
 	}
 
@@ -2215,7 +2552,7 @@ int do_command(int argc, char *argv[], char **table, iptc_handle_t *handle)
 		ret = delete_entry(chain, e,
 				   nsaddrs, saddrs, ndaddrs, daddrs,
 				   options&OPT_VERBOSE,
-				   handle);
+				   handle, matches);
 		break;
 	case CMD_DELETE_NUM:
 		ret = iptc_delete_num_entry(chain, rulenum - 1, handle);
@@ -2275,6 +2612,17 @@ int do_command(int argc, char *argv[], char **table, iptc_handle_t *handle)
 
 	if (verbose > 1)
 		dump_entries(*handle);
+
+	clear_rule_matches(&matches);
+
+	if (e != NULL) {
+		free(e);
+		e = NULL;
+	}
+
+	free(saddrs);
+	free(daddrs);
+	free_opts(1);
 
 	return ret;
 }

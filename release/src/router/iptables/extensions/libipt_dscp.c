@@ -24,11 +24,6 @@
 /* This is evil, but it's my code - HW*/
 #include "libipt_dscp_helper.c"
 
-static void init(struct ipt_entry_match *m, unsigned int *nfcache) 
-{
-	*nfcache |= NFC_IP_TOS;
-}
-
 static void help(void) 
 {
 	printf(
@@ -51,7 +46,7 @@ static struct option opts[] = {
 };
 
 static void
-parse_dscp(const unsigned char *s, struct ipt_dscp_info *dinfo)
+parse_dscp(const char *s, struct ipt_dscp_info *dinfo)
 {
 	unsigned int dscp;
        
@@ -157,20 +152,18 @@ save(const struct ipt_ip *ip, const struct ipt_entry_match *match)
 	print_dscp(dinfo->dscp, dinfo->invert, 1);
 }
 
-static
-struct iptables_match dscp
-= { NULL,
-    "dscp",
-    IPTABLES_VERSION,
-    IPT_ALIGN(sizeof(struct ipt_dscp_info)),
-    IPT_ALIGN(sizeof(struct ipt_dscp_info)),
-    &help,
-    &init,
-    &parse,
-    &final_check,
-    &print,
-    &save,
-    opts
+static struct iptables_match dscp = { 
+	.next 		= NULL,
+	.name 		= "dscp",
+	.version 	= IPTABLES_VERSION,
+	.size 		= IPT_ALIGN(sizeof(struct ipt_dscp_info)),
+	.userspacesize	= IPT_ALIGN(sizeof(struct ipt_dscp_info)),
+	.help		= &help,
+	.parse		= &parse,
+	.final_check	= &final_check,
+	.print		= &print,
+	.save		= &save,
+	.extra_opts	= opts
 };
 
 void _init(void)

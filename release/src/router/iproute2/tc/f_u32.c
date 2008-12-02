@@ -7,6 +7,7 @@
  *		2 of the License, or (at your option) any later version.
  *
  * Authors:	Alexey Kuznetsov, <kuznet@ms2.inr.ac.ru>
+ *		Match mark added by Catalin(ux aka Dino) BOIE <catab at umbrella.ro> [5 nov 2004]
  *
  */
 
@@ -19,6 +20,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <string.h>
+#include <linux/if.h>
 
 #include "utils.h"
 #include "tc_util.h"
@@ -32,7 +34,7 @@ static void explain(void)
 	fprintf(stderr, "or         u32 divisor DIVISOR\n");
 	fprintf(stderr, "\n");
 	fprintf(stderr, "Where: SELECTOR := SAMPLE SAMPLE ...\n");
-	fprintf(stderr, "       SAMPLE := { ip | ip6 | udp | tcp | icmp | u{32|16|8} } SAMPLE_ARGS\n");
+	fprintf(stderr, "       SAMPLE := { ip | ip6 | udp | tcp | icmp | u{32|16|8} | mark } SAMPLE_ARGS [divisor DIVISOR]\n");
 	fprintf(stderr, "       FILTERID := X:Y:Z\n");
 }
 
@@ -367,7 +369,8 @@ static int parse_ip6_addr(int *argc_p, char ***argv_p, struct tc_u32_sel *sel, i
 
 	plen = addr.bitlen;
 	for (i=0; i<plen; i+=32) {
-		if (((i+31)&~0x1F)<=plen) {
+//		if (((i+31)&~0x1F)<=plen) {
+		if (((i+31))<=plen) {
 			if ((res = pack_key(sel, addr.data[i/32], 0xFFFFFFFF, off+4*(i/32), offmask)) < 0)
 				return -1;
 		} else if (i<plen) {
@@ -492,7 +495,7 @@ static int parse_ip6(int *argc_p, char ***argv_p, struct tc_u32_sel *sel)
 	}
 	if (strcmp(*argv, "priority") == 0) {
 		NEXT_ARG();
-		res = parse_u8(&argc, &argv, sel, 0, 0);
+		res = parse_u8(&argc, &argv, sel, 4, 0);
 		goto done;
 	}
 	if (strcmp(*argv, "protocol") == 0) {
@@ -588,9 +591,42 @@ done:
 	return res;
 }
 
+static int parse_mark(int *argc_p, char ***argv_p, struct nlmsghdr *n)
+{
+	int res = -1;
+	int argc = *argc_p;
+	char **argv = *argv_p;
+	struct tc_u32_mark mark;
 
+	if (argc <= 1)
+		return -1;
 
-static int parse_selector(int *argc_p, char ***argv_p, struct tc_u32_sel *sel)
+	if (get_u32(&mark.val, *argv, 0)) {
+		fprintf(stderr, "Illegal \"mark\" value\n");
+		return -1;
+	}
+	NEXT_ARG();
+
+	if (get_u32(&mark.mask, *argv, 0)) {
+		fprintf(stderr, "Illegal \"mark\" mask\n");
+		return -1;
+	}
+	NEXT_ARG();
+
+	if ((mark.val & mark.mask) != mark.val) {
+		fprintf(stderr, "Illegal \"mark\" (impossible combination)\n");
+		return -1;
+	}
+
+	addattr_l(n, MAX_MSG, TCA_U32_MARK, &mark, sizeof(mark));
+	res = 0;
+
+	*argc_p = argc;
+	*argv_p = argv;
+	return res;
+}
+
+static int parse_selector(int *argc_p, char ***argv_p, struct tc_u32_sel *sel, struct nlmsghdr *n)
 {
 	int argc = *argc_p;
 	char **argv = *argv_p;
@@ -639,6 +675,12 @@ static int parse_selector(int *argc_p, char ***argv_p, struct tc_u32_sel *sel)
 		res = parse_icmp(&argc, &argv, sel);
 		goto done;
 	}
+	if (matches(*argv, "mark") == 0) {
+		NEXT_ARG();
+		res = parse_mark(&argc, &argv, n);
+		goto done;
+	}
+
 	return -1;
 
 done:
@@ -752,13 +794,13 @@ static int u32_parse_opt(struct filter_util *qu, char *handle, int argc, char **
 	if (argc == 0)
 		return 0;
 
-	tail = (struct rtattr*)(((void*)n)+NLMSG_ALIGN(n->nlmsg_len));
-	addattr_l(n, 4096, TCA_OPTIONS, NULL, 0);
+	tail = NLMSG_TAIL(n);
+	addattr_l(n, MAX_MSG, TCA_OPTIONS, NULL, 0);
 
 	while (argc > 0) {
 		if (matches(*argv, "match") == 0) {
 			NEXT_ARG();
-			if (parse_selector(&argc, &argv, &sel.sel)) {
+			if (parse_selector(&argc, &argv, &sel.sel, n)) {
 				fprintf(stderr, "Illegal \"match\"\n");
 				return -1;
 			}
@@ -786,17 +828,18 @@ static int u32_parse_opt(struct filter_util *qu, char *handle, int argc, char **
 				fprintf(stderr, "Illegal \"classid\"\n");
 				return -1;
 			}
-			addattr_l(n, 4096, TCA_U32_CLASSID, &handle, 4);
+			addattr_l(n, MAX_MSG, TCA_U32_CLASSID, &handle, 4);
 			sel.sel.flags |= TC_U32_TERMINAL;
 		} else if (matches(*argv, "divisor") == 0) {
 			unsigned divisor;
 			NEXT_ARG();
-			if (get_unsigned(&divisor, *argv, 0) || divisor == 0 ||
-			    divisor > 0x100) {
+			if (get_unsigned(&divisor, *argv, 0) || 
+			    divisor == 0 ||
+			    divisor > 0x100 || ((divisor - 1) & divisor)) {
 				fprintf(stderr, "Illegal \"divisor\"\n");
 				return -1;
 			}
-			addattr_l(n, 4096, TCA_U32_DIVISOR, &divisor, 4);
+			addattr_l(n, MAX_MSG, TCA_U32_DIVISOR, &divisor, 4);
 		} else if (matches(*argv, "order") == 0) {
 			NEXT_ARG();
 			if (get_u32(&order, *argv, 0)) {
@@ -814,7 +857,7 @@ static int u32_parse_opt(struct filter_util *qu, char *handle, int argc, char **
 				fprintf(stderr, "\"link\" must be a hash table.\n");
 				return -1;
 			}
-			addattr_l(n, 4096, TCA_U32_LINK, &handle, 4);
+			addattr_l(n, MAX_MSG, TCA_U32_LINK, &handle, 4);
 		} else if (strcmp(*argv, "ht") == 0) {
 			unsigned handle;
 			NEXT_ARG();
@@ -832,12 +875,15 @@ static int u32_parse_opt(struct filter_util *qu, char *handle, int argc, char **
 				htid = (handle&0xFFFFF000);
 		} else if (strcmp(*argv, "sample") == 0) {
 			__u32 hash;
+			unsigned divisor = 0x100;
+
 			struct {
 				struct tc_u32_sel sel;
 				struct tc_u32_key keys[4];
 			} sel2;
+			memset(&sel2, 0, sizeof(sel2));
 			NEXT_ARG();
-			if (parse_selector(&argc, &argv, &sel2.sel)) {
+			if (parse_selector(&argc, &argv, &sel2.sel, n)) {
 				fprintf(stderr, "Illegal \"sample\"\n");
 				return -1;
 			}
@@ -845,12 +891,41 @@ static int u32_parse_opt(struct filter_util *qu, char *handle, int argc, char **
 				fprintf(stderr, "\"sample\" must contain exactly ONE key.\n");
 				return -1;
 			}
+			if (*argv != 0 && strcmp(*argv, "divisor") == 0) {
+				NEXT_ARG();
+				if (get_unsigned(&divisor, *argv, 0) || divisor == 0 ||
+				    divisor > 0x100 || ((divisor - 1) & divisor)) {
+					fprintf(stderr, "Illegal sample \"divisor\"\n");
+					return -1;
+				}
+				NEXT_ARG();
+			}
 			hash = sel2.sel.keys[0].val&sel2.sel.keys[0].mask;
 			hash ^= hash>>16;
 			hash ^= hash>>8;
-			htid = ((hash<<12)&0xFF000)|(htid&0xFFF00000);
+			htid = ((hash%divisor)<<12)|(htid&0xFFF00000);
 			sample_ok = 1;
 			continue;
+		} else if (strcmp(*argv, "indev") == 0) {
+			char ind[IFNAMSIZ + 1];
+			memset(ind, 0, sizeof (ind));
+			argc--;
+			argv++;
+			if (argc < 1) {
+				fprintf(stderr, "Illegal indev\n");
+				return -1;
+			}
+			strncpy(ind, *argv, sizeof (ind) - 1);
+			addattr_l(n, MAX_MSG, TCA_U32_INDEV, ind, strlen(ind) + 1);
+
+		} else if (matches(*argv, "action") == 0) {
+			NEXT_ARG();
+			if (parse_action(&argc, &argv, TCA_U32_ACT, n)) {
+				fprintf(stderr, "Illegal \"action\"\n");
+				return -1;
+			}
+			continue;
+
 		} else if (matches(*argv, "police") == 0) {
 			NEXT_ARG();
 			if (parse_police(&argc, &argv, TCA_U32_POLICE, n)) {
@@ -878,10 +953,10 @@ static int u32_parse_opt(struct filter_util *qu, char *handle, int argc, char **
 	}
 
 	if (htid)
-		addattr_l(n, 4096, TCA_U32_HASH, &htid, 4);
+		addattr_l(n, MAX_MSG, TCA_U32_HASH, &htid, 4);
 	if (sel_ok)
-		addattr_l(n, 4096, TCA_U32_SEL, &sel, sizeof(sel.sel)+sel.sel.nkeys*sizeof(struct tc_u32_key));
-	tail->rta_len = (((void*)n)+n->nlmsg_len) - (void*)tail;
+		addattr_l(n, MAX_MSG, TCA_U32_SEL, &sel, sizeof(sel.sel)+sel.sel.nkeys*sizeof(struct tc_u32_key));
+	tail->rta_len = (void *) NLMSG_TAIL(n) - (void *) tail;
 	return 0;
 }
 
@@ -889,13 +964,12 @@ static int u32_print_opt(struct filter_util *qu, FILE *f, struct rtattr *opt, __
 {
 	struct rtattr *tb[TCA_U32_MAX+1];
 	struct tc_u32_sel *sel = NULL;
+	struct tc_u32_pcnt *pf = NULL;
 
 	if (opt == NULL)
 		return 0;
 
-	memset(tb, 0, sizeof(tb));
-	if (opt)
-		parse_rtattr(tb, TCA_U32_MAX, RTA_DATA(opt), RTA_PAYLOAD(opt));
+	parse_rtattr_nested(tb, TCA_U32_MAX, opt);
 
 	if (handle) {
 		SPRINT_BUF(b1);
@@ -932,22 +1006,44 @@ static int u32_print_opt(struct filter_util *qu, FILE *f, struct rtattr *opt, __
 		SPRINT_BUF(b1);
 		fprintf(f, "link %s ", sprint_u32_handle(*(__u32*)RTA_DATA(tb[TCA_U32_LINK]), b1));
 	}
-	if (tb[TCA_U32_POLICE]) {
-		fprintf(f, "\n");
-		tc_print_police(f, tb[TCA_U32_POLICE]);
+
+	if (tb[TCA_U32_PCNT]) {
+		if (RTA_PAYLOAD(tb[TCA_U32_PCNT])  < sizeof(*pf)) {
+			fprintf(f, "Broken perf counters \n");
+			return -1;
+		}
+		pf = RTA_DATA(tb[TCA_U32_PCNT]);
+	}
+
+	if (sel && show_stats && NULL != pf)
+		fprintf(f, " (rule hit %llu success %llu)",
+			(unsigned long long) pf->rcnt,
+			(unsigned long long) pf->rhit);
+
+	if (tb[TCA_U32_MARK]) {
+		struct tc_u32_mark *mark = RTA_DATA(tb[TCA_U32_MARK]);
+		if (RTA_PAYLOAD(tb[TCA_U32_MARK]) < sizeof(*mark)) {
+			fprintf(f, "\n  Invalid mark (kernel&iproute2 mismatch)\n");
+		} else {
+			fprintf(f, "\n  mark 0x%04x 0x%04x (success %d)",
+				mark->val, mark->mask, mark->success);
+		}
 	}
 
 	if (sel) {
 		int i;
 		struct tc_u32_key *key = sel->keys;
-
 		if (sel->nkeys) {
-			for (i=0; i<sel->nkeys; i++, key++)
+			for (i=0; i<sel->nkeys; i++, key++) {
 				fprintf(f, "\n  match %08x/%08x at %s%d",
 					(unsigned int)ntohl(key->val),
 					(unsigned int)ntohl(key->mask),
 					key->offmask ? "nexthdr+" : "",
 					key->off);
+				if (show_stats && NULL != pf)
+					fprintf(f, " (success %lld ) ",
+						(unsigned long long) pf->kcnts[i]);
+			}
 		}
 
 		if (sel->flags&(TC_U32_VAROFFSET|TC_U32_OFFSET)) {
@@ -966,12 +1062,23 @@ static int u32_print_opt(struct filter_util *qu, FILE *f, struct rtattr *opt, __
 		}
 	}
 
+	if (tb[TCA_U32_POLICE]) {
+		fprintf(f, "\n");
+		tc_print_police(f, tb[TCA_U32_POLICE]);
+	}
+	if (tb[TCA_U32_INDEV]) {
+		struct rtattr *idev = tb[TCA_U32_INDEV];
+		fprintf(f, "\n  input dev %s\n", (char *) RTA_DATA(idev));
+	}
+	if (tb[TCA_U32_ACT]) {
+		tc_print_action(f, tb[TCA_U32_ACT]);
+	}
+
 	return 0;
 }
 
-struct filter_util u32_util = {
-	NULL,
-	"u32",
-	u32_parse_opt,
-	u32_print_opt,
+struct filter_util u32_filter_util = {
+	.id = "u32",
+	.parse_fopt = u32_parse_opt,
+	.print_fopt = u32_print_opt,
 };

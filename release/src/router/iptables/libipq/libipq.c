@@ -122,7 +122,8 @@ static ssize_t ipq_netlink_recvfrom(const struct ipq_handle *h,
                                     unsigned char *buf, size_t len,
                                     int timeout)
 {
-	int addrlen, status;
+	unsigned int addrlen;
+	int status;
 	struct nlmsghdr *nlh;
 
 	if (len < sizeof(struct nlmsgerr)) {
@@ -168,6 +169,10 @@ static ssize_t ipq_netlink_recvfrom(const struct ipq_handle *h,
 		return status;
 	}
 	if (addrlen != sizeof(h->peer)) {
+		ipq_errno = IPQ_ERR_RECV;
+		return -1;
+	}
+	if (h->peer.nl_pid != 0) {
 		ipq_errno = IPQ_ERR_RECV;
 		return -1;
 	}

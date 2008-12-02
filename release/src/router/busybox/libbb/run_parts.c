@@ -7,12 +7,7 @@
  * rewrite to vfork usage by
  * Copyright (C) 2002 by Vladimir Oleynik <dzo@simtreas.ru>
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- *
+ * Licensed under GPLv2 or later, see file LICENSE in this tarball for details.
  */
 
 
@@ -43,11 +38,11 @@ static int valid_name(const struct dirent *d)
 	return 1;
 }
 
-/* test mode = 1 is the same as offical run_parts
- * test_mode = 2 means to fail siliently on missing directories
+/* test mode = 1 is the same as official run_parts
+ * test_mode = 2 means to fail silently on missing directories
  */
 
-extern int run_parts(char **args, const unsigned char test_mode, char **env)
+int run_parts(char **args, const unsigned char test_mode, char **env)
 {
 	struct dirent **namelist = 0;
 	struct stat st;
@@ -69,18 +64,16 @@ extern int run_parts(char **args, const unsigned char test_mode, char **env)
 		if (test_mode & 2) {
 			return(2);
 		}
-		bb_perror_msg_and_die("failed to open directory %s", arg0);
+		bb_perror_msg_and_die("unable to open `%s'", arg0);
 	}
 
 	for (i = 0; i < entries; i++) {
 
 		filename = concat_path_file(arg0, namelist[i]->d_name);
 
-		if (stat(filename, &st) < 0) {
-			bb_perror_msg_and_die("failed to stat component %s", filename);
-		}
+		xstat(filename, &st);
 		if (S_ISREG(st.st_mode) && !access(filename, X_OK)) {
-			if (test_mode & 1) {
+			if (test_mode) {
 				puts(filename);
 			} else {
 				/* exec_errno is common vfork variable */
@@ -100,7 +93,8 @@ extern int run_parts(char **args, const unsigned char test_mode, char **env)
 				waitpid(pid, &result, 0);
 				if(exec_errno) {
 					errno = exec_errno;
-					bb_perror_msg_and_die("failed to exec %s", filename);
+					bb_perror_msg("failed to exec %s", filename);
+					exitstatus = 1;
 				}
 				if (WIFEXITED(result) && WEXITSTATUS(result)) {
 					bb_perror_msg("%s exited with return code %d", filename, WEXITSTATUS(result));
@@ -110,7 +104,7 @@ extern int run_parts(char **args, const unsigned char test_mode, char **env)
 					exitstatus = 1;
 				}
 			}
-		} 
+		}
 		else if (!S_ISDIR(st.st_mode)) {
 			bb_error_msg("component %s is not an executable plain file", filename);
 			exitstatus = 1;
@@ -120,6 +114,6 @@ extern int run_parts(char **args, const unsigned char test_mode, char **env)
 		free(filename);
 	}
 	free(namelist);
-	
+
 	return(exitstatus);
 }

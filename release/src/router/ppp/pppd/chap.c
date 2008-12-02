@@ -41,6 +41,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 #include <sys/types.h>
 #include <sys/time.h>
 
@@ -212,7 +213,10 @@ ChapChallengeTimeout(arg)
 
     if (cstate->chal_transmits >= cstate->max_transmits) {
 	/* give up on peer */
+
+	LOGX_ERROR("Peer failed to respond to CHAP challenge.");
 	error("Peer failed to respond to CHAP challenge");
+
 	cstate->serverstate = CHAPSS_BADAUTH;
 	auth_peer_fail(cstate->unit, PPP_CHAP);
 	return;
@@ -512,6 +516,8 @@ ChapReceiveResponse(cstate, inp, id, len)
     if (id != cstate->chal_id)
 	return;			/* doesn't match ID of last challenge */
 
+ 	LOGX_INFO("Received CHAP Response.");
+
     /*
      * If we have received a duplicate or bogus Response,
      * we have to send the same answer (Success/Failure)
@@ -590,9 +596,12 @@ ChapReceiveResponse(cstate, inp, id, len)
 	}
 	if (cstate->chal_interval != 0)
 	    TIMEOUT(ChapRechallenge, cstate, cstate->chal_interval);
+
+	LOGX_INFO("CHAP peer authentication succeeded for %s.", rhostname);
 	notice("CHAP peer authentication succeeded for %q", rhostname);
 
     } else {
+	LOGX_INFO("CHAP peer authentication failed for remote host %s.", rhostname);
 	error("CHAP peer authentication failed for remote host %q", rhostname);
 	cstate->serverstate = CHAPSS_BADAUTH;
 	auth_peer_fail(cstate->unit, PPP_CHAP);
@@ -620,6 +629,7 @@ ChapReceiveSuccess(cstate, inp, id, len)
 	return;
     }
 
+ 	LOGX_INFO("CHAP authentication succeeded.");
     UNTIMEOUT(ChapResponseTimeout, cstate);
 
     /*
@@ -658,6 +668,7 @@ ChapReceiveFailure(cstate, inp, id, len)
     if (len > 0)
 	PRINTMSG(inp, len);
 
+	LOGX_ERROR("CHAP authentication failed.");
     error("CHAP authentication failed");
 
     //log_to_file("CHAP_AUTH_FAIL");
@@ -677,6 +688,8 @@ ChapSendChallenge(cstate)
     u_char *outp;
     int chal_len, name_len;
     int outlen;
+
+ 	LOGX_INFO("Sending CHAP challenge.");
 
     chal_len = cstate->chal_len;
     name_len = strlen(cstate->chal_name);
@@ -713,6 +726,8 @@ ChapSendStatus(cstate, code)
     u_char *outp;
     int outlen, msglen;
     char msg[256];
+
+ 	LOGX_INFO("Sending CHAP %s.", (code == CHAP_SUCCESS ? "Success" : "Failure"));
 
     if (code == CHAP_SUCCESS)
 	slprintf(msg, sizeof(msg), "Welcome to %s.", hostname);

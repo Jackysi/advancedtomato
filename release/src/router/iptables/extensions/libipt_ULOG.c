@@ -17,10 +17,8 @@
 #include <getopt.h>
 #include <iptables.h>
 #include <linux/netfilter_ipv4/ip_tables.h>
-#include <linux/netfilter_ipv4/ipt_ULOG.h>
-
-#define ULOG_DEFAULT_NLGROUP 1
-#define ULOG_DEFAULT_QTHRESHOLD 1
+/* For 64bit kernel / 32bit userspace */
+#include "../include/linux/netfilter_ipv4/ipt_ULOG.h"
 
 
 void print_groups(unsigned int gmask)
@@ -62,8 +60,6 @@ static void init(struct ipt_entry_target *t, unsigned int *nfcache)
 	loginfo->nl_group = ULOG_DEFAULT_NLGROUP;
 	loginfo->qthreshold = ULOG_DEFAULT_QTHRESHOLD;
 
-	/* Can't cache this */
-	*nfcache |= NFC_UNKNOWN;
 }
 
 #define IPT_LOG_OPT_NLGROUP 0x01
@@ -112,7 +108,15 @@ static int parse(int c, char **argv, int invert, unsigned int *flags,
 		if (strlen(optarg) > sizeof(loginfo->prefix) - 1)
 			exit_error(PARAMETER_PROBLEM,
 				   "Maximum prefix length %u for --ulog-prefix",
-				   sizeof(loginfo->prefix) - 1);
+				   (unsigned int)sizeof(loginfo->prefix) - 1);
+
+		if (strlen(optarg) == 0)
+			exit_error(PARAMETER_PROBLEM,
+				   "No prefix specified for --ulog-prefix");
+
+		if (strlen(optarg) != strlen(strtok(optarg, "\n")))
+			exit_error(PARAMETER_PROBLEM,
+				   "Newlines not allowed in --ulog-prefix");
 
 		strcpy(loginfo->prefix, optarg);
 		*flags |= IPT_LOG_OPT_PREFIX;
@@ -124,7 +128,11 @@ static int parse(int c, char **argv, int invert, unsigned int *flags,
 		if (atoi(optarg) < 0)
 			exit_error(PARAMETER_PROBLEM,
 				   "Negative copy range?");
+#ifdef KERNEL_64_USERSPACE_32
+		loginfo->copy_range = (unsigned long long)atoll(optarg);
+#else
 		loginfo->copy_range = atoi(optarg);
+#endif
 		*flags |= IPT_LOG_OPT_CPRANGE;
 		break;
 	case 'B':
@@ -137,9 +145,15 @@ static int parse(int c, char **argv, int invert, unsigned int *flags,
 		if (atoi(optarg) > ULOG_MAX_QLEN)
 			exit_error(PARAMETER_PROBLEM,
 				   "Maximum queue length exceeded");
+#ifdef KERNEL_64_USERSPACE_32
+		loginfo->qthreshold = (unsigned long long)atoll(optarg);
+#else
 		loginfo->qthreshold = atoi(optarg);
+#endif
 		*flags |= IPT_LOG_OPT_QTHRESHOLD;
 		break;
+	default:
+		return 0;
 	}
 	return 1;
 }
@@ -157,18 +171,25 @@ static void save(const struct ipt_ip *ip,
 	    = (const struct ipt_ulog_info *) target->data;
 
 	if (strcmp(loginfo->prefix, "") != 0)
-		printf("--ulog-prefix %s ", loginfo->prefix);
+		printf("--ulog-prefix \"%s\" ", loginfo->prefix);
 
 	if (loginfo->nl_group != ULOG_DEFAULT_NLGROUP) {
 		printf("--ulog-nlgroup ");
 		print_groups(loginfo->nl_group);
-		printf("\n");
 	}
+#ifdef KERNEL_64_USERSPACE_32
 	if (loginfo->copy_range)
-		printf("--ulog-cprange %d ", loginfo->copy_range);
+		printf("--ulog-cprange %llu ", loginfo->copy_range);
 
 	if (loginfo->qthreshold != ULOG_DEFAULT_QTHRESHOLD)
-		printf("--ulog-qthreshold %d ", loginfo->qthreshold);
+		printf("--ulog-qthreshold %llu ", loginfo->qthreshold);
+#else
+	if (loginfo->copy_range)
+		printf("--ulog-cprange %u ", (unsigned int)loginfo->copy_range);
+
+	if (loginfo->qthreshold != ULOG_DEFAULT_QTHRESHOLD)
+		printf("--ulog-qthreshold %u ", (unsigned int)loginfo->qthreshold);
+#endif
 }
 
 /* Prints out the targinfo. */
@@ -180,26 +201,34 @@ print(const struct ipt_ip *ip,
 	    = (const struct ipt_ulog_info *) target->data;
 
 	printf("ULOG ");
-	printf("copy_range %d nlgroup ", loginfo->copy_range);
+#ifdef KERNEL_64_USERSPACE_32
+	printf("copy_range %llu nlgroup ", loginfo->copy_range);
+#else
+	printf("copy_range %u nlgroup ", (unsigned int)loginfo->copy_range);
+#endif
 	print_groups(loginfo->nl_group);
 	if (strcmp(loginfo->prefix, "") != 0)
 		printf("prefix `%s' ", loginfo->prefix);
-	printf("queue_threshold %d ", loginfo->qthreshold);
+#ifdef KERNEL_64_USERSPACE_32
+	printf("queue_threshold %llu ", loginfo->qthreshold);
+#else
+	printf("queue_threshold %u ", (unsigned int)loginfo->qthreshold);
+#endif
 }
 
-static
-struct iptables_target ulog = { NULL,
-	"ULOG",
-	IPTABLES_VERSION,
-	IPT_ALIGN(sizeof(struct ipt_ulog_info)),
-	IPT_ALIGN(sizeof(struct ipt_ulog_info)),
-	&help,
-	&init,
-	&parse,
-	&final_check,
-	&print,
-	&save,
-	opts
+static struct iptables_target ulog = {
+	.next		= NULL,
+	.name		= "ULOG",
+	.version	= IPTABLES_VERSION,
+	.size		= IPT_ALIGN(sizeof(struct ipt_ulog_info)),
+	.userspacesize	= IPT_ALIGN(sizeof(struct ipt_ulog_info)),
+	.help		= &help,
+	.init		= &init,
+	.parse		= &parse,
+	.final_check	= &final_check,
+	.print		= &print,
+	.save		= &save,
+	.extra_opts	= opts
 };
 
 void _init(void)

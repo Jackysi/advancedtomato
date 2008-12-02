@@ -1,18 +1,5 @@
-/* NOTE:
- *
- * Apparently, all "Steven J. Merrifield" did was grab the util-linux cal applet,
- * spend maybe 5 minutes integrating it into busybox, slapped a copyright on it,
- * and submitted it.  I certainly saw no evidence of any attempt at size reduction.
- * Not only do I consider his copyright below meaningless, I also consider his
- * actions shameful.
- *
- * Manuel Novoa III   (mjn3@codepoet.org)
- */
-
 /*
  * Calendar implementation for busybox
- *
- * Copyright (C) 2001 by Steven J. Merrifield <steve@labyrinth.net.au>
  *
  * See original copyright at the end of this file
  *
@@ -44,7 +31,6 @@
 
 #include <sys/types.h>
 #include <ctype.h>
-#include <err.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -58,10 +44,10 @@
 #endif
 
 #define	THURSDAY		4		/* for reformation */
-#define	SATURDAY 		6		/* 1 Jan 1 was a Saturday */
+#define	SATURDAY		6		/* 1 Jan 1 was a Saturday */
 
-#define	FIRST_MISSING_DAY 	639787		/* 3 Sep 1752 */
-#define	NUMBER_MISSING_DAYS 	11		/* 11 day correction */
+#define	FIRST_MISSING_DAY	639787		/* 3 Sep 1752 */
+#define	NUMBER_MISSING_DAYS	11		/* 11 day correction */
 
 #define	MAXDAYS			42		/* max slots in a month array */
 #define	SPACE			-1		/* used in day array */
@@ -78,7 +64,7 @@ static const char sep1752[] = {
 
 static int julian;
 
-/* leap year -- account for gregorian reformation in 1752 */
+/* leap year -- account for Gregorian reformation in 1752 */
 #define	leap_year(yr) \
 	((yr) <= 1752 ? !((yr) % 4) : \
 	(!((yr) % 4) && ((yr) % 100)) || !((yr) % 400))
@@ -102,9 +88,9 @@ static int is_leap_year(int year)
 #define	leap_years_since_year_1(yr) \
 	((yr) / 4 - centuries_since_1700(yr) + quad_centuries_since_1700(yr))
 
-static void center __P((char *, int, int));
-static void day_array __P((int, int, int *));
-static void trim_trailing_spaces_and_print __P((char *));
+static void center (char *, int, int);
+static void day_array (int, int, int *);
+static void trim_trailing_spaces_and_print (char *);
 
 static void blank_string(char *buf, size_t buflen);
 static char *build_row(char *p, int *dp);
@@ -174,7 +160,7 @@ int cal_main(int argc, char **argv)
 		int row, len, days[MAXDAYS];
 		int *dp = days;
 		char lineout[30];
-		
+
 		day_array(month, year, dp);
 		len = sprintf(lineout, "%s %d", month_names[month - 1], year);
 		bb_printf("%*s%s\n%s\n",
@@ -189,7 +175,7 @@ int cal_main(int argc, char **argv)
 		int row, which_cal, week_len, days[12][MAXDAYS];
 		int *dp;
 		char lineout[80];
-		
+
 		sprintf(lineout, "%d", year);
 		center(lineout,
 			   (WEEK_LEN * 3 + HEAD_SEP * 2)
@@ -244,11 +230,12 @@ static void day_array(int month, int year, int *days)
 	memset(days, SPACE, MAXDAYS * sizeof(int));
 
 	if ((month == 9) && (year == 1752)) {
+		size_t oday = 0;
+		
 		j_offset = julian * 244;
-		i = 0;
 		do {
-			days[i+2] = sep1752[i] + j_offset;
-		} while (++i < sizeof(sep1752));
+			days[oday+2] = sep1752[oday] + j_offset;
+		} while (++oday < sizeof(sep1752));
 
 		return;
 	}
@@ -330,14 +317,14 @@ static void blank_string(char *buf, size_t buflen)
 static char *build_row(char *p, int *dp)
 {
 	int col, val, day;
-		
+
 	memset(p, ' ', (julian + DAY_LEN) * 7);
 
 	col = 0;
 	do {
 		if ((day = *dp++) != SPACE) {
 			if (julian) {
-				*++p;
+				++p;
 				if (day >= 100) {
 					*p = '0';
 					p[-1] = (day / 100) + '0';

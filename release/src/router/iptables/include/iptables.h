@@ -4,12 +4,49 @@
 #include "iptables_common.h"
 #include "libiptc/libiptc.h"
 
+#ifndef IPT_LIB_DIR
+#define IPT_LIB_DIR "/usr/local/lib/iptables"
+#endif
+
+#ifndef IPPROTO_SCTP
+#define IPPROTO_SCTP 132
+#endif
+#ifndef IPPROTO_DCCP
+#define IPPROTO_DCCP 33
+#endif
+
+#ifndef IPT_SO_GET_REVISION_MATCH /* Old kernel source. */
+#define IPT_SO_GET_REVISION_MATCH	(IPT_BASE_CTL + 2)
+#define IPT_SO_GET_REVISION_TARGET	(IPT_BASE_CTL + 3)
+
+struct ipt_get_revision
+{
+	char name[IPT_FUNCTION_MAXNAMELEN-1];
+
+	u_int8_t revision;
+};
+#endif /* IPT_SO_GET_REVISION_MATCH   Old kernel source */
+
+struct iptables_rule_match
+{
+	struct iptables_rule_match *next;
+
+	struct iptables_match *match;
+
+	/* Multiple matches of the same type: the ones before
+	   the current one are completed from parsing point of view */	
+	unsigned int completed;
+};
+
 /* Include file for additions: new matches and targets. */
 struct iptables_match
 {
 	struct iptables_match *next;
 
 	ipt_chainlabel name;
+
+	/* Revision of match (0 by default). */
+	u_int8_t revision;
 
 	const char *version;
 
@@ -50,7 +87,6 @@ struct iptables_match
 	unsigned int option_offset;
 	struct ipt_entry_match *m;
 	unsigned int mflags;
-	unsigned int used;
 #ifdef NO_SHARED_LIBS
 	unsigned int loaded; /* simulate loading so options are merged properly */
 #endif
@@ -61,6 +97,9 @@ struct iptables_target
 	struct iptables_target *next;
 
 	ipt_chainlabel name;
+
+	/* Revision of target (0 by default). */
+	u_int8_t revision;
 
 	const char *version;
 
@@ -106,11 +145,16 @@ struct iptables_target
 #endif
 };
 
+extern int line;
+
 /* Your shared library should call one of these. */
 extern void register_match(struct iptables_match *me);
 extern void register_target(struct iptables_target *me);
 
+extern int service_to_port(const char *name, const char *proto);
+extern u_int16_t parse_port(const char *port, const char *proto);
 extern struct in_addr *dotted_to_addr(const char *dotted);
+extern struct in_addr *dotted_to_mask(const char *dotted);
 extern char *addr_to_dotted(const struct in_addr *addrp);
 extern char *addr_to_anyname(const struct in_addr *addr);
 extern char *mask_to_dotted(const struct in_addr *mask);
@@ -118,6 +162,7 @@ extern char *mask_to_dotted(const struct in_addr *mask);
 extern void parse_hostnetworkmask(const char *name, struct in_addr **addrpp,
                       struct in_addr *maskp, unsigned int *naddrs);
 extern u_int16_t parse_protocol(const char *s);
+extern void parse_interface(const char *arg, char *vianame, unsigned char *mask);
 
 extern int do_command(int argc, char *argv[], char **table,
 		      iptc_handle_t *handle);
@@ -127,12 +172,13 @@ extern struct iptables_target *iptables_targets;
 
 enum ipt_tryload {
 	DONT_LOAD,
+	DURING_LOAD,
 	TRY_LOAD,
 	LOAD_MUST_SUCCEED
 };
 
 extern struct iptables_target *find_target(const char *name, enum ipt_tryload);
-extern struct iptables_match *find_match(const char *name, enum ipt_tryload);
+extern struct iptables_match *find_match(const char *name, enum ipt_tryload, struct iptables_rule_match **match);
 
 extern int delete_chain(const ipt_chainlabel chain, int verbose,
 			iptc_handle_t *handle);
@@ -140,4 +186,13 @@ extern int flush_entries(const ipt_chainlabel chain, int verbose,
 			iptc_handle_t *handle);
 extern int for_each_chain(int (*fn)(const ipt_chainlabel, int, iptc_handle_t *),
 		int verbose, int builtinstoo, iptc_handle_t *handle);
+
+/* kernel revision handling */
+extern int kernel_version;
+extern void get_kernel_version(void);
+#define LINUX_VERSION(x,y,z)	(0x10000*(x) + 0x100*(y) + z)
+#define LINUX_VERSION_MAJOR(x)	(((x)>>16) & 0xFF)
+#define LINUX_VERSION_MINOR(x)	(((x)>> 8) & 0xFF)
+#define LINUX_VERSION_PATCH(x)	( (x)      & 0xFF)
+
 #endif /*_IPTABLES_USER_H*/

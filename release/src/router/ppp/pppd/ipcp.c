@@ -293,7 +293,7 @@ static int
 setvjslots(argv)
     char **argv;
 {
-    int value;
+    int value = 0;
 
     if (!int_option(*argv, &value))
 	return 0;
@@ -409,12 +409,15 @@ setipaddr(arg, argv, doit)
 	*colon = '\0';
 	if ((local = inet_addr(arg)) == (u_int32_t) -1) {
 	    if ((hp = gethostbyname(arg)) == NULL) {
+
+		// LOGX_ERROR("Unknown host: %s", arg);
 		option_error("unknown host: %s", arg);
 		return 0;
 	    }
 	    local = *(u_int32_t *)hp->h_addr;
 	}
 	if (bad_ip_adrs(local)) {
+		LOGX_ERROR("Invalid local IP address %s.", ip_ntoa(local));
 	    option_error("bad local IP address %s", ip_ntoa(local));
 	    return 0;
 	}
@@ -430,6 +433,7 @@ setipaddr(arg, argv, doit)
     if (*++colon != '\0' && option_priority >= prio_remote) {
 	if ((remote = inet_addr(colon)) == (u_int32_t) -1) {
 	    if ((hp = gethostbyname(colon)) == NULL) {
+//		LOGX_ERROR("Unknown host: %s", colon);
 		option_error("unknown host: %s", colon);
 		return 0;
 	    }
@@ -438,6 +442,7 @@ setipaddr(arg, argv, doit)
 		strlcpy(remote_name, colon, sizeof(remote_name));
 	}
 	if (bad_ip_adrs(remote)) {
+		LOGX_ERROR("Invalid remote IP address %s.", ip_ntoa(remote));
 	    option_error("bad remote IP address %s", ip_ntoa(remote));
 	    return 0;
 	}
@@ -485,6 +490,7 @@ setnetmask(argv)
     mask = htonl(mask);
 
     if (n == 0 || p[n] != 0 || (netmask & ~mask) != 0) {
+	LOGX_ERROR("Invalid netmask value '%s'.", *argv);
 	option_error("invalid netmask value '%s'", *argv);
 	return 0;
     }
@@ -1556,8 +1562,16 @@ ip_demand_conf(u)
 	if (sifproxyarp(u, wo->hisaddr))
 	    proxy_arp_set[u] = 1;
 
+#if 1
+	//if(wo->ouraddr != 0x4040400A && wo->hisaddr != 0x7070700A)
+	//{
+	//	syslog(LOG_NOTICE, SYSLOG_PPPOE "Local  IP address %d.%d.%d.%d", IP_FMT(wo->ouraddr));
+	//	syslog(LOG_NOTICE, SYSLOG_PPPOE "Remote  IP address %d.%d.%d.%d", IP_FMT(wo->hisaddr));
+	//}
+#else
     notice("local  IP address %I", wo->ouraddr);
     notice("remote IP address %I", wo->hisaddr);
+#endif
 
     return 1;
 }
@@ -1583,42 +1597,44 @@ ipcp_up(f)
      * We must have a non-zero IP address for both ends of the link.
      */
     if (!ho->neg_addr)
-	ho->hisaddr = wo->hisaddr;
+		ho->hisaddr = wo->hisaddr;
 
     if (go->ouraddr == 0) {
-	error("Could not determine local IP address");
-	ipcp_close(f->unit, "Could not determine local IP address");
-	return;
+		LOGX_ERROR("Could not determine local IP address assigned by remote peer.");
+		error("Could not determine local IP address");
+		ipcp_close(f->unit, "Could not determine local IP address");
+		return;
     }
     if (ho->hisaddr == 0) {
-	ho->hisaddr = htonl(0x0a404040 + ifunit);
-	warn("Could not determine remote IP address: defaulting to %I",
-	     ho->hisaddr);
+		ho->hisaddr = htonl(0x0a404040 + ifunit);
+		warn("Could not determine remote IP address: defaulting to %I",
+		     ho->hisaddr);
     }
 #ifdef UNNUMBERIP_SUPPORT
     if(is_unnumber_ip == 1){
-	go->ouraddr = get_lan_ip(); // tallest 0129
+		go->ouraddr = get_lan_ip(); // tallest 0129
     }
 #endif
     script_setenv("IPLOCAL", ip_ntoa(go->ouraddr), 0);
     script_setenv("IPREMOTE", ip_ntoa(ho->hisaddr), 1);
 
     if (usepeerdns && (go->dnsaddr[0] || go->dnsaddr[1])) {
-	script_setenv("USEPEERDNS", "1", 0);
-	if (go->dnsaddr[0])
-	    script_setenv("DNS1", ip_ntoa(go->dnsaddr[0]), 0);
-	if (go->dnsaddr[1])
-	    script_setenv("DNS2", ip_ntoa(go->dnsaddr[1]), 0);
-	create_resolv(go->dnsaddr[0], go->dnsaddr[1]);
+		script_setenv("USEPEERDNS", "1", 0);
+		if (go->dnsaddr[0])
+		    script_setenv("DNS1", ip_ntoa(go->dnsaddr[0]), 0);
+		if (go->dnsaddr[1])
+		    script_setenv("DNS2", ip_ntoa(go->dnsaddr[1]), 0);
+		create_resolv(go->dnsaddr[0], go->dnsaddr[1]);
     }
 
     /*
      * Check that the peer is allowed to use the IP address it wants.
      */
     if (!auth_ip_addr(f->unit, ho->hisaddr)) {
-	error("Peer is not authorized to use remote address %I", ho->hisaddr);
-	ipcp_close(f->unit, "Unauthorized remote IP address");
-	return;
+		LOGX_ERROR("Remote Peer is not authorized to use the address %d.%d.%d.%d.", IP_FMT(ho->hisaddr));
+		error("Peer is not authorized to use remote address %I", ho->hisaddr);
+		ipcp_close(f->unit, "Unauthorized remote IP address");
+		return;
     }
 
     /* set tcp compression */
@@ -1630,115 +1646,116 @@ ipcp_up(f)
      * interface to pass IP packets.
      */
     if (demand) {
-	if (go->ouraddr != wo->ouraddr || ho->hisaddr != wo->hisaddr) {
-	    ipcp_clear_addrs(f->unit, wo->ouraddr, wo->hisaddr);
-	    if (go->ouraddr != wo->ouraddr) {
-		warn("Local IP address changed to %I", go->ouraddr);
-		script_setenv("OLDIPLOCAL", ip_ntoa(wo->ouraddr), 0);
-		wo->ouraddr = go->ouraddr;
-	    } else
-		script_unsetenv("OLDIPLOCAL");
-	    if (ho->hisaddr != wo->hisaddr) {
-		warn("Remote IP address changed to %I", ho->hisaddr);
-		script_setenv("OLDIPREMOTE", ip_ntoa(wo->hisaddr), 0);
-		wo->hisaddr = ho->hisaddr;
-	    } else
-		script_unsetenv("OLDIPREMOTE");
+		if (go->ouraddr != wo->ouraddr || ho->hisaddr != wo->hisaddr) {
+		    ipcp_clear_addrs(f->unit, wo->ouraddr, wo->hisaddr);
 
-	    /* Set the interface to the new addresses */
-	    mask = GetMask(go->ouraddr);
-	    if (!sifaddr(f->unit, go->ouraddr, ho->hisaddr, mask)) {
-		if (debug)
-		    warn("Interface configuration failed");
-		ipcp_close(f->unit, "Interface configuration failed");
-		return;
-	    }
+		    if (go->ouraddr != wo->ouraddr) {
+				warn("Local IP address changed to %I", go->ouraddr);
+				script_setenv("OLDIPLOCAL", ip_ntoa(wo->ouraddr), 0);
+				wo->ouraddr = go->ouraddr;
+		    }
+			else
+				script_unsetenv("OLDIPLOCAL");
 
-	    /* assign a default route through the interface if required */
-	    if (ipcp_wantoptions[f->unit].default_route) 
-		if (sifdefaultroute(f->unit, go->ouraddr, ho->hisaddr))
-		    default_route_set[f->unit] = 1;
+			if (ho->hisaddr != wo->hisaddr) {
+				warn("Remote IP address changed to %I", ho->hisaddr);
+				script_setenv("OLDIPREMOTE", ip_ntoa(wo->hisaddr), 0);
+				wo->hisaddr = ho->hisaddr;
+		    }
+			else
+				script_unsetenv("OLDIPREMOTE");
 
-	    /* Make a proxy ARP entry if requested. */
-	    if (ipcp_wantoptions[f->unit].proxy_arp)
-		if (sifproxyarp(f->unit, ho->hisaddr))
-		    proxy_arp_set[f->unit] = 1;
+		    /* Set the interface to the new addresses */
+		    mask = GetMask(go->ouraddr);
+		    if (!sifaddr(f->unit, go->ouraddr, ho->hisaddr, mask)) {
+				if (debug)
+				    warn("Interface configuration failed");
+				ipcp_close(f->unit, "Interface configuration failed");
+				return;
+		    }
 
-	}
-	demand_rexmit(PPP_IP);
-	sifnpmode(f->unit, PPP_IP, NPMODE_PASS);
+		    /* assign a default route through the interface if required */
+		    if (ipcp_wantoptions[f->unit].default_route) 
+				if (sifdefaultroute(f->unit, go->ouraddr, ho->hisaddr))
+					default_route_set[f->unit] = 1;
 
-    } else {
-	/*
-	 * Set IP addresses and (if specified) netmask.
-	 */
-	mask = GetMask(go->ouraddr);
+		    /* Make a proxy ARP entry if requested. */
+		    if (ipcp_wantoptions[f->unit].proxy_arp)
+				if (sifproxyarp(f->unit, ho->hisaddr))
+				    proxy_arp_set[f->unit] = 1;
+		}
+		demand_rexmit(PPP_IP);
+		sifnpmode(f->unit, PPP_IP, NPMODE_PASS);
+
+    }
+	else {
+		/*
+		 * Set IP addresses and (if specified) netmask.
+		 */
+		mask = GetMask(go->ouraddr);
 
 #if !(defined(SVR4) && (defined(SNI) || defined(__USLC__)))
-	if (!sifaddr(f->unit, go->ouraddr, ho->hisaddr, mask)) {
-	    if (debug)
-		warn("Interface configuration failed");
-	    ipcp_close(f->unit, "Interface configuration failed");
-	    return;
-	}
+		if (!sifaddr(f->unit, go->ouraddr, ho->hisaddr, mask)) {
+		    if (debug)
+				warn("Interface configuration failed");
+		    ipcp_close(f->unit, "Interface configuration failed");
+		    return;
+		}
 #endif
 
-	/* bring the interface up for IP */
-	if (!sifup(f->unit)) {
-	    if (debug)
-		warn("Interface failed to come up");
-	    ipcp_close(f->unit, "Interface configuration failed");
-	    return;
-	}
+		/* bring the interface up for IP */
+		if (!sifup(f->unit)) {
+		    if (debug)
+				warn("Interface failed to come up");
+		    ipcp_close(f->unit, "Interface configuration failed");
+		    return;
+		}
 
 #if (defined(SVR4) && (defined(SNI) || defined(__USLC__)))
-	if (!sifaddr(f->unit, go->ouraddr, ho->hisaddr, mask)) {
-	    if (debug)
-		warn("Interface configuration failed");
-	    ipcp_close(f->unit, "Interface configuration failed");
-	    return;
-	}
+		if (!sifaddr(f->unit, go->ouraddr, ho->hisaddr, mask)) {
+		    if (debug)
+				warn("Interface configuration failed");
+		    ipcp_close(f->unit, "Interface configuration failed");
+		    return;
+		}
 #endif
-	sifnpmode(f->unit, PPP_IP, NPMODE_PASS);
+		sifnpmode(f->unit, PPP_IP, NPMODE_PASS);
 
-	/* assign a default route through the interface if required */
-	if (ipcp_wantoptions[f->unit].default_route) 
-	    if (sifdefaultroute(f->unit, go->ouraddr, ho->hisaddr))
-		default_route_set[f->unit] = 1;
+		/* assign a default route through the interface if required */
+		if (ipcp_wantoptions[f->unit].default_route) 
+		    if (sifdefaultroute(f->unit, go->ouraddr, ho->hisaddr))
+				default_route_set[f->unit] = 1;
 
-	/* Make a proxy ARP entry if requested. */
-	if (ipcp_wantoptions[f->unit].proxy_arp)
-	    if (sifproxyarp(f->unit, ho->hisaddr))
-		proxy_arp_set[f->unit] = 1;
+		/* Make a proxy ARP entry if requested. */
+		if (ipcp_wantoptions[f->unit].proxy_arp)
+		    if (sifproxyarp(f->unit, ho->hisaddr))
+			proxy_arp_set[f->unit] = 1;
 
-	ipcp_wantoptions[0].ouraddr = go->ouraddr;
-
-	notice("local  IP address %I", go->ouraddr);
-	notice("remote IP address %I", ho->hisaddr);
-	if (go->dnsaddr[0])
-	    notice("primary   DNS address %I", go->dnsaddr[0]);
-	if (go->dnsaddr[1])
-	    notice("secondary DNS address %I", go->dnsaddr[1]);
-    }
+		ipcp_wantoptions[0].ouraddr = go->ouraddr;
+	}
+	
+	LOGX_INFO("IP Address: %d.%d.%d.%d", IP_FMT(go->ouraddr));
+	LOGX_INFO("DNS Address: %d.%d.%d.%d, %d.%d.%d.%d", IP_FMT(go->dnsaddr[0]), IP_FMT(go->dnsaddr[1]));
 
     np_up(f->unit, PPP_IP);
     ipcp_is_up = 1;
 
     if (ip_up_hook)
-	ip_up_hook();
+		ip_up_hook();
 
     /*
      * Execute the ip-up script, like this:
      *	/etc/ppp/ip-up interface tty speed local-IP remote-IP
      */
     if (ipcp_script_state == s_down && ipcp_script_pid == 0) {
-	ipcp_script_state = s_up;
-	ipcp_script(_PATH_IPUP);
+		ipcp_script_state = s_up;
+		ipcp_script(_PATH_IPUP);
     }
 }
 
 //=============================================================================
 //by tallest 0407
+/*
 static void
 kill_ppp(int  ppp_num)
 {
@@ -1753,6 +1770,7 @@ kill_ppp(int  ppp_num)
 	}
 #endif
 }
+*/
 //=============================================================================
 
 /*
@@ -2070,7 +2088,7 @@ ipcp_printpkt(p, plen, printer, arg)
  */
 #define IP_HDRLEN	20	/* bytes */
 #define IP_OFFMASK	0x1fff
-#define IPPROTO_TCP	6
+//	#define IPPROTO_TCP	6
 #define TCP_HDRLEN	20
 #define TH_FIN		0x01
 

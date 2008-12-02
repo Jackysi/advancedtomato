@@ -34,7 +34,12 @@
 /* For ERR_PTR().  Yeah, I know... --RR */
 #include <linux/fs.h>
 
-#include <linux/netdevice.h>
+#define TEST_JHASH		// test jhash from 2.4.33	-- zzz
+
+#ifdef TEST_JHASH
+#include <linux/jhash.h>
+#include <linux/random.h>
+#endif
 
 /* This rwlock protects the main hash table, protocol/helper/expected
    registrations, conntrack timers*/
@@ -71,7 +76,7 @@ static kmem_cache_t *ip_conntrack_cachep;
 
 int sysctl_ip_conntrack_tcp_timeouts[10] = {
        30 MINS,        /*      TCP_CONNTRACK_NONE,             */
-       5 DAYS,         /*      TCP_CONNTRACK_ESTABLISHED,      */
+       4 HOURS,        /*      TCP_CONNTRACK_ESTABLISHED,      */		// was 5 days	zzz
        2 MINS,         /*      TCP_CONNTRACK_SYN_SENT,         */
        60 SECS,        /*      TCP_CONNTRACK_SYN_RECV,         */
        2 MINS,         /*      TCP_CONNTRACK_FIN_WAIT,         */
@@ -128,9 +133,20 @@ ip_conntrack_put(struct ip_conntrack *ct)
 	nf_conntrack_put(&ct->infos[0]);
 }
 
+#ifdef TEST_JHASH
+static int ip_conntrack_hash_rnd_initted;
+static unsigned int ip_conntrack_hash_rnd;
+#endif
+
 static inline u_int32_t
 hash_conntrack(const struct ip_conntrack_tuple *tuple)
 {
+#ifdef TEST_JHASH
+	return (jhash_3words(tuple->src.ip,
+	                     (tuple->dst.ip ^ tuple->dst.protonum),
+	                     (tuple->src.u.all | (tuple->dst.u.all << 16)),
+	                     ip_conntrack_hash_rnd) % ip_conntrack_htable_size);
+#else
 	/* ntohl because more differences in low bits. */
 	/* To ensure that halves of the same connection don't hash
 	   clash, we add the source per-proto again. */
@@ -139,6 +155,7 @@ hash_conntrack(const struct ip_conntrack_tuple *tuple)
 		     + tuple->dst.protonum)
 		+ ntohs(tuple->src.u.all))
 		% ip_conntrack_htable_size;
+#endif
 }
 
 inline int
@@ -314,9 +331,6 @@ clean_from_lists(struct ip_conntrack *ct)
 {
 	DEBUGP("clean_from_lists(%p)\n", ct);
 	MUST_BE_WRITE_LOCKED(&ip_conntrack_lock);
-	/* Remove from both hash lists: must not NULL out next ptrs,
-           otherwise we'll look unconfirmed.  Fortunately, LIST_DELETE
-           doesn't do this. --RR */
 	LIST_DELETE(&ip_conntrack_hash
 		    [hash_conntrack(&ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple)],
 		    &ct->tuplehash[IP_CT_DIR_ORIGINAL]);
@@ -359,6 +373,14 @@ destroy_conntrack(struct nf_conntrack *nfct)
 		list_del(&ct->master->expected_list);
 		kfree(ct->master);
 	}
+
+	#if defined(CONFIG_IP_NF_MATCH_LAYER7) || defined(CONFIG_IP_NF_MATCH_LAYER7_MODULE)
+	if(ct->layer7.app_proto)
+		kfree(ct->layer7.app_proto);
+	if(ct->layer7.app_data)
+		kfree(ct->layer7.app_data);
+	#endif
+	
 	WRITE_UNLOCK(&ip_conntrack_lock);
 
 	DEBUGP("destroy_conntrack: returning ct=%p to slab\n", ct);
@@ -489,6 +511,7 @@ __ip_conntrack_confirm(struct nf_ct_info *nfct)
 		ct->timeout.expires += jiffies;
 		add_timer(&ct->timeout);
 		atomic_inc(&ct->ct_general.use);
+		set_bit(IPS_CONFIRMED_BIT, &ct->status);
 		WRITE_UNLOCK(&ip_conntrack_lock);
 		return NF_ACCEPT;
 	}
@@ -606,7 +629,7 @@ icmp_error_track(struct sk_buff *skb,
    connection.  Too bad: we're in trouble anyway. */
 static inline int unreplied(const struct ip_conntrack_tuple_hash *i)
 {
-	return !(i->ctrack->status & IPS_ASSURED);
+	return !(test_bit(IPS_ASSURED_BIT, &i->ctrack->status));
 }
 
 static int early_drop(struct list_head *chain)
@@ -632,31 +655,6 @@ static int early_drop(struct list_head *chain)
 	return dropped;
 }
 
-/******************lzh add ***************************************
-* DESCRIPTION:delete seleted ip conntrack from conntrack_hash list
-* INPUT : ip_conntrack_tuple_hash  h
-* OUTPUT: NULL
-* AUTHOR: linzhihong
-* DATE  : 2006.7.20
-*****************************************************************/
-void del_selected_conntrack(struct ip_conntrack_tuple_hash *h)
-{
-	DEBUGP("hahaha enter %s\n", __FUNCTION__);
-	if(h)
-	{
-		#if 1
-		ip_ct_refresh(h->ctrack, 1*HZ);
-		#else
-		if(del_timer(&h->ctrack->timeout)) 
-		{
-			death_by_timeout((unsigned long)h->ctrack);
-		}
-		//ip_conntrack_put(h->ctrack);
-		#endif
-	}
-}
-/**************************** lzh end ******************************/
-
 static inline int helper_cmp(const struct ip_conntrack_helper *i,
 			     const struct ip_conntrack_tuple *rtuple)
 {
@@ -669,41 +667,6 @@ struct ip_conntrack_helper *ip_ct_find_helper(const struct ip_conntrack_tuple *t
 			 struct ip_conntrack_helper *,
 			 tuple);
 }
-
-#define RESERVE_CONNTRACK_FOR_ROUTER
-#ifdef RESERVE_CONNTRACK_FOR_ROUTER
-#define RESERVE_CONNTRACK_NUM 20
-/*
-	Check if the packet is for Router AP(LAN side only), or generate from
-	Router itself(Both sides).
-  */
-static int cmp_local_ip(u_int32_t dst, u_int32_t src)
-{
-#define IF_LAN_NAME "br0"
-
-	int ret = -1;
-	struct in_device *in_dev;
-	struct net_device *dev;
-	struct in_ifaddr **ifap = NULL;
-	struct in_ifaddr *ifa = NULL;
-
-	for(dev = dev_base; dev != NULL; dev = dev->next){
-		if((in_dev=__in_dev_get(dev)) != NULL){
-			for(ifap=&in_dev->ifa_list; (ifa=*ifap) != NULL; ifap=&ifa->ifa_next){
-				if((ifa->ifa_address == dst && !strcmp(IF_LAN_NAME, ifa->ifa_label)) || ifa->ifa_address == src){
-					/*match*/
-					ret = 0;
-					break;
-				}
-			}
-		}
-	}
-	
-	return ret;
-	
-#undef IF_LAN_NAME
-}
-#endif
 
 /* Allocate a new conntrack: we return -ENOMEM if classification
    failed due to stress.  Otherwise it really is unclassifiable. */
@@ -719,9 +682,15 @@ init_conntrack(const struct ip_conntrack_tuple *tuple,
 	int i;
 	static unsigned int drop_next = 0;
 
+#ifdef TEST_JHASH
+	if (!ip_conntrack_hash_rnd_initted) {
+		get_random_bytes(&ip_conntrack_hash_rnd, 4);
+		ip_conntrack_hash_rnd_initted = 1;
+	}
+#endif
+
 	hash = hash_conntrack(tuple);
 
-	#ifndef RESERVE_CONNTRACK_FOR_ROUTER
 	if (ip_conntrack_max &&
 	    atomic_read(&ip_conntrack_count) >= ip_conntrack_max) {
 		/* Try dropping from random chain, or else from the
@@ -738,32 +707,6 @@ init_conntrack(const struct ip_conntrack_tuple *tuple,
 			return ERR_PTR(-ENOMEM);
 		}
 	}
-	#else
-#define IPV4_BROADCAST_ADDR 0x000000FF
-#define IPV4_MULTICAST_ADDR 0xE0000000
-	if (ip_conntrack_max &&
-		(ip_conntrack_max - atomic_read(&ip_conntrack_count)) <= RESERVE_CONNTRACK_NUM){
-		if((atomic_read(&ip_conntrack_count) < ip_conntrack_max) &&
-			(((tuple->dst).ip & IPV4_BROADCAST_ADDR == IPV4_BROADCAST_ADDR) || ((tuple->dst).ip & IPV4_BROADCAST_ADDR == IPV4_MULTICAST_ADDR) || !cmp_local_ip((tuple->dst).ip, (tuple->src).ip))){
-			//packet for router(LAN side only) or packet from router, let it go thru
-		}
-		else{
-			/* Try dropping from random chain, or else from the
-	                   chain about to put into (in case they're trying to
-	                   bomb one hash chain). */
-			unsigned int next = (drop_next++)%ip_conntrack_htable_size;
-
-			if (!early_drop(&ip_conntrack_hash[next])
-			    && !early_drop(&ip_conntrack_hash[hash])) {
-				if (net_ratelimit())
-					printk(KERN_WARNING
-					       "ip_conntrack: table full, dropping"
-					       " packet.\n");
-				return ERR_PTR(-ENOMEM);
-			}
-		}
-	}
-	#endif
 
 	if (!invert_tuple(&repl_tuple, tuple, protocol)) {
 		DEBUGP("Can't invert tuple.\n");
@@ -829,9 +772,12 @@ init_conntrack(const struct ip_conntrack_tuple *tuple,
 			conntrack, expected);
 		/* Welcome, Mr. Bond.  We've been expecting you... */
 		IP_NF_ASSERT(master_ct(conntrack));
-		conntrack->status = IPS_EXPECTED;
+		__set_bit(IPS_EXPECTED_BIT, &conntrack->status);
 		conntrack->master = expected;
 		expected->sibling = conntrack;
+#if CONFIG_IP_NF_CONNTRACK_MARK
+		conntrack->mark = expected->expectant->mark;
+#endif
 		LIST_DELETE(&ip_conntrack_expect_list, expected);
 		INIT_LIST_HEAD(&expected->list);
 		expected->expectant->expecting--;
@@ -878,11 +824,11 @@ resolve_normal_ct(struct sk_buff *skb,
 		*set_reply = 1;
 	} else {
 		/* Once we've had two way comms, always ESTABLISHED. */
-		if (h->ctrack->status & IPS_SEEN_REPLY) {
+		if (test_bit(IPS_SEEN_REPLY_BIT, &h->ctrack->status)) {
 			DEBUGP("ip_conntrack_in: normal packet for %p\n",
 			       h->ctrack);
 		        *ctinfo = IP_CT_ESTABLISHED;
-		} else if (h->ctrack->status & IPS_EXPECTED) {
+		} else if (test_bit(IPS_EXPECTED_BIT, &h->ctrack->status)) {
 			DEBUGP("ip_conntrack_in: related packet for %p\n",
 			       h->ctrack);
 			*ctinfo = IP_CT_RELATED;
@@ -1056,16 +1002,15 @@ int ip_conntrack_expect_related(struct ip_conntrack *related_to,
 		}
 
 		if (old) {
-			/************************* lzh add ******************************************
-			 * fix sip alg CDROUTE test fail 
-			 * 2007/3/16
-			 ***************************************************************************/
-			if (old->help.exp_sip_info.nated && (old->help.exp_sip_info.type == CONN_RTP))
-			{
-				DEBUGP("%s: found old exp and nated, rtp port=%d\n", __FUNCTION__,ntohs(old->tuple.dst.u.udp.port));
-				related_to->help.ct_sip_info.rtpport = ntohs(old->tuple.dst.u.udp.port);
+#if 0	// removed 1.11 forward bug test
+			if (1) {	// 43011 (09?): checkme
+				// lzh add, fix sip alg CDROUTE test fail, 2007/3/16
+				if (old->help.exp_sip_info.nated && (old->help.exp_sip_info.type == CONN_RTP)) {
+					DEBUGP("%s: found old exp and nated, rtp port=%d\n", __FUNCTION__,ntohs(old->tuple.dst.u.udp.port));
+					related_to->help.ct_sip_info.rtpport = ntohs(old->tuple.dst.u.udp.port);
+				}
 			}
-			/************************ lzh end ******************************************/
+#endif
 			WRITE_UNLOCK(&ip_conntrack_lock);
 			return -EEXIST;
 		}
@@ -1530,6 +1475,7 @@ int __init ip_conntrack_init(void)
 	unsigned int i;
 	int ret;
 
+#if 0
 	/* Idea from tcp.c: use 1/16384 of memory.  On i386: 32MB
 	 * machine has 256 buckets.  >= 1GB machines have 8192 buckets. */
  	if (hashsize) {
@@ -1544,6 +1490,33 @@ int __init ip_conntrack_init(void)
 			ip_conntrack_htable_size = 16;
 	}
 	ip_conntrack_max = 8 * ip_conntrack_htable_size;
+#else
+/*
+
+	sizeof(list_head) = 8
+		x 4096 = 32K
+
+	sizeof(ip_conntrack) = 368
+		x 2048 = 736K
+
+*/
+
+#ifdef TEST_JHASH
+/*
+ 	if (hashsize) ip_conntrack_htable_size = hashsize;
+		else ip_conntrack_htable_size = 4096;
+	ip_conntrack_max = 2048;
+*/
+ 	if (hashsize) ip_conntrack_htable_size = hashsize;
+		else ip_conntrack_htable_size = 8092;
+	ip_conntrack_max = 4096;
+#else
+ 	if (hashsize) ip_conntrack_htable_size = hashsize;
+		else ip_conntrack_htable_size = 4099;
+	ip_conntrack_max = 2048;
+#endif
+
+#endif
 
 	printk("ip_conntrack version %s (%u buckets, %d max)"
 	       " - %d bytes per conntrack\n", IP_CONNTRACK_VERSION,
@@ -1605,3 +1578,5 @@ err_unreg_sockopt:
 
 	return -ENOMEM;
 }
+
+

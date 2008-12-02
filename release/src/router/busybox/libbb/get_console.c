@@ -2,27 +2,10 @@
 /*
  * Utility routines.
  *
- * Copyright (C) tons of folks.  Tracking down who wrote what
- * isn't something I'm going to worry about...  If you wrote something
- * here, please feel free to acknowledge your work.
+ * Copyright (C) many different people.  If you wrote this, please
+ * acknowledge your work.
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
- *
- * Based in part on code from sash, Copyright (c) 1999 by David I. Bell 
- * Permission has been granted to redistribute this code under the GPL.
- *
+ * Licensed under GPLv2 or later, see file LICENSE in this tarball for details.
  */
 
 #include <stdio.h>
@@ -34,27 +17,15 @@
 
 
 
+/* From <linux/kd.h> */
+enum { KDGKBTYPE = 0x4B33 };  /* get keyboard type */
 
 
-/* From <linux/kd.h> */ 
-static const int KDGKBTYPE = 0x4B33;  /* get keyboard type */
-static const int KB_84 = 0x01;
-static const int KB_101 = 0x02;    /* this is what we always answer */
-
-int is_a_console(int fd)
-{
-	char arg;
-
-	arg = 0;
-	return (ioctl(fd, KDGKBTYPE, &arg) == 0
-			&& ((arg == KB_101) || (arg == KB_84)));
-}
-
-static int open_a_console(char *fnam)
+static int open_a_console(const char *fnam)
 {
 	int fd;
 
-	/* try read-only */
+	/* try read-write */
 	fd = open(fnam, O_RDWR);
 
 	/* if failed, try read-only */
@@ -65,17 +36,6 @@ static int open_a_console(char *fnam)
 	if (fd < 0 && errno == EACCES)
 		fd = open(fnam, O_WRONLY);
 
-	/* if failed, fail */
-	if (fd < 0)
-		return -1;
-
-	/* if not a console, fail */
-	if (!is_a_console(fd)) {
-		close(fd);
-		return -1;
-	}
-
-	/* success */
 	return fd;
 }
 
@@ -83,47 +43,35 @@ static int open_a_console(char *fnam)
  * Get an fd for use with kbd/console ioctls.
  * We try several things because opening /dev/console will fail
  * if someone else used X (which does a chown on /dev/console).
- *
- * if tty_name is non-NULL, try this one instead.
  */
 
-int get_console_fd(char *tty_name)
+int get_console_fd(void)
 {
 	int fd;
 
-	if (tty_name) {
-		if (-1 == (fd = open_a_console(tty_name)))
-			return -1;
-		else
-			return fd;
+	static const char * const choise_console_names[] = {
+		CONSOLE_DEV, CURRENT_VC, CURRENT_TTY
+	};
+
+	for (fd = 2; fd >= 0; fd--) {
+		int fd4name;
+		int choise_fd;
+		char arg;
+
+		fd4name = open_a_console(choise_console_names[fd]);
+	chk_std:
+		choise_fd = fd4name >= 0 ? fd4name : fd;
+
+		arg = 0;
+		if (ioctl(choise_fd, KDGKBTYPE, &arg) == 0)
+			return choise_fd;
+		if(fd4name >= 0) {
+			close(fd4name);
+			fd4name = -1;
+			goto chk_std;
+		}
 	}
 
-	fd = open_a_console(CURRENT_TTY);
-	if (fd >= 0)
-		return fd;
-
-	fd = open_a_console(CURRENT_VC);
-	if (fd >= 0)
-		return fd;
-
-	fd = open_a_console(CONSOLE_DEV);
-	if (fd >= 0)
-		return fd;
-
-	for (fd = 0; fd < 3; fd++)
-		if (is_a_console(fd))
-			return fd;
-
-	error_msg("Couldn't get a file descriptor referring to the console");
-	return -1;					/* total failure */
+	bb_error_msg("Couldn't get a file descriptor referring to the console");
+	return fd;                      /* total failure */
 }
-
-
-/* END CODE */
-/*
-Local Variables:
-c-file-style: "linux"
-c-basic-offset: 4
-tab-width: 4
-End:
-*/

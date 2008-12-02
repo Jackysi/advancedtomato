@@ -1,37 +1,50 @@
-#
-# Linux NVRAM Makefile
-#
-# Copyright 2005, Broadcom Corporation
-# All Rights Reserved.
-# 
-# THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
-# KIND, EXPRESS OR IMPLIED, BY STATUTE, COMMUNICATION OR OTHERWISE. BROADCOM
-# SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
-# FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
-#
-# $Id: Makefile,v 1.8 2005/03/07 08:35:32 kanki Exp $
-#
+include ../common.mak
 
-CFLAGS	+= -I. -I$(SRCBASE)/include -Wall -I$(SRCBASE)/router/shared
-#CFLAGS	+= -g -DDEBUG
-CFLAGS	+= -s -O2
-LDFLAGS += -L.
+CFLAGS = -O2 -Wall #-mips32
+CFLAGS += -I../shared -I../../include -I.
+ifeq ($(STATIC),1)
+CFLAGS += -static
+endif
 
-vpath %.c $(SRCBASE)/shared/nvram
-
-all: libnvram.so nvram
-
-install: all
-	install -D libnvram.so $(INSTALLDIR)/usr/lib/libnvram.so
-	$(STRIP) $(INSTALLDIR)/usr/lib/libnvram.so
-	install -D nvram $(INSTALLDIR)/usr/sbin/nvram
-	$(STRIP) $(INSTALLDIR)/usr/sbin/nvram
-
-clean:
-	rm -f *.o *.a *.so nvram
+all: libnvram.so libnvram.a nvram
 
 libnvram.so: nvram_linux.o nvram_convert.o
-	$(LD) -shared -o $@ $^
+	@echo " [nvram] CC $@"
+	@$(CC) -shared $(CFLAGS) -o $@ $^
 
-nvram: main.o
-	$(CC) $(CFLAGS) -o $@ $< $(LDFLAGS) -lnvram
+libnvram.a: nvram_linux.o nvram_convert.o
+	@echo " [nvram] AR $@"
+	@$(AR) cruv $@ $^
+	
+nvram: nvram.o defaults.o libnvram.so
+	@echo " [nvram] CC $@"
+ifeq ($(STATIC),1)
+	$(CC) $(CFLAGS) -static -o $@ nvram.o defaults.o -L. -lnvram -L../shared -lshared
+else
+	@$(CC) $(CFLAGS) -o $@ nvram.o defaults.o -L. -lnvram -L../shared -lshared
+endif
+	
+	$(SIZECHECK)
+	$(CPTMP)
+	
+install: all
+	install -D -m 0500 libnvram.so $(INSTALLDIR)/usr/lib/libnvram.so
+	install -D -m 0500 nvram $(INSTALLDIR)/bin/nvram
+	$(STRIP) $(INSTALLDIR)/usr/lib/libnvram.so
+	$(STRIP) $(INSTALLDIR)/bin/nvram
+
+clean:
+	rm -f nvram *.o *.a *.so
+
+	
+%.o: %.c .%.depend
+	@echo " [nvram] CC $@"
+	@$(CC) $(CFLAGS) -o $@ -c $<
+
+.depend: $(OBJS:%.o=%.c)
+	@$(CC) $(CFLAGS) -M $^ > .depend
+
+.%.depend: %.c
+	@$(CC) $(CFLAGS) -M $< > $@
+
+-include $(OBJS:%.o=.%.depend)

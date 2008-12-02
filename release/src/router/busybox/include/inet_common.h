@@ -4,14 +4,14 @@
  *
  * Heavily modified by Manuel Novoa III       Mar 12, 2001
  *
- * Version:     $Id: inet_common.h,v 1.1.3.1 2004/12/29 07:07:44 honor Exp $
+ * Version:     $Id: inet_common.h,v 1.4 2004/03/10 07:42:37 mjn3 Exp $
  *
  */
 
 #include <features.h>
 #include <sys/types.h>
 #include <sys/socket.h>
-#include <arpa/inet.h>
+#include "platform.h"
 
 
 extern const char bb_INET_default[];    /* = "default" */
@@ -29,5 +29,5 @@ extern int INET_resolve(const char *name, struct sockaddr_in *s_in, int hostfirs
 extern int INET_rresolve(char *name, size_t len, struct sockaddr_in *s_in,
 			 int numeric, unsigned int netmask);
 
-extern int INET6_resolve(char *name, struct sockaddr_in6 *sin6);
+extern int INET6_resolve(const char *name, struct sockaddr_in6 *sin6);
 extern int INET6_rresolve(char *name, size_t len, struct sockaddr_in6 *sin6, int numeric);

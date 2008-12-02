@@ -2,8 +2,8 @@
 /*
  * Utility routines.
  *
- * create raw socket for icmp protocol test permision
- * and drop root privilegies if running setuid
+ * create raw socket for icmp protocol test permission
+ * and drop root privileges if running setuid
  *
  */
 
@@ -25,9 +25,9 @@ int create_icmp_socket(void)
 	if ((sock = socket(AF_INET, SOCK_RAW,
 			(proto ? proto->p_proto : 1))) < 0) {        /* 1 == ICMP */
 		if (errno == EPERM)
-			error_msg_and_die("permission denied. (are you root?)");
+			bb_error_msg_and_die(bb_msg_perm_denied_are_you_root);
 		else
-			perror_msg_and_die(can_not_create_raw_socket);
+			bb_perror_msg_and_die(bb_msg_can_not_create_raw_socket);
 	}
 
 	/* drop root privs if running setuid */

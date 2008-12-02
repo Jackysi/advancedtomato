@@ -1,332 +1,311 @@
 /*
- *********************************************************
- *   Copyright 2004, CyberTAN  Inc.  All Rights Reserved *
- *********************************************************
 
- This is UNPUBLISHED PROPRIETARY SOURCE CODE of CyberTAN Inc.
- the contents of this file may not be disclosed to third parties,
- copied or duplicated in any form without the prior written
- permission of CyberTAN Inc.
-
- This software should be used as a reference only, and it not
- intended for production use!
-
-
- THIS SOFTWARE IS OFFERED "AS IS", AND CYBERTAN GRANTS NO WARRANTIES OF ANY
- KIND, EXPRESS OR IMPLIED, BY STATUTE, COMMUNICATION OR OTHERWISE.  CYBERTAN
- SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
- FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE
+	Tomato Firmware
+	Copyright (C) 2006-2008 Jonathan Zarate
+	
 */
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <signal.h>
-#include <unistd.h>
-#include <errno.h>
-#include <sys/types.h>
-#include <sys/stat.h>
+#include "rc.h"
+
+#include <stdarg.h>
 #include <sys/ioctl.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <wait.h>
-#include <net/route.h>
-#include <sys/types.h>
-#include <signal.h>
+#include <net/if_arp.h>
 
-#include <bcmnvram.h>
-#include <netconf.h>
-#include <shutils.h>
-#include <utils.h>
-#include <cy_conf.h>
-#include <code_pattern.h>
-#include <rc.h>
+#include <bcmdevs.h>
+#include <wlutils.h>
 
-#include <cymac.h>
 
-#define GET_MAC	0x11
-#define SET_MAC	0x12
-
-#define GET_EOU	0x13
-#define SET_EOU	0x14
-
-#define GET_SN	0x15
-#define SET_SN	0x16
-
-#ifndef CFI_FLASH_OP
-#define GET_FLASH_TYPE	0x17
-#endif
-
-#define FULL	-1
-#define ILLEGAL	-2
-#define	ERR	-3
-
-#define DEV_MISC "/dev/ctmisc"
-
-typedef union {
-	struct {
-		int index;
-		unsigned char maclist[RESERVE_MAC][PER_MAC_LEN];
-	} mac;
-	struct {
-		int index;
-		unsigned char eoulist[RESERVE_EOU_KEY][PER_EOU_KEY_LEN];
-	} eou;
-	struct {
-		int index;
-		unsigned char snlist[RESERVE_SN][PER_SN_LEN];
-	} sn;
-} MYDATA;
-
-struct table {
-        char *name;
-        int cmd;
-	char *desc;
-	int count;
-	int len;
-	int (*get)(struct table *v, int write_to_nv);
-	int (*set)(char *string, int len, struct table *v);
-};
-
-MYDATA mydatas;
-
-extern int ctmisc_ioctl(unsigned int cmd, char *arg);
-
-int
-get_data(struct table *v, int write_to_nv)
+void usage_exit(const char *cmd, const char *help)
 {
-	int fp;
-	int ret;
-	int i=0;
-	char *ptr = (char *) &mydatas;
-        char buf[1024];
-	int index;
-
-	cprintf("%s(): cmd=0x%02x count=%d len=%d\n", __FUNCTION__, v->cmd, v->count, v->len);
-
-	#ifndef CFI_FLASH_OP
-	if ((fp = open(DEV_MISC, O_RDWR, 0))) {
-		if((ret = ioctl(fp, v->cmd, &mydatas)) < 0) {
-			perror("ioctl");
-			return ret;
-		}
-		close(fp);
-	}	
-	#else
-	ret = ctmisc_ioctl(v->cmd, (char *)&mydatas);
-	#endif
-
-	bzero(buf, sizeof(buf));
-
-	ret = index = (int) *ptr;
-
-	cprintf("%s(): Get %s count is [%d]\n", __FUNCTION__, v->desc, index);
-
-	ptr = ptr + sizeof(int);	// skip index
-	for(i=0 ; i<index ; i++) {
-		memcpy(buf, ptr, v->len);
-		cprintf("%s(): %s %d: [%s]\n", __FUNCTION__, v->desc, i, buf);
-		ptr = ptr + v->len;
-	}
-
-	//Amin Set SN number unprint character = NULL ===>
-	if(v->cmd == GET_SN) {
-		for(i=0; i< v->len; i++) {
-			if( isgraph(buf[i]) == 0 )
-				buf[i] = NULL;	
-		}
-	}
-	//<=== Amin Set SN number unprint character = NULL
-
-	/* Save to nvram */
-	if(write_to_nv == 1 || write_to_nv == 3)	// write value
-		nvram_set(v->name, buf);
-
-	if(write_to_nv == 2 || write_to_nv == 3) {	// write index
-		char tmp1[5];
-		char tmp2[20];
-		snprintf(tmp1, sizeof(tmp1), "%d", ret);
-		snprintf(tmp2, sizeof(tmp2), "%s_index", v->name);
-		nvram_set(tmp2, tmp1);
-	}
-
-	cprintf("%s(): done\n", __FUNCTION__);
-
-	return ret;
+	fprintf(stderr, "Usage: %s %s\n", cmd, help);
+	exit(1);
 }
 
-int
-set_data(char *string, int len, struct table *v)
+int modprobe(const char *mod)
 {
-	int fp;
-	int ret;
-
-	cprintf("%s(): string=[%s] len=[%d]\n", __FUNCTION__, string, len);
-
-	#ifndef CFI_FLASH_OP
-	if ((fp = open(DEV_MISC, O_RDWR, 0))) {
-		if((ret = ioctl(fp, v->cmd, string)) < 0) {
-			perror("ioctl");
-			return ret;
-		}
-		close(fp);
-	}	
-	#else
-	ret = ctmisc_ioctl(v->cmd, string);
-	#endif
-
-	ret = (int) *string;
-
-	cprintf("%s(): ret=%d\n", __FUNCTION__, ret);	
-
-	switch(ret) {
-		case FULL:
-			cprintf("%s(): The %s space is full\n", __FUNCTION__, v->desc);
-			break;
-		case ILLEGAL:
-			cprintf("%s(): Illegal %s value\n", __FUNCTION__, v->desc);
-			break;
-		case ERR:
-			cprintf("%s(): Cann't write %s to flash\n", __FUNCTION__, v->desc);
-		default:
-			if(ret >=0 && ret < v->count)	
-				cprintf("%s(): Save %s to location %d\n", __FUNCTION__, v->desc, ret);
-			else
-				cprintf("%s(): Something error, return code is %d\n", __FUNCTION__, ret);
-
-			break;
-	}
-
-	cprintf("%s(): done\n", __FUNCTION__);
-
-	return ret;
-}
-
-#ifndef CFI_FLASH_OP
-int
-get_flash_type(struct table *v, int write_to_nv)
-{
-	int fp;
-	int ret;
-        char buf[1024];
-
-	cprintf("%s(): cmd=0x%02x count=%d len=%d\n", __FUNCTION__, v->cmd, v->count, v->len);
-
-	memset(&buf, 0, sizeof(buf));
-
-	if ((fp = open(DEV_MISC, O_RDWR, 0))) {
-		if((ret = ioctl(fp, v->cmd, &buf)) < 0) {
-			perror("ioctl");
-			return ret;
-		}
-		close(fp);
-	}	
-
-	cprintf("Get %s is [%s]\n", v->desc, buf);
-
-	if(write_to_nv == 1)
-		nvram_set("flash_type", buf);
-
-	return 0;
-}
-#endif
-
-struct table tables[] = {
-	{ "get_mac",	GET_MAC,	"MAC",	RESERVE_MAC,		PER_MAC_LEN,		get_data,	NULL},
-	{ "set_mac",	SET_MAC,	"MAC",	RESERVE_MAC,		PER_MAC_LEN,		NULL,		set_data},
-	{ "get_eou",	GET_EOU,	"EOU",	RESERVE_EOU_KEY,	PER_EOU_KEY_LEN,	get_data,	NULL},
-	{ "set_eou",	SET_EOU,	"EOU",	RESERVE_EOU_KEY,	PER_EOU_KEY_LEN,	NULL,		set_data},
-	{ "get_sn",	GET_SN,		"SN",	RESERVE_SN,		PER_SN_LEN,		get_data,	NULL},
-	{ "set_sn",	SET_SN, 	"SN",	RESERVE_SN,     	PER_SN_LEN,    		NULL,		set_data},
-#ifndef CFI_FLASH_OP
-	//do not support this command any more with CFI method.
-	{ "get_flash_type",	GET_FLASH_TYPE, 	"FLASH TYPE",	0,     	0,    		get_flash_type,	NULL},
-#endif
-};
-
-void
-usage(char *cmd) 
-{	
-#ifndef CFI_FLASH_OP
-#define support_str "get_mac|set_mac|get_eou|set_eou|get_sn|set_sn|get_flash_type"
+#if 1
+	return eval("modprobe", "-s", (char *)mod);
 #else
-#define support_str "get_mac|set_mac|get_eou|set_eou|get_sn|set_sn"
+	int r = eval("modprobe", "-s", (char *)mod);
+	cprintf("modprobe %s = %d\n", mod, r);
+	return r;
 #endif
-
-	cprintf("Usage: %s [OPTIONS]\n"
-		  "\t-t\n"
-		  "\t\tWhich action do you want to do ? [%s]\n"
-		  "\t-s\n"
-		  "\t\tWrite the string to assgined address\n"
-		  "\t-h, --help\n"
-		  "\t\tDisplay the help\n"
-		  "\n\tExample:\n"
-		  "\n\t%s -t get_mac\n"
-		  "\t%s -t set_mac -s 00:11:22:33:44:55\n"
-		  , cmd, support_str, cmd, cmd);
 }
 
-int
-misc_main(int argc, char **argv)
+int modprobe_r(const char *mod)
 {
-	char *type = NULL;
-	char *string = NULL;
-	int ret = 0;
-	struct table *v = NULL;
-	int c;
-	int write_to_nv = 0;
-	int match = 0;
+#if 1
+	return eval("modprobe", "-r", (char *)mod);
+#else
+	int r = eval("modprobe", "-r", (char *)mod);
+	cprintf("modprobe -r %s = %d\n", mod, r);
+	return r;
+#endif
+}
 
-	while ((c = getopt(argc, argv, "t:hs:w:")) != -1)
-                switch (c) {
-			case 'h':
-				usage(argv[0]);
-				exit(0);
-				break;
-			case 't':
-				type = optarg;
+int _xstart(const char *cmd, ...)
+{
+	va_list ap;
+	char *argv[16];
+	int argc;
+	int pid;
 
-				cprintf("type = [%s]\n", type );
-				break;
-			case 's':
-				string = optarg;
+	argv[0] = (char *)cmd;
+	argc = 1;
+	va_start(ap, cmd);
+	while ((argv[argc++] = va_arg(ap, char *)) != NULL) {
+		//
+	}
+	va_end(ap);
 
-				cprintf("string = [%s]\n", string );
-			case 'w':
-				write_to_nv = atoi(optarg);
-				break;
-				
-			default:
-				break;
+	return _eval(argv, NULL, 0, &pid);
+}
+
+void run_nvscript(const char *nv, const char *arg1, int wtime)
+{
+	FILE *f;
+	char *script;
+	char s[256];
+	char *argv[3];
+	int pid;
+
+	script = nvram_get(nv);
+	if ((script) && (*script != 0)) {
+		sprintf(s, "/tmp/%s.sh", nv);
+		if ((f = fopen(s, "w")) != NULL) {
+			fputs("#!/bin/sh\n", f);
+			fputs(script, f);
+			fputs("\n", f);
+			fclose(f);
+			chmod(s, 0700);
+			
+			chdir("/tmp");
+
+			argv[0] = s;
+			argv[1] = (char *)arg1;
+			argv[2] = NULL;
+			if (_eval(argv, NULL, 0, &pid) != 0) {
+				pid = -1;
+			}
+			else {
+				while (wtime-- > 0) {
+					if (kill(pid, 0) != 0) break;
+					sleep(1);
+				}
+			}
+			
+			chdir("/");
 		}
+	}
+}
+
+void setup_conntrack(void)
+{
+	unsigned int v[10];
+	const char *p;
+	int i;
 	
-	if(!type) {
-		usage(argv[0]);
-		exit(0);
+	p = nvram_safe_get("ct_tcp_timeout");
+	if (sscanf(p, "%u%u%u%u%u%u%u%u%u%u",
+		&v[0], &v[1], &v[2], &v[3], &v[4], &v[5], &v[6], &v[7], &v[8], &v[9]) == 10) {	// lightly verify
+		f_write_string("/proc/sys/net/ipv4/ip_conntrack_tcp_timeouts", p, 0, 0);
 	}
 	
-	memset(&mydatas, 0, sizeof(mydatas));
-
-	for(v = tables ; v < &tables[STRUCT_LEN(tables)] ; v++) {
-   		if(!strcmp(v->name, type)){
-			if(v->get)
-      				ret = v->get(v, write_to_nv);
-			if(v->set) {
-				if(!string) {
-					usage(argv[0]);
-                                	exit(0);
-				}
-
-      				ret = v->set(string, strlen(string), v);
-			}
-			match = 1;
-		}
-   	}
+	p = nvram_safe_get("ct_udp_timeout");
+	if (sscanf(p, "%u%u", &v[0], &v[1]) == 2) {
+		f_write_string("/proc/sys/net/ipv4/ip_conntrack_udp_timeouts", p, 0, 0);
+	}
 	
-	if(!match)
-		cprintf("No support type [%s]\n", type);
+	p = nvram_safe_get("ct_max");
+	i = atoi(p);
+	if ((i >= 128) && (i <= 10240)) {
+		f_write_string("/proc/sys/net/ipv4/ip_conntrack_max", p, 0, 0);
+	}
 
-	return ret;
+	if (!nvram_match("nf_pptp", "0")) {
+		modprobe("ip_conntrack_proto_gre");
+		modprobe("ip_nat_proto_gre");
+		modprobe("ip_conntrack_pptp");
+		modprobe("ip_nat_pptp");
+	}
+	else {
+		modprobe_r("ip_nat_pptp");
+		modprobe_r("ip_conntrack_pptp");
+		modprobe_r("ip_nat_proto_gre");
+		modprobe_r("ip_conntrack_proto_gre");
+	}
+
+	if (!nvram_match("nf_h323", "0")) {
+		modprobe("ip_conntrack_h323");
+		modprobe("ip_nat_h323");
+	}
+	else {
+		modprobe_r("ip_nat_h323");
+		modprobe_r("ip_conntrack_h323");
+	}
+	
+	if (!nvram_match("nf_rtsp", "0")) {
+		modprobe("ip_conntrack_rtsp");
+		modprobe("ip_nat_rtsp");
+	}
+	else {
+		modprobe_r("ip_nat_rtsp");
+		modprobe_r("ip_conntrack_rtsp");
+	}
+
+	if (!nvram_match("nf_ftp", "0")) {
+		modprobe("ip_conntrack_ftp");
+		modprobe("ip_nat_ftp");
+	}
+	else {
+		modprobe_r("ip_nat_ftp");
+		modprobe_r("ip_conntrack_ftp");
+	}
+
 }
 
+void set_mac(const char *ifname, const char *nvname, int plus)
+{
+	int sfd;
+	struct ifreq ifr;
+	int up;
+	int j;
+	
+	if ((sfd = socket(AF_INET, SOCK_RAW, IPPROTO_RAW)) < 0) {
+		_dprintf("%s: %s %d\n", ifname, __FUNCTION__, __LINE__);
+		return;
+	}
+
+	strcpy(ifr.ifr_name, ifname);
+	
+	up = 0;
+	if (ioctl(sfd, SIOCGIFFLAGS, &ifr) == 0) {
+		if ((up = ifr.ifr_flags & IFF_UP) != 0) {
+			ifr.ifr_flags &= ~IFF_UP;
+			if (ioctl(sfd, SIOCSIFFLAGS, &ifr) != 0) {
+				_dprintf("%s: %s %d\n", ifname, __FUNCTION__, __LINE__);
+			}
+		}
+	}
+	else {
+		_dprintf("%s: %s %d\n", ifname, __FUNCTION__, __LINE__);
+	}
+	
+	if (!ether_atoe(nvram_safe_get(nvname), (unsigned char *)&ifr.ifr_hwaddr.sa_data)) {
+		if (!ether_atoe(nvram_safe_get("et0macaddr"), (unsigned char *)&ifr.ifr_hwaddr.sa_data)) {
+
+			// goofy et0macaddr, make something up
+			nvram_set("et0macaddr", "00:01:23:45:67:89");
+			ifr.ifr_hwaddr.sa_data[0] = 0;
+			ifr.ifr_hwaddr.sa_data[1] = 0x01;
+			ifr.ifr_hwaddr.sa_data[2] = 0x23;
+			ifr.ifr_hwaddr.sa_data[3] = 0x45;
+			ifr.ifr_hwaddr.sa_data[4] = 0x67;
+			ifr.ifr_hwaddr.sa_data[5] = 0x89;
+		}
+		
+		while (plus-- > 0) {
+			for (j = 5; j >= 3; --j) {
+				ifr.ifr_hwaddr.sa_data[j]++;
+				if (ifr.ifr_hwaddr.sa_data[j] != 0) break;	// continue if rolled over
+			}
+		}
+	}
+	
+	ifr.ifr_hwaddr.sa_family = ARPHRD_ETHER;
+	if (ioctl(sfd, SIOCSIFHWADDR, &ifr) == -1) {
+		_dprintf("Error setting %s address\n", ifname);
+	}
+
+	if (up) {
+		if (ioctl(sfd, SIOCGIFFLAGS, &ifr) == 0) {
+			ifr.ifr_flags |= IFF_UP|IFF_RUNNING;
+			if (ioctl(sfd, SIOCSIFFLAGS, &ifr) == -1) {
+				_dprintf("%s: %s %d\n", ifname, __FUNCTION__, __LINE__);
+			}
+		}
+		else {
+			_dprintf("%s: %s %d\n", ifname, __FUNCTION__, __LINE__);
+		}
+	}
+	
+	close(sfd);
+}
+
+const char *default_wanif(void)
+{
+	return ((strtoul(nvram_safe_get("boardflags"), NULL, 0) & BFL_ENETVLAN) ||
+		(check_hw_type() == HW_BCM4712)) ? "vlan1" : "eth1";
+}
+
+const char *default_wlif(void)
+{
+	switch (check_hw_type()) {
+	case HW_BCM4702:
+	case HW_BCM4704_BCM5325F:
+	case HW_BCM4704_BCM5325F_EWC:
+		return "eth2";
+	}
+	return "eth1";
+	
+}
+
+int _vstrsep(char *buf, const char *sep, ...)
+{
+	va_list ap;
+	char **p;
+	int n;
+	
+	n = 0;
+	va_start(ap, sep);
+	while ((p = va_arg(ap, char **)) != NULL) {
+		if ((*p = strsep(&buf, sep)) == NULL) break;
+		++n;
+	}
+	va_end(ap);
+	return n;
+}
+
+void simple_unlock(const char *name)
+{
+	char fn[256];
+
+	snprintf(fn, sizeof(fn), "/var/lock/%s.lock", name);
+	f_write(fn, NULL, 0, 0, 0600);
+}
+
+void simple_lock(const char *name)
+{
+	int n;
+	char fn[256];
+
+	n = 5 + (getpid() % 10);
+	snprintf(fn, sizeof(fn), "/var/lock/%s.lock", name);
+	while (unlink(fn) != 0) {
+		if (--n == 0) {
+			syslog(LOG_DEBUG, "Breaking %s", fn);
+			break;
+		}
+		sleep(1);
+	}	
+}
+
+void killall_tk(const char *name)
+{
+	int n;
+	
+	if (killall(name, SIGTERM) == 0) {
+		n = 5;
+		while ((killall(name, 0) == 0) && (n-- > 0)) {
+			_dprintf("%s: waiting name=%s n=%d\n", __FUNCTION__, name, n);
+			sleep(1);
+		}
+		if (n < 0) {
+			n = 5;
+			while ((killall(name, SIGKILL) == 0) && (n-- > 0)) {
+				_dprintf("%s: SIGKILL name=%s n=%d\n", __FUNCTION__, name, n);
+				sleep(2);
+			}
+		}
+	}
+}

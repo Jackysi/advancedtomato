@@ -7,7 +7,8 @@
 #include <iptables.h>
 #include <linux/netfilter_ipv4/ip_tables.h>
 #include <linux/netfilter_ipv4/ip_nat_rule.h>
-#include <linux/netfilter_ipv4/ipt_SAME.h>
+/* For 64bit kernel / 32bit userspace */
+#include "../include/linux/netfilter_ipv4/ipt_SAME.h"
 
 /* Function which prints out usage message. */
 static void
@@ -42,8 +43,6 @@ init(struct ipt_entry_target *t, unsigned int *nfcache)
 	mr->info = 0;
 	mr->ipnum = 0;
 	
-	/* Can't cache this */
-	*nfcache |= NFC_UNKNOWN;
 }
 
 /* Parses range of IPs */
@@ -188,20 +187,19 @@ save(const struct ipt_ip *ip, const struct ipt_entry_target *target)
 		printf("--nodst ");
 }
 
-static
-struct iptables_target same
-= { NULL,
-    "SAME",
-    IPTABLES_VERSION,
-    IPT_ALIGN(sizeof(struct ipt_same_info)),
-    IPT_ALIGN(sizeof(struct ipt_same_info)),
-    &help,
-    &init,
-    &parse,
-    &final_check,
-    &print,
-    &save,
-    opts
+static struct iptables_target same = {
+	.next		= NULL,
+	.name		= "SAME",
+	.version	= IPTABLES_VERSION,
+	.size		= IPT_ALIGN(sizeof(struct ipt_same_info)),
+	.userspacesize	= IPT_ALIGN(sizeof(struct ipt_same_info)),
+	.help		= &help,
+	.init		= &init,
+	.parse		= &parse,
+	.final_check	= &final_check,
+	.print		= &print,
+	.save		= &save,
+	.extra_opts	= opts
 };
 
 void _init(void)

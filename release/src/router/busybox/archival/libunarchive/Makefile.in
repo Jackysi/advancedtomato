@@ -1,26 +1,18 @@
 # Makefile for busybox
 #
-# Copyright (C) 1999-2003 by Erik Andersen <andersen@codepoet.org>
+# Copyright (C) 1999-2004 by Erik Andersen <andersen@codepoet.org>
 #
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-# General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
-#
+# Licensed under the GPL v2 or later, see the file LICENSE in this tarball.
 
 LIBUNARCHIVE_AR:=libunarchive.a
 ifndef $(LIBUNARCHIVE_DIR)
-LIBUNARCHIVE_DIR:=$(TOPDIR)archival/libunarchive/
+LIBUNARCHIVE_DIR:=$(top_builddir)/archival/libunarchive
 endif
+srcdir=$(top_srcdir)/archival/libunarchive
+
+LIBUNARCHIVE-obj:=$(LIBUNARCHIVE_DIR)/$(LIBUNARCHIVE_AR)
+
+libraries-y+=$(LIBUNARCHIVE-obj)
 
 LIBUNARCHIVE-y:= \
 \
@@ -31,49 +23,62 @@ LIBUNARCHIVE-y:= \
 \
 	filter_accept_all.o \
 	filter_accept_list.o \
-	filter_accept_list_reassign.o \
 	filter_accept_reject_list.o \
-\
-	get_header_ar.o \
-	get_header_cpio.o \
-	get_header_tar.o \
-	get_header_tar_bz2.o \
-	get_header_tar_gz.o \
 \
 	header_skip.o \
 	header_list.o \
 	header_verbose_list.o \
 \
-	archive_xread.o \
 	archive_xread_all.o \
 	archive_xread_all_eof.o \
-	archive_xread_char.o \
 \
 	seek_by_char.o \
 	seek_by_jump.o \
 \
-	archive_copy_file.o \
-\
-	check_header_gzip.o \
 	data_align.o \
-	decompress_bunzip2.o \
 	find_list_entry.o \
-	init_handle.o \
-	uncompress.o \
+	open_transformer.o \
+	init_handle.o
+
+GUNZIP_FILES:= check_header_gzip.o decompress_unzip.o
+DPKG_FILES:= \
+	get_header_ar.o \
 	unpack_ar_archive.o \
-	unzip.o
+	get_header_tar.o \
+	filter_accept_list_reassign.o
 
-LIBUNARCHIVE-$(CONFIG_DPKG) += 
-LIBUNARCHIVE-$(CONFIG_DPKG_DEB) += 
-LIBUNARCHIVE-$(CONFIG_AR) += 
-LIBUNARCHIVE-$(CONFIG_CPIO) += 
-LIBUNARCHIVE-$(CONFIG_GUNZIP) += 
-LIBUNARCHIVE-$(CONFIG_RPM2CPIO) += 
-LIBUNARCHIVE-$(CONFIG_TAR) += 
-LIBUNARCHIVE-$(CONFIG_UNZIP) += 
+LIBUNARCHIVE-$(CONFIG_AR) += get_header_ar.o unpack_ar_archive.o
+LIBUNARCHIVE-$(CONFIG_BUNZIP2) += decompress_bunzip2.o
+LIBUNARCHIVE-$(CONFIG_UNLZMA) += decompress_unlzma.o
+LIBUNARCHIVE-$(CONFIG_CPIO) += get_header_cpio.o
+LIBUNARCHIVE-$(CONFIG_DPKG) += $(DPKG_FILES)
+LIBUNARCHIVE-$(CONFIG_DPKG_DEB) += $(DPKG_FILES)
+LIBUNARCHIVE-$(CONFIG_FEATURE_DEB_TAR_GZ) += $(GUNZIP_FILES) get_header_tar_gz.o
+LIBUNARCHIVE-$(CONFIG_FEATURE_DEB_TAR_BZ2) += decompress_bunzip2.o get_header_tar_bz2.o
+LIBUNARCHIVE-$(CONFIG_FEATURE_DEB_TAR_LZMA) += decompress_unlzma.o get_header_tar_lzma.o
+LIBUNARCHIVE-$(CONFIG_GUNZIP) += $(GUNZIP_FILES)
+LIBUNARCHIVE-$(CONFIG_FEATURE_GUNZIP_UNCOMPRESS) += decompress_uncompress.o
+LIBUNARCHIVE-$(CONFIG_RPM2CPIO) += $(GUNZIP_FILES) get_header_cpio.o
+LIBUNARCHIVE-$(CONFIG_RPM) += $(GUNZIP_FILES) get_header_cpio.o
+LIBUNARCHIVE-$(CONFIG_TAR) += get_header_tar.o
+LIBUNARCHIVE-$(CONFIG_FEATURE_TAR_BZIP2) += decompress_bunzip2.o get_header_tar_bz2.o
+LIBUNARCHIVE-$(CONFIG_FEATURE_TAR_LZMA) += decompress_unlzma.o get_header_tar_lzma.o
+LIBUNARCHIVE-$(CONFIG_FEATURE_TAR_GZIP) += $(GUNZIP_FILES) get_header_tar_gz.o
+LIBUNARCHIVE-$(CONFIG_FEATURE_TAR_COMPRESS) += decompress_uncompress.o
+LIBUNARCHIVE-$(CONFIG_UNCOMPRESS) += decompress_uncompress.o
+LIBUNARCHIVE-$(CONFIG_UNZIP) += $(GUNZIP_FILES)
+LIBUNARCHIVE-$(CONFIG_FEATURE_COMPRESS_USAGE) += decompress_bunzip2.o
 
-libraries-y+=$(LIBUNARCHIVE_DIR)$(LIBUNARCHIVE_AR)
 
-$(LIBUNARCHIVE_DIR)$(LIBUNARCHIVE_AR): $(patsubst %,$(LIBUNARCHIVE_DIR)%, $(LIBUNARCHIVE-y))
-	$(AR) -ro $@ $(patsubst %,$(LIBUNARCHIVE_DIR)%, $(LIBUNARCHIVE-y))
+LIBUNARCHIVE-y:=$(sort $(LIBUNARCHIVE-y))
 
+LIBUNARCHIVE_SRC-y:=$(patsubst %,$(srcdir)/%,$(subst .o,.c,$(LIBUNARCHIVE-y)))
+LIBUNARCHIVE_SRC-a:=$(wildcard $(srcdir)/*.c)
+LIBRARY_SRC-y+=$(LIBUNARCHIVE_SRC-y)
+LIBRARY_SRC-a+=$(LIBUNARCHIVE_SRC-a)
+
+$(LIBUNARCHIVE_DIR)/$(LIBUNARCHIVE_AR): $(patsubst %,$(LIBUNARCHIVE_DIR)/%,$(LIBUNARCHIVE-y))
+	$(do_ar)
+
+$(LIBUNARCHIVE_DIR)/%.o: $(srcdir)/%.c
+	$(compile.c)

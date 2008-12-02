@@ -1,3 +1,0 @@
-#define BUILD_DATE "Jul 03 2007"
-#define BUILD_TIME "09:57:49"
-#define BUILD_SECS "1183427869"

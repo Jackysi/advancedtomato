@@ -22,6 +22,7 @@ help(void)
 "[!] --pid-owner processid  Match local pid\n"
 "[!] --sid-owner sessionid  Match local sid\n"
 "[!] --cmd-owner name       Match local command name\n"
+"NOTE: pid, sid and command matching are broken on SMP\n"
 "\n",
 IPTABLES_VERSION);
 #else
@@ -31,6 +32,7 @@ IPTABLES_VERSION);
 "[!] --gid-owner groupid    Match local gid\n"
 "[!] --pid-owner processid  Match local pid\n"
 "[!] --sid-owner sessionid  Match local sid\n"
+"NOTE: pid and sid matching are broken on SMP\n"
 "\n",
 IPTABLES_VERSION);
 #endif /* IPT_OWNER_COMM */
@@ -46,14 +48,6 @@ static struct option opts[] = {
 #endif
 	{0}
 };
-
-/* Initialize the match. */
-static void
-init(struct ipt_entry_match *m, unsigned int *nfcache)
-{
-	/* Can't cache this. */
-	*nfcache |= NFC_UNKNOWN;
-}
 
 /* Function which parses command options; returns true if it
    ate an option */
@@ -125,9 +119,10 @@ parse(int c, char **argv, int invert, unsigned int *flags,
 	case '5':
 		check_inverse(optarg, &invert, &optind, 0);
 		if(strlen(optarg) > sizeof(ownerinfo->comm))
-			exit_error(PARAMETER_PROBLEM, "OWNER CMD `%s' too long, max %d characters", optarg, sizeof(ownerinfo->comm));
+			exit_error(PARAMETER_PROBLEM, "OWNER CMD `%s' too long, max %u characters", optarg, (unsigned int)sizeof(ownerinfo->comm));
 
 		strncpy(ownerinfo->comm, optarg, sizeof(ownerinfo->comm));
+		ownerinfo->comm[sizeof(ownerinfo->comm)-1] = '\0';
 
 		if (invert)
 			ownerinfo->invert |= IPT_OWNER_COMM;
@@ -147,10 +142,10 @@ print_item(struct ipt_owner_info *info, u_int8_t flag, int numeric, char *label)
 {
 	if(info->match & flag) {
 
-		printf(label);
-
 		if (info->invert & flag)
-			fputc('!', stdout);
+			printf("! ");
+
+		printf(label);
 
 		switch(info->match & flag) {
 		case IPT_OWNER_UID:
@@ -235,20 +230,18 @@ save(const struct ipt_ip *ip, const struct ipt_entry_match *match)
 #endif
 }
 
-static
-struct iptables_match owner
-= { NULL,
-    "owner",
-    IPTABLES_VERSION,
-    IPT_ALIGN(sizeof(struct ipt_owner_info)),
-    IPT_ALIGN(sizeof(struct ipt_owner_info)),
-    &help,
-    &init,
-    &parse,
-    &final_check,
-    &print,
-    &save,
-    opts
+static struct iptables_match owner = { 
+	.next		= NULL,
+	.name		= "owner",
+	.version	= IPTABLES_VERSION,
+	.size		= IPT_ALIGN(sizeof(struct ipt_owner_info)),
+	.userspacesize	= IPT_ALIGN(sizeof(struct ipt_owner_info)),
+	.help		= &help,
+	.parse		= &parse,
+	.final_check	= &final_check,
+	.print		= &print,
+	.save		= &save,
+	.extra_opts	= opts
 };
 
 void _init(void)

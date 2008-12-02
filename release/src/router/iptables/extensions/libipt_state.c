@@ -8,13 +8,17 @@
 #include <linux/netfilter_ipv4/ip_conntrack.h>
 #include <linux/netfilter_ipv4/ipt_state.h>
 
+#ifndef IPT_STATE_UNTRACKED
+#define IPT_STATE_UNTRACKED (1 << (IP_CT_NUMBER + 1))
+#endif
+
 /* Function which prints out usage message. */
 static void
 help(void)
 {
 	printf(
 "state v%s options:\n"
-" [!] --state [INVALID|ESTABLISHED|NEW|RELATED][,...]\n"
+" [!] --state [INVALID|ESTABLISHED|NEW|RELATED|UNTRACKED][,...]\n"
 "				State(s) to match\n"
 "\n", IPTABLES_VERSION);
 }
@@ -23,14 +27,6 @@ static struct option opts[] = {
 	{ "state", 1, 0, '1' },
 	{0}
 };
-
-/* Initialize the match. */
-static void
-init(struct ipt_entry_match *m, unsigned int *nfcache)
-{
-	/* Can't cache this */
-	*nfcache |= NFC_UNKNOWN;
-}
 
 static int
 parse_state(const char *state, size_t strlen, struct ipt_state_info *sinfo)
@@ -43,6 +39,8 @@ parse_state(const char *state, size_t strlen, struct ipt_state_info *sinfo)
 		sinfo->statemask |= IPT_STATE_BIT(IP_CT_ESTABLISHED);
 	else if (strncasecmp(state, "RELATED", strlen) == 0)
 		sinfo->statemask |= IPT_STATE_BIT(IP_CT_RELATED);
+	else if (strncasecmp(state, "UNTRACKED", strlen) == 0)
+		sinfo->statemask |= IPT_STATE_UNTRACKED;
 	else
 		return 0;
 	return 1;
@@ -117,6 +115,10 @@ static void print_state(unsigned int statemask)
 		printf("%sESTABLISHED", sep);
 		sep = ",";
 	}
+	if (statemask & IPT_STATE_UNTRACKED) {
+		printf("%sUNTRACKED", sep);
+		sep = ",";
+	}
 	printf(" ");
 }
 
@@ -141,20 +143,18 @@ static void save(const struct ipt_ip *ip, const struct ipt_entry_match *match)
 	print_state(sinfo->statemask);
 }
 
-static
-struct iptables_match state
-= { NULL,
-    "state",
-    IPTABLES_VERSION,
-    IPT_ALIGN(sizeof(struct ipt_state_info)),
-    IPT_ALIGN(sizeof(struct ipt_state_info)),
-    &help,
-    &init,
-    &parse,
-    &final_check,
-    &print,
-    &save,
-    opts
+static struct iptables_match state = { 
+	.next		= NULL,
+	.name		= "state",
+	.version	= IPTABLES_VERSION,
+	.size		= IPT_ALIGN(sizeof(struct ipt_state_info)),
+	.userspacesize	= IPT_ALIGN(sizeof(struct ipt_state_info)),
+	.help		= &help,
+	.parse		= &parse,
+	.final_check	= &final_check,
+	.print		= &print,
+	.save		= &save,
+	.extra_opts	= opts
 };
 
 void _init(void)

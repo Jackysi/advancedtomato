@@ -1,6 +1,7 @@
 #ifndef __UTILS_H__
 #define __UTILS_H__ 1
 
+#include "libbb.h"
 #include <asm/types.h>
 #include <resolv.h>
 
@@ -26,7 +27,7 @@ extern char * _SL_;
 #define SPRINT_BSIZE 64
 #define SPRINT_BUF(x)	char x[SPRINT_BSIZE]
 
-extern void incomplete_command(void) __attribute__((noreturn));
+extern void incomplete_command(void) ATTRIBUTE_NORETURN;
 
 #define NEXT_ARG() do { argv++; if (--argc <= 0) incomplete_command(); } while(0)
 
@@ -43,17 +44,17 @@ typedef struct
 #define AF_DECnet 12
 #endif
 
-struct dn_naddr 
+struct dn_naddr
 {
-        unsigned short          a_len;
-        unsigned char a_addr[DN_MAXADDL];
+	unsigned short          a_len;
+	unsigned char a_addr[DN_MAXADDL];
 };
 
 #define IPX_NODE_LEN 6
 
 struct ipx_addr {
-	u_int32_t ipx_net;
-	u_int8_t  ipx_node[IPX_NODE_LEN];
+	uint32_t ipx_net;
+	uint8_t  ipx_node[IPX_NODE_LEN];
 };
 
 extern __u32 get_addr32(char *name);
@@ -76,9 +77,9 @@ extern int get_s8(__s8 *val, char *arg, int base);
 extern const char *format_host(int af, int len, void *addr, char *buf, int buflen);
 extern const char *rt_addr_n2a(int af, int len, void *addr, char *buf, int buflen);
 
-void invarg(char *, char *) __attribute__((noreturn));
-void duparg(char *, char *) __attribute__((noreturn));
-void duparg2(char *, char *) __attribute__((noreturn));
+void invarg(const char * const, const char * const) ATTRIBUTE_NORETURN;
+void duparg(char *, char *) ATTRIBUTE_NORETURN;
+void duparg2(char *, char *) ATTRIBUTE_NORETURN;
 int matches(char *arg, char *pattern);
 extern int inet_addr_match(inet_prefix *a, inet_prefix *b, int bits);
 

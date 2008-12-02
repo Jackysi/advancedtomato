@@ -28,21 +28,24 @@
 #include "rt_names.h"
 #include "utils.h"
 
+extern struct rtnl_handle rth;
+
 static void usage(void) __attribute__((noreturn));
 
 static void usage(void)
 {
-	fprintf(stderr, "Usage: ip rule [ list | add | del ] SELECTOR ACTION\n");
+	fprintf(stderr, "Usage: ip rule [ list | add | del | flush ] SELECTOR ACTION\n");
 	fprintf(stderr, "SELECTOR := [ from PREFIX ] [ to PREFIX ] [ tos TOS ] [ fwmark FWMARK ]\n");
 	fprintf(stderr, "            [ dev STRING ] [ pref NUMBER ]\n");
-	fprintf(stderr, "ACTION := [ table TABLE_ID ] [ nat ADDRESS ]\n");
+	fprintf(stderr, "ACTION := [ table TABLE_ID ]\n");
 	fprintf(stderr, "          [ prohibit | reject | unreachable ]\n");
 	fprintf(stderr, "          [ realms [SRCREALM/]DSTREALM ]\n");
 	fprintf(stderr, "TABLE_ID := [ local | main | default | NUMBER ]\n");
 	exit(-1);
 }
 
-int print_rule(struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
+static int print_rule(const struct sockaddr_nl *who, struct nlmsghdr *n,
+		      void *arg)
 {
 	FILE *fp = (FILE*)arg;
 	struct rtmsg *r = NLMSG_DATA(n);
@@ -59,7 +62,6 @@ int print_rule(struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
 	if (len < 0)
 		return -1;
 
-	memset(tb, 0, sizeof(tb));
 	parse_rtattr(tb, RTA_MAX, RTM_RTA(r), len);
 
 	if (r->rtm_family == AF_INET)
@@ -159,21 +161,17 @@ int print_rule(struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
 	return 0;
 }
 
-int iprule_list(int argc, char **argv)
+static int iprule_list(int argc, char **argv)
 {
-	struct rtnl_handle rth;
 	int af = preferred_family;
 
 	if (af == AF_UNSPEC)
 		af = AF_INET;
 
 	if (argc > 0) {
-		fprintf(stderr, "\"ip rule show\" need not eny arguments.\n");
+		fprintf(stderr, "\"ip rule show\" does not take any arguments.\n");
 		return -1;
 	}
-
-	if (rtnl_open(&rth, 0) < 0)
-		return 1;
 
 	if (rtnl_wilddump_request(&rth, af, RTM_GETRULE) < 0) {
 		perror("Cannot send dump request");
@@ -189,10 +187,9 @@ int iprule_list(int argc, char **argv)
 }
 
 
-int iprule_modify(int cmd, int argc, char **argv)
+static int iprule_modify(int cmd, int argc, char **argv)
 {
 	int table_ok = 0;
-	struct rtnl_handle rth;
 	struct {
 		struct nlmsghdr 	n;
 		struct rtmsg 		r;
@@ -256,7 +253,7 @@ int iprule_modify(int cmd, int argc, char **argv)
 			addattr32(&req.n, sizeof(req), RTA_FLOW, realm);
 		} else if (matches(*argv, "table") == 0 ||
 			   strcmp(*argv, "lookup") == 0) {
-			int tid;
+			__u32 tid;
 			NEXT_ARG();
 			if (rtnl_rttable_a2n(&tid, *argv))
 				invarg("invalid table ID\n", *argv);
@@ -269,6 +266,7 @@ int iprule_modify(int cmd, int argc, char **argv)
 		} else if (strcmp(*argv, "nat") == 0 ||
 			   matches(*argv, "map-to") == 0) {
 			NEXT_ARG();
+			fprintf(stderr, "Warning: route NAT is deprecated\n");
 			addattr32(&req.n, sizeof(req), RTA_GATEWAY, get_addr32(*argv));
 			req.r.rtm_type = RTN_NAT;
 		} else {
@@ -293,11 +291,63 @@ int iprule_modify(int cmd, int argc, char **argv)
 	if (!table_ok && cmd == RTM_NEWRULE)
 		req.r.rtm_table = RT_TABLE_MAIN;
 
-	if (rtnl_open(&rth, 0) < 0)
-		return 1;
-
 	if (rtnl_talk(&rth, &req.n, 0, 0, NULL, NULL, NULL) < 0)
 		return 2;
+
+	return 0;
+}
+
+
+static int flush_rule(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
+{
+	struct rtnl_handle rth2;
+	struct rtmsg *r = NLMSG_DATA(n);
+	int len = n->nlmsg_len;
+	struct rtattr * tb[RTA_MAX+1];
+
+	len -= NLMSG_LENGTH(sizeof(*r));
+	if (len < 0)
+		return -1;
+
+	parse_rtattr(tb, RTA_MAX, RTM_RTA(r), len);
+
+	if (tb[RTA_PRIORITY]) {
+		n->nlmsg_type = RTM_DELRULE;
+		n->nlmsg_flags = NLM_F_REQUEST;
+
+		if (rtnl_open(&rth2, 0) < 0)
+			return -1;
+
+		if (rtnl_talk(&rth2, n, 0, 0, NULL, NULL, NULL) < 0)
+			return -2;
+
+		rtnl_close(&rth2);
+	}
+
+	return 0;
+}
+
+static int iprule_flush(int argc, char **argv)
+{
+	int af = preferred_family;
+
+	if (af == AF_UNSPEC)
+		af = AF_INET;
+
+	if (argc > 0) {
+		fprintf(stderr, "\"ip rule flush\" does not allow arguments\n");
+		return -1;
+	}
+
+	if (rtnl_wilddump_request(&rth, af, RTM_GETRULE) < 0) {
+		perror("Cannot send dump request");
+		return 1;
+	}
+
+	if (rtnl_dump_filter(&rth, flush_rule, NULL, NULL, NULL) < 0) {
+		fprintf(stderr, "Flush terminated\n");
+		return 1;
+	}
 
 	return 0;
 }
@@ -314,6 +364,8 @@ int do_iprule(int argc, char **argv)
 		return iprule_modify(RTM_NEWRULE, argc-1, argv+1);
 	} else if (matches(argv[0], "delete") == 0) {
 		return iprule_modify(RTM_DELRULE, argc-1, argv+1);
+	} else if (matches(argv[0], "flush") == 0) {
+		return iprule_flush(argc-1, argv+1);
 	} else if (matches(argv[0], "help") == 0)
 		usage();
 

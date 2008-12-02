@@ -30,9 +30,8 @@ typedef u_int8_t u8;
 #include <wlioctl.h>
 #include <wlutils.h>
 
-
-int
-wl_ioctl(char *name, int cmd, void *buf, int len)
+// xref: nas,wlconf,httpd,rc,
+int wl_ioctl(char *name, int cmd, void *buf, int len)
 {
 	struct ifreq ifr;
 	wl_ioctl_t ioc;
@@ -44,24 +43,32 @@ wl_ioctl(char *name, int cmd, void *buf, int len)
 		perror("socket");
 		return errno;
 	}
-
+	
 	/* do it */
 	ioc.cmd = cmd;
 	ioc.buf = buf;
 	ioc.len = len;
+
+	/* initializing the remaining fields */
+	ioc.set = FALSE;
+	ioc.used = 0;
+	ioc.needed = 0;
+
 	strncpy(ifr.ifr_name, name, IFNAMSIZ);
 	ifr.ifr_data = (caddr_t) &ioc;
+	ret = ioctl(s, SIOCDEVPRIVATE, &ifr);
+/*
 	if ((ret = ioctl(s, SIOCDEVPRIVATE, &ifr)) < 0)
 		if (cmd != WLC_GET_MAGIC)
 			perror(ifr.ifr_name);
-
+*/
 	/* cleanup */
 	close(s);
 	return ret;
 }
 
-int
-wl_get_dev_type(char *name, void *buf, int len)
+// xref: wl.c:wl_probe()
+int wl_get_dev_type(char *name, void *buf, int len)
 {
 	int s;
 	int ret;
@@ -78,18 +85,20 @@ wl_get_dev_type(char *name, void *buf, int len)
 	memset(&info, 0, sizeof(info));
 	info.cmd = ETHTOOL_GDRVINFO;
 	ifr.ifr_data = (caddr_t)&info;
-	strncpy(ifr.ifr_name, name, IFNAMSIZ);
+	strlcpy(ifr.ifr_name, name, IFNAMSIZ);
 	if ((ret = ioctl(s, SIOCETHTOOL, &ifr)) < 0) {
 		*(char *)buf = '\0';
-	} else
-		strncpy(buf, info.driver, len);
+	}
+	else {
+		strlcpy(buf, info.driver, len);
+	}
 
 	close(s);
 	return ret;
 }
 
-int
-wl_hwaddr(char *name, unsigned char *hwaddr)
+// xref: nas,wlconf,
+int wl_hwaddr(char *name, unsigned char *hwaddr)
 {
 	struct ifreq ifr;
 	int ret = 0;
@@ -102,7 +111,7 @@ wl_hwaddr(char *name, unsigned char *hwaddr)
 	}
 
 	/* do it */
-	strncpy(ifr.ifr_name, name, IFNAMSIZ);
+	strlcpy(ifr.ifr_name, name, IFNAMSIZ);
 	if ((ret = ioctl(s, SIOCGIFHWADDR, &ifr)) == 0)
 		memcpy(hwaddr, ifr.ifr_hwaddr.sa_data, ETHER_ADDR_LEN);
 

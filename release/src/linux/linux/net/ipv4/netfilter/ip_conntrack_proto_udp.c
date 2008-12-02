@@ -7,25 +7,13 @@
 #include <linux/netfilter_ipv4/ip_conntrack_protocol.h>
 #include <linux/netfilter_ipv4/ip_conntrack_udp.h>
 
-unsigned long ip_ct_udp_isakmp_timeout = (300*HZ);
-
 static int udp_pkt_to_tuple(const void *datah, size_t datalen,
 			    struct ip_conntrack_tuple *tuple)
 {
 	const struct udphdr *hdr = datah;
-	struct isakmp_hdr *isakmp_h = (void *)hdr + 8;
 
 	tuple->src.u.udp.port = hdr->source;
 	tuple->dst.u.udp.port = hdr->dest;
-	if(ntohs(hdr->source) == 500 && ntohs(hdr->dest) == 500)
-	{
-		if(NULL == isakmp_h)
-			tuple->dst.u.udp.init_cookie = 0;
-		else
-			tuple->dst.u.udp.init_cookie = (unsigned int)(isakmp_h->init_cookie[0]);
-	}
-	else
-		tuple->dst.u.udp.init_cookie = 0;
 
 	return 1;
 }
@@ -35,7 +23,6 @@ static int udp_invert_tuple(struct ip_conntrack_tuple *tuple,
 {
 	tuple->src.u.udp.port = orig->dst.u.udp.port;
 	tuple->dst.u.udp.port = orig->src.u.udp.port;
-	tuple->dst.u.udp.init_cookie = orig->dst.u.udp.init_cookie;
 	return 1;
 }
 
@@ -60,21 +47,16 @@ static int udp_packet(struct ip_conntrack *conntrack,
 		      struct iphdr *iph, size_t len,
 		      enum ip_conntrack_info conntrackinfo)
 {
-	u_int16_t *portptr;
-	portptr = &conntrack->tuplehash[IP_CT_DIR_ORIGINAL].tuple.src.u.udp.port;
 	/* If we've seen traffic both ways, this is some kind of UDP
 	   stream.  Extend timeout. */
-	if (conntrack->status & IPS_SEEN_REPLY)
-	{
-		if(ntohs(*portptr) == 500)
-			ip_ct_refresh(conntrack, ip_ct_udp_isakmp_timeout);
-		else
-			ip_ct_refresh(conntrack, sysctl_ip_conntrack_udp_timeouts[UDP_STREAM_TIMEOUT]);
+	if (test_bit(IPS_SEEN_REPLY_BIT, &conntrack->status)) {
+		ip_ct_refresh(conntrack, 
+			sysctl_ip_conntrack_udp_timeouts[UDP_STREAM_TIMEOUT]);
 		/* Also, more likely to be important, and not a probe */
 		set_bit(IPS_ASSURED_BIT, &conntrack->status);
-	}
-	else
-		ip_ct_refresh(conntrack, sysctl_ip_conntrack_udp_timeouts[UDP_TIMEOUT]);
+	} else
+		ip_ct_refresh(conntrack, 
+			sysctl_ip_conntrack_udp_timeouts[UDP_TIMEOUT]);
 
 	return NF_ACCEPT;
 }

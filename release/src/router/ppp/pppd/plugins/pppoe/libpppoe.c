@@ -10,14 +10,28 @@
  */
 
 #include <pppoe.h>
+#include <sys/sysinfo.h>
+
+static int tag_map[] = { PTT_SRV_NAME,
+			 PTT_AC_NAME,
+			 PTT_HOST_UNIQ,
+			 PTT_AC_COOKIE,
+			 PTT_VENDOR,
+			 PTT_RELAY_SID,
+			 PTT_SRV_ERR,
+			 PTT_SYS_ERR,
+			 PTT_GEN_ERR,
+			 PTT_EOL
+};
 
 int disc_sock=-1;
-int retransmit_time=5;
+int retransmit_time=10;
+int redial_immediately=0;
 
 int verify_packet( struct session *ses, struct pppoe_packet *p);
 
 #define TAG_DATA(type,tag_ptr) ((type *) ((struct pppoe_tag*)tag_ptr)->tag_data)
-
+extern int dial_cnt;
 
 /***************************************************************************
  *
@@ -441,6 +455,8 @@ int session_disconnect(struct session *ses){
     padt.hdr->code = PADT_CODE;
     padt.hdr->sid  = ses->sp.sa_addr.pppoe.sid;
 
+	LOGX_INFO("Sending PADT.");
+
     send_disc(ses,&padt);
     ses->sp.sa_addr.pppoe.sid = 0 ;
     ses->state = PADO_CODE;
@@ -460,138 +476,207 @@ int session_connect(struct session *ses)
     struct pppoe_packet *p_out=NULL;
     struct pppoe_packet rcv_packet;
     int ret;
-
+	//int dial_cnt;
 
     if(ses->init_disc){
-	ret = (*ses->init_disc)(ses, NULL, &p_out);
-	if( ret != 0 ) return ret;
+		ret = (*ses->init_disc)(ses, NULL, &p_out);
+		if ( ret != 0 ) {
+			LOGX_DEBUG("%s: ses->init_disc() == %d", __FUNCTION__, ret);
+			return ret;
+		}
     }
 
     /* main discovery loop */
 
+	//dial_cnt = 0;
+    //while(ses->retransmits < ses->retries || ses->retries==-1 ){
+    while ((!idle_time_limit && dial_cnt < (3 - 1)) || (ses->retransmits < ses->retries || ses->retries==-1)) {
+		fd_set in;
+		struct timeval tv;
 
-    while(ses->retransmits < ses->retries || ses->retries==-1 ){
-
-	fd_set in;
-	struct timeval tv;
-	FD_ZERO(&in);
-
-	FD_SET(disc_sock,&in);
-
-	if(ses->retransmits < 0)
-	    ret = select(disc_sock+1, &in, NULL, NULL, NULL);
-	else {
-	    ++ses->retransmits;
-	    //tv.tv_sec = 1 << ses->retransmits;
-	    tv.tv_sec = retransmit_time;
-	    tv.tv_usec = 0;
+		if(ses->retransmits < 0) {
+			FD_ZERO(&in);
+			FD_SET(disc_sock,&in);
+		    ret = select(disc_sock+1, &in, NULL, NULL, NULL);
+		}
+		else {
+		    ++ses->retransmits;
+		    //tv.tv_sec = 1 << ses->retransmits;
+		    /*******************************************
+		     * modify by tanghui @ 2006-03-27
+		     * for random redial
+		     *******************************************/
+			if(!idle_time_limit) {
+				if((ses->curr_pkt.hdr->code != PADI_CODE) || (dial_cnt < (3 - 1))) {
+					tv.tv_sec = 10;
+				}
+				else {
+					tv.tv_sec = (int)(3 + (((retransmit_time - 3.0) * rand())/ (RAND_MAX + 1.0)));
+					if((tv.tv_sec > 93) && (tv.tv_sec > retransmit_time - 90)) {
+						tv.tv_sec -= 90;
+					}
+					//tv.tv_sec = 3 + gen_random_int(retransmit_time - 3);
+				}
+			}
+			else {
+				tv.tv_sec = 10;
+			}
+			dial_cnt++;
+		    /*******************************************/
+			tv.tv_usec = 0;
 again:
-	    ret = select(disc_sock+1, &in, NULL, NULL, &tv);
-	}
-	if( ret < 0 && errno != EINTR){
-	    return -1;
-	}
-	else 	if( ret == 0 ) {
-	    if( DEB_DISC )
-		poe_dbglog(ses, "Re-sending ...");
+			FD_ZERO(&in);
+			FD_SET(disc_sock,&in);
+		    ret = select(disc_sock+1, &in, NULL, NULL, &tv);
+		}
 
-	    if( ses->timeout ) {
-		ret = (*ses->timeout)(ses, NULL, &p_out);
-		if( ret != 0 )
-		    return ret;
-	    }
-	    else if(p_out)
-		send_disc(ses,p_out);
+		if( ret < 0 && errno != EINTR){
+			LOGX_DEBUG("%s: select() == %d", __FUNCTION__, ret);
+		    return -1;
+		}
+		else if( ret == 0 ) {
+	    	if (!((!idle_time_limit && dial_cnt < (3 - 1)) || (ses->retransmits < ses->retries || ses->retries==-1))) {
+				redial_immediately = 1;
+			}
+		    if( DEB_DISC )
+				poe_dbglog(ses, "Re-sending ...");
+
+		    if( ses->timeout ) {
+				ret = (*ses->timeout)(ses, NULL, &p_out);
+				if ( ret != 0 ) {
+					LOGX_DEBUG("%s: ses->timeout() == %d", __FUNCTION__, ret);
+				    return ret;
+				}
+		    }
+		    else if (p_out && !redial_immediately) {
+				LOGX_INFO("Resending...");
+				send_disc(ses,p_out);
+			}
+			
+		    continue;
+		}
+
+		ret = recv_disc(ses, &rcv_packet);
+		/* Should differentiate between system errors and
+		   bad packets and the like... */
+		if( ret < 0 && errno ) {
+			LOGX_DEBUG("%s: recv_disc() == %d, errno == %d", __FUNCTION__, ret, errno);
+		    return -1;
+		}
+
+#if 1	// see rc/redial	-- zzz
+		FILE *f;
+		struct sysinfo si;
 		
-	    continue;
-	}
-
-	ret = recv_disc(ses, &rcv_packet);
-	/* Should differentiate between system errors and
-	   bad packets and the like... */
-	if( ret < 0 && errno )
-	    return -1;
-
-	switch (rcv_packet.hdr->code) {
-
-	case PADI_CODE:
-	{
-	    if(ses->rcv_padi){
-		ret = (*ses->rcv_padi)(ses,&rcv_packet,&p_out);
-
-		if( ret != 0){
-		    return ret;
+		if ((f = fopen(pppoe_disc_file, "w")) != NULL) {
+			sysinfo(&si);
+			fwrite(&si.uptime, sizeof(si.uptime), 1, f);
+			fclose(f);
 		}
-	    }
-	    break;
-	}
+#endif
 
-	case PADO_CODE:		/* wait for PADO */
-	{
-	    if(ses->rcv_pado){
-		ret = (*ses->rcv_pado)(ses,&rcv_packet,&p_out);
+		switch (rcv_packet.hdr->code) {
 
-		if( ret != 0){
-		    return ret;
+		case PADI_CODE:
+		{
+		    if(ses->rcv_padi){
+				ret = (*ses->rcv_padi)(ses,&rcv_packet,&p_out);
+				if( ret != 0){
+					LOGX_DEBUG("%s: ses->rcv_padi() == %d", __FUNCTION__, ret);
+				    return ret;
+				}
+		    }
+		    break;
 		}
-		else
-		    goto again;
-	    }
-	    break;
-	}
 
-	case PADR_CODE:
-	{
-	    if(ses->rcv_padr){
-		ret = (*ses->rcv_padr)(ses,&rcv_packet,&p_out);
-
-		if( ret != 0){
-		    return ret;
+		case PADO_CODE:		/* wait for PADO */
+		{
+		    if (ses->rcv_pado) {
+				ret = (*ses->rcv_pado)(ses,&rcv_packet,&p_out);
+				if( ret != 0) {
+					LOGX_DEBUG("%s: ses->rcv_pado() == %d", __FUNCTION__, ret);
+			    	return ret;
+				}
+				else {
+			   		goto again;
+				}
+		    }
+		    break;
 		}
-	    }
-	    break;
-	}
 
-	case PADS_CODE:		/* wait for PADS */
-	{
-	    if(ses->rcv_pads){
-		ret = (*ses->rcv_pads)(ses,&rcv_packet,&p_out);
-
-		if( ret != 0){
-		    return ret;
+		case PADR_CODE:
+		{
+		    if(ses->rcv_padr) {
+				ret = (*ses->rcv_padr)(ses,&rcv_packet,&p_out);
+				if ( ret != 0) {
+					LOGX_DEBUG("%s: ses->rcv_padr() == %d", __FUNCTION__, ret);
+				    return ret;
+				}
+		    }
+		    break;
 		}
-		else
-		    goto again;
-	    }
-	    break;
-	}
 
-	case PADT_CODE:
-	{
-	    if( rcv_packet.hdr->sid != ses->sp.sa_addr.pppoe.sid ){
-		--ses->retransmits;
-		continue;
-	    }
-	    if(ses->rcv_padt){
-		ret = (*ses->rcv_padt)(ses,&rcv_packet,&p_out);
-
-		if( ret != 0){
-		    return ret;
+		case PADS_CODE:		/* wait for PADS */
+		{
+		    if(ses->rcv_pads) {
+				ret = (*ses->rcv_pads)(ses,&rcv_packet,&p_out);
+				LOGX_DEBUG("%s: ses->rcv_pads() == %d", __FUNCTION__, ret);
+				if ( ret != 0) {
+				    return ret;
+				}
+				else {
+				    goto again;
+				}
+		    }
+		    break;
 		}
-		else
-		    goto again;
-	    }else{
-		poe_error (ses,"connection terminated");
-		return (-1);
-	    }
-	    break;
-	}
-	default:
-	    poe_error(ses,"invalid packet %P",&rcv_packet);
-	    return (-1);
-	}
-    }
-    return (0);
+
+		case PADT_CODE:
+		{
+		    if (rcv_packet.hdr->sid != ses->sp.sa_addr.pppoe.sid) {
+#if 1			// probably from previous session, ignore	-- zzz
+				LOGX_INFO("Received PADT for 0x%04X, expecting 0x%04X", rcv_packet.hdr->sid, ses->sp.sa_addr.pppoe.sid);
+				goto again;
+#else			
+				redial_immediately = 1;
+				return (0);
+				//	--ses->retransmits;
+				//	continue;
+#endif
+		    }
+			
+			//	checkme: ?? sid will never be the same here. Dead code ?? 	-- zzz
+			
+		    if(ses->rcv_padt){
+				ret = (*ses->rcv_padt)(ses,&rcv_packet,&p_out);
+				if( ret != 0){
+					LOGX_DEBUG("%s: ses->rcv_padt() == %d", __FUNCTION__, ret);
+					return ret;
+				}
+				else {
+					redial_immediately = 1;
+					LOGX_DEBUG("%s: PADT rcv_padt", __FUNCTION__);
+					return (0);
+				//    goto again;
+				}
+		    }
+			else{
+				LOGX_DEBUG("%s: PADT !rcv_padt", __FUNCTION__);
+				poe_error (ses,"connection terminated");
+				redial_immediately = 1;
+				return (-1);
+		    }
+		    break;
+		}
+		default:
+			LOGX_DEBUG("%s: invalid packet %d", __FUNCTION__, rcv_packet.hdr->code);
+			goto again;
+//		    return (-1);
+		}
+    }	// while
+
+	LOGX_DEBUG("%s: return default", __FUNCTION__);
+    return (-1);
 }
 
 
@@ -600,6 +685,7 @@ again:
  * Register an ethernet address as a client of relaying services.
  *
  *************************************************************************/
+ /*
 int add_client(char *addr)
 {
     struct pppoe_con* pc = (struct pppoe_con*)malloc(sizeof(struct pppoe_con));
@@ -620,6 +706,7 @@ int add_client(char *addr)
     return ret;
 
 }
+*/
 
 struct pppoe_tag *make_filter_tag(short type, short length, char* data){
     struct pppoe_tag *pt =

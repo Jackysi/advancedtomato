@@ -81,6 +81,8 @@ extern lcp_options lcp_hisoptions[];
 #define DEFMRU	1500		/* Try for this */
 #define MINMRU	128		/* No MRUs below this */
 #define MAXMRU	16384		/* Normally limit MRU to this */
+//Fixed by crazy 20070424: bug id 6439(20070423)
+#define REJECT_MAXMRU	1492 /* Reject when MRU which is received from server is larger than this value */
 
 void lcp_open __P((int));
 void lcp_close __P((int, char *));

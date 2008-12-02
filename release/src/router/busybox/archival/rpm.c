@@ -4,19 +4,7 @@
  *
  * Copyright (C) 2001,2002 by Laurence Anderson
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+ * Licensed under GPLv2 or later, see file LICENSE in this tarball for details.
  */
 
 #include <stdio.h>
@@ -43,7 +31,7 @@
 #define RPM_STRING_ARRAY_TYPE	8
 #define RPM_I18NSTRING_TYPE	9
 
-#define	RPMTAG_NAME  			1000
+#define	RPMTAG_NAME				1000
 #define	RPMTAG_VERSION			1001
 #define	RPMTAG_RELEASE			1002
 #define	RPMTAG_SUMMARY			1004
@@ -82,10 +70,10 @@ enum rpm_functions_e {
 };
 
 typedef struct {
-	u_int32_t tag; /* 4 byte tag */
-	u_int32_t type; /* 4 byte type */
-	u_int32_t offset; /* 4 byte offset */
-	u_int32_t count; /* 4 byte count */
+	uint32_t tag; /* 4 byte tag */
+	uint32_t type; /* 4 byte type */
+	uint32_t offset; /* 4 byte offset */
+	uint32_t count; /* 4 byte count */
 } rpm_index;
 
 static void *map;
@@ -143,7 +131,7 @@ int rpm_main(int argc, char **argv)
 		mytags = rpm_gettags(rpm_fd, (int *) &tagcount);
 		offset = lseek(rpm_fd, 0, SEEK_CUR);
 		if (!mytags) { printf("Error reading rpm header\n"); exit(-1); }
-		map = mmap(0, offset > getpagesize() ? (offset + offset % getpagesize()) : getpagesize(), PROT_READ, MAP_SHARED, rpm_fd, 0); // Mimimum is one page
+		map = mmap(0, offset > getpagesize() ? (offset + offset % getpagesize()) : getpagesize(), PROT_READ, MAP_PRIVATE, rpm_fd, 0); // Mimimum is one page
 		if (func & rpm_install) {
 			loop_through_files(RPMTAG_BASENAMES, fileaction_dobackup); /* Backup any config files */
 			extract_cpio_gz(rpm_fd); // Extact the archive
@@ -197,7 +185,6 @@ void extract_cpio_gz(int fd) {
 
 	/* Initialise */
 	archive_handle = init_handle();
-	archive_handle->read = read_gz;
 	archive_handle->seek = seek_by_char;
 	//archive_handle->action_header = header_list;
 	archive_handle->action_data = data_extract_all;
@@ -205,35 +192,33 @@ void extract_cpio_gz(int fd) {
 	archive_handle->flags |= ARCHIVE_CREATE_LEADING_DIRS;
 	archive_handle->src_fd = fd;
 	archive_handle->offset = 0;
-	
+
 	bb_xread_all(archive_handle->src_fd, &magic, 2);
 	if ((magic[0] != 0x1f) || (magic[1] != 0x8b)) {
 		bb_error_msg_and_die("Invalid gzip magic");
 	}
-	check_header_gzip(archive_handle->src_fd);	
-	chdir("/"); // Install RPM's to root
+	check_header_gzip(archive_handle->src_fd);
+	bb_xchdir("/"); // Install RPM's to root
 
-	GZ_gzReadOpen(archive_handle->src_fd, 0, 0);
+	archive_handle->src_fd = open_transformer(archive_handle->src_fd, inflate_gunzip);
+	archive_handle->offset = 0;
 	while (get_header_cpio(archive_handle) == EXIT_SUCCESS);
-	GZ_gzReadClose();
-	
-	check_trailer_gzip(archive_handle->src_fd);
 }
 
 
 rpm_index **rpm_gettags(int fd, int *num_tags)
 {
-	rpm_index **tags = calloc(200, sizeof(struct rpmtag *)); /* We should never need mode than 200, and realloc later */
+	rpm_index **tags = xzalloc(200 * sizeof(struct rpmtag *)); /* We should never need mode than 200, and realloc later */
 	int pass, tagindex = 0;
 	lseek(fd, 96, SEEK_CUR); /* Seek past the unused lead */
 
 	for (pass = 0; pass < 2; pass++) { /* 1st pass is the signature headers, 2nd is the main stuff */
 		struct {
 			char magic[3]; /* 3 byte magic: 0x8e 0xad 0xe8 */
-			u_int8_t version; /* 1 byte version number */
-			u_int32_t reserved; /* 4 bytes reserved */
-			u_int32_t entries; /* Number of entries in header (4 bytes) */
-			u_int32_t size; /* Size of store (4 bytes) */
+			uint8_t version; /* 1 byte version number */
+			uint32_t reserved; /* 4 bytes reserved */
+			uint32_t entries; /* Number of entries in header (4 bytes) */
+			uint32_t size; /* Size of store (4 bytes) */
 		} header;
 		rpm_index *tmpindex;
 		int storepos;
@@ -246,7 +231,7 @@ rpm_index **rpm_gettags(int fd, int *num_tags)
 		storepos = lseek(fd,0,SEEK_CUR) + header.entries * 16;
 
 		while (header.entries--) {
-			tmpindex = tags[tagindex++] = malloc(sizeof(rpm_index));
+			tmpindex = tags[tagindex++] = xmalloc(sizeof(rpm_index));
 			read(fd, tmpindex, sizeof(rpm_index));
 			tmpindex->tag = ntohl(tmpindex->tag); tmpindex->type = ntohl(tmpindex->type); tmpindex->count = ntohl(tmpindex->count);
 			tmpindex->offset = storepos + ntohl(tmpindex->offset);
@@ -262,14 +247,15 @@ rpm_index **rpm_gettags(int fd, int *num_tags)
 
 int bsearch_rpmtag(const void *key, const void *item)
 {
+	int *tag = (int *)key;
 	rpm_index **tmp = (rpm_index **) item;
-	return ((int) key - tmp[0]->tag);
+	return (*tag - tmp[0]->tag);
 }
 
 int rpm_getcount(int tag)
 {
 	rpm_index **found;
-	found = bsearch((void *) tag, mytags, tagcount, sizeof(struct rpmtag *), bsearch_rpmtag);
+	found = bsearch(&tag, mytags, tagcount, sizeof(struct rpmtag *), bsearch_rpmtag);
 	if (!found) return 0;
 	else return found[0]->count;
 }
@@ -277,7 +263,7 @@ int rpm_getcount(int tag)
 char *rpm_getstring(int tag, int itemindex)
 {
 	rpm_index **found;
-	found = bsearch((void *) tag, mytags, tagcount, sizeof(struct rpmtag *), bsearch_rpmtag);
+	found = bsearch(&tag, mytags, tagcount, sizeof(struct rpmtag *), bsearch_rpmtag);
 	if (!found || itemindex >= found[0]->count) return NULL;
 	if (found[0]->type == RPM_STRING_TYPE || found[0]->type == RPM_I18NSTRING_TYPE || found[0]->type == RPM_STRING_ARRAY_TYPE) {
 		int n;
@@ -291,7 +277,9 @@ int rpm_getint(int tag, int itemindex)
 {
 	rpm_index **found;
 	int n, *tmpint;
-	found = bsearch((void *) tag, mytags, tagcount, sizeof(struct rpmtag *), bsearch_rpmtag);
+	/* gcc throws warnings here when sizeof(void*)!=sizeof(int) ...
+	 * it's ok to ignore it because tag won't be used as a pointer */
+	found = bsearch(&tag, mytags, tagcount, sizeof(struct rpmtag *), bsearch_rpmtag);
 	if (!found || itemindex >= found[0]->count) return -1;
 	tmpint = (int *) (map + found[0]->offset);
 	if (found[0]->type == RPM_INT32_TYPE) {
@@ -326,12 +314,12 @@ void fileaction_dobackup(char *filename, int fileref)
 void fileaction_setowngrp(char *filename, int fileref)
 {
 	int uid, gid;
-	uid = my_getpwnam(rpm_getstring(RPMTAG_FILEUSERNAME, fileref));
-	gid = my_getgrnam(rpm_getstring(RPMTAG_FILEGROUPNAME, fileref));
+	uid = bb_xgetpwnam(rpm_getstring(RPMTAG_FILEUSERNAME, fileref));
+	gid = bb_xgetgrnam(rpm_getstring(RPMTAG_FILEGROUPNAME, fileref));
 	chown (filename, uid, gid);
 }
 
-void fileaction_list(char *filename, int fileref)
+void fileaction_list(char *filename, int ATTRIBUTE_UNUSED fileref)
 {
 	printf("%s\n", filename);
 }
@@ -339,13 +327,10 @@ void fileaction_list(char *filename, int fileref)
 void loop_through_files(int filetag, void (*fileaction)(char *filename, int fileref))
 {
 	int count = 0;
-	char *filename, *tmp_dirname, *tmp_basename;
 	while (rpm_getstring(filetag, count)) {
-		tmp_dirname = rpm_getstring(RPMTAG_DIRNAMES, rpm_getint(RPMTAG_DIRINDEXES, count)); /* 1st put on the directory */
-		tmp_basename = rpm_getstring(RPMTAG_BASENAMES, count);
-		filename = xmalloc(strlen(tmp_basename) + strlen(tmp_dirname) + 1);
-		strcpy(filename, tmp_dirname); /* First the directory name */
-		strcat(filename, tmp_basename); /* then the filename */
+		char * filename = bb_xasprintf("%s%s",
+			rpm_getstring(RPMTAG_DIRNAMES, rpm_getint(RPMTAG_DIRINDEXES,
+			count)), rpm_getstring(RPMTAG_BASENAMES, count));
 		fileaction(filename, count++);
 		free(filename);
 	}

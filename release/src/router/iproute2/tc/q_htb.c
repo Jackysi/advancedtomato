@@ -34,10 +34,14 @@ static void explain(void)
 		" default  minor id of class to which unclassified packets are sent {0}\n"
 		" r2q      DRR quantums are computed as rate in Bps/r2q {10}\n"
 		" debug    string of 16 numbers each 0-3 {0}\n\n"
-		"... class add ... htb rate R1 burst B1 [prio P] [slot S] [pslot PS]\n"
+		"... class add ... htb rate R1 [burst B1] [mpu B] [overhead O]\n"
+		"                      [prio P] [slot S] [pslot PS]\n"
 		"                      [ceil R2] [cburst B2] [mtu MTU] [quantum Q]\n"
 		" rate     rate allocated to this class (class can still borrow)\n"
 		" burst    max bytes burst which can be accumulated during idle period {computed}\n"
+		" mpu      minimum packet size used in rate computations\n"
+		" overhead per-packet size overhead used in rate computations\n"
+
 		" ceil     definite upper class rate (no borrows) {rate}\n"
 		" cburst   burst but for ceil {computed}\n"
 		" mtu      max packet size we create rate map for {1600}\n"
@@ -89,10 +93,10 @@ static int htb_parse_opt(struct qdisc_util *qu, int argc, char **argv, struct nl
 		}
 		argc--; argv++;
 	}
-	tail = (struct rtattr*)(((void*)n)+NLMSG_ALIGN(n->nlmsg_len));
+	tail = NLMSG_TAIL(n);
 	addattr_l(n, 1024, TCA_OPTIONS, NULL, 0);
 	addattr_l(n, 2024, TCA_HTB_INIT, &opt, NLMSG_ALIGN(sizeof(opt)));
-	tail->rta_len = (((void*)n)+NLMSG_ALIGN(n->nlmsg_len)) - (void*)tail;
+	tail->rta_len = (void *) NLMSG_TAIL(n) - (void *) tail;
 	return 0;
 }
 
@@ -102,7 +106,9 @@ static int htb_parse_class_opt(struct qdisc_util *qu, int argc, char **argv, str
 	struct tc_htb_opt opt;
 	__u32 rtab[256],ctab[256];
 	unsigned buffer=0,cbuffer=0;
-	int cell_log=-1,ccell_log = -1,mtu;
+	int cell_log=-1,ccell_log = -1;
+	unsigned mtu, mpu;
+	unsigned char mpu8 = 0, overhead = 0;
 	struct rtattr *tail;
 
 	memset(&opt, 0, sizeof(opt)); mtu = 1600; /* eth packet len */
@@ -118,6 +124,16 @@ static int htb_parse_class_opt(struct qdisc_util *qu, int argc, char **argv, str
 			NEXT_ARG();
 			if (get_u32(&mtu, *argv, 10)) {
 				explain1("mtu"); return -1;
+			}
+		} else if (matches(*argv, "mpu") == 0) {
+			NEXT_ARG();
+			if (get_u8(&mpu8, *argv, 10)) {
+				explain1("mpu"); return -1;
+			}
+		} else if (matches(*argv, "overhead") == 0) {
+			NEXT_ARG();
+			if (get_u8(&overhead, *argv, 10)) {
+				explain1("overhead"); return -1;
 			}
 		} else if (matches(*argv, "quantum") == 0) {
 			NEXT_ARG();
@@ -187,29 +203,33 @@ static int htb_parse_class_opt(struct qdisc_util *qu, int argc, char **argv, str
 
 	/* compute minimal allowed burst from rate; mtu is added here to make
 	   sute that buffer is larger than mtu and to have some safeguard space */
-	if (!buffer) buffer = opt.rate.rate / HZ + mtu;
-	if (!cbuffer) cbuffer = opt.ceil.rate / HZ + mtu;
+	if (!buffer) buffer = opt.rate.rate / get_hz() + mtu;
+	if (!cbuffer) cbuffer = opt.ceil.rate / get_hz() + mtu;
 
-	if ((cell_log = tc_calc_rtable(opt.rate.rate, rtab, cell_log, mtu, 0)) < 0) {
+/* encode overhead and mpu, 8 bits each, into lower 16 bits */
+	mpu = (unsigned)mpu8 | (unsigned)overhead << 8;
+	opt.ceil.mpu = mpu; opt.rate.mpu = mpu;
+
+	if ((cell_log = tc_calc_rtable(opt.rate.rate, rtab, cell_log, mtu, mpu)) < 0) {
 		fprintf(stderr, "htb: failed to calculate rate table.\n");
 		return -1;
 	}
 	opt.buffer = tc_calc_xmittime(opt.rate.rate, buffer);
 	opt.rate.cell_log = cell_log;
 	
-	if ((ccell_log = tc_calc_rtable(opt.ceil.rate, ctab, cell_log, mtu, 0)) < 0) {
+	if ((ccell_log = tc_calc_rtable(opt.ceil.rate, ctab, cell_log, mtu, mpu)) < 0) {
 		fprintf(stderr, "htb: failed to calculate ceil rate table.\n");
 		return -1;
 	}
 	opt.cbuffer = tc_calc_xmittime(opt.ceil.rate, cbuffer);
 	opt.ceil.cell_log = ccell_log;
 
-	tail = (struct rtattr*)(((void*)n)+NLMSG_ALIGN(n->nlmsg_len));
+	tail = NLMSG_TAIL(n);
 	addattr_l(n, 1024, TCA_OPTIONS, NULL, 0);
 	addattr_l(n, 2024, TCA_HTB_PARMS, &opt, sizeof(opt));
 	addattr_l(n, 3024, TCA_HTB_RTAB, rtab, 1024);
 	addattr_l(n, 4024, TCA_HTB_CTAB, ctab, 1024);
-	tail->rta_len = (((void*)n)+NLMSG_ALIGN(n->nlmsg_len)) - (void*)tail;
+	tail->rta_len = (void *) NLMSG_TAIL(n) - (void *) tail;
 	return 0;
 }
 
@@ -221,12 +241,12 @@ static int htb_print_opt(struct qdisc_util *qu, FILE *f, struct rtattr *opt)
 	double buffer,cbuffer;
 	SPRINT_BUF(b1);
 	SPRINT_BUF(b2);
+	SPRINT_BUF(b3);
 
 	if (opt == NULL)
 		return 0;
 
-	memset(tb, 0, sizeof(tb));
-	parse_rtattr(tb, TCA_HTB_RTAB, RTA_DATA(opt), RTA_PAYLOAD(opt));
+	parse_rtattr_nested(tb, TCA_HTB_RTAB, opt);
 
 	if (tb[TCA_HTB_PARMS]) {
 
@@ -243,10 +263,16 @@ static int htb_print_opt(struct qdisc_util *qu, FILE *f, struct rtattr *opt)
 	    fprintf(f, "ceil %s ", sprint_rate(hopt->ceil.rate, b1));
 	    cbuffer = ((double)hopt->ceil.rate*tc_core_tick2usec(hopt->cbuffer))/1000000;
 	    if (show_details) {
-		fprintf(f, "burst %s/%u mpu %s ", sprint_size(buffer, b1),
-			1<<hopt->rate.cell_log, sprint_size(hopt->rate.mpu, b2));
-		fprintf(f, "cburst %s/%u mpu %s ", sprint_size(cbuffer, b1),
-			1<<hopt->ceil.cell_log, sprint_size(hopt->ceil.mpu, b2));
+		fprintf(f, "burst %s/%u mpu %s overhead %s ",
+			sprint_size(buffer, b1),
+			1<<hopt->rate.cell_log,
+			sprint_size(hopt->rate.mpu&0xFF, b2),
+			sprint_size((hopt->rate.mpu>>8)&0xFF, b3));
+		fprintf(f, "cburst %s/%u mpu %s overhead %s ",
+			sprint_size(cbuffer, b1),
+			1<<hopt->ceil.cell_log,
+			sprint_size(hopt->ceil.mpu&0xFF, b2),
+			sprint_size((hopt->ceil.mpu>>8)&0xFF, b3));
 		fprintf(f, "level %d ", (int)hopt->level);
 	    } else {
 		fprintf(f, "burst %s ", sprint_size(buffer, b1));
@@ -284,23 +310,21 @@ static int htb_print_xstats(struct qdisc_util *qu, FILE *f, struct rtattr *xstat
 	return 0;
 }
 
-struct qdisc_util htb_util = {
-	NULL,
-	"htb",
-	htb_parse_opt,
-	htb_print_opt,
-	htb_print_xstats,
-	htb_parse_class_opt,
-	htb_print_opt,
+struct qdisc_util htb_qdisc_util = {
+	.id 		= "htb",
+	.parse_qopt	= htb_parse_opt,
+	.print_qopt	= htb_print_opt,
+	.print_xstats 	= htb_print_xstats,
+	.parse_copt	= htb_parse_class_opt,
+	.print_copt	= htb_print_opt,
 };
 
 /* for testing of old one */
-struct qdisc_util htb2_util = {
-	NULL,
-	"htb2",
-	htb_parse_opt,
-	htb_print_opt,
-	htb_print_xstats,
-	htb_parse_class_opt,
-	htb_print_opt,
+struct qdisc_util htb2_qdisc_util = {
+	.id		=  "htb2",
+	.parse_qopt	= htb_parse_opt,
+	.print_qopt	= htb_print_opt,
+	.print_xstats 	= htb_print_xstats,
+	.parse_copt	= htb_parse_class_opt,
+	.print_copt	= htb_print_opt,
 };

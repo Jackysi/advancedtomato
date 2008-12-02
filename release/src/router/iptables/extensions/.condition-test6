@@ -1,0 +1,3 @@
+#!/bin/sh
+# True if condition6 is applied.
+[ -f $KERNEL_DIR/include/linux/netfilter_ipv6/ip6t_condition.h ] && echo condition

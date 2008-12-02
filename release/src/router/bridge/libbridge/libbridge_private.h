@@ -21,6 +21,7 @@
 #ifndef _LIBBRIDGE_PRIVATE_H
 #define _LIBBRIDGE_PRIVATE_H
 
+#include <string.h>
 #include <asm/param.h>
 
 int br_socket_fd;

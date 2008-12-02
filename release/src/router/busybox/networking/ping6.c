@@ -1,6 +1,6 @@
 /* vi: set sw=4 ts=4: */
 /*
- * $Id: ping6.c,v 1.1.3.1 2004/12/29 07:07:46 honor Exp $
+ * $Id: ping6.c,v 1.6 2004/03/15 08:28:48 andersen Exp $
  * Mini ping implementation for busybox
  *
  * Copyright (C) 1999 by Randolph Chung <tausq@debian.org>
@@ -27,7 +27,7 @@
  *
  * This code is derived from software contributed to Berkeley by
  * Mike Muuss.
- * 
+ *
  * Original copyright notice is retained at the end of this file.
  *
  * This version is an adaptation of ping.c from busybox.
@@ -37,9 +37,8 @@
 #include <sys/param.h>
 #include <sys/socket.h>
 #include <sys/file.h>
-#include <sys/time.h>
 #include <sys/times.h>
-#include <sys/signal.h>
+#include <signal.h>
 
 #include <netinet/in.h>
 #include <netinet/ip6.h>
@@ -56,13 +55,15 @@
 #include <stddef.h>				/* offsetof */
 #include "busybox.h"
 
-static const int DEFDATALEN = 56;
-static const int MAXIPLEN = 60;
-static const int MAXICMPLEN = 76;
-static const int MAXPACKET = 65468;
-#define	MAX_DUP_CHK	(8 * 128)
-static const int MAXWAIT = 10;
-static const int PINGINTERVAL = 1;		/* second */
+enum {
+	DEFDATALEN = 56,
+	MAXIPLEN = 60,
+	MAXICMPLEN = 76,
+	MAXPACKET = 65468,
+	MAX_DUP_CHK = (8 * 128),
+	MAXWAIT = 10,
+	PINGINTERVAL = 1		/* second */
+};
 
 #define O_QUIET         (1 << 0)
 #define O_VERBOSE       (1 << 1)
@@ -109,7 +110,7 @@ static void ping(const char *host)
 	setsockopt(pingsock, SOL_RAW, IPV6_CHECKSUM, (char *) &sockopt,
 			   sizeof(sockopt));
 
-	c = sendto(pingsock, packet, sizeof(packet), 0,
+	c = sendto(pingsock, packet, DEFDATALEN + sizeof (struct icmp6_hdr), 0,
 			   (struct sockaddr *) &pingaddr, sizeof(struct sockaddr_in6));
 
 	if (c < 0 || c != sizeof(packet))
@@ -139,7 +140,7 @@ static void ping(const char *host)
 	return;
 }
 
-extern int ping6_main(int argc, char **argv)
+int ping6_main(int argc, char **argv)
 {
 	argc--;
 	argv++;
@@ -162,7 +163,7 @@ static unsigned long tmin = ULONG_MAX, tmax, tsum;
 static char rcvd_tbl[MAX_DUP_CHK / 8];
 
 # ifdef CONFIG_FEATURE_FANCY_PING
-extern 
+extern
 # endif
 	struct hostent *hostent;
 
@@ -202,14 +203,14 @@ static void sendping(int junk)
 {
 	struct icmp6_hdr *pkt;
 	int i;
-	char packet[datalen + 8];
+	char packet[datalen + sizeof (struct icmp6_hdr)];
 
 	pkt = (struct icmp6_hdr *) packet;
 
 	pkt->icmp6_type = ICMP6_ECHO_REQUEST;
 	pkt->icmp6_code = 0;
 	pkt->icmp6_cksum = 0;
-	pkt->icmp6_seq = ntransmitted++;
+	pkt->icmp6_seq = SWAP_BE16(ntransmitted++);
 	pkt->icmp6_id = myid;
 	CLR(pkt->icmp6_seq % MAX_DUP_CHK);
 
@@ -234,6 +235,17 @@ static void sendping(int junk)
 	}
 }
 
+/* RFC3542 changed some definitions from RFC2292 for no good reason, whee !
+ * the newer 3542 uses a MLD_ prefix where as 2292 uses ICMP6_ prefix */
+#ifndef MLD_LISTENER_QUERY
+# define MLD_LISTENER_QUERY ICMP6_MEMBERSHIP_QUERY
+#endif
+#ifndef MLD_LISTENER_REPORT
+# define MLD_LISTENER_REPORT ICMP6_MEMBERSHIP_REPORT
+#endif
+#ifndef MLD_LISTENER_REDUCTION
+# define MLD_LISTENER_REDUCTION ICMP6_MEMBERSHIP_REDUCTION
+#endif
 static char *icmp6_type_name (int id)
 {
 	switch (id) {
@@ -243,10 +255,10 @@ static char *icmp6_type_name (int id)
 	case ICMP6_PARAM_PROB:				return "Parameter Problem";
 	case ICMP6_ECHO_REPLY:				return "Echo Reply";
 	case ICMP6_ECHO_REQUEST:			return "Echo Request";
-	case ICMP6_MEMBERSHIP_QUERY:		return "Membership Query";
-	case ICMP6_MEMBERSHIP_REPORT:		return "Membership Report";
-	case ICMP6_MEMBERSHIP_REDUCTION:	return "Membership Reduction";
-	default: 							return "unknown ICMP type";
+	case MLD_LISTENER_QUERY:			return "Listener Query";
+	case MLD_LISTENER_REPORT:			return "Listener Report";
+	case MLD_LISTENER_REDUCTION:		return "Listener Reduction";
+	default:							return "unknown ICMP type";
 	}
 }
 
@@ -299,15 +311,15 @@ static void unpack(char *packet, int sz, struct sockaddr_in6 *from, int hoplimit
 			return;
 
 		printf("%d bytes from %s: icmp6_seq=%u", sz,
-			   inet_ntop(AF_INET6, (struct in_addr6 *) &pingaddr.sin6_addr,
+			   inet_ntop(AF_INET6, &pingaddr.sin6_addr,
 						 buf, sizeof(buf)),
 			   icmppkt->icmp6_seq);
-		printf(" ttl=%d time=%lu.%lu ms", hoplimit, 
+		printf(" ttl=%d time=%lu.%lu ms", hoplimit,
 			   triptime / 10, triptime % 10);
 		if (dupflag)
 			printf(" (DUP!)");
 		printf("\n");
-	} else 
+	} else
 		if (icmppkt->icmp6_type != ICMP6_ECHO_REQUEST)
 			bb_error_msg("Warning: Got ICMP %d (%s)",
 					icmppkt->icmp6_type, icmp6_type_name (icmppkt->icmp6_type));
@@ -380,7 +392,7 @@ static void ping(const char *host)
 
 	printf("PING %s (%s): %d data bytes\n",
 	           hostent->h_name,
-			   inet_ntop(AF_INET6, (struct in_addr6 *) &pingaddr.sin6_addr,
+			   inet_ntop(AF_INET6, &pingaddr.sin6_addr,
 						 buf, sizeof(buf)),
 		   datalen);
 
@@ -423,7 +435,7 @@ static void ping(const char *host)
 	pingstats(0);
 }
 
-extern int ping6_main(int argc, char **argv)
+int ping6_main(int argc, char **argv)
 {
 	char *thisarg;
 
@@ -494,8 +506,8 @@ extern int ping6_main(int argc, char **argv)
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * 3. <BSD Advertising Clause omitted per the July 22, 1999 licensing change 
- *		ftp://ftp.cs.berkeley.edu/pub/4bsd/README.Impt.License.Change> 
+ * 3. <BSD Advertising Clause omitted per the July 22, 1999 licensing change
+ *		ftp://ftp.cs.berkeley.edu/pub/4bsd/README.Impt.License.Change>
  *
  * 4. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software

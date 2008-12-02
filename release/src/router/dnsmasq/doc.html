@@ -4,14 +4,29 @@
 </HEAD>
 <BODY BGCOLOR="WHITE"> 
 <H1 ALIGN=center>Dnsmasq</H1> 
-Dnsmasq is a caching DNS forwarder designed to provide DNS service on a 
-small network. It is targeted at home networks using NAT and 
+Dnsmasq is a lightweight, easy to configure DNS forwarder and DHCP
+ server. It is designed to provide DNS and, optionally, DHCP, to a 
+ small network. It can serve the names of local machines which are 
+ not in the global DNS. The DHCP server integrates with the DNS 
+ server and allows machines with DHCP-allocated addresses
+ to appear in the DNS with names configured either in each host or
+ in a central configuration file. Dnsmasq supports static and dynamic 
+ DHCP leases and BOOTP/TFTP for network booting of diskless machines.
+<P>
+ Dnsmasq is targeted at home networks using NAT and 
 connected to the internet via a modem, cable-modem or ADSL
-connection but would be a good choice for any small network where low
+connection but would be a good choice for any smallish network (up to
+1000 clients is known to work) where low
 resource use and ease of configuration are important. 
 <P>
-Dnsmasq is included in at least the following Linux distributions: Gentoo, Debian,
-Smoothwall, IP-Cop, floppyfw, and Firebox.
+Supported platforms include Linux (with glibc and uclibc), *BSD,
+Solaris and Mac OS X.
+Dnsmasq is included in at least the following Linux distributions:
+Gentoo, Debian, Slackware, Suse, Fedora,
+Smoothwall, IP-Cop, floppyfw, Firebox, LEAF, Freesco, fli4l,
+CoyoteLinux, Endian Firewall and
+Clarkconnect. It is also available as FreeBSD, OpenBSD and NetBSD ports and is used in
+Linksys wireless routers (dd-wrt, openwrt and the stock firmware) and the m0n0wall project.
 <P>
 Dnsmasq provides the following features:
 <DIR>
@@ -29,22 +44,22 @@ machine: If the names of local machines are there, then they can all
 be addressed without having to maintain /etc/hosts on each machine.
 </LI>
 <LI>
-Dnsmasq will serve names from the DHCP leases file on the firewall machine:
-If machines specify a hostname when they take out a DHCP lease, then they are
-addressable in the local DNS.
+The integrated DHCP server supports static and dynamic DHCP leases and
+multiple networks and IP ranges. It works across BOOTP relays and
+supports DHCP options including RFC3397 DNS search lists.
+Machines which are configured by DHCP have their names automatically 
+included in the DNS and the names can specified by each machine or
+centrally by associating a name with a MAC address in the dnsmasq
+config file.
 </LI>
 <LI>
 Dnsmasq caches internet addresses (A records and AAAA records) and address-to-name
 mappings (PTR records), reducing the load on upstream servers and
-improving performance (especially on modem connections). From version
-0.95 the cache honours time-to-live information and removes old
-records as they expire. From version 0.996 dnsmasq does negative
-caching. From version 1.2 dnsmasq supports IPv6 addresses, both
-in its cache and in /etc/hosts.
+improving performance (especially on modem connections). 
 </LI>
 <LI>
 Dnsmasq can be configured to automatically pick up the addresses of
-it's upstream nameservers from ppp or dhcp configuration. It will
+its upstream nameservers from ppp or dhcp configuration. It will
 automatically reload this information if it changes. This facility
 will be of particular interest to maintainers of Linux firewall
 distributions since it allows dns configuration to be made automatic.
@@ -59,35 +74,37 @@ Dnsmasq can be configured to send queries for certain domains to
 upstream servers handling only those domains. This makes integration
 with private DNS systems easy.
 </LI>
+<LI>
+Dnsmasq supports MX and SRV records and can be configured to return MX records
+for any or all local machines.
+</LI>
 </DIR>
-<P>
-Dnsmasq has one further feature; it can be configured to return an MX record 
-for the firewall host. This makes it easy to configure the mailer on the local 
-machines to forward all mail to the central mailer on the firewall host. Never 
-lose root messages from your machines again!
 
 <H2>Download.</H2>
 
-Download dnsmasq <A HREF="http://www.thekelleys.org.uk/dnsmasq/"> here</A>. 
-The tarball includes this documentation, source, manpage and control files for building .rpms.
-There are also pre-built i386 .rpms, and a 
-<A HREF="http://www.thekelleys.org.uk/dnsmasq/CHANGELOG"> CHANGELOG</A>.
+<A HREF="http://www.thekelleys.org.uk/dnsmasq/"> Download</A> dnsmasq here. 
+The tarball includes this documentation, source, and manpage.
+There is also a <A HREF="CHANGELOG"> CHANGELOG</A> and a <A HREF="FAQ">FAQ</A>.
 Dnsmasq is part of the Debian distribution, it can be downloaded from 
 <A HREF="http://ftp.debian.org/debian/pool/main/d/dnsmasq/"> here</A> or installed using <TT>apt</TT>.
 
-
-<H2>Building rpms.</H2>
-Assuming you have the relevant tools installed, you can rebuild .rpms simply by running (as root)
-
-<PRE>
-rpm -ta dnsmasq-xxx.tar.gz
-</PRE>
-
+<H2>Links.</H2>
+There is an article in German on dnsmasq at <A
+HREF="http://www.linuxnetmag.com/de/issue7/m7dnsmasq1.html">http://www.linuxnetmag.com/de/issue7/m7dnsmasq1.html</A>
+and Damien Raude-Morvan has one in French at <A HREF="http://www.drazzib.com/docs-dnsmasq.html">http://www.drazzib.com/docs-dnsmasq.html</A>
+There is a good article about dnsmasq at <A
+HREF="http://www.enterprisenetworkingplanet.com/netos/article.php/3377351">http://www.enterprisenetworkingplanet.com/netos/article.php/3377351</A>
+and Ilya Evseev has an article in Russian about dnsmasq to be found at <A HREF="http://ilya-evseev.narod.ru/articles/dnsmasq"> http://ilya-evseev.narod.ru/articles/dnsmasq</A>
 <H2>License.</H2>
 Dnsmasq is distributed under the GPL. See the file COPYING in the distribution 
 for details.
 
 <H2>Contact.</H2>
-Dnsmasq was written by Simon Kelley. You can contact me at <A HREF="mailto:simon@thekelleys.org.uk">simon@thekelleys.org.uk</A>. Bugreports, patches, and suggestions for improvements gratefully accepted.
+There is a dnsmasq mailing list at <A
+HREF="http://lists.thekelleys.org.uk/mailman/listinfo/dnsmasq-discuss">
+http://lists.thekelleys.org.uk/mailman/listinfo/dnsmasq-discuss</A> which should be the
+first location for queries, bugreports, suggestions etc.
+Dnsmasq was written by Simon Kelley. You can contact me at <A
+HREF="mailto:simon@thekelleys.org.uk">simon@thekelleys.org.uk</A>.
 </BODY>
 

@@ -10,6 +10,8 @@
 #define LKC_DIRECT_LINK
 #include "lkc.h"
 
+#define DEBUG_EXPR	0
+
 struct expr *expr_alloc_symbol(struct symbol *sym)
 {
 	struct expr *e = malloc(sizeof(*e));
@@ -53,6 +55,13 @@ struct expr *expr_alloc_and(struct expr *e1, struct expr *e2)
 	if (!e1)
 		return e2;
 	return e2 ? expr_alloc_two(E_AND, e1, e2) : e1;
+}
+
+struct expr *expr_alloc_or(struct expr *e1, struct expr *e2)
+{
+	if (!e1)
+		return e2;
+	return e2 ? expr_alloc_two(E_OR, e1, e2) : e1;
 }
 
 struct expr *expr_copy(struct expr *org)
@@ -158,9 +167,22 @@ static void __expr_eliminate_eq(enum expr_type type, struct expr **ep1, struct e
 
 void expr_eliminate_eq(struct expr **ep1, struct expr **ep2)
 {
-	if (!e1 || !e2 || e1->type != e2->type)
+	if (!e1 || !e2)
 		return;
-	__expr_eliminate_eq(e1->type, ep1, ep2);
+	switch (e1->type) {
+	case E_OR:
+	case E_AND:
+		__expr_eliminate_eq(e1->type, ep1, ep2);
+	default:
+		;
+	}
+	if (e1->type != e2->type) switch (e2->type) {
+	case E_OR:
+	case E_AND:
+		__expr_eliminate_eq(e2->type, ep1, ep2);
+	default:
+		;
+	}
 	e1 = expr_eliminate_yn(e1);
 	e2 = expr_eliminate_yn(e2);
 }
@@ -195,14 +217,17 @@ int expr_eq(struct expr *e1, struct expr *e2)
 		trans_count = old_count;
 		return res;
 	case E_CHOICE:
+	case E_RANGE:
 	case E_NONE:
 		/* panic */;
 	}
 
-	print_expr(0, e1, 0);
-	printf(" = ");
-	print_expr(0, e2, 0);
-	printf(" ?\n");
+	if (DEBUG_EXPR) {
+		expr_fprint(e1, stdout);
+		printf(" = ");
+		expr_fprint(e2, stdout);
+		printf(" ?\n");
+	}
 
 	return 0;
 }
@@ -376,11 +401,13 @@ struct expr *expr_join_or(struct expr *e1, struct expr *e2)
 			return expr_alloc_symbol(&symbol_yes);
 	}
 
-	printf("optimize ");
-	print_expr(0, e1, 0);
-	printf(" || ");
-	print_expr(0, e2, 0);
-	printf(" ?\n");
+	if (DEBUG_EXPR) {
+		printf("optimize (");
+		expr_fprint(e1, stdout);
+		printf(") || (");
+		expr_fprint(e2, stdout);
+		printf(")?\n");
+	}
 	return NULL;
 }
 
@@ -423,6 +450,11 @@ struct expr *expr_join_and(struct expr *e1, struct expr *e2)
 		// (a) && (a!='n') -> (a)
 		return expr_alloc_symbol(sym1);
 
+	if ((e1->type == E_SYMBOL && e2->type == E_UNEQUAL && e2->right.sym == &symbol_mod) ||
+	    (e2->type == E_SYMBOL && e1->type == E_UNEQUAL && e1->right.sym == &symbol_mod))
+		// (a) && (a!='m') -> (a='y')
+		return expr_alloc_comp(E_EQUAL, sym1, &symbol_yes);
+
 	if (sym1->type == S_TRISTATE) {
 		if (e1->type == E_EQUAL && e2->type == E_UNEQUAL) {
 			// (a='b') && (a!='c') -> 'b'='c' ? 'n' : a='b'
@@ -462,11 +494,14 @@ struct expr *expr_join_and(struct expr *e1, struct expr *e2)
 		    (e2->type == E_SYMBOL && e1->type == E_UNEQUAL && e1->right.sym == &symbol_yes))
 			return NULL;
 	}
-	printf("optimize ");
-	print_expr(0, e1, 0);
-	printf(" && ");
-	print_expr(0, e2, 0);
-	printf(" ?\n");
+
+	if (DEBUG_EXPR) {
+		printf("optimize (");
+		expr_fprint(e1, stdout);
+		printf(") && (");
+		expr_fprint(e2, stdout);
+		printf(")?\n");
+	}
 	return NULL;
 }
 
@@ -789,7 +824,7 @@ bool expr_depends_symbol(struct expr *dep, struct symbol *sym)
 	default:
 		;
 	}
- 	return false;
+	return false;
 }
 
 struct expr *expr_extract_eq_and(struct expr **ep1, struct expr **ep2)
@@ -897,6 +932,7 @@ struct expr *expr_trans_compare(struct expr *e, enum expr_type type, struct symb
 	case E_SYMBOL:
 		return expr_alloc_comp(type, e->left.sym, sym);
 	case E_CHOICE:
+	case E_RANGE:
 	case E_NONE:
 		/* panic */;
 	}
@@ -914,7 +950,7 @@ tristate expr_calc_value(struct expr *e)
 	switch (e->type) {
 	case E_SYMBOL:
 		sym_calc_value(e->left.sym);
-		return S_TRI(e->left.sym->curr);
+		return e->left.sym->curr.tri;
 	case E_AND:
 		val1 = expr_calc_value(e->left.expr);
 		val2 = expr_calc_value(e->right.expr);
@@ -1017,11 +1053,18 @@ void expr_print(struct expr *e, void (*fn)(void *, const char *), void *data, in
 		expr_print(e->right.expr, fn, data, E_AND);
 		break;
 	case E_CHOICE:
-		if (e->left.expr) {
-			expr_print(e->left.expr, fn, data, E_CHOICE);
-			fn(data, " ^ ");
-		}
 		fn(data, e->right.sym->name);
+		if (e->left.expr) {
+			fn(data, " ^ ");
+			expr_print(e->left.expr, fn, data, E_CHOICE);
+		}
+		break;
+	case E_RANGE:
+		fn(data, "[");
+		fn(data, e->left.sym->name);
+		fn(data, " ");
+		fn(data, e->right.sym->name);
+		fn(data, "]");
 		break;
 	default:
 	  {
@@ -1045,10 +1088,12 @@ void expr_fprint(struct expr *e, FILE *out)
 	expr_print(e, expr_print_file_helper, out, E_NONE);
 }
 
-void print_expr(int mask, struct expr *e, int prevtoken)
+static void expr_print_gstr_helper(void *data, const char *str)
 {
-	if (!(cdebug & mask))
-		return;
-	expr_fprint(e, stdout);
+	str_append((struct gstr*)data, str);
 }
 
+void expr_gstr_print(struct expr *e, struct gstr *gs)
+{
+	expr_print(e, expr_print_gstr_helper, gs, E_NONE);
+}

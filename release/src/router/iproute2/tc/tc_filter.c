@@ -28,7 +28,7 @@
 #include "tc_util.h"
 #include "tc_common.h"
 
-static void usage(void) __attribute__((noreturn));
+static void usage(void);
 
 static void usage(void)
 {
@@ -43,17 +43,16 @@ static void usage(void)
 	fprintf(stderr, "FILTER_TYPE := { rsvp | u32 | fw | route | etc. }\n");
 	fprintf(stderr, "FILTERID := ... format depends on classifier, see there\n");
 	fprintf(stderr, "OPTIONS := ... try tc filter add <desired FILTER_KIND> help\n");
-	exit(-1);
+	return;
 }
 
 
 int tc_filter_modify(int cmd, unsigned flags, int argc, char **argv)
 {
-	struct rtnl_handle rth;
 	struct {
 		struct nlmsghdr 	n;
 		struct tcmsg 		t;
-		char   			buf[4096];
+		char   			buf[MAX_MSG];
 	} req;
 	struct filter_util *q = NULL;
 	__u32 prio = 0;
@@ -83,7 +82,7 @@ int tc_filter_modify(int cmd, unsigned flags, int argc, char **argv)
 		} else if (strcmp(*argv, "root") == 0) {
 			if (req.t.tcm_parent) {
 				fprintf(stderr, "Error: \"root\" is duplicate parent ID\n");
-				exit(-1);
+				return -1;
 			}
 			req.t.tcm_parent = TC_H_ROOT;
 		} else if (strcmp(*argv, "parent") == 0) {
@@ -137,42 +136,38 @@ int tc_filter_modify(int cmd, unsigned flags, int argc, char **argv)
 
 	if (q) {
 		if (q->parse_fopt(q, fhandle, argc, argv, &req.n))
-			exit(1);
+			return 1;
 	} else {
 		if (fhandle) {
 			fprintf(stderr, "Must specify filter type when using "
 				"\"handle\"\n");
-			exit(-1);
+			return -1;
 		}
 		if (argc) {
 			if (matches(*argv, "help") == 0)
 				usage();
 			fprintf(stderr, "Garbage instead of arguments \"%s ...\". Try \"tc filter help\".\n", *argv);
-			exit(-1);
+			return -1;
 		}
 	}
 	if (est.ewma_log)
 		addattr_l(&req.n, sizeof(req), TCA_RATE, &est, sizeof(est));
 
 
-	if (rtnl_open(&rth, 0) < 0) {
-		fprintf(stderr, "Cannot open rtnetlink\n");
-		exit(1);
-	}
-
 	if (d[0])  {
-		ll_init_map(&rth);
+ 		ll_init_map(&rth);
 
 		if ((req.t.tcm_ifindex = ll_name_to_index(d)) == 0) {
 			fprintf(stderr, "Cannot find device \"%s\"\n", d);
-			exit(1);
+			return 1;
 		}
 	}
 
-	if (rtnl_talk(&rth, &req.n, 0, 0, NULL, NULL, NULL) < 0)
-		exit(2);
+ 	if (rtnl_talk(&rth, &req.n, 0, 0, NULL, NULL, NULL) < 0) {
+		fprintf(stderr, "We have an error talking to the kernel\n");
+		return 2;
+	}
 
-	rtnl_close(&rth);
 	return 0;
 }
 
@@ -181,7 +176,9 @@ static int filter_ifindex;
 static __u32 filter_prio;
 static __u32 filter_protocol;
 
-int print_filter(struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
+static int print_filter(const struct sockaddr_nl *who,
+			struct nlmsghdr *n, 
+			void *arg)
 {
 	FILE *fp = (FILE*)arg;
 	struct tcmsg *t = NLMSG_DATA(n);
@@ -204,7 +201,7 @@ int print_filter(struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
 	parse_rtattr(tb, TCA_MAX, TCA_RTA(t), len);
 
 	if (tb[TCA_KIND] == NULL) {
-		fprintf(stderr, "NULL kind\n");
+		fprintf(stderr, "print_filter: NULL kind\n");
 		return -1;
 	}
 
@@ -239,25 +236,20 @@ int print_filter(struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
 		}
 	}
 	fprintf(fp, "%s ", (char*)RTA_DATA(tb[TCA_KIND]));
-	if ((q = get_filter_kind(RTA_DATA(tb[TCA_KIND]))) != NULL)
-		q->print_fopt(q, fp, tb[TCA_OPTIONS], t->tcm_handle);
-	else
-		fprintf(fp, "[UNKNOWN]");
+	q = get_filter_kind(RTA_DATA(tb[TCA_KIND]));
+	if (tb[TCA_OPTIONS]) {
+		if (q)
+			q->print_fopt(q, fp, tb[TCA_OPTIONS], t->tcm_handle);
+		else
+			fprintf(fp, "[cannot parse parameters]");
+	}
 	fprintf(fp, "\n");
 
-	if (show_stats) {
-		if (tb[TCA_STATS]) {
-			//if (RTA_PAYLOAD(tb[TCA_STATS]) < sizeof(struct tc_stats))
-			if (RTA_PAYLOAD(tb[TCA_STATS]) < 36)
-				fprintf(fp, "statistics truncated");
-			else {
-				struct tc_stats st;
-				memcpy(&st, RTA_DATA(tb[TCA_STATS]), sizeof(st));
-				print_tcstats(fp, &st);
-				fprintf(fp, "\n");
-			}
-		}
+	if (show_stats && (tb[TCA_STATS] || tb[TCA_STATS2])) {
+		print_tcstats_attr(fp, tb, " ", NULL);
+		fprintf(fp, "\n");
 	}
+
 	fflush(fp);
 	return 0;
 }
@@ -266,7 +258,6 @@ int print_filter(struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
 int tc_filter_list(int argc, char **argv)
 {
 	struct tcmsg t;
-	struct rtnl_handle rth;
 	char d[16];
 	__u32 prio = 0;
 	__u32 protocol = 0;
@@ -285,7 +276,7 @@ int tc_filter_list(int argc, char **argv)
 		} else if (strcmp(*argv, "root") == 0) {
 			if (t.tcm_parent) {
 				fprintf(stderr, "Error: \"root\" is duplicate parent ID\n");
-				exit(-1);
+				return -1;
 			}
 			filter_parent = t.tcm_parent = TC_H_ROOT;
 		} else if (strcmp(*argv, "parent") == 0) {
@@ -322,7 +313,7 @@ int tc_filter_list(int argc, char **argv)
 			usage();
 		} else {
 			fprintf(stderr, " What is \"%s\"? Try \"tc filter help\"\n", *argv);
-			exit(-1);
+			return -1;
 		}
 
 		argc--; argv++;
@@ -330,32 +321,26 @@ int tc_filter_list(int argc, char **argv)
 
 	t.tcm_info = TC_H_MAKE(prio<<16, protocol);
 
-	if (rtnl_open(&rth, 0) < 0) {
-		fprintf(stderr, "Cannot open rtnetlink\n");
-		exit(1);
-	}
-
-	ll_init_map(&rth);
+ 	ll_init_map(&rth);
 
 	if (d[0]) {
 		if ((t.tcm_ifindex = ll_name_to_index(d)) == 0) {
 			fprintf(stderr, "Cannot find device \"%s\"\n", d);
-			exit(1);
+			return 1;
 		}
 		filter_ifindex = t.tcm_ifindex;
 	}
 
-	if (rtnl_dump_request(&rth, RTM_GETTFILTER, &t, sizeof(t)) < 0) {
+ 	if (rtnl_dump_request(&rth, RTM_GETTFILTER, &t, sizeof(t)) < 0) {
 		perror("Cannot send dump request");
-		exit(1);
+		return 1;
 	}
 
-	if (rtnl_dump_filter(&rth, print_filter, stdout, NULL, NULL) < 0) {
+ 	if (rtnl_dump_filter(&rth, print_filter, stdout, NULL, NULL) < 0) {
 		fprintf(stderr, "Dump terminated\n");
-		exit(1);
+		return 1;
 	}
 
-	rtnl_close(&rth);
 	return 0;
 }
 
@@ -381,6 +366,6 @@ int do_filter(int argc, char **argv)
 	if (matches(*argv, "help") == 0)
 		usage();
 	fprintf(stderr, "Command \"%s\" is unknown, try \"tc filter help\".\n", *argv);
-	exit(-1);
+	return -1;
 }
 

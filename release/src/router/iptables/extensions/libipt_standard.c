@@ -48,19 +48,19 @@ save(const struct ipt_ip *ip, const struct ipt_entry_target *target)
 }
 
 static
-struct iptables_target standard
-= { NULL,
-    "standard",
-    IPTABLES_VERSION,
-    IPT_ALIGN(sizeof(int)),
-    IPT_ALIGN(sizeof(int)),
-    &help,
-    &init,
-    &parse,
-    &final_check,
-    NULL, /* print */
-    &save,
-    opts
+struct iptables_target standard = { 
+	.next		= NULL,
+	.name		= "standard",
+	.version	= IPTABLES_VERSION,
+	.size		= IPT_ALIGN(sizeof(int)),
+	.userspacesize	= IPT_ALIGN(sizeof(int)),
+	.help		= &help,
+	.init		= &init,
+	.parse		= &parse,
+	.final_check	= &final_check,
+	.print		= NULL,
+	.save		= &save,
+	.extra_opts	= opts
 };
 
 void _init(void)

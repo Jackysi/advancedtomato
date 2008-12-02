@@ -1,18 +1,29 @@
 #!/bin/sh
+SECS=1167609600
 
-SECS=$1
+cd /etc
+
+NVCN=`nvram get https_crt_cn`
+if [ "$NVCN" == "" ]; then
+	NVCN=`nvram get lan_ipaddr`
+fi
+
+cp -L openssl.cnf openssl.config
+
+I=0
+for CN in $NVCN; do
+        echo "$I.commonName=CN" >> openssl.config
+        echo "$I.commonName_value=$CN" >> openssl.config
+        I=$(($I + 1))
+done
 
 # create the key and certificate request
-openssl req -new -out /tmp/cert.csr -config /etc/openssl.cnf -keyout /tmp/privkey.pem -newkey rsa:512 -passout pass:password
+openssl req -new -out /tmp/cert.csr -config openssl.config -keyout /tmp/privkey.pem -newkey rsa:512 -passout pass:password
 # remove the passphrase from the key
-openssl rsa -in /tmp/privkey.pem -out /tmp/key.pem -passin pass:password
+openssl rsa -in /tmp/privkey.pem -out key.pem -passin pass:password
 # convert the certificate request into a signed certificate
-if test "$SECS" -eq "" ; then
-	openssl x509 -in /tmp/cert.csr -out /tmp/cert.pem -req -signkey /tmp/key.pem -days 3650
-else
-	openssl x509 -in /tmp/cert.csr -out /tmp/cert.pem -req -signkey /tmp/key.pem -days 3650 -setstartsecs $SECS
-fi
-# Show human-readable format
-openssl x509 -in /tmp/cert.pem -text -noout
-# Remove unused files
-rm -f /tmp/cert.csr /tmp/privkey.pem
+openssl x509 -in /tmp/cert.csr -out cert.pem -req -signkey key.pem -setstartsecs $SECS -days 3653 -set_serial $1
+
+#	openssl x509 -in /etc/cert.pem -text -noout
+
+rm -f /tmp/cert.csr /tmp/privkey.pem openssl.config

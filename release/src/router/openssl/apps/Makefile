@@ -17,8 +17,8 @@ PERL=/usr/local/bin/perl
 RM=		rm -f
 
 PEX_LIBS=
-EX_LIBS= 
-EXE_EXT= 
+EX_LIBS=
+EXE_EXT=
 
 CFLAGS= -DMONOLITH $(INCLUDES) $(CFLAG)
 
@@ -83,7 +83,7 @@ exe:	$(PROGRAM)
 req: sreq.o $(A_OBJ) $(DLIBCRYPTO)
 	$(CC) -o req $(CFLAG) sreq.o $(A_OBJ) $(RAND_OBJ) $(PEX_LIBS) $(LIBCRYPTO) $(EX_LIBS)
 
-sreq.o: req.c 
+sreq.o: req.c
 	$(CC) -c $(INCLUDES) $(CFLAG) -o sreq.o req.c
 
 files:
@@ -135,8 +135,9 @@ $(DLIBCRYPTO):
 
 $(PROGRAM): progs.h $(E_OBJ) $(PROGRAM).o $(DLIBCRYPTO) $(DLIBSSL)
 	$(RM) $(PROGRAM)
-	$(CC) -o $(PROGRAM) $(CFLAGS) $(PROGRAM).o $(E_OBJ) $(PEX_LIBS) $(LIBSSL) $(LIBCRYPTO) $(EX_LIBS)
-	-(cd ..; OPENSSL="`pwd`/apps/openssl"; export OPENSSL; $(PERL) tools/c_rehash certs)
+	$(CC) -o $(PROGRAM) $(CFLAGS) $(PROGRAM).o $(E_OBJ) $(PEX_LIBS) $(LIBCRYPTO) $(EX_LIBS)
+#jz		$(CC) -o $(PROGRAM) $(CFLAGS) $(PROGRAM).o $(E_OBJ) $(PEX_LIBS) $(LIBSSL) $(LIBCRYPTO) $(EX_LIBS)
+#jz		-(cd ..; OPENSSL="`pwd`/apps/openssl"; export OPENSSL; $(PERL) tools/c_rehash certs)
 
 progs.h: progs.pl
 	$(PERL) progs.pl $(E_EXE) >progs.h

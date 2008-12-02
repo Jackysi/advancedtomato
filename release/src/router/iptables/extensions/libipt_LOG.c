@@ -11,6 +11,12 @@
 
 #define LOG_DEFAULT_LEVEL LOG_WARNING
 
+#ifndef IPT_LOG_UID /* Old kernel */
+#define IPT_LOG_UID	0x08	/* Log UID owning local socket */
+#undef  IPT_LOG_MASK
+#define IPT_LOG_MASK	0x0f
+#endif
+
 /* Function which prints out usage message. */
 static void
 help(void)
@@ -21,17 +27,19 @@ help(void)
 " --log-prefix prefix		Prefix log messages with this prefix.\n\n"
 " --log-tcp-sequence		Log TCP sequence numbers.\n\n"
 " --log-tcp-options		Log TCP options.\n\n"
-" --log-ip-options		Log IP options.\n\n",
+" --log-ip-options		Log IP options.\n\n"
+" --log-uid			Log UID owning the local socket.\n\n",
 IPTABLES_VERSION);
 }
 
 static struct option opts[] = {
-	{ "log-level", 1, 0, '!' },
-	{ "log-prefix", 1, 0, '#' },
-	{ "log-tcp-sequence", 0, 0, '1' },
-	{ "log-tcp-options", 0, 0, '2' },
-	{ "log-ip-options", 0, 0, '3' },
-	{ 0 }
+	{ .name = "log-level",        .has_arg = 1, .flag = 0, .val = '!' },
+	{ .name = "log-prefix",       .has_arg = 1, .flag = 0, .val = '#' },
+	{ .name = "log-tcp-sequence", .has_arg = 0, .flag = 0, .val = '1' },
+	{ .name = "log-tcp-options",  .has_arg = 0, .flag = 0, .val = '2' },
+	{ .name = "log-ip-options",   .has_arg = 0, .flag = 0, .val = '3' },
+	{ .name = "log-uid",          .has_arg = 0, .flag = 0, .val = '4' },
+	{ .name = 0 }
 };
 
 /* Initialize the target. */
@@ -42,8 +50,6 @@ init(struct ipt_entry_target *t, unsigned int *nfcache)
 
 	loginfo->level = LOG_DEFAULT_LEVEL;
 
-	/* Can't cache this */
-	*nfcache |= NFC_UNKNOWN;
 }
 
 struct ipt_log_names {
@@ -52,15 +58,15 @@ struct ipt_log_names {
 };
 
 static struct ipt_log_names ipt_log_names[]
-= { { "alert", LOG_ALERT },
-    { "crit", LOG_CRIT },
-    { "debug", LOG_DEBUG },
-    { "emerg", LOG_EMERG },
-    { "error", LOG_ERR },		/* DEPRECATED */
-    { "info", LOG_INFO },
-    { "notice", LOG_NOTICE },
-    { "panic", LOG_EMERG },		/* DEPRECATED */
-    { "warning", LOG_WARNING }
+= { { .name = "alert",   .level = LOG_ALERT },
+    { .name = "crit",    .level = LOG_CRIT },
+    { .name = "debug",   .level = LOG_DEBUG },
+    { .name = "emerg",   .level = LOG_EMERG },
+    { .name = "error",   .level = LOG_ERR },		/* DEPRECATED */
+    { .name = "info",    .level = LOG_INFO },
+    { .name = "notice",  .level = LOG_NOTICE },
+    { .name = "panic",   .level = LOG_EMERG },		/* DEPRECATED */
+    { .name = "warning", .level = LOG_WARNING }
 };
 
 static u_int8_t
@@ -98,6 +104,7 @@ parse_level(const char *level)
 #define IPT_LOG_OPT_TCPSEQ 0x04
 #define IPT_LOG_OPT_TCPOPT 0x08
 #define IPT_LOG_OPT_IPOPT 0x10
+#define IPT_LOG_OPT_UID 0x20
 
 /* Function which parses command options; returns true if it
    ate an option */
@@ -134,7 +141,15 @@ parse(int c, char **argv, int invert, unsigned int *flags,
 		if (strlen(optarg) > sizeof(loginfo->prefix) - 1)
 			exit_error(PARAMETER_PROBLEM,
 				   "Maximum prefix length %u for --log-prefix",
-				   sizeof(loginfo->prefix) - 1);
+				   (unsigned int)sizeof(loginfo->prefix) - 1);
+
+		if (strlen(optarg) == 0)
+			exit_error(PARAMETER_PROBLEM,
+				   "No prefix specified for --log-prefix");
+
+		if (strlen(optarg) != strlen(strtok(optarg, "\n")))
+			exit_error(PARAMETER_PROBLEM,
+				   "Newlines not allowed in --log-prefix");
 
 		strcpy(loginfo->prefix, optarg);
 		*flags |= IPT_LOG_OPT_PREFIX;
@@ -166,6 +181,15 @@ parse(int c, char **argv, int invert, unsigned int *flags,
 
 		loginfo->logflags |= IPT_LOG_IPOPT;
 		*flags |= IPT_LOG_OPT_IPOPT;
+		break;
+
+	case '4':
+		if (*flags & IPT_LOG_OPT_UID)
+			exit_error(PARAMETER_PROBLEM,
+				   "Can't specify --log-uid twice");
+
+		loginfo->logflags |= IPT_LOG_UID;
+		*flags |= IPT_LOG_OPT_UID;
 		break;
 
 	default:
@@ -211,6 +235,8 @@ print(const struct ipt_ip *ip,
 			printf("tcp-options ");
 		if (loginfo->logflags & IPT_LOG_IPOPT)
 			printf("ip-options ");
+		if (loginfo->logflags & IPT_LOG_UID)
+			printf("uid ");
 		if (loginfo->logflags & ~(IPT_LOG_MASK))
 			printf("unknown-flags ");
 	}
@@ -230,7 +256,7 @@ save(const struct ipt_ip *ip, const struct ipt_entry_target *target)
 		printf("--log-prefix \"%s\" ", loginfo->prefix);
 
 	if (loginfo->level != LOG_DEFAULT_LEVEL)
-		printf("--log-level %u ", loginfo->level);
+		printf("--log-level %d ", loginfo->level);
 
 	if (loginfo->logflags & IPT_LOG_TCPSEQ)
 		printf("--log-tcp-sequence ");
@@ -238,22 +264,24 @@ save(const struct ipt_ip *ip, const struct ipt_entry_target *target)
 		printf("--log-tcp-options ");
 	if (loginfo->logflags & IPT_LOG_IPOPT)
 		printf("--log-ip-options ");
+	if (loginfo->logflags & IPT_LOG_UID)
+		printf("--log-uid ");
 }
 
 static
 struct iptables_target log
-= { NULL,
-    "LOG",
-    IPTABLES_VERSION,
-    IPT_ALIGN(sizeof(struct ipt_log_info)),
-    IPT_ALIGN(sizeof(struct ipt_log_info)),
-    &help,
-    &init,
-    &parse,
-    &final_check,
-    &print,
-    &save,
-    opts
+= {
+    .name          = "LOG",
+    .version       = IPTABLES_VERSION,
+    .size          = IPT_ALIGN(sizeof(struct ipt_log_info)),
+    .userspacesize = IPT_ALIGN(sizeof(struct ipt_log_info)),
+    .help          = &help,
+    .init          = &init,
+    .parse         = &parse,
+    .final_check   = &final_check,
+    .print         = &print,
+    .save          = &save,
+    .extra_opts    = opts
 };
 
 void _init(void)

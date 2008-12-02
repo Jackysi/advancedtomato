@@ -2,27 +2,10 @@
 /*
  * Utility routines.
  *
- * Copyright (C) tons of folks.  Tracking down who wrote what
- * isn't something I'm going to worry about...  If you wrote something
- * here, please feel free to acknowledge your work.
+ * Copyright (C) many different people.
+ * If you wrote this, please acknowledge your work.
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
- *
- * Based in part on code from sash, Copyright (c) 1999 by David I. Bell 
- * Permission has been granted to redistribute this code under the GPL.
- *
+ * Licensed under GPLv2 or later, see file LICENSE in this tarball for details.
  */
 
 #include <stdio.h>
@@ -32,6 +15,13 @@
 
 #define HASH_SIZE	311		/* Should be prime */
 #define hash_inode(i)	((i) % HASH_SIZE)
+
+typedef struct ino_dev_hash_bucket_struct {
+  struct ino_dev_hash_bucket_struct *next;
+  ino_t ino;
+  dev_t dev;
+  char name[1];
+} ino_dev_hashtable_bucket_t;
 
 static ino_dev_hashtable_bucket_t *ino_dev_hashtable[HASH_SIZE];
 
@@ -66,7 +56,7 @@ void add_to_ino_dev_hashtable(const struct stat *statbuf, const char *name)
 	int i;
 	size_t s;
 	ino_dev_hashtable_bucket_t *bucket;
-    
+
 	i = hash_inode(statbuf->st_ino);
 	s = name ? strlen(name) : 0;
 	bucket = xmalloc(sizeof(ino_dev_hashtable_bucket_t) + s);
@@ -80,6 +70,7 @@ void add_to_ino_dev_hashtable(const struct stat *statbuf, const char *name)
 	ino_dev_hashtable[i] = bucket;
 }
 
+#ifdef CONFIG_FEATURE_CLEAN_UP
 /* Clear statbuf hash table */
 void reset_ino_dev_hashtable(void)
 {
@@ -94,13 +85,4 @@ void reset_ino_dev_hashtable(void)
 		}
 	}
 }
-
-
-/* END CODE */
-/*
-Local Variables:
-c-file-style: "linux"
-c-basic-offset: 4
-tab-width: 4
-End:
-*/
+#endif

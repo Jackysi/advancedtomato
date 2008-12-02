@@ -33,8 +33,6 @@ init(struct ipt_entry_target *t, unsigned int *nfcache)
 	/* Actually, it's 0, but it's ignored at the moment. */
 	mr->rangesize = 1;
 
-	/* Can't cache this */
-	*nfcache |= NFC_UNKNOWN;
 }
 
 /* Parses ports */
@@ -45,6 +43,9 @@ parse_ports(const char *arg, struct ip_nat_multi_range *mr)
 	int port;
 
 	mr->range[0].flags |= IP_NAT_RANGE_PROTO_SPECIFIED;
+
+	if (strchr(arg, '.'))
+		exit_error(PARAMETER_PROBLEM, "IP address not permitted\n");
 
 	port = atoi(arg);
 	if (port == 0 || port > 65535)
@@ -83,7 +84,8 @@ parse(int c, char **argv, int invert, unsigned int *flags,
 	int portok;
 
 	if (entry->ip.proto == IPPROTO_TCP
-	    || entry->ip.proto == IPPROTO_UDP)
+	    || entry->ip.proto == IPPROTO_UDP
+	    || entry->ip.proto == IPPROTO_ICMP)
 		portok = 1;
 	else
 		portok = 0;
@@ -147,20 +149,19 @@ save(const struct ipt_ip *ip, const struct ipt_entry_target *target)
 	}
 }
 
-static
-struct iptables_target redir
-= { NULL,
-    "REDIRECT",
-    IPTABLES_VERSION,
-    IPT_ALIGN(sizeof(struct ip_nat_multi_range)),
-    IPT_ALIGN(sizeof(struct ip_nat_multi_range)),
-    &help,
-    &init,
-    &parse,
-    &final_check,
-    &print,
-    &save,
-    opts
+static struct iptables_target redir = { 
+	.next		= NULL,
+	.name		= "REDIRECT",
+	.version	= IPTABLES_VERSION,
+	.size		= IPT_ALIGN(sizeof(struct ip_nat_multi_range)),
+	.userspacesize	= IPT_ALIGN(sizeof(struct ip_nat_multi_range)),
+	.help		= &help,
+	.init		= &init,
+ 	.parse		= &parse,
+	.final_check	= &final_check,
+	.print		= &print,
+	.save		= &save,
+	.extra_opts	= opts
 };
 
 void _init(void)

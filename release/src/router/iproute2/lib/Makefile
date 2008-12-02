@@ -6,10 +6,12 @@ NLOBJ=ll_map.o libnetlink.o
 all: libnetlink.a libutil.a
 
 libnetlink.a: $(NLOBJ)
-	ar rcs $@ $(NLOBJ)
+	$(AR) rcs $@ $(NLOBJ)
 
 libutil.a: $(UTILOBJ) $(ADDLIB)
-	ar rcs $@ $(UTILOBJ) $(ADDLIB)
+	$(AR) rcs $@ $(UTILOBJ) $(ADDLIB)
+
+install:
 
 clean:
 	rm -f $(NLOBJ) $(UTILOBJ) $(ADDLIB) libnetlink.a libutil.a

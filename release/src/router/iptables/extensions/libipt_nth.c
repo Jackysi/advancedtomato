@@ -5,12 +5,11 @@
    License (GPL). Copies of the GPL can be obtained from:
    ftp://prep.ai.mit.edu/pub/gnu/GPL
 
-   2001-07-17 Fabrice MARIE <fabrice@celestix.com> : initial development.
+   2001-07-17 Fabrice MARIE <fabrice@netfilter.org> : initial development.
    2001-09-20 Richard Wagner (rwagner@cloudnet.com)
         * added support for multiple counters
         * added support for matching on individual packets
           in the counter cycle
-
 */
 
 #include <stdio.h>
@@ -31,10 +30,10 @@ help(void)
 	printf(
 "nth v%s options:\n"
 "   --every     Nth              Match every Nth packet\n"
-"  [--counter]  num              Use counter 0-%u (default:0)\n"
-"  [--start]    num              Initialize the counter at the number 'num'\n"
+"  [--counter   num ]            Use counter 0-%u (default:0)\n"
+"  [--start     num ]            Initialize the counter at the number 'num'\n"
 "                                instead of 0. Must be between 0 and Nth-1\n"
-"  [--packet]   num              Match on 'num' packet. Must be between 0\n"
+"  [--packet    num ]            Match on 'num' packet. Must be between 0\n"
 "                                and Nth-1.\n\n"
 "                                If --packet is used for a counter than\n"
 "                                there must be Nth number of --packet\n"
@@ -50,13 +49,6 @@ static struct option opts[] = {
         { "packet", 1, 0, '4' },
 	{ 0 }
 };
-
-/* Initialize the target. */
-static void
-init(struct ipt_entry_match *m, unsigned int *nfcache)
-{
-	*nfcache |= NFC_UNKNOWN;
-}
 
 #define IPT_NTH_OPT_EVERY	0x01
 #define IPT_NTH_OPT_NOT_EVERY	0x02
@@ -218,19 +210,18 @@ save(const struct ipt_ip *ip, const struct ipt_entry_match *match)
                 printf("--packet %u ", nthinfo->packet );
 }
 
-struct iptables_match nth
-= { NULL,
-    "nth",
-    IPTABLES_VERSION,
-    IPT_ALIGN(sizeof(struct ipt_nth_info)),
-    IPT_ALIGN(sizeof(struct ipt_nth_info)),
-    &help,
-    &init,
-    &parse,
-    &final_check,
-    &print,
-    &save,
-    opts
+static struct iptables_match nth = { 
+	.next		= NULL,
+	.name		= "nth",
+	.version	= IPTABLES_VERSION,
+	.size		= IPT_ALIGN(sizeof(struct ipt_nth_info)),
+	.userspacesize	= IPT_ALIGN(sizeof(struct ipt_nth_info)),
+	.help		= &help,
+	.parse		= &parse,
+	.final_check	= &final_check,
+	.print		= &print,
+	.save		= &save,
+	.extra_opts	= opts
 };
 
 void _init(void)

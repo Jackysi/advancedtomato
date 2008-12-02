@@ -1,41 +1,49 @@
-#
-# Linux router shared code Makefile
-#
-# Copyright 2005, Broadcom Corporation
-# All Rights Reserved.
-# 
-# THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
-# KIND, EXPRESS OR IMPLIED, BY STATUTE, COMMUNICATION OR OTHERWISE. BROADCOM
-# SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
-# FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
-#
-# $Id: Makefile,v 1.22 2005/03/07 08:35:32 kanki Exp $
-#
-ifneq ($(wildcard $(SRCBASE)/cy_conf.mak),)
-  include $(SRCBASE)/cy_conf.mak
-endif
+include ../common.mak
 
-CFLAGS	+= -I. -I../httpd -I$(SRCBASE)/include -Wall -I$(SRCBASE)/
-#CFLAGS	+= -g -DDEBUG
-CFLAGS	+= -s -O2
-LDFLAGS += -L.
+CFLAGS = -Os -Wall #-mips32
+CFLAGS += -I. -I$(SRCBASE)/include -I$(SRCBASE)/
 
-OBJS := nvparse.o shutils.o wl.o wl_linux.o linux_timer.o defaults.o utils.o support.o detectwan.o
+LDFLAGS =
+
+OBJS = shutils.o wl.o wl_linux.o linux_timer.o defaults.o id.o
+OBJS += misc.o led.o version.o base64.o files.o strings.o process.o
 
 all: libshared.so libshared.a
 
-install: all
-	install -d $(INSTALLDIR)/usr/lib
-	install -m 755 libshared.so $(INSTALLDIR)/usr/lib
-	$(STRIP) $(INSTALLDIR)/usr/lib/libshared.so
-
-clean:
-	rm -f *.o *.so
-
 libshared.so: $(OBJS)
-	$(LD) -shared -o $@ $^
+	@echo " [shared] LD $@"
+	@$(LD) $(LDFLAGS) -shared -o $@ $^
+
+	$(SIZECHECK)
+	$(CPTMP)
 
 libshared.a: $(OBJS)
-	$(AR) arc -o $@ $^
+	@echo " [shared] AR $@"
+	@rm -f $@
+	@$(AR) cruv $@ $^
 
-*.o: $(CY_DEPS)
+
+install: all
+	@echo " [shared] Installing as $(INSTALLDIR)/usr/lib/libshared.so"
+	@install -d $(INSTALLDIR)/usr/lib
+	@install -m 755 libshared.so $(INSTALLDIR)/usr/lib
+	@$(STRIP) $(INSTALLDIR)/usr/lib/libshared.so
+
+
+clean:
+	rm -f *.o *.so *.a .*.depend
+
+#	.PHONY: version.c
+
+%.o: %.c .%.depend
+	@echo " [shared] CC $@"
+	@$(CC) $(CFLAGS) -o $@ -c $<
+
+.depend: $(OBJS:%.o=%.c)
+	@$(CC) $(CFLAGS) -M $^ > .depend
+
+.%.depend: %.c
+	@$(CC) $(CFLAGS) -M $< > $@
+
+-include $(OBJS:%.o=.%.depend)
+

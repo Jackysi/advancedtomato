@@ -332,7 +332,7 @@ ipt_do_table(struct sk_buff **pskb,
 					continue;
 				}
 				if (table_base + v
-				    != (void *)e + e->next_offset) {
+				    != (void *)e + e->next_offset && !(e->ip.flags & IPT_F_GOTO)) {
 					/* Save old back ptr in next entry */
 					struct ipt_entry *next
 						= (void *)e + e->next_offset;
@@ -374,6 +374,12 @@ ipt_do_table(struct sk_buff **pskb,
 
 				if (verdict == IPT_CONTINUE)
 					e = (void *)e + e->next_offset;
+				else if (verdict == IPT_RETURN) {		// added -- zzz
+					e = back;
+					back = get_entry(table_base,
+							 back->comefrom);
+					continue;
+				}
 				else
 					/* Verdict */
 					break;
@@ -1169,13 +1175,11 @@ do_add_counters(void *user, unsigned int len)
 		goto free;
 
 	write_lock_bh(&t->lock);
-	/*************************************
-	 * modify by tanghui @ 2006-10-11
-	 * for a RACE CONDITION in the "do_add_counters()" function
-	 *************************************/
-	//if (t->private->number != paddc->num_counters) {
-	if (t->private->number != tmp.num_counters) {
-	/*************************************/
+
+#if 0	// removed 1.11 forward bug test
+	//	if (t->private->number != tmp.num_counters) {	// 43011: modify by tanghui @ 2006-10-11 for a RACE CONDITION in the "do_add_counters()" function
+#endif
+	if (t->private->number != paddc->num_counters) {
 		ret = -EINVAL;
 		goto unlock_up_free;
 	}
@@ -1676,7 +1680,7 @@ static struct ipt_match icmp_matchstruct
 = { { NULL, NULL }, "icmp", &icmp_match, &icmp_checkentry, NULL };
 
 #ifdef CONFIG_PROC_FS
-static inline int print_name(const char *i,
+static int print_name(const char *i,
 			     off_t start_offset, char *buffer, int length,
 			     off_t *pos, unsigned int *count)
 {
@@ -1692,6 +1696,15 @@ static inline int print_name(const char *i,
 		*pos += namelen;
 	}
 	return 0;
+}
+
+static inline int print_target(const struct ipt_target *t,
+                               off_t start_offset, char *buffer, int length,
+                               off_t *pos, unsigned int *count)
+{
+	if (t == &ipt_standard_target || t == &ipt_error_target)
+		return 0;
+	return print_name((char *)t, start_offset, buffer, length, pos, count);
 }
 
 static int ipt_get_tables(char *buffer, char **start, off_t offset, int length)
@@ -1720,7 +1733,7 @@ static int ipt_get_targets(char *buffer, char **start, off_t offset, int length)
 	if (down_interruptible(&ipt_mutex) != 0)
 		return 0;
 
-	LIST_FIND(&ipt_target, print_name, void *,
+	LIST_FIND(&ipt_target, print_target, struct ipt_target *,
 		  offset, buffer, length, &pos, &count);
 	
 	up(&ipt_mutex);

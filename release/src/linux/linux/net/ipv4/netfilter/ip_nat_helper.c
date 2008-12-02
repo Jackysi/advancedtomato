@@ -79,7 +79,6 @@ ip_nat_resize_packet(struct sk_buff **skb,
 	iph = (*skb)->nh.iph;
 	if (iph->protocol == IPPROTO_TCP) {
 		struct tcphdr *tcph = (void *)iph + iph->ihl*4;
-		void *data = (void *)tcph + tcph->doff*4;
 
 		DEBUGP("ip_nat_resize_packet: Seq_offset before: ");
 		DUMP_OFFSET(this_way);
@@ -354,54 +353,49 @@ sack_adjust(struct tcphdr *tcph,
 }
 			
 
-/* TCP SACK sequence number adjustment, return 0 if sack found and adjusted */
-static inline int
+/* TCP SACK sequence number adjustment. */
+static inline void
 ip_nat_sack_adjust(struct sk_buff *skb,
 			struct ip_conntrack *ct,
 			enum ip_conntrack_info ctinfo)
 {
-	struct iphdr *iph;
 	struct tcphdr *tcph;
-	unsigned char *ptr;
-	int length, dir, sack_adjusted = 0;
+	unsigned char *ptr, *optend;
+	unsigned int dir;
 
-	iph = skb->nh.iph;
-	tcph = (void *)iph + iph->ihl*4;
-	length = (tcph->doff*4)-sizeof(struct tcphdr);
+	tcph = (void *)skb->nh.iph + skb->nh.iph->ihl*4;
+	optend = (unsigned char *)tcph + tcph->doff*4;
 	ptr = (unsigned char *)(tcph+1);
 
 	dir = CTINFO2DIR(ctinfo);
 
-	while (length > 0) {
-		int opcode = *ptr++;
+	while (ptr < optend) {
+		int opcode = ptr[0];
 		int opsize;
 
 		switch (opcode) {
 		case TCPOPT_EOL:
-			return !sack_adjusted;
+			return;
 		case TCPOPT_NOP:
-			length--;
+			ptr++;
 			continue;
 		default:
-			opsize = *ptr++;
-			if (opsize > length) /* no partial opts */
-				return !sack_adjusted;
+			opsize = ptr[1];
+			 /* no partial opts */
+			if (ptr + opsize > optend || opsize < 2)
+				return;
 			if (opcode == TCPOPT_SACK) {
 				/* found SACK */
 				if((opsize >= (TCPOLEN_SACK_BASE
 					       +TCPOLEN_SACK_PERBLOCK)) &&
 				   !((opsize - TCPOLEN_SACK_BASE)
 				     % TCPOLEN_SACK_PERBLOCK))
-					sack_adjust(tcph, ptr-2,
+					sack_adjust(tcph, ptr,
 						    &ct->nat.info.seq[!dir]);
-				
-				sack_adjusted = 1;
 			}
-			ptr += opsize-2;
-			length -= opsize;
+			ptr += opsize;
 		}
 	}
-	return !sack_adjusted;
 }
 
 /* TCP sequence number adjustment */

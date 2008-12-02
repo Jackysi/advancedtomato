@@ -21,7 +21,7 @@ RestartRDISC () {
 ABCMaskLen () {
   local class;
 
-  typeset -i class=${1%%.*}
+  class=${1%%.*}
   if [ "$1" = "" -o $class -eq 0 -o $class -ge 224 ]; then return 0
   elif [ $class -ge 224 ]; then return 0
   elif [ $class -ge 192 ]; then return 24

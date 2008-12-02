@@ -22,6 +22,7 @@
 
 #include "utils.h"
 #include "rt_names.h"
+#include "tc_common.h"
 #include "tc_util.h"
 
 static void explain(void)
@@ -54,7 +55,7 @@ static int route_parse_opt(struct filter_util *qu, char *handle, int argc, char 
 	if (argc == 0)
 		return 0;
 
-	tail = (struct rtattr*)(((void*)n)+NLMSG_ALIGN(n->nlmsg_len));
+	tail = NLMSG_TAIL(n);
 	addattr_l(n, 4096, TCA_OPTIONS, NULL, 0);
 
 	while (argc > 0) {
@@ -79,13 +80,9 @@ static int route_parse_opt(struct filter_util *qu, char *handle, int argc, char 
 			fh &= 0xFFFF;
 			fh |= id<<16;
 		} else if (matches(*argv, "fromif") == 0) {
-			struct rtnl_handle rth;
 			__u32 id;
 			NEXT_ARG();
-			if (rtnl_open(&rth, 0) == 0) {
-				ll_init_map(&rth);
-				rtnl_close(&rth);
-			}
+			ll_init_map(&rth);
 			if ((id=ll_name_to_index(*argv)) <= 0) {
 				fprintf(stderr, "Illegal \"fromif\"\n");
 				return -1;
@@ -125,7 +122,7 @@ static int route_parse_opt(struct filter_util *qu, char *handle, int argc, char 
 		}
 		argc--; argv++;
 	}
-	tail->rta_len = (((void*)n)+n->nlmsg_len) - (void*)tail;
+	tail->rta_len = (void *) NLMSG_TAIL(n) - (void *) tail;
 	if (order) {
 		fh &= ~0x7F00;
 		fh |= (order<<8)&0x7F00;
@@ -143,9 +140,7 @@ static int route_print_opt(struct filter_util *qu, FILE *f, struct rtattr *opt, 
 	if (opt == NULL)
 		return 0;
 
-	memset(tb, 0, sizeof(tb));
-	if (opt)
-		parse_rtattr(tb, TCA_ROUTE4_MAX, RTA_DATA(opt), RTA_PAYLOAD(opt));
+	parse_rtattr_nested(tb, TCA_ROUTE4_MAX, opt);
 
 	if (handle)
 		fprintf(f, "fh 0x%08x ", handle);
@@ -167,9 +162,8 @@ static int route_print_opt(struct filter_util *qu, FILE *f, struct rtattr *opt, 
 	return 0;
 }
 
-struct filter_util route_util = {
-	NULL,
-	"route",
-	route_parse_opt,
-	route_print_opt,
+struct filter_util route_filter_util = {
+	.id = "route",
+	.parse_fopt = route_parse_opt,
+	.print_fopt = route_print_opt,
 };

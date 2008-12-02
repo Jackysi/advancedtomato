@@ -36,6 +36,10 @@
 #define TERMACK		6	/* Termination Ack */
 #define CODEREJ		7	/* Code Reject */
 
+extern const char code_log_details[16][32];
+
+#define PNAME(f)	(f->callbacks ? f->callbacks->proto_name : "?")
+
 
 /*
  * Each FSM is described by an fsm structure and fsm callbacks.

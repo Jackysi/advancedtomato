@@ -35,7 +35,7 @@ static void help(void)
 "               		or in hex (ex: 0x20)\n"
 "  --set-dscp-class class	Set the DSCP field in packet header to the\n"
 "				value represented by the DiffServ class value.\n"
-"				This class may be EF,BE or any of the CSxx "
+"				This class may be EF,BE or any of the CSxx\n"
 "				or AFxx classes.\n"
 "\n"
 "				These two options are mutually exclusive !\n"
@@ -49,7 +49,7 @@ static struct option opts[] = {
 };
 
 static void
-parse_dscp(const unsigned char *s, struct ipt_DSCP_info *dinfo)
+parse_dscp(const char *s, struct ipt_DSCP_info *dinfo)
 {
 	unsigned int dscp;
        
@@ -67,7 +67,7 @@ parse_dscp(const unsigned char *s, struct ipt_DSCP_info *dinfo)
 
 
 static void
-parse_class(const unsigned char *s, struct ipt_DSCP_info *dinfo)
+parse_class(const char *s, struct ipt_DSCP_info *dinfo)
 {
 	unsigned int dscp = class_to_dscp(s);
 
@@ -143,20 +143,19 @@ save(const struct ipt_ip *ip, const struct ipt_entry_target *target)
 	printf("--set-dscp 0x%02x ", dinfo->dscp);
 }
 
-static
-struct iptables_target dscp
-= { NULL,
-    "DSCP",
-    IPTABLES_VERSION,
-    IPT_ALIGN(sizeof(struct ipt_DSCP_info)),
-    IPT_ALIGN(sizeof(struct ipt_DSCP_info)),
-    &help,
-    &init,
-    &parse,
-    &final_check,
-    &print,
-    &save,
-    opts
+static struct iptables_target dscp = { 
+	.next		= NULL,
+	.name		= "DSCP",
+	.version	= IPTABLES_VERSION,
+	.size		= IPT_ALIGN(sizeof(struct ipt_DSCP_info)),
+	.userspacesize	= IPT_ALIGN(sizeof(struct ipt_DSCP_info)),
+	.help		= &help,
+	.init		= &init,
+	.parse		= &parse,
+	.final_check	= &final_check,
+	.print		= &print,
+	.save		= &save,
+	.extra_opts	= opts
 };
 
 void _init(void)

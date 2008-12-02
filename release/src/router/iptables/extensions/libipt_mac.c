@@ -28,14 +28,6 @@ static struct option opts[] = {
 	{0}
 };
 
-/* Initialize the match. */
-static void
-init(struct ipt_entry_match *m, unsigned int *nfcache)
-{
-	/* Can't cache this */
-	*nfcache |= NFC_UNKNOWN;
-}
-
 static void
 parse_mac(const char *mac, struct ipt_mac_info *info)
 {
@@ -86,11 +78,11 @@ parse(int c, char **argv, int invert, unsigned int *flags,
 	return 1;
 }
 
-static void print_mac(unsigned char macaddress[ETH_ALEN], int invert)
+static void print_mac(unsigned char macaddress[ETH_ALEN])
 {
 	unsigned int i;
 
-	printf("%s%02X", invert ? "!" : "", macaddress[0]);
+	printf("%02X", macaddress[0]);
 	for (i = 1; i < ETH_ALEN; i++)
 		printf(":%02X", macaddress[i]);
 	printf(" ");
@@ -111,32 +103,35 @@ print(const struct ipt_ip *ip,
       int numeric)
 {
 	printf("MAC ");
-	print_mac(((struct ipt_mac_info *)match->data)->srcaddr,
-		  ((struct ipt_mac_info *)match->data)->invert);
+
+	if (((struct ipt_mac_info *)match->data)->invert)
+		printf("! ");
+	
+	print_mac(((struct ipt_mac_info *)match->data)->srcaddr);
 }
 
 /* Saves the union ipt_matchinfo in parsable form to stdout. */
 static void save(const struct ipt_ip *ip, const struct ipt_entry_match *match)
 {
-	printf("--mac ");
-	print_mac(((struct ipt_mac_info *)match->data)->srcaddr,
-		  ((struct ipt_mac_info *)match->data)->invert);
+	if (((struct ipt_mac_info *)match->data)->invert)
+		printf("! ");
+
+	printf("--mac-source ");
+	print_mac(((struct ipt_mac_info *)match->data)->srcaddr);
 }
 
-static
-struct iptables_match mac
-= { NULL,
-    "mac",
-    IPTABLES_VERSION,
-    IPT_ALIGN(sizeof(struct ipt_mac_info)),
-    IPT_ALIGN(sizeof(struct ipt_mac_info)),
-    &help,
-    &init,
-    &parse,
-    &final_check,
-    &print,
-    &save,
-    opts
+static struct iptables_match mac = { 
+	.next		= NULL,
+ 	.name		= "mac",
+	.version	= IPTABLES_VERSION,
+	.size		= IPT_ALIGN(sizeof(struct ipt_mac_info)),
+	.userspacesize	= IPT_ALIGN(sizeof(struct ipt_mac_info)),
+	.help		= &help,
+	.parse		= &parse,
+	.final_check	= &final_check,
+	.print		= &print,
+	.save		= &save,
+	.extra_opts	= opts
 };
 
 void _init(void)

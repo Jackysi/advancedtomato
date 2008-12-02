@@ -28,7 +28,7 @@
 #include <libgen.h>
 #include "busybox.h"
 
-extern int rmdir_main(int argc, char **argv)
+int rmdir_main(int argc, char **argv)
 {
 	int status = EXIT_SUCCESS;
 	int flags;
@@ -59,14 +59,14 @@ extern int rmdir_main(int argc, char **argv)
 				/* Path is now just the parent component.  Note that dirname
 				 * returns "." if there are no parents.  We must distinguish
 				 * this from the case of the original path starting with '.'.
-                 */
+		 */
 				if (do_dot || (*path != '.') || path[1]) {
 					continue;
 				}
 			}
 			break;
 		} while (1);
-		
+
 	} while (*++argv);
 
 	return status;

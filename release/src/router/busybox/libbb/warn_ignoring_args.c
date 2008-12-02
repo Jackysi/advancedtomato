@@ -1,6 +1,6 @@
 /* vi: set sw=4 ts=4: */
 /*
- * warn_ingoring_args implementations for busybox
+ * warn_ignoring_args implementation for busybox
  *
  * Copyright (C) 2003  Manuel Novoa III  <mjn3@codepoet.org>
  *
@@ -22,7 +22,7 @@
 
 #include <libbb.h>
 
-extern void bb_warn_ignoring_args(int n)
+void bb_warn_ignoring_args(int n)
 {
 	if (n) {
 		bb_perror_msg("ignoring all arguments");

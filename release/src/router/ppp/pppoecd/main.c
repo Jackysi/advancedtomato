@@ -68,6 +68,7 @@ static const char rcsid[] = RCSID;
 /* interface vars */
 char ifname[32];		/* Interface name */
 int ifunit;			/* Interface unit number */
+int dial_cnt;
 
 struct channel *the_channel;
 
@@ -88,7 +89,7 @@ int do_callback;		/* != 0 if we should do callback next */
 int doing_callback;		/* != 0 if we are doing callback */
 #define pppdb NULL
 
-int (*holdoff_hook) __P((void)) = NULL;
+//	int (*holdoff_hook) __P((void)) = NULL;
 int (*new_phase_hook) __P((int)) = NULL;
 
 static int conn_running;	/* we have a [dis]connector running */
@@ -128,6 +129,9 @@ static struct timeval start_time;	/* Time when link was started. */
 struct pppd_stats link_stats;
 int link_connect_time;
 int link_stats_valid;
+
+const char pppoe_disc_file[] = "/var/lib/misc/pppoe-disc";
+
 
 /*
  * We maintain a list of child process pids and
@@ -171,6 +175,9 @@ extern	char	*ttyname __P((int));
 extern	char	*getlogin __P((void));
 int main __P((int, char *[]));
 
+extern void prng_init();	// random.c
+
+
 #ifdef ultrix
 #undef	O_NONBLOCK
 #define	O_NONBLOCK	O_NDELAY
@@ -205,6 +212,17 @@ struct protent *protocols[] = {
 #define PPP_DRV_NAME	"ppp"
 #endif /* !defined(PPP_DRV_NAME) */
 
+extern int retransmit_time;
+extern int redial_immediately;
+
+/*
+int debug_exist(const char *name)
+{
+	struct stat st;
+	return (stat(name, &st) == 0);
+}
+*/
+
 int
 main(argc, argv)
     int argc;
@@ -224,10 +242,10 @@ main(argc, argv)
      * a fd that we are using.
      */
     if ((i = open("/dev/null", O_RDWR)) >= 0) {
-	while (0 <= i && i <= 2)
-	    i = dup(i);
-	if (i >= 0)
-	    close(i);
+		while (0 <= i && i <= 2)
+		    i = dup(i);
+		if (i >= 0)
+		    close(i);
     }
 
     script_env = NULL;
@@ -236,8 +254,9 @@ main(argc, argv)
     //reopen_log();
 
     if (gethostname(hostname, MAXNAMELEN) < 0 ) {
-	option_error("Couldn't get hostname: %m");
-	exit(1);
+		LOGX_ERROR("Couldn't get hostname");
+		option_error("Couldn't get hostname: %m");
+		exit(1);
     }
     hostname[MAXNAMELEN-1] = 0;
 
@@ -271,7 +290,7 @@ main(argc, argv)
      */
 
     if (!parse_args(argc, argv))
-	exit(EXIT_OPTION_ERROR);
+		exit(EXIT_OPTION_ERROR);
     devnam_fixed = 1;		/* can no longer change device name */
 
     reopen_log();	// According to ipparam value, decide log name
@@ -281,23 +300,23 @@ main(argc, argv)
      * and parse the tty's options file.
      */
     if (the_channel->process_extra_options)
-	(*the_channel->process_extra_options)();
+		(*the_channel->process_extra_options)();
 
     if (debug)
-	setlogmask(LOG_UPTO(LOG_DEBUG));
+		setlogmask(LOG_UPTO(LOG_DEBUG));
 
     /*
      * Check that we are running as root.
      */
     if (geteuid() != 0) {
-	option_error("must be root to run %s, since it is not setuid-root",
-		     argv[0]);
-	exit(EXIT_NOT_ROOT);
+		option_error("must be root to run %s, since it is not setuid-root",
+			     argv[0]);
+		exit(EXIT_NOT_ROOT);
     }
 
     if (!ppp_available()) {
-	option_error("%s", no_ppp_msg);
-	exit(EXIT_NO_KERNEL_SUPPORT);
+		option_error("%s", no_ppp_msg);
+		exit(EXIT_NO_KERNEL_SUPPORT);
     }
 
     /*
@@ -305,21 +324,21 @@ main(argc, argv)
      */
     check_options();
     if (!sys_check_options())
-	exit(EXIT_OPTION_ERROR);
+		exit(EXIT_OPTION_ERROR);
     auth_check_options();
     for (i = 0; (protp = protocols[i]) != NULL; ++i)
-	if (protp->check_options != NULL)
-	    (*protp->check_options)();
-    if (the_channel->check_options)
-	(*the_channel->check_options)();
+		if (protp->check_options != NULL)
+		    (*protp->check_options)();
+	    if (the_channel->check_options)
+			(*the_channel->check_options)();
 
 
     if (dump_options || dryrun) {
-	init_pr_log(NULL, LOG_INFO);
-	print_options(pr_log, NULL);
-	end_pr_log();
-	if (dryrun)
-	    die(0);
+		init_pr_log(NULL, LOG_INFO);
+		print_options(pr_log, NULL);
+		end_pr_log();
+		if (dryrun)
+		    die(0);
     }
 
     /*
@@ -327,12 +346,17 @@ main(argc, argv)
      */
     sys_init();
 
+	/*
+	 * Initialize random seed.
+	 */
+	prng_init();
+
     /*
      * Detach ourselves from the terminal, if required,
      * and identify who is running us.
      */
     if (!nodetach && !updetach)
-	detach();
+		detach();
     p = getlogin();
     if (p == NULL) {
 	pw = getpwuid(uid);
@@ -341,11 +365,14 @@ main(argc, argv)
 	else
 	    p = "(unknown)";
     }
-    syslog(LOG_NOTICE, "pppd %s started by %s, uid %d", VERSION, p, uid);
+
+	LOGX_INFO("Starting");
+	LOGX_DEBUG("demand=%d", demand);
+
     script_setenv("PPPLOGNAME", p, 0);
 
     if (devnam[0])
-	script_setenv("DEVICE", devnam, 1);
+		script_setenv("DEVICE", devnam, 1);
     slprintf(numbuf, sizeof(numbuf), "%d", getpid());
     script_setenv("PPPD_PID", numbuf, 1);
 
@@ -359,172 +386,231 @@ main(argc, argv)
      * If we're doing dial-on-demand, set up the interface now.
      */
     if (demand) {
-	/*
-	 * Open the loopback channel and set it up to be the ppp interface.
-	 */
-	fd_loop = open_ppp_loopback();
-	set_ifunit(1);
+		/*
+		 * Open the loopback channel and set it up to be the ppp interface.
+		 */
+		fd_loop = open_ppp_loopback();
+		set_ifunit(1);
 
-	/*
-	 * Configure the interface and mark it up, etc.
-	 */
-	demand_conf();
+		/*
+		 * Configure the interface and mark it up, etc.
+		 */
+		demand_conf();
     }
 
     do_callback = 0;
-    for (;;) {
 
-	listen_time = 0;
-	need_holdoff = 1;
-	devfd = -1;
-	status = EXIT_OK;
-	++unsuccess;
-	doing_callback = do_callback;
-	do_callback = 0;
+	dial_cnt = 0;
+    for (;;) {	// ##1
 
-	if (demand && !doing_callback) {
-	    /*
-	     * Don't do anything until we see some activity.
-	     */
-	    new_phase(PHASE_DORMANT);
-	    demand_unblock();
-	    add_fd(fd_loop);
-	    for (;;) {
-		handle_events();
-		if (kill_link && !persist)
-		    break;
-		if (get_loop_output())
-		    break;
-	    }
-	    remove_fd(fd_loop);
-	    if (kill_link && !persist)
-		break;
+		listen_time = 0;
+		need_holdoff = 1;
+		devfd = -1;
+		status = EXIT_OK;
+		++unsuccess;
+		doing_callback = do_callback;
+		do_callback = 0;
 
-	    /*
-	     * Now we want to bring up the link.
-	     */
-	    demand_block();
-	    info("Starting link");
-	}
+		if (demand && !doing_callback) {
+		    /*
+		     * Don't do anything until we see some activity.
+		     */
+			LOGX_DEBUG("%s: PHASE_DORMANT", __FUNCTION__);
+		    new_phase(PHASE_DORMANT);
+		    demand_unblock();
+		    add_fd(fd_loop);
+		    for (;;) {	// ##2
+				handle_events();
+				if (kill_link && !persist)
+				    break;
+				if (get_loop_output()) {
+				    break;
+			    }
+		    }	// for (;;) ##2
+		    remove_fd(fd_loop);
+		    if (kill_link && !persist) {
+				LOGX_DEBUG("%s: (kill_link && !persist)", __FUNCTION__);
+				break;
+			}
 
-	new_phase(PHASE_SERIALCONN);
+		    /*
+		     * Now we want to bring up the link.
+		     */
+		    demand_block();
+		    info("Starting link");
+		}	// if (demand && !doing_callback)
 
-	devfd = the_channel->connect();
-	if (devfd < 0)
-	    continue;
+		new_phase(PHASE_SERIALCONN);
 
-	/* set up the serial device as a ppp interface */
-	fd_ppp = the_channel->establish_ppp(devfd);
-	if (fd_ppp < 0) {
-	    status = EXIT_FATAL_ERROR;
-	    goto disconnect;
-	}
-
-	if (!demand && ifunit >= 0)
-	    set_ifunit(1);
-
-	/*
-	 * Start opening the connection and wait for
-	 * incoming events (reply, timeout, etc.).
-	 */
-	notice("Connect: %s <--> %s", ifname, ppp_devnam);
-	my_gettimeofday(&start_time, NULL);
-	link_stats_valid = 0;
-	script_unsetenv("CONNECT_TIME");
-	script_unsetenv("BYTES_SENT");
-	script_unsetenv("BYTES_RCVD");
-	lcp_lowerup(0);
-
-	add_fd(fd_ppp);
-	lcp_open(0);		/* Start protocol */
-	status = EXIT_NEGOTIATION_FAILED;
-	new_phase(PHASE_ESTABLISH);
-	while (phase != PHASE_DEAD) {
-	    handle_events();
-	    get_input();
-	    if (kill_link)
-		lcp_close(0, "User request");
-#ifdef CCP_SUPPORT
-	    if (open_ccp_flag) {
-		if (phase == PHASE_NETWORK || phase == PHASE_RUNNING) {
-		    ccp_fsm[0].flags = OPT_RESTART; /* clears OPT_SILENT */
-		    (*ccp_protent.open)(0);
+		devfd = the_channel->connect();
+		LOGX_DEBUG("%s: the_channel->connect()=%d", __FUNCTION__, devfd);
+		if (devfd < 0) {
+			redial_immediately = 0;
+		    continue;
 		}
-	    }
+
+		/* set up the serial device as a ppp interface */
+		fd_ppp = the_channel->establish_ppp(devfd);
+		LOGX_DEBUG("%s: the_channel->establish_ppp()=%d", __FUNCTION__, fd_ppp);
+		if (fd_ppp < 0) {
+		    status = EXIT_FATAL_ERROR;
+		    goto disconnect;
+		}
+
+		if (!demand && ifunit >= 0)
+		    set_ifunit(1);
+
+		/*
+		 * Start opening the connection and wait for
+		 * incoming events (reply, timeout, etc.).
+		 */
+		notice("Connect: %s <--> %s", ifname, ppp_devnam);
+		my_gettimeofday(&start_time, NULL);
+		link_stats_valid = 0;
+		script_unsetenv("CONNECT_TIME");
+		script_unsetenv("BYTES_SENT");
+		script_unsetenv("BYTES_RCVD");
+		lcp_lowerup(0);
+
+		add_fd(fd_ppp);
+		lcp_open(0);		/* Start protocol */
+		status = EXIT_NEGOTIATION_FAILED;
+		new_phase(PHASE_ESTABLISH);
+		while (phase != PHASE_DEAD) {
+		    handle_events();
+		    get_input();
+		    if (kill_link)
+				lcp_close(0, "User request");
+#ifdef CCP_SUPPORT
+			if (open_ccp_flag) {
+				if (phase == PHASE_NETWORK || phase == PHASE_RUNNING) {
+					ccp_fsm[0].flags = OPT_RESTART; /* clears OPT_SILENT */
+					(*ccp_protent.open)(0);
+				}
+			}
 #endif
-	}
+		}	// while (phase != PHASE_DEAD)
 
-	/*
-	 * Print connect time and statistics.
-	 */
-	if (link_stats_valid) {
-	    int t = (link_connect_time + 5) / 6;    /* 1/10ths of minutes */
-	    info("Connect time %d.%d minutes.", t/10, t%10);
-	    info("Sent %u bytes, received %u bytes.",
-		 link_stats.bytes_out, link_stats.bytes_in);
-	}
+		LOGX_DEBUG("%s: phase == PHASE_DEAD", __FUNCTION__);
 
-	/*
-	 * Delete pid file before disestablishing ppp.  Otherwise it
-	 * can happen that another pppd gets the same unit and then
-	 * we delete its pid file.
-	 */
-	if (!demand) {
-	    if (pidfilename[0] != 0
-		&& unlink(pidfilename) < 0 && errno != ENOENT)
-		warn("unable to delete pid file %s: %m", pidfilename);
-	    pidfilename[0] = 0;
-	}
+		/*
+		 * Print connect time and statistics.
+		 */
+		if (link_stats_valid) {
+		    int tt = (link_connect_time + 5) / 6;    /* 1/10ths of minutes */
+		    LOGX_INFO("Connect time %d.%d minutes.", tt/10, tt%10);
+		    LOGX_INFO("Sent %u bytes, received %u bytes.",
+			 link_stats.bytes_out, link_stats.bytes_in);
+		}
 
-	/*
-	 * If we may want to bring the link up again, transfer
-	 * the ppp unit back to the loopback.  Set the
-	 * real serial device back to its normal mode of operation.
-	 */
-	remove_fd(fd_ppp);
-	clean_check();
-	the_channel->disestablish_ppp(devfd);
-	fd_ppp = -1;
-	if (!hungup)
-	    lcp_lowerdown(0);
-	if (!demand)
-	    script_unsetenv("IFNAME");
+		/*
+		 * Delete pid file before disestablishing ppp.  Otherwise it
+		 * can happen that another pppd gets the same unit and then
+		 * we delete its pid file.
+		 */
+		if (!demand) {
+		    if (pidfilename[0] != 0
+				&& unlink(pidfilename) < 0 && errno != ENOENT)
+					warn("unable to delete pid file %s: %m", pidfilename);
+		    pidfilename[0] = 0;
+		}
 
-    disconnect:
-	new_phase(PHASE_DISCONNECT);
-	the_channel->disconnect();
+		/*
+		 * If we may want to bring the link up again, transfer
+		 * the ppp unit back to the loopback.  Set the
+		 * real serial device back to its normal mode of operation.
+		 */
+		remove_fd(fd_ppp);
+		clean_check();
+		the_channel->disestablish_ppp(devfd);
+		fd_ppp = -1;
+		if (!hungup)
+		    lcp_lowerdown(0);
+		if (!demand)
+		    script_unsetenv("IFNAME");
 
-    fail:
-	if (the_channel->cleanup)
-	    (*the_channel->cleanup)();
+disconnect:
+		LOGX_DEBUG("%s: disconnect", __FUNCTION__);
 
-	if (!demand) {
-	    if (pidfilename[0] != 0
-		&& unlink(pidfilename) < 0 && errno != ENOENT)
-		warn("unable to delete pid file %s: %m", pidfilename);
-	    pidfilename[0] = 0;
-	}
+		if (!demand) {
+			sys_cleanup();
+		}
 
-	if (!persist || (maxfail > 0 && unsuccess >= maxfail))
-	    break;
+		new_phase(PHASE_DISCONNECT);
+		the_channel->disconnect();
 
-	if (demand)
-	    demand_discard();
-	t = need_holdoff? holdoff: 0;
-	if (holdoff_hook)
-	    t = (*holdoff_hook)();
-	if (t > 0) {
-	    new_phase(PHASE_HOLDOFF);
-	    TIMEOUT(holdoff_end, NULL, t);
-	    do {
-		handle_events();
-		if (kill_link)
-		    new_phase(PHASE_DORMANT); /* allow signal to end holdoff */
-	    } while (phase == PHASE_HOLDOFF);
-	    if (!persist)
-		break;
-	}
-    }
+		if (the_channel->cleanup)
+		    (*the_channel->cleanup)();
+
+		if (!demand) {
+		    if (pidfilename[0] != 0
+				&& unlink(pidfilename) < 0 && errno != ENOENT)
+					warn("unable to delete pid file %s: %m", pidfilename);
+		    pidfilename[0] = 0;
+		}
+
+		if (!persist || (maxfail > 0 && unsuccess >= maxfail))
+		    break;
+		if (demand)
+		    demand_discard();
+
+		if (need_holdoff) {
+			LOGX_DEBUG("%s: redial_immediately=%d", __FUNCTION__, redial_immediately);
+
+			/***************************************
+			 * modify by tanghui 2006-03-28
+			 * first 3 time set to 15 sec
+			 * after that, should try to redial randomly
+			 * FIXME: has send a PADI before HOLDOFF so, (3 - 1)
+			 ***************************************/
+			if (!redial_immediately)
+			{
+				if(!idle_time_limit)
+				{
+					if(dial_cnt < 3)
+					{
+						holdoff = 10;
+					}
+					else
+					{
+						holdoff = (int)(3 + (((retransmit_time - 3.0) * rand())/ (RAND_MAX + 1.0)));
+						if((holdoff > 93) && (holdoff > retransmit_time - 90))
+						{
+							holdoff -= 90;
+						}
+						//holdoff = 3 + gen_random_int(retransmit_time - 3);
+					}
+				}
+				else
+				{
+					holdoff = 10;
+				}
+				t = holdoff;
+			}
+			else
+			{
+				t = 10; //modified from 0 to 10 //by crazy 20070508
+				redial_immediately = 0;
+			}
+
+			LOGX_DEBUG("%s: t=%d", __FUNCTION__, t);
+
+			if (t > 0) {
+			    new_phase(PHASE_HOLDOFF);
+			    TIMEOUT(holdoff_end, NULL, t);
+			    do {
+					handle_events();
+					if (kill_link)
+					    new_phase(PHASE_DORMANT); /* allow signal to end holdoff */
+				} while (phase == PHASE_HOLDOFF);
+			    if (!persist)
+					break;
+			}
+		}	// need_holdoff
+		else {
+			LOGX_DEBUG("%s: !need_holdoff", __FUNCTION__);
+		}
+    }	// for(;;)	##1
 
     /* Wait for scripts to finish */
     while (n_children > 0) {
@@ -572,7 +658,16 @@ handle_events()
     }
     if (got_sigterm) {
 	kill_link = 1;
+#if 1	// zzz
 	persist = 0;
+#else
+	/*
+	 * remove by tanghui @ 2006-03-31
+	 * don't terminate the process
+	 */
+	//persist = 0;
+	/*****************************/
+#endif
 	status = EXIT_USER_REQUEST;
 	got_sigterm = 0;
     }
@@ -738,11 +833,11 @@ reopen_log()
 #else
 #ifdef MPPPOE_SUPPORT
     if(!strncmp(ipparam, "0", 1))
-        openlog("pppd", LOG_PID | LOG_NDELAY, LOG_PPP);
+        openlog("pppoe", LOG_PID | LOG_NDELAY, LOG_PPP);
     else
-        openlog("pppd-1", LOG_PID | LOG_NDELAY, LOG_PPP);
+        openlog("pppoe-1", LOG_PID | LOG_NDELAY, LOG_PPP);
 #else
-    openlog("pppd", LOG_PID | LOG_NDELAY, LOG_PPP);
+    openlog("pppoe", LOG_PID | LOG_NDELAY, LOG_PPP);
 #endif
     setlogmask(LOG_UPTO(LOG_INFO));
 #endif
@@ -813,23 +908,23 @@ get_input()
 
     len = read_packet(inpacket_buf);
     if (len < 0)
-	return;
+		return;
 
     if (len == 0) {
-	notice("Modem hangup");
-	hungup = 1;
-	status = EXIT_HANGUP;
-	lcp_lowerdown(0);	/* serial link is no longer available */
-	link_terminated(0);
-	return;
+		notice("Modem hangup");
+		hungup = 1;
+		status = EXIT_HANGUP;
+		lcp_lowerdown(0);	/* serial link is no longer available */
+		link_terminated(0);
+		return;
     }
 
     if (debug /*&& (debugflags & DBG_INPACKET)*/)
-	dbglog("rcvd %P", p, len);
+		dbglog("rcvd %P", p, len);
 
     if (len < PPP_HDRLEN) {
-	MAINDEBUG(("io(): Received short packet."));
-	return;
+		MAINDEBUG(("io(): Received short packet."));
+		return;
     }
 
     p += 2;				/* Skip address and control */
@@ -840,8 +935,8 @@ get_input()
      * Toss all non-LCP packets unless LCP is OPEN.
      */
     if (protocol != PPP_LCP && lcp_fsm[0].state != OPENED) {
-	MAINDEBUG(("get_input: Received non-LCP packet when LCP not open."));
-	return;
+		MAINDEBUG(("get_input: Received non-LCP packet when LCP not open."));
+		return;
     }
 
     /*
@@ -849,30 +944,30 @@ get_input()
      * except LCP, LQR and authentication packets.
      */
     if (phase <= PHASE_AUTHENTICATE
-	&& !(protocol == PPP_LCP || protocol == PPP_LQR
-	     || protocol == PPP_PAP || protocol == PPP_CHAP)) {
-	MAINDEBUG(("get_input: discarding proto 0x%x in phase %d",
-		   protocol, phase));
-	return;
+		&& !(protocol == PPP_LCP || protocol == PPP_LQR
+		     || protocol == PPP_PAP || protocol == PPP_CHAP)) {
+		MAINDEBUG(("get_input: discarding proto 0x%x in phase %d",
+			   protocol, phase));
+		return;
     }
 
     /*
      * Upcall the proper protocol input routine.
      */
     for (i = 0; (protp = protocols[i]) != NULL; ++i) {
-	if (protp->protocol == protocol && protp->enabled_flag) {
-	    (*protp->input)(0, p, len);
-	    return;
-	}
-        if (protocol == (protp->protocol & ~0x8000) && protp->enabled_flag
-	    && protp->datainput != NULL) {
-	    (*protp->datainput)(0, p, len);
-	    return;
-	}
+		if (protp->protocol == protocol && protp->enabled_flag) {
+		    (*protp->input)(0, p, len);
+		    return;
+		}
+		if (protocol == (protp->protocol & ~0x8000) && protp->enabled_flag
+			&& protp->datainput != NULL) {
+			(*protp->datainput)(0, p, len);
+			return;
+		}
     }
 
     if (debug) {
-	warn("Unsupported protocol 0x%x received", protocol);
+		warn("Unsupported protocol 0x%x received", protocol);
     }
     lcp_sprotrej(0, p - PPP_HDRLEN, len + PPP_HDRLEN);
 }
@@ -897,7 +992,8 @@ die(status)
     int status;
 {
     cleanup();
-    syslog(LOG_INFO, "Exit.");
+
+	LOGX_INFO("Exiting");
     exit(status);
 }
 
@@ -911,16 +1007,18 @@ cleanup()
     sys_cleanup();
 
     if (fd_ppp >= 0)
-	the_channel->disestablish_ppp(devfd);
+		the_channel->disestablish_ppp(devfd);
     if (the_channel->cleanup)
-	(*the_channel->cleanup)();
+		(*the_channel->cleanup)();
 
     if (pidfilename[0] != 0 && unlink(pidfilename) < 0 && errno != ENOENT)
-	warn("unable to delete pid file %s: %m", pidfilename);
+		warn("unable to delete pid file %s: %m", pidfilename);
     pidfilename[0] = 0;
     if (linkpidfile[0] != 0 && unlink(linkpidfile) < 0 && errno != ENOENT)
-	warn("unable to delete pid file %s: %m", linkpidfile);
+		warn("unable to delete pid file %s: %m", linkpidfile);
     linkpidfile[0] = 0;
+
+	unlink(pppoe_disc_file);
 }
 
 /*
@@ -1197,7 +1295,9 @@ bad_signal(sig)
     if (crashed)
 	_exit(127);
     crashed = 1;
-    error("Fatal signal %d", sig);
+
+	LOGX_ERROR("Fatal signal %d.", sig);
+
     if (conn_running)
 	kill_my_pg(SIGTERM);
     die(127);
@@ -1296,7 +1396,6 @@ run_program(prog, args, must_exist, done, arg)
     if (debug)
 	dbglog("Script %s started (pid %d)", prog, pid);
     record_child(pid, prog, done, arg);
-
     return pid;
 }
 

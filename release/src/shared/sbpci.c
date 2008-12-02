@@ -254,7 +254,7 @@ sbpci_init_pci(void *sbh)
 	uint32 boardflags;
 	sbpciregs_t *pci;
 	sbconfig_t *sb;
-	int CT4712_WR;
+//	int CT4712_WR;
 	uint32 val;
 
 	chip = sb_chip(sbh);
@@ -268,13 +268,21 @@ sbpci_init_pci(void *sbh)
 	}
 	sb_core_reset(sbh, 0);
 
+#if 0	// removed zzz
 	/* In some board, */ 
 	if((nvram_match("boardtype", "bcm94710dev")) ||
 	(nvram_match("boardtype", "0x042f"))) //Barry add for 4704
 		CT4712_WR = 0;
 	else
 		CT4712_WR = 1;
+#endif
 
+	// checkme: ok to remove these checks?	-- zzz
+	if ((!nvram_match("boardtype", "bcm94710dev")) && (!nvram_match("boardtype", "0x042f")) &&
+		(!nvram_match("boardtype", "bcm94710ap")) && (!nvram_match("boardtype", "bcm95365r"))) {
+		pci_disabled = TRUE;
+	}
+	
 	boardflags = (uint32) getintvar(NULL, "boardflags");
 
 	if ((chip == BCM4310_DEVICE_ID) && (chiprev == 0))
@@ -288,9 +296,16 @@ sbpci_init_pci(void *sbh)
 	if (((chip == BCM4712_DEVICE_ID) &&
 	     ((chippkg == BCM4712SMALL_PKG_ID) ||
 	      (chippkg == BCM4712MID_PKG_ID))) ||
+	    (boardflags & BFL_NOPCI))
+		pci_disabled = TRUE;
+#if 0	// zzz
+	if (((chip == BCM4712_DEVICE_ID) &&
+	     ((chippkg == BCM4712SMALL_PKG_ID) ||
+	      (chippkg == BCM4712MID_PKG_ID))) ||
 	    (boardflags & BFL_NOPCI) ||
 	    CT4712_WR)
 		pci_disabled = TRUE;
+#endif
 
 	/*
 	 * If the PCI core should not be touched (disabled, not bonded

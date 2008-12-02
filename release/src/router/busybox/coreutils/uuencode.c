@@ -19,7 +19,6 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
-#include <getopt.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -59,10 +58,10 @@ static const char tbl_std[65] = {
  * buffer of at least 1+BASE64_LENGTH(length) bytes.
  * where BASE64_LENGTH(len) = (4 * ((LENGTH + 2) / 3))
  */
-static void uuencode (const char *s, const char *store, const int length, const char *tbl)
+static void uuencode (const unsigned char *s, char *store, const int length, const char *tbl)
 {
 	int i;
-	unsigned char *p = (unsigned char *)store;
+	char *p = store;
 
 	/* Transform the 3x8 bits to 4x6 bits, as required by base64.  */
 	for (i = 0; i < length; i += 3) {
@@ -87,9 +86,9 @@ static void uuencode (const char *s, const char *store, const int length, const 
 #define DST_BUF_SIZE    4 * ((SRC_BUF_SIZE + 2) / 3)
 int uuencode_main(int argc, char **argv)
 {
-	const int src_buf_size = SRC_BUF_SIZE;
-	const int dst_buf_size = DST_BUF_SIZE;
-	int write_size = dst_buf_size;
+	const size_t src_buf_size = SRC_BUF_SIZE;
+	const size_t dst_buf_size = DST_BUF_SIZE;
+	size_t write_size = dst_buf_size;
 	struct stat stat_buf;
 	FILE *src_stream = stdin;
 	const char *tbl;
@@ -106,9 +105,7 @@ int uuencode_main(int argc, char **argv)
 	switch (argc - optind) {
 		case 2:
 			src_stream = bb_xfopen(argv[optind], "r");
-			if (stat(argv[optind], &stat_buf) < 0) {
-				bb_perror_msg_and_die("stat");
-			}
+			xstat(argv[optind], &stat_buf);
 			mode = stat_buf.st_mode & (S_IRWXU | S_IRWXG | S_IRWXO);
 			if (src_stream == stdout) {
 				puts("NULL");
@@ -131,7 +128,7 @@ int uuencode_main(int argc, char **argv)
 			memset(&src_buf[size], 0, src_buf_size - size);
 		}
 		/* Encode the buffer we just read in */
-		uuencode(src_buf, dst_buf, size, tbl);
+		uuencode((unsigned char*)src_buf, dst_buf, size, tbl);
 
 		putchar('\n');
 		if (tbl == tbl_std) {

@@ -155,25 +155,27 @@ static const char * const add_strings[] = {
 	"4/4 \"    %011o \" \"\\n\"",			/* O */
 };
 
-static const signed char od_opts[] = "aBbcDdeFfHhIiLlOovXx";
+static const char od_opts[] = "aBbcDdeFfHhIiLlOoXxv";
 
-static const signed char od_o2si[] = {
+static const char od_o2si[] = {
 	0, 1, 2, 3, 5,
 	4, 6, 6, 7, 8,
 	9, 0xa, 0xb, 0xa, 0xa,
-	0xb, 1, -1, 8, 9,
+	0xb, 1, 8, 9,
 };
 
 int od_main(int argc, char **argv)
 {
 	int ch;
 	int first = 1;
-	signed char *p;
+	char *p;
 	bb_dump_vflag = FIRST;
 	bb_dump_length = -1;
 
 	while ((ch = getopt(argc, argv, od_opts)) > 0) {
-		if (((p = strchr(od_opts, ch)) != NULL) && (*p >= 0)) {
+		if (ch == 'v') {
+			bb_dump_vflag = ALL;
+		} else if (((p = strchr(od_opts, ch)) != NULL) && (*p != '\0')) {
 			if (first) {
 				first = 0;
 				bb_dump_add("\"%07.7_Ao\n\"");
@@ -181,9 +183,7 @@ int od_main(int argc, char **argv)
 			} else {
 				bb_dump_add("\"         \"");
 			}
-			bb_dump_add(add_strings[od_o2si[(int)(p-od_opts)]]);
-		} else if (ch == 'v') {
-			bb_dump_vflag = ALL;
+			bb_dump_add(add_strings[(int)od_o2si[(p-od_opts)]]);
 		} else {	/* P, p, s, w, or other unhandled */
 			bb_show_usage();
 		}

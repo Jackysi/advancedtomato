@@ -173,7 +173,35 @@ struct tc_sfq_qopt
  *
  *	The only reason for this is efficiency, it is possible
  *	to change these parameters in compile time.
+ *	
+ *	If you need to play with these values use esfq instead.
  */
+
+/* ESFQ section */
+
+enum
+{
+        /* traditional */
+	TCA_SFQ_HASH_CLASSIC,
+	TCA_SFQ_HASH_DST,
+	TCA_SFQ_HASH_SRC,
+	TCA_SFQ_HASH_FWMARK,
+        /* direct */
+	TCA_SFQ_HASH_DSTDIR,
+	TCA_SFQ_HASH_SRCDIR,
+	TCA_SFQ_HASH_FWMARKDIR,
+};
+
+struct tc_esfq_qopt
+{
+	unsigned	quantum;	/* Bytes per round allocated to flow */
+	int		perturb_period;	/* Period of hash perturbation */
+	__u32		limit;		/* Maximal packets in queue */
+	unsigned	divisor;	/* Hash divisor  */
+	unsigned	flows;		/* Maximal number of flows  */
+	unsigned	hash_kind;	/* Hash function to use for flow identification */
+};
+
 
 /* RED section */
 
@@ -288,6 +316,37 @@ struct tc_htb_xstats
 	__u32 giants;	/* too big packets (rate will not be accurate) */
 	__u32 tokens;
 	__u32 ctokens;
+};
+
+/* HFSC section */
+
+struct tc_hfsc_qopt
+{
+	__u16	defcls;		/* default class */
+};
+
+struct tc_service_curve
+{
+	__u32	m1;		/* slope of the first segment in bps */
+	__u32	d;		/* x-projection of the first segment in us */
+	__u32	m2;		/* slope of the second segment in bps */
+};
+
+struct tc_hfsc_stats
+{
+	__u64	work;		/* total work done */
+	__u64	rtwork;		/* work done by real-time criteria */
+	__u32	period;		/* current period */
+	__u32	level;		/* class level in hierarchy */
+};
+
+enum
+{
+	TCA_HFSC_UNSPEC,
+	TCA_HFSC_RSC,
+	TCA_HFSC_FSC,
+	TCA_HFSC_USC,
+	TCA_HFSC_MAX = TCA_HFSC_USC
 };
 
 /* CBQ section */

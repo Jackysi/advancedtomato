@@ -33,9 +33,11 @@
 struct kbkeycode {
 	unsigned int scancode, keycode;
 };
-static const int KDSETKEYCODE = 0x4B4D;  /* write kernel keycode table entry */
+enum {
+	KDSETKEYCODE = 0x4B4D  /* write kernel keycode table entry */
+};
 
-extern int 
+extern int
 setkeycodes_main(int argc, char** argv)
 {
     char *ep;
@@ -45,7 +47,7 @@ setkeycodes_main(int argc, char** argv)
     if (argc % 2 != 1 || argc < 2) {
       bb_show_usage();
 	}
-	 
+
 	fd = get_console_fd();
 
     while (argc > 2) {

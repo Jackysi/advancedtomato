@@ -221,7 +221,7 @@ static atomic_t channel_count = ATOMIC_INIT(0);
 #define DST_PORT(skb)   (((skb)->data[24] << 8) + (skb)->data[25])
 #define	MARK_LAN2WAN	0x100
 //#define myprintk(fmt, args...)  printk(fmt, ## args)
-#define myprintk(fmt, args...) 
+#define myprintk(fmt, args...)
 
 
 /* We limit the length of ppp->file.rq to this (arbitrary) value */
@@ -301,7 +301,7 @@ static const int npindex_to_proto[NUM_NP] = {
 	PPP_IPX,
 	PPP_AT,
 };
-	
+
 /* Translates an ethertype into an NP index */
 static inline int ethertype_to_npindex(int ethertype)
 {
@@ -987,6 +987,34 @@ ppp_send_frame(struct ppp *ppp, struct sk_buff *skb)
 			ppp->last_xmit = jiffies;
 		skb_pull(skb, 2);
 #else
+
+#if 1	// zzz
+		switch (IP_PROTO(skb)) {
+		case 6:	// TCP
+			switch (DST_PORT(skb)) {
+			case 139:	// netbios-ssn
+			case 445:	// microsoft-ds
+				break;
+			default:
+				ppp->last_xmit = jiffies;
+				break;
+			}
+			break;
+		case 17:	// UDP
+			switch (DST_PORT(skb)) {
+			case 137:	// netbios-ns
+			case 138:	// netbios-dgm
+				break;
+			default:
+				ppp->last_xmit = jiffies;
+				break;
+			}
+			break;
+		default:
+			ppp->last_xmit = jiffies;
+			break;
+		}
+#else
 		/* for data packets, record the time */
 		 myprintk(KERN_DEBUG "PPP: (%ld) send nfmark=[%lx] proto[%d] port[%d -> %d]\n",
 					jiffies,
@@ -1007,7 +1035,8 @@ ppp_send_frame(struct ppp *ppp, struct sk_buff *skb)
                 }
                 else
                          myprintk(KERN_DEBUG "PPP: No reset timer\n");
-		 
+#endif
+
 #endif /* CONFIG_PPP_FILTER */
 	}
 
@@ -1543,7 +1572,7 @@ ppp_receive_nonmp_frame(struct ppp *ppp, struct sk_buff *skb)
                 //else if(UDP_PORT(skb) == 138){
                 //        printk(KERN_DEBUG "	Skip NETBIOS Datagram Service packet\n");
 		//}
-                //else if(IP_PROTO(skb) == 2){ 
+                //else if(IP_PROTO(skb) == 2){
                 //        printk(KERN_DEBUG "	Skip IGMP packet\n");
 		//}
                 //else
@@ -2053,7 +2082,7 @@ ppp_ccp_peek(struct ppp *ppp, struct sk_buff *skb, int inbound)
 	switch (CCP_CODE(dp)) {
 	case CCP_CONFREQ:
 
-		/* A ConfReq starts negotiation of compression 
+		/* A ConfReq starts negotiation of compression
 		 * in one direction of transmission,
 		 * and hence brings it down...but which way?
 		 *
@@ -2063,16 +2092,16 @@ ppp_ccp_peek(struct ppp *ppp, struct sk_buff *skb, int inbound)
 		if(inbound)
 			/* He is proposing what I should send */
 			ppp->xstate &= ~SC_COMP_RUN;
-		else	
+		else
 			/* I am proposing to what he should send */
 			ppp->rstate &= ~SC_DECOMP_RUN;
-		
+
 		break;
-		
+
 	case CCP_TERMREQ:
 	case CCP_TERMACK:
 		/*
-		 * CCP is going down, both directions of transmission 
+		 * CCP is going down, both directions of transmission
 		 */
 		ppp->rstate &= ~SC_DECOMP_RUN;
 		ppp->xstate &= ~SC_COMP_RUN;

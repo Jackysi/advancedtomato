@@ -27,18 +27,12 @@
 #include <unistd.h>
 #include "busybox.h"
 
-extern int whoami_main(int argc, char **argv)
+int whoami_main(int argc, char **argv)
 {
-	char user[9];
-	uid_t uid;
-
 	if (argc > 1)
 		bb_show_usage();
 
-	uid = geteuid();
-	if (my_getpwuid(user, uid)) {
-		puts(user);
-		bb_fflush_stdout_and_exit(EXIT_SUCCESS);
-	}
-	bb_error_msg_and_die("cannot find username for UID %u", (unsigned) uid);
+	puts(bb_getpwuid(NULL, geteuid(), -1));
+	/* exits on error */
+	bb_fflush_stdout_and_exit(EXIT_SUCCESS);
 }

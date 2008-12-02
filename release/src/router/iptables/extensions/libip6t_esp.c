@@ -19,8 +19,8 @@ IPTABLES_VERSION);
 }
 
 static struct option opts[] = {
-	{ "espspi", 1, 0, '1' },
-	{0}
+	{ .name = "espspi", .has_arg = 1, .flag = 0, .val = '1' },
+	{ .name = 0 }
 };
 
 static u_int32_t
@@ -29,7 +29,7 @@ parse_esp_spi(const char *spistr)
 	unsigned long int spi;
 	char* ep;
 
-	spi =  strtoul(spistr,&ep,0) ;
+	spi = strtoul(spistr, &ep, 0);
 
 	if ( spistr == ep ) {
 		exit_error(PARAMETER_PROBLEM,
@@ -61,6 +61,9 @@ parse_esp_spis(const char *spistring, u_int32_t *spis)
 
 		spis[0] = buffer[0] ? parse_esp_spi(buffer) : 0;
 		spis[1] = cp[0] ? parse_esp_spi(cp) : 0xFFFFFFFF;
+		if (spis[0] > spis[1])
+			exit_error(PARAMETER_PROBLEM,
+				   "Invalid ESP spi range: %s", spistring);
 	}
 	free(buffer);
 }
@@ -117,17 +120,10 @@ print_spis(const char *name, u_int32_t min, u_int32_t max,
 	const char *inv = invert ? "!" : "";
 
 	if (min != 0 || max != 0xFFFFFFFF || invert) {
-		printf("%s", name);
-		if (min == max) {
-			printf(":%s", inv);
-			printf("%u", min);
-		} else {
-			printf("s:%s", inv);
-			printf("%u",min);
-			printf(":");
-			printf("%u",max);
-		}
-		printf(" ");
+		if (min == max)
+			printf("%s:%s%u ", name, inv, min);
+		else
+			printf("%ss:%s%u:%u ", name, inv, min, max);
 	}
 }
 
@@ -168,19 +164,18 @@ static void save(const struct ip6t_ip6 *ip, const struct ip6t_entry_match *match
 }
 
 static
-struct ip6tables_match esp
-= { NULL,
-    "esp",
-    IPTABLES_VERSION,
-    IP6T_ALIGN(sizeof(struct ip6t_esp)),
-    IP6T_ALIGN(sizeof(struct ip6t_esp)),
-    &help,
-    &init,
-    &parse,
-    &final_check,
-    &print,
-    &save,
-    opts
+struct ip6tables_match esp = {
+	.name          = "esp",
+	.version       = IPTABLES_VERSION,
+	.size          = IP6T_ALIGN(sizeof(struct ip6t_esp)),
+	.userspacesize = IP6T_ALIGN(sizeof(struct ip6t_esp)),
+	.help          = &help,
+	.init          = &init,
+	.parse         = &parse,
+	.final_check   = &final_check,
+	.print         = &print,
+	.save          = &save,
+	.extra_opts    = opts
 };
 
 void

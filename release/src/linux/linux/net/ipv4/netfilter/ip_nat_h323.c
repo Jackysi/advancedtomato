@@ -129,7 +129,7 @@ h225_nat_expected(struct sk_buff **pskb,
 		mr.range[0].flags |= IP_NAT_RANGE_PROTO_SPECIFIED;
 		mr.range[0].min = mr.range[0].max
 			= ((union ip_conntrack_manip_proto)
-				{ port });
+				{ .tcp = { port } });
 	}
 
 	ret = ip_nat_setup_info(ct, &mr, hooknum);
@@ -184,12 +184,14 @@ static int h323_signal_address_fixup(struct ip_conntrack *ct,
 		if (!between(info->seq[i] + 6, ntohl(tcph->seq),
 			     ntohl(tcph->seq) + datalen)) {
 			/* Partial retransmisison. It's a cracker being funky. */
+#if 0		// ... or a miss id?	zzz
 			if (net_ratelimit()) {
 				printk("H.323_NAT: partial packet %u/6 in %u/%u\n",
 				     info->seq[i],
 				     ntohl(tcph->seq),
 				     ntohl(tcph->seq) + datalen);
 			}
+#endif
 			return 0;
 		}
 
@@ -252,18 +254,18 @@ static int h323_data_fixup(struct ip_ct_h225_expect *info,
 	DEBUGP("h323_data_fixup: offset %u + 6 in %u\n", info->offset, tcplen);
 	DUMP_TUPLE(&ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple);
 	DUMP_TUPLE(&ct->tuplehash[IP_CT_DIR_REPLY].tuple);
-	
-	memset(&newtuple, 0, sizeof(newtuple));
 
 	if (!between(expect->seq + 6, ntohl(tcph->seq),
 		    ntohl(tcph->seq) + tcplen - tcph->doff * 4)) {
 		/* Partial retransmisison. It's a cracker being funky. */
+#if 1	// also caused by bad id?
 		if (net_ratelimit()) {
 			printk("H.323_NAT: partial packet %u/6 in %u/%u\n",
 			     expect->seq,
 			     ntohl(tcph->seq),
 			     ntohl(tcph->seq) + tcplen - tcph->doff * 4);
 		}
+#endif
 		return 0;
 	}
 
@@ -392,9 +394,9 @@ static struct ip_nat_helper h225 =
 	  "H.225",					/* name */
 	  IP_NAT_HELPER_F_ALWAYS, 			/* flags */
 	  THIS_MODULE,					/* module */
-	  { { 0, { __constant_htons(H225_PORT) } },	/* tuple */
+	  { { 0, { .tcp = { __constant_htons(H225_PORT) } } },	/* tuple */
 	    { 0, { 0 }, IPPROTO_TCP } },
-	  { { 0, { 0xFFFF } },				/* mask */
+	  { { 0, { .tcp = { 0xFFFF } } },		/* mask */
 	    { 0, { 0 }, 0xFFFF } },
 	  h225_nat_help,				/* helper */
 	  h225_nat_expected				/* expectfn */

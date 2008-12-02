@@ -134,7 +134,7 @@ rip_info_free (struct rip_info *rinfo)
   XFREE (MTYPE_RIP_INFO, rinfo);
 }
 
-#define SHOW_INFINITY_ENTRY_ON_WEB 1
+//	#define SHOW_INFINITY_ENTRY_ON_WEB 1		// commented-out -- zzz
 #ifdef SHOW_INFINITY_ENTRY_ON_WEB
 /*
 	This function add for the reason to show route entry 

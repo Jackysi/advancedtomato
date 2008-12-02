@@ -2,27 +2,9 @@
 /*
  * Utility routines.
  *
- * Copyright (C) tons of folks.  Tracking down who wrote what
- * isn't something I'm going to worry about...  If you wrote something
- * here, please feel free to acknowledge your work.
+ * Copyright (C) 1999-2004 by Erik Andersen <andersen@codepoet.org>
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
- *
- * Based in part on code from sash, Copyright (c) 1999 by David I. Bell 
- * Permission has been granted to redistribute this code under the GPL.
- *
+ * Licensed under GPLv2 or later, see file LICENSE in this tarball for details.
  */
 
 #include <stdio.h>
@@ -32,18 +14,19 @@
 
 #include "libbb.h"
 
-/* Returns kernel version encoded as major*65536 + minor*256 + patch,
+/* Returns current kernel version encoded as major*65536 + minor*256 + patch,
  * so, for example,  to check if the kernel is greater than 2.2.11:
- *     if (get_kernel_revision() <= 2*65536+2*256+11) { <stuff> }
+ *
+ *     if (get_linux_version_code() > KERNEL_VERSION(2,2,11)) { <stuff> }
  */
-extern int get_kernel_revision(void)
+int get_linux_version_code(void)
 {
 	struct utsname name;
 	char *s;
 	int i, r;
 
 	if (uname(&name) == -1) {
-		perror_msg("cannot get system information");
+		bb_perror_msg("cannot get system information");
 		return (0);
 	}
 
@@ -55,12 +38,3 @@ extern int get_kernel_revision(void)
 	}
 	return r;
 }
-
-/* END CODE */
-/*
-Local Variables:
-c-file-style: "linux"
-c-basic-offset: 4
-tab-width: 4
-End:
-*/

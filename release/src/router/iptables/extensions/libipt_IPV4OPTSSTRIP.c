@@ -1,7 +1,7 @@
 /* Shared library add-on to iptables for IPV4OPTSSTRIP
  * This modules strip all the IP options.
  *
- * (C) 2001 by Fabrice MARIE <fabrice@celestix.com>
+ * (C) 2001 by Fabrice MARIE <fabrice@netfilter.org>
  * This program is distributed under the terms of GNU GPL v2, 1991
  */
 
@@ -12,11 +12,6 @@
 
 #include <iptables.h>
 #include <linux/netfilter_ipv4/ip_tables.h>
-
-static void init(struct ipt_entry_target *t, unsigned int *nfcache) 
-{
-        *nfcache |= NFC_UNKNOWN;
-}
 
 static void help(void) 
 {
@@ -59,20 +54,18 @@ save(const struct ipt_ip *ip, const struct ipt_entry_target *target)
 	/* nothing to print, we don't take option... */
 }
 
-static
-struct iptables_target IPV4OPTSSTRIP
-= { NULL,
-    "IPV4OPTSSTRIP",
-    IPTABLES_VERSION,
-    IPT_ALIGN(0),
-    IPT_ALIGN(0),
-    &help,
-    &init,
-    &parse,
-    &final_check,
-    &print,
-    &save,
-    opts
+static struct iptables_target IPV4OPTSSTRIP = { 
+	.next		= NULL,
+	.name		= "IPV4OPTSSTRIP",
+	.version	= IPTABLES_VERSION,
+	.size		= IPT_ALIGN(0),
+	.userspacesize	= IPT_ALIGN(0),
+	.help		= &help,
+	.parse		= &parse,
+	.final_check	= &final_check,
+	.print		= &print,
+	.save		= &save,
+	.extra_opts	= opts
 };
 
 void _init(void)

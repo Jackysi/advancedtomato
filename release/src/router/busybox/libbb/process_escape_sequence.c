@@ -2,33 +2,24 @@
 /*
  * Utility routines.
  *
- * Copyright (C) Manuel Nova III <mnovoa3@bellsouth.net>
- * and Vladimir Oleynik <vodz@usa.net> 
+ * Copyright (C) Manuel Novoa III <mjn3@codepoet.org>
+ * and Vladimir Oleynik <dzo@simtreas.ru>
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
- *
- * 
+ * Licensed under GPLv2 or later, see file LICENSE in this tarball for details.
  */
 
 #include <stdio.h>
 #include <limits.h>
+#include <ctype.h>
 #include "libbb.h"
 
+#define WANT_HEX_ESCAPES 1
 
+/* Usual "this only works for ascii compatible encodings" disclaimer. */
+#undef _tolower
+#define _tolower(X) ((X)|((char) 0x20))
 
-char process_escape_sequence(const char **ptr)
+char bb_process_escape_sequence(const char **ptr)
 {
 	static const char charmap[] = {
 		'a',  'b',  'f',  'n',  'r',  't',  'v',  '\\', 0,
@@ -36,45 +27,63 @@ char process_escape_sequence(const char **ptr)
 
 	const char *p;
 	const char *q;
-	int num_digits;
+	unsigned int num_digits;
+	unsigned int r;
 	unsigned int n;
-	
-	n = 0;
+	unsigned int d;
+	unsigned int base;
+
+	num_digits = n = 0;
+	base = 8;
 	q = *ptr;
 
-	for ( num_digits = 0 ; num_digits < 3 ; ++num_digits) {
-		if ((*q < '0') || (*q > '7')) { /* not a digit? */
+#ifdef WANT_HEX_ESCAPES
+	if (*q == 'x') {
+		++q;
+		base = 16;
+		++num_digits;
+	}
+#endif
+
+	do {
+		d = (unsigned int)(*q - '0');
+#ifdef WANT_HEX_ESCAPES
+		if (d >= 10) {
+			d = ((unsigned int)(_tolower(*q) - 'a')) + 10;
+		}
+#endif
+
+		if (d >= base) {
+#ifdef WANT_HEX_ESCAPES
+			if ((base == 16) && (!--num_digits)) {
+/*				return '\\'; */
+				--q;
+			}
+#endif
 			break;
 		}
-		n = n * 8 + (*q++ - '0');
-	}
+
+		r = n * base + d;
+		if (r > UCHAR_MAX) {
+			break;
+		}
+
+		n = r;
+		++q;
+	} while (++num_digits < 3);
 
 	if (num_digits == 0) {	/* mnemonic escape sequence? */
-		for (p=charmap ; *p ; p++) {
+		p = charmap;
+		do {
 			if (*p == *q) {
 				q++;
 				break;
 			}
-		}
+		} while (*++p);
 		n = *(p+(sizeof(charmap)/2));
 	}
 
-	   /* doesn't hurt to fall through to here from mnemonic case */
-	if (n > UCHAR_MAX) {	/* is octal code too big for a char? */
-		n /= 8;			/* adjust value and */
-		--q;				/* back up one char */
-	}
-
 	*ptr = q;
+
 	return (char) n;
 }
-
-
-/* END CODE */
-/*
-Local Variables:
-c-file-style: "linux"
-c-basic-offset: 4
-tab-width: 4
-End:
-*/

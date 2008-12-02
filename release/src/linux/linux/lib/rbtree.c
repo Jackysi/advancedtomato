@@ -294,3 +294,76 @@ void rb_erase(rb_node_t * node, rb_root_t * root)
 		__rb_erase_color(child, parent, root);
 }
 EXPORT_SYMBOL(rb_erase);
+
+/*
+ * This function returns the first node (in sort order) of the tree.
+ */
+rb_node_t *rb_first(rb_root_t *root)
+{
+	rb_node_t *n;
+
+	n = root->rb_node;
+	if (!n)
+		return NULL;
+	while (n->rb_left)
+		n = n->rb_left;
+	return n;
+}
+EXPORT_SYMBOL(rb_first);
+
+rb_node_t *rb_last(rb_root_t *root)
+{
+	rb_node_t *n;
+
+	n = root->rb_node;
+	if (!n)
+		return NULL;
+	while (n->rb_right)
+		n = n->rb_right;
+	return n;
+}
+EXPORT_SYMBOL(rb_last);
+
+rb_node_t *rb_next(rb_node_t *node)
+{
+	/* If we have a right-hand child, go down and then left as far
+	   as we can. */
+	if (node->rb_right) {
+		node = node->rb_right;
+		while (node->rb_left)
+			node = node->rb_left;
+		return node;
+	}
+
+	/* No right-hand children.  Everything down and left is
+	   smaller than us, so any 'next' node must be in the general
+	   direction of our parent. Go up the tree; any time the
+	   ancestor is a right-hand child of its parent, keep going
+	   up. First time it's a left-hand child of its parent, said
+	   parent is our 'next' node. */
+	while (node->rb_parent && node == node->rb_parent->rb_right)
+		node = node->rb_parent;
+
+	return node->rb_parent;
+}
+EXPORT_SYMBOL(rb_next);
+
+rb_node_t *rb_prev(rb_node_t *node)
+{
+	/* If we have a left-hand child, go down and then right as far
+	   as we can. */
+	if (node->rb_left) {
+		node = node->rb_left;
+		while (node->rb_right)
+			node = node->rb_right;	 
+		return node;
+	}
+
+	/* No left-hand children. Go up till we find an ancestor which
+	   is a right-hand child of its parent */
+	while (node->rb_parent && node == node->rb_parent->rb_left)
+		node = node->rb_parent;
+
+	return node->rb_parent;
+}
+EXPORT_SYMBOL(rb_prev);

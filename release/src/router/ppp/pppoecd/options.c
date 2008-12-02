@@ -40,7 +40,8 @@ bool	updetach = 0;		/* Detach once link is up */
 int	maxconnect = 0;		/* Maximum connect time */
 char	user[MAXNAMELEN];	/* Username for PAP */
 char	passwd[MAXSECRETLEN];	/* Password for PAP */
-bool	persist = 0;		/* Reopen link after it goes down */
+//bool	persist = 0;
+bool	persist = 1;		/* Reopen link after it goes down */
 char	our_name[MAXNAMELEN];	/* Our name for authentication purposes */
 bool	demand = 0;		/* do dial-on-demand */
 char	*ipparam = NULL;	/* Extra parameter for ip up/down scripts */
@@ -49,7 +50,7 @@ int	holdoff = 30;		/* # seconds to pause before reconnecting */
 bool	holdoff_specified;	/* true if a holdoff value has been given */
 int	log_to_fd = 1;		/* send log messages to this fd too */
 bool	log_default = 1;	/* log_to_fd is default (stdout) */
-int	maxfail = 10;		/* max # of unsuccessful connection attempts */
+int	maxfail = 0;		/* max # of unsuccessful connection attempts */
 char	linkname[MAXPATHLEN];	/* logical name for link */
 bool	tune_kernel = 1;	/* may alter kernel settings */
 int	connect_delay = 1000;	/* wait this many ms after connect script */
@@ -90,7 +91,7 @@ parse_args(argc, argv)
     char **argv;
 {
     int opt;
-    struct in_addr Laddr, Naddr;
+    struct in_addr Laddr;	//, Naddr;
 
     while ((opt = getopt(argc, argv, "dki:u:p:a:s:r:t:U:I:T:P:L:N:RnC:v:")) != -1) {
 	    switch (opt) {
@@ -102,15 +103,22 @@ parse_args(argc, argv)
 		    break;
 	    case 'i':
 		    idle_time_limit = atoi(optarg);
-		    if (idle_time_limit > 0)
+		    if (idle_time_limit > 0) {
 			    demand = 1;
+				maxfail = 0;
+			}
+			else {
+				maxfail = 10;
+			}
 		    break;
 	    case 'u':
 		    strncpy(user, optarg, MAXNAMELEN);
 		    strncpy(our_name, optarg, MAXNAMELEN);
+			memset(optarg, 'X', strlen(optarg));
 		    break;
 	    case 'p':
 		    strncpy(passwd, optarg, MAXSECRETLEN);
+			memset(optarg, 'X', strlen(optarg));
 		    break;
 	    case 'a':
 		    pppoe_ac_name = optarg;

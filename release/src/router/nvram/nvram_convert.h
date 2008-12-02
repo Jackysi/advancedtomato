@@ -1,7 +1,7 @@
 
 struct nvram_convert {
-        char *name;
-	char *wl0_name;
-        char *d11g_name;
+	const char *name;
+	const char *wl0_name;
 };
 
+extern struct nvram_convert nvram_converts[];

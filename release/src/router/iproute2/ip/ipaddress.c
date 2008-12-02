@@ -20,13 +20,14 @@
 #include <sys/ioctl.h>
 #include <sys/socket.h>
 #include <sys/ioctl.h>
-#include <linux/netdevice.h>
-#include <linux/if_arp.h>
-#include <linux/sockios.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <string.h>
 #include <fnmatch.h>
+
+#include <linux/netdevice.h>
+#include <linux/if_arp.h>
+#include <linux/sockios.h>
 
 #include "rt_names.h"
 #include "utils.h"
@@ -48,7 +49,6 @@ static struct
 	char *flushb;
 	int flushp;
 	int flushe;
-	struct rtnl_handle *rth;
 } filter;
 
 static int do_link;
@@ -76,6 +76,8 @@ static void usage(void)
 void print_link_flags(FILE *fp, unsigned flags, unsigned mdown)
 {
 	fprintf(fp, "<");
+	if (flags & IFF_UP && !(flags & IFF_RUNNING))
+		fprintf(fp, "NO-CARRIER%s", flags ? "," : "");
 	flags &= ~IFF_RUNNING;
 #define _PF(f) if (flags&IFF_##f) { \
                   flags &= ~IFF_##f ; \
@@ -125,7 +127,8 @@ void print_queuelen(char *name)
 		printf("qlen %d", ifr.ifr_qlen);
 }
 
-int print_linkinfo(struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
+int print_linkinfo(const struct sockaddr_nl *who, 
+		   struct nlmsghdr *n, void *arg)
 {
 	FILE *fp = (FILE*)arg;
 	struct ifinfomsg *ifi = NLMSG_DATA(n);
@@ -145,7 +148,6 @@ int print_linkinfo(struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
 	if (filter.up && !(ifi->ifi_flags&IFF_UP))
 		return 0;
 
-	memset(tb, 0, sizeof(tb));
 	parse_rtattr(tb, IFLA_MAX, IFLA_RTA(ifi), len);
 	if (tb[IFLA_IFNAME] == NULL) {
 		fprintf(stderr, "BUG: nil ifname\n");
@@ -213,8 +215,8 @@ int print_linkinfo(struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
 		}
 	}
 	if (do_link && tb[IFLA_STATS] && show_stats) {
-		struct net_device_stats slocal;
-		struct net_device_stats *s = RTA_DATA(tb[IFLA_STATS]);
+		struct rtnl_link_stats slocal;
+		struct rtnl_link_stats *s = RTA_DATA(tb[IFLA_STATS]);
 		if (((unsigned long)s) & (sizeof(unsigned long)-1)) {
 			memcpy(&slocal, s, sizeof(slocal));
 			s = &slocal;
@@ -222,17 +224,17 @@ int print_linkinfo(struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
 		fprintf(fp, "%s", _SL_);
 		fprintf(fp, "    RX: bytes  packets  errors  dropped overrun mcast   %s%s",
 			s->rx_compressed ? "compressed" : "", _SL_);
-		fprintf(fp, "    %-10lu %-8lu %-7lu %-7lu %-7lu %-7lu",
+		fprintf(fp, "    %-10u %-8u %-7u %-7u %-7u %-7u",
 			s->rx_bytes, s->rx_packets, s->rx_errors,
 			s->rx_dropped, s->rx_over_errors,
 			s->multicast
 			);
 		if (s->rx_compressed)
-			fprintf(fp, " %-7lu", s->rx_compressed);
+			fprintf(fp, " %-7u", s->rx_compressed);
 		if (show_stats > 1) {
 			fprintf(fp, "%s", _SL_);
 			fprintf(fp, "    RX errors: length  crc     frame   fifo    missed%s", _SL_);
-			fprintf(fp, "               %-7lu  %-7lu %-7lu %-7lu %-7lu",
+			fprintf(fp, "               %-7u  %-7u %-7u %-7u %-7u",
 				s->rx_length_errors,
 				s->rx_crc_errors,
 				s->rx_frame_errors,
@@ -243,15 +245,15 @@ int print_linkinfo(struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
 		fprintf(fp, "%s", _SL_);
 		fprintf(fp, "    TX: bytes  packets  errors  dropped carrier collsns %s%s",
 			s->tx_compressed ? "compressed" : "", _SL_);
-		fprintf(fp, "    %-10lu %-8lu %-7lu %-7lu %-7lu %-7lu",
+		fprintf(fp, "    %-10u %-8u %-7u %-7u %-7u %-7u",
 			s->tx_bytes, s->tx_packets, s->tx_errors,
 			s->tx_dropped, s->tx_carrier_errors, s->collisions);
 		if (s->tx_compressed)
-			fprintf(fp, " %-7lu", s->tx_compressed);
+			fprintf(fp, " %-7u", s->tx_compressed);
 		if (show_stats > 1) {
 			fprintf(fp, "%s", _SL_);
 			fprintf(fp, "    TX errors: aborted fifo    window  heartbeat%s", _SL_);
-			fprintf(fp, "               %-7lu  %-7lu %-7lu %-7lu",
+			fprintf(fp, "               %-7u  %-7u %-7u %-7u",
 				s->tx_aborted_errors,
 				s->tx_fifo_errors,
 				s->tx_window_errors,
@@ -266,7 +268,7 @@ int print_linkinfo(struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
 
 static int flush_update(void)
 {
-	if (rtnl_send(filter.rth, filter.flushb, filter.flushp) < 0) {
+	if (rtnl_send(&rth, filter.flushb, filter.flushp) < 0) {
 		perror("Failed to send flush request\n");
 		return -1;
 	}
@@ -274,7 +276,8 @@ static int flush_update(void)
 	return 0;
 }
 
-int print_addrinfo(struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
+int print_addrinfo(const struct sockaddr_nl *who, struct nlmsghdr *n, 
+		   void *arg)
 {
 	FILE *fp = (FILE*)arg;
 	struct ifaddrmsg *ifa = NLMSG_DATA(n);
@@ -294,7 +297,6 @@ int print_addrinfo(struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
 	if (filter.flushb && n->nlmsg_type != RTM_NEWADDR)
 		return 0;
 
-	memset(rta_tb, 0, sizeof(rta_tb));
 	parse_rtattr(rta_tb, IFA_MAX, IFA_RTA(ifa), n->nlmsg_len - NLMSG_LENGTH(sizeof(*ifa)));
 
 	if (!rta_tb[IFA_LOCAL])
@@ -329,6 +331,9 @@ int print_addrinfo(struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
 		}
 	}
 
+	if (filter.family && filter.family != ifa->ifa_family)
+		return 0;
+
 	if (filter.flushb) {
 		struct nlmsghdr *fn;
 		if (NLMSG_ALIGN(filter.flushp) + n->nlmsg_len > filter.flushe) {
@@ -339,7 +344,7 @@ int print_addrinfo(struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
 		memcpy(fn, n, n->nlmsg_len);
 		fn->nlmsg_type = RTM_DELADDR;
 		fn->nlmsg_flags = NLM_F_REQUEST;
-		fn->nlmsg_seq = ++filter.rth->seq;
+		fn->nlmsg_seq = ++rth.seq;
 		filter.flushp = (((char*)fn) + n->nlmsg_len) - filter.flushb;
 		filter.flushed++;
 		if (show_stats < 2)
@@ -464,7 +469,8 @@ int print_selected_addrinfo(int ifindex, struct nlmsg_list *ainfo, FILE *fp)
 }
 
 
-int store_nlmsg(struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
+static int store_nlmsg(const struct sockaddr_nl *who, struct nlmsghdr *n, 
+		       void *arg)
 {
 	struct nlmsg_list **linfo = (struct nlmsg_list**)arg;
 	struct nlmsg_list *h;
@@ -488,8 +494,7 @@ int ipaddr_list_or_flush(int argc, char **argv, int flush)
 {
 	struct nlmsg_list *linfo = NULL;
 	struct nlmsg_list *ainfo = NULL;
-	struct nlmsg_list *l;
-	struct rtnl_handle rth;
+	struct nlmsg_list *l, *n;
 	char *filter_dev = NULL;
 	int no_link = 0;
 
@@ -517,7 +522,7 @@ int ipaddr_list_or_flush(int argc, char **argv, int flush)
 			if (filter.family == AF_UNSPEC)
 				filter.family = filter.pfx.family;
 		} else if (strcmp(*argv, "scope") == 0) {
-			int scope = 0;
+			unsigned scope = 0;
 			NEXT_ARG();
 			filter.scopemask = -1;
 			if (rtnl_rtscope_a2n(&scope, *argv)) {
@@ -563,9 +568,6 @@ int ipaddr_list_or_flush(int argc, char **argv, int flush)
 		argv++; argc--;
 	}
 
-	if (rtnl_open(&rth, 0) < 0)
-		exit(1);
-
 	if (rtnl_wilddump_request(&rth, preferred_family, RTM_GETLINK) < 0) {
 		perror("Cannot send dump request");
 		exit(1);
@@ -591,7 +593,6 @@ int ipaddr_list_or_flush(int argc, char **argv, int flush)
 		filter.flushb = flushb;
 		filter.flushp = 0;
 		filter.flushe = sizeof(flushb);
-		filter.rth = &rth;
 
 		for (;;) {
 			if (rtnl_wilddump_request(&rth, filter.family, RTM_GETADDR) < 0) {
@@ -613,7 +614,8 @@ int ipaddr_list_or_flush(int argc, char **argv, int flush)
 			}
 			round++;
 			if (flush_update() < 0)
-				exit(1);
+				return 1;
+
 			if (show_stats) {
 				printf("\n*** Round %d, deleting %d addresses ***\n", round, filter.flushed);
 				fflush(stdout);
@@ -659,7 +661,6 @@ int ipaddr_list_or_flush(int argc, char **argv, int flush)
 					continue;
 				if (filter.pfx.family || filter.label) {
 					struct rtattr *tb[IFA_MAX+1];
-					memset(tb, 0, sizeof(tb));
 					parse_rtattr(tb, IFA_MAX, IFA_RTA(ifa), IFA_PAYLOAD(n));
 					if (!tb[IFA_LOCAL])
 						tb[IFA_LOCAL] = tb[IFA_ADDRESS];
@@ -694,16 +695,18 @@ int ipaddr_list_or_flush(int argc, char **argv, int flush)
 		}
 	}
 
-	for (l=linfo; l; l = l->next) {
+	for (l=linfo; l; l = n) {
+		n = l->next;
 		if (no_link || print_linkinfo(NULL, &l->h, stdout) == 0) {
 			struct ifinfomsg *ifi = NLMSG_DATA(&l->h);
 			if (filter.family != AF_PACKET)
 				print_selected_addrinfo(ifi->ifi_index, ainfo, stdout);
 		}
 		fflush(stdout);
+		free(l);
 	}
 
-	exit(0);
+	return 0;
 }
 
 int ipaddr_list_link(int argc, char **argv)
@@ -730,7 +733,6 @@ int default_scope(inet_prefix *lcl)
 
 int ipaddr_modify(int cmd, int argc, char **argv)
 {
-	struct rtnl_handle rth;
 	struct {
 		struct nlmsghdr 	n;
 		struct ifaddrmsg 	ifa;
@@ -738,6 +740,7 @@ int ipaddr_modify(int cmd, int argc, char **argv)
 	} req;
 	char  *d = NULL;
 	char  *l = NULL;
+	char  *lcl_arg = NULL;
 	inet_prefix lcl;
 	inet_prefix peer;
 	int local_len = 0;
@@ -794,7 +797,7 @@ int ipaddr_modify(int cmd, int argc, char **argv)
 			addattr_l(&req.n, sizeof(req), IFA_ANYCAST, &addr.data, addr.bytelen);
 			any_len = addr.bytelen;
 		} else if (strcmp(*argv, "scope") == 0) {
-			int scope = 0;
+			unsigned scope = 0;
 			NEXT_ARG();
 			if (rtnl_rtscope_a2n(&scope, *argv))
 				invarg(*argv, "invalid scope value.");
@@ -815,6 +818,7 @@ int ipaddr_modify(int cmd, int argc, char **argv)
 				usage();
 			if (local_len)
 				duparg2("local", *argv);
+			lcl_arg = *argv;
 			get_prefix(&lcl, *argv, req.ifa.ifa_family);
 			if (req.ifa.ifa_family == AF_UNSPEC)
 				req.ifa.ifa_family = lcl.family;
@@ -832,9 +836,17 @@ int ipaddr_modify(int cmd, int argc, char **argv)
 		exit(1);
 	}
 
-	if (peer_len == 0 && local_len && cmd != RTM_DELADDR) {
-		peer = lcl;
-		addattr_l(&req.n, sizeof(req), IFA_ADDRESS, &lcl.data, lcl.bytelen);
+	if (peer_len == 0 && local_len) {
+		if (cmd == RTM_DELADDR && lcl.family == AF_INET && !(lcl.flags & PREFIXLEN_SPECIFIED)) {
+			fprintf(stderr,
+			    "Warning: Executing wildcard deletion to stay compatible with old scripts.\n" \
+			    "         Explicitly specify the prefix length (%s/%d) to avoid this warning.\n" \
+			    "         This special behaviour is likely to disappear in further releases,\n" \
+			    "         fix your scripts!\n", lcl_arg, local_len*8);
+		} else {
+			peer = lcl;
+			addattr_l(&req.n, sizeof(req), IFA_ADDRESS, &lcl.data, lcl.bytelen);
+		}
 	}
 	if (req.ifa.ifa_prefixlen == 0)
 		req.ifa.ifa_prefixlen = lcl.bitlen;
@@ -861,9 +873,6 @@ int ipaddr_modify(int cmd, int argc, char **argv)
 	if (!scoped && cmd != RTM_DELADDR)
 		req.ifa.ifa_scope = default_scope(&lcl);
 
-	if (rtnl_open(&rth, 0) < 0)
-		exit(1);
-
 	ll_init_map(&rth);
 
 	if ((req.ifa.ifa_index = ll_name_to_index(d)) == 0) {
@@ -874,7 +883,7 @@ int ipaddr_modify(int cmd, int argc, char **argv)
 	if (rtnl_talk(&rth, &req.n, 0, 0, NULL, NULL, NULL) < 0)
 		exit(2);
 
-	exit(0);
+	return 0;
 }
 
 int do_ipaddr(int argc, char **argv)

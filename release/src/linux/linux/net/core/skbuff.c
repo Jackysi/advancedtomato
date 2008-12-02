@@ -201,6 +201,10 @@ struct sk_buff *alloc_skb(unsigned int size,int gfp_mask)
 	/* Set up other state */
 	skb->len = 0;
 	skb->cloned = 0;
+#if defined(CONFIG_IMQ) || defined (CONFIG_IMQ_MODULE)
+	skb->imq_flags = 0;
+	skb->nf_info = NULL;
+#endif
 	skb->data_len = 0;
 
 	atomic_set(&skb->users, 1); 
@@ -247,6 +251,10 @@ static inline void skb_headerinit(void *p, kmem_cache_t *cache,
 #endif
 #ifdef CONFIG_NET_SCHED
 	skb->tc_index = 0;
+#endif
+#if defined(CONFIG_IMQ) || defined(CONFIG_IMQ_MODULE)
+	skb->imq_flags = 0;
+	skb->nf_info = NULL;
 #endif
 }
 
@@ -397,6 +405,10 @@ struct sk_buff *skb_clone(struct sk_buff *skb, int gfp_mask)
 #ifdef CONFIG_NET_SCHED
 	C(tc_index);
 #endif
+#if defined(CONFIG_IMQ) || defined(CONFIG_IMQ_MODULE)
+	C(imq_flags);
+	C(nf_info);
+#endif
 
 	atomic_inc(&(skb_shinfo(skb)->dataref));
 	skb->cloned = 1;
@@ -439,6 +451,10 @@ static void copy_skb_header(struct sk_buff *new, const struct sk_buff *old)
 #endif
 #ifdef CONFIG_NET_SCHED
 	new->tc_index = old->tc_index;
+#endif
+#if defined(CONFIG_IMQ) || defined(CONFIG_IMQ_MODULE)
+	new->imq_flags=old->imq_flags;
+	new->nf_info=old->nf_info;
 #endif
 }
 

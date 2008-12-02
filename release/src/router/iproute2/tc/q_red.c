@@ -149,12 +149,11 @@ static int red_parse_opt(struct qdisc_util *qu, int argc, char **argv, struct nl
 #endif
 	}
 
-	tail = (struct rtattr*)(((void*)n)+NLMSG_ALIGN(n->nlmsg_len));
-
+	tail = NLMSG_TAIL(n);
 	addattr_l(n, 1024, TCA_OPTIONS, NULL, 0);
 	addattr_l(n, 1024, TCA_RED_PARMS, &opt, sizeof(opt));
 	addattr_l(n, 1024, TCA_RED_STAB, sbuf, 256);
-	tail->rta_len = (((void*)n)+NLMSG_ALIGN(n->nlmsg_len)) - (void*)tail;
+	tail->rta_len = (void *) NLMSG_TAIL(n) - (void *) tail;
 	return 0;
 }
 
@@ -169,8 +168,7 @@ static int red_print_opt(struct qdisc_util *qu, FILE *f, struct rtattr *opt)
 	if (opt == NULL)
 		return 0;
 
-	memset(tb, 0, sizeof(tb));
-	parse_rtattr(tb, TCA_RED_STAB, RTA_DATA(opt), RTA_PAYLOAD(opt));
+	parse_rtattr_nested(tb, TCA_RED_STAB, opt);
 
 	if (tb[TCA_RED_PARMS] == NULL)
 		return -1;
@@ -213,10 +211,9 @@ static int red_print_xstats(struct qdisc_util *qu, FILE *f, struct rtattr *xstat
 }
 
 
-struct qdisc_util red_util = {
-	NULL,
-	"red",
-	red_parse_opt,
-	red_print_opt,
-	red_print_xstats,
+struct qdisc_util red_qdisc_util = {
+	.id		= "red",
+	.parse_qopt	= red_parse_opt,
+	.print_qopt	= red_print_opt,
+	.print_xstats	= red_print_xstats,
 };

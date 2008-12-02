@@ -10,7 +10,6 @@
 #include <stdio.h>
 #include <string.h>
 #include <fcntl.h>
-#include <memory.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <sys/types.h>
@@ -21,13 +20,15 @@
 #include <endian.h>
 #include "busybox.h"
 
-static const int PSF_MAGIC1 = 0x36;
-static const int PSF_MAGIC2 = 0x04;
+enum{
+	PSF_MAGIC1 = 0x36,
+	PSF_MAGIC2 = 0x04,
 
-static const int PSF_MODE512 = 0x01;
-static const int PSF_MODEHASTAB = 0x02;
-static const int PSF_MAXMODE = 0x03;
-static const int PSF_SEPARATOR = 0xFFFF;
+	PSF_MODE512 = 0x01,
+	PSF_MODEHASTAB = 0x02,
+	PSF_MAXMODE = 0x03,
+	PSF_SEPARATOR = 0xFFFF
+};
 
 struct psf_header {
 	unsigned char magic1, magic2;	/* Magic number */
@@ -39,22 +40,20 @@ struct psf_header {
 
 static void loadnewfont(int fd);
 
-extern int loadfont_main(int argc, char **argv)
+int loadfont_main(int argc, char **argv)
 {
 	int fd;
 
 	if (argc != 1)
 		bb_show_usage();
 
-	fd = open(CURRENT_VC, O_RDWR);
-	if (fd < 0)
-		bb_perror_msg_and_die("Error opening " CURRENT_VC);
+	fd = bb_xopen(CURRENT_VC, O_RDWR);
 	loadnewfont(fd);
 
 	return EXIT_SUCCESS;
 }
 
-static void do_loadfont(int fd, char *inbuf, int unit, int fontsize)
+static void do_loadfont(int fd, unsigned char *inbuf, int unit, int fontsize)
 {
 	char buf[16384];
 	int i;
@@ -140,7 +139,7 @@ do_loadtable(int fd, unsigned char *inbuf, int tailsz, int fontsize)
 static void loadnewfont(int fd)
 {
 	int unit;
-	char inbuf[32768];			/* primitive */
+	unsigned char inbuf[32768];			/* primitive */
 	unsigned int inputlth, offset;
 
 	/*

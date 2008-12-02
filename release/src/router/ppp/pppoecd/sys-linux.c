@@ -94,7 +94,7 @@ static int driver_version      = 0;
 static int driver_modification = 0;
 static int driver_patch        = 0;
 
-static char loop_name[20];
+//	static char loop_name[20];
 static unsigned char inbuf[512]; /* buffer for chars read from loopback */
 
 static int	if_is_up;	/* Interface has been marked up */
@@ -1105,13 +1105,9 @@ static int read_route_table(struct rtentry *rt)
 // copy from pppd/sys-linux.c by tallest
                                                                                                                              
 static int open_route_table (void)
-{
-    char *path;
-                                                                                                                             
+{                                                                                                                             
     close_route_table();
                                                                                                                              
-    //path = path_to_procfs("/net/route");
-    //route_fd = fopen (path, "r");
     route_fd = fopen ("proc/net/route", "r");
     if (route_fd == NULL) {
         error("can't open routing table");

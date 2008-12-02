@@ -14,6 +14,7 @@
 #include <net/if.h>
 #include <linux/netfilter_ipv4/ipt_ULOG.h>
 
+/* FIXME: glibc sucks */
 #ifndef MSG_TRUNC 
 #define MSG_TRUNC	0x20
 #endif

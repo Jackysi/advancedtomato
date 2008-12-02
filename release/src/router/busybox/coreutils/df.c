@@ -2,23 +2,10 @@
 /*
  * Mini df implementation for busybox
  *
- * Copyright (C) 1999-2003 by Erik Andersen <andersen@codepoet.org>
+ * Copyright (C) 1999-2004 by Erik Andersen <andersen@codepoet.org>
  * based on original code by (I think) Bruce Perens <bruce@pixar.com>.
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
- *
+ * Licensed under GPLv2 or later, see file LICENSE in this tarball for details.
  */
 
 /* BB_AUDIT SUSv3 _NOT_ compliant -- options -P and -t missing.  Also blocksize. */
@@ -27,7 +14,7 @@
 /* Mar 16, 2003      Manuel Novoa III   (mjn3@codepoet.org)
  *
  * Size reduction.  Removed floating point dependency.  Added error checking
- * on output.  Output stats on 0-sized filesystems if specificly listed on
+ * on output.  Output stats on 0-sized filesystems if specifically listed on
  * the command line.  Properly round *-blocks, Used, and Available quantities.
  */
 
@@ -46,12 +33,12 @@ static long kscale(long b, long bs)
 }
 #endif
 
-extern int df_main(int argc, char **argv)
+int df_main(int argc, char **argv)
 {
 	long blocks_used;
 	long blocks_percent_used;
 #ifdef CONFIG_FEATURE_HUMAN_READABLE
-	unsigned long df_disp_hr = KILOBYTE; 
+	unsigned long df_disp_hr = KILOBYTE;
 #endif
 	int status = EXIT_SUCCESS;
 	unsigned long opt;
@@ -62,7 +49,7 @@ extern int df_main(int argc, char **argv)
 	const char *disp_units_hdr = hdr_1k;
 
 #ifdef CONFIG_FEATURE_HUMAN_READABLE
-	bb_opt_complementaly = "h-km:k-hm:m-hk";
+	bb_opt_complementally = "h-km:k-hm:m-hk";
 	opt = bb_getopt_ulflags(argc, argv, "hmk");
 	if(opt & 1) {
 				df_disp_hr = 0;
@@ -115,7 +102,7 @@ extern int df_main(int argc, char **argv)
 			bb_perror_msg("%s", mount_point);
 			goto SET_ERROR;
 		}
-		
+
 		if ((s.f_blocks > 0) || !mount_table){
 			blocks_used = s.f_blocks - s.f_bfree;
 			blocks_percent_used = 0;
@@ -124,30 +111,30 @@ extern int df_main(int argc, char **argv)
 									   + (blocks_used + s.f_bavail)/2
 									   ) / (blocks_used + s.f_bavail);
 			}
-			
+
 			if (strcmp(device, "rootfs") == 0) {
 				continue;
 			} else if (strcmp(device, "/dev/root") == 0) {
 				/* Adjusts device to be the real root device,
 				* or leaves device alone if it can't find it */
-				if ((device = find_real_root_device_name(device)) == NULL) {
+				if ((device = find_block_device("/")) == NULL) {
 					goto SET_ERROR;
 				}
 			}
-			
+
 #ifdef CONFIG_FEATURE_HUMAN_READABLE
-			bb_printf("%-21s%9s ", device,
+			bb_printf("%-20s %9s ", device,
 					  make_human_readable_str(s.f_blocks, s.f_bsize, df_disp_hr));
-			
+
 			bb_printf("%9s ",
 					  make_human_readable_str( (s.f_blocks - s.f_bfree),
 											  s.f_bsize, df_disp_hr));
-			
+
 			bb_printf("%9s %3ld%% %s\n",
 					  make_human_readable_str(s.f_bavail, s.f_bsize, df_disp_hr),
 					  blocks_percent_used, mount_point);
 #else
-			bb_printf("%-21s%9ld %9ld %9ld %3ld%% %s\n",
+			bb_printf("%-20s %9ld %9ld %9ld %3ld%% %s\n",
 					  device,
 					  kscale(s.f_blocks, s.f_bsize),
 					  kscale(s.f_blocks-s.f_bfree, s.f_bsize),
@@ -160,11 +147,3 @@ extern int df_main(int argc, char **argv)
 
 	bb_fflush_stdout_and_exit(status);
 }
-
-/*
-Local Variables:
-c-file-style: "linux"
-c-basic-offset: 4
-tab-width: 4
-End:
-*/

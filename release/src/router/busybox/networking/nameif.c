@@ -1,39 +1,24 @@
 /*
  * nameif.c - Naming Interfaces based on MAC address for busybox.
  *
- * Writen 2000 by Andi Kleen.
+ * Written 2000 by Andi Kleen.
  * Busybox port 2002 by Nick Fedchik <nick@fedchik.org.ua>
- *			Glenn McGrath <bug1@optushome.com.au>
+ *			Glenn McGrath <bug1@iinet.net.au>
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
- * 02111-1307 USA
- *
+ * Licensed under the GPL v2 or later, see the file LICENSE in this tarball.
  */
 
+#include "busybox.h"
 
 #include <sys/syslog.h>
 #include <sys/socket.h>
 #include <sys/ioctl.h>
 #include <errno.h>
-#include <getopt.h>
-#include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 #include <net/if.h>
 #include <netinet/ether.h>
 
-#include "busybox.h"
 
 /* Older versions of net/if.h do not appear to define IF_NAMESIZE. */
 #ifndef IF_NAMESIZE
@@ -47,7 +32,7 @@
 /* take from linux/sockios.h */
 #define SIOCSIFNAME	0x8923	/* set interface name */
 
-/* Octets in one ethernet addr, from <linux/if_ether.h> */
+/* Octets in one Ethernet addr, from <linux/if_ether.h> */
 #define ETH_ALEN	6
 
 #ifndef ifr_newname
@@ -61,9 +46,9 @@ typedef struct mactable_s {
 	struct ether_addr *mac;
 } mactable_t;
 
-static unsigned char use_syslog;
+static unsigned long flags;
 
-static void serror(const char *s, ...) __attribute__ ((noreturn));
+static void serror(const char *s, ...) ATTRIBUTE_NORETURN;
 
 static void serror(const char *s, ...)
 {
@@ -71,7 +56,7 @@ static void serror(const char *s, ...)
 
 	va_start(ap, s);
 
-	if (use_syslog) {
+	if (flags & 1) {
 		openlog(bb_applet_name, 0, LOG_LOCAL0);
 		vsyslog(LOG_ERR, s, ap);
 		closelog();
@@ -79,14 +64,13 @@ static void serror(const char *s, ...)
 		bb_verror_msg(s, ap);
 		putc('\n', stderr);
 	}
-
 	va_end(ap);
 
 	exit(EXIT_FAILURE);
 }
 
 /* Check ascii str_macaddr, convert and copy to *mac */
-struct ether_addr *cc_macaddr(char *str_macaddr)
+static struct ether_addr *cc_macaddr(const char *str_macaddr)
 {
 	struct ether_addr *lmac, *mac;
 
@@ -106,23 +90,10 @@ int nameif_main(int argc, char **argv)
 	const char *fname = "/etc/mactab";
 	char *line;
 	int ctl_sk;
-	int opt;
 	int if_index = 1;
 	mactable_t *ch;
 
-
-	while ((opt = getopt(argc, argv, "c:s")) != -1) {
-		switch (opt) {
-		case 'c':
-			fname = optarg;
-			break;
-		case 's':
-			use_syslog = 1;
-			break;
-		default:
-			bb_show_usage();
-		}
-	}
+	flags = bb_getopt_ulflags(argc, argv, "sc:", &fname);
 
 	if ((argc - optind) & 1)
 		bb_show_usage();
@@ -134,7 +105,7 @@ int nameif_main(int argc, char **argv)
 
 			if (strlen(*a) > IF_NAMESIZE)
 				serror("interface name `%s' too long", *a);
-			ch = xcalloc(1, sizeof(mactable_t));
+			ch = xzalloc(sizeof(mactable_t));
 			ch->ifname = bb_xstrdup(*a++);
 			ch->mac = cc_macaddr(*a++);
 			if (clist)
@@ -150,10 +121,12 @@ int nameif_main(int argc, char **argv)
 			size_t name_length;
 
 			line_ptr = line + strspn(line, " \t");
-			if ((line_ptr[0] == '#') || (line_ptr[0] == '\n'))
+			if ((line_ptr[0] == '#') || (line_ptr[0] == '\n')) {
+				free(line);
 				continue;
+			}
 			name_length = strcspn(line_ptr, " \t");
-			ch = xcalloc(1, sizeof(mactable_t));
+			ch = xzalloc(sizeof(mactable_t));
 			ch->ifname = bb_xstrndup(line_ptr, name_length);
 			if (name_length > IF_NAMESIZE)
 				serror("interface name `%s' too long", ch->ifname);
@@ -177,7 +150,7 @@ int nameif_main(int argc, char **argv)
 	while (clist) {
 		struct ifreq ifr;
 
-		bzero(&ifr, sizeof(struct ifreq));
+		memset(&ifr, 0, sizeof(struct ifreq));
 		if_index++;
 		ifr.ifr_ifindex = if_index;
 
@@ -211,11 +184,11 @@ int nameif_main(int argc, char **argv)
 		}
 		if (ch->next != NULL)
 			(ch->next)->prev = ch->prev;
-#ifdef CONFIG_FEATURE_CLEAN_UP
-		free(ch->ifname);
-		free(ch->mac);
-		free(ch);
-#endif
+		if (ENABLE_FEATURE_CLEAN_UP) {
+			free(ch->ifname);
+			free(ch->mac);
+			free(ch);
+		}
 	}
 
 	return 0;

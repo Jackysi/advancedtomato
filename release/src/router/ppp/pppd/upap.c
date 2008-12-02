@@ -25,6 +25,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 
 #include <pppd.h>
 #include "upap.h"
@@ -185,7 +186,10 @@ upap_timeout(arg)
 
     if (u->us_transmits >= u->us_maxtransmits) {
 	/* give up in disgust */
+
+	LOGX_ERROR("No response from remote peer to PAP authenticate-requests.");
 	error("No response to PAP authenticate-requests");
+
 	u->us_clientstate = UPAPCS_BADAUTH;
 	auth_withpeer_fail(u->us_unit, PPP_PAP);
 	return;
@@ -272,10 +276,13 @@ upap_protrej(unit)
     upap_state *u = &upap[unit];
 
     if (u->us_clientstate == UPAPCS_AUTHREQ) {
+
+	LOGX_ERROR("PAP authentication failed due to local protocol-reject.");
 	error("PAP authentication failed due to protocol-reject");
 	auth_withpeer_fail(unit, PPP_PAP);
     }
     if (u->us_serverstate == UPAPSS_LISTEN) {
+	LOGX_ERROR("PAP authentication of remote peer failed (protocol-reject).");
 	error("PAP authentication of peer failed (protocol-reject)");
 	auth_peer_fail(unit, PPP_PAP);
     }
@@ -354,12 +361,13 @@ upap_rauthreq(u, inp, id, len)
     u_char ruserlen, rpasswdlen;
     char *ruser, *rpasswd;
     int retcode;
-    char *msg;
+    char *msg = "";
     int msglen;
 
     if (u->us_serverstate < UPAPSS_LISTEN)
 	return;
 
+ 	LOGX_INFO("Received PAP Authenticate.");
     /*
      * If we receive a duplicate authenticate-request, we are
      * supposed to return the same status as for the first request.
@@ -454,6 +462,8 @@ upap_rauthack(u, inp, id, len)
 	}
     }
 
+ 	LOGX_INFO("PAP authentication succeeded.");
+
     u->us_clientstate = UPAPCS_OPEN;
 
     auth_withpeer_success(u->us_unit, PPP_PAP);
@@ -496,6 +506,7 @@ upap_rauthnak(u, inp, id, len)
 
     u->us_clientstate = UPAPCS_BADAUTH;
 
+	LOGX_ERROR("PAP authentication failed.");
     error("PAP authentication failed");
    	
     //log_to_file("PAP_AUTH_FAIL");	// add by honor
@@ -514,6 +525,8 @@ upap_sauthreq(u)
 {
     u_char *outp;
     int outlen;
+
+ 	LOGX_INFO("Sending PAP Authenticate-Request.");
 
     outlen = UPAP_HEADERLEN + 2 * sizeof (u_char) +
 	u->us_userlen + u->us_passwdlen;

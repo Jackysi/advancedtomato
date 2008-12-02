@@ -1,0 +1,52 @@
+
+mainmenu "Tomato Configuration"
+
+#	config TCONFIG_HEARTBEAT
+#		bool "Heartbeat"
+#		default y
+
+config TCONFIG_L2TP
+	bool "L2TP"
+	default y
+
+config TCONFIG_PPTP
+	bool "PPTP"
+	default y
+
+config TCONFIG_HTTPS
+	bool "HTTPS"
+	default y
+
+config TCONFIG_SSH
+	bool "SSH"
+	default y
+
+config TCONFIG_CIFS
+	bool "CIFS Client"
+	default y
+
+config TCONFIG_JFFS2
+	bool "JFFS2"
+	default y
+
+config TCONFIG_ZEBRA
+	bool "Zebra"
+	default y
+
+config TCONFIG_DDNS
+	bool "Dynamic DNS"
+	default y
+
+config TCONFIG_L7
+	bool "Layer 7 Netfilter"
+	default y
+
+config TCONFIG_L7PAT
+	bool "Standard Layer 7 Patterns"
+	depends on TCONFIG_L7
+	default y
+
+config TCONFIG_IPP2P
+	bool "IPP2P Netfilter"
+	default y
+

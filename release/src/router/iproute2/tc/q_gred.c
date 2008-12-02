@@ -76,9 +76,6 @@ static int init_gred(struct qdisc_util *qu, int argc, char **argv, struct nlmsgh
 				    "defined after DPs\n");
 				return -1;
 			}
-#if 0
-			if (opt.def_DP>opt.DPs-1) {
-#endif
 			if (opt.def_DP>opt.DPs) {
 /*
 				fprintf(stderr, "\"default DP\" must be less than %d\nNote: DP runs from 0 to %d for %d DPs\n",opt.DPs,opt.DPs-1,opt.DPs);
@@ -106,11 +103,10 @@ if ((!opt.DPs) || (!opt.def_DP))
 }
 DPRINTF("TC_GRED: sending DPs=%d default=%d\n",opt.DPs,opt.def_DP);
 	n->nlmsg_flags|=NLM_F_CREATE;
-	tail = (struct rtattr*)(((void*)n)+NLMSG_ALIGN(n->nlmsg_len));
-
+	tail = NLMSG_TAIL(n);
 	addattr_l(n, 1024, TCA_OPTIONS, NULL, 0);
 	addattr_l(n, 1024, TCA_GRED_DPS, &opt, sizeof(struct tc_gred_sopt));
-	tail->rta_len = (((void*)n)+NLMSG_ALIGN(n->nlmsg_len)) - (void*)tail;
+	tail->rta_len = (void *) NLMSG_TAIL(n) - (void *) tail;
 return 0;
 }
 /*
@@ -169,10 +165,6 @@ static int gred_parse_opt(struct qdisc_util *qu, int argc, char **argv, struct n
 				fprintf(stderr, "GRED: only %d DPs are currently supported\n",MAX_DPs);
 				return -1;
 			}
-#if 0
-				return -1;
-			}
-#endif
 			ok++;
 		} else if (strcmp(*argv, "burst") == 0) {
 			NEXT_ARG();
@@ -252,12 +244,11 @@ static int gred_parse_opt(struct qdisc_util *qu, int argc, char **argv, struct n
 	}
 	opt.Scell_log = wlog;
 
-	tail = (struct rtattr*)(((void*)n)+NLMSG_ALIGN(n->nlmsg_len));
-
+	tail = NLMSG_TAIL(n);
 	addattr_l(n, 1024, TCA_OPTIONS, NULL, 0);
 	addattr_l(n, 1024, TCA_GRED_PARMS, &opt, sizeof(opt));
 	addattr_l(n, 1024, TCA_GRED_STAB, sbuf, 256);
-	tail->rta_len = (((void*)n)+NLMSG_ALIGN(n->nlmsg_len)) - (void*)tail;
+	tail->rta_len = (void *) NLMSG_TAIL(n) - (void *) tail;
 	return 0;
 }
 
@@ -275,32 +266,17 @@ static int gred_print_opt(struct qdisc_util *qu, FILE *f, struct rtattr *opt)
 	if (opt == NULL)
 		return 0;
 
-	memset(tb, 0, sizeof(tb));
-	parse_rtattr(tb, TCA_GRED_STAB, RTA_DATA(opt), RTA_PAYLOAD(opt));
+	parse_rtattr_nested(tb, TCA_GRED_STAB, opt);
 
 	if (tb[TCA_GRED_PARMS] == NULL)
 		return -1;
-#if 0
-	sopt = RTA_DATA(tb[TCA_GRED_DPS]);
-	if (RTA_PAYLOAD(tb[TCA_GRED_DPS])  < sizeof(*sopt)) {
-		printf("\n GRED DPs message smaller than expected\n");
-		return -1;
-		}
-         
-	DPRINTF(f, "\n\tDPs:%d Default DP %d\n ",
-		sopt->DPs, sopt->def_DP);
-#endif
+
 	qopt = RTA_DATA(tb[TCA_GRED_PARMS]);
 	if (RTA_PAYLOAD(tb[TCA_GRED_PARMS])  < sizeof(*qopt)*MAX_DPs) {
 		fprintf(f,"\n GRED received message smaller than expected\n");
 		return -1;
 		}
          
-
-#if 0
-
-	for (i=0;i<sopt->DPs;i++)
-#endif
 /* Bad hack! should really return a proper message as shown above*/
 
 	for (i=0;i<MAX_DPs;i++, qopt++) {
@@ -329,17 +305,8 @@ static int gred_print_opt(struct qdisc_util *qu, FILE *f, struct rtattr *opt)
 	return 0;
 }
 
-static int gred_print_xstats(struct qdisc_util *qu, FILE *f,
-    struct rtattr *xstats)
-{
-	return 0;
-}
-
-
-struct qdisc_util gred_util = {
-	NULL,
-	"gred",
-	gred_parse_opt,
-	gred_print_opt,
-	gred_print_xstats,
+struct qdisc_util gred_qdisc_util = {
+	.id		= "gred",
+	.parse_qopt	= gred_parse_opt,
+	.print_qopt	= gred_print_opt,
 };

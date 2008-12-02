@@ -46,6 +46,10 @@ main(int argc, char *argv[])
 	program_name = "ip6tables";
 	program_version = IPTABLES_VERSION;
 
+	lib_dir = getenv("IP6TABLES_LIB_DIR");
+	if (!lib_dir)
+		lib_dir = IP6T_LIB_DIR;
+
 #ifdef NO_SHARED_LIBS
 	init_extensions();
 #endif

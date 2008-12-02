@@ -4,20 +4,7 @@
  *
  * Copyright (C) 2001  Manuel Novoa III  <mjn3@codepoet.org>
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
- *
+ * Licensed under GPLv2 or later, see file LICENSE in this tarball for details.
  */
 
 /* BB_AUDIT SUSv3 N/A */
@@ -27,13 +14,47 @@
 #include <fcntl.h>
 #include <sys/ioctl.h>
 #include <net/if.h>
-#include <linux/if_vlan.h>
 #include <string.h>
 #include <limits.h>
 #include "busybox.h"
 
+/* Stuff from linux/if_vlan.h, kernel version 2.4.23 */
+enum vlan_ioctl_cmds {
+	ADD_VLAN_CMD,
+	DEL_VLAN_CMD,
+	SET_VLAN_INGRESS_PRIORITY_CMD,
+	SET_VLAN_EGRESS_PRIORITY_CMD,
+	GET_VLAN_INGRESS_PRIORITY_CMD,
+	GET_VLAN_EGRESS_PRIORITY_CMD,
+	SET_VLAN_NAME_TYPE_CMD,
+	SET_VLAN_FLAG_CMD
+};
+enum vlan_name_types {
+	VLAN_NAME_TYPE_PLUS_VID, /* Name will look like:  vlan0005 */
+	VLAN_NAME_TYPE_RAW_PLUS_VID, /* name will look like:  eth1.0005 */
+	VLAN_NAME_TYPE_PLUS_VID_NO_PAD, /* Name will look like:  vlan5 */
+	VLAN_NAME_TYPE_RAW_PLUS_VID_NO_PAD, /* Name will look like:  eth0.5 */
+	VLAN_NAME_TYPE_HIGHEST
+};
+
+struct vlan_ioctl_args {
+	int cmd; /* Should be one of the vlan_ioctl_cmds enum above. */
+	char device1[24];
+
+	union {
+		char device2[24];
+		int VID;
+		unsigned int skb_priority;
+		unsigned int name_type;
+		unsigned int bind_type;
+		unsigned int flag; /* Matches vlan_dev_info flags */
+	} u;
+
+	short vlan_qos;
+};
+
 #define VLAN_GROUP_ARRAY_LEN 4096
-#define SIOCSIFVLAN	0x8983		/* Set 802.1Q VLAN options 	*/
+#define SIOCSIFVLAN	0x8983		/* Set 802.1Q VLAN options */
 
 /* On entry, table points to the length of the current string plus
  * nul terminator plus data length for the subsequent entry.  The
@@ -76,7 +97,7 @@ static const char name_types[] = {
 	'_', 'P', 'L', 'U', 'S', '_', 'V', 'I', 'D',
 	0,
 	VLAN_NAME_TYPE_PLUS_VID_NO_PAD, 22,
-	'V', 'L', 'A', 'N', 
+	'V', 'L', 'A', 'N',
 	'_', 'P', 'L', 'U', 'S', '_', 'V', 'I', 'D',
 	'_', 'N', 'O', '_', 'P', 'A', 'D', 0,
 	VLAN_NAME_TYPE_RAW_PLUS_VID, 15,
@@ -102,9 +123,8 @@ int vconfig_main(int argc, char **argv)
 	}
 
 	/* Don't bother closing the filedes.  It will be closed on cleanup. */
-	if (open(conf_file_name, O_RDONLY) < 0) { /* Is 802.1q is present? */
-	    bb_perror_msg_and_die("open %s", conf_file_name);
-	}
+	/* Will die if 802.1q is not present */
+	bb_xopen3(conf_file_name, O_RDONLY, 0);
 
 	memset(&ifr, 0, sizeof(struct vlan_ioctl_args));
 
@@ -139,10 +159,9 @@ int vconfig_main(int argc, char **argv)
 		}
 	}
 
-	if (((fd = socket(AF_INET, SOCK_STREAM, 0)) < 0)
-		|| (ioctl(fd, SIOCSIFVLAN, &ifr) < 0)
-		) {
-		bb_perror_msg_and_die("socket or ioctl error for %s", *argv);
+	fd = bb_xsocket(AF_INET, SOCK_STREAM, 0);
+	if (ioctl(fd, SIOCSIFVLAN, &ifr) < 0) {
+		bb_perror_msg_and_die("ioctl error for %s", *argv);
 	}
 
 	return 0;

@@ -2,7 +2,7 @@
 /*
  * Mini clear implementation for busybox
  *
- * Copyright (C) 1999-2003 by Erik Andersen <andersen@codepoet.org>
+ * Copyright (C) 1999-2004 by Erik Andersen <andersen@codepoet.org>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -20,13 +20,14 @@
  *
  */
 
+/* no options, no getopt */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include "busybox.h"
 
 
-extern int clear_main(int argc, char **argv)
+int clear_main(int argc, char **argv)
 {
-	printf("\033[H\033[J");
-	return EXIT_SUCCESS;
+	return printf("\033[H\033[J") != 6;
 }

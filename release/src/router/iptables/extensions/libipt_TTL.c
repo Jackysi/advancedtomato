@@ -1,7 +1,7 @@
 /* Shared library add-on to iptables for the TTL target
  * (C) 2000 by Harald Welte <laforge@gnumonks.org>
  *
- * $Id: libipt_TTL.c,v 1.1.1.4 2003/10/14 08:09:41 sparq Exp $
+ * $Id: libipt_TTL.c 3507 2004-12-28 13:11:59Z /C=DE/ST=Berlin/L=Berlin/O=Netfilter Project/OU=Development/CN=rusty/emailAddress=rusty@netfilter.org $
  *
  * This program is distributed under the terms of GNU GPL
  */
@@ -24,9 +24,9 @@ static void help(void)
 {
 	printf(
 "TTL target v%s options\n"
-"  --ttl-set value		Set TTL to <value>\n"
-"  --ttl-dec value		Decrement TTL by <value>\n"
-"  --ttl-inc value		Increment TTL by <value>\n"
+"  --ttl-set value		Set TTL to <value 0-255>\n"
+"  --ttl-dec value		Decrement TTL by <value 1-255>\n"
+"  --ttl-inc value		Increment TTL by <value 1-255>\n"
 , IPTABLES_VERSION);
 }
 
@@ -35,7 +35,7 @@ static int parse(int c, char **argv, int invert, unsigned int *flags,
 		struct ipt_entry_target **target)
 {
 	struct ipt_TTL_info *info = (struct ipt_TTL_info *) (*target)->data;
-	u_int8_t value;
+	unsigned int value;
 
 	if (*flags & IPT_TTL_USED) {
 		exit_error(PARAMETER_PROBLEM, 
@@ -50,7 +50,9 @@ static int parse(int c, char **argv, int invert, unsigned int *flags,
 		exit_error(PARAMETER_PROBLEM,
 				"TTL: unexpected `!'");
 	
-	value = atoi(optarg);
+	if (string_to_number(optarg, 0, 255, &value) == -1)
+		exit_error(PARAMETER_PROBLEM,
+		           "TTL: Expected value between 0 and 255");
 
 	switch (c) {
 
@@ -143,19 +145,19 @@ static struct option opts[] = {
 	{ 0 }
 };
 
-static
-struct iptables_target TTL = { NULL, 
-	"TTL",
-	IPTABLES_VERSION,
-	IPT_ALIGN(sizeof(struct ipt_TTL_info)),
-	IPT_ALIGN(sizeof(struct ipt_TTL_info)),
-	&help,
-	&init,
-	&parse,
-	&final_check,
-	&print,
-	&save,
-	opts 
+static struct iptables_target TTL = {
+	.next		= NULL, 
+	.name		= "TTL",
+	.version	= IPTABLES_VERSION,
+	.size		= IPT_ALIGN(sizeof(struct ipt_TTL_info)),
+	.userspacesize	= IPT_ALIGN(sizeof(struct ipt_TTL_info)),
+	.help		= &help,
+	.init		= &init,
+	.parse		= &parse,
+	.final_check	= &final_check,
+	.print		= &print,
+	.save		= &save,
+	.extra_opts	= opts 
 };
 
 void _init(void)

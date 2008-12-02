@@ -8,51 +8,37 @@
  * Based on the Debian run-parts program, version 1.15
  *   Copyright (C) 1996 Jeff Noxon <jeff@router.patch.net>,
  *   Copyright (C) 1996-1999 Guy Maor <maor@debian.org>
- *   
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
- * 02111-1307 USA
- *
+ * Licensed under GPL v2, see file LICENSE in this tarball for details.
  */
 
 /* This is my first attempt to write a program in C (well, this is my first
  * attempt to write a program! :-) . */
 
 /* This piece of code is heavily based on the original version of run-parts,
- * taken from debian-utils. I've only removed the long options and a the 
+ * taken from debian-utils. I've only removed the long options and a the
  * report mode. As the original run-parts support only long options, I've
- * broken compatibility because the BusyBox policy doesn't allow them. 
- * The supported options are: 
+ * broken compatibility because the BusyBox policy doesn't allow them.
+ * The supported options are:
  * -t			test. Print the name of the files to be executed, without
- * 				execute them.
- * -a ARG		argument. Pass ARG as an argument the program executed. It can 
- * 				be repeated to pass multiple arguments.
- * -u MASK 		umask. Set the umask of the program executed to MASK. */
+ *				execute them.
+ * -a ARG		argument. Pass ARG as an argument the program executed. It can
+ *				be repeated to pass multiple arguments.
+ * -u MASK		umask. Set the umask of the program executed to MASK. */
 
-/* TODO 
+/* TODO
  * done - convert calls to error in perror... and remove error()
- * done - convert malloc/realloc to their x... counterparts 
+ * done - convert malloc/realloc to their x... counterparts
  * done - remove catch_sigchld
- * done - use bb's concat_path_file() 
+ * done - use bb's concat_path_file()
  * done - declare run_parts_main() as extern and any other function as static?
  */
 
+#include "busybox.h"
 #include <getopt.h>
 #include <stdlib.h>
 
-#include "libbb.h"
 
 static const struct option runparts_long_options[] = {
 	{ "test",		0,		NULL,		't' },
@@ -85,7 +71,7 @@ int run_parts_main(int argc, char **argv)
 			/* Set the umask of the programs executed */
 			case 'u':
 				/* Check and set the umask of the program executed. As stated in the original
-				 * run-parts, the octal conversion in libc is not foolproof; it will take the 
+				 * run-parts, the octal conversion in libc is not foolproof; it will take the
 				 * 8 and 9 digits under some circumstances. We'll just have to live with it.
 				 */
 				umask(bb_xgetlarg(optarg, 8, 0, 07777));

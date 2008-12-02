@@ -30,30 +30,6 @@ static struct option opts[] = {
 	{0}
 };
 
-static int
-service_to_port(const char *name)
-{
-	struct servent *service;
-
-	if ((service = getservbyname(name, "udp")) != NULL)
-		return ntohs((unsigned short) service->s_port);
-
-		return -1;
-}
-
-static u_int16_t
-parse_udp_port(const char *port)
-{
-	unsigned int portnum;
-
-	if (string_to_number(port, 0, 65535, &portnum) != -1 ||
-	    (portnum = service_to_port(port)) != -1)
-		return (u_int16_t)portnum;
-
-		exit_error(PARAMETER_PROBLEM,
-			   "invalid UDP port/service `%s' specified", port);
-	}
-
 static void
 parse_udp_ports(const char *portstring, u_int16_t *ports)
 {
@@ -62,13 +38,13 @@ parse_udp_ports(const char *portstring, u_int16_t *ports)
 
 	buffer = strdup(portstring);
 	if ((cp = strchr(buffer, ':')) == NULL)
-		ports[0] = ports[1] = parse_udp_port(buffer);
+		ports[0] = ports[1] = parse_port(buffer, "udp");
 	else {
 		*cp = '\0';
 		cp++;
 
-		ports[0] = buffer[0] ? parse_udp_port(buffer) : 0;
-		ports[1] = cp[0] ? parse_udp_port(cp) : 0xFFFF;
+		ports[0] = buffer[0] ? parse_port(buffer, "udp") : 0;
+		ports[1] = cp[0] ? parse_port(cp, "udp") : 0xFFFF;
 
 		if (ports[0] > ports[1])
 			exit_error(PARAMETER_PROBLEM,
@@ -109,7 +85,6 @@ parse(int c, char **argv, int invert, unsigned int *flags,
 		if (invert)
 			udpinfo->invflags |= IP6T_UDP_INV_SRCPT;
 		*flags |= UDP_SRC_PORTS;
-		*nfcache |= NFC_IP6_SRC_PT;
 		break;
 
 	case '2':
@@ -121,7 +96,6 @@ parse(int c, char **argv, int invert, unsigned int *flags,
 		if (invert)
 			udpinfo->invflags |= IP6T_UDP_INV_DSTPT;
 		*flags |= UDP_DST_PORTS;
-		*nfcache |= NFC_IP6_DST_PT;
 		break;
 
 	default:
@@ -205,7 +179,7 @@ static void save(const struct ip6t_ip6 *ip, const struct ip6t_entry_match *match
 	const struct ip6t_udp *udpinfo = (struct ip6t_udp *)match->data;
 
 	if (udpinfo->spts[0] != 0
-	    && udpinfo->spts[1] != 0xFFFF) {
+	    || udpinfo->spts[1] != 0xFFFF) {
 		if (udpinfo->invflags & IP6T_UDP_INV_SRCPT)
 			printf("! ");
 		if (udpinfo->spts[0]
@@ -219,7 +193,7 @@ static void save(const struct ip6t_ip6 *ip, const struct ip6t_entry_match *match
 	}
 
 	if (udpinfo->dpts[0] != 0
-	    && udpinfo->dpts[1] != 0xFFFF) {
+	    || udpinfo->dpts[1] != 0xFFFF) {
 		if (udpinfo->invflags & IP6T_UDP_INV_DSTPT)
 			printf("! ");
 		if (udpinfo->dpts[0]
@@ -233,20 +207,18 @@ static void save(const struct ip6t_ip6 *ip, const struct ip6t_entry_match *match
 	}
 }
 
-static
-struct ip6tables_match udp
-= { NULL,
-    "udp",
-    IPTABLES_VERSION,
-    IP6T_ALIGN(sizeof(struct ip6t_udp)),
-    IP6T_ALIGN(sizeof(struct ip6t_udp)),
-    &help,
-    &init,
-    &parse,
-    &final_check,
-    &print,
-    &save,
-    opts
+static struct ip6tables_match udp = {
+	.name		= "udp",
+	.version	= IPTABLES_VERSION,
+	.size		= IP6T_ALIGN(sizeof(struct ip6t_udp)),
+	.userspacesize	= IP6T_ALIGN(sizeof(struct ip6t_udp)),
+	.help		= &help,
+	.init		= &init,
+	.parse		= &parse,
+	.final_check	= &final_check,
+	.print		= &print,
+	.save		= &save,
+	.extra_opts	= opts,
 };
 
 void

@@ -123,6 +123,6 @@ int zlog_rotate ();
 char *lookup (struct message *, int);
 char *mes_lookup (struct message *meslist, int max, int index);
 
-extern const char *zlog_priority [0]  ;
+extern const char *zlog_priority []  ;
 
 #endif /* _ZEBRA_LOG_H */

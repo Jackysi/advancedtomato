@@ -2861,9 +2861,9 @@ static void rs_close(struct tty_struct *tty, struct file * filp)
 	info->event = 0;
 	info->tty = 0;
 	if (info->blocked_open) {
-		if (info->close_delay) {
+		if (state->close_delay) {
 			set_current_state(TASK_INTERRUPTIBLE);
-			schedule_timeout(info->close_delay);
+			schedule_timeout(state->close_delay);
 		}
 		wake_up_interruptible(&info->open_wait);
 	}

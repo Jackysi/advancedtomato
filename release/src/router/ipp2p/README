@@ -1,0 +1,110 @@
+IPP2P, an extension to iptables to identify P2P traffic written by Eicke Friedrich.
+This software is under development but it seems to run pretty stable. Use at your own risk!
+
+
+Installation Instructions:
+--------------------------
+-modify the Makefile (change "IUSER = -I/usr/src/iptables/include" to wherever iptables.h is located)
+-type "make"
+-copy libipt_ipp2p.so to the iptables lib dir (/usr/lib/iptables/)
+-insmod ipt_ipp2p.o / ipt_ipp2p.ko or copy to your kernel modules dir and do a "depmod -a"
+-create your rules
+
+
+Versions:
+---------
+Currently IPP2P is tested to be working together with:
+ -Linux-Kernels 2.6: 2.6.3, 2.6.4, 2.6.6, 2.6.17
+ -Linux-Kernels 2.4: 2.4.18, 2.4.19, 2.4.20, 2.4.21, 2.4.22, 2.4.23, 2.4.26
+ -iptables (from netfilter.org) 1.2.7a, 1.2.8, 1.2.9, 1.2.11, 1.3.0, 1.3.1
+You can try to run IPP2P with different kernel or iptables versions. Feel free to contact me
+with any kind of feedback or problems you may encounter. See section "Contact" at the end of this
+document.
+
+
+Help:
+-----
+After installing you can get help about IPP2P by typing
+
+ iptables -m ipp2p --help
+
+This prints out the current version of IPP2P, a list of all available options and some hints.
+ 
+
+Hints:
+------
+IPP2P identifies P2P patterns in TCP and UDP packets, the default behavior is to search TCP traffic
+only. The need to specify "-p tcp" is reversed with IPP2P version 0.7-pre2 and above. You now have
+different ways to search UDP and TCP packets:
+
+ iptables -A FORWARD -p tcp -m ipp2p --bit -j DROP 	/*TCP traffic only*/
+ iptables -A FORWARD -p udp -m ipp2p --bit -j DROP  	/*UDP traffic only*/
+ iptables -A FORWARD -m ipp2p --bit -j DROP		/*UDP and TCP traffic*/
+ 
+As you can see the default behavior equals to IPP2P before 0.7-pre2 so no need to change your ruleset
+at the moment. If you want to use UDP filters use "-p udp" for IPP2P being able to getUDP packets. 
+Without the "-p" switch TCP and UDP packets will be searched. The help screen gives an overview of 
+available TCP and UDP filters. [TCP] means this is a TCP only filter, [TCP&UDP] means there are filter 
+for both protocols. 
+
+A word about filters marked as DROP-only (Ares and maybe still SoulSeek): these filters cannot identify 
+certain parts of P2P communication. This means accounting (as done by marking connections) will cover just
+a small part of the P2P network communication. But you still can use a DROP-rule to prevent these
+P2P networks from working.
+
+
+How it works:
+-------------
+IPP2P is mainly intended to be used together with connection marking. As IPP2P only recognizes some but 
+not all packets (usually at the beginning) of a P2P connection. You can prevent P2P from working by 
+dropping all packets matched by IPP2P:
+
+ iptables -A FORWARD -m ipp2p --edk --kazaa --gnu --bit --apple --dc --soul --winmx --ares -j DROP
+
+For shaping P2P traffic connection tracking and its extension CONNMARK is needed. An example for a 
+working setup using CONNMARK:
+
+ iptables -A PREROUTING -t mangle -p tcp -j CONNMARK --restore-mark
+ iptables -A PREROUTING -t mangle -p tcp -m mark ! --mark 0 -j ACCEPT
+ iptables -A PREROUTING -t mangle -p tcp -m ipp2p --ipp2p -j MARK --set-mark 1
+ iptables -A PREROUTING -t mangle -p tcp -m mark --mark 1 -j CONNMARK --save-mark
+
+As result every UDP and TCP packet belonging to a identified P2P connection is marked with "1". 
+
+ tc filter add dev eth0 parent 1:0 protocol ip prio 4 handle 1 fw classid 1:11
+ tc filter add dev eth1 parent 2:0 protocol ip prio 4 handle 1 fw classid 2:11
+
+Using HTB and these filters would put all packets marked with "1" into a class per device (eth0&eth1 here). 
+Limiting the bandwidth of this class you could limit the bandwidth given to P2P connections.
+
+
+DEBUG:
+------
+Since version 0.7-pre2 there is a debuging option (--debug). This will print a match identifier, both
+IP adresses, portnumbers and IP payload length in your kernel logfile. Please keep in mind that P2P networks 
+create much traffic and IPP2P detects many of them. Together with --debug this will result in many entries 
+in your logfile! Use this option carefully.
+
+The match identifier consists of the value for the filter (see ipt_ipp2p.h) and the last two digits are
+the rule identifier. If it is "00" we just have only one rule inside this filter.
+
+
+TODO:
+-----
+-DOCUMENTATION 
+-more P2P networks coming soon (OpenNap, S2S, etc.)
+-extend & test UDP part
+-remove obsolete data-filters
+-more testing
+
+
+Contact:
+--------
+Any suggestions or hints are more than welcome. Write a message to
+ ipp2p@ipp2p.org
+and please put the word IPP2P into the subject of the mail otherwise it may be
+treated as spam.
+
+Find the official IPP2P homepage at:
+http://www.ipp2p.org
+

@@ -38,8 +38,8 @@ int tee_main(int argc, char **argv)
 	int flags;
 	int retval = EXIT_SUCCESS;
 #ifdef CONFIG_FEATURE_TEE_USE_BLOCK_IO
-	size_t c;
-	RESERVE_CONFIG_BUFFER(buf, BUFSIZ);
+	ssize_t c;
+# define buf bb_common_bufsiz1
 #else
 	int c;
 #endif
@@ -78,17 +78,18 @@ int tee_main(int argc, char **argv)
 	*p = NULL;				/* Store the sentinal value. */
 
 #ifdef CONFIG_FEATURE_TEE_USE_BLOCK_IO
-	while ((c = fread(buf, 1, BUFSIZ, stdin)) != 0) {
+	while ((c = safe_read(STDIN_FILENO, buf, BUFSIZ)) > 0) {
 		for (p=files ; *p ; p++) {
 			fwrite(buf, 1, c, *p);
 		}
 	}
 
-#ifdef CONFIG_FEATURE_CLEAN_UP
-	RELEASE_CONFIG_BUFFER(buf);
-#endif
+	if (c < 0) {			/* Make sure read errors are signaled. */
+		retval = EXIT_FAILURE;
+	}
 
 #else
+	setvbuf(stdout, NULL, _IONBF, 0);
 	while ((c = getchar()) != EOF) {
 		for (p=files ; *p ; p++) {
 			putc(c, *p);
@@ -96,7 +97,7 @@ int tee_main(int argc, char **argv)
 	}
 #endif
 
-	/* Now we need to check for i/o errors on stdin and the various 
+	/* Now we need to check for i/o errors on stdin and the various
 	 * output files.  Since we know that the first entry in the output
 	 * file table is stdout, we can save one "if ferror" test by
 	 * setting the first entry to stdin and checking stdout error

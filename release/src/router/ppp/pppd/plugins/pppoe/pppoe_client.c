@@ -28,6 +28,8 @@ static int std_rcv_pado(struct session* ses,
     if( verify_packet(ses, p_in) < 0)
 	return 0;
     
+	LOGX_INFO("Received PADO.");
+
     if (DEB_DISC2)
 	poe_dbglog (ses,"PADO received: %P", p_in);
     
@@ -67,15 +69,14 @@ static int std_rcv_pado(struct session* ses,
     ses->state = PADS_CODE;
     
     ses->retransmits = 0;
+
+	LOGX_INFO("Sending PADR.");
     
     send_disc(ses, &ses->curr_pkt);
     (*p_out) = &ses->curr_pkt;
-    
-    if (DEB_DISC)
-	poe_dbglog (ses,"Sent PADR: %P", *p_out);
 
     if (ses->np)
-	return 1;
+		return 1;
     
     return 0;
 }
@@ -99,10 +100,7 @@ static int std_init_disc(struct session* ses,
     
     memcpy( &ses->curr_pkt.addr, &ses->remote , sizeof(struct sockaddr_ll));
     
-    poe_info (ses,"Sending PADI");
-    //if (DEB_DISC)
-    //	poe_dbglog (ses,"Sending PADI");
-    fprintf(stderr,"Sending PADI\n");
+	LOGX_INFO("Sending PADI.");
     
     ses->retransmits = 0 ;
     
@@ -122,9 +120,6 @@ static int std_init_disc(struct session* ses,
     send_disc(ses, &ses->curr_pkt);
     (*p_out)= &ses->curr_pkt;
 
-    if (DEB_DISC)
-	poe_dbglog (ses,"Sent PADI: %P", *p_out);
-
     return 0;
 }
 
@@ -133,15 +128,12 @@ static int std_rcv_pads(struct session* ses,
 			struct pppoe_packet *p_in,
 			struct pppoe_packet **p_out){
     if(ses->state != PADS_CODE ){
-	poe_error(ses,"Unexpected packet: %P",p_in);
-	return 0;
+		poe_error(ses,"Unexpected packet: %P",p_in);
+		return 0;
     }
     
     if( verify_packet(ses, p_in) < 0)
-	return 0;
-    
-    if (DEB_DISC)
-	poe_dbglog (ses,"PADS received: %P", p_in);
+		return 0;
     
     ses->sp.sa_family = AF_PPPOX;
     ses->sp.sa_protocol = PX_PROTO_OE;
@@ -150,22 +142,26 @@ static int std_rcv_pads(struct session* ses,
     memcpy(ses->sp.sa_addr.pppoe.remote, p_in->addr.sll_addr, ETH_ALEN);
     
     if (DEB_DISC)
-	poe_dbglog (ses,"Got connection: %x %s <--->%E",  
-		ses->sp.sa_addr.pppoe.sid, 
-		ses->sp.sa_addr.pppoe.dev, ses->sp.sa_addr.pppoe.remote);
+		poe_dbglog (ses,"Got connection: %x %s <--->%E",  
+			ses->sp.sa_addr.pppoe.sid, 
+			ses->sp.sa_addr.pppoe.dev, ses->sp.sa_addr.pppoe.remote);
     
+	LOGX_INFO("Received PADS. SID: 0x%04X", ses->sp.sa_addr.pppoe.sid);
     return 1;
 }
 
 static int std_rcv_padt(struct session* ses,
 			struct pppoe_packet *p_in,
 			struct pppoe_packet **p_out){
+
+	LOGX_INFO("Received PADT.");
     ses->state = PADO_CODE;
     return 0;
 }
 
 
 extern int disc_sock;
+
 int client_init_ses (struct session *ses, char* devnam)
 {
     int i=0;
@@ -174,21 +170,12 @@ int client_init_ses (struct session *ses, char* devnam)
     int addr[ETH_ALEN];
     int sid;
     
-    /* do error checks here; session name etc are valid */
-//    poe_info (ses,"init_ses: creating socket");
-
-//DEB_DISC = 1;
-//DEB_DISC2 = 1;
-    
     /* Make socket if necessary */
-    if( disc_sock < 0 ){
-	
-	disc_sock = socket(PF_PACKET, SOCK_DGRAM, 0);
-	if( disc_sock < 0 ){
-	    poe_fatal(ses,
-		      "Cannot create PF_PACKET socket for PPPoE discovery\n");
-	}
-	
+    if (disc_sock < 0) {
+		disc_sock = socket(PF_PACKET, SOCK_DGRAM, 0);
+		if (disc_sock < 0){
+		    poe_fatal(ses, "Cannot create PF_PACKET socket for PPPoE discovery\n");
+		}
     }
     
     /* Check for long format */

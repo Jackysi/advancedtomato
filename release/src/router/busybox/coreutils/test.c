@@ -2,48 +2,35 @@
 /*
  * test implementation for busybox
  *
- * Copyright (c) by a whole pile of folks: 
+ * Copyright (c) by a whole pile of folks:
  *
- * 	test(1); version 7-like  --  author Erik Baalbergen
- * 	modified by Eric Gisin to be used as built-in.
- * 	modified by Arnold Robbins to add SVR3 compatibility
- * 	(-x -c -b -p -u -g -k) plus Korn's -L -nt -ot -ef and new -S (socket).
- * 	modified by J.T. Conklin for NetBSD.
- * 	modified by Herbert Xu to be used as built-in in ash.
- * 	modified by Erik Andersen <andersen@codepoet.org> to be used 
- * 	in busybox.
+ *     test(1); version 7-like  --  author Erik Baalbergen
+ *     modified by Eric Gisin to be used as built-in.
+ *     modified by Arnold Robbins to add SVR3 compatibility
+ *     (-x -c -b -p -u -g -k) plus Korn's -L -nt -ot -ef and new -S (socket).
+ *     modified by J.T. Conklin for NetBSD.
+ *     modified by Herbert Xu to be used as built-in in ash.
+ *     modified by Erik Andersen <andersen@codepoet.org> to be used
+ *     in busybox.
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+ * Licensed under GPLv2 or later, see file LICENSE in this tarball for details.
  *
  * Original copyright notice states:
- * 	"This program is in the Public Domain."
+ *     "This program is in the Public Domain."
  */
 
-#include <sys/types.h>
+#include "busybox.h"
 #include <unistd.h>
 #include <ctype.h>
 #include <errno.h>
-#include <stdlib.h>
 #include <string.h>
-#include "busybox.h"
+#include <setjmp.h>
 
 /* test(1) accepts the following grammar:
 	oexpr	::= aexpr | aexpr "-o" oexpr ;
 	aexpr	::= nexpr | nexpr "-a" aexpr ;
 	nexpr	::= primary | "!" primary
-	primary	::= unary-operator operand
+	primary ::= unary-operator operand
 		| operand binary-operator operand
 		| operand
 		| "(" oexpr ")"
@@ -51,7 +38,7 @@
 	unary-operator ::= "-r"|"-w"|"-x"|"-f"|"-d"|"-c"|"-b"|"-p"|
 		"-u"|"-g"|"-k"|"-s"|"-t"|"-z"|"-n"|"-o"|"-O"|"-G"|"-L"|"-S";
 
-	binary-operator ::= "="|"!="|"-eq"|"-ne"|"-ge"|"-gt"|"-le"|"-lt"|
+	binary-operator ::= "="|"=="|"!="|"-eq"|"-ne"|"-ge"|"-gt"|"-le"|"-lt"|
 			"-nt"|"-ot"|"-ef";
 	operand ::= <any legal UNIX file name>
 */
@@ -128,13 +115,14 @@ static const struct t_op {
 	"-t", FILTT, UNOP}, {
 	"-z", STREZ, UNOP}, {
 	"-n", STRNZ, UNOP}, {
-	"-h", FILSYM, UNOP},	/* for backwards compat */
+	"-h", FILSYM, UNOP},    /* for backwards compat */
 	{
 	"-O", FILUID, UNOP}, {
 	"-G", FILGID, UNOP}, {
 	"-L", FILSYM, UNOP}, {
 	"-S", FILSOCK, UNOP}, {
 	"=", STREQ, BINOP}, {
+	"==", STREQ, BINOP}, {
 	"!=", STRNE, BINOP}, {
 	"<", STRLT, BINOP}, {
 	">", STRGT, BINOP}, {
@@ -155,52 +143,82 @@ static const struct t_op {
 	0, 0, 0}
 };
 
+#ifdef CONFIG_FEATURE_TEST_64
+typedef int64_t arith_t;
+#else
+typedef int arith_t;
+#endif
+
 static char **t_wp;
 static struct t_op const *t_wp_op;
-static gid_t *group_array = NULL;
+static gid_t *group_array;
 static int ngroups;
 
 static enum token t_lex(char *s);
-static int oexpr(enum token n);
-static int aexpr(enum token n);
-static int nexpr(enum token n);
+static arith_t oexpr(enum token n);
+static arith_t aexpr(enum token n);
+static arith_t nexpr(enum token n);
 static int binop(void);
-static int primary(enum token n);
+static arith_t primary(enum token n);
 static int filstat(char *nm, enum token mode);
-static int getn(const char *s);
+static arith_t getn(const char *s);
 static int newerf(const char *f1, const char *f2);
 static int olderf(const char *f1, const char *f2);
 static int equalf(const char *f1, const char *f2);
-static void syntax(const char *op, const char *msg);
 static int test_eaccess(char *path, int mode);
 static int is_a_group_member(gid_t gid);
 static void initialize_group_array(void);
 
-extern int test_main(int argc, char **argv)
+static jmp_buf leaving;
+
+int bb_test(int argc, char **argv)
 {
 	int res;
 
-	if (strcmp(bb_applet_name, "[") == 0) {
-		if (strcmp(argv[--argc], "]"))
-			bb_error_msg_and_die("missing ]");
+	if (strcmp(argv[0], "[") == 0) {
+		if (strcmp(argv[--argc], "]")) {
+			bb_error_msg("missing ]");
+			return 2;
+		}
+		argv[argc] = NULL;
+	} else if (strcmp(argv[0], "[[") == 0) {
+		if (strcmp(argv[--argc], "]]")) {
+			bb_error_msg("missing ]]");
+			return 2;
+		}
 		argv[argc] = NULL;
 	}
+
+	res = setjmp(leaving);
+	if (res)
+		return res;
+
+	/* resetting ngroups is probably unnecessary.  it will
+	 * force a new call to getgroups(), which prevents using
+	 * group data fetched during a previous call.  but the
+	 * only way the group data could be stale is if there's
+	 * been an intervening call to setgroups(), and this
+	 * isn't likely in the case of a shell.  paranoia
+	 * prevails...
+	 */
+	 ngroups = 0;
+
 	/* Implement special cases from POSIX.2, section 4.62.4 */
 	switch (argc) {
 	case 1:
-		exit(1);
+		return 1;
 	case 2:
-		exit(*argv[1] == '\0');
+		return *argv[1] == '\0';
 	case 3:
 		if (argv[1][0] == '!' && argv[1][1] == '\0') {
-			exit(!(*argv[2] == '\0'));
+			return *argv[2] != '\0';
 		}
 		break;
 	case 4:
 		if (argv[1][0] != '!' || argv[1][1] != '\0') {
 			if (t_lex(argv[2]), t_wp_op && t_wp_op->op_type == BINOP) {
 				t_wp = &argv[1];
-				exit(binop() == 0);
+				return binop() == 0;
 			}
 		}
 		break;
@@ -208,7 +226,7 @@ extern int test_main(int argc, char **argv)
 		if (argv[1][0] == '!' && argv[1][1] == '\0') {
 			if (t_lex(argv[3]), t_wp_op && t_wp_op->op_type == BINOP) {
 				t_wp = &argv[2];
-				exit(!(binop() == 0));
+				return binop() != 0;
 			}
 		}
 		break;
@@ -217,24 +235,26 @@ extern int test_main(int argc, char **argv)
 	t_wp = &argv[1];
 	res = !oexpr(t_lex(*t_wp));
 
-	if (*t_wp != NULL && *++t_wp != NULL)
-		syntax(*t_wp, "unknown operand");
-
-	return (res);
+	if (*t_wp != NULL && *++t_wp != NULL) {
+		bb_error_msg("%s: unknown operand", *t_wp);
+		return 2;
+	}
+	return res;
 }
 
 static void syntax(const char *op, const char *msg)
 {
 	if (op && *op) {
-		bb_error_msg_and_die("%s: %s", op, msg);
+		bb_error_msg("%s: %s", op, msg);
 	} else {
-		bb_error_msg_and_die("%s", msg);
+		bb_error_msg("%s", msg);
 	}
+	longjmp(leaving, 2);
 }
 
-static int oexpr(enum token n)
+static arith_t oexpr(enum token n)
 {
-	int res;
+	arith_t res;
 
 	res = aexpr(n);
 	if (t_lex(*++t_wp) == BOR) {
@@ -244,9 +264,9 @@ static int oexpr(enum token n)
 	return res;
 }
 
-static int aexpr(enum token n)
+static arith_t aexpr(enum token n)
 {
-	int res;
+	arith_t res;
 
 	res = nexpr(n);
 	if (t_lex(*++t_wp) == BAND)
@@ -255,16 +275,16 @@ static int aexpr(enum token n)
 	return res;
 }
 
-static int nexpr(enum token n)
+static arith_t nexpr(enum token n)
 {
 	if (n == UNOT)
 		return !nexpr(t_lex(*++t_wp));
 	return primary(n);
 }
 
-static int primary(enum token n)
+static arith_t primary(enum token n)
 {
-	int res;
+	arith_t res;
 
 	if (n == EOI) {
 		syntax(NULL, "argument expected");
@@ -298,7 +318,7 @@ static int primary(enum token n)
 	return strlen(*t_wp) > 0;
 }
 
-static int binop()
+static int binop(void)
 {
 	const char *opnd1, *opnd2;
 	struct t_op const *op;
@@ -441,22 +461,29 @@ static enum token t_lex(char *s)
 }
 
 /* atoi with error detection */
-static int getn(const char *s)
+static arith_t getn(const char *s)
 {
 	char *p;
+#ifdef CONFIG_FEATURE_TEST_64
+	long long r;
+#else
 	long r;
+#endif
 
 	errno = 0;
+#ifdef CONFIG_FEATURE_TEST_64
+	r = strtoll(s, &p, 10);
+#else
 	r = strtol(s, &p, 10);
+#endif
 
 	if (errno != 0)
-		bb_error_msg_and_die("%s: out of range", s);
+		syntax(s, "out of range");
 
-	/*   p = bb_skip_whitespace(p); avoid const warning */
-	if (*(bb_skip_whitespace(p)))
-		bb_error_msg_and_die("%s: bad number", s);
+	if (*(skip_whitespace(p)))
+		syntax(s, "bad number");
 
-	return (int) r;
+	return r;
 }
 
 static int newerf(const char *f1, const char *f2)
@@ -506,7 +533,7 @@ static int test_eaccess(char *path, int mode)
 			return (0);
 	}
 
-	if (st.st_uid == euid)	/* owner */
+	if (st.st_uid == euid)  /* owner */
 		mode <<= 6;
 	else if (is_a_group_member(st.st_gid))
 		mode <<= 3;
@@ -517,11 +544,13 @@ static int test_eaccess(char *path, int mode)
 	return (-1);
 }
 
-static void initialize_group_array()
+static void initialize_group_array(void)
 {
 	ngroups = getgroups(0, NULL);
-	group_array = xrealloc(group_array, ngroups * sizeof(gid_t));
-	getgroups(ngroups, group_array);
+	if (ngroups > 0) {
+		group_array = xmalloc(ngroups * sizeof(gid_t));
+		getgroups(ngroups, group_array);
+	}
 }
 
 /* Return non-zero if GID is one that we have in our groups list. */
@@ -543,3 +572,12 @@ static int is_a_group_member(gid_t gid)
 
 	return (0);
 }
+
+
+/* applet entry point */
+
+int test_main(int argc, char **argv)
+{
+	exit(bb_test(argc, argv));
+}
+

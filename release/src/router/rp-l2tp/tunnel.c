@@ -534,7 +534,7 @@ tunnel_send_SCCRQ(l2tp_tunnel *tunnel)
     unsigned char tie_breaker[8];
     unsigned char challenge[16];
     int old_hide;
-    char *hostname;
+//    char *hostname;
 
     l2tp_dgram *dgram = l2tp_dgram_new_control(MESSAGE_SCCRQ, 0, 0);
     if (!dgram) return -1;
@@ -740,7 +740,7 @@ tunnel_handle_SCCRQ(l2tp_dgram *dgram,
     uint16_t u16;
     uint32_t u32;
     unsigned char challenge[16];
-    char *hostname;
+//    char *hostname;
 
     /* TODO: Check if this is a retransmitted SCCRQ */
     /* Allocate a tunnel */
@@ -1174,6 +1174,10 @@ tunnel_process_received_datagram(l2tp_tunnel *tunnel,
     case MESSAGE_ICCN:
 	l2tp_session_handle_ICCN(ses, dgram);
 	return;
+    case MESSAGE_HELLO: //@.@ 20070806 When our reciver HELLO_MSG
+        //tunnel_send_ZLB(tunnel);
+        tunnel_setup_hello(tunnel); //every 60sec send hello to (Linux)L2TPD_Server
+        return;
     }
 }
 

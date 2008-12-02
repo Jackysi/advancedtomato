@@ -1,10 +1,8 @@
 /* vi: set sw=4 ts=4: */
 /*
- * Utility routines.
+ * bb_ask_confirmation implementation for busybox
  *
- * Copyright (C) tons of folks.  Tracking down who wrote what
- * isn't something I'm going to worry about...  If you wrote something
- * here, please feel free to acknowledge your work.
+ * Copyright (C) 2003  Manuel Novoa III  <mjn3@codepoet.org>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -20,34 +18,32 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  *
- * Based in part on code from sash, Copyright (c) 1999 by David I. Bell 
- * Permission has been granted to redistribute this code under the GPL.
- *
+ */
+
+/* Read a line from stdin.  If the first non-whitespace char is 'y' or 'Y',
+ * return 1.  Otherwise return 0.
  */
 
 #include <stdio.h>
+#include <ctype.h>
 #include "libbb.h"
 
-
-int ask_confirmation()
+int bb_ask_confirmation(void)
 {
-	int c = '\0';
-	int ret = 0;
+	int retval = 0;
+	int first = 1;
+	int c;
 
-	while (c != '\n') {
-		c = getchar();
-		if ( c != '\n' ) {
-			ret = ((c=='y')||(c=='Y')) ? 1 : 0;
+	while (((c = getchar()) != EOF) && (c != '\n')) {
+		/* Make sure we get the actual function call for isspace,
+		 * as speed is not critical here. */
+		if (first && !(isspace)(c)) {
+			--first;
+			if ((c == 'y') || (c == 'Y')) {
+				++retval;
+			}
 		}
 	}
-	return ret;
-}
 
-/* END CODE */
-/*
-Local Variables:
-c-file-style: "linux"
-c-basic-offset: 4
-tab-width: 4
-End:
-*/
+	return retval;
+}

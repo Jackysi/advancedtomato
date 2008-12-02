@@ -4,20 +4,7 @@
  *
  * Copyright (C) 2001 by Matt Kraai <kraai@alumni.carnegiemellon.edu>
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
- *
+ * Licensed under GPLv2 or later, see file LICENSE in this tarball for details.
  */
 
 /* BB_AUDIT SUSv3 compliant (need fancy for -c) */
@@ -53,11 +40,7 @@ static const struct suffix_mult tail_suffixes[] = {
 	{ NULL, 0 }
 };
 
-static int status
-#if EXIT_SUCCESS != 0
-	= EXIT_SUCCESS	/* If it is 0 (paranoid check), let bss initialize it. */
-#endif
-	;
+static int status;
 
 static void tail_xprint_header(const char *fmt, const char *filename)
 {
@@ -79,9 +62,15 @@ static void tail_xbb_full_write(const char *buf, size_t len)
 static ssize_t tail_read(int fd, char *buf, size_t count)
 {
 	ssize_t r;
+	off_t current,end;
+	struct stat sbuf;
 
+	end = current = lseek(fd, 0, SEEK_CUR);
+	if (!fstat(fd, &sbuf))
+		end = sbuf.st_size;
+	lseek(fd, end < current ? 0 : current, SEEK_SET);
 	if ((r = safe_read(fd, buf, count)) < 0) {
-		bb_perror_msg("read");
+		bb_perror_msg(bb_msg_read_error);
 		status = EXIT_FAILURE;
 	}
 
@@ -89,9 +78,9 @@ static ssize_t tail_read(int fd, char *buf, size_t count)
 }
 
 static const char tail_opts[] =
-	"fn:"
-#ifdef CONFIG_FEATURE_FANCY_TAIL
-	"c:qs:v"
+	"fn:c:"
+#if ENABLE_FEATURE_FANCY_TAIL
+	"qs:v"
 #endif
 	;
 
@@ -104,9 +93,7 @@ int tail_main(int argc, char **argv)
 	int from_top = 0;
 	int follow = 0;
 	int header_threshhold = 1;
-#ifdef CONFIG_FEATURE_FANCY_TAIL
 	int count_bytes = 0;
-#endif
 
 	char *tailbuf;
 	size_t tailbufsize;
@@ -117,28 +104,30 @@ int tail_main(int argc, char **argv)
 	char *s, *buf;
 	const char *fmt;
 
+#if !ENABLE_DEBUG_YANK_SUSv2 || ENABLE_FEATURE_FANCY_TAIL
 	/* Allow legacy syntax of an initial numeric option without -n. */
 	if (argc >=2 && ((argv[1][0] == '+') || ((argv[1][0] == '-')
 			/* && (isdigit)(argv[1][1]) */
-			&& (((unsigned int)(argv[1][1] - '0')) <= 9)))) 
+			&& (((unsigned int)(argv[1][1] - '0')) <= 9))))
 	{
 		optind = 2;
 		optarg = argv[1];
 		goto GET_COUNT;
 	}
+#endif
 
 	while ((opt = getopt(argc, argv, tail_opts)) > 0) {
 		switch (opt) {
 			case 'f':
 				follow = 1;
 				break;
-#ifdef CONFIG_FEATURE_FANCY_TAIL
 			case 'c':
 				count_bytes = 1;
 				/* FALLS THROUGH */
-#endif
 			case 'n':
+#if !ENABLE_DEBUG_YANK_SUSv2 || ENABLE_FEATURE_FANCY_TAIL
 			GET_COUNT:
+#endif
 				count = bb_xgetlarg10_sfx(optarg, tail_suffixes);
 				/* Note: Leading whitespace is an error trapped above. */
 				if (*optarg == '+') {
@@ -150,7 +139,7 @@ int tail_main(int argc, char **argv)
 					count = -count;
 				}
 				break;
-#ifdef CONFIG_FEATURE_FANCY_TAIL
+#if ENABLE_FEATURE_FANCY_TAIL
 			case 'q':
 				header_threshhold = INT_MAX;
 				break;
@@ -201,7 +190,7 @@ int tail_main(int argc, char **argv)
 	}
 
 	tailbufsize = BUFSIZ;
-#ifdef CONFIG_FEATURE_FANCY_TAIL
+
 	/* tail the files */
 	if (from_top < count_bytes) {	/* Each is 0 or 1, so true iff 0 < 1. */
 		/* Hence, !from_top && count_bytes */
@@ -209,7 +198,7 @@ int tail_main(int argc, char **argv)
 			tailbufsize = count + BUFSIZ;
 		}
 	}
-#endif
+
 	buf = tailbuf = xmalloc(tailbufsize);
 
 	fmt = header_fmt + 1;	/* Skip header leading newline on first output. */
@@ -232,18 +221,16 @@ int tail_main(int argc, char **argv)
 		buf = tailbuf;
 		taillen = 0;
 		seen = 1;
+		newline = 0;
 
 		while ((nread = tail_read(fds[i], buf, tailbufsize-taillen)) > 0) {
 			if (from_top) {
 				nwrite = nread;
 				if (seen < count) {
-#ifdef CONFIG_FEATURE_FANCY_TAIL
 					if (count_bytes) {
 						nwrite -= (count - seen);
 						seen = count;
-					} else
-#endif
-					{
+					} else {
 						s = buf;
 						do {
 							--nwrite;
@@ -255,16 +242,13 @@ int tail_main(int argc, char **argv)
 				}
 				tail_xbb_full_write(buf + nread - nwrite, nwrite);
 			} else if (count) {
-#ifdef CONFIG_FEATURE_FANCY_TAIL
 				if (count_bytes) {
 					taillen += nread;
 					if (taillen > count) {
 						memmove(tailbuf, tailbuf + taillen - count, count);
 						taillen = count;
 					}
-				} else
-#endif
-				{
+				} else {
 					int k = nread;
 					int nbuf = 0;
 

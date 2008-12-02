@@ -21,12 +21,14 @@
 #include <syslog.h>
 #include <fcntl.h>
 #include <string.h>
+#include <time.h>
 #include <sys/time.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netinet/ip.h>
 #include <arpa/inet.h>
 #include <linux/in_route.h>
+#include <linux/ip_mp_alg.h>
 
 #include "rt_names.h"
 #include "utils.h"
@@ -52,17 +54,19 @@ static void usage(void)
 	fprintf(stderr, "NODE_SPEC := [ TYPE ] PREFIX [ tos TOS ]\n");
 	fprintf(stderr, "             [ table TABLE_ID ] [ proto RTPROTO ]\n");
 	fprintf(stderr, "             [ scope SCOPE ] [ metric METRIC ]\n");
+	fprintf(stderr, "             [ mpath MP_ALGO ]\n");
 	fprintf(stderr, "INFO_SPEC := NH OPTIONS FLAGS [ nexthop NH ]...\n");
 	fprintf(stderr, "NH := [ via ADDRESS ] [ dev STRING ] [ weight NUMBER ] NHFLAGS\n");
 	fprintf(stderr, "OPTIONS := FLAGS [ mtu NUMBER ] [ advmss NUMBER ]\n");
 	fprintf(stderr, "           [ rtt NUMBER ] [ rttvar NUMBER ]\n");
-	fprintf(stderr, "           [ window NUMBER] [ cwnd NUMBER ] [ ssthresh REALM ]\n");
+	fprintf(stderr, "           [ window NUMBER] [ cwnd NUMBER ] [ ssthresh NUMBER ]\n");
 	fprintf(stderr, "           [ realms REALM ]\n");
 	fprintf(stderr, "TYPE := [ unicast | local | broadcast | multicast | throw |\n");
 	fprintf(stderr, "          unreachable | prohibit | blackhole | nat ]\n");
 	fprintf(stderr, "TABLE_ID := [ local | main | default | all | NUMBER ]\n");
 	fprintf(stderr, "SCOPE := [ host | link | global | NUMBER ]\n");
 	fprintf(stderr, "FLAGS := [ equalize ]\n");
+	fprintf(stderr, "MP_ALGO := { rr | drr | random | wrandom }\n");
 	fprintf(stderr, "NHFLAGS := [ onlink | pervasive ]\n");
 	fprintf(stderr, "RTPROTO := [ kernel | boot | static | NUMBER ]\n");
 	exit(-1);
@@ -76,7 +80,6 @@ static struct
 	char *flushb;
 	int flushp;
 	int flushe;
-	struct rtnl_handle *rth;
 	int protocol, protocolmask;
 	int scope, scopemask;
 	int type, typemask;
@@ -92,9 +95,17 @@ static struct
 	inet_prefix msrc;
 } filter;
 
+static char *mp_alg_names[IP_MP_ALG_MAX+1] = {
+	[IP_MP_ALG_NONE] = "none",
+	[IP_MP_ALG_RR] = "rr",
+	[IP_MP_ALG_DRR] = "drr",
+	[IP_MP_ALG_RANDOM] = "random",
+	[IP_MP_ALG_WRANDOM] = "wrandom"
+};
+
 static int flush_update(void)
 {
-	if (rtnl_send(filter.rth, filter.flushb, filter.flushp) < 0) {
+	if (rtnl_send(&rth, filter.flushb, filter.flushp) < 0) {
 		perror("Failed to send flush request\n");
 		return -1;
 	}
@@ -102,7 +113,7 @@ static int flush_update(void)
 	return 0;
 }
 
-int print_route(struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
+int print_route(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
 {
 	FILE *fp = (FILE*)arg;
 	struct rtmsg *r = NLMSG_DATA(n);
@@ -189,8 +200,6 @@ int print_route(struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
 	if (filter.rprefsrc.family && r->rtm_family != filter.rprefsrc.family)
 		return 0;
 
-
-	memset(tb, 0, sizeof(tb));
 	parse_rtattr(tb, RTA_MAX, RTM_RTA(r), len);
 
 	memset(&dst, 0, sizeof(dst));
@@ -207,13 +216,13 @@ int print_route(struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
 		memset(&via, 0, sizeof(via));
 		via.family = r->rtm_family;
 		if (tb[RTA_GATEWAY])
-			memcpy(&via.data, RTA_DATA(tb[RTA_GATEWAY]), host_len);
+			memcpy(&via.data, RTA_DATA(tb[RTA_GATEWAY]), host_len/8);
 	}
 	if (filter.rprefsrc.bitlen>0) {
 		memset(&prefsrc, 0, sizeof(prefsrc));
 		prefsrc.family = r->rtm_family;
 		if (tb[RTA_PREFSRC])
-			memcpy(&prefsrc.data, RTA_DATA(tb[RTA_PREFSRC]), host_len);
+			memcpy(&prefsrc.data, RTA_DATA(tb[RTA_PREFSRC]), host_len/8);
 	}
 
 	if (filter.rdst.family && inet_addr_match(&dst, &filter.rdst, filter.rdst.bitlen))
@@ -271,7 +280,7 @@ int print_route(struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
 		memcpy(fn, n, n->nlmsg_len);
 		fn->nlmsg_type = RTM_DELROUTE;
 		fn->nlmsg_flags = NLM_F_REQUEST;
-		fn->nlmsg_seq = ++filter.rth->seq;
+		fn->nlmsg_seq = ++rth.seq;
 		filter.flushp = (((char*)fn) + n->nlmsg_len) - filter.flushb;
 		filter.flushed++;
 		if (show_stats < 2)
@@ -325,6 +334,15 @@ int print_route(struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
 		SPRINT_BUF(b1);
 		fprintf(fp, "tos %s ", rtnl_dsfield_n2a(r->rtm_tos, b1, sizeof(b1)));
 	}
+
+	if (tb[RTA_MP_ALGO]) {
+		__u32 mp_alg = *(__u32*) RTA_DATA(tb[RTA_MP_ALGO]);
+		if (mp_alg > IP_MP_ALG_NONE) {
+			fprintf(fp, "mpath %s ",
+			    mp_alg < IP_MP_ALG_MAX ? mp_alg_names[mp_alg] : "unknown");
+		}
+	}
+
 	if (tb[RTA_GATEWAY] && filter.rvia.bitlen != host_len) {
 		fprintf(fp, "via %s ", 
 			format_host(r->rtm_family,
@@ -411,7 +429,7 @@ int print_route(struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
 			struct rta_cacheinfo *ci = RTA_DATA(tb[RTA_CACHEINFO]);
 			static int hz;
 			if (!hz)
-				hz = get_hz();
+				hz = get_user_hz();
 			if (ci->rta_expires != 0)
 				fprintf(fp, " expires %dsec", ci->rta_expires/hz);
 			if (ci->rta_error != 0)
@@ -438,7 +456,7 @@ int print_route(struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
 		if ((r->rtm_flags & RTM_F_CLONED) || (ci && ci->rta_expires)) {
 			static int hz;
 			if (!hz)
-				hz = get_hz();
+				hz = get_user_hz();
 			if (r->rtm_flags & RTM_F_CLONED)
 				fprintf(fp, "%s    cache ", _SL_);
 			if (ci->rta_expires)
@@ -462,8 +480,6 @@ int print_route(struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
 		int i;
 		unsigned mxlock = 0;
 		struct rtattr *mxrta[RTAX_MAX+1];
-
-		memset(mxrta, 0, sizeof(mxrta));
 
 		parse_rtattr(mxrta, RTAX_MAX, RTA_DATA(tb[RTA_METRICS]),
 			    RTA_PAYLOAD(tb[RTA_METRICS]));
@@ -490,7 +506,7 @@ int print_route(struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
 			if (i-2 < sizeof(mx_names)/sizeof(char*))
 				fprintf(fp, " %s", mx_names[i-2]);
 			else
-				fprintf(fp, " metric%d", i);
+				fprintf(fp, " metric %d", i);
 			if (mxlock & (1<<i))
 				fprintf(fp, " lock");
 
@@ -533,7 +549,6 @@ int print_route(struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
 			} else
 				fprintf(fp, "%s\tnexthop", _SL_);
 			if (nh->rtnh_len > sizeof(*nh)) {
-				memset(tb, 0, sizeof(tb));
 				parse_rtattr(tb, RTA_MAX, RTNH_DATA(nh), nh->rtnh_len - sizeof(*nh));
 				if (tb[RTA_GATEWAY]) {
 					fprintf(fp, " via %s ", 
@@ -618,10 +633,8 @@ int parse_nexthops(struct nlmsghdr *n, struct rtmsg *r, int argc, char **argv)
 			fprintf(stderr, "Error: unexpected end of line after \"nexthop\"\n");
 			exit(-1);
 		}
+		memset(rtnh, 0, sizeof(*rtnh));
 		rtnh->rtnh_len = sizeof(*rtnh);
-		rtnh->rtnh_ifindex = 0;
-		rtnh->rtnh_flags = 0;
-		rtnh->rtnh_hops = 0;
 		rta->rta_len += rtnh->rtnh_len;
 		parse_one_nh(rta, rtnh, &argc, &argv);
 		rtnh = RTNH_NEXT(rtnh);
@@ -635,7 +648,6 @@ int parse_nexthops(struct nlmsghdr *n, struct rtmsg *r, int argc, char **argv)
 
 int iproute_modify(int cmd, unsigned flags, int argc, char **argv)
 {
-	struct rtnl_handle rth;
 	struct {
 		struct nlmsghdr 	n;
 		struct rtmsg 		r;
@@ -712,7 +724,7 @@ int iproute_modify(int cmd, unsigned flags, int argc, char **argv)
 				invarg("\"metric\" value is invalid\n", *argv);
 			addattr32(&req.n, sizeof(req), RTA_PRIORITY, metric);
 		} else if (strcmp(*argv, "scope") == 0) {
-			int scope = 0;
+			__u32 scope = 0;
 			NEXT_ARG();
 			if (rtnl_rtscope_a2n(&scope, *argv))
 				invarg("invalid \"scope\" value\n", *argv);
@@ -817,14 +829,14 @@ int iproute_modify(int cmd, unsigned flags, int argc, char **argv)
 			nhs_ok = 1;
 			break;
 		} else if (matches(*argv, "protocol") == 0) {
-			int prot;
+			__u32 prot;
 			NEXT_ARG();
 			if (rtnl_rtprot_a2n(&prot, *argv))
 				invarg("\"protocol\" value is invalid\n", *argv);
 			req.r.rtm_protocol = prot;
 			proto_ok =1;
 		} else if (matches(*argv, "table") == 0) {
-			int tid;
+			__u32 tid;
 			NEXT_ARG();
 			if (rtnl_rttable_a2n(&tid, *argv))
 				invarg("\"table\" value is invalid\n", *argv);
@@ -834,6 +846,18 @@ int iproute_modify(int cmd, unsigned flags, int argc, char **argv)
 			   strcmp(*argv, "oif") == 0) {
 			NEXT_ARG();
 			d = *argv;
+		} else if (strcmp(*argv, "mpath") == 0 ||
+			   strcmp(*argv, "mp") == 0) {
+			int i;
+			__u32 mp_alg = IP_MP_ALG_NONE;
+
+			NEXT_ARG();
+			for (i = 1; i < ARRAY_SIZE(mp_alg_names); i++)
+				if (strcmp(*argv, mp_alg_names[i]) == 0)
+					mp_alg = i;
+			if (mp_alg == IP_MP_ALG_NONE)
+				invarg("\"mpath\" value is invalid\n", *argv);
+			addattr_l(&req.n, sizeof(req), RTA_MP_ALGO, &mp_alg, sizeof(mp_alg));
 		} else {
 			int type;
 			inet_prefix dst;
@@ -862,9 +886,6 @@ int iproute_modify(int cmd, unsigned flags, int argc, char **argv)
 		}
 		argc--; argv++;
 	}
-
-	if (rtnl_open(&rth, 0) < 0)
-		exit(1);
 
 	if (d || nhs_ok)  {
 		int idx;
@@ -972,7 +993,6 @@ static int iproute_flush_cache(void)
 static int iproute_list_or_flush(int argc, char **argv, int flush)
 {
 	int do_ipv6 = preferred_family;
-	struct rtnl_handle rth;
 	char *id = NULL;
 	char *od = NULL;
 
@@ -986,7 +1006,7 @@ static int iproute_list_or_flush(int argc, char **argv, int flush)
 
 	while (argc > 0) {
 		if (matches(*argv, "table") == 0) {
-			int tid;
+			__u32 tid;
 			NEXT_ARG();
 			if (rtnl_rttable_a2n(&tid, *argv)) {
 				if (strcmp(*argv, "all") == 0) {
@@ -1012,7 +1032,7 @@ static int iproute_list_or_flush(int argc, char **argv, int flush)
 			filter.tos = tos;
 			filter.tosmask = -1;
 		} else if (matches(*argv, "protocol") == 0) {
-			int prot = 0;
+			__u32 prot = 0;
 			NEXT_ARG();
 			filter.protocolmask = -1;
 			if (rtnl_rtprot_a2n(&prot, *argv)) {
@@ -1023,7 +1043,7 @@ static int iproute_list_or_flush(int argc, char **argv, int flush)
 			}
 			filter.protocol = prot;
 		} else if (matches(*argv, "scope") == 0) {
-			int scope = 0;
+			__u32 scope = 0;
 			NEXT_ARG();
 			filter.scopemask = -1;
 			if (rtnl_rtscope_a2n(&scope, *argv)) {
@@ -1106,9 +1126,6 @@ static int iproute_list_or_flush(int argc, char **argv, int flush)
 	if (do_ipv6 == AF_UNSPEC && filter.tb)
 		do_ipv6 = AF_INET;
 
-	if (rtnl_open(&rth, 0) < 0)
-		exit(1);
-
 	ll_init_map(&rth);
 
 	if (id || od)  {
@@ -1135,6 +1152,7 @@ static int iproute_list_or_flush(int argc, char **argv, int flush)
 	if (flush) {
 		int round = 0;
 		char flushb[4096-512];
+		time_t start = time(0);
 
 		if (filter.tb == -1) {
 			if (do_ipv6 != AF_INET6) {
@@ -1149,7 +1167,6 @@ static int iproute_list_or_flush(int argc, char **argv, int flush)
 		filter.flushb = flushb;
 		filter.flushp = 0;
 		filter.flushe = sizeof(flushb);
-		filter.rth = &rth;
 
 		for (;;) {
 			if (rtnl_wilddump_request(&rth, do_ipv6, RTM_GETROUTE) < 0) {
@@ -1173,6 +1190,13 @@ static int iproute_list_or_flush(int argc, char **argv, int flush)
 			round++;
 			if (flush_update() < 0)
 				exit(1);
+
+			if (time(0) - start > 30) {
+				printf("\n*** Flush not completed after %ld seconds, %d entries remain ***\n",
+				       time(0) - start, filter.flushed);
+				exit(1);
+			}
+
 			if (show_stats) {
 				printf("\n*** Round %d, deleting %d entries ***\n", round, filter.flushed);
 				fflush(stdout);
@@ -1203,7 +1227,6 @@ static int iproute_list_or_flush(int argc, char **argv, int flush)
 
 int iproute_get(int argc, char **argv)
 {
-	struct rtnl_handle rth;
 	struct {
 		struct nlmsghdr 	n;
 		struct rtmsg 		r;
@@ -1283,9 +1306,6 @@ int iproute_get(int argc, char **argv)
 		exit(1);
 	}
 
-	if (rtnl_open(&rth, 0) < 0)
-		exit(1);
-
 	ll_init_map(&rth);
 
 	if (idev || odev)  {
@@ -1333,7 +1353,6 @@ int iproute_get(int argc, char **argv)
 			return -1;
 		}
 
-		memset(tb, 0, sizeof(tb));
 		parse_rtattr(tb, RTA_MAX, RTM_RTA(r), len);
 
 		if (tb[RTA_PREFSRC]) {

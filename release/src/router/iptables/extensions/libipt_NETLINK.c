@@ -32,7 +32,6 @@ static void init(struct ipt_entry_target *t, unsigned int *nfcache)
 	
 	nld->flags=0;
 	
-	*nfcache |= NFC_UNKNOWN;
 }
 
 /* Parse command options */
@@ -136,19 +135,19 @@ print(const struct ipt_ip *ip,
 		printf("nlsize %i ", nld->size);
 }
 
-static
-struct iptables_target netlink = { NULL,
-	"NETLINK",
-	IPTABLES_VERSION,
-	IPT_ALIGN(sizeof(struct ipt_nldata)),
-	IPT_ALIGN(sizeof(struct ipt_nldata)),
-	&help,
-	&init,
-	&parse,
-	&final_check,
-	&print,
-	&save,
-	opts
+static struct iptables_target netlink = {
+	.next		= NULL,
+	.name		= "NETLINK",
+	.version	= IPTABLES_VERSION,
+	.size		= IPT_ALIGN(sizeof(struct ipt_nldata)),
+	.userspacesize	= IPT_ALIGN(sizeof(struct ipt_nldata)),
+	.help		= &help,
+	.init		= &init,
+	.parse		= &parse,
+	.final_check	= &final_check,
+	.print		= &print,
+	.save		= &save,
+	.extra_opts	= opts
 };
 
 void _init(void)

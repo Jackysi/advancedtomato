@@ -5,12 +5,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include <syslog.h>
-#include <termios.h>
 #include <unistd.h>
 #include <utmp.h>
 #include <sys/resource.h>
 #include <sys/stat.h>
-#include <sys/time.h>
 #include <sys/types.h>
 #include <ctype.h>
 #include <time.h>
@@ -18,11 +16,10 @@
 #include "busybox.h"
 
 
-// sulogin defines
 #define SULOGIN_PROMPT "\nGive root password for system maintenance\n" \
 	"(or type Control-D for normal startup):"
 
-static const char *forbid[] = {
+static const char * const forbid[] = {
 	"ENV",
 	"BASH_ENV",
 	"HOME",
@@ -42,61 +39,40 @@ static const char *forbid[] = {
 
 
 
-static void catchalarm(int junk)
+static void catchalarm(int ATTRIBUTE_UNUSED junk)
 {
 	exit(EXIT_FAILURE);
 }
 
 
-extern int sulogin_main(int argc, char **argv)
+int sulogin_main(int argc, char **argv)
 {
 	char *cp;
-	char *device = (char *) 0;
+	char *device = NULL;
 	const char *name = "root";
 	int timeout = 0;
-	static char pass[BUFSIZ];
-	struct termios termio;
+
+#define pass bb_common_bufsiz1
+
 	struct passwd pwent;
 	struct passwd *pwd;
-	time_t start, now;
-	const char **p;
-#ifdef CONFIG_FEATURE_SHADOWPASSWDS
+	const char * const *p;
+#if ENABLE_FEATURE_SHADOWPASSWDS
 	struct spwd *spwd = NULL;
-#endif							/* CONFIG_FEATURE_SHADOWPASSWDS */
+#endif
 
-	tcgetattr(0, &termio);
-	/* set control chars */
-	termio.c_cc[VINTR]  = 3;	/* C-c */
-	termio.c_cc[VQUIT]  = 28;	/* C-\ */
-	termio.c_cc[VERASE] = 127; /* C-? */
-	termio.c_cc[VKILL]  = 21;	/* C-u */
-	termio.c_cc[VEOF]   = 4;	/* C-d */
-	termio.c_cc[VSTART] = 17;	/* C-q */
-	termio.c_cc[VSTOP]  = 19;	/* C-s */
-	termio.c_cc[VSUSP]  = 26;	/* C-z */
-	/* use line dicipline 0 */
-	termio.c_line = 0;
-	/* Make it be sane */
-	termio.c_cflag &= CBAUD|CBAUDEX|CSIZE|CSTOPB|PARENB|PARODD;
-	termio.c_cflag |= CREAD|HUPCL|CLOCAL;
-	/* input modes */
-	termio.c_iflag = ICRNL | IXON | IXOFF;
-	/* output modes */
-	termio.c_oflag = OPOST | ONLCR;
-	/* local modes */
-	termio.c_lflag = ISIG | ICANON | ECHO | ECHOE | ECHOK | ECHOCTL | ECHOKE | IEXTEN;
-	tcsetattr(0, TCSANOW, &termio);
 	openlog("sulogin", LOG_PID | LOG_CONS | LOG_NOWAIT, LOG_AUTH);
 	if (argc > 1) {
 		if (strncmp(argv[1], "-t", 2) == 0) {
-			if (strcmp(argv[1], "-t") == 0) {
+			if (argv[1][2] == '\0') { /* -t NN */
 				if (argc > 2) {
 					timeout = atoi(argv[2]);
 					if (argc > 3) {
 						device = argv[3];
 					}
 				}
-			} else {
+			} else { /* -tNNN */
+				timeout = atoi(&argv[1][2]);
 				if (argc > 2) {
 					device = argv[2];
 				}
@@ -108,7 +84,7 @@ extern int sulogin_main(int argc, char **argv)
 			close(0);
 			close(1);
 			close(2);
-			if (open(device, O_RDWR) >= 0) {
+			if (open(device, O_RDWR) == 0) {
 				dup(0);
 				dup(0);
 			} else {
@@ -132,13 +108,12 @@ extern int sulogin_main(int argc, char **argv)
 
 
 	signal(SIGALRM, catchalarm);
-	alarm(timeout);
 	if (!(pwd = getpwnam(name))) {
 		syslog(LOG_WARNING, "No password entry for `root'\n");
 		bb_error_msg_and_die("No password entry for `root'\n");
 	}
 	pwent = *pwd;
-#ifdef CONFIG_FEATURE_SHADOWPASSWDS
+#if ENABLE_FEATURE_SHADOWPASSWDS
 	spwd = NULL;
 	if (pwd && ((strcmp(pwd->pw_passwd, "x") == 0)
 				|| (strcmp(pwd->pw_passwd, "*") == 0))) {
@@ -148,9 +123,9 @@ extern int sulogin_main(int argc, char **argv)
 			pwent.pw_passwd = spwd->sp_pwdp;
 		}
 	}
-#endif							/* CONFIG_FEATURE_SHADOWPASSWDS */
+#endif
 	while (1) {
-		cp = getpass(SULOGIN_PROMPT);
+		cp = bb_askpass(timeout, SULOGIN_PROMPT);
 		if (!cp || !*cp) {
 			puts("\n");
 			fflush(stdout);
@@ -158,27 +133,27 @@ extern int sulogin_main(int argc, char **argv)
 			exit(EXIT_SUCCESS);
 		} else {
 			safe_strncpy(pass, cp, sizeof(pass));
-			bzero(cp, strlen(cp));
+			memset(cp, 0, strlen(cp));
 		}
 		if (strcmp(pw_encrypt(pass, pwent.pw_passwd), pwent.pw_passwd) == 0) {
 			break;
 		}
-		time(&start);
-		now = start;
-		while (difftime(now, start) < FAIL_DELAY) {
-			sleep(FAIL_DELAY);
-			time(&now);
-		}
+		bb_do_delay(FAIL_DELAY);
 		puts("Login incorrect");
 		fflush(stdout);
 		syslog(LOG_WARNING, "Incorrect root password\n");
 	}
-	bzero(pass, strlen(pass));
-	alarm(0);
+	memset(pass, 0, strlen(pass));
 	signal(SIGALRM, SIG_DFL);
 	puts("Entering System Maintenance Mode\n");
 	fflush(stdout);
 	syslog(LOG_INFO, "System Maintenance Mode\n");
+
+#if ENABLE_SELINUX
+	renew_current_security_context();
+#endif
+
 	run_shell(pwent.pw_shell, 1, 0, 0);
+
 	return (0);
 }

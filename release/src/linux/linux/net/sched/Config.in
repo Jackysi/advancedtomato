@@ -5,13 +5,14 @@ tristate '  CBQ packet scheduler' CONFIG_NET_SCH_CBQ
 tristate '  HTB packet scheduler' CONFIG_NET_SCH_HTB
 tristate '  CSZ packet scheduler' CONFIG_NET_SCH_CSZ
 #tristate '  H-PFQ packet scheduler' CONFIG_NET_SCH_HPFQ
-#tristate '  H-FSC packet scheduler' CONFIG_NET_SCH_HFCS
+tristate '  H-FSC packet scheduler' CONFIG_NET_SCH_HFSC
 if [ "$CONFIG_ATM" = "y" ]; then
    bool '  ATM pseudo-scheduler' CONFIG_NET_SCH_ATM
 fi
 tristate '  The simplest PRIO pseudoscheduler' CONFIG_NET_SCH_PRIO
 tristate '  RED queue' CONFIG_NET_SCH_RED
 tristate '  SFQ queue' CONFIG_NET_SCH_SFQ
+tristate '  ESFQ queue' CONFIG_NET_SCH_ESFQ
 tristate '  TEQL queue' CONFIG_NET_SCH_TEQL
 tristate '  TBF queue' CONFIG_NET_SCH_TBF
 tristate '  GRED queue' CONFIG_NET_SCH_GRED

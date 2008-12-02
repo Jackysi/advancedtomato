@@ -1,7 +1,7 @@
 /* Shared library add-on to iptables to add TTL matching support 
  * (C) 2000 by Harald Welte <laforge@gnumonks.org>
  *
- * $Id: libipt_ttl.c,v 1.1.1.4 2003/10/14 08:09:41 sparq Exp $
+ * $Id: libipt_ttl.c 4544 2005-11-18 17:59:56Z /C=DE/ST=Berlin/L=Berlin/O=Netfilter Project/OU=Development/CN=kaber/emailAddress=kaber@netfilter.org $
  *
  * This program is released under the terms of GNU GPL */
 
@@ -24,31 +24,21 @@ static void help(void)
 , IPTABLES_VERSION);
 }
 
-static void init(struct ipt_entry_match *m, unsigned int *nfcache)
-{
-	/* caching not yet implemented */
-	*nfcache |= NFC_UNKNOWN;
-}
-
 static int parse(int c, char **argv, int invert, unsigned int *flags,
 		const struct ipt_entry *entry, unsigned int *nfcache,
 		struct ipt_entry_match **match)
 {
 	struct ipt_ttl_info *info = (struct ipt_ttl_info *) (*match)->data;
-	u_int8_t value;
+	unsigned int value;
 
 	check_inverse(optarg, &invert, &optind, 0);
-	value = atoi(argv[optind-1]);
 
-	if (*flags) 
-		exit_error(PARAMETER_PROBLEM, 
-				"Can't specify TTL option twice");
-
-	if (!optarg)
-		exit_error(PARAMETER_PROBLEM,
-				"ttl: You must specify a value");
 	switch (c) {
 		case '2':
+			if (string_to_number(optarg, 0, 255, &value) == -1)
+				exit_error(PARAMETER_PROBLEM,
+				           "ttl: Expected value between 0 and 255");
+
 			if (invert)
 				info->mode = IPT_TTL_NE;
 			else
@@ -56,33 +46,40 @@ static int parse(int c, char **argv, int invert, unsigned int *flags,
 
 			/* is 0 allowed? */
 			info->ttl = value;
-			*flags = 1;
-
 			break;
 		case '3':
+			if (string_to_number(optarg, 0, 255, &value) == -1)
+				exit_error(PARAMETER_PROBLEM,
+				           "ttl: Expected value between 0 and 255");
+
 			if (invert) 
 				exit_error(PARAMETER_PROBLEM,
 						"ttl: unexpected `!'");
 
 			info->mode = IPT_TTL_LT;
 			info->ttl = value;
-			*flags = 1;
-
 			break;
 		case '4':
+			if (string_to_number(optarg, 0, 255, &value) == -1)
+				exit_error(PARAMETER_PROBLEM,
+				           "ttl: Expected value between 0 and 255");
+
 			if (invert)
 				exit_error(PARAMETER_PROBLEM,
 						"ttl: unexpected `!'");
 
 			info->mode = IPT_TTL_GT;
 			info->ttl = value;
-			*flags = 1;
-
 			break;
 		default:
 			return 0;
 
 	}
+
+	if (*flags) 
+		exit_error(PARAMETER_PROBLEM, 
+				"Can't specify TTL option twice");
+	*flags = 1;
 
 	return 1;
 }
@@ -154,20 +151,18 @@ static struct option opts[] = {
 	{ 0 }
 };
 
-static
-struct iptables_match ttl = {
-	NULL,
-	"ttl",
-	IPTABLES_VERSION,
-	IPT_ALIGN(sizeof(struct ipt_ttl_info)),
-	IPT_ALIGN(sizeof(struct ipt_ttl_info)),
-	&help,
-	&init,
-	&parse,
-	&final_check,
-	&print,
-	&save,
-	opts
+static struct iptables_match ttl = {
+	.next		= NULL,
+	.name		= "ttl",
+	.version	= IPTABLES_VERSION,
+	.size		= IPT_ALIGN(sizeof(struct ipt_ttl_info)),
+	.userspacesize	= IPT_ALIGN(sizeof(struct ipt_ttl_info)),
+	.help		= &help,
+	.parse		= &parse,
+	.final_check	= &final_check,
+	.print		= &print,
+	.save		= &save,
+	.extra_opts	= opts
 };
 
 

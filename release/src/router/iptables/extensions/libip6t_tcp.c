@@ -38,30 +38,6 @@ static struct option opts[] = {
 	{0}
 };
 
-static int
-service_to_port(const char *name)
-{
-	struct servent *service;
-
-	if ((service = getservbyname(name, "tcp")) != NULL)
-		return ntohs((unsigned short) service->s_port);
-
-	return -1;
-}
-
-static u_int16_t
-parse_tcp_port(const char *port)
-{
-	unsigned int portnum;
-
-	if (string_to_number(port, 0, 65535, &portnum) != -1 ||
-	    (portnum = service_to_port(port)) != -1)
-		return (u_int16_t)portnum;
-
-	exit_error(PARAMETER_PROBLEM,
-		   "invalid TCP port/service `%s' specified", port);
-}
-
 static void
 parse_tcp_ports(const char *portstring, u_int16_t *ports)
 {
@@ -70,13 +46,13 @@ parse_tcp_ports(const char *portstring, u_int16_t *ports)
 
 	buffer = strdup(portstring);
 	if ((cp = strchr(buffer, ':')) == NULL)
-		ports[0] = ports[1] = parse_tcp_port(buffer);
+		ports[0] = ports[1] = parse_port(buffer, "tcp");
 	else {
 		*cp = '\0';
 		cp++;
 
-		ports[0] = buffer[0] ? parse_tcp_port(buffer) : 0;
-		ports[1] = cp[0] ? parse_tcp_port(cp) : 0xFFFF;
+		ports[0] = buffer[0] ? parse_port(buffer, "tcp") : 0;
+		ports[1] = cp[0] ? parse_port(cp, "tcp") : 0xFFFF;
 		
 		if (ports[0] > ports[1])
 			exit_error(PARAMETER_PROBLEM, 
@@ -122,7 +98,7 @@ parse_tcp_flag(const char *flags)
 		}
 		if (i == sizeof(tcp_flag_names)/sizeof(struct tcp_flag_names))
 			exit_error(PARAMETER_PROBLEM,
-				   "Unknown TCP flag `%s'", buffer);
+				   "Unknown TCP flag `%s'", ptr);
 		}
 
 	free(buffer);
@@ -187,7 +163,6 @@ parse(int c, char **argv, int invert, unsigned int *flags,
 		if (invert)
 			tcpinfo->invflags |= IP6T_TCP_INV_SRCPT;
 		*flags |= TCP_SRC_PORTS;
-		*nfcache |= NFC_IP6_SRC_PT;
 		break;
 
 	case '2':
@@ -199,7 +174,6 @@ parse(int c, char **argv, int invert, unsigned int *flags,
 		if (invert)
 			tcpinfo->invflags |= IP6T_TCP_INV_DSTPT;
 		*flags |= TCP_DST_PORTS;
-		*nfcache |= NFC_IP6_DST_PT;
 		break;
 
 	case '3':
@@ -209,7 +183,6 @@ parse(int c, char **argv, int invert, unsigned int *flags,
 				   " allowed");
 		parse_tcp_flags(tcpinfo, "SYN,RST,ACK", "SYN", invert);
 		*flags |= TCP_FLAGS;
-		*nfcache |= NFC_IP6_TCPFLAGS;
 		break;
 
 	case '4':
@@ -228,7 +201,6 @@ parse(int c, char **argv, int invert, unsigned int *flags,
 				invert);
 		optind++;
 		*flags |= TCP_FLAGS;
-		*nfcache |= NFC_IP6_TCPFLAGS;
 		break;
 
 	case '5':
@@ -240,7 +212,6 @@ parse(int c, char **argv, int invert, unsigned int *flags,
 		if (invert)
 			tcpinfo->invflags |= IP6T_TCP_INV_OPTION;
 		*flags |= TCP_OPTION;
-		*nfcache |= NFC_IP6_PROTO_UNKNOWN;
 		break;
 
 	default:
@@ -424,20 +395,19 @@ static void save(const struct ip6t_ip6 *ip, const struct ip6t_entry_match *match
 	}
 }
 
-static
-struct ip6tables_match tcp
-= { NULL,
-    "tcp",
-    IPTABLES_VERSION,
-    IP6T_ALIGN(sizeof(struct ip6t_tcp)),
-    IP6T_ALIGN(sizeof(struct ip6t_tcp)),
-    &help,
-    &init,
-    &parse,
-    &final_check,
-    &print,
-    &save,
-    opts };
+static struct ip6tables_match tcp = {
+	.name 		= "tcp",
+	.version	= IPTABLES_VERSION,
+	.size		= IP6T_ALIGN(sizeof(struct ip6t_tcp)),
+	.userspacesize	= IP6T_ALIGN(sizeof(struct ip6t_tcp)),
+	.help		= &help,
+	.init		= &init,
+	.parse		= &parse,
+	.final_check	= &final_check,
+	.print		= &print,
+	.save		= &save,
+	.extra_opts	= opts,
+};
 
 void
 _init(void)

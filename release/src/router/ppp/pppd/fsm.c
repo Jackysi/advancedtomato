@@ -45,7 +45,27 @@ static void fsm_sconfreq __P((fsm *, int));
 
 #define PROTO_NAME(f)	((f)->callbacks->proto_name)
 
+
 int peer_mru[NUM_PPP];
+
+const char code_log_details[16][32] = {
+	"#00", 
+	"Configuration-Request", 
+	"Configuration-Ack", 
+	"Configuration-Nak", 
+	"Configuration-Reject", 
+	"Termination-Request", 
+	"Termination-Ack", 
+	"Code-Reject", 
+	"Protocol-Reject", 
+	"#09", 	// Echo-Request
+	"#10", 	// Echo-Reply
+	"Discard-Request", 
+	"#12", 
+	"#13", 
+	"Reset-Request", 
+	"Reset-ACK"
+};
 
 
 /*
@@ -351,7 +371,22 @@ fsm_input(f, inpacket, l)
     default:
 	if( !f->callbacks->extcode
 	   || !(*f->callbacks->extcode)(f, code, id, inp, len) )
+	{
 	    fsm_sdata(f, CODEREJ, ++f->id, inpacket, len + HEADERLEN);
+#if 0 //fixed by crazy 20070613 - bug id unknown (20070613)
+// Please see line 118 on sheet 'WAN_Broadband' in document 'WG414-Q-LS_V1.0 Product Verification Plan(IN).xls'.
+		if(f->protocol == PPP_LCP)
+		{
+			/* Init restart counter, send Terminate-Request */
+			f->retransmits = f->maxtermtransmits;
+			fsm_sdata(f, TERMREQ, f->reqid = ++f->id,
+					(u_char *) f->term_reason, f->term_reason_len);
+			TIMEOUT(fsm_timeout, f, f->timeouttime);
+			--f->retransmits;
+			f->state = STOPPING;
+		}
+#endif //FIXME: After sent a LCP (it must be LCP???) CODEREJ, it must renegotiate the PPP link (CODE field must be 0xFF???)
+	}
 	break;
     }
 }
@@ -368,6 +403,8 @@ fsm_rconfreq(f, id, inp, len)
     int len;
 {
     int code, reject_if_disagree;
+
+	LOGX_INFO("Received %s %s", PNAME(f), code_log_details[CONFREQ]);
 
     switch( f->state ){
     case CLOSED:
@@ -447,6 +484,8 @@ fsm_rconfack(f, id, inp, len)
     }
     f->seen_ack = 1;
 
+	LOGX_INFO("Received %s %s", PNAME(f), code_log_details[CONFACK]);
+
     switch (f->state) {
     case CLOSED:
     case STOPPED:
@@ -507,6 +546,10 @@ fsm_rconfnakrej(f, code, id, inp, len)
     }
     f->seen_ack = 1;
 
+	if ((code > 0) && (code < 16)) {
+		LOGX_INFO("Received %s %s", PNAME(f), code_log_details[code]);
+	}
+
     switch (f->state) {
     case CLOSED:
     case STOPPED:
@@ -551,6 +594,8 @@ fsm_rtermreq(f, id, p, len)
     u_char *p;
     int len;
 {
+	LOGX_INFO("Received %s %s", PNAME(f), code_log_details[TERMREQ]);
+
     switch (f->state) {
     case ACKRCVD:
     case ACKSENT:
@@ -581,6 +626,8 @@ static void
 fsm_rtermack(f)
     fsm *f;
 {
+	LOGX_INFO("Received %s %s", PNAME(f), code_log_details[TERMACK]);
+
     switch (f->state) {
     case CLOSING:
 	UNTIMEOUT(fsm_timeout, f);
@@ -625,6 +672,9 @@ fsm_rcoderej(f, inp, len)
     }
     GETCHAR(code, inp);
     GETCHAR(id, inp);
+
+	LOGX_INFO("Received %s %s", PNAME(f), code_log_details[CODEREJ]);
+
     warn("%s: Rcvd Code-Reject for code %d, id %d", PROTO_NAME(f), code, id);
 
     if( f->state == ACKRCVD )
@@ -759,4 +809,9 @@ fsm_sdata(f, code, id, data, datalen)
     PUTCHAR(id, outp);
     PUTSHORT(outlen, outp);
     output(f->unit, outpacket_buf, outlen + PPP_HDRLEN);
+
+//	if ((code > 0) && (code < 16)) {
+	if ((code > 0) && (code < 16) && (code_log_details[code][0] != '#')) {
+		LOGX_INFO("Sending %s %s", PNAME(f), code_log_details[code]);
+	}
 }

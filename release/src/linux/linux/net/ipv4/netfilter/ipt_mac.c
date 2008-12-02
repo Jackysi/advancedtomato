@@ -19,7 +19,8 @@ match(const struct sk_buff *skb,
     const struct ipt_mac_info *info = matchinfo;
 
     /* Is mac pointer valid? */
-    return (skb->mac.raw >= skb->head
+    return (in != NULL		// added for OUTPUT experiment -- zzz
+		&& skb->mac.raw >= skb->head
 	    && (skb->mac.raw + ETH_HLEN) <= skb->data
 	    /* If so, compare... */
 	    && ((memcmp(skb->mac.ethernet->h_source, info->srcaddr, ETH_ALEN)
@@ -33,6 +34,7 @@ ipt_mac_checkentry(const char *tablename,
 		   unsigned int matchsize,
 		   unsigned int hook_mask)
 {
+#if 0	// removed for OUTPUT experiment --jz
 	/* FORWARD isn't always valid, but it's nice to be able to do --RR */
 	if (hook_mask
 	    & ~((1 << NF_IP_PRE_ROUTING) | (1 << NF_IP_LOCAL_IN)
@@ -40,7 +42,7 @@ ipt_mac_checkentry(const char *tablename,
 		printk("ipt_mac: only valid for PRE_ROUTING, LOCAL_IN or FORWARD.\n");
 		return 0;
 	}
-
+#endif
 	if (matchsize != IPT_ALIGN(sizeof(struct ipt_mac_info)))
 		return 0;
 

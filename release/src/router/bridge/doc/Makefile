@@ -1,5 +1,5 @@
 all:			FAQ HOWTO PROJECTS RPM-GPG-KEY TODO
 
 clean:
-			rcsclean *
+			-rcsclean *
 			rm -f *~

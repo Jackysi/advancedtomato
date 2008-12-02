@@ -86,8 +86,11 @@ typedef unsigned int socklen_t;
 #define TC_SET_POLICY		ip6tc_set_policy
 #define TC_GET_RAW_SOCKET	ip6tc_get_raw_socket
 #define TC_INIT			ip6tc_init
+#define TC_FREE			ip6tc_free
 #define TC_COMMIT		ip6tc_commit
 #define TC_STRERROR		ip6tc_strerror
+#define TC_NUM_RULES		ip6tc_num_rules
+#define TC_GET_RULE		ip6tc_get_rule
 
 #define TC_AF			AF_INET6
 #define TC_IPPROTO		IPPROTO_IPV6
@@ -110,7 +113,7 @@ typedef unsigned int socklen_t;
 #include "libiptc.c"
 
 #define BIT6(a, l) \
- (((a->in6_u.u6_addr32[(l) / 32]) >> ((l) & 31)) & 1)
+ ((ntohl(a->in6_u.u6_addr32[(l) / 32]) >> (31 - ((l) & 31))) & 1)
 
 int
 ipv6_prefix_length(const struct in6_addr *a)
@@ -135,8 +138,8 @@ dump_entry(struct ip6t_entry *e, const ip6tc_handle_t handle)
 	int len;
 	struct ip6t_entry_target *t;
 	
-	printf("Entry %u (%lu):\n", entry2index(handle, e),
-	       entry2offset(handle, e));
+	printf("Entry %u (%lu):\n", iptcb_entry2index(handle, e),
+	       iptcb_entry2offset(handle, e));
 	puts("SRC IP: ");
 	inet_ntop(AF_INET6, &e->ipv6.src, buf, sizeof buf);
 	puts(buf);
@@ -175,21 +178,10 @@ dump_entry(struct ip6t_entry *e, const ip6tc_handle_t handle)
 	printf("Flags: %02X\n", e->ipv6.flags);
 	printf("Invflags: %02X\n", e->ipv6.invflags);
 	printf("Counters: %llu packets, %llu bytes\n",
-	       e->counters.pcnt, e->counters.bcnt);
+	       (unsigned long long)e->counters.pcnt, (unsigned long long)e->counters.bcnt);
 	printf("Cache: %08X ", e->nfcache);
 	if (e->nfcache & NFC_ALTERED) printf("ALTERED ");
 	if (e->nfcache & NFC_UNKNOWN) printf("UNKNOWN ");
-	if (e->nfcache & NFC_IP6_SRC) printf("IP6_SRC ");
-	if (e->nfcache & NFC_IP6_DST) printf("IP6_DST ");
-	if (e->nfcache & NFC_IP6_IF_IN) printf("IP6_IF_IN ");
-	if (e->nfcache & NFC_IP6_IF_OUT) printf("IP6_IF_OUT ");
-	if (e->nfcache & NFC_IP6_TOS) printf("IP6_TOS ");
-	if (e->nfcache & NFC_IP6_PROTO) printf("IP6_PROTO ");
-	if (e->nfcache & NFC_IP6_OPTIONS) printf("IP6_OPTIONS ");
-	if (e->nfcache & NFC_IP6_TCPFLAGS) printf("IP6_TCPFLAGS ");
-	if (e->nfcache & NFC_IP6_SRC_PT) printf("IP6_SRC_PT ");
-	if (e->nfcache & NFC_IP6_DST_PT) printf("IP6_DST_PT ");
-	if (e->nfcache & NFC_IP6_PROTO_UNKNOWN) printf("IP6_PROTO_UNKNOWN ");
 	printf("\n");
 	
 	IP6T_MATCH_ITERATE(e, print_match);
@@ -213,12 +205,11 @@ dump_entry(struct ip6t_entry *e, const ip6tc_handle_t handle)
 	return 0;
 }
 
-static int
+static unsigned char *
 is_same(const STRUCT_ENTRY *a, const STRUCT_ENTRY *b,
 	unsigned char *matchmask)
 {
 	unsigned int i;
-	STRUCT_ENTRY_TARGET *ta, *tb;
 	unsigned char *mptr;
 
 	/* Always compare head structures: ignore mask here. */
@@ -230,43 +221,32 @@ is_same(const STRUCT_ENTRY *a, const STRUCT_ENTRY *b,
 	    || a->ipv6.tos != b->ipv6.tos
 	    || a->ipv6.flags != b->ipv6.flags
 	    || a->ipv6.invflags != b->ipv6.invflags)
-		return 0;
+		return NULL;
 
 	for (i = 0; i < IFNAMSIZ; i++) {
 		if (a->ipv6.iniface_mask[i] != b->ipv6.iniface_mask[i])
-			return 0;
+			return NULL;
 		if ((a->ipv6.iniface[i] & a->ipv6.iniface_mask[i])
 		    != (b->ipv6.iniface[i] & b->ipv6.iniface_mask[i]))
-			return 0;
+			return NULL;
 		if (a->ipv6.outiface_mask[i] != b->ipv6.outiface_mask[i])
-			return 0;
+			return NULL;
 		if ((a->ipv6.outiface[i] & a->ipv6.outiface_mask[i])
 		    != (b->ipv6.outiface[i] & b->ipv6.outiface_mask[i]))
-			return 0;
+			return NULL;
 	}
 
 	if (a->nfcache != b->nfcache
 	    || a->target_offset != b->target_offset
 	    || a->next_offset != b->next_offset)
-		return 0;
+		return NULL;
 
 	mptr = matchmask + sizeof(STRUCT_ENTRY);
 	if (IP6T_MATCH_ITERATE(a, match_different, a->elems, b->elems, &mptr))
-		return 0;
+		return NULL;
+	mptr += IP6T_ALIGN(sizeof(struct ip6t_entry_target));
 
-	ta = GET_TARGET((STRUCT_ENTRY *)a);
-	tb = GET_TARGET((STRUCT_ENTRY *)b);
-	if (ta->u.target_size != tb->u.target_size)
-		return 0;
-	if (strcmp(ta->u.user.name, tb->u.user.name) != 0)
-		return 0;
-	mptr += sizeof(*ta);
-
-	if (target_different(ta->data, tb->data,
-			     ta->u.target_size - sizeof(*ta), mptr))
-		return 0;
-
-	return 1;
+	return mptr;
 }
 
 /* All zeroes == unconditional rule. */
@@ -381,6 +361,19 @@ do_check(TC_HANDLE_T h, unsigned int line)
 			assert(h->info.hook_entry[NF_IP6_POST_ROUTING] == n);
 			user_offset = h->info.hook_entry[NF_IP6_POST_ROUTING];
 		}
+	} else if (strcmp(h->info.name, "raw") == 0) {
+		assert(h->info.valid_hooks
+		       == (1 << NF_IP6_PRE_ROUTING
+			   | 1 << NF_IP6_LOCAL_OUT));
+
+		/* Hooks should be first three */
+		assert(h->info.hook_entry[NF_IP6_PRE_ROUTING] == 0);
+
+		n = get_chain_end(h, n);
+		n += get_entry(h, n)->next_offset;
+		assert(h->info.hook_entry[NF_IP6_LOCAL_OUT] == n);
+
+		user_offset = h->info.hook_entry[NF_IP6_LOCAL_OUT];
 	} else {
                 fprintf(stderr, "Unknown table `%s'\n", h->info.name);
 		abort();
@@ -414,8 +407,8 @@ do_check(TC_HANDLE_T h, unsigned int line)
 		assert(t->verdict == -NF_DROP-1 || t->verdict == -NF_ACCEPT-1);
 
 		/* Hooks and underflows must be valid entries */
-		entry2index(h, get_entry(h, h->info.hook_entry[i]));
-		entry2index(h, get_entry(h, h->info.underflow[i]));
+		iptcb_entry2index(h, get_entry(h, h->info.hook_entry[i]));
+		iptcb_entry2index(h, get_entry(h, h->info.underflow[i]));
 	}
 
 	assert(h->info.size
@@ -431,5 +424,18 @@ do_check(TC_HANDLE_T h, unsigned int line)
 	i = 0; n = 0;
 	was_return = 0;
 
+#if 0
+	/* Check all the entries. */
+	ENTRY_ITERATE(h->entries.entrytable, h->entries.size,
+		      check_entry, &i, &n, user_offset, &was_return, h);
+
+	assert(i == h->new_number);
+	assert(n == h->entries.size);
+
+	/* Final entry must be error node */
+	assert(strcmp(GET_TARGET(index2entry(h, h->new_number-1))
+		      ->u.user.name,
+		      ERROR_TARGET) == 0);
+#endif
 }
 #endif /*IPTC_DEBUG*/

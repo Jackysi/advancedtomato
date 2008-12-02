@@ -13,25 +13,25 @@
 #include <unistd.h>
 #include "libbb.h"
 
-extern char *xreadlink(const char *path)
-{                       
-	static const int GROWBY = 80; /* how large we will grow strings by */
+char *xreadlink(const char *path)
+{
+	enum { GROWBY = 80 }; /* how large we will grow strings by */
 
-	char *buf = NULL;   
+	char *buf = NULL;
 	int bufsize = 0, readsize = 0;
 
 	do {
 		buf = xrealloc(buf, bufsize += GROWBY);
 		readsize = readlink(path, buf, bufsize); /* 1st try */
 		if (readsize == -1) {
-		    perror_msg("%s:%s", applet_name, path);
-		    return NULL;
+			bb_perror_msg("%s", path);
+			free(buf);
+			return NULL;
 		}
-	}           
+	}
 	while (bufsize < readsize + 1);
 
 	buf[readsize] = '\0';
 
 	return buf;
-}       
-
+}

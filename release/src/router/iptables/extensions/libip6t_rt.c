@@ -341,20 +341,18 @@ static void save(const struct ip6t_ip6 *ip, const struct ip6t_entry_match *match
 
 }
 
-static
-struct ip6tables_match rt
-= { NULL,
-    "rt",
-    IPTABLES_VERSION,
-    IP6T_ALIGN(sizeof(struct ip6t_rt)),
-    IP6T_ALIGN(sizeof(struct ip6t_rt)),
-    &help,
-    &init,
-    &parse,
-    &final_check,
-    &print,
-    &save,
-    opts
+static struct ip6tables_match rt = {
+	.name		= "rt",
+	.version	= IPTABLES_VERSION,
+	.size		= IP6T_ALIGN(sizeof(struct ip6t_rt)),
+	.userspacesize	= IP6T_ALIGN(sizeof(struct ip6t_rt)),
+	.help		= &help,
+	.init		= &init,
+	.parse		= &parse,
+	.final_check	= &final_check,
+	.print		= &print,
+	.save		= &save,
+	.extra_opts	= opts,
 };
 
 void

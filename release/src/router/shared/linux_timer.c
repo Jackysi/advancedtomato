@@ -12,6 +12,8 @@
  * $Id: linux_timer.c,v 1.1.1.9 2005/03/07 07:31:20 kanki Exp $
  */
 
+// xref: nas,upnp
+ 
 /*
 * debug facilities
 */
@@ -113,22 +115,23 @@ static void check_timer();
 static int count_queue(struct event *);
 #endif
 static int timer_change_settime(timer_t timer_id, const struct itimerspec *timer_spec);
-void block_timer();
-void unblock_timer();
+static void block_timer();
+static void unblock_timer();
 
 static struct event *event_queue = NULL;
 static struct event *event_freelist;
 static uint g_granularity;
 static int g_maxevents = 0;
 
-uclock_t uclock()
+/*
+static uclock_t uclock()
 {
     struct timeval tv;
 
     gettimeofday(&tv, NULL);
     return ((tv.tv_sec * US_PER_SEC) + tv.tv_usec);
 }
-
+*/
 
 void init_event_queue(int n)
 {
@@ -156,6 +159,7 @@ void init_event_queue(int n)
 }
 
 
+#if 0
 int clock_gettime(
     clockid_t         clock_id, /* clock ID (always CLOCK_REALTIME) */
     struct timespec * tp        /* where to store current time */
@@ -170,7 +174,7 @@ int clock_gettime(
     
     return n;
 }
-
+#endif
 
 int timer_create(
     clockid_t         clock_id, /* clock ID (always CLOCK_REALTIME) */
@@ -550,7 +554,7 @@ static void alarm_handler(int i)
 
 static int block_count = 0;
 
-void block_timer()
+static void block_timer()
 {
     sigset_t set;
 
@@ -561,7 +565,7 @@ void block_timer()
     }
 }
 
-void unblock_timer()
+static void unblock_timer()
 {
     sigset_t set;
 
@@ -659,6 +663,7 @@ void timer_cancel(timer_t timerid)
     unblock_timer();
 }
 
+
 /*
 * timer related headers
 */
@@ -702,7 +707,7 @@ int bcm_timer_module_enable(bcm_timer_module_id module_id, int enable)
 
 int bcm_timer_create(bcm_timer_module_id module_id, bcm_timer_id *timer_id)
 {
-	module_id = 0;
+//	module_id = 0;
 	return timer_create(CLOCK_REALTIME, NULL, (timer_t *)timer_id);
 }
 

@@ -40,9 +40,6 @@ udp_unique_tuple(struct ip_conntrack_tuple *tuple,
 	else
 		portptr = &tuple->dst.u.udp.port;
 
-	if(ntohs(*portptr) == 500)
-		return 0;//must not be "return 1"
-
 	/* If no range specified... */
 	if (!(range->flags & IP_NAT_RANGE_PROTO_SPECIFIED)) {
 		/* If it's dst rewrite, can't change port */

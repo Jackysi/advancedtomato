@@ -30,30 +30,6 @@ static struct option opts[] = {
 	{0}
 };
 
-static int
-service_to_port(const char *name)
-{
-	struct servent *service;
-
-	if ((service = getservbyname(name, "udp")) != NULL)
-		return ntohs((unsigned short) service->s_port);
-
-		return -1;
-}
-
-static u_int16_t
-parse_udp_port(const char *port)
-{
-	unsigned int portnum;
-
-	if (string_to_number(port, 0, 65535, &portnum) != -1 ||
-	    (portnum = service_to_port(port)) != -1)
-		return (u_int16_t)portnum;
-
-		exit_error(PARAMETER_PROBLEM,
-			   "invalid UDP port/service `%s' specified", port);
-	}
-
 static void
 parse_udp_ports(const char *portstring, u_int16_t *ports)
 {
@@ -62,13 +38,13 @@ parse_udp_ports(const char *portstring, u_int16_t *ports)
 
 	buffer = strdup(portstring);
 	if ((cp = strchr(buffer, ':')) == NULL)
-		ports[0] = ports[1] = parse_udp_port(buffer);
+		ports[0] = ports[1] = parse_port(buffer, "udp");
 	else {
 		*cp = '\0';
 		cp++;
 
-		ports[0] = buffer[0] ? parse_udp_port(buffer) : 0;
-		ports[1] = cp[0] ? parse_udp_port(cp) : 0xFFFF;
+		ports[0] = buffer[0] ? parse_port(buffer, "udp") : 0;
+		ports[1] = cp[0] ? parse_port(cp, "udp") : 0xFFFF;
 
 		if (ports[0] > ports[1])
 			exit_error(PARAMETER_PROBLEM,
@@ -109,7 +85,6 @@ parse(int c, char **argv, int invert, unsigned int *flags,
 		if (invert)
 			udpinfo->invflags |= IPT_UDP_INV_SRCPT;
 		*flags |= UDP_SRC_PORTS;
-		*nfcache |= NFC_IP_SRC_PT;
 		break;
 
 	case '2':
@@ -121,7 +96,6 @@ parse(int c, char **argv, int invert, unsigned int *flags,
 		if (invert)
 			udpinfo->invflags |= IPT_UDP_INV_DSTPT;
 		*flags |= UDP_DST_PORTS;
-		*nfcache |= NFC_IP_DST_PT;
 		break;
 
 	default:
@@ -234,19 +208,19 @@ static void save(const struct ipt_ip *ip, const struct ipt_entry_match *match)
 }
 
 static
-struct iptables_match udp
-= { NULL,
-    "udp",
-    IPTABLES_VERSION,
-    IPT_ALIGN(sizeof(struct ipt_udp)),
-    IPT_ALIGN(sizeof(struct ipt_udp)),
-    &help,
-    &init,
-    &parse,
-    &final_check,
-    &print,
-    &save,
-    opts
+struct iptables_match udp = { 
+	.next		= NULL,
+	.name		= "udp",
+	.version	= IPTABLES_VERSION,
+	.size		= IPT_ALIGN(sizeof(struct ipt_udp)),
+	.userspacesize	= IPT_ALIGN(sizeof(struct ipt_udp)),
+	.help		= &help,
+	.init		= &init,
+	.parse		= &parse,
+	.final_check	= &final_check,
+	.print		= &print,
+	.save		= &save,
+	.extra_opts	= opts
 };
 
 void

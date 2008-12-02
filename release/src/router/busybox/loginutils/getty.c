@@ -5,13 +5,13 @@
    be here. Now read the real man-page agetty.8 instead.
 
    -f option added by Eric Rasmussen <ear@usfirst.org> - 12/28/95
-   
+
    1999-02-22 Arkadiusz Mi¶kiewicz <misiek@misiek.eu.org>
    - added Native Language Support
 
    1999-05-05 Thorsten Kranzkowski <dl8bcu@gmx.net>
    - enable hardware flow control before displaying /etc/issue
-   
+
 */
 
 #include <stdio.h>
@@ -21,21 +21,23 @@
 #include <sys/ioctl.h>
 #include <errno.h>
 #include <sys/stat.h>
-#include <sys/signal.h>
+#include <signal.h>
 #include <fcntl.h>
 #include <stdarg.h>
 #include <ctype.h>
-#include <utmp.h>
 #include <getopt.h>
 #include <termios.h>
 #include "busybox.h"
+
+#ifdef CONFIG_FEATURE_UTMP
+#include <utmp.h>
+#endif
 
 #define _PATH_LOGIN     "/bin/login"
 
  /* If USE_SYSLOG is undefined all diagnostics go directly to /dev/console. */
 #ifdef CONFIG_SYSLOGD
 #include <sys/param.h>
-#define USE_SYSLOG
 #include <syslog.h>
 #endif
 
@@ -45,48 +47,49 @@
   * System V, assume it is SunOS 4.
   */
 
-#ifdef LOGIN_PROCESS			/* defined in System V utmp.h */
-#define	SYSV_STYLE				/* select System V style getty */
-#ifdef CONFIG_FEATURE_U_W_TMP
+#ifdef LOGIN_PROCESS                    /* defined in System V utmp.h */
+#define SYSV_STYLE                      /* select System V style getty */
+#ifdef CONFIG_FEATURE_WTMP
 extern void updwtmp(const char *filename, const struct utmp *ut);
 #endif
 #endif  /* LOGIN_PROCESS */
 
  /*
   * Things you may want to modify.
-  * 
-  * If ISSUE is not defined, agetty will never display the contents of the
-  * /etc/issue file. You will not want to spit out large "issue" files at the
-  * wrong baud rate. Relevant for System V only.
-  * 
+  *
   * You may disagree with the default line-editing etc. characters defined
   * below. Note, however, that DEL cannot be used for interrupt generation
   * and for line editing at the same time.
   */
 
-#ifdef	SYSV_STYLE
-#define	ISSUE "/etc/issue"		/* displayed before the login prompt */
+#ifdef  SYSV_STYLE
 #include <sys/utsname.h>
 #include <time.h>
 #endif
 
+ /* If ISSUE is not defined, agetty will never display the contents of the
+  * /etc/issue file. You will not want to spit out large "issue" files at the
+  * wrong baud rate.
+  */
+#define ISSUE "/etc/issue"              /* displayed before the login prompt */
+
 /* Some shorthands for control characters. */
 
-#define CTL(x)		(x ^ 0100)	/* Assumes ASCII dialect */
-#define	CR		CTL('M')		/* carriage return */
-#define	NL		CTL('J')		/* line feed */
-#define	BS		CTL('H')		/* back space */
-#define	DEL		CTL('?')		/* delete */
+#define CTL(x)          (x ^ 0100)      /* Assumes ASCII dialect */
+#define CR              CTL('M')        /* carriage return */
+#define NL              CTL('J')        /* line feed */
+#define BS              CTL('H')        /* back space */
+#define DEL             CTL('?')        /* delete */
 
 /* Defaults for line-editing etc. characters; you may want to change this. */
 
-#define DEF_ERASE	DEL			/* default erase character */
-#define DEF_INTR	CTL('C')	/* default interrupt character */
-#define DEF_QUIT	CTL('\\')	/* default quit char */
-#define DEF_KILL	CTL('U')	/* default kill char */
-#define DEF_EOF		CTL('D')	/* default EOF char */
-#define DEF_EOL		0
-#define DEF_SWITCH	0			/* default switch char */
+#define DEF_ERASE       DEL             /* default erase character */
+#define DEF_INTR        CTL('C')        /* default interrupt character */
+#define DEF_QUIT        CTL('\\')       /* default quit char */
+#define DEF_KILL        CTL('U')        /* default kill char */
+#define DEF_EOF         CTL('D')        /* default EOF char */
+#define DEF_EOL         '\n'
+#define DEF_SWITCH      0               /* default switch char */
 
  /*
   * SunOS 4.1.1 termio is broken. We must use the termios stuff instead,
@@ -99,23 +102,14 @@ extern void updwtmp(const char *filename, const struct utmp *ut);
 /* linux 0.12 termio is broken too, if we use it c_cc[VERASE] isn't set
    properly, but all is well if we use termios?! */
 
-#ifdef	TCGETS
-#undef	TCGETA
-#undef	TCSETA
-#undef	TCSETAW
-#define	termio	termios
-#define	TCGETA	TCGETS
-#define	TCSETA	TCSETS
-#define	TCSETAW	TCSETSW
-#endif
-
- /*
-  * This program tries to not use the standard-i/o library.  This keeps the
-  * executable small on systems that do not have shared libraries (System V
-  * Release <3).
-  */
-#ifndef BUFSIZ
-#define	BUFSIZ		1024
+#ifdef  TCGETS
+#undef  TCGETA
+#undef  TCSETA
+#undef  TCSETAW
+#define termio  termios
+#define TCGETA  TCGETS
+#define TCSETA  TCSETS
+#define TCSETAW TCSETSW
 #endif
 
  /*
@@ -123,50 +117,54 @@ extern void updwtmp(const char *filename, const struct utmp *ut);
   * we will try is the first one specified.
   */
 
-#define	FIRST_SPEED	0
+#define FIRST_SPEED     0
 
 /* Storage for command-line options. */
 
-#define	MAX_SPEED	10			/* max. nr. of baud rates */
+#define MAX_SPEED       10              /* max. nr. of baud rates */
 
 struct options {
-	int flags;					/* toggle switches, see below */
-	int timeout;				/* time-out period */
-	char *login;				/* login program */
-	char *tty;					/* name of tty */
-	char *initstring;			/* modem init string */
-	char *issue;				/* alternative issue file */
-	int numspeed;				/* number of baud rates to try */
-	int speeds[MAX_SPEED];		/* baud rates to be tried */
+	int flags;                      /* toggle switches, see below */
+	int timeout;                    /* time-out period */
+	char *login;                    /* login program */
+	char *tty;                      /* name of tty */
+	char *initstring;               /* modem init string */
+	char *issue;                    /* alternative issue file */
+	int numspeed;                   /* number of baud rates to try */
+	int speeds[MAX_SPEED];          /* baud rates to be tried */
 };
 
-#define	F_PARSE		(1<<0)		/* process modem status messages */
-#define	F_ISSUE		(1<<1)		/* display /etc/issue */
-#define	F_RTSCTS	(1<<2)		/* enable RTS/CTS flow control */
-#define F_LOCAL		(1<<3)		/* force local */
-#define F_INITSTRING    (1<<4)	/* initstring is set */
-#define F_WAITCRLF	(1<<5)		/* wait for CR or LF */
-#define F_CUSTISSUE	(1<<6)		/* give alternative issue file */
-#define F_NOPROMPT	(1<<7)		/* don't ask for login name! */
+static const char opt_string[] = "I:LH:f:hil:mt:wn";
+#define F_INITSTRING    (1<<0)          /* initstring is set */
+#define F_LOCAL         (1<<1)          /* force local */
+#define F_FAKEHOST      (1<<2)          /* force fakehost */
+#define F_CUSTISSUE     (1<<3)          /* give alternative issue file */
+#define F_RTSCTS        (1<<4)          /* enable RTS/CTS flow control */
+#define F_ISSUE         (1<<5)          /* display /etc/issue */
+#define F_LOGIN         (1<<6)          /* non-default login program */
+#define F_PARSE         (1<<7)          /* process modem status messages */
+#define F_TIMEOUT       (1<<8)          /* time out */
+#define F_WAITCRLF      (1<<9)          /* wait for CR or LF */
+#define F_NOPROMPT      (1<<10)         /* don't ask for login name! */
 
 /* Storage for things detected while the login name was read. */
 
 struct chardata {
-	int erase;					/* erase character */
-	int kill;					/* kill character */
-	int eol;					/* end-of-line character */
-	int parity;					/* what parity did we see */
-	int capslock;				/* upper case without lower case */
+	int erase;                      /* erase character */
+	int kill;                       /* kill character */
+	int eol;                        /* end-of-line character */
+	int parity;                     /* what parity did we see */
+	int capslock;                   /* upper case without lower case */
 };
 
 /* Initial values for the above. */
 
-struct chardata init_chardata = {
-	DEF_ERASE,					/* default erase character */
-	DEF_KILL,					/* default kill character */
-	13,							/* default eol char */
-	0,							/* space parity */
-	0,							/* no capslock */
+static struct chardata init_chardata = {
+	DEF_ERASE,                              /* default erase character */
+	DEF_KILL,                               /* default kill character */
+	13,                                     /* default eol char */
+	0,                                      /* space parity */
+	0,                                      /* no capslock */
 };
 
 #if 0
@@ -189,16 +187,16 @@ static struct Speedtab speedtab[] = {
 	{2400, B2400},
 	{4800, B4800},
 	{9600, B9600},
-#ifdef	B19200
+#ifdef  B19200
 	{19200, B19200},
 #endif
-#ifdef	B38400
+#ifdef  B38400
 	{38400, B38400},
 #endif
-#ifdef	EXTA
+#ifdef  EXTA
 	{19200, EXTA},
 #endif
-#ifdef	EXTB
+#ifdef  EXTB
 	{38400, EXTB},
 #endif
 #ifdef B57600
@@ -214,25 +212,11 @@ static struct Speedtab speedtab[] = {
 };
 #endif
 
-static void parse_args(int argc, char **argv, struct options *op);
-static void parse_speeds(struct options *op, char *arg);
-static void open_tty(char *tty, struct termio *tp, int local);
-static void termio_init(struct termio *tp, int speed, struct options *op);
-static void auto_baud(struct termio *tp);
-static void do_prompt(struct options *op, struct termio *tp);
-static void next_speed(struct termio *tp, struct options *op);
-static char *get_logname(struct options *op, struct chardata *cp,
 
-				  struct termio *tp);
-static void termio_final(struct options *op, struct termio *tp,
-
-				  struct chardata *cp);
-static int caps_lock(const char *s);
-static int bcode(const char *s);
-static void error(const char *fmt, ...) __attribute__ ((noreturn));
-
-#ifdef CONFIG_FEATURE_U_W_TMP
+#ifdef  SYSV_STYLE
+#ifdef CONFIG_FEATURE_UTMP
 static void update_utmp(char *line);
+#endif
 #endif
 
 /* The following is used for understandable diagnostics. */
@@ -246,227 +230,71 @@ static char *fakehost = NULL;
 #define DEBUGTERM "/dev/ttyp0"
 FILE *dbf;
 #else
-#define debug(s)				/* nothing */
+#define debug(s)                                /* nothing */
 #endif
 
-int getty_main(int argc, char **argv)
+
+/*
+ * output error messages
+ */
+static void error(const char *fmt, ...) ATTRIBUTE_NORETURN;
+static void error(const char *fmt, ...)
 {
-	char *logname = NULL;		/* login name, given to /bin/login */
-	struct chardata chardata;	/* set by get_logname() */
-	struct termio termio;		/* terminal mode bits */
-	static struct options options = {
-		F_ISSUE,				/* show /etc/issue (SYSV_STYLE) */
-		0,						/* no timeout */
-		_PATH_LOGIN,			/* default login program */
-		"tty1",					/* default tty line */
-		"",						/* modem init string */
-		ISSUE,					/* default issue file */
-		0,						/* no baud rates known yet */
-	};
+	va_list va_alist;
+	char buf[256];
 
-#ifdef DEBUGGING
-	dbf = bb_xfopen(DEBUGTERM, "w");
+#ifdef CONFIG_SYSLOGD
+	va_start(va_alist, fmt);
+	vsnprintf(buf, sizeof(buf), fmt, va_alist);
+	openlog(bb_applet_name, 0, LOG_AUTH);
+	syslog(LOG_ERR, "%s", buf);
+	closelog();
+#else
+	int fd;
+	size_t l;
 
-	{
-		int i;
-
-		for (i = 1; i < argc; i++) {
-			debug(argv[i]);
-			debug("\n");
-		}
+	snprintf(buf, sizeof(buf), "%s: ", bb_applet_name);
+	l = strlen(buf);
+	va_start(va_alist, fmt);
+	vsnprintf(buf + l, sizeof(buf) - l, fmt, va_alist);
+	l = strlen(buf);
+	/* truncate if need */
+	if((l + 3) > sizeof(buf))
+		l = sizeof(buf) - 3;
+	/* add \r\n always */
+	buf[l++] = '\r';
+	buf[l++] = '\n';
+	buf[l] = 0;
+	if ((fd = open("/dev/console", 1)) >= 0) {
+		write(fd, buf, l);
+		close(fd);
 	}
 #endif
 
-	/* Parse command-line arguments. */
+	va_end(va_alist);
 
-	parse_args(argc, argv, &options);
-
-#ifdef __linux__
-	setsid();
-#endif
-
-	/* Update the utmp file. */
-
-
-#ifdef	SYSV_STYLE
-#ifdef CONFIG_FEATURE_U_W_TMP
-	update_utmp(options.tty);
-#endif
-#endif
-
-	debug("calling open_tty\n");
-	/* Open the tty as standard { input, output, error }. */
-	open_tty(options.tty, &termio, options.flags & F_LOCAL);
-
-#ifdef __linux__
-	{
-		int iv;
-
-		iv = getpid();
-		ioctl(0, TIOCSPGRP, &iv);
-	}
-#endif
-	/* Initialize the termio settings (raw mode, eight-bit, blocking i/o). */
-	debug("calling termio_init\n");
-	termio_init(&termio, options.speeds[FIRST_SPEED], &options);
-
-	/* write the modem init string and DON'T flush the buffers */
-	if (options.flags & F_INITSTRING) {
-		debug("writing init string\n");
-		write(1, options.initstring, strlen(options.initstring));
-	}
-
-	if (!(options.flags & F_LOCAL)) {
-		/* go to blocking write mode unless -L is specified */
-		fcntl(1, F_SETFL, fcntl(1, F_GETFL, 0) & ~O_NONBLOCK);
-	}
-
-	/* Optionally detect the baud rate from the modem status message. */
-	debug("before autobaud\n");
-	if (options.flags & F_PARSE)
-		auto_baud(&termio);
-
-	/* Set the optional timer. */
-	if (options.timeout)
-		(void) alarm((unsigned) options.timeout);
-
-	/* optionally wait for CR or LF before writing /etc/issue */
-	if (options.flags & F_WAITCRLF) {
-		char ch;
-
-		debug("waiting for cr-lf\n");
-		while (read(0, &ch, 1) == 1) {
-			ch &= 0x7f;			/* strip "parity bit" */
-#ifdef DEBUGGING
-			fprintf(dbf, "read %c\n", ch);
-#endif
-			if (ch == '\n' || ch == '\r')
-				break;
-		}
-	}
-
-	chardata = init_chardata;
-	if (!(options.flags & F_NOPROMPT)) {
-		/* Read the login name. */
-		debug("reading login name\n");
-		/* while ((logname = get_logname(&options, &chardata, &termio)) == 0) */
-		while ((logname = get_logname(&options, &chardata, &termio)) ==
-			   NULL) next_speed(&termio, &options);
-	}
-
-	/* Disable timer. */
-
-	if (options.timeout)
-		(void) alarm(0);
-
-	/* Finalize the termio settings. */
-
-	termio_final(&options, &termio, &chardata);
-
-	/* Now the newline character should be properly written. */
-
-	(void) write(1, "\n", 1);
-
-	/* Let the login program take care of password validation. */
-
-	(void) execl(options.login, options.login, "--", logname, (char *) 0);
-	error("%s: can't exec %s: %m", options.tty, options.login);
+	(void) sleep((unsigned) 10);    /* be kind to init(8) */
+	exit(1);
 }
 
-/* parse-args - parse command-line arguments */
 
-static void parse_args(int argc, char **argv, struct options *op)
+
+/* bcode - convert speed string to speed code; return 0 on failure */
+static int bcode(const char *s)
 {
-	extern char *optarg;		/* getopt */
-	extern int optind;			/* getopt */
-	int c;
-
-	while (isascii(c = getopt(argc, argv, "I:LH:f:hil:mt:wn"))) {
-		switch (c) {
-		case 'I':
-			if (!(op->initstring = strdup(optarg)))
-				error(bb_msg_memory_exhausted);
-				
-			{
-				const char *p;
-				char *q;
-
-				/* copy optarg into op->initstring decoding \ddd
-				   octal codes into chars */
-				q = op->initstring;
-				p = optarg;
-				while (*p) {
-					if (*p == '\\') {
-						p++;
-						*q++ = bb_process_escape_sequence(&p);
-					} else {
-						*q++ = *p++;
-					}
-				}
-				*q = '\0';
-			}
-			op->flags |= F_INITSTRING;
-			break;
-
-		case 'L':				/* force local */
-			op->flags |= F_LOCAL;
-			break;
-		case 'H':				/* fake login host */
-			fakehost = optarg;
-			break;
-		case 'f':				/* custom issue file */
-			op->flags |= F_CUSTISSUE;
-			op->issue = optarg;
-			break;
-		case 'h':				/* enable h/w flow control */
-			op->flags |= F_RTSCTS;
-			break;
-		case 'i':				/* do not show /etc/issue */
-			op->flags &= ~F_ISSUE;
-			break;
-		case 'l':
-			op->login = optarg;	/* non-default login program */
-			break;
-		case 'm':				/* parse modem status message */
-			op->flags |= F_PARSE;
-			break;
-		case 'n':
-			op->flags |= F_NOPROMPT;
-			break;
-		case 't':				/* time out */
-			if ((op->timeout = atoi(optarg)) <= 0)
-				error("bad timeout value: %s", optarg);
-			break;
-		case 'w':
-			op->flags |= F_WAITCRLF;
-			break;
-		default:
-			bb_show_usage();
-		}
+	int r;
+	unsigned long value;
+	if (safe_strtoul((char *)s, &value)) {
+		return -1;
 	}
-	debug("after getopt loop\n");
-	if (argc < optind + 2)		/* check parameter count */
-		bb_show_usage();
-
-	/* we loosen up a bit and accept both "baudrate tty" and "tty baudrate" */
-	if ('0' <= argv[optind][0] && argv[optind][0] <= '9') {
-		/* a number first, assume it's a speed (BSD style) */
-		parse_speeds(op, argv[optind++]);	/* baud rate(s) */
-		op->tty = argv[optind];	/* tty name */
-	} else {
-		op->tty = argv[optind++];	/* tty name */
-		parse_speeds(op, argv[optind]);	/* baud rate(s) */
+	if ((r = tty_value_to_baud(value)) > 0) {
+		return r;
 	}
-
-	optind++;
-	if (argc > optind && argv[optind])
-		setenv("TERM", argv[optind], 1);
-
-	debug("exiting parseargs\n");
+	return 0;
 }
+
 
 /* parse_speeds - parse alternate baud rates */
-
 static void parse_speeds(struct options *op, char *arg)
 {
 	char *cp;
@@ -481,81 +309,74 @@ static void parse_speeds(struct options *op, char *arg)
 	debug("exiting parsespeeds\n");
 }
 
-#ifdef	SYSV_STYLE
-#ifdef CONFIG_FEATURE_U_W_TMP
 
-/* update_utmp - update our utmp entry */
-static void update_utmp(char *line)
+/* parse-args - parse command-line arguments */
+static void parse_args(int argc, char **argv, struct options *op)
 {
-	struct utmp ut;
-	struct utmp *utp;
-	time_t t;
-	int mypid = getpid();
-#if ! (__GLIBC__ > 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ >= 1))
-	struct flock lock;
-#endif
+	char *ts;
 
-	/*
-	 * The utmp file holds miscellaneous information about things started by
-	 * /sbin/init and other system-related events. Our purpose is to update
-	 * the utmp entry for the current process, in particular the process type
-	 * and the tty line we are listening to. Return successfully only if the
-	 * utmp file can be opened for update, and if we are able to find our
-	 * entry in the utmp file.
-	 */
-	utmpname(_PATH_UTMP);
-	setutent();
-	while ((utp = getutent())
-		   && !(utp->ut_type == INIT_PROCESS && utp->ut_pid == mypid))	/* nothing */
-		;
+	op->flags = bb_getopt_ulflags(argc, argv, opt_string,
+		&(op->initstring), &fakehost, &(op->issue),
+		&(op->login), &ts);
+	if(op->flags & F_INITSTRING) {
+		const char *p = op->initstring;
+		char *q;
 
-	if (utp) {
-		memcpy(&ut, utp, sizeof(ut));
+		q = op->initstring = bb_xstrdup(op->initstring);
+		/* copy optarg into op->initstring decoding \ddd
+		   octal codes into chars */
+		while (*p) {
+			if (*p == '\\') {
+				p++;
+				*q++ = bb_process_escape_sequence(&p);
+			} else {
+				*q++ = *p++;
+			}
+		}
+		*q = '\0';
+	}
+	op->flags ^= F_ISSUE;           /* revert flag show /etc/issue */
+	if(op->flags & F_TIMEOUT) {
+		if ((op->timeout = atoi(ts)) <= 0)
+			error("bad timeout value: %s", ts);
+	}
+	debug("after getopt loop\n");
+	if (argc < optind + 2)          /* check parameter count */
+		bb_show_usage();
+
+	/* we loosen up a bit and accept both "baudrate tty" and "tty baudrate" */
+	if ('0' <= argv[optind][0] && argv[optind][0] <= '9') {
+		/* a number first, assume it's a speed (BSD style) */
+		parse_speeds(op, argv[optind++]);       /* baud rate(s) */
+		op->tty = argv[optind]; /* tty name */
 	} else {
-		/* some inits don't initialize utmp... */
-		memset(&ut, 0, sizeof(ut));
-		strncpy(ut.ut_id, line + 3, sizeof(ut.ut_id));
+		op->tty = argv[optind++];       /* tty name */
+		parse_speeds(op, argv[optind]); /* baud rate(s) */
 	}
-	/*endutent(); */
 
-	strncpy(ut.ut_user, "LOGIN", sizeof(ut.ut_user));
-	strncpy(ut.ut_line, line, sizeof(ut.ut_line));
-	if (fakehost)
-		strncpy(ut.ut_host, fakehost, sizeof(ut.ut_host));
-	time(&t);
-	ut.ut_time = t;
-	ut.ut_type = LOGIN_PROCESS;
-	ut.ut_pid = mypid;
+	optind++;
+	if (argc > optind && argv[optind])
+		setenv("TERM", argv[optind], 1);
 
-	pututline(&ut);
-	endutent();
-
-	{
-		updwtmp(_PATH_WTMP, &ut);
-	}
+	debug("exiting parseargs\n");
 }
-
-#endif /* CONFIG_FEATURE_U_W_TMP */
-#endif /* SYSV_STYLE */
 
 /* open_tty - set up tty as standard { input, output, error } */
 static void open_tty(char *tty, struct termio *tp, int local)
 {
-	/* Get rid of the present standard { output, error} if any. */
-
-	(void) close(1);
-	(void) close(2);
-	errno = 0;					/* ignore above errors */
+	int chdir_to_root = 0;
 
 	/* Set up new standard input, unless we are given an already opened port. */
 
 	if (strcmp(tty, "-")) {
 		struct stat st;
+		int fd;
 
 		/* Sanity checks... */
 
 		if (chdir("/dev"))
 			error("/dev: chdir() failed: %m");
+		chdir_to_root = 1;
 		if (stat(tty, &st) < 0)
 			error("/dev/%s: %m", tty);
 		if ((st.st_mode & S_IFMT) != S_IFCHR)
@@ -563,13 +384,11 @@ static void open_tty(char *tty, struct termio *tp, int local)
 
 		/* Open the tty as standard input. */
 
-		(void) close(0);
-		errno = 0;				/* ignore close(2) errors */
-
+		close(0);
 		debug("open(2)\n");
-		if (open(tty, O_RDWR | O_NONBLOCK, 0) != 0)
+		fd = open(tty, O_RDWR | O_NONBLOCK, 0);
+		if (fd != 0)
 			error("/dev/%s: cannot open as standard input: %m", tty);
-
 	} else {
 
 		/*
@@ -581,10 +400,11 @@ static void open_tty(char *tty, struct termio *tp, int local)
 			error("%s: not open for read/write", tty);
 	}
 
-	/* Set up standard output and standard error file descriptors. */
+	/* Replace current standard output/error fd's with new ones */
 	debug("duping\n");
-	if (dup(0) != 1 || dup(0) != 2)	/* set up stdout and stderr */
-		error("%s: dup problem: %m", tty);	/* we have a problem */
+	if (dup2(STDIN_FILENO, STDOUT_FILENO) == -1 ||
+	    dup2(STDIN_FILENO, STDERR_FILENO) == -1)
+		error("%s: dup problem: %m", tty);      /* we have a problem */
 
 	/*
 	 * The following ioctl will fail if stdin is not a tty, but also when
@@ -639,17 +459,16 @@ static void open_tty(char *tty, struct termio *tp, int local)
 		}
 	}
 #else
-	(void) chown(tty, 0, 0);	/* root, sys */
-	(void) chmod(tty, 0622);	/* crw--w--w- */
-	errno = 0;					/* ignore above errors */
+	(void) chown(tty, 0, 0);        /* root, sys */
+	(void) chmod(tty, 0622);        /* crw--w--w- */
 #endif
+	if(chdir_to_root && chdir("/"))
+		error("chdir to / failed: %m");
 }
 
 /* termio_init - initialize termio settings */
-
 static void termio_init(struct termio *tp, int speed, struct options *op)
 {
-
 	/*
 	 * Initial termio settings: 8-bit characters, raw-mode, blocking i/o.
 	 * Special characters are set after we have read the login name; all
@@ -666,13 +485,14 @@ static void termio_init(struct termio *tp, int speed, struct options *op)
 		tp->c_cflag |= CLOCAL;
 	}
 
-	tp->c_iflag = tp->c_lflag = tp->c_oflag = tp->c_line = 0;
+	tp->c_iflag = tp->c_lflag = tp->c_line = 0;
+	tp->c_oflag = OPOST | ONLCR;
 	tp->c_cc[VMIN] = 1;
 	tp->c_cc[VTIME] = 0;
 
 	/* Optionally enable hardware flow control */
 
-#ifdef	CRTSCTS
+#ifdef  CRTSCTS
 	if (op->flags & F_RTSCTS)
 		tp->c_cflag |= CRTSCTS;
 #endif
@@ -700,9 +520,9 @@ static void auto_baud(struct termio *tp)
 	 * the DCD line, and if the computer is fast enough to set the proper
 	 * baud rate before the message has gone by. We expect a message of the
 	 * following format:
-	 * 
+	 *
 	 * <junk><number><junk>
-	 * 
+	 *
 	 * The number is interpreted as the baud rate of the incoming call. If the
 	 * modem does not tell us the baud rate within one second, we will keep
 	 * using the current baud rate. It is advisable to enable BREAK
@@ -716,9 +536,9 @@ static void auto_baud(struct termio *tp)
 	 */
 
 	iflag = tp->c_iflag;
-	tp->c_iflag |= ISTRIP;		/* enable 8th-bit stripping */
+	tp->c_iflag |= ISTRIP;          /* enable 8th-bit stripping */
 	vmin = tp->c_cc[VMIN];
-	tp->c_cc[VMIN] = 0;			/* don't block if queue empty */
+	tp->c_cc[VMIN] = 0;                     /* don't block if queue empty */
 	(void) ioctl(0, TCSETA, tp);
 
 	/*
@@ -746,19 +566,10 @@ static void auto_baud(struct termio *tp)
 	(void) ioctl(0, TCSETA, tp);
 }
 
-/* do_prompt - show login prompt, optionally preceded by /etc/issue contents */
-static void do_prompt(struct options *op, struct termio *tp)
-{
-#ifdef	ISSUE					/* optional: show /etc/issue */
-	print_login_issue(op->issue, op->tty);
-#endif
-	print_login_prompt();
-}
-
 /* next_speed - select next baud rate */
 static void next_speed(struct termio *tp, struct options *op)
 {
-	static int baud_index = FIRST_SPEED;	/* current speed index */
+	static int baud_index = FIRST_SPEED;    /* current speed index */
 
 	baud_index = (baud_index + 1) % op->numspeed;
 	tp->c_cflag &= ~CBAUD;
@@ -766,21 +577,46 @@ static void next_speed(struct termio *tp, struct options *op)
 	(void) ioctl(0, TCSETA, tp);
 }
 
+
+/* do_prompt - show login prompt, optionally preceded by /etc/issue contents */
+static void do_prompt(struct options *op, struct termio *tp)
+{
+#ifdef  ISSUE                                   /* optional: show /etc/issue */
+	print_login_issue(op->issue, op->tty);
+#endif
+	print_login_prompt();
+}
+
+/* caps_lock - string contains upper case without lower case */
+/* returns 1 if true, 0 if false */
+static int caps_lock(const char *s)
+{
+	int capslock;
+
+	for (capslock = 0; *s; s++) {
+		if (islower(*s))
+			return (0);
+		if (capslock == 0)
+			capslock = isupper(*s);
+	}
+	return (capslock);
+}
+
+#define logname bb_common_bufsiz1
 /* get_logname - get user name, establish parity, speed, erase, kill, eol */
 /* return NULL on failure, logname on success */
 static char *get_logname(struct options *op, struct chardata *cp, struct termio *tp)
 {
-	static char logname[BUFSIZ];
 	char *bp;
-	char c;						/* input character, full eight bits */
-	char ascval;				/* low 7 bits of input character */
-	int bits;					/* # of "1" bits per character */
-	int mask;					/* mask with 1 bit up */
-	static char *erase[] = {	/* backspace-space-backspace */
-		"\010\040\010",			/* space parity */
-		"\010\040\010",			/* odd parity */
-		"\210\240\210",			/* even parity */
-		"\210\240\210",			/* no parity */
+	char c;				/* input character, full eight bits */
+	char ascval;                    /* low 7 bits of input character */
+	int bits;                       /* # of "1" bits per character */
+	int mask;                       /* mask with 1 bit up */
+	static char *erase[] = {        /* backspace-space-backspace */
+		"\010\040\010",                 /* space parity */
+		"\010\040\010",                 /* odd parity */
+		"\210\240\210",                 /* even parity */
+		"\210\240\210",                 /* no parity */
 	};
 
 	/* Initialize kill, erase, parity etc. (also after switching speeds). */
@@ -819,10 +655,10 @@ static char *get_logname(struct options *op, struct chardata *cp, struct termio 
 
 			/* Do parity bit handling. */
 
-			if (c != (ascval = (c & 0177))) {	/* "parity" bit on ? */
+			if (c != (ascval = (c & 0177))) {       /* "parity" bit on ? */
 				for (bits = 1, mask = 1; mask & 0177; mask <<= 1)
 					if (mask & ascval)
-						bits++;	/* count "1" bits */
+						bits++; /* count "1" bits */
 				cp->parity |= ((bits & 1) ? 1 : 2);
 			}
 			/* Do erase, kill and end-of-line processing. */
@@ -830,13 +666,13 @@ static char *get_logname(struct options *op, struct chardata *cp, struct termio 
 			switch (ascval) {
 			case CR:
 			case NL:
-				*bp = 0;		/* terminate logname */
-				cp->eol = ascval;	/* set end-of-line char */
+				*bp = 0;                /* terminate logname */
+				cp->eol = ascval;       /* set end-of-line char */
 				break;
 			case BS:
 			case DEL:
 			case '#':
-				cp->erase = ascval;	/* set erase character */
+				cp->erase = ascval;     /* set erase character */
 				if (bp > logname) {
 					(void) write(1, erase[cp->parity], 3);
 					bp--;
@@ -844,7 +680,7 @@ static char *get_logname(struct options *op, struct chardata *cp, struct termio 
 				break;
 			case CTL('U'):
 			case '@':
-				cp->kill = ascval;	/* set kill character */
+				cp->kill = ascval;      /* set kill character */
 				while (bp > logname) {
 					(void) write(1, erase[cp->parity], 3);
 					bp--;
@@ -858,8 +694,8 @@ static char *get_logname(struct options *op, struct chardata *cp, struct termio 
 				} else if (bp - logname >= sizeof(logname) - 1) {
 					error("%s: input overrun", op->tty);
 				} else {
-					(void) write(1, &c, 1);	/* echo the character */
-					*bp++ = ascval;	/* and store it */
+					(void) write(1, &c, 1); /* echo the character */
+					*bp++ = ascval; /* and store it */
 				}
 				break;
 			}
@@ -870,7 +706,7 @@ static char *get_logname(struct options *op, struct chardata *cp, struct termio 
 	if ((cp->capslock = caps_lock(logname))) {
 		for (bp = logname; *bp; bp++)
 			if (isupper(*bp))
-				*bp = tolower(*bp);	/* map name to lower case */
+				*bp = tolower(*bp);     /* map name to lower case */
 	}
 	return (logname);
 }
@@ -880,39 +716,39 @@ static void termio_final(struct options *op, struct termio *tp, struct chardata 
 {
 	/* General terminal-independent stuff. */
 
-	tp->c_iflag |= IXON | IXOFF;	/* 2-way flow control */
+	tp->c_iflag |= IXON | IXOFF;    /* 2-way flow control */
 	tp->c_lflag |= ICANON | ISIG | ECHO | ECHOE | ECHOK | ECHOKE;
 	/* no longer| ECHOCTL | ECHOPRT */
 	tp->c_oflag |= OPOST;
 	/* tp->c_cflag = 0; */
-	tp->c_cc[VINTR] = DEF_INTR;	/* default interrupt */
-	tp->c_cc[VQUIT] = DEF_QUIT;	/* default quit */
-	tp->c_cc[VEOF] = DEF_EOF;	/* default EOF character */
+	tp->c_cc[VINTR] = DEF_INTR;     /* default interrupt */
+	tp->c_cc[VQUIT] = DEF_QUIT;     /* default quit */
+	tp->c_cc[VEOF] = DEF_EOF;       /* default EOF character */
 	tp->c_cc[VEOL] = DEF_EOL;
-	tp->c_cc[VSWTC] = DEF_SWITCH;	/* default switch character */
+	tp->c_cc[VSWTC] = DEF_SWITCH;   /* default switch character */
 
 	/* Account for special characters seen in input. */
 
 	if (cp->eol == CR) {
-		tp->c_iflag |= ICRNL;	/* map CR in input to NL */
-		tp->c_oflag |= ONLCR;	/* map NL in output to CR-NL */
+		tp->c_iflag |= ICRNL;   /* map CR in input to NL */
+		tp->c_oflag |= ONLCR;   /* map NL in output to CR-NL */
 	}
-	tp->c_cc[VERASE] = cp->erase;	/* set erase character */
-	tp->c_cc[VKILL] = cp->kill;	/* set kill character */
+	tp->c_cc[VERASE] = cp->erase;   /* set erase character */
+	tp->c_cc[VKILL] = cp->kill;     /* set kill character */
 
 	/* Account for the presence or absence of parity bits in input. */
 
 	switch (cp->parity) {
-	case 0:					/* space (always 0) parity */
+	case 0:                                 /* space (always 0) parity */
 		break;
-	case 1:					/* odd parity */
+	case 1:                                 /* odd parity */
 		tp->c_cflag |= PARODD;
 		/* FALLTHROUGH */
-	case 2:					/* even parity */
+	case 2:                                 /* even parity */
 		tp->c_cflag |= PARENB;
 		tp->c_iflag |= INPCK | ISTRIP;
 		/* FALLTHROUGH */
-	case (1 | 2):				/* no parity bit */
+	case (1 | 2):                           /* no parity bit */
 		tp->c_cflag &= ~CSIZE;
 		tp->c_cflag |= CS7;
 		break;
@@ -926,7 +762,7 @@ static void termio_final(struct options *op, struct termio *tp, struct chardata 
 	}
 	/* Optionally enable hardware flow control */
 
-#ifdef	CRTSCTS
+#ifdef  CRTSCTS
 	if (op->flags & F_RTSCTS)
 		tp->c_cflag |= CRTSCTS;
 #endif
@@ -937,83 +773,195 @@ static void termio_final(struct options *op, struct termio *tp, struct chardata 
 		error("%s: ioctl: TCSETA: %m", op->tty);
 }
 
-/* caps_lock - string contains upper case without lower case */
-/* returns 1 if true, 0 if false */
-static int caps_lock(const char *s)
-{
-	int capslock;
 
-	for (capslock = 0; *s; s++) {
-		if (islower(*s))
-			return (0);
-		if (capslock == 0)
-			capslock = isupper(*s);
+#ifdef  SYSV_STYLE
+#ifdef CONFIG_FEATURE_UTMP
+/* update_utmp - update our utmp entry */
+static void update_utmp(char *line)
+{
+	struct utmp ut;
+	struct utmp *utp;
+	time_t t;
+	int mypid = getpid();
+#if ! (__GLIBC__ > 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ >= 1))
+	struct flock lock;
+#endif
+
+	/*
+	 * The utmp file holds miscellaneous information about things started by
+	 * /sbin/init and other system-related events. Our purpose is to update
+	 * the utmp entry for the current process, in particular the process type
+	 * and the tty line we are listening to. Return successfully only if the
+	 * utmp file can be opened for update, and if we are able to find our
+	 * entry in the utmp file.
+	 */
+	if (access(_PATH_UTMP, R_OK|W_OK) == -1) {
+		close(creat(_PATH_UTMP, 0664));
 	}
-	return (capslock);
+	utmpname(_PATH_UTMP);
+	setutent();
+	while ((utp = getutent())
+		   && !(utp->ut_type == INIT_PROCESS && utp->ut_pid == mypid))  /* nothing */
+		;
+
+	if (utp) {
+		memcpy(&ut, utp, sizeof(ut));
+	} else {
+		/* some inits don't initialize utmp... */
+		memset(&ut, 0, sizeof(ut));
+		safe_strncpy(ut.ut_id, line + 3, sizeof(ut.ut_id));
+	}
+	/*endutent(); */
+
+	strcpy(ut.ut_user, "LOGIN");
+	safe_strncpy(ut.ut_line, line, sizeof(ut.ut_line));
+	if (fakehost)
+		safe_strncpy(ut.ut_host, fakehost, sizeof(ut.ut_host));
+	time(&t);
+	ut.ut_time = t;
+	ut.ut_type = LOGIN_PROCESS;
+	ut.ut_pid = mypid;
+
+	pututline(&ut);
+	endutent();
+
+#ifdef CONFIG_FEATURE_WTMP
+	if (access(bb_path_wtmp_file, R_OK|W_OK) == -1)
+		close(creat(bb_path_wtmp_file, 0664));
+	updwtmp(bb_path_wtmp_file, &ut);
+#endif
 }
 
-/* bcode - convert speed string to speed code; return 0 on failure */
-static int bcode(const char *s)
+#endif /* CONFIG_FEATURE_UTMP */
+#endif /* SYSV_STYLE */
+
+
+#undef logname
+int getty_main(int argc, char **argv)
 {
-#if 0
-	struct Speedtab *sp;
-	long speed = atol(s);
-
-	for (sp = speedtab; sp->speed; sp++)
-		if (sp->speed == speed)
-			return (sp->code);
-	return (0);
+	char *logname = NULL;           /* login name, given to /bin/login */
+	struct chardata chardata;       /* set by get_logname() */
+	struct termio termio;           /* terminal mode bits */
+	static struct options options = {
+		0,                      /* show /etc/issue (SYSV_STYLE) */
+		0,                      /* no timeout */
+		_PATH_LOGIN,            /* default login program */
+		"tty1",                 /* default tty line */
+		"",                     /* modem init string */
+#ifdef ISSUE
+		ISSUE,                  /* default issue file */
 #else
-	int r;
-
-	if ((r = bb_value_to_baud(atol(s))) > 0) {
-		return r;
-	}
-	return 0;
+		NULL,
 #endif
-}
+		0,                      /* no baud rates known yet */
+	};
 
-/* error - report errors to console or syslog; only understands %s and %m */
+#ifdef DEBUGGING
+	dbf = bb_xfopen(DEBUGTERM, "w");
 
-#define	str2cpy(b,s1,s2)	strcat(strcpy(b,s1),s2)
+	{
+		int i;
 
-/*
- * output error messages
- */
-static void error(const char *fmt, ...)
-{
-	va_list va_alist;
-	char buf[256], *bp;
-
-#ifndef	USE_SYSLOG
-	int fd;
-#endif
-
-#ifdef USE_SYSLOG
-	buf[0] = '\0';
-	bp = buf;
-#else
-	strncpy(buf, bb_applet_name, 256);
-	strncat(buf, ": ", 256);
-	buf[255] = 0;
-	bp = buf + strlen(buf);
-#endif
-
-	va_start(va_alist, fmt);
-	vsnprintf(bp, 256 - strlen(buf), fmt, va_alist);
-	buf[255] = 0;
-	va_end(va_alist);
-
-#ifdef	USE_SYSLOG
-	syslog_msg(LOG_AUTH, LOG_ERR, buf);
-#else
-	strncat(bp, "\r\n", 256 - strlen(buf));
-	buf[255] = 0;
-	if ((fd = open("/dev/console", 1)) >= 0) {
-		write(fd, buf, strlen(buf));
-		close(fd);
+		for (i = 1; i < argc; i++) {
+			debug(argv[i]);
+			debug("\n");
+		}
 	}
 #endif
-	(void) sleep((unsigned) 10);	/* be kind to init(8) */
-	exit(1);
+
+	/* Parse command-line arguments. */
+
+	parse_args(argc, argv, &options);
+
+#ifdef __linux__
+	setsid();
+#endif
+
+	/* Update the utmp file. */
+
+
+#ifdef  SYSV_STYLE
+#ifdef CONFIG_FEATURE_UTMP
+	update_utmp(options.tty);
+#endif
+#endif
+
+	debug("calling open_tty\n");
+	/* Open the tty as standard { input, output, error }. */
+	open_tty(options.tty, &termio, options.flags & F_LOCAL);
+
+#ifdef __linux__
+	{
+		int iv;
+
+		iv = getpid();
+		ioctl(0, TIOCSPGRP, &iv);
+	}
+#endif
+	/* Initialize the termio settings (raw mode, eight-bit, blocking i/o). */
+	debug("calling termio_init\n");
+	termio_init(&termio, options.speeds[FIRST_SPEED], &options);
+
+	/* write the modem init string and DON'T flush the buffers */
+	if (options.flags & F_INITSTRING) {
+		debug("writing init string\n");
+		write(1, options.initstring, strlen(options.initstring));
+	}
+
+	if (!(options.flags & F_LOCAL)) {
+		/* go to blocking write mode unless -L is specified */
+		fcntl(1, F_SETFL, fcntl(1, F_GETFL, 0) & ~O_NONBLOCK);
+	}
+
+	/* Optionally detect the baud rate from the modem status message. */
+	debug("before autobaud\n");
+	if (options.flags & F_PARSE)
+		auto_baud(&termio);
+
+	/* Set the optional timer. */
+	if (options.timeout)
+		(void) alarm((unsigned) options.timeout);
+
+	/* optionally wait for CR or LF before writing /etc/issue */
+	if (options.flags & F_WAITCRLF) {
+		char ch;
+
+		debug("waiting for cr-lf\n");
+		while (read(0, &ch, 1) == 1) {
+			ch &= 0x7f;                     /* strip "parity bit" */
+#ifdef DEBUGGING
+			fprintf(dbf, "read %c\n", ch);
+#endif
+			if (ch == '\n' || ch == '\r')
+				break;
+		}
+	}
+
+	chardata = init_chardata;
+	if (!(options.flags & F_NOPROMPT)) {
+		/* Read the login name. */
+		debug("reading login name\n");
+		/* while ((logname = get_logname(&options, &chardata, &termio)) == 0) */
+		while ((logname = get_logname(&options, &chardata, &termio)) ==
+			   NULL) next_speed(&termio, &options);
+	}
+
+	/* Disable timer. */
+
+	if (options.timeout)
+		(void) alarm(0);
+
+	/* Finalize the termio settings. */
+
+	termio_final(&options, &termio, &chardata);
+
+	/* Now the newline character should be properly written. */
+
+	(void) write(1, "\n", 1);
+
+	/* Let the login program take care of password validation. */
+
+	(void) execl(options.login, options.login, "--", logname, (char *) 0);
+	error("%s: can't exec %s: %m", options.tty, options.login);
 }
+

@@ -1,5 +1,5 @@
 /*
- * ip_conntrack_pptp.c	- Version 1.11
+ * ip_conntrack_pptp.c	- Version 1.9
  *
  * Connection tracking support for PPTP (Point to Point Tunneling Protocol).
  * PPTP is a a protocol for creating virtual private networks.
@@ -9,7 +9,7 @@
  * GRE is defined in RFC 1701 and RFC 1702.  Documentation of
  * PPTP can be found in RFC 2637
  *
- * (C) 2000-2002 by Harald Welte <laforge@gnumonks.org>, 
+ * (C) 2000-2003 by Harald Welte <laforge@gnumonks.org>
  *
  * Development of this code funded by Astaro AG (http://www.astaro.com/)
  *
@@ -21,6 +21,18 @@
  * TODO: - finish support for multiple calls within one session
  * 	   (needs expect reservations in newnat)
  *	 - testing of incoming PPTP calls 
+ *
+ * Changes: 
+ * 	2002-02-05 - Version 1.3
+ * 	  - Call ip_conntrack_unexpect_related() from 
+ * 	    pptp_timeout_related() to destroy expectations in case
+ * 	    CALL_DISCONNECT_NOTIFY or tcp fin packet was seen
+ * 	    (Philip Craig <philipc@snapgear.com>)
+ * 	  - Add Version information at module loadtime
+ * 	2002-02-10 - Version 1.6
+ * 	  - move to C99 style initializers
+ * 	  - remove second expectation if first arrives
+ *
  */
 
 #include <linux/config.h>
@@ -35,13 +47,21 @@
 #include <linux/netfilter_ipv4/ip_conntrack_proto_gre.h>
 #include <linux/netfilter_ipv4/ip_conntrack_pptp.h>
 
+#define IP_CT_PPTP_VERSION "1.9"
+
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Harald Welte <laforge@gnumonks.org>");
 MODULE_DESCRIPTION("Netfilter connection tracking helper module for PPTP");
 
 DECLARE_LOCK(ip_pptp_lock);
 
+#if 0
+#include "ip_conntrack_pptp_priv.h"
+#define DEBUGP(format, args...)	printk(KERN_DEBUG __FILE__ ":" __FUNCTION__ \
+					": " format, ## args)
+#else
 #define DEBUGP(format, args...)
+#endif
 
 #define SECS *HZ
 #define MINS * 60 SECS
@@ -53,8 +73,8 @@ DECLARE_LOCK(ip_pptp_lock);
 
 static int pptp_expectfn(struct ip_conntrack *ct)
 {
-	struct ip_conntrack_expect *exp, *other_exp;
 	struct ip_conntrack *master;
+	struct ip_conntrack_expect *exp;
 
 	DEBUGP("increasing timeouts\n");
 	/* increase timeout of GRE data channel conntrack entry */
@@ -64,6 +84,12 @@ static int pptp_expectfn(struct ip_conntrack *ct)
 	master = master_ct(ct);
 	if (!master) {
 		DEBUGP(" no master!!!\n");
+		return 0;
+	}
+
+	exp = ct->master;
+	if (!exp) {
+		DEBUGP("no expectation!!\n");
 		return 0;
 	}
 
@@ -83,6 +109,26 @@ static int pptp_expectfn(struct ip_conntrack *ct)
 		ct->tuplehash[IP_CT_DIR_REPLY].tuple.dst.u.gre.key =
 			htonl(master->help.ct_pptp_info.pac_call_id);
 	}
+	
+	/* delete other expectation */
+	if (exp->expected_list.next != &exp->expected_list) {
+		struct ip_conntrack_expect *other_exp;
+		struct list_head *cur_item, *next;
+
+		for (cur_item = master->sibling_list.next;
+		     cur_item != &master->sibling_list; cur_item = next) {
+			next = cur_item->next;
+			other_exp = list_entry(cur_item,
+					       struct ip_conntrack_expect,
+					       expected_list);
+			/* remove only if occurred at same sequence number */
+			if (other_exp != exp && other_exp->seq == exp->seq) {
+				DEBUGP("unexpecting other direction\n");
+				ip_ct_gre_keymap_destroy(other_exp);
+				ip_conntrack_unexpect_related(other_exp);
+			}
+		}
+	}
 
 	return 0;
 }
@@ -90,15 +136,21 @@ static int pptp_expectfn(struct ip_conntrack *ct)
 /* timeout GRE data connections */
 static int pptp_timeout_related(struct ip_conntrack *ct)
 {
-	struct list_head *cur_item;
+	struct list_head *cur_item, *next;
 	struct ip_conntrack_expect *exp;
 
-	list_for_each(cur_item, &ct->sibling_list) {
+	/* FIXME: do we have to lock something ? */
+	for (cur_item = ct->sibling_list.next;
+	    cur_item != &ct->sibling_list; cur_item = next) {
+		next = cur_item->next;
 		exp = list_entry(cur_item, struct ip_conntrack_expect,
 				 expected_list);
 
-		if (!exp->sibling)
+		ip_ct_gre_keymap_destroy(exp);
+		if (!exp->sibling) {
+			ip_conntrack_unexpect_related(exp);
 			continue;
+		}
 
 		DEBUGP("setting timeout of conntrack %p to 0\n",
 			exp->sibling);
@@ -110,7 +162,7 @@ static int pptp_timeout_related(struct ip_conntrack *ct)
 	return 0;
 }
 
-/* expect GRE connection in PNS->PAC direction */
+/* expect GRE connections (PNS->PAC and PAC->PNS direction) */
 static inline int
 exp_gre(struct ip_conntrack *master,
 	u_int32_t seq,
@@ -121,7 +173,7 @@ exp_gre(struct ip_conntrack *master,
 	struct ip_conntrack_tuple inv_tuple;
 
 	memset(&exp, 0, sizeof(exp));
-	/* tuple in original direction, PAC->PNS */
+	/* tuple in original direction, PNS->PAC */
 	exp.tuple.src.ip = master->tuplehash[IP_CT_DIR_ORIGINAL].tuple.src.ip;
 	exp.tuple.src.u.gre.key = htonl(ntohs(peer_callid));
 	exp.tuple.dst.ip = master->tuplehash[IP_CT_DIR_ORIGINAL].tuple.dst.ip;
@@ -149,11 +201,43 @@ exp_gre(struct ip_conntrack *master,
 	DUMP_TUPLE_RAW(&exp.tuple);
 	
 	/* Add GRE keymap entries */
+	if (ip_ct_gre_keymap_add(&exp, &exp.tuple, 0) != 0)
+		return 1;
+
+	invert_tuplepr(&inv_tuple, &exp.tuple);
+	if (ip_ct_gre_keymap_add(&exp, &inv_tuple, 1) != 0) {
+		ip_ct_gre_keymap_destroy(&exp);
+		return 1;
+	}
+	
+	if (ip_conntrack_expect_related(master, &exp) != 0) {
+		ip_ct_gre_keymap_destroy(&exp);
+		DEBUGP("cannot expect_related()\n");
+		return 1;
+	}
+
+	/* tuple in reply direction, PAC->PNS */
+	exp.tuple.src.ip = master->tuplehash[IP_CT_DIR_REPLY].tuple.src.ip;
+	exp.tuple.src.u.gre.key = htonl(ntohs(callid));
+	exp.tuple.dst.ip = master->tuplehash[IP_CT_DIR_REPLY].tuple.dst.ip;
+	exp.tuple.dst.u.gre.key = htonl(ntohs(peer_callid));
+
+	DEBUGP("calling expect_related ");
+	DUMP_TUPLE_RAW(&exp.tuple);
+	
+	/* Add GRE keymap entries */
 	ip_ct_gre_keymap_add(&exp, &exp.tuple, 0);
 	invert_tuplepr(&inv_tuple, &exp.tuple);
 	ip_ct_gre_keymap_add(&exp, &inv_tuple, 1);
+	/* FIXME: cannot handle error correctly, since we need to free
+	 * the above keymap :( */
 	
-	ip_conntrack_expect_related(master, &exp);
+	if (ip_conntrack_expect_related(master, &exp) != 0) {
+		/* free the second pair of keypmaps */
+		ip_ct_gre_keymap_destroy(&exp);
+		DEBUGP("cannot expect_related():\n");
+		return 1;
+	}
 
 	return 0;
 }
@@ -240,7 +324,8 @@ pptp_inbound_pkt(struct tcphdr *tcph,
 		info->cstate = PPTP_CALL_OUT_CONF;
 
 		seq = ntohl(tcph->seq) + ((void *)pcid - (void *)pptph);
-		exp_gre(ct, seq, *cid, *pcid);
+		if (exp_gre(ct, seq, *cid, *pcid) != 0)
+			printk("ip_conntrack_pptp: error during exp_gre\n");
 		break;
 
 	case PPTP_IN_CALL_REQUEST:
@@ -282,7 +367,8 @@ pptp_inbound_pkt(struct tcphdr *tcph,
 
 		/* we expect a GRE connection from PAC to PNS */
 		seq = ntohl(tcph->seq) + ((void *)pcid - (void *)pptph);
-		exp_gre(ct, seq, *cid, *pcid);
+		if (exp_gre(ct, seq, *cid, *pcid) != 0)
+			printk("ip_conntrack_pptp: error during exp_gre\n");
 
 		break;
 
@@ -294,7 +380,6 @@ pptp_inbound_pkt(struct tcphdr *tcph,
 
 		/* untrack this call id, unexpect GRE packets */
 		pptp_timeout_related(ct);
-		/* NEWNAT: look up exp for call id and unexpct_related */
 		break;
 
 	case PPTP_WAN_ERROR_NOTIFY:
@@ -446,7 +531,8 @@ conntrack_pptp_help(const struct iphdr *iph, size_t len,
 	if (tcp_v4_check(tcph, tcplen, iph->saddr, iph->daddr,
 			csum_partial((char *) tcph, tcplen, 0))) {
 		printk(KERN_NOTICE __FILE__ ": bad csum\n");
-//		return NF_ACCEPT;
+		/* W2K PPTP server sends TCP packets with wrong checksum :(( */
+		//return NF_ACCEPT;
 	}
 
 	if (tcph->fin || tcph->rst) {
@@ -456,8 +542,6 @@ conntrack_pptp_help(const struct iphdr *iph, size_t len,
 
 		/* untrack this call id, unexpect GRE packets */
 		pptp_timeout_related(ct);
-		/* no need to call unexpect_related since master conn
-		 * dies anyway */
 	}
 
 
@@ -482,6 +566,8 @@ conntrack_pptp_help(const struct iphdr *iph, size_t len,
 
 	LOCK_BH(&ip_pptp_lock);
 
+	/* FIXME: We just blindly assume that the control connection is always
+	 * established from PNS->PAC.  However, RFC makes no guarantee */
 	if (dir == IP_CT_DIR_ORIGINAL)
 		/* client -> server (PNS -> PAC) */
 		ret = pptp_outbound_pkt(tcph, pptph, datalen, ct, ctinfo);
@@ -497,13 +583,31 @@ conntrack_pptp_help(const struct iphdr *iph, size_t len,
 
 /* control protocol helper */
 static struct ip_conntrack_helper pptp = { 
-	{ NULL, NULL },
-	"pptp", IP_CT_HELPER_F_REUSE_EXPECT, THIS_MODULE, 2, 0,
-	{ { 0, { tcp: { port: __constant_htons(PPTP_CONTROL_PORT) } } }, 
-	  { 0, { 0 }, IPPROTO_TCP } },
-	{ { 0, { tcp: { port: 0xffff } } }, 
-	  { 0, { 0 }, 0xffff } },
-	conntrack_pptp_help };
+	.list = { NULL, NULL },
+	.name = "pptp", 
+	.flags = IP_CT_HELPER_F_REUSE_EXPECT,
+	.me = THIS_MODULE,
+	.max_expected = 2,
+	.timeout = 0,
+	.tuple = { .src = { .ip = 0, 
+		 	    .u = { .tcp = { .port =  
+				    __constant_htons(PPTP_CONTROL_PORT) } } 
+			  }, 
+		   .dst = { .ip = 0, 
+			    .u = { .all = 0 },
+			    .protonum = IPPROTO_TCP
+			  } 
+		 },
+	.mask = { .src = { .ip = 0, 
+			   .u = { .tcp = { .port = 0xffff } } 
+			 }, 
+		  .dst = { .ip = 0, 
+			   .u = { .all = 0 },
+			   .protonum = 0xffff 
+		 	 } 
+		},
+	.help = conntrack_pptp_help
+};
 
 /* ip_conntrack_pptp initialization */
 static int __init init(void)
@@ -517,12 +621,14 @@ static int __init init(void)
 		return -EIO;
 	}
 
+	printk("ip_conntrack_pptp version %s loaded\n", IP_CT_PPTP_VERSION);
 	return 0;
 }
 
 static void __exit fini(void)
 {
 	ip_conntrack_helper_unregister(&pptp);
+	printk("ip_conntrack_pptp version %s unloaded\n", IP_CT_PPTP_VERSION);
 }
 
 module_init(init);

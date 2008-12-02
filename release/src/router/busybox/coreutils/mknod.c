@@ -25,6 +25,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <sys/sysmacros.h>  // For makedev
 #include <unistd.h>
 #include "busybox.h"
 #include "libcoreutils/coreutils.h"
@@ -32,7 +33,7 @@
 static const char modes_chars[] = { 'p', 'c', 'u', 'b', 0, 1, 1, 2 };
 static const mode_t modes_cubp[] = { S_IFIFO, S_IFCHR, S_IFBLK };
 
-extern int mknod_main(int argc, char **argv)
+int mknod_main(int argc, char **argv)
 {
 	mode_t mode;
 	dev_t dev;
@@ -47,10 +48,12 @@ extern int mknod_main(int argc, char **argv)
 
 		dev = 0;
 		if ((*name != 'p') && ((argc -= 2) == 2)) {
-			dev = (bb_xgetularg10_bnd(argv[2], 0, 255) << 8)
-				+ bb_xgetularg10_bnd(argv[3], 0, 255);
+			/* Autodetect what the system supports; thexe macros should
+			 * optimize out to two constants. */
+			dev = makedev(bb_xgetularg10_bnd(argv[2], 0, major(UINT_MAX)),
+						  bb_xgetularg10_bnd(argv[3], 0, minor(UINT_MAX)));
 		}
-	
+
 		if (argc == 2) {
 			name = *argv;
 			if (mknod(name, mode, dev) == 0) {

@@ -10,7 +10,11 @@
 
 MODULE_LICENSE("GPL");
 
+#if 0
+#define duprintf(format, args...) printk(format , ## args)
+#else
 #define duprintf(format, args...)
+#endif
 
 /* Returns 1 if the port is matched by the test, 0 otherwise. */
 static inline int

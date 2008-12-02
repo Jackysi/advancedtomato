@@ -62,7 +62,8 @@ LIST_HEAD(trigger_list);
 
 static void trigger_refresh(struct ipt_trigger *trig, unsigned long extra_jiffies)
 {
-    DEBUGP("%s: \n", __FUNCTION__);
+    DEBUGP("%s: mport=%u-%u\n", __FUNCTION__, trig->ports.mport[0], trig->ports.mport[1]);
+	
     IP_NF_ASSERT(trig);
     WRITE_LOCK(&ip_conntrack_lock);
 
@@ -77,7 +78,8 @@ static void trigger_refresh(struct ipt_trigger *trig, unsigned long extra_jiffie
 
 static void __del_trigger(struct ipt_trigger *trig)
 {
-    DEBUGP("%s: \n", __FUNCTION__);
+    DEBUGP("%s: mport=%u-%u\n", __FUNCTION__, trig->ports.mport[0], trig->ports.mport[1]);
+	
     IP_NF_ASSERT(trig);
     MUST_BE_WRITE_LOCKED(&ip_conntrack_lock);
 
@@ -90,7 +92,9 @@ static void trigger_timeout(unsigned long ul_trig)
 {
     struct ipt_trigger *trig= (void *) ul_trig;
 
-    DEBUGP("trigger list %p timed out\n", trig);
+//    DEBUGP("trigger list %p timed out\n", trig);
+    DEBUGP("%s: mport=%u-%u\n", __FUNCTION__, trig->ports.mport[0], trig->ports.mport[1]);
+
     WRITE_LOCK(&ip_conntrack_lock);
     __del_trigger(trig);
     WRITE_UNLOCK(&ip_conntrack_lock);
@@ -250,7 +254,7 @@ trigger_dnat(struct sk_buff **pskb,
     IP_NF_ASSERT(ct && (ctinfo == IP_CT_NEW));
 
     DEBUGP("%s: got ", __FUNCTION__);
-    DUMP_TUPLE(&ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple);
+    DUMP_TUPLE_RAW(&ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple);
 
     /* Alter the destination of imcoming packet. */
     newrange = ((struct ip_nat_multi_range)
@@ -310,7 +314,7 @@ trigger_check(const char *tablename,
 		DEBUGP("trigger_check: size %u.\n", targinfosize);
 		return 0;
 	}
-	if (hook_mask & ~((1 << NF_IP_PRE_ROUTING) | (1 << NF_IP_FORWARD))) {
+	if (hook_mask & ~((1 << NF_IP_PRE_ROUTING) | (1 << NF_IP_FORWARD) | (1 << NF_IP_LOCAL_OUT) | (1 << NF_IP_POST_ROUTING))) {
 		DEBUGP("trigger_check: bad hooks %x.\n", hook_mask);
 		return 0;
 	}

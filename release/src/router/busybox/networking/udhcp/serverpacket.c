@@ -1,6 +1,6 @@
 /* serverpacket.c
  *
- * Constuct and send DHCP server packets
+ * Construct and send DHCP server packets
  *
  * Russ Dill <Russ.Dill@asu.edu> July 2001
  *
@@ -25,16 +25,18 @@
 #include <string.h>
 #include <time.h>
 
+#include "common.h"
+#include "serverpacket.h"
 #include "dhcpd.h"
 #include "options.h"
-#include "common.h"
+#include "static_leases.h"
 
 /* send a packet to giaddr using the kernel ip stack */
 static int send_packet_to_relay(struct dhcpMessage *payload)
 {
 	DEBUG(LOG_INFO, "Forwarding packet to relay");
 
-	return kernel_packet(payload, server_config.server, SERVER_PORT,
+	return udhcp_kernel_packet(payload, server_config.server, SERVER_PORT,
 			payload->giaddr, SERVER_PORT);
 }
 
@@ -42,9 +44,9 @@ static int send_packet_to_relay(struct dhcpMessage *payload)
 /* send a packet to a specific arp address and ip address by creating our own ip packet */
 static int send_packet_to_client(struct dhcpMessage *payload, int force_broadcast)
 {
-	unsigned char *chaddr;
-	u_int32_t ciaddr;
-	
+	uint8_t *chaddr;
+	uint32_t ciaddr;
+
 	if (force_broadcast) {
 		DEBUG(LOG_INFO, "broadcasting packet to client (NAK)");
 		ciaddr = INADDR_BROADCAST;
@@ -62,7 +64,7 @@ static int send_packet_to_client(struct dhcpMessage *payload, int force_broadcas
 		ciaddr = payload->yiaddr;
 		chaddr = payload->chaddr;
 	}
-	return raw_packet(payload, server_config.server, SERVER_PORT, 
+	return udhcp_raw_packet(payload, server_config.server, SERVER_PORT,
 			ciaddr, CLIENT_PORT, chaddr, server_config.ifindex);
 }
 
@@ -81,7 +83,7 @@ static int send_packet(struct dhcpMessage *payload, int force_broadcast)
 
 static void init_packet(struct dhcpMessage *packet, struct dhcpMessage *oldpacket, char type)
 {
-	init_header(packet, type);
+	udhcp_init_header(packet, type);
 	packet->xid = oldpacket->xid;
 	memcpy(packet->chaddr, oldpacket->chaddr, 16);
 	packet->flags = oldpacket->flags;
@@ -96,31 +98,37 @@ static void add_bootp_options(struct dhcpMessage *packet)
 {
 	packet->siaddr = server_config.siaddr;
 	if (server_config.sname)
-		strncpy(packet->sname, server_config.sname, sizeof(packet->sname) - 1);
+		strncpy((char*)packet->sname, server_config.sname, sizeof(packet->sname) - 1);
 	if (server_config.boot_file)
-		strncpy(packet->file, server_config.boot_file, sizeof(packet->file) - 1);
+		strncpy((char*)packet->file, server_config.boot_file, sizeof(packet->file) - 1);
 }
-	
+
 
 /* send a DHCP OFFER to a DHCP DISCOVER */
 int sendOffer(struct dhcpMessage *oldpacket)
 {
 	struct dhcpMessage packet;
 	struct dhcpOfferedAddr *lease = NULL;
-	u_int32_t req_align, lease_time_align = server_config.lease;
-	unsigned char *req, *lease_time;
+	uint32_t req_align, lease_time_align = server_config.lease;
+	uint8_t *req, *lease_time;
 	struct option_set *curr;
 	struct in_addr addr;
 
+	uint32_t static_lease_ip;
+
 	init_packet(&packet, oldpacket, DHCPOFFER);
-	
+
+	static_lease_ip = getIpByMac(server_config.static_leases, oldpacket->chaddr);
+
 	/* ADDME: if static, short circuit */
+	if(!static_lease_ip)
+	{
 	/* the client is in our lease/offered table */
 	if ((lease = find_lease_by_chaddr(oldpacket->chaddr))) {
-		if (!lease_expired(lease)) 
+		if (!lease_expired(lease))
 			lease_time_align = lease->expires - time(0);
 		packet.yiaddr = lease->yiaddr;
-		
+
 	/* Or the client has a requested ip */
 	} else if ((req = get_option(oldpacket, DHCP_REQUESTED_IP)) &&
 
@@ -130,43 +138,52 @@ int sendOffer(struct dhcpMessage *oldpacket)
 		   /* and the ip is in the lease range */
 		   ntohl(req_align) >= ntohl(server_config.start) &&
 		   ntohl(req_align) <= ntohl(server_config.end) &&
-		   
-		   /* and its not already taken/offered */ /* ADDME: check that its not a static lease */
+
+			!static_lease_ip &&  /* Check that its not a static lease */
+			/* and is not already taken/offered */
 		   ((!(lease = find_lease_by_yiaddr(req_align)) ||
-		   
+
 		   /* or its taken, but expired */ /* ADDME: or maybe in here */
 		   lease_expired(lease)))) {
 				packet.yiaddr = req_align; /* FIXME: oh my, is there a host using this IP? */
 
-	/* otherwise, find a free IP */ /*ADDME: is it a static lease? */
+			/* otherwise, find a free IP */
 	} else {
+			/* Is it a static lease? (No, because find_address skips static lease) */
 		packet.yiaddr = find_address(0);
-		
+
 		/* try for an expired lease */
 		if (!packet.yiaddr) packet.yiaddr = find_address(1);
 	}
-	
+
 	if(!packet.yiaddr) {
 		LOG(LOG_WARNING, "no IP addresses to give -- OFFER abandoned");
 		return -1;
 	}
-	
+
 	if (!add_lease(packet.chaddr, packet.yiaddr, server_config.offer_time)) {
 		LOG(LOG_WARNING, "lease pool is full -- OFFER abandoned");
 		return -1;
-	}		
+	}
 
 	if ((lease_time = get_option(oldpacket, DHCP_LEASE_TIME))) {
 		memcpy(&lease_time_align, lease_time, 4);
 		lease_time_align = ntohl(lease_time_align);
-		if (lease_time_align > server_config.lease) 
+		if (lease_time_align > server_config.lease)
 			lease_time_align = server_config.lease;
 	}
 
 	/* Make sure we aren't just using the lease time from the previous offer */
-	if (lease_time_align < server_config.min_lease) 
+	if (lease_time_align < server_config.min_lease)
 		lease_time_align = server_config.lease;
-	/* ADDME: end of short circuit */		
+	}
+	/* ADDME: end of short circuit */
+	else
+	{
+		/* It is a static lease... use it */
+		packet.yiaddr = static_lease_ip;
+	}
+
 	add_simple_option(packet.options, DHCP_LEASE_TIME, htonl(lease_time_align));
 
 	curr = server_config.options;
@@ -177,7 +194,7 @@ int sendOffer(struct dhcpMessage *oldpacket)
 	}
 
 	add_bootp_options(&packet);
-	
+
 	addr.s_addr = packet.yiaddr;
 	LOG(LOG_INFO, "sending OFFER of %s", inet_ntoa(addr));
 	return send_packet(&packet, 0);
@@ -189,34 +206,34 @@ int sendNAK(struct dhcpMessage *oldpacket)
 	struct dhcpMessage packet;
 
 	init_packet(&packet, oldpacket, DHCPNAK);
-	
+
 	DEBUG(LOG_INFO, "sending NAK");
 	return send_packet(&packet, 1);
 }
 
 
-int sendACK(struct dhcpMessage *oldpacket, u_int32_t yiaddr)
+int sendACK(struct dhcpMessage *oldpacket, uint32_t yiaddr)
 {
 	struct dhcpMessage packet;
 	struct option_set *curr;
-	unsigned char *lease_time;
-	u_int32_t lease_time_align = server_config.lease;
+	uint8_t *lease_time;
+	uint32_t lease_time_align = server_config.lease;
 	struct in_addr addr;
 
 	init_packet(&packet, oldpacket, DHCPACK);
 	packet.yiaddr = yiaddr;
-	
+
 	if ((lease_time = get_option(oldpacket, DHCP_LEASE_TIME))) {
 		memcpy(&lease_time_align, lease_time, 4);
 		lease_time_align = ntohl(lease_time_align);
-		if (lease_time_align > server_config.lease) 
+		if (lease_time_align > server_config.lease)
 			lease_time_align = server_config.lease;
-		else if (lease_time_align < server_config.min_lease) 
+		else if (lease_time_align < server_config.min_lease)
 			lease_time_align = server_config.lease;
 	}
-	
+
 	add_simple_option(packet.options, DHCP_LEASE_TIME, htonl(lease_time_align));
-	
+
 	curr = server_config.options;
 	while (curr) {
 		if (curr->data[OPT_CODE] != DHCP_LEASE_TIME)
@@ -229,7 +246,7 @@ int sendACK(struct dhcpMessage *oldpacket, u_int32_t yiaddr)
 	addr.s_addr = packet.yiaddr;
 	LOG(LOG_INFO, "sending ACK to %s", inet_ntoa(addr));
 
-	if (send_packet(&packet, 0) < 0) 
+	if (send_packet(&packet, 0) < 0)
 		return -1;
 
 	add_lease(packet.chaddr, packet.yiaddr, lease_time_align);
@@ -244,7 +261,7 @@ int send_inform(struct dhcpMessage *oldpacket)
 	struct option_set *curr;
 
 	init_packet(&packet, oldpacket, DHCPACK);
-	
+
 	curr = server_config.options;
 	while (curr) {
 		if (curr->data[OPT_CODE] != DHCP_LEASE_TIME)

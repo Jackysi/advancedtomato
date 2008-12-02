@@ -16,14 +16,6 @@ static struct option opts[] = {
 	{0}
 };
 
-static void
-init(struct ipt_entry_match *m, unsigned int *nfcache)
-{
-	/* Can't cache this. */
-	*nfcache |= NFC_UNKNOWN;
-}
-
-
 /* Function which parses command options; returns true if it
    ate an option */
 static int
@@ -53,19 +45,18 @@ static void save(const struct ipt_ip *ip, const struct ipt_entry_match *match)
 }
 
 static
-struct iptables_match record_rpc
-= { NULL,
-    "record_rpc",
-    IPTABLES_VERSION,
-    IPT_ALIGN(0),
-    IPT_ALIGN(0),
-    &help,
-    &init,
-    &parse,
-    &final_check,
-    &print,
-    &save,
-    opts
+struct iptables_match record_rpc = { 
+	.next		= NULL,
+	.name 		= "record_rpc",
+	.version	= IPTABLES_VERSION,
+	.size		= IPT_ALIGN(0),
+	.userspacesize	= IPT_ALIGN(0),
+	.help		= &help,
+	.parse		= &parse,
+	.final_check	= &final_check,
+	.print		= &print,
+	.save		= &save,
+	.extra_opts	= opts
 };
 
 void _init(void)

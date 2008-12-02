@@ -59,7 +59,7 @@ init(struct ipt_entry_target *t, unsigned int *nfcache)
 }
 
 static void
-parse_tos(const unsigned char *s, struct ipt_tos_target_info *info)
+parse_tos(const char *s, struct ipt_tos_target_info *info)
 {
 	unsigned int i, tos;
 
@@ -153,20 +153,19 @@ save(const struct ipt_ip *ip, const struct ipt_entry_target *target)
 	printf("--set-tos 0x%02x ", tosinfo->tos);
 }
 
-static
-struct iptables_target tos
-= { NULL,
-    "TOS",
-    IPTABLES_VERSION,
-    IPT_ALIGN(sizeof(struct ipt_tos_target_info)),
-    IPT_ALIGN(sizeof(struct ipt_tos_target_info)),
-    &help,
-    &init,
-    &parse,
-    &final_check,
-    &print,
-    &save,
-    opts
+static struct iptables_target tos = {
+	.next		= NULL,
+	.name		= "TOS",
+	.version	= IPTABLES_VERSION,
+	.size		= IPT_ALIGN(sizeof(struct ipt_tos_target_info)),
+	.userspacesize	= IPT_ALIGN(sizeof(struct ipt_tos_target_info)),
+	.help		= &help,
+	.init		= &init,
+	.parse		= &parse,
+	.final_check	= &final_check,
+	.print		= &print,
+	.save		= &save,
+	.extra_opts	= opts
 };
 
 void _init(void)

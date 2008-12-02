@@ -7,7 +7,7 @@
  *              as published by the Free Software Foundation; either version
  *              2 of the License, or (at your option) any later version.
  *
- * Authors:    J Hadi Salim(hadi@nortelnetworks.com)
+ * Authors:    J Hadi Salim
  *
  * This is here just in case it is needed
  * useless right now; might be useful in the future
@@ -38,9 +38,17 @@ static int ingress_parse_opt(struct qdisc_util *qu, int argc, char **argv, struc
 {
 
 	if (argc > 0) {
-			fprintf(stderr, "What is \"%s\"?\n", *argv);
-			explain();
-			return -1;
+		while (argc > 0) {
+
+			if (strcmp(*argv, "handle") == 0) {
+				NEXT_ARG();
+				argc--; argv++;
+			} else {
+				fprintf(stderr, "What is \"%s\"?\n", *argv);
+				explain();
+				return -1;
+			}
+		}
 	}
 
 	addattr_l(n, 1024, TCA_OPTIONS, NULL, 0);
@@ -54,15 +62,8 @@ static int ingress_print_opt(struct qdisc_util *qu, FILE *f, struct rtattr *opt)
 	return 0;
 }
 
-static int ingress_print_xstats(struct qdisc_util *qu, FILE *f, struct rtattr *xstats)
-{
-	return 0;
-}
-
-struct qdisc_util ingress_util = {
-        NULL,
-        "ingress",
-        ingress_parse_opt,
-        ingress_print_opt,
-        ingress_print_xstats,
+struct qdisc_util ingress_qdisc_util = {
+	.id		= "ingress",
+	.parse_qopt	= ingress_parse_opt,
+	.print_qopt	= ingress_print_opt,
 };

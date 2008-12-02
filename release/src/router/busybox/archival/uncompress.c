@@ -2,36 +2,23 @@
 /*
  *	Uncompress applet for busybox (c) 2002 Glenn McGrath
  *
- *  This program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2 of the License, or
- *  (at your option) any later version.
- *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ * Licensed under GPLv2 or later, see file LICENSE in this tarball for details.
  */
 
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <getopt.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
 
-#include "libbb.h"
+#include "busybox.h"
 #include "unarchive.h"
 
 #define GUNZIP_TO_STDOUT	1
 #define GUNZIP_FORCE	2
 
-extern int uncompress_main(int argc, char **argv)
+int uncompress_main(int argc, char **argv)
 {
 	int status = EXIT_SUCCESS;
 	unsigned long flags;
@@ -46,7 +33,7 @@ extern int uncompress_main(int argc, char **argv)
 		int dst_fd;
 
 		if (strcmp(compressed_file, "-") == 0) {
-			src_fd = fileno(stdin);
+			src_fd = STDIN_FILENO;
 			flags |= GUNZIP_TO_STDOUT;
 		} else {
 			src_fd = bb_xopen(compressed_file, O_RDONLY);
@@ -60,7 +47,7 @@ extern int uncompress_main(int argc, char **argv)
 
 		/* Set output filename and number */
 		if (flags & GUNZIP_TO_STDOUT) {
-			dst_fd = fileno(stdout);
+			dst_fd = STDOUT_FILENO;
 		} else {
 			struct stat stat_buf;
 			char *extension;
@@ -74,11 +61,9 @@ extern int uncompress_main(int argc, char **argv)
 			*extension = '\0';
 
 			/* Open output file */
-			dst_fd = bb_xopen(uncompressed_file, O_WRONLY | O_CREAT);
-
-			/* Set permissions on the file */
-			stat(compressed_file, &stat_buf);
-			chmod(uncompressed_file, stat_buf.st_mode);
+			xstat(compressed_file, &stat_buf);
+			dst_fd = bb_xopen3(uncompressed_file, O_WRONLY | O_CREAT,
+					stat_buf.st_mode);
 
 			/* If unzip succeeds remove the old file */
 			delete_path = compressed_file;
@@ -96,10 +81,10 @@ extern int uncompress_main(int argc, char **argv)
 			delete_path = uncompressed_file;
 		}
 
-		if (dst_fd != fileno(stdout)) {
+		if (dst_fd != STDOUT_FILENO) {
 			close(dst_fd);
 		}
-		if (src_fd != fileno(stdin)) {
+		if (src_fd != STDIN_FILENO) {
 			close(src_fd);
 		}
 

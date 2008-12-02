@@ -1,4 +1,4 @@
-PSFILES=ip-cref.ps ip-tunnels.ps api-ip6-flowlabels.ps
+PSFILES=ip-cref.ps ip-tunnels.ps api-ip6-flowlabels.ps ss.ps nstat.ps arpd.ps rtstat.ps
 # tc-cref.ps
 # api-rtnl.tex api-pmtudisc.tex api-news.tex
 # iki-netdev.ps iki-neighdst.ps
@@ -6,9 +6,14 @@ PSFILES=ip-cref.ps ip-tunnels.ps api-ip6-flowlabels.ps
 
 LATEX=latex
 DVIPS=dvips
+SGML2DVI=sgml2latex --output=dvi
+SGML2HTML=sgml2html -s 0
 LPR=lpr -Zsduplex
 SHELL=bash
+PAGESIZE=a4
+PAGESPERPAGE=2
 
+HTMLFILES=$(subst .sgml,.html,$(shell echo *.sgml))
 DVIFILES=$(subst .ps,.dvi,$(PSFILES))
 
 
@@ -16,10 +21,15 @@ all: pstwocol
 
 pstwocol: $(PSFILES)
 
+html: $(HTMLFILES)
+
 dvi: $(DVIFILES)
 
 print: $(PSFILES)
 	$(LPR) $(PSFILES)
+
+%.dvi: %.sgml
+	$(SGML2DVI) $<
 
 %.dvi: %.tex
 	@set -e; pass=2; echo "Running LaTeX $<"; \
@@ -32,9 +42,14 @@ print: $(PSFILES)
 	done
 
 %.ps: %.dvi
-	$(DVIPS) $< -o $@.tmp
-	./do-psnup $@.tmp $@
-	rm -f $@.tmp
+	$(DVIPS) $< -o $@
+
+%.html: %.sgml
+	$(SGML2HTML) $<
+
+install:
+	install -m 0644 $(shell echo *.tex) $(DESTDIR)$(DOCDIR)
+	install -m 0644 $(shell echo *.sgml) $(DESTDIR)$(DOCDIR)
 
 clean:
-	rm -f *.aux *.log *.toc $(PSFILES) $(DVIFILES)
+	rm -f *.aux *.log *.toc $(PSFILES) $(DVIFILES) *.html

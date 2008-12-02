@@ -14,13 +14,16 @@ make install
 You might want to edit config.h. Dnsmasq has
 been run on (at least) Linux, uCLinux, AIX 4.1.5, FreeBSD 4.4 OpenBSD and Tru64 4.x 
 
-Dnsmasq should be run on your firewall machine (the machine with the modem or other connection to your ISP.)
+Dnsmasq is normally  run on a firewall machine (the machine with the
+modem or other connection to your ISP.) but it can run on any machine
+with access to the ISPs nameservers.
 
 Put the binary in <TT>/usr/local/sbin/dnsmasq</TT> (running <TT>make install</TT>  will do this) and arrange for it
 to be started at boot time.
 
-Note that dnsmasq needs to run as root, since it binds privileged ports. It will drop root priviliges after start-up. Dnsmasq
-logs problems using the syslog facility as a daemon.
+Note that dnsmasq needs to run as root, since it binds privileged ports. It will drop root privileges after start-up. Dnsmasq
+logs problems using the syslog facility as a daemon. It logs debugging
+information to local0
 <P>
 <H2>Configuration.</H2>
 Configuration for dnsmasq is pretty simple in almost all cases. The
@@ -30,7 +33,7 @@ configuration (ie one or more external nameservers in <TT>/etc/resolv.conf</TT>
 and any local hosts in <TT>/etc/hosts</TT>) can be turned into a nameserver
 simply by running dnsmasq, with no options or configuration at
 all. Set the IP address of the machine running dnsmasq as the DNS
-server in all the other machines on your network, and your're done.
+server in all the other machines on your network, and you're done.
 <P>
 With a few option flags, it is possible to make dnsmasq do more clever
 tricks. Options for dnsmasq can be set either on the command line
@@ -66,8 +69,13 @@ On Redhat (at least versions 7.1, 7.2 and 7.3) you can set pppd
 options by adding "PPPOPTIONS=usepeerdns" to
 <TT>/etc/sysconfig/network-scripts/ifcfg-ippp0</TT>.  In the same file, make sure
 that "PEERDNS=no" to stop RedHat's network initscripts from copying
-<TT>/etc/ppp/resolv.conf</TT> into <TT>/etc/resolv.conf</TT>.
+<TT>/etc/ppp/resolv.conf</TT> into <TT>/etc/resolv.conf</TT>.<BR>
 
+On SuSE (at least version 8.1, and 8.2) you should use YaST to activate
+<TT>[x] Modify DNS when connected</TT> then stop SuSEs network initscripts 
+from copying <TT>/etc/ppp/resolv.conf</TT> into <TT>/etc/resolv.conf</TT> 
+by modifying MODIFY_RESOLV_CONF_DYNAMICALLY="no" in <TT>/etc/sysconfig/network/config</TT>.
+ 
 
 <h3>Automatic DNS server configuration with DHCP.</h3>
 You need to get your DHCP client to write the addresse(s) of the DNS
@@ -78,7 +86,7 @@ uses that to write a file suitable for dnsmasq.
 <PRE>
 
 echo -n >|/etc/dhcpc/resolv.conf
-dnsservs=${DNS/,/ }
+dnsservs=${DNS//,/ }
 for serv in $dnsservs; do
     echo "nameserver $serv" >>/etc/dhcpc/resolv.conf
 done
@@ -91,20 +99,29 @@ Remember to give dhcpcd the <TT>-R</TT> flag to stop it overwriting
 <P>
 For other DHCP clients it should be possible to achieve the same effect.
 
+<h3> DHCP and PPP.</h3>
+On a laptop which may potentially connect via a modem and PPP or
+ethernet and DHCP it is possible to combine both of the above
+configurations. Running dnsmasq with the flags
+<TT>resolv-file=/etc/ppp/resolv.conf resolv-file=/etc/dhcpc/resolv.conf</TT>  
+makes it poll <B>both</B> files and use whichever was updated
+last. The result is automatic switching between DNS servers.
+</H3>
+
 <H2> Integration with DHCP.</H2>
 Dnsmasq reads <TT>/etc/hosts</TT> so that the names of local machines are
 available in DNS. This is fine when you give all your local machines
 static IP addresses which can go in <TT>/etc/hosts</TT>, but it doesn't work 
 when local machines are configured via DHCP, since the IP address
-allocated to machine is not fixed. Dnsmasq integrates with the ISC
+allocated to machine is not fixed. Dnsmasq comes with an integrated
 DHCP daemon to solve this problem.
 <P>
-The DHCP daemon stores information about the names and addresses of
-the hosts it controls in a leases file. This is stored at
-<TT>/var/lib/dhcp/dhcpd.leases</TT> or somewhere similar. Simply tell dnsmasq
-to monitor this file using the <TT>dhcp-lease</TT> option and it will extract
-the names and addresses of all the current hosts and add them to the
-DNS. For this to work, each machines needs to know its name when it
+The dnsmasq DHCP daemon allocates addresses to hosts on the network and tries
+to determine their names. If it succeeds it add the name and address
+pair to the DNS. There are basically two ways to associate a name with
+a DHCP-configured machine; either the machine knows its name which it
+gets a DHCP lease, or dnsmasq gives it a name, based on the MAC
+address of its ethernet card. For the former to work, a machine needs to know its name when it
 requests a DHCP lease. For dhcpcd, the -h option specifies this. The
 names may be anything as far as DHCP is concerned, but dnsmasq adds
 some limitations. By default the names must no have a domain part, ie
@@ -119,9 +136,9 @@ As an aside, make sure not to tell DHCP to set the hostname when it
 obtains a lease (in dhcpcd that's the -H flag.)
 This is not reliable since the DHCP server gets the
 hostname from DNS which in this case is dnsmasq. There is a race
-condition because the the host's name in the DNS may change as a
+condition because the host's name in the DNS may change as a
 result of it getting a DHCP lease, but this does not propagate before
-the name is looked up. THe net effect may be that the host believes it
+the name is looked up. The net effect may be that the host believes it
 is called something different to its name in the DNS. To be safe, set
 the hostname on a machine locally, and pass the same name to DHCP when
 requesting a lease.
@@ -162,10 +179,33 @@ private domains within the company, and dnsmasq allows this. Assuming
 that internal company machines are all in the domain internal.myco.com
 and the companies nameserver is at 192.168.10.1 then the option
 <TT>server=/internal.myco.com/192.168.10.1</TT> will direct all
-queries in the internal domain to the correct nameserver. If there is
-more than one nameserver or more than one domain, just include as many
+queries in the internal domain to the correct nameserver. You can
+specify more than one domain in each server option. If there is
+more than one nameserver just include as many
 <TT>server</TT> options as is needed to specify them all.  
 
+<H2>Local domains.</H2>
+Sometimes people have local domains which they do not want forwarded
+to upstream servers. This is accomodated by using server options
+without the server IP address. To make things clearer <TT>local</TT>
+is a synonym for <TT>server</TT>. For example the option
+<TT>local=/localnet/</TT> ensures that any domain name query which ends in
+<TT>.localnet</TT> will be answered if possible from
+<TT>/etc/hosts</TT> or DHCP, but never sent to an upstream server.
+
+<H2>Defeating wildcards in top level domains.</H2>
+In September 2003 Verisign installed a wildcard record in the .com and
+.net top level domains. The effect of this is that queries for
+unregistered .com and .net names now return the address of Verisign's
+sitefinder service, rather than a "no such domain" response. To
+restore the correct behaviour, you can tell dnsmasq the address of the
+sitefinder host and have it substitute an NXDOMAIN reply when it sees
+that address. The sitefinder address is currently  64.94.110.11, so
+giving the option <TT>bogus-nxdomain=64.94.110.11</TT> will enable
+this facility for Verisign. If other TLDs do that same thing you can
+add the correct addresses for them too. See the dnsmasq FAQ for more
+details on the <TT>bogus-nxdomain</TT> option.
+ 
 <H2>Other configuration details.</H2>
 By default dnsmasq offers DNS service on all the configured interfaces
 of a host. It's likely that you don't (for instance) want to offer a

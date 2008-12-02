@@ -11,7 +11,8 @@
 #include <ip6tables.h>
 #include <stddef.h>
 #include <linux/netfilter_ipv6/ip6_tables.h>
-#include <linux/netfilter_ipv6/ip6t_limit.h>
+/* For 64bit kernel / 32bit userspace */
+#include "../include/linux/netfilter_ipv6/ip6t_limit.h"
 
 #define IP6T_LIMIT_AVG	"3/hour"
 #define IP6T_LIMIT_BURST	5
@@ -80,10 +81,13 @@ init(struct ip6t_entry_match *m, unsigned int *nfcache)
 	parse_rate(IP6T_LIMIT_AVG, &r->avg);
 	r->burst = IP6T_LIMIT_BURST;
 
-	/* Can't cache this */
-	*nfcache |= NFC_UNKNOWN;
 }
 
+/* FIXME: handle overflow:
+	if (r->avg*r->burst/r->burst != r->avg)
+		exit_error(PARAMETER_PROBLEM,
+			   "Sorry: burst too large for that avg rate.\n");
+*/
 
 /* Function which parses command options; returns true if it
    ate an option */
@@ -98,19 +102,14 @@ parse(int c, char **argv, int invert, unsigned int *flags,
 
 	switch(c) {
 	case '%':
-		if (check_inverse(optarg, &invert, NULL, 0))
-			exit_error(PARAMETER_PROBLEM,
-				   "Unexpected `!' after --limit");
+		if (check_inverse(argv[optind-1], &invert, &optind, 0)) break;
 		if (!parse_rate(optarg, &r->avg))
 			exit_error(PARAMETER_PROBLEM,
 				   "bad rate `%s'", optarg);
 		break;
 
 	case '$':
-		if (check_inverse(optarg, &invert, NULL, 0))
-			exit_error(PARAMETER_PROBLEM,
-				   "Unexpected `!' after --limit-burst");
-
+		if (check_inverse(argv[optind-1], &invert, &optind, 0)) break;
 		if (string_to_number(optarg, 0, 10000, &num) == -1)
 			exit_error(PARAMETER_PROBLEM,
 				   "bad --limit-burst `%s'", optarg);
@@ -120,6 +119,10 @@ parse(int c, char **argv, int invert, unsigned int *flags,
 	default:
 		return 0;
 	}
+
+	if (invert)
+		exit_error(PARAMETER_PROBLEM,
+			   "limit does not support invert");
 
 	return 1;
 }
@@ -162,6 +165,7 @@ print(const struct ip6t_ip6 *ip,
 	printf("burst %u ", r->burst);
 }
 
+/* FIXME: Make minimalist: only print rate if not default --RR */
 static void save(const struct ip6t_ip6 *ip, const struct ip6t_entry_match *match)
 {
 	struct ip6t_rateinfo *r = (struct ip6t_rateinfo *)match->data;
@@ -171,20 +175,18 @@ static void save(const struct ip6t_ip6 *ip, const struct ip6t_entry_match *match
 		printf("--limit-burst %u ", r->burst);
 }
 
-static
-struct ip6tables_match limit
-= { NULL,
-    "limit",
-    IPTABLES_VERSION,
-    IP6T_ALIGN(sizeof(struct ip6t_rateinfo)),
-    offsetof(struct ip6t_rateinfo, prev),
-    &help,
-    &init,
-    &parse,
-    &final_check,
-    &print,
-    &save,
-    opts
+static struct ip6tables_match limit = {
+	.name 		= "limit",
+	.version	= IPTABLES_VERSION,
+	.size		= IP6T_ALIGN(sizeof(struct ip6t_rateinfo)),
+	.userspacesize	= offsetof(struct ip6t_rateinfo, prev),
+	.help		= &help,
+	.init		= &init,
+	.parse		= &parse,
+	.final_check	= &final_check,
+	.print		= &print,
+	.save		= &save,
+	.extra_opts	= opts,
 };
 
 void _init(void)

@@ -158,6 +158,10 @@ ifeq ($(strip $(TARGET_ARCH)),cris)
 	CPU_CFLAGS-$(CONFIG_CRIS):="-mlinux"
 endif
 
+#	ifeq ($(strip $(TARGET_ARCH)),mipsel)
+#	OPTIMIZATION+=-mips32
+#	endif
+
 # use '-Os' optimization if available, else use -O2, allow Config to override
 OPTIMIZATION+=$(call check_gcc,-Os,-O2)
 

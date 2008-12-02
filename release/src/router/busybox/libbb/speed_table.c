@@ -4,20 +4,7 @@
  *
  * Copyright (C) 2003  Manuel Novoa III  <mjn3@codepoet.org>
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
- *
+ * Licensed under GPLv2 or later, see file LICENSE in this tarball for details.
  */
 
 #include <termios.h>
@@ -67,9 +54,9 @@ static const struct speed_map speeds[] = {
 #endif
 };
 
-static const int NUM_SPEEDS = (sizeof(speeds) / sizeof(struct speed_map));
+enum { NUM_SPEEDS = (sizeof(speeds) / sizeof(struct speed_map)) };
 
-unsigned long bb_baud_to_value(speed_t speed)
+unsigned int tty_baud_to_value(speed_t speed)
 {
 	int i = 0;
 
@@ -85,12 +72,12 @@ unsigned long bb_baud_to_value(speed_t speed)
 	return 0;
 }
 
-speed_t bb_value_to_baud(unsigned long value)
+speed_t tty_value_to_baud(unsigned int value)
 {
 	int i = 0;
 
 	do {
-		if (value == bb_baud_to_value(speeds[i].speed)) {
+		if (value == tty_baud_to_value(speeds[i].speed)) {
 			return speeds[i].speed;
 		}
 	} while (++i < NUM_SPEEDS);
@@ -108,7 +95,7 @@ int main(void)
 	speed_t s;
 
 	for (v = 0 ; v < 500000 ; v++) {
-		s = bb_value_to_baud(v);
+		s = tty_value_to_baud(v);
 		if (s == (speed_t) -1) {
 			continue;
 		}
@@ -118,7 +105,7 @@ int main(void)
 	printf("-------------------------------\n");
 
 	for (s = 0 ; s < 010017+1 ; s++) {
-		v = bb_baud_to_value(s);
+		v = tty_baud_to_value(s);
 		if (!v) {
 			continue;
 		}

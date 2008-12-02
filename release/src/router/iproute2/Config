@@ -1,2 +1,1 @@
-TC_CONFIG_DIFFSERV=n
-TC_CONFIG_ATM=n
+# Generated config based on /wg/tomato/release/src/linux/linux

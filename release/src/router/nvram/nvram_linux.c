@@ -3,7 +3,7 @@
  *
  * Copyright 2005, Broadcom Corporation
  * All Rights Reserved.
- * 
+ *
  * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
  * KIND, EXPRESS OR IMPLIED, BY STATUTE, COMMUNICATION OR OTHERWISE. BROADCOM
  * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
@@ -29,192 +29,164 @@
 #include <nvram_convert.h>
 #include <shutils.h>
 #include <utils.h>
+#include <shared.h>
 
 #define PATH_DEV_NVRAM "/dev/nvram"
 
 /* Globals */
 static int nvram_fd = -1;
 static char *nvram_buf = NULL;
-int check_action(void);
-int file_to_buf(char *path, char *buf, int len);
 
-int
-nvram_init(void *unused)
+int nvram_init(void *unused)
 {
-	if ((nvram_fd = open(PATH_DEV_NVRAM, O_RDWR)) < 0)
-		goto err;
-
-	/* Map kernel string buffer into user space */
-	if ((nvram_buf = mmap(NULL, NVRAM_SPACE, PROT_READ, MAP_SHARED, nvram_fd, 0)) == MAP_FAILED) {
+	if ((nvram_fd = open(PATH_DEV_NVRAM, O_RDWR)) >= 0) {
+		/* Map kernel string buffer into user space */
+		if ((nvram_buf = mmap(NULL, NVRAM_SPACE, PROT_READ, MAP_SHARED, nvram_fd, 0)) != MAP_FAILED) {
+			fcntl(nvram_fd, F_SETFD, FD_CLOEXEC);	// zzz
+			return 0;
+		}
 		close(nvram_fd);
 		nvram_fd = -1;
-		goto err;
 	}
-
-	return 0;
-
- err:
-	perror(PATH_DEV_NVRAM);
+ 	perror(PATH_DEV_NVRAM);
 	return errno;
 }
 
-char *
-nvram_get(const char *name)
+char *nvram_get(const char *name)
 {
+	char tmp[100];
+	char *value;
 	size_t count = strlen(name) + 1;
-	char tmp[100], *value;
-	unsigned long *off = (unsigned long *) tmp;
+	unsigned long *off = (unsigned long *)tmp;
 
-	if (nvram_fd < 0)
-		if (nvram_init(NULL))
-			return NULL;
+	if (nvram_fd < 0) {
+		if (nvram_init(NULL) != 0) return NULL;
+	}
 
 	if (count > sizeof(tmp)) {
-		if (!(off = malloc(count)))
-			return NULL;
+		if ((off = malloc(count)) == NULL) return NULL;
 	}
 
 	/* Get offset into mmap() space */
 	strcpy((char *) off, name);
-
 	count = read(nvram_fd, off, count);
 
-	if (count == sizeof(unsigned long))
+	if (count == sizeof(*off)) {
 		value = &nvram_buf[*off];
-	else
+	}
+	else {
 		value = NULL;
+		if (count < 0) perror(PATH_DEV_NVRAM);
+	}
 
-	if (count < 0)
-		perror(PATH_DEV_NVRAM);
-
-	if (off != (unsigned long *) tmp)
-		free(off);
-
+	if (off != (unsigned long *)tmp) free(off);
 	return value;
 }
 
-int
-nvram_getall(char *buf, int count)
+int nvram_getall(char *buf, int count)
 {
-	int ret;
+	int r;
+	
+	if (count <= 0) return 0;
 
-	if (nvram_fd < 0)
-		if ((ret = nvram_init(NULL)))
-			return ret;
-
-	if (count == 0)
-		return 0;
-
-	/* Get all variables */
-	*buf = '\0';
-
-	ret = read(nvram_fd, buf, count);
-
-	if (ret < 0)
-		perror(PATH_DEV_NVRAM);
-
-	return (ret == count) ? 0 : ret;
+	*buf = 0;
+	if (nvram_fd < 0) {
+		if ((r = nvram_init(NULL)) != 0) return r;
+	}
+	r = read(nvram_fd, buf, count);
+	if (r < 0) perror(PATH_DEV_NVRAM);
+	return (r == count) ? 0 : r;
 }
 
-static int
-_nvram_set(const char *name, const char *value)
+static int _nvram_set(const char *name, const char *value)
 {
 	size_t count = strlen(name) + 1;
-	char tmp[100], *buf = tmp;
+	char tmp[100];
+	char *buf = tmp;
 	int ret;
 
-	if (nvram_fd < 0)
-		if ((ret = nvram_init(NULL)))
-			return ret;
-
-	/* Unset if value is NULL */
-	if (value)
-		count += strlen(value) + 1;
-
-	if (count > sizeof(tmp)) {
-		if (!(buf = malloc(count)))
-			return -ENOMEM;
+	if (nvram_fd < 0) {
+		if ((ret = nvram_init(NULL)) != 0) return ret;
 	}
 
-	if (value)
+	/* Unset if value is NULL */
+	if (value) count += strlen(value) + 1;
+
+	if (count > sizeof(tmp)) {
+		if ((buf = malloc(count)) == NULL) return -ENOMEM;
+	}
+
+	if (value) {
 		sprintf(buf, "%s=%s", name, value);
-	else
+	}
+	else {
 		strcpy(buf, name);
+	}
 
 	ret = write(nvram_fd, buf, count);
+	if (ret < 0) perror(PATH_DEV_NVRAM);
 
-	if (ret < 0)
-		perror(PATH_DEV_NVRAM);
-
-	if (buf != tmp)
-		free(buf);
+	if (buf != tmp) free(buf);
 
 	return (ret == count) ? 0 : ret;
 }
 
-int
-nvram_set(const char *name, const char *value)
+int nvram_set(const char *name, const char *value)
 {
-	 extern struct nvram_convert nvram_converts[];
-         struct nvram_convert *v;
-         int ret;
+	struct nvram_convert *v;
 
-         ret = _nvram_set(name, value);
+	for (v = nvram_converts; v->name; v++) {
+		if (!strcmp(v->name, name)) {
+			_nvram_set(v->wl0_name, value);
+			break;
+		}
+	}
+	
+	if (strncmp(name, "wl_", 3) == 0) {
+		char wl0[48];
+		
+		if (strlen(name) < 32) {
+			sprintf(wl0, "wl0_%s", name + 3);
+			_nvram_set(wl0, value);
+		}
+	}
 
-         for(v = nvram_converts ; v->name ; v++) {
-                 if(!strcmp(v->name, name)){
-                         if(strcmp(v->wl0_name,""))      _nvram_set(v->wl0_name, value);
-                         if(strcmp(v->d11g_name,""))     _nvram_set(v->d11g_name, value);
-                 }
-         }
-
-         return ret;
+	return _nvram_set(name, value);
 }
 
-int
-nvram_unset(const char *name)
+int nvram_unset(const char *name)
 {
 	return _nvram_set(name, NULL);
 }
 
-int
-nvram_commit(void)
+int nvram_commit(void)
 {
-	int ret = 0;
-	
-	cprintf("%d nvram_commit(): start\n", getpid());	
+	int r = 0;
 
-	if((check_action() == ACT_ERASE_NVRAM)) {
-		int i;	
-		cprintf("Waiting 2 seconds...\n");
-		for(i=0;i<2;i++)
-			sleep(1);
-	}
-	
-	if((check_action() == ACT_IDLE) || 
-	   (check_action() == ACT_SW_RESTORE) || 
-	   (check_action() == ACT_HW_RESTORE) ||
-	   (check_action() == ACT_NVRAM_COMMIT)) {
-		ACTION("ACT_NVRAM_COMMIT");
-		if (nvram_fd < 0)
-			if ((ret = nvram_init(NULL)))
-				return ret;
-
-		ret = ioctl(nvram_fd, NVRAM_MAGIC, NULL);
-
-		if (ret < 0)
+	if (wait_action_idle(10)) {
+		if (nvram_fd < 0) {
+			if ((r = nvram_init(NULL)) != 0) return r;
+		}
+		set_action(ACT_NVRAM_COMMIT);
+//		nvram_unset("dirty");
+		r = ioctl(nvram_fd, NVRAM_MAGIC, NULL);
+		set_action(ACT_IDLE);
+		if (r < 0) {
 			perror(PATH_DEV_NVRAM);
-	
-		ACTION("ACT_IDLE");
-		cprintf("%d nvram_commit(): end\n", getpid());	
+			cprintf("commit: error\n");
+		}
 	}
-	else
-		cprintf("%d nvram_commit():  nothing to do...\n", getpid());
+	else {
+		cprintf("commit: system busy\n");
+	}
 
-	return ret;
+	return r;
 }
 
-int file2nvram(char *filename, char *varname) {
+
+/*
+int file2nvram(char *filename, char *varname)
+{
    FILE *fp;
    int c,count;
    int i=0,j=0;
@@ -241,7 +213,7 @@ int file2nvram(char *filename, char *varname) {
    }
    if (i==0) return 0;
    buf[i]=0;
-   //fprintf(stderr,"================ > file2nvram %s = [%s] \n",varname,buf); 
+   //fprintf(stderr,"================ > file2nvram %s = [%s] \n",varname,buf);
    nvram_set(varname,buf);
    //nvram_commit(); //Barry adds for test
 
@@ -254,10 +226,10 @@ int nvram2file(char *varname, char *filename) {
    int i=0,j=0;
    char *buf;
    char mem[10000];
-   
+
    if ( !(fp=fopen(filename,"wb") ))
         return 0;
-        
+
    buf=strdup(nvram_safe_get(varname));
    //fprintf(stderr,"=================> nvram2file %s = [%s] \n",varname,buf);
    while (  buf[i] && j < sizeof(mem)-3 ) {
@@ -275,80 +247,12 @@ int nvram2file(char *varname, char *filename) {
         } else {
                 mem[j]=buf[i];j++;
                 i++;
-        }       
+        }
    }
    if (j<=0) return j;
    j=fwrite(mem,1,j,fp);
    fclose(fp);
    free(buf);
    return j;
-}  
-
-int
-check_action(void)
-{
-	char buf[80] = "";
-	
-	if(file_to_buf(ACTION_FILE, buf, sizeof(buf))){
-		if(!strcmp(buf, "ACT_TFTP_UPGRADE")){
-			cprintf("Upgrading from tftp now ...\n");
-			return ACT_TFTP_UPGRADE;
-		}
-		else if(!strcmp(buf, "ACT_WEBS_UPGRADE")){
-			cprintf("Upgrading from web (https) now ...\n");
-			return ACT_WEBS_UPGRADE;
-		}
-		else if(!strcmp(buf, "ACT_WEB_UPGRADE")){
-			cprintf("Upgrading from web (http) now ...\n");
-			return ACT_WEB_UPGRADE;
-		}
-		else if(!strcmp(buf, "ACT_SW_RESTORE")){
-			cprintf("Receiving restore command from web ...\n");
-			return ACT_SW_RESTORE;
-		}
-		else if(!strcmp(buf, "ACT_HW_RESTORE")){
-			cprintf("Receiving restore commond from resetbutton ...\n");
-			return ACT_HW_RESTORE;
-		}
-		else if(!strcmp(buf, "ACT_NVRAM_COMMIT")){
-			cprintf("Committing nvram now ...\n");
-			return ACT_NVRAM_COMMIT;
-		}
-		else if(!strcmp(buf, "ACT_ERASE_NVRAM")){
-			cprintf("Erasing nvram now ...\n");
-			return ACT_ERASE_NVRAM;
-		}
-	}
-	//fprintf(stderr, "Waiting for upgrading....\n");
-	return ACT_IDLE;
 }
-
-int
-file_to_buf(char *path, char *buf, int len)
-{
-	FILE *fp;
-
-	memset(buf, 0 , len);
-
-	if ((fp = fopen(path, "r"))) {
-		fgets(buf, len, fp);
-		fclose(fp);
-		return 1;
-	}
-
-	return 0;
-}
-
-int
-buf_to_file(char *path, char *buf)
-{
-	FILE *fp;
-
-	if ((fp = fopen(path, "w"))) {
-		fprintf(fp, "%s", buf);
-		fclose(fp);
-		return 1;
-	}
-
-	return 0;
-}
+*/

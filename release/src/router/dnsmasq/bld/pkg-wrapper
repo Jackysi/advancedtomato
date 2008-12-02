@@ -1,0 +1,8 @@
+#!/bin/sh
+
+if grep "^\#.*define.*HAVE_DBUS" config.h 2>&1 >/dev/null || \
+   grep HAVE_DBUS 2>&1 >/dev/null ; then
+  exec $*
+fi
+
+

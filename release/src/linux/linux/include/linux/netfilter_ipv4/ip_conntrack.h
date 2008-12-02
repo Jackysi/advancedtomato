@@ -6,6 +6,7 @@
 
 #include <linux/config.h>
 #include <linux/netfilter_ipv4/ip_conntrack_tuple.h>
+#include <linux/bitops.h>
 #include <asm/atomic.h>
 
 enum ip_conntrack_info
@@ -41,6 +42,10 @@ enum ip_conntrack_status {
 	/* Conntrack should never be early-expired. */
 	IPS_ASSURED_BIT = 2,
 	IPS_ASSURED = (1 << IPS_ASSURED_BIT),
+
+	/* Connection is confirmed: originating packet has left box */
+	IPS_CONFIRMED_BIT = 3,
+	IPS_CONFIRMED = (1 << IPS_CONFIRMED_BIT),
 };
 
 #include <linux/netfilter_ipv4/ip_conntrack_tcp.h>
@@ -62,31 +67,27 @@ union ip_conntrack_expect_proto {
 };
 
 /* Add protocol helper include file here */
+#include <linux/netfilter_ipv4/ip_conntrack_h323.h>
 #include <linux/netfilter_ipv4/ip_conntrack_pptp.h>
 #include <linux/netfilter_ipv4/ip_conntrack_sip.h>
 #include <linux/netfilter_ipv4/ip_conntrack_mms.h>
-#include <linux/netfilter_ipv4/ip_conntrack_h323.h>
-
 #include <linux/netfilter_ipv4/ip_conntrack_ftp.h>
 #include <linux/netfilter_ipv4/ip_conntrack_irc.h>
-#ifdef CONFIG_IP_NF_NAT_RTSP
-#include <linux/netfilter_ipv4/ip_conntrack_rtsp.h>
-#endif
 #include <linux/netfilter_ipv4/ip_autofw.h>
+#include <linux/netfilter_ipv4/ip_conntrack_rtsp.h>
 
 /* per expectation: application helper private data */
 union ip_conntrack_expect_help {
 	/* insert conntrack helper private data (expect) here */
+	struct ip_ct_h225_expect exp_h225_info;
 	struct ip_ct_pptp_expect exp_pptp_info;
 	struct ip_ct_sip_expect exp_sip_info;
 	struct ip_ct_mms_expect exp_mms_info;
-	struct ip_ct_h225_expect exp_h225_info;
 	struct ip_ct_ftp_expect exp_ftp_info;
 	struct ip_ct_irc_expect exp_irc_info;
 	struct ip_autofw_expect exp_autofw_info;
-#ifdef CONFIG_IP_NF_NAT_RTSP
-        struct ip_ct_rtsp_expect exp_rtsp_info;
-#endif
+	struct ip_ct_rtsp_expect exp_rtsp_info;
+
 #ifdef CONFIG_IP_NF_NAT_NEEDED
 	union {
 		/* insert nat helper private data (expect) here */
@@ -97,15 +98,13 @@ union ip_conntrack_expect_help {
 /* per conntrack: application helper private data */
 union ip_conntrack_help {
 	/* insert conntrack helper private data (master) here */
+	struct ip_ct_h225_master ct_h225_info;
 	struct ip_ct_pptp_master ct_pptp_info;
 	struct ip_ct_sip_master ct_sip_info;
 	struct ip_ct_mms_master ct_mms_info;
-	struct ip_ct_h225_master ct_h225_info;
 	struct ip_ct_ftp_master ct_ftp_info;
 	struct ip_ct_irc_master ct_irc_info;
-#ifdef CONFIG_IP_NF_NAT_RTSP
-        struct ip_ct_rtsp_master ct_rtsp_info;
-#endif
+	struct ip_ct_rtsp_master ct_rtsp_info;
 };
 
 #ifdef CONFIG_IP_NF_NAT_NEEDED
@@ -188,7 +187,7 @@ struct ip_conntrack
 	struct ip_conntrack_tuple_hash tuplehash[IP_CT_DIR_MAX];
 
 	/* Have we seen traffic both ways yet? (bitset) */
-	volatile unsigned long status;
+	unsigned long status;
 
 	/* Timer function; drops refcnt when it goes off. */
 	struct timer_list timeout;
@@ -227,6 +226,29 @@ struct ip_conntrack
 	} nat;
 #endif /* CONFIG_IP_NF_NAT_NEEDED */
 
+#if defined(CONFIG_IP_NF_CONNTRACK_MARK)
+	unsigned long mark;
+#endif
+
+#if defined(CONFIG_IP_NF_MATCH_LAYER7) || defined(CONFIG_IP_NF_MATCH_LAYER7_MODULE)
+	struct {
+		unsigned int numpackets; /* surely this is kept track of somewhere else, right? I can't find it... */
+		char * app_proto; /* "http", "ftp", etc.  NULL if unclassifed */
+		
+		/* the application layer data so far.  NULL if ->numpackets > numpackets */
+		char * app_data; 
+
+		unsigned int app_data_len;
+	} layer7;
+#endif
+
+#if defined(CONFIG_IP_NF_TARGET_BCOUNT) || defined(CONFIG_IP_NF_TARGET_BCOUNT_MODULE)
+	u_int32_t bcount;
+#endif
+
+#if	defined(CONFIG_IP_NF_TARGET_MACSAVE) || defined(CONFIG_IP_NF_TARGET_MACSAVE_MODULE)
+	unsigned char macsave[6];
+#endif
 };
 
 /* get master conntrack via master expectation */
@@ -283,7 +305,7 @@ ip_ct_selective_cleanup(int (*kill)(const struct ip_conntrack *i, void *data),
 /* It's confirmed if it is, or has been in the hash table. */
 static inline int is_confirmed(struct ip_conntrack *ct)
 {
-	return ct->tuplehash[IP_CT_DIR_ORIGINAL].list.next != NULL;
+	return test_bit(IPS_CONFIRMED_BIT, &ct->status);
 }
 
 extern unsigned int ip_conntrack_htable_size;

@@ -22,43 +22,43 @@
 #include <sys/ioctl.h>
 #include <sys/types.h>
 #include <sys/socket.h>
-#include <net/if.h>
 #include <net/route.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <net/if_arp.h>
 #include <proto/ethernet.h>
+
 #include <shutils.h>
 #include <bcmnvram.h>
 #include <bcmutils.h>
 #include <bcmparams.h>
-#include <rc.h>
+#include <bcmdevs.h>
+#include <shared.h>
 
-#include <cy_conf.h>
+#include "rc.h"
+
 
 #define IFUP (IFF_UP | IFF_RUNNING | IFF_BROADCAST | IFF_MULTICAST)
 #define sin_addr(s) (((struct sockaddr_in *)(s))->sin_addr)
 
-int
-ifconfig(char *name, int flags, char *addr, char *netmask)
+int ifconfig(const char *name, int flags, const char *addr, const char *netmask)
 {
 	int s;
 	struct ifreq ifr;
 	struct in_addr in_addr, in_netmask, in_broadaddr;
 
-	dprintf("ifconfig(): name=[%s] flags=[%s] addr=[%s] netmask=[%s]\n", name, flags == IFUP ? "IFUP" : "0", addr, netmask);
+	_dprintf("%s: name=%s flags=%s addr=%s netmask=%s\n", __FUNCTION__, name, flags == IFUP ? "IFUP" : "0", addr, netmask);
 	
 	/* Open a raw socket to the kernel */
-	if ((s = socket(AF_INET, SOCK_RAW, IPPROTO_RAW)) < 0)
-		goto err;
+	if ((s = socket(AF_INET, SOCK_RAW, IPPROTO_RAW)) < 0) return errno;
 
 	/* Set interface name */
-	strncpy(ifr.ifr_name, name, IFNAMSIZ);
+	strlcpy(ifr.ifr_name, name, IFNAMSIZ);
 	
 	/* Set interface flags */
 	ifr.ifr_flags = flags;
 	if (ioctl(s, SIOCSIFFLAGS, &ifr) < 0)
-		goto err;
+		goto ERROR;
 	
 	/* Set IP address */
 	if (addr) {
@@ -66,7 +66,7 @@ ifconfig(char *name, int flags, char *addr, char *netmask)
 		sin_addr(&ifr.ifr_addr).s_addr = in_addr.s_addr;
 		ifr.ifr_addr.sa_family = AF_INET;
 		if (ioctl(s, SIOCSIFADDR, &ifr) < 0)
-			goto err;
+			goto ERROR;
 	}
 
 	/* Set IP netmask and broadcast */
@@ -75,35 +75,34 @@ ifconfig(char *name, int flags, char *addr, char *netmask)
 		sin_addr(&ifr.ifr_netmask).s_addr = in_netmask.s_addr;
 		ifr.ifr_netmask.sa_family = AF_INET;
 		if (ioctl(s, SIOCSIFNETMASK, &ifr) < 0)
-			goto err;
+			goto ERROR;
 
 		in_broadaddr.s_addr = (in_addr.s_addr & in_netmask.s_addr) | ~in_netmask.s_addr;
 		sin_addr(&ifr.ifr_broadaddr).s_addr = in_broadaddr.s_addr;
 		ifr.ifr_broadaddr.sa_family = AF_INET;
 		if (ioctl(s, SIOCSIFBRDADDR, &ifr) < 0)
-			goto err;
+			goto ERROR;
 	}
 
 	close(s);
 	return 0;
 
- err:
+ ERROR:
 	close(s);
 	perror(name);
 	return errno;
 }	
 
-static int
-route_manip(int cmd, char *name, int metric, char *dst, char *gateway, char *genmask)
+static int route_manip(int cmd, char *name, int metric, char *dst, char *gateway, char *genmask)
 {
 	int s;
 	struct rtentry rt;
 	
-	dprintf("route(): cmd=[%s] name=[%s] ipaddr=[%s] netmask=[%s] gateway=[%s] metric=[%d]\n",cmd == SIOCADDRT ? "ADD" : "DEL",name,dst,genmask,gateway,metric);
+	_dprintf("%s: cmd=%s name=%s addr=%s netmask=%s gateway=%s metric=%d\n",
+		__FUNCTION__, cmd == SIOCADDRT ? "ADD" : "DEL", name, dst, genmask, gateway, metric);
 
 	/* Open a raw socket to the kernel */
-	if ((s = socket(AF_INET, SOCK_DGRAM, 0)) < 0)
-		goto err;
+	if ((s = socket(AF_INET, SOCK_DGRAM, 0)) < 0) return errno;
 
 	/* Fill in rtentry */
 	memset(&rt, 0, sizeof(rt));
@@ -126,32 +125,29 @@ route_manip(int cmd, char *name, int metric, char *dst, char *gateway, char *gen
 	rt.rt_gateway.sa_family = AF_INET;
 	rt.rt_genmask.sa_family = AF_INET;
 		
-	if (ioctl(s, cmd, &rt) < 0)
-		goto err;
+	if (ioctl(s, cmd, &rt) < 0) {
+		perror(name);
+		close(s);
+		return errno;
+	}
 
 	close(s);
 	return 0;
 
- err:
-	close(s);
-	perror(name);
-	return errno;
 }
 
-int
-route_add(char *name, int metric, char *dst, char *gateway, char *genmask)
+int route_add(char *name, int metric, char *dst, char *gateway, char *genmask)
 {
 	return route_manip(SIOCADDRT, name, metric, dst, gateway, genmask);
 }
 
-int
-route_del(char *name, int metric, char *dst, char *gateway, char *genmask)
+int route_del(char *name, int metric, char *dst, char *gateway, char *genmask)
 {
 	return route_manip(SIOCDELRT, name, metric, dst, gateway, genmask);
 }
+
 /* configure loopback interface */
-void
-config_loopback(void)
+void config_loopback(void)
 {
 	/* Bring up loopback interface */
 	ifconfig("lo", IFUP, "127.0.0.1", "255.0.0.0");
@@ -161,14 +157,15 @@ config_loopback(void)
 }
 
 /* configure/start vlan interface(s) based on nvram settings */
-int
-start_vlan(void)
+int start_vlan(void)
 {
 	int s;
 	struct ifreq ifr;
 	int i, j;
 	char ea[ETHER_ADDR_LEN];
 
+	if ((strtoul(nvram_safe_get("boardflags"), NULL, 0) & BFL_ENETVLAN) == 0) return 0;
+	
 	/* set vlan i/f name to style "vlan<ID>" */
 	eval("vconfig", "set_name_type", "VLAN_PLUS_VID_NO_PAD");
 
@@ -224,14 +221,15 @@ start_vlan(void)
 }
 
 /* stop/rem vlan interface(s) based on nvram settings */
-int
-stop_vlan(void)
+int stop_vlan(void)
 {
 	int i;
 	char nvvar_name[16];
 	char vlan_id[16];
 	char *hwname;
 
+	if ((strtoul(nvram_safe_get("boardflags"), NULL, 0) & BFL_ENETVLAN) == 0) return 0;
+	
 	for (i = 0; i <= VLAN_MAXVID; i ++) {
 		/* get the address of the EMAC on which the VLAN sits */
 		snprintf(nvvar_name, sizeof(nvvar_name), "vlan%dhwname", i);

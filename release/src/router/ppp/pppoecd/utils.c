@@ -43,6 +43,7 @@
 #ifdef SVR4
 #include <sys/mkdev.h>
 #endif
+#include <time.h>
 
 #include "pppd.h"
 
@@ -54,8 +55,8 @@ static const char rcsid[] = RCSID;
 extern char *strerror();
 #endif
 
-static void logit __P((int, char *, va_list));
-static void log_write __P((int, char *));
+//	static void logit __P((int, char *, va_list));
+//	static void log_write __P((int, char *));
 static void vslp_printer __P((void *, char *, ...));
 static void format_packet __P((u_char *, int, void (*) (void *, char *, ...),
 			       void *));
@@ -621,22 +622,6 @@ print_string(p, len, printer, arg)
     printer(arg, "\"");
 }
 
-/*
- * logit - does the hard work for fatal et al.
- */
-static void
-logit(level, fmt, args)
-    int level;
-    char *fmt;
-    va_list args;
-{
-    int n;
-    char buf[1024];
-
-    n = vslprintf(buf, sizeof(buf), fmt, args);
-    log_write(level, buf);
-}
-
 static void
 log_write(level, buf)
     int level;
@@ -652,6 +637,27 @@ log_write(level, buf)
 	    || write(log_to_fd, "\n", 1) != 1)
 	    log_to_fd = -1;
     }
+}
+#endif	// DEBUG
+
+/*
+ * logit - does the hard work for fatal et al.
+ */
+static void
+logit(level, fmt, args)
+    int level;
+    char *fmt;
+    va_list args;
+{
+    int n;
+    char buf[1024];
+
+    n = vslprintf(buf, sizeof(buf), fmt, args);
+#ifdef DEBUG
+    log_write(level, buf);
+#else
+	syslog(level, "%s", buf);
+#endif
 }
 
 /*
@@ -673,9 +679,19 @@ fatal __V((char *fmt, ...))
     logit(LOG_ERR, fmt, pvar);
     va_end(pvar);
 
+#if 0
+	int i;
+
+	for (i = 120; i > 0; --i) {
+		sleep(1);
+	}
+	system("service wan restart");
+#endif
+
     die(1);			/* as promised */
 }
 
+#ifdef DEBUG
 /*
  * error - log an error message.
  */
@@ -778,36 +794,6 @@ dbglog __V((char *fmt, ...))
 
 #endif /* DEBUG */
 
-//==================================================
-#include <fcntl.h>
-#define GOT_IP                  0x01
-#define RELEASE_IP              0x02
-#define GET_IP_ERROR            0x03
-#define RELEASE_WAN_CONTROL     0x04
-#define SET_LED(val) \
-{ \
-        int filep; \
-        if ((filep = open("/dev/extio", O_RDWR,0))) \
-        { \
-                ioctl(filep, val, 0); \
-                close(filep); \
-        } \
-}
-//==================================================
-
-int
-log_to_file(char *buf)	// add by honor
-{	
-	FILE *fp;
-	
-	if ((fp = fopen("/tmp/ppp/log", "w"))) {
-		fprintf(fp, "%s", buf);
-		fclose(fp);
-		SET_LED(GET_IP_ERROR)
-		return 1;
-	}	
-	return 0;
-}
 
 int
 my_gettimeofday(struct timeval *timenow, struct timezone *tz)

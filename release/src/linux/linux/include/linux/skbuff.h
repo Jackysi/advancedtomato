@@ -93,6 +93,9 @@ struct nf_ct_info {
 	struct nf_conntrack *master;
 };
 #endif
+#if defined(CONFIG_IMQ) || defined(CONFIG_IMQ_MODULE)
+struct nf_info;
+#endif
 
 struct sk_buff_head {
 	/* These two members must be first. */
@@ -178,7 +181,7 @@ struct sk_buff {
 	unsigned int 	len;			/* Length of actual data			*/
  	unsigned int 	data_len;
 	unsigned int	csum;			/* Checksum 					*/
-	unsigned char 	__unused,		/* Dead field, may be reused			*/
+	unsigned char 	imq_flags,		/* intermediate queueing device	*/
 			cloned, 		/* head may be cloned (check refcnt to be sure). */
   			pkt_type,		/* Packet class					*/
   			ip_summed;		/* Driver fed us an IP checksum			*/
@@ -214,6 +217,9 @@ struct sk_buff {
 
 #ifdef CONFIG_NET_SCHED
        __u32           tc_index;               /* traffic control index */
+#endif
+#if defined(CONFIG_IMQ) || defined(CONFIG_IMQ_MODULE)
+       struct nf_info	*nf_info;
 #endif
 };
 

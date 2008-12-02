@@ -2,7 +2,8 @@
 
 EXTRAS+=libiptc/libiptc.a
 
-DEVEL_LIBS+=libiptc/libiptc.a
+# libiptc is not a public interface and therefore not installed
+# DEVEL_LIBS+=libiptc/libiptc.a
 
 ifndef TOPLEVEL_INCLUDED
 local:
@@ -13,7 +14,7 @@ EXTRA_DEPENDS+=libiptc/libip4tc.d
 
 libiptc/libiptc.a: libiptc/libiptc.a(libiptc/libip4tc.o)
 
-ifdef DO_IPV6
+ifeq ($(DO_IPV6), 1)
 EXTRA_DEPENDS+= libiptc/libip6tc.d
 libiptc/libiptc.a: libiptc/libiptc.a(libiptc/libip6tc.o)
 endif

@@ -19,7 +19,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <string.h>
-
+#include <linux/if.h> /* IFNAMSIZ */
 #include "utils.h"
 #include "tc_util.h"
 
@@ -50,7 +50,7 @@ static int fw_parse_opt(struct filter_util *qu, char *handle, int argc, char **a
 	if (argc == 0)
 		return 0;
 
-	tail = (struct rtattr*)(((void*)n)+NLMSG_ALIGN(n->nlmsg_len));
+	tail = NLMSG_TAIL(n);
 	addattr_l(n, 4096, TCA_OPTIONS, NULL, 0);
 
 	while (argc > 0) {
@@ -70,6 +70,24 @@ static int fw_parse_opt(struct filter_util *qu, char *handle, int argc, char **a
 				return -1;
 			}
 			continue;
+		} else if (matches(*argv, "action") == 0) {
+			NEXT_ARG();
+			if (parse_action(&argc, &argv, TCA_FW_ACT, n)) {
+				fprintf(stderr, "Illegal fw \"action\"\n");
+				return -1;
+			}
+			continue;
+		} else if (strcmp(*argv, "indev") == 0) {
+			char d[IFNAMSIZ+1];
+			memset(d, 0, sizeof (d));
+			argc--;
+			argv++;
+			if (argc < 1) {
+				fprintf(stderr, "Illegal indev\n");
+				return -1;
+			}
+			strncpy(d, *argv, sizeof (d) - 1);
+			addattr_l(n, MAX_MSG, TCA_FW_INDEV, d, strlen(d) + 1);
 		} else if (strcmp(*argv, "help") == 0) {
 			explain();
 			return -1;
@@ -80,7 +98,7 @@ static int fw_parse_opt(struct filter_util *qu, char *handle, int argc, char **a
 		}
 		argc--; argv++;
 	}
-	tail->rta_len = (((void*)n)+n->nlmsg_len) - (void*)tail;
+	tail->rta_len = (void *) NLMSG_TAIL(n) - (void *) tail;
 	return 0;
 }
 
@@ -91,9 +109,7 @@ static int fw_print_opt(struct filter_util *qu, FILE *f, struct rtattr *opt, __u
 	if (opt == NULL)
 		return 0;
 
-	memset(tb, 0, sizeof(tb));
-	if (opt)
-		parse_rtattr(tb, TCA_FW_MAX, RTA_DATA(opt), RTA_PAYLOAD(opt));
+	parse_rtattr_nested(tb, TCA_FW_MAX, opt);
 
 	if (handle)
 		fprintf(f, "handle 0x%x ", handle);
@@ -105,12 +121,20 @@ static int fw_print_opt(struct filter_util *qu, FILE *f, struct rtattr *opt, __u
 
 	if (tb[TCA_FW_POLICE])
 		tc_print_police(f, tb[TCA_FW_POLICE]);
+	if (tb[TCA_FW_INDEV]) {
+		struct rtattr *idev = tb[TCA_FW_INDEV];
+		fprintf(f, "input dev %s ",(char *)RTA_DATA(idev));
+	}
+	
+	if (tb[TCA_FW_ACT]) {
+		fprintf(f, "\n");
+		tc_print_action(f, tb[TCA_FW_ACT]);
+	}
 	return 0;
 }
 
-struct filter_util fw_util = {
-	NULL,
-	"fw",
-	fw_parse_opt,
-	fw_print_opt,
+struct filter_util fw_filter_util = {
+	.id = "fw",
+	.parse_fopt = fw_parse_opt,
+	.print_fopt = fw_print_opt,
 };

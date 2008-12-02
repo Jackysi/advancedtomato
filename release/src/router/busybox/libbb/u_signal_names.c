@@ -1,8 +1,21 @@
+/* vi: set sw=4 ts=4: */
+/*
+ * Utility routines.
+ *
+ * Copyright (C) many different people.
+ * If you wrote this, please acknowledge your work.
+ *
+ * Licensed under GPLv2 or later, see file LICENSE in this tarball for details.
+ */
+
 #include <signal.h>
 #include <ctype.h>
 #include <string.h>
+#include <strings.h>
 #include <stdlib.h>
 #include <stdio.h>
+
+#include "libbb.h"
 
 struct signal_name {
 	const char *name;

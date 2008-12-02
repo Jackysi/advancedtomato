@@ -189,7 +189,7 @@ static int rsvp_parse_opt(struct filter_util *qu, char *handle, int argc, char *
 	if (argc == 0)
 		return 0;
 
-	tail = (struct rtattr*)(((void*)n)+NLMSG_ALIGN(n->nlmsg_len));
+	tail = NLMSG_TAIL(n);
 	addattr_l(n, 4096, TCA_OPTIONS, NULL, 0);
 
 	while (argc > 0) {
@@ -282,7 +282,7 @@ static int rsvp_parse_opt(struct filter_util *qu, char *handle, int argc, char *
 
 	if (pinfo_ok)
 		addattr_l(n, 4096, TCA_RSVP_PINFO, &pinfo, sizeof(pinfo));
-	tail->rta_len = (((void*)n)+n->nlmsg_len) - (void*)tail;
+	tail->rta_len = (void *) NLMSG_TAIL(n) - (void *) tail;
 	return 0;
 }
 
@@ -322,9 +322,7 @@ static int rsvp_print_opt(struct filter_util *qu, FILE *f, struct rtattr *opt, _
 	if (opt == NULL)
 		return 0;
 
-	memset(tb, 0, sizeof(tb));
-	if (opt)
-		parse_rtattr(tb, TCA_RSVP_MAX, RTA_DATA(opt), RTA_PAYLOAD(opt));
+	parse_rtattr_nested(tb, TCA_RSVP_MAX, opt);
 
 	if (handle)
 		fprintf(f, "fh 0x%08x ", handle);
@@ -393,16 +391,14 @@ static int rsvp_print_opt(struct filter_util *qu, FILE *f, struct rtattr *opt, _
 	return 0;
 }
 
-struct filter_util rsvp_util = {
-	NULL,
-	"rsvp",
-	rsvp_parse_opt,
-	rsvp_print_opt,
+struct filter_util rsvp_filter_util = {
+	.id = "rsvp",
+	.parse_fopt = rsvp_parse_opt,
+	.print_fopt = rsvp_print_opt,
 };
 
-struct filter_util rsvp6_util = {
-	NULL,
-	"rsvp6",
-	rsvp_parse_opt,
-	rsvp_print_opt,
+struct filter_util rsvp6_filter_util = {
+	.id = "rsvp6",
+	.parse_fopt = rsvp_parse_opt,
+	.print_fopt = rsvp_print_opt,
 };

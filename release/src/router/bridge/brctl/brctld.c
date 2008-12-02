@@ -177,7 +177,7 @@ int main(int argc, char *argv[])
 	addr.sin_family = AF_INET;
 	addr.sin_addr.s_addr = htonl(INADDR_ANY);
 	addr.sin_port = htons(31338);
-	if (bind(sock, &addr, sizeof(addr)) < 0) {
+	if (bind(sock, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
 		perror("bind");
 		return 1;
 	}
@@ -198,7 +198,7 @@ int main(int argc, char *argv[])
 		int newsock;
 
 		len = sizeof(addr);
-		if ((newsock = accept(sock, &addr, &len)) < 0) {
+		if ((newsock = accept(sock, (struct sockaddr *)&addr, &len)) < 0) {
 			perror("accept");
 			return 1;
 		}

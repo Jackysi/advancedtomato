@@ -8,6 +8,11 @@ source drivers/net/arcnet/Config.in
 tristate 'Dummy net driver support' CONFIG_DUMMY
 tristate 'Bonding driver support' CONFIG_BONDING
 tristate 'EQL (serial line load balancing) support' CONFIG_EQUALIZER
+if [ "$CONFIG_NETFILTER" = "y" ]; then
+  tristate 'IMQ (intermediate queueing device) support' CONFIG_IMQ
+else
+  comment 'IMQ needs CONFIG_NETFILTER enabled'
+fi
 tristate 'Universal TUN/TAP device driver support' CONFIG_TUN
 if [ "$CONFIG_EXPERIMENTAL" = "y" ]; then
    tristate 'Ethertap network tap (OBSOLETE)' CONFIG_ETHERTAP

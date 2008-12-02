@@ -1,99 +1,118 @@
-#
-# Router rc control scripts Makefile
-#
-# Copyright 2005, Broadcom Corporation
-# All Rights Reserved.
-#
-# THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
-# KIND, EXPRESS OR IMPLIED, BY STATUTE, COMMUNICATION OR OTHERWISE. BROADCOM
-# SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
-# FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
-#
-# $Id: Makefile,v 1.37.18.1.2.2 2006/07/19 07:19:13 honor Exp $
-#
+include ../common.mak
 
-include $(TOP)/.config
+CFLAGS = -Wall -Os #-mips32
+CFLAGS += -I. -I../shared -I$(SRCBASE)/include
 
-ifneq ($(wildcard $(SRCBASE)/cy_conf.mak),)
-  include $(SRCBASE)/cy_conf.mak
+LDFLAGS = -L../nvram -lnvram -L../shared -lshared -lcrypt
+ifeq ($(STATIC),1)
+LDFLAGS += -static
 endif
 
-CFLAGS	+= -I. -I$(TOP)/shared -I$(TOP)/busybox -I$(SRCBASE)/include -Wall -I$(SRCBASE)/
-CFLAGS  += -I$(TOP)/iptables/include -I$(TOP)/iptables/include/libipq -I$(TOP)/libnet/include -DL_ENDIAN -DLIBNET_LIL_ENDIAN -DLIB1X_LIL_ENDIAN
-CFLAGS	+= -s -O2
-LDFLAGS	+= -L$(TOP)/nvram -L$(INSTALLDIR)/nvram/usr/lib -lnvram -L$(TOP)/shared -L$(INSTALLDIR)/shared/usr/lib -lshared -L$(SRCBASE)/router/libnet/lib -lnet
+OBJS := rc.o init.o interface.o network.o wan.o services.o dhcp.o
+OBJS += firewall.o ppp.o telssh.o wnas.o
+OBJS += listen.o redial.o led.o qos.o forward.o misc.o mtd.o
+OBJS += buttons.o restrict.o gpio.o sched.o
+#	heartbeat.o
 
-OBJS := rc.o init.o interface.o network.o services.o udhcpc.o http.o stats.o crc.o mtd.o
-OBJS += writeimage.o resetbutton.o ntp.o gpio.o iptable.o ddns.o ddns_checkip.o listen.o check_ps.o process_monitor.o ctmisc.o misc.o sendudp.o
-
-OBJS += heartbeat.o
-OBJS += eou.o
-LDFLAGS += -L$(TOP)/openssl -lcrypto
-CFLAGS  += -I$(TOP)/openssl -I$(TOP)/openssl/include
-ifeq ($(CONFIG_NAT),y)
-OBJS += firewall.o
-#LDFLAGS += -L$(TOP)/netconf -L$(INSTALLDIR)/netconf/usr/lib -lnetconf
+ifeq ($(TCONFIG_DDNS),y)
+OBJS += ddns.o
 endif
-OBJS += voip_qos.o
-CFLAGS += -I$(TOP)/libnet/include -DL_ENDIAN -DLIBNET_LIL_ENDIAN -DLIB1X_LIL_ENDIAN
-LDFLAGS += -L$(SRCBASE)/router/libnet/lib -lnet
-OBJS += sendudp.o
-
-ifeq ($(CONFIG_NAT),y)
-OBJS += ppp.o
+ifeq ($(TCONFIG_CIFS),y)
+OBJS += cifs.o
+endif
+ifeq ($(TCONFIG_JFFS2),y)
+OBJS += jffs2.o
 endif
 
-vpath %.c $(TOP)/shared $(SRCBASE)/rts/src
+ifeq ($(TOMATO_SL),1)
+OBJS += usb.o
+OBJS += samba.o
+endif
+
 
 all: rc
 
-clean:
-	rm -f *.o rc
+rc: $(OBJS)
+	@echo " [rc] CC $@"
+	@$(CC) -o $@ $^ $(LDFLAGS)
+
+	$(SIZECHECK)
+	$(CPTMP)
 
 install: all
-	install -d $(INSTALLDIR)/sbin
-	install rc $(INSTALLDIR)/sbin
-	$(STRIP) $(INSTALLDIR)/sbin/rc
-	cd $(INSTALLDIR)/sbin && ln -sf rc init
-	cd $(INSTALLDIR)/sbin && ln -sf rc erase
-	cd $(INSTALLDIR)/sbin && ln -sf rc write
-	cd $(INSTALLDIR)/sbin && ln -sf rc restore
-	cd $(INSTALLDIR)/sbin && ln -sf rc stats
-	cd $(INSTALLDIR)/sbin && ln -sf rc hotplug
+	@echo "[rc] Installing..."
+	@install -m 0500 -D rc $(INSTALLDIR)/sbin/rc
+	@$(STRIP) $(INSTALLDIR)/sbin/rc
 
-	cd $(INSTALLDIR)/sbin && ln -sf rc filter
-	cd $(INSTALLDIR)/sbin && ln -sf rc resetbutton
-	cd $(INSTALLDIR)/sbin && ln -sf rc filtersync
-	cd $(INSTALLDIR)/sbin && ln -sf rc ntpd
-	cd $(INSTALLDIR)/sbin && ln -sf rc ipupdated
-	cd $(INSTALLDIR)/sbin && ln -sf rc redial
-	cd $(INSTALLDIR)/sbin && ln -sf rc hb_connect
-	cd $(INSTALLDIR)/sbin && ln -sf rc hb_disconnect
-	cd $(INSTALLDIR)/sbin && ln -sf rc disconnected_pppoe
-	cd $(INSTALLDIR)/sbin && ln -sf rc gpio
-	cd $(INSTALLDIR)/sbin && ln -sf rc listen
-	cd $(INSTALLDIR)/sbin && ln -sf rc check_ps
-	cd $(INSTALLDIR)/sbin && ln -sf rc ddns_success
-	cd $(INSTALLDIR)/sbin && ln -sf rc process_monitor
-	cd $(INSTALLDIR)/sbin && ln -sf rc eou_status
-	cd $(INSTALLDIR)/sbin && ln -sf rc qos
-	cd $(INSTALLDIR)/sbin && ln -sf rc ppp_event
-	cd $(INSTALLDIR)/sbin && ln -sf rc misc	
-	cd $(INSTALLDIR)/sbin && ln -sf rc detectwan
-	cd $(INSTALLDIR)/sbin && ln -sf rc sendudp
-	cd $(INSTALLDIR)/sbin && ln -sf rc check_ses_led
-	cd $(INSTALLDIR)/sbin && ln -sf rc ses_led
-	cd $(INSTALLDIR)/sbin && ln -sf rc ddns_checkip
+	@cd $(INSTALLDIR)/sbin && ln -sf rc init
+	@cd $(INSTALLDIR)/sbin && ln -sf rc hotplug
+	@cd $(INSTALLDIR)/sbin && ln -sf rc service
+	@cd $(INSTALLDIR)/sbin && ln -sf rc buttons
+	@cd $(INSTALLDIR)/sbin && ln -sf rc rcheck
+	@cd $(INSTALLDIR)/sbin && ln -sf rc radio
+	@cd $(INSTALLDIR)/sbin && ln -sf rc led
+	@cd $(INSTALLDIR)/sbin && ln -sf rc reboot
+	@cd $(INSTALLDIR)/sbin && ln -sf rc halt
+	@cd $(INSTALLDIR)/sbin && ln -sf rc redial
+	@cd $(INSTALLDIR)/sbin && ln -sf rc gpio
+	@cd $(INSTALLDIR)/sbin && ln -sf rc sched
 
-rc: $(OBJS)
-	$(CC) -o $@ $^ $(LDFLAGS)
+	@cd $(INSTALLDIR)/sbin && ln -sf rc disconnected_pppoe
+	@cd $(INSTALLDIR)/sbin && ln -sf rc pppoe_down
+	@cd $(INSTALLDIR)/sbin && ln -sf rc listen
+	@cd $(INSTALLDIR)/sbin && ln -sf rc ppp_event
 
-services.o: $(TOP)/shared/build_date.h
+	@cd $(INSTALLDIR)/sbin && ln -sf rc mtd-write
+	@cd $(INSTALLDIR)/sbin && ln -sf rc mtd-erase
+	@cd $(INSTALLDIR)/sbin && ln -sf rc mtd-unlock
 
-$(OBJS): $(CY_DEPS)
+	@cd $(INSTALLDIR)/sbin && ln -sf rc dhcpc-event
+	@cd $(INSTALLDIR)/sbin && ln -sf rc dhcpc-release
+	@cd $(INSTALLDIR)/sbin && ln -sf rc dhcpc-renew
 
-%.o: .%.depend
+	@cd $(INSTALLDIR)/sbin && ln -sf rc wldist
+
+ifeq ($(TCONFIG_DDNS),y)
+	@cd $(INSTALLDIR)/sbin && ln -sf rc ddns-update
+endif
+
+#	ifeq ($(TCONFIG_HEARTBEAT),y)
+#		@cd $(INSTALLDIR)/sbin && ln -sf rc hb_connect
+#		@cd $(INSTALLDIR)/sbin && ln -sf rc hb_disconnect
+#		@cd $(INSTALLDIR)/sbin && ln -sf rc hb_idle
+#	endif
+
+ifeq ($(TCONFIG_CIFS),y)
+	@cd $(INSTALLDIR)/sbin && ln -sf rc mount-cifs
+endif
+
+ifeq ($(TOMATO_SL),1)
+	@cd $(INSTALLDIR)/sbin && ln -sf rc usbevent
+	@cd $(INSTALLDIR)/sbin && ln -sf rc usbrescan
+	@cd $(INSTALLDIR)/sbin && ln -sf rc hotdiskadd
+	@cd $(INSTALLDIR)/sbin && ln -sf rc hotdiskremove
+	@cd $(INSTALLDIR)/sbin && ln -sf rc hotdiskerror
+	@cd $(INSTALLDIR)/sbin && ln -sf rc umountx
+endif
+
+clean:
+	rm -f rc *.o .*.depend
+
+size: rc
+	mipsel-uclibc-nm --print-size --size-sort rc
+
+%.o: %.c .%.depend
+	@echo " [rc] CC $@"
+	@$(CC) $(CFLAGS) -c $<
+
 .%.depend: %.c
-	$(CC) $(CFLAGS) -M $< > $@
+	@$(CC) $(CFLAGS) -M $< > $@
 
 -include $(OBJS:%.o=.%.depend)
+
+
+
+pswatch: pswatch.c
+	$(CC) -o $@ $^
+	$(STRIP) $@
+	$(CPTMP)

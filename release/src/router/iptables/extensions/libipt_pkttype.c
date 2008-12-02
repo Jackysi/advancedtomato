@@ -69,11 +69,6 @@ static struct option opts[] = {
 	{0}
 };
 
-static void init(struct ipt_entry_match *m, unsigned int *nfcache)
-{
-	*nfcache |= NFC_UNKNOWN;
-}
-
 static void parse_pkttype(const char *pkttype, struct ipt_pkttype_info *info)
 {
 	unsigned int	i;
@@ -152,20 +147,18 @@ static void save(const struct ipt_ip *ip, const struct ipt_entry_match *match)
 	print_pkttype(info);
 }
 
-static
-struct iptables_match pkttype = {
-    NULL,
-    "pkttype",
-    IPTABLES_VERSION,
-    IPT_ALIGN(sizeof(struct ipt_pkttype_info)),
-    IPT_ALIGN(sizeof(struct ipt_pkttype_info)),
-    &help,
-    &init,
-    &parse, 
-    &final_check, 
-    &print,
-    &save, 
-    opts
+static struct iptables_match pkttype = {
+	.next		= NULL,
+	.name		= "pkttype",
+	.version	= IPTABLES_VERSION,
+	.size		= IPT_ALIGN(sizeof(struct ipt_pkttype_info)),
+	.userspacesize	= IPT_ALIGN(sizeof(struct ipt_pkttype_info)),
+	.help		= &help,
+	.parse		= &parse, 
+	.final_check	= &final_check, 
+	.print		= &print,
+	.save		= &save, 
+	.extra_opts	= opts
 };
 
 void _init(void)

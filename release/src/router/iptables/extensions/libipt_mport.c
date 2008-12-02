@@ -33,30 +33,6 @@ static struct option opts[] = {
 	{0}
 };
 
-static int
-service_to_port(const char *name, const char *proto)
-{
-	struct servent *service;
-
-	if ((service = getservbyname(name, proto)) != NULL)
-		return ntohs((unsigned short) service->s_port);
-
-		return -1;
-}
-
-static u_int16_t
-parse_port(const char *port, const char *proto)
-{
-	unsigned int portnum;
-
-	if (string_to_number(port, 0, 65535, &portnum) != -1 ||
-	    (portnum = service_to_port(port, proto)) != -1)
-		return (u_int16_t)portnum;
-
-	exit_error(PARAMETER_PROBLEM,
-		   "invalid port/service `%s' specified", port);
-}
-
 static void
 parse_multi_ports(const char *portstring, struct ipt_mport *minfo,
                   const char *proto)
@@ -136,29 +112,33 @@ parse(int c, char **argv, int invert, unsigned int *flags,
 
 	switch (c) {
 	case '1':
+		check_inverse(argv[optind-1], &invert, &optind, 0);
 		proto = check_proto(entry);
 		parse_multi_ports(argv[optind-1], minfo, proto);
 		minfo->flags = IPT_MPORT_SOURCE;
-		*nfcache |= NFC_IP_SRC_PT;
 		break;
 
 	case '2':
+		check_inverse(argv[optind-1], &invert, &optind, 0);
 		proto = check_proto(entry);
 		parse_multi_ports(argv[optind-1], minfo, proto);
 		minfo->flags = IPT_MPORT_DESTINATION;
-		*nfcache |= NFC_IP_DST_PT;
 		break;
 
 	case '3':
+		check_inverse(argv[optind-1], &invert, &optind, 0);
 		proto = check_proto(entry);
 		parse_multi_ports(argv[optind-1], minfo, proto);
 		minfo->flags = IPT_MPORT_EITHER;
-		*nfcache |= NFC_IP_SRC_PT | NFC_IP_DST_PT;
 		break;
 
 	default:
 		return 0;
 	}
+
+	if (invert)
+		exit_error(PARAMETER_PROBLEM,
+			   "multiport does not support invert");
 
 	if (*flags)
 		exit_error(PARAMETER_PROBLEM,
@@ -276,28 +256,28 @@ static void save(const struct ipt_ip *ip, const struct ipt_entry_match *match)
                     && minfo->ports[i-1] == minfo->ports[i])
                         break;
 		printf("%s", i ? "," : "");
-		print_port(minfo->ports[i], ip->proto, 0);
+		print_port(minfo->ports[i], ip->proto, 1);
                 if (pflags & (1<<i)) {
                         printf(":");
-                        print_port(minfo->ports[++i], ip->proto, 0);
+                        print_port(minfo->ports[++i], ip->proto, 1);
                 }
 	}
 	printf(" ");
 }
 
-struct iptables_match mport
-= { NULL,
-    "mport",
-    IPTABLES_VERSION,
-    IPT_ALIGN(sizeof(struct ipt_mport)),
-    IPT_ALIGN(sizeof(struct ipt_mport)),
-    &help,
-    &init,
-    &parse,
-    &final_check,
-    &print,
-    &save,
-    opts
+static struct iptables_match mport = { 
+	.next		= NULL,
+	.name		= "mport",
+	.version	= IPTABLES_VERSION,
+	.size		= IPT_ALIGN(sizeof(struct ipt_mport)),
+	.userspacesize	= IPT_ALIGN(sizeof(struct ipt_mport)),
+	.help		= &help,
+	.init		= &init,
+	.parse		= &parse,
+	.final_check	= &final_check,
+	.print		= &print,
+	.save		= &save,
+	.extra_opts	= opts
 };
 
 void
