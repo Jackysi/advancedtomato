@@ -1,7 +1,7 @@
 /*
  * Generic interrupt handler for Broadcom MIPS boards
  *
- * Copyright 2005, Broadcom Corporation
+ * Copyright 2006, Broadcom Corporation
  * All Rights Reserved.
  * 
  * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
@@ -9,7 +9,7 @@
  * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
  * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
  *
- * $Id: int-handler.S,v 1.1.1.7 2005/03/07 07:30:37 kanki Exp $
+ * $Id$
  */
 
 #include <linux/config.h>
@@ -40,12 +40,12 @@
 	SAVE_ALL
 	CLI
 	.set	at
-    .set    noreorder
+	.set    noreorder
 
-	jal	    brcm_irq_dispatch
-	 move	a0, sp
+	jal	brcm_irq_dispatch
+	move	a0, sp
 
-	j	    ret_from_irq
-	 nop
-		
+	j	ret_from_irq
+	nop
+
 	END(brcmIRQ)

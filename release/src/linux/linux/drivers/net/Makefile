@@ -28,13 +28,13 @@ rcpci-objs	:=	rcpci45.o rclanmtl.o
 #subdir-m += mac
 subdir-m += diag
 #subdir-m += ext_io
-#subdir-m += ctmisc
+#subdir-y += ctmisc
 
 #	ifeq ($(CONFIG_HW_QOS),y)
-#	subdir-m += port_based_qos
+#		subdir-y += port_based_qos
 #	else
 #		ifeq ($(CONFIG_PERFORMANCE),y)
-#		subdir-m += port_based_qos
+#			subdir-y += port_based_qos
 #		endif
 #	endif
 
@@ -268,11 +268,11 @@ ifdef CONFIG_HND
 subdir-$(CONFIG_HND) += hnd
 endif
 ifdef CONFIG_ET
-subdir-$(CONFIG_ET) += et.4702
+#	subdir-$(CONFIG_ET) += et.4702
 subdir-$(CONFIG_ET) += et
+ifdef CONFIG_BCM57XX
+subdir-$(CONFIG_BCM57XX) += bcm57xx
 endif
-ifdef CONFIG_IL
-subdir-$(CONFIG_IL) += il
 endif
 ifdef CONFIG_WL
 subdir-$(CONFIG_WL) += wl
@@ -280,11 +280,11 @@ endif
 ifeq ($(CONFIG_HND),y)
   obj-y += hnd/hnd.o
 endif
+ifeq ($(CONFIG_BCM57XX),y)
+  obj-y += bcm57xx/bcm57xx.o
+endif
 ifeq ($(CONFIG_ET),y)
   obj-y += et/et.o
-endif
-ifeq ($(CONFIG_IL),y)
-  obj-y += il/il.o
 endif
 ifeq ($(CONFIG_WL),y)
   obj-y += wl/wl.o

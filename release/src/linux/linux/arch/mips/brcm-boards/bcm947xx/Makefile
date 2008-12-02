@@ -1,7 +1,7 @@
 #
 # Makefile for Broadcom BCM947XX boards
 #
-# Copyright 2005, Broadcom Corporation
+# Copyright 2006, Broadcom Corporation
 # All Rights Reserved.
 # 
 # THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
@@ -9,15 +9,17 @@
 # SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
 # FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
 #
-# $Id: Makefile,v 1.1.1.9 2005/03/07 07:30:37 kanki Exp $
+# $Id$
 #
 
 O_TARGET	:= bcm947xx.o
 
 export-objs	:= nvram_linux.o setup.o
-obj-y		:= prom.o setup.o time.o sbmips.o perfcntr.o gpio.o
+obj-y		:= prom.o setup.o time.o irq.o
+#obj-y		+= hndmips.o hndchipc.o perfcntr.o linux_gpio.o
+obj-y		+= hndmips.o hndchipc.o perfcntr.o gpio.o
 obj-y		+= sflash.o nvram.o nvram_linux.o
-obj-$(CONFIG_PCI) += sbpci.o pcibios.o
+obj-$(CONFIG_PCI) += hndpci.o pcibios.o
 
 vpath %.c $(SRCBASE)/shared $(SRCBASE)/shared/nvram
 

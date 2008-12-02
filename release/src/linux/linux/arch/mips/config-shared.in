@@ -196,6 +196,9 @@ if [ "$CONFIG_BCM947XX" = "y" ] ; then
    bool '    Support for Broadcom BCM4710' CONFIG_BCM4710
    bool '    Support for Broadcom BCM4310' CONFIG_BCM4310
    bool '    Support for Broadcom BCM4704' CONFIG_BCM4704
+   if [ "$CONFIG_BCM4704" = "y" ] ; then
+      bool '     Support for performance profiling' CONFIG_HND_BMIPS3300_PROF
+   fi
    bool '    Support for Broadcom BCM5365' CONFIG_BCM5365
 fi
 bool 'Support for SNI RM200 PCI' CONFIG_SNI_RM200_PCI
