@@ -1,3 +1,4 @@
+/* vi: set sw=4 ts=4: */
 /*
  * June 30, 2001                 Manuel Novoa III
  *
@@ -25,18 +26,17 @@
  *      and "#if 0"'d below.
  */
 
-#include <stdio.h>
 #include "libbb.h"
 
-const char *make_human_readable_str(unsigned long long size,
+const char* FAST_FUNC make_human_readable_str(unsigned long long size,
 	unsigned long block_size, unsigned long display_unit)
 {
-	/* The code will adjust for additional (appended) units. */
-	static const char zero_and_units[] = { '0', 0, 'k', 'M', 'G', 'T' };
-	static const char fmt[] = "%llu";
-	static const char fmt_tenths[] = "%llu.%d%c";
+	/* The code will adjust for additional (appended) units */
+	static const char zero_and_units[] ALIGN1 = { '0', 0, 'k', 'M', 'G', 'T' };
+	static const char fmt[] ALIGN1 = "%llu";
+	static const char fmt_tenths[] ALIGN1 = "%llu.%d%c";
 
-	static char str[21];		/* Sufficient for 64 bit unsigned integers. */
+	static char str[21] ALIGN1;  /* Sufficient for 64 bit unsigned integers */
 
 	unsigned long long val;
 	int frac;
@@ -53,16 +53,17 @@ const char *make_human_readable_str(unsigned long long size,
 	}
 
 	if (display_unit) {
-		val += display_unit/2;	/* Deal with rounding. */
+		val += display_unit/2;	/* Deal with rounding */
 		val /= display_unit;	/* Don't combine with the line above!!! */
 	} else {
 		++u;
-		while ((val >= KILOBYTE)
-			   && (u < zero_and_units + sizeof(zero_and_units) - 1)) {
+		while ((val >= 1024)
+		 && (u < zero_and_units + sizeof(zero_and_units) - 1)
+		) {
 			f = fmt_tenths;
 			++u;
-			frac = ((((int)(val % KILOBYTE)) * 10) + (KILOBYTE/2)) / KILOBYTE;
-			val /= KILOBYTE;
+			frac = (((int)(val % 1024)) * 10 + 1024/2) / 1024;
+			val /= 1024;
 		}
 		if (frac >= 10) {		/* We need to round up here. */
 			++val;
@@ -70,11 +71,11 @@ const char *make_human_readable_str(unsigned long long size,
 		}
 #if 0
 		/* Sample code to omit decimal point and tenths digit. */
-		if ( /* no_tenths */ 1 ) {
-			if ( frac >= 5 ) {
+		if (/* no_tenths */ 1) {
+			if (frac >= 5) {
 				++val;
 			}
-			f = "%llu%*c" /* fmt_no_tenths */ ;
+			f = "%llu%*c" /* fmt_no_tenths */;
 			frac = 1;
 		}
 #endif

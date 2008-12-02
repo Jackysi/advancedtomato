@@ -4,15 +4,19 @@
  *
  * Copyright 2006 by Rob Landley <rob@landley.net>
  *
- * Licensed under GPLv2 or later, see file LICENSE in this tarball for details.
+ * Licensed under GPL version 2, see file LICENSE in this tarball for details.
  */
 
-#include "busybox.h"
-#include <signal.h>
+#include "libbb.h"
 #include <sys/reboot.h>
-#include <unistd.h>
 
-int halt_main(int argc, char *argv[])
+#if ENABLE_FEATURE_WTMP
+#include <sys/utsname.h>
+#include <utmp.h>
+#endif
+
+int halt_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
+int halt_main(int argc UNUSED_PARAM, char **argv)
 {
 	static const int magic[] = {
 #ifdef RB_HALT_SYSTEM
@@ -27,29 +31,63 @@ RB_POWERDOWN,
 #endif
 RB_AUTOBOOT
 	};
-	static const int signals[] = {SIGUSR1, SIGUSR2, SIGTERM};
+	static const smallint signals[] = { SIGUSR1, SIGUSR2, SIGTERM };
 
-	char *delay = "hpr";
-	int which, flags, rc = 1;
+	int delay = 0;
+	int which, flags, rc;
+#if ENABLE_FEATURE_WTMP
+	struct utmp utmp;
+	struct utsname uts;
+#endif
 
 	/* Figure out which applet we're running */
-	for(which=0;delay[which]!=*bb_applet_name;which++);
+	for (which = 0; "hpr"[which] != *applet_name; which++)
+		continue;
 
 	/* Parse and handle arguments */
-	flags = bb_getopt_ulflags(argc, argv, "d:nf", &delay);
-	if (flags&1) sleep(atoi(delay));
-	if (!(flags&2)) sync();
+	opt_complementary = "d+"; /* -d N */
+	flags = getopt32(argv, "d:nfw", &delay);
+
+	sleep(delay);
+
+#if ENABLE_FEATURE_WTMP
+	if (access(bb_path_wtmp_file, R_OK|W_OK) == -1) {
+		close(creat(bb_path_wtmp_file, 0664));
+	}
+	memset(&utmp, 0, sizeof(utmp));
+	utmp.ut_tv.tv_sec = time(NULL);
+	safe_strncpy(utmp.ut_user, "shutdown", UT_NAMESIZE);
+	utmp.ut_type = RUN_LVL;
+	safe_strncpy(utmp.ut_id, "~~", sizeof(utmp.ut_id));
+	safe_strncpy(utmp.ut_line, "~~", UT_LINESIZE);
+	if (uname(&uts) == 0)
+		safe_strncpy(utmp.ut_host, uts.release, sizeof(utmp.ut_host));
+	updwtmp(bb_path_wtmp_file, &utmp);
+#endif /* !ENABLE_FEATURE_WTMP */
+
+	if (flags & 8) /* -w */
+		return EXIT_SUCCESS;
+	if (!(flags & 2)) /* no -n */
+		sync();
 
 	/* Perform action. */
-	if (ENABLE_INIT && !(flags & 4)) {
+	rc = 1;
+	if (!(flags & 4)) { /* no -f */
+//TODO: I tend to think that signalling linuxrc is wrong
+// pity original author didn't comment on it...
 		if (ENABLE_FEATURE_INITRD) {
-			long *pidlist=find_pid_by_name("linuxrc");
-			if (*pidlist>0) rc = kill(*pidlist,signals[which]);
-			if (ENABLE_FEATURE_CLEAN_UP) free(pidlist);
+			pid_t *pidlist = find_pid_by_name("linuxrc");
+			if (pidlist[0] > 0)
+				rc = kill(pidlist[0], signals[which]);
+			if (ENABLE_FEATURE_CLEAN_UP)
+				free(pidlist);
 		}
-		if (rc) rc = kill(1,signals[which]);
-	} else rc = reboot(magic[which]);
+		if (rc)
+			rc = kill(1, signals[which]);
+	} else
+		rc = reboot(magic[which]);
 
-	if (rc) bb_error_msg("No.");
+	if (rc)
+		bb_error_msg("no");
 	return rc;
 }

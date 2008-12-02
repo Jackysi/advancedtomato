@@ -1,3 +1,4 @@
+/* vi: set sw=4 ts=4: */
 /*
  * socket.c -- DHCP server client/server socket creation
  *
@@ -22,17 +23,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <sys/ioctl.h>
-#include <netinet/in.h>
-#include <unistd.h>
-#include <string.h>
-#include <arpa/inet.h>
 #include <net/if.h>
-#include <errno.h>
 #include <features.h>
-#if (__GLIBC__ >= 2 && __GLIBC_MINOR >= 1) || defined _NEWLIB_VERSION
+#if (defined(__GLIBC__) && __GLIBC__ >= 2 && __GLIBC_MINOR__ >= 1) || defined _NEWLIB_VERSION
 #include <netpacket/packet.h>
 #include <net/ethernet.h>
 #else
@@ -42,94 +35,78 @@
 #endif
 
 #include "common.h"
-#include "socket.h"
 
-int read_interface(char *interface, int *ifindex, uint32_t *addr, uint8_t *arp)
+
+int read_interface(const char *interface, int *ifindex, uint32_t *addr, uint8_t *arp)
 {
 	int fd;
 	struct ifreq ifr;
 	struct sockaddr_in *our_ip;
 
-	memset(&ifr, 0, sizeof(struct ifreq));
-	if((fd = socket(AF_INET, SOCK_RAW, IPPROTO_RAW)) >= 0) {
-		ifr.ifr_addr.sa_family = AF_INET;
-		strcpy(ifr.ifr_name, interface);
+	memset(&ifr, 0, sizeof(ifr));
+	fd = xsocket(AF_INET, SOCK_RAW, IPPROTO_RAW);
 
-		if (addr) {
-			if (ioctl(fd, SIOCGIFADDR, &ifr) == 0) {
-				our_ip = (struct sockaddr_in *) &ifr.ifr_addr;
-				*addr = our_ip->sin_addr.s_addr;
-				DEBUG(LOG_INFO, "%s (our ip) = %s", ifr.ifr_name, inet_ntoa(our_ip->sin_addr));
-			} else {
-				LOG(LOG_ERR, "SIOCGIFADDR failed, is the interface up and configured?: %m");
-				close(fd);
-				return -1;
-			}
-		}
-
-		if (ioctl(fd, SIOCGIFINDEX, &ifr) == 0) {
-			DEBUG(LOG_INFO, "adapter index %d", ifr.ifr_ifindex);
-			*ifindex = ifr.ifr_ifindex;
-		} else {
-			LOG(LOG_ERR, "SIOCGIFINDEX failed!: %m");
+	ifr.ifr_addr.sa_family = AF_INET;
+	strncpy(ifr.ifr_name, interface, sizeof(ifr.ifr_name));
+	if (addr) {
+		if (ioctl_or_perror(fd, SIOCGIFADDR, &ifr,
+			"is interface %s up and configured?", interface)
+		) {
 			close(fd);
 			return -1;
 		}
-		if (ioctl(fd, SIOCGIFHWADDR, &ifr) == 0) {
-			memcpy(arp, ifr.ifr_hwaddr.sa_data, 6);
-			DEBUG(LOG_INFO, "adapter hardware address %02x:%02x:%02x:%02x:%02x:%02x",
-				arp[0], arp[1], arp[2], arp[3], arp[4], arp[5]);
-		} else {
-			LOG(LOG_ERR, "SIOCGIFHWADDR failed!: %m");
-			close(fd);
-			return -1;
-		}
-	} else {
-		LOG(LOG_ERR, "socket failed!: %m");
-		return -1;
+		our_ip = (struct sockaddr_in *) &ifr.ifr_addr;
+		*addr = our_ip->sin_addr.s_addr;
+		DEBUG("%s (our ip) = %s", ifr.ifr_name, inet_ntoa(our_ip->sin_addr));
 	}
+
+	if (ifindex) {
+		if (ioctl_or_warn(fd, SIOCGIFINDEX, &ifr) != 0) {
+			close(fd);
+			return -1;
+		}
+		DEBUG("adapter index %d", ifr.ifr_ifindex);
+		*ifindex = ifr.ifr_ifindex;
+	}
+
+	if (arp) {
+		if (ioctl_or_warn(fd, SIOCGIFHWADDR, &ifr) != 0) {
+			close(fd);
+			return -1;
+		}
+		memcpy(arp, ifr.ifr_hwaddr.sa_data, 6);
+		DEBUG("adapter hardware address %02x:%02x:%02x:%02x:%02x:%02x",
+			arp[0], arp[1], arp[2], arp[3], arp[4], arp[5]);
+	}
+
 	close(fd);
 	return 0;
 }
 
-
-int listen_socket(uint32_t ip, int port, char *inf)
+/* 1. None of the callers expects it to ever fail */
+/* 2. ip was always INADDR_ANY */
+int listen_socket(/*uint32_t ip,*/ int port, const char *inf)
 {
-	struct ifreq interface;
 	int fd;
+	struct ifreq interface;
 	struct sockaddr_in addr;
-	int n = 1;
 
-	DEBUG(LOG_INFO, "Opening listen socket on 0x%08x:%d %s", ip, port, inf);
-	if ((fd = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP)) < 0) {
-		DEBUG(LOG_ERR, "socket call failed: %m");
-		return -1;
-	}
+	DEBUG("Opening listen socket on *:%d %s", port, inf);
+	fd = xsocket(PF_INET, SOCK_DGRAM, IPPROTO_UDP);
+
+	setsockopt_reuseaddr(fd);
+	if (setsockopt_broadcast(fd) == -1)
+		bb_perror_msg_and_die("SO_BROADCAST");
+
+	strncpy(interface.ifr_name, inf, IFNAMSIZ);
+	if (setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE, &interface, sizeof(interface)) == -1)
+		bb_perror_msg_and_die("SO_BINDTODEVICE");
 
 	memset(&addr, 0, sizeof(addr));
 	addr.sin_family = AF_INET;
 	addr.sin_port = htons(port);
-	addr.sin_addr.s_addr = ip;
-
-	if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, (char *) &n, sizeof(n)) == -1) {
-		close(fd);
-		return -1;
-	}
-	if (setsockopt(fd, SOL_SOCKET, SO_BROADCAST, (char *) &n, sizeof(n)) == -1) {
-		close(fd);
-		return -1;
-	}
-
-	strncpy(interface.ifr_name, inf, IFNAMSIZ);
-	if (setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE,(char *)&interface, sizeof(interface)) < 0) {
-		close(fd);
-		return -1;
-	}
-
-	if (bind(fd, (struct sockaddr *)&addr, sizeof(struct sockaddr)) == -1) {
-		close(fd);
-		return -1;
-	}
+	/* addr.sin_addr.s_addr = ip; - all-zeros is INADDR_ANY */
+	xbind(fd, (struct sockaddr *)&addr, sizeof(addr));
 
 	return fd;
 }

@@ -4,7 +4,7 @@
  *
  * Copyright (C) 1999-2004 by Erik Andersen <andersen@codepoet.org>
  *
- * Licensed under the GPL v2 or later, see the file LICENSE in this tarball.
+ * Licensed under the GPL version 2, see the file LICENSE in this tarball.
  */
 
 /* This version of uptime doesn't display the number of users on the system,
@@ -15,11 +15,7 @@
 
 /* getopt not needed */
 
-#include "busybox.h"
-#include <stdio.h>
-#include <time.h>
-#include <errno.h>
-#include <stdlib.h>
+#include "libbb.h"
 
 #ifndef FSHIFT
 # define FSHIFT 16              /* nr of bits of precision */
@@ -29,7 +25,8 @@
 #define LOAD_FRAC(x) LOAD_INT(((x) & (FIXED_1-1)) * 100)
 
 
-int uptime_main(int argc, char **argv)
+int uptime_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
+int uptime_main(int argc UNUSED_PARAM, char **argv UNUSED_PARAM)
 {
 	int updays, uphours, upminutes;
 	struct sysinfo info;
@@ -49,7 +46,7 @@ int uptime_main(int argc, char **argv)
 	upminutes = (int) info.uptime / 60;
 	uphours = (upminutes / 60) % 24;
 	upminutes %= 60;
-	if(uphours)
+	if (uphours)
 		printf("%2d:%02d, ", uphours, upminutes);
 	else
 		printf("%d min, ", upminutes);

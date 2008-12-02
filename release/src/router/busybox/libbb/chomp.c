@@ -8,15 +8,12 @@
  * Licensed under GPLv2 or later, see file LICENSE in this tarball for details.
  */
 
-#include <stdio.h>
-#include <string.h>
 #include "libbb.h"
 
-
-void chomp(char *s)
+void FAST_FUNC chomp(char *s)
 {
 	char *lc = last_char_is(s, '\n');
 
-	if(lc)
-		*lc = 0;
+	if (lc)
+		*lc = '\0';
 }

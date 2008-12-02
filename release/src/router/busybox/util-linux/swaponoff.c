@@ -4,36 +4,44 @@
  *
  * Copyright (C) 1999-2004 by Erik Andersen <andersen@codepoet.org>
  *
- * Licensed under the GPL v2, see the file LICENSE in this tarball.
+ * Licensed under the GPL version 2, see the file LICENSE in this tarball.
  */
 
-#include "busybox.h"
+#include "libbb.h"
 #include <mntent.h>
-#include <dirent.h>
-#include <errno.h>
-#include <string.h>
 #include <sys/swap.h>
 
+#if ENABLE_FEATURE_SWAPON_PRI
+struct globals {
+	int flags;
+};
+#define G (*(struct globals*)&bb_common_bufsiz1)
+#define g_flags (G.flags)
+#else
+#define g_flags 0
+#endif
 
-static int swap_enable_disable(const char *device)
+static int swap_enable_disable(char *device)
 {
 	int status;
 	struct stat st;
 
 	xstat(device, &st);
 
+#if ENABLE_DESKTOP
 	/* test for holes */
 	if (S_ISREG(st.st_mode))
-		if (st.st_blocks * 512 < st.st_size)
-			bb_error_msg_and_die("swap file has holes");
+		if (st.st_blocks * (off_t)512 < st.st_size)
+			bb_error_msg("warning: swap file has holes");
+#endif
 
-	if (bb_applet_name[5] == 'n')
-		status = swapon(device, 0);
+	if (applet_name[5] == 'n')
+		status = swapon(device, g_flags);
 	else
 		status = swapoff(device);
 
 	if (status != 0) {
-		bb_perror_msg("%s", device);
+		bb_simple_perror_msg(device);
 		return 1;
 	}
 
@@ -60,21 +68,35 @@ static int do_em_all(void)
 	return err;
 }
 
-#define DO_ALL    0x01
-
-int swap_on_off_main(int argc, char **argv)
+int swap_on_off_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
+int swap_on_off_main(int argc UNUSED_PARAM, char **argv)
 {
 	int ret;
 
-	if (argc == 1)
-		bb_show_usage();
+#if !ENABLE_FEATURE_SWAPON_PRI
+	ret = getopt32(argv, "a");
+#else
+	opt_complementary = "p+";
+	ret = getopt32(argv, (applet_name[5] == 'n') ? "ap:" : "a", &g_flags);
 
-	ret = bb_getopt_ulflags(argc, argv, "a");
-	if (ret & DO_ALL)
+	if (ret & 2) { // -p
+		g_flags = SWAP_FLAG_PREFER |
+			((g_flags & SWAP_FLAG_PRIO_MASK) << SWAP_FLAG_PRIO_SHIFT);
+		ret &= 1;
+	}
+#endif
+
+	if (ret /* & 1: not needed */) // -a
 		return do_em_all();
 
-	ret = 0;
-	while (*++argv)
+	argv += optind;
+	if (!*argv)
+		bb_show_usage();
+
+	/* ret = 0; redundant */
+	do {
 		ret += swap_enable_disable(*argv);
+	} while (*++argv);
+
 	return ret;
 }

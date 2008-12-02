@@ -5,7 +5,7 @@
  * Mini implementation of FTP to retrieve a remote file.
  *
  * Copyright (C) 2002 Jeff Angielski, The PTR Group <jeff@theptrgroup.com>
- * Copyright (C) 2002 Glenn McGrath <bug1@iinet.net.au>
+ * Copyright (C) 2002 Glenn McGrath
  *
  * Based on wget.c by Chip Rosenthal Covad Communications
  * <chip@laserlink.net>
@@ -13,144 +13,196 @@
  * Licensed under GPLv2 or later, see file LICENSE in this tarball for details.
  */
 
-#include <sys/ioctl.h>
+#include "libbb.h"
 
-#include <ctype.h>
-#include <errno.h>
-#include <fcntl.h>
-#include <getopt.h>
-#include <signal.h>
-#include <string.h>
-#include <unistd.h>
+struct globals {
+	const char *user;
+	const char *password;
+	struct len_and_sockaddr *lsa;
+	FILE *control_stream;
+	int verbose_flag;
+	int do_continue;
+	char buf[1]; /* actually [BUFSZ] */
+};
+#define G (*(struct globals*)&bb_common_bufsiz1)
+enum { BUFSZ = COMMON_BUFSIZE - offsetof(struct globals, buf) };
+struct BUG_G_too_big {
+	char BUG_G_too_big[sizeof(G) <= COMMON_BUFSIZE ? 1 : -1];
+};
+#define user           (G.user          )
+#define password       (G.password      )
+#define lsa            (G.lsa           )
+#define control_stream (G.control_stream)
+#define verbose_flag   (G.verbose_flag  )
+#define do_continue    (G.do_continue   )
+#define buf            (G.buf           )
+#define INIT_G() do { } while (0)
 
-#include <sys/socket.h>
 
-#include "busybox.h"
-
-typedef struct ftp_host_info_s {
-	char *user;
-	char *password;
-	struct sockaddr_in *s_in;
-} ftp_host_info_t;
-
-static char verbose_flag = 0;
-static char do_continue = 0;
-
-static int ftpcmd(const char *s1, const char *s2, FILE *stream, char *buf)
+static void ftp_die(const char *msg) NORETURN;
+static void ftp_die(const char *msg)
 {
+	char *cp = buf; /* buf holds peer's response */
+
+	/* Guard against garbage from remote server */
+	while (*cp >= ' ' && *cp < '\x7f')
+		cp++;
+	*cp = '\0';
+	bb_error_msg_and_die("unexpected server response%s%s: %s",
+			(msg ? " to " : ""), (msg ? msg : ""), buf);
+}
+
+static int ftpcmd(const char *s1, const char *s2)
+{
+	unsigned n;
+
 	if (verbose_flag) {
-		bb_error_msg("cmd %s%s", s1, s2);
+		bb_error_msg("cmd %s %s", s1, s2);
 	}
 
 	if (s1) {
-		if (s2) {
-			fprintf(stream, "%s%s\r\n", s1, s2);
-		} else {
-			fprintf(stream, "%s\r\n", s1);
-		}
+		fprintf(control_stream, (s2 ? "%s %s\r\n" : "%s %s\r\n"+3),
+						s1, s2);
+		fflush(control_stream);
 	}
+
 	do {
-		char *buf_ptr;
-
-		if (fgets(buf, 510, stream) == NULL) {
-			bb_perror_msg_and_die("fgets()");
+		strcpy(buf, "EOF");
+		if (fgets(buf, BUFSZ - 2, control_stream) == NULL) {
+			ftp_die(NULL);
 		}
-		buf_ptr = strstr(buf, "\r\n");
-		if (buf_ptr) {
-			*buf_ptr = '\0';
-		}
-	} while (! isdigit(buf[0]) || buf[3] != ' ');
+	} while (!isdigit(buf[0]) || buf[3] != ' ');
 
-	return atoi(buf);
+	buf[3] = '\0';
+	n = xatou(buf);
+	buf[3] = ' ';
+	return n;
 }
 
-static int xconnect_ftpdata(ftp_host_info_t *server, const char *buf)
+static void ftp_login(void)
 {
-	char *buf_ptr;
-	unsigned short port_num;
-
-	buf_ptr = strrchr(buf, ',');
-	*buf_ptr = '\0';
-	port_num = atoi(buf_ptr + 1);
-
-	buf_ptr = strrchr(buf, ',');
-	*buf_ptr = '\0';
-	port_num += atoi(buf_ptr + 1) * 256;
-
-	server->s_in->sin_port=htons(port_num);
-	return(xconnect(server->s_in));
-}
-
-static FILE *ftp_login(ftp_host_info_t *server)
-{
-	FILE *control_stream;
-	char buf[512];
-
 	/* Connect to the command socket */
-	control_stream = fdopen(xconnect(server->s_in), "r+");
+	control_stream = fdopen(xconnect_stream(lsa), "r+");
 	if (control_stream == NULL) {
-		bb_perror_msg_and_die("Couldnt open control stream");
+		/* fdopen failed - extremely unlikely */
+		bb_perror_nomsg_and_die();
 	}
 
-	if (ftpcmd(NULL, NULL, control_stream, buf) != 220) {
-		bb_error_msg_and_die("%s", buf + 4);
+	if (ftpcmd(NULL, NULL) != 220) {
+		ftp_die(NULL);
 	}
 
 	/*  Login to the server */
-	switch (ftpcmd("USER ", server->user, control_stream, buf)) {
+	switch (ftpcmd("USER", user)) {
 	case 230:
 		break;
 	case 331:
-		if (ftpcmd("PASS ", server->password, control_stream, buf) != 230) {
-			bb_error_msg_and_die("PASS error: %s", buf + 4);
+		if (ftpcmd("PASS", password) != 230) {
+			ftp_die("PASS");
 		}
 		break;
 	default:
-		bb_error_msg_and_die("USER error: %s", buf + 4);
+		ftp_die("USER");
 	}
 
-	ftpcmd("TYPE I", NULL, control_stream, buf);
+	ftpcmd("TYPE I", NULL);
+}
 
-	return(control_stream);
+static int xconnect_ftpdata(void)
+{
+	char *buf_ptr;
+	unsigned port_num;
+
+/*
+TODO: PASV command will not work for IPv6. RFC2428 describes
+IPv6-capable "extended PASV" - EPSV.
+
+"EPSV [protocol]" asks server to bind to and listen on a data port
+in specified protocol. Protocol is 1 for IPv4, 2 for IPv6.
+If not specified, defaults to "same as used for control connection".
+If server understood you, it should answer "229 <some text>(|||port|)"
+where "|" are literal pipe chars and "port" is ASCII decimal port#.
+
+There is also an IPv6-capable replacement for PORT (EPRT),
+but we don't need that.
+
+NB: PASV may still work for some servers even over IPv6.
+For example, vsftp happily answers
+"227 Entering Passive Mode (0,0,0,0,n,n)" and proceeds as usual.
+
+TODO2: need to stop ignoring IP address in PASV response.
+*/
+
+	if (ftpcmd("PASV", NULL) != 227) {
+		ftp_die("PASV");
+	}
+
+	/* Response is "NNN garbageN1,N2,N3,N4,P1,P2[)garbage]
+	 * Server's IP is N1.N2.N3.N4 (we ignore it)
+	 * Server's port for data connection is P1*256+P2 */
+	buf_ptr = strrchr(buf, ')');
+	if (buf_ptr) *buf_ptr = '\0';
+
+	buf_ptr = strrchr(buf, ',');
+	*buf_ptr = '\0';
+	port_num = xatoul_range(buf_ptr + 1, 0, 255);
+
+	buf_ptr = strrchr(buf, ',');
+	*buf_ptr = '\0';
+	port_num += xatoul_range(buf_ptr + 1, 0, 255) * 256;
+
+	set_nport(lsa, htons(port_num));
+	return xconnect_stream(lsa);
+}
+
+static int pump_data_and_QUIT(int from, int to)
+{
+	/* copy the file */
+	if (bb_copyfd_eof(from, to) == -1) {
+		/* error msg is already printed by bb_copyfd_eof */
+		return EXIT_FAILURE;
+	}
+
+	/* close data connection */
+	close(from); /* don't know which one is that, so we close both */
+	close(to);
+
+	/* does server confirm that transfer is finished? */
+	if (ftpcmd(NULL, NULL) != 226) {
+		ftp_die(NULL);
+	}
+	ftpcmd("QUIT", NULL);
+
+	return EXIT_SUCCESS;
 }
 
 #if !ENABLE_FTPGET
-#define ftp_receive 0
+int ftp_receive(const char *local_path, char *server_path);
 #else
-static int ftp_receive(ftp_host_info_t *server, FILE *control_stream,
-		const char *local_path, char *server_path)
+static
+int ftp_receive(const char *local_path, char *server_path)
 {
-	char buf[512];
-	off_t filesize = 0;
 	int fd_data;
 	int fd_local = -1;
 	off_t beg_range = 0;
 
-	/* Connect to the data socket */
-	if (ftpcmd("PASV", NULL, control_stream, buf) != 227) {
-		bb_error_msg_and_die("PASV error: %s", buf + 4);
-	}
-	fd_data = xconnect_ftpdata(server, buf);
+	/* connect to the data socket */
+	fd_data = xconnect_ftpdata();
 
-	if (ftpcmd("SIZE ", server_path, control_stream, buf) == 213) {
-		unsigned long value=filesize;
-		if (safe_strtoul(buf + 4, &value))
-			bb_error_msg_and_die("SIZE error: %s", buf + 4);
-		filesize = value;
-	} else {
-		filesize = -1;
+	if (ftpcmd("SIZE", server_path) != 213) {
 		do_continue = 0;
 	}
 
-	if ((local_path[0] == '-') && (local_path[1] == '\0')) {
+	if (LONE_DASH(local_path)) {
 		fd_local = STDOUT_FILENO;
 		do_continue = 0;
 	}
 
 	if (do_continue) {
 		struct stat sbuf;
-		if (lstat(local_path, &sbuf) < 0) {
-			bb_perror_msg_and_die("fstat()");
+		/* lstat would be wrong here! */
+		if (stat(local_path, &sbuf) < 0) {
+			bb_perror_msg_and_die("stat");
 		}
 		if (sbuf.st_size > 0) {
 			beg_range = sbuf.st_size;
@@ -160,193 +212,114 @@ static int ftp_receive(ftp_host_info_t *server, FILE *control_stream,
 	}
 
 	if (do_continue) {
-		sprintf(buf, "REST %ld", (long)beg_range);
-		if (ftpcmd(buf, NULL, control_stream, buf) != 350) {
+		sprintf(buf, "REST %"OFF_FMT"d", beg_range);
+		if (ftpcmd(buf, NULL) != 350) {
 			do_continue = 0;
-		} else {
-			filesize -= beg_range;
 		}
 	}
 
-	if (ftpcmd("RETR ", server_path, control_stream, buf) > 150) {
-		bb_error_msg_and_die("RETR error: %s", buf + 4);
+	if (ftpcmd("RETR", server_path) > 150) {
+		ftp_die("RETR");
 	}
 
-	/* only make a local file if we know that one exists on the remote server */
+	/* create local file _after_ we know that remote file exists */
 	if (fd_local == -1) {
-		if (do_continue) {
-			fd_local = bb_xopen(local_path, O_APPEND | O_WRONLY);
-		} else {
-			fd_local = bb_xopen(local_path, O_CREAT | O_TRUNC | O_WRONLY);
-		}
+		fd_local = xopen(local_path,
+			do_continue ? (O_APPEND | O_WRONLY)
+			            : (O_CREAT | O_TRUNC | O_WRONLY)
+		);
 	}
 
-	/* Copy the file */
-	if (filesize != -1) {
-		if (-1 == bb_copyfd_size(fd_data, fd_local, filesize))
-			exit(EXIT_FAILURE);
-	} else {
-		if (-1 == bb_copyfd_eof(fd_data, fd_local))
-			exit(EXIT_FAILURE);
-	}
-
-	/* close it all down */
-	close(fd_data);
-	if (ftpcmd(NULL, NULL, control_stream, buf) != 226) {
-		bb_error_msg_and_die("ftp error: %s", buf + 4);
-	}
-	ftpcmd("QUIT", NULL, control_stream, buf);
-
-	return(EXIT_SUCCESS);
+	return pump_data_and_QUIT(fd_data, fd_local);
 }
 #endif
 
 #if !ENABLE_FTPPUT
-#define ftp_send 0
+int ftp_send(const char *server_path, char *local_path);
 #else
-static int ftp_send(ftp_host_info_t *server, FILE *control_stream,
-		const char *server_path, char *local_path)
+static
+int ftp_send(const char *server_path, char *local_path)
 {
-	struct stat sbuf;
-	char buf[512];
 	int fd_data;
 	int fd_local;
 	int response;
 
-	/*  Connect to the data socket */
-	if (ftpcmd("PASV", NULL, control_stream, buf) != 227) {
-		bb_error_msg_and_die("PASV error: %s", buf + 4);
-	}
-	fd_data = xconnect_ftpdata(server, buf);
+	/* connect to the data socket */
+	fd_data = xconnect_ftpdata();
 
 	/* get the local file */
-	if ((local_path[0] == '-') && (local_path[1] == '\0')) {
-		fd_local = STDIN_FILENO;
-	} else {
-		fd_local = bb_xopen(local_path, O_RDONLY);
-		fstat(fd_local, &sbuf);
+	fd_local = STDIN_FILENO;
+	if (NOT_LONE_DASH(local_path))
+		fd_local = xopen(local_path, O_RDONLY);
 
-		sprintf(buf, "ALLO %lu", (unsigned long)sbuf.st_size);
-		response = ftpcmd(buf, NULL, control_stream, buf);
-		switch (response) {
-		case 200:
-		case 202:
-		case 500:	/* ignore error if not implemented */
-		case 502:	/* ignore error if not implemented */
-			break;
-		default:
-			close(fd_local);
-			bb_error_msg_and_die("ALLO error: %s", buf);
-			break;
-		}
-	}
-	response = ftpcmd("STOR ", server_path, control_stream, buf);
+	response = ftpcmd("STOR", server_path);
 	switch (response) {
 	case 125:
 	case 150:
 		break;
 	default:
-		close(fd_local);
-		bb_error_msg_and_die("STOR error: %s", buf + 4);
+		ftp_die("STOR");
 	}
 
-	/* transfer the file  */
-	if (bb_copyfd_eof(fd_local, fd_data) == -1) {
-		exit(EXIT_FAILURE);
-	}
-
-	/* close it all down */
-	close(fd_data);
-	if (ftpcmd(NULL, NULL, control_stream, buf) != 226) {
-		bb_error_msg_and_die("error: %s", buf + 4);
-	}
-	ftpcmd("QUIT", NULL, control_stream, buf);
-
-	return(EXIT_SUCCESS);
+	return pump_data_and_QUIT(fd_local, fd_data);
 }
 #endif
 
-#define FTPGETPUT_OPT_CONTINUE	1
-#define FTPGETPUT_OPT_VERBOSE	2
-#define FTPGETPUT_OPT_USER	4
-#define FTPGETPUT_OPT_PASSWORD	8
-#define FTPGETPUT_OPT_PORT	16
-
 #if ENABLE_FEATURE_FTPGETPUT_LONG_OPTIONS
-static const struct option ftpgetput_long_options[] = {
-	{"continue", 1, NULL, 'c'},
-	{"verbose", 0, NULL, 'v'},
-	{"username", 1, NULL, 'u'},
-	{"password", 1, NULL, 'p'},
-	{"port", 1, NULL, 'P'},
-	{0, 0, 0, 0}
-};
-#else
-#define ftpgetput_long_options 0
+static const char ftpgetput_longopts[] ALIGN1 =
+	"continue\0" Required_argument "c"
+	"verbose\0"  No_argument       "v"
+	"username\0" Required_argument "u"
+	"password\0" Required_argument "p"
+	"port\0"     Required_argument "P"
+	;
 #endif
 
-int ftpgetput_main(int argc, char **argv)
+int ftpgetput_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
+int ftpgetput_main(int argc UNUSED_PARAM, char **argv)
 {
-	/* content-length of the file */
-	unsigned long opt;
-	char *port = "ftp";
-
+	unsigned opt;
+	const char *port = "ftp";
 	/* socket to ftp server */
-	FILE *control_stream;
-	struct sockaddr_in s_in;
 
-	/* continue a prev transfer (-c) */
-	ftp_host_info_t *server;
-
-	int (*ftp_action)(ftp_host_info_t *, FILE *, const char *, char *) = NULL;
+#if ENABLE_FTPPUT && !ENABLE_FTPGET
+# define ftp_action ftp_send
+#elif ENABLE_FTPGET && !ENABLE_FTPPUT
+# define ftp_action ftp_receive
+#else
+	int (*ftp_action)(const char *, char *) = ftp_send;
 
 	/* Check to see if the command is ftpget or ftput */
-	if (ENABLE_FTPPUT && (!ENABLE_FTPGET || bb_applet_name[3] == 'p')) {
-		ftp_action = ftp_send;
-	}
-	if (ENABLE_FTPGET && (!ENABLE_FTPPUT || bb_applet_name[3] == 'g')) {
+	if (applet_name[3] == 'g') {
 		ftp_action = ftp_receive;
 	}
+#endif
 
+	INIT_G();
 	/* Set default values */
-	server = xmalloc(sizeof(ftp_host_info_t));
-	server->user = "anonymous";
-	server->password = "busybox@";
-	verbose_flag = 0;
+	user = "anonymous";
+	password = "busybox@";
 
 	/*
 	 * Decipher the command line
 	 */
-	if (ENABLE_FEATURE_FTPGETPUT_LONG_OPTIONS)
-		bb_applet_long_options = ftpgetput_long_options;
-
-	opt = bb_getopt_ulflags(argc, argv, "cvu:p:P:", &server->user, &server->password, &port);
-
-	/* Process the non-option command line arguments */
-	if (argc - optind != 3) {
-		bb_show_usage();
-	}
-
-	if (opt & FTPGETPUT_OPT_CONTINUE) {
-		do_continue = 1;
-	}
-	if (opt & FTPGETPUT_OPT_VERBOSE) {
-		verbose_flag = 1;
-	}
+#if ENABLE_FEATURE_FTPGETPUT_LONG_OPTIONS
+	applet_long_options = ftpgetput_longopts;
+#endif
+	opt_complementary = "=3:vv:cc"; /* must have 3 params; -v and -c count */
+	opt = getopt32(argv, "cvu:p:P:", &user, &password, &port,
+					&verbose_flag, &do_continue);
+	argv += optind;
 
 	/* We want to do exactly _one_ DNS lookup, since some
 	 * sites (i.e. ftp.us.debian.org) use round-robin DNS
 	 * and we want to connect to only one IP... */
-	server->s_in = &s_in;
-	bb_lookup_host(&s_in, argv[optind]);
-	s_in.sin_port = bb_lookup_port(port, "tcp", 21);
+	lsa = xhost2sockaddr(argv[0], bb_lookup_port(port, "tcp", 21));
 	if (verbose_flag) {
-		printf("Connecting to %s[%s]:%d\n",
-				argv[optind], inet_ntoa(s_in.sin_addr), ntohs(s_in.sin_port));
+		printf("Connecting to %s (%s)\n", argv[0],
+			xmalloc_sockaddr2dotted(&lsa->u.sa));
 	}
 
-	/*  Connect/Setup/Configure the FTP session */
-	control_stream = ftp_login(server);
-
-	return(ftp_action(server, control_stream, argv[optind + 1], argv[optind + 2]));
+	ftp_login();
+	return ftp_action(argv[1], argv[2]);
 }

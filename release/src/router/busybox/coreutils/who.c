@@ -11,54 +11,70 @@
  *    http://www.gnu.org/copyleft/gpl.html
  *
  * Copyright (c) 2002 AYR Networks, Inc.
+ *
+ * Licensed under GPLv2 or later, see file LICENSE in this tarball for details.
+ *
  *----------------------------------------------------------------------
  */
+/* BB_AUDIT SUSv3 _NOT_ compliant -- missing options -b, -d, -H, -l, -m, -p, -q, -r, -s, -t, -T, -u; Missing argument 'file'.  */
 
-#include "busybox.h"
+#include "libbb.h"
 #include <utmp.h>
 #include <time.h>
 
-static const char * idle_string (time_t t)
+static void idle_string(char *str6, time_t t)
 {
-	static char str[6];
-	
-	time_t s = time(NULL) - t;
+	t = time(NULL) - t;
 
-	if (s < 60)
-		return ".";
-	if (s < (24 * 60 * 60)) {
-		sprintf (str, "%02d:%02d",
-				(int) (s / (60 * 60)),
-				(int) ((s % (60 * 60)) / 60));
-		return str;
+	/*if (t < 60) {
+		str6[0] = '.';
+		str6[1] = '\0';
+		return;
+	}*/
+	if (t >= 0 && t < (24 * 60 * 60)) {
+		sprintf(str6, "%02d:%02d",
+				(int) (t / (60 * 60)),
+				(int) ((t % (60 * 60)) / 60));
+		return;
 	}
-	return "old";
+	strcpy(str6, "old");
 }
 
-int who_main(int argc, char **argv)
+int who_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
+int who_main(int argc UNUSED_PARAM, char **argv)
 {
+	char str6[6];
 	struct utmp *ut;
 	struct stat st;
 	char *name;
-	
-	if (argc > 1) {
-		bb_show_usage();
-	}
-	
-	setutent();
-	printf("USER       TTY      IDLE      TIME           HOST\n");
-	while ((ut = getutent()) != NULL) {
-		if (ut->ut_user[0] && ut->ut_type == USER_PROCESS) {
-			time_t thyme = ut->ut_tv.tv_sec;
+	unsigned opt;
 
+	opt_complementary = "=0";
+	opt = getopt32(argv, "a");
+
+	setutent();
+	printf("USER       TTY      IDLE      TIME            HOST\n");
+	while ((ut = getutent()) != NULL) {
+		if (ut->ut_user[0] && (opt || ut->ut_type == USER_PROCESS)) {
+			time_t tmp;
 			/* ut->ut_line is device name of tty - "/dev/" */
 			name = concat_path_file("/dev", ut->ut_line);
-			printf("%-10s %-8s %-8s  %-12.12s   %s\n", ut->ut_user, ut->ut_line,
-									(stat(name, &st)) ?  "?" : idle_string(st.st_atime),
-									ctime(&thyme) + 4, ut->ut_host);
-			if (ENABLE_FEATURE_CLEAN_UP) free(name);
+			str6[0] = '?';
+			str6[1] = '\0';
+			if (stat(name, &st) == 0)
+				idle_string(str6, st.st_atime);
+			/* manpages say ut_tv.tv_sec *is* time_t,
+			 * but some systems have it wrong */
+			tmp = ut->ut_tv.tv_sec;
+			/* 15 chars for time:   Nov 10 19:33:20 */
+			printf("%-10s %-8s %-9s %-15.15s %s\n",
+					ut->ut_user, ut->ut_line, str6,
+					ctime(&tmp) + 4, ut->ut_host);
+			if (ENABLE_FEATURE_CLEAN_UP)
+				free(name);
 		}
 	}
-	if (ENABLE_FEATURE_CLEAN_UP) endutent();
-	return 0;
+	if (ENABLE_FEATURE_CLEAN_UP)
+		endutent();
+	return EXIT_SUCCESS;
 }

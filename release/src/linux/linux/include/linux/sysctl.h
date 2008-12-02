@@ -527,6 +527,15 @@ enum {
 	NET_DECNET_CONF_DEV_STATE = 7
 };
 
+/* /proc/sys/net/bridge */
+enum {
+	NET_BRIDGE_NF_CALL_ARPTABLES = 1,
+	NET_BRIDGE_NF_CALL_IPTABLES = 2,
+	NET_BRIDGE_NF_CALL_IP6TABLES = 3,
+	NET_BRIDGE_NF_FILTER_VLAN_TAGGED = 4,
+};
+
+
 /* CTL_PROC names: */
 
 /* CTL_FS names: */

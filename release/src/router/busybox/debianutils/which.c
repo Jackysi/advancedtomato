@@ -3,104 +3,88 @@
  * Which implementation for busybox
  *
  * Copyright (C) 1999-2004 by Erik Andersen <andersen@codepoet.org>
+ * Copyright (C) 2006 Gabriel Somlo <somlo at cmu.edu>
  *
- * Licensed under the GPL v2, see the file LICENSE in this tarball.
+ * Licensed under the GPL v2 or later, see the file LICENSE in this tarball.
  *
  * Based on which from debianutils
  */
 
-#include "busybox.h"
-#include <string.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <sys/stat.h>
+#include "libbb.h"
 
-
-static int is_executable_file(const char const * a, struct stat *b)
+int which_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
+int which_main(int argc UNUSED_PARAM, char **argv)
 {
-	return (!access(a,X_OK) && !stat(a, b) && S_ISREG(b->st_mode));
-}
+	USE_DESKTOP(int opt;)
+	int status = EXIT_SUCCESS;
+	char *path;
+	char *p;
 
-int which_main(int argc, char **argv)
-{
-	int status;
-	size_t i, count;
-	char *path_list;
+	opt_complementary = "-1"; /* at least one argument */
+	USE_DESKTOP(opt =) getopt32(argv, "a");
+	argv += optind;
 
-	if (argc <= 1 || **(argv + 1) == '-') {
-		bb_show_usage();
-	}
-	argc--;
-
-	path_list = getenv("PATH");
-	if (path_list != NULL) {
-		size_t path_len = strlen(path_list);
-		char *new_list = NULL;
-		count = 1;
-
-		for (i = 0; i <= path_len; i++) {
-			char *this_i = &path_list[i];
-			if (*this_i == ':') {
-				/* ^::[^:] == \.: */
-				if (!i && (*(this_i + 1) == ':')) {
-					*this_i = '.';
-					continue;
-				}
-				*this_i = 0;
-				count++;
-				/* ^:[^:] == \.0 and [^:]::[^:] == 0\.0 and [^:]:$ == 0\.0 */
-				if (!i || (*(this_i + 1) == ':') || (i == path_len-1)) {
-					new_list = xrealloc(new_list, path_len += 1);
-					if (i) {
-						memmove(&new_list[i+2], &path_list[i+1], path_len-i);
-						new_list[i+1] = '.';
-						memmove(new_list, path_list, i);
-					} else {
-						memmove(&new_list[i+1], &path_list[i], path_len-i);
-						new_list[i] = '.';
-					}
-					path_list = new_list;
-				}
-			}
-		}
-	} else {
-		path_list = "/bin\0/sbin\0/usr/bin\0/usr/sbin\0/usr/local/bin";
-		count = 5;
+	/* This matches what is seen on e.g. ubuntu.
+	 * "which" there is a shell script. */
+	path = getenv("PATH");
+	if (!path) {
+		path = (char*)bb_PATH_root_path;
+		putenv(path);
+		path += 5; /* skip "PATH=" */
 	}
 
-	status = EXIT_SUCCESS;
-	while (argc-- > 0) {
-		struct stat stat_b;
-		char *buf;
-		char *path_n;
-		int found = 0;
-
-		argv++;
-		path_n = path_list;
-		buf = *argv;
-
-		/* if filename is either absolute or contains slashes,
-		 * stat it */
-		if (strchr(buf, '/') != NULL && is_executable_file(buf, &stat_b)) {
-			found++;
-		} else {
-			/* Couldn't access file and file doesn't contain slashes */
-			for (i = 0; i < count; i++) {
-				buf = concat_path_file(path_n, *argv);
-				if (is_executable_file(buf, &stat_b)) {
-					found++;
-					break;
-				}
-				free(buf);
-				path_n += (strlen(path_n) + 1);
+	do {
+#if ENABLE_DESKTOP
+/* Much bloat just to support -a */
+		if (strchr(*argv, '/')) {
+			if (execable_file(*argv)) {
+				puts(*argv);
+				continue;
 			}
-		}
-		if (found) {
-			puts(buf);
-		} else {
 			status = EXIT_FAILURE;
+		} else {
+			char *path2 = xstrdup(path);
+			char *tmp = path2;
+
+			p = find_execable(*argv, &tmp);
+			if (!p)
+				status = EXIT_FAILURE;
+			else {
+ print:
+				puts(p);
+				free(p);
+				if (opt) {
+					/* -a: show matches in all PATH components */
+					if (tmp) {
+						p = find_execable(*argv, &tmp);
+						if (p)
+							goto print;
+					}
+				}
+			}
+			free(path2);
 		}
-	}
-	bb_fflush_stdout_and_exit(status);
+#else
+/* Just ignoring -a */
+		if (strchr(*argv, '/')) {
+			if (execable_file(*argv)) {
+				puts(*argv);
+				continue;
+			}
+		} else {
+			char *path2 = xstrdup(path);
+			char *tmp = path2;
+			p = find_execable(*argv, &tmp);
+			free(path2);
+			if (p) {
+				puts(p);
+				free(p);
+				continue;
+			}
+		}
+		status = EXIT_FAILURE;
+#endif
+	} while (*(++argv) != NULL);
+
+	fflush_stdout_and_exit(status);
 }

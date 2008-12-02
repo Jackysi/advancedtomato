@@ -284,6 +284,7 @@ void start_pppoe(int num)
 			NULL, NULL,		// pppoe_ac
 			NULL, NULL,		// static IP
 			NULL,			// pppoe_keepalive
+			NULL,			// -x extended logging
 			NULL
 	};
 	char **arg;
@@ -316,6 +317,8 @@ void start_pppoe(int num)
 	// ??	zzz
 	//if (nvram_match("pppoe_demand", "1") || nvram_match("pppoe_keepalive", "1"))
 	*arg++ = "-k";
+	
+	if (nvram_contains_word("log_events", "pppoe")) *arg++ = "-x";
 
 	mkdir("/tmp/ppp", 0777);
 	

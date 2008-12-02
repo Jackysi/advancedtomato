@@ -1,3 +1,4 @@
+/* vi: set sw=4 ts=4: */
 /*
  * ll_addr.c
  *
@@ -9,11 +10,9 @@
  * Authors:	Alexey Kuznetsov, <kuznet@ms2.inr.ac.ru>
  */
 
-#include "libbb.h"
-
-#include <string.h>
 #include <net/if_arp.h>
 
+#include "libbb.h"
 #include "rt_names.h"
 #include "utils.h"
 
@@ -30,7 +29,7 @@ const char *ll_addr_n2a(unsigned char *addr, int alen, int type, char *buf, int 
 	l = 0;
 	for (i=0; i<alen; i++) {
 		if (i==0) {
-			snprintf(buf+l, blen, "%02x", addr[i]);
+			snprintf(buf+l, blen, ":%02x"+1, addr[i]);
 			blen -= 2;
 			l += 2;
 		} else {
@@ -47,7 +46,7 @@ int ll_addr_a2n(unsigned char *lladdr, int len, char *arg)
 	if (strchr(arg, '.')) {
 		inet_prefix pfx;
 		if (get_addr_1(&pfx, arg, AF_INET)) {
-			bb_error_msg("\"%s\" is invalid lladdr.", arg);
+			bb_error_msg("\"%s\" is invalid lladdr", arg);
 			return -1;
 		}
 		if (len < 4) {
@@ -65,12 +64,8 @@ int ll_addr_a2n(unsigned char *lladdr, int len, char *arg)
 				*cp = 0;
 				cp++;
 			}
-			if (sscanf(arg, "%x", &temp) != 1) {
-				bb_error_msg("\"%s\" is invalid lladdr.", arg);
-				return -1;
-			}
-			if (temp < 0 || temp > 255) {
-				bb_error_msg("\"%s\" is invalid lladdr.", arg);
+			if (sscanf(arg, "%x", &temp) != 1 || (temp < 0 || temp > 255)) {
+				bb_error_msg("\"%s\" is invalid lladdr", arg);
 				return -1;
 			}
 			lladdr[i] = temp;

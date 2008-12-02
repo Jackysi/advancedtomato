@@ -10,50 +10,48 @@
 /* BB_AUDIT SUSv3 compliant */
 /* http://www.opengroup.org/onlinepubs/007904975/utilities/uniq.html */
 
-#include "busybox.h"
-#include <string.h>
-#include <ctype.h>
-#include <unistd.h>
-
-static const char uniq_opts[] = "f:s:" "cdu\0\1\2\4";
+#include "libbb.h"
 
 static FILE *xgetoptfile_uniq_s(char **argv, int read0write2)
 {
 	const char *n;
 
-	if ((n = *argv) != NULL) {
+	n = *argv;
+	if (n != NULL) {
 		if ((*n != '-') || n[1]) {
-			return bb_xfopen(n, "r\0w" + read0write2);
+			return xfopen(n, "r\0w" + read0write2);
 		}
 	}
 	return (read0write2) ? stdout : stdin;
 }
 
-int uniq_main(int argc, char **argv)
+int uniq_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
+int uniq_main(int argc UNUSED_PARAM, char **argv)
 {
 	FILE *in, *out;
-	unsigned long dups, skip_fields, skip_chars, i, uniq_flags;
 	const char *s0, *e0, *s1, *e1, *input_filename;
-	int opt;
+	unsigned long dups;
+	unsigned skip_fields, skip_chars, max_chars;
+	unsigned opt;
+	unsigned i;
 
-	uniq_flags = skip_fields = skip_chars = 0;
+	enum {
+		OPT_c = 0x1,
+		OPT_d = 0x2,
+		OPT_u = 0x4,
+		OPT_f = 0x8,
+		OPT_s = 0x10,
+		OPT_w = 0x20,
+	};
 
-	while ((opt = getopt(argc, argv, uniq_opts)) > 0) {
-		if ((opt == 'f') || (opt == 's')) {
-			int t = bb_xgetularg10(optarg);
-			if (opt == 'f') {
-				skip_fields = t;
-			} else {
-				skip_chars = t;
-			}
-		} else if ((s0 = strchr(uniq_opts, opt)) != NULL) {
-			uniq_flags |= s0[4];
-		} else {
-			bb_show_usage();
-		}
-	}
+	skip_fields = skip_chars = 0;
+	max_chars = -1;
 
-	input_filename = *(argv += optind);
+	opt_complementary = "f+:s+:w+";
+	opt = getopt32(argv, "cduf:s:w:", &skip_fields, &skip_chars, &max_chars);
+	argv += optind;
+
+	input_filename = *argv;
 
 	in = xgetoptfile_uniq_s(argv, 0);
 	if (*argv) {
@@ -64,7 +62,7 @@ int uniq_main(int argc, char **argv)
 		bb_show_usage();
 	}
 
-	s1 = e1 = NULL;				/* prime the pump */
+	s1 = e1 = NULL; /* prime the pump */
 
 	do {
 		s0 = s1;
@@ -72,35 +70,33 @@ int uniq_main(int argc, char **argv)
 		dups = 0;
 
 		/* gnu uniq ignores newlines */
-		while ((s1 = bb_get_chomped_line_from_file(in)) != NULL) {
+		while ((s1 = xmalloc_fgetline(in)) != NULL) {
 			e1 = s1;
-			for (i=skip_fields ; i ; i--) {
+			for (i = skip_fields; i; i--) {
 				e1 = skip_whitespace(e1);
-				while (*e1 && !isspace(*e1)) {
-					++e1;
-				}
+				e1 = skip_non_whitespace(e1);
 			}
-			for (i = skip_chars ; *e1 && i ; i--) {
+			for (i = skip_chars; *e1 && i; i--) {
 				++e1;
 			}
 
-			if (!s0 || strcmp(e0, e1)) {
+			if (!s0 || strncmp(e0, e1, max_chars)) {
 				break;
 			}
 
-			++dups;		 /* Note: Testing for overflow seems excessive. */
+			++dups;	 /* note: testing for overflow seems excessive. */
 		}
 
 		if (s0) {
-			if (!(uniq_flags & (2 << !!dups))) {
-				bb_fprintf(out, "\0%d " + (uniq_flags & 1), dups + 1);
-				bb_fprintf(out, "%s\n", s0);
+			if (!(opt & (OPT_d << !!dups))) { /* (if dups, opt & OPT_e) */
+				fprintf(out, "\0%ld " + (opt & 1), dups + 1); /* 1 == OPT_c */
+				fprintf(out, "%s\n", s0);
 			}
 			free((void *)s0);
 		}
 	} while (s1);
 
-	bb_xferror(in, input_filename);
+	die_if_ferror(in, input_filename);
 
-	bb_fflush_stdout_and_exit(EXIT_SUCCESS);
+	fflush_stdout_and_exit(EXIT_SUCCESS);
 }

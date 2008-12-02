@@ -25,6 +25,7 @@ sub beautify {
 		my $text2 = $text;
 		$text =~ s/SKIP_\w+\(.*?"\s*\)//sxg;
 		$text =~ s/USE_\w+\(\s*?(.*?)"\s*\)/$1"/sxg;
+		$text =~ s/USAGE_\w+\(\s*?(.*?)"\s*\)/$1"/sxg;
 		last if ( $text2 eq $text );
 	}
 	$text =~ s/"\s*"//sg;
@@ -300,4 +301,3 @@ John BEPPU <b@ax9.org>
 
 =cut
 
-# $Id: autodocifier.pl,v 1.26 2004/04/06 15:26:25 andersen Exp $

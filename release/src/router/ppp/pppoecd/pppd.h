@@ -785,11 +785,12 @@ extern int my_gettimeofday(struct timeval *timenow, struct timezone *tz);
 #define IP_FMT(x) (x) & 0xff, ((x) >> 8) & 0xff, ((x) >> 16) & 0xff, ((x) >> 24) & 0xff
 
 #define LOGX_INFO(args ...)		syslog(LOG_INFO, args)
+#define LOGX_NOTICE(args ...)	syslog(LOG_NOTICE, args)
 #define LOGX_WARN(args ...)		syslog(LOG_WARNING, args)
 #define LOGX_ERROR(args ...)	syslog(LOG_ERR, args)
-//	#define LOGX_DEBUG(args ...)	syslog(LOG_NOTICE, args)
 #define LOGX_DEBUG(args ...)	syslog(LOG_DEBUG, args)
-//	#define LOGX_DEBUG(args ...)	do { } while (0);
+
+extern int logmask;
 
 extern const char pppoe_disc_file[];
 

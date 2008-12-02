@@ -1,3 +1,4 @@
+/* vi: set sw=4 ts=4: */
 /*
  *  md5.c - Compute MD5 checksum of strings according to the
  *          definition of MD5 in RFC 1321 from April 1992.
@@ -11,26 +12,19 @@
  *
  *  Licensed under the GPL v2 or later, see the file LICENSE in this tarball.
  */
-#include <fcntl.h>
-#include <limits.h>
-#include <stdio.h>
-#include <stdint.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
 
 #include "libbb.h"
 
-# if CONFIG_MD5_SIZE_VS_SPEED < 0 || CONFIG_MD5_SIZE_VS_SPEED > 3
+#if CONFIG_MD5_SIZE_VS_SPEED < 0 || CONFIG_MD5_SIZE_VS_SPEED > 3
 # define MD5_SIZE_VS_SPEED 2
-# else
+#else
 # define MD5_SIZE_VS_SPEED CONFIG_MD5_SIZE_VS_SPEED
-# endif
+#endif
 
 /* Initialize structure containing state of computation.
  * (RFC 1321, 3.3: Step 3)
  */
-void md5_begin(md5_ctx_t *ctx)
+void FAST_FUNC md5_begin(md5_ctx_t *ctx)
 {
 	ctx->A = 0x67452301;
 	ctx->B = 0xefcdab89;
@@ -81,7 +75,7 @@ static void md5_hash_block(const void *buffer, md5_ctx_t *ctx)
 		0xf7537e82, 0xbd3af235, 0x2ad7d2bb, 0xeb86d391
 	};
 
-	static const char P_array[] = {
+	static const char P_array[] ALIGN1 = {
 #  if MD5_SIZE_VS_SPEED > 1
 		0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15,	/* 1 */
 #  endif	/* MD5_SIZE_VS_SPEED > 1 */
@@ -91,7 +85,7 @@ static void md5_hash_block(const void *buffer, md5_ctx_t *ctx)
 	};
 
 #  if MD5_SIZE_VS_SPEED > 1
-	static const char S_array[] = {
+	static const char S_array[] ALIGN1 = {
 		7, 12, 17, 22,
 		5, 9, 14, 20,
 		4, 11, 16, 23,
@@ -212,15 +206,13 @@ static void md5_hash_block(const void *buffer, md5_ctx_t *ctx)
 		   before the computation.  To reduce the work for the next steps
 		   we store the swapped words in the array CORRECT_WORDS.  */
 
-#  define OP(a, b, c, d, s, T)	\
-      do	\
-	{	\
-	  a += FF (b, c, d) + (*cwp++ = SWAP_LE32(*words)) + T; \
-	  ++words;	\
-	  CYCLIC (a, s);	\
-	  a += b;	\
-	}	\
-      while (0)
+#  define OP(a, b, c, d, s, T) \
+	do { \
+		a += FF (b, c, d) + (*cwp++ = SWAP_LE32(*words)) + T; \
+		++words; \
+		CYCLIC (a, s); \
+		a += b; \
+	} while (0)
 
 		/* It is unfortunate that C does not provide an operator for
 		   cyclic rotation.  Hope the C compiler is smart enough.  */
@@ -271,14 +263,12 @@ static void md5_hash_block(const void *buffer, md5_ctx_t *ctx)
 		   in CORRECT_WORDS.  Redefine the macro to take an additional first
 		   argument specifying the function to use.  */
 #  undef OP
-#  define OP(f, a, b, c, d, k, s, T)	\
-      do	\
-	{	\
-	  a += f (b, c, d) + correct_words[k] + T;	\
-	  CYCLIC (a, s);	\
-	  a += b;	\
-	}	\
-      while (0)
+#  define OP(f, a, b, c, d, k, s, T) \
+	do { \
+		a += f (b, c, d) + correct_words[k] + T; \
+		CYCLIC (a, s); \
+		a += b; \
+	} while (0)
 
 		/* Round 2.  */
 #  if MD5_SIZE_VS_SPEED == 1
@@ -381,7 +371,7 @@ static void md5_hash_block(const void *buffer, md5_ctx_t *ctx)
  * This function's internal buffer remembers previous data until it has 64
  * bytes worth to pass on.  Call md5_end() to flush this buffer. */
 
-void md5_hash(const void *buffer, size_t len, md5_ctx_t *ctx)
+void FAST_FUNC md5_hash(const void *buffer, size_t len, md5_ctx_t *ctx)
 {
 	char *buf=(char *)buffer;
 
@@ -393,7 +383,7 @@ void md5_hash(const void *buffer, size_t len, md5_ctx_t *ctx)
 	// Process all input.
 
 	while (len) {
-		int i = 64 - ctx->buflen;
+		unsigned i = 64 - ctx->buflen;
 
 		// Copy data into aligned buffer.
 
@@ -420,7 +410,7 @@ void md5_hash(const void *buffer, size_t len, md5_ctx_t *ctx)
  * IMPORTANT: On some systems it is required that RESBUF is correctly
  * aligned for a 32 bits value.
  */
-void *md5_end(void *resbuf, md5_ctx_t *ctx)
+void* FAST_FUNC md5_end(void *resbuf, md5_ctx_t *ctx)
 {
 	char *buf = ctx->buffer;
 	int i;
@@ -438,7 +428,7 @@ void *md5_end(void *resbuf, md5_ctx_t *ctx)
 	/* Process last bytes.  */
 	if (buf != ctx->buffer) md5_hash_block(ctx->buffer, ctx);
 	md5_hash_block(buf, ctx);
-	
+
 	/* Put result from CTX in first 16 bytes following RESBUF.  The result is
 	 * always in little endian byte order, so that a byte-wise output yields
 	 * to the wanted ASCII representation of the message digest.

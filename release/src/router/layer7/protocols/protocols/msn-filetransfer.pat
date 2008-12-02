@@ -2,6 +2,7 @@
 # Pattern attributes: good veryfast fast
 # Protocol groups: chat document_retrieval proprietary
 # Wiki: http://www.protocolinfo.org/wiki/MSN_Messenger
+# Copyright (C) 2008 Matthew Strait, Ethan Sommer; See ../LICENSE
 #
 # http://www.hypothetic.org/docs/msn/client/file_transfer.php
 

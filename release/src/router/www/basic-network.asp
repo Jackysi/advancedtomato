@@ -29,10 +29,16 @@
 
 <script type='text/javascript' src='md5.js'></script>
 <script type='text/javascript'>
-//	<% nvram("dhcp_lease,dhcp_num,dhcp_start,l2tp_server_ip,lan_gateway,lan_ipaddr,lan_netmask,lan_proto,mtu_enable,ppp_demand,ppp_idletime,ppp_passwd,ppp_redialperiod,ppp_service,ppp_username,pptp_server_ip,security_mode2,wan_dns,wan_gateway,wan_ipaddr,wan_mtu,wan_netmask,wan_proto,wan_wins,wds_enable,wl_channel,wl_closed,wl_crypto,wl_key,wl_key1,wl_key2,wl_key3,wl_key4,wl_lazywds,wl_mode,wl_net_mode,wl_passphrase,wl_radio,wl_radius_ipaddr,wl_radius_port,wl_ssid,wl_wds,wl_wep_bit,wl_wpa_gtk_rekey,wl_wpa_psk,wl_radius_key,wds_save,wl_auth,wl0_hwaddr"); %>
+//	<% nvram("dhcp_lease,dhcp_num,dhcp_start,dhcpd_startip,dhcpd_endip,l2tp_server_ip,lan_gateway,lan_ipaddr,lan_netmask,lan_proto,mtu_enable,ppp_demand,ppp_idletime,ppp_passwd,ppp_redialperiod,ppp_service,ppp_username,pptp_server_ip,security_mode2,wan_dns,wan_gateway,wan_ipaddr,wan_mtu,wan_netmask,wan_proto,wan_wins,wds_enable,wl_channel,wl_closed,wl_crypto,wl_key,wl_key1,wl_key2,wl_key3,wl_key4,wl_lazywds,wl_mode,wl_net_mode,wl_passphrase,wl_radio,wl_radius_ipaddr,wl_radius_port,wl_ssid,wl_wds,wl_wep_bit,wl_wpa_gtk_rekey,wl_wpa_psk,wl_radius_key,wds_save,wl_auth,wl0_hwaddr"); %>
 
 xob = null;
 ghz = [['1', '1 - 2.412 GHz'],['2', '2 - 2.417 GHz'],['3', '3 - 2.422 GHz'],['4', '4 - 2.427 GHz'],['5', '5 - 2.432 GHz'],['6', '6 - 2.437 GHz'],['7', '7 - 2.442 GHz'],['8', '8 - 2.447 GHz'],['9', '9 - 2.452 GHz'],['10', '10 - 2.457 GHz'],['11', '11 - 2.462 GHz'],['12', '12 - 2.467 GHz'],['13', '13 - 2.472 GHz'],['14', '14 - 2.484 GHz']]
+
+if ((!fixIP(nvram.dhcpd_startip)) || (!fixIP(nvram.dhcpd_endip))) {
+	var x = nvram.lan_ipaddr.split('.').splice(0, 3).join('.') + '.';
+	nvram.dhcpd_startip = x + nvram.dhcp_start;
+	nvram.dhcpd_endip = x + ((nvram.dhcp_start * 1) + (nvram.dhcp_num * 1) - 1);
+}
 
 function spin(x)
 {
@@ -216,9 +222,9 @@ function verifyFields(focused, quiet)
 		_f_wan_mtu: 1,
 
 		_dhcp_lease: 1,
-		_dhcp_start: 1,
 		_f_dhcpd_enable: 1,
-		_f_dhcpd_end: 1,
+		_dhcpd_startip: 1,
+		_dhcpd_endip: 1,
 		_f_dns_1: 1,
 		_f_dns_2: 1,
 		_f_dns_3: 1,
@@ -423,7 +429,7 @@ function verifyFields(focused, quiet)
 	//
 
 	vis._ppp_passwd = vis._ppp_username;
-	vis._dhcp_start = vis._f_dhcpd_end = vis._wan_wins = vis._dhcp_lease;
+	vis._dhcpd_startip = vis._dhcpd_endip = vis._wan_wins = vis._dhcp_lease;
 	vis._f_scan = vis._wl_channel;
 	vis._f_psk_random1 = vis._wl_wpa_psk;
 	vis._f_psk_random2 = vis._wl_radius_key;
@@ -467,7 +473,7 @@ function verifyFields(focused, quiet)
 	}
 
 	// IP address
-	a = ['_l2tp_server_ip','_pptp_server_ip', '_wan_gateway','_wan_ipaddr','_lan_ipaddr', '_wl_radius_ipaddr'];
+	a = ['_l2tp_server_ip','_pptp_server_ip', '_wan_gateway','_wan_ipaddr','_lan_ipaddr', '_wl_radius_ipaddr', '_dhcpd_startip', '_dhcpd_endip'];
 	for (i = a.length - 1; i >= 0; --i)
 		if ((vis[a[i]]) && (!v_ip(a[i], quiet))) ok = 0;
 
@@ -482,8 +488,8 @@ function verifyFields(focused, quiet)
 		if ((vis[a[i]]) && (!v_netmask(a[i], quiet))) ok = 0;
 
 	// range
-	a = [['_ppp_idletime', 3, 1440],['_ppp_redialperiod', 1, 86400],['_f_wan_mtu', 576, 1500], ['_dhcp_start', 1, 254],
-		 ['_f_dhcpd_end', 1, 254], ['_dhcp_lease', 1, 10080],['_wl_wpa_gtk_rekey', 600, 7200], ['_wl_radius_port', 1, 65535]];
+	a = [['_ppp_idletime', 3, 1440],['_ppp_redialperiod', 1, 86400],['_f_wan_mtu', 576, 1500],
+		 ['_dhcp_lease', 1, 10080],['_wl_wpa_gtk_rekey', 60, 7200], ['_wl_radius_port', 1, 65535]];
 	for (i = a.length - 1; i >= 0; --i) {
 		v = a[i];
 		if ((vis[v[0]]) && (!v_range(v[0], quiet, v[1], v[2]))) ok = 0;
@@ -522,19 +528,31 @@ function verifyFields(focused, quiet)
 		}
 	}
 
-	a = E('_lan_ipaddr');
-	b = a.value.split('.').splice(0, 3).join('.');
-	if (!a._error_msg) {
-		elem.setInnerHTML('dhcpd_prefix_start', b);
-		elem.setInnerHTML('dhcpd_prefix_end', b);
+	a = E('_dhcpd_startip');
+	b = E('_dhcpd_endip');
+	
+	if ((!a._error_msg) && (!b._error_msg)) {
+		c = aton(E('_lan_netmask').value);
+		d = aton(E('_lan_ipaddr').value) & c;
+		e = 'Invalid IP address or subnet mask';
+		if ((aton(a.value) & c) != d) {
+			ferror.set(a, e, quiet);
+			ok = 0;
+		}
+		if ((aton(b.value) & c) != d) {
+			ferror.set(b, e, quiet);
+			ok = 0;
+		}
 	}
-
-	a = E('_dhcp_start');
-	b = E('_f_dhcpd_end');
-	if ((!a._error_msg) && (!b._error_msg) && ((a.value * 1) > (b.value * 1))) {
-		c = b.value;
-		b.value = a.value;
-		a.value = c;
+	
+	if ((!a._error_msg) && (!b._error_msg)) {
+		if (aton(a.value) > aton(b.value)) {
+			c = a.value;
+			a.value = b.value;
+			b.value = c;
+		}
+		
+		elem.setInnerHTML('dhcp_count', '(' + ((aton(b.value) - aton(a.value)) + 1) + ')');
 	}
 
 	return ok;
@@ -589,9 +607,6 @@ function save()
 	}
 
 	fom.wan_dns.value = joinAddr([fom.f_dns_1.value, fom.f_dns_2.value, fom.f_dns_3.value])
-
-	fom.dhcp_num.value = (parseInt(fom.f_dhcpd_end.value) - parseInt(fom.dhcp_start.value)) + 1;
-	fom.dhcp_num.disabled = fom.dhcp_start.disabled;
 
 	fom.wl_radio.value = fom.f_wl_radio.checked ? 1 : 0;
 	fom.wl_radio.disabled = fom.f_wl_radio.disabled;
@@ -673,7 +688,6 @@ function save()
 <input type='hidden' name='wds_save'>
 <input type='hidden' name='lan_proto'>
 <input type='hidden' name='wan_dns'>
-<input type='hidden' name='dhcp_num'>
 <input type='hidden' name='wl_radio'>
 <input type='hidden' name='wl_closed'>
 <input type='hidden' name='wl_key'>
@@ -728,10 +742,11 @@ createFieldTable('', [
 	{ title: '', name: 'f_dns_2', type: 'text', maxlen: 15, size: 17, value: dns[1] || '0.0.0.0' },
 	{ title: '', name: 'f_dns_3', type: 'text', maxlen: 15, size: 17, value: dns[2] || '0.0.0.0' },
 	{ title: 'DHCP Server', name: 'f_dhcpd_enable', type: 'checkbox', value: (nvram.lan_proto == 'dhcp') },
-	{ title: 'Start', indent: 2, name: 'dhcp_start', type: 'text', maxlen: 3, size: 5,
-		prefix: '<span id="dhcpd_prefix_start">' + ipp + '</span>.',  value: nvram.dhcp_start },
-	{ title: 'End', indent: 2, name: 'f_dhcpd_end', type: 'text', maxlen: 3, size: 5,
-		prefix: '<span id="dhcpd_prefix_end">' + ipp + '</span>.', value: (nvram.dhcp_start * 1) + (nvram.dhcp_num * 1) - 1 },
+	{ title: 'IP Address Range', indent: 2, multi: [
+		{ name: 'dhcpd_startip', type: 'text', maxlen: 15, size: 17, value: nvram.dhcpd_startip, suffix: ' - ' },
+		{ name: 'dhcpd_endip', type: 'text', maxlen: 15, size: 17, value: nvram.dhcpd_endip, suffix: ' <i id="dhcp_count"></i>' }
+	] },
+	
 	{ title: 'Lease Time', indent: 2, name: 'dhcp_lease', type: 'text', maxlen: 6, size: 8, suffix: ' <i>(minutes)</i>',
 		value: (nvram.dhcp_lease > 0) ? nvram.dhcp_lease : 1440 },
 	{ title: 'WINS', indent: 2, name: 'wan_wins', type: 'text', maxlen: 15, size: 17, value: nvram.wan_wins }
@@ -788,7 +803,7 @@ for (i = 1; i <= 4; ++i)	{
 
 f.push(null,
 	{ title: 'WDS', name: 'f_wl_lazywds', type: 'select',
-		 options: [['0','Link With...'],['1','Automatic / Lazy']], value: nvram.wl_lazywds } );
+		 options: [['0','Link With...'],['1','Automatic']], value: nvram.wl_lazywds } );
 wds = ((nvram.wl_wds == '') ? nvram.wds_save : nvram.wl_wds).split(/\s+/);
 for (i = 0; i < 10; i += 2)	{
 	f.push({ title: (i ? '' : 'MAC Address'), indent: 2, multi: [

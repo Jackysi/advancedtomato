@@ -2,7 +2,7 @@
 # AWK script to check for missing help entries for config options
 #
 # Copyright (C) 2006 Bernhard Fischer
-# 
+#
 # This file is distributed under the terms and conditions of the
 # MIT/X public licenses. See http://opensource.org/licenses/mit-license.html
 # and notice http://www.gnu.org/licenses/license-list.html#X11License
@@ -20,10 +20,10 @@
 		help[pos] = 0;
 	}
 }
-/^[[:space:]]*help[[:space:]]*$/ {
+/^[ \t]*help[ \t]*$/ {
 	help[pos] = 1;
 }
-/^[[:space:]]*bool[[:space:]]*$/ {
+/^[ \t]*bool[ \t]*$/ {
 	help[pos] = 1; # ignore options which are not selectable
 }
 BEGIN {
@@ -31,8 +31,8 @@ BEGIN {
 	is_choice = 0;
 }
 END {
-	for (i = 0; i < pos; i++) {
-#	printf("%s: help for #%i '%s' == %i\n", file[i], i, conf[i], help[i]);
+	for (i = 0; i <= pos; i++) {
+# 	printf("%s: help for #%i '%s' == %i\n", file[i], i, conf[i], help[i]);
 		if (help[i] == 0) {
 			printf("%s: No helptext for '%s'\n", file[i], conf[i]);
 		}

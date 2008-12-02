@@ -13,36 +13,104 @@
  * Most of the dirty work blatantly ripped off from cat.c =)
  */
 
-#include "busybox.h"
-#include <fcntl.h>
-#include <sys/ioctl.h>
-#include <unistd.h>
-#include <mntent.h>
+#include "libbb.h"
 
 /* various defines swiped from linux/cdrom.h */
 #define CDROMCLOSETRAY            0x5319  /* pendant of CDROMEJECT  */
 #define CDROMEJECT                0x5309  /* Ejects the cdrom media */
-#define DEFAULT_CDROM             "/dev/cdrom"
+#define CDROM_DRIVE_STATUS        0x5326  /* Get tray position, etc. */
+/* drive status possibilities returned by CDROM_DRIVE_STATUS ioctl */
+#define CDS_TRAY_OPEN        2
 
-int eject_main(int argc, char **argv)
+#define dev_fd 3
+
+/* Code taken from the original eject (http://eject.sourceforge.net/),
+ * refactored it a bit for busybox (ne-bb@nicoerfurth.de) */
+
+#include <scsi/sg.h>
+#include <scsi/scsi.h>
+
+static void eject_scsi(const char *dev)
 {
-	unsigned long flags;
-	char *device;
-	struct mntent *m;
+	static const char sg_commands[3][6] = {
+		{ ALLOW_MEDIUM_REMOVAL, 0, 0, 0, 0, 0 },
+		{ START_STOP, 0, 0, 0, 1, 0 },
+		{ START_STOP, 0, 0, 0, 2, 0 }
+	};
 
-	flags = bb_getopt_ulflags(argc, argv, "t");
-	device = argv[optind] ? : DEFAULT_CDROM;
+	unsigned i;
+	unsigned char sense_buffer[32];
+	unsigned char inqBuff[2];
+	sg_io_hdr_t io_hdr;
 
-	if ((m = find_mount_point(device, bb_path_mtab_file))) {
-		if (umount(m->mnt_dir)) {
-			bb_error_msg_and_die("Can't umount");
-		} else if (ENABLE_FEATURE_MTAB_SUPPORT) {
-			erase_mtab(m->mnt_fsname);
-		}
+	if ((ioctl(dev_fd, SG_GET_VERSION_NUM, &i) < 0) || (i < 30000))
+		bb_error_msg_and_die("not a sg device or old sg driver");
+
+	memset(&io_hdr, 0, sizeof(sg_io_hdr_t));
+	io_hdr.interface_id = 'S';
+	io_hdr.cmd_len = 6;
+	io_hdr.mx_sb_len = sizeof(sense_buffer);
+	io_hdr.dxfer_direction = SG_DXFER_NONE;
+	/* io_hdr.dxfer_len = 0; */
+	io_hdr.dxferp = inqBuff;
+	io_hdr.sbp = sense_buffer;
+	io_hdr.timeout = 2000;
+
+	for (i = 0; i < 3; i++) {
+		io_hdr.cmdp = (void *)sg_commands[i];
+		ioctl_or_perror_and_die(dev_fd, SG_IO, (void *)&io_hdr, "%s", dev);
 	}
-	if (ioctl(bb_xopen(device, (O_RDONLY | O_NONBLOCK)),
-				(flags ? CDROMCLOSETRAY : CDROMEJECT))) {
-		bb_perror_msg_and_die("%s", device);
+
+	/* force kernel to reread partition table when new disc is inserted */
+	ioctl(dev_fd, BLKRRPART);
+}
+
+#define FLAG_CLOSE  1
+#define FLAG_SMART  2
+#define FLAG_SCSI   4
+
+static void eject_cdrom(unsigned flags, const char *dev)
+{
+	int cmd = CDROMEJECT;
+
+	if (flags & FLAG_CLOSE
+	 || (flags & FLAG_SMART && ioctl(dev_fd, CDROM_DRIVE_STATUS) == CDS_TRAY_OPEN)
+	) {
+		cmd = CDROMCLOSETRAY;
 	}
-	return (EXIT_SUCCESS);
+
+	ioctl_or_perror_and_die(dev_fd, cmd, NULL, "%s", dev);
+}
+
+int eject_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
+int eject_main(int argc UNUSED_PARAM, char **argv)
+{
+	unsigned flags;
+	const char *device;
+
+	opt_complementary = "?1:t--T:T--t";
+	flags = getopt32(argv, "tT" USE_FEATURE_EJECT_SCSI("s"));
+	device = argv[optind] ? argv[optind] : "/dev/cdrom";
+
+	/* We used to do "umount <device>" here, but it was buggy
+	   if something was mounted OVER cdrom and
+	   if cdrom is mounted many times.
+
+	   This works equally well (or better):
+	   #!/bin/sh
+	   umount /dev/cdrom
+	   eject /dev/cdrom
+	*/
+
+	xmove_fd(xopen(device, O_RDONLY|O_NONBLOCK), dev_fd);
+
+	if (ENABLE_FEATURE_EJECT_SCSI && (flags & FLAG_SCSI))
+		eject_scsi(device);
+	else
+		eject_cdrom(flags, device);
+
+	if (ENABLE_FEATURE_CLEAN_UP)
+		close(dev_fd);
+
+	return EXIT_SUCCESS;
 }

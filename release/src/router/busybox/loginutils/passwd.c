@@ -1,400 +1,207 @@
 /* vi: set sw=4 ts=4: */
-#include <fcntl.h>
-#include <stdio.h>
-#include <string.h>
-#include <signal.h>
-#include <sys/stat.h>
-#include <sys/types.h>
-#include <unistd.h>
-#include <utime.h>
+/*
+ * Licensed under GPLv2 or later, see file LICENSE in this tarball for details.
+ */
+
+#include "libbb.h"
 #include <syslog.h>
-#include <time.h>
-#include <sys/resource.h>
-#include <errno.h>
 
-#include "busybox.h"
-
-static char crypt_passwd[128];
-
-static int create_backup(const char *backup, FILE * fp);
-static int new_password(const struct passwd *pw, int amroot, int algo);
-static void set_filesize_limit(int blocks);
-
-
-static int get_algo(char *a)
+static void nuke_str(char *str)
 {
-	int x = 1;					/* standard: MD5 */
-
-	if (strcasecmp(a, "des") == 0)
-		x = 0;
-	return x;
+	if (str) memset(str, 0, strlen(str));
 }
 
-
-static int update_passwd(const struct passwd *pw, const char *crypt_pw)
+static char* new_password(const struct passwd *pw, uid_t myuid, int algo)
 {
-	char filename[1024];
-	char buf[1025];
-	char buffer[80];
-	char username[32];
-	char *pw_rest;
-	int mask;
-	int continued;
-	FILE *fp;
-	FILE *out_fp;
-	struct stat sb;
-	struct flock lock;
+	char salt[sizeof("$N$XXXXXXXX")]; /* "$N$XXXXXXXX" or "XX" */
+	char *orig = (char*)"";
+	char *newp = NULL;
+	char *cp = NULL;
+	char *ret = NULL; /* failure so far */
 
-#if ENABLE_FEATURE_SHADOWPASSWDS
-	if (access(bb_path_shadow_file, F_OK) == 0) {
-		snprintf(filename, sizeof filename, "%s", bb_path_shadow_file);
-	} else
-#endif
-	{
-		snprintf(filename, sizeof filename, "%s", bb_path_passwd_file);
-	}
+	if (myuid && pw->pw_passwd[0]) {
+		char *encrypted;
 
-	if (((fp = fopen(filename, "r+")) == 0) || (fstat(fileno(fp), &sb))) {
-		/* return 0; */
-		return 1;
-	}
-
-	/* Lock the password file before updating */
-	lock.l_type = F_WRLCK;
-	lock.l_whence = SEEK_SET;
-	lock.l_start = 0;
-	lock.l_len = 0;
-	if (fcntl(fileno(fp), F_SETLK, &lock) < 0) {
-		fprintf(stderr, "%s: %s\n", filename, strerror(errno));
-		return 1;
-	}
-	lock.l_type = F_UNLCK;
-
-	snprintf(buf, sizeof buf, "%s-", filename);
-	if (create_backup(buf, fp)) {
-		fcntl(fileno(fp), F_SETLK, &lock);
-		fclose(fp);
-		return 1;
-	}
-	snprintf(buf, sizeof buf, "%s+", filename);
-	mask = umask(0777);
-	out_fp = fopen(buf, "w");
-	umask(mask);
-	if ((!out_fp) || (fchmod(fileno(out_fp), sb.st_mode & 0777))
-		|| (fchown(fileno(out_fp), sb.st_uid, sb.st_gid))) {
-		fcntl(fileno(fp), F_SETLK, &lock);
-		fclose(fp);
-		fclose(out_fp);
-		return 1;
-	}
-
-	continued = 0;
-	snprintf(username, sizeof username, "%s:", pw->pw_name);
-	rewind(fp);
-	while (!feof(fp)) {
-		fgets(buffer, sizeof buffer, fp);
-		if (!continued) { /* Check to see if we're updating this line.  */
-			if (strncmp(username, buffer, strlen(username)) == 0) {
-				/* we have a match. */
-				pw_rest = strchr(buffer, ':');
-				*pw_rest++ = '\0';
-				pw_rest = strchr(pw_rest, ':');
-				fprintf(out_fp, "%s:%s%s", buffer, crypt_pw, pw_rest);
-			} else {
-				fputs(buffer, out_fp);
-			}
-		} else {
-			fputs(buffer, out_fp);
+		orig = bb_askpass(0, "Old password:"); /* returns ptr to static */
+		if (!orig)
+			goto err_ret;
+		encrypted = pw_encrypt(orig, pw->pw_passwd, 1); /* returns malloced str */
+		if (strcmp(encrypted, pw->pw_passwd) != 0) {
+			syslog(LOG_WARNING, "incorrect password for %s",
+				pw->pw_name);
+			bb_do_delay(FAIL_DELAY);
+			puts("Incorrect password");
+			goto err_ret;
 		}
-		if (buffer[strlen(buffer) - 1] == '\n') {
-			continued = 0;
-		} else {
-			continued = 1;
-		}
-		memset(buffer, 0, sizeof buffer);
+		if (ENABLE_FEATURE_CLEAN_UP) free(encrypted);
+	}
+	orig = xstrdup(orig); /* or else bb_askpass() will destroy it */
+	newp = bb_askpass(0, "New password:"); /* returns ptr to static */
+	if (!newp)
+		goto err_ret;
+	newp = xstrdup(newp); /* we are going to bb_askpass() again, so save it */
+	if (ENABLE_FEATURE_PASSWD_WEAK_CHECK
+	 && obscure(orig, newp, pw) && myuid)
+		goto err_ret; /* non-root is not allowed to have weak passwd */
+
+	cp = bb_askpass(0, "Retype password:");
+	if (!cp)
+		goto err_ret;
+	if (strcmp(cp, newp)) {
+		puts("Passwords don't match");
+		goto err_ret;
 	}
 
-	if (fflush(out_fp) || fsync(fileno(out_fp)) || fclose(out_fp)) {
-		unlink(buf);
-		fcntl(fileno(fp), F_SETLK, &lock);
-		fclose(fp);
-		return 1;
+	crypt_make_salt(salt, 1, 0); /* des */
+	if (algo) { /* MD5 */
+		strcpy(salt, "$1$");
+		crypt_make_salt(salt + 3, 4, 0);
 	}
-	if (rename(buf, filename) < 0) {
-		fcntl(fileno(fp), F_SETLK, &lock);
-		fclose(fp);
-		return 1;
-	} else {
-		fcntl(fileno(fp), F_SETLK, &lock);
-		fclose(fp);
-		return 0;
-	}
+	/* pw_encrypt returns malloced str */
+	ret = pw_encrypt(newp, salt, 1);
+	/* whee, success! */
+
+ err_ret:
+	nuke_str(orig);
+	if (ENABLE_FEATURE_CLEAN_UP) free(orig);
+	nuke_str(newp);
+	if (ENABLE_FEATURE_CLEAN_UP) free(newp);
+	nuke_str(cp);
+	return ret;
 }
 
-
-int passwd_main(int argc, char **argv)
+int passwd_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
+int passwd_main(int argc UNUSED_PARAM, char **argv)
 {
-	int amroot;
-	char *cp;
-	char *np;
-	char *name;
+	enum {
+		OPT_algo = 0x1, /* -a - password algorithm */
+		OPT_lock = 0x2, /* -l - lock account */
+		OPT_unlock = 0x4, /* -u - unlock account */
+		OPT_delete = 0x8, /* -d - delete password */
+		OPT_lud = 0xe,
+		STATE_ALGO_md5 = 0x10,
+		//STATE_ALGO_des = 0x20, not needed yet
+	};
+	unsigned opt;
+	int rc;
+	const char *opt_a = "";
+	const char *filename;
 	char *myname;
-	int flag;
-	int algo = 1;				/* -a - password algorithm */
-	int lflg = 0;				/* -l - lock account */
-	int uflg = 0;				/* -u - unlock account */
-	int dflg = 0;				/* -d - delete password */
-	const struct passwd *pw;
+	char *name;
+	char *newp;
+	struct passwd *pw;
+	uid_t myuid;
+	struct rlimit rlimit_fsize;
+	char c;
+#if ENABLE_FEATURE_SHADOWPASSWDS
+	/* Using _r function to avoid pulling in static buffers */
+	struct spwd spw;
+	char buffer[256];
+#endif
+
+	logmode = LOGMODE_BOTH;
+	openlog(applet_name, LOG_NOWAIT, LOG_AUTH);
+	opt = getopt32(argv, "a:lud", &opt_a);
+	//argc -= optind;
+	argv += optind;
+
+	if (strcasecmp(opt_a, "des") != 0) /* -a */
+		opt |= STATE_ALGO_md5;
+	//else
+	//	opt |= STATE_ALGO_des;
+	myuid = getuid();
+	/* -l, -u, -d require root priv and username argument */
+	if ((opt & OPT_lud) && (myuid || !argv[0]))
+		bb_show_usage();
+
+	/* Will complain and die if username not found */
+	myname = xstrdup(bb_getpwuid(NULL, -1, myuid));
+	name = argv[0] ? argv[0] : myname;
+
+	pw = getpwnam(name);
+	if (!pw)
+		bb_error_msg_and_die("unknown user %s", name);
+	if (myuid && pw->pw_uid != myuid) {
+		/* LOGMODE_BOTH */
+		bb_error_msg_and_die("%s can't change password for %s", myname, name);
+	}
 
 #if ENABLE_FEATURE_SHADOWPASSWDS
-	const struct spwd *sp;
-#endif
-	amroot = (getuid() == 0);
-	openlog("passwd", LOG_PID | LOG_CONS | LOG_NOWAIT, LOG_AUTH);
-	while ((flag = getopt(argc, argv, "a:dlu")) != EOF) {
-		switch (flag) {
-		case 'a':
-			algo = get_algo(optarg);
-			break;
-		case 'd':
-			dflg++;
-			break;
-		case 'l':
-			lflg++;
-			break;
-		case 'u':
-			uflg++;
-			break;
-		default:
-			bb_show_usage();
+	{
+		/* getspnam_r may return 0 yet set result to NULL.
+		 * At least glibc 2.4 does this. Be extra paranoid here. */
+		struct spwd *result = NULL;
+		if (getspnam_r(pw->pw_name, &spw, buffer, sizeof(buffer), &result)
+		 || !result || strcmp(result->sp_namp, pw->pw_name) != 0) {
+			/* LOGMODE_BOTH */
+			bb_error_msg("no record of %s in %s, using %s",
+					name, bb_path_shadow_file,
+					bb_path_passwd_file);
+		} else {
+			pw->pw_passwd = result->sp_pwdp;
 		}
 	}
-	myname = (char *) bb_xstrdup(bb_getpwuid(NULL, getuid(), -1));
-	/* exits on error */
-	if (optind < argc) {
-		name = argv[optind];
-	} else {
-		name = myname;
-	}
-	if ((lflg || uflg || dflg) && (optind >= argc || !amroot)) {
-		bb_show_usage();
-	}
-	pw = getpwnam(name);
-	if (!pw) {
-		bb_error_msg_and_die("Unknown user %s\n", name);
-	}
-	if (!amroot && pw->pw_uid != getuid()) {
-		syslog(LOG_WARNING, "can't change pwd for `%s'", name);
-		bb_error_msg_and_die("Permission denied.\n");
-	}
-#if ENABLE_FEATURE_SHADOWPASSWDS
-	sp = getspnam(name);
-	if (!sp) {
-		sp = (struct spwd *) pwd_to_spwd(pw);
-	}
-	cp = sp->sp_pwdp;
-	np = sp->sp_namp;
-#else
-	cp = pw->pw_passwd;
-	np = name;
 #endif
 
-	safe_strncpy(crypt_passwd, cp, sizeof(crypt_passwd));
-	if (!(dflg || lflg || uflg)) {
-		if (!amroot) {
-			if (cp[0] == '!') {
-				syslog(LOG_WARNING, "password locked for `%s'", np);
-				bb_error_msg_and_die( "The password for `%s' cannot be changed.\n", np);
-			}
+	/* Decide what the new password will be */
+	newp = NULL;
+	c = pw->pw_passwd[0] - '!';
+	if (!(opt & OPT_lud)) {
+		if (myuid && !c) { /* passwd starts with '!' */
+			/* LOGMODE_BOTH */
+			bb_error_msg_and_die("cannot change "
+					"locked password for %s", name);
 		}
 		printf("Changing password for %s\n", name);
-		if (new_password(pw, amroot, algo)) {
-			bb_error_msg_and_die( "The password for %s is unchanged.\n", name);
+		newp = new_password(pw, myuid, opt & STATE_ALGO_md5);
+		if (!newp) {
+			logmode = LOGMODE_STDIO;
+			bb_error_msg_and_die("password for %s is unchanged", name);
 		}
-	} else if (lflg) {
-		if (crypt_passwd[0] != '!') {
-			memmove(&crypt_passwd[1], crypt_passwd,
-					sizeof crypt_passwd - 1);
-			crypt_passwd[sizeof crypt_passwd - 1] = '\0';
-			crypt_passwd[0] = '!';
-		}
-	} else if (uflg) {
-		if (crypt_passwd[0] == '!') {
-			memmove(crypt_passwd, &crypt_passwd[1],
-					sizeof crypt_passwd - 1);
-		}
-	} else if (dflg) {
-		crypt_passwd[0] = '\0';
+	} else if (opt & OPT_lock) {
+		if (!c) goto skip; /* passwd starts with '!' */
+		newp = xasprintf("!%s", pw->pw_passwd);
+	} else if (opt & OPT_unlock) {
+		if (c) goto skip; /* not '!' */
+		/* pw->pw_passwd points to static storage,
+		 * strdup'ing to avoid nasty surprizes */
+		newp = xstrdup(&pw->pw_passwd[1]);
+	} else if (opt & OPT_delete) {
+		//newp = xstrdup("");
+		newp = (char*)"";
 	}
-	set_filesize_limit(30000);
-	signal(SIGHUP, SIG_IGN);
-	signal(SIGINT, SIG_IGN);
-	signal(SIGQUIT, SIG_IGN);
+
+	rlimit_fsize.rlim_cur = rlimit_fsize.rlim_max = 512L * 30000;
+	setrlimit(RLIMIT_FSIZE, &rlimit_fsize);
+	bb_signals(0
+		+ (1 << SIGHUP)
+		+ (1 << SIGINT)
+		+ (1 << SIGQUIT)
+		, SIG_IGN);
 	umask(077);
 	xsetuid(0);
-	if (!update_passwd(pw, crypt_passwd)) {
-		syslog(LOG_INFO, "password for `%s' changed by user `%s'", name,
-			   myname);
-		printf("Password changed.\n");
-	} else {
-		syslog(LOG_WARNING, "an error occurred updating the password file");
-		bb_error_msg_and_die("An error occurred updating the password file.\n");
-	}
-	return (0);
-}
 
-
-
-static int create_backup(const char *backup, FILE * fp)
-{
-	struct stat sb;
-	struct utimbuf ub;
-	FILE *bkfp;
-	int c, mask;
-
-	if (fstat(fileno(fp), &sb))
-		/* return -1; */
-		return 1;
-
-	mask = umask(077);
-	bkfp = fopen(backup, "w");
-	umask(mask);
-	if (!bkfp)
-		/* return -1; */
-		return 1;
-
-	/* TODO: faster copy, not one-char-at-a-time.  --marekm */
-	rewind(fp);
-	while ((c = getc(fp)) != EOF) {
-		if (putc(c, bkfp) == EOF)
-			break;
-	}
-	if (c != EOF || fflush(bkfp)) {
-		fclose(bkfp);
-		/* return -1; */
-		return 1;
-	}
-	if (fclose(bkfp))
-		/* return -1; */
-		return 1;
-
-	ub.actime = sb.st_atime;
-	ub.modtime = sb.st_mtime;
-	utime(backup, &ub);
-	return 0;
-}
-
-static int i64c(int i)
-{
-	if (i <= 0)
-		return ('.');
-	if (i == 1)
-		return ('/');
-	if (i >= 2 && i < 12)
-		return ('0' - 2 + i);
-	if (i >= 12 && i < 38)
-		return ('A' - 12 + i);
-	if (i >= 38 && i < 63)
-		return ('a' - 38 + i);
-	return ('z');
-}
-
-static char *crypt_make_salt(void)
-{
-	time_t now;
-	static unsigned long x;
-	static char result[3];
-
-	time(&now);
-	x += now + getpid() + clock();
-	result[0] = i64c(((x >> 18) ^ (x >> 6)) & 077);
-	result[1] = i64c(((x >> 12) ^ x) & 077);
-	result[2] = '\0';
-	return result;
-}
-
-
-static int new_password(const struct passwd *pw, int amroot, int algo)
-{
-	char *clear;
-	char *cipher;
-	char *cp;
-	char salt[12]; /* "$N$XXXXXXXX" or "XX" */
-	char orig[200];
-	char pass[200];
-
-	if (!amroot && crypt_passwd[0]) {
-		if (!(clear = bb_askpass(0, "Old password:"))) {
-			/* return -1; */
-			return 1;
-		}
-		cipher = pw_encrypt(clear, crypt_passwd);
-		if (strcmp(cipher, crypt_passwd) != 0) {
-			syslog(LOG_WARNING, "incorrect password for `%s'",
-				   pw->pw_name);
-			bb_do_delay(FAIL_DELAY);
-			fprintf(stderr, "Incorrect password.\n");
-			/* return -1; */
-			return 1;
-		}
-		safe_strncpy(orig, clear, sizeof(orig));
-		memset(clear, 0, strlen(clear));
-		memset(cipher, 0, strlen(cipher));
-	} else {
-		orig[0] = '\0';
-	}
-	if (! (cp=bb_askpass(0, "Enter the new password (minimum of 5, maximum of 8 characters)\n"
-					  "Please use a combination of upper and lower case letters and numbers.\n"
-					  "Enter new password: ")))
+#if ENABLE_FEATURE_SHADOWPASSWDS
+	filename = bb_path_shadow_file;
+	rc = update_passwd(bb_path_shadow_file, name, newp);
+	if (rc == 0) /* no lines updated, no errors detected */
+#endif
 	{
-		memset(orig, 0, sizeof orig);
-		/* return -1; */
-		return 1;
+		filename = bb_path_passwd_file;
+		rc = update_passwd(bb_path_passwd_file, name, newp);
 	}
-	safe_strncpy(pass, cp, sizeof(pass));
-	memset(cp, 0, strlen(cp));
-	/* if (!obscure(orig, pass, pw)) { */
-	if (obscure(orig, pass, pw)) {
-		if (amroot) {
-			printf("\nWarning: weak password (continuing).\n");
-		} else {
-			/* return -1; */
-			return 1;
-		}
-	}
-	if (!(cp = bb_askpass(0, "Re-enter new password: "))) {
-		memset(orig, 0, sizeof orig);
-		/* return -1; */
-		return 1;
-	}
-	if (strcmp(cp, pass)) {
-		fprintf(stderr, "Passwords do not match.\n");
-		/* return -1; */
-		return 1;
-	}
-	memset(cp, 0, strlen(cp));
-	memset(orig, 0, sizeof(orig));
-	memset(salt, 0, sizeof(salt));
+	/* LOGMODE_BOTH */
+	if (rc < 0)
+		bb_error_msg_and_die("cannot update password file %s",
+				filename);
+	bb_info_msg("Password for %s changed by %s", name, myname);
 
-	if (algo == 1) {
-		strcpy(salt, "$1$");
-		strcat(salt, crypt_make_salt());
-		strcat(salt, crypt_make_salt());
-		strcat(salt, crypt_make_salt());
+	//if (ENABLE_FEATURE_CLEAN_UP) free(newp);
+ skip:
+	if (!newp) {
+		bb_error_msg_and_die("password for %s is already %slocked",
+			name, (opt & OPT_unlock) ? "un" : "");
 	}
-
-	strcat(salt, crypt_make_salt());
-	cp = pw_encrypt(pass, salt);
-
-	memset(pass, 0, sizeof pass);
-	safe_strncpy(crypt_passwd, cp, sizeof(crypt_passwd));
+	if (ENABLE_FEATURE_CLEAN_UP) free(myname);
 	return 0;
-}
-
-static void set_filesize_limit(int blocks)
-{
-	struct rlimit rlimit_fsize;
-
-	rlimit_fsize.rlim_cur = rlimit_fsize.rlim_max = 512L * blocks;
-	setrlimit(RLIMIT_FSIZE, &rlimit_fsize);
 }

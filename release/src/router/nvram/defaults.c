@@ -89,8 +89,10 @@ const defaults_t defaults[] = {
 	{ "autofw_port0",		""				},	// out_proto:out_port,in_proto:in_port0-in_port1>to_port0-to_port1,enable,desc
 
 	// DHCP server parameters
-	{ "dhcp_start",			"100"			},	// First assignable DHCP address
-	{ "dhcp_num",			"50"			},	// Number of DHCP Users	// Add
+	{ "dhcp_start",			"100"			},	// 
+	{ "dhcp_num",			"50"			},	// 
+	{ "dhcpd_startip",		"" 				},	// if empty, tomato will use dhcp_start/dchp_num for better compatibility
+	{ "dhcpd_endip",		"" 				},	// "
 	{ "dhcp_lease",			"0"				},	// LAN lease time in minutes
 	{ "dhcp_domain",		"wan"			},	// Use WAN domain name first if available (wan|lan)
 	{ "wan_get_dns",		""				},	// DNS IP address which get by dhcpc // Add
@@ -276,6 +278,7 @@ const defaults_t defaults[] = {
 // advanced-dhcpdns
 	{ "dhcpd_dmdns",		"1"				},
 	{ "dhcpd_slt",			"0"				},
+	{ "dhcpd_lmax",			""				},
 	{ "dns_addget",			"0"				},
 	{ "dns_intcpt",			"0"				},
 	{ "dhcpc_minpkt",		"0"				},

@@ -1,6 +1,6 @@
 /* vi: set sw=4 ts=4: */
 /*
- * Mini kill/killall implementation for busybox
+ * Mini kill/killall[5] implementation for busybox
  *
  * Copyright (C) 1995, 1996 by Bruce Perens <bruce@pixar.com>.
  * Copyright (C) 1999-2004 by Erik Andersen <andersen@codepoet.org>
@@ -8,139 +8,173 @@
  * Licensed under the GPL v2 or later, see the file LICENSE in this tarball.
  */
 
-#include "busybox.h"
-#include <stdio.h>
-#include <stdlib.h>
-#include <errno.h>
-#include <unistd.h>
-#include <signal.h>
-#include <ctype.h>
-#include <string.h>
-#include <unistd.h>
+#include "libbb.h"
 
-#define KILL 0
-#define KILLALL 1
+/* Note: kill_main is directly called from shell in order to implement
+ * kill built-in. Shell substitutes job ids with process groups first.
+ *
+ * This brings some complications:
+ *
+ * + we can't use xfunc here
+ * + we can't use applet_name
+ * + we can't use bb_show_usage
+ * (Above doesn't apply for killall[5] cases)
+ *
+ * kill %n gets translated into kill ' -<process group>' by shell (note space!)
+ * This is needed to avoid collision with kill -9 ... syntax
+ */
 
 int kill_main(int argc, char **argv)
 {
-	int whichApp, signo = SIGTERM;
-	const char *name;
-	int errors = 0;
-
-#ifdef CONFIG_KILLALL
-	int quiet=0;
-	/* Figure out what we are trying to do here */
-	whichApp = (strcmp(bb_applet_name, "killall") == 0)? KILLALL : KILL;
+	char *arg;
+	pid_t pid;
+	int signo = SIGTERM, errors = 0, quiet = 0;
+#if !ENABLE_KILLALL && !ENABLE_KILLALL5
+#define killall 0
+#define killall5 0
 #else
-	whichApp = KILL;
+/* How to determine who we are? find 3rd char from the end:
+ * kill, killall, killall5
+ *  ^i       ^a        ^l  - it's unique
+ * (checking from the start is complicated by /bin/kill... case) */
+	const char char3 = argv[0][strlen(argv[0]) - 3];
+#define killall (ENABLE_KILLALL && char3 == 'a')
+#define killall5 (ENABLE_KILLALL5 && char3 == 'l')
 #endif
 
 	/* Parse any options */
-	if (argc < 2)
-		bb_show_usage();
+	argc--;
+	arg = *++argv;
 
-	if(argv[1][0] != '-'){
-		argv++;
-		argc--;
+	if (argc < 1 || arg[0] != '-') {
 		goto do_it_now;
 	}
 
-	/* The -l option, which prints out signal names. */
-	if(argv[1][1]=='l' && argv[1][2]=='\0'){
-		if(argc==2) {
+	/* The -l option, which prints out signal names.
+	 * Intended usage in shell:
+	 * echo "Died of SIG`kill -l $?`"
+	 * We try to mimic what kill from coreutils-6.8 does */
+	if (arg[1] == 'l' && arg[2] == '\0') {
+		if (argc == 1) {
 			/* Print the whole signal list */
-			int col = 0;
-			for(signo=1; signo < NSIG; signo++) {
-				name = u_signal_names(0, &signo, 1);
-				if(name==NULL)  /* unnamed */
-					continue;
-				col += printf("%2d) %-16s", signo, name);
-				if (col > 60) {
-					printf("\n");
-					col = 0;
+			print_signames();
+			return 0;
+		}
+		/* -l <sig list> */
+		while ((arg = *++argv)) {
+			if (isdigit(arg[0])) {
+				signo = bb_strtou(arg, NULL, 10);
+				if (errno) {
+					bb_error_msg("unknown signal '%s'", arg);
+					return EXIT_FAILURE;
 				}
-			}
-			printf("\n");
-
-		} else {
-			for(argv++; *argv; argv++) {
-				name = u_signal_names(*argv, &signo, -1);
-				if(name!=NULL)
-					printf("%s\n", name);
+				/* Exitcodes >= 0x80 are to be treated
+				 * as "killed by signal (exitcode & 0x7f)" */
+				puts(get_signame(signo & 0x7f));
+				/* TODO: 'bad' signal# - coreutils says:
+				 * kill: 127: invalid signal
+				 * we just print "127" instead */
+			} else {
+				signo = get_signum(arg);
+				if (signo < 0) {
+					bb_error_msg("unknown signal '%s'", arg);
+					return EXIT_FAILURE;
+				}
+				printf("%d\n", signo);
 			}
 		}
-		/* If they specified -l, were all done */
+		/* If they specified -l, we are all done */
 		return EXIT_SUCCESS;
 	}
 
-#ifdef CONFIG_KILLALL
 	/* The -q quiet option */
-	if(whichApp != KILL && argv[1][1]=='q' && argv[1][2]=='\0'){
-		quiet++;
-		argv++;
+	if (killall && arg[1] == 'q' && arg[2] == '\0') {
+		quiet = 1;
+		arg = *++argv;
 		argc--;
-		if(argc<2 || argv[1][0] != '-'){
-			goto do_it_now;
-		}
+		if (argc < 1) bb_show_usage();
+		if (arg[0] != '-') goto do_it_now;
 	}
-#endif
 
-	if(!u_signal_names(argv[1]+1, &signo, 0))
-		bb_error_msg_and_die( "bad signal name '%s'", argv[1]+1);
-	argv+=2;
-	argc-=2;
+	/* -SIG */
+	signo = get_signum(&arg[1]);
+	if (signo < 0) { /* || signo > MAX_SIGNUM ? */
+		bb_error_msg("bad signal name '%s'", &arg[1]);
+		return EXIT_FAILURE;
+	}
+	arg = *++argv;
+	argc--;
 
 do_it_now:
+	pid = getpid();
 
-	/* Pid or name required */
-	if (argc <= 0)
-		bb_show_usage();
+	if (killall5) {
+		pid_t sid;
+		procps_status_t* p = NULL;
 
-	if (whichApp == KILL) {
-		/* Looks like they want to do a kill. Do that */
-		while (--argc >= 0) {
-			int pid;
-
-			if (!isdigit(**argv) && **argv != '-')
-				bb_error_msg_and_die( "Bad PID '%s'", *argv);
-			pid = strtol(*argv, NULL, 0);
-			if (kill(pid, signo) != 0) {
-				bb_perror_msg( "Could not kill pid '%d'", pid);
-				errors++;
-			}
-			argv++;
+		/* Find out our own session id */
+		sid = getsid(pid);
+		/* Now stop all processes */
+		kill(-1, SIGSTOP);
+		/* Now kill all processes except our session */
+		while ((p = procps_scan(p, PSSCAN_PID|PSSCAN_SID))) {
+			if (p->sid != (unsigned)sid && p->pid != (unsigned)pid && p->pid != 1)
+				kill(p->pid, signo);
 		}
-
+		/* And let them continue */
+		kill(-1, SIGCONT);
+		return 0;
 	}
-#ifdef CONFIG_KILLALL
-	else {
-		pid_t myPid=getpid();
+
+	/* Pid or name is required for kill/killall */
+	if (argc < 1) {
+		bb_error_msg("you need to specify whom to kill");
+		return EXIT_FAILURE;
+	}
+
+	if (killall) {
 		/* Looks like they want to do a killall.  Do that */
-		while (--argc >= 0) {
-			long* pidList;
+		while (arg) {
+			pid_t* pidList;
 
-			pidList = find_pid_by_name(*argv);
-			if (!pidList || *pidList<=0) {
+			pidList = find_pid_by_name(arg);
+			if (*pidList == 0) {
 				errors++;
-				if (quiet==0)
-					bb_error_msg( "%s: no process killed", *argv);
+				if (!quiet)
+					bb_error_msg("%s: no process killed", arg);
 			} else {
-				long *pl;
+				pid_t *pl;
 
-				for(pl = pidList; *pl !=0 ; pl++) {
-					if (*pl==myPid)
+				for (pl = pidList; *pl; pl++) {
+					if (*pl == pid)
 						continue;
-					if (kill(*pl, signo) != 0) {
-						errors++;
-						if (quiet==0)
-							bb_perror_msg( "Could not kill pid '%ld'", *pl);
-					}
+					if (kill(*pl, signo) == 0)
+						continue;
+					errors++;
+					if (!quiet)
+						bb_perror_msg("cannot kill pid %u", (unsigned)*pl);
 				}
 			}
 			free(pidList);
-			argv++;
+			arg = *++argv;
 		}
+		return errors;
 	}
-#endif
+
+	/* Looks like they want to do a kill. Do that */
+	while (arg) {
+		/* Support shell 'space' trick */
+		if (arg[0] == ' ')
+			arg++;
+		pid = bb_strtoi(arg, NULL, 10);
+		if (errno) {
+			bb_error_msg("bad pid '%s'", arg);
+			errors++;
+		} else if (kill(pid, signo) != 0) {
+			bb_perror_msg("cannot kill pid %d", (int)pid);
+			errors++;
+		}
+		arg = *++argv;
+	}
 	return errors;
 }

@@ -7,32 +7,18 @@
  * Licensed under GPLv2 or later, see file LICENSE in this tarball for details.
  */
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <fcntl.h>
-#include <sys/types.h>
-#include <sys/ioctl.h>
-#include "busybox.h"
+#include "libbb.h"
 
-/* From <linux/vt.h> */
-enum {
-	VT_ACTIVATE = 0x5606,   /* make vt active */
-	VT_WAITACTIVE = 0x5607  /* wait for vt active */
-};
-
+int chvt_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
 int chvt_main(int argc, char **argv)
 {
-	int fd, num;
+	int num;
 
 	if (argc != 2) {
 		bb_show_usage();
 	}
 
-	fd = get_console_fd();
-	num =  bb_xgetlarg(argv[1], 10, 0, INT_MAX);
-	if ((-1 == ioctl(fd, VT_ACTIVATE, num))
-	|| (-1 == ioctl(fd, VT_WAITACTIVE, num))) {
-		bb_perror_msg_and_die("ioctl");
-	}
+	num = xatou_range(argv[1], 1, 63);
+	console_make_active(get_console_fd_or_die(), num);
 	return EXIT_SUCCESS;
 }

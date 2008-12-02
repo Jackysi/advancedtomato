@@ -9,12 +9,9 @@
 
 /* BB_AUDIT SUSv3 N/A -- Matches GNU behavior. */
 
-#include <stdlib.h>
-#include <stdio.h>
-#include <unistd.h>
-#include <errno.h>
-#include "busybox.h"
+#include "libbb.h"
 
+int chroot_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
 int chroot_main(int argc, char **argv)
 {
 	if (argc < 2) {
@@ -22,20 +19,19 @@ int chroot_main(int argc, char **argv)
 	}
 
 	++argv;
-	if (chroot(*argv)) {
-		bb_perror_msg_and_die("cannot change root directory to %s", *argv);
-	}
-	bb_xchdir("/");
+	xchroot(*argv);
+	xchdir("/");
 
 	++argv;
 	if (argc == 2) {
 		argv -= 2;
-		if (!(*argv = getenv("SHELL"))) {
-			*argv = (char *) DEFAULT_SHELL;
+		argv[0] = getenv("SHELL");
+		if (!argv[0]) {
+			argv[0] = (char *) DEFAULT_SHELL;
 		}
 		argv[1] = (char *) "-i";
 	}
 
-	execvp(*argv, argv);
+	BB_EXECVP(*argv, argv);
 	bb_perror_msg_and_die("cannot execute %s", *argv);
 }
