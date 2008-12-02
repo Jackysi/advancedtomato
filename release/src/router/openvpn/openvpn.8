@@ -26,7 +26,7 @@
 .\" LP paragraph
 .\" IP indented paragraph
 .\" TP hanging label
-.TH openvpn 8 "3 August 2005"
+.TH openvpn 8 "17 November 2008"
 .\"*********************************************************
 .SH NAME
 openvpn \- secure IP tunnel daemon.
@@ -36,276 +36,7 @@ openvpn \- secure IP tunnel daemon.
 .nh
 .in +4
 .ti -4
-.B openvpn
-[\ \fB\-\-help\fR\ ]
-.in -4
-.ti +4
-.hy
-
-.nh
-.in +4
-.ti -4
-.B openvpn
-[\ \fB\-\-config\fR\ \fIfile\fR\ ]
-.in -4
-.ti +4
-.hy
-
-.nh
-.in +4
-.ti -4
-.B openvpn
-[\ \fB\-\-genkey\fR\ ]
-[\ \fB\-\-secret\fR\ \fIfile\fR\ ]
-.in -4
-.ti +4
-.hy
-
-.nh
-.in +4
-.ti -4
-.B openvpn
-[\ \fB\-\-mktun\fR\ ]
-[\ \fB\-\-rmtun\fR\ ]
-[\ \fB\-\-dev\fR\ \fItunX\ |\ tapX\fR\ ]
-[\ \fB\-\-dev\-type\fR\ \fIdevice\-type\fR\ ]
-[\ \fB\-\-dev\-node\fR\ \fInode\fR\ ]
-[\ \fB\-\-lladdr\fR\ \fIaddress\fR\ ]
-[\ \fB\-\-user\fR\ \fIuser\fR\ ]
-[\ \fB\-\-group\fR\ \fIgroup\fR\ ]
-.in -4
-.ti +4
-.hy
-
-.nh
-.in +4
-.ti -4
-.B openvpn
-[\ \fB\-\-test\-crypto\fR\ ]
-[\ \fB\-\-secret\fR\ \fIfile\fR\ ]
-[\ \fB\-\-auth\fR\ \fIalg\fR\ ]
-[\ \fB\-\-cipher\fR\ \fIalg\fR\ ]
-[\ \fB\-\-engine\fR\ ]
-[\ \fB\-\-keysize\fR\ \fIn\fR\ ]
-[\ \fB\-\-no\-replay\fR\ ]
-[\ \fB\-\-no\-iv\fR\ ]
-.in -4
-.ti +4
-.hy
-
-.nh
-.in +4
-.ti -4
-.B openvpn
-[\ \fB\-\-allow\-nonadmin\fR\ \fI[TAP\-adapter]\fR\ ]
-[\ \fB\-\-allow\-pull\-fqdn\fR\ ]
-[\ \fB\-\-askpass\fR\ \fI[file]\fR\ ]
-[\ \fB\-\-auth\-nocache\fR\ ]
-[\ \fB\-\-auth\-retry\fR\ \fItype\fR\ ]
-[\ \fB\-\-auth\-user\-pass\-verify\fR\ \fIscript\fR\ ]
-[\ \fB\-\-auth\-user\-pass\fR\ \fIup\fR\ ]
-[\ \fB\-\-auth\fR\ \fIalg\fR\ ]
-[\ \fB\-\-auto\-proxy\fR\ ]
-[\ \fB\-\-bcast\-buffers\fR\ \fIn\fR\ ]
-[\ \fB\-\-ca\fR\ \fIfile\fR\ ]
-[\ \fB\-\-ccd\-exclusive\fR\ ]
-[\ \fB\-\-cd\fR\ \fIdir\fR\ ]
-[\ \fB\-\-cert\fR\ \fIfile\fR\ ]
-[\ \fB\-\-chroot\fR\ \fIdir\fR\ ]
-[\ \fB\-\-cipher\fR\ \fIalg\fR\ ]
-[\ \fB\-\-client\-cert\-not\-required\fR\ ]
-[\ \fB\-\-client\-config\-dir\fR\ \fIdir\fR\ ]
-[\ \fB\-\-client\-connect\fR\ \fIscript\fR\ ]
-[\ \fB\-\-client\-disconnect\fR\ ]
-[\ \fB\-\-client\-to\-client\fR\ ]
-[\ \fB\-\-client\fR\ ]
-[\ \fB\-\-comp\-lzo\fR\ \fI[mode]\fR\ ]
-[\ \fB\-\-comp\-noadapt\fR\ ]
-[\ \fB\-\-config\fR\ \fIfile\fR\ ]
-[\ \fB\-\-connect\-freq\fR\ \fIn\ sec\fR\ ]
-[\ \fB\-\-connect\-retry\fR\ \fIn\fR\ ]
-[\ \fB\-\-connect\-retry\-max\fR\ \fIn\fR\ ]
-[\ \fB\-\-crl\-verify\fR\ \fIcrl\fR\ ]
-[\ \fB\-\-cryptoapicert\fR\ \fIselect\-string\fR\ ]
-[\ \fB\-\-daemon\fR\ \fI[progname]\fR\ ]
-[\ \fB\-\-dev\-node\fR\ \fInode\fR\ ]
-[\ \fB\-\-dev\-type\fR\ \fIdevice\-type\fR\ ]
-[\ \fB\-\-dev\fR\ \fItunX\ |\ tapX\ |\ null\fR\ ]
-[\ \fB\-\-dev\fR\ \fItunX\ |\ tapX\fR\ ]
-[\ \fB\-\-dh\fR\ \fIfile\fR\ ]
-[\ \fB\-\-dhcp\-option\fR\ \fItype\ [parm]\fR\ ]
-[\ \fB\-\-dhcp\-release\fR\ ]
-[\ \fB\-\-dhcp\-renew\fR\ ]
-[\ \fB\-\-disable\-occ\fR\ ]
-[\ \fB\-\-disable\fR\ ]
-[\ \fB\-\-down\-pre\fR\ ]
-[\ \fB\-\-down\fR\ \fIcmd\fR\ ]
-[\ \fB\-\-duplicate\-cn\fR\ ]
-[\ \fB\-\-echo\fR\ \fI[parms...]\fR\ ]
-[\ \fB\-\-engine\fR\ \fI[engine\-name]\fR\ ]
-[\ \fB\-\-explicit\-exit\-notify\fR\ \fI[n]\fR\ ]
-[\ \fB\-\-fast\-io\fR\ ]
-[\ \fB\-\-float\fR\ ]
-[\ \fB\-\-fragment\fR\ \fImax\fR\ ]
-[\ \fB\-\-genkey\fR\ ]
-[\ \fB\-\-group\fR\ \fIgroup\fR\ ]
-[\ \fB\-\-hand\-window\fR\ \fIn\fR\ ]
-[\ \fB\-\-hash\-size\fR\ \fIr\ v\fR\ ]
-[\ \fB\-\-help\fR\ ]
-[\ \fB\-\-http\-proxy\-option\fR\ \fItype\ [parm]\fR\ ]
-[\ \fB\-\-http\-proxy\-retry\fR\ ]
-[\ \fB\-\-http\-proxy\-timeout\fR\ \fIn\fR\ ]
-[\ \fB\-\-http\-proxy\fR\ \fIserver\ port\ [authfile]\ [auth\-method]\fR\ ]
-[\ \fB\-\-ifconfig\-noexec\fR\ ]
-[\ \fB\-\-ifconfig\-nowarn\fR\ ]
-[\ \fB\-\-ifconfig\-pool\-linear\fR\ ]
-[\ \fB\-\-ifconfig\-pool\-persist\fR\ \fIfile\ [seconds]\fR\ ]
-[\ \fB\-\-ifconfig\-pool\fR\ \fIstart\-IP\ end\-IP\ [netmask]\fR\ ]
-[\ \fB\-\-ifconfig\-push\fR\ \fIlocal\ remote\-netmask\fR\ ]
-[\ \fB\-\-ifconfig\fR\ \fIl\ rn\fR\ ]
-[\ \fB\-\-inactive\fR\ \fIn\ [bytes]\fR\ ]
-[\ \fB\-\-inetd\fR\ \fI[wait|nowait]\ [progname]\fR\ ]
-[\ \fB\-\-ip\-win32\fR\ \fImethod\fR\ ]
-[\ \fB\-\-ipchange\fR\ \fIcmd\fR\ ]
-[\ \fB\-\-iproute\fR\ \fIcmd\fR\ ]
-[\ \fB\-\-iroute\fR\ \fInetwork\ [netmask]\fR\ ]
-[\ \fB\-\-keepalive\fR\ \fIn\ m\fR\ ]
-[\ \fB\-\-key\-method\fR\ \fIm\fR\ ]
-[\ \fB\-\-key\fR\ \fIfile\fR\ ]
-[\ \fB\-\-keysize\fR\ \fIn\fR\ ]
-[\ \fB\-\-learn\-address\fR\ \fIcmd\fR\ ]
-[\ \fB\-\-link\-mtu\fR\ \fIn\fR\ ]
-[\ \fB\-\-local\fR\ \fIhost\fR\ ]
-[\ \fB\-\-log\-append\fR\ \fIfile\fR\ ]
-[\ \fB\-\-log\fR\ \fIfile\fR\ ]
-[\ \fB\-\-suppress-timestamps\fR\ ]
-[\ \fB\-\-lport\fR\ \fIport\fR\ ]
-[\ \fB\-\-management\-client\-auth\fR\ ]
-[\ \fB\-\-management\-client\-group\fR\ \fIg\fR\ ]
-[\ \fB\-\-management\-client\-pf\fR\ ]
-[\ \fB\-\-management\-client\-user\fR\ \fIu\fR\ ]
-[\ \fB\-\-management\-forget\-disconnect\fR\ ]
-[\ \fB\-\-management\-hold\fR\ ]
-[\ \fB\-\-management\-log\-cache\fR\ \fIn\fR\ ]
-[\ \fB\-\-management\-signal\fR\ ]
-[\ \fB\-\-management\-query\-passwords\fR\ ]
-[\ \fB\-\-management\fR\ \fIIP\ port\ [pw\-file]\fR\ ]
-[\ \fB\-\-max\-clients\fR\ \fIn\fR\ ]
-[\ \fB\-\-max\-routes\-per\-client\fR\ \fIn\fR\ ]
-[\ \fB\-\-mktun\fR\ ]
-[\ \fB\-\-mlock\fR\ ]
-[\ \fB\-\-mode\fR\ \fIm\fR\ ]
-[\ \fB\-\-mssfix\fR\ \fImax\fR\ ]
-[\ \fB\-\-mtu\-disc\fR\ \fItype\fR\ ]
-[\ \fB\-\-mtu\-test\fR\ ]
-[\ \fB\-\-mute\-replay\-warnings\fR\ ]
-[\ \fB\-\-mute\fR\ \fIn\fR\ ]
-[\ \fB\-\-nice\fR\ \fIn\fR\ ]
-[\ \fB\-\-no\-iv\fR\ ]
-[\ \fB\-\-no\-replay\fR\ ]
-[\ \fB\-\-bind\fR\ ]
-[\ \fB\-\-nobind\fR\ ]
-[\ \fB\-\-ns\-cert\-type\fR\ \fIclient|server\fR\ ]
-[\ \fB\-\-passtos\fR\ ]
-[\ \fB\-\-pause\-exit\fR\ ]
-[\ \fB\-\-persist\-key\fR\ ]
-[\ \fB\-\-persist\-local\-ip\fR\ ]
-[\ \fB\-\-persist\-remote\-ip\fR\ ]
-[\ \fB\-\-persist\-tun\fR\ ]
-[\ \fB\-\-ping\-exit\fR\ \fIn\fR\ ]
-[\ \fB\-\-ping\-restart\fR\ \fIn\fR\ ]
-[\ \fB\-\-ping\-timer\-rem\fR\ ]
-[\ \fB\-\-ping\fR\ \fIn\fR\ ]
-[\ \fB\-\-pkcs11\-cert\-private\fR\ \fI[0|1]...\fR\ ]
-[\ \fB\-\-pkcs11\-id\fR\ \fIname\fR\ ]
-[\ \fB\-\-pkcs11\-id\-management\fR\ ]
-[\ \fB\-\-pkcs11\-pin\-cache\fR\ \fIseconds\fR\ ]
-[\ \fB\-\-pkcs11\-private\-mode\fR\ \fImode...\fR\ ]
-[\ \fB\-\-pkcs11\-protected\-authentication\fR\ \fI[0|1]...\fR\ ]
-[\ \fB\-\-pkcs11\-providers\fR\ \fIprovider...\fR\ ]
-[\ \fB\-\-pkcs12\fR\ \fIfile\fR\ ]
-[\ \fB\-\-plugin\fR\ \fImodule\-pathname\ init\-string\fR\ ]
-[\ \fB\-\-port\fR\ \fIport\fR\ ]
-[\ \fB\-\-port\-share\fR\ \fIhost\ port\fR\ ]
-[\ \fB\-\-proto\fR\ \fIp\fR\ ]
-[\ \fB\-\-pull\fR\ ]
-[\ \fB\-\-push\-reset\fR\ ]
-[\ \fB\-\-push\fR\ \fI"option"\fR\ ]
-[\ \fB\-\-rcvbuf\fR\ \fIsize\fR\ ]
-[\ \fB\-\-redirect\-gateway\fR\ \fIflags...\fR\ ]
-[\ \fB\-\-remap\-usr1\fR\ \fIsignal\fR\ ]
-[\ \fB\-\-remote\-random\fR\ ]
-[\ \fB\-\-remote\fR\ \fIhost\ [port]\fR\ ]
-[\ \fB\-\-remote\-cert\-ku\ \fIv...\fR\ ]
-[\ \fB\-\-remote\-cert\-eku\ \fIoid\fR\ ]
-[\ \fB\-\-remote\-cert\-tls\ \fIt\fR\ ]
-[\ \fB\-\-reneg\-bytes\fR\ \fIn\fR\ ]
-[\ \fB\-\-reneg\-pkts\fR\ \fIn\fR\ ]
-[\ \fB\-\-reneg\-sec\fR\ \fIn\fR\ ]
-[\ \fB\-\-replay\-persist\fR\ \fIfile\fR\ ]
-[\ \fB\-\-replay\-window\fR\ \fIn\ [t]\fR\ ]
-[\ \fB\-\-resolv\-retry\fR\ \fIn\fR\ ]
-[\ \fB\-\-rmtun\fR\ ]
-[\ \fB\-\-route\-delay\fR\ \fI[n]\ [w]\fR\ ]
-[\ \fB\-\-route\-gateway\fR\ \fIgw\fR\ ]
-[\ \fB\-\-route\-method\fR\ \fIm\fR\ ]
-[\ \fB\-\-route\-metric\fR\ \fIm\fR\ ]
-[\ \fB\-\-route\-noexec\fR\ ]
-[\ \fB\-\-route\-nopull\fR\ ]
-[\ \fB\-\-route\-up\fR\ \fIcmd\fR\ ]
-[\ \fB\-\-route\fR\ \fInetwork\ [netmask]\ [gateway]\ [metric]\fR\ ]
-[\ \fB\-\-rport\fR\ \fIport\fR\ ]
-[\ \fB\-\-script\-security\fR\ \fIlevel\fR\ ]
-[\ \fB\-\-secret\fR\ \fIfile\ [direction]\fR\ ]
-[\ \fB\-\-secret\fR\ \fIfile\fR\ ]
-[\ \fB\-\-server\-bridge\fR\ \fIgateway\ netmask\ pool\-start\-IP\ pool\-end\-IP\fR\ ]
-[\ \fB\-\-server\fR\ \fInetwork\ netmask\fR\ ]
-[\ \fB\-\-service\fR\ \fIexit\-event\ [0|1]\fR\ ]
-[\ \fB\-\-setenv\fR\ \fIname\ value\fR\ ]
-[\ \fB\-\-setenv\-safe\fR\ \fIname\ value\fR\ ]
-[\ \fB\-\-shaper\fR\ \fIn\fR\ ]
-[\ \fB\-\-show\-adapters\fR\ ]
-[\ \fB\-\-show\-ciphers\fR\ ]
-[\ \fB\-\-show\-digests\fR\ ]
-[\ \fB\-\-show\-engines\fR\ ]
-[\ \fB\-\-show\-pkcs11\-ids\fR\ \fIprovider\ [cert_private]\fR\ ]
-[\ \fB\-\-show\-net\-up\fR\ ]
-[\ \fB\-\-show\-net\fR\ ]
-[\ \fB\-\-show\-tls\fR\ ]
-[\ \fB\-\-show\-valid\-subnets\fR\ ]
-[\ \fB\-\-single\-session\fR\ ]
-[\ \fB\-\-sndbuf\fR\ \fIsize\fR\ ]
-[\ \fB\-\-socks\-proxy\-retry\fR\ ]
-[\ \fB\-\-socks\-proxy\fR\ \fIserver\ [port]\fR\ ]
-[\ \fB\-\-status\fR\ \fIfile\ [n]\fR\ ]
-[\ \fB\-\-status\-version\fR\ \fIn\fR\ ]
-[\ \fB\-\-syslog\fR\ \fI[progname]\fR\ ]
-[\ \fB\-\-tap\-sleep\fR\ \fIn\fR\ ]
-[\ \fB\-\-tcp\-queue\-limit\fR\ \fIn\fR\ ]
-[\ \fB\-\-test\-crypto\fR\ ]
-[\ \fB\-\-tls\-auth\fR\ \fIfile\ [direction]\fR\ ]
-[\ \fB\-\-tls\-cipher\fR\ \fIl\fR\ ]
-[\ \fB\-\-tls\-client\fR\ ]
-[\ \fB\-\-tls\-exit\fR\ ]
-[\ \fB\-\-tls\-remote\fR\ \fIx509name\fR\ ]
-[\ \fB\-\-tls\-server\fR\ ]
-[\ \fB\-\-tls\-timeout\fR\ \fIn\fR\ ]
-[\ \fB\-\-tls\-verify\fR\ \fIcmd\fR\ ]
-[\ \fB\-\-tmp\-dir\fR\ \fIdir\fR\ ]
-[\ \fB\-\-topology\fR\ \fImode\fR\ ]
-[\ \fB\-\-tran\-window\fR\ \fIn\fR\ ]
-[\ \fB\-\-tun\-ipv6\fR\ ]
-[\ \fB\-\-tun\-mtu\-extra\fR\ \fIn\fR\ ]
-[\ \fB\-\-tun\-mtu\fR\ \fIn\fR\ ]
-[\ \fB\-\-txqueuelen\fR\ \fIn\fR\ ]
-[\ \fB\-\-up\-delay\fR\ ]
-[\ \fB\-\-up\-restart\fR\ ]
-[\ \fB\-\-up\fR\ \fIcmd\fR\ ]
-[\ \fB\-\-user\fR\ \fIuser\fR\ ]
-[\ \fB\-\-username\-as\-common\-name\fR\ ]
-[\ \fB\-\-verb\fR\ \fIn\fR\ ]
-[\ \fB\-\-win\-sys\fR\ \fIpath|'env'\fR\ ]
-[\ \fB\-\-writepid\fR\ \fIfile\fR\ ]
+.B openvpn [ options ... ]
 .in -4
 .ti +4
 .hy
@@ -2008,6 +1739,19 @@ Set a custom environmental variable
 to pass to script.
 .\"*********************************************************
 .TP
+.B --setenv FORWARD_COMPATIBLE 1
+Relax config file syntax checking so that unknown directives
+will trigger a warning but not a fatal error,
+on the assumption that a given unknown directive might be valid
+in future OpenVPN versions.
+
+This option should be used with caution, as there are good security
+reasons for having OpenVPN fail if it detects problems in a
+config file.  Having said that, there are valid reasons for wanting
+new software features to gracefully degrade when encountered by
+older software versions.
+.\"*********************************************************
+.TP
 .B --setenv-safe name value
 Set a custom environmental variable
 .B OPENVPN_name=value
@@ -2019,9 +1763,11 @@ is a safety precaution to prevent a LD_PRELOAD style attack
 from a malicious or compromised server.
 .\"*********************************************************
 .TP
-.B --script-security level
+.B --script-security level [method]
 This directive offers policy-level control over OpenVPN's usage of external programs
-and scripts.  Lower values are more restrictive, higher values are more permissive.  Settings for
+and scripts.  Lower
+.B level
+values are more restrictive, higher values are more permissive.  Settings for
 .B level:
 
 .B 0 --
@@ -2035,6 +1781,25 @@ Allow calling of built-in executables and user-defined scripts.
 .br
 .B 3 --
 Allow passwords to be passed to scripts via environmental variables (potentially unsafe).
+
+The
+.B method
+parameter indicates how OpenVPN should call external commands and scripts.
+Settings for
+.B method:
+
+.B execve --
+(default) Use execve() function on Unix family OSes and CreateProcess() on Windows.
+.br
+.B system --
+Use system() function (deprecated and less safe since the external program command
+line is subject to shell expansion).
+
+The
+.B --script-security
+option was introduced in OpenVPN 2.1_rc9.  For configuration file compatibility
+with previous OpenVPN versions, use:
+.B --script-security 3 system
 .\"*********************************************************
 .TP
 .B --disable-occ
@@ -2378,7 +2143,7 @@ signal.
 .B --status-version [n]
 Choose the status file format version number.  Currently
 .B n
-can be 1 or 2 and defaults to 1.
+can be 1, 2, or 3 and defaults to 1.
 .\"*********************************************************
 .TP
 .B --mute n
@@ -2627,8 +2392,9 @@ expands as follows:
  push "topology [topology]"
 
  if dev tun AND (topology == net30 OR topology == p2p):
-   ifconfig 10.8.0.1 10.8.0.2 
-   ifconfig-pool 10.8.0.4 10.8.0.251
+   ifconfig 10.8.0.1 10.8.0.2
+   if !nopool:
+     ifconfig-pool 10.8.0.4 10.8.0.251
    route 10.8.0.0 255.255.255.0
    if client-to-client:
      push "route 10.8.0.0 255.255.255.0"
@@ -2637,7 +2403,8 @@ expands as follows:
 
  if dev tap OR (dev tun AND topology == subnet):
    ifconfig 10.8.0.1 255.255.255.0
-   ifconfig-pool 10.8.0.2 10.8.0.254 255.255.255.0
+   if !nopool:
+     ifconfig-pool 10.8.0.2 10.8.0.254 255.255.255.0
    push "route-gateway 10.8.0.1"
 .ft
 .LP
@@ -3099,6 +2866,31 @@ OpenVPN will start to drop outgoing packets directed
 at this client.
 .\"*********************************************************
 .TP
+.B --tcp-nodelay
+This macro sets the TCP_NODELAY socket flag on the server
+as well as pushes it to connecting clients.  The TCP_NODELAY
+flag disables the Nagle algorithm on TCP sockets causing
+packets to be transmitted immediately with low latency,
+rather than waiting a short period of time in order
+to aggregate several packets into a larger containing
+packet.  In VPN applications over TCP, TCP_NODELAY
+is generally a good latency optimization.
+
+The macro expands as follows:
+
+.RS
+.ft 3
+.nf
+.sp
+ if mode server:
+   socket-flags TCP_NODELAY
+   push "socket-flags TCP_NODELAY"
+.ft
+.LP
+.RE
+.fi
+.\"*********************************************************
+.TP
 .B --max-clients n
 Limit server to a maximum of
 .B n
@@ -3250,6 +3042,38 @@ For a sample script that performs PAM authentication, see
 in the OpenVPN source distribution.
 .\"*********************************************************
 .TP
+.B --opt-verify
+Clients that connect with options that are incompatible
+with those of the server will be disconnected.
+
+Options that will be compared for compatibility include
+dev-type, link-mtu, tun-mtu, proto, tun-ipv6, ifconfig,
+comp-lzo, fragment, keydir, cipher, auth, keysize, secret,
+no-replay, no-iv, tls-auth, key-method, tls-server, and tls-client.
+
+This option requires that
+.B --disable-occ
+NOT be used.
+.\"*********************************************************
+.TP
+.B --auth-user-pass-optional
+Allow connections by clients that do not specify a username/password.
+Normally, when
+.B --auth-user-pass-verify
+or
+.B --management-client-auth
+is specified (or an authentication plugin module), the
+OpenVPN server daemon will require connecting clients to specify a
+username and password.  This option makes the submission of a username/password
+by clients optional, passing the responsibility to the user-defined authentication
+module/script to accept or deny the client based on other factors
+(such as the setting of X509 certificate fields).  When this option is used,
+and a connecting client does not submit a username/password, the user-defined
+authentication module/script will see the username and password as being set
+to empty strings ("").  The authentication module/script MUST have logic
+to detect this condition and respond accordingly.
+.\"*********************************************************
+.TP
 .B --client-cert-not-required
 Don't require client certificate, client will authenticate
 using username/password only.  Be aware that using this directive
@@ -3276,6 +3100,27 @@ For
 authentication, use
 the authenticated username as the common name,
 rather than the common name from the client cert.
+.\"*********************************************************
+.TP
+.B --no-name-remapping
+Allow Common Name, X509 Subject, and username strings to include
+any printable character including space, but excluding control
+characters such as tab, newline, and carriage-return.
+
+By default, OpenVPN will remap
+any character other than alphanumeric, underbar ('_'), dash
+('-'), dot ('.'), and slash ('/') to underbar ('_').  The X509
+Subject string as returned by the
+.B tls_id
+environmental variable, can additionally contain colon (':') or
+equal ('=').
+
+While name remapping is performed for security reasons to reduce
+the possibility of introducing string expansion security vulnerabilities
+in user-defined authentication
+scripts, this option is provided for those cases where it is desirable to
+disable the remapping feature.  Don't use this option unless you 
+know what you are doing!
 .\"*********************************************************
 .TP
 .B --port-share host port
@@ -3537,6 +3382,21 @@ key size.  Many ciphers have not been extensively
 cryptanalyzed with non-standard key lengths, and a
 larger key may offer no real guarantee of greater
 security, or may even reduce security.
+.\"*********************************************************
+.TP
+.B --prng alg [nsl]
+(Advanced) For PRNG (Pseudo-random number generator),
+use digest algorithm
+.B alg
+(default=sha1), and set
+.B nsl
+(default=16)
+to the size in bytes of the nonce secret length (between 16 and 64).
+
+Set
+.B alg=none
+to disable the PRNG and use the OpenSSL RAND_bytes function
+instead for all of OpenVPN's pseudo-random number needs.
 .\"*********************************************************
 .TP
 .B --engine [engine-name]
@@ -5448,6 +5308,43 @@ Set prior to
 script execution only when the
 .B via-env
 modifier is specified.
+.\"*********************************************************
+.TP
+.B X509_{n}_{subject_field}
+An X509 subject field from the remote peer certificate,
+where
+.B n
+is the verification level.  Only set for TLS connections.  Set prior
+to execution of
+.B --tls-verify
+script.  This variable is similar to
+.B tls_id_{n}
+except the component X509 subject fields are broken out, and
+no string remapping occurs on these field values (except for remapping
+of control characters to "_").
+For example, the following variables would be set on the
+OpenVPN server using the sample client certificate
+in sample-keys (client.crt).
+Note that the verification level is 0 for the client certificate
+and 1 for the CA certificate.
+.RS
+.ft 3
+.nf
+.sp
+X509_0_emailAddress=me@myhost.mydomain
+X509_0_CN=Test-Client
+X509_0_O=OpenVPN-TEST
+X509_0_ST=NA
+X509_0_C=KG
+X509_1_emailAddress=me@myhost.mydomain
+X509_1_O=OpenVPN-TEST
+X509_1_L=BISHKEK
+X509_1_ST=NA
+X509_1_C=KG
+.ft
+.LP
+.RE
+.fi
 .\"*********************************************************
 .SH SIGNALS
 .TP
