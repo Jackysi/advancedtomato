@@ -94,11 +94,6 @@ function verifyFields(focused, quiet)
 		if (!v_ip('_vpn_'+t+'_remote', quiet, 1)) ret = 0;
 		if (!v_netmask('_vpn_'+t+'_nm', quiet)) ret = 0;
 		if (!v_range('_vpn_'+t+'_retry', quiet, -1, 32767)) ret = 0;
-		if (!v_length('_vpn_'+t+'_custom', quiet, 0, 1024)) ret = 0;
-		if (!v_length('_vpn_'+t+'_static', quiet, 0, 1024)) ret = 0;
-		if (!v_length('_vpn_'+t+'_ca', quiet, 0, 1648)) ret = 0;
-		if (!v_length('_vpn_'+t+'_crt', quiet, 0, 1536)) ret = 0;
-		if (!v_length('_vpn_'+t+'_key', quiet, 0, 1024)) ret = 0;
 	}
 
 	// Visability changes
