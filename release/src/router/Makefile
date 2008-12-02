@@ -243,7 +243,7 @@ rmconf: config/mconf
 	@config/mconf $(CONFIG_IN)
 
 roldconf: config/conf
-	@config/conf -o $(CONFIG_IN)
+	@config/conf -y $(CONFIG_IN)
 
 kconf:
 	@$(MAKE) -C $(LINUXDIR) config
