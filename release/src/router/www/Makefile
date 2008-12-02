@@ -33,6 +33,11 @@ install:
 			-e "/^<!--$$/,/^-->$$/! { s,^\s\+, , }" $$F > $(INSTALLDIR)/www/$$F; \
 	done
 
+# Only include the vpn pages in the navigation if OpenVPN is compiled in
+
+ifneq ($(TCONFIG_OPENVPN),y)
+	sed -i $(INSTALLDIR)/www/tomato.js -e "/VPN-BEGIN/,/VPN-END/d"
+endif
 
 	
 # make sure old and debugging crap is gone

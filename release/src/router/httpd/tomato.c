@@ -238,6 +238,7 @@ const aspapi_t aspapi[] = {
 	{ "time",				asp_time			},
 	{ "upnpinfo",			asp_upnpinfo		},
 	{ "version",			asp_version			},
+	{ "vpnciphers",			asp_vpn_ciphers		},
 	{ "wanstatus",			asp_wanstatus		},
 	{ "wanup",				asp_wanup			},
 	{ "wlchannel",			asp_wlchannel		},
