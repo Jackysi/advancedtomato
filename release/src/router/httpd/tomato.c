@@ -666,6 +666,7 @@ static const nvset_t nvset_list[] = {
 	{ "vpn_server1_crypt",  V_TEXT(0, 6)        },  // tls, secret, custom
 	{ "vpn_server1_comp",   V_TEXT(0, 8)        },  // yes, no, adaptive
 	{ "vpn_server1_cipher", V_TEXT(0, 16)       },
+	{ "vpn_server1_dhcp",   V_01                },
 	{ "vpn_server1_r1",     V_IP                },
 	{ "vpn_server1_r2",     V_IP                },
 	{ "vpn_server1_sn",     V_IP                },
@@ -685,6 +686,7 @@ static const nvset_t nvset_list[] = {
 	{ "vpn_server2_crypt",  V_TEXT(0, 6)        },  // tls, secret, custom
 	{ "vpn_server2_comp",   V_TEXT(0, 8)        },  // yes, no, adaptive
 	{ "vpn_server2_cipher", V_TEXT(0, 16)       },
+	{ "vpn_server2_dhcp",   V_01                },
 	{ "vpn_server2_r1",     V_IP                },
 	{ "vpn_server2_r2",     V_IP                },
 	{ "vpn_server2_sn",     V_IP                },

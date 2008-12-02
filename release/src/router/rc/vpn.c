@@ -381,12 +381,18 @@ void start_vpnserver(int serverNum)
 		}
 		else if ( ifType == TAP )
 		{
-			fprintf(fp, "server-bridge %s ", ((nv = nvram_get("lan_ipaddr")) != NULL)? nv: "");
-			fprintf(fp, "%s ", ((nv = nvram_get("lan_netmask")) != NULL)? nv: "");
-			sprintf(&buffer[0], "vpn_server%d_r1", serverNum);
-			fprintf(fp, "%s ", ((nv = nvram_get(&buffer[0])) != NULL)? nv: "");
-			sprintf(&buffer[0], "vpn_server%d_r2", serverNum);
-			fprintf(fp, "%s\n", ((nv = nvram_get(&buffer[0])) != NULL)? nv: "");
+			fprintf(fp, "server-bridge");
+			sprintf(&buffer[0], "vpn_server%d_dhcp", serverNum);
+			if ( nvram_get_int(&buffer[0]) == 0 )
+			{
+				fprintf(fp, " %s ", ((nv = nvram_get("lan_ipaddr")) != NULL)? nv: "");
+				fprintf(fp, "%s ", ((nv = nvram_get("lan_netmask")) != NULL)? nv: "");
+				sprintf(&buffer[0], "vpn_server%d_r1", serverNum);
+				fprintf(fp, "%s ", ((nv = nvram_get(&buffer[0])) != NULL)? nv: "");
+				sprintf(&buffer[0], "vpn_server%d_r2", serverNum);
+				fprintf(fp, "%s", ((nv = nvram_get(&buffer[0])) != NULL)? nv: "");
+			}
+			fprintf(fp, "\n");
 		}
 	}
 	else if ( cryptMode == SECRET )
