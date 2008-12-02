@@ -40,6 +40,8 @@
 
 #include "occ-inline.h"
 
+#include "ping.h"
+
 /*
  * Crypto initialization flags
  */
