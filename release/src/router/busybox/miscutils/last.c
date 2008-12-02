@@ -4,25 +4,20 @@
  *
  * Copyright (C) 2003-2004 by Erik Andersen <andersen@codepoet.org>
  *
- * Licensed under the GPL v2 or later, see the file LICENSE in this tarball.
+ * Licensed under the GPL version 2, see the file LICENSE in this tarball.
  */
 
-#include "busybox.h"
-#include <sys/types.h>
-#include <fcntl.h>
-#include <unistd.h>
-#include <stdlib.h>
+#include "libbb.h"
 #include <utmp.h>
-#include <sys/stat.h>
-#include <errno.h>
-#include <string.h>
-#include <time.h>
+
+/* NB: ut_name and ut_user are the same field, use only one name (ut_user)
+ * to reduce confusion */
 
 #ifndef SHUTDOWN_TIME
 #  define SHUTDOWN_TIME 254
 #endif
 
-/* Grr... utmp char[] members  do not have to be nul-terminated.
+/* Grr... utmp char[] members do not have to be nul-terminated.
  * Do what we can while still keeping this reasonably small.
  * Note: We are assuming the ut_id[] size is fixed at 4. */
 
@@ -34,66 +29,105 @@
 #error struct utmp member char[] size(s) have changed!
 #endif
 
-int last_main(int argc, char **argv)
+#if EMPTY != 0 || RUN_LVL != 1 || BOOT_TIME != 2 || NEW_TIME != 3 || \
+	OLD_TIME != 4
+#error Values for the ut_type field of struct utmp changed
+#endif
+
+int last_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
+int last_main(int argc, char **argv UNUSED_PARAM)
 {
 	struct utmp ut;
 	int n, file = STDIN_FILENO;
 	time_t t_tmp;
+	off_t pos;
+	static const char _ut_usr[] ALIGN1 =
+			"runlevel\0" "reboot\0" "shutdown\0";
+	static const char _ut_lin[] ALIGN1 =
+			"~\0" "{\0" "|\0" /* "LOGIN\0" "date\0" */;
+	enum {
+		TYPE_RUN_LVL = RUN_LVL,		/* 1 */
+		TYPE_BOOT_TIME = BOOT_TIME,	/* 2 */
+		TYPE_SHUTDOWN_TIME = SHUTDOWN_TIME
+	};
+	enum {
+		_TILDE = EMPTY,				/* 0 */
+		TYPE_NEW_TIME,	/* NEW_TIME, 3 */
+		TYPE_OLD_TIME	/* OLD_TIME, 4 */
+	};
 
 	if (argc > 1) {
 		bb_show_usage();
 	}
-	file = bb_xopen(bb_path_wtmp_file, O_RDONLY);
+	file = xopen(bb_path_wtmp_file, O_RDONLY);
 
-	printf("%-10s %-14s %-18s %-12.12s %s\n", "USER", "TTY", "HOST", "LOGIN", "TIME");
-	while ((n = safe_read(file, (void*)&ut, sizeof(struct utmp))) != 0) {
-
-		if (n != sizeof(struct utmp)) {
+	printf("%-10s %-14s %-18s %-12.12s %s\n",
+	       "USER", "TTY", "HOST", "LOGIN", "TIME");
+	/* yikes. We reverse over the file and that is a not too elegant way */
+	pos = xlseek(file, 0, SEEK_END);
+	pos = lseek(file, pos - sizeof(ut), SEEK_SET);
+	while ((n = full_read(file, &ut, sizeof(ut))) > 0) {
+		if (n != sizeof(ut)) {
 			bb_perror_msg_and_die("short read");
 		}
-
-		if (strncmp(ut.ut_line, "~", 1) == 0) {
+		n = index_in_strings(_ut_lin, ut.ut_line);
+		if (n == _TILDE) { /* '~' */
+#if 1
+/* do we really need to be cautious here? */
+			n = index_in_strings(_ut_usr, ut.ut_user);
+			if (++n > 0)
+				ut.ut_type = n != 3 ? n : SHUTDOWN_TIME;
+#else
 			if (strncmp(ut.ut_user, "shutdown", 8) == 0)
 				ut.ut_type = SHUTDOWN_TIME;
 			else if (strncmp(ut.ut_user, "reboot", 6) == 0)
 				ut.ut_type = BOOT_TIME;
-			else if (strncmp(ut.ut_user, "runlevel", 7) == 0)
+			else if (strncmp(ut.ut_user, "runlevel", 8) == 0)
 				ut.ut_type = RUN_LVL;
+#endif
 		} else {
-			if (!ut.ut_name[0] || strcmp(ut.ut_name, "LOGIN") == 0 ||
-					ut.ut_name[0] == 0)
-			{
+			if (ut.ut_user[0] == '\0' || strcmp(ut.ut_user, "LOGIN") == 0) {
 				/* Don't bother.  This means we can't find how long
 				 * someone was logged in for.  Oh well. */
-				continue;
+				goto next;
 			}
-			if (ut.ut_type != DEAD_PROCESS &&
-					ut.ut_name[0] && ut.ut_line[0])
-			{
+			if (ut.ut_type != DEAD_PROCESS
+			 && ut.ut_user[0] && ut.ut_line[0]
+			) {
 				ut.ut_type = USER_PROCESS;
 			}
-			if (strcmp(ut.ut_name, "date") == 0) {
-				if (ut.ut_line[0] == '|') ut.ut_type = OLD_TIME;
-				if (ut.ut_line[0] == '{') ut.ut_type = NEW_TIME;
+			if (strcmp(ut.ut_user, "date") == 0) {
+				if (n == TYPE_OLD_TIME) { /* '|' */
+					ut.ut_type = OLD_TIME;
+				}
+				if (n == TYPE_NEW_TIME) { /* '{' */
+					ut.ut_type = NEW_TIME;
+				}
 			}
 		}
 
-		if (ut.ut_type!=USER_PROCESS) {
+		if (ut.ut_type != USER_PROCESS) {
 			switch (ut.ut_type) {
 				case OLD_TIME:
 				case NEW_TIME:
 				case RUN_LVL:
 				case SHUTDOWN_TIME:
-					continue;
+					goto next;
 				case BOOT_TIME:
 					strcpy(ut.ut_line, "system boot");
-					break;
 			}
 		}
+		/* manpages say ut_tv.tv_sec *is* time_t,
+		 * but some systems have it wrong */
 		t_tmp = (time_t)ut.ut_tv.tv_sec;
-		printf("%-10s %-14s %-18s %-12.12s\n", ut.ut_user, ut.ut_line, ut.ut_host,
-				ctime(&t_tmp) + 4);
+		printf("%-10s %-14s %-18s %-12.12s\n",
+		       ut.ut_user, ut.ut_line, ut.ut_host, ctime(&t_tmp) + 4);
+ next:
+		pos -= sizeof(ut);
+		if (pos <= 0)
+			break; /* done. */
+		xlseek(file, pos, SEEK_SET);
 	}
 
-	bb_fflush_stdout_and_exit(EXIT_SUCCESS);
+	fflush_stdout_and_exit(EXIT_SUCCESS);
 }

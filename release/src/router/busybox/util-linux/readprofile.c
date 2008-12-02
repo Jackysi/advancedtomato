@@ -1,25 +1,14 @@
+/* vi: set sw=4 ts=4: */
 /*
  *  readprofile.c - used to read /proc/profile
  *
  *  Copyright (C) 1994,1996 Alessandro Rubini (rubini@ipvvis.unipv.it)
  *
- *   This program is free software; you can redistribute it and/or modify
- *   it under the terms of the GNU General Public License as published by
- *   the Free Software Foundation; either version 2 of the License, or
- *   (at your option) any later version.
- *
- *   This program is distributed in the hope that it will be useful,
- *   but WITHOUT ANY WARRANTY; without even the implied warranty of
- *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *   GNU General Public License for more details.
- *
- *   You should have received a copy of the GNU General Public License
- *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ * Licensed under GPLv2 or later, see file LICENSE in this tarball for details.
  */
 
 /*
- * 1999-02-22 Arkadiusz Mi¶kiewicz <misiek@pld.ORG.PL>
+ * 1999-02-22 Arkadiusz Mickiewicz <misiek@pld.ORG.PL>
  * - added Native Language Support
  * 1999-09-01 Stephane Eranian <eranian@cello.hpl.hp.com>
  * - 64bit clean patch
@@ -43,105 +32,75 @@
  * Paul Mundt <lethal@linux-sh.org>.
  */
 
-#include <errno.h>
-#include <stdio.h>
-#include <fcntl.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <string.h>
-#include <sys/types.h>
-#include <sys/stat.h>
+#include "libbb.h"
 #include <sys/utsname.h>
-
-#include "busybox.h"
 
 #define S_LEN 128
 
 /* These are the defaults */
-static const char defaultmap[]="/boot/System.map";
-static const char defaultpro[]="/proc/profile";
+static const char defaultmap[] ALIGN1 = "/boot/System.map";
+static const char defaultpro[] ALIGN1 = "/proc/profile";
 
-int readprofile_main(int argc, char **argv)
+int readprofile_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
+int readprofile_main(int argc UNUSED_PARAM, char **argv)
 {
 	FILE *map;
-	int proFd;
-	const char *mapFile, *proFile, *mult=0;
-	unsigned long len=0, indx=1;
-	uint64_t add0=0;
+	const char *mapFile, *proFile;
+	unsigned long indx = 1;
+	size_t len;
+	uint64_t add0 = 0;
 	unsigned int step;
 	unsigned int *buf, total, fn_len;
-	unsigned long long fn_add, next_add;          /* current and next address */
+	unsigned long long fn_add, next_add;     /* current and next address */
 	char fn_name[S_LEN], next_name[S_LEN];   /* current and next name */
-	char mode[8];
-	int c;
-	int optAll=0, optInfo=0, optReset=0, optVerbose=0, optNative=0;
-	int optBins=0, optSub=0;
 	char mapline[S_LEN];
-	int maplineno=1;
+	char mode[8];
+	int maplineno = 1;
 	int header_printed;
+	int multiplier = 0;
+	unsigned opt;
+	enum {
+		OPT_M = (1 << 0),
+		OPT_m = (1 << 1),
+		OPT_p = (1 << 2),
+		OPT_n = (1 << 3),
+		OPT_a = (1 << 4),
+		OPT_b = (1 << 5),
+		OPT_s = (1 << 6),
+		OPT_i = (1 << 7),
+		OPT_r = (1 << 8),
+		OPT_v = (1 << 9),
+	};
+#define optMult    (opt & OPT_M)
+#define optNative  (opt & OPT_n)
+#define optAll     (opt & OPT_a)
+#define optBins    (opt & OPT_b)
+#define optSub     (opt & OPT_s)
+#define optInfo    (opt & OPT_i)
+#define optReset   (opt & OPT_r)
+#define optVerbose (opt & OPT_v)
 
 #define next (current^1)
 
 	proFile = defaultpro;
 	mapFile = defaultmap;
 
-	while ((c = getopt(argc, argv, "M:m:np:itvarVbs")) != -1) {
-		switch(c) {
-		case 'm':
-			mapFile = optarg;
-			break;
-		case 'n':
-			optNative++;
-			break;
-		case 'p':
-			proFile = optarg;
-			break;
-		case 'a':
-			optAll++;
-			break;
-		case 'b':
-			optBins++;
-			break;
-		case 's':
-			optSub++;
-			break;
-		case 'i':
-			optInfo++;
-			break;
-		case 'M':
-			mult = optarg;
-			break;
-		case 'r':
-			optReset++;
-			break;
-		case 'v':
-			optVerbose++;
-			break;
-		default:
-			bb_show_usage();
-		}
-	}
+	opt_complementary = "M+"; /* -M N */
+	opt = getopt32(argv, "M:m:p:nabsirv", &multiplier, &mapFile, &proFile);
 
-	if (optReset || mult) {
-		int multiplier, fd, to_write;
+	if (opt & (OPT_M|OPT_r)) { /* mult or reset, or both */
+		int fd, to_write;
 
 		/*
 		 * When writing the multiplier, if the length of the write is
 		 * not sizeof(int), the multiplier is not changed
 		 */
-		if (mult) {
-			multiplier = strtoul(mult, 0, 10);
-			to_write = sizeof(int);
-		} else {
-			multiplier = 0;
+		to_write = sizeof(int);
+		if (!optMult)
 			to_write = 1;	/* sth different from sizeof(int) */
-		}
 
-		fd = bb_xopen(defaultpro,O_WRONLY);
-
-		if (write(fd, &multiplier, to_write) != to_write)
-			bb_perror_msg_and_die("error writing %s", defaultpro);
-
+		fd = xopen(defaultpro, O_WRONLY);
+		xwrite(fd, &multiplier, to_write);
 		close(fd);
 		return EXIT_SUCCESS;
 	}
@@ -149,23 +108,11 @@ int readprofile_main(int argc, char **argv)
 	/*
 	 * Use an fd for the profiling buffer, to skip stdio overhead
 	 */
-
-	proFd = bb_xopen(proFile,O_RDONLY);
-
-	if (((int)(len=lseek(proFd,0,SEEK_END)) < 0)
-	    || (lseek(proFd,0,SEEK_SET) < 0))
-		bb_perror_msg_and_die(proFile);
-
-	buf = xmalloc(len);
-
-	if (read(proFd,buf,len) != len)
-		bb_perror_msg_and_die(proFile);
-
-	close(proFd);
-
+	len = MAXINT(ssize_t);
+	buf = xmalloc_xopen_read_close(proFile, &len);
 	if (!optNative) {
-		int entries = len/sizeof(*buf);
-		int big = 0,small = 0,i;
+		int entries = len / sizeof(*buf);
+		int big = 0, small = 0, i;
 		unsigned *p;
 
 		for (p = buf+1; p < buf+entries; p++) {
@@ -175,8 +122,8 @@ int readprofile_main(int argc, char **argv)
 				small++;
 		}
 		if (big > small) {
-			bb_error_msg("Assuming reversed byte order. "
-				"Use -n to force native byte order.");
+			bb_error_msg("assuming reversed byte order, "
+				"use -n to force native byte order");
 			for (p = buf; p < buf+entries; p++)
 				for (i = 0; i < sizeof(*buf)/2; i++) {
 					unsigned char *b = (unsigned char *) p;
@@ -197,14 +144,14 @@ int readprofile_main(int argc, char **argv)
 
 	total = 0;
 
-	map = bb_xfopen(mapFile, "r");
+	map = xfopen_for_read(mapFile);
 
-	while (fgets(mapline,S_LEN,map)) {
-		if (sscanf(mapline,"%llx %s %s",&fn_add,mode,fn_name) != 3)
+	while (fgets(mapline, S_LEN, map)) {
+		if (sscanf(mapline, "%llx %s %s", &fn_add, mode, fn_name) != 3)
 			bb_error_msg_and_die("%s(%i): wrong map line",
 					     mapFile, maplineno);
 
-		if (!strcmp(fn_name,"_stext")) /* only elf works like this */ {
+		if (!strcmp(fn_name, "_stext")) /* only elf works like this */ {
 			add0 = fn_add;
 			break;
 		}
@@ -217,12 +164,12 @@ int readprofile_main(int argc, char **argv)
 	/*
 	 * Main loop.
 	 */
-	while (fgets(mapline,S_LEN,map)) {
+	while (fgets(mapline, S_LEN, map)) {
 		unsigned int this = 0;
 
-		if (sscanf(mapline,"%llx %s %s",&next_add,mode,next_name) != 3)
+		if (sscanf(mapline, "%llx %s %s", &next_add, mode, next_name) != 3)
 			bb_error_msg_and_die("%s(%i): wrong map line",
-					     mapFile, maplineno);
+					mapFile, maplineno);
 
 		header_printed = 0;
 
@@ -240,10 +187,10 @@ int readprofile_main(int argc, char **argv)
 		while (indx < (next_add-add0)/step) {
 			if (optBins && (buf[indx] || optAll)) {
 				if (!header_printed) {
-					printf ("%s:\n", fn_name);
+					printf("%s:\n", fn_name);
 					header_printed = 1;
 				}
-				printf ("\t%"PRIx64"\t%u\n", (indx - 1)*step + add0, buf[indx]);
+				printf("\t%"PRIx64"\t%u\n", (indx - 1)*step + add0, buf[indx]);
 			}
 			this += buf[indx++];
 		}
@@ -251,15 +198,16 @@ int readprofile_main(int argc, char **argv)
 
 		if (optBins) {
 			if (optVerbose || this > 0)
-				printf ("  total\t\t\t\t%u\n", this);
-		} else if ((this || optAll) &&
-			   (fn_len = next_add-fn_add) != 0) {
+				printf("  total\t\t\t\t%u\n", this);
+		} else if ((this || optAll)
+		        && (fn_len = next_add-fn_add) != 0
+		) {
 			if (optVerbose)
 				printf("%016llx %-40s %6i %8.4f\n", fn_add,
-				       fn_name,this,this/(double)fn_len);
+				       fn_name, this, this/(double)fn_len);
 			else
 				printf("%6i %-40s %8.4f\n",
-				       this,fn_name,this/(double)fn_len);
+				       this, fn_name, this/(double)fn_len);
 			if (optSub) {
 				unsigned long long scan;
 
@@ -276,7 +224,7 @@ int readprofile_main(int argc, char **argv)
 		}
 
 		fn_add = next_add;
-		strcpy(fn_name,next_name);
+		strcpy(fn_name, next_name);
 
 		maplineno++;
 	}
@@ -287,10 +235,10 @@ int readprofile_main(int argc, char **argv)
 	/* trailer */
 	if (optVerbose)
 		printf("%016x %-40s %6i %8.4f\n",
-		       0,"total",total,total/(double)(fn_add-add0));
+		       0, "total", total, total/(double)(fn_add-add0));
 	else
 		printf("%6i %-40s %8.4f\n",
-		       total,"total",total/(double)(fn_add-add0));
+		       total, "total", total/(double)(fn_add-add0));
 
 	fclose(map);
 	free(buf);

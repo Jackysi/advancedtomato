@@ -4,67 +4,47 @@
  *
  * Copyright (C) 2003  Manuel Novoa III  <mjn3@codepoet.org>
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
- *
+ * Licensed under GPLv2 or later, see file LICENSE in this tarball for details.
  */
 
 /* http://www.opengroup.org/onlinepubs/007904975/utilities/chmod.html */
 
-#include <stdlib.h>
-#include <assert.h>
-#include <sys/stat.h>
 #include "libbb.h"
 
-#define FILEMODEBITS    (S_ISUID | S_ISGID | S_ISVTX | S_IRWXU | S_IRWXG | S_IRWXO)
+/* This function is used from NOFORK applets. It must not allocate anything */
 
-int bb_parse_mode(const char *s, mode_t *current_mode)
+#define FILEMODEBITS (S_ISUID | S_ISGID | S_ISVTX | S_IRWXU | S_IRWXG | S_IRWXO)
+
+int FAST_FUNC bb_parse_mode(const char *s, mode_t *current_mode)
 {
 	static const mode_t who_mask[] = {
 		S_ISUID | S_ISGID | S_ISVTX | S_IRWXU | S_IRWXG | S_IRWXO, /* a */
-		S_ISUID | S_IRWXU,		/* u */
-		S_ISGID | S_IRWXG,		/* g */
-		S_IRWXO					/* o */
+		S_ISUID | S_IRWXU,           /* u */
+		S_ISGID | S_IRWXG,           /* g */
+		S_IRWXO                      /* o */
 	};
-
 	static const mode_t perm_mask[] = {
 		S_IRUSR | S_IRGRP | S_IROTH, /* r */
 		S_IWUSR | S_IWGRP | S_IWOTH, /* w */
 		S_IXUSR | S_IXGRP | S_IXOTH, /* x */
 		S_IXUSR | S_IXGRP | S_IXOTH, /* X -- special -- see below */
-		S_ISUID | S_ISGID,		/* s */
-		S_ISVTX					/* t */
+		S_ISUID | S_ISGID,           /* s */
+		S_ISVTX                      /* t */
 	};
-
-	static const char who_chars[] = "augo";
-	static const char perm_chars[] = "rwxXst";
+	static const char who_chars[] ALIGN1 = "augo";
+	static const char perm_chars[] ALIGN1 = "rwxXst";
 
 	const char *p;
-
 	mode_t wholist;
 	mode_t permlist;
-	mode_t mask;
 	mode_t new_mode;
 	char op;
-
-	assert(s);
 
 	if (((unsigned int)(*s - '0')) < 8) {
 		unsigned long tmp;
 		char *e;
 
-		tmp = strtol(s, &e, 8);
+		tmp = strtoul(s, &e, 8);
 		if (*e || (tmp > 07777U)) { /* Check range and trailing chars. */
 			return 0;
 		}
@@ -72,16 +52,12 @@ int bb_parse_mode(const char *s, mode_t *current_mode)
 		return 1;
 	}
 
-	mask = umask(0);
-	umask(mask);
-
 	new_mode = *current_mode;
 
-	/* Note: We allow empty clauses, and hence empty modes.
+	/* Note: we allow empty clauses, and hence empty modes.
 	 * We treat an empty mode as no change to perms. */
 
 	while (*s) {	/* Process clauses. */
-
 		if (*s == ',') {	/* We allow empty clauses. */
 			++s;
 			continue;
@@ -89,8 +65,7 @@ int bb_parse_mode(const char *s, mode_t *current_mode)
 
 		/* Get a wholist. */
 		wholist = 0;
-
-	WHO_LIST:
+ WHO_LIST:
 		p = who_chars;
 		do {
 			if (*p == *s) {
@@ -108,7 +83,7 @@ int bb_parse_mode(const char *s, mode_t *current_mode)
 					return 0;
 				}
 				/* Since op is '=', clear all bits corresponding to the
-				 * wholist, of all file bits if wholist is empty. */
+				 * wholist, or all file bits if wholist is empty. */
 				permlist = ~FILEMODEBITS;
 				if (wholist) {
 					permlist = ~wholist;
@@ -137,13 +112,12 @@ int bb_parse_mode(const char *s, mode_t *current_mode)
 
 			/* It was not a permcopy, so get a permlist. */
 			permlist = 0;
-
-		PERM_LIST:
+ PERM_LIST:
 			p = perm_chars;
 			do {
 				if (*p == *s) {
 					if ((*p != 'X')
-						|| (new_mode & (S_IFDIR | S_IXUSR | S_IXGRP | S_IXOTH))
+					 || (new_mode & (S_IFDIR | S_IXUSR | S_IXGRP | S_IXOTH))
 					) {
 						permlist |= perm_mask[(int)(p-perm_chars)];
 					}
@@ -153,15 +127,15 @@ int bb_parse_mode(const char *s, mode_t *current_mode)
 					goto PERM_LIST;
 				}
 			} while (*++p);
-
-		GOT_ACTION:
+ GOT_ACTION:
 			if (permlist) {	/* The permlist was nonempty. */
-				mode_t tmp = ~mask;
-				if (wholist) {
-					tmp = wholist;
+				mode_t tmp = wholist;
+				if (!wholist) {
+					mode_t u_mask = umask(0);
+					umask(u_mask);
+					tmp = ~u_mask;
 				}
 				permlist &= tmp;
-
 				if (op == '-') {
 					new_mode &= ~permlist;
 				} else {
@@ -172,6 +146,5 @@ int bb_parse_mode(const char *s, mode_t *current_mode)
 	}
 
 	*current_mode = new_mode;
-
 	return 1;
 }

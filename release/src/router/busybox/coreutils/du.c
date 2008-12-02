@@ -23,71 +23,59 @@
  * 4) Fixed busybox bug #1284 involving long overflow with human_readable.
  */
 
-#include <stdlib.h>
-#include <limits.h>
-#include <unistd.h>
-#include <dirent.h>
-#include <sys/stat.h>
-#include "busybox.h"
+#include "libbb.h"
 
-#ifdef CONFIG_FEATURE_HUMAN_READABLE
-# ifdef CONFIG_FEATURE_DU_DEFAULT_BLOCKSIZE_1K
-static unsigned long disp_hr = KILOBYTE;
-# else
-static unsigned long disp_hr = 512;
-# endif
-#elif defined CONFIG_FEATURE_DU_DEFAULT_BLOCKSIZE_1K
-static unsigned int disp_k = 1;
+struct globals {
+#if ENABLE_FEATURE_HUMAN_READABLE
+	unsigned long disp_hr;
 #else
-static unsigned int disp_k;	/* bss inits to 0 */
+	unsigned disp_k;
 #endif
 
-static int max_print_depth = INT_MAX;
-static nlink_t count_hardlinks = 1;
+	int max_print_depth;
+	nlink_t count_hardlinks;
 
-static int status
-#if EXIT_SUCCESS == 0
-	= EXIT_SUCCESS
-#endif
-	;
-static int print_files;
-static int slink_depth;
-static int du_depth;
-static int one_file_system;
-static dev_t dir_dev;
+	bool status;
+	bool one_file_system;
+	int print_files;
+	int slink_depth;
+	int du_depth;
+	dev_t dir_dev;
+};
+#define G (*(struct globals*)&bb_common_bufsiz1)
 
 
-static void print(long size, char *filename)
+static void print(unsigned long size, const char *filename)
 {
 	/* TODO - May not want to defer error checking here. */
-#ifdef CONFIG_FEATURE_HUMAN_READABLE
-	bb_printf("%s\t%s\n", make_human_readable_str(size, 512, disp_hr),
-		   filename);
+#if ENABLE_FEATURE_HUMAN_READABLE
+	printf("%s\t%s\n", make_human_readable_str(size, 512, G.disp_hr),
+			filename);
 #else
-	if (disp_k) {
+	if (G.disp_k) {
 		size++;
 		size >>= 1;
 	}
-	bb_printf("%ld\t%s\n", size, filename);
+	printf("%ld\t%s\n", size, filename);
 #endif
 }
 
 /* tiny recursive du */
-static long du(char *filename)
+static unsigned long du(const char *filename)
 {
 	struct stat statbuf;
-	long sum;
+	unsigned long sum;
 
-	if ((lstat(filename, &statbuf)) != 0) {
-		bb_perror_msg("%s", filename);
-		status = EXIT_FAILURE;
+	if (lstat(filename, &statbuf) != 0) {
+		bb_simple_perror_msg(filename);
+		G.status = EXIT_FAILURE;
 		return 0;
 	}
 
-	if (one_file_system) {
-		if (du_depth == 0) {
-			dir_dev = statbuf.st_dev;
-		} else if (dir_dev != statbuf.st_dev) {
+	if (G.one_file_system) {
+		if (G.du_depth == 0) {
+			G.dir_dev = statbuf.st_dev;
+		} else if (G.dir_dev != statbuf.st_dev) {
 			return 0;
 		}
 	}
@@ -95,22 +83,22 @@ static long du(char *filename)
 	sum = statbuf.st_blocks;
 
 	if (S_ISLNK(statbuf.st_mode)) {
-		if (slink_depth > du_depth) {	/* -H or -L */
-			if ((stat(filename, &statbuf)) != 0) {
-				bb_perror_msg("%s", filename);
-				status = EXIT_FAILURE;
+		if (G.slink_depth > G.du_depth) {	/* -H or -L */
+			if (stat(filename, &statbuf) != 0) {
+				bb_simple_perror_msg(filename);
+				G.status = EXIT_FAILURE;
 				return 0;
 			}
 			sum = statbuf.st_blocks;
-			if (slink_depth == 1) {
-				slink_depth = INT_MAX;	/* Convert -H to -L. */
+			if (G.slink_depth == 1) {
+				G.slink_depth = INT_MAX;	/* Convert -H to -L. */
 			}
 		}
 	}
 
-	if (statbuf.st_nlink > count_hardlinks) {
+	if (statbuf.st_nlink > G.count_hardlinks) {
 		/* Add files/directories with links only once */
-		if (is_in_ino_dev_hashtable(&statbuf, NULL)) {
+		if (is_in_ino_dev_hashtable(&statbuf)) {
 			return 0;
 		}
 		add_to_ino_dev_hashtable(&statbuf, NULL);
@@ -121,9 +109,9 @@ static long du(char *filename)
 		struct dirent *entry;
 		char *newfile;
 
-		dir = bb_opendir(filename);
+		dir = warn_opendir(filename);
 		if (!dir) {
-			status = EXIT_FAILURE;
+			G.status = EXIT_FAILURE;
 			return sum;
 		}
 
@@ -135,121 +123,118 @@ static long du(char *filename)
 			char *name = entry->d_name;
 
 			newfile = concat_subpath_file(filename, name);
-			if(newfile == NULL)
+			if (newfile == NULL)
 				continue;
-			++du_depth;
+			++G.du_depth;
 			sum += du(newfile);
-			--du_depth;
+			--G.du_depth;
 			free(newfile);
 		}
 		closedir(dir);
-	} else if (du_depth > print_files) {
+	} else if (G.du_depth > G.print_files) {
 		return sum;
 	}
-	if (du_depth <= max_print_depth) {
+	if (G.du_depth <= G.max_print_depth) {
 		print(sum, filename);
 	}
 	return sum;
 }
 
-int du_main(int argc, char **argv)
+int du_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
+int du_main(int argc UNUSED_PARAM, char **argv)
 {
-	long total;
+	unsigned long total;
 	int slink_depth_save;
-	int print_final_total;
-	char *smax_print_depth;
-	unsigned long opt;
+	bool print_final_total;
+	unsigned opt;
 
-#ifdef CONFIG_FEATURE_DU_DEFUALT_BLOCKSIZE_1K
-	if (getenv("POSIXLY_CORRECT")) {	/* TODO - a new libbb function? */
-#ifdef CONFIG_FEATURE_HUMAN_READABLE
-		disp_hr = 512;
+#if ENABLE_FEATURE_HUMAN_READABLE
+	USE_FEATURE_DU_DEFAULT_BLOCKSIZE_1K(G.disp_hr = 1024;)
+	SKIP_FEATURE_DU_DEFAULT_BLOCKSIZE_1K(G.disp_hr = 512;)
+	if (getenv("POSIXLY_CORRECT"))  /* TODO - a new libbb function? */
+		G.disp_hr = 512;
 #else
-		disp_k = 0;
+	USE_FEATURE_DU_DEFAULT_BLOCKSIZE_1K(G.disp_k = 1;)
+	/* SKIP_FEATURE_DU_DEFAULT_BLOCKSIZE_1K(G.disp_k = 0;) - G is pre-zeroed */
 #endif
-	}
-#endif
+	G.max_print_depth = INT_MAX;
+	G.count_hardlinks = 1;
 
-	/* Note: SUSv3 specifies that -a and -s options can not be used together
+	/* Note: SUSv3 specifies that -a and -s options cannot be used together
 	 * in strictly conforming applications.  However, it also says that some
 	 * du implementations may produce output when -a and -s are used together.
 	 * gnu du exits with an error code in this case.  We choose to simply
 	 * ignore -a.  This is consistent with -s being equivalent to -d 0.
 	 */
-#ifdef CONFIG_FEATURE_HUMAN_READABLE
-	bb_opt_complementally = "h-km:k-hm:m-hk:H-L:L-H:s-d:d-s";
-	opt = bb_getopt_ulflags(argc, argv, "aHkLsx" "d:" "lc" "hm", &smax_print_depth);
-	if((opt & (1 << 9))) {
+#if ENABLE_FEATURE_HUMAN_READABLE
+	opt_complementary = "h-km:k-hm:m-hk:H-L:L-H:s-d:d-s:d+";
+	opt = getopt32(argv, "aHkLsx" "d:" "lc" "hm", &G.max_print_depth);
+	argv += optind;
+	if (opt & (1 << 9)) {
 		/* -h opt */
-		disp_hr = 0;
+		G.disp_hr = 0;
 	}
-	if((opt & (1 << 10))) {
+	if (opt & (1 << 10)) {
 		/* -m opt */
-		disp_hr = MEGABYTE;
+		G.disp_hr = 1024*1024;
 	}
-	if((opt & (1 << 2))) {
+	if (opt & (1 << 2)) {
 		/* -k opt */
-			disp_hr = KILOBYTE;
+		G.disp_hr = 1024;
 	}
 #else
-	bb_opt_complementally = "H-L:L-H:s-d:d-s";
-	opt = bb_getopt_ulflags(argc, argv, "aHkLsx" "d:" "lc", &smax_print_depth);
-#if !defined CONFIG_FEATURE_DU_DEFAULT_BLOCKSIZE_1K
-	if((opt & (1 << 2))) {
+	opt_complementary = "H-L:L-H:s-d:d-s:d+";
+	opt = getopt32(argv, "aHkLsx" "d:" "lc", &G.max_print_depth);
+	argv += optind;
+#if !ENABLE_FEATURE_DU_DEFAULT_BLOCKSIZE_1K
+	if (opt & (1 << 2)) {
 		/* -k opt */
-			disp_k = 1;
+		G.disp_k = 1;
 	}
 #endif
 #endif
-	if((opt & (1 << 0))) {
+	if (opt & (1 << 0)) {
 		/* -a opt */
-		print_files = INT_MAX;
+		G.print_files = INT_MAX;
 	}
-	if((opt & (1 << 1))) {
+	if (opt & (1 << 1)) {
 		/* -H opt */
-		slink_depth = 1;
+		G.slink_depth = 1;
 	}
-	if((opt & (1 << 3))) {
+	if (opt & (1 << 3)) {
 		/* -L opt */
-			slink_depth = INT_MAX;
+		G.slink_depth = INT_MAX;
 	}
-	if((opt & (1 << 4))) {
+	if (opt & (1 << 4)) {
 		/* -s opt */
-			max_print_depth = 0;
-		}
-	one_file_system = opt & (1 << 5); /* -x opt */
-	if((opt & (1 << 6))) {
-		/* -d opt */
-		max_print_depth = bb_xgetularg10_bnd(smax_print_depth, 0, INT_MAX);
+		G.max_print_depth = 0;
 	}
-	if((opt & (1 << 7))) {
+	G.one_file_system = opt & (1 << 5); /* -x opt */
+	if (opt & (1 << 7)) {
 		/* -l opt */
-		count_hardlinks = INT_MAX;
+		G.count_hardlinks = MAXINT(nlink_t);
 	}
 	print_final_total = opt & (1 << 8); /* -c opt */
 
 	/* go through remaining args (if any) */
-	argv += optind;
-	if (optind >= argc) {
-		*--argv = ".";
-		if (slink_depth == 1) {
-			slink_depth = 0;
+	if (!*argv) {
+		*--argv = (char*)".";
+		if (G.slink_depth == 1) {
+			G.slink_depth = 0;
 		}
 	}
 
-	slink_depth_save = slink_depth;
+	slink_depth_save = G.slink_depth;
 	total = 0;
 	do {
 		total += du(*argv);
-		slink_depth = slink_depth_save;
+		G.slink_depth = slink_depth_save;
 	} while (*++argv);
-#ifdef CONFIG_FEATURE_CLEAN_UP
-	reset_ino_dev_hashtable();
-#endif
 
-	if (print_final_total) {
+	if (ENABLE_FEATURE_CLEAN_UP)
+		reset_ino_dev_hashtable();
+	if (print_final_total)
 		print(total, "total");
-	}
 
-	bb_fflush_stdout_and_exit(status);
+	fflush_stdout_and_exit(G.status);
 }

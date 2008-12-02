@@ -505,6 +505,11 @@ function aton(ip)
 	return parseInt(x, 16);
 }
 
+function ntoa(ip)
+{
+	return ((ip >> 24) & 255) + '.' + ((ip >> 16) & 255) + '.' + ((ip >> 8) & 255) + '.' + (ip & 255);
+}
+
 // 1.2.3.4, 1.2.3.4/24, 1.2.3.4/255.255.255.0, 1.2.3.4-1.2.3.5
 function v_iptip(e, quiet)
 {
@@ -1930,7 +1935,6 @@ function navi()
 			['MAC Address',		'mac.asp'],
 			['Miscellaneous',	'misc.asp'],
 			['Routing',			'routing.asp'],
-//			['Watchdog',		'watchdog.asp'],
 			['Wireless',		'wireless.asp'] ] ],
 		['Port Forwarding', 	'forward', 0, [
 			['Basic',			'basic.asp'],
@@ -1944,6 +1948,14 @@ function navi()
 			['View Details',	'detailed.asp']
 			] ],
 		['Access Restriction',	'restrict.asp'],
+/*
+		['Scripts',				'sc', 0, [
+			['Startup',			'startup.asp'],
+			['Shutdown',		'shutdown.asp'],
+			['Firewall',		'firewall.asp'],
+			['WAN Up',			'wanup.asp']
+			] ],
+*/
 		null,
 		['Administration',		'admin', 0, [
 			['Admin Access',	'access.asp'],

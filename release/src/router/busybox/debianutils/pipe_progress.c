@@ -7,18 +7,15 @@
  * Licensed under GPLv2 or later, see file LICENSE in this tarball for details.
  */
 
-#include "busybox.h"
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <time.h>
+#include "libbb.h"
 
 #define PIPE_PROGRESS_SIZE 4096
 
 /* Read a block of data from stdin, write it to stdout.
  * Activity is indicated by a '.' to stderr
  */
-int pipe_progress_main(int argc, char **argv)
+int pipe_progress_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
+int pipe_progress_main(int argc UNUSED_PARAM, char **argv UNUSED_PARAM)
 {
 	RESERVE_CONFIG_BUFFER(buf, PIPE_PROGRESS_SIZE);
 	time_t t = time(NULL);

@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 #
 #	libfoo.pl
-#	Copyright (C) 2006-2007 Jonathan Zarate
+#	Copyright (C) 2006-2008 Jonathan Zarate
 #
 #	- strip un-needed objects
 #	- create xref of symbols used

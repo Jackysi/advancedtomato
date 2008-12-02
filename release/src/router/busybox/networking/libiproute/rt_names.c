@@ -1,3 +1,4 @@
+/* vi: set sw=4 ts=4: */
 /*
  * rt_names.c		rtnetlink names DB.
  *
@@ -8,85 +9,66 @@
  *
  * Authors:	Alexey Kuznetsov, <kuznet@ms2.inr.ac.ru>
  */
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 
-#include <stdint.h>
+#include "libbb.h"
 #include "rt_names.h"
 
-static void rtnl_tab_initialize(char *file, char **tab, int size)
+/* so far all callers have size == 256 */
+#define rtnl_tab_initialize(file, tab, size) rtnl_tab_initialize(file, tab)
+#define size 256
+static void rtnl_tab_initialize(const char *file, const char **tab, int size)
 {
-	char buf[512];
-	FILE *fp;
-
-	fp = fopen(file, "r");
-	if (!fp)
-		return;
-	while (fgets(buf, sizeof(buf), fp)) {
-		char *p = buf;
-		int id;
-		char namebuf[512];
-
-		while (*p == ' ' || *p == '\t')
-			p++;
-		if (*p == '#' || *p == '\n' || *p == 0)
-			continue;
-		if (sscanf(p, "0x%x %s\n", &id, namebuf) != 2 &&
-		    sscanf(p, "0x%x %s #", &id, namebuf) != 2 &&
-		    sscanf(p, "%d %s\n", &id, namebuf) != 2 &&
-		    sscanf(p, "%d %s #", &id, namebuf) != 2) {
-			fprintf(stderr, "Database %s is corrupted at %s\n",
-				file, p);
-			return;
+	char *token[2];
+	parser_t *parser = config_open2(file, fopen_for_read);
+	while (config_read(parser, token, 2, 2, "# \t", PARSE_NORMAL)) {
+		int id = bb_strtou(token[0], NULL, 0);
+		if (id < 0 || id > size) {
+			bb_error_msg("database %s is corrupted at line %d",
+				file, parser->lineno);
+			break;
 		}
-
-		if (id<0 || id>size)
-			continue;
-
-		tab[id] = strdup(namebuf);
+		tab[id] = xstrdup(token[1]);
 	}
-	fclose(fp);
+	config_close(parser);
 }
+#undef size
 
-
-static char * rtnl_rtprot_tab[256] = {
-	"none",
-	"redirect",
-	"kernel",
-	"boot",
-	"static",
-	NULL,
-	NULL,
-	NULL,
-	"gated",
-	"ra",
-	"mrt",
-	"zebra",
-	"bird",
-};
-
-
-
-static int rtnl_rtprot_init;
+static const char **rtnl_rtprot_tab; /* [256] */
 
 static void rtnl_rtprot_initialize(void)
 {
-	rtnl_rtprot_init = 1;
+	static const char *const init_tab[] = {
+		"none",
+		"redirect",
+		"kernel",
+		"boot",
+		"static",
+		NULL,
+		NULL,
+		NULL,
+		"gated",
+		"ra",
+		"mrt",
+		"zebra",
+		"bird",
+	};
+	if (rtnl_rtprot_tab) return;
+	rtnl_rtprot_tab = xzalloc(256 * sizeof(rtnl_rtprot_tab[0]));
+	memcpy(rtnl_rtprot_tab, init_tab, sizeof(init_tab));
 	rtnl_tab_initialize("/etc/iproute2/rt_protos",
 			    rtnl_rtprot_tab, 256);
 }
 
-const char * rtnl_rtprot_n2a(int id, char *buf, int len)
+
+const char* rtnl_rtprot_n2a(int id, char *buf, int len)
 {
-	if (id<0 || id>=256) {
+	if (id < 0 || id >= 256) {
 		snprintf(buf, len, "%d", id);
 		return buf;
 	}
-	if (!rtnl_rtprot_tab[id]) {
-		if (!rtnl_rtprot_init)
-			rtnl_rtprot_initialize();
-	}
+
+	rtnl_rtprot_initialize();
+
 	if (rtnl_rtprot_tab[id])
 		return rtnl_rtprot_tab[id];
 	snprintf(buf, len, "%d", id);
@@ -95,9 +77,8 @@ const char * rtnl_rtprot_n2a(int id, char *buf, int len)
 
 int rtnl_rtprot_a2n(uint32_t *id, char *arg)
 {
-	static char *cache = NULL;
+	static const char *cache = NULL;
 	static unsigned long res;
-	char *end;
 	int i;
 
 	if (cache && strcmp(cache, arg) == 0) {
@@ -105,10 +86,9 @@ int rtnl_rtprot_a2n(uint32_t *id, char *arg)
 		return 0;
 	}
 
-	if (!rtnl_rtprot_init)
-		rtnl_rtprot_initialize();
+	rtnl_rtprot_initialize();
 
-	for (i=0; i<256; i++) {
+	for (i = 0; i < 256; i++) {
 		if (rtnl_rtprot_tab[i] &&
 		    strcmp(rtnl_rtprot_tab[i], arg) == 0) {
 			cache = rtnl_rtprot_tab[i];
@@ -118,24 +98,21 @@ int rtnl_rtprot_a2n(uint32_t *id, char *arg)
 		}
 	}
 
-	res = strtoul(arg, &end, 0);
-	if (!end || end == arg || *end || res > 255)
+	res = bb_strtoul(arg, NULL, 0);
+	if (errno || res > 255)
 		return -1;
 	*id = res;
 	return 0;
 }
 
 
-
-static char * rtnl_rtscope_tab[256] = {
-	"global",
-};
-
-static int rtnl_rtscope_init;
+static const char **rtnl_rtscope_tab; /* [256] */
 
 static void rtnl_rtscope_initialize(void)
 {
-	rtnl_rtscope_init = 1;
+	if (rtnl_rtscope_tab) return;
+	rtnl_rtscope_tab = xzalloc(256 * sizeof(rtnl_rtscope_tab[0]));
+	rtnl_rtscope_tab[0] = "global";
 	rtnl_rtscope_tab[255] = "nowhere";
 	rtnl_rtscope_tab[254] = "host";
 	rtnl_rtscope_tab[253] = "link";
@@ -144,16 +121,16 @@ static void rtnl_rtscope_initialize(void)
 			    rtnl_rtscope_tab, 256);
 }
 
-const char * rtnl_rtscope_n2a(int id, char *buf, int len)
+
+const char* rtnl_rtscope_n2a(int id, char *buf, int len)
 {
-	if (id<0 || id>=256) {
+	if (id < 0 || id >= 256) {
 		snprintf(buf, len, "%d", id);
 		return buf;
 	}
-	if (!rtnl_rtscope_tab[id]) {
-		if (!rtnl_rtscope_init)
-			rtnl_rtscope_initialize();
-	}
+
+	rtnl_rtscope_initialize();
+
 	if (rtnl_rtscope_tab[id])
 		return rtnl_rtscope_tab[id];
 	snprintf(buf, len, "%d", id);
@@ -162,9 +139,8 @@ const char * rtnl_rtscope_n2a(int id, char *buf, int len)
 
 int rtnl_rtscope_a2n(uint32_t *id, char *arg)
 {
-	static char *cache = NULL;
+	static const char *cache = NULL;
 	static unsigned long res;
-	char *end;
 	int i;
 
 	if (cache && strcmp(cache, arg) == 0) {
@@ -172,10 +148,9 @@ int rtnl_rtscope_a2n(uint32_t *id, char *arg)
 		return 0;
 	}
 
-	if (!rtnl_rtscope_init)
-		rtnl_rtscope_initialize();
+	rtnl_rtscope_initialize();
 
-	for (i=0; i<256; i++) {
+	for (i = 0; i < 256; i++) {
 		if (rtnl_rtscope_tab[i] &&
 		    strcmp(rtnl_rtscope_tab[i], arg) == 0) {
 			cache = rtnl_rtscope_tab[i];
@@ -185,33 +160,30 @@ int rtnl_rtscope_a2n(uint32_t *id, char *arg)
 		}
 	}
 
-	res = strtoul(arg, &end, 0);
-	if (!end || end == arg || *end || res > 255)
+	res = bb_strtoul(arg, NULL, 0);
+	if (errno || res > 255)
 		return -1;
 	*id = res;
 	return 0;
 }
 
 
-
-static char * rtnl_rtrealm_tab[256] = {
-	"unknown",
-};
-
-static int rtnl_rtrealm_init;
+static const char **rtnl_rtrealm_tab; /* [256] */
 
 static void rtnl_rtrealm_initialize(void)
 {
-	rtnl_rtrealm_init = 1;
+	if (rtnl_rtrealm_tab) return;
+	rtnl_rtrealm_tab = xzalloc(256 * sizeof(rtnl_rtrealm_tab[0]));
+	rtnl_rtrealm_tab[0] = "unknown";
 	rtnl_tab_initialize("/etc/iproute2/rt_realms",
 			    rtnl_rtrealm_tab, 256);
 }
 
+
 int rtnl_rtrealm_a2n(uint32_t *id, char *arg)
 {
-	static char *cache = NULL;
+	static const char *cache = NULL;
 	static unsigned long res;
-	char *end;
 	int i;
 
 	if (cache && strcmp(cache, arg) == 0) {
@@ -219,10 +191,9 @@ int rtnl_rtrealm_a2n(uint32_t *id, char *arg)
 		return 0;
 	}
 
-	if (!rtnl_rtrealm_init)
-		rtnl_rtrealm_initialize();
+	rtnl_rtrealm_initialize();
 
-	for (i=0; i<256; i++) {
+	for (i = 0; i < 256; i++) {
 		if (rtnl_rtrealm_tab[i] &&
 		    strcmp(rtnl_rtrealm_tab[i], arg) == 0) {
 			cache = rtnl_rtrealm_tab[i];
@@ -232,38 +203,52 @@ int rtnl_rtrealm_a2n(uint32_t *id, char *arg)
 		}
 	}
 
-	res = strtoul(arg, &end, 0);
-	if (!end || end == arg || *end || res > 255)
+	res = bb_strtoul(arg, NULL, 0);
+	if (errno || res > 255)
 		return -1;
 	*id = res;
 	return 0;
 }
 
+#if ENABLE_FEATURE_IP_RULE
+const char* rtnl_rtrealm_n2a(int id, char *buf, int len)
+{
+	if (id < 0 || id >= 256) {
+		snprintf(buf, len, "%d", id);
+		return buf;
+	}
+
+	rtnl_rtrealm_initialize();
+
+	if (rtnl_rtrealm_tab[id])
+		return rtnl_rtrealm_tab[id];
+	snprintf(buf, len, "%d", id);
+	return buf;
+}
+#endif
 
 
-static char * rtnl_rtdsfield_tab[256] = {
-	"0",
-};
-
-static int rtnl_rtdsfield_init;
+static const char **rtnl_rtdsfield_tab; /* [256] */
 
 static void rtnl_rtdsfield_initialize(void)
 {
-	rtnl_rtdsfield_init = 1;
+	if (rtnl_rtdsfield_tab) return;
+	rtnl_rtdsfield_tab = xzalloc(256 * sizeof(rtnl_rtdsfield_tab[0]));
+	rtnl_rtdsfield_tab[0] = "0";
 	rtnl_tab_initialize("/etc/iproute2/rt_dsfield",
 			    rtnl_rtdsfield_tab, 256);
 }
 
+
 const char * rtnl_dsfield_n2a(int id, char *buf, int len)
 {
-	if (id<0 || id>=256) {
+	if (id < 0 || id >= 256) {
 		snprintf(buf, len, "%d", id);
 		return buf;
 	}
-	if (!rtnl_rtdsfield_tab[id]) {
-		if (!rtnl_rtdsfield_init)
-			rtnl_rtdsfield_initialize();
-	}
+
+	rtnl_rtdsfield_initialize();
+
 	if (rtnl_rtdsfield_tab[id])
 		return rtnl_rtdsfield_tab[id];
 	snprintf(buf, len, "0x%02x", id);
@@ -273,9 +258,8 @@ const char * rtnl_dsfield_n2a(int id, char *buf, int len)
 
 int rtnl_dsfield_a2n(uint32_t *id, char *arg)
 {
-	static char *cache = NULL;
+	static const char *cache = NULL;
 	static unsigned long res;
-	char *end;
 	int i;
 
 	if (cache && strcmp(cache, arg) == 0) {
@@ -283,10 +267,9 @@ int rtnl_dsfield_a2n(uint32_t *id, char *arg)
 		return 0;
 	}
 
-	if (!rtnl_rtdsfield_init)
-		rtnl_rtdsfield_initialize();
+	rtnl_rtdsfield_initialize();
 
-	for (i=0; i<256; i++) {
+	for (i = 0; i < 256; i++) {
 		if (rtnl_rtdsfield_tab[i] &&
 		    strcmp(rtnl_rtdsfield_tab[i], arg) == 0) {
 			cache = rtnl_rtdsfield_tab[i];
@@ -296,10 +279,71 @@ int rtnl_dsfield_a2n(uint32_t *id, char *arg)
 		}
 	}
 
-	res = strtoul(arg, &end, 16);
-	if (!end || end == arg || *end || res > 255)
+	res = bb_strtoul(arg, NULL, 16);
+	if (errno || res > 255)
 		return -1;
 	*id = res;
 	return 0;
 }
 
+
+#if ENABLE_FEATURE_IP_RULE
+static const char **rtnl_rttable_tab; /* [256] */
+
+static void rtnl_rttable_initialize(void)
+{
+	if (rtnl_rtdsfield_tab) return;
+	rtnl_rttable_tab = xzalloc(256 * sizeof(rtnl_rttable_tab[0]));
+	rtnl_rttable_tab[0] = "unspec";
+	rtnl_rttable_tab[255] = "local";
+	rtnl_rttable_tab[254] = "main";
+	rtnl_rttable_tab[253] = "default";
+	rtnl_tab_initialize("/etc/iproute2/rt_tables", rtnl_rttable_tab, 256);
+}
+
+
+const char *rtnl_rttable_n2a(int id, char *buf, int len)
+{
+	if (id < 0 || id >= 256) {
+		snprintf(buf, len, "%d", id);
+		return buf;
+	}
+
+	rtnl_rttable_initialize();
+
+	if (rtnl_rttable_tab[id])
+		return rtnl_rttable_tab[id];
+	snprintf(buf, len, "%d", id);
+	return buf;
+}
+
+int rtnl_rttable_a2n(uint32_t * id, char *arg)
+{
+	static char *cache = NULL;
+	static unsigned long res;
+	int i;
+
+	if (cache && strcmp(cache, arg) == 0) {
+		*id = res;
+		return 0;
+	}
+
+	rtnl_rttable_initialize();
+
+	for (i = 0; i < 256; i++) {
+		if (rtnl_rttable_tab[i] && strcmp(rtnl_rttable_tab[i], arg) == 0) {
+			cache = (char*)rtnl_rttable_tab[i];
+			res = i;
+			*id = res;
+			return 0;
+		}
+	}
+
+	i = bb_strtoul(arg, NULL, 0);
+	if (errno || i > 255)
+		return -1;
+	*id = i;
+	return 0;
+}
+
+#endif

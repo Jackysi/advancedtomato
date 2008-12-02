@@ -119,7 +119,7 @@ createFieldTable('', [
 	{ title: 'HP', hidden: !hp },
 		{ title: 'Amplifier', indent: 2, name: 'wlx_hpamp', type: 'select', options: [['0','Disable'],['1','Enable *']],
 			value: nvram.wlx_hpamp != '0', hidden: !hp },
-		{ title: 'Enhanced RX Sensitivity', indent: 2, name: 'wlx_hperx', type: 'select', options: [['0','Disable'],['1','Enable *']],
+		{ title: 'Enhanced RX Sensitivity', indent: 2, name: 'wlx_hperx', type: 'select', options: [['0','Disable *'],['1','Enable']],
 			value: nvram.wlx_hperx != '0', hidden: !hp },
 	{ title: 'Maximum Clients', name: 'wl_maxassoc', type: 'text', maxlen: 3, size: 5,
 		suffix: ' <small>(range: 1 - 255; default: 128)</small>', value: nvram.wl_maxassoc },

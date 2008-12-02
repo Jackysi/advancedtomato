@@ -28,40 +28,23 @@
  * SUCH DAMAGE.
  */
 
-#include <stdio.h>
-#include <errno.h>
-#include <unistd.h>
-#include <string.h>
-#include <stdlib.h>
-#include <syslog.h>
-#include <ctype.h>
 #include "libbb.h"
-#ifdef CONFIG_SELINUX
+#if ENABLE_SELINUX
 #include <selinux/selinux.h>  /* for setexeccon  */
 #endif
 
-#ifdef CONFIG_SELINUX
-static security_context_t current_sid=NULL;
+#if ENABLE_SELINUX
+static security_context_t current_sid;
 
-void
-renew_current_security_context(void)
+void FAST_FUNC renew_current_security_context(void)
 {
-  if  (current_sid)
-    freecon(current_sid);  /* Release old context  */
-
-  getcon(&current_sid);  /* update */
-
-  return;
+	freecon(current_sid);  /* Release old context  */
+	getcon(&current_sid);  /* update */
 }
-void
-set_current_security_context(security_context_t sid)
+void FAST_FUNC set_current_security_context(security_context_t sid)
 {
-  if  (current_sid)
-    freecon(current_sid);  /* Release old context  */
-
-  current_sid=sid;
-
-  return;
+	freecon(current_sid);  /* Release old context  */
+	current_sid = sid;
 }
 
 #endif
@@ -71,37 +54,37 @@ set_current_security_context(security_context_t sid)
    If ADDITIONAL_ARGS is nonzero, pass it to the shell as more
    arguments.  */
 
-void run_shell ( const char *shell, int loginshell, const char *command, const char **additional_args)
+void FAST_FUNC run_shell(const char *shell, int loginshell, const char *command, const char **additional_args)
 {
 	const char **args;
 	int argno = 1;
 	int additional_args_cnt = 0;
 
-	for ( args = additional_args; args && *args; args++ )
+	for (args = additional_args; args && *args; args++)
 		additional_args_cnt++;
 
-		args = (const char **) xmalloc (sizeof (char *) * ( 4  + additional_args_cnt ));
+	args = xmalloc(sizeof(char*) * (4 + additional_args_cnt));
 
-	args [0] = bb_get_last_path_component ( bb_xstrdup ( shell ));
+	args[0] = bb_get_last_path_component_nostrip(xstrdup(shell));
 
-	if ( loginshell )
-		args [0] = bb_xasprintf ("-%s", args [0]);
+	if (loginshell)
+		args[0] = xasprintf("-%s", args[0]);
 
-	if ( command ) {
-		args [argno++] = "-c";
-		args [argno++] = command;
+	if (command) {
+		args[argno++] = "-c";
+		args[argno++] = command;
 	}
-	if ( additional_args ) {
-		for ( ; *additional_args; ++additional_args )
-			args [argno++] = *additional_args;
+	if (additional_args) {
+		for (; *additional_args; ++additional_args)
+			args[argno++] = *additional_args;
 	}
-	args [argno] = 0;
-#ifdef CONFIG_SELINUX
-	if ( (current_sid) && (!setexeccon(current_sid)) ) {
-	    freecon(current_sid);
-	    execve(shell, (char **) args, environ);
-	} else
+	args[argno] = NULL;
+#if ENABLE_SELINUX
+	if (current_sid)
+		setexeccon(current_sid);
+	if (ENABLE_FEATURE_CLEAN_UP)
+		freecon(current_sid);
 #endif
-	  execv ( shell, (char **) args );
-	bb_perror_msg_and_die ( "cannot run %s", shell );
+	execv(shell, (char **) args);
+	bb_perror_msg_and_die("cannot run %s", shell);
 }

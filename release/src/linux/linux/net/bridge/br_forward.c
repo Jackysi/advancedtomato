@@ -30,18 +30,21 @@ static inline int should_deliver(struct net_bridge_port *p, struct sk_buff *skb)
 	return 1;
 }
 
-static int __dev_queue_push_xmit(struct sk_buff *skb)
+int br_dev_queue_push_xmit(struct sk_buff *skb)
 {
+#ifdef CONFIG_NETFILTER
+	nf_bridge_maybe_copy_header(skb);
+#endif
 	skb_push(skb, ETH_HLEN);
 	dev_queue_xmit(skb);
 
 	return 0;
 }
 
-static int __br_forward_finish(struct sk_buff *skb)
+int br_forward_finish(struct sk_buff *skb)
 {
 	NF_HOOK(PF_BRIDGE, NF_BR_POST_ROUTING, skb, NULL, skb->dev,
-			__dev_queue_push_xmit);
+			br_dev_queue_push_xmit);
 
 	return 0;
 }
@@ -49,8 +52,11 @@ static int __br_forward_finish(struct sk_buff *skb)
 static void __br_deliver(struct net_bridge_port *to, struct sk_buff *skb)
 {
 	skb->dev = to->dev;
+#ifdef CONFIG_NETFILTER_DEBUG
+	skb->nf_debug = 0;
+#endif
 	NF_HOOK(PF_BRIDGE, NF_BR_LOCAL_OUT, skb, NULL, skb->dev,
-			__br_forward_finish);
+			br_forward_finish);
 }
 
 static void __br_forward(struct net_bridge_port *to, struct sk_buff *skb)
@@ -61,7 +67,7 @@ static void __br_forward(struct net_bridge_port *to, struct sk_buff *skb)
 	skb->dev = to->dev;
 
 	NF_HOOK(PF_BRIDGE, NF_BR_FORWARD, skb, indev, skb->dev,
-			__br_forward_finish);
+			br_forward_finish);
 }
 
 /* called under bridge lock */
