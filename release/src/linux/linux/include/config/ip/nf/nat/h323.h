@@ -1,0 +1,1 @@
+#define CONFIG_IP_NF_NAT_H323 1

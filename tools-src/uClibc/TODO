@@ -1,0 +1,106 @@
+
+Erik's TODO list for the next release:
+
+    1) Fix profiling support
+    2) Implement getgrgid_r and getgrnam_r, per SuSv3 
+    3) When options are disabled, also disable them in the
+	include files as well.
+    4) Make all configured out symbols optionally add a linker warning saying
+	"Hey!  You are trying to use a function that you have configured out.  
+	If you really want to use this function, enable CONFIG_FOO and rebuild
+	uClibc".
+    5) Make all small objects (>~50 bytes) into either inlines or
+	into a static library
+    6) Rework all code that fails conformance tests
+    7) Document all differences between the feature set of uClibc 
+	and glibc.
+    8) Add missing syscall() function to ports that are still 
+	missing it.  (x86 and arm are finished so far).
+    9) Fix regex so it isn't so stinking big
+    10) Fix glob so it isn't so stinking big
+
+
+-----------------------------------------------------------------------------
+Manuel's todo:
+
+I'm currently working on completing the wide char and locale support.
+
+  1) Little things that need fixing:
+  ----------------------------------
+  *) Fix bug in *printf: outdigit precison bug
+  a) Use locale decimal point in *printf() and strto*d() -- slightly
+     complicated by the fact that at least one locale uses a wchar
+     radix that does not map to a single byte in UTF-8.
+  b) Use locale digit grouping in *printf() flosting point.
+  c) Deal with mb format string issues in scanf and strftime (at least).
+  d) Support gnu/bsd extension members tm_gmtoff and tm_zone in struct tm.
+  
+  2) Implement wide char floating point conversion functions -- wcsto*().
+  
+  3) Reimplement scanf for narrow and wide streams.
+  -------------------------------------------------
+     The current char version of scanf() needs some cleanup.  Also,
+     modifying the char version of scanf() to create the wchar versions
+     will require reworking the implementation of matching char sets
+     (enclosed in []).
+  
+  4) Additional str{f|p}time issues.
+  ----------------------------------
+  a) Spacing issue wrt strptime.
+  b) Support locale specific alternate digits.  (data is in place)
+  c) Support locale era in year designations.   (data is in place)
+  
+  5) Other locale issues (my implementation):
+  -------------------------------------------
+  a) Additional clean up of ctype and wctype, primarily to allow for mmap'd
+     locales and updateable locale data.
+  b) Build a C-only locale object for linking and allow full locale data to
+     be mmap'd in later, to allow updating and to make locale support useful
+     for staticly linked apps.
+  c) Adapt regex lib to use my collation data and add the necessary collating
+     item tables to support SUSv3 required features.
+  d) transliteration of unsupported wchars in 8-bit locales (like glibc).
+  e) Support ISO/IEC 14652 draft locale extensions (LC_PAPER, etc).
+
+
+Other stuff:
+
+Reimplement _dtostr to correct its deficiencies (%A support!) and hopefully
+	reduce its size.
+
+Move the target-specific sysconf.c generator to extra (as it needs to be
+	run on the target) and fix libc/unistd/Makefile.
+
+Make errno and endptr handling the default in the strto* functions and
+	document how to turn those off to save space.
+
+-----------------------------------------------------------------------------
+ds's list:
+
+Search for string literals that are not in the .rodata section.  (Varies
+by architecture and gcc version.)
+
+man pages for binaries
+
+add obstack stuff for gettext (?)
+
+check compiling without FP support -- are FP instructions still generated?
+Needs a uClibc_config.h entry dependent on HAS_FLOATING_POINT.
+
+Why does ld.so search /usr/powerpc-uclibc/lib before LD_LIBRARY_PATH?
+
+-----------------------------------------------------------------------------
+
+Any takers?
+
+*) Documentation
+	- List all differences between the feature set of uClibc and glibc.
+*) run 'nm -D --size-sort -t d libuClibc-0.9.5.so' and work on the biggest things 
+	(i.e. stuff at the end of the list) to make them smaller.
+*) make inb/outb work for all arches.  This is complete for i386 and arm.  
+	Other archs like powerpc, still need fixing.
+
+-----------------------------------------------------------------------------
+
+
+

@@ -1,0 +1,3446 @@
+2002-01-16  Martin Schwidefsky  <schwidefsky@de.ibm.com>
+
+     * sysdeps/s390/s390-32/pt-machine.h (MEMORY_BARRIER): Define.
+     (CURRENT_STACK_FRAME): Remove duplicate definition.
+     * sysdeps/s390/s390-64/pt-machine.h: Likewise.
+
+2002-01-14  Martin Schwidefsky  <schwidefsky@de.ibm.com>
+
+	* Makefile (CFLAGS-tst-cancel.c): Add -fno-inline-functions to prevent
+	automatic inline.
+
+2002-01-11  Andreas Schwab  <schwab@suse.de>
+
+	* signals.c (sighandler): Initialize all elements to SIG_ERR.
+	(__sigaction): Don't use value from sighandler if it is SIG_ERR.
+
+2002-01-06  Richard Henderson  <rth@redhat.com>
+
+	* sysdeps/alpha/elf/pt-initfini.c: New file.
+
+2001-11-29  Andreas Jaeger  <aj@suse.de>
+
+	* sysdeps/x86_64/pt-machine.h: Use %gs as thread specific
+	register.
+	(THREAD_SELF): New.
+	(INIT_THREAD_SELF): New.
+	(THREAD_GETMEM): New.
+	(THREAD_GETMEM_NC):
+	(THREAD_SETMEM): New.
+	(THREAD_SETMEM_NC): New.
+	(FLOATING_STACKS): Define.
+	(ARCH_STACK_MAX_SIZE): Define.
+
+2001-12-13  Andreas Schwab  <schwab@suse.de>
+
+	* specific.c (pthread_key_delete): Don't contact the thread
+	manager if no threads have been created yet.
+
+2001-11-30  Andreas Schwab  <schwab@suse.de>
+
+	* pthread.c (pthread_handle_sigcancel) [THREAD_SELF]: Double check
+	that self is the manager thread, and initialize the thread
+	register if not.
+	(thread_self_stack) [THREAD_SELF]: New function to find self via
+	stack pointer.
+
+2001-11-28  Kaz Kylheku  <kaz@ashi.footprints.net>
+
+	Bugfix to pthread_key_delete. It was iterating over the thread
+	manager's linked list of threads, behind the thread manager's
+	back causing a race. The fix is to have the manager iterate over
+	the threads instead, using a new request type for doing so.
+	* internals.h (struct pthread_request): New manager request type
+	REQ_FOR_EACH_THREAD.
+	* manager.c (pthread_for_each_thread): New function.
+	(__pthread_manager): Handle new REQ_FOR_EACH_THREAD request.
+	* specific.c (struct pthread_key_delete_helper_args): New type.
+	(pthread_key_delete_helper): New static function.
+	(pthread_key_delete): Use the new thread manager
+	REQ_FOR_EACH_THREAD function to iterate over the threads and set
+	the delete key slot to a null value in each thread.
+	* Examples/ex18.c: New test.
+	* Makefile (tests): Add ex18.
+
+2001-11-22  Wolfram Gloger  <wg@malloc.de>
+
+	* pthread.c (pthread_onexit_process): Don't call free
+	after threads have been asynchronously terminated.
+
+	* manager.c (pthread_handle_exit): Surround cancellation
+	of threads with __flockfilelist()/__funlockfilelist().
+
+2001-11-15  Ulrich Drepper  <drepper@redhat.com>
+
+	* sysdeps/i386/i686/Implies: Removed.
+	* sysdeps/i386/i686/Versions: New file.
+
+2001-10-31  Andreas Jaeger  <aj@suse.de>
+
+	* sysdeps/x86_64/Makefile: Remove, we do not need it anymore.
+
+2001-10-05  Kevin Buettner  <kevinb@cygnus.com>
+
+	* pthread.c (__linuxthread_pthread_sizeof_descr): Change name
+	to __linuxthreads_pthread_sizeof_descr to match name used by
+	symbol_list_arr[LINUXTHREADS_PTHREAD_SIZEOF_DESCR] in
+	linuxthreads_db/td_symbol_list.c.
+
+2001-09-22  Andreas Jaeger  <aj@suse.de>
+
+	* linuxthreads/tst-context.c: Avoid compile warning.
+
+2001-09-20  Andreas Jaeger  <aj@suse.de>
+
+	* shlib-versions: Add x86-64.
+
+2001-09-19  Andreas Jaeger  <aj@suse.de>
+
+	* sysdeps/x86_64/Makefile: New file.
+	* sysdeps/x86_64/pspinlock.c: New file.
+	* sysdeps/x86_64/pt-machine.h: New file.
+
+2001-09-12  Jakub Jelinek  <jakub@redhat.com>
+
+	* sysdeps/pthread/timer_delete.c (timer_delete): Thread may be NULL
+	for SIGEV_NONE.
+	* sysdeps/pthread/timer_settime.c (timer_settime): Likewise.
+
+2001-09-11  Ulrich Drepper  <drepper@redhat.com>
+	    Wolfram Gloger <wg@malloc.de>
+
+	* join.c: Protect all communications from and to manager with
+	TEMP_FAILURE_RETRY.
+	* manager.c: Likewise.
+	* pthread.c: Likewise.
+	* smeaphore.c: Likewise.
+
+2001-08-29  Ulrich Drepper  <drepper@redhat.com>
+
+	* spinlock.c (__pthread_lock): Top max_count value with
+	MAX_ADAPTIVE_SPIN_COUNT.
+	* internals.h (MAX_ADAPTIVE_SPIN_COUNT): Define if not already done.
+
+	* sysdeps/i386/i686/pt-machine.h (BUSY_WAIT_NOP): New macro to
+	help P4.
+
+2001-08-27  Jakub Jelinek  <jakub@redhat.com>
+
+	* sysdeps/pthread/bits/libc-lock.h (__libc_rwlock_t): Only define to
+	non-opaque type if __USE_UNIX98.
+
+2001-08-26  Jakub Jelinek  <jakub@redhat.com>
+
+	* sysdeps/pthread/bits/libc-lock.h (__libc_lock_t): Define
+	non-opaque lock types also if _IO_MTSAFE_IO is defined.
+
+2001-08-23  Roland McGrath  <roland@frob.com>
+
+	* sysdeps/pthread/bits/libc-lock.h (__libc_cleanup_region_start): Take
+	new first argument, skip the cleanup handler if it's zero.
+	(_LIBC_LOCK_RECURSIVE_INITIALIZER): New macro.
+	(__libc_lock_define_initialized_recursive): Use it.
+	* sysdeps/pthread/bits/stdio-lock.h: File removed.
+	The sysdeps/generic file from the main tree now suffices.
+
+2001-08-22  Roland McGrath  <roland@frob.com>
+
+	* sysdeps/pthread/bits/stdio-lock.h: Include <bits/libc-lock.h>
+	instead of <pthread.h>.
+	(_IO_lock_t): Define this typedef using __libc_lock_define_recursive.
+	(_IO_lock_initializer): Add braces.
+	(_IO_lock_lock): Use __libc_lock_lock_recursive.
+	(_IO_lock_unlock): Use __libc_lock_unlock_recursive.
+
+	* sysdeps/pthread/bits/libc-lock.h (__libc_lock_recursive_t): New type.
+	(__libc_lock_define_initialized_recursive): Use it.
+	(__libc_lock_init_recursive): Likewise.
+	(__libc_lock_fini_recursive): Likewise.
+	(__libc_lock_lock_recursive): Likewise.
+	(__libc_lock_trylock_recursive): Likewise.
+	(__libc_lock_unlock_recursive): Likewise.
+	(__libc_lock_define_recursive): New macro.
+
+2001-08-14  Jakub Jelinek  <jakub@redhat.com>
+
+	* lockfile.c (__pthread_provide_lockfile): New variable.
+	* pthread.c (__pthread_require_lockfile): New variable.
+	* cancel.c (__pthread_require_lockfile): New variable.
+
+2001-07-31  Ulrich Drepper  <drepper@redhat.com>
+
+	* tst-context.c (threadfct): Initialize context before calling
+	makecontext.
+
+	* Examples/ex17.c: Make sure test thread is around long enough.
+
+2001-07-26  kaz Kojima  <kkojima@rr.iij4u.or.jp>
+
+	* sysdeps/sh/pt-machine.h (THREAD_SELF, INIT_THREAD_SELF): Defined.
+
+2001-07-24  Ulrich Drepper  <drepper@redhat.com>
+
+	* tst-context.c (main): Print explanation before bailing out
+	because context handling is not supported.
+
+2001-07-23  Ulrich Drepper  <drepper@redhat.com>
+
+	* Makefile (tests): Add tst-context.
+	* tst-context.c: New file.
+
+	* sysdeps/pthread/bits/stdio-lock.h: Define
+	_IO_cleanup_region_start_noarg.
+
+2001-07-23  Jakub Jelinek  <jakub@redhat.com>
+
+	* sysdeps/alpha/pt-machine.h (FLOATING_STACKS): Define.
+	(ARCH_STACK_MAX_SIZE): Define.
+	* sysdeps/sparc/sparc32/pt-machine.h: Likewise.
+	* sysdeps/sparc/sparc64/pt-machine.h: Likewise.
+
+2001-07-19  Jakub Jelinek  <jakub@redhat.com>
+
+	* sysdeps/i386/useldt.h: Fix typo in ARCH_STACK_MAX_SIZE comment.
+
+	* sysdeps/ia64/pt-machine.h (FLOATING_STACKS): Define.
+	(ARCH_STACK_MAX_SIZE): Define.
+	* manager.c (pthread_allocate_stack): Handle FLOATING_STACKS with
+	NEED_SEPARATE_REGISTER_STACK.
+
+2001-07-16  Andreas Schwab  <schwab@suse.de>
+
+	* Makefile (before-compile): Don't add $(objpfx)crti.o.
+	(omit-deps): Add crti.
+	($(objpfx)libpthread.so): Depend on $(objpfx)crti.o, but make sure
+	it is filtered out of the link command.
+
+2001-07-16  Ulrich Drepper  <drepper@redhat.com>
+
+	* pthread.c (pthread_initialize): For FLOATING_STACKS don't bother
+	to find the right value for __pthread_initial_thread_bos, it's not
+	used.  If not FLOATING_STACKS first run
+	__pthread_init_max_stacksize.
+
+2001-06-16  H.J. Lu  <hjl@gnu.org>
+
+	* internals.h: Include <stackinfo.h>.
+
+	* attr.c: Don't include <stackinfo.h> here.
+	* cancel.c: Likewise.
+	* manager.c: Likewise.
+	* pthread.c: Likewise.
+	* ptlongjmp.c: Likewise.
+
+2001-03-23  Matthew Wilcox  <willy@ldl.fc.hp.com>
+
+	* attr.c: Make _STACK_GROWS_UP work.
+	* internals.h: Likewise.
+	* manager.c: Likewise.
+	* pthread.c: Likewise.
+
+2001-06-15  H.J. Lu  <hjl@gnu.org>
+
+	* pthread.c (__pthread_reset_main_thread): Fix a typo.
+
+2001-02-02  John S. Marvin  <jsm@udlkern.fc.hp.com>
+
+	* semaphore.h: Use struct _pthread_fastlock as an element of
+	sem_t instead of an identical struct.
+	* rwlock.c: Remove casts.
+	* semaphore.c: Likewise.
+
+2001-04-30  Alan Modra  <amodra@one.net.au>
+
+	* sysdeps/unix/sysv/linux/hppa/pt-initfini.c: New.
+
+2001-05-25  Bruce Mitchener  <bruce@cubik.org>
+
+	* linuxthreads.texi: Spelling corrections.
+
+2001-05-25  Ulrich Drepper  <drepper@redhat.com>
+
+	* oldsemaphore.c (__old_sem_wait): Clear p_nextwaiting before
+	returning successfully.
+	Patch by Gene Cooperman <gene@ccs.neu.edu>.
+
+2001-05-24  Ulrich Drepper  <drepper@redhat.com>
+
+	* spinlock.c (__pthread_lock) [HAS_COMPARE_AND_SWAP]: Before doing any
+	serious work try once whether the lock is uncontested.
+	Remove duplicate reading of __status before loop.
+	Change suggested by Hans Boehm <hans_boehm@hp.com>.
+
+	* spinlock.h (__pthread_trylock): Remove need for oldstatus variable.
+	(__pthread_alt_trylock): Likewise.
+
+2001-05-01  Kaz Kylheku  <kaz@ashi.footprints.net>
+
+	Memory barrier overhaul following line by line inspection.
+	* mutex.c (pthread_once): Missing memory barriers added.
+	* pthread.c (__pthread_wait_for_restart_signal,
+	__pthread_timedsuspend_new, __pthread_restart_new): Added
+	memory barriers ``just in case'' and for documentary value.
+	* spinlock.c (__pthread_release): New inline function for releasing
+	spinlock, to complement __pthread_acquire.  Includes memory
+	barrier prior to assignment to spinlock, and __asm __volatile
+	dance to prevent reordering or optimization of the spinlock access.
+	* spinlock.c (__pthread_unlock, __pthread_alt_lock,
+	__pthread_alt_timedlock, __pthread_alt_unlock,
+	__pthread_compare_and_swap): Updated to use new __pthread_release
+	instead of updating spinlock directly.
+	* spinlock.c (__pthread_lock, __pthread_unlock, wait_node_alloc,
+	wait_node_free, wait_node_dequeue, __pthread_alt_lock,
+	__pthread_alt_timedlock, __pthread_alt_unlock, __pthread_acquire):
+	Memory barrier overhaul.  Lots of missing memory barriers added,
+	a couple needless ones removed.
+	* spinlock.c (__pthread_compare_and_swap): testandset optimization
+	removed, just calls __pthread_acquire, which has the new read
+	barrier in it before its testandset.
+
+2001-05-20  Roland McGrath  <roland@frob.com>
+
+	* Makeconfig: New file, variables used to be in main libc Makeconfig.
+
+2001-05-09  Geoff Keating  <geoffk@redhat.com>
+
+	* sysdeps/powerpc/pt-machine.h
+	(HAS_COMPARE_AND_SWAP_WITH_RELEASE_SEMANTICS): Define.
+	(__compare_and_swap): Remove memory barriers.
+	(__compare_and_swap_with_release_semantics): New function.
+
+2001-04-24  Andreas Jaeger  <aj@suse.de>
+
+	* wrapsyscall.c: send* and recv* return ssize_t.
+
+	* sysdeps/pthread/timer_getoverr.c (timer_getoverrun): Unlock the
+	mutex instead of double locking it.
+	Reported by Pierre Artaud <partaud@sodatec.com>.
+
+2001-04-23  Ulrich Drepper  <drepper@redhat.com>
+
+	* sysdeps/pthread/getcpuclockid.c: Make function generic, test
+	using #ifdef whether the clock is available.
+	* sysdeps/unix/sysv/linux/i386/getcpuclockid.c: Removed.
+
+	* sysdeps/ia64/Versions: New file.
+
+	* sysdeps/unix/sysv/linux/ia64/pt-initfini.c (_init): We don't
+	have to call __gmon_start__ in the libpthread DSO.
+	* sysdeps/pthread/pt-initfini.c (_init): Likewise.
+
+	* Makefile (libpthread-routines): Add ptclock_gettime and
+	ptclock_settime.
+	* internals.h: Don't use cpuclock-init.h definitions, use
+	hp-timing.h definitions.
+	* pthread.c: Likewise.
+	* manager.c: Likewise.
+	* ptclock_gettime.c: New file.
+	* ptclock_settime.c: New file.
+	* internals.h: Fix parameter type for __pthread_clock_gettime and
+	__pthread_clock_settime.
+
+	* sysdeps/i386/i586/ptclock_gettime.c: Removed.
+	* sysdeps/i386/i586/ptclock_settime.c: Removed.
+	* sysdeps/i386/i586/Makefile: Removed.
+
+2001-04-22  Ulrich Drepper  <drepper@redhat.com>
+
+	* sysdeps/unix/sysv/linux/bits/posix_opt.h: Define _POSIX_ASYNCH_IO.
+	* sysdeps/unix/sysv/linux/i386/bits/posix_opt.h: Likewise.
+
+2001-04-21  Andreas Jaeger  <aj@suse.de>
+
+	* sysdeps/pthread/timer_routines.c (thread_func): Add noreturn
+	attribute, remove statements that will never be executed.
+	(thread_func): Remove mutex_unlock call since it's never executed.
+	(thread_func): Fix comment as suggested by Jakub Jelinek.
+
+	* manager.c (__pthread_manager): Add noreturn
+	attribute.
+	(pthread_start_thread): Likewise, remove return statement.
+	(pthread_start_thread_event): Likewise.
+	Add noreturn attribute for pthread_handle_exit.
+	* weaks.c: Add noreturn attribute for pthread_exit.
+
+	* internals.h: Add __pthread_clock_gettime and
+	__pthread_clock_settime prototypes.
+
+2001-04-21  Ulrich Drepper  <drepper@redhat.com>
+
+	* internals.h: Include <cpuclock-init.h>.
+	(struct _pthread_descr_struct): Add p_cpuclock_offset field if
+	CPUCLOCK_VARDEF is defined.
+	* pthread.c (__pthread_initialize_minimal): Initialize
+	p_cpuclock_offset field for main thread if CPUCLOCK_INIT is defined.
+	* manager.c (pthread_start_thread): Set p_cpuclock_offset field
+	for new thread to current CPU clock value.
+
+	* sysdeps/i386/useldt.h: Extend all the macros to handle 8-byte values.
+
+	* sysdeps/i386/i586/Makefile: New file.
+	* sysdeps/i386/i586/Versions: New file.
+	* sysdeps/i386/i586/ptclock_gettime.c: New file.
+	* sysdeps/i386/i586/ptclock_settime.c: New file.
+	* sysdeps/i386/i686/Implies: New file.
+
+2001-04-18  Jakub Jelinek  <jakub@redhat.com>
+
+	* sysdeps/unix/sysv/linux/sparc/sparc64/Makefile: Put specs into
+	$generated, not $postclean-generated.
+
+2001-04-18  Andreas Jaeger  <aj@suse.de>
+
+	* Makefile (otherlibs): Added.
+
+2001-04-18  Jakub Jelinek  <jakub@redhat.com>
+
+	* sysdeps/unix/sysv/linux/sparc/sparc64/Makefile: New file.
+
+2001-04-16  Ulrich Drepper  <drepper@redhat.com>
+
+	* signals.c (sigwait): NSIG is no signal number.  Block all
+	signals while in signal handler for signals in SET.
+	Patch by Manfred Spraul <manfred@colorfullife.com>.
+
+2001-04-12  Ulrich Drepper  <drepper@redhat.com>
+
+	* tst-cancel.c: Disable most tests.  Add new test where all
+	cleanup handlers must run.
+	* Makefile (tests): Add tst-cancel again.
+
+	* cancel.c (__pthread_perform_cleanup): Correct condition for
+	leaving cleanup loop early.
+
+	* sysdeps/i386/Makefile: Make sure gcc uses a frame pointer for
+	all the files which use CURRENT_STACK_FRAME.
+	* sysdeps/i386/pt-machine.h (CURRENT_STACK_FRAME): Define using
+	__builtin_frame_address.
+	* sysdeps/i386/i686/pt-machine.h: Likewise.
+
+2001-04-11  Ulrich Drepper  <drepper@redhat.com>
+
+	* Makefile (tests): Comment out tst-cancel for now.
+
+	* tst-cancel.c (main): Cleanup 4 is supposed to run.  Create
+	temporary file in object directory.
+	* Makefile: Don't allow inlining when compiling tst-cancel.c.
+	Pass $(objpfx) to tst-cancel.
+
+2001-04-11  David S. Miller  <davem@redhat.com>
+
+	* sysdeps/sparc/sparc32/pt-machine.h (stack_pointer): Advance
+	up closer to user local variables so that new cleanup heuristics work.
+	* sysdeps/sparc/sparc64/pt-machine.h (stack_pointer): Likewise.
+
+2001-04-11  Ulrich Drepper  <drepper@redhat.com>
+
+	* cancel.c (_pthread_cleanup_push): Catch invalid __prev buffer
+	and remove it.
+	(_pthread_cleanup_push_defer): Likewise.
+
+	* tst-cancel.c (main): Fix loop printing cleanup output.
+
+2001-04-10  kaz Kojima  <kkojima@rr.iij4u.or.jp>
+
+	* sysdeps/sh/pspinlock.c (__pthread_spin_lock): Fix a reverse
+	test.
+	(__pthread_spin_trylock): Likewise.
+	* sysdeps/sh/pt-machine.h (testandset): Likewise.
+
+2001-04-10  Ulrich Drepper  <drepper@redhat.com>
+
+	* join.c (pthread_exit): Move code to new function __pthread_do_exit
+	which takes an extra parameter with the current frame pointer.
+	Call new function with CURRENT_STACK_FRAME.
+	(__pthread_do_exit): New function.  Call __pthread_perform_cleanup
+	with the new parameter.
+	(pthread_join): Call __pthread_do_exit instead of pthread_exit.
+	* cancel.c (__pthread_perform_cleanup): Takes extra parameter.  Use
+	this parameter as the initial value the cleanup handler records are
+	compared against.  No active cleanup handler record must have an
+	address lower than the previous one and the initial record must be
+	above (below on PA) the frame address passed in.
+	(pthread_setcancelstate): Call __pthread_do_exit instead of
+	pthread_exit.
+	(pthread_setcanceltype): Likewise.
+	(pthread_testcancel): Likewise.
+	(_pthread_cleanup_pop_restore): Likewise.
+	* condvar.c (pthread_cond_wait): Likewise.
+	(pthread_cond_timedwait_relative): Likewise.
+	* manager.c (pthread_start_thread): Likewise.
+	* oldsemaphore.c (__old_sem_wait): Likewise.
+	* pthread.c (pthread_handle_sigcancel): Likewise.
+	* semaphore.c (__new_sem_wait): Likewise.
+	(sem_timedwait): Likewise.
+	* ptlongjmp.c (pthread_cleanup_upto): Also use current stack frame
+	to limit the cleanup handlers which get run.
+	* internals.h: Add prototype for __pthread_do_exit.  Adjust prototype
+	for __pthread_perform_cleanup.
+
+	* Makefile (tests): Add tst-cancel.
+	* tst-cancel.c: New file.
+
+2001-04-08  Hans-Peter Nilsson  <hp@axis.com>
+
+	* sysdeps/cris/pt-machine.h: New file.
+	* sysdeps/cris/pspinlock.c: New file.
+
+2001-04-09  Hans-Peter Nilsson  <hp@axis.com>
+
+	* shlib-versions: Add case for Linux on CRIS.
+
+2001-03-26  Ulrich Drepper  <drepper@redhat.com>
+
+	* attr.c (pthread_getattr_np): Correct computation of stack size
+	for machiens with register stack.
+
+	* Examples/ex17.c (main): Correct detection of failed mmap call.
+
+2001-03-21  Jakub Jelinek  <jakub@redhat.com>
+
+	* pthread.c (__pthread_initialize_manager): Fix a typo.
+
+2001-03-21  Jakub Jelinek  <jakub@redhat.com>
+
+	* attr.c (__pthread_attr_setstack): Fix alignment check.
+	(pthread_getattr_np): __stackaddr is top of stack, not bottom.
+	* Makefile (tests): Add ex17 test.
+	* Examples/ex17.c: New test.
+
+2001-03-20  Ulrich Drepper  <drepper@redhat.com>
+
+	* Makefile: Define -D_RPC_THREAD_SAFE_ for cancel.c.
+	* cancel.c (__pthread_perform_cleanup): Call __rpc_thread_destroy.
+	* sysdeps/pthread/bits/libc-tsd.h: Define _LIBC_TSD_KEY_VARS.
+
+2001-03-18  Ulrich Drepper  <drepper@redhat.com>
+
+	* Makefile: When generating DSO link with libc_nonshared.a.
+
+2001-02-26  Jakub Jelinek  <jakub@redhat.com>
+
+	* signals.c (pthread_sighandler): Use CALL_SIGHANDLER.
+
+2001-02-23  Jakub Jelinek  <jakub@redhat.com>
+
+	* internals.h (__pthread_init_max_stacksize): New prototype.
+	* attr.c (__pthread_attr_setstacksize): Call
+	__pthread_init_max_stacksize if not yet initialized.
+	* pthread.c (__pthread_init_max_stacksize): New function.
+	(__pthread_initialize_manager): Call it.
+	Patch by <dtc@cmucl.cons.org>.
+
+2001-03-16  Ulrich Drepper  <drepper@redhat.com>
+
+	* attr.c (pthread_getattr_np): Fix __stacksize computation for IA-64.
+
+2001-03-13  Martin Schwidefsky  <schwidefsky@de.ibm.com>
+
+	* shlib-versions: Add rule for Linux on 64 bit S/390.
+	* sysdeps/s390/s390-64/pt-machine.h: New file.
+	* sysdeps/unix/sysv/linux/s390/s390-64/pt-initfini.c: New file.
+
+2001-03-13  Martin Schwidefsky  <schwidefsky@de.ibm.com>
+
+	* sysdeps/s390/pt-machine.h: Move to...
+	* sysdeps/s390/s390-32/pt-machine.h: ...here.
+	Add defines for FLOATING_STACK and ARCH_STACK_MAX_SIZE.
+
+2001-03-15  Ulrich Drepper  <drepper@redhat.com>
+
+	* Versions [libpthread] (GLIBC_2.2.3): Add pthread_getattr_np.
+	* attr.c: Implement pthread_getattr_np.
+	* sysdeps/pthread/pthread.h: Add prototype for pthread_getattr_np.
+	* internals.h (struct _pthread_descr_struct): Add p_inheritsched.
+	* manager.c (pthread_handle_create): Initialize p_inheritsched.
+
+2001-03-09  Martin Schwidefsky  <schwidefsky@de.ibm.com>
+
+	* sysdeps/unix/sysv/linux/s390/pt-initfini.c: Use 0x07 padding for
+	code alignment.
+
+2001-02-20  Hans Boehm  <hans_boehm@hp.com>
+
+	* manager.c (manager_mask): Removed static vesion.  Now always local
+	to __pthread_manager().
+	(manager_mask_all): Removed completely.
+	(__pthread_manager): Remove manager_mask_all initialization.
+	(pthread_handle_create): Remove code to set and reset signal mask
+	around __clone2() calls.
+
+2001-02-17  Jakub Jelinek  <jakub@redhat.com>
+
+	* spinlock.c (__pthread_lock): Force lock->__status to be read from
+	memory on every spin.
+
+2001-02-10  Andreas Jaeger  <aj@suse.de>
+
+	* Makefile (extra-objs): New.
+
+2001-02-09  Jakub Jelinek  <jakub@redhat.com>
+
+	* sysdeps/pthread/pt-initfini.c (call_initialize_minimal): Add
+	__pthread_initialize_minimal prototype.
+
+2001-02-08  kaz Kojima  <kkojima@rr.iij4u.or.jp>
+
+	* sysdeps/unix/sysv/linux/sh/pt-initfini.c: New file.
+
+2001-02-06  Martin Schwidefsky  <schwidefsky@de.ibm.com>
+
+	* sysdeps/unix/sysv/linux/s390/pt-initfini.c: New file.
+
+2001-02-06  Ulrich Drepper  <drepper@redhat.com>
+
+	* sysdeps/unix/sysv/linux/ia64/pt-initfini.c: First attempt to fix the
+	broken code.  Patch by Jes Sorensen.
+
+2001-02-06  Andreas Jaeger  <aj@suse.de>
+
+	* sysdeps/pthread/pthread.h: Move __pthread_initialize from here
+	to...
+	* internals.h: ...here.
+
+2001-02-05  Jes Sorensen  <jes@linuxcare.com>
+
+	* sysdeps/unix/sysv/linux/ia64/pt-initfini.c: New file.
+
+2001-02-02  Ulrich Drepper  <drepper@redhat.com>
+
+	* Versions: Remove __pthread_initialize_minimal.
+
+2001-02-01  Ulrich Drepper  <drepper@redhat.com>
+
+	* Makefile: Add rules to build crti.o and make it being used in
+	building libpthread.so.
+	* sysdeps/i386/Makefile: New file.
+	* sysdeps/pthread/pt-initfini.c: New file.
+
+	* pthread.c: Cleanups.
+
+2001-01-28  Andreas Jaeger  <aj@suse.de>
+
+	* oldsemaphore.c (__old_sem_init): Adjust for last change.
+	* sysdeps/pthread/bits/libc-lock.h: Likewise.
+	* spinlock.c: Likewise.
+
+2001-01-28  Ulrich Drepper  <drepper@redhat.com>
+
+	* sysdeps/pthread/bits/initspin.h: Make all names namespace clean.
+	* sysdeps/unix/sysv/linux/hppa/bits/initspin.h: Likewise.
+	* manager.c: Adjust for namespace cleanup in bits/initspin.h.
+	* pthread.c: Likewise.
+	* spinlock.h: Likewise.
+	* sysdeps/pthread/pthread.h: Likewise.
+
+2001-01-26  Ulrich Drepper  <drepper@redhat.com>
+
+	* sysdeps/pthread/bits/pthreadtypes.h: Define pthread_attr_t also
+	as struct __pthread_attr_s.
+
+	* semaphore.h (sem_t): Cleanup namespace, rename status and
+	spinlock elements.
+
+2001-01-13  Jakub Jelinek  <jakub@redhat.com>
+
+	* pthread.c (pthread_onexit_process): Clear
+	__pthread_manager_thread_bos after freeing it.
+	* Makefile (tests): Add ex16.
+	* Examples/ex16.c: New file.
+
+2001-01-11  Jakub Jelinek  <jakub@redhat.com>
+
+	* Makefile (CFLAGS-pthread.c): Pass -DHAVE_Z_NODELETE if ld supports
+	-z nodelete.
+	* pthread.c (pthread_exit_process): Rename to...
+	(pthread_onexit_process): ...this.
+	(pthread_atexit_process, pthread_atexit_retcode): New.
+	(pthread_initialize): Call __cxa_atexit instead of __cxa_on_exit
+	and only if HAVE_Z_NODELETE is not defined.
+	(__pthread_initialize_manager): Register pthread_atexit_retcode
+	with __cxa_atexit.
+
+2001-01-11  Ulrich Drepper  <drepper@redhat.com>
+
+	* pthread.c (pthread_initialize): Use __cxs_on_exit not __cxa_atexit.
+
+2001-01-11  Jakub Jelinek  <jakub@redhat.com>
+
+	* Makefile (tests): Add ex15.
+	* Examples/ex15.c: New test.
+
+2001-01-08  Ulrich Drepper  <drepper@redhat.com>
+
+	* pthread.c (pthread_exit_process): Free memory allocated for
+	manager stack.
+
+2000-12-31  Ulrich Drepper  <drepper@redhat.com>
+
+	* manager.c (pthread_alloca_stack): Remove MAP_FIXED from mmap calls.
+	(pthread_free): Always unmap the stack.  It's safe now that we don't
+	use MAP_FIXED to allocate stacks.
+
+2000-12-31  Ulrich Drepper  <drepper@redhat.com>
+
+	* sysdeps/powerpc/pspinlock.c: Don't include pt-machine.h here.
+
+	* manager.c (pthread_allocate_stack): Prepare for removal of MAP_FIXED.
+
+2000-11-15  Wolfram Gloger  <wg@malloc.de>
+
+	* manager.c (pthread_free): [!FLOATING_STACKS]: Only remap the
+	stack to PROT_NONE, don't unmap it, avoiding collisions with malloc.
+
+2000-12-27  Andreas Jaeger  <aj@suse.de>
+
+	* Examples/ex13.c: Make local functions static.
+	* ecmutex.c: Likewise.
+	* joinrace.c: Likewise.
+	* Examples/ex14.c: Likewise.
+
+	* Examples/ex2.c: Make local functions static; reformat.
+	* Examples/ex1.c: Likewise.
+	* Examples/ex4.c: Likewise.
+	* Examples/ex5.c: Likewise.
+	* Examples/ex7.c: Likewise.
+
+	* oldsemaphore.c: Add prototypes to shut up GCC.
+	* pt-machine.c: Likewise.
+
+	* weaks.c: Add prototype for pthread_exit.
+
+	* internals.h: Add some prototypes, format prototypes and add
+	missing externs.
+	Move __libc_waitpid prototype to include/sys/wait.h.
+
+	* rwlock.c: Include <bits/libc-lock.h> for prototypes.
+	* mutex.c: Likewise.
+	* specific.c: Likewise.
+	* ptfork.c: Likewise.
+
+	* lockfile.c: Include internals.h to get prototypes.
+	* events.c: Likewise.
+	* sysdeps/alpha/pspinlock.c: Likewise.
+	* sysdeps/arm/pspinlock.c: Likewise.
+	* sysdeps/hppa/pspinlock.c: Likewise.
+	* sysdeps/i386/pspinlock.c: Likewise.
+	* sysdeps/ia64/pspinlock.c: Likewise.
+	* sysdeps/m68k/pspinlock.c: Likewise.
+	* sysdeps/mips/pspinlock.c: Likewise.
+	* sysdeps/powerpc/pspinlock.c: Likewise.
+	* sysdeps/s390/pspinlock.c: Likewise.
+	* sysdeps/sh/pspinlock.c: Likewise.
+	* sysdeps/sparc/sparc32/pspinlock.c: Likewise.
+	* sysdeps/sparc/sparc32/sparcv9/pspinlock.c: Likewise.
+	* sysdeps/sparc/sparc64/pspinlock.c: Likewise.
+
+2000-12-27  Ulrich Drepper  <drepper@redhat.com>
+
+	* attr.c (__pthread_attr_setstack): Fix setting of __stackaddr element.
+	(__pthread_attr_getstack): Return correct address.
+	Add warnings for using pthread_attr_getstackaddr and
+	pthread_attr_setstackaddr.
+
+2000-12-26  Ulrich Drepper  <drepper@redhat.com>
+
+	* Examples/ex6.c (test_thread): Make static.
+	* Examples/ex12.c (test_thread): Make static and add noreturn
+	attribute.
+
+2000-12-18  Jes Sorensen  <jes@linuxcare.com>
+
+	* linuxthreads/sysdeps/ia64/pt-machine.h: __compare_and_swap
+	and compare_and_swap_with_release_semantics returns int not long.
+
+2000-12-17  Andreas Jaeger  <aj@suse.de>
+
+	* sysdeps/s390/pt-machine.h (testandset): Use long int as return
+	value.
+	* sysdeps/arm/pt-machine.h (testandset): Likewise.
+	* sysdeps/hppa/pt-machine.h (testandset): Likewise.
+	* sysdeps/m68k/pt-machine.h (testandset): Likewise.
+	* sysdeps/sh/pt-machine.h (testandset): Likewise.
+	* sysdeps/sparc/sparc32/pt-machine.h (testandset): Likewise.
+	* sysdeps/sparc/sparc64/pt-machine.h (testandset): Likewise.
+
+2000-12-17  Ulrich Drepper  <drepper@redhat.com>
+
+	* sysdeps/i386/pt-machine.h (testandset): Adjust for prototype change.
+	* sysdeps/i386/i686/pt-machine.h (testandset): Likewise.
+
+2000-12-17  Andreas Jaeger  <aj@suse.de>
+
+	* internals.h: Add prototypes for testandset and
+	__compare_and_swap to shut up gcc warnings.
+
+2000-12-06  Wolfram Gloger  <wg@malloc.de>
+
+	* join.c (pthread_detach): Allow case where the thread has already
+	terminated.
+
+2000-12-05  Andreas Jaeger  <aj@suse.de>
+
+	* sysdeps/mips/pspinlock.c (__pthread_spin_lock): Don't set mips2.
+	* sysdeps/mips/pt-machine.h (testandset): Likewise.
+	(__compare_and_swap): Likewise.
+	Patches by Maciej W. Rozycki <macro@ds2.pg.gda.pl>.
+
+2000-11-20  Jakub Jelinek  <jakub@redhat.com>
+
+	* Examples/ex3.c (main): Cast int to long before casting to void *.
+	(search): Cast void * to long, not int.
+	* Examples/ex8.c (main, thread): Similarly.
+	* Examples/ex11.c (main): Similarly.
+	* Examples/ex14.c (worker, do_test): Similarly.
+	* ecmutex.c (worker, do_test): Similarly.
+	(nlocks): Cast to int.
+
+2000-11-08  Bruce Mitchener  <bruce@cubik.org>
+
+	* linuxthreads.texi:  Add documentation for pthreads attributes
+	guardsize, stackaddr, stacksize, and stack.  Fix typo in previous
+	patch.  Document pthread_[sg]etconcurrency().  Mark
+	pthread_mutexattr_[sg]ettype() as POSIX rather than GNU.
+
+2000-11-07  Ulrich Drepper  <drepper@redhat.com>
+
+	* sysdeps/unix/sysv/linux/bits/posix_opt.h (_POSIX_MESSAGE_PASSING):
+	Don't define it.
+	* sysdeps/unix/sysv/linux/i386/bits/posix_opt.h: Likewise.
+	Reported by Christopher Yeoh <cyeoh@linuxcare.com.au>.
+
+2000-11-06  Ulrich Drepper  <drepper@redhat.com>
+
+	* cancel.c (pthread_cancel): Always set p_canceled, even if we are
+	not doing it right now.
+	Reported by Kaz Kylheku <kaz@ashi.footprints.net>.
+
+2000-10-30  Ulrich Drepper  <drepper@redhat.com>
+
+	* Examples/ex4.c (main): Don't use exit() to avoid warning with
+	broken compilers.
+
+2000-10-29  Ulrich Drepper  <drepper@redhat.com>
+
+	* attr.c (__pthread_attr_setguardsize): Don't round guardsize
+	here.  Reported by Bruce Mitchener <bruce@cubik.org>.
+
+	* linuxthreads.texi: Changes terminology to 'type' from 'kind' when
+	discussing mutexes. (As per the Unix98 name for the API.)
+	Changes documentation for pthread_mutexattr_setkind_np() and
+	pthread_mutexattr_getkind_np() over to the Unix98 APIs for the
+	same: pthread_mutexattr_settype() and pthread_mutexattr_gettype().
+	Changes references to PTHREAD_MUTEXATTR_FAST_NP to
+	PTHREAD_MUTEXATTR_ADAPTIVE_NP.
+	Begins to introduce discussion of the ``timed'' mutex type.  This
+	discussion is currently incomplete.
+	Patch by Bruce Mitchener <bruce@cubik.org>.
+
+2000-10-26  Kazumoto Kojima  <kkojima@rr.iij4u.or.jp>
+	    Yutaka Niibe  <gniibe@chroot.org>
+
+	* sysdeps/sh/pt-machine.h (testandset): Since the operand of TAS.B
+	has restrictions, use register.
+
+2000-10-23  Andreas Schwab  <schwab@suse.de>
+
+	* Examples/ex14.c (TIMEOUT): Override default timeout.
+
+2000-10-16  Ulrich Drepper  <drepper@redhat.com>
+
+	* specific.c: Protect tsd array modification in thread data
+	structures by getting the thread lock in pthread_key_delete and
+	__pthread_destroy_specifics.
+	Patch by Wolfram Gloger <Wolfram.Gloger@dent.med.uni-muenchen.de>.
+
+2000-10-12  Alan Modra <alan@linuxcare.com.au>
+
+	* sysdeps/pthread/bits/initspin.h: New file.
+	* spinlock.h: Move LOCK_INITIALIZER definition to <bits/initspin.h>.
+	(__pthread_init_lock): Initialize lock with LT_SPINLOCK_INIT.
+	(__pthread_alt_init_lock): Likewise.
+	(__pthread_alt_trylock): Release lock with LT_SPINLOCK_INIT.
+
+2000-10-12  David Huggins-Daines  <dhd@linuxcare.com>
+
+	* oldsemaphore.c (__old_sem_init): Release lock with
+	LT_SPINLOCK_INIT, not zero.
+	* spinlock.c (__pthread_unlock): Likewise.
+	(__pthread_alt_lock): Likewise.
+	(__pthread_alt_timedlock): Likewise.
+	(__pthread_alt_unlock): Likewise.
+	* sysdeps/pthread/bits/libc-lock.h: Initialize locks with
+	LT_SPINLOCK_INIT if it is non-zero.  Likewise for init-once flags.
+	* sysdeps/pthread/pthread.h: Include bits/initspin.h.  Use
+	LT_SPINLOCK_INIT do initialize spinlocks not 0.
+
+2000-10-12  David Huggins-Daines <dhd@linuxcare.com>
+
+	* shlib-versions: Add version definitions for hppa-linux.
+
+2000-10-12  Alan Modra <alan@linuxcare.com.au>
+
+	* sysdeps/hppa/pspinlock.c: New file.
+	* sysdeps/hppa/pt-machine.h: New file.
+	* sysdeps/unix/sysv/linux/hppa/bits/initspin.h: New file.
+
+2000-10-05  Jakub Jelinek  <jakub@redhat.com>
+
+	* mutex.c (__pthread_mutex_destroy): Correct test of
+	busy mutex for mutexes using alternate fastlocks.
+	Patch by dtc@cmucl.cons.org.
+
+2000-09-28  Martin Schwidefsksy    <schwidefsky@de.ibm.com>
+
+	* sysdeps/s390/pt-machine.h: Make %a0 the thread register.
+
+2000-09-28  Ulrich Drepper  <drepper@redhat.com>
+
+	* mutex.c (__pthread_mutex_unlock): For PTHREAD_MUTEX_RECURSIVE_NP
+	test for owner first.
+	Patch by Kaz Kylheku <kaz@ashi.footprints.net>.
+
+	* cancel.c (pthread_cancel): Don't do anything if cancelation is
+	disabled.
+
+2000-09-26  Ulrich Drepper  <drepper@redhat.com>
+
+	* spinlock.h (__pthread_set_own_extricate_if): Optimize a bit.
+	Patch by Kaz Kylheku <kaz@ashi.footprints.net>.
+
+	* sysdeps/unix/sysv/linux/i386/bits/posix_opt.h: Remove
+	_POSIX_MONOTONIC_CLOCK.
+
+	* spinlock.h (__pthread_set_own_extricate_if): Add back locking
+	and explain why.
+
+2000-09-20  Andreas Jaeger  <aj@suse.de>
+
+	* pthread.c [!__ASSUME_REALTIME_SIGNALS]: Make inclusion of
+	"testrtsig.h" conditional.
+
+2000-09-11  Ulrich Drepper  <drepper@redhat.com>
+
+	* sysdeps/pthread/pthread.h: Declare pthread_attr_getstack and
+	pthread_attr_setstack.
+	* Versions [libpthread] (GLIBC_2.2): Export pthread_attr_getstack and
+	pthread_attr_setstack.
+	* attr.c (pthread_attr_getstack, pthread_attr_setstack): New functions.
+
+2000-09-05  Ulrich Drepper  <drepper@redhat.com>
+
+	* Examples/ex14.c: New file.
+	* Makefile (tests): Add ex14.
+
+	* mutex.c (__pthread_mutex_unlock): Correct test for already unlocked
+	mutex.  Patch by dtc@cmucl.cons.org.
+
+	* ecmutex.c: New file.
+	* Makefile (tests): Add ecmutex.
+
+2000-09-04  H.J. Lu  <hjl@gnu.org>
+
+	* attr.c (__pthread_attr_setguardsize): Use page_roundup
+	instead of roundup to round up to the page size.
+
+2000-09-03  Mark Kettenis  <kettenis@gnu.org>
+
+	* manager.c (pthread_exited): Correctly report event as TD_REAP
+	instead of TD_DEATH.  Fix comments.
+
+2000-09-03  Ulrich Drepper  <drepper@redhat.com>
+
+	* spinlock.h (testandset): Add cast to avoid warning.
+	Patch by Franz Sirl <Franz.Sirl-kernel@lauterbach.com>.
+
+2000-09-02  Andreas Jaeger  <aj@suse.de>
+
+	* sysdeps/pthread/timer_routines.c: Include stdlib.h for abort
+	prototype.
+
+2000-09-01  Ulrich Drepper  <drepper@redhat.com>
+
+	* sysdeps/pthread/bits/stdio-lock.h (_IO_cleanup_region_start):
+	Fix typo in last patch (_mode -> _flags).
+
+	* sysdeps/pthread/bits/stdio-lock.h (_IO_cleanup_region_start):
+	Provide definition which respects _IO_USER_LOCK flag.
+
+2000-08-30  Ulrich Drepper  <drepper@redhat.com>
+
+	* manager.c (pthread_allocate_stack): Clear descriptor only if not
+	mmaped.
+
+2000-08-25  Ulrich Drepper  <drepper@redhat.com>
+
+	* Makefile: Add rules to build and run unload.
+	* unload.c: New file.
+
+	* pthread.c (pthread_exit_process): Move thread_self use inside `if'.
+
+	* sysdeps/pthread/pthread.h
+	(PTHREAD_ADAPTIVE_MUTEX_INITIALIZER_NP): Defined.
+	(PTHREAD_ERRORCHECK_MUTEX_INITIALIZER_NP: Defined.
+
+2000-08-24  Andreas Jaeger  <aj@suse.de>
+
+	* Examples/ex13.c: Include <string.h> for strerror prototype and
+	<stdlib.h> for abort prototype.
+	(pthr_cond_signal_mutex): Rewrite to silence GCC.
+	(thread_start): Remove unused variable err.
+	(main): Silence GCC warnings.
+
+2000-08-22  Andreas Jaeger  <aj@suse.de>
+
+	* Examples/ex13.c: New test by Kurt Garloff <garloff@suse.de>.
+
+	* Makefile (tests): Add ex13.
+
+2000-08-20  Ulrich Drepper  <drepper@redhat.com>
+
+	* semaphore.h: Add restrict where required by AGd4.
+	* sysdeps/pthread/pthread.h: Likewise.
+	* sysdeps/pthread/unix/sysv/linux/bits/sigthread.h: Likewise.
+
+2000-08-15  Ulrich Drepper  <drepper@redhat.com>
+
+	* Makefile (tests): Add ex12.  Add rule to build it.
+	* Examples/ex12.c: New file.
+
+2000-08-13  Ulrich Drepper  <drepper@redhat.com>
+
+	* sysdeps/unix/sysv/linux/bits/posix_opt.h: Define _POSIX_SEMAPHORES
+	even though the implementation is not quite complete (but it reports
+	it).  Define _POSIX_MESSAGE_PASSING to -1.
+	* sysdeps/unix/sysv/linux/i386/bits/posix_opt.h: Likewise.
+
+2000-08-12  Andreas Jaeger  <aj@suse.de>
+
+	* sysdeps/mips/pt-machine.h (testandset): Add .set mips2 for
+	assembler.
+	(__compare_and_swap): Likewise.
+	* sysdeps/mips/pspinlock.c (__pthread_spin_lock): Likewise.
+
+2000-08-10  Ulrich Drepper  <drepper@redhat.com>
+
+	* pthread.c (__pthread_initial_thread): Initialize p_errnop and
+	p_h_errnop correctly and not to NULL.
+
+2000-08-05  Ulrich Drepper  <drepper@redhat.com>
+
+	* Banner: Bump version number to 0.9.
+
+2000-08-04  Ulrich Drepper  <drepper@redhat.com>
+
+	* Makefile (tests): Add tststack.  Add rule to build the program.
+	* tststack.c: New file.
+
+	* internals.h: Declare __pthread_max_stacksize.
+	* pthread.c (__pthread_max_stacksize): New variable.
+	(__pthread_initialize_manager): Determine __pthread_initialize_manager
+	value.
+	* manager.c (thread_segment): Return always NULL if FLOATING_STACKS.
+	(pthread_allocate_stack): Allow kernel to choose stack address if
+	FLOATING_STACKS.  This also handles variable-sized stacks.
+	Always allocate stack and guardpage together.  Use mprotect to
+	change guardpage access.
+	* sysdeps/i386/useldt.h: Define FLOATING_STACKS and
+	ARCH_STACK_MAX_SIZE.
+
+	* attr.c (__pthread_attr_setstacksize): Also test value against
+	upper limit.
+
+	* manager.c (__pthread_nonstandard_stacks): Define only if
+	THREAD_SELF is not defined.
+	(pthread_allocate_stack): Always initialize gardaddr to a correct
+	value.
+	(pthread_handle_create): Unmap thread with one call.
+	(pthread_free): Remove test for initial thread before removing stack.
+	Unmap stack with one call.
+
+	* pthread.c (__pthread_initial_thread): Initialize p_userstack to
+	1 to avoid removing the stack.
+
+2000-07-27  Jes Sorensen  <jes@linuxcare.com>
+
+	* sysdeps/ia64/pspinlock.c (__pthread_spin_lock): Add
+	load of spin lock to prime the cache before the atomic compare and
+	exchange operation (cmpxchg4). This avoids the spinning on the
+	cmpxchg4 instruction and reduces movement of the cache line back
+	and forth between the processors (explanation by Asis K. Mallick
+	from Intel). This basically makes the implementation operate the
+	same as the Linux kernel implementation.
+
+	* shlib-versions: Use GLIBC_2_2 for Linux/ia64.
+	* sysdeps/ia64/pspinlock.c: New file.
+
+2000-08-03  Ulrich Drepper  <drepper@redhat.com>
+
+	* pthread.c: Move definition of __pthread_set_own_extricate_if...
+	* spinlock.h: ...here.  Remove locking.
+	* internals.h: Remove __pthread_set_own_extricate_if prototype.
+
+	* rwlock.c: Use THREAD_GETMEM And THREAD_SETMEM.
+	(rwlock_rd_extricate_func): Don't determine self, let
+	__pthread_lock do it.
+	(rwlock_wr_extricate_func): Likewise.
+	(rwlock_have_already): Optimize *pself handling a bit.
+
+	* mutex.c: Use __builtin_expect.
+	* pthread.c: Likewise.
+
+2000-08-02  Andreas Jaeger  <aj@suse.de>
+
+	* sysdeps/s390/pspinlock.c: New file.
+	* sysdeps/s390/pt-machine.h: New file.
+	Patches by Martin Schwidefsky <schwidefsky@de.ibm.com>.
+
+2000-07-12  Maciej W. Rozycki  <macro@ds2.pg.gda.pl>
+
+	* sysdeps/mips/pspinlock.c (__pthread_spin_lock): Implement for
+	R3K.
+	* sysdeps/mips/pt-machine.h (testandset): Likewise.
+
+2000-07-26  Andreas Jaeger  <aj@suse.de>
+
+	* pthread.c: Initialize p_sem_avail.
+
+2000-07-25  Ulrich Drepper  <drepper@redhat.com>
+
+	* internals.h (struct __pthread_descr_struct): Add p_sem_avail.
+	* semaphore.c: Handle spurious wakeups.
+
+	* sysdeps/pthread/pthread.h: Add back PTHREAD_MUTX_FAST_NP as an alias
+	for PTHREAD_MUTEX_ADAPTIVE_NP for source code compatibility.
+
+	* pthread.c (__pthread_set_own_extricate): Use THREAD_GETMEM.
+	(__pthread_wait_for_restart): Likewise.
+
+	* condvar.c (pthread_cond_wait): Also check whether thread is
+	cancelable before aborting loop.
+	(pthread_cond_timedwait): Likewise.
+
+	* signals.c (pthread_sighandler): Remove special code to restrore
+	%gs on x86.
+	(pthread_sighandler_t): Likewise.
+
+2000-07-25  Mark Kettenis  <kettenis@gnu.org>
+
+	* internals.h (__RES_PTHREAD_INTERNAL): Remove define.
+	* pthread.c: Include <resolv.h>.
+	(_res): Undefine.  Add extern declaration.
+
+2000-07-24  Ulrich Drepper  <drepper@redhat.com>
+
+	* pthread.c (__pthread_initial_thread): Update initializer.
+	(__pthread_manager_thread): Likewise.
+	(pthread_initialize): Move setrlimit call to...
+	(__pthread_initialize_manager): ...here.
+	(__pthread_reset_main_thread): Reset also soft limit on stack size.
+
+	* condvar.c: Handle spurious wakeups.  [PR libc/1749].
+	* internals.h (struct _pthread_descr_struct): Add p_condvar_avail.
+
+2000-07-21  Ulrich Drepper  <drepper@redhat.com>
+
+	* spinlock.h: If IMPLEMENT_TAS_WITH_CAS is defined use
+	__compare_and_swap to define testandset.
+	* sysdeps/powerpc/pt-machine.h: Add volatile to asms.
+	Define IMPLEMENT_TAS_WITH_CAS.
+
+2000-07-20  Ulrich Drepper  <drepper@redhat.com>
+
+	* Makefile: Pass -z nodelete to linker for libpthread.so
+	generation if it understand this option.
+
+2000-07-18  Mark Kettenis  <kettenis@gnu.org>
+
+	* manager.c (pthread_handle_create): Remove initialization of
+	new_thread->p_res._sock.
+
+2000-07-19  Kaz Kylheku  <kaz@ashi.footprints.net>
+
+	Bugfixes to the variant of the code for machines with no compare
+	and swap.
+
+	* spinlock.c (__pthread_alt_lock, __pthread_alt_timedlock): Wait
+	node was not being properly enqueued, due to failing to update
+	the lock->__status field.
+
+	* spinlock.c (__pthread_alt_timedlock): The oldstatus variable was
+	being set inappropriately, causing the suspend function to be called
+	with a null self pointer and crash.
+
+2000-07-18  Ulrich Drepper  <drepper@redhat.com>
+
+	* spinlock.h (__pthread_alt_trylock): Fix code used if no
+	compare&swap is available.
+
+	* spinlock.h (__pthread_trylock): Use __compare_and_swap, not
+	compare_and_swap.
+
+	* pthread.c (pthread_initialize): Don't use sysconf to determine
+	whether the machine has more than one processor.
+
+	* spinlock.c (__pthread_alt_timedlock): Add back one of the
+	removed thread_self calls.
+
+2000-07-18  Kaz Kylheku  <kaz@ashi.footprints.net>
+
+	* spinlock.c (__pthread_alt_lock, __pthread_alt_timedlock): Changed
+	__compare_and_swap to compare_and_swap in code which assumes
+	compare swap is available.
+
+2000-07-18  Kaz Kylheku  <kaz@ashi.footprints.net>
+
+	* spinlock.c (__pthread_alt_lock, __pthread_alt_timedlock): Fixed
+	bug whereby thr field of waitnode structure would not be correctly
+	set unless a null self pointer is passed to the functions.
+	Eliminated redundant calls to thread_self().
+
+2000-07-18  Jakub Jelinek  <jakub@redhat.com>
+
+	* pthread.c (__pthread_initialize_manager): Lock
+	__pthread_manager_thread.p_lock before calling clone.
+
+2000-05-05  H.J. Lu  <hjl@gnu.org>
+
+	* sysdeps/ia64/pt-machine.h (__compare_and_swap): Change it to
+	have acquire semantics.
+	(__compare_and_swap_with_release_semantics): New inline
+	function.
+	(HAS_COMPARE_AND_SWAP_WITH_RELEASE_SEMANTICS): New macro.
+
+2000-01-28  Hans Boehm  <hboehm@exch.hpl.hp.com>
+
+	* manager.c: Fix the problem with signals at startup.
+	Change the way that thread stacks are allocated on IA64.
+	Clean up some of the guard page allocation stuff.
+
+1999-12-19  H.J. Lu  <hjl@gnu.org>
+
+	* internals.h (page_roundup): New.
+	* attr.c (__pthread_attr_setguardsize); Use page_roundup
+	instead of roundup.
+	* manager.c (pthread_allocate_stack): Make sure guardaddr is
+	page aligned with page_roundup if NEED_SEPARATE_REGISTER_STACK
+	is define.
+
+1999-12-17  Hans Boehm  <hboehm@exch.hpl.hp.com>
+
+	* manager.c (pthread_allocate_stack): Unmap the stack top
+	if failed to map the stack bottom.
+	Fix the guard page.
+	(pthread_free): Fix the guard page.
+
+	* pthread.c (pthread_initialize): Set rlimit correctly for
+	NEED_SEPARATE_REGISTER_STACK.
+
+1999-12-16  H.J. Lu  <hjl@gnu.org>
+
+	* pthread.c (__pthread_initialize_manager): Pass
+	__pthread_manager_thread_bos instead of
+	__pthread_manager_thread_tos to __clone2.
+
+1999-12-16  H.J. Lu  <hjl@gnu.org>
+
+	* manager.c (pthread_allocate_stack): Correct the calculation
+	of "new_thread_bottom". Remove MAP_GROWSDOWN from mmap for
+	stack bottom.
+
+1999-12-13  H.J. Lu  <hjl@gnu.org>
+
+	* sysdeps/ia64/pt-machine.h (__compare_and_swap): Added a stop
+	bit after setting ar.ccv.
+
+1999-12-12  H.J. Lu  <hjl@gnu.org>
+
+	* manager.c (pthread_allocate_stack): Make the starting
+	address of the stack bottom page aligned. FIXME: it may
+	need changes in other places.
+	(pthread_handle_create): Likewise.
+
+1999-12-11  Hans Boehm  <hboehm@exch.hpl.hp.com>
+
+	* manager.c (pthread_allocate_stack): Handle
+	NEED_SEPARATE_REGISTER_STACK.
+	(pthread_handle_create): Likewise.
+	* pthread.c (__pthread_initialize_manager): Likewise.
+
+	* sysdeps/ia64/pt-machine.h: Use r13 for thread pointer.
+
+1999-12-02  H.J. Lu  <hjl@gnu.org>
+
+	* sysdeps/ia64/pt-machine.h: New.
+
+2000-07-13  Ulrich Drepper  <drepper@redhat.com>
+
+	* wrapsyscall.c: Mark non-__ protected names as weak.
+	PR libc/1466.
+
+2000-07-12  Bruno Haible  <haible@clisp.cons.org>
+
+	* Examples/ex8.c: Include <sys/wait.h>, not <wait.h>.
+
+2000-07-12  Ulrich Drepper  <drepper@redhat.com>
+
+	* spinlock.c: Fix code for TEST_FOR_COMPARE_AND_SWAP being defined.
+	Add tests also to new alternative spinlock implementation.
+	* spinlock.h: Likewise.
+	Patch by Kaz Kylheku <kaz@ashi.footprints.net>.
+
+2000-07-06  Ulrich Drepper  <drepper@redhat.com>
+
+	* Version: Export __sigaction.
+	* signals.c: Define __sigaction alias.  Use __libc_sigaction instead
+	of __sigaction.
+	* pthread.c: Use __libc_sigaction instead of __sigaction.
+
+	* condvar.c: Implement pthread_condattr_getpshared and
+	pthread_condattr_setpshared.
+	* mutex.c: Implement pthread_mutexattr_getpshared and
+	 pthread_mutexattr_setpshared.
+	* Versions: Export new functions.
+	* sysdeps/pthread/pthread.h: Add prototypes for new functions.
+
+	* rwlock.c (pthread_rwlockattr_init): Use PTHREAD_PROCESS_PRIVATE.
+	(pthread_rwlockattr_setpshared): Fail if PTHREAD_PROCESS_PRIVATE
+	is not selected.
+
+2000-07-04  Greg McGary  <greg@mcgary.org>
+
+	* sysdeps/pthread/bits/libc-lock.h: Remove BP_SYM from
+	pragmas.  Include bp-sym.h only if _LIBC.
+
+2000-07-04  Ulrich Drepper  <drepper@redhat.com>
+
+	* spinlock.c (__pthread_unlock): Properly place write barrier.
+	Patch by Kaz Kylheku <kaz@ashi.footprints.net>.
+
+2000-07-03  Ulrich Drepper  <drepper@redhat.com>
+
+	* spinlock.c: Replace fast spinlocks by adaptive spinlocks which are
+	faster on SMP systems.  No more emulation of compare&swap for adaptive
+	spinlocks.
+	* spinlock.h: Likewise.
+	* sysdeps/pthread/pthread.h: Shuffle PTHREAD_MUTEX_* values around.
+	Replace fast with adaptive mutex.
+	* mutex.c: Rewrite for replacement of fast by adaptive mutex.
+	* condvar.c: Likewise.
+	* pthread.c: Define and initialize __pthread_smp_kernel variable.
+	* internals.h: Declare __pthread_smp_kernel.
+	* sysdeps/pthread/bits/pthreadtypes.h: Update comment of
+	_pthread_fastlock structure.
+	Patch by Kaz Kylheku <kaz@ashi.footprints.net>.
+
+	* pthread.c: Remove initialization to zero from global variables.
+
+2000-06-29  Jakub Jelinek  <jakub@redhat.com>
+
+	* shlib-versions: Make sparc64 GLIBC_2.2+ only.
+
+2000-06-28  Greg McGary  <greg@mcgary.org>
+
+	* weaks.c: Wrap BP_SYM () around weak extern declarations of
+	pthread functions that have pointers in their return+arg signatures.
+
+2000-06-27  Greg McGary  <greg@mcgary.org>
+
+	* sysdeps/pthread/bits/libc-lock.h: Wrap BP_SYM () around weak
+	extern declarations of pthread functions that have pointers in
+	their return+arg signatures.
+
+2000-06-26  Ulrich Drepper  <drepper@redhat.com>
+
+	* Makefile (tests): Add ex11.  Add rules to build it.
+	* Examples/ex11.c: New file.
+	* rwlock.c: Fix complete braindamaged previous try to implement
+	timedout functions.
+
+	* spinlock.c: Pretty print.
+
+2000-06-25  Ulrich Drepper  <drepper@redhat.com>
+
+	* Makefile (tests): Add ex10.  Add rules to build it.
+	* Versions [GLIBC_2.2] (libpthread): Add pthread_mutex_timedlock,
+	pthread_rwlock_timedrdlock, and pthread_rwlock_timedwrlock.
+	* condvar.c (pthread_cond_wait): Allow mutex of kind
+	PTHREAD_MUTEX_TIMED_NP.
+	(pthread_cond_timedwait_relative): Likewise.
+	* mutex.c (__pthread_mutex_init): Default is PTHREAD_MUTEX_TIMED_NP.
+	(__pthread_mutex_trylock): Use __pthread_alt_trylock for
+	PTHREAD_MUTEX_ERRORCHECK_NP.  Handle PTHREAD_MUTEX_TIMED_NP.
+	(__pthread_mutex_lock): Use __pthread_alt_lock for
+	PTHREAD_MUTEX_ERRORCHECK_NP.  Handle PTHREAD_MUTEX_TIMED_NP.
+	(__pthread_mutex_timedlock): New function.
+	(__pthread_mutex_unlock): Use __pthread_alt_unlock for
+	PTHREAD_MUTEX_ERRORCHECK_NP.  Handle PTHREAD_MUTEX_TIMED_NP.
+	(__pthread_mutexattr_init): Use PTHREAD_MUTEX_TIMED_NP.
+	(__pthread_mutexattr_settype): Allow PTHREAD_MUTEX_TIMED_NP.
+	* spinlock.c: Implement alternate fastlocks.
+	* spinlock.h: Add prototypes.
+	* Examples/ex10.c: New file.
+	* sysdeps/pthread/pthread.h: Add prototypes for new functions.
+	Patch by Kaz Kylheku <kaz@ashi.footprints.net>.
+
+	* rwlock.c (__pthread_rwlock_rdlock): Optimize loop a bit.
+	(__pthread_rwlock_timedrdlock): New function.
+	(__pthread_rwlock_timedwrlock): New function.
+	Use laternate fastlock function everywhere.
+
+2000-06-21  Andreas Jaeger  <aj@suse.de>
+
+	* sysdeps/pthread/timer_routines.c: Include <string.h> for memset
+	prototype.
+
+	* join.c: Include <stdlib.h> for exit prototype.
+
+2000-06-20  Ulrich Drepper  <drepper@redhat.com>
+
+	* sysdeps/i386/useldt.h: Include <stdlib.h>.
+
+	* sysdeps/unix/sysv/linux/bits/posix_opt.h: Define _POSIX_BARRIERS.
+	* sysdeps/unix/sysv/linux/i386/bits/posix_opt.h: Likewise.
+
+	* Makefile (libpthread-routines): Add barrier.
+	(tests): Add ex9.  Add rule to build ex9.
+	* Versions: Export barrier functions.
+	* barrier.c: New file.
+	* Examples/ex9.c: New file.
+	* sysdeps/pthread/pthread.h: Add barrier data types and declarations.
+	* sysdeps/pthread/bits/pthreadtypes.h: Likewise.
+	Patch by Kaz Kylheku <kaz@ashi.footprints.net>.
+
+2000-06-19  H.J. Lu  <hjl@gnu.org>
+
+	* spinlock.h (HAS_COMPARE_AND_SWAP): Defined if
+	HAS_COMPARE_AND_SWAP_WITH_RELEASE_SEMANTICS is defined.
+	(compare_and_swap_with_release_semantics): New. Default to
+	compare_and_swap if HAS_COMPARE_AND_SWAP_WITH_RELEASE_SEMANTICS
+	is not defined.
+
+	* spinlock.c (__pthread_unlock): Call
+	compare_and_swap_with_release_semantics () instead of
+	compare_and_swap ().
+
+2000-06-19  Ulrich Drepper  <drepper@redhat.com>
+
+	* sysdeps/pthread/timer_create.c: Use _set_errno instead of assigning
+	to errno directly.
+	* sysdeps/pthread/timer_delete.c: Likewise.
+	* sysdeps/pthread/timer_getoverr.c: Likewise.
+	* sysdeps/pthread/timer_gettime.c: Likewise.
+	* sysdeps/pthread/timer_settime.c: Likewise.
+
+2000-06-13  Kaz Kylheku  <kaz@ashi.footprints.net>
+
+	Timer nodes are now reference counted, and can be marked
+	as deleted. This allows for the safe release of the global mutex
+	in the middle without losing the timer being operated on.
+
+	* sysdeps/pthread/posix-timer.h (struct timer_node):  The inuse
+	member is now an enum with three values, so that an intermediate
+	state can be represented (deleted but not free for reuse yet).
+	New refcount member added.
+	* sysdeps/pthread/timer_routines.c: Likewise.
+
+	* sysdeps/pthread/posix-timer.h (timer_addref, timer_delref,
+	timer_valid): New inline functions added.
+
+	* sysdeps/pthread/timer_gettime.c (timer_gettime): Function
+	restructured, recursive deadlock bug fixed.
+
+	* sysdeps/pthread/timer_gettime.c (timer_gettime): Uses new
+	timer_addref to ensure that timer won't be deleted while mutex is not
+	held. Also uses timer_invalid to perform validation of timer handle.
+	* sysdeps/pthread/timer_settime.c (timer_settime): Likewise.
+	* sysdeps/pthread/timer_getoverr.c (timer_getoverrun): Likewise.
+
+2000-06-14  Ulrich Drepper  <drepper@redhat.com>
+
+	* shlib-versions: Add entry for SH.
+	Patch by Kaz Kojima <kkojima@rr.iij4u.or.jp>.
+
+2000-06-13  Kaz Kylheku  <kaz@ashi.footprints.net>
+
+	A few optimizations.  Got rid of unnecessary wakeups of timer threads,
+	tightened up some critical regions and micro-optimized some list
+	manipulation code.
+
+	* sysdeps/pthread/timer_routines.c (__timer_thread_queue_timer):
+	Returns int value now to indicate whether timer was queued at head.
+	* sysdeps/pthread/posix-timer.h: Likewise.
+	* sysdeps/pthread/timer_settime.c (timer_settime): Takes advantage of
+	new return value from __timer_thread_queue_timer to avoid waking
+	up timer thread unnecessarily.
+
+	* sysdeps/pthread/posix-timer.h (timer_id2ptr): No longer checks
+	inuse flag, because this requires mutex to be held.  Callers updated
+	to do the check when they have the mutex.
+	* sysdeps/pthread/timer_getoverr.c: Add check for inuse here.
+
+	* sysdeps/pthread/timer_settime.c (timer_settime): Tighter critical
+	regions: avoids making system calls while holding timer mutex, and
+	a few computations were moved outside of the mutex as well.
+	* sysdeps/pthread/timer_gettime.c (timer_gettime): Likewise.
+
+	* sysdeps/pthread/posix-timer.h (list_unlink_ip): Function name changed
+	to list_unlink_ip, meaning idempotent.  Pointer manipulation
+	changed to get better better code out of gcc.
+	* sysdeps/pthread/timer_routines.c (list_unlink): Non-idempotent
+	version of list_unlink added here.
+	* sysdeps/pthread/timer_delete.c: Use appropriate list unlink
+	function in all places: idempotent one for timers, non-idempotent
+	one for thread nodes.
+	* sysdeps/pthread/timer_settime: Likewise.
+	* sysdeps/pthread/timer_routines.c: Likewise.
+
+2000-06-13  Ulrich Drepper  <drepper@redhat.com>
+
+	* sysdeps/unix/sysv/linux/bits/posix_opt.h (_POSIX_TIMERS): Define.
+	* sysdeps/unix/sysv/linux/i386/bits/posix_opt.h: Likewise.
+
+	* sysdeps/pthread/Makefile: Remove tests definition.
+
+2000-06-12  Kazumoto Kojima  <kkojima@rr.iij4u.or.jp>
+	    Yutaka Niibe  <gniibe@chroot.org>
+
+	* sysdeps/sh/pspinlock.c: New file.
+	* sysdeps/sh/pt-machine.h: New file.
+
+2000-06-12  Ulrich Drepper  <drepper@redhat.com>
+
+	* Makefile (tests): Add joinrace.
+
+	* Examples/ex6.c: Test return value of pthread_join.
+
+2000-06-11  Geoff Keating  <geoffk@cygnus.com>
+
+	* sysdeps/powerpc/pspinlock.c (__pthread_spin_lock): Implement.
+	(__pthread_spin_trylock): Implement.
+	(__pthread_spin_unlock): Implement.
+	(__pthread_spin_init): Implement.
+	(__pthread_spin_destroy): Implement.
+
+2000-06-10  Ulrich Drepper  <drepper@redhat.com>
+
+	* sysdeps/pthread/timer_routines.c (list_append): Little fix to
+	really append the entry.
+
+2000-06-10  Andreas Jaeger  <aj@suse.de>
+
+	* lockfile.c (__fresetlockfiles): Remove unused variable fp.
+
+2000-06-10  Kaz Kylheku  <kaz@ashi.footprints.net>
+
+	* sysdeps/pthread/timer_create.c: Thread matching now done on
+	clock type as well as thread attributes.
+	There are individual global signal-delivering threads for
+	different clock types.
+	* sysdeps/pthread/posix-timer.h: Likewise.
+	* sysdeps/pthread/timer_routines.c: Likewise.
+
+	* sysdeps/pthread/timer_routines.c: Thread allocation and
+	deallocation function now remembers to put thread on active
+	list and remove from active list.
+	Thus now the feature of binding multiple timers
+	to a single thread actually works.
+
+2000-06-10  Ulrich Drepper  <drepper@redhat.com>
+
+	* pthread.c (__pthread_create_2_1): Optimize a bit.
+
+	* internals.h (invalid_handle): Also test for p_terminated != 0.
+	(nonexisting_handle): New function.  Same as old invalid_handle.
+	* join.c (pthread_join): Use nonexisting_handle instead of
+	invalid_handle to test for acceptable thread handle.
+	* manager.c (pthread_handle_free): Likewise.
+	* joinrace.c: New file.
+	Reported by Permaine Cheung <pcheung@cygnus.com>.
+
+2000-06-08  Ulrich Drepper  <drepper@redhat.com>
+
+	* sysdeps/pthread/timer_routines.c (__timer_thread_queue_timer):
+	Correct handling of matching variable.
+
+	* sysdeps/pthread/tst-timer.c (main): Rewrite initializers to
+	avoid warnings.
+
+	* sysdeps/pthread/timer_routines.c (__timer_thread_queue_timer):
+	Be prepared for empty timer list.
+
+	* sysdeps/pthread/timer_create.c (timer_create): Correct names of
+	CPUTIME clock ID.  Add support for thread clocks.
+
+	* sysdeps/pthread/posix-timer.h (timer_ptr2id): Operands in
+	subtraction were switched.
+
+	* sysdeps/pthread/timer_routines.c (init_module): Use
+	THREAD_MAXNODES threads.
+
+	* sysdeps/pthread/posix-timer.h (struct timer_node): Add creator_pid.
+	* sysdeps/pthread/timer_create.c: Fill in creator_pid.
+	* sysdeps/pthread/timer_routines.c (thread_expire_timer): Send signal
+	with sigqueueinfo is this system call is available.
+
+	* sysdeps/pthread/timer_create.c (timer_create): Allow
+	CLOCK_CPUTIME if _POSIX_CPUTIME is defined.
+
+	* sysdeps/pthread/Makefile: New file.  Add rules to build timer
+	functionality.
+	* sysdeps/unix/sysv/linux/bits/local_lim.h: Add TIMER_MAX.
+
+2000-06-04  Kaz Kylheku  <kaz@ashi.footprints.net>
+
+	* sysdeps/pthread/posix-timer.h: New file.
+	* sysdeps/pthread/timer_create.c: New file.
+	* sysdeps/pthread/timer_delete.c: New file.
+	* sysdeps/pthread/timer_getoverr.c: New file.
+	* sysdeps/pthread/timer_gettime.c: New file.
+	* sysdeps/pthread/timer_routines.c: New file.
+	* sysdeps/pthread/timer_settime.c: New file.
+	* sysdeps/pthread/tst-timer.c: New file.
+
+2000-06-08  Ulrich Drepper  <drepper@redhat.com>
+
+	* sysdeps/unix/sysv/linux/bits/local_lim.h: Remove OPEN_MAX and
+	LINK_MAX definitions if necessary.
+
+2000-06-04  Kaz Kylheku  <kaz@ashi.footprints.net>
+
+	Added missing fork time handling of global libio lock.
+
+	* lockfile.c (__fresetlockfiles): Now also resets the list lock,
+	not just the individual stream locks. Rewritten to use new
+	iterator interface provided by libio rather than accessing
+	global variable.
+
+	* lockfile.c (__flockfilelist, _funlockfilelist): New functions
+	which lock and unlock the stream list using the new interface
+	provied by libio.
+	* internals.h: Likewise.
+
+	* ptfork.c (__fork): Now calls __flockfilelist before fork,
+	and __funlockfilelist in the parent after the fork.
+	Child still calls __fresetlockfiles as before.
+
+	* linuxthreads.texi: Now explains what happens to streams at
+	fork time. Also whole new section on forking and thread added.
+	Definition of pthread_atfork moved out of Miscellaneous Functions
+	to this new section.
+
+2000-06-04  Jakub Jelinek  <jakub@redhat.com>
+
+	* sysdeps/sparc/sparc32/sparcv9/pspinlock.c (__pthread_spin_lock):
+	Add missing register.
+	* sysdeps/sparc/sparc64/pspinlock.c (__pthread_spin_lock): Likewise.
+
+2000-06-02  Jakub Jelinek  <jakub@redhat.com>
+
+	* sysdeps/sparc/sparc32/pspinlock.c: Implement spinlocks.
+	* sysdeps/sparc/sparc32/sparcv9/pspinlock.c: New.
+	* sysdeps/sparc/sparc64/pspinlock.c: Implement spinlocks.
+
+2000-05-31  Andreas Jaeger  <aj@suse.de>
+
+	* sysdeps/mips/pspinlock.c: Implement spinlocks.
+
+2000-05-28  Ulrich Drepper  <drepper@redhat.com>
+
+	* spinlock.c (__pthread_lock): Remove ASSERT.
+
+	* Makefile (tests): Add ex8.
+	* Examples/ex8.c: New file.
+
+2000-05-12  Kaz Kylheku  <kaz@ashi.footprints.net>
+
+	Bugfix: The pthread_atfork mechanism now takes care of its
+	own internal mutex at fork time.
+
+	* ptfork.c (__fork): Revised so that the mutex is held across
+	the fork operation and while the handlers are called, and so that
+	the child resets the mutex.
+
+	* linuxthreads.texi: Updated pthread_atfork documentation to make
+	it clear that fork and pthread_atfork can't be reentered from
+	atfork handlers, that pthread_atfork and fork are mutually atomic,
+	and that the handlers are inherited by the child process.
+
+2000-05-24  Ulrich Drepper  <drepper@redhat.com>
+
+	* Makefile (libpthread-routines): Add pspinlock.
+	* cancel.c: Rename __pthread_spin_unlock back to __pthread_unlock.
+	Use struct _pthread_fastlock instead of pthread_spinlock_t.
+	* condvar.c: Likewise.
+	* internals.h: Likewise.
+	* join.c: Likewise.
+	* manager.c: Likewise.
+	* mutex.c: Likewise.
+	* pthread.c: Likewise.
+	* rwlock.c: Likewise.
+	* semaphore.c: Likewise.
+	* signals.c: Likewise.
+	* spinlock.h: Likewise.
+	* spinlock.c: Likewise.  Remove pthread_spin_lock functions.
+	* sysdeps/alpha/pspinlock.c: New file.
+	* sysdeps/arm/pspinlock.c: New file.
+	* sysdeps/i386/pspinlock.c: New file.
+	* sysdeps/m68k/pspinlock.c: New file.
+	* sysdeps/mips/pspinlock.c: New file.
+	* sysdeps/powerpc/pspinlock.c: New file.
+	* sysdeps/sparc/sparc32/pspinlock.c: New file.
+	* sysdeps/sparc/sparc64/pspinlock.c: New file.
+	* sysdeps/pthread/bits/pthreadtypes.h: Remove pthread_spinlock_t
+	back to _pthread_fastlock.  Define new pthread_spinlock_t.
+
+2000-05-24  Andreas Jaeger  <aj@suse.de>
+
+	* sysdeps/i386/i686/pt-machine.h: Only use LDT on newer kernels.
+
+2000-05-21  Jakub Jelinek  <jakub@redhat.com>
+
+	* manager.c (pthread_handle_create): Initialize p_res._sock to -1.
+
+2000-05-13  Jakub Jelinek  <jakub@redhat.com>
+
+	* internals.h (__RES_PTHREAD_INTERNAL): Define.
+
+2000-05-06  Kaz Kylheku  <kaz@ashi.footprints.net>
+
+	* mutex.c (pthread_once): IN_PROGRESS state of pthread_once_t
+	object state is represented with additional bits which distinguish
+	whether that state was set up in the current process, or
+	in an ancestor process. If that state was set in an ancestor,
+	it means that a fork happened while thread was executing the init
+	function. In that case, the state is reset to NEVER.
+	* mutex.c (__pthread_once_fork_prepare): New function.
+	(__pthread_once_fork_child): Likewise
+	(__pthread_once_fork_parent): Likewise
+	(__pthread_reset_pthread_once): Removed.
+	* ptfork.c (__fork): Call new handlers in mutex.c.
+	* internals.h: Declarations of new mutex.c functions added.
+	Declaration of removed function deleted.
+	* linuxthreads.texi: Updated documentation about pthread_once
+	to clarify what happens under cancellation and forking.
+
+2000-05-06  Kaz Kylheku  <kaz@ashi.footprints.net>
+
+	* internals.h: New thread manager request type, REQ_KICK.
+	* join.c (pthread_exit): main thread now calls exit() instead
+	of _exit() in order to proper process cleanup.
+	* manager.c (__pthread_manager): Do not terminate manager
+	after unblocking main thread; wait for main thread's
+	REQ_PROCESS_EXIT request instead.
+	Also, added REQ_KICK case to handle new request; this just does
+	nothing.
+	* manager.c (pthread_exited): Do not terminate manager after
+	unblocking main thread.
+	* manager.c (__pthread_manager_sighandler): If the main thread
+	is waiting for all other threads to die, send a REQ_KICK into
+	the thread manager request pipe to get it to clean out the threads
+	and unblock the main thread as soon as possible. This fixes
+	the 2000 millisecond hang on shutdown bug.
+	* Examples/ex7.c: New file, tests shutdown behavior when all threads
+	including the main one call pthread_exit(), or implicitly do so.
+	* Makefile (tests): Add ex7.
+
+2000-05-05  Andreas Jaeger  <aj@suse.de>
+
+	* sysdeps/unix/sysv/linux/i386/getcpuclockid.c
+	(pthread_getcpuclockid): Correct test for ourselves.
+
+2000-05-05  Ulrich Drepper  <drepper@redhat.com>
+
+	* internals.h (struct _pthread_descr_struct): Reorganization.
+	Allocate room for 16 pointers at head of the structure for future
+	thread-local data handling.  Move p_self member in this area.
+	* manager.c (pthread_handle_create): Adjust use of p_self.
+	* sysdeps/i386/useldt.h (THREAD_SELF): Likewise.
+	* pthread.c (__pthread_initial_thread): Adjust initialization.
+	(__pthread_manager_thread): Likewise.
+
+2000-04-29  Bruno Haible  <haible@clisp.cons.org>
+
+	* join.c (pthread_exit): Use THREAD_GETMEM_NC instead of THREAD_GETMEM
+	for eventmask larger than 1 word.
+
+2000-04-27  Ulrich Drepper  <drepper@redhat.com>
+
+	* Versions [libpthread] (GLIBC_2.2): Add __pthread_initialize_minimal.
+	* pthread.c (__pthread_initialize_minimal): New function.  Perform
+	minimal initialization.
+	(pthread_initialize): Remove this code here.
+	* sysdeps/i386/i686/pt-machine.h: Include "../useldt.h" again.  We
+	are working around the problem in glibc.
+
+2000-04-25  Ulrich Drepper  <drepper@redhat.com>
+
+	* sysdeps/i386/i686/pt-machine.h: Do not use "../useldt.h" for
+	now.  First gcc must be fixed (more concrete: libgcc).
+
+2000-04-24  Ulrich Drepper  <drepper@redhat.com>
+
+	* pthread.c: Remove special treatement for interrupt handlers on x86.
+	* manager.c (pthread_free): Use FREE_THREAD not FREE_THREAD_SELF.
+	* sysdeps/i386/useldt.h: Use "q" constraint instead of "r" where
+	necessary.
+	* sysdeps/i386/i686/pt-machine.h: Include "../useldt.h".
+
+2000-04-24  Mark Kettenis  <kettenis@gnu.org>
+
+	* join.c (pthread_exit): Set p_terminated after reporting the
+	termination event instead of before.
+
+2000-04-20  Jakub Jelinek  <jakub@redhat.com>
+
+	* sysdeps/pthread/bits/libc-lock.h: Only declare __pthread_rwlock_*
+	if __USE_UNIX98.
+
+2000-04-18  Andreas Jaeger  <aj@suse.de>
+
+	* Versions: Use ld instead of ld.so.
+
+2000-04-18  Jakub Jelinek  <jakub@redhat.com>
+
+	* sysdeps/unix/sysv/linux/sparc/bits/sigcontext.h (struct sigcontext):
+	Remove the typedef keyword.
+
+2000-04-18  Jakub Jelinek  <jakub@redhat.com>
+
+	* sysdeps/sparc/sparc64/pt-machine.h (MEMORY_BARRIER): Use membar,
+	not stbar.
+	(READ_MEMORY_BARRIER): Define.
+	* spinlock.c (__pthread_spin_unlock): Use READ_MEMORY_BARRIER, not
+	MEMORY_BARRIER.
+	* internals.h (READ_MEMORY_BARRIER): Define if not defined in sysdep
+	headers.
+
+2000-04-17  Ulrich Drepper  <drepper@redhat.com>
+
+	* sysdeps/unix/sysv/linux/i386/getcpuclockid.c
+	(pthread_getcpuclockid): Don't compare thread_id with thread_self,
+	use thread_handle().
+
+2000-04-16  Ulrich Drepper  <drepper@redhat.com>
+
+	* condvar.c (pthread_cond_timedwait_relative): Don't test for owner
+	if fast mutex is used.  Don't initialize `already_canceled' twice.
+	Correctly test for return value of timedsuspend.
+
+	* pthread.c: Correct long-time braino.  We never set SA_SIGINFO and
+	therefore don't need the _rt versions of the signal handlers.
+
+2000-04-15  Ulrich Drepper  <drepper@redhat.com>
+
+	* pthread.c (pthread_yield): New function.
+	* sysdeps/pthread/pthread.h (pthread_yield): Add prototype.
+	* Versions [libpthread] (GLIBC_2.2): Add pthread_yield.
+	* internals.h: Declare __pthread_yield.
+
+	* pthread.c (pthread_initialize): Avoid a bit more code if
+	realtime signals are known to exist.
+
+	* pthread.c: Is __ASSUME_REALTIME_SIGNALS then avoid generating code
+	to dynamically detect RT signals and avoid generating compatibility
+	functions with old kernel.
+	* restart.h (restart) [__ASSUME_REALTIME_SIGNALS]: Use
+	__pthread_restart_new directly.
+	(suspend) [__ASSUME_REALTIME_SIGNALS]: Use
+	__pthread_wait_for_restart_signal directly.
+	(timedsuspend) [__ASSUME_REALTIME_SIGNALS]: Use
+	__pthread_timedsuspend_new directly.
+
+2000-04-15  Ulrich Drepper  <drepper@redhat.com>
+
+	* condvar.c: Remove all the special code to handle cond_timedwait.
+	Use timedsuspend instead.
+	* internals.h: Declare __pthread_timedsuspend_old,
+	__pthread_timedsuspend_new, and __pthread_timedsuspend.
+	Remove declaration of __pthread_init_condvar.
+	* pthread.c: Define __pthread_timedsuspend variable.
+	(__pthread_timedsuspend_old): New function.  Timed suspension
+	implementation for old Linux kernels.
+	(__pthread_timedsuspend_new): New function.  Timed suspension
+	implementation for new Linux kernels.
+	* restart.h (timedsuspend): New function.  Call appropriate
+	suspension function through __pthread_timedsuspend.
+	* semaphore.c (sem_timedwait): Use timedsuspend, don't duplicate
+	the code.
+	Patch by Kaz Kylheku <kaz@ashi.footprints.net>.
+
+	* internals.h (WRITE_MEMORY_BARRIER): Define as MEMORY_BARRIER if
+	undefined.
+	* spinlock.c: Use WRITE_MEMORY_BARRIER instead of MEMORY_BARRIER
+	where possible.
+	* sysdeps/alpha/pt-machine.h: Define WRITE_MEMORY_BARRIER.
+	* sysdeps/sparc/sparc64/pt-machine.h: Likewise.
+
+	* sysdeps/unix/sysv/linux/bits/posix_opt.h: Add _POSIX_SPAWN.
+	* sysdeps/unix/sysv/linux/i386/bits/posix_opt.h: Likewise.
+
+2000-04-14  Andreas Jaeger  <aj@suse.de>
+
+	* weaks.c: Fix typo.
+
+	* shlib-versions (mips.*-.*-linux.*): Support only GLIBC 2.0 and
+	2.2 for linuxthreads.
+
+2000-04-13  Ulrich Drepper  <drepper@redhat.com>
+
+	* sysdeps/unix/sysv/linux/i386/getcpuclockid.c
+	(pthread_getcpuclockid): Fix typo.
+
+2000-04-12  Ulrich Drepper  <drepper@redhat.com>
+
+	* Makefile (libpthread-routines): Add getcpuclockid.
+	* Versions [libpthread] (GLIBC_2.2): Add pthread_getcpuclockid.
+	* sysdeps/pthread/getcpuclockid.c: New file.
+	* sysdeps/unix/sysv/linux/i386/getcpuclockid.c: New file.
+	* sysdeps/pthread/pthread.h: Add prototype for pthread_getcpuclockid.
+
+	* sysdeps/unix/sysv/linux/bits/posix_opt.h (_POSIX_SPIN_LOCKS):
+	Defined.
+	* sysdeps/unix/sysv/linux/i386/bits/posix_opt.h: Likewise.
+
+	* sysdeps/pthread/pthread.h: Add prototypes for pthread_spin_init,
+	pthread_spin_destroy, pthread_spin_lock, pthread_spin_trylock,
+	and pthread_spin_unlock.
+	* sysdeps/pthread/bits/pthreadtypes.h: Change struct _pthread_fastlock
+	into pthread_spinlock_t.  Change all uses.
+	* spinlock.c: Implement pthread_spin_lock.
+	Rename __pthread_unlock to __pthread_spin_unlock and define weak
+	alias for real name.
+	Define pthread_spin_trylock, pthread_spin_init, and
+	pthread_spin_destroy.
+	Change all uses of _pthread_fastlock to pthread_spinlock_t.
+	* spinlock.h: Rename __pthread_unlock to __pthread_spin_unlock.
+	Change all uses of _pthread_fastlock to pthread_spinlock_t.
+	* Versions [libpthread] (GLIBC_2.2): Add pthread_spin_init,
+	pthread_spin_destroy, pthread_spin_lock, pthread_spin_trylock,
+	and pthread_spin_unlock.
+	* cancel.c: Use __pthread_spin_unlock instead of __pthread_unlock.
+	Change all uses of _pthread_fastlock to pthread_spinlock_t.
+	* condvar.c: Likewise.
+	* internals.h: Likewise.
+	* join.c: Likewise.
+	* manager.c: Likewise.
+	* mutex.c: Likewise.
+	* pthread.c: Likewise.
+	* rwlock.c: Likewise.
+	* semaphore.c: Likewise.
+	* signals.c: Likewise.
+
+	* sysdeps/unix/sysv/linux/bits/posix_opt.h: Add various new POSIX
+	macros.
+	* sysdeps/unix/sysv/linux/i386/bits/posix_opt.h: New file.
+
+2000-04-11  Ulrich Drepper  <drepper@redhat.com>
+
+	* sysdeps/unix/sysv/linux/bits/posix_opt.h: Add
+	_POSIX_SHARED_MEMORY_OBJECTS.
+
+2000-04-11  Andreas Jaeger  <aj@suse.de>
+
+	* sysdeps/mips/pt-machine.h (MEMORY_BARRIER): Define.
+	(__compare_and_swap): Mark as modifying memory.
+
+2000-04-11  Geoff Keating  <geoffk@cygnus.com>
+
+	* sysdeps/powerpc/pt-machine.h (MEMORY_BARRIER): Don't be
+	__volatile__.
+	(__compare_and_swap): Replace other 'sync' with MEMORY_BARRIER.
+	Don't have the 'asm' __volatile__.
+
+2000-04-11  Ulrich Drepper  <drepper@redhat.com>
+
+	* internals.h: Define MEMORY_BARRIER as empty if not defined already.
+	* spinlock.c (__pthread_lock): Add memory barriers.
+	(__pthread_unlock): Likewise.
+	* sysdeps/alpha/pt-machine.h (MEMORY_BARRIER): Define using mb
+	instruction.
+	(RELEASE): Not needed anymore.
+	(__compare_and_swap): Mark asm as modifying memory.
+	* sysdeps/powerpc/pt-machine.h (sync): Remove.  Replace with definition
+	of MEMORY_BARRIER.
+	(__compare_and_swap): Use MEMORY_BARRIER instead of sync.
+	* sysdeps/sparc/sparc32/pt-machine.h (RELEASE): Not needed anymore.
+	(MEMORY_BARRIER): Define using stbar.
+	* sysdeps/sparc/sparc64/pt-machine.h (MEMORY_BARRIER): Define using
+	stbar.
+	(__compare_and_swap): Use MEMORY_BARRIER to ensure ordering.
+	Patch by Xavier Leroy <Xavier.Leroy@inria.fr> based on comments by
+	Mike Burrows <m3b@pa.dec.com>.
+
+2000-04-09  Ulrich Drepper  <drepper@redhat.com>
+
+	* signals.c (sigaction): Fix return value for the case SIG is one
+	of the signals the implementation uses.
+	Patch by Xavier.Leroy@inria.fr.
+
+2000-04-01  Andreas Jaeger  <aj@suse.de>
+
+	* attr.c: Use shlib-compat macros.
+	* oldsemaphore.c: Likewise.
+	* pthread.c: Likewise.
+	* weaks.c: Likewise.
+
+2000-03-26  Ulrich Drepper  <drepper@redhat.com>
+
+	* semaphore.c (sem_timedwait): New function.
+	Patch by Carl Mailloux <carlm@oricom.ca>.
+	* semaphore.h: Declare sem_timedwait.
+	* Versions [libpthread] (GLIBC_2.2): Add sem_timedwait.
+
+2000-03-26  Roland McGrath  <roland@baalperazim.frob.com>
+
+	* sysdeps/pthread/Makefile: File removed.
+
+2000-03-23  Ulrich Drepper  <drepper@redhat.com>
+
+	* mutex.c (__pthread_reset_pthread_once): Reset once_masterlock.
+	* internals.h (__pthread_reset_pthread_once): Add prototype.
+	* ptfork.c (__fork): Call __pthread_reset_pthread_once.
+
+	* manager.c (pthread_handle_create): Store ID of new thread before
+	clone call.
+
+2000-03-21  Ulrich Drepper  <drepper@redhat.com>
+
+	* attr.c: Use new macros from shlib-compat.h to define versions.
+	* oldsemaphore.c: Likewise.
+	* semaphore.c: Likewise.
+	* weaks.c: Likewise.
+
+	* pthread.c: Update for new SHLIB_COMPAT definition.
+
+	* manager.c (__pthread_manager): Unmask debug signal.
+
+	* pthread.c (pthread_initialize): Test for address of __dso_handle
+	being NULL, not value.  Use __on_exit, not on_exit.
+	Patch by Andreas Jaeger <aj@suse.de>.
+
+	* pthread.c: Use new macros from shlib-compat.h to define versions.
+
+2000-03-19  Ulrich Drepper  <drepper@redhat.com>
+
+	* pthread.c (pthread_initialize): Instead of on_exit use
+	__cxa_atexit if __dso_label is available to allow unloading the
+	libpthread shared library.
+
+2000-03-16  Ulrich Drepper  <drepper@redhat.com>
+
+	* condvar.c: Make tests for ownership of mutex less strict.
+
+2000-03-14  Ulrich Drepper  <drepper@redhat.com>
+
+	* condvar.c (pthread_cond_wait): Check whether mutex is owned by
+	current thread and return error if not.
+	(pthread_cond_timedwait_relative_old): Likewise.
+	(pthread_cond_timedwait_relative_new): Likewise.
+
+	* mutex.c (__pthread_once): Handle cancelled init function correctly.
+	(pthread_once_cancelhandler): New function.
+	Patch by Kaz Kylheku <kaz@ashi.footprints.net>.
+
+2000-03-14  Andreas Jaeger  <aj@suse.de>
+
+	* pthread.c (pthread_handle_sigcancel_rt): GS has been renamed to
+	REG_GS.
+	(pthread_handle_sigrestart_rt): Likewise.
+	* signals.c (pthread_sighandler_rt): Likewise.
+
+2000-03-02  Andreas Jaeger  <aj@suse.de>
+
+	* sysdeps/pthread/bits/libc-lock.h: Fix typo.
+	Reported by Sean Chen <sean.chen@turbolinux.com>.
+
+2000-02-28  Andreas Jaeger  <aj@suse.de>
+
+	* rwlock.c: Fix typo.
+
+2000-02-27  Ulrich Drepper  <drepper@redhat.com>
+
+	* rwlock.c: Define __* variants of the functions and make old names
+	aliases.
+	* Versions [GLIBC_2.2]: Export the __pthread_rwlock_* functions.
+	* sysdeps/pthread/bits/libc-lock.h: Define __libc_rwlock_* macros.
+
+2000-02-25  Andreas Jaeger  <aj@suse.de>
+
+	* Versions: Export pread, __pread64, pread64, pwrite, __pwrite64,
+	pwrite64, lseek64, open64, and __open64 with version 2.2.
+
+2000-02-22  Ulrich Drepper  <drepper@redhat.com>
+
+	* semaphore.h (SEM_FAILED): Use 0 not NULL.
+
+2000-02-14  Ulrich Drepper  <drepper@redhat.com>
+
+	* condvar.c (pthread_cond_timedwait_relative_old): Tight loop with
+	nanosleep does not work either.  Get absolute time inside the
+	loop.
+	(pthread_cond_timedwait_relative_new): Likewise.
+	Patch by Kaz Kylheku <kaz@ashi.footprints.net>.
+
+2000-02-13  Andreas Jaeger  <aj@suse.de>
+
+	* condvar.c (pthread_cond_timedwait_relative_new): Fix last patch.
+	(pthread_cond_timedwait_relative_old): Likewise.
+
+2000-02-13  Ulrich Drepper  <drepper@redhat.com>
+
+	* condvar.c (pthread_cond_timedwait_relative_old): Undo last patch
+	but keep the code around.  A bug in the kernel prevent us from
+	using the code.
+	(pthread_cond_timedwait_relative_new): Likewise.
+	(PR libc/1597 and libc/1598).
+
+2000-02-01  Kaz Kylheku  <kaz@ashi.footprints.net>
+
+	* condvar.c (pthread_cond_timedwait_relative_old): Do tight
+	loop around nanosleep calls instead of around most of the function
+	(pthread_cond_timedwait_relative_new): Likewise.
+	body.  Got rid of backwards goto and one local.
+
+2000-01-31  Ulrich Drepper  <drepper@redhat.com>
+
+	* condvar.c (pthread_cond_timedwait_relative_old): Recompute time
+	before every nanosleep call to account for time spent in the rest
+	of the function.
+	(pthread_cond_timedwait_relative_new): Likewise.
+	Patch by khendricks@ivey.uwo.ca (PR libc/1564).
+
+2000-01-29  Ulrich Drepper  <drepper@redhat.com>
+
+	* condvar.c (pthread_cond_timedwait_relative_old): Get remaining time
+	from nanosleep call so that in case we restart we only wait for the
+	remaining time.
+	(pthread_cond_timedwait_relative_new): Likewise.
+	Patch by khendricks@ivey.uwo.ca (PR libc/1561).
+
+2000-01-18  Ulrich Drepper  <drepper@cygnus.com>
+
+	* manager.c (pthread_allocate_stack): Compute guard page address
+	correctly.  Patch by HJ Lu.
+
+	* sysdeps/pthread/pthread.h: Define
+	PTHREAD_RWLOCK_WRITER_NONRECURSIVE_INITIALIZER_NP.
+
+2000-01-16  Ulrich Drepper  <drepper@cygnus.com>
+
+	* rwlock.c (pthread_rwlock_unlock): Correct one more problem with
+	preference handling.
+	(pthread_rwlockattr_setkind_np): Allow
+	PTHREAD_RWLOCK_PREFER_WRITER_NONRECURSIVE_NP.
+	Patches by Kaz Kylheku <kaz@ashi.footprints.net>.
+
+2000-01-12  Ulrich Drepper  <drepper@cygnus.com>
+
+	* internals.h (pthread_readlock_info): New structure.
+	(_pthread_descr_struct): Add p_readlock_list, p_readlock_free, and
+	p_untracked_readlock_count.
+	* pthread.c (__pthread_initial_thread, pthread_manager_thread):
+	Add initializers for new fields.
+	* manager.c (pthread_free): Free read/write lock lists.
+	* queue.h (queue_is_empty): New function.
+	* rwlock.c: Implement requirements about when readers should get
+	locks assigned.
+	* sysdeps/pthread/pthread.h
+	(PTHREAD_RWLOCK_PREFER_WRITER_NONRECURSIVE_NP): New definition.
+	* sysdeps/pthread/bits/pthreadtypes.h (struct _pthread_rwlock_t):
+	Define this name as well.
+	Patches by Kaz Kylheku <kaz@ashi.footprints.net>.
+
+2000-01-05  Ulrich Drepper  <drepper@cygnus.com>
+
+	* pthread.c (__pthread_initial_thread, pthread_manager_thread):
+	Adjust initializers for struct _pthread_descr_struct change.
+	* internals.h (struct _pthread_descr_struct): Move new elements to
+	the end.
+
+2000-01-03  Kaz Kylheku  <kaz@ashi.footprints.net>
+
+	Redesigned how cancellation unblocks a thread from internal
+	cancellation points (sem_wait, pthread_join,
+	pthread_cond_{wait,timedwait}).
+	Cancellation won't eat a signal in any of these functions
+	(*required* by POSIX and Single Unix Spec!).
+	* condvar.c: Spontaneous wakeup on pthread_cond_timedwait won't eat a
+	simultaneous condition variable signal (not required by POSIX
+	or Single Unix Spec, but nice).
+	* spinlock.c: __pthread_lock queues back any received restarts
+	that don't belong to it instead of assuming ownership of lock
+	upon any restart; fastlock can no longer be acquired by two threads
+	simultaneously.
+	* restart.h: Restarts queue even on kernels that don't have
+	queued real time signals (2.0, early 2.1), thanks to atomic counter,
+	avoiding a rare race condition in pthread_cond_timedwait.
+
+1999-12-31  Andreas Jaeger  <aj@suse.de>
+
+	* internals.h: Remove duplicate prototype declarations.
+
+	* weaks.c: Remove __THROW from prototypes since the file is not
+	compiled by a C++ compiler.
+	* internals.h: Likewise.
+
+1999-12-30  Andreas Jaeger  <aj@suse.de>
+
+	* sysdeps/pthread/pthread.h: Move internal functions to...
+	* sysdeps/pthread/bits/libc-lock.h: ...here.
+
+1999-12-29  Andreas Jaeger  <aj@suse.de>
+
+	* sysdeps/pthread/pthread.h: Fix typos, reformat comments.
+
+1999-12-28  Ulrich Drepper  <drepper@cygnus.com>
+
+	* sysdeps/alpha/pt-machine.h: Move stack_pointer definition to the
+	beginning.
+
+	* manager.c (__pthread_start): Add one more cast to prevent
+	warning on 64bit machines.
+
+1999-12-21  Ulrich Drepper  <drepper@cygnus.com>
+
+	* manager.c (pthread_handle_create): Set p_pid of new thread
+	before calling the callback function to report a new thread.
+
+1999-12-20  Andreas Jaeger  <aj@suse.de>
+
+	* pthread.c (pthread_initialize): Move getrlimit call after
+	setting of errno.
+
+1999-12-18  Ulrich Drepper  <drepper@cygnus.com>
+
+	* Versions: Export pread, __pread64, pread64, pwrite, __pwrite64,
+	pwrite64, lseek64, open64, and __open64.
+	* wrapsyscall.c: Define pread, __pread64, pread64, pwrite, __pwrite64,
+	pwrite64, lseek64, open64, and __open64.
+
+	* manager.c (pthread_allocate_stack): Correct computation of
+	new_thread_bottom.  Correct handling of stack size and when the
+	rlimit method to guard for stack growth is used.
+	* pthread.c (pthread_initialize): Stack limit must be STACK_SIZE
+	minus one pagesize (not two).
+
+1999-12-03  Andreas Jaeger  <aj@suse.de>
+
+	* Versions: Add __res_state with version GLIBC_2.2.
+
+	* errno.c (__res_state): New function to return thread specific
+	resolver state.
+
+	* pthread.c (pthread_initialize): Initialize p_resp.
+	(__pthread_reset_main_thread): Also set p_resp.
+
+	* manager.c (pthread_handle_create): Initialize p_resp.
+
+	* internals.h: Add thread specific resolver state.
+	Based on patches by Adam D. Bradley <artdodge@cs.bu.edu>.
+
+1999-12-01  Ulrich Drepper  <drepper@cygnus.com>
+
+	* sysdeps/i386/pt-machine.h: Move stack_pointer definition to the
+	beginning.
+	* sysdeps/i386/i686/pt-machine.h: Likewise.
+	Patches by Alan Modra <alan@SPRI.Levels.UniSA.Edu.Au>.
+
+1999-11-23  Ulrich Drepper  <drepper@cygnus.com>
+
+	* manager.c (pthread_start_thread_event): Initialize p_pid already
+	here.
+
+1999-11-22  Ulrich Drepper  <drepper@cygnus.com>
+
+	* internals.h: Add prototype for __pthread_manager_event.
+	* manager.c (__pthread_manager_event): New function.
+	(pthread_start_thread_event): Correct computation of self.
+	Use INIT_THREAD_SELF.
+	* pthread.c (__pthread_manager_thread): Initialize p_lock.
+	(__pthread_initialize_manager): Respect event flags also for creation
+	of the manager thread.
+
+1999-11-08  Ulrich Drepper  <drepper@cygnus.com>
+
+	* pthread.c (__pthread_initialize_manager): Initialize
+	__pthread_manager_thread.p_tid.
+
+1999-11-02  Ulrich Drepper  <drepper@cygnus.com>
+
+	* internals.h: Declare __pthread_last_event.
+	* manager.c: Define __pthread_last_event.
+	(pthread_handle_create): Set __pthread_last_event.
+	(pthread_exited): Likewise.
+	* join.c (pthread_exit): Likewise.
+
+	* Makefile (libpthread-routines): Add events.
+	* events.c: New file.
+	* internals.h: Protect against multiple inclusion.
+	Include thread_dbP.h header.
+	(struct _pthread_descr_struct): Add new fields p_report_events and
+	p_eventbuf.
+	Declare event reporting functions.
+	* join.c (pthread_exit): Signal event if this is wanted.
+	* manager.c (__pthread_threads_events): New variable.
+	(pthread_handle_create): Take new parameters with event information.
+	Signal TD_CREATE event if wanted.
+	(__pthread_manager): Adjust pthread_handle_create call.
+	(pthread_start_thread_event): New function.  Block until manager is
+	finished and then call pthread_start_thread.
+	(pthread_exited): Signal TD_REAP event if wanted.
+
+1999-10-26  Ulrich Drepper  <drepper@cygnus.com>
+
+	* restart.h (suspend_with_cancellation): Rewrite as a macro.
+
+	* condvar.c (pthread_cond_timedwait_relative): Don't mark as inline.
+
+1999-10-25  Andreas Jaeger  <aj@suse.de>
+
+	* internals.h: Remove K&R compatibility.
+	* no-tsd.c: Likewise.
+	* semaphore.h: Likewise.
+	* signals.c: Likewise.
+	* sysdeps/pthread/bits/libc-tsd.h: Likewise.
+	* sysdeps/unix/sysv/linux/bits/sigthread.h: Likewise.
+	* weaks.c: Likewise.
+
+1999-10-21  Xavier Leroy  <Xavier.Leroy@inria.fr>
+
+	* pthread.c: For i386, wrap pthread_handle_sigrestart and
+	pthread_handle_sigcancel with functions that restore %gs from the
+	signal context.  For each signal handling function, two wrappers
+	are required, one for a non-RT signal and one for a RT signal.
+	* signal.c: For i386, add code to restore %gs from the signal
+	context in pthread_sighandler and pthread_sighandler_rt.
+
+1999-10-17  Ulrich Drepper  <drepper@cygnus.com>
+
+	* internals.h (PTHREAD_START_ARGS_INITIALIZER): Add cast.
+
+1999-10-14  Ulrich Drepper  <drepper@cygnus.com>
+
+	* pthread.c (__pthread_initial_thread): Pass argument to
+	PTHREAD_START_ARGS_INITIALIZER.
+	(__pthread_manager_thread): Likewise.
+
+	* internals.h (PTHREAD_START_ARGS_INITIALIZER): Add parameter to
+	initialize function.
+
+	* manager.c (pthread_handle_create): Remove p_startfct initialization.
+
+	* internals.h (_pthread_descr_struct): We don't need p_startfct field.
+
+1999-10-12  Ulrich Drepper  <drepper@cygnus.com>
+
+	* internals.h: Correct return types for __libc_read and __libc_write.
+
+1999-10-09  Andreas Jaeger  <aj@suse.de>
+
+	* internals.h: Add __new_sem_post to get prototype in
+	manager.c; include semaphore.h for needed types.
+
+1999-10-08  Ulrich Drepper  <drepper@cygnus.com>
+
+	* manager.c (__pthread_manager) [REQ_POST]: Use __new_sem_post
+	directly instead of calling sem_post which should not be necessary
+	but is faster and might help in some case to work around problems.
+	Patch by khendricks@ivey.uwo.ca [libc/1382].
+
+1999-10-08  Andreas Schwab  <schwab@suse.de>
+
+	* sysdeps/pthread/Subdirs: New file.
+	* Implies: Removed.
+
+1999-10-07  Ulrich Drepper  <drepper@cygnus.com>
+
+	* Implies: New file.
+	* internals.h (struct _pthread_descr_struct): Add p_startfct.
+	* manager.c (pthread_handle_create): Initialize p_startfct.
+	* pthread.c: Define __linuxthread_pthread_sizeof_descr variable.
+
+1999-09-25  Ulrich Drepper  <drepper@cygnus.com>
+
+	* manager.c (__linuxthreads_pthread_threads_max): New variable.
+	* specific.c (__linuxthreads_pthread_keys_max): New variable.
+	(__linuxthreads_pthread_key_2ndlevel_size): New variable.
+
+	* condvar.c (pthread_cond_timedwait_relative): Never return with
+	EINTR.  Patch by Andreas Schwab.
+
+1999-09-19  Ulrich Drepper  <drepper@cygnus.com>
+
+	* signals.c (sigaction): Correct last patch.  Don't select
+	pthread_sighandler_rt based on the signal number but instead of
+	the SA_SIGINFO flag.
+
+1999-09-23  Ulrich Drepper  <drepper@cygnus.com>
+
+	* specific.c: Move definitions of struct pthread_key_struct and
+	destr_function to ...
+	* internals.h: ...here.
+
+1999-09-18  Ulrich Drepper  <drepper@cygnus.com>
+
+	* pthread.c (pthread_handle_sigrestart_rt): New function.  Use
+	this instead of pthread_handle_sigrestart if the signal is an RT
+	signal.
+
+	* signals.c: Handle passing through of sighandler arguments also
+	for real-time signals.
+
+1999-09-03  Andreas Schwab  <schwab@suse.de>
+
+	* ptfork.c (__fork): Renamed from fork and use __libc_fork.  Add
+	fork as weak alias.
+	(__vfork): New function, alias vfork.
+	* Versions: Export __fork, vfork, and __vfork in libpthread.
+
+1999-08-23  Andreas Schwab  <schwab@suse.de>
+
+	* signals.c (pthread_sighandler): Add SIGCONTEXT_EXTRA_ARGS to
+	call to signal handler.
+
+1999-08-20  Ulrich Drepper  <drepper@cygnus.com>
+
+	* pthread.c (__pthread_reset_main_thread): Undo last change.
+	(__pthread_kill_other_threads_np): Reset signal handlers for the
+	signals we used in the thread implementation here.
+
+1999-08-19  Ulrich Drepper  <drepper@cygnus.com>
+
+	* pthread.c (__pthread_reset_main_thread): Reset signal handlers
+	for the signals we used in the thread implementation [PR libc/1234].
+
+	* Versions: Export __pthread_kill_other_threads_np from libpthread
+	for GLIBC_2.1.2.
+
+	* signals.c: Pass sigcontext through wrapper to the user function.
+
+1999-08-01  Ulrich Drepper  <drepper@cygnus.com>
+
+	* Versions [ld.so] (GLIBC_2.0): Export __libc_internal_tsd_get and
+	__libc_internal_tsd_set.
+
+1999-07-29  Andreas Jaeger  <aj@arthur.rhein-neckar.de>
+
+	* manager.c: Remove inclusion of <linux/tasks.h> since it's not
+	needed anymore.
+
+1999-07-16  Andreas Jaeger  <aj@arthur.rhein-neckar.de>
+
+	* internals.h: Align _pthread_descr_struct to 32 bytes.
+	Reported by Tim Hockin <thockin@cobaltnet.com>, close PR
+	libc/1206.
+
+1999-07-09  Ulrich Drepper  <drepper@cygnus.com>
+
+	* oldsemaphore.c (sem_compare_and_swap): Fix use of compare and
+	swap function.
+
+1999-07-09  Cristian Gafton  <gafton@redhat.com>
+
+	* Makefile (libpthread-routines): Add oldsemaphore routine.
+	* Versions: Add sem_destroy, sem_getvalue, sem_init, sem_post,
+	sem_trywait, and sem_wait to GLIBC_2.1.
+	* oldsemaphore.c: New file.
+	* semaphore.c: Add default_symbol_versions for the changed functions.
+	(__new_sem_init): Rename from sem_init.
+	(__new_sem_post): Rename from sem_post.
+	(__new_sem_wait): Rename from sem_wait.
+	(__new_sem_trywait): Rename from sem_trywait.
+	(__new_sem_getvalue): Rename from sem_getvalue.
+	(__new_sem_destroy): Rename from sem_destroy.
+
+1999-06-23  Robey Pointer  <robey@netscape.com>
+
+	* internals.h: Added p_nextlock entry to separate queueing for a
+	lock from queueing for a CV (sometimes a thread queues on a lock
+	to serialize removing itself from a CV queue).
+	* pthread.c: Added p_nextlock to initializers.
+	* spinlock.c: Changed to use p_nextlock instead of p_nextwaiting.
+
+1999-07-09  Ulrich Drepper  <drepper@cygnus.com>
+
+	* manager.c (pthread_handle_create): Free mmap region after stack
+	if clone failed.  Patch by Kaz Kylheku <kaz@ashi.FootPrints.net>.
+
+1999-05-23  Andreas Jaeger  <aj@arthur.rhein-neckar.de>
+
+	* man/pthread_cond_init.man: Correct example.
+	Reported by Tomas Berndtsson <tomas@nocrew.org>.
+
+	* linuxthreads.texi (Condition Variables): Likewise.
+
+1999-05-18  Jakub Jelinek  <jj@ultra.linux.cz>
+
+	* sysdeps/sparc/sparc64/pt-machine.h (__compare_and_swap): Use
+	casx not cas, also successful casx returns the old value in rd
+	and not the new value.
+
+1999-05-16  Xavier Leroy  <Xavier.Leroy@inria.fr>
+
+	* manager.c: If pthread_create() is given a NULL attribute
+	and the thread manager runs with a realtime policy, set the
+	scheduling policy of the newly created thread back to SCHED_OTHER.
+	* manager.c: If the PTHREAD_INHERIT_SCHED attribute is given,
+	initialize the schedpolicy field of new_thread->p_start_args
+	to that of the calling thread.
+
+1999-04-29  Ulrich Drepper  <drepper@cygnus.com>
+
+	* sysdeps/sparc/sparc64/pt-machine.h (__compare_and_swap): cas
+	instruction does not allow memory element to use offset.
+
+1999-04-28  Ulrich Drepper  <drepper@cygnus.com>
+
+	* manager.c (pthread_allocate_stack): Optimize initialization of new
+	thread descriptor.
+
+	* sysdeps/pthread/bits/libc-lock.h (__libc_lock_define_initialized):
+	Don't use initializer since it is all zeroes.
+	(__libc_once_define): Likewise.
+
+1999-04-16  Andreas Jaeger  <aj@arthur.rhein-neckar.de>
+
+	* sysdeps/arm/Implies: Removed since cmpxchg/no-cmpxchg
+	doesn't exist anymore.
+	* sysdeps/i386/Implies: Likewise.
+	* sysdeps/m68k/Implies: Likewise.
+	* sysdeps/mips/Implies: Likewise.
+	* sysdeps/powerpc/Implies: Likewise.
+	* sysdeps/sparc/sparc32/Implies: Likewise.
+	* sysdeps/sparc/sparc64/Implies: Likewise.
+
+1999-04-15  Ulrich Drepper  <drepper@cygnus.com>
+
+	* sysdeps/alpha/bits/semaphore.h: Removed.
+	* sysdeps/powerpc/bits/semaphore.h: Removed.
+	* sysdeps/pthread/cmpxchg/bits/semaphore.h: Removed.
+	* sysdeps/pthread/no-cmpxchg/bits/semaphore.h: Removed.
+	* Makefile (headers): Remove bits/semaphore.h.
+
+	* semaphore.h: Define _pthread_descr if necessary.
+	Don't include limits.h.  Define SEM_VALUE_MAX directly.
+	Define SEM_FAILED.
+	(sem_t): Protect element names with leading __.
+	Add declarations for sem_close, sem_open, and sem_unlink.
+	* semaphore.c: Adjust all functions for new element names.
+	Define sem_close, sem_open, and sem_unlink.
+	* Versions (libthread): Add sem_close, sem_open, and sem_unlink for
+	GLIBC_2.1.1.
+	* sysdeps/pthread/bits/pthreadtypes.h: Define _pthread_descr only if
+	necessary.
+
+1999-03-16  H.J. Lu  <hjl@gnu.org>
+
+	* specific.c (pthread_key_delete): Check th->p_terminated to see
+	if the thread is running.
+
+	* Versions (__libc_internal_tsd_get, __libc_internal_tsd_set):
+	Added to GLIBC_2.0 for libc.so.
+
+1999-02-12  H.J. Lu  <hjl@gnu.org>
+
+	* Versions (__libc_current_sigrtmin, __libc_current_sigrtmax,
+	__libc_allocate_rtsig): Added to GLIBC_2.1.
+
+	* internals.h (DEFAULT_SIG_RESTART): Removed.
+	(DEFAULT_SIG_CANCEL): Removed.
+
+	* pthread.c (init_rtsigs, __libc_current_sigrtmin,
+	__libc_current_sigrtmax, __libc_allocate_rtsig): New functions.
+	(__pthread_sig_restart, __pthread_sig_cancel,
+	__pthread_sig_debug): Initialized.
+	(pthread_initialize): Call init_rtsigs () to initialize
+	real-time signals.
+
+1999-02-03  H.J. Lu  <hjl@gnu.org>
+
+	* manager.c (__pthread_manager): Do block __pthread_sig_debug.
+	Don't restart the thread which sent REQ_DEBUG.
+	(pthread_start_thread): Check if __pthread_sig_debug > 0
+	before debugging.
+
+	* pthread.c (__pthread_initialize_manager): Suspend ourself
+	after sending __pthread_sig_debug to gdb instead of
+	__pthread_sig_cancel.
+
+1999-01-24  H.J. Lu  <hjl@gnu.org>
+
+	* manager.c (__pthread_manager): Delete __pthread_sig_debug
+	from mask if __pthread_sig_debug > 0.
+	(pthread_handle_create): Increment __pthread_handles_num.
+
+	* manager.c (pthread_handle_create): Don't pass CLONE_PTRACE to clone.
+	* pthread.c (__pthread_initialize_manager): Likewise.
+
+	* pthread.c (pthread_initialize): Use __libc_allocate_rtsig (1)
+	instead of __libc_allocate_rtsig (2).
+	(__pthread_initialize_manager): Send __pthread_sig_debug to gdb
+	instead of __pthread_sig_cancel.
+	(pthread_handle_sigdebug): Fix comments.
+
+1999-01-21  Ulrich Drepper  <drepper@cygnus.com>
+
+	* manager.c (pthread_allocate_stack): Set
+	__pthread_nonstandard_stacks if user-specified stack is used.
+
+1999-01-16  Ulrich Drepper  <drepper@cygnus.com>
+
+	* sysdeps/unix/sysv/linux/bits/posix_opt.h: Add _LFS_ASYNCHRONOUS_IO,
+	_LFS_LARGEFILE, _LFS64_LARGEFILE, and _LFS64_STDIO from Unix98.
+
+1999-01-07  Xavier Leroy  <Xavier.Leroy@inria.fr>
+
+	* pthread.c: Use a third signal __pthread_sig_debug distinct
+	from __pthread_sig_cancel to notify gdb when a thread is
+	created
+	* manager.c: Likewise.
+	* internals.h: Likewise.
+	* signals.c: The implementation of sigwait(s) assumed that
+	all signals in s have signal handlers already attached.
+	This is not required by the standard, so make it work
+	also if some of the signals have no handlers.
+
+1999-01-05  Andreas Schwab  <schwab@issan.cs.uni-dortmund.de>
+
+	* linuxthreads.texi: Remove pointers from first @node.  Move old
+	@node spec inside comment.
+
+1998-12-31  Ulrich Drepper  <drepper@cygnus.com>
+
+	* sysdeps/pthread/bits/stdio-lock.h: Define _IO_lock_lock and
+	_IO_lock_unlock.
+
+1998-12-29  Ulrich Drepper  <drepper@cygnus.com>
+
+	* semaphore.c (sem_trywait): Don't forget to unlock the semaphore
+	lock.  Patch by Bernd Schmidt <crux@pool.informatik.rwth-aachen.de>.
+
+1998-12-21  Ulrich Drepper  <drepper@cygnus.com>
+
+	* manager.c: Threads now send __pthread_sig_cancel on termination.
+	Change clone call and signal masks.
+	* thread.c (pthread_handle_sigrestart): Remove special code for
+	manager.
+	(pthread_handle_sigcancel): In manager thread call
+	__pthread_manager_sighandler.
+	* sysdeps/i386/pt-machine.h (__compare_and_swap): Add memory clobber.
+	* sysdeps/i386/i686/pt-machine.h: Likewise.
+	Patches by Xavier Leroy.
+
+1998-12-14  Ulrich Drepper  <drepper@cygnus.com>
+
+	* spinlock.c (__pthread_unlock): Don't crash if called for an
+	untaken mutex.  Reported by Ruslan V. Brushkoff <rus@Snif.Te.Net.UA>.
+
+	* Examples/ex6.c: Unbuffer stdout and reduce sleep time to reduce
+	overall runtime.
+
+1998-12-13  Ulrich Drepper  <drepper@cygnus.com>
+
+	* Examples/ex3.c: Wait until all threads are started before
+	searching for the number to avoid race condition on very fast
+	systems.
+
+1998-12-08  Andreas Jaeger  <aj@arthur.rhein-neckar.de>
+
+	* sysdeps/pthread/pthread.h: Remove __pthread_setcanceltype
+	declaration since it's not needed.
+
+	* sysdeps/pthread/pthread.h: Move internal functions to ...
+	* internals.h: ...here.
+
+1998-12-02  H.J. Lu  <hjl@gnu.org>
+
+	* pthread.c (__pthread_sig_restart): Initiliaze to 0 if
+	SIGRTMIN is defined.
+	(__pthread_sig_cancel): Likewise.
+
+1998-12-01  Andreas Jaeger  <aj@arthur.rhein-neckar.de>
+
+	* wrapsyscall.c: Include <sys/mman.h> for msync,
+	<stdlib.h> for system and <termios.h> for tcdrain prototype.
+	Correct msync declaration.
+
+1998-11-29  Roland McGrath  <roland@baalperazim.frob.com>
+
+	* sysdeps/pthread/bits/libc-tsd.h (__libc_tsd_define, __libc_tsd_get,
+	__libc_tsd_set): New macros for new interface.
+	* no-tsd.c: New file, provide uninitialized defns of
+	__libc_internal_tsd_get and __libc_internal_tsd_set.
+	* Makefile (routines): Add no-tsd.
+
+1998-10-12  Roland McGrath  <roland@baalperazim.frob.com>
+
+	* internals.h: Include <bits/libc-tsd.h>, not <bits/libc-lock.h>.
+	* sysdeps/pthread/bits/libc-lock.h (__libc_internal_tsd_get,
+	__libc_internal_tsd_set): Move decls to ...
+	* sysdeps/pthread/bits/libc-tsd.h: New file for __libc_internal_tsd_*
+	declarations.
+
+	* sysdeps/pthread/bits/libc-lock.h (__libc_internal_tsd_get,
+	__libc_internal_tsd_set): Make these pointers to functions, not
+	functions; remove #pragma weak decls for them.
+	* specific.c (__libc_internal_tsd_get, __libc_internal_tsd_set):
+	Define static functions and initialized pointers to them.
+
+1998-11-18  Ulrich Drepper  <drepper@cygnus.com>
+
+	* Makefile (CFLAGS-mutex.c): Define as -D__NO_WEAK_PTHREAD_ALIASES.
+	(CFLAGS-specific.c): Likewise.
+	(CFLAGS-pthread.c): Likewise.
+	(CFLAGS-ptfork.c): Likewise.
+	(CFLAGS-cancel.c): Likewise.
+	* sysdeps/pthread/bits/libc-lock.h: Don't mark __pthread_* functions
+	as weak references if __NO_WEAK_PTHREAD_ALIASES is defined.
+
+	* mutex.c (pthread_mutex_init): Define as strong symbol.
+	(pthread_mutex_destroy): Likewise.
+	(pthread_mutex_trylock): Likewise.
+	(pthread_mutex_lock): Likewise.
+	(pthread_mutex_unlock): Likewise.
+	(pthread_mutexattr_init): Likewise.
+	(pthread_mutexattr_destroy): Likewise.
+	(pthread_once): Likewise.
+	* ptfork.c (pthread_atfork): Likewise.
+	* specific.c (pthread_key_create): Likewise.
+	(pthread_setspecific): Likewise.
+	(pthread_getspecific): Likewise.
+
+1998-11-15  Andreas Schwab  <schwab@issan.cs.uni-dortmund.de>
+
+	* linuxthreads.texi: Fix punctuation after xref.
+
+1998-11-10  H.J. Lu  <hjl@gnu.org>
+
+	* sysdeps/unix/sysv/linux/bits/local_lim.h: Undefine NR_OPEN
+	if it is defined in <linux/limits.h>.
+
+1998-10-29 14:28  Ulrich Drepper  <drepper@cygnus.com>
+
+	* spinlock.h (__pthread_trylock): Define inline.
+	(__pthread_lock): Add extra parameter to declaration.  Declare
+	using internal_function.
+	(__pthread_unlock): Declare using internal_function.
+	* spinlock.c (__pthread_lock): Add new parameter.  Use it instead
+	of local variable self.  Avoid recomputing self.  Define using
+	internal_function.
+	(__pthread_trylock): Remove.
+	(__pthread_unlock): Define using internal_function.
+	* cancel.c: Adjust for __pthread_lock interface change.  Use already
+	computed self value is possible.
+	* condvar.c: Likewise.
+	* join.c: Likewise.
+	* manager.c: Likewise.
+	* mutex.c: Likewise.
+	* pthread.c: Likewise.
+	* rwlock.c: Likewise.
+	* semaphore.c: Likewise.
+	* signals.c: Likewise.
+
+1998-10-27 13:46  Ulrich Drepper  <drepper@cygnus.com>
+
+	* sysdeps/pthread/pthread.h (struct _pthread_cleanup_buffer): Prepend
+	__ to field names of the struct.
+	* sysdeps/pthread/bits/pthreadtypes.h (struct _pthread_fastlock):
+	Likewise.
+	(pthread_attr_t): Likewise.
+	(pthread_cond_t): Likewise.
+	(pthread_condattr_t): Likewise.
+	(pthread_mutex_t): Likewise.
+	(pthread_mutexattr_t): Likewise.
+	(pthread_rwlock_t): Likewise.
+	(pthread_rwlockattr_t): Likewise.
+	* attr.c: Adjust for pthread.h and pthreadtypes.h change.
+	* cancel.c: Likewise.
+	* condvar.c: Likewise.
+	* manager.c: Likewise.
+	* mutex.c: Likewise.
+	* pthread.c: Likewise.
+	* ptlongjmp.c: Likewise.
+	* rwlock.c: Likewise.
+	* spinlock.c: Likewise.
+
+1998-10-09  Ulrich Drepper  <drepper@cygnus.com>
+
+	* sysdeps/i386/pt-machine.h (get_eflags, set_eflags): Mark these
+	also with PT_EI.
+
+	* sysdeps/i386/i686/pt-machine.h: Remove unused inline
+	definitions.
+
+	* Makefile (libpthread-routines): Add pt-machine.
+	* pt-machine.c: New file.
+	* sysdeps/alpha/pt-machine.h: Define PT_EI as extern inline is not
+	yet defined.  Use PT_EI in extern inline definitions.
+	* sysdeps/arm/pt-machine.h: Likewise.
+	* sysdeps/i386/pt-machine.h: Likewise.
+	* sysdeps/i386/i686/pt-machine.h: Likewise.
+	* sysdeps/m68k/pt-machine.h: Likewise.
+	* sysdeps/mips/pt-machine.h: Likewise.
+	* sysdeps/powerpc/pt-machine.h: Likewise.
+	* sysdeps/sparc/sparc32/pt-machine.h: Likewise.
+	* sysdeps/sparc/sparc64/pt-machine.h: Likewise.
+
+1998-10-02  Andreas Jaeger  <aj@arthur.rhein-neckar.de>
+
+	* semaphore.h: Include <sys/types.h> so that _pthread_descr
+	is declared.
+
+1998-09-15  David S. Miller  <davem@pierdol.cobaltmicro.com>
+
+	* sysdeps/sparc/sparc32/pt-machine.h (INIT_THREAD_SELF): Add nr
+	argument.
+	* sysdeps/sparc/sparc64/pt-machine.h (INIT_THREAD_SELF): Likewise.
+
+1998-09-12 14:24 -0400  Zack Weinberg  <zack@rabi.phys.columbia.edu>
+
+	* sysdeps/unix/sysv/linux/bits/sigthread.h: Add multiple inclusion
+	guard.
+
+1998-09-02 11:08  Andreas Schwab  <schwab@issan.informatik.uni-dortmund.de>
+
+	* signals.c (sigaction): Check that sig is less than NSIG to avoid
+	array index overflow.
+
+1998-09-06 10:56  Ulrich Drepper  <drepper@cygnus.com>
+
+	* sysdeps/pthread/semaphore.h: New file.
+
+1998-09-06 09:08  Ulrich Drepper  <drepper@cygnus.com>
+
+	* sysdeps/pthread/bits/libc-lock.h (enum __libc_tsd_key_t): Add
+	_LIBC_TSD_KEY_DL_ERROR.
+
+1998-08-31  Ulrich Drepper  <drepper@cygnus.com>
+
+	* sysdeps/i386/i686/pt-machine.h (testandset): Add memory clobber.
+	* sysdeps/i386/pt-machine.h: Likewise.
+	Suggested by Roland McGrath.
+
+1998-08-28 13:58  Ulrich Drepper  <drepper@cygnus.com>
+
+	* internals.h: Also define THREAD_GETMEM_NC and THREAD_SETMEM_NC to
+	access thread data with non-constant offsets.
+	* specific.c: Use THREAD_GETMEM_NC and THREAD_SETMEM_NC where
+	necessary.
+
+	* sysdeps/i386/useldt.h: Fix typo.  Add THREAD_GETMEM_NC and
+	THREAD_SETMEM_NC definitions.
+
+	* sysdeps/sparc/sparc32/pt-machine.h: Define THREAD_GETMEM_NC and
+	THREAD_SETMEM_NC.
+	* sysdeps/sparc/sparc64/pt-machine.h: Likewise.
+
+1998-08-26 15:46  Ulrich Drepper  <drepper@cygnus.com>
+
+	* internals.h: Define THREAD_GETMEM and THREAD_SETMEM to default if
+	not already defined.
+	(struct _pthread_descr_struct): Add p_self and p_nr field.
+	* manager.c (__pthread_handles): Define second element to point
+	to manager thread.
+	(__pthread_handles_num): Initialize to 2.
+	(__pthread_manager): Use INIT_THREAD_SELF with two arguments.
+	(pthread_start_thread): Likewise.
+	(pthread_handle_create): Start search for free slot at entry 2.
+	Initialize new fields p_self and p_nr.
+	Call __clone with CLONE_PTRACE if available.
+	(pthread_free): Call FREE_THREAD_SELF if available.
+	* pthread.c (__pthread_initial_thread): Initialize new fields.
+	(__pthread_manager_thread): Likewise.
+	(__pthread_initialize_manager): Call __clone with CLONE_PTRACE.
+
+	* cancel.c: Use THREAD_GETMEM and THREAD_SETMEM to access the
+	elements of the thread descriptor.
+	* condvar.c: Likewise.
+	* errno.c: Likewise.
+	* join.c: Likewise.
+	* manager.c: Likewise.
+	* pthread.c: Likewise.
+	* ptlongjmp.c: Likewise.
+	* semaphore.c: Likewise.
+	* signals.c: Likewise.
+	* specific.c: Likewise.
+	* spinlock.c: Likewise.
+
+	* sysdeps/alpha/pt-machine.h (INIT_THREAD_SELF): Add extra parameter.
+
+	* sysdeps/i386/useldt.h: New file.
+	* sysdeps/i386/i686/pt-machine.h: Show how to use this file.
+
+	* sysdeps/sparc/sparc32/pt-machine.h: Define THREAD_GETMEM and
+	THREAD_SETMEM using __thread_self.
+	* sysdeps/sparc/sparc64/pt-machine.h: Likewise.
+
+1998-08-24  Geoff Keating  <geoffk@ozemail.com.au>
+
+	* spinlock.c (__pthread_lock): Reset p_nextwaiting to NULL if it
+	turned out that we didn't need to queue after all.
+
+1998-08-22  Geoff Keating  <geoffk@ozemail.com.au>
+
+	* sysdeps/powerpc/pt-machine.h: Remove testandset, it's not used
+	and wastes space; correct types.
+
+1998-08-08 11:18  H.J. Lu  <hjl@gnu.org>
+
+	* signals.c (sigaction): Handle NULL argument.
+
+1998-08-04  Ulrich Drepper  <drepper@cygnus.com>
+
+	* sysdeps/unix/sysv/linux/bits/sigthread.h: Use __sigset_t instead
+	of sigset_t.
+
+1998-08-02  Andreas Schwab  <schwab@issan.informatik.uni-dortmund.de>
+
+	* Makefile (linuxthreads-version): Extract correct number from
+	Banner.
+
+1998-07-29  Xavier Leroy  <Xavier.Leroy@inria.fr>
+
+	* Banner: Bump version number to 0.8
+	* FAQ.html: Many updates, in particular w.r.t. debugging.
+	* manager.c: Support for non-default stacksize for
+	LinuxThreads-allocated stacks;
+	don't use guard pages for stacks with default size, rely on
+	rlimit(RLIMIT_STACK) instead (it's cheaper).
+	* attr.c: Likewise.
+	* cancel.c: Use __pthread_sig_cancel and __pthread_sig_restart
+	everywhere instead of PTHREAD_SIG_CANCEL and PTHREAD_SIG_RESTART.
+	* condvar.c: Likewise.
+	* internals.h: Likewise.
+	* restart.h: Likewise.
+	* signals.c: Likewise.
+	* pthread.c: Likewise; set rlimit(RLIMIT_STACK) as we need it.
+
+1998-07-23  Andreas Schwab  <schwab@issan.informatik.uni-dortmund.de>
+
+	* weaks.c: Define pthread_mutexattr_[sg]ettype instead of
+	__pthread_mutexattr_[sg]ettype.  Add more weak aliases.
+	* Versions: Put __pthread_mutexattr_settype under version
+	GLIBC_2.0.  Don't export __pthread_mutexattr_setkind_np and
+	__pthread_mutexattr_gettype.
+
+1998-07-23  Andreas Schwab  <schwab@issan.informatik.uni-dortmund.de>
+
+	* sysdeps/pthread/bits/libc-lock.h: Make
+	__pthread_mutexattr_settype weak.  Don't make
+	__pthread_mutexattr_setkind_np weak.
+
+1998-07-16 10:52  Ulrich Drepper  <drepper@cygnus.com>
+
+	* manager.c (pthread_handle_create): Check whether sched_setscheduler
+	call can succeed here.
+
+	* mutex.c: Define __pthread_mutexattr_settype and make
+	__pthread_mutexattr_setkind_np an alias.
+	Likewise for __pthread_mutexattr_gettype.
+
+1998-07-15 11:00 -0400  Zack Weinberg  <zack@rabi.phys.columbia.edu>
+
+	* attr.c (pthread_attr_setschedpolicy): Don't check whether caller
+	is root.
+
+1998-07-14 19:38  Ulrich Drepper  <drepper@cygnus.com>
+
+	* sysdeps/pthread/bits/libc-lock.h: Define __libc_cleanup_end.
+
+1998-07-11  Andreas Jaeger  <aj@arthur.rhein-neckar.de>
+
+	* Examples/ex6.c: Include <unistd.h> for usleep.
+
+1998-06-13 11:04  Andreas Schwab  <schwab@issan.informatik.uni-dortmund.de>
+
+	* Examples/ex4.c (main): Use exit, not pthread_exit.
+
+1998-07-09 13:39  Ulrich Drepper  <drepper@cygnus.com>
+
+	* Versions: Add __pthread_mutexattr_gettype and
+	__pthread_mutexattr_settype.
+	* lockfile.c: Use __pthread_mutexattr_settype instead of
+	__pthread_mutexattr_setkind_np.
+	* mutex.c: Define __pthread_mutexattr_gettype and
+	__pthread_mutexattr_settype.
+	* weak.c: Likewise.
+	* sysdeps/pthread/pthread.h: Declare __pthread_mutexattr_gettype and
+	__pthread_mutexattr_settype.
+	* sysdeps/pthread/bits/libc-lock.h (__libc_lock_init_recursive):
+	Use __pthread_mutexattr_settype.
+
+1998-07-08 22:26  Ulrich Drepper  <drepper@cygnus.com>
+
+	* Versions: Add pthread_mutexattr_gettype, pthread_mutexattr_settype.
+	* mutex.c: Define weak alias pthread_mutexattr_gettype and
+	pthread_mutexattr_settype.
+	* sysdeps/pthread/pthread.h: Declare these functions.
+	Move pthread_sigmask and pthread_kill declaration in separate header.
+	* sysdeps/unix/sysv/linux/bits/sigthread.h: New file.
+
+1998-07-07 15:20  Ulrich Drepper  <drepper@cygnus.com>
+
+	* Makefile: Add rules to compile and run tests.
+	* Examples/ex1.c: Little changes to fix warnings.
+	* Examples/ex2.c: Likewise.
+	* Examples/ex3.c: Likewise.
+	* Examples/ex4.c: Likewise.
+	* Examples/ex5.c: Likewise.
+	* Examples/ex6.c: New file.
+
+1998-07-05 11:54  Ulrich Drepper  <drepper@cygnus.com>
+
+	* Versions: Add pthread_attr_init to GLIBC_2.1 version in libc.
+
+1998-07-01  Andreas Jaeger  <aj@arthur.rhein-neckar.de>
+
+	* attr.c: Include <string.h>.
+
+1998-06-30 11:47  Ulrich Drepper  <drepper@cygnus.com>
+
+	* attr.c: Include errno.h.  Use memcpy to copy sched_param.
+	* internals.h: Include limits.h.
+	* manager.c: Use memcpy to copy sched_param.
+	* ptfork.c: Include errno.h.
+	* pthread.c: Likewise.
+	* semaphore.c: Likewise.
+	* specific.c: Likewise.
+	* spinlock.h: Likewise.
+	* sysdeps/pthread/pthread.h: Include only allowed headers.  Move
+	type definition to ...
+	* sysdeps/pthread/bits/pthreadtypes.h: ...here.  New file.
+
+1998-06-29 12:34  Ulrich Drepper  <drepper@cygnus.com>
+
+	* sysdeps/pthread/pthread.h: Use __PMT not __P for function pointers.
+
+	* sysdeps/pthread/pthread.h: Define various PTHREAD_* symbols also
+	as macros as demanded in POSIX.1, Annex C.
+
+1998-06-29 12:29  Ulrich Drepper  <drepper@cygnus.com>
+
+	* internals.h (struct pthread_request): For free use pthread_t
+	instead of pthread_descr.
+	* join.c (pthread_join): Pass thread_id, not th to manager.
+	(pthread_detach): Likewise.
+	* manager.c (__pthread_manager): Except thread ID in FREE_REQ case.
+	(pthread_exited): Remove detached queue code.
+	(pthread_handle_free): Expect thread ID parameter and use it to
+	validate the thread decsriptor.  Don't use detached queue.
+	Patches by Xavier Leroy.
+
+1998-06-27  Andreas Schwab  <schwab@issan.informatik.uni-dortmund.de>
+
+	* libpthread.map: Export accept, longjmp, sigaction, siglongjmp,
+	_IO_flockfile, _IO_ftrylockfile, _IO_funlockfile,
+	__pthread_atfork, __pthread_key_create, __pthread_once.
+	* internals.h: Doc fix.
+	* pthread.c (__pthread_initialize): Define again.
+
+1998-06-26  Ulrich Drepper  <drepper@cygnus.com>
+
+	* manager.c (pthread_exited): If thread is not detached put it on
+	special list.
+	(pthread_handle_free): If thread is not on list with living threads
+	search on list with detached threads.
+
+	* sysdeps/pthread/pthread.h (PTHREAD_RWLOCK_INITIALIZER): Correct
+	for new definition of pthread_rwlock_t.
+
+	* spinlock.c: Correct test whether to compile
+	__pthread_compare_and_swap or not.
+
+1998-06-25 19:27  Ulrich Drepper  <drepper@cygnus.com>
+
+	* attr.c: Finish user stack support.  Change locking code to be safe
+	in situations with different priorities.
+	* cancel.c: Likewise.
+	* condvar.c: Likewise.
+	* internals.h: Likewise.
+	* join.c: Likewise.
+	* manager.c: Likewise.
+	* mutex.c: Likewise.
+	* pthread.c: Likewise.
+	* ptlongjmp.c: Likewise.
+	* queue.h: Likewise.
+	* rwlock.c: Likewise.
+	* semaphore.c: Likewise.
+	* semaphore.h: Likewise.
+	* signals.c: Likewise.
+	* spinlock.c: Likewise.
+	* spinlock.h: Likewise.
+	* sysdeps/pthread/pthread.h: Likewise.
+	Patches by Xavier Leroy.
+
+	* sysdeps/i386/i686/pt-machine.h: New file.
+
+1998-06-25  Ulrich Drepper  <drepper@cygnus.com>
+
+	* sysdeps/pthread/pthread.h: Make [sg]et_stacksize and
+	[sg]et_stackaddr prototypes always available.
+
+	* sysdeps/unix/sysv/linux/bits/posix_opt.h: Define
+	_POSIX_THREAD_ATTR_STACKSIZE and _POSIX_THREAD_ATTR_STACKADDR.
+
+1998-06-24  Ulrich Drepper  <drepper@cygnus.com>
+
+	* manager.c (pthread_free): Undo patch from 980430.
+	Reported by David Wragg <dpw@doc.ic.ac.uk>.
+
+1998-06-09 15:07  Ulrich Drepper  <drepper@cygnus.com>
+
+	* manager.c: Define __pthread_manager_adjust_prio and use it to
+	increase priority when needed.
+	* internals.h: Add prototype for __pthread_manager_adjust_prio.
+	* mutex.c: Optimize mutexes to wake up only one thread.
+	* pthread.c: Move PID of manager for global variable in structure
+	element.
+	Patches by Xavier Leroy.
+
+1998-06-07 13:47  Ulrich Drepper  <drepper@cygnus.com>
+
+	* sysdeps/pthread/bits/libc-lock.h: Optimize cleanup handlers a bit.
+
+1998-06-03  Andreas Jaeger  <aj@arthur.rhein-neckar.de>
+
+	* attr.c: Correct typo.
+
+1998-05-01  Ulrich Drepper  <drepper@cygnus.com>
+
+	* manager.c (pthread_free): Unmap guard before the stack.
+	Patch by Matthias Urlichs.
+
+1998-04-30  Ulrich Drepper  <drepper@cygnus.com>
+
+	* manager.c (pthread_free): Detect already free child.
+	Patch by Xavier Leroy, reported by Matthias Urlichs.
+
+1998-04-23  Andreas Schwab  <schwab@issan.informatik.uni-dortmund.de>
+
+	* Makefile (linuxthreads-version): Renamed back from
+	libpthread-version.
+
+1998-04-21  Ulrich Drepper  <drepper@cygnus.com>
+
+	* ptlongjmp.c: Add prototypes for __libc_siglongjmp and
+	__libc_longjmp.
+
+1998-04-20 14:55  Ulrich Drepper  <drepper@cygnus.com>
+
+	* Makefile (libpthread-routines): Add ptlongjmp and spinlock.
+	* internals.h: Add definitions for new spinlock implementation.
+	* ptlongjmp.c: New file.
+	* spinlock.c: New file.
+	* spinlock.h (acquire): Don't reschedule using __sched_yield, use
+	new function __pthread_acquire to prevent deadlocks with thread
+	with different priorities.
+	Patches by Xavier Leroy <Xavier.Leroy@inria.fr>.
+
+1998-03-16  Andreas Schwab  <schwab@issan.informatik.uni-dortmund.de>
+
+	* manager.c (__pthread_manager): Reduce first argument to select
+	to include just the needed file descriptor.
+
+1998-03-17 00:06  Ulrich Drepper  <drepper@cygnus.com>
+
+	* manager.c: Fix last patch which caused core dumps.
+
+	* pthread.c: Correctly handle missing SIGRTMIN.
+
+1998-03-15  Andreas Schwab  <schwab@issan.informatik.uni-dortmund.de>
+
+	* libpthread.map: Add __libc_internal_tsd_get and
+	__libc_internal_tsd_set.  Add missing cancelable functions. Export
+	libc internal versions of the cancelable functions.
+
+1998-03-13 16:51  Ulrich Drepper  <drepper@cygnus.com>
+
+	* weaks.c: Define pthread_attr_init as GLIBC_2.0 and GLIBC_2.1.
+
+1998-03-13 00:46  Ulrich Drepper  <drepper@cygnus.com>
+
+	* attr.c: Implement pthread_attr_[gs]etguardsize,
+	pthread_attr_[gs]setstackaddr, pthread_attr_[gs]etstacksize.
+	Change pthread_attr_init to have two interfaces.
+	* internals.h (struct _pthread_descr_struct): Add new fields for
+	above functions.
+	* libpthread.map: Add names in GLIBC_2.1 section.
+	* manager.c (pthread_handle_create): Implement guardsize and
+	user stack.
+	(pthread_free): Likewise.
+	* pthread.c (pthread_create): Add new interface for changed
+	pthread_attr_t.
+	* sysdeps/pthread/pthread.h: Add prototypes for new functions.
+	* sysdeps/unix/sysv/linux/bits/local_lim.h: Add definition of
+	PTHREAD_STACK_MIN.
+
+1998-03-11 00:42  Wolfram Gloger  <wmglo@dent.med.uni-muenchen.de>
+
+	* manager.c: Enable resetting of the thread scheduling policy
+	to SCHED_OTHER when the parent thread has a different one.
+
+1998-02-01 13:51  Ulrich Drepper  <drepper@cygnus.com>
+
+	* sysdeps/unix/sysv/linux/bits/posix_opt.h: Define
+	_POSIX_ASYNCHRONOUS_IO.
+
+	* sysdeps/pthread/pthread.h: Define bits for Unix98 variants of
+	mutexes.
+	* mutex.c: Implement new mutex types.
+
+	* internals.h: Include <signal.h>.
+
+	* libpthread.map: Add __erno_location and __h_errno_location.
+
+	* errno.c: Return pointer to variable actually in use.  This might
+	not be the one in the thread structure.
+	* internals.h (struct _pthread_descr_struct): Add new fields p_errnop
+	and p_h_errnop.
+	* manager.c (__pthread_manager): Set p_errnop and p_h_errnop member
+	of manager thread structure.
+	(pthread_handle_create): Set p_errnop and p_h_errnop members for new
+	thread.
+	* pthread.c: Adapt initializer for thread structures.
+	(__pthread_initial_thread): Set p_errnop and p_h_errnop member.
+	(__pthread_reset_main_thread): Reset p_errnop and p_h_errnop of
+	current thread to global variables.
+
+1998-01-31 17:27  Ulrich Drepper  <drepper@cygnus.com>
+
+	* rwlock.c: New file.
+	* Makefile (libpthread-routines): Add rwlock.
+	* sysdeps/pthread/pthread.h: Define data structures and declare
+	functions.
+	* libpthread.map: Add new functions.
+
+1997-12-18 13:50  Philip Blundell  <pb@nexus.co.uk>
+
+	* sysdeps/arm/pt-machine.h: New file; add ARM support.
+	* sysdeps/arm/Implies: likewise.
+	* README: Document it.
+
+1997-12-13  Andreas Schwab  <schwab@issan.informatik.uni-dortmund.de>
+
+	* signals.c: Remove unneeded initializer for sigwaited, saving a
+	warning.
+
+1997-04-11 01:18  Andreas Schwab  <schwab@issan.informatik.uni-dortmund.de>
+
+	* semaphore.c (sem_init): Set sem_spinlock only if available.
+
+1997-12-04 01:48  Ulrich Drepper  <drepper@cygnus.com>
+
+	* mutex.c: Implement PTHREAD_MUTEX_CHECKERROR.
+	* sysdeps/pthread/pthread.h: Define PTHREAD_MUTEX_CHECKERROR.
+
+	* Makefile: Update from LinuxThreads 0.7.
+	* internals.h. Likewise.
+	* manager.c: Likewise.
+	* mutex.c: Likewise.
+	* pthread.c: Likewise.
+	* signals.c: Likewise.
+	* specific.c: Likewise.
+	* Examples/ex3.c: Likewise.
+
+1997-11-20 18:13  Ulrich Drepper  <drepper@cygnus.com>
+
+	* pthread.c (__pthread_reset_main_thread): Close pipe only if still
+	open.
+
+1997-10-29 05:38  Ulrich Drepper  <drepper@cygnus.com>
+
+	* wrapsyscall.c: Add socket functions which are also cancelation
+	points.
+
+1997-10-19 21:40  Wolfram Gloger  <wg@wolfram.dent.med.uni-muenchen.de>
+
+	* specific.c (__libc_internal_tsd_set, __libc_internal_tsd_get):
+	New functions for fast thread specific data within libc.
+
+	* internals.h: Add new array p_libc_specific to struct
+	_pthread_descr_struct.
+
+	* sysdeps/pthread/bits/libc-lock.h: Declare new functions.
+
+1997-10-13 05:39  Ulrich Drepper  <drepper@cygnus.com>
+
+	* semaphore.h: Add __BEGIN_DECLS/__END_DECLS.
+	Reported by Ralf Corsepius <corsepiu@faw.uni-ulm.de>.
+
+1997-08-29 03:05  Ulrich Drepper  <drepper@cygnus.com>
+
+	* internals.h (struct _pthread_descr_struct): Add definitions for
+	two-level specific key handling.
+	* manager.c (pthread_handle_create): Initialize specific memory array.
+	* specific.c: Implement two-level key handling.
+	* weaks.c: Don't provide dummy key handling.
+	* sysdeps/pthread/bits/libc-lock.h: Typedef __libc_lock_t (no #define).
+	Add definition of __libc_key_t.
+	* sysdeps/unix/sysv/linux/bits/local_lim.h: Define PTHREAD_KEYS_MAX
+	as 1024.
+	Add definition of _POSIX_THREAD_DESTRUCTOR_ITERATIONS and
+	PTHREAD_DESTRUCTOR_ITERATIONS.
+
+	* manager.c (pthread_handle_create): Compare mmap result with
+	MAP_FAILED.
+
+	* ptfork.c: Rename to __pthread_atfork and make old name a weak alias.
+	* sysdeps/pthread/bits/pthread.h: Add prototype for __pthread_atfork.
+
+1997-08-22 19:04  Richard Henderson  <rth@cygnus.com>
+
+	sysdeps/sparc -> sysdeps/sparc/sparc32
+	sysdeps/sparc64 -> sysdeps/sparc/sparc64
+
+	* internals.h: Change definition of THREAD_SELF to be an expression,
+	not a statement that did a return.
+	* sysdeps/alpha/pt-machine.h (THREAD_SELF): Update accordingly.
+	* sysdeps/sparc/sparc32/pt-machine.h (THREAD_SELF, INIT_THREAD_SELF):
+	Follow Solaris and use a "system reserved" register (%g6) to hold
+	the thread descriptor.
+	* sysdeps/sparc/sparc64/pt-machine.h: Likewise.
+
+1997-08-03 00:09  Ulrich Drepper  <drepper@cygnus.com>
+
+	* mutex.c: Correct pthread_once.  Patch by Xavier Leroy.
+	* sysdeps/pthread/pthread.h: Add prototype for __pthread_once.
+	* sysdeps/pthread/bits/pthread.h: Add macros for __libc_once.
+
+	* semaphore.c: Include spinlock.h only when needed.
+
+	* specific.c (__pthread_setsepcific, __pthread_getspecific): Reject
+	keys for entries not in use.
+
+	* weaks.c: Implement key handling functions for real.
+
+1997-06-29  01:04  Richard Henderson  <richard@gnu.ai.mit.edu>
+
+	Initial sparc64-linux support:
+	* sysdeps/sparc64/Implies: New file.
+	* sysdeps/sparc64/pt-machine.h: Likewise.
+
+1997-06-29 00:48  Ulrich Drepper  <drepper@cygnus.com>
+
+	* semaphore.c: Include spinlock.h at correct place.
+	Patch by HJ Lu.
+
+1997-06-13 10:06  Richard Henderson  <rth@tamu.edu>
+
+	The Great Bit File Move:
+	* sysdeps/alpha/semaphorebits.h: -> .../bits/semaphore.h.
+	* sysdeps/powerpc/semaphorebits.h: Likewise.
+	* sysdeps/pthread/cmpxchg/semaphorebits.h: Likewise.
+	* sysdeps/pthread/no-cmpxchg/semaphorebits.h: Likewise.
+	* sysdeps/pthread/libc-lock.h: -> bits/
+	* sysdeps/pthread/stdio-lock.h: Likewise.
+	* sysdeps/unix/sysv/linux/local_lim.h: Likewise.
+	* sysdeps/unix/sysv/linux/posix_opt.h: Likewise.
+	* semaphore.h: Likewise.
+	* sysdeps/pthread/pthread.h: Likewise.
+
+	* lockfile.c: <foo.h> -> <bits/foo.h>.
+	* semaphore.h: Likewise.
+
+	* Makefile: (headers): foo.h -> bits/foo.h.
+	* sysdeps/pthread/Makefile: Likewise.
+
+1997-04-11 01:18  Andreas Schwab  <schwab@issan.informatik.uni-dortmund.de>
+
+	* semaphore.c (sem_init): Set sem_spinlock only if available.
+
+	* sysdeps/m68k/pt-machine.h (testandset, __compare_and_swap): Fix
+	asm constraints.
+
+1997-04-09 03:00  Ulrich Drepper  <drepper@cygnus.com>
+
+	Update from LinuxThreads 0.6.
+
+	* attr.c (pthread_attr_getdetachstate): Use __sched_get_priority_max
+	and __sched_get_priority_min instead of names without `__'.
+
+	* manager.c: Rewrite large parts to implement opaque pthread_t.
+
+	* cancel.c: Adapt for opaque pthread_t type.
+	* condvar.c: Likewise.
+	* errno.c: Likewise.
+	* join.c: Likewise.
+	* mutex.c: Likewise.
+	* pthread.c: Likewise.
+	* signals.c: Likewise.
+	* specific.c: Likewise.
+	* restart.h: Likewise.
+	* queue.h: Likewise.
+	* Examples/ex3.c: Likewise.
+	* Examples/ex4.c: Likewise.
+	* sysdeps/pthread/pthread.h: Likewise.
+
+	* pthread.c: Accumulate time for all threads in thread manager.
+
+	* semaphore.c: Implement fallback implementation for architectures
+	sometimes missing compare-exchange operations.
+
+	* cancel.c (pthread_cancel): Validate handle argument.
+	* join.c (pthread_join): Likewise.
+	(pthread_detach): Likewise.
+	* signals.c (pthread_kill): Likewise.
+
+	* spinlock.h (acquire): Use __sched_yield not sched_yield.
+
+	* queue.h (enqueue): Enqueue thread according to priority.
+
+	* internals.c (struct pthread_start_args): New struct for passing
+	args to cloning function.
+	(struct _pthread): Rename to _pthread_descr_struct and adapt for
+	opaque pthread_t.
+
+	* Examples/Makefile (clean): Pass -f option to rm.
+
+	* sysdeps/i386/pt-machine.h: Add check for compare-exchange instruction
+	and define TEST_FOR_COMPARE_AND_SWAP.
+	* sysdeps/i386/i486/pt-machine.h: Removed.
+
+	* sysdeps/unix/sysv/linux/local_lim.h (PTHREAD_THREADS_MAX): Increase
+	to 1024.
+
+1997-04-04 16:38  Ulrich Drepper  <drepper@cygnus.com>
+
+	* restart.h (suspend): Clear p_signal before suspending.
+	(suspend_with_cancellation): Likewise.
+	Patch by Xavier Leroy <Xavier.Leroy@inria.fr>.
+
+	* weaks.c: Make __pthread_key_create return 1.
+	* sysdeps/pthread/libc-lock.h: Define __libc_key_create,
+	__libc_getspecific, __libc_setspecific, and __libc_key_t.
+	* sysdeps/pthread/stdio-lock.h: Don't care for implementation not
+	using libio.
+
+1997-03-19 15:13  Miguel de Icaza  <miguel@nuclecu.unam.mx>
+
+	* sysdeps/sparc/pt-machine (RELEASE): Fix.
+
+1997-03-01 07:55  Geoff Keating  <geoffk@ozemail.com.au>
+
+	* sysdeps/powerpc/Implies: Added.
+	* sysdeps/powerpc/pt-machine.h: Added.
+	* sysdeps/powerpc/semaphorebits.h: Added.
+
+1997-01-22 01:22  Ulrich Drepper  <drepper@cygnus.com>
+
+	* pthread.c (__pthread_initial_thread): Correct
+	initializer.
+	(__pthread_manager_thread): Likewise.
+	Reported by Andreas Jaeger.
+
+1997-01-18 22:15  Richard Henderson  <rth@tamu.edu>
+
+	Since sigset_t no longer fits in a register, we can't pass in the
+	thread's initial mask so easily.  Take this opportunity to simplify
+	the clone implementation by only accepting a single void* argument.
+
+	* manager.c (__pthread_manager): Put thread vitals in the thread
+	struct instead of as arguments through clone.
+	(pthread_start_thread): Look for them there.
+	* internals.h (struct _pthread): Add p_initial_fn,
+	p_initial_fn_arg, p_initial_mask.  Fix __pthread_manager proto.
+	* pthread.c (pthread_initialize_manager): Revise clone invocation.

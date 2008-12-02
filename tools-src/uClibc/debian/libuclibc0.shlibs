@@ -1,0 +1,8 @@
+libc 0 libuclibc0 (>= 0.9.17-1)
+libm 0 libuclibc0 (>= 0.9.17-1)
+ld-uClibc 0 libuclibc0 (>= 0.9.17-1)
+libdl 0 libuclibc0 (>= 0.9.17-1)
+libcrypt 0 libuclibc0 (>= 0.9.17-1)
+libutil 0 libuclibc0 (>= 0.9.17-1)
+libresolv 0 libuclibc0 (>= 0.9.17-1)
+libpthread 0 libpthread0 (>= 0.9.17-1)

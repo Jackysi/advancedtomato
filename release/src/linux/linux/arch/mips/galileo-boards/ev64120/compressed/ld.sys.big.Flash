@@ -1,0 +1,29 @@
+OUTPUT_FORMAT("elf32-bigmips")
+OUTPUT_ARCH(mips)
+ENTRY(sbdreset)
+
+SECTIONS
+{
+  . = 0xBFC00000;
+  .got : {*(.got)}
+  .reset : {
+    sbdreset = ABSOLUTE(.);
+    sbdreset_evb64120A.o
+    evb64120A_Setup.o /* <-- Note: contains xfer.c contents as well.. */
+    pci_etherboot.o
+    memory.o
+    pci.o
+  }
+  kernel_location_start = 0x80100000;
+  . = 0x80400000;
+  .text : {
+  *(.text)
+  }
+  .bss : {
+  *(.bss)
+  }
+  .data :{
+  *(.data)
+  }
+  malloc_start = .;
+}

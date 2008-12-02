@@ -1,0 +1,1 @@
+#undef  CONFIG_CISS_SCSI_TAPE

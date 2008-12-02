@@ -1,0 +1,93 @@
+#
+# USB device-side configuration
+# for 2.4 kbuild, drivers/usb/gadget/Config.in
+#
+# Long term, this likely doesn't all belong in one directory
+# Plan to split it up eventually.
+#
+mainmenu_option next_comment
+comment 'Support for USB gadgets'
+
+bool 'Support for USB Gadgets' CONFIG_USB_GADGET
+if [ "$CONFIG_USB_GADGET" = "y" ]; then
+  
+  #
+  # really want _exactly one_ device controller driver at a time,
+  # since they control compile options for gadget drivers.
+  #
+  comment 'USB Peripheral Controller Drivers'
+  
+  # assume all the dependencies may be undefined ("== true", yeech)
+  if [ "$CONFIG_PCI" = "y" ] ; then
+    tristate '  NetChip 2280 support' CONFIG_USB_NET2280
+    define_tristate CONFIG_USB_GADGET_CONTROLLER $CONFIG_USB_NET2280
+  fi
+  if [ "$CONFIG_ARCH_PXA" = "y" ] ; then
+    tristate '  PXA 210/25x/26x UDC support' CONFIG_USB_PXA2XX
+    define_tristate CONFIG_USB_GADGET_CONTROLLER $CONFIG_USB_PXA2XX
+  fi
+  if [ "$CONFIG_HND" = "y" ] ; then
+    tristate '  Broadcom USB device support' CONFIG_USBDEV
+  fi
+
+  if [ "$CONFIG_USB_GADGET_CONTROLLER" = "y" -o \
+       "$CONFIG_USB_GADGET_CONTROLLER" = "m" -o \
+       "$CONFIG_USBDEV" = "y" -o \
+       "$CONFIG_USBDEV" = "m" ] ; then
+
+  #
+  # no reason not to enable more than one gadget driver module, but
+  # for static linking that would make no sense since the usb model
+  # has exactly one of these upstream connections and only one
+  # lowest-level driver can control it.
+  #
+  # gadget drivers are compiled to work on specific hardware, since
+  #
+  # (a) gadget driver need hardware-specific configuration, like what
+  #     endpoint names and numbers to use, maxpacket sizes, etc
+  #
+  # (b) specific hardware features like iso endpoints may be required
+  #
+  comment 'USB Gadget Drivers'
+
+  dep_tristate '  Gadget Zero (DEVELOPMENT)' CONFIG_USB_ZERO $CONFIG_USB_GADGET_CONTROLLER
+  if [ "$CONFIG_USB_ZERO" = "y" -o "$CONFIG_USB_ZERO" = "m" ]; then
+      if [ "$CONFIG_USB_NET2280" = "y" -o "$CONFIG_USB_NET2280" = "m" ]; then
+  	define_bool CONFIG_USB_ZERO_NET2280 y
+      fi
+      if [ "$CONFIG_USB_PXA2XX" = "y" -o "$CONFIG_USB_PXA2XX" = "m" ]; then
+  	define_bool CONFIG_USB_ZERO_PXA2XX y
+      fi
+      # ...
+  fi
+  
+  dep_tristate '  Ethernet Gadget (EXPERIMENTAL)' CONFIG_USB_ETH $CONFIG_USB_GADGET_CONTROLLER
+  if [ "$CONFIG_USB_ETH" = "y" -o "$CONFIG_USB_ETH" = "m" ]; then
+      if [ "$CONFIG_USB_NET2280" = "y" -o "$CONFIG_USB_NET2280" = "m" ]; then
+  	define_bool CONFIG_USB_ETH_NET2280 y
+      fi
+      if [ "$CONFIG_USB_PXA2XX" = "y" -o "$CONFIG_USB_PXA2XX" = "m" ]; then
+  	define_bool CONFIG_USB_ETH_PXA2XX y
+      fi
+      # ...
+  fi
+
+  tristate '  Simple Gadget' CONFIG_USB_SIMPLE
+  tristate '  RNDIS Gadget' CONFIG_USB_RNDIS
+  
+  dep_tristate '  Gadget Filesystem API (EXPERIMENTAL)' CONFIG_USB_GADGETFS $CONFIG_USB_GADGET_CONTROLLER
+  if [ "$CONFIG_USB_GADGETFS" = "y" -o "$CONFIG_USB_GADGETFS" = "m" ]; then
+      if [ "$CONFIG_USB_NET2280" = "y" -o "$CONFIG_USB_NET2280" = "m" ]; then
+  	define_bool CONFIG_USB_GADGETFS_NET2280 y
+      fi
+      if [ "$CONFIG_USB_PXA2XX" = "y" -o "$CONFIG_USB_PXA2XX" = "m" ]; then
+  	define_bool CONFIG_USB_GADGETFS_PXA2XX y
+      fi
+      # ...
+  fi
+  
+  # ... or other gadget drivers:  printer class, storage, hid, etc ...
+
+  fi
+fi
+endmenu

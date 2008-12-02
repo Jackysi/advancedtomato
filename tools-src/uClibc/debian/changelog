@@ -1,0 +1,189 @@
+uclibc (0.9.18-1) unstable; urgency=low
+
+  * New upstream release
+  * Update to kernel-source-2.4.20
+  * Upgrade .shlib dependencies
+  * Enable IPv6 and other options (Closes: #174092)
+  * Remove build directory from ld script (Closes: #161474)
+  * Add/fix /lib/ld-uClibc.so.0 symlink
+
+ -- David Schleef <ds@schleef.org>  Wed, 12 Feb 2003 12:40:38 -0800
+
+uclibc (0.9.16-6) unstable; urgency=low
+
+  * Reenable FPU and C99 math support that were accidentally
+    disabled in the move to 0.9.16. (Closes: #171359, #172686)
+  * Fix ${arch}-uclibc-xx installation directory (should be /usr/bin)
+  * Make ldd work with dh_shlibdeps (Closes: #171282, #171287)
+
+ -- David Schleef <ds@schleef.org>  Wed, 11 Dec 2002 15:55:52 -0800
+
+uclibc (0.9.16-5) unstable; urgency=low
+
+  * (Attempt #2) Removed some default flags on sparc.
+
+ -- David Schleef <ds@schleef.org>  Wed, 27 Nov 2002 13:56:39 -0800
+
+uclibc (0.9.16-4) unstable; urgency=low
+
+  * Removed some default flags on m68k and sparc, since they don't
+    work with the standard gcc.
+  * Stripped quotes around ARCH_CFLAGS
+
+ -- David Schleef <ds@schleef.org>  Fri, 22 Nov 2002 15:15:25 -0800
+
+uclibc (0.9.16-3) unstable; urgency=low
+
+  * Got the last change wrong.
+  * Enabled alpha build.
+
+ -- David Schleef <ds@schleef.org>  Thu, 21 Nov 2002 16:24:27 -0800
+
+uclibc (0.9.16-2) unstable; urgency=low
+
+  * Disable shared lib loader on m68k and sparc
+
+ -- David Schleef <ds@schleef.org>  Wed, 20 Nov 2002 19:45:31 -0800
+
+uclibc (0.9.16-1) unstable; urgency=low
+
+  * New upstream release (Closes: #169650, #169547)
+  * Rewrote much of the installation code to use dh_ more
+  * Removed gasp man page link (Closes: #169648)
+  * Upstream uses new configuration method (Closes: #169513)
+
+ -- David Schleef <ds@schleef.org>  Mon, 18 Nov 2002 11:32:43 -0800
+
+uclibc (0.9.12-2) unstable; urgency=low
+
+  * Make sure MAS_MMU=true on m68k
+
+ -- David Schleef <ds@schleef.org>  Thu, 27 Jun 2002 15:04:59 -0700
+
+uclibc (0.9.12-1) unstable; urgency=low
+
+  * New upstream release.
+  * Attempt to fix MIPS build again. (Closes: #150313)
+
+ -- David Schleef <ds@schleef.org>  Mon, 24 Jun 2002 16:26:18 -0700
+
+uclibc (0.9.11-cvs20020619-1) unstable; urgency=low
+
+  * This is an automatic snapshot of uClibc CVS
+  * new snapshot
+  * MIPS build should have been fixed in the last entry, which
+    was not actually uploaded (Closes: #150313).
+
+ -- David Schleef <ds@schleef.org>  Wed, 19 Jun 2002 11:45:59 -0700
+
+uclibc (0.9.11-cvs20020420-1) unstable; urgency=low
+
+  * Many of the configs have broken CROSS definitions.  Compensate
+    for that in debian/rules.
+
+ -- David Schleef <ds@schleef.org>  Sat, 20 Apr 2002 15:40:39 -0700
+
+uclibc (0.9.11-cvs20020419-1) unstable; urgency=low
+
+  * new upstream snapshot
+    - should fix build on sparc and m68kk (Closes: #142708)
+  * I wanted to have a debian package for the 0.9.11 release, but
+    that was rather broken on PowerPC.
+  * Updated kernel source to 2.4.18
+
+ -- David Schleef <ds@schleef.org>  Fri, 19 Apr 2002 10:15:59 -0700
+
+uclibc (0.9.10-cvs20020406-1) unstable; urgency=low
+
+  * new upstream snapshot
+    - should fix build on mips
+  * updated shlibs to 0.9.10, since it was broken previously (actually
+    was done in previous upload)
+  * create top-level lib/, for safety
+
+ -- David Schleef <ds@schleef.org>  Sat,  6 Apr 2002 14:34:41 -0800
+
+uclibc (0.9.10-1) unstable; urgency=low
+
+  * New upstream release (Closes: #140295)
+
+ -- David Schleef <ds@schleef.org>  Thu, 28 Mar 2002 11:25:17 -0800
+
+uclibc (0.9.9-cvs20020221-2) unstable; urgency=low
+
+  * debian/rules: touch linux/autoconf.h.  Should make us buildable
+    on arm.
+  * add build-dep on bzip2
+
+ -- David Schleef <ds@schleef.org>  Sun, 24 Feb 2002 17:26:37 -0800
+
+uclibc (0.9.9-cvs20020221-1) unstable; urgency=low
+
+  * New upstream snapshot
+  * Add subarchitecture symlinks on arm
+  * Use mips config file on mipsel
+
+ -- David Schleef <ds@schleef.org>  Thu, 21 Feb 2002 23:11:23 -0800
+
+uclibc (0.9.9-cvs20020210-1) unstable; urgency=low
+
+  * New upstream snapshot.
+  * debian/mksnapshot: updated version and filenames
+  * debian/control.in: changed dependency from kernel-headers to
+      kernel-source.
+  * debian/rules: force HAS_MMU=true
+  * debian/rules: change mipsel to mips
+  * debian/rules: untar kernel-source include directory and use
+      that as kernel source.
+  * Previous 3 lines should fix autobuildability (Closes: #131373)
+
+ -- David Schleef <ds@schleef.org>  Sun, 10 Feb 2002 17:11:22 -0800
+
+uclibc (0.9.5-cvs20011117-1) unstable; urgency=low
+
+  * New upstream snaphot
+  * mksnapshot (new): script to generate snapshots from upstream CVS
+  * control, control.in: limited architectures to those that can
+      theoretically build.  Updated kernel-headers dependency to
+      -2.4.10 -- this may cause problems with autobuilders.
+  * fixlinks (new): script to fix up symlinks to comply with policy.
+      Decreases number of lintian complaints.
+  * rules: use fixlinks.  Fix method of finding kernel headers --
+      should increase potential autobuildability.
+  * uclibc-ldd.1, uclibc-readelf.1: Bogus updates to bogus man pages.
+      These really need to be written.
+
+ -- David Schleef <ds@schleef.org>  Sat, 17 Nov 2001 18:10:33 -0800
+
+uclibc (0.9.5-cvs20011011-1) unstable; urgency=low
+
+  * Closes #104243
+
+ -- David Schleef <ds@schleef.org>  Thu, 11 Oct 2001 13:29:02 -0700
+
+uclibc (0.9.5-cvs20010702-1) unstable; urgency=low
+
+  * Build from CVS
+  * Can create cross-compiling library (but not cross packages)
+
+ -- David Schleef <ds@schleef.org>  Mon,  2 Jul 2001 23:16:20 -0700
+
+uclibc (0.9.5-cvs20010630-1) unstable; urgency=low
+
+  * No, really.  Initial Release.  I mean it this time.
+  * Clean up patch.
+
+ -- David Schleef <ds@schleef.org>  Sat, 30 Jun 2001 17:12:41 -0700
+
+uclibc (0.9.5-cvs20010626-1) unstable; urgency=low
+
+  * No, really.  Initial Release.
+
+ -- David Schleef <ds@schleef.org>  Thu, 28 Jun 2001 16:49:25 -0700
+
+uclibc (0.9.5-cvs20010625-1) unstable; urgency=low
+
+  * Initial Release.
+
+ -- David Schleef <ds@schleef.org>  Mon, 25 Jun 2001 22:13:43 -0700
+

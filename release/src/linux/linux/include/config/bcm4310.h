@@ -1,0 +1,1 @@
+#define CONFIG_BCM4310 1

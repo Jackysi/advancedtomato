@@ -1,0 +1,9 @@
+pptp-linux for DEBIAN
+----------------------
+
+The documentation is not sufficient right now. Please contact the
+list at pptp@debs.fuller.edu. Subscribe by:
+
+echo "subscribe"|mail pptp-request@debs.fuller.edu
+
+Christoph Lameter <clameter@debian.org>, Sun, 25 Jan 1998 22:42:45 -0800

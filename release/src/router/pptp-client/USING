@@ -1,0 +1,49 @@
+$Id: USING,v 1.1.1.1 2002/07/25 06:52:39 honor Exp $	
+
+pptp is started as a psuedo-tty child process using pppd's pty option:
+
+	pppd call provider [pppd-options] \
+	pty "/usr/sbin/pptp hostname --nolaunchpppd [pptp-options]"
+
+where hostname is the host name or IP address of the PPTP server.
+
+pptp can also start pppd itself:
+
+	pptp hostname [pptp-options] [pppd-options]
+
+Note the unusual order of arguments, the hostname comes before the
+pptp options, and the pppd options come last.
+
+So, for example:
+
+	pptp my.pptp.host debug name cananian \
+	remotename ntdialup 172.18.0.2:172.18.0.3
+
+	route add -net 172.18.0.0 netmask 255.255.0.0 gw 172.18.0.3
+
+You will see three pptp-related processes in your process list: a call
+manager, a GRE/PPP en/decapsulator, and pppd.  To shut down the pptp
+connection, kill the pppd process.
+
+NOTE THAT PPTP MUST BE RUN AS ROOT.
+
+Most trouble with pptp will probably be due to incorrect pppd
+configuration.  Be sure you thoroughly understand MS-CHAP support in
+pppd.  Use the 'debug' option to pppd to log connection information;
+this will help you trouble-shoot the pppd side of pptp.
+
+QUIRKS HANDLING:
+
+Some ADSL providers and some ADSL hardware are buggy or not conforming
+to the RFC, and require special handling.  To this end, pptp supports
+a 'quirks' mechanism.  Currently, only '--quirks BEZEQ_ISRAEL' is
+defined, for connecting to Bezeq (the Israeli phone company) ADSL
+service.
+
+Only *some* of the equipment used by Bezeq needs this option, but even
+the equipment that does not need it works fine with it.  If you use
+Bezeq, you probably want the '--quirks BEZEQ_ISRAEL' switch.
+
+More information on Bezeq's ADSL service can be found at
+http://www.pointer.co.il/~mulix/adsl-howto.txt and
+http://damyen.technion.ac.il/~dani/adsl-howto.txt.

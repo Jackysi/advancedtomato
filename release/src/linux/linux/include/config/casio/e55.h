@@ -1,0 +1,1 @@
+#undef  CONFIG_CASIO_E55

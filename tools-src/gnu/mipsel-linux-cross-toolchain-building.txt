@@ -1,0 +1,759 @@
+Building a Modern MIPS Cross-Toolchain for Linux
+
+Bradley D. LaRonde
+
+brad@ltc.com
+
+Revision History                                                               
+Revision 2.4              2002-09-25            Revised by: bdl                
+Update to gcc 3.2, binutils 2.13, glibc 2.2.5.                                 
+Revision 2.3              2002-07-15            Revised by: bdl                
+Update to gcc 3.0.4, binutils 2.12. Drop back to glibc 2.2.3.                  
+Revision 2.2              2002-02-18            Revised by: bdl                
+Update to binutils-2.11.92.0.12.3, gcc 3.0.3, and glibc-2.2.4. Use --prefix=/  
+usr for glibc's special Linux support. Use --disable-sanity-checks for building
+glibc-2.2.4 with gcc 3.0.3.                                                    
+Revision 2.1              2001-11-05            Revised by: bdl                
+Make it a little less endian-biased.                                           
+Revision 2.0              2001-11-02            Revised by: bdl                
+Convert to docbook. Correct some typos. GFDL license. Note about endianness.   
+Revision 1.9              2001-09-26            Revised by: bdl                
+Clarify which libc.so to edit and provide example. Corrected spelling of       
+Canadian (Geoffrey Espin). Add wget commands (Geoffrey Espin). Clarify         
+$LINUX_SRC (Geoffrey Espin). Correct glibc tar file name (Geoffrey Espin).     
+Revision 1.8              2001-09-09            Revised by: bdl                
+Add source locations.                                                          
+Revision 1.7              2001-09-06            Revised by: bdl                
+Correct a typo in the final gcc configure.                                     
+Revision 1.6              2001-08-22            Revised by: bdl                
+Clarify basic tool list.                                                       
+Revision 1.5              2001-08-22            Revised by: bdl                
+Upgrade gcc 3.0 branch to gcc 3.0.1 release.                                   
+Revision 1.4              2001-08-14            Revised by: bdl                
+gcc 3.0 release is broken for C++; use cvs 3.0 branch version.                 
+Revision 1.3              2001-08-13            Revised by: bdl                
+Slightly adjust step 6 now that I've tested it.                                
+Revision 1.2              2001-08-12            Revised by: bdl                
+Correct glibc patch info. Correct glibc prefix advice, twice.                  
+Revision 1.1              2001-08-11            Revised by: bdl                
+Add information about toolchain --prefix failures. Add information about glibc 
+--prefix versus install_root. Add warning about installing cross-built stuff.  
+Revision 1.0              2001-08-09            Revised by: bdl                
+Correct binutils version inconsistency. s/cd cd/cd in final compiler step.     
+
+This document shows the reader how to build a modern MIPS cross-toolchain for
+Linux from scratch. It includes valuable tips and step-by-step procedures.
+
+-------------------------------------------------------------------------------
+-------------------------------------------------------------------------------
+
+Introduction
+
+The main problem with building a a cross-toolchain (or any toolchain, to a
+lesser degree) is that it takes so long to figure out that you did something
+wrong. 
+
+This document is mainly a way for me to remember how I did it once so I can do
+it again later. Maybe it will help someone else too. 
+
+During this process, I explored the "minimum required configuration" for
+building a modern MIPS cross-toolchain for Linux. What I mean by "minimum
+required configuration" is something akin to the "minimum amount of typing". I
+went as light as I knew how on the configure arguments, and only brought in
+patches when something was obviously broken. This was a personal exploration of
+mine, and by no means do I mean to imply that the "minimum" I've "found" is the
+best; only it is the minimum that I've found that works (thus far). It might
+help mitigate some of the configuration mystery that surrounds the scant
+information about cross-building that I dug up, beged for, stumbled across,
+etc. Yet even as simple as I've reduced it, the whole remains sufficiently
+mysterious. 
+
+-------------------------------------------------------------------------------
+
+Copyright Information
+
+Copyright (c) 2001 Bradley D. LaRonde
+
+Permission is granted to copy, distribute and/or modify this document under the
+terms of the GNU Free Documentation License, Version 1.1 or any later version
+published by the Free Software Foundation; with no Invariant Sections, with no
+Front-Cover Texts, and with no Back-Cover Texts. A copy of the license is
+included in the section entitled "GNU Free Documentation License".
+
+-------------------------------------------------------------------------------
+
+Disclaimer
+
+No liability for the contents of this documents can be accepted. Use the
+concepts, examples and other content at your own risk. As this is a new edition
+of this document, there may be errors and inaccuracies, that may of course be
+damaging to your system. Proceed with caution, and although this is highly
+unlikely, the author(s) do not take any responsibility for that.
+
+All copyrights are held by their by their respective owners, unless
+specifically noted otherwise. Use of a term in this document should not be
+regarded as affecting the validity of any trademark or service mark.
+
+Naming of particular products or brands should not be seen as endorsements.
+
+You are strongly recommended to take a backup of your system before major
+installation and backups at regular intervals.
+
+-------------------------------------------------------------------------------
+
+New Versions
+
+I will keep the latest versions of this document updated on my my website in a
+variety of formats: 
+
+  * single HTML file: http://www.ltc.com/~brad/mips/mips-cross-toolchain.html 
+   
+  * HTML file per section: http://www.ltc.com/~brad/mips/mips-cross-toolchain/ 
+   
+  * Plain text: http://www.ltc.com/~brad/mips/mips-cross-toolchain.txt 
+   
+  * SGML source: http://www.ltc.com/~brad/mips/mips-cross-toolchain.sgml 
+   
+ 
+
+-------------------------------------------------------------------------------
+
+Credits
+
+  * Geoffrey Espin for several imrovements and corrections.
+   
+  * Ian Chilton for helping me prove it works.
+   
+  * Ralf Bächle for his ongoing contribution to linux-mips.
+   
+  * The greater linux-mips community for the tools themselves.
+   
+ 
+
+-------------------------------------------------------------------------------
+
+Feedback
+
+I value your feedback. Please e-mail me at <brad@ltc.com>.  
+
+-------------------------------------------------------------------------------
+
+Foundation
+
+Understanding Build, Host, and Target Systems
+
+When cross-compiling, you are dealing with at least two systems. One is the
+"build" system; i.e. the system used to build the cross-tools. Another is the
+"target" system, which is the system the cross-tools will produce code for. 
+
+Then there is the "host" system, which is the system the cross-tools will run
+on. Commonly the "build" and "host" systems are the same. That's the situaion
+I've covered in this document. When they aren't, you end up in a "Canadian
+Cross" situaion, which I won't cover here (and know little to nothing about,
+despite the fact that I have a Canadian work visa). 
+
+-------------------------------------------------------------------------------
+
+Building Cross-Toolchains
+
+The general idea is to use the "build" system to create binutils and gcc for
+the "host" system that produce code for the "target" system. As I said before,
+In my case, the "build" and "host" systems are the same (both i386-linux), and
+the "target" system is mipsel-linux or mips-linux (depending on little or big
+endian). 
+
+Once you have the binutils and gcc, you can cross-build glibc. Here's the catch
+though - you need parts of glibc to build all of gcc. Ugh. So, you need to
+build gcc in two steps. First you have to build just the static C compiler,
+then after glibc is built and installed, you can build the final C and C++
+compilers. 
+
+-------------------------------------------------------------------------------
+
+About --prefix
+
+I messed around with --prefix for quite a while before I realized what I was
+doing. I wanted to install the toolchain to it's "own" directory. What I didn't
+realize at first is the difference between the cross-tools (cross-binutils and
+cross-gcc) and the cross-built glibc. This led to some confusion about where
+the cross-built glibc libraries should go. 
+
+What I settled on is this: let the cross-tools go where they like to go - in /
+usr/local. They won't overwrite anything else there. They will put the
+MIPS-specific stuff in /usr/local/mips[el]-linux automatically. Then, install
+the cross-built glibc libraries into /usr/local/mips[el]-linux, which is where
+the cross-build tools expect to find them. 
+
+I guess the summary of all of this is: the --prefix for the cross-build tools
+isn't the same as the prefix for the cross-built glibc, and there is no harm in
+just letting the cross-build tools go where they want to go, but be careful
+with glibc.  
+
+-------------------------------------------------------------------------------
+
+Building
+
+I've written out a fairly complete set of steps, including all the mundane cd
+and tar commands, but really the configure command is the most interesting, so
+I've separated those commands with some vertical space. 
+
+These steps describe how to build a mipsel cross-toolchain. mipsel stands for
+"MIPS-endian-little", or in other words, little-endian MIPS. If you want to
+build a big-endian toolchain, modify the steps below by substituting mips-linux
+for mipsel-linux. I've done this, but I haven't double-checked this document
+for endian issues. It should work with maybe minor adjustments. 
+
+-------------------------------------------------------------------------------
+
+Get binutils, gcc, and glibc
+
+Which versions to get? Currently, it seems that the recipe for building a
+modern mipsel cross-toolchain isn't widely known. I've gathered that it is
+because of problems with mips binutils. 
+
+Here is the configuration I currently use:
+
+  * binutils-2.13 release
+   
+  * gcc-3.2 release
+   
+  * glibc-2.2.5 release plus linuxthreads
+   
+ 
+
+This configuration works well for me. 
+
+Look for toolchain sources at the following locations:
+
+  * binutils: ftp://ftp.gnu.org/gnu/binutils/
+   
+  * gcc: ftp://ftp.gnu.org/gnu/gcc/
+   
+  * glibc: ftp://ftp.gnu.org/gnu/glibc/
+   
+ 
+
+Here are some wgets you can copy and paste, courtesy Geoffrey Espin:
+
+wget ftp://ftp.gnu.org/gnu/binutils/binutils-2.13.tar.gz
+wget ftp://ftp.gnu.org/gnu/gcc/gcc-3.2.tar.gz
+wget ftp://ftp.gnu.org/gnu/glibc/glibc-2.2.5.tar.gz
+wget ftp://ftp.gnu.org/gnu/glibc/glibc-linuxthreads-2.2.5.tar.gz
+ 
+
+When I reference these tar files below, I leave off the version numbers (so I
+don't have as much editing to do when I change to a new version of one of the
+packages). Please add the version numbers back to the tar file names and to the
+unpacked directory names. 
+
+Some stuff that won't work:
+
+  * glibc 2.2.4 - executables failed left and right with "Bus error" and other
+    obscure gasps.
+   
+  * gcc 3.1 - comfigures, builds, and stuff runs, but gcc 3.1 defaults to
+    DWARF2 and mips binutils lacks support.
+   
+ 
+
+-------------------------------------------------------------------------------
+
+Build the cross-binutils
+
+As I understand it, cross-binutils prefers not to be given a --prefix (caveat
+emptor: my understanding of these matters is clearly meager). However, without
+--prefix, the x86 libbfd and libopcodes in /usr/lib get overwritten. That's the
+reason for the included --libdir. Steven Langasek suggested it, since it
+prevents the conflict and still allows them to be "used by cross-binutils
+thanks to the RPATH tag being set appropriately in ELF headers by libtool." 
+
+This ends up putting the cross-binutils in /usr/local. 
+
+tar -xzf binutils.tar.gz
+mkdir mipsel-binutils
+cd mipsel-binutils
+
+../binutils/configure --target=mipsel-linux \
+  --libdir='${exec_prefix}'/mipsel-linux/i386-linux/lib
+
+make
+make install
+cd ..
+ 
+
+-------------------------------------------------------------------------------
+
+Build the C cross-compiler
+
+I don't think you can build all of cross-gcc at once; at least I haven't been
+able to. One big problem is that you need glibc installed in order to do it,
+but you haven't built glibc yet. To get around this, build just the static C
+cross-compiler, then you can use that to cross-build glibc, and come back to
+the rest of cross-gcc later. 
+
+This ends up putting cross-gcc executables in /usr/local/bin/ and "copies"
+(hard links) in /usr/local/mipsel-linux/bin/. The libraries end up in /usr/
+local/lib/lib/gcc-lib/mipsel-linux/3.0/. It does however stick a libiberty.a in
+/usr/local/lib/ that I'm not entirely comfortable with, but maybe it is just
+fine. 
+
+The --with-headers causes configure to make a copy of the headers at the
+specified location into /usr/local/mipsel-linux/sys-includes and to run
+fixincludes on them. These headers are then used by xgcc during the
+cross-building of libgcc.a (which is part of building the static C compiler).
+This means that you'll need some MIPS host headers laying around somewhere,
+including the linux and asm subdirectories from the Linux kernel. Maybe you
+have them from your previous cross-compiler installation. If not, there are
+various creative ways of obtaining them, including grabbing them from some MIPS
+distribution. There is also the dubious hack of using your hosts's headers
+(--with-headers=/usr/include) instead. The key word here is "dubious"; you have
+been warned. 
+
+tar -xzf gcc.tar.gz
+mkdir mipsel-gcc
+cd mipsel-gcc
+
+../gcc/configure --target=mipsel-linux --enable-languages=c \
+  --disable-shared --with-headers=/usr/local/mipsel-linux/include
+
+make
+make install
+cd ..
+ 
+
+-------------------------------------------------------------------------------
+
+Cross-build glibc
+
+Caution: When installing the cross-built glibc (or other cross-built stuff) if
+you don't get it right you can overwrite your host copies of possibly very
+critical stuff like libc. Ouch. Best to do cross-building and installing as
+non-root for protection. 
+
+You must specify both the "build" and "host" system when cross-building glibc,
+since if you just specify "host", glibc assumes the build system is the same as
+the host system. 
+
+The right way to do this is to cross-build gcc with the same configuration as
+you would for a native build. The main reason for this is that ld.so.1 has the
+initial library search path compiled into it. The goal is to get ld.so.1 to
+look for libraries in /lib/. If you don't get this right, ld.so.1 will end up
+not looking in /lib/ for, say, libc.so.6, which won't allow init=/bin/sh if sh
+is dymaically linked against libc.so.6. 
+
+As Jay Carlson pointed out to me, there is (suprise) a trick to this. glibc
+sees --prefix=/usr as a special case for Linux. When it sees it, it will sort
+things out properly into /lib and /usr/lib, /usr/bin, etc. 
+
+Since glibc configured this way will want to install to "/lib", etc., you have
+to use the "install_root" option to cause it to be installed away from your
+host's files. After you install glibc out of the way, you can copy the include
+and library files to where your cross-build tools expect to find them. 
+
+glibc 2.2.5 doesn't work "out of the box". It requires a small build patch, a
+small gmon patch (if you plan to use gprof), and a CFLAGS workaround. I mashed
+the patches together into a single patch file and put it at http://www.ltc.com/
+~brad/mips/glibc-2.2.5-mips-build-gmon.diff. 
+
+Daniel Jacobowitz <drow@nevyn.them.org> told me about the gmon patch. He also
+suggested the -finline-limit workaround below which as I understand it keeps
+gcc 3.x from *not* inlining stuff when building ld.so. Without it glibc 2.2.5
+ld.so built by gcc 3.x won't work. 
+
+Note: if you mess with --prefix in binutils or gcc, you might end up needing
+--with-headers, but I now take this as a sign I've done something screwy. 
+
+tar -xzf glibc.tar.gz
+cd glibc
+patch -i ../glibc-2.2.5-mips-build-gmon.diff
+tar -xzf ../glibc-linuxthreads.tar.gz
+cd ..
+mkdir mipsel-glibc
+cd mipsel-glibc
+
+CFLAGS="-O2 -g -finline-limit=10000" ../glibc/configure --build=i686-linux \
+  --host=mipsel-linux --enable-add-ons --prefix=/usr
+
+make
+make install install_root=/usr/local/mipsel-linux/glibc
+cd ..
+
+cp -a /usr/local/mipsel-linux/glibc/lib/* /usr/local/mipsel-linux/lib/
+cp -a /usr/local/mipsel-linux/glibc/usr/include/* /usr/local/mipsel-linux/include/
+cp -a /usr/local/mipsel-linux/glibc/usr/lib/* /usr/local/mipsel-linux/lib/
+ 
+
+Copying the files isn't quite enough though. You also need to edit /usr/local/
+mipsel-linux/lib/libc.so (yes, it is a text file suprisingly enough) to point
+to the cross-built glibc files so that the cross-build tools know to use the
+mipsel libc and not the host's libc, something like: 
+
+GROUP ( /usr/local/mipsel-linux/lib/libc.so.6 
+  /usr/local/mipsel-linux/lib/libc_nonshared.a )
+ 
+
+-------------------------------------------------------------------------------
+
+Build the final C and C++ cross-compilers
+
+Relax... this part is easy. :-) 
+
+cd mipsel-gcc
+
+../gcc/configure --target=mipsel-linux --enable-languages=c,c++
+
+make
+make install
+ 
+
+-------------------------------------------------------------------------------
+
+A. GNU Free Documentation License
+
+0. PREAMBLE
+
+The purpose of this License is to make a manual, textbook, or other written
+document "free" in the sense of freedom: to assure everyone the effective
+freedom to copy and redistribute it, with or without modifying it, either
+commercially or noncommercially. Secondarily, this License preserves for the
+author and publisher a way to get credit for their work, while not being
+considered responsible for modifications made by others.
+
+This License is a kind of "copyleft", which means that derivative works of the
+document must themselves be free in the same sense. It complements the GNU
+General Public License, which is a copyleft license designed for free software.
+
+We have designed this License in order to use it for manuals for free software,
+because free software needs free documentation: a free program should come with
+manuals providing the same freedoms that the software does. But this License is
+not limited to software manuals; it can be used for any textual work,
+regardless of subject matter or whether it is published as a printed book. We
+recommend this License principally for works whose purpose is instruction or
+reference.
+
+-------------------------------------------------------------------------------
+
+1. APPLICABILITY AND DEFINITIONS
+
+This License applies to any manual or other work that contains a notice placed
+by the copyright holder saying it can be distributed under the terms of this
+License. The "Document", below, refers to any such manual or work. Any member
+of the public is a licensee, and is addressed as "you".
+
+A "Modified Version" of the Document means any work containing the Document or
+a portion of it, either copied verbatim, or with modifications and/or
+translated into another language.
+
+A "Secondary Section" is a named appendix or a front-matter section of the 
+Document that deals exclusively with the relationship of the publishers or
+authors of the Document to the Document's overall subject (or to related
+matters) and contains nothing that could fall directly within that overall
+subject. (For example, if the Document is in part a textbook of mathematics, a
+Secondary Section may not explain any mathematics.) The relationship could be a
+matter of historical connection with the subject or with related matters, or of
+legal, commercial, philosophical, ethical or political position regarding them.
+
+The "Invariant Sections" are certain Secondary Sections whose titles are
+designated, as being those of Invariant Sections, in the notice that says that
+the Document is released under this License.
+
+The "Cover Texts" are certain short passages of text that are listed, as
+Front-Cover Texts or Back-Cover Texts, in the notice that says that the 
+Document is released under this License.
+
+A "Transparent" copy of the Document means a machine-readable copy, represented
+in a format whose specification is available to the general public, whose
+contents can be viewed and edited directly and straightforwardly with generic
+text editors or (for images composed of pixels) generic paint programs or (for
+drawings) some widely available drawing editor, and that is suitable for input
+to text formatters or for automatic translation to a variety of formats
+suitable for input to text formatters. A copy made in an otherwise Transparent
+file format whose markup has been designed to thwart or discourage subsequent
+modification by readers is not Transparent. A copy that is not "Transparent" is
+called "Opaque".
+
+Examples of suitable formats for Transparent copies include plain ASCII without
+markup, Texinfo input format, LaTeX input format, SGML or XML using a publicly
+available DTD, and standard-conforming simple HTML designed for human
+modification. Opaque formats include PostScript, PDF, proprietary formats that
+can be read and edited only by proprietary word processors, SGML or XML for
+which the DTD and/or processing tools are not generally available, and the
+machine-generated HTML produced by some word processors for output purposes
+only.
+
+The "Title Page" means, for a printed book, the title page itself, plus such
+following pages as are needed to hold, legibly, the material this License
+requires to appear in the title page. For works in formats which do not have
+any title page as such, "Title Page" means the text near the most prominent
+appearance of the work's title, preceding the beginning of the body of the
+text.
+
+-------------------------------------------------------------------------------
+
+2. VERBATIM COPYING
+
+You may copy and distribute the Document in any medium, either commercially or
+noncommercially, provided that this License, the copyright notices, and the
+license notice saying this License applies to the Document are reproduced in
+all copies, and that you add no other conditions whatsoever to those of this
+License. You may not use technical measures to obstruct or control the reading
+or further copying of the copies you make or distribute. However, you may
+accept compensation in exchange for copies. If you distribute a large enough
+number of copies you must also follow the conditions in section 3.
+
+You may also lend copies, under the same conditions stated above, and you may
+publicly display copies.
+
+-------------------------------------------------------------------------------
+
+3. COPYING IN QUANTITY
+
+If you publish printed copies of the Document numbering more than 100, and the
+Document's license notice requires Cover Texts, you must enclose the copies in
+covers that carry, clearly and legibly, all these Cover Texts: Front-Cover
+Texts on the front cover, and Back-Cover Texts on the back cover. Both covers
+must also clearly and legibly identify you as the publisher of these copies.
+The front cover must present the full title with all words of the title equally
+prominent and visible. You may add other material on the covers in addition.
+Copying with changes limited to the covers, as long as they preserve the title
+of the Document and satisfy these conditions, can be treated as verbatim
+copying in other respects.
+
+If the required texts for either cover are too voluminous to fit legibly, you
+should put the first ones listed (as many as fit reasonably) on the actual
+cover, and continue the rest onto adjacent pages.
+
+If you publish or distribute Opaque copies of the Document numbering more than
+100, you must either include a machine-readable Transparent copy along with
+each Opaque copy, or state in or with each Opaque copy a publicly-accessible
+computer-network location containing a complete Transparent copy of the
+Document, free of added material, which the general network-using public has
+access to download anonymously at no charge using public-standard network
+protocols. If you use the latter option, you must take reasonably prudent
+steps, when you begin distribution of Opaque copies in quantity, to ensure that
+this Transparent copy will remain thus accessible at the stated location until
+at least one year after the last time you distribute an Opaque copy (directly
+or through your agents or retailers) of that edition to the public.
+
+It is requested, but not required, that you contact the authors of the Document
+well before redistributing any large number of copies, to give them a chance to
+provide you with an updated version of the Document.
+
+-------------------------------------------------------------------------------
+
+4. MODIFICATIONS
+
+You may copy and distribute a Modified Version of the Document under the
+conditions of sections 2 and 3 above, provided that you release the Modified
+Version under precisely this License, with the Modified Version filling the
+role of the Document, thus licensing distribution and modification of the
+Modified Version to whoever possesses a copy of it. In addition, you must do
+these things in the Modified Version:
+
+  * A. Use in the Title Page (and on the covers, if any) a title distinct from
+    that of the Document, and from those of previous versions (which should, if
+    there were any, be listed in the History section of the Document). You may
+    use the same title as a previous version if the original publisher of that
+    version gives permission.
+   
+  * B. List on the Title Page, as authors, one or more persons or entities
+    responsible for authorship of the modifications in the Modified Version,
+    together with at least five of the principal authors of the Document (all
+    of its principal authors, if it has less than five).
+   
+  * C. State on the Title Page the name of the publisher of the Modified
+    Version, as the publisher.
+   
+  * D. Preserve all the copyright notices of the Document.
+   
+  * E. Add an appropriate copyright notice for your modifications adjacent to
+    the other copyright notices.
+   
+  * F. Include, immediately after the copyright notices, a license notice
+    giving the public permission to use the Modified Version under the terms of
+    this License, in the form shown in the Addendum below.
+   
+  * G. Preserve in that license notice the full lists of Invariant Sections and
+    required Cover Texts given in the Document's license notice.
+   
+  * H. Include an unaltered copy of this License.
+   
+  * I. Preserve the section entitled "History", and its title, and add to it an
+    item stating at least the title, year, new authors, and publisher of the 
+    Modified Version as given on the Title Page. If there is no section
+    entitled "History" in the Document, create one stating the title, year,
+    authors, and publisher of the Document as given on its Title Page, then add
+    an item describing the Modified Version as stated in the previous sentence.
+   
+  * J. Preserve the network location, if any, given in the Document for public
+    access to a Transparent copy of the Document, and likewise the network
+    locations given in the Document for previous versions it was based on.
+    These may be placed in the "History" section. You may omit a network
+    location for a work that was published at least four years before the
+    Document itself, or if the original publisher of the version it refers to
+    gives permission.
+   
+  * K. In any section entitled "Acknowledgements" or "Dedications", preserve
+    the section's title, and preserve in the section all the substance and tone
+    of each of the contributor acknowledgements and/or dedications given
+    therein.
+   
+  * L. Preserve all the Invariant Sections of the Document, unaltered in their
+    text and in their titles. Section numbers or the equivalent are not
+    considered part of the section titles.
+   
+  * M. Delete any section entitled "Endorsements". Such a section may not be
+    included in the Modified Version.
+   
+  * N. Do not retitle any existing section as "Endorsements" or to conflict in
+    title with any Invariant Section.
+   
+If the Modified Version includes new front-matter sections or appendices that
+qualify as Secondary Sections and contain no material copied from the Document,
+you may at your option designate some or all of these sections as invariant. To
+do this, add their titles to the list of Invariant Sections in the Modified
+Version's license notice. These titles must be distinct from any other section
+titles.
+
+You may add a section entitled "Endorsements", provided it contains nothing but
+endorsements of your Modified Version by various parties--for example,
+statements of peer review or that the text has been approved by an organization
+as the authoritative definition of a standard.
+
+You may add a passage of up to five words as a Front-Cover Text, and a passage
+of up to 25 words as a Back-Cover Text, to the end of the list of Cover Texts
+in the Modified Version. Only one passage of Front-Cover Text and one of
+Back-Cover Text may be added by (or through arrangements made by) any one
+entity. If the Document already includes a cover text for the same cover,
+previously added by you or by arrangement made by the same entity you are
+acting on behalf of, you may not add another; but you may replace the old one,
+on explicit permission from the previous publisher that added the old one.
+
+The author(s) and publisher(s) of the Document do not by this License give
+permission to use their names for publicity for or to assert or imply
+endorsement of any Modified Version .
+
+-------------------------------------------------------------------------------
+
+5. COMBINING DOCUMENTS
+
+You may combine the Document with other documents released under this License,
+under the terms defined in section 4 above for modified versions, provided that
+you include in the combination all of the Invariant Sections of all of the
+original documents, unmodified, and list them all as Invariant Sections of your
+combined work in its license notice.
+
+The combined work need only contain one copy of this License, and multiple
+identical Invariant Sections may be replaced with a single copy. If there are
+multiple Invariant Sections with the same name but different contents, make the
+title of each such section unique by adding at the end of it, in parentheses,
+the name of the original author or publisher of that section if known, or else
+a unique number. Make the same adjustment to the section titles in the list of
+Invariant Sections in the license notice of the combined work.
+
+In the combination, you must combine any sections entitled "History" in the
+various original documents, forming one section entitled "History"; likewise
+combine any sections entitled "Acknowledgements", and any sections entitled
+"Dedications". You must delete all sections entitled "Endorsements."
+
+-------------------------------------------------------------------------------
+
+6. COLLECTIONS OF DOCUMENTS
+
+You may make a collection consisting of the Document and other documents
+released under this License, and replace the individual copies of this License
+in the various documents with a single copy that is included in the collection,
+provided that you follow the rules of this License for verbatim copying of each
+of the documents in all other respects.
+
+You may extract a single document from such a collection, and dispbibute it
+individually under this License, provided you insert a copy of this License
+into the extracted document, and follow this License in all other respects
+regarding verbatim copying of that document.
+
+-------------------------------------------------------------------------------
+
+7. AGGREGATION WITH INDEPENDENT WORKS
+
+A compilation of the Document or its derivatives with other separate and
+independent documents or works, in or on a volume of a storage or distribution
+medium, does not as a whole count as a Modified Version of the Document,
+provided no compilation copyright is claimed for the compilation. Such a
+compilation is called an "aggregate", and this License does not apply to the
+other self-contained works thus compiled with the Document , on account of
+their being thus compiled, if they are not themselves derivative works of the
+Document. If the Cover Text requirement of section 3 is applicable to these
+copies of the Document, then if the Document is less than one quarter of the
+entire aggregate, the Document's Cover Texts may be placed on covers that
+surround only the Document within the aggregate. Otherwise they must appear on
+covers around the whole aggregate.
+
+-------------------------------------------------------------------------------
+
+8. TRANSLATION
+
+Translation is considered a kind of modification, so you may distribute
+translations of the Document under the terms of section 4. Replacing Invariant
+Sections with translations requires special permission from their copyright
+holders, but you may include translations of some or all Invariant Sections in
+addition to the original versions of these Invariant Sections. You may include
+a translation of this License provided that you also include the original
+English version of this License. In case of a disagreement between the
+translation and the original English version of this License, the original
+English version will prevail.
+
+-------------------------------------------------------------------------------
+
+9. TERMINATION
+
+You may not copy, modify, sublicense, or distribute the Document except as
+expressly provided for under this License. Any other attempt to copy, modify,
+sublicense or distribute the Document is void, and will automatically terminate
+your rights under this License. However, parties who have received copies, or
+rights, from you under this License will not have their licenses terminated so
+long as such parties remain in full compliance.
+
+-------------------------------------------------------------------------------
+
+10. FUTURE REVISIONS OF THIS LICENSE
+
+The Free Software Foundation may publish new, revised versions of the GNU Free
+Documentation License from time to time. Such new versions will be similar in
+spirit to the present version, but may differ in detail to address new problems
+or concerns. See http://www.gnu.org/copyleft/.
+
+Each version of the License is given a distinguishing version number. If the 
+Document specifies that a particular numbered version of this License "or any
+later version" applies to it, you have the option of following the terms and
+conditions either of that specified version or of any later version that has
+been published (not as a draft) by the Free Software Foundation. If the
+Document does not specify a version number of this License, you may choose any
+version ever published (not as a draft) by the Free Software Foundation.
+
+-------------------------------------------------------------------------------
+
+Addendum
+
+To use this License in a document you have written, include a copy of the
+License in the document and put the following copyright and license notices
+just after the title page:
+
+    Copyright © YEAR YOUR NAME.
+   
+    Permission is granted to copy, distribute and/or modify this document under
+    the terms of the GNU Free Documentation License, Version 1.1 or any later
+    version published by the Free Software Foundation; with the Invariant
+    Sections being LIST THEIR TITLES, with the Front-Cover Texts being LIST,
+    and with the Back-Cover Texts being LIST. A copy of the license is included
+    in the section entitled "GNU Free Documentation License".
+   
+If you have no Invariant Sections, write "with no Invariant Sections" instead
+of saying which ones are invariant. If you have no Front-Cover Texts, write "no
+Front-Cover Texts" instead of "Front-Cover Texts being LIST"; likewise for 
+Back-Cover Texts.
+
+If your document contains nontrivial examples of program code, we recommend
+releasing these examples in parallel under your choice of free software
+license, such as the GNU General Public License, to permit their use in free
+software.
+

@@ -1,0 +1,12 @@
+#! /bin/bash
+
+if type psnup >&/dev/null; then
+	echo "psnup -2 -pa4 $1 $2"
+	psnup -2 -pa4 $1 $2
+elif type psmulti >&/dev/null; then
+	echo "psmulti $1 > $2"
+	psmulti $1 > $2
+else
+	echo "cp $1 $2"
+	cp $1 $2
+fi

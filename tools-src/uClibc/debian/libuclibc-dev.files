@@ -1,0 +1,10 @@
+usr/*-linux-uclibc/include
+usr/*-linux-uclibc/lib/*.a
+usr/*-linux-uclibc/lib/libcrypt.so
+usr/*-linux-uclibc/lib/libdl.so
+usr/*-linux-uclibc/lib/libm.so
+usr/*-linux-uclibc/lib/libpthread.so
+usr/*-linux-uclibc/lib/libresolv.so
+usr/*-linux-uclibc/lib/libc.so
+usr/*-linux-uclibc/lib/libutil.so
+usr/*-linux-uclibc/lib/*.o

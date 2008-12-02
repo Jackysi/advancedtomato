@@ -1,0 +1,84 @@
+# File name	Caller	Syscall name	# args	Strong name	Weak names
+
+umount2		-	umount		2	__umount2	umount2
+
+# Whee! 64-bit systems naturally implement llseek.
+llseek		EXTRA	lseek		3	__libc_lseek64	__lseek llseek __lseek64 lseek64
+pread		-	pread		4	__libc_pread	__libc_pread64 __pread pread __pread64 pread64
+pwrite		-	pwrite		4	__libc_pwrite	__libc_pwrite64 __pwrite pwrite __pwrite64 pwrite64
+fstatfs		-	fstatfs		i:ip	__fstatfs	fstatfs fstatfs64 __fstatfs64
+statfs		-	statfs		i:sp	__statfs	statfs statfs64
+mmap		-	mmap		b:aniiii __mmap		mmap __mmap64 mmap64
+getpeername	-	getpeername	i:ipp	__getpeername	getpeername
+getpriority	-	getpriority	i:ii	__getpriority	getpriority
+ftruncate	-	ftruncate	2	__ftruncate	ftruncate ftruncate64 __ftruncate64
+truncate	-	truncate	2	truncate	truncate64
+getrlimit	-	getrlimit	2	__getrlimit	getrlimit getrlimit64
+setrlimit	-	setrlimit	2	__setrlimit	setrlimit setrlimit64
+
+# semaphore and shm system calls
+msgctl		-	msgctl		i:iip	__msgctl	msgctl
+msgget		-	msgget		i:ii	__msgget	msgget
+msgrcv		-	msgrcv		i:ibnii	__msgrcv	msgrcv
+msgsnd		-	msgsnd		i:ibni	__msgsnd	msgsnd
+shmat		-	shmat		i:ipi	__shmat		shmat
+shmctl		-	shmctl		i:iip	__shmctl	shmctl
+shmdt		-	shmdt		i:s	__shmdt		shmdt
+shmget		-	shmget		i:iii	__shmget	shmget
+semop		-	semop		i:ipi	__semop		semop
+semget		-	semget		i:iii	__semget	semget
+semctl		-	semctl		i:iiii	__semctl	semctl
+
+# proper socket implementations:
+accept		-	accept		i:iBN	__libc_accept	__accept accept
+bind		-	bind		i:ipi	__bind		bind
+connect		-	connect		i:ipi	__libc_connect	__connect connect
+getpeername	-	getpeername	i:ipp	__getpeername	getpeername
+getsockname	-	getsockname	i:ipp	__getsockname	getsockname
+getsockopt	-	getsockopt	i:iiiBN	__getsockopt	getsockopt
+listen		-	listen		i:ii	__listen	listen
+recv		-	recv		i:ibni	__libc_recv	__recv recv
+recvfrom	-	recvfrom	i:ibniBN	__libc_recvfrom	__recvfrom recvfrom
+recvmsg		-	recvmsg		i:ipi	__libc_recvmsg	recvmsg
+send		-	send		i:ibni	__libc_send	__send send
+sendmsg		-	sendmsg		i:ipi	__libc_sendmsg	sendmsg
+sendto		-	sendto		i:ibnibn	__libc_sendto	__sendto sendto
+setsockopt	-	setsockopt	i:iiibn	__setsockopt	setsockopt
+shutdown	-	shutdown	i:ii	__shutdown	shutdown
+socket		-	socket		i:iii	__socket	socket
+socketpair	-	socketpair	i:iiif	__socketpair	socketpair
+
+# DIG-compliant access to PCI configuration space:
+pciconfig_read	EXTRA	pciconfig_read	5	pciconfig_read
+pciconfig_write	EXTRA	pciconfig_write	5	pciconfig_write
+
+ptrace		-	ptrace		4	__ptrace	ptrace
+
+getresuid	-	getresuid	i:ppp	getresuid
+getresgid	-	getresgid	i:ppp	getresgid
+
+rt_sigaction	EXTRA	rt_sigaction	i:ippi	__syscall_rt_sigaction		rt_sigaction
+rt_sigpending	EXTRA	rt_sigpending	i:pi	__syscall_rt_sigpending		rt_sigpending
+rt_sigprocmask	EXTRA	rt_sigprocmask	i:ippi	__syscall_rt_sigprocmask	rt_sigprocmask
+rt_sigqueueinfo	EXTRA	rt_sigqueueinfo	i:iip	__syscall_rt_sigqueueinfo	rt_sigqueueinfo
+rt_sigsuspend	EXTRA	rt_sigsuspend	i:pi	__syscall_rt_sigsuspend		rt_sigsuspend
+rt_sigtimedwait	EXTRA	rt_sigtimedwait	i:pppi	__syscall_rt_sigtimedwait	rt_sigtimedwait
+
+# System calls with wrappers.
+s_execve	execve	execve		i:spp	__syscall_execve
+s_getcwd	getcwd	getcwd		i:pi	__syscall_getcwd	getcwd
+s_getdents	getdents getdents	i:ipi	__syscall_getdents	getdents
+s_getdents64	getdents64 getdents64	i:ipi	__syscall_getdents64
+s_mknod		xmknod	mknod		i:sii	__syscall_mknod
+s_readv		readv	readv		i:ipi	__syscall_readv
+s_writev	writev	writev		i:ipi	__syscall_writev
+s_poll		poll	poll		i:pii	__syscall_poll
+s_reboot	reboot	reboot		i:iii	__syscall_reboot
+s_ustat		ustat	ustat		i:ip	__syscall_ustat
+s_stat		xstat	stat		i:sp	__syscall_stat
+s_lstat		lxstat	lstat		i:sp	__syscall_lstat
+s_fstat		fxstat	fstat		i:ip	__syscall_fstat
+s_sysctl	sysctl	_sysctl		i:p	__syscall__sysctl
+
+# IA-64 specific
+getunwind	EXTRA	getunwind	i:pi	getunwind

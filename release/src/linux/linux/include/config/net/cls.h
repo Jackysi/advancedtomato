@@ -1,0 +1,1 @@
+#define CONFIG_NET_CLS 1

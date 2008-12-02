@@ -1,0 +1,510 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/loose.dtd"> 
+
+<HTML>
+<HEAD>
+<TITLE>uClibc -- a C library for embedded systems</TITLE>
+</HEAD>
+
+<body text="#000000" alink="#660000" link="#660000" bgcolor="#dee2de" vlink="#660000">
+
+<basefont face="lucida, helvetica, arial" size="3">
+
+
+<CENTER>
+<p>
+
+<TABLE BORDER=0 CELLSPACING=1 CELLPADDING=2>
+    <TR>
+	<td bgcolor="#000000">
+	  <FONT FACE="lucida, helvetica" COLOR="#ccccc0">
+	      <B>µ&nbsp;C&nbsp;l&nbsp;i&nbsp;b&nbsp;c</B>
+	  </FONT>
+	</TD>
+    </TR>
+</TABLE>
+<p>
+
+
+<!-- Begin Introduction section -->
+
+
+<TABLE WIDTH=95% CELLSPACING=1 CELLPADDING=4 BORDER=1>
+<TR><TD BGCOLOR="#ccccc0" ALIGN=center>
+    <A NAME="intro"> <BIG><B>
+    uClibc -- a C library for embedded systems
+    </font>
+    </A></B></BIG>
+</TD></TR>
+<TR><TD BGCOLOR="#eeeee0">
+
+<a href="http://www.uclibc.org">uClibc</a> (aka µClibc/pronounced
+yew-see-lib-see) is a C library for developing embedded Linux systems.
+It is much smaller than the 
+<a href="http://www.gnu.org/software/libc/libc.html">GNU C Library</a>,
+but nearly all applications supported by glibc also work perfectly with
+uClibc. Porting applications from glibc to uClibc typically involves
+just recompiling the source code. uClibc even supports shared libraries
+and threading.  It currently runs on <a href="http://kernel.org/">standard Linux</a> 
+and <a href="http://www.uclinux.org">MMU-less (also known as µClinux)</a>
+systems with support for alpha, ARM, i386, i960, h8300, m68k, mips/mipsel, 
+PowerPC, SH, SPARC, and v850 processors.
+<p>
+
+If you are building an embedded Linux system and you find that glibc is
+eating up too much space, you should consider using uClibc.  If you are
+building a huge fileserver with 12 Terabytes of storage, than using
+glibc may be a better choice...
+<p>
+
+uClibc is maintained by 
+<a href="http://www.codepoet.org/andersen/erik/erik.html">Erik Andersen</a>
+and is licensed under the 
+<a href="http://www.gnu.org/copyleft/lgpl.html">GNU LIBRARY GENERAL PUBLIC LICENSE</a>
+.  This license allows you to make closed source commercial applications using 
+uClibc (Please consider sharing some of the money you make ;-).  You do not need 
+to give away all your source code just because you use uClibc and/or run on Linux.
+
+<p>
+
+<h3>Mailing List Information</h3>
+
+uClibc has a <a href="/lists/uclibc/">mailing list</a>.<br>
+To subscribe, go and visit 
+<a href="http://www.uclibc.org/mailman/listinfo/uclibc">this page</a>.
+
+<p>
+
+<h3>Frequently Asked Questions</h3>
+
+Before asking questions on the uClibc mailing list,
+you might want to take a look at the 
+<a href="FAQ.html">list of Frequently Asked Questions</a>
+or 
+you might want to search the mailing list archives...
+<form method="GET" action="http://www.google.com/custom">
+<input type="hidden" name="domains" value="uclibc.org">
+<input type="hidden" name="sitesearch" value="uclibc.org">
+<a href="http://www.google.com"><img src="http://www.google.com/logos/Logo_25wht.gif" border="0" alt="Google" height="32" width="75" align="middle"></a>&nbsp;<input type="text" name="q" size="31" maxlength="255" value="">&nbsp;<input type="submit" name="sa" value="search the mailing list archives">...
+</form>
+
+<h3>Working Applications List</h3>
+
+    These days, pretty much everything compiles with uClibc.  This
+    is a <a href="uClibc-apps.html">list of applications</a> that are known 
+    to work just fine with uClibc.  Since most applications work just 
+    fine with uClibc, we are especially interested in knowing about any 
+    applications that either <em>do not compile</em> or <em>do not work</em> 
+    properly with uClibc.  Submissions are welcome!
+
+    
+    
+<!-- Begin Latest News section -->
+
+<TR><TD BGCOLOR="#ccccc0" ALIGN=center>
+    <A NAME="news">
+    <BIG><B>
+    Latest News</A> 
+    </B></BIG>
+    </A>
+</TD></TR>
+<TR><TD BGCOLOR="#eeeee0">
+
+<ul>
+
+    <p>
+    <li> <b>3 March 2003, uClibc 0.9.19 Released</b>
+    <br>
+
+    CodePoet Consulting is pleased to announce the immediate availability of
+    uClibc 0.9.19.  This is once again primarily a bug-fix release.  Several
+    critical problems with system calls were fixed, the pthreads library was
+    improved, debugging of applications using uClibc's pthreads library is
+    now possible (requires gdb 5.3 or newer that is compiled using uClibc),
+    and a number of other random fixes are included.  This release retains
+    binary compatibility with uClibc 0.9.18 (except for mips, which didn't
+    work properly with uClibc 0.9.18 anyways).  Updated development systems
+    images compiled with uClibc 0.9.19 will be released shortly.
+
+    <p>
+    As usual, the 
+    <a href="http://www.uclibc.org/downloads/Changelog">Changelog</a>
+    and <a href="http://www.uclibc.org/downloads/uClibc-0.9.19.tar.bz2">source code</a> 
+    for this release are available <a href="http://www.uclibc.org/downloads/">here</a>.
+    You might want to download uClibc from the closest 
+    <a href="http://kernel.org/mirrors/">kernel.org mirror site</a>.
+    Just pick the closest mirror site, and then go to 
+    <a href="http://www.kernel.org/pub/linux/libs/uclibc/">
+    http://www.XX.kernel.org/pub/linux/libs/uclibc/</a>
+    to download uClibc, where XX is your two letter country code.
+    <p>
+    <p>
+
+    <p>
+    <li> <b>17 February 2003, development system updates</b>
+    <br>
+
+    The uClibc development systems for
+    <a href="http://www.uclibc.org/downloads/root_fs-i386.bz2">i386</a>
+    and 
+    <a href="http://www.uclibc.org/downloads/root_fs-powerpc.bz2">powerpc</a>,
+    and
+    <a href="http://www.uclibc.org/downloads/root_fs-arm.bz2">arm</a>
+    have been again updated.  This time around a few broken symlinks
+    (one preventing C++ code from compiling) have been fixed, several
+    system calls related to uids and gid have been fixed, the powerpc
+    system call mechanism has been updated, and GNU tar and GNU grep
+    have been added.  gcc, gcc+, ssh, etc are all still included and
+    things remain binary compatible with uClibc 0.9.18.
+    Have Fun.
+    <p>
+
+
+    <p>
+    <li> <b>12 February 2003, development system updates</b>
+    <br>
+
+    The uClibc development system has had a number of problems
+    fixed, and has been updated for uClibc 0.9.18.  The 
+    <a href="http://www.uclibc.org/downloads/root_fs-i386.bz2">i386</a>
+    and 
+    <a href="http://www.uclibc.org/downloads/root_fs-powerpc.bz2">powerpc</a>,
+    and
+    <a href="http://www.uclibc.org/downloads/root_fs-arm.bz2">arm</a>
+    devel systems are updated and ready to download and use.
+    Have Fun.
+    <p>
+
+
+    <p>
+    <li> <b>12 February 2003, uClibc 0.9.18 Released</b>
+    <br>
+
+    CodePoet Consulting is pleased to announce the immediate availability of
+    uClibc 0.9.18.  This is primarily a bug-fix release, as there were a few
+    directory handling problem that could cause application using uClibc 0.9.17
+    to either segfault or lose the first character when reading directry names.
+    Unfortunately, once again, this release is _NOT_ binary compatible with
+    earlier uClibc releases.  I _think this will be the last time (with the
+    possible exception of some future changes to our locale support...)
+
+    <p>
+    As usual, the 
+    <a href="http://www.uclibc.org/downloads/Changelog">Changelog</a>
+    and <a href="http://www.uclibc.org/downloads/uClibc-0.9.18.tar.bz2">source code</a> 
+    for this release are available <a href="http://www.uclibc.org/downloads/">here</a>.
+    You might want to download uClibc from the closest 
+    <a href="http://kernel.org/mirrors/">kernel.org mirror site</a>.
+    Just pick the closest mirror site, and then go to 
+    <a href="http://www.kernel.org/pub/linux/libs/uclibc/">
+    http://www.XX.kernel.org/pub/linux/libs/uclibc/</a>
+    to download uClibc, where XX is your two letter country code.
+    <p>
+    <p>
+
+    <p>
+    <li> <b>25 January 2003, uClibc 0.9.17 Released</b>
+    <br>
+
+    CodePoet Consulting is pleased to announce the immediate availability of
+    uClibc 0.9.17.  The biggest piece of news with this release, thanks to
+    Manuel Novoa's continuing hard work, is that we now have fully standards
+    compliant locale support (optional of course).  The support works nicely,
+    (though configuring the locales you wish to support is still manual -- a
+    task for the next release).  Full locale data for over 300 locales adds
+    approximately 250k.  The collation data for all supported locales is
+    roughly 180k.  This may seem rather large to some -- but it is much smaller
+    than the approximately 40 MB needed by Glibc to provide the same data.  And
+    if you don't need it, you can either disable locale support entirely, or
+    enable a smaller set of locales. 
+
+    <p>
+
+    This release also fixes <em>lots and lots</em> of bugs.  The arm
+    architecture support (I am embarrassed to note) was totally broken in the
+    last release, but is now working as expected.   A security problem (a
+    buffer overflow in getlogin_r) was fixed.  And there were architecture
+    updates across the board (x86, arm, powerpc, cris, h8300, sparc, and mips).
+    And of course, this release includes the usual pile of bug fixes.  Many
+    thanks for the large number of patches and fixes that were contributed!
+
+    <p>
+
+    Unfortunately, this release is not binary compatible with earlier uClibc
+    releases.  As noted as item 3 <a href="downloads/Glibc_vs_uClibc_Differences.txt">here</a>, 
+    uClibc does not (yet) attempt to
+    ensure binary compatibility across releases.  We will eventually do that
+    (once we reach the "1.0" release) but not yet.  A few bugs turned up that
+    needed to be fixed, and the only good way to fix them was to change some
+    fundamental data structure sizes.  As a result, this release is _NOT_
+    binary compatible with earlier releases -- you will need to recompile your
+    applications.  The x86, arm, powerpc, and mips architectures (i.e. the
+    systems Erik has available in his office for testing) have been tested and
+    are known to work following this change.  Other architectures <em>may</em> 
+    need additional updates.  Sorry about that, but it had to be done.  
+
+    <p>
+    As usual, the 
+    <a href="http://www.uclibc.org/downloads/Changelog">Changelog</a>
+    and <a href="http://www.uclibc.org/downloads/uClibc-0.9.17.tar.bz2">source code</a> 
+    for this release are available <a href="http://www.uclibc.org/downloads/">here</a>.
+    You might want to download uClibc from the closest 
+    <a href="http://kernel.org/mirrors/">kernel.org mirror site</a>.
+    Just pick the closest mirror site, and then go to 
+    <a href="http://www.kernel.org/pub/linux/libs/uclibc/">
+    http://www.XX.kernel.org/pub/linux/libs/uclibc/</a>
+    to download uClibc, where XX is your two letter country code.
+    <p>
+
+
+    
+    <p> <li> <b>Old News</b>
+    <br>
+
+    <a href="old-news.html">Click here to read older news</a>.
+    <p>
+
+
+</ul>
+
+
+<!-- Begin Sponsors section -->
+
+<TR><TD BGCOLOR="#ccccc0" ALIGN=center>
+    <A NAME="sponsors"><BIG><B>
+    Sponsors
+    </A></B></BIG>
+</TD></TR>
+<tr><td bgcolor="#EEEEE0">
+
+    Please visit our sponsors and thank them for their support! They have
+    provided money, equipment, bandwidth, etc. Next time you need help with a
+    project, consider these fine companies!  Several individuals have also
+    contributed (If you have contributed and would like your name added here,
+    just email Erik and let him know).
+
+    <ul>
+      <li><a href="http://www.penguru.net">Penguru Consulting</a><br>
+      Custom development for embedded Linux systems and multimedia platforms</li>
+
+      <li><a href="http://opensource.se/">opensource.se</a><br>
+      Embedded open source consulting in Europe.</li>
+
+      <li><a href="http://www.codepoet-consulting.com">Codepoet Consulting</a><br>
+      Custom Linux, embedded Linux, BusyBox, and uClibc development.</li>
+    </ul>
+
+    <table CELLSPACING=6 CELLPADDING=6 BORDER=0><tr>
+    <td>
+    Do you like uClibc?  Do you need support?  Do you need some feature
+    added?   Then why not help out?  We are happy to accept donations
+    (such as bandwidth, mirrors sites, and hardware for the various
+    architectures).  We can also provide support contracts, and implement 
+    funded feature requests.  To contribute, you can either click on the 
+    Donate image to donate using PayPal, or you can contact Erik at 
+    <a href="http://codepoet-consulting.com/">CodePoet Consulting</a> 
+    (we have a credit card machine so you can avoid PayPal if you wish).
+    </td>
+
+    <td>
+    <!-- Begin PayPal Logo -->
+    <form action="https://www.paypal.com/cgi-bin/webscr" method="post">
+	<input type="hidden" name="cmd" value="_xclick">
+	<input type="hidden" name="business" value="andersen@codepoet.org">
+	<input type="hidden" name="item_name" value="Support uClibc">
+	<input type="hidden" name="image_url" value="https://codepoet-consulting.com/images/codepoet.png">
+	<input type="hidden" name="no_shipping" value="1">
+	<input type="image" src="images/donate.png" border="0" name="submit" alt="Make donation using PayPal">
+    </form>
+    </td>
+    <!-- End PayPal Logo -->
+    
+    </tr>
+    </table>
+
+    
+
+<!-- Begin Download section -->
+
+<TR><TD BGCOLOR="#ccccc0" ALIGN=center>
+    <A NAME="download"><BIG><B>
+    Download
+    </A></B></BIG>
+</TD></TR>
+<TR><TD BGCOLOR="#eeeee0">
+<ul>
+    <li> Source for the latest release can always be downloaded from 
+	<a href="downloads/">http://www.uclibc.org/downloads</a>
+
+    <li> A <a href="downloads/snapshots/">daily snapshot of the source</a> is 
+	available for those wishing to follow uClibc developments, but cannot 
+	or do not wish to use CVS.
+
+    <li> uClibc has a publically <a href="/cgi-bin/cvsweb/uClibc/">browsable CVS tree</a>.
+
+    <li> <a href="cvs_anon.html">Anonymous CVS access</a> is available to let you track development.
+    <li> <a href="cvs_write.html">CVS write access</a> is also available for those that are actively
+	contributing.
+</ul>
+
+    
+
+<!-- Begin Toolchain section -->
+
+<TR><TD BGCOLOR="#ccccc0" ALIGN=center>
+    <A NAME="toolchain"><BIG><B>
+    Toolchains
+    </A></B></BIG>
+</TD></TR>
+<TR><TD BGCOLOR="#eeeee0">
+<ul>
+
+    <li>Steven J. Hill has kindly provided 
+	<a href="ftp://ftp.realitydiluted.com/linux/MIPS/toolchains">RPMs and SRPMs</a>
+	with toolchains for mips.
+
+    <li>You can build your own 
+	<a href="/cgi-bin/cvsweb/toolchain/">uClibc toolchain</a>
+	using these Makefiles which automagically download all the source
+	needed code and compile it for you.
+
+    <li>uClibc development systems for
+	<a href="http://www.uclibc.org/downloads/root_fs-i386.bz2">i386</a>
+	and 
+	<a href="http://www.uclibc.org/downloads/root_fs-powerpc.bz2">powerpc</a>,
+	and
+	<a href="http://www.uclibc.org/downloads/root_fs-arm.bz2">arm</a>
+	are available and contain complete gcc 3.2.2 toolchains. 
+
+    <li>You can compile your own uClibc development system using
+	<a href="/cgi-bin/cvsweb/buildroot/">buildroot</a>.
+
+</ul>
+
+    
+
+<!-- Begin Links section -->
+
+<TR><TD BGCOLOR="#ccccc0" ALIGN=center>
+    <A NAME="links">
+    <BIG><B>
+    Other Open Source C libraries:
+    </A>
+    </B></BIG>
+    </A>
+</TD></TR>
+<TR><TD BGCOLOR="#eeeee0">
+
+
+I am currently aware of the following open source C libraries.
+
+<ul> 
+
+
+<li><a href="http://www.gnu.org/software/libc/libc.html">GNU C Library (aka glibc)</a> 
+<li> <a href="http://www.k9wk.com/cdoc.html">Al's FREE C Runtime Library</a>
+<li><a href="http://www.fefe.de/dietlibc/">diet libc </a>
+<li>the <a href="http://www.cs.vu.nl/~ast/minix.html">minix</a> 
+    <a href="http://www.cs.vu.nl/cgi-bin/raw/pub/minix/2.0.0/src.tar"
+    >C library</a>
+<li> <a href="http://sources.redhat.com/newlib/">newlib</a>
+<li>and there is a  
+    <a href="ftp://sourceware.cygnus.com/pub/ecos/">C library</a>, for
+    <a href="http://sources.redhat.com/ecos/">eCos</a> as well.
+
+<ul>
+
+
+
+<!-- Begin Links section -->
+
+<TR><TD BGCOLOR="#ccccc0" ALIGN=center>
+    <A NAME="links">
+    <BIG><B>
+    Links to other useful stuff
+    </A>
+    </B></BIG>
+    </A>
+</TD></TR>
+<TR><TD BGCOLOR="#eeeee0">
+
+<ul> 
+
+    <li> <a href="http://www.uclibc.org/">The uClibc home page</a>
+    <p>
+
+    <li> <a href="/cgi-bin/cvsweb/uClibc/">The uClibc CVS tree</a>
+    <p>
+
+    <li> <a href="http://busybox.net/">BusyBox</a>
+    <p>
+
+    <li> <a href="http://udhcp.busybox.net/">udhcp</a>
+    <p>
+
+    <li> <a href="http://www.uclinux.org/">The uClinux home page</a>
+    <p>
+
+    <li> <a href="http://cvs.uclinux.org/">The uClinux CVS repository</a>
+    <p>
+
+    <li> <a href="http://codepoet-consulting.com/">CodePoet Consulting</a>
+    <p>
+
+</ul>
+
+
+
+<!-- End of Table -->
+
+</TD></TR>
+</TABLE>
+</P>
+
+
+
+<!-- Footer -->
+<HR>
+<TABLE WIDTH="100%">
+    <TR>
+	<TD>
+	    <font size="-1" face="arial, helvetica, sans-serif">
+	    Mail all comments, insults, suggestions and bribes to 
+	    <a href="mailto:andersen@codepoet.org">Erik Andersen</a><BR>
+	    </font>
+	</TD>
+
+	<TD>
+	    <a href="http://www.vim.org"><img border=0 width=90 height=36
+	    src="images/written.in.vi.png" 
+	    alt="This site created with the vi editor"></a>
+	</TD>
+
+	<TD>
+	    <a href="http://www.gimp.org/"><img border=0 width=90 height=36
+	    src="images/gfx_by_gimp.png" alt="Graphics by GIMP"></a>
+	</TD>
+
+	<TD>
+	    <a href="http://www.linuxtoday.com"><img width=90 height=36
+	    src="images/ltbutton2.png" alt="Linux Today"></a>
+	</TD>
+
+	<TD>
+	    <p><a href="http://slashdot.org"><img width=90 height=36
+	    src="images/sdsmall.png" alt="Slashdot"></a>
+	</TD>
+
+	<TD>
+	    <a href="http://freshmeat.net"><img width=90 height=36
+	    src="images/fm.mini.png" alt="Freshmeat"></a>
+	</TD>
+
+    </TR>
+</TABLE>
+
+
+</CENTER>
+</BODY>
+</HTML>
+
+ 

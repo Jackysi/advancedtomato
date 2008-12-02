@@ -1,0 +1,1 @@
+TARGET_LIBGCC2_CFLAGS = -O2 -mfloat32

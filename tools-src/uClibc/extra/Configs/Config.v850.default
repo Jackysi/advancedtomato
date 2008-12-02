@@ -1,0 +1,59 @@
+#
+# Automatically generated make config: don't edit
+#
+
+#
+# Target Architecture Features and Options
+#
+HAVE_ELF=y
+ARCH_HAS_NO_MMU=y
+ARCH_HAS_NO_FPU=y
+ARCH_HAS_C_SYMBOL_PREFIX=y
+HAVE_NO_PIC=y
+CROSS="v850e-elf-"
+UCLIBC_HAS_FLOATS=y
+UCLIBC_HAS_SOFT_FLOAT=y
+# DO_C99_MATH is not set
+WARNINGS="-Wall"
+KERNEL_SOURCE="/usr/src/linux"
+UCLIBC_UCLINUX_BROKEN_MUNMAP=y
+EXCLUDE_BRK=y
+C_SYMBOL_PREFIX="_"
+
+#
+# General Library Settings
+#
+# UCLIBC_HAS_THREADS is not set
+UCLIBC_HAS_LFS=y
+MALLOC=y
+# MALLOC_930716 is not set
+HAS_SHADOW=y
+UCLIBC_HAS_REGEX=y
+UNIX98PTY_ONLY=y
+# ASSUME_DEVPTS is not set
+
+#
+# Networking Support
+#
+UCLIBC_HAS_IPV6=y
+UCLIBC_HAS_RPC=y
+UCLIBC_HAS_FULL_RPC=y
+
+#
+# String and Stdio Support
+#
+# UCLIBC_HAS_WCHAR is not set
+# USE_OLD_VFPRINTF is not set
+
+#
+# Library Installation Options
+#
+DEVEL_PREFIX="/usr/local/v850-uclibc"
+SYSTEM_DEVEL_PREFIX="/usr/local"
+DEVEL_TOOL_PREFIX="$(DEVEL_PREFIX)"
+
+#
+# uClibc hacking options
+#
+DODEBUG=y
+# DOASSERTS is not set

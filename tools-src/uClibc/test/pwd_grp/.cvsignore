@@ -1,0 +1,11 @@
+test_grp
+test_grp.o
+test_grp.out
+test_grp_glibc
+test_grp_glibc.o
+test_grp_glibc.out
+test_pwd
+test_pwd.out
+test_pwd_glibc
+test_pwd_glibc.out
+

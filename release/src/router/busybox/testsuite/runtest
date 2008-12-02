@@ -1,0 +1,113 @@
+#!/bin/sh
+
+PATH=$(dirname $(pwd)):$PATH
+
+show_result ()
+{
+	local resolution=$1
+	local testcase=$2
+	local status=0
+
+	if [ $resolution = XPASS -o $resolution = FAIL ]; then
+		status=1
+	fi
+
+	if [ "$verbose" -o $status -eq 1 ]; then
+		echo "$resolution: $testcase"
+	fi
+
+	return $status
+}
+
+run_applet_testcase ()
+{
+	local applet=$1
+	local testcase=$2
+
+	local status=0
+	local X=
+
+	local uc_applet=$(echo $applet | tr a-z A-Z)
+	local testname=$(basename $testcase)
+
+	if grep -q "^# CONFIG_${uc_applet} is not set$" ../.config; then
+		show_result UNTESTED $testname
+		return 0
+	fi
+
+	if grep -q "^# FEATURE: " $testcase; then
+		local feature=`sed -ne 's/^# FEATURE: //p' $testcase`
+
+		if grep -q "^# ${feature} is not set$" ../.config; then
+			show_result UNTESTED $testname
+			return 0
+		fi
+	fi
+
+	if grep -q "^# XFAIL$" $testcase; then
+		X=X
+	fi
+
+	mkdir tmp
+	pushd tmp >/dev/null
+
+	if . ../$testcase >/dev/null 2>&1; then
+		show_result ${X}PASS $testname
+		status=$?
+	else
+		show_result ${X}FAIL $testname
+		status=$?
+	fi
+
+	popd >/dev/null
+	rm -rf tmp
+
+	return $status
+}
+
+run_applet_tests ()
+{
+	local applet=$1
+
+	local status=0
+
+	for testcase in $applet/*; do
+		if [ "$testcase" = "$applet/CVS" ]; then
+			continue
+		fi
+
+		if run_applet_testcase $applet $testcase; then
+			:
+		else
+			status=1
+		fi
+	done
+
+	return $status
+}
+
+
+status=0
+
+if [ x"$1" = x"-v" ]; then
+	verbose=1
+	shift
+fi
+
+if [ $# -ne 0 ]; then
+	applets="$@"
+else
+	applets="*"
+fi
+
+for applet in $applets; do
+	if [ "$applet" != CVS -a -d "$applet" ]; then
+		if run_applet_tests $applet; then
+			:
+		else
+			status=1
+		fi
+	fi
+done
+
+exit $status

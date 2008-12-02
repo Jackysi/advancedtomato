@@ -1,0 +1,1 @@
+#undef  CONFIG_NCPFS_NFS_NS

@@ -1,0 +1,60 @@
+
+  uClibc - a Small C Library for Linux
+  Erik Andersen <andersen@codepoet.org>
+
+uClibc (aka µClibc/pronounced yew-see-lib-see) is a C library for
+developing embedded Linux systems. It is much smaller than the
+GNU C Library, but nearly all applications supported by glibc
+also work perfectly with uClibc. Porting applications from glibc
+to uClibc typically involves just recompiling the source code.
+uClibc even supports shared libraries and threading. It currently
+runs on standard Linux and MMU-less (also known as µClinux)
+systems with support for alpha, ARM, i386, i960, h8300, m68k,
+mips/mipsel, PowerPC, SH, SPARC, and v850 processors.
+
+If you are building an embedded Linux system and you find that
+glibc is eating up too much space, you should consider using
+uClibc. If you are building a huge fileserver with 12 Terabytes
+of storage, then using glibc may be a better choice...
+
+uClibc is maintained by Erik Andersen and is licensed under the
+GNU LIBRARY GENERAL PUBLIC LICENSE . This license allows you to
+make closed source commercial applications using uClibc (Please
+consider sharing some of the money you make ;-). You do not need
+to give away all your source code just because you use uClibc
+and/or run on Linux. 
+
+
+For installation instructions, see the file INSTALL.
+
+This distribution contains a wrapper for gcc and ld that allows you
+to use existing toolchains that were targetted for glibc.  See
+extra/gcc-uClibc/ for information.
+
+uClibc strives to be standards compliant, which means that most
+documentation written for functions in glibc also applies to uClibc
+functions.  However, many GNU extensions are not supported because
+they have not been ported, or more importantly, would increase the
+size of uClibc disproportional to the added functionality.
+
+Additional information (recent releases, FAQ, mailing list, bugs,
+etc.) can be found at http://www.uclibc.org/.
+
+uClibc may be freely modified distributed under the terms of the
+GNU Library General Public License, which can be found in the
+file COPYING.LIB.
+
+Please Note:
+
+	There is an unwholesomely huge amount of code out there
+	that depends on the presence of GNU libc header files.
+	We have GNU libc header files.  So we have committed a
+	horrible sin in uClibc.  We _lie_ and claim to be GNU
+	libc in order to force these applications to work as their
+	developers intended.  This is IMHO, pardonable, since
+	these defines are not really intended to check for the
+	presence of a particular library, but rather are used to
+	define an _interface_.  Some programs are especially 
+	chummy with glibc, and may need this behavior disabled 
+	by adding CFLAGS+=-D__FORCE_NOGLIBC
+

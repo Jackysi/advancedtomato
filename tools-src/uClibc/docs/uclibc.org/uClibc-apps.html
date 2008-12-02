@@ -1,0 +1,1034 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/loose.dtd"> 
+
+<HTML>
+<HEAD>
+<TITLE>uClibc -- a C library for embedded systems</TITLE>
+</HEAD>
+
+<body text="#000000" alink="#660000" link="#660000" bgcolor="#dee2de" vlink="#660000">
+
+<basefont face="lucida, helvetica, arial" size="3">
+
+
+<CENTER>
+<p>
+
+<TABLE BORDER=0 CELLSPACING=1 CELLPADDING=2>
+    <TR>
+	<td bgcolor="#000000">
+	  <FONT FACE="lucida, helvetica" COLOR="#ccccc0">
+	      <B>µ&nbsp;C&nbsp;l&nbsp;i&nbsp;b&nbsp;c</B>
+	  </FONT>
+	</TD>
+    </TR>
+</TABLE>
+<p>
+
+
+<!-- Begin NOT Working List -->
+
+
+<TABLE WIDTH=95% CELLSPACING=1 CELLPADDING=4 BORDER=1>
+<TR><TD BGCOLOR="#ccccc0" ALIGN=center>
+    <A NAME="notworking"> <BIG><B>
+    uClibc -- NOT WORKING Application List
+    </font>
+    </A></B></BIG>
+</TD></TR>
+<TR><TD BGCOLOR="#eeeee0">
+
+<p> The following applications are known to NOT work with uClibc. Please 
+tell us if you know of any applications that fall into this category! </p>
+<br>
+When you are done, <a href="http://www.uclibc.org/">you can click here to return 
+to the uClibc home page.</a>
+
+
+
+<!-- Not Working List -->
+<center>
+<table width="100%" border=1>
+<tr><th width="15%"> Program </th>
+    <th width="15%"> Version </th>
+    <th width="70%"> Comment </th>
+</tr>    
+<!-- -------------------------------------------------------------------- -->
+<tr>
+  <td> <a href="http://www.mozilla.org/">Mozilla</a> </td>
+  <td> &nbsp;</td>
+  <td> Might actually work now that pthreads are working.  Someone care to give it a try?</td>
+</tr>
+<tr>
+  <td> Dunno....</a> </td>
+  <td> &nbsp;</td>
+  <td> If you know of an application that <em>does not work</em> with uClibc, let me know. </td>
+</tr>
+<!-- -------------------------------------------------------------------- -->
+
+</table>
+</center>
+<!-- End of NOT Working List -->
+
+<!-- End of Table -->
+
+</TD></TR>
+</TABLE>
+</P>
+
+
+<TABLE WIDTH=95% CELLSPACING=1 CELLPADDING=4 BORDER=1>
+<TR><TD BGCOLOR="#ccccc0" ALIGN=center>
+    <A NAME="applications"> <BIG><B>
+    uClibc -- WORKING Application List
+    </font>
+    </A></B></BIG>
+</TD></TR>
+<TR><TD BGCOLOR="#eeeee0">
+
+<p> The following applications are known to work with uClibc, either out of the
+box or with a patch. Please tell us if you have experience with other versions
+(especially with newer ones) or with programs not listed below! </p>
+
+<!-- Application List -->
+<center>
+<table width="100%" border=1>
+<tr><th width="15%"> Program </th>
+    <th width="15%"> Version </th>
+    <th width="15%"> Needs Patch </th>
+    <th width="55%"> Comment </th>
+</tr>    
+
+<!-- -------------------------------------------------------------------- -->
+<tr>
+  <td> Lots of other applications!</a> </td>
+  <td> &nbsp;</td>
+  <td> &nbsp;</td>
+  <td> If you use an application with uClibc, let me know. </td>
+</tr>
+<!-- -------------------------------------------------------------------- -->
+<tr>
+  <td> <a href="http://www.busybox.net/">BusyBox</a> </td>
+  <td> <a href="http://www.busybox.net/downloads/busybox-0.60.3.tar.gz">busybox-0.60.3.tar.bz2</a> </td>
+  <td> &nbsp;</td>
+  <td> Busybox is a small replacement for most major Unix tools. All 
+       versions of BusyBox work with uClibc without changes. 
+  </td>
+</tr>
+<!-- -------------------------------------------------------------------- -->
+<tr>
+  <td> <a href="http://tinylogin.busybox.net">TinyLogin</a> </td>
+  <td> <a href="http://tinylogin.busybox.net/downloads/snapshots/tinylogin-snapshot.tar.gz">tinylogin-snapshot.tar.gz</a> </td>
+  <td> &nbsp;</td>
+  <td> A small replacement for login, getty, passwd, adduser, deluser, etc. </td>
+</tr>
+<!-- -------------------------------------------------------------------- -->
+<tr>
+  <td> <a href="http://udhcp.busybox.net/">uDHCP</a> </td>
+  <td> <a href="http://udhcp.busybox.net/downloads/udhcp-0.9.8.tar.gz">udhcp-0.9.8.tar.gz</a></td>
+  <td> &nbsp;</td>
+  <td> A tiny but fully RFC compliant DHCP client and/or server. </td>
+</tr>
+<!-- -------------------------------------------------------------------- -->
+<tr>
+  <td> <a href="http://www.boa.org/">boa webserver</a> </td>
+  <td> <a href="http://www.boa.org/boa-0.94.11.tar.gz">boa-0.94.11.tar.gz</a> </td>
+  <td> &nbsp;</td>
+  <td>Boa is a very small, high performance web server.</td>
+</tr>
+<!-- -------------------------------------------------------------------- -->
+<tr>
+    <td> <a href="http://xfree.org/">XFree86</a> </td>
+  <td> &nbsp;</td>
+  <td> <a href="http://tuxscreen.net/wiki/view/Main/BuildingTinyX">TinyX + uClibc howto</a></td>
+  <td> XFree86 is the underlying software that is between the hardware and graphical user 
+      interface (aka gui) that people see and use.  It provides the standard windowing
+      system for most Linux systems.</td>
+</tr>
+<!-- -------------------------------------------------------------------- -->
+<tr>
+  <td> <a href="http://www.gnu.org/software/fileutils/fileutils.html">GNU Fileutils</a> </td>
+  <td> <a href="ftp://ftp.gnu.org/gnu/fileutils/fileutils-4.1.tar.gz">fileutils-4.1.tar.gz</a> </td>
+  <td> <a href="http://www.uclibc.org/lists/uclibc/2002-February/004806.html">patch information</td>
+  <td> The GNU File Utilities provide basic file-manipulation commands.</td>
+</tr>
+<!-- -------------------------------------------------------------------- -->
+<tr>
+  <td> <a href="http://www.gnu.org/software/shellutils/shellutils.html">GNU shellutils</a> </td>
+  <td> <a href="ftp://ftp.gnu.org/gnu/sh-utils/">sh-utils-2.0.tar.gz</a> </td>
+  <td> &nbsp; </td>
+  <td> The GNU Shell Utilities provide basic shell-manipulation commands.
+  </td>
+</tr>
+<!-- -------------------------------------------------------------------- -->
+<tr>
+  <td> <a href="http://www.gnu.org/software/findutils/findutils.html">GNU findutils</a> </td>
+  <td> <a href="ftp://ftp.gnu.org/gnu/findutils/findutils-4.1.tar.gz">findutils-4.1.tar.gz</a> </td>
+  <td> &nbsp; </td>
+  <td> Provides find, locate, and xargs</td>
+</tr>
+<!-- -------------------------------------------------------------------- -->
+<tr>
+  <td> <a href="http://www.gnu.org/software/textutils/textutils.html">GNU Textutils </a> </td>
+  <td> <a href="ftp://ftp.gnu.org/gnu/textutils/textutils-2.1.tar.gz">textutils-2.1.tar.gz</a> </td>
+  <td> &nbsp; </td>
+  <td> The GNU Text Utilities provide basic text-manipulation commands. </td>
+</tr>
+<!-- -------------------------------------------------------------------- -->
+<tr>
+  <td> <a href="http://freshmeat.net/projects/util-linux/">util-linux</a> </td>
+  <td> <a href="ftp://ftp.win.tue.nl/pub/home/aeb/linux-local/utils/util-linux/util-linux-2.11u.tar.gz">util-linux-2.11u.tar.gz</a> </td>
+  <td> disable "ENABLE_WIDECHAR" in defines.h</td>
+      <td>A suite of essential utilities for any Linux system.</td>
+</tr>
+<!-- -------------------------------------------------------------------- -->
+<tr>
+  <td> <a href="http://www.gnu.org/software/grep/grep.html">GNU grep</a> </td>
+  <td> <a href="ftp://ftp.gnu.org/pub/gnu/grep/grep-2.4.2.tar.gz">grep-2.4.2.tar.gz</a> </td>
+  <td> &nbsp; </td>
+  <td> Grep searches one or more input files for lines containing a match to a specified pattern.
+  </td>
+</tr>
+<!-- -------------------------------------------------------------------- -->
+<tr>
+  <td> <a href="http://www.gnu.org/software/sed/sed.html"></a> </td>
+  <td> <a href="ftp://ftp.gnu.org/pub/gnu/sed/sed-3.02.tar.gz">sed-3.02.tar.gz</a> </td>
+  <td> &nbsp; </td>
+  <td> Sed (streams editor) is a tool to filter and modify text streams </td>
+</tr>
+<!-- -------------------------------------------------------------------- -->
+<tr>
+  <td> <a href="http://www.gnu.org/software/gzip/gzip.html">Gzip</a> </td>
+  <td> <a href="ftp://ftp.gnu.org/pub/gnu/gzip/gzip-1.2.4a.tar.gz">gzip-1.2.4a.tar.gz</a> </td>
+  <td> &nbsp; </td>
+  <td> gzip (GNU zip) is a popular data compression program (version 1.3.3 is also OK)
+  </td>
+</tr>
+<!-- -------------------------------------------------------------------- -->
+<tr>
+  <td> <a href="http://sources.redhat.com/bzip2/">Bzip2</a> </td>
+  <td> <a href="ftp://sources.redhat.com/pub/bzip2/v102/bzip2-1.0.2.tar.gz">bzip2-1.0.2.tar.gz</a> </td>
+  <td> &nbsp; </td>
+  <td> bzip2 is a freely available, patent free (see below), high-quality 
+  data compressor. It typically compresses files to within 10% to 15% of the 
+  best available techniques (the PPM family of statistical compressors), whilst 
+  being around twice as fast at compression and six times faster at decompression.</td>
+</tr>
+<!-- -------------------------------------------------------------------- -->
+<tr>
+  <td> <a href="http://www.gzip.org/zlib/">zlib</a> </td>
+  <td> <a href="ftp://ftp.info-zip.org/pub/infozip/zlib/zlib-1.1.4.tar.gz">zlib-1.1.4.tar.gz</a> </td>
+  <td> &nbsp;</td>
+  <td> zlib is a very popular compression library that uses the same underlying methods as gzip. </td>
+</tr>
+<!-- -------------------------------------------------------------------- -->
+<tr>
+  <td> <a href="http://www.gnu.org/software/tar/tar.html">GNU tar</a> </td>
+  <td> <a href="ftp://ftp.gnu.org/pub/gnu/tar/tar-1.13.tar.gz">tar-1.13.tar.gz</a> </td>
+  <td> &nbsp; </td>
+  <td> The name `tar' comes from its original use; it stands for tape archiver. 
+  It is used to store archives of data into a single file which can then be
+  stored and transported.
+  </td>
+</tr>
+<!-- -------------------------------------------------------------------- -->
+<tr>
+  <td> <a href="http://www.gnu.org/software/wget/wget.html">wget</a> </td>
+  <td> <a href="ftp://ftp.gnu.org/pub/gnu/wget/wget-1.8.2.tar.gz">wget-1.8.2.tar.gz</a> </td>
+  <td> &nbsp; </td>
+  <td> GNU Wget is a free software package for retrieving files using HTTP, HTTPS and FTP
+  </td>
+</tr>
+<!-- -------------------------------------------------------------------- -->
+<tr>
+  <td> <a href="http://www.gnu.org/software/less/less.html">GNU less</a> </td>
+  <td> <a href="ftp://ftp.gnu.org/pub/gnu/less/less-358.tar.gz">less-358.tar.gz</a> </td>
+  <td> &nbsp; </td>
+  <td> less is a utility for viewing text files</td>
+</tr>
+<!-- -------------------------------------------------------------------- -->
+<tr>
+  <td> <a href="http://www.gnu.org/software/bash/bash.html">Bash shell</a> </td>
+  <td> <a href="ftp://ftp.gnu.org/gnu/bash/bash-2.05a.tar.gz">bash-2.05a.tar.gz</a> </td>
+  <td> &nbsp; </td>
+  <td> &nbsp; </td>
+</tr>
+<!-- -------------------------------------------------------------------- -->
+<tr>
+  <td> <a href="http://cnswww.cns.cwru.edu/~chet/readline/rltop.html">readline</a> </td>
+  <td> <a href="ftp://ftp.gnu.org/gnu/readline/readline-4.2a.tar.gz">readline-4.2a.tar.gz</a> </td>
+  <td> &nbsp; </td>
+  <td> The GNU Readline library provides applications with command line editing,
+      used by BASH as well as other things.
+  </td>
+</tr>
+<!-- -------------------------------------------------------------------- -->
+<tr>
+  <td> <a href="http://texinfo.org/">GNU Texinfo </a> </td>
+  <td> <a href="ftp://ftp.gnu.org/pub/gnu/texinfo/texinfo-4.0.tar.gz">texinfo-4.0.tar.gz</a> </td>
+  <td> &nbsp; </td>
+  <td> Texinfo is the official documentation format of the GNU project.  </td>
+</tr>
+<!-- -------------------------------------------------------------------- -->
+<tr>
+  <td> <a href="http://www.gnu.org/software/gawk/gawk.html">gawk</a> </td>
+  <td> <a href="ftp://ftp.gnu.org/pub/gnu/gawk/gawk-3.1.0.tar.gz">gawk-3.1.0.tar.gz</a> </td>
+  <td> &nbsp; </td>
+  <td> The `awk' utility interprets a special-purpose programming language 
+      that makes it possible to handle simple data-reformatting jobs with just a few lines of code.
+  </td>
+</tr>
+<!-- -------------------------------------------------------------------- -->
+<tr>
+  <td> <a href="http://www.math.fu-berlin.de/~leitner/mawk/">mawk</a> </td>
+  <td> <a href="ftp://ftp.fu-berlin.de/pub/unix/languages/mawk/mawk1.3.3.tar.gz">mawk1.3.3.tar.gz</a> </td>
+  <td> &nbsp; </td>
+  <td> Mike's awk implementation, which is smaller and faster then gawk
+  </td>
+</tr>
+<!-- -------------------------------------------------------------------- -->
+<tr>
+  <td> <a href="ftp://ftp.prosa.it/pub/gpm/gpm-1.19.6.lsm">gpm</a> </td>
+  <td> <a href="ftp://ftp.prosa.it/pub/gpm/gpm-1.19.6.tar.gz">gpm-1.19.6.tar.gz</a> </td>
+  <td> &nbsp; </td>
+  <td> The gpm (general purpose mouse) daemon tries to be a useful mouse
+  server for applications running on the Linux console. </td>
+</tr>
+<!-- -------------------------------------------------------------------- -->
+<tr>
+  <td> <a href="http://www.microwindows.org/">Microwindows</a> </td>
+  <td> CVS version</a></td>
+  <td> &nbsp;</td>
+  <td> Microwindows is a small windowing system similar to the X Window System. </td>
+</tr>
+<!-- -------------------------------------------------------------------- -->
+<tr>
+  <td> <a href="http://www.mars.org/home/rob/proj/mpeg/">MAD: MPEG Audio Decoder</a> </td>
+  <td> <a href="ftp://ftp.mars.org/pub/mpeg/mad-0.13.0b.tar.gz">mad-0.13.0b</a></td>
+  <td> ./configure --disable-nls</td>
+  <td>MAD is a high-quality MPEG audio decoder. It currently supports MPEG-1
+      and the MPEG-2  extension to Lower Sampling Frequencies, as well as the
+      so-called MPEG 2.5 format. All three audio layers (Layer I, Layer II, and
+      Layer III a.k.a. MP3) are fully implemented.  It also supports doing
+      fixed point math, so it works great on FPU-less chips like ARM. </td>
+</tr>
+<!-- -------------------------------------------------------------------- -->
+<tr>
+  <td> <a href="http://www.mp3dev.org/mp3/">lame mp3 encoder</a> </td>
+  <td> <a href="http://prdownloads.sourceforge.net/lame/lame-3.91.tar.gz"></a> </td>
+  <td> &nbsp; </td>
+  <td> LAME is the source code for a fully LGPL'd MP3 encoder, with speed and 
+  quality to rival all commercial competitors. </td>
+
+</tr>
+<!-- -------------------------------------------------------------------- -->
+<tr>
+  <td> <a href="ftp://sunsite.unc.edu/pub/Linux/apps/sound/players/wavplay-1.4.lsm">wavplay</a> </td>
+  <td> <a href="ftp://sunsite.unc.edu/pub/Linux/apps/sound/players/wavplay-1.4.tar.gz">wavplay-1.4.tar.gz</a> </td>
+  <td> &nbsp; </td>
+  <td> Utilities to play and record WAV files </td>
+</tr>
+<!-- -------------------------------------------------------------------- -->
+<tr>
+  <td> <a href="http://www.ohse.de/uwe/software/lrzsz.html">lrzsz</a> </td>
+  <td> <a href="http://www.ohse.de/uwe/releases">lrzsz-0.12.20.tar.gz</a></td>
+  <td> &nbsp;</td>
+  <td> lrzsz is a unix communication package providing the XMODEM, YMODEM ZMODEM file transfer protocols. </td>
+</tr>
+<!-- -------------------------------------------------------------------- -->
+<tr>
+  <td> <a href="http://pcmcia-cs.sourceforge.net/">pcmcia-cs</a> </td>
+  <td> <a href="http://prdownloads.sourceforge.net/pcmcia-cs/">pcmcia-cs-3.1.29.tar.gz</a></td>
+  <td> &nbsp;</td>
+  <td> A complete Linux PCMCIA support package. </td>
+</tr>
+<!-- -------------------------------------------------------------------- -->
+<tr>
+  <td> <a href="ftp://mirror.dc.us.telia.net/pub/linux/redhat/redhat/redhat-7.1-en/os/i386/SRPMS/newt-0.50.22-2.src.rpm">newt</a> </td>
+  <td> all versions</a></td>
+  <td> &nbsp;</td>
+  <td> Newt is a curses based text windowing library.  Very useful for making console applications. </td>
+</tr>
+<!-- -------------------------------------------------------------------- -->
+<tr>
+  <td> <a href="http://dickey.his.com/ncurses/ncurses.html">ncurses</a> </td>
+  <td> 5.2</a></td>
+  <td> &nbsp;</td>
+  <td> ncurses is a standard terminal handling library.
+  </td>
+</tr>
+<!-- -------------------------------------------------------------------- -->
+<tr>
+  <td> <a href="http://www.s-lang.org/">slang</a> </td>
+  <td> 1.4.5</a></td>
+  <td> &nbsp;</td>
+  <td> Slang does the same sort of thing that ncurses does -- and with a bit of wrapper code
+      can act as a full replacement.  Very useful for making console applications (such as newt). 
+       Because the full slang provides many other things, I personally use a massively cut down version
+       called <a href="ftp://busybox.net/slang-1.4.5-mini.tar.gz">minislang</a>, which also works great,
+       handles the ncurses type slang APIs only, and is just 80k compiled vs uClibc.
+  </td>
+</tr>
+<!-- -------------------------------------------------------------------- -->
+<tr>
+  <td> <a href="http://www.net.lut.ac.uk/psst/">LSH</a> </td>
+  <td> 1.2.5 </td>
+  <td> <a href="http://www.schwebel.de/software/uClibc/index_en.html">patch</a> </td>
+  <td> A relatively small implementation of the SSH protocol. </td>
+</tr>
+<!-- -------------------------------------------------------------------- -->
+<tr>
+  <td> <a href="http://www.schwebel.de/software/uClibc/index_en.html">flash-0.9.5</a> </td>
+  <td> 0.9.5</td>
+  <td> &nbsp;</td>
+  <td> A secure menuing shell. </td>
+</tr>
+<!-- -------------------------------------------------------------------- -->
+<tr>
+  <td> <a href="http://cr.yp.to/djbdns.html">djbdns</a> </td>
+  <td> 1.0.5</td>
+  <td> &nbsp;</td>
+  <td> D. J. Bernstein's DNS implementation. </td>
+</tr>
+<!-- -------------------------------------------------------------------- -->
+<tr>
+  <td> <a href="http://e2fsprogs.sourceforge.net/">e2fsprogs</a> </td>
+  <td> <a href="http://prdownloads.sourceforge.net/e2fsprogs/e2fsprogs-1.27.tar.gz">e2fsprogs-1.27.tar.gz</a> </td>
+  <td> &nbsp;</td>
+  <td>Utilities to create and check ext3 and ext2 filesystems under Linux</td>
+</tr>
+<!-- -------------------------------------------------------------------- -->
+<tr>
+  <td> <a href="http://linux-ntfs.sourceforge.net/">Linux-NTFS tools</a> </td>
+  <td> <a href="http://prdownloads.sourceforge.net/linux-ntfs/linux-ntfs-1.5.1.tar.gz">linux-ntfs-1.5.1.tar.gz</a> </td>
+  <td> &nbsp;</td>
+  <td>Utilities to create and check NTFS filesystems under Linux</td>
+</tr>
+<!-- -------------------------------------------------------------------- -->
+<tr>
+  <td> <a href="ftp://ftp.uni-erlangen.de/pub/Linux/LOCAL/dosfstools/dosfstools.lsm">dosfstools</a> </td>
+  <td> <a href="ftp://ftp.uni-erlangen.de/pub/Linux/LOCAL/dosfstools/dosfstools-2.8.src.tar.gz">dosfstools-2.8.src.tar.gz</a> </td>
+  <td> &nbsp;</td>
+  <td>Utilities to create and check MS-DOS filesystems under Linux</td>
+</tr>
+<!-- -------------------------------------------------------------------- -->
+<tr>
+  <td> <a href="http://freshmeat.net/projects/lilo/">LILO bootloader</a> </td>
+  <td> <a href="http://brun.dyndns.org/pub/linux/lilo/lilo-22.1.tar.gz">lilo-22.1.tar.gz</a> </td>
+  <td> &nbsp;</td>
+  <td>Lilo is a Boot loader for Linux/x86 and other PC operating systems.</td>
+</tr>
+<!-- -------------------------------------------------------------------- -->
+<tr>
+  <td> <a href="http://bluez.sourceforge.net/">Bluez Bluetooth stack</a> </td>
+  <td> latest</td>
+  <td> &nbsp;</td>
+  <td> BlueZ is implementation of Bluetooth protocol stack for Linux.
+       Originally BlueZ was developed by Qualcomm Incorporated and then
+        became an Open Source project. </td>
+</tr>
+<!-- -------------------------------------------------------------------- -->
+<tr>
+    <td> <a href="http://www.hpl.hp.com/personal/Jean_Tourrilhes/Linux/Tools.html">Linux wireless tools</a> </td>
+  <td> latest</td>
+  <td> &nbsp;</td>
+  <td> The Wireless Extension is a generic API allowing a driver to expose to the user space configuration and statistics specific to common Wireless LANs. The beauty of it is that a single set of tool can support all the variations of Wireless LANs, regardless of their type (as long as the driver support Wireless Extension). Another advantage is these parameters may be changed on the fly without restarting the driver (or Linux). </td>
+</tr>
+<!-- -------------------------------------------------------------------- -->
+<tr>
+  <td> <a href="http://www.libpng.org/pub/png/libpng.html">libpng</a> </td>
+  <td> <a href="http://www.libpng.org/pub/png/src/libpng-1.2.1.tar.gz">libpng-1.2.1.tar.gz</a> </td>
+  <td> &nbsp;</td>
+  <td> The reference library implementing the Portable Network Graphics
+      format, a really nifty (and patent free) image format.<p>Passes 'make test' without problems.</td>
+</tr>
+<!-- -------------------------------------------------------------------- -->
+<tr>
+  <td> <a href="http://www.ijg.org/">libjpeg</a> </td>
+  <td> <a href="ftp://ftp.uu.net/graphics/jpeg/jpegsrc.v6b.tar.gz">jpegsrc.v6b.tar.gz</a> </td>
+  <td> &nbsp;</td>
+  <td> The Independent JPEG Group's implementation of the JPEG 
+      image compression format.  <p>Passes 'make test' just fine</td>
+</tr>
+<!-- -------------------------------------------------------------------- -->
+<tr><th width="15%"> Program </th>
+    <th width="15%"> Version </th>
+    <th width="15%"> Needs Patch </th>
+    <th width="55%"> Comment </th>
+</tr>    
+<!-- -------------------------------------------------------------------- -->
+<tr>
+  <td> <a href="http://www.gnu.org/software/gcc/gcc.html">GCC</a> </td>
+  <td> <a href="ftp://ftp.gnu.org/gnu/gcc/gcc-2.95.3.tar.gz">gcc-2.95.3.tar.gz</a> <br>
+       <a href="ftp://ftp.gnu.org/gnu/gcc/gcc-3.1.1.tar.gz">gcc-3.1.1.tar.gz</a> </td>
+  <td> c-compiler, c++-compiler compiler work fine, libio build currently fails </td>
+  <td> GCC is <em>the</em> compiler for GNU/Linux systems.</td>
+</tr>
+<!-- -------------------------------------------------------------------- -->
+<tr>
+    <td> <a href="http://sources.redhat.com/binutils/">GNU binutils</a> </td>
+  <td> <a href="ftp://ftp.gnu.org/gnu/binutils/binutils-2.13.tar.gz">binutils-2.13.tar.gz</a> </td>
+  <td> Add CFLAGS+=-D__FORCE_NOGLIBC</td>
+      <td>The GNU assembler, linker and binary utilities.</td>
+</tr>
+<!-- -------------------------------------------------------------------- -->
+<tr>
+<td> <a href="http://www.gnu.org/software/gdb/gdb.html">GDB: The GNU Debugger </a></td>
+<td> <a href="ftp://ftp.gnu.org/pub/gnu/gdb/gdb-5.1.tar.gz">gdb-5.1</a></td>
+<td> By default gdbserver does not get built.  Once gdb is built, you 
+    can change gdb/gdbserver/Makefile to 
+    use xxx-uclibc-gcc, and then run make to get gdbserver to build.</td>
+  <td> gdb allows you to debug applications.  gdbserver allows you to debug 
+  applications running on a remote system. </td>
+</tr>
+<!-- -------------------------------------------------------------------- -->
+<tr>
+  <td> <a href="http://www.gnu.org/software/make/make.html">GNU make</a> </td>
+  <td> <a href="ftp://ftp.gnu.org/pub/gnu/make/make-3.79.1.tar.gz">make-3.79.1.tar.gz</a> </td>
+  <td> &nbsp; </td>
+  <td> Make is a tool which controls the generation of executables and other 
+  non-source files of a program from the program's source files.</td>
+</tr>
+<!-- -------------------------------------------------------------------- -->
+<tr>
+  <td> <a href="http://www.gnu.org/software/patch/patch.html">GNU patch</a> </td>
+  <td> <a href="ftp://ftp.gnu.org/gnu/patch/patch-2.5.4.tar.gz">patch-2.5.4.tar.gz</a> </td>
+  <td> &nbsp; </td>
+  <td> Patch takes a patch file (containing a difference listing produced by diff) and 
+      applies those differences to one or more original files, producing patched versions.
+  </td>
+</tr>
+<!-- -------------------------------------------------------------------- -->
+<tr>
+  <td> <a href="http://www.gnu.org/software/diffutils/diffutils.html">Diffutils</a> </td>
+  <td> <a href="ftp://ftp.gnu.org/pub/gnu/diffutils/diffutils-2.7.tar.gz">diffutils-2.7.tar.gz</a> </td>
+  <td> &nbsp; </td>
+  <td> The diff command can show differences between files and directories</td>
+</tr>
+<!-- -------------------------------------------------------------------- -->
+<tr>
+  <td> <a href="http://home.hccnet.nl/d.ingamells/beautify.html">GNU indent</a> </td>
+  <td> <a href="http://home.hccnet.nl/d.ingamells/indent-2.2.7.tar.gz">indent-2.2.7.tar.gz</a> </td>
+  <td> &nbsp; </td>
+  <td> The indent program can be used to make code easier to read. It can 
+  also convert from one style of writing C to another.
+  </td>
+</tr>
+<!-- -------------------------------------------------------------------- -->
+<tr>
+  <td> <a href="http://www.gnu.org/software/flex/flex.html">Flex</a> </td>
+  <td> <a href="ftp://ftp.gnu.org/non-gnu/flex/flex-2.5.4a.tar.gz">flex-2.5.4a.tar.gz</a> </td>
+  <td> &nbsp; </td>
+  <td> Flex is a fast lexical analyser generator.  </td>
+</tr>
+<!-- -------------------------------------------------------------------- -->
+<tr>
+  <td> <a href="http://www.gnu.org/software/bison/bison.html">Bison</a> </td>
+  <td> <a href="ftp://ftp.gnu.org/gnu/bison/bison-1.32.tar.gz">bison-1.32.tar.gz</a> </td>
+  <td> &nbsp; </td>
+  <td> Bison is a general-purpose parser generator that converts a grammar 
+  description for an LALR context-free grammar into a C program to parse that grammar.
+  </td>
+</tr>
+<!-- -------------------------------------------------------------------- -->
+<tr>
+  <td> <a href="http://www.seindal.dk/rene/gnu/">m4</a> </td>
+  <td> <a href="ftp://ftp.seindal.dk/pub/rene/gnu/m4-1.4.tar.gz">m4-1.4.tar.gz</a> </td>
+  <td> &nbsp; </td>
+  <td> GNU m4 is an implementation of the traditional Unix macro processor, and 
+	is the foundation for GNU autoconf and automake.
+  </td>
+</tr>
+<!-- -------------------------------------------------------------------- -->
+<tr>
+  <td> <a href="http://sources.redhat.com/autoconf/">GNU autoconf</a> </td>
+  <td> <a href="ftp://ftp.gnu.org/gnu/autoconf/autoconf-2.13.tar.gz">autoconf-2.13.tar.gz</a> </td>
+  <td> &nbsp; </td>
+  <td> GNU Autoconf is used for generating configure scripts, which are present 
+      in a large number of free software packages and are used to detect system 
+      features at compilation time.
+  </td>
+</tr>
+<!-- -------------------------------------------------------------------- -->
+<tr>
+  <td> <a href="http://sources.redhat.com/automake/">GNU Automake</a> </td>
+  <td> <a href="ftp://ftp.gnu.org/gnu/automake/automake-1.5.tar.gz">automake-1.5.tar.gz</a> </td>
+  <td> &nbsp; </td>
+  <td> Automake is a tool for automatically generating Makefiles
+  </td>
+</tr>
+<!-- -------------------------------------------------------------------- -->
+<tr>
+  <td> <a href="http://www.gnu.org/software/libtool/libtool.html">libtool</a> </td>
+  <td> <a href="ftp://ftp.gnu.org/gnu/libtool/libtool-1.4.2.tar.gz">libtool-1.4.2.tar.gz</a></td>
+  <td> &nbsp; </td>
+  <td>GNU libtool is a generic library support script.  </td>
+</tr>
+<!-- -------------------------------------------------------------------- -->
+<tr>
+  <td> <a href="http://www.gnu.org/software/gettext/gettext.html">gettext</a> </td>
+  <td> <a href="ftp://ftp.gnu.org/gnu/gettext/gettext-0.10.40.tar.gz">gettext-0.10.40.tar.gz</a></td>
+  <td> &nbsp; </td>
+  <td> GNU gettext provides a set of tools for adding multi-lingual messages to applications.  </td>
+</tr>
+<!-- -------------------------------------------------------------------- -->
+<tr>
+  <td> <a href="http://www.web-sites.co.uk/nasm/">NASM assembler</a> </td>
+  <td> <a href="ftp://sunsite.unc.edu/pub/Linux/devel/lang/assemblers/nasm-0.98.tar.gz">nasm-0.98.tar.gz</a> </td>
+  <td> &nbsp; </td>
+  <td> NASM is the Netwide Assembler, a free portable assembler for the 
+  Intel 80x86 microprocessor series, which uses the traditional Intel 
+  instruction mnemonics and syntax.
+  </td>
+</tr>
+<!-- -------------------------------------------------------------------- -->
+<tr>
+  <td> <a href="http://www.cix.co.uk/~mayday/">bin86</a> </td>
+  <td> <a href="http://freshmeat.net/redir/bin86/743/url_tgz/bin86-0.16.0.tar.gz">bin86-0.16.0.tar.gz</a> </td>
+  <td> &nbsp; </td>
+  <td> The as86 and ld86 provide a complete 8086 assembler and loader which can 
+  generate 32-bit code for the 386+ processors. These tools are used to create 
+  the 16-bit bootsector and setup binaries for linux. The syntax is not compatible 
+  with the GNU assembler.
+  </td>
+</tr>
+<!-- -------------------------------------------------------------------- -->
+<tr>
+  <td> <a href="http://www.liacs.nl/~wichert/strace/">strace</a> </td>
+  <td> <a href="http://prdownloads.sourceforge.net/strace/strace_4.4-1.tar.gz">strace_4.4-1.tar.gz</a> </td>
+  <td> &nbsp; </td>
+  <td> Strace is a system call trace, i.e. a debugging tool which prints out 
+  a trace of all the system calls made by a another process/program. </td>
+</tr>
+<!-- -------------------------------------------------------------------- -->
+<tr>
+  <td> <a href="http://freshmeat.net/projects/ltrace/">ltrace</a> </td>
+  <td> <a href="ftp://ftp.debian.org/debian/pool/main/l/ltrace/ltrace_0.3.16.tar.gz">ltrace_0.3.16.tar.gz</a> </td>
+  <td> &nbsp; </td>
+  <td> ltrace is a program that simply runs the specified command until it exits. 
+  It intercepts and records the dynamic library calls, which are called by the 
+  executed process, and the signals which are received by that process. It can 
+  also intercept and print the system calls executed by the program. Its use is very similar to strace(1) .
+  </td>
+</tr>
+<!-- -------------------------------------------------------------------- -->
+<tr>
+  <td> <a href="http://freshmeat.net/projects/lsof/">lsof</a> </td>
+  <td> <a href="ftp://vic.cc.purdue.edu/pub/tools/unix/lsof/lsof_4.61.tar.gz">lsof_4.61.tar.gz</a> </td>
+  <td> &nbsp; </td>
+  <td> Lsof is a Unix-specific diagnostic tool. Its name stands for LiSt Open 
+  Files, and it does just that. It lists information about any files that are 
+  open by processes currently running on the system. It can also list communications open by each process.
+  </td>
+</tr>
+<!-- -------------------------------------------------------------------- -->
+<tr>
+  <td> <a href="http://www.sax.de/~adlibit/">e3 text editor</a> </td>
+  <td> <a href="http://www.sax.de/~adlibit/e3-2.33.tar.gz">e3-2.33.tar.gz</a> </td>
+  <td> &nbsp; </td>
+  <td> a full featured very tiny text editor </td>
+</tr>
+<!-- -------------------------------------------------------------------- -->
+<tr>
+  <td> <a href="http://freshmeat.net/projects/kbd/">kbd</a> </td>
+  <td> <a href="http://ftp.kernel.org/pub/linux/utils/kbd/kbd-1.06.tar.gz">kbd-1.06.tar.gz</a> </td>
+  <td> &nbsp; </td>
+  <td> The kbd package contains font, keytable and keyboard utilities for Linux. </td>
+</tr>
+<!-- -------------------------------------------------------------------- -->
+<tr>
+  <td> <a href="http://freshmeat.net/projects/hdparm/">hdparm</a> </td>
+  <td> <a href="http://www.ibiblio.org/pub/Linux/system/hardware/hdparm-4.6.tar.gz">hdparm-4.6.tar.gz</a> </td>
+  <td> &nbsp; </td>
+  <td> A utility to tune hard disk parameters for high performance. </td>
+</tr>
+<!-- -------------------------------------------------------------------- -->
+<tr>
+  <td> <a href="http://freshmeat.net/projects/devfsd/">devfsd</a> </td>
+  <td> <a href="ftp://ftp.atnf.csiro.au/pub/people/rgooch/linux/daemons/devfsd/devfsd-v1.3.22.tar.gz">devfsd-v1.3.22.tar.gz</a> </td>
+  <td> &nbsp; </td>
+  <td> Devfsd provides configurable management of device nodes using the Linux Device Filesystem.  </td>
+</tr>
+<!-- -------------------------------------------------------------------- -->
+<tr>
+  <td> <a href="http://freshmeat.net/projects/sysklogd/">sysklogd</a> </td>
+  <td> <a href="http://www.ibiblio.org/pub/Linux/system/daemons/sysklogd-1.4.1.tar.gz">sysklogd-1.4.1.tar.gz</a> </td>
+  <td> &nbsp; </td>
+  <td> The sysklogd package implements a syslogd daemon which is responsible 
+  for handling requests for syslog services, and a klogd daemon, which listens 
+  for kernel log messages and routes them to syslogd.</td>
+</tr>
+<!-- -------------------------------------------------------------------- -->
+<tr>
+  <td> <a href="http://freshmeat.net/projects/dcron/">Dillon's Cron</a> </td>
+  <td> <a href="http://freshmeat.net/redir/dcron/1903/url_tgz/dcron-2.3.3.tar.gz">dcron-2.3.3.tar.gz</a> </td>
+  <td> &nbsp; </td>
+  <td> Dillon's Cron is a multi-user cron focused on usability and reliability, 
+  and is the standard cron distributed with most distributions of Linux.
+  </td>
+</tr>
+<!-- -------------------------------------------------------------------- -->
+<tr>
+  <td> <a href="ftp://ftp.us.kernel.org/pub/linux/utils/man/man-1.5j.lsm">man</a> </td>
+  <td> <a href="ftp://ftp.us.kernel.org/pub/linux/utils/man/man-1.5j.tar.gz">man-1.5j.tar.gz</a> </td>
+  <td> &nbsp; </td>
+  <td> This package provides the man command, the primary tool for
+  reading on-line help files (manual pages).</td>
+</tr>
+<!-- -------------------------------------------------------------------- -->
+<tr>
+  <td> <a href="http://www.tuxedo.org/~esr/fetchmail/">fetchmail</a> </td>
+  <td> <a href="http://www.tuxedo.org/~esr/fetchmail/fetchmail-5.9.6.tar.gz">fetchmail-5.9.6.tar.gz</a> </td>
+  <td> &nbsp; </td>
+  <td> Fetchmail is a mail retrieval and forwarding utility that supports 
+  POP2, POP3, RPOP, APOP, KPOP, all flavors of IMAP, ETRN, and ODMR.
+  </td>
+</tr>
+<!-- -------------------------------------------------------------------- -->
+<tr>
+  <td> <a href="http://www.ibiblio.org/mc/">GNU Midnight Commander</a> </td>
+  <td> <a href="http://www.ibiblio.org/pub/Linux/utils/file/managers/mc/snapshots/mc-2002-02-01-14.tar.gz">mc-2002-02-01-14.tar.gz</a> </td>
+  <td> &nbsp; </td>
+  <td> GNU Midnight Commander is a file manager for free operating systems. </td>
+</tr>
+<!-- -------------------------------------------------------------------- -->
+<tr>
+  <td> <a href="http://netfilter.samba.org/">netfilter/iptables</a> </td>
+  <td> latest</td>
+  <td> IP6 reported to not be working yet</td>
+  <td> IP packet filtering tools for use with 2.4.4+ Linux kernels. </td>
+</tr>
+<!-- -------------------------------------------------------------------- -->
+<tr>
+  <td> <a href="http://www.samba.org/ppp/">pppd</a> </td>
+  <td> <a href="ftp://cs.anu.edu.au/pub/software/ppp/ppp-2.4.1.tar.gz">ppp-2.4.1.tar.gz</a> </td>
+  <td> &nbsp;</td>
+  <td> ppp (Paul's PPP Package) is an open source package which 
+      implements the Point-to-Point Protocol (PPP). </td>
+</tr>
+<!-- -------------------------------------------------------------------- -->
+<tr>
+  <td> <a href="http://defiant.coinet.com/iproute2/">iproute2</a> </td>
+  <td> <a href="http://defiant.coinet.com/iproute2/iproute2-2.2.4-now-ss991023.tar.gz">iproute2-2.2.4-now-ss991023.tar.gz</a> </td>
+  <td> &nbsp; </td>
+  <td> The tool you use to do all sorts of advanced routing funkiness </td>
+</tr>
+<!-- -------------------------------------------------------------------- -->
+<tr>
+  <td> <a href="http://doolittle.faludi.com/ntpclient/">ntpclient</a> </td>
+  <td> <a href="http://doolittle.faludi.com/ntpclient/ntpclient_2000_345.tar.gz">ntpclient_2000_345.tar.gz</a> </td>
+  <td> &nbsp; </td>
+  <td> ntpclient is an NTP (RFC-1305) client targeted at embedded computers.</td>
+</tr>
+<!-- -------------------------------------------------------------------- -->
+<tr>
+  <td> <a href="http://freshmeat.net/projects/file/">file</a> </td>
+  <td> <a href="ftp://ftp.gw.com/mirrors/pub/unix/file/file-3.39.tar.gz">file-3.37.tar.gz</a> </td>
+  <td> &nbsp; </td>
+  <td> File attempts to classify files depending on their contents and prints a description if a match is found.  </td>
+</tr>
+<!-- -------------------------------------------------------------------- -->
+<tr>
+  <td> <a href="http://artax.karlin.mff.cuni.cz/~mikulas/links/">Links Web Browser</a> </td>
+  <td> <a href="http://artax.karlin.mff.cuni.cz/~mikulas/links/download/links-0.96.tar.gz">links-0.96.tar.gz</a> </td>
+  <td> &nbsp; </td>
+  <td> Links is text more web browser, similar to Lynx, that does a fine job rendering
+  tables and such.  It can do downloads in the background and uses HTTP/1.1 keepalive connections.
+  </td>
+</tr>
+<!-- -------------------------------------------------------------------- -->
+<tr>
+  <td> <a href="http://www.gtk.org/">glib</a> </td>
+  <td> <a href="ftp://ftp.gimp.org/pub/gtk/v1.2/glib-1.2.10.tar.gz">glib-1.2.10.tar.gz</a> </td>
+  <td> &nbsp; </td>
+  <td> GLib is a library containing many useful C routines for things such as 
+  trees, hashes, and lists. GLib is the foundation for the GTK toolkit. </td>
+</tr>
+<!-- -------------------------------------------------------------------- -->
+<tr>
+  <td> <a href="http://www.procmail.org/">procmail</a> </td>
+  <td> <a href="http://www.procmail.org/procmail-3.22.tar.gz">procmail-3.22.tar.gz</a> </td>
+  <td> &nbsp;</td>
+  <td> procmail is a very nice mail-filtering tool.  </td>
+<!-- -------------------------------------------------------------------- -->
+<tr>
+  <td> <a href="http://www.roaringpenguin.com/pppoe/">RP-PPPoE</a> </td>
+  <td> <a href="http://www.roaringpenguin.com/pppoe/rp-pppoe-3.3.tar.gz">rp-pppoe-3.3.tar.gz</a> </td>
+  <td> &nbsp;</td>
+  <td> A PPP over Ethernet client and server</td>
+
+<!-- -------------------------------------------------------------------- -->
+<tr>
+  <td> <a href="http://www.cs.wisc.edu/~ghost/">Ghostscript</a> </td>
+  <td> <a href="http://prdownloads.sourceforge.net/ghostscript/ghostscript-7.04.tar.gz">ghostscript-7.04.tar.gz</a> </td>
+  <td> &nbsp;</td>
+  <td> An interpreter and printing system for PostScript and PDF</td>
+
+<!-- -------------------------------------------------------------------- -->
+<tr>
+  <td> <a href="http://www.tcpdump.org/">libpcap</a> </td>
+  <td> <a href="http://www.tcpdump.org/release/libpcap-0.7.1.tar.gz">libpcap-0.7.1.tar.gz</a> </td>
+  <td> &nbsp;</td>
+  <td> Packet capture library used by TCPDump et al.</td>
+
+<!-- -------------------------------------------------------------------- -->
+<tr>
+  <td> <a href="http://www.freeswan.org/">freeswan</a> </td>
+  <td> <a href="ftp://ftp.xs4all.nl/pub/crypto/freeswan/freeswan-1.98b.tar.gz">freeswan-1.98b.tar.gz</a> </td>
+  <td> Works fine w/o changes, even with the x509 patch and dhcprelay</td>
+  <td> Linux FreeS/WAN is an implementation of IPSEC and IKE for Linux</td>
+
+<!-- -------------------------------------------------------------------- -->
+<tr>
+  <td> <a href="http://icarus.com/eda/verilog/">Icarus Verilog</a> </td>
+  <td> <a href="ftp://icarus.com/pub/eda/verilog/v0.6/verilog-0.6.1.tar.gz">verilog-0.6.1.tar.gz</a> </td>
+  <td> &nbsp;</td>
+  <td> Icarus Verilog is a Verilog simulation and synthesis tool</td>
+
+<!-- -------------------------------------------------------------------- -->
+<tr>
+  <td> <a href="http://www.gtk.org/">GTK+</a> </td>
+  <td> <a href="ftp://ftp.gtk.org/pub/gtk/v1.2/gtk+-1.2.10.tar.gz">gtk+-1.2.10.tar.gz</a> </td>
+  <td> &nbsp;</td>
+  <td> GTK+ is a multi-platform toolkit for creating graphical user interfaces</td>
+
+<!-- -------------------------------------------------------------------- -->
+<tr>
+  <td> <a href="http://vim.sourceforge.net/">Vim/gvim</a> </td>
+  <td> <a href="ftp://ftp.vim.org/pub/vim/unix/vim-6.1.tar.bz2">vim-6.1.tar.bz2</a> </td>
+  <td> &nbsp;</td>
+  <td> Vim is a highly configurable text editor built to enable efficient text editing</td>
+
+<!-- -------------------------------------------------------------------- -->
+<tr>
+  <td> <a href="http://www.lesstif.org/">LessTif</a> </td>
+  <td> <a href="ftp://ftp.hungry.com/pub/hungry/lesstif/">LessTif 0.93.18</a> </td>
+  <td> &nbsp;</td>
+  <td> LessTif is the Hungry Programmers' version of OSF/Motif(R)</td>
+
+<!-- -------------------------------------------------------------------- -->
+<tr>
+  <td> <a href="http://www.fvwm.org/">FVWM</a> </td>
+  <td> <a href="ftp://ftp.fvwm.org/pub/fvwm/version-2/fvwm-2.4.6.tar.bz2">fvwm-2.4.6.tar.bz2</a> </td>
+  <td> &nbsp;</td>
+  <td> FVWM is an extremely powerful ICCCM-compliant multiple virtual desktop window manager for the X Window system</td>
+
+<!-- -------------------------------------------------------------------- -->
+<tr>
+  <td> <a href="http://www.newbreedsoftware.com/agendaroids/">Agendaroids</a> </td>
+  <td> <a href="ftp://ftp.sonic.net/pub/users/nbs/unix/agenda/agendaroids/agendaroids-2002.03.07.tar.gz">agendaroids-2002.03.07.tar.gz</a> </td>
+  <td> &nbsp;</td>
+  <td> Agendaroids" is a clone of the classic arcade game "Asteroids."</td>
+
+<!-- -------------------------------------------------------------------- -->
+<tr>
+  <td> <a href="http://bochs.sourceforge.net/">bochs</a> </td>
+  <td> <a href="http://prdownloads.sourceforge.net/bochs/bochs-1.4.tar.gz">bochs-1.4.tar.gz</a> </td>
+  <td> &nbsp;</td>
+  <td> Bochs is a highly portable open source IA-32 (x86) PC emulator written in C++, that runs on most popular platforms. It includes emulation of the Intel x86 CPU, common I/O devices, and a custom BIOS. Currently, bochs can be compiled to emulate a 386, 486 or Pentium CPU. Bochs is capable of running most Operating Systems inside the emulation including Linux, Windows(R)95, DOS, and recently Windows(R) NT 4.</td>
+
+<!-- -------------------------------------------------------------------- -->
+<tr>
+  <td> <a href="http://directfb.org/">DirectFB</a> </td>
+  <td> <a href="http://directfb.org/download/DirectFB/DirectFB-0.9.9.tar.gz">DirectFB-0.9.9.tar.gz</a> </td>
+  <td> &nbsp;</td>
+  <td>  DirectFB is a thin library that provides hardware graphics acceleration, input device handling and abstraction, integrated windowing system with support for translucent windows and multiple display layers on top of the Linux Framebuffer Device.</td>
+
+<!-- -------------------------------------------------------------------- -->
+<tr>
+  <td> <a href="http://www.fltk.org/">FLTK</a> </td>
+  <td> <a href="http://www.fltk.org/software.php?SOFTWARE=v1_1">fltk-1.1.0b11-source.tar.bz2</a> </td>
+  <td> &nbsp;</td>
+  <td> A C++ user interface toolkit for X11/WIN32/MacOS and OpenGL.</td>
+
+<!-- -------------------------------------------------------------------- -->
+<tr>
+  <td> <a href="http://flwm.sourceforge.net/">flwm</a> </td>
+  <td> <a href="http://flwm.sourceforge.net/flwm-1.00.tgz">flwm-1.00.tgz</a> </td>
+  <td> &nbsp;</td>
+  <td> Flwm is an X window manager designed to be user friendly and use the absolute minimum amount of screen real estate. It has no icons, using a pop-up menu to select hidden or new windows, and sideways titlebars.</td>
+
+<!-- -------------------------------------------------------------------- -->
+<tr>
+  <td> <a href="http://www.freetype.org/">FreeType</a> </td>
+  <td> <a href="http://prdownloads.sourceforge.net/freetype/freetype-2.0.9.tar.bz2">freetype-2.0.9.tar.bz2</a> </td>
+  <td> &nbsp;</td>
+  <td> A Free, High-Quality, and Portable Font Engine</td>
+
+<!-- -------------------------------------------------------------------- -->
+<tr>
+  <td> <a href="http://www.3dsite.com/people/erco/unixtools/nixieclock/">Nixie Clock</a> </td>
+  <td> <a href="http://www.3dsite.com/people/erco/unixtools/nixieclock/nixieclock-1.40.tar.gz">nixieclock-1.40.tar.gz</a> </td>
+  <td> &nbsp;</td>
+  <td> This simple little desktop clock displays the current date and time in various time formats (including a custom 'strftime(3)' format) using little icons of actual nixie tube digits.</td>
+
+<!-- -------------------------------------------------------------------- -->
+<tr>
+  <td> <a href="http://www.rxvt.org/">rxvt</a> </td>
+  <td> <a href="ftp://ftp.rxvt.org/pub/rxvt/rxvt-2.6.4.tar.bz2">rxvt-2.6.4.tar.bz2</a> </td>
+  <td> &nbsp;</td>
+  <td> A VT102 emulator for the X window system</td>
+
+<!-- -------------------------------------------------------------------- -->
+<tr>
+  <td> <a href="http://www.libsdl.org/">SDL</a> </td>
+  <td> <a href="http://www.libsdl.org/release/SDL-1.2.3.tar.gz">SDL-1.2.3.tar.gz</a> </td>
+  <td> &nbsp;</td>
+  <td> Simple DirectMedia Layer is a cross-platform multimedia library designed to provide fast access to the graphics framebuffer and audio device.</td>
+
+<!-- -------------------------------------------------------------------- -->
+<tr>
+  <td> <a href="http://www.libsdl.org/projects/SDL_image/">SDL_image</a> </td>
+  <td> <a href="http://www.libsdl.org/projects/SDL_image/release/SDL_image-1.2.1.tar.gz">SDL_image-1.2.1.tar.gz</a> </td>
+  <td> &nbsp;</td>
+  <td> an image file loading library for SDL</td>
+
+<!-- -------------------------------------------------------------------- -->
+<tr>
+  <td> <a href="http://www.lcdf.org/xmahjongg/">xmahjongg</a> </td>
+  <td> <a href="http://www.lcdf.org/xmahjongg/xmahjongg-3.5.tar.gz">xmahjongg-3.5.tar.gz</a> </td>
+  <td> &nbsp;</td>
+  <td> Colorful X solitaire Mah Jongg game</td>
+
+<!-- -------------------------------------------------------------------- -->
+<tr>
+  <td> <a href="http://prtr-13.ucsc.edu/~badger/software/libungif/index.shtml">libungif</a> </td>
+  <td> <a href="ftp://prtr-13.ucsc.edu/pub/libungif/libungif-4.1.0b1.tar.gz">libungif-4.1.0b1.tar.gz</a> </td>
+  <td> &nbsp;</td>
+  <td> a library for using uncompressed GIFs </td>
+<!-- -------------------------------------------------------------------- -->
+<tr>
+  <td> <a href="http://www.openssl.org/">openssl</a> </td>
+  <td> <a href="http://www.openssl.org/source/openssl-0.9.6e.tar.gz">openssl-0.9.6e.tar.gz</a> </td>
+  <td> &nbsp;</td>
+  <td>  A robust, commercial-grade, full-featured, Open Source toolkit
+      implementing the Secure Sockets Layer (SSL v2/v3) and Transport Layer
+      Security (TLS v1) protocols as well as a full-strength general purpose
+      cryptography library. <p>'make test' completes without any failures.</td>
+</tr>
+<!-- -------------------------------------------------------------------- -->
+<tr>
+  <td> <a href="http://www.openssh.com/">OpenSSH</a> </td>
+  <td> <a href="http://www.openssh.com/">openssh_3.4p1.tar.gz</a> </td>
+  <td> &nbsp;</td>
+  <td> OpenSSH is a FREE version of the SSH protocol suite which encrypts all traffic 
+  (including passwords) to effectively eliminate eavesdropping, connection hijacking, 
+  and other network-level attacks.</td>
+
+<!-- -------------------------------------------------------------------- -->
+<tr>
+  <td> <a href="http://www.buttsoft.com/~thumper/downloads/chkconfig/">chkconfig</a> </td>
+  <td> <a href="http://www.buttsoft.com/~thumper/downloads/chkconfig/chkconfig-1.2.24h.tar.gz">chkconfig-1.2.24h.tar.gz</a> </td>
+  <td> &nbsp;</td>
+  <td> a tool for managing the collection of symbolic links found in the /etc/rc.d directory</td>
+<!-- -------------------------------------------------------------------- -->
+<tr>
+  <td> <a href="http://invisible-island.net/dialog">dialog</a> </td>
+  <td> <a href="ftp://invisible-island.net/dialog/dialog-0.9b-20020622.tgz">dialog-0.9b-20020622.tgz</a> </td>
+  <td> &nbsp;</td>
+  <td> dialog allows shell scripts to provide fancy text dialogs</td>
+<!-- -------------------------------------------------------------------- -->
+<tr>
+  <td> <a href="http://www.nano-editor.org/">nano</a> </td>
+  <td> <a href="http://www.nano-editor.org/dist/v1.0/nano-1.0.9.tar.gz">nano-1.0.9.tar.gz</a> </td>
+  <td> &nbsp;</td>
+  <td> nano is a pico text editor clone</td>
+<!-- -------------------------------------------------------------------- -->
+<tr>
+  <td> <a href="ftp://ftp.rpm.org/pub/rpm/dist/rpm-4.0.x">popt</a> </td>
+  <td> <a href="ftp://ftp.rpm.org/pub/rpm/dist/rpm-4.0.x/popt-1.6.4.tar.gz">popt-1.6.4.tar.gz</a> </td>
+  <td> &nbsp;</td>
+  <td> library exists essentially for parsing command line options</td>
+<!-- -------------------------------------------------------------------- -->
+<tr>
+  <td> <a href="http://www.mysql.com/">Mysql 3.23</a> </td>
+  <td> <a href="http://www.mysql.com/downloads/index.html"></a>Mysql 3.23</td>
+  <td> &nbsp;</td>
+  <td> A popular opensource database</td>
+<!-- -------------------------------------------------------------------- -->
+<tr>
+  <td> <a href="http://www.sendmail.org/">sendmail 8.12.6</a> </td>
+  <td> <a href="http://www.sendmail.org/">sendmail 8.12.6</a> </td>
+  <td> &nbsp;</td>
+  <td> The original mailer daemon</td>
+<!-- -------------------------------------------------------------------- -->
+<tr>
+  <td> <a href="http://net-snmp.sourceforge.net/">Net-SNMP</a> </td>
+  <td> <a href="http://net-snmp.sourceforge.net/">Net-SNMP</a> </td>
+  <td> Reportedly needs './configure --disable-ipv6 --with-out-mib-modules="ucd_snmp
+  ucd-snmp/disk ucd-snmp/diskio"</td>
+  <td> Various tools relating to the Simple Network Management Protocol</td>
+<!-- -------------------------------------------------------------------- -->
+<tr>
+  <td> <a href="ftp://ftp.porcupine.org/pub/security/index.html">Wietse's portmap daemon</a> </td>
+  <td> <a href="ftp://ftp.porcupine.org/pub/security/portmap_5beta.tar.gz">portmap_5beta.tar.gz</a> </td>
+  <td> Needs <a href="http://uclibc.org/portmap_5-1_uClibc.diff.bz2">this patch</a> to work</td>
+  <td> Various tools relating to the Simple Network Management Protocol</td>
+<!-- -------------------------------------------------------------------- -->
+<tr>
+  <td> <a href="http://www.MPlayerHQ.hu/homepage/">MPlayer</a> </td>
+  <td> <a href="ftp://ftp1.mplayerhq.hu/MPlayer/releases/MPlayer-0.90rc1.tar.bz2">MPlayer-0.90rc1.tar.bz2</a> </td>
+  <td> Seems to need "./configure --disable-setlocale --disable-termcap" to build cleanly. 
+    (and "--cc=path_to_uclibc_gcc" to use uClibc)</td>
+  <td> MPlayer is a movie player for Linux that supports almost all modern movie codecs.</td>
+<!-- -------------------------------------------------------------------- -->
+
+</table>
+</center>
+<!-- End of Application List -->
+
+
+<!-- End of Table -->
+
+</TD></TR>
+</TABLE>
+</P>
+
+
+
+<!-- Footer -->
+<HR>
+<TABLE WIDTH="100%">
+    <TR>
+	<TD>
+	    <font size="-1" face="arial, helvetica, sans-serif">
+	    Mail all comments, insults, suggestions and bribes to 
+	    <a href="mailto:andersen@codepoet.org">Erik Andersen</a><BR>
+	    </font>
+	</TD>
+
+	<TD>
+	    <a href="http://www.vim.org"><img border=0 width=90 height=36
+	    src="images/written.in.vi.png" 
+	    alt="This site created with the vi editor"></a>
+	</TD>
+
+	<TD>
+	    <a href="http://www.gimp.org/"><img border=0 width=90 height=36
+	    src="images/gfx_by_gimp.png" alt="Graphics by GIMP"></a>
+	</TD>
+
+	<TD>
+	    <a href="http://www.linuxtoday.com"><img width=90 height=36
+	    src="images/ltbutton2.png" alt="Linux Today"></a>
+	</TD>
+
+	<TD>
+	    <p><a href="http://slashdot.org"><img width=90 height=36
+	    src="images/sdsmall.png" alt="Slashdot"></a>
+	</TD>
+
+	<TD>
+	    <a href="http://freshmeat.net"><img width=90 height=36
+	    src="images/fm.mini.png" alt="Freshmeat"></a>
+	</TD>
+
+    </TR>
+</TABLE>
+
+
+</CENTER>
+</BODY>
+</HTML>
+
+ 
+ 

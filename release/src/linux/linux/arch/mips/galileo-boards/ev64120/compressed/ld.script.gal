@@ -1,0 +1,19 @@
+OUTPUT_FORMAT("elf32-bigmips")
+OUTPUT_ARCH(mips)
+ENTRY(startup)
+SECTIONS
+{
+  kernel_location_start = 0x80100000;
+  . = 0x80400000;
+  .text : {
+  *(.text)
+  }
+  .bss : {
+  *(.bss)
+  }
+  .data :{
+  *(.data)
+  }
+  malloc_start = .;
+}
+

@@ -1,0 +1,1 @@
+#undef  CONFIG_SGI_IP27

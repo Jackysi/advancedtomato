@@ -1,0 +1,1 @@
+#define CONFIG_ET_MODULE 1

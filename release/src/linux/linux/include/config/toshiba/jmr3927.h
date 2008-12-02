@@ -1,0 +1,1 @@
+#undef  CONFIG_TOSHIBA_JMR3927

@@ -1,0 +1,17 @@
+#!/bin/ksh
+
+# By RidgeRun Inc.
+#
+# The input to this script is
+# intended to be a *.S file which
+# was previously created by the doit
+# program. That program constructs
+# a *.S file which has a defined data
+# table containing values with leading
+# zeroes. To satisfy our assembler those
+# leading zeroes need to be stripped off
+# and that is the purpose of this script.
+
+echo "Removing leading zeros"
+sed -e "s/ 0\(.\)/ \1/g" $1 | sed -e "s/ 0\(.\)/ \1/g" > $1.new
+mv $1.new $1

@@ -1,0 +1,8 @@
+1. ./Configure linux-mipsel
+
+2. edit Makefile
+   modify CC, AR, RANLIB, PERL, DIRS arguments
+
+3. add shared-library
+
+4. make

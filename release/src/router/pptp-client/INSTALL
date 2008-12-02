@@ -1,0 +1,9 @@
+First, install pppd (the Point-to-Point Protocol package) and make
+sure it is working.  You will need MS-CHAP support in pppd to use
+encrypted authentication for pptp. 
+
+Look at the Makefile; make sure its settings are correct.  In
+particular, if your pppd program in not installed in either /bin or
+/usr/bin, edit the path in PPPD_BINARY to point to your pppd program.
+
+Type 'make'.  This should generate the 'pptp' executable.

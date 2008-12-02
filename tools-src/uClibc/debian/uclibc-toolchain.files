@@ -1,0 +1,3 @@
+usr/*-linux-uclibc/bin/*
+usr/bin/*
+usr/share/man/man1/*

@@ -1,0 +1,6 @@
+ldd
+ldd.target
+readelf
+readelf.target
+ldconfig
+elf.h

@@ -1,0 +1,47 @@
+#
+# For a description of the syntax of this configuration file,
+# see extra/config/Kconfig-language.txt
+#
+
+mainmenu "uClibc C Library Configuration"
+
+menu "Target Architecture Features and Options"
+
+config HAVE_ELF
+	bool
+	default y
+
+config ARCH_CFLAGS
+	string
+
+config ARCH_LDFLAGS
+	string
+	default "-mcrislinux"
+
+config LIBGCC_CFLAGS
+	string
+	default "-mlinux"
+
+
+choice
+	prompt "Target Architecture Type"
+	default CONFIG_CRIS
+	help
+		This is the architecture type of your CPU. This information is used for
+		optimizing purposes.
+
+		These are the possible settings:
+		- CRIS  Generic support for Axis' CRIS architecture.
+
+config CONFIG_CRIS
+	bool "CRIS"
+
+endchoice
+
+source "extra/Configs/Config.in.arch"
+
+endmenu
+
+source "extra/Configs/Config.in"
+
+

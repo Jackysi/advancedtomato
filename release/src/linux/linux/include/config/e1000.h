@@ -1,0 +1,1 @@
+#undef  CONFIG_E1000

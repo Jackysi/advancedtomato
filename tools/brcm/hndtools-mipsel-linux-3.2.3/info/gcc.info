@@ -1,0 +1,265 @@
+This is doc/gcc.info, produced by makeinfo version 4.3 from
+doc/gcc.texi.
+
+INFO-DIR-SECTION Programming
+START-INFO-DIR-ENTRY
+* gcc: (gcc).                  The GNU Compiler Collection.
+END-INFO-DIR-ENTRY
+   This file documents the use of the GNU compilers.
+
+   Published by the Free Software Foundation
+59 Temple Place - Suite 330
+Boston, MA 02111-1307 USA
+
+   Copyright (C) 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
+1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+
+   Permission is granted to copy, distribute and/or modify this document
+under the terms of the GNU Free Documentation License, Version 1.1 or
+any later version published by the Free Software Foundation; with the
+Invariant Sections being "GNU General Public License" and "Funding Free
+Software", the Front-Cover texts being (a) (see below), and with the
+Back-Cover Texts being (b) (see below).  A copy of the license is
+included in the section entitled "GNU Free Documentation License".
+
+   (a) The FSF's Front-Cover Text is:
+
+   A GNU Manual
+
+   (b) The FSF's Back-Cover Text is:
+
+   You have freedom to copy and modify this GNU Manual, like GNU
+software.  Copies published by the Free Software Foundation raise
+funds for GNU development.
+
+
+Indirect:
+gcc.info-1: 1225
+gcc.info-2: 46115
+gcc.info-3: 79119
+gcc.info-4: 112368
+gcc.info-5: 161059
+gcc.info-6: 194206
+gcc.info-7: 240267
+gcc.info-8: 286339
+gcc.info-9: 335477
+gcc.info-10: 372144
+gcc.info-11: 421172
+gcc.info-12: 462657
+gcc.info-13: 510611
+gcc.info-14: 554442
+gcc.info-15: 603925
+gcc.info-16: 613577
+gcc.info-17: 670512
+gcc.info-18: 719752
+gcc.info-19: 761264
+gcc.info-20: 804784
+gcc.info-21: 854403
+gcc.info-22: 899215
+gcc.info-23: 969124
+
+Tag Table:
+(Indirect)
+Node: Top1225
+Node: G++ and GCC2941
+Node: Standards5494
+Node: Invoking GCC12730
+Node: Option Summary16379
+Node: Overall Options37806
+Node: Invoking G++44669
+Node: C Dialect Options46115
+Node: C++ Dialect Options59637
+Node: Objective-C Dialect Options75709
+Node: Language Independent Options77332
+Node: Warning Options79119
+Node: Debugging Options112368
+Node: Optimize Options131324
+Node: Preprocessor Options161059
+Ref: -MF167641
+Node: Assembler Options180432
+Node: Link Options180799
+Ref: Link Options-Footnote-1188878
+Node: Directory Options189214
+Node: Spec Files194206
+Node: Target Options211710
+Node: Submodel Options215697
+Node: M680x0 Options217479
+Node: M68hc1x Options223486
+Node: VAX Options224666
+Node: SPARC Options225202
+Node: Convex Options234690
+Node: AMD29K Options236871
+Node: ARM Options240267
+Node: MN10200 Options252787
+Node: MN10300 Options253309
+Node: M32R/D Options254360
+Node: M88K Options256818
+Node: RS/6000 and PowerPC Options264742
+Node: RT Options284636
+Node: MIPS Options286339
+Node: i386 and x86-64 Options298020
+Node: HPPA Options312598
+Node: Intel 960 Options316674
+Node: DEC Alpha Options319616
+Node: DEC Alpha/VMS Options330632
+Node: Clipper Options331010
+Node: H8/300 Options331414
+Node: SH Options332343
+Node: System V Options334659
+Node: TMS320C3x/C4x Options335477
+Node: V850 Options340989
+Node: ARC Options342998
+Node: NS32K Options344199
+Node: AVR Options348448
+Node: MCore Options350249
+Node: IA-64 Options351393
+Node: D30V Options353781
+Node: S/390 and zSeries Options355024
+Node: CRIS Options356957
+Node: MMIX Options360991
+Node: PDP-11 Options363331
+Node: Xstormy16 Options365157
+Node: Xtensa Options365433
+Node: Code Gen Options372144
+Node: Environment Variables387959
+Ref: DEPENDENCIES_OUTPUT394276
+Node: Running Protoize395336
+Node: C Implementation401693
+Node: Translation implementation402627
+Node: Environment implementation402995
+Node: Identifiers implementation403288
+Node: Characters implementation403691
+Node: Integers implementation405548
+Node: Floating point implementation406400
+Node: Arrays and pointers implementation408249
+Ref: Arrays and pointers implementation-Footnote-1409552
+Node: Hints implementation409678
+Node: Structures unions enumerations and bit-fields implementation410107
+Node: Qualifiers implementation410916
+Node: Preprocessing directives implementation411227
+Node: Library functions implementation412844
+Node: Architecture implementation413169
+Node: Locale-specific behavior implementation413734
+Node: C Extensions414032
+Node: Statement Exprs418118
+Node: Local Labels421172
+Node: Labels as Values423237
+Ref: Labels as Values-Footnote-1425296
+Node: Nested Functions425481
+Node: Constructing Calls429319
+Node: Typeof431400
+Node: Lvalues434576
+Node: Conditionals437016
+Node: Long Long437907
+Node: Complex439406
+Node: Hex Floats442074
+Node: Zero Length443103
+Node: Variable Length446147
+Node: Variadic Macros448909
+Node: Escaped Newlines451299
+Node: Multi-line Strings452182
+Node: Subscripting452786
+Node: Pointer Arith453514
+Node: Initializers454079
+Node: Compound Literals454562
+Node: Designated Inits456725
+Node: Case Ranges460399
+Node: Cast to Union461079
+Node: Mixed Declarations462162
+Node: Function Attributes462657
+Node: Attribute Syntax484635
+Node: Function Prototypes495012
+Node: C++ Comments496805
+Node: Dollar Signs497400
+Node: Character Escapes497858
+Node: Alignment498145
+Node: Variable Attributes499465
+Node: Type Attributes510611
+Node: Inline521141
+Node: Extended Asm525850
+Node: Constraints542967
+Node: Simple Constraints543810
+Node: Multi-Alternative550299
+Node: Modifiers552010
+Node: Machine Constraints554442
+Node: Asm Labels571029
+Node: Explicit Reg Vars572705
+Node: Global Reg Vars574159
+Node: Local Reg Vars578724
+Node: Alternate Keywords580524
+Node: Incomplete Enums582211
+Node: Function Names582967
+Node: Return Address585404
+Node: Vector Extensions587983
+Node: Other Builtins590868
+Node: Target Builtins603424
+Node: X86 Built-in Functions603925
+Node: PowerPC AltiVec Built-in Functions613577
+Node: Pragmas670512
+Node: ARM Pragmas670978
+Node: Darwin Pragmas671572
+Node: Solaris Pragmas672611
+Node: Tru64 Pragmas673174
+Node: Unnamed Fields673915
+Node: C++ Extensions674986
+Node: Min and Max676547
+Node: Volatiles677931
+Node: Restricted Pointers681301
+Node: Vague Linkage682871
+Node: C++ Interface686529
+Ref: C++ Interface-Footnote-1691617
+Node: Template Instantiation691756
+Node: Bound member functions700587
+Node: C++ Attributes702138
+Node: Java Exceptions703742
+Node: Deprecated Features705139
+Node: Backwards Compatibility707105
+Node: Objective-C708453
+Node: Executing code before main709032
+Node: What you can and what you cannot do in +load711670
+Node: Type encoding713836
+Node: Garbage Collection717088
+Node: Constant string objects719752
+Node: compatibility_alias721386
+Node: Compatibility722265
+Node: Gcov728852
+Node: Gcov Intro729321
+Node: Invoking Gcov731996
+Node: Gcov and Optimization738070
+Node: Gcov Data Files739487
+Node: Trouble743052
+Node: Actual Bugs744646
+Node: Cross-Compiler Problems745554
+Node: Interoperation747064
+Node: External Bugs759772
+Node: Incompatibilities761264
+Node: Fixed Headers770872
+Node: Standard Libraries773181
+Node: Disappointments774551
+Node: C++ Misunderstandings779273
+Node: Static Definitions779999
+Node: Temporaries781046
+Node: Copy Assignment783023
+Node: Protoize Caveats784841
+Node: Non-bugs788796
+Node: Warnings and Errors798688
+Node: Bugs800448
+Node: Bug Criteria801801
+Node: Bug Lists804225
+Node: Bug Reporting804784
+Node: gccbug816887
+Node: Service817707
+Node: Contributing818453
+Node: VMS819192
+Node: Include Files and VMS819574
+Node: Global Declarations823439
+Node: VMS Misc827743
+Node: Funding832046
+Node: GNU Project834541
+Node: Copying835192
+Node: GNU Free Documentation License854403
+Node: Contributors874287
+Node: Option Index899215
+Node: Index969124
+
+End Tag Table

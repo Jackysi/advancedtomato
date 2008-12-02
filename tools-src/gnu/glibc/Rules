@@ -1,0 +1,244 @@
+# Copyright (C) 1991,92,93,94,95,96,97,98,99,2000 Free Software Foundation, Inc.
+# This file is part of the GNU C Library.
+
+# The GNU C Library is free software; you can redistribute it and/or
+# modify it under the terms of the GNU Lesser General Public
+# License as published by the Free Software Foundation; either
+# version 2.1 of the License, or (at your option) any later version.
+
+# The GNU C Library is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# Lesser General Public License for more details.
+
+# You should have received a copy of the GNU Lesser General Public
+# License along with the GNU C Library; if not, write to the Free
+# Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
+# 02111-1307 USA.
+
+#
+#	Rules for making a subdirectory in the GNU C library.
+#	Each subdirectory Makefile defines some variables and includes this.
+#
+ifneq (,)
+This makefile requires GNU Make.
+endif
+
+all: # Don't let the default goal come from Makeconfig.
+
+include ../Makeconfig
+
+ifndef	subdir
+Each subdirectory makefile must define the `subdir' variable.
+endif
+# This ` unconfuses emacs.
+# This is benign and useless in GNU make before 3.63.
+export subdir := $(subdir)
+
+# This is the default target; it makes the library and auxiliary programs.
+.PHONY: all
+all: objs lib others
+
+ifeq ($(build-programs),yes)
+others: $(addprefix $(objpfx),$(extra-objs) \
+			      $(install-lib) \
+			      $(install-bin) $(install-bin-script) \
+			      $(install-rootsbin) $(install-sbin))
+else
+others: $(addprefix $(objpfx),$(extra-objs) \
+			      $(install-lib))
+endif
+
+ifneq	"$(findstring env,$(origin headers))" ""
+headers :=
+endif
+
+ifneq	"$(findstring env,$(origin generated))" ""
+generated :=
+endif
+
+ifneq	"$(findstring env,$(origin common-generated))" ""
+common-generated :=
+endif
+
+include ../Makerules
+
+.PHONY: subdir_lib
+subdir_lib: lib-noranlib
+
+# Some subdirs need to install a dummy library.
+# They can use "$(objpfx)libfnord.a: $(dep-dummy-lib); $(make-dummy-lib)".
+dep-dummy-lib = $(common-objpfx)dummy.o
+define make-dummy-lib
+$(AR) cr$(verbose) $@ $<
+endef
+
+$(common-objpfx)dummy.c:
+	rm -f $@
+	(echo 'extern void __dummy__ (void);'; \
+	 echo 'void __dummy__ (void) { }') > $@
+common-generated += dummy.o dummy.c
+
+# This makes all the auxiliary and test programs.
+
+.PHONY: others tests
+ifeq ($(build-programs),yes)
+others: $(addprefix $(objpfx),$(others) $(sysdep-others) $(extra-objs))
+else
+others: $(addprefix $(objpfx),$(extra-objs))
+endif
+ifeq ($(cross-compiling),yes)
+tests: $(addprefix $(objpfx),$(tests) $(test-srcs))
+else
+ifeq ($(build-bounded),yes)
+tests-bp.out = $(tests:%=$(objpfx)%-bp.out)
+endif
+tests: $(tests:%=$(objpfx)%.out) $(tests-bp.out)
+endif
+
+ifeq ($(build-programs),yes)
+binaries-all = $(others) $(sysdep-others) $(tests) $(test-srcs)
+binaries-static = $(others-static) $(tests-static)
+else
+binaries-all = $(tests) $(test-srcs)
+binaries-static =
+endif
+
+binaries-shared = $(filter-out $(binaries-static), $(binaries-all))
+
+ifneq "$(strip $(binaries-shared))" ""
+$(addprefix $(objpfx),$(binaries-shared)): %: %.o \
+  $(sort $(filter $(common-objpfx)lib%,$(link-libc))) \
+  $(addprefix $(csu-objpfx),start.o) $(+preinit) $(+postinit)
+	$(+link)
+endif
+
+ifneq "$(strip $(binaries-static))" ""
+$(addprefix $(objpfx),$(binaries-static)): %: %.o \
+  $(sort $(filter $(common-objpfx)lib%,$(link-libc-static))) \
+  $(addprefix $(csu-objpfx),start.o) $(+preinit) $(+postinit)
+	$(+link-static)
+endif
+
+ifeq ($(build-bounded),yes)
+binaries-bounded = $(addsuffix -bp,$(tests) $(test-srcs))
+$(addprefix $(objpfx),$(binaries-bounded)): %-bp: %.ob \
+  $(sort $(filter $(common-objpfx)lib%,$(link-libc-bounded))) \
+  $(addprefix $(csu-objpfx),start.ob) $(+preinit) $(+postinit)
+	$(+link-bounded)
+endif
+
+ifneq "$(strip $(tests) $(test-srcs))" ""
+# These are the implicit rules for making test outputs
+# from the test programs and whatever input files are present.
+
+make-test-out = GCONV_PATH=$(common-objpfx)iconvdata LC_ALL=C \
+		$($*-ENV) $(built-program-cmd) $($*-ARGS)
+$(objpfx)%-bp.out: %.input $(objpfx)%-bp
+	$(make-test-out) > $@ < $(word 1,$^)
+$(objpfx)%.out: %.input $(objpfx)%
+	$(make-test-out) > $@ < $(word 1,$^)
+$(objpfx)%.out: /dev/null $(objpfx)%	# Make it 2nd arg for canned sequence.
+	$(make-test-out) > $@
+
+endif	# tests
+
+.PHONY: distclean realclean subdir_distclean subdir_realclean \
+	subdir_clean subdir_mostlyclean subdir_testclean
+subdir_mostlyclean: mostlyclean
+subdir_clean: clean
+subdir_distclean: distclean
+subdir_realclean: realclean
+subdir_testclean: do-tests-clean
+realclean: distclean
+distclean: clean
+
+.PHONY: subdir_echo-headers
+subdir_echo-headers: echo-headers
+
+.PHONY: subdir_echo-distinfo
+subdir_echo-distinfo:
+	@echo $(addprefix +header+,$(headers) $(filter %.h,$(distribute))) \
+	      $(addprefix +nodist+,$(generated) $(common-generated) $(dont_distribute))
+
+# We want to install everything except the library itself, but update all
+# our portions of the library because the parent make will install it later
+# (likewise the stubs file).
+.PHONY: subdir_install
+subdir_install: install-no-libc.a lib-noranlib stubs
+
+.PHONY: subdir_TAGS subdir_dist
+subdir_TAGS: TAGS
+subdir_dist: dist
+
+# Convenient target to update all the generated source files.
+.PHONY: generated
+generated: $(addprefix $(common-objpfx),$(common-generated)) \
+	$(addprefix $(objpfx),$(generated))
+
+# Target required by the Hurd to ensure that all the MiG-generated
+# headers are in place before building a subdirectory.
+.PHONY: before-compile
+before-compile: $(before-compile)
+
+$(common-objpfx)dummy.o: $(common-objpfx)dummy.c $(before-compile);
+	$(compile-command.c)
+
+# There's no good place to put this - here will do.
+# The dependencies are wrong if it's run from the top level.
+ifeq ($(filter %posix, $(sysdirs)),)
+L_tmpnam  = 1
+TMP_MAX   = 0
+L_ctermid = 1
+L_cuserid = 1
+else
+L_tmpnam  = 20
+TMP_MAX   = 238328
+L_ctermid = 9
+L_cuserid = 9
+endif
+stdio_lim = $(common-objpfx)bits/stdio_lim.h
+
+$(stdio_lim:lim.h=%.h) $(stdio_lim:lim.h=%.d): $(stdio_lim:lim.h=%.st); @:
+$(stdio_lim:h=st): $(..)stdio-common/stdio_lim.h.in $(..)Rules \
+		   $(common-objpfx)config.make
+	$(make-target-directory)
+	echo '#include "$(..)posix/bits/posix1_lim.h"' |		\
+	SUNPRO_DEPENDENCIES='$(@:st=dT) $@'				\
+	$(CC) $(+includes) -E -dM -xc - -o $(@:st=hT)
+	echo '#include "$(..)misc/sys/uio.h"' |				\
+	SUNPRO_DEPENDENCIES='$(@:st=dT) $@'				\
+	$(CC) -D_LIBC=1 $(+includes) -E -dM -xc - | cat - >> $(@:st=hT)
+ifdef sed-remove-objpfx
+	sed $(sed-remove-objpfx) $(@:st=dT) > $(@:st=dt)
+	cat $(@:st=dt) >> $(@:st=d)
+else
+	cat $(@:st=dT) >> $(@:st=d)
+endif
+	fopen_max=`sed -n 's/^#define OPEN_MAX //1p' $(@:st=hT)`; 	\
+	filename_max=`sed -n 's/^#define PATH_MAX //1p' $(@:st=hT)`;	\
+	iov_max=`sed -n 's/^#define UIO_MAXIOV //p' $(@:st=hT)`;	\
+	fopen_max=$${fopen_max:-16};					\
+	filename_max=$${filename_max:-1024};				\
+	if [ -z $$iov_max ]; then					\
+	  define_iov_max="# undef IOV_MAX";				\
+	else								\
+	  define_iov_max="# define IOV_MAX $$iov_max";			\
+	fi;								\
+	sed -e "s/@FOPEN_MAX@/$$fopen_max/"				\
+	    -e "s/@FILENAME_MAX@/$$filename_max/"			\
+	    -e "s/@L_tmpnam@/$(L_tmpnam)/"				\
+	    -e "s/@TMP_MAX@/$(TMP_MAX)/"				\
+	    -e "s/@L_ctermid@/$(L_ctermid)/"				\
+	    -e "s/@L_cuserid@/$(L_cuserid)/"				\
+	    -e "s/@define_IOV_MAX@/$$define_iov_max/"			\
+	    $< > $(@:st=h.new)
+	$(move-if-change) $(@:st=h.new) $(@:st=h)
+# Remove these last so that they can be examined if something went wrong.
+	rm -f $(@:st=hT) $(@:st=dT) $(@:st=dt)
+	touch $@
+# Get dependencies.
+ifndef no_deps
+-include $(stdio_lim:h=d)
+endif
+common-generated += bits/stdio_lim.h bits/stdio_lim.d bits/stdio_lim.st

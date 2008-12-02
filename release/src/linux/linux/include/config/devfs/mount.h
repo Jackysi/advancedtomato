@@ -1,0 +1,1 @@
+#define CONFIG_DEVFS_MOUNT 1

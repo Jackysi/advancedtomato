@@ -1,0 +1,1 @@
+#undef  CONFIG_ISO9660_FS

@@ -1,0 +1,1 @@
+#undef  CONFIG_ADFS_FS_RW

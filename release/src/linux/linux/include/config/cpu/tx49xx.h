@@ -1,0 +1,1 @@
+#undef  CONFIG_CPU_TX49XX

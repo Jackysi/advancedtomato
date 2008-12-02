@@ -1,0 +1,36 @@
+.TH PPTP 8
+.\" NAME should be all caps, SECTION should be 1-8, maybe w/ subsection
+.\" other parms are allowed: see man(7), man(1)
+.SH NAME
+pptp \- PPTP driver
+.br
+pptp_callmgr \- Call Manager
+.SH SYNOPSIS
+.B pptp
+.I "<pptp-server-IP> [ppp-options] ..."
+.SH "DESCRIPTION"
+This manual page documents briefly the
+.BR pptp
+command.
+This manual page was written for the Debian GNU/Linux distribution
+because the original program does not have a manual page.
+Instead, it has documentation in text format.
+.PP
+.B pptp
+is a program that allows one to establish the client side of
+a Virtual Private Network.
+.SH OPTIONS
+The first argument on the
+.B pptp
+command line must be the name or IP address of your PPTP server.
+The remaining arguments are passed as is to
+.B
+pppd
+.SH "SEE ALSO"
+.IR pppd (8)
+.PP
+Documentation in
+.IR /usr/share/doc/pptp-linux
+.SH AUTHOR
+This manual page was written by Thomas Quinot <thomas@debian.org>,
+for the Debian GNU/Linux system (but may be used by others).

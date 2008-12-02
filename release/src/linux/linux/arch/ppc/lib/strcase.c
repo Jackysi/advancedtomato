@@ -1,0 +1,26 @@
+/*
+ * BK Id: SCCS/s.strcase.c 1.5 05/17/01 18:14:22 cort
+ */
+#include <linux/ctype.h>
+
+int strcasecmp(const char *s1, const char *s2)
+{
+	int c1, c2;
+
+	do {
+		c1 = tolower(*s1++);
+		c2 = tolower(*s2++);
+	} while (c1 == c2 && c1 != 0);
+	return c1 - c2;
+}
+
+int strncasecmp(const char *s1, const char *s2, int n)
+{
+	int c1, c2;
+
+	do {
+		c1 = tolower(*s1++);
+		c2 = tolower(*s2++);
+	} while ((--n > 0) && c1 == c2 && c1 != 0);
+	return c1 - c2;
+}

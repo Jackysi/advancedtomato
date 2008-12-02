@@ -1,0 +1,1 @@
+#undef  CONFIG_VIDEO_DEV

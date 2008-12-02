@@ -1,0 +1,1650 @@
+dnl Process this file with autoconf to produce a configure script.
+AC_REVISION([$CVSid$])
+AC_PREREQ(2.13)dnl		dnl Minimum Autoconf version required.
+AC_INIT(include/features.h)
+AC_CONFIG_HEADER(config.h)
+AC_CONFIG_AUX_DIR(scripts)
+
+# This will get text that should go into config.make.
+config_vars=
+
+# Check for a --with-gmp argument and set gmp-srcdir in config.make.
+AC_ARG_WITH(gmp, dnl
+  --with-gmp=DIRECTORY	  find GMP source code in DIRECTORY (not needed),
+	    [dnl
+case "$with_gmp" in
+yes) AC_MSG_ERROR(--with-gmp requires an argument; use --with-gmp=DIRECTORY) ;;
+''|no) ;;
+*) config_vars="$config_vars
+gmp-srcdir = $withval" ;;
+esac
+])
+# Check for a --with-gd argument and set libgd-LDFLAGS in config.make.
+AC_ARG_WITH(gd, dnl
+  --with-gd=DIR           find libgd include dir and library with prefix DIR,
+	    [dnl
+case "$with_gd" in
+yes|''|no) ;;
+*) libgd_include="-I$withval/include"
+   libgd_ldflags="-L$withval/lib" ;;
+esac
+])
+AC_ARG_WITH(gd-include, dnl
+  --with-gd-include=DIR   find libgd include files in DIR,
+            [dnl
+case "$with_gd_include" in
+''|no) ;;
+*) libgd_include="-I$withval" ;;
+esac
+])
+AC_ARG_WITH(gd-lib, dnl
+  --with-gd-lib=DIR       find libgd library files in DIR,
+            [dnl
+case "$with_gd_lib" in
+''|no) ;;
+*) libgd_ldflags="-L$withval" ;;
+esac
+])
+
+if test -n "$libgd_include"; then
+  config_vars="$config_vars
+CFLAGS-memusagestat.c = $libgd_include"
+fi
+if test -n "$libgd_ldflags"; then
+  config_vars="$config_vars
+libgd-LDFLAGS = $libgd_ldflags"
+fi
+
+dnl Arguments to specify presence of other packages/features.
+AC_ARG_WITH(fp, dnl
+[  --with-fp		  if using floating-point hardware [default=yes]],
+	    with_fp=$withval, with_fp=yes)
+AC_SUBST(with_fp)
+AC_ARG_WITH(binutils, dnl
+  --with-binutils=PATH	  specify location of binutils (as and ld),
+	    path_binutils=$withval, path_binutils='')
+AC_ARG_WITH(elf, dnl
+  --with-elf		  if using the ELF object format,
+	    elf=$withval, elf=no)
+AC_ARG_WITH(xcoff, dnl
+  --with-xcoff		  if using the XCOFF object format,
+	    xcoff=$withval, xcoff=no)
+AC_ARG_WITH(cvs, dnl
+[  --without-cvs           if CVS should not be used],
+	    with_cvs=$withval, with_cvs=yes)
+if test "$with_cvs" = yes; then
+  if test -d $srcdir/CVS && grep :pserver: $srcdir/CVS/Root > /dev/null
+  then
+    with_cvs=no
+  fi
+fi
+AC_SUBST(with_cvs)
+
+AC_ARG_WITH(headers, dnl
+[  --with-headers=PATH     location of system headers to use
+                          [e.g. /usr/src/linux/include]
+                          [default=compiler default]],
+	    sysheaders=$withval, sysheaders='')
+
+AC_ARG_ENABLE(libio, dnl
+[  --enable-libio          build in GNU libio instead of GNU stdio],
+ 	      [if test $enableval = yes; then
+	         stdio=libio
+	       else
+	         stdio=stdio
+	       fi],
+	      stdio=default)
+
+AC_ARG_ENABLE(sanity-checks, dnl
+[  --disable-sanity-checks really do not use threads (should not be used
+			  except in special situations) [default=yes]],
+              enable_sanity=$enableval, enable_sanity=yes)
+
+dnl Arguments to enable or disable building the static, shared, profiled,
+dnl and -fomit-frame-pointer libraries.
+dnl I've disabled this for now since we cannot build glibc without static
+dnl libraries built in the moment.
+dnl AC_ARG_ENABLE(static, dnl
+dnl [  --enable-static         build static library [default=yes]],
+dnl	      static=$enableval, static=yes)
+static=yes
+AC_ARG_ENABLE(shared, dnl
+[  --enable-shared         build shared library [default=yes if GNU ld & ELF]],
+	      shared=$enableval, shared=default)
+AC_ARG_ENABLE(profile, dnl
+[  --enable-profile        build profiled library [default=yes]],
+	      profile=$enableval, profile=yes)
+AC_ARG_ENABLE(omitfp, dnl
+[  --enable-omitfp         build undebuggable optimized library [default=no]],
+	      omitfp=$enableval, omitfp=no)
+AC_ARG_ENABLE(bounded, dnl
+[  --enable-bounded        build with runtime bounds checking [default=no]],
+	      bounded=$enableval, bounded=no)
+AC_ARG_ENABLE(versioning, dnl
+[  --disable-versioning    do not include versioning information in the
+                          library objects [default=yes if supported]],
+             enable_versioning=$enableval, enable_versioning=yes)
+
+AC_ARG_ENABLE(oldest-abi, dnl
+[  --enable-oldest-abi=ABI configure the oldest ABI supported [e.g. 2.2]
+                          [default=glibc default]],
+	    oldest_abi=$enableval, oldest_abi=no)
+if test "$oldest_abi" = yes || test "$oldest_abi" = no; then
+  oldest_abi=default
+else
+  AC_DEFINE_UNQUOTED(GLIBC_OLDEST_ABI, "$oldest_abi")
+fi
+AC_SUBST(oldest_abi)
+
+dnl Generic infrastructure for drop-in additions to libc.
+AC_ARG_ENABLE(add-ons, dnl
+[  --enable-add-ons[=DIR1,DIR2]...
+			  configure and build add-ons in DIR1,DIR2,...
+                          search for add-ons if no parameter given],
+  [case "$enableval" in
+    yes) add_ons=`cd $srcdir && echo */configure | sed -e 's!/configure!!g'`
+	 test "$add_ons" = "*" && add_ons= ;;
+    *) add_ons=`echo "$enableval" | sed 's/,/ /g'`;;
+   esac],
+  [add_ons=])
+
+AC_CONFIG_SUBDIRS($add_ons)
+add_ons_pfx=
+if test x"$add_ons" != x; then
+  for f in $add_ons; do
+    # Some sanity checks
+    if test "$f" = "crypt"; then
+      AC_MSG_ERROR([
+*** It seems that you're using an old \`crypt' add-on.  crypt is now
+*** part of glibc and using the old add-on will not work with this
+*** release.  Start again with fresh sources and without the old
+*** \`crypt' add-on.])
+    fi
+    if test "$f" = "localedata"; then
+      AC_MSG_ERROR([
+*** It seems that you're using an old \`localedata' add-on.  localedata
+*** is now part of glibc and using the old add-on will not work with
+*** this release.  Start again with fresh sources and without the old
+*** \`localedata' add-on.])
+    fi
+    # Test whether such a subdir really exists.
+    if test -d $srcdir/$f; then
+      add_ons_pfx="$add_ons_pfx $f/"
+    else
+      AC_MSG_ERROR(add-on directory \"$f\" does not exist)
+    fi
+  done
+fi
+
+dnl On some platforms we cannot use dynamic loading.  We must provide
+dnl static NSS modules.
+AC_ARG_ENABLE(static-nss, dnl
+[  --enable-static-nss     build static NSS modules [default=no]],
+	      static_nss=$enableval, static_nss=no)
+if test x"$static_nss" = xyes; then
+  AC_DEFINE(DO_STATIC_NSS)
+fi
+
+AC_ARG_ENABLE(force-install,
+[  --disable-force-install don't force installation of files from this package,
+			  even if they are older than the installed files],
+	      force_install=$enableval, force_install=yes)
+AC_SUBST(force_install)
+
+dnl On some platforms we allow dropping compatibility with all kernel
+dnl versions.
+AC_ARG_ENABLE(kernel,
+[  --enable-kernel=VERSION compile for compatibility with kernel not older
+                           than VERSION],
+              minimum_kernel=$enableval)
+dnl Prevent unreasonable values.
+if test "$minimum_kernel" = yes || test "$minimum_kernel" = no; then
+  # Better nothing than this.
+  minimum_kernel=""
+else
+  if test "$minimum_kernel" = current; then
+    minimum_kernel=`uname -r 2>/dev/null` || minimum_kernel=
+  fi
+fi
+
+dnl For the development we sometimes want gcc to issue even more warnings.
+dnl This is not the default since many of the extra warnings are not
+dnl appropriate.
+AC_ARG_ENABLE(all-warnings,
+[  --enable-all-warnings   enable all useful warnings gcc can issue],
+	      all_warnings=$enableval)
+AC_SUBST(all_warnings)
+
+AC_CANONICAL_HOST
+
+# The way shlib-versions is used to generate soversions.mk uses a
+# fairly simplistic model for name recognition that can't distinguish
+# i486-pc-linux-gnu fully from i486-pc-gnu.  So we mutate a $host_os
+# of `gnu*' here to be `gnu-gnu*' just so that shlib-versions can
+# tell.  This doesn't get used much beyond that, so it's fairly safe.
+case "$host_os" in
+linux*)
+  ;;
+gnu*)
+  host_os=`echo $host_os | sed -e 's/gnu/gnu-gnu/'`
+  ;;
+esac
+
+# We keep the original values in `$config_*' and never modify them, so we
+# can write them unchanged into config.make.  Everything else uses
+# $machine, $vendor, and $os, and changes them whenever convenient.
+config_machine=$host_cpu config_vendor=$host_vendor config_os=$host_os
+
+# Don't allow vendor == "unknown"
+test "$config_vendor" = unknown && config_vendor=
+config_os="`echo $config_os | sed 's/^unknown-//'`"
+
+# Some configurations imply other options.
+case "$host_os" in
+gnu* | linux* | bsd4.4* | netbsd* | freebsd*)
+  # These systems always use GNU tools.
+  gnu_ld=yes gnu_as=yes ;;
+esac
+case "$host_os" in
+# i586-linuxaout is mangled into i586-pc-linux-gnuaout
+linux*ecoff* | linux*aout* | gnu*aout* | gnu*ecoff*)
+  ;;
+gnu* | linux* | sysv4* | solaris2* | irix6*)
+  # These systems (almost) always use the ELF format.
+  elf=yes
+  ;;
+aix*)
+  # These systems are always xcoff
+  xcoff=yes
+  elf=no
+  ;;
+esac
+
+machine=$config_machine
+vendor=$config_vendor
+os=$config_os
+
+# config.guess on some IBM machines says `rs6000' instead of `powerpc'.
+# Unify this here.
+if test "$machine" = rs6000; then
+  machine="powerpc"
+fi
+
+###
+### I put this here to prevent those annoying emails from people who cannot
+### read and try to compile glibc on unsupported platforms.  --drepper
+###
+### By using the undocumented --enable-hacker-mode option for configure
+### one can skip this test to make the configuration not fail for unsupported
+### platforms.
+###
+if test -z "$enable_hacker_mode"; then
+  case "$machine-$host_os" in
+  *-linux* | *-gnu* | arm*-none* | powerpc-aix4.3.*)
+    ;;
+  *)
+    echo "*** The GNU C library is currently not available for this platform."
+    echo "*** So far nobody cared to port it and if there is no volunteer it"
+    echo "*** might never happen.  So, if you have interest to see glibc on"
+    echo "*** this platform visit"
+    echo "***	http://www.gnu.org/software/libc/porting.html"
+    echo "*** and join the group of porters"
+    exit 1
+    ;;
+  esac
+fi
+
+dnl We need to use [ and ] for other purposes for a while now.
+changequote(,)dnl
+# Expand the configuration machine name into a subdirectory by architecture
+# type and particular chip.
+case "$machine" in
+a29k | am29000)	base_machine=a29k machine=a29k ;;
+alpha*)		base_machine=alpha machine=alpha/$machine ;;
+arm*)		base_machine=arm machine=arm/arm32/$machine ;;
+c3[012])	base_machine=cx0 machine=cx0/c30 ;;
+c4[04])		base_machine=cx0 machine=cx0/c40 ;;
+hppa*64*)	base_machine=hppa machine=hppa/hppa64 ;;
+hppa*)		base_machine=hppa machine=hppa/hppa1.1 ;;
+i[3456]86)	base_machine=i386 machine=i386/$machine ;;
+ia64)		base_machine=ia64 machine=ia64 ;;
+m680?0)		base_machine=m68k machine=m68k/$machine ;;
+m68k)		base_machine=m68k machine=m68k/m68020 ;;
+m88???)		base_machine=m88k machine=m88k/$machine ;;
+m88k)		base_machine=m88k machine=m88k/m88100 ;;
+mips64*)	base_machine=mips64 machine=mips/mips64/$machine ;;
+mips*)		base_machine=mips
+		case "`uname -m`" in
+		IP22) machine=mips/mips3 ;;
+		*)    machine=mips/$machine ;;
+		esac ;;
+s390)           base_machine=s390 machine=s390/s390-32 ;;
+s390x)          base_machine=s390 machine=s390/s390-64 ;;
+sh3*)		base_machine=sh machine=sh/sh3 ;;
+sh4*)		base_machine=sh machine=sh/sh4 ;;
+sparc | sparcv[67])
+		base_machine=sparc machine=sparc/sparc32 ;;
+sparcv8 | supersparc | hypersparc)
+		base_machine=sparc machine=sparc/sparc32/sparcv8 ;;
+sparcv8plus | sparcv8plusa | sparcv9)
+		base_machine=sparc machine=sparc/sparc32/sparcv9 ;;
+sparcv8plusb | sparcv9b)
+		base_machine=sparc machine=sparc/sparc32/sparcv9b ;;
+sparc64 | ultrasparc)
+		base_machine=sparc machine=sparc/sparc64 ;;
+sparc64b | ultrasparc3)
+		base_machine=sparc machine=sparc/sparc64/sparcv9b ;;
+thumb*)		base_machine=thumb machine=arm/thumb/$machine ;;
+esac
+changequote([,])dnl
+AC_SUBST(base_machine)
+
+if test "$base_machine" = "i386"; then
+  AC_DEFINE(USE_REGPARMS)
+fi
+
+# Compute the list of sysdep directories for this configuration.
+# This can take a while to compute.
+sysdep_dir=$srcdir/sysdeps
+AC_MSG_CHECKING(sysdep dirs)
+dnl We need to use [ and ] for other purposes for a while now.
+changequote(,)dnl
+# Make sco3.2v4 become sco3.2.4 and sunos4.1.1_U1 become sunos4.1.1.U1.
+os="`echo $os | sed 's/\([0-9A-Z]\)[v_]\([0-9A-Z]\)/\1.\2/g'`"
+
+case "$os" in
+gnu*)
+  base_os=mach/hurd ;;
+netbsd* | 386bsd* | freebsd* | bsdi*)
+  base_os=unix/bsd/bsd4.4 ;;
+osf* | sunos* | ultrix* | newsos* | dynix* | *bsd*)
+  base_os=unix/bsd ;;
+sysv* | isc* | esix* | sco* | minix* | irix4* | linux*)
+  base_os=unix/sysv ;;
+irix6*)
+  base_os=unix/sysv/irix6/$os ;;
+solaris[2-9]*)
+  base_os=unix/sysv/sysv4 ;;
+hpux*)
+  base_os=unix/sysv/hpux/$os ;;
+aix4.3*)
+  base_os=unix/sysv/aix/aix4.3 ;;
+none)
+  base_os=standalone ;;
+*)
+  base_os='' ;;
+esac
+
+# For sunos4.1.1, try sunos4.1.1, then sunos4.1, then sunos4, then sunos.
+tail=$os
+ostry=$os
+while o=`echo $tail | sed 's/\.[^.]*$//'`; test $o != $tail; do
+  ostry="$ostry /$o"
+  tail=$o
+done
+o=`echo $tail | sed 's/[0-9]*$//'`
+if test $o != $tail; then
+  ostry="$ostry /$o"
+fi
+# For linux-gnu, try linux-gnu, then linux.
+o=`echo $tail | sed 's/-.*$//'`
+if test $o != $tail; then
+  ostry="$ostry /$o"
+fi
+
+# For unix/sysv/sysv4, try unix/sysv/sysv4, then unix/sysv, then unix.
+base=
+tail=$base_os
+while b=`echo $tail | sed 's@^\(.*\)/\([^/]*\)$@& \1@'`; test -n "$b"; do
+  set $b
+  base="$base /$1"
+  tail="$2"
+done
+
+# For sparc/sparc32, try sparc/sparc32 and then sparc.
+mach=
+tail=$machine
+while m=`echo $tail | sed 's@^\(.*\)/\([^/]*\)$@& \1@'`; test -n "$m"; do
+  set $m
+  # Prepend the machine's FPU directory unless --without-fp.
+  if test "$with_fp" = yes; then
+    mach="$mach /$1/fpu"
+  fi
+  mach="$mach /$1"
+  tail="$2"
+done
+
+dnl We are done with glob and regexp uses of [ and ]; return to autoconf.
+changequote([,])dnl
+
+# Find what sysdep directories exist.
+sysnames=
+IFS="${IFS= 	}"; ac_save_ifs="$IFS"; IFS="${IFS}:"
+for d in $add_ons_pfx ''; do
+  for b in $base ''; do
+    for m0 in $mach ''; do
+      for v in /$vendor ''; do
+	test "$v" = / && continue
+	for o in /$ostry ''; do
+	  test "$o" = / && continue
+	  for m in $mach ''; do
+	    if test "$m0$b$v$o$m"; then
+	      try="${d}sysdeps$m0$b$v$o$m"
+	      test -n "$enable_debug_configure" &&
+	      echo "$0 [DEBUG]: try $try" >&2
+	      if test -d $srcdir/$try; then
+		sysnames="$sysnames $try"
+		{ test -n "$o" || test -n "$b"; } && os_used=t
+		{ test -n "$m" || test -n "$m0"; } && machine_used=t
+	      fi
+	    fi
+	  done
+	done
+      done
+    done
+  done
+done
+IFS="$ac_save_ifs"
+
+if test -z "$os_used" && test "$os" != none; then
+  AC_MSG_ERROR(Operating system $os is not supported.)
+fi
+if test -z "$machine_used" && test "$machine" != none; then
+  AC_MSG_ERROR(The $machine is not supported.)
+fi
+
+# We have now validated the configuration.
+
+
+# If using ELF, look for an `elf' subdirectory of each machine directory.
+# We prepend these rather than inserting them whereever the machine appears
+# because things specified by the machine's ELF ABI should override
+# OS-specific things, and should always be the same for any OS on the
+# machine (otherwise what's the point of an ABI?).
+if test "$elf" = yes; then
+  elf_dirs=
+  for d in $add_ons_pfx ''; do
+    for m in $mach; do
+      if test -d $srcdir/${d}sysdeps$m/elf; then
+	elf_dirs="$elf_dirs ${d}sysdeps$m/elf"
+      fi
+    done
+  done
+  sysnames="`echo $elf_dirs | sed -e 's,//,/,g'` $sysnames"
+fi
+
+
+# Expand the list of system names into a full list of directories
+# from each element's parent name and Implies file (if present).
+set $sysnames
+names=
+while test $# -gt 0; do
+  name=$1
+  shift
+
+  case " $names " in *" $name "*)
+    # Already in the list.
+    continue
+  esac
+
+  # Report each name as we discover it, so there is no long pause in output.
+  echo $ac_n "$name $ac_c" >&AC_FD_MSG
+
+  name_base=`echo $name | sed -e 's@\(.*sysdeps\)/.*@\1@'`
+
+  case $name in
+    /*) xsrcdir= ;;
+    *)  xsrcdir=$srcdir/ ;;
+  esac
+  test -n "$enable_debug_configure" &&
+  echo "[DEBUG]: name/Implies $xsrcdir$name/Implies" >&2
+
+  if test -f $xsrcdir$name/Implies; then
+    # Collect more names from the `Implies' file (removing comments).
+    implied_candidate="`sed 's/#.*$//' < $xsrcdir$name/Implies`"
+    implied=
+    for x in $implied_candidate; do
+      found=no
+      if test -d $xsrcdir$name_base/$x; then
+	implied="$implied $name_base/$x";
+	found=yes
+      fi
+      for d in $add_ons_pfx ''; do
+	try="${d}sysdeps/$x"
+	case $d in
+	 /*) try_srcdir= ;;
+	 *) try_srcdir=$srcdir/ ;;
+	esac
+	test -n "$enable_debug_configure" &&
+	 echo "[DEBUG]: $name implied $x try($d) {$try_srcdir}$try" >&2
+	if test $try != $xsrcdir$name_base/$x && test -d $try_srcdir$try;
+	then
+	  implied="$implied $try"
+	  found=yes
+	fi
+      done
+      if test $found = no; then
+        AC_MSG_WARN($name/Implies specifies nonexistent $x)
+      fi
+    done
+  else
+    implied=
+  fi
+
+  # Add NAME to the list of names.
+  names="$names $name"
+
+  # Find the parent of NAME, using the empty string if it has none.
+changequote(,)dnl
+  parent="`echo $name | sed -n -e 's=/[^/]*$==' -e '/sysdeps$/q' -e p`"
+changequote([,])dnl
+
+  # Add the names implied by NAME, and NAME's parent (if it has one), to
+  # the list of names to be processed (the argument list).  We prepend the
+  # implied names to the list and append the parent.  We want implied
+  # directories to come before further directories inferred from the
+  # configuration components; this ensures that for sysv4, unix/common
+  # (implied by unix/sysv/sysv4) comes before unix/sysv (in ostry (here $*)
+  # after sysv4).
+  sysnames="`echo $implied $* $parent`"
+  test -n "$sysnames" && set $sysnames
+done
+
+# Add the default directories.
+default_sysnames=sysdeps/generic
+if test "$elf" = yes; then
+  default_sysnames="sysdeps/generic/elf $default_sysnames"
+fi
+sysnames="$names $default_sysnames"
+AC_SUBST(sysnames)
+# The other names were emitted during the scan.
+AC_MSG_RESULT($default_sysnames)
+
+
+### Locate tools.
+
+AC_PROG_INSTALL
+if test "$INSTALL" = "${srcdir}/scripts/install-sh -c"; then
+  # The makefiles need to use a different form to find it in $srcdir.
+  INSTALL='\$(..)./scripts/install-sh -c'
+fi
+AC_PROG_LN_S
+
+# We need the physical current working directory.  We cannot use the
+# "pwd -P" shell builtin since that's not portable.  Instead we try to
+# find a pwd binary.  Note that assigning to the PWD environment
+# variable might have some interesting side effects, so we don't do
+# that.
+AC_PATH_PROG(PWD_P, pwd, no)
+if test "$PWD_P" = no; then
+  AC_MSG_ERROR(*** A pwd binary could not be found.)
+fi
+
+# These programs are version sensitive.
+AC_REQUIRE([AC_CHECK_TOOL_PREFIX])dnl
+AC_CHECK_PROG_VER(CC, ${ac_tool_prefix}gcc ${ac_tool_prefix}cc, -v,
+  [version \([egcygnustpi-]*[0-9.]*\)],
+  [*gcc-2.9[5-9].*|*2.8.[1-9]*|*2.9|*2.9.[0-9]*|2.9[5-9]*|3.[0-9]*|cygnus-2.9[1-9]*|gcc-2.9[5-9]|gcc-2.1[0-9][0-9]|sgicc-*],
+  critic_missing=gcc)
+AC_CHECK_PROG_VER(MAKE, gnumake gmake make, --version,
+  [GNU Make[^0-9]*\([0-9][0-9.]*\)],
+  [3.79* | 3.[89]*], critic_missing="$critic_missing make")
+
+
+if test -n "$critic_missing"; then
+AC_MSG_ERROR([
+*** These critical programs are missing or too old:$critic_missing
+*** Check the INSTALL file for required versions.])
+fi
+
+
+AC_CHECK_PROG_VER(MSGFMT, gnumsgfmt gmsgfmt msgfmt, --version,
+  [GNU gettext.* \([0-9]*\.[0-9.]*\)],
+  [0.10.3[6-9]* | 0.10.[4-9][0-9]* | 0.1[1-9]* | 0.[2-9][0-9]* | [1-9].*],
+  MSGFMT=: aux_missing="$aux_missing msgfmt")
+AC_CHECK_PROG_VER(MAKEINFO, makeinfo, --version,
+  [GNU texinfo.* \([0-9][0-9.]*\)],
+  [4.*],
+  MAKEINFO=: aux_missing="$aux_missing makeinfo")
+AC_CHECK_PROG_VER(SED, gsed sed, --version,
+  [GNU sed version \([0-9]*\.[0-9.]*\)],
+  [3.0[2-9]*|3.[1-9]*|[4-9]*],
+  SED=: aux_missing="$aux_missing sed")
+
+AC_PROG_CC_LOCAL
+AC_CANONICAL_BUILD
+if test $host != $build; then
+  AC_CHECK_PROGS(BUILD_CC, gcc cc)
+fi
+AC_SUBST(cross_compiling)
+AC_PROG_CPP
+LIBC_PROG_BINUTILS
+AC_CHECK_TOOL(MIG, mig)
+
+# Accept binutils 2.10.1 or newer (and also any ia64 2.9 version)
+# XXX Commented out because it filters out too many good versions.
+# XXX --drepper
+# AC_CHECK_PROG_VER(AS, $AS, --version,
+#   [GNU assembler.* \([0-9]*\.[0-9.]*\(-ia64-[0-9]*\)*\)],
+#   [2.10.[1-9]* | 2.1[1-9]* | 2.9-ia64-*], AS=: critic_missing=t)
+
+test -n "$aux_missing" && AC_MSG_WARN([
+*** These auxiliary programs are missing or too old:$aux_missing
+*** some features will be disabled.
+*** Check the INSTALL file for required versions.])
+
+# glibcbug.in wants to know the compiler version.
+CCVERSION=`$CC -v 2>&1 | sed -n 's/gcc version //p'`
+AC_SUBST(CCVERSION)
+
+# if using special system headers, find out the compiler's sekrit
+# header directory and add that to the list.  NOTE: Only does the right
+# thing on a system that doesn't need fixincludes.  (Not presently a problem.)
+if test -n "$sysheaders"; then
+  ccheaders=`$CC -print-file-name=include`
+  SYSINCLUDES="-nostdinc -isystem $ccheaders -isystem $sysheaders"
+fi
+AC_SUBST(SYSINCLUDES)
+
+# check if ranlib is necessary
+AC_CACHE_CHECK(whether ranlib is necessary, libc_cv_ranlib_necessary, [dnl
+cat > conftest.c <<EOF
+int a;
+char b;
+void c(void) {}
+EOF
+$CC $CFLAGS -c conftest.c
+$AR cr conftest.a conftest.c
+cp conftest.a conftest2.a
+$RANLIB conftest.a
+if cmp -s conftest.a conftest2.a; then
+  libc_cv_ranlib_necessary=no
+else
+  libc_cv_ranlib_necessary=yes
+fi
+rm -rf conftest*])
+if test "$libc_cv_ranlib_necessary" = no; then
+ RANLIB=:
+fi
+
+# Test if LD_LIBRARY_PATH contains the notation for the current directory
+# since this would lead to problems installing/building glibc.
+# LD_LIBRARY_PATH contains the current directory if one of the following
+# is true:
+# - one of the terminals (":" and ";") is the first or last sign
+# - two terminals occur directly after each other
+# - the path contains an element with a dot in it
+AC_MSG_CHECKING(LD_LIBRARY_PATH variable)
+changequote(,)dnl
+case ${LD_LIBRARY_PATH} in
+  [:\;]* | *[:\;] | *[:\;][:\;]* |  *[:\;]. | .[:\;]*| . | *[:\;].[:\;]* )
+    ld_library_path_setting="contains current directory"
+    ;;
+  *)
+    ld_library_path_setting="ok"
+    ;;
+esac
+changequote([,])dnl
+AC_MSG_RESULT($ld_library_path_setting)
+if test "$ld_library_path_setting" != "ok"; then
+AC_MSG_ERROR([
+*** LD_LIBRARY_PATH shouldn't contain the current directory when
+*** building glibc. Please change the environment variable
+*** and run configure again.])
+fi
+
+AC_CACHE_CHECK(whether GCC supports -static-libgcc, libc_cv_gcc_static_libgcc, [dnl
+if $CC -v -static-libgcc 2>&1 | grep -q 'unrecognized option.*static-libgcc'; then
+  libc_cv_gcc_static_libgcc=
+else
+  libc_cv_gcc_static_libgcc=-static-libgcc
+fi])
+AC_SUBST(libc_cv_gcc_static_libgcc)
+
+AC_PATH_PROG(BASH, bash, no)
+if test "$BASH" != no &&
+   $BASH -c 'test "$BASH_VERSINFO" \
+	     && test "$BASH_VERSINFO" -ge 2 >&/dev/null'; then
+  libc_cv_have_bash2=yes
+else
+  libc_cv_have_bash2=no
+fi
+AC_SUBST(libc_cv_have_bash2)
+
+dnl We need a ksh compatible shell for tzselect.
+if test "$BASH" = no; then
+  AC_PATH_PROG(KSH, ksh, no)
+  if test "$KSH" = no; then
+    libc_cv_have_ksh=no
+  else
+    libc_cv_have_ksh=yes
+  fi
+else
+  KSH="$BASH"
+  AC_SUBST(KSH)
+  libc_cv_have_ksh=yes
+fi
+AC_SUBST(libc_cv_have_ksh)
+
+AC_PROG_AWK
+AC_PATH_PROG(PERL, perl, no)
+if test "$PERL" != no &&
+   (eval `$PERL -V:apiversion`; test `expr "$apiversion" \< 5` -ne 0); then
+  PERL=no
+fi
+AC_PATH_PROG(INSTALL_INFO, install-info, no,
+	     $PATH:/usr/local/bin:/usr/local/sbin:/usr/bin:/usr/sbin:/bin:/sbin)
+if test "$INSTALL_INFO" != "no"; then
+AC_CACHE_CHECK(for old Debian install-info, libc_cv_old_debian_install_info,
+ [mkdir conftest.d
+  # There is a hard ^_ on the next line.  I am open to better ideas.
+  (echo ''
+  echo 'File: dir	Node: Top	This is the top of the INFO tree'
+  echo '* Menu:') >conftest.d/dir
+  (echo 'INFO-DIR-SECTION i-d-s works'
+  echo 'START-INFO-DIR-ENTRY'
+  echo '* Prog: (prog).   Program.'
+  echo 'END-INFO-DIR-ENTRY') >conftest.d/prog.info
+  if $INSTALL_INFO --info-dir=conftest.d conftest.d/prog.info >&AC_FD_CC 2>&1
+  then
+    if grep -s 'i-d-s works' conftest.d/dir >/dev/null
+    then libc_cv_old_debian_install_info=no
+    else libc_cv_old_debian_install_info=yes
+    fi
+  else libc_cv_old_debian_install_info=no testfailed=t
+  fi
+  rm -fr conftest.d])
+if test -n "$testfailed"
+then AC_MSG_WARN([install-info errored out, check config.log])
+fi
+OLD_DEBIAN_INSTALL_INFO=$libc_cv_old_debian_install_info
+fi
+AC_SUBST(OLD_DEBIAN_INSTALL_INFO)
+
+AC_PATH_PROG(BISON, bison, no, $PATH:/usr/local/bin:/usr/bin:/bin)
+
+AC_CACHE_CHECK(for signed size_t type, libc_cv_signed_size_t, [dnl
+echo '#include <stddef.h>
+FOOBAR __SIZE_TYPE__ FOOBAR' > conftest.c
+if eval "$ac_cpp conftest.c 2>/dev/null" \
+| grep '^FOOBAR.*unsigned.*FOOBAR$' >/dev/null; then
+  libc_cv_signed_size_t=no
+else
+  libc_cv_signed_size_t=yes
+fi
+rm -f conftest*])
+if test $libc_cv_signed_size_t = yes; then
+  dnl Do this by hand instead of AC_DEFINE so can add #undef to avoid warnings.
+  cat >> confdefs.h <<\EOF
+#undef __SIZE_TYPE__
+#define __SIZE_TYPE__ unsigned
+EOF
+fi
+
+AC_CACHE_CHECK(for libc-friendly stddef.h, libc_cv_friendly_stddef, [dnl
+AC_TRY_COMPILE(dnl
+[#define __need_size_t
+#define __need_wchar_t
+#include <stddef.h>
+#define __need_NULL
+#include <stddef.h>], [size_t size; wchar_t wchar;
+#ifdef offsetof
+#error stddef.h ignored __need_*
+#endif
+if (&size == NULL || &wchar == NULL) abort ();],
+               libc_cv_friendly_stddef=yes,
+               libc_cv_friendly_stddef=no)])
+if test $libc_cv_friendly_stddef = yes; then
+  config_vars="$config_vars
+override stddef.h = # The installed <stddef.h> seems to be libc-friendly."
+fi
+
+AC_CACHE_CHECK(whether we need to use -P to assemble .S files,
+	       libc_cv_need_minus_P, [dnl
+cat > conftest.S <<EOF
+#include "confdefs.h"
+/* Nothing whatsoever.  */
+EOF
+if ${CC-cc} $CFLAGS -c conftest.S 2>/dev/null; then
+  libc_cv_need_minus_P=no
+else
+  libc_cv_need_minus_P=yes
+fi
+rm -f conftest*])
+if test $libc_cv_need_minus_P = yes; then
+  config_vars="$config_vars
+asm-CPPFLAGS = -P # The assembler can't grok cpp's # line directives."
+fi
+
+AC_MSG_CHECKING(whether .text pseudo-op must be used)
+AC_CACHE_VAL(libc_cv_dot_text, [dnl
+cat > conftest.s <<EOF
+.text
+EOF
+libc_cv_dot_text=
+if ${CC-cc} $CFLAGS -c conftest.s 2>/dev/null; then
+  libc_cv_dot_text=.text
+fi
+rm -f conftest*])
+if test -z "$libc_cv_dot_text"; then
+  AC_MSG_RESULT(no)
+else
+  AC_MSG_RESULT(yes)
+fi
+
+AC_CACHE_CHECK(for assembler global-symbol directive,
+	       libc_cv_asm_global_directive, [dnl
+libc_cv_asm_global_directive=UNKNOWN
+for ac_globl in .globl .global .EXPORT; do
+  cat > conftest.s <<EOF
+	${libc_cv_dot_text}
+	${ac_globl} foo
+foo:
+EOF
+  if ${CC-cc} $CFLAGS -c conftest.s 2>/dev/null; then
+    libc_cv_asm_global_directive=${ac_globl}
+  fi
+  rm -f conftest*
+  test $libc_cv_asm_global_directive != UNKNOWN && break
+done])
+if test $libc_cv_asm_global_directive = UNKNOWN; then
+  AC_MSG_ERROR(cannot determine asm global directive)
+else
+  AC_DEFINE_UNQUOTED(ASM_GLOBAL_DIRECTIVE, ${libc_cv_asm_global_directive})
+fi
+
+AC_CACHE_CHECK(for .set assembler directive, libc_cv_asm_set_directive, [dnl
+cat > conftest.s <<EOF
+${libc_cv_dot_text}
+foo:
+.set glibc_conftest_frobozz,foo
+$libc_cv_asm_global_directive glibc_conftest_frobozz
+EOF
+# The alpha-dec-osf1 assembler gives only a warning for `.set'
+# (but it doesn't work), so we must do a linking check to be sure.
+cat > conftest1.c <<\EOF
+extern int glibc_conftest_frobozz;
+main () { printf ("%d\n", glibc_conftest_frobozz); }
+EOF
+if ${CC-cc} $CFLAGS $CPPFLAGS $LDFLAGS \
+	    -o conftest conftest.s conftest1.c 1>&AC_FD_CC 2>&AC_FD_CC; then
+  libc_cv_asm_set_directive=yes
+else
+  libc_cv_asm_set_directive=no
+fi
+rm -f conftest*])
+if test $libc_cv_asm_set_directive = yes; then
+  AC_DEFINE(HAVE_ASM_SET_DIRECTIVE)
+fi
+
+# The Aix ld uses global .symbol_names instead of symbol_names.
+case "$os" in
+aix4.3*)
+  AC_DEFINE(HAVE_ASM_GLOBAL_DOT_NAME)
+esac
+
+AC_CACHE_CHECK(for .symver assembler directive, libc_cv_asm_symver_directive,
+[cat > conftest.s <<EOF
+${libc_cv_dot_text}
+_sym:
+.symver _sym,sym@VERS
+EOF
+if ${CC-cc} -c $CFLAGS $CPPFLAGS conftest.s 1>&AC_FD_CC 2>&AC_FD_CC; then
+  libc_cv_asm_symver_directive=yes
+else
+  libc_cv_asm_symver_directive=no
+fi
+rm -f conftest*])
+AC_CACHE_CHECK(for ld --version-script, libc_cv_ld_version_script_option, [dnl
+if test $libc_cv_asm_symver_directive = yes; then
+  cat > conftest.s <<EOF
+${libc_cv_dot_text}
+_sym:
+.symver _sym,sym@VERS
+EOF
+  cat > conftest.map <<EOF
+VERS_1 {
+	global: sym;
+};
+
+VERS_2 {
+        global: sym;
+} VERS_1;
+EOF
+  if ${CC-cc} -c $CFLAGS $CPPFLAGS conftest.s 1>&AC_FD_CC 2>&AC_FD_CC; then
+    if AC_TRY_COMMAND([${CC-cc} $CFLAGS -shared -o conftest.so conftest.o
+					-nostartfiles -nostdlib
+					-Wl,--version-script,conftest.map
+		       1>&AC_FD_CC]);
+    then
+      libc_cv_ld_version_script_option=yes
+    else
+      libc_cv_ld_version_script_option=no
+    fi
+  else
+    libc_cv_ld_version_script_option=no
+  fi
+else
+  libc_cv_ld_version_script_option=no
+fi
+rm -f conftest*])
+if test $shared != no &&
+   test $libc_cv_asm_symver_directive = yes &&
+   test $libc_cv_ld_version_script_option = yes &&
+   test $enable_versioning = yes; then
+  VERSIONING=yes
+  AC_DEFINE(DO_VERSIONING)
+else
+  VERSIONING=no
+fi
+AC_SUBST(VERSIONING)
+
+if test $elf = yes && test $shared != no && test $VERSIONING = no; then
+  echo "\
+*** WARNING: You should not compile GNU libc without versioning. Not using
+*** versioning will introduce incompatibilities so that old binaries
+*** will not run anymore.
+*** For versioning you need recent binutils (binutils-2.8.1.0.23 or newer)."
+fi
+if test $elf = yes; then
+  AC_CACHE_CHECK(for .previous assembler directive,
+		 libc_cv_asm_previous_directive, [dnl
+  cat > conftest.s <<EOF
+.section foo_section
+.previous
+EOF
+  if AC_TRY_COMMAND(${CC-cc} -c $CFLAGS conftest.s 1>&AC_FD_CC); then
+    libc_cv_asm_previous_directive=yes
+  else
+    libc_cv_asm_previous_directive=no
+  fi
+  rm -f conftest*])
+  if test $libc_cv_asm_previous_directive = yes; then
+    AC_DEFINE(HAVE_ASM_PREVIOUS_DIRECTIVE)
+  else
+    AC_CACHE_CHECK(for .popsection assembler directive,
+		   libc_cv_asm_popsection_directive, [dnl
+    cat > conftest.s <<EOF
+.pushsection foo_section
+.popsection
+EOF
+    if AC_TRY_COMMAND(${CC-cc} -c $CFLAGS conftest.s 1>&AC_FD_CC); then
+      libc_cv_asm_popsection_directive=yes
+    else
+      libc_cv_asm_popsection_directive=no
+    fi
+    rm -f conftest*])
+    if test $libc_cv_asm_popsection_directive = yes; then
+      AC_DEFINE(HAVE_ASM_POPSECTION_DIRECTIVE)
+    fi
+  fi
+  AC_CACHE_CHECK(for .protected and .hidden assembler directive,
+		 libc_cv_asm_protected_directive, [dnl
+  cat > conftest.s <<EOF
+.protected foo
+foo:
+.hidden bar
+bar:
+EOF
+  if AC_TRY_COMMAND(${CC-cc} -c $CFLAGS conftest.s 1>&AC_FD_CC); then
+    libc_cv_asm_protected_directive=yes
+  else
+    libc_cv_asm_protected_directive=no
+  fi
+  rm -f conftest*])
+  AC_SUBST(libc_cv_asm_protected_directive)
+
+  AC_CACHE_CHECK(for -z nodelete option,
+		 libc_cv_z_nodelete, [dnl
+  cat > conftest.c <<EOF
+int _start (void) { return 42; }
+EOF
+  if AC_TRY_COMMAND([${CC-cc} -shared -o conftest.so conftest.c
+		     -nostartfiles -nostdlib
+		     -Wl,--enable-new-dtags,-z,nodelete 1>&AC_FD_CC])
+  then
+    libc_cv_z_nodelete=yes
+  else
+    libc_cv_z_nodelete=no
+  fi
+  rm -f conftest*])
+  AC_SUBST(libc_cv_z_nodelete)
+
+  AC_CACHE_CHECK(for -z nodlopen option,
+		 libc_cv_z_nodlopen, [dnl
+  cat > conftest.c <<EOF
+int _start (void) { return 42; }
+EOF
+  if AC_TRY_COMMAND([${CC-cc} -shared -o conftest.so conftest.c
+			-nostartfiles -nostdlib
+			-Wl,--enable-new-dtags,-z,nodlopen 1>&AC_FD_CC])
+  then
+    libc_cv_z_nodlopen=yes
+  else
+    libc_cv_z_nodlopen=no
+  fi
+  rm -f conftest*])
+  AC_SUBST(libc_cv_z_nodlopen)
+
+  AC_CACHE_CHECK(for -z initfirst option,
+		 libc_cv_z_initfirst, [dnl
+  cat > conftest.c <<EOF
+int _start (void) { return 42; }
+EOF
+  if AC_TRY_COMMAND([${CC-cc} -shared -o conftest.so conftest.c
+			-nostartfiles -nostdlib
+			-Wl,--enable-new-dtags,-z,initfirst 1>&AC_FD_CC])
+  then
+    libc_cv_z_initfirst=yes
+  else
+    libc_cv_z_initfirst=no
+  fi
+  rm -f conftest*])
+  AC_SUBST(libc_cv_z_initfirst)
+
+  AC_CACHE_CHECK(for -Bgroup option,
+		 libc_cv_Bgroup, [dnl
+  cat > conftest.c <<EOF
+int _start (void) { return 42; }
+EOF
+  if AC_TRY_COMMAND([${CC-cc} -shared -o conftest.so conftest.c -Wl,-Bgroup -nostdlib 1>&AC_FD_CC])
+  then
+    libc_cv_Bgroup=yes
+  else
+    libc_cv_Bgroup=no
+  fi
+  rm -f conftest*])
+  AC_SUBST(libc_cv_Bgroup)
+
+  AC_CACHE_CHECK(for -z combreloc,
+		 libc_cv_z_combreloc, [dnl
+  cat > conftest.c <<EOF
+extern int bar (void);
+int foo (void) { return bar (); }
+EOF
+  if AC_TRY_COMMAND([${CC-cc} -shared -o conftest.so conftest.c
+			-nostdlib -nostartfiles
+			-Wl,-z,combreloc 1>&AC_FD_CC])
+  then
+dnl The following test is a bit weak.  We must use a tool which can test
+dnl cross-platform since the gcc used can be a cross compiler.  Without
+dnl introducing new options this is not easily doable.  Instead use a tool
+dnl which always is cross-platform: readelf.  To detect whether -z combreloc
+dnl look for a section named .rel.dyn.
+    if readelf -S conftest.so | grep '\.rel\(a\|\)\.dyn' > /dev/null; then
+      libc_cv_z_combreloc=yes
+    else
+      libc_cv_z_combreloc=no
+    fi
+  else
+    libc_cv_z_combreloc=no
+  fi
+  rm -f conftest*])
+  if test "$libc_cv_z_combreloc" = yes; then
+    AC_DEFINE(HAVE_Z_COMBRELOC)
+  fi
+fi
+AC_SUBST(libc_cv_z_combreloc)
+
+if test $elf != yes; then
+  AC_CACHE_CHECK(for .init and .fini sections, libc_cv_have_initfini,
+		 [AC_TRY_COMPILE(, [asm (".section .init");
+				    asm (".section .fini");
+				    asm ("${libc_cv_dot_text}");],
+				 libc_cv_have_initfini=yes,
+				 libc_cv_have_initfini=no)])
+  AC_SUBST(libc_cv_have_initfini)dnl
+  if test $libc_cv_have_initfini = yes; then
+    AC_DEFINE(HAVE_INITFINI)
+  fi
+fi
+
+if test $elf = yes -a $gnu_ld = yes; then
+  AC_CACHE_CHECK(whether cc puts quotes around section names,
+		 libc_cv_have_section_quotes,
+		 [cat > conftest.c <<EOF
+		  static const int foo
+		  __attribute__ ((section ("bar"))) = 1;
+EOF
+		  if ${CC-cc} -S conftest.c -o conftest.s; then
+		    if grep '\.section.*"bar"' conftest.s >/dev/null; then
+		      libc_cv_have_section_quotes=yes
+		    else
+		      libc_cv_have_section_quotes=no
+		    fi
+		  else
+		    libc_cv_have_section_quotes=unknown
+		  fi
+		  rm -f conftest.[cs]
+		 ])
+  if test $libc_cv_have_section_quotes = yes; then
+    AC_DEFINE(HAVE_SECTION_QUOTES)
+  fi
+fi
+
+dnl AC_CHECK_ASM_UNDERSCORE([ACTION-IF-FOUND [, ACTION-IF-NOT-FOUND]])
+AC_DEFUN(AC_CHECK_ASM_UNDERSCORE,
+[cat > conftest.$ac_ext <<EOF
+dnl This sometimes fails to find confdefs.h, for some reason.
+dnl [#]line __oline__ "[$]0"
+[#]line __oline__ "configure"
+#include "confdefs.h"
+void underscore_test(void) {
+return; }
+EOF
+if AC_TRY_EVAL(ac_compile); then
+  if grep _underscore_test conftest* >/dev/null; then
+    ifelse([$1], , :, [rm -f conftest*
+    $1])
+  else
+    ifelse([$2], , , [rm -f conftest*
+    $2])
+  fi
+else
+  echo "configure: failed program was:" >&AC_FD_CC
+  cat conftest.$ac_ext >&AC_FD_CC
+  ifelse([$2], , , [rm -f conftest*
+  $2])
+fi
+rm -f conftest*])
+
+if test $elf = yes; then
+  libc_cv_asm_underscores=no
+else
+  if test $ac_cv_prog_cc_works = yes; then
+    AC_CACHE_CHECK(for _ prefix on C symbol names, libc_cv_asm_underscores,
+		   [AC_TRY_LINK([asm ("_glibc_foobar:");], [glibc_foobar ();],
+			        libc_cv_asm_underscores=yes,
+			        libc_cv_asm_underscores=no)])
+  else
+    AC_CACHE_CHECK(for _ prefix on C symbol names, libc_cv_asm_underscores,
+		   [AC_CHECK_ASM_UNDERSCORE(libc_cv_asm_underscores=yes,
+				            libc_cv_asm_underscores=no)])
+  fi
+fi
+if test $libc_cv_asm_underscores = no; then
+  AC_DEFINE(NO_UNDERSCORES)
+fi
+
+if test $elf = yes; then
+  libc_cv_weak_symbols=yes
+fi
+
+AC_CACHE_CHECK(for assembler .weak directive, libc_cv_asm_weak_directive,
+	       [dnl
+cat > conftest.s <<EOF
+${libc_cv_dot_text}
+${libc_cv_asm_global_directive} foo
+foo:
+.weak foo
+.weak bar; bar = foo
+EOF
+if ${CC-cc} $CFLAGS -c conftest.s 2>/dev/null; then
+  libc_cv_asm_weak_directive=yes
+else
+  libc_cv_asm_weak_directive=no
+fi
+rm -f conftest*])
+
+if test $libc_cv_asm_weak_directive = no; then
+  AC_CACHE_CHECK(for assembler .weakext directive,
+		 libc_cv_asm_weakext_directive,
+		 [dnl
+cat > conftest.s <<EOF
+${libc_cv_dot_text}
+${libc_cv_asm_global_directive} foo
+foo:
+.weakext bar foo
+.weakext baz
+${libc_cv_asm_global_directive} baz
+baz:
+EOF
+  if ${CC-cc} $CFLAGS -c conftest.s 2>/dev/null; then
+    libc_cv_asm_weakext_directive=yes
+  else
+    libc_cv_asm_weakext_directive=no
+  fi
+  rm -f conftest*])
+
+fi # no .weak
+
+if test $libc_cv_asm_weak_directive = yes; then
+  AC_DEFINE(HAVE_ASM_WEAK_DIRECTIVE)
+elif test $libc_cv_asm_weakext_directive = yes; then
+  AC_DEFINE(HAVE_ASM_WEAKEXT_DIRECTIVE)
+fi
+
+dnl The standard hppa assembler uses `;' to start comments and `!'
+dnl as a line separator.  CRIS uses `;' to start comments and `@' for
+dnl line separator.
+case "${host_cpu}-${host_os}" in
+  cris*)
+    libc_cv_asm_line_sep='@'
+    AC_DEFINE_UNQUOTED(ASM_LINE_SEP, $libc_cv_asm_line_sep)
+    ;;
+  hppa*linux*)
+  AC_CACHE_CHECK(for assembler line separator,
+		 libc_cv_asm_line_sep, [dnl
+  cat > conftest.s <<EOF
+ nop ; is_old_puffin
+EOF
+  if AC_TRY_COMMAND(${CC-cc} -c $CFLAGS conftest.s 1>&AC_FD_CC); then
+    libc_cv_asm_line_sep='!'
+  else
+    if test -z "$enable_hacker_mode"; then
+      echo "*** You need a newer assembler to compile glibc"
+      rm -f conftest*
+      exit 1
+    fi
+    libc_cv_asm_line_sep=';'
+  fi
+  rm -f conftest*])
+  AC_DEFINE_UNQUOTED(ASM_LINE_SEP, $libc_cv_asm_line_sep)
+  ;;
+esac
+
+AC_CACHE_CHECK(for ld --no-whole-archive, libc_cv_ld_no_whole_archive, [dnl
+cat > conftest.c <<\EOF
+_start () {}
+int __eh_pc;
+__throw () {}
+EOF
+dnl No \ in command here because it ends up inside ''.
+if AC_TRY_COMMAND([${CC-cc} $CFLAGS
+			    -nostdlib -nostartfiles -Wl,--no-whole-archive
+			    -o conftest conftest.c 1>&AC_FD_CC]); then
+  libc_cv_ld_no_whole_archive=yes
+else
+  libc_cv_ld_no_whole_archive=no
+fi
+rm -f conftest*])
+if test $libc_cv_ld_no_whole_archive = yes; then
+  no_whole_archive=-Wl,--no-whole-archive
+fi
+AC_SUBST(no_whole_archive)dnl
+
+AC_CACHE_CHECK(for gcc -fexceptions, libc_cv_gcc_exceptions, [dnl
+cat > conftest.c <<\EOF
+_start () {}
+int __eh_pc;
+__throw () {}
+EOF
+dnl No \ in command here because it ends up inside ''.
+if AC_TRY_COMMAND([${CC-cc} $CFLAGS
+			    -nostdlib -nostartfiles -fexceptions
+			    -o conftest conftest.c 1>&AC_FD_CC]); then
+  libc_cv_gcc_exceptions=yes
+else
+  libc_cv_gcc_exceptions=no
+fi
+rm -f conftest*])
+if test $libc_cv_gcc_exceptions = yes; then
+  exceptions=-fexceptions
+fi
+AC_SUBST(exceptions)dnl
+
+if test "$base_machine" = alpha ; then
+AC_CACHE_CHECK(for function ..ng prefix, libc_cv_gcc_alpha_ng_prefix, [dnl
+cat > conftest.c <<\EOF
+foo () { }
+EOF
+dnl
+if AC_TRY_COMMAND([${CC-cc} -S conftest.c -o - | fgrep "\$foo..ng" > /dev/null]);
+then
+  libc_cv_gcc_alpha_ng_prefix=yes
+else
+  libc_cv_gcc_alpha_ng_prefix=no
+fi
+rm -f conftest* ])
+if test $libc_cv_gcc_alpha_ng_prefix = yes ; then
+  AC_DEFINE(ASM_ALPHA_NG_SYMBOL_PREFIX, "$")
+else
+  AC_DEFINE(ASM_ALPHA_NG_SYMBOL_PREFIX, "")
+fi
+fi
+
+if test "$host_cpu" = powerpc ; then
+# Check for a bug present in at least versions 2.8.x of GCC
+# and versions 1.0.x of EGCS.
+AC_CACHE_CHECK(whether clobbering cr0 causes problems,libc_cv_c_asmcr0_bug,[dnl
+AC_TRY_COMPILE([int tester(int x) { asm ("" : : : "cc"); return x & 123; }],,
+	       libc_cv_c_asmcr0_bug='no',
+	       libc_cv_c_asmcr0_bug='yes')])
+if test "$libc_cv_c_asmcr0_bug" != 'no'; then
+  AC_DEFINE(BROKEN_PPC_ASM_CR0)
+fi
+fi
+
+AC_CACHE_CHECK(for DWARF2 unwind info support, libc_cv_gcc_dwarf2_unwind_info,
+[cat > conftest.c <<EOF
+#line __oline__ "configure"
+static char __EH_FRAME_BEGIN__[];
+_start ()
+{
+#ifdef CHECK__register_frame
+  __register_frame (__EH_FRAME_BEGIN__);
+  __deregister_frame (__EH_FRAME_BEGIN__);
+#endif
+#ifdef CHECK__register_frame_info
+  __register_frame_info (__EH_FRAME_BEGIN__);
+  __deregister_frame_info (__EH_FRAME_BEGIN__);
+#endif
+}
+int __eh_pc;
+__throw () {}
+/* FIXME: this is fragile.  */
+malloc () {}
+strcmp () {}
+strlen () {}
+memcpy () {}
+memset () {}
+free () {}
+abort () {}
+__bzero () {}
+EOF
+dnl No \ in command here because it ends up inside ''.
+if AC_TRY_COMMAND([${CC-cc} $CFLAGS -DCHECK__register_frame_info
+			    -nostdlib -nostartfiles
+			    -o conftest conftest.c -lgcc >&AC_FD_CC]); then
+  libc_cv_gcc_dwarf2_unwind_info=static
+else
+  libc_cv_gcc_dwarf2_unwind_info=no
+fi
+if test $libc_cv_gcc_dwarf2_unwind_info = no; then
+  if AC_TRY_COMMAND([${CC-cc} $CFLAGS -DCHECK__register_frame
+			      -nostdlib -nostartfiles
+			      -o conftest conftest.c -lgcc >&AC_FD_CC]); then
+    libc_cv_gcc_dwarf2_unwind_info=yes
+  else
+    libc_cv_gcc_dwarf2_unwind_info=no
+  fi
+fi
+rm -f conftest*])
+case $libc_cv_gcc_dwarf2_unwind_info in
+yes)
+  AC_DEFINE(HAVE_DWARF2_UNWIND_INFO)
+  ;;
+static)
+  AC_DEFINE(HAVE_DWARF2_UNWIND_INFO)
+  AC_DEFINE(HAVE_DWARF2_UNWIND_INFO_STATIC)
+  ;;
+esac
+
+dnl Check whether compiler understands __builtin_expect.
+AC_CACHE_CHECK(for __builtin_expect, libc_cv_gcc_builtin_expect,
+[cat > conftest.c <<EOF
+#line __oline__ "configure"
+int foo (int a)
+{
+  a = __builtin_expect (a, 10);
+  return a == 10 ? 0 : 1;
+}
+EOF
+dnl No \ in command here because it ends up inside ''.
+if AC_TRY_COMMAND([${CC-cc} $CFLAGS -nostdlib -nostartfiles
+			    -o conftest conftest.c -lgcc >&AC_FD_CC]); then
+  libc_cv_gcc_builtin_expect=yes
+else
+  libc_cv_gcc_builtin_expect=no
+fi
+rm -f conftest*])
+if test "$libc_cv_gcc_builtin_expect" = yes; then
+  AC_DEFINE(HAVE_BUILTIN_EXPECT)
+fi
+
+dnl Check whether the compiler supports subtraction of local labels.
+AC_CACHE_CHECK(for local label subtraction, libc_cv_gcc_subtract_local_labels,
+[cat > conftest.c <<EOF
+changequote(,)dnl
+#line __oline__ "configure"
+int foo (int a)
+{
+  static const int ar[] = { &&l1 - &&l1, &&l2 - &&l1 };
+  void *p = &&l1 + ar[a];
+  goto *p;
+ l1:
+  return 1;
+ l2:
+  return 2;
+}
+changequote([,])dnl
+EOF
+dnl No \ in command here because it ends up inside ''.
+if AC_TRY_COMMAND([${CC-cc} $CFLAGS -nostdlib -nostartfiles
+			    -o conftest conftest.c -lgcc >&AC_FD_CC]); then
+  libc_cv_gcc_subtract_local_labels=yes
+else
+  libc_cv_gcc_subtract_local_labels=no
+fi
+rm -f conftest*])
+if test "$libc_cv_gcc_subtract_local_labels" = yes; then
+  AC_DEFINE(HAVE_SUBTRACT_LOCAL_LABELS)
+fi
+
+dnl Check whether we have the gd library available.
+AC_MSG_CHECKING(for libgd)
+if test "$with_gd" != "no"; then
+  old_CFLAGS="$CFLAGS"
+  CFLAGS="$CFLAGS $libgd_include"
+  old_LDFLAGS="$LDFLAGS"
+  LDFLAGS="$LDFLAGS $libgd_ldflags"
+  old_LIBS="$LIBS"
+  LIBS="$LIBS -lgd -lpng -lz -lm"
+  AC_TRY_LINK([#include <gd.h>], [gdImagePng (0, 0)], LIBGD=yes, LIBGD=no)
+  CFLAGS="$old_CFLAGS"
+  LDFLAGS="$old_LDFLAGS"
+  LIBS="$old_LIBS"
+else
+  LIBGD=no
+fi
+AC_MSG_RESULT($LIBGD)
+AC_SUBST(LIBGD)
+
+dnl check for the size of 'long double'.
+AC_CHECK_SIZEOF(long double, 0)
+sizeof_long_double=$ac_cv_sizeof_long_double
+AC_SUBST(sizeof_long_double)
+
+### End of automated tests.
+### Now run sysdeps configure fragments.
+
+# sysdeps configure fragments may set these with files to be linked below.
+libc_link_dests=
+libc_link_sources=
+
+# They also can set these variables.
+use_ldconfig=no
+ldd_rewrite_script=no
+libc_cv_sysconfdir=$sysconfdir
+libc_cv_gcc_unwind_find_fde=no
+
+# Iterate over all the sysdep directories we will use, running their
+# configure fragments, and looking for a uname implementation.
+uname=
+for dir in $sysnames; do
+  case $dir in
+    /*) dest=$dir ;;
+    *)  dest=$srcdir/$dir ;;
+  esac
+  if test -r $dest/configure; then
+    AC_MSG_RESULT(running configure fragment for $dest)
+    . $dest/configure
+  fi
+[
+  if test -z "$uname"; then
+    if test -r $dest/uname.c ||
+       test -r $dest/uname.S ||
+       { test -r $dest/syscalls.list &&
+	 grep '^uname[ 	]' $dest/syscalls.list >/dev/null; }; then
+      uname=$dir
+    fi
+  fi
+]dnl
+done
+
+if test x$libc_cv_gcc_unwind_find_fde = xyes; then
+  AC_DEFINE(EXPORT_UNWIND_FIND_FDE)
+fi
+AC_SUBST(libc_cv_gcc_unwind_find_fde)
+
+AC_LINK_FILES(`echo $libc_link_sources`, `echo $libc_link_dests`)
+
+# If we will use the generic uname implementation, we must figure out what
+# it will say by examining the system, and write the results in config-name.h.
+if test "$uname" = "sysdeps/generic"; then
+
+changequote(,)dnl
+  uname_sysname=`echo $config_os | sed 's/[0-9.]*$//'`
+changequote([,])dnl
+  if test $uname_sysname != $config_os; then
+    config_release=`echo $config_os | sed s/$uname_sysname//`
+  fi
+dnl
+AC_DEFUN(LIBC_KERNEL_ID, [dnl
+    if test -r /vmunix; then
+      kernel_id=`strings /vmunix | grep UNIX`
+    elif test -r /dynix; then
+      kernel_id=`strings /dynix | grep DYNIX`
+    else
+      kernel_id=
+    fi
+])dnl
+
+  AC_CACHE_CHECK(OS release for uname, libc_cv_uname_release, [dnl
+AC_REQUIRE([LIBC_KERNEL_ID])dnl
+changequote(,)dnl
+  kernel_release=`echo "$kernel_id" | sed 's/^[^0-9.]*\([0-9.]*\).*$/\1/'`
+changequote([,])dnl
+  if test x`echo "$config_release" | sed "s/^$kernel_release//"` \
+	 != x$config_release; then
+    # The configuration release is a substring of the kernel release.
+    libc_cv_uname_release=$kernel_release
+  elif test x$config_release != x; then
+    libc_cv_uname_release=$config_release
+  elif test x$kernel_release != x; then
+    libc_cv_uname_release=$kernel_release
+  else
+    libc_cv_uname_release=unknown
+  fi])
+  uname_release="$libc_cv_uname_release"
+
+  AC_CACHE_CHECK(OS version for uname, libc_cv_uname_version, [dnl
+AC_REQUIRE([LIBC_KERNEL_ID])dnl
+changequote(,)dnl
+  kernel_version=`echo "$kernel_id" | sed 's/^[^#]*#\([0-9]*\).*$/\1/'`
+changequote([,])dnl
+  if test -n "$kernel_version"; then
+    libc_cv_uname_version="$kernel_version"
+  else
+    libc_cv_uname_version=unknown
+  fi])
+  uname_version="$libc_cv_uname_version"
+
+AC_SUBST(uname_sysname) AC_SUBST(uname_release) AC_SUBST(uname_version)dnl
+  config_uname=config-name.h:config-name.in
+else
+  # For non-generic uname, we don't need to create config-name.h at all.
+  config_uname=
+fi
+
+AC_MSG_CHECKING(stdio selection)
+AC_SUBST(stdio)
+case $stdio in
+libio) AC_DEFINE(USE_IN_LIBIO) ;;
+default) stdio=stdio ;;
+esac
+AC_MSG_RESULT($stdio)
+
+# Test for old glibc 2.0.x headers so that they can be removed properly
+# Search only in includedir.
+AC_MSG_CHECKING(for old glibc 2.0.x headers)
+if eval test -f "${includedir}/elfclass.h" -a -f "${includedir}/fcntlbits.h"
+then
+  old_glibc_headers=yes
+else
+  old_glibc_headers=no
+fi
+AC_MSG_RESULT($old_glibc_headers)
+if test ${old_glibc_headers} = yes; then
+  AC_MSG_WARN(*** During \"make install\" old headers from glibc 2.0.x will)
+  AC_MSG_WARN(*** be removed.)
+fi
+AC_SUBST(old_glibc_headers)
+
+AC_SUBST(libc_cv_slibdir)
+AC_SUBST(libc_cv_localedir)
+AC_SUBST(libc_cv_sysconfdir)
+AC_SUBST(libc_cv_rootsbindir)
+
+AC_SUBST(use_ldconfig)
+AC_SUBST(ldd_rewrite_script)
+
+AC_SUBST(gnu_ld) AC_SUBST(gnu_as) AC_SUBST(elf) AC_SUBST(xcoff)
+if test $gnu_ld = yes; then
+  AC_DEFINE(HAVE_GNU_LD)
+fi
+if test $gnu_as = yes; then
+  AC_DEFINE(HAVE_GNU_AS)
+fi
+if test $elf = yes; then
+  AC_DEFINE(HAVE_ELF)
+fi
+if test $xcoff = yes; then
+  AC_DEFINE(HAVE_XCOFF)
+fi
+
+AC_SUBST(static)
+AC_SUBST(shared)
+if test $shared = default; then
+  if test $gnu_ld = yes; then
+    shared=$elf
+  else
+    # For now we do not assume shared libs are available.  In future more
+    # tests might become available.
+    shared=no
+  fi
+fi
+
+AC_CACHE_CHECK([whether -fPIC is default], pic_default,
+[pic_default=yes
+cat > conftest.c <<EOF
+#if defined __PIC__ || defined __pic__ || defined PIC || defined pic
+# error PIC is default.
+#endif
+EOF
+if eval "${CC-cc} -S conftest.c 2>&AC_FD_CC 1>&AC_FD_CC"; then
+  pic_default=no
+fi
+rm -f conftest.*])
+AC_SUBST(pic_default)
+
+AC_SUBST(profile)
+AC_SUBST(omitfp)
+AC_SUBST(bounded)
+AC_SUBST(static_nss)
+AC_SUBST(nopic_initfini)
+
+AC_SUBST(DEFINES)
+
+case "$add_ons" in
+  *door*) linux_doors=yes ;;
+  *) linux_doors=no ;;
+esac
+AC_SUBST(linux_doors)
+
+if test "`(cd $srcdir; pwd)`" = "`pwd`"; then
+  config_makefile=
+else
+  config_makefile=Makefile
+fi
+
+VERSION=`sed -n -e 's/^#define VERSION "\([^"]*\)"/\1/p' < $srcdir/version.h`
+RELEASE=`sed -n -e 's/^#define RELEASE "\([^"]*\)"/\1/p' < $srcdir/version.h`
+AC_SUBST(VERSION)
+AC_SUBST(RELEASE)
+
+AC_OUTPUT(config.make glibcbug ${config_makefile} ${config_uname}, [
+case $CONFIG_FILES in *config.make*)
+echo "$config_vars" >> config.make;;
+esac
+test -d bits || mkdir bits], [config_vars='$config_vars'])

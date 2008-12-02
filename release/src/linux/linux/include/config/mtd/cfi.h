@@ -1,0 +1,1 @@
+#define CONFIG_MTD_CFI 1

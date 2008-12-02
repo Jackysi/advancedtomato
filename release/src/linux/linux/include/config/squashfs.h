@@ -1,0 +1,1 @@
+#define CONFIG_SQUASHFS 1

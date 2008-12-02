@@ -1,0 +1,62 @@
+# File name	Caller	Syscall name	Args	Strong name	Weak names
+
+adjtimex	adjtime	adjtimex	i:p	__adjtimex	adjtimex ntp_adjtime
+bdflush		EXTRA	bdflush		i:ii	bdflush
+capget		EXTRA	capget		i:pp	capget
+capset		EXTRA	capset		i:pp	capset
+create_module	EXTRA	create_module	3	create_module
+delete_module	EXTRA	delete_module	3	delete_module
+fdatasync	-	fdatasync	i:i	fdatasync
+flock		-	flock		i:ii	__flock		flock
+fork		-	fork		i:	__libc_fork	__fork fork
+get_kernel_syms	EXTRA	get_kernel_syms	i:p	get_kernel_syms
+getegid		-	getegid		i:	__getegid	getegid
+geteuid		-	geteuid		i:	__geteuid	geteuid
+getpgid		-	getpgid		i:i	__getpgid	getpgid
+getpgrp		-	getpgrp		i:	getpgrp
+getppid		-	getppid		i:	__getppid	getppid
+getsid		-	getsid		i:i	getsid
+init_module	EXTRA	init_module	5	init_module
+ioperm		-	ioperm		i:iii	ioperm
+iopl		-	iopl		i:i	iopl
+klogctl		EXTRA	syslog		i:isi	klogctl
+lchown		-	lchown		i:sii	__lchown	lchown
+madvise		-	madvise		i:pii	posix_madvise	madvise
+mincore		-	mincore		i:anV	mincore
+mlock		-	mlock		i:bn	mlock
+mlockall	-	mlockall	i:i	mlockall
+mmap		-	mmap		b:aniiii	__mmap		mmap
+mount		EXTRA	mount		i:sssip	__mount	mount
+mremap		EXTRA	mremap		b:aini	__mremap	mremap
+munlock		-	munlock		i:ai	munlock
+munlockall	-	munlockall	i:	munlockall
+nanosleep	-	nanosleep	i:pp	__libc_nanosleep	__nanosleep nanosleep
+nfsservctl	EXTRA	nfsservctl	i:ipp	nfsservctl
+pause		-	pause		i:	__libc_pause	pause
+personality	init-first personality	i:i	__personality	personality
+pipe		-	pipe		i:f	__pipe		pipe
+pivot_root	EXTRA	pivot_root	i:ss	pivot_root
+prctl		EXTRA	prctl		i:iiiii	prctl
+query_module	EXTRA	query_module	i:sipip	query_module
+quotactl	EXTRA	quotactl	i:isip	quotactl
+sched_getp	-	sched_getparam	i:ip	__sched_getparam	sched_getparam
+sched_gets	-	sched_getscheduler	i:i	__sched_getscheduler	sched_getscheduler
+sched_primax	-	sched_get_priority_max	i:i	__sched_get_priority_max	sched_get_priority_max
+sched_primin	-	sched_get_priority_min	i:i	__sched_get_priority_min	sched_get_priority_min
+sched_rr_gi	-	sched_rr_get_interval	i:ip	__sched_rr_get_interval	sched_rr_get_interval
+sched_setp	-	sched_setparam	i:ip	__sched_setparam	sched_setparam
+sched_sets	-	sched_setscheduler	i:iip	__sched_setscheduler	sched_setscheduler
+sched_yield	-	sched_yield	i:	__sched_yield	sched_yield
+select		-	_newselect	i:iPPPP	__select	select
+sendfile	EXTRA	sendfile	i:iipi	sendfile
+setfsgid	EXTRA	setfsgid	i:i	setfsgid
+setfsuid	EXTRA	setfsuid	i:i	setfsuid
+setpgid		-	setpgid		i:ii	__setpgid	setpgid
+setresuid	EXTRA	setresuid	i:iii	__setresuid	setresuid
+setresgid	EXTRA	setresgid	i:iii	__setresgid	setresgid
+sigaltstack	-	sigaltstack	i:PP	__sigaltstack	sigaltstack
+sysinfo		EXTRA	sysinfo		i:p	sysinfo
+swapon		-	swapon		i:si	__swapon	swapon
+swapoff		-	swapoff		i:s	__swapoff	swapoff
+uselib		EXTRA	uselib		i:s	uselib
+wait4		-	wait4		i:iWiP	__wait4		wait4

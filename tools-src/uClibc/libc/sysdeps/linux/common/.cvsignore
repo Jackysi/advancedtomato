@@ -1,0 +1,3 @@
+crti.S
+crtn.S
+initfini.S

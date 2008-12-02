@@ -1,0 +1,1 @@
+#undef  CONFIG_MD_LINEAR

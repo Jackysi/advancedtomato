@@ -1,0 +1,36 @@
+#!/bin/bash
+
+
+topdir=$(pwd)
+today=$(date +%Y%m%d)
+version=0.9.19
+dir=uclibc-${version}-cvs${today}
+
+mkdir -p ${topdir}/uclibc-tmp
+cd ${topdir}/uclibc-tmp
+
+export CVSROOT=':pserver:anonymous@cvs.uclibc.org:/var/cvs'
+if ! grep -q '^.pserver.anonymous.cvs.uclibc.org..var.cvs' ~/.cvspass
+then
+	echo "$CVSROOT" 'A' >>~/.cvspass
+fi
+#export CVSROOT='ds@cvs.uclibc.org:/var/cvs'
+
+cvs co -d ${dir} uClibc
+
+cd ${topdir}/uclibc-tmp/${dir}/debian
+echo "uclibc (${version}-cvs${today}-1) unstable; urgency=low" >changelog.tmp
+echo >>changelog.tmp
+echo "  * This is an automatic snapshot of uClibc CVS" >>changelog.tmp
+echo >>changelog.tmp
+echo " -- David Schleef <ds@schleef.org>  $(date -R)" >>changelog.tmp
+echo >>changelog.tmp
+cat changelog >>changelog.tmp
+mv changelog.tmp changelog
+
+cd ${topdir}/uclibc-tmp
+tar -czf ../uclibc_${version}-cvs${today}.orig.tar.gz ${dir}
+
+cd ${topdir}
+rm -rf uclibc-tmp
+

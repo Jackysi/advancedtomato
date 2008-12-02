@@ -1,0 +1,69 @@
+#
+# For a description of the syntax of this configuration file,
+# see extra/config/Kconfig-language.txt
+#
+
+mainmenu "uClibc C Library Configuration"
+
+menu "Target Architecture Features and Options"
+
+config HAVE_ELF
+	bool
+	default y
+
+config ARCH_CFLAGS
+	string
+
+config ARCH_LDFLAGS
+	string
+
+config LIBGCC_CFLAGS
+	string
+
+choice
+	prompt "Target Processor Type"
+	default CONFIG_GENERIC_ARM
+	help
+	  This is the processor type of your CPU. This information is used for
+	  optimizing purposes.  To build a library that will run on all ARMCPU
+	  types (albeit not optimally fast), you can specify "Generic Arm" here.
+	  If you pick anything other than "Generic Arm", there is no guarantee 
+	  that uClibc will even run on anything other than the selected processor
+	  type.
+
+	  Here are the settings recommended for greatest speed:
+	  - "Generic Arm" select this if your compiler is already setup to
+	    optimize things properly.
+	  - "arm7tdmi" an MMU-less ARM core such as those distributed
+	    by Atmel, Samsung, and others.
+	  - "StrongARM" for Intel's StrongARM cores, such as the
+	     StrongARM 110/1100/1110.
+	  - "XScale" for Intel's XScale processors 
+
+	  If you don't know what to do, choose "Generic Arm".
+
+config CONFIG_GENERIC_ARM
+	bool "Generic Arm"
+
+config CONFIG_ARM7TDMI
+	bool "arm7tdmi"
+
+config CONFIG_STRONGARM
+	bool "StrongARM"
+
+config CONFIG_XSCALE
+	bool "XScale"
+
+endchoice
+
+config ARCH_HAS_NO_MMU
+	bool
+	default y if CONFIG_ARM7TDMI
+
+source "extra/Configs/Config.in.arch"
+
+endmenu
+
+source "extra/Configs/Config.in"
+
+

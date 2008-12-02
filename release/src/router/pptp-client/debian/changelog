@@ -1,0 +1,71 @@
+pptp-linux (1.1.0-1) frozen unstable; urgency=low
+
+  * New upstream release.
+
+ -- James Cameron <james.cameron@compaq.com>  Fri, 20 Mar 2002 11:30:55 +1100
+
+pptp-linux (1.0.3-2) frozen unstable; urgency=low
+
+  * Update upstream distribution information. Closes: #97159.
+
+ -- Thomas Quinot <thomas@debian.org>  Fri, 11 May 2001 16:57:11 +0200
+
+pptp-linux (1.0.3-1) frozen unstable; urgency=low
+
+  * New upstream release. Debian patches have been integrated.
+  * Get rid of yada.
+
+ -- Thomas Quinot <thomas@debian.org>  Thu, 10 May 2001 14:29:30 +0200
+
+pptp-linux (1.0.2-5) frozen unstable; urgency=low
+
+  * Remove bashism in debian/rules.
+    Reported by Peter Palfrader <weasel@debian.org>.
+    Closes: #87653.
+  * Make sure yada is executable. Closes: #86888.
+
+ -- Thomas Quinot <thomas@debian.org>  Tue, 13 Mar 2001 11:43:31 +0100
+
+pptp-linux (1.0.2-4) frozen unstable; urgency=low
+
+  * Updated YADA to 0.9.4. Closes: #84564.
+
+ -- Thomas Quinot <thomas@debian.org>  Sun,  4 Feb 2001 18:42:10 +0100
+
+pptp-linux (1.0.2-3) frozen unstable; urgency=low
+
+  * New maintainer.
+  * Update Standards-Version.
+  * Use YADA.
+  * Fix order of local and remote call ID.
+    Fix bearer capability specification.
+    Closes:  #48536, #55532.
+  * Fix several gross bugs. Closes: #55583.
+  * Patch to allow bug-compatibility with Alcated ADSL 1000 modem.
+    
+ -- Thomas Quinot <thomas@debian.org>  Mon, 10 Jul 2000 23:52:16 +0200
+
+pptp-linux (1.0.2-2) frozen unstable; urgency=low
+
+  * lintian: binary-without-manpage pptp,
+             binary-without-manpage pptp_callmgr
+    including links to undocumented.7.gz for now (Bug#20141)
+
+ -- Roberto Lumbreras <rover@debian.org>  Tue, 24 Mar 1998 04:06:02 +0100
+
+pptp-linux (1.0.2-1) unstable; urgency=low
+
+  * new upstream version
+  * updated to Standards-Version 2.4.0.0
+
+ -- Roberto Lumbreras <rover@debian.org>  Mon,  2 Mar 1998 04:34:22 +0100
+
+pptp-linux (1.0.1-1) unstable; urgency=low
+
+  * Initial Release.
+
+ -- Christoph Lameter <clameter@debian.org>  Sun, 25 Jan 1998 22:42:45 -0800
+
+Local variables:
+mode: debian-changelog
+End:

@@ -1,0 +1,81 @@
+#!/usr/bin/perl -w
+# vi: set ts=4:
+
+
+@LINKS=`find . -type l|LC_ALL=C xargs ls -l`;
+
+#print @LINKS;
+
+#$debug = 1;
+
+while($_ = shift @LINKS){
+	chomp;
+	my ($perm,$nlinks,$owner,$group,$size,$month,$day,$year,$file) =
+		split(' ', $_, 9);
+	my $link;
+
+	if($perm =~ m/^l/){
+		($relfile, $link) = split(' -> ', $file);
+	}
+
+	# chop off leading . in $file
+	$file = $relfile;
+	$file =~ s/^\.//;
+
+	if($perm =~ m/^l/){
+		my @pathcomponents = split('/', $file);
+		my @linkcomponents = split('/', $link);
+
+		if($link =~ m/^\//){
+			@newcomponents = @linkcomponents;
+		}else{
+			@newcomponents = @pathcomponents;
+
+			# chop off filename
+			pop(@newcomponents);
+
+			while($comp = shift @linkcomponents){
+				$debug && print "path: ",join(':',@newcomponents)," -- $comp -- ", join(':',@linkcomponents),"\n";
+
+				if($comp eq ""){
+					# ignore
+				}elsif($comp eq ".."){
+					pop(@newcomponents);
+				}else{
+					push @newcomponents,$comp;
+				}
+			}
+		}
+
+		if($newcomponents[0] eq ""){
+			shift(@newcomponents);
+		}
+		if($pathcomponents[0] eq ""){
+			shift(@pathcomponents);
+		}
+
+		#print "from ",join('/',@pathcomponents),"\n";
+		#print "to ",join('/',@newcomponents),"\n";
+
+		if($newcomponents[0] eq $pathcomponents[0]){
+			$debug && print $newcomponents[0],", ",$pathcomponents[0];
+			$debug && print "should be relative\n";
+			while($newcomponents[0] eq $pathcomponents[0]){
+				shift(@newcomponents);
+				shift(@pathcomponents);
+			}
+			while(@pathcomponents > 1){
+				shift(@pathcomponents);
+				unshift(@newcomponents,"..");
+			}
+		}else{
+			$debug && print "should be absolute\n";
+			unshift(@newcomponents,"");
+		}
+		$newlink=join('/',@newcomponents);
+		print "ln -sf $newlink $relfile\n";
+		unlink($relfile);
+		symlink($newlink,$relfile);
+	}
+}
+

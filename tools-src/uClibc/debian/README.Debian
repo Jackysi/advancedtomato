@@ -1,0 +1,12 @@
+
+The script mksnapshot will automatically download a new snapshot
+from the uClibc CVS server.
+
+Notes on Build-Depends:
+
+  kernel-headers | kernel-headers-2.4.10 autobuilt on i386 and powerpc
+
+  kernel-headers-2.4 autobuilt on xxx
+
+
+

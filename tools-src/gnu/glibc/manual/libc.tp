@@ -1,0 +1,127 @@
+\entry{enum mcheck{\_}status}{42}{\code {enum mcheck_status}}
+\entry{struct mallinfo}{46}{\code {struct mallinfo}}
+\entry{struct obstack}{52}{\code {struct obstack}}
+\entry{wctype{\_}t}{72}{\code {wctype_t}}
+\entry{wctrans{\_}t}{76}{\code {wctrans_t}}
+\entry{wchar{\_}t}{120}{\code {wchar_t}}
+\entry{wint{\_}t}{120}{\code {wint_t}}
+\entry{mbstate{\_}t}{124}{\code {mbstate_t}}
+\entry{iconv{\_}t}{141}{\code {iconv_t}}
+\entry{struct {\_}{\_}gconv{\_}step}{151}{\code {struct __gconv_step}}
+\entry{struct {\_}{\_}gconv{\_}step{\_}data}{152}{\code {struct __gconv_step_data}}
+\entry{struct lconv}{168}{\code {struct lconv}}
+\entry{comparison{\_}fn{\_}t}{209}{\code {comparison_fn_t}}
+\entry{struct ENTRY}{215}{\code {struct ENTRY}}
+\entry{VISIT}{218}{\code {VISIT}}
+\entry{glob{\_}t}{221}{\code {glob_t}}
+\entry{glob64{\_}t}{222}{\code {glob64_t}}
+\entry{regex{\_}t}{228}{\code {regex_t}}
+\entry{regmatch{\_}t}{231}{\code {regmatch_t}}
+\entry{regoff{\_}t}{231}{\code {regoff_t}}
+\entry{wordexp{\_}t}{234}{\code {wordexp_t}}
+\entry{FILE}{245}{\code {FILE}}
+\entry{struct printf{\_}info}{282}{\code {struct printf_info}}
+\entry{printf{\_}function}{284}{\code {printf_function}}
+\entry{printf{\_}arginfo{\_}function}{284}{\code {printf_arginfo_function}}
+\entry{fpos{\_}t}{302}{\code {fpos_t}}
+\entry{fpos64{\_}t}{303}{\code {fpos64_t}}
+\entry{cookie{\_}io{\_}functions{\_}t}{311}{\code {cookie_io_functions_t}}
+\entry{cookie{\_}read{\_}function}{313}{\code {cookie_read_function}}
+\entry{cookie{\_}write{\_}function}{313}{\code {cookie_write_function}}
+\entry{cookie{\_}seek{\_}function}{313}{\code {cookie_seek_function}}
+\entry{cookie{\_}close{\_}function}{313}{\code {cookie_close_function}}
+\entry{ssize{\_}t}{322}{\code {ssize_t}}
+\entry{off{\_}t}{328}{\code {off_t}}
+\entry{off64{\_}t}{328}{\code {off64_t}}
+\entry{struct iovec}{332}{\code {struct iovec}}
+\entry{fd{\_}set}{337}{\code {fd_set}}
+\entry{struct aiocb}{341}{\code {struct aiocb}}
+\entry{struct aiocb64}{343}{\code {struct aiocb64}}
+\entry{struct aioinit}{352}{\code {struct aioinit}}
+\entry{struct flock}{363}{\code {struct flock}}
+\entry{struct dirent}{371}{\code {struct dirent}}
+\entry{DIR}{372}{\code {DIR}}
+\entry{{\_}{\_}ftw{\_}func{\_}t}{378}{\code {__ftw_func_t}}
+\entry{{\_}{\_}ftw64{\_}func{\_}t}{379}{\code {__ftw64_func_t}}
+\entry{{\_}{\_}nftw{\_}func{\_}t}{379}{\code {__nftw_func_t}}
+\entry{{\_}{\_}nftw64{\_}func{\_}t}{380}{\code {__nftw64_func_t}}
+\entry{struct FTW}{380}{\code {struct FTW}}
+\entry{struct stat}{389}{\code {struct stat}}
+\entry{struct stat64}{390}{\code {struct stat64}}
+\entry{mode{\_}t}{391}{\code {mode_t}}
+\entry{ino{\_}t}{392}{\code {ino_t}}
+\entry{ino64{\_}t}{392}{\code {ino64_t}}
+\entry{dev{\_}t}{392}{\code {dev_t}}
+\entry{nlink{\_}t}{392}{\code {nlink_t}}
+\entry{blkcnt{\_}t}{392}{\code {blkcnt_t}}
+\entry{blkcnt64{\_}t}{392}{\code {blkcnt64_t}}
+\entry{struct utimbuf}{403}{\code {struct utimbuf}}
+\entry{struct sockaddr}{420}{\code {struct sockaddr}}
+\entry{struct if{\_}nameindex}{422}{\code {struct if_nameindex}}
+\entry{struct sockaddr{\_}un}{424}{\code {struct sockaddr_un}}
+\entry{struct sockaddr{\_}in}{426}{\code {struct sockaddr_in}}
+\entry{struct sockaddr{\_}in6}{426}{\code {struct sockaddr_in6}}
+\entry{struct in{\_}addr}{429}{\code {struct in_addr}}
+\entry{struct in6{\_}addr}{429}{\code {struct in6_addr}}
+\entry{struct hostent}{431}{\code {struct hostent}}
+\entry{struct servent}{435}{\code {struct servent}}
+\entry{struct protoent}{438}{\code {struct protoent}}
+\entry{struct linger}{462}{\code {struct linger}}
+\entry{struct netent}{462}{\code {struct netent}}
+\entry{struct termios}{467}{\code {struct termios}}
+\entry{tcflag{\_}t}{468}{\code {tcflag_t}}
+\entry{cc{\_}t}{468}{\code {cc_t}}
+\entry{speed{\_}t}{478}{\code {speed_t}}
+\entry{struct sgttyb}{485}{\code {struct sgttyb}}
+\entry{struct random{\_}data}{533}{\code {struct random_data}}
+\entry{div{\_}t}{540}{\code {div_t}}
+\entry{ldiv{\_}t}{541}{\code {ldiv_t}}
+\entry{lldiv{\_}t}{541}{\code {lldiv_t}}
+\entry{imaxdiv{\_}t}{541}{\code {imaxdiv_t}}
+\entry{struct timeval}{572}{\code {struct timeval}}
+\entry{struct timespec}{572}{\code {struct timespec}}
+\entry{clock{\_}t}{574}{\code {clock_t}}
+\entry{struct tms}{574}{\code {struct tms}}
+\entry{time{\_}t}{576}{\code {time_t}}
+\entry{struct timezone}{577}{\code {struct timezone}}
+\entry{struct tm}{579}{\code {struct tm}}
+\entry{struct ntptimeval}{581}{\code {struct ntptimeval}}
+\entry{struct ntptimeval}{581}{\code {struct ntptimeval}}
+\entry{struct timex}{582}{\code {struct timex}}
+\entry{struct timex}{582}{\code {struct timex}}
+\entry{struct itimerval}{601}{\code {struct itimerval}}
+\entry{struct rusage}{605}{\code {struct rusage}}
+\entry{struct vtimes}{607}{\code {struct vtimes}}
+\entry{struct rlimit}{608}{\code {struct rlimit}}
+\entry{struct rlimit64}{609}{\code {struct rlimit64}}
+\entry{struct sched{\_}param}{615}{\code {struct sched_param}}
+\entry{jmp{\_}buf}{626}{\code {jmp_buf}}
+\entry{sigjmp{\_}buf}{627}{\code {sigjmp_buf}}
+\entry{ucontext{\_}t}{628}{\code {ucontext_t}}
+\entry{sighandler{\_}t}{646}{\code {sighandler_t}}
+\entry{struct sigaction}{649}{\code {struct sigaction}}
+\entry{sig{\_}atomic{\_}t}{662}{\code {sig_atomic_t}}
+\entry{sigset{\_}t}{669}{\code {sigset_t}}
+\entry{stack{\_}t}{678}{\code {stack_t}}
+\entry{struct sigstack}{679}{\code {struct sigstack}}
+\entry{struct sigvec}{680}{\code {struct sigvec}}
+\entry{struct option}{688}{\code {struct option}}
+\entry{struct argp}{694}{\code {struct argp}}
+\entry{struct argp{\_}option}{695}{\code {struct argp_option}}
+\entry{struct argp{\_}state}{701}{\code {struct argp_state}}
+\entry{struct argp{\_}child}{702}{\code {struct argp_child}}
+\entry{pid{\_}t}{730}{\code {pid_t}}
+\entry{union wait}{738}{\code {union wait}}
+\entry{uid{\_}t}{773}{\code {uid_t}}
+\entry{gid{\_}t}{773}{\code {gid_t}}
+\entry{struct exit{\_}status}{782}{\code {struct exit_status}}
+\entry{struct utmp}{782}{\code {struct utmp}}
+\entry{struct utmpx}{786}{\code {struct utmpx}}
+\entry{struct passwd}{790}{\code {struct passwd}}
+\entry{struct group}{793}{\code {struct group}}
+\entry{struct utsname}{801}{\code {struct utsname}}
+\entry{struct fstab}{803}{\code {struct fstab}}
+\entry{struct mntent}{805}{\code {struct mntent}}
+\entry{va{\_}list}{876}{\code {va_list}}
+\entry{ptrdiff{\_}t}{879}{\code {ptrdiff_t}}
+\entry{size{\_}t}{879}{\code {size_t}}

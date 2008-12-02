@@ -1,0 +1,3 @@
+echo foo >foo
+echo bar >bar
+! busybox cmp -s foo bar

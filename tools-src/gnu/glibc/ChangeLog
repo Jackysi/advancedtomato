@@ -1,0 +1,2256 @@
+2002-01-18  Andreas Schwab  <schwab@suse.de>
+
+	* sysdeps/unix/sysv/linux/configure.in
+	(libc_cv_gcc_unwind_find_fde): Set for m68k, too.
+
+2002-01-17  Ulrich Drepper  <drepper@redhat.com>
+
+	* nscd/nscd.c (drop_privileges): Removed.  Adjust caller.
+	* nscd/connections.c (begin_drop_privileges): New function.
+	(finish_drop_privileges): New function.
+	(nscd_init): Call the new functions which also install all groups
+	for the server user.
+	Patch by Christopher Allen Wing <wingc@engin.umich.edu>.
+
+2002-01-17  Martin Schwidefsky  <schwidefsky@de.ibm.com>
+
+	* sysdeps/unix/sysv/linux/s390/s390-64/getcontext.S: Use 64 bit
+	instructions for pointer operations.
+	* sysdeps/unix/sysv/linux/s390/s390-64/swapcontext.S: Likewise.
+
+2002-01-17  Andreas Jaeger  <aj@suse.de>
+
+	* sysdeps/unix/sysv/linux/powerpc/sys/procfs.h: GCC 3.1 has
+	__uint128_t build-in.
+
+	* sysdeps/unix/sysv/linux/configure.in: Fix check for S390 and
+	PowerPC.
+
+2002-01-16  Ulrich Drepper  <drepper@redhat.com>
+
+	* posix/getconf.c: Update copyright year.
+	* nss/getent.c: Likewise.
+	* nscd/nscd_nischeck.c: Likewise.
+	* iconv/iconvconfig.c: Likewise.
+	* iconv/iconv_prog.c: Likewise.
+	* elf/ldconfig.c: Likewise.
+	* catgets/gencat.c: Likewise.
+	* csu/version.c: Likewise.
+	* elf/ldd.bash.in: Likewise.
+	* elf/sprof.c (print_version): Likewise.
+	* locale/programs/locale.c: Likewise.
+	* locale/programs/localedef.c: Likewise.
+	* nscd/nscd.c (print_version): Likewise.
+	* debug/xtrace.sh: Likewise.
+	* malloc/memusage.sh: Likewise.
+	* malloc/mtrace.pl: Likewise.
+
+2002-01-16  Andreas Schwab  <schwab@suse.de>
+
+	* sysdeps/unix/sysv/linux/ia64/ldd-rewrite.sed: Fix regexp to
+	reliably remove "-ia64" from rtld name.
+
+2002-01-16  Martin Schwidefsky  <schwidefsky@de.ibm.com>
+
+	* sysdeps/unix/sysv/linux/s390/swapcontext.c: Remove.
+	* sysdeps/unix/sysv/linux/s390/s390-32/swapcontext.S: New file.
+	* sysdeps/unix/sysv/linux/s390/s390-64/swapcontext.S: New file.
+
+2002-01-14  Martin Schwidefsky  <schwidefsky@de.ibm.com>
+
+	* sysdeps/s390/fpu/libm-test-ulps: Update.
+
+2002-01-11  Martin Schwidefsky <schwidefsky@de.ibm.com>
+
+     * sysdeps/unix/sysv/linux/configure.in (libc_cv_gcc_unwind_find_fde):
+     Set for s390 and s390x architectures.
+     (arch_minimum_kernel): Set for s390 and s390x.
+     * sysdeps/unix/sysv/linux/s390/brk.c (__brk): Correct inline
+     assembly contraints.
+     * sysdeps/unix/sysv/linux/s390/profil-counter.h: Move/copy to ...
+     * sysdeps/unix/sysv/linux/s390/s390-32/profil-counter.h: ... here,
+     remove high order bit from the program counter.
+     * sysdeps/unix/sysv/linux/s390/s390-64/profil-counter.h: ... and here.
+     * sysdeps/unix/sysv/linux/s390/s390-64/Makefile: Add framestate.
+
+2002-01-09  Jakub Jelinek  <jakub@redhat.com>
+
+	* sysdeps/alpha/fpu/e_sqrt.c (__ieee754_sqrt): Don't use multi-line
+	string literals.
+	(__full_ieee754_sqrt): Add __attribute_used__.
+
+2002-01-10  Ulrich Drepper  <drepper@redhat.com>
+
+	* sysdeps/generic/group_member.c (__group_member): Also check
+	groups[0] [PR libc/2781].
+
+2001-12-02  Roland McGrath  <roland@frob.com>
+
+	* mach/Makefile, mach/Machrules: Move comments out of \ continuations.
+
+	* hurd/hurd.h (__hurd_fail): Add `break;' to silence new gcc-3 warning.
+	Reported by Jeff Bailey <jbailey@nisa.net>.
+
+	* hurd/hurd.h (_hurd_umask): Remove volatile qualifier from decl.
+	Reported by Jeff Bailey <jbailey@nisa.net>.
+
+	* mach/Makefile ($(objpfx)mach-syscalls.mk): Pass $(CFLAGS) to $(CC).
+	* mach/Machrules ($(objpfx)%.udeps static pattern rule): Likewise.
+	Reported by Jeff Bailey <jbailey@nisa.net>.
+
+2002-01-07  Roland McGrath  <roland@frob.com>
+
+	* sysdeps/mach/hurd/i386/init-first.c (_hurd_stack_setup): Use
+	volatile on type of ARGC so the compiler doesn't get clever.
+
+2002-01-08  Ulrich Drepper  <drepper@redhat.com>
+
+	* version.h (VERSION): Bump to 2.2.5.
+
+	* Makefile (distribute): Add scripts/cpp.
+	* elf/Makefile (distribute): Add reldep6mod[01234].c,
+	unwind-dw2.c, unwind-dw2-fde.c, unwind.h, unwind-pe.h,
+	unwind-dw2-fde.h, and dwarf2.h.
+	* sysdeps/unix/bsd/bsd4.4/Dist: New file.
+	* sysdeps/unix/sysv/aix/Dist: Add sysv_termio.h and start-libc.c.
+	* sysdeps/unix/sysv/linux/ia64/Dist: Add ldd-rewrite.sed.
+	* sysdeps/unix/sysv/linux/s390/Dist: Likewise.
+
+2002-01-07  Andreas Jaeger  <aj@suse.de>
+
+	* sysdeps/generic/bits/byteswap.h: Prevent double inclusion.
+	* sysdeps/i386/bits/byteswap.h: Likewise.
+	* sysdeps/ia64/bits/byteswap.h: Likewise.
+	* sysdeps/m68k/bits/byteswap.h: Likewise.
+	* sysdeps/s390/s390-32/bits/byteswap.h: Likewise.
+	* sysdeps/s390/s390-64/bits/byteswap.h: Likewise.
+
+2002-01-02  Bruno Haible  <bruno@clisp.org>
+
+	* intl/plural.y: Fix %expect count.
+
+2002-01-07  Stephen L Moshier  <moshier@mediaone.net>
+
+	* sysdeps/ieee754/ldbl-96/s_erfl.c (erfcl): Fix K&R header.
+
+	* sysdeps/ieee754/ldbl-96/e_lgammal_r.c (sin_pi): Fix typo in test
+	for x < 0.25 and restore original range reduction method.
+	(__ieee754_lgammal_r): Make sure signgam is set before returning.
+
+2001-12-31  Ulrich Drepper  <drepper@redhat.com>
+
+	* sysdeps/unix/sysv/linux/getloadavg.c (getloadavg): Always use C
+	locale to parse /proc/loadavg [PR libc/2760].
+
+2001-12-22  Roland McGrath  <roland@frob.com>
+
+	* hurd/Versions (libc: GLIBC_2.2.5): Add _hurd_port_set,
+	_hurd_port_init, and __hurd_self_sigstate.
+
+	* mach/Versions (libc: GLIBC_2.2.5): Add mig_strncpy.
+
+2001-12-18  Jakub Jelinek  <jakub@redhat.com>
+
+	* sysdeps/unix/sysv/linux/sparc/sparc64/clone.S (clone): Subtract
+	stack bias from child stack pointer before passing it to clone syscall.
+
+2001-12-14  Ulrich Drepper  <drepper@redhat.com>
+
+	* crypt/md5.h: Define md5_uintptr.
+
+2001-11-29  Andreas Jaeger  <aj@suse.de>
+
+	* sysdeps/unix/sysv/linux/x86_64/Versions: Add arch_prctl.
+	* sysdeps/unix/sysv/linux/x86_64/syscalls.list: Add arch_prctl call.
+
+2001-12-13  Andreas Schwab  <schwab@suse.de>
+
+	* stdio-common/vfprintf.c (process_string_arg): Correctly handle
+	zero precision with wide character string format.
+
+2001-12-13  Thorsten Kukuk  <kukuk@suse.de>
+
+	* sysdeps/posix/cuserid.c (cuserid): If we don't find the UID,
+	but have a user supplied buffer, return the empty buffer, not NULL.
+
+2001-12-13  Ulrich Drepper  <drepper@redhat.com>
+
+	* crypt/md5.c (md5_process_bytes): Correct handling of alignment.
+	Patch by Eric Sharkey <sharkey@netrics.com>.
+
+2001-12-12  Ulrich Drepper  <drepper@redhat.com>
+
+	* nis/nis_findserv.c (__nis_findfastest_with_timeout): Mostly the code
+	from __nis_findfastest.  Take timeout value from parameter.
+	(__nis_findfastest): Call __nis_findfastest_with_timeout repeatedly.
+	* nis/nis_intern.h: Define parameters controlling __nis_findfastest
+	[PR libc/2520].  Patch by Alexander Belopolsky <alexb@rentec.com>.
+
+2001-12-12  Andreas Jaeger  <aj@suse.de>
+
+	* configure.in: Use -nostartfiles -nostdlib for linker tests, fix
+	combreloc test so that it works in this case.
+
+2001-12-11  Ulrich Drepper  <drepper@redhat.com>
+
+	* resolv/nss_dns/dns-host.c (getanswer_r): Remove MAX_NR_ADDRS
+	limitation [PR libc/2564].
+
+2001-12-10  Roland McGrath  <roland@frob.com>
+
+	* sysdeps/mach/hurd/bind.c (bind): Don't deallocate IFSOCK if we never
+	set it.
+
+	* shlib-versions [USE_IN_LIBIO] (.*-.*-gnu-gnu.*): Set default
+	set to GLIBC_2.2.5, not GLIBC_2.2.4.
+
+	* sysdeps/mach/hurd/configure.in (libc_cv_gcc_unwind_find_fde):
+	Fix conditionals so this is set by default for stdio and not for libio.
+	* sysdeps/mach/hurd/configure: Regenerated.
+
+2001-12-10  Thorsten Kukuk  <kukuk@suse.de>
+
+	* io/ftw.c (ftw_startup): Check, if the path is search and readable.
+
+2001-12-10  Ulrich Drepper  <drepper@redhat.com>
+
+	* sysdeps/generic/glob.c (glob): Return only pattern if nothing
+	matches and GLOB_NOCHECK is set.
+	* posix/globtest.sh: Correct expected result for NOCHECK test.
+
+	* po/ca.po: Update from translation team.
+
+2001-12-05  Ulrich Drepper  <drepper@redhat.com>
+
+	* timezone/zic.c: Fix handling of turnaround times.
+	Patch by Arthur David Olson <olsona@dc37a.nci.nih.gov>.
+
+2001-12-01  Roland McGrath  <roland@frob.com>
+
+	* sysdeps/mach/hurd/configure.in (libc_cv_gcc_unwind_find_fde): Add
+	missing backslash in test arguments.
+	* sysdeps/mach/hurd/configure: Regenerated.
+
+2001-12-02  Moshe Olshansky  <OLSHANSK@il.ibm.com>
+
+	* sysdeps/ieee754/dbl-64/e_remainder.c (__ieee754_remainder): Fix
+	overflow problem.
+
+2001-11-29  Jakub Jelinek  <jakub@redhat.com>
+
+	* sysdeps/generic/glob.c (next_brace_sub): Return NULL if braces
+	don't match, fix {{a,b},c} globbing, clean up.
+	Patch by Flavio Veloso <flaviovs@magnux.com>.
+	* posix/globtest.sh: Add new tests.
+
+2001-11-28  Ulrich Drepper  <drepper@redhat.com>
+
+	* libio/genops.c (_IO_flush_all_lockp): New function.  The same code
+	as the old _IO_flush_all but lock only if parameter is nonzero.
+	(_IO_flush_all): Call _IO_flush_all_lockp with 1 as parameter.
+	* libio/libioP.h: Add prototype for _IO_flush_all_lockp.
+	* sysdeps/generic/abort.c (fflush): Define to _IO_flush_all_lockp(0)
+	if libio is used [PR libc/2575].
+
+2001-11-28  Jakub Jelinek  <jakub@redhat.com>
+
+	* sysdeps/sparc/fpu/bits/mathinline.h (__signbitf, __signbit,
+	__signbitl): Only define for ISO C99.
+
+2001-11-22  Thorsten Kukuk  <kukuk@suse.de>
+
+	* nss/nss_files/files-hosts.c (_nss_files_get##name##_r): Set
+	herrnop to NETDB_INTERNAL if we run out of buffer space.
+
+2001-11-28  Ulrich Drepper  <drepper@redhat.com>
+
+	* nss/nss_files/files-XXX.c (internal_getent): Correct input
+	overflow test for platforms with signed char.
+	Reported by Andrew Haley <aph@cambridge.redhat.com>.
+
+2001-11-26  Ulrich Drepper  <drepper@redhat.com>
+
+	* stdio-common/vfscanf.c: If incomplete nan of inf(inity) strings
+	are found call conv_error and not input_error [PR libc/2669].
+
+2001-11-26  Stephen L Moshier <moshier@mediaone.net>
+
+	* sysdeps/ieee754/ldbl-128/e_log10l.c (L102B): Fix typo in
+	initialization.
+
+	* sysdeps/ieee754/ldbl-128/e_coshl.c (__ieee754_coshl): Remove
+	unused variables.  Fix threshold for returning 1.0.
+
+	* sysdeps/ieee754/ldbl-128/e_lgammal_r.c (neval, deval): Constify
+	argument.
+
+	* sysdeps/ieee754/ldbl-128/s_erfl.c (neval, deval): Likewise, and
+	remove unused variables.
+
+	* sysdeps/ieee754/ldbl-128/e_j0l.c (neval, deval): Likewise.
+
+	* sysdeps/ieee754/ldbl-128/e_j1l.c (neval, deval): Likewise, and
+	include local math header files.
+
+2001-11-15  Ulrich Drepper  <drepper@redhat.com>
+
+	* sysdeps/generic/unwind-dw2-fde.c: Don't use recursive mutexes.
+
+2001-10-02  Jakub Jelinek  <jakub@redhat.com>
+	    H.J. Lu  <hjl@gnu.org>
+
+	* Versions.def (libc): Add GCC_3.0.
+	* configure.in (libc_cv_gcc_static_libgcc): Set to -static-libgcc
+	if gcc supports this flag.
+	(EXPORT_UNWIND_FIND_FDE): Define unless target configure disables it.
+	(gcc3): Allow glibc to be compiled with gcc 3.x.
+	* config.h.in (EXPORT_UNWIND_FIND_FDE): Add.
+	* config.make.in (static-libgcc, unwind-find-fde): Add.
+	* Makerules (build-shlib-helper, build-module-helper): Use it.
+	* scripts/versions.awk: Make sure GLIBC_ versions come first.
+	* elf/soinit.c (__libc_global_ctors): Set tbases and dbases if
+	necessary.
+	(_fini): Call __deregister_frame_info_bases if
+	__register_frame_info_bases was used to register.
+	* elf/Versions (__register_frame_info, __deregister_frame_info): Add
+	for GLIBC_2.0.
+	(__register_frame_info_bases, __register_frame_info_table_bases,
+	__deregister_frame_info_bases, _Unwind_Find_FDE): Add for GCC_3.0.
+	* elf/Makefile (routines): Add unwind-dw2-fde.
+	(shared-only-routines): Add unwind-dw2-fde.
+	* sysdeps/alpha/gccframe.h: New file.
+	* sysdeps/arm/gccframe.h: New file.
+	* sysdeps/generic/framestate.c: New file.
+	* sysdeps/generic/dwarf2.h: New file.
+	* sysdeps/generic/gccframe.h (struct object): Update from gcc 3.0.
+	* sysdeps/generic/unwind-dw2-fde.c: New file.
+	* sysdeps/unix/sysv/linux/ia64/unwind-dw2-fde.c: New file.
+	* sysdeps/generic/unwind-dw2-fde.h: New file.
+	* sysdeps/generic/unwind-dw2.c: New file.
+	* sysdeps/generic/unwind-pe.h: New file.
+	* sysdeps/generic/unwind.h: New file.
+	* sysdeps/hppa/gccframe.h: New file.
+	* sysdeps/i386/gccframe.h: New file.
+	* sysdeps/m68k/gccframe.h: New file.
+	* sysdeps/mips/gccframe.h: New file.
+	* sysdeps/powerpc/gccframe.h: New file.
+	* sysdeps/s390/gccframe.h: New file.
+	* sysdeps/sh/gccframe.h: New file.
+	* sysdeps/sparc/gccframe.h: New file.
+	* sysdeps/vax/gccframe.h: New file.
+	* sysdeps/unix/sysv/linux/configure.in (libc_cv_gcc_unwind_find_fde):
+	Set on all architectures except ia64.
+	* sysdeps/mach/hurd/configure.in (libc_cv_gcc_unwind_find_fde): Set
+	for i386.
+	* sysdeps/mach/hurd/i386/Versions (__register_frame_info,
+	__deregister_frame_info): Move to elf/Versions.
+	* sysdeps/unix/sysv/linux/m68k/Versions: Likewise.
+	* sysdeps/unix/sysv/linux/arm/Versions: Likewise.
+	* sysdeps/unix/sysv/linux/alpha/Versions: Likewise.
+	* sysdeps/unix/sysv/linux/i386/Versions: Likewise.
+	* sysdeps/unix/sysv/linux/mips/Versions: Likewise.
+	* sysdeps/unix/sysv/linux/powerpc/Versions: Likewise.
+	* sysdeps/unix/sysv/linux/s390/s390-32/Versions: Likewise.
+	* sysdeps/unix/sysv/linux/sparc/sparc32/Versions: Likewise.
+	* sysdeps/unix/sysv/linux/sparc/sparc64/Versions: Likewise.
+	* sysdeps/mach/hurd/i386/Makefile (sysdep-routines): Add framestate.
+	* sysdeps/unix/sysv/linux/arm/Makefile: Likewise.
+	* sysdeps/unix/sysv/linux/alpha/Makefile: Likewise.
+	* sysdeps/unix/sysv/linux/i386/Makefile: Likewise.
+	* sysdeps/unix/sysv/linux/m68k/Makefile: Likewise.
+	* sysdeps/unix/sysv/linux/mips/Makefile: Likewise.
+	* sysdeps/unix/sysv/linux/powerpc/Makefile: Likewise.
+	* sysdeps/unix/sysv/linux/s390/s390-32/Makefile: Likewise.
+	* sysdeps/unix/sysv/linux/sparc/Makefile: Likewise.
+
+2001-11-15  Jeff Law  <law@redhat.com>
+
+	* posix/regex.c (uintptr_t): Do not provide a definition if the
+	system provided one.
+
+2001-11-13  Roland McGrath  <roland@frob.com>
+
+	* stdio-common/tmpfile.c: Moved to ...
+	* sysdeps/generic/tmpfile.c: ... here.
+	* sysdeps/mach/hurd/tmpfile.c: New file.
+
+	* hurd/fopenport.c (__fopenport): Renamed from fopenport.
+	[USE_IN_LIBIO] (fopencookie): #define as _IO_fopencookie.
+	(fopenport): Define as weak alias.
+
+	* libio/iofopncook.c (_IO_fopencookie): Move forward declaration ...
+	* libio/libioP.h: ... to here.
+
+2001-11-12  Ulrich Drepper  <drepper@redhat.com>
+
+	* elf/dl-reloc.c (_dl_relocate_object): Avoid iterating over
+	program header twice.  Construct list with the needed information.
+
+2001-11-10  Ulrich Drepper  <drepper@redhat.com>
+
+	* po/ca.po: Update from translation team.
+
+	* elf/dl-load.c (_dl_map_object_from_fd): Remove use of
+	_dl_pf_to_prot.  Use arithmetic operation using PF_TO_PROT macro.
+	* sysdeps/generic/ldsodefs.h (PF_TO_PROT): New macro.
+	* elf/dl-reloc.c (_dl_relocate_object): Likewise.
+
+2001-11-10  Andreas Jaeger  <aj@suse.de>
+
+	* sysdeps/ieee754/ldbl-128/e_log2l.c: New file.
+	* sysdeps/ieee754/ldbl-128/e_log10l.c: Likewise.
+	Contributed by Stephen L Moshier <moshier@mediaone.net>.
+
+2001-11-09  Ulrich Drepper  <drepper@redhat.com>
+
+	* elf/dl-minimal.c (realloc): Handle NULL for first parameter
+	correctly.
+	* elf/dl-load.c (is_dst): New function.
+	(_dl_dst_count): Use is_dst to check for DST variable.
+	(_dl_dst_substitute): Likewise.
+
+2001-11-09  Roland McGrath  <roland@frob.com>
+
+	Hurd/PowerPC port contributed by Peter Bruin <pjbruin@dds.nl>.
+	* sysdeps/mach/hurd/powerpc/exc2signal.c: New file.
+	* sysdeps/mach/hurd/powerpc/init-first.c: New file.
+	* sysdeps/mach/hurd/powerpc/intr-msg.h: New file.
+	* sysdeps/mach/hurd/powerpc/longjmp-ts.c: New file.
+	* sysdeps/mach/hurd/powerpc/register-dump.h: New file.
+	* sysdeps/mach/hurd/powerpc/sigreturn.c: New file.
+	* sysdeps/mach/hurd/powerpc/static-start.S: New file.
+	* sysdeps/mach/hurd/powerpc/trampoline.c: New file.
+	* sysdeps/mach/hurd/powerpc/bits/sigcontext.h: New file.
+	* sysdeps/mach/hurd/powerpc/Dist: New file.
+
+	* hurd/privports.c (__get_privileged_ports):
+	Only contact the proc server if necessary for this call.
+	Suggested by Neal H Walfield <neal@cs.uml.edu>.
+	Check error return for mach_port_mod_refs.
+
+2001-11-09  Andreas Schwab  <schwab@suse.de>
+
+	* sysdeps/unix/sysv/linux/m68k/bits/resource.h: New file.
+
+2001-11-09  Ulrich Drepper  <drepper@redhat.com>
+
+	* elf/dl-load.c (lose): Remove some unnecessary code.  The new
+	object is always the last in the list.
+	(_dl_map_object_from_fd): Delete code to remove from object list
+	when DF_1_NOOPEN is seen.  This is done in lose.
+
+2001-11-08  Ulrich Drepper  <drepper@redhat.com>
+
+	* elf/dl-object.c (_dl_new_object): Various small optimizations.
+
+2001-11-07  Ulrich Drepper  <drepper@redhat.com>
+
+	* sysdeps/generic/dl-cache.c: Optimize SEARCH_CACHE and
+	HWCAP_CHECK macro code.
+
+	* elf/dl-misc.c (_dl_sysdep_read_whole_file): Optimize code a bit.
+	Now returns MAP_FAILED on error.
+	* elf/rtld.c: Adjust caller.
+	* sysdeps/generic/dl-cache.c: Likewise.
+	* sysdeps/generic/ldsodefs.h: Adjust description.
+
+	* elf/dl-version.c (match_symbol): Optimize error handling for size.
+	(_dl_check_map_versions): Likewise.
+
+2001-11-06  Ulrich Drepper  <drepper@redhat.com>
+
+	* elf/dl-load.c (_dl_map_object_from_fd): Don't call
+	_dl_signal_error directly, always use lose.  Set fd to -1 after
+	file is closed.
+	(lose): Don't call close if fd == -1.
+
+2001-11-07  Kaoru Fukui  <k_fukui@highway.ne.jp>
+
+	* manual/charset.texi: Fix typo @w[ISO 6937] to  @w{ISO 6937}.
+	 Also fix typo @code {mbsinit} to @code{mbsinit}.
+
+2001-11-06  Ulrich Drepper  <drepper@redhat.com>
+
+	* elf/dl-profile.c: Replace state variable with simple flag named
+	running.  Remove commented-out code.
+
+	* elf/dl-load.c (decompose_rpath): Optimize error handling for size.
+	(_dl_init_paths): Likewise.
+	(_dl_map_object_from_fd): Likewise.
+	* elf/dl-reloc.c (_dl_relocate_object): Likewise.
+
+2001-11-06  Roland McGrath  <roland@frob.com>
+
+	* sysdeps/mach/powerpc/sysdep.h: Include sysdeps/unix/powerpc/sysdep.h
+	instead of sysdeps/powerpc/elf/sysdep.h and sysdeps/unix/sysdep.h.
+
+	* sysdeps/unix/sysv/linux/powerpc/sysdep.h: Don't include
+	sysdeps/powerpc/elf/sysdep.h.
+	Reported by Kaoru Fukui <k_fukui@highway.ne.jp>.
+
+2001-11-05  Ulrich Drepper  <drepper@redhat.com>
+
+	* elf/rtld.c (process_dl_debug): Rewritten.  Optimized for size not
+	speed.
+	(process_envvars): Some more optimizations.
+	* sysdeps/generic/ldsodefs.h (DL_DEBUG_HELP): New macro.
+
+	* elf/elf.h: Add dynamic tag definitions for prelinking.
+
+	* elf/rtld.c (process_envvars): Avoid using array of string pointers.
+	Rewrite code to remove environment varables for SUID binaries.
+	Small optimization in LD_PROFILE handling.
+	* sysdeps/generic/unsecvars.h: Adjust format for process_envvars
+	changes.
+	* sysdeps/unix/sysv/linux/i386/dl-librecon.h: Likewise.
+
+	* sysdeps/generic/dl-sysdep.c: Don't initialize _dl_cpuclock_offset.
+
+	* elf/dl-reloc.c (_dl_reloc_bad_type): Rewrite to not use writable
+	strings.  Change type of second parameter.
+	* sysdeps/generic/ldsodefs.h: Adjust _dl_reloc_bad_type prototype
+	for last change.
+
+	* io/fts.h: Prevent using <fts.h> with _FILE_OFFSET_BITS=64.
+
+2001-11-04  Joseph S. Myers  <jsm28@cam.ac.uk>
+
+	* manual/string.texi: Fix typos.
+	* manual/examples/argp-ex2.c: Likewise.
+
+2001-11-05  Roland McGrath  <roland@frob.com>
+
+	* sysdeps/powerpc/elf/sysdep.h: Remove this file, because it overrides
+	the more-specific unix/sysv/linux/powerpc file and breaks everything.
+	* sysdeps/powerpc/sysdep.h (ALIGNARG, ASM_TYPE_DIRECTIVE,
+	ASM_SIZE_DIRECTIVE, CALL_MCOUNT, ENTRY, EALIGN, DO_CALL, JUMPTARGET,
+	PSEUDO, PSEUDO_RET, PSEUDO_END, L, C_TEXT): These macros moved here
+	here, put under [__ELF__].
+
+2001-11-05  Ulrich Drepper  <drepper@redhat.com>
+
+	* manual/charset.texi: Extensive editing work.
+	* manual/nss.texi: Likewise.
+	Changes by Dennis Grace <dgrace@us.ibm.com>.
+
+2001-11-04  Roland McGrath  <roland@frob.com>
+
+	* hurd/set-host.c (_hurd_set_host_config): Use O_WRONLY in flags
+	parameter to dir_mkfile.
+
+2001-11-02  Jakub Jelinek  <jakub@redhat.com>
+
+	* string/bits/string2.h (__strndup): If n is smaller than len, set
+	len to n + 1.
+	* string/tester.c (test_strndup): New function.
+	(main): Call it.
+
+2001-11-01  Ulrich Drepper  <drepper@redhat.com>
+
+	* sunrpc/rpc_main.c: Optimize variable definitions a bit.
+
+	* sunrpc/Makefile (rpcgen-cmd): Use ../scripts/cpp in rpcgen calls.
+	* scripts/cpp: New file.
+
+	* elf/dl-load.c (_dl_map_object): Correct test of DF_1_NODEFLIB
+	for rtld_search_dirs content.  Minor optimizations.
+
+2001-10-31  Ulrich Drepper  <drepper@redhat.com>
+
+	* elf/dl-load.c (_dl_map_object): Make code a bit more compact by
+	avoiding unnecessary duplication.
+
+2001-10-31  Jakub Jelinek  <jakub@redhat.com>
+
+	* elf/dl-load.c (_dl_map_object): If library was found using
+	LD_LIBRARY_PATH, don't try RUNPATH list.
+
+2001-10-31  Martin Schwidefsky  <schwidefsky@de.ibm.com>
+
+	* sysdeps/unix/sysv/linux/s390/s390-32/register-dump.h (REGISTER_DUMP):
+	Correct second argument of register_dump call.
+	* sysdeps/unix/sysv/linux/s390/s390-64/register-dump.h (REGISTER_DUMP):
+	Likewise.
+
+2001-10-31  Ulrich Drepper  <drepper@redhat.com>
+
+	* iconvdata/Makefile: Add support for IBM1132, IBM1133, and IBM1162
+	modules.
+	* iconvdata/TESTS: Likewise.
+	* iconvdata/gconv-modules: Likewise.
+	* iconvdata/ibm1132.c: New file.
+	* iconvdata/ibm1132.h: New file.
+	* iconvdata/ibm1133.c: New file.
+	* iconvdata/ibm1133.h: New file.
+	* iconvdata/ibm1162.c: New file.
+	* iconvdata/ibm1162.h: New file.
+	* iconvdata/testdata/IBM1132: New file.
+	* iconvdata/testdata/IBM1132..UTF8: New file.
+	* iconvdata/testdata/IBM1133: New file.
+	* iconvdata/testdata/IBM1133..UTF8: New file.
+	* iconvdata/testdata/IBM1162: New file.
+	* iconvdata/testdata/IBM1162..UTF8: New file.
+	Patches by Masahide Washizawa <WASHI@jp.ibm.com>.
+
+	* string/string.h: Fix typo in comment.
+	* wcsmbs/wchar.h: Likewise.
+
+2001-10-30  Joseph S. Myers  <jsm28@cam.ac.uk>
+
+	* manual/getopt.texi (getopt_long, getopt_long_only): Include
+	const in type of longopts parameter.
+
+2001-10-29  Andreas Jaeger  <aj@suse.de>
+
+	* sysdeps/ieee754/dbl-64/mpa.h: Add prototypes for internal functions.
+
+2001-10-29  Kevin Ryde  <user42@zip.com.au>
+
+	* manual/stdio.texi (Integer Conversions): Corrections to sample printf
+	output, clarify `#' behaviour on 0.
+	(Floating-Point Conversions): Clarify that %g only uses %e when
+	the exponent would be greater than 1.
+
+2001-10-28  Roland McGrath  <roland@frob.com>
+
+	Support for Mach/PowerPC contributed by Peter Bruin <pjbruin@dds.nl>.
+	* sysdeps/mach/powerpc/machine-sp.h: New file.
+	* sysdeps/mach/powerpc/sysdep.h: New file.
+	* sysdeps/mach/powerpc/thread_state.h: New file.
+
+	* sysdeps/mach/hurd/i386/Makefile: File removed; crt0.o rules moved ...
+	* sysdeps/mach/hurd/Makefile: ... to here.  For the time being, we can
+	expect to need the same thing on every platform.
+
+	* sysdeps/unix/sysv/linux/powerpc/sys/ucontext.h: File moved ...
+	* sysdeps/generic/sys/ucontext.h: ... to replace this one.
+
+	* sysdeps/unix/sysv/linux/powerpc/sysdep.h (ALIGNARG,
+	ASM_TYPE_DIRECTIVE, ASM_SIZE_DIRECTIVE, CALL_MCOUNT, ENTRY, EALIGN,
+	DO_CALL, JUMPTARGET, PSEUDO, PSEUDO_RET, PSEUDO_END, L, C_TEXT):
+	Move all these assembly-related definitions to ...
+	* sysdeps/powerpc/elf/sysdep.h: ... this new file.
+
+	* sysdeps/mach/powerpc/machine-lock.h: Assembly code rewritten
+	by Peter Bruin <pjbruin@dds.nl>.
+
+	* hurd/hurdselect.c (_hurd_select): Check SELECT_RETURNED bit when
+	packing results for a `poll' call.
+
+2001-10-26  Ulrich Drepper  <drepper@redhat.com>
+
+	* posix/fnmatch_loop.c: Recognize - at end of bracket expression
+	correctly.
+	* posix/tst-fnmatch.input: Add tests for - at beginning and end of
+	bracket expression.
+
+	* string/strxfrm.c [USE_IN_EXTENDED_LOCALE_MODEL]: Correctly get
+	nrules value.
+	* string/tst-strxfrm.c (test): Also test __strxfrm_l.
+
+2001-10-24  H.J. Lu  <hjl@gnu.org>
+
+	* sysdeps/generic/bits/dlfcn.h (DL_CALL_FCT): Cast to void *.
+	Use __BEGIN_DECLS/__END_DECLS around prototypes.
+	* sysdeps/mips/bits/dlfcn.h (DL_CALL_FCT): Likewise.
+
+2001-10-21  Jim Meyering  <meyering@lucent.com>
+
+	* malloc/obstack.c (_): Honor the setting of ENABLE_NLS.  Otherwise,
+	this code would end up calling gettext even in packages built
+	with --disable-nls.
+	* posix/getopt.c (_): Likewise.
+	* posix/regex.c (_): Likewise.
+
+2001-10-26  Ulrich Drepper  <drepper@redhat.com>
+
+	* resolv/gethnamaddr.c (gethostbyaddr): Use ip6.addr for reverse
+	lookup not ip6.int.
+	* resolv/nss_dns/dns-host.c (_nss_dns_gethostbyaddr_r): Likewise.
+	Reported by Martin.v.Loewis@t-online.de [PR libc/2598].
+
+2001-10-19  Jakub Jelinek  <jakub@redhat.com>
+
+	* misc/sys/cdefs.h (__attribute_used__): Define.
+	* elf/rtld.c (_dl_start): Add __attribute_used__.
+	* elf/dl-runtime.c (fixup, profile_fixup): Likewise.
+
+2001-10-25  Andreas Schwab  <schwab@suse.de>
+
+	* stdlib/a64l.c: Expect least significant digit first.
+	* stdlib/l64a.c: Produce least significant digit first.
+	* stdlib/Makefile (tests): Add test-a64l.
+	* stdlib/test-a64l.c: New file.
+	Reported by Masaki Hasegawa <masaki-h@pp.iij4u.or.jp>.
+
+2001-10-21  Ulrich Drepper  <drepper@redhat.com>
+
+	* po/sk.po: Update from translation team.
+
+2001-10-18  Ulrich Drepper  <drepper@redhat.com>
+
+	* sysdeps/i386/elf/start.S (_fp_hw): Define object type.
+
+2001-10-18  Andreas Schwab  <schwab@suse.de>
+
+	* math/libm-test.inc (print_ulps): Print ulp values rounded to
+	next whole number.
+	(print_function_ulps): Likewise.
+	(print_complex_function_ulps): Likewise.
+	(print_max_error): Likewise.
+	(print_complex_max_error): Likewise.  Handle ignore_max_ulp.
+
+2001-10-16  Andreas Schwab  <schwab@suse.de>
+
+	* sysdeps/m68k/fpu/libm-test-ulps: Updated for fixed cbrtl
+	implementation.
+
+	* sysdeps/m68k/setjmp.c: Also define setjmp and _setjmp if
+	BSD_SETJMP or BSD__SETJMP is defined, resp.
+	* sysdeps/m68k/bsd-setjmp.c: Inline setjmp code instead of making
+	a tail call to __sigsetjmp that would require extending the
+	caller's frame.
+	* sysdeps/m68k/bsd-_setjmp.c: Likewise.
+	* sysdeps/m68k/bsd-setjmp.S: Deleted.
+	* sysdeps/m68k/bsd-_setjmp.S: Deleted.
+	Reported by Jes Sorensen <jes@trained-monkey.org>.
+
+2001-10-16  Andreas Jaeger  <aj@suse.de>
+
+	* sysdeps/ieee754/ldbl-96/s_nextafterl.c (__nextafterl): Fix
+	parentheses.  Reported by David Byron <dbyron@porto.coactive.com>,
+	close PR libc/2589.
+
+2001-10-15  Ulrich Drepper  <drepper@redhat.com>
+
+	* po/ca.po: New file.  Contributed by the translation team.
+
+2001-10-15  Ralf Baechle  <ralf@gnu.org>
+
+	* sysdeps/unix/sysv/linux/mips/sys/sysmips.h: Make sysmips() prototype
+	a varargs prototype.  Remove dependency from kernel header files.
+
+	* sysdeps/unix/sysv/linux/mips/bits/termios.h: General cleanup, use
+	__USE_MISC / __USE_XOPEN not __USE_BSD where appropriate.
+
+2001-10-14  Ulrich Drepper  <drepper@redhat.com>
+
+	* locale/programs/ld-collate.c (handle_ellipsis): Use %lX not %lx
+	to generate hexadecimal identifier.
+	Patch by Jungshik Shin <jungshik.shin@yale.edu>.
+
+2001-10-09  Stephen L Moshier  <moshier@mediaone.net>
+
+	* sysdeps/ieee754/ldbl-96/s_cbrtl.c (__cbrtl): Fix algorithm.
+
+2001-10-14  Ulrich Drepper  <drepper@redhat.com>
+
+	* sysdeps/ieee754/ldbl-128/e_powl.c: New file.
+	* sysdeps/ieee754/ldbl-128/s_cbrtl.c: New file.
+	Contributed by Stephen L Moshier <moshier@mediaone.net>.
+
+	* sysdeps/ieee754/ldbl-128/e_j0l.c: Constify float variables.
+	* sysdeps/ieee754/ldbl-128/e_j1l.c: Likewise.
+	* sysdeps/ieee754/ldbl-128/e_lgammal_r.c: Likewise
+	* sysdeps/ieee754/ldbl-128/s_erfl.c: Likewise
+	* sysdeps/ieee754/ldbl-128/s_expm1l.c: Likewise
+	* sysdeps/ieee754/ldbl-128/s_log1pl.c: Likewise
+
+	* timezone/africa: Update from tzdata2001d.
+	* timezone/asia: Likewise.
+	* timezone/australasia: Likewise.
+	* timezone/backward: Likewise.
+	* timezone/europe: Likewise.
+	* timezone/leapseconds: Likewise.
+	* timezone/northamerica: Likewise.
+	* timezone/southamerica: Likewise.
+	* timezone/zone.tab: Likewise.
+
+2001-10-09  Martin Schwidefsky  <schwidefsky@de.ibm.com>
+
+	* sysdeps/s390/s390-32/sys/ucontext.h: Correct __psw_t typedef.
+	* sysdeps/s390/s390-64/sys/ucontext.h: Likewise.
+
+2001-10-12  Ulrich Drepper  <drepper@redhat.com>
+
+	* elf/elf.h (PT_TLS): New definition.
+
+2001-10-10  Jeff Bailey  <jbailey@nisa.net>
+
+	* sysdeps/mach/hurd/Makefile: Add $(CFLAGS) for generation of
+	bits/errno.h
+
+2001-10-07  Roland McGrath  <roland@frob.com>
+
+	* sysdeps/mach/hurd/setrlimit.c (__setrlimit): Never return ENOSYS.
+
+2001-10-10  Ulrich Drepper  <drepper@redhat.com>
+
+	* elf/elf.h: Add more ELFOSABI_* constants.
+
+2001-10-04  Ben Collins  <bcollins@debian.org>
+
+	* sysdeps/generic/inttypes.h: Fix typo (define, not defined) in
+	decleration of __need_wchar_t.
+
+2001-10-03  Jakub Jelinek  <jakub@redhat.com>
+
+	* string/bits/string2.h (__strsep_g): Add prototype.
+	(__strsep): Use it.
+	* string/Versions (__strsep): Remove.
+	* sysdeps/generic/strsep.c (__strsep_g): Add alias to __strsep.
+
+2001-10-07  Ulrich Drepper  <drepper@redhat.com>
+
+	* manua/llio.texi: Clarify file references added by mmap.
+	Patch by Marcus Brinkmann <Marcus.Brinkmann@ruhr-uni-bochum.de>.
+
+2001-09-29  Jes Sorensen  <jes@trained-monkey.org>
+
+	* sysdeps/unix/sysv/linux/ia64/bits/sigcontext.h (struct sigcontext):
+	Add sc_loadrs and sc_rbs_bas to match current kernel.
+
+2001-09-27  Jakub Jelinek  <jakub@redhat.com>
+
+	* sysdeps/sparc/sparc64/fpu/libm-test-ulps: Update.
+
+	* sysdeps/ieee754/ldbl-128/s_erfl.c (__erfcl): Fix erfc(-inf).
+
+2001-09-27  Jakub Jelinek  <jakub@redhat.com>
+
+	* elf/dl-open.c (dl_open_worker): If l_opencount of freshly loaded
+	object has been bumped because of relocation dependency, avoid
+	duplicates in l_scope.
+	(show_scope): Fix typos.
+	* elf/Makefile: Add rules to build and run reldep6.
+	* elf/reldep6.c: New file.
+	* elf/reldep6mod0.c: New file.
+	* elf/reldep6mod1.c: New file.
+	* elf/reldep6mod2.c: New file.
+	* elf/reldep6mod3.c: New file.
+	* elf/reldep6mod4.c: New file.
+
+2001-09-26  Jakub Jelinek  <jakub@redhat.com>
+
+	* sysdeps/sparc/sparc64/dl-machine.h (elf_machine_fixup_plt): Call
+	sparc64_fixup_plt.
+	(sparc64_fixup_plt): Moved from elf_machine_fixup_plt.  Optimize
+	near jumps and 0xfffff800XXXXXXXX target addresses, no thread safety
+	for non-lazy binding. Fix .plt[32768+] handling.
+	(elf_machine_plt_value): Don't add addend.
+	(elf_machine_rela): Call sparc64_fixup_plt instead of
+	elf_machine_fixup_plt.
+	(elf_machine_runtime_setup, TRAMPOLINE_TEMPLATE): Optimize for
+	dynamic linker at 0xfffff800XXXXXXXX.
+
+	* sysdeps/sparc/sparc32/fpu/libm-test-ulps: Update.
+
+2001-09-28  Ulrich Drepper  <drepper@redhat.com>
+
+	* elf/elf.h: Define SHF_GROUP and SHF_TLS.
+
+2001-09-25  Jakub Jelinek  <jakub@redhat.com>
+
+	* sysdeps/unix/bsd/bsd4.4/bits/socket.h (struct cmsghdr): Don't
+	declare __cmsg_data field if its size would be bigger than 0.
+	(CMSG_DATA): Adjust accordingly.
+	* sysdeps/unix/sysv/aix/bits/socket.h: Likewise.
+	* sysdeps/unix/sysv/linux/alpha/bits/socket.h: Likewise.
+	* sysdeps/unix/sysv/linux/ia64/bits/socket.h: Likewise.
+	* sysdeps/unix/sysv/linux/s390/s390-64/bits/socket.h: Likewise.
+	* sysdeps/unix/sysv/linux/bits/socket.h: Likewise.
+	* sysdeps/unix/sysv/linux/mips/bits/socket.h: Likewise.
+	* sysdeps/unix/sysv/linux/sparc/bits/socket.h: Likewise.
+
+2001-09-25  Ulrich Drepper  <drepper@redhat.com>
+
+	* iconvdata/TESTS: Add entries for IBM1160 and IBM1161.
+	* iconvdata/testdata/IBM1160: New file.
+	* iconvdata/testdata/IBM1160..UTF8: New file.
+	* iconvdata/testdata/IBM1161: New file.
+	* iconvdata/testdata/IBM1161..UTF8: New file.
+	Patch by Masahide Washizawa <WASHI@jp.ibm.com>.
+
+2001-09-24  Ulrich Drepper  <drepper@redhat.com>
+
+	* sysdeps/unix/bsd/ulimit.c (ulimit): Handle overflow in
+	UL_SETFSIZE computations better.
+
+	* rt/Makefile: Remove use of filter for librt again.
+
+	* sysdeps/unix/sysv/linux/ulimit.c (__ulimit): Handle overflow in
+	UL_SETFSIZE computations better.
+
+	* string/Versions: Export __strsep for GLIBC_2.2.5.
+	* string/bits/string2.h: Define all __STRING_INLINE functions if
+	_FORCE_INLINES is defined.
+	Use int instead of char of parameter types.
+	(__strsep): Don't use __strsep_g.  Don't define it.
+	(__strsep_1c, __strsep_2c, __strsep_3c): Optimize.
+	* sysdeps/i386/i486/string.h (__strcpy_a_small): Renamed from
+	__strcpy_small.
+	(__stpcpy_a_small): Renamed from __stpcpy_small.
+	(__strcspn_c1): Don't define if _FORCE_INLINES.
+	(__strspn_c1): Likewise.
+
+2001-09-22  Ben Collins  <bcollins@debian.org>
+
+	* sysdeps/sparc/bits/sigaction.h: Define SA_RESTART and friends when
+	_UNIX98_SOURCE is defined too.  Matches generic/bits/sigaction.h.
+	* sysdeps/ia64/bits/sigaction.h: Likewise.
+	* sysdeps/s390/s390-64/bits/sigaction.h: Likewise.
+
+2001-09-24  Andrew Haley  <aph@cambridge.redhat.com>
+
+	* sysdeps/unix/sysv/linux/sh/Makefile (sysdep_headers): Add sys/io.h.
+
+2001-09-24  Jakub Jelinek  <jakub@redhat.com>
+
+	* elf/dl-open.c (dl_open_worker): Update l_scope_max.
+
+2001-09-24  Ulrich Drepper  <drepper@redhat.com>
+
+	* wcsmbs/wchar.h: Add __attribute_pure__ to mbsinit prototype.
+
+2001-09-20  H.J. Lu  <hjl@gnu.org>
+
+	* include/dlfcn.h (__RTLD_SPROF): New definiton.
+	* elf/dl-open.c (dl_open_worker): Return immediately after loading
+	for __RTLD_SPROF.
+	* elf/sprof.c (main): Default to the filename if soname doesn't exist.
+	(load_shobj): Call dlopen with `RTLD_LAZY | __RTLD_SPROF'.
+
+2001-09-20  H.J. Lu  <hjl@gnu.org>
+
+	* elf/dl-profile.c (_dl_mcount): Use old *narcsp value for newarc,
+	don't add 1.
+
+2001-09-22  Ulrich Drepper  <drepper@redhat.com>
+
+	* nss/getent.c: Accept -s parameter to overwrite rules in
+	nsswitch.conf.  Patch by Nalin Dahyabhai <nalin@redhat.com>.
+
+	* nss/nss_files/files-network.c (LINE_PARSER): Pad addr string
+	with as many ".0" as necessary to form a complete address
+	inet_network understands.
+
+	* nss/getent.c: Various cleanups.  Use simpler and fewer function
+	calls.
+
+2001-09-20  Martin Schwidefsky  <schwidefsky@de.ibm.com>
+
+	* sysdeps/s390/s390-32/bits/setjmp.h: Correct pointer comparison in
+	_JMPBUF_UNWINDS.
+	* sysdeps/s390/s390-64/bits/setjmp.h: Likewise.
+
+2001-09-22  Ulrich Drepper  <drepper@redhat.com>
+
+	* iconvdata/Makefile: Add rules to build and distribute IBM1160 and
+	IBM1161.
+	* iconvdata/gconv-modules: Add entries for IBM1160 and IBM1161.
+	* iconvdata/ibm1160.c: New file.
+	* iconvdata/ibm1160.h: New file.
+	* iconvdata/ibm1161.c: New file.
+	* iconvdata/ibm1161.h: New file.
+	Patch by Masahide Washizawa <WASHI@jp.ibm.com>.
+
+2001-09-19  Jakub Jelinek  <jakub@redhat.com>
+
+	* sysdeps/alpha/dl-machine.h (elf_machine_load_address): Compute the
+	difference between base address and first PT_LOAD's virtual address,
+	not the base address.
+
+2001-09-11  Tom Rix  <trix@redhat.com>
+
+	* sysdeps/unix/sysv/aix/init-first.c (init):  Use USE_NONONPTION_FLAG
+	ifdef for __getopt_clean_environment.
+	* sysdeps/unix/sysv/aix/libc-start.c: Add real implementation.
+
+2001-09-22  Andreas Jaeger  <aj@suse.de>
+
+	* elf/reldep4.c (main): Add proper prototype to fix warning.
+
+	* elf/reldep5.c (main): Remove unused variable.
+
+	* math/math_private.h: Add prototypes.
+
+2001-09-21  Andreas Jaeger  <aj@suse.de>
+
+	* sysdeps/unix/sysv/linux/x86_64/Dist: New file.
+	* sysdeps/x86_64/Dist: New file.
+	* sysdeps/x86_64/soft-fp/Dist: New file.
+
+	* sysdeps/gnu/Dist: Remove eval.c.
+
+2001-09-20  Ulrich Drepper  <drepper@redhat.com>
+
+	* malloc/memusage.c (realloc): Don't count already allocated
+	memory in the sums.
+	(me): Always use dlsym() to find the real implementations.
+
+	* malloc/memusage.sh: Make -n option actually do something.
+
+2001-09-20  Andreas Jaeger  <aj@suse.de>
+
+	* elf/elf.h (R_390_NUM): Correct value.
+
+	* Versions.def: Add missing versions 2.2.3 for libthread_db and
+	libpthread.
+
+	* sysdeps/unix/sysv/linux/configure.in: Add minimal kernel version
+	for x86-64, install x86-64 into */lib64.
+
+	* shlib-versions: Add x86-64.
+
+	* elf/elf.h: Add x86-64 relocations.
+
+2001-09-19  Ulrich Drepper  <drepper@redhat.com>
+
+	* po/fr.po: Update from translation team.
+
+2001-09-19  Andreas Jaeger  <aj@suse.de>
+
+	* sysdeps/unix/sysv/linux/x86_64/Makefile: New file.
+	* sysdeps/unix/sysv/linux/x86_64/Versions: New file.
+	* sysdeps/unix/sysv/linux/x86_64/bits/fcntl.h: New file.
+	* sysdeps/unix/sysv/linux/x86_64/bits/mman.h: New file.
+	* sysdeps/unix/sysv/linux/x86_64/bits/stat.h: New file.
+	* sysdeps/unix/sysv/linux/x86_64/bits/statfs.h: New file.
+	* sysdeps/unix/sysv/linux/x86_64/bits/time.h: New file.
+	* sysdeps/unix/sysv/linux/x86_64/bits/types.h: New file.
+	* sysdeps/unix/sysv/linux/x86_64/brk.c: New file.
+	* sysdeps/unix/sysv/linux/x86_64/clone.S: New file.
+	* sysdeps/unix/sysv/linux/x86_64/fstatfs64.c: New file.
+	* sysdeps/unix/sysv/linux/x86_64/ftruncate64.c: New file.
+	* sysdeps/unix/sysv/linux/x86_64/fxstat.c: New file.
+	* sysdeps/unix/sysv/linux/x86_64/fxstat64.c: New file.
+	* sysdeps/unix/sysv/linux/x86_64/getdents.c: New file.
+	* sysdeps/unix/sysv/linux/x86_64/getdents64.c: New file.
+	* sysdeps/unix/sysv/linux/x86_64/getrlimit64.c: New file.
+	* sysdeps/unix/sysv/linux/x86_64/gettimeofday.c: New file.
+	* sysdeps/unix/sysv/linux/x86_64/glob64.c: New file.
+	* sysdeps/unix/sysv/linux/x86_64/lxstat.c: New file.
+	* sysdeps/unix/sysv/linux/x86_64/lxstat64.c: New file.
+	* sysdeps/unix/sysv/linux/x86_64/mmap64.c: New file.
+	* sysdeps/unix/sysv/linux/x86_64/pread64.c: New file.
+	* sysdeps/unix/sysv/linux/x86_64/profil-counter.h: New file.
+	* sysdeps/unix/sysv/linux/x86_64/pwrite64.c: New file.
+	* sysdeps/unix/sysv/linux/x86_64/readdir.c: New file.
+	* sysdeps/unix/sysv/linux/x86_64/readdir64.c: New file.
+	* sysdeps/unix/sysv/linux/x86_64/readdir64_r.c: New file.
+	* sysdeps/unix/sysv/linux/x86_64/readdir_r.c: New file.
+	* sysdeps/unix/sysv/linux/x86_64/recv.c: New file.
+	* sysdeps/unix/sysv/linux/x86_64/register-dump.h: New file.
+	* sysdeps/unix/sysv/linux/x86_64/send.c: New file.
+	* sysdeps/unix/sysv/linux/x86_64/setrlimit64.c: New file.
+	* sysdeps/unix/sysv/linux/x86_64/sigaction.c: New file.
+	* sysdeps/unix/sysv/linux/x86_64/sigcontextinfo.h: New file.
+	* sysdeps/unix/sysv/linux/x86_64/sigpending.c: New file.
+	* sysdeps/unix/sysv/linux/x86_64/sigprocmask.c: New file.
+	* sysdeps/unix/sysv/linux/x86_64/sigsuspend.c: New file.
+	* sysdeps/unix/sysv/linux/x86_64/statfs64.c: New file.
+	* sysdeps/unix/sysv/linux/x86_64/sys/perm.h: New file.
+	* sysdeps/unix/sysv/linux/x86_64/sys/procfs.h: New file.
+	* sysdeps/unix/sysv/linux/x86_64/sys/reg.h: New file.
+	* sysdeps/unix/sysv/linux/x86_64/sys/ucontext.h: New file.
+	* sysdeps/unix/sysv/linux/x86_64/sys/user.h: New file.
+	* sysdeps/unix/sysv/linux/x86_64/syscall.S: New file.
+	* sysdeps/unix/sysv/linux/x86_64/syscalls.list: New file.
+	* sysdeps/unix/sysv/linux/x86_64/sysdep.S: New file.
+	* sysdeps/unix/sysv/linux/x86_64/sysdep.h: New file.
+	* sysdeps/unix/sysv/linux/x86_64/time.c: New file.
+	* sysdeps/unix/sysv/linux/x86_64/truncate64.c: New file.
+	* sysdeps/unix/sysv/linux/x86_64/umount.c: New file.
+	* sysdeps/unix/sysv/linux/x86_64/vfork.S: New file.
+	* sysdeps/unix/sysv/linux/x86_64/xstat.c: New file.
+	* sysdeps/unix/sysv/linux/x86_64/xstat64.c: New file.
+	* sysdeps/unix/x86_64/sysdep.S: New file.
+	* sysdeps/unix/x86_64/sysdep.h: New file.
+	* sysdeps/x86_64/Implies: New file.
+	* sysdeps/x86_64/Makefile: New file.
+	* sysdeps/x86_64/Versions: New file.
+	* sysdeps/x86_64/__longjmp.S: New file.
+	* sysdeps/x86_64/abort-instr.h: New file.
+	* sysdeps/x86_64/atomicity.h: New file.
+	* sysdeps/x86_64/bits/endian.h: New file.
+	* sysdeps/x86_64/bits/setjmp.h: New file.
+	* sysdeps/x86_64/bits/string.h: New file.
+	* sysdeps/x86_64/bp-asm.h: New file.
+	* sysdeps/x86_64/bsd-_setjmp.S: New file.
+	* sysdeps/x86_64/bsd-setjmp.S: New file.
+	* sysdeps/x86_64/dl-machine.h: New file.
+	* sysdeps/x86_64/elf/initfini.c: New file.
+	* sysdeps/x86_64/elf/start.S: New file.
+	* sysdeps/x86_64/ffs.c: New file.
+	* sysdeps/x86_64/ffsll.c: New file.
+	* sysdeps/x86_64/fpu/bits/fenv.h: New file.
+	* sysdeps/x86_64/fpu/bits/mathdef.h: New file.
+	* sysdeps/x86_64/fpu/e_acosl.c: New file.
+	* sysdeps/x86_64/fpu/e_atan2l.c: New file.
+	* sysdeps/x86_64/fpu/e_exp2l.S: New file.
+	* sysdeps/x86_64/fpu/e_expl.c: New file.
+	* sysdeps/x86_64/fpu/e_fmodl.S: New file.
+	* sysdeps/x86_64/fpu/e_log10l.S: New file.
+	* sysdeps/x86_64/fpu/e_log2l.S: New file.
+	* sysdeps/x86_64/fpu/e_logl.S: New file.
+	* sysdeps/x86_64/fpu/e_powl.S: New file.
+	* sysdeps/x86_64/fpu/e_rem_pio2l.c: New file.
+	* sysdeps/x86_64/fpu/e_scalbl.S: New file.
+	* sysdeps/x86_64/fpu/e_sqrtl.c: New file.
+	* sysdeps/x86_64/fpu/fclrexcpt.c: New file.
+	* sysdeps/x86_64/fpu/fedisblxcpt.c: New file.
+	* sysdeps/x86_64/fpu/feenablxcpt.c: New file.
+	* sysdeps/x86_64/fpu/fegetenv.c: New file.
+	* sysdeps/x86_64/fpu/fegetexcept.c: New file.
+	* sysdeps/x86_64/fpu/fegetround.c: New file.
+	* sysdeps/x86_64/fpu/feholdexcpt.c: New file.
+	* sysdeps/x86_64/fpu/fesetenv.c: New file.
+	* sysdeps/x86_64/fpu/fesetround.c: New file.
+	* sysdeps/x86_64/fpu/fgetexcptflg.c: New file.
+	* sysdeps/x86_64/fpu/fraiseexcpt.c: New file.
+	* sysdeps/x86_64/fpu/fsetexcptflg.c: New file.
+	* sysdeps/x86_64/fpu/ftestexcept.c: New file.
+	* sysdeps/x86_64/fpu/libm-test-ulps: New file.
+	* sysdeps/x86_64/fpu/math_ldbl.h: New file.
+	* sysdeps/x86_64/fpu/printf_fphex.c: New file.
+	* sysdeps/x86_64/fpu/s_atanl.c: New file.
+	* sysdeps/x86_64/fpu/s_cosl.S: New file.
+	* sysdeps/x86_64/fpu/s_expm1l.S: New file.
+	* sysdeps/x86_64/fpu/s_fpclassifyl.c: New file.
+	* sysdeps/x86_64/fpu/s_isinfl.c: New file.
+	* sysdeps/x86_64/fpu/s_isnanl.c: New file.
+	* sysdeps/x86_64/fpu/s_log1pl.S: New file.
+	* sysdeps/x86_64/fpu/s_logbl.c: New file.
+	* sysdeps/x86_64/fpu/s_nextafterl.c: New file.
+	* sysdeps/x86_64/fpu/s_nexttoward.c: New file.
+	* sysdeps/x86_64/fpu/s_nexttowardf.c: New file.
+	* sysdeps/x86_64/fpu/s_rintl.c: New file.
+	* sysdeps/x86_64/fpu/s_significandl.c: New file.
+	* sysdeps/x86_64/fpu/s_sincosl.S: New file.
+	* sysdeps/x86_64/fpu/s_sinl.S: New file.
+	* sysdeps/x86_64/fpu/s_tanl.S: New file.
+	* sysdeps/x86_64/gmp-mparam.h: New file.
+	* sysdeps/x86_64/hp-timing.c: New file.
+	* sysdeps/x86_64/hp-timing.h: New file.
+	* sysdeps/x86_64/htonl.S: New file.
+	* sysdeps/x86_64/memusage.h: New file.
+	* sysdeps/x86_64/setjmp.S: New file.
+	* sysdeps/x86_64/soft-fp/sfp-machine.h: New file.
+	* sysdeps/x86_64/stackinfo.h: New file.
+	* sysdeps/x86_64/sysdep.h: New file.
+	* sysdeps/unix/sysv/linux/x86_64/ldd-rewrite.sed: New file.
+
+	* sysdeps/ieee754/ldbl-128/s_erfl.c: New file, contributed Stephen
+	L Moshier.
+
+2001-09-18  Ulrich Drepper  <drepper@redhat.com>
+
+	* malloc/malloc.c (ptmalloc_init): Handle _environ==NULL.
+	Reported by B. D. Elliott <bde@nwlink.com> [PR libc/2541].
+
+2001-09-18  Andreas Schwab  <schwab@suse.de>
+
+	* elf/dl-load.c (_dl_map_object_from_fd): Update handling of scope
+	list, now that l_scope is a pointer.
+
+	* elf/dl-open.c (dl_open_worker): Fix thinko when enlarging the
+	scope list.
+
+2001-09-18  kaz Kojima  <kkojima@rr.iij4u.or.jp>
+
+	* sysdeps/sh/dl-machine.h (elf_machine_rela): Fix reverse condition.
+	(elf_machine_rela_relative): Add a missing declaration.
+
+2001-09-18  Jakub Jelinek  <jakub@redhat.com>
+
+	* sysdeps/unix/sysv/linux/ia64/ldd-rewrite.sed: New file.
+	* sysdeps/unix/sysv/linux/s390/ldd-rewrite.sed: New file.
+	* sysdeps/unix/sysv/linux/configure.in: Add ia64 and s390
+	ldd-rewrite scripts.
+
+2001-09-18  Ulrich Drepper  <drepper@redhat.com>
+
+	* elf/ldd.bash.in: Update copyright message.
+
+2001-09-17  H.J. Lu  <hjl@gnu.org>
+
+	* hurd/hurdmalloc.c (bcopy): Removed.
+	(realloc): Replace bcopy with memcpy.
+	* hurd/path-lookup.c (file_name_path_scan): Likewise.
+	* resolv/gethnamaddr.c (map_v4v6_address): Likewise.
+	* sunrpc/rpcinfo.c (pmapdump): Likewise.
+
+	* resolv/gethnamaddr.c (getanswer): Replace bcopy with memmove.
+	(gethostbyaddr): Likewise.
+	* sunrpc/rpcinfo.c (get_inet_address): Likewise.
+
+2001-09-18  Ulrich Drepper  <drepper@redhat.com>
+
+	* sysdeps/gnu/eval.c: Removed.
+
+2001-09-18  Andreas Jaeger  <aj@suse.de>
+
+	* sysdeps/i386/fpu/s_logbl.S: Move to ...
+	* sysdeps/i386/fpu/s_logbl.c: ...here, use inline assembler.
+
+	* sysdeps/i386/fpu/s_rintl.S: Move to ...
+	* sysdeps/i386/fpu/s_rintl.c: ...here, use inline assembler.
+
+	* sysdeps/i386/fpu/s_significandl.S: Move to ...
+	* sysdeps/i386/fpu/s_significandl.c: ...here, use inline assembler.
+
+2001-09-16  Ulrich Drepper  <drepper@redhat.com>
+
+	* string/strcoll.c [USE_IN_EXTENDED_LOCALE_MODEL]: Correctly get
+	nrules value.
+
+2001-09-14  H.J. Lu  <hjl@gnu.org>
+
+	* sysdeps/mips/fpu/libm-test-ulps: Updated.
+
+2001-09-14  Ulrich Drepper  <drepper@redhat.com>
+
+	* sysdeps/unix/sysv/linux/s390/s390-32/sys/ucontext.h: Fix a typo.
+	Patch by Florian La Roche <laroche@redhat.com>.
+
+	* string/bits/string2.h (__strtok_r_1c): Optimize a bit.
+
+	* sysdeps/unix/sysv/linux/net/ethernet.h: Correct references to
+	ETHER_CRC_LEN.
+
+2001-09-14  Andreas Schwab  <schwab@suse.de>
+
+	* posix/execl.c: Fix last argument of memcpy.  Reported by Brian
+	Sumner <bls@sgi.com>.
+	* posix/execlp.c: Likewise.
+
+2001-09-13  Jakub Jelinek  <jakub@redhat.com>
+
+	* elf/dl-deps.c (_dl_map_object_deps): Fix filter handling if filter
+	is already found earlier in the search scope.
+
+2001-09-12  Jakub Jelinek  <jakub@redhat.com>
+
+	* rt/Makefile (LDFLAGS-rt.so): Use shared thread library as librt's
+	filter.
+
+2001-09-13  Ulrich Drepper  <drepper@redhat.com>
+
+	* sysdeps/powerpc/fpu/libm-test-ulps: Adjust expected errors for j0.
+
+2001-09-12  Ulrich Drepper  <drepper@redhat.com>
+
+	* config.h.in: Enforce optimization to be used.
+	* Makeconfig (preprocess-versions): Define ASSEMBLER.
+	* stdlib/Makefile (isomac-CFLAGS): Define to -O.
+	* posix/Makefile (annexc-CFLAGS): Define to -O.
+	* sysdeps/unix/make-syscalls.sh: Define __OPTIMIZE__ in use of asm_CPP.
+
+2001-09-11  Ulrich Drepper  <drepper@redhat.com>
+
+	* nscd/nscd_gethst_r.c: Don't expect IPv6 addresses for IPv4 lookup.
+	Patch by Stephan Kulow.
+
+2001-09-08  Ben Collins  <bcollins@debian.org>
+
+	* sysdeps/arm/dl-machine.h (elf_machine_rel): Fix thinko in
+	usage of RESOLVE() (r_type, not reloc->r_type).
+
+2001-09-08  Ulrich Drepper  <drepper@redhat.com>
+
+	* elf/dl-object.c: Avoid allocating extra memory block for name.
+	* elf/dl-close.c (_dl_close): Don't free l_libname if it is not
+	allocated separately.
+	* elf/dl-load.c (_dl_map_object_from_fd): Likewise.
+
+2001-09-08  H.J. Lu  <hjl@gnu.org>
+
+	* po/zh_TW.po: Fix a typo.
+
+2001-09-07  Tom Rix  <trix@redhat.com>
+
+	* sysdeps/unix/sysv/aix/sysv_termio.h: New file.
+
+2001-08-26  Tom Rix  <trix@redhat.com>
+
+	* sysdeps/unix/sysv/aix/Makefile (aix-syscalls.o): More linker
+	command line options.
+	* sysdeps/unix/sysv/aix/start.s: New file, rework of start.c
+	* sysdeps/unix/sysv/aix/start.c: Removed.
+	* sysdeps/unix/sysv/aix/start-libc.c: New file.
+	* sysdeps/unix/sysv/aix/init-first.c: New file.
+	* sysdeps/unix/sysv/aix/fcntl.c: Alias __libc_fcntl to __fcntl.
+
+2001-09-08  Ben Collins  <bcollins@debian.org>
+
+	* sysdeps/arm/dl-machine.h: Fix usage of new _dl_signal_error() format.
+	* sysdeps/generic/dl-machine.h: Likewise.
+	* sysdeps/hppa/dl-fptr.c: Likewise.
+	* sysdeps/ia64/dl-fptr.c: Likewise.
+	* sysdeps/mach/hurd/dl-sysdep.c: Likewise.
+	* sysdeps/mips/dl-machine.h: Likewise.
+	* sysdeps/mips/mips64/dl-machine.h: Likewise.
+	* sysdeps/powerpc/dl-machine.c: Likewise.
+
+2001-09-07  Ben Collins  <bcollins@debian.org>
+
+	* sysdeps/sparc/sparc32/dl-machine.h: Fix typo.
+
+	* sysdeps/hppa/dl-lookupcfg.h: Forward declare struct link_map.
+
+2001-09-08  Ulrich Drepper  <drepper@redhat.com>
+
+	* elf/dl-lookup.c (add_dependency): Bump l_opencount of all
+	dependencies if necessary.
+
+	* elf/dl-close.c (_dl_close): If object has no r_list (i.e., wasn't
+	loaded directly) determine length if l_initfini list by iterating
+	over its elements.  Minor optimizations.
+	* elf/dl-deps.c (_dl_map_object_deps): Always add own map to l_initfini
+	for dependency objects.
+	If object was already loaded check whether any of the dependencies
+	is already on the relocation dependency list.  If yes, remove the
+	latter.  Minor optimizations.
+	* elf/dl-lookup.c (add_dependency): Add check for self reference of
+	maps here.  Search l_initfini list only if the object was loaded
+	directly and not only as a dependency.
+	(_dl_lookup_symbol): Add relocation dependency also if object
+	is not in global scope.  Remove test for self-reference here.
+	(_dl_lookup_versioned_symbol): Likewise.
+	* elf/dl-object (_dl_new_object): Cleanup.  Initialize dont_free
+	element of first name record.
+	* elf/loadtest.c: Add some more test to recognize early if an object
+	wasn't unloaded.
+	* elf/Makefile: Add rules to build and run reldep5.
+	* elf/reldep5.c: New file.
+	* elf/reldepmod5.c: New file.
+	* elf/reldepmod6.c: New file.
+
+	* elf/reldep2.c: Fix typo.
+
+2001-09-07  Ulrich Drepper  <drepper@redhat.com>
+
+	* include/link.h (struct link_map): Add l_scope_mem and l_scope_max
+	elements.  Change l_scope to be a pointer only.
+	* elf/dl-object.c (_dl_new_object): Initialize l_scope and l_scope_max.
+	* elf/dl-open.c (dl_open_worker): If dependency wasn't just opened
+	here add searchlist of newly open file to the dependency's scope.
+	* elf/dl-close.c (_dl_close): If dependency is used otherwise remove
+	only searchlist from its scope.  Free own scope array if necessary.
+	* elf/Makefile (tests): Add dblload and dblunload now.
+
+2001-09-06  Andreas Jaeger  <aj@suse.de>
+
+	* sysdeps/ieee754/ldbl-128/e_lgammal_r.c: New file, contributed
+	Stephen L Moshier.
+
+2001-09-05  Ulrich Drepper  <drepper@redhat.com>
+
+	* elf/Makefile: Add rules to build new tests.  Don't run them yet since
+	they both fail.
+	* elf/dblload.c: New file.
+	* elf/dblloadmod1.c: New file.
+	* elf/dblloadmod2.c: New file.
+	* elf/dblloadmod3.c: New file.
+	* elf/dblunload.c: New file.
+
+2001-09-04  Richard Henderson  <rth@redhat.com>
+
+	* elf/elf.h (R_ALPHA_OP_*, R_ALPHA_IMMED_*): Remove.
+	(R_ALPHA_GPREL16): Rename from R_ALPHA_IMMED_GP_16.
+
+2001-09-04  Ulrich Drepper  <drepper@redhat.com>
+
+	Correct very misleading message for error in failed runtime relocation.
+	* elf/dl-error.c (_dl_signal_error): Take extra parameter to describe
+	place of the error.
+	(_dl_signal_cerror): Likewise.
+	* sysdeps/generic/ldsodefs.h: Adjust prototypes.
+	* elf/dl-close.c: Likewise.
+	* elf/dl-deps.c: Likewise.
+	* elf/dl-load.c: Likewise.
+	* elf/dl-lookup.c: Likewise.
+	* elf/dl-open.c: Likewise.
+	* elf/dl-reloc.c: Likewise.
+	* elf/dl-sym.c: Likewise.
+	* elf/dl-version.c: Likewise.
+	* sysdeps/generic/dl-sysdep.c: Likewise.
+
+2001-09-04  Jakub Jelinek  <jakub@redhat.com>
+
+	* iconv/strtab.c (strtabinit): Initialize null Strent.
+	(newstring): Move len == 0 handling...
+	(strtabadd): ...here.
+	If len == 1, return null Strent.
+	When inserting a suffix of an existing string, check if
+	it is not equal to some suffix already recorded.
+	Copy left and right members over if adding longer string.
+
+2001-09-04  Jakub Jelinek  <jakub@redhat.com>
+
+	* sunrpc/rpc_cout.c (upcase): Account for trailing '\0'.
+
+	* sysdeps/unix/sysv/linux/alpha/gethostname.c: Include <errno.h>.
+	(__syscall_gethostname): Add prototype.
+
+2001-09-04  Ulrich Drepper  <drepper@redhat.com>
+
+	* elf/dl-object.c (_dl_new_object): Remove unnecessary if.
+
+2001-09-02  Ulrich Drepper  <drepper@redhat.com>
+
+	* elf/rtld.c (dl_main): Increment l_opencount for main binary.
+
+2001-08-27  Roland McGrath  <roland@frob.com>
+
+	* sysdeps/unix/sysv/gethostname.c (__gethostname): When LEN is too
+	short, copy that much into NAME anyway before returning error.
+
+2001-09-01  Richard Henderson  <rth@redhat.com>
+
+	* sysdeps/alpha/elf/Dist: Remove file.
+	* sysdeps/alpha/elf/Makefile: Remove file.
+	* sysdeps/alpha/elf/crtbegin.S: Remove file.
+	* sysdeps/alpha/elf/crtend.S: Remove file.
+	* sysdeps/alpha/elf/initfini.c: New file.
+
+2001-09-01  Mark Kettenis  <kettenis@gnu.org>
+
+	* iconv/tst-iconv1.c: Include <stddef.h> for wchar_t.
+	* iconv/tst-iconv3.c: Likewise.
+
+2001-09-01  Jakub Jelinek  <jakub@redhat.com>
+
+	* sysdeps/generic/inttypes.h (__gwchar_t): Define to wchar_t for C++.
+
+2001-09-01  Ulrich Drepper  <drepper@redhat.com>
+
+	* iconv/gconv_cache.c: Rename variable cache to __gconv_cache and
+	export it.
+	* iconv/Versions (libc) [GLIBC_2.2.5]: Export __gconv_cache.
+	* iconv/iconv_prog.c (insert_cache): New function.
+	(print_known_names): If cache is used call insert_cache to use the
+	information from the cache [PR libc/2509].
+
+2001-08-31  Ulrich Drepper  <drepper@redhat.com>
+
+	* time/strptime.c (strptime_internal): Recognize 'l' format and
+	handle it like 'I' for symmetry with strftime.
+
+2001-08-31  Richard Henderson  <rth@redhat.com>
+
+	* elf/dl-support.c (_dl_cpuclock_offset): Protect with NONAVAIL.
+	(HP_TIMING_AVAIL): Set to HP_SMALL_TIMING_AVAIL if present.
+	* elf/rtld.c (HP_TIMING_AVAIL): Likewise.
+	(print_statistics): Make scalar unsigned long long.
+	* sysdeps/alpha/hp-timing.h: New file.
+
+2001-08-31  Jakub Jelinek  <jakub@redhat.com>
+
+	* stdio-common/perror.c (perror): Save errno early, pass it
+	down to perror_internal.
+	(perror_internal): Add errnum argument.
+
+2001-08-31  Jakub Jelinek  <jakub@redhat.com>
+
+	* sysdeps/alpha/dl-machine.h (elf_machine_rela): Remove unused code.
+	Don't add old memory content for R_ALPHA_REFQUAD.
+
+2001-08-30  Ulrich Drepper  <drepper@redhat.com>
+
+	* crypt/md5-crypt.c (__md5_crypt_r): Compute used and required
+	memory correctly.
+
+	* sysdeps/unix/sysv/linux/ia64/ioperm.c (_ioperm): Use __open
+	instead of open, __close instead of close, __getpagesize instead
+	of getpagesize.
+
+	* string/argz-stringify.c (__argz_stringify): Use __strnlen
+	instead of strnlen.
+	* include/string.h (strndupa): Redefine here to use __strnlen
+	instead of strnlen.
+	* string/strndup.c (__strndup): Use __strnlen not strnlen.
+
+	* misc/syslog.c (vsyslog): Fix typo in last change (connect ->
+	connected).
+
+2001-08-30  Jakub Jelinek  <jakub@redhat.com>
+
+	* sysdeps/alpha/dl-machine.h (elf_machine_rela): Don't handle
+	R_ALPHA_RELATIVE if RTLD_BOOTSTRAP and HAVE_Z_COMBRELOC.  Only check
+	for rtld map if neither RTLD_BOOTSTRAP nor HAVE_Z_COMBRELOC is defined.
+	* sysdeps/i386/dl-machine.h (elf_machine_rel): Similarly.
+	* sysdeps/ia64/dl-machine.h (elf_machine_rel): Similarly.
+	* sysdeps/sparc/sparc32/dl-machine.h (elf_machine_rel): Similarly.
+	* sysdeps/sparc/sparc64/dl-machine.h (elf_machine_rel): Similarly.
+
+2001-08-30  Ulrich Drepper  <drepper@redhat.com>
+
+	* sysdeps/alpha/fpu/libm-test-ulps: Adjust j0 ULPs.
+
+2001-08-30  Andreas Jaeger  <aj@suse.de>
+
+	* sysdeps/ieee754/ldbl-128/e_jnl.c: New file,
+	contributed Stephen L Moshier.
+
+2001-08-30  Jakub Jelinek  <jakub@redhat.com>
+
+	* sunrpc/etc.rpc (sgi_fam): Add.
+
+2001-08-30  Ulrich Drepper  <drepper@redhat.com>
+
+	* sysdeps/unix/sysv/linux/alpha/gethostname.c: New file.
+
+2001-08-29  Ulrich Drepper  <drepper@redhat.com>
+
+	* nis/nis_findserv.c (__nis_findfastest): Don't fail if reply received
+	first is from a previous call.
+	Patch by Alexander Belopolsky <alexb@rentec.com> for [PR libc/3670].
+
+2001-08-29  Andreas Schwab  <schwab@suse.de>
+
+	* sysdeps/ia64/fpu/libm-test-ulps: Updated.
+
+2001-08-25  Maciej W. Rozycki  <macro@ds2.pg.gda.pl>
+
+	* config.make.in (INSTALL_SCRIPT): Define.
+	* Makeconfig (INSTALL_SCRIPT): Define.
+	* Makerules (do-install-script): New macro to install scripts using
+	INSTALL_SCRIPT.
+	(install-bin-script): New rule to install scripts with
+	do-install-script.
+	(install-bin-script-nosubdir): New rule.
+	(install-no-libc.a-nosubdir): Add install-bin-script-nosubdir.
+	(distinfo-vars): Add $(install-bin-script).
+	* Rules (others): Likewise.
+	* Makefile (glibcbug): Install with install-bin-script.
+	* debug/Makefile (xtrace): Likewise.
+	(catchsegv): Likewise.
+	* elf/Makefile (ldd): Likewise.
+	* malloc/Makefile (mtrace): Likewise.
+	* timezone/Makefile (tzselect): Likewise.
+
+2001-08-29  H.J. Lu  <hjl@gnu.org>
+
+	* sysdeps/mips/dl-machine.h (__dl_runtime_resolve): Pass
+	ELF_RTYPE_CLASS_PLT, instead of R_MIPS_REL32, to
+	_dl_lookup_versioned_symbol () and _dl_lookup_symbol ().
+
+2001-08-29  Andreas Schwab  <schwab@suse.de>
+
+	* sysdeps/m68k/fpu/libm-test-ulps: Updated.
+
+2001-08-28  H.J. Lu  <hjl@gnu.org>
+
+	* Makeconfig (combreloc-LDFLAGS): New variable.
+	Add it to LDFLAGS.so, LDFLAGS-rtld, and +link.
+	* config.make.in (have-z-combreloc): New variable.
+	* configure.in: Substitute libc_cv_z_combreloc.
+
+2001-08-29  Ulrich Drepper  <drepper@redhat.com>
+
+	* po/sv.po: Update from translation team.
+	* po/fr.po: Likewise.
+	* po/da.po: Likewise.
+
+2001-08-28  Maciej W. Rozycki  <macro@ds2.pg.gda.pl>
+
+	* Makerules: Fix a typo: MD% -> MD5.
+
+2001-08-28  Ulrich Drepper  <drepper@redhat.com>
+
+	* sunrpc/rpc_hout.c (pargdef): Function must take pointer to object.
+	Patch by Patrick Duval <Patrick.Duval@devinci.fr>.
+
+2001-08-28  Andreas Jaeger  <aj@suse.de>
+
+	* manual/libc-texinfo.sh: Add entry about free manuals.
+
+	* manual/contrib.texi (Contributors): Fix cross reference.
+
+	* manual/libc.texinfo (Copying): Include freemanuals.
+
+	* manual/Makefile (appendices): Add freemanuals.
+
+	* manual/freemanuals.texi: New file.
+	Patch by Brian Youmans <3diff@gnu.org>.
+
+	* manual/libm-err-tab.pl: Pretty print more platforms, print a
+	smaller table.
+
+	* manual/math.texi (Errors in Math Functions): Fix grammar, start
+	table on separate page.
+	Patch by Brian Youmans <3diff@gnu.org>.
+
+2001-08-27  Ulrich Drepper  <drepper@redhat.com>
+
+	* misc/syslog.c (vsyslog): Try a bit harder to use syslogd.  If
+	the connection went down after we first used it try to connect
+	again and resend the message before printing to the console.
+	Reported by Coserea Gh. Tudor <tudore@tudore.gecadsoftware.com>.
+
+2001-08-27  Jakub Jelinek  <jakub@redhat.com>
+
+	* string/tst-strlen.c (main): Test strnlen (, -1) too.
+	* sysdeps/generic/strnlen.c (__strnlen): Fix for maxlens with top
+	bit set.
+
+2001-08-27  Ulrich Drepper  <drepper@redhat.com>
+
+	* iconv/strtab.c (searchstring): Use correct length for comparison.
+	(strtabadd): Account total size correct if new string has old string as
+	substring.
+
+2001-08-27  Jakub Jelinek  <jakub@redhat.com>
+
+	* elf/rtld.c (dl_main): Update call to _dl_lookup_symbol.
+
+2001-08-27  Andreas Jaeger  <aj@suse.de>
+
+	* sysdeps/i386/fpu/libm-test-ulps (float): Add ulps for new tests.
+
+	* math/libm-test.inc (j0_test): Add extra tests.
+	* sysdeps/ieee754/ldbl-128/e_j0l.c (__ieee754_j0l): Use |x|,
+	not x, in Hankel approximation.
+	Patches by Stephen L Moshier.
+
+2001-08-26  Ulrich Drepper  <drepper@redhat.com>
+
+	* sysdeps/ia64/dl-lookupcfg.h: Add forward declaration for struct
+	link_map.
+
+	* configure.in: Fix test for .rela.dyn section.
+
+	* elf/dl-runtime.c: Update calls to _dl_lookup_*.
+
+2001-08-26  Jakub Jelinek  <jakub@redhat.com>
+
+	* elf/dl-reloc.c (RESOLVE_MAP, RESOLVE): Use elf_machine_type_class
+	instead of elf_machine_lookup_noexec_p and elf_machine_lookup_noplt_p.
+	Pass type_class to _dl_lookup_*.
+	* elf/dl-lookup.c (_dl_lookup_symbol): Take type_class parameter now.
+	Pass around just type_class instead of noexec, noplt pair.
+	(_dl_lookup_versioned_symbol): Likewise.
+	(_dl_lookup_symbol_skip): Pass around just type_class instead of
+	noexec, noplt pair.
+	(_dl_lookup_versioned_symbol_skip): Likewise.
+	(_dl_do_lookup, _dl_do_lookup_versioned): Likewise.
+	* elf/do-lookup.h (do_lookup): Likewise.
+	* include/link.h (struct link_map): Replace noexec and noplt fields
+	in l_lookup_cache with type_class field.
+	* sysdeps/generic/ldsodefs.h (ELF_RTYPE_CLASS_PLT,
+	ELF_RTYPE_CLASS_COPY): Define.
+	Adjust prototypes for _dl_lookup_symbol and
+	_dl_lookup_versioned_symbol.
+	* sysdeps/alpha/dl-machine.h (elf_machine_lookup_noplt_p,
+	elf_machine_lookup_noexec_p): Remove.
+	(elf_machine_type_class): Define.
+	* sysdeps/arm/dl-machine.h: Likewise.
+	* sysdeps/hppa/dl-machine.h: Likewise.
+	* sysdeps/cris/dl-machine.h: Likewise.
+	* sysdeps/i386/dl-machine.h: Likewise.
+	* sysdeps/ia64/dl-machine.h: Likewise.
+	* sysdeps/m68k/dl-machine.h: Likewise.
+	* sysdeps/mips/mips64/dl-machine.h: Likewise.
+	* sysdeps/mips/dl-machine.h: Likewise.
+	* sysdeps/powerpc/dl-machine.h: Likewise.
+	* sysdeps/sparc/sparc32/dl-machine.h: Likewise.
+	* sysdeps/sparc/sparc64/dl-machine.h: Likewise.
+	* sysdeps/sh/dl-machine.h: Likewise.
+	* sysdeps/s390/s390-32/dl-machine.h: Likewise.
+	* sysdeps/s390/s390-64/dl-machine.h: Likewise.
+
+2001-08-26  Ulrich Drepper  <drepper@redhat.com>
+
+	* manual/message.texi (Advanced gettext functions): Change
+	description of plural forms for Slovak.
+	Reported by Marcel Telka <marcel@telka.sk>.
+
+	* manuaL/time.texi (Low-Level Time String Parsing): Fix description of
+	%z.  Reported by C. Scott Ananian <cananian@lesser-magoo.lcs.mit.edu>.
+
+2001-08-26  Jakub Jelinek  <jakub@redhat.com>
+
+	* sysdeps/s390/s390-32/dl-machine.h (elf_machine_lazy_rel): Fix a
+	typo.  Patch by Florian La Roche <laroche@redhat.com>.
+
+2001-08-26  Ulrich Drepper  <drepper@redhat.com>
+
+	* include/link.h (struct link_map): Add l_lookup_cache element.
+	* elf/dl-reloc.c (RESOLVE): Add symbol caching here.
+	(RESOLVE_MAP): Likewise.
+	(_dl_relocate_object): Remove cache initialization.
+	* elf/dl-lookup.c: Rip out cache handling code.
+	* sysdeps/generic/ldsodefs.h: Remove lookup_cache struct and variable
+	declarations.
+
+	* elf/dl-lookup.c (_dl_lookup_symbol): Reorder some conditions and
+	remove some __builtin_expect.
+	(_dl_lookup_versioned_symbol): Likewise.
+
+	* config.h.in: Add HAVE_Z_COMBRELOC.
+	* configure.in: Add test for -z combreloc.
+
+	* sysdeps/i386/dl-machine.h (elf_machine_rel): Minor cleanups and
+	optimizations.  Use HAVE_Z_COMBRELOC to avoid generaton of
+	R_386_RELATIVE handling for ld.so startup.  Reduce RTLD_BOOTSTRAP
+	case to almost no code.
+
+2001-08-25  Ulrich Drepper  <drepper@redhat.com>
+
+	* po/tr.po: Update from translation team.
+
+2001-08-24  Andreas Jaeger  <aj@suse.de>
+
+	* iconv/Makefile (extra-objs): Add iconvconfig-modules so that
+	make clean works.
+
+2001-08-24  Ulrich Drepper  <drepper@redhat.com>
+
+	* elf/rtld.c (print_statistics): Printf % after percent values.
+	* elf/dl-misc.c (_dl_debug_vdprintf): Implement %%.
+
+	* elf/dl-lookup.c (_dl_lookup_symbol): If we use the cache we
+	don't have to compute the hash value and initialize current_value.
+	Move reference_name variable to where it is needed.
+	(_dl_lookup_versioned_symbol): Likewise.
+
+2001-08-24  Roland McGrath  <roland@frob.com>
+
+	* string/tester.c (test_strerror): Don't use _sys_errlist/_sys_nerr.
+	Just test that strerror returns non-null for a few errno codes.
+
+2001-08-23  Roland McGrath  <roland@frob.com>
+
+	* hurd/Versions (libc: GLIBC_2.2.5): New set; add _hurd_raise_signal,
+	_hurdsig_interrupt_timeout, _hurdsig_fault_preemptor.
+
+	* sysdeps/posix/shm_unlink.c (shm_unlink): __unlink -> unlink.
+
+	* mach/Versions (libc: GLIBC_2.2.5): New set; add __mach_msg_destroy,
+	__mach_reply_port.
+
+2001-08-24  Ulrich Drepper  <drepper@redhat.com>
+
+	* nss/test-netdb.c (test_hosts): Don't segfault if gethostname
+	returns NULL.
+
+	* elf/do-rel.h (elf_dynamic_do_rel): Fix problem with ld.so
+	startup.  Explicitly remove lazy part for RTLD_BOOTSTRAP since gcc
+	doesn't do it.
+	* elf/rtld.c: Include <sys/param.h>.
+	* elf/dl-reloc.c: Likewise.
+
+2001-08-24  Maciej W. Rozycki  <macro@ds2.pg.gda.pl>
+
+	* sysdeps/unix/sysv/linux/mips/configure.in: Define AC_SUBST to
+	empty to prevent junk from being generated.
+	* sysdeps/unix/sysv/linux/mips/configure: Regenerated.
+
+2001-08-24  Jakub Jelinek  <jakub@redhat.com>
+
+	* elf/do-rel.h (elf_dynamic_do_rel): If l_addr is 0, skip relative
+	records.  Rename endrel to relative, initialize it to r, and use it
+	in elf_machine_rel_relative calls.  Point r after relative relocs.
+
+2001-08-24  Ulrich Drepper  <drepper@redhat.com>
+
+	* sysdeps/i386/dl-machine.h (elf_machine_rel): Correct prediction
+	of R_386_NONE.
+
+2001-08-24  Jakub Jelinek  <jakub@redhat.com>
+
+	* elf/do-rel.h (elf_machine_rel_relative): Define for rela if
+	necessary.  Undefine newly defined macros at the end.
+	* sysdeps/hppa/dl-machine.h (elf_machine_rela_relative):
+	Rename from elf_machine_rel_relative.
+	* sysdeps/cris/dl-machine.h (elf_machine_rela_relative): Likewise.
+	* sysdeps/m68k/dl-machine.h (elf_machine_rela_relative): Likewise.
+	* sysdeps/powerpc/dl-machine.h (elf_machine_rela_relative): Likewise.
+	* sysdeps/s390/s390-32/dl-machine.h (elf_machine_rela_relative):
+	Likewise.
+	* sysdeps/s390/s390-64/dl-machine.h (elf_machine_rela_relative):
+	Likewise.
+	* sysdeps/ia64/dl-machine.h (elf_machine_rela_relative): Likewise.
+	Fix argument types.
+	* sysdeps/alpha/dl-machine.h (elf_machine_rela_relative): Likewise.
+	Fix argument types.
+	* sysdeps/sparc/sparc32/dl-machine.h (elf_machine_rela_relative):
+	Likewise.  Fix argument types.
+	* sysdeps/sparc/sparc64/dl-machine.h (elf_machine_rela_relative):
+	Likewise.  Fix argument types.
+	* sysdeps/sh/dl-machine.h (elf_machine_rela_relative): Likewise.
+	Fix argument types.
+	* sysdeps/mips/dl-machine.h (elf_machine_rel_relative): Use
+	ElfW(Rel) in argument.
+	* sysdeps/mips/mips64/dl-machine.h (elf_machine_rel_relative): New
+	function.
+
+2001-08-24  Alexandre Oliva  <aoliva@redhat.com>
+
+	* sysdeps/sh/dl-machine.h (elf_machine_rela): Fix typo.
+
+2001-08-24  Andreas Jaeger  <aj@suse.de>
+
+	* sysdeps/ieee754/ldbl-128/e_j1l.c: New file, contributed by
+	Stephen L Moshier <moshier@mediaone.net>.
+
+2001-08-24  Ulrich Drepper  <drepper@redhat.com>
+
+	* elf/do-rel.h (elf_dynamic_do_rel): RELATIVE relocations comes
+	first if RELCOUNT is set.
+
+	* elf/do-rel.h (elf_dynamic_do_rel): If not relocating lazily, don't
+	call elf_machine_rel for the last DT_RELCOUNT relocations but instead
+	elf_machine_rel_relative.
+	* sysdeps/alpha/dl-machine.h: Define elf_machine_rel_relative.
+	Minor optimizations.
+	* sysdeps/arm/dl-machine.h: Likewise.
+	* sysdeps/cris/dl-machine.h: Likewise.
+	* sysdeps/hppa/dl-machine.h: Likewise.
+	* sysdeps/i386/dl-machine.h: Likewise.
+	* sysdeps/ia64/dl-machine.h: Likewise.
+	* sysdeps/m68k/dl-machine.h: Likewise.
+	* sysdeps/mips/dl-machine.h: Likewise.
+	* sysdeps/powerpc/dl-machine.h: Likewise.
+	* sysdeps/s390/s390-32/dl-machine.h: Likewise.
+	* sysdeps/s390/s390-64/dl-machine.h: Likewise.
+	* sysdeps/sh/dl-machine.h: Likewise.
+	* sysdeps/sparc/sparc32/dl-machine.h: Likewise.
+	* sysdeps/sparc/sparc64/dl-machine.h: Likewise.
+
+2001-08-23  Roland McGrath  <roland@frob.com>
+
+	* rt/tst-aio4.c [! SIGRTMIN] (SIGRTMIN, SIGRTMAX): Define as -1.
+
+	* sysdeps/mach/hurd/bits/libc-lock.h: New file, initially copied from
+	sysdeps/mach version.  Implement counting ("recursive") mutexes
+	on top of cthreads mutexes.
+	* sysdeps/mach/hurd/bits/stdio-lock.h: File removed; generic now works.
+
+	* sysdeps/generic/bits/stdio-lock.h (_IO_lock_initializer): Define to
+	_LIBC_LOCK_RECURSIVE_INITIALIZER if defined, else do an #error.
+	(__libc_cleanup_region_start, __libc_cleanup_region_end,
+	__libc_clean_end): Define these to call the cleanup function after
+	normal exit when they're supposed to.
+
+	* sysdeps/mach/bits/libc-lock.h (__libc_cleanup_region_start):
+	Take new first arg DOIT, a boolean saying whether to really install
+	any cleanup handler.
+	(__libc_cleanup_region_end): Do nothing if start's DOIT arg was zero.
+	(__libc_cleanup_end): Likewise.
+	* sysdeps/generic/bits/libc-lock.h: Same changes.
+	* stdio-common/vfscanf.c (LOCK_STREAM): Pass new arg.
+	* stdio-common/vfprintf.c (buffered_vfprintf, vfprintf): Likewise.
+	* sysdeps/mach/hurd/bits/stdio-lock.h (_IO_cleanup_region_start):
+	Likewise.
+	* misc/syslog.c (vsyslog, openlog, closelog): Likewise.
+	* sysdeps/generic/bits/stdio-lock.h
+	(_IO_cleanup_region_start, _IO_cleanup_region_start_noarg): Likewise.
+
+2001-08-23  Jakub Jelinek  <jakub@redhat.com>
+
+	* elf/ldconfig.c (search_dir): Remove stale symlinks.
+
+2001-08-23  Jakub Jelinek  <jakub@redhat.com>
+
+	* elf/dl-lookup.c (lookup_cache, lookup_cache_versioned): New.
+	(_dl_lookup_symbol): Lookup relocations in cache and store successfull
+	lookups in cache.
+	(_dl_lookup_versioned_symbol): Likewise.
+	* elf/dl-reloc.c (_dl_relocate_object): Initialize cache for
+	relocation lookup.
+	* elf/rtld.c (print_statistics): Output _dl_num_cache_relocations.
+	* sysdeps/generic/ldsodefs.h (struct lookup_cache): New definition.
+	(lookup_cache, lookup_cache_versioned): Add declarations.
+
+2001-08-23  Ulrich Drepper  <drepper@redhat.com>
+
+	* stdlib/tst-random.c (main): Swap parameters in fail call.
+	Patch by Pete Bevin <pete@petebevin.com>.
+
+2001-08-23  Jakub Jelinek  <jakub@redhat.com>
+
+	* sysdeps/generic/inttypes.h: Use __gwchar_t instead of __wchar_t.
+
+2001-08-23  Ulrich Drepper  <drepper@redhat.com>
+
+	* malloc/obstack.c: Indent preprocessor directives.
+	Patch by Jim Meyering <meyering@ascend.com>.
+
+	* po/ja.po: Update from translation team.
+
+2001-08-23  Roland McGrath  <roland@frob.com>
+
+	* libio/tst-ungetwc1.c (main): Add a const to quiet a warning.
+
+	* nss/test-netdb.c (test_hosts): Don't use MAXHOSTNAMELEN.
+	Instead, use dynamic buffer to test gethostname's ENAMETOOLONG error.
+
+2001-08-22  Roland McGrath  <roland@frob.com>
+
+	* sysdeps/generic/ldsodefs.h (_dl_load_lock): Declare it here with
+	__libc_lock_define_recursive.
+	* elf/dl-open.c: Don't declare it here any more.
+	* elf/dl-close.c: Likewise.
+	* elf/dl-lookup.c: Likewise.
+	* elf/dl-iteratephdr.c: Likewise.
+	* elf/dl-lookup.c (add_dependency): Use __libc_lock_lock_recursive and
+	__libc_lock_unlock_recursive.
+	* elf/dl-close.c (_dl_close): Likewise
+	* elf/dl-iteratephdr.c (__dl_iterate_phdr): Likewise
+	* elf/dl-open.c (_dl_open): Likewise
+
+	* sysdeps/generic/bits/libc-lock.h
+	(__libc_lock_define_recursive): New macro.
+	* sysdeps/generic/bits/stdio-lock.h (_IO_lock_t): Use it.
+	(_IO_lock_lock): Use __libc_lock_lock_recursive.
+	(_IO_lock_unlock): Use __libc_lock_unlock_recursive.
+
+	* conform/conformtest.pl (checknamespace): Sort the output list.
+
+	* sysdeps/generic/bits/poll.h (POLLWRBAND): New alias for POLLOUT.
+	(POLLRDNORM, POLLRDBAND, POLLWRNORM, POLLWRBAND): Make these
+	definitions conditional on [__USE_XOPEN].
+
+	* sysdeps/mach/hurd/bits/fcntl.h (O_ASYNC, O_FSYNC, O_SYNC): Define
+	these unconditionally, not only use [__USE_BSD], so as to match
+	the sysdeps/unix/sysv/linux files.
+
+2001-08-22  Ulrich Drepper  <drepper@redhat.com>
+
+	* test-skeleton.c (add_temp_file): Add __attribute__ ((unused)) to
+	avoid warnings.
+
+	* dlfcn/tst-dladdr.c (do_test): Get address of ref1 using
+	DL_LOOKUP_ADDRESS.
+
+2001-08-22  Roland McGrath  <roland@frob.com>
+
+	* sysdeps/generic/bits/sigaction.h (struct sigaction): Fix up
+	conditionalization of sa_handler/sa_sigaction member types to
+	match the sysdeps/unix/sysv/linux file.
+
+2001-08-22  Ulrich Drepper  <drepper@redhat.com>
+
+	* elf/dl-addr.c (_dl_addr): Handle broken binaries with zero
+	symbol sizes a bit better.
+
+	* sysdeps/ia64/strncpy.S: Complete rewrite.
+	Contributed by Jakub Jelinek <jakub@redhat.com>.
+
+	* string/stratcliff.c (main): Add strncpy test.
+
+2001-08-22  Roland McGrath  <roland@frob.com>
+
+	* sysdeps/generic/dl-environ.c: Include <stdlib.h> and <unistd.h>,
+	and don't declare unsetenv or _environ directly.
+	(unsetenv): Return int, not void.  Use __environ instead of _environ.
+
+2001-08-01  Mark Kettenis  <kettenis@gnu.org>
+
+	* sysdeps/unix/bsd/bsd4.4/Makefile: New file.
+	* sysdeps/unix/bsd/bsd4.4/Versions: New file.
+	* sysdeps/unix/bsd/bsd4.4/cmsg_nxthdr.c: New file.
+	* sysdeps/unix/bsd/bsd4.4/bits/socket.h (__cmsg_nxthdr): Correct
+	test for cmsg struct size.
+
+2001-04-23  Paul Eggert  <eggert@twinsun.com>
+
+	* posix/getopt.h (getopt_long, getopt_long_only, _getopt_internal):
+	Rename __argc to ___argc in prototypes to avoid compatibility
+	problems with systems that reserve the identifier "__argc".
+	Similarly for __argv.
+
+2001-08-21  Roland McGrath  <roland@frob.com>
+
+	* stdio-common/tst-fseek.c: Include <time.h> for `time' declaration.
+
+	* mach/Makefile (tests): Removed.
+	* mach/hello.c: File removed.
+
+2001-08-22  Ulrich Drepper  <drepper@redhat.com>
+
+	* po/sv.po: Update from translation team.
+
+	* stdio-common/vfscanf.c: Fix handling of %l[].
+	Reported by Mitsuru Chinen <mchinen@yamato.ibm.com>.
+
+	* libio/Makefile (tests): Add tst-sscanf.
+	* libio/tst-sscanf.c: New file.
+
+	* elf/dl-addr.c (_dl_addr): Fix tests to determine dli_sname.
+	* malloc/mtrace.c (tr_where): dli_sname always points to a
+	non-empty string if != NULL.
+	Reported by Tim Janik <timj@gtk.org>.
+
+2001-08-22  Jakub Jelinek  <jakub@redhat.com>
+
+	* sunrpc/xdr_rec.c (xdrrec_create): Fix buf sizes before allocating
+	buf.  Free resources on failure.
+	* sunrpc/svc_unix.c (svcunix_create): Free resources on failure.
+	(makefd_xprt): Likewise.
+	* sunrpc/svc_udp.c (svcudp_bufcreate): Likewise.
+	* sunrpc/svc_tcp.c (svctcp_create, makefd_xprt): Likewise.
+	* sunrpc/auth_unix.c (authunix_create): Likewise.
+
+2001-08-21  Jakub Jelinek  <jakub@redhat.com>
+
+	* string/strnlen.c: Remove.
+	* sysdeps/generic/strnlen.c: New file.
+	* sysdeps/i386/i486/bits/string.h (strnlen): Remove.
+
+2001-08-21  Roland McGrath  <roland@frob.com>
+
+	* sysdeps/mach/i386/machine-sp.h (__thread_stack_pointer): Define this
+	as a macro, not an extern inline function.
+
+	* hurd/Versions (GLIBC_2.2.5): New set, define __hurd_fail here.
+	* Versions.def (libc): Add GLIBC_2.2.5 set.
+	* hurd/hurd.h (_HURD_H_EXTERN_INLINE): New macro.
+	(__hurd_fail): Use that instead of _EXTERN_INLINE in decl.
+
+2001-08-20  Roland McGrath  <roland@frob.com>
+
+	* hurd/hurdlookup.c (__hurd_file_name_lookup): Fail with ENOENT for "".
+	(__hurd_file_name_split, __hurd_directory_name_split): Likewise.
+
+2001-08-21  Ulrich Drepper  <drepper@redhat.com>
+
+	* string/bits/string2.h: Remove strnlen optimization here.
+	* sysdeps/i386/i486/bits/string.h: Add it here.
+
+2001-08-21  Wolfram Gloger  <wg@malloc.de>
+
+	* malloc/malloc.c: Make access to ..._hook pointers thread-safe.
+
+2001-08-21  Ulrich Drepper  <drepper@redhat.com>
+
+	* po/gl.po: Update from translation team.
+
+2001-08-20  Ulrich Drepper  <drepper@redhat.com>
+
+	* misc/error.c (error_tail): Use fputws_unlocked instead of fputws.
+	* misc/err.c (convert_and_print): Likewise.
+
+	* malloc/obstack.c (print_and_abort): Use fprintf instead of two
+	function calls.
+
+2001-08-20  Martin Schwidefsky  <schwidefsky@de.ibm.com>
+
+	* sysdeps/unix/sysv/linux/s390/s390-32/sys/ucontext.h: Revert the
+	change of the gregset_t type.
+	* sysdeps/unix/sysv/linux/s390/s390-64/sys/ucontext.h: Likewise.
+
+2001-08-20  kaz Kojima  <kkojima@rr.iij4u.or.jp>
+
+	* sysdeps/unix/sysv/linux/sh/sysdep.S: Align errno.
+
+2001-08-20  Ulrich Drepper  <drepper@redhat.com>
+
+	* posix/regex.c (truncate_wchar): Use wcrtomb not wctomb.
+
+	* string/strnlen.c: Fix the implementation.  We cannot use memchr.
+
+2001-08-18  Mark Kettenis  <kettenis@gnu.org>
+
+	* sysdeps/mach/hurd/i386/init-first.c (init): Initialize __environ
+	before calling the cthreads initialization code.
+
+2001-08-20  Ulrich Drepper  <drepper@redhat.com>
+
+	* argp/argp-help.c: Fix two problems introduced in last change.
+
+	* include/dirent.h: Include <dirstream.h> first.
+
+2001-08-19  Ulrich Drepper  <drepper@redhat.com>
+
+	* io/fts.c (fts_safe_changedir): Use __fxstat64 instead of __fstat.
+
+	* sunrpc/svcauth_des.c (_svcauth_des): Avoid using bcopy.
+	* sunrpc/xdr_rec.c: Likewise.
+	* sunrpc/xdr_mem.c: Likewise.
+	* sunrpc/svc_authux.c (_svcauth_unix): Likewise.
+	* sunrpc/rpc_cmsg.c: Likewise.
+	* sunrpc/getrpcport.c (getrpcport): Likewise.
+	* sunrpc/clnt_simp.c (callrpc): Likewise.
+	* sunrpc/clnt_gen.c (clnt_create): Likewise.
+	* string/envz.c: Likewise.
+
+	* po/ko.po: Update from translation team.
+
+	* argp/argp-help.c: Handle wide oriented stderr stream.
+
+2001-08-18  Ulrich Drepper  <drepper@redhat.com>
+
+	* sysdeps/generic/strtol.c: Little optimizations.  Add some
+	__builtin_expect.
+
+	* conform/conformtest.pl: <inttypes.h> test requires <stddef.h>.
+
+	* wcsmbs/wchar.h (wcwdith): Change parameter type to wchar_t.
+	* wcsmbs/wcwidth.c (wcwdith): Likewise.
+	* wcsmbs/wcwidth.h (internal_wcwdith): Likewise.
+
+	* conform/data/unistd.h-data: Remove _SC_MULTIPLE_PROCESS.
+
+	* conform/data/ucontext.h-data: Fix typos in ucontext_t element tests.
+
+	* time/time.h (struct timespec): Use __time_t for tv_sec element.
+
+	* sysdeps/generic/inttypes.h: Define __wchar_t.  Use it instead of
+	wchar_t for function declarations and defintions.
+
+	* misc/sys/select.h: Define __need_time_t before including <time.h>.
+	Define suseconds_t if it hasn't happened yet.
+
+	* iconv/gconv.h: Define __need_wchar_t before including <stddef.h>.
+
+	* conform/data/sys/uio.h-data: Allow UIO_MAXIOV to be defined.
+
+	* sysdeps/generic/stdint.h: Don't get definition of wchar_t from
+	<stddef.h>.
+
+	* conform/data/stddef.h-data: Remove wint_t.
+
+	* conform/conformtest.pl: Change namespace test to take #undef
+	lines into account.
+
+	* conform/data/netinet/in.h-data: Fix typo in allow-header line.
+
+	* conform/data/sys/socket.h-data: Add sockatmark.
+
+2001-08-17  Ulrich Drepper  <drepper@redhat.com>
+
+	* io/fts.c: Update from recent BSD source.
+
+2001-08-17  Roland McGrath  <roland@frob.com>
+
+	* stdio-common/perror.c (perror) [! USE_IN_LIBIO]: Don't use _IO_fwide.
+	* misc/error.c (error_tail, error, error_at_line) [! USE_IN_LIBIO]:
+	Likewise.
+
+2001-08-17  Ulrich Drepper  <drepper@redhat.com>
+
+	* locale/duplocale.c (__duplocale): Also initialize the special
+	__ctype_* elements.
+
+	* conform/data/netdb.h-data: Adjust gai_strerror return type.
+
+2001-08-17  Andreas Jaeger  <aj@suse.de>
+
+	* misc/getpass.c: Include wchar.h for prototypes.
+	* malloc/obstack.c: Likewise.
+
+2001-08-17  Ulrich Drepper  <drepper@redhat.com>
+
+	* sunrpc/svc_simple.c (universal): Use __write instead of write.
+
+	* wcsmbs/wcscoll.c: Also define __wcscoll.
+	* include/wchar.h: Declare __wcscoll.
+
+	* libio/fwprintf.c: Use __vfwprintf instead of vfwprintf.
+	* libio/vwprintf.c: Likewise.
+	* libio/wprintf.c: Likewise.
+
+	* iconv/gconv_cache.c: Use __munmap instead of munmap.
+
+2001-08-16  Ulrich Drepper  <drepper@redhat.com>
+
+	* posix/regex.c [_LIBC] (convert_mbs_to_wcs): Use __mbrtowc
+	instead of mbrtowc.
+	[_LIBC]: Use __iswctype instead of iswctype, __wcslen instead of
+	wcslen, and __wcscoll instead of wcscoll.
+
+	* sysdeps/unix/sockatmark.c (sockatmark): Use __ioctl instead of ioctl.
+
+	* sysdeps/unix/sysv/linux/gai_sigqueue.c (__gai_sigqueue): Use
+	__getuid instead of getuid.
+
+	* stdio-common/perror.c (perror): Use __close instead of close.
+	* iconv/gconv_cache.c (__gconv_load_cache): Likewise.
+	* libio/freopen.c (freopen): Likewise.
+	* libio/freopen64.c (freopen64): Likewise.
+
+	* libio/tst-ungetwc2.c (main): Define str const.
+
+	* include/wchar.h: Add prototypes for __fwprintf and __vfwprintf.
+	* libio/fwprintf.c: Also define __fwprintf.
+	* stdio-common/vfprintf.c [COMPILE_WPRINTF]: Also define __vfwprintf.
+	* argp/argp-fmtstream.c: Handle wide oriented stderr stream.
+	* assert/assert-perr.c: Likewise.
+	* assert/assert.c: Likewise.
+	* gmon/gmon.c: Likewise.
+	* inet/rcmd.c: Likewise.
+	* malloc/obstack.c: Likewise.
+	* misc/err.c: Likewise.
+	* misc/error.c: Likewise.
+	* misc/getpass.c: Likewise.
+	* posix/getopt.c: Likewise.
+	* resolv/res_hconf.c: Likewise.
+	* stdio-common/perror.c: Likewise.
+	* stdio-common/psignal.c: Likewise.
+	* stdlib/fmtmsg.c: Likewise.
+	* sunrpc/auth_unix.c: Likewise.
+	* sunrpc/clnt_perr.c: Likewise.
+	* sunrpc/clnt_tcp.c: Likewise.
+	* sunrpc/clnt_udp.c: Likewise.
+	* sunrpc/clnt_unix.c: Likewise.
+	* sunrpc/svc_simple.c: Likewise.
+	* sunrpc/svc_tcp.c: Likewise.
+	* sunrpc/svc_udp.c: Likewise.
+	* sunrpc/svc_unix.c: Likewise.
+	* sunrpc/xdr.c: Likewise.
+	* sunrpc/xdr_array.c: Likewise.
+	* sunrpc/xdr_rec.c: Likewise.
+	* sunrpc/xdr_ref.c: Likewise.
+	* sysdeps/generic/wordexp.c: Likewise.
+
+	* po/it.po: Update from translation team.
+
+	* misc/err.c: Handle wide oriented stderr stream.
+
+2001-08-14  Tom Rix  <trix@redhat.com>
+
+	* iconv/gconv_cache.c (find_module): Add #ifndef STATIC_GCONV.
+	* iconv/Makefile: Fix gconv_cache.c CFLAGS.
+
+2001-08-13  Tom Rix  <trix@redhat.com>
+
+	* sysdeps/unix/sysv/aix/Makefile: Add rule to import kernel symbols.
+	* sysdeps/unix/sysv/aix/bits/types.h: Fix type of __id_t, __useconds_t
+	and __intptr_t.
+
+2001-08-15  Martin Schwidefsky  <schwidefsky@de.ibm.com>
+
+	* sysdeps/unix/sysv/linux/s390/s390-32/getcontext.S (__getcontext):
+	Store the access registers to the ucontext structure.
+	* sysdeps/unix/sysv/linux/s390/s390-64/getcontext.S (__getcontext):
+	Likewise.
+
+	* sysdeps/unix/sysv/linux/s390/s390-32/setcontext.S (__setcontext):
+	Load the access registers from the ucontext structure.
+	* sysdeps/unix/sysv/linux/s390/s390-64/setcontext.S (__setcontext):
+	Likewise.
+
+	* sysdeps/unix/sysv/linux/s390/s390-32/ucontext_i.h: Adjust the SC_xxx
+	offsets to the new ucontext layout.
+	* sysdeps/unix/sysv/linux/s390/s390-64/ucontext_i.h: Likewise.
+
+	* sysdeps/unix/sysv/linux/s390/s390-32/sys/ucontext.h: Fix the layout
+	of the ucontext structure.
+	* sysdeps/unix/sysv/linux/s390/s390-64/sys/ucontext.h: Likewise.
+
+2001-08-15  Ulrich Drepper  <drepper@redhat.com>
+
+	* misc/error.c (error): Handle wide oriented stderr stream correctly.
+	(error_at_line): Likewise.
+
+	* stdio-common/perror.c (perror): Implement according to standard.
+	The stream orientation must not be changed if the stream was not
+	oriented before the call.
+	* stdio-common/Makefile (tests): Add tst-perror.
+	* stdio-common/tst-perror.c: New file.
+
+
+See ChangeLog.12 for earlier changes.

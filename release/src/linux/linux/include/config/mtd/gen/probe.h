@@ -1,0 +1,1 @@
+#define CONFIG_MTD_GEN_PROBE 1

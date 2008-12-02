@@ -1,0 +1,1 @@
+#undef  CONFIG_BRIDGE_EBT_T_NAT

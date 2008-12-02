@@ -1,0 +1,801 @@
+@multitable {nexttowardf}  {1000 + i 1000} {1000 + i 1000} {1000 + i 1000} {1000 + i 1000} {1000 + i 1000}
+@item Function  @tab Alpha @tab ARM @tab Generic @tab ix86 @tab IA64
+@item acosf  @tab - @tab - @tab - @tab - @tab -
+@item acos  @tab - @tab - @tab - @tab - @tab -
+@item acosl  @tab - @tab - @tab - @tab 1150 @tab -
+@item acoshf  @tab - @tab - @tab - @tab - @tab -
+@item acosh  @tab - @tab - @tab - @tab - @tab -
+@item acoshl  @tab - @tab - @tab - @tab 1 @tab -
+@item asinf  @tab 2 @tab 2 @tab - @tab - @tab -
+@item asin  @tab 1 @tab 1 @tab - @tab 1 @tab 1
+@item asinl  @tab - @tab - @tab - @tab 1 @tab -
+@item asinhf  @tab - @tab - @tab - @tab - @tab -
+@item asinh  @tab - @tab - @tab - @tab - @tab -
+@item asinhl  @tab - @tab - @tab - @tab 656 @tab 14
+@item atanf  @tab - @tab - @tab - @tab - @tab -
+@item atan  @tab - @tab - @tab - @tab - @tab -
+@item atanl  @tab - @tab - @tab - @tab 549 @tab -
+@item atanhf  @tab - @tab - @tab - @tab - @tab -
+@item atanh  @tab 1 @tab 1 @tab - @tab 1 @tab -
+@item atanhl  @tab - @tab - @tab - @tab 1605 @tab -
+@item atan2f  @tab 4 @tab - @tab - @tab - @tab -
+@item atan2  @tab - @tab - @tab - @tab - @tab -
+@item atan2l  @tab - @tab - @tab - @tab 549 @tab -
+@item cabsf  @tab 1 @tab 1 @tab - @tab 1 @tab 1
+@item cabs  @tab 1 @tab 1 @tab - @tab 1 @tab 1
+@item cabsl  @tab - @tab - @tab - @tab 560 @tab 1
+@item cacosf  @tab 1 + i 1 @tab 1 + i 1 @tab - @tab 1 + i 2 @tab 1 + i 2
+@item cacos  @tab 1 + i 0 @tab 1 + i 0 @tab - @tab 1 + i 0 @tab 1 + i 0
+@item cacosl  @tab - @tab - @tab - @tab 151 + i 329 @tab 1 + i 1
+@item cacoshf  @tab 7 + i 3 @tab 7 + i 3 @tab - @tab 4 + i 4 @tab 7 + i 0
+@item cacosh  @tab 1 + i 1 @tab 1 + i 1 @tab - @tab 1 + i 1 @tab 1 + i 1
+@item cacoshl  @tab - @tab - @tab - @tab 328 + i 151 @tab 7 + i 1
+@item cargf  @tab - @tab - @tab - @tab - @tab -
+@item carg  @tab - @tab - @tab - @tab - @tab -
+@item cargl  @tab - @tab - @tab - @tab - @tab -
+@item casinf  @tab 2 + i 1 @tab 2 + i 1 @tab - @tab 2 + i 2 @tab 2 + i 2
+@item casin  @tab 3 + i 0 @tab 3 + i 0 @tab - @tab 3 + i 0 @tab 3 + i 0
+@item casinl  @tab - @tab - @tab - @tab 603 + i 329 @tab 0 + i 1
+@item casinhf  @tab 1 + i 6 @tab 1 + i 6 @tab - @tab 1 + i 6 @tab 1 + i 6
+@item casinh  @tab 5 + i 3 @tab 5 + i 3 @tab - @tab 5 + i 3 @tab 5 + i 3
+@item casinhl  @tab - @tab - @tab - @tab 892 + i 12 @tab 5 + i 5
+@item catanf  @tab 4 + i 1 @tab 4 + i 1 @tab - @tab 0 + i 1 @tab 0 + i 1
+@item catan  @tab 0 + i 1 @tab 0 + i 1 @tab - @tab 0 + i 1 @tab 0 + i 1
+@item catanl  @tab - @tab - @tab - @tab 251 + i 474 @tab 1 + i 0
+@item catanhf  @tab 1 + i 6 @tab 1 + i 6 @tab - @tab 1 + i 0 @tab -
+@item catanh  @tab 4 + i 1 @tab 4 + i 1 @tab - @tab 2 + i 0 @tab 4 + i 0
+@item catanhl  @tab - @tab - @tab - @tab 66 + i 447 @tab 1 + i 0
+@item cbrtf  @tab - @tab - @tab - @tab - @tab -
+@item cbrt  @tab 1 @tab 1 @tab - @tab 1 @tab 1
+@item cbrtl  @tab - @tab - @tab - @tab 716 @tab -
+@item ccosf  @tab 0 + i 1 @tab 0 + i 1 @tab - @tab 1 + i 1 @tab 1 + i 1
+@item ccos  @tab 1 + i 1 @tab 1 + i 1 @tab - @tab 1 + i 1 @tab 1 + i 1
+@item ccosl  @tab - @tab - @tab - @tab 5 + i 1901 @tab 0 + i 1
+@item ccoshf  @tab 1 + i 1 @tab 1 + i 1 @tab - @tab 1 + i 1 @tab 1 + i 1
+@item ccosh  @tab 1 + i 1 @tab 1 + i 1 @tab - @tab 1 + i 1 @tab 1 + i 1
+@item ccoshl  @tab - @tab - @tab - @tab 1467 + i 1183 @tab 1 + i 1
+@item ceilf  @tab - @tab - @tab - @tab - @tab -
+@item ceil  @tab - @tab - @tab - @tab - @tab -
+@item ceill  @tab - @tab - @tab - @tab - @tab -
+@item cexpf  @tab 1 + i 1 @tab 1 + i 1 @tab - @tab 1 + i 0 @tab 1 + i 1
+@item cexp  @tab 1 + i 0 @tab 1 + i 0 @tab - @tab - @tab 1 + i 0
+@item cexpl  @tab - @tab - @tab - @tab 940 + i 1067 @tab 2 + i 0
+@item cimagf  @tab - @tab - @tab - @tab - @tab -
+@item cimag  @tab - @tab - @tab - @tab - @tab -
+@item cimagl  @tab - @tab - @tab - @tab - @tab -
+@item clogf  @tab 0 + i 3 @tab 0 + i 3 @tab - @tab - @tab -
+@item clog  @tab 0 + i 1 @tab 0 + i 1 @tab - @tab - @tab -
+@item clogl  @tab - @tab - @tab - @tab 0 + i 1 @tab -
+@item clog10f  @tab 1 + i 5 @tab 1 + i 5 @tab - @tab 1 + i 1 @tab 1 + i 1
+@item clog10  @tab 1 + i 1 @tab 1 + i 1 @tab - @tab 2 + i 1 @tab 2 + i 1
+@item clog10l  @tab - @tab - @tab - @tab 1403 + i 186 @tab 1 + i 2
+@item conjf  @tab - @tab - @tab - @tab - @tab -
+@item conj  @tab - @tab - @tab - @tab - @tab -
+@item conjl  @tab - @tab - @tab - @tab - @tab -
+@item copysignf  @tab - @tab - @tab - @tab - @tab -
+@item copysign  @tab - @tab - @tab - @tab - @tab -
+@item copysignl  @tab - @tab - @tab - @tab - @tab -
+@item cosf  @tab 1 @tab 1 @tab - @tab 1 @tab 1
+@item cos  @tab 2 @tab 2 @tab - @tab 2 @tab 2
+@item cosl  @tab - @tab - @tab - @tab 529 @tab 0.5
+@item coshf  @tab - @tab - @tab - @tab - @tab -
+@item cosh  @tab - @tab - @tab - @tab - @tab -
+@item coshl  @tab - @tab - @tab - @tab 309 @tab 2
+@item cpowf  @tab 4 + i 2 @tab 4 + i 2 @tab - @tab 4 + i 2.5333 @tab 5 + i 2.5333
+@item cpow  @tab 1 + i 1.1031 @tab 1 + i 1.1031 @tab - @tab 1 + i 1.104 @tab 1 + i 1.1031
+@item cpowl  @tab - @tab - @tab - @tab 2 + i 9 @tab 1 + i 4
+@item cprojf  @tab - @tab - @tab - @tab - @tab -
+@item cproj  @tab - @tab - @tab - @tab - @tab -
+@item cprojl  @tab - @tab - @tab - @tab - @tab -
+@item crealf  @tab - @tab - @tab - @tab - @tab -
+@item creal  @tab - @tab - @tab - @tab - @tab -
+@item creall  @tab - @tab - @tab - @tab - @tab -
+@item csinf  @tab 0 + i 1 @tab 0 + i 1 @tab - @tab - @tab -
+@item csin  @tab - @tab - @tab - @tab - @tab -
+@item csinl  @tab - @tab - @tab - @tab 966 + i 168 @tab 0 + i 1
+@item csinhf  @tab 1 + i 1 @tab 1 + i 1 @tab - @tab 1 + i 1 @tab 1 + i 1
+@item csinh  @tab 0 + i 1 @tab 0 + i 1 @tab - @tab 1 + i 1 @tab 1 + i 1
+@item csinhl  @tab - @tab - @tab - @tab 413 + i 477 @tab 2 + i 2
+@item csqrtf  @tab 1 + i 1 @tab 1 + i 1 @tab - @tab - @tab 1 + i 1
+@item csqrt  @tab 1 + i 0 @tab 1 + i 0 @tab - @tab 1 + i 0 @tab 1 + i 0
+@item csqrtl  @tab - @tab - @tab - @tab 237 + i 128 @tab -
+@item ctanf  @tab 1 + i 1 @tab 1 + i 1 @tab - @tab 1 + i 1 @tab 1 + i 1
+@item ctan  @tab 1 + i 1 @tab 1 + i 1 @tab - @tab 1 + i 1 @tab 1 + i 1
+@item ctanl  @tab - @tab - @tab - @tab 690 + i 367 @tab 436 + i 1
+@item ctanhf  @tab 2 + i 1 @tab 2 + i 1 @tab - @tab 1 + i 1 @tab 1 + i 1
+@item ctanh  @tab 2 + i 2 @tab 2 + i 2 @tab - @tab 0 + i 1 @tab 0 + i 1
+@item ctanhl  @tab - @tab - @tab - @tab 286 + i 3074 @tab 1 + i 24
+@item erff  @tab - @tab - @tab - @tab - @tab -
+@item erf  @tab - @tab - @tab - @tab - @tab -
+@item erfl  @tab - @tab - @tab - @tab - @tab -
+@item erfcf  @tab 12 @tab 12 @tab - @tab 12 @tab 12
+@item erfc  @tab 24 @tab 24 @tab - @tab 24 @tab 24
+@item erfcl  @tab - @tab - @tab - @tab 36 @tab 12
+@item expf  @tab - @tab - @tab - @tab - @tab -
+@item exp  @tab - @tab - @tab - @tab - @tab -
+@item expl  @tab - @tab - @tab - @tab 754 @tab -
+@item exp10f  @tab 2 @tab 2 @tab - @tab - @tab 2
+@item exp10  @tab 6 @tab 6 @tab - @tab 1 @tab 6
+@item exp10l  @tab - @tab - @tab - @tab 1182 @tab 3
+@item exp2f  @tab - @tab - @tab - @tab - @tab -
+@item exp2  @tab - @tab - @tab - @tab - @tab -
+@item exp2l  @tab - @tab - @tab - @tab 462 @tab -
+@item expm1f  @tab 1 @tab 1 @tab - @tab - @tab -
+@item expm1  @tab - @tab - @tab - @tab - @tab -
+@item expm1l  @tab - @tab - @tab - @tab 825 @tab 1
+@item fabsf  @tab - @tab - @tab - @tab - @tab -
+@item fabs  @tab - @tab - @tab - @tab - @tab -
+@item fabsl  @tab - @tab - @tab - @tab - @tab -
+@item fdimf  @tab - @tab - @tab - @tab - @tab -
+@item fdim  @tab - @tab - @tab - @tab - @tab -
+@item fdiml  @tab - @tab - @tab - @tab - @tab -
+@item floorf  @tab - @tab - @tab - @tab - @tab -
+@item floor  @tab - @tab - @tab - @tab - @tab -
+@item floorl  @tab - @tab - @tab - @tab - @tab -
+@item fmaf  @tab - @tab - @tab - @tab - @tab -
+@item fma  @tab - @tab - @tab - @tab - @tab -
+@item fmal  @tab - @tab - @tab - @tab - @tab -
+@item fmaxf  @tab - @tab - @tab - @tab - @tab -
+@item fmax  @tab - @tab - @tab - @tab - @tab -
+@item fmaxl  @tab - @tab - @tab - @tab - @tab -
+@item fminf  @tab - @tab - @tab - @tab - @tab -
+@item fmin  @tab - @tab - @tab - @tab - @tab -
+@item fminl  @tab - @tab - @tab - @tab - @tab -
+@item fmodf  @tab 1 @tab 1 @tab - @tab 1 @tab 1
+@item fmod  @tab 2 @tab 2 @tab - @tab 2 @tab 2
+@item fmodl  @tab - @tab - @tab - @tab 4096 @tab 1
+@item frexpf  @tab - @tab - @tab - @tab - @tab -
+@item frexp  @tab - @tab - @tab - @tab - @tab -
+@item frexpl  @tab - @tab - @tab - @tab - @tab -
+@item gammaf  @tab - @tab - @tab - @tab - @tab -
+@item gamma  @tab - @tab - @tab - @tab 1 @tab -
+@item gammal  @tab - @tab - @tab - @tab 1 @tab 1
+@item hypotf  @tab 1 @tab 1 @tab - @tab 1 @tab 1
+@item hypot  @tab 1 @tab 1 @tab - @tab 1 @tab 1
+@item hypotl  @tab - @tab - @tab - @tab 560 @tab 1
+@item ilogbf  @tab - @tab - @tab - @tab - @tab -
+@item ilogb  @tab - @tab - @tab - @tab - @tab -
+@item ilogbl  @tab - @tab - @tab - @tab - @tab -
+@item j0f  @tab 2 @tab 2 @tab - @tab 1 @tab 1
+@item j0  @tab 2 @tab 2 @tab - @tab 2 @tab 2
+@item j0l  @tab - @tab - @tab - @tab 1 @tab 2
+@item j1f  @tab 2 @tab 2 @tab - @tab 1 @tab 2
+@item j1  @tab 1 @tab 1 @tab - @tab 2 @tab 1
+@item j1l  @tab - @tab - @tab - @tab 2 @tab -
+@item jnf  @tab 4 @tab 4 @tab - @tab 2 @tab 4
+@item jn  @tab 6 @tab 6 @tab - @tab 5 @tab 6
+@item jnl  @tab - @tab - @tab - @tab 2 @tab 2
+@item lgammaf  @tab 2 @tab 2 @tab - @tab 2 @tab 2
+@item lgamma  @tab 1 @tab 1 @tab - @tab 1 @tab 1
+@item lgammal  @tab - @tab - @tab - @tab 1 @tab 1
+@item lrintf  @tab - @tab - @tab - @tab - @tab -
+@item lrint  @tab - @tab - @tab - @tab - @tab -
+@item lrintl  @tab - @tab - @tab - @tab - @tab -
+@item llrintf  @tab - @tab - @tab - @tab - @tab -
+@item llrint  @tab - @tab - @tab - @tab - @tab -
+@item llrintl  @tab - @tab - @tab - @tab - @tab -
+@item logf  @tab 1 @tab 1 @tab - @tab 1 @tab 1
+@item log  @tab 1 @tab 1 @tab - @tab 1 @tab 1
+@item logl  @tab - @tab - @tab - @tab 2341 @tab 1
+@item log10f  @tab 1 @tab 1 @tab - @tab 1 @tab 1
+@item log10  @tab 1 @tab 1 @tab - @tab 1 @tab 1
+@item log10l  @tab - @tab - @tab - @tab 2033 @tab 1
+@item log1pf  @tab 1 @tab 1 @tab - @tab 1 @tab 1
+@item log1p  @tab 1 @tab 1 @tab - @tab 1 @tab 1
+@item log1pl  @tab - @tab - @tab - @tab 585 @tab 1
+@item log2f  @tab 1 @tab 1 @tab - @tab 1 @tab 1
+@item log2  @tab 1 @tab 1 @tab - @tab 1 @tab 1
+@item log2l  @tab - @tab - @tab - @tab 1688 @tab -
+@item logbf  @tab - @tab - @tab - @tab - @tab -
+@item logb  @tab - @tab - @tab - @tab - @tab -
+@item logbl  @tab - @tab - @tab - @tab - @tab -
+@item lroundf  @tab - @tab - @tab - @tab - @tab -
+@item lround  @tab - @tab - @tab - @tab - @tab -
+@item lroundl  @tab - @tab - @tab - @tab - @tab -
+@item llroundf  @tab - @tab - @tab - @tab - @tab -
+@item llround  @tab - @tab - @tab - @tab - @tab -
+@item llroundl  @tab - @tab - @tab - @tab - @tab -
+@item modff  @tab - @tab - @tab - @tab - @tab -
+@item modf  @tab - @tab - @tab - @tab - @tab -
+@item modfl  @tab - @tab - @tab - @tab - @tab -
+@item nearbyintf  @tab - @tab - @tab - @tab - @tab -
+@item nearbyint  @tab - @tab - @tab - @tab - @tab -
+@item nearbyintl  @tab - @tab - @tab - @tab - @tab -
+@item nextafterf  @tab - @tab - @tab - @tab - @tab -
+@item nextafter  @tab - @tab - @tab - @tab - @tab -
+@item nextafterl  @tab - @tab - @tab - @tab - @tab -
+@item nexttowardf  @tab - @tab - @tab - @tab - @tab -
+@item nexttoward  @tab - @tab - @tab - @tab - @tab -
+@item nexttowardl  @tab - @tab - @tab - @tab - @tab -
+@item powf  @tab - @tab - @tab - @tab - @tab -
+@item pow  @tab - @tab - @tab - @tab - @tab -
+@item powl  @tab - @tab - @tab - @tab 725 @tab 1
+@item remainderf  @tab - @tab - @tab - @tab - @tab -
+@item remainder  @tab - @tab - @tab - @tab - @tab -
+@item remainderl  @tab - @tab - @tab - @tab - @tab -
+@item remquof  @tab - @tab - @tab - @tab - @tab -
+@item remquo  @tab - @tab - @tab - @tab - @tab -
+@item remquol  @tab - @tab - @tab - @tab - @tab -
+@item rintf  @tab - @tab - @tab - @tab - @tab -
+@item rint  @tab - @tab - @tab - @tab - @tab -
+@item rintl  @tab - @tab - @tab - @tab - @tab -
+@item roundf  @tab - @tab - @tab - @tab - @tab -
+@item round  @tab - @tab - @tab - @tab - @tab -
+@item roundl  @tab - @tab - @tab - @tab - @tab -
+@item scalbf  @tab - @tab - @tab - @tab - @tab -
+@item scalb  @tab - @tab - @tab - @tab - @tab -
+@item scalbl  @tab - @tab - @tab - @tab - @tab -
+@item scalbnf  @tab - @tab - @tab - @tab - @tab -
+@item scalbn  @tab - @tab - @tab - @tab - @tab -
+@item scalbnl  @tab - @tab - @tab - @tab - @tab -
+@item scalblnf  @tab - @tab - @tab - @tab - @tab -
+@item scalbln  @tab - @tab - @tab - @tab - @tab -
+@item scalblnl  @tab - @tab - @tab - @tab - @tab -
+@item sinf  @tab - @tab - @tab - @tab - @tab -
+@item sin  @tab - @tab - @tab - @tab - @tab -
+@item sinl  @tab - @tab - @tab - @tab 627 @tab 1
+@item sincosf  @tab 1 @tab 1 @tab - @tab 1 @tab 1
+@item sincos  @tab 1 @tab 1 @tab - @tab 1 @tab 1
+@item sincosl  @tab - @tab - @tab - @tab 627 @tab 1
+@item sinhf  @tab 1 @tab 1 @tab - @tab 1 @tab 1
+@item sinh  @tab 1 @tab 1 @tab - @tab - @tab -
+@item sinhl  @tab - @tab - @tab - @tab 1029 @tab 1
+@item sqrtf  @tab - @tab - @tab - @tab - @tab -
+@item sqrt  @tab - @tab - @tab - @tab - @tab -
+@item sqrtl  @tab - @tab - @tab - @tab 489 @tab -
+@item tanf  @tab - @tab - @tab - @tab - @tab -
+@item tan  @tab 0.5 @tab 0.5 @tab - @tab 0.5 @tab 0.5
+@item tanl  @tab - @tab - @tab - @tab 1401 @tab 1
+@item tanhf  @tab 1 @tab 1 @tab - @tab - @tab 1
+@item tanh  @tab 1 @tab 1 @tab - @tab - @tab 1
+@item tanhl  @tab - @tab - @tab - @tab 521 @tab 1
+@item tgammaf  @tab 1 @tab 1 @tab - @tab 1 @tab 1
+@item tgamma  @tab 1 @tab 1 @tab - @tab 2 @tab 1
+@item tgammal  @tab - @tab - @tab - @tab 2 @tab 1
+@item truncf  @tab - @tab - @tab - @tab - @tab -
+@item trunc  @tab - @tab - @tab - @tab - @tab -
+@item truncl  @tab - @tab - @tab - @tab - @tab -
+@item y0f  @tab 1 @tab 1 @tab - @tab 1 @tab 1
+@item y0  @tab 2 @tab 2 @tab - @tab 3 @tab 2
+@item y0l  @tab - @tab - @tab - @tab 2 @tab 2
+@item y1f  @tab 2 @tab 2 @tab - @tab 2 @tab 2
+@item y1  @tab 3 @tab 3 @tab - @tab 3 @tab 3
+@item y1l  @tab - @tab - @tab - @tab 2 @tab 1
+@item ynf  @tab 2 @tab 2 @tab - @tab 3 @tab 2
+@item yn  @tab 3 @tab 3 @tab - @tab 6 @tab 3
+@item ynl  @tab - @tab - @tab - @tab 7 @tab 7
+@end multitable
+@multitable {nexttowardf}  {1000 + i 1000} {1000 + i 1000} {1000 + i 1000} {1000 + i 1000} {1000 + i 1000}
+@item Function  @tab M68k @tab MIPS @tab PowerPC @tab S/390 @tab SH4
+@item acosf  @tab - @tab - @tab - @tab - @tab -
+@item acos  @tab - @tab - @tab - @tab - @tab -
+@item acosl  @tab 1 @tab - @tab - @tab - @tab -
+@item acoshf  @tab - @tab - @tab - @tab - @tab -
+@item acosh  @tab - @tab - @tab - @tab - @tab -
+@item acoshl  @tab 1 @tab - @tab - @tab - @tab -
+@item asinf  @tab - @tab 2 @tab 2 @tab 2 @tab 2
+@item asin  @tab 1 @tab 1 @tab 1 @tab 1 @tab 1
+@item asinl  @tab 1 @tab - @tab - @tab - @tab -
+@item asinhf  @tab - @tab - @tab - @tab - @tab -
+@item asinh  @tab - @tab - @tab - @tab - @tab -
+@item asinhl  @tab 14 @tab - @tab - @tab - @tab -
+@item atanf  @tab - @tab - @tab - @tab - @tab -
+@item atan  @tab - @tab - @tab - @tab - @tab -
+@item atanl  @tab - @tab - @tab - @tab - @tab -
+@item atanhf  @tab - @tab - @tab - @tab - @tab -
+@item atanh  @tab 1 @tab 1 @tab 1 @tab 1 @tab 1
+@item atanhl  @tab - @tab - @tab - @tab - @tab -
+@item atan2f  @tab - @tab 4 @tab 4 @tab 4 @tab 4
+@item atan2  @tab - @tab - @tab - @tab - @tab -
+@item atan2l  @tab - @tab - @tab - @tab - @tab -
+@item cabsf  @tab 1 @tab 1 @tab 1 @tab 1 @tab 1
+@item cabs  @tab - @tab 1 @tab 1 @tab 1 @tab 1
+@item cabsl  @tab 1 @tab - @tab - @tab - @tab -
+@item cacosf  @tab 1 + i 2 @tab 1 + i 1 @tab 1 + i 1 @tab 1 + i 1 @tab 1 + i 1
+@item cacos  @tab 1 + i 0 @tab 1 + i 0 @tab 1 + i 0 @tab 1 + i 0 @tab 1 + i 0
+@item cacosl  @tab 1 + i 1 @tab - @tab - @tab - @tab -
+@item cacoshf  @tab 7 + i 0 @tab 7 + i 3 @tab 7 + i 3 @tab 7 + i 3 @tab 7 + i 3
+@item cacosh  @tab 1 + i 1 @tab 1 + i 1 @tab 1 + i 1 @tab 1 + i 1 @tab 1 + i 1
+@item cacoshl  @tab 6 + i 2 @tab - @tab - @tab - @tab -
+@item cargf  @tab - @tab - @tab - @tab - @tab -
+@item carg  @tab - @tab - @tab - @tab - @tab -
+@item cargl  @tab - @tab - @tab - @tab - @tab -
+@item casinf  @tab 2 + i 2 @tab 2 + i 1 @tab 2 + i 1 @tab 2 + i 1 @tab 2 + i 1
+@item casin  @tab 3 + i 0 @tab 3 + i 0 @tab 3 + i 0 @tab 3 + i 0 @tab 3 + i 0
+@item casinl  @tab 0 + i 1 @tab - @tab - @tab - @tab -
+@item casinhf  @tab 19 + i 2 @tab 1 + i 6 @tab 1 + i 6 @tab 1 + i 6 @tab 1 + i 6
+@item casinh  @tab 6 + i 13 @tab 5 + i 3 @tab 5 + i 3 @tab 5 + i 3 @tab 5 + i 3
+@item casinhl  @tab 5 + i 6 @tab - @tab - @tab - @tab -
+@item catanf  @tab 0 + i 1 @tab 4 + i 1 @tab 4 + i 1 @tab 4 + i 1 @tab 4 + i 1
+@item catan  @tab 0 + i 1 @tab 0 + i 1 @tab 0 + i 1 @tab 0 + i 1 @tab 0 + i 1
+@item catanl  @tab 1 + i 0 @tab - @tab - @tab - @tab -
+@item catanhf  @tab - @tab 1 + i 6 @tab 0 + i 6 @tab 1 + i 6 @tab 1 + i 6
+@item catanh  @tab - @tab 4 + i 1 @tab 4 + i 1 @tab 4 + i 1 @tab 4 + i 1
+@item catanhl  @tab 1 + i 0 @tab - @tab - @tab - @tab -
+@item cbrtf  @tab - @tab - @tab - @tab - @tab -
+@item cbrt  @tab 1 @tab 1 @tab 1 @tab 1 @tab 1
+@item cbrtl  @tab 1 @tab - @tab - @tab - @tab -
+@item ccosf  @tab 1 + i 1 @tab 0 + i 1 @tab 0 + i 1 @tab 0 + i 1 @tab 0 + i 1
+@item ccos  @tab 0 + i 1 @tab 1 + i 1 @tab 1 + i 1 @tab 1 + i 1 @tab 1 + i 1
+@item ccosl  @tab 0 + i 1 @tab - @tab - @tab - @tab -
+@item ccoshf  @tab 3 + i 1 @tab 1 + i 1 @tab 1 + i 1 @tab 1 + i 1 @tab 1 + i 1
+@item ccosh  @tab 1 + i 0 @tab 1 + i 1 @tab 1 + i 1 @tab 1 + i 1 @tab 1 + i 1
+@item ccoshl  @tab 1 + i 2 @tab - @tab - @tab - @tab -
+@item ceilf  @tab - @tab - @tab - @tab - @tab -
+@item ceil  @tab - @tab - @tab - @tab - @tab -
+@item ceill  @tab - @tab - @tab - @tab - @tab -
+@item cexpf  @tab 3 + i 2 @tab 1 + i 1 @tab 1 + i 1 @tab 1 + i 1 @tab 1 + i 1
+@item cexp  @tab - @tab 1 + i 0 @tab 1 + i 0 @tab 1 + i 0 @tab 1 + i 0
+@item cexpl  @tab 2 + i 0 @tab - @tab - @tab - @tab -
+@item cimagf  @tab - @tab - @tab - @tab - @tab -
+@item cimag  @tab - @tab - @tab - @tab - @tab -
+@item cimagl  @tab - @tab - @tab - @tab - @tab -
+@item clogf  @tab - @tab 0 + i 3 @tab 0 + i 3 @tab 0 + i 3 @tab 0 + i 3
+@item clog  @tab - @tab 0 + i 1 @tab 0 + i 1 @tab 0 + i 1 @tab 0 + i 1
+@item clogl  @tab - @tab - @tab - @tab - @tab -
+@item clog10f  @tab 1 + i 1 @tab 1 + i 5 @tab 1 + i 5 @tab 1 + i 5 @tab 1 + i 5
+@item clog10  @tab 1 + i 1 @tab 1 + i 1 @tab 1 + i 1 @tab 1 + i 1 @tab 1 + i 1
+@item clog10l  @tab 1 + i 3 @tab - @tab - @tab - @tab -
+@item conjf  @tab - @tab - @tab - @tab - @tab -
+@item conj  @tab - @tab - @tab - @tab - @tab -
+@item conjl  @tab - @tab - @tab - @tab - @tab -
+@item copysignf  @tab - @tab - @tab - @tab - @tab -
+@item copysign  @tab - @tab - @tab - @tab - @tab -
+@item copysignl  @tab - @tab - @tab - @tab - @tab -
+@item cosf  @tab 1 @tab 1 @tab 1 @tab 1 @tab 1
+@item cos  @tab 2 @tab 2 @tab 2 @tab 2 @tab 2
+@item cosl  @tab 1 @tab - @tab - @tab - @tab -
+@item coshf  @tab - @tab - @tab - @tab - @tab -
+@item cosh  @tab - @tab - @tab - @tab - @tab -
+@item coshl  @tab 2 @tab - @tab - @tab - @tab -
+@item cpowf  @tab 1 + i 6 @tab 4 + i 2 @tab 4 + i 2 @tab 4 + i 2 @tab 4 + i 2
+@item cpow  @tab 1 + i 2 @tab 1 + i 1.1031 @tab 1 + i 2 @tab 1 + i 1.1031 @tab 1 + i 1.1031
+@item cpowl  @tab 5 + i 2 @tab - @tab - @tab - @tab -
+@item cprojf  @tab - @tab - @tab - @tab - @tab -
+@item cproj  @tab - @tab - @tab - @tab - @tab -
+@item cprojl  @tab - @tab - @tab - @tab - @tab -
+@item crealf  @tab - @tab - @tab - @tab - @tab -
+@item creal  @tab - @tab - @tab - @tab - @tab -
+@item creall  @tab - @tab - @tab - @tab - @tab -
+@item csinf  @tab 1 + i 1 @tab 0 + i 1 @tab 0 + i 1 @tab 0 + i 1 @tab 0 + i 1
+@item csin  @tab - @tab - @tab - @tab - @tab -
+@item csinl  @tab - @tab - @tab - @tab - @tab -
+@item csinhf  @tab 1 + i 1 @tab 1 + i 1 @tab 1 + i 1 @tab 1 + i 1 @tab 1 + i 1
+@item csinh  @tab - @tab 0 + i 1 @tab 0 + i 1 @tab 0 + i 1 @tab 0 + i 1
+@item csinhl  @tab 1 + i 2 @tab - @tab - @tab - @tab -
+@item csqrtf  @tab 1 + i 0 @tab 1 + i 1 @tab 1 + i 1 @tab 1 + i 1 @tab 1 + i 1
+@item csqrt  @tab - @tab 1 + i 0 @tab 1 + i 0 @tab 1 + i 0 @tab 1 + i 0
+@item csqrtl  @tab - @tab - @tab - @tab - @tab -
+@item ctanf  @tab 1 + i 0 @tab 1 + i 1 @tab 1 + i 1 @tab 1 + i 1 @tab 1 + i 1
+@item ctan  @tab 1 + i 0 @tab 1 + i 1 @tab 1 + i 1 @tab 1 + i 1 @tab 1 + i 1
+@item ctanl  @tab 439 + i 2 @tab - @tab - @tab - @tab -
+@item ctanhf  @tab 1 + i 0 @tab 2 + i 1 @tab 2 + i 1 @tab 2 + i 1 @tab 2 + i 1
+@item ctanh  @tab 0 + i 1 @tab 2 + i 2 @tab 2 + i 2 @tab 2 + i 2 @tab 2 + i 2
+@item ctanhl  @tab 2 + i 25 @tab - @tab - @tab - @tab -
+@item erff  @tab - @tab - @tab - @tab - @tab -
+@item erf  @tab - @tab - @tab - @tab - @tab -
+@item erfl  @tab - @tab - @tab - @tab - @tab -
+@item erfcf  @tab 11 @tab 12 @tab 12 @tab 12 @tab 12
+@item erfc  @tab 24 @tab 24 @tab 24 @tab 24 @tab 24
+@item erfcl  @tab 12 @tab - @tab - @tab - @tab -
+@item expf  @tab - @tab - @tab - @tab - @tab -
+@item exp  @tab - @tab - @tab - @tab - @tab -
+@item expl  @tab - @tab - @tab - @tab - @tab -
+@item exp10f  @tab - @tab 2 @tab 2 @tab 2 @tab 2
+@item exp10  @tab 1 @tab 6 @tab 6 @tab 6 @tab 6
+@item exp10l  @tab 1 @tab - @tab - @tab - @tab -
+@item exp2f  @tab - @tab - @tab - @tab - @tab -
+@item exp2  @tab - @tab - @tab - @tab - @tab -
+@item exp2l  @tab - @tab - @tab - @tab - @tab -
+@item expm1f  @tab - @tab 1 @tab 1 @tab 1 @tab 1
+@item expm1  @tab - @tab - @tab - @tab - @tab -
+@item expm1l  @tab 1 @tab - @tab - @tab - @tab -
+@item fabsf  @tab - @tab - @tab - @tab - @tab -
+@item fabs  @tab - @tab - @tab - @tab - @tab -
+@item fabsl  @tab - @tab - @tab - @tab - @tab -
+@item fdimf  @tab - @tab - @tab - @tab - @tab -
+@item fdim  @tab - @tab - @tab - @tab - @tab -
+@item fdiml  @tab - @tab - @tab - @tab - @tab -
+@item floorf  @tab - @tab - @tab - @tab - @tab -
+@item floor  @tab - @tab - @tab - @tab - @tab -
+@item floorl  @tab - @tab - @tab - @tab - @tab -
+@item fmaf  @tab - @tab - @tab - @tab - @tab -
+@item fma  @tab - @tab - @tab - @tab - @tab -
+@item fmal  @tab - @tab - @tab - @tab - @tab -
+@item fmaxf  @tab - @tab - @tab - @tab - @tab -
+@item fmax  @tab - @tab - @tab - @tab - @tab -
+@item fmaxl  @tab - @tab - @tab - @tab - @tab -
+@item fminf  @tab - @tab - @tab - @tab - @tab -
+@item fmin  @tab - @tab - @tab - @tab - @tab -
+@item fminl  @tab - @tab - @tab - @tab - @tab -
+@item fmodf  @tab 1 @tab 1 @tab 1 @tab 1 @tab 1
+@item fmod  @tab 2 @tab 2 @tab 2 @tab 2 @tab 2
+@item fmodl  @tab 1 @tab - @tab - @tab - @tab -
+@item frexpf  @tab - @tab - @tab - @tab - @tab -
+@item frexp  @tab - @tab - @tab - @tab - @tab -
+@item frexpl  @tab - @tab - @tab - @tab - @tab -
+@item gammaf  @tab - @tab - @tab - @tab - @tab -
+@item gamma  @tab - @tab - @tab - @tab - @tab -
+@item gammal  @tab 1 @tab - @tab - @tab - @tab -
+@item hypotf  @tab 1 @tab 1 @tab 1 @tab 1 @tab 1
+@item hypot  @tab - @tab 1 @tab 1 @tab 1 @tab 1
+@item hypotl  @tab 1 @tab - @tab - @tab - @tab -
+@item ilogbf  @tab - @tab - @tab - @tab - @tab -
+@item ilogb  @tab - @tab - @tab - @tab - @tab -
+@item ilogbl  @tab - @tab - @tab - @tab - @tab -
+@item j0f  @tab 1 @tab 2 @tab 1 @tab 2 @tab 2
+@item j0  @tab 1 @tab 2 @tab 2 @tab 2 @tab 2
+@item j0l  @tab 1 @tab - @tab - @tab - @tab -
+@item j1f  @tab 2 @tab 2 @tab 2 @tab 2 @tab 2
+@item j1  @tab - @tab 1 @tab 1 @tab 1 @tab 1
+@item j1l  @tab 2 @tab - @tab - @tab - @tab -
+@item jnf  @tab 11 @tab 4 @tab 4 @tab 4 @tab 4
+@item jn  @tab 4 @tab 6 @tab 6 @tab 6 @tab 6
+@item jnl  @tab 2 @tab - @tab - @tab - @tab -
+@item lgammaf  @tab 2 @tab 2 @tab 2 @tab 2 @tab 2
+@item lgamma  @tab 1 @tab 1 @tab 1 @tab 1 @tab 1
+@item lgammal  @tab 1 @tab - @tab - @tab - @tab -
+@item lrintf  @tab - @tab - @tab - @tab - @tab -
+@item lrint  @tab - @tab - @tab - @tab - @tab -
+@item lrintl  @tab - @tab - @tab - @tab - @tab -
+@item llrintf  @tab - @tab - @tab - @tab - @tab -
+@item llrint  @tab - @tab - @tab - @tab - @tab -
+@item llrintl  @tab - @tab - @tab - @tab - @tab -
+@item logf  @tab 1 @tab 1 @tab 1 @tab 1 @tab 1
+@item log  @tab 1 @tab 1 @tab 1 @tab 1 @tab 1
+@item logl  @tab 2 @tab - @tab - @tab - @tab -
+@item log10f  @tab 1 @tab 1 @tab 1 @tab 1 @tab 1
+@item log10  @tab 1 @tab 1 @tab 1 @tab 1 @tab 1
+@item log10l  @tab 1 @tab - @tab - @tab - @tab -
+@item log1pf  @tab 1 @tab 1 @tab 1 @tab 1 @tab 1
+@item log1p  @tab 1 @tab 1 @tab 1 @tab 1 @tab 1
+@item log1pl  @tab 2 @tab - @tab - @tab - @tab -
+@item log2f  @tab 1 @tab 1 @tab 1 @tab 1 @tab 1
+@item log2  @tab 1 @tab 1 @tab 1 @tab 1 @tab 1
+@item log2l  @tab 1 @tab - @tab - @tab - @tab -
+@item logbf  @tab - @tab - @tab - @tab - @tab -
+@item logb  @tab - @tab - @tab - @tab - @tab -
+@item logbl  @tab - @tab - @tab - @tab - @tab -
+@item lroundf  @tab - @tab - @tab - @tab - @tab -
+@item lround  @tab - @tab - @tab - @tab - @tab -
+@item lroundl  @tab - @tab - @tab - @tab - @tab -
+@item llroundf  @tab - @tab - @tab - @tab - @tab -
+@item llround  @tab - @tab - @tab - @tab - @tab -
+@item llroundl  @tab - @tab - @tab - @tab - @tab -
+@item modff  @tab - @tab - @tab - @tab - @tab -
+@item modf  @tab - @tab - @tab - @tab - @tab -
+@item modfl  @tab - @tab - @tab - @tab - @tab -
+@item nearbyintf  @tab - @tab - @tab - @tab - @tab -
+@item nearbyint  @tab - @tab - @tab - @tab - @tab -
+@item nearbyintl  @tab - @tab - @tab - @tab - @tab -
+@item nextafterf  @tab - @tab - @tab - @tab - @tab -
+@item nextafter  @tab - @tab - @tab - @tab - @tab -
+@item nextafterl  @tab - @tab - @tab - @tab - @tab -
+@item nexttowardf  @tab - @tab - @tab - @tab - @tab -
+@item nexttoward  @tab - @tab - @tab - @tab - @tab -
+@item nexttowardl  @tab - @tab - @tab - @tab - @tab -
+@item powf  @tab - @tab - @tab - @tab - @tab -
+@item pow  @tab - @tab - @tab - @tab - @tab -
+@item powl  @tab 1 @tab - @tab - @tab - @tab -
+@item remainderf  @tab - @tab - @tab - @tab - @tab -
+@item remainder  @tab - @tab - @tab - @tab - @tab -
+@item remainderl  @tab - @tab - @tab - @tab - @tab -
+@item remquof  @tab - @tab - @tab - @tab - @tab -
+@item remquo  @tab - @tab - @tab - @tab - @tab -
+@item remquol  @tab - @tab - @tab - @tab - @tab -
+@item rintf  @tab - @tab - @tab - @tab - @tab -
+@item rint  @tab - @tab - @tab - @tab - @tab -
+@item rintl  @tab - @tab - @tab - @tab - @tab -
+@item roundf  @tab - @tab - @tab - @tab - @tab -
+@item round  @tab - @tab - @tab - @tab - @tab -
+@item roundl  @tab - @tab - @tab - @tab - @tab -
+@item scalbf  @tab - @tab - @tab - @tab - @tab -
+@item scalb  @tab - @tab - @tab - @tab - @tab -
+@item scalbl  @tab - @tab - @tab - @tab - @tab -
+@item scalbnf  @tab - @tab - @tab - @tab - @tab -
+@item scalbn  @tab - @tab - @tab - @tab - @tab -
+@item scalbnl  @tab - @tab - @tab - @tab - @tab -
+@item scalblnf  @tab - @tab - @tab - @tab - @tab -
+@item scalbln  @tab - @tab - @tab - @tab - @tab -
+@item scalblnl  @tab - @tab - @tab - @tab - @tab -
+@item sinf  @tab - @tab - @tab - @tab - @tab -
+@item sin  @tab - @tab - @tab - @tab - @tab -
+@item sinl  @tab 1 @tab - @tab - @tab - @tab -
+@item sincosf  @tab 1 @tab 1 @tab 1 @tab 1 @tab 1
+@item sincos  @tab 1 @tab 1 @tab 1 @tab 1 @tab 1
+@item sincosl  @tab 1 @tab - @tab - @tab - @tab -
+@item sinhf  @tab 1 @tab 1 @tab 1 @tab 1 @tab 1
+@item sinh  @tab - @tab 1 @tab 1 @tab 1 @tab 1
+@item sinhl  @tab - @tab - @tab - @tab - @tab -
+@item sqrtf  @tab - @tab - @tab - @tab - @tab -
+@item sqrt  @tab - @tab - @tab - @tab - @tab -
+@item sqrtl  @tab - @tab - @tab - @tab - @tab -
+@item tanf  @tab - @tab - @tab - @tab - @tab -
+@item tan  @tab 1 @tab 0.5 @tab 1 @tab 0.5 @tab 0.5
+@item tanl  @tab 1 @tab - @tab - @tab - @tab -
+@item tanhf  @tab - @tab 1 @tab 1 @tab 1 @tab 1
+@item tanh  @tab - @tab 1 @tab 1 @tab 1 @tab 1
+@item tanhl  @tab - @tab - @tab - @tab - @tab -
+@item tgammaf  @tab 1 @tab 1 @tab 1 @tab 1 @tab 1
+@item tgamma  @tab 1 @tab 1 @tab 1 @tab 1 @tab 1
+@item tgammal  @tab 1 @tab - @tab - @tab - @tab -
+@item truncf  @tab - @tab - @tab - @tab - @tab -
+@item trunc  @tab - @tab - @tab - @tab - @tab -
+@item truncl  @tab - @tab - @tab - @tab - @tab -
+@item y0f  @tab 2 @tab 1 @tab 1 @tab 1 @tab 1
+@item y0  @tab 2 @tab 2 @tab 2 @tab 2 @tab 2
+@item y0l  @tab 2 @tab - @tab - @tab - @tab -
+@item y1f  @tab 2 @tab 2 @tab 2 @tab 2 @tab 2
+@item y1  @tab 1 @tab 3 @tab 3 @tab 3 @tab 3
+@item y1l  @tab 2 @tab - @tab - @tab - @tab -
+@item ynf  @tab 2 @tab 2 @tab 2 @tab 2 @tab 2
+@item yn  @tab 6 @tab 3 @tab 3 @tab 3 @tab 3
+@item ynl  @tab 7 @tab - @tab - @tab - @tab -
+@end multitable
+@multitable {nexttowardf}  {1000 + i 1000} {1000 + i 1000} {1000 + i 1000}
+@item Function  @tab Sparc 32-bit @tab Sparc 64-bit @tab x86_64/fpu
+@item acosf  @tab - @tab - @tab -
+@item acos  @tab - @tab - @tab -
+@item acosl  @tab - @tab 1 @tab -
+@item acoshf  @tab - @tab - @tab -
+@item acosh  @tab - @tab - @tab -
+@item acoshl  @tab - @tab - @tab -
+@item asinf  @tab 2 @tab 2 @tab -
+@item asin  @tab 1 @tab 1 @tab 1
+@item asinl  @tab - @tab - @tab 1
+@item asinhf  @tab - @tab - @tab -
+@item asinh  @tab - @tab - @tab -
+@item asinhl  @tab - @tab - @tab 15
+@item atanf  @tab - @tab - @tab -
+@item atan  @tab - @tab - @tab -
+@item atanl  @tab - @tab 1 @tab -
+@item atanhf  @tab - @tab - @tab -
+@item atanh  @tab 1 @tab 1 @tab 1
+@item atanhl  @tab - @tab - @tab 1
+@item atan2f  @tab 4.0000 @tab 4 @tab 4
+@item atan2  @tab - @tab - @tab -
+@item atan2l  @tab - @tab 1 @tab -
+@item cabsf  @tab 1 @tab 1 @tab 1
+@item cabs  @tab 1 @tab 1 @tab 1
+@item cabsl  @tab - @tab - @tab 1
+@item cacosf  @tab 1 + i 1 @tab 1 + i 1 @tab 1 + i 1
+@item cacos  @tab 1 + i 0 @tab 1 + i 0 @tab 1 + i 0
+@item cacosl  @tab - @tab 0 + i 3 @tab 1 + i 1
+@item cacoshf  @tab 7 + i 3 @tab 7 + i 3 @tab 7 + i 3
+@item cacosh  @tab 1 + i 1 @tab 1 + i 1 @tab 1 + i 1
+@item cacoshl  @tab - @tab 5 + i 1 @tab 6 + i 1
+@item cargf  @tab - @tab - @tab -
+@item carg  @tab - @tab - @tab -
+@item cargl  @tab - @tab - @tab -
+@item casinf  @tab 2 + i 1 @tab 2 + i 1 @tab 2 + i 1
+@item casin  @tab 3 + i 0 @tab 3 + i 0 @tab 3 + i 0
+@item casinl  @tab - @tab 1 + i 3 @tab 0 + i 1
+@item casinhf  @tab 1 + i 6 @tab 1 + i 6 @tab 1 + i 6
+@item casinh  @tab 5 + i 3 @tab 5 + i 3 @tab 5 + i 3
+@item casinhl  @tab - @tab 4 + i 2 @tab 5 + i 5
+@item catanf  @tab 4 + i 1 @tab 4 + i 1 @tab 4 + i 1
+@item catan  @tab 0 + i 1 @tab 0 + i 1 @tab 0 + i 1
+@item catanl  @tab - @tab 0 + i 1 @tab 1 + i 0
+@item catanhf  @tab 1 + i 6 @tab 1 + i 6 @tab 1 + i 6
+@item catanh  @tab 4 + i 1 @tab 4 + i 1 @tab 4 + i 0
+@item catanhl  @tab - @tab - @tab 1 + i 0
+@item cbrtf  @tab - @tab - @tab -
+@item cbrt  @tab 1 @tab 1 @tab 1
+@item cbrtl  @tab - @tab - @tab 948
+@item ccosf  @tab 0 + i 1 @tab 0 + i 1 @tab 0 + i 1
+@item ccos  @tab 1 + i 1 @tab 1 + i 1 @tab 1 + i 1
+@item ccosl  @tab - @tab - @tab 0 + i 1
+@item ccoshf  @tab 1 + i 1 @tab 1 + i 1 @tab 1 + i 1
+@item ccosh  @tab 1 + i 1 @tab 1 + i 1 @tab 1 + i 1
+@item ccoshl  @tab - @tab - @tab 1 + i 1
+@item ceilf  @tab - @tab - @tab -
+@item ceil  @tab - @tab - @tab -
+@item ceill  @tab - @tab - @tab -
+@item cexpf  @tab 1 + i 1 @tab 1 + i 1 @tab 1 + i 1
+@item cexp  @tab 1 + i 0 @tab 1 + i 0 @tab 1 + i 0
+@item cexpl  @tab - @tab 1 + i 1 @tab 2 + i 1
+@item cimagf  @tab - @tab - @tab -
+@item cimag  @tab - @tab - @tab -
+@item cimagl  @tab - @tab - @tab -
+@item clogf  @tab 0 + i 3 @tab 0 + i 3 @tab 0 + i 3
+@item clog  @tab 0 + i 1 @tab 0 + i 1 @tab -
+@item clogl  @tab - @tab - @tab -
+@item clog10f  @tab 1 + i 5 @tab 1 + i 5 @tab 1 + i 5
+@item clog10  @tab 1 + i 1 @tab 1 + i 1 @tab 1 + i 1
+@item clog10l  @tab - @tab - @tab 1 + i 3
+@item conjf  @tab - @tab - @tab -
+@item conj  @tab - @tab - @tab -
+@item conjl  @tab - @tab - @tab -
+@item copysignf  @tab - @tab - @tab -
+@item copysign  @tab - @tab - @tab -
+@item copysignl  @tab - @tab - @tab -
+@item cosf  @tab 1 @tab 1 @tab 1
+@item cos  @tab 2 @tab 2 @tab 2
+@item cosl  @tab - @tab 1 @tab 0.5
+@item coshf  @tab - @tab - @tab -
+@item cosh  @tab - @tab - @tab -
+@item coshl  @tab - @tab - @tab 2
+@item cpowf  @tab 4 + i 2 @tab 4 + i 2 @tab 4 + i 2
+@item cpow  @tab 1 + i 1.1031 @tab 1 + i 1.1031 @tab 1 + i 1.1031
+@item cpowl  @tab - @tab 3 + i 0.9006 @tab 1 + i 2
+@item cprojf  @tab - @tab - @tab -
+@item cproj  @tab - @tab - @tab -
+@item cprojl  @tab - @tab - @tab -
+@item crealf  @tab - @tab - @tab -
+@item creal  @tab - @tab - @tab -
+@item creall  @tab - @tab - @tab -
+@item csinf  @tab 0 + i 1 @tab 0 + i 1 @tab 0 + i 1
+@item csin  @tab - @tab - @tab -
+@item csinl  @tab - @tab - @tab 0 + i 2
+@item csinhf  @tab 1 + i 1 @tab 1 + i 1 @tab 1 + i 1
+@item csinh  @tab 0 + i 1 @tab 0 + i 1 @tab 0 + i 1
+@item csinhl  @tab - @tab - @tab 2 + i 2
+@item csqrtf  @tab 1 + i 1 @tab 1 + i 1 @tab 1 + i 1
+@item csqrt  @tab 1 + i 0 @tab 1 + i 0 @tab 1 + i 0
+@item csqrtl  @tab - @tab 1 + i 1 @tab -
+@item ctanf  @tab 1 + i 1 @tab 1 + i 1 @tab 1 + i 1
+@item ctan  @tab 1 + i 1 @tab 1 + i 1 @tab 1 + i 1
+@item ctanl  @tab - @tab - @tab 439 + i 2
+@item ctanhf  @tab 2 + i 1 @tab 2 + i 1 @tab 2 + i 1
+@item ctanh  @tab 2 + i 2 @tab 2 + i 2 @tab 2 + i 2
+@item ctanhl  @tab - @tab - @tab 5 + i 25
+@item erff  @tab - @tab - @tab -
+@item erf  @tab - @tab - @tab -
+@item erfl  @tab - @tab - @tab -
+@item erfcf  @tab 12 @tab 12 @tab 12
+@item erfc  @tab 24 @tab 24 @tab 24
+@item erfcl  @tab - @tab - @tab 36
+@item expf  @tab - @tab - @tab -
+@item exp  @tab - @tab - @tab -
+@item expl  @tab - @tab - @tab -
+@item exp10f  @tab 2 @tab 2 @tab 2
+@item exp10  @tab 6 @tab 6 @tab 6
+@item exp10l  @tab - @tab 1 @tab 3
+@item exp2f  @tab - @tab - @tab -
+@item exp2  @tab - @tab - @tab -
+@item exp2l  @tab - @tab - @tab -
+@item expm1f  @tab 1 @tab 1 @tab 1
+@item expm1  @tab - @tab 1 @tab 1
+@item expm1l  @tab - @tab - @tab 1
+@item fabsf  @tab - @tab - @tab -
+@item fabs  @tab - @tab - @tab -
+@item fabsl  @tab - @tab - @tab -
+@item fdimf  @tab - @tab - @tab -
+@item fdim  @tab - @tab - @tab -
+@item fdiml  @tab - @tab - @tab -
+@item floorf  @tab - @tab - @tab -
+@item floor  @tab - @tab - @tab -
+@item floorl  @tab - @tab - @tab -
+@item fmaf  @tab - @tab - @tab -
+@item fma  @tab - @tab - @tab -
+@item fmal  @tab - @tab - @tab -
+@item fmaxf  @tab - @tab - @tab -
+@item fmax  @tab - @tab - @tab -
+@item fmaxl  @tab - @tab - @tab -
+@item fminf  @tab - @tab - @tab -
+@item fmin  @tab - @tab - @tab -
+@item fminl  @tab - @tab - @tab -
+@item fmodf  @tab 1 @tab 1 @tab 1
+@item fmod  @tab 2 @tab 2 @tab 2
+@item fmodl  @tab - @tab 2 @tab 1
+@item frexpf  @tab - @tab - @tab -
+@item frexp  @tab - @tab - @tab -
+@item frexpl  @tab - @tab - @tab -
+@item gammaf  @tab - @tab - @tab -
+@item gamma  @tab - @tab - @tab -
+@item gammal  @tab - @tab - @tab 1
+@item hypotf  @tab 1 @tab 1 @tab 1
+@item hypot  @tab 1 @tab 1 @tab 1
+@item hypotl  @tab - @tab - @tab 1
+@item ilogbf  @tab - @tab - @tab -
+@item ilogb  @tab - @tab - @tab -
+@item ilogbl  @tab - @tab - @tab -
+@item j0f  @tab 2 @tab 2 @tab 2
+@item j0  @tab 2 @tab 2 @tab 2
+@item j0l  @tab - @tab - @tab -
+@item j1f  @tab 2 @tab 2 @tab 2
+@item j1  @tab 1 @tab 1 @tab 1
+@item j1l  @tab - @tab - @tab 2
+@item jnf  @tab 4 @tab 4 @tab 4
+@item jn  @tab 6 @tab 6 @tab 6
+@item jnl  @tab - @tab - @tab 2
+@item lgammaf  @tab 2 @tab 2 @tab 2
+@item lgamma  @tab 1 @tab 1 @tab 1
+@item lgammal  @tab - @tab - @tab 1
+@item lrintf  @tab - @tab - @tab -
+@item lrint  @tab - @tab - @tab -
+@item lrintl  @tab - @tab - @tab -
+@item llrintf  @tab - @tab - @tab -
+@item llrint  @tab - @tab - @tab -
+@item llrintl  @tab - @tab - @tab -
+@item logf  @tab 1 @tab 1 @tab 1
+@item log  @tab 1 @tab 1 @tab 1
+@item logl  @tab - @tab 1 @tab 1
+@item log10f  @tab 1 @tab 1 @tab 1
+@item log10  @tab 1 @tab 1 @tab 1
+@item log10l  @tab - @tab - @tab 1
+@item log1pf  @tab 1 @tab 1 @tab 1
+@item log1p  @tab 1 @tab 1 @tab 1
+@item log1pl  @tab - @tab 1 @tab 1
+@item log2f  @tab 1 @tab 1 @tab 1
+@item log2  @tab 1 @tab 1 @tab 1
+@item log2l  @tab - @tab - @tab -
+@item logbf  @tab - @tab - @tab -
+@item logb  @tab - @tab - @tab -
+@item logbl  @tab - @tab - @tab -
+@item lroundf  @tab - @tab - @tab -
+@item lround  @tab - @tab - @tab -
+@item lroundl  @tab - @tab - @tab -
+@item llroundf  @tab - @tab - @tab -
+@item llround  @tab - @tab - @tab -
+@item llroundl  @tab - @tab - @tab -
+@item modff  @tab - @tab - @tab -
+@item modf  @tab - @tab - @tab -
+@item modfl  @tab - @tab - @tab -
+@item nearbyintf  @tab - @tab - @tab -
+@item nearbyint  @tab - @tab - @tab -
+@item nearbyintl  @tab - @tab - @tab -
+@item nextafterf  @tab - @tab - @tab -
+@item nextafter  @tab - @tab - @tab -
+@item nextafterl  @tab - @tab - @tab -
+@item nexttowardf  @tab - @tab - @tab -
+@item nexttoward  @tab - @tab - @tab -
+@item nexttowardl  @tab - @tab - @tab -
+@item powf  @tab - @tab - @tab -
+@item pow  @tab - @tab - @tab -
+@item powl  @tab - @tab - @tab -
+@item remainderf  @tab - @tab - @tab -
+@item remainder  @tab - @tab - @tab -
+@item remainderl  @tab - @tab - @tab -
+@item remquof  @tab - @tab - @tab -
+@item remquo  @tab - @tab - @tab -
+@item remquol  @tab - @tab - @tab -
+@item rintf  @tab - @tab - @tab -
+@item rint  @tab - @tab - @tab -
+@item rintl  @tab - @tab - @tab -
+@item roundf  @tab - @tab - @tab -
+@item round  @tab - @tab - @tab -
+@item roundl  @tab - @tab - @tab -
+@item scalbf  @tab - @tab - @tab -
+@item scalb  @tab - @tab - @tab -
+@item scalbl  @tab - @tab - @tab -
+@item scalbnf  @tab - @tab - @tab -
+@item scalbn  @tab - @tab - @tab -
+@item scalbnl  @tab - @tab - @tab -
+@item scalblnf  @tab - @tab - @tab -
+@item scalbln  @tab - @tab - @tab -
+@item scalblnl  @tab - @tab - @tab -
+@item sinf  @tab - @tab - @tab -
+@item sin  @tab - @tab - @tab -
+@item sinl  @tab - @tab - @tab 1
+@item sincosf  @tab 1 @tab 1 @tab 1
+@item sincos  @tab 1 @tab 1 @tab 1
+@item sincosl  @tab - @tab 1 @tab 1
+@item sinhf  @tab 1 @tab 1 @tab 1
+@item sinh  @tab 1 @tab 1 @tab 1
+@item sinhl  @tab - @tab - @tab 1
+@item sqrtf  @tab - @tab - @tab -
+@item sqrt  @tab - @tab - @tab -
+@item sqrtl  @tab - @tab 1 @tab -
+@item tanf  @tab - @tab - @tab -
+@item tan  @tab 0.5 @tab 0.5 @tab 0.5
+@item tanl  @tab - @tab 1 @tab 1
+@item tanhf  @tab 1 @tab 1 @tab 1
+@item tanh  @tab 1 @tab 1 @tab 1
+@item tanhl  @tab - @tab - @tab 1
+@item tgammaf  @tab 1 @tab 1 @tab 1
+@item tgamma  @tab 1 @tab 1 @tab 1
+@item tgammal  @tab - @tab - @tab 2
+@item truncf  @tab - @tab - @tab -
+@item trunc  @tab - @tab - @tab -
+@item truncl  @tab - @tab - @tab -
+@item y0f  @tab 1 @tab 1 @tab 1
+@item y0  @tab 2 @tab 2 @tab 2
+@item y0l  @tab - @tab - @tab 2
+@item y1f  @tab 2 @tab 2 @tab 2
+@item y1  @tab 3 @tab 3 @tab 3
+@item y1l  @tab - @tab - @tab 2
+@item ynf  @tab 2 @tab 2 @tab 2
+@item yn  @tab 3 @tab 3 @tab 3
+@item ynl  @tab - @tab - @tab 7
+@end multitable

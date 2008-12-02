@@ -1,0 +1,47 @@
+var apptopmenu = new Object();
+//apptopmenu.portrange="Port Range Forward";
+apptopmenu.portrange="Transfert de connexion";
+//apptopmenu.ptrigger="Port Trigger";
+apptopmenu.ptrigger="Déclenchement de connexion";
+
+var portforward = new Object();
+//portforward.portrange="Port Range";
+portforward.portrange="Etendue des ports  ";
+//portforward.app="Application";
+portforward.app="Application";
+//portforward.end="End";
+portforward.end="Fin";
+//portforward.ipaddr="IP Address";
+portforward.ipaddr="Adresse IP ou nom de domaine";
+//portforward.to="to";
+portforward.to="à";
+
+var ptrigger = new Object();
+//ptrigger.triggername="Trigger Name List";*
+ptrigger.triggername="Trigger Name List";
+//ptrigger.thispt="This Port Trigger";*
+ptrigger.thispt="This Port Trigger";
+//ptrigger.triggername="Enter Trigger Name";*
+ptrigger.triggername="Enter Trigger Name";
+//ptrigger.triggerport="Trigger Port(s)";*
+ptrigger.triggerport="Trigger Port(s)";
+//ptrigger.firsttrigger="First trigger";*
+ptrigger.firsttrigger="First trigger";
+//ptrigger.singleip="Single IP";*
+ptrigger.singleip="Single IP";
+//ptrigger.closeallconn="Close all connections on the end of the Trigger Port Connection?";*
+ptrigger.closeallconn="Close all connections on the end of the Trigger Port Connection?";
+//ptrigger.inactive="Inactivity Timeout";*
+ptrigger.inactive="Inactivity Timeout";
+//ptrigger.secs="secs";*
+ptrigger.secs="secs";
+//ptrigger.allowinconn="Allow inbound connections to be recieved from any machine?";
+ptrigger.allowinconn="Allow inbound connections to be recieved from any machine?";
+//ptrigger.incomeport="Incoming Ports";*
+ptrigger.incomeport="Incoming Ports";
+//ptrigger.sourceip="Source IP";
+ptrigger.sourceip="IP source";
+
+var dmz = new Object();
+//dmz.dmzhostip="DMZ Host IP Address";
+dmz.dmzhostip="Adresse IP de l\'hôte DMZ";

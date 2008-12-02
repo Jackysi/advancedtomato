@@ -1,0 +1,231 @@
+#! /bin/sh
+# Copyright (c) 2001 Jörg Mayer
+#   based on /etc/init.d/skeleton which is 
+#   Copyright (c) 1995-2000 SuSE GmbH Nuernberg, Germany.
+#
+#
+# Author: Jörg Mayer <jmayer@loplof.de>
+#
+# init.d/dnsmasq
+#
+#   and symbolic its link
+#
+# /usr/sbin/rcdnsmasq
+#
+# System startup script for the nessus backend nessusd
+#
+### BEGIN INIT INFO
+# Provides: dnsmasq
+# Required-Start: $network $remote_fs $syslog
+# Required-Stop:  $remote_fs $syslog
+# Default-Start:  3 5
+# Default-Stop:   0 1 2 6
+# Description:    This script starts your DNS caching server
+### END INIT INFO
+
+# Source SuSE config
+. /etc/rc.config
+
+# Determine the base and follow a runlevel link name.
+base=${0##*/}
+link=${base#*[SK][0-9][0-9]}
+
+# Force execution if not called by a runlevel directory.
+test $link = $base && START_DNSMASQ=yes
+test "$START_DNSMASQ" = yes || exit 0
+
+DNSMASQ=/usr/sbin/dnsmasq
+test -x $DNSMASQ || exit 5
+
+# Shell functions sourced from /etc/rc.status:
+#      rc_check         check and set local and overall rc status
+#      rc_status        check and set local and overall rc status
+#      rc_status -v     ditto but be verbose in local rc status
+#      rc_status -v -r  ditto and clear the local rc status
+#      rc_failed        set local and overall rc status to failed
+#      rc_failed <num>  set local and overall rc status to <num><num>
+#      rc_reset         clear local rc status (overall remains)
+#      rc_exit          exit appropriate to overall rc status
+. /etc/rc.status
+
+# First reset status of this service
+rc_reset
+
+# Return values acc. to LSB for all commands but status:
+# 0 - success
+# 1 - generic or unspecified error
+# 2 - invalid or excess argument(s)
+# 3 - unimplemented feature (e.g. "reload")
+# 4 - insufficient privilege
+# 5 - program is not installed
+# 6 - program is not configured
+# 7 - program is not running
+# 
+# Note that starting an already running service, stopping
+# or restarting a not-running service as well as the restart
+# with force-reload (in case signalling is not supported) are
+# considered a success.
+
+
+# Build command line:
+
+# change this line if you want dnsmasq to serve an MX record for 
+# the host it is running on. 
+MAILHOSTNAME=""
+# change this line if you want dns to get its upstream servers
+# from somewhere other that /etc/resolv.conf 
+RESOLV_CONF=""
+# change this if you want dnsmasq to cache any "hostname" or
+# "client-hostname" from a dhcpd's lease file
+DHCP_LEASE="/var/lib/dhcp/dhcpd.leases"
+DOMAIN_SUFFIX=`dnsdomainname`
+
+OPTIONS=""
+
+if [ ! -z "${MAILHOSTNAME}" ]; then
+  OPTIONS="$OPTIONS -m $MAILHOSTNAME"
+fi
+
+if [ ! -z "${RESOLV_CONF}" ]; then
+  OPTIONS="$OPTIONS -r $RESOLV_CONF"
+fi
+
+if [ ! -z "${DHCP_LEASE}" ]; then
+  OPTIONS="$OPTIONS -l $DHCP_LEASE"
+fi
+
+if [ ! -z "${DOMAIN_SUFFIX}" ]; then
+  OPTIONS="$OPTIONS -s $DOMAIN_SUFFIX"
+fi
+
+case "$1" in
+    start)
+	echo -n "Starting dnsmasq"
+	## Start daemon with startproc(8). If this fails
+	## the echo return value is set appropriate.
+
+	# NOTE: startproc returns 0, even if service is 
+	# already running to match LSB spec.
+	startproc $DNSMASQ $OPTIONS
+
+	# Remember status and be verbose
+	rc_status -v
+	;;
+    stop)
+	echo -n "Shutting down dnsmasq"
+	## Stop daemon with killproc(8) and if this fails
+	## set echo the echo return value.
+
+	killproc -TERM $DNSMASQ
+
+	# Remember status and be verbose
+	rc_status -v
+	;;
+    try-restart)
+	## Stop the service and if this succeeds (i.e. the 
+	## service was running before), start it again.
+	## Note: try-restart is not (yet) part of LSB (as of 0.7.5)
+	$0 status >/dev/null &&  $0 restart
+
+	# Remember status and be quiet
+	rc_status
+	;;
+    restart)
+	## Stop the service and regardless of whether it was
+	## running or not, start it again.
+	$0 stop
+	$0 start
+
+	# Remember status and be quiet
+	rc_status
+	;;
+    force-reload)
+	## Signal the daemon to reload its config.
+
+	echo -n "Reload service dnsmasq"
+	killproc -HUP $DNSMASQ
+	#touch /var/run/dnsmasq.pid
+	rc_status -v
+	;;
+    reload)
+	## Like force-reload, but if daemon does not support
+	## signalling, do nothing (!)
+
+	echo -n "Reload service dnsmasq"
+	killproc -HUP $DNSMASQ
+	#touch /var/run/dnsmasq.pid
+	rc_status -v
+	;;
+    status)
+	echo -n "Checking for dnsmasq: "
+	## Check status with checkproc(8), if process is running
+	## checkproc will return with exit status 0.
+
+	# Status has a slightly different for the status command:
+	# 0 - service running
+	# 1 - service dead, but /var/run/  pid  file exists
+	# 2 - service dead, but /var/lock/ lock file exists
+	# 3 - service not running
+
+	# NOTE: checkproc returns LSB compliant status values.
+	checkproc $DNSMASQ
+	rc_status -v
+	;;
+    *)
+	echo "Usage: $0 {start|stop|status|try-restart|restart|force-reload|reload}"
+	exit 1
+	;;
+esac
+rc_exit
+
+###########################################################################
+
+
+## FIXME:
+## The stuff from the RedHat startup script
+## I keep it for the moment because I haven't checked
+## the stuff with the lock/subsys/ file yet. JM
+
+RETVAL=0
+
+# See how we were called.
+case "$1" in
+  start)
+        echo -n "Starting dnsmasq: "
+        daemon dnsmasq $OPTIONS
+	RETVAL=$?
+        echo
+        [ $RETVAL -eq 0 ] && touch /var/lock/subsys/dnsmasq
+        ;;
+  stop)
+        if test "x`pidof dnsmasq`" != x; then
+            echo -n "Shutting down dnsmasq: "
+            killproc dnsmasq
+        fi
+	RETVAL=$?
+        echo
+        [ $RETVAL -eq 0 ] && rm -f /var/lock/subsys/dnsmasq /var/run/dnsmasq.pid
+        ;;
+  status)
+	status dnsmasq
+	RETVAL=$?
+	;;
+  restart|reload)
+	$0 stop
+	$0 start
+	RETVAL=$?
+	;;
+  condrestart)
+	    if test "x`/sbin/pidof dnsmasq`" != x; then
+		$0 stop
+		$0 start
+		RETVAL=$?
+	    fi
+	    ;;
+  *)
+        echo "Usage: $0 {start|stop|restart|reload|condrestart|status}"
+        exit 1
+esac
+
+exit $RETVAL
+

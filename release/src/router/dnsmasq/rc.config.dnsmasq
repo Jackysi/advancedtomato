@@ -1,0 +1,4 @@
+#
+# Shall the lightweight name server be started at boot up ? (yes/no)
+#
+START_DNSMASQ=no

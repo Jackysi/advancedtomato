@@ -1,0 +1,134 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/loose.dtd"> 
+
+<HTML>
+<HEAD>
+<title>uClibc Anonymous CVS Instructions</title>
+</HEAD>
+
+<body text="#000000" alink="#660000" link="#660000" bgcolor="#dee2de" vlink="#660000">
+
+<basefont face="lucida, helvetica, arial" size="3">
+
+
+<H3>Accessing the uClibc CVS Repository</H3>
+
+<CENTER>
+      <TABLE BORDER=0 CELLSPACING=1 CELLPADDING=2>
+	    <TR>
+		<td bgcolor="#000000">
+		  <FONT FACE="lucida, helvetica" COLOR="#ccccc0">
+		      <B>u&nbsp;C&nbsp;l&nbsp;i&nbsp;b&nbsp;c</B>
+		  </FONT>
+		</TD>
+	    </TR>
+      </TABLE>
+
+
+</CENTER>
+
+<TABLE WIDTH="95%" CELLSPACING=1 CELLPADDING=4 BORDER=1>
+<TR><TD BGCOLOR="#ccccc0" ALIGN=center>
+    <A NAME="intro"> <BIG><B>
+    Anonymous CVS
+    </B></BIG></A>
+</TD></TR>
+<TR><TD BGCOLOR="#eeeee0">
+
+We allow anonymous (read-only) CVS access to everyone.  The first command you
+need to run for anonymous CVS access is:
+<pre>
+cvs -d:pserver:anonymous@uclibc.org:/var/cvs login</pre>
+<p>
+CVS will prompt you for a password.  Just press Enter.  This step only 
+needs to be done once, the first time you attempt to access CVS.
+<p>
+Once the login is complete, you can then check the list of available
+CVS modules by running the following command (all on one line):
+<pre>
+cvs -z3 -d:pserver:anonymous@uclibc.org:/var/cvs co -c </pre>
+
+<p>
+If you wish, you can then check out a local copy of any of the 
+available modules.  The following is an example of how to grab 
+a copy of the uClibc source code:
+<pre>
+    cvs -z3 -d:pserver:anonymous@uclibc.org:/var/cvs co -P uClibc</pre>
+This will create a directory called <b>uClibc</b> in the current 
+directory which contains the latest and greatest source code for
+uClibc.
+
+<p>
+I usually create a ~/.cvsrc file with the following things in it, and I
+recommend you should use the same:
+<pre>
+    -z3
+    update -dP
+    rdiff -u
+    diff -ubBwpN
+    checkout -P</pre>
+
+<p> 
+Once you've checked out a copy of the source tree, you can update your
+source tree at any time so it is in sync with the latest and greatest by
+running the command:
+<pre>
+cvs update</pre>
+
+Because you've only been granted anonymous access to the tree, you won't be
+able to commit any changes. Changes can be submitted for inclusion by posting
+them to the appropriate <a
+href="http://www.uclibc.org/mailman/listinfo/uclibc">mailing list</a>.
+
+
+<!-- End of Table -->
+
+</TD></TR>
+</TABLE>
+
+
+
+<!-- Footer -->
+<HR>
+<TABLE WIDTH="100%">
+    <TR>
+	<TD>
+	    <font size="-1" face="arial, helvetica, sans-serif">
+	    Mail all comments, insults, suggestions and bribes to 
+	    <a href="mailto:andersen@codepoet.org">Erik Andersen</a><BR>
+	    </font>
+	</TD>
+
+	<TD>
+	    <a href="http://www.vim.org"><img border=0 width=90 height=36
+	    src="images/written.in.vi.png" 
+	    alt="This site created with the vi editor"></a>
+	</TD>
+
+	<TD>
+	    <a href="http://www.gimp.org/"><img border=0 width=90 height=36
+	    src="images/gfx_by_gimp.png" alt="Graphics by GIMP"></a>
+	</TD>
+
+	<TD>
+	    <a href="http://www.linuxtoday.com"><img width=90 height=36
+	    src="images/ltbutton2.png" alt="Linux Today"></a>
+	</TD>
+
+	<TD>
+	    <p><a href="http://slashdot.org"><img width=90 height=36
+	    src="images/sdsmall.png" alt="Slashdot"></a>
+	</TD>
+
+	<TD>
+	    <a href="http://freshmeat.net"><img width=90 height=36
+	    src="images/fm.mini.png" alt="Freshmeat"></a>
+	</TD>
+
+    </TR>
+</TABLE>
+
+
+</BODY>
+</HTML>
+
+

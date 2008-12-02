@@ -1,0 +1,83 @@
+SOFTWARE REQUIREMENTS
+
+   Compiling and running uClibc requires Linux kernel header files.
+   uClibc will be compiled to match the interfaces available in the
+   provided version of the Linux kernel headers.  Linux kernel version
+   2.0, version 2.2, and version 2.4 are known to work.  Other kernel
+   versions may work but havn't been tested.  Its also helpful to have
+   a working version of GNU binutils, and GNU gcc -- using excessively
+   old versions of these packages can cause very strange errors that
+   are difficult to find and fix.
+
+
+CONFIGURING uClibc:
+
+ - Check the Rules.mak file and adjust CROSS to specify your cross-
+    compiler if you are cross compiling.
+
+ - Use must have a valid configuration file to compile uClibc.  Do not
+    skip this step.  New configuration options are added in each
+    release, and odd problems will turn up if your configuration file
+    is not set up as expected.  If you want to carry your existing
+    configuration to a new version with minimal work, use "make
+    oldconfig", which will only ask you for the answers to new
+    questions.
+
+ - Available configuration commands are:
+	"make menuconfig"   Text based color menus, radiolists & dialogs.
+	"make oldconfig"    Default all questions based on the contents of
+			     your existing ./.config file.
+	"make defconfig"    Use defaults for all options.
+	"make randconfig"   Use random values for all options.
+	"make allyesconfig" Set all values to "yes" for all options.
+	"make allnoconfig"  Set all values to "no" for all options.
+
+ - uClibc does not have proper dependancy checking (yet) so if you
+    change your uClibc configuration, you must current rebuild the
+    entire library, by first running 'make clean'.
+
+
+
+COMPILING uClibc:
+
+ - Once you have a valid configuration file, just run 'make' to compile 
+    uClibc.  
+
+
+
+INSTALLING the uClibc development environment:
+
+ - As root, if necessary, run:
+
+	make install
+
+    This will install the header files, libraries, and the gcc wrapper
+    into the directories defined in Config.
+
+
+INSTALLING the uClibc target runtime environment:
+ 
+ - As root, if necessary, run:
+
+	make PREFIX=<temporary path> install_target
+
+   This will install only the files that are necessary to run
+   binaries compiled against uClibc.  Hint: You probably do not want
+   to install the target runtime environment into /lib on your host
+   machine.
+
+
+USING uClibc:
+ 
+ - To compile programs with uClibc,
+
+       export PATH={uClibc DEVEL_PREFIX}/bin:$PATH
+
+    and then just run './configure' and 'make' as usual.
+
+Note: 
+
+	You may also want to look at extra/gcc-uclibc/gcc-uclibc.c for
+	additional information concerning what options and environment
+	variables the gcc wrapper handles.
+

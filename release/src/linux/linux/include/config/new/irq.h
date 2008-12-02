@@ -1,0 +1,1 @@
+#define CONFIG_NEW_IRQ 1

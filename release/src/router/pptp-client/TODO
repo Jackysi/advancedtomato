@@ -1,0 +1,31 @@
+10th March 2002
+
+- redesign to avoid use of setjmp/longjmp.
+
+12th February 2002
+
+- clean up -T errors in pptp-command,
+- implement GRE reordering from PoPToP to make client more resilient.
+
+23rd December 2000
+
+Things to do:
+  Autoconf/automake this beastie.
+  Fix do_gre_copy semantics to properly handle multiple calls.
+   Like the call manager, there should only be one gre-copy process
+   per connection.  This process needs to funnel packets to different
+   output tty's, though, depending on the call-id embedded in the
+   GRE encapsulation.  pptp.c must then be modified to use an
+   already-existing gre-copy process in the same way it uses an
+   already-existing call manager.
+  Support server operation.
+   Obviously, this is more process trickery.  Upon receiving a call
+   request, the call manager must automagically launch new gre/pppd
+   processes to handle it.  Also, some portions of the server control
+   protocol in pptp_ctrl.c have not been completely implemented.
+  More flexible configuration system.
+   pptp needs to read in config options from /etc/pptp or somesuch.
+   This is very necessary for server operation, since presumably we
+   will want to limit the hosts we give PPTP access to.  Maybe not,
+   though.  We could allow everyone and then allow pppd to do the
+   access control.

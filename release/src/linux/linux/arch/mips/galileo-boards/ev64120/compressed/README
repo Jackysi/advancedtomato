@@ -1,0 +1,131 @@
++------------------------------------------------+
+|  $TOPDIR/arch/mips/galileo/compressed/README   |
+|                                                |
+|  By RidgeRun Inc,                              |
+|  Aug, 2000                                     |
++------------------------------------------------+
+
+Description:
+============
+  It is intended that this makefile be wired in to run as
+  part of a top level linux build. For example, at the
+  time of this writing, if the user types "make gboot" at
+  the top level then in addition to building vmlinux the
+  build system's makefiles will descend into this
+  directory and build the "all:" target of this
+  Makefile. This will have the result of compressing the
+  vmlinux system and producing four separate systems. The
+  following snippet is pulled from this directory's
+  Makefile and describes each system.
+
+  Four systems are availalbe for download to the EVB64120A
+  board.
+
+   1. - ramsys -
+      To be loaded into ram then run. When run
+      it decompresses the "vmlinux" kernel housed in its internal
+      data structures and then jumps to the image which
+      results in a linux kernel boot.
+
+   2. - flashsys -
+      To be loaded into ram so that it can be
+      burned into the onboard flash. Then the board jumpers
+      can be switched so that the next power cycle caused
+      the system in flash to run which then proceeds as
+      described by #1 above.
+      Note: burner.srec is the utility that will allow
+      the user to get this image into flash.
+
+   3. - flashsys2 -
+      To be loaded into ram so that it can be
+      burned into the onboard flash. Then on each power
+      cycle when the standard PMON prompt is presented
+      the user can type `call 0xbf000000` to invoke
+      the system in flash which then proceeds as
+      described by #1 above.
+      Note: burner.srec is the utility that will allow
+      the user to get this image into flash.
+
+   4. - burner.srec -
+      Related to #2 and #3 above.
+
+Example: Running from Ram
+==========================
+
+  In this scenario the compressed system is downloaded
+  into ram and run directly from there. No flash is involved
+  in this scenario. Naturally, the download must be repeated
+  on every power cycle.
+
+  1. At the PMON prompt type `load`
+  2. Assuming you have your host connected to /dev/ttyS0
+     type the following command in a host shell window.
+     `cat ramsys.srec > /dev/ttyS0`
+  3. When the download completes type the following
+     at the PMON prompt: `g`
+
+
+Example: Running from flash: Scenario #1
+========================================
+
+  In this scenario vmlinux runs out of flash code
+  automatically on every power up. This means that
+  standard PMON code (of eprom) never runs.
+
+  1. Place the boot jumpers in the Boot-from-eprom
+     state. This is the normal state and how the jumpers
+     are found when booting PMON.
+
+     Jumper settings. J11 - Removed
+                      J20 - Moved from the 1&2 position to
+                            the 2&3 position instead
+
+  2. Use PMON to "load" the burner.srec image and then
+     run it. This utility will prompt you to download
+     the image that you want burned into the flash
+     part.
+
+  3. Send the flashsys.srec image to the running burner
+     utility. The utililty will indicate when the burn
+     process has completed.
+
+  4. Now switch off power and change the jumpers to
+     the boot-from-flash position. The next power cycle
+     will run the flash based system automatically.
+
+     Jumper settings. J11 - Added.
+                      J20 - Moved from the 2&3 position to
+                            the 1&2 position instead
+
+Example: Running from flash: Scenario #2
+========================================
+
+  In this scenario vmlinux runs out of flash only if the
+  PMON user decides to jump there by issuing a command to
+  PMON. Every power cycle would continue to bring up PMON
+  and a user will have to reissue the jump command to
+  force control transfer to the flash system.
+
+  1. Insure that the boot jumpers are in the Boot-from-eprom
+     state. This is the normal state and how the jumpers
+     are found when booting PMON.
+
+     Jumper settings. J11 - Removed
+                      J20 - Moved from the 1&2 position to
+                            the 2&3 position instead
+
+  2. Use PMON to "load" the burner.srec image and then
+     run it. This utility will prompt you to download
+     the image that you want burned into the flash
+     part.
+
+  3. Send the flashsys2.srec image to the running burner
+     utility. The utililty will indicate when the burn
+     process has completed.
+
+  4. Now that the image is in flash the user can invoke
+     the following PMON command whenever a vmlinux
+     boot is desired:
+
+     call 0xbf000000
+

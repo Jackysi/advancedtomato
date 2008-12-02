@@ -1,0 +1,40 @@
+This is a fast malloc implementation that I wrote several years ago.
+I later used it as the basis of GNU malloc.  My version differs from
+the GNU version in that it does not support debugging hooks, and does
+not record statistics.  Therefore it is slightly faster.
+
+In order to safely link programs using this malloc with a C library
+that provides a different malloc, you need to make sure that
+malloc(), free(), and realloc() are defined in a single object file.
+Otherwise when linking you might get a combination of this malloc()
+with the library's free().  The Makefile builds such an object file,
+alloc.o.
+
+If you are using this malloc as the allocator for a C library of your
+own, and are not linking with another C library, then you don't need
+alloc.o.  If you are building a C library, you should also write a
+replacement for the file "morecore.c" that doesn't pollute the name
+space.
+
+The header file "malloc.h" in this directory is NOT intended to be a
+public header file; it is for internal use by malloc and its
+friends.  Don't install malloc.h in a public include directory!
+
+When porting this allocator to a new machine or operating system, you
+should inspect the definition of BLOCKSIZE in malloc.h to make sure
+it is greater than or equal to your target machine's virtual memory
+page size; otherwise valloc() won't work properly.  (If you don't
+care about valloc() then BLOCKSIZE doesn't matter.)
+
+You will also need to provide a machine-dependent _default_morecore()
+function; see morecore.c for a sample version that works on Unix.
+Your morecore function should return a pointer to a newly allocated
+region of the given size, aligned on the most pessimistic alignment
+boundary for the machine.  Subsequent calls to morecore should return
+contiguous memory, and calls to morecore with a negative argument
+should return memory to the system.  If no memory is available
+morecore should return NULL.
+
+Bug reports to Mike Haertel, mike@cs.uoregon.edu.
+This version is dated March 26, 1993; include this
+date with your bug report.

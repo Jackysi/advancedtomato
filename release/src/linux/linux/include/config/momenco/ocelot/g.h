@@ -1,0 +1,1 @@
+#undef  CONFIG_MOMENCO_OCELOT_G

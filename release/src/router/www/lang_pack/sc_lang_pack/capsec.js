@@ -1,0 +1,92 @@
+var secleftmenu = new Object();
+secleftmenu.filters="其他筛选器";
+secleftmenu.blockwan="阻止 WAN 请求";
+secleftmenu.vpnpass="VPN 通过";
+
+secleftmenu.interaccess="Internet 访问";
+secleftmenu.blocksrv="阻止的服务";
+
+var firewall = new Object();
+firewall.firewallpro="防火墙保护";
+firewall.filterproxy="筛选代理";
+firewall.cookies="筛选 Cookies";
+firewall.javaapplets="筛选 Java 小程序";
+firewall.activex="筛选 ActiveX";
+firewall.blockinterreq="阻止匿名 Internet 请求";
+
+var vpn = new Object();
+vpn.ipsecpass="IPSec 通过";
+vpn.pptppass="PPTP 通过";
+vpn.l2tppass="L2TP 通过";
+
+var filter = new Object();
+filter.policyname="输入策略名称";
+filter.deny="拒绝";
+filter.allow="允许";
+filter.dayandhr="在选择的日期和时间内访问 Internet。";
+filter.days="日期";
+filter.everyday="每天";
+filter.sun="星期日";
+filter.mon="星期一";
+filter.tue="星期二";
+filter.wed="星期三";
+filter.thu="星期四";
+filter.fri="星期五";
+filter.sat="星期六";
+filter.times="时间";
+filter.tfhrs="24 小时";
+filter.from="从";
+filter.to="到";
+filter.am="上午";
+filter.pm="下午";
+filter.websiteblock="通过 URL 地址<BR>阻止网站";
+filter.blockkeyword="通过关键字<BR>阻止网站";
+filter.accessrestric="访问<BR>限制";
+filter.pcs="PC";
+filter.sun1="日";
+filter.mon1="一";
+filter.tue1="二";
+filter.wed1="三";
+filter.thu1="四";
+filter.fri1="五";
+filter.sat1="六";
+
+var summary = new Object();
+summary.policy="Internet 策略摘要";
+summary.num="编号";
+summary.policyname="策略名称";
+summary.days="日期";
+summary.tmofday="每天的时间";
+
+var filterpc = new Object();
+filterpc.listpc="PC 列表";
+filterpc.entermacaddr="以此格式输入 PC 的 MAC 地址";
+filterpc.mac01="MAC 01";
+filterpc.mac02="MAC 02";
+filterpc.mac03="MAC 03";
+filterpc.mac04="MAC 04";
+filterpc.mac05="MAC 05";
+filterpc.mac06="MAC 06";
+filterpc.mac07="MAC 07";
+filterpc.mac08="MAC 08";
+filterpc.enterip="输入 PC 的 IP 地址";
+filterpc.ip01="IP 01";
+filterpc.ip02="IP 02";
+filterpc.ip03="IP 03";
+filterpc.ip04="IP 04";
+filterpc.ip05="IP 05";
+filterpc.ip06="IP 06";
+filterpc.enteriprange="输入 PC 的 IP 范围";
+filterpc.iprange01="IP 范围 01";
+filterpc.iprange02="IP 范围 02";
+
+var portsrv = new Object();
+portsrv.tcpudp="TCP 和 UDP";
+portsrv.portrange="端口范围";
+portsrv.add="添加";
+portsrv.modify="修改";
+portsrv.cancel="取消";
+
+var secbutton = new Object();
+secbutton.editlist="编辑 PC 列表";
+secbutton.addedit="添加/编辑服务";

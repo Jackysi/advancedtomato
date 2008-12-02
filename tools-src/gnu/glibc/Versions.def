@@ -1,0 +1,107 @@
+libBrokenLocale {
+  GLIBC_2.0
+}
+libc {
+  GLIBC_2.0
+  GLIBC_2.1
+  GLIBC_2.1.1
+  GLIBC_2.1.2
+  GLIBC_2.1.3
+  GLIBC_2.1.4
+  GLIBC_2.2
+  GLIBC_2.2.1
+  GLIBC_2.2.2
+  GLIBC_2.2.3
+  GLIBC_2.2.4
+  GLIBC_2.2.5
+%ifdef USE_IN_LIBIO
+  HURD_CTHREADS_0.3
+%endif
+%ifdef EXPORT_UNWIND_FIND_FDE
+  GCC_3.0
+%endif
+}
+libcrypt {
+  GLIBC_2.0
+}
+libdb {
+  GLIBC_2.0
+  GLIBC_2.1
+  GLIBC_2.2
+}
+libdl {
+  GLIBC_2.0
+  GLIBC_2.1
+}
+libm {
+  GLIBC_2.0
+  GLIBC_2.1
+  GLIBC_2.2
+  GLIBC_2.2.3
+}
+libnsl {
+  GLIBC_2.0
+  GLIBC_2.1
+  GLIBC_2.2
+}
+libnss_compat {
+  GLIBC_2.0
+}
+libnss_db {
+  GLIBC_2.0
+}
+libnss_dns {
+  GLIBC_2.0
+}
+libnss_files {
+  GLIBC_2.0
+  GLIBC_2.1
+}
+libnss_hesiod {
+  GLIBC_2.1
+  GLIBC_2.2
+}
+libnss_nis {
+  GLIBC_2.0
+}
+libnss_nisplus {
+  GLIBC_2.0
+}
+libpthread {
+  GLIBC_2.0
+  GLIBC_2.1
+  GLIBC_2.1.1
+  GLIBC_2.1.2
+  GLIBC_2.2
+  GLIBC_2.2.3
+}
+libresolv {
+  GLIBC_2.0
+  GLIBC_2.1
+  GLIBC_2.2
+}
+librt {
+  GLIBC_2.1
+  GLIBC_2.2
+}
+libutil {
+  GLIBC_2.0
+}
+libdb1 {
+  GLIBC_2.0
+}
+ld {
+  GLIBC_2.0
+  GLIBC_2.1
+  GLIBC_2.1.1
+  GLIBC_2.2
+  GLIBC_2.2.1
+  GLIBC_2.2.3
+}
+libthread_db {
+  GLIBC_2.1.3
+  GLIBC_2.2.3
+}
+libanl {
+  GLIBC_2.2.3
+}

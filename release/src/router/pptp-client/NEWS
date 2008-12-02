@@ -1,0 +1,39 @@
+Release 1.1.0:
+
+- New release engineer.
+- allow activation as a psuedo-tty child process from pppd.
+  This allows on demand pptp links or automatically reconnect.
+- ADSL modem quirks handler by mulix@actcom.co.il.
+  Workarounds for Orckit ADSL modem.
+- workaround for Cisco PIX connection drop after 60 seconds.
+- enhance bad FCS error message.
+- ported to FreeBSD and NetBSD.
+- integrated call manager into pptp binary.
+- many bugfixes improving stability.
+
+Release 1.0.3:
+
+- New maintaining team.
+- Various bug fixes from the Debian package and FreeBSD port.
+- Incorporate patch to support erroneous return code with
+  Alcatel ADSL 1000 modems.
+- Fix incorrect call id error.
+- New command line option: --phone (specify phone number).
+  (Needed by the Dutch Mxstream ADSL service.)
+  Contributed by Rein Klazes <rklazes@xs4all.nl>
+
+Release 1.0.2:
+ 
+- Fixed some warnings.
+- glibc patches by Christoph Lameter <christoph@lameter.com>
+- Race condition fix by Gordon Chaffee <chaffee@HOME.COM>
+
+Release 1.0.1:
+
+- Added versioning information to sources and makefile.
+- Bugfixes to pptp_ctrl.c.
+
+Release 1.0.0:
+
+- This is the first public release of the pptp-linux package.
+

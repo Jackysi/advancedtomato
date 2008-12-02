@@ -1,0 +1,206 @@
+2003-03-03  Erik Andersen  <andersen@dillweed>
+
+	* Rules.mak: begin preparing for release
+
+2003-03-03  Manuel Novoa III  <mjn3@dillweed>
+
+	* libc/string/wstring.c:
+	Remove bogus link_warning.  It is meaningless and stupid.  While the
+	previous committed patch was well-meaning, the #warning it replaced
+	was simply a reminder I accidently left in when implementing strcoll/wcscoll.
+	Besides, strcmp is completely locale invariant.
+
+2003-03-03  davidm  <davidm@dillweed>
+
+	* Makefile:
+	more uClinux shared libs fixups
+
+	* libpthread/linuxthreads/sysdeps/m68k/pt-machine.h:
+	fix coldfire/68000 support properly this time, ifdef logic was back to
+	front.
+
+	* libc/sysdeps/linux/arm/setjmp.S:
+	Fix the double sub #48,  should have been an add :-)
+
+2003-03-02  Erik Andersen  <andersen@dillweed>
+
+	* libc/sysdeps/linux/common/syscalls.c: cut-n-paste strikes again
+
+	* libc/sysdeps/linux/common/syscalls.c: Add missing alias __modify_ldt
+
+2003-03-01  Erik Andersen  <andersen@dillweed>
+
+	* ldso/ldso/ldso.c, ldso/util/Makefile, ldso/util/ldd.c:
+	Teach ldd to act just the glibc provided one (relying on the
+	shared lib loader to do the work) when it is possible to do
+	so, and only go poking about through the ELF headers when that
+	fails so we can still use 'ldd' on cross compiled stuff.
+	 -Erik
+
+	* libc/inet/resolv.c: Patch from Jeffrey Damick:
+
+	With glibc if you do a res_init() that forces a reread of the nameservers file,
+	but in uClibc the res_init will not force a reread if it has already read the
+	file because then the nameservers value is greater than 0.
+
+	So res_init must call close_nameservers() before calling open_nameservers().
+
+	* libpthread/linuxthreads/internals.h:
+	Use a funky version in a probably vein attempt at preventing gdb
+	from dlopen()'ing glibc's libthread_db library...
+
+	* ldso/ldso/ldso.c:
+	doh.  I forgot mips can't talk to globals that early on in the
+	process.  Fix that up too.
+
+	* ldso/libdl/dlib.c:
+	doh.  I forgot mips can't talk to globals that early on in the
+	process.  Fix that up too.
+	 -Erik
+
+	* ldso/ldso/readelflib1.c, ldso/ldso/ld_hash.h, ldso/ldso/ldso.c, ldso/ldso/linuxelf.h:
+	Fix the shared library loader so we can properly debug things like pthreads.
+	Mips gdb support for pthreads and similar complex stuff is broken, but then it
+	couldn't have worked before either...
+	 -Erik
+
+2003-02-28  Erik Andersen  <andersen@dillweed>
+
+	* ldso/libdl/dlib.c: Fix a potential compile error
+
+	* libpthread/linuxthreads/sysdeps/mips/pt-machine.h:
+	Fixup mips pthreads
+
+2003-02-28  davidm  <davidm@dillweed>
+
+	* libpthread/linuxthreads/sysdeps/m68k/pt-machine.h:
+	restore the coldfire changes
+
+2003-02-27  Erik Andersen  <andersen@dillweed>
+
+	* libc/sysdeps/linux/common/bits/initspin.h, libc/sysdeps/linux/common/bits/pthreadtypes.h, libpthread/linuxthreads_db/td_thr_validate.c, libpthread/linuxthreads_db/thread_db.h, libpthread/linuxthreads_db/thread_dbP.h, libpthread/linuxthreads_db/td_thr_setxregs.c, libpthread/linuxthreads_db/td_thr_sigsetmask.c, libpthread/linuxthreads_db/td_thr_tls_get_addr.c, libpthread/linuxthreads_db/td_thr_tsd.c, libpthread/linuxthreads_db/td_ta_reset_stats.c, libpthread/linuxthreads_db/td_ta_set_event.c, libpthread/linuxthreads_db/td_ta_setconcurrency.c, libpthread/linuxthreads_db/td_ta_thr_iter.c, libpthread/linuxthreads_db/td_ta_tsd_iter.c, libpthread/linuxthreads_db/td_thr_clear_event.c, libpthread/linuxthreads_db/td_thr_dbresume.c, libpthread/linuxthreads_db/td_thr_dbsuspend.c, libpthread/linuxthreads_db/td_thr_event_enable.c, libpthread/linuxthreads_db/td_thr_event_getmsg.c, libpthread/linuxthreads_db/td_thr_get_info.c, libpthread/linuxthreads_db/td_thr_getfpregs.c, libpthread/linuxthreads_db/td_thr_getgregs.c, libpthread/linuxthreads_db/td_thr_getxregs.c, libpthread/linuxthreads_db/td_thr_getxregsize.c, libpthread/linuxthreads_db/td_thr_set_event.c, libpthread/linuxthreads_db/td_thr_setfpregs.c, libpthread/linuxthreads_db/td_thr_setgregs.c, libpthread/linuxthreads_db/td_thr_setprio.c, libpthread/linuxthreads_db/td_thr_setsigpending.c, libpthread/linuxthreads_db/Makefile, libpthread/linuxthreads_db/Versions, libpthread/linuxthreads_db/proc_service.h, libpthread/linuxthreads_db/td_init.c, libpthread/linuxthreads_db/td_log.c, libpthread/linuxthreads_db/td_symbol_list.c, libpthread/linuxthreads_db/td_ta_clear_event.c, libpthread/linuxthreads_db/td_ta_delete.c, libpthread/linuxthreads_db/td_ta_enable_stats.c, libpthread/linuxthreads_db/td_ta_event_addr.c, libpthread/linuxthreads_db/td_ta_event_getmsg.c, libpthread/linuxthreads_db/td_ta_get_nthreads.c, libpthread/linuxthreads_db/td_ta_get_ph.c, libpthread/linuxthreads_db/td_ta_get_stats.c, libpthread/linuxthreads_db/td_ta_map_id2thr.c, libpthread/linuxthreads_db/td_ta_map_lwp2thr.c, libpthread/linuxthreads_db/td_ta_new.c, libpthread/linuxthreads_db/Banner, libpthread/linuxthreads_db/ChangeLog, libpthread/linuxthreads/sysdeps/sparc/stackinfo.h, libpthread/linuxthreads/sysdeps/sh/pt-machine.h, libpthread/linuxthreads/sysdeps/sh/stackinfo.h, libpthread/linuxthreads/sysdeps/sh/tls.h, libpthread/linuxthreads/sysdeps/pthread/bits/libc-lock.h, libpthread/linuxthreads/sysdeps/pthread/bits/libc-tsd.h, libpthread/linuxthreads/sysdeps/pthread/tls.h, libpthread/linuxthreads/sysdeps/powerpc/pt-machine.h, libpthread/linuxthreads/sysdeps/powerpc/stackinfo.h, libpthread/linuxthreads/sysdeps/mips/pt-machine.h, libpthread/linuxthreads/sysdeps/mips/stackinfo.h, libpthread/linuxthreads/sysdeps/m68k/pt-machine.h, libpthread/linuxthreads/sysdeps/m68k/stackinfo.h, libpthread/linuxthreads/sysdeps/i386/i686/pt-machine.h, libpthread/linuxthreads/sysdeps/i386/pt-machine.h, libpthread/linuxthreads/sysdeps/i386/sigcontextinfo.h, libpthread/linuxthreads/sysdeps/i386/stackinfo.h, libpthread/linuxthreads/sysdeps/i386/tls.h, libpthread/linuxthreads/sysdeps/i386/useldt.h, libpthread/linuxthreads/sysdeps/cris/pt-machine.h, libpthread/linuxthreads/sysdeps/cris/stackinfo.h, libpthread/linuxthreads/sysdeps/arm/pt-machine.h, libpthread/linuxthreads/sysdeps/arm/sigcontextinfo.h, libpthread/linuxthreads/sysdeps/arm/stackinfo.h, libpthread/linuxthreads/sysdeps/alpha/pt-machine.h, libpthread/linuxthreads/sysdeps/alpha/stackinfo.h, libpthread/linuxthreads/pthread.c, libpthread/linuxthreads/restart.h, libpthread/linuxthreads/semaphore.c, libpthread/linuxthreads/semaphore.h, libpthread/linuxthreads/signals.c, libpthread/linuxthreads/spinlock.c, libpthread/linuxthreads/spinlock.h, libpthread/linuxthreads/condvar.c, libpthread/linuxthreads/internals.h, libpthread/linuxthreads/join.c, libpthread/linuxthreads/manager.c, libpthread/linuxthreads/mutex.c, libpthread/Makefile, include/semaphore.h:
+	Major update for pthreads, based in large part on improvements
+	from glibc 2.3.  This should make threads much more efficient.
+	 -Erik
+
+	* test/Rules.mak: Fix a silly bug
+
+	* extra/gcc-uClibc/gcc-uClibc.c:
+	Patch from David Airlie to fix handling of ctor/dtor stuff when used in
+	combination with and w/o both the nostdinc and nostdlib options.
+
+2003-02-26  Erik Andersen  <andersen@dillweed>
+
+	* test/mmap/mmap.c, libc/sysdeps/linux/mips/_mmap.c:
+	Prefer mmap2 for mips when available.  Fix the mmap test.
+	 -Erik
+
+	* ldso/ldso/ldso.c:
+	Fixup a really stupid and terribly obvious bug that was causing
+	the shared lib loader on mips to puke...
+	 -Erik
+
+	* ldso/ldso/ldso.c:
+	Add a bunch of additional early debugg messages into the shared
+	lib loader to make it more obvious what is wrong when things puke
+	early on in the process.
+	 -Erik
+
+2003-02-25  Erik Andersen  <andersen@dillweed>
+
+	* docs/uclibc.org/index.html, docs/uclibc.org/old-news.html:
+	Add a toolchain section.  Mention Steven J. Hill's mips RPMs.
+
+2003-02-24  Erik Andersen  <andersen@dillweed>
+
+	* libc/misc/dirent/dirstream.h, libc/sysdeps/linux/powerpc/pread_write.c:
+	Fixup some small issues that show up when large file support is disabled
+
+2003-02-23  davidm  <davidm@dillweed>
+
+	* libc/sysdeps/linux/arm/__longjmp.S, libc/sysdeps/linux/arm/setjmp.S:
+	Fix FP handling alignment problems on ARM platforms without an FPU,
+	patch from Vadim Lebedev <vadim@7chips.com>.
+
+2003-02-23  Erik Andersen  <andersen@dillweed>
+
+	* libc/sysdeps/linux/mips/bits/kernel_stat.h, libc/sysdeps/linux/mips/bits/kernel_types.h:
+	Some stuff I forgot to check in about a month ago...
+	 -Erik
+
+2003-02-21  miles  <miles@dillweed>
+
+	* libc/sysdeps/linux/v850/crt0.S:
+	Reserve stack space for args we pass to __uClibc_main.
+
+2003-02-20  miles  <miles@dillweed>
+
+	* libc/sysdeps/linux/v850/sys/ptrace.h: Add back in PTRACE_SINGLESTEP.
+	Use decimal instead of hex to agree with common/sys/ptrace.h.
+
+2003-02-18  Erik Andersen  <andersen@dillweed>
+
+	* libc/sysdeps/linux/common/Makefile, libc/sysdeps/linux/common/ioctl.c, libc/sysdeps/linux/common/syscalls.c, libc/sysdeps/linux/powerpc/Makefile, libc/sysdeps/linux/powerpc/ioctl.c:
+	Fixup ioctl so we can special case powerpc silliness
+
+2003-02-17  Erik Andersen  <andersen@dillweed>
+
+	* docs/uclibc.org/index.html: Mention latest update
+
+	* docs/uclibc.org/FAQ.html, docs/uclibc.org/old-news.html: Fixup bui
+
+	* test/Makefile: Patch from Stefan Allius
+
+	    And at last I fixed a warning in test's Makefile. (ldso was first
+	    added to the ALL_SUBDIRS variable in line 25):
+
+	* libc/string/wstring.c: Patch from Stefan Allius:
+
+	    In libc/string/wstring I replaced a '#warning ..' statement by the
+	    link_warning macro.
+
+	* include/features.h: Patch from Stefan Allius:
+
+	    I patched the link_warning macro in features.h to fix warnings like:
+	    locale.c:358: warning: `__evoke_link_warning_localeconv' defined but not used
+
+2003-02-17  davidm  <davidm@dillweed>
+
+	* Makefile, Rules.mak:
+	updates to the uClinux-dist romfs and uClinux shared library targets.
+
+	* include/paths.h, libc/misc/time/time.c:
+	Use a define for the path to /etc/TZ
+
+	* libc/sysdeps/linux/common/Makefile:
+	Using -g when doing the initfini compilation breaks the SH4 case pretty
+	badly. I have removed -g for all platforms as I suspect no one wants it for
+	the initfini creation process.
+
+	* libc/sysdeps/linux/sh/setjmp.S:
+	If floating point was enabled,  setjmp would write to memory well past the
+	end of the buffer.
+
+2003-02-16  Erik Andersen  <andersen@dillweed>
+
+	* ldso/ldso/powerpc/boot1_arch.h, ldso/ldso/powerpc/elfinterp.c, libc/sysdeps/linux/powerpc/bits/syscalls.h:
+	Fixup powerpc syscalls to eliminate warnings with gcc-3.2, and fix
+	some other minor warnings.
+
+2003-02-15  Erik Andersen  <andersen@dillweed>
+
+	* libc/sysdeps/linux/common/syscalls.c:
+	Add missing ';'s so powerpc will compile
+
+	* Rules.mak: Don't just tune, use -march which implies -mcpu as well
+
+	* libc/sysdeps/linux/common/setuid.c, libc/sysdeps/linux/common/syscalls.c, libc/sysdeps/linux/common/Makefile:
+	Fix a _ton_ of system call user type/kernel type translation
+	problems, causing user space to get scrambled hosed up results.
+	 -Erik
+
+2003-02-12  ds  <ds@dillweed>
+
+	* debian/config, debian/control, debian/control.in, debian/fixlinks, debian/libuclibc-dev.files, debian/libuclibc0.files, debian/libuclibc0.shlibs, debian/rules, debian/uclibc-toolchain.files, debian/changelog:
+	Update CVS to Debian 0.9.18-1 package
+

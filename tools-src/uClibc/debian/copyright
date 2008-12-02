@@ -1,0 +1,12 @@
+This package was debianized by David Schleef <ds@stm.lbl.gov> on
+Mon, 25 Jun 2001 22:13:43 -0700.
+
+The source is a snapshot of the uClibc CVS tree at
+:pserver:anonymous@uclibc.org:/var/cvs.  Password
+is "", module name is uClibc.
+
+Upstream Maintainer: Erik Andersen <andersee@debian.org>
+
+Copyright:
+
+LGPL

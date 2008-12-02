@@ -1,0 +1,27 @@
+# File name	Caller	Syscall name	# args	Strong name	Weak names
+
+accept		-	accept		i:iBN	__libc_accept	accept
+bind		-	bind		i:ipi	bind
+connect		-	connect		i:ipi	__libc_connect	__connect connect
+gethostid	-	gethostid	i:	gethostid
+gethostname	-	gethostname	i:bn	__gethostname	gethostname
+getpeername	-	getpeername	i:ibN	getpeername
+getsockname	-	getsockname	i:ibN	getsockname
+getsockopt	-	getsockopt	i:iiiBN	getsockopt
+listen		-	listen		i:ii	listen
+recv		-	recv		i:ibni	__libc_recv	recv
+recvfrom	-	recvfrom	i:ibniBN	__libc_recvfrom	recvfrom
+recvmsg		-	recvmsg		i:ipi	__libc_recvmsg	recvmsg
+send		-	send		i:ibni	__libc_send	__send send
+sendmsg		-	sendmsg		i:ipi	__libc_sendmsg	sendmsg
+sendto		-	sendto		i:ibnibn	__libc_sendto	sendto
+sethostid	-	sethostid	i:i	sethostid
+sethostname	-	sethostname	i:pi	sethostname
+setsockopt	-	setsockopt	i:iiibn	setsockopt
+shutdown	-	shutdown	i:ii	shutdown
+socket		-	socket		i:iii	socket
+socketpair	-	socketpair	i:iiif	socketpair
+
+
+
+

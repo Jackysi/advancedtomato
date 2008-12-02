@@ -1,0 +1,2 @@
+# XFAIL
+echo -e '\0' | busybox grep .

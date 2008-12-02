@@ -1,0 +1,15 @@
+Source: pptp-linux
+Maintainer: Thomas Quinot <thomas@debian.org>
+Section: net
+Priority: optional
+Standards-Version: 3.1.1
+Build-Depends: debhelper
+
+Package: pptp-linux
+Architecture: any
+Depends: ${shlibs:Depends}, ppp
+Description: Point-to-Point Tunneling Protocol (PPTP) Client
+ Client for the proprietary Microsoft Point-to-Point Tunneling
+ Protocol, PPTP.  Allows connection to a PPTP based VPN as used
+ by employers and some cable and ADSL service providers.
+ Requires MPPE support in kernel, use package kernel-patch-mppe.

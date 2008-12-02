@@ -1,0 +1,1 @@
+#undef  CONFIG_PHONE_IXJ_PCMCIA

@@ -1,0 +1,47 @@
+Source: uclibc
+Section: devel
+Priority: optional
+Maintainer: David Schleef <ds@schleef.org>
+Build-Depends: debhelper, bzip2, _KERNEL_
+Standards-Version: 3.5.8
+
+Package: libuclibc-dev_TARGET_
+Section: devel
+Architecture: _ARCHS_
+Depends: libuclibc0_TARGET_ (= ${Source-Version})
+Description: A small implementation of the C library
+ uClibc is an implementation of the standard C library that is
+ much smaller than glibc, which makes it useful for embedded
+ systems.  This package includes header files and development
+ libraries necessary to compile applications that use uClibc.
+
+Package: libuclibc0_TARGET_
+Section: libs
+Architecture: _ARCHS_
+Depends:
+Description: A small implementation of the C library
+ uClibc is an implementation of the standard C library that is
+ much smaller than glibc, which makes it useful for embedded
+ systems.  This package provides only the run-time libraries.
+ .
+ The Debian binary packages for uClibc do not provide the necessary
+ components for using uClibc as the primary library on a system,
+ as might be done for an embedded system.
+
+Package: uclibc_TARGET_-toolchain
+Section: devel
+Architecture: _ARCHS_
+Depends: gcc|c-compiler, binutils, ${shlibs:Depends}
+Recommends: libuclibc-dev_TARGET_
+Conflicts: uclibc_TARGET_-gcc
+Replaces: uclibc_TARGET_-gcc
+Description: A compiler wrapper for uClibc
+ This package includes utilities that function as a toolchain for
+ compiling with uClibc instead of the native libc.  The utilities
+ have names such as powerpc-uclibc-gcc (depending on the architecture),
+ and should behave identically to the base utilities, except that
+ they use headers and libraries provided in the libuclibc-dev_TARGET_
+ package.  Most utilities are symbolic links to the correct underlying
+ utility, although gcc and ld are implemented as wrapper binaries that
+ call gcc and ld with the necessary arguments and command line options.
+

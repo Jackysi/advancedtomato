@@ -1,0 +1,1 @@
+#undef  CONFIG_MTD_CSTM_MIPS_IXX

@@ -1,0 +1,115 @@
+Mon Mar 11 10:21:00 2002  mulix  <mulix@actcom.co.il>
+
+	* Makefile (all): make config.h before making $(PPTP_BIN). 
+	* Makefile (config.h): truncate the file if it exists before
+	inputing to it - '>' instead of '>>'
+
+Mon Mar 11 12:48:16 2002  James Cameron  <quozl@us.netrek.org>
+
+	* DEVELOPERS: add mailing lists.
+	* Makefile (CFLAGS): remove PPPD_BINARY and PPTP_LINUX_VERSION in
+	favour of a config.h file.
+	* Makefile (config.h): create config.h from Makefile variables
+	* Makefile (PPTP_DEPS): add config.h
+	* pptp.c: include config.h
+	* version.c: include config.h
+	* util.c (PROGRAM_NAME): no longer used by two programs, change
+	PROGRAM_NAME to default to pptp.
+	* Makefile (CFLAGS): remove -DPROGRAM_NAME
+
+Fri Mar  8 11:56:00 2002  mulix  <mulix@actcom.co.il>
+
+	* TODO: remove notes about compiler warnings, as all compiler
+	warnings are now gone.
+	* pptp.c (main): add volatile qualifier to some variables to
+	silence gcc warnings 'variable might be clobbered by longjmp or
+	vfork'. add note explaining why volatile and that it should be
+	removed when the longjmp is removed.
+	* pptp_callmgr.c (main): likewise. 
+	* inststr.c (inststr): break up "ptr += strlen(++ptr)" which is
+	undefined behaviour into two expressions. 
+	* pptp.c (main): initialize callmgr_sock to -1 since it might be
+	used uninitialized otherwise. 
+	* pptp_ctrl.c (pptp_dispatch_ctrl_packet): #ifdef 0 two unused
+	variables referring to the current packet, which should not be
+	simply erased, as we might want to use them in the future.
+	* util.c: add missing #include. 
+	
+Fri Mar  8 21:11:17 2002  James Cameron  <quozl@us.netrek.org>
+
+	* DEVELOPERS: new file.
+
+Fri Mar  8 10:12:28 2002  James Cameron  <quozl@us.netrek.org>
+
+	* NEWS: convert to newest first format to comply with GNU Coding
+	Standards, The NEWS File.
+
+Fri Mar  8 09:01:22 2002  James Cameron  <quozl@us.netrek.org>
+
+	* pptp_ctrl.c (pptp_make_packet): Cisco PIX is generating a
+	non-complaint header with the reserved0 field not zero, causing
+	the connection to stop after 60 seconds.
+	From: Rein Klazes <rklazes@xs4all.nl>
+
+Fri Mar  8 08:56:30 2002  James Cameron  <quozl@us.netrek.org>
+
+	* TODO: add compiler warnings note.
+	* NEWS: propogate summary of ChangeLog.
+	* AUTHORS: add names from mailing list contributions.
+	From: Rein Klazes <rklazes@xs4all.nl>
+	* Makefile: remove pptp_callmgr binary
+	* debian/copyright: adjust pointer to current release.
+	* debian/rules, Makefile: remove pptp_callmgr binary now that pptp
+	forks and calls it without exec.
+
+Sat Mar  2 04:04:37 2002  James Cameron  <quozl@us.netrek.org>
+
+	* README: adopt new mailing lists and point to project web site.
+	* USING: include psuedo-tty activation instructions.
+	* Makefile: increment version, avoid clobbering editor backup
+	files on clean.
+
+Fri Mar  1 12:13:03 2002  James Cameron  <quozl@us.netrek.org>
+
+	* pptp_gre.c: move #include <sys/types.h> higher up
+	* pptp_gre.c, pptp_ctrl.c: change unsigned to unsigned int
+	* pptp.c: what we need from pty.h is in libutil.h for FreeBSD and
+	util.h for NetBSD (ideally this should be in autoconf)
+	* pptp.c: synchronisation changes
+	* orckit_quirks.c: #include <sys/types.h>
+	From: rhialto@azenomei.knuffel.net
+
+Fri Nov 23 14:42:07 2001  James Cameron  <quozl@us.netrek.org>
+
+	* USING: reformat, add version header.
+
+Tue Nov 20 11:01:10 2001  mulix  <mulix@actcom.co.il>
+
+	* AUTHORS: add mulix.
+	* USING: add paragraph on quirks support.
+	* orckit_quirks.c: remove debugging call, rename functions and
+	variables consistently.
+	* pptp.c: (usage) remove debugging print.
+	* pptp_ctrl.c: when calling quirks hooks, check their return
+	values and warn if an error occurs.
+	* pptp_quirks.c: orckit_atur3_start_ctrl_conn was renamed
+	orckit_atur3_start_ctrl_conn_hook.
+	From: mulix@actcom.co.il
+
+Tue Nov 20 17:01:10 2001  James Cameron  <quozl@us.netrek.org>
+
+	* orckit_quirks.c, orckit_quirks.h: add quirks handling for orckit
+	adsl modems.
+	* pptp_quirks.c, pptp_quirks.h: add generic quirks handling.
+	* Makefile (PPTP_DEPS, PPTP_OBJS, CALLMGR_OBJS, CALLMGR_DEPS): add
+	quirks sources and objects.
+	* pptp_ctrl.c: add pptp_set_link, add code to adjust packets
+	depending on quirks.
+	* pptp.c (usage, long_options, main): add --quirks command line
+	option.
+	From: mulix@actcom.co.il
+
+Tue Nov 20 16:45:35 2001  James Cameron  <quozl@us.netrek.org>
+
+	* pptp_gre.c: enhance error message for bad FCS.
+

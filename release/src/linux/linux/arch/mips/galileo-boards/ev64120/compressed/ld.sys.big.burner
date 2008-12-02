@@ -1,0 +1,11 @@
+OUTPUT_FORMAT("elf32-bigmips")
+OUTPUT_ARCH(mips)
+ENTRY(main)
+
+SECTIONS
+{
+ . = 0xA0400000;
+ .text : {*(.text)}
+ .data : {*(.data)}
+ .bss  : {*(.bss)}
+}

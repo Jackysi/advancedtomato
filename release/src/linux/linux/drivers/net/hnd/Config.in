@@ -1,0 +1,37 @@
+#
+# Broadcom Home Networking Division (HND) driver configuration
+#
+# Copyright 2005, Broadcom Corporation
+# All Rights Reserved.
+# 
+# THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
+# KIND, EXPRESS OR IMPLIED, BY STATUTE, COMMUNICATION OR OTHERWISE. BROADCOM
+# SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
+# FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
+#
+
+mainmenu_option next_comment
+comment 'Broadcom HND network devices'
+   tristate 'Broadcom HND network device support' CONFIG_HND $CONFIG_PCI
+   if [ "$CONFIG_HND" != "n" ]; then
+      dep_tristate '  Broadcom InsideLine HPNA support' CONFIG_IL $CONFIG_HND
+      if [ "$CONFIG_IL" != "n" ]; then
+         bool '    Broadcom BCM42xx support' CONFIG_IL_42XX
+         bool '    Broadcom BCM47xx support' CONFIG_IL_47XX
+         int '    LARQ buffer allocation (0 = tiny, 2 = huge)' CONFIG_LARQ_BUF 0
+      fi
+      dep_tristate '  Broadcom 10/100 Ethernet support' CONFIG_ET $CONFIG_HND
+      if [ "$CONFIG_ET" != "n" ]; then
+         bool '    Broadcom BCM4413 support' CONFIG_ET_4413
+         bool '    Broadcom BCM47xx support' CONFIG_ET_47XX
+      fi
+      dep_tristate '  Broadcom BCM43xx 802.11 Wireless support' CONFIG_WL $CONFIG_HND
+      if [ "$CONFIG_WL" != "n" ]; then
+         string '    wl config file name for compile ap obj' CONFIG_WL_AP wlconfig_lx_router_ap 
+         string '    wl config file name for compile sta obj' CONFIG_WL_STA wlconfig_lx_router_sta 
+         string '    wl config file name for compile apsta obj' CONFIG_WL_APSTA wlconfig_lx_router_apsta 
+         string '    wl config file name for compile dngl obj' CONFIG_WL_DNGL wlconfig_lx_router_dongle 
+         string '    link one of above to wl.o' CONFIG_WL_LINK AP 
+      fi
+   fi
+endmenu

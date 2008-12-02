@@ -1,0 +1,1 @@
+#define CONFIG_ET_47XX 1

@@ -1,0 +1,217 @@
+#
+# For a description of the syntax of this configuration file,
+# see scripts/kbuild/config-language.txt.
+#
+
+menu "Another Bourne-like Shell"
+
+choice
+	prompt "Choose your default shell"
+	default "none"
+	help
+	  Choose a shell. The ash shell is the most bash compatible
+	  and full featured.
+
+config CONFIG_FEATURE_SH_IS_ASH
+	bool "ash"
+
+config CONFIG_FEATURE_SH_IS_HUSH
+	bool "hush"
+
+config CONFIG_FEATURE_SH_IS_LASH
+	bool "lash"
+
+config CONFIG_FEATURE_SH_IS_MSH
+	bool "msh"
+
+config CONFIG_FEATURE_SH_IS_NONE
+	bool "none"
+
+endchoice
+
+if CONFIG_FEATURE_SH_IS_ASH
+	config CONFIG_ASH
+	default y
+
+	comment "ash (forced enabled as default shell)"
+endif
+	
+if !CONFIG_FEATURE_SH_IS_ASH
+config CONFIG_ASH
+	bool "ash"
+	default y
+	help
+	  Make sh a link to ash.
+endif
+
+comment "Ash Shell Options"
+	depends on CONFIG_ASH
+
+config CONFIG_ASH_JOB_CONTROL
+	bool "  Enable Job control"
+	default y
+	depends on CONFIG_ASH
+	help
+	  Enable job control in the ash shell.
+
+config CONFIG_ASH_ALIAS
+	bool "  Enable alias support"
+	default y
+	depends on CONFIG_ASH
+	help
+	  Enable alias support in the ash shell.
+
+config CONFIG_ASH_MATH_SUPPORT
+	bool "  Enable Posix math support"
+	default y
+	depends on CONFIG_ASH
+	help
+	  Enable math support in the ash shell.
+
+config CONFIG_ASH_GETOPTS
+	bool "  Enable getopt builtin to parse positional parameters"
+	default n
+	depends on CONFIG_ASH
+	help
+	  Enable builtin getopt in the ash shell.
+
+config CONFIG_ASH_CMDCMD
+	bool "  Enable cmdcmd to override shell builtins"
+	default n
+	depends on CONFIG_ASH
+	help
+	  Enable support for the ash 'command' builtin, which allows
+	  you to run the specified command with the specified arguments,
+	  even when there is an ash builtin command with the same name.
+
+config CONFIG_ASH_MAIL
+	bool "  Check for new mail on interactive shells"
+	default y
+	depends on CONFIG_ASH
+	help
+	  Enable "check for new mail" in the ash shell.
+
+config CONFIG_ASH_OPTIMIZE_FOR_SIZE
+	bool "  Optimize for size instead of speed"
+	default y
+	depends on CONFIG_ASH
+	help
+	  Compile ash for reduced size at price of speed.
+
+if CONFIG_FEATURE_SH_IS_HUSH
+	config CONFIG_HUSH
+	default y
+
+	comment "hush (forced enabled as default shell)"
+endif
+	
+if !CONFIG_FEATURE_SH_IS_HUSH
+config CONFIG_HUSH
+	bool "hush"
+	default n
+	help
+	  Make sh a link to hush.
+endif
+
+if CONFIG_FEATURE_SH_IS_LASH
+	config CONFIG_LASH
+	default y
+
+	comment "lash (forced enabled as default shell)"
+endif
+
+if !CONFIG_FEATURE_SH_IS_LASH
+config CONFIG_LASH
+	bool "lash"
+	default n
+	help
+	  Make sh a link to lash.
+endif
+
+if CONFIG_FEATURE_SH_IS_MSH
+	config CONFIG_MSH
+	default y
+
+	comment "msh (forced enabled as default shell)"
+endif
+
+if !CONFIG_FEATURE_SH_IS_MSH
+config CONFIG_MSH
+	bool "msh"
+	default n
+	help
+	  Make sh a link to msh.
+endif
+
+
+comment "Bourne Shell Options"
+	depends on CONFIG_MSH || CONFIG_LASH || CONFIG_HUSH || CONFIG_ASH
+
+config CONFIG_FEATURE_COMMAND_EDITING
+	bool "command line editing"
+	default n
+	depends on CONFIG_MSH || CONFIG_LASH || CONFIG_HUSH || CONFIG_ASH
+	help
+	  Enable command editing in shell.
+
+config CONFIG_FEATURE_COMMAND_SAVEHISTORY
+	bool "  history saving"
+	default n
+	depends on CONFIG_ASH
+	help
+	  Enable history saving in ash shell.
+
+config CONFIG_FEATURE_COMMAND_TAB_COMPLETION
+	bool "tab completion"
+	default n
+	depends on CONFIG_MSH || CONFIG_LASH || CONFIG_HUSH || CONFIG_ASH
+	help
+	  Enable tab completion in shell.
+
+config CONFIG_FEATURE_COMMAND_USERNAME_COMPLETION
+	bool "username completion"
+	default n
+	depends on CONFIG_MSH || CONFIG_LASH || CONFIG_HUSH || CONFIG_ASH
+	help
+	  Enable username completion in shell.
+
+config CONFIG_FEATURE_COMMAND_HISTORY
+	int "history size"
+	default 15
+	depends on CONFIG_MSH || CONFIG_LASH || CONFIG_HUSH || CONFIG_ASH
+	help
+	  Specify command history size in shell.
+
+config CONFIG_FEATURE_SH_STANDALONE_SHELL
+	bool "Standalone shell"
+	default n
+	depends on CONFIG_MSH || CONFIG_LASH || CONFIG_HUSH || CONFIG_ASH
+	help
+	  Have all the busybox commands built into the shell, creating
+	  a standalone shell.
+
+config CONFIG_FEATURE_SH_APPLETS_ALWAYS_WIN
+	bool "Standalone shell -- applets always win"
+	default n
+	depends on CONFIG_MSH || CONFIG_LASH || CONFIG_HUSH || CONFIG_ASH
+	help
+	  Use a command builtin to the shell over one with the same name,
+	  that may be on the system.
+
+config CONFIG_FEATURE_SH_FANCY_PROMPT
+	bool "Fancy shell prompts"
+	default n
+	depends on CONFIG_MSH || CONFIG_LASH || CONFIG_HUSH || CONFIG_ASH
+	help
+	  Setting this option allows for prompts to use things like \w and
+	  \$ and also using escape codes.
+
+config CONFIG_FEATURE_SH_EXTRA_QUIET
+	bool "Hide message on interactive shell startup"
+	default n
+	depends on CONFIG_MSH || CONFIG_LASH || CONFIG_HUSH || CONFIG_ASH
+	help
+	  Remove the busybox introduction when starting a shell.
+
+endmenu
+

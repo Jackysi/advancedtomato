@@ -1,0 +1,92 @@
+var secleftmenu = new Object();
+secleftmenu.filters="Filtros adicionales";
+secleftmenu.blockwan="Bloquear solicitudes de WAN";
+secleftmenu.vpnpass="Pasarela VPN";
+
+secleftmenu.interaccess="Acceso a Internet";
+secleftmenu.blocksrv="Servicios bloqueados";
+
+var firewall = new Object();
+firewall.firewallpro="Protección con servidor de seguridad";
+firewall.filterproxy="Filtrar proxy";
+firewall.cookies="Filtrar cookies";
+firewall.javaapplets="Filtrar subprogramas Java";
+firewall.activex="Filtrar ActiveX";
+firewall.blockinterreq="Bloquear solicitudes anónimas de Internet";
+
+var vpn = new Object();
+vpn.ipsecpass="Pasarela IPSec";
+vpn.pptppass="Pasarela PPTP";
+vpn.l2tppass="Pasarela L2TP";
+
+var filter = new Object();
+filter.policyname="Introducir nombre de directiva";
+filter.deny="Denegar";
+filter.allow="Permitir";
+filter.dayandhr="Acceso a Internet durante días y horas seleccionados.";
+filter.days="Días";
+filter.everyday="Cada día";
+filter.sun="Dom";
+filter.mon="Lun";
+filter.tue="Mar";
+filter.wed="Mié";
+filter.thu="Jue";
+filter.fri="Vie";
+filter.sat="Sáb";
+filter.times="Horas";
+filter.tfhrs="24 horas";
+filter.from="De";
+filter.to="A";
+filter.am="AM";
+filter.pm="PM";
+filter.websiteblock="Bloqueo de sitios Web<BR>por dirección URL";
+filter.blockkeyword="Bloqueo de sitios Web<BR>por palabra clave";
+filter.accessrestric="Restricciones <BR>de acceso";
+filter.pcs="Equipos PC";
+filter.sun1="D";
+filter.mon1="L";
+filter.tue1="M";
+filter.wed1="M";
+filter.thu1="J";
+filter.fri1="V";
+filter.sat1="S";
+
+var summary = new Object();
+summary.policy="Resumen de directivas de Internet";
+summary.num="No.";
+summary.policyname="Nombre de la directiva";
+summary.days="Días";
+summary.tmofday="Hora del día";
+
+var filterpc = new Object();
+filterpc.listpc="Lista de equipos";
+filterpc.entermacaddr="Introducir dirección MAC de los equipos en este formato";
+filterpc.mac01="MAC 01";
+filterpc.mac02="MAC 02";
+filterpc.mac03="MAC 03";
+filterpc.mac04="MAC 04";
+filterpc.mac05="MAC 05";
+filterpc.mac06="MAC 06";
+filterpc.mac07="MAC 07";
+filterpc.mac08="MAC 08";
+filterpc.enterip="Introducir la dirección IP de los equipos";
+filterpc.ip01="IP 01";
+filterpc.ip02="IP 02";
+filterpc.ip03="IP 03";
+filterpc.ip04="IP 04";
+filterpc.ip05="IP 05";
+filterpc.ip06="IP 06";
+filterpc.enteriprange="Introducir el intervalo de IP de los equipos";
+filterpc.iprange01="Intervalo de IP 01";
+filterpc.iprange02="Intervalo de IP 02";
+
+var portsrv = new Object();
+portsrv.tcpudp="TCP y UDP";
+portsrv.portrange="Intervalo de puertos";
+portsrv.add="Agregar";
+portsrv.modify="Modificar";
+portsrv.cancel="Cancelar";
+
+var secbutton = new Object();
+secbutton.editlist="Editar lista de equipos";
+secbutton.addedit="Agregar/Editar servicio";
