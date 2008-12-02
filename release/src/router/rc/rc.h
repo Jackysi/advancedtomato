@@ -312,5 +312,19 @@ extern void start_smbd(void);
 extern void stop_smbd(void);
 #endif
 
+// vpn.c
+#ifdef TCONFIG_OPENVPN
+extern void start_vpnclient(int clientNum);
+extern void stop_vpnclient(int clientNum);
+extern void start_vpnserver(int serverNum);
+extern void stop_vpnserver(int serverNum);
+extern void run_vpn_firewall_scripts();
+#else
+static inline void start_vpnclient(int clientNum) {}
+static inline void stop_vpnclient(int clientNum) {}
+static inline void start_vpnserver(int serverNum) {}
+static inline void stop_vpnserver(int serverNum) {}
+static inline void run_vpn_firewall_scripts() {}
+#endif
 
 #endif
