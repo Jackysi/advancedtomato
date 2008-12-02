@@ -72,6 +72,7 @@ obj-$(TCONFIG_HTTPS) += matrixssl
 obj-$(TCONFIG_SSH) += dropbear
 obj-$(TCONFIG_ZEBRA) += zebra
 obj-$(TCONFIG_IPP2P) += ipp2p
+obj-$(TCONFIG_LZO) += lzo
 
 ifeq ($(TCONFIG_L2TP),y)
 NEED_PPPD = y
@@ -466,6 +467,12 @@ dropbear-clean:
 dropbear/config.h:
 	cd dropbear && CFLAGS="-O2 -Wall" ac_cv_func_logout=no ac_cv_func_logwtmp=no ./configure --host=mipsel-linux --disable-zlib --enable-syslog --disable-lastlog --disable-utmp --disable-utmpx --disable-wtmp --disable-wtmpx --disable-pututline --disable-pututxline --disable-loginfunc --disable-largefile
 	make -C dropbear clean
+
+
+lzo-install:
+	install -D lzo/src/.libs/liblzo2.so $(INSTALLDIR)/lzo/usr/lib/liblzo2.so.2
+	$(STRIP) $(INSTALLDIR)/lzo/usr/lib/liblzo2.so.2
+	cd $(INSTALLDIR)/lzo/usr/lib && ln -sf liblzo2.so.2 liblzo2.so
 
 
 

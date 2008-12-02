@@ -397,6 +397,7 @@ genSO("${root}/lib/libutil.so.0", "${uclibc}/lib/libutil.a");
 
 genSO("${root}/usr/lib/libcrypto.so", "${router}/openssl/libcrypto.a");
 genSO("${root}/usr/lib/libzebra.so", "${router}/zebra/lib/libzebra.a");
+genSO("${root}/usr/lib/liblzo2.so.2", "${router}/lzo/src/.libs/liblzo2.a");
 #	genSO("${root}/usr/lib/libtamba.so", "${router}/samba3/source/bin/libtamba.a");
 #	genSO("${root}/usr/lib/libiptc.so", "${router}/iptables/libiptc/libiptc.a");
 #	genSO("${root}/usr/lib/libshared.so", "${router}/shared/libshared.a");
