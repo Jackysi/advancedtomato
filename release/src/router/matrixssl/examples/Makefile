@@ -1,7 +1,7 @@
 #
 #	MatrixSSL example applications makefile
 #	Builds optimized by default, see comments below for debug.
-#	Copyright (c) PeerSec Networks, 2002-2007. All Rights Reserved
+#	Copyright (c) PeerSec Networks, 2002-2008. All Rights Reserved
 #
 
 CC 	= gcc
@@ -58,6 +58,7 @@ CC  = cc
 SO  = .dylib
 CFLAGS += -DOSX -isystem -I/usr/include
 LDFLAGS =
+MACLINK = ln -f $(LIBRARIES) .
 endif
 
 #
@@ -70,7 +71,7 @@ endif
 
 all: compile
 
-compile: $(REF_OBJS) $(REF_EXE) $(CLIENT_OBJS) $(CLIENT_EXE) 
+compile: $(REF_OBJS) $(REF_EXE) $(CLIENT_OBJS) $(CLIENT_EXE)
 
 #
 # Manual dependencies
@@ -79,6 +80,7 @@ compile: $(REF_OBJS) $(REF_EXE) $(CLIENT_OBJS) $(CLIENT_EXE)
 
 $(REF_EXE):$(REF_OBJS)
 	$(CC) -o $@ $^ $(LDFLAGS) $(LIBRARIES)
+	$(MACLINK)
 
 $(CLIENT_EXE):$(CLIENT_OBJS)
 	$(CC) -o $@ $^ $(LDFLAGS) $(LIBRARIES)
@@ -88,4 +90,5 @@ $(CLIENT_EXE):$(CLIENT_OBJS)
 #
 clean:
 	rm -f $(REF_EXE) $(REF_OBJS) \
-		$(CLIENT_EXE) $(CLIENT_OBJS) 
+		$(CLIENT_EXE) $(CLIENT_OBJS) \
+		*$(SO)

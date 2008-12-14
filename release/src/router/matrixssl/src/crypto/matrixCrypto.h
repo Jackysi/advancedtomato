@@ -1,11 +1,11 @@
 /*
  *	matrixCrypto.h
- *	Release $Name: MATRIXSSL_1_8_3_OPEN $
+ *	Release $Name: MATRIXSSL_1_8_6_OPEN $
  *
  *	Public API set for matrixCrypto
  */
 /*
- *	Copyright (c) PeerSec Networks, 2002-2007. All Rights Reserved.
+ *	Copyright (c) PeerSec Networks, 2002-2008. All Rights Reserved.
  *	The latest version of this code is available at http://www.matrixssl.org
  *
  *	This software is open source; you can redistribute it and/or modify
@@ -97,13 +97,6 @@ MATRIXPUBLIC void matrixSha1Update(sslSha1Context_t *ctx,
 						const unsigned char *buf, unsigned long len);
 MATRIXPUBLIC int32 matrixSha1Final(sslSha1Context_t *ctx, unsigned char *hash);
 
-#ifdef USE_SHA256
-MATRIXPUBLIC void matrixSha256Init(sslSha256Context_t *ctx);
-MATRIXPUBLIC void matrixSha256Update(sslSha256Context_t *ctx,
-						const unsigned char *buf, unsigned long len);
-MATRIXPUBLIC int32 matrixSha256Final(sslSha256Context_t *ctx,
-								unsigned char *hash);
-#endif /* USE_SHA256 */
 
 MATRIXPUBLIC void matrixMd5Init(sslMd5Context_t *ctx);
 MATRIXPUBLIC void matrixMd5Update(sslMd5Context_t *ctx,
@@ -125,6 +118,7 @@ MATRIXPUBLIC int32 matrixMd2Final(sslMd2Context_t *ctx, unsigned char *hash);
 
 
 
+
 #ifdef USE_RSA
 MATRIXPUBLIC int32 matrixRsaEncryptPub(psPool_t *pool, sslRsaKey_t *key, 
 							   unsigned char *in, int32 inlen,
@@ -136,6 +130,7 @@ MATRIXPUBLIC int32 matrixRsaDecryptPub(psPool_t *pool, sslRsaKey_t *key,
 							   unsigned char *in, int32 inlen,
 							   unsigned char *out, int32 outlen);
 #endif /* USE_RSA */
+
 
 
 

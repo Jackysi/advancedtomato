@@ -28,7 +28,7 @@ textarea {
 
 <script type='text/javascript'>
 
-//	<% nvram("rstats_enable,rstats_path,rstats_stime,rstats_offset,rstats_exclude,rstats_sshut,et0macaddr,cifs1,cifs2,jffs2_on"); %>
+//	<% nvram("rstats_enable,rstats_path,rstats_stime,rstats_offset,rstats_exclude,rstats_sshut,et0macaddr,cifs1,cifs2,jffs2_on,rstats_bak"); %>
 
 function fix(name)
 {
@@ -36,6 +36,13 @@ function fix(name)
 	if (((i = name.lastIndexOf('/')) > 0) || ((i = name.lastIndexOf('\\')) > 0))
 		name = name.substring(i + 1, name.length);
 	return name;
+}
+
+function backupNameChanged()
+{
+	if (location.href.match(/^(http.+?\/.+\/)/)) {
+		E('backup-link').href = RegExp.$1 + 'bwm/' + fix(E('backup-name').value) + '.gz?_http_id=' + nvram.http_id;
+	}
 }
 
 function backupButton()
@@ -83,6 +90,7 @@ function verifyFields(focused, quiet)
 	var b, v;
 	var path;
 	var eLoc, eUser, eTime, eOfs;
+	var bak;
 
 	eLoc = E('_f_loc');
 	eUser = E('_f_user');
@@ -108,6 +116,7 @@ function verifyFields(focused, quiet)
 	path = getPath();
 	E('newmsg').style.visibility = ((nvram.rstats_path != path) && (path != '*nvram') && (path != '')) ? 'visible' : 'hidden';
 
+	bak = 0;
 	v = eLoc.value;
 	b = (v == '*user');
 	elem.display(eUser, b);
@@ -130,6 +139,11 @@ function verifyFields(focused, quiet)
 			return 0;
 		}
 	}
+	else {
+		bak = 1;
+	}
+	
+	E('_f_bak').disabled = bak;
 
 	return v_range(eOfs, quiet, 1, 31);
 }
@@ -165,6 +179,7 @@ function save()
 	fom.rstats_path.disabled = !en;
 	fom.rstats_enable.value = en ? 1 : 0;
 	fom.rstats_sshut.value = E('_f_sshut').checked ? 1 : 0;
+	fom.rstats_bak.value = E('_f_bak').checked ? 1 : 0;
 
 	e = E('_rstats_exclude');
 	e.value = e.value.replace(/\s+/g, ',').replace(/,+/g, ',');
@@ -177,10 +192,15 @@ function save()
 		fields.disableAll(E('restore-section'), 0);
 	}
 }
+
+function init()
+{
+	backupNameChanged();
+}
 </script>
 
 </head>
-<body>
+<body onload="init()">
 <table id='container' cellspacing=0>
 <tr><td colspan=2 id='header'>
 	<div class='title'>Tomato</div>
@@ -200,6 +220,7 @@ function save()
 <input type='hidden' name='rstats_enable'>
 <input type='hidden' name='rstats_path'>
 <input type='hidden' name='rstats_sshut'>
+<input type='hidden' name='rstats_bak'>
 
 <script type='text/javascript'>
 switch (nvram.rstats_path) {
@@ -225,8 +246,9 @@ createFieldTable('', [
 		[9,'Every 9 Hours'],[12,'Every 12 Hours'],[24,'Every 24 Hours'],[48,'Every 2 Days'],[72,'Every 3 Days'],[96,'Every 4 Days'],
 		[120,'Every 5 Days'],[144,'Every 6 Days'],[168,'Every Week']] },
 	{ title: 'Save On Shutdown', indent: 2, name: 'f_sshut', type: 'checkbox', value: nvram.rstats_sshut == '1' },
-	{ title: 'Create New File /<br>Reset Data', indent: 2, name: 'f_new', type: 'checkbox', value: 0,
+	{ title: 'Create New File<br><small>(Reset Data)</small>', indent: 2, name: 'f_new', type: 'checkbox', value: 0,
 		suffix: ' &nbsp; <b id="newmsg" style="visibility:hidden"><small>(note: enable if this is a new file)</small></b>' },
+	{ title: 'Create Backups', indent: 2, name: 'f_bak', type: 'checkbox', value: nvram.rstats_bak == '1' },
 	{ title: 'First Day Of The Month', name: 'rstats_offset', type: 'text', value: nvram.rstats_offset, maxlen: 2, size: 4 },
 	{ title: 'Excluded Interfaces', name: 'rstats_exclude', type: 'text', value: nvram.rstats_exclude, maxlen: 64, size: 50, suffix: '&nbsp;<small>(comma separated list)</small>' }
 ]);
@@ -240,11 +262,12 @@ createFieldTable('', [
 <div class='section' id='backup-section'>
 	<form>
 	<script type='text/javascript'>
-	W("<input type='text' size='40' maxlength='64' id='backup-name' name='backup_name' value='tomato_rstats_" + nvram.et0macaddr.replace(/:/g, '').toLowerCase() + "'>");
+	W("<input type='text' size='40' maxlength='64' id='backup-name' name='backup_name' onchange='backupNameChanged()' value='tomato_rstats_" + nvram.et0macaddr.replace(/:/g, '').toLowerCase() + "'>");
 	</script>
 	.gz &nbsp;
 	<input type='button' name='f_backup_button' id='backup-button' onclick='backupButton()' value='Backup'>
 	</form>
+	<a href='' id='backup-link'>Link</a>
 </div>
 <br>
 

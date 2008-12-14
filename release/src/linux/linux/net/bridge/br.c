@@ -29,8 +29,6 @@
 #include "../atm/lec.h"
 #endif
 
-int (*br_should_route_hook) (struct sk_buff **pskb) = NULL;
-
 void br_dec_use_count()
 {
 	MOD_DEC_USE_COUNT;
@@ -45,10 +43,6 @@ static int __init br_init(void)
 {
 	printk(KERN_INFO "NET4: Ethernet Bridge 008 for NET4.0\n");
 
-#ifdef CONFIG_NETFILTER
-	if (br_netfilter_init())
-		return 1;
-#endif
 	br_handle_frame_hook = br_handle_frame;
 	br_ioctl_hook = br_ioctl_deviceless_stub;
 #if defined(CONFIG_ATM_LANE) || defined(CONFIG_ATM_LANE_MODULE)
@@ -67,9 +61,6 @@ static void __br_clear_ioctl_hook(void)
 
 static void __exit br_deinit(void)
 {
-#ifdef CONFIG_NETFILTER
-	br_netfilter_fini();
-#endif
 	unregister_netdevice_notifier(&br_device_notifier);
 	br_call_ioctl_atomic(__br_clear_ioctl_hook);
 
@@ -83,7 +74,7 @@ static void __exit br_deinit(void)
 #endif
 }
 
-EXPORT_SYMBOL(br_should_route_hook);
+EXPORT_NO_SYMBOLS;
 
 module_init(br_init)
 module_exit(br_deinit)
