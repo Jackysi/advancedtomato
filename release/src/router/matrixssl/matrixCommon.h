@@ -1,11 +1,11 @@
 /*
  *	matrixCommon.h
- *	Release $Name: MATRIXSSL_1_8_3_OPEN $
+ *	Release $Name: MATRIXSSL_1_8_6_OPEN $
  *	
  *	Public common header file
  */
 /*
- *	Copyright (c) PeerSec Networks, 2002-2007. All Rights Reserved.
+ *	Copyright (c) PeerSec Networks, 2002-2008. All Rights Reserved.
  *	The latest version of this code is available at http://www.matrixssl.org
  *
  *	This software is open source; you can redistribute it and/or modify
@@ -147,7 +147,6 @@ typedef struct {
 	Information provided to user callback for validating certificates.
 	Register callback with call to matrixSslSetCertValidator
 */
-
 typedef struct {
 	char	*country;
 	char	*state;
@@ -157,10 +156,12 @@ typedef struct {
 	char	*commonName;
 } sslDistinguishedName_t;
 
-typedef struct {
-	char	*dns;
-	char	*uri;
-	char	*email;
+typedef struct sslSubjectAltNameEntry {
+	int32							id;
+	unsigned char					name[16];
+	unsigned char					*data;
+	int32							dataLen;
+	struct sslSubjectAltNameEntry	*next;
 } sslSubjectAltName_t;
 
 typedef struct sslCertInfo {
@@ -171,7 +172,7 @@ typedef struct sslCertInfo {
 	char					*notAfter;
 	char					*sigHash;
 	int32					sigHashLen;
-	sslSubjectAltName_t		subjectAltName;
+	sslSubjectAltName_t		*subjectAltName;
 	sslDistinguishedName_t	subject;
 	sslDistinguishedName_t	issuer;
 	struct sslCertInfo		*next;

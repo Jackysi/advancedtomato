@@ -692,6 +692,7 @@ static void sysinit(void)
 	struct dirent *de;
 	char s[256];
 	char t[256];
+	int model;
 
 	mount("", "/proc", "proc", 0, NULL);
 	mount("", "/tmp", "ramfs", 0, NULL);
@@ -751,7 +752,7 @@ static void sysinit(void)
 	}
 	signal(SIGCHLD, handle_reap);
 
-	switch (get_model()) {
+	switch (model = get_model()) {
 	case MODEL_WR850GV1:
 	case MODEL_WR850GV2:
 		// need to cleanup some variables...
@@ -773,7 +774,7 @@ static void sysinit(void)
 #if WL_BSS_INFO_VERSION >= 108
 	modprobe("et");
 #else
-	if (hardware == HW_BCM4702) {
+	if ((hardware == HW_BCM4702) && (model != MODEL_WR850GV1)) {
 		modprobe("4702et");
 		modprobe("diag");
 	}

@@ -1,11 +1,11 @@
 /*
  *	rsaPki.c
- *	Release $Name: MATRIXSSL_1_8_3_OPEN $
+ *	Release $Name: MATRIXSSL_1_8_6_OPEN $
  *
  *	RSA key and cert reading
  */
 /*
- *	Copyright (c) PeerSec Networks, 2002-2007. All Rights Reserved.
+ *	Copyright (c) PeerSec Networks, 2002-2008. All Rights Reserved.
  *	The latest version of this code is available at http://www.matrixssl.org
  *
  *	This software is open source; you can redistribute it and/or modify
@@ -110,10 +110,11 @@ int32 psGetFileBin(psPool_t *pool, const char *fileName, unsigned char **bin,
 		return -7; /* FILE_NOT_FOUND */
 	}
 
-	*bin = psMalloc(pool, fstat.st_size);
+	*bin = psMalloc(pool, fstat.st_size + 1);
 	if (*bin == NULL) {
 		return -8; /* SSL_MEM_ERROR */
 	}
+	memset(*bin, 0x0, fstat.st_size + 1);
 	while (((tmp = fread(*bin + *binLen, sizeof(char), 512, fp)) > 0) &&
 			(*binLen < fstat.st_size)) { 
 		*binLen += (int32)tmp;
@@ -310,11 +311,27 @@ int32 matrixRsaParsePrivKey(psPool_t *pool, unsigned char *keyBuf,
 
 /******************************************************************************/
 /*
-	Binary to struct helper for RSA public keys
+	Binary to struct helper for RSA public keys.
 */
 int32 matrixRsaParsePubKey(psPool_t *pool, unsigned char *keyBuf,
 							  int32 keyBufLen, sslRsaKey_t **key)
 {
+	unsigned char	*p, *end;
+	int32			len;
+
+	p = keyBuf;
+	end = p + keyBufLen;
+/*
+	Supporting both the PKCS#1 RSAPublicKey format and the
+	X.509 SubjectPublicKeyInfo format.  If encoding doesn't start with
+	the SEQUENCE identifier for the SubjectPublicKeyInfo format, jump down
+	to the RSAPublicKey subset parser and try that
+*/
+	if (getSequence(&p, (int32)(end - p), &len) == 0) {
+		if (getAlgorithmIdentifier(&p, (int32)(end - p), &len, 1) < 0) {
+			return -1;
+		}
+	}
 /*
 	Now have the DER stream to extract from in asnp
  */
@@ -323,8 +340,7 @@ int32 matrixRsaParsePubKey(psPool_t *pool, unsigned char *keyBuf,
 		return -8; /* SSL_MEM_ERROR */
 	}
 	memset(*key, 0x0, sizeof(sslRsaKey_t));
-
-	if (getPubKey(pool, &keyBuf, keyBufLen, *key) < 0) {
+	if (getPubKey(pool, &p, (int32)(end - p), *key) < 0) {
 		matrixRsaFreeKey(*key);
 		*key = NULL;
 		matrixStrDebugMsg("Unable to ASN parse public key\n", NULL);

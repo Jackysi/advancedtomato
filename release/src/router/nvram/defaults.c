@@ -290,6 +290,7 @@ const defaults_t defaults[] = {
 	{ "nf_loopback",		"1"				},
 	{ "block_wan",			"1"				},	// block inbound icmp
 	{ "multicast_pass",		"0"				},	// enable multicast proxy
+	{ "ne_syncookies",		"0"				},	// tcp_syncookies
 
 // advanced-routing
 	{ "routes_static",		""				},
@@ -338,6 +339,11 @@ const defaults_t defaults[] = {
 
 	{ "qos_default",		"3"				},
 	{ "qos_orates",			"80-100,10-100,5-100,3-100,2-95,1-50,1-40,1-30,1-20,1-10"	},
+	
+	{ "ne_vegas",			"0"				},	// TCP Vegas
+	{ "ne_valpha",			"2"				},	// "
+	{ "ne_vbeta",			"6"				},	// "
+	{ "ne_vgamma",			"2"				},	// "
 
 // access restrictions
 	{ "rruleN",				"0"				},
@@ -394,6 +400,7 @@ const defaults_t defaults[] = {
 	{ "rstats_colors",		""				},
 	{ "rstats_exclude",		""				},
 	{ "rstats_sshut",		"1"				},
+	{ "rstats_bak",			"0"				},
 
 // advanced-buttons
 	{ "sesx_led",			"0"				},

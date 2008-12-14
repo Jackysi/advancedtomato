@@ -491,10 +491,10 @@ void start_syslog(void)
 	int argc;
 	char *nv;
 	char rem[256];
+	int n;
+	char s[64];
 
 	argv[0] = "syslogd";
-//	argv[1] = "-m";
-//	argv[2] = nvram_get("log_mark");
 	argc = 1;
 
 	if (nvram_match("log_remote", "1")) {
@@ -512,7 +512,7 @@ void start_syslog(void)
 		argv[argc++] = "50";
 	}
 
-	if (argc > 3) {
+	if (argc > 1) {
 		argv[argc] = NULL;
 		_eval(argv, NULL, 0, NULL);
 		usleep(500000);
@@ -521,16 +521,14 @@ void start_syslog(void)
 		argv[1] = NULL;
 		_eval(argv, NULL, 0, NULL);
 		usleep(500000);
-	}
-	
-	int n;
-	char s[64];
-	
-	n = nvram_get_int("log_mark");
-	if (n > 0) {
-		sprintf(s, "cru a syslogdmark \"%s %s * * * logger -p syslog.info -- -- MARK --\"",
-			(n < 60) ? "*/30" : "0", (n < 120) ? "*" : "*/2");
-		system(s);
+		
+		// used to be available in syslogd -m
+		n = nvram_get_int("log_mark");
+		if (n > 0) {
+			sprintf(s, "cru a syslogdmark \"%s %s * * * logger -p syslog.info -- -- MARK --\"",
+				(n < 60) ? "*/30" : "0", (n < 120) ? "*" : "*/2");
+			system(s);
+		}
 	}
 	
 #else
