@@ -128,6 +128,7 @@ static void wo_iptables(char *url)
 	web_pipecmd("iptables -nvL; iptables -t nat -nvL; iptables -t mangle -nvL", WOF_NONE);
 }
 
+/*
 static void wo_spin(char *url)
 {
 	char s[64];
@@ -137,6 +138,7 @@ static void wo_spin(char *url)
 	if (f_exists(s)) do_file(s);
 		else do_file("_spin.gif");
 }
+*/
 
 void common_redirect(void)
 {
@@ -173,7 +175,7 @@ const struct mime_handler mime_handlers[] = {
 	{ "logout.asp",			NULL,					0,	wi_generic,			wo_asp,			1 },
 	{ "clearcookies.asp",	NULL,					0,	wi_generic,			wo_asp,			1 },
 	
-	{ "spin.gif",		NULL,						0,	wi_generic_noid,	wo_spin,		1 },
+//	{ "spin.gif",		NULL,						0,	wi_generic_noid,	wo_spin,		1 },
 
 	{ "**.asp",			NULL,						0,	wi_generic_noid,	wo_asp,			1 },
 	{ "**.css",			"text/css",					2,	wi_generic_noid,	do_file,		1 },
@@ -469,6 +471,7 @@ static const nvset_t nvset_list[] = {
 	{ "multicast_pass",		V_01				},
 	{ "block_loopback",		V_01				},
 	{ "nf_loopback",		V_NUM				},
+	{ "ne_syncookies",		V_01				},
 
 // advanced-misc
 	{ "wait_time",			V_RANGE(3, 20)		},
@@ -586,6 +589,7 @@ static const nvset_t nvset_list[] = {
 	{ "rstats_offset",		V_RANGE(1, 31)		},
 	{ "rstats_exclude",		V_LENGTH(0, 64)		},
 	{ "rstats_sshut",		V_01				},
+	{ "rstats_bak",			V_01				},
 
 // admin-buttons
 	{ "sesx_led",			V_RANGE(0, 255)		},	// amber, white, aoss
@@ -656,6 +660,11 @@ static const nvset_t nvset_list[] = {
 	{ "qos_default",		V_RANGE(0, 9)		},
 	{ "qos_irates",			V_LENGTH(0, 128)	},
 	{ "qos_orates",			V_LENGTH(0, 128)	},
+	
+	{ "ne_vegas",			V_01				},
+	{ "ne_valpha",			V_NUM				},
+	{ "ne_vbeta",			V_NUM				},
+	{ "ne_vgamma",			V_NUM				},
 
 
 /*

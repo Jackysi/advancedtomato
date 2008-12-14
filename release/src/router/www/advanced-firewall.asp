@@ -22,7 +22,7 @@
 
 <script type='text/javascript'>
 
-//	<% nvram("block_wan,multicast_pass,nf_loopback"); %>
+//	<% nvram("block_wan,multicast_pass,nf_loopback,ne_syncookies"); %>
 
 
 function verifyFields(focused, quiet)
@@ -39,6 +39,7 @@ function save()
 	fom = E('_fom');
 	fom.block_wan.value = E('_f_icmp').checked ? 0 : 1;
 	fom.multicast_pass.value = E('_f_multicast').checked ? 1 : 0;
+	fom.ne_syncookies.value = E('_f_syncookies').checked ? 1 : 0;
 	form.submit(fom, 1);
 }
 </script>
@@ -62,6 +63,7 @@ function save()
 
 <input type='hidden' name='block_wan'>
 <input type='hidden' name='multicast_pass'>
+<input type='hidden' name='ne_syncookies'>
 
 <div class='section-title'>Firewall</div>
 <div class='section'>
@@ -69,7 +71,8 @@ function save()
 createFieldTable('', [
 	{ title: 'Respond To ICMP Ping', name: 'f_icmp', type: 'checkbox', value: nvram.block_wan == '0' },
 	{ title: 'Allow Multicast', name: 'f_multicast', type: 'checkbox', value: nvram.multicast_pass == '1' },
-	{ title: 'NAT Loopback', name: 'nf_loopback', type: 'select', options: [[0,'All'],[1,'Forwarded Only'],[2,'Disabled']], value: fixInt(nvram.nf_loopback, 0, 2, 1) }
+	{ title: 'NAT Loopback', name: 'nf_loopback', type: 'select', options: [[0,'All'],[1,'Forwarded Only'],[2,'Disabled']], value: fixInt(nvram.nf_loopback, 0, 2, 1) },
+	{ title: 'SYN Cookies', name: 'f_syncookies', type: 'checkbox', value: nvram.ne_syncookies != '0' }
 ]);
 </script>
 </div>

@@ -77,7 +77,6 @@
 #include <linux/netfilter_ipv4.h>
 #include <linux/mroute.h>
 #include <linux/netlink.h>
-#include <linux/netfilter_bridge.h>
 
 /*
  *      Shall we try to damage output packets if routing dev changes?
@@ -760,8 +759,7 @@ int ip_fragment(struct sk_buff *skb, int (*output)(struct sk_buff*))
 	int not_last_frag;
 	struct rtable *rt = (struct rtable*)skb->dst;
 	int err = 0;
-        unsigned int ll_rs = 0;
-	
+
 	dev = rt->u.dst.dev;
 
 	/*
@@ -777,10 +775,6 @@ int ip_fragment(struct sk_buff *skb, int (*output)(struct sk_buff*))
 	hlen = iph->ihl * 4;
 	left = skb->len - hlen;		/* Space per frame */
 	mtu = rt->u.dst.pmtu - hlen;	/* Size of data space */
-#ifdef CONFIG_NETFILTER
-       ll_rs = nf_bridge_pad(skb);
-       mtu -= ll_rs;
-#endif
 	ptr = raw + hlen;		/* Where to start from */
 
 	/*
@@ -808,7 +802,7 @@ int ip_fragment(struct sk_buff *skb, int (*output)(struct sk_buff*))
 		 *	Allocate buffer.
 		 */
 
-		if ((skb2 = alloc_skb(len+hlen+dev->hard_header_len+15+ll_rs,GFP_ATOMIC)) == NULL) {
+		if ((skb2 = alloc_skb(len+hlen+dev->hard_header_len+15,GFP_ATOMIC)) == NULL) {
 			NETDEBUG(printk(KERN_INFO "IP: frag: no memory for new fragment!\n"));
 			err = -ENOMEM;
 			goto fail;
@@ -820,7 +814,7 @@ int ip_fragment(struct sk_buff *skb, int (*output)(struct sk_buff*))
 
 		skb2->pkt_type = skb->pkt_type;
 		skb2->priority = skb->priority;
-		skb_reserve(skb2, (dev->hard_header_len+15+ll_rs)&~15);
+		skb_reserve(skb2, (dev->hard_header_len+15)&~15);
 		skb_put(skb2, len + hlen);
 		skb2->nh.raw = skb2->data;
 		skb2->h.raw = skb2->data + hlen;
@@ -885,10 +879,6 @@ int ip_fragment(struct sk_buff *skb, int (*output)(struct sk_buff*))
 		/* Connection association is same as pre-frag packet */
 		skb2->nfct = skb->nfct;
 		nf_conntrack_get(skb2->nfct);
-#if defined(CONFIG_BRIDGE) || defined(CONFIG_BRIDGE_MODULE)
-		skb2->nf_bridge = skb->nf_bridge;
-		nf_bridge_get(skb2->nf_bridge);
-#endif
 #ifdef CONFIG_NETFILTER_DEBUG
 		skb2->nf_debug = skb->nf_debug;
 #endif

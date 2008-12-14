@@ -435,7 +435,7 @@ void asp_compmac(int argc, char **argv)
 
 void asp_ident(int argc, char **argv)
 {
-	web_puts(nvram_safe_get("router_name"));
+	web_puth(nvram_safe_get("router_name"));
 }
 
 void asp_statfs(int argc, char **argv)

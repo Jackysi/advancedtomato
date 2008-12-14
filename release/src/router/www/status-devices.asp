@@ -53,7 +53,7 @@
 <script type='text/javascript'>
 
 ipp = '<% lipp(); %>.';
-//<% nvram('lan_ifname,wl0_ifname,wl_mode,wl_radio'); %>
+//<% nvram('lan_ifname,wl_ifname,wl_mode,wl_radio'); %>
 //	<% devlist(); %>
 
 list = [];
@@ -132,6 +132,12 @@ function addStatic(n)
 	location.href = 'basic-static.asp';
 }
 
+function addWF(n)
+{
+	var e = list[n];
+	cookie.set('addmac', [e.mac, e.name.split(',')[0]].join(','), 1);
+	location.href = 'basic-wfilter.asp';
+}
 
 
 var ref = new TomatoRefresh('update.cgi', 'exec=devlist', 0, 'status_devices_refresh');
@@ -204,7 +210,7 @@ dg.populate = function()
 		}
 		else {
 			e = get(a[1], null);
-			e.ifname = nvram.wl0_ifname;
+			e.ifname = nvram.wl_ifname;
 		}
 		e.rssi = a[2];
 	}
@@ -235,16 +241,14 @@ dg.populate = function()
 
 	for (i = list.length - 1; i >= 0; --i) {
 		e = list[i];
-		
-		if ((e.ip.length == 0) || (e.ip == '-')) {
-			a = '';
-		}
-		else {
-			a = '<a href="javascript:addStatic(' + i + ')" title="Add Static Lease">' + e.ip + '</a>';
-		}
 
+		b = e.mac;
 		if (e.mac.match(/^(..):(..):(..)/)) {
-			b = "<a href='http://standards.ieee.org/cgi-bin/ouisearch?" + RegExp.$1 + "-" + RegExp.$2 + "-" + RegExp.$3 + "' target='_new' title='OUI Search'>" + e.mac + "</a>";
+			b += '<br><small>' +
+				'<a href="http://standards.ieee.org/cgi-bin/ouisearch?' + RegExp.$1 + '-' + RegExp.$2 + '-' + RegExp.$3 + '" target="_new" title="OUI Search">[oui]</a> ' +
+				'<a href="javascript:addStatic(' + i + ')" title="Static Lease...">[static]</a> ' +
+				'<a href="javascript:addWF(' + i + ')" title="Wireless Filter...">[wfilter]</a>';
+			b += '</small>';
 		}
 		else {
 			b = '';
@@ -258,7 +262,7 @@ dg.populate = function()
 		}
 		
 		this.insert(-1, e, [
-			e.ifname, b, a, e.name,
+			e.ifname, b, (e.ip == '-') ? '' : e.ip, e.name,
 			(e.rssi != 0) ? e.rssi + ' <small>dBm</small>' : '',
 			(e.qual < 0) ? '' : '<small>' + e.qual + '</small> <img src="bar' + MIN(MAX(Math.floor(e.qual / 10), 1), 6) + '.gif">',
 			e.lease], false);

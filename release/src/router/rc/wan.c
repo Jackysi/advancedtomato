@@ -762,10 +762,12 @@ void start_wan_done(char *wan_ifname)
 		start_ntpc();
 	}
 
-	if (wanup) {
+	if ((wanup) || (proto == WP_DISABLED)) {
 		stop_ddns();
 		start_ddns();
-	
+	}
+
+	if (wanup) {
 		SET_LED(GOT_IP);
 		notice_set("wan", "");
 		

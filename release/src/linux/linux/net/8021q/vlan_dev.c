@@ -489,10 +489,6 @@ int vlan_dev_hard_start_xmit(struct sk_buff *skb, struct net_device *dev)
 		veth->h_vlan_TCI = htons(veth_TCI);
 	}
 
-	skb->protocol = __constant_htons(ETH_P_8021Q);
-	skb->mac.raw -= VLAN_HLEN;
-	skb->nh.raw -= VLAN_HLEN;
-
 	skb->dev = VLAN_DEV_INFO(dev)->real_dev;
 
 #ifdef VLAN_DEBUG
