@@ -104,8 +104,8 @@ sg.verifyFields = function(row, quiet)
 		}
 		f[1].value = ipp + s;
 	}
-	
-	if (this.inStatic(f[1].value)) {
+
+	if ((f[0].value != "00:00:00:00:00:00") && (this.inStatic(f[1].value))) {
 		ferror.set(f[1], 'Duplicate IP address', quiet);
 		return 0;
 	}
@@ -131,7 +131,7 @@ sg.verifyFields = function(row, quiet)
 			return 0;
 		}
 	}
-	
+
 	return 1;
 }
 
@@ -140,7 +140,7 @@ sg.resetNewEditor = function() {
 
 	f = fields.getAll(this.newEditor);
 	ferror.clearAll(f);
-	
+
 	if ((c = cookie.get('addstatic')) != null) {
 		cookie.set('addstatic', '', 0);
 		c = c.split(',');

@@ -102,8 +102,7 @@ struct net_bridge;
 struct net_bridge_port;
 
 extern int (*br_ioctl_hook)(unsigned long arg);
-extern int (*br_handle_frame_hook)(struct sk_buff *skb);
-extern int (*br_should_route_hook)(struct sk_buff **pskb);
+extern void (*br_handle_frame_hook)(struct sk_buff *skb);
 
 #endif
 

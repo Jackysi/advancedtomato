@@ -260,6 +260,17 @@ void start_qos(void)
 	int first;
 	char burst_root[32];
 	char burst_leaf[32];
+	
+	
+	// move me?
+	x = nvram_get_int("ne_vegas");
+	f_write_string("/proc/sys/net/ipv4/tcp_vegas_cong_avoid", x ? "1" : "0", 0, 0);
+	if (x) {
+		f_write_string("/proc/sys/net/ipv4/tcp_vegas_alpha", nvram_safe_get("ne_valpha"), 0, 0);
+		f_write_string("/proc/sys/net/ipv4/tcp_vegas_beta", nvram_safe_get("ne_vbeta"), 0, 0);
+		f_write_string("/proc/sys/net/ipv4/tcp_vegas_gamma", nvram_safe_get("ne_vgamma"), 0, 0);
+	}
+	
 
 	if (!nvram_get_int("qos_enable")) return;
 
