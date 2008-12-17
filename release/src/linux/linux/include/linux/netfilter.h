@@ -17,8 +17,7 @@
 #define NF_STOLEN 2
 #define NF_QUEUE 3
 #define NF_REPEAT 4
-#define NF_STOP 5
-#define NF_MAX_VERDICT NF_STOP
+#define NF_MAX_VERDICT NF_REPEAT
 
 /* Generic cache responses from hook functions. */
 #define NFC_ALTERED 0x8000
@@ -118,34 +117,17 @@ extern struct list_head nf_hooks[NPROTO][NF_MAX_HOOKS];
 /* This is gross, but inline doesn't cut it for avoiding the function
    call in fast path: gcc doesn't inline (needs value tracking?). --RR */
 #ifdef CONFIG_NETFILTER_DEBUG
-#define NF_HOOK(pf, hook, skb, indev, outdev, okfn)                           \
-({int __ret;                                                                  \
-if ((__ret=nf_hook_slow(pf, hook, &(skb), indev, outdev, okfn, INT_MIN)) == 1) \
-       __ret = (okfn)(skb);                                                   \
-__ret;})
-#define NF_HOOK_THRESH(pf, hook, skb, indev, outdev, okfn, thresh)            \
-({int __ret;                                                                  \
-if ((__ret=nf_hook_slow(pf, hook, &(skb), indev, outdev, okfn, thresh)) == 1)  \
-       __ret = (okfn)(skb);                                                   \
-__ret;})
+#define NF_HOOK nf_hook_slow
 #else
-#define NF_HOOK(pf, hook, skb, indev, outdev, okfn)                           \
-({int __ret;                                                                  \
-if (list_empty(&nf_hooks[pf][hook]) ||                                        \
-    (__ret=nf_hook_slow(pf, hook, &(skb), indev, outdev, okfn, INT_MIN)) == 1) \
-       __ret = (okfn)(skb);                                                   \
-__ret;})
-#define NF_HOOK_THRESH(pf, hook, skb, indev, outdev, okfn, thresh)            \
-({int __ret;                                                                  \
-if (list_empty(&nf_hooks[pf][hook]) ||                                        \
-    (__ret=nf_hook_slow(pf, hook, &(skb), indev, outdev, okfn, thresh)) == 1)  \
-       __ret = (okfn)(skb);                                                   \
-__ret;})
+#define NF_HOOK(pf, hook, skb, indev, outdev, okfn)			\
+(list_empty(&nf_hooks[(pf)][(hook)])					\
+ ? (okfn)(skb)								\
+ : nf_hook_slow((pf), (hook), (skb), (indev), (outdev), (okfn)))
 #endif
 
-int nf_hook_slow(int pf, unsigned int hook, struct sk_buff **pskb,
+int nf_hook_slow(int pf, unsigned int hook, struct sk_buff *skb,
 		 struct net_device *indev, struct net_device *outdev,
-		 int (*okfn)(struct sk_buff *), int thresh);
+		 int (*okfn)(struct sk_buff *));
 
 /* Call setsockopt() */
 int nf_setsockopt(struct sock *sk, int pf, int optval, char *opt, 

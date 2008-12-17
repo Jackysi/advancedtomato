@@ -42,6 +42,26 @@ smg.verifyFields = function(row, quiet) {
 	return v_mac(fields.getAll(row)[0], quiet);
 }
 
+smg.resetNewEditor = function() {
+	var f, c, n;
+
+	f = fields.getAll(this.newEditor);
+	ferror.clearAll(f);
+	
+	if ((c = cookie.get('addmac')) != null) {
+		cookie.set('addmac', '', 0);
+		c = c.split(',');
+		if (c.length == 2) {
+			f[0].value = c[0];
+			f[1].value = c[1];
+			return;
+		}
+	}
+
+	f[0].value = '00:00:00:00:00:00';
+	f[1].value = '';
+}
+
 smg.setup = function() {
 	var i, i, m, s, t, n;
 	var macs, names;

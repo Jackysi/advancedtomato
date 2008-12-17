@@ -29,7 +29,8 @@
 # since I can't think of any examples, I'll assume it's ok for now.
 
 xunlei
-^[()]...?.?.?(reg|get|query)|Mozilla/4\.0\(compatible; MSIE (6\.0; Windows NT 5\.1(; )?\)|5\.00; Windows 98\))|Keep-Alive\x0d\x0a\x0d\x0a[ 6]
+^([()]|get)(...?.?.?(reg|get|query)|.+User-Agent: (Mozilla/4\.0 \(compatible; (MSIE 6\.0; Windows NT 5\.1;? ?\)|MSIE 5\.00; Windows 98\))))|Keep-Alive\x0d\x0a\x0d\x0a[26]
+
 
 # This was the pattern until 2008 11 08.  It is safer than the above against
 # overmatching ordinary HTTP connections

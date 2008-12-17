@@ -1,11 +1,11 @@
 /*
  *	matrixSsl.c
- *	Release $Name: MATRIXSSL_1_8_3_OPEN $
+ *	Release $Name: MATRIXSSL_1_8_6_OPEN $
  *
  *	Secure Sockets Layer session management
  */
 /*
- *	Copyright (c) PeerSec Networks, 2002-2007. All Rights Reserved.
+ *	Copyright (c) PeerSec Networks, 2002-2008. All Rights Reserved.
  *	The latest version of this code is available at http://www.matrixssl.org
  *
  *	This software is open source; you can redistribute it and/or modify
@@ -66,6 +66,7 @@ int32 matrixSslOpen(void)
 	sslCreateMutex(&sessionTableLock);
 #endif /* USE_SERVER_SIDE_SSL */
 
+
 	return 0;
 }
 
@@ -86,6 +87,8 @@ void matrixSslClose(void)
 	sslUnlockMutex(&sessionTableLock);
 	sslDestroyMutex(&sessionTableLock);
 #endif /* USE_SERVER_SIDE_SSL */
+
+
 	matrixPkiClose();
 }
 
@@ -264,6 +267,9 @@ void matrixSslDeleteSession(ssl_t *ssl)
 	if (ssl->sec.premaster) {
 		psFree(ssl->sec.premaster);
 	}
+
+
+
 /*
 	The cipher and mac contexts are inline in the ssl structure, so
 	clearing the structure clears those states as well.
@@ -375,7 +381,7 @@ int32 sslSnapshotHSHash(ssl_t *ssl, unsigned char *out, int32 senderFlag)
 {
 	sslMd5Context_t		md5;
 	sslSha1Context_t	sha1;
-
+	
 /*
 	Use a backup of the message hash-to-date because we don't want
 	to destroy the state of the handshaking until truly complete
@@ -383,7 +389,7 @@ int32 sslSnapshotHSHash(ssl_t *ssl, unsigned char *out, int32 senderFlag)
 	md5 = ssl->sec.msgHashMd5;
 	sha1 = ssl->sec.msgHashSha1;
 
-		return sslGenerateFinishedHash(&md5, &sha1, ssl->sec.masterSecret,
+	return sslGenerateFinishedHash(&md5, &sha1, ssl->sec.masterSecret,
 			out, senderFlag);
 }
 
@@ -427,6 +433,7 @@ int32 sslActivateReadCipher(ssl_t *ssl)
 
 int32 sslActivateWriteCipher(ssl_t *ssl)
 {
+
 	ssl->encrypt = ssl->cipher->encrypt;
 	ssl->generateMac = ssl->cipher->generateMac;
 	ssl->enMacSize = ssl->cipher->macSize;
@@ -788,7 +795,6 @@ void sslResetContext(ssl_t *ssl)
 	}
 #endif /* USE_SERVER_SIDE_SSL */
 
-	sslAssert(ssl->hsPool == NULL);
 }
 
 /******************************************************************************/

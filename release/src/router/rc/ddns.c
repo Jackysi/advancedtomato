@@ -75,11 +75,6 @@ static void update(int num, int *dirty, int force)
 		return;
 	}
 
-	if (!check_wanup()) {
-		DLOG("%s: !check_wanup", __FUNCTION__);
-		return;
-	}
-
 	sprintf(cache_nv, "%s_cache", ddnsx);
 	if (force) {
 		DLOG("%s: force=1", __FUNCTION__);
@@ -89,6 +84,14 @@ static void update(int num, int *dirty, int force)
 	simple_lock("ddns");
 
 	strlcpy(ip, nvram_safe_get("ddnsx_ip"), sizeof(ip));
+	
+	if (!check_wanup()) {
+		if ((get_wan_proto() != WP_DISABLED) || (ip[0] == 0)) {
+			DLOG("%s: !check_wanup", __FUNCTION__);
+			goto CLEANUP;
+		}
+	}
+	
 	if (ip[0] == '@') {
 		if ((strcmp(serv, "zoneedit") == 0) || (strcmp(serv, "tzo") == 0) || (strcmp(serv, "noip") == 0) || (strcmp(serv, "dnsomatic") == 0)) {
 			strcpy(ip + 1, serv);
