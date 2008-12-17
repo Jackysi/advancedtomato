@@ -136,6 +136,9 @@
 /* Define to 1 if you have the `getpass' function. */
 #define HAVE_GETPASS 1
 
+/* Define to 1 if you have the `getpeereid' function. */
+/* #undef HAVE_GETPEEREID */
+
 /* Define to 1 if you have the `getpeername' function. */
 #define HAVE_GETPEERNAME 1
 
@@ -373,6 +376,9 @@
 /* Define to 1 if you have the <sys/uio.h> header file. */
 #define HAVE_SYS_UIO_H 1
 
+/* Define to 1 if you have the <sys/un.h> header file. */
+#define HAVE_SYS_UN_H 1
+
 /* Define to 1 if you have <sys/wait.h> that is POSIX.1 compatible. */
 #define HAVE_SYS_WAIT_H 1
 
@@ -381,6 +387,9 @@
 
 /* struct tun_pi needed for IPv6 support */
 #define HAVE_TUN_PI 1
+
+/* Define to 1 if you have the `umask' function. */
+#define HAVE_UMASK 1
 
 /* Define to 1 if you have the <unistd.h> header file. */
 #define HAVE_UNISTD_H 1
@@ -428,13 +437,13 @@
 #define PACKAGE_NAME "OpenVPN"
 
 /* Define to the full name and version of this package. */
-#define PACKAGE_STRING "OpenVPN 2.1_rc12"
+#define PACKAGE_STRING "OpenVPN 2.1_rc13"
 
 /* Define to the one symbol short name of this package. */
 #define PACKAGE_TARNAME "openvpn"
 
 /* Define to the version of this package. */
-#define PACKAGE_VERSION "2.1_rc12"
+#define PACKAGE_VERSION "2.1_rc13"
 
 /* Define to the necessary symbol if this constant uses a non-standard name on
    your system. */
@@ -525,7 +534,7 @@
 /* #undef USE_VALGRIND */
 
 /* Version number of package */
-#define VERSION "2.1_rc12"
+#define VERSION "2.1_rc13"
 
 /* Define to empty if `const' does not conform to ANSI C. */
 /* #undef const */
