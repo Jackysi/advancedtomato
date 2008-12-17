@@ -686,6 +686,7 @@ int start_firewall(void)
 	modprobe_r("ipt_TTL");
 
 	run_nvscript("script_fire", NULL, 1);
+	run_vpn_firewall_scripts();
 
 	simple_unlock("firewall");
 	return 0;

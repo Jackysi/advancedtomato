@@ -965,6 +965,18 @@ TOP:
 	}
 #endif
 
+	if (strncmp(service, "vpnclient", 9) == 0) {
+		if (action & A_STOP) stop_vpnclient(atoi(&service[9]));
+		if (action & A_START) start_vpnclient(atoi(&service[9]));
+		goto CLEAR;
+	}
+
+	if (strncmp(service, "vpnserver", 9) == 0) {
+		if (action & A_STOP) stop_vpnserver(atoi(&service[9]));
+		if (action & A_START) start_vpnserver(atoi(&service[9]));
+		goto CLEAR;
+	}
+
 
 CLEAR:
 	if (next) goto TOP;

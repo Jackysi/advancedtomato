@@ -1,0 +1,16 @@
+README for SgtPepperKSU VPN build of Tomato Firmware
+
+In order to compile, please start with a Tomato Firware source tree.  From there extract this archive into the base of that directory.  Then simply run:
+patch -p0 < included_patch_file.patch
+substituting 'included_patch_file.patch' with the file name of the patch file also included in this archive.  That's it! You're ready to compile.
+
+A portion of the source included here is Copyright (C) 2008 Keith Moyer.  You have permission use and distribute this source on the following conditions:
+1. The additional credit on the About page of the Web GUI is displayed in all builds that use this source.
+2. The copyright notices are left on all files on which they are present.
+3. Any changes you make to the files with Keith Moyer copyright notices are communicated back to me at tomatovpn@keithmoyer.com
+4. These conditions are presented to all those who have access to said source code.
+
+If you have any questions/comments/concerns, contact me at tomatovpn@keithmoyer.com
+
+Enjoy!
+

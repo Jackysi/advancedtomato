@@ -1944,6 +1944,11 @@ function navi()
 			['View Details',	'detailed.asp']
 			] ],
 		['Access Restriction',	'restrict.asp'],
+/* VPN-BEGIN */
+		['VPN Tunneling', 		'vpn', 0, [
+			['Server',			'server.asp'],
+			['Client',			'client.asp'] ] ],
+/* VPN-END */
 		null,
 		['Administration',		'admin', 0, [
 			['Admin Access',	'access.asp'],

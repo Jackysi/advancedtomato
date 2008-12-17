@@ -238,6 +238,7 @@ const aspapi_t aspapi[] = {
 	{ "time",				asp_time			},
 	{ "upnpinfo",			asp_upnpinfo		},
 	{ "version",			asp_version			},
+	{ "vpnciphers",			asp_vpn_ciphers		},
 	{ "wanstatus",			asp_wanstatus		},
 	{ "wanup",				asp_wanup			},
 	{ "wlchannel",			asp_wlchannel		},
@@ -641,6 +642,85 @@ static const nvset_t nvset_list[] = {
 	{ "qos_default",		V_RANGE(0, 9)		},
 	{ "qos_irates",			V_LENGTH(0, 128)	},
 	{ "qos_orates",			V_LENGTH(0, 128)	},
+
+// vpn
+	{ "vpn_debug",          V_01                },
+	{ "vpn_server1_if",     V_TEXT(3, 3)        },  // tap, tun
+	{ "vpn_server1_proto",  V_TEXT(3, 10)       },  // udp, tcp-server
+	{ "vpn_server1_port",   V_PORT              },
+	{ "vpn_server1_crypt",  V_TEXT(0, 6)        },  // tls, secret, custom
+	{ "vpn_server1_comp",   V_TEXT(0, 8)        },  // yes, no, adaptive
+	{ "vpn_server1_cipher", V_TEXT(0, 16)       },
+	{ "vpn_server1_r1",     V_IP                },
+	{ "vpn_server1_r2",     V_IP                },
+	{ "vpn_server1_sn",     V_IP                },
+	{ "vpn_server1_nm",     V_IP                },
+	{ "vpn_server1_local",  V_IP                },
+	{ "vpn_server1_remote", V_IP                },
+	{ "vpn_server1_hmac",   V_RANGE(-1, 2)      },
+	{ "vpn_server1_custom", V_TEXT(0, 1024)     },
+	{ "vpn_server1_static", V_TEXT(0, 1024)     },
+	{ "vpn_server1_ca",     V_TEXT(0, 1648)     },
+	{ "vpn_server1_crt",    V_TEXT(0, 1392)     },
+	{ "vpn_server1_key",    V_TEXT(0, 1024)     },
+	{ "vpn_server1_dh",     V_TEXT(0, 256)      },
+	{ "vpn_server2_if",     V_TEXT(3, 3)        },  // tap, tun
+	{ "vpn_server2_proto",  V_TEXT(3, 10)       },  // udp, tcp-server
+	{ "vpn_server2_port",   V_PORT              },
+	{ "vpn_server2_crypt",  V_TEXT(0, 6)        },  // tls, secret, custom
+	{ "vpn_server2_comp",   V_TEXT(0, 8)        },  // yes, no, adaptive
+	{ "vpn_server2_cipher", V_TEXT(0, 16)       },
+	{ "vpn_server2_r1",     V_IP                },
+	{ "vpn_server2_r2",     V_IP                },
+	{ "vpn_server2_sn",     V_IP                },
+	{ "vpn_server2_nm",     V_IP                },
+	{ "vpn_server2_local",  V_IP                },
+	{ "vpn_server2_remote", V_IP                },
+	{ "vpn_server2_hmac",   V_RANGE(-1, 2)      },
+	{ "vpn_server2_custom", V_TEXT(0, 1024)     },
+	{ "vpn_server2_static", V_TEXT(0, 1024)     },
+	{ "vpn_server2_ca",     V_TEXT(0, 1648)     },
+	{ "vpn_server2_crt",    V_TEXT(0, 1392)     },
+	{ "vpn_server2_key",    V_TEXT(0, 1024)     },
+	{ "vpn_server2_dh",     V_TEXT(0, 256)      },
+	{ "vpn_client1_if",     V_TEXT(3, 3)        },  // tap, tun
+	{ "vpn_client1_bridge", V_01                },
+	{ "vpn_client1_nat",    V_01                },
+	{ "vpn_client1_proto",  V_TEXT(3, 10)       },  // udp, tcp-server
+	{ "vpn_client1_addr",   V_TEXT(0, 32)       },
+	{ "vpn_client1_port",   V_PORT              },
+	{ "vpn_client1_retry",  V_RANGE(-1,32767)   },  // -1 infinite, 0 disabled, >= 1 custom
+	{ "vpn_client1_crypt",  V_TEXT(0, 6)        },  // tls, secret, custom
+	{ "vpn_client1_comp",   V_TEXT(0, 8)        },  // yes, no, adaptive
+	{ "vpn_client1_cipher", V_TEXT(0, 16)       },
+	{ "vpn_client1_local",  V_IP                },
+	{ "vpn_client1_remote", V_IP                },
+	{ "vpn_client1_nm",     V_IP                },
+	{ "vpn_client1_hmac",   V_RANGE(-1, 2)      },
+	{ "vpn_client1_custom", V_TEXT(0, 1024)     },
+	{ "vpn_client1_static", V_TEXT(0, 1024)     },
+	{ "vpn_client1_ca",     V_TEXT(0, 1648)     },
+	{ "vpn_client1_crt",    V_TEXT(0, 1392)     },
+	{ "vpn_client1_key",    V_TEXT(0, 1024)     },
+	{ "vpn_client2_if",     V_TEXT(3, 3)        },  // tap, tun
+	{ "vpn_client2_bridge", V_01                },
+	{ "vpn_client2_nat",    V_01                },
+	{ "vpn_client2_proto",  V_TEXT(3, 10)       },  // udp, tcp-server
+	{ "vpn_client2_addr",   V_TEXT(0, 32)       },
+	{ "vpn_client2_port",   V_PORT              },
+	{ "vpn_client2_retry",  V_RANGE(-1,32767)   },  // -1 infinite, 0 disabled, >= 1 custom
+	{ "vpn_client2_crypt",  V_TEXT(0, 6)        },  // tls, secret, custom
+	{ "vpn_client2_comp",   V_TEXT(0, 8)        },  // yes, no, adaptive
+	{ "vpn_client2_cipher", V_TEXT(0, 16)       },
+	{ "vpn_client2_local",  V_IP                },
+	{ "vpn_client2_remote", V_IP                },
+	{ "vpn_client2_nm",     V_IP                },
+	{ "vpn_client2_hmac",   V_RANGE(-1, 2)      },
+	{ "vpn_client2_custom", V_TEXT(0, 1024)     },
+	{ "vpn_client2_static", V_TEXT(0, 1024)     },
+	{ "vpn_client2_ca",     V_TEXT(0, 1648)     },
+	{ "vpn_client2_crt",    V_TEXT(0, 1392)     },
+	{ "vpn_client2_key",    V_TEXT(0, 1024)     },
 
 
 /*
