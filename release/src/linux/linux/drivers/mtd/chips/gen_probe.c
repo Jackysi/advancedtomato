@@ -287,6 +287,7 @@ static struct mtd_info *check_cmd_set(struct map_info *map, int primary)
 #endif
 #ifdef CONFIG_MTD_CFI_AMDSTD
 	case 0x0002:
+	case 0x0006:	/* for Winbond W19L320SBT9C */
 		return cfi_cmdset_0002(map, primary);
 #endif
 #ifdef CONFIG_MTD_CFI_SSTSTD

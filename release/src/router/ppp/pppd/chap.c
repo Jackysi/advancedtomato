@@ -601,7 +601,7 @@ ChapReceiveResponse(cstate, inp, id, len)
 	notice("CHAP peer authentication succeeded for %q", rhostname);
 
     } else {
-	LOGX_INFO("CHAP peer authentication failed for remote host %s.", rhostname);
+	LOGX_WARN("CHAP peer authentication failed for remote host %s.", rhostname);
 	error("CHAP peer authentication failed for remote host %q", rhostname);
 	cstate->serverstate = CHAPSS_BADAUTH;
 	auth_peer_fail(cstate->unit, PPP_CHAP);

@@ -21,7 +21,7 @@
 #             packet encryption, packet authentication, and
 #             packet compression.
 #
-#  Copyright (C) 2002-2008 Telethra, Inc. <sales@openvpn.net>
+#  Copyright (C) 2002-2008 OpenVPN Technologies, Inc. <sales@openvpn.net>
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License version 2
@@ -134,21 +134,21 @@ OBJEXT = o
 PACKAGE = openvpn
 PACKAGE_BUGREPORT = openvpn-users@lists.sourceforge.net
 PACKAGE_NAME = OpenVPN
-PACKAGE_STRING = OpenVPN 2.1_rc12
+PACKAGE_STRING = OpenVPN 2.1_rc13
 PACKAGE_TARNAME = openvpn
-PACKAGE_VERSION = 2.1_rc12
+PACKAGE_VERSION = 2.1_rc13
 PATH_SEPARATOR = :
 PTHREAD_CC = 
 PTHREAD_CFLAGS = 
 PTHREAD_LIBS = 
 ROUTE = /sbin/route
 SET_MAKE = 
-SHELL = /bin/sh
+SHELL = /bin/bash
 STRIP = mipsel-uclibc-strip
 TAP_ID = tap0901
 TAP_WIN32_MIN_MAJOR = 9
 TAP_WIN32_MIN_MINOR = 1
-VERSION = 2.1_rc12
+VERSION = 2.1_rc13
 WIN32_FALSE = 
 WIN32_TRUE = #
 ac_ct_CC = 

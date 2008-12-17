@@ -29,7 +29,9 @@ textarea {
 
 <script type='text/javascript'>
 
-//	<% nvram("dhcpd_dmdns,dns_addget,dns_intcpt,dhcpd_slt,dhcpc_minpkt,dnsmasq_custom,dnsmasq_norw"); %>
+//	<% nvram("dhcpd_dmdns,dns_addget,dns_intcpt,dhcpd_slt,dhcpc_minpkt,dnsmasq_custom,dnsmasq_norw,dhcpd_lmax"); %>
+
+if ((isNaN(nvram.dhcpd_lmax)) || ((nvram.dhcpd_lmax *= 1) < 1)) nvram.dhcpd_lmax = 255;
 
 function verifyFields(focused, quiet)
 {
@@ -37,6 +39,7 @@ function verifyFields(focused, quiet)
 	elem.display('_dhcpd_sltman', b);
 	if ((b) && (!v_range('_f_dhcpd_slt', quiet, 1, 43200))) return 0;
 	if (!v_length('_dnsmasq_custom', quiet, 0, 2048)) return 0;
+	if (!v_range('_dhcpd_lmax', quiet, 1, 0xFFFF)) return 0;
 	return 1;
 }
 
@@ -101,6 +104,7 @@ createFieldTable('', [
 	{ title: 'Use Internal Caching DNS Forwarder', name: 'f_dhcpd_dmdns', type: 'checkbox', value: nvram.dhcpd_dmdns == '1' },
 	{ title: 'Use Received DNS With Static DNS', name: 'f_dns_addget', type: 'checkbox', value: nvram.dns_addget == '1' },
 	{ title: 'Intercept DNS Port<br>(UDP 53)', name: 'f_dns_intcpt', type: 'checkbox', value: nvram.dns_intcpt == '1' },
+	{ title: 'Maximum Active DHCP Leases', name: 'dhcpd_lmax', type: 'text', maxlen: 5, size: 8, value: nvram.dhcpd_lmax },
 	{ title: 'Static Lease Time', multi: [
 		{ name: 'f_dhcpd_sltsel', type: 'select', options: [[0,'Same as normal lease time'],[-1,'Infinite'],[1,'Custom']],
 			value: (nvram.dhcpd_slt < 1) ? nvram.dhcpd_slt : 1 },

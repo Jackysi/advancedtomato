@@ -150,14 +150,39 @@ void start_dnsmasq()
 			}
 		}
 
+		if ((p = nvram_get("dhcpd_startip")) && (*p) && (e = nvram_get("dhcpd_endip")) && (*e)) {
+			fprintf(f, "dhcp-range=%s,%s,%s,%dm\n", p, e, nvram_safe_get("lan_netmask"), dhcp_lease);
+		}
+		else {
+			// for compatibility
+			dhcp_start = nvram_get_int("dhcp_start");
+			dhcp_count = nvram_get_int("dhcp_num");
+			fprintf(f, "dhcp-range=%s%d,%s%d,%s,%dm\n",
+				lan, dhcp_start, lan, dhcp_start + dhcp_count - 1, nvram_safe_get("lan_netmask"), dhcp_lease);
+		}
+		n = nvram_get_int("dhcpd_lmax");
+		fprintf(f,
+			"dhcp-option=3,%s\n"	// gateway
+			"dhcp-lease-max=%d\n",
+			router_ip,			
+			(n > 0) ? n : 255);
+
+/*
 		dhcp_start = nvram_get_int("dhcp_start");
 		dhcp_count = nvram_get_int("dhcp_num");
+		n = nvram_get_int("dhcpd_lmax");
 		fprintf(f,
 			"dhcp-range=%s%d,%s%d,%s,%dm\n"		// lease config
 			"dhcp-option=3,%s\n"				// gateway
-			"dhcp-authoritative\n",				// this is the authoritative server - handle all requests
+			"dhcp-lease-max=%d\n",
 			lan, dhcp_start, lan, dhcp_start + dhcp_count - 1, nvram_safe_get("lan_netmask"), dhcp_lease,
-			router_ip);
+			router_ip,			
+			(n > 0) ? n : 255);
+*/
+
+		if (nvram_get_int("dhcpd_auth") >= 0) {
+			fprintf(f, "dhcp-authoritative\n");
+		}
 			
 		if (check_wanup()) {
 			// avoid leasing wan ip incase the modem gives an ip in our range
@@ -461,6 +486,54 @@ void stop_zebra(void)
 
 void start_syslog(void)
 {
+#if 1
+	char *argv[12];
+	int argc;
+	char *nv;
+	char rem[256];
+
+	argv[0] = "syslogd";
+//	argv[1] = "-m";
+//	argv[2] = nvram_get("log_mark");
+	argc = 1;
+
+	if (nvram_match("log_remote", "1")) {
+		nv = nvram_safe_get("log_remoteip");
+		if (*nv) {
+			snprintf(rem, sizeof(rem), "%s:%s", nv, nvram_safe_get("log_remoteport"));
+			argv[argc++] = "-R";
+			argv[argc++] = rem;
+		}
+	}
+
+	if (nvram_match("log_file", "1")) {
+		argv[argc++] = "-L";
+		argv[argc++] = "-s";
+		argv[argc++] = "50";
+	}
+
+	if (argc > 3) {
+		argv[argc] = NULL;
+		_eval(argv, NULL, 0, NULL);
+		usleep(500000);
+		
+		argv[0] = "klogd";
+		argv[1] = NULL;
+		_eval(argv, NULL, 0, NULL);
+		usleep(500000);
+	}
+	
+	int n;
+	char s[64];
+	
+	n = nvram_get_int("log_mark");
+	if (n > 0) {
+		sprintf(s, "cru a syslogdmark \"%s %s * * * logger -p syslog.info -- -- MARK --\"",
+			(n < 60) ? "*/30" : "0", (n < 120) ? "*" : "*/2");
+		system(s);
+	}
+	
+#else
 	char *argv[12];
 	int argc;
 	char *nv;
@@ -496,6 +569,7 @@ void start_syslog(void)
 		_eval(argv, NULL, 0, NULL);
 		usleep(500000);
 	}
+#endif
 }
 
 void stop_syslog(void)

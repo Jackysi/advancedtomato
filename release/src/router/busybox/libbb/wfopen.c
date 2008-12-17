@@ -7,16 +7,34 @@
  * Licensed under GPLv2 or later, see file LICENSE in this tarball for details.
  */
 
-#include <stdio.h>
-#include <errno.h>
 #include "libbb.h"
 
-FILE *bb_wfopen(const char *path, const char *mode)
+FILE* FAST_FUNC fopen_or_warn(const char *path, const char *mode)
 {
-	FILE *fp;
-	if ((fp = fopen(path, mode)) == NULL) {
-		bb_perror_msg("%s", path);
+	FILE *fp = fopen(path, mode);
+	if (!fp) {
+		bb_simple_perror_msg(path);
 		errno = 0;
 	}
 	return fp;
+}
+
+FILE* FAST_FUNC fopen_for_read(const char *path)
+{
+	return fopen(path, "r");
+}
+
+FILE* FAST_FUNC xfopen_for_read(const char *path)
+{
+	return xfopen(path, "r");
+}
+
+FILE* FAST_FUNC fopen_for_write(const char *path)
+{
+	return fopen(path, "w");
+}
+
+FILE* FAST_FUNC xfopen_for_write(const char *path)
+{
+	return xfopen(path, "w");
 }

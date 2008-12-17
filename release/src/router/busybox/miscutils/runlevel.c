@@ -12,32 +12,32 @@
  * initially busyboxified by Bernhard Fischer
  */
 
-#include "busybox.h"
-#include <stdio.h>
 #include <utmp.h>
-#include <time.h>
-#include <stdlib.h>
+#include "libbb.h"
 
-int runlevel_main(int argc, char *argv[])
+int runlevel_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
+int runlevel_main(int argc, char **argv)
 {
-  struct utmp *ut;
-  char prev;
+	struct utmp *ut;
+	char prev;
 
-  if (argc > 1) utmpname(argv[1]);
+	if (argc > 1) utmpname(argv[1]);
 
-  setutent();
-  while ((ut = getutent()) != NULL) {
-	if (ut->ut_type == RUN_LVL) {
-		prev = ut->ut_pid / 256;
-		if (prev == 0) prev = 'N';
-		printf("%c %c\n", prev, ut->ut_pid % 256);
-		endutent();
-		return (0);
+	setutent();
+	while ((ut = getutent()) != NULL) {
+		if (ut->ut_type == RUN_LVL) {
+			prev = ut->ut_pid / 256;
+			if (prev == 0) prev = 'N';
+			printf("%c %c\n", prev, ut->ut_pid % 256);
+			if (ENABLE_FEATURE_CLEAN_UP)
+				endutent();
+			return 0;
+		}
 	}
-  }
 
-  printf("unknown\n");
-  endutent();
-  return (1);
+	puts("unknown");
+
+	if (ENABLE_FEATURE_CLEAN_UP)
+		endutent();
+	return 1;
 }
-

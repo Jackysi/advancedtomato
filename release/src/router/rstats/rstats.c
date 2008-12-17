@@ -158,6 +158,10 @@ static void save(int quick)
 	int n;
 	char hgz[256];
 	char tmp[256];
+	char bak[256];
+	time_t now;
+	struct tm *tms;
+	static int lastbak = -1;
 
 	_dprintf("%s: quick=%d\n", __FUNCTION__, quick);
 
@@ -206,7 +210,7 @@ static void save(int quick)
 	else if (save_path[0] != 0) {
 		strcpy(tmp, save_path);
 		strcat(tmp, ".tmp");
-		
+	
 		for (i = 15; i > 0; --i) {
 			if (!wait_action_idle(10)) {
 				_dprintf("%s: busy, not saving\n", __FUNCTION__);
@@ -215,6 +219,19 @@ static void save(int quick)
 				_dprintf("%s: cp %s %s\n", __FUNCTION__, hgz, tmp);
 				if (eval("cp", hgz, tmp) == 0) {
 					_dprintf("%s: copy ok\n", __FUNCTION__);
+
+					if (!nvram_match("rstats_bak", "0")) {
+						now = time(0);
+						tms = localtime(&now);
+						if (lastbak != tms->tm_yday) {
+							strcpy(bak, save_path);
+							n = strlen(bak);
+							if ((n > 3) && (strcmp(bak + (n - 3), ".gz") == 0)) n -= 3;
+							sprintf(bak + n, "_%d.bak", ((tms->tm_yday / 7) % 3) + 1);
+							if (eval("cp", save_path, bak) == 0) lastbak = tms->tm_yday;
+						}
+					}
+
 					_dprintf("%s: rename %s %s\n", __FUNCTION__, tmp, save_path);
 					if (rename(tmp, save_path) == 0) {
 						_dprintf("%s: rename ok\n", __FUNCTION__);

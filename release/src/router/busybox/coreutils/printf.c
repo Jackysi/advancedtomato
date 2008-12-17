@@ -30,131 +30,229 @@
 
    %b = print an argument string, interpreting backslash escapes
 
-   The `format' argument is re-used as many times as necessary
+   The 'format' argument is re-used as many times as necessary
    to convert all of the given arguments.
 
-   David MacKenzie <djm@gnu.ai.mit.edu> */
-
+   David MacKenzie <djm@gnu.ai.mit.edu>
+*/
 
 //   19990508 Busy Boxed! Dave Cinege
 
-#include <unistd.h>
-#include <stdio.h>
-#include <sys/types.h>
-#include <string.h>
-#include <errno.h>
-#include <stdlib.h>
-#include <fcntl.h>
-#include <ctype.h>
-#include <assert.h>
-#include "busybox.h"
+#include "libbb.h"
 
-static int print_formatted (char *format, int argc, char **argv);
-static void print_direc (char *start, size_t length,
-			int field_width, int precision, char *argument);
+/* A note on bad input: neither bash 3.2 nor coreutils 6.10 stop on it.
+ * They report it:
+ *  bash: printf: XXX: invalid number
+ *  printf: XXX: expected a numeric value
+ *  bash: printf: 123XXX: invalid number
+ *  printf: 123XXX: value not completely converted
+ * but then they use 0 (or partially converted numeric prefix) as a value
+ * and continue. They exit with 1 in this case.
+ * Both accept insane field width/precision (e.g. %9999999999.9999999999d).
+ * Both print error message and assume 0 if %*.*f width/precision is "bad"
+ *  (but negative numbers are not "bad").
+ * Both accept negative numbers for %u specifier.
+ *
+ * We try to be compatible. We are not compatible here:
+ * - we do not accept -NUM for %u
+ * - exit code is 0 even if "invalid number" was seen (FIXME)
+ * See "if (errno)" checks in the code below.
+ */
 
-typedef int (*converter)(char *arg, void *result);
-static void multiconvert(char *arg, void *result, converter convert)
+typedef void FAST_FUNC (*converter)(const char *arg, void *result);
+
+static int multiconvert(const char *arg, void *result, converter convert)
 {
-	char s[16];
 	if (*arg == '"' || *arg == '\'') {
-		sprintf(s,"%d",(unsigned)*(++arg));
-		arg=s;
+		arg = utoa((unsigned char)arg[1]);
 	}
-	if(convert(arg,result)) fprintf(stderr, "%s", arg);
+	errno = 0;
+	convert(arg, result);
+	if (errno) {
+		bb_error_msg("%s: invalid number", arg);
+		return 1;
+	}
+	return 0;
 }
 
-static unsigned long xstrtoul(char *arg)
+static void FAST_FUNC conv_strtoul(const char *arg, void *result)
+{
+	*(unsigned long*)result = bb_strtoul(arg, NULL, 0);
+}
+static void FAST_FUNC conv_strtol(const char *arg, void *result)
+{
+	*(long*)result = bb_strtol(arg, NULL, 0);
+}
+static void FAST_FUNC conv_strtod(const char *arg, void *result)
+{
+	char *end;
+	/* Well, this one allows leading whitespace... so what? */
+	/* What I like much less is that "-" accepted too! :( */
+	*(double*)result = strtod(arg, &end);
+	if (end[0]) {
+		errno = ERANGE;
+		*(double*)result = 0;
+	}
+}
+
+/* Callers should check errno to detect errors */
+static unsigned long my_xstrtoul(const char *arg)
 {
 	unsigned long result;
-
-	multiconvert(arg,&result, (converter)safe_strtoul);
+	if (multiconvert(arg, &result, conv_strtoul))
+		result = 0;
 	return result;
 }
-
-static long xstrtol(char *arg)
+static long my_xstrtol(const char *arg)
 {
 	long result;
-	multiconvert(arg, &result, (converter)safe_strtol);
+	if (multiconvert(arg, &result, conv_strtol))
+		result = 0;
 	return result;
 }
-
-static double xstrtod(char *arg)
+static double my_xstrtod(const char *arg)
 {
 	double result;
-	multiconvert(arg, &result, (converter)safe_strtod);
+	multiconvert(arg, &result, conv_strtod);
 	return result;
 }
 
 static void print_esc_string(char *str)
 {
-	for (; *str; str++) {
+	while (*str) {
 		if (*str == '\\') {
 			str++;
-			putchar(bb_process_escape_sequence((const char **)&str));
+			bb_putchar(bb_process_escape_sequence((const char **)&str));
 		} else {
-			putchar(*str);
+			bb_putchar(*str);
+			str++;
 		}
-
 	}
 }
 
-int printf_main(int argc, char **argv)
+static void print_direc(char *format, unsigned fmt_length,
+		int field_width, int precision,
+		const char *argument)
 {
-	char *format;
-	int args_used;
+	long lv;
+	double dv;
+	char saved;
+	char *have_prec, *have_width;
 
-	if (argc <= 1 || **(argv + 1) == '-') {
-		bb_show_usage();
-	}
+	have_prec = strstr(format, ".*");
+	have_width = strchr(format, '*');
+	if (have_width - 1 == have_prec)
+		have_width = NULL;
 
-	format = argv[1];
-	argc -= 2;
-	argv += 2;
+	saved = format[fmt_length];
+	format[fmt_length] = '\0';
 
-	do {
-		args_used = print_formatted(format, argc, argv);
-		argc -= args_used;
-		argv += args_used;
-	}
-	while (args_used > 0 && argc > 0);
+	switch (format[fmt_length - 1]) {
+	case 'c':
+		printf(format, *argument);
+		break;
+	case 'd':
+	case 'i':
+		lv = my_xstrtol(argument);
+ print_long:
+		/* if (errno) return; - see comment at the top */
+		if (!have_width) {
+			if (!have_prec)
+				printf(format, lv);
+			else
+				printf(format, precision, lv);
+		} else {
+			if (!have_prec)
+				printf(format, field_width, lv);
+			else
+				printf(format, field_width, precision, lv);
+		}
+		break;
+	case 'o':
+	case 'u':
+	case 'x':
+	case 'X':
+		lv = my_xstrtoul(argument);
+		/* cheat: unsigned long and long have same width, so... */
+		goto print_long;
+	case 's':
+		/* Are char* and long the same? (true for most arches) */
+		if (sizeof(argument) == sizeof(lv)) {
+			lv = (long)(ptrdiff_t)argument;
+			goto print_long;
+		} else { /* Hope compiler will optimize it out */
+			if (!have_width) {
+				if (!have_prec)
+					printf(format, argument);
+				else
+					printf(format, precision, argument);
+			} else {
+				if (!have_prec)
+					printf(format, field_width, argument);
+				else
+					printf(format, field_width, precision, argument);
+			}
+			break;
+		}
+	case 'f':
+	case 'e':
+	case 'E':
+	case 'g':
+	case 'G':
+		dv = my_xstrtod(argument);
+		/* if (errno) return; */
+		if (!have_width) {
+			if (!have_prec)
+				printf(format, dv);
+			else
+				printf(format, precision, dv);
+		} else {
+			if (!have_prec)
+				printf(format, field_width, dv);
+			else
+				printf(format, field_width, precision, dv);
+		}
+		break;
+	} /* switch */
 
-/*
-  if (argc > 0)
-    fprintf(stderr, "excess args ignored");
-*/
-
-	return EXIT_SUCCESS;
+	format[fmt_length] = saved;
 }
 
-/* Print the text in FORMAT, using ARGV (with ARGC elements) for
-   arguments to any `%' directives.
-   Return the number of elements of ARGV used.  */
-
-static int print_formatted(char *format, int argc, char **argv)
+/* Handle params for "%*.*f". Negative numbers are ok (compat). */
+static int get_width_prec(const char *str)
 {
-	int save_argc = argc;		/* Preserve original value.  */
-	char *f;					/* Pointer into `format'.  */
-	char *direc_start;			/* Start of % directive.  */
-	size_t direc_length;		/* Length of % directive.  */
-	int field_width;			/* Arg to first '*', or -1 if none.  */
-	int precision;				/* Arg to second '*', or -1 if none.  */
+	int v = bb_strtoi(str, NULL, 10);
+	if (errno) {
+		bb_error_msg("%s: invalid number", str);
+		v = 0;
+	}
+	return v;
+}
 
-	for (f = format; *f; ++f) {
+/* Print the text in FORMAT, using ARGV for arguments to any '%' directives.
+   Return advanced ARGV.  */
+static char **print_formatted(char *f, char **argv)
+{
+	char *direc_start;      /* Start of % directive.  */
+	unsigned direc_length;  /* Length of % directive.  */
+	int field_width;        /* Arg to first '*' */
+	int precision;          /* Arg to second '*' */
+	char **saved_argv = argv;
+
+	for (; *f; ++f) {
 		switch (*f) {
 		case '%':
 			direc_start = f++;
 			direc_length = 1;
-			field_width = precision = -1;
+			field_width = precision = 0;
 			if (*f == '%') {
-				putchar('%');
+				bb_putchar('%');
 				break;
 			}
 			if (*f == 'b') {
-				if (argc > 0) {
+				if (*argv) {
 					print_esc_string(*argv);
 					++argv;
-					--argc;
 				}
 				break;
 			}
@@ -165,148 +263,117 @@ static int print_formatted(char *format, int argc, char **argv)
 			if (*f == '*') {
 				++f;
 				++direc_length;
-				if (argc > 0) {
-					field_width = xstrtoul(*argv);
-					++argv;
-					--argc;
-				} else
-					field_width = 0;
-			} else
+				if (*argv)
+					field_width = get_width_prec(*argv++);
+			} else {
 				while (isdigit(*f)) {
 					++f;
 					++direc_length;
 				}
+			}
 			if (*f == '.') {
 				++f;
 				++direc_length;
 				if (*f == '*') {
 					++f;
 					++direc_length;
-					if (argc > 0) {
-						precision = xstrtoul(*argv);
-						++argv;
-						--argc;
-					} else
-						precision = 0;
-				} else
+					if (*argv)
+						precision = get_width_prec(*argv++);
+				} else {
 					while (isdigit(*f)) {
 						++f;
 						++direc_length;
 					}
+				}
 			}
-			if (*f == 'l' || *f == 'L' || *f == 'h') {
-				++f;
-				++direc_length;
+			/* Remove size modifiers - "%Ld" would try to printf
+			 * long long, we pass long, and it spews garbage */
+			if ((*f | 0x20) == 'l' || *f == 'h' || *f == 'z') {
+				overlapping_strcpy(f, f + 1);
 			}
-			/*
-			   if (!strchr ("diouxXfeEgGcs", *f))
-			   fprintf(stderr, "%%%c: invalid directive", *f);
-			 */
+//FIXME: actually, the same happens with bare "%d":
+//it printfs an int, but we pass long!
+//What saves us is that on most arches stack slot
+//is pointer-sized -> long-sized -> ints are promoted to longs
+// for variadic functions -> printf("%d", int_v) is in reality
+// indistinqushable from printf("%d", long_v) ->
+// since printf("%d", int_v) works, printf("%d", long_v) has to work.
+//But "clean" solution would be to add "l" to d,i,o,x,X.
+//Probably makes sense to go all the way to "ll" then.
+//Coreutils support long long-sized arguments.
+
+			/* needed - try "printf %" without it */
+			if (!strchr("diouxXfeEgGcs", *f)) {
+				bb_error_msg("%s: invalid format", direc_start);
+				/* causes main() to exit with error */
+				return saved_argv - 1;
+			}
 			++direc_length;
-			if (argc > 0) {
+			if (*argv) {
 				print_direc(direc_start, direc_length, field_width,
 							precision, *argv);
 				++argv;
-				--argc;
-			} else
+			} else {
 				print_direc(direc_start, direc_length, field_width,
 							precision, "");
+			}
+			/* if (errno) return saved_argv - 1; */
 			break;
-
 		case '\\':
-			if (*++f == 'c')
-				exit(0);
-			putchar(bb_process_escape_sequence((const char **)&f));
+			if (*++f == 'c') {
+				return saved_argv; /* causes main() to exit */
+			}
+			bb_putchar(bb_process_escape_sequence((const char **)&f));
 			f--;
 			break;
-
 		default:
-			putchar(*f);
+			bb_putchar(*f);
 		}
 	}
 
-	return save_argc - argc;
+	return argv;
 }
 
-static void
-print_direc(char *start, size_t length, int field_width, int precision,
-			char *argument)
+int printf_main(int argc UNUSED_PARAM, char **argv)
 {
-	char *p;					/* Null-terminated copy of % directive. */
+	char *format;
+	char **argv2;
 
-	p = xmalloc((unsigned) (length + 1));
-	strncpy(p, start, length);
-	p[length] = 0;
+	/* We must check that stdout is not closed.
+	 * The reason for this is highly non-obvious.
+	 * printf_main is used from shell.
+	 * Shell must correctly handle 'printf "%s" foo'
+	 * if stdout is closed. With stdio, output gets shoveled into
+	 * stdout buffer, and even fflush cannot clear it out. It seems that
+	 * even if libc receives EBADF on write attempts, it feels determined
+	 * to output data no matter what. So it will try later,
+	 * and possibly will clobber future output. Not good. */
+// TODO: check fcntl() & O_ACCMODE == O_WRONLY or O_RDWR?
+	if (fcntl(1, F_GETFL) == -1)
+		return 1; /* match coreutils 6.10 (sans error msg to stderr) */
+	//if (dup2(1, 1) != 1) - old way
+	//	return 1;
 
-	switch (p[length - 1]) {
-	case 'd':
-	case 'i':
-		if (field_width < 0) {
-			if (precision < 0)
-				printf(p, xstrtol(argument));
-			else
-				printf(p, precision, xstrtol(argument));
-		} else {
-			if (precision < 0)
-				printf(p, field_width, xstrtol(argument));
-			else
-				printf(p, field_width, precision, xstrtol(argument));
-		}
-		break;
+	/* bash builtin errors out on "printf '-%s-\n' foo",
+	 * coreutils-6.9 works. Both work with "printf -- '-%s-\n' foo".
+	 * We will mimic coreutils. */
+	if (argv[1] && argv[1][0] == '-' && argv[1][1] == '-' && !argv[1][2])
+		argv++;
+	if (!argv[1])
+		bb_show_usage();
 
-	case 'o':
-	case 'u':
-	case 'x':
-	case 'X':
-		if (field_width < 0) {
-			if (precision < 0)
-				printf(p, xstrtoul(argument));
-			else
-				printf(p, precision, xstrtoul(argument));
-		} else {
-			if (precision < 0)
-				printf(p, field_width, xstrtoul(argument));
-			else
-				printf(p, field_width, precision, xstrtoul(argument));
-		}
-		break;
+	format = argv[1];
+	argv2 = argv + 2;
 
-	case 'f':
-	case 'e':
-	case 'E':
-	case 'g':
-	case 'G':
-		if (field_width < 0) {
-			if (precision < 0)
-				printf(p, xstrtod(argument));
-			else
-				printf(p, precision, xstrtod(argument));
-		} else {
-			if (precision < 0)
-				printf(p, field_width, xstrtod(argument));
-			else
-				printf(p, field_width, precision, xstrtod(argument));
-		}
-		break;
+	do {
+		argv = argv2;
+		argv2 = print_formatted(format, argv);
+	} while (argv2 > argv && *argv2);
 
-	case 'c':
-		printf(p, *argument);
-		break;
+	/* coreutils compat (bash doesn't do this):
+	if (*argv)
+		fprintf(stderr, "excess args ignored");
+	*/
 
-	case 's':
-		if (field_width < 0) {
-			if (precision < 0)
-				printf(p, argument);
-			else
-				printf(p, precision, argument);
-		} else {
-			if (precision < 0)
-				printf(p, field_width, argument);
-			else
-				printf(p, field_width, precision, argument);
-		}
-		break;
-	}
-
-	free(p);
+	return (argv2 < argv); /* if true, print_formatted errored out */
 }

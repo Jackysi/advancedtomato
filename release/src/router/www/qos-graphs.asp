@@ -21,19 +21,21 @@
 
 <style type='text/css'>
 .color {
-	width: 25px;
+	width: 12px;
 	height: 25px;
 }
 .title {
-	width: 65px;
 }
 .count {
-	width: 55px;
 	text-align: right;
 }
 .pct {
 	width:55px;
 	text-align: right;
+}
+.thead {
+	font-size: 90%;
+	font-weight: bold;
 }
 .total {
 	border-top: 1px dashed #bbb;
@@ -89,19 +91,18 @@ function showData()
 	}
 	E('ccnt-total').innerHTML = ct;
 
-/* REMOVE-BEGIN
-	qrates is in bits/s
-	1 kbit/s = 1000 bits/s
-REMOVE-END */	
 	for (i = 1; i < 11; ++i) {
 		n = qrates[i];
-		E('bcnt' + i).innerHTML = (n / 1000).toFixed(2) + ' <small>kbit/s</small>';
+		E('bcnt' + i).innerHTML = (n / 1000).toFixed(2)
+		E('bcntx' + i).innerHTML = (n / 8192).toFixed(2)
 		if (rt > 0) p = (n / rt) * 100;
 			else p = 0;
 		E('bpct' + i).innerHTML = p.toFixed(2) + '%';
 	}
-	E('bcnt-total').innerHTML = (rt / 1000).toFixed(2) + ' <small>kbit/s</small>';
+	E('bcnt-total').innerHTML = (rt / 1000).toFixed(2)
+	E('bcntx-total').innerHTML = (rt / 8192).toFixed(2)
 }
+
 
 var ref = new TomatoRefresh('update.cgi', 'exec=qrate', 2, 'qos_graphs');
 
@@ -154,6 +155,7 @@ function checkSVG()
 
 function init()
 {
+	nbase = fixInt(cookie.get('qnbase'), 0, 1, 0);
 	showData();
 	checkSVG();
 	ref.initPage(2000, 3);
@@ -180,7 +182,7 @@ function init()
 <script type='text/javascript'>
 for (i = 0; i < 11; ++i) {
 	W('<tr style="cursor:pointer" onclick="mClick(' + i + ')">' +
-		'<td class="color" style="width:12px;background:#' + colors[i] + '" onclick="mClick(' + i + ')">&nbsp;</td>' +
+		'<td class="color" style="background:#' + colors[i] + '" onclick="mClick(' + i + ')">&nbsp;</td>' +
 		'<td class="title" style="width:60px"><a href="qos-detailed.asp?class=' + i + '">' + abc[i] + '</a></td>' +
 		'<td id="ccnt' + i + '" class="count" style="width:90px"></td>' + 
 		'<td id="cpct' + i + '" class="pct"></td></tr>');
@@ -202,16 +204,18 @@ if (nvram.web_svg != '0') {
 <div class="section">
 <table border=0 width="100%"><tr><td>
 	<table style="width:250px">
+	<tr><td class='color' style="height:1em"></td><td class='title' style="width:45px">&nbsp;</td><td class='thead count'>kbit/s</td><td class='thead count'>KB/s</td><td class='pct'>&nbsp;</td></tr>
 <script type='text/javascript'>
 for (i = 1; i < 11; ++i) {
 	W('<tr style="cursor:pointer" onclick="mClick(' + i + ')">' +
-		'<td class="color" style="width:12px;background:#' + colors[i] + '" onclick="mClick(' + i + ')">&nbsp;</td>' +
-		'<td class="title" style="width:60px"><a href="qos-detailed.asp?class=' + i + '">' + abc[i] + '</a></td>' +
-		'<td id="bcnt' + i + '" class="count" style="width:90px"></td>' + 
+		'<td class="color" style="background:#' + colors[i] + '" onclick="mClick(' + i + ')">&nbsp;</td>' +
+		'<td class="title" style="width:45px"><a href="qos-detailed.asp?class=' + i + '">' + abc[i] + '</a></td>' +
+		'<td id="bcnt' + i + '" class="count" style="width:60px"></td>' + 
+		'<td id="bcntx' + i + '" class="count" style="width:50px"></td>' + 
 		'<td id="bpct' + i + '" class="pct"></td></tr>');
 }
 </script>
-	<tr><td>&nbsp;</td><td class="total">Total</a></td><td id="bcnt-total" class="total count"></td><td class="total pct">100%</td></tr>
+	<tr><td>&nbsp;</td><td class="total">Total</a></td><td id="bcnt-total" class="total count"></td><td id="bcntx-total" class="total count"></td><td class="total pct">100%</td></tr>
 	</table>
 </td><td style="margin-right:150px">
 <script type='text/javascript'>

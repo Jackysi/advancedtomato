@@ -6,42 +6,24 @@ do one of these bounce an email off the person it's listed under to see if they
 have any suggestions how they plan to go about it, and to minimize conflicts
 between your work and theirs.  But otherwise, all of these are fair game.
 
-Rob Landley <rob@landley.net>:
-  Add BB_NOMMU to platform.h and migrate __uClinux__ tests to that.
-    #if defined __UCLIBC__ && !defined __ARCH_USE_MMU__
+Rob Landley suggested these:
   Add a libbb/platform.c
     Implement fdprintf() for platforms that haven't got one.
     Implement bb_realpath() that can handle NULL on non-glibc.
     Cleanup bb_asprintf()
 
-  Migrate calloc() and bb_calloc() occurrences to bb_xzalloc().
   Remove obsolete _() wrapper crud for internationalization we don't do.
   Figure out where we need utf8 support, and add it.
 
   sh
-    The command shell situation is a big mess.  We have three or four different
+    The command shell situation is a big mess.  We have three different
     shells that don't really share any code, and the "standalone shell" doesn't
     work all that well (especially not in a chroot environment), due to apps not
-    being reentrant.  I'm writing a new shell (bbsh) to unify the various
-    shells and configurably add the minimal set of bash features people
-    actually use.  The hardest part is it has to configure down as small as
-    lash while providing lash's features.  The rest is easy in comparison.
-  bzip2
-    Compression-side support.
+    being reentrant.
+    lash is phased out. hush can be configured down to be nearly as small,
+    but less buggy :)
   init
     General cleanup (should use ENABLE_FEATURE_INIT_SYSLOG and ENABLE_FEATURE_INIT_DEBUG).
-  depmod
-    busybox lacks a way to update module deps when running from firmware without the
-    use of the depmod.pl (perl is to bloated for most embedded setups) and or orig
-    modutils. The orig depmod is rather pointless to have to add to a firmware image 
-    in when we already have a insmod/rmmod and friends.
-  Unify base64 handling.
-    There's base64 encoding and decoding going on in:
-      networking/wget.c:base64enc()
-      coreutils/uudecode.c:read_base64()
-      coreutils/uuencode.c:tbl_base64[]
-      networking/httpd.c:decodeBase64()
-    And probably elsewhere.  That needs to be unified into libbb functions.
   Do a SUSv3 audit
     Look at the full Single Unix Specification version 3 (available online at
     "http://www.opengroup.org/onlinepubs/009695399/nfindex.html") and
@@ -117,28 +99,31 @@ Rob Landley <rob@landley.net>:
     This one's open to everybody, but I'll wind up doing it...
 
 
-Bernhard Fischer <rep.nop@anon.at>:
-  Makefile stuff:
-    make -j is broken, -j1 is forced atm
+Bernhard Fischer <busybox@busybox.net> suggests to look at these:
   New debug options:
     -Wlarger-than-127
+    Cleanup any big users
+    -Wunused-parameter
+    Facilitate applet PROTOTYPES to provide means for having applets that
+    do a) not take any arguments b) need only one of argc or argv c) need
+    both argc and argv. All of these three options should go for the most
+    feature complete denominator.
   Collate BUFSIZ IOBUF_SIZE MY_BUF_SIZE PIPE_PROGRESS_SIZE BUFSIZE PIPESIZE
-    Use bb_common_bufsiz1?
+    make bb_common_bufsiz1 configurable, size wise.
+    make pipesize configurable, size wise.
+    Use bb_common_bufsiz1 throughout applets!
 
 As yet unclaimed:
 
-----
-find
-  doesn't understand (), lots of susv3 stuff.
 ----
 diff
   Make sure we handle empty files properly:
     From the patch man page:
 
-   you can remove a file by sending out a context diff that compares
-   the file to be deleted with an empty file dated the Epoch.  The
-   file will be removed unless patch is conforming to POSIX and the
-   -E or --remove-empty-files option is not given.
+    you can remove a file by sending out a context diff that compares
+    the file to be deleted with an empty file dated the Epoch.  The
+    file will be removed unless patch is conforming to POSIX and the
+    -E or --remove-empty-files option is not given.
 ---
 patch
   Should have simple fuzz factor support to apply patches at an offset which
@@ -156,10 +141,21 @@ man
   (How doclifter might work into this is anybody's guess.)
 ---
 ar
-  Write support?
+  Write support!
 ---
-crond
-  turn FEATURE_DEBUG_OPT into ENABLE_FEATURE_CROND_DEBUG_OPT
+stty / catv
+  stty's visible() function and catv's guts are identical. Merge them into
+  an appropriate libbb function.
+---
+struct suffix_mult
+  Several duplicate users of: grep -r "1024\*1024" * -B2 -A1
+  Merge to a single size_suffixes[] in libbb.
+  Users: head tail od_bloaty hexdump and (partially as it wouldn't hurt) svlogd
+---
+tail
+  ./busybox tail -f foo.c~ TODO
+  should not print fmt=header_fmt for subsequent date >> TODO; i.e. only
+  fmt+ if another (not the current) file did change
 
 Architectural issues:
 
@@ -255,7 +251,7 @@ FEATURE_CLEAN_UP
   jumps out of the normal flow control and bypasses any cleanup code we
   put at the end of our applets.
 
-  It's possible to add hooks to libbb functions like xmalloc() and bb_xopen()
+  It's possible to add hooks to libbb functions like xmalloc() and xopen()
   to add their entries to a linked list, which could be traversed and
   freed/closed automatically.  (This would need to be able to free just the
   entries after a checkpoint to be usable for a forkless standalone shell.
@@ -282,14 +278,14 @@ Minor stuff:
   use bb_perror_msg where appropriate: See
   egrep "[^_]perror"
 ---
-  Remove superfluous fmt occurances: e.g.
-  fprintf(stderr, "%s: %s not found\n", "unalias", *argptr);
-  -> fprintf(stderr, "unalias: %s not found\n", *argptr);
----
   possible code duplication ingroup() and is_a_group_member()
 ---
-  unify itoa: netstat.c, hush.c, lash.c, msh.c
-  Put one single, robust version into e.g. safe_strtol.c
+  Move __get_hz() to a better place and (re)use it in route.c, ash.c, msh.c
+---
+  See grep -r strtod
+  Alot of duplication that wants cleanup.
+---
+  in_ether duplicated in network/{interface,ifconfig}.c
 ---
 
 
@@ -297,10 +293,6 @@ Code cleanup:
 
 Replace deprecated functions.
 
-bzero() -> memset()
----
-sigblock(), siggetmask(), sigsetmask(), sigmask() -> sigprocmask et al
 ---
 vdprintf() -> similar sized functionality
 ---
-

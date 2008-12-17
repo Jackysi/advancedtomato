@@ -128,6 +128,16 @@ static void wo_iptables(char *url)
 	web_pipecmd("iptables -nvL; iptables -t nat -nvL; iptables -t mangle -nvL", WOF_NONE);
 }
 
+static void wo_spin(char *url)
+{
+	char s[64];
+	
+	strlcpy(s, nvram_safe_get("web_css"), sizeof(s));
+	strlcat(s, "_spin.gif", sizeof(s));
+	if (f_exists(s)) do_file(s);
+		else do_file("_spin.gif");
+}
+
 void common_redirect(void)
 {
 	if (atoi(webcgi_safeget("_ajax", ""))) {
@@ -162,6 +172,8 @@ const struct mime_handler mime_handlers[] = {
 
 	{ "logout.asp",			NULL,					0,	wi_generic,			wo_asp,			1 },
 	{ "clearcookies.asp",	NULL,					0,	wi_generic,			wo_asp,			1 },
+	
+	{ "spin.gif",		NULL,						0,	wi_generic_noid,	wo_spin,		1 },
 
 	{ "**.asp",			NULL,						0,	wi_generic_noid,	wo_asp,			1 },
 	{ "**.css",			"text/css",					2,	wi_generic_noid,	do_file,		1 },
@@ -379,8 +391,10 @@ static const nvset_t nvset_list[] = {
 	{ "lan_gateway",		V_IP				},
 	{ "wan_dns",			V_LENGTH(0, 50)		},	// ip ip ip
 	{ "lan_proto",			V_WORD				},	// static, dhcp
-	{ "dhcp_start",			V_RANGE(1, 254)		},
-	{ "dhcp_num",			V_RANGE(1, 253)		},
+	{ "dhcp_start",			V_RANGE(1, 254)		},	// remove !
+	{ "dhcp_num",			V_RANGE(1, 255)		},	// remove !
+	{ "dhcpd_startip",		V_IP				},
+	{ "dhcpd_endip",		V_IP				},
 	{ "dhcp_lease",			V_RANGE(1, 10080)	},
 	{ "wan_wins",			V_IP				},
 
@@ -408,7 +422,7 @@ static const nvset_t nvset_list[] = {
 	{ "wl_key4",			V_LENGTH(0, 26)		},
 	{ "wl_crypto",			V_LENGTH(3, 8)		},	// tkip, aes, tkip+aes
 	{ "wl_wpa_psk",			V_LENGTH(8, 64)		},
-	{ "wl_wpa_gtk_rekey",	V_RANGE(600, 7200)	},
+	{ "wl_wpa_gtk_rekey",	V_RANGE(60, 7200)	},
 
 	{ "wl_lazywds",			V_01				},
 	{ "wl_wds",				V_LENGTH(0, 180)	},	// mac mac mac (x 10)
@@ -444,6 +458,7 @@ static const nvset_t nvset_list[] = {
 // advanced-dhcpdns
 	{ "dhcpd_slt",			V_RANGE(-1, 43200)	},	// -1=infinite, 0=follow normal lease time, >=1 custom
 	{ "dhcpd_dmdns",		V_01				},
+	{ "dhcpd_lmax",			V_NUM				},
 	{ "dns_addget",			V_01				},
 	{ "dns_intcpt",			V_01				},
 	{ "dhcpc_minpkt",		V_01				},

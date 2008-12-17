@@ -2,6 +2,7 @@
 # Pattern attributes: ok veryfast fast
 # Protocol groups: remote_access ietf_rfc_documented
 # Wiki: http://www.protocolinfo.org/wiki/Rlogin
+# Copyright (C) 2008 Matthew Strait, Ethan Sommer; See ../LICENSE
 #
 # usually runs on port 443
 #

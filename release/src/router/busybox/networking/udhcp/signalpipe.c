@@ -1,3 +1,4 @@
+/* vi: set sw=4 ts=4: */
 /* signalpipe.c
  *
  * Signal pipe infrastructure. A reliable way of delivering signals.
@@ -19,23 +20,16 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
-#include <unistd.h>
-#include <fcntl.h>
-#include <signal.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <sys/select.h>
-
-
-#include "signalpipe.h"
 #include "common.h"
 
-static int signal_pipe[2];
+
+static struct fd_pair signal_pipe;
 
 static void signal_handler(int sig)
 {
-	if (send(signal_pipe[1], &sig, sizeof(sig), MSG_DONTWAIT) < 0)
-		DEBUG(LOG_ERR, "Could not send signal: %m");
+	unsigned char ch = sig; /* use char, avoid dealing with partial writes */
+	if (write(signal_pipe.wr, &ch, 1) != 1)
+		bb_perror_msg("cannot send signal");
 }
 
 
@@ -43,12 +37,16 @@ static void signal_handler(int sig)
  * and installs the signal handler */
 void udhcp_sp_setup(void)
 {
-	socketpair(AF_UNIX, SOCK_STREAM, 0, signal_pipe);
-	fcntl(signal_pipe[0], F_SETFD, FD_CLOEXEC);
-	fcntl(signal_pipe[1], F_SETFD, FD_CLOEXEC);
-	signal(SIGUSR1, signal_handler);
-	signal(SIGUSR2, signal_handler);
-	signal(SIGTERM, signal_handler);
+	/* was socketpair, but it needs AF_UNIX in kernel */
+	xpiped_pair(signal_pipe);
+	close_on_exec_on(signal_pipe.rd);
+	close_on_exec_on(signal_pipe.wr);
+	ndelay_on(signal_pipe.wr);
+	bb_signals(0
+		+ (1 << SIGUSR1)
+		+ (1 << SIGUSR2)
+		+ (1 << SIGTERM)
+		, signal_handler);
 }
 
 
@@ -58,26 +56,26 @@ void udhcp_sp_setup(void)
 int udhcp_sp_fd_set(fd_set *rfds, int extra_fd)
 {
 	FD_ZERO(rfds);
-	FD_SET(signal_pipe[0], rfds);
+	FD_SET(signal_pipe.rd, rfds);
 	if (extra_fd >= 0) {
-		fcntl(extra_fd, F_SETFD, FD_CLOEXEC);
+		close_on_exec_on(extra_fd);
 		FD_SET(extra_fd, rfds);
 	}
-	return signal_pipe[0] > extra_fd ? signal_pipe[0] : extra_fd;
+	return signal_pipe.rd > extra_fd ? signal_pipe.rd : extra_fd;
 }
 
 
 /* Read a signal from the signal pipe. Returns 0 if there is
  * no signal, -1 on error (and sets errno appropriately), and
  * your signal on success */
-int udhcp_sp_read(fd_set *rfds)
+int udhcp_sp_read(const fd_set *rfds)
 {
-	int sig;
+	unsigned char sig;
 
-	if (!FD_ISSET(signal_pipe[0], rfds))
+	if (!FD_ISSET(signal_pipe.rd, rfds))
 		return 0;
 
-	if (read(signal_pipe[0], &sig, sizeof(sig)) < 0)
+	if (safe_read(signal_pipe.rd, &sig, 1) != 1)
 		return -1;
 
 	return sig;

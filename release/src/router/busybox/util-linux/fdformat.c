@@ -1,22 +1,10 @@
+/* vi: set sw=4 ts=4: */
 /* fdformat.c  -  Low-level formats a floppy disk - Werner Almesberger */
 
-/* 1999-02-22 Arkadiusz Mi¶kiewicz <misiek@pld.ORG.PL>
- * - added Native Language Support
- * 1999-03-20 Arnaldo Carvalho de Melo <acme@conectiva.com.br>
- * - more i18n/nls translatable strings marked
- *
- * 5 July 2003 -- modified for Busybox by Erik Andersen
+/* 5 July 2003 -- modified for Busybox by Erik Andersen
  */
 
-#include <stdio.h>
-#include <string.h>
-#include <fcntl.h>
-#include <errno.h>
-#include <unistd.h>
-#include <stdlib.h>
-#include <sys/stat.h>
-#include <sys/ioctl.h>
-#include "busybox.h"
+#include "libbb.h"
 
 
 /* Stuff extracted from linux/fd.h */
@@ -52,24 +40,8 @@ struct format_descr {
 #define FDGETPRM _IOR(2, 0x04, struct floppy_struct)
 #define FD_FILL_BYTE 0xF6 /* format fill byte. */
 
-static void print_and_flush(const char * __restrict format, ...)
-{
-	va_list arg;
-
-	va_start(arg, format);
-	bb_vfprintf(stdout, format, arg);
-	va_end(arg);
-	bb_xfflush_stdout();
-}
-
-static void bb_xioctl(int fd, int request, void *argp, const char *string)
-{
-	if (ioctl (fd, request, argp) < 0) {
-		bb_perror_msg_and_die(string);
-	}
-}
-
-int fdformat_main(int argc,char **argv)
+int fdformat_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
+int fdformat_main(int argc UNUSED_PARAM, char **argv)
 {
 	int fd, n, cyl, read_bytes, verify;
 	unsigned char *data;
@@ -77,70 +49,67 @@ int fdformat_main(int argc,char **argv)
 	struct floppy_struct param;
 	struct format_descr descr;
 
-	if (argc < 2) {
-		bb_show_usage();
-	}
-	verify = !bb_getopt_ulflags(argc, argv, "n");
+	opt_complementary = "=1"; /* must have 1 param */
+	verify = !getopt32(argv, "n");
 	argv += optind;
 
-	/* R_OK is needed for verifying */
-	if (stat(*argv,&st) < 0 || access(*argv,W_OK | R_OK ) < 0) {
-		bb_perror_msg_and_die("%s",*argv);
-	}
+	xstat(*argv, &st);
 	if (!S_ISBLK(st.st_mode)) {
-		bb_error_msg_and_die("%s: not a block device",*argv);
+		bb_error_msg_and_die("%s: not a block device", *argv);
 		/* do not test major - perhaps this was an USB floppy */
 	}
 
-
 	/* O_RDWR for formatting and verifying */
-	fd = bb_xopen(*argv,O_RDWR );
+	fd = xopen(*argv, O_RDWR);
 
-	bb_xioctl(fd, FDGETPRM, &param, "FDGETPRM");/*original message was: "Could not determine current format type" */
+	/* original message was: "Could not determine current format type" */
+	xioctl(fd, FDGETPRM, &param);
 
-	print_and_flush("%s-sided, %d tracks, %d sec/track. Total capacity %d kB.\n",
+	printf("%s-sided, %d tracks, %d sec/track. Total capacity %d kB\n",
 		(param.head == 2) ? "Double" : "Single",
 		param.track, param.sect, param.size >> 1);
 
 	/* FORMAT */
-	print_and_flush("Formatting ... ", NULL);
-	bb_xioctl(fd, FDFMTBEG,NULL,"FDFMTBEG");
+	printf("Formatting... ");
+	xioctl(fd, FDFMTBEG, NULL);
 
 	/* n == track */
-	for (n = 0; n < param.track; n++)
-	{
-	    descr.head = 0;
-	    descr.track = n;
-	    bb_xioctl(fd, FDFMTTRK,&descr,"FDFMTTRK");
-	    print_and_flush("%3d\b\b\b", n);
-	    if (param.head == 2) {
-		descr.head = 1;
-		bb_xioctl(fd, FDFMTTRK,&descr,"FDFMTTRK");
-	    }
+	for (n = 0; n < param.track; n++) {
+		descr.head = 0;
+		descr.track = n;
+		xioctl(fd, FDFMTTRK, &descr);
+		printf("%3d\b\b\b", n);
+		if (param.head == 2) {
+			descr.head = 1;
+			xioctl(fd, FDFMTTRK, &descr);
+		}
 	}
 
-	bb_xioctl(fd,FDFMTEND,NULL,"FDFMTEND");
-	print_and_flush("done\n", NULL);
+	xioctl(fd, FDFMTEND, NULL);
+	printf("done\n");
 
 	/* VERIFY */
-	if(verify) {
+	if (verify) {
 		/* n == cyl_size */
 		n = param.sect*param.head*512;
 
 		data = xmalloc(n);
-		print_and_flush("Verifying ... ", NULL);
+		printf("Verifying... ");
 		for (cyl = 0; cyl < param.track; cyl++) {
-			print_and_flush("%3d\b\b\b", cyl);
-			if((read_bytes = safe_read(fd,data,n))!= n ) {
-				if(read_bytes < 0) {
+			printf("%3d\b\b\b", cyl);
+			read_bytes = safe_read(fd, data, n);
+			if (read_bytes != n) {
+				if (read_bytes < 0) {
 					bb_perror_msg(bb_msg_read_error);
 				}
-				bb_error_msg_and_die("Problem reading cylinder %d, expected %d, read %d", cyl, n, read_bytes);
+				bb_error_msg_and_die("problem reading cylinder %d, "
+					"expected %d, read %d", cyl, n, read_bytes);
+				// FIXME: maybe better seek & continue??
 			}
 			/* Check backwards so we don't need a counter */
-			while(--read_bytes>=0) {
-				if( data[read_bytes] != FD_FILL_BYTE) {
-					 print_and_flush("bad data in cyl %d\nContinuing ... ",cyl);
+			while (--read_bytes >= 0) {
+				if (data[read_bytes] != FD_FILL_BYTE) {
+					 printf("bad data in cyl %d\nContinuing... ", cyl);
 				}
 			}
 		}
@@ -150,7 +119,7 @@ int fdformat_main(int argc,char **argv)
 
 		if (ENABLE_FEATURE_CLEAN_UP) free(data);
 
-		print_and_flush("done\n", NULL);
+		printf("done\n");
 	}
 
 	if (ENABLE_FEATURE_CLEAN_UP) close(fd);

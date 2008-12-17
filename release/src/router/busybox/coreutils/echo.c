@@ -20,102 +20,128 @@
  * 1) In handling '\c' escape, the previous version only suppressed the
  *     trailing newline.  SUSv3 specifies _no_ output after '\c'.
  * 2) SUSv3 specifies that octal escapes are of the form \0{#{#{#}}}.
- *    The previous version version did not allow 4-digit octals.
+ *    The previous version did not allow 4-digit octals.
  */
 
+#include "libbb.h"
 
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
-#include "busybox.h"
+/* This is a NOFORK applet. Be very careful! */
 
-int bb_echo(int ATTRIBUTE_UNUSED argc, char **argv)
+/* NB: can be used by shell even if not enabled as applet */
+
+int echo_main(int argc UNUSED_PARAM, char **argv)
 {
-#ifndef CONFIG_FEATURE_FANCY_ECHO
-#define eflag '\\'
-	++argv;
+	const char *arg;
+#if !ENABLE_FEATURE_FANCY_ECHO
+	enum {
+		eflag = '\\',
+		nflag = 1,  /* 1 -- print '\n' */
+	};
+
+	/* We must check that stdout is not closed.
+	 * The reason for this is highly non-obvious.
+	 * echo_main is used from shell. Shell must correctly handle "echo foo"
+	 * if stdout is closed. With stdio, output gets shoveled into
+	 * stdout buffer, and even fflush cannot clear it out. It seems that
+	 * even if libc receives EBADF on write attempts, it feels determined
+	 * to output data no matter what. So it will try later,
+	 * and possibly will clobber future output. Not good. */
+// TODO: check fcntl() & O_ACCMODE == O_WRONLY or O_RDWR?
+	if (fcntl(1, F_GETFL) == -1)
+		return 1; /* match coreutils 6.10 (sans error msg to stderr) */
+	//if (dup2(1, 1) != 1) - old way
+	//	return 1;
+
+	arg = *++argv;
+	if (!arg)
+		goto newline_ret;
 #else
 	const char *p;
-	int nflag = 1;
-	int eflag = 0;
+	char nflag = 1;
+	char eflag = 0;
 
-	while (*++argv && (**argv == '-')) {
+	/* We must check that stdout is not closed. */
+	if (fcntl(1, F_GETFL) == -1)
+		return 1;
+
+	while (1) {
+		arg = *++argv;
+		if (!arg)
+			goto newline_ret;
+		if (*arg != '-')
+			break;
+
 		/* If it appears that we are handling options, then make sure
 		 * that all of the options specified are actually valid.
 		 * Otherwise, the string should just be echoed.
 		 */
-
-		if (!*(p = *argv + 1)) {	/* A single '-', so echo it. */
+		p = arg + 1;
+		if (!*p)	/* A single '-', so echo it. */
 			goto just_echo;
-		}
 
 		do {
-			if (strrchr("neE", *p) == 0) {
+			if (!strrchr("neE", *p))
 				goto just_echo;
-			}
 		} while (*++p);
 
 		/* All of the options in this arg are valid, so handle them. */
-		p = *argv + 1;
+		p = arg + 1;
 		do {
-			if (*p == 'n') {
+			if (*p == 'n')
 				nflag = 0;
-			} else if (*p == 'e') {
+			if (*p == 'e')
 				eflag = '\\';
-			} else {
-				eflag = 0;
-			}
 		} while (*++p);
 	}
-
-just_echo:
+ just_echo:
 #endif
-	while (*argv) {
-		register int c;
+	while (1) {
+		/* arg is already == *argv and isn't NULL */
+		int c;
 
-		while ((c = *(*argv)++)) {
+		if (!eflag) {
+			/* optimization for very common case */
+			fputs(arg, stdout);
+		} else while ((c = *arg++)) {
 			if (c == eflag) {	/* Check for escape seq. */
-				if (**argv == 'c') {
+				if (*arg == 'c') {
 					/* '\c' means cancel newline and
 					 * ignore all subsequent chars. */
-					return 0;
+					goto ret;
 				}
-#ifndef CONFIG_FEATURE_FANCY_ECHO
+#if !ENABLE_FEATURE_FANCY_ECHO
 				/* SUSv3 specifies that octal escapes must begin with '0'. */
-				if (((unsigned int)(**argv - '1')) >= 7)
+				if ( ((int)(unsigned char)(*arg) - '0') >= 8) /* '8' or bigger */
 #endif
 				{
 					/* Since SUSv3 mandates a first digit of 0, 4-digit octals
 					* of the form \0### are accepted. */
-					if ((**argv == '0') && (((unsigned int)(argv[0][1] - '0')) < 8)) {
-						(*argv)++;
+					if (*arg == '0') {
+						/* NB: don't turn "...\0" into "...\" */
+						if (arg[1] && ((unsigned char)(arg[1]) - '0') < 8) {
+							arg++;
+						}
 					}
-					/* bb_process_escape_sequence can handle nul correctly */
-					c = bb_process_escape_sequence((const char **) argv);
+					/* bb_process_escape_sequence handles NUL correctly
+					 * ("...\" case). */
+					c = bb_process_escape_sequence(&arg);
 				}
 			}
-			putchar(c);
+			bb_putchar(c);
 		}
 
-		if (*++argv) {
-			putchar(' ');
-		}
+		arg = *++argv;
+		if (!arg)
+			break;
+		bb_putchar(' ');
 	}
 
-#ifdef CONFIG_FEATURE_FANCY_ECHO
+ newline_ret:
 	if (nflag) {
-		putchar('\n');
+		bb_putchar('\n');
 	}
-#else
-	putchar('\n');
-#endif
-	return 0;
-}
-
-int echo_main(int argc, char** argv)
-{
-	(void)bb_echo(argc, argv);
-	bb_fflush_stdout_and_exit(EXIT_SUCCESS);
+ ret:
+	return fflush(stdout);
 }
 
 /*-
@@ -156,3 +182,122 @@ int echo_main(int argc, char** argv)
  *
  *	@(#)echo.c	8.1 (Berkeley) 5/31/93
  */
+
+#ifdef VERSION_WITH_WRITEV
+/* We can't use stdio.
+ * The reason for this is highly non-obvious.
+ * echo_main is used from shell. Shell must correctly handle "echo foo"
+ * if stdout is closed. With stdio, output gets shoveled into
+ * stdout buffer, and even fflush cannot clear it out. It seems that
+ * even if libc receives EBADF on write attempts, it feels determined
+ * to output data no matter what. So it will try later,
+ * and possibly will clobber future output. Not good.
+ *
+ * Using writev instead, with 'direct' conversion of argv vector.
+ */
+
+int echo_main(int argc, char **argv)
+{
+	struct iovec io[argc];
+	struct iovec *cur_io = io;
+	char *arg;
+	char *p;
+#if !ENABLE_FEATURE_FANCY_ECHO
+	enum {
+		eflag = '\\',
+		nflag = 1,  /* 1 -- print '\n' */
+	};
+	arg = *++argv;
+	if (!arg)
+		goto newline_ret;
+#else
+	char nflag = 1;
+	char eflag = 0;
+
+	while (1) {
+		arg = *++argv;
+		if (!arg)
+			goto newline_ret;
+		if (*arg != '-')
+			break;
+
+		/* If it appears that we are handling options, then make sure
+		 * that all of the options specified are actually valid.
+		 * Otherwise, the string should just be echoed.
+		 */
+		p = arg + 1;
+		if (!*p)	/* A single '-', so echo it. */
+			goto just_echo;
+
+		do {
+			if (!strrchr("neE", *p))
+				goto just_echo;
+		} while (*++p);
+
+		/* All of the options in this arg are valid, so handle them. */
+		p = arg + 1;
+		do {
+			if (*p == 'n')
+				nflag = 0;
+			if (*p == 'e')
+				eflag = '\\';
+		} while (*++p);
+	}
+ just_echo:
+#endif
+
+	while (1) {
+		/* arg is already == *argv and isn't NULL */
+		int c;
+
+		cur_io->iov_base = p = arg;
+
+		if (!eflag) {
+			/* optimization for very common case */
+			p += strlen(arg);
+		} else while ((c = *arg++)) {
+			if (c == eflag) {	/* Check for escape seq. */
+				if (*arg == 'c') {
+					/* '\c' means cancel newline and
+					 * ignore all subsequent chars. */
+					cur_io->iov_len = p - (char*)cur_io->iov_base;
+					cur_io++;
+					goto ret;
+				}
+#if !ENABLE_FEATURE_FANCY_ECHO
+				/* SUSv3 specifies that octal escapes must begin with '0'. */
+				if ( (((unsigned char)*arg) - '1') >= 7)
+#endif
+				{
+					/* Since SUSv3 mandates a first digit of 0, 4-digit octals
+					* of the form \0### are accepted. */
+					if (*arg == '0' && ((unsigned char)(arg[1]) - '0') < 8) {
+						arg++;
+					}
+					/* bb_process_escape_sequence can handle nul correctly */
+					c = bb_process_escape_sequence( (void*) &arg);
+				}
+			}
+			*p++ = c;
+		}
+
+		arg = *++argv;
+		if (arg)
+			*p++ = ' ';
+		cur_io->iov_len = p - (char*)cur_io->iov_base;
+		cur_io++;
+		if (!arg)
+			break;
+	}
+
+ newline_ret:
+	if (nflag) {
+		cur_io->iov_base = (char*)"\n";
+		cur_io->iov_len = 1;
+		cur_io++;
+	}
+ ret:
+	/* TODO: implement and use full_writev? */
+	return writev(1, io, (cur_io - io)) >= 0;
+}
+#endif

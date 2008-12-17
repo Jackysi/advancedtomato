@@ -4,47 +4,71 @@
  *
  * Copyright (C) 1999-2004 by Erik Andersen <andersen@codepoet.org>
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+ * Licensed under GPLv2 or later, see file LICENSE in this tarball for details.
  */
 
-#include <limits.h>
-#include <stdio.h>
-#include <string.h>
-#include <dirent.h>
-#include <stdlib.h>
 #include "libbb.h"
 
-char *find_block_device(char *path)
+/* Find block device /dev/XXX which contains specified file
+ * We handle /dev/dir/dir/dir too, at a cost of ~80 more bytes code */
+
+/* Do not reallocate all this stuff on each recursion */
+enum { DEVNAME_MAX = 256 };
+struct arena {
+	struct stat st;
+	dev_t dev;
+	/* Was PATH_MAX, but we recurse _/dev_. We can assume
+	 * people are not crazy enough to have mega-deep tree there */
+	char devpath[DEVNAME_MAX];
+};
+
+static char *find_block_device_in_dir(struct arena *ap)
 {
 	DIR *dir;
 	struct dirent *entry;
-	struct stat st;
-	dev_t dev;
-	char *retpath=NULL;
+	char *retpath = NULL;
+	int len, rem;
 
-	if(stat(path, &st) || !(dir = opendir("/dev"))) return NULL;
-	dev = (st.st_mode & S_IFMT) == S_IFBLK ? st.st_rdev : st.st_dev;
-	while((entry = readdir(dir)) != NULL) {
-		char devpath[PATH_MAX];
-		sprintf(devpath,"/dev/%s", entry->d_name);
-		if(!stat(devpath, &st) && S_ISBLK(st.st_mode) && st.st_rdev == dev) {
-			retpath = bb_xstrdup(devpath);
+	dir = opendir(ap->devpath);
+	if (!dir)
+		return NULL;
+
+	len = strlen(ap->devpath);
+	rem = DEVNAME_MAX-2 - len;
+	if (rem <= 0)
+		return NULL;
+	ap->devpath[len++] = '/';
+
+	while ((entry = readdir(dir)) != NULL) {
+		safe_strncpy(ap->devpath + len, entry->d_name, rem);
+		/* lstat: do not follow links */
+		if (lstat(ap->devpath, &ap->st) != 0)
+			continue;
+		if (S_ISBLK(ap->st.st_mode) && ap->st.st_rdev == ap->dev) {
+			retpath = xstrdup(ap->devpath);
 			break;
+		}
+		if (S_ISDIR(ap->st.st_mode)) {
+			/* Do not recurse for '.' and '..' */
+			if (DOT_OR_DOTDOT(entry->d_name))
+				continue;
+			retpath = find_block_device_in_dir(ap);
+			if (retpath)
+				break;
 		}
 	}
 	closedir(dir);
 
 	return retpath;
+}
+
+char* FAST_FUNC find_block_device(const char *path)
+{
+	struct arena a;
+
+	if (stat(path, &a.st) != 0)
+		return NULL;
+	a.dev = S_ISBLK(a.st.st_mode) ? a.st.st_rdev : a.st.st_dev;
+	strcpy(a.devpath, "/dev");
+	return find_block_device_in_dir(&a);
 }

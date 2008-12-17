@@ -1,149 +1,203 @@
+/* vi: set sw=4 ts=4: */
 /*
- *  Copyright (C) 2003 by Glenn McGrath <bug1@iinet.net.au>
+ * Copyright (C) 2003 by Glenn McGrath
+ * SELinux support: by Yuichi Nakamura <ynakam@hitachisoft.jp>
  *
- *  This program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2 of the License, or
- *  (at your option) any later version.
- *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU Library General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
- *
+ * Licensed under GPLv2 or later, see file LICENSE in this tarball for details.
  *
  * TODO: -d option, need a way of recursively making directories and changing
  *           owner/group, will probably modify bb_make_directory(...)
  */
 
-#include <sys/stat.h>
-#include <sys/types.h>
-#include <errno.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
-#include <getopt.h> /* struct option */
-
-#include "busybox.h"
+#include "libbb.h"
 #include "libcoreutils/coreutils.h"
 
-#define INSTALL_OPT_CMD	1
-#define INSTALL_OPT_DIRECTORY	2
-#define INSTALL_OPT_PRESERVE_TIME	4
-#define INSTALL_OPT_STRIP	8
-#define INSTALL_OPT_GROUP  16
-#define INSTALL_OPT_MODE  32
-#define INSTALL_OPT_OWNER  64
-
 #if ENABLE_FEATURE_INSTALL_LONG_OPTIONS
-static const struct option install_long_options[] = {
-	{ "directory",	0,	NULL,	'd' },
-	{ "preserve-timestamps",	0,	NULL,	'p' },
-	{ "strip",	0,	NULL,	's' },
-	{ "group",	0,	NULL,	'g' },
-	{ "mode",	0,	NULL,	'm' },
-	{ "owner",	0,	NULL,	'o' },
-	{ 0,	0,	0,	0 }
-};
+static const char install_longopts[] ALIGN1 =
+	"directory\0"           No_argument       "d"
+	"preserve-timestamps\0" No_argument       "p"
+	"strip\0"               No_argument       "s"
+	"group\0"               Required_argument "g"
+	"mode\0"                Required_argument "m"
+	"owner\0"               Required_argument "o"
+/* autofs build insists of using -b --suffix=.orig */
+/* TODO? (short option for --suffix is -S) */
+#if ENABLE_SELINUX
+	"context\0"             Required_argument "Z"
+	"preserve_context\0"    No_argument       "\xff"
+	"preserve-context\0"    No_argument       "\xff"
+#endif
+	;
 #endif
 
+
+#if ENABLE_SELINUX
+static void setdefaultfilecon(const char *path)
+{
+	struct stat s;
+	security_context_t scontext = NULL;
+
+	if (!is_selinux_enabled()) {
+		return;
+	}
+	if (lstat(path, &s) != 0) {
+		return;
+	}
+
+	if (matchpathcon(path, s.st_mode, &scontext) < 0) {
+		goto out;
+	}
+	if (strcmp(scontext, "<<none>>") == 0) {
+		goto out;
+	}
+
+	if (lsetfilecon(path, scontext) < 0) {
+		if (errno != ENOTSUP) {
+			bb_perror_msg("warning: failed to change context of %s to %s", path, scontext);
+		}
+	}
+
+ out:
+	freecon(scontext);
+}
+
+#endif
+
+int install_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
 int install_main(int argc, char **argv)
 {
+	struct stat statbuf;
 	mode_t mode;
 	uid_t uid;
 	gid_t gid;
-	char *gid_str = "-1";
-	char *uid_str = "-1";
-	char *mode_str = "0755";
+	char *arg, *last;
+	const char *gid_str;
+	const char *uid_str;
+	const char *mode_str;
 	int copy_flags = FILEUTILS_DEREFERENCE | FILEUTILS_FORCE;
-	int ret = EXIT_SUCCESS, flags, i, isdir;
+	int flags;
+	int min_args = 1;
+	int ret = EXIT_SUCCESS;
+	int isdir = 0;
+#if ENABLE_SELINUX
+	security_context_t scontext;
+	bool use_default_selinux_context = 1;
+#endif
+	enum {
+		OPT_c             = 1 << 0,
+		OPT_v             = 1 << 1,
+		OPT_b             = 1 << 2,
+		OPT_DIRECTORY     = 1 << 3,
+		OPT_PRESERVE_TIME = 1 << 4,
+		OPT_STRIP         = 1 << 5,
+		OPT_GROUP         = 1 << 6,
+		OPT_MODE          = 1 << 7,
+		OPT_OWNER         = 1 << 8,
+#if ENABLE_SELINUX
+		OPT_SET_SECURITY_CONTEXT = 1 << 9,
+		OPT_PRESERVE_SECURITY_CONTEXT = 1 << 10,
+#endif
+	};
 
 #if ENABLE_FEATURE_INSTALL_LONG_OPTIONS
-	bb_applet_long_options = install_long_options;
+	applet_long_options = install_longopts;
 #endif
-	bb_opt_complementally = "?:s--d:d--s";
-	/* -c exists for backwards compatibility, its needed */
-	flags = bb_getopt_ulflags(argc, argv, "cdpsg:m:o:", &gid_str, &mode_str, &uid_str);	/* 'a' must be 2nd */
+	opt_complementary = "s--d:d--s" USE_SELINUX(":Z--\xff:\xff--Z");
+	/* -c exists for backwards compatibility, it's needed */
+	/* -v is ignored ("print name of each created directory") */
+	/* -b is ignored ("make a backup of each existing destination file") */
+	flags = getopt32(argv, "cvb" "dpsg:m:o:" USE_SELINUX("Z:"),
+			&gid_str, &mode_str, &uid_str USE_SELINUX(, &scontext));
+	argc -= optind;
+	argv += optind;
+
+#if ENABLE_SELINUX
+	if (flags & (OPT_PRESERVE_SECURITY_CONTEXT|OPT_SET_SECURITY_CONTEXT)) {
+		selinux_or_die();
+		use_default_selinux_context = 0;
+		if (flags & OPT_PRESERVE_SECURITY_CONTEXT) {
+			copy_flags |= FILEUTILS_PRESERVE_SECURITY_CONTEXT;
+		}
+		if (flags & OPT_SET_SECURITY_CONTEXT) {
+			setfscreatecon_or_die(scontext);
+			copy_flags |= FILEUTILS_SET_SECURITY_CONTEXT;
+		}
+	}
+#endif
 
 	/* preserve access and modification time, this is GNU behaviour, BSD only preserves modification time */
-	if (flags & INSTALL_OPT_PRESERVE_TIME) {
+	if (flags & OPT_PRESERVE_TIME) {
 		copy_flags |= FILEUTILS_PRESERVE_STATUS;
 	}
-	bb_parse_mode(mode_str, &mode);
-	gid = get_ug_id(gid_str, bb_xgetgrnam);
-	uid = get_ug_id(uid_str, bb_xgetpwnam);
-	umask(0);
+	mode = 0666;
+	if (flags & OPT_MODE)
+		bb_parse_mode(mode_str, &mode);
+	uid = (flags & OPT_OWNER) ? get_ug_id(uid_str, xuname2uid) : getuid();
+	gid = (flags & OPT_GROUP) ? get_ug_id(gid_str, xgroup2gid) : getgid();
 
-	/* Create directories
-	 * dont use bb_make_directory() as it cant change uid or gid
-	 * perhaps bb_make_directory() should be improved.
-	 */
-	if (flags & INSTALL_OPT_DIRECTORY) {
-		for (argv += optind; *argv; argv++) {
-			char *old_argv_ptr = *argv + 1;
-			char *argv_ptr;
-			do {
-				argv_ptr = strchr(old_argv_ptr, '/');
-				old_argv_ptr = argv_ptr;
-				if (argv_ptr) {
-					*argv_ptr = '\0';
-					old_argv_ptr++;
-				}
-				if (mkdir(*argv, mode) == -1) {
-					if (errno != EEXIST) {
-						bb_perror_msg("coulnt create %s", *argv);
-						ret = EXIT_FAILURE;
-						break;
-					}
-				}
-				else if (lchown(*argv, uid, gid) == -1) {
-					bb_perror_msg("cannot change ownership of %s", *argv);
-					ret = EXIT_FAILURE;
-					break;
-				}
-				if (argv_ptr) {
-					*argv_ptr = '/';
-				}
-			} while (old_argv_ptr);
+	last = argv[argc - 1];
+	if (!(flags & OPT_DIRECTORY)) {
+		argv[argc - 1] = NULL;
+		min_args++;
+
+		/* coreutils install resolves link in this case, don't use lstat */
+		isdir = stat(last, &statbuf) < 0 ? 0 : S_ISDIR(statbuf.st_mode);
+	}
+
+	if (argc < min_args)
+		bb_show_usage();
+
+	while ((arg = *argv++) != NULL) {
+		char *dest = last;
+		if (flags & OPT_DIRECTORY) {
+			dest = arg;
+			/* GNU coreutils 6.9 does not set uid:gid
+			 * on intermediate created directories
+			 * (only on last one) */
+			if (bb_make_directory(dest, 0755, FILEUTILS_RECUR)) {
+				ret = EXIT_FAILURE;
+				goto next;
+			}
+		} else {
+			if (isdir)
+				dest = concat_path_file(last, basename(arg));
+			if (copy_file(arg, dest, copy_flags)) {
+				/* copy is not made */
+				ret = EXIT_FAILURE;
+				goto next;
+			}
 		}
-		return(ret);
-	}
-
-	{
-		struct stat statbuf;
-		isdir = lstat(argv[argc - 1], &statbuf)<0
-					? 0 : S_ISDIR(statbuf.st_mode);
-	}
-	for (i = optind; i < argc - 1; i++) {
-		char *dest;
-
-		dest = argv[argc - 1];
-		if (isdir) dest = concat_path_file(argv[argc - 1], basename(argv[i]));
-		ret |= copy_file(argv[i], dest, copy_flags);
 
 		/* Set the file mode */
-		if (chmod(dest, mode) == -1) {
-			bb_perror_msg("cannot change permissions of %s", dest);
+		if ((flags & OPT_MODE) && chmod(dest, mode) == -1) {
+			bb_perror_msg("can't change %s of %s", "permissions", dest);
 			ret = EXIT_FAILURE;
 		}
-
+#if ENABLE_SELINUX
+		if (use_default_selinux_context)
+			setdefaultfilecon(dest);
+#endif
 		/* Set the user and group id */
-		if (lchown(dest, uid, gid) == -1) {
-			bb_perror_msg("cannot change ownership of %s", dest);
+		if ((flags & (OPT_OWNER|OPT_GROUP))
+		 && lchown(dest, uid, gid) == -1
+		) {
+			bb_perror_msg("can't change %s of %s", "ownership", dest);
 			ret = EXIT_FAILURE;
 		}
-		if (flags & INSTALL_OPT_STRIP) {
-			if (execlp("strip", "strip", dest, NULL) == -1) {
-				bb_error_msg("strip failed");
+		if (flags & OPT_STRIP) {
+			char *args[3];
+			args[0] = (char*)"strip";
+			args[1] = dest;
+			args[2] = NULL;
+			if (spawn_and_wait(args)) {
+				bb_perror_msg("strip");
 				ret = EXIT_FAILURE;
 			}
 		}
-		if(ENABLE_FEATURE_CLEAN_UP && isdir) free(dest);
+ next:
+		if (ENABLE_FEATURE_CLEAN_UP && isdir)
+			free(dest);
 	}
 
-	return(ret);
+	return ret;
 }

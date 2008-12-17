@@ -616,6 +616,15 @@ static int init_nvram(void)
 			}
 		}
 		break;
+	case MODEL_WL520GU:
+		mfr = "Asus";
+		name = "WL-520GU";
+		features = SUP_SES;
+		if (!nvram_match("t_fix1", (char *)name)) {
+			nvram_set("t_fix1", name);
+			nvram_set("vlan1ports", "0 5");
+		}
+		break;
 #endif
 #if TOMATO_N
 	case MODEL_WZRG300N:
@@ -645,8 +654,8 @@ static int init_nvram(void)
 	nvram_set("t_features", s);
 
 	nvram_set("wl_hwaddr", "");				// when disabling wireless, we must get null wireless mac 	??
-	nvram_set("wl_country", "ALL");			// The country always all
-	nvram_set("wl_country_code", "ALL");	// The country_code always all
+	nvram_set("wl_country", "JP");
+	nvram_set("wl_country_code", "JP");
 	nvram_set("wan_get_dns", "");
 	nvram_set("wan_get_domain", "");
 	nvram_set("pppoe_pid0", "");

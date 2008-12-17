@@ -497,8 +497,8 @@ static void handle_request(void)
 	if ((file[0] == 0) || (strcmp(file, "index.asp") == 0)) {
 		file = "status-overview.asp";
 	}
-	else if (strcmp(file, "wwwext/") == 0) {
-		file = "wwwext/index.asp";
+	else if ((strcmp(file, "ext/") == 0) || (strcmp(file, "ext") == 0)) {
+		file = "ext/index.asp";
 	}
 	
 	cp = protocol;

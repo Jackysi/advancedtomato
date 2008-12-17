@@ -5,7 +5,7 @@
  *             packet encryption, packet authentication, and
  *             packet compression.
  *
- *  Copyright (C) 2002-2008 Telethra, Inc. <sales@openvpn.net>
+ *  Copyright (C) 2002-2008 OpenVPN Technologies, Inc. <sales@openvpn.net>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License version 2
@@ -228,7 +228,7 @@ typedef unsigned long in_addr_t;
 #define PACKAGE_TARNAME openvpn
 
 /* Define to the version of this package. */
-#define PACKAGE_VERSION 2.1_rc12
+#define PACKAGE_VERSION 2.1_rc13
 
 /* Define to the full name and version of this package. */
 #ifdef DEBUG_LABEL

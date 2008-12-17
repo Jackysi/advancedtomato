@@ -45,6 +45,7 @@ obj-y += ppp
 obj-y += ttcp
 obj-y += ntpc
 obj-y += rstats
+obj-y += ebtables
 #	obj-y += libbcm
 #	obj-y += libbcmcrypto
 #	obj-y += nas
@@ -243,7 +244,7 @@ rmconf: config/mconf
 	@config/mconf $(CONFIG_IN)
 
 roldconf: config/conf
-	@config/conf -o $(CONFIG_IN)
+	@config/conf -y $(CONFIG_IN)
 
 kconf:
 	@$(MAKE) -C $(LINUXDIR) config
@@ -265,16 +266,27 @@ oldconfig oldconf: roldconf koldconf
 # overrides and extra dependencies
 #
 
-# 1.2:
-busybox: busybox/include/bb_config.h
-	@$(MAKE) -C busybox CROSS_CFLAGS="-mips2"
-busybox/include/bb_config.h:
-	@$(MAKE) -C busybox oldconfig
-	@$(MAKE) -C busybox clean
+busybox: dummy
+	$(MAKE) -C busybox CFLAGS="-Os"
+# V=1
+
 busybox-install:
 	rm -rf $(INSTALLDIR)/busybox
-	$(MAKE) -C busybox install PREFIX=$(INSTALLDIR)/busybox
+	$(MAKE) -C busybox install CONFIG_PREFIX=$(INSTALLDIR)/busybox CFLAGS="-Os"
 
+busybox-test: dummy
+	$(MAKE) -C busybox objsizes CFLAGS="-Os"
+
+# 1.2:
+#	busybox: busybox/include/bb_config.h
+#		@$(MAKE) -C busybox CROSS_CFLAGS="-mips2"
+#	busybox/include/bb_config.h:
+#		@$(MAKE) -C busybox oldconfig
+#		@$(MAKE) -C busybox clean
+#	busybox-install:
+#		rm -rf $(INSTALLDIR)/busybox
+#		$(MAKE) -C busybox install PREFIX=$(INSTALLDIR)/busybox
+	
 httpd: matrixssl shared nvram mssl
 	@$(SEP)
 	@$(MAKE) -C httpd
@@ -470,6 +482,20 @@ dropbear-clean:
 dropbear/config.h:
 	cd dropbear && CFLAGS="-O2 -Wall" ac_cv_func_logout=no ac_cv_func_logwtmp=no ./configure --host=mipsel-linux --disable-zlib --enable-syslog --disable-lastlog --disable-utmp --disable-utmpx --disable-wtmp --disable-wtmpx --disable-pututline --disable-pututxline --disable-loginfunc --disable-largefile
 	make -C dropbear clean
+
+
+ebtables: dummy
+	@make -C ebtables
+
+ebtables-install: dummy
+	install -D ebtables/ebtables $(INSTALLDIR)/ebtables/usr/sbin/ebtables
+
+	mkdir -p $(INSTALLDIR)/ebtables/usr/lib/
+	cp ebtables/*.so $(INSTALLDIR)/ebtables/usr/lib/
+	cp ebtables/extensions/*.so $(INSTALLDIR)/ebtables/usr/lib/
+	
+ebtables-clean:
+	make -C ebtables clean
 
 
 lzo-install:

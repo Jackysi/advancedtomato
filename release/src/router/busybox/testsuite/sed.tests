@@ -57,6 +57,7 @@ testing "sed s arbitrary delimiter" "sed -e 's woo boing '" "boing\n" "" "woo\n"
 testing "sed s chains" "sed -e s/foo/bar/ -e s/bar/baz/" "baz\n" "" "foo\n"
 testing "sed s chains2" "sed -e s/foo/bar/ -e s/baz/nee/" "bar\n" "" "foo\n"
 testing "sed s [delimiter]" "sed -e 's@[@]@@'" "onetwo" "" "one@two"
+testing "sed s with \\t (GNU ext)" "sed 's/\t/ /'" "one two" "" "one\ttwo"
 
 # branch
 testing "sed b (branch)" "sed -e 'b one;p;: one'" "foo\n" "" "foo\n"
@@ -116,7 +117,7 @@ testing "sed leave off trailing newline" "sed -e 's/woo/bang/' input -" \
 testing "sed autoinsert newline" "sed -e 's/woo/bang/' input -" "bang\nbang" \
 	"woo" "woo"
 testing "sed empty file plus cat" "sed -e 's/nohit//' input -" "one\ntwo" \
-	"" "one\ntwo" 
+	"" "one\ntwo"
 testing "sed cat plus empty file" "sed -e 's/nohit//' input -" "one\ntwo" \
 	"one\ntwo" ""
 testing "sed append autoinserts newline" "sed -e '/woot/a woo' -" \
@@ -138,7 +139,18 @@ testing "sed selective matches noinsert newline" \
 	"c no\nd no"
 testing "sed clusternewline" \
 	"sed -e '/one/a 111' -e '/two/i 222' -e p input -" \
-	"one\none\n111\n222\ntwo\ntwo" "one" "two" 
+	"one\none\n111\n222\ntwo\ntwo" "one" "two"
+testing "sed subst+write" \
+	"sed -e 's/i/z/' -e 'woutputw' input -; echo -n X; cat outputw" \
+	"thzngy\nagaznXthzngy\nagazn" "thingy" "again"
+rm outputw
+testing "sed trailing NUL" \
+	"sed 's/i/z/' input -" \
+	"a\0b\0\nc" "a\0b\0" "c"
+testing "sed escaped newline in command" \
+	"sed 's/a/z\\
+z/' input" \
+	"z\nz" "a" ""
 
 # Test end-of-file matching behavior
 
@@ -146,7 +158,12 @@ testing "sed match EOF" "sed -e '"'$p'"'" "hello\nthere\nthere" "" \
 	"hello\nthere"
 testing "sed match EOF two files" "sed -e '"'$p'"' input -" \
 	"one\ntwo\nthree\nfour\nfour" "one\ntwo" "three\nfour"
-echo -ne "three\nfour" > input2
+# sed match EOF inline: gnu sed 4.1.5 outputs this:
+#00000000  6f 6e 65 0a 6f 6f 6b 0a  6f 6f 6b 0a 74 77 6f 0a  |one.ook.ook.two.|
+#00000010  0a 74 68 72 65 65 0a 6f  6f 6b 0a 6f 6f 6b 0a 66  |.three.ook.ook.f|
+#00000020  6f 75 72                                          |our|
+# which looks buggy to me.
+$ECHO -ne "three\nfour" > input2
 testing "sed match EOF inline" \
 	"sed -e '"'$i ook'"' -i input input2 && cat input input2" \
 	"one\nook\ntwothree\nook\nfour" "one\ntwo" ""
@@ -183,5 +200,11 @@ testing "sed s/xxx/[/" "sed -e 's/xxx/[/'" "[\n" "" "xxx\n"
 # This makes both seds very unhappy.  Why?
 #testing "sed -g (exhaustive)" "sed -e 's/[[:space:]]*/,/g'" ",1,2,3,4,5," \
 #	"" "12345"
+
+# testing "description" "arguments" "result" "infile" "stdin"
+
+testing "sed n command must reset 'substituted' bit" \
+	"sed 's/1/x/;T;n;: next;s/3/y/;t quit;n;b next;: quit;q'" \
+	"0\nx\n2\ny\n" "" "0\n1\n2\n3\n"
 
 exit $FAILCOUNT
