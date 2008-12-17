@@ -298,14 +298,25 @@ void start_dhcpc(void)
 	
 	if (nvram_match("dhcpc_minpkt", "1")) argv[argc++] = "-m";
 
+#if 1
+	if (nvram_contains_word("log_events", "dhcpc")) argv[argc++] = "-S";
+	argv[argc] = NULL;
+
+	xstart(
+		"udhcpc",
+		"-i", ifname,
+		"-s", "dhcpc-event",
+		argv[0], argv[1],	// -H wan_hostname
+		argv[2],			// -m
+		argv[3]				// -S
+	);
+#else
 	if (!nvram_contains_word("log_events", "dhcpc")) argv[argc++] = "-Q";
 	
 	if (!nvram_match("dhcpc_lanping", "0")) {
 		argv[argc++] = "-l";
 		argv[argc++] = nvram_safe_get("lan_ifname");
 	}
-	
-	argv[argc] = NULL;
 
 	xstart(
 		"udhcpc",
@@ -316,7 +327,7 @@ void start_dhcpc(void)
 		argv[3],			// -Q
 		argv[4], argv[5]	// -l lan_ifname
 	);
-	
+#endif
 	_dprintf("%s: end\n", __FUNCTION__);
 }
 

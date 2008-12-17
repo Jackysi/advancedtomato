@@ -1,3 +1,4 @@
+/* vi: set sw=4 ts=4: */
 /* clientpacket.c
  *
  * Packet generation and dispatching functions for the DHCP client.
@@ -7,10 +8,8 @@
  * Licensed under GPLv2 or later, see file LICENSE in this tarball for details.
  */
 
-#include <string.h>
-#include <sys/socket.h>
 #include <features.h>
-#if (__GLIBC__ >= 2 && __GLIBC_MINOR >= 1) || defined _NEWLIB_VERSION
+#if (defined(__GLIBC__) && __GLIBC__ >= 2 && __GLIBC_MINOR__ >= 1) || defined _NEWLIB_VERSION
 #include <netpacket/packet.h>
 #include <net/ethernet.h>
 #else
@@ -18,37 +17,21 @@
 #include <linux/if_packet.h>
 #include <linux/if_ether.h>
 #endif
-#include <stdlib.h>
-#include <time.h>
-#include <unistd.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <fcntl.h>
 
-
-#include "dhcpd.h"
-#include "clientpacket.h"
-#include "options.h"
-#include "dhcpc.h"
 #include "common.h"
+#include "dhcpd.h"
+#include "dhcpc.h"
+#include "options.h"
 
 
 /* Create a random xid */
-unsigned long random_xid(void)
+uint32_t random_xid(void)
 {
-	static int initialized;
-	if (!initialized) {
-		int fd;
-		unsigned long seed;
+	static smallint initialized;
 
-		fd = open("/dev/urandom", 0);
-		if (fd < 0 || read(fd, &seed, sizeof(seed)) < 0) {
-			LOG(LOG_WARNING, "Could not load seed from /dev/urandom: %m");
-			seed = uptime();
-		}
-		if (fd >= 0) close(fd);
-		srand(seed);
-		initialized++;
+	if (!initialized) {
+		srand(monotonic_us());
+		initialized = 1;
 	}
 	return rand();
 }
@@ -60,33 +43,62 @@ static void init_packet(struct dhcpMessage *packet, char type)
 	udhcp_init_header(packet, type);
 	memcpy(packet->chaddr, client_config.arp, 6);
 	if (client_config.clientid)
-	    add_option_string(packet->options, client_config.clientid);
-	if (client_config.hostname) add_option_string(packet->options, client_config.hostname);
-	if (client_config.fqdn) add_option_string(packet->options, client_config.fqdn);
-	add_option_string(packet->options, client_config.vendorclass);
+		add_option_string(packet->options, client_config.clientid);
+	if (client_config.hostname)
+		add_option_string(packet->options, client_config.hostname);
+	if (client_config.fqdn)
+		add_option_string(packet->options, client_config.fqdn);
+	if ((type != DHCPDECLINE) && (type != DHCPRELEASE))
+		add_option_string(packet->options, client_config.vendorclass);
 }
 
 
 /* Add a parameter request list for stubborn DHCP servers. Pull the data
  * from the struct in options.c. Don't do bounds checking here because it
  * goes towards the head of the packet. */
-static void add_requests(struct dhcpMessage *packet)
+static void add_param_req_option(struct dhcpMessage *packet)
 {
+	uint8_t c;
 	int end = end_option(packet->options);
 	int i, len = 0;
 
-	packet->options[end + OPT_CODE] = DHCP_PARAM_REQ;
-	for (i = 0; dhcp_options[i].code; i++)
-		if (dhcp_options[i].flags & OPTION_REQ)
-			packet->options[end + OPT_DATA + len++] = dhcp_options[i].code;
-	packet->options[end + OPT_LEN] = len;
-	packet->options[end + OPT_DATA + len] = DHCP_END;
-
+	for (i = 0; (c = dhcp_options[i].code) != 0; i++) {
+		if (((dhcp_options[i].flags & OPTION_REQ)
+		     && !client_config.no_default_options)
+		 || (client_config.opt_mask[c >> 3] & (1 << (c & 7)))
+		) {
+			packet->options[end + OPT_DATA + len] = c;
+			len++;
+		}
+	}
+	if (len) {
+		packet->options[end + OPT_CODE] = DHCP_PARAM_REQ;
+		packet->options[end + OPT_LEN] = len;
+		packet->options[end + OPT_DATA + len] = DHCP_END;
+	}
 }
 
 
+#if ENABLE_FEATURE_UDHCPC_ARPING
+/* Unicast a DHCP decline message */
+int send_decline(uint32_t xid, uint32_t server, uint32_t requested)
+{
+	struct dhcpMessage packet;
+
+	init_packet(&packet, DHCPDECLINE);
+	packet.xid = xid;
+	add_simple_option(packet.options, DHCP_REQUESTED_IP, requested);
+	add_simple_option(packet.options, DHCP_SERVER_ID, server);
+
+	bb_info_msg("Sending decline...");
+
+	return udhcp_send_raw_packet(&packet, INADDR_ANY, CLIENT_PORT, INADDR_BROADCAST,
+		SERVER_PORT, MAC_BCAST_ADDR, client_config.ifindex);
+}
+#endif
+
 /* Broadcast a DHCP discover packet to the network, with an optionally requested IP */
-int send_discover(unsigned long xid, unsigned long requested)
+int send_discover(uint32_t xid, uint32_t requested)
 {
 	struct dhcpMessage packet;
 
@@ -95,15 +107,20 @@ int send_discover(unsigned long xid, unsigned long requested)
 	if (requested)
 		add_simple_option(packet.options, DHCP_REQUESTED_IP, requested);
 
-	add_requests(&packet);
-	LOG(LOG_DEBUG, "Sending discover...");
-	return udhcp_raw_packet(&packet, INADDR_ANY, CLIENT_PORT, INADDR_BROADCAST,
-				SERVER_PORT, MAC_BCAST_ADDR, client_config.ifindex);
+	/* Explicitly saying that we want RFC-compliant packets helps
+	 * some buggy DHCP servers to NOT send bigger packets */
+	add_simple_option(packet.options, DHCP_MAX_SIZE, htons(576));
+
+	add_param_req_option(&packet);
+
+	bb_info_msg("Sending discover...");
+	return udhcp_send_raw_packet(&packet, INADDR_ANY, CLIENT_PORT, INADDR_BROADCAST,
+			SERVER_PORT, MAC_BCAST_ADDR, client_config.ifindex);
 }
 
 
 /* Broadcasts a DHCP request message */
-int send_selecting(unsigned long xid, unsigned long server, unsigned long requested)
+int send_selecting(uint32_t xid, uint32_t server, uint32_t requested)
 {
 	struct dhcpMessage packet;
 	struct in_addr addr;
@@ -113,53 +130,36 @@ int send_selecting(unsigned long xid, unsigned long server, unsigned long reques
 
 	add_simple_option(packet.options, DHCP_REQUESTED_IP, requested);
 	add_simple_option(packet.options, DHCP_SERVER_ID, server);
+	add_param_req_option(&packet);
 
-	add_requests(&packet);
 	addr.s_addr = requested;
-	LOG(LOG_DEBUG, "Sending select for %s...", inet_ntoa(addr));
-	return udhcp_raw_packet(&packet, INADDR_ANY, CLIENT_PORT, INADDR_BROADCAST,
-				SERVER_PORT, MAC_BCAST_ADDR, client_config.ifindex);
-}
-
-/* Broadcasts a DHCP decline message */
-int send_decline(unsigned long xid, unsigned long ciaddr)
-{
-	struct dhcpMessage packet;
-
-	init_packet(&packet, DHCPDECLINE);
-	packet.xid = xid;
-	packet.ciaddr = ciaddr;
-
-	add_requests(&packet);
-
-	LOG(LOG_DEBUG, "Sending decline...");
-	return udhcp_raw_packet(&packet, INADDR_ANY, CLIENT_PORT, INADDR_BROADCAST,
+	bb_info_msg("Sending select for %s...", inet_ntoa(addr));
+	return udhcp_send_raw_packet(&packet, INADDR_ANY, CLIENT_PORT, INADDR_BROADCAST,
 				SERVER_PORT, MAC_BCAST_ADDR, client_config.ifindex);
 }
 
 
 /* Unicasts or broadcasts a DHCP renew message */
-int send_renew(unsigned long xid, unsigned long server, unsigned long ciaddr)
+int send_renew(uint32_t xid, uint32_t server, uint32_t ciaddr)
 {
 	struct dhcpMessage packet;
-	int ret = 0;
 
 	init_packet(&packet, DHCPREQUEST);
 	packet.xid = xid;
 	packet.ciaddr = ciaddr;
 
-	add_requests(&packet);
-	LOG(LOG_DEBUG, "Sending renew...");
+	add_param_req_option(&packet);
+	bb_info_msg("Sending renew...");
 	if (server)
-		ret = udhcp_kernel_packet(&packet, ciaddr, CLIENT_PORT, server, SERVER_PORT);
-	else ret = udhcp_raw_packet(&packet, INADDR_ANY, CLIENT_PORT, INADDR_BROADCAST,
+		return udhcp_send_kernel_packet(&packet, ciaddr, CLIENT_PORT, server, SERVER_PORT);
+
+	return udhcp_send_raw_packet(&packet, INADDR_ANY, CLIENT_PORT, INADDR_BROADCAST,
 				SERVER_PORT, MAC_BCAST_ADDR, client_config.ifindex);
-	return ret;
 }
 
 
 /* Unicasts a DHCP release message */
-int send_release(unsigned long server, unsigned long ciaddr)
+int send_release(uint32_t server, uint32_t ciaddr)
 {
 	struct dhcpMessage packet;
 
@@ -167,83 +167,78 @@ int send_release(unsigned long server, unsigned long ciaddr)
 	packet.xid = random_xid();
 	packet.ciaddr = ciaddr;
 
-	add_simple_option(packet.options, DHCP_REQUESTED_IP, ciaddr);
 	add_simple_option(packet.options, DHCP_SERVER_ID, server);
 
-	LOG(LOG_DEBUG, "Sending release...");
-	return udhcp_kernel_packet(&packet, ciaddr, CLIENT_PORT, server, SERVER_PORT);
+	bb_info_msg("Sending release...");
+	return udhcp_send_kernel_packet(&packet, ciaddr, CLIENT_PORT, server, SERVER_PORT);
 }
 
 
-/* return -1 on errors that are fatal for the socket, -2 for those that aren't */
-int get_raw_packet(struct dhcpMessage *payload, int fd)
+/* Returns -1 on errors that are fatal for the socket, -2 for those that aren't */
+int udhcp_recv_raw_packet(struct dhcpMessage *payload, int fd)
 {
 	int bytes;
 	struct udp_dhcp_packet packet;
-	uint32_t source, dest;
 	uint16_t check;
 
-	memset(&packet, 0, sizeof(struct udp_dhcp_packet));
-	bytes = read(fd, &packet, sizeof(struct udp_dhcp_packet));
+	memset(&packet, 0, sizeof(packet));
+	bytes = safe_read(fd, &packet, sizeof(packet));
 	if (bytes < 0) {
-		DEBUG(LOG_INFO, "couldn't read on raw listening socket -- ignoring");
-		usleep(500000); /* possible down interface, looping condition */
-		return -1;
+		DEBUG("Cannot read on raw listening socket - ignoring");
+		/* NB: possible down interface, etc. Caller should pause. */
+		return bytes; /* returns -1 */
 	}
 
-	if (bytes < (int) (sizeof(struct iphdr) + sizeof(struct udphdr))) {
-		DEBUG(LOG_INFO, "message too short, ignoring");
+	if (bytes < (int) (sizeof(packet.ip) + sizeof(packet.udp))) {
+		DEBUG("Packet is too short, ignoring");
 		return -2;
 	}
 
 	if (bytes < ntohs(packet.ip.tot_len)) {
-		DEBUG(LOG_INFO, "Truncated packet");
+		/* packet is bigger than sizeof(packet), we did partial read */
+		DEBUG("Oversized packet, ignoring");
 		return -2;
 	}
 
 	/* ignore any extra garbage bytes */
 	bytes = ntohs(packet.ip.tot_len);
 
-	/* Make sure its the right packet for us, and that it passes sanity checks */
-	if (packet.ip.protocol != IPPROTO_UDP || packet.ip.version != IPVERSION ||
-	    packet.ip.ihl != sizeof(packet.ip) >> 2 || packet.udp.dest != htons(CLIENT_PORT) ||
-	    bytes > (int) sizeof(struct udp_dhcp_packet) ||
-	    ntohs(packet.udp.len) != (uint16_t) (bytes - sizeof(packet.ip))) {
-		DEBUG(LOG_INFO, "unrelated/bogus packet");
+	/* make sure its the right packet for us, and that it passes sanity checks */
+	if (packet.ip.protocol != IPPROTO_UDP || packet.ip.version != IPVERSION
+	 || packet.ip.ihl != (sizeof(packet.ip) >> 2)
+	 || packet.udp.dest != htons(CLIENT_PORT)
+	/* || bytes > (int) sizeof(packet) - can't happen */
+	 || ntohs(packet.udp.len) != (uint16_t)(bytes - sizeof(packet.ip))
+	) {
+		DEBUG("Unrelated/bogus packet");
 		return -2;
 	}
 
-	/* check IP checksum */
+	/* verify IP checksum */
 	check = packet.ip.check;
 	packet.ip.check = 0;
-	if (check != udhcp_checksum(&(packet.ip), sizeof(packet.ip))) {
-		DEBUG(LOG_INFO, "bad IP header checksum, ignoring");
-		return -1;
+	if (check != udhcp_checksum(&packet.ip, sizeof(packet.ip))) {
+		DEBUG("Bad IP header checksum, ignoring");
+		return -2;
 	}
 
-	/* verify the UDP checksum by replacing the header with a psuedo header */
-	source = packet.ip.saddr;
-	dest = packet.ip.daddr;
+	/* verify UDP checksum. IP header has to be modified for this */
+	memset(&packet.ip, 0, offsetof(struct iphdr, protocol));
+	/* ip.xx fields which are not memset: protocol, check, saddr, daddr */
+	packet.ip.tot_len = packet.udp.len; /* yes, this is needed */
 	check = packet.udp.check;
 	packet.udp.check = 0;
-	memset(&packet.ip, 0, sizeof(packet.ip));
-
-	packet.ip.protocol = IPPROTO_UDP;
-	packet.ip.saddr = source;
-	packet.ip.daddr = dest;
-	packet.ip.tot_len = packet.udp.len; /* cheat on the psuedo-header */
 	if (check && check != udhcp_checksum(&packet, bytes)) {
-		DEBUG(LOG_ERR, "packet with bad UDP checksum received, ignoring");
+		bb_error_msg("packet with bad UDP checksum received, ignoring");
 		return -2;
 	}
 
-	memcpy(payload, &(packet.data), bytes - (sizeof(packet.ip) + sizeof(packet.udp)));
+	memcpy(payload, &packet.data, bytes - (sizeof(packet.ip) + sizeof(packet.udp)));
 
-	if (ntohl(payload->cookie) != DHCP_MAGIC) {
-		LOG(LOG_ERR, "received bogus message (bad magic) -- ignoring");
+	if (payload->cookie != htonl(DHCP_MAGIC)) {
+		bb_error_msg("received bogus message (bad magic), ignoring");
 		return -2;
 	}
-	DEBUG(LOG_INFO, "oooooh!!! got some!");
+	DEBUG("Got valid DHCP packet");
 	return bytes - (sizeof(packet.ip) + sizeof(packet.udp));
-
 }

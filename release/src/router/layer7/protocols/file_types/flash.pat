@@ -2,6 +2,7 @@
 # Pattern attributes: good slow notsofast subset
 # Protocol groups: file
 
+# Copyright (C) 2008 Matthew Strait, Ethan Sommer; See ../LICENSE
 # Thanks to Brandon Enright {bmenrigh AT ucsd.edu} and chinalantian at 
 # 126 dot com
 

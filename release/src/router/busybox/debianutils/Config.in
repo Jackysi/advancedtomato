@@ -5,33 +5,19 @@
 
 menu "Debian Utilities"
 
-config CONFIG_MKTEMP
+config MKTEMP
 	bool "mktemp"
 	default n
 	help
 	  mktemp is used to create unique temporary files
 
-config CONFIG_PIPE_PROGRESS
+config PIPE_PROGRESS
 	bool "pipe_progress"
 	default n
 	help
 	  Display a dot to indicate pipe activity.
 
-config CONFIG_READLINK
-	bool "readlink"
-	default n
-	help
-	  This program reads a symbolic link and returns the name
-	  of the file it points to
-
-config CONFIG_FEATURE_READLINK_FOLLOW
-	bool "Enable canonicalization by following all symlinks (-f)"
-	default n
-	depends on CONFIG_READLINK
-	help
-	  Enable the readlink option (-f).
-
-config CONFIG_RUN_PARTS
+config RUN_PARTS
 	bool "run-parts"
 	default n
 	help
@@ -40,44 +26,53 @@ config CONFIG_RUN_PARTS
 	  It is useful to set up a directory like cron.daily, where you need to
 	  execute all the scripts in that directory.
 
-	  In this implementation of run-parts some features (such as report mode)
-	  are not implemented.
+	  In this implementation of run-parts some features (such as report
+	  mode) are not implemented.
 
 	  Unless you know that run-parts is used in some of your scripts
 	  you can safely say N here.
 
-config CONFIG_FEATURE_RUN_PARTS_LONG_OPTIONS
+config FEATURE_RUN_PARTS_LONG_OPTIONS
 	bool "Enable long options"
 	default n
-	depends on CONFIG_RUN_PARTS && CONFIG_GETOPT_LONG
+	depends on RUN_PARTS && GETOPT_LONG
 	help
 	  Support long options for the run-parts applet.
 
-config CONFIG_START_STOP_DAEMON
+config FEATURE_RUN_PARTS_FANCY
+	bool "Support additional arguments"
+	default n
+	depends on RUN_PARTS
+	help
+	  Support additional options:
+	  -l --list print the names of the all matching files (not
+	            limited to executables), but don't actually run them.
+
+config START_STOP_DAEMON
 	bool "start-stop-daemon"
-	default y
+	default n
 	help
 	  start-stop-daemon is used to control the creation and
 	  termination of system-level processes, usually the ones
 	  started during the startup of the system.
 
-config CONFIG_FEATURE_START_STOP_DAEMON_FANCY
+config FEATURE_START_STOP_DAEMON_FANCY
 	bool "Support additional arguments"
-	default y
-	depends on CONFIG_START_STOP_DAEMON
+	default n
+	depends on START_STOP_DAEMON
 	help
 	  Support additional arguments.
 	  -o|--oknodo ignored since we exit with 0 anyway
 	  -v|--verbose
 
-config CONFIG_FEATURE_START_STOP_DAEMON_LONG_OPTIONS
+config FEATURE_START_STOP_DAEMON_LONG_OPTIONS
 	bool "Enable long options"
 	default n
-	depends on CONFIG_START_STOP_DAEMON && CONFIG_GETOPT_LONG
+	depends on START_STOP_DAEMON && GETOPT_LONG
 	help
 	  Support long options for the start-stop-daemon applet.
 
-config CONFIG_WHICH
+config WHICH
 	bool "which"
 	default n
 	help

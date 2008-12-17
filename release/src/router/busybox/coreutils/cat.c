@@ -4,37 +4,45 @@
  *
  * Copyright (C) 2003  Manuel Novoa III  <mjn3@codepoet.org>
  *
- * Licensed under GPLv2 or later, see file License in this tarball for details.
+ * Licensed under GPLv2, see file License in this tarball for details.
  */
 
 /* BB_AUDIT SUSv3 compliant */
 /* http://www.opengroup.org/onlinepubs/007904975/utilities/cat.html */
 
-#include "busybox.h"
-#include <unistd.h>
+#include "libbb.h"
 
-int cat_main(int argc, char **argv)
+/* This is a NOFORK applet. Be very careful! */
+
+
+int bb_cat(char **argv)
 {
-	FILE *f;
+	int fd;
 	int retval = EXIT_SUCCESS;
 
-	bb_getopt_ulflags(argc, argv, "u");
-
-	argv += optind;
-	if (!*argv) {
-		*--argv = "-";
-	}
+	if (!*argv)
+		argv = (char**) &bb_argv_dash;
 
 	do {
-		if ((f = bb_wfopen_input(*argv)) != NULL) {
-			int r = bb_copyfd_eof(fileno(f), STDOUT_FILENO);
-			bb_fclose_nonstdin(f);
-			if (r >= 0) {
+		fd = open_or_warn_stdin(*argv);
+		if (fd >= 0) {
+			/* This is not a xfunc - never exits */
+			off_t r = bb_copyfd_eof(fd, STDOUT_FILENO);
+			if (fd != STDIN_FILENO)
+				close(fd);
+			if (r >= 0)
 				continue;
-			}
 		}
 		retval = EXIT_FAILURE;
 	} while (*++argv);
 
 	return retval;
+}
+
+int cat_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
+int cat_main(int argc UNUSED_PARAM, char **argv)
+{
+	getopt32(argv, "u");
+	argv += optind;
+	return bb_cat(argv);
 }

@@ -7,17 +7,19 @@
  * Licensed under GPLv2 or later, see file LICENSE in this tarball for details.
  */
 
-#include <stdio.h>
-#include <errno.h>
-#include <string.h>
-#include <stdlib.h>
 #include "libbb.h"
 
-void bb_perror_msg(const char *s, ...)
+void FAST_FUNC bb_perror_msg(const char *s, ...)
 {
 	va_list p;
 
 	va_start(p, s);
-	bb_vperror_msg(s, p);
+	/* Guard against "<error message>: Success" */
+	bb_verror_msg(s, p, errno ? strerror(errno) : NULL);
 	va_end(p);
+}
+
+void FAST_FUNC bb_simple_perror_msg(const char *s)
+{
+	bb_perror_msg("%s", s);
 }

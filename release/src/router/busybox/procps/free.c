@@ -4,26 +4,24 @@
  *
  * Copyright (C) 1999-2004 by Erik Andersen <andersen@codepoet.org>
  *
- * Licensed under the GPL v2 or later, see the file LICENSE in this tarball.
+ * Licensed under the GPL version 2, see the file LICENSE in this tarball.
  */
 
 /* getopt not needed */
 
-#include "busybox.h"
-#include <stdio.h>
-#include <errno.h>
-#include <stdlib.h>
+#include "libbb.h"
 
+int free_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
 int free_main(int argc, char **argv)
 {
 	struct sysinfo info;
 	sysinfo(&info);
 
 	/* Kernels prior to 2.4.x will return info.mem_unit==0, so cope... */
-	if (info.mem_unit==0) {
+	if (info.mem_unit == 0) {
 		info.mem_unit=1;
 	}
-	if ( info.mem_unit == 1 ) {
+	if (info.mem_unit == 1) {
 		info.mem_unit=1024;
 
 		/* TODO:  Make all this stuff not overflow when mem >= 4 Gib */
@@ -48,7 +46,7 @@ int free_main(int argc, char **argv)
 		info.bufferram*=info.mem_unit;
 	}
 
-	if (argc > 1 && **(argv + 1) == '-')
+	if (argc > 1 && *argv[1] == '-')
 		bb_show_usage();
 
 	printf("%6s%13s%13s%13s%13s%13s\n", "", "total", "used", "free",
@@ -68,4 +66,3 @@ int free_main(int argc, char **argv)
 #endif
 	return EXIT_SUCCESS;
 }
-

@@ -196,8 +196,12 @@ createFieldTable('', [
 <div class='section'>
 <script type='text/javascript'>
 if (nvram.lan_proto == 'dhcp') {
-	nvram.lan_ipaddr.match(/([\d\.]+)\.\d+$/);
-	s = '<a href="status-devices.asp">' + RegExp.$1 + '.' + nvram.dhcp_start + ' - ' + ((nvram.dhcp_start * 1) + (nvram.dhcp_num * 1) - 1) + '</a>';
+	if ((!fixIP(nvram.dhcpd_startip)) || (!fixIP(nvram.dhcpd_endip))) {
+		var x = nvram.lan_ipaddr.split('.').splice(0, 3).join('.') + '.';
+		nvram.dhcpd_startip = x + nvram.dhcp_start;
+		nvram.dhcpd_endip = x + ((nvram.dhcp_start * 1) + (nvram.dhcp_num * 1) - 1);
+	}
+	s = '<a href="status-devices.asp">' + nvram.dhcpd_startip + ' - ' + nvram.dhcpd_endip + '</a>';
 }
 else {
 	s = 'Disabled';

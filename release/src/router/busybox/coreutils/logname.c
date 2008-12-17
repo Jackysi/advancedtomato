@@ -20,22 +20,23 @@
  * a diagnostic message and an error return.
  */
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include "busybox.h"
+#include "libbb.h"
 
-int logname_main(int argc, char ATTRIBUTE_UNUSED **argv)
+/* This is a NOFORK applet. Be very careful! */
+
+int logname_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
+int logname_main(int argc, char **argv UNUSED_PARAM)
 {
-	const char *p;
+	char buf[128];
 
 	if (argc > 1) {
 		bb_show_usage();
 	}
 
-	if ((p = getlogin()) != NULL) {
-		puts(p);
-		bb_fflush_stdout_and_exit(EXIT_SUCCESS);
+	/* Using _r function - avoid pulling in static buffer from libc */
+	if (getlogin_r(buf, sizeof(buf)) == 0) {
+		puts(buf);
+		return fflush(stdout);
 	}
 
 	bb_perror_msg_and_die("getlogin");

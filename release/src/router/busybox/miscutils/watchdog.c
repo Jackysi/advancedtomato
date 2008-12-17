@@ -8,63 +8,64 @@
  * Licensed under the GPL v2 or later, see the file LICENSE in this tarball.
  */
 
-#include "busybox.h"
-#include <stdio.h>
-#include <fcntl.h>
-#include <unistd.h>
-#include <stdlib.h>
-#include <signal.h>
+#include "libbb.h"
 
 #define OPT_FOREGROUND 0x01
 #define OPT_TIMER      0x02
 
-/* Watchdog file descriptor */
-static int fd;
-
-static void watchdog_shutdown(int ATTRIBUTE_UNUSED unused)
+static void watchdog_shutdown(int sig UNUSED_PARAM)
 {
-	write(fd, "V", 1);	/* Magic, see watchdog-api.txt in kernel */
-	close(fd);
-	exit(0);
+	static const char V = 'V';
+
+	write(3, &V, 1);	/* Magic, see watchdog-api.txt in kernel */
+	if (ENABLE_FEATURE_CLEAN_UP)
+		close(3);
+	exit(EXIT_SUCCESS);
 }
 
+int watchdog_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
 int watchdog_main(int argc, char **argv)
 {
-	unsigned long opts;
-	unsigned long timer_duration = 30; /* Userspace timer duration, in seconds */
+	unsigned opts;
+	unsigned timer_duration = 30000; /* Userspace timer duration, in milliseconds */
 	char *t_arg;
 
-	opts = bb_getopt_ulflags(argc, argv, "Ft:", &t_arg);
+	opt_complementary = "=1"; /* must have 1 argument */
+	opts = getopt32(argv, "Ft:", &t_arg);
 
-	if (opts & OPT_TIMER)
-		timer_duration = bb_xgetlarg(t_arg, 10, 0, INT_MAX);
+	if (opts & OPT_TIMER) {
+		static const struct suffix_mult suffixes[] = {
+			{ "ms", 1 },
+			{ "", 1000 },
+			{ }
+		};
+		timer_duration = xatou_sfx(t_arg, suffixes);
+	}
 
-	/* We're only interested in the watchdog device .. */
-	if (optind < argc - 1 || argc == 1)
-		bb_show_usage();
+	if (!(opts & OPT_FOREGROUND)) {
+		bb_daemonize_or_rexec(DAEMON_CHDIR_ROOT, argv);
+	}
 
-#ifdef BB_NOMMU
-	if (!(opts & OPT_FOREGROUND))
-		vfork_daemon_rexec(0, 1, argc, argv, "-F");
-#else
-	bb_xdaemon(0, 1);
-#endif
+	bb_signals(BB_FATAL_SIGS, watchdog_shutdown);
 
-	signal(SIGHUP, watchdog_shutdown);
-	signal(SIGINT, watchdog_shutdown);
+	/* Use known fd # - avoid needing global 'int fd' */
+	xmove_fd(xopen(argv[argc - 1], O_WRONLY), 3);
 
-	fd = bb_xopen(argv[argc - 1], O_WRONLY);
+// TODO?
+//	if (!(opts & OPT_TIMER)) {
+//		if (ioctl(fd, WDIOC_GETTIMEOUT, &timer_duration) == 0)
+//			timer_duration *= 500;
+//		else
+//			timer_duration = 30000;
+//	}
 
 	while (1) {
 		/*
 		 * Make sure we clear the counter before sleeping, as the counter value
 		 * is undefined at this point -- PFM
 		 */
-		write(fd, "\0", 1);
-		sleep(timer_duration);
+		write(3, "", 1); /* write zero byte */
+		usleep(timer_duration * 1000L);
 	}
-
-	watchdog_shutdown(0);
-
-	return EXIT_SUCCESS;
+	return EXIT_SUCCESS; /* - not reached, but gcc 4.2.1 is too dumb! */
 }

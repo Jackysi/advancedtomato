@@ -2,6 +2,7 @@
 # Pattern attributes: marginal overmatch undermatch veryfast fast
 # Protocol groups: streaming_video ietf_internet_standard
 # Wiki: http://www.protocolinfo.org/wiki/RTP
+# Copyright (C) 2008 Matthew Strait, Ethan Sommer; See ../LICENSE
 #
 # RTP headers are *very* short and compact.  They have almost nothing in 
 # them that can be matched by l7-filter.  If you want to match them 

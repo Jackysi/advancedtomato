@@ -2,6 +2,7 @@
 # Pattern attributes: ok fast fast
 # Protocol groups: voip ietf_proposed_standard
 # Wiki: http://www.protocolinfo.org/wiki/SIP
+# Copyright (C) 2008 Matthew Strait, Ethan Sommer; See ../LICENSE
 #
 # This pattern has been tested with the Ubiquity SIP user agent.
 #

@@ -1,5 +1,5 @@
 #!/usr/bin/perl -w
-# vi: set ts=4:
+# vi: set sw=4 ts=4:
 # Copyright (c) 2001 David Schleef <ds@schleef.org>
 # Copyright (c) 2001 Erik Andersen <andersen@codepoet.org>
 # Copyright (c) 2001 Stuart Hughes <seh@zee2.com>
@@ -22,6 +22,7 @@ my $kdir="";
 my $basedir="";
 my $kernel="";
 my $kernelsyms="";
+my $symprefix="";
 my $stdout=0;
 my $verbose=0;
 my $help=0;
@@ -34,24 +35,26 @@ my $dep = {};
 my $mod = {};
 
 my $usage = <<TXT;
-$0 -b basedir { -k <vmlinux> | -F <System.map> } [options]... 
+$0 -b basedir { -k <vmlinux> | -F <System.map> } [options]...
   Where:
-   -h --help         : Show this help screen
-   -b --basedir      : Modules base directory (e.g /lib/modules/<2.x.y>)
-   -k --kernel       : Kernel binary for the target (e.g. vmlinux)
-   -F --kernelsyms   : Kernel symbol file (e.g. System.map)
-   -n --stdout       : Write to stdout instead of <basedir>/modules.dep
-   -v --verbose      : Print out lots of debugging stuff
+   -h --help          : Show this help screen
+   -b --basedir       : Modules base directory (e.g /lib/modules/<2.x.y>)
+   -k --kernel        : Kernel binary for the target (e.g. vmlinux)
+   -F --kernelsyms    : Kernel symbol file (e.g. System.map)
+   -n --stdout        : Write to stdout instead of <basedir>/modules.dep
+   -v --verbose       : Print out lots of debugging stuff
+   -P --symbol-prefix : Symbol prefix
 TXT
 
 # get command-line options
 GetOptions(
-	"help|h"         => \$help,
-	"basedir|b=s"    => \$basedir,
-	"kernel|k=s"     => \$kernel,
-	"kernelsyms|F=s" => \$kernelsyms,
-	"stdout|n"       => \$stdout,
-	"verbose|v"      => \$verbose,
+	"help|h"            => \$help,
+	"basedir|b=s"       => \$basedir,
+	"kernel|k=s"        => \$kernel,
+	"kernelsyms|F=s"    => \$kernelsyms,
+	"stdout|n"          => \$stdout,
+	"verbose|v"         => \$verbose,
+	"symbol-prefix|P=s" => \$symprefix,
 );
 
 die $usage if $help;
@@ -174,7 +177,7 @@ sub build_ref_tables
 	} else {
         # exporting all symbols
         foreach ( @$sym_ar ) {
-            / [ABCDGRST] (.*)$/ and do {
+            / [ABCDGRSTW] (.*)$/ and do {
                 warn "syma = $1\n" if $verbose;
                 $exp->{$1} = $name;
             };
@@ -182,7 +185,7 @@ sub build_ref_tables
 	}
 
     # this takes makes sure modules with no dependencies get listed
-    push @{$dep->{$name}}, 'printk' unless $name eq 'vmlinux';
+    push @{$dep->{$name}}, $symprefix . 'printk' unless $name eq 'vmlinux';
 
     # gather the unresolved symbols
     foreach ( @$sym_ar ) {
@@ -211,7 +214,7 @@ __END__
 
 depmod.pl - a cross platform script to generate kernel module
 dependency lists (modules.conf) which can then be used by modprobe
-on the target platform. 
+on the target platform.
 
 It supports Linux 2.4 and 2.6 styles of modules.conf (auto-detected)
 
@@ -245,7 +248,7 @@ This displays the help message.
 =item B<-b --basedir>
 
 The base directory uner which the target's modules will be found.  This
-defaults to the /lib/modules directory. 
+defaults to the /lib/modules directory.
 
 If you don't specify the kernel version, this script will search for
 one under the specified based directory and use the first thing that

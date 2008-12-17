@@ -11,198 +11,195 @@
  *
  * Termios corrects by Vladimir Oleynik <dzo@simtreas.ru>
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
- *
+ * Licensed under GPLv2 or later, see file License in this tarball for details.
  */
 
-#include <stdio.h>
-#include <fcntl.h>
-#include <signal.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <sys/ioctl.h>
-#include "busybox.h"
-
-
-#ifdef CONFIG_FEATURE_USE_TERMIOS
-static int cin_fileno;
+#include "libbb.h"
+#if ENABLE_FEATURE_USE_TERMIOS
 #include <termios.h>
-#define setTermSettings(fd,argp) tcsetattr(fd,TCSANOW,argp)
-#define getTermSettings(fd,argp) tcgetattr(fd, argp);
+#endif /* FEATURE_USE_TERMIOS */
 
-static struct termios initial_settings, new_settings;
 
-static void set_tty_to_initial_mode(void)
+#if ENABLE_FEATURE_USE_TERMIOS
+
+struct globals {
+	int cin_fileno;
+	struct termios initial_settings;
+	struct termios new_settings;
+};
+#define G (*(struct globals*)bb_common_bufsiz1)
+#define INIT_G() ((void)0)
+#define initial_settings (G.initial_settings)
+#define new_settings     (G.new_settings    )
+#define cin_fileno       (G.cin_fileno      )
+
+#define setTermSettings(fd, argp) tcsetattr(fd, TCSANOW, argp)
+#define getTermSettings(fd, argp) tcgetattr(fd, argp)
+
+static void gotsig(int sig UNUSED_PARAM)
 {
+	bb_putchar('\n');
 	setTermSettings(cin_fileno, &initial_settings);
-}
-
-static void gotsig(int sig)
-{
-	putchar('\n');
 	exit(EXIT_FAILURE);
 }
-#endif /* CONFIG_FEATURE_USE_TERMIOS */
 
+#else /* !FEATURE_USE_TERMIOS */
+#define INIT_G() ((void)0)
+#define setTermSettings(fd, argp) ((void)0)
+#endif /* FEATURE_USE_TERMIOS */
 
-int more_main(int argc, char **argv)
+#define CONVERTED_TAB_SIZE 8
+
+int more_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
+int more_main(int argc UNUSED_PARAM, char **argv)
 {
-	int c, lines, input = 0;
-	int please_display_more_prompt = 0;
+	int c = c; /* for gcc */
+	int lines;
+	int input = 0;
+	int spaces = 0;
+	int please_display_more_prompt;
 	struct stat st;
 	FILE *file;
 	FILE *cin;
-	int len, page_height;
-	int terminal_width;
-	int terminal_height;
+	int len;
+	unsigned terminal_width;
+	unsigned terminal_height;
 
-	argc--;
+	INIT_G();
+
 	argv++;
+	/* Another popular pager, most, detects when stdout
+	 * is not a tty and turns into cat. This makes sense. */
+	if (!isatty(STDOUT_FILENO))
+		return bb_cat(argv);
+	cin = fopen_for_read(CURRENT_TTY);
+	if (!cin)
+		return bb_cat(argv);
 
-
-	/* not use inputing from terminal if usage: more > outfile */
-	if(isatty(STDOUT_FILENO)) {
-		cin = fopen(CURRENT_TTY, "r");
-		if (!cin)
-			cin = bb_xfopen(CONSOLE_DEV, "r");
-		please_display_more_prompt = 2;
-#ifdef CONFIG_FEATURE_USE_TERMIOS
-		cin_fileno = fileno(cin);
-		getTermSettings(cin_fileno, &initial_settings);
-		new_settings = initial_settings;
-		new_settings.c_lflag &= ~ICANON;
-		new_settings.c_lflag &= ~ECHO;
-		new_settings.c_cc[VMIN] = 1;
-		new_settings.c_cc[VTIME] = 0;
-		setTermSettings(cin_fileno, &new_settings);
-		atexit(set_tty_to_initial_mode);
-		(void) signal(SIGINT, gotsig);
-		(void) signal(SIGQUIT, gotsig);
-		(void) signal(SIGTERM, gotsig);
+#if ENABLE_FEATURE_USE_TERMIOS
+	cin_fileno = fileno(cin);
+	getTermSettings(cin_fileno, &initial_settings);
+	new_settings = initial_settings;
+	new_settings.c_lflag &= ~ICANON;
+	new_settings.c_lflag &= ~ECHO;
+	new_settings.c_cc[VMIN] = 1;
+	new_settings.c_cc[VTIME] = 0;
+	setTermSettings(cin_fileno, &new_settings);
+	bb_signals(0
+		+ (1 << SIGINT)
+		+ (1 << SIGQUIT)
+		+ (1 << SIGTERM)
+		, gotsig);
 #endif
-	} else {
-		cin = stdin;
-	}
 
 	do {
-		if (argc == 0) {
-			file = stdin;
-		} else
-			file = bb_wfopen(*argv, "r");
-		if(file==0)
-			goto loop;
-
+		file = stdin;
+		if (*argv) {
+			file = fopen_or_warn(*argv, "r");
+			if (!file)
+				continue;
+		}
 		st.st_size = 0;
 		fstat(fileno(file), &st);
 
-		please_display_more_prompt &= ~1;
-
+		please_display_more_prompt = 0;
+		/* never returns w, h <= 1 */
 		get_terminal_width_height(fileno(cin), &terminal_width, &terminal_height);
-		if (terminal_height > 4)
-			terminal_height -= 2;
-		if (terminal_width > 0)
-			terminal_width -= 1;
+		terminal_height -= 1;
 
-		len=0;
+		len = 0;
 		lines = 0;
-		page_height = terminal_height;
-		while ((c = getc(file)) != EOF) {
-
-			if ((please_display_more_prompt & 3) == 3) {
+		while (spaces || (c = getc(file)) != EOF) {
+			int wrap;
+			if (spaces)
+				spaces--;
+ loop_top:
+			if (input != 'r' && please_display_more_prompt) {
 				len = printf("--More-- ");
-				if (file != stdin && st.st_size > 0) {
-#if _FILE_OFFSET_BITS == 64
-					len += printf("(%d%% of %lld bytes)",
-						   (int) (100 * ((double) ftell(file) /
-						   (double) st.st_size)), (long long)st.st_size);
-#else
-					len += printf("(%d%% of %ld bytes)",
-						   (int) (100 * ((double) ftell(file) /
-						   (double) st.st_size)), (long)st.st_size);
-#endif
+				if (st.st_size > 0) {
+					len += printf("(%d%% of %"OFF_FMT"d bytes)",
+						(int) (ftello(file)*100 / st.st_size),
+						st.st_size);
 				}
-
 				fflush(stdout);
 
 				/*
 				 * We've just displayed the "--More--" prompt, so now we need
 				 * to get input from the user.
 				 */
-				input = getc(cin);
-#ifndef CONFIG_FEATURE_USE_TERMIOS
-				printf("\033[A"); /* up cursor */
+				for (;;) {
+					input = getc(cin);
+					input = tolower(input);
+#if !ENABLE_FEATURE_USE_TERMIOS
+					printf("\033[A"); /* up cursor */
 #endif
-				/* Erase the "More" message */
-				putc('\r', stdout);
-				while (--len >= 0)
-					putc(' ', stdout);
-				putc('\r', stdout);
-				len=0;
+					/* Erase the last message */
+					printf("\r%*s\r", len, "");
+
+					/* Due to various multibyte escape
+					 * sequences, it's not ok to accept
+					 * any input as a command to scroll
+					 * the screen. We only allow known
+					 * commands, else we show help msg. */
+					if (input == ' ' || input == '\n' || input == 'q' || input == 'r')
+						break;
+					len = printf("(Enter:next line Space:next page Q:quit R:show the rest)");
+				}
+				len = 0;
 				lines = 0;
-				page_height = terminal_height;
-				please_display_more_prompt &= ~1;
+				please_display_more_prompt = 0;
 
 				if (input == 'q')
 					goto end;
+
+				/* The user may have resized the terminal.
+				 * Re-read the dimensions. */
+#if ENABLE_FEATURE_USE_TERMIOS
+				get_terminal_width_height(cin_fileno, &terminal_width, &terminal_height);
+				terminal_height -= 1;
+#endif
+			}
+
+			/* Crudely convert tabs into spaces, which are
+			 * a bajillion times easier to deal with. */
+			if (c == '\t') {
+				spaces = CONVERTED_TAB_SIZE - 1;
+				c = ' ';
 			}
 
 			/*
 			 * There are two input streams to worry about here:
 			 *
-			 * c     : the character we are reading from the file being "mored"
-			 * input : a character received from the keyboard
+			 * c    : the character we are reading from the file being "mored"
+			 * input: a character received from the keyboard
 			 *
 			 * If we hit a newline in the _file_ stream, we want to test and
 			 * see if any characters have been hit in the _input_ stream. This
 			 * allows the user to quit while in the middle of a file.
 			 */
-			if (c == '\n') {
-				/* increment by just one line if we are at
-				 * the end of this line */
-				if (input == '\n')
-					please_display_more_prompt |= 1;
-				/* Adjust the terminal height for any overlap, so that
-				 * no lines get lost off the top. */
-				if (len >= terminal_width) {
-					int quot, rem;
-					quot = len / terminal_width;
-					rem  = len - (quot * terminal_width);
-					if (quot) {
-						if (rem)
-							page_height-=quot;
-						else
-							page_height-=(quot-1);
-					}
-				}
-				if (++lines >= page_height) {
-					please_display_more_prompt |= 1;
-				}
-				len=0;
+			wrap = (++len > terminal_width);
+			if (c == '\n' || wrap) {
+				/* Then outputting this character
+				 * will move us to a new line. */
+				if (++lines >= terminal_height || input == '\n')
+					please_display_more_prompt = 1;
+				len = 0;
 			}
-			/*
-			 * If we just read a newline from the file being 'mored' and any
-			 * key other than a return is hit, scroll by one page
-			 */
-			putc(c, stdout);
-			len++;
+			if (c != '\n' && wrap) {
+				/* Then outputting this will also put a character on
+				 * the beginning of that new line. Thus we first want to
+				 * display the prompt (if any), so we skip the putchar()
+				 * and go back to the top of the loop, without reading
+				 * a new character. */
+				goto loop_top;
+			}
+			/* My small mind cannot fathom backspaces and UTF-8 */
+			putchar(c);
 		}
 		fclose(file);
 		fflush(stdout);
-loop:
-		argv++;
-	} while (--argc > 0);
-  end:
+	} while (*argv && *++argv);
+ end:
+	setTermSettings(cin_fileno, &initial_settings);
 	return 0;
 }

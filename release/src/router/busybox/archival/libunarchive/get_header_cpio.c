@@ -1,148 +1,181 @@
+/* vi: set sw=4 ts=4: */
 /* Copyright 2002 Laurence Anderson
  *
  * Licensed under GPLv2 or later, see file LICENSE in this tarball for details.
  */
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
-#include <sys/sysmacros.h>     /* major() and minor() */
-#include "unarchive.h"
 #include "libbb.h"
+#include "unarchive.h"
 
-typedef struct hardlinks_s {
-	file_header_t *entry;
-	int inode;
-	struct hardlinks_s *next;
+typedef struct hardlinks_t {
+	struct hardlinks_t *next;
+	int inode; /* TODO: must match maj/min too! */
+	int mode ;
+	int mtime; /* These three are useful only in corner case */
+	int uid  ; /* of hardlinks with zero size body */
+	int gid  ;
+	char name[1];
 } hardlinks_t;
 
-char get_header_cpio(archive_handle_t *archive_handle)
+char FAST_FUNC get_header_cpio(archive_handle_t *archive_handle)
 {
-	static hardlinks_t *saved_hardlinks = NULL;
-	static unsigned short pending_hardlinks = 0;
 	file_header_t *file_header = archive_handle->file_header;
 	char cpio_header[110];
 	int namesize;
-	char dummy[16];
-	int major, minor, nlink, inode;
+	int major, minor, nlink, mode, inode;
+	unsigned size, uid, gid, mtime;
 
-	if (pending_hardlinks) { /* Deal with any pending hardlinks */
-		hardlinks_t *tmp;
-		hardlinks_t *oldtmp;
-
-		tmp = saved_hardlinks;
-		oldtmp = NULL;
-
-		while (tmp) {
-			bb_error_msg_and_die("need to fix this\n");
-			if (tmp->entry->link_name) { /* Found a hardlink ready to be extracted */
-				file_header = tmp->entry;
-				if (oldtmp) {
-					oldtmp->next = tmp->next; /* Remove item from linked list */
-				} else {
-					saved_hardlinks = tmp->next;
-				}
-				free(tmp);
-				continue;
-			}
-			oldtmp = tmp;
-			tmp = tmp->next;
-		}
-		pending_hardlinks = 0; /* No more pending hardlinks, read next file entry */
-	}
+#define hardlinks_to_create (*(hardlinks_t **)(&archive_handle->ah_priv[0]))
+#define created_hardlinks   (*(hardlinks_t **)(&archive_handle->ah_priv[1]))
+//	if (!archive_handle->ah_priv_inited) {
+//		archive_handle->ah_priv_inited = 1;
+//		hardlinks_to_create = NULL;
+//		created_hardlinks = NULL;
+//	}
 
 	/* There can be padding before archive header */
 	data_align(archive_handle, 4);
 
-	if (archive_xread_all_eof(archive_handle, (unsigned char*)cpio_header, 110) == 0) {
-		return(EXIT_FAILURE);
+	size = full_read(archive_handle->src_fd, cpio_header, 110);
+	if (size == 0) {
+		goto create_hardlinks;
+	}
+	if (size != 110) {
+		bb_error_msg_and_die("short read");
 	}
 	archive_handle->offset += 110;
 
-	if ((strncmp(&cpio_header[0], "07070", 5) != 0) || ((cpio_header[5] != '1') && (cpio_header[5] != '2'))) {
-		bb_error_msg_and_die("Unsupported cpio format, use newc or crc");
+	if (strncmp(&cpio_header[0], "07070", 5) != 0
+	 || (cpio_header[5] != '1' && cpio_header[5] != '2')
+	) {
+		bb_error_msg_and_die("unsupported cpio format, use newc or crc");
 	}
 
-	{
-	    unsigned long tmpsize;
-	    sscanf(cpio_header, "%6c%8x%8x%8x%8x%8x%8lx%8lx%16c%8x%8x%8x%8c",
-		    dummy, &inode, (unsigned int*)&file_header->mode,
-		    (unsigned int*)&file_header->uid, (unsigned int*)&file_header->gid,
-		    &nlink, &file_header->mtime, &tmpsize,
-		    dummy, &major, &minor, &namesize, dummy);
-	    file_header->size = tmpsize;
-	}
+	if (sscanf(cpio_header + 6,
+			"%8x" "%8x" "%8x" "%8x"
+			"%8x" "%8x" "%8x" /*maj,min:*/ "%*16c"
+			/*rmaj,rmin:*/"%8x" "%8x" "%8x" /*chksum: "%*8c"*/,
+			&inode, &mode, &uid, &gid,
+			&nlink, &mtime, &size,
+			&major, &minor, &namesize) != 10)
+		bb_error_msg_and_die("damaged cpio file");
+	file_header->mode = mode;
+	file_header->uid = uid;
+	file_header->gid = gid;
+	file_header->mtime = mtime;
+	file_header->size = size;
 
-	file_header->name = (char *) xzalloc(namesize + 1);
-	archive_xread_all(archive_handle, file_header->name, namesize); /* Read in filename */
+	namesize &= 0x1fff; /* paranoia: limit names to 8k chars */
+	file_header->name = xzalloc(namesize + 1);
+	/* Read in filename */
+	xread(archive_handle->src_fd, file_header->name, namesize);
 	archive_handle->offset += namesize;
 
 	/* Update offset amount and skip padding before file contents */
 	data_align(archive_handle, 4);
 
 	if (strcmp(file_header->name, "TRAILER!!!") == 0) {
-		printf("%d blocks\n", (int) (archive_handle->offset % 512 ? (archive_handle->offset / 512) + 1 : archive_handle->offset / 512)); /* Always round up */
-		if (saved_hardlinks) { /* Bummer - we still have unresolved hardlinks */
-			hardlinks_t *tmp = saved_hardlinks;
-			hardlinks_t *oldtmp = NULL;
-			while (tmp) {
-				bb_error_msg("%s not created: cannot resolve hardlink", tmp->entry->name);
-				oldtmp = tmp;
-				tmp = tmp->next;
-				free (oldtmp->entry->name);
-				free (oldtmp->entry);
-				free (oldtmp);
-			}
-			saved_hardlinks = NULL;
-			pending_hardlinks = 0;
-		}
-		return(EXIT_FAILURE);
+		/* Always round up. ">> 9" divides by 512 */
+		printf("%"OFF_FMT"u blocks\n", (archive_handle->offset + 511) >> 9);
+		goto create_hardlinks;
 	}
 
+	file_header->link_target = NULL;
 	if (S_ISLNK(file_header->mode)) {
-		file_header->link_name = (char *) xzalloc(file_header->size + 1);
-		archive_xread_all(archive_handle, file_header->link_name, file_header->size);
+		file_header->size &= 0x1fff; /* paranoia: limit names to 8k chars */
+		file_header->link_target = xzalloc(file_header->size + 1);
+		xread(archive_handle->src_fd, file_header->link_target, file_header->size);
 		archive_handle->offset += file_header->size;
 		file_header->size = 0; /* Stop possible seeks in future */
-	} else {
-		file_header->link_name = NULL;
 	}
-	if (nlink > 1 && !S_ISDIR(file_header->mode)) {
-		if (file_header->size == 0) { /* Put file on a linked list for later */
-			hardlinks_t *new = xmalloc(sizeof(hardlinks_t));
-			new->next = saved_hardlinks;
-			new->inode = inode;
-			new->entry = file_header;
-			saved_hardlinks = new;
-			return(EXIT_SUCCESS); // Skip this one
-		} else { /* Found the file with data in */
-			hardlinks_t *tmp = saved_hardlinks;
-			pending_hardlinks = 1;
-			while (tmp) {
-				if (tmp->inode == inode) {
-					tmp->entry->link_name = bb_xstrdup(file_header->name);
-					nlink--;
-				}
-				tmp = tmp->next;
-			}
-			if (nlink > 1) {
-				bb_error_msg("error resolving hardlink: did you create the archive with GNU cpio 2.0-2.2?");
-			}
+
+// TODO: data_extract_all can't deal with hardlinks to non-files...
+// when fixed, change S_ISREG to !S_ISDIR here
+
+	if (nlink > 1 && S_ISREG(file_header->mode)) {
+		hardlinks_t *new = xmalloc(sizeof(*new) + namesize);
+		new->inode = inode;
+		new->mode  = mode ;
+		new->mtime = mtime;
+		new->uid   = uid  ;
+		new->gid   = gid  ;
+		strcpy(new->name, file_header->name);
+		/* Put file on a linked list for later */
+		if (size == 0) {
+			new->next = hardlinks_to_create;
+			hardlinks_to_create = new;
+			return EXIT_SUCCESS; /* Skip this one */
+			/* TODO: this breaks cpio -t (it does not show hardlinks) */
 		}
+		new->next = created_hardlinks;
+		created_hardlinks = new;
 	}
 	file_header->device = makedev(major, minor);
 
 	if (archive_handle->filter(archive_handle) == EXIT_SUCCESS) {
 		archive_handle->action_data(archive_handle);
-		archive_handle->action_header(archive_handle->file_header);
+		archive_handle->action_header(file_header);
 	} else {
 		data_skip(archive_handle);
 	}
 
 	archive_handle->offset += file_header->size;
 
-	free(file_header->link_name);
+	free(file_header->link_target);
+	free(file_header->name);
+	file_header->link_target = NULL;
+	file_header->name = NULL;
 
-	return (EXIT_SUCCESS);
+	return EXIT_SUCCESS;
+
+ create_hardlinks:
+	free(file_header->link_target);
+	free(file_header->name);
+
+	while (hardlinks_to_create) {
+		hardlinks_t *cur;
+		hardlinks_t *make_me = hardlinks_to_create;
+
+		hardlinks_to_create = make_me->next;
+
+		memset(file_header, 0, sizeof(*file_header));
+		file_header->mtime = make_me->mtime;
+		file_header->name = make_me->name;
+		file_header->mode = make_me->mode;
+		file_header->uid = make_me->uid;
+		file_header->gid = make_me->gid;
+		/*file_header->size = 0;*/
+		/*file_header->link_target = NULL;*/
+
+		/* Try to find a file we are hardlinked to */
+		cur = created_hardlinks;
+		while (cur) {
+			/* TODO: must match maj/min too! */
+			if (cur->inode == make_me->inode) {
+				file_header->link_target = cur->name;
+				 /* link_target != NULL, size = 0: "I am a hardlink" */
+				if (archive_handle->filter(archive_handle) == EXIT_SUCCESS)
+					archive_handle->action_data(archive_handle);
+				free(make_me);
+				goto next_link;
+			}
+			cur = cur->next;
+		}
+		/* Oops... no file with such inode was created... do it now
+		 * (happens when hardlinked files are empty (zero length)) */
+		if (archive_handle->filter(archive_handle) == EXIT_SUCCESS)
+			archive_handle->action_data(archive_handle);
+		/* Move to the list of created hardlinked files */
+		make_me->next = created_hardlinks;
+		created_hardlinks = make_me;
+ next_link: ;
+	}
+
+	while (created_hardlinks) {
+		hardlinks_t *p = created_hardlinks;
+		created_hardlinks = p->next;
+		free(p);
+	}
+
+	return EXIT_FAILURE; /* "No more files to process" */
 }

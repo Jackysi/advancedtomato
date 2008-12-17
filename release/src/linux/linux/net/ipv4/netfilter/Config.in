@@ -87,6 +87,9 @@ if [ "$CONFIG_IP_NF_IPTABLES" != "n" ]; then
 	dep_tristate '  exp match (experimental rig - do not use)' CONFIG_IP_NF_MATCH_EXP $CONFIG_IP_NF_IPTABLES
  
   fi
+  if [ "$CONFIG_BRIDGE" != "n" ]; then
+    dep_tristate '  Physdev match support' CONFIG_IP_NF_MATCH_PHYSDEV $CONFIG_IP_NF_IPTABLES
+  fi
 # The targets
   dep_tristate '  Packet filtering' CONFIG_IP_NF_FILTER $CONFIG_IP_NF_IPTABLES 
   if [ "$CONFIG_IP_NF_FILTER" != "n" ]; then

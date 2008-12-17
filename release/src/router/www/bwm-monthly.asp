@@ -36,6 +36,20 @@ if (typeof(monthly_history) == 'undefined') {
 	rstats_busy = 1;
 }
 
+function genData()
+{
+	var w, i, h;
+	
+	w = window.open('', 'tomato_data_m');
+	w.document.writeln('<pre>');
+	for (i = 0; i < monthly_history.length; ++i) {
+		h = monthly_history[i];
+		w.document.writeln([(((h[0] >> 16) & 0xFF) + 1900), (((h[0] >>> 8) & 0xFF) + 1), h[1], h[2]].join(','));		
+	}
+	w.document.writeln('</pre>');
+	w.document.close();
+}
+
 function save()
 {
 	cookie.set('monthly', scale, 31);
@@ -104,6 +118,8 @@ function init()
 <div style="float:right;text-align:right">
 <b>Date</b> <select onchange='changeDate(this, "ym")' id='dafm'><option value=0>yyyy-mm</option><option value=1>mm-yyyy</option><option value=2>mmm yyyy</option><option value=3>mm.yyyy</option></select><br>
 <b>Scale</b> <select onchange='changeScale(this)' id='scale'><option value=0>KB</option><option value=1>MB</option><option value=2 selected>GB</option></select><br>
+<br>
+&raquo; <a href="javascript:genData()">Data</a>
 <br>
 &raquo; <a href="admin-bwm.asp">Configure</a>
 <br><br><br>

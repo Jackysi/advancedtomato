@@ -12,108 +12,87 @@
  * Licensed under the GPL v2 or later, see the file LICENSE in this tarball.
 */
 
-#include <string.h>
-#include <unistd.h>
-#include <stdint.h>
-#include <fcntl.h>
-#include "busybox.h"
+#include "libbb.h"
 
-enum ConvType {
+enum {
 	CT_UNIX2DOS = 1,
 	CT_DOS2UNIX
-} ConvType;
+};
 
 /* if fn is NULL then input is stdin and output is stdout */
-static int convert(char *fn)
+static void convert(char *fn, int conv_type)
 {
 	FILE *in, *out;
 	int i;
+	char *temp_fn = temp_fn; /* for compiler */
+	char *resolved_fn = resolved_fn;
 
+	in = stdin;
+	out = stdout;
 	if (fn != NULL) {
-		in = bb_xfopen(fn, "rw");
-		/*
-		   The file is then created with mode read/write and
-		   permissions 0666 for glibc 2.0.6 and earlier or
-		   0600  for glibc  2.0.7 and  later.
-		 */
-		snprintf(bb_common_bufsiz1, sizeof(bb_common_bufsiz1), "%sXXXXXX", fn);
-		/*
-		   sizeof bb_common_bufsiz1 is 4096, so it should be big enough to
-		   hold the full path.  However if the output is truncated the
-		   subsequent call to mkstemp would fail.
-		 */
-		if ((i = mkstemp(&bb_common_bufsiz1[0])) == -1
-			|| chmod(bb_common_bufsiz1, 0600) == -1) {
-			bb_perror_nomsg_and_die();
+		struct stat st;
+
+		resolved_fn = xmalloc_follow_symlinks(fn);
+		if (resolved_fn == NULL)
+			bb_simple_perror_msg_and_die(fn);
+		in = xfopen_for_read(resolved_fn);
+		fstat(fileno(in), &st);
+
+		temp_fn = xasprintf("%sXXXXXX", resolved_fn);
+		i = mkstemp(temp_fn);
+		if (i == -1
+		 || fchmod(i, st.st_mode) == -1
+		 || !(out = fdopen(i, "w+"))
+		) {
+			bb_simple_perror_msg_and_die(temp_fn);
 		}
-		out = fdopen(i, "w+");
-		if (!out) {
-			close(i);
-			remove(bb_common_bufsiz1);
-		}
-	} else {
-		in = stdin;
-		out = stdout;
 	}
 
 	while ((i = fgetc(in)) != EOF) {
 		if (i == '\r')
 			continue;
-		if (i == '\n') {
-			if (ConvType == CT_UNIX2DOS)
+		if (i == '\n')
+			if (conv_type == CT_UNIX2DOS)
 				fputc('\r', out);
-			fputc('\n', out);
-			continue;
-		}
 		fputc(i, out);
 	}
 
 	if (fn != NULL) {
 		if (fclose(in) < 0 || fclose(out) < 0) {
-			bb_perror_nomsg();
-			remove(bb_common_bufsiz1);
-			return -2;
+			unlink(temp_fn);
+			bb_perror_nomsg_and_die();
 		}
-		/* Assume they are both on the same filesystem (which
-		 * should be true since we put them into the same directory
-		 * so we _should_ be ok, but you never know... */
-		if (rename(bb_common_bufsiz1, fn) < 0) {
-			bb_perror_msg("cannot rename '%s' as '%s'", bb_common_bufsiz1, fn);
-			return -1;
-		}
+		xrename(temp_fn, resolved_fn);
+		free(temp_fn);
+		free(resolved_fn);
 	}
-
-	return 0;
 }
 
-int dos2unix_main(int argc, char *argv[])
+int dos2unix_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
+int dos2unix_main(int argc, char **argv)
 {
-	int o;
+	int o, conv_type;
 
 	/* See if we are supposed to be doing dos2unix or unix2dos */
-	if (bb_applet_name[0] == 'd') {
-		ConvType = CT_DOS2UNIX;	/*2 */
-	} else {
-		ConvType = CT_UNIX2DOS;	/*1 */
+	conv_type = CT_UNIX2DOS;
+	if (applet_name[0] == 'd') {
+		conv_type = CT_DOS2UNIX;
 	}
-	/* -u and -d are mutally exclusive */
-	bb_opt_complementally = "?:u--d:d--u";
-	/* process parameters */
-	/* -u convert to unix */
-	/* -d convert to dos  */
-	o = bb_getopt_ulflags(argc, argv, "du");
+
+	/* -u convert to unix, -d convert to dos */
+	opt_complementary = "u--d:d--u"; /* mutually exclusive */
+	o = getopt32(argv, "du");
 
 	/* Do the conversion requested by an argument else do the default
 	 * conversion depending on our name.  */
 	if (o)
-		ConvType = o;
+		conv_type = o;
 
-	if (optind < argc) {
-		while (optind < argc)
-			if ((o = convert(argv[optind++])) < 0)
-				break;
-	} else
-		o = convert(NULL);
+	do {
+		/* might be convert(NULL) if there is no filename given */
+		convert(argv[optind], conv_type);
+		optind++;
+	} while (optind < argc);
 
-	return o;
+	return 0;
 }
