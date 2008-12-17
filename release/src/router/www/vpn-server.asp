@@ -90,7 +90,7 @@ function verifyFields(focused, quiet)
 		if (!v_length('_vpn_'+t+'_custom', quiet, 0, 1024)) ret = 0;
 		if (!v_length('_vpn_'+t+'_static', quiet, 0, 1024)) ret = 0;
 		if (!v_length('_vpn_'+t+'_ca', quiet, 0, 1648)) ret = 0;
-		if (!v_length('_vpn_'+t+'_crt', quiet, 0, 1392)) ret = 0;
+		if (!v_length('_vpn_'+t+'_crt', quiet, 0, 1536)) ret = 0;
 		if (!v_length('_vpn_'+t+'_key', quiet, 0, 1024)) ret = 0;
 		if (!v_length('_vpn_'+t+'_dh', quiet, 0, 256)) ret = 0;
 	}

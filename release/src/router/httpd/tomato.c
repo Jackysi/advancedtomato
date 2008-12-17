@@ -676,7 +676,7 @@ static const nvset_t nvset_list[] = {
 	{ "vpn_server1_custom", V_TEXT(0, 1024)     },
 	{ "vpn_server1_static", V_TEXT(0, 1024)     },
 	{ "vpn_server1_ca",     V_TEXT(0, 1648)     },
-	{ "vpn_server1_crt",    V_TEXT(0, 1392)     },
+	{ "vpn_server1_crt",    V_TEXT(0, 1536)     },
 	{ "vpn_server1_key",    V_TEXT(0, 1024)     },
 	{ "vpn_server1_dh",     V_TEXT(0, 256)      },
 	{ "vpn_server2_if",     V_TEXT(3, 3)        },  // tap, tun
@@ -695,7 +695,7 @@ static const nvset_t nvset_list[] = {
 	{ "vpn_server2_custom", V_TEXT(0, 1024)     },
 	{ "vpn_server2_static", V_TEXT(0, 1024)     },
 	{ "vpn_server2_ca",     V_TEXT(0, 1648)     },
-	{ "vpn_server2_crt",    V_TEXT(0, 1392)     },
+	{ "vpn_server2_crt",    V_TEXT(0, 1536)     },
 	{ "vpn_server2_key",    V_TEXT(0, 1024)     },
 	{ "vpn_server2_dh",     V_TEXT(0, 256)      },
 	{ "vpn_client1_if",     V_TEXT(3, 3)        },  // tap, tun
@@ -715,7 +715,7 @@ static const nvset_t nvset_list[] = {
 	{ "vpn_client1_custom", V_TEXT(0, 1024)     },
 	{ "vpn_client1_static", V_TEXT(0, 1024)     },
 	{ "vpn_client1_ca",     V_TEXT(0, 1648)     },
-	{ "vpn_client1_crt",    V_TEXT(0, 1392)     },
+	{ "vpn_client1_crt",    V_TEXT(0, 1536)     },
 	{ "vpn_client1_key",    V_TEXT(0, 1024)     },
 	{ "vpn_client2_if",     V_TEXT(3, 3)        },  // tap, tun
 	{ "vpn_client2_bridge", V_01                },
@@ -734,7 +734,7 @@ static const nvset_t nvset_list[] = {
 	{ "vpn_client2_custom", V_TEXT(0, 1024)     },
 	{ "vpn_client2_static", V_TEXT(0, 1024)     },
 	{ "vpn_client2_ca",     V_TEXT(0, 1648)     },
-	{ "vpn_client2_crt",    V_TEXT(0, 1392)     },
+	{ "vpn_client2_crt",    V_TEXT(0, 1536)     },
 	{ "vpn_client2_key",    V_TEXT(0, 1024)     },
 
 

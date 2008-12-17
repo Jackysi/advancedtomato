@@ -567,7 +567,7 @@ void stop_vpnserver(int serverNum)
 			_eval(argv, NULL, 0, NULL);
 	}
 }
-
+#if 0
 void run_vpn_firewall_scripts()
 {
 	FILE *fp;
@@ -577,6 +577,7 @@ void run_vpn_firewall_scripts()
 
 	while (fgets(&fn[0], 32, fp) != NULL)
 	{
+		if (&fn[strlen(&fn[0])-1] == '\n') fn[strlen(&fn[0])-1] = '\0';
 		DEBUG("Running firewall script:");
 		DEBUG(&fn[0]);
 		argv[0] = &fn[0];
@@ -586,4 +587,24 @@ void run_vpn_firewall_scripts()
 
 	pclose(fp);
 }
+#else
+void run_vpn_firewall_scripts()
+{
+	char *fn[4], *argv[2];
+	int i;
 
+	fn[0] = "/etc/openvpn/server1-fw.sh";
+	fn[1] = "/etc/openvpn/server2-fw.sh";
+	fn[2] = "/etc/openvpn/client1-fw.sh";
+	fn[3] = "/etc/openvpn/client2-fw.sh";
+
+	for(i=0;i<4;i++)
+	{
+		DEBUG("Running firewall script:");
+		DEBUG(fn[i]);
+		argv[0] = fn[i];
+		argv[1] = NULL;
+		_eval(argv, NULL, 0, NULL);
+	}
+}
+#endif
