@@ -1,12 +1,12 @@
 /*
  *	matrixInternal.h
- *	Release $Name: MATRIXSSL_1_8_3_OPEN $
+ *	Release $Name: MATRIXSSL_1_8_6_OPEN $
  *
  *	Internal header file used for the MatrixSSL implementation.
  *	Only modifiers of the library should be intersted in this file
  */
 /*
- *	Copyright (c) PeerSec Networks, 2002-2007. All Rights Reserved.
+ *	Copyright (c) PeerSec Networks, 2002-2008. All Rights Reserved.
  *	The latest version of this code is available at http://www.matrixssl.org
  *
  *	This software is open source; you can redistribute it and/or modify
@@ -180,7 +180,7 @@ typedef struct {
 	sslRsaCert_t	*cert;
 	int32 (*validateCert)(sslCertInfo_t *certInfo, void *arg);
 	void			*validateCertArg;
-	int32			certMatch;
+	int32				certMatch;
 #endif /* USE_CLIENT_SIDE_SSL */
 
 	sslMd5Context_t		msgHashMd5;
@@ -273,8 +273,8 @@ typedef struct ssl {
 	unsigned char	reqMinVer;
 	unsigned char	majVer;
 	unsigned char	minVer;
-	int32				recordHeadLen;
-	int32				hshakeHeadLen;
+	int32			recordHeadLen;
+	int32			hshakeHeadLen;
 } ssl_t;
 
 typedef struct {
@@ -317,7 +317,7 @@ extern int32 sslActivatePublicCipher(ssl_t *ssl);
 extern int32 sslUpdateHSHash(ssl_t *ssl, unsigned char *in, int32 len);
 extern int32 sslInitHSHash(ssl_t *ssl);
 extern int32 sslSnapshotHSHash(ssl_t *ssl, unsigned char *out, int32 senderFlag);
-
+extern int32 sslWritePad(unsigned char *p, unsigned char padLen);
 extern void sslResetContext(ssl_t *ssl);
 
 #ifdef USE_SERVER_SIDE_SSL
@@ -358,6 +358,8 @@ extern int32 ssl3HMACMd5(unsigned char *key, unsigned char *seq,
 #endif /* USE_MD5_MAC */
 
 
+
+
 /******************************************************************************/
 
 #ifdef __cplusplus
@@ -367,8 +369,5 @@ extern int32 ssl3HMACMd5(unsigned char *key, unsigned char *seq,
 #endif /* _h_MATRIXINTERNAL */
 
 /******************************************************************************/
-
-
-
 
 

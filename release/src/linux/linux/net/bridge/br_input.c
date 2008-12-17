@@ -24,9 +24,6 @@ unsigned char bridge_ula[6] = { 0x01, 0x80, 0xc2, 0x00, 0x00, 0x00 };
 
 static int br_pass_frame_up_finish(struct sk_buff *skb)
 {
-#ifdef CONFIG_NETFILTER_DEBUG
-	skb->nf_debug = 0;
-#endif
 	netif_rx(skb);
 
 	return 0;
@@ -49,7 +46,7 @@ static void br_pass_frame_up(struct net_bridge *br, struct sk_buff *skb)
 			br_pass_frame_up_finish);
 }
 
-int br_handle_frame_finish(struct sk_buff *skb)
+static int br_handle_frame_finish(struct sk_buff *skb)
 {
 	struct net_bridge *br;
 	unsigned char *dest;
@@ -115,7 +112,7 @@ err_nolock:
 	return 0;
 }
 
-int br_handle_frame(struct sk_buff *skb)
+void br_handle_frame(struct sk_buff *skb)
 {
 	struct net_bridge *br;
 	unsigned char *dest;
@@ -149,34 +146,25 @@ int br_handle_frame(struct sk_buff *skb)
 		goto handle_special_frame;
 
 	if (p->state == BR_STATE_FORWARDING) {
- 		if (br_should_route_hook && br_should_route_hook(&skb)) {
- 			read_unlock(&br->lock);
- 			return -1;
- 		}
- 
- 		if (!memcmp(p->br->dev.dev_addr, dest, ETH_ALEN))
- 			skb->pkt_type = PACKET_HOST;
- 
 		NF_HOOK(PF_BRIDGE, NF_BR_PRE_ROUTING, skb, skb->dev, NULL,
 			br_handle_frame_finish);
 		read_unlock(&br->lock);
-		return 0;
+		return;
 	}
 
 err:
 	read_unlock(&br->lock);
 err_nolock:
 	kfree_skb(skb);
-	return 0;
+	return;
 
 handle_special_frame:
 	if (!dest[5]) {
 		br_stp_handle_bpdu(skb);
 		read_unlock(&br->lock);
-		return 0;
+		return;
 	}
 
 	read_unlock(&br->lock);
 	kfree_skb(skb);
- 	return 0;
 }

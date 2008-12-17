@@ -229,7 +229,7 @@ function verifyFields(focused, quiet)
 	elem.display(PR('_f_sched_begin'), !E('_f_sched_allday').checked);
 	elem.display(PR('_f_sched_sun'), !E('_f_sched_everyday').checked);
 
-	b = E('_f_type').value == '0';
+	b = E('rt_norm').checked;
 	elem.display(PR('_f_comp_all'), PR('_f_block_all'), b);
 
 	elem.display(PR('res-comp-grid'), b && E('_f_comp_all').value != 0);
@@ -289,7 +289,7 @@ function save()
 	}
 	data.push(n);
 	
-	if (E('_f_type').value == 0) {
+	if (E('rt_norm').checked) {
 		e = E('_f_comp_all');
 		if (e.value != 0) {
 			a = cg.getAllData();
@@ -404,7 +404,8 @@ createFieldTable('', [
 		{ name: 'f_sched_thu', type: 'checkbox', suffix: ' Thu &nbsp; ', value: (rule[4] & (1 << 4)) },
 		{ name: 'f_sched_fri', type: 'checkbox', suffix: ' Fri &nbsp; ', value: (rule[4] & (1 << 5)) },
 		{ name: 'f_sched_sat', type: 'checkbox', suffix: ' Sat', value: (rule[4] & (1 << 6)) } ] },
-	{ title: 'Type', name: 'f_type', type: 'select', options: [[0,'Normal Restriction'],[1,'Disable Wireless']], value: (rule[5] == '~') ? 1 : 0 },
+	{ title: 'Type', name: 'f_type', id: 'rt_norm', type: 'radio', suffix: ' Normal Access Restriction', value: (rule[5] != '~') },
+	{ title: '', name: 'f_type', id: 'rt_wl', type: 'radio', suffix: ' Disable Wireless', value: (rule[5] == '~') },
 	{ title: 'Applies To', name: 'f_comp_all', type: 'select', options: [[0,'All Computers / Devices'],[1,'The Following...'],[2,'All Except...']], value: 0 },
 	{ title: '&nbsp;', text: '<table class="tomato-grid" cellspacing=1 id="res-comp-grid"></table>' },
 	{ title: 'Blocked Resources', name: 'f_block_all', type: 'checkbox', suffix: ' Block All Internet Access', value: 0 },

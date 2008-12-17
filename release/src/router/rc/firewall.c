@@ -215,7 +215,10 @@ int ipt_layer7(const char *v, char *opt)
 	if (!f_exists(s)) {
 		path = "/etc/l7-protocols";
 		sprintf(s, "%s/%s.pat", path, v);
-		if (!f_exists(s)) return -1;
+		if (!f_exists(s)) {
+			syslog(LOG_ERR, "L7 %s was not found", v);
+			return -1;
+		}
 	}
 
 	sprintf(opt, "-m layer7 --l7dir %s --l7proto %s", path, v);
@@ -577,8 +580,7 @@ int start_firewall(void)
 		closedir(dir);
 	}
 	
-	if (!nvram_match("syncookies", "0"))
-		f_write_string("/proc/sys/net/ipv4/tcp_syncookies", "1", 0, 0);
+	f_write_string("/proc/sys/net/ipv4/tcp_syncookies", nvram_get_int("ne_syncookies") ? "1" : "0", 0, 0);
 
 	n = nvram_get_int("log_in");
 	chain_in_drop = (n & 1) ? "logdrop" : "DROP";

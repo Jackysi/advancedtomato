@@ -7,7 +7,7 @@
 
 O_TARGET :=	network.o
 
-mod-subdirs :=	ipv4/netfilter ipv6/netfilter bridge/netfilter ipx irda bluetooth atm netlink sched core
+mod-subdirs :=	ipv4/netfilter ipv6/netfilter ipx irda bluetooth atm netlink sched core
 export-objs :=	netsyms.o
 
 subdir-y :=	core ethernet
@@ -23,12 +23,6 @@ subdir-$(CONFIG_IPV6)		+= ipv6
 ifneq ($(CONFIG_IPV6),n)
 ifneq ($(CONFIG_IPV6),)
 subdir-$(CONFIG_NETFILTER)	+= ipv6/netfilter
-endif
-endif
-
-ifneq ($(CONFIG_BRIDGE),n)
-ifneq ($(CONFIG_BRIDGE),)
-subdir-$(CONFIG_BRIDGE)		+= bridge/netfilter
 endif
 endif
 
