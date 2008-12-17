@@ -1,6 +1,6 @@
 /*
  *	pkiInternal.h
- *	Release $Name: MATRIXSSL_1_8_3_OPEN $
+ *	Release $Name: MATRIXSSL_1_8_6_OPEN $
  *	
  *	Public header file for MatrixSSL PKI extension
  *	Implementations interacting with the PKI portion of the
@@ -8,7 +8,7 @@
  *	used in this file.
  */
 /*
- *	Copyright (c) PeerSec Networks, 2002-2007. All Rights Reserved.
+ *	Copyright (c) PeerSec Networks, 2002-2008. All Rights Reserved.
  *	The latest version of this code is available at http://www.matrixssl.org
  *
  *	This software is open source; you can redistribute it and/or modify
@@ -130,6 +130,7 @@ typedef struct {
 	char	hash[SSL_SHA1_HASH_SIZE];
 } DNattributes_t;
 
+
 #ifdef USE_X509
 
 typedef struct {
@@ -138,13 +139,7 @@ typedef struct {
 } extBasicConstraints_t;
 
 typedef struct {
-	unsigned char	*dns;
-	unsigned char	*uri;
-	unsigned char	*email;
-} extSubjectAltName_t;
-
-typedef struct {
-	int32				len;
+	int32			len;
 	unsigned char	*id;
 } extSubjectKeyId_t;
 
@@ -152,7 +147,7 @@ typedef struct {
 	int32			keyLen;
 	unsigned char	*keyId;
 	DNattributes_t	attribs;
-		int32		serialNumLen;
+	int32			serialNumLen;
 	unsigned char	*serialNum;
 } extAuthKeyId_t;
 /*
@@ -160,11 +155,12 @@ typedef struct {
 */
 typedef struct {
 	extBasicConstraints_t	bc;
-	extSubjectAltName_t		san;
+	sslSubjectAltName_t		*san;
 #ifdef USE_FULL_CERT_PARSE
 	extSubjectKeyId_t		sk;
 	extAuthKeyId_t			ak;
-	unsigned char			keyUsage;
+	unsigned char			*keyUsage;
+	int32					keyUsageLen;
 #endif /* USE_FULL_CERT_PARSE */
 } v3extensions_t;
 

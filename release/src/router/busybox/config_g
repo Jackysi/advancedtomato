@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
-# Busybox version: 1.12.1
-# Sun Nov  2 09:23:57 2008
+# Busybox version: 1.12.2
+# Fri Nov 28 22:55:05 2008
 #
 CONFIG_HAVE_DOT_CONFIG=y
 
@@ -187,7 +187,7 @@ CONFIG_FEATURE_LS_TIMESTAMPS=y
 CONFIG_FEATURE_LS_USERNAME=y
 CONFIG_FEATURE_LS_COLOR=y
 CONFIG_FEATURE_LS_COLOR_IS_DEFAULT=y
-# CONFIG_MD5SUM is not set
+CONFIG_MD5SUM=y
 CONFIG_MKDIR=y
 # CONFIG_FEATURE_MKDIR_LONG_OPTIONS is not set
 # CONFIG_MKFIFO is not set
@@ -233,7 +233,7 @@ CONFIG_FEATURE_TR_CLASSES=y
 CONFIG_FEATURE_TR_EQUIV=y
 # CONFIG_TRUE is not set
 # CONFIG_TTY is not set
-# CONFIG_UNAME is not set
+CONFIG_UNAME=y
 # CONFIG_UNEXPAND is not set
 # CONFIG_FEATURE_UNEXPAND_LONG_OPTIONS is not set
 # CONFIG_UNIQ is not set
@@ -260,6 +260,10 @@ CONFIG_FEATURE_AUTOWIDTH=y
 # Common options for df, du, ls
 #
 CONFIG_FEATURE_HUMAN_READABLE=y
+
+#
+# Common options for md5sum, sha1sum
+#
 # CONFIG_FEATURE_MD5_SHA1_SUM_CHECK is not set
 
 #

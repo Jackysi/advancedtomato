@@ -108,7 +108,8 @@ int check_hw_type(void)
 		return HW_BCM5354G;
 	}
 
-	if ((strcmp(s, "bcm94710dev") == 0) || (strcmp(s, "bcm94710r4") == 0)) {
+	// WR850G may have "bcm94710dev " (extra space)
+	if ((strncmp(s, "bcm94710dev", 11) == 0) || (strcmp(s, "bcm94710r4") == 0)) {
 		return HW_BCM4702;
 	}
 	

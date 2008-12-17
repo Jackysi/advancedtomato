@@ -121,7 +121,6 @@ static int ntpc(struct in_addr addr)
 							return 2;
 						}
 					}
-
 				
 					ntpt = ntohl(packet[I_TXTIME]) - TIMEFIX;
 					t = (rxtime.tv_sec - txtime.tv_sec) >> 1;
@@ -316,8 +315,8 @@ static int ntpsync_main(int argc, char **argv)
 		if (mode == USER) break;
 		if ((mode == CRON) && (retries == 5)) break;
 		
-		if (++retries > 150) retries = 150;		// 5m
-		sleep(retries * 2);
+		if (++retries > 300) retries = 300;		// 5m
+		sleep(retries);
 	}
 
 	return 1;
