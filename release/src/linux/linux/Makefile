@@ -109,6 +109,11 @@ CFLAGS += -I$(SRCBASE)/include
 AFLAGS += -I$(SRCBASE)/include
 ASFLAGS += -I$(SRCBASE)/include
 
+ifeq ("$(CONFIG_WL_EMULATOR)","y")
+CFLAGS += -DBCM_WL_EMULATOR -DBCMPERFSTATS
+endif #CONFIG_WL_EMULATOR
+
+
 CFLAGS += -DBCMDRIVER
 
 #
@@ -462,7 +467,7 @@ modules modules_install: dummy
 endif
 
 clean:	archclean
-	find . \( -name '*.[oas]' -o -name core -o -name '.*.flags' \) -type f -not -name diag_led.o -not -name ctmisc.o -print \
+	find . \( -name '*.[oas]' -o -name core -o -name '.*.flags' \) -type f ! -wholename '*/brcm-boards/*.o' -print \
 		| grep -v lxdialog/ | xargs rm -f
 	rm -f $(CLEAN_FILES)
 	rm -rf $(CLEAN_DIRS)

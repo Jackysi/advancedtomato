@@ -1,7 +1,7 @@
 /*
  * Generic interrupt control functions for Broadcom MIPS boards
  *
- * Copyright 2005, Broadcom Corporation
+ * Copyright 2006, Broadcom Corporation
  * All Rights Reserved.
  * 
  * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
@@ -9,7 +9,7 @@
  * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
  * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
  *
- * $Id: irq.c,v 1.1.1.7 2005/03/07 07:30:37 kanki Exp $
+ * $Id$
  */
 
 #include <linux/config.h>

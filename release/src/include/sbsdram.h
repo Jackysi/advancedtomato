@@ -1,14 +1,15 @@
 /*
  * BCM47XX Sonics SiliconBackplane SDRAM controller core hardware definitions.
  *
- * Copyright 2005, Broadcom Corporation      
- * All Rights Reserved.      
- *       
- * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY      
- * KIND, EXPRESS OR IMPLIED, BY STATUTE, COMMUNICATION OR OTHERWISE. BROADCOM      
- * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS      
- * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.      
- * $Id: sbsdram.h,v 1.1.1.7 2005/03/07 07:31:12 kanki Exp $
+ * Copyright 2006, Broadcom Corporation
+ * All Rights Reserved.
+ * 
+ * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
+ * KIND, EXPRESS OR IMPLIED, BY STATUTE, COMMUNICATION OR OTHERWISE. BROADCOM
+ * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
+ * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
+ *
+ * $Id$
  */
 
 #ifndef	_SBSDRAM_H
@@ -25,7 +26,7 @@ typedef volatile struct sbsdramregs {
 	uint32	pad2;
 } sbsdramregs_t;
 
-#endif
+#endif /* !_LANGUAGE_ASSEMBLY */
 
 /* SDRAM initialization control (initcontrol) register bits */
 #define SDRAM_CBR	0x0001	/* Writing 1 generates refresh cycle and toggles bit */

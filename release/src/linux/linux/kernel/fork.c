@@ -231,6 +231,9 @@ static struct mm_struct * mm_init(struct mm_struct * mm)
 	atomic_set(&mm->mm_users, 1);
 	atomic_set(&mm->mm_count, 1);
 	init_rwsem(&mm->mmap_sem);
+#ifdef CONFIG_HND_BMIPS3300_PROF
+	init_mm_profinfo(mm);
+#endif	/* CONFIG_HND_BMIPS3300_PROF */
 	mm->page_table_lock = SPIN_LOCK_UNLOCKED;
 	mm->pgd = pgd_alloc(mm);
 	mm->def_flags = 0;

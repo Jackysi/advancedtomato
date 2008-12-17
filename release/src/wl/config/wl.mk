@@ -1,149 +1,245 @@
 # Helper makefile for building Broadcom wl device driver
 # This file maps wl driver feature flags (import) to WLFLAGS and WLFILES (export).
 #
-# Copyright 2005, Broadcom Corporation
+# Copyright 2006, Broadcom Corporation
 # All Rights Reserved.
 # 
 # THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
 # KIND, EXPRESS OR IMPLIED, BY STATUTE, COMMUNICATION OR OTHERWISE. BROADCOM
 # SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
 # FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
-# $Id: wl.mk,v 1.1.1.2.4.1 2005/04/22 11:56:52 kanki Exp $
+# $Id$
 
 # os-independent config flag -> WLFLAGS and WLFILES mapping
 
 # debug/internal
+# DEBUG=1
+# WLTEST=1
+
 ifeq ($(DEBUG),1)
-WLFLAGS += -DBCMDBG
+	WLFLAGS += -DBCMDBG -DWLTEST
+	# WLFLAGS += -DWLTEST
+else
+	# This is true for mfgtest builds.
+	ifeq ($(WLTEST),1)
+	WLFLAGS += -DWLTEST -DBCMNVRAMW
+	BCMNVRAMW=1
+	endif
+endif
+
+ifeq ($(BCMDBG_MEM),1)
+	WLFLAGS += -DBCMDBG_MEM
+endif
+
+ifeq ($(BCMDBG_PKT),1)
+	WLFLAGS += -DBCMDBG_PKT
 endif
 
 ## wl driver common 
 #w/wpa
 ifeq ($(WL),1)
-WLFILES += wlc.c d11ucode.c wlc_phy.c wlc_rate.c
-WLFILES += wlc_security.c rc4.c tkhash.c bcmwpa.c
+	WLFILES += wlc.c d11ucode.c wlc_phy.c wlc_rate.c wlc_security.c
+	WLFILES += wlc_key.c wlc_event.c wlc_scb.c wlc_rate_sel.c wlc_channel.c
+	WLFILES += wlc_bsscfg.c mimophytbls.c lpphytbls.c wlc_scan.c
+	ifneq ($(BCMROMOFFLOAD),1)
+		WLFILES += bcmwpa.c rc4.c tkhash.c tkmic.c wep.c
+	endif
 endif
 
 ## wl OSL
 ifeq ($(WLVX),1)
-WLFILES += wl_vx.c
+	WLFILES += wl_vx.c
+	WLFILES += bcmstdlib.c
+endif
+
+ifeq ($(WLBSD),1)
+	WLFILES += wl_bsd.c
 endif
 
 ifeq ($(WLLX),1)
-WLFILES += wl_linux.c
+	WLFILES += wl_linux.c
 endif
 
 ifeq ($(WLLXIW),1)
-WLFILES += wl_iw.c
+	WLFILES += wl_iw.c
 endif
 
 ifeq ($(WLNDIS),1)
-WLFILES += wl_ndis.c
-WLFILES += wl_ndconfig.c
+	WLFILES += wl_ndis.c
+	WLFILES += wl_ndconfig.c
+	WLFILES += bcmstdlib.c
+	WLFILES += bcmwifi.c
 endif
 
 ifeq ($(WLCFE),1)
-WLFILES += wl_cfe.c
+	WLFILES += wl_cfe.c
 endif
 
 ifeq ($(WLRTE),1)
-WLFILES += wl_rte.c
+	WLFILES += wl_rte.c
 endif
 
 ## wl special
 # oids
 
 #ifdef BINOSL
-ifeq ($(BINOSL),1)
-WLFLAGS += -DBINOSL
-endif
+	ifeq ($(BINOSL),1)
+		WLFLAGS += -DBINOSL
+	endif
 #endif
 
 ## wl features
 # ap
 ifeq ($(AP),1)
-WLFLAGS += -DAP
+	WLFILES += wlc_ap.c
+	WLFILES += wlc_apps.c
+	WLFILES += wlc_apcs.c
+	WLFLAGS += -DAP
 endif
 
 # sta
 ifeq ($(STA),1)
-WLFLAGS += -DSTA
+	WLFLAGS += -DSTA
+endif
+
+# apsta
+ifeq ($(APSTA),1)
+	WLFLAGS += -DAPSTA
 endif
 
 # wet
 ifeq ($(WET),1)
-WLFLAGS += -DWET
-WLFILES += wlc_wet.c
+	WLFLAGS += -DWET
+	WLFILES += wlc_wet.c
 endif
 
 # led
 ifeq ($(WLLED),1)
-WLFLAGS += -DWLLED
-WLFILES += wlc_led.c
+	WLFLAGS += -DWLLED
+	WLFILES += wlc_led.c
 endif
 
 # WME
 ifeq ($(WME),1)
-WLFLAGS += -DWME
+	WLFLAGS += -DWME
 endif
 
-# PIO
-ifeq ($(PIO),1)
-WLFLAGS += -DPIO
+# WLBA
+ifeq ($(WLBA),1)
+	WLFLAGS += -DWLBA
+	WLFILES += wlc_ba.c
+endif
+
+# WLPIO 
+ifeq ($(WLPIO),1)
+	WLFLAGS += -DWLPIO
+	WLFILES += wlc_pio.c
 endif
 
 # CRAM
 ifeq ($(CRAM),1)
-WLFLAGS += -DCRAM
+	WLFLAGS += -DCRAM
+	WLFILES += wlc_cram.c
 endif
 
 # 11H 
 ifeq ($(WL11H),1)
-WLFLAGS += -DWL11H
+	WLFLAGS += -DWL11H
 endif
 
 # 11D 
 ifeq ($(WL11D),1)
-WLFLAGS += -DWL11D
+	WLFLAGS += -DWL11D
 endif
 
 # DBAND
 ifeq ($(DBAND),1)
-WLFLAGS += -DDBAND
+	WLFLAGS += -DDBAND
 endif
 
 # WLRM
 ifeq ($(WLRM),1)
-WLFLAGS += -DWLRM
+	WLFLAGS += -DWLRM
 endif
 
 # WLCQ
 ifeq ($(WLCQ),1)
-WLFLAGS += -DWLCQ
+	WLFLAGS += -DWLCQ
+endif
+
+# WLCNT
+ifeq ($(WLCNT),1)
+	WLFLAGS += -DWLCNT
 endif
 
 ## wl security
 # in-driver supplicant
 ifeq ($(BCMSUP_PSK),1)
-WLFLAGS += -DBCMSUP_PSK
-WLFILES += wlc_sup.c aes.c md5.c rijndael-alg-fst.c aeskeywrap.c hmac.c passhash.c prf.c sha1.c
+	WLFLAGS += -DBCMSUP_PSK
+	WLFILES += wlc_sup.c
+	ifneq ($(BCMROMOFFLOAD),1)
+		WLFILES += aes.c aeskeywrap.c hmac.c passhash.c prf.c sha1.c
+		##NetBSD 2.0 has MD5 and AES built in
+		ifneq ($(OSLBSD),1)
+			WLFILES += md5.c rijndael-alg-fst.c
+		endif
+	endif
 endif
 
 # bcmccx
 
 # BCMWPA2
 ifeq ($(BCMWPA2),1)
-WLFLAGS += -DBCMWPA2
-#WLFILES += aes.c aeskeywrap.c
+	WLFLAGS += -DBCMWPA2
+endif
+
+# Soft AES CCMP
+ifeq ($(BCMCCMP),1)
+	WLFLAGS += -DBCMCCMP
+	ifneq ($(BCMROMOFFLOAD),1)
+		WLFILES += aes.c
+		##BSD has  AES built in
+		ifneq ($(BSD),1)
+			WLFILES +=rijndael-alg-fst.c
+		endif
+	endif
+endif
+
+# FIPS
+ifeq ($(WLFIPS),1)
+	WLFLAGS += -DWLFIPS
+	WLFILES += wl_ndfips.c
+	ifneq ($(BCMROMOFFLOAD),1)
+		WLFILES += aes.c
+	endif
+endif
+
+# BCMDMA64
+ifeq ($(BCMDMA64),1)
+	WLFLAGS += -DBCMDMA64
 endif
 
 ## wl over jtag
 #ifdef BCMJTAG
-ifeq ($(BCMJTAG),1)
-  WLFLAGS += -DBCMJTAG
-  WLFILES += bcmjtag.c ejtag.c jtagm.c
-endif
+	ifeq ($(BCMJTAG),1)
+		WLFLAGS += -DBCMJTAG -DBCMSLTGT
+		WLFILES += bcmjtag.c bcmjtag_linux.c ejtag.c jtagm.c
+	endif
 #endif
+
+ifeq ($(WLAMSDU),1)
+	WLFLAGS += -DWLAMSDU
+	WLFILES += wlc_amsdu.c
+endif
+
+ifeq ($(WLAMSDU_SWDEAGG),1)
+	WLFLAGS += -DWLAMSDU_SWDEAGG
+endif
+
+ifeq ($(WLAMPDU),1)
+	WLFLAGS += -DWLAMPDU
+	WLFILES += wlc_ampdu.c
+endif
 
 
 ## --- which buses
@@ -151,7 +247,7 @@ endif
 # silicon backplane
 
 ifeq ($(BCMSBBUS),1)
-WLFLAGS += -DBCMBUSTYPE=SB_BUS
+	WLFLAGS += -DBCMBUSTYPE=SB_BUS
 endif
 
 
@@ -160,84 +256,127 @@ endif
 ## --- basic shared files
 
 ifeq ($(HNDDMA),1)
-WLFILES += hnddma.c
+	WLFILES += hnddma.c
 endif
 
 ifeq ($(BCMUTILS),1)
-WLFILES += bcmutils.c
+	WLFILES += bcmutils.c
 endif
 
 ifeq ($(BCMSROM),1)
-WLFILES += bcmsrom.c
+	WLFILES += bcmsrom.c
 endif
 
 ifeq ($(SBUTILS),1)
-WLFILES += sbutils.c
+	WLFILES += sbutils.c
 endif
 
 ifeq ($(SBMIPS),1)
-WLFILES += sbmips.c
+	WLFILES += hndmips.c hndchipc.c
 endif
 
 ifeq ($(SBSDRAM),1)
-WLFILES += sbsdram.c
+	WLFILES += sbsdram.c
 endif
 
 ifeq ($(SBPCI),1)
-WLFILES += sbpci.c
+	WLFILES += hndpci.c
 endif
 
 ifeq ($(SFLASH),1)
-WLFILES += sflash.c
+	WLFILES += sflash.c
 endif
 
 ifeq ($(FLASHUTL),1)
-WLFILES += flashutl.c
+	WLFILES += flashutl.c
 endif
 
 
 ## --- shared OSL
 # linux osl
 ifeq ($(OSLLX),1)
-WLFILES += linux_osl.c
+	WLFILES += linux_osl.c
 endif
 
 ifeq ($(OSLLXPCI),1)
-WLFILES += linux_pci.c
+	WLFILES += linux_pci.c
 endif
 
 # vx osl
 ifeq ($(OSLVX),1)
-WLFILES += vx_osl.c
+	WLFILES += vx_osl.c
+	WLFILES += bcmallocache.c
+endif
+
+# bsd osl
+ifeq ($(OSLBSD),1)
+	WLFILES += bsd_osl.c nvramstubs.c
 endif
 
 ifeq ($(OSLCFE),1)
-WLFILES += cfe_osl.c
+	WLFILES += cfe_osl.c
 endif
 
 ifeq ($(OSLRTE),1)
-WLFILES += hndrte_osl.c
+	WLFILES += hndrte_osl.c
 endif
 
 ifeq ($(OSLNDIS),1)
-WLFILES += ndshared.c ndis_osl.c
+	WLFILES += ndshared.c ndis_osl.c
 endif
 
 ifeq ($(CONFIG_USBRNDIS_RETAIL),1)
-WLFLAGS += -DCONFIG_USBRNDIS_RETAIL
-WLFILES += wl_ndconfig.c
+	WLFLAGS += -DCONFIG_USBRNDIS_RETAIL
+	WLFILES += wl_ndconfig.c
+	WLFILES += bcmwifi.c
 endif
 
 ifeq ($(NVRAM),1)
-WLFILES += nvram.c
+	WLFILES += nvram.c
 endif
 
 ifeq ($(NVRAMVX),1)
-WLFILES += nvram_vx.c
+	WLFILES += nvram_rw.c
 endif
 
-ifeq ($(NVRAMRO),1)
-WLFILES += nvram_ro.c sflash.c
+ifeq ($(BCMNVRAMR),1)
+	WLFILES += nvram_ro.c sflash.c bcmotp.c
+	# WLFILES += nvram_ro.c sflash.c
+	WLFLAGS += -DBCMNVRAMR
+else
+	ifeq ($(BCMNVRAMW),1)
+		WLFILES += bcmotp.c
+	endif
+endif
+
+## --- DSLCPE
+ifeq ($(DSLCPE),1)
+	WLFILES += wl_linux_dslcpe.c
+	WLFLAGS += -DDSLCPE
+endif
+
+ifeq ($(WLDIAG),1)
+	WLFLAGS += -DWLDIAG
+	WLFILES += wlc_diag.c
+endif
+
+ifeq ($(WLTIMER),1)
+	WLFLAGS += -DWLTIMER
+endif
+
+ifneq ($(BCMDBG),1)
+	ifeq ($(WLTINYDUMP),1)
+		WLFLAGS += -DWLTINYDUMP
+	endif
+endif
+
+ifeq ($(BCMQT),1)
+  # Set flag to indicate emulated chip
+  WLFLAGS += -DBCMSLTGT -DBCMQT
+  ifeq ($(WLRTE),1)
+    # Use of RTE implies embedded (CPU emulated)
+    WLFLAGS += -DBCMQT_CPU
+  endif
 endif
 
 #wlinfo:

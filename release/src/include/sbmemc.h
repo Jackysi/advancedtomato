@@ -1,15 +1,15 @@
 /*
  * BCM47XX Sonics SiliconBackplane DDR/SDRAM controller core hardware definitions.
  *
- * Copyright 2005, Broadcom Corporation      
- * All Rights Reserved.      
- *       
- * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY      
- * KIND, EXPRESS OR IMPLIED, BY STATUTE, COMMUNICATION OR OTHERWISE. BROADCOM      
- * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS      
- * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.      
+ * Copyright 2006, Broadcom Corporation
+ * All Rights Reserved.
+ * 
+ * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
+ * KIND, EXPRESS OR IMPLIED, BY STATUTE, COMMUNICATION OR OTHERWISE. BROADCOM
+ * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
+ * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
  *
- * $Id: sbmemc.h,v 1.4 2005/03/07 08:35:32 kanki Exp $
+ * $Id$
  */
 
 #ifndef	_SBMEMC_H
@@ -39,8 +39,7 @@
 #define	MEMC_BARRIER		0x50
 #define	MEMC_CORE		0x54
 
-
-#else
+#else	/* !_LANGUAGE_ASSEMBLY */
 
 /* Sonics side: MEMC core registers */
 typedef volatile struct sbmemcregs {
@@ -68,7 +67,7 @@ typedef volatile struct sbmemcregs {
 	uint32	core;
 } sbmemcregs_t;
 
-#endif
+#endif	/* _LANGUAGE_ASSEMBLY */
 
 /* MEMC Core Init values (OCP ID 0x80f) */
 
@@ -101,6 +100,7 @@ typedef volatile struct sbmemcregs {
 #define MEMC_DRAMTIM2_INIT	0x000754d8
 #define MEMC_DRAMTIM25_INIT	0x000754d9
 #define MEMC_RDNCDLCOR_INIT	0x00000000
+#define MEMC_RDNCDLCOR_SIMINIT	0xf6f6f6f6	/* For hdl sim */
 #define MEMC_WRNCDLCOR_INIT	0x49351200
 #define MEMC_1_WRNCDLCOR_INIT	0x14500200
 #define MEMC_DQSGATENCDL_INIT	0x00030000
