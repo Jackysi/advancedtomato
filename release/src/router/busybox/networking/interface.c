@@ -1,3 +1,4 @@
+/* vi: set sw=4 ts=4: */
 /*
  * stolen from net-tools-1.59 and stripped down for busybox by
  *			Erik Andersen <andersen@codepoet.org>
@@ -14,7 +15,6 @@
  *              that either displays or sets the characteristics of
  *              one or more of the system's networking interfaces.
  *
- * Version:     $Id: interface.c,v 1.25 2004/08/26 21:45:21 andersen Exp $
  *
  * Author:      Fred N. van Kempen, <waltje@uwalt.nl.mugnet.org>
  *              and others.  Copyright 1993 MicroWalt Corporation
@@ -31,21 +31,19 @@
  *			(default AF was wrong)
  */
 
-#include "inet_common.h"
-#include <stdio.h>
-#include <errno.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
-#include <fcntl.h>
-#include <ctype.h>
-#include <sys/ioctl.h>
-#include <sys/types.h>
 #include <net/if.h>
 #include <net/if_arp.h>
-#include "busybox.h"
+#include "inet_common.h"
+#include "libbb.h"
 
-#ifdef CONFIG_FEATURE_IPV6
+
+#if ENABLE_FEATURE_HWIB
+/* #include <linux/if_infiniband.h> */
+#undef INFINIBAND_ALEN
+#define INFINIBAND_ALEN 20
+#endif
+
+#if ENABLE_FEATURE_IPV6
 # define HAVE_AFINET6 1
 #else
 # undef HAVE_AFINET6
@@ -54,7 +52,7 @@
 #define _PATH_PROCNET_DEV               "/proc/net/dev"
 #define _PATH_PROCNET_IFINET6           "/proc/net/if_inet6"
 
-#if HAVE_AFINET6
+#ifdef HAVE_AFINET6
 
 #ifndef _LINUX_IN6_H
 /*
@@ -69,7 +67,7 @@ struct in6_ifreq {
 
 #endif
 
-#endif							/* HAVE_AFINET6 */
+#endif /* HAVE_AFINET6 */
 
 /* Defines for glibc2.0 users. */
 #ifndef SIOCSIFTXQLEN
@@ -90,84 +88,150 @@ struct in6_ifreq {
 #define IFF_DYNAMIC     0x8000	/* dialup device with changing addresses */
 #endif
 
-/* This structure defines protocol families and their handlers. */
-struct aftype {
-	const char *name;
-	const char *title;
-	int af;
-	int alen;
-	char *(*print) (unsigned char *);
-	char *(*sprint) (struct sockaddr *, int numeric);
-	int (*input) (int type, char *bufp, struct sockaddr *);
-	void (*herror) (char *text);
-	int (*rprint) (int options);
-	int (*rinput) (int typ, int ext, char **argv);
-
-	/* may modify src */
-	int (*getmask) (char *src, struct sockaddr * mask, char *name);
-
-	int fd;
-	char *flag_file;
-};
-
 /* Display an Internet socket address. */
-static char *INET_sprint(struct sockaddr *sap, int numeric)
+static const char* FAST_FUNC INET_sprint(struct sockaddr *sap, int numeric)
 {
-	static char buff[128];
+	static char *buff;
 
+	free(buff);
 	if (sap->sa_family == 0xFFFF || sap->sa_family == 0)
-		return safe_strncpy(buff, "[NONE SET]", sizeof(buff));
-
-	if (INET_rresolve(buff, sizeof(buff), (struct sockaddr_in *) sap,
-					  numeric, 0xffffff00) != 0)
-		return (NULL);
-
-	return (buff);
+		return "[NONE SET]";
+	buff = INET_rresolve((struct sockaddr_in *) sap, numeric, 0xffffff00);
+	return buff;
 }
 
-static struct aftype inet_aftype = {
-	.name =		"inet",
-	.title =	"DARPA Internet",
-	.af =		AF_INET,
-	.alen =		4,
-	.sprint =	INET_sprint,
-	.fd =		-1
+#ifdef UNUSED_AND_BUGGY
+static int INET_getsock(char *bufp, struct sockaddr *sap)
+{
+	char *sp = bufp, *bp;
+	unsigned int i;
+	unsigned val;
+	struct sockaddr_in *sock_in;
+
+	sock_in = (struct sockaddr_in *) sap;
+	sock_in->sin_family = AF_INET;
+	sock_in->sin_port = 0;
+
+	val = 0;
+	bp = (char *) &val;
+	for (i = 0; i < sizeof(sock_in->sin_addr.s_addr); i++) {
+		*sp = toupper(*sp);
+
+		if ((unsigned)(*sp - 'A') <= 5)
+			bp[i] |= (int) (*sp - ('A' - 10));
+		else if (isdigit(*sp))
+			bp[i] |= (int) (*sp - '0');
+		else
+			return -1;
+
+		bp[i] <<= 4;
+		sp++;
+		*sp = toupper(*sp);
+
+		if ((unsigned)(*sp - 'A') <= 5)
+			bp[i] |= (int) (*sp - ('A' - 10));
+		else if (isdigit(*sp))
+			bp[i] |= (int) (*sp - '0');
+		else
+			return -1;
+
+		sp++;
+	}
+	sock_in->sin_addr.s_addr = htonl(val);
+
+	return (sp - bufp);
+}
+#endif
+
+static int FAST_FUNC INET_input(/*int type,*/ const char *bufp, struct sockaddr *sap)
+{
+	return INET_resolve(bufp, (struct sockaddr_in *) sap, 0);
+/*
+	switch (type) {
+	case 1:
+		return (INET_getsock(bufp, sap));
+	case 256:
+		return (INET_resolve(bufp, (struct sockaddr_in *) sap, 1));
+	default:
+		return (INET_resolve(bufp, (struct sockaddr_in *) sap, 0));
+	}
+*/
+}
+
+static const struct aftype inet_aftype = {
+	.name   = "inet",
+	.title  = "DARPA Internet",
+	.af     = AF_INET,
+	.alen   = 4,
+	.sprint = INET_sprint,
+	.input  = INET_input,
 };
 
-#if HAVE_AFINET6
+#ifdef HAVE_AFINET6
 
 /* Display an Internet socket address. */
 /* dirty! struct sockaddr usually doesn't suffer for inet6 addresses, fst. */
-static char *INET6_sprint(struct sockaddr *sap, int numeric)
+static const char* FAST_FUNC INET6_sprint(struct sockaddr *sap, int numeric)
 {
-	static char buff[128];
+	static char *buff;
 
+	free(buff);
 	if (sap->sa_family == 0xFFFF || sap->sa_family == 0)
-		return safe_strncpy(buff, "[NONE SET]", sizeof(buff));
-	if (INET6_rresolve
-		(buff, sizeof(buff), (struct sockaddr_in6 *) sap, numeric) != 0)
-		return safe_strncpy(buff, "[UNKNOWN]", sizeof(buff));
-	return (buff);
+		return "[NONE SET]";
+	buff = INET6_rresolve((struct sockaddr_in6 *) sap, numeric);
+	return buff;
 }
 
-static struct aftype inet6_aftype = {
-	.name =		"inet6",
-	.title =	"IPv6",
-	.af =		AF_INET6,
-	.alen =		sizeof(struct in6_addr),
-	.sprint =	INET6_sprint,
-	.fd =		-1
+#ifdef UNUSED
+static int INET6_getsock(char *bufp, struct sockaddr *sap)
+{
+	struct sockaddr_in6 *sin6;
+
+	sin6 = (struct sockaddr_in6 *) sap;
+	sin6->sin6_family = AF_INET6;
+	sin6->sin6_port = 0;
+
+	if (inet_pton(AF_INET6, bufp, sin6->sin6_addr.s6_addr) <= 0)
+		return -1;
+
+	return 16;			/* ?;) */
+}
+#endif
+
+static int FAST_FUNC INET6_input(/*int type,*/ const char *bufp, struct sockaddr *sap)
+{
+	return INET6_resolve(bufp, (struct sockaddr_in6 *) sap);
+/*
+	switch (type) {
+	case 1:
+		return (INET6_getsock(bufp, sap));
+	default:
+		return (INET6_resolve(bufp, (struct sockaddr_in6 *) sap));
+	}
+*/
+}
+
+static const struct aftype inet6_aftype = {
+	.name   = "inet6",
+	.title  = "IPv6",
+	.af     = AF_INET6,
+	.alen   = sizeof(struct in6_addr),
+	.sprint = INET6_sprint,
+	.input  = INET6_input,
 };
 
-#endif							/* HAVE_AFINET6 */
+#endif /* HAVE_AFINET6 */
 
 /* Display an UNSPEC address. */
-static char *UNSPEC_print(unsigned char *ptr)
+static char* FAST_FUNC UNSPEC_print(unsigned char *ptr)
 {
-	static char buff[sizeof(struct sockaddr) * 3 + 1];
+	static char *buff;
+
 	char *pos;
 	unsigned int i;
 
+	if (!buff)
+		buff = xmalloc(sizeof(struct sockaddr) * 3 + 1);
 	pos = buff;
 	for (i = 0; i < sizeof(struct sockaddr); i++) {
 		/* careful -- not every libc's sprintf returns # bytes written */
@@ -176,28 +240,29 @@ static char *UNSPEC_print(unsigned char *ptr)
 	}
 	/* Erase trailing "-".  Works as long as sizeof(struct sockaddr) != 0 */
 	*--pos = '\0';
-	return (buff);
+	return buff;
 }
 
 /* Display an UNSPEC socket address. */
-static char *UNSPEC_sprint(struct sockaddr *sap, int numeric)
+static const char* FAST_FUNC UNSPEC_sprint(struct sockaddr *sap, int numeric UNUSED_PARAM)
 {
-	static char buf[64];
-
 	if (sap->sa_family == 0xFFFF || sap->sa_family == 0)
-		return safe_strncpy(buf, "[NONE SET]", sizeof(buf));
-	return (UNSPEC_print((unsigned char *)sap->sa_data));
+		return "[NONE SET]";
+	return UNSPEC_print((unsigned char *)sap->sa_data);
 }
 
-static struct aftype unspec_aftype = {
-	"unspec", "UNSPEC", AF_UNSPEC, 0,
-	UNSPEC_print, UNSPEC_sprint, NULL, NULL,
-	NULL,
+static const struct aftype unspec_aftype = {
+	.name   = "unspec",
+	.title  = "UNSPEC",
+	.af     = AF_UNSPEC,
+	.alen   = 0,
+	.print  = UNSPEC_print,
+	.sprint = UNSPEC_sprint,
 };
 
-static struct aftype * const aftypes[] = {
+static const struct aftype *const aftypes[] = {
 	&inet_aftype,
-#if HAVE_AFINET6
+#ifdef HAVE_AFINET6
 	&inet6_aftype,
 #endif
 	&unspec_aftype,
@@ -205,31 +270,31 @@ static struct aftype * const aftypes[] = {
 };
 
 /* Check our protocol family table for this family. */
-static struct aftype *get_afntype(int af)
+const struct aftype* FAST_FUNC get_aftype(const char *name)
 {
-	struct aftype * const *afp;
+	const struct aftype *const *afp;
 
 	afp = aftypes;
 	while (*afp != NULL) {
-		if ((*afp)->af == af)
+		if (!strcmp((*afp)->name, name))
 			return (*afp);
 		afp++;
 	}
-	return (NULL);
+	return NULL;
 }
 
-/* Check our protocol family table for this family and return its socket */
-static int get_socket_for_af(int af)
+/* Check our protocol family table for this family. */
+static const struct aftype *get_afntype(int af)
 {
-	struct aftype * const *afp;
+	const struct aftype *const *afp;
 
 	afp = aftypes;
 	while (*afp != NULL) {
 		if ((*afp)->af == af)
-			return (*afp)->fd;
+			return *afp;
 		afp++;
 	}
-	return -1;
+	return NULL;
 }
 
 struct user_net_device_stats {
@@ -263,87 +328,35 @@ struct user_net_device_stats {
 
 struct interface {
 	struct interface *next, *prev;
-	char name[IFNAMSIZ];	/* interface name        */
-	short type;			/* if type               */
-	short flags;		/* various flags         */
-	int metric;			/* routing metric        */
-	int mtu;			/* MTU value             */
-	int tx_queue_len;	/* transmit queue length */
-	struct ifmap map;	/* hardware setup        */
-	struct sockaddr addr;	/* IP address            */
-	struct sockaddr dstaddr;	/* P-P IP address        */
-	struct sockaddr broadaddr;	/* IP broadcast address  */
-	struct sockaddr netmask;	/* IP network mask       */
+	char name[IFNAMSIZ];                    /* interface name        */
+	short type;                             /* if type               */
+	short flags;                            /* various flags         */
+	int metric;                             /* routing metric        */
+	int mtu;                                /* MTU value             */
+	int tx_queue_len;                       /* transmit queue length */
+	struct ifmap map;                       /* hardware setup        */
+	struct sockaddr addr;                   /* IP address            */
+	struct sockaddr dstaddr;                /* P-P IP address        */
+	struct sockaddr broadaddr;              /* IP broadcast address  */
+	struct sockaddr netmask;                /* IP network mask       */
 	int has_ip;
-	char hwaddr[32];	/* HW address            */
+	char hwaddr[32];                        /* HW address            */
 	int statistics_valid;
-	struct user_net_device_stats stats;	/* statistics            */
-	int keepalive;		/* keepalive value for SLIP */
-	int outfill;		/* outfill value for SLIP */
+	struct user_net_device_stats stats;     /* statistics            */
+	int keepalive;                          /* keepalive value for SLIP */
+	int outfill;                            /* outfill value for SLIP */
 };
 
 
-int interface_opt_a = 0;	/* show all interfaces          */
+smallint interface_opt_a;	/* show all interfaces */
 
 static struct interface *int_list, *int_last;
-static int skfd = -1;	/* generic raw socket desc.     */
 
 
-static int sockets_open(int family)
-{
-	struct aftype * const *aft;
-	int sfd = -1;
-	static int force = -1;
-
-	if (force < 0) {
-		force = 0;
-		if (get_linux_version_code() < KERNEL_VERSION(2,1,0))
-			force = 1;
-		if (access("/proc/net", R_OK))
-			force = 1;
-	}
-	for (aft = aftypes; *aft; aft++) {
-		struct aftype *af = *aft;
-		int type = SOCK_DGRAM;
-
-		if (af->af == AF_UNSPEC)
-			continue;
-		if (family && family != af->af)
-			continue;
-		if (af->fd != -1) {
-			sfd = af->fd;
-			continue;
-		}
-		/* Check some /proc file first to not stress kmod */
-		if (!family && !force && af->flag_file) {
-			if (access(af->flag_file, R_OK))
-				continue;
-		}
-		af->fd = socket(af->af, type, 0);
-		if (af->fd >= 0)
-			sfd = af->fd;
-	}
-	if (sfd < 0) {
-		bb_error_msg("No usable address families found.");
-	}
-	return sfd;
-}
-
-#ifdef CONFIG_FEATURE_CLEAN_UP
-static void sockets_close(void)
-{
-	struct aftype * const *aft;
-	for (aft = aftypes; *aft != NULL; aft++) {
-		struct aftype *af = *aft;
-		if( af->fd != -1 ) {
-			close(af->fd);
-			af->fd = -1;
-		}
-	}
-}
-#endif
-
+#if 0
 /* like strcmp(), but knows about numbers */
+except that the freshly added calls to xatoul() brf on ethernet aliases with
+uClibc with e.g.: ife->name='lo'  name='eth0:1'
 static int nstrcmp(const char *a, const char *b)
 {
 	const char *a_ptr = a;
@@ -362,17 +375,18 @@ static int nstrcmp(const char *a, const char *b)
 	}
 
 	if (isdigit(*a) && isdigit(*b)) {
-		return atoi(a_ptr) > atoi(b_ptr) ? 1 : -1;
+		return xatoul(a_ptr) > xatoul(b_ptr) ? 1 : -1;
 	}
 	return *a - *b;
 }
+#endif
 
 static struct interface *add_interface(char *name)
 {
 	struct interface *ife, **nextp, *new;
 
 	for (ife = int_last; ife; ife = ife->prev) {
-		int n = nstrcmp(ife->name, name);
+		int n = /*n*/strcmp(ife->name, name);
 
 		if (n == 0)
 			return ife;
@@ -381,7 +395,7 @@ static struct interface *add_interface(char *name)
 	}
 
 	new = xzalloc(sizeof(*new));
-	safe_strncpy(new->name, name, IFNAMSIZ);
+	strncpy(new->name, name, IFNAMSIZ);
 	nextp = ife ? &ife->next : &int_list;
 	new->prev = ife;
 	new->next = *nextp;
@@ -393,78 +407,30 @@ static struct interface *add_interface(char *name)
 	return new;
 }
 
-
-static int if_readconf(void)
-{
-	int numreqs = 30;
-	struct ifconf ifc;
-	struct ifreq *ifr;
-	int n, err = -1;
-	int skfd2;
-
-	/* SIOCGIFCONF currently seems to only work properly on AF_INET sockets
-	   (as of 2.1.128) */
-	skfd2 = get_socket_for_af(AF_INET);
-	if (skfd2 < 0) {
-		bb_perror_msg(("warning: no inet socket available"));
-		/* Try to soldier on with whatever socket we can get hold of.  */
-		skfd2 = sockets_open(0);
-		if (skfd2 < 0)
-			return -1;
-	}
-
-	ifc.ifc_buf = NULL;
-	for (;;) {
-		ifc.ifc_len = sizeof(struct ifreq) * numreqs;
-		ifc.ifc_buf = xrealloc(ifc.ifc_buf, ifc.ifc_len);
-
-		if (ioctl(skfd2, SIOCGIFCONF, &ifc) < 0) {
-			perror("SIOCGIFCONF");
-			goto out;
-		}
-		if (ifc.ifc_len == sizeof(struct ifreq) * numreqs) {
-			/* assume it overflowed and try again */
-			numreqs += 10;
-			continue;
-		}
-		break;
-	}
-
-	ifr = ifc.ifc_req;
-	for (n = 0; n < ifc.ifc_len; n += sizeof(struct ifreq)) {
-		add_interface(ifr->ifr_name);
-		ifr++;
-	}
-	err = 0;
-
-  out:
-	free(ifc.ifc_buf);
-	return err;
-}
-
 static char *get_name(char *name, char *p)
 {
 	/* Extract <name> from nul-terminated p where p matches
 	   <name>: after leading whitespace.
 	   If match is not made, set name empty and return unchanged p */
-	int namestart=0, nameend=0;
+	int namestart = 0, nameend = 0;
+
 	while (isspace(p[namestart]))
 		namestart++;
-	nameend=namestart;
-	while (p[nameend] && p[nameend]!=':' && !isspace(p[nameend]))
+	nameend = namestart;
+	while (p[nameend] && p[nameend] != ':' && !isspace(p[nameend]))
 		nameend++;
-	if (p[nameend]==':') {
-		if ((nameend-namestart)<IFNAMSIZ) {
-			memcpy(name,&p[namestart],nameend-namestart);
-			name[nameend-namestart]='\0';
-			p=&p[nameend];
+	if (p[nameend] == ':') {
+		if ((nameend - namestart) < IFNAMSIZ) {
+			memcpy(name, &p[namestart], nameend - namestart);
+			name[nameend - namestart] = '\0';
+			p = &p[nameend];
 		} else {
 			/* Interface name too large */
-			name[0]='\0';
+			name[0] = '\0';
 		}
 	} else {
 		/* trailing ':' not found - return empty */
-		name[0]='\0';
+		name[0] = '\0';
 	}
 	return p + 1;
 }
@@ -476,7 +442,7 @@ static char *get_name(char *name, char *p)
  * old approach of multiple scanf occurrences with large numbers of
  * args. */
 
-/* static const char * const ss_fmt[] = { */
+/* static const char *const ss_fmt[] = { */
 /*	"%lln%llu%lu%lu%lu%lu%ln%ln%lln%llu%lu%lu%lu%lu%lu", */
 /*	"%llu%llu%lu%lu%lu%lu%ln%ln%llu%llu%lu%lu%lu%lu%lu", */
 /*	"%llu%llu%lu%lu%lu%lu%lu%lu%llu%llu%lu%lu%lu%lu%lu%lu" */
@@ -484,13 +450,13 @@ static char *get_name(char *name, char *p)
 
 	/* Lie about the size of the int pointed to for %n. */
 #if INT_MAX == LONG_MAX
-static const char * const ss_fmt[] = {
+static const char *const ss_fmt[] = {
 	"%n%llu%u%u%u%u%n%n%n%llu%u%u%u%u%u",
 	"%llu%llu%u%u%u%u%n%n%llu%llu%u%u%u%u%u",
 	"%llu%llu%u%u%u%u%u%u%llu%llu%u%u%u%u%u%u"
 };
 #else
-static const char * const ss_fmt[] = {
+static const char *const ss_fmt[] = {
 	"%n%llu%lu%lu%lu%lu%n%n%n%llu%lu%lu%lu%lu%lu",
 	"%llu%llu%lu%lu%lu%lu%n%n%llu%llu%lu%lu%lu%lu%lu",
 	"%llu%llu%lu%lu%lu%lu%lu%lu%llu%llu%lu%lu%lu%lu%lu%lu"
@@ -532,7 +498,7 @@ static void get_dev_fields(char *bp, struct interface *ife, int procnetdev_vsn)
 	}
 }
 
-static inline int procnetdev_version(char *buf)
+static int procnetdev_version(char *buf)
 {
 	if (strstr(buf, "compressed"))
 		return 2;
@@ -541,9 +507,56 @@ static inline int procnetdev_version(char *buf)
 	return 0;
 }
 
+static int if_readconf(void)
+{
+	int numreqs = 30;
+	struct ifconf ifc;
+	struct ifreq *ifr;
+	int n, err = -1;
+	int skfd;
+
+	ifc.ifc_buf = NULL;
+
+	/* SIOCGIFCONF currently seems to only work properly on AF_INET sockets
+	   (as of 2.1.128) */
+	skfd = socket(AF_INET, SOCK_DGRAM, 0);
+	if (skfd < 0) {
+		bb_perror_msg("error: no inet socket available");
+		return -1;
+	}
+
+	for (;;) {
+		ifc.ifc_len = sizeof(struct ifreq) * numreqs;
+		ifc.ifc_buf = xrealloc(ifc.ifc_buf, ifc.ifc_len);
+
+		if (ioctl_or_warn(skfd, SIOCGIFCONF, &ifc) < 0) {
+			goto out;
+		}
+		if (ifc.ifc_len == (int)(sizeof(struct ifreq) * numreqs)) {
+			/* assume it overflowed and try again */
+			numreqs += 10;
+			continue;
+		}
+		break;
+	}
+
+	ifr = ifc.ifc_req;
+	for (n = 0; n < ifc.ifc_len; n += sizeof(struct ifreq)) {
+		add_interface(ifr->ifr_name);
+		ifr++;
+	}
+	err = 0;
+
+ out:
+	close(skfd);
+	free(ifc.ifc_buf);
+	return err;
+}
+
 static int if_readlist_proc(char *target)
 {
-	static int proc_read;
+	static smallint proc_read;
+
 	FILE *fh;
 	char buf[512];
 	struct interface *ife;
@@ -554,9 +567,8 @@ static int if_readlist_proc(char *target)
 	if (!target)
 		proc_read = 1;
 
-	fh = fopen(_PATH_PROCNET_DEV, "r");
+	fh = fopen_or_warn(_PATH_PROCNET_DEV, "r");
 	if (!fh) {
-		bb_perror_msg("Warning: cannot open %s. Limited output.", _PATH_PROCNET_DEV);
 		return if_readconf();
 	}
 	fgets(buf, sizeof buf, fh);	/* eat line */
@@ -576,7 +588,7 @@ static int if_readlist_proc(char *target)
 			break;
 	}
 	if (ferror(fh)) {
-		perror(_PATH_PROCNET_DEV);
+		bb_perror_msg(_PATH_PROCNET_DEV);
 		err = -1;
 		proc_read = 0;
 	}
@@ -587,115 +599,91 @@ static int if_readlist_proc(char *target)
 static int if_readlist(void)
 {
 	int err = if_readlist_proc(NULL);
-
+	/* Needed in order to get ethN:M aliases */
 	if (!err)
 		err = if_readconf();
 	return err;
-}
-
-static int for_all_interfaces(int (*doit) (struct interface *, void *),
-							  void *cookie)
-{
-	struct interface *ife;
-
-	if (!int_list && (if_readlist() < 0))
-		return -1;
-	for (ife = int_list; ife; ife = ife->next) {
-		int err = doit(ife, cookie);
-
-		if (err)
-			return err;
-	}
-	return 0;
 }
 
 /* Fetch the interface configuration from the kernel. */
 static int if_fetch(struct interface *ife)
 {
 	struct ifreq ifr;
-	int fd;
 	char *ifname = ife->name;
+	int skfd;
 
-	strcpy(ifr.ifr_name, ifname);
-	if (ioctl(skfd, SIOCGIFFLAGS, &ifr) < 0)
-		return (-1);
+	skfd = xsocket(AF_INET, SOCK_DGRAM, 0);
+
+	strncpy(ifr.ifr_name, ifname, sizeof(ifr.ifr_name));
+	if (ioctl(skfd, SIOCGIFFLAGS, &ifr) < 0) {
+		close(skfd);
+		return -1;
+	}
 	ife->flags = ifr.ifr_flags;
 
-	strcpy(ifr.ifr_name, ifname);
-	if (ioctl(skfd, SIOCGIFHWADDR, &ifr) < 0)
-		memset(ife->hwaddr, 0, 32);
-	else
+	strncpy(ifr.ifr_name, ifname, sizeof(ifr.ifr_name));
+	memset(ife->hwaddr, 0, 32);
+	if (ioctl(skfd, SIOCGIFHWADDR, &ifr) >= 0)
 		memcpy(ife->hwaddr, ifr.ifr_hwaddr.sa_data, 8);
 
 	ife->type = ifr.ifr_hwaddr.sa_family;
 
-	strcpy(ifr.ifr_name, ifname);
-	if (ioctl(skfd, SIOCGIFMETRIC, &ifr) < 0)
-		ife->metric = 0;
-	else
+	strncpy(ifr.ifr_name, ifname, sizeof(ifr.ifr_name));
+	ife->metric = 0;
+	if (ioctl(skfd, SIOCGIFMETRIC, &ifr) >= 0)
 		ife->metric = ifr.ifr_metric;
 
-	strcpy(ifr.ifr_name, ifname);
-	if (ioctl(skfd, SIOCGIFMTU, &ifr) < 0)
-		ife->mtu = 0;
-	else
+	strncpy(ifr.ifr_name, ifname, sizeof(ifr.ifr_name));
+	ife->mtu = 0;
+	if (ioctl(skfd, SIOCGIFMTU, &ifr) >= 0)
 		ife->mtu = ifr.ifr_mtu;
 
+	memset(&ife->map, 0, sizeof(struct ifmap));
 #ifdef SIOCGIFMAP
-	strcpy(ifr.ifr_name, ifname);
+	strncpy(ifr.ifr_name, ifname, sizeof(ifr.ifr_name));
 	if (ioctl(skfd, SIOCGIFMAP, &ifr) == 0)
 		ife->map = ifr.ifr_map;
-	else
 #endif
-		memset(&ife->map, 0, sizeof(struct ifmap));
 
 #ifdef HAVE_TXQUEUELEN
-	strcpy(ifr.ifr_name, ifname);
-	if (ioctl(skfd, SIOCGIFTXQLEN, &ifr) < 0)
-		ife->tx_queue_len = -1;	/* unknown value */
-	else
+	strncpy(ifr.ifr_name, ifname, sizeof(ifr.ifr_name));
+	ife->tx_queue_len = -1;	/* unknown value */
+	if (ioctl(skfd, SIOCGIFTXQLEN, &ifr) >= 0)
 		ife->tx_queue_len = ifr.ifr_qlen;
 #else
 	ife->tx_queue_len = -1;	/* unknown value */
 #endif
 
-	/* IPv4 address? */
-	fd = get_socket_for_af(AF_INET);
-	if (fd >= 0) {
-		strcpy(ifr.ifr_name, ifname);
-		ifr.ifr_addr.sa_family = AF_INET;
-		if (ioctl(fd, SIOCGIFADDR, &ifr) == 0) {
-			ife->has_ip = 1;
-			ife->addr = ifr.ifr_addr;
-			strcpy(ifr.ifr_name, ifname);
-			if (ioctl(fd, SIOCGIFDSTADDR, &ifr) < 0)
-				memset(&ife->dstaddr, 0, sizeof(struct sockaddr));
-			else
-				ife->dstaddr = ifr.ifr_dstaddr;
+	strncpy(ifr.ifr_name, ifname, sizeof(ifr.ifr_name));
+	ifr.ifr_addr.sa_family = AF_INET;
+	memset(&ife->addr, 0, sizeof(struct sockaddr));
+	if (ioctl(skfd, SIOCGIFADDR, &ifr) == 0) {
+		ife->has_ip = 1;
+		ife->addr = ifr.ifr_addr;
+		strncpy(ifr.ifr_name, ifname, sizeof(ifr.ifr_name));
+		memset(&ife->dstaddr, 0, sizeof(struct sockaddr));
+		if (ioctl(skfd, SIOCGIFDSTADDR, &ifr) >= 0)
+			ife->dstaddr = ifr.ifr_dstaddr;
 
-			strcpy(ifr.ifr_name, ifname);
-			if (ioctl(fd, SIOCGIFBRDADDR, &ifr) < 0)
-				memset(&ife->broadaddr, 0, sizeof(struct sockaddr));
-			else
-				ife->broadaddr = ifr.ifr_broadaddr;
+		strncpy(ifr.ifr_name, ifname, sizeof(ifr.ifr_name));
+		memset(&ife->broadaddr, 0, sizeof(struct sockaddr));
+		if (ioctl(skfd, SIOCGIFBRDADDR, &ifr) >= 0)
+			ife->broadaddr = ifr.ifr_broadaddr;
 
-			strcpy(ifr.ifr_name, ifname);
-			if (ioctl(fd, SIOCGIFNETMASK, &ifr) < 0)
-				memset(&ife->netmask, 0, sizeof(struct sockaddr));
-			else
-				ife->netmask = ifr.ifr_netmask;
-		} else
-			memset(&ife->addr, 0, sizeof(struct sockaddr));
+		strncpy(ifr.ifr_name, ifname, sizeof(ifr.ifr_name));
+		memset(&ife->netmask, 0, sizeof(struct sockaddr));
+		if (ioctl(skfd, SIOCGIFNETMASK, &ifr) >= 0)
+			ife->netmask = ifr.ifr_netmask;
 	}
 
+	close(skfd);
 	return 0;
 }
-
 
 static int do_if_fetch(struct interface *ife)
 {
 	if (if_fetch(ife) < 0) {
-		char *errmsg;
+		const char *errmsg;
 
 		if (errno == ENODEV) {
 			/* Give better error message for this case. */
@@ -709,18 +697,6 @@ static int do_if_fetch(struct interface *ife)
 	}
 	return 0;
 }
-
-/* This structure defines hardware protocols and their handlers. */
-struct hwtype {
-	const char * const name;
-	const char *title;
-	int type;
-	int alen;
-	char *(*print) (unsigned char *);
-	int (*input) (char *, struct sockaddr *);
-	int (*activate) (int fd);
-	int suppress_null_addr;
-};
 
 static const struct hwtype unspec_hwtype = {
 	.name =		"unspec",
@@ -737,31 +713,86 @@ static const struct hwtype loop_hwtype = {
 
 #include <net/if_arp.h>
 
-#if (__GLIBC__ >=2 && __GLIBC_MINOR >= 1) || defined(_NEWLIB_VERSION)
+#if (defined(__GLIBC__) && __GLIBC__ >= 2 && __GLIBC_MINOR__ >= 1) || defined(_NEWLIB_VERSION)
 #include <net/ethernet.h>
 #else
 #include <linux/if_ether.h>
 #endif
 
 /* Display an Ethernet address in readable format. */
-static char *pr_ether(unsigned char *ptr)
+static char* FAST_FUNC ether_print(unsigned char *ptr)
 {
-	static char buff[64];
+	static char *buff;
 
-	snprintf(buff, sizeof(buff), "%02X:%02X:%02X:%02X:%02X:%02X",
+	free(buff);
+	buff = xasprintf("%02X:%02X:%02X:%02X:%02X:%02X",
 			 (ptr[0] & 0377), (ptr[1] & 0377), (ptr[2] & 0377),
 			 (ptr[3] & 0377), (ptr[4] & 0377), (ptr[5] & 0377)
 		);
-	return (buff);
+	return buff;
 }
 
+static int FAST_FUNC ether_input(const char *bufp, struct sockaddr *sap);
+
 static const struct hwtype ether_hwtype = {
-	.name =		"ether",
-	.title =	"Ethernet",
-	.type =		ARPHRD_ETHER,
-	.alen =		ETH_ALEN,
-	.print =	pr_ether
+	.name  = "ether",
+	.title = "Ethernet",
+	.type  = ARPHRD_ETHER,
+	.alen  = ETH_ALEN,
+	.print = ether_print,
+	.input = ether_input
 };
+
+static unsigned hexchar2int(char c)
+{
+	if (isdigit(c))
+		return c - '0';
+	c &= ~0x20; /* a -> A */
+	if ((unsigned)(c - 'A') <= 5)
+		return c - ('A' - 10);
+	return ~0U;
+}
+
+/* Input an Ethernet address and convert to binary. */
+static int FAST_FUNC ether_input(const char *bufp, struct sockaddr *sap)
+{
+	unsigned char *ptr;
+	char c;
+	int i;
+	unsigned val;
+
+	sap->sa_family = ether_hwtype.type;
+	ptr = (unsigned char*) sap->sa_data;
+
+	i = 0;
+	while ((*bufp != '\0') && (i < ETH_ALEN)) {
+		val = hexchar2int(*bufp++) * 0x10;
+		if (val > 0xff) {
+			errno = EINVAL;
+			return -1;
+		}
+		c = *bufp;
+		if (c == ':' || c == 0)
+			val >>= 4;
+		else {
+			val |= hexchar2int(c);
+			if (val > 0xff) {
+				errno = EINVAL;
+				return -1;
+			}
+		}
+		if (c != 0)
+			bufp++;
+		*ptr++ = (unsigned char) val;
+		i++;
+
+		/* We might get a semicolon here - not required. */
+		if (*bufp == ':') {
+			bufp++;
+		}
+	}
+	return 0;
+}
 
 #include <net/if_arp.h>
 
@@ -771,29 +802,43 @@ static const struct hwtype ppp_hwtype = {
 	.type =		ARPHRD_PPP
 };
 
-#ifdef CONFIG_FEATURE_IPV6
+#if ENABLE_FEATURE_IPV6
 static const struct hwtype sit_hwtype = {
 	.name =			"sit",
 	.title =		"IPv6-in-IPv4",
 	.type =			ARPHRD_SIT,
 	.print =		UNSPEC_print,
 	.suppress_null_addr =	1
-} ;
+};
+#endif
+#if ENABLE_FEATURE_HWIB
+static const struct hwtype ib_hwtype = {
+	.name  = "infiniband",
+	.title = "InfiniBand",
+	.type  = ARPHRD_INFINIBAND,
+	.alen  = INFINIBAND_ALEN,
+	.print = UNSPEC_print,
+	.input = in_ib,
+};
 #endif
 
-static const struct hwtype * const hwtypes[] = {
+
+static const struct hwtype *const hwtypes[] = {
 	&loop_hwtype,
 	&ether_hwtype,
 	&ppp_hwtype,
 	&unspec_hwtype,
-#ifdef CONFIG_FEATURE_IPV6
+#if ENABLE_FEATURE_IPV6
 	&sit_hwtype,
+#endif
+#if ENABLE_FEATURE_HWIB
+	&ib_hwtype,
 #endif
 	NULL
 };
 
 #ifdef IFF_PORTSEL
-static const char * const if_port_text[] = {
+static const char *const if_port_text[] = {
 	/* Keep in step with <linux/netdevice.h> */
 	"unknown",
 	"10base2",
@@ -807,23 +852,37 @@ static const char * const if_port_text[] = {
 #endif
 
 /* Check our hardware type table for this type. */
-static const struct hwtype *get_hwntype(int type)
+const struct hwtype* FAST_FUNC get_hwtype(const char *name)
 {
-	const struct hwtype * const *hwp;
+	const struct hwtype *const *hwp;
+
+	hwp = hwtypes;
+	while (*hwp != NULL) {
+		if (!strcmp((*hwp)->name, name))
+			return (*hwp);
+		hwp++;
+	}
+	return NULL;
+}
+
+/* Check our hardware type table for this type. */
+const struct hwtype* FAST_FUNC get_hwntype(int type)
+{
+	const struct hwtype *const *hwp;
 
 	hwp = hwtypes;
 	while (*hwp != NULL) {
 		if ((*hwp)->type == type)
-			return (*hwp);
+			return *hwp;
 		hwp++;
 	}
-	return (NULL);
+	return NULL;
 }
 
 /* return 1 if address is all zeros */
 static int hw_null_address(const struct hwtype *hw, void *ap)
 {
-	unsigned int i;
+	int i;
 	unsigned char *address = (unsigned char *) ap;
 
 	for (i = 0; i < hw->alen; i++)
@@ -832,7 +891,7 @@ static int hw_null_address(const struct hwtype *hw, void *ap)
 	return 1;
 }
 
-static const char TRext[] = "\0\0\0Ki\0Mi\0Gi\0Ti";
+static const char TRext[] ALIGN1 = "\0\0\0Ki\0Mi\0Gi\0Ti";
 
 static void print_bytes_scaled(unsigned long long ull, const char *end)
 {
@@ -857,53 +916,14 @@ static void print_bytes_scaled(unsigned long long ull, const char *end)
 	printf("X bytes:%llu (%llu.%u %sB)%s", ull, int_part, frac_part, ext, end);
 }
 
-static const char * const ife_print_flags_strs[] = {
-	"UP ",
-	"BROADCAST ",
-	"DEBUG ",
-	"LOOPBACK ",
-	"POINTOPOINT ",
-	"NOTRAILERS ",
-	"RUNNING ",
-	"NOARP ",
-	"PROMISC ",
-	"ALLMULTI ",
-	"SLAVE ",
-	"MASTER ",
-	"MULTICAST ",
-#ifdef HAVE_DYNAMIC
-	"DYNAMIC "
-#endif
-};
-
-static const unsigned short ife_print_flags_mask[] = {
-	IFF_UP,
-	IFF_BROADCAST,
-	IFF_DEBUG,
-	IFF_LOOPBACK,
-	IFF_POINTOPOINT,
-	IFF_NOTRAILERS,
-	IFF_RUNNING,
-	IFF_NOARP,
-	IFF_PROMISC,
-	IFF_ALLMULTI,
-	IFF_SLAVE,
-	IFF_MASTER,
-	IFF_MULTICAST,
-#ifdef HAVE_DYNAMIC
-	IFF_DYNAMIC
-#endif
-	0
-};
-
 static void ife_print(struct interface *ptr)
 {
-	struct aftype *ap;
+	const struct aftype *ap;
 	const struct hwtype *hw;
 	int hf;
 	int can_compress = 0;
 
-#if HAVE_AFINET6
+#ifdef HAVE_AFINET6
 	FILE *f;
 	char addr6[40], devname[20];
 	struct sockaddr_in6 sap;
@@ -937,7 +957,7 @@ static void ife_print(struct interface *ptr)
 			printf("(auto)");
 	}
 #endif
-	printf("\n");
+	bb_putchar('\n');
 
 	if (ptr->has_ip) {
 		printf("           %s addr:%s ", ap->name,
@@ -951,7 +971,7 @@ static void ife_print(struct interface *ptr)
 		printf(" Mask:%s\n", ap->sprint(&ptr->netmask, 1));
 	}
 
-#if HAVE_AFINET6
+#ifdef HAVE_AFINET6
 
 #define IPV6_ADDR_ANY           0x0000U
 
@@ -970,12 +990,14 @@ static void ife_print(struct interface *ptr)
 #define IPV6_ADDR_MAPPED        0x1000U
 #define IPV6_ADDR_RESERVED      0x2000U	/* reserved address space */
 
-	if ((f = fopen(_PATH_PROCNET_IFINET6, "r")) != NULL) {
+	f = fopen_for_read(_PATH_PROCNET_IFINET6);
+	if (f != NULL) {
 		while (fscanf
-			   (f, "%4s%4s%4s%4s%4s%4s%4s%4s %02x %02x %02x %02x %20s\n",
+			   (f, "%4s%4s%4s%4s%4s%4s%4s%4s %08x %02x %02x %02x %20s\n",
 				addr6p[0], addr6p[1], addr6p[2], addr6p[3], addr6p[4],
 				addr6p[5], addr6p[6], addr6p[7], &if_idx, &plen, &scope,
-				&dad_status, devname) != EOF) {
+				&dad_status, devname) != EOF
+		) {
 			if (!strcmp(devname, ptr->name)) {
 				sprintf(addr6, "%s:%s:%s:%s:%s:%s:%s:%s",
 						addr6p[0], addr6p[1], addr6p[2], addr6p[3],
@@ -984,29 +1006,28 @@ static void ife_print(struct interface *ptr)
 						  (struct sockaddr *) &sap.sin6_addr);
 				sap.sin6_family = AF_INET6;
 				printf("           inet6 addr: %s/%d",
-					   inet6_aftype.sprint((struct sockaddr *) &sap, 1),
+					   INET6_sprint((struct sockaddr *) &sap, 1),
 					   plen);
 				printf(" Scope:");
 				switch (scope & IPV6_ADDR_SCOPE_MASK) {
 				case 0:
-					printf("Global");
+					puts("Global");
 					break;
 				case IPV6_ADDR_LINKLOCAL:
-					printf("Link");
+					puts("Link");
 					break;
 				case IPV6_ADDR_SITELOCAL:
-					printf("Site");
+					puts("Site");
 					break;
 				case IPV6_ADDR_COMPATv4:
-					printf("Compat");
+					puts("Compat");
 					break;
 				case IPV6_ADDR_LOOPBACK:
-					printf("Host");
+					puts("Host");
 					break;
 				default:
-					printf("Unknown");
+					puts("Unknown");
 				}
-				printf("\n");
 			}
 		}
 		fclose(f);
@@ -1019,12 +1040,51 @@ static void ife_print(struct interface *ptr)
 	if (ptr->flags == 0) {
 		printf("[NO FLAGS] ");
 	} else {
-		int i = 0;
+		static const char ife_print_flags_strs[] ALIGN1 =
+			"UP\0"
+			"BROADCAST\0"
+			"DEBUG\0"
+			"LOOPBACK\0"
+			"POINTOPOINT\0"
+			"NOTRAILERS\0"
+			"RUNNING\0"
+			"NOARP\0"
+			"PROMISC\0"
+			"ALLMULTI\0"
+			"SLAVE\0"
+			"MASTER\0"
+			"MULTICAST\0"
+#ifdef HAVE_DYNAMIC
+			"DYNAMIC\0"
+#endif
+			;
+		static const unsigned short ife_print_flags_mask[] ALIGN2 = {
+			IFF_UP,
+			IFF_BROADCAST,
+			IFF_DEBUG,
+			IFF_LOOPBACK,
+			IFF_POINTOPOINT,
+			IFF_NOTRAILERS,
+			IFF_RUNNING,
+			IFF_NOARP,
+			IFF_PROMISC,
+			IFF_ALLMULTI,
+			IFF_SLAVE,
+			IFF_MASTER,
+			IFF_MULTICAST
+#ifdef HAVE_DYNAMIC
+			,IFF_DYNAMIC
+#endif
+		};
+		const unsigned short *mask = ife_print_flags_mask;
+		const char *str = ife_print_flags_strs;
 		do {
-			if (ptr->flags & ife_print_flags_mask[i]) {
-				printf(ife_print_flags_strs[i]);
+			if (ptr->flags & *mask) {
+				printf("%s ", str);
 			}
-		} while (ife_print_flags_mask[++i]);
+			mask++;
+			str += strlen(str) + 1;
+		} while (*str);
 	}
 
 	/* DONT FORGET TO ADD THE FLAGS IN ife_print_short */
@@ -1033,7 +1093,7 @@ static void ife_print(struct interface *ptr)
 	if (ptr->outfill || ptr->keepalive)
 		printf("  Outfill:%d  Keepalive:%d", ptr->outfill, ptr->keepalive);
 #endif
-	printf("\n");
+	bb_putchar('\n');
 
 	/* If needed, display the interface statistics. */
 
@@ -1082,20 +1142,19 @@ static void ife_print(struct interface *ptr)
 		}
 		if (ptr->map.dma)
 			printf("DMA chan:%x ", ptr->map.dma);
-		printf("\n");
+		bb_putchar('\n');
 	}
-	printf("\n");
+	bb_putchar('\n');
 }
 
 
-static int do_if_print(struct interface *ife, void *cookie)
+static int do_if_print(struct interface *ife) /*, int *opt_a)*/
 {
-	int *opt_a = (int *) cookie;
 	int res;
 
 	res = do_if_fetch(ife);
 	if (res >= 0) {
-		if ((ife->flags & IFF_UP) || *opt_a)
+		if ((ife->flags & IFF_UP) || interface_opt_a)
 			ife_print(ife);
 	}
 	return res;
@@ -1111,38 +1170,113 @@ static struct interface *lookup_interface(char *name)
 	return ife;
 }
 
+#ifdef UNUSED
+static int for_all_interfaces(int (*doit) (struct interface *, void *),
+							  void *cookie)
+{
+	struct interface *ife;
+
+	if (!int_list && (if_readlist() < 0))
+		return -1;
+	for (ife = int_list; ife; ife = ife->next) {
+		int err = doit(ife, cookie);
+
+		if (err)
+			return err;
+	}
+	return 0;
+}
+#endif
+
 /* for ipv4 add/del modes */
 static int if_print(char *ifname)
 {
+	struct interface *ife;
 	int res;
 
 	if (!ifname) {
-		res = for_all_interfaces(do_if_print, &interface_opt_a);
-	} else {
-		struct interface *ife;
-
-		ife = lookup_interface(ifname);
-		res = do_if_fetch(ife);
-		if (res >= 0)
-			ife_print(ife);
+		/*res = for_all_interfaces(do_if_print, &interface_opt_a);*/
+		if (!int_list && (if_readlist() < 0))
+			return -1;
+		for (ife = int_list; ife; ife = ife->next) {
+			int err = do_if_print(ife); /*, &interface_opt_a);*/
+			if (err)
+				return err;
+		}
+		return 0;
 	}
+	ife = lookup_interface(ifname);
+	res = do_if_fetch(ife);
+	if (res >= 0)
+		ife_print(ife);
 	return res;
 }
 
-int display_interfaces(char *ifname);
-int display_interfaces(char *ifname)
+#if ENABLE_FEATURE_HWIB
+/* Input an Infiniband address and convert to binary. */
+int FAST_FUNC in_ib(const char *bufp, struct sockaddr *sap)
+{
+	unsigned char *ptr;
+	char c;
+	const char *orig;
+	int i;
+	unsigned val;
+
+	sap->sa_family = ib_hwtype.type;
+	ptr = (unsigned char *) sap->sa_data;
+
+	i = 0;
+	orig = bufp;
+	while ((*bufp != '\0') && (i < INFINIBAND_ALEN)) {
+		val = 0;
+		c = *bufp++;
+		if (isdigit(c))
+			val = c - '0';
+		else if (c >= 'a' && c <= 'f')
+			val = c - 'a' + 10;
+		else if (c >= 'A' && c <= 'F')
+			val = c - 'A' + 10;
+		else {
+			errno = EINVAL;
+			return -1;
+		}
+		val <<= 4;
+		c = *bufp;
+		if (isdigit(c))
+			val |= c - '0';
+		else if (c >= 'a' && c <= 'f')
+			val |= c - 'a' + 10;
+		else if (c >= 'A' && c <= 'F')
+			val |= c - 'A' + 10;
+		else if (c == ':' || c == 0)
+			val >>= 4;
+		else {
+			errno = EINVAL;
+			return -1;
+		}
+		if (c != 0)
+			bufp++;
+		*ptr++ = (unsigned char) (val & 0377);
+		i++;
+
+		/* We might get a semicolon here - not required. */
+		if (*bufp == ':') {
+			bufp++;
+		}
+	}
+#ifdef DEBUG
+	fprintf(stderr, "in_ib(%s): %s\n", orig, UNSPEC_print(sap->sa_data));
+#endif
+	return 0;
+}
+#endif
+
+
+int FAST_FUNC display_interfaces(char *ifname)
 {
 	int status;
 
-	/* Create a channel to the NET kernel. */
-	if ((skfd = sockets_open(0)) < 0) {
-		bb_perror_msg_and_die("socket");
-	}
-
-	/* Do we have to show the current setup? */
 	status = if_print(ifname);
-#ifdef CONFIG_FEATURE_CLEAN_UP
-	sockets_close();
-#endif
-	exit(status < 0);
+
+	return (status < 0); /* status < 0 == 1 -- error */
 }

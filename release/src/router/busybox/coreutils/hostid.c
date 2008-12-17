@@ -9,17 +9,18 @@
 
 /* BB_AUDIT SUSv3 N/A -- Matches GNU behavior. */
 
-#include <stdlib.h>
-#include <unistd.h>
-#include "busybox.h"
+#include "libbb.h"
 
-int hostid_main(int argc, char ATTRIBUTE_UNUSED **argv)
+/* This is a NOFORK applet. Be very careful! */
+
+int hostid_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
+int hostid_main(int argc, char **argv UNUSED_PARAM)
 {
 	if (argc > 1) {
 		bb_show_usage();
 	}
 
-	bb_printf("%lx\n", gethostid());
+	printf("%lx\n", gethostid());
 
-	bb_fflush_stdout_and_exit(EXIT_SUCCESS);
+	return fflush(stdout);
 }

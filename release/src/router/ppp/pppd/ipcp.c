@@ -1734,8 +1734,9 @@ ipcp_up(f)
 		ipcp_wantoptions[0].ouraddr = go->ouraddr;
 	}
 	
-	LOGX_INFO("IP Address: %d.%d.%d.%d", IP_FMT(go->ouraddr));
-	LOGX_INFO("DNS Address: %d.%d.%d.%d, %d.%d.%d.%d", IP_FMT(go->dnsaddr[0]), IP_FMT(go->dnsaddr[1]));
+	LOGX_NOTICE("Connected.");
+	LOGX_NOTICE("IP Address: %d.%d.%d.%d", IP_FMT(go->ouraddr));
+	LOGX_NOTICE("DNS Address: %d.%d.%d.%d, %d.%d.%d.%d", IP_FMT(go->dnsaddr[0]), IP_FMT(go->dnsaddr[1]));
 
     np_up(f->unit, PPP_IP);
     ipcp_is_up = 1;

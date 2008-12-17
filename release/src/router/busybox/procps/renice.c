@@ -19,89 +19,79 @@
  *   following IDs (if any).  Multiple switches are allowed.
  */
 
-#include "busybox.h"
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <limits.h>
-#include <errno.h>
-#include <unistd.h>
+#include "libbb.h"
 #include <sys/resource.h>
 
-#if (PRIO_PROCESS < CHAR_MIN) || (PRIO_PROCESS > CHAR_MAX)
-#error Assumption violated : PRIO_PROCESS value
-#endif
-#if (PRIO_PGRP < CHAR_MIN) || (PRIO_PGRP > CHAR_MAX)
-#error Assumption violated : PRIO_PGRP value
-#endif
-#if (PRIO_USER < CHAR_MIN) || (PRIO_USER > CHAR_MAX)
-#error Assumption violated : PRIO_USER value
-#endif
+void BUG_bad_PRIO_PROCESS(void);
+void BUG_bad_PRIO_PGRP(void);
+void BUG_bad_PRIO_USER(void);
 
-static inline int int_add_no_wrap(int a, int b)
+int renice_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
+int renice_main(int argc UNUSED_PARAM, char **argv)
 {
-	int s = a + b;
-
-	if (b < 0) {
-		if (s > a) s = INT_MIN;
-	} else {
-		if (s < a) s = INT_MAX;
-	}
-
-	return s;
-}
-
-int renice_main(int argc, char **argv)
-{
-	static const char Xetpriority_msg[] = "%d : %cetpriority";
+	static const char Xetpriority_msg[] ALIGN1 = "%cetpriority";
 
 	int retval = EXIT_SUCCESS;
 	int which = PRIO_PROCESS;	/* Default 'which' value. */
 	int use_relative = 0;
 	int adjustment, new_priority;
-	id_t who;
+	unsigned who;
+	char *arg;
 
-	++argv;
+	/* Yes, they are not #defines in glibc 2.4! #if won't work */
+	if (PRIO_PROCESS < CHAR_MIN || PRIO_PROCESS > CHAR_MAX)
+		BUG_bad_PRIO_PROCESS();
+	if (PRIO_PGRP < CHAR_MIN || PRIO_PGRP > CHAR_MAX)
+		BUG_bad_PRIO_PGRP();
+	if (PRIO_USER < CHAR_MIN || PRIO_USER > CHAR_MAX)
+		BUG_bad_PRIO_USER();
+
+	arg = *++argv;
 
 	/* Check if we are using a relative adjustment. */
-	if (argv[0] && (argv[0][0] == '-') && (argv[0][1] == 'n') && !argv[0][2]) {
+	if (arg && arg[0] == '-' && arg[1] == 'n') {
 		use_relative = 1;
-		++argv;
+		if (!arg[2])
+			arg = *++argv;
+		else
+			arg += 2;
 	}
 
-	if (!*argv) {				/* No args?  Then show usage. */
+	if (!arg) {				/* No args?  Then show usage. */
 		bb_show_usage();
 	}
 
 	/* Get the priority adjustment (absolute or relative). */
-	adjustment = bb_xgetlarg(*argv, 10, INT_MIN, INT_MAX);
+	adjustment = xatoi_range(arg, INT_MIN/2, INT_MAX/2);
 
-	while (*++argv) {
+	while ((arg = *++argv) != NULL) {
 		/* Check for a mode switch. */
-		if ((argv[0][0] == '-') && argv[0][1] && !argv[0][2]) {
-			static const char opts[]
-				= { 'p', 'g', 'u', 0, PRIO_PROCESS, PRIO_PGRP, PRIO_USER };
-			const char *p;
-			if ((p = strchr(opts, argv[0][1]))) {
+		if (arg[0] == '-' && arg[1]) {
+			static const char opts[] ALIGN1 = {
+				'p', 'g', 'u', 0, PRIO_PROCESS, PRIO_PGRP, PRIO_USER
+			};
+			const char *p = strchr(opts, arg[1]);
+			if (p) {
 				which = p[4];
-				continue;
+				if (!arg[2])
+					continue;
+				arg += 2;
 			}
 		}
 
 		/* Process an ID arg. */
 		if (which == PRIO_USER) {
 			struct passwd *p;
-			if (!(p = getpwnam(*argv))) {
-				bb_error_msg("unknown user: %s", *argv);
+			p = getpwnam(arg);
+			if (!p) {
+				bb_error_msg("unknown user %s", arg);
 				goto HAD_ERROR;
 			}
 			who = p->pw_uid;
 		} else {
-			char *e;
-			errno = 0;
-			who = strtoul(*argv, &e, 10);
-			if (*e || (*argv == e) || errno) {
-				bb_error_msg("bad value: %s", *argv);
+			who = bb_strtou(arg, NULL, 10);
+			if (errno) {
+				bb_error_msg("bad value: %s", arg);
 				goto HAD_ERROR;
 			}
 		}
@@ -113,11 +103,11 @@ int renice_main(int argc, char **argv)
 			errno = 0;	 /* Needed for getpriority error detection. */
 			old_priority = getpriority(which, who);
 			if (errno) {
-				bb_perror_msg(Xetpriority_msg, who, 'g');
+				bb_perror_msg(Xetpriority_msg, 'g');
 				goto HAD_ERROR;
 			}
 
-			new_priority = int_add_no_wrap(old_priority, adjustment);
+			new_priority = old_priority + adjustment;
 		} else {
 			new_priority = adjustment;
 		}
@@ -126,8 +116,8 @@ int renice_main(int argc, char **argv)
 			continue;
 		}
 
-		bb_perror_msg(Xetpriority_msg, who, 's');
-	HAD_ERROR:
+		bb_perror_msg(Xetpriority_msg, 's');
+ HAD_ERROR:
 		retval = EXIT_FAILURE;
 	}
 

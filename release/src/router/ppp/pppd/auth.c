@@ -394,7 +394,7 @@ link_terminated(unit)
 	    plogout();
     }
     new_phase(PHASE_DEAD);
-    notice("Connection terminated.");
+    LOGX_NOTICE("Connection terminated.");
 }
 
 /*

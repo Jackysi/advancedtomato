@@ -2,6 +2,7 @@
 # Pattern attributes: ok veryfast fast
 # Protocol groups: p2p obsolete
 # Wiki: http://protocolinfo.org/wiki/Audiogalaxy
+# Copyright (C) 2008 Matthew Strait, Ethan Sommer; See ../LICENSE
 #
 # http://www.movspclr.co.uk/info/agprotocol.html
 #

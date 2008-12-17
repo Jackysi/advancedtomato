@@ -34,17 +34,12 @@
 
 <script type='text/javascript'>
 
-//	<% nvram("lan_ipaddr,dhcp_start,dhcp_num,dhcpd_static"); %>
+//	<% nvram("lan_ipaddr,lan_netmask,dhcpd_static,dhcpd_startip"); %>
 
-if (nvram.lan_ipaddr.match(/^(\d+\.\d+\.\d+)\.(\d+)$/)) {
-	ipp = RegExp.$1 + '.';
-	router = RegExp.$2;
-}
-else {
-	ipp = '?.?.?.';
-	router = '1';
-}
+if (nvram.lan_ipaddr.match(/^(\d+\.\d+\.\d+)\.(\d+)$/)) ipp = RegExp.$1 + '.';
+	else ipp = '?.?.?.';
 
+autonum = aton(nvram.lan_ipaddr) & aton(nvram.lan_netmask);
 
 var sg = new TomatoGrid();
 
@@ -73,15 +68,6 @@ sg.inStatic = function(n)
 	return this.exist(1, n);
 }
 
-sg.inDynamic = function(n)
-{
-	return (n >= (nvram.dhcp_start * 1)) && (n < ((nvram.dhcp_start * 1) + (nvram.dhcp_num * 1)));
-}
-
-sg.dataToView = function(data) {
-	return [data[0], (data[1].indexOf('.') == -1) ? (ipp + data[1]) : data[1], data[2]];
-}
-
 sg.sortCompare = function(a, b) {
 	var da = a.getRowData();
 	var db = b.getRowData();
@@ -91,7 +77,7 @@ sg.sortCompare = function(a, b) {
 		r = cmpText(da[0], db[0]);
 		break;
 	case 1:
-		r = cmpInt(da[1], db[1]);
+		r = cmpIP(da[1], db[1]);
 		break;
 	}
 	if (r == 0) r = cmpText(da[2], db[2]);
@@ -100,70 +86,57 @@ sg.sortCompare = function(a, b) {
 
 sg.verifyFields = function(row, quiet)
 {
-	var ok = 1;
-	var f = fields.getAll(row);
-	var s;
+	var f, s;
 
-	if (v_macz(f[0], quiet)) {
-		if (this.existMAC(f[0].value)) {
-			ferror.set(f[0], 'Duplicate MAC address', quiet);
-			ok = 0;
-		}
-	}
-	else ok = 0;
+	f = fields.getAll(row);
 
-	var fip = f[1].value.indexOf('.') != -1;
-	if (fip) {
-		if (v_ip(f[1], quiet)) {
-			s = f[1].value;
-			if (s.indexOf(ipp) == 0) {
-				f[1].value = s.substring(ipp.length, s.length);
-				fip = 0;
-			}
-		}
+	if (!v_macz(f[0], quiet)) return 0;
+	if (this.existMAC(f[0].value)) {
+		ferror.set(f[0], 'Duplicate MAC address', quiet);
+		return 0;
 	}
-	if (!fip) {
+
+	if (f[1].value.indexOf('.') == -1) {
 		s = parseInt(f[1].value, 10)
 		if (isNaN(s) || (s <= 0) || (s >= 255)) {
 			ferror.set(f[1], 'Invalid IP address', quiet);
-			ok = 0;
+			return 0;
 		}
-		if (this.inStatic(s)) {
-			ferror.set(f[1], 'Duplicate IP address', quiet);
-			ok = 0;
-		}
-		if (ok) f[1].value = s;
+		f[1].value = ipp + s;
+	}
+	
+	if (this.inStatic(f[1].value)) {
+		ferror.set(f[1], 'Duplicate IP address', quiet);
+		return 0;
 	}
 
 	s = f[2].value.trim().replace(/\s+/g, ' ');
 	if (s.length > 0) {
 		if (s.search(/^[.a-zA-Z0-9_\- ]+$/) == -1) {
 			ferror.set(f[2], 'Invalid name. Only characters "A-Z 0-9 . - _" are allowed.', quiet);
-			ok = 0;
+			return 0;
 		}
 		if (this.existName(s)) {
 			ferror.set(f[2], 'Duplicate name.', quiet);
-			ok = 0;
+			return 0;
 		}
-		if (ok) f[2].value = s;
+		f[2].value = s;
 	}
 
-	if (ok) {
-		if (f[0].value == '00:00:00:00:00:00') {
-			if (s == '') {
-				s = 'Both MAC address and name fields must not be empty.';
-				ferror.set(f[0], s, 1);
-				ferror.set(f[2], s, quiet);
-				ok = 0;
-			}
+	if (f[0].value == '00:00:00:00:00:00') {
+		if (s == '') {
+			s = 'Both MAC address and name fields must not be empty.';
+			ferror.set(f[0], s, 1);
+			ferror.set(f[2], s, quiet);
+			return 0;
 		}
 	}
-
-	return ok;
+	
+	return 1;
 }
 
 sg.resetNewEditor = function() {
-	var f, c;
+	var f, c, n;
 
 	f = fields.getAll(this.newEditor);
 	ferror.clearAll(f);
@@ -182,25 +155,16 @@ sg.resetNewEditor = function() {
 	f[0].value = '00:00:00:00:00:00';
 	f[2].value = '';
 
-	var n = f[1].value;
-	if (n.indexOf('.') == -1) {
-		if (n == '') {
-			n = 1;
+	n = 10;
+	do {
+		if (--n < 0) {
+			f[1].value = '';
+			return;
 		}
-		else {
-			n = parseInt(n, 10);
-			if (isNaN(n)) return;
-		}
-		for (var i = 254; i > 0; --i) {
-			if ((!this.inDynamic(n)) && (!this.inStatic(n)) && (n != router)) {
-				f[1].value = ipp + n;
-				return;
-			}
-			++n;
-			if (n > 254) n = 1;
-		}
-		f[1].value = '';
-	}
+		autonum++;
+	} while (((c = fixIP(ntoa(autonum), 1)) == null) || (c == nvram.lan_ipaddr) || (this.inStatic(c)));
+
+	f[1].value = c;
 }
 
 sg.setup = function()
@@ -211,7 +175,10 @@ sg.setup = function()
 	var s = nvram.dhcpd_static.split('>');
 	for (var i = 0; i < s.length; ++i) {
 		var t = s[i].split('<');
-		if (t.length == 3) this.insertData(-1, t);
+		if (t.length == 3) {
+			if (t[1].indexOf('.') == -1) t[1] = ipp + t[1];
+			this.insertData(-1, t);
+		}
 	}
 	this.sort(2);
 	this.showNewEditor();

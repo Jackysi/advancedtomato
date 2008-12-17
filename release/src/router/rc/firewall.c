@@ -579,6 +579,9 @@ int start_firewall(void)
 		}
 		closedir(dir);
 	}
+	
+	if (!nvram_match("syncookies", "0"))
+		f_write_string("/proc/sys/net/ipv4/tcp_syncookies", "1", 0, 0);
 
 	n = nvram_get_int("log_in");
 	chain_in_drop = (n & 1) ? "logdrop" : "DROP";

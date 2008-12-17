@@ -4,20 +4,7 @@
  *
  * Copyright (C) 2003  Manuel Novoa III  <mjn3@codepoet.org>
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
- *
+ * Licensed under GPLv2 or later, see file LICENSE in this tarball for details.
  */
 
 /* BB_AUDIT SUSv3 _NOT_ compliant -- option -m is not currently supported. */
@@ -49,20 +36,14 @@
  * (adapted from example in gnu wc.c)
  *
  *      echo hello > /tmp/testfile &&
- *      (dd ibs=1k skip=1 count=0 &> /dev/null ; wc -c) < /tmp/testfile
+ *      (dd ibs=1k skip=1 count=0 &> /dev/null; wc -c) < /tmp/testfile
  *
  * for which 'wc -c' should output '0'.
  */
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
-#include "busybox.h"
+#include "libbb.h"
 
-#ifdef CONFIG_LOCALE_SUPPORT
-#include <locale.h>
-#include <ctype.h>
+#if ENABLE_LOCALE_SUPPORT
 #define isspace_given_isprint(c) isspace(c)
 #else
 #undef isspace
@@ -72,6 +53,14 @@
 #define isspace_given_isprint(c) ((c) == ' ')
 #endif
 
+#if ENABLE_FEATURE_WC_LARGE
+#define COUNT_T unsigned long long
+#define COUNT_FMT "llu"
+#else
+#define COUNT_T unsigned
+#define COUNT_FMT "u"
+#endif
+
 enum {
 	WC_LINES	= 0,
 	WC_WORDS	= 1,
@@ -79,56 +68,46 @@ enum {
 	WC_LENGTH	= 3
 };
 
-/* Note: If this changes, remember to change the initialization of
- *       'name' in wc_main.  It needs to point to the terminating nul. */
-static const char wc_opts[] = "lwcL";	/* READ THE WARNING ABOVE! */
-
-enum {
-	OP_INC_LINE	= 1, /* OP_INC_LINE must be 1. */
-	OP_SPACE	= 2,
-	OP_NEWLINE	= 4,
-	OP_TAB		= 8,
-	OP_NUL		= 16,
-};
-
-/* Note: If fmt_str changes, the offsets to 's' in the OUTPUT section
- *       will need to be updated. */
-static const char fmt_str[] = " %7u\0 %s\n";
-static const char total_str[] = "total";
-
-int wc_main(int argc, char **argv)
+int wc_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
+int wc_main(int argc UNUSED_PARAM, char **argv)
 {
 	FILE *fp;
-	const char *s;
-	unsigned int *pcounts;
-	unsigned int counts[4];
-	unsigned int totals[4];
-	unsigned int linepos;
-	unsigned int u;
+	const char *s, *arg;
+	const char *start_fmt = " %9"COUNT_FMT + 1;
+	const char *fname_fmt = " %s\n";
+	COUNT_T *pcounts;
+	COUNT_T counts[4];
+	COUNT_T totals[4];
+	unsigned linepos;
+	unsigned u;
 	int num_files = 0;
 	int c;
-	char status = EXIT_SUCCESS;
-	char in_word;
-	char print_type;
+	smallint status = EXIT_SUCCESS;
+	smallint in_word;
+	unsigned print_type;
 
-	print_type = bb_getopt_ulflags(argc, argv, wc_opts);
+	print_type = getopt32(argv, "lwcL");
 
 	if (print_type == 0) {
 		print_type = (1 << WC_LINES) | (1 << WC_WORDS) | (1 << WC_CHARS);
 	}
 
 	argv += optind;
-	if (!*argv) {
+	if (!argv[0]) {
 		*--argv = (char *) bb_msg_standard_input;
+		fname_fmt = "\n";
+		if (!((print_type-1) & print_type)) /* exactly one option? */
+			start_fmt = "%"COUNT_FMT;
 	}
 
 	memset(totals, 0, sizeof(totals));
 
 	pcounts = counts;
 
-	do {
+	while ((arg = *argv++) != 0) {
 		++num_files;
-		if (!(fp = bb_wfopen_input(*argv))) {
+		fp = fopen_or_warn_stdin(arg);
+		if (!fp) {
 			status = EXIT_FAILURE;
 			continue;
 		}
@@ -138,6 +117,8 @@ int wc_main(int argc, char **argv)
 		in_word = 0;
 
 		do {
+			/* Our -w doesn't match GNU wc exactly... oh well */
+
 			++counts[WC_CHARS];
 			c = getc(fp);
 			if (isprint(c)) {
@@ -169,7 +150,7 @@ int wc_main(int argc, char **argv)
 				}
 			} else if (c == EOF) {
 				if (ferror(fp)) {
-					bb_perror_msg("%s", *argv);
+					bb_simple_perror_msg(arg);
 					status = EXIT_FAILURE;
 				}
 				--counts[WC_CHARS];
@@ -190,27 +171,23 @@ int wc_main(int argc, char **argv)
 		}
 		totals[WC_LENGTH] -= counts[WC_LENGTH];
 
-		bb_fclose_nonstdin(fp);
+		fclose_if_not_stdin(fp);
 
 	OUTPUT:
-		s = fmt_str + 1;			/* Skip the leading space on 1st pass. */
+		/* coreutils wc tries hard to print pretty columns
+		 * (saves results for all files, find max col len etc...)
+		 * we won't try that hard, it will bloat us too much */
+		s = start_fmt;
 		u = 0;
 		do {
 			if (print_type & (1 << u)) {
-				bb_printf(s, pcounts[u]);
-				s = fmt_str;		/* Ok... restore the leading space. */
+				printf(s, pcounts[u]);
+				s = " %9"COUNT_FMT; /* Ok... restore the leading space. */
 			}
 			totals[u] += pcounts[u];
 		} while (++u < 4);
-
-		s += 8;						/* Set the format to the empty string. */
-
-		if (*argv != bb_msg_standard_input) {
-			s -= 3;					/* We have a name, so do %s conversion. */
-		}
-		bb_printf(s, *argv);
-
-	} while (*++argv);
+		printf(fname_fmt, arg);
+	}
 
 	/* If more than one file was processed, we want the totals.  To save some
 	 * space, we set the pcounts ptr to the totals array.  This has the side
@@ -218,10 +195,11 @@ int wc_main(int argc, char **argv)
 	 * irrelavent since we no longer need it. */
 	if (num_files > 1) {
 		num_files = 0;				/* Make sure we don't get here again. */
-		*--argv = (char *) total_str;
+		arg = "total";
 		pcounts = totals;
+		--argv;
 		goto OUTPUT;
 	}
 
-	bb_fflush_stdout_and_exit(status);
+	fflush_stdout_and_exit(status);
 }

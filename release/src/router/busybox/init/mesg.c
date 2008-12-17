@@ -7,9 +7,7 @@
  * Licensed under the GPL v2 or later, see the file LICENSE in this tarball.
  */
 
-#include "busybox.h"
-#include <unistd.h>
-#include <stdlib.h>
+#include "libbb.h"
 
 #ifdef USE_TTY_GROUP
 #define S_IWGRP_OR_S_IWOTH	S_IWGRP
@@ -17,31 +15,32 @@
 #define S_IWGRP_OR_S_IWOTH	(S_IWGRP | S_IWOTH)
 #endif
 
-int mesg_main(int argc, char *argv[])
+int mesg_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
+int mesg_main(int argc, char **argv)
 {
 	struct stat sb;
-	char *tty;
+	const char *tty;
 	char c = 0;
 
-	if ((--argc == 0)
-		|| ((argc == 1) && (((c = **++argv) == 'y') || (c == 'n')))) {
-		if ((tty = ttyname(STDERR_FILENO)) == NULL) {
+	if (--argc == 0
+	 || (argc == 1 && ((c = **++argv) == 'y' || c == 'n'))
+	) {
+		tty = ttyname(STDERR_FILENO);
+		if (tty == NULL) {
 			tty = "ttyname";
 		} else if (stat(tty, &sb) == 0) {
+			mode_t m;
 			if (argc == 0) {
-				puts(((sb.st_mode & (S_IWGRP | S_IWOTH)) ==
-					  0) ? "is n" : "is y");
+				puts((sb.st_mode & (S_IWGRP|S_IWOTH)) ? "is y" : "is n");
 				return EXIT_SUCCESS;
 			}
-			if (chmod
-				(tty,
-				 (c ==
-				  'y') ? sb.st_mode | (S_IWGRP_OR_S_IWOTH) : sb.
-				 st_mode & ~(S_IWGRP | S_IWOTH)) == 0) {
+			m = (c == 'y') ? sb.st_mode | S_IWGRP_OR_S_IWOTH
+			               : sb.st_mode & ~(S_IWGRP|S_IWOTH);
+			if (chmod(tty, m) == 0) {
 				return EXIT_SUCCESS;
 			}
 		}
-		bb_perror_msg_and_die("%s", tty);
+		bb_simple_perror_msg_and_die(tty);
 	}
 	bb_show_usage();
 }

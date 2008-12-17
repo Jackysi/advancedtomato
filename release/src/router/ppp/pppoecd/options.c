@@ -65,6 +65,8 @@ char	is_unnumber_ip = 0;	/* This parameter use for unnumber IP. by tallest */
 #endif
 char	ppp_disconnect_func[MAXFUNCLEN]; /* This is a function for dial on demand disconnection using. by tallest 0407 */
 
+int 	logmask = LOG_NOTICE;	// more logging	-- zzz
+
 char *current_option;		/* the name of the option being parsed */
 int  privileged_option;		/* set iff the current option came from root */
 char *option_source;		/* string saying where the option came from */
@@ -93,7 +95,7 @@ parse_args(argc, argv)
     int opt;
     struct in_addr Laddr;	//, Naddr;
 
-    while ((opt = getopt(argc, argv, "dki:u:p:a:s:r:t:U:I:T:P:L:N:RnC:v:")) != -1) {
+    while ((opt = getopt(argc, argv, "dki:u:p:a:s:r:t:U:I:T:P:L:N:RnC:v:x")) != -1) {
 	    switch (opt) {
 	    case 'd':
 		    debug = nodetach = 1;
@@ -166,6 +168,9 @@ parse_args(argc, argv)
 	    case 'v': //by tallest 0407
 			retransmit_time = atoi(optarg);
                     break;
+		case 'x':	// zzz
+			logmask = LOG_INFO;
+			break;
 	    default:
 		    fprintf(stderr, usage_string, argv[0]);
 		    return 0;

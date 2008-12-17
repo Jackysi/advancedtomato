@@ -1,179 +1,180 @@
 /* vi: set sw=4 ts=4: */
 /*
- * Utility routines.
+ * Signal name/number conversion routines.
  *
- * Copyright (C) many different people.
- * If you wrote this, please acknowledge your work.
+ * Copyright 2006 Rob Landley <rob@landley.net>
  *
  * Licensed under GPLv2 or later, see file LICENSE in this tarball for details.
  */
 
-#include <signal.h>
-#include <ctype.h>
-#include <string.h>
-#include <strings.h>
-#include <stdlib.h>
-#include <stdio.h>
-
 #include "libbb.h"
 
-struct signal_name {
-	const char *name;
-	int number;
-};
+/* Believe it or not, but some arches have more than 32 SIGs!
+ * HPPA: SIGSTKFLT == 36. */
 
-static const struct signal_name signames[] = {
-	/* POSIX signals */
-	{ "EXIT",       0 },            /* 0 */
-	{ "HUP",        SIGHUP },       /* 1 */
-	{ "INT",        SIGINT },       /* 2 */
-	{ "QUIT",       SIGQUIT },      /* 3 */
-	{ "ILL",        SIGILL },       /* 4 */
-	{ "ABRT",       SIGABRT },      /* 6 */
-	{ "FPE",        SIGFPE },       /* 8 */
-	{ "KILL",       SIGKILL },      /* 9 */
-	{ "SEGV",       SIGSEGV },      /* 11 */
-	{ "PIPE",       SIGPIPE },      /* 13 */
-	{ "ALRM",       SIGALRM },      /* 14 */
-	{ "TERM",       SIGTERM },      /* 15 */
-	{ "USR1",       SIGUSR1 },      /* 10 (arm,i386,m68k,ppc), 30 (alpha,sparc*), 16 (mips) */
-	{ "USR2",       SIGUSR2 },      /* 12 (arm,i386,m68k,ppc), 31 (alpha,sparc*), 17 (mips) */
-	{ "CHLD",       SIGCHLD },      /* 17 (arm,i386,m68k,ppc), 20 (alpha,sparc*), 18 (mips) */
-	{ "CONT",       SIGCONT },      /* 18 (arm,i386,m68k,ppc), 19 (alpha,sparc*), 25 (mips) */
-	{ "STOP",       SIGSTOP },      /* 19 (arm,i386,m68k,ppc), 17 (alpha,sparc*), 23 (mips) */
-	{ "TSTP",       SIGTSTP },      /* 20 (arm,i386,m68k,ppc), 18 (alpha,sparc*), 24 (mips) */
-	{ "TTIN",       SIGTTIN },      /* 21 (arm,i386,m68k,ppc,alpha,sparc*), 26 (mips) */
-	{ "TTOU",       SIGTTOU },      /* 22 (arm,i386,m68k,ppc,alpha,sparc*), 27 (mips) */
-	/* Miscellaneous other signals */
+static const char signals[][7] = {
+	// SUSv3 says kill must support these, and specifies the numerical values,
+	// http://www.opengroup.org/onlinepubs/009695399/utilities/kill.html
+	// {0, "EXIT"}, {1, "HUP"}, {2, "INT"}, {3, "QUIT"},
+	// {6, "ABRT"}, {9, "KILL"}, {14, "ALRM"}, {15, "TERM"}
+	// And Posix adds the following:
+	// {SIGILL, "ILL"}, {SIGTRAP, "TRAP"}, {SIGFPE, "FPE"}, {SIGUSR1, "USR1"},
+	// {SIGSEGV, "SEGV"}, {SIGUSR2, "USR2"}, {SIGPIPE, "PIPE"}, {SIGCHLD, "CHLD"},
+	// {SIGCONT, "CONT"}, {SIGSTOP, "STOP"}, {SIGTSTP, "TSTP"}, {SIGTTIN, "TTIN"},
+	// {SIGTTOU, "TTOU"}
+
+	[0] = "EXIT",
+#ifdef SIGHUP
+	[SIGHUP   ] = "HUP",
+#endif
+#ifdef SIGINT
+	[SIGINT   ] = "INT",
+#endif
+#ifdef SIGQUIT
+	[SIGQUIT  ] = "QUIT",
+#endif
+#ifdef SIGILL
+	[SIGILL   ] = "ILL",
+#endif
 #ifdef SIGTRAP
-	{ "TRAP",       SIGTRAP },      /* 5 */
+	[SIGTRAP  ] = "TRAP",
 #endif
-#ifdef SIGIOT
-	{ "IOT",        SIGIOT },       /* 6, same as SIGABRT */
-#endif
-#ifdef SIGEMT
-	{ "EMT",        SIGEMT },       /* 7 (mips,alpha,sparc*) */
+#ifdef SIGABRT
+	[SIGABRT  ] = "ABRT",
 #endif
 #ifdef SIGBUS
-	{ "BUS",        SIGBUS },       /* 7 (arm,i386,m68k,ppc), 10 (mips,alpha,sparc*) */
+	[SIGBUS   ] = "BUS",
 #endif
-#ifdef SIGSYS
-	{ "SYS",        SIGSYS },       /* 12 (mips,alpha,sparc*) */
+#ifdef SIGFPE
+	[SIGFPE   ] = "FPE",
+#endif
+#ifdef SIGKILL
+	[SIGKILL  ] = "KILL",
+#endif
+#ifdef SIGUSR1
+	[SIGUSR1  ] = "USR1",
+#endif
+#ifdef SIGSEGV
+	[SIGSEGV  ] = "SEGV",
+#endif
+#ifdef SIGUSR2
+	[SIGUSR2  ] = "USR2",
+#endif
+#ifdef SIGPIPE
+	[SIGPIPE  ] = "PIPE",
+#endif
+#ifdef SIGALRM
+	[SIGALRM  ] = "ALRM",
+#endif
+#ifdef SIGTERM
+	[SIGTERM  ] = "TERM",
 #endif
 #ifdef SIGSTKFLT
-	{ "STKFLT",     SIGSTKFLT },    /* 16 (arm,i386,m68k,ppc) */
+	[SIGSTKFLT] = "STKFLT",
+#endif
+#ifdef SIGCHLD
+	[SIGCHLD  ] = "CHLD",
+#endif
+#ifdef SIGCONT
+	[SIGCONT  ] = "CONT",
+#endif
+#ifdef SIGSTOP
+	[SIGSTOP  ] = "STOP",
+#endif
+#ifdef SIGTSTP
+	[SIGTSTP  ] = "TSTP",
+#endif
+#ifdef SIGTTIN
+	[SIGTTIN  ] = "TTIN",
+#endif
+#ifdef SIGTTOU
+	[SIGTTOU  ] = "TTOU",
 #endif
 #ifdef SIGURG
-	{ "URG",        SIGURG },       /* 23 (arm,i386,m68k,ppc), 16 (alpha,sparc*), 21 (mips) */
-#endif
-#ifdef SIGIO
-	{ "IO",         SIGIO },        /* 29 (arm,i386,m68k,ppc), 23 (alpha,sparc*), 22 (mips) */
-#endif
-#ifdef SIGPOLL
-	{ "POLL",       SIGPOLL },      /* same as SIGIO */
-#endif
-#ifdef SIGCLD
-	{ "CLD",        SIGCLD },       /* same as SIGCHLD (mips) */
+	[SIGURG   ] = "URG",
 #endif
 #ifdef SIGXCPU
-	{ "XCPU",       SIGXCPU },      /* 24 (arm,i386,m68k,ppc,alpha,sparc*), 30 (mips) */
+	[SIGXCPU  ] = "XCPU",
 #endif
 #ifdef SIGXFSZ
-	{ "XFSZ",       SIGXFSZ },      /* 25 (arm,i386,m68k,ppc,alpha,sparc*), 31 (mips) */
+	[SIGXFSZ  ] = "XFSZ",
 #endif
 #ifdef SIGVTALRM
-	{ "VTALRM",     SIGVTALRM },    /* 26 (arm,i386,m68k,ppc,alpha,sparc*), 28 (mips) */
+	[SIGVTALRM] = "VTALRM",
 #endif
 #ifdef SIGPROF
-	{ "PROF",       SIGPROF },      /* 27 (arm,i386,m68k,ppc,alpha,sparc*), 29 (mips) */
-#endif
-#ifdef SIGPWR
-	{ "PWR",        SIGPWR },       /* 30 (arm,i386,m68k,ppc), 29 (alpha,sparc*), 19 (mips) */
-#endif
-#ifdef SIGINFO
-	{ "INFO",       SIGINFO },      /* 29 (alpha) */
-#endif
-#ifdef SIGLOST
-	{ "LOST",       SIGLOST },      /* 29 (arm,i386,m68k,ppc,sparc*) */
+	[SIGPROF  ] = "PROF",
 #endif
 #ifdef SIGWINCH
-	{ "WINCH",      SIGWINCH },     /* 28 (arm,i386,m68k,ppc,alpha,sparc*), 20 (mips) */
+	[SIGWINCH ] = "WINCH",
 #endif
-#ifdef SIGUNUSED
-	{ "UNUSED",     SIGUNUSED },    /* 31 (arm,i386,m68k,ppc) */
+#ifdef SIGPOLL
+	[SIGPOLL  ] = "POLL",
 #endif
-	{0, 0}
+#ifdef SIGPWR
+	[SIGPWR   ] = "PWR",
+#endif
+#ifdef SIGSYS
+	[SIGSYS   ] = "SYS",
+#endif
 };
 
-/*
-	if str_sig == NULL returned signal name [*signo],
-	if str_sig != NULL - set *signo from signal_name,
-		findings with digit number or with or without SIG-prefix name
+// Convert signal name to number.
 
-	if startnum=0 flag for support finding zero signal,
-		but str_sig="0" always found, (hmm - standart or realize?)
-	if startnum<0 returned reverse signal_number  <-> signal_name
-	if found error - returned NULL
-
-*/
-
-const char *
-u_signal_names(const char *str_sig, int *signo, int startnum)
+int FAST_FUNC get_signum(const char *name)
 {
-	static char retstr[16];
-	const struct signal_name *s = signames;
-	static const char prefix[] = "SIG";
-	const char *sptr;
+	unsigned i;
 
-	if(startnum)
-		s++;
-	if(str_sig==NULL) {
-		while (s->name != 0) {
-			if(s->number == *signo)
-				break;
-			s++;
-		}
-	} else {
-		if (isdigit(((unsigned char)*str_sig))) {
-			char *endp;
-			long int sn = strtol(str_sig, &endp, 10);
-			/* test correct and overflow */
-			if(*endp == 0 && sn >= 0 && sn < NSIG) {
-				*signo = (int)sn;
-				/* test for unnamed */
-				sptr = u_signal_names(0, signo, 0);
-				if(sptr==NULL)
-					return NULL;
-				if(sn!=0)
-					sptr += 3;
-				return sptr;
-			}
-		} else {
-			sptr = str_sig;
-			while (s->name != 0) {
-				if (strcasecmp(s->name, sptr) == 0) {
-					*signo = s->number;
-					if(startnum<0) {
-						sprintf(retstr, "%d", *signo);
-						return retstr;
-					}
-					break;
-				}
-				if(s!=signames && sptr == str_sig &&
-						strncasecmp(sptr, prefix, 3) == 0) {
-					sptr += 3;      /* strlen(prefix) */
-					continue;
-				}
-				sptr = str_sig;
-				s++;
-			}
-		}
+	i = bb_strtou(name, NULL, 10);
+	if (!errno)
+		return i;
+	if (strncasecmp(name, "SIG", 3) == 0)
+		name += 3;
+	for (i = 0; i < ARRAY_SIZE(signals); i++)
+		if (strcasecmp(name, signals[i]) == 0)
+			return i;
+
+#if ENABLE_DESKTOP && (defined(SIGIOT) || defined(SIGIO))
+	/* SIGIO[T] are aliased to other names,
+	 * thus cannot be stored in the signals[] array.
+	 * Need special code to recognize them */
+	if ((name[0] | 0x20) == 'i' && (name[1] | 0x20) == 'o') {
+#ifdef SIGIO
+		if (!name[2])
+			return SIGIO;
+#endif
+#ifdef SIGIOT
+		if ((name[2] | 0x20) == 't' && !name[3])
+			return SIGIOT;
+#endif
 	}
-	if(s->name==0)
-		return NULL;
-	if(s!=signames)
-		strcpy(retstr, prefix);
-	 else
-		retstr[0] = 0;
-	return strcat(retstr, s->name);
+#endif
+
+	return -1;
+}
+
+// Convert signal number to name
+
+const char* FAST_FUNC get_signame(int number)
+{
+	if ((unsigned)number < ARRAY_SIZE(signals)) {
+		if (signals[number][0]) /* if it's not an empty str */
+			return signals[number];
+	}
+
+	return itoa(number);
+}
+
+
+// Print the whole signal list
+
+void FAST_FUNC print_signames(void)
+{
+	unsigned signo;
+
+	for (signo = 1; signo < ARRAY_SIZE(signals); signo++) {
+		const char *name = signals[signo];
+		if (name[0])
+			puts(name);
+	}
 }

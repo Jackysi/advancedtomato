@@ -20,26 +20,31 @@
  *
  */
 
-#include <errno.h>
-#include <sys/stat.h>
 #include "libbb.h"
 #include "coreutils.h"
 
-int cp_mv_stat2(const char *fn, struct stat *fn_stat, stat_func sf)
+int FAST_FUNC cp_mv_stat2(const char *fn, struct stat *fn_stat, stat_func sf)
 {
 	if (sf(fn, fn_stat) < 0) {
 		if (errno != ENOENT) {
-			bb_perror_msg("unable to stat `%s'", fn);
+#if ENABLE_FEATURE_VERBOSE_CP_MESSAGE
+			if (errno == ENOTDIR) {
+				bb_error_msg("cannot stat '%s': Path has non-directory component", fn);
+				return -1;
+			}
+#endif
+			bb_perror_msg("cannot stat '%s'", fn);
 			return -1;
 		}
 		return 0;
-	} else if (S_ISDIR(fn_stat->st_mode)) {
+	}
+	if (S_ISDIR(fn_stat->st_mode)) {
 		return 3;
 	}
 	return 1;
 }
 
-int cp_mv_stat(const char *fn, struct stat *fn_stat)
+int FAST_FUNC cp_mv_stat(const char *fn, struct stat *fn_stat)
 {
 	return cp_mv_stat2(fn, fn_stat, stat);
 }

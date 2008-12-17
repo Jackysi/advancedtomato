@@ -1,23 +1,11 @@
+/* vi: set sw=4 ts=4: */
 /*
  * Calendar implementation for busybox
  *
  * See original copyright at the end of this file
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
- *
-*/
+ * Licensed under GPLv2 or later, see file LICENSE in this tarball for details.
+ */
 
 /* BB_AUDIT SUSv3 compliant with -j and -y extensions (from util-linux). */
 /* BB_AUDIT BUG: The output of 'cal -j 1752' is incorrect.  The upstream
@@ -29,19 +17,9 @@
  * Major size reduction... over 50% (>1.5k) on i386.
  */
 
-#include <sys/types.h>
-#include <ctype.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <time.h>
-#include <unistd.h>
+#include "libbb.h"
 
-#include "busybox.h"
-
-#ifdef CONFIG_LOCALE_SUPPORT
-#include <locale.h>
-#endif
+/* We often use "unsigned" intead of "int", it's easier to div on most CPUs */
 
 #define	THURSDAY		4		/* for reformation */
 #define	SATURDAY		6		/* 1 Jan 1 was a Saturday */
@@ -52,29 +30,26 @@
 #define	MAXDAYS			42		/* max slots in a month array */
 #define	SPACE			-1		/* used in day array */
 
-static const char days_in_month[] = {
+static const unsigned char days_in_month[] ALIGN1 = {
 	0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31
 };
 
-static const char sep1752[] = {
-	         1,	2,	14,	15,	16,
+static const unsigned char sep1752[] ALIGN1 = {
+		 1,	2,	14,	15,	16,
 	17,	18,	19,	20,	21,	22,	23,
 	24,	25,	26,	27,	28,	29,	30
 };
 
-static int julian;
+/* Set to 0 or 1 in main */
+#define julian ((unsigned)option_mask32)
 
 /* leap year -- account for Gregorian reformation in 1752 */
-#define	leap_year(yr) \
-	((yr) <= 1752 ? !((yr) % 4) : \
-	(!((yr) % 4) && ((yr) % 100)) || !((yr) % 400))
-
-static int is_leap_year(int year)
+static int leap_year(unsigned yr)
 {
-	return leap_year(year);
+	if (yr <= 1752)
+		return !(yr % 4);
+	return (!(yr % 4) && (yr % 100)) || !(yr % 400);
 }
-#undef leap_year
-#define leap_year(yr) is_leap_year(yr)
 
 /* number of centuries since 1700, not inclusive */
 #define	centuries_since_1700(yr) \
@@ -88,12 +63,12 @@ static int is_leap_year(int year)
 #define	leap_years_since_year_1(yr) \
 	((yr) / 4 - centuries_since_1700(yr) + quad_centuries_since_1700(yr))
 
-static void center (char *, int, int);
-static void day_array (int, int, int *);
-static void trim_trailing_spaces_and_print (char *);
+static void center(char *, unsigned, unsigned);
+static void day_array(unsigned, unsigned, unsigned *);
+static void trim_trailing_spaces_and_print(char *);
 
 static void blank_string(char *buf, size_t buflen);
-static char *build_row(char *p, int *dp);
+static char *build_row(char *p, unsigned *dp);
 
 #define	DAY_LEN		3		/* 3 spaces per day */
 #define	J_DAY_LEN	(DAY_LEN + 1)
@@ -101,29 +76,25 @@ static char *build_row(char *p, int *dp);
 #define	J_WEEK_LEN	(WEEK_LEN + 7)
 #define	HEAD_SEP	2		/* spaces between day headings */
 
+int cal_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
 int cal_main(int argc, char **argv)
 {
 	struct tm *local_time;
 	struct tm zero_tm;
 	time_t now;
-	int month, year, flags, i;
+	unsigned month, year, flags, i;
 	char *month_names[12];
 	char day_headings[28];	/* 28 for julian, 21 for nonjulian */
 	char buf[40];
 
-#ifdef CONFIG_LOCALE_SUPPORT
-	setlocale(LC_TIME, "");
-#endif
-
-	flags = bb_getopt_ulflags(argc, argv, "jy");
-
-	julian = flags & 1;
-
-	argv += optind;
-
+	flags = getopt32(argv, "jy");
+	/* This sets julian = flags & 1: */
+	option_mask32 &= 1;
 	month = 0;
+	argv += optind;
+	argc -= optind;
 
-	if ((argc -= optind) > 2) {
+	if (argc > 2) {
 		bb_show_usage();
 	}
 
@@ -131,23 +102,23 @@ int cal_main(int argc, char **argv)
 		time(&now);
 		local_time = localtime(&now);
 		year = local_time->tm_year + 1900;
-		if (!(flags & 2)) {
+		if (!(flags & 2)) { /* no -y */
 			month = local_time->tm_mon + 1;
 		}
 	} else {
 		if (argc == 2) {
-			month = bb_xgetularg10_bnd(*argv++, 1, 12);
+			month = xatou_range(*argv++, 1, 12);
 		}
-		year = bb_xgetularg10_bnd(*argv, 1, 9999);
+		year = xatou_range(*argv, 1, 9999);
 	}
 
-	blank_string(day_headings, sizeof(day_headings) - 7 +  7*julian);
+	blank_string(day_headings, sizeof(day_headings) - 7 + 7*julian);
 
 	i = 0;
 	do {
 		zero_tm.tm_mon = i;
 		strftime(buf, sizeof(buf), "%B", &zero_tm);
-		month_names[i] = bb_xstrdup(buf);
+		month_names[i] = xstrdup(buf);
 
 		if (i < 7) {
 			zero_tm.tm_wday = i;
@@ -157,13 +128,13 @@ int cal_main(int argc, char **argv)
 	} while (++i < 12);
 
 	if (month) {
-		int row, len, days[MAXDAYS];
-		int *dp = days;
+		unsigned row, len, days[MAXDAYS];
+		unsigned *dp = days;
 		char lineout[30];
 
 		day_array(month, year, dp);
 		len = sprintf(lineout, "%s %d", month_names[month - 1], year);
-		bb_printf("%*s%s\n%s\n",
+		printf("%*s%s\n%s\n",
 			   ((7*julian + WEEK_LEN) - len) / 2, "",
 			   lineout, day_headings);
 		for (row = 0; row < 6; row++) {
@@ -172,8 +143,8 @@ int cal_main(int argc, char **argv)
 			trim_trailing_spaces_and_print(lineout);
 		}
 	} else {
-		int row, which_cal, week_len, days[12][MAXDAYS];
-		int *dp;
+		unsigned row, which_cal, week_len, days[12][MAXDAYS];
+		unsigned *dp;
 		char lineout[80];
 
 		sprintf(lineout, "%d", year);
@@ -194,11 +165,11 @@ int cal_main(int argc, char **argv)
 				center(month_names[month + 1], week_len, HEAD_SEP);
 			}
 			center(month_names[month + 2 - julian], week_len, 0);
-			bb_printf("\n%s%*s%s", day_headings, HEAD_SEP, "", day_headings);
+			printf("\n%s%*s%s", day_headings, HEAD_SEP, "", day_headings);
 			if (!julian) {
-				bb_printf("%*s%s", HEAD_SEP, "", day_headings);
+				printf("%*s%s", HEAD_SEP, "", day_headings);
 			}
-			putchar('\n');
+			bb_putchar('\n');
 			for (row = 0; row < (6*7); row += 7) {
 				for (which_cal = 0; which_cal < 3-julian; which_cal++) {
 					dp = days[month + which_cal] + row;
@@ -210,7 +181,7 @@ int cal_main(int argc, char **argv)
 		}
 	}
 
-	bb_fflush_stdout_and_exit(0);
+	fflush_stdout_and_exit(EXIT_SUCCESS);
 }
 
 /*
@@ -220,19 +191,21 @@ int cal_main(int argc, char **argv)
  *	out end to end.  You would have 42 numbers or spaces.  This routine
  *	builds that array for any month from Jan. 1 through Dec. 9999.
  */
-static void day_array(int month, int year, int *days)
+static void day_array(unsigned month, unsigned year, unsigned *days)
 {
-	long temp;
-	int i;
-	int j_offset;
-	int day, dw, dm;
+	unsigned long temp;
+	unsigned i;
+	unsigned day, dw, dm;
 
 	memset(days, SPACE, MAXDAYS * sizeof(int));
 
 	if ((month == 9) && (year == 1752)) {
+		/* Assumes the Gregorian reformation eliminates
+		 * 3 Sep. 1752 through 13 Sep. 1752.
+		 */
+		unsigned j_offset = julian * 244;
 		size_t oday = 0;
-		
-		j_offset = julian * 244;
+
 		do {
 			days[oday+2] = sep1752[oday] + j_offset;
 		} while (++oday < sizeof(sep1752));
@@ -241,7 +214,7 @@ static void day_array(int month, int year, int *days)
 	}
 
 	/* day_in_year
-	 *	return the 1 based day number within the year
+	 * return the 1 based day number within the year
 	 */
 	day = 1;
 	if ((month > 2) && leap_year(year)) {
@@ -254,17 +227,15 @@ static void day_array(int month, int year, int *days)
 	}
 
 	/* day_in_week
-	 *	return the 0 based day number for any date from 1 Jan. 1 to
-	 *	31 Dec. 9999.  Assumes the Gregorian reformation eliminates
-	 *	3 Sep. 1752 through 13 Sep. 1752.  Returns Thursday for all
-	 *	missing days.
+	 * return the 0 based day number for any date from 1 Jan. 1 to
+	 * 31 Dec. 9999.  Assumes the Gregorian reformation eliminates
+	 * 3 Sep. 1752 through 13 Sep. 1752.  Returns Thursday for all
+	 * missing days.
 	 */
-	dw = THURSDAY;
-	temp = (long)(year - 1) * 365 + leap_years_since_year_1(year - 1)
-		+ day;
+	temp = (long)(year - 1) * 365 + leap_years_since_year_1(year - 1) + day;
 	if (temp < FIRST_MISSING_DAY) {
 		dw = ((temp - 1 + SATURDAY) % 7);
-	} else if (temp >= (FIRST_MISSING_DAY + NUMBER_MISSING_DAYS)) {
+	} else {
 		dw = (((temp - 1 + SATURDAY) - NUMBER_MISSING_DAYS) % 7);
 	}
 
@@ -277,10 +248,9 @@ static void day_array(int month, int year, int *days)
 		++dm;
 	}
 
-	while (dm) {
+	do {
 		days[dw++] = day++;
-		--dm;
-	}
+	} while (--dm);
 }
 
 static void trim_trailing_spaces_and_print(char *s)
@@ -290,7 +260,7 @@ static void trim_trailing_spaces_and_print(char *s)
 	while (*p) {
 		++p;
 	}
-	while (p > s) {
+	while (p != s) {
 		--p;
 		if (!(isspace)(*p)) {	/* We want the function... not the inline. */
 			p[1] = '\0';
@@ -301,11 +271,11 @@ static void trim_trailing_spaces_and_print(char *s)
 	puts(s);
 }
 
-static void center(char *str, int len, int separate)
+static void center(char *str, unsigned len, unsigned separate)
 {
-	int n = strlen(str);
+	unsigned n = strlen(str);
 	len -= n;
-	bb_printf("%*s%*s", (len/2) + n, str, (len/2) + (len % 2) + separate, "");
+	printf("%*s%*s", (len/2) + n, str, (len/2) + (len % 2) + separate, "");
 }
 
 static void blank_string(char *buf, size_t buflen)
@@ -314,15 +284,16 @@ static void blank_string(char *buf, size_t buflen)
 	buf[buflen-1] = '\0';
 }
 
-static char *build_row(char *p, int *dp)
+static char *build_row(char *p, unsigned *dp)
 {
-	int col, val, day;
+	unsigned col, val, day;
 
 	memset(p, ' ', (julian + DAY_LEN) * 7);
 
 	col = 0;
 	do {
-		if ((day = *dp++) != SPACE) {
+		day = *dp++;
+		if (day != SPACE) {
 			if (julian) {
 				++p;
 				if (day >= 100) {
@@ -331,7 +302,8 @@ static char *build_row(char *p, int *dp)
 					day %= 100;
 				}
 			}
-			if ((val = day / 10) > 0) {
+			val = day / 10;
+			if (val > 0) {
 				*p = val + '0';
 			}
 			*++p = day % 10 + '0';
@@ -375,5 +347,3 @@ static char *build_row(char *p, int *dp)
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  */
-
-

@@ -4,19 +4,7 @@
  *
  * Copyright (C) 1999-2004 by Erik Andersen <andersen@codepoet.org>
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+ * Licensed under GPLv2 or later, see file LICENSE in this tarball for details.
  *
  */
 
@@ -32,11 +20,11 @@
  * 3) Save some space by using strcmp().  Calling strncmp() here was silly.
  */
 
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
-#include "busybox.h"
+#include "libbb.h"
 
+/* This is a NOFORK applet. Be very careful! */
+
+int basename_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
 int basename_main(int argc, char **argv)
 {
 	size_t m, n;
@@ -46,17 +34,19 @@ int basename_main(int argc, char **argv)
 		bb_show_usage();
 	}
 
-	s = bb_get_last_path_component(*++argv);
+	/* It should strip slash: /abc/def/ -> def */
+	s = bb_get_last_path_component_strip(*++argv);
 
+	m = strlen(s);
 	if (*++argv) {
 		n = strlen(*argv);
-		m = strlen(s);
 		if ((m > n) && ((strcmp)(s+m-n, *argv) == 0)) {
-			s[m-n] = '\0';
+			m -= n;
+			/*s[m] = '\0'; - redundant */
 		}
 	}
 
-	puts(s);
-
-	bb_fflush_stdout_and_exit(EXIT_SUCCESS);
+	/* puts(s) will do, but we can do without stdio this way: */
+	s[m++] = '\n';
+	return full_write(STDOUT_FILENO, s, m) != (ssize_t)m;
 }

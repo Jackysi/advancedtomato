@@ -116,6 +116,10 @@ int buttons_main(int argc, char *argv[])
 		reset_mask = reset_pushed = 1 << 0;
 		ses_mask = ses_pushed = 1 << 4;
 		break;
+	case MODEL_WL520GU:
+		reset_mask = 1 << 2;
+		ses_mask = 1 << 3;
+		break;		
 //	case MODEL_MN700:
 //?		reset_mask = reset_pushed = 1 << 7;
 //		break;

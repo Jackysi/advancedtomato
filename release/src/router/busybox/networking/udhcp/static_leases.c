@@ -1,3 +1,4 @@
+/* vi: set sw=4 ts=4: */
 /*
  * static_leases.c -- Couple of functions to assist with storing and
  * retrieving data for static leases
@@ -6,20 +7,15 @@
  *
  */
 
-
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
-
-#include "static_leases.h"
+#include "common.h"
 #include "dhcpd.h"
+
 
 /* Takes the address of the pointer to the static_leases linked list,
  *   Address to a 6 byte mac address
  *   Address to a 4 byte ip address */
 int addStaticLease(struct static_lease **lease_struct, uint8_t *mac, uint32_t *ip)
 {
-
 	struct static_lease *cur;
 	struct static_lease *new_static_lease;
 
@@ -30,15 +26,11 @@ int addStaticLease(struct static_lease **lease_struct, uint8_t *mac, uint32_t *i
 	new_static_lease->next = NULL;
 
 	/* If it's the first node to be added... */
-	if(*lease_struct == NULL)
-	{
+	if (*lease_struct == NULL) {
 		*lease_struct = new_static_lease;
-	}
-	else
-	{
+	} else {
 		cur = *lease_struct;
-		while(cur->next != NULL)
-		{
+		while (cur->next) {
 			cur = cur->next;
 		}
 
@@ -46,7 +38,6 @@ int addStaticLease(struct static_lease **lease_struct, uint8_t *mac, uint32_t *i
 	}
 
 	return 1;
-
 }
 
 /* Check to see if a mac has an associated static lease */
@@ -58,11 +49,9 @@ uint32_t getIpByMac(struct static_lease *lease_struct, void *arg)
 
 	return_ip = 0;
 
-	while(cur != NULL)
-	{
+	while (cur) {
 		/* If the client has the correct mac  */
-		if(memcmp(cur->mac, mac, 6) == 0)
-		{
+		if (memcmp(cur->mac, mac, 6) == 0) {
 			return_ip = *(cur->ip);
 		}
 
@@ -70,7 +59,6 @@ uint32_t getIpByMac(struct static_lease *lease_struct, void *arg)
 	}
 
 	return return_ip;
-
 }
 
 /* Check to see if an ip is reserved as a static ip */
@@ -80,20 +68,18 @@ uint32_t reservedIp(struct static_lease *lease_struct, uint32_t ip)
 
 	uint32_t return_val = 0;
 
-	while(cur != NULL)
-	{
+	while (cur) {
 		/* If the client has the correct ip  */
-		if(*cur->ip == ip)
+		if (*cur->ip == ip)
 			return_val = 1;
 
 		cur = cur->next;
 	}
 
 	return return_val;
-
 }
 
-#ifdef CONFIG_FEATURE_UDHCP_DEBUG
+#if ENABLE_FEATURE_UDHCP_DEBUG
 /* Print out static leases just to check what's going on */
 /* Takes the address of the pointer to the static_leases linked list */
 void printStaticLeases(struct static_lease **arg)
@@ -101,8 +87,7 @@ void printStaticLeases(struct static_lease **arg)
 	/* Get a pointer to the linked list */
 	struct static_lease *cur = *arg;
 
-	while(cur != NULL)
-	{
+	while (cur) {
 		/* printf("PrintStaticLeases: Lease mac Address: %x\n", cur->mac); */
 		printf("PrintStaticLeases: Lease mac Value: %x\n", *(cur->mac));
 		/* printf("PrintStaticLeases: Lease ip Address: %x\n", cur->ip); */
@@ -110,10 +95,5 @@ void printStaticLeases(struct static_lease **arg)
 
 		cur = cur->next;
 	}
-
-
 }
 #endif
-
-
-
