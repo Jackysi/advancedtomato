@@ -713,7 +713,7 @@ static const nvset_t nvset_list[] = {
 	{ "vpn_client1_bridge", V_01                },
 	{ "vpn_client1_nat",    V_01                },
 	{ "vpn_client1_proto",  V_TEXT(3, 10)       },  // udp, tcp-server
-	{ "vpn_client1_addr",   V_TEXT(0, 32)       },
+	{ "vpn_client1_addr",   V_NONE              },
 	{ "vpn_client1_port",   V_PORT              },
 	{ "vpn_client1_retry",  V_RANGE(-1,32767)   },  // -1 infinite, 0 disabled, >= 1 custom
 	{ "vpn_client1_crypt",  V_TEXT(0, 6)        },  // tls, secret, custom
@@ -732,7 +732,7 @@ static const nvset_t nvset_list[] = {
 	{ "vpn_client2_bridge", V_01                },
 	{ "vpn_client2_nat",    V_01                },
 	{ "vpn_client2_proto",  V_TEXT(3, 10)       },  // udp, tcp-server
-	{ "vpn_client2_addr",   V_TEXT(0, 32)       },
+	{ "vpn_client2_addr",   V_NONE              },
 	{ "vpn_client2_port",   V_PORT              },
 	{ "vpn_client2_retry",  V_RANGE(-1,32767)   },  // -1 infinite, 0 disabled, >= 1 custom
 	{ "vpn_client2_crypt",  V_TEXT(0, 6)        },  // tls, secret, custom
