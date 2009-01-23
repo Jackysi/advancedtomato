@@ -1,0 +1,383 @@
+./belkin_sa.o: ./belkin_sa.c \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/kernel.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/errno.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/init.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/slab.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/tty.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/tty_driver.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/tty_flip.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/module.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/spinlock.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/asm/uaccess.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/usb.h \
+   $(wildcard /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/config/usb/serial/debug.h) \
+   usb-serial.h \
+   belkin_sa.h
+./pl2303.o: ./pl2303.c \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/kernel.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/errno.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/init.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/slab.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/tty.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/tty_driver.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/tty_flip.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/serial.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/module.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/spinlock.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/asm/uaccess.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/usb.h \
+   $(wildcard /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/config/usb/serial/debug.h) \
+   usb-serial.h \
+   pl2303.h
+./keyspan_pda.o: ./keyspan_pda.c \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/kernel.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/errno.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/init.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/slab.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/tty.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/tty_driver.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/tty_flip.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/module.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/spinlock.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/tqueue.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/asm/uaccess.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/usb.h \
+   $(wildcard /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/config/usb/serial/debug.h) \
+   $(wildcard /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/config/usb/serial/keyspan/pda.h) \
+   $(wildcard /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/config/usb/serial/keyspan/pda/module.h) \
+   $(wildcard /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/config/usb/serial/xircom.h) \
+   $(wildcard /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/config/usb/serial/xircom/module.h) \
+   keyspan_pda_fw.h \
+   xircom_pgs_fw.h \
+   usb-serial.h
+./ipaq.o: ./ipaq.c \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/kernel.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/errno.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/init.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/slab.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/tty.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/tty_driver.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/tty_flip.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/module.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/spinlock.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/asm/uaccess.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/usb.h \
+   $(wildcard /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/config/usb/serial/debug.h) \
+   usb-serial.h \
+   ipaq.h
+./keyspan.o: ./keyspan.c \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/kernel.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/errno.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/init.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/slab.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/tty.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/tty_driver.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/tty_flip.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/module.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/spinlock.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/asm/uaccess.h \
+   $(wildcard /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/config/usb/serial/debug.h) \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/usb.h \
+   usb-serial.h \
+   keyspan.h \
+   keyspan_usa26msg.h \
+   keyspan_usa28msg.h \
+   keyspan_usa49msg.h \
+   keyspan_usa90msg.h
+./visor.o: ./visor.c \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/kernel.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/errno.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/init.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/slab.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/tty.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/tty_driver.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/tty_flip.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/module.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/spinlock.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/asm/uaccess.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/usb.h \
+   $(wildcard /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/config/usb/serial/debug.h) \
+   usb-serial.h \
+   visor.h
+./kobil_sct.o: ./kobil_sct.c \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/kernel.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/errno.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/init.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/slab.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/tty.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/tty_driver.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/tty_flip.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/module.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/spinlock.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/asm/uaccess.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/usb.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/ioctl.h \
+   kobil_sct.h \
+   $(wildcard /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/config/usb/serial/debug.h) \
+   usb-serial.h
+./empeg.o: ./empeg.c \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/kernel.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/errno.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/init.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/slab.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/tty.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/tty_driver.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/tty_flip.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/module.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/spinlock.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/asm/uaccess.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/usb.h \
+   $(wildcard /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/config/usb/serial/debug.h) \
+   usb-serial.h
+./whiteheat.o: ./whiteheat.c \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/kernel.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/errno.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/init.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/slab.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/tty.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/tty_driver.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/tty_flip.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/module.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/spinlock.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/asm/uaccess.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/usb.h \
+   $(wildcard /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/config/usb/serial/debug.h) \
+   usb-serial.h \
+   whiteheat_fw.h \
+   whiteheat.h
+./io_edgeport.o: ./io_edgeport.c \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/kernel.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/errno.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/init.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/slab.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/tty.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/tty_driver.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/tty_flip.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/module.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/spinlock.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/serial.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/ioctl.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/asm/uaccess.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/usb.h \
+   $(wildcard /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/config/usb/serial/debug.h) \
+   usb-serial.h \
+   io_edgeport.h \
+   io_ionsp.h \
+   io_16654.h \
+   io_fw_boot.h \
+   io_fw_boot2.h \
+   io_fw_down.h \
+   io_fw_down2.h \
+   io_tables.h
+./omninet.o: ./omninet.c \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/kernel.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/errno.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/init.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/slab.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/tty.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/tty_driver.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/tty_flip.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/module.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/spinlock.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/asm/uaccess.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/usb.h \
+   $(wildcard /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/config/usb/serial/debug.h) \
+   usb-serial.h
+./cyberjack.o: ./cyberjack.c \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/kernel.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/errno.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/init.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/slab.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/tty.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/tty_driver.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/tty_flip.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/module.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/spinlock.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/asm/uaccess.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/usb.h \
+   $(wildcard /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/config/usb/serial/debug.h) \
+   usb-serial.h
+./usb-serial.h: \
+   $(wildcard /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/config/usb/serial/keyspan/pda.h) \
+   $(wildcard /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/config/usb/serial/keyspan/pda/module.h) \
+   $(wildcard /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/config/usb/serial/xircom.h) \
+   $(wildcard /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/config/usb/serial/xircom/module.h) \
+   $(wildcard /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/config/usb/serial/keyspan.h) \
+   $(wildcard /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/config/usb/serial/keyspan/module.h) \
+   $(wildcard /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/config/usb/serial/whiteheat.h) \
+   $(wildcard /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/config/usb/serial/whiteheat/module.h)
+	@touch ./usb-serial.h
+./io_edgeport.h: \
+   io_usbvend.h
+	@touch ./io_edgeport.h
+./usbserial.o: ./usbserial.c \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/kernel.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/sched.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/signal.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/errno.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/poll.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/init.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/slab.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/fcntl.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/tty.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/tty_driver.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/tty_flip.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/module.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/spinlock.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/list.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/smp_lock.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/usb.h \
+   $(wildcard /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/config/usb/serial/debug.h) \
+   usb-serial.h \
+   pl2303.h \
+   $(wildcard /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/config/usb/serial/generic.h) \
+   $(wildcard /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/config/usb/serial/pl2303.h) \
+   $(wildcard /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/config/usb/serial/pl2303/module.h) \
+   $(wildcard /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/config/devfs/fs.h)
+./ftdi_sio.o: ./ftdi_sio.c \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/kernel.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/errno.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/init.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/slab.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/tty.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/tty_driver.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/tty_flip.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/module.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/spinlock.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/asm/uaccess.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/usb.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/serial.h \
+   $(wildcard /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/config/usb/serial/debug.h) \
+   usb-serial.h \
+   ftdi_sio.h
+./keyspan.h: \
+   $(wildcard /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/config/usb/serial/keyspan/usa28.h) \
+   keyspan_usa28_fw.h \
+   $(wildcard /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/config/usb/serial/keyspan/usa28x.h) \
+   keyspan_usa28x_fw.h \
+   $(wildcard /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/config/usb/serial/keyspan/usa28xa.h) \
+   keyspan_usa28xa_fw.h \
+   $(wildcard /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/config/usb/serial/keyspan/usa28xb.h) \
+   keyspan_usa28xb_fw.h \
+   $(wildcard /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/config/usb/serial/keyspan/usa19.h) \
+   keyspan_usa19_fw.h \
+   $(wildcard /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/config/usb/serial/keyspan/usa19qi.h) \
+   keyspan_usa19qi_fw.h \
+   $(wildcard /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/config/usb/serial/keyspan/mpr.h) \
+   keyspan_mpr_fw.h \
+   $(wildcard /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/config/usb/serial/keyspan/usa19qw.h) \
+   keyspan_usa19qw_fw.h \
+   $(wildcard /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/config/usb/serial/keyspan/usa18x.h) \
+   keyspan_usa18x_fw.h \
+   $(wildcard /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/config/usb/serial/keyspan/usa19w.h) \
+   keyspan_usa19w_fw.h \
+   $(wildcard /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/config/usb/serial/keyspan/usa49w.h) \
+   keyspan_usa49w_fw.h \
+   $(wildcard /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/config/usb/serial/keyspan/usa49wlc.h) \
+   keyspan_usa49wlc_fw.h
+	@touch ./keyspan.h
+./digi_acceleport.o: ./digi_acceleport.c \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/kernel.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/errno.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/init.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/slab.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/tty.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/tty_driver.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/tty_flip.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/module.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/spinlock.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/tqueue.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/asm/uaccess.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/usb.h \
+   $(wildcard /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/config/usb/serial/debug.h) \
+   usb-serial.h
+./ir-usb.o: ./ir-usb.c \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/kernel.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/errno.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/init.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/slab.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/tty.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/tty_driver.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/tty_flip.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/module.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/spinlock.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/asm/uaccess.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/usb.h \
+   $(wildcard /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/config/usb/serial/debug.h) \
+   usb-serial.h
+./kl5kusb105.o: ./kl5kusb105.c \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/kernel.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/errno.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/init.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/slab.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/tty.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/tty_driver.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/tty_flip.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/module.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/asm/uaccess.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/usb.h \
+   $(wildcard /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/config/usb/serial/debug.h) \
+   usb-serial.h \
+   kl5kusb105.h
+./sierra.o: ./sierra.c \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/kernel.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/init.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/slab.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/tty.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/tty_driver.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/tty_flip.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/module.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/usb.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/mm.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/asm/uaccess.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/errno.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/list.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/spinlock.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/smp_lock.h \
+   $(wildcard /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/config/usb/serial/debug.h) \
+   usb-serial.h \
+   sierra.h \
+   $(wildcard /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/config/usb/serial/pl2303.h) \
+   $(wildcard /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/config/usb/serial/pl2303/module.h) \
+   pl2303.h \
+   $(wildcard /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/config/devfs/fs.h) \
+   $(wildcard /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/config/usb/serial/sierrawireless.h)
+./io_ti.o: ./io_ti.c \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/kernel.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/errno.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/init.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/slab.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/tty.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/tty_driver.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/tty_flip.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/module.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/spinlock.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/serial.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/ioctl.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/asm/uaccess.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/usb.h \
+   $(wildcard /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/config/usb/serial/debug.h) \
+   usb-serial.h \
+   io_16654.h \
+   io_usbvend.h \
+   io_ti.h \
+   io_fw_down3.h
+./mct_u232.o: ./mct_u232.c \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/kernel.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/errno.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/init.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/slab.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/tty.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/tty_driver.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/tty_flip.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/module.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/spinlock.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/asm/uaccess.h \
+   /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/linux/usb.h \
+   $(wildcard /home/fedork/openwrt/kamikaze809rc1/8.09/build_dir/linux-brcm-2.4/linux-2.4.35.4/include/config/usb/serial/debug.h) \
+   usb-serial.h \
+   mct_u232.h
+.PRECIOUS:	./usb-serial.h \
+	./io_edgeport.h \
+	./keyspan.h \
+

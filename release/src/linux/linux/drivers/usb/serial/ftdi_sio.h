@@ -14,17 +14,240 @@
  * of the protocol required to talk to the device and ongoing assistence
  * during development.
  *
- * Bill Ryder - bryder@sgi.com of Silicon Graphics, Inc.- wrote the 
+ * Bill Ryder - bryder@sgi.com formerly of Silicon Graphics, Inc.- wrote the 
  * FTDI_SIO implementation.
+ *
+ * Philipp Gühring - pg@futureware.at - added the Device ID of the USB relais
+ * from Rudolf Gugler
  *
  */
 
 #define FTDI_VID	0x0403	/* Vendor Id */
 #define FTDI_SIO_PID	0x8372	/* Product Id SIO application of 8U100AX  */
 #define FTDI_8U232AM_PID 0x6001 /* Similar device to SIO above */
+#define FTDI_8U232AM_ALT_PID 0x6006 /* FTDI's alternate PID for above */
+#define FTDI_RELAIS_PID	0xFA10  /* Relais device from Rudolf Gugler */
 #define FTDI_NF_RIC_VID	0x0DCD	/* Vendor Id */
 #define FTDI_NF_RIC_PID	0x0001	/* Product Id */
 
+/* www.irtrans.de device */
+#define FTDI_IRTRANS_PID 0xFC60 /* Product Id */
+
+/* www.crystalfontz.com devices - thanx for providing free devices for evaluation ! */
+/* they use the ftdi chipset for the USB interface and the vendor id is the same */
+#define FTDI_XF_632_PID 0xFC08	/* 632: 16x2 Character Display */
+#define FTDI_XF_634_PID 0xFC09	/* 634: 20x4 Character Display */
+#define FTDI_XF_547_PID 0xFC0A	/* 547: Two line Display */
+#define FTDI_XF_633_PID 0xFC0B	/* 633: 16x2 Character Display with Keys */
+#define FTDI_XF_631_PID 0xFC0C	/* 631: 20x2 Character Display */
+#define FTDI_XF_635_PID 0xFC0D	/* 635: 20x4 Character Display */
+#define FTDI_XF_640_PID 0xFC0E	/* 640: Two line Display */
+#define FTDI_XF_642_PID 0xFC0F	/* 642: Two line Display */
+
+/* Video Networks Limited / Homechoice in the UK use an ftdi-based device for their 1Mb */
+/* broadband internet service.  The following PID is exhibited by the usb device supplied */
+/* (the VID is the standard ftdi vid (FTDI_VID) */
+#define FTDI_VNHCPCUSB_D_PID 0xfe38 /* Product Id */
+
+/*
+ * The following are the values for the Matrix Orbital LCD displays,
+ * which are the FT232BM ( similar to the 8U232AM )
+ */
+#define FTDI_MTXORB_0_PID      0xFA00  /* Matrix Orbital Product Id */
+#define FTDI_MTXORB_1_PID      0xFA01  /* Matrix Orbital Product Id */
+#define FTDI_MTXORB_2_PID      0xFA02  /* Matrix Orbital Product Id */
+#define FTDI_MTXORB_3_PID      0xFA03  /* Matrix Orbital Product Id */
+#define FTDI_MTXORB_4_PID      0xFA04  /* Matrix Orbital Product Id */
+#define FTDI_MTXORB_5_PID      0xFA05  /* Matrix Orbital Product Id */
+#define FTDI_MTXORB_6_PID      0xFA06  /* Matrix Orbital Product Id */
+
+/* Interbiometrics USB I/O Board */
+/* Developed for Interbiometrics by Rudolf Gugler */
+#define INTERBIOMETRICS_VID              0x1209
+#define INTERBIOMETRICS_IOBOARD_PID      0x1002
+#define INTERBIOMETRICS_MINI_IOBOARD_PID 0x1006
+
+/*
+ * The following are the values for the Perle Systems
+ * UltraPort USB serial converters
+ */
+#define FTDI_PERLE_ULTRAPORT_PID 0xF0C0	/* Perle UltraPort Product Id */
+
+/*
+ * The following are the values for the Sealevel SeaLINK+ adapters.
+ * (Original list sent by Tuan Hoang.  Ian Abbott renamed the macros and
+ * removed some PIDs that don't seem to match any existing products.)
+ */
+#define SEALEVEL_VID		0x0c52	/* Sealevel Vendor ID */
+#define SEALEVEL_2101_PID	0x2101	/* SeaLINK+232 (2101/2105) */
+#define SEALEVEL_2102_PID	0x2102	/* SeaLINK+485 (2102) */
+#define SEALEVEL_2103_PID	0x2103	/* SeaLINK+232I (2103) */
+#define SEALEVEL_2104_PID	0x2104	/* SeaLINK+485I (2104) */
+#define SEALEVEL_2201_1_PID	0x2211	/* SeaPORT+2/232 (2201) Port 1 */
+#define SEALEVEL_2201_2_PID	0x2221	/* SeaPORT+2/232 (2201) Port 2 */
+#define SEALEVEL_2202_1_PID	0x2212	/* SeaPORT+2/485 (2202) Port 1 */
+#define SEALEVEL_2202_2_PID	0x2222	/* SeaPORT+2/485 (2202) Port 2 */
+#define SEALEVEL_2203_1_PID	0x2213	/* SeaPORT+2 (2203) Port 1 */
+#define SEALEVEL_2203_2_PID	0x2223	/* SeaPORT+2 (2203) Port 2 */
+#define SEALEVEL_2401_1_PID	0x2411	/* SeaPORT+4/232 (2401) Port 1 */
+#define SEALEVEL_2401_2_PID	0x2421	/* SeaPORT+4/232 (2401) Port 2 */
+#define SEALEVEL_2401_3_PID	0x2431	/* SeaPORT+4/232 (2401) Port 3 */
+#define SEALEVEL_2401_4_PID	0x2441	/* SeaPORT+4/232 (2401) Port 4 */
+#define SEALEVEL_2402_1_PID	0x2412	/* SeaPORT+4/485 (2402) Port 1 */
+#define SEALEVEL_2402_2_PID	0x2422	/* SeaPORT+4/485 (2402) Port 2 */
+#define SEALEVEL_2402_3_PID	0x2432	/* SeaPORT+4/485 (2402) Port 3 */
+#define SEALEVEL_2402_4_PID	0x2442	/* SeaPORT+4/485 (2402) Port 4 */
+#define SEALEVEL_2403_1_PID	0x2413	/* SeaPORT+4 (2403) Port 1 */
+#define SEALEVEL_2403_2_PID	0x2423	/* SeaPORT+4 (2403) Port 2 */
+#define SEALEVEL_2403_3_PID	0x2433	/* SeaPORT+4 (2403) Port 3 */
+#define SEALEVEL_2403_4_PID	0x2443	/* SeaPORT+4 (2403) Port 4 */
+#define SEALEVEL_2801_1_PID	0X2811	/* SeaLINK+8/232 (2801) Port 1 */
+#define SEALEVEL_2801_2_PID	0X2821	/* SeaLINK+8/232 (2801) Port 2 */
+#define SEALEVEL_2801_3_PID	0X2831	/* SeaLINK+8/232 (2801) Port 3 */
+#define SEALEVEL_2801_4_PID	0X2841	/* SeaLINK+8/232 (2801) Port 4 */
+#define SEALEVEL_2801_5_PID	0X2851	/* SeaLINK+8/232 (2801) Port 5 */
+#define SEALEVEL_2801_6_PID	0X2861	/* SeaLINK+8/232 (2801) Port 6 */
+#define SEALEVEL_2801_7_PID	0X2871	/* SeaLINK+8/232 (2801) Port 7 */
+#define SEALEVEL_2801_8_PID	0X2881	/* SeaLINK+8/232 (2801) Port 8 */
+#define SEALEVEL_2802_1_PID	0X2812	/* SeaLINK+8/485 (2802) Port 1 */
+#define SEALEVEL_2802_2_PID	0X2822	/* SeaLINK+8/485 (2802) Port 2 */
+#define SEALEVEL_2802_3_PID	0X2832	/* SeaLINK+8/485 (2802) Port 3 */
+#define SEALEVEL_2802_4_PID	0X2842	/* SeaLINK+8/485 (2802) Port 4 */
+#define SEALEVEL_2802_5_PID	0X2852	/* SeaLINK+8/485 (2802) Port 5 */
+#define SEALEVEL_2802_6_PID	0X2862	/* SeaLINK+8/485 (2802) Port 6 */
+#define SEALEVEL_2802_7_PID	0X2872	/* SeaLINK+8/485 (2802) Port 7 */
+#define SEALEVEL_2802_8_PID	0X2882	/* SeaLINK+8/485 (2802) Port 8 */
+#define SEALEVEL_2803_1_PID	0X2813	/* SeaLINK+8 (2803) Port 1 */
+#define SEALEVEL_2803_2_PID	0X2823 	/* SeaLINK+8 (2803) Port 2 */
+#define SEALEVEL_2803_3_PID	0X2833 	/* SeaLINK+8 (2803) Port 3 */
+#define SEALEVEL_2803_4_PID	0X2843 	/* SeaLINK+8 (2803) Port 4 */
+#define SEALEVEL_2803_5_PID	0X2853 	/* SeaLINK+8 (2803) Port 5 */
+#define SEALEVEL_2803_6_PID	0X2863 	/* SeaLINK+8 (2803) Port 6 */
+#define SEALEVEL_2803_7_PID	0X2873 	/* SeaLINK+8 (2803) Port 7 */
+#define SEALEVEL_2803_8_PID	0X2883 	/* SeaLINK+8 (2803) Port 8 */
+
+/*
+ * DSS-20 Sync Station for Sony Ericsson P800
+ */
+ 
+#define FTDI_DSS20_PID          0xFC82  
+
+/*
+ * Home Electronics (www.home-electro.com) USB gadgets
+ */
+#define FTDI_HE_TIRA1_PID	0xFA78	/* Tira-1 IR tranceiver */
+
+/* USB-UIRT - An infrared receiver and transmitter using the 8U232AM chip */
+/* http://home.earthlink.net/~jrhees/USBUIRT/index.htm */
+#define FTDI_USB_UIRT_PID	0xF850	/* Product Id */
+
+/* ELV USB Module UO100 (PID sent by Stefan Frings) */
+#define FTDI_ELV_UO100_PID	0xFB58	/* Product Id */
+/* ELV USB Module UM100 (PID sent by Arnim Laeuger) */
+#define FTDI_ELV_UM100_PID	0xFB5A	/* Product Id */
+
+/*
+ * Definitions for ID TECH (www.idt-net.com) devices
+ */
+#define IDTECH_VID		0x0ACD	/* ID TECH Vendor ID */
+#define IDTECH_IDT1221U_PID	0x0300	/* IDT1221U USB to RS-232 adapter */
+
+/*
+ * Definitions for Omnidirectional Control Technology, Inc. devices
+ */
+#define OCT_VID			0x0B39	/* OCT vendor ID */
+/* Note: OCT US101 is also rebadged as Dick Smith Electronics (NZ) XH6381 */
+/* Also rebadged as Dick Smith Electronics (Aus) XH6451 */
+/* Also rebadged as SIIG Inc. model US2308 hardware version 1 */
+#define OCT_US101_PID		0x0421	/* OCT US101 USB to RS-232 */
+
+/* an infrared receiver for user access control with IR tags */
+#define FTDI_PIEGROUP_PID	0xF208	/* Product Id */
+
+/*
+ * Protego product ids
+ */
+#define PROTEGO_SPECIAL_1	0xFC70	/* special/unknown device */
+#define PROTEGO_R2X0		0xFC71	/* R200-USB TRNG unit (R210, R220, and R230) */
+#define PROTEGO_SPECIAL_3	0xFC72	/* special/unknown device */
+#define PROTEGO_SPECIAL_4	0xFC73	/* special/unknown device */ 
+
+/*
+ * Gude Analog- und Digitalsysteme GmbH
+ */
+#define FTDI_GUDEADS_E808_PID    0xE808
+#define FTDI_GUDEADS_E809_PID    0xE809
+#define FTDI_GUDEADS_E80A_PID    0xE80A
+#define FTDI_GUDEADS_E80B_PID    0xE80B
+#define FTDI_GUDEADS_E80C_PID    0xE80C
+#define FTDI_GUDEADS_E80D_PID    0xE80D
+#define FTDI_GUDEADS_E80E_PID    0xE80E
+#define FTDI_GUDEADS_E80F_PID    0xE80F
+#define FTDI_GUDEADS_E888_PID    0xE888  /* Expert ISDN Control USB */
+#define FTDI_GUDEADS_E889_PID    0xE889  /* USB RS-232 OptoBridge */
+#define FTDI_GUDEADS_E88A_PID    0xE88A
+#define FTDI_GUDEADS_E88B_PID    0xE88B
+#define FTDI_GUDEADS_E88C_PID    0xE88C
+#define FTDI_GUDEADS_E88D_PID    0xE88D
+#define FTDI_GUDEADS_E88E_PID    0xE88E
+#define FTDI_GUDEADS_E88F_PID    0xE88F
+
+/*
+ * Linx Technologies product ids
+ */
+#define LINX_SDMUSBQSS_PID	0xF448	/* Linx SDM-USB-QS-S */
+#define LINX_MASTERDEVEL2_PID   0xF449   /* Linx Master Development 2.0 */
+#define LINX_FUTURE_0_PID   0xF44A   /* Linx future device */
+#define LINX_FUTURE_1_PID   0xF44B   /* Linx future device */
+#define LINX_FUTURE_2_PID   0xF44C   /* Linx future device */
+
+/* CCS Inc. ICDU/ICDU40 product ID - the FT232BM is used in an in-circuit-debugger */
+/* unit for PIC16's/PIC18's */
+#define FTDI_CCSICDU20_0_PID  0xF9D0     
+#define FTDI_CCSICDU40_1_PID  0xF9D1     
+
+/* Inside Accesso contactless reader (http://www.insidefr.com) */
+#define INSIDE_ACCESSO		0xFAD0
+
+/*
+ * Intrepid Control Systems (http://www.intrepidcs.com/) ValueCAN and NeoVI
+ */
+#define INTREPID_VID		0x093C
+#define INTREPID_VALUECAN_PID	0x0601
+#define INTREPID_NEOVI_PID	0x0701
+
+/*
+ * Falcom Wireless Communications GmbH
+ */
+#define FALCOM_VID		0x0F94	/* Vendor Id */
+#define FALCOM_TWIST_PID	0x0001	/* Falcom Twist USB GPRS modem */
+
+/*
+ * SUUNTO product ids
+ */
+#define FTDI_SUUNTO_SPORTS_PID	0xF680	/* Suunto Sports instrument */
+
+/*
+ * Definitions for B&B Electronics products.
+ */
+#define BANDB_VID		0x0856	/* B&B Electronics Vendor ID */
+#define BANDB_USOTL4_PID	0xAC01	/* USOTL4 Isolated RS-485 Converter */
+#define BANDB_USTL4_PID		0xAC02	/* USTL4 RS-485 Converter */
+#define BANDB_USO9ML2_PID	0xAC03	/* USO9ML2 Isolated RS-232 Converter */
+
+/*
+ * RM Michaelides CANview USB (http://www.rmcan.com)
+ * CAN fieldbus interface adapter, added by port GmbH www.port.de).
+ * Ian Abbott changed the macro names for consistency.
+ */
+#define FTDI_RM_CANVIEW_PID	0xfd60	/* Product Id */
+
+/*
+ * EVER Eco Pro UPS (http://www.ever.com.pl/)
+ */
+#define	EVER_ECO_PRO_CDS	0xe520	/* RS-232 converter */
+
+/* Commands */
 #define FTDI_SIO_RESET 		0 /* Reset the port */
 #define FTDI_SIO_MODEM_CTRL 	1 /* Set the modem control register */
 #define FTDI_SIO_SET_FLOW_CTRL	2 /* Set flow control register */
@@ -78,10 +301,61 @@
 #define FTDI_SIO_SET_BAUDRATE_REQUEST_TYPE 0x40
 #define FTDI_SIO_SET_BAUDRATE_REQUEST 3
 
+/*
+ * BmRequestType:  0100 0000B
+ * bRequest:       FTDI_SIO_SET_BAUDRATE
+ * wValue:         BaudDivisor value - see below
+ * wIndex:         Port
+ * wLength:        0
+ * Data:           None
+ * The BaudDivisor values are calculated as follows:
+ * - BaseClock is either 12000000 or 48000000 depending on the device. FIXME: I wish
+ *   I knew how to detect old chips to select proper base clock!
+ * - BaudDivisor is a fixed point number encoded in a funny way.
+ *   (--WRONG WAY OF THINKING--)
+ *   BaudDivisor is a fixed point number encoded with following bit weighs:
+ *   (-2)(-1)(13..0). It is a radical with a denominator of 4, so values
+ *   end with 0.0 (00...), 0.25 (10...), 0.5 (01...), and 0.75 (11...).
+ *   (--THE REALITY--)
+ *   The both-bits-set has quite different meaning from 0.75 - the chip designers
+ *   have decided it to mean 0.125 instead of 0.75.
+ *   This info looked up in FTDI application note "FT8U232 DEVICES \ Data Rates
+ *   and Flow Control Consideration for USB to RS232".
+ * - BaudDivisor = (BaseClock / 16) / BaudRate, where the (=) operation should
+ *   automagically re-encode the resulting value to take fractions into consideration.
+ * As all values are integers, some bit twiddling is in order:
+ *   BaudDivisor = (BaseClock / 16 / BaudRate) |
+ *   (((BaseClock / 2 / BaudRate) & 4) ? 0x4000    // 0.5
+ *    : ((BaseClock / 2 / BaudRate) & 2) ? 0x8000  // 0.25
+ *    : ((BaseClock / 2 / BaudRate) & 1) ? 0xc000  // 0.125
+ *    : 0)
+ *
+ * For the FT232BM, a 17th divisor bit was introduced to encode the multiples
+ * of 0.125 missing from the FT8U232AM.  Bits 16 to 14 are coded as follows
+ * (the first four codes are the same as for the FT8U232AM, where bit 16 is
+ * always 0):
+ *   000 - add .000 to divisor
+ *   001 - add .500 to divisor
+ *   010 - add .250 to divisor
+ *   011 - add .125 to divisor
+ *   100 - add .375 to divisor
+ *   101 - add .625 to divisor
+ *   110 - add .750 to divisor
+ *   111 - add .875 to divisor
+ * Bits 15 to 0 of the 17-bit divisor are placed in the urb value.  Bit 16 is 
+ * placed in bit 0 of the urb index.
+ *
+ * Note that there are a couple of special cases to support the highest baud
+ * rates.  If the calculated divisor value is 1, this needs to be replaced with
+ * 0.  Additionally for the FT232BM, if the calculated divisor value is 0x4001
+ * (1.5), this needs to be replaced with 0x0001 (1) (but this divisor value is
+ * not supported by the FT8U232AM).
+ */
 
 typedef enum {
 	SIO = 1,
 	FT8U232AM = 2,
+	FT232BM = 3,
 } ftdi_chip_type_t;
 
 typedef enum {
@@ -97,17 +371,9 @@ typedef enum {
  ftdi_sio_b115200 = 9
 } FTDI_SIO_baudrate_t ;
 
-#define FTDI_SIO_BASE_BAUD_TO_DIVISOR(base, baud) ( \
-((base/2/baud) >> 3) | \
-(((base/2/baud) & 2) ? 0x8000 : 0) | \
-(((base/2/baud) & 4) ? 0x4000 : 0) | \
-((((base/2/baud) & 0x7) == 1) ? 0xc000 : 0) )
-
-#define FTDI_SIO_BAUD_TO_DIVISOR(baud) FTDI_SIO_BASE_BAUD_TO_DIVISOR(48000000, baud)
-
 /*
- * The ftdi_8U232AM_xxMHz_byyy constans have been removed. Their values can
- * be calculated as follows: FTDI_SIO_BAUD_TO_DIVISOR(xx000000, yyy)
+ * The ftdi_8U232AM_xxMHz_byyy constants have been removed. The encoded divisor values
+ * are calculated internally.
  */
 
 #define FTDI_SIO_SET_DATA_REQUEST FTDI_SIO_SET_DATA

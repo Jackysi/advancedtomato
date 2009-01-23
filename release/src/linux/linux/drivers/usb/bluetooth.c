@@ -1,8 +1,8 @@
 /*
  * bluetooth.c   Version 0.12
  *
- * Copyright (c) 2000, 2001 Greg Kroah-Hartman	<greg@kroah.com>
- * Copyright (c) 2000 Mark Douglas Corner	<mcorner@umich.edu>
+ * Copyright (C) 2000, 2001 Greg Kroah-Hartman	<greg@kroah.com>
+ * Copyright (C) 2000 Mark Douglas Corner	<mcorner@umich.edu>
  *
  * USB Bluetooth TTY driver, based on the Bluetooth Spec version 1.0B
  * 
@@ -546,6 +546,7 @@ static int bluetooth_write (struct tty_struct * tty, int from_user, const unsign
 					goto exit;
 				}
 #ifdef BTBUGGYHARDWARE
+				/* A workaround for the stalled data bug */
 				/* May or may not be needed...*/
 				if (count != 0) {
 					udelay(500);
@@ -682,6 +683,7 @@ static int bluetooth_ioctl (struct tty_struct *tty, struct file * file, unsigned
 		return -ENODEV;
 	}
 
+	/* FIXME!!! */
 	return -ENOIOCTLCMD;
 }
 
@@ -701,6 +703,7 @@ static void bluetooth_set_termios (struct tty_struct *tty, struct termios * old)
 		return;
 	}
 
+	/* FIXME!!! */
 
 	return;
 }
@@ -1014,6 +1017,7 @@ static void bluetooth_softint(void *private)
 {
 	struct usb_bluetooth *bluetooth = get_usb_bluetooth ((struct usb_bluetooth *)private, __FUNCTION__);
 	struct tty_struct *tty;
+	struct tty_ldisc *ld;
 
 	dbg("%s", __FUNCTION__);
 
@@ -1022,9 +1026,15 @@ static void bluetooth_softint(void *private)
 	}
 
 	tty = bluetooth->tty;
-	if ((tty->flags & (1 << TTY_DO_WRITE_WAKEUP)) && tty->ldisc.write_wakeup) {
-		dbg("%s - write wakeup call.", __FUNCTION__);
-		(tty->ldisc.write_wakeup)(tty);
+	if (tty->flags & (1 << TTY_DO_WRITE_WAKEUP)) {
+		ld = tty_ldisc_ref(tty);
+		if(ld) {
+			if(ld->write_wakeup) {
+				ld->write_wakeup(tty);
+				dbg("%s - write wakeup call.", __FUNCTION__);
+			}
+			tty_ldisc_deref(tty);
+		}
 	}
 
 	wake_up_interruptible(&tty->write_wait);

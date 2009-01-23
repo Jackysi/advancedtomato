@@ -1,7 +1,7 @@
 /* Driver for Philips webcam
    Functions that send various control messages to the webcam, including
    video modes.
-   (C) 1999-2002 Nemosoft Unv. (webcam@smcc.demon.nl)
+   (C) 1999-2003 Nemosoft Unv. (webcam@smcc.demon.nl)
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -256,8 +256,10 @@ static inline int set_video_mode_Nala(struct pwc_device *pdev, int size, int fra
 
 	memcpy(buf, pEntry->mode, 3);	
 	ret = send_video_command(pdev->udev, pdev->vendpoint, buf, 3);
-	if (ret < 0)
+	if (ret < 0) {
+		Debug("Failed to send video command... %d\n", ret);
 		return ret;
+	}
 	if (pEntry->compressed && pdev->decompressor != NULL)
 		pdev->decompressor->init(pdev->release, buf, pdev->decompress_data);
 		
@@ -444,13 +446,13 @@ int pwc_set_video_mode(struct pwc_device *pdev, int width, int height, int frame
 			Info("Video mode %s@%d fps is only supported with the decompressor module (pwcx).\n", size2name[size], frames);
 		else {
 			Err("Failed to set video mode %s@%d fps; return code = %d\n", size2name[size], frames, ret);
-			return ret;
 		}
+		return ret;
 	}
 	pdev->view.x = width;
 	pdev->view.y = height;
 	pwc_set_image_buffer_size(pdev);
-	Trace(TRACE_SIZE, "Set viewport to %dx%d, image size is %dx%d, palette = %d.\n", width, height, pwc_image_sizes[size].x, pwc_image_sizes[size].y, pdev->vpalette);
+	Trace(TRACE_SIZE, "Set viewport to %dx%d, image size is %dx%d.\n", width, height, pwc_image_sizes[size].x, pwc_image_sizes[size].y);
 	return 0;
 }
 
@@ -459,38 +461,9 @@ void pwc_set_image_buffer_size(struct pwc_device *pdev)
 {
 	int factor, i, filler = 0;
 
-	switch(pdev->vpalette) {
-	case VIDEO_PALETTE_RGB32 | 0x80:
-	case VIDEO_PALETTE_RGB32:
-		factor = 16;
-		filler = 0;
-		break;
-	case VIDEO_PALETTE_RGB24 | 0x80:
-	case VIDEO_PALETTE_RGB24:
-		factor = 12;
-		filler = 0;
-		break;
-	case VIDEO_PALETTE_YUYV:
-	case VIDEO_PALETTE_YUV422:
-		factor = 8;
-		filler = 128;
-		break;
-	case VIDEO_PALETTE_YUV420:
-	case VIDEO_PALETTE_YUV420P:
-		factor = 6;
-		filler = 128;
-		break;
-#if PWC_DEBUG		
-	case VIDEO_PALETTE_RAW:
-		pdev->image.size = pdev->frame_size;
-		pdev->view.size = pdev->frame_size;
-		return;
-		break;
-#endif	
-	default:
-		factor = 0;
-		break;
-	}
+	/* for PALETTE_YUV420P */
+	factor = 6;
+	filler = 128;
 
 	/* Set sizes in bytes */
 	pdev->image.size = pdev->image.x * pdev->image.y * factor / 4;
@@ -997,7 +970,7 @@ static inline int pwc_read_red_gain(struct pwc_device *pdev)
 		&buf, 1, HZ / 2);
 
 	if (ret < 0)
-	    return ret;
+		return ret;
 	
 	return (buf << 8);
 }
@@ -1103,12 +1076,7 @@ int pwc_set_leds(struct pwc_device *pdev, int on_value, int off_value)
 	buf[0] = on_value;
 	buf[1] = off_value;
 
-	return usb_control_msg(pdev->udev, usb_sndctrlpipe(pdev->udev, 0),
-		SET_STATUS_CTL,
-		USB_DIR_OUT | USB_TYPE_VENDOR | USB_RECIP_DEVICE,
-		LED_FORMATTER,
-		pdev->vcinterface,
-		&buf, 2, HZ / 2);
+	return SendControlMsg(SET_STATUS_CTL, LED_FORMATTER, 2);
 }
 
 int pwc_get_leds(struct pwc_device *pdev, int *on_value, int *off_value)
@@ -1122,13 +1090,7 @@ int pwc_get_leds(struct pwc_device *pdev, int *on_value, int *off_value)
 		return 0;
 	}
 
-	ret = usb_control_msg(pdev->udev, usb_rcvctrlpipe(pdev->udev, 0),
-   	        GET_STATUS_CTL,
-		USB_DIR_IN | USB_TYPE_VENDOR | USB_RECIP_DEVICE,
-		LED_FORMATTER,
-		pdev->vcinterface,
-		&buf, 2, HZ / 2);
-
+	ret = RecvControlMsg(GET_STATUS_CTL, LED_FORMATTER, 2);
 	if (ret < 0)
 		return ret;
 	*on_value = buf[0] * 100;
@@ -1252,7 +1214,7 @@ static inline int pwc_get_flicker(struct pwc_device *pdev)
 	int ret;
 	unsigned char buf;
 	
-	ret = RecvControlMsg(SET_LUM_CTL, FLICKERLESS_MODE_FORMATTER, 1);
+	ret = RecvControlMsg(GET_LUM_CTL, FLICKERLESS_MODE_FORMATTER, 1);
 	if (ret < 0)
 		return ret;
 	return buf;
@@ -1276,10 +1238,9 @@ static inline int pwc_get_dynamic_noise(struct pwc_device *pdev)
 	int ret;
 	unsigned char buf;
 	
-	ret = RecvControlMsg(SET_LUM_CTL, DYNAMIC_NOISE_CONTROL_FORMATTER, 1);
+	ret = RecvControlMsg(GET_LUM_CTL, DYNAMIC_NOISE_CONTROL_FORMATTER, 1);
 	if (ret < 0)
 		return ret;
-Debug("pwc_get_dynamic_noise = %d\n", buf);
 	return buf;
 }
 
@@ -1368,7 +1329,7 @@ int pwc_ioctl(struct pwc_device *pdev, unsigned int cmd, void *arg)
 	{
 		struct pwc_probe probe;
 		
-		strcpy(probe.name, pdev->vdev->name);
+		strcpy(probe.name, pdev->vdev.name);
 		probe.type = pdev->type;
 		if (copy_to_user(arg, &probe, sizeof(probe)))
 			ret = -EFAULT;
@@ -1595,6 +1556,16 @@ int pwc_ioctl(struct pwc_device *pdev, unsigned int cmd, void *arg)
 		break;
 	}
 	
+	case VIDIOCPWCGREALSIZE:
+	{
+		struct pwc_imagesize size;
+		
+		size.width = pdev->image.x;
+		size.height = pdev->image.y;
+		if (copy_to_user(arg, &size, sizeof(size)))
+			ret = -EFAULT;
+		break;
+	}	
 
 	default:
 		ret = -ENOIOCTLCMD;

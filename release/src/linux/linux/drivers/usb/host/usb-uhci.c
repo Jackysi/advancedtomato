@@ -16,7 +16,7 @@
  * (C) Copyright 1999 Randy Dunlap
  * (C) Copyright 1999 Gregory P. Smith
  *
- * $Id: usb-uhci.c,v 1.1.3.1 2005/03/18 02:55:52 kanki Exp $
+ * $Id: usb-uhci.c,v 1.275 2002/01/19 20:57:33 acher Exp $
  */
 
 #include <linux/config.h>
@@ -53,7 +53,7 @@
 /* This enables an extra UHCI slab for memory debugging */
 #define DEBUG_SLAB
 
-#define VERSTR "$Revision: 1.1.3.1 $ time " __TIME__ " " __DATE__
+#define VERSTR "$Revision: 1.275 $ time " __TIME__ " " __DATE__
 
 #include <linux/usb.h>
 #include "usb-uhci.h"
@@ -133,48 +133,6 @@ static uhci_t *devs = NULL;
 
 /* used by userspace UHCI data structure dumper */
 uhci_t **uhci_devices = &devs;
-
-static int bcm_dump_pci_status = 0;
-static int bcm_host_error_reset = 0;
-
-_static void dump_pci_status_regs(char *tag)
-{
-    struct pci_dev *dev;
-    __u32 err_log, imstate, *ptr;
-    __u32 off, val;
-
-    printk("%s\n", tag);
-
-    // some backplane status regs
-    ptr = __ioremap(0x18004000+0xeb0, 4, _CACHE_UNCACHED);
-    err_log = readl(ptr);
-    ptr = __ioremap(0x18004000+0xf90, 4, _CACHE_UNCACHED);
-    imstate = readl(ptr);
-    printk("\n*** PCI SBIMErrLog = 0x%08x, PCI SBIMState = 0x%08x\n\n",
-		err_log, imstate);
-    
-    printk("Memory Controller registers\n");
-    for (off = 0xe00; off <= 0xffc; off += 4) {
-	if ((off & 0x0f) == 0) {
-	    printk("\n0x%08x: ", off);
-	}
-	ptr = __ioremap(0x18008000+off, 4, _CACHE_UNCACHED);
-	val = readl(ptr);
-	printk("0x%08x,", val);
-    }
-    printk("\n\n");
-    
-
-    printk("\tdevfn\tclass\t\tvendor\tdevice\tPCI Status\n");
-    pci_for_each_dev(dev) {
-        unsigned short status;
-
-        pci_read_config_word(dev, 0x06, &status);
-        printk("\t0x%04x\t0x%08x\t0x%04x\t0x%04x\t0x%04x\n",
-                dev->devfn, dev->class, dev->vendor, dev->device, status);
-    }
-
-}
 
 /*-------------------------------------------------------------------*/
 // Cleans up collected QHs, but not more than 100 in one go
@@ -2533,7 +2491,7 @@ _static int process_interrupt (uhci_t *s, struct urb *urb)
 			((urb_priv_t*)urb->hcpriv)->flags=0;		       			
 		}
 		
-		if ((urb->status != -ECONNABORTED) && (urb->status != ECONNRESET) &&
+		if ((urb->status != -ECONNABORTED) && (urb->status != -ECONNRESET) &&
 			    (urb->status != -ENOENT)) {
 
 			urb->status = -EINPROGRESS;
@@ -2767,9 +2725,6 @@ _static int process_urb (uhci_t *s, struct list_head *p)
 	return ret;
 }
 
-_static void reset_hc (uhci_t *s);
-_static void start_hc (uhci_t *s);
-
 _static void uhci_interrupt (int irq, void *__uhci, struct pt_regs *regs)
 {
 	uhci_t *s = __uhci;
@@ -2777,9 +2732,6 @@ _static void uhci_interrupt (int irq, void *__uhci, struct pt_regs *regs)
 	unsigned short status;
 	struct list_head *p, *p2;
 	int restarts, work_done;
-	static unsigned long last_error_time = 0;
-	static unsigned long recent_restart_count = 0;
-	static int uhci_disabled = 0;
 	
 	/*
 	 * Read the interrupt status, and write it back to clear the
@@ -2791,44 +2743,15 @@ _static void uhci_interrupt (int irq, void *__uhci, struct pt_regs *regs)
 	if (!status)		/* shared interrupt, not mine */
 		return;
 
-	if (uhci_disabled)
-		return;
-
 	dbg("interrupt");
 
 	if (status != 1) {
-		// Avoid too much error messages at a time
-		if (time_after(jiffies, s->last_error_time + ERROR_SUPPRESSION_TIME)) {
-			warn("interrupt, status %x, frame# %i", status, 
-			     UHCI_GET_CURRENT_FRAME(s));
-			s->last_error_time = jiffies;
-		}
-		
+		dbg("status %x, frame# %i", status, UHCI_GET_CURRENT_FRAME(s));
+
 		// remove host controller halted state
 		if ((status&0x20) && (s->running)) {
 			err("Host controller halted, trying to restart.");
-			if (status & 0x08) {
-				unsigned short pci_status;
-				// PCI Bus error???
-				if (bcm_dump_pci_status) {
-				    dump_pci_status_regs("usb uhci host error");
-				}
-				if (bcm_host_error_reset) {
-				    reset_hc(s);
-				    start_hc(s);
-				}
-			}
 			outw (USBCMD_RS | inw(io_addr + USBCMD), io_addr + USBCMD);
-			if (time_after(last_error_time + HZ, jiffies)) {
-				if (recent_restart_count > 10) {
-					err("We've had more than 10 attempted restarts in the last 50 miliseconds, so we'll give up now and disable UHCI until reboot");
-					uhci_disabled = 1;
-				}
-				++recent_restart_count;
-			} else {
-				last_error_time = jiffies;
-				recent_restart_count = 1;
-			}
 		}
 		//uhci_show_status (s);
 	}
@@ -3116,16 +3039,13 @@ uhci_pci_probe (struct pci_dev *dev, const struct pci_device_id *id)
 		u32 vendor_id;
 		
 		pci_read_config_dword (dev, PCI_VENDOR_ID, &vendor_id);
-		printk(KERN_INFO "ECHI PCI device %x found.\n", vendor_id);
-		
 		if (vendor_id == 0x30381106) {
 			/* VIA 6212 */
+			printk(KERN_INFO "UHCI: Enabling VIA 6212 workarounds\n");
 			pci_read_config_byte(dev, 0x41, &misc_reg);
-			printk(KERN_INFO "UCHI reg 0x41 = %x\n", misc_reg);
 			misc_reg &= ~0x10;
 			pci_write_config_byte(dev, 0x41, misc_reg);
 			pci_read_config_byte(dev, 0x41, &misc_reg);
-			printk(KERN_INFO "UCHI reg 0x41 changed to = %x\n", misc_reg);
 		}
 	}
 	
@@ -3202,17 +3122,6 @@ static int __init uhci_hcd_init (void)
 #endif
 
 	retval = pci_module_init (&uhci_pci_driver);
-
-{
-	extern const char *nvram_get(const char *);
-	if (nvram_get("bcm_debug_uhci_dump") != NULL) {
-	    bcm_dump_pci_status = 1;
-	    dump_pci_status_regs("uhci_hcd_init");
-	}
-	if (nvram_get("bcm_debug_uhci_reset") != NULL) {
-	    bcm_host_error_reset = 1;
-	}
-}
 
 #ifdef DEBUG_SLAB
 	if (retval < 0 ) {

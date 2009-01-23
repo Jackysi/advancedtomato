@@ -9,6 +9,14 @@
  *	the Free Software Foundation; either version 2 of the License, or
  *	(at your option) any later version.
  *
+ * (12/12/2002) ganesh
+ * 	Added support for practically all devices supported by ActiveSync
+ * 	on Windows. Thanks to Wes Cilldhaire <billybobjoehenrybob@hotmail.com>.
+ *
+ * (26/11/2002) ganesh
+ * 	Added insmod options to specify product and vendor id.
+ * 	Use modprobe ipaq vendor=0xfoo product=0xbar
+ *
  * (26/7/2002) ganesh
  * 	Fixed up broken error handling in ipaq_open. Retry the "kickstart"
  * 	packet much harder - this drastically reduces connection failures.
@@ -63,9 +71,12 @@
 /*
  * Version Information
  */
-#define DRIVER_VERSION "v0.2"
+
+#define DRIVER_VERSION "v0.5"
 #define DRIVER_AUTHOR "Ganesh Varadarajan <ganesh@veritas.com>"
-#define DRIVER_DESC "USB Compaq iPAQ, HP Jornada, Casio EM500 driver"
+#define DRIVER_DESC "USB PocketPC PDA driver"
+
+static int	product, vendor;
 
 /* Function prototypes for an ipaq */
 static int  ipaq_open (struct usb_serial_port *port, struct file *filp);
@@ -85,10 +96,45 @@ static void ipaq_destroy_lists(struct usb_serial_port *port);
 
 
 static struct usb_device_id ipaq_id_table [] = {
+	/* The first entry is a placeholder for the insmod-specified device */
 	{ USB_DEVICE(COMPAQ_VENDOR_ID, COMPAQ_IPAQ_ID) },
+	{ USB_DEVICE(ASKEY_VENDOR_ID, ASKEY_PRODUCT_ID) },
+	{ USB_DEVICE(BCOM_VENDOR_ID, BCOM_0065_ID) },
+	{ USB_DEVICE(BCOM_VENDOR_ID, BCOM_0066_ID) },
+	{ USB_DEVICE(BCOM_VENDOR_ID, BCOM_0067_ID) },
+	{ USB_DEVICE(CASIO_VENDOR_ID, CASIO_2001_ID) },
+	{ USB_DEVICE(CASIO_VENDOR_ID, CASIO_EM500_ID) },
+	{ USB_DEVICE(COMPAQ_VENDOR_ID, COMPAQ_IPAQ_ID) },
+	{ USB_DEVICE(COMPAQ_VENDOR_ID, COMPAQ_0032_ID) },
+	{ USB_DEVICE(DELL_VENDOR_ID, DELL_AXIM_ID) },
+	{ USB_DEVICE(FSC_VENDOR_ID, FSC_LOOX_ID) },
 	{ USB_DEVICE(HP_VENDOR_ID, HP_JORNADA_548_ID) },
 	{ USB_DEVICE(HP_VENDOR_ID, HP_JORNADA_568_ID) },
-	{ USB_DEVICE(CASIO_VENDOR_ID, CASIO_EM500_ID) },
+	{ USB_DEVICE(HP_VENDOR_ID, HP_2016_ID) },
+	{ USB_DEVICE(HP_VENDOR_ID, HP_2116_ID) },
+	{ USB_DEVICE(HP_VENDOR_ID, HP_2216_ID) },
+	{ USB_DEVICE(HP_VENDOR_ID, HP_3016_ID) },
+	{ USB_DEVICE(HP_VENDOR_ID, HP_3116_ID) },
+	{ USB_DEVICE(HP_VENDOR_ID, HP_3216_ID) },
+	{ USB_DEVICE(HP_VENDOR_ID, HP_4016_ID) },
+	{ USB_DEVICE(HP_VENDOR_ID, HP_4116_ID) },
+	{ USB_DEVICE(HP_VENDOR_ID, HP_4216_ID) },
+	{ USB_DEVICE(HP_VENDOR_ID, HP_5016_ID) },
+	{ USB_DEVICE(HP_VENDOR_ID, HP_5116_ID) },
+	{ USB_DEVICE(HP_VENDOR_ID, HP_5216_ID) },
+	{ USB_DEVICE(LINKUP_VENDOR_ID, LINKUP_PRODUCT_ID) },
+	{ USB_DEVICE(MICROSOFT_VENDOR_ID, MICROSOFT_00CE_ID) },
+	{ USB_DEVICE(PORTATEC_VENDOR_ID, PORTATEC_PRODUCT_ID) },
+	{ USB_DEVICE(ROVER_VENDOR_ID, ROVER_P5_ID) },
+	{ USB_DEVICE(SAGEM_VENDOR_ID, SAGEM_WIRELESS_ID) },
+	{ USB_DEVICE(SOCKET_VENDOR_ID, SOCKET_PRODUCT_ID) },
+	{ USB_DEVICE(TOSHIBA_VENDOR_ID, TOSHIBA_PRODUCT_ID) },
+	{ USB_DEVICE(TOSHIBA_VENDOR_ID, TOSHIBA_E310_ID) },
+	{ USB_DEVICE(TOSHIBA_VENDOR_ID, TOSHIBA_E740_ID) },
+	{ USB_DEVICE(TOSHIBA_VENDOR_ID, TOSHIBA_E335_ID) },
+	{ USB_DEVICE(HTC_VENDOR_ID, HTC_PRODUCT_ID) },
+	{ USB_DEVICE(NEC_VENDOR_ID, NEC_PRODUCT_ID) },
+	{ USB_DEVICE(ASUS_VENDOR_ID, ASUS_A600_PRODUCT_ID) },
 	{ }					/* Terminating entry */
 };
 
@@ -97,7 +143,7 @@ MODULE_DEVICE_TABLE (usb, ipaq_id_table);
 /* All of the device info needed for the Compaq iPAQ */
 struct usb_serial_device_type ipaq_device = {
 	.owner =		THIS_MODULE,
-	.name =			"Compaq iPAQ",
+	.name =			"PocketPC PDA",
 	.id_table =		ipaq_id_table,
 	.num_interrupt_in =	NUM_DONT_CARE,
 	.num_bulk_in =		1,
@@ -142,6 +188,7 @@ static int ipaq_open(struct usb_serial_port *port, struct file *filp)
 	port->private = (void *)priv;
 	priv->active = 0;
 	priv->queue_len = 0;
+	priv->free_len = 0;
 	INIT_LIST_HEAD(&priv->queue);
 	INIT_LIST_HEAD(&priv->freelist);
 
@@ -286,7 +333,7 @@ static void ipaq_read_bulk_callback(struct urb *urb)
 	usb_serial_debug_data (__FILE__, __FUNCTION__, urb->actual_length, data);
 
 	tty = port->tty;
-	if (urb->actual_length) {
+	if (tty && urb->actual_length) {
 		for (i = 0; i < urb->actual_length ; ++i) {
 			/* if we insert more than TTY_FLIPBUF_SIZE characters, we drop them. */
 			if(tty->flip.count >= TTY_FLIPBUF_SIZE) {
@@ -516,8 +563,13 @@ static void ipaq_shutdown(struct usb_serial *serial)
 
 static int __init ipaq_init(void)
 {
-	usb_serial_register(&ipaq_device);
+	spin_lock_init(&write_list_lock);
 	info(DRIVER_DESC " " DRIVER_VERSION);
+	if (vendor) {
+		ipaq_id_table[0].idVendor = vendor;
+		ipaq_id_table[0].idProduct = product;
+	}
+	usb_serial_register(&ipaq_device);
 
 	return 0;
 }
@@ -539,3 +591,8 @@ MODULE_LICENSE("GPL");
 MODULE_PARM(debug, "i");
 MODULE_PARM_DESC(debug, "Debug enabled or not");
 
+MODULE_PARM(vendor, "h");
+MODULE_PARM_DESC(vendor, "User specified USB idVendor");
+
+MODULE_PARM(product, "h");
+MODULE_PARM_DESC(product, "User specified USB idProduct");

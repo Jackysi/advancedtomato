@@ -83,17 +83,35 @@ qtd_fill (struct ehci_qtd *qtd, dma_addr_t buf, size_t len,
 
 /*-------------------------------------------------------------------------*/
 
-/* update halted (but potentially linked) qh */
-
 static inline void
 qh_update (struct ehci_hcd *ehci, struct ehci_qh *qh, struct ehci_qtd *qtd)
 {
+	BUG_ON(qh->qh_state != QH_STATE_IDLE);
+
 	qh->hw_qtd_next = QTD_NEXT (qtd->qtd_dma);
 	qh->hw_alt_next = EHCI_LIST_END;
 
 	/* HC must see latest qtd and qh data before we clear ACTIVE+HALT */
 	wmb ();
 	qh->hw_token &= __constant_cpu_to_le32 (QTD_TOGGLE | QTD_STS_PING);
+}
+
+static void
+qh_refresh (struct ehci_hcd *ehci, struct ehci_qh *qh)
+{
+	struct ehci_qtd *qtd;
+
+	if (list_empty (&qh->qtd_list))
+		qtd = qh->dummy;
+	else {
+		qtd = list_entry (qh->qtd_list.next,
+				struct ehci_qtd, qtd_list);
+		/* first qtd may already be partially processed */
+		if (cpu_to_le32 (qtd->qtd_dma) == qh->hw_current)
+			qtd = NULL;
+	}
+	if (qtd)
+		qh_update (ehci, qh, qtd);
 }
 
 /*-------------------------------------------------------------------------*/
@@ -181,8 +199,6 @@ ehci_urb_done (struct ehci_hcd *ehci, struct urb *urb, struct pt_regs *regs)
 #ifdef	INTR_AUTOMAGIC
 	struct urb		*resubmit = 0;
 	struct usb_device	*dev = 0;
-
-	static int ehci_urb_enqueue (struct usb_hcd *, struct urb *, int);
 #endif
 
 	if (likely (urb->hcpriv != 0)) {
@@ -261,6 +277,8 @@ ehci_urb_done (struct ehci_hcd *ehci, struct urb *urb, struct pt_regs *regs)
 	spin_lock (&ehci->lock);
 }
 
+static void start_unlink_async (struct ehci_hcd *ehci, struct ehci_qh *qh);
+static void unlink_async (struct ehci_hcd *ehci, struct ehci_qh *qh);
 
 /*
  * Process and free completed qtds for a qh, returning URBs to drivers.
@@ -401,21 +419,20 @@ halt:
 	/* restore original state; caller must unlink or relink */
 	qh->qh_state = state;
 
-	/* update qh after fault cleanup */
-	if (unlikely (stopped != 0)
-			/* some EHCI 0.95 impls will overlay dummy qtds */ 
-			|| qh->hw_qtd_next == EHCI_LIST_END) {
-		if (list_empty (&qh->qtd_list))
-			end = qh->dummy;
-		else {
-			end = list_entry (qh->qtd_list.next,
-					struct ehci_qtd, qtd_list);
-			/* first qtd may already be partially processed */
-			if (cpu_to_le32 (end->qtd_dma) == qh->hw_current)
-				end = 0;
+	/* be sure the hardware's done with the qh before refreshing
+	 * it after fault cleanup, or recovering from silicon wrongly
+	 * overlaying the dummy qtd (which reduces DMA chatter).
+	 */
+	if (stopped != 0 || qh->hw_qtd_next == EHCI_LIST_END) {
+		switch (state) {
+		case QH_STATE_IDLE:
+			qh_refresh(ehci, qh);
+			break;
+		case QH_STATE_LINKED:
+			unlink_async (ehci, qh);
+			break;
+		/* otherwise, unlink already started */
 		}
-		if (end)
-			qh_update (ehci, qh, end);
 	}
 
 	return count;
@@ -742,8 +759,8 @@ done:
 	qh->qh_state = QH_STATE_IDLE;
 	qh->hw_info1 = cpu_to_le32 (info1);
 	qh->hw_info2 = cpu_to_le32 (info2);
-	qh_update (ehci, qh, qh->dummy);
 	usb_settoggle (urb->dev, usb_pipeendpoint (urb->pipe), !is_input, 1);
+	qh_refresh (ehci, qh);
 	return qh;
 }
 
@@ -779,7 +796,9 @@ static void qh_link_async (struct ehci_hcd *ehci, struct ehci_qh *qh)
 		}
 	}
 
-	qh->hw_token &= ~HALT_BIT;
+	/* clear halt and/or toggle; and maybe recover from silicon quirk */
+	if (qh->qh_state == QH_STATE_IDLE)
+		qh_refresh (ehci, qh);
 
 	/* splice right after start */
 	qh->qh_next = head->qh_next;
@@ -973,8 +992,6 @@ submit_async (
 /*-------------------------------------------------------------------------*/
 
 /* the async qh for the qtds being reclaimed are now unlinked from the HC */
-
-static void start_unlink_async (struct ehci_hcd *ehci, struct ehci_qh *qh);
 
 static void end_unlink_async (struct ehci_hcd *ehci, struct pt_regs *regs)
 {

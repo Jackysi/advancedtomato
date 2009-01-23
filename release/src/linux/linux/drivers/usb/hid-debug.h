@@ -1,5 +1,5 @@
 /*
- * $Id: hid-debug.h,v 1.1.1.4 2003/10/14 08:08:50 sparq Exp $
+ * $Id: hid-debug.h,v 1.3 2001/05/10 15:56:07 vojtech Exp $
  *
  *  (c) 1999 Andreas Gal		<gal@cs.uni-magdeburg.de>
  *  (c) 2000-2001 Vojtech Pavlik	<vojtech@suse.cz>
