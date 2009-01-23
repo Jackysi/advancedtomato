@@ -250,6 +250,7 @@ struct ehci_regs {
 #define PORT_PE		(1<<2)		/* port enable */
 #define PORT_CSC	(1<<1)		/* connect status change */
 #define PORT_CONNECT	(1<<0)		/* device connected */
+#define PORT_RWC_BITS   (PORT_CSC | PORT_PEC | PORT_OCC)
 } __attribute__ ((packed));
 
 
@@ -348,6 +349,11 @@ struct ehci_qh {
 	u32			hw_info1;        /* see EHCI 3.6.2 */
 #define	QH_HEAD		0x00008000
 	u32			hw_info2;        /* see EHCI 3.6.2 */
+#define QH_SMASK        0x000000ff
+#define QH_CMASK        0x0000ff00
+#define QH_HUBADDR      0x007f0000
+#define QH_HUBPORT      0x3f800000
+#define QH_MULT         0xc0000000
 	u32			hw_current;	 /* qtd list - see EHCI 3.6.4 */
 	
 	/* qtd overlay (hardware parts of a struct ehci_qtd) */
@@ -378,6 +384,7 @@ struct ehci_qh {
 	u8			usecs;		/* intr bandwidth */
 	u8			gap_uf;		/* uframes split/csplit gap */
 	u8			c_usecs;	/* ... split completion bw */
+	u16                     tt_usecs;       /* tt downstream bandwidth */
 	unsigned short		period;		/* polling interval */
 	unsigned short		start;		/* where polling starts */
 #define NO_FRAME ((unsigned short)~0)			/* pick new start */
@@ -392,6 +399,8 @@ struct ehci_iso_uframe {
 	u64			bufp;		/* itd->hw_bufp{,_hi}[pg] |= */
 	u32			transaction;	/* itd->hw_transaction[i] |= */
 	u8			cross;		/* buf crosses pages */
+	/* for full speed OUT splits */
+	u32                     buf1;
 };
 
 /* temporary schedule data for highspeed packets from iso urbs
@@ -415,6 +424,8 @@ struct ehci_iso_stream {
 
 	u32			refcount;
 	u8			bEndpointAddress;
+	u8			highspeed;
+	u16			depth;          /* depth in uframes */
 	struct list_head	itd_list;	/* queued itds */
 	struct list_head	free_itd_list;	/* list of unused itds */
 	struct hcd_dev		*dev;
@@ -423,14 +434,17 @@ struct ehci_iso_stream {
 	unsigned long		start;		/* jiffies */
 	unsigned long		rescheduled;
 	int			next_uframe;
+	u32			splits;
 
 	/* the rest is derived from the endpoint descriptor,
 	 * trusting urb->interval == (1 << (epdesc->bInterval - 1)),
 	 * including the extra info for hw_bufp[0..2]
 	 */
-	u8			interval;
-	u8			usecs;		
+	u8			usecs, c_usecs;		
+	u16			interval;
+	u16			tt_usecs;
 	u16			maxp;
+	u16			raw_mask;
 	unsigned		bandwidth;
 
 	/* This is used to initialize iTD's hw_bufp fields */
@@ -438,7 +452,8 @@ struct ehci_iso_stream {
 	u32			buf1;		
 	u32			buf2;
 
-	/* ... sITD won't use buf[012], and needs TT access ... */
+	/* this is used to initialize sITD's tt info */
+	u32			address;
 };
 
 /*-------------------------------------------------------------------------*/
@@ -494,16 +509,30 @@ struct ehci_sitd {
 /* uses bit field macros above - see EHCI 0.95 Table 3-8 */
 	u32			hw_fullspeed_ep;  /* see EHCI table 3-9 */
 	u32                     hw_uframe;        /* see EHCI table 3-10 */
-        u32                     hw_tx_results1;   /* see EHCI table 3-11 */
-	u32                     hw_tx_results2;   /* see EHCI table 3-12 */
-	u32                     hw_tx_results3;   /* see EHCI table 3-12 */
+        u32                     hw_results;       /* see EHCI table 3-11 */
+#define SITD_IOC        (1 << 31)       /* interrupt on completion */
+#define SITD_PAGE       (1 << 30)       /* buffer 0/1 */
+#define SITD_LENGTH(x)  (0x3ff & ((x)>>16))
+#define SITD_STS_ACTIVE (1 << 7)        /* HC may execute this */
+#define SITD_STS_ERR    (1 << 6)        /* error from TT */
+#define SITD_STS_DBE    (1 << 5)        /* data buffer error (in HC) */
+#define SITD_STS_BABBLE (1 << 4)        /* device was babbling */
+#define SITD_STS_XACT   (1 << 3)        /* illegal IN response */
+#define SITD_STS_MMF    (1 << 2)        /* incomplete split transaction */
+#define SITD_STS_STS    (1 << 1)        /* split transaction state */
+
+#define SITD_ACTIVE(ehci)       cpu_to_hc32(ehci, SITD_STS_ACTIVE)
+
+	u32                     hw_buf[2];        /* see EHCI table 3-12 */
         u32                     hw_backpointer;   /* see EHCI table 3-13 */
 	u32			hw_buf_hi [2];	  /* Appendix B */
 
 	/* the rest is HCD-private */
 	dma_addr_t		sitd_dma;
 	union ehci_shadow	sitd_next;	/* ptr to periodic q entry */
+
 	struct urb		*urb;
+        struct ehci_iso_stream  *stream;        /* endpoint's queue */
 	dma_addr_t		buf_dma;	/* buffer address */
 
 	unsigned short		usecs;		/* start bandwidth */

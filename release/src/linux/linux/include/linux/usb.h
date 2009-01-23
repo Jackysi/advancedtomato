@@ -806,6 +806,7 @@ struct usb_bus {
 struct usb_tt {
 	struct usb_device	*hub;	/* upstream highspeed hub */
 	int			multi;	/* true means one TT per port */
+	unsigned		think_time;	/* think time in ns */
 };
 
 
