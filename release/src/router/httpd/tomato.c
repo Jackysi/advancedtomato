@@ -97,6 +97,78 @@ void wi_generic(char *url, int len, char *boundary)
 	check_id();
 }
 
+// !!TB - CGI Support
+void wi_cgi_bin(char *url, int len, char *boundary)
+{
+	if (!post_buf) free(post_buf);
+	post_buf = NULL;
+
+	if (post) {
+		if (len >= (32 * 1024)) {
+			syslog(LOG_WARNING, "POST length exceeded maximum allowed");
+			exit(1);
+		}
+
+		if (len > 0) {
+			if ((post_buf = malloc(len + 1)) == NULL) {
+				exit(1);
+			}
+			if (web_read_x(post_buf, len) != len) {
+				exit(1);
+			}
+			post_buf[len] = 0;
+		}
+	}
+}
+
+static void wo_cgi_bin(char *url)
+{
+	char webExecFile[] = "/tmp/.webexecXXXXXX";
+	char webQueryFile[] = "/tmp/.webqueryXXXXXX";
+	char webASPFile[] = "/tmp/.weboutXXXXXX";
+
+	FILE *f;
+
+	mktemp(webExecFile);
+	if (post_buf) mktemp(webQueryFile);
+
+	if ((f = fopen(webExecFile, "wb")) != NULL) {
+		fprintf(f, "#!/bin/sh\nexport REQUEST_METHOD=\"%s\"\n", post ? "POST" : "GET");
+		if (post_buf)
+			fprintf(f, "./%s <%s\n", url, webQueryFile);
+		else
+			fprintf(f, "./%s\n", url);
+		fclose(f);
+	}
+	else {
+		exit(1);
+	}
+
+	if (post_buf) {
+		if ((f = fopen(webQueryFile, "wb")) != NULL) {
+			fprintf(f, "%s\n", post_buf);
+			fclose(f);
+			free(post_buf);
+			post_buf = NULL;
+		}
+		else {
+			unlink(webExecFile);
+			exit(1);
+		}
+	}
+
+	chmod(webExecFile, 0700);
+
+	char cmd[128];
+	mktemp(webASPFile);
+	sprintf(cmd, "%s >%s", webExecFile, webASPFile);
+	system(cmd);
+	unlink(webQueryFile);
+	unlink(webExecFile);
+	wo_asp(webASPFile);
+	unlink(webASPFile);
+}
+
 static void wo_blank(char *url)
 {
 	web_puts("\n\n\n\n");
@@ -208,6 +280,9 @@ const struct mime_handler mime_handlers[] = {
 	{ "logout.cgi",		NULL,	   		 			0,	wi_generic,			wo_logout,		0 },
 	{ "shutdown.cgi",	mime_html,					0,	wi_generic,			wo_shutdown,	1 },
 
+// !!TB - USB, CGI Support, enable downloading archives
+	{ "**/cgi-bin/**|**.sh",	NULL,					0,	wi_cgi_bin,		wo_cgi_bin,			1 },
+	{ "**.tar|**.gz",		mime_binary,				0,	wi_generic_noid,	do_file,		1 },
 
 #if TOMATO_SL
 	{ "usb.cgi",		NULL,						0,	wi_generic,			wo_usb,			1 },
