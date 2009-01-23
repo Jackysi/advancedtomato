@@ -108,7 +108,6 @@ install package: $(obj-install) $(LINUXDIR)/.config
 # kernel modules
 	$(MAKE) -C $(LINUXDIR) modules_install DEPMOD=/bin/true INSTALL_MOD_PATH=$(TARGETDIR)
 	find $(TARGETDIR)/lib/modules -name *.o -exec mipsel-linux-strip --strip-unneeded {} \;
-
 	-cd $(TARGETDIR)/lib/modules/2.4.20/kernel/drivers/net && mv diag/* . && rm -rf diag
 
 # nice and clean
@@ -117,6 +116,16 @@ install package: $(obj-install) $(LINUXDIR)/.config
 	cd $(TARGETDIR)/lib/modules/2.4.20/kernel/drivers/net && mv wl/* . && rm -rf wl
 	cd $(TARGETDIR)/lib/modules/2.4.20/kernel/fs && mv cifs/* . && rm -rf cifs
 	cd $(TARGETDIR)/lib/modules/2.4.20/kernel/fs && mv jffs2/* . && rm -rf jffs2
+##!!TB
+	cd $(TARGETDIR)/lib/modules/2.4.20/kernel/fs && mv ext2/* . && rm -rf ext2 || true
+	cd $(TARGETDIR)/lib/modules/2.4.20/kernel/fs && mv ext3/* . && rm -rf ext3 || true
+	cd $(TARGETDIR)/lib/modules/2.4.20/kernel/fs && mv jbd/* . && rm -rf jbd || true
+	cd $(TARGETDIR)/lib/modules/2.4.20/kernel/fs && mv fat/* . && rm -rf fat || true
+	cd $(TARGETDIR)/lib/modules/2.4.20/kernel/fs && mv vfat/* . && rm -rf vfat || true
+	cd $(TARGETDIR)/lib/modules/2.4.20/kernel/drivers/usb && mv hcd/* . && rm -rf hcd || true
+	cd $(TARGETDIR)/lib/modules/2.4.20/kernel/drivers/usb && mv host/* . && rm -rf host || true
+	cd $(TARGETDIR)/lib/modules/2.4.20/kernel/drivers/usb && mv storage/* . && rm -rf storage || true
+
 	cd $(TARGETDIR)/lib/modules/2.4.20/kernel/lib && mv zlib_inflate/* . && rm -rf zlib_inflate
 	cd $(TARGETDIR)/lib/modules/2.4.20/kernel/lib && mv zlib_deflate/* . && rm -rf zlib_deflate
 	rm -rf $(TARGETDIR)/lib/modules/2.4.20/pcmcia
@@ -491,9 +500,6 @@ ebtables-install: dummy
 	
 ebtables-clean:
 	make -C ebtables clean
-
-
-
 
 #
 # Generic rules
