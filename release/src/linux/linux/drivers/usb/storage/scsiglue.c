@@ -389,6 +389,14 @@ static int proc_info (char *buffer, char **start, off_t offset, int length,
 	SPRINTF("         GUID: " GUID_FORMAT "\n", GUID_ARGS(us->guid));
 	SPRINTF("     Attached: %s\n", us->pusb_dev ? "Yes" : "No");
 
+	if (us->pusb_dev && us->pusb_dev->devpath)
+	{
+		SPRINTF("         Port: %s\n", us->pusb_dev->devpath );
+
+		if (us->pusb_dev->bus && us->pusb_dev->bus->bus_name)
+		SPRINTF("          Bus: %s-%s\n", us->pusb_dev->bus->bus_name, us->pusb_dev->devpath);
+	}
+
 	/*
 	 * Calculate start of next buffer, and return value.
 	 */

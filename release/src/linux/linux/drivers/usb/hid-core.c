@@ -1076,12 +1076,14 @@ static void hid_ctrl(struct urb *urb)
 	if (hid->outhead != hid->outtail) {
 		if (hid_submit_out(hid)) {
 			clear_bit(HID_OUT_RUNNING, &hid->iofl);
+			wake_up(&hid->wait);
 		}
 		spin_unlock_irqrestore(&hid->outlock, flags);
 		return;
 	}
 
 	clear_bit(HID_OUT_RUNNING, &hid->iofl);
+	wake_up(&hid->wait);
 	spin_unlock_irqrestore(&hid->outlock, flags);
 }
 
@@ -1112,6 +1114,30 @@ void hid_write_report(struct hid_device *hid, struct hid_report *report)
 			clear_bit(HID_OUT_RUNNING, &hid->iofl);
 
 	spin_unlock_irqrestore(&hid->outlock, flags);
+}
+
+int usbhid_wait_io(struct hid_device *hid)
+{
+	DECLARE_WAITQUEUE(wait, current);
+	long timeout = 10 * HZ;
+	
+	add_wait_queue(&hid->wait, &wait);
+
+	while (test_bit(HID_OUT_RUNNING, &hid->iofl) && timeout)
+	{
+		set_current_state(TASK_UNINTERRUPTIBLE);
+		timeout = schedule_timeout (timeout);
+	}
+
+        remove_wait_queue(&hid->wait, &wait);
+        
+	if (!timeout)
+	{
+		dbg("timeout waiting for ctrl or out queue to clear\n");
+		return -1;
+	}
+
+	return 0;
 }
 
 int hid_open(struct hid_device *hid)
@@ -1353,6 +1379,8 @@ static struct hid_device *usb_hid_configure(struct usb_device *dev, int ifnum)
 		hid_free_device(hid);
 		return NULL;
 	}
+
+	init_waitqueue_head(&hid->wait);
 
 	spin_lock_init(&hid->outlock);
 

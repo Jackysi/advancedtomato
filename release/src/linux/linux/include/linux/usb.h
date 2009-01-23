@@ -907,6 +907,9 @@ extern void usb_free_dev(struct usb_device *);
 extern void usb_inc_dev_use(struct usb_device *);
 #define usb_dec_dev_use usb_free_dev
 
+extern void usb_register_devpath(struct usb_device *, char, char *);
+extern void usb_deregister_devpath(struct usb_device *);
+
 extern int usb_control_msg(struct usb_device *dev, unsigned int pipe, __u8 request, __u8 requesttype, __u16 value, __u16 index, void *data, __u16 size, int timeout);
 
 extern int usb_root_hub_string(int id, int serial, char *type, __u8 *data, int len);
@@ -1114,6 +1117,7 @@ void usb_show_string(struct usb_device *dev, char *id, int index);
 extern struct list_head usb_driver_list;
 extern struct list_head usb_bus_list;
 extern struct semaphore usb_bus_list_lock;
+extern struct semaphore usb_devpath_list_lock;
 
 /*
  * USB device fs stuff

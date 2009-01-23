@@ -601,6 +601,13 @@ static int usb_hub_port_reset(struct usb_device *hub, int port,
 
 		/* return on disconnect or reset */
 		status = usb_hub_port_wait_reset(hub, port, dev, delay);
+
+		// !!TB - dd-wrt fix for USB 2.0
+		if (status == 0) {
+			/* TRSTRCY = 10 ms; plus some extra */
+			wait_ms(10 + 40);
+		}
+
 		if (status != -1) {
 			usb_clear_port_feature(hub, port + 1, USB_PORT_FEAT_C_RESET);
 			return status;
@@ -757,6 +764,13 @@ static void usb_hub_port_connect_change(struct usb_hub *hubstate, int port,
 				dev->bus->busnum, dev->devnum, dev->devpath);
 		info("new USB device %s-%s, assigned address %d",
 			dev->bus->bus_name, dev->devpath, dev->devnum);
+
+		/* !!TB - fix by lly: check for devices running slower than they could */
+		if (dev->speed == USB_SPEED_FULL || dev->speed == USB_SPEED_LOW)
+		{
+			dbg("USB 1.1 device - waiting 20ms");
+			wait_ms(20);
+		}
 
 		/* Run it through the hoops (find a driver, etc) */
 		if (!usb_new_device(dev)) {

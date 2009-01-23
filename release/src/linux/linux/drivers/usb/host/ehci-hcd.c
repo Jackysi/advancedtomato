@@ -401,13 +401,13 @@ static int ehci_start (struct usb_hcd *hcd)
 	}
 
 {
-	int misc_reg;
+	u8 misc_reg;
 	u32 vendor_id;
 	
 	pci_read_config_dword (ehci->hcd.pdev, PCI_VENDOR_ID, &vendor_id);
 	if (vendor_id == 0x31041106) {
 		/* VIA 6212 */
-		printk(KERN_INFO "EHCI: Enabling VIA 6212 workarounds\n", misc_reg);
+		printk(KERN_INFO "EHCI: Enabling VIA 6212 workarounds\n");
 		pci_read_config_byte(ehci->hcd.pdev, 0x49, &misc_reg);
 		misc_reg &= ~0x20;
 		pci_write_config_byte(ehci->hcd.pdev, 0x49, misc_reg);

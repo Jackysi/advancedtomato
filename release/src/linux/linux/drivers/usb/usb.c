@@ -2264,6 +2264,48 @@ int usb_new_device(struct usb_device *dev)
 	dev->epmaxpacketin [0] = dev->descriptor.bMaxPacketSize0;
 	dev->epmaxpacketout[0] = dev->descriptor.bMaxPacketSize0;
 
+	if (dev->ttport) {
+		// !!TB - lly: This piece of code stolen from 2.6 tree
+		// Workaround for USB 1.1 device connected via high-speed USB 2.0 hub
+		// hub.c: hub_port_init()
+		dbg("Device via USB hub");
+
+		struct usb_device_descriptor *buf;
+		int j, r = 0;
+
+#define GET_DESCRIPTOR_BUFSIZE  64
+		buf = kmalloc(GET_DESCRIPTOR_BUFSIZE, GFP_NOIO);
+		if (!buf) {
+			return 1;
+		}
+
+		for (j = 0; j < 3; ++j) {
+			buf->bMaxPacketSize0 = 0;
+			r = usb_control_msg(dev, usb_rcvctrlpipe(dev, 0),
+				USB_REQ_GET_DESCRIPTOR, USB_DIR_IN,
+				USB_DT_DEVICE << 8, 0,
+				buf, GET_DESCRIPTOR_BUFSIZE,
+				HZ * GET_TIMEOUT);
+			switch (buf->bMaxPacketSize0) {
+				case 8: case 16: case 32: case 64: case 255:
+					if (buf->bDescriptorType == USB_DT_DEVICE) {
+						r = 0;
+						break;
+					}
+				/* FALL THROUGH */
+				default:
+					if (r == 0)
+					r = -EPROTO;
+					break;
+			}
+			if (r == 0) break;
+		}
+		dev->descriptor.bMaxPacketSize0 = buf->bMaxPacketSize0;
+		kfree(buf);
+#undef GET_DESCRIPTOR_BUFSIZE
+		// lly: End 2.6 code
+	}
+
 	err = usb_get_device_descriptor(dev);
 	if (err < (signed)sizeof(dev->descriptor)) {
 		if (err < 0)
@@ -2275,6 +2317,12 @@ int usb_new_device(struct usb_device *dev)
 		clear_bit(dev->devnum, &dev->bus->devmap.devicemap);
 		dev->devnum = -1;
 		return 1;
+	}
+
+	// !!TB - added delay (wait for data)
+	int wcnt;
+	for (wcnt = 0; wcnt < 20 && dev->descriptor.bNumConfigurations == 0; wcnt++) {
+		wait_ms(50);
 	}
 
 	err = usb_get_configuration(dev);
@@ -2443,6 +2491,9 @@ void usb_excl_unlock(struct usb_device *dev, unsigned int type)
 static int __init usb_init(void)
 {
 	init_MUTEX(&usb_bus_list_lock);
+#ifdef CONFIG_USB_DEVPATH
+	init_MUTEX(&usb_devpath_list_lock);
+#endif
 	usb_major_init();
 	usbdevfs_init();
 	usb_hub_init();

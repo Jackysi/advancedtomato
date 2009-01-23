@@ -1430,6 +1430,9 @@ static void * usb_serial_probe(struct usb_device *dev, unsigned int ifnum,
 	int max_endpoints;
 	const struct usb_device_id *id_pattern = NULL;
 	unsigned long flags;
+#ifdef CONFIG_USB_DEVPATH
+	char devfsname[16];
+#endif
 
 	/* loop through our list of known serial converters, and see if this
 	   device matches. */
@@ -1662,6 +1665,10 @@ static void * usb_serial_probe(struct usb_device *dev, unsigned int ifnum,
 		tty_register_devfs (&serial_tty_driver, 0, serial->port[i].number);
 		info("%s converter now attached to ttyUSB%d (or usb/tts/%d for devfs)", 
 		     type->name, serial->port[i].number, serial->port[i].number);
+#ifdef CONFIG_USB_DEVPATH
+                sprintf(devfsname, serial_tty_driver.name, serial->port[i].number);
+                usb_register_devpath(dev, ifnum+i*10, devfsname);
+#endif
 	}
 
 	return serial; /* success */
@@ -1755,6 +1762,9 @@ static void usb_serial_disconnect(struct usb_device *dev, void *ptr)
 
 		for (i = 0; i < serial->num_ports; ++i) {
 			tty_unregister_devfs (&serial_tty_driver, serial->port[i].number);
+#ifdef CONFIG_USB_DEVPATH
+			usb_deregister_devpath(dev);
+#endif
 			info("%s converter now disconnected from ttyUSB%d", serial->type->name, serial->port[i].number);
 		}
 
