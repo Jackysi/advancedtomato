@@ -263,6 +263,9 @@ const struct mime_handler mime_handlers[] = {
 	{ "**.bino",		mime_octetstream,			0,	wi_generic_noid,	do_file,		1 },
 	{ "favicon.ico",	NULL,						5,	wi_generic_noid,	wo_favicon,		1 },
 	
+// !!TB - CGI Support, enable downloading archives
+	{ "**/cgi-bin/**|**.sh",	NULL,					0,	wi_cgi_bin,		wo_cgi_bin,			1 },
+	{ "**.tar|**.gz",		mime_binary,				0,	wi_generic_noid,	do_file,		1 },
 
 	{ "dhcpc.cgi",		NULL,						0,	wi_generic,			wo_dhcpc,		1 },
 	{ "dhcpd.cgi",		mime_javascript,			0,	wi_generic,			wo_dhcpd,		1 },
@@ -279,10 +282,6 @@ const struct mime_handler mime_handlers[] = {
 	{ "service.cgi",	NULL,						0,	wi_generic,			wo_service,		1 },
 	{ "logout.cgi",		NULL,	   		 			0,	wi_generic,			wo_logout,		0 },
 	{ "shutdown.cgi",	mime_html,					0,	wi_generic,			wo_shutdown,	1 },
-
-// !!TB - USB, CGI Support, enable downloading archives
-	{ "**/cgi-bin/**|**.sh",	NULL,					0,	wi_cgi_bin,		wo_cgi_bin,			1 },
-	{ "**.tar|**.gz",		mime_binary,				0,	wi_generic_noid,	do_file,		1 },
 
 
 #if TOMATO_SL
