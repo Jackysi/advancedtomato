@@ -284,6 +284,7 @@ const struct mime_handler mime_handlers[] = {
 	{ "**/cgi-bin/**|**.sh",	NULL,					0,	wi_cgi_bin,		wo_cgi_bin,			1 },
 	{ "**.tar|**.gz",		mime_binary,				0,	wi_generic_noid,	do_file,		1 },
 
+
 #if TOMATO_SL
 	{ "usb.cgi",		NULL,						0,	wi_generic,			wo_usb,			1 },
 	{ "umount.cgi",		NULL,						0,	wi_generic,			wo_umount,		1 },
