@@ -24,8 +24,14 @@
 #ifndef _SMB_H
 #define _SMB_H
 
+#if defined(LARGE_SMB_OFF_T)
+#define BUFFER_SIZE (128*1024)
+#else /* no large readwrite possible */
 #define BUFFER_SIZE (0xFFFF)
+#endif
+
 #define SAFETY_MARGIN 1024
+#define LARGE_WRITEX_HDR_SIZE 65
 
 #define NMB_PORT 137
 #define DGRAM_PORT 138
@@ -115,6 +121,22 @@ BOOL dbgtext();
  *               Usage:
  *                 DEBUGADD( 2, ("Some additional text.\n") );
  */
+ 
+#ifdef NDEBUG
+
+#define DEBUGLVL( level ) \
+  ( (0 == (level)) \
+   && dbghdr( level, FILE_MACRO, FUNCTION_MACRO, (__LINE__) ) )
+
+#define DEBUG( level, body ) \
+  (void)( (0 == (level)) \
+       && (dbghdr( level, FILE_MACRO, FUNCTION_MACRO, (__LINE__) )) \
+       && (dbgtext body) )
+
+#define DEBUGADD( level, body )	\
+  (void)( (0 == (level)) && (dbgtext body) )
+
+#else
 #define DEBUGLVL( level ) \
   ( (DEBUGLEVEL >= (level)) \
    && dbghdr( level, FILE_MACRO, FUNCTION_MACRO, (__LINE__) ) )
@@ -140,7 +162,7 @@ BOOL dbgtext();
   (void)( (DEBUGLEVEL >= (level)) && (dbgtext body) )
 
 #endif
-
+#endif
 /* End Debugging code section.
  * -------------------------------------------------------------------------- **
  */
@@ -256,6 +278,7 @@ implemented */
 #define ERRlock 33 /* Lock request conflicts with existing lock */
 #define ERRunsup 50 /* Request unsupported, returned by Win 95, RJS 20Jun98 */
 #define ERRfilexists 80 /* File in operation already exists */
+#define ERRinvalidparam 87
 #define ERRcannotopen 110 /* Cannot open the file specified */
 #define ERRunknownlevel 124
 #define ERRrename 183
@@ -1612,7 +1635,9 @@ char *strdup(char *s);
 #define CAP_LOCK_AND_READ    0x0100
 #define CAP_NT_FIND          0x0200
 #define CAP_DFS              0x1000
+#define CAP_W2K_SMBS         0x2000
 #define CAP_LARGE_READX      0x4000
+#define CAP_LARGE_WRITEX     0x8000
 #define CAP_EXTENDED_SECURITY 0x80000000
 
 /* protocol types. It assumes that higher protocols include lower protocols
@@ -1893,4 +1918,7 @@ struct nmb_name {
 
 #define SAFE_NETBIOS_CHARS ". -_"
 
+#ifndef SAFE_FREE
+#define SAFE_FREE(x) do { if ((x) != NULL) {free((x)); (x)=NULL;} } while(0)
+#endif
 #endif /* _SMB_H */

@@ -268,7 +268,7 @@ static SMB_BIG_UINT disk_free(char *path, BOOL small_query,
 	if ((*dsize)<1) {
 		static int done;
 		if (!done) {
-			DEBUG(0,("WARNING: dfree is broken on this system\n"));
+			DEBUG(2,("WARNING: dfree is broken on this system\n"));
 			done=1;
 		}
 		*dsize = 20*1024*1024/(*bsize);

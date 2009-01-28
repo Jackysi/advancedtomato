@@ -324,7 +324,7 @@ static BOOL smb_shm_register_process(char *processreg_file, pid_t pid, BOOL *oth
 
   if ( smb_shm_processes_fd < 0 )
   {
-     DEBUG(0, ("ERROR smb_shm_register_process : processreg_file \
+     DEBUG(1, ("ERROR smb_shm_register_process : processreg_file \
 open failed with code %s\n",strerror(errno)));
      return False;
   }

@@ -999,6 +999,91 @@ static char *sj_to_sj(char *from, BOOL overwrite)
     }
 }
 
+/*******************************************************************
+ cp to utf8
+********************************************************************/
+static char *cp_to_utf8(char *from, BOOL overwrite)
+{
+  unsigned char *dst;
+  const unsigned char *src;
+  smb_ucs2_t val;
+  int w;
+  size_t len;
+  src = (const unsigned char *)from;
+  dst = (unsigned char *)cvtbuf;
+  while (*src && (((char *)dst - cvtbuf) < sizeof(cvtbuf)-4)) {
+    len = _skip_multibyte_char(*src);
+    if ( len == 2 ) {
+      w = (int)(*src++ & 0xff);
+      w = (int)((w << 8)|(*src++ & 0xff));
+    } else {
+      w = (int)(*src++ & 0xff);
+    }
+    val = doscp2ucs2(w);
+
+    if ( val <= 0x7f ) {
+      *dst++ = (char)(val & 0xff);
+    } else if ( val <= 0x7ff ){
+      *dst++ = (char)( 0xc0 | ((val >> 6) & 0xff)); 
+      *dst++ = (char)( 0x80 | ( val & 0x3f ));
+    } else {
+      *dst++ = (char)( 0xe0 | ((val >> 12) & 0x0f));
+      *dst++ = (char)( 0x80 | ((val >> 6)  & 0x3f));
+      *dst++ = (char)( 0x80 | (val & 0x3f));
+    }
+
+  }
+  *dst++='\0';
+
+    if (overwrite) {
+	pstrcpy ((char *) from, (char *) cvtbuf);
+	return (char *) from;
+    } else {
+	return cvtbuf;
+    }
+}
+
+/*******************************************************************
+ utf8 to cp
+********************************************************************/
+static char *utf8_to_cp(char *from, BOOL overwrite)
+{
+  const unsigned char *src;
+  unsigned char *dst;
+  smb_ucs2_t val;
+  int w;
+
+  src = (const unsigned char *)from; 
+  dst = (unsigned char *)cvtbuf; 
+
+  while (*src && ((char *)dst - cvtbuf < sizeof(cvtbuf)-4)) {
+    val = (*src++ & 0xff);
+    if (val < 0x80) {
+      *dst++ = (char)(val & 0x7f); 
+    } else if ((0xc0 <= val) && (val <= 0xdf) 
+	       && (0x80 <= *src) && (*src <= 0xbf)) {
+      w = ucs2doscp( ((val & 31) << 6)  | ((*src++) & 63 ));
+      if (w > 255) *dst++ = (char)((w >> 8) & 0xff);
+      *dst++ = (char)(w & 0xff);
+    } else {
+      val  = (val & 0x0f) << 12;
+      val |= ((*src++ & 0x3f) << 6);
+      val |= (*src++ & 0x3f);
+      w = ucs2doscp(val);
+      if (w > 255) *dst++ = (char)((w >> 8) & 0xff);
+      *dst++ = (char)(w & 0xff);
+    }
+  }
+  *dst++='\0';
+
+    if (overwrite) {
+	pstrcpy ((char *) from, (char *) cvtbuf);
+	return (char *) from;
+    } else {
+	return cvtbuf;
+    }
+}
+
 /************************************************************************
  conversion:
  _dos_to_unix		_unix_to_dos
@@ -1011,6 +1096,11 @@ static void setup_string_function(int codes)
         _dos_to_unix = dos2unix_format;
         _unix_to_dos = unix2dos_format;
         break;
+
+    case UTF8_CODE:
+	_dos_to_unix = cp_to_utf8;
+	_unix_to_dos = utf8_to_cp;
+	break;
 
     case SJIS_CODE:
 	_dos_to_unix = sj_to_sj;
@@ -1059,6 +1149,8 @@ void interpret_coding_system(char *str)
     
     if (strequal (str, "sjis")) {
 	codes = SJIS_CODE;
+    } else if (strequal (str, "utf8")) {
+	codes = UTF8_CODE;
     } else if (strequal (str, "euc")) {
 	codes = EUC_CODE;
     } else if (strequal (str, "cap")) {

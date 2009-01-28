@@ -597,12 +597,12 @@ static BOOL check_domain_security(char *orig_user, char *domain, char *unix_user
 
   if (!check_domain_match(orig_user, domain))
      return False;
-
+#ifdef RPCCLIENT
   ret = domain_client_validate(orig_user, domain,
                                 smb_apasswd, smb_apasslen,
                                 smb_ntpasswd, smb_ntpasslen,
                                 &user_exists);
-
+#endif
   if(ret) {
     /*
      * User validated ok against Domain controller.
@@ -1413,6 +1413,9 @@ int reply_search(connection_struct *conn, char *inbuf,char *outbuf, int dum_size
 
         for (i=numentries;(i<maxentries) && !finished;i++)
         {
+	  /* check to make sure we have room in the buffer */
+	  if ( ((PTR_DIFF(p, outbuf))+DIR_STRUCT_SIZE) > BUFFER_SIZE )
+	  	break;
           finished = 
             !get_dir_entry(conn,mask,dirtype,fname,&size,&mode,&date,check_descend);
           if (!finished)
@@ -2548,16 +2551,27 @@ int reply_write_and_X(connection_struct *conn, char *inbuf,char *outbuf,int leng
   size_t numtowrite = SVAL(inbuf,smb_vwv10);
   BOOL write_through = BITSETW(inbuf+smb_vwv7,0);
   ssize_t nwritten = -1;
-  int smb_doff = SVAL(inbuf,smb_vwv11);
+  unsigned int smb_doff = SVAL(inbuf,smb_vwv11);
+  unsigned int smblen = smb_len(inbuf);
   char *data;
+  BOOL large_writeX = ((CVAL(inbuf,smb_wct) == 14) && (smblen > 0xFFFF));
 
   /* If it's an IPC, pass off the pipe handler. */
-  if (IS_IPC(conn))
+  if (IS_IPC(conn)) {
     return reply_pipe_write_and_X(inbuf,outbuf,length,bufsize);
+  }
 
   CHECK_FSP(fsp,conn);
   CHECK_WRITE(fsp);
   CHECK_ERROR(fsp);
+
+  /* Deal with possible LARGE_WRITEX */
+  if (large_writeX)
+    numtowrite |= ((((size_t)SVAL(inbuf,smb_vwv9)) & 1 )<<16);
+
+  if(smb_doff > smblen || (smb_doff + numtowrite > smblen)) {
+    return(ERROR(ERRDOS,ERRbadmem));
+  }
 
   data = smb_base(inbuf) + smb_doff;
 
@@ -2583,8 +2597,9 @@ int reply_write_and_X(connection_struct *conn, char *inbuf,char *outbuf,int leng
 #endif /* LARGE_SMB_OFF_T */
   }
 
-  if (is_locked(fsp,conn,numtowrite,startpos, F_WRLCK))
+  if (is_locked(fsp,conn,(SMB_BIG_UINT)numtowrite,(SMB_BIG_UINT)startpos, WRITE_LOCK)) {
     return(ERROR(ERRDOS,ERRlock));
+  }
 
   /* X/Open SMB protocol says that, unlike SMBwrite
      if the length is zero then NO truncation is
@@ -2595,12 +2610,15 @@ int reply_write_and_X(connection_struct *conn, char *inbuf,char *outbuf,int leng
   else
     nwritten = write_file(fsp,data,startpos,numtowrite);
   
-  if(((nwritten == 0) && (numtowrite != 0))||(nwritten < 0))
+  if(((nwritten == 0) && (numtowrite != 0))||(nwritten < 0)) {
     return(UNIXERROR(ERRDOS,ERRnoaccess));
+  }
 
   set_message(outbuf,6,0,True);
   
   SSVAL(outbuf,smb_vwv2,nwritten);
+  if (large_writeX)
+    SSVAL(outbuf,smb_vwv4,(nwritten>>16)&1);
   
   if (nwritten < (ssize_t)numtowrite) {
     CVAL(outbuf,smb_rcls) = ERRHRD;
@@ -2991,7 +3009,7 @@ int reply_echo(connection_struct *conn,
 	return -1;
 }
 
-
+#ifdef PRINTING
 /****************************************************************************
   reply to a printopen
 ****************************************************************************/
@@ -3122,6 +3140,9 @@ int reply_printqueue(connection_struct *conn,
     
 
 		for (i=first;i<first+num_to_get;i++) {
+			/* check to make sure we have room in the buffer */
+			if ( (PTR_DIFF(p, outbuf)+28) > BUFFER_SIZE )
+				break;
 			put_dos_date2(p,0,queue[i].time);
 			CVAL(p,4) = (queue[i].status==LPQ_PRINTING?2:3);
 			SSVAL(p,5,printjob_encode(SNUM(conn), 
@@ -3176,7 +3197,7 @@ int reply_printwrite(connection_struct *conn, char *inbuf,char *outbuf, int dum_
   
   return(outsize);
 }
-
+#endif
 
 /****************************************************************************
   reply to a mkdir

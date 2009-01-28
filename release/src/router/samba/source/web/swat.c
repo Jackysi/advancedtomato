@@ -357,8 +357,9 @@ static int save_reload(int snum)
                 return 0;
         }
 	iNumNonAutoPrintServices = lp_numservices();
+#ifdef PRINTING
 	load_printers();
-
+#endif
 	return 1;
 }
 
@@ -997,8 +998,9 @@ static void printers_page(void)
 	charset_initialise();
 	load_config(True);
 	iNumNonAutoPrintServices = lp_numservices();
+#ifdef PRINTING
 	load_printers();
-
+#endif
 	cgi_setup(SWATDIR, !demo_mode);
 
 	print_header();

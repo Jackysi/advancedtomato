@@ -62,7 +62,7 @@ static void sig_term(int sig)
 {
   BlockSignals(True,SIGTERM);
   
-  DEBUG(0,("Got SIGTERM: going down...\n"));
+  DEBUG(1,("Got SIGTERM: going down...\n"));
   
   /* Write out wins.dat file if samba is a WINS server */
   wins_write_database(False);

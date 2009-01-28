@@ -121,7 +121,7 @@ int find_service(char *service)
       }
      }
    }
-
+#ifdef PRINTING
    /* If we still don't have a service, attempt to add it as a printer. */
    if (iService < 0)
    {
@@ -146,7 +146,7 @@ int find_service(char *service)
             DEBUG(3,("%s is not a valid printer name\n", service));
       }
    }
-
+#endif
    /* just possibly it's a default service? */
    if (iService < 0) 
    {
@@ -210,7 +210,7 @@ connection_struct *make_connection(char *service,char *user,char *password, int 
 			return NULL;
 		}
 
-		DEBUG(0,("%s (%s) couldn't find service %s\n",
+		DEBUG(2,("%s (%s) couldn't find service %s\n",
 			 remote_machine, client_addr(Client), service));
 		*ecode = ERRinvnetname;
 		return NULL;

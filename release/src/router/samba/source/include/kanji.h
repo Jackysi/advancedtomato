@@ -167,5 +167,6 @@ extern int (*_skip_multibyte_char)(char c);
 #define HEX_CODE (5)
 #define CAP_CODE (6)
 #define DOSV_CODE SJIS_CODE
+#define UTF8_CODE (8)
 
 #endif /* _KANJI_H_ */

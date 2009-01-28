@@ -71,7 +71,7 @@ static void usage(void)
 	}
 	exit(1);
 }
-
+#ifdef RPCCLIENT
 /*********************************************************
 Join a domain.
 **********************************************************/
@@ -143,7 +143,7 @@ unable to join domain.\n");
 	
 	return (int)ret;
 }
-
+#endif
 
 static void set_line_buffering(FILE *f)
 {
@@ -335,13 +335,13 @@ static int process_root(int argc, char *argv[])
 	if((local_flags & (LOCAL_ADD_USER|LOCAL_DELETE_USER)) && ((remote_machine != NULL) || joining_domain)) {
 		usage();
 	}
-	
+#ifdef RPCCLIENT	
 	if(joining_domain) {
 		if (argc != 0)
 			usage();
 		return join_domain(new_domain, remote_machine);
 	}
-
+#endif
 	/*
 	 * Deal with root - can add a user, but only locally.
 	 */

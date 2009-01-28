@@ -37,8 +37,8 @@ INSTALLPERMS = 0755
 # set these to where to find various files
 # These can be overridden by command line switches (see smbd(8))
 # or in smb.conf (see smb.conf(5))
-SMBLOGFILE = $(VARDIR)/log.smb
-NMBLOGFILE = $(VARDIR)/log.nmb
+SMBLOGFILE = $(VARDIR)/smb
+NMBLOGFILE = $(VARDIR)/nmb
 CONFIGFILE = $(LIBDIR)/smb.conf
 LMHOSTSFILE = $(LIBDIR)/lmhosts
 DRIVERFILE = $(LIBDIR)/printers.def
@@ -55,7 +55,7 @@ SWATDIR = @swatdir@
 LOCKDIR = @lockdir@
 
 # The directory where code page definition files go
-CODEPAGEDIR = $(LIBDIR)/codepages
+CODEPAGEDIR = $(BASEDIR)/codepages
 
 # The current codepage definition list.
 CODEPAGELIST= 437 737 775 850 852 861 932 866 949 950 936 1251 ISO8859-1 ISO8859-2 ISO8859-5 ISO8859-7 KOI8-R
@@ -82,6 +82,7 @@ PROGS1 = bin/smbclient bin/smbspool bin/testparm bin/testprns bin/smbstatus @RUN
 PROGS2 = bin/rpcclient bin/smbpasswd bin/make_smbcodepage bin/make_unicodemap @WRAP@ @WRAP32@
 MPROGS = @MPROGS@
 PROGS = $(PROGS1) $(PROGS2) $(MPROGS) bin/nmblookup bin/make_printerdef 
+SHAREDPROGS = bin/smbd.shared bin/nmbd.shared bin/smbpasswd.shared bin/smbmount.shared bin/smbmnt.shared bin/smbumount.shared bin/libsmb.a
 
 SCRIPTS = $(srcdir)/script/smbtar $(srcdir)/script/addtosmbpass $(srcdir)/script/convert_smbpasswd
 
@@ -97,7 +98,7 @@ LIB_OBJ = lib/charcnv.o lib/charset.o lib/debug.o lib/fault.o \
           lib/signal.o lib/slprintf.o lib/system.o lib/doscalls.o lib/time.o \
 	  lib/ufc.o lib/genrand.o lib/username.o lib/access.o lib/smbrun.o \
 	  lib/bitmap.o lib/crc32.o lib/snprintf.o \
-	  lib/util_str.o lib/util_sid.o \
+	  lib/util_str.o lib/util_sid.o lib/floatdidf.o \
 	  lib/util_unistr.o lib/util_file.o \
 	  lib/util.o lib/util_sock.o lib/util_sec.o smbd/ssl.o lib/fnmatch.o \
 	  lib/talloc.o lib/hash.o
@@ -159,6 +160,8 @@ SMBD_OBJ = $(SMBD_OBJ1) $(PARAM_OBJ) $(LIBSMB_OBJ) $(UBIQX_OBJ) \
            $(RPC_SERVER_OBJ) $(RPC_CLIENT_OBJ) $(RPC_PARSE_OBJ) \
            $(LOCKING_OBJ) $(PASSDB_OBJ) $(PRINTING_OBJ) $(PROFILE_OBJ) $(LIB_OBJ)
 
+SMBDSHARED_OBJ = $(SMBD_OBJ1) $(RPC_SERVER_OBJ) \
+           $(LOCKING_OBJ) $(PROFILE_OBJ) #$(PRINTING_OBJ)
 
 NMBD_OBJ1 = nmbd/asyncdns.o nmbd/nmbd.o nmbd/nmbd_become_dmb.o \
             nmbd/nmbd_become_lmb.o nmbd/nmbd_browserdb.o \
@@ -175,6 +178,8 @@ NMBD_OBJ1 = nmbd/asyncdns.o nmbd/nmbd.o nmbd/nmbd_become_dmb.o \
 
 NMBD_OBJ = $(NMBD_OBJ1) $(PARAM_OBJ) $(LIBSMB_OBJ) $(UBIQX_OBJ) \
            $(LIB_OBJ)
+
+NMBDSHARED_OBJ = $(NMBD_OBJ1)
 
 SWAT_OBJ = web/cgi.o web/diagnose.o web/startstop.o web/statuspage.o \
            web/swat.o $(LIBSMB_OBJ) $(LOCKING_OBJ) \
@@ -207,6 +212,8 @@ TESTPRNS_OBJ = utils/testprns.o $(PARAM_OBJ) $(PRINTING_OBJ) $(UBIQX_OBJ) \
 SMBPASSWD_OBJ = utils/smbpasswd.o $(PARAM_OBJ) $(LIBSMB_OBJ) $(PASSDB_OBJ) \
                 $(UBIQX_OBJ) $(RPC_CLIENT_OBJ) $(RPC_PARSE_OBJ) $(LIB_OBJ)
 
+SMBPASSWDSHARED_OBJ = utils/smbpasswd.o
+
 RPCCLIENT_OBJ = rpcclient/rpcclient.o \
              rpcclient/display.o \
              rpcclient/cmd_lsarpc.o \
@@ -232,11 +239,17 @@ CUPS_OBJ = client/smbspool.o $(PARAM_OBJ) $(LIBSMB_OBJ) $(UBIQX_OBJ) $(LIB_OBJ)
 MOUNT_OBJ = client/smbmount.o \
              $(PARAM_OBJ) $(LIBSMB_OBJ) $(UBIQX_OBJ) $(LIB_OBJ)
 
+MOUNTSHARED_OBJ = client/smbmount.o
+
 MNT_OBJ = client/smbmnt.o \
              $(PARAM_OBJ) $(LIBSMB_OBJ) $(UBIQX_OBJ) $(LIB_OBJ)
 
+MNTSHARED_OBJ = client/smbmnt.o
+
 UMOUNT_OBJ = client/smbumount.o \
              $(PARAM_OBJ) $(LIBSMB_OBJ) $(UBIQX_OBJ) $(LIB_OBJ)
+
+UMOUNTSHARED_OBJ = client/smbumount.o
 
 NMBLOOKUP_OBJ = utils/nmblookup.o $(PARAM_OBJ) $(UBIQX_OBJ) \
                 $(LIBSMB_OBJ) $(LIB_OBJ)
@@ -265,6 +278,11 @@ SMBFILTER_OBJ = utils/smbfilter.o $(LIBSMB_OBJ) $(PARAM_OBJ) \
 PROTO_OBJ = $(SMBD_OBJ) $(NMBD_OBJ) $(SWAT_OBJ) $(CLIENT_OBJ) \
 	    $(RPCCLIENT_OBJ) $(SMBWRAPPER_OBJ) $(SMBTORTURE_OBJ)
 
+LIBSMBSHARED_OBJ = $(LIB_OBJ) $(LIBSMB_OBJ) $(PARAM_OBJ) $(UBIQX_OBJ) \
+		$(PASSDB_OBJ) $(RPC_PARSE_OBJ) #$(RPC_CLIENT_OBJ)
+
+LIBSMB_PICOBJS = $(LIBSMBSHARED_OBJ:.o=.po)
+
 PICOBJS = $(SMBWRAPPER_OBJ:.o=.po)
 PICOBJS32 = $(SMBWRAPPER_OBJ:.o=.po32)
 
@@ -273,6 +291,8 @@ PICOBJS32 = $(SMBWRAPPER_OBJ:.o=.po32)
 ######################################################################
 
 all : CHECK $(SPROGS) $(PROGS) 
+
+shared : CHECK $(SHAREDPROGS)
 
 smbwrapper : CHECK bin/smbsh bin/smbwrapper.@SHLIBEXT@ @WRAP32@
 
@@ -359,9 +379,17 @@ bin/smbd: $(SMBD_OBJ) bin/.dummy
 	@echo Linking $@
 	@$(CC) $(FLAGS) -o $@ $(SMBD_OBJ) $(LDFLAGS) $(LIBS) 
 
+bin/smbd.shared: $(SMBDSHARED_OBJ) bin/libsmb.@SHLIBEXT@ bin/.dummy
+	@echo Linking $@
+	@$(CC) $(FLAGS) -o $@ $(SMBDSHARED_OBJ) $(LDFLAGS) $(LIBS) -Lbin -lsmb
+
 bin/nmbd: $(NMBD_OBJ) bin/.dummy
 	@echo Linking $@
 	@$(CC) $(FLAGS) -o $@ $(NMBD_OBJ) $(LDFLAGS) $(LIBS)
+
+bin/nmbd.shared: $(NMBDSHARED_OBJ) bin/libsmb.@SHLIBEXT@ bin/.dummy
+	@echo Linking $@
+	@$(CC) $(FLAGS) -o $@ $(NMBDSHARED_OBJ) $(LDFLAGS) $(LIBS) -Lbin -lsmb
 
 bin/swat: $(SWAT_OBJ) bin/.dummy
 	@echo Linking $@
@@ -387,13 +415,25 @@ bin/smbmount: $(MOUNT_OBJ) bin/.dummy
 	@echo Linking $@
 	@$(CC) $(FLAGS) -o $@ $(MOUNT_OBJ) $(LIBS)
 
+bin/smbmount.shared: $(MOUNTSHARED_OBJ) bin/.dummy
+	@echo Linking $@
+	@$(CC) $(FLAGS) -o $@ $(MOUNTSHARED_OBJ) $(LDFLAGS) $(LIBS) -Lbin -lsmb
+
 bin/smbmnt: $(MNT_OBJ) bin/.dummy
 	@echo Linking $@
 	@$(CC) $(FLAGS) -o $@ $(MNT_OBJ) $(LIBS)
 
+bin/smbmnt.shared: $(MNTSHARED_OBJ) bin/.dummy
+	@echo Linking $@
+	@$(CC) $(FLAGS) -o $@ $(MNTSHARED_OBJ) $(LDFLAGS) $(LIBS) -Lbin -lsmb
+
 bin/smbumount: $(UMOUNT_OBJ) bin/.dummy
 	@echo Linking $@
 	@$(CC) $(FLAGS) -o $@ $(UMOUNT_OBJ) $(LIBS)
+
+bin/smbumount.shared: $(UMOUNTSHARED_OBJ) bin/.dummy
+	@echo Linking $@
+	@$(CC) $(FLAGS) -o $@ $(UMOUNTSHARED_OBJ) $(LDFLAGS) $(LIBS) -Lbin -lsmb
 
 bin/testparm: $(TESTPARM_OBJ) bin/.dummy
 	@echo Linking $@
@@ -410,6 +450,10 @@ bin/smbstatus: $(STATUS_OBJ) bin/.dummy
 bin/smbpasswd: $(SMBPASSWD_OBJ) bin/.dummy
 	@echo Linking $@
 	@$(CC) $(FLAGS) -o $@ $(SMBPASSWD_OBJ) $(LDFLAGS) $(LIBS)
+
+bin/smbpasswd.shared: $(SMBPASSWDSHARED_OBJ) bin/libsmb.@SHLIBEXT@ bin/.dummy
+	@echo Linking $@
+	@$(CC) $(FLAGS) -o $@ $(SMBPASSWDSHARED_OBJ) $(LDFLAGS) $(LIBS) -Lbin -lsmb
 
 bin/make_smbcodepage: $(MAKE_SMBCODEPAGE_OBJ) bin/.dummy
 	@echo Linking $@
@@ -449,15 +493,23 @@ bin/smbfilter: $(SMBFILTER_OBJ) bin/.dummy
 
 bin/smbwrapper.@SHLIBEXT@: $(PICOBJS)
 	@echo Linking shared library $@
-	@$(LD) @LDSHFLAGS@ -o $@ $(PICOBJS) $(LIBS)
+	@$(LD) @LDSHFLAGS@ -o $@ $(PICOBJS) $(LDFLAGS) $(LIBS)
 
 bin/smbwrapper.32.@SHLIBEXT@: $(PICOBJS32)
 	@echo Linking shared library $@
-	@$(LD) -32 @LDSHFLAGS@ -o $@ $(PICOBJS32) $(LIBS)
+	@$(LD) -32 @LDSHFLAGS@ -o $@ $(PICOBJS32) $(LDFLAGS) $(LIBS)
 
 bin/smbsh: $(SMBSH_OBJ) bin/.dummy
 	@echo Linking $@
 	@$(CC) $(FLAGS) -o $@ $(SMBSH_OBJ) $(LDFLAGS) $(LIBS)
+
+bin/libsmb.@SHLIBEXT@: $(LIBSMB_PICOBJS) bin/.dummy
+	@echo Linking shared library $@
+	@$(LD) @LDSHFLAGS@ -o $@ $(LIBSMB_PICOBJS) $(LDFLAGS) $(LIBS)
+
+bin/libsmb.a: $(LIBSMB_PICOBJS) bin/.dummy
+	@$(AR) cruv $@ $(LIBSMB_PICOBJS)
+	@$(RANLIB) $@
 
 install: installbin installman installscripts installcp installswat
 
@@ -505,7 +557,7 @@ uninstallcp:
 	@$(SHELL) $(srcdir)/script/uninstallcp.sh $(CODEPAGEDIR) $(CODEPAGELIST)
 
 clean: 
-	-rm -f core */*~ *~ */*.o */*.po */*.po32 */*.@SHLIBEXT@
+	-rm -f core */*~ *~ */*.o */*.po */*.po32 */*.@SHLIBEXT@ bin/*.a
 
 proto: 
 	@echo rebuilding include/proto.h
@@ -518,7 +570,7 @@ ctags:
 	ctags `find . -name "*.[ch]" | grep -v /CVS/`
 
 realclean: clean
-	-rm -f config.log $(PROGS) $(SPROGS) bin/.dummy
+	-rm -f config.log $(PROGS) $(SPROGS) $(SHAREDPROGS) bin/.dummy
 	-rmdir bin
 
 distclean: realclean

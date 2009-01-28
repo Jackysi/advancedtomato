@@ -902,3 +902,16 @@ smb_ucs2_t *wstrtok(smb_ucs2_t *s1, const smb_ucs2_t *s2)
 
 	return NULL;
 }
+
+/******************************************************************
+ functions for UTF8 support (using in kanji.c)
+ ******************************************************************/
+smb_ucs2_t doscp2ucs2(int w)
+{
+  return ((smb_ucs2_t)doscp_to_ucs2[w]);
+}
+
+int ucs2doscp(smb_ucs2_t w)
+{
+  return ((int)ucs2_to_doscp[w]);
+}

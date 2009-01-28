@@ -300,9 +300,9 @@ BOOL reload_services(BOOL test)
 	lp_killunused(conn_snum_used);
 
 	ret = lp_load(servicesf,False,False,True);
-
+#ifdef PRINTING
 	load_printers();
-
+#endif
 	/* perhaps the config filename is now set */
 	if (!test)
 		reload_services(True);

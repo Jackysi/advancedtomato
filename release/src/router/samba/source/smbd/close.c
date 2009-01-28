@@ -122,11 +122,11 @@ static int close_normal_file(files_struct *fsp, BOOL normal_close)
 		last_reference = True;
 
     fsp->fd_ptr = NULL;
-
+#ifdef PRINTING
 	/* NT uses smbclose to start a print - weird */
 	if (normal_close && fsp->print_file)
 		print_file(conn, fsp);
-
+#endif
 	/* check for magic scripts */
 	if (normal_close) {
 		check_magic(fsp,conn);
