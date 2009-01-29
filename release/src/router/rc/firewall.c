@@ -351,13 +351,6 @@ static void nat_table(void)
 				p = c + 1;
 			} while (*p);
 
-#ifdef TCONFIG_FTP	// !!TB - FTP Server
-			if (nvram_match("ftp_enable", "1")) {
-				ipt_write("-A PREROUTING -p tcp -m tcp -d %s --dport %s -j DNAT --to-destination %s:%s\n",
-					wanaddr, nvram_safe_get("ftp_port"),
-					lanaddr, nvram_safe_get("ftp_port"));
-			}
-#endif
 			ipt_forward(IPT_TABLE_NAT);
 			ipt_triggered(IPT_TABLE_NAT);
 		}
@@ -495,8 +488,8 @@ static void filter_input(void)
 
 #ifdef TCONFIG_FTP	// !!TB - FTP Server
 	if (nvram_match("ftp_enable", "1")) {
-		ipt_write("-A INPUT -p tcp -m tcp -d %s --dport %s -j %s\n",
-			nvram_safe_get("lan_ipaddr"), nvram_safe_get("ftp_port"), chain_in_accept);
+		ipt_write("-A INPUT -p tcp -m tcp --dport %s -j %s\n",
+			nvram_safe_get("ftp_port"), chain_in_accept);
 	}
 #endif
 
