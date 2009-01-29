@@ -877,8 +877,9 @@ void start_ftpd(void)
 			sprintf(tmp, "%s/%s", vsftpd_users, user);
 			if ((f = fopen(tmp, "w")))
 			{
+				tmp[0] = 0;
 				if (nvram_invmatch("ftp_dirlist", "1"))
-					strcpy(tmp, "dirlist_enable=yes\n");
+					strcat(tmp, "dirlist_enable=yes\n");
 				if (strstr(rights, "Read") || !strcmp(rights, "Private"))
 					strcat(tmp, "download_enable=yes\n");
 				if (strstr(rights, "Write") || !strncmp(rights, "Private", 7))
