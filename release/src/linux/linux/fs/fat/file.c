@@ -126,7 +126,7 @@ void fat_truncate(struct inode *inode)
 	if (IS_IMMUTABLE(inode))
 		return /* -EPERM */;
 	cluster = 1 << sbi->cluster_bits;
-	/* 
+	/*
 	 * This protects against truncating a file bigger than it was then
 	 * trying to write into the hole.
 	 */
