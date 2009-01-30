@@ -328,6 +328,8 @@ int fsync_super(struct super_block *sb)
 	if (sb->s_dirt && sb->s_op && sb->s_op->write_super)
 		sb->s_op->write_super(sb);
 	unlock_super(sb);
+	if (sb->s_op && sb->s_op->sync_fs)
+		sb->s_op->sync_fs(sb);
 	unlock_kernel();
 
 	return sync_buffers(dev, 1);
@@ -346,7 +348,7 @@ int fsync_dev(kdev_t dev)
 	lock_kernel();
 	sync_inodes(dev);
 	DQUOT_SYNC(dev);
-	sync_supers(dev);
+	sync_supers(dev, 1);
 	unlock_kernel();
 
 	return sync_buffers(dev, 1);
@@ -2822,7 +2824,7 @@ static int sync_old_buffers(void)
 {
 	lock_kernel();
 	sync_unlocked_inodes();
-	sync_supers(0);
+	sync_supers(0, 0);
 	unlock_kernel();
 
 	for (;;) {

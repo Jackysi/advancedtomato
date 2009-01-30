@@ -406,7 +406,7 @@ static void fat_read_root(struct inode *inode)
 	}
 	inode->i_blksize = 1 << sbi->cluster_bits;
 	inode->i_blocks = ((inode->i_size + inode->i_blksize - 1)
-			   & ~(inode->i_blksize - 1)) >> 9;
+			   & ~((loff_t)inode->i_blksize - 1)) >> 9;
 	MSDOS_I(inode)->i_logstart = 0;
 	MSDOS_I(inode)->mmu_private = inode->i_size;
 
@@ -552,8 +552,8 @@ fat_read_super(struct super_block *sb, void *data, int silent,
 	struct fat_boot_sector *b;
 	struct msdos_sb_info *sbi = MSDOS_SB(sb);
 	char *p;
-	int logical_sector_size, hard_blksize, fat_clusters = 0;
-	unsigned int total_sectors, rootdir_sectors;
+	int logical_sector_size, hard_blksize;
+	unsigned long total_sectors, rootdir_sectors, fat_clusters = 0;
 	int fat32, debug, error, fat, cp;
 	struct fat_mount_options opts;
 	char buf[50];
@@ -637,6 +637,7 @@ fat_read_super(struct super_block *sb, void *data, int silent,
 	sbi->cluster_bits = ffs(logical_sector_size * sbi->cluster_size) - 1;
 	sbi->fats = b->fats;
 	sbi->fat_start = CF_LE_W(b->reserved);
+	sbi->prev_free = 0;
 	if (!b->fat_length && b->fat32_length) {
 		struct fat_boot_fsinfo *fsinfo;
 		struct buffer_head *fsinfo_bh;
@@ -646,6 +647,7 @@ fat_read_super(struct super_block *sb, void *data, int silent,
 		fat32 = 1;
 		sbi->fat_length = CF_LE_L(b->fat32_length);
 		sbi->root_cluster = CF_LE_L(b->root_cluster);
+		sb->s_maxbytes = 0xffffffff;
 
 		sbi->fsinfo_sector = CF_LE_W(b->info_sector);
 		/* MC - if info_sector is 0, don't multiply by 0 */
@@ -675,6 +677,7 @@ fat_read_super(struct super_block *sb, void *data, int silent,
 			       sbi->fsinfo_sector);
 		} else {
 			sbi->free_clusters = CF_LE_L(fsinfo->free_clusters);
+			sbi->prev_free = CF_LE_L(fsinfo->next_cluster);
 		}
 
 		if (fsinfo_block != 0)
@@ -754,7 +757,6 @@ fat_read_super(struct super_block *sb, void *data, int silent,
 	sb->s_magic = MSDOS_SUPER_MAGIC;
 	/* set up enough so that it can read an inode */
 	init_MUTEX(&sbi->fat_lock);
-	sbi->prev_free = 0;
 
 	cp = opts.codepage ? opts.codepage : 437;
 	sprintf(buf, "cp%d", cp);
@@ -954,7 +956,7 @@ static void fat_fill_inode(struct inode *inode, struct msdos_dir_entry *de)
 	/* this is as close to the truth as we can get ... */
 	inode->i_blksize = 1 << sbi->cluster_bits;
 	inode->i_blocks = ((inode->i_size + inode->i_blksize - 1)
-			   & ~(inode->i_blksize - 1)) >> 9;
+			   & ~((loff_t)inode->i_blksize - 1)) >> 9;
 	inode->i_mtime = inode->i_atime =
 		date_dos2unix(CF_LE_W(de->time),CF_LE_W(de->date));
 	inode->i_ctime =
@@ -1030,7 +1032,12 @@ int fat_notify_change(struct dentry * dentry, struct iattr * attr)
 	/* FAT cannot truncate to a longer file */
 	if (attr->ia_valid & ATTR_SIZE) {
 		if (attr->ia_size > inode->i_size)
-			return -EPERM;
+			/* return -EPERM; */
+			return 0;
+			/* We return 0 here to get around the problem that
+			 * Samba client times out when drag-and-drop a large size
+			 * file to a FAT32 formatted disk.
+			 */
 	}
 
 	error = inode_change_ok(inode, attr);
