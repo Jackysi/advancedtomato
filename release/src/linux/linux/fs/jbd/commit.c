@@ -19,6 +19,8 @@
 #include <linux/errno.h>
 #include <linux/slab.h>
 #include <linux/locks.h>
+#include <linux/mm.h>
+#include <linux/pagemap.h>
 #include <linux/smp_lock.h>
 
 extern spinlock_t journal_datalist_lock;
@@ -31,6 +33,49 @@ void journal_end_buffer_io_sync(struct buffer_head *bh, int uptodate)
 	BUFFER_TRACE(bh, "");
 	mark_buffer_uptodate(bh, uptodate);
 	unlock_buffer(bh);
+}
+
+/*
+ * When an ext3-ordered file is truncated, it is possible that many pages are
+ * not sucessfully freed, because they are attached to a committing transaction.
+ * After the transaction commits, these pages are left on the LRU, with no
+ * ->mapping, and with attached buffers.  These pages are trivially reclaimable
+ * by the VM, but their apparent absence upsets the VM accounting, and it makes
+ * the numbers in /proc/meminfo look odd.
+ *
+ * So here, we have a buffer which has just come off the forget list.  Look to
+ * see if we can strip all buffers from the backing page.
+ *
+ * Called under lock_journal(), and possibly under journal_datalist_lock.  The
+ * caller provided us with a ref against the buffer, and we drop that here.
+ */
+static void release_buffer_page(struct buffer_head *bh)
+{
+	struct page *page;
+
+	if (buffer_dirty(bh))
+		goto nope;
+	if (atomic_read(&bh->b_count) != 1)
+		goto nope;
+	page = bh->b_page;
+	if (!page)
+		goto nope;
+	if (page->mapping)
+		goto nope;
+
+	/* OK, it's a truncated page */
+	if (TryLockPage(page))
+		goto nope;
+
+	page_cache_get(page);
+	__brelse(bh);
+	try_to_free_buffers(page, GFP_NOIO);
+	unlock_page(page);
+	page_cache_release(page);
+	return;
+
+nope:
+	__brelse(bh);
 }
 
 /*
@@ -211,7 +256,7 @@ write_out_data_locked:
 				jh->b_transaction = NULL;
 				__journal_remove_journal_head(bh);
 				refile_buffer(bh);
-				__brelse(bh);
+				release_buffer_page(bh);
 			}
 		}
 		if (bufs == ARRAY_SIZE(wbuf)) {
@@ -643,7 +688,8 @@ skip_commit: /* The journal should be unlocked by now. */
 	while (commit_transaction->t_forget) {
 		transaction_t *cp_transaction;
 		struct buffer_head *bh;
-
+		int was_freed = 0;
+		
 		jh = commit_transaction->t_forget;
 		J_ASSERT_JH(jh,	jh->b_transaction == commit_transaction ||
 			jh->b_transaction == journal->j_running_transaction);
@@ -694,6 +740,7 @@ skip_commit: /* The journal should be unlocked by now. */
 		 * behind for writeback and gets reallocated for another
 		 * use in a different page. */
 		if (__buffer_state(bh, Freed)) {
+			was_freed = 1;
 			clear_bit(BH_Freed, &bh->b_state);
 			clear_bit(BH_JBDDirty, &bh->b_state);
 		}
@@ -709,7 +756,12 @@ skip_commit: /* The journal should be unlocked by now. */
 			__journal_unfile_buffer(jh);
 			jh->b_transaction = 0;
 			__journal_remove_journal_head(bh);
-			__brelse(bh);
+			spin_unlock(&journal_datalist_lock);
+			if (was_freed)
+				release_buffer_page(bh);
+			else
+				__brelse(bh);
+			continue;
 		}
 		spin_unlock(&journal_datalist_lock);
 	}
