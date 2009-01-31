@@ -120,6 +120,12 @@ struct usb_hub_descriptor {
 
 struct usb_device;
 
+/* Transaction Translator Think Times, in bits */
+#define HUB_TTTT_8_BITS         0x00
+#define HUB_TTTT_16_BITS        0x20
+#define HUB_TTTT_24_BITS        0x40
+#define HUB_TTTT_32_BITS        0x60
+
 struct usb_hub {
 	struct usb_device *dev;
 

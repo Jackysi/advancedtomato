@@ -225,6 +225,8 @@ struct usb_busmap {
 #define USB_MAXALTSETTING	128  /* Hard limit */
 #define USB_MAXINTERFACES	32
 #define USB_MAXENDPOINTS	32
+#define USB_CTRL_GET_TIMEOUT    5000
+#define USB_CTRL_SET_TIMEOUT    5000
 
 /* All standard descriptors have these 2 fields in common */
 struct usb_descriptor_header {
@@ -360,6 +362,15 @@ struct usb_device;
 	match_flags: USB_DEVICE_ID_MATCH_DEV_INFO, bDeviceClass: (cl), bDeviceSubClass: (sc), bDeviceProtocol: (pr)
 #define USB_INTERFACE_INFO(cl,sc,pr) \
 	match_flags: USB_DEVICE_ID_MATCH_INT_INFO, bInterfaceClass: (cl), bInterfaceSubClass: (sc), bInterfaceProtocol: (pr)
+
+#define USB_DEVICE_AND_INTERFACE_INFO(vend, prod, cl, sc, pr) \
+        match_flags: USB_DEVICE_ID_MATCH_INT_INFO \
+                | USB_DEVICE_ID_MATCH_DEVICE, \
+        idVendor: (vend), \
+        idProduct: (prod), \
+        bInterfaceClass: (cl), \
+        bInterfaceSubClass: (sc), \
+        bInterfaceProtocol: (pr)
 
 struct usb_device_id {
 	/* This bitmask is used to determine which of the following fields

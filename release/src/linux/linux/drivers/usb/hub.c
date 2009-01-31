@@ -230,19 +230,33 @@ static int usb_hub_configure(struct usb_hub *hub, struct usb_endpoint_descriptor
 			break;
 	}
 
+	/* Note 8 FS bit times == (8 bits / 12000000 bps) ~= 666ns */
 	switch (hub->descriptor->wHubCharacteristics & HUB_CHAR_TTTT) {
-		case 0x00:
-			if (dev->descriptor.bDeviceProtocol != 0)
-				dbg("TT requires at most 8 FS bit times");
+		case HUB_TTTT_8_BITS:
+			if (dev->descriptor.bDeviceProtocol != 0) {
+				hub->tt.think_time = 666;
+				dbg("TT requires at most %d "
+						"FS bit times (%d ns)\n",
+					8, hub->tt.think_time);
+			}
 			break;
-		case 0x20:
-			dbg("TT requires at most 16 FS bit times");
+		case HUB_TTTT_16_BITS:
+			hub->tt.think_time = 666 * 2;
+			dbg("TT requires at most %d "
+					"FS bit times (%d ns)\n",
+				16, hub->tt.think_time);
 			break;
-		case 0x40:
-			dbg("TT requires at most 24 FS bit times");
+		case HUB_TTTT_24_BITS:
+			hub->tt.think_time = 666 * 3;
+			dbg("TT requires at most %d "
+					"FS bit times (%d ns)\n",
+				24, hub->tt.think_time);
 			break;
-		case 0x60:
-			dbg("TT requires at most 32 FS bit times");
+		case HUB_TTTT_32_BITS:
+			hub->tt.think_time = 666 * 4;
+			dbg("TT requires at most %d "
+					"FS bit times (%d ns)\n",
+				32, hub->tt.think_time);
 			break;
 	}
 
