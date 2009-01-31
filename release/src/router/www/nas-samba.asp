@@ -79,7 +79,7 @@ ssg.sortCompare = function(a, b) {
 }
 
 ssg.dataToView = function(data) {
-	return [data[0], data[1], data[2], ['Read Only', 'Read/Write'][data[3]], ['No', 'Yes'][data[4]]];
+	return [data[0], data[1], data[2], ['Read Only', 'Read / Write'][data[3]], ['No', 'Yes'][data[4]]];
 }
 
 ssg.fieldValuesToData = function(row) {
@@ -140,7 +140,7 @@ ssg.setup = function()
 		{ type: 'text', maxlen: 32 },
 		{ type: 'text', maxlen: 256 },
 		{ type: 'text', maxlen: 64 },
-		{ type: 'select', options: [[0, 'Read Only'],[1, 'Read/Write']] },
+		{ type: 'select', options: [[0, 'Read Only'],[1, 'Read / Write']] },
 		{ type: 'select', options: [[0, 'No'],[1, 'Yes']] }
 	]);
 	this.headerSet(['Share Name', 'Directory', 'Description', 'Access Level', 'Hidden']);
@@ -232,12 +232,13 @@ createFieldTable('', [
 		suffix: ' <small> (start cmd.exe and type chcp to see the current code page)</small>',
 		value: nvram.smbd_cpage },
 	{ title: 'Samba<br>Custom Configuration', name: 'smbd_custom', type: 'textarea', value: nvram.smbd_custom },
+	{ title: 'Auto-share all USB Partitions', name: 'smbd_autoshare', type: 'select',
+		options: [['0', 'Disabled'],['1', 'Read Only'],['2', 'Read / Write'],['3', 'Hidden Read / Write']],
+		value: nvram.smbd_autoshare },
+	null,
 	{ title: 'Samba Log Level', name: 'smbd_loglevel', type: 'select',
 		options: [['0', '0'],['1', '1'],['2', '2'],['3', '3'],['4', '4'],['5', '5'],['6', '6'],['7', '7'],['8', '8'],['9', '9'],['10', '10'],['50', '50'],['100', '100']],
-		value: nvram.smbd_loglevel },
-	{ title: 'Auto-share USB Partitions', name: 'smbd_autoshare', type: 'select',
-		options: [['0', 'Disabled'],['1', 'Read Only'],['2', 'Read/Write'],['3', 'Hidden Read/Write']],
-		value: nvram.smbd_autoshare }
+		value: nvram.smbd_loglevel }
 ]);
 </script>
 </div>
