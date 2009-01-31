@@ -114,8 +114,8 @@ install package: $(obj-install) $(LINUXDIR)/.config
 # kernel modules
 	$(MAKE) -C $(LINUXDIR) modules_install DEPMOD=/bin/true INSTALL_MOD_PATH=$(TARGETDIR)
 ##!!TB	find $(TARGETDIR)/lib/modules -name *.o -exec mipsel-linux-strip --strip-unneeded {} \;
-##!!TB - do not strip ftp nat/conntrack kernel modules (needed for vsftpd)
-	find $(TARGETDIR)/lib/modules ! \( -name *ftp.o -prune \) -a -name *.o -exec mipsel-linux-strip --strip-unneeded {} \;
+##!!TB - do not strip ftp nat/conntrack and loop kernel modules (needed to keep parameters)
+	find $(TARGETDIR)/lib/modules ! \( -name *ftp.o -prune \) ! \( -name loop.o -prune \) -a -name *.o -exec mipsel-linux-strip --strip-unneeded {} \;
 
 	-cd $(TARGETDIR)/lib/modules/2.4.20/kernel/drivers/net && mv diag/* . && rm -rf diag
 
