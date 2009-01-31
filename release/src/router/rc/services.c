@@ -925,6 +925,8 @@ void start_samba(void)
 #ifdef TCONFIG_SAMBASRV
 
 	FILE *fp;
+	DIR *dir = NULL;
+	struct dirent *dp;
 	
 	kill_samba();
 	if (!nvram_get_int("smbd_enable") || !nvram_invmatch("lan_hostname", ""))
@@ -1003,11 +1005,30 @@ void start_samba(void)
 		free(buf);
 	}
 
+	/* share everything below MOUNT_ROOT */
+	if (nvram_get_int("smbd_autoshare") && (dir = opendir(MOUNT_ROOT))) {
+		while ((dp = readdir(dir))) {
+			if (strcmp(dp->d_name, ".") && strcmp(dp->d_name, "..")) {
+
+				/* smbd_autoshare: 0 - disable, 1 - read-only, 2 - writable, 3 - hidden writable */
+				fprintf(fp, "\n[%s]\n path = %s/%s\n",
+					dp->d_name, MOUNT_ROOT, dp->d_name);
+				if (nvram_match("smbd_autoshare", "3"))	// Hidden
+					fprintf(fp, "\n[%s$]\n path = %s/%s\n browseable = no\n",
+						dp->d_name, MOUNT_ROOT, dp->d_name);
+				if (nvram_match("smbd_autoshare", "2") || nvram_match("smbd_autoshare", "3"))	// RW
+					fprintf(fp, " writable = yes\n force user = %s\n", "root");
+
+				cnt++;
+			}
+		}
+	}
+	if (dir) closedir(dir);
+
 	if (cnt == 0) {
-		/* by default share everything below /tmp/mnt as read-only */
+		/* by default share MOUNT_ROOT as read-only */
 		fprintf(fp, "\n[share]\n"
 			" path = %s\n"
-			" browseable = yes\n"
 			" writable = no\n",
 			MOUNT_ROOT);
 	}

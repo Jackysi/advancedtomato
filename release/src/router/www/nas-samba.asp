@@ -41,7 +41,7 @@ textarea {
 
 <script type='text/javascript'>
 
-//	<% nvram("smbd_enable,smbd_wgroup,smbd_cpage,smbd_custom,smbd_loglevel,smbd_shares"); %>
+//	<% nvram("smbd_enable,smbd_wgroup,smbd_cpage,smbd_custom,smbd_loglevel,smbd_shares,smbd_autoshare"); %>
 
 function v_nodelim(e, quiet, name)
 {
@@ -168,8 +168,10 @@ function verifyFields(focused, quiet)
 	E('_smbd_cpage').disabled = a;
 	E('_smbd_custom').disabled = a;
 	E('_smbd_loglevel').disabled = a;
+	E('_smbd_autoshare').disabled = a;
 
 	if (!a) {
+		if (!v_range('_smbd_autoshare', quiet, 0, 3)) return 0;
 		if (!v_range('_smbd_loglevel', quiet, 0, 100)) return 0;
 		if (!v_length('_smbd_custom', quiet, 0, 2048)) return 0;
 		if (!v_length('_smbd_wgroup', quiet, 1, 20)) return 0;
@@ -232,7 +234,10 @@ createFieldTable('', [
 	{ title: 'Samba<br>Custom Configuration', name: 'smbd_custom', type: 'textarea', value: nvram.smbd_custom },
 	{ title: 'Samba Log Level', name: 'smbd_loglevel', type: 'select',
 		options: [['0', '0'],['1', '1'],['2', '2'],['3', '3'],['4', '4'],['5', '5'],['6', '6'],['7', '7'],['8', '8'],['9', '9'],['10', '10'],['50', '50'],['100', '100']],
-		value: nvram.smbd_loglevel }
+		value: nvram.smbd_loglevel },
+	{ title: 'Auto-share USB Partitions', name: 'smbd_autoshare', type: 'select',
+		options: [['0', 'Disabled'],['1', 'Read Only'],['2', 'Read/Write'],['3', 'Hidden Read/Write']],
+		value: nvram.smbd_autoshare }
 ]);
 </script>
 </div>

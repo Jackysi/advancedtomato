@@ -509,6 +509,7 @@ const defaults_t defaults[] = {
 	{ "smbd_cset",			""				},
 	{ "smbd_loglevel",		"0"				},
 	{ "smbd_custom",		""				},
+	{ "smbd_autoshare",		"1"				},
 	{ "smbd_shares",
 		"share</mnt<Default Share<0<0>root$</<Hidden Root<0<1"
 	},
