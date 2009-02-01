@@ -757,7 +757,7 @@ void start_ftpd(void)
 
 #ifdef TCONFIG_SAMBASRV
 	if (nvram_match("smbd_cset", "utf8"))
-		fprintf(fp, "utf8=on\n");
+		fprintf(fp, "utf8=yes\n");
 #endif
 
 	if (nvram_invmatch("ftp_anonymous", "0"))
