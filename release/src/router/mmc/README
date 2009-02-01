@@ -1,0 +1,14 @@
+I'll add more information here at some point in the future.
+
+If you want to build the sources outside of buildrootng, use Makefile.standalone
+Rename to Makefile and adjust paths to compiler and libraries within the distribution.
+
+If building within buildrootng, create the "packages/broadcom-mmc" directory and
+copy in "Makefile.buildrootng" as Makefile.
+
+Then run "make menuconfig". You should see an mmc module available under 
+"Kernel Modules--->Other Modules".
+
+Select it to be built as a module, and save your configuration.
+
+Then run 'make'.

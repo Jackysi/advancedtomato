@@ -1,0 +1,53 @@
+#
+# Copyright (C) 2007 OpenWrt.org
+#
+# This is free software, licensed under the GNU General Public License v2.
+# See /LICENSE for more information.
+#
+# $Id: $
+
+include $(TOPDIR)/rules.mk
+include $(INCLUDE_DIR)/kernel.mk
+
+PKG_NAME:=broadcom-mmc
+PKG_VERSION:=2.0
+PKG_RELEASE:=1
+
+PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.gz
+PKG_SOURCE_URL:=http://www.4mul8.ca/openwrt/src
+PKG_MD5SUM:=742d5742c53e8e00d899851f674a76e9
+PKG_CAT:=zcat
+
+PKG_BUILD_DIR:=$(BUILD_DIR)/$(PKG_NAME)-$(PKG_VERSION)
+
+include $(INCLUDE_DIR)/package.mk
+
+define KernelPackage/broadcom-mmc
+  SUBMENU:=Other modules
+  DEPENDS:=@LINUX_2_4_BRCM
+  TITLE:= MM/SD card driver - Linksys WRT54G/GS/GL
+  DESCRIPTION:=\
+	Driver for Linksys WRT54G/GS/GL MM/SD card modification.\\\
+	May work for other broadcom based routers (Buffalo, etc).
+  VERSION:=$(LINUX_VERSION)-$(BOARD)-$(PKG_VERSION)-$(PKG_RELEASE)
+  FILES:=\
+	$(PKG_BUILD_DIR)/mmc.$(LINUX_KMOD_SUFFIX)
+  URL:=http://www.4mul8.ca/openwrt
+endef 
+
+define Build/Compile
+	$(MAKE) -C "$(LINUX_DIR)" \
+	CROSS_COMPILE="$(TARGET_CROSS)" \
+	ARCH="$(LINUX_KARCH)" \
+	SUBDIRS="$(PKG_BUILD_DIR)" \
+	modules
+endef
+
+define KernelPackage/broadcom-mmc/install
+	mkdir -p $(1)/etc/init.d
+	install -m0755 $(PKG_BUILD_DIR)/mmc.init $(1)/etc/init.d/mmc
+	install -m0644 $(PKG_BUILD_DIR)/mmc.conf $(1)/etc/mmc.conf
+	$(CP) $(PKG_BUILD_DIR)/mmc.o $(1)/lib/modules/$(LINUX_VERSION)/
+endef
+
+$(eval $(call KernelPackage,broadcom-mmc))
