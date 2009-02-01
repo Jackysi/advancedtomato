@@ -407,10 +407,11 @@ vsftpd-install:
 
 vlan:
 	@$(SEP)
-	@$(MAKE) -C vlan CROSS=$(CROSS_COMPILE) STRIPTOOL=$(STRIP)
+	@$(MAKE) -C vlan CROSS=$(CROSS_COMPILE)	# STRIPTOOL=$(STRIP)
 
 vlan-install:
-	$(MAKE) -C vlan CROSS=$(CROSS_COMPILE) STRIPTOOL=$(STRIP) INSTALLDIR=$(INSTALLDIR) install
+	$(MAKE) -C vlan CROSS=$(CROSS_COMPILE) INSTALLDIR=$(INSTALLDIR) install	# STRIPTOOL=$(STRIP)
+	$(STRIP) $(INSTALLDIR)/vlan/usr/sbin/vconfig
 
 
 pptp-client-install:

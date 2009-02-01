@@ -25,7 +25,7 @@ export AS := $(CROSS_COMPILE)as
 export LD := $(CROSS_COMPILE)ld
 export NM := $(CROSS_COMPILE)nm
 export RANLIB := $(CROSS_COMPILE)ranlib
-export STRIP := $(CROSS_COMPILE)strip
+export STRIP := $(CROSS_COMPILE)strip -s -R .note -R .comment
 export SIZE := $(CROSS_COMPILE)size
 
 export LINUXDIR := $(SRCBASE)/linux/linux
