@@ -337,7 +337,7 @@ static int host_reset( Scsi_Cmnd *srb )
 
 static int slave_configure( Scsi_Device *dev )
 {
-	US_DEBUGP("device_reset() called\n" );
+	US_DEBUGP("slave_configure() called\n" );
 
 	if (dev->type == TYPE_DISK) {
 	
@@ -355,7 +355,6 @@ static int slave_configure( Scsi_Device *dev )
 
 	}
 
-	US_DEBUGP("bus_reset() complete\n");
 	return 1;
 }
 
