@@ -335,6 +335,30 @@ static int host_reset( Scsi_Cmnd *srb )
 	return FAILED;
 }
 
+static int slave_configure( Scsi_Device *dev )
+{
+	US_DEBUGP("device_reset() called\n" );
+
+	if (dev->type == TYPE_DISK) {
+	
+		/* USB-IDE bridges tend to report SK = 0x04 (Non-recoverable
+		 * Hardware Error) when any low-level error occurs,
+	         * recoverable or not.  Setting this flag tells the SCSI
+		 * midlayer to retry such commands, which frequently will
+		 * succeed and fix the error.  The worst this can lead to
+		 * is an occasional series of retries that will all fail. */
+		dev->retry_hwerror = 1;
+
+		/* USB disks should allow restart. Some drives spin down
+		 * automatically, requiring a START-STOP UNIT command. */
+		dev->allow_restart = 1;
+
+	}
+
+	US_DEBUGP("bus_reset() complete\n");
+	return 1;
+}
+
 /***********************************************************************
  * /proc/scsi/ functions
  ***********************************************************************/
@@ -428,6 +452,8 @@ Scsi_Host_Template usb_stor_host_template = {
 	eh_device_reset_handler:device_reset,
 	eh_bus_reset_handler:	bus_reset,
 	eh_host_reset_handler:	host_reset,
+
+	slave_configure:	slave_configure,
 
 	can_queue:		1,
 	this_id:		-1,
