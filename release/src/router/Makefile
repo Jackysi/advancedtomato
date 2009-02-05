@@ -131,6 +131,7 @@ install package: $(obj-install) $(LINUXDIR)/.config
 	cd $(TARGETDIR)/lib/modules/2.4.20/kernel/fs && mv jbd/* . && rm -rf jbd || true
 	cd $(TARGETDIR)/lib/modules/2.4.20/kernel/fs && mv fat/* . && rm -rf fat || true
 	cd $(TARGETDIR)/lib/modules/2.4.20/kernel/fs && mv vfat/* . && rm -rf vfat || true
+	cd $(TARGETDIR)/lib/modules/2.4.20/kernel/fs && mv nls/* . && rm -rf nls || true
 	cd $(TARGETDIR)/lib/modules/2.4.20/kernel/drivers/usb && mv hcd/* . && rm -rf hcd || true
 	cd $(TARGETDIR)/lib/modules/2.4.20/kernel/drivers/usb && mv host/* . && rm -rf host || true
 	cd $(TARGETDIR)/lib/modules/2.4.20/kernel/drivers/usb && mv storage/* . && rm -rf storage || true

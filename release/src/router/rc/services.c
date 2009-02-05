@@ -927,6 +927,7 @@ void start_samba(void)
 	FILE *fp;
 	DIR *dir = NULL;
 	struct dirent *dp;
+	char nlsmod[15];
 	
 	kill_samba();
 	if (!nvram_get_int("smbd_enable") || !nvram_invmatch("lan_hostname", ""))
@@ -959,8 +960,15 @@ void start_samba(void)
 		nvram_get("router_name") ? : "Tomato",
 		nvram_get_int("smbd_loglevel"));
 
-	if (nvram_invmatch("smbd_cpage", ""))
-		fprintf(fp, " client code page = %s\n", nvram_get("smbd_cpage"));
+	if (nvram_invmatch("smbd_cpage", "")) {
+		char *cp = nvram_get("smbd_cpage");
+
+		fprintf(fp, " client code page = %s\n", cp);
+		sprintf(nlsmod, "nls_cp%s", cp);
+		modprobe(nlsmod);
+		nvram_set("smbd_nlsmod", nlsmod);
+	}
+
 	if (nvram_match("smbd_cset", "utf8"))
 		fprintf(fp, " coding system = utf8\n");
 	else if (nvram_invmatch("smbd_cset", ""))
@@ -1054,6 +1062,12 @@ void stop_samba(void)
 #ifdef TCONFIG_SAMBASRV
 	kill_samba();
 	sleep(2); /* wait for smbd to finish */
+
+	if (nvram_invmatch("smbd_nlsmod", "")) {
+		modprobe_r(nvram_get("smbd_nlsmod"));
+		nvram_set("smbd_nlsmod", "");
+	}
+
 	/* clean up */
 	unlink("/var/log/smb");
 	unlink("/var/log/nmb");
