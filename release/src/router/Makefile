@@ -403,7 +403,7 @@ vsftpd: shared
 
 vsftpd-install:
 	install -D vsftpd/vsftpd $(INSTALLDIR)/vsftpd/usr/sbin/vsftpd
-	$(STRIP) $(INSTALLDIR)/vsftpd/usr/sbin/vsftpd
+	$(STRIP) -s $(INSTALLDIR)/vsftpd/usr/sbin/vsftpd
 
 vlan:
 	@$(SEP)

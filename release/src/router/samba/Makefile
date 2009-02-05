@@ -41,9 +41,9 @@ install: all
 	install -d $(INSTALLDIR)$(idir)/usr/codepages/
 	install -D $(srcdir)/codepages/codepage.* $(INSTALLDIR)$(idir)/usr/codepages
 	install -D $(srcdir)/codepages/unicode_map.* $(INSTALLDIR)$(idir)/usr/codepages
-	$(STRIP) $(INSTALLDIR)$(idir)/usr/sbin/smbd
-	$(STRIP) $(INSTALLDIR)$(idir)/usr/sbin/nmbd
-	$(STRIP) $(INSTALLDIR)$(idir)/usr/bin/smbpasswd
+	$(STRIP) -s $(INSTALLDIR)$(idir)/usr/sbin/smbd
+	$(STRIP) -s $(INSTALLDIR)$(idir)/usr/sbin/nmbd
+	$(STRIP) -s $(INSTALLDIR)$(idir)/usr/bin/smbpasswd
 	$(STRIP) $(INSTALLDIR)$(idir)/usr/lib/libsmb.so
 
 clean:
