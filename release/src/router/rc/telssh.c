@@ -31,7 +31,8 @@ void create_passwd(void)
 	if (((p = nvram_get("http_passwd")) == NULL) || (*p == 0)) p = "admin";
 
 #ifdef TCONFIG_SAMBASRV	//!!TB
-	if (((smbd_user = nvram_get("smbd_user")) == NULL) || (*smbd_user == 0)) smbd_user = "nas";
+	if (((smbd_user = nvram_get("smbd_user")) == NULL) || (*smbd_user == 0) || !strcmp(smbd_user, "root"))
+		smbd_user = "nas";
 #endif
 
 	m = umask(0777);

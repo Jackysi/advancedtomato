@@ -186,7 +186,12 @@ function verifyFields(focused, quiet)
 			ferror.set(b, 'User Name must not be empty.', quiet);
 			return 0;
 		}
+		if (b.value == 'root') {
+			ferror.set(b, 'User Name root is not allowed.', quiet);
+			return 0;
+		}
 		if (!v_length(b, quiet, 1, 50)) return 0;
+		ferror.clear(b);
 
 		b = E('_smbd_passwd');
 		if (b.value == '') {
@@ -194,6 +199,7 @@ function verifyFields(focused, quiet)
 			return 0;
 		}
 		if (!v_length(b, quiet, 1, 50)) return 0;
+		ferror.clear(b);
 	}
 
 	return 1;

@@ -1053,7 +1053,7 @@ void start_samba(void)
 	eval("smbpasswd", "-a", "nobody", "\"\"");
 	if (mode == 2) {
 		char *smbd_user;
-		if (((smbd_user = nvram_get("smbd_user")) == NULL) || (*smbd_user == 0))
+		if (((smbd_user = nvram_get("smbd_user")) == NULL) || (*smbd_user == 0) || !strcmp(smbd_user, "root"))
 			smbd_user = "nas";
 		eval("smbpasswd", "-a", smbd_user, nvram_safe_get("smbd_passwd"));
 	}
