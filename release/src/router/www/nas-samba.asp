@@ -41,7 +41,7 @@ textarea {
 
 <script type='text/javascript'>
 
-//	<% nvram("smbd_enable,smbd_wgroup,smbd_cpage,smbd_custom,smbd_loglevel,smbd_shares,smbd_autoshare"); %>
+//	<% nvram("smbd_enable,smbd_user,smbd_passwd,smbd_wgroup,smbd_cpage,smbd_custom,smbd_loglevel,smbd_shares,smbd_autoshare"); %>
 
 function v_nodelim(e, quiet, name)
 {
@@ -160,21 +160,40 @@ ssg.setup = function()
 
 function verifyFields(focused, quiet)
 {
-	var a;
+	var a, b;
 
-	a = !E('_f_smbd_enable').checked;
+	a = E('_smbd_enable').value;
 
-	E('_smbd_wgroup').disabled = a;
-	E('_smbd_cpage').disabled = a;
-	E('_smbd_custom').disabled = a;
-	E('_smbd_loglevel').disabled = a;
-	E('_smbd_autoshare').disabled = a;
+	elem.display(PR('_smbd_user'), (a == 2));
+	elem.display(PR('_smbd_passwd'), (a == 2));
 
-	if (!a) {
+	E('_smbd_wgroup').disabled = (a == 0);
+	E('_smbd_cpage').disabled = (a == 0);
+	E('_smbd_custom').disabled = (a == 0);
+	E('_smbd_loglevel').disabled = (a == 0);
+	E('_smbd_autoshare').disabled = (a == 0);
+
+	if (a != 0) {
 		if (!v_range('_smbd_autoshare', quiet, 0, 3)) return 0;
 		if (!v_range('_smbd_loglevel', quiet, 0, 100)) return 0;
 		if (!v_length('_smbd_custom', quiet, 0, 2048)) return 0;
 		if (!v_length('_smbd_wgroup', quiet, 1, 20)) return 0;
+	}
+
+	if (a == 2) {
+		b = E('_smbd_user');
+		if (b.value == '') {
+			ferror.set(b, 'User Name must not be empty.', quiet);
+			return 0;
+		}
+		if (!v_length(b, quiet, 1, 50)) return 0;
+
+		b = E('_smbd_passwd');
+		if (b.value == '') {
+			ferror.set(b, 'Password must not be empty.', quiet);
+			return 0;
+		}
+		if (!v_length(b, quiet, 1, 50)) return 0;
 	}
 
 	return 1;
@@ -191,8 +210,6 @@ function save()
 	var r = [];
 	for (var i = 0; i < data.length; ++i) r.push(data[i].join('<'));
 	fom.smbd_shares.value = r.join('>');
-
-	fom.smbd_enable.value = E('_f_smbd_enable').checked ? 1 : 0;
 
 	form.submit(fom, 1);
 }
@@ -215,15 +232,19 @@ function save()
 <input type='hidden' name='_nextpage' value='nas-samba.asp'>
 <input type='hidden' name='_service' value='samba-restart'>
 
-<input type='hidden' name='smbd_enable'>
 <input type='hidden' name='smbd_shares'>
 
 <div class='section-title'>Samba File Sharing</div>
 <div class='section'>
 <script type='text/javascript'>
 createFieldTable('', [
-	{ title: 'Enable File Sharing', name: 'f_smbd_enable', type: 'checkbox',
-		value: nvram.smbd_enable == 1 },
+	{ title: 'Enable File Sharing', name: 'smbd_enable', type: 'select',
+		options: [['0', 'No'],['1', 'Yes, no Authentication'],['2', 'Yes, Authentication required']],
+		value: nvram.smbd_enable },
+	{ title: 'User Name', indent: 2, name: 'smbd_user', type: 'text', maxlen: 50, size: 32,
+		value: nvram.smbd_user },
+	{ title: 'Password', indent: 2, name: 'smbd_passwd', type: 'text', maxlen: 50, size: 32,
+		value: nvram.smbd_passwd },
 	null,
 	{ title: 'Workgroup Name', name: 'smbd_wgroup', type: 'text', maxlen: 20, size: 32,
 		value: nvram.smbd_wgroup },

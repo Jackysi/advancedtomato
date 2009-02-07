@@ -928,9 +928,11 @@ void start_samba(void)
 	DIR *dir = NULL;
 	struct dirent *dp;
 	char nlsmod[15];
+	int mode;
 	
 	kill_samba();
-	if (!nvram_get_int("smbd_enable") || !nvram_invmatch("lan_hostname", ""))
+	mode = nvram_get_int("smbd_enable");
+	if (!mode || !nvram_invmatch("lan_hostname", ""))
 		return;
 
 	if ((fp = fopen("/etc/smb.conf", "w")) == NULL) {
@@ -944,7 +946,7 @@ void start_samba(void)
 		" workgroup = %s\n"
 		" server string = %s\n"
 		" guest account = nobody\n"
-		" security = share\n"
+		" security = %s\n"
 		" browseable = yes\n"
 		" guest ok = yes\n"
 		" guest only = no\n"
@@ -958,6 +960,7 @@ void start_samba(void)
 		nvram_get("lan_ifname") ? : "br0",
 		nvram_get("smbd_wgroup") ? : "WORKGROUP",
 		nvram_get("router_name") ? : "Tomato",
+		mode == 2 ? "user" : "share",
 		nvram_get_int("smbd_loglevel"));
 
 	if (nvram_invmatch("smbd_cpage", "")) {
@@ -1048,6 +1051,12 @@ void start_samba(void)
 
 	/* write smbpasswd */
 	eval("smbpasswd", "-a", "nobody", "\"\"");
+	if (mode == 2) {
+		char *smbd_user;
+		if (((smbd_user = nvram_get("smbd_user")) == NULL) || (*smbd_user == 0))
+			smbd_user = "nas";
+		eval("smbpasswd", "-a", smbd_user, nvram_safe_get("smbd_passwd"));
+	}
 
 	int ret1 = 0, ret2 = 0;
 	ret1 = eval("nmbd", "-D");
@@ -2022,7 +2031,10 @@ TOP:
 	// !!TB - Samba
 	if (strcmp(service, "samba") == 0) {
 		if (action & A_STOP) stop_samba();
-		if (action & A_START) start_samba();
+		if (action & A_START) {
+			create_passwd();
+			start_samba();
+		}
 		goto CLEAR;
 	}
 #endif

@@ -467,7 +467,7 @@ const defaults_t defaults[] = {
 	{ "jffs2_on",			"0"				},
 	{ "jffs2_exec",			""				},
 
-// admin-usb - !!TB
+// nas-usb - !!TB
 	{ "usb_enable",			"0"				},
 	{ "usb_uhci",			"0"				},
 	{ "usb_ohci",			"0"				},
@@ -483,7 +483,7 @@ const defaults_t defaults[] = {
 	{ "script_usbumount", 		""				},
 
 #ifdef TCONFIG_FTP
-// admin-ftp - !!TB
+// nas-ftp - !!TB
 	{ "ftp_enable",			"0"				},
 	{ "ftp_super",			"0"				},
 	{ "ftp_anonymous",		"0"				},
@@ -503,7 +503,7 @@ const defaults_t defaults[] = {
 #endif
 
 #ifdef TCONFIG_SAMBASRV
-// admin-samba - !!TB
+// nas-samba - !!TB
 	{ "smbd_enable",		"0"				},
 	{ "smbd_wgroup",		"WORKGROUP"			},
 	{ "smbd_cpage",			""				},
@@ -514,6 +514,8 @@ const defaults_t defaults[] = {
 	{ "smbd_shares",
 		"share</mnt<Default Share<0<0>root$</<Hidden Root<0<1"
 	},
+	{ "smbd_user",			"nas"				},
+	{ "smbd_passwd",		""				},
 #endif
 
 // admin-sch

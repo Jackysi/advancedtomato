@@ -635,7 +635,7 @@ static const nvset_t nvset_list[] = {
 	{ "jffs2_exec",			V_LENGTH(0, 64)		},
 	{ "jffs2_format",		V_01				},
 
-// admin-usb - !!TB
+// nas-usb - !!TB
 	{ "usb_enable",			V_01				},
 	{ "usb_uhci",			V_01				},
 	{ "usb_ohci",			V_01				},
@@ -650,7 +650,7 @@ static const nvset_t nvset_list[] = {
 	{ "script_usbmount", 		V_TEXT(0, 2048)			},
 	{ "script_usbumount", 		V_TEXT(0, 2048)			},
 
-// admin-ftp - !!TB
+// nas-ftp - !!TB
 #ifdef TCONFIG_FTP
 	{ "ftp_enable",			V_RANGE(0, 2)			},
 	{ "ftp_super",			V_01				},
@@ -671,8 +671,8 @@ static const nvset_t nvset_list[] = {
 #endif
 
 #ifdef TCONFIG_SAMBASRV
-// admin-samba - !!TB
-	{ "smbd_enable",		V_01				},
+// nas-samba - !!TB
+	{ "smbd_enable",		V_RANGE(0, 2)			},
 	{ "smbd_wgroup",		V_LENGTH(0, 20)			},
 	{ "smbd_cpage",			V_LENGTH(0, 4)			},
 	{ "smbd_cset",			V_LENGTH(0, 20)			},
@@ -680,6 +680,8 @@ static const nvset_t nvset_list[] = {
 	{ "smbd_custom",		V_TEXT(0, 2048)			},
 	{ "smbd_autoshare",		V_RANGE(0, 3)			},
 	{ "smbd_shares",		V_LENGTH(0, 4096)		},
+	{ "smbd_user",			V_LENGTH(0, 50)			},
+	{ "smbd_passwd",		V_LENGTH(0, 50)			},
 #endif
 
 //	qos
