@@ -131,6 +131,11 @@ install package: $(obj-install) $(LINUXDIR)/.config
 	cd $(TARGETDIR)/lib/modules/2.4.20/kernel/drivers/net && mv wl/* . && rm -rf wl
 	cd $(TARGETDIR)/lib/modules/2.4.20/kernel/fs && mv cifs/* . && rm -rf cifs
 	cd $(TARGETDIR)/lib/modules/2.4.20/kernel/fs && mv jffs2/* . && rm -rf jffs2
+ifeq ($(TCONFIG_SDHC),y)
+	cd $(TARGETDIR)/lib/modules/2.4.20/kernel/fs && mv ext2/* ext3/* jbd/* fat/* vfat/* . && rm -rf ext2 ext3 jbd fat vfat
+else
+	cd $(TARGETDIR)/lib/modules/2.4.20/kernel/fs && rm -rf ext2 ext3 jbd fat vfat
+endif
 	cd $(TARGETDIR)/lib/modules/2.4.20/kernel/lib && mv zlib_inflate/* . && rm -rf zlib_inflate
 	cd $(TARGETDIR)/lib/modules/2.4.20/kernel/lib && mv zlib_deflate/* . && rm -rf zlib_deflate
 	rm -rf $(TARGETDIR)/lib/modules/2.4.20/pcmcia
