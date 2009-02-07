@@ -73,6 +73,7 @@ obj-$(TCONFIG_HTTPS) += matrixssl
 obj-$(TCONFIG_SSH) += dropbear
 obj-$(TCONFIG_ZEBRA) += zebra
 obj-$(TCONFIG_IPP2P) += ipp2p
+obj-$(TCONFIG_SDHC) += mmc
 
 ifeq ($(TCONFIG_L2TP),y)
 NEED_PPPD = y

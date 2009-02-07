@@ -50,3 +50,7 @@ config TCONFIG_IPP2P
 	bool "IPP2P Netfilter"
 	default y
 
+config TCONFIG_SDHC
+	bool "SDHC/MMC mod for WRT54G/GL"
+	default y
+
