@@ -837,7 +837,7 @@ void start_ftpd(void)
 	fprintf(fp, /* anonymous, admin, nobody */
 		"ftp:x:0:0:ftp:%s:/sbin/nologin\n"
 		"%s:%s:0:0:root:/:/sbin/nologin\n"
-		"nobody:x:99:99:nobody:%s/:/sbin/nologin\n",
+		"nobody:x:65534:65534:nobody:%s/:/sbin/nologin\n",
 		nvram_storage_path("ftp_anonroot"), "admin",
 		nvram_match("ftp_super", "1") ? crypt(nvram_safe_get("http_passwd"), "$1$") : "x",
 		MOUNT_ROOT);
