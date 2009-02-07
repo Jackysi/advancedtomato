@@ -954,14 +954,16 @@ void start_samba(void)
 		" syslog only = yes\n"
 		" syslog = 1\n"
 		" encrypt passwords = yes\n"
-		" local master = yes\n"
+		" local master = %s\n"
 		" preserve case = yes\n"
 		" short preserve case = yes\n",
 		nvram_get("lan_ifname") ? : "br0",
 		nvram_get("smbd_wgroup") ? : "WORKGROUP",
 		nvram_get("router_name") ? : "Tomato",
 		mode == 2 ? "user" : "share",
-		nvram_get_int("smbd_loglevel"));
+		nvram_get_int("smbd_loglevel"),
+		nvram_get_int("smbd_master") ? "yes" : "no"
+	);
 
 	if (nvram_invmatch("smbd_cpage", "")) {
 		char *cp = nvram_get("smbd_cpage");
