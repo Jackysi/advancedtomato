@@ -4,14 +4,14 @@ WARN    := -W -Wall -Wstrict-prototypes -Wmissing-prototypes -fno-strict-aliasin
 INCLUDE := -isystem $(TOP)/../linux/linux/include 
 CFLAGS  := -O2 -DMODULE -D__KERNEL__ ${WARN} ${INCLUDE} -fno-pic -mno-abicalls -mlong-calls
 
-all:
+all:	mmc.o
 
 clean:
 	rm -f mmc.o
 
-install:
-	@echo " [mmc] Installing"
-	install -m 0555 -D mmc.o $(INSTALLDIR)/lib/modules/2.4.20/kernel/drivers/
+install:	all
+	install -m 0644 -D mmc.o $(INSTALLDIR)/lib/modules/2.4.20/kernel/drivers/mmc.o
 
 mmc.o:	mmc.c init.c spi.c Makefile
-	$(CC) ${CFLAGS} -c -o mmc.o mmc.c
+	@echo " [mmc] CC -o $@"
+	@$(CC) ${CFLAGS} -c -o mmc.o mmc.c

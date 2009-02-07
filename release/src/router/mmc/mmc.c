@@ -29,11 +29,11 @@
  *
  *   cs     - GPIO line connect to the card CS (chip select) pin (default 7).
  *
- *   cl     - GPIO line connected to the card CLK (clock) pin (default 2).
+ *   clk    - GPIO line connected to the card CLK (clock) pin (default 3).
  *
- *   di     - GPIO line connected to the card DI (data in) pin (default 3).
+ *   din    - GPIO line connected to the card DI (data in) pin (default 2).
  *
- *   do     - GPIO line connected to the card DO (data out) pin (default 4).
+ *   dout   - GPIO line connected to the card DO (data out) pin (default 4).
  *
  *   rahead - Maximum number of blocks kernel can read ahead (default 2).
  *
@@ -119,6 +119,8 @@
  *     - PNY Technologies SD - 1GB
  *     - SanDisk Mini SD - 128MB
  *     - Lexar SDHC - 4GB
+ *     - Kingston Micro SD - 2GB
+ *     - Toshiba SDHC class 6 - 4GB
  *
  *   No MMHC card tested - suspect possible problems at initialization.
  *   If you test one, please provide feedback on the results.
@@ -129,6 +131,7 @@
 #include <linux/errno.h>
 #include <linux/init.h>
 #include <linux/hdreg.h>
+#include <linux/fs.h>
 #include <linux/blkpg.h>
 #include <linux/slab.h>
 #include <linux/proc_fs.h>
@@ -150,9 +153,9 @@ static unsigned int major = 0;				// Device major number (mod parm - dynamic if 
 
 // Assign default values for modules parameters - can override by passing a module parameter.
 #define READ_AHEAD 2					// Block read ahead max
-#define DI  3						// Card DI to GPIO pin mapping
+#define DI  2						// Card DI to GPIO pin mapping
 #define DO  4						// Card DO to GPIO pin mapping
-#define CLK 2						// Card CLK to GPIP pin mapping
+#define CLK 3						// Card CLK to GPIP pin mapping
 #define CS  7						// Card CS to GPIO pin mapping
 #define MSEC 32						// Maximum sectors per request
 
