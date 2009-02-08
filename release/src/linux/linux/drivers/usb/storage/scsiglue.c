@@ -340,7 +340,7 @@ static int slave_configure( Scsi_Device *dev )
 	US_DEBUGP("slave_configure() called\n" );
 
 	if (dev->type == TYPE_DISK) {
-	
+
 		/* USB-IDE bridges tend to report SK = 0x04 (Non-recoverable
 		 * Hardware Error) when any low-level error occurs,
 	         * recoverable or not.  Setting this flag tells the SCSI
@@ -352,7 +352,6 @@ static int slave_configure( Scsi_Device *dev )
 		/* USB disks should allow restart. Some drives spin down
 		 * automatically, requiring a START-STOP UNIT command. */
 		dev->allow_restart = 1;
-
 	}
 
 	return 1;

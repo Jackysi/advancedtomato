@@ -830,11 +830,7 @@ STATIC int scsi_try_start_unit(Scsi_Cmnd * SCpnt)
 	if (SCpnt->device->allow_restart == 0)
 		return FAILED;
 
-	SCpnt->eh_state = FAILED;	/* Until we come up with something better */
-
-	spin_lock_irqsave(&io_request_lock, flags);
 	rtn = scsi_send_stu(SCpnt);
-	spin_unlock_irqrestore(&io_request_lock, flags);
 
 	if (rtn == SUCCESS)
 		SCpnt->eh_state = SUCCESS;
@@ -1556,7 +1552,7 @@ STATIC int scsi_unjam_host(struct Scsi_Host *host)
 		if (SCloop == NULL) {
 			continue;
 		}
-		
+
 		rtn = scsi_try_start_unit(SCloop);
 
 		if (rtn == SUCCESS) {
@@ -1735,8 +1731,12 @@ STATIC int scsi_unjam_host(struct Scsi_Host *host)
 						    && SCloop->state != SCSI_STATE_TIMEOUT) {
 							continue;
 						}
-						scsi_try_start_unit(SCloop);
-						rtn = scsi_test_unit_ready(SCloop);
+
+						if ((scsi_try_start_unit(SCloop) == SUCCESS &&
+						     scsi_test_unit_ready(SCloop) == SUCCESS))
+							rtn = SUCCESS;
+						else
+							rtn = scsi_test_unit_ready(SCloop);
 
 						if (rtn == SUCCESS && scsi_unit_is_ready(SCloop)) {
 							rtn = scsi_eh_retry_command(SCloop);
