@@ -47,6 +47,7 @@ obj-y += mdu
 
 # !!TB
 obj-y += p910nd
+obj-y += scsi-idle
 #obj-y += sendmail
 obj-$(TCONFIG_FTP) += vsftpd
 obj-$(TCONFIG_SAMBASRV) += samba
