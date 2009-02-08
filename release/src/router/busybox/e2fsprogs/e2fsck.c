@@ -45,7 +45,7 @@
 static void e2fsck_pass1_dupblocks(e2fsck_t ctx, char *block_buf);
 
 /* pass1.c */
-static void e2fsck_use_inode_shortcuts(e2fsck_t ctx, int bool);
+static void e2fsck_use_inode_shortcuts(e2fsck_t ctx, int fl_bool);
 
 /* pass2.c */
 static int e2fsck_process_bad_inode(e2fsck_t ctx, ext2_ino_t dir,
@@ -4560,11 +4560,11 @@ static errcode_t pass1_check_directory(ext2_filsys fs, ext2_ino_t ino)
 	return 0;
 }
 
-void e2fsck_use_inode_shortcuts(e2fsck_t ctx, int bool)
+void e2fsck_use_inode_shortcuts(e2fsck_t ctx, int fl_bool)
 {
 	ext2_filsys fs = ctx->fs;
 
-	if (bool) {
+	if (fl_bool) {
 		fs->get_blocks = pass1_get_blocks;
 		fs->check_directory = pass1_check_directory;
 		fs->read_inode = pass1_read_inode;
@@ -12732,7 +12732,8 @@ static void check_if_skip(e2fsck_t ctx)
 		if (batt && (fs->super->s_mnt_count <
 			     (unsigned) fs->super->s_max_mnt_count*2))
 			reason = 0;
-	} else if (fs->super->s_checkinterval &&
+	} else if (!(ctx->options & E2F_OPT_PREEN) &&
+		   fs->super->s_checkinterval &&
 		   ((now - fs->super->s_lastcheck) >=
 		    fs->super->s_checkinterval)) {
 		reason = _(" has gone %u days without being checked");
@@ -13202,7 +13203,7 @@ static errcode_t PRS(int argc, char **argv, e2fsck_t *ret_ctx)
 static const char my_ver_string[] = E2FSPROGS_VERSION;
 static const char my_ver_date[] = E2FSPROGS_DATE;
 
-int e2fsck_main (int argc, char **argv);
+int e2fsck_main (int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
 int e2fsck_main (int argc, char **argv)
 {
 	errcode_t       retval;
