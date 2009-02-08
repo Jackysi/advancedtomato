@@ -14,6 +14,7 @@
 
 #define	SCSI_REMOVAL_PREVENT	1
 #define	SCSI_REMOVAL_ALLOW	0
+#define SD_IOCTL_IDLE 4746
 
 #ifdef __KERNEL__
 

@@ -26,6 +26,8 @@
 typedef struct scsi_disk {
 	unsigned capacity;	/* size in blocks */
 	Scsi_Device *device;
+        unsigned long idle;     /* idle time in jiffies */
+        unsigned char spindown; /* is down */
 	unsigned char ready;	/* flag ready for FLOPTICAL */
 	unsigned char write_prot;	/* flag write_protect for rmvable dev */
 	unsigned char sector_bit_size;	/* sector_size = 2 to the  bit size power */
