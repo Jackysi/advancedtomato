@@ -134,7 +134,7 @@ install package: $(obj-install) $(LINUXDIR)/.config
 ifeq ($(TCONFIG_SDHC),y)
 	cd $(TARGETDIR)/lib/modules/2.4.20/kernel/fs && mv ext2/* ext3/* jbd/* fat/* vfat/* . && rm -rf ext2 ext3 jbd fat vfat
 else
-	cd $(TARGETDIR)/lib/modules/2.4.20/kernel/fs && rm -rf ext2 ext3 jbd fat vfat
+	cd $(TARGETDIR)/lib/modules/2.4.20/kernel/fs && rm -rf ext2 ext3 jbd fat vfat nls
 endif
 	cd $(TARGETDIR)/lib/modules/2.4.20/kernel/lib && mv zlib_inflate/* . && rm -rf zlib_inflate
 	cd $(TARGETDIR)/lib/modules/2.4.20/kernel/lib && mv zlib_deflate/* . && rm -rf zlib_deflate
