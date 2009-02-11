@@ -693,6 +693,9 @@ void start_services(void)
 #if TOMATO_SL
 	start_usbevent();
 #endif
+#ifdef TCONFIG_SDHC
+	start_mmc();
+#endif
 	start_nas();
 	start_zebra();
 	start_dnsmasq();
@@ -723,6 +726,9 @@ void stop_services(void)
 	stop_dnsmasq();
 	stop_zebra();
 	stop_nas();
+#ifdef TCONFIG_SDHC
+	stop_mmc();
+#endif
 #if TOMATO_SL
 	stop_usbevent();
 #endif
@@ -900,6 +906,9 @@ TOP:
 			stop_usbevent();
 			stop_smbd();
 #endif
+#ifdef TCONFIG_SDHC
+			stop_mmc();
+#endif
 			stop_jffs2();
 //			stop_cifs();
 			stop_zebra();
@@ -926,6 +935,14 @@ TOP:
 	if (strcmp(service, "jffs2") == 0) {
 		if (action & A_STOP) stop_jffs2();
 		if (action & A_START) start_jffs2();
+		goto CLEAR;
+	}
+#endif
+
+#ifdef TCONFIG_SDHC
+	if (strcmp(service, "mmc") == 0) {
+		if (action & A_STOP) stop_mmc();
+		if (action & A_START) start_mmc();
 		goto CLEAR;
 	}
 #endif

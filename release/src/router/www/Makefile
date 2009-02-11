@@ -33,7 +33,11 @@ install:
 			-e "/^<!--$$/,/^-->$$/! { s,^\s\+, , }" $$F > $(INSTALLDIR)/www/$$F; \
 	done
 
+# Only include the SDHC page in the navigation if SDHC is compiled in
 
+ifneq ($(TCONFIG_SDHC),y)
+	sed -i $(INSTALLDIR)/www/tomato.js -e "/SDHC-BEGIN/,/SDHC-END/d"
+endif
 	
 # make sure old and debugging crap is gone
 	@rm -f $(INSTALLDIR)/debug.js

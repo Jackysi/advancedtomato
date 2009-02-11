@@ -33,6 +33,7 @@
 #include <bcmnvram.h>
 
 #include "tomato_profile.h"
+#include "tomato_config.h"
 #include "defaults.h"
 
 //! = see restore_main()
@@ -455,6 +456,19 @@ const defaults_t defaults[] = {
 // admin-jffs2
 	{ "jffs2_on",			"0"				},
 	{ "jffs2_exec",			""				},
+
+#ifdef TCONFIG_SDHC
+// admin-sdhc
+	{ "mmc_on",			"0"				},
+	{ "mmc_cs",			"7"				},
+	{ "mmc_clk",			"3"				},
+	{ "mmc_din",			"2"				},
+	{ "mmc_dout",			"4"				},
+	{ "mmc_fs_partition",		"1"				},
+	{ "mmc_fs_type",		"ext2"				},
+	{ "mmc_exec_mount",		""				},
+	{ "mmc_exec_umount",		""				},
+#endif
 
 // admin-sch
 	{ "sch_rboot",			""				},

@@ -23,6 +23,9 @@ endif
 ifeq ($(TCONFIG_JFFS2),y)
 OBJS += jffs2.o
 endif
+ifeq ($(TCONFIG_SDHC),y)
+OBJS += mmc.o
+endif
 
 ifeq ($(TOMATO_SL),1)
 OBJS += usb.o

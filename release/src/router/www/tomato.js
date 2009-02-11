@@ -1965,6 +1965,9 @@ function navi()
 			['Configuration',	'config.asp'],
 			['Debugging',		'debug.asp'],
 			['JFFS2',			'jffs2.asp'],
+/* SDHC-BEGIN */
+			['SDHC/MMC',		'sdhc.asp'],
+/* SDHC-END */
 			['Logging',			'log.asp'],
 			['Scheduler',		'sched.asp'],
 			['Scripts',			'scripts.asp'],

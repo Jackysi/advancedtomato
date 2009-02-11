@@ -9,6 +9,7 @@ mkdir -p -m 0755 jffs
 mkdir -p -m 0755 cifs1
 mkdir -p -m 0755 cifs2
 mkdir -p -m 0755 opt
+mkdir -p -m 0755 mmc
 
 ln -sf tmp/mnt mnt
 ln -sf tmp/var var

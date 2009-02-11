@@ -118,6 +118,13 @@ static void wo_cfe(char *url)
 	do_file("/dev/mtd/0ro");
 }
 
+#ifdef TCONFIG_SDHC
+static void wo_mmc(char *url)
+{
+	do_file("/proc/mmc/status");
+}
+#endif
+
 static void wo_nvram(char *url)
 {
 	web_pipecmd("nvram show", WOF_NONE);
@@ -160,6 +167,9 @@ const struct mime_handler mime_handlers[] = {
 	{ "debug.js",		mime_javascript,			5,	wi_generic_noid,	wo_blank,		1 },	// while debugging
 	{ "cfe/*.bin",		mime_binary,				0,	wi_generic,			wo_cfe,			1 },
 	{ "nvram/*.txt",	mime_binary,				0,	wi_generic,			wo_nvram,		1 },
+#ifdef TCONFIG_SDHC
+	{ "mmc/*.txt",		mime_binary,				0,	wi_generic,			wo_mmc,		1 },
+#endif
 	{ "ipt/*.txt",		mime_binary,				0,	wi_generic,			wo_iptables,	1 },
 
 	{ "cfg/*.cfg",			NULL,					0,	wi_generic,			wo_backup,		1 },
@@ -645,6 +655,19 @@ static const nvset_t nvset_list[] = {
 	{ "jffs2_on",			V_01				},
 	{ "jffs2_exec",			V_LENGTH(0, 64)		},
 	{ "jffs2_format",		V_01				},
+
+#ifdef TCONFIG_SDHC
+// admin-sdhc
+	{ "mmc_on",			V_01				}, 
+	{ "mmc_cs",			V_RANGE(1, 7)			},	// GPIO pin
+	{ "mmc_clk",			V_RANGE(1, 7)			},	// GPIO pin
+	{ "mmc_din",			V_RANGE(1, 7)			},	// GPIO pin
+	{ "mmc_dout",			V_RANGE(1, 7)			},	// GPIO pin
+	{ "mmc_fs_partition",		V_RANGE(1, 4)			},	// partition number in partition table
+	{ "mmc_fs_type",		V_LENGTH(4, 4)			},	// ext2, ext3, vfat
+	{ "mmc_exec_mount",		V_LENGTH(0, 64)			},
+	{ "mmc_exec_umount",		V_LENGTH(0, 64)			},
+#endif
 
 //	qos
 	{ "qos_enable",			V_01				},
