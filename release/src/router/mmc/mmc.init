@@ -1,6 +1,6 @@
 #!/bin/sh /etc/rc.common
 #
-# Init script for mmc/sd card mod
+# Init script for mmhc/sdhc card mod
 # Script Version: 1.0
 # OpenWRT Version: KAMIKAZE 2.4 or 2.6 kernel 
 

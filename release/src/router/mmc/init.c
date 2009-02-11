@@ -10,6 +10,11 @@
  * Conventions:
  *
  *    -All methods begin with "init_".
+ *
+ * Revisions:
+ *
+ *    -Fix integer overflow that occured when calculating the size of an SD
+ *     or MMC HC card that was > 4Gb.
  *============================================================================*/
 
 // Structure for tracking card information
@@ -166,19 +171,19 @@ static int init_card_mm(struct card_info *c) {
     //
     //    Capacity (bytes) = Sec_Count * 512
     //
-    unsigned int Size;
+    unsigned int Blocks;
     if ( ((ocr[0] & 0x60) >> 5) != 2) {
 	
 	// Standard Capacity
 	unsigned int C_Size      = ((csd[6] & 0x03) << 10) | (csd[7] << 2) | ((csd[8] >>6) & 0x03);
 	unsigned int C_Size_Mult = ((csd[9] & 0x03) << 1) | ((csd[10] >> 7) & 0x01);
 	unsigned int Read_Bl_Len = csd[5] & 0x0f;
-	Size = (C_Size + 1) * (1 << (C_Size_Mult + 2)) * (1 << Read_Bl_Len);
+	Blocks = ((C_Size + 1) * (1 << (C_Size_Mult + 2)) * (1 << Read_Bl_Len)) / 512;
 
     } else {
 	
 	// High Capacity - Use Sec_Count from extended CSD
-	Size = ((ext_csd[296] << 24) | (ext_csd[297] << 16) | (ext_csd[298] << 8) | csd[299]) * 512;
+	Blocks = ((ext_csd[296] << 24) | (ext_csd[297] << 16) | (ext_csd[298] << 8) | csd[299]);
     }
 
     // Fill in card structure
@@ -186,7 +191,7 @@ static int init_card_mm(struct card_info *c) {
     c->type |= CARD_TYPE_MM;					// MM card
     if (((ocr[0] & 0x60) >> 5) == 2) c->type |= CARD_TYPE_HC;	// std/high capacity
     c->version = (csd[0] & 0x3c) >> 2;				// Version
-    c->blocks = Size / 512;					// Size in 512 byte blocks
+    c->blocks = Blocks;						// Size in 512 byte blocks
     c->volt = (ocr[1] << 16) + (ocr[2] << 8) + ocr[3];		// Voltage range from OCR
     c->manid = cid[0];		 				// Manufacturer ID
     c->appid[0] = cid[2];					// OEM/Application ID
@@ -351,19 +356,19 @@ static int init_card_sd(struct card_info *c) {
     //
     //    Capacity (bytes) = (C_Size + 1) * 1024 * 512
     //
-    unsigned int Size;
+    unsigned int Blocks;
     if ( (csd[0] & 0xc0) == 0) {
 	
 	//Type 1 csd
 	unsigned int C_Size      = ((csd[6] & 0x03) << 10) | (csd[7] << 2) | ((csd[8] >>6) & 0x03);
 	unsigned int C_Size_Mult = ((csd[9] & 0x03) << 1) | ((csd[10] >> 7) & 0x01);
 	unsigned int Read_Bl_Len = csd[5] & 0x0f;
-	Size = (C_Size + 1) * (1 << (C_Size_Mult + 2)) * (1 << Read_Bl_Len);
+	Blocks = ((C_Size + 1) * (1 << (C_Size_Mult + 2)) * (1 << Read_Bl_Len)) / 512;
 
     } else {
 	
 	//Type 2 csd
-	Size = (((csd[7] & 0x3F) << 16) | (csd[8] << 8) | csd[9]) * 1024 * 512;
+	Blocks = (((csd[7] & 0x3F) << 16) | (csd[8] << 8) | csd[9]) * 1024;
     }
 
     // Fill in card structure
@@ -371,7 +376,7 @@ static int init_card_sd(struct card_info *c) {
     c->type |= CARD_TYPE_SD;					// SD card
     if (ocr[0] & 0x40) c->type |= CARD_TYPE_HC;			// std/high capacity
     c->version = scr[0] & 0x0f;					// Version
-    c->blocks = Size / 512;					// Size in 512 byte blocks
+    c->blocks = Blocks;						// Size in 512 byte blocks
     c->volt = (ocr[1] << 16) + (ocr[2] << 8) + ocr[3];		// Voltage range from OCR
     c->manid = cid[0];		 				// Manufacturer ID
     memcpy(c->name, cid+3, 5);					// Product Name

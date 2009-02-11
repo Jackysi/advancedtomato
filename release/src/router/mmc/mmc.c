@@ -1,7 +1,7 @@
 /*==============================================================================
- * mmc.c - Linksys WRT54G/WRT54GS/WRT54GL hardware mod - mm/sd card driver
+ * mmc.c - Linksys WRT54G/WRT54GS/WRT54GL hardware mod - MMHC/SDHC card driver
  * 
- * Version: 2.0.0
+ * Version: 2.0.1
  *
  * Authors:
  *
@@ -23,7 +23,7 @@
  *      /etc/init.d/mmc stop   - Unmount card and stop mmc services
  *      /etc/init.d/mmc status - Print status of mmc service and card details
  *
- * Module Paramters:
+ * Module Parameters:
  *
  *   major  - Major number to be assigned to the mmc device (default 0 - assign dynamically).
  *
@@ -77,7 +77,7 @@
  *            card initialization function into separate source file.
  * 
  *     - Switch so module uses a dynamically assigned major number by default. Implement "major="
- *       module to allow a specific major number to be assigned.
+ *       module parameter to allow a specific major number to be assigned.
  * 
  *     - Implement module parameters "cs=", "clk=", "din=", "dout=" for specifying GPIO to card mapping.
  *       Alter read/write algorithms to be more efficient with mappings in variables.
@@ -90,7 +90,7 @@
  *       debugging output by function. Only available when module compiled with debugging (-DDEBUG)
  *
  *     - Initialize max_segments array so requests are clustered. "maxsec=" module parameter
- *       sets the maximum number of sectors that can be clusetered per request (default is 32).
+ *       sets the maximum number of sectors that can be clustered per request (default is 32).
  *
  *     - Implement clustering support in the module request method. Improves speed by allowing more
  *       clusters to be read/written per single invocation of a multi block read/write command.
@@ -103,6 +103,11 @@
  *
  *     - Build using buildroot-ng environment. Generate ipkg file for installation.
  *       With so little difference in speed, and only a 4k memory savings, compile debug enabled version
+ *
+ *   Version 2.0.1 - Feb 8, 2009
+ *
+ *     - Fix integer overflow when calculating size of SDHC or MMHC cards greater than 4GB. Testers have
+ *       confirmed that 8GB and 16GB cards now functioning correctly.
  *
  * Supported Linksys devices:
  *
@@ -119,8 +124,14 @@
  *     - PNY Technologies SD - 1GB
  *     - SanDisk Mini SD - 128MB
  *     - Lexar SDHC - 4GB
- *     - Kingston Micro SD - 2GB
+ *
+ *   Module users have reported success with the following cards:
+ *
+ *     - Kingston SD - 2GB
+ *     - Kingston microSD - 2GB
  *     - Toshiba SDHC class 6 - 4GB
+ *     - Sandisk SDHC class 4 - 4GB
+ *     - Lexar SDHC - 16GB
  *
  *   No MMHC card tested - suspect possible problems at initialization.
  *   If you test one, please provide feedback on the results.
@@ -159,7 +170,7 @@ static unsigned int major = 0;				// Device major number (mod parm - dynamic if 
 #define CS  7						// Card CS to GPIO pin mapping
 #define MSEC 32						// Maximum sectors per request
 
-#define VERSION "2.0.0"					// Module Version Number
+#define VERSION "2.0.1"					// Module Version Number
 #define DEBUG						// Compile in debugging. Module is very slightly
 							// faster, and 4k smaller with no debugging
 
@@ -667,5 +678,5 @@ module_exit(mmc_exit);
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("madsuk/Rohde/Cyril CATTIAUX/Marc DENTY/rcichielo KRUSCH/Chris");
-MODULE_DESCRIPTION("MM/SD Card Block Driver - " VERSION);
+MODULE_DESCRIPTION("MMHC/SDHC Card Block Driver - " VERSION);
 MODULE_SUPPORTED_DEVICE("WRT54GL");
