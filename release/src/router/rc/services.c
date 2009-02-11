@@ -1438,14 +1438,23 @@ void remove_usb_mass(char *product, int host_no)
 void hotplug_usb_mass(char *product)
 {	
 	_dprintf("%s %s product=%s\n", __FILE__, __FUNCTION__, product);
+
+	// first try to mount using fstab, regardless of automount setting
+	struct stat st_buf;
+	if (stat("/etc/fstab", &st_buf) == 0) {
+		//eval("swapon", "-a");
+		eval("mount", "-a");
+	}
+
 	if (!nvram_match("usb_automount", "1")) return;
 
 	if (process_all_usb_part(1, 0, -1)) {
 		// restart all NAS applications
 		restart_nas_services();
-		//run post-mount script if any
-		run_nvscript("script_usbmount", product, 2);
 	}
+
+	//run post-mount script if any
+	run_nvscript("script_usbmount", product, 2);
 }
 
 
