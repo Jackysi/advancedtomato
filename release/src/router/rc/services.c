@@ -1305,6 +1305,18 @@ void restart_nas_services(void)
 #endif
 }
 
+int try_automount(void)
+{
+	if (f_exists("/tmp/etc/fstab")) {
+		char *argv[] = { NULL, "-a", NULL };
+		argv[0] = "swapon";
+		_eval(argv, NULL, 0, NULL);
+		argv[0] = "mount";
+		return _eval(argv, NULL, 0, NULL);
+	}
+	return 0;
+}
+
 int process_all_usb_part(int mount_all, int umount_detached_only, int umount_host)
 {
 	// Loop through all USB partitions and either
@@ -1315,15 +1327,18 @@ int process_all_usb_part(int mount_all, int umount_detached_only, int umount_hos
 	DIR *usb_dev_disc, *usb_dev_part;
 	char usb_disc[128], mnt_dev[128], mnt_dir[128];
 	struct dirent *dp, *dp_disc;
-	usb_dev_disc = usb_dev_part = NULL;
 	struct mntent *mnt;
-	int is_mounted, connected;
+	int is_mounted = 0, connected, automnt = 0;
 	uint host_no;
 
 	usb_dev_disc = usb_dev_part = NULL;
-	is_mounted = 0;
 
 	if ((usb_dev_disc = opendir("/dev/discs"))) {
+
+		// first try to mount using /etc/fstab
+		if (mount_all)
+			automnt = try_automount();
+
 		while (usb_dev_disc && (dp = readdir(usb_dev_disc))) {
 			if (!strcmp(dp->d_name, "..") || !strcmp(dp->d_name, "."))
 				continue;
@@ -1366,6 +1381,14 @@ int process_all_usb_part(int mount_all, int umount_detached_only, int umount_hos
 							dp_disc->d_name + (strncmp(dp_disc->d_name, "part", 4) ? 0 : 4));
 					
 					if (mount_all) {
+						/* First "mount -a" call may fail if the device is plugged in
+						 * for the first time, or if it was manually unmounted by calling
+						 * umount command. Keep trying until we get the 0 retcode,
+						 * or there are no more partitions to mount.
+						 */
+						if (automnt) 
+							automnt = try_automount();
+
 						if (mount_r(mnt_dev, mnt_dir)) {
 							is_mounted++;
 							if (disc) break; /* no mbr -- no partitions */
@@ -1381,8 +1404,12 @@ int process_all_usb_part(int mount_all, int umount_detached_only, int umount_hos
 									// run pre-unmount script if any
 									run_nvscript("script_usbumount", usb_disc, 10);
 								}
-								stop_ftpd();
-								stop_samba();
+							#ifdef TCONFIG_SAMBASRV
+								kill_samba();
+							#endif
+							#ifdef TCONFIG_FTP
+								killall("vsftpd", SIGTERM);
+							#endif
 								umount_host = -1;
 							}
 							umountdir(mnt->mnt_dir, (strcmp(mnt->mnt_dir, mnt_dir) == 0));
@@ -1438,14 +1465,6 @@ void remove_usb_mass(char *product, int host_no)
 void hotplug_usb_mass(char *product)
 {	
 	_dprintf("%s %s product=%s\n", __FILE__, __FUNCTION__, product);
-
-	// first try to mount using fstab, regardless of automount setting
-	struct stat st_buf;
-	if (stat("/etc/fstab", &st_buf) == 0) {
-		//eval("swapon", "-a");
-		eval("mount", "-a");
-	}
-
 	if (!nvram_match("usb_automount", "1")) return;
 
 	if (process_all_usb_part(1, 0, -1)) {
@@ -1471,7 +1490,6 @@ void remove_storage_main(void)
 
 
 char s_usb_device[] = "usb_device";
-char s_usb_remove[] = "usb_remove";
 char s_usb_storage_device[] = "usb_storage_device";
 char s_usb_storage_remove[] = "usb_storage_remove";
 
@@ -1528,7 +1546,6 @@ void start_usb(void)
 		}
 	}
 	else {
-		nvram_set(s_usb_remove, "");
 		nvram_set(s_usb_device, "");
 		nvram_set(s_usb_storage_device, "");
 		nvram_set(s_usb_storage_remove, "");
@@ -1554,7 +1571,6 @@ void stop_usb(void)
 
 	modprobe_r("printer");
 	
-	nvram_set(s_usb_remove, "");
 	nvram_set(s_usb_device, "");
 	nvram_set(s_usb_storage_device, "");
 	nvram_set(s_usb_storage_remove, "");
@@ -1587,7 +1603,8 @@ void hotplug_usb(void)
 			nvram_set(s_usb_device, product);
 		}
 		else {
-			nvram_set(s_usb_remove, product);
+			if (nvram_match(s_usb_device, product))
+				nvram_set(s_usb_device, "");
 		}
 	}
 
@@ -1596,6 +1613,8 @@ void hotplug_usb(void)
 
 void check_usb_event(void)
 {
+	_dprintf("%s %s\n", __FILE__, __FUNCTION__);
+
 	// check if we received eject request from the GUI
 	if (nvram_invmatch("usb_web_umount", "")) {
 		int host = nvram_get_int("usb_web_umount");
@@ -1608,34 +1627,22 @@ void check_usb_event(void)
 	}
 
 	if (!nvram_match("usb_enable", "1")) return;
-	int event = 0;
 
 	if (nvram_match("usb_storage", "1")) {
 		if (nvram_invmatch(s_usb_storage_device, "")) {
 			hotplug_usb_mass(nvram_safe_get(s_usb_storage_device));
 			nvram_set(s_usb_storage_device, "");
-			event++;
 		}
 	}
 
 	if (nvram_invmatch(s_usb_device, "")) {
 		nvram_set(s_usb_device, "");
-		event++;
 	}
 
 	if (nvram_invmatch(s_usb_storage_remove, "")) {
 		remove_usb_mass(nvram_safe_get(s_usb_storage_remove), -1);
 		nvram_set(s_usb_storage_remove, "");
-		event++;
-	}
-
-	if (nvram_invmatch(s_usb_remove, "")) {
-		nvram_set(s_usb_remove, "");
-		event++;
-	}
-
-	if (event) {
-		_dprintf("%s %s: event processed\n", __FILE__, __FUNCTION__);
+		restart_nas_services();
 	}
 }
 
@@ -1888,6 +1895,8 @@ TOP:
 
 	if (strcmp(service, "upgrade") == 0) {
 		if (action & A_START) {
+			//!!TB - run shutdown script prior to upgrade
+			run_nvscript("script_shut", NULL, 10);
 #if TOMATO_SL
 			stop_usbevent();
 			stop_smbd();
