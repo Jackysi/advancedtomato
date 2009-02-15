@@ -630,6 +630,7 @@ void stop_vpnserver(int serverNum)
 			if ( strstr(fn, &buffer[0]) )
 				unlink(fn);
 		}
+		closedir(dir);
 	}
 }
 
@@ -639,7 +640,10 @@ void run_vpn_firewall_scripts()
 	struct dirent *file;
 	char *fn;
 	char *match = "-fw.sh";
-	char *argv[2];
+	char *argv[3];
+
+	if ( chdir("/etc/openvpn") )
+		return;
 
 	dir = opendir("/etc/openvpn");
 
@@ -648,13 +652,14 @@ void run_vpn_firewall_scripts()
 		fn = file->d_name;
 		if ( strlen(fn) >= strlen(match) && !strcmp(&fn[strlen(fn)-strlen(match)],match) )
 		{
-			_dprintf("Running firewall script:");
-			_dprintf("%s", fn);
-			argv[0] = fn;
-			argv[1] = NULL;
+			_dprintf("Running firewall script: %s", fn);
+			argv[0] = "/bin/sh";
+			argv[1] = fn;
+			argv[2] = NULL;
 			_eval(argv, NULL, 0, NULL);
 		}
 	}
 
 	closedir(dir);
 }
+
