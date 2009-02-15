@@ -4,7 +4,7 @@
 	Copyright (C) 2006-2008 Jonathan Zarate
 	http://www.polarcloud.com/tomato/
 
-	Portions Copyright (C) 2008 Keith Moyer, tomato@keithmoyer.com
+	Portions Copyright (C) 2008-2009 Keith Moyer, tomatovpn@keithmoyer.com
 
 	For use with Tomato Firmware only.
 	No part of this file may be used without permission.
@@ -19,7 +19,7 @@
 <script type='text/javascript' src='tomato.js'></script>
 <script type='text/javascript'>
 
-//	<% nvram("vpn_client1_if,vpn_client1_bridge,vpn_client1_nat,vpn_client1_proto,vpn_client1_addr,vpn_client1_port,vpn_client1_retry,vpn_client1_crypt,vpn_client1_comp,vpn_client1_cipher,vpn_client1_local,vpn_client1_remote,vpn_client1_nm,vpn_client1_hmac,vpn_client1_custom,vpn_client1_static,vpn_client1_ca,vpn_client1_crt,vpn_client1_key,vpn_client2_if,vpn_client2_bridge,vpn_client2_nat,vpn_client2_proto,vpn_client2_addr,vpn_client2_port,vpn_client2_retry,vpn_client2_crypt,vpn_client2_comp,vpn_client2_cipher,vpn_client2_local,vpn_client2_remote,vpn_client2_nm,vpn_client2_hmac,vpn_client2_custom,vpn_client2_static,vpn_client2_ca,vpn_client2_crt,vpn_client2_key"); %>
+//	<% nvram("vpn_client1_if,vpn_client1_bridge,vpn_client1_nat,vpn_client1_proto,vpn_client1_addr,vpn_client1_port,vpn_client1_retry,vpn_client1_firewall,vpn_client1_crypt,vpn_client1_comp,vpn_client1_cipher,vpn_client1_local,vpn_client1_remote,vpn_client1_nm,vpn_client1_hmac,vpn_client1_custom,vpn_client1_static,vpn_client1_ca,vpn_client1_crt,vpn_client1_key,vpn_client2_if,vpn_client2_bridge,vpn_client2_nat,vpn_client2_proto,vpn_client2_addr,vpn_client2_port,vpn_client2_retry,vpn_client2_firewall,vpn_client2_crypt,vpn_client2_comp,vpn_client2_cipher,vpn_client2_local,vpn_client2_remote,vpn_client2_nm,vpn_client2_hmac,vpn_client2_custom,vpn_client2_static,vpn_client2_ca,vpn_client2_crt,vpn_client2_key"); %>
 
 tabs = [['client1', 'Client 1'],['client2', 'Client 2']];
 ciphers = [['default','Use Default'],['none','None']<% vpnciphers(); %>];
@@ -101,6 +101,7 @@ function verifyFields(focused, quiet)
 	{
 		t = tabs[i][0];
 
+		fw = E('_vpn_'+t+'_firewall');
 		auth = E('_vpn_'+t+'_crypt');
 		iface = E('_vpn_'+t+'_if');
 		bridge = E('_f_vpn_'+t+'_bridge');
@@ -112,8 +113,8 @@ function verifyFields(focused, quiet)
 		elem.display(E(t+'_custom_crypto_text'), auth.value == "custom");
 		elem.display(PR('_f_vpn_'+t+'_bridge'), iface.value == "tap");
 		elem.display(E(t+'_bridge_warn_text'), !bridge.checked);
-		elem.display(PR('_f_vpn_'+t+'_nat'), iface.value == "tun" || !bridge.checked);
-		elem.display(E(t+'_nat_warn_text'), !nat.checked || (auth.value == "secret" && iface.value == "tun"));
+		elem.display(PR('_f_vpn_'+t+'_nat'), fw.value != "custom" && (iface.value == "tun" || !bridge.checked));
+		elem.display(E(t+'_nat_warn_text'), fw.value != "custom" && (!nat.checked || (auth.value == "secret" && iface.value == "tun")));
 		elem.display(PR('_vpn_'+t+'_local'), auth.value == "secret" && iface.value == "tun");
 		elem.display(PR('_f_vpn_'+t+'_local'), auth.value == "secret" && (iface.value == "tap" && !bridge.checked));
 	}
@@ -181,6 +182,7 @@ for (i = 0; i < tabs.length; ++i)
 		{ title: 'Server Address/Port', multi: [
 			{ name: 'vpn_'+t+'_addr', type: 'text', size: 17, value: eval( 'nvram.vpn_'+t+'_addr' ) },
 			{ name: 'vpn_'+t+'_port', type: 'text', maxlen: 5, size: 7, value: eval( 'nvram.vpn_'+t+'_port' ) } ] },
+		{ title: 'Firewall', name: 'vpn_'+t+'_firewall', type: 'select', options: [ ['auto', 'Automatic'], ['custom', 'Custom'] ], value: eval( 'nvram.vpn_'+t+'_firewall' ) },
 		{ title: 'Authorization Mode', name: 'vpn_'+t+'_crypt', type: 'select', options: [ ['tls', 'TLS'], ['secret', 'Static Key'], ['custom', 'Custom'] ], value: eval( 'nvram.vpn_'+t+'_crypt' ),
 			suffix: '<span id=\''+t+'_custom_crypto_text\'>&nbsp;<small>(configured below...)</small></span>' },
 		{ title: 'Extra HMAC authorization (tls-auth)', name: 'vpn_'+t+'_hmac', type: 'select', options: [ [-1, 'Disabled'], [2, 'Bi-directional'], [0, 'Incoming (0)'], [1, 'Outgoing (1)'] ], value: eval( 'nvram.vpn_'+t+'_hmac' ) },

@@ -1,6 +1,6 @@
 /*
 
-	Copyright (C) 2008 Keith Moyer, tomato@keithmoyer.com
+	Copyright (C) 2008-2009 Keith Moyer, tomatovpn@keithmoyer.com
 
 	No part of this file may be used without permission.
 
@@ -245,31 +245,36 @@ void start_vpnclient(int clientNum)
 		return;
 	}
 
-	// Create firewall rules
-	sprintf(&buffer[0], "/etc/openvpn/client%d-fw.sh", clientNum);
-	fp = fopen(&buffer[0], "w");
-	chmod(&buffer[0], S_IRUSR|S_IWUSR|S_IXUSR);
-	fprintf(fp, "#!/bin/sh\n");
-	fprintf(fp, "iptables -A INPUT -i %s -j ACCEPT\n", &iface[0]);
-	fprintf(fp, "iptables -A FORWARD -i %s -j ACCEPT\n", &iface[0]);
-	if ( routeMode == NAT )
+	// Handle firewall rules if appropriate
+	sprintf(&buffer[0], "vpn_client%d_firewall", clientNum);
+	if ( !nvram_contains_word(&buffer[0], "custom") )
 	{
-		sscanf(nvram_safe_get("lan_ipaddr"), "%d.%d.%d.%d", &ip[0], &ip[1], &ip[2], &ip[3]);
-		sscanf(nvram_safe_get("lan_netmask"), "%d.%d.%d.%d", &nm[0], &nm[1], &nm[2], &nm[3]);
-		fprintf(fp, "iptables -t nat -A POSTROUTING -s %d.%d.%d.%d/%s -o %s -j MASQUERADE\n",
-		        ip[0]&nm[0], ip[1]&nm[1], ip[2]&nm[2], ip[3]&nm[3], nvram_safe_get("lan_netmask"), &iface[0]);
-	}
-	fclose(fp);
+		// Create firewall rules
+		sprintf(&buffer[0], "/etc/openvpn/client%d-fw.sh", clientNum);
+		fp = fopen(&buffer[0], "w");
+		chmod(&buffer[0], S_IRUSR|S_IWUSR|S_IXUSR);
+		fprintf(fp, "#!/bin/sh\n");
+		fprintf(fp, "iptables -A INPUT -i %s -j ACCEPT\n", &iface[0]);
+		fprintf(fp, "iptables -A FORWARD -i %s -j ACCEPT\n", &iface[0]);
+		if ( routeMode == NAT )
+		{
+			sscanf(nvram_safe_get("lan_ipaddr"), "%d.%d.%d.%d", &ip[0], &ip[1], &ip[2], &ip[3]);
+			sscanf(nvram_safe_get("lan_netmask"), "%d.%d.%d.%d", &nm[0], &nm[1], &nm[2], &nm[3]);
+			fprintf(fp, "iptables -t nat -A POSTROUTING -s %d.%d.%d.%d/%s -o %s -j MASQUERADE\n",
+			        ip[0]&nm[0], ip[1]&nm[1], ip[2]&nm[2], ip[3]&nm[3], nvram_safe_get("lan_netmask"), &iface[0]);
+		}
+		fclose(fp);
 
-	// Run the firewall rules
-	sprintf(&buffer[0], "/etc/openvpn/client%d-fw.sh", clientNum);
-	argv[0] = &buffer[0];
-	argv[1] = NULL;
-	if ( _eval(argv, NULL, 0, NULL) )
-	{
-		_dprintf("Adding firewall rules failed...");
-		stop_vpnclient(clientNum);
-		return;
+		// Run the firewall rules
+		sprintf(&buffer[0], "/etc/openvpn/client%d-fw.sh", clientNum);
+		argv[0] = &buffer[0];
+		argv[1] = NULL;
+		if ( _eval(argv, NULL, 0, NULL) )
+		{
+			_dprintf("Adding firewall rules failed...");
+			stop_vpnclient(clientNum);
+			return;
+		}
 	}
 }
 
@@ -554,29 +559,38 @@ void start_vpnserver(int serverNum)
 		return;
 	}
 
-	// Create firewall rules
-	sprintf(&buffer[0], "/etc/openvpn/server%d-fw.sh", serverNum);
-	fp = fopen(&buffer[0], "w");
-	chmod(&buffer[0], S_IRUSR|S_IWUSR|S_IXUSR);
-	fprintf(fp, "#!/bin/sh\n");
-	sprintf(&buffer[0], "vpn_server%d_proto", serverNum);
-	strncpy(&buffer[0], nvram_safe_get(&buffer[0]), BUF_SIZE);
-	fprintf(fp, "iptables -I INPUT -p %s ", strtok(&buffer[0], "-"));
-	sprintf(&buffer[0], "vpn_server%d_port", serverNum);
-	fprintf(fp, "--dport %d -j ACCEPT\n", nvram_get_int(&buffer[0]));
-	fprintf(fp, "iptables -A INPUT -i %s -j ACCEPT\n", &iface[0]);
-	fprintf(fp, "iptables -A FORWARD -i %s -j ACCEPT\n", &iface[0]);
-	fclose(fp);
-
-	// Run the firewall rules
-	sprintf(&buffer[0], "/etc/openvpn/server%d-fw.sh", serverNum);
-	argv[0] = &buffer[0];
-	argv[1] = NULL;
-	if ( _eval(argv, NULL, 0, NULL) )
+	// Handle firewall rules if appropriate
+	sprintf(&buffer[0], "vpn_server%d_firewall", serverNum);
+	if ( !nvram_contains_word(&buffer[0], "custom") )
 	{
-		_dprintf("Adding firewall rules failed...");
-		stop_vpnserver(serverNum);
-		return;
+		// Create firewall rules
+		sprintf(&buffer[0], "/etc/openvpn/server%d-fw.sh", serverNum);
+		fp = fopen(&buffer[0], "w");
+		chmod(&buffer[0], S_IRUSR|S_IWUSR|S_IXUSR);
+		fprintf(fp, "#!/bin/sh\n");
+		sprintf(&buffer[0], "vpn_server%d_proto", serverNum);
+		strncpy(&buffer[0], nvram_safe_get(&buffer[0]), BUF_SIZE);
+		fprintf(fp, "iptables -I INPUT -p %s ", strtok(&buffer[0], "-"));
+		sprintf(&buffer[0], "vpn_server%d_port", serverNum);
+		fprintf(fp, "--dport %d -j ACCEPT\n", nvram_get_int(&buffer[0]));
+		sprintf(&buffer[0], "vpn_server%d_firewall", serverNum);
+		if ( !nvram_contains_word(&buffer[0], "external") )
+		{
+			fprintf(fp, "iptables -A INPUT -i %s -j ACCEPT\n", &iface[0]);
+			fprintf(fp, "iptables -A FORWARD -i %s -j ACCEPT\n", &iface[0]);
+		}
+		fclose(fp);
+
+		// Run the firewall rules
+		sprintf(&buffer[0], "/etc/openvpn/server%d-fw.sh", serverNum);
+		argv[0] = &buffer[0];
+		argv[1] = NULL;
+		if ( _eval(argv, NULL, 0, NULL) )
+		{
+			_dprintf("Adding firewall rules failed...");
+			stop_vpnserver(serverNum);
+			return;
+		}
 	}
 }
 
