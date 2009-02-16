@@ -129,7 +129,8 @@ install package: $(obj-install) $(LINUXDIR)/.config
 	cd $(TARGETDIR)/lib/modules/2.4.20/kernel/drivers/net && mv et/* . && rm -rf et
 	cd $(TARGETDIR)/lib/modules/2.4.20/kernel/drivers/net && mv wl/* . && rm -rf wl
 	cd $(TARGETDIR)/lib/modules/2.4.20/kernel/fs && mv cifs/* . && rm -rf cifs
-	cd $(TARGETDIR)/lib/modules/2.4.20/kernel/fs && mv jffs2/* . && rm -rf jffs2
+	cd $(TARGETDIR)/lib/modules/2.4.20/kernel/fs && mv jffs2/* . && rm -rf jffs2 || true
+	cd $(TARGETDIR)/lib/modules/2.4.20/kernel/fs && mv jffs/* . && rm -rf jffs || true
 	cd $(TARGETDIR)/lib/modules/2.4.20/kernel/lib && mv zlib_inflate/* . && rm -rf zlib_inflate
 	cd $(TARGETDIR)/lib/modules/2.4.20/kernel/lib && mv zlib_deflate/* . && rm -rf zlib_deflate
 	rm -rf $(TARGETDIR)/lib/modules/2.4.20/pcmcia
@@ -140,7 +141,8 @@ install package: $(obj-install) $(LINUXDIR)/.config
 	done
 
 ifneq ($(TCONFIG_JFFS2),y)
-	rm -f $(TARGETDIR)/lib/modules/2.4.20/kernel/fs/jffs2.o
+	rm -f $(TARGETDIR)/lib/modules/2.4.20/kernel/fs/jffs2.o || true
+	rm -f $(TARGETDIR)/lib/modules/2.4.20/kernel/fs/jffs.o || true
 	rm -rf $(TARGETDIR)/lib/modules/2.4.20/kernel/lib/zlib_*
 endif
 

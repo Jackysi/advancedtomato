@@ -124,7 +124,7 @@ createFieldTable('', [
 </script>
 </div>
 
-<script type='text/javascript'>show_notice1('<% notice("jffs2"); %>');</script>
+<script type='text/javascript'>show_notice1('<% notice("jffs"); %>');</script>
 
 <!-- / / / -->
 

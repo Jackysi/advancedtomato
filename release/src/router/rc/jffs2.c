@@ -18,14 +18,14 @@ static void error(const char *message)
 {
 	char s[512];
 
-	snprintf(s, sizeof(s), "Error %s JFFS2. Check the logs to see if they contain more details about this error.", message);
-	notice_set("jffs2", s);
+	snprintf(s, sizeof(s), "Error %s JFFS. Check the logs to see if they contain more details about this error.", message);
+	notice_set("jffs", s);
 }
 
 void start_jffs2(void)
 {
 	if (!nvram_match("jffs2_on", "1")) {
-		notice_set("jffs2", "");
+		notice_set("jffs", "");
 		return;
 	}
 
@@ -42,6 +42,7 @@ void start_jffs2(void)
 	if (nvram_match("jffs2_format", "1")) {
 		nvram_set("jffs2_format", "0");
 
+	notice_set("jffs", "doing mtd_erase of jffs2");
 		if (!mtd_erase("jffs2")) {
 			error("formatting");
 			return;
@@ -63,19 +64,24 @@ void start_jffs2(void)
 		}
 	}
 
+	notice_set("jffs", "doing mtd_unlock of jffs2 -> part: %d size: %d", part, size);
 	if (!mtd_unlock("jffs2")) {
 		error("unlocking");
 		return;
 	}
 
-	modprobe("jffs2");
+	notice_set("jffs", "doing modprobe- jffs");
+	modprobe("jffs");
 
 	sprintf(s, "/dev/mtdblock/%d", part);
-	if (mount(s, "/jffs", "jffs2", MS_NOATIME|MS_NODIRATIME, "") != 0) {
-		modprobe_r("jffs2");
+	notice_set("jffs", "doing mount- jffs");
+	if (mount(s, "/jffs", "jffs", MS_NOATIME|MS_NODIRATIME, "") != 0) {
+	   notice_set("jffs", "mount failed");
+		modprobe_r("jffs");
 		error("mounting");
 		return;
 	}
+	notice_set("jffs", "mount worked");
 
 #ifdef TEST_INTEGRITY
 	int test;
@@ -95,7 +101,7 @@ void start_jffs2(void)
 	}
 #endif
 	
-	notice_set("jffs2", format ? "Formatted." : "");
+	notice_set("jffs", format ? "Formatted." : "Loaded.");
 
 	if (((p = nvram_get("jffs2_exec")) != NULL) && (*p != 0)) {
 		chdir("/jffs");
@@ -108,7 +114,7 @@ void stop_jffs2(void)
 {
 	if (!wait_action_idle(10)) return;
 
-	notice_set("jffs2", "");
+	notice_set("jffs", "stopped");
 	umount("/jffs");
-	modprobe_r("jffs2");
+	modprobe_r("jffs");
 }

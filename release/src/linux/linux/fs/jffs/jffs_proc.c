@@ -189,18 +189,26 @@ static int jffs_proc_info_read (char *page, char **start, off_t off,
 
 	/* Get information on the parition */
 	len += sprintf (page,
-		"partition size:     %08lX (%u)\n"
-		"sector size:        %08lX (%u)\n"
-		"used size:          %08lX (%u)\n"
-		"dirty size:         %08lX (%u)\n"
-		"free size:          %08lX (%u)\n\n",
-		(unsigned long) c->fmc->flash_size, c->fmc->flash_size,
-		(unsigned long) c->fmc->sector_size, c->fmc->sector_size,
-		(unsigned long) c->fmc->used_size, c->fmc->used_size,
-		(unsigned long) c->fmc->dirty_size, c->fmc->dirty_size,
-		(unsigned long) (c->fmc->flash_size -
-			(c->fmc->used_size + c->fmc->dirty_size)),
-		c->fmc->flash_size - (c->fmc->used_size + c->fmc->dirty_size));
+		"partition size:     %08lX (%lu)\n"
+		"sector size:        %08lX (%lu)\n"
+		"used size:          %08lX (%lu)\n"
+		"dirty size:         %08lX (%lu)\n"
+		"free size:          %08lX (%lu)\n"
+		"head ofs:           %08lx\n"
+		"tail ofs:           %08lx\n"
+		"free_size 1:        %08lx (%lu)\n"
+		"free_size 2:        %08lx (%lu)\n",
+		(unsigned long) c->fmc->flash_size, (unsigned long)c->fmc->flash_size,
+		(unsigned long) c->fmc->sector_size,(unsigned long) c->fmc->sector_size,
+		(unsigned long) c->fmc->used_size, (unsigned long) c->fmc->used_size,
+		(unsigned long) c->fmc->dirty_size, (unsigned long)c->fmc->dirty_size,
+		(unsigned long) (c->fmc->flash_size - (c->fmc->used_size + c->fmc->dirty_size)),
+		      (unsigned long) (c->fmc->flash_size - (c->fmc->used_size + c->fmc->dirty_size)),
+
+			c->fmc->head? c->fmc->head->offset : 0xdeaddead,
+			c->fmc->tail? c->fmc->tail->offset : 0xdeaddead,
+			jffs_free_size1(c->fmc), jffs_free_size1(c->fmc),
+			jffs_free_size2(c->fmc), jffs_free_size2(c->fmc));
 
 	/* We're done */
 	*eof = 1;
@@ -224,21 +232,26 @@ static int jffs_proc_layout_read (char *page, char **start, off_t off,
 	/* Get the first item in the list */
  	fm = c->fmc->head;
 
-	/* Print free space */
+#if 0
+	/* Print free space */		/* Yeah, but this isn't right!! */
 	if (fm && fm->offset) {
 		len += sprintf (page, "00000000 %08lX free\n",
 			(unsigned long) fm->offset);
 	}
-
+#endif
 	/* Loop through all of the flash control structures */
 	while (fm && (len < (off + count))) {
 		if (fm->nodes) {
 			len += sprintf (page + len,
-				"%08lX %08lX ino=%08lX, ver=%08lX\n",
-				(unsigned long) fm->offset,
-				(unsigned long) fm->size,
-				(unsigned long) fm->nodes->node->ino,
-				(unsigned long) fm->nodes->node->version);
+				"%8lX %8lX ino=%8lX, ver=%8lX"
+				" [ofs: %8lx  siz: %8lx  repl: %8lx]\n",
+			(unsigned long) fm->offset,
+			(unsigned long) fm->size,
+			(unsigned long) fm->nodes->node->ino,
+			(unsigned long) fm->nodes->node->version,
+			(unsigned long) fm->nodes->node->data_offset,
+			(unsigned long) fm->nodes->node->data_size,
+			(unsigned long) fm->nodes->node->removed_size);
 		}
 		else {
 			len += sprintf (page + len,
@@ -250,7 +263,8 @@ static int jffs_proc_layout_read (char *page, char **start, off_t off,
 		fm = fm->next;
 	}
 
-	/* Print free space */
+#if 0
+	/* Print free space */		/* Yeah, but this isn't right!! */
 	if ((len < (off + count)) && last_fm
 	    && (last_fm->offset < c->fmc->flash_size)) {
 		len += sprintf (page + len,
@@ -260,7 +274,7 @@ static int jffs_proc_layout_read (char *page, char **start, off_t off,
 			       (unsigned long) (c->fmc->flash_size -
 						    (last_fm->offset + last_fm->size)));
 	}
-
+#endif
 	/* We're done */
 	*eof = 1;
 

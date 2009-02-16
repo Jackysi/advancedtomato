@@ -975,7 +975,7 @@ jffs_remove(struct inode *dir, struct dentry *dentry, int type)
 
 	if (!inode->i_nlink) {
 		printk("Deleting nonexistent file inode: %lu, nlink: %d\n",
-		       inode->i_ino, inode->i_nlink);
+		       inode->i_ino, (int)inode->i_nlink);
 		inode->i_nlink=1;
 	}
 
@@ -1727,7 +1727,7 @@ static int __init
 init_jffs_fs(void)
 {
 	printk(KERN_INFO "JFFS version " JFFS_VERSION_STRING
-		", (C) 1999, 2000  Axis Communications AB\n");
+		", (C) 1999, 2000  Axis Communications AB  Mods by Ray Van Tassle\n");
 	
 #ifdef CONFIG_JFFS_PROC_FS
 	jffs_proc_root = proc_mkdir("jffs", proc_root_fs);

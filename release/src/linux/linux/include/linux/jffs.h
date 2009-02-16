@@ -23,7 +23,7 @@
 #include <linux/types.h>
 #include <linux/completion.h>
 
-#define JFFS_VERSION_STRING "1.0"
+#define JFFS_VERSION_STRING "1.1"
 
 /* This is a magic number that is used as an identification number for
    this file system.  It is written to the super_block structure.  */

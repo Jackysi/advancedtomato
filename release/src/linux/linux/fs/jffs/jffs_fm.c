@@ -76,6 +76,7 @@ jffs_build_begin(struct jffs_control *c, kdev_t dev)
 		   of correctness of whatever number we put here. dwmw2.
 	*/
 	fmc->min_free_size = fmc->sector_size << 2;
+	fmc->min_free_size = fmc->sector_size * 2;	/* rvt--changed from 4 to 2 */
 	fmc->mtd = mtd;
 	fmc->c = c;
 	fmc->head = 0;
@@ -304,7 +305,7 @@ jffs_fmfree(struct jffs_fmcontrol *fmc, struct jffs_fm *fm, struct jffs_node *no
 	struct jffs_node_ref *prev;
 	ASSERT(int del = 0);
 
-	D2(printk("jffs_fmfree(): node->ino = %u, node->version = %u\n",
+	D2(printk("jffs_fmfree(): node->ino = %u, node->version = %04x\n",
 		 node->ino, node->version));
 
 	ASSERT(if (!fmc || !fm || !fm->nodes) {
@@ -563,7 +564,7 @@ jffs_get_oldest_node(struct jffs_fmcontrol *fmc)
 		node = nref->node;
 	}
 
-	D2(printk("jffs_get_oldest_node(): ino = %u, version = %u\n",
+	D2(printk("jffs_get_oldest_node(): ino = %u, version = %04x\n",
 		  (node ? node->ino : 0), (node ? node->version : 0)));
 
 	return node;

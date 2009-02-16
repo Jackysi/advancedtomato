@@ -68,8 +68,9 @@ static inline int JFFS_ENOUGH_SPACE(struct jffs_control *c, __u32 space)
 			>= fmc->min_free_size + space) {
 			return 1;
 		}
-		if (fmc->dirty_size < fmc->sector_size)
-			return 0;
+// This test won't work right.  We sometimes need to GC if the head block is nearly all dirty. 
+//		if (fmc->dirty_size < fmc->sector_size)
+//			return 0;
 
 		if (jffs_garbage_collect_now(c)) {
 		  D1(printk("JFFS_ENOUGH_SPACE: jffs_garbage_collect_now() failed.\n"));

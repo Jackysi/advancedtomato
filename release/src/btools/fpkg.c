@@ -44,6 +44,9 @@ typedef struct {
 	uint32_t offsets[TRX_MAX_OFFSET];
 } trx_t;
 
+char names[TRX_MAX_OFFSET][80];
+
+
 typedef struct {
 	uint32_t crc32;
 	uint32_t magic;
@@ -163,7 +166,7 @@ void load_image(const char *fname)
 		exit(1);
 	}
 	fclose(f);
-
+	strncpy(names[trx_count], fname, sizeof(names[0]) -1);
 	trx->offsets[trx_count++] = trx->length;
 	trx->length += rsize;
 }
@@ -276,6 +279,7 @@ int main(int argc, char **argv)
 	char s[256];
 	char *p;
 	int o;
+	unsigned l;
 
 	printf("\n");
 	
@@ -314,15 +318,22 @@ int main(int argc, char **argv)
 	}
 	else {
 		finalize_trx();
+		l = trx->length - trx_padding - sizeof(*trx);
 		printf("\nTRX Image:\n");
-		printf(" Total Size .... : %u (%.2fK)\n", trx->length, trx->length / 1024.0);
-		printf("   Images ...... : %u\n", trx->length - trx_padding);
+		printf(" Total Size .... : %u (%.1f KB) (%.1f MB)\n", trx->length, trx->length / 1024.0, trx->length / 1024.0 / 1024.0);
+		printf("   Images ...... : %u (0x%08x)\n", l , l);
 		printf("   Padding ..... : %d\n", trx_padding);
+		/* Reserved: 2 EBs for pmon, 1 EB for nvram. */
+		l = (4 * 1024 * 1024) - (3 * 64 * 1024) - l;
+		printf("   Avail for jffs: %d EBs + %d\n", l / (64*1024), l % (64*1024));
 		printf(" CRC-32 ........ : %8X\n", trx->crc32);
-		printf(" 128K Blocks ... : %u\n", (ROUNDUP(trx->length, (128 * 1024)) / (128 * 1024)));
+		l = (ROUNDUP(trx->length, (128 * 1024)) / (128 * 1024));
+		printf(" 128K Blocks ... : %u (0x%08X)\n", l, l);
+		l = (ROUNDUP(trx->length, (64 * 1024)) / (64 * 1024));
+		printf("  64K Blocks ... : %u (0x%08X)\n", l, l);
 		printf(" Offsets:\n");
 		for (o = 0; o < TRX_MAX_OFFSET; ++o) {
-			printf("   %d: 0x%08X\n", o, trx->offsets[o]);
+		   printf("   %d: 0x%08X  %s\n", o, trx->offsets[o], names[o]);
 		}
 	}
 	printf("\n");
