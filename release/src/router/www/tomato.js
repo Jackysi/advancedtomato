@@ -756,7 +756,7 @@ function v_domain(e, quiet)
 
 	if ((e = E(e)) == null) return 0;
 	s = e.value.trim().replace(/\s+/g, ' ');
-	if ((s.length > 32) || ((s.length > 0) && (s.search(/^[.a-zA-Z0-9_\- ]+$/) == -1))) {
+	if ((s.length > 0) && (s.search(/^[.a-zA-Z0-9_\- ]+$/) == -1)) {
 		ferror.set(e, "Invalid name. Only characters \"A-Z 0-9 . - _\" are allowed.", quiet);
 		return 0;
 	}
