@@ -47,6 +47,8 @@ static void ext3_mark_recovery_complete(struct super_block * sb,
 static void ext3_clear_journal_err(struct super_block * sb,
 				   struct ext3_super_block * es);
 
+static int ext3_sync_fs(struct super_block * sb);
+
 #ifdef CONFIG_JBD_DEBUG
 int journal_no_write[2];
 
@@ -454,6 +456,7 @@ static struct super_operations ext3_sops = {
 	delete_inode:	ext3_delete_inode,	/* BKL not held.  We take it */
 	put_super:	ext3_put_super,		/* BKL held */
 	write_super:	ext3_write_super,	/* BKL held */
+	sync_fs:	ext3_sync_fs,
 	write_super_lockfs: ext3_write_super_lockfs, /* BKL not held. Take it */
 	unlockfs:	ext3_unlockfs,		/* BKL not held.  We take it */
 	statfs:		ext3_statfs,		/* BKL held */
@@ -781,6 +784,26 @@ static int ext3_check_descriptors (struct super_block * sb)
 	return 1;
 }
 
+static unsigned long descriptor_loc(struct super_block *sb,
+				    unsigned long logic_sb_block,
+				    int nr)
+{
+	struct ext3_sb_info *sbi = EXT3_SB(sb);
+	unsigned long bg, first_data_block, first_meta_bg;
+	int has_super = 0;
+	
+	first_data_block = le32_to_cpu(sbi->s_es->s_first_data_block);
+	first_meta_bg = le32_to_cpu(sbi->s_es->s_first_meta_bg);
+
+	if (!EXT3_HAS_INCOMPAT_FEATURE(sb, EXT3_FEATURE_INCOMPAT_META_BG) ||
+	    nr < first_meta_bg)
+		return (logic_sb_block + nr + 1);
+	bg = sbi->s_desc_per_block * nr;
+	if (ext3_bg_has_super(sb, bg))
+		has_super = 1;
+	return (first_data_block + has_super + (bg * sbi->s_blocks_per_group));
+}
+
 
 /* ext3_orphan_cleanup() walks a singly-linked list of inodes (starting at
  * the superblock) which were deleted from all directories, but held open by
@@ -888,6 +911,7 @@ struct super_block * ext3_read_super (struct super_block * sb, void * data,
 	struct buffer_head * bh;
 	struct ext3_super_block *es = 0;
 	struct ext3_sb_info *sbi = EXT3_SB(sb);
+	unsigned long block;
 	unsigned long sb_block = 1;
 	unsigned long logic_sb_block = 1;
 	unsigned long offset = 0;
@@ -945,13 +969,9 @@ struct super_block * ext3_read_super (struct super_block * sb, void * data,
 	es = (struct ext3_super_block *) (((char *)bh->b_data) + offset);
 	sbi->s_es = es;
 	sb->s_magic = le16_to_cpu(es->s_magic);
-	if (sb->s_magic != EXT3_SUPER_MAGIC) {
-		if (!silent)
-			printk(KERN_ERR 
-			       "VFS: Can't find ext3 filesystem on dev %s.\n",
-			       bdevname(dev));
-		goto failed_mount;
-	}
+	if (sb->s_magic != EXT3_SUPER_MAGIC)
+		goto cantfind_ext3;
+
 	if (le32_to_cpu(es->s_rev_level) == EXT3_GOOD_OLD_REV &&
 	    (EXT3_HAS_COMPAT_FEATURE(sb, ~0U) ||
 	     EXT3_HAS_RO_COMPAT_FEATURE(sb, ~0U) ||
@@ -1028,7 +1048,9 @@ struct super_block * ext3_read_super (struct super_block * sb, void * data,
 	} else {
 		sbi->s_inode_size = le16_to_cpu(es->s_inode_size);
 		sbi->s_first_ino = le32_to_cpu(es->s_first_ino);
-		if (sbi->s_inode_size != EXT3_GOOD_OLD_INODE_SIZE) {
+		if ((sbi->s_inode_size < EXT3_GOOD_OLD_INODE_SIZE) ||
+		    (sbi->s_inode_size & (sbi->s_inode_size - 1)) ||
+		    (sbi->s_inode_size > blocksize)) {
 			printk (KERN_ERR
 				"EXT3-fs: unsupported inode size: %d\n",
 				sbi->s_inode_size);
@@ -1047,8 +1069,13 @@ struct super_block * ext3_read_super (struct super_block * sb, void * data,
 	sbi->s_blocks_per_group = le32_to_cpu(es->s_blocks_per_group);
 	sbi->s_frags_per_group = le32_to_cpu(es->s_frags_per_group);
 	sbi->s_inodes_per_group = le32_to_cpu(es->s_inodes_per_group);
+	if (EXT3_INODE_SIZE(sb) == 0)
+		goto cantfind_ext3;
 	sbi->s_inodes_per_block = blocksize / EXT3_INODE_SIZE(sb);
-	sbi->s_itb_per_group = sbi->s_inodes_per_group /sbi->s_inodes_per_block;
+	if (sbi->s_inodes_per_block == 0)
+		goto cantfind_ext3;
+	sbi->s_itb_per_group = sbi->s_inodes_per_group /
+					sbi->s_inodes_per_block;
 	sbi->s_desc_per_block = blocksize / sizeof(struct ext3_group_desc);
 	sbi->s_sbh = bh;
 	if (sbi->s_resuid == EXT3_DEF_RESUID)
@@ -1078,6 +1105,8 @@ struct super_block * ext3_read_super (struct super_block * sb, void * data,
 		goto failed_mount;
 	}
 
+	if (EXT3_BLOCKS_PER_GROUP(sb) == 0)
+		goto cantfind_ext3;
 	sbi->s_groups_count = (le32_to_cpu(es->s_blocks_count) -
 			       le32_to_cpu(es->s_first_data_block) +
 			       EXT3_BLOCKS_PER_GROUP(sb) - 1) /
@@ -1091,7 +1120,8 @@ struct super_block * ext3_read_super (struct super_block * sb, void * data,
 		goto failed_mount;
 	}
 	for (i = 0; i < db_count; i++) {
-		sbi->s_group_desc[i] = sb_bread(sb, logic_sb_block + i + 1);
+		block = descriptor_loc(sb, logic_sb_block, i);
+		sbi->s_group_desc[i] = sb_bread(sb, block);
 		if (!sbi->s_group_desc[i]) {
 			printk (KERN_ERR "EXT3-fs: "
 				"can't read group descriptor %d\n", i);
@@ -1212,6 +1242,12 @@ struct super_block * ext3_read_super (struct super_block * sb, void * data,
 
 	return sb;
 
+cantfind_ext3:
+	if (!silent)
+		printk(KERN_ERR 
+		       "VFS: Can't find ext3 filesystem on dev %s.\n",
+		       bdevname(dev));
+	goto failed_mount;
 failed_mount3:
 	journal_destroy(sbi->s_journal);
 failed_mount2:
@@ -1569,24 +1605,22 @@ int ext3_force_commit(struct super_block *sb)
  * This implicitly triggers the writebehind on sync().
  */
 
-static int do_sync_supers = 0;
-MODULE_PARM(do_sync_supers, "i");
-MODULE_PARM_DESC(do_sync_supers, "Write superblocks synchronously");
-
 void ext3_write_super (struct super_block * sb)
+{
+	if (down_trylock(&sb->s_lock) == 0)
+		BUG();
+	sb->s_dirt = 0;
+	log_start_commit(EXT3_SB(sb)->s_journal, NULL);
+}
+
+static int ext3_sync_fs(struct super_block *sb)
 {
 	tid_t target;
 	
-	if (down_trylock(&sb->s_lock) == 0)
-		BUG();		/* aviro detector */
 	sb->s_dirt = 0;
 	target = log_start_commit(EXT3_SB(sb)->s_journal, NULL);
-
-	if (do_sync_supers) {
-		unlock_super(sb);
-		log_wait_commit(EXT3_SB(sb)->s_journal, target);
-		lock_super(sb);
-	}
+	log_wait_commit(EXT3_SB(sb)->s_journal, target);
+	return 0;
 }
 
 /*

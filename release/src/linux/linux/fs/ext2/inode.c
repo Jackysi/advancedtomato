@@ -35,6 +35,17 @@ MODULE_AUTHOR("Remy Card and others");
 MODULE_DESCRIPTION("Second Extended Filesystem");
 MODULE_LICENSE("GPL");
 
+/*
+ * Test whether an inode is a fast symlink.
+ */
+static inline int ext2_inode_is_fast_symlink(struct inode *inode)
+{
+	int ea_blocks = inode->u.ext2_i.i_file_acl ?
+		(inode->i_sb->s_blocksize >> 9) : 0;
+
+	return (S_ISLNK(inode->i_mode) &&
+		inode->i_blocks - ea_blocks == 0);
+}
 
 static int ext2_update_inode(struct inode * inode, int do_sync);
 
@@ -801,6 +812,8 @@ void ext2_truncate (struct inode * inode)
 	if (!(S_ISREG(inode->i_mode) || S_ISDIR(inode->i_mode) ||
 	    S_ISLNK(inode->i_mode)))
 		return;
+	if (ext2_inode_is_fast_symlink(inode))
+		return;
 	if (IS_APPEND(inode) || IS_IMMUTABLE(inode))
 		return;
 
@@ -964,6 +977,7 @@ void ext2_read_inode (struct inode * inode)
 	else
 		inode->u.ext2_i.i_dir_acl = le32_to_cpu(raw_inode->i_dir_acl);
 	inode->i_generation = le32_to_cpu(raw_inode->i_generation);
+ 	inode->u.ext2_i.i_state = 0;
 	inode->u.ext2_i.i_prealloc_count = 0;
 	inode->u.ext2_i.i_block_group = block_group;
 
@@ -986,7 +1000,7 @@ void ext2_read_inode (struct inode * inode)
 		inode->i_fop = &ext2_dir_operations;
 		inode->i_mapping->a_ops = &ext2_aops;
 	} else if (S_ISLNK(inode->i_mode)) {
-		if (!inode->i_blocks)
+		if (ext2_inode_is_fast_symlink(inode))
 			inode->i_op = &ext2_fast_symlink_inode_operations;
 		else {
 			inode->i_op = &page_symlink_inode_operations;
@@ -1070,6 +1084,11 @@ static int ext2_update_inode(struct inode * inode, int do_sync)
 	offset &= EXT2_BLOCK_SIZE(inode->i_sb) - 1;
 	raw_inode = (struct ext2_inode *) (bh->b_data + offset);
 
+	/* For fields not tracked in the in-memory inode,
+	 * initialise them to zero for new inodes. */
+	if (inode->u.ext2_i.i_state & EXT2_STATE_NEW)
+		memset(raw_inode, 0, EXT2_SB(inode->i_sb)->s_inode_size);
+
 	raw_inode->i_mode = cpu_to_le16(inode->i_mode);
 	if(!(test_opt(inode->i_sb, NO_UID32))) {
 		raw_inode->i_uid_low = cpu_to_le16(low_16_bits(inode->i_uid));
@@ -1142,6 +1161,7 @@ static int ext2_update_inode(struct inode * inode, int do_sync)
 			err = -EIO;
 		}
 	}
+	inode->u.ext2_i.i_state &= ~EXT2_STATE_NEW;
 	brelse (bh);
 	return err;
 }

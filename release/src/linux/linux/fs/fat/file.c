@@ -62,13 +62,17 @@ int fat_get_block(struct inode *inode, long iblock, struct buffer_head *bh_resul
 	}
 	if (!create)
 		return 0;
-	if (iblock << sb->s_blocksize_bits != MSDOS_I(inode)->mmu_private) {
-		BUG();
+	if (iblock != MSDOS_I(inode)->mmu_private >> sb->s_blocksize_bits) {
+		//BUG();
+		printk("Invalid FAT block detected\n");
 		return -EIO;
 	}
 	if (!(iblock % MSDOS_SB(inode->i_sb)->cluster_size)) {
-		if (fat_add_cluster(inode) < 0)
-			return -ENOSPC;
+		int error;
+
+		error = fat_add_cluster(inode);
+		if (error < 0)
+			return error;
 	}
 	MSDOS_I(inode)->mmu_private += sb->s_blocksize;
 	phys = fat_bmap(inode, iblock);
@@ -122,7 +126,7 @@ void fat_truncate(struct inode *inode)
 	if (IS_IMMUTABLE(inode))
 		return /* -EPERM */;
 	cluster = 1 << sbi->cluster_bits;
-	/* 
+	/*
 	 * This protects against truncating a file bigger than it was then
 	 * trying to write into the hole.
 	 */

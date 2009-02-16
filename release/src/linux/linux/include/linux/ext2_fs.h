@@ -392,7 +392,20 @@ struct ext2_super_block {
 	__u8	s_prealloc_blocks;	/* Nr of blocks to try to preallocate*/
 	__u8	s_prealloc_dir_blocks;	/* Nr to preallocate for dirs */
 	__u16	s_padding1;
-	__u32	s_reserved[204];	/* Padding to the end of the block */
+	/*
+	 * Journaling support valid if EXT3_FEATURE_COMPAT_HAS_JOURNAL set.
+	 */
+	__u8	s_journal_uuid[16];	/* uuid of journal superblock */
+	__u32	s_journal_inum;		/* inode number of journal file */
+	__u32	s_journal_dev;		/* device number of journal file */
+	__u32	s_last_orphan;		/* start of list of inodes to delete */
+	__u32	s_hash_seed[4];		/* HTREE hash seed */
+	__u8	s_def_hash_version;	/* Default hash version to use */
+	__u8	s_reserved_char_pad;
+	__u16	s_reserved_word_pad;
+	__u32	s_default_mount_opts;
+ 	__u32	s_first_meta_bg; 	/* First metablock block group */
+	__u32	s_reserved[190];	/* Padding to the end of the block */
 };
 
 #ifdef __KERNEL__
@@ -464,10 +477,12 @@ struct ext2_super_block {
 #define EXT2_FEATURE_INCOMPAT_FILETYPE		0x0002
 #define EXT3_FEATURE_INCOMPAT_RECOVER		0x0004
 #define EXT3_FEATURE_INCOMPAT_JOURNAL_DEV	0x0008
+#define EXT2_FEATURE_INCOMPAT_META_BG		0x0010
 #define EXT2_FEATURE_INCOMPAT_ANY		0xffffffff
 
 #define EXT2_FEATURE_COMPAT_SUPP	0
-#define EXT2_FEATURE_INCOMPAT_SUPP	EXT2_FEATURE_INCOMPAT_FILETYPE
+#define EXT2_FEATURE_INCOMPAT_SUPP	(EXT2_FEATURE_INCOMPAT_FILETYPE| \
+					 EXT2_FEATURE_INCOMPAT_META_BG)
 #define EXT2_FEATURE_RO_COMPAT_SUPP	(EXT2_FEATURE_RO_COMPAT_SPARSE_SUPER| \
 					 EXT2_FEATURE_RO_COMPAT_LARGE_FILE| \
 					 EXT2_FEATURE_RO_COMPAT_BTREE_DIR)
@@ -475,10 +490,21 @@ struct ext2_super_block {
 #define EXT2_FEATURE_INCOMPAT_UNSUPPORTED	~EXT2_FEATURE_INCOMPAT_SUPP
 
 /*
- * Default values for user and/or group using reserved blocks
+ * Default mount options
  */
-#define	EXT2_DEF_RESUID		0
-#define	EXT2_DEF_RESGID		0
+#define EXT2_DEFM_DEBUG		0x0001
+#define EXT2_DEFM_BSDGROUPS	0x0002
+#define EXT2_DEFM_XATTR_USER	0x0004
+#define EXT2_DEFM_ACL		0x0008
+#define EXT2_DEFM_UID16		0x0010
+    /* Not used by ext2, but reserved for use by ext3 */
+#define EXT3_DEFM_JMODE		0x0060 
+#define EXT3_DEFM_JMODE_DATA	0x0020
+#define EXT3_DEFM_JMODE_ORDERED	0x0040
+#define EXT3_DEFM_JMODE_WBACK	0x0060
+
+#define        EXT2_DEF_RESUID         0
+#define        EXT2_DEF_RESGID         0
 
 /*
  * Structure of a directory entry

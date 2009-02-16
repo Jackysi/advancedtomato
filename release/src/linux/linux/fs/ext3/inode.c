@@ -39,6 +39,18 @@
  */
 #undef SEARCH_FROM_ZERO
 
+/*
+ * Test whether an inode is a fast symlink.
+ */
+static inline int ext3_inode_is_fast_symlink(struct inode *inode)
+{
+	int ea_blocks = EXT3_I(inode)->i_file_acl ?
+		(inode->i_sb->s_blocksize >> 9) : 0;
+
+	return (S_ISLNK(inode->i_mode) &&
+		inode->i_blocks - ea_blocks == 0);
+}
+
 /* The ext3 forget function must perform a revoke if we are freeing data
  * which has been journaled.  Metadata (eg. indirect blocks) must be
  * revoked in all cases. 
@@ -1803,6 +1815,8 @@ void ext3_truncate(struct inode * inode)
 	if (!(S_ISREG(inode->i_mode) || S_ISDIR(inode->i_mode) ||
 	    S_ISLNK(inode->i_mode)))
 		return;
+	if (ext3_inode_is_fast_symlink(inode))
+		return;
 	if (IS_APPEND(inode) || IS_IMMUTABLE(inode))
 		return;
 
@@ -2089,7 +2103,7 @@ void ext3_read_inode(struct inode * inode)
 		inode->i_op = &ext3_dir_inode_operations;
 		inode->i_fop = &ext3_dir_operations;
 	} else if (S_ISLNK(inode->i_mode)) {
-		if (!inode->i_blocks)
+		if (ext3_inode_is_fast_symlink(inode))
 			inode->i_op = &ext3_fast_symlink_inode_operations;
 		else {
 			inode->i_op = &page_symlink_inode_operations;
@@ -2142,6 +2156,11 @@ static int ext3_do_update_inode(handle_t *handle,
 		if (err)
 			goto out_brelse;
 	}
+	/* For fields not not tracking in the in-memory inode,
+	 * initialise them to zero for new inodes. */
+	if (EXT3_I(inode)->i_state & EXT3_STATE_NEW)
+		memset(raw_inode, 0, EXT3_SB(inode->i_sb)->s_inode_size);
+
 	raw_inode->i_mode = cpu_to_le16(inode->i_mode);
 	if(!(test_opt(inode->i_sb, NO_UID32))) {
 		raw_inode->i_uid_low = cpu_to_le16(low_16_bits(inode->i_uid));
@@ -2179,15 +2198,6 @@ static int ext3_do_update_inode(handle_t *handle,
 	raw_inode->i_faddr = cpu_to_le32(inode->u.ext3_i.i_faddr);
 	raw_inode->i_frag = inode->u.ext3_i.i_frag_no;
 	raw_inode->i_fsize = inode->u.ext3_i.i_frag_size;
-#else
-	/* If we are not tracking these fields in the in-memory inode,
-	 * then preserve them on disk, but still initialise them to zero
-	 * for new inodes. */
-	if (EXT3_I(inode)->i_state & EXT3_STATE_NEW) {
-		raw_inode->i_faddr = 0;
-		raw_inode->i_frag = 0;
-		raw_inode->i_fsize = 0;
-	}
 #endif
 	raw_inode->i_file_acl = cpu_to_le32(inode->u.ext3_i.i_file_acl);
 	if (!S_ISREG(inode->i_mode)) {

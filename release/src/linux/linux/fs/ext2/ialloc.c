@@ -385,7 +385,7 @@ repeat:
 	inode->i_blksize = PAGE_SIZE;	/* This is the optimal IO size (for stat), not the fs block size */
 	inode->i_blocks = 0;
 	inode->i_mtime = inode->i_atime = inode->i_ctime = CURRENT_TIME;
-	inode->u.ext2_i.i_new_inode = 1;
+	inode->u.ext2_i.i_state = EXT2_STATE_NEW;
 	inode->u.ext2_i.i_flags = dir->u.ext2_i.i_flags & ~EXT2_BTREE_FL;
 	if (S_ISLNK(mode))
 		inode->u.ext2_i.i_flags &= ~(EXT2_IMMUTABLE_FL|EXT2_APPEND_FL);
