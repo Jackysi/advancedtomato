@@ -263,12 +263,14 @@ oldconfig oldconf: roldconf koldconf
 #
 
 busybox: dummy
-	$(MAKE) -C busybox CFLAGS="-Os"
+	$(MAKE) -C busybox CFLAGS_busybox="-Os"
+#!!TB CFLAGS = "-Os"
 # V=1
 
 busybox-install:
 	rm -rf $(INSTALLDIR)/busybox
-	$(MAKE) -C busybox install CONFIG_PREFIX=$(INSTALLDIR)/busybox CFLAGS="-Os"
+	$(MAKE) -C busybox install CONFIG_PREFIX=$(INSTALLDIR)/busybox CFLAGS_busybox="-Os"
+#!!TB CFLAGS = "-Os"
 
 busybox-test: dummy
 	$(MAKE) -C busybox objsizes CFLAGS="-Os"
