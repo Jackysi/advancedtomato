@@ -47,7 +47,8 @@ install: all
 	$(STRIP) $(INSTALLDIR)$(idir)/usr/lib/libsmb.so
 
 clean:
-	$(MAKE) -C source clean
+	@rm -f source/bin/*
+	-$(MAKE) -C source clean
 
 distclean: clean
 	@rm -rf $(srcdir)/Makefile

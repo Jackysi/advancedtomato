@@ -80,7 +80,7 @@ void notice_set(const char *path, const char *format, ...)
 	mkdir("/var/notice", 0755);
 	snprintf(p, sizeof(p), "/var/notice/%s", path);
 	f_write_string(p, buf, 0, 0);
-	if (buf[0]) syslog(LOG_INFO, "notice: %s", buf);
+	if (buf[0]) syslog(LOG_INFO, "notice[%s]: %s", path, buf);
 }
 
 
@@ -457,6 +457,13 @@ int time_ok(void)
 //!!TB - USB Support
 
 /* stolen from the e2fsprogs/ismounted.c */
+ /* Find wherever 'file' (actually: device) is mounted.
+  * Either the exact same device-name, or another device-name.
+  * The latter is detected by comparing the rdev or dev&inode.
+  * So aliasing won't fool us---we'll still find if it's mounted.
+  * Return its mnt entry.
+  * In particular, the caller would look at the mnt->mountpoint.
+  */
 struct mntent *findmntent(char *file)
 {
 	struct mntent 	*mnt;
