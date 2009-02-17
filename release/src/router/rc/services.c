@@ -1895,8 +1895,6 @@ TOP:
 
 	if (strcmp(service, "upgrade") == 0) {
 		if (action & A_START) {
-			//!!TB - run shutdown script prior to upgrade
-			run_nvscript("script_shut", NULL, 10);
 #if TOMATO_SL
 			stop_usbevent();
 			stop_smbd();
