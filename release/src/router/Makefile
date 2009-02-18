@@ -136,11 +136,9 @@ install package: $(obj-install) $(LINUXDIR)/.config
 	cd $(TARGETDIR)/lib/modules/2.4.20/kernel/fs && mv jbd/* . && rm -rf jbd || true
 	cd $(TARGETDIR)/lib/modules/2.4.20/kernel/fs && mv fat/* . && rm -rf fat || true
 	cd $(TARGETDIR)/lib/modules/2.4.20/kernel/fs && mv vfat/* . && rm -rf vfat || true
+	cd $(TARGETDIR)/lib/modules/2.4.20/kernel/fs && mv ntfs/* . && rm -rf ntfs || true
 ifneq ($(TCONFIG_SAMBASRV),y)
 	rm -rf $(TARGETDIR)/lib/modules/2.4.20/kernel/fs/nls || true
-endif
-ifneq ($(TCONFIG_USB_EXTRAS),y)
-	rm -rf $(TARGETDIR)/lib/modules/2.4.20/kernel/drivers/block || true
 endif
 	cd $(TARGETDIR)/lib/modules/2.4.20/kernel/fs && mv nls/* . && rm -rf nls || true
 	cd $(TARGETDIR)/lib/modules/2.4.20/kernel/drivers/usb && mv hcd/* . && rm -rf hcd || true
@@ -171,6 +169,12 @@ endif
 	@mkdir $(PLATFORMDIR)/extras
 	@mv $(TARGETDIR)/lib/modules/2.4.20/kernel/net/ipv4/ip_gre.o $(PLATFORMDIR)/extras/
 	@mv $(TARGETDIR)/lib/modules/2.4.20/kernel/drivers/net/tun.o $(PLATFORMDIR)/extras/
+#!!TB
+	@mv $(TARGETDIR)/lib/modules/2.4.20/kernel/fs/ntfs.o $(PLATFORMDIR)/extras/ || true
+ifneq ($(TCONFIG_USB_EXTRAS),y)
+	@mv $(TARGETDIR)/lib/modules/2.4.20/kernel/drivers/block/loop.o $(PLATFORMDIR)/extras/ || true
+	@rm -rf $(TARGETDIR)/lib/modules/2.4.20/kernel/drivers/block || true
+endif
 
 # uClibc
 	install $(LIBDIR)/ld-uClibc.so.0 $(TARGETDIR)/lib/
