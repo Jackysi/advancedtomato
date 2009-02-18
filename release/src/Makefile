@@ -198,6 +198,12 @@ d:
 	@sed -i "/TCONFIG_SAMBASRV/d" router/config_$@
 	@echo "# TCONFIG_SAMBASRV is not set" >>router/config_$@
 	@cp router/busybox/config_base router/busybox/config_$@
+	@sed -i "/CONFIG_FEATURE_MOUNT_LOOP/d" router/busybox/config_$@
+	@echo "# CONFIG_FEATURE_MOUNT_LOOP is not set" >>router/busybox/config_$@
+	@sed -i "/CONFIG_FEATURE_DEVFS/d" router/busybox/config_$@
+	@echo "# CONFIG_FEATURE_DEVFS is not set" >>router/busybox/config_$@
+	@sed -i "/CONFIG_ARPING/d" router/busybox/config_$@
+	@echo "# CONFIG_ARPING is not set" >>router/busybox/config_$@
 	@$(MAKE) setprofile N=G B=D DESC="Lite"
 	@$(MAKE) all
 
@@ -218,6 +224,14 @@ m:
 	@sed -i "/TCONFIG_USB_EXTRAS/d" router/config_$@
 	@echo "TCONFIG_USB_EXTRAS=y" >>router/config_$@
 	@cp router/busybox/config_base router/busybox/config_$@
+	@sed -i "/CONFIG_UNZIP/d" router/busybox/config_$@
+	@echo "CONFIG_UNZIP=y" >>router/busybox/config_$@
+	@sed -i "/CONFIG_FEATURE_LS_COLOR/d" router/busybox/config_$@
+	@echo "CONFIG_FEATURE_LS_COLOR=y" >>router/busybox/config_$@
+	@sed -i "/CONFIG_FEATURE_LS_COLOR_IS_DEFAULT/d" router/busybox/config_$@
+	@echo "CONFIG_FEATURE_LS_COLOR_IS_DEFAULT=y" >>router/busybox/config_$@
+	@sed -i "/CONFIG_FEATURE_SORT_BIG/d" router/busybox/config_$@
+	@echo "CONFIG_FEATURE_SORT_BIG=y" >>router/busybox/config_$@
 	@sed -i "/CONFIG_E2FSCK/d" router/busybox/config_$@
 	@echo "CONFIG_E2FSCK=y" >>router/busybox/config_$@
 	@sed -i "/CONFIG_MKE2FS/d" router/busybox/config_$@
