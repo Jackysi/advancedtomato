@@ -89,7 +89,7 @@ static void sig_hup(int sig)
 {
   BlockSignals( True, SIGHUP );
 
-  DEBUG( 0, ( "Got SIGHUP dumping debug info.\n" ) );
+  DEBUG( 1, ( "Got SIGHUP dumping debug info.\n" ) );
 
   write_browse_list( 0, True );
 

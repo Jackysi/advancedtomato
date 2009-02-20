@@ -339,7 +339,7 @@ VOLATILE SIG_ATOMIC_T reload_after_sighup = False;
 static void sig_hup(int sig)
 {
 	BlockSignals(True,SIGHUP);
-	DEBUG(0,("Got SIGHUP\n"));
+	DEBUG(1,("Got SIGHUP\n"));
 
 	/*
 	 * Fix from <branko.cibej@hermes.si> here.

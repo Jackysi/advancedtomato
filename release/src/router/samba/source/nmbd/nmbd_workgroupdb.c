@@ -281,7 +281,7 @@ on subnet %s\n", name, subrec->subnet_name));
 void dump_workgroups(BOOL force_write)
 {
   struct subnet_record *subrec;
-  int debuglevel = force_write ? 0 : 4;
+  int debuglevel = force_write ? 1 : 4;
  
   for (subrec = FIRST_SUBNET; subrec; subrec = NEXT_SUBNET_INCLUDING_UNICAST(subrec))
   {
