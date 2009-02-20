@@ -693,6 +693,14 @@ static void rw_intr(Scsi_Cmnd * SCpnt)
 			 * hard error.
 			 */
 			print_sense("sd", SCpnt);
+			/* FALLS THROUGH */
+
+		case NO_SENSE:
+			/*
+			 * The low-level driver got the sense data but
+			 * everything was all right.  Don't treat this
+			 * an an error.
+			 */
 			SCpnt->result = 0;
 			SCpnt->sense_buffer[0] = 0x0;
 			good_sectors = this_count;
