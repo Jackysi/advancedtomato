@@ -286,6 +286,16 @@ void start_lan(void)
 	config_loopback();
 	do_static_routes(1);
 
+#ifdef TCONFIG_SAMBASRV	//!!TB
+	FILE *hf = fopen("/etc/hosts", "w");
+	if (hf) {
+		fprintf(hf, "127.0.0.1 localhost\n");
+		fprintf(hf, "%s %s\n",
+			nvram_safe_get("lan_ipaddr"), nvram_safe_get("lan_hostname"));
+		fclose(hf);
+	}
+#endif
+
 	if (nvram_match("wan_proto", "disabled")) {
 		char *gateway = nvram_safe_get("lan_gateway") ;
 		if ((*gateway) && (strcmp(gateway, "0.0.0.0") != 0)) {
