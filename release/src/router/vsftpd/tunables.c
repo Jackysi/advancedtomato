@@ -17,6 +17,7 @@ int tunable_write_enable;
 int tunable_anon_upload_enable;
 int tunable_anon_mkdir_write_enable;
 int tunable_anon_other_write_enable;
+int tunable_anon_allow_writable_root;
 int tunable_chown_uploads;
 int tunable_connect_from_port_20;
 int tunable_xferlog_enable;
@@ -72,6 +73,7 @@ int tunable_force_anon_data_ssl;
 int tunable_mdtm_write;
 int tunable_lock_upload_files;
 int tunable_pasv_addr_resolve;
+int tunable_utf8;
 int tunable_debug_ssl;
 int tunable_require_cert;
 int tunable_validate_cert;
@@ -136,6 +138,7 @@ const char* tunable_ssl_ciphers;
 const char* tunable_rsa_private_key_file;
 const char* tunable_dsa_private_key_file;
 const char* tunable_ca_certs_file;
+const char* tunable_passwd_file;
 
 static void install_str_setting(const char* p_value, const char** p_storage);
 
@@ -151,6 +154,7 @@ tunables_load_defaults()
   tunable_anon_upload_enable = 0;
   tunable_anon_mkdir_write_enable = 0;
   tunable_anon_other_write_enable = 0;
+  tunable_anon_allow_writable_root = 0;
   tunable_chown_uploads = 0;
   tunable_connect_from_port_20 = 0;
   tunable_xferlog_enable = 0;
@@ -206,6 +210,7 @@ tunables_load_defaults()
   tunable_mdtm_write = 1;
   tunable_lock_upload_files = 1;
   tunable_pasv_addr_resolve = 0;
+  tunable_utf8 = 0;
   tunable_debug_ssl = 0;
   tunable_require_cert = 0;
   tunable_validate_cert = 0;
@@ -242,7 +247,7 @@ tunables_load_defaults()
   /* -rw------- */
   tunable_chown_upload_mode = 0600;
 
-  install_str_setting("/usr/share/empty", &tunable_secure_chroot_dir);
+  install_str_setting("/var/run/vsftpd", &tunable_secure_chroot_dir);
   install_str_setting("ftp", &tunable_ftp_username);
   install_str_setting("root", &tunable_chown_username);
   install_str_setting("/var/log/xferlog", &tunable_xferlog_file);
@@ -269,13 +274,14 @@ tunables_load_defaults()
   install_str_setting(0, &tunable_user_sub_token);
   install_str_setting("/etc/vsftpd.email_passwords",
                       &tunable_email_password_file);
-  install_str_setting("/usr/share/ssl/certs/vsftpd.pem",
+  install_str_setting("/var/run/vsftpd/vsftpd.pem",
                       &tunable_rsa_cert_file);
   install_str_setting(0, &tunable_dsa_cert_file);
   install_str_setting("DES-CBC3-SHA", &tunable_ssl_ciphers);
   install_str_setting(0, &tunable_rsa_private_key_file);
   install_str_setting(0, &tunable_dsa_private_key_file);
   install_str_setting(0, &tunable_ca_certs_file);
+  install_str_setting(0, &tunable_passwd_file);
 }
 
 void

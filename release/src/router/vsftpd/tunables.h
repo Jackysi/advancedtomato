@@ -18,6 +18,7 @@ extern int tunable_write_enable;              /* Global enable writes */
 extern int tunable_anon_upload_enable;        /* Enable STOR for anon users */
 extern int tunable_anon_mkdir_write_enable;   /* MKD for anon */
 extern int tunable_anon_other_write_enable;   /* APPE DELE RMD RNFR for anon */
+extern int tunable_anon_allow_writable_root;  /* allow writable / for anon */
 extern int tunable_chown_uploads;             /* chown() anon uploaded files */
 extern int tunable_connect_from_port_20;      /* PORT connects from port 20 */
 extern int tunable_xferlog_enable;            /* Log transfers to a file */
@@ -73,6 +74,7 @@ extern int tunable_force_anon_data_ssl;       /* Require anon data uses SSL */
 extern int tunable_mdtm_write;                /* Allow MDTM to set timestamps */
 extern int tunable_lock_upload_files;         /* Lock uploading files */
 extern int tunable_pasv_addr_resolve;         /* DNS resolve pasv_addr */
+extern int tunable_utf8;                      /* Report UTF8 support */
 extern int tunable_debug_ssl;                 /* Verbose SSL logging */
 extern int tunable_require_cert;              /* SSL client cert required */
 extern int tunable_validate_cert;             /* SSL certs must be valid */
@@ -139,6 +141,7 @@ extern const char* tunable_rsa_private_key_file;
 extern const char* tunable_dsa_private_key_file;
 extern const char* tunable_ca_certs_file;
 extern const char* tunable_cmds_denied;
+extern const char* tunable_passwd_file;
 
 #endif /* VSF_TUNABLES_H */
 

@@ -68,7 +68,6 @@
   #include <linux/version.h>
   #if defined(LINUX_VERSION_CODE) && defined(KERNEL_VERSION)
     #if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,2,0))
-      #define VSF_SYSDEP_HAVE_CAPABILITIES
       #define VSF_SYSDEP_HAVE_LINUX_SENDFILE
       #ifdef PR_SET_KEEPCAPS
         #define VSF_SYSDEP_HAVE_SETKEEPCAPS

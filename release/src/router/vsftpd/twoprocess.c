@@ -367,7 +367,7 @@ common_do_login(struct vsf_session* p_sess, const struct mystr* p_user_str,
     /* Guard against the config error of having the anonymous ftp tree owned
      * by the user we are running as
      */
-    if (was_anon && vsf_sysutil_write_access("/"))
+    if (!tunable_anon_allow_writable_root && was_anon && vsf_sysutil_write_access("/"))
     {
       die("vsftpd: refusing to run with writable anonymous root");
     }

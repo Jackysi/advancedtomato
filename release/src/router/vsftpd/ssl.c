@@ -593,7 +593,7 @@ ssl_cert_digest(SSL* p_ssl, struct vsf_session* p_sess, struct mystr* p_str)
   str_reserve(p_str, EVP_MAX_MD_SIZE);
   str_empty(p_str);
   str_rpad(p_str, EVP_MAX_MD_SIZE);
-  if (!X509_digest(p_cert, EVP_sha256(), (unsigned char*) str_getbuf(p_str),
+  if (!X509_digest(p_cert, EVP_sha1(), (unsigned char*) str_getbuf(p_str),
                    &num_bytes))
   {
     die("X509_digest failed");

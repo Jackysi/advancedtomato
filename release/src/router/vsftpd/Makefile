@@ -1,12 +1,27 @@
+include ../common.mak
+
 # Makefile for systems with GNU tools
-CC 	=	gcc
-INSTALL	=	install
+
+#CC 	=	gcc
+#INSTALL	=	install
 IFLAGS  = -idirafter dummyinc
 #CFLAGS = -g
 CFLAGS	=	-O2 -Wall -W -Wshadow #-pedantic -Werror -Wconversion
 
-LIBS	=	`./vsf_findlibs.sh`
-LINK	=	-Wl,-s
+#LIBS	=	`./vsf_findlibs.sh`
+#LINK	=	-Wl,-s
+LIBS	=	-lcrypt -lnsl
+LINK	=	
+
+CFLAGS	+=	-I../shared
+ifeq ($(TCONFIG_FTP_SSL),y)
+LIBS	=	-lnsl
+OPENSSLDIR = ../openssl
+OPENSSLINC = $(OPENSSLDIR)/include
+LIBS	+=	-L$(OPENSSLDIR)/ -lssl -lcrypto
+CFLAGS	+=	-I$(OPENSSLINC)
+endif
+
 
 OBJS	=	main.o utility.o prelogin.o ftpcmdio.o postlogin.o privsock.o \
 		tunables.o ftpdataio.o secbuf.o ls.o \

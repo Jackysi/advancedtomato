@@ -41,6 +41,7 @@ parseconf_bool_array[] =
   { "anon_upload_enable", &tunable_anon_upload_enable },
   { "anon_mkdir_write_enable", &tunable_anon_mkdir_write_enable },
   { "anon_other_write_enable", &tunable_anon_other_write_enable },
+  { "anon_allow_writable_root", &tunable_anon_allow_writable_root },
   { "chown_uploads", &tunable_chown_uploads },
   { "connect_from_port_20", &tunable_connect_from_port_20 },
   { "xferlog_enable", &tunable_xferlog_enable },
@@ -96,6 +97,7 @@ parseconf_bool_array[] =
   { "mdtm_write", &tunable_mdtm_write },
   { "lock_upload_files", &tunable_lock_upload_files },
   { "pasv_addr_resolve", &tunable_pasv_addr_resolve },
+  { "utf8", &tunable_utf8 },
   { "debug_ssl", &tunable_debug_ssl },
   { "require_cert", &tunable_require_cert },
   { "validate_cert", &tunable_validate_cert },
@@ -178,6 +180,7 @@ parseconf_str_array[] =
   { "dsa_private_key_file", &tunable_dsa_private_key_file },
   { "ca_certs_file", &tunable_ca_certs_file },
   { "cmds_denied", &tunable_cmds_denied },
+  { "passwd_file", &tunable_passwd_file },
   { 0, 0 }
 };
 
