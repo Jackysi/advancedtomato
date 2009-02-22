@@ -5,6 +5,8 @@
 */
 #include "rc.h"
 
+#include <sys/ipc.h>
+#include <sys/sem.h>
 #include <arpa/inet.h>
 #include <time.h>
 #include <sys/time.h>
@@ -14,9 +16,6 @@
 #include <sys/mount.h>
 #include <mntent.h>
 #include <dirent.h>
-
-#define s_usb_storage_device	"usb_storage_device"
-#define s_usb_storage_remove	"usb_storage_remove"
 
 
 void start_usb(void)
@@ -72,8 +71,6 @@ void start_usb(void)
 		}
 	}
 	else {
-		nvram_set(s_usb_storage_device, "");
-		nvram_set(s_usb_storage_remove, "");
 //		led(LED_AOSS, LED_OFF);
 	}
 }
@@ -95,9 +92,6 @@ void stop_usb(void)
 	}
 
 	modprobe_r("printer");
-
-	nvram_set(s_usb_storage_device, "");
-	nvram_set(s_usb_storage_remove, "");
 }
 
 
@@ -527,7 +521,7 @@ int process_all_usb_part(int do_mount, int do_all, uint host)
 		 */
 		if (do_mount <= 0) {
 			while ((mnt = findmntent(""))) {
-				cprintf("dangling mnt_dev has mnt_dir: %s\n", mnt->mnt_dir);
+				//cprintf("dangling mnt_dev has mnt_dir: %s\n", mnt->mnt_dir);
 				umountdir(mnt->mnt_dir);
 			}
 		}
@@ -647,6 +641,45 @@ void remove_storage_main(void)
 }
 
 
+#define HP_SEM_KEY 0x1492
+static struct sembuf hp_lock_cmd = {0 , -1, SEM_UNDO};
+static struct sembuf hp_unlock_cmd = {0 , 1, SEM_UNDO};
+
+
+key_t hp_lock(void)
+{
+	key_t semid;
+	union semun {
+		int val;	/* value for SETVAL */
+	};
+	union semun arg;
+
+	if ((semid = semget(HP_SEM_KEY, 0, 0)) == -1) {
+		/* Semaphore does not exist - create */
+		if ((semid = semget(HP_SEM_KEY, 1, 0666 | IPC_CREAT | IPC_EXCL)) != -1) {
+			/* Initialize semaphore */
+			arg.val = 1;
+			semctl(semid, 0, SETVAL, arg);
+		}
+		else if (errno == EEXIST) {
+			/* Already exists */
+			semid = semget(HP_SEM_KEY, 0, 0);
+		}
+	}
+	/* No error checking---it better work!! */
+	if (semid != -1)
+		semop(semid, &hp_lock_cmd, 1);
+	return semid;
+}
+
+
+void hp_unlock(key_t semid)
+{
+	if (semid != -1)
+		semop(semid, &hp_unlock_cmd, 1);
+}
+
+
 /* Plugging or removing usb device
  *
  * The $INTERFACE is "class/subclass/protocol"
@@ -660,10 +693,18 @@ void remove_storage_main(void)
  * Observed:
  *	Hub seems to have no INTERFACE (null), and TYPE of "9/0/0"
  *	Flash disk seems to have INTERFACE of "8/6/80", and TYPE of "0/0/0"
+ *
+ * Special values for Web Administration to unmount or remount
+ * all partitions of the host:
+ *	INTERFACE=TOMATO/
+ *	ACTION=add/remove
+ *	PRODUCT=<host_no>
+ * If host_no is negative, we unmount all partions of *all* hosts.
  */
 void hotplug_usb(void)
 {
 	int add;
+	uint host = 0;
 	char *interface = getenv("INTERFACE");
 	char *action = getenv("ACTION");
 	char *product = getenv("PRODUCT");
@@ -679,81 +720,51 @@ void hotplug_usb(void)
 		syslog(LOG_INFO, "usb-hotplug: waiting for device to settle before scanning");
 		sleep(2);
 	}
+	key_t semid = hp_lock();
 
-	if (strncmp(interface, "8/", 2) == 0) {		/* usb storage */
+	if (strncmp(interface, "TOMATO/", 7) == 0) {	/* web admin */
+		host = atoi(product);
+		/* Unmount or remount all partitions of the host. */
+		if (!add) {	/* Dismounting */
+			if (nvram_match("usb_storage", "1")) {
+				// run pre-unmount script if any
+				run_nvscript("script_usbumount", NULL, 5);
+			}
+			/* If host is negative, unmount all partitions of *all* hosts.
+			 * This feature can be used in custom scripts as following:
+			 *
+			 * # INTERFACE=TOMATO/1 ACTION=remove PRODUCT=-1 hotplug usb
+			 */
+			process_all_usb_part(0, host < 0 ? 1 : 0, host);
+			restart_nas_services(1);
+		}
+		else {	/* Remounting a single host */
+			if (process_all_usb_part(1, 0, host))
+				restart_nas_services(1);
+			if (nvram_match("usb_storage", "1")) {
+				//run post-mount script if any
+				run_nvscript("script_usbmount", NULL, 5);
+			}
+		}
+	}
+	else if (strncmp(interface, "8/", 2) == 0) {	/* usb storage */
 		if (add)
 			probe_usb_mass(product, 1);	/* so the mount command can work */
 		run_nvscript("script_usbhotplug", NULL, 2);
-		nvram_set(add ? s_usb_storage_device : s_usb_storage_remove, product);
+
+		if (add) {
+			if (nvram_match("usb_storage", "1")) hotplug_usb_mass(product);
+		}
+		else {
+			// unmount the device even if usb storage is disabled in the GUI
+			remove_usb_mass(product);
+			restart_nas_services(1);
+		}
 	}
 	else {	/* It's some other type of USB device, not storage. */
 		/* For now, do nothing.  The user's hotplug script must do it all. */
 		run_nvscript("script_usbhotplug", NULL, 2);
 	}
 
-#if 0
-	check_usb_event();
-#endif
-}
-
-
-/* This is called from init.c, in a 5-second timer loop. */
-void check_usb_event(void)
-{
-	_dprintf("%s %s\n", __FILE__, __FUNCTION__);
-	int mount = 0;
-	int host;
-
-	// check if we received eject or remount request from the GUI
-	if (nvram_invmatch("usb_web_umount", "")) {
-		if (nvram_match("usb_web_domount", "1"))
-			mount = 1;	// "Somehow" decide it should get mounted instead of unmounted
-		nvram_set("usb_web_domount", "");
-		host = nvram_get_int("usb_web_umount");
-
-		if (host != 0) {
-			/* Unmount or remount all partitions of the host. */
-			if (!mount) {
-				if (nvram_match("usb_enable", "1") && nvram_match("usb_storage", "1")) {
-					// run pre-unmount script if any
-					run_nvscript("script_usbumount", NULL, 5);
-				}
-				/* If host is negative, unmount all partitions of all hosts.
-				 * This feature can be used in custom scripts as following:
-				 *
-				 * # nvram set usb_web_domount=
-				 * # nvram set usb_web_umount=-1
-				 * # sleep 6
-				 */
-				process_all_usb_part(0, host < 0 ? 1 : 0, host);
-				restart_nas_services(1);
-			}
-			else {
-				if (process_all_usb_part(1, 0, host))
-					restart_nas_services(1);
-				if (nvram_match("usb_enable", "1") && nvram_match("usb_storage", "1")) {
-					//run post-mount script if any
-					run_nvscript("script_usbmount", NULL, 5);
-				}
-			}
-		}
-		// Reset nvram variable only after processing is completed b/c web GUI waits for it.
-		nvram_set("usb_web_umount", "");
-		return; // process all other events 5 sec later
-	}
-
-	if (!nvram_match("usb_enable", "1")) return;
-
-	if (nvram_invmatch(s_usb_storage_device, "")) {
-		if (nvram_match("usb_storage", "1"))
-			hotplug_usb_mass(nvram_safe_get(s_usb_storage_device));
-		nvram_set(s_usb_storage_device, "");
-	}
-
-	if (nvram_invmatch(s_usb_storage_remove, "")) {
-		// unmount the device even if usb storage is disabled in the GUI
-		remove_usb_mass(nvram_safe_get(s_usb_storage_remove));
-		nvram_set(s_usb_storage_remove, "");
-		restart_nas_services(1);
-	}
+	hp_unlock(semid);
 }

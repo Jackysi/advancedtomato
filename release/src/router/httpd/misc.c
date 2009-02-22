@@ -768,20 +768,20 @@ void wo_usbcommand(char *url)
 
 	web_puts("\nusb = [\n");
 	if ((p = webcgi_get("remove")) != NULL) {
-		nvram_set("usb_web_umount", p);
-		nvram_set("usb_web_domount", "");
+		setenv("ACTION", "remove", 1);
 	}
 	else if ((p = webcgi_get("mount")) != NULL) {
-		nvram_set("usb_web_umount", p);
-		nvram_set("usb_web_domount", "1");
+		setenv("ACTION", "add", 1);
 	}
 	if (p) {
-		// wait for unmount or remount
-		int i;
-		for (i = 0; i < 10; i++) {
-			sleep(1);
-			if (!nvram_invmatch("usb_web_umount", "")) break;
-		}
+		setenv("PRODUCT", p, 1);
+		setenv("INTERFACE", "TOMATO/0", 1);
+		// don't use value from /proc/sys/kernel/hotplug 
+		// since it may be overriden by a user.
+		system("/sbin/hotplug usb");
+		unsetenv("INTERFACE");
+		unsetenv("PRODUCT");
+		unsetenv("ACTION");
 		web_printf("%d", is_host_mounted(atoi(p), NULL, 0));
 	}
 	web_puts("];\n");
