@@ -532,16 +532,16 @@ void wo_resolve(char *url)
 #define PROC_SCSI_ROOT	"/proc/scsi"
 #define USB_STORAGE	"usb-storage"
 
-int is_disc_mounted(uint disc_no)
+int is_disc_mounted(uint disc_no, char *parts, int maxpartslen)
 {
+	int is_mounted = 0, i = 0;
 	DIR *usb_dev_part;
-	char usb_part[128], usb_disc[128];
+	char usb_part[128], usb_disc[128], the_label[256];
 	struct dirent *dp_disc;
+	struct mntent *mnt;
 
-	// check if at least one partition of the disc is mounted
 	sprintf(usb_disc, "%s/disc%d", DEV_DISCS_ROOT, disc_no);
 
-	int is_mounted = 0;
 	if ((usb_dev_part = opendir(usb_disc))) {
 		while (usb_dev_part && (dp_disc = readdir(usb_dev_part))) {
 			if (!strcmp(dp_disc->d_name, "..") || !strcmp(dp_disc->d_name, ".") ||
@@ -550,10 +550,30 @@ int is_disc_mounted(uint disc_no)
 
 			sprintf(usb_part, "%s/%s", usb_disc, dp_disc->d_name);
 
-			if (findmntent(usb_part)) {
-				is_mounted = 1;
-				break;
+			// [partition_name, is_mounted, mount_point, type, opts],...
+			if (parts) {
+				strlcat(parts, (i == 0) ? "['" : ",['", maxpartslen);
+				if (!find_label(usb_part, the_label)) {
+					sprintf(the_label, "disc%d_%s", disc_no,
+						dp_disc->d_name + (strncmp(dp_disc->d_name, "part", 4) ? 0 : 4));
+				}
+				strlcat(parts, the_label, maxpartslen);
 			}
+			mnt = findmntent(usb_part);
+			if (mnt) {
+				is_mounted = 1;
+				if (parts) {
+					sprintf(the_label, "',1,'%s','%s','%s']",
+						mnt->mnt_dir, mnt->mnt_type, mnt->mnt_opts);
+					strlcat(parts, the_label, maxpartslen);
+				}
+				else
+					break;
+			}
+			else {
+				if (parts) strlcat(parts, "',0,'','','','']", maxpartslen);
+			}
+			i++;
 		}
 		closedir(usb_dev_part);
 	}
@@ -561,7 +581,7 @@ int is_disc_mounted(uint disc_no)
 	return is_mounted;
 }
 
-int is_host_mounted(uint host_no)
+int is_host_mounted(uint host_no, char *parts, int maxpartslen)
 {
 	DIR *usb_dev_disc;
 	struct dirent *dp;
@@ -590,10 +610,20 @@ int is_host_mounted(uint host_no)
 					host = atoi(cp + 10);
 			}
 
-			if ((host == host_no) && is_disc_mounted(disc_no)) {
-				is_mounted = 1;
-				break;
+			if (host != host_no)
+				continue;
+		
+			// [disc_no, [partitions array]],...
+			if (parts) {
+				strlcat(parts, (parts[0]) ? ",[" : "[", maxpartslen);
+				strlcat(parts, dp->d_name + 4, maxpartslen);
+				strlcat(parts, ",[", maxpartslen);
 			}
+			if (is_disc_mounted(disc_no, parts, maxpartslen)) {
+				is_mounted = 1;
+				if (!parts) break;
+			}
+			if (parts) strlcat(parts, "]]", maxpartslen);
 		}
 		closedir(usb_dev_disc);
 	}
@@ -619,9 +649,10 @@ void asp_usbdevices(int argc, char **argv)
 	DIR *scsi_dir=NULL, *usb_dir=NULL;
 	struct dirent *dp, *scsi_dirent;
 	uint host_no;
-	int i = 0, attached;
+	int i = 0, attached, mounted;
 	FILE *fp;
 	char line[128];
+	char parts[2048];
 	char *tmp=NULL, g_usb_vendor[25], g_usb_product[20], g_usb_serial[20];
 
 	web_puts("\nusbdev = [");
@@ -682,8 +713,11 @@ void asp_usbdevices(int argc, char **argv)
 						/* Host no. assigned by scsi driver for this UFD */
 						host_no = atoi(dp->d_name);
 
-						web_printf("%s['Storage','%d','%s','%s','%s', %d]", i ? "," : "",
-							host_no, g_usb_vendor, g_usb_product, g_usb_serial, is_host_mounted(host_no));
+						parts[0] = 0;
+						mounted = is_host_mounted(host_no, parts, sizeof(parts)-1);
+
+						web_printf("%s['Storage','%d','%s','%s','%s', [%s], %d]", i ? "," : "",
+							host_no, g_usb_vendor, g_usb_product, g_usb_serial, parts, mounted);
 						++i;
 					}
 				}
@@ -748,7 +782,7 @@ void wo_usbcommand(char *url)
 			sleep(1);
 			if (!nvram_invmatch("usb_web_umount", "")) break;
 		}
-		web_printf("%d", is_host_mounted(atoi(p)));
+		web_printf("%d", is_host_mounted(atoi(p), NULL, 0));
 	}
 	web_puts("];\n");
 }

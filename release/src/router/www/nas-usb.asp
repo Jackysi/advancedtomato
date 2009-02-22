@@ -26,18 +26,18 @@ textarea {
 
 <style type='text/css'>
 #dev-grid .co1 {
-	width: 12%;
+	width: 10%;
 }
 #dev-grid .co2 {
-	width: 8%;
+	width: 7%;
 }
 #dev-grid .co3 {
 	width: 18%;
 }
-#dev-grid .co4, #dev-grid .co5 {
-	width: 25%;
+#dev-grid .co4 {
+	width: 53%;
 }
-#dev-grid .co6 {
+#dev-grid .co5 {
 	width: 14%;
 	text-align: center;
 }
@@ -173,7 +173,7 @@ dg.sortCompare = function(a, b) {
 
 dg.populate = function()
 {
-	var i, a, b, c, e, s;
+	var i, j, k, a, b, c, e, s, desc, d, parts, p;
 
 	list = [];
 
@@ -183,6 +183,7 @@ dg.populate = function()
 		list[i].vendor = '';
 		list[i].product = '';
 		list[i].serial = '';
+		list[i].discs = [];
 		list[i].is_mounted = 0;
 	}
 	
@@ -194,7 +195,8 @@ dg.populate = function()
 			vendor: a[2],
 			product: a[3],
 			serial: a[4],
-			is_mounted: a[5]
+			discs: a[5],
+			is_mounted: a[6]
 		};
 		list.push(e);
 	}
@@ -216,8 +218,23 @@ dg.populate = function()
 			else
 				s = 'Yes<br><small><a href="javascript:umountHost(\'L' + i + '\',\'' + e.host + '\')" title="Safely Remove Storage Device" id="L' + i + '">[ Unmount ]</a></small>';
 		}
+		desc = e.product + '<small>'; // + (e.serial == '' ? '' : '<br>Serial No: ' + e.serial);
+		if (e.discs) {
+			for (j = 0; j <= e.discs.length - 1; ++j) {
+				d = e.discs[j];
+				parts = d[1];
+				for (k = 0; k <= parts.length - 1; ++k) {
+					p = parts[k];
+					if (p) {
+						desc = desc + '<br>Partition \'' + p[0] + '\'' + (p[3] != '' ? ' ' : '') + p[3] +
+							((p[1] != 0) ? ' mounted ' +  ((p[2] != '') ? 'on ' : '') : ' not mounted ') + p[2];
+					}
+				}
+			}
+		}
+		desc = desc + '</small>';
 		this.insert(-1, e, [
-			e.type, e.host, e.vendor, e.product, e.serial, s],
+			e.type, e.host, e.vendor, desc, s],
 			false);
 	}
 
@@ -227,7 +244,7 @@ dg.populate = function()
 dg.setup = function()
 {
 	this.init('dev-grid', 'sort');
-	this.headerSet(['Type', 'Host #', 'Vendor', 'Product Name', 'Serial Number', 'Mounted?']);
+	this.headerSet(['Type', 'Host', 'Vendor', 'Description', 'Mounted?']);
 	this.populate();
 	this.sort(1);
 }
