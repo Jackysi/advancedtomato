@@ -27,6 +27,24 @@
 
 function verifyFields(focused, quiet)
 {
+/* REMOVE-BEGIN
+	!!TB - validate hostname
+REMOVE-END */
+	var e, s;
+	e = E('_wan_hostname');
+	s = e.value.trim();
+	if (s.length > 0) {
+		if ((s.length > 63) ||
+			(s.search(/^[a-zA-Z0-9\-]+$/) == -1) ||
+			(s.search(/^\-/) == 0) ||
+			(s.search(/\-$/) >= 0)) {
+			ferror.set(e, 'Invalid hostname. Only characters "A-Z 0-9" with "-" in the middle are allowed.', quiet);
+			return 0;
+		}
+	}
+	e.value = s;
+	ferror.clear(e);
+
 	return v_length('_router_name', quiet, 1) && v_length('_wan_hostname', quiet, 0) && v_length('_wan_domain', quiet, 0);
 }
 
