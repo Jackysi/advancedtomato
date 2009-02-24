@@ -43,6 +43,7 @@ EXPORT_SYMBOL(scsi_allocate_device);
 EXPORT_SYMBOL(scsi_do_cmd);
 EXPORT_SYMBOL(scsi_command_size);
 EXPORT_SYMBOL(scsi_ioctl);
+EXPORT_SYMBOL(scsi_finish_command);
 EXPORT_SYMBOL(print_command);
 EXPORT_SYMBOL(print_sense);
 EXPORT_SYMBOL(print_req_sense);
@@ -56,7 +57,7 @@ EXPORT_SYMBOL(print_Scsi_Cmnd);
 EXPORT_SYMBOL(scsi_block_when_processing_errors);
 EXPORT_SYMBOL(scsi_mark_host_reset);
 EXPORT_SYMBOL(scsi_ioctl_send_command);
-#if defined(CONFIG_SCSI_LOGGING)	    /* { */
+#if defined(CONFIG_SCSI_LOGGING)	/* { */
 EXPORT_SYMBOL(scsi_logging_level);
 #endif
 

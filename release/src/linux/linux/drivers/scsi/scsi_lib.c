@@ -273,6 +273,13 @@ void scsi_queue_next_request(request_queue_t * q, Scsi_Cmnd * SCpnt)
 	SDpnt = (Scsi_Device *) q->queuedata;
 	SHpnt = SDpnt->host;
 
+	/*
+	 * If this is a single-lun device, and we are currently finished
+	 * with this device, then see if we need to get another device
+	 * started.  FIXME(eric) - if this function gets too cluttered
+	 * with special case code, then spin off separate versions and
+	 * use function pointers to pick the right one.
+	 */
 	if (SDpnt->single_lun
 	    && list_empty(&q->queue_head)
 	    && SDpnt->device_busy == 0) {
@@ -397,6 +404,14 @@ static Scsi_Cmnd *__scsi_end_request(Scsi_Cmnd * SCpnt,
 	 */
 	if (req->bh) {
 		/*
+		 * Recount segments whether we are immediately going to
+		 * requeue the command or not, other code might requeue
+		 * it later and since we changed the segment count up above,
+		 * we need it updated.
+		 */
+		recount_segments(SCpnt);
+
+		/*
 		 * Bleah.  Leftovers again.  Stick the leftovers in
 		 * the front of the queue, and goose the queue again.
 		 */
@@ -406,19 +421,20 @@ static Scsi_Cmnd *__scsi_end_request(Scsi_Cmnd * SCpnt,
 		return SCpnt;
 	}
 
-	/*
-	 * This request is done.  If there is someone blocked waiting for this
-	 * request, wake them up.  Typically used to wake up processes trying
-	 * to swap a page into memory.
-	 */
-	if (req->waiting)
-		complete(req->waiting);
-
 	spin_lock_irqsave(&io_request_lock, flags);
 	req_finished_io(req);
 	spin_unlock_irqrestore(&io_request_lock, flags);
 
 	add_blkdev_randomness(MAJOR(req->rq_dev));
+
+	/*
+	 * This request is done.  If there is someone blocked waiting for this
+	 * request, wake them up.  Do this last, as 'req' might be on the stack
+	 * and thus not valid right after the complete() call if the task
+	 * exist
+	 */
+	if (req->waiting)
+		complete(req->waiting);
 
 	/*
 	 * This will goose the queue request function at the end, so we don't
@@ -688,6 +704,8 @@ void scsi_io_completion(Scsi_Cmnd * SCpnt, int good_sectors,
 		 */
 
 		switch (SCpnt->sense_buffer[2]) {
+		case RECOVERED_ERROR: /* Added, KG, 2003-01-20 */
+			return;
 		case ILLEGAL_REQUEST:
 			if (SCpnt->device->ten && SCSI_RETRY_10(SCpnt->cmnd[0])) {
 				SCpnt->device->ten = 0;
@@ -881,7 +899,24 @@ void scsi_request_fn(request_queue_t * q)
 			SDpnt->starved = 0;
 		}
 
+ 		/*
+		 * FIXME(eric)
+		 * I am not sure where the best place to do this is.  We need
+		 * to hook in a place where we are likely to come if in user
+		 * space.   Technically the error handling thread should be
+		 * doing this crap, but the error handler isn't used by
+		 * most hosts.
+		 */
 		if (SDpnt->was_reset) {
+			/*
+			 * We need to relock the door, but we might
+			 * be in an interrupt handler.  Only do this
+			 * from user space, since we do not want to
+			 * sleep from an interrupt.
+			 *
+			 * FIXME(eric) - have the error handler thread do
+			 * this work.
+			 */
 			SDpnt->was_reset = 0;
 			if (SDpnt->removable && !in_interrupt()) {
 				spin_unlock_irq(&io_request_lock);
@@ -939,15 +974,6 @@ void scsi_request_fn(request_queue_t * q)
 			 */
 			if( req->special != NULL ) {
 				SCpnt = (Scsi_Cmnd *) req->special;
-				/*
-				 * We need to recount the number of
-				 * scatter-gather segments here - the
-				 * normal case code assumes this to be
-				 * correct, as it would be a performance
-				 * lose to always recount.  Handling
-				 * errors is always unusual, of course.
-				 */
-				recount_segments(SCpnt);
 			} else {
 				SCpnt = scsi_allocate_device(SDpnt, FALSE, FALSE);
 			}
@@ -1157,6 +1183,15 @@ void scsi_report_bus_reset(struct Scsi_Host * SHpnt, int channel)
 	}
 }
 
+/*
+ * FIXME(eric) - these are empty stubs for the moment.  I need to re-implement
+ * host blocking from scratch. The theory is that hosts that wish to block
+ * will register/deregister using these functions instead of the old way
+ * of setting the wish_block flag.
+ *
+ * The details of the implementation remain to be settled, however the
+ * stubs are here now so that the actual drivers will properly compile.
+ */
 void scsi_register_blocked_host(struct Scsi_Host * SHpnt)
 {
 }
