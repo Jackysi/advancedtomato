@@ -5,8 +5,6 @@
 */
 #include "rc.h"
 
-#include <sys/ipc.h>
-#include <sys/sem.h>
 #include <arpa/inet.h>
 #include <time.h>
 #include <sys/time.h>
@@ -21,6 +19,7 @@
 void start_usb(void)
 {
 	_dprintf("%s\n", __FUNCTION__);
+	simple_unlock("usbhp");
 
 	if (nvram_match("usb_enable", "1")) {
 //		led(LED_AOSS, LED_ON);
@@ -248,13 +247,13 @@ int mount_r(char *mnt_dev, char *mnt_dir)
  * that the /dev/discs/discDISK_NO is softlinked to.
  * We are looking for "Attached: Yes".
  */
-static int usb_ufd_connected(uint disc_no)
+static int usb_ufd_connected(int disc_no)
 {
 	char proc_file[128], line[256];
 	FILE *fp;
 	char *cp;
 	int len;
-	uint host_no = disc_no;
+	int host_no = disc_no;
 
 	sprintf(proc_file, "%s/disc%d", DEV_DISCS_ROOT, disc_no);
 	len = readlink(proc_file, line, sizeof(line)-1);
@@ -329,10 +328,12 @@ void probe_usb_mass(char *product, int connected_only)
 }
 
 
+#define MNT_DETACH 0x00000002 /* from linux/fs.h */
+
 /* Unmount.
  * If the special flagfile is now revealed, delete it and [attempt to] delete the directory.
  */
-int umountdir(char *umount_dir)
+int umountdir(char *umount_dir, int lazy)
 {
 	int ret, count;
 	char flagfn[128];
@@ -342,6 +343,11 @@ int umountdir(char *umount_dir)
 	while ((ret = umount(umount_dir)) && (count < 2)) {
 		count++;
 		sleep(1);
+	}
+
+	if (ret && lazy) {
+		/* make one more try to do a lazy unmount */
+		ret = umount2(umount_dir, MNT_DETACH);
 	}
 
 	if (!ret) {
@@ -383,11 +389,12 @@ int try_automount(void)
  *	Zero = Do all partitions of the single host that matches 'host'.
  *   
  *   host: host no to unmount or remount.
+ *   user: whether or not the process is initiated by a user from the Web GUI.
  *
  * Returns the # of devices mounted.
  */
 
-int process_all_usb_part(int do_mount, int do_all, uint host)
+int process_all_usb_part(int do_mount, int do_all, int host, int user)
 {
 	DIR *usb_dev_disc, *usb_dev_part;
 	char usb_disc[128], mnt_dev[128], mnt_dir[128];
@@ -395,12 +402,14 @@ int process_all_usb_part(int do_mount, int do_all, uint host)
 	struct dirent *dp, *dp_disc;
 	struct mntent *mnt;
 	int is_mounted = 0, is_unmounted, connected;
-	uint disc_no, host_no;
+	int disc_no, host_no;
 	int is_disc, i, mnt_r;
 	char *cp;
 	struct stat statbuf;
 
 	usb_dev_disc = usb_dev_part = NULL;
+
+	simple_lock("usbhp");	/* serialize using breakable file lock */
 
 	if ((usb_dev_disc = opendir(DEV_DISCS_ROOT))) {
 
@@ -504,12 +513,12 @@ int process_all_usb_part(int do_mount, int do_all, uint host)
 						 */
 						mnt = findmntent(mnt_dev);
 						if (mnt) {
-							if (host != 0) {
+							if (user) {
 								// unmount from Web
 								// kill all NAS apps here so they are not keeping the device busy
 								restart_nas_services(0);
 							}
-							umountdir(mnt->mnt_dir);
+							umountdir(mnt->mnt_dir, (!user));
 							is_unmounted++;
 						}
 					}
@@ -533,11 +542,12 @@ int process_all_usb_part(int do_mount, int do_all, uint host)
 		if (do_mount <= 0) {
 			while ((mnt = findmntent(""))) {
 				//cprintf("dangling mnt_dev has mnt_dir: %s\n", mnt->mnt_dir);
-				umountdir(mnt->mnt_dir);
+				umountdir(mnt->mnt_dir, 1);
 			}
 		}
 	}
 
+	simple_unlock("usbhp");
 	return is_mounted;
 }
 
@@ -610,26 +620,13 @@ int process_all_usb_part(int do_mount, int do_all, uint host)
    Maybe later.....
  */
 
-void remove_usb_mass(char *product)
-{
-	if (product == NULL) {
-		/* Unmount all partitions */
-		process_all_usb_part(0, 1, 0);
-	}
-	else {
-		/* Unmount all partitions on nonattached discs */
-		process_all_usb_part(-1, 1, 0);
-	}
-}
-
-
 /* insert usb mass storage */
 void hotplug_usb_mass(char *product)
 {	
 	_dprintf("%s %s product=%s\n", __FILE__, __FUNCTION__, product);
 	if (!nvram_match("usb_automount", "1")) return;
 
-	if (process_all_usb_part(1, 1, 0)) {	/* Mount all partitions. */
+	if (process_all_usb_part(1, 1, 0, 0)) {	/* Mount all partitions. */
 		// restart all NAS applications
 		restart_nas_services(1);
 	}
@@ -648,46 +645,8 @@ void remove_storage_main(void)
 			run_nvscript("script_usbumount", NULL, 5);
 		}
 	}
-	remove_usb_mass(NULL);
-}
-
-
-#define HP_SEM_KEY 0x1492
-static struct sembuf hp_lock_cmd = {0 , -1, SEM_UNDO};
-static struct sembuf hp_unlock_cmd = {0 , 1, SEM_UNDO};
-
-
-key_t hp_lock(void)
-{
-	key_t semid;
-	union semun {
-		int val;	/* value for SETVAL */
-	};
-	union semun arg;
-
-	if ((semid = semget(HP_SEM_KEY, 0, 0)) == -1) {
-		/* Semaphore does not exist - create */
-		if ((semid = semget(HP_SEM_KEY, 1, 0666 | IPC_CREAT | IPC_EXCL)) != -1) {
-			/* Initialize semaphore */
-			arg.val = 1;
-			semctl(semid, 0, SETVAL, arg);
-		}
-		else if (errno == EEXIST) {
-			/* Already exists */
-			semid = semget(HP_SEM_KEY, 0, 0);
-		}
-	}
-	/* No error checking---it better work!! */
-	if (semid != -1)
-		semop(semid, &hp_lock_cmd, 1);
-	return semid;
-}
-
-
-void hp_unlock(key_t semid)
-{
-	if (semid != -1)
-		semop(semid, &hp_unlock_cmd, 1);
+	/* Unmount all partitions */
+	process_all_usb_part(0, 1, 0, 0);
 }
 
 
@@ -731,7 +690,6 @@ void hotplug_usb(void)
 		syslog(LOG_INFO, "usb-hotplug: waiting for device to settle before scanning");
 		sleep(2);
 	}
-	key_t semid = hp_lock();
 
 	if (strncmp(interface, "TOMATO/", 7) == 0) {	/* web admin */
 		host = atoi(product);
@@ -746,11 +704,11 @@ void hotplug_usb(void)
 			 *
 			 * # INTERFACE=TOMATO/1 ACTION=remove PRODUCT=-1 hotplug usb
 			 */
-			process_all_usb_part(0, host < 0 ? 1 : 0, host);
+			process_all_usb_part(0, host < 0 ? 1 : 0, host, 1);
 			restart_nas_services(1);
 		}
 		else {	/* Remounting a single host */
-			if (process_all_usb_part(1, 0, host))
+			if (process_all_usb_part(1, 0, host, 1))
 				restart_nas_services(1);
 			if (nvram_match("usb_storage", "1")) {
 				//run post-mount script if any
@@ -768,7 +726,7 @@ void hotplug_usb(void)
 		}
 		else {
 			// unmount the device even if usb storage is disabled in the GUI
-			remove_usb_mass(product);
+			process_all_usb_part(-1, 1, 0, 0);	// unmount all partitions on non-attached discs
 			restart_nas_services(1);
 		}
 	}
@@ -776,6 +734,4 @@ void hotplug_usb(void)
 		/* For now, do nothing.  The user's hotplug script must do it all. */
 		run_nvscript("script_usbhotplug", NULL, 2);
 	}
-
-	hp_unlock(semid);
 }

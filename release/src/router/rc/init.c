@@ -932,9 +932,7 @@ int init_main(int argc, char *argv[])
 			if (automnt) {
 				nvram_set("usb_automount", "1");
 				if (nvram_match("usb_enable", "1") && nvram_match("usb_storage", "1")) {
-					key_t semid = hp_lock();
 					hotplug_usb_mass(NULL);
-					hp_unlock(semid);
 				}
 			}
 

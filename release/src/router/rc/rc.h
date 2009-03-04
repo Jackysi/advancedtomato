@@ -189,8 +189,6 @@ extern void restart_nas_services(int start);
 // usb.c
 extern void start_usb(void);
 extern void stop_usb(void);
-extern key_t hp_lock(void);
-extern void hp_unlock(key_t semid);
 extern void hotplug_usb(void);
 extern void probe_usb_mass(char *product, int connected_only);
 extern void hotplug_usb_mass(char *product);
