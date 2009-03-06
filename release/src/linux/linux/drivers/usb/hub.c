@@ -142,14 +142,15 @@ static void hub_irq(struct urb *urb)
 static void usb_hub_power_on(struct usb_hub *hub)
 {
 	int i;
+	unsigned pgood_delay = hub->descriptor->bPwrOn2PwrGood * 2;
 
 	/* Enable power to the ports */
 	dbg("enabling power on all ports");
 	for (i = 0; i < hub->descriptor->bNbrPorts; i++)
 		usb_set_port_feature(hub->dev, i + 1, USB_PORT_FEAT_POWER);
 
-	/* Wait for power to be enabled */
-	wait_ms(hub->descriptor->bPwrOn2PwrGood * 2);
+	/* Wait at least 100 msec for power to become stable */
+	wait_ms(max(pgood_delay, (unsigned) 100));
 }
 
 static int usb_hub_configure(struct usb_hub *hub, struct usb_endpoint_descriptor *endpoint)
