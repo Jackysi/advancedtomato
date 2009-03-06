@@ -882,6 +882,13 @@ static void call_policy_interface (char *verb, struct usb_device *dev, int inter
 		dev->descriptor.idProduct,
 		dev->descriptor.bcdDevice) + 1;
 
+	/* The Scsi storage host #, if there is one. */
+	if (dev->storage_host_number > 0) {
+		envp [i++] = scratch;
+		scratch += sprintf (scratch, "SCSI_HOST=%d",
+			dev->storage_host_number - 1) + 1;
+	}
+
 	/* class-based driver binding models */
 	envp [i++] = scratch;
 	scratch += sprintf (scratch, "TYPE=%d/%d/%d",

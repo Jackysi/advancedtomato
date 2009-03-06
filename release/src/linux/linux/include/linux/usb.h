@@ -880,6 +880,8 @@ struct usb_device {
 	struct list_head inodes;
 	struct list_head filelist;
 
+	int storage_host_number;	/* 1+SCSI storage host number. 0 means not set/unknown. */
+
 	/*
 	 * Child devices - these can be either new devices
 	 * (if this is a hub device), or different instances
