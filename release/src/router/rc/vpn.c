@@ -39,6 +39,13 @@ void start_vpnclient(int clientNum)
 	enum { BRIDGE, NAT, NONE } routeMode = NONE;
 	int nvi, ip[4], nm[4];
 
+	sprintf(&buffer[0], "vpnclient%d", clientNum);
+	if ( pidof(&buffer[0]) >= 0 )
+	{
+		syslog(LOG_INFO, "VPN Client %d already running...", clientNum);
+		return;
+	}
+
 	// Determine interface
 	sprintf(&buffer[0], "vpn_client%d_if", clientNum);
 	if ( nvram_contains_word(&buffer[0], "tap") )
@@ -341,6 +348,13 @@ void start_vpnserver(int serverNum)
 	enum { TAP, TUN } ifType = TUN;
 	enum { TLS, SECRET, CUSTOM } cryptMode = CUSTOM;
 	int nvi, ip[4], nm[4];
+
+	sprintf(&buffer[0], "vpnserver%d", serverNum);
+	if ( pidof(&buffer[0]) >= 0 )
+	{
+		syslog(LOG_INFO, "VPN Server %d already running...", serverNum);
+		return;
+	}
 
 	// Determine interface type
 	sprintf(&buffer[0], "vpn_server%d_if", serverNum);
