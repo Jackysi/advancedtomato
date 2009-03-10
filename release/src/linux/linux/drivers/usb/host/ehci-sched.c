@@ -426,6 +426,10 @@ static int qh_link_periodic (struct ehci_hcd *ehci, struct ehci_qh *qh)
 	unsigned	i;
 	unsigned	period = qh->period;
 
+	ehci_vdbg (ehci, "link qh %d-%04x/%p start %d [%d/%d us]\n",
+		period, le32_to_cpup(&qh->hw_info2) & (QH_CMASK | QH_SMASK),
+		qh, qh->start, qh->usecs, qh->c_usecs);
+
 	/* high bandwidth, or otherwise every microframe */
 	if (period == 0)
 		period = 1;
@@ -439,7 +443,7 @@ static int qh_link_periodic (struct ehci_hcd *ehci, struct ehci_qh *qh)
 		/* skip the iso nodes at list head */
 		while (here.ptr) {
 			type = Q_NEXT_TYPE(*hw_p);
-			if (type == cpu_to_le32(Q_TYPE_QH))
+			if (type == Q_TYPE_QH)
 				break;
 			prev = periodic_next_shadow(prev, type);
 			hw_p = &here.qh->hw_next;
@@ -537,7 +541,7 @@ static void intr_deschedule (
 	 * active high speed queues may need bigger delays...
 	 */
 	if (list_empty (&qh->qtd_list)
-			|| (cpu_to_le32(QH_CMASK)
+			|| (__constant_cpu_to_le32(QH_CMASK)
 					& qh->hw_info2) != 0)
 		wait = 2;
 	else
@@ -718,8 +722,8 @@ static int qh_schedule (struct ehci_hcd *ehci, struct ehci_qh *qh)
 		/* reset S-frame and (maybe) C-frame masks */
 		qh->hw_info2 &= ~__constant_cpu_to_le32(0xffff);
 		qh->hw_info2 |= qh->period
-                        ? cpu_to_le32(1 << uframe)
-                        : cpu_to_le32(QH_SMASK);
+			? cpu_to_le32(1 << uframe)
+			: __constant_cpu_to_le32(QH_SMASK);
 		qh->hw_info2 |= c_mask;
 	} else
 		dbg ("reused previous qh %p schedule", qh);

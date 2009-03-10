@@ -280,6 +280,9 @@ ehci_urb_done (struct ehci_hcd *ehci, struct urb *urb, struct pt_regs *regs)
 static void start_unlink_async (struct ehci_hcd *ehci, struct ehci_qh *qh);
 static void unlink_async (struct ehci_hcd *ehci, struct ehci_qh *qh);
 
+static void intr_deschedule (struct ehci_hcd *ehci, struct ehci_qh *qh, int wait0);
+static int qh_schedule (struct ehci_hcd *ehci, struct ehci_qh *qh); 
+
 /*
  * Process and free completed qtds for a qh, returning URBs to drivers.
  * Chases up to qh->hw_current.  Returns number of completions called,
@@ -429,7 +432,23 @@ halt:
 			qh_refresh(ehci, qh);
 			break;
 		case QH_STATE_LINKED:
-			unlink_async (ehci, qh);
+			/* We won't refresh a QH that's linked (after the HC
+			 * stopped the queue).  That avoids a race:
+			 *  - HC reads first part of QH;
+			 *  - CPU updates that first part and the token;
+			 *  - HC reads rest of that QH, including token
+			 * Result:  HC gets an inconsistent image, and then
+			 * DMAs to/from the wrong memory (corrupting it).
+			 *
+			 * That should be rare for interrupt transfers,
+			 * except maybe high bandwidth ...
+			 */
+			if ((__constant_cpu_to_le32(QH_SMASK)
+					& qh->hw_info2) != 0) {
+				intr_deschedule (ehci, qh, 0);
+				(void) qh_schedule (ehci, qh);
+			} else
+				unlink_async (ehci, qh);
 			break;
 		/* otherwise, unlink already started */
 		}
