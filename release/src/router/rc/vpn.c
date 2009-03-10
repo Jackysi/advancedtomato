@@ -24,8 +24,8 @@
 #define CLIENT_IF_START 10
 #define SERVER_IF_START 20
 
-#define BUF_SIZE 64
-#define IF_SIZE 6
+#define BUF_SIZE 96
+#define IF_SIZE 8
 
 void start_vpnclient(int clientNum)
 {
@@ -340,11 +340,12 @@ void stop_vpnclient(int clientNum)
 
 void start_vpnserver(int serverNum)
 {
-	FILE *fp;
+	FILE *fp, *ccd;
 	char buffer[BUF_SIZE];
 	char iface[IF_SIZE];
-	char *argv[5];
+	char *argv[6], *chp, *route;
 	int argc = 0;
+	int c2c = 0;
 	enum { TAP, TUN } ifType = TUN;
 	enum { TLS, SECRET, CUSTOM } cryptMode = CUSTOM;
 	int nvi, ip[4], nm[4];
@@ -434,7 +435,7 @@ void start_vpnserver(int serverNum)
 		return;
 	}
 
-	// Build and write config file
+	// Build and write config files
 	sprintf(&buffer[0], "/etc/openvpn/server%d.ovpn", serverNum);
 	fp = fopen(&buffer[0], "w");
 	chmod(&buffer[0], S_IRUSR|S_IWUSR);
@@ -495,6 +496,84 @@ void start_vpnserver(int serverNum)
 			sscanf(nvram_safe_get("lan_netmask"), "%d.%d.%d.%d", &nm[0], &nm[1], &nm[2], &nm[3]);
 			fprintf(fp, "push \"route %d.%d.%d.%d %s\"\n", ip[0]&nm[0], ip[1]&nm[1], ip[2]&nm[2], ip[3]&nm[3],
 			        nvram_safe_get("lan_netmask"));
+		}
+
+		sprintf(&buffer[0], "vpn_server%d_ccd", serverNum);
+		if ( nvram_get_int(&buffer[0]) )
+		{
+			fprintf(fp, "client-config-dir server%d-ccd\n", serverNum);
+
+			sprintf(&buffer[0], "vpn_server%d_c2c", serverNum);
+			if ( (c2c = nvram_get_int(&buffer[0])) )
+				fprintf(fp, "client-to-client\n");
+
+			sprintf(&buffer[0], "vpn_server%d_ccd_excl", serverNum);
+			if ( nvram_get_int(&buffer[0]) )
+				fprintf(fp, "ccd-exclusive\n");
+
+			sprintf(&buffer[0], "/etc/openvpn/server%d-ccd", serverNum);
+			mkdir(&buffer[0], 0700);
+			chdir(&buffer[0]);
+
+			sprintf(&buffer[0], "vpn_server%d_ccd_val", serverNum);
+			strcpy(&buffer[0], nvram_safe_get(&buffer[0]));
+			chp = strtok(&buffer[0],">");
+			while ( chp != NULL )
+			{
+				nvi = strlen(chp);
+
+				chp[strcspn(chp,"<")] = '\0';
+				_dprintf("CCD: enabled: %d", atoi(chp));
+				if ( atoi(chp) == 1 )
+				{
+					nvi -= strlen(chp)+1;
+					chp += strlen(chp)+1;
+
+					ccd = NULL;
+					route = NULL;
+					if ( nvi > 0 )
+					{
+						chp[strcspn(chp,"<")] = '\0';
+						_dprintf("CCD: Common name: %s", chp);
+						ccd = fopen(chp, "w");
+						chmod(chp, S_IRUSR|S_IWUSR);
+
+						nvi -= strlen(chp)+1;
+						chp += strlen(chp)+1;
+					}
+					if ( nvi > 0 && ccd != NULL && strcspn(chp,"<") != strlen(chp) )
+					{
+						chp[strcspn(chp,"<")] = ' ';
+						chp[strcspn(chp,"<")] = '\0';
+						route = chp;
+						_dprintf("CCD: Route: %s", chp);
+						if ( strlen(route) > 1 )
+						{
+							fprintf(ccd, "iroute %s\n", route);
+							fprintf(fp, "route %s\n", route);
+						}	
+
+						nvi -= strlen(chp)+1;
+						chp += strlen(chp)+1;
+					}
+					if ( ccd != NULL )
+						fclose(ccd);
+					if ( nvi > 0 && route != NULL )
+					{
+						chp[strcspn(chp,"<")] = '\0';
+						_dprintf("CCD: Push: %d", atoi(chp));
+						if ( c2c && atoi(chp) == 1 && strlen(route) > 1 )
+							fprintf(fp, "push \"route %s\"\n", route);
+
+						nvi -= strlen(chp)+1;
+						chp += strlen(chp)+1;
+					}
+
+					_dprintf("CCD processing: %d", nvi);
+				}
+				// Advance to next entry
+				chp = strtok(NULL, ">");
+			}
 		}
 
 		sprintf(&buffer[0], "vpn_server%d_hmac", serverNum);

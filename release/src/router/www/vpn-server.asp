@@ -19,9 +19,13 @@
 <script type='text/javascript' src='tomato.js'></script>
 <script type='text/javascript'>
 
-//	<% nvram("vpn_server1_if,vpn_server1_proto,vpn_server1_port,vpn_server1_firewall,vpn_server1_sn,vpn_server1_nm,vpn_server1_local,vpn_server1_remote,vpn_server1_dhcp,vpn_server1_r1,vpn_server1_r2,vpn_server1_crypt,vpn_server1_comp,vpn_server1_cipher,vpn_server1_hmac,vpn_server1_custom,vpn_server1_static,vpn_server1_ca,vpn_server1_crt,vpn_server1_key,vpn_server1_dh,vpn_server2_if,vpn_server2_proto,vpn_server2_port,vpn_server2_firewall,vpn_server2_sn,vpn_server2_nm,vpn_server2_local,vpn_server2_remote,vpn_server2_dhcp,vpn_server2_r1,vpn_server2_r2,vpn_server2_crypt,vpn_server2_comp,vpn_server2_cipher,vpn_server2_hmac,vpn_server2_custom,vpn_server2_static,vpn_server2_ca,vpn_server2_crt,vpn_server2_key,vpn_server2_dh"); %>
+//	<% nvram("vpn_server1_if,vpn_server1_proto,vpn_server1_port,vpn_server1_firewall,vpn_server1_sn,vpn_server1_nm,vpn_server1_local,vpn_server1_remote,vpn_server1_dhcp,vpn_server1_r1,vpn_server1_r2,vpn_server1_crypt,vpn_server1_comp,vpn_server1_cipher,vpn_server1_hmac,vpn_server1_ccd,vpn_server1_c2c,vpn_server1_ccd_excl,vpn_server1_ccd_val,vpn_server1_custom,vpn_server1_static,vpn_server1_ca,vpn_server1_crt,vpn_server1_key,vpn_server1_dh,vpn_server2_if,vpn_server2_proto,vpn_server2_port,vpn_server2_firewall,vpn_server2_sn,vpn_server2_nm,vpn_server2_local,vpn_server2_remote,vpn_server2_dhcp,vpn_server2_r1,vpn_server2_r2,vpn_server2_crypt,vpn_server2_comp,vpn_server2_cipher,vpn_server2_hmac,vpn_server2_ccd,vpn_server2_c2c,vpn_server2_ccd_excl,vpn_server2_ccd_val,vpn_server2_custom,vpn_server2_static,vpn_server2_ca,vpn_server2_crt,vpn_server2_key,vpn_server2_dh"); %>
+
+function CCDGrid() { return this; }
+CCDGrid.prototype = new TomatoGrid;
 
 tabs = [['server1', 'Server 1'],['server2', 'Server 2']];
+ccdTables = [new CCDGrid(), new CCDGrid()];
 ciphers = [['default','Use Default'],['none','None']<% vpnciphers(); %>];
 
 changed = 0;
@@ -72,6 +76,9 @@ function verifyFields(focused, quiet)
 				if ( fom._service.value != "" ) fom._service.value += ",";
 				fom._service.value += 'vpnserver'+servernumber+'-restart';
 			}
+			
+			if (focused.name.indexOf("_c2c") >= 0)
+				ccdTables[servernumber-1].reDraw();
 		}
 	}
 
@@ -98,6 +105,7 @@ function verifyFields(focused, quiet)
 		iface = E('_vpn_'+t+'_if');
 		hmac = E('_vpn_'+t+'_hmac');
 		dhcp = E('_f_vpn_'+t+'_dhcp');
+		ccd = E('_f_vpn_'+t+'_ccd');
 
 		elem.display(PR('_vpn_'+t+'_ca'), PR('_vpn_'+t+'_crt'), PR('_vpn_'+t+'_dh'), PR('_vpn_'+t+'_key'), PR('_vpn_'+t+'_hmac'), auth.value == "tls");
 		elem.display(PR('_vpn_'+t+'_static'), auth.value == "secret" || (auth.value == "tls" && hmac.value >= 0));
@@ -106,9 +114,91 @@ function verifyFields(focused, quiet)
 		elem.display(PR('_f_vpn_'+t+'_dhcp'), auth.value == "tls" && iface.value == "tap");
 		elem.display(E(t+'_range'), !dhcp.checked);
 		elem.display(PR('_vpn_'+t+'_local'), auth.value == "secret" && iface.value == "tun");
+		elem.display(PR('_f_vpn_'+t+'_ccd'), auth.value == "tls");
+		elem.display(PR('_f_vpn_'+t+'_c2c'),PR('_f_vpn_'+t+'_ccd_excl'),PR('table_'+t+'_ccd'), auth.value == "tls" && ccd.checked);
 	}
 
 	return ret;
+}
+
+CCDGrid.prototype.verifyFields = function(row, quiet)
+{
+	var ret = 1;
+
+	// When settings change, make sure we restart the right server
+	var fom = E('_fom');
+	var servernum = 1;
+	for (i = 0; i < tabs.length; ++i)
+	{
+		if (ccdTables[i] == this)
+		{
+			servernum = i+1;
+			if (eval('vpn'+(i+1)+'up') && fom._service.value.indexOf('server'+(i+1)) < 0)
+			{
+				if ( fom._service.value != "" ) fom._service.value += ",";
+				fom._service.value += 'vpnserver'+(i+1)+'-restart';
+			}
+		}
+	}
+
+	var f = fields.getAll(row);
+
+	// Verify fields in this row of the table
+	if (f[1].value == "") { ferror.set(f[1], "Common name is mandatory.", quiet); ret = 0; }
+	if (f[1].value.indexOf('>') >= 0 || f[1].value.indexOf('<') >= 0) { ferror.set(f[1], "Common name cannot contain '<' or '>' characters.", quiet); ret = 0; }
+	if (f[2].value != "" && !v_ip(f[2],quiet,0)) ret = 0;
+	if (f[3].value != "" && !v_netmask(f[3],quiet)) ret = 0;
+	if (f[2].value == "" && f[3].value != "" ) { ferror.set(f[2], "Either both or neither subnet and netmask must be provided.", quiet); ret = 0; }
+	if (f[3].value == "" && f[2].value != "" ) { ferror.set(f[3], "Either both or neither subnet and netmask must be provided.", quiet); ret = 0; }
+	if (f[4].checked && (f[2].value == "" || f[3].value == "")) { ferror.set(f[4], "Cannot push routes if they're not given. Please provide subnet/netmask.", quiet); ret = 0; }
+
+	return ret;
+}
+
+CCDGrid.prototype.fieldValuesToData = function(row)
+{
+	var f = fields.getAll(row);
+	return [f[0].checked?1:0, f[1].value, f[2].value, f[3].value, f[4].checked?1:0];
+}
+
+CCDGrid.prototype.dataToView = function(data)
+{
+	var c2c = false;
+	for (i = 0; i < tabs.length; ++i)
+	{
+		if (ccdTables[i] == this && E('_f_vpn_server'+(i+1)+'_c2c').checked )
+			c2c = true;
+	}
+
+	var temp = ['<input type=\'checkbox\' style="opacity:1" disabled'+(data[0]!=0?' checked':'')+'>',
+	            data[1],
+	            data[2],
+	            data[3],
+	            c2c?'<input type=\'checkbox\' style="opacity:1" disabled'+(data[4]!=0?' checked':'')+'>':'N/A'];
+
+	var v = [];
+	for (var i = 0; i < temp.length; ++i)
+		v.push(i==0||i==4?temp[i]:escapeHTML('' + temp[i]));
+
+	return v;
+}
+
+CCDGrid.prototype.dataToFieldValues = function(data)
+{
+	return [data[0] == 1, data[1], data[2], data[3], data[4] == 1];
+}
+
+CCDGrid.prototype.reDraw = function()
+{
+	var i, j, header, data, view;
+	data = this.getAllData();
+	header = this.header ? this.header.rowIndex + 1 : 0;
+	for (i = 0; i < data.length; ++i)
+	{
+		view = this.dataToView(data[i]);
+		for (j = 0; j < view.length; ++j)
+			this.tb.rows[i+header].cells[j].innerHTML = view[j];
+	}
 }
 
 function save()
@@ -119,14 +209,51 @@ function save()
 
 	for (i = 0; i < tabs.length; ++i)
 	{
+		if (ccdTables[i].isEditing()) return;
+
 		t = tabs[i][0];
 
+		var data = ccdTables[i].getAllData();
+		var ccd = '';
+
+		for (j = 0; j < data.length; ++j)
+			ccd += data[j].join('<') + '>';
+
 		E('vpn_'+t+'_dhcp').value = E('_f_vpn_'+t+'_dhcp').checked ? 1 : 0;
+		E('vpn_'+t+'_ccd').value = E('_f_vpn_'+t+'_ccd').checked ? 1 : 0;
+		E('vpn_'+t+'_c2c').value = E('_f_vpn_'+t+'_c2c').checked ? 1 : 0;
+		E('vpn_'+t+'_ccd_excl').value = E('_f_vpn_'+t+'_ccd_excl').checked ? 1 : 0;
+		E('vpn_'+t+'_ccd_val').value = ccd;
 	}
 
 	form.submit(fom, 1);
 
 	changed = 0;
+}
+
+function ccdInit()
+{
+	for (i = 0; i < tabs.length; ++i)
+	{
+		t = tabs[i][0];
+
+		ccdTables[i].init('table_'+t+'_ccd', 'sort', 0, [{ type: 'checkbox' }, { type: 'text' }, { type: 'text', maxlen: 15 }, { type: 'text', maxlen: 15 }, { type: 'checkbox' }]);
+		ccdTables[i].headerSet(['Enable', 'Common Name', 'Subnet', 'Netmask', 'Push']);
+		var ccdVal = eval( 'nvram.vpn_'+t+'_ccd_val' );
+		if (ccdVal.length)
+		{
+			var s = ccdVal.split('>');
+			for (var j = 0; j < s.length; ++j)
+			{
+				if (!s[j].length) continue;
+				var row = s[j].split('<');
+				if (row.length == 5)
+					ccdTables[i].insertData(-1, row);
+			}
+		}
+		ccdTables[i].showNewEditor();
+		ccdTables[i].resetNewEditor();
+	}
 }
 </script>
 
@@ -163,6 +290,10 @@ for (i = 0; i < tabs.length; ++i)
 	t = tabs[i][0];
 	W('<div id=\''+t+'-tab\'>');
 	W('<input type=\'hidden\' id=\'vpn_'+t+'_dhcp\' name=\'vpn_'+t+'_dhcp\'>');
+	W('<input type=\'hidden\' id=\'vpn_'+t+'_ccd\' name=\'vpn_'+t+'_ccd\'>');
+	W('<input type=\'hidden\' id=\'vpn_'+t+'_c2c\' name=\'vpn_'+t+'_c2c\'>');
+	W('<input type=\'hidden\' id=\'vpn_'+t+'_ccd_excl\' name=\'vpn_'+t+'_ccd_excl\'>');
+	W('<input type=\'hidden\' id=\'vpn_'+t+'_ccd_val\' name=\'vpn_'+t+'_ccd_val\'>');
 	createFieldTable('', [
 		{ title: 'Interface Type', name: 'vpn_'+t+'_if', type: 'select', options: [ ['tap','TAP'], ['tun','TUN'] ], value: eval( 'nvram.vpn_'+t+'_if' ) },
 		{ title: 'Protocol', name: 'vpn_'+t+'_proto', type: 'select', options: [ ['udp','UDP'], ['tcp-server','TCP'] ], value: eval( 'nvram.vpn_'+t+'_proto' ) },
@@ -183,6 +314,10 @@ for (i = 0; i < tabs.length; ++i)
 			{ name: 'vpn_'+t+'_remote', type: 'text', maxlen: 15, size: 17, value: eval( 'nvram.vpn_'+t+'_remote' ) } ] },
 		{ title: 'Encryption cipher', name: 'vpn_'+t+'_cipher', type: 'select', options: ciphers, value: eval( 'nvram.vpn_'+t+'_cipher' ) },
 		{ title: 'Compression', name: 'vpn_'+t+'_comp', type: 'select', options: [ ['yes', 'Enabled'], ['no', 'Disabled'], ['adaptive', 'Adaptive'] ], value: eval( 'nvram.vpn_'+t+'_comp' ) },
+		{ title: 'Manage Client-Specific Options', name: 'f_vpn_'+t+'_ccd', type: 'checkbox', value: eval( 'nvram.vpn_'+t+'_ccd' ) != 0 },
+		{ title: 'Allow Client<->Client', name: 'f_vpn_'+t+'_c2c', type: 'checkbox', value: eval( 'nvram.vpn_'+t+'_c2c' ) != 0 },
+		{ title: 'Allow Only These Clients', name: 'f_vpn_'+t+'_ccd_excl', type: 'checkbox', value: eval( 'nvram.vpn_'+t+'_ccd_excl' ) != 0 },
+		{ title: '', suffix: '<table class=\'tomato-grid\' id=\'table_'+t+'_ccd\'></table>' },
 		{ title: 'Custom Configuration', name: 'vpn_'+t+'_custom', type: 'textarea', value: eval( 'nvram.vpn_'+t+'_custom' ) },
 		{ title: 'Static Key', name: 'vpn_'+t+'_static', type: 'textarea', value: eval( 'nvram.vpn_'+t+'_static' ) },
 		{ title: 'Certificate Authority', name: 'vpn_'+t+'_ca', type: 'textarea', value: eval( 'nvram.vpn_'+t+'_ca' ) },
@@ -205,7 +340,7 @@ for (i = 0; i < tabs.length; ++i)
 </td></tr>
 </table>
 </form>
-<script type='text/javascript'>tabSelect(cookie.get('vpn_server_tab') || tabs[0][0]); verifyFields(null, 1);</script>
+<script type='text/javascript'>tabSelect(cookie.get('vpn_server_tab') || tabs[0][0]); ccdInit(); verifyFields(null, 1);</script>
 </body>
 </html>
 
