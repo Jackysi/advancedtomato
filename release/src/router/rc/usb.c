@@ -37,9 +37,40 @@ void usb_unlock(void)
 }
 
 
+/* Adjust bdflush parameters.
+ * Do this here, because Tomato doesn't have the sysctl command.
+ * With these values, a disk block should be written to disk within 2 seconds.
+ */
+#if 0
+#define SET_PARM(n) (n * 2 | 1)
+
+void tune_bdflush()
+{
+	bdflush(SET_PARM(5), 100);
+	bdflush(SET_PARM(6), 100);
+	bdflush(SET_PARM(8), 0);
+}
+#else
+/* Store values in nvram for customization */
+void tune_bdflush(void)
+{
+	unsigned int v[9];
+	const char *p;
+
+	p = nvram_safe_get("usb_bdflush");
+	// nvram default: 30 500 0 0 100 100 60 0 0
+	if (sscanf(p, "%u%u%u%u%u%u%u%u%u",
+		&v[0], &v[1], &v[2], &v[3], &v[4], &v[5], &v[6], &v[7], &v[8]) == 9) {	// lightly verify
+		f_write_string("/proc/sys/vm/bdflush", p, 0, 0);
+	}
+}
+#endif
+
+
 void start_usb(void)
 {
 	_dprintf("%s\n", __FUNCTION__);
+	tune_bdflush();
 
 	if (nvram_match("usb_enable", "1")) {
 //		led(LED_AOSS, LED_ON);

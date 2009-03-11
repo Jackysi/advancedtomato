@@ -478,6 +478,7 @@ const defaults_t defaults[] = {
 	{ "usb_fs_ext3",		"0"				},
 	{ "usb_fs_fat",			"0"				},
 	{ "usb_automount",		"0"				},
+	{ "usb_bdflush",		"30 500 0 0 100 100 60 0 0"	},
 	{ "script_usbhotplug", 		""				},
 	{ "script_usbmount", 		""				},
 	{ "script_usbumount", 		""				},
