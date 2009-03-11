@@ -528,109 +528,62 @@ void wo_resolve(char *url)
 
 //!!TB - USB support
 
-#define DEV_DISCS_ROOT	"/dev/discs"
 #define PROC_SCSI_ROOT	"/proc/scsi"
 #define USB_STORAGE	"usb-storage"
 
-int is_disc_mounted(uint disc_no, char *parts, int maxpartslen)
+/* this value should not match any of the existing EFH_ values in shared.h */
+#define EFH_PRINT	0x00000080	/* output partition list to the web response */
+
+int is_partition_mounted(char *dev_name, int host_num, int disc_num, int part_num, uint flags)
 {
-	int is_mounted = 0, i = 0;
-	DIR *usb_dev_part;
-	char usb_part[128], usb_disc[128], the_label[256];
-	struct dirent *dp_disc;
+	char the_label[128];
+	int is_mounted = 0;
 	struct mntent *mnt;
 
-	sprintf(usb_disc, "%s/disc%d", DEV_DISCS_ROOT, disc_no);
-
-	if ((usb_dev_part = opendir(usb_disc))) {
-		while (usb_dev_part && (dp_disc = readdir(usb_dev_part))) {
-			if (!strcmp(dp_disc->d_name, "..") || !strcmp(dp_disc->d_name, ".") ||
-					strncmp(dp_disc->d_name, "part", 4))
-				continue;
-
-			sprintf(usb_part, "%s/%s", usb_disc, dp_disc->d_name);
-
-			// [partition_name, is_mounted, mount_point, type, opts],...
-			if (parts) {
-				strlcat(parts, (i == 0) ? "['" : ",['", maxpartslen);
-				if (!find_label(usb_part, the_label)) {
-					sprintf(the_label, "disc%d_%s", disc_no,
-						dp_disc->d_name + (strncmp(dp_disc->d_name, "part", 4) ? 0 : 4));
-				}
-				strlcat(parts, the_label, maxpartslen);
-			}
-			mnt = findmntent(usb_part);
-			if (mnt) {
-				is_mounted = 1;
-				if (parts) {
-					sprintf(the_label, "',1,'%s','%s','%s']",
-						mnt->mnt_dir, mnt->mnt_type, mnt->mnt_opts);
-					strlcat(parts, the_label, maxpartslen);
-				}
-				else
-					break;
-			}
-			else {
-				if (parts) strlcat(parts, "',0,'','','','']", maxpartslen);
-			}
-			i++;
-		}
-		closedir(usb_dev_part);
+	if ((!find_label(dev_name, the_label)) || (!the_label) || (the_label[0] == 0)) {
+		sprintf(the_label, "disc%d_%d", disc_num, part_num);
 	}
 
-	return is_mounted;
-}
-
-int is_host_mounted(uint host_no, char *parts, int maxpartslen)
-{
-	DIR *usb_dev_disc;
-	struct dirent *dp;
-	uint disc_no, host;
-	int i;
-	char usb_host[128], usb_disc[128];
-	char *cp;
-	int is_mounted = 0;
-
-	/* find all attached USB storage devices */
-	if ((usb_dev_disc = opendir(DEV_DISCS_ROOT))) {
-		while ((dp = readdir(usb_dev_disc))) {
-			if (!strcmp(dp->d_name, "..") || !strcmp(dp->d_name, "."))
-				continue;
-
-			/* Disc no. assigned by scsi driver for this UFD */
-			disc_no = atoi(dp->d_name + 4);
-			/* Find the host # for each disc */
-			host = disc_no;
-			sprintf(usb_disc, "%s/disc%d", DEV_DISCS_ROOT, disc_no);
-			i = readlink(usb_disc, usb_host, sizeof(usb_host)-1);
-			if (i > 0) {
-				usb_host[i] = 0;
-				cp = strstr(usb_host, "/scsi/host");
-				if (cp)
-					host = atoi(cp + 10);
-			}
-
-			if (host != host_no)
-				continue;
-		
+	if (flags & EFH_PRINT) {
+		if (flags & EFH_1ST_DISC) {
 			// [disc_no, [partitions array]],...
-			if (parts) {
-				strlcat(parts, (parts[0]) ? ",[" : "[", maxpartslen);
-				strlcat(parts, dp->d_name + 4, maxpartslen);
-				strlcat(parts, ",[", maxpartslen);
-			}
-			if (is_disc_mounted(disc_no, parts, maxpartslen)) {
-				is_mounted = 1;
-				if (!parts) break;
-			}
-			if (parts) strlcat(parts, "]]", maxpartslen);
+			web_printf("]],[%d,[", disc_num);
 		}
-		closedir(usb_dev_disc);
+		// [partition_name, is_mounted, mount_point, type, opts],...
+		web_printf("%s['%s',", (flags & EFH_1ST_DISC) ? "" : ",", the_label);
+	}
+
+	mnt = findmntent(dev_name);
+	if (mnt) {
+		is_mounted = 1;
+		if (flags & EFH_PRINT) {
+			web_printf("1,'%s','%s','%s']",
+				mnt->mnt_dir, mnt->mnt_type, mnt->mnt_opts);
+		}
+	}
+	else {
+		if (flags & EFH_PRINT) {
+			web_puts("0,'','','']");
+		}
 	}
 
 	return is_mounted;
 }
 
+int is_host_mounted(int host_no, int print_parts)
+{
+	if (print_parts) web_puts("[-1,[");
+
+	int mounted = exec_for_host(
+		host_no,
+		0x00,
+		print_parts ? EFH_PRINT : 0,
+		is_partition_mounted);
+	
+	if (print_parts) web_puts("]]");
+
+	return mounted;
+}
 
 /*
  * The disc # doesn't correspond to the host#, since there may be more than
@@ -652,7 +605,6 @@ void asp_usbdevices(int argc, char **argv)
 	int i = 0, attached, mounted;
 	FILE *fp;
 	char line[128];
-	char parts[2048];
 	char *tmp=NULL, g_usb_vendor[25], g_usb_product[20], g_usb_serial[20];
 
 	web_puts("\nusbdev = [");
@@ -712,12 +664,10 @@ void asp_usbdevices(int argc, char **argv)
 					if (attached) {
 						/* Host no. assigned by scsi driver for this UFD */
 						host_no = atoi(dp->d_name);
-
-						parts[0] = 0;
-						mounted = is_host_mounted(host_no, parts, sizeof(parts)-1);
-
-						web_printf("%s['Storage','%d','%s','%s','%s', [%s], %d]", i ? "," : "",
-							host_no, g_usb_vendor, g_usb_product, g_usb_serial, parts, mounted);
+						web_printf("%s['Storage','%d','%s','%s','%s', [", i ? "," : "",
+							host_no, g_usb_vendor, g_usb_product, g_usb_serial);
+						mounted = is_host_mounted(host_no, 1);
+						web_printf("], %d]", mounted);
 						++i;
 					}
 				}
@@ -762,9 +712,31 @@ void asp_usbdevices(int argc, char **argv)
 	web_puts("];\n");
 }
 
+/* Simulate a hotplug event, as if a USB storage device
+ * got plugged or unplugged.
+ * Either use a hardcoded program name, or the same
+ * hotplug program that the kernel uses for a real event.
+ */
 void wo_usbcommand(char *url)
 {
 	char *p;
+
+#ifdef SAME_AS_KERNEL
+	char pgm[256] = "/sbin/hotplug usb";
+	int fd = open("/proc/sys/kernel/hotplug", O_RDONLY);
+	if (fd) {
+		if (read(fd, pgm, sizeof(pgm) - 5) >= 0) {
+			if ((p = strchr(pgm, '\n')) != NULL)
+				*p = 0;
+			strcat(pgm, " usb");
+		}
+		close(fd);
+	}
+#else
+	// don't use value from /proc/sys/kernel/hotplug 
+	// since it may be overriden by a user.
+	const char pgm[] = "/sbin/hotplug usb";
+#endif
 
 	web_puts("\nusb = [\n");
 	if ((p = webcgi_get("remove")) != NULL) {
@@ -774,15 +746,15 @@ void wo_usbcommand(char *url)
 		setenv("ACTION", "add", 1);
 	}
 	if (p) {
+		setenv("SCSI_HOST", p, 1);
 		setenv("PRODUCT", p, 1);
 		setenv("INTERFACE", "TOMATO/0", 1);
-		// don't use value from /proc/sys/kernel/hotplug 
-		// since it may be overriden by a user.
-		system("/sbin/hotplug usb");
+		system(pgm);
 		unsetenv("INTERFACE");
 		unsetenv("PRODUCT");
+		unsetenv("SCSI_HOST");
 		unsetenv("ACTION");
-		web_printf("%d", is_host_mounted(atoi(p), NULL, 0));
+		web_printf("%d", is_host_mounted(atoi(p), 0));
 	}
 	web_puts("];\n");
 }

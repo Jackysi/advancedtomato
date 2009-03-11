@@ -15,6 +15,7 @@
 #include <syslog.h>
 #include <sys/ioctl.h>
 #include <net/if.h>
+#include <dirent.h> //!!TB
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <sys/sysinfo.h>
@@ -457,16 +458,161 @@ int time_ok(void)
 // -----------------------------------------------------------------------------
 //!!TB - USB Support
 
-/* stolen from the e2fsprogs/ismounted.c */
- /* Find wherever 'file' (actually: device) is mounted.
-  * Either the exact same device-name, or another device-name.
-  * The latter is detected by comparing the rdev or dev&inode.
-  * So aliasing won't fool us---we'll still find if it's mounted.
-  * Return its mnt entry.
-  * In particular, the caller would look at the mnt->mountpoint.
-  * If "file" is an empty string, return the mntent of the first
-  * mount that is for a USB disc that is no longer accessible.
-  */
+/* Execute a function for each disc partition on the specified controller.
+ *
+ * Directory /dev/discs/ looks like this:
+ * disc0 -> ../scsi/host0/bus0/target0/lun0/
+ * disc1 -> ../scsi/host1/bus0/target0/lun0/
+ * disc2 -> ../scsi/host2/bus0/target0/lun0/
+ * disc3 -> ../scsi/host2/bus0/target0/lun1/
+ *
+ * Scsi host 2 supports multiple drives.
+ * Scsi host 0 & 1 support one drive.
+ *
+ * For attached drives, like this.  If not attached, there is no "part#" item.
+ * Here, only one drive, with 2 partitions, is plugged in.
+ * /dev/discs/disc0/disc
+ * /dev/discs/disc0/part1
+ * /dev/discs/disc0/part2
+ * /dev/discs/disc1/disc
+ * /dev/discs/disc2/disc
+ *
+ * Which is the same as:
+ * /dev/scsi/host0/bus0/target0/lun0/disc
+ * /dev/scsi/host0/bus0/target0/lun0/part1
+ * /dev/scsi/host0/bus0/target0/lun0/part2
+ * /dev/scsi/host1/bus0/target0/lun0/disc
+ * /dev/scsi/host2/bus0/target0/lun0/disc
+ * /dev/scsi/host2/bus0/target0/lun1/disc
+ *
+ * Implementation notes:
+ * Various mucking about with a disc that just got plugged in or unplugged
+ * will make the scsi subsystem try a re-validate, and read the partition table of the disc.
+ * This will make sure the partitions show up.
+ *
+ * It appears to try to do the revalidate and re-read & update the partition
+ * information when this code does the "readdir of /dev/discs/disc0/?".  If the
+ * disc has any mounted partitions the revalidate will be rejected.  So the
+ * current partition info will remain.  On an unplug event, when it is doing the
+ * readdir's, it will try to do the revalidate as we are doing the readdir's.
+ * But luckily they'll be rejected, otherwise the later partitions will disappear as
+ * soon as we get the first one.
+ * But be very careful!  If something goes not exactly right, the partition entries
+ * will disappear before we've had a chance to unmount from them.
+ *
+ * To avoid this automatic revalidation, we go through /proc/partitions looking for the partitions
+ * that /dev/discs point to.  That will avoid the implicit revalidate attempt.
+ * Which means that we had better do it ourselves.  An ioctl BLKRRPART does just that.
+ * 
+ * 
+ * If host < 0, do all hosts.   If >= 0, it is the host number to do.
+ * When_to_update, flags:
+ *	0x01 = before reading partition info
+ *	0x02 = after reading partition info
+ *
+ */
+
+/* So as not to include linux/fs.h, let's explicitly do this here. */
+#ifndef BLKRRPART
+#define BLKRRPART	_IO(0x12,95)	/* re-read partition table */
+#endif
+
+int exec_for_host(int host, int when_to_update, uint flags, host_exec func)
+{
+	DIR *usb_dev_disc;
+	char bfr[64];	/* Will be: /dev/discs/disc#					*/
+	char link[256];	/* Will be: ../scsi/host#/bus0/target0/lun#  that bfr links to. */
+			/* When calling the func, will be: /dev/discs/disc#/part#	*/
+	char bfr2[64];	/* Will be: /dev/discs/disc#/disc     for the BLKRRPART.	*/
+	int fd;
+	char *cp;
+	int len;
+	int host_no;	/* SCSI controller/host # */
+	int disc_num;	/* Disc # */
+	int part_num;	/* Parition # */
+	struct dirent *dp;
+	FILE *prt_fp;
+	char *mp;	/* Ptr to after any leading ../ path */
+	int siz;
+	char line[256];
+	int result = 0;
+
+	flags |= EFH_1ST_HOST;
+	if ((usb_dev_disc = opendir(DEV_DISCS_ROOT))) {
+		while ((dp = readdir(usb_dev_disc))) {
+			sprintf(bfr, "%s/%s", DEV_DISCS_ROOT, dp->d_name);
+			if (strncmp(dp->d_name, "disc", 4) != 0)
+				continue;
+
+			disc_num = atoi(dp->d_name + 4);
+			len = readlink(bfr, link, sizeof(link) - 1);
+			if (len < 0)
+				continue;
+
+			link[len] = 0;
+			cp = strstr(link, "/scsi/host");
+			if (!cp)
+				continue;
+
+			host_no = atoi(cp + 10);
+			if (host >= 0 && host_no != host)
+				continue;
+
+			/* We have found a disc that is on this controller.
+			 * Loop thru all the partitions on this disc.
+			 * The new way, reading thru /proc/partitions.
+			 */
+			mp = link;
+			if ((cp = strstr(link, "../")) != NULL)
+				mp = cp + 3;
+			strcat(mp, "/part");
+			siz = strlen(mp);
+
+			sprintf(bfr2, "%s/disc", bfr);	/* Prepare for BLKRRPART */
+			if (when_to_update & 0x01) {
+				if ((fd = open(bfr2, O_RDONLY | O_NONBLOCK)) >= 0) {
+					ioctl(fd, BLKRRPART);
+					close(fd);
+				}
+			}
+
+			flags |= EFH_1ST_DISC;
+			if (func && (prt_fp = fopen("/proc/partitions", "r"))) {
+				while (fgets(line, sizeof(line) - 2, prt_fp)) {
+					if (line[0] != ' ')
+						continue;
+					for (cp = line; isdigit(*cp) || isblank(*cp); ++cp)
+						;
+					if (strncmp(cp, mp, siz) == 0) {
+						part_num = atoi(cp + siz);
+						sprintf(line, "%s/part%d", bfr, part_num);
+						result = (*func)(line, host_no, disc_num, part_num, flags) || result;
+						flags &= ~(EFH_1ST_HOST | EFH_1ST_DISC);
+					}
+				}
+				fclose(prt_fp);
+			}
+
+			if (when_to_update & 0x02) {
+				if ((fd = open(bfr2, O_RDONLY | O_NONBLOCK)) >= 0) {
+					ioctl(fd, BLKRRPART);
+					close(fd);
+				}
+			}
+		}
+		closedir(usb_dev_disc);
+	}
+	return result;
+}
+
+/* Stolen from the e2fsprogs/ismounted.c.
+ * Find wherever 'file' (actually: device) is mounted.
+ * Either the exact same device-name, or another device-name.
+ * The latter is detected by comparing the rdev or dev&inode.
+ * So aliasing won't fool us---we'll still find if it's mounted.
+ * Return its mnt entry.
+ * In particular, the caller would look at the mnt->mountpoint.
+ */
 struct mntent *findmntent(char *file)
 {
 	struct mntent 	*mnt;
@@ -487,13 +633,9 @@ struct mntent *findmntent(char *file)
 		}
 	}
 	while ((mnt = getmntent(f)) != NULL) {
-		if (*file == 0 && strncmp(mnt->mnt_fsname, "/dev/discs/", 11) == 0) {
-			if (stat(mnt->mnt_fsname, &st_buf) != 0)
-				break;	/* Device is no longer valid. */
-		}
-
 		if (strcmp(file, mnt->mnt_fsname) == 0)
 			break;
+
 		if (stat(mnt->mnt_fsname, &st_buf) == 0) {
 			if (S_ISBLK(st_buf.st_mode)) {
 				if (file_rdev && (file_rdev == st_buf.st_rdev))

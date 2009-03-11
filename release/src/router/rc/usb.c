@@ -5,21 +5,41 @@
 */
 #include "rc.h"
 
+#include <sys/types.h>
+#include <unistd.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <arpa/inet.h>
 #include <time.h>
 #include <sys/time.h>
 #include <errno.h>
 
-#include <sys/klog.h>
 #include <sys/mount.h>
 #include <mntent.h>
 #include <dirent.h>
+#include <sys/file.h>
+
+
+void usb_lock_init(void)
+{
+	simple_unlock("usbhp");
+}
+
+void usb_lock(void)
+{
+	/* serialize using breakable file lock */
+	simple_lock("usbhp");
+}
+
+void usb_unlock(void)
+{
+	simple_unlock("usbhp");
+}
 
 
 void start_usb(void)
 {
 	_dprintf("%s\n", __FUNCTION__);
-	simple_unlock("usbhp");
 
 	if (nvram_match("usb_enable", "1")) {
 //		led(LED_AOSS, LED_ON);
@@ -56,8 +76,6 @@ void start_usb(void)
 				modprobe("fat");
 				modprobe("vfat");
 			}
-
-			probe_usb_mass(NULL, 1);
 		}
 
 		if (nvram_match("usb_printer", "1")) {
@@ -154,10 +172,9 @@ char *detect_fs_type(char *device)
 #define MOUNT_VAL_RW 	2
 #define MOUNT_VAL_EXIST	3
 
-int mount_r(char *mnt_dev, char *mnt_dir)
+int mount_r(char *mnt_dev, char *mnt_dir, char *type)
 {
 	struct mntent *mnt;
-	char *type;
 	int ret;
 	char options[40];
 	char flagfn[128];
@@ -171,16 +188,15 @@ int mount_r(char *mnt_dev, char *mnt_dir)
 
 	options[0] = 0;
 	
-	if ((type = detect_fs_type(mnt_dev))) 
+	if (type)
 	{
-		unsigned long flags = MS_NOATIME;
+		unsigned long flags = MS_NOATIME | MS_NODEV;
 
 		if (strcmp(type, "swap") == 0 || strcmp(type, "mbr") == 0) {
 			/* not a mountable partition */
 			flags = 0;
 		}
 		if (strcmp(type, "ext2") == 0 || strcmp(type, "ext3") == 0) {
-			flags = flags | MS_NODIRATIME;
 		}
 #ifdef TCONFIG_SAMBASRV
 		else if (strcmp(type, "vfat") == 0) {
@@ -242,27 +258,13 @@ int mount_r(char *mnt_dev, char *mnt_dir)
 
 /* Check if the UFD is still connected because the links created in /dev/discs
  * are not removed when the UFD is  unplugged.
- * The file to read is: /proc/scsi/usb-storage-#/#, where # is
- * the # from the symlink "../scsi/host#/busN/targetN/lunN"
- * that the /dev/discs/discDISK_NO is softlinked to.
+ * The file to read is: /proc/scsi/usb-storage-#/#, where # is the host no.
  * We are looking for "Attached: Yes".
  */
-static int usb_ufd_connected(int disc_no)
+static int usb_ufd_connected(int host_no)
 {
 	char proc_file[128], line[256];
 	FILE *fp;
-	char *cp;
-	int len;
-	int host_no = disc_no;
-
-	sprintf(proc_file, "%s/disc%d", DEV_DISCS_ROOT, disc_no);
-	len = readlink(proc_file, line, sizeof(line)-1);
-	if (len > 0) {
-		line[len] = 0;
-		cp = strstr(line, "/scsi/host");
-		if (cp)
-			host_no = atoi(cp + 10);
-	}
 
 	sprintf(proc_file, "%s/%s-%d/%d", PROC_SCSI_ROOT, USB_STORAGE, host_no, host_no);
 	fp = fopen(proc_file, "r");
@@ -287,352 +289,144 @@ static int usb_ufd_connected(int disc_no)
 }
 
 
-/* Probe USB drive(s) to force usbdev/scsi subsystem to read the partition table(s).
- * 
- *   /dev/disks/discN/anything-non-existant
- *
- * There should be some way to associate the PRODUCT with a disc#, so we can
- * probe just that one newly-inserted or newly-removed drive.  Haven't found it yet, though.
- * It can be done by comparing things.  It's a lot of work, though, and this works just fine.
- * So it's not worth doing.
- * The only problem is that when probing all detached hosts, kernel emits a whole lot of
- * messages to the syslog. Don't know how to suppress them...
- *
- * This needs to be called *after* the umount.
- * This should called *before* the mount.
- * If it is already mounted or open, the driver will reject the revalidation request
- * with "Device busy for revalidation (usage=#)"
- * All kinds of funny things do (and don't!) manage to get the scsi subsystem to
- * read the device's partition table.  This makes _sure_ it gets done.
- */
-void probe_usb_mass(char *product, int connected_only)
-{
-	DIR *usb_dev_disc;
-	struct dirent *dp;
-	char bf[128];
-	struct stat statbuf;
-	int i;
+#ifndef MNT_DETACH
+#define MNT_DETACH	0x00000002      /* from linux/fs.h - just detach from the tree */
+#endif
 
-	if ((usb_dev_disc = opendir(DEV_DISCS_ROOT))) {
-		while (usb_dev_disc && (dp = readdir(usb_dev_disc))) {
-			if (!strcmp(dp->d_name, "..") || !strcmp(dp->d_name, "."))
-				continue;
-			
-			if (!connected_only || usb_ufd_connected(atoi(dp->d_name + 4))) {
-				sprintf(bf, "%s/%s/part0", DEV_DISCS_ROOT, dp->d_name);
-				i = stat(bf, &statbuf);	/* Force the partition table read. */
-			}
-		}
-		closedir(usb_dev_disc);
-	}
-}
-
-
-#define MNT_DETACH 0x00000002 /* from linux/fs.h */
-
-/* Unmount.
+/* Unmount this partition.
  * If the special flagfile is now revealed, delete it and [attempt to] delete the directory.
  */
-int umountdir(char *umount_dir, int lazy)
+int umount_partition(char *dev_name, int host_num, int disc_num, int part_num, uint flags)
 {
-	int ret, count;
-	char flagfn[128];
- 
-	sprintf(flagfn, "%s/.autocreated-dir", umount_dir);
-	count=0;
-	while ((ret = umount(umount_dir)) && (count < 2)) {
-		count++;
-		sleep(1);
-	}
-
-	if (ret && lazy) {
-		/* make one more try to do a lazy unmount */
-		ret = umount2(umount_dir, MNT_DETACH);
-	}
-
-	if (!ret) {
-		syslog(LOG_INFO, "USB partition unmounted from %s", umount_dir);
-		if ((unlink(flagfn) == 0)) {
-			// Only delete the directory if it was auto-created
-			rmdir(umount_dir);
-		}
-	}
-	return ret;
-}
-
-
-int try_automount(void)
-{
-	if (f_exists("/tmp/etc/fstab")) {
-		char *argv[] = { NULL, "-a", NULL };
-		argv[0] = "swapon";
-		_eval(argv, NULL, 0, NULL);
-		argv[0] = "mount";
-		return _eval(argv, NULL, 0, NULL);
-	}
-	return 0;
-}
-
-
-/* Loop through all USB partitions and either
- *	- try to mount them
- *	- try to unmount
- *	- consider only one specific device.
- * parameters:
- *   do_mount:
- *	> 0  = mount.
- *	= 0  = dismount.
- *	< 0  = dismount, but only for discs for which the host adapted is not connected.
- *
- *   do_all
- *	Non-Zero = Mount or unmount all partitions of all hosts.
- *	Zero = Do all partitions of the single host that matches 'host'.
- *   
- *   host: host no to unmount or remount.
- *   user: whether or not the process is initiated by a user from the Web GUI.
- *
- * Returns the # of devices mounted.
- */
-
-int process_all_usb_part(int do_mount, int do_all, int host, int user)
-{
-	DIR *usb_dev_disc, *usb_dev_part;
-	char usb_disc[128], mnt_dev[128], mnt_dir[128];
-	char the_label[128], mnt_dir_label[128];
-	struct dirent *dp, *dp_disc;
 	struct mntent *mnt;
-	int is_mounted = 0, is_unmounted, connected;
-	int disc_no, host_no;
-	int is_disc, i, mnt_r;
-	char *cp;
-	struct stat statbuf;
+	int ret = 1, count;
+	char flagfn[128];
 
-	usb_dev_disc = usb_dev_part = NULL;
-
-	simple_lock("usbhp");	/* serialize using breakable file lock */
-
-	if ((usb_dev_disc = opendir(DEV_DISCS_ROOT))) {
-
-		/* First try to mount using /etc/fstab
-		 * No need to increment is_mounted since this
-		 * will not create new directories.
+	if (flags & EFH_HUNKNOWN) {
+		/* EFH_HUNKNOWN flag is passed if the host was unknown.
+		 * Only unmount disconnected drives in this case.
 		 */
-		if (do_mount > 0) try_automount();
-
-		while ((dp = readdir(usb_dev_disc))) {
-			if (!strcmp(dp->d_name, "..") || !strcmp(dp->d_name, "."))
-				continue;
-
-			/* Disc no. assigned by scsi driver for this UFD when it is first plugged in.
-			 * In the case of devices with multiple luns, each lun will be one disk, all
-			 * on the same scsi host no.
-			 */
-			disc_no = atoi(dp->d_name + 4);
-			host_no = disc_no;
-			/* Find the actual host no in case of multiple luns */
-			sprintf(usb_disc, "%s/disc%d", DEV_DISCS_ROOT, disc_no);
-			i = readlink(usb_disc, the_label, sizeof(the_label)-1);
-			if (i > 0) {
-				the_label[i] = 0;
-				cp = strstr(the_label, "/scsi/host");
-				if (cp)
-					host_no = atoi(cp + 10);
-			}
-			is_unmounted = 0;
-
-			// Files created when the UFD is inserted are not removed when
-			// it is removed. Verify the host device is still inserted. Strip
-			// the "disc" and pass the rest of the string.
-			connected = usb_ufd_connected(disc_no);
-
-			//cprintf("Disc # %d is %s connected.  do_mount: %d\n", disc_no, connected?"": "not", do_mount);
-			if (do_mount > 0 && !connected)
-				/* Can't mount a device that isn't attached. */
-				continue;
-			if (do_mount < 0 && connected)
-				/* Don't dismount devices that are still connected. */
-				continue;
-			if (!do_all && (host != host_no))
-				/* If this request is for a specific host, ignore others */
-				continue;
-
-			/* For all the partitions on this disc.... */
-			sprintf(usb_disc, "%s/%s", DEV_DISCS_ROOT, dp->d_name);
-
-			if ((usb_dev_part = opendir(usb_disc))) {
-				/* The first call to readdir makes the kernel realize "Disk
-				 * change detected".  Except sometime the kernel does it even
-	   			 * before the hotplug event gets send to us.  I think for a
-				 * new device that it has never seen, it does it before
-				 * sending the event.  But if it is a device that it has seen
-				 * before, it doesn't read the partition table immediately,
-				 * but waits until we poke it and then realizes the disk
-				 * change has happened, and *then* reads it.
-				 */
-				while ((dp_disc = readdir(usb_dev_part))) {
-					if (!strcmp(dp_disc->d_name, "..") || !strcmp(dp_disc->d_name, "."))
-						continue;
-
-					sprintf(mnt_dev, "%s/%s/%s", DEV_DISCS_ROOT, dp->d_name, dp_disc->d_name);
-
-					/* Derive the fallback mountpoint directory name. */
-					is_disc = !strcmp(dp_disc->d_name, "disc");
-					if (is_disc)
-						sprintf(mnt_dir, "%s/%s", MOUNT_ROOT, dp->d_name);
-					else 
-						sprintf(mnt_dir, "%s/%s_%s", MOUNT_ROOT, dp->d_name,
-							dp_disc->d_name + (strncmp(dp_disc->d_name, "part", 4) ? 0 : 4));
-
-					if (do_mount > 0) {	/* MOUNTING */
-#if 0
-						/* First "mount -a" call may fail if the device is plugged in
-						 * for the first time, or if it was manually unmounted by calling
-						 * umount command. However, there should be no need in this 
-						 * workaround anymore after probing the device.
-						 */
-						if (automnt)
-							automnt = try_automount();
-#endif
-						if (find_label(mnt_dev, the_label)) {
-							sprintf(mnt_dir_label,"%s/%s", MOUNT_ROOT, the_label);
-							if ((mnt_r = mount_r(mnt_dev, mnt_dir_label))) {
-								if (mnt_r != MOUNT_VAL_EXIST)
-									is_mounted++;
-								continue;
-							}
-						}
-						/* If it didn't mount as "label", fall thru and use derived name. */
-						if ((mnt_r = mount_r(mnt_dev, mnt_dir)) && mnt_r != MOUNT_VAL_EXIST)
-							is_mounted++;
-					}
-					else {	/* DISMOUNTING */
-						/* There was a problem here.
-						 * Under certain weird conditions, the "partN" is no longer in the /proc/partitions,
-						 * but the disc is still mounted as "..../part1".  
-						 * It won't get unmounted because no match.
-						 */
-						mnt = findmntent(mnt_dev);
-						if (mnt) {
-							if (user) {
-								// unmount from Web
-								// kill all NAS apps here so they are not keeping the device busy
-								restart_nas_services(0);
-							}
-							umountdir(mnt->mnt_dir, (!user));
-							is_unmounted++;
-						}
-					}
-				}
-				closedir(usb_dev_part);
-			}
-			if (is_unmounted) {
-				/* If we just unmounted the disc, do a probe on it
-				 * so we won't need to call probe_usb_mass() for all hosts
-				 */
-				sprintf(usb_disc, "%s/%s/part0", DEV_DISCS_ROOT, dp->d_name);
-				i = stat(usb_disc, &statbuf);	/* Force the partition table read. */
-			}
+		if (usb_ufd_connected(host_num))
+			return(0);
+	}
+ 
+	mnt = findmntent(dev_name);
+	if (mnt) {
+		sync();	/* This won't matter if the device is unplugged, though. */
+		sprintf(flagfn, "%s/.autocreated-dir", mnt->mnt_dir);
+		count = 0;
+		while ((ret = umount(mnt->mnt_dir)) && (count < 2)) {
+			count++;
+			sleep(1);
 		}
-		closedir(usb_dev_disc);
 
-		/* Check for dangling devices. The partN entry went away before the umount got done.
-		 * It won't necessarily be *this* disc, it might be *any* disc.
-		 * Do this only _after_ normal processing is completed for all discs.
-		 */
-		if (do_mount <= 0) {
-			while ((mnt = findmntent(""))) {
-				//cprintf("dangling mnt_dev has mnt_dir: %s\n", mnt->mnt_dir);
-				umountdir(mnt->mnt_dir, 1);
+		if (!ret)
+			syslog(LOG_INFO, "USB partition unmounted from %s", mnt->mnt_dir);
+
+		if (ret && ((flags & EFH_USER) == 0)) {
+			/* Make one more try to do a lazy unmount unless it's an unmount
+			 * request from the Web GUI.
+			 * MNT_DETACH will expose the underlying mountpoint directory to all
+			 * except whatever has cd'ed to the mountpoint (thereby making it busy).
+			 * So the unmount can't actually fail. It disappears from the ken of
+			 * everyone else immediately, and from the ken of whomever is keeping it
+			 * busy until they move away from it. And then it disappears for real.
+			 */
+			ret = umount2(mnt->mnt_dir, MNT_DETACH);
+			syslog(LOG_INFO, "USB partition busy - will unmount ASAP from %s", mnt->mnt_dir);
+		}
+
+		if (!ret) {
+			if ((unlink(flagfn) == 0)) {
+				// Only delete the directory if it was auto-created
+				rmdir(mnt->mnt_dir);
 			}
 		}
 	}
-
-	simple_unlock("usbhp");
-	return is_mounted;
+	return(!ret);
 }
 
 
-/* On an occurrance, multiple hotplug events may be fired off.
- * For example, if a hub is plugged or unplugged, an event
- * will be generated for everything downstream of it, plus one for
- * the hub itself.  These are fired off simultaneously, not serially.
- * This means that many many hotplug processes will be running at
- * the same time.
- * There is no reason that we should have to serialize this code, but
- * we have to.  Otherwise we will occasionally get a kernel Oops! when
- * we repeatedly plug and unplug a hub with several USB storage devices
- * connected to it.  This is undoubtedly a bug in the kernel.  Kinda
- * hard to debug, though, since we don't have a console on the router.
- * And nobody in kernel development will care, since all
- * the usb code & methodology has changed in 2.6.
- * Oh well-----serializing this code avoids the problem.
+/* Mount this partition on this disc.
+ * If the device is already mounted on any mountpoint, don't mount it again.
+ * If this is a swap partition, try swapon -a.
+ * If this is a regular partition, try mount -a.
+ *
+ * Before we mount any partitions:
+ *	If the type is swap and /etc/fstab exists, do "swapon -a"
+ *	If /etc/fstab exists, do "mount -a".
+ *  We delay invoking mount because mount will probe all the partitions
+ *	to read the labels, and we don't want it to do that early on.
+ *  We don't invoke swapon until we actually find a swap partition.
  */
+int mount_partition(char *dev_name, int host_num, int disc_num, int part_num, uint flags)
+{
+	char the_label[128], mountpoint[128];
+	int ret = MOUNT_VAL_FAIL;
+	char *type;
+	char *argv[] = { NULL, "-a", NULL };
 
-/* The hotplug event generated by the kernel gives us several pieces
-   of information:
-   PRODUCT is vendorid/productid/rev#.
-   DEVICE is /proc/bus/usb/bus#/dev#
-   ACTION is add or remove
+	if ((type = detect_fs_type(dev_name)) == NULL)
+		return(0);
 
-   I believe that we could somehow use DEVICE to figure out what
-   /dev/discs/disc# is being reported.  This code ignores everything
-   but ACTION, which is either "add" or "remove".  On an add (with
-   automount enabled) we mount every partition on every USB mass
-   storage device that is attached.  However, we decline to re-mount a
-   device that is already mounted.  On a remove, we unmount every
-   mounted device that is not attached.
-
-   Note that when we get a hotplug add event, the USB susbsystem has
-   *not* yet tried to read the partition table of the device.  And on
-   a remove, the partition info has not yet been expunged.  The
-   partitions show up as /dev/discs/disc#/part#, and /proc/partitions.
-   Somewhere along the line, we do _something_ that causes the kernel
-   to re-validate the device and update the partition table info.  To
-   avoid mysterious problems, this code now explictly makes this
-   happen.
-   
-   But this opens up a timing window wider.  If multiple events occur
-   at once, and especially if adds and removes happen all at the same time
-   (rare, but I now know how to make it happen), then the stuff that
-   happens during the add processing will erase the /.../part# entries
-   of the just-removed disc(s) and we now have a dangling mount device.
-   We could't unmount it because we couldn't find the matching /proc/part#
-   device---because it had already been deleted.
-
-   To make this happen: plug in a USB stick and a USB camera card
-   adapter.  Some (all??) adapters only generate a hotplug event when
-   the adapter is plugged in, and do *not* generate an eveen when a
-   new camera card is inserted into the adapter while the adapter is
-   still plugged in.  So......the new card doesn't get mounted.  Now
-   unplug the USB stick.  This generates a hotplug event.  The probing
-   that we do will cause the kernel to revalidate all the devices.
-   This will update the partition information of the camera card, and
-   REMOVE the partition info of the USB stick.  Voila! We jabe a
-   dangling device.  When we go to umount the USB stick (because its
-   controller is not attached), we can't find the matching partition,
-   so don't realize which one we should umount.  The /proc/mounts
-   shows a mount to a device that doesn't exist anymore.  That's fixed
-   now, though, by making a check for that.
-
-   All-in-all, I'm still not too happy with this code.  I really would
-   like to see it mess only with the one device that the event is
-   reporting, rather than mess with (mount or umount) every device.
-   Maybe later.....
- */
-
-/* insert usb mass storage */
-void hotplug_usb_mass(char *product)
-{	
-	_dprintf("%s %s product=%s\n", __FILE__, __FUNCTION__, product);
-	if (!nvram_match("usb_automount", "1")) return;
-
-	if (process_all_usb_part(1, 1, 0, 0)) {	/* Mount all partitions. */
-		// restart all NAS applications
-		restart_nas_services(1);
+	if (f_exists("/etc/fstab")) {
+		if (strcmp(type, "swap") == 0) {
+			argv[0] = "swapon";
+			_eval(argv, NULL, 0, NULL);
+			return(0);
+		}
+		argv[0] = "mount";
+		_eval(argv, NULL, 0, NULL);
 	}
 
-	//run post-mount script if any
-	run_nvscript("script_usbmount", product, 5);
+	if (find_label(dev_name, the_label)) {
+		sprintf(mountpoint, "%s/%s", MOUNT_ROOT, the_label);
+		if ((ret = mount_r(dev_name, mountpoint, type)))
+			return(ret != MOUNT_VAL_EXIST);
+	}
+
+	/* Can't mount to /mnt/LABEL, so try mounting to /mnt/discDN_PN */
+	sprintf(mountpoint, "%s/disc%d_%d", MOUNT_ROOT, disc_num, part_num);
+	ret = mount_r(dev_name, mountpoint, type);
+	return(ret != MOUNT_VAL_FAIL && ret != MOUNT_VAL_EXIST);
+}
+
+
+/* Mount or unmount all partitions on this controller.
+ * Parameter: action_add:
+ * 0  = unmount
+ * >0 = mount only if automount config option is enabled.
+ * <0 = mount regardless of config option.
+ */
+void hotplug_usb_storage_device(int host_no, int action_add, uint flags)
+{
+	if (!nvram_match("usb_enable", "1"))
+		return;
+	_dprintf("%s: host %d action: %d\n", __FUNCTION__, host_no, action_add);
+
+	if (action_add) {
+		if (nvram_match("usb_storage", "1") && (nvram_match("usb_automount", "1") || action_add < 0)) {
+			exec_for_host(host_no, 0x01, flags, mount_partition);
+			restart_nas_services(1); // restart all NAS applications
+			run_nvscript("script_usbmount", NULL, 3);
+		}
+	}
+	else {
+		if (nvram_match("usb_storage", "1") || ((flags & EFH_USER) == 0)) {
+			// when unplugged, unmount the device even if usb storage is disabled in the GUI
+			if (flags & EFH_USER) {
+				/* Unmount from Web.
+				 * Run user pre-unmount script if any,
+				 * and kill all NAS apps here
+				 * so they are not keeping the device busy.
+				 */
+				run_nvscript("script_usbumount", NULL, 3);
+				restart_nas_services(0);
+			}
+			exec_for_host(host_no, 0x02, flags, umount_partition);
+			restart_nas_services(1); // restart all NAS applications
+		}
+	}
 }
 
 
@@ -642,15 +436,132 @@ void remove_storage_main(void)
 	if (nvram_match("usb_enable", "1") && nvram_match("usb_storage", "1")) {
 		if (nvram_match("usb_automount", "1")) {
 			// run pre-unmount script if any
-			run_nvscript("script_usbumount", NULL, 5);
+			run_nvscript("script_usbumount", NULL, 3);
 		}
 	}
+	restart_nas_services(0);
 	/* Unmount all partitions */
-	process_all_usb_part(0, 1, 0, 0);
+	exec_for_host(-1, 0x02, 0, umount_partition);
+}
+
+
+/******* KLUDGE to try to workaround a kernel concurrency bug. *******/
+/*
+ * There is no reason that we should have to serialize this code, but
+ * we have to.  Otherwise we will occasionally lock up when
+ * we repeatedly plug and unplug a hub with several USB storage devices
+ * connected to it.  This is probably be a bug in the kernel.  Like some
+ * critical data structure that isn't protected by a lock.  There's a
+ * lot of kernel threads that are doing things to the USB device.
+ *
+ * Oh well-----serializing this code seems to avoid the problem.
+ *
+ * Notes on testing the position of the lock.
+ * Spawning 5 hotplug threads.  2 for hub, 3 scsi hosts.
+ * 6 total partitions on 3 hosts. (1 & 2 & 3)
+ * 1st for add, 2nd for remove, loop 20+ times.
+ * No /etc/fstab.
+ * "fails" = router locks up
+ *
+ * -- around everything:		works
+ * -- around the (*func) call		fails
+ * -- around all of exec_for_host	works
+ * -- Around the "when to update"	fails
+ * -- The when-to-update's & func code	works
+ * -- Around the /proc/parts code	fails	
+ *
+ * It appears to crash when we try to do the mount (?? maybe BLKRRPART) of one
+ * disk at the same time as the kernel is recognizing/processing another disk.
+ * This can happen on bootup, or when a daisy-chained hub is plugged in.
+ * And other times, when mounting lots of disks at once via the admin
+ * interface.
+ *
+ * The problem isn't _this_ drive.  The problem is another drive that the
+ * kernel is recognizing/processing (in another thread) _after_ this drive.
+ * It we ask the kernel to do something with _this_ drive at the same time it is
+ * working on _that_ later drive, then it tends to crash.
+ * The work-around is to stall our processing of _this_ drive until after
+ * the kernel has finished its work on _that_ drive.  Kinda hard for us to do,
+ * since we don't yet know that _that_ drive even exists!
+ * I've tried all sorts of things to try to detect/avoid the problem.
+ * Thw worst time is when a hub & discs are first detected (bootup or initial
+ * plugin.  Because the kernel automatically reads the partition table as the
+ * disks are detected.
+ */
+
+
+/* Get the size. It'll change as USB devices are added, detected, & removed. */
+unsigned int get_size(int host)
+{
+	char bfr[1024];
+	int fd;
+	int i = -1;
+	unsigned int total = 0;
+
+	fd = open("/proc/partitions", O_RDONLY);
+	if (fd >= 0) {
+		while ((i = read(fd, bfr, sizeof(bfr))) > 0) {
+			total += i;
+		}
+		close(fd);
+	}
+	//syslog(LOG_INFO, "**** Size: %4d  HN: %5i: %d  errno: %d\n", total, host, i, errno);
+	return(total);
+}
+
+
+/* Sleep for minimum of X seconds, waiting for the known partition
+ * information to stabilize.  Each time we find that the
+ * partition setup has changed, extend the time.
+ * The part info will change whenever new partitions are discovered
+ * or old ones are deleted.
+ * This will happen with automatically by the kernel, or
+ * explicitly by a user program doing an ioctl BLKRRPART.
+ */
+void wait_for_stabilize(int tm, int host_num)
+{
+	int n = get_size(host_num);
+	int m;
+
+	while (--tm > 0) {
+		sleep(1);
+		m = get_size(host_num);
+		if (m != n)
+			++tm;
+		n = m;
+	}
 }
 
 
 /* Plugging or removing usb device
+ *
+ * On an occurrance, multiple hotplug events may be fired off.
+ * For example, if a hub is plugged or unplugged, an event
+ * will be generated for everything downstream of it, plus one for
+ * the hub itself.  These are fired off simultaneously, not serially.
+ * This means that many many hotplug processes will be running at
+ * the same time.
+ *
+ * The hotplug event generated by the kernel gives us several pieces
+ * of information:
+ * PRODUCT is vendorid/productid/rev#.
+ * DEVICE is /proc/bus/usb/bus#/dev#
+ * ACTION is add or remove
+ * SCSI_HOST is the host (controller) number (this relies on the custom kernel patch)
+ *
+ * Note that when we get a hotplug add event, the USB susbsystem may
+ * or may not have yet tried to read the partition table of the
+ * device.  For a new controller that has never been seen before,
+ * generally yes.  For a re-plug of a controller that has been seen
+ * before, generally no.
+ *
+ * On a remove, the partition info has not yet been expunged.  The
+ * partitions show up as /dev/discs/disc#/part#, and /proc/partitions.
+ * It appears that doing a "stat" for a non-existant partition will
+ * causes the kernel to re-validate the device and update the
+ * partition table info.  However, it won't re-validate if the disc is
+ * mounted--you'll get a "Device busy for revalidation (usage=%d)" in
+ * syslog.
  *
  * The $INTERFACE is "class/subclass/protocol"
  * Some interesting classes:
@@ -664,74 +575,77 @@ void remove_storage_main(void)
  *	Hub seems to have no INTERFACE (null), and TYPE of "9/0/0"
  *	Flash disk seems to have INTERFACE of "8/6/80", and TYPE of "0/0/0"
  *
+ * When a hub is unplugged, a hotplug event is generated for it and everything
+ * downstream from it.  You cannot depend on getting these events in any
+ * particular order, since there will be many hotplug programs all fired off
+ * at almost the same time.
+ * On a remove, don't try to access the downstream devices right away, give the
+ * kernel time to finish cleaning up all the data structures, which will be
+ * in the process of being torn down.
+ *
+ *
+ * On the initial plugin, the first time the kernel usb-storage subsystem sees
+ * the host (identified by GUID), it automatically reads the partition table.
+ * On subsequent plugins, it does not.
+ *
+ *
  * Special values for Web Administration to unmount or remount
  * all partitions of the host:
  *	INTERFACE=TOMATO/...
  *	ACTION=add/remove
- *	PRODUCT=<host_no>
+ *	SCSI_HOST=<host_no>
  * If host_no is negative, we unmount all partions of *all* hosts.
  */
 void hotplug_usb(void)
 {
 	int add;
-	int host = 0;
+	int host = -1;
 	char *interface = getenv("INTERFACE");
 	char *action = getenv("ACTION");
 	char *product = getenv("PRODUCT");
+	char *scsi_host = getenv("SCSI_HOST");
 
-	_dprintf("USB hotplug INTERFACE=%s ACTION=%s PRODUCT=%s\n", interface, action, product);
+	_dprintf("USB hotplug INTERFACE=%s ACTION=%s PRODUCT=%s HOST=%s\n", interface, action, product, scsi_host);
 
 	if (!nvram_match("usb_enable", "1")) return;
 	if (!interface || !action || !product)	/* Hubs bail out here. */
 		return;
 
+	if (scsi_host)
+		host = atoi(scsi_host);
+
 	add = (strcmp(action, "add") == 0);
 	if (add && (strncmp(interface, "TOMATO/", 7) != 0)) {
+		/* Give the kernel time to settle down. */
 		syslog(LOG_INFO, "usb-hotplug: waiting for device to settle before scanning");
-		sleep(2);
+		wait_for_stabilize(4, host);
 	}
+	usb_lock();
 
 	if (strncmp(interface, "TOMATO/", 7) == 0) {	/* web admin */
-		host = atoi(product);
+		if (scsi_host == NULL)
+			host = atoi(product);	// for backward compatibility
+		/* If host is negative, unmount all partitions of *all* hosts.
+		 * This feature can be used in custom scripts as following:
+		 *
+		 * # INTERFACE=TOMATO/1 ACTION=remove PRODUCT=-1 SCSI_HOST=-1 hotplug usb
+		 *
+		 * PRODUCT is required to pass the env variables verification.
+		 */
 		/* Unmount or remount all partitions of the host. */
-		if (!add) {	/* Dismounting */
-			if (nvram_match("usb_storage", "1")) {
-				// run pre-unmount script if any
-				run_nvscript("script_usbumount", NULL, 5);
-			}
-			/* If host is negative, unmount all partitions of *all* hosts.
-			 * This feature can be used in custom scripts as following:
-			 *
-			 * # INTERFACE=TOMATO/1 ACTION=remove PRODUCT=-1 hotplug usb
-			 */
-			process_all_usb_part(0, host < 0 ? 1 : 0, host, 1);
-			restart_nas_services(1);
-		}
-		else {	/* Remounting a single host */
-			if (process_all_usb_part(1, 0, host, 1))
-				restart_nas_services(1);
-			if (nvram_match("usb_storage", "1")) {
-				//run post-mount script if any
-				run_nvscript("script_usbmount", NULL, 5);
-			}
-		}
+		hotplug_usb_storage_device(host, add ? -1 : 0, EFH_USER);
 	}
 	else if (strncmp(interface, "8/", 2) == 0) {	/* usb storage */
 		if (add)
-			probe_usb_mass(product, 1);	/* so the mount command can work */
+			exec_for_host(host, 0x01, 0, (host_exec) NULL);	/* so the user's hotplug script mount can work. */
 		run_nvscript("script_usbhotplug", NULL, 2);
-
-		if (add) {
-			if (nvram_match("usb_storage", "1")) hotplug_usb_mass(product);
-		}
-		else {
-			// unmount the device even if usb storage is disabled in the GUI
-			process_all_usb_part(-1, 1, 0, 0);	// unmount all partitions on non-attached discs
-			restart_nas_services(1);
-		}
+		hotplug_usb_storage_device(host, add, host < 0 ? EFH_HUNKNOWN : 0);
 	}
 	else {	/* It's some other type of USB device, not storage. */
-		/* For now, do nothing.  The user's hotplug script must do it all. */
+		/* Do nothing.  The user's hotplug script must do it all. */
 		run_nvscript("script_usbhotplug", NULL, 2);
 	}
+
+	usb_unlock();
 }
+
