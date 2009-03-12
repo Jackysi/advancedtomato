@@ -1630,6 +1630,7 @@ static struct usb_device_id usblp_ids [] = {
 	{ USB_INTERFACE_INFO(7, 1, 1) },
 	{ USB_INTERFACE_INFO(7, 1, 2) },
 	{ USB_INTERFACE_INFO(7, 1, 3) },
+	{ USB_DEVICE(0x04b8, 0x0202) }, /* Seiko Epson Receipt Printer M129C */
 	{ }						/* Terminating entry */
 };
 
