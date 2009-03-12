@@ -413,18 +413,21 @@ void hotplug_usb_storage_device(int host_no, int action_add, uint flags)
 	}
 	else {
 		if (nvram_match("usb_storage", "1") || ((flags & EFH_USER) == 0)) {
-			// when unplugged, unmount the device even if usb storage is disabled in the GUI
+			/* When unplugged, unmount the device even if
+			 * usb storage is disabled in the GUI.
+			 */
 			if (flags & EFH_USER) {
-				/* Unmount from Web.
-				 * Run user pre-unmount script if any,
-				 * and kill all NAS apps here
-				 * so they are not keeping the device busy.
+				/* Unmount from Web. Run user pre-unmount script if any.
 				 */
 				run_nvscript("script_usbumount", NULL, 3);
-				restart_nas_services(0);
 			}
+			/* Kill all NAS applications here
+			 * so they are not keeping the device busy.
+			 */
+			restart_nas_services(0);
 			exec_for_host(host_no, 0x02, flags, umount_partition);
-			restart_nas_services(1); // restart all NAS applications
+			/* Restart NAS applications */
+			restart_nas_services(1);
 		}
 	}
 }
@@ -583,11 +586,9 @@ void wait_for_stabilize(int tm, int host_num)
  * kernel time to finish cleaning up all the data structures, which will be
  * in the process of being torn down.
  *
- *
  * On the initial plugin, the first time the kernel usb-storage subsystem sees
  * the host (identified by GUID), it automatically reads the partition table.
  * On subsequent plugins, it does not.
- *
  *
  * Special values for Web Administration to unmount or remount
  * all partitions of the host:
