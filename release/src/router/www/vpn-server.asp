@@ -17,6 +17,7 @@
 <link rel='stylesheet' type='text/css' href='tomato.css'>
 <link rel='stylesheet' type='text/css' href='color.css'>
 <script type='text/javascript' src='tomato.js'></script>
+<script type='text/javascript' src='vpnciphers.js'></script>
 <script type='text/javascript'>
 
 //	<% nvram("vpn_server1_if,vpn_server1_proto,vpn_server1_port,vpn_server1_firewall,vpn_server1_sn,vpn_server1_nm,vpn_server1_local,vpn_server1_remote,vpn_server1_dhcp,vpn_server1_r1,vpn_server1_r2,vpn_server1_crypt,vpn_server1_comp,vpn_server1_cipher,vpn_server1_hmac,vpn_server1_ccd,vpn_server1_c2c,vpn_server1_ccd_excl,vpn_server1_ccd_val,vpn_server1_custom,vpn_server1_static,vpn_server1_ca,vpn_server1_crt,vpn_server1_key,vpn_server1_dh,vpn_server2_if,vpn_server2_proto,vpn_server2_port,vpn_server2_firewall,vpn_server2_sn,vpn_server2_nm,vpn_server2_local,vpn_server2_remote,vpn_server2_dhcp,vpn_server2_r1,vpn_server2_r2,vpn_server2_crypt,vpn_server2_comp,vpn_server2_cipher,vpn_server2_hmac,vpn_server2_ccd,vpn_server2_c2c,vpn_server2_ccd_excl,vpn_server2_ccd_val,vpn_server2_custom,vpn_server2_static,vpn_server2_ca,vpn_server2_crt,vpn_server2_key,vpn_server2_dh"); %>
@@ -25,8 +26,10 @@ function CCDGrid() { return this; }
 CCDGrid.prototype = new TomatoGrid;
 
 tabs = [['server1', 'Server 1'],['server2', 'Server 2']];
+sections = [['basic', 'Basic'],['advanced', 'Advanced'],['keys','Keys']];
 ccdTables = [new CCDGrid(), new CCDGrid()];
-ciphers = [['default','Use Default'],['none','None']<% vpnciphers(); %>];
+ciphers = [['default','Use Default'],['none','None']];
+for (i = 0; i < vpnciphers.length; ++i) ciphers.push([vpnciphers[i],vpnciphers[i]]);
 
 changed = 0;
 vpn1up = parseInt('<% psup("vpnserver1"); %>');
@@ -43,6 +46,25 @@ function tabSelect(name)
 	}
 
 	cookie.set('vpn_server_tab', name);
+}
+
+function sectSelect(tab, section)
+{
+	for (var i = 0; i < sections.length; ++i)
+	{
+		if (section == sections[i][0])
+		{
+			elem.addClass(tabs[tab][0]+'-'+sections[i][0]+'-tab', 'active');
+			elem.display(tabs[tab][0]+'-'+sections[i][0], true);
+		}
+		else
+		{
+			elem.removeClass(tabs[tab][0]+'-'+sections[i][0]+'-tab', 'active');
+			elem.display(tabs[tab][0]+'-'+sections[i][0], false);
+		}
+	}
+
+	cookie.set('vpn_server'+tab+'_section', section);
 }
 
 function toggle(service, isup)
@@ -231,10 +253,14 @@ function save()
 	changed = 0;
 }
 
-function ccdInit()
-{
+function init()
+ {
+	tabSelect(cookie.get('vpn_server_tab') || tabs[0][0]);
+
 	for (i = 0; i < tabs.length; ++i)
 	{
+		sectSelect(i, cookie.get('vpn_server'+i+'_section') || sections[0][0]);
+
 		t = tabs[i][0];
 
 		ccdTables[i].init('table_'+t+'_ccd', 'sort', 0, [{ type: 'checkbox' }, { type: 'text' }, { type: 'text', maxlen: 15 }, { type: 'text', maxlen: 15 }, { type: 'checkbox' }]);
@@ -254,6 +280,8 @@ function ccdInit()
 		ccdTables[i].showNewEditor();
 		ccdTables[i].resetNewEditor();
 	}
+
+	verifyFields(null, true);
 }
 </script>
 
@@ -294,13 +322,22 @@ for (i = 0; i < tabs.length; ++i)
 	W('<input type=\'hidden\' id=\'vpn_'+t+'_c2c\' name=\'vpn_'+t+'_c2c\'>');
 	W('<input type=\'hidden\' id=\'vpn_'+t+'_ccd_excl\' name=\'vpn_'+t+'_ccd_excl\'>');
 	W('<input type=\'hidden\' id=\'vpn_'+t+'_ccd_val\' name=\'vpn_'+t+'_ccd_val\'>');
+
+	W('<ul class="tabs">');
+	for (j = 0; j < sections.length; j++)
+	{
+		W('<li><a href="javascript:sectSelect('+i+', \''+sections[j][0]+'\')" id="'+t+'-'+sections[j][0]+'-tab">'+sections[j][1]+'</a></li>');
+	}
+	W('</ul><div class=\'tabs-bottom\'></div>');
+
+	W('<div id=\''+t+'-basic\'>');
 	createFieldTable('', [
 		{ title: 'Interface Type', name: 'vpn_'+t+'_if', type: 'select', options: [ ['tap','TAP'], ['tun','TUN'] ], value: eval( 'nvram.vpn_'+t+'_if' ) },
 		{ title: 'Protocol', name: 'vpn_'+t+'_proto', type: 'select', options: [ ['udp','UDP'], ['tcp-server','TCP'] ], value: eval( 'nvram.vpn_'+t+'_proto' ) },
 		{ title: 'Port', name: 'vpn_'+t+'_port', type: 'text', value: eval( 'nvram.vpn_'+t+'_port' ) },
 		{ title: 'Firewall', name: 'vpn_'+t+'_firewall', type: 'select', options: [ ['auto', 'Automatic'], ['external', 'External Only'], ['custom', 'Custom'] ], value: eval( 'nvram.vpn_'+t+'_firewall' ) },
 		{ title: 'Authorization Mode', name: 'vpn_'+t+'_crypt', type: 'select', options: [ ['tls', 'TLS'], ['secret', 'Static Key'], ['custom', 'Custom'] ], value: eval( 'nvram.vpn_'+t+'_crypt' ),
-			suffix: '<span id=\''+t+'_custom_crypto_text\'>&nbsp;<small>(configured below...)</small></span>' },
+			suffix: '<span id=\''+t+'_custom_crypto_text\'>&nbsp;<small>(must configure manually...)</small></span>' },
 		{ title: 'Extra HMAC authorization (tls-auth)', name: 'vpn_'+t+'_hmac', type: 'select', options: [ [-1, 'Disabled'], [2, 'Bi-directional'], [0, 'Incoming (0)'], [1, 'Outgoing (1)'] ], value: eval( 'nvram.vpn_'+t+'_hmac' ) },
 		{ title: 'VPN subnet/netmask', multi: [
 			{ name: 'vpn_'+t+'_sn', type: 'text', maxlen: 15, size: 17, value: eval( 'nvram.vpn_'+t+'_sn' ) },
@@ -311,20 +348,29 @@ for (i = 0; i < tabs.length; ++i)
 			{ name: 'vpn_'+t+'_r2', type: 'text', maxlen: 15, size: 17, value: eval( 'nvram.vpn_'+t+'_r2' ), suffix: '</span>' } ] },
 		{ title: 'Local/remote endpoint addresses', multi: [
 			{ name: 'vpn_'+t+'_local', type: 'text', maxlen: 15, size: 17, value: eval( 'nvram.vpn_'+t+'_local' ) },
-			{ name: 'vpn_'+t+'_remote', type: 'text', maxlen: 15, size: 17, value: eval( 'nvram.vpn_'+t+'_remote' ) } ] },
+			{ name: 'vpn_'+t+'_remote', type: 'text', maxlen: 15, size: 17, value: eval( 'nvram.vpn_'+t+'_remote' ) } ] }
+	]);
+	W('</div>');
+	W('<div id=\''+t+'-advanced\'>');
+	createFieldTable('', [
 		{ title: 'Encryption cipher', name: 'vpn_'+t+'_cipher', type: 'select', options: ciphers, value: eval( 'nvram.vpn_'+t+'_cipher' ) },
 		{ title: 'Compression', name: 'vpn_'+t+'_comp', type: 'select', options: [ ['yes', 'Enabled'], ['no', 'Disabled'], ['adaptive', 'Adaptive'] ], value: eval( 'nvram.vpn_'+t+'_comp' ) },
 		{ title: 'Manage Client-Specific Options', name: 'f_vpn_'+t+'_ccd', type: 'checkbox', value: eval( 'nvram.vpn_'+t+'_ccd' ) != 0 },
 		{ title: 'Allow Client<->Client', name: 'f_vpn_'+t+'_c2c', type: 'checkbox', value: eval( 'nvram.vpn_'+t+'_c2c' ) != 0 },
 		{ title: 'Allow Only These Clients', name: 'f_vpn_'+t+'_ccd_excl', type: 'checkbox', value: eval( 'nvram.vpn_'+t+'_ccd_excl' ) != 0 },
 		{ title: '', suffix: '<table class=\'tomato-grid\' id=\'table_'+t+'_ccd\'></table>' },
-		{ title: 'Custom Configuration', name: 'vpn_'+t+'_custom', type: 'textarea', value: eval( 'nvram.vpn_'+t+'_custom' ) },
+		{ title: 'Custom Configuration', name: 'vpn_'+t+'_custom', type: 'textarea', value: eval( 'nvram.vpn_'+t+'_custom' ) }
+	]);
+	W('</div>');
+	W('<div id=\''+t+'-keys\'>');
+	createFieldTable('', [
 		{ title: 'Static Key', name: 'vpn_'+t+'_static', type: 'textarea', value: eval( 'nvram.vpn_'+t+'_static' ) },
 		{ title: 'Certificate Authority', name: 'vpn_'+t+'_ca', type: 'textarea', value: eval( 'nvram.vpn_'+t+'_ca' ) },
 		{ title: 'Server Certificate', name: 'vpn_'+t+'_crt', type: 'textarea', value: eval( 'nvram.vpn_'+t+'_crt' ) },
 		{ title: 'Server Key', name: 'vpn_'+t+'_key', type: 'textarea', value: eval( 'nvram.vpn_'+t+'_key' ) },
 		{ title: 'Diffie Hellman parameters', name: 'vpn_'+t+'_dh', type: 'textarea', value: eval( 'nvram.vpn_'+t+'_dh' ) }
 	]);
+	W('</div>');
 	W('<input type="button" value="' + (eval('vpn'+(i+1)+'up') ? 'Stop' : 'Start') + ' Now" onclick="toggle(\'vpn'+t+'\', vpn'+(i+1)+'up)" id="_vpn'+t+'_button">');
 	W('</div>');
 }
@@ -340,7 +386,7 @@ for (i = 0; i < tabs.length; ++i)
 </td></tr>
 </table>
 </form>
-<script type='text/javascript'>tabSelect(cookie.get('vpn_server_tab') || tabs[0][0]); ccdInit(); verifyFields(null, 1);</script>
+<script type='text/javascript'>init();</script>
 </body>
 </html>
 

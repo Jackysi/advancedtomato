@@ -27,10 +27,12 @@ input[type='button']:hover {
 	color: #343722;
 }
 
+ul.tabs a.active,
 #tabs a.active {
 	background: #343722;
 	color: #FFF;
 }
+ul.tabs a:hover,
 #tabs a:hover {
 	background: #B2B797;
 	color: #343722;

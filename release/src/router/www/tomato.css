@@ -167,14 +167,17 @@ input[type='button']:hover {
 	font-size: 11px;
 }
 
+ul.tabs,
 #tabs {
 	padding: 0;
 	margin: 0;
 }
+ul.tabs li,
 #tabs li {
 	display: inline;
 	list-style: none;
 }
+ul.tabs a,
 #tabs a {
 	width: 90px;
 	display: block;
@@ -187,16 +190,19 @@ input[type='button']:hover {
 	height: 15px;
 	background: #f3f3f3;
 }
+ul.tabs a.active,
 #tabs a.active {
 	background: #af4141;
 	color: #fff;
 	font-weight: bold;
 }
+ul.tabs a:hover,
 #tabs a:hover {
 	background: #BF6060;
 	color: #fff;
 	font-weight: bold;
 }
+div.tabs-bottom,
 #tabs-bottom {
 	clear:both;
 	border-top: 1px solid #eee;

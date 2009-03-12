@@ -177,23 +177,6 @@ void asp_psup(int argc, char **argv)
 	if (argc == 1) web_printf("%d", pidof(argv[0]) > 0);
 }
 
-void asp_vpn_ciphers(int argc, char **argv)
-{
-#ifdef TCONFIG_OPENVPN
-	FILE *fp;
-	char buffer[16];
-
-	fp=popen("/usr/sbin/openvpn --show-ciphers | grep -v \"^$\" | awk '{print($1)}'", "r");
-	if (fp == NULL)
-		return;
-
-	while (fgets(&buffer[0], 16, fp) != NULL)
-		web_printf(",['%s','%s']", strtok(&buffer[0],"\n"), &buffer[0]);
-
-	pclose(fp);
-#endif
-}
-
 /*
 # cat /proc/meminfo
         total:    used:    free:  shared: buffers:  cached:
