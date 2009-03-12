@@ -473,15 +473,16 @@ void start_vpnserver(int serverNum)
 	fprintf(fp, "comp-lzo %s\n", nvram_safe_get(&buffer[0]));
 	fprintf(fp, "keepalive 15 60\n");
 	fprintf(fp, "verb 3\n");
-	if ( ifType == TUN )
-	{
-		sscanf(nvram_safe_get("lan_ipaddr"), "%d.%d.%d.%d", &ip[0], &ip[1], &ip[2], &ip[3]);
-		sscanf(nvram_safe_get("lan_netmask"), "%d.%d.%d.%d", &nm[0], &nm[1], &nm[2], &nm[3]);
-		fprintf(fp, "push \"route %d.%d.%d.%d %s\"\n", ip[0]&nm[0], ip[1]&nm[1], ip[2]&nm[2], ip[3]&nm[3],
-		        nvram_safe_get("lan_netmask"));
-	}
 	if ( cryptMode == TLS )
 	{
+		if ( ifType == TUN )
+		{
+			sscanf(nvram_safe_get("lan_ipaddr"), "%d.%d.%d.%d", &ip[0], &ip[1], &ip[2], &ip[3]);
+			sscanf(nvram_safe_get("lan_netmask"), "%d.%d.%d.%d", &nm[0], &nm[1], &nm[2], &nm[3]);
+			fprintf(fp, "push \"route %d.%d.%d.%d %s\"\n", ip[0]&nm[0], ip[1]&nm[1], ip[2]&nm[2], ip[3]&nm[3],
+			        nvram_safe_get("lan_netmask"));
+		}
+
 		sprintf(&buffer[0], "vpn_server%d_hmac", serverNum);
 		nvi = nvram_get_int(&buffer[0]);
 		if ( nvi >= 0 )
