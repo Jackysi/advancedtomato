@@ -20,14 +20,89 @@
 #include <sys/file.h>
 
 
+#if 1
+
+/* Serialize using fcntl() calls 
+ */
+#define USB_HPLOCK_TIMEOUT 8
+static int lockfd = -1;
+
 void usb_lock_init(void)
 {
-	simple_unlock("usbhp");
 }
 
 void usb_lock(void)
 {
-	/* serialize using breakable file lock */
+	const char fn[] = "/var/lock/usbhotplug.lock";
+	struct flock lock;
+	pid_t self = getpid();
+	pid_t lock_pid = -1;
+	
+	if ((lockfd = open(fn, O_CREAT | O_RDWR, 0666)) < 0) {
+		goto lock_error;
+	}
+
+	memset(&lock, 0, sizeof(lock));
+	lock.l_type = F_WRLCK;
+	lock.l_pid = self;
+
+	int n = USB_HPLOCK_TIMEOUT;
+	while (fcntl(lockfd, F_SETLK, &lock) < 0) {
+		if (errno == EACCES || errno == EAGAIN) {
+			// locked by another process, waiting...
+			// find out what process owns the lock
+			if (fcntl(lockfd, F_GETLK, &lock) >= 0) {
+				if (lock.l_type != F_UNLCK && lock_pid != lock.l_pid) {
+					/* This is not the same process.
+					 * Looks like while we were waiting, someone
+					 * else aquired the lock.
+					 * Reset the waiting time to allow at least
+					 * USB_HPLOCK_TIMEOUT seconds for each process.
+					 */
+					n = USB_HPLOCK_TIMEOUT;
+					lock_pid = lock.l_pid;
+				}
+			}
+			if (--n == 0) {
+				/* There's a chance that the lock owner has changed
+				 * between F_GETLK call and now. If this happens,
+				 * we'll be breaking the new lock. There must be a better way.
+				 */
+				syslog(LOG_DEBUG, "Breaking %s locked by [%d]", fn, lock_pid);
+				break;
+			}
+			memset(&lock, 0, sizeof(lock));
+			lock.l_type = F_WRLCK;
+			lock.l_pid = self;
+			sleep(1);
+		}
+		else
+			goto lock_error;
+	}
+	return;
+lock_error:
+	// No proper error processing
+	syslog(LOG_DEBUG, "Error %d locking %s, proceeding anyway", errno, fn);
+}
+
+void usb_unlock(void)
+{
+	if (lockfd >= 0) {
+		close(lockfd);
+		lockfd = -1;
+	}
+}
+
+#else
+
+/* Serialize using breakable Tomato file lock.
+ * The problem with this implementation is that it only works good
+ * for up to 2 concurrent processes. If we have more than 1
+ * process waiting for a lock, they all may break it at about
+ * the same time - nothing forces them to wait on each other.
+ */
+void usb_lock(void)
+{
 	simple_lock("usbhp");
 }
 
@@ -35,6 +110,13 @@ void usb_unlock(void)
 {
 	simple_unlock("usbhp");
 }
+
+void usb_lock_init(void)
+{
+	usb_unlock();
+}
+
+#endif
 
 
 /* Adjust bdflush parameters.
@@ -649,7 +731,8 @@ void hotplug_usb(void)
 	add = (strcmp(action, "add") == 0);
 	if (add && (strncmp(interface, "TOMATO/", 7) != 0)) {
 		/* Give the kernel time to settle down. */
-		syslog(LOG_INFO, "usb-hotplug: waiting for device to settle before scanning");
+		syslog(LOG_INFO, "Waiting for device [%s %s] to settle before scanning",
+			interface, product);
 		wait_for_stabilize(4, host);
 	}
 	usb_lock();
