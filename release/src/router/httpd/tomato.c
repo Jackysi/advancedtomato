@@ -207,6 +207,7 @@ const struct mime_handler mime_handlers[] = {
 	{ "service.cgi",	NULL,						0,	wi_generic,			wo_service,		1 },
 	{ "logout.cgi",		NULL,	   		 			0,	wi_generic,			wo_logout,		0 },
 	{ "shutdown.cgi",	mime_html,					0,	wi_generic,			wo_shutdown,	1 },
+	{ "vpnstatus.cgi",	mime_javascript,			0,	wi_generic,			wo_vpn_status,		1 },
 
 
 #if TOMATO_SL

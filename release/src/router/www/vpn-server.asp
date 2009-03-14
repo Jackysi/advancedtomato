@@ -26,14 +26,96 @@ function CCDGrid() { return this; }
 CCDGrid.prototype = new TomatoGrid;
 
 tabs = [['server1', 'Server 1'],['server2', 'Server 2']];
-sections = [['basic', 'Basic'],['advanced', 'Advanced'],['keys','Keys']];
+sections = [['basic', 'Basic'],['advanced', 'Advanced'],['keys','Keys'],['status','Status']];
 ccdTables = [new CCDGrid(), new CCDGrid()];
+statusTables = [[new TomatoGrid(),new TomatoGrid(),new TomatoGrid()],[new TomatoGrid(),new TomatoGrid(),new TomatoGrid()]];
 ciphers = [['default','Use Default'],['none','None']];
 for (i = 0; i < vpnciphers.length; ++i) ciphers.push([vpnciphers[i],vpnciphers[i]]);
 
 changed = 0;
 vpn1up = parseInt('<% psup("vpnserver1"); %>');
 vpn2up = parseInt('<% psup("vpnserver2"); %>');
+
+function updateStatus(num)
+{
+	xob = new XmlHttp();
+	xob.onCompleted = function(text, xml)
+	{
+		E(tabs[num][0]+'-status-errors').innerHTML = '';
+		E(tabs[num][0]+'-no-status').style.display = (text==''?'':'none');
+		E(tabs[num][0]+'-status-content').style.display = (text==''?'none':'');
+		statusTables[num][2].init(tabs[num][0]+'-status-stats-table','sort',0,null);
+		statusTables[num][2].tb.parentNode.style.display = 'none';
+		statusTables[num][2].removeAllData();
+		statusTables[num][2].headerSet(['Name','Value']);
+
+		lines = text.split('\n');
+		for (i = 0; text != '' && i < lines.length; ++i)
+		{
+			var done = false;
+
+			fields = lines[i].split(',');
+			if ( fields.length == 0 ) continue;
+			switch ( fields[0] )
+			{
+			case "TITLE":
+				var words = fields[1].split(" ");
+				E(tabs[num][0]+'-status-version').innerHTML = words[1]+' ('+fields[1].substring(fields[1].indexOf('built on')+9)+')';
+				break;
+			case "TIME":
+				E(tabs[num][0]+'-status-time').innerHTML = fields[1];
+				break;
+			case "HEADER":
+				switch ( fields[1] )
+				{
+				case "CLIENT_LIST":
+					statusTables[num][0].init(tabs[num][0]+'-status-clients-table','sort',0,null);
+					statusTables[num][0].tb.parentNode.style.display = 'none';
+					statusTables[num][0].removeAllData();
+					statusTables[num][0].headerSet(fields.slice(2,fields.length-1));
+					break;
+				case "ROUTING_TABLE":
+					statusTables[num][1].init(tabs[num][0]+'-status-routing-table','sort',0,null);
+					statusTables[num][1].tb.parentNode.style.display = 'none';
+					statusTables[num][1].removeAllData();
+					statusTables[num][1].headerSet(fields.slice(2,fields.length-1));
+					break;
+				default:
+					E(tabs[num][0]+'-status-header').innerHTML += lines[i]+'<br>';
+					break;
+				}
+				break;
+			case "CLIENT_LIST":
+				statusTables[num][0].tb.parentNode.style.display = '';
+				statusTables[num][0].insertData(-1, fields.slice(1,fields.length-1))
+				break;
+			case "ROUTING_TABLE":
+				statusTables[num][1].tb.parentNode.style.display = '';
+				statusTables[num][1].insertData(-1, fields.slice(1,fields.length-1))
+				break;
+			case "GLOBAL_STATS":
+				statusTables[num][2].tb.parentNode.style.display = '';
+				statusTables[num][2].insertData(-1, fields.slice(1));
+				break;
+			case "END":
+				done = true;
+				break;
+			default:
+				E(tabs[num][0]+'-status-errors').innerHTML += 'Unparsed: '+lines[i]+'<br>';
+				break;
+			}
+			if ( done ) break;
+		}
+		xob = null;
+	}
+	xob.onError = function(ex)
+	{
+		E(tabs[num][0]+'-status-errors').innerHTML += 'ERROR! '+ex+'<br>';
+		xob = null;
+	}
+
+	xob.post('/vpnstatus.cgi', 'num=' + (num+1));
+}
 
 function tabSelect(name)
 {
@@ -254,7 +336,7 @@ function save()
 }
 
 function init()
- {
+{
 	tabSelect(cookie.get('vpn_server_tab') || tabs[0][0]);
 
 	for (i = 0; i < tabs.length; ++i)
@@ -279,6 +361,8 @@ function init()
 		}
 		ccdTables[i].showNewEditor();
 		ccdTables[i].resetNewEditor();
+
+		updateStatus(i);
 	}
 
 	verifyFields(null, true);
@@ -286,9 +370,22 @@ function init()
 </script>
 
 <style type='text/css'>
-textarea {
+textarea
+{
 	width: 98%;
 	height: 10em;
+}
+div.status-header p
+{
+	font-weight: bold;
+	padding-bottom: 4px;
+}
+table.status-table
+{
+	width: auto;
+	margin-left: auto;
+	margin-right: auto;
+	text-align: center;
 }
 </style>
 
@@ -370,6 +467,17 @@ for (i = 0; i < tabs.length; ++i)
 		{ title: 'Server Key', name: 'vpn_'+t+'_key', type: 'textarea', value: eval( 'nvram.vpn_'+t+'_key' ) },
 		{ title: 'Diffie Hellman parameters', name: 'vpn_'+t+'_dh', type: 'textarea', value: eval( 'nvram.vpn_'+t+'_dh' ) }
 	]);
+	W('</div>');
+	W('<div id=\''+t+'-status\'>');
+	W('<div id=\''+t+'-no-status\'><p>Server is not running or status could not be read.</p></div>');
+	W('<div id=\''+t+'-status-content\' style=\'display:none\' class=\'status-content\'>');
+	W('<div id=\''+t+'-status-header\' class=\'status-header\'><p>OpenVPN version: <span id=\''+t+'-status-version\'></span></p><p>Data current as of <span id=\''+t+'-status-time\'></span>.</p></div>');
+	W('<div id=\''+t+'-status-clients\'><div class=\'section-title\'>Client List</div><table class=\'tomato-grid status-table\' id=\''+t+'-status-clients-table\'></table><br></div>');
+	W('<div id=\''+t+'-status-routing\'><div class=\'section-title\'>Routing Table</div><table class=\'tomato-grid status-table\' id=\''+t+'-status-routing-table\'></table><br></div>');
+	W('<div id=\''+t+'-status-stats\'><div class=\'section-title\'>General Statistics</div><table class=\'tomato-grid status-table\' id=\''+t+'-status-stats-table\'></table><br></div>');
+	W('<div id=\''+t+'-status-errors\' class=\'error\'></div>');
+	W('</div>');
+	W('<div style=\'text-align:right\'><a href=\'javascript:updateStatus('+i+')\'>Refresh Status</a></div>');
 	W('</div>');
 	W('<input type="button" value="' + (eval('vpn'+(i+1)+'up') ? 'Stop' : 'Start') + ' Now" onclick="toggle(\'vpn'+t+'\', vpn'+(i+1)+'up)" id="_vpn'+t+'_button">');
 	W('</div>');
