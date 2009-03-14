@@ -2389,9 +2389,9 @@ multi_process_signal (struct multi_context *m)
 {
   if (m->top.sig->signal_received == SIGUSR2)
     {
-      struct status_output *so = status_open (NULL, 0, M_INFO, NULL, 0);
+      struct status_output *so = m->top.c1.status_output? m->top.c1.status_output: status_open (NULL, 0, M_INFO, NULL, 0);
       multi_print_status (m, so, m->status_file_version);
-      status_close (so);
+      if ( so != m->top.c1.status_output ) status_close (so);
       m->top.sig->signal_received = 0;
       return false;
     }
