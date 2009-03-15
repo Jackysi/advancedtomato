@@ -96,6 +96,14 @@ print_str_int (const char *str, const int i, struct gc_arena *gc)
   return BSTR (&out);
 }
 
+static const char *
+print_str (const char *str, struct gc_arena *gc)
+{
+  struct buffer out = alloc_buf_gc (128, gc);
+  buf_printf (&out, "%s", str);
+  return BSTR (&out);
+}
+
 static void
 helper_add_route (const in_addr_t network, const in_addr_t netmask, struct options *o)
 {
@@ -158,7 +166,6 @@ helper_client_server (struct options *o)
    *
    * if tap OR (tun AND topology == subnet):
    *   ifconfig 10.8.0.1 255.255.255.0
-   *   ifconfig-pool-constraint 10.8.0.0 255.255.255.0
    *   if !nopool: 
    *     ifconfig-pool 10.8.0.2 10.8.0.254 255.255.255.0
    *   push "route-gateway 10.8.0.1"
@@ -184,7 +191,7 @@ helper_client_server (struct options *o)
       if (o->shared_secret_file)
 	msg (M_USAGE, "--server and --secret cannot be used together (you must use SSL/TLS keys)");
 
-      if (o->ifconfig_pool_defined)
+      if (!(o->server_flags & SF_NOPOOL) && o->ifconfig_pool_defined)
 	msg (M_USAGE, "--server already defines an ifconfig-pool, so you can't also specify --ifconfig-pool explicitly");
 
       if (!(dev == DEV_TYPE_TAP || dev == DEV_TYPE_TUN))
@@ -245,9 +252,9 @@ helper_client_server (struct options *o)
 		  o->ifconfig_pool_start = o->server_network + 2;
 		  o->ifconfig_pool_end = (o->server_network | ~o->server_netmask) - 2;
 		  ifconfig_pool_verify_range (M_USAGE, o->ifconfig_pool_start, o->ifconfig_pool_end);
-		  o->ifconfig_pool_netmask = o->server_netmask;
 		}
-
+	      o->ifconfig_pool_netmask = o->server_netmask;
+		  
 	      push_option (o, print_opt_route_gateway (o->server_network + 1, &o->gc), M_USAGE);
 	    }
 	  else
@@ -272,8 +279,8 @@ helper_client_server (struct options *o)
 	      o->ifconfig_pool_start = o->server_network + 2;
 	      o->ifconfig_pool_end = (o->server_network | ~o->server_netmask) - 1;
 	      ifconfig_pool_verify_range (M_USAGE, o->ifconfig_pool_start, o->ifconfig_pool_end);
-	      o->ifconfig_pool_netmask = o->server_netmask;
 	    }
+	  o->ifconfig_pool_netmask = o->server_netmask;
 
 	  push_option (o, print_opt_route_gateway (o->server_network + 1, &o->gc), M_USAGE);
 	}
@@ -320,7 +327,7 @@ helper_client_server (struct options *o)
       if (o->client)
 	msg (M_USAGE, "--server-bridge and --client cannot be used together");
 
-      if (o->ifconfig_pool_defined)
+      if (!(o->server_flags & SF_NOPOOL) && o->ifconfig_pool_defined)
 	msg (M_USAGE, "--server-bridge already defines an ifconfig-pool, so you can't also specify --ifconfig-pool explicitly");
 
       if (o->shared_secret_file)
@@ -438,4 +445,35 @@ helper_keepalive (struct options *o)
 	  ASSERT (0);
 	}
     }
+}
+
+/*
+ *
+ * HELPER DIRECTIVE:
+ *
+ * tcp-nodelay
+ *
+ * EXPANDS TO:
+ *
+ * if mode server:
+ *   socket-flags TCP_NODELAY
+ *   push "socket-flags TCP_NODELAY"
+ */
+void
+helper_tcp_nodelay (struct options *o)
+{
+#if P2MP_SERVER
+  if (o->server_flags & SF_TCP_NODELAY_HELPER)
+    {
+      if (o->mode == MODE_SERVER)
+	{
+	  o->sockflags |= SF_TCP_NODELAY;	  
+	  push_option (o, print_str ("socket-flags TCP_NODELAY", &o->gc), M_USAGE);
+	}
+      else
+	{
+	  ASSERT (0);
+	}
+    }
+#endif
 }

@@ -3,37 +3,11 @@ README for SgtPepperKSU VPN build of Tomato Firmware
 The sources are available in the git repository at http://repo.or.cz/w/tomato.git
 If you plan to redistribute, be sure to read the COPYING file.
 
-To have your VPN start automatically when the router is rebooted, add "service vpnserver1 start" (no quotes, replacing server with
-client and 2 for 1 if appropriate) to your init script.  You will probably also need to add a delay before it with "sleep 10" (you
-can test to see if a shorter or longer delay is needed).
+To have your VPN start automatically when the router is rebooted, add "service vpnserver1 start" (no quotes, replacing server with client and 2 for 1 if appropriate) to your init script (WAN Up script if you want it to be started if you are reconnected to the internet).  You will probably also need to add a delay before it with "sleep 10" (you can test to see if a shorter or longer delay is needed).
 
-The have the router periodically check if the VPN is running and restart it if it has stopped, add the following to your init
-script (replacing server1 or */30 as appropriate):
-## Start VPN init script
-#Generate vpnup.sh
-echo "#!/bin/sh
-killall -0 vpn\$1 2> /dev/null
-if [ \$? != 0 ]
-then
-logger \"\$0: Starting vpn\$1\"
-service vpn\$1 start
-else
-logger \"\$0: vpn\$1 already running: \$(pidof vpn\$1)\"
-fi
-" > /tmp/vpnup.sh
-# Make vpnup.sh executable
-chmod +x /tmp/vpnup.sh
+To have the router periodically check if the VPN is running and restart it if it has stopped, also add the following to your init script (replacing vpnserver1 or */30 as appropriate):
 # Schedule vpnup.sh to run every 30 minutes
-cru a CheckVPNServer "*/30 * * * * /tmp/vpnup.sh server1"
-## End VPN init script
-
-Then add the following to your WAN Up script to start it up the first time:
-## Start VPN wan-up script
-# Wait 10 seconds and run vpnup.sh once
-sleep 10
-/tmp/vpnup.sh server1
-## End VPN wan-up script
-
+cru a CheckVPNServer "*/30 * * * * service start vpnserver1"
 
 If you have any questions/comments/concerns, contact me at tomatovpn@keithmoyer.com
 

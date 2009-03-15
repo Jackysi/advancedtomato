@@ -1296,7 +1296,7 @@ TomatoGrid.prototype = {
 			if (f.selectedIndex) f.selectedIndex = 0;
 				else f.value = '';
 		}
-		if (e.length) e[0].focus();
+		try { if (e.length) e[0].focus(); } catch (er) { }
 	},
 
 	getDataCount: function() {

@@ -207,6 +207,7 @@ const struct mime_handler mime_handlers[] = {
 	{ "service.cgi",	NULL,						0,	wi_generic,			wo_service,		1 },
 	{ "logout.cgi",		NULL,	   		 			0,	wi_generic,			wo_logout,		0 },
 	{ "shutdown.cgi",	mime_html,					0,	wi_generic,			wo_shutdown,	1 },
+	{ "vpnstatus.cgi",	mime_javascript,			0,	wi_generic,			wo_vpn_status,		1 },
 
 
 #if TOMATO_SL
@@ -252,7 +253,6 @@ const aspapi_t aspapi[] = {
 	{ "time",				asp_time			},
 	{ "upnpinfo",			asp_upnpinfo		},
 	{ "version",			asp_version			},
-	{ "vpnciphers",			asp_vpn_ciphers		},
 	{ "wanstatus",			asp_wanstatus		},
 	{ "wanup",				asp_wanup			},
 	{ "wlchannel",			asp_wlchannel		},
@@ -684,6 +684,10 @@ static const nvset_t nvset_list[] = {
 	{ "vpn_server1_local",    V_IP                },
 	{ "vpn_server1_remote",   V_IP                },
 	{ "vpn_server1_hmac",     V_RANGE(-1, 2)      },
+	{ "vpn_server1_ccd",      V_01                },
+	{ "vpn_server1_c2c",      V_01                },
+	{ "vpn_server1_ccd_excl", V_01                },
+	{ "vpn_server1_ccd_val",  V_NONE              },
 	{ "vpn_server1_custom",   V_NONE              },
 	{ "vpn_server1_static",   V_NONE              },
 	{ "vpn_server1_ca",       V_NONE              },
@@ -706,6 +710,10 @@ static const nvset_t nvset_list[] = {
 	{ "vpn_server2_remote",   V_IP                },
 	{ "vpn_server2_hmac",     V_RANGE(-1, 2)      },
 	{ "vpn_server2_custom",   V_NONE              },
+	{ "vpn_server2_ccd",      V_01                },
+	{ "vpn_server2_c2c",      V_01                },
+	{ "vpn_server2_ccd_excl", V_01                },
+	{ "vpn_server2_ccd_val",  V_NONE              },
 	{ "vpn_server2_static",   V_NONE              },
 	{ "vpn_server2_ca",       V_NONE              },
 	{ "vpn_server2_crt",      V_NONE              },
