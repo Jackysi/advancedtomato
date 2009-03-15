@@ -17,12 +17,15 @@
 <link rel='stylesheet' type='text/css' href='tomato.css'>
 <link rel='stylesheet' type='text/css' href='color.css'>
 <script type='text/javascript' src='tomato.js'></script>
+<script type='text/javascript' src='vpnciphers.js'></script>
 <script type='text/javascript'>
 
 //	<% nvram("vpn_client1_if,vpn_client1_bridge,vpn_client1_nat,vpn_client1_proto,vpn_client1_addr,vpn_client1_port,vpn_client1_retry,vpn_client1_firewall,vpn_client1_crypt,vpn_client1_comp,vpn_client1_cipher,vpn_client1_local,vpn_client1_remote,vpn_client1_nm,vpn_client1_hmac,vpn_client1_custom,vpn_client1_static,vpn_client1_ca,vpn_client1_crt,vpn_client1_key,vpn_client2_if,vpn_client2_bridge,vpn_client2_nat,vpn_client2_proto,vpn_client2_addr,vpn_client2_port,vpn_client2_retry,vpn_client2_firewall,vpn_client2_crypt,vpn_client2_comp,vpn_client2_cipher,vpn_client2_local,vpn_client2_remote,vpn_client2_nm,vpn_client2_hmac,vpn_client2_custom,vpn_client2_static,vpn_client2_ca,vpn_client2_crt,vpn_client2_key"); %>
 
 tabs = [['client1', 'Client 1'],['client2', 'Client 2']];
-ciphers = [['default','Use Default'],['none','None']<% vpnciphers(); %>];
+sections = [['basic', 'Basic'],['advanced', 'Advanced'],['keys','Keys']];
+ciphers = [['default','Use Default'],['none','None']];
+for (i = 0; i < vpnciphers.length; ++i) ciphers.push([vpnciphers[i],vpnciphers[i]]);
 
 changed = 0;
 vpn1up = parseInt('<% psup("vpnclient1"); %>');
@@ -39,6 +42,25 @@ function tabSelect(name)
 	}
 
 	cookie.set('vpn_client_tab', name);
+}
+
+function sectSelect(tab, section)
+{
+	for (var i = 0; i < sections.length; ++i)
+	{
+		if (section == sections[i][0])
+		{
+			elem.addClass(tabs[tab][0]+'-'+sections[i][0]+'-tab', 'active');
+			elem.display(tabs[tab][0]+'-'+sections[i][0], true);
+		}
+		else
+		{
+			elem.removeClass(tabs[tab][0]+'-'+sections[i][0]+'-tab', 'active');
+			elem.display(tabs[tab][0]+'-'+sections[i][0], false);
+		}
+	}
+
+	cookie.set('vpn_client'+tab+'_section', section);
 }
 
 function toggle(service, isup)
@@ -140,6 +162,16 @@ function save()
 
 	changed = 0;
 }
+
+function init()
+ {
+	tabSelect(cookie.get('vpn_client_tab') || tabs[0][0]);
+
+ 	for (i = 0; i < tabs.length; ++i)
+		sectSelect(i, cookie.get('vpn_client'+i+'_section') || sections[i][0]);
+
+	verifyFields(null, true);
+}
 </script>
 
 <style type='text/css'>
@@ -176,6 +208,15 @@ for (i = 0; i < tabs.length; ++i)
 	W('<div id=\''+t+'-tab\'>');
 	W('<input type=\'hidden\' id=\'vpn_'+t+'_bridge\' name=\'vpn_'+t+'_bridge\'>');
 	W('<input type=\'hidden\' id=\'vpn_'+t+'_nat\' name=\'vpn_'+t+'_nat\'>');
+
+	W('<ul class="tabs">');
+	for (j = 0; j < sections.length; j++)
+	{
+		W('<li><a href="javascript:sectSelect('+i+', \''+sections[j][0]+'\')" id="'+t+'-'+sections[j][0]+'-tab">'+sections[j][1]+'</a></li>');
+	}
+	W('</ul><div class=\'tabs-bottom\'></div>');
+
+	W('<div id=\''+t+'-basic\'>');
 	createFieldTable('', [
 		{ title: 'Interface Type', name: 'vpn_'+t+'_if', type: 'select', options: [ ['tap','TAP'], ['tun','TUN'] ], value: eval( 'nvram.vpn_'+t+'_if' ) },
 		{ title: 'Protocol', name: 'vpn_'+t+'_proto', type: 'select', options: [ ['udp','UDP'], ['tcp-client','TCP'] ], value: eval( 'nvram.vpn_'+t+'_proto' ) },
@@ -195,17 +236,26 @@ for (i = 0; i < tabs.length; ++i)
 			{ name: 'vpn_'+t+'_remote', type: 'text', maxlen: 15, size: 17, value: eval( 'nvram.vpn_'+t+'_remote' ) } ] },
 		{ title: 'Tunnel address/netmask', multi: [
 			{ name: 'f_vpn_'+t+'_local', type: 'text', maxlen: 15, size: 17, value: eval( 'nvram.vpn_'+t+'_local' ) },
-			{ name: 'vpn_'+t+'_nm', type: 'text', maxlen: 15, size: 17, value: eval( 'nvram.vpn_'+t+'_nm' ) } ] },
+			{ name: 'vpn_'+t+'_nm', type: 'text', maxlen: 15, size: 17, value: eval( 'nvram.vpn_'+t+'_nm' ) } ] }
+	]);
+	W('</div>');
+	W('<div id=\''+t+'-advanced\'>');
+	createFieldTable('', [
 		{ title: 'Encryption cipher', name: 'vpn_'+t+'_cipher', type: 'select', options: ciphers, value: eval( 'nvram.vpn_'+t+'_cipher' ) },
 		{ title: 'Compression', name: 'vpn_'+t+'_comp', type: 'select', options: [ ['yes', 'Enabled'], ['no', 'Disabled'], ['adaptive', 'Adaptive'] ], value: eval( 'nvram.vpn_'+t+'_comp' ) },
 		{ title: 'Connection retry', name: 'vpn_'+t+'_retry', type: 'text', maxlen: 5, size: 7, value: eval( 'nvram.vpn_'+t+'_retry' ),
 			suffix: '&nbsp;<small>(in seconds; -1 for infinite)</small>' },
-		{ title: 'Custom Configuration', name: 'vpn_'+t+'_custom', type: 'textarea', value: eval( 'nvram.vpn_'+t+'_custom' ) },
+		{ title: 'Custom Configuration', name: 'vpn_'+t+'_custom', type: 'textarea', value: eval( 'nvram.vpn_'+t+'_custom' ) }
+	]);
+	W('</div>');
+	W('<div id=\''+t+'-keys\'>');
+	createFieldTable('', [
 		{ title: 'Static Key', name: 'vpn_'+t+'_static', type: 'textarea', value: eval( 'nvram.vpn_'+t+'_static' ) },
 		{ title: 'Certificate Authority', name: 'vpn_'+t+'_ca', type: 'textarea', value: eval( 'nvram.vpn_'+t+'_ca' ) },
 		{ title: 'Client Certificate', name: 'vpn_'+t+'_crt', type: 'textarea', value: eval( 'nvram.vpn_'+t+'_crt' ) },
 		{ title: 'Client Key', name: 'vpn_'+t+'_key', type: 'textarea', value: eval( 'nvram.vpn_'+t+'_key' ) }
 	]);
+	W('</div>');
 	W('<input type="button" value="' + (eval('vpn'+(i+1)+'up') ? 'Stop' : 'Start') + ' Now" onclick="toggle(\'vpn'+t+'\', vpn'+(i+1)+'up)" id="_vpn'+t+'_button">');
 	W('</div>');
 }
@@ -221,7 +271,7 @@ for (i = 0; i < tabs.length; ++i)
 </td></tr>
 </table>
 </form>
-<script type='text/javascript'>tabSelect(cookie.get('vpn_client_tab') || tabs[0][0]); verifyFields(null, 1);</script>
+<script type='text/javascript'>init();</script>
 </body>
 </html>
 
