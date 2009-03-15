@@ -150,6 +150,9 @@ struct options
 # define MODE_SERVER         1
   int mode;
 
+  /* enable forward compatibility for post-2.1 features */
+  bool forward_compatible;
+
   /* persist parms */
   bool persist_config;
   int persist_mode;
@@ -343,6 +346,7 @@ struct options
   in_addr_t server_netmask;
 
 # define SF_NOPOOL (1<<0)
+# define SF_TCP_NODELAY_HELPER (1<<1)
   unsigned int server_flags;
 
   bool server_bridge_proxy_dhcp;
@@ -385,10 +389,9 @@ struct options
   int max_clients;
   int max_routes_per_client;
 
-  bool client_cert_not_required;
-  bool username_as_common_name;
   const char *auth_user_pass_verify_script;
   bool auth_user_pass_verify_script_via_file;
+  unsigned int ssl_flags; /* set to SSLF_x flags from ssl.h */
 #if PORT_SHARE
   char *port_share_host;
   int port_share_port;
@@ -416,6 +419,8 @@ struct options
   bool authname_defined;
   const char *authname;
   int keysize;
+  const char *prng_hash;
+  int prng_nonce_secret_len;
   const char *engine;
   bool replay;
   bool mute_replay_warnings;
