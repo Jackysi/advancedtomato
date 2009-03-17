@@ -163,7 +163,10 @@ dg.sortCompare = function(a, b) {
 
 	switch (col) {
 	case 1:
-		r = cmpInt(ra.host, rb.host);
+		if (ra.type == 'Storage' && ra.type == rb.type)
+			r = cmpInt(ra.host, rb.host);
+		else
+			r = cmpText(ra.host, rb.host);
 		break;
 	default:
 		r = cmpText(a.cells[col].innerHTML, b.cells[col].innerHTML);

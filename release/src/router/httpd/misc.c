@@ -684,34 +684,49 @@ void asp_usbdevices(int argc, char **argv)
 	if (scsi_dir)
 		closedir(scsi_dir);
 
-	/* now look for a printer */
-	if (f_exists("/dev/usb/lp0") && (fp = fopen("/proc/usblp/usblpid", "r"))) {
-		g_usb_vendor[0] = 0;
-		g_usb_product[0] = 0;
-		tmp = NULL;
+	/* now look for printers */
+	usb_dir = opendir("/proc/usblp");
+	while (usb_dir && (dp = readdir(usb_dir)))
+	{
+		if (!strcmp(dp->d_name, "..") || !strcmp(dp->d_name, "."))
+			continue;
+		
+		/*
+		sprintf(line, "/dev/usb/%s", dp->d_name);
+		if (!f_exists(line))
+			continue;
+		*/
+		sprintf(line, "/proc/usblp/%s", dp->d_name);
+		if ((fp = fopen(line, "r"))) {
+			g_usb_vendor[0] = 0;
+			g_usb_product[0] = 0;
+			tmp = NULL;
 
-		while (fgets(line, sizeof(line), fp) != NULL) {
-			if (strstr(line, "Manufacturer")) {
-				tmp = strtok(line, "=");
-				tmp = strtok(NULL, "\n");
-				strcpy(g_usb_vendor, tmp);
-				tmp = NULL;
+			while (fgets(line, sizeof(line), fp) != NULL) {
+				if (strstr(line, "Manufacturer")) {
+					tmp = strtok(line, "=");
+					tmp = strtok(NULL, "\n");
+					strcpy(g_usb_vendor, tmp);
+					tmp = NULL;
+				}
+				else if (strstr(line, "Model")) {
+					tmp = strtok(line, "=");
+					tmp = strtok(NULL, "\n");
+					strcpy(g_usb_product, tmp);
+					tmp = NULL;
+				}
 			}
-			else if (strstr(line, "Model")) {
-				tmp = strtok(line, "=");
-				tmp = strtok(NULL, "\n");
-				strcpy(g_usb_product, tmp);
-				tmp = NULL;
+			if ((strlen(g_usb_product) > 0) || (strlen(g_usb_vendor) > 0)) {
+				web_printf("%s['Printer','%s','%s','%s','']", i ? "," : "",
+					dp->d_name, g_usb_vendor, g_usb_product);
+				++i;
 			}
-		}
-		if ((strlen(g_usb_product) > 0) || (strlen(g_usb_vendor) > 0)) {
-			web_printf("%s['Printer','','%s','%s','']", i ? "," : "",
-				g_usb_vendor, g_usb_product);
-			++i;
-		}
 
-		fclose(fp);
+			fclose(fp);
+		}
 	}
+	if (usb_dir)
+		closedir(usb_dir);
 
 	web_puts("];\n");
 }
