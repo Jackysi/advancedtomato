@@ -66,6 +66,7 @@ extern int nvram_is_empty(const char *key);
 extern void nvram_commit_x(void);
 extern int connect_timeout(int fd, const struct sockaddr *addr, socklen_t len, int timeout);
 //!!TB
+extern char *detect_fs_type(char *device);
 extern struct mntent *findmntent(char *file);
 extern int find_label(char *mnt_dev, char *the_label);
 

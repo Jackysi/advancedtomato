@@ -192,59 +192,6 @@ void stop_usb(void)
 }
 
 
-char *detect_fs_type(char *device)
-{
-	int fd;
-	unsigned char buf[4096];
-	
-	if ((fd = open(device, O_RDONLY)) < 0)
-		return NULL;
-		
-	if (read(fd, buf, sizeof(buf)) != sizeof(buf))
-	{
-		close(fd);
-		return NULL;
-	}
-	
-	close(fd);
-	
-	/* first check for mbr */
-	if (*device && device[strlen(device) - 1] > '9' &&
-		buf[510] == 0x55 && buf[511] == 0xAA && /* signature */
-		((buf[0x1be] | buf[0x1ce] | buf[0x1de] | buf[0x1ee]) & 0x7f) == 0) /* boot flags */ 
-	{
-		return "mbr";
-	} 
-	/* detect swap */
-	else if (memcmp(buf + 4086, "SWAPSPACE2", 10) == 0 ||
-		memcmp(buf + 4086, "SWAP-SPACE", 10) == 0)
-	{
-		return "swap";
-	}
-	/* detect ext2/3 */
-	else if (buf[0x438] == 0x53 && buf[0x439] == 0xEF)
-	{
-		return ((buf[0x460] & 0x0008 /* JOURNAL_DEV */) != 0 ||
-			(buf[0x45c] & 0x0004 /* HAS_JOURNAL */) != 0) ? "ext3" : "ext2";
-	}
-	/* detect ntfs */
-	else if (buf[510] == 0x55 && buf[511] == 0xAA && /* signature */
-		memcmp(buf + 3, "NTFS    ", 8) == 0)
-	{
-		return "ntfs";
-	}
-	/* detect vfat */
-	else if (buf[510] == 0x55 && buf[511] == 0xAA && /* signature */
-		buf[11] == 0 && buf[12] >= 1 && buf[12] <= 8 /* sector size 512 - 4096 */ &&
-		buf[13] != 0 && (buf[13] & (buf[13] - 1)) == 0) /* sectors per cluster */
-	{
-		return "vfat";
-	}
-
-	return NULL;
-}
-
-
 #define MOUNT_VAL_FAIL 	0
 #define MOUNT_VAL_RONLY	1
 #define MOUNT_VAL_RW 	2

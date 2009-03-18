@@ -537,6 +537,7 @@ void wo_resolve(char *url)
 int is_partition_mounted(char *dev_name, int host_num, int disc_num, int part_num, uint flags)
 {
 	char the_label[128];
+	char *type;
 	int is_mounted = 0;
 	struct mntent *mnt;
 
@@ -563,7 +564,8 @@ int is_partition_mounted(char *dev_name, int host_num, int disc_num, int part_nu
 	}
 	else {
 		if (flags & EFH_PRINT) {
-			web_puts("0,'','','']");
+			type = detect_fs_type(dev_name);
+			web_printf("0,'','%s','']", type ? type : "");
 		}
 	}
 
