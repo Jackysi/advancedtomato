@@ -400,6 +400,7 @@ const defaults_t defaults[] = {
 	{ "sshd_rport",			"2222"			},
 	{ "sshd_authkeys",		""				},
 	{ "sshd_hostkey",		""				},
+	{ "sshd_forwarding",		"1"				},
 	{ "rmgt_sip",			""				},	// remote management: source ip address
 
 	{ "http_id",			""				},
