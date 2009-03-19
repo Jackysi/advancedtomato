@@ -24,7 +24,6 @@
 
 /* Serialize using fcntl() calls 
  */
-#define USB_HPLOCK_TIMEOUT 8
 static int lockfd = -1;
 
 void usb_lock_init(void)
@@ -35,50 +34,16 @@ void usb_lock(void)
 {
 	const char fn[] = "/var/lock/usbhotplug.lock";
 	struct flock lock;
-	pid_t self = getpid();
-	pid_t lock_pid = -1;
 	
-	if ((lockfd = open(fn, O_CREAT | O_RDWR, 0666)) < 0) {
+	if ((lockfd = open(fn, O_CREAT | O_RDWR, 0666)) < 0)
 		goto lock_error;
-	}
 
 	memset(&lock, 0, sizeof(lock));
 	lock.l_type = F_WRLCK;
-	lock.l_pid = self;
+	lock.l_pid = getpid();
+	if (fcntl(lockfd, F_SETLKW, &lock) < 0)
+		goto lock_error;
 
-	int n = USB_HPLOCK_TIMEOUT;
-	while (fcntl(lockfd, F_SETLK, &lock) < 0) {
-		if (errno == EACCES || errno == EAGAIN) {
-			// locked by another process, waiting...
-			// find out what process owns the lock
-			if (fcntl(lockfd, F_GETLK, &lock) >= 0) {
-				if (lock.l_type != F_UNLCK && lock_pid != lock.l_pid) {
-					/* This is not the same process.
-					 * Looks like while we were waiting, someone
-					 * else aquired the lock.
-					 * Reset the waiting time to allow at least
-					 * USB_HPLOCK_TIMEOUT seconds for each process.
-					 */
-					n = USB_HPLOCK_TIMEOUT;
-					lock_pid = lock.l_pid;
-				}
-			}
-			if (--n == 0) {
-				/* There's a chance that the lock owner has changed
-				 * between F_GETLK call and now. If this happens,
-				 * we'll be breaking the new lock. There must be a better way.
-				 */
-				syslog(LOG_DEBUG, "Breaking %s locked by [%d]", fn, lock_pid);
-				break;
-			}
-			memset(&lock, 0, sizeof(lock));
-			lock.l_type = F_WRLCK;
-			lock.l_pid = self;
-			sleep(1);
-		}
-		else
-			goto lock_error;
-	}
 	return;
 lock_error:
 	// No proper error processing
