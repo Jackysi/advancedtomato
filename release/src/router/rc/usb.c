@@ -20,70 +20,6 @@
 #include <sys/file.h>
 
 
-#if 1
-
-/* Serialize using fcntl() calls 
- */
-static int lockfd = -1;
-
-void usb_lock_init(void)
-{
-}
-
-void usb_lock(void)
-{
-	const char fn[] = "/var/lock/usbhotplug.lock";
-	struct flock lock;
-	
-	if ((lockfd = open(fn, O_CREAT | O_RDWR, 0666)) < 0)
-		goto lock_error;
-
-	memset(&lock, 0, sizeof(lock));
-	lock.l_type = F_WRLCK;
-	lock.l_pid = getpid();
-	if (fcntl(lockfd, F_SETLKW, &lock) < 0)
-		goto lock_error;
-
-	return;
-lock_error:
-	// No proper error processing
-	syslog(LOG_DEBUG, "Error %d locking %s, proceeding anyway", errno, fn);
-}
-
-void usb_unlock(void)
-{
-	if (lockfd >= 0) {
-		close(lockfd);
-		lockfd = -1;
-	}
-}
-
-#else
-
-/* Serialize using breakable Tomato file lock.
- * The problem with this implementation is that it only works good
- * for up to 2 concurrent processes. If we have more than 1
- * process waiting for a lock, they all may break it at about
- * the same time - nothing forces them to wait on each other.
- */
-void usb_lock(void)
-{
-	simple_lock("usbhp");
-}
-
-void usb_unlock(void)
-{
-	simple_unlock("usbhp");
-}
-
-void usb_lock_init(void)
-{
-	usb_unlock();
-}
-
-#endif
-
-
 /* Adjust bdflush parameters.
  * Do this here, because Tomato doesn't have the sysctl command.
  * With these values, a disk block should be written to disk within 2 seconds.
@@ -647,7 +583,7 @@ void hotplug_usb(void)
 			interface, product);
 		wait_for_stabilize(4, host);
 	}
-	usb_lock();
+	int fd = usb_lock();
 
 	if (strncmp(interface, "TOMATO/", 7) == 0) {	/* web admin */
 		if (scsi_host == NULL)
@@ -673,6 +609,6 @@ void hotplug_usb(void)
 		run_nvscript("script_usbhotplug", NULL, 2);
 	}
 
-	usb_unlock();
+	usb_unlock(fd);
 }
 

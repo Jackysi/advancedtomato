@@ -576,11 +576,13 @@ int is_host_mounted(int host_no, int print_parts)
 {
 	if (print_parts) web_puts("[-1,[");
 
+	int fd = usb_lock();
 	int mounted = exec_for_host(
 		host_no,
 		0x00,
 		print_parts ? EFH_PRINT : 0,
 		is_partition_mounted);
+	usb_unlock(fd);
 	
 	if (print_parts) web_puts("]]");
 
@@ -713,6 +715,8 @@ void asp_usbdevices(int argc, char **argv)
 
 	web_puts("];\n");
 }
+
+//#define SAME_AS_KERNEL
 
 /* Simulate a hotplug event, as if a USB storage device
  * got plugged or unplugged.

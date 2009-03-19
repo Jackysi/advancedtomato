@@ -458,6 +458,37 @@ int time_ok(void)
 // -----------------------------------------------------------------------------
 //!!TB - USB Support
 
+/* Serialize using fcntl() calls 
+ */
+int usb_lock(void)
+{
+	const char fn[] = "/var/lock/usb.lock";
+	struct flock lock;
+	int lockfd = -1;
+	
+	if ((lockfd = open(fn, O_CREAT | O_RDWR, 0666)) < 0)
+		goto lock_error;
+
+	memset(&lock, 0, sizeof(lock));
+	lock.l_type = F_WRLCK;
+	lock.l_pid = getpid();
+	if (fcntl(lockfd, F_SETLKW, &lock) < 0)
+		goto lock_error;
+
+	return lockfd;
+lock_error:
+	// No proper error processing
+	syslog(LOG_DEBUG, "Error %d locking %s, proceeding anyway", errno, fn);
+	return -1;
+}
+
+void usb_unlock(int lockfd)
+{
+	if (lockfd >= 0) {
+		close(lockfd);
+	}
+}
+
 char *detect_fs_type(char *device)
 {
 	int fd;

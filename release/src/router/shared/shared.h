@@ -69,6 +69,8 @@ extern int connect_timeout(int fd, const struct sockaddr *addr, socklen_t len, i
 extern char *detect_fs_type(char *device);
 extern struct mntent *findmntent(char *file);
 extern int find_label(char *mnt_dev, char *the_label);
+extern int usb_lock(void);
+extern void usb_unlock(int lockfd);
 
 #define DEV_DISCS_ROOT	"/dev/discs"
 
