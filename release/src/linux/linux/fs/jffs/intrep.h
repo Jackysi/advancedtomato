@@ -80,9 +80,9 @@ static inline int JFFS_ENOUGH_SPACE(struct jffs_control *c, __u32 space)
 }
 
 /* For debugging purposes.  */
-void jffs_print_node(struct jffs_node *n);
-void jffs_print_raw_inode(struct jffs_raw_inode *raw_inode);
+#if 0
 int jffs_print_file(struct jffs_file *f);
+#endif  /*  0  */
 void jffs_print_hash_table(struct jffs_control *c);
 void jffs_print_tree(struct jffs_file *first_file, int indent);
 

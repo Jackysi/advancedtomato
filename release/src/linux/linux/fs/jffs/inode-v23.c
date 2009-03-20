@@ -60,12 +60,12 @@
 
 static int jffs_remove(struct inode *dir, struct dentry *dentry, int type);
 
-static struct super_operations jffs_ops;
-static struct file_operations jffs_file_operations;
-static struct inode_operations jffs_file_inode_operations;
-static struct file_operations jffs_dir_operations;
-static struct inode_operations jffs_dir_inode_operations;
-static struct address_space_operations jffs_address_operations;
+static const struct super_operations jffs_ops;
+static const struct file_operations jffs_file_operations;
+static const struct inode_operations jffs_file_inode_operations;
+static const struct file_operations jffs_dir_operations;
+static const struct inode_operations jffs_dir_inode_operations;
+static const struct address_space_operations jffs_address_operations;
 
 kmem_cache_t     *node_cache = NULL;
 kmem_cache_t     *fm_cache = NULL;
@@ -1561,7 +1561,7 @@ jffs_ioctl(struct inode *inode, struct file *filp, unsigned int cmd,
 } /* jffs_ioctl()  */
 
 
-static struct address_space_operations jffs_address_operations = {
+static const struct address_space_operations jffs_address_operations = {
 	readpage: jffs_readpage,
 	prepare_write: jffs_prepare_write,
 	commit_write: jffs_commit_write,
@@ -1576,10 +1576,7 @@ static int jffs_fsync(struct file *f, struct dentry *d, int datasync)
 }
 
 
-extern int generic_file_open(struct inode *, struct file *) __attribute__((weak));
-extern loff_t generic_file_llseek(struct file *, loff_t, int) __attribute__((weak));
-
-static struct file_operations jffs_file_operations =
+static const struct file_operations jffs_file_operations =
 {
 	open:	generic_file_open,
 	llseek:	generic_file_llseek,
@@ -1591,20 +1588,20 @@ static struct file_operations jffs_file_operations =
 };
 
 
-static struct inode_operations jffs_file_inode_operations =
+static const struct inode_operations jffs_file_inode_operations =
 {
 	lookup:  jffs_lookup,          /* lookup */
 	setattr: jffs_setattr,
 };
 
 
-static struct file_operations jffs_dir_operations =
+static const struct file_operations jffs_dir_operations =
 {
 	readdir:	jffs_readdir,
 };
 
 
-static struct inode_operations jffs_dir_inode_operations =
+static const struct inode_operations jffs_dir_inode_operations =
 {
 	create:   jffs_create,
 	lookup:   jffs_lookup,
@@ -1711,7 +1708,7 @@ jffs_write_super(struct super_block *sb)
 	jffs_garbage_collect_trigger(c);
 }
 
-static struct super_operations jffs_ops =
+static const struct super_operations jffs_ops =
 {
 	read_inode:   jffs_read_inode,
 	delete_inode: jffs_delete_inode,

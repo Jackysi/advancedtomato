@@ -149,8 +149,11 @@ int jffs_add_node(struct jffs_node *node);
 void jffs_fmfree_partly(struct jffs_fmcontrol *fmc, struct jffs_fm *fm,
 			__u32 size);
 
+#if CONFIG_JFFS_FS_VERBOSE > 0
 void jffs_print_fmcontrol(struct jffs_fmcontrol *fmc);
-void jffs_print_fm(struct jffs_fm *fm);
+#endif
+#if 0
 void jffs_print_node_ref(struct jffs_node_ref *ref);
+#endif  /*  0  */
 
 #endif /* __LINUX_JFFS_FM_H__  */
