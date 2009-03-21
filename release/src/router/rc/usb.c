@@ -367,7 +367,10 @@ void hotplug_usb_storage_device(int host_no, int action_add, uint flags)
 
 	if (action_add) {
 		if (nvram_match("usb_storage", "1") && (nvram_match("usb_automount", "1") || action_add < 0)) {
-			exec_for_host(host_no, 0x01, flags, mount_partition);
+			/* Do not probe the device here. It's either initiated by user,
+			 * or hotplug_usb() already did.
+			 */
+			exec_for_host(host_no, 0x00, flags, mount_partition);
 			restart_nas_services(1); // restart all NAS applications
 			run_nvscript("script_usbmount", NULL, 3);
 		}
@@ -386,7 +389,7 @@ void hotplug_usb_storage_device(int host_no, int action_add, uint flags)
 			 * so they are not keeping the device busy.
 			 */
 			restart_nas_services(0);
-			exec_for_host(host_no, 0x02, flags, umount_partition);
+			exec_for_host(host_no, (flags & EFH_USER) ? 0x00 : 0x02, flags, umount_partition);
 			/* Restart NAS applications */
 			restart_nas_services(1);
 		}
