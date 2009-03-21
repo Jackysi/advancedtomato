@@ -719,7 +719,7 @@ static void usb_hub_port_connect_change(struct usb_hub *hubstate, int port,
 		return;
 	}
 
-	if (usb_hub_port_debounce(hub, port)) {
+	if (usb_hub_port_debounce(hub, port) < 0) {
 		err("connect-debounce failed, port %d disabled", port+1);
 		usb_hub_port_disable(hub, port);
 		return;
