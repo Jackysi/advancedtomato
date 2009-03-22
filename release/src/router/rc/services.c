@@ -1492,7 +1492,11 @@ TOP:
 	// !!TB - USB Support
 	if (strcmp(service, "usb") == 0) {
 		if (action & A_STOP) stop_usb();
-		if (action & A_START) start_usb();
+		if (action & A_START) {
+			start_usb();
+			// restart Samba and ftp since they may be killed by stop_usb()
+			restart_nas_services(1);
+		}
 		goto CLEAR;
 	}
 	

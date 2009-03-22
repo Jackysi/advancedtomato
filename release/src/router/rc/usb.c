@@ -110,7 +110,7 @@ void start_usb(void)
 
 void stop_usb(void)
 {
-	// Only stop printing service here, since there might be mounted USB partitions
+	// stop printing service
 	int i;
 	char s[32];
 	char pid[] = "/var/run/p9100d.pid";
@@ -123,8 +123,38 @@ void stop_usb(void)
 			unlink(pid);
 		}
 	}
-
 	modprobe_r("printer");
+
+	// only stop storage services if disabled
+	if (!nvram_match("usb_enable", "1") || !nvram_match("usb_storage", "1")) {
+		// Unmount all partitions
+		remove_storage_main();
+
+		// Stop storage services
+		modprobe_r("ext2");
+		modprobe_r("ext3");
+		modprobe_r("jbd");
+		modprobe_r("vfat");
+		modprobe_r("fat");
+#ifdef TCONFIG_SAMBASRV
+		modprobe_r("nls_cp437");
+		modprobe_r("nls_cp850");
+		modprobe_r("nls_cp852");
+		modprobe_r("nls_cp866");
+#endif
+		modprobe_r("usb-storage");
+		modprobe_r("sd_mod");
+		modprobe_r("scsi_mod");
+	}
+
+	// only unload core modules if usb is disabled
+	if (!nvram_match("usb_enable", "1")) {
+		umount("/proc/bus/usb"); // unmount usb device filesystem
+		modprobe_r("usb-ohci");
+		modprobe_r("usb-uhci");
+		modprobe_r("ehci-hcd");
+		modprobe_r("usbcore");
+	}
 }
 
 
@@ -199,7 +229,7 @@ int mount_r(char *mnt_dev, char *mnt_dir, char *type)
 
 			ret = mount(mnt_dev, mnt_dir, type, flags, options[0] ? options : "");
 			if (ret != 0) /* give it another try - guess fs */
-				ret = eval("mount", "-o", "noatime", mnt_dev, mnt_dir);
+				ret = eval("mount", "-o", "noatime,nodev", mnt_dev, mnt_dir);
 			
 			if (ret == 0) {
 				syslog(LOG_INFO, "USB %s%s fs at %s mounted on %s",
