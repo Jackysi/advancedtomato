@@ -541,7 +541,7 @@ int is_partition_mounted(char *dev_name, int host_num, int disc_num, int part_nu
 	int is_mounted = 0;
 	struct mntent *mnt;
 
-	if ((!find_label(dev_name, the_label)) || (!the_label) || (the_label[0] == 0)) {
+	if (!find_label(dev_name, the_label)) {
 		sprintf(the_label, "disc%d_%d", disc_num, part_num);
 	}
 

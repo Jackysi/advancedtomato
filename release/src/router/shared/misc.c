@@ -604,10 +604,10 @@ char *detect_fs_type(char *device)
 int exec_for_host(int host, int when_to_update, uint flags, host_exec func)
 {
 	DIR *usb_dev_disc;
-	char bfr[64];	/* Will be: /dev/discs/disc#					*/
+	char bfr[128];	/* Will be: /dev/discs/disc#					*/
 	char link[256];	/* Will be: ../scsi/host#/bus0/target0/lun#  that bfr links to. */
 			/* When calling the func, will be: /dev/discs/disc#/part#	*/
-	char bfr2[64];	/* Will be: /dev/discs/disc#/disc     for the BLKRRPART.	*/
+	char bfr2[128];	/* Will be: /dev/discs/disc#/disc     for the BLKRRPART.	*/
 	int fd;
 	char *cp;
 	int len;
@@ -649,11 +649,10 @@ int exec_for_host(int host, int when_to_update, uint flags, host_exec func)
 			mp = link;
 			if ((cp = strstr(link, "../")) != NULL)
 				mp = cp + 3;
-			strcat(mp, "/part");
 			siz = strlen(mp);
 
-			sprintf(bfr2, "%s/disc", bfr);	/* Prepare for BLKRRPART */
 			if (when_to_update & 0x01) {
+				sprintf(bfr2, "%s/disc", bfr);	/* Prepare for BLKRRPART */
 				if ((fd = open(bfr2, O_RDONLY | O_NONBLOCK)) >= 0) {
 					ioctl(fd, BLKRRPART);
 					close(fd);
@@ -663,21 +662,20 @@ int exec_for_host(int host, int when_to_update, uint flags, host_exec func)
 			flags |= EFH_1ST_DISC;
 			if (func && (prt_fp = fopen("/proc/partitions", "r"))) {
 				while (fgets(line, sizeof(line) - 2, prt_fp)) {
-					if (line[0] != ' ')
-						continue;
-					for (cp = line; isdigit(*cp) || isblank(*cp); ++cp)
-						;
-					if (strncmp(cp, mp, siz) == 0) {
-						part_num = atoi(cp + siz);
-						sprintf(line, "%s/part%d", bfr, part_num);
-						result = (*func)(line, host_no, disc_num, part_num, flags) || result;
-						flags &= ~(EFH_1ST_HOST | EFH_1ST_DISC);
+					if (sscanf(line, " %*s %*s %*s %s", bfr2) == 1) {
+						if ((cp = strstr(bfr2, "/part")) && strncmp(bfr2, mp, siz) == 0) {
+							part_num = atoi(cp + 5);
+							sprintf(line, "%s/part%d", bfr, part_num);
+							result = (*func)(line, host_no, disc_num, part_num, flags) || result;
+							flags &= ~(EFH_1ST_HOST | EFH_1ST_DISC);
+						}
 					}
 				}
 				fclose(prt_fp);
 			}
 
 			if (when_to_update & 0x02) {
+				sprintf(bfr2, "%s/disc", bfr);	/* Prepare for BLKRRPART */
 				if ((fd = open(bfr2, O_RDONLY | O_NONBLOCK)) >= 0) {
 					ioctl(fd, BLKRRPART);
 					close(fd);
