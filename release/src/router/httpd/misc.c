@@ -540,6 +540,8 @@ int is_partition_mounted(char *dev_name, int host_num, int disc_num, int part_nu
 	char *type;
 	int is_mounted = 0;
 	struct mntent *mnt;
+	struct statfs s;
+	unsigned long psize = 0;
 
 	if (!find_label(dev_name, the_label)) {
 		sprintf(the_label, "disc%d_%d", disc_num, part_num);
@@ -550,7 +552,7 @@ int is_partition_mounted(char *dev_name, int host_num, int disc_num, int part_nu
 			// [disc_no, [partitions array]],...
 			web_printf("]],[%d,[", disc_num);
 		}
-		// [partition_name, is_mounted, mount_point, type, opts],...
+		// [partition_name, is_mounted, mount_point, type, opts, size],...
 		web_printf("%s['%s',", (flags & EFH_1ST_DISC) ? "" : ",", the_label);
 	}
 
@@ -558,14 +560,17 @@ int is_partition_mounted(char *dev_name, int host_num, int disc_num, int part_nu
 	if (mnt) {
 		is_mounted = 1;
 		if (flags & EFH_PRINT) {
-			web_printf("1,'%s','%s','%s']",
-				mnt->mnt_dir, mnt->mnt_type, mnt->mnt_opts);
+			if (statfs(mnt->mnt_dir, &s) == 0) {
+				psize = (s.f_blocks * (unsigned long long) s.f_bsize + 1024*1024/2) / (1024*1024);
+			}
+			web_printf("1,'%s','%s','%s','%ld']",
+				mnt->mnt_dir, mnt->mnt_type, mnt->mnt_opts, psize);
 		}
 	}
 	else {
 		if (flags & EFH_PRINT) {
 			type = detect_fs_type(dev_name);
-			web_printf("0,'','%s','']", type ? type : "");
+			web_printf("0,'','%s','','0']", type ? type : "");
 		}
 	}
 

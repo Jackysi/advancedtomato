@@ -225,7 +225,8 @@ dg.populate = function()
 				for (k = 0; k <= parts.length - 1; ++k) {
 					p = parts[k];
 					if (p) {
-						desc = desc + '<br>Partition \'' + p[0] + '\'' + (p[3] != '' ? ' ' : '') + p[3] +
+						desc = desc + '<br>Partition \'' + p[0] + '\'' + (p[3] != '' ? ' ' + p[3] : '') +
+							(p[5] != '0' && p[5] != '' ? ' (' + p[5] + ' MB)' : '') +
 							((p[1] != 0) ? ' is mounted ' +  ((p[2] != '') ? 'on ' : '') : ' is not mounted ') + p[2];
 					}
 				}
