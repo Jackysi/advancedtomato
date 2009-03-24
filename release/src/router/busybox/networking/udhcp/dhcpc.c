@@ -57,11 +57,11 @@ static void perform_renew(void)
 	bb_info_msg("Performing a DHCP renew");
 	switch (state) {
 	case BOUND:
-		change_listen_mode(LISTEN_KERNEL);
+		change_listen_mode(LISTEN_RAW);	// zzz
 	case RENEWING:
 	case REBINDING:
-		state = RENEW_REQUESTED;
-		break;
+//		state = RENEW_REQUESTED;	// zzz
+//		break;
 	case RENEW_REQUESTED: /* impatient are we? fine, square 1 */
 		udhcp_run_script(NULL, "deconfig");
 	case REQUESTING:
@@ -195,8 +195,9 @@ int udhcpc_main(int argc UNUSED_PARAM, char **argv)
 		OPT_O = 1 << 18,
 		OPT_o = 1 << 19,
 		OPT_f = 1 << 20,
+		OPT_m = 1 << 21,	// zzz
 /* The rest has variable bit positions, need to be clever */
-		OPTBIT_f = 20,
+		OPTBIT_LAST = 21,
 		USE_FOR_MMU(              OPTBIT_b,)
 		USE_FEATURE_UDHCPC_ARPING(OPTBIT_a,)
 		USE_FEATURE_UDHCP_PORT(   OPTBIT_P,)
@@ -216,6 +217,7 @@ int udhcpc_main(int argc UNUSED_PARAM, char **argv)
 	opt_complementary = "c--C:C--c:O::T+:t+:A+";
 	USE_GETOPT_LONG(applet_long_options = udhcpc_longopts;)
 	opt = getopt32(argv, "c:CV:H:h:F:i:np:qRr:s:T:t:vSA:O:of"
+		"m"	// zzz
 		USE_FOR_MMU("b")
 		USE_FEATURE_UDHCPC_ARPING("a")
 		USE_FEATURE_UDHCP_PORT("P:")
@@ -266,6 +268,7 @@ int udhcpc_main(int argc UNUSED_PARAM, char **argv)
 		n = dhcp_options[n].code;
 		client_config.opt_mask[n >> 3] |= 1 << (n & 7);
 	}
+	if (opt & OPT_m) minpkt = 1;	// zzz
 
 	if (udhcp_read_interface(client_config.interface, &client_config.ifindex,
 			   NULL, client_config.arp))
@@ -317,8 +320,8 @@ int udhcpc_main(int argc UNUSED_PARAM, char **argv)
 	 * on sockfd.
 	 * "continue" statements in code below jump to the top of the loop.
 	 */
-	for (;;) {
-		unsigned timestamp_before_wait;
+	unsigned timestamp_before_wait = 0;
+	for (;;) {		
 
 		if (listen_mode != LISTEN_NONE && sockfd < 0) {
 			if (listen_mode == LISTEN_KERNEL)
@@ -412,7 +415,7 @@ int udhcpc_main(int argc UNUSED_PARAM, char **argv)
 				continue;
 			case BOUND:
 				/* Half of the lease passed, time to enter renewing state */
-				change_listen_mode(LISTEN_KERNEL);
+				change_listen_mode(LISTEN_RAW);	// was: LISTEN_KERNEL -- zzz
 				DEBUG("Entering renew state");
 				state = RENEWING;
 				/* fall right through */
