@@ -392,8 +392,12 @@ static const uint16_t PRIMES[] ALIGN2 = { 251, 1021, 4093, 16381, 65521 };
 
 
 /* Globals. Split in two parts so that first one is addressed
- * with (mostly short) negative offsets */
+ * with (mostly short) negative offsets.
+ * NB: it's unsafe to put members of type "double"
+ * into globals2 (gcc may fail to align them).
+ */
 struct globals {
+	double t_double;
 	chain beginseq, mainseq, endseq;
 	chain *seq;
 	node *break_ptr, *continue_ptr;
@@ -442,16 +446,16 @@ struct globals2 {
 	tsplitter exec_builtin__tspl;
 
 	/* biggest and least used members go last */
-	double t_double;
 	tsplitter fsplitter, rsplitter;
 };
 #define G1 (ptr_to_globals[-1])
 #define G (*(struct globals2 *)ptr_to_globals)
 /* For debug. nm --size-sort awk.o | grep -vi ' [tr] ' */
-/* char G1size[sizeof(G1)]; - 0x6c */
-/* char Gsize[sizeof(G)]; - 0x1cc */
+/*char G1size[sizeof(G1)]; - 0x74 */
+/*char Gsize[sizeof(G)]; - 0x1c4 */
 /* Trying to keep most of members accessible with short offsets: */
-/* char Gofs_seed[offsetof(struct globals2, evaluate__seed)]; - 0x90 */
+/*char Gofs_seed[offsetof(struct globals2, evaluate__seed)]; - 0x90 */
+#define t_double     (G1.t_double    )
 #define beginseq     (G1.beginseq    )
 #define mainseq      (G1.mainseq     )
 #define endseq       (G1.endseq      )
@@ -479,7 +483,6 @@ struct globals2 {
 #define t_info       (G.t_info      )
 #define t_tclass     (G.t_tclass    )
 #define t_string     (G.t_string    )
-#define t_double     (G.t_double    )
 #define t_lineno     (G.t_lineno    )
 #define t_rollback   (G.t_rollback  )
 #define intvar       (G.intvar      )
@@ -512,7 +515,7 @@ static const char EMSG_TOO_FEW_ARGS[] ALIGN1 = "Too few arguments for builtin";
 static const char EMSG_NOT_ARRAY[] ALIGN1 = "Not an array";
 static const char EMSG_POSSIBLE_ERROR[] ALIGN1 = "Possible syntax error";
 static const char EMSG_UNDEF_FUNC[] ALIGN1 = "Call to undefined function";
-#if !ENABLE_FEATURE_AWK_MATH
+#if !ENABLE_FEATURE_AWK_LIBM
 static const char EMSG_NO_MATH[] ALIGN1 = "Math support is not compiled in";
 #endif
 
@@ -681,6 +684,18 @@ static ALWAYS_INLINE int isalnum_(int c)
 	return (isalnum(c) || c == '_');
 }
 
+static double my_strtod(char **pp)
+{
+#if ENABLE_DESKTOP
+	if ((*pp)[0] == '0'
+	 && ((((*pp)[1] | 0x20) == 'x') || isdigit((*pp)[1]))
+	) {
+		return strtoull(*pp, pp, 0);
+	}
+#endif
+	return strtod(*pp, pp);
+}
+
 /* -------- working with variables (set/get/copy/etc) -------- */
 
 static xhash *iamarray(var *v)
@@ -790,7 +805,7 @@ static double getvar_i(var *v)
 		v->number = 0;
 		s = v->string;
 		if (s && *s) {
-			v->number = strtod(s, &s);
+			v->number = my_strtod(&s);
 			if (v->type & VF_USER) {
 				skip_spaces(&s);
 				if (*s != '\0')
@@ -802,6 +817,19 @@ static double getvar_i(var *v)
 		v->type |= VF_CACHED;
 	}
 	return v->number;
+}
+
+/* Used for operands of bitwise ops */
+static unsigned long getvar_i_int(var *v)
+{
+	double d = getvar_i(v);
+
+	/* Casting doubles to longs is undefined for values outside
+	 * of target type range. Try to widen it as much as possible */
+	if (d >= 0)
+		return (unsigned long)d;
+	/* Why? Think about d == -4294967295.0 (assuming 32bit longs) */
+	return - (long) (unsigned long) (-d);
 }
 
 static var *copyvar(var *dest, const var *src)
@@ -973,12 +1001,7 @@ static uint32_t next_token(uint32_t expected)
 
 		} else if (*p == '.' || isdigit(*p)) {
 			/* it's a number */
-#if ENABLE_DESKTOP
-			if (p[0] == '0' && (p[1] | 0x20) == 'x')
-				t_double = strtoll(p, &p, 0);
-			else
-#endif
-				t_double = strtod(p, &p);
+			t_double = my_strtod(&p);
 			if (*p == '.')
 				syntax_error(EMSG_UNEXP_TOKEN);
 			tc = TC_NUMBER;
@@ -2004,8 +2027,8 @@ static var *exec_builtin(node *op, var *res)
 	switch (info & OPNMASK) {
 
 	case B_a2:
-#if ENABLE_FEATURE_AWK_MATH
-		setvar_i(res, atan2(getvar_i(av[i]), getvar_i(av[1])));
+#if ENABLE_FEATURE_AWK_LIBM
+		setvar_i(res, atan2(getvar_i(av[0]), getvar_i(av[1])));
 #else
 		syntax_error(EMSG_NO_MATH);
 #endif
@@ -2022,7 +2045,7 @@ static var *exec_builtin(node *op, var *res)
 		n = awk_split(as[0], spl, &s);
 		s1 = s;
 		clear_array(iamarray(av[1]));
-		for (i=1; i<=n; i++)
+		for (i = 1; i <= n; i++)
 			setari_u(av[1], i, nextword(&s1));
 		free(s);
 		setvar_i(res, n);
@@ -2042,27 +2065,27 @@ static var *exec_builtin(node *op, var *res)
 	/* Bitwise ops must assume that operands are unsigned. GNU Awk 3.1.5:
 	 * awk '{ print or(-1,1) }' gives "4.29497e+09", not "-2.xxxe+09" */
 	case B_an:
-		setvar_i(res, (unsigned long)getvar_i(av[0]) & (unsigned long)getvar_i(av[1]));
+		setvar_i(res, getvar_i_int(av[0]) & getvar_i_int(av[1]));
 		break;
 
 	case B_co:
-		setvar_i(res, ~(unsigned long)getvar_i(av[0]));
+		setvar_i(res, ~getvar_i_int(av[0]));
 		break;
 
 	case B_ls:
-		setvar_i(res, (unsigned long)getvar_i(av[0]) << (unsigned long)getvar_i(av[1]));
+		setvar_i(res, getvar_i_int(av[0]) << getvar_i_int(av[1]));
 		break;
 
 	case B_or:
-		setvar_i(res, (unsigned long)getvar_i(av[0]) | (unsigned long)getvar_i(av[1]));
+		setvar_i(res, getvar_i_int(av[0]) | getvar_i_int(av[1]));
 		break;
 
 	case B_rs:
-		setvar_i(res, (unsigned long)getvar_i(av[0]) >> (unsigned long)getvar_i(av[1]));
+		setvar_i(res, getvar_i_int(av[0]) >> getvar_i_int(av[1]));
 		break;
 
 	case B_xo:
-		setvar_i(res, (unsigned long)getvar_i(av[0]) ^ (unsigned long)getvar_i(av[1]));
+		setvar_i(res, getvar_i_int(av[0]) ^ getvar_i_int(av[1]));
 		break;
 
 	case B_lo:
@@ -2445,7 +2468,7 @@ static var *evaluate(node *op, var *res)
 			case F_rn:
 				R.d = (double)rand() / (double)RAND_MAX;
 				break;
-#if ENABLE_FEATURE_AWK_MATH
+#if ENABLE_FEATURE_AWK_LIBM
 			case F_co:
 				R.d = cos(L.d);
 				break;
@@ -2613,7 +2636,7 @@ static var *evaluate(node *op, var *res)
 				L.d /= R.d;
 				break;
 			case '&':
-#if ENABLE_FEATURE_AWK_MATH
+#if ENABLE_FEATURE_AWK_LIBM
 				L.d = pow(L.d, R.d);
 #else
 				syntax_error(EMSG_NO_MATH);

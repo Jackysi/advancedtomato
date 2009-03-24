@@ -14,17 +14,16 @@
 #include "dhcpd.h"
 #include "options.h"
 
-int minpkt = 0;	// zzz
 
-void udhcp_init_header(struct dhcpMessage *packet, char type)
+void FAST_FUNC udhcp_init_header(struct dhcpMessage *packet, char type)
 {
 	memset(packet, 0, sizeof(struct dhcpMessage));
-	packet->op = BOOTREQUEST;
+	packet->op = BOOTREQUEST; /* if client to a server */
 	switch (type) {
 	case DHCPOFFER:
 	case DHCPACK:
 	case DHCPNAK:
-		packet->op = BOOTREPLY;
+		packet->op = BOOTREPLY; /* if server to client */
 	}
 	packet->htype = ETH_10MB;
 	packet->hlen = ETH_10MB_LEN;
@@ -35,7 +34,7 @@ void udhcp_init_header(struct dhcpMessage *packet, char type)
 
 
 /* read a packet from socket fd, return -1 on read error, -2 on packet error */
-int udhcp_recv_kernel_packet(struct dhcpMessage *packet, int fd)
+int FAST_FUNC udhcp_recv_kernel_packet(struct dhcpMessage *packet, int fd)
 {
 	int bytes;
 	unsigned char *vendor;
@@ -66,7 +65,7 @@ int udhcp_recv_kernel_packet(struct dhcpMessage *packet, int fd)
 				if (vendor[OPT_LEN - 2] == (uint8_t)strlen(broken_vendors[i])
 				 && !strncmp((char*)vendor, broken_vendors[i], vendor[OPT_LEN - 2])
 				) {
-					DEBUG("broken client (%s), forcing broadcast",
+					DEBUG("broken client (%s), forcing broadcast replies",
 						broken_vendors[i]);
 					packet->flags |= htons(BROADCAST_FLAG);
 				}
@@ -75,7 +74,7 @@ int udhcp_recv_kernel_packet(struct dhcpMessage *packet, int fd)
 			if (vendor[OPT_LEN - 2] == (uint8_t)(sizeof("MSFT 98")-1)
 			 && memcmp(vendor, "MSFT 98", sizeof("MSFT 98")-1) == 0
 			) {
-				DEBUG("broken client (%s), forcing broadcast", "MSFT 98");
+				DEBUG("broken client (%s), forcing broadcast replies", "MSFT 98");
 				packet->flags |= htons(BROADCAST_FLAG);
 			}
 #endif
@@ -86,7 +85,7 @@ int udhcp_recv_kernel_packet(struct dhcpMessage *packet, int fd)
 }
 
 
-uint16_t udhcp_checksum(void *addr, int count)
+uint16_t FAST_FUNC udhcp_checksum(void *addr, int count)
 {
 	/* Compute Internet Checksum for "count" bytes
 	 *         beginning at location "addr".
@@ -117,9 +116,10 @@ uint16_t udhcp_checksum(void *addr, int count)
 
 
 /* Construct a ip/udp header for a packet, send packet */
-int udhcp_send_raw_packet(struct dhcpMessage *payload,
+int FAST_FUNC udhcp_send_raw_packet(struct dhcpMessage *payload,
 		uint32_t source_ip, int source_port,
-		uint32_t dest_ip, int dest_port, const uint8_t *dest_arp, int ifindex)
+		uint32_t dest_ip, int dest_port, const uint8_t *dest_arp,
+		int ifindex)
 {
 	struct sockaddr_ll dest;
 	struct udp_dhcp_packet packet;
@@ -152,41 +152,6 @@ int udhcp_send_raw_packet(struct dhcpMessage *payload,
 		goto ret_close;
 	}
 
-#if 1	// zzz
-	int n;
-
-	// n = size of dhcp only
-	if (minpkt) n = (end_option(payload->options) + 1 + sizeof(*payload) - sizeof(payload->options));
-		else n = sizeof(struct dhcpMessage) - CONFIG_UDHCPC_SLACK_FOR_BUGGY_SERVERS;
-		
-	packet.ip.protocol = IPPROTO_UDP;
-	packet.ip.saddr = source_ip;
-	packet.ip.daddr = dest_ip;
-	packet.udp.source = htons(source_port);
-	packet.udp.dest = htons(dest_port);
-	/* size, excluding IP header: */
-	packet.udp.len = htons(sizeof(packet.udp) + n);	// udp + dhcp
-
-	n += sizeof(packet) - sizeof(packet.data);		// n = ip + udp + dhcp
-
-	/* for UDP checksumming, ip.len is set to UDP packet len */
-	packet.ip.tot_len = packet.udp.len;
-	packet.udp.check = udhcp_checksum(&packet, n);
-	/* but for sending, it is set to IP packet len */
-	packet.ip.tot_len = htons(n);	
-	packet.ip.ihl = sizeof(packet.ip) >> 2;
-	packet.ip.version = IPVERSION;
-	packet.ip.ttl = IPDEFTTL;
-	packet.ip.check = udhcp_checksum(&packet.ip, sizeof(packet.ip));
-/*
-	bb_info_msg("%s", __FUNCTION__);
-	bb_info_msg("packet.udp.len=%d", ntohs(packet.udp.len));
-	bb_info_msg("packet.ip.tot_len=%d", ntohs(packet.ip.tot_len));
-	bb_info_msg("UPD_DHCP_SIZE=%d", UPD_DHCP_SIZE);
-	bb_info_msg("IP_UPD_DHCP_SIZE=%d", IP_UPD_DHCP_SIZE);
-*/
-	result = sendto(fd, &packet, n, 0, (struct sockaddr *) &dest, sizeof(dest));
-#else
 	packet.ip.protocol = IPPROTO_UDP;
 	packet.ip.saddr = source_ip;
 	packet.ip.daddr = dest_ip;
@@ -210,8 +175,6 @@ int udhcp_send_raw_packet(struct dhcpMessage *payload,
 	 */
 	result = sendto(fd, &packet, IP_UPD_DHCP_SIZE, 0,
 				(struct sockaddr *) &dest, sizeof(dest));
-#endif
-
 	msg = "sendto";
  ret_close:
 	close(fd);
@@ -224,7 +187,7 @@ int udhcp_send_raw_packet(struct dhcpMessage *payload,
 
 
 /* Let the kernel do all the work for packet generation */
-int udhcp_send_kernel_packet(struct dhcpMessage *payload,
+int FAST_FUNC udhcp_send_kernel_packet(struct dhcpMessage *payload,
 		uint32_t source_ip, int source_port,
 		uint32_t dest_ip, int dest_port)
 {
@@ -262,24 +225,8 @@ int udhcp_send_kernel_packet(struct dhcpMessage *payload,
 		goto ret_close;
 	}
 
-#if 1		// zzz
-	int n;
-
-	if (minpkt) n = (end_option(payload->options) + 1 + sizeof(*payload) - sizeof(payload->options));
-		else n = DHCP_SIZE;
-/*		
-	bb_info_msg("%s n=%d", __FUNCTION__, n);
-	bb_info_msg("%s", __FUNCTION__);
-	bb_info_msg("n=%d", n);
-	bb_info_msg("DHCP_SIZE=%d", DHCP_SIZE);
-*/
-	result = write(fd, payload, n);
-	
-#else
 	/* Currently we send full-sized DHCP packets (see above) */
 	result = safe_write(fd, payload, DHCP_SIZE);
-#endif
-
 	msg = "write";
  ret_close:
 	close(fd);

@@ -14,6 +14,10 @@
 #include <paths.h>
 #include <sys/reboot.h>
 
+/* Was a CONFIG_xxx option. A lot of people were building
+ * not fully functional init by switching it on! */
+#define DEBUG_INIT 0
+
 #define COMMAND_SIZE 256
 #define CONSOLE_NAME_SIZE 32
 #define MAXENV	16		/* Number of env. vars */
@@ -56,7 +60,6 @@ struct init_action {
 static struct init_action *init_action_list = NULL;
 
 static const char *log_console = VC_5;
-static sig_atomic_t got_cont = 0;
 
 enum {
 	L_LOG = 0x1,
@@ -75,14 +78,6 @@ enum {
 	RB_POWER_OFF = 0x4321fedc,
 	RB_AUTOBOOT = 0x01234567,
 #endif
-};
-
-static const char *const environment[] = {
-	"HOME=/",
-	bb_PATH_root_path,
-	"SHELL=/bin/sh",
-	"USER=root",
-	NULL
 };
 
 /* Function prototypes */
@@ -111,29 +106,30 @@ static void loop_forever(void)
  * "where" may be bitwise-or'd from L_LOG | L_CONSOLE
  * NB: careful, we can be called after vfork!
  */
-#define messageD(...) do { if (ENABLE_DEBUG_INIT) message(__VA_ARGS__); } while (0)
+#define messageD(...) do { if (DEBUG_INIT) message(__VA_ARGS__); } while (0)
 static void message(int where, const char *fmt, ...)
 	__attribute__ ((format(printf, 2, 3)));
 static void message(int where, const char *fmt, ...)
 {
 	static int log_fd = -1;
 	va_list arguments;
-	int l;
+	unsigned l;
 	char msg[128];
 
 	msg[0] = '\r';
 	va_start(arguments, fmt);
-	vsnprintf(msg + 1, sizeof(msg) - 2, fmt, arguments);
+	l = 1 + vsnprintf(msg + 1, sizeof(msg) - 2, fmt, arguments);
+	if (l > sizeof(msg) - 1)
+		l = sizeof(msg) - 1;
+	msg[l] = '\0';
 	va_end(arguments);
-	msg[sizeof(msg) - 2] = '\0';
-	l = strlen(msg);
 
 	if (ENABLE_FEATURE_INIT_SYSLOG) {
-		/* Log the message to syslogd */
 		if (where & L_LOG) {
-			/* don't print out "\r" */
-			openlog(applet_name, 0, LOG_DAEMON);
-			syslog(LOG_INFO, "init: %s", msg + 1);
+			/* Log the message to syslogd */
+			openlog("init", 0, LOG_DAEMON);
+			/* don't print "\r" */
+			syslog(LOG_INFO, "%s", msg + 1);
 			closelog();
 		}
 		msg[l++] = '\n';
@@ -213,6 +209,9 @@ static void console_init(void)
 		/* Make sure fd 0,1,2 are not closed
 		 * (so that they won't be used by future opens) */
 		bb_sanitize_stdio();
+// Users report problems
+//		/* Make sure init can't be blocked by writing to stderr */
+//		fcntl(STDERR_FILENO, F_SETFL, fcntl(STDERR_FILENO, F_GETFL) | O_NONBLOCK);
 	}
 
 	s = getenv("TERM");
@@ -262,7 +261,7 @@ static void set_sane_term(void)
 	tty.c_lflag =
 		ISIG | ICANON | ECHO | ECHOE | ECHOK | ECHOCTL | ECHOKE | IEXTEN;
 
-	tcsetattr(STDIN_FILENO, TCSANOW, &tty);
+	tcsetattr_stdin_TCSANOW(&tty);
 }
 
 /* Open the new terminal device.
@@ -280,7 +279,7 @@ static void open_stdio_to_tty(const char* tty_name, int exit_on_failure)
 				tty_name, strerror(errno));
 			if (exit_on_failure)
 				_exit(EXIT_FAILURE);
-			if (ENABLE_DEBUG_INIT)
+			if (DEBUG_INIT)
 				_exit(2);
 			/* NB: we don't reach this if we were called after vfork.
 			 * Thus halt_reboot_pwoff() itself need not be vfork-safe. */
@@ -614,22 +613,19 @@ static void ctrlaltdel_signal(int sig UNUSED_PARAM)
 	run_actions(CTRLALTDEL);
 }
 
+/* The SIGCONT handler is set to record_signo().
+ * It just sets bb_got_signal = SIGCONT.  */
+
 /* The SIGSTOP & SIGTSTP handler */
 static void stop_handler(int sig UNUSED_PARAM)
 {
 	int saved_errno = errno;
 
-	got_cont = 0;
-	while (!got_cont)
+	bb_got_signal = 0;
+	while (bb_got_signal == 0)
 		pause();
 
 	errno = saved_errno;
-}
-
-/* The SIGCONT handler */
-static void cont_handler(int sig UNUSED_PARAM)
-{
-	got_cont = 1;
 }
 
 static void new_init_action(uint8_t action_type, const char *command, const char *cons)
@@ -675,15 +671,14 @@ static void new_init_action(uint8_t action_type, const char *command, const char
  */
 static void parse_inittab(void)
 {
+#if ENABLE_FEATURE_USE_INITTAB
 	char *token[4];
-	/* order must correspond to SYSINIT..RESTART constants */
-	static const char actions[] ALIGN1 =
-		"sysinit\0""respawn\0""askfirst\0""wait\0""once\0"
-		"ctrlaltdel\0""shutdown\0""restart\0";
+	parser_t *parser = config_open2("/etc/inittab", fopen_for_read);
 
-	parser_t *parser = config_open2(INITTAB, fopen_for_read);
-	/* No inittab file -- set up some default behavior */
-	if (parser == NULL) {
+	if (parser == NULL)
+#endif
+	{
+		/* No inittab file -- set up some default behavior */
 		/* Reboot on Ctrl-Alt-Del */
 		new_init_action(CTRLALTDEL, "reboot", "");
 		/* Umount all filesystems on halt/reboot */
@@ -703,11 +698,17 @@ static void parse_inittab(void)
 		new_init_action(SYSINIT, INIT_SCRIPT, "");
 		return;
 	}
+
+#if ENABLE_FEATURE_USE_INITTAB
 	/* optional_tty:ignored_runlevel:action:command
 	 * Delims are not to be collapsed and need exactly 4 tokens
 	 */
 	while (config_read(parser, token, 4, 0, "#:",
 				PARSE_NORMAL & ~(PARSE_TRIM | PARSE_COLLAPSE))) {
+		/* order must correspond to SYSINIT..RESTART constants */
+		static const char actions[] ALIGN1 =
+			"sysinit\0""respawn\0""askfirst\0""wait\0""once\0"
+			"ctrlaltdel\0""shutdown\0""restart\0";
 		int action;
 		char *tty = token[0];
 
@@ -731,6 +732,7 @@ static void parse_inittab(void)
 				parser->lineno);
 	}
 	config_close(parser);
+#endif
 }
 
 #if ENABLE_FEATURE_USE_INITTAB
@@ -793,7 +795,7 @@ int init_main(int argc UNUSED_PARAM, char **argv)
 		return kill(1, SIGHUP);
 	}
 
-	if (!ENABLE_DEBUG_INIT) {
+	if (!DEBUG_INIT) {
 		/* Expect to be invoked as init with PID=1 or be invoked as linuxrc */
 		if (getpid() != 1
 		 && (!ENABLE_FEATURE_INITRD || !strstr(applet_name, "linuxrc"))
@@ -809,7 +811,7 @@ int init_main(int argc UNUSED_PARAM, char **argv)
 			+ (1 << SIGTERM)  /* reboot */
 			, halt_reboot_pwoff);
 		signal(SIGINT, ctrlaltdel_signal);
-		signal(SIGCONT, cont_handler);
+		signal(SIGCONT, record_signo);
 		bb_signals(0
 			+ (1 << SIGSTOP)
 			+ (1 << SIGTSTP)
@@ -825,15 +827,15 @@ int init_main(int argc UNUSED_PARAM, char **argv)
 	set_sane_term();
 	xchdir("/");
 	setsid();
-	{
-		const char *const *e;
-		/* Make sure environs is set to something sane */
-		for (e = environment; *e; e++)
-			putenv((char *) *e);
-	}
+
+	/* Make sure environs is set to something sane */
+	putenv((char *) "HOME=/");
+	putenv((char *) bb_PATH_root_path);
+	putenv((char *) "SHELL=/bin/sh");
+	putenv((char *) "USER=root"); /* needed? why? */
 
 	if (argv[1])
-		setenv("RUNLEVEL", argv[1], 1);
+		xsetenv("RUNLEVEL", argv[1]);
 
 	/* Hello world */
 	message(MAYBE_CONSOLE | L_LOG, "init started: %s", bb_banner);
