@@ -51,6 +51,7 @@ obj-y += scsi-idle
 #obj-y += sendmail
 obj-$(TCONFIG_FTP) += vsftpd
 obj-$(TCONFIG_SAMBASRV) += samba
+obj-$(TCONFIG_USB_EXTRAS) += mkdosfs
 
 obj-y += miniupnpd
 #	obj-y += upnp
