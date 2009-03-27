@@ -38,7 +38,7 @@ vpn2up = parseInt('<% psup("vpnserver2"); %>');
 
 function updateStatus(num)
 {
-	xob = new XmlHttp();
+	var xob = new XmlHttp();
 	xob.onCompleted = function(text, xml)
 	{
 		E(tabs[num][0]+'-status-errors').innerHTML = '';
@@ -49,12 +49,12 @@ function updateStatus(num)
 		statusTables[num][2].removeAllData();
 		statusTables[num][2].headerSet(['Name','Value']);
 
-		lines = text.split('\n');
+		var lines = text.split('\n');
 		for (i = 0; text != '' && i < lines.length; ++i)
 		{
 			var done = false;
 
-			fields = lines[i].split(',');
+			var fields = lines[i].split(',');
 			if ( fields.length == 0 ) continue;
 			switch ( fields[0] )
 			{
