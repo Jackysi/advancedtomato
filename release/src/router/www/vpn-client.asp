@@ -20,7 +20,7 @@
 <script type='text/javascript' src='vpnciphers.js'></script>
 <script type='text/javascript'>
 
-//	<% nvram("vpn_client1_if,vpn_client1_bridge,vpn_client1_nat,vpn_client1_proto,vpn_client1_addr,vpn_client1_port,vpn_client1_retry,vpn_client1_firewall,vpn_client1_crypt,vpn_client1_comp,vpn_client1_cipher,vpn_client1_local,vpn_client1_remote,vpn_client1_nm,vpn_client1_hmac,vpn_client1_custom,vpn_client1_static,vpn_client1_ca,vpn_client1_crt,vpn_client1_key,vpn_client2_if,vpn_client2_bridge,vpn_client2_nat,vpn_client2_proto,vpn_client2_addr,vpn_client2_port,vpn_client2_retry,vpn_client2_firewall,vpn_client2_crypt,vpn_client2_comp,vpn_client2_cipher,vpn_client2_local,vpn_client2_remote,vpn_client2_nm,vpn_client2_hmac,vpn_client2_custom,vpn_client2_static,vpn_client2_ca,vpn_client2_crt,vpn_client2_key"); %>
+//	<% nvram("vpn_client_eas,vpn_client1_if,vpn_client1_bridge,vpn_client1_nat,vpn_client1_proto,vpn_client1_addr,vpn_client1_port,vpn_client1_retry,vpn_client1_firewall,vpn_client1_crypt,vpn_client1_comp,vpn_client1_cipher,vpn_client1_local,vpn_client1_remote,vpn_client1_nm,vpn_client1_hmac,vpn_client1_custom,vpn_client1_static,vpn_client1_ca,vpn_client1_crt,vpn_client1_key,vpn_client2_if,vpn_client2_bridge,vpn_client2_nat,vpn_client2_proto,vpn_client2_addr,vpn_client2_port,vpn_client2_retry,vpn_client2_firewall,vpn_client2_crypt,vpn_client2_comp,vpn_client2_cipher,vpn_client2_local,vpn_client2_remote,vpn_client2_nm,vpn_client2_hmac,vpn_client2_custom,vpn_client2_static,vpn_client2_ca,vpn_client2_crt,vpn_client2_key"); %>
 
 tabs = [['client1', 'Client 1'],['client2', 'Client 2']];
 sections = [['basic', 'Basic'],['advanced', 'Advanced'],['keys','Keys']];
@@ -156,9 +156,14 @@ function save()
 
 	var fom = E('_fom');
 
+	E('vpn_client_eas').value = '';
+
 	for (i = 0; i < tabs.length; ++i)
 	{
 		t = tabs[i][0];
+
+		if ( E('_f_vpn_'+t+'_eas').checked )
+			E('vpn_client_eas').value += ''+(i+1)+',';
 
 		E('vpn_'+t+'_bridge').value = E('_f_vpn_'+t+'_bridge').checked ? 1 : 0;
 		E('vpn_'+t+'_nat').value = E('_f_vpn_'+t+'_nat').checked ? 1 : 0;
@@ -202,6 +207,7 @@ textarea {
 <input type='hidden' name='_nextpage' value='vpn-client.asp'>
 <input type='hidden' name='_nextwait' value='5'>
 <input type='hidden' name='_service' value=''>
+<input type='hidden' name='vpn_client_eas' id='vpn_client_eas' value=''>
 
 <div class='section-title'>VPN Client Configuration</div>
 <div class='section'>
@@ -224,6 +230,7 @@ for (i = 0; i < tabs.length; ++i)
 
 	W('<div id=\''+t+'-basic\'>');
 	createFieldTable('', [
+		{ title: 'Start with Router', name: 'f_vpn_'+t+'_eas', type: 'checkbox', value: nvram.vpn_client_eas.indexOf(''+(i+1)) >= 0 },
 		{ title: 'Interface Type', name: 'vpn_'+t+'_if', type: 'select', options: [ ['tap','TAP'], ['tun','TUN'] ], value: eval( 'nvram.vpn_'+t+'_if' ) },
 		{ title: 'Protocol', name: 'vpn_'+t+'_proto', type: 'select', options: [ ['udp','UDP'], ['tcp-client','TCP'] ], value: eval( 'nvram.vpn_'+t+'_proto' ) },
 		{ title: 'Server Address/Port', multi: [
