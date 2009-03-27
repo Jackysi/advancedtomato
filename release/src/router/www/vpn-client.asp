@@ -33,6 +33,8 @@ vpn2up = parseInt('<% psup("vpnclient2"); %>');
 
 function tabSelect(name)
 {
+	tgHideIcons();
+
 	tabHigh(name);
 
 	for (var i = 0; i < tabs.length; ++i)
@@ -46,6 +48,8 @@ function tabSelect(name)
 
 function sectSelect(tab, section)
 {
+	tgHideIcons();
+
 	for (var i = 0; i < sections.length; ++i)
 	{
 		if (section == sections[i][0])
@@ -77,6 +81,8 @@ function toggle(service, isup)
 
 function verifyFields(focused, quiet)
 {
+	tgHideIcons();
+
 	var ret = 1;
 
 	// When settings change, make sure we restart the right client
