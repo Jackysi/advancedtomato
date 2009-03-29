@@ -180,6 +180,21 @@ dbg_itd (const char *label, struct ehci_hcd *ehci, struct ehci_itd *itd)
 		itd->index[6], itd->index[7]);
 }
 
+static void __attribute__((__unused__))
+dbg_sitd (const char *label, struct ehci_hcd *ehci, struct ehci_sitd *sitd)
+{
+	ehci_dbg (ehci, "%s [%d] sitd %p, next %08x, urb %p\n",
+		label, sitd->frame, sitd, le32_to_cpu(sitd->hw_next),
+		sitd->urb);
+	ehci_dbg (ehci,
+		"  addr %08x sched %04x result %08x buf %08x %08x\n",
+		le32_to_cpu(sitd->hw_fullspeed_ep),
+		le32_to_cpu(sitd->hw_uframe),
+		le32_to_cpu(sitd->hw_results),
+		le32_to_cpu(sitd->hw_buf[0]),
+		le32_to_cpu(sitd->hw_buf[1]));
+}
+
 static int __attribute__((__unused__))
 dbg_status_buf (char *buf, unsigned len, char *label, u32 status)
 {
