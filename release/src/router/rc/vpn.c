@@ -20,7 +20,7 @@
 #define VPN_LOG_NOTE 0
 #define VPN_LOG_INFO 1
 #define VPN_LOG_EXTRA 2
-#define vpnlog(level,x...) if(nvram_get_int("vpn_debug")>=level) syslog(LOG_INFO, "VPN DEBUG: " __LINE_T__ ": " x)
+#define vpnlog(level,x...) if(nvram_get_int("vpn_debug")>=level) syslog(LOG_INFO, #level ": " __LINE_T__ ": " x)
 
 #define CLIENT_IF_START 10
 #define SERVER_IF_START 20
@@ -342,7 +342,7 @@ void stop_vpnclient(int clientNum)
 
 	modprobe_r("tun");
 
-	if ( nvram_get_int("vpn_debug") != 1 )
+	if ( nvram_get_int("vpn_debug") <= VPN_LOG_EXTRA )
 	{
 		// Delete all files in /etc/openvpn that match client#
 		vpnlog(VPN_LOG_EXTRA,"Removing generated files.");
@@ -769,7 +769,7 @@ void stop_vpnserver(int serverNum)
 
 	modprobe_r("tun");
 
-	if ( nvram_get_int("vpn_debug") != 1 )
+	if ( nvram_get_int("vpn_debug") <= VPN_LOG_EXTRA )
 	{
 		// Delete all files in /etc/openvpn that match server#
 		vpnlog(VPN_LOG_EXTRA,"Removing generated files.");
