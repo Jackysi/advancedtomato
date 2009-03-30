@@ -1371,11 +1371,11 @@ TOP:
 			stop_ntpc();
 			stop_upnp();
 //			stop_dhcpc();
-			remove_storage_main();	// !!TB - USB Support
-			stop_usb();		// !!TB - USB Support
 			killall("rstats", SIGTERM);
 			killall("buttons", SIGTERM);
 			stop_syslog();
+			remove_storage_main();	// !!TB - USB Support
+			stop_usb();		// !!TB - USB Support
 		}
 		goto CLEAR;
 	}
