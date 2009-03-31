@@ -195,6 +195,7 @@ endif
 	@mv $(TARGETDIR)/lib/modules/2.4.20/kernel/drivers/net/tun.o $(PLATFORMDIR)/extras/
 #!!TB
 	@mv $(TARGETDIR)/lib/modules/2.4.20/kernel/fs/ntfs.o $(PLATFORMDIR)/extras/ || true
+	@mv $(TARGETDIR)/lib/modules/2.4.20/kernel/drivers/usb/scanner.o $(PLATFORMDIR)/extras/ || true
 ifneq ($(TCONFIG_USB_EXTRAS),y)
 	@mv $(TARGETDIR)/lib/modules/2.4.20/kernel/drivers/block/loop.o $(PLATFORMDIR)/extras/ || true
 	@rm -rf $(TARGETDIR)/lib/modules/2.4.20/kernel/drivers/block || true
