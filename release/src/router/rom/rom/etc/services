@@ -311,6 +311,7 @@ noclog		5354/tcp			# noclogd with TCP (nocol)
 noclog		5354/udp			# noclogd with UDP (nocol)
 hostmon		5355/tcp			# hostmon uses TCP (nocol)
 hostmon		5355/udp			# hostmon uses TCP (nocol)
+sane-port	6566/tcp			# SANE network scanner daemon
 ircd		6667/tcp			# Internet Relay Chat
 ircd		6667/udp			# Internet Relay Chat
 webcache	8080/tcp			# WWW caching service
