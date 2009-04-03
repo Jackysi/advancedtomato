@@ -567,6 +567,7 @@ void wait_for_stabilize(int tm, int host_num)
  *	3 = HID.   3/1/2 = mouse.
  *	6 = still image (6/1/1 = Digital camera Camera)
  *	9 = Hub
+ *	255 = scanner (255/255/255)
  *
  * Observed:
  *	Hub seems to have no INTERFACE (null), and TYPE of "9/0/0"
@@ -598,9 +599,11 @@ void hotplug_usb(void)
 	char *interface = getenv("INTERFACE");
 	char *action = getenv("ACTION");
 	char *product = getenv("PRODUCT");
+	char *device = getenv("DEVICE");
 	char *scsi_host = getenv("SCSI_HOST");
 
-	_dprintf("USB hotplug INTERFACE=%s ACTION=%s PRODUCT=%s HOST=%s\n", interface, action, product, scsi_host);
+	//_dprintf("USB hotplug INTERFACE=%s ACTION=%s PRODUCT=%s HOST=%s DEVICE=%s\n",
+	//	interface, action, product, scsi_host, device);
 
 	if (!nvram_match("usb_enable", "1")) return;
 	if (!interface || !action || !product)	/* Hubs bail out here. */
@@ -612,8 +615,8 @@ void hotplug_usb(void)
 	add = (strcmp(action, "add") == 0);
 	if (add && (strncmp(interface, "TOMATO/", 7) != 0)) {
 		/* Give the kernel time to settle down. */
-		syslog(LOG_INFO, "Waiting for device [%s %s] to settle before scanning",
-			interface, product);
+		syslog(LOG_DEBUG, "Waiting for device %s [INTERFACE=%s PRODUCT=%s] to settle before scanning",
+			device, interface, product);
 		wait_for_stabilize(4, host);
 	}
 	int fd = usb_lock();
