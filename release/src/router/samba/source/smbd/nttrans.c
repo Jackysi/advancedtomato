@@ -47,6 +47,80 @@ static char *known_nt_pipes[] = {
   NULL
 };
 
+/* Combinations of standard masks. */
+#define STANDARD_RIGHTS_ALL_ACCESS (DELETE_ACCESS|READ_CONTROL_ACCESS|WRITE_DAC_ACCESS|WRITE_OWNER_ACCESS|SYNCHRONIZE_ACCESS) /* 0x001f0000 */
+#define STANDARD_RIGHTS_EXECUTE_ACCESS (READ_CONTROL_ACCESS) /* 0x00020000 */
+#define STANDARD_RIGHTS_READ_ACCESS (READ_CONTROL_ACCESS) /* 0x00200000 */
+#define STANDARD_RIGHTS_REQUIRED_ACCESS (DELETE_ACCESS|READ_CONTROL_ACCESS|WRITE_DAC_ACCESS|WRITE_OWNER_ACCESS) /* 0x000f0000 */
+#define STANDARD_RIGHTS_WRITE_ACCESS (READ_CONTROL_ACCESS) /* 0x00020000 */
+
+/* Mapping of generic access rights for files to specific rights. */
+
+#define FILE_GENERIC_ALL (STANDARD_RIGHTS_REQUIRED_ACCESS| SYNCHRONIZE_ACCESS|FILE_ALL_ATTRIBUTES)
+
+#define FILE_GENERIC_READ (STANDARD_RIGHTS_READ_ACCESS|FILE_READ_DATA|FILE_READ_ATTRIBUTES|\
+							FILE_READ_EA|SYNCHRONIZE_ACCESS)
+
+#define FILE_GENERIC_WRITE (STANDARD_RIGHTS_WRITE_ACCESS|FILE_WRITE_DATA|FILE_WRITE_ATTRIBUTES|\
+							FILE_WRITE_EA|FILE_APPEND_DATA|SYNCHRONIZE_ACCESS)
+
+#define FILE_GENERIC_EXECUTE (STANDARD_RIGHTS_EXECUTE_ACCESS|FILE_READ_ATTRIBUTES|\
+								FILE_EXECUTE|SYNCHRONIZE_ACCESS)
+
+/* A type to describe the mapping of generic access rights to object
+   specific access rights. */
+
+typedef struct generic_mapping {
+	uint32 generic_read;
+	uint32 generic_write;
+	uint32 generic_execute;
+	uint32 generic_all;
+} GENERIC_MAPPING;
+
+/* Map generic permissions to file object specific permissions */
+ 
+struct generic_mapping file_generic_mapping = {
+    FILE_GENERIC_READ,
+    FILE_GENERIC_WRITE,
+    FILE_GENERIC_EXECUTE,
+    FILE_GENERIC_ALL
+};
+
+/* Map generic access rights to object specific rights.  This technique is
+   used to give meaning to assigning read, write, execute and all access to
+   objects.  Each type of object has its own mapping of generic to object
+   specific access rights. */
+
+void se_map_generic(uint32 *access_mask, struct generic_mapping *mapping)
+{
+	uint32 old_mask = *access_mask;
+
+	if (*access_mask & GENERIC_READ_ACCESS) {
+		*access_mask &= ~GENERIC_READ_ACCESS;
+		*access_mask |= mapping->generic_read;
+	}
+
+	if (*access_mask & GENERIC_WRITE_ACCESS) {
+		*access_mask &= ~GENERIC_WRITE_ACCESS;
+		*access_mask |= mapping->generic_write;
+	}
+
+	if (*access_mask & GENERIC_EXECUTE_ACCESS) {
+		*access_mask &= ~GENERIC_EXECUTE_ACCESS;
+		*access_mask |= mapping->generic_execute;
+	}
+
+	if (*access_mask & GENERIC_ALL_ACCESS) {
+		*access_mask &= ~GENERIC_ALL_ACCESS;
+		*access_mask |= mapping->generic_all;
+	}
+
+	if (old_mask != *access_mask) {
+		DEBUG(10, ("se_map_generic(): mapped mask 0x%08x to 0x%08x\n",
+			   old_mask, *access_mask));
+	}
+}
+
 /****************************************************************************
  Send the required number of replies back.
  We assume all fields other than the data fields are
@@ -402,6 +476,12 @@ static int map_share_mode( BOOL *pstat_open_only, char *fname, uint32 create_opt
     "file_attributes=0x%x\n",
     fname, create_options, desired_access,
     share_access, file_attributes));
+
+  /*
+   * Convert GENERIC bits to specific bits.
+   */
+
+  se_map_generic(&desired_access, &file_generic_mapping);
 
   *pstat_open_only = False;
 
