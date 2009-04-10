@@ -474,6 +474,7 @@ const defaults_t defaults[] = {
 
 // vpn
 	{ "vpn_debug",            "0"             },
+	{ "vpn_server_eas",       ""              },
 	{ "vpn_server1_if",       "tap"           },
 	{ "vpn_server1_proto",    "udp"           },
 	{ "vpn_server1_port",     "1194"          },
@@ -524,6 +525,7 @@ const defaults_t defaults[] = {
 	{ "vpn_server2_cert",     ""              },
 	{ "vpn_server2_key",      ""              },
 	{ "vpn_server2_dh",       ""              },
+	{ "vpn_client_eas",       ""              },
 	{ "vpn_client1_if",       "tap"           },
 	{ "vpn_client1_bridge",   "1"             },
 	{ "vpn_client1_nat",      "1"             },

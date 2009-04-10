@@ -197,7 +197,7 @@ void wo_vpn_status(char *url)
 		sleep(1);
 
 		// Read the status file and repeat it verbatim to the caller
-		snprintf(&buf[0], sizeof(buf), "/etc/openvpn/server%d.status", num);
+		snprintf(&buf[0], sizeof(buf), "/etc/openvpn/server%d/status", num);
 		fp = fopen(&buf[0], "r");
 		if( fp != NULL )
 		{
