@@ -705,6 +705,7 @@ void start_services(void)
 #ifdef TCONFIG_SAMBA
 	start_smbd();
 #endif
+	start_vpn_eas();
 }
 
 void stop_services(void)

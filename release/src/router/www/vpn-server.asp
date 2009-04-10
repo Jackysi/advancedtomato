@@ -20,7 +20,7 @@
 <script type='text/javascript' src='vpnciphers.js'></script>
 <script type='text/javascript'>
 
-//	<% nvram("vpn_server1_if,vpn_server1_proto,vpn_server1_port,vpn_server1_firewall,vpn_server1_sn,vpn_server1_nm,vpn_server1_local,vpn_server1_remote,vpn_server1_dhcp,vpn_server1_r1,vpn_server1_r2,vpn_server1_crypt,vpn_server1_comp,vpn_server1_cipher,vpn_server1_hmac,vpn_server1_ccd,vpn_server1_c2c,vpn_server1_ccd_excl,vpn_server1_ccd_val,vpn_server1_custom,vpn_server1_static,vpn_server1_ca,vpn_server1_crt,vpn_server1_key,vpn_server1_dh,vpn_server2_if,vpn_server2_proto,vpn_server2_port,vpn_server2_firewall,vpn_server2_sn,vpn_server2_nm,vpn_server2_local,vpn_server2_remote,vpn_server2_dhcp,vpn_server2_r1,vpn_server2_r2,vpn_server2_crypt,vpn_server2_comp,vpn_server2_cipher,vpn_server2_hmac,vpn_server2_ccd,vpn_server2_c2c,vpn_server2_ccd_excl,vpn_server2_ccd_val,vpn_server2_custom,vpn_server2_static,vpn_server2_ca,vpn_server2_crt,vpn_server2_key,vpn_server2_dh"); %>
+//	<% nvram("vpn_server_eas,vpn_server1_if,vpn_server1_proto,vpn_server1_port,vpn_server1_firewall,vpn_server1_sn,vpn_server1_nm,vpn_server1_local,vpn_server1_remote,vpn_server1_dhcp,vpn_server1_r1,vpn_server1_r2,vpn_server1_crypt,vpn_server1_comp,vpn_server1_cipher,vpn_server1_hmac,vpn_server1_ccd,vpn_server1_c2c,vpn_server1_ccd_excl,vpn_server1_ccd_val,vpn_server1_custom,vpn_server1_static,vpn_server1_ca,vpn_server1_crt,vpn_server1_key,vpn_server1_dh,vpn_server2_if,vpn_server2_proto,vpn_server2_port,vpn_server2_firewall,vpn_server2_sn,vpn_server2_nm,vpn_server2_local,vpn_server2_remote,vpn_server2_dhcp,vpn_server2_r1,vpn_server2_r2,vpn_server2_crypt,vpn_server2_comp,vpn_server2_cipher,vpn_server2_hmac,vpn_server2_ccd,vpn_server2_c2c,vpn_server2_ccd_excl,vpn_server2_ccd_val,vpn_server2_custom,vpn_server2_static,vpn_server2_ca,vpn_server2_crt,vpn_server2_key,vpn_server2_dh"); %>
 
 function CCDGrid() { return this; }
 CCDGrid.prototype = new TomatoGrid;
@@ -38,7 +38,7 @@ vpn2up = parseInt('<% psup("vpnserver2"); %>');
 
 function updateStatus(num)
 {
-	xob = new XmlHttp();
+	var xob = new XmlHttp();
 	xob.onCompleted = function(text, xml)
 	{
 		E(tabs[num][0]+'-status-errors').innerHTML = '';
@@ -49,12 +49,12 @@ function updateStatus(num)
 		statusTables[num][2].removeAllData();
 		statusTables[num][2].headerSet(['Name','Value']);
 
-		lines = text.split('\n');
+		var lines = text.split('\n');
 		for (i = 0; text != '' && i < lines.length; ++i)
 		{
 			var done = false;
 
-			fields = lines[i].split(',');
+			var fields = lines[i].split(',');
 			if ( fields.length == 0 ) continue;
 			switch ( fields[0] )
 			{
@@ -119,6 +119,8 @@ function updateStatus(num)
 
 function tabSelect(name)
 {
+	tgHideIcons();
+
 	tabHigh(name);
 
 	for (var i = 0; i < tabs.length; ++i)
@@ -132,6 +134,8 @@ function tabSelect(name)
 
 function sectSelect(tab, section)
 {
+	tgHideIcons();
+
 	for (var i = 0; i < sections.length; ++i)
 	{
 		if (section == sections[i][0])
@@ -163,6 +167,8 @@ function toggle(service, isup)
 
 function verifyFields(focused, quiet)
 {
+	tgHideIcons();
+
 	var ret = 1;
 
 	// When settings change, make sure we restart the right server
@@ -311,11 +317,16 @@ function save()
 
 	var fom = E('_fom');
 
+	E('vpn_server_eas').value = '';
+
 	for (i = 0; i < tabs.length; ++i)
 	{
 		if (ccdTables[i].isEditing()) return;
 
 		t = tabs[i][0];
+
+		if ( E('_f_vpn_'+t+'_eas').checked )
+			E('vpn_server_eas').value += ''+(i+1)+',';
 
 		var data = ccdTables[i].getAllData();
 		var ccd = '';
@@ -404,6 +415,7 @@ table.status-table
 <input type='hidden' name='_nextpage' value='vpn-server.asp'>
 <input type='hidden' name='_nextwait' value='5'>
 <input type='hidden' name='_service' value=''>
+<input type='hidden' name='vpn_server_eas' id='vpn_server_eas' value=''>
 
 <div class='section-title'>VPN Server Configuration</div>
 <div class='section'>
@@ -429,6 +441,7 @@ for (i = 0; i < tabs.length; ++i)
 
 	W('<div id=\''+t+'-basic\'>');
 	createFieldTable('', [
+		{ title: 'Start with Router', name: 'f_vpn_'+t+'_eas', type: 'checkbox', value: nvram.vpn_server_eas.indexOf(''+(i+1)) >= 0 },
 		{ title: 'Interface Type', name: 'vpn_'+t+'_if', type: 'select', options: [ ['tap','TAP'], ['tun','TUN'] ], value: eval( 'nvram.vpn_'+t+'_if' ) },
 		{ title: 'Protocol', name: 'vpn_'+t+'_proto', type: 'select', options: [ ['udp','UDP'], ['tcp-server','TCP'] ], value: eval( 'nvram.vpn_'+t+'_proto' ) },
 		{ title: 'Port', name: 'vpn_'+t+'_port', type: 'text', value: eval( 'nvram.vpn_'+t+'_port' ) },

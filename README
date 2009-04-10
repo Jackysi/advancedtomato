@@ -3,11 +3,9 @@ README for SgtPepperKSU VPN build of Tomato Firmware
 The sources are available in the git repository at http://repo.or.cz/w/tomato.git
 If you plan to redistribute, be sure to read the COPYING file.
 
-To have your VPN start automatically when the router is rebooted, add "service vpnserver1 start" (no quotes, replacing server with client and 2 for 1 if appropriate) to your init script (WAN Up script if you want it to be started if you are reconnected to the internet).  You will probably also need to add a delay before it with "sleep 10" (you can test to see if a shorter or longer delay is needed).
-
 To have the router periodically check if the VPN is running and restart it if it has stopped, also add the following to your init script (replacing vpnserver1 or */30 as appropriate):
 # Schedule vpnup.sh to run every 30 minutes
-cru a CheckVPNServer "*/30 * * * * service start vpnserver1"
+cru a CheckVPNServer "*/30 * * * * service vpnserver1 start"
 
 If you have any questions/comments/concerns, contact me at tomatovpn@keithmoyer.com
 
