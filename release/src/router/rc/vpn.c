@@ -344,11 +344,15 @@ void stop_vpnclient(int clientNum)
 
 	if ( nvram_get_int("vpn_debug") <= VPN_LOG_EXTRA )
 	{
-		// Delete all files for this client
 		vpnlog(VPN_LOG_EXTRA,"Removing generated files.");
+		// Delete all files for this client
 		sprintf(&buffer[0], "rm -rf /etc/openvpn/client%d /etc/openvpn/fw/client%d-fw.sh /etc/openvpn/vpnclient%d",clientNum,clientNum,clientNum);
 		for (argv[argc=0] = strtok(&buffer[0], " "); argv[argc] != NULL; argv[++argc] = strtok(NULL, " "));
 		_eval(argv, NULL, 0, NULL);
+
+		// Attempt to remove directories.  Will fail if not empty
+		rmdir("/etc/openvpn/fw");
+		rmdir("/etc/openvpn");
 		vpnlog(VPN_LOG_EXTRA,"Done removing generated files.");
 	}
 
@@ -769,11 +773,15 @@ void stop_vpnserver(int serverNum)
 
 	if ( nvram_get_int("vpn_debug") <= VPN_LOG_EXTRA )
 	{
-		// Delete all files for this server
 		vpnlog(VPN_LOG_EXTRA,"Removing generated files.");
+		// Delete all files for this server
 		sprintf(&buffer[0], "rm -rf /etc/openvpn/server%d /etc/openvpn/fw/server%d-fw.sh /etc/openvpn/vpnserver%d",serverNum,serverNum,serverNum);
 		for (argv[argc=0] = strtok(&buffer[0], " "); argv[argc] != NULL; argv[++argc] = strtok(NULL, " "));
 		_eval(argv, NULL, 0, NULL);
+
+		// Attempt to remove directories.  Will fail if not empty
+		rmdir("/etc/openvpn/fw");
+		rmdir("/etc/openvpn");	
 		vpnlog(VPN_LOG_EXTRA,"Done removing generated files.");
 	}
 
