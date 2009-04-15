@@ -211,7 +211,7 @@ int mount_r(char *mnt_dev, char *mnt_dir, char *type)
 #endif
 		else if (strcmp(type, "ntfs") == 0)
 		{
-			flags = MS_RDONLY;
+			//flags = MS_RDONLY;
 #ifdef TCONFIG_SAMBASRV
 			if (nvram_invmatch("smbd_cset", ""))
 				sprintf(options, "iocharset=%s%s", 
