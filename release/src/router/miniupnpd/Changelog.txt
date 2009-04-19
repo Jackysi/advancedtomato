@@ -1,4 +1,13 @@
-$Id: Changelog.txt,v 1.166 2009/02/14 11:01:12 nanard Exp $
+$Id: Changelog.txt,v 1.169 2009/04/17 19:58:38 nanard Exp $
+
+2009/04/17:
+  working support for iptables >= 1.4.3
+
+2009/04/13:
+  work to support iptables-1.4.3 and up
+
+2009/04/10:
+  fix in upnpevents_removeSubscriber() 
 
 2009/02/14:
   added reload_from_lease_file()

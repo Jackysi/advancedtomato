@@ -1,4 +1,4 @@
-/* $Id: upnpevents.c,v 1.10 2009/01/23 10:05:24 nanard Exp $ */
+/* $Id: upnpevents.c,v 1.11 2009/04/10 08:58:30 nanard Exp $ */
 /* MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
  * (c) 2008 Thomas Bernard
@@ -147,7 +147,7 @@ upnpevents_removeSubscriber(const char * sid, int sidlen)
 	if(!sid)
 		return -1;
 	for(sub = subscriberlist.lh_first; sub != NULL; sub = sub->entries.le_next) {
-		if(memcmp(sid, sub->uuid, 41)) {
+		if(memcmp(sid, sub->uuid, 41) == 0) {
 			if(sub->notify) {
 				sub->notify->sub = NULL;
 			}
