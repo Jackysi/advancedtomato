@@ -25,26 +25,3 @@ file allocation table(s).
 
 Dave Hudson
 dave@humbug.demon.co.uk
-
-
-FAT32 support
-=============
-
-mkdosfs now can also create filesystems in the new FAT32 format. To do
-this, give mkdosfs a "-F 32" option. FAT32 isn't selected
-automatically (yet), even if very large clusters are needed with
-FAT16. With FAT32 you have two additional options, -R to select the
-number of reserved sectors (usually 32), and -b to select the location
-of the backup boot sector (default 6). Of course such a backup is
-created, as well as the new info sector. On FAT32, the root directory
-is always created as a cluster chain. Sorry, there's no switch to
-generate an old static root dir.
-
-One bigger bug fix besides FAT32 was to reject filesystems that need a
-16 bit FAT to fit all possible clusters, but the bigger FAT needs some
-more sectors, so the total number of clusters drop below the border
-where MS-DOS expects a 12 bit FAT. So such filesystems would be FAT16,
-but interpreted as FAT32 by DOS. The fix is to reduce filesystem size
-a bit.
-
-- Roman <Roman.Hodek@informatik.uni-erlangen.de>

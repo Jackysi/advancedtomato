@@ -1,16 +1,20 @@
 include ../common.mak
 
-INSTALL_ROOT=$(INSTALLDIR)
-export INSTALL_ROOT
+CFLAGS =	-Os -Wall
+LDFLAGS =	-s
+LN =		ln -s
 
-all:
-	$(MAKE) -C mkdosfs-2.8 CFLAGS="-Os"
+mkdosfs: mkdosfs.o
+	$(CC) $(LDFLAGS) $< -o $@
 
-install:
+.c.o:
+	$(CC) -c $(CFLAGS) $<
+
+install: mkdosfs
 	mkdir -p $(INSTALLDIR)/sbin
-	$(MAKE) -C mkdosfs-2.8 install CFLAGS="-Os"
-	rm -rf $(INSTALLDIR)/usr/man
-	$(STRIP) $(INSTALLDIR)/sbin/mkdosfs
+	install -D mkdosfs $(INSTALLDIR)/sbin/mkdosfs
+	$(STRIP) -s $(INSTALLDIR)/sbin/mkdosfs
 
+.PHONY: clean
 clean:
-	$(MAKE) -C mkdosfs-2.8 clean
+	rm -f *.s *.o *.a *~ core mkdosfs 

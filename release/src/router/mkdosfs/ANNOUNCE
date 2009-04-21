@@ -1,3 +1,12 @@
+Announcing the release of mkdosfs version 0.4
+
+This release add support for creating FAT32 partitions.
+
+Gordon Chaffee
+chaffee@bmrc.berkeley.edu
+
+			    --------------
+
 Announcing the release of mkdosfs version 0.3b (Yggdrasil)
 
 It seems I didn't get the bug completely fixed in 0.3a.  Some

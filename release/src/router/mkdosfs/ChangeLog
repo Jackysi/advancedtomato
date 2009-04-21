@@ -1,3 +1,8 @@
+26th February 1997		Gordon Chaffee (chaffee@bmrc.berkeley.edu)
+
+	Added support for creating FAT32 partitions.
+	In theory, it should work on big endian machines now.
+
 28th January 1995		H. Peter Anvin (hpa@yggdrasil.com)
 
 	Better algorithm to select cluster sizes on large filesystems.
