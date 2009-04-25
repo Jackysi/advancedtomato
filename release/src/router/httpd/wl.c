@@ -30,6 +30,7 @@ void asp_wlscan(int argc, char **argv)
 	sp.ssid.SSID_len = 0;
 	sp.bss_type = DOT11_BSSTYPE_ANY;	// =2
 	sp.channel_num = 0;
+	sp.scan_type = DOT11_SCANTYPE_PASSIVE;	// =1	//!!TB
 
 	if (wl_ioctl(wif, WLC_GET_AP, &ap, sizeof(ap)) < 0) {
 		web_puts("[null,'Unable to get AP mode.']];\n");
@@ -67,7 +68,16 @@ void asp_wlscan(int argc, char **argv)
 	}
 	results->buflen = WLC_IOCTL_MAXLEN - (sizeof(*results) - sizeof(results->bss_info));
 	results->version = WL_BSS_INFO_VERSION;
-	r = wl_ioctl(wif, WLC_SCAN_RESULTS, results, WLC_IOCTL_MAXLEN);
+
+	//!!TB - keep trying to obtain scan results for up to 3 more secs 
+	//Passive scan may require more time, although 1 extra sec is almost always enough.
+	int t;
+	for (t = 0; t < 30; t++) {
+		r = wl_ioctl(wif, WLC_SCAN_RESULTS, results, WLC_IOCTL_MAXLEN);
+		if (r >= 0)
+			break;
+		usleep(100000);
+	}
 
 	if (ap > 0) {
 		wl_ioctl(wif, WLC_SET_AP, &ap, sizeof(ap));
