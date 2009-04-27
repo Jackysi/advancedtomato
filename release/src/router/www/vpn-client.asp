@@ -23,13 +23,32 @@
 //	<% nvram("vpn_client_eas,vpn_client1_if,vpn_client1_bridge,vpn_client1_nat,vpn_client1_proto,vpn_client1_addr,vpn_client1_port,vpn_client1_retry,vpn_client1_firewall,vpn_client1_crypt,vpn_client1_comp,vpn_client1_cipher,vpn_client1_local,vpn_client1_remote,vpn_client1_nm,vpn_client1_hmac,vpn_client1_custom,vpn_client1_static,vpn_client1_ca,vpn_client1_crt,vpn_client1_key,vpn_client2_if,vpn_client2_bridge,vpn_client2_nat,vpn_client2_proto,vpn_client2_addr,vpn_client2_port,vpn_client2_retry,vpn_client2_firewall,vpn_client2_crypt,vpn_client2_comp,vpn_client2_cipher,vpn_client2_local,vpn_client2_remote,vpn_client2_nm,vpn_client2_hmac,vpn_client2_custom,vpn_client2_static,vpn_client2_ca,vpn_client2_crt,vpn_client2_key"); %>
 
 tabs = [['client1', 'Client 1'],['client2', 'Client 2']];
-sections = [['basic', 'Basic'],['advanced', 'Advanced'],['keys','Keys']];
+sections = [['basic', 'Basic'],['advanced', 'Advanced'],['keys','Keys'],['status','Status']];
+statusUpdaters = [];
+for (i = 0; i < tabs.length; ++i) statusUpdaters.push(new StatusUpdater());
 ciphers = [['default','Use Default'],['none','None']];
 for (i = 0; i < vpnciphers.length; ++i) ciphers.push([vpnciphers[i],vpnciphers[i]]);
 
 changed = 0;
 vpn1up = parseInt('<% psup("vpnclient1"); %>');
 vpn2up = parseInt('<% psup("vpnclient2"); %>');
+
+function updateStatus(num)
+{
+	var xob = new XmlHttp();
+	xob.onCompleted = function(text, xml)
+	{
+		statusUpdaters[num].update(text);
+		xob = null;
+	}
+	xob.onError = function(ex)
+	{
+		statusUpdaters[num].errors.innerHTML += 'ERROR! '+ex+'<br>';
+		xob = null;
+	}
+
+	xob.post('/vpnstatus.cgi', 'client=' + (num+1));
+}
 
 function tabSelect(name)
 {
@@ -101,9 +120,9 @@ function verifyFields(focused, quiet)
 			else if (stripped == 'f_vpn_client_local')
 				E('_vpn_client'+clientnumber+'_local').value = focused.value;
 
+			var fom = E('_fom');
 			if (eval('vpn'+clientnumber+'up') && fom._service.value.indexOf('client'+clientnumber) < 0)
 			{
-				var fom = E('_fom');
 				if ( fom._service.value != "" ) fom._service.value += ",";
 				fom._service.value += 'vpnclient'+clientnumber+'-restart';
 			}
@@ -179,7 +198,14 @@ function init()
 	tabSelect(cookie.get('vpn_client_tab') || tabs[0][0]);
 
  	for (i = 0; i < tabs.length; ++i)
+	{
 		sectSelect(i, cookie.get('vpn_client'+i+'_section') || sections[i][0]);
+
+		t = tabs[i][0];
+
+		statusUpdaters[i].init(null,null,t+'-status-stats-table',t+'-status-time',t+'-status-content',t+'-no-status',t+'-status-errors');
+		updateStatus(i);
+	}
 
 	verifyFields(null, true);
 }
@@ -189,6 +215,18 @@ function init()
 textarea {
 	width: 98%;
 	height: 10em;
+}
+div.status-header p
+{
+	font-weight: bold;
+	padding-bottom: 4px;
+}
+table.status-table
+{
+	width: auto;
+	margin-left: auto;
+	margin-right: auto;
+	text-align: center;
 }
 </style>
 
@@ -268,6 +306,15 @@ for (i = 0; i < tabs.length; ++i)
 		{ title: 'Client Certificate', name: 'vpn_'+t+'_crt', type: 'textarea', value: eval( 'nvram.vpn_'+t+'_crt' ) },
 		{ title: 'Client Key', name: 'vpn_'+t+'_key', type: 'textarea', value: eval( 'nvram.vpn_'+t+'_key' ) }
 	]);
+	W('</div>');
+	W('<div id=\''+t+'-status\'>');
+		W('<div id=\''+t+'-no-status\'><p>Client is not running or status could not be read.</p></div>');
+		W('<div id=\''+t+'-status-content\' style=\'display:none\' class=\'status-content\'>');
+			W('<div id=\''+t+'-status-header\' class=\'status-header\'><p>Data current as of <span id=\''+t+'-status-time\'></span>.</p></div>');
+			W('<div id=\''+t+'-status-stats\'><div class=\'section-title\'>General Statistics</div><table class=\'tomato-grid status-table\' id=\''+t+'-status-stats-table\'></table><br></div>');
+			W('<div id=\''+t+'-status-errors\' class=\'error\'></div>');
+		W('</div>');
+		W('<div style=\'text-align:right\'><a href=\'javascript:updateStatus('+i+')\'>Refresh Status</a></div>');
 	W('</div>');
 	W('<input type="button" value="' + (eval('vpn'+(i+1)+'up') ? 'Stop' : 'Start') + ' Now" onclick="toggle(\'vpn'+t+'\', vpn'+(i+1)+'up)" id="_vpn'+t+'_button">');
 	W('</div>');

@@ -55,7 +55,7 @@ function updateStatus(num)
 		xob = null;
 	}
 
-	xob.post('/vpnstatus.cgi', 'num=' + (num+1));
+	xob.post('/vpnstatus.cgi', 'server=' + (num+1));
 }
 
 function tabSelect(name)

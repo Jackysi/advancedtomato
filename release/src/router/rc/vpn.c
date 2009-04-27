@@ -209,6 +209,8 @@ void start_vpnclient(int clientNum)
 	{
 		fprintf(fp, "secret static.key\n");
 	}
+	fprintf(fp, "status-version 2\n");
+	fprintf(fp, "status status\n");
 	fprintf(fp, "\n# Custom Configuration\n");
 	sprintf(&buffer[0], "vpn_client%d_custom", clientNum);
 	fprintf(fp, nvram_safe_get(&buffer[0]));
