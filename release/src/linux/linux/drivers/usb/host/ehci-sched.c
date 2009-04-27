@@ -672,6 +672,7 @@ static int check_intr_schedule (
 )
 {
     	int		retval = -ENOSPC;
+	u8		mask = 0;
 
 	if (qh->c_usecs && uframe >= 6)		/* FSTN territory? */
 		goto done;
@@ -684,7 +685,6 @@ static int check_intr_schedule (
 		goto done;
 	}
 #ifdef CONFIG_USB_EHCI_TT_NEWSCHED
-	u8		mask = 0;
 	if (tt_available (ehci, qh->period, qh->dev, frame, uframe,
 				qh->tt_usecs)) {
 		unsigned i;
