@@ -338,9 +338,9 @@ remap_signal (struct context *c)
 static void
 process_sigusr2 (const struct context *c)
 {
-  struct status_output *so = status_open (NULL, 0, M_INFO, NULL, 0);
+  struct status_output *so = c->c1.status_output? c->c1.status_output: status_open (NULL, 0, M_INFO, NULL, 0);
   print_status (c, so);
-  status_close (so);
+  if (so != c->c1.status_output) status_close (so);
   signal_reset (c->sig);
 }
 
