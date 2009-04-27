@@ -35,6 +35,7 @@ StatusUpdater.prototype =
 		if(this.statTable) this.statTable.headerSet(['Name','Value']);
 
 		var lines = text.split('\n');
+		var staticStats = false;
 		for (i = 0; text != '' && i < lines.length; ++i)
 		{
 			var done = false;
@@ -74,11 +75,23 @@ StatusUpdater.prototype =
 				if(this.statTable) this.statTable.tb.parentNode.style.display = '';
 				if(this.statTable) this.statTable.insertData(-1, fields.slice(1));
 				break;
+			case "OpenVPN STATISTICS":
+				staticStats = true;
+				break;
+			case "Updated":
+				if(staticStats)
+					if(this.statusTime) this.statusTime.innerHTML = fields[1];
+				break;
 			case "END":
 				done = true;
 				break;
 			default:
-				if(this.errors) this.errors.innerHTML += 'Unknown: '+lines[i]+'<br>';
+				if(staticStats)
+				{
+					if(this.statTable) this.statTable.tb.parentNode.style.display = '';
+					if(this.statTable) this.statTable.insertData(-1, fields);
+				}
+				else if(this.errors) this.errors.innerHTML += 'Unknown: '+lines[i]+'<br>';
 				break;
 			}
 			if ( done ) break;
