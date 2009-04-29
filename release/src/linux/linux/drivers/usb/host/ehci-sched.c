@@ -225,7 +225,7 @@ periodic_tt_usecs (
 	union ehci_shadow	*q = &ehci->pshadow [frame];
 	unsigned char		uf;
 
-	memset(tt_usecs, 0, 16);
+	memset(tt_usecs, 0, sizeof(unsigned short)*8);
 
 	while (q->ptr) {
 		switch (Q_NEXT_TYPE(*hw_p)) {
@@ -341,7 +341,7 @@ static int tt_available (
 		if (max_tt_usecs[7] < tt_usecs[7]) {
 			ehci_vdbg(ehci,
 				"tt unavailable usecs %d frame %d uframe %d\n",
-				usecs, frame, uframe);
+				tt_usecs[7], frame, uframe);
 			return 0;
 		}
 	}
@@ -2056,11 +2056,13 @@ static int sitd_submit (struct ehci_hcd *ehci, struct urb *urb,
 
 #ifdef EHCI_URB_TRACE
 	ehci_dbg (ehci,
-		"submit %p dev%s ep%d%s-iso len %d\n",
+		"submit %p dev%s ep%d%s-iso len %d pkts %d [%p]\n",
 		urb, urb->dev->devpath,
 		usb_pipeendpoint (urb->pipe),
 		usb_pipein (urb->pipe) ? "in" : "out",
-		urb->transfer_buffer_length);
+		urb->transfer_buffer_length,
+		urb->number_of_packets,
+		stream);
 #endif
 
 	/* allocate SITDs */
