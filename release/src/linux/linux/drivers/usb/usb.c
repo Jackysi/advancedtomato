@@ -265,9 +265,9 @@ long usb_calc_bus_time (int speed, int is_input, int isoc, int bytecount)
 	case USB_SPEED_HIGH:	/* ISOC or INTR */
 		// FIXME adjust for input vs output
 		if (isoc)
-			tmp = HS_USECS (bytecount);
+			tmp = HS_NSECS (bytecount);
 		else
-			tmp = HS_USECS_ISO (bytecount);
+			tmp = HS_NSECS_ISO (bytecount);
 		return tmp;
 	default:
 		dbg ("bogus device speed!");
