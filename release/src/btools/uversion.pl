@@ -35,20 +35,11 @@ $build = 0;
 
 open(F, "$path/tomato_version") || error("opening tomato_version: $!");
 $_ = <F>;
-if (!(($major, $minor, $vpn, $build) = /^(\d+)\.(\d+)vpn(\d+)\.(\d+)$/)) {
+if (!(($major, $minor, $vpnmajor, $vpnminor) = /^(\d+)\.(\d+)vpn(\d+)\.(\d+)$/)) {
 	error("Invalid version: '$_'");
 }
 close(F);
 
-
-if ($ARGV[0] eq "--bump") {
-	++$build;
-	open(F, ">$path/tomato_version.~") || error("creating temp file: $!");
-	printf F "%d.%02dvpn%d.%04d", $major, $minor, $vpn, $build;
-	close(F);
-	rename("$path/tomato_version.~", "$path/tomato_version") || error("renaming: $!");
-	exit(0);
-}
 
 if ($ARGV[0] ne "--gen") {
 	help();
@@ -56,7 +47,9 @@ if ($ARGV[0] ne "--gen") {
 
 $time = strftime("%a, %d %b %Y %H:%M:%S %z", localtime());
 $minor = sprintf("%02d", $minor);
-$build = sprintf("%04d", $build);
+$build = sprintf("%x", time());
+
+$fullversion = "$major.$minor\vpn$vpnmajor.$vpnminor.$build";
 
 open(F, ">$path/tomato_version.h~") || error("creating temp file: $!");
 print F <<"END";
@@ -67,11 +60,16 @@ print F <<"END";
 #define TOMATO_VPN          "$vpn"
 #define TOMATO_BUILD		"$build"
 #define	TOMATO_BUILDTIME	"$time"
-#define TOMATO_VERSION		"$major.$minor\vpn$vpn.$build"
+#define TOMATO_VERSION		"$fullversion"
 #endif
 END
 close(F);
 rename("$path/tomato_version.h~", "$path/tomato_version.h") || error("renaming: $!");
 
-print "Version: $major.$minor\vpn$vpn.$build ($time)\n";
+open(F, ">build_version~") || error("creating temp file: $!");
+print F "$fullversion";
+close(F);
+rename("build_version~", "build_version") || error("renaming: $!");
+
+print "Version: $fullversion ($time)\n";
 exit(0);

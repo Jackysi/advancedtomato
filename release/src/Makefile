@@ -54,13 +54,7 @@ else
 endif
 
 	
-	@echo -e "\n-----------------\n" `cat router/shared/tomato_version` " ready\n-----------------"
-
-ifneq ($(NOVERSION),1)	
-	@cp router/shared/tomato_version router/shared/tomato_version_last
-	@btools/uversion.pl --bump
-endif
-
+	@echo -e "\n-----------------\n" `cat build_version` " ready\n-----------------"
 
 clean: cleanimage
 	@$(MAKE) -C router $@

@@ -670,6 +670,7 @@ static const nvset_t nvset_list[] = {
 // vpn
 	{ "vpn_debug",            V_01                },
 	{ "vpn_server_eas",       V_NONE              },
+	{ "vpn_server_dns",       V_NONE              },
 	{ "vpn_server1_if",       V_TEXT(3, 3)        },  // tap, tun
 	{ "vpn_server1_proto",    V_TEXT(3, 10)       },  // udp, tcp-server
 	{ "vpn_server1_port",     V_PORT              },
