@@ -275,13 +275,13 @@ void start_vpnclient(int clientNum)
 		fp = fopen(&buffer[0], "w");
 		chmod(&buffer[0], S_IRUSR|S_IWUSR|S_IXUSR);
 		fprintf(fp, "#!/bin/sh\n");
-		fprintf(fp, "iptables -A INPUT -i %s -j ACCEPT\n", &iface[0]);
-		fprintf(fp, "iptables -A FORWARD -i %s -j ACCEPT\n", &iface[0]);
+		fprintf(fp, "iptables -I INPUT -i %s -j ACCEPT\n", &iface[0]);
+		fprintf(fp, "iptables -I FORWARD -i %s -j ACCEPT\n", &iface[0]);
 		if ( routeMode == NAT )
 		{
 			sscanf(nvram_safe_get("lan_ipaddr"), "%d.%d.%d.%d", &ip[0], &ip[1], &ip[2], &ip[3]);
 			sscanf(nvram_safe_get("lan_netmask"), "%d.%d.%d.%d", &nm[0], &nm[1], &nm[2], &nm[3]);
-			fprintf(fp, "iptables -t nat -A POSTROUTING -s %d.%d.%d.%d/%s -o %s -j MASQUERADE\n",
+			fprintf(fp, "iptables -t nat -I POSTROUTING -s %d.%d.%d.%d/%s -o %s -j MASQUERADE\n",
 			        ip[0]&nm[0], ip[1]&nm[1], ip[2]&nm[2], ip[3]&nm[3], nvram_safe_get("lan_netmask"), &iface[0]);
 		}
 		fclose(fp);
@@ -710,8 +710,8 @@ void start_vpnserver(int serverNum)
 		sprintf(&buffer[0], "vpn_server%d_firewall", serverNum);
 		if ( !nvram_contains_word(&buffer[0], "external") )
 		{
-			fprintf(fp, "iptables -A INPUT -i %s -j ACCEPT\n", &iface[0]);
-			fprintf(fp, "iptables -A FORWARD -i %s -j ACCEPT\n", &iface[0]);
+			fprintf(fp, "iptables -I INPUT -i %s -j ACCEPT\n", &iface[0]);
+			fprintf(fp, "iptables -I FORWARD -i %s -j ACCEPT\n", &iface[0]);
 		}
 		fclose(fp);
 		vpnlog(VPN_LOG_EXTRA,"Done creating firewall rules");
