@@ -11,7 +11,7 @@
 <head>
 <meta http-equiv='content-type' content='text/html;charset=utf-8'>
 <meta name='robots' content='noindex,nofollow'>
-<title>[<% ident(); %>] Admin: JFFS2</title>
+<title>[<% ident(); %>] Admin: JFFS</title>
 <link rel='stylesheet' type='text/css' href='tomato.css'>
 <link rel='stylesheet' type='text/css' href='color.css'>
 <script type='text/javascript' src='tomato.js'></script>
@@ -35,7 +35,7 @@ function verifyFields(focused, quiet)
 function formatClicked()
 {
 	if (!verifyFields(null, 0)) return;
-	if (!confirm("Format the JFFS2 partition?")) return;
+	if (!confirm("Format the JFFS partition?")) return;
 	save(1);
 }
 
@@ -106,7 +106,7 @@ function submit_complete()
 <input type='hidden' name='jffs2_on'>
 <input type='hidden' name='jffs2_format' value='0'>
 
-<div class='section-title'>JFFS2</div>
+<div class='section-title'>JFFS</div>
 <div class='section'>
 <script type='text/javascript'>
 // <% statfs("/jffs", "jffs2"); %>
