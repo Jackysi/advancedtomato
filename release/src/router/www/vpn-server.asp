@@ -17,18 +17,23 @@
 <link rel='stylesheet' type='text/css' href='tomato.css'>
 <link rel='stylesheet' type='text/css' href='color.css'>
 <script type='text/javascript' src='tomato.js'></script>
-<script type='text/javascript' src='vpnciphers.js'></script>
+<script type='text/javascript' src='vpn.js'></script>
 <script type='text/javascript'>
 
-//	<% nvram("vpn_server_eas,vpn_server1_if,vpn_server1_proto,vpn_server1_port,vpn_server1_firewall,vpn_server1_sn,vpn_server1_nm,vpn_server1_local,vpn_server1_remote,vpn_server1_dhcp,vpn_server1_r1,vpn_server1_r2,vpn_server1_crypt,vpn_server1_comp,vpn_server1_cipher,vpn_server1_hmac,vpn_server1_ccd,vpn_server1_c2c,vpn_server1_ccd_excl,vpn_server1_ccd_val,vpn_server1_custom,vpn_server1_static,vpn_server1_ca,vpn_server1_crt,vpn_server1_key,vpn_server1_dh,vpn_server2_if,vpn_server2_proto,vpn_server2_port,vpn_server2_firewall,vpn_server2_sn,vpn_server2_nm,vpn_server2_local,vpn_server2_remote,vpn_server2_dhcp,vpn_server2_r1,vpn_server2_r2,vpn_server2_crypt,vpn_server2_comp,vpn_server2_cipher,vpn_server2_hmac,vpn_server2_ccd,vpn_server2_c2c,vpn_server2_ccd_excl,vpn_server2_ccd_val,vpn_server2_custom,vpn_server2_static,vpn_server2_ca,vpn_server2_crt,vpn_server2_key,vpn_server2_dh"); %>
+//	<% nvram("vpn_server_eas,vpn_server_dns,vpn_server1_if,vpn_server1_proto,vpn_server1_port,vpn_server1_firewall,vpn_server1_sn,vpn_server1_nm,vpn_server1_local,vpn_server1_remote,vpn_server1_dhcp,vpn_server1_r1,vpn_server1_r2,vpn_server1_crypt,vpn_server1_comp,vpn_server1_cipher,vpn_server1_hmac,vpn_server1_ccd,vpn_server1_c2c,vpn_server1_ccd_excl,vpn_server1_ccd_val,vpn_server1_custom,vpn_server1_static,vpn_server1_ca,vpn_server1_crt,vpn_server1_key,vpn_server1_dh,vpn_server2_if,vpn_server2_proto,vpn_server2_port,vpn_server2_firewall,vpn_server2_sn,vpn_server2_nm,vpn_server2_local,vpn_server2_remote,vpn_server2_dhcp,vpn_server2_r1,vpn_server2_r2,vpn_server2_crypt,vpn_server2_comp,vpn_server2_cipher,vpn_server2_hmac,vpn_server2_ccd,vpn_server2_c2c,vpn_server2_ccd_excl,vpn_server2_ccd_val,vpn_server2_custom,vpn_server2_static,vpn_server2_ca,vpn_server2_crt,vpn_server2_key,vpn_server2_dh"); %>
 
 function CCDGrid() { return this; }
 CCDGrid.prototype = new TomatoGrid;
 
 tabs = [['server1', 'Server 1'],['server2', 'Server 2']];
 sections = [['basic', 'Basic'],['advanced', 'Advanced'],['keys','Keys'],['status','Status']];
-ccdTables = [new CCDGrid(), new CCDGrid()];
-statusTables = [[new TomatoGrid(),new TomatoGrid(),new TomatoGrid()],[new TomatoGrid(),new TomatoGrid(),new TomatoGrid()]];
+ccdTables = [];
+statusUpdaters = [];
+for (i = 0; i < tabs.length; ++i)
+{
+	ccdTables.push(new CCDGrid());
+	statusUpdaters.push(new StatusUpdater());
+}
 ciphers = [['default','Use Default'],['none','None']];
 for (i = 0; i < vpnciphers.length; ++i) ciphers.push([vpnciphers[i],vpnciphers[i]]);
 
@@ -41,80 +46,16 @@ function updateStatus(num)
 	var xob = new XmlHttp();
 	xob.onCompleted = function(text, xml)
 	{
-		E(tabs[num][0]+'-status-errors').innerHTML = '';
-		E(tabs[num][0]+'-no-status').style.display = (text==''?'':'none');
-		E(tabs[num][0]+'-status-content').style.display = (text==''?'none':'');
-		statusTables[num][2].init(tabs[num][0]+'-status-stats-table','sort',0,null);
-		statusTables[num][2].tb.parentNode.style.display = 'none';
-		statusTables[num][2].removeAllData();
-		statusTables[num][2].headerSet(['Name','Value']);
-
-		var lines = text.split('\n');
-		for (i = 0; text != '' && i < lines.length; ++i)
-		{
-			var done = false;
-
-			var fields = lines[i].split(',');
-			if ( fields.length == 0 ) continue;
-			switch ( fields[0] )
-			{
-			case "TITLE":
-				var words = fields[1].split(" ");
-				E(tabs[num][0]+'-status-version').innerHTML = words[1]+' ('+fields[1].substring(fields[1].indexOf('built on')+9)+')';
-				break;
-			case "TIME":
-				E(tabs[num][0]+'-status-time').innerHTML = fields[1];
-				break;
-			case "HEADER":
-				switch ( fields[1] )
-				{
-				case "CLIENT_LIST":
-					statusTables[num][0].init(tabs[num][0]+'-status-clients-table','sort',0,null);
-					statusTables[num][0].tb.parentNode.style.display = 'none';
-					statusTables[num][0].removeAllData();
-					statusTables[num][0].headerSet(fields.slice(2,fields.length-1));
-					break;
-				case "ROUTING_TABLE":
-					statusTables[num][1].init(tabs[num][0]+'-status-routing-table','sort',0,null);
-					statusTables[num][1].tb.parentNode.style.display = 'none';
-					statusTables[num][1].removeAllData();
-					statusTables[num][1].headerSet(fields.slice(2,fields.length-1));
-					break;
-				default:
-					E(tabs[num][0]+'-status-header').innerHTML += lines[i]+'<br>';
-					break;
-				}
-				break;
-			case "CLIENT_LIST":
-				statusTables[num][0].tb.parentNode.style.display = '';
-				statusTables[num][0].insertData(-1, fields.slice(1,fields.length-1))
-				break;
-			case "ROUTING_TABLE":
-				statusTables[num][1].tb.parentNode.style.display = '';
-				statusTables[num][1].insertData(-1, fields.slice(1,fields.length-1))
-				break;
-			case "GLOBAL_STATS":
-				statusTables[num][2].tb.parentNode.style.display = '';
-				statusTables[num][2].insertData(-1, fields.slice(1));
-				break;
-			case "END":
-				done = true;
-				break;
-			default:
-				E(tabs[num][0]+'-status-errors').innerHTML += 'Unparsed: '+lines[i]+'<br>';
-				break;
-			}
-			if ( done ) break;
-		}
+		statusUpdaters[num].update(text);
 		xob = null;
 	}
 	xob.onError = function(ex)
 	{
-		E(tabs[num][0]+'-status-errors').innerHTML += 'ERROR! '+ex+'<br>';
+		statusUpdaters[num].errors.innerHTML += 'ERROR! '+ex+'<br>';
 		xob = null;
 	}
 
-	xob.post('/vpnstatus.cgi', 'num=' + (num+1));
+	xob.post('/vpnstatus.cgi', 'server=' + (num+1));
 }
 
 function tabSelect(name)
@@ -189,6 +130,13 @@ function verifyFields(focused, quiet)
 			
 			if (focused.name.indexOf("_c2c") >= 0)
 				ccdTables[servernumber-1].reDraw();
+
+			if ((focused.name.indexOf("_dns") || (focused.name.indexOf("_if") && E('_f_vpn_server'+servernumber+'_dns').checked)) &&
+			    fom._service.value.indexOf('dnsmasq') < 0)
+			{
+				if ( fom._service.value != "" ) fom._service.value += ",";
+				fom._service.value += 'dnsmasq-restart';
+			}
 		}
 	}
 
@@ -318,6 +266,7 @@ function save()
 	var fom = E('_fom');
 
 	E('vpn_server_eas').value = '';
+	E('vpn_server_dns').value = '';
 
 	for (i = 0; i < tabs.length; ++i)
 	{
@@ -327,6 +276,9 @@ function save()
 
 		if ( E('_f_vpn_'+t+'_eas').checked )
 			E('vpn_server_eas').value += ''+(i+1)+',';
+
+		if ( E('_f_vpn_'+t+'_dns').checked )
+			E('vpn_server_dns').value += ''+(i+1)+',';
 
 		var data = ccdTables[i].getAllData();
 		var ccd = '';
@@ -373,6 +325,7 @@ function init()
 		ccdTables[i].showNewEditor();
 		ccdTables[i].resetNewEditor();
 
+		statusUpdaters[i].init(t+'-status-clients-table',t+'-status-routing-table',t+'-status-stats-table',t+'-status-time',t+'-status-content',t+'-no-status',t+'-status-errors');
 		updateStatus(i);
 	}
 
@@ -416,6 +369,7 @@ table.status-table
 <input type='hidden' name='_nextwait' value='5'>
 <input type='hidden' name='_service' value=''>
 <input type='hidden' name='vpn_server_eas' id='vpn_server_eas' value=''>
+<input type='hidden' name='vpn_server_dns' id='vpn_server_dns' value=''>
 
 <div class='section-title'>VPN Server Configuration</div>
 <div class='section'>
@@ -463,6 +417,7 @@ for (i = 0; i < tabs.length; ++i)
 	W('</div>');
 	W('<div id=\''+t+'-advanced\'>');
 	createFieldTable('', [
+		{ title: 'Respond to DNS', name: 'f_vpn_'+t+'_dns', type: 'checkbox', value: nvram.vpn_server_dns.indexOf(''+(i+1)) >= 0 },
 		{ title: 'Encryption cipher', name: 'vpn_'+t+'_cipher', type: 'select', options: ciphers, value: eval( 'nvram.vpn_'+t+'_cipher' ) },
 		{ title: 'Compression', name: 'vpn_'+t+'_comp', type: 'select', options: [ ['yes', 'Enabled'], ['no', 'Disabled'], ['adaptive', 'Adaptive'] ], value: eval( 'nvram.vpn_'+t+'_comp' ) },
 		{ title: 'Manage Client-Specific Options', name: 'f_vpn_'+t+'_ccd', type: 'checkbox', value: eval( 'nvram.vpn_'+t+'_ccd' ) != 0 },
@@ -482,15 +437,15 @@ for (i = 0; i < tabs.length; ++i)
 	]);
 	W('</div>');
 	W('<div id=\''+t+'-status\'>');
-	W('<div id=\''+t+'-no-status\'><p>Server is not running or status could not be read.</p></div>');
-	W('<div id=\''+t+'-status-content\' style=\'display:none\' class=\'status-content\'>');
-	W('<div id=\''+t+'-status-header\' class=\'status-header\'><p>OpenVPN version: <span id=\''+t+'-status-version\'></span></p><p>Data current as of <span id=\''+t+'-status-time\'></span>.</p></div>');
-	W('<div id=\''+t+'-status-clients\'><div class=\'section-title\'>Client List</div><table class=\'tomato-grid status-table\' id=\''+t+'-status-clients-table\'></table><br></div>');
-	W('<div id=\''+t+'-status-routing\'><div class=\'section-title\'>Routing Table</div><table class=\'tomato-grid status-table\' id=\''+t+'-status-routing-table\'></table><br></div>');
-	W('<div id=\''+t+'-status-stats\'><div class=\'section-title\'>General Statistics</div><table class=\'tomato-grid status-table\' id=\''+t+'-status-stats-table\'></table><br></div>');
-	W('<div id=\''+t+'-status-errors\' class=\'error\'></div>');
-	W('</div>');
-	W('<div style=\'text-align:right\'><a href=\'javascript:updateStatus('+i+')\'>Refresh Status</a></div>');
+		W('<div id=\''+t+'-no-status\'><p>Server is not running or status could not be read.</p></div>');
+		W('<div id=\''+t+'-status-content\' style=\'display:none\' class=\'status-content\'>');
+			W('<div id=\''+t+'-status-header\' class=\'status-header\'><p>Data current as of <span id=\''+t+'-status-time\'></span>.</p></div>');
+			W('<div id=\''+t+'-status-clients\'><div class=\'section-title\'>Client List</div><table class=\'tomato-grid status-table\' id=\''+t+'-status-clients-table\'></table><br></div>');
+			W('<div id=\''+t+'-status-routing\'><div class=\'section-title\'>Routing Table</div><table class=\'tomato-grid status-table\' id=\''+t+'-status-routing-table\'></table><br></div>');
+			W('<div id=\''+t+'-status-stats\'><div class=\'section-title\'>General Statistics</div><table class=\'tomato-grid status-table\' id=\''+t+'-status-stats-table\'></table><br></div>');
+			W('<div id=\''+t+'-status-errors\' class=\'error\'></div>');
+		W('</div>');
+		W('<div style=\'text-align:right\'><a href=\'javascript:updateStatus('+i+')\'>Refresh Status</a></div>');
 	W('</div>');
 	W('<input type="button" value="' + (eval('vpn'+(i+1)+'up') ? 'Stop' : 'Start') + ' Now" onclick="toggle(\'vpn'+t+'\', vpn'+(i+1)+'up)" id="_vpn'+t+'_button">');
 	W('</div>');

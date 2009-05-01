@@ -209,6 +209,8 @@ void start_vpnclient(int clientNum)
 	{
 		fprintf(fp, "secret static.key\n");
 	}
+	fprintf(fp, "status-version 2\n");
+	fprintf(fp, "status status\n");
 	fprintf(fp, "\n# Custom Configuration\n");
 	sprintf(&buffer[0], "vpn_client%d_custom", clientNum);
 	fprintf(fp, nvram_safe_get(&buffer[0]));
@@ -275,13 +277,13 @@ void start_vpnclient(int clientNum)
 		fp = fopen(&buffer[0], "w");
 		chmod(&buffer[0], S_IRUSR|S_IWUSR|S_IXUSR);
 		fprintf(fp, "#!/bin/sh\n");
-		fprintf(fp, "iptables -A INPUT -i %s -j ACCEPT\n", &iface[0]);
-		fprintf(fp, "iptables -A FORWARD -i %s -j ACCEPT\n", &iface[0]);
+		fprintf(fp, "iptables -I INPUT -i %s -j ACCEPT\n", &iface[0]);
+		fprintf(fp, "iptables -I FORWARD -i %s -j ACCEPT\n", &iface[0]);
 		if ( routeMode == NAT )
 		{
 			sscanf(nvram_safe_get("lan_ipaddr"), "%d.%d.%d.%d", &ip[0], &ip[1], &ip[2], &ip[3]);
 			sscanf(nvram_safe_get("lan_netmask"), "%d.%d.%d.%d", &nm[0], &nm[1], &nm[2], &nm[3]);
-			fprintf(fp, "iptables -t nat -A POSTROUTING -s %d.%d.%d.%d/%s -o %s -j MASQUERADE\n",
+			fprintf(fp, "iptables -t nat -I POSTROUTING -s %d.%d.%d.%d/%s -o %s -j MASQUERADE\n",
 			        ip[0]&nm[0], ip[1]&nm[1], ip[2]&nm[2], ip[3]&nm[3], nvram_safe_get("lan_netmask"), &iface[0]);
 		}
 		fclose(fp);
@@ -344,11 +346,15 @@ void stop_vpnclient(int clientNum)
 
 	if ( nvram_get_int("vpn_debug") <= VPN_LOG_EXTRA )
 	{
-		// Delete all files for this client
 		vpnlog(VPN_LOG_EXTRA,"Removing generated files.");
+		// Delete all files for this client
 		sprintf(&buffer[0], "rm -rf /etc/openvpn/client%d /etc/openvpn/fw/client%d-fw.sh /etc/openvpn/vpnclient%d",clientNum,clientNum,clientNum);
 		for (argv[argc=0] = strtok(&buffer[0], " "); argv[argc] != NULL; argv[++argc] = strtok(NULL, " "));
 		_eval(argv, NULL, 0, NULL);
+
+		// Attempt to remove directories.  Will fail if not empty
+		rmdir("/etc/openvpn/fw");
+		rmdir("/etc/openvpn");
 		vpnlog(VPN_LOG_EXTRA,"Done removing generated files.");
 	}
 
@@ -706,8 +712,8 @@ void start_vpnserver(int serverNum)
 		sprintf(&buffer[0], "vpn_server%d_firewall", serverNum);
 		if ( !nvram_contains_word(&buffer[0], "external") )
 		{
-			fprintf(fp, "iptables -A INPUT -i %s -j ACCEPT\n", &iface[0]);
-			fprintf(fp, "iptables -A FORWARD -i %s -j ACCEPT\n", &iface[0]);
+			fprintf(fp, "iptables -I INPUT -i %s -j ACCEPT\n", &iface[0]);
+			fprintf(fp, "iptables -I FORWARD -i %s -j ACCEPT\n", &iface[0]);
 		}
 		fclose(fp);
 		vpnlog(VPN_LOG_EXTRA,"Done creating firewall rules");
@@ -769,11 +775,15 @@ void stop_vpnserver(int serverNum)
 
 	if ( nvram_get_int("vpn_debug") <= VPN_LOG_EXTRA )
 	{
-		// Delete all files for this server
 		vpnlog(VPN_LOG_EXTRA,"Removing generated files.");
+		// Delete all files for this server
 		sprintf(&buffer[0], "rm -rf /etc/openvpn/server%d /etc/openvpn/fw/server%d-fw.sh /etc/openvpn/vpnserver%d",serverNum,serverNum,serverNum);
 		for (argv[argc=0] = strtok(&buffer[0], " "); argv[argc] != NULL; argv[++argc] = strtok(NULL, " "));
 		_eval(argv, NULL, 0, NULL);
+
+		// Attempt to remove directories.  Will fail if not empty
+		rmdir("/etc/openvpn/fw");
+		rmdir("/etc/openvpn");	
 		vpnlog(VPN_LOG_EXTRA,"Done removing generated files.");
 	}
 
@@ -829,5 +839,25 @@ void run_vpn_firewall_scripts()
 	vpnlog(VPN_LOG_EXTRA,"Done with all firewall scripts...");
 
 	closedir(dir);
+}
+
+void write_vpn_dnsmasq_config(FILE* f)
+{
+	char nv[16];
+	char buf[16];
+	char *pos;
+	int cur;
+
+	strlcpy(&buf[0], nvram_safe_get("vpn_server_dns"), sizeof(buf));
+	for ( pos = strtok(&buf[0],","); pos != NULL; pos=strtok(NULL, ",") )
+	{
+		cur = atoi(pos);
+		if ( cur )
+		{
+			vpnlog(VPN_LOG_EXTRA, "Adding server %d interface to dns config", cur);
+			snprintf(&nv[0], 16, "vpn_server%d_if", cur);
+			fprintf(f, "interface=%s%d\n", nvram_safe_get(&nv[0]), SERVER_IF_START+cur);
+		}
+	}
 }
 
