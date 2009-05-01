@@ -60,12 +60,12 @@
 
 static int jffs_remove(struct inode *dir, struct dentry *dentry, int type);
 
-static const struct super_operations jffs_ops;
-static const struct file_operations jffs_file_operations;
-static const struct inode_operations jffs_file_inode_operations;
-static const struct file_operations jffs_dir_operations;
-static const struct inode_operations jffs_dir_inode_operations;
-static const struct address_space_operations jffs_address_operations;
+static struct super_operations jffs_ops;
+static struct file_operations jffs_file_operations;
+static struct inode_operations jffs_file_inode_operations;
+static struct file_operations jffs_dir_operations;
+static struct inode_operations jffs_dir_inode_operations;
+static struct address_space_operations jffs_address_operations;
 
 kmem_cache_t     *node_cache = NULL;
 kmem_cache_t     *fm_cache = NULL;
@@ -127,13 +127,11 @@ jffs_read_super(struct super_block *sb, void *data, int silent)
 
 	/* GC if free space goes below 5% of the total size */
 	c->gc_minfree_threshold = c->fmc->flash_size / 20;
-
 	if (c->gc_minfree_threshold < c->fmc->sector_size)
 		c->gc_minfree_threshold = c->fmc->sector_size;
 
 	/* GC if dirty space exceeds 33% of the total size. */
 	c->gc_maxdirty_threshold = c->fmc->flash_size / 3;
-
 	if (c->gc_maxdirty_threshold < c->fmc->sector_size)
 		c->gc_maxdirty_threshold = c->fmc->sector_size;
 
@@ -192,7 +190,7 @@ static int
 jffs_setattr(struct dentry *dentry, struct iattr *iattr)
 {
 	struct inode *inode = dentry->d_inode;
-	struct jffs_raw_inode raw_inode;
+	struct jffs_raw_inode raw_inode = {0};
 	struct jffs_control *c;
 	struct jffs_fmcontrol *fmc;
 	struct jffs_file *f;
@@ -251,15 +249,8 @@ jffs_setattr(struct dentry *dentry, struct iattr *iattr)
 	raw_inode.atime = f->atime;
 	raw_inode.mtime = f->mtime;
 	raw_inode.ctime = f->ctime;
-	raw_inode.dsize = 0;
-	raw_inode.offset = 0;
-	raw_inode.rsize = 0;
-	raw_inode.dsize = 0;
 	raw_inode.nsize = f->nsize;
 	raw_inode.nlink = f->nlink;
-	raw_inode.spare = 0;
-	raw_inode.rename = 0;
-	raw_inode.deleted = 0;
 
 	if (update_all || iattr->ia_valid & ATTR_MODE) {
 		raw_inode.mode = iattr->ia_mode;
@@ -318,7 +309,7 @@ jffs_setattr(struct dentry *dentry, struct iattr *iattr)
 	}
 
 	/* Write this node to the flash.  */
-	if ((res = jffs_write_node(c, new_node, &raw_inode, f->name, 0, recoverable, f)) < 0) {
+	if ((res = jffs_write_node(c, new_node, &raw_inode, f->name, NULL, recoverable, f)) < 0) {
 		D(printk("jffs_notify_change(): The write failed!\n"));
 		jffs_free_node(new_node);
 		D3(printk (KERN_NOTICE "n_c(): up biglock\n"));
@@ -376,8 +367,7 @@ jffs_new_inode(const struct inode * dir, struct jffs_raw_inode *raw_inode,
 }
 
 /* Get statistics of the file system.  */
-int
-jffs_statfs(struct super_block *sb, struct statfs *buf)
+int jffs_statfs(struct super_block *sb, struct statfs *buf)
 {
 	struct jffs_control *c = (struct jffs_control *) sb->u.generic_sbp;
 	struct jffs_fmcontrol *fmc = c->fmc;
@@ -386,11 +376,17 @@ jffs_statfs(struct super_block *sb, struct statfs *buf)
 
 	buf->f_type = JFFS_MAGIC_SB_BITMASK;
 	buf->f_bsize = PAGE_CACHE_SIZE;
+#if 0	/* Exclude overhead if 0 */
 	buf->f_blocks = (fmc->flash_size / PAGE_CACHE_SIZE)
 		       - (fmc->min_free_size / PAGE_CACHE_SIZE);
 	buf->f_bfree = (jffs_free_size1(fmc) + jffs_free_size2(fmc) +
 		       fmc->dirty_size - fmc->min_free_size)
 			       >> PAGE_CACHE_SHIFT;
+#else	/* Include, but take into account, overhead. */
+	buf->f_blocks = (fmc->flash_size / PAGE_CACHE_SIZE);
+	buf->f_bfree = (jffs_free_size1(fmc) + jffs_free_size2(fmc) +
+		       fmc->dirty_size - fmc->min_free_size) >> PAGE_CACHE_SHIFT;
+#endif
 	buf->f_bavail = buf->f_bfree;
 
 	/* Find out how many files there are in the filesystem.  */
@@ -407,7 +403,7 @@ int
 jffs_rename(struct inode *old_dir, struct dentry *old_dentry,
 	    struct inode *new_dir, struct dentry *new_dentry)
 {
-	struct jffs_raw_inode raw_inode;
+	struct jffs_raw_inode raw_inode = {0};
 	struct jffs_control *c;
 	struct jffs_file *old_dir_f;
 	struct jffs_file *new_dir_f;
@@ -473,14 +469,8 @@ jffs_rename(struct inode *old_dir, struct dentry *old_dentry,
 	raw_inode.atime = CURRENT_TIME;
 	raw_inode.mtime = raw_inode.atime;
 	raw_inode.ctime = f->ctime;
-	raw_inode.offset = 0;
-	raw_inode.dsize = 0;
-	raw_inode.rsize = 0;
 	raw_inode.nsize = new_dentry->d_name.len;
 	raw_inode.nlink = f->nlink;
-	raw_inode.spare = 0;
-	raw_inode.rename = 0;
-	raw_inode.deleted = 0;
 
 	/* See if there already exists a file with the same name as
 	   new_name.  */
@@ -503,14 +493,12 @@ jffs_rename(struct inode *old_dir, struct dentry *old_dentry,
 
 	if (raw_inode.rename) {
 		/* The file with the same name must be deleted.  */
-		//FIXME deadlock	        down(&c->fmc->gclock);
 		if ((result = jffs_remove(new_dir, new_dentry,
 					  del_f->mode)) < 0) {
 			/* This is really bad.  */
 			printk(KERN_ERR "JFFS: An error occurred in "
 			       "rename().\n");
 		}
-		//		up(&c->fmc->gclock);
 	}
 
 	if (old_dir_f != new_dir_f) {
@@ -783,7 +771,7 @@ static int jffs_readpage(struct file *file, struct page *page)
 static int
 jffs_mkdir(struct inode *dir, struct dentry *dentry, int mode)
 {
-	struct jffs_raw_inode raw_inode;
+   struct jffs_raw_inode raw_inode = {0};
 	struct jffs_control *c;
 	struct jffs_node *node;
 	struct jffs_file *dir_f;
@@ -841,18 +829,12 @@ jffs_mkdir(struct inode *dir, struct dentry *dentry, int mode)
 	raw_inode.atime = CURRENT_TIME;
 	raw_inode.mtime = raw_inode.atime;
 	raw_inode.ctime = raw_inode.atime;
-	raw_inode.offset = 0;
-	raw_inode.dsize = 0;
-	raw_inode.rsize = 0;
 	raw_inode.nsize = dentry->d_name.len;
 	raw_inode.nlink = 1;
-	raw_inode.spare = 0;
-	raw_inode.rename = 0;
-	raw_inode.deleted = 0;
 
 	/* Write the new node to the flash.  */
 	if ((result = jffs_write_node(c, node, &raw_inode,
-				      dentry->d_name.name, 0, 0, NULL)) < 0) {
+				      dentry->d_name.name, NULL, 0, NULL)) < 0) {
 		D(printk("jffs_mkdir(): jffs_write_node() failed.\n"));
 		jffs_free_node(node);
 		goto jffs_mkdir_end;
@@ -908,10 +890,10 @@ jffs_unlink(struct inode *dir, struct dentry *dentry)
 	int ret; 
 
 	D3(printk("***jffs_unlink()\n"));
-	D3(printk (KERN_NOTICE "unlink(): down biglock\n"));
+	D1(printk (KERN_NOTICE "unlink(): down biglock\n"));
 	down(&c->fmc->biglock);
 	ret = jffs_remove(dir, dentry, 0);
-	D3(printk (KERN_NOTICE "unlink(): up biglock\n"));
+	D1(printk (KERN_NOTICE "unlink(): up biglock\n"));
 	up(&c->fmc->biglock);
 	return ret;
 }
@@ -922,7 +904,7 @@ jffs_unlink(struct inode *dir, struct dentry *dentry)
 static int
 jffs_remove(struct inode *dir, struct dentry *dentry, int type)
 {
-	struct jffs_raw_inode raw_inode;
+	struct jffs_raw_inode raw_inode = {0};
 	struct jffs_control *c;
 	struct jffs_file *dir_f; /* The file-to-remove's parent.  */
 	struct jffs_file *del_f; /* The file to remove.  */
@@ -999,17 +981,12 @@ jffs_remove(struct inode *dir, struct dentry *dentry, int type)
 	raw_inode.atime = CURRENT_TIME;
 	raw_inode.mtime = del_f->mtime;
 	raw_inode.ctime = raw_inode.atime;
-	raw_inode.offset = 0;
-	raw_inode.dsize = 0;
-	raw_inode.rsize = 0;
-	raw_inode.nsize = 0;
 	raw_inode.nlink = del_f->nlink;
-	raw_inode.spare = 0;
-	raw_inode.rename = 0;
 	raw_inode.deleted = 1;
 
 	/* Write the new node to the flash memory.  */
-	if (jffs_write_node(c, del_node, &raw_inode, 0, 0, 1, del_f) < 0) {
+	/* Bypass the size check, since we'll be deleting all the file's nodes immediately. */
+	if (jffs_write_node(c, del_node, &raw_inode, NULL, NULL, - sizeof(struct jffs_raw_inode), del_f) < 0) {
 		jffs_free_node(del_node);
 		result = -EIO;
 		goto jffs_remove_end;
@@ -1025,9 +1002,12 @@ jffs_remove(struct inode *dir, struct dentry *dentry, int type)
 	inode->i_nlink--;
 	inode->i_ctime = dir->i_ctime;
 	mark_inode_dirty(inode);
+	jffs_garbage_collect_trigger(c);
 
+	/* This operation marks the nodes as dirty. */
+	/* What gets called is: jffs_delete_inode */
 	d_delete(dentry);	/* This also frees the inode */
-
+	jffs_garbage_collect_trigger(c);
 	result = 0;
 jffs_remove_end:
 	return result;
@@ -1037,7 +1017,7 @@ jffs_remove_end:
 static int
 jffs_mknod(struct inode *dir, struct dentry *dentry, int mode, int rdev)
 {
-	struct jffs_raw_inode raw_inode;
+	struct jffs_raw_inode raw_inode = {0};
 	struct jffs_file *dir_f;
 	struct jffs_node *node = 0;
 	struct jffs_control *c;
@@ -1075,14 +1055,9 @@ jffs_mknod(struct inode *dir, struct dentry *dentry, int mode, int rdev)
 	raw_inode.atime = CURRENT_TIME;
 	raw_inode.mtime = raw_inode.atime;
 	raw_inode.ctime = raw_inode.atime;
-	raw_inode.offset = 0;
 	raw_inode.dsize = sizeof(kdev_t);
-	raw_inode.rsize = 0;
 	raw_inode.nsize = dentry->d_name.len;
 	raw_inode.nlink = 1;
-	raw_inode.spare = 0;
-	raw_inode.rename = 0;
-	raw_inode.deleted = 0;
 
 	/* Write the new node to the flash.  */
 	if ((err = jffs_write_node(c, node, &raw_inode, dentry->d_name.name,
@@ -1126,7 +1101,7 @@ jffs_mknod_end:
 static int
 jffs_symlink(struct inode *dir, struct dentry *dentry, const char *symname)
 {
-	struct jffs_raw_inode raw_inode;
+	struct jffs_raw_inode raw_inode = {0};
 	struct jffs_control *c;
 	struct jffs_file *dir_f;
 	struct jffs_node *node;
@@ -1181,14 +1156,9 @@ jffs_symlink(struct inode *dir, struct dentry *dentry, const char *symname)
 	raw_inode.atime = CURRENT_TIME;
 	raw_inode.mtime = raw_inode.atime;
 	raw_inode.ctime = raw_inode.atime;
-	raw_inode.offset = 0;
 	raw_inode.dsize = symname_len;
-	raw_inode.rsize = 0;
 	raw_inode.nsize = dentry->d_name.len;
 	raw_inode.nlink = 1;
-	raw_inode.spare = 0;
-	raw_inode.rename = 0;
-	raw_inode.deleted = 0;
 
 	/* Write the new node to the flash.  */
 	if ((err = jffs_write_node(c, node, &raw_inode, dentry->d_name.name,
@@ -1232,7 +1202,7 @@ jffs_symlink(struct inode *dir, struct dentry *dentry, const char *symname)
 static int
 jffs_create(struct inode *dir, struct dentry *dentry, int mode)
 {
-	struct jffs_raw_inode raw_inode;
+	struct jffs_raw_inode raw_inode = {0};
 	struct jffs_control *c;
 	struct jffs_node *node;
 	struct jffs_file *dir_f; /* JFFS representation of the directory.  */
@@ -1279,18 +1249,12 @@ jffs_create(struct inode *dir, struct dentry *dentry, int mode)
 	raw_inode.atime = CURRENT_TIME;
 	raw_inode.mtime = raw_inode.atime;
 	raw_inode.ctime = raw_inode.atime;
-	raw_inode.offset = 0;
-	raw_inode.dsize = 0;
-	raw_inode.rsize = 0;
 	raw_inode.nsize = dentry->d_name.len;
 	raw_inode.nlink = 1;
-	raw_inode.spare = 0;
-	raw_inode.rename = 0;
-	raw_inode.deleted = 0;
 
 	/* Write the new node to the flash.  */
 	if ((err = jffs_write_node(c, node, &raw_inode,
-				   dentry->d_name.name, 0, 0, NULL)) < 0) {
+				   dentry->d_name.name, NULL, 0, NULL)) < 0) {
 		D(printk("jffs_create(): jffs_write_node() failed.\n"));
 		jffs_free_node(node);
 		goto jffs_create_end;
@@ -1326,13 +1290,12 @@ static ssize_t
 jffs_file_write(struct file *filp, const char *buf, size_t count,
 		loff_t *ppos)
 {
-	struct jffs_raw_inode raw_inode;
+	struct jffs_raw_inode raw_inode = {0};
 	struct jffs_control *c;
 	struct jffs_file *f;
 	struct jffs_node *node;
 	struct dentry *dentry = filp->f_dentry;
 	struct inode *inode = dentry->d_inode;
-	int recoverable = 0;
 	size_t written = 0;
 	__u32 thiscount = count;
 	loff_t pos = *ppos;
@@ -1406,39 +1369,20 @@ jffs_file_write(struct file *filp, const char *buf, size_t count,
 		raw_inode.ctime = f->ctime;
 		raw_inode.offset = pos;
 		raw_inode.dsize = thiscount;
-		raw_inode.rsize = 0;
 		raw_inode.nsize = f->nsize;
 		raw_inode.nlink = f->nlink;
-		raw_inode.spare = 0;
-		raw_inode.rename = 0;
-		raw_inode.deleted = 0;
 
 		if (pos < f->size) {
-			node->removed_size = raw_inode.rsize = min(thiscount, (__u32)(f->size - pos));
-
-			/* If this node is going entirely over the top of old data,
-			   we can allow it to go into the reserved space, because
-			   we know that GC can reclaim the space later.
-			*/
-			if (pos + thiscount < f->size) {
-				/* If all the data we're overwriting are _real_,
-				   not just holes, then:
-				   recoverable = 1;
-				*/
-			}
+		   node->removed_size = raw_inode.rsize = min(thiscount, (__u32)(f->size - pos));
 		}
 
 		/* Write the new node to the flash.  */
-		/* NOTE: We would be quite happy if jffs_write_node() wrote a
-		   smaller node than we were expecting. There's no need for it
-		   to waste the space at the end of the flash just because it's
-		   a little smaller than what we asked for. But that's a whole
-		   new can of worms which I'm not going to open this week. 
-		   -- dwmw2.
+		/* NOTE: We are quite happy if jffs_write_node() wrote a
+		   smaller node than we were expecting.
 		*/
 		if ((err = jffs_write_node(c, node, &raw_inode, f->name,
 					   (const unsigned char *)buf,
-					   recoverable, f)) < 0) {
+					   99, f)) < 0) {
 			D(printk("jffs_file_write(): jffs_write_node() failed.\n"));
 			jffs_free_node(node);
 			goto out;
@@ -1497,71 +1441,8 @@ jffs_commit_write(struct file *filp, struct page *page,
        return jffs_file_write(filp, addr, to-from, &pos);
 } /* jffs_commit_write() */
 
-/* This is our ioctl() routine.  */
-static int
-jffs_ioctl(struct inode *inode, struct file *filp, unsigned int cmd,
-	   unsigned long arg)
-{
-	struct jffs_control *c;
-	int ret = 0;
 
-	D2(printk("***jffs_ioctl(): cmd = 0x%08x, arg = 0x%08lx\n",
-		  cmd, arg));
-
-	if (!(c = (struct jffs_control *)inode->i_sb->u.generic_sbp)) {
-		printk(KERN_ERR "JFFS: Bad inode in ioctl() call. "
-		       "(cmd = 0x%08x)\n", cmd);
-		return -EIO;
-	}
-	D3(printk (KERN_NOTICE "ioctl(): down biglock\n"));
-	down(&c->fmc->biglock);
-
-	switch (cmd) {
-	case JFFS_PRINT_HASH:
-		jffs_print_hash_table(c);
-		break;
-	case JFFS_PRINT_TREE:
-		jffs_print_tree(c->root, 0);
-		break;
-	case JFFS_GET_STATUS:
-		{
-			struct jffs_flash_status fst;
-			struct jffs_fmcontrol *fmc = c->fmc;
-			printk("Flash status -- ");
-			if (!access_ok(VERIFY_WRITE,
-				       (struct jffs_flash_status *)arg,
-				       sizeof(struct jffs_flash_status))) {
-				D(printk("jffs_ioctl(): Bad arg in "
-					 "JFFS_GET_STATUS ioctl!\n"));
-				ret = -EFAULT;
-				break;
-			}
-			fst.size = fmc->flash_size;
-			fst.used = fmc->used_size;
-			fst.dirty = fmc->dirty_size;
-			fst.begin = fmc->head->offset;
-			fst.end = fmc->tail->offset + fmc->tail->size;
-			printk("size: %d, used: %d, dirty: %d, "
-			       "begin: %d, end: %d\n",
-			       fst.size, fst.used, fst.dirty,
-			       fst.begin, fst.end);
-			if (copy_to_user((struct jffs_flash_status *)arg,
-					 &fst,
-					 sizeof(struct jffs_flash_status))) {
-				ret = -EFAULT;
-			}
-		}
-		break;
-	default:
-		ret = -ENOTTY;
-	}
-	D3(printk (KERN_NOTICE "ioctl(): up biglock\n"));
-	up(&c->fmc->biglock);
-	return ret;
-} /* jffs_ioctl()  */
-
-
-static const struct address_space_operations jffs_address_operations = {
+static struct address_space_operations jffs_address_operations = {
 	readpage: jffs_readpage,
 	prepare_write: jffs_prepare_write,
 	commit_write: jffs_commit_write,
@@ -1576,32 +1457,31 @@ static int jffs_fsync(struct file *f, struct dentry *d, int datasync)
 }
 
 
-static const struct file_operations jffs_file_operations =
+static struct file_operations jffs_file_operations =
 {
 	open:	generic_file_open,
 	llseek:	generic_file_llseek,
 	read:	generic_file_read,
 	write:	generic_file_write,
-	ioctl:	jffs_ioctl,
 	mmap:	generic_file_mmap,
 	fsync:	jffs_fsync,
 };
 
 
-static const struct inode_operations jffs_file_inode_operations =
+static struct inode_operations jffs_file_inode_operations =
 {
 	lookup:  jffs_lookup,          /* lookup */
 	setattr: jffs_setattr,
 };
 
 
-static const struct file_operations jffs_dir_operations =
+static struct file_operations jffs_dir_operations =
 {
 	readdir:	jffs_readdir,
 };
 
 
-static const struct inode_operations jffs_dir_inode_operations =
+static struct inode_operations jffs_dir_inode_operations =
 {
 	create:   jffs_create,
 	lookup:   jffs_lookup,
@@ -1708,7 +1588,7 @@ jffs_write_super(struct super_block *sb)
 	jffs_garbage_collect_trigger(c);
 }
 
-static const struct super_operations jffs_ops =
+static struct super_operations jffs_ops =
 {
 	read_inode:   jffs_read_inode,
 	delete_inode: jffs_delete_inode,
@@ -1725,7 +1605,11 @@ init_jffs_fs(void)
 {
 	printk(KERN_INFO "JFFS version " JFFS_VERSION_STRING
 		", (C) 1999, 2000  Axis Communications AB  Mods by Ray Van Tassle\n");
-	
+#if JFFS_RAM_BLOCKS > 0
+	printk(KERN_INFO "JFFS: " __DATE__" " __TIME__"\n");
+	printk(KERN_INFO "JFFS: Using RAM instead of flash. %d * 64KB.\n", JFFS_RAM_BLOCKS);
+#endif
+
 #ifdef CONFIG_JFFS_PROC_FS
 	jffs_proc_root = proc_mkdir("jffs", proc_root_fs);
 #endif
@@ -1739,12 +1623,14 @@ init_jffs_fs(void)
 static void __exit
 exit_jffs_fs(void)
 {
+#ifdef CONFIG_JFFS_PROC_FS
+	remove_proc_entry ("jffs", proc_root_fs);
+#endif
 	unregister_filesystem(&jffs_fs_type);
 	kmem_cache_destroy(fm_cache);
 	kmem_cache_destroy(node_cache);
 }
 
-EXPORT_NO_SYMBOLS;
 
 module_init(init_jffs_fs)
 module_exit(exit_jffs_fs)

@@ -23,7 +23,7 @@
 #include <linux/types.h>
 #include <linux/completion.h>
 
-#define JFFS_VERSION_STRING "1.1"
+#define JFFS_VERSION_STRING "1.3"
 
 /* This is a magic number that is used as an identification number for
    this file system.  It is written to the super_block structure.  */
@@ -41,7 +41,7 @@
 #define JFFS_MIN_INO 1
 
 /* How many slots in the file hash table should we have?  */
-#define JFFS_HASH_SIZE 40
+#define JFFS_HASH_SIZE 41	/* 41 is prime */
 
 /* Don't use more than 254 bytes as the maximum allowed length of a file's
    name due to errors that could occur during the scanning of the flash
@@ -54,9 +54,6 @@
 
 /* Commands for ioctl().  */
 #define JFFS_IOCTL_MAGIC 't'
-#define JFFS_PRINT_HASH _IO(JFFS_IOCTL_MAGIC, 90)
-#define JFFS_PRINT_TREE _IO(JFFS_IOCTL_MAGIC, 91)
-#define JFFS_GET_STATUS _IO(JFFS_IOCTL_MAGIC, 92)
 
 #define JFFS_MODIFY_INODE 0x01
 #define JFFS_MODIFY_NAME  0x02
@@ -91,23 +88,18 @@ struct jffs_raw_inode
 	__u8 rename : 1;  /* Rename to a name of an already existing file?  */
 	__u8 deleted : 1; /* Has this file been deleted?  */
 	__u8 accurate;    /* The inode is obsolete if accurate == 0.  */
-	__u32 dchksum;    /* Checksum for the data.  */
+        /***** The 3 fields are written at once!! With hardcoded sizes. */
+        __u32 dchksum;    /* Checksum for the data.  */
 	__u16 nchksum;    /* Checksum for the name.  */
-	__u16 chksum;     /* Checksum for the raw inode.  */
+	__u16 ichksum;    /* Checksum for the raw inode.  */
 };
 
-/* Define the offset of the accurate byte in struct jffs_raw_inode.  */
-#define JFFS_RAW_INODE_ACCURATE_OFFSET (sizeof(struct jffs_raw_inode) \
-					- 2 * sizeof(__u32) - sizeof(__u8))
+/* The inode checksum goes only up to the ichksum byte.
+ * It assume that accurate = 0xff and dchksum and nchksum have been set.
+*/
 
-/* Define the offset of the chksum member in struct jffs_raw_inode.  */
-#define JFFS_RAW_INODE_CHKSUM_OFFSET (sizeof(struct jffs_raw_inode) \
-				      - sizeof(__u16))
+#define INODE_CHK_SIZ offsetof(struct jffs_raw_inode, ichksum)
 
-/* Define the offset of the dchksum member in struct jffs_raw_inode.  */
-#define JFFS_RAW_INODE_DCHKSUM_OFFSET (sizeof(struct jffs_raw_inode)   \
-				       - sizeof(__u16) - sizeof(__u16) \
-				       - sizeof(__u32))
 
 
 /* The RAM representation of the node.  The names of pointers to
@@ -179,11 +171,12 @@ struct jffs_control
 {
 	struct super_block *sb;		/* Reference to the VFS super block.  */
 	struct jffs_file *root;		/* The root directory file.  */
-	struct list_head *hash;		/* Hash table for finding files by ino.  */
+	struct list_head *hash;		/* Hash table for finding files by ino*/
 	struct jffs_fmcontrol *fmc;	/* Flash memory control structure.  */
 	__u32 hash_len;			/* The size of the hash table.  */
-	__u32 next_ino;			/* Next inode number to use for new files.  */
-	__u16 building_fs;		/* Is the file system being built right now?  */
+	__u32 next_ino;			/* Next inode number   */
+        int gc_sleep_time;		/* jiffies to sleep before next round. */
+	__u16 building_fs;		/* Is the file system being built now */
 	struct jffs_delete_list *delete_list; /* Track deleted files.  */
 	pid_t thread_pid;		/* GC thread's PID */
 	struct task_struct *gc_task;	/* GC task struct */

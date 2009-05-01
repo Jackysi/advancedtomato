@@ -23,6 +23,8 @@ int jffs_get_node_inuse(void);
 long jffs_get_file_count(void);
 
 __u32 jffs_checksum(const void *data, int size);
+__u16 jffs_checksum_16(const void *data, int size);
+unsigned long crc_32(const void *src, unsigned len, unsigned long crc32);
 
 void jffs_cleanup_control(struct jffs_control *c);
 int jffs_build_fs(struct super_block *sb);
@@ -56,37 +58,30 @@ int jffs_read_data(struct jffs_file *f, unsigned char *buf, __u32 read_offset, _
 /* Garbage collection stuff.  */
 int jffs_garbage_collect_thread(void *c);
 void jffs_garbage_collect_trigger(struct jffs_control *c);
-int jffs_garbage_collect_now(struct jffs_control *c);
+int jffs_garbage_collect_now(struct jffs_control *c, int force, int merge_obn);
 
-/* Is there enough space on the flash?  */
-static inline int JFFS_ENOUGH_SPACE(struct jffs_control *c, __u32 space)
-{
-	struct jffs_fmcontrol *fmc = c->fmc;
-
-	while (1) {
-		if ((fmc->flash_size - (fmc->used_size + fmc->dirty_size)) 
-			>= fmc->min_free_size + space) {
-			return 1;
-		}
-// This test won't work right.  We sometimes need to GC if the head block is nearly all dirty. 
-//		if (fmc->dirty_size < fmc->sector_size)
-//			return 0;
-
-		if (jffs_garbage_collect_now(c)) {
-		  D1(printk("JFFS_ENOUGH_SPACE: jffs_garbage_collect_now() failed.\n"));
-		  return 0;
-		}
-	}
-}
 
 /* For debugging purposes.  */
+#if CONFIG_JFFS_FS_VERBOSE > 0
+void jffs_print_raw_inode(struct jffs_raw_inode *raw_inode);
+#endif
 #if 0
 int jffs_print_file(struct jffs_file *f);
-#endif  /*  0  */
+#endif
 void jffs_print_hash_table(struct jffs_control *c);
 void jffs_print_tree(struct jffs_file *first_file, int indent);
 
 struct buffer_head *jffs_get_write_buffer(kdev_t dev, int block);
 void jffs_put_write_buffer(struct buffer_head *bh);
+
+int flash_safe_write(struct jffs_fmcontrol *fmc, loff_t to,
+		     const u_char *buf, size_t count);
+
+int jffs_write_dummy_node(struct jffs_control *c, struct jffs_fm *dirty_fm);
+int flash_erase_region(struct mtd_info *mtd, loff_t start,
+		       size_t size);
+
+unsigned long free_in_tail_block(struct jffs_control *c);
+unsigned long head_contig_dirty_size(struct jffs_fmcontrol *fmc);
 
 #endif /* __LINUX_JFFS_INTREP_H__  */
