@@ -247,7 +247,9 @@ void start_dnsmasq()
 	if (hf) fclose(hf);
 
 	//
-	
+
+	write_vpn_dnsmasq_config(f);
+
 	fprintf(f, "%s\n\n", nvram_safe_get("dnsmasq_custom"));
 
 	//

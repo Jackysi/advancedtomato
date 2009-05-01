@@ -475,6 +475,7 @@ const defaults_t defaults[] = {
 // vpn
 	{ "vpn_debug",            "0"             },
 	{ "vpn_server_eas",       ""              },
+	{ "vpn_server_dns",       ""              },
 	{ "vpn_server1_if",       "tun"           },
 	{ "vpn_server1_proto",    "udp"           },
 	{ "vpn_server1_port",     "1194"          },

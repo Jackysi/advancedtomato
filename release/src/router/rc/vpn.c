@@ -841,3 +841,23 @@ void run_vpn_firewall_scripts()
 	closedir(dir);
 }
 
+void write_vpn_dnsmasq_config(FILE* f)
+{
+	char nv[16];
+	char buf[16];
+	char *pos;
+	int cur;
+
+	strlcpy(&buf[0], nvram_safe_get("vpn_server_dns"), sizeof(buf));
+	for ( pos = strtok(&buf[0],","); pos != NULL; pos=strtok(NULL, ",") )
+	{
+		cur = atoi(pos);
+		if ( cur )
+		{
+			vpnlog(VPN_LOG_EXTRA, "Adding server %d interface to dns config", cur);
+			snprintf(&nv[0], 16, "vpn_server%d_if", cur);
+			fprintf(f, "interface=%s%d\n", nvram_safe_get(&nv[0]), SERVER_IF_START+cur);
+		}
+	}
+}
+
