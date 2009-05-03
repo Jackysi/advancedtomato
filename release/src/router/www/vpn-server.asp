@@ -112,7 +112,7 @@ function verifyFields(focused, quiet)
 
 	var ret = 1;
 
-	// When settings change, make sure we restart the right server
+	// When settings change, make sure we restart the right services
 	if (focused)
 	{
 		changed = 1;
@@ -128,15 +128,15 @@ function verifyFields(focused, quiet)
 				fom._service.value += 'vpnserver'+servernumber+'-restart';
 			}
 			
-			if (focused.name.indexOf("_c2c") >= 0)
-				ccdTables[servernumber-1].reDraw();
-
-			if ((focused.name.indexOf("_dns") || (focused.name.indexOf("_if") && E('_f_vpn_server'+servernumber+'_dns').checked)) &&
+			if ((focused.name.indexOf("_dns")>=0 || (focused.name.indexOf("_if")>=0 && E('_f_vpn_server'+servernumber+'_dns').checked)) &&
 			    fom._service.value.indexOf('dnsmasq') < 0)
 			{
 				if ( fom._service.value != "" ) fom._service.value += ",";
 				fom._service.value += 'dnsmasq-restart';
 			}
+
+			if (focused.name.indexOf("_c2c") >= 0)
+				ccdTables[servernumber-1].reDraw();
 		}
 	}
 
