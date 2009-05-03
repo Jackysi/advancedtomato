@@ -950,7 +950,7 @@ static void wo_tomato(char *url)
 		}
 	}
 
-	if ((v = webcgi_get("_service")) != NULL) {
+	if ((v = webcgi_get("_service")) != NULL && *v != '/0') {
 		if (!*red) {
 			if (ajax) web_printf(" Some services are being restarted...");
 			web_close();
@@ -960,7 +960,7 @@ static void wo_tomato(char *url)
 		if (*v == '*') {
 			kill(1, SIGHUP);
 		}
-		else if (*v != 0) {
+		else {
 			exec_service(v);
 		}
 	}
