@@ -1,4 +1,4 @@
-/* $Id: minissdp.c,v 1.15 2008/11/24 09:48:00 nanard Exp $ */
+/* $Id: minissdp.c,v 1.16 2009/05/16 08:44:16 nanard Exp $ */
 /* MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
  * (c) 2006 Thomas Bernard
@@ -331,10 +331,10 @@ ProcessSSDPRequest(int s, unsigned short port)
 		i = 0;
 		while(i < n)
 		{
-			while(bufr[i] != '\r' || bufr[i+1] != '\n')
+			while((i < n - 1) && (bufr[i] != '\r' || bufr[i+1] != '\n'))
 				i++;
 			i += 2;
-			if(strncasecmp(bufr+i, "st:", 3) == 0)
+			if((i < n - 3) && (strncasecmp(bufr+i, "st:", 3) == 0))
 			{
 				st = bufr+i+3;
 				st_len = 0;
@@ -352,7 +352,7 @@ ProcessSSDPRequest(int s, unsigned short port)
 		/*syslog(LOG_INFO, "SSDP M-SEARCH packet received from %s:%d",
 	           inet_ntoa(sendername.sin_addr),
 	           ntohs(sendername.sin_port) );*/
-		if(st)
+		if(st && (st_len > 0))
 		{
 			/* TODO : doesnt answer at once but wait for a random time */
 			syslog(LOG_INFO, "SSDP M-SEARCH from %s:%d ST: %.*s",

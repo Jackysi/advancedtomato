@@ -61,6 +61,8 @@ To Build and install :
   > make -f Makefile.linux
   If not using iptables from your system, 
   > IPTABLESPATH=/path/to/iptables-1.4.1 make -f Makefile.linux
+  note : make sure you have iptables with static libraries compiled.
+  use "./configure --enable-static" before compiling iptables
 - install as root using :
   > make -f Makefile.linux install
 - A miniupnpd script should be installed to /etc/init.d

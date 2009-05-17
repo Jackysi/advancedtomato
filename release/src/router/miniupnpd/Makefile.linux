@@ -1,4 +1,4 @@
-# $Id: Makefile.linux,v 1.45 2009/04/17 19:58:38 nanard Exp $
+# $Id: Makefile.linux,v 1.46 2009/04/25 23:16:38 nanard Exp $
 # MiniUPnP project
 # http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
 # Author : Thomas Bernard
@@ -53,7 +53,8 @@ TEST := $(shell [ \( \( $(IPTABLESVERSION1) -ge 1 \) -a \( $(IPTABLESVERSION2) -
 ifeq ($(TEST), 1)
 CFLAGS := $(CFLAGS) -DIPTABLES_143
 # the following sucks, but works
-LIBS = $(IPTABLESPATH)/libiptc/.libs/libip4tc.o
+#LIBS = $(IPTABLESPATH)/libiptc/.libs/libip4tc.o
+LIBS = $(IPTABLESPATH)/libiptc/.libs/libiptc.a
 else
 LIBS = $(IPTABLESPATH)/libiptc/libiptc.a
 endif
