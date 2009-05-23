@@ -34,7 +34,7 @@
 /* For ERR_PTR().  Yeah, I know... --RR */
 #include <linux/fs.h>
 
-//	#define TEST_JHASH		// test jhash from 2.4.33	-- zzz
+#define TEST_JHASH		// test jhash from 2.4.33	-- zzz
 
 #ifdef TEST_JHASH
 #include <linux/jhash.h>
@@ -1502,9 +1502,14 @@ int __init ip_conntrack_init(void)
 */
 
 #ifdef TEST_JHASH
+/*
  	if (hashsize) ip_conntrack_htable_size = hashsize;
 		else ip_conntrack_htable_size = 4096;
 	ip_conntrack_max = 2048;
+*/
+ 	if (hashsize) ip_conntrack_htable_size = hashsize;
+		else ip_conntrack_htable_size = 8092;
+	ip_conntrack_max = 4096;
 #else
  	if (hashsize) ip_conntrack_htable_size = hashsize;
 		else ip_conntrack_htable_size = 4099;
