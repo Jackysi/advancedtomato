@@ -67,15 +67,14 @@ static int comm_match(procps_status_t *p, const char *procName)
 	return 1;
 }
 
-/* find_pid_by_name()
+/* This finds the pid of the specified process.
+ * Currently, it's implemented by rummaging through
+ * the proc filesystem.
  *
- *  Modified by Vladimir Oleynik for use with libbb/procps.c
- *  This finds the pid of the specified process.
- *  Currently, it's implemented by rummaging through
- *  the proc filesystem.
+ * Returns a list of all matching PIDs
+ * It is the caller's duty to free the returned pidlist.
  *
- *  Returns a list of all matching PIDs
- *  It is the caller's duty to free the returned pidlist.
+ * Modified by Vladimir Oleynik for use with libbb/procps.c
  */
 pid_t* FAST_FUNC find_pid_by_name(const char *procName)
 {
@@ -88,7 +87,7 @@ pid_t* FAST_FUNC find_pid_by_name(const char *procName)
 		if (comm_match(p, procName)
 		/* or we require argv0 to match (essential for matching reexeced /proc/self/exe)*/
 		 || (p->argv0 && strcmp(bb_basename(p->argv0), procName) == 0)
-		/* TOOD: we can also try /proc/NUM/exe link, do we want that? */
+		/* TODO: we can also try /proc/NUM/exe link, do we want that? */
 		) {
 			pidList = xrealloc_vector(pidList, 2, i);
 			pidList[i++] = p->pid;

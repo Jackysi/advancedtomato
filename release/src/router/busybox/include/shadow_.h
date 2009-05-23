@@ -19,31 +19,20 @@
 
 /* Declaration of types and functions for shadow password suite */
 
-#ifndef _SHADOW_H
-#define _SHADOW_H 1
+#ifndef BB_SHADOW_H
+#define BB_SHADOW_H 1
 
-#if __GNUC_PREREQ(4,1)
-# pragma GCC visibility push(hidden)
-#endif
+PUSH_AND_SET_FUNCTION_VISIBILITY_TO_HIDDEN
+
+/* This file is #included after #include <shadow.h>
+ * We will use libc-defined structures, but will #define function names
+ * so that function calls are directed to bb_internal_XXX replacements
+ */
 
 /* Paths to the user database files */
 #ifndef _PATH_SHADOW
 #define _PATH_SHADOW "/etc/shadow"
 #endif
-
-/* Structure of the password file */
-struct spwd {
-	char *sp_namp;          /* Login name */
-	char *sp_pwdp;          /* Encrypted password */
-	long sp_lstchg;         /* Date of last change */
-	long sp_min;            /* Minimum number of days between changes */
-	long sp_max;            /* Maximum number of days between changes */
-	long sp_warn;           /* Number of days to warn user to change the password */
-	long sp_inact;          /* Number of days the account may be inactive */
-	long sp_expire;         /* Number of days since 1970-01-01 until account expires */
-	unsigned long sp_flag;  /* Reserved */
-};
-
 
 #define setspent    bb_internal_setspent
 #define endspent    bb_internal_endspent
@@ -61,9 +50,7 @@ struct spwd {
 
 
 /* All function names below should be remapped by #defines above
- * in order to not collide with libc names.
- * In theory it isn't necessary, but I saw weird interactions at link time.
- * Let's play safe */
+ * in order to not collide with libc names. */
 
 
 /* Open database for reading */
@@ -76,26 +63,26 @@ extern void endspent(void);
 extern struct spwd *getspent(void);
 
 /* Get shadow entry matching NAME */
-extern struct spwd *getspnam(__const char *__name);
+extern struct spwd *getspnam(const char *__name);
 
 /* Read shadow entry from STRING */
-extern struct spwd *sgetspent(__const char *__string);
+extern struct spwd *sgetspent(const char *__string);
 
 /* Read next shadow entry from STREAM */
 extern struct spwd *fgetspent(FILE *__stream);
 
 /* Write line containing shadow password entry to stream */
-extern int putspent(__const struct spwd *__p, FILE *__stream);
+extern int putspent(const struct spwd *__p, FILE *__stream);
 
 /* Reentrant versions of some of the functions above */
 extern int getspent_r(struct spwd *__result_buf, char *__buffer,
 		       size_t __buflen, struct spwd **__result);
 
-extern int getspnam_r(__const char *__name, struct spwd *__result_buf,
+extern int getspnam_r(const char *__name, struct spwd *__result_buf,
 		       char *__buffer, size_t __buflen,
 		       struct spwd **__result);
 
-extern int sgetspent_r(__const char *__string, struct spwd *__result_buf,
+extern int sgetspent_r(const char *__string, struct spwd *__result_buf,
 			char *__buffer, size_t __buflen,
 			struct spwd **__result);
 
@@ -108,8 +95,6 @@ extern int lckpwdf(void);
 /* Unlock password file */
 extern int ulckpwdf(void);
 
-#if __GNUC_PREREQ(4,1)
-# pragma GCC visibility pop
-#endif
+POP_SAVED_FUNCTION_VISIBILITY
 
 #endif /* shadow.h */

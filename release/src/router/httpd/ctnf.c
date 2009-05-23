@@ -1,7 +1,7 @@
 /*
 
 	Tomato Firmware
-	Copyright (C) 2006-2008 Jonathan Zarate
+	Copyright (C) 2006-2009 Jonathan Zarate
 
 */
 
@@ -29,7 +29,7 @@ static void ctvbuf(FILE *f)
 
 #if 1
 	const char *p;
-	
+
 	if ((p = nvram_get("ct_max")) != NULL) {
 		n = atoi(p);
 		if (n == 0) n = 2048;
@@ -41,7 +41,7 @@ static void ctvbuf(FILE *f)
 	}
 #else
 	char s[64];
-	
+
 	if (f_read_string("/proc/sys/net/ipv4/ip_conntrack_max", s, sizeof(s)) > 0) n = atoi(s);
 		else n = 1024;
 	if (n < 1024) n = 1024;
@@ -49,7 +49,7 @@ static void ctvbuf(FILE *f)
 #endif
 
 	n *= 170;	// avg tested
-	
+
 //	get_memory(&mem);
 //	if (mem.maxfreeram < (n + (64 * 1024))) n = mem.maxfreeram - (64 * 1024);
 
@@ -57,7 +57,7 @@ static void ctvbuf(FILE *f)
 	if (si.freeram < (n + (64 * 1024))) n = si.freeram - (64 * 1024);
 
 //	cprintf("free: %dK, buffer: %dK\n", si.freeram / 1024, n / 1024);
-	
+
 	if (n > 4096) {
 //		n =
 		setvbuf(f, NULL, _IOFBF, n);
@@ -80,15 +80,15 @@ void asp_ctcount(int argc, char **argv)
 	unsigned long rip;
 	unsigned long lan;
 	unsigned long mask;
-	
+
 	if (argc != 1) return;
 	mode = atoi(argv[0]);
 
 	memset(count, 0, sizeof(count));
-	
+
 	if ((f = fopen("/proc/net/ip_conntrack", "r")) != NULL) {
 		ctvbuf(f);	// if possible, read in one go
-		
+
 		if (nvram_match("t_hidelr", "1")) {
 			mask = inet_addr(nvram_safe_get("lan_netmask"));
 			rip = inet_addr(nvram_safe_get("lan_ipaddr"));
@@ -101,13 +101,13 @@ void asp_ctcount(int argc, char **argv)
 		while (fgets(s, sizeof(s), f)) {
 			if (rip != 0) {
 				// src=x.x.x.x dst=x.x.x.x	// DIR_ORIGINAL
-				if ((p = strstr(s + 14, "src=")) == NULL) continue;	
+				if ((p = strstr(s + 14, "src=")) == NULL) continue;
 				if ((inet_addr(p + 4) & mask) == lan) {
 					if ((p = strstr(p + 13, "dst=")) == NULL) continue;
 					if (inet_addr(p + 4) == rip) continue;
 				}
 			}
-			
+
 			if (mode == 0) {
 				// count connections per state
 				if (strncmp(s, "tcp", 3) == 0) {
@@ -173,9 +173,9 @@ void asp_ctdump(int argc, char **argv)
 	unsigned long lan;
 	unsigned long mask;
 	char comma;
-	
+
 	if (argc != 1) return;
-	
+
 	findmark = atoi(argv[0]);
 
 	mask = inet_addr(nvram_safe_get("lan_netmask"));
@@ -191,7 +191,7 @@ void asp_ctdump(int argc, char **argv)
 			if ((p = strstr(s, " mark=")) == NULL) continue;
 			if ((mark = (atoi(p + 6) & 0xFF)) > 10) mark = 0;
 			if ((findmark != -1) && (mark != findmark)) continue;
-			
+
 			if (sscanf(s, "%*s %u %u", &proto, &time) != 2) continue;
 
 			if ((p = strstr(s + 14, "src=")) == NULL) continue;		// DIR_ORIGINAL
@@ -231,10 +231,10 @@ void asp_qrate(int argc, char **argv)
 	int n;
 	char comma;
 	char *a[1];
-	
+
 	a[0] = "1";
 	asp_ctcount(1, a);
-	
+
 	memset(rates, 0, sizeof(rates));
 	sprintf(s, "tc -s class ls dev %s", nvram_safe_get("wan_iface"));
 	if ((f = popen(s, "r")) != NULL) {
@@ -258,7 +258,7 @@ void asp_qrate(int argc, char **argv)
 		}
 		pclose(f);
 	}
-	
+
 	comma = ' ';
 	web_puts("\nqrates = [0,");
 	for (n = 0; n < 10; ++n) {

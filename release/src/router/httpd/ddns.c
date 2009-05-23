@@ -1,7 +1,7 @@
 /*
 
 	Tomato Firmware
-	Copyright (C) 2006-2008 Jonathan Zarate
+	Copyright (C) 2006-2009 Jonathan Zarate
 
 */
 
@@ -50,9 +50,9 @@ void asp_ddnsx(int argc, char **argv)
 			web_putj(m);
 		}
 	}
-	
+
 	web_puts("'];\nddnsx_last = [");
-	
+
 	for (i = 0; i < 2; ++i) {
 		web_puts(i ? "','" : "'");
 		sprintf(name, "ddnsx%d", i);
@@ -74,7 +74,7 @@ void asp_ddnsx(int argc, char **argv)
 void asp_ddnsx_ip(int argc, char **argv)
 {
 	const char *p;
-	
+
 	switch (get_wan_proto()) {
 	case WP_PPTP:
 		p = "pptp_get_ip";

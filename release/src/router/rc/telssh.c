@@ -1,7 +1,7 @@
 /*
 
 	Tomato Firmware
-	Copyright (C) 2006-2008 Jonathan Zarate
+	Copyright (C) 2006-2009 Jonathan Zarate
 
 */
 
@@ -76,29 +76,25 @@ void start_sshd(void)
 	f_write_string("/root/.ssh/authorized_keys", nvram_safe_get("sshd_authkeys"), 0, 0700);
 
 	unlink(hkfn);
-	
+
 	if (!nvram_get_file("sshd_hostkey", hkfn, 2048)) {
 		eval("dropbearkey", "-t", "rsa", "-f", (char *)hkfn);
 		if (nvram_set_file("sshd_hostkey", hkfn, 2048)) {
-			if (!nvram_get_int("debug_nocommit")) nvram_commit();
+			nvram_commit_x();
 		}
 	}
-
-/*
-	xstart("dropbear", "-p", nvram_safe_get("sshd_port"), nvram_get_int("sshd_pass") ? "" : "-s");
-*/
 
 	char *argv[8];
 	int argc;
 	char *p;
-	
+
 	argv[0] = "dropbear";
 	argv[1] = "-p";
 	argv[2] = nvram_safe_get("sshd_port");
 	argc = 3;
 
 	if (!nvram_get_int("sshd_pass")) argv[argc++] = "-s";
-	
+
 	if (((p = nvram_get("sshd_rwb")) != NULL) && (*p)) {
 		argv[argc++] = "-W";
 		argv[argc++] = p;

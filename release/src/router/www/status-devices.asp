@@ -1,7 +1,7 @@
 <!DOCTYPE HTML PUBLIC '-//W3C//DTD HTML 4.0//EN'>
 <!--
 	Tomato GUI
-	Copyright (C) 2006-2008 Jonathan Zarate
+	Copyright (C) 2006-2009 Jonathan Zarate
 	http://www.polarcloud.com/tomato/
 
 	For use with Tomato Firmware only.
@@ -61,11 +61,12 @@ list = [];
 function find(mac, ip)
 {
 	var e, i;
-	
+
 	mac = mac.toUpperCase();
 	for (i = list.length - 1; i >= 0; --i) {
 		e = list[i];
-		if ((e.mac == mac) && ((e.ip == ip) || (e.ip == '') || (ip == null))) {
+		if (((e.mac == mac) && ((e.ip == ip) || (e.ip == '') || (ip == null))) ||
+			((e.mac == '00:00:00:00:00:00') && (e.ip == ip))) {
 			return e;
 		}
 	}
@@ -75,13 +76,13 @@ function find(mac, ip)
 function get(mac, ip)
 {
 	var e, i;
-	
+
 	mac = mac.toUpperCase();
 	if ((e = find(mac, ip)) != null) {
 		if (ip) e.ip = ip;
 		return e;
 	}
-	
+
 	e = {
 		mac: mac,
 		ip: ip || '',
@@ -193,7 +194,7 @@ dg.populate = function()
 		list[i].rssi = '';
 		list[i].lease = '';
 	}
-	
+
 	for (i = dhcpd_lease.length - 1; i >= 0; --i) {
 		a = dhcpd_lease[i];
 		e = get(a[2], a[1]);
@@ -217,15 +218,16 @@ dg.populate = function()
 
 	for (i = arplist.length - 1; i >= 0; --i) {
 		a = arplist[i];
-		
+
 		if ((e = get(a[1], a[0])) != null) {
 			if (e.ifname == '') e.ifname = a[2];
 		}
 	}
-	
+
 	for (i = dhcpd_static.length - 1; i >= 0; --i) {
 		a = dhcpd_static[i].split('<');
-		if ((e = find(a[0], ipp + a[1])) == null) continue;
+		if (a.length < 3) continue;
+		if ((e = find(a[0], (a[1].indexOf('.') == -1) ? (ipp + a[1]) : a[1])) == null) continue;
 		if (e.name == '') {
 			e.name = a[2];
 		}
@@ -246,8 +248,11 @@ dg.populate = function()
 		if (e.mac.match(/^(..):(..):(..)/)) {
 			b += '<br><small>' +
 				'<a href="http://standards.ieee.org/cgi-bin/ouisearch?' + RegExp.$1 + '-' + RegExp.$2 + '-' + RegExp.$3 + '" target="_new" title="OUI Search">[oui]</a> ' +
-				'<a href="javascript:addStatic(' + i + ')" title="Static Lease...">[static]</a> ' +
-				'<a href="javascript:addWF(' + i + ')" title="Wireless Filter...">[wfilter]</a>';
+				'<a href="javascript:addStatic(' + i + ')" title="Static Lease...">[static]</a>';
+				
+			if (e.rssi != '') {
+				b += ' <a href="javascript:addWF(' + i + ')" title="Wireless Filter...">[wfilter]</a>';
+			}
 			b += '</small>';
 		}
 		else {
@@ -260,7 +265,7 @@ dg.populate = function()
 		else {
 			e.qual = -1;
 		}
-		
+
 		this.insert(-1, e, [
 			e.ifname, b, (e.ip == '-') ? '' : e.ip, e.name,
 			(e.rssi != 0) ? e.rssi + ' <small>dBm</small>' : '',

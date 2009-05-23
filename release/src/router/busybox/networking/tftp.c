@@ -113,7 +113,7 @@ static int tftp_blksize_check(const char *blksize_str, int maxsize)
 		bb_error_msg("bad blocksize '%s'", blksize_str);
 		return -1;
 	}
-#if ENABLE_DEBUG_TFTP
+#if ENABLE_TFTP_DEBUG
 	bb_error_msg("using blksize %u", blksize);
 #endif
 	return blksize;
@@ -223,9 +223,7 @@ static int tftp_protocol(
 		}
 
 		if (user_opt) {
-			struct passwd *pw = getpwnam(user_opt);
-			if (!pw)
-				bb_error_msg_and_die("unknown user %s", user_opt);
+			struct passwd *pw = xgetpwnam(user_opt);
 			change_identity(pw); /* initgroups, setgid, setuid */
 		}
 	}
@@ -369,7 +367,7 @@ static int tftp_protocol(
 		waittime_ms = TFTP_TIMEOUT_MS;
 
  send_again:
-#if ENABLE_DEBUG_TFTP
+#if ENABLE_TFTP_DEBUG
 		fprintf(stderr, "sending %u bytes\n", send_len);
 		for (cp = xbuf; cp < &xbuf[send_len]; cp++)
 			fprintf(stderr, "%02x ", (unsigned char) *cp);
@@ -431,7 +429,7 @@ static int tftp_protocol(
 		/* Process recv'ed packet */
 		opcode = ntohs( ((uint16_t*)rbuf)[0] );
 		recv_blk = ntohs( ((uint16_t*)rbuf)[1] );
-#if ENABLE_DEBUG_TFTP
+#if ENABLE_TFTP_DEBUG
 		fprintf(stderr, "received %d bytes: %04x %04x\n", len, opcode, recv_blk);
 #endif
 		if (opcode == TFTP_ERROR) {
@@ -591,10 +589,15 @@ int tftp_main(int argc UNUSED_PARAM, char **argv)
 	}
 #endif
 
-	if (!local_file)
-		local_file = remote_file;
-	if (!remote_file)
+	if (remote_file) {
+		if (!local_file) {
+			const char *slash = strrchr(remote_file, '/');
+			local_file = slash ? slash + 1 : remote_file;
+		}
+	} else {
 		remote_file = local_file;
+	}
+
 	/* Error if filename or host is not known */
 	if (!remote_file || !argv[0])
 		bb_show_usage();
@@ -602,7 +605,7 @@ int tftp_main(int argc UNUSED_PARAM, char **argv)
 	port = bb_lookup_port(argv[1], "udp", 69);
 	peer_lsa = xhost2sockaddr(argv[0], port);
 
-#if ENABLE_DEBUG_TFTP
+#if ENABLE_TFTP_DEBUG
 	fprintf(stderr, "using server '%s', remote_file '%s', local_file '%s'\n",
 			xmalloc_sockaddr2dotted(&peer_lsa->u.sa),
 			remote_file, local_file);
@@ -624,21 +627,6 @@ int tftp_main(int argc UNUSED_PARAM, char **argv)
 #endif /* ENABLE_TFTP */
 
 #if ENABLE_TFTPD
-
-/* TODO: libbb candidate? */
-static len_and_sockaddr *get_sock_lsa(int s)
-{
-	len_and_sockaddr *lsa;
-	socklen_t len = 0;
-
-	if (getsockname(s, NULL, &len) != 0)
-		return NULL;
-	lsa = xzalloc(LSA_LEN_SIZE + len);
-	lsa->len = len;
-	getsockname(s, &lsa->u.sa, &lsa->len);
-	return lsa;
-}
-
 int tftpd_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
 int tftpd_main(int argc UNUSED_PARAM, char **argv)
 {
@@ -653,8 +641,15 @@ int tftpd_main(int argc UNUSED_PARAM, char **argv)
 	INIT_G();
 
 	our_lsa = get_sock_lsa(STDIN_FILENO);
-	if (!our_lsa)
-		bb_perror_msg_and_die("stdin is not a socket");
+	if (!our_lsa) {
+		/* This is confusing:
+		 *bb_error_msg_and_die("stdin is not a socket");
+		 * Better: */
+		bb_show_usage();
+		/* Help text says that tftpd must be used as inetd service,
+		 * which is by far the most usual cause of get_sock_lsa
+		 * failure */
+	}
 	peer_lsa = xzalloc(LSA_LEN_SIZE + our_lsa->len);
 	peer_lsa->len = our_lsa->len;
 

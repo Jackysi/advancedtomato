@@ -1,7 +1,7 @@
 <!DOCTYPE HTML PUBLIC '-//W3C//DTD HTML 4.0//EN'>
 <!--
 	Tomato GUI
-	Copyright (C) 2006-2008 Jonathan Zarate
+	Copyright (C) 2006-2009 Jonathan Zarate
 	http://www.polarcloud.com/tomato/
 
 	For use with Tomato Firmware only.
@@ -46,11 +46,11 @@ function save()
 	var n;
 
 	if (!verifyFields(null, false)) return;
-	
+
 	fom = E('_fom');
 	n = fom._f_distance.value * 1;
 	fom.wl_distance.value = n ? n : '';
-	
+
 	if (hp) {
 		if ((fom.wlx_hpamp.value != nvram.wlx_hpamp) || (fom.wlx_hperx.value != nvram.wlx_hperx)) {
 			fom._service.disabled = 1;
@@ -63,7 +63,7 @@ function save()
 		fom.wlx_hpamp.disabled = 1;
 		fom.wlx_hperx.disabled = 1;
 	}
-	
+
 	form.submit(fom, 1);
 }
 </script>
