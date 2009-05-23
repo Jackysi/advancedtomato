@@ -29,6 +29,8 @@ install:
 			-e "s,<script[^>]\+debug\.js[^>]\+></script>,," \
 			-e "s,color\.css,<% nv('web_css'); %>\.css," \
 			-e "s,<!-- / / / -->,," \
+			-e "s,\x0d,," \
+			-e "s,^\s\+,," \
 			-e "/^$$/d" \
 			-e "/^<!--$$/,/^-->$$/! { s,^\s\+, , }" $$F > $(INSTALLDIR)/www/$$F; \
 	done
@@ -42,3 +44,8 @@ install:
 	@rm -f $(INSTALLDIR)/www/color.css
 
 	chmod 0644 $(INSTALLDIR)/www/*
+
+# remove C-style comments from java files. All "control" comments have been processed by now.
+	for F in *.{js,jsx}; do \
+		$(TOP)/www/remcoms2.sh $(INSTALLDIR)/www/$$F c; \
+	done
