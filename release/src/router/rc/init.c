@@ -709,8 +709,9 @@ static int init_nvram(void)
 
 
 	nvram_set("wl_hwaddr", "");				// when disabling wireless, we must get null wireless mac 	??
-	nvram_set("wl_country", "JP");
-	nvram_set("wl_country_code", "JP");
+	//!!TB - do not force country code here to allow nvram override
+	//nvram_set("wl_country", "JP");
+	//nvram_set("wl_country_code", "JP");
 	nvram_set("wan_get_dns", "");
 	nvram_set("wan_get_domain", "");
 	nvram_set("pppoe_pid0", "");

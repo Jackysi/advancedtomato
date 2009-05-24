@@ -258,6 +258,7 @@ const aspapi_t aspapi[] = {
 	{ "wlnoise",			asp_wlnoise			},
 	{ "wlradio",			asp_wlradio			},
 	{ "wlscan",				asp_wlscan			},
+	{ "wlchannels",			asp_wlchannels	},	//!!TB
 #if TOMATO_SL
 	{ "sharelist",			asp_sharelist		},
 #endif
@@ -406,7 +407,7 @@ static const nvset_t nvset_list[] = {
 	{ "wl_net_mode",		V_LENGTH(5, 8)		},  // disabled, mixed, b-only, g-only, bg-mixed, n-only [speedbooster]
 	{ "wl_ssid",			V_LENGTH(1, 32)		},
 	{ "wl_closed",			V_01				},
-	{ "wl_channel",			V_RANGE(1, 14)		},
+	{ "wl_channel",			V_RANGE(0, 14)		},	//!!TB - 0=Auto
 #if TOMATO_N
 	// ! update
 #endif
@@ -494,6 +495,8 @@ static const nvset_t nvset_list[] = {
 	{ "dr_wan_rx",			V_LENGTH(0, 32)		},
 
 // advanced-wireless
+	{ "wl_country",			V_LENGTH(0, 64)		},	// !!TB - Country code
+	{ "wl_country_code",		V_LENGTH(0, 4)		},	// !!TB - Country code
 	{ "wl_afterburner",		V_LENGTH(2, 4)		},	// off, on, auto
 	{ "wl_auth",			V_01				},
 	{ "wl_rateset",			V_LENGTH(2, 7)		},	// all, default, 12

@@ -128,7 +128,8 @@ const defaults_t defaults[] = {
 	{ "wl_phytypes",		""				},	// List of supported wireless bands (e.g. "ga")
 	{ "wl_radioids",		""				},	// List of radio IDs
 	{ "wl_ssid",			"wireless"		},	// Service set ID (network name)
-	{ "wl_country",			"Worldwide"		},	// Country (default obtained from driver)
+	{ "wl_country",			"JP"		},		// Country (default obtained from driver)
+	{ "wl_country_code",		"JP"		},		// !!TB - Country (default to JP to allow all 14 channels)
 	{ "wl_radio",			"1"				},	// Enable (1) or disable (0) radio
 	{ "wl_closed",			"0"				},	// Closed (hidden) network
     { "wl_ap_isolate",		"0"				},	// AP isolate mode
