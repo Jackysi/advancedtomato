@@ -1,7 +1,7 @@
 /*
 
 	Tomato Firmware
-	Copyright (C) 2006-2008 Jonathan Zarate
+	Copyright (C) 2006-2009 Jonathan Zarate
 
 */
 
@@ -23,7 +23,7 @@ void wo_bwmbackup(char *url)
 	struct stat st;
 	time_t t;
 	int i;
-	
+
 	if (stat(hfn, &st) == 0) {
 		t = st.st_mtime;
 		sleep(1);
@@ -51,9 +51,9 @@ void wi_bwmrestore(char *url, int len, char *boundary)
 	int ok;
 	int n;
 	char tmp[64];
-	
-	check_id();
-	
+
+	check_id(url);
+
 	tmp[0] = 0;
 	buf = NULL;
 	error = "Error reading file";
@@ -113,7 +113,7 @@ void asp_netdev(int argc, char **argv)
 	char *ifname;
 	char comma;
 	char *exclude;
-	
+
 	exclude = nvram_safe_get("rstats_exclude");
 	web_puts("\n\nnetdev={");
 	if ((f = fopen("/proc/net/dev", "r")) != NULL) {
@@ -127,7 +127,7 @@ void asp_netdev(int argc, char **argv)
 				else ++ifname;
 //			if (strncmp(ifname, "ppp", 3) == 0) ifname = "ppp";
 			if ((strcmp(ifname, "lo") == 0) || (find_word(exclude, ifname))) continue;
-			
+
 			// <rx bytes, packets, errors, dropped, fifo errors, frame errors, compressed, multicast><tx ...>
 			if (sscanf(p + 1, "%lu%*u%*u%*u%*u%*u%*u%*u%lu", &rx, &tx) != 2) continue;
 			web_printf("%c'%s':{rx:0x%lx,tx:0x%lx}", comma, ifname, rx, tx);

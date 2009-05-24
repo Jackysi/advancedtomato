@@ -221,18 +221,6 @@ ctl_table ipv4_table[] = {
 	 &sysctl_icmp_ratemask, sizeof(int), 0644, NULL, &proc_dointvec},
 	{NET_TCP_TW_REUSE, "tcp_tw_reuse",
 	 &sysctl_tcp_tw_reuse, sizeof(int), 0644, NULL, &proc_dointvec},
-	{NET_TCP_VEGAS, "tcp_vegas_cong_avoid",
-	 &sysctl_tcp_vegas_cong_avoid, sizeof(int), 0644, NULL,
-	 &proc_dointvec},
-	{NET_TCP_VEGAS_ALPHA, "tcp_vegas_alpha",
-	 &sysctl_tcp_vegas_alpha, sizeof(int), 0644, NULL,
-	 &proc_dointvec},
-	{NET_TCP_VEGAS_BETA, "tcp_vegas_beta",
-	 &sysctl_tcp_vegas_beta, sizeof(int), 0644, NULL,
-	 &proc_dointvec},
-	{NET_TCP_VEGAS_GAMMA, "tcp_vegas_gamma",
-	 &sysctl_tcp_vegas_gamma, sizeof(int), 0644, NULL,
-	 &proc_dointvec},
 	{0}
 };
 

@@ -357,7 +357,8 @@ static int writeTarHeader(struct TarBallInfo *tbInfo,
 	if (tbInfo->verboseFlag) {
 		FILE *vbFd = stdout;
 
-		if (tbInfo->tarFd == STDOUT_FILENO)	/* If the archive goes to stdout, verbose to stderr */
+		/* If archive goes to stdout, verbose goes to stderr */
+		if (tbInfo->tarFd == STDOUT_FILENO)
 			vbFd = stderr;
 		/* GNU "tar cvvf" prints "extended" listing a-la "ls -l" */
 		/* We don't have such excesses here: for us "v" == "vv" */
@@ -591,8 +592,6 @@ static NOINLINE int writeTarFile(int tar_fd, int verboseFlag,
 	struct TarBallInfo tbInfo;
 
 	tbInfo.hlInfoHead = NULL;
-
-	fchmod(tar_fd, 0644);
 	tbInfo.tarFd = tar_fd;
 	tbInfo.verboseFlag = verboseFlag;
 
@@ -817,6 +816,10 @@ int tar_main(int argc UNUSED_PARAM, char **argv)
 	tar_handle->ah_flags = ARCHIVE_CREATE_LEADING_DIRS
 	                     | ARCHIVE_PRESERVE_DATE
 	                     | ARCHIVE_EXTRACT_UNCONDITIONAL;
+
+	/* Apparently only root's tar preserves perms (see bug 3844) */
+	if (getuid() != 0)
+		tar_handle->ah_flags |= ARCHIVE_NOPRESERVE_PERM;
 
 	/* Prepend '-' to the first argument if required */
 	opt_complementary = "--:" // first arg is options

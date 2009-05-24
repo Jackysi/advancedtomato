@@ -48,9 +48,9 @@
 /*
 
 	Modified for Tomato Firmware
-	Portions, Copyright (C) 2006-2008 Jonathan Zarate
-	
-*/	
+	Portions, Copyright (C) 2006-2009 Jonathan Zarate
+
+*/
 
 #include "tomato.h"
 #include <errno.h>
@@ -94,15 +94,6 @@ static int match_one(const char* pattern, int patternlen, const char* string);
 static void handle_request(void);
 
 
-static void reap(int sig)
-{
-    int status;
-	while (waitpid(-1, &status, WNOHANG) > 0) {
-		//
-	}
-}
-
-
 // --------------------------------------------------------------------------------------------------------------------
 
 
@@ -131,13 +122,13 @@ void send_header(int status, const char* header, const char* mime, int cache)
 	char tms[128];
 
 	now = time(NULL);
-	if (now < Y2K) now += Y2K;	// test		--- zzz
+	if (now < Y2K) now += Y2K;
 	strftime(tms, sizeof(tms), "%a, %d %b %Y %H:%M:%S GMT", gmtime(&now));	// RFC 1123
 	web_printf("HTTP/1.0 %d %s\r\n"
 			   "Date: %s\r\n",
 			   status, http_status_desc(status),
 			   tms);
-	
+
 	if (mime) web_printf("Content-Type: %s\r\n", mime);
 	if (cache > 0) {
 		web_printf("Cache-Control: max-age=%d\r\n", cache * 60);
@@ -149,7 +140,7 @@ void send_header(int status, const char* header, const char* mime, int cache)
 	}
 	if (header) web_printf("%s\r\n", header);
 	web_puts("Connection: close\r\n\r\n");
-	
+
 	header_sent = 1;
 }
 
@@ -169,11 +160,11 @@ void send_error(int status, const char *header, const char *text)
 void redirect(const char *path)
 {
 	char s[512];
-	
+
 	snprintf(s, sizeof(s), "Location: %s", path);
 	send_header(302, s, mime_html, 0);
 	web_puts(s);
-	
+
 	_dprintf("Redirect: %s\n", path);
 }
 
@@ -193,7 +184,7 @@ int skip_header(int *len)
 	return 0;
 }
 
-	
+
 // -----------------------------------------------------------------------------
 
 static void eat_garbage(void)
@@ -221,36 +212,15 @@ void send_authenticate(const char *realm)
 	char header[128];
 
 	if (realm == NULL) realm = nvram_get("router_name");
-	if ((realm == NULL) || (*realm == 0) || (strlen(realm) > 64)) realm = "unknown";	
-	
+	if ((realm == NULL) || (*realm == 0) || (strlen(realm) > 64)) realm = "unknown";
+
 	sprintf(header, "WWW-Authenticate: Basic realm=\"%s\"", realm);
-
-/*
-	char *sn;
-	char quirk[64];
-
-	if (user_agent) {
-		cprintf("user_agent=%s\n", user_agent);
-	}
-	
-	if ((user_agent) && (strstr(user_agent, "MSIE 7") != NULL)) {
-		sn = nvram_get("web_sess");
-		if ((sn == NULL) || (*sn == 0) || (strlen(sn) > 16)) {
-			gen_sessnum();
-			sn = nvram_safe_get("web_sess");
-		}
-		sprintf(quirk, "[%s] ", sn);
-	}
-	else {
-		quirk[0] = 0;
-	}
-	sprintf(header, "WWW-Authenticate: Basic realm=\"%s%s\"", quirk, realm);
-*/
-
 	send_error(401, header, NULL);
 }
 
-static int check_auth(char* authorization, int clen)
+typedef enum { AUTH_NONE, AUTH_OK, AUTH_BAD } auth_t;
+
+static auth_t auth_check(const char *authorization)
 {
 	char buf[512];
 	const char *p;
@@ -266,74 +236,22 @@ static int check_auth(char* authorization, int clen)
 				if ((strcmp(buf, "admin") == 0) || (strcmp(buf, "root") == 0)) {
 					p = nvram_get("http_passwd");
 					if (strcmp(pass, ((p == NULL) || (*p == 0)) ? "admin" : p) == 0) {
-						return 1;
+						return AUTH_OK;
 					}
 				}
 			}
 		}
+		return AUTH_BAD;
 	}
 
+	return AUTH_NONE;
+}
+
+static void auth_fail(int clen)
+{
 	if (post) web_eat(clen);
 	eat_garbage();
 	send_authenticate(NULL);
-	return 0;
-
-/*
-	char buf[512];
-	const char *p;
-	const char *c;
-	const char *wo;
-	const char *wop;
-	char* pass;
-	int len;
-
-	if ((authorization != NULL) && (strncasecmp(authorization, "Basic ", 6) == 0)) {
-		if (base64_decoded_len(strlen(authorization + 6)) <= sizeof(buf)) {
-			len = base64_decode(authorization + 6, buf, strlen(authorization) - 6);
-			buf[len] = 0;
-			if ((pass = strchr(buf, ':')) != NULL) {
-				*pass++ = 0;
-				if ((strcmp(buf, "admin") == 0) || (strcmp(buf, "root") == 0)) {
-					p = nvram_get("http_passwd");
-					if (strcmp(pass, ((p == NULL) || (*p == 0)) ? "admin" : p) == 0) {
-						c = inet_ntoa(clientsai.sin_addr);
-						wo = nvram_safe_get("web_out");
-						if ((wop = find_word(wo, c)) != NULL) {
-							if (!nvram_match("web_outx", (char *)c)) {
-								nvram_set("web_outx", c);
-								goto WRONG;
-							}
-							
-							if (strlen(wo) > 196) {
-								nvram_set("web_out", "");
-							}
-							else {
-								len = wop - wo;
-								if ((len > 0) && (wo[len - 1] == ',')) --len;
-								strncpy(buf, wo, len);
-								wop += strlen(c);
-								while (*wop == ',') ++wop;
-								strcpy(buf + len, wop);
-								nvram_set("web_out", buf);
-							}
-
-							nvram_unset("web_outx");
-						}
-						return 1;
-					}
-
-				}
-			}
-		}
-	}
-
-WRONG:
-	if (post) web_eat(clen);
-	eat_garbage();
-	send_authenticate(NULL);
-	nvram_set("web_outx", inet_ntoa(clientsai.sin_addr));
-	return 0;
-*/
 }
 
 int check_wlaccess(void)
@@ -341,7 +259,7 @@ int check_wlaccess(void)
 	char mac[32];
 	char ifname[32];
 	sta_info_t sti;
-	
+
 	if (nvram_match("web_wl_filter", "1")) {
 		if (get_client_info(mac, ifname)) {
 			memset(&sti, 0, sizeof(sti));
@@ -426,8 +344,9 @@ static void handle_request(void)
 	char *file;
 	const struct mime_handler *handler;
 	int cl = 0;
+	auth_t auth;
 
-	user_agent = NULL;
+	user_agent = "";
 	header_sent = 0;
 	authorization = boundary = NULL;
 	bzero(line, sizeof(line));
@@ -447,12 +366,12 @@ static void handle_request(void)
 		return;
 	}
 	while (*path == ' ') path++;
-	
+
 	if ((strcasecmp(method, "GET") != 0) && (strcasecmp(method, "POST") != 0)) {
 		send_error(501, NULL, NULL);
 		return;
 	}
-	
+
 	protocol = path;
 	strsep(&protocol, " ");
 	if (!protocol) {	// Avoid http server crash, added by honor 2003-12-08
@@ -486,9 +405,9 @@ static void handle_request(void)
 	if ((cp = strchr(file, '?')) != NULL) {
 		*cp = 0;
 		webcgi_init(cp + 1);
-	}	
-	
-	if ((file[0] == '/') || (strncmp(file, "..", 2) == 0) || (strstr(file, "/../") != NULL) || 
+	}
+
+	if ((file[0] == '/') || (strncmp(file, "..", 2) == 0) || (strstr(file, "/../") != NULL) ||
 		(strcmp(file + (strlen(file) - 3), "/..") == 0)) {
 		send_error(400, NULL, NULL);
 		return;
@@ -500,11 +419,11 @@ static void handle_request(void)
 	else if ((strcmp(file, "ext/") == 0) || (strcmp(file, "ext") == 0)) {
 		file = "ext/index.asp";
 	}
-	
+
 	cp = protocol;
 	strsep(&cp, " ");
 	cur = protocol + strlen(protocol) + 1;
-	
+
 	while (web_getline(cur, line + sizeof(line) - cur)) {
 		if ((strcmp(cur, "\n") == 0) || (strcmp(cur, "\r\n") == 0)) {
 			break;
@@ -536,37 +455,89 @@ static void handle_request(void)
 			user_agent += strspn(user_agent, " \t");
 			cur = user_agent + strlen(user_agent);
 			*cur++ = 0;
-//			cprintf("agent: [%s]\n", user_agent);
 		}
 	}
 
 	post = (strcasecmp(method, "post") == 0);
 
+	auth = auth_check(authorization);
+
+#if 0
+	cprintf("UserAgent: %s\n", user_agent);
+	switch (auth) {
+	case AUTH_NONE:
+		cprintf("AUTH_NONE\n");
+		break;
+	case AUTH_OK:
+		cprintf("AUTH_OK\n");
+		break;
+	case AUTH_BAD:
+		cprintf("AUTH_BAD\n");
+		break;
+	default:
+		cprintf("AUTH_?\n");
+		break;
+	}
+#endif
+
+	/*
+
+	Chrome 1.0.154:
+	- User-Agent: Mozilla/5.0 (Windows; U; Windows NT 5.1; en-US) AppleWebKit/525.19 (KHTML, like Gecko) Chrome/1.0.154.53 Safari/525.19
+	- It *always* sends an 'AUTH_NONE request' first. This results in a
+	  send_authenticate, then finally sends an 'AUTH_OK request'.
+	- It does not clear the authentication even if AUTH_NONE request succeeds.
+	- If user doesn't enter anything (blank) for credential, it sends the
+	  previous credential.
+
+	*/
+
+	if (strcmp(file, "logout") == 0) {	// special case
+		wi_generic(file, cl, boundary);
+		eat_garbage();
+
+		if (strstr(user_agent, "Chrome/") != NULL) {
+			if (auth != AUTH_BAD) {
+				send_authenticate(NULL);
+				return;
+			}
+		}
+		else {
+			if (auth == AUTH_OK) {
+				send_authenticate(NULL);
+				return;
+			}
+		}
+		send_error(404, NULL, "Goodbye");
+		return;
+	}
+
+	if (auth == AUTH_BAD) {
+		auth_fail(cl);
+		return;
+	}
+
 	for (handler = &mime_handlers[0]; handler->pattern; handler++) {
 		if (match(handler->pattern, file)) {
-			if (handler->auth) {
-				if (!check_auth(authorization, cl)) return;
-			}
-			
-			if (handler->input) handler->input(file, cl, boundary);
-			
-			eat_garbage();
-			
-			if (handler->mime_type != NULL) {
-				send_header(200, NULL, handler->mime_type, handler->cache);
+			if ((handler->auth) && (auth != AUTH_OK)) {
+				auth_fail(cl);
+				return;
 			}
 
-			if (handler->output) {
-				handler->output(file);
-			}
-			
+			if (handler->input) handler->input(file, cl, boundary);
+			eat_garbage();
+			if (handler->mime_type != NULL) send_header(200, NULL, handler->mime_type, handler->cache);
+			if (handler->output) handler->output(file);
 			return;
 		}
 	}
 
-	if (!check_auth(authorization, cl)) return;	
+	if (auth != AUTH_OK) {
+		auth_fail(cl);
+		return;
+	}
 
-#if 0
+/*
 	if ((!post) && (strchr(file, '.') == NULL)) {
 		cl = strlen(file);
 		if ((cl > 1) && (cl < 64)) {
@@ -574,7 +545,7 @@ static void handle_request(void)
 
 			path = alt + 1;
 			strcpy(path, file);
-			
+
 			cp = path + cl - 1;
 			if (*cp == '/') *cp = 0;
 
@@ -588,7 +559,7 @@ static void handle_request(void)
 			}
 		}
 	}
-#endif
+*/
 
 	send_error(404, NULL, NULL);
 }
@@ -596,9 +567,9 @@ static void handle_request(void)
 #ifdef TCONFIG_HTTPS
 static void save_cert(void)
 {
-	if (eval("tar", "-C", "/", "-czf", "/tmp/cert.tgz", "/etc/cert.pem", "/etc/key.pem") == 0) {
-		if (nvram_set_file("https_crt_file", "/tmp/cert.tgz", 2048)) {
-			if (!nvram_match("debug_nocommit", "1")) nvram_commit();
+	if (eval("tar", "-C", "/", "-czf", "/tmp/cert.tgz", "etc/cert.pem", "etc/key.pem") == 0) {
+		if (nvram_set_file("https_crt_file", "/tmp/cert.tgz", 8192)) {
+			nvram_commit_x();
 		}
 	}
 	unlink("/tmp/cert.tgz");
@@ -619,7 +590,7 @@ static void start_ssl(void)
 	int retry;
 	unsigned long long sn;
 	char t[32];
-	
+
 	if (nvram_match("https_crt_gen", "1")) {
 		erase_cert();
 	}
@@ -631,15 +602,16 @@ static void start_ssl(void)
 		if ((!f_exists("/etc/cert.pem")) || (!f_exists("/etc/key.pem"))) {
 			ok = 0;
 			if (save) {
-				if (nvram_get_file("https_crt_file", "/tmp/cert.tgz", 2048)) {
-					if (eval("tar", "-C", "/", "-xzf", "/tmp/cert.tgz") == 0) ok = 1;
+				if (nvram_get_file("https_crt_file", "/tmp/cert.tgz", 8192)) {
+					if (eval("tar", "-xzf", "/tmp/cert.tgz", "-C", "/", "etc/cert.pem", "etc/key.pem") == 0)
+						ok = 1;
 					unlink("/tmp/cert.tgz");
 				}
 			}
 			if (!ok) {
 				erase_cert();
 				syslog(LOG_INFO, "Generating SSL certificate...");
-				
+
 				// browsers seems to like this when the ip address moves...	-- zzz
 				f_read("/dev/urandom", &sn, sizeof(sn));
 
@@ -653,9 +625,9 @@ static void start_ssl(void)
 		}
 
 		if (ssl_init("/etc/cert.pem", "/etc/key.pem")) return;
-		
+
 		erase_cert();
-		
+
 		syslog(retry ? LOG_WARNING : LOG_ERR, "Unable to start SSL");
 		if (!retry) exit(1);
 		retry = 0;
@@ -663,7 +635,7 @@ static void start_ssl(void)
 }
 #endif
 
-void init_id(void)
+static void init_id(void)
 {
 	char s[128];
 	unsigned long long n;
@@ -671,17 +643,17 @@ void init_id(void)
 	if (strncmp(nvram_safe_get("http_id"), "TID", 3) != 0) {
 		f_read("/dev/urandom", &n, sizeof(n));
 		sprintf(s, "TID%llx", n);
-		nvram_set("http_id", s);	
+		nvram_set("http_id", s);
 	}
+
+	nvram_unset("http_id_warn");
 }
 
-void check_id(void)
+void check_id(const char *url)
 {
-	const char *hid;
-	
-	hid = nvram_safe_get("http_id");
-	if (strcmp(hid, webcgi_safeget("_http_id", "")) != 0) {
+	if (!nvram_match("http_id", webcgi_safeget("_http_id", ""))) {
 #if 0
+		const char *hid = nvram_safe_get("http_id");
 		if (url) {
 			const char *a;
 			int n;
@@ -698,10 +670,30 @@ void check_id(void)
 
 #endif
 
-//		if (hidok) return;
+		char s[48];
+		char *i;
+		char *u;
+		const char *a;
 
-		_dprintf("http_id mismatch %s != %s\n", hid, webcgi_safeget("_http_id", ""));
-		syslog(LOG_WARNING, "http_id mismatch");
+		a = inet_ntoa(clientsai.sin_addr);
+		sprintf(s, "%s,%ld", a, time(NULL) & 0xFFC0);
+		if (!nvram_match("http_id_warn", s)) {
+			nvram_set("http_id_warn", s);
+
+			strlcpy(s, webcgi_safeget("_http_id", ""), sizeof(s));
+			i = js_string(s);	// quicky scrub
+
+			strlcpy(s, url, sizeof(s));
+			u = js_string(s);
+
+			if ((i != NULL) && (u != NULL)) {
+				syslog(LOG_WARNING, "Invalid ID '%s' from %s for /%s", i, a, u);
+			}
+
+			//	free(u);
+			//	free(i);
+		}
+
 		exit(1);
 	}
 }
@@ -774,7 +766,7 @@ int main(int argc, char **argv)
 	signal(SIGPIPE, SIG_IGN);
 	signal(SIGALRM, SIG_IGN);
 	signal(SIGHUP, SIG_IGN);
-	signal(SIGCHLD, reap);
+	signal(SIGCHLD, SIG_IGN);
 
 #ifdef TCONFIG_HTTPS
 	if (do_ssl) start_ssl();
@@ -804,7 +796,7 @@ int main(int argc, char **argv)
 		syslog(LOG_ERR, "listen: %m");
 		return 1;
 	}
-	
+
 	init_id();
 
 	for (;;) {
@@ -829,7 +821,7 @@ int main(int argc, char **argv)
 		if (!check_wlaccess()) {
 			continue;
 		}
-		
+
 		if (fork() == 0) {
 			close(listenfd);
 

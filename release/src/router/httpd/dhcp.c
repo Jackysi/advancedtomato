@@ -1,7 +1,7 @@
 /*
 
 	Tomato Firmware
-	Copyright (C) 2006-2008 Jonathan Zarate
+	Copyright (C) 2006-2009 Jonathan Zarate
 
 */
 
@@ -56,7 +56,7 @@ void wo_dhcpd(char *url)
 	if ((p = webcgi_get("remove")) != NULL) {
 		f_write_string("/var/tmp/dhcp/delete", p, FW_CREATE|FW_NEWLINE, 0666);
 		killall("dnsmasq", SIGUSR2);
-		wait_file_exists("/var/tmp/dhcp/delete", 5, 1);
+		f_wait_notexists("/var/tmp/dhcp/delete", 5);
 	}
 	web_puts("{}");
 }

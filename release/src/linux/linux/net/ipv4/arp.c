@@ -171,8 +171,8 @@ struct neigh_table arp_tbl = {
 	id:		"arp_cache",
 	parms: {
 		tbl:			&arp_tbl,
-/*zhijian 2006-10-23 modify to solve arp entry timeout problem(cdrouter3.3 scaling module)*/
-#if 0 
+                /*zhijian 2006-10-23 modify to solve arp entry timeout problem(cdrouter3.3 scaling module)*/
+                #if 0 
 		base_reachable_time:	30 * HZ,
 		retrans_time:		1 * HZ,
 		gc_staletime:		60 * HZ,
@@ -181,16 +181,16 @@ struct neigh_table arp_tbl = {
 		queue_len:		3,
 		ucast_probes:		3,
 		mcast_probes:		3,
-#else
-		base_reachable_time:    60 * HZ,
-		retrans_time:           5 * HZ,
-		gc_staletime:           120 * HZ,
-		reachable_time:         60 * HZ,
-		delay_probe_time:       10 * HZ,
-		queue_len:              3,
-		ucast_probes:           6,
-		mcast_probes:           6,
-#endif
+                #else
+                base_reachable_time:    60 * HZ,
+                retrans_time:           5 * HZ,
+                gc_staletime:           120 * HZ,
+                reachable_time:         60 * HZ,
+                delay_probe_time:       10 * HZ,
+                queue_len:              3,
+                ucast_probes:           6,
+                mcast_probes:           6,
+                #endif
 		anycast_delay:		1 * HZ,
 		proxy_delay:		(8 * HZ) / 10,
 		proxy_qlen:		64,

@@ -7,6 +7,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <getopt.h>
+#include <net/if.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
@@ -14,6 +15,15 @@
 #include <ip6tables.h>
 #include <linux/netfilter_ipv6/ip6_tables.h>
 #include <linux/netfilter_ipv6/ip6t_ROUTE.h>
+
+#ifndef XTABLES_VERSION
+#define XTABLES_VERSION IPTABLES_VERSION
+#endif
+
+#ifdef IPT_LIB_DIR
+#define xtables_target ip6tables_target
+#define xtables_register_target register_target6
+#endif
 
 /* compile IP6T_ROUTE_TEE support even if kernel headers are unpatched */
 #ifndef IP6T_ROUTE_TEE
@@ -26,15 +36,16 @@ help(void)
 {
 	printf(
 "ROUTE target v%s options:\n"
-"    --oif   \tifname \t\tRoute the packet through `ifname' network interface\n"
-"    --gw    \tip     \t\tRoute the packet via this gateway\n"
+"    --oif   \tifname \t\tRoute packet through `ifname' network interface\n"
+"    --iif   \tifname \t\tChange packet's incoming interface to `ifname'\n"
+"    --gw    \tip     \t\tRoute packet via this gateway `ip'\n"
 "    --continue\t     \t\tRoute packet and continue traversing the\n"
 "            \t       \t\trules. Not valid with --iif or --tee.\n"
 "    --tee\t  \t\tDuplicate packet, route the duplicate,\n"
 "            \t       \t\tcontinue traversing with original packet.\n"
 "            \t       \t\tNot valid with --iif or --continue.\n"
 "\n",
-"1.1");
+"1.11");
 }
 
 static struct option opts[] = {
@@ -48,7 +59,11 @@ static struct option opts[] = {
 
 /* Initialize the target. */
 static void
+#ifdef _XTABLES_H
+init(struct xt_entry_target *t)
+#else
 init(struct ip6t_entry_target *t, unsigned int *nfcache)
+#endif
 {
 	struct ip6t_route_target_info *route_info = 
 		(struct ip6t_route_target_info*)t->data;
@@ -73,8 +88,11 @@ init(struct ip6t_entry_target *t, unsigned int *nfcache)
    ate an option */
 static int
 parse(int c, char **argv, int invert, unsigned int *flags,
-      const struct ip6t_entry *entry,
-      struct ip6t_entry_target **target)
+#ifdef _XTABLES_H
+      const void *entry, struct xt_entry_target **target)
+#else
+      const struct ip6t_entry *entry, struct ip6t_entry_target **target)
+#endif
 {
 	struct ip6t_route_target_info *route_info = 
 		(struct ip6t_route_target_info*)(*target)->data;
@@ -166,8 +184,13 @@ final_check(unsigned int flags)
 
 /* Prints out the targinfo. */
 static void
-print(const struct ip6t_ip6 *ip,
+#ifdef _XTABLES_H
+print(const void *ip,
+      const struct xt_entry_target *target,
+#else
+print(const struct ip6t_ip *ip,
       const struct ip6t_entry_target *target,
+#endif
       int numeric)
 {
 	const struct ip6t_route_target_info *route_info
@@ -195,8 +218,14 @@ print(const struct ip6t_ip6 *ip,
 }
 
 
-static void save(const struct ip6t_ip6 *ip, 
-		 const struct ip6t_entry_target *target)
+static void
+#ifdef _XTABLES_H
+save(const void *ip,
+     const struct xt_entry_target *target)
+#else
+save(const struct ip6t_ip *ip,
+     const struct ip6t_entry_target *target)
+#endif
 {
 	const struct ip6t_route_target_info *route_info
 		= (const struct ip6t_route_target_info *)target->data;
@@ -220,9 +249,9 @@ static void save(const struct ip6t_ip6 *ip,
 }
 
 
-static struct ip6tables_target route = { 
+static struct xtables_target route = { 
 	.name 		= "ROUTE",
-	.version	= IPTABLES_VERSION,
+	.version	= XTABLES_VERSION,
 	.size		= IP6T_ALIGN(sizeof(struct ip6t_route_target_info)),
 	.userspacesize	= IP6T_ALIGN(sizeof(struct ip6t_route_target_info)),
 	.help		= &help,
@@ -236,5 +265,5 @@ static struct ip6tables_target route = {
 
 void _init(void)
 {
-	register_target6(&route);
+	xtables_register_target(&route);
 }

@@ -37,16 +37,10 @@ export INSTALLDIR := $(PLATFORMDIR)/install
 export TARGETDIR := $(PLATFORMDIR)/target
 
 
-ifeq ($(TOMATO_DEV),jon)
-CPTMP = cp $@ $(TOP)/ftpshare/ && cp $@ $(TOP)/smbshare/
-ifneq ($(STATIC),1)
-SIZECHECK = @$(SRCBASE)/btools/sizehistory.pl $@ $(TOMATO_PROFILE_L)_$(notdir $@)
-endif
-else
-CPTMP = true
-SIZECHECK = $(SIZE) $@
-endif
+CPTMP = @[ -d $(TOP)/dbgshare ] && cp $@ $(TOP)/dbgshare/ || true
 
-ifeq ($(NOSIZE),1)
-SIZECHECK =
-endif
+#	ifneq ($(STATIC),1)
+#	SIZECHECK = @$(SRCBASE)/btools/sizehistory.pl $@ $(TOMATO_PROFILE_L)_$(notdir $@)
+#	else
+SIZECHECK = @$(SIZE) $@
+#	endif

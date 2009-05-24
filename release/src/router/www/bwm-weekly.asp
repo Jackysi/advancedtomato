@@ -1,7 +1,7 @@
 <!DOCTYPE HTML PUBLIC '-//W3C//DTD HTML 4.0//EN'>
 <!--
 	Tomato GUI
-	Copyright (C) 2006-2008 Jonathan Zarate
+	Copyright (C) 2006-2009 Jonathan Zarate
 	http://www.polarcloud.com/tomato/
 
 	For use with Tomato Firmware only.
@@ -88,7 +88,7 @@ function redraw()
 	var yr, mo, da, wk;
 	var gn;
 	var swk;
-	
+
 	rows = 0;
 	block = [];
 	gn = 0;
@@ -96,9 +96,9 @@ function redraw()
 	lastSplit = 0;
 	ul = dl = 0;
 	dend = dbeg = '';
-	
+
 	swk	= startwk - 1;
-	if (swk < 0) swk = 6;	
+	if (swk < 0) swk = 6;
 
 	if (summary) {
 		grid = '<table class="bwmg" cellspacing="1">';
@@ -156,13 +156,13 @@ function redraw()
 	11 12 13 14 15 16 17
 	18 19 20 21 22 23 24
 	25 26 27 28 29 30 31
-	
+
 	REMOVE-END */
 
 		if ((wk == swk) || (diff >= (7 * 86400000)) || (lastSplit == 0)) {
 			if (summary) {
 				if (i > 0) {
-					grid += makeRow(((rows & 1) ? 'odd' : 'even'), 
+					grid += makeRow(((rows & 1) ? 'odd' : 'even'),
 						dend + '<br>' + dbeg, rescale(dl), rescale(ul), rescale(dl + ul));
 					++rows;
 					++gn;
@@ -187,13 +187,13 @@ function redraw()
 			block.unshift(makeRow(((rows & 1) ? 'odd' : 'even'), weeks[wk] + ' <small>' + (mo + 1) + '-' + da + '</small>', rescale(h[1]), rescale(h[2]), rescale(h[1] + h[2])))
 			++rows;
 		}
-			
+
 		dbeg = ds;
 	}
 
 	if (summary) {
 		if (gn < 9) {
-			grid += makeRow(((rows & 1) ? 'odd' : 'even'), 
+			grid += makeRow(((rows & 1) ? 'odd' : 'even'),
 				dend + '<br>' + dbeg, rescale(dl), rescale(ul), rescale(dl + ul));
 		}
 		grid += '</table>';

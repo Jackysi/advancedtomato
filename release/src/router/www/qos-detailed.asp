@@ -1,7 +1,7 @@
 <!DOCTYPE HTML PUBLIC '-//W3C//DTD HTML 4.0//EN'>
 <!--
 	Tomato GUI
-	Copyright (C) 2006-2008 Jonathan Zarate
+	Copyright (C) 2006-2009 Jonathan Zarate
 	http://www.polarcloud.com/tomato/
 
 	For use with Tomato Firmware only.
@@ -54,7 +54,7 @@ function resolve()
 		if (queue.length == 0) {
 			if ((lock == 0) && (resolveCB) && (grid.sortColumn == 3)) grid.resort();
 		}
-		else setTimeout(resolve, 500);				
+		else setTimeout(resolve, 500);
 		xob = null;
 	}
 	xob.onError = function(ex) {
@@ -69,7 +69,7 @@ var resolveCB = 0;
 function resolveChanged()
 {
 	var b;
-	
+
 	b = E('resolve').checked ? 1 : 0;
 	if (b != resolveCB) {
 		resolveCB = b;
@@ -171,14 +171,14 @@ ref.refresh = function(text)
 	var i, b, d;
 
 	++lock;
-	
+
 	try {
 		ctdump = [];
 		eval(text);
 	}
 	catch (ex) {
 		ctdump = [];
-	}	
+	}
 
 	grid.lastClicked = null;
 	grid.removeAllData();
@@ -187,13 +187,13 @@ ref.refresh = function(text)
 	var q = [];
 	var cursor;
 	var ip;
-	
+
 	for (i = 0; i < ctdump.length; ++i) {
 		b = ctdump[i];
 		ip = b[3];
 		if (cache[ip] != null) {
 			c[ip] = cache[ip];
-			b[3] = cache[ip] + ' <small>(' + ip + ')</small>';		
+			b[3] = cache[ip] + ' <small>(' + ip + ')</small>';
 			cursor = 'default';
 		}
 		else {
@@ -204,7 +204,7 @@ ref.refresh = function(text)
 				}
 				cursor = 'wait';
 			}
-			else cursor = null;			
+			else cursor = null;
 		}
 		d = [protocols[b[0]] || b[0], b[2], b[4], b[3], b[5], abc[b[6]] || ('' + b[6])];
 		var row = grid.insert(-1, d, d, false);
@@ -216,7 +216,7 @@ ref.refresh = function(text)
 
 	grid.resort();
 	setTimeout(function() { E('loading').style.visibility = 'hidden'; }, 100);
-	
+
 	--lock;
 
 	if (resolveCB) resolve();
@@ -225,11 +225,11 @@ ref.refresh = function(text)
 function init()
 {
 	var c;
-	
+
 	if (((c = cookie.get('qos-resolve')) != null) && (c == '1')) {
 		E('resolve').checked = resolveCB = 1;
 	}
-	
+
 	if (viewClass != -1) E('stitle').innerHTML = 'View Details: ' + abc[viewClass];
 	grid.setup();
 	ref.postData = 'exec=ctdump&arg0=' + viewClass;

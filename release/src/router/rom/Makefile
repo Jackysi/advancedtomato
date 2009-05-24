@@ -1,7 +1,9 @@
 include ../common.mak
 
 all:
-	@echo -e "\n\nTomato v"`cat ../shared/tomato_version`"" > rom/etc/motd
+	@echo "" >rom/etc/motd
+	@echo "" >>rom/etc/motd
+	@echo "Tomato v"`cat ../shared/tomato_version`"" >>rom/etc/motd
 
 clean:
 	rm -f rom/etc/motd
