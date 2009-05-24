@@ -22,7 +22,7 @@
 
 <script type='text/javascript'>
 
-//	<% nvram("block_wan,multicast_pass,nf_loopback,ne_syncookies"); %>
+//	<% nvram("block_wan,multicast_pass,nf_loopback,ne_syncookies,ne_snat"); %>
 
 function verifyFields(focused, quiet)
 {
@@ -72,6 +72,7 @@ createFieldTable('', [
 	{ title: 'Allow multicast', name: 'f_multicast', type: 'checkbox', value: nvram.multicast_pass == '1' },
 	{ title: 'NAT loopback', name: 'nf_loopback', type: 'select', options: [[0,'All'],[1,'Forwarded Only'],[2,'Disabled']], value: fixInt(nvram.nf_loopback, 0, 2, 1) },
 	{ title: 'Enable SYN cookies', name: 'f_syncookies', type: 'checkbox', value: nvram.ne_syncookies != '0' },
+	{ title: 'NAT Target', name: 'ne_snat', type: 'select', options: [[0,'MASQUERADE'],[1,'SNAT']], value: nvram.ne_snat }
 ]);
 </script>
 </div>

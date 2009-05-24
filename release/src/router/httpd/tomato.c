@@ -473,6 +473,7 @@ static const nvset_t nvset_list[] = {
 	{ "block_loopback",		V_01				},
 	{ "nf_loopback",		V_NUM				},
 	{ "ne_syncookies",		V_01				},
+	{ "ne_snat",			V_01				},
 
 // advanced-misc
 	{ "wait_time",			V_RANGE(3, 20)		},
