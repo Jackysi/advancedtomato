@@ -528,22 +528,24 @@ void wo_resolve(char *url)
 
 //!!TB - USB support
 
+#define DEV_DISCS_ROOT	"/dev/discs"
 #define PROC_SCSI_ROOT	"/proc/scsi"
 #define USB_STORAGE	"usb-storage"
 
-int is_host_mounted(uint host_no)
+int is_disc_mounted(uint disc_no)
 {
 	DIR *usb_dev_part;
 	char usb_part[128], usb_disc[128];
 	struct dirent *dp_disc;
 
-	// check if at least one partition of the host is mounted
-	sprintf(usb_disc, "/dev/discs/disc%d", host_no);
+	// check if at least one partition of the disc is mounted
+	sprintf(usb_disc, "%s/disc%d", DEV_DISCS_ROOT, disc_no);
 
 	int is_mounted = 0;
 	if ((usb_dev_part = opendir(usb_disc))) {
 		while (usb_dev_part && (dp_disc = readdir(usb_dev_part))) {
-			if (!strcmp(dp_disc->d_name, "..") || !strcmp(dp_disc->d_name, "."))
+			if (!strcmp(dp_disc->d_name, "..") || !strcmp(dp_disc->d_name, ".") ||
+					strncmp(dp_disc->d_name, "part", 4))
 				continue;
 
 			sprintf(usb_part, "%s/%s", usb_disc, dp_disc->d_name);
@@ -559,12 +561,65 @@ int is_host_mounted(uint host_no)
 	return is_mounted;
 }
 
-void asp_usbdevices(int argc, char **argv)
+int is_host_mounted(uint host_no)
 {
 	DIR *usb_dev_disc;
 	struct dirent *dp;
+	uint disc_no, host;
+	int i;
+	char usb_host[128], usb_disc[128];
+	char *cp;
+	int is_mounted = 0;
+
+	/* find all attached USB storage devices */
+	if ((usb_dev_disc = opendir(DEV_DISCS_ROOT))) {
+		while ((dp = readdir(usb_dev_disc))) {
+			if (!strcmp(dp->d_name, "..") || !strcmp(dp->d_name, "."))
+				continue;
+
+			/* Disc no. assigned by scsi driver for this UFD */
+			disc_no = atoi(dp->d_name + 4);
+			/* Find the host # for each disc */
+			host = disc_no;
+			sprintf(usb_disc, "%s/disc%d", DEV_DISCS_ROOT, disc_no);
+			i = readlink(usb_disc, usb_host, sizeof(usb_host)-1);
+			if (i > 0) {
+				usb_host[i] = 0;
+				cp = strstr(usb_host, "/scsi/host");
+				if (cp)
+					host = atoi(cp + 10);
+			}
+
+			if ((host == host_no) && is_disc_mounted(disc_no)) {
+				is_mounted = 1;
+				break;
+			}
+		}
+		closedir(usb_dev_disc);
+	}
+
+	return is_mounted;
+}
+
+
+/*
+ * The disc # doesn't correspond to the host#, since there may be more than
+ * one partition on a disk.
+ * Nor does either correspond to the scsi host number.
+ * And if the user plugs or unplugs a usb storage device after bringing up the
+ * NAS:USB support page, the numbers won't match anymore, since "part#"s
+ * may be added or deleted to the /dev/discs* or /dev/scsi**.
+ *
+ * But since we only need to support the devices list and mount/unmount 
+ * functionality on the host level, the host# shoudl work ok. Just make sure
+ * to always pass and use the _host#_, and not the disc#.
+ */
+void asp_usbdevices(int argc, char **argv)
+{
+	DIR *scsi_dir=NULL, *usb_dir=NULL;
+	struct dirent *dp, *scsi_dirent;
 	uint host_no;
-	int i, attached;
+	int i = 0, attached;
 	FILE *fp;
 	char line[128];
 	char *tmp=NULL, g_usb_vendor[25], g_usb_product[20], g_usb_serial[20];
@@ -575,76 +630,6 @@ void asp_usbdevices(int argc, char **argv)
 		web_puts("];\n");
 		return;
 	}
-
-	i = 0;
-	usb_dev_disc = NULL;
-
-#if 1
-	/* find all attached USB storage devices */
-	if ((usb_dev_disc = opendir("/dev/discs"))) {
-		while (usb_dev_disc && (dp = readdir(usb_dev_disc))) {
-			if (!strcmp(dp->d_name, "..") || !strcmp(dp->d_name, "."))
-				continue;
-
-			/* Host no. assigned by scsi driver for this UFD */
-			host_no = atoi(dp->d_name + 4);
-			sprintf(line, "%s/%s-%d/%d", PROC_SCSI_ROOT, USB_STORAGE, host_no, host_no);
-
-			fp = fopen(line, "r");
-			if (!fp) {
-				sprintf(line, "%s/%s/%d", PROC_SCSI_ROOT, USB_STORAGE, host_no);
-				fp = fopen(line, "r");
-			}
-
-			if (fp) {
-				attached = 0;
-				g_usb_vendor[0] = 0;
-				g_usb_product[0] = 0;
-				g_usb_serial[0] = 0;
-				tmp = NULL;
-
-				while (fgets(line, sizeof(line), fp) != NULL) {
-					if (strstr(line, "Attached: Yes")) {
-						attached = 1;
-					}
-					else if (strstr(line, "Vendor")) {
-						tmp = strtok(line, " ");
-						tmp = strtok(NULL, "\n");
-						strcpy(g_usb_vendor, tmp);
-						tmp = NULL;
-					}
-					else if (strstr(line, "Product")) {
-						tmp = strtok(line, " ");
-						tmp = strtok(NULL, "\n");
-						strcpy(g_usb_product, tmp);
-						tmp = NULL;
-					}
-					else if (strstr(line, "Serial Number")) {
-						tmp = strtok(line, " ");
-						tmp = strtok(NULL, " ");
-						tmp = strtok(NULL, "\n");
-						strcpy(g_usb_serial, tmp);
-						tmp = NULL;
-					}
-				}
-				fclose(fp);
-
-				if (attached) {
-					web_printf("%s['Storage','%d','%s','%s','%s', %d]", i ? "," : "",
-						host_no, g_usb_vendor, g_usb_product, g_usb_serial, is_host_mounted(host_no));
-					++i;
-				}
-			}
-		}
-		closedir(usb_dev_disc);
-	}
-
-#else
-	// this version of the code is for broken scsiglue implementation in some kernels
-	// do not use unless there're problems
-
-	DIR *scsi_dir=NULL, *usb_dir=NULL;
-	struct dirent *scsi_dirent;
 
 	/* find all attached USB storage devices */
 	scsi_dir = opendir(PROC_SCSI_ROOT);
@@ -694,6 +679,9 @@ void asp_usbdevices(int argc, char **argv)
 					}
 					fclose(fp);
 					if (attached) {
+						/* Host no. assigned by scsi driver for this UFD */
+						host_no = atoi(dp->d_name);
+
 						web_printf("%s['Storage','%d','%s','%s','%s', %d]", i ? "," : "",
 							host_no, g_usb_vendor, g_usb_product, g_usb_serial, is_host_mounted(host_no));
 						++i;
@@ -707,7 +695,6 @@ void asp_usbdevices(int argc, char **argv)
 	}
 	if (scsi_dir)
 		closedir(scsi_dir);
-#endif
 
 	/* now look for a printer */
 	if (f_exists("/dev/usb/lp0") && (fp = fopen("/proc/usblp/usblpid", "r"))) {
@@ -741,7 +728,6 @@ void asp_usbdevices(int argc, char **argv)
 	web_puts("];\n");
 }
 
-
 void wo_usbcommand(char *url)
 {
 	char *p;
@@ -749,7 +735,14 @@ void wo_usbcommand(char *url)
 	web_puts("\nusb = [\n");
 	if ((p = webcgi_get("remove")) != NULL) {
 		nvram_set("usb_web_umount", p);
-		// wait for unmount
+		nvram_set("usb_web_domount", "");
+	}
+	else if ((p = webcgi_get("mount")) != NULL) {
+		nvram_set("usb_web_umount", p);
+		nvram_set("usb_web_domount", "1");
+	}
+	if (p) {
+		// wait for unmount or remount
 		int i;
 		for (i = 0; i < 10; i++) {
 			sleep(1);

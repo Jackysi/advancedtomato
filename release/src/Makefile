@@ -34,8 +34,8 @@ PATH := $(RELEASEDIR)/tools:$(PATH)
 
 
 # Normally you'd do something like "make V1=8516 V2=.sub a b c d"
-# But if you don't give anything for "V1", it'll get a default of "trial".
-V1 ?= "{trial-build}"
+# But if you don't give anything for "V1", it'll get a default of "0000".
+V1 ?= "0000"
 
 -include tomato_profile.mak
 

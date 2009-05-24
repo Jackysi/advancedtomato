@@ -463,6 +463,8 @@ int time_ok(void)
   * So aliasing won't fool us---we'll still find if it's mounted.
   * Return its mnt entry.
   * In particular, the caller would look at the mnt->mountpoint.
+  * If "file" is an empty string, return the mntent of the first
+  * mount that is for a USB disc that is no longer accessible.
   */
 struct mntent *findmntent(char *file)
 {
@@ -484,6 +486,11 @@ struct mntent *findmntent(char *file)
 		}
 	}
 	while ((mnt = getmntent(f)) != NULL) {
+		if (*file == 0 && strncmp(mnt->mnt_fsname, "/dev/discs/", 11) == 0) {
+			if (stat(mnt->mnt_fsname, &st_buf) != 0)
+				break;	/* Device is no longer valid. */
+		}
+
 		if (strcmp(file, mnt->mnt_fsname) == 0)
 			break;
 		if (stat(mnt->mnt_fsname, &st_buf) == 0) {

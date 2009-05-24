@@ -48,12 +48,6 @@
 #define IFUP (IFF_UP | IFF_RUNNING | IFF_BROADCAST | IFF_MULTICAST)
 #define sin_addr(s) (((struct sockaddr_in *)(s))->sin_addr)
 
-// !!TB
-#define MOUNT_ROOT	"/tmp/mnt"
-#define PROC_SCSI_ROOT	"/proc/scsi"
-#define USB_STORAGE	"usb-storage"
-
-
 // -----------------------------------------------------------------------------
 
 static const char dmhosts[] = "/etc/hosts.dnsmasq";
@@ -683,6 +677,10 @@ static void start_rstats(int new)
 
 // !!TB - FTP Server
 
+/* 
+ * Return non-zero if we created the directory,
+ * and zero if it already existed.
+ */
 int mkdir_if_none(char *dir)
 {
 	DIR *dp;
@@ -697,7 +695,7 @@ int mkdir_if_none(char *dir)
 
 char *get_full_storage_path(char *val)
 {
-	static char buf[256];
+	static char buf[128];
 	int len;
 
 	if (val[0] == '/')
@@ -913,10 +911,10 @@ void stop_ftpd(void)
 // !!TB - Samba
 
 #ifdef TCONFIG_SAMBASRV
-void kill_samba(void)
+void kill_samba(int sig)
 {
-	killall("smbd", SIGTERM);
-	killall("nmbd", SIGTERM);
+	killall("smbd", sig);
+	killall("nmbd", sig);
 }
 #endif
 
@@ -930,7 +928,6 @@ void start_samba(void)
 	char nlsmod[15];
 	int mode;
 	
-	kill_samba();
 	mode = nvram_get_int("smbd_enable");
 	if (!mode || !nvram_invmatch("lan_hostname", ""))
 		return;
@@ -1060,18 +1057,22 @@ void start_samba(void)
 		eval("smbpasswd", "-a", smbd_user, nvram_safe_get("smbd_passwd"));
 	}
 
+	kill_samba(SIGHUP);
 	int ret1 = 0, ret2 = 0;
-	ret1 = eval("nmbd", "-D");
-	ret2 = eval("smbd", "-D");
+	/* start samba if it's not already running */
+	if (pidof("nmbd") <= 0)
+		ret1 = eval("nmbd", "-D");
+	if (pidof("smbd") <= 0)
+		ret2 = eval("smbd", "-D");
 
-	if (ret1 || ret2) kill_samba();
+	if (ret1 || ret2) kill_samba(SIGTERM);
 #endif
 }
 
 void stop_samba(void)
 {
 #ifdef TCONFIG_SAMBASRV
-	kill_samba();
+	kill_samba(SIGTERM);
 	sleep(2); /* wait for smbd to finish */
 
 	if (nvram_invmatch("smbd_nlsmod", "")) {
@@ -1086,564 +1087,21 @@ void stop_samba(void)
 #endif
 }
 
-// -----------------------------------------------------------------------------
-
-// !!TB - USB Support
-
-char *detect_fs_type(char *device)
-{
-	int fd;
-	unsigned char buf[4096];
-	
-	if ((fd = open(device, O_RDONLY)) < 0)
-		return NULL;
-		
-	if (read(fd, buf, sizeof(buf)) != sizeof(buf))
-	{
-		close(fd);
-		return NULL;
-	}
-	
-	close(fd);
-	
-	/* first check for mbr */
-	if (*device && device[strlen(device) - 1] > '9' &&
-		buf[510] == 0x55 && buf[511] == 0xAA && /* signature */
-		((buf[0x1be] | buf[0x1ce] | buf[0x1de] | buf[0x1ee]) & 0x7f) == 0) /* boot flags */ 
-	{
-		return "mbr";
-	} 
-	/* detect swap */
-	else if (memcmp(buf + 4086, "SWAPSPACE2", 10) == 0 ||
-		memcmp(buf + 4086, "SWAP-SPACE", 10) == 0)
-	{
-		return "swap";
-	}
-	/* detect ext2/3 */
-	else if (buf[0x438] == 0x53 && buf[0x439] == 0xEF)
-	{
-		return ((buf[0x460] & 0x0008 /* JOURNAL_DEV */) != 0 ||
-			(buf[0x45c] & 0x0004 /* HAS_JOURNAL */) != 0) ? "ext3" : "ext2";
-	}
-	/* detect ntfs */
-	else if (buf[510] == 0x55 && buf[511] == 0xAA && /* signature */
-		memcmp(buf + 3, "NTFS    ", 8) == 0)
-	{
-		return "ntfs";
-	}
-	/* detect vfat */
-	else if (buf[510] == 0x55 && buf[511] == 0xAA && /* signature */
-		buf[11] == 0 && buf[12] >= 1 && buf[12] <= 8 /* sector size 512 - 4096 */ &&
-		buf[13] != 0 && (buf[13] & (buf[13] - 1)) == 0) /* sectors per cluster */
-	{
-		return "vfat";
-	}
-
-	return NULL;
-}
-
-#define MOUNT_VAL_FAIL 	0
-#define MOUNT_VAL_RONLY	1
-#define MOUNT_VAL_RW 	2
-
-int mount_r(char *mnt_dev, char *mnt_dir)
-{
-	struct mntent *mnt = findmntent(mnt_dev);
-	char *type;
-	int ret;
-	char options[40];
-	
-	if (mnt) {
-		syslog(LOG_INFO, "USB partition at %s already mounted to %s",
-			mnt_dev, mnt->mnt_dir);
-		return strcmp(mnt->mnt_dir, mnt_dir) ? MOUNT_VAL_FAIL : MOUNT_VAL_RW;
-	}
-
-	options[0] = 0;
-	
-	if ((type = detect_fs_type(mnt_dev))) 
-	{
-		unsigned long flags = MS_NOATIME;
-
-		if (strcmp(type, "swap") == 0 || strcmp(type, "mbr") == 0) {
-			/* not a mountable partition */
-			flags = 0;
-		}
-		if (strcmp(type, "ext2") == 0 || strcmp(type, "ext3") == 0) {
-			flags = flags | MS_NODIRATIME;
-		}
-#ifdef TCONFIG_SAMBASRV
-		else if (strcmp(type, "vfat") == 0) {
-			if (nvram_invmatch("smbd_cset", ""))
-				sprintf(options, "iocharset=%s%s", 
-					isdigit(nvram_get("smbd_cset")[0]) ? "cp" : "",
-						nvram_get("smbd_cset"));
-			if (nvram_invmatch("smbd_cpage", ""))
-				sprintf(options + strlen(options), ",codepage=%s" + (options[0] ? 0 : 1), 
-					nvram_get("smbd_cpage"));
-		}
-#endif
-		else if (strcmp(type, "ntfs") == 0)
-		{
-			flags = MS_RDONLY;
-#ifdef TCONFIG_SAMBASRV
-			if (nvram_invmatch("smbd_cset", ""))
-				sprintf(options, "iocharset=%s%s", 
-					isdigit(nvram_get("smbd_cset")[0]) ? "cp" : "",
-						nvram_get("smbd_cset"));
-#endif
-		}
-
-		if (flags) {
-			mkdir_if_none(mnt_dir);
-
-			ret = mount(mnt_dev, mnt_dir, type, flags, options[0] ? options : "");
-			if (ret != 0) /* give it another try - guess fs */
-				ret = eval("mount", "-o", "noatime", mnt_dev, mnt_dir);
-			
-			if (ret == 0) {
-				syslog(LOG_INFO, "USB %s%s fs at %s mounted to %s",
-					type, (flags & MS_RDONLY) ? " (ro)" : "", mnt_dev, mnt_dir);
-				return (flags & MS_RDONLY) ? MOUNT_VAL_RONLY : MOUNT_VAL_RW;
-			}
-
-			eval("rm", "-rf", mnt_dir);
-		}
-	}
-	return MOUNT_VAL_FAIL;
-}
-
-/* Check if the UFD is still connected because the links created in /dev/discs */
-/* are not removed when the UFD is  unplugged. */
-static int usb_ufd_connected(uint host_no)
-{
-#if 1
-	char proc_file[128];
-	FILE *fp;
-	char line[256];
-
-	sprintf(proc_file, "%s/%s-%d/%d", PROC_SCSI_ROOT, USB_STORAGE, host_no, host_no);
-	fp = fopen(proc_file, "r");
-
-	if (!fp) {
-		/* try the way it's implemented in newer kernels */
-		sprintf(proc_file, "%s/%s/%d", PROC_SCSI_ROOT, USB_STORAGE, host_no);
-		fp = fopen(proc_file, "r");
-	}
-
-	if (fp) {
-		while (fgets(line, sizeof(line), fp) != NULL) {
-			if (strstr(line, "Attached: Yes")) {
-				fclose(fp);
-				return 1;
-			}
-		}
-		fclose(fp);
-	}
-
-	return 0;
-#else
-	// this version of the code is for broken scsiglue implementation in some kernels
-	// do not use unless there're problems
-
-	char proc_file[128], line[256];
-	FILE *fp;
-	DIR *scsi_dir;
-	struct dirent *scsi_dirent;
-
-	scsi_dir = opendir(PROC_SCSI_ROOT);
-	if (!scsi_dir)
-		return 0; 
-
-	while ((scsi_dirent = readdir(scsi_dir)))
-	{
-		if (!strncmp(USB_STORAGE, scsi_dirent->d_name, strlen(USB_STORAGE)))
-		{
-			sprintf(proc_file, "%s/%s/%d", PROC_SCSI_ROOT, scsi_dirent->d_name, host_no);
-			fp = fopen(proc_file, "r");
-			if (fp) {
-				while (fgets(line, sizeof(line), fp) != NULL) {
-					if (strstr(line, "Attached: Yes")) {
-						fclose(fp);
-						closedir(scsi_dir);
-						return 1;
-					}
-				}
-				fclose(fp);
-			}
-		}
-	}
-	closedir(scsi_dir);
-
-	return 0;
-#endif
-}
-
-int umountdir(char *umount_dir, int remove_dir)
-{
-	int ret, count;
-
-	count=0;
-	while ((ret = umount(umount_dir)) && (count < 2)) {
-		count++;
-		sleep(1);
-	}
-	if ((!ret) && remove_dir) {
-		rmdir(umount_dir);
-	}
-	return ret;
-}
-
-void restart_nas_services(void)
+void restart_nas_services(int start)
 {	
 	/* restart all NAS applications */
 #ifdef TCONFIG_SAMBASRV
-	if (nvram_get_int("smbd_enable")) start_samba();
+	if (start && nvram_get_int("smbd_enable"))
+		start_samba();
+	else 
+		kill_samba(SIGTERM);
 #endif
 #ifdef TCONFIG_FTP
-	if (nvram_get_int("ftp_enable")) start_ftpd();
+	if (start && nvram_get_int("ftp_enable"))
+		start_ftpd();
+	else
+		killall("vsftpd", SIGTERM);
 #endif
-}
-
-int try_automount(void)
-{
-	if (f_exists("/tmp/etc/fstab")) {
-		char *argv[] = { NULL, "-a", NULL };
-		argv[0] = "swapon";
-		_eval(argv, NULL, 0, NULL);
-		argv[0] = "mount";
-		return _eval(argv, NULL, 0, NULL);
-	}
-	return 0;
-}
-
-int process_all_usb_part(int mount_all, int umount_detached_only, int umount_host)
-{
-	// Loop through all USB partitions and either
-	//	- try to mount them all (mount_all != 0)
-	//	- try to unmount all (umount_detached_only == 0)
-	//	- unmount disconnected only (umount_detached_only != 0)
-
-	DIR *usb_dev_disc, *usb_dev_part;
-	char usb_disc[128], mnt_dev[128], mnt_dir[128];
-	struct dirent *dp, *dp_disc;
-	struct mntent *mnt;
-	int is_mounted = 0, connected, automnt = 0;
-	uint host_no;
-
-	usb_dev_disc = usb_dev_part = NULL;
-
-	if ((usb_dev_disc = opendir("/dev/discs"))) {
-
-		// first try to mount using /etc/fstab
-		if (mount_all)
-			automnt = try_automount();
-
-		while (usb_dev_disc && (dp = readdir(usb_dev_disc))) {
-			if (!strcmp(dp->d_name, "..") || !strcmp(dp->d_name, "."))
-				continue;
-
-			/* Host no. assigned by scsi driver for this UFD */
-			host_no = atoi(dp->d_name + 4);
-
-			// Files created when the UFD is inserted are not removed when
-			// it is removed. Verify the device is still inserted. Strip
-			// the "disc" and pass the rest of the string.
-			connected = usb_ufd_connected(host_no);
-
-			if (mount_all) {
-				if (!connected) continue;
-			}
-			else if (umount_host >= 0) {
-				if (!connected) continue;
-				if (umount_host != host_no) continue;
-			}
-			else if (umount_detached_only) {
-				if (connected) continue;
-			}
-
-			sprintf(usb_disc, "/dev/discs/%s", dp->d_name);
-
-			if ((usb_dev_part = opendir(usb_disc))) {
-				while (usb_dev_part && (dp_disc = readdir(usb_dev_part))) {
-					/* assume disc is the first entry */
-					int disc = !strcmp(dp_disc->d_name, "disc");
-					
-					if (!strcmp(dp_disc->d_name, "..") || !strcmp(dp_disc->d_name, "."))
-						continue;
-					
-					sprintf(mnt_dev, "/dev/discs/%s/%s", dp->d_name, dp_disc->d_name);
-
-					if (disc)
-						sprintf(mnt_dir, "%s/%s", MOUNT_ROOT, dp->d_name);
-					else 
-						sprintf(mnt_dir, "%s/%s_%s", MOUNT_ROOT, dp->d_name,
-							dp_disc->d_name + (strncmp(dp_disc->d_name, "part", 4) ? 0 : 4));
-					
-					if (mount_all) {
-						/* First "mount -a" call may fail if the device is plugged in
-						 * for the first time, or if it was manually unmounted by calling
-						 * umount command. Keep trying until we get the 0 retcode,
-						 * or there are no more partitions to mount.
-						 */
-						if (automnt) 
-							automnt = try_automount();
-
-						if (mount_r(mnt_dev, mnt_dir)) {
-							is_mounted++;
-							if (disc) break; /* no mbr -- no partitions */
-						}
-					}
-					else {
-						mnt = findmntent(mnt_dev);
-						if (mnt) {
-							if (umount_host >= 0) {
-								// unmount from Web
-								// run the script and restart NAS Services
-								if (nvram_match("usb_automount", "1")) {
-									// run pre-unmount script if any
-									run_nvscript("script_usbumount", usb_disc, 10);
-								}
-							#ifdef TCONFIG_SAMBASRV
-								kill_samba();
-							#endif
-							#ifdef TCONFIG_FTP
-								killall("vsftpd", SIGTERM);
-							#endif
-								umount_host = -1;
-							}
-							umountdir(mnt->mnt_dir, (strcmp(mnt->mnt_dir, mnt_dir) == 0));
-						}
-					}
-				}
-				closedir(usb_dev_part);
-			}
-		}
-		closedir(usb_dev_disc);
-	}
-	return is_mounted;
-}
-
-
-void umount_all_part(char *usbdevice)
-{
-#if 0
-	/* First try to unmount all known mount points */
-
-	DIR *dir_to_open;
-	struct dirent *dp;
-	char umount_dir[32];
-		
-	for (dir_to_open = opendir(MOUNT_ROOT); dir_to_open && (dp = readdir(dir_to_open)); )
-	{
-		if (strncmp(dp->d_name, "disc", 4) == 0) {
-			sprintf(umount_dir, "%s/%s", MOUNT_ROOT, dp->d_name);
-			umountdir(umount_dir, 1);
-		}
-	}
-	if (dir_to_open)
-		closedir(dir_to_open);
-#endif
-	/* Loop through all USB partitions and try to unmount them */
-	process_all_usb_part(0, 0, -1);
-}
-
-
-void remove_usb_mass(char *product, int host_no)
-{
-	sleep(1);
-	if (product == NULL && host_no < 0) {
-		umount_all_part("usb");
-	}
-	else {
-		process_all_usb_part(0, 1, host_no);
-	}
-}
-
-
-/* insert usb mass storage */
-void hotplug_usb_mass(char *product)
-{	
-	_dprintf("%s %s product=%s\n", __FILE__, __FUNCTION__, product);
-	if (!nvram_match("usb_automount", "1")) return;
-
-	if (process_all_usb_part(1, 0, -1)) {
-		// restart all NAS applications
-		restart_nas_services();
-	}
-
-	//run post-mount script if any
-	run_nvscript("script_usbmount", product, 2);
-}
-
-
-void remove_storage_main(void)
-{
-	if (nvram_match("usb_enable", "1") && nvram_match("usb_storage", "1")) {
-		if (nvram_match("usb_automount", "1")) {
-			// run pre-unmount script if any
-			run_nvscript("script_usbumount", NULL, 10);
-		}
-	}
-	remove_usb_mass(NULL, -1);
-}
-
-
-char s_usb_device[] = "usb_device";
-char s_usb_storage_device[] = "usb_storage_device";
-char s_usb_storage_remove[] = "usb_storage_remove";
-
-void start_usb(void)
-{
-	_dprintf("%s\n", __FUNCTION__);
-	if (nvram_match("usb_enable", "1")) {
-
-//		led(LED_AOSS, LED_ON);
-		modprobe("usbcore");
-
-		/* if enabled, force USB2 before USB1.1 */
-		if (nvram_match("usb_usb2", "1")) {
-			modprobe("ehci-hcd");
-		}
-
-		if (nvram_match("usb_uhci", "1")) {
-			modprobe("usb-uhci");
-		}
-
-		if (nvram_match("usb_ohci", "1")) {
-			modprobe("usb-ohci");
-		}
-
-		/* mount usb device filesystem */
-        	mount("usbdevfs", "/proc/bus/usb", "usbdevfs", MS_MGC_VAL, NULL);
-
-		if (nvram_match("usb_storage", "1")) {
-			modprobe("scsi_mod");
-			modprobe("sd_mod");
-			modprobe("usb-storage");
-    
-			if (nvram_match("usb_fs_ext3", "1")) {
-				modprobe("ext2");
-				modprobe("jbd");
-				modprobe("ext3");
-			}
-
-			if (nvram_match("usb_fs_fat", "1")) {
-				modprobe("fat");
-				modprobe("vfat");
-			}
-		}
-
-		if (nvram_match("usb_printer", "1")) {
-			modprobe("printer");
-			// start printer server
-			xstart("p910nd",
-				nvram_match("usb_printer_bidirect", "1") ? "-b" : "", //bidirectional
-				"-f", "/dev/usb/lp0", // device
-				"0" // listen port
-			);
-			symlink("/dev/usb/lp0", "/dev/printers/0");
-		}
-	}
-	else {
-		nvram_set(s_usb_device, "");
-		nvram_set(s_usb_storage_device, "");
-		nvram_set(s_usb_storage_remove, "");
-//		led(LED_AOSS, LED_OFF);
-	}
-}
-
-void stop_usb(void)
-{
-	// Only stop printing service here, since there might be mounted USB partitions
-	int i;
-	char s[32];
-	char pid[] = "/var/run/p9100d.pid";
-
-	// only find and kill the printer server we started (port 0)
-	if (f_read_string(pid, s, sizeof(s)) > 0) {
-		if ((i = atoi(s)) > 1) {
-			kill(i, SIGTERM);
-			sleep(1);
-			unlink(pid);
-		}
-	}
-
-	modprobe_r("printer");
-	
-	nvram_set(s_usb_device, "");
-	nvram_set(s_usb_storage_device, "");
-	nvram_set(s_usb_storage_remove, "");
-}
-
-/* plugging or removing usb device */
-void hotplug_usb(void)
-{
-	char *action, *interface, *product;
-
-	if(!(interface = getenv("INTERFACE")) || !(action = getenv("ACTION")) || !(product=getenv("PRODUCT")))
-		return;
-	_dprintf("USB hotplug INTERFACE=%s ACTION=%s PRODUCT=%s\n", interface, action, product);
-
-	/* usb storage */
-	if (strncmp(interface, "8/", 2) == 0) {
-		if (strcmp(action, "add") == 0) {
-			nvram_set(s_usb_storage_device, product);
-			if (nvram_match(s_usb_storage_remove, product))
-				nvram_set(s_usb_storage_remove, "");
-		}
-		else {
-			nvram_set(s_usb_storage_remove, product);
-			if (nvram_match(s_usb_storage_device, product))
-				nvram_set(s_usb_storage_device, "");
-		}
-	}
-	else {
-		if (strcmp(action, "add") == 0) {
-			nvram_set(s_usb_device, product);
-		}
-		else {
-			if (nvram_match(s_usb_device, product))
-				nvram_set(s_usb_device, "");
-		}
-	}
-
-	run_nvscript("script_usbhotplug", NULL, 2);
-}
-
-void check_usb_event(void)
-{
-	_dprintf("%s %s\n", __FILE__, __FUNCTION__);
-
-	// check if we received eject request from the GUI
-	if (nvram_invmatch("usb_web_umount", "")) {
-		int host = nvram_get_int("usb_web_umount");
-		if (host >= 0) {
-			remove_usb_mass(NULL, host);
-			restart_nas_services();
-		}
-		nvram_set("usb_web_umount", "");
-		return; // process other events later
-	}
-
-	if (!nvram_match("usb_enable", "1")) return;
-
-	if (nvram_match("usb_storage", "1")) {
-		if (nvram_invmatch(s_usb_storage_device, "")) {
-			hotplug_usb_mass(nvram_safe_get(s_usb_storage_device));
-			nvram_set(s_usb_storage_device, "");
-		}
-	}
-
-	if (nvram_invmatch(s_usb_device, "")) {
-		nvram_set(s_usb_device, "");
-	}
-
-	if (nvram_invmatch(s_usb_storage_remove, "")) {
-		remove_usb_mass(nvram_safe_get(s_usb_storage_remove), -1);
-		nvram_set(s_usb_storage_remove, "");
-		restart_nas_services();
-	}
 }
 
 // -----------------------------------------------------------------------------

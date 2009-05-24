@@ -62,6 +62,11 @@ function _umountHost(host)
 	form.submitHidden('usbcmd.cgi', { remove: host });
 }
 
+function _mountHost(host)
+{
+	form.submitHidden('usbcmd.cgi', { mount: host });
+}
+
 function _forceRefresh()
 {
 	var e;
@@ -103,6 +108,35 @@ function umountHost(a, host)
 	xob.post('usbcmd.cgi', 'remove=' + host);
 }
 
+function mountHost(a, host)
+{
+	if (xob) return;
+
+	if ((xob = new XmlHttp()) == null) {
+		_mountHost(host);
+		return;
+	}
+
+	a = E(a);
+	a.innerHTML = 'Please wait...';
+
+	xob.onCompleted = function(text, xml) {
+		eval(text);
+		if (usb.length == 1) {
+			if (usb[0] == 0)
+				ferror.set(a, 'Failed to mount. Verify the device is plugged in, and try again', 0);
+		}
+		xob = null;
+		_forceRefresh();
+	}
+
+	xob.onError = function() {
+		xob = null;
+		_forceRefresh();
+	}
+
+	xob.post('usbcmd.cgi', 'mount=' + host);
+}
 
 var ref = new TomatoRefresh('update.cgi', 'exec=usbdevices', 0, 'nas_usb_refresh');
 
@@ -169,14 +203,18 @@ dg.populate = function()
 		e = list[i];
 
 		if (e.type != 'Storage')
-			s = '';
+			s = '&nbsp<br><small>&nbsp</small>';
 		else {
-			if (e.is_mounted == 0)
-				s = 'Not mounted';
-			else if (xob)
-				s = 'Please wait...';
+			if (xob) {
+				if (e.is_mounted == 0)
+					s = 'No<br><small>Please wait...</small>';
+				else
+					s = 'Yes<br><small>Please wait...</small>';
+			}
+			else if (e.is_mounted == 0)
+				s = 'No<br><small><a href="javascript:mountHost(\'L' + i + '\',\'' + e.host + '\')" title="Mount all Partitions of Storage Device" id="L' + i + '">[ Mount ]</a></small>';
 			else
-				s = '<a href="javascript:umountHost(\'L' + i + '\',\'' + e.host + '\')" title="Safely Remove Storage Device" id="L' + i + '">Unmount</a>';
+				s = 'Yes<br><small><a href="javascript:umountHost(\'L' + i + '\',\'' + e.host + '\')" title="Safely Remove Storage Device" id="L' + i + '">[ Unmount ]</a></small>';
 		}
 		this.insert(-1, e, [
 			e.type, e.host, e.vendor, e.product, e.serial, s],
@@ -189,7 +227,7 @@ dg.populate = function()
 dg.setup = function()
 {
 	this.init('dev-grid', 'sort');
-	this.headerSet(['Type', 'Host #', 'Manufacturer', 'Product Name', 'Serial Number', 'Remove']);
+	this.headerSet(['Type', 'Host #', 'Vendor', 'Product Name', 'Serial Number', 'Mounted?']);
 	this.populate();
 	this.sort(1);
 }
