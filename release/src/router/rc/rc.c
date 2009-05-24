@@ -43,6 +43,10 @@ static int hotplug_main(int argc, char *argv[])
 		if (strcmp(argv[1], "net") == 0) {
 			hotplug_net();
 		}
+		// !!TB - USB Support
+		else if (strcmp(argv[1], "usb") == 0) {
+			hotplug_usb();
+		}
 	}
 	return 0;
 }

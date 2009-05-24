@@ -7,6 +7,8 @@
 #include <stdint.h>
 #include <errno.h>
 
+#include <mntent.h>	// !!TB
+
 #define Y2K			946684800UL		// seconds since 1970
 
 #define ASIZE(array)	(sizeof(array) / sizeof(array[0]))
@@ -63,7 +65,8 @@ extern int nvram_contains_word(const char *key, const char *word);
 extern int nvram_is_empty(const char *key);
 extern void nvram_commit_x(void);
 extern int connect_timeout(int fd, const struct sockaddr *addr, socklen_t len, int timeout);
-
+//!!TB
+extern struct mntent *findmntent(char *file);
 
 // id.c
 enum {

@@ -1910,7 +1910,8 @@ function nothing()
 
 function show_notice1(s)
 {
-	if (s.length) document.write('<div id="notice1">' + s + '</div><br style="clear:both">');
+// ---- !!TB - USB Support: multi-line notices
+	if (s.length) document.write('<div id="notice1">' + s.replace(/\n/g, '<br>') + '</div><br style="clear:both">');
 }
 
 // -----------------------------------------------------------------------------
@@ -1972,14 +1973,10 @@ function navi()
 			['View Details',	'detailed.asp']
 			] ],
 		['Access Restriction',	'restrict.asp'],
-/*
-		['Scripts',				'sc', 0, [
-			['Startup',			'startup.asp'],
-			['Shutdown',		'shutdown.asp'],
-			['Firewall',		'firewall.asp'],
-			['WAN Up',			'wanup.asp']
+// ---- !!TB - USB
+		['USB',			'nas', 0, [
+			['USB Support',		'usb.asp']
 			] ],
-*/
 		null,
 		['Administration',		'admin', 0, [
 			['Admin Access',	'access.asp'],

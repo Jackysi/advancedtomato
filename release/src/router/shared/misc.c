@@ -452,3 +452,46 @@ int time_ok(void)
 	return time(0) > Y2K;
 }
 */
+
+// -----------------------------------------------------------------------------
+//!!TB - USB Support
+
+/* stolen from the e2fsprogs/ismounted.c */
+struct mntent *findmntent(char *file)
+{
+	struct mntent 	*mnt;
+	struct stat	st_buf;
+	dev_t		file_dev=0, file_rdev=0;
+	ino_t		file_ino=0;
+	FILE 		*f;
+	
+	if ((f = setmntent("/proc/mounts", "r")) == NULL)
+		return NULL;
+
+	if (stat(file, &st_buf) == 0) {
+		if (S_ISBLK(st_buf.st_mode)) {
+			file_rdev = st_buf.st_rdev;
+		} else {
+			file_dev = st_buf.st_dev;
+			file_ino = st_buf.st_ino;
+		}
+	}
+	while ((mnt = getmntent(f)) != NULL) {
+		if (strcmp(file, mnt->mnt_fsname) == 0)
+			break;
+		if (stat(mnt->mnt_fsname, &st_buf) == 0) {
+			if (S_ISBLK(st_buf.st_mode)) {
+				if (file_rdev && (file_rdev == st_buf.st_rdev))
+					break;
+			} else {
+				if (file_dev && ((file_dev == st_buf.st_dev) &&
+						 (file_ino == st_buf.st_ino)))
+					break;
+			}
+		}
+	}
+
+	fclose(f);
+	return mnt;
+}
+

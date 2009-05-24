@@ -20,6 +20,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <ctype.h> // !!TB
 #include <string.h>
 #include <signal.h>
 #include <syslog.h>
@@ -57,12 +58,12 @@
 #define PPPOE0		0
 #define PPPOE1		1
 
-#define GOT_IP				0x01
-#define RELEASE_IP			0x02
+#define GOT_IP			0x01
+#define RELEASE_IP		0x02
 #define	GET_IP_ERROR		0x03
 #define RELEASE_WAN_CONTROL	0x04
 #define USB_DATA_ACCESS		0x05	//For WRTSL54GS
-#define USB_CONNECT			0x06	//For WRTSL54GS
+#define USB_CONNECT		0x06	//For WRTSL54GS
 #define USB_DISCONNECT		0x07	//For WRTSL54GS
 
 /*
@@ -176,6 +177,12 @@ extern void stop_service(const char *name);
 extern void restart_service(const char *name);
 extern void start_services(void);
 extern void stop_services(void);
+// !!TB - USB Support
+extern void start_usb(void);
+extern void stop_usb(void);
+extern void hotplug_usb(void);
+extern void check_usb_event(void);
+extern void remove_storage_main(void);
 
 // wnas.c
 extern void start_nas(void);

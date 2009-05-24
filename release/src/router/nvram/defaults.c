@@ -466,6 +466,21 @@ const defaults_t defaults[] = {
 	{ "jffs2_on",			"0"				},
 	{ "jffs2_exec",			""				},
 
+// admin-usb - !!TB
+	{ "usb_enable",			"0"				},
+	{ "usb_uhci",			"0"				},
+	{ "usb_ohci",			"0"				},
+	{ "usb_usb2",			"0"				},
+	{ "usb_storage",		"0"				},
+	{ "usb_printer",		"0"				},
+	{ "usb_printer_bidirect",	"1"				},
+	{ "usb_fs_ext3",		"0"				},
+	{ "usb_fs_fat",			"0"				},
+	{ "usb_automount",		"0"				},
+	{ "script_usbhotplug", 		""				},
+	{ "script_usbmount", 		""				},
+	{ "script_usbumount", 		""				},
+
 // admin-sch
 	{ "sch_rboot",			""				},
 	{ "sch_rcon",			""				},

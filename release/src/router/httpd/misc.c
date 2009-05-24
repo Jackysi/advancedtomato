@@ -23,6 +23,10 @@
 #include <netdb.h>
 #include <net/route.h>
 
+// !!TB
+//#include <sys/mount.h>
+#include <mntent.h>
+
 #include <wlioctl.h>
 #include <wlutils.h>
 
@@ -522,3 +526,236 @@ void wo_resolve(char *url)
 }
 
 
+//!!TB - USB support
+
+#define PROC_SCSI_ROOT	"/proc/scsi"
+#define USB_STORAGE	"usb-storage"
+
+int is_host_mounted(uint host_no)
+{
+	DIR *usb_dev_part;
+	char usb_part[128], usb_disc[128];
+	struct dirent *dp_disc;
+
+	// check if at least one partition of the host is mounted
+	sprintf(usb_disc, "/dev/discs/disc%d", host_no);
+
+	int is_mounted = 0;
+	if ((usb_dev_part = opendir(usb_disc))) {
+		while (usb_dev_part && (dp_disc = readdir(usb_dev_part))) {
+			if (!strcmp(dp_disc->d_name, "..") || !strcmp(dp_disc->d_name, "."))
+				continue;
+
+			sprintf(usb_part, "%s/%s", usb_disc, dp_disc->d_name);
+
+			if (findmntent(usb_part)) {
+				is_mounted = 1;
+				break;
+			}
+		}
+		closedir(usb_dev_part);
+	}
+
+	return is_mounted;
+}
+
+void asp_usbdevices(int argc, char **argv)
+{
+	DIR *usb_dev_disc;
+	struct dirent *dp;
+	uint host_no;
+	int i, attached;
+	FILE *fp;
+	char line[128];
+	char *tmp=NULL, g_usb_vendor[25], g_usb_product[20], g_usb_serial[20];
+
+	web_puts("\nusbdev = [");
+
+	if (!nvram_match("usb_enable", "1")) {
+		web_puts("];\n");
+		return;
+	}
+
+	i = 0;
+	usb_dev_disc = NULL;
+
+#if 1
+	/* find all attached USB storage devices */
+	if ((usb_dev_disc = opendir("/dev/discs"))) {
+		while (usb_dev_disc && (dp = readdir(usb_dev_disc))) {
+			if (!strcmp(dp->d_name, "..") || !strcmp(dp->d_name, "."))
+				continue;
+
+			/* Host no. assigned by scsi driver for this UFD */
+			host_no = atoi(dp->d_name + 4);
+			sprintf(line, "%s/%s-%d/%d", PROC_SCSI_ROOT, USB_STORAGE, host_no, host_no);
+
+			fp = fopen(line, "r");
+			if (!fp) {
+				sprintf(line, "%s/%s/%d", PROC_SCSI_ROOT, USB_STORAGE, host_no);
+				fp = fopen(line, "r");
+			}
+
+			if (fp) {
+				attached = 0;
+				g_usb_vendor[0] = 0;
+				g_usb_product[0] = 0;
+				g_usb_serial[0] = 0;
+				tmp = NULL;
+
+				while (fgets(line, sizeof(line), fp) != NULL) {
+					if (strstr(line, "Attached: Yes")) {
+						attached = 1;
+					}
+					else if (strstr(line, "Vendor")) {
+						tmp = strtok(line, " ");
+						tmp = strtok(NULL, "\n");
+						strcpy(g_usb_vendor, tmp);
+						tmp = NULL;
+					}
+					else if (strstr(line, "Product")) {
+						tmp = strtok(line, " ");
+						tmp = strtok(NULL, "\n");
+						strcpy(g_usb_product, tmp);
+						tmp = NULL;
+					}
+					else if (strstr(line, "Serial Number")) {
+						tmp = strtok(line, " ");
+						tmp = strtok(NULL, " ");
+						tmp = strtok(NULL, "\n");
+						strcpy(g_usb_serial, tmp);
+						tmp = NULL;
+					}
+				}
+				fclose(fp);
+
+				if (attached) {
+					web_printf("%s['Storage','%d','%s','%s','%s', %d]", i ? "," : "",
+						host_no, g_usb_vendor, g_usb_product, g_usb_serial, is_host_mounted(host_no));
+					++i;
+				}
+			}
+		}
+		closedir(usb_dev_disc);
+	}
+
+#else
+	// this version of the code is for broken scsiglue implementation in some kernels
+	// do not use unless there're problems
+
+	DIR *scsi_dir=NULL, *usb_dir=NULL;
+	struct dirent *scsi_dirent;
+
+	/* find all attached USB storage devices */
+	scsi_dir = opendir(PROC_SCSI_ROOT);
+	while (scsi_dir && (scsi_dirent = readdir(scsi_dir)))
+	{
+		if (!strncmp(USB_STORAGE, scsi_dirent->d_name, strlen(USB_STORAGE)))
+		{
+			sprintf(line, "%s/%s", PROC_SCSI_ROOT, scsi_dirent->d_name);
+			usb_dir = opendir(line);
+			while (usb_dir && (dp = readdir(usb_dir)))
+			{
+				if (!strcmp(dp->d_name, "..") || !strcmp(dp->d_name, "."))
+					continue;
+				sprintf(line, "%s/%s/%s", PROC_SCSI_ROOT, scsi_dirent->d_name, dp->d_name);
+
+				fp = fopen(line, "r");
+				if (fp) {
+					attached = 0;
+					g_usb_vendor[0] = 0;
+					g_usb_product[0] = 0;
+					g_usb_serial[0] = 0;
+					tmp = NULL;
+
+					while (fgets(line, sizeof(line), fp) != NULL) {
+						if (strstr(line, "Attached: Yes")) {
+							attached = 1;
+						}
+						else if (strstr(line, "Vendor")) {
+							tmp = strtok(line, " ");
+							tmp = strtok(NULL, "\n");
+							strcpy(g_usb_vendor, tmp);
+							tmp = NULL;
+						}
+						else if (strstr(line, "Product")) {
+							tmp = strtok(line, " ");
+							tmp = strtok(NULL, "\n");
+							strcpy(g_usb_product, tmp);
+							tmp = NULL;
+						}
+						else if (strstr(line, "Serial Number")) {
+							tmp = strtok(line, " ");
+							tmp = strtok(NULL, " ");
+							tmp = strtok(NULL, "\n");
+							strcpy(g_usb_serial, tmp);
+							tmp = NULL;
+						}
+					}
+					fclose(fp);
+					if (attached) {
+						web_printf("%s['Storage','%d','%s','%s','%s', %d]", i ? "," : "",
+							host_no, g_usb_vendor, g_usb_product, g_usb_serial, is_host_mounted(host_no));
+						++i;
+					}
+				}
+
+			}
+			if (usb_dir)
+				closedir(usb_dir);
+		}
+	}
+	if (scsi_dir)
+		closedir(scsi_dir);
+#endif
+
+	/* now look for a printer */
+	if (f_exists("/dev/usb/lp0") && (fp = fopen("/proc/usblp/usblpid", "r"))) {
+		g_usb_vendor[0] = 0;
+		g_usb_product[0] = 0;
+		tmp = NULL;
+
+		while (fgets(line, sizeof(line), fp) != NULL) {
+			if (strstr(line, "Manufacturer")) {
+				tmp = strtok(line, "=");
+				tmp = strtok(NULL, "\n");
+				strcpy(g_usb_vendor, tmp);
+				tmp = NULL;
+			}
+			else if (strstr(line, "Model")) {
+				tmp = strtok(line, "=");
+				tmp = strtok(NULL, "\n");
+				strcpy(g_usb_product, tmp);
+				tmp = NULL;
+			}
+		}
+		if ((strlen(g_usb_product) > 0) || (strlen(g_usb_vendor) > 0)) {
+			web_printf("%s['Printer','','%s','%s','']", i ? "," : "",
+				g_usb_vendor, g_usb_product);
+			++i;
+		}
+
+		fclose(fp);
+	}
+
+	web_puts("];\n");
+}
+
+
+void wo_usbcommand(char *url)
+{
+	char *p;
+
+	web_puts("\nusb = [\n");
+	if ((p = webcgi_get("remove")) != NULL) {
+		nvram_set("usb_web_umount", p);
+		// wait for unmount
+		int i;
+		for (i = 0; i < 10; i++) {
+			sleep(1);
+			if (!nvram_invmatch("usb_web_umount", "")) break;
+		}
+		web_printf("%d", is_host_mounted(atoi(p)));
+	}
+	web_puts("];\n");
+}
