@@ -276,14 +276,14 @@ oldconfig oldconf: roldconf koldconf
 
 busybox:
 	@cd busybox && [ -s .config ] || ( cp config.save .config; $(MAKE) oldconfig )
-	@$(MAKE) -C busybox CFLAGS="-Os"
+	@$(MAKE) -C busybox
 	@cp busybox/.config busybox/config.save
 
 # V=1
 
 busybox-install:
 	rm -rf $(INSTALLDIR)/busybox
-	$(MAKE) -C busybox install CONFIG_PREFIX=$(INSTALLDIR)/busybox CFLAGS="-Os"
+	$(MAKE) -C busybox install CONFIG_PREFIX=$(INSTALLDIR)/busybox
 
 busybox-clean:
 	cd busybox && [ -s .config ] && cp .config config.save
