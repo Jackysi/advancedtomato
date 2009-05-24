@@ -1,5 +1,6 @@
 #
-# Automatically generated make config: don't edit
+# The baseline configuration for Tomato USB.
+# All other build configurations are derived from this.
 #
 TCONFIG_L2TP=y
 TCONFIG_PPTP=y
