@@ -784,6 +784,11 @@ void *xmalloc(size_t siz)
 	return (malloc(siz));
 }
 
+void *xrealloc(void *old, size_t size)
+{
+	return realloc(old, size);
+}
+
 typedef long long off64_t;
 off64_t xlseek(int fd, off64_t offset, int whence)
 {
