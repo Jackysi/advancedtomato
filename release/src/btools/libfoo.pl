@@ -405,6 +405,8 @@ genSO("${root}/usr/lib/libzebra.so", "${router}/zebra/lib/libzebra.a");
 
 #!!TB - Samba
 #genSO("${root}/usr/lib/libsmb.so", "${router}/samba/source/bin/libsmb.a");
+#!!TB - FTP SSL
+genSO("${root}/usr/lib/libssl.so", "${router}/openssl/libssl.a");
 
 #	genSO("${root}/usr/lib/libtamba.so", "${router}/samba3/source/bin/libtamba.a");
 #	genSO("${root}/usr/lib/libiptc.so", "${router}/iptables/libiptc/libiptc.a");
