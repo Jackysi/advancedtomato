@@ -1,8 +1,8 @@
 /*
 
 	Tomato Firmware
-	Copyright (C) 2006-2008 Jonathan Zarate
-	
+	Copyright (C) 2006-2009 Jonathan Zarate
+
 */
 
 #include "rc.h"
@@ -78,7 +78,7 @@ void run_nvscript(const char *nv, const char *arg1, int wtime)
 			fputs("\n", f);
 			fclose(f);
 			chmod(s, 0700);
-			
+
 			chdir("/tmp");
 
 			argv[0] = s;
@@ -93,7 +93,7 @@ void run_nvscript(const char *nv, const char *arg1, int wtime)
 					sleep(1);
 				}
 			}
-			
+
 			chdir("/");
 		}
 	}
@@ -104,18 +104,18 @@ void setup_conntrack(void)
 	unsigned int v[10];
 	const char *p;
 	int i;
-	
+
 	p = nvram_safe_get("ct_tcp_timeout");
 	if (sscanf(p, "%u%u%u%u%u%u%u%u%u%u",
 		&v[0], &v[1], &v[2], &v[3], &v[4], &v[5], &v[6], &v[7], &v[8], &v[9]) == 10) {	// lightly verify
 		f_write_string("/proc/sys/net/ipv4/ip_conntrack_tcp_timeouts", p, 0, 0);
 	}
-	
+
 	p = nvram_safe_get("ct_udp_timeout");
 	if (sscanf(p, "%u%u", &v[0], &v[1]) == 2) {
 		f_write_string("/proc/sys/net/ipv4/ip_conntrack_udp_timeouts", p, 0, 0);
 	}
-	
+
 	p = nvram_safe_get("ct_max");
 	i = atoi(p);
 	if ((i >= 128) && (i <= 10240)) {
@@ -143,7 +143,7 @@ void setup_conntrack(void)
 		modprobe_r("ip_nat_h323");
 		modprobe_r("ip_conntrack_h323");
 	}
-	
+
 	if (!nvram_match("nf_rtsp", "0")) {
 		modprobe("ip_conntrack_rtsp");
 		modprobe("ip_nat_rtsp");
@@ -170,14 +170,14 @@ void set_mac(const char *ifname, const char *nvname, int plus)
 	struct ifreq ifr;
 	int up;
 	int j;
-	
+
 	if ((sfd = socket(AF_INET, SOCK_RAW, IPPROTO_RAW)) < 0) {
 		_dprintf("%s: %s %d\n", ifname, __FUNCTION__, __LINE__);
 		return;
 	}
 
 	strcpy(ifr.ifr_name, ifname);
-	
+
 	up = 0;
 	if (ioctl(sfd, SIOCGIFFLAGS, &ifr) == 0) {
 		if ((up = ifr.ifr_flags & IFF_UP) != 0) {
@@ -190,7 +190,7 @@ void set_mac(const char *ifname, const char *nvname, int plus)
 	else {
 		_dprintf("%s: %s %d\n", ifname, __FUNCTION__, __LINE__);
 	}
-	
+
 	if (!ether_atoe(nvram_safe_get(nvname), (unsigned char *)&ifr.ifr_hwaddr.sa_data)) {
 		if (!ether_atoe(nvram_safe_get("et0macaddr"), (unsigned char *)&ifr.ifr_hwaddr.sa_data)) {
 
@@ -203,7 +203,7 @@ void set_mac(const char *ifname, const char *nvname, int plus)
 			ifr.ifr_hwaddr.sa_data[4] = 0x67;
 			ifr.ifr_hwaddr.sa_data[5] = 0x89;
 		}
-		
+
 		while (plus-- > 0) {
 			for (j = 5; j >= 3; --j) {
 				ifr.ifr_hwaddr.sa_data[j]++;
@@ -211,7 +211,7 @@ void set_mac(const char *ifname, const char *nvname, int plus)
 			}
 		}
 	}
-	
+
 	ifr.ifr_hwaddr.sa_family = ARPHRD_ETHER;
 	if (ioctl(sfd, SIOCSIFHWADDR, &ifr) == -1) {
 		_dprintf("Error setting %s address\n", ifname);
@@ -228,16 +228,19 @@ void set_mac(const char *ifname, const char *nvname, int plus)
 			_dprintf("%s: %s %d\n", ifname, __FUNCTION__, __LINE__);
 		}
 	}
-	
+
 	close(sfd);
 }
 
+/*
 const char *default_wanif(void)
 {
 	return ((strtoul(nvram_safe_get("boardflags"), NULL, 0) & BFL_ENETVLAN) ||
 		(check_hw_type() == HW_BCM4712)) ? "vlan1" : "eth1";
 }
+*/
 
+/*
 const char *default_wlif(void)
 {
 	switch (check_hw_type()) {
@@ -247,15 +250,16 @@ const char *default_wlif(void)
 		return "eth2";
 	}
 	return "eth1";
-	
+
 }
+*/
 
 int _vstrsep(char *buf, const char *sep, ...)
 {
 	va_list ap;
 	char **p;
 	int n;
-	
+
 	n = 0;
 	va_start(ap, sep);
 	while ((p = va_arg(ap, char **)) != NULL) {
@@ -287,13 +291,13 @@ void simple_lock(const char *name)
 			break;
 		}
 		sleep(1);
-	}	
+	}
 }
 
 void killall_tk(const char *name)
 {
 	int n;
-	
+
 	if (killall(name, SIGTERM) == 0) {
 		n = 5;
 		while ((killall(name, 0) == 0) && (n-- > 0)) {
@@ -308,4 +312,26 @@ void killall_tk(const char *name)
 			}
 		}
 	}
+}
+
+long fappend(FILE *out, const char *fname)
+{
+	FILE *in;
+	char buf[1024];
+	int n;
+	long r;
+
+	if ((in = fopen(fname, "r")) == NULL) return -1;
+	r = 0;
+	while ((n = fread(buf, 1, sizeof(buf), in)) > 0) {
+		if (fwrite(buf, 1, n, out) != n) {
+			r = -1;
+			break;
+		}
+		else {
+			r += n;
+		}
+	}
+	fclose(in);
+	return r;
 }

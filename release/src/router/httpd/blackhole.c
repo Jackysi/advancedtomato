@@ -1,7 +1,7 @@
 /*
 
 	Tomato Firmware
-	Copyright (C) 2006-2008 Jonathan Zarate
+	Copyright (C) 2006-2009 Jonathan Zarate
 
 */
 
@@ -21,7 +21,7 @@ void wi_blackhole(char *url, int len, char *boundary)
 	const char *error;
 	int blen;
 	FILE *f;
-	
+
 	if (!post) {
 		send_header(200, NULL, mime_html, 0);
 		web_printf(
@@ -32,12 +32,12 @@ void wi_blackhole(char *url, int len, char *boundary)
 			nvram_safe_get("http_id"));
 		return;
 	}
-	
+
 	check_id();
 
 	cprintf("\nblackhole\n");
 	cprintf("%s<\n", boundary);
-	
+
 	if ((blen = strlen(boundary)) == 0) {
 		error = "no boundary";
 ERROR:
@@ -49,12 +49,12 @@ ERROR:
 		web_printf("ERROR: %s", error);
 		return;
 	}
-	
+
 	if (blen > (sizeof(buf) - 32)) {
 		error = "boundary is too big";
 		goto ERROR;
 	}
-	
+
 	// --b\r\n
 	// <data>\r\n
 	// --b--\r\n
@@ -62,7 +62,7 @@ ERROR:
 		error = "not enough data";
 		goto ERROR;
 	}
-	
+
 	foo = 1;
 	while (len > 0) {
 		if (!web_getline(buf, MIN(len, sizeof(buf)))) {
@@ -87,7 +87,7 @@ ERROR:
 		buf[n] = 0;
 
 		cprintf("%s<\n", buf);
-		
+
 		if (foo) {
 			if ((buf[0] != '-') || (buf[1] != '-') || (strcmp(buf + 2, boundary) != 0)) {
 				error = "boundary not found on first line";
@@ -134,7 +134,7 @@ ERROR:
 		error = "not all data was read";
 		goto ERROR;
 	}
-	
+
 	if (web_read(buf, blen) != blen) {
 		error = "error while reading end boundary";
 		goto ERROR;
@@ -156,13 +156,13 @@ ERROR:
 			cprintf("last >>%s<<\n", buf);
 		 }
 	}
-	
+
 	web_eat(len);
 	cprintf("len=%d\n", len);
 
 	if (tick > 0) n = size / tick;
 		else n = 0;
-	
+
 	send_header(200, NULL, mime_html, 0);
 	web_printf(
 		"<pre>"
@@ -177,7 +177,7 @@ ERROR:
 		web_pipecmd("md5sum /tmp/blackhole", WOF_NONE);
 	}
 	web_puts("</pre>");
-	
+
 	cprintf("done...\n");
 }
 #endif

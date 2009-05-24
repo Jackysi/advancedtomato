@@ -1,7 +1,7 @@
 /*
 
 	Tomato Firmware
-	Copyright (C) 2006-2008 Jonathan Zarate
+	Copyright (C) 2006-2009 Jonathan Zarate
 
 */
 
@@ -35,29 +35,27 @@ void ipt_qos(void)
 	int used_qosox;
 	unsigned long min;
 	int used_bcount;
-	int method;
 	int gum;
-	
+
 	if (!nvram_get_int("qos_enable")) return;
 
 	used_qosox = 0;
 	used_bcount = 0;
 	inuse = 0;
-	method = nvram_get_int("qos_method");	// remove later	zzz
-	gum = (method == 0) ? 0x100 : 0;
+	gum = 0x100;
 
 	ipt_write(
 		":QOSO - [0:0]\n"
 		"-A QOSO -j CONNMARK --restore-mark --mask 0xff\n"
 		"-A QOSO -m connmark ! --mark 0/0xff00 -j RETURN\n");
-			
+
 	g = buf = strdup(nvram_safe_get("qos_orules"));
 	while (g) {
 
 		/*
 
 		addr_type<addr<proto<port_type<port<ipp2p<L7<bcount<desc
-		
+
 		addr_type:
 			0 = any
 			1 = dest ip
@@ -85,7 +83,7 @@ void ipt_qos(void)
 			-1 = disabled
 
 		*/
-	
+
 		if ((p = strsep(&g, ">")) == NULL) break;
 		i = vstrsep(p, "<", &addr_type, &addr, &proto, &port_type, &port, &ipp2p, &layer7, &bcount, &class_prio, &p);
 		if (i == 9) {
@@ -97,15 +95,14 @@ void ipt_qos(void)
 
 		class_num = atoi(class_prio);
 		if ((class_num < 0) || (class_num > 9)) continue;
-		
+
 		i = 1 << class_num;
 		++class_num;
-		if (method == 1) class_num |= 0x200;
-		
+
 		if ((inuse & i) == 0) {
 			inuse |= i;
 		}
-		
+
 		// mac or ip address
 		if ((*addr_type == '1') || (*addr_type == '2')) {	// match ip
 			if (strchr(addr, '-') != NULL) {
@@ -129,7 +126,7 @@ void ipt_qos(void)
 			gum = 0;
 		}
 		strcpy(end, app);
-		
+
 		// -m bcount --range x-y
 		if (*bcount) {
 			min = strtoul(bcount, &p, 10);
@@ -138,7 +135,6 @@ void ipt_qos(void)
 				++p;
 				if (*p == 0) {
 					sprintf(end + strlen(end), "0x%lx", min * 1024);
-//					class_num |= 0x100;	// --range n+ is sticky
 				}
 				else {
 					sprintf(end + strlen(end), "0x%lx-0x%lx", min * 1024, (strtoul(p, NULL, 10) * 1024) - 1);
@@ -152,24 +148,9 @@ void ipt_qos(void)
 				bcount = "";
 			}
 		}
-		
-		//
-		if ((method == 1) && ((app[0]) || (*bcount))) {
-			chain = "QOSOX";
-			if (used_qosox == 0) {
-				used_qosox = 1;
-				ipt_write(":QOSOX - [0:0]\n"
-						  "-I QOSO -m connmark --mark 0/0x0100 -j QOSOX\n");
-			}
-//			if (used_bcount == 1) ipt_write("-I QOSOX -j CONNMARK --set-mark 0/0x200\n");
-		}
-		else {
-			chain = "QOSO";
-		}
-		
-		//
+
+		chain = "QOSO";
 		class_num |= gum;
-		if (nvram_match("qos_sticky", "0")) class_num &= 0xFF;	// default=1
 		sprintf(end + strlen(end), " -j CONNMARK --set-return 0x%x/0xFF\n", class_num);
 
 		// protocol & ports
@@ -187,7 +168,7 @@ void ipt_qos(void)
 					}
 				}
 				else {
-					sport[0] = 0;					
+					sport[0] = 0;
 				}
 				if (proto_num != 6) ipt_write("-A %s -p %s %s %s %s", chain, "udp", sport, saddr, end);
 				if (proto_num != 17) ipt_write("-A %s -p %s %s %s %s", chain, "tcp", sport, saddr, end);
@@ -199,11 +180,11 @@ void ipt_qos(void)
 		else {	// any protocol
 			ipt_write("-A %s %s %s", chain, saddr, end);
 		}
-		
-		
+
+
 	}
 	free(buf);
-	
+
 	if (used_bcount) {
 		ipt_write("-I QOSO -j BCOUNT\n");
 	}
@@ -211,7 +192,6 @@ void ipt_qos(void)
 	i = nvram_get_int("qos_default");
 	if ((i < 0) || (i > 9)) i = 3;	// "low"
 	class_num = i + 1;
-	if (method == 1) class_num |= 0x200;
 	ipt_write(
 		"-A QOSO -j CONNMARK --set-return 0x%x\n"
 		"-A FORWARD -o %s -j QOSO\n"
@@ -232,7 +212,7 @@ void ipt_qos(void)
 			break;
 		}
 	}
-	free(buf);	
+	free(buf);
 }
 
 
@@ -260,8 +240,8 @@ void start_qos(void)
 	int first;
 	char burst_root[32];
 	char burst_leaf[32];
-	
-	
+
+
 	// move me?
 	x = nvram_get_int("ne_vegas");
 	f_write_string("/proc/sys/net/ipv4/tcp_vegas_cong_avoid", x ? "1" : "0", 0, 0);
@@ -270,7 +250,7 @@ void start_qos(void)
 		f_write_string("/proc/sys/net/ipv4/tcp_vegas_beta", nvram_safe_get("ne_vbeta"), 0, 0);
 		f_write_string("/proc/sys/net/ipv4/tcp_vegas_gamma", nvram_safe_get("ne_vgamma"), 0, 0);
 	}
-	
+
 
 	if (!nvram_get_int("qos_enable")) return;
 
@@ -311,9 +291,9 @@ void start_qos(void)
 		if ((!g) || ((p = strsep(&g, ",")) == NULL)) break;
 
 		if ((inuse & (1 << i)) == 0) continue;
-		
+
 		if ((sscanf(p, "%u-%u", &rate, &ceil) != 2) || (rate < 1)) continue;	// 0=off
-		
+
 		if (ceil > 0) sprintf(s, "ceil %ukbit ", calc(bw, ceil));
 			else s[0] = 0;
 		x = (i + 1) * 10;
@@ -334,7 +314,7 @@ void start_qos(void)
 
 /*
 		if (nvram_match("qos_ack", "1")) {
-			fprintf(f, 
+			fprintf(f,
 				"\n"
 				"\t$TFA parent 1: prio 15 protocol ip u32 "
 				"match ip protocol 6 0xff "		// TCP
@@ -359,7 +339,7 @@ void start_qos(void)
 			"match u8 0x10 0xff at 33 "			// ACK only
 			"flowid 1:10\n");
 	}
-	
+
 	if (nvram_get_int("qos_syn")) {
 		//	10000 = ACK
 		//	00010 = SYN
@@ -380,7 +360,7 @@ void start_qos(void)
 			"match u8 0x12 0xff at 33 "			// SYN,ACK
 			"flowid 1:10\n");
 	}
-	
+
 	if (nvram_get_int("qos_fin")) {
 		//	10000 = ACK
 		//	00001 = FIN
@@ -399,7 +379,7 @@ void start_qos(void)
 			"match u8 0x01 0xff at 33 "			// FIN
 			"flowid 1:10\n");
 	}
-	
+
 	if (nvram_get_int("qos_rst")) {
 		//	10000 = ACK
 		//	00100 = RST
@@ -428,9 +408,9 @@ void start_qos(void)
 		10000 = ACK
 		00100 = RST
 		00010 = SYN
-		00001 = FIN		
+		00001 = FIN
 	*/
-	
+
 	if (nvram_get_int("qos_ack")) {
 		fprintf(f,
 			"\n"
@@ -442,7 +422,7 @@ void start_qos(void)
 			"match u8 0x10 0xff at 33 "			// ACK only
 			"flowid 1:10\n");
 	}
-	
+
 	if (nvram_get_int("qos_syn")) {
 		fprintf(f,
 			"\n"
@@ -453,7 +433,7 @@ void start_qos(void)
 			"match u8 0x02 0x02 at 33 "			// SYN,*
 			"flowid 1:10\n");
 	}
-	
+
 	if (nvram_get_int("qos_fin")) {
 		fprintf(f,
 			"\n"
@@ -464,7 +444,7 @@ void start_qos(void)
 			"match u8 0x01 0x01 at 33 "			// FIN,*
 			"flowid 1:10\n");
 	}
-	
+
 	if (nvram_get_int("qos_rst")) {
 		fprintf(f,
 			"\n"
@@ -480,7 +460,7 @@ void start_qos(void)
 	if (nvram_get_int("qos_icmp")) {
 		fputs("\n\t$TFA parent 1: prio 13 protocol ip u32 match ip protocol 1 0xff flowid 1:10\n", f);
 	}
-	
+
 	// ingress
 
 	first = 1;
@@ -488,11 +468,11 @@ void start_qos(void)
 	g = buf = strdup(nvram_safe_get("qos_irates"));
 	for (i = 0; i < 10; ++i) {
 		if ((!g) || ((p = strsep(&g, ",")) == NULL)) break;
-		
+
 		if ((inuse & (1 << i)) == 0) continue;
-		
+
 		if ((rate = atoi(p)) < 1) continue;	// 0 = off
-		
+
 		if (first) {
 			first = 0;
 			fprintf(f,
@@ -508,7 +488,7 @@ void start_qos(void)
 		unsigned int v = u / 25;
 		if (v < 50) v = 50;
 //		const unsigned int v = 200;
-		
+
 		x = i + 1;
 		fprintf(f,
 			"# ingress %d: %u%%\n"
@@ -516,7 +496,7 @@ void start_qos(void)
 				i, rate,
 				x, x, u, v, x);
 	}
-	free(buf);	
+	free(buf);
 
 	fputs(
 		"\t;;\n"
@@ -539,7 +519,7 @@ void start_qos(void)
 void stop_qos(void)
 {
 	eval((char *)qosfn, "stop");
-/*	
+/*
 	if (!nvram_match("debug_keepfiles", "1")) {
 		unlink(qosfn);
 	}

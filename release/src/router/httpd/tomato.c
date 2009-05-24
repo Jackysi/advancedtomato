@@ -1,7 +1,7 @@
 /*
 
 	Tomato Firmware
-	Copyright (C) 2006-2008 Jonathan Zarate
+	Copyright (C) 2006-2009 Jonathan Zarate
 
 */
 
@@ -28,9 +28,9 @@ void asp_resmsg(int argc, char **argv);
 static void wo_tomato(char *url);
 static void wo_update(char *url);
 static void wo_service(char *url);
-static void wo_logout(char *url);
 static void wo_shutdown(char *url);
 static void wo_nvcommit(char *url);
+//	static void wo_logout(char *url);
 
 
 // ----------------------------------------------------------------------------
@@ -68,11 +68,11 @@ void exec_service(const char *action)
 */
 }
 
-void wi_generic_noid(char *url, int len, char *boundary)
+static void wi_generic_noid(char *url, int len, char *boundary)
 {
 	if (post == 1) {
 		if (len >= (32 * 1024)) {
-			syslog(LOG_WARNING, "POST length exceeded maximum allowed");
+//			syslog(LOG_WARNING, "POST max");
 			exit(1);
 		}
 
@@ -86,7 +86,6 @@ void wi_generic_noid(char *url, int len, char *boundary)
 			exit(1);
 		}
 		post_buf[len] = 0;
-		_dprintf("post_buf=%s\n", post_buf);
 		webcgi_init(post_buf);
 	}
 }
@@ -94,7 +93,7 @@ void wi_generic_noid(char *url, int len, char *boundary)
 void wi_generic(char *url, int len, char *boundary)
 {
 	wi_generic_noid(url, len, boundary);
-	check_id();
+	check_id(url);
 }
 
 static void wo_blank(char *url)
@@ -104,6 +103,9 @@ static void wo_blank(char *url)
 
 static void wo_favicon(char *url)
 {
+	send_header(200, NULL, "image/vnd.microsoft.icon", 0);
+	do_file(url);
+/*
 	if (nvram_match("web_favicon", "1")) {
 		send_header(200, NULL, "image/vnd.microsoft.icon", 0);
 		do_file(url);
@@ -111,6 +113,7 @@ static void wo_favicon(char *url)
 	else {
 		send_error(404, NULL, NULL);
 	}
+*/
 }
 
 static void wo_cfe(char *url)
@@ -132,7 +135,7 @@ static void wo_iptables(char *url)
 static void wo_spin(char *url)
 {
 	char s[64];
-	
+
 	strlcpy(s, nvram_safe_get("web_css"), sizeof(s));
 	strlcat(s, "_spin.gif", sizeof(s));
 	if (f_exists(s)) do_file(s);
@@ -174,7 +177,7 @@ const struct mime_handler mime_handlers[] = {
 
 	{ "logout.asp",			NULL,					0,	wi_generic,			wo_asp,			1 },
 	{ "clearcookies.asp",	NULL,					0,	wi_generic,			wo_asp,			1 },
-	
+
 //	{ "spin.gif",		NULL,						0,	wi_generic_noid,	wo_spin,		1 },
 
 	{ "**.asp",			NULL,						0,	wi_generic_noid,	wo_asp,			1 },
@@ -190,7 +193,7 @@ const struct mime_handler mime_handlers[] = {
 	{ "**.bin",			mime_binary,				0,	wi_generic_noid,	do_file,		1 },
 	{ "**.bino",		mime_octetstream,			0,	wi_generic_noid,	do_file,		1 },
 	{ "favicon.ico",	NULL,						5,	wi_generic_noid,	wo_favicon,		1 },
-	
+
 
 	{ "dhcpc.cgi",		NULL,						0,	wi_generic,			wo_dhcpc,		1 },
 	{ "dhcpd.cgi",		mime_javascript,			0,	wi_generic,			wo_dhcpd,		1 },
@@ -205,14 +208,9 @@ const struct mime_handler mime_handlers[] = {
 	{ "resolve.cgi",	mime_javascript,			0,	wi_generic,			wo_resolve,		1 },
 	{ "expct.cgi",		mime_html,					0,	wi_generic,			wo_expct,		1 },
 	{ "service.cgi",	NULL,						0,	wi_generic,			wo_service,		1 },
-	{ "logout.cgi",		NULL,	   		 			0,	wi_generic,			wo_logout,		0 },
+//	{ "logout.cgi",		NULL,	   		 			0,	wi_generic,			wo_logout,		0 },	// see httpd.c
 	{ "shutdown.cgi",	mime_html,					0,	wi_generic,			wo_shutdown,	1 },
 
-
-#if TOMATO_SL
-	{ "usb.cgi",		NULL,						0,	wi_generic,			wo_usb,			1 },
-	{ "umount.cgi",		NULL,						0,	wi_generic,			wo_umount,		1 },
-#endif
 #ifdef BLACKHOLE
 	{ "blackhole.cgi",	NULL,						0,	wi_blackhole,		NULL,			1 },
 #endif
@@ -359,7 +357,7 @@ static const nvset_t nvset_list[] = {
 	{ "ntp_kiss",			V_LENGTH(0, 255)	},
 
 // basic-static
-	{ "dhcpd_static",		V_LENGTH(0, 53*101)	},	// 53 (max chars per entry) x 100 entries
+	{ "dhcpd_static",		V_LENGTH(0, 85*101)	},	// 85 (max chars per entry) x 100 entries
 
 // basic-ddns
 	{ "ddnsx0",				V_LENGTH(0, 2048)	},
@@ -367,6 +365,8 @@ static const nvset_t nvset_list[] = {
 	{ "ddnsx0_cache",		V_LENGTH(0, 1)		},	// only to clear
 	{ "ddnsx1_cache",		V_LENGTH(0, 1)		},
 	{ "ddnsx_ip",			V_LENGTH(0, 32)		},
+	{ "ddnsx_save",			V_01				},
+	{ "ddnsx_refresh",		V_RANGE(0, 365)		},
 
 // basic-network
 	// WAN
@@ -385,6 +385,7 @@ static const nvset_t nvset_list[] = {
 	{ "ppp_redialperiod",	V_RANGE(1, 86400)	},
 	{ "mtu_enable",			V_01				},
 	{ "wan_mtu",			V_RANGE(576, 1500)	},
+	{ "wan_islan",			V_01				},
 
 	// LAN
 	{ "lan_ipaddr",			V_IP				},
@@ -442,8 +443,8 @@ static const nvset_t nvset_list[] = {
 
 // basic-wfilter
 	{ "wl_macmode",			V_NONE				},	// allow, deny, disabled
-	{ "wl_maclist",			V_LENGTH(0, 18*101)	},	// 18 x 100		(11:22:33:44:55:66 ...)
-	{ "macnames",			V_LENGTH(0, 62*101)	},	// 62 (12+1+48+1) x 50	(112233445566<..>)		todo: re-use -- zzz
+	{ "wl_maclist",			V_LENGTH(0, 18*201)	},	// 18 x 200		(11:22:33:44:55:66 ...)
+	{ "macnames",			V_LENGTH(0, 62*201)	},	// 62 (12+1+48+1) x 50	(112233445566<..>)		todo: re-use -- zzz
 
 // advanced-ctnf
 	{ "ct_max",				V_RANGE(128, 10240)	},
@@ -466,7 +467,7 @@ static const nvset_t nvset_list[] = {
 	{ "dnsmasq_custom",		V_TEXT(0, 2048)		},
 //	{ "dnsmasq_norw",		V_01				},
 
-// advanced-firewall		// todo: moveme
+// advanced-firewall
 	{ "block_wan",			V_01				},
 	{ "multicast_pass",		V_01				},
 	{ "block_loopback",		V_01				},
@@ -520,32 +521,19 @@ static const nvset_t nvset_list[] = {
 	{ "wl_nmcsidx",			V_RANGE(-2, 15),	},	// -2 - 15
 #endif
 
-/*
-// advanced-watchdog
-	{ "wd_en",				V_01				},
-	{ "wd_atp0",			V_LENGTH(1, 48)		},
-	{ "wd_atp1",			V_LENGTH(0, 48)		},
-	{ "wd_atp2",			V_LENGTH(0, 48)		},
-	{ "wd_atp3",			V_LENGTH(0, 48)		},
-	{ "wd_atp4",			V_LENGTH(0, 48)		},
-	{ "wd_mxr",				V_NUM				},
-	{ "wd_rdy",				V_NUM				},
-	{ "wd_cki",				V_NUM				},
-	{ "wd_fdm",				V_NUM				},
-	{ "wd_aof",				V_NUM				},
-*/
-
 // forward-dmz
 	{ "dmz_enable",			V_01				},
 	{ "dmz_ipaddr",			V_LENGTH(0, 15)		},
-	{ "dmz_sip",			V_LENGTH(0, 32)		},
+	{ "dmz_sip",			V_LENGTH(0, 512)	},
 
 // forward-upnp
-	{ "upnp_enable",		V_01				},
+	{ "upnp_enable",		V_NUM				},
+#ifndef USE_MINIUPNPD
 	{ "upnp_mnp",			V_01				},
 //	{ "upnp_config",		V_01				},
 	{ "upnp_ssdp_interval", V_RANGE(10, 9999)	},
 	{ "upnp_max_age",		V_RANGE(5, 9999)	},
+#endif
 
 // forward-basic
 	{ "portforward",		V_LENGTH(0, 4096)	},
@@ -569,7 +557,7 @@ static const nvset_t nvset_list[] = {
 	{ "http_lanport",		V_PORT				},
 	{ "https_lanport",		V_PORT				},
 	{ "web_wl_filter",		V_01				},
-	{ "web_favicon",		V_01				},
+//	{ "web_favicon",		V_01				},
 	{ "web_css",			V_LENGTH(1, 32)		},
 	{ "http_wanport",		V_PORT				},
 	{ "telnetd_eas",		V_01				},
@@ -580,7 +568,8 @@ static const nvset_t nvset_list[] = {
 	{ "sshd_remote",		V_01				},
 	{ "sshd_rport", 		V_PORT				},
 	{ "sshd_authkeys",		V_TEXT(0, 4096)		},
-	{ "rmgt_sip",			V_LENGTH(0, 32)		},
+	{ "rmgt_sip",			V_LENGTH(0, 512)	},
+	{ "ne_shlimit",			V_TEXT(1, 50)		},
 
 // admin-bwm
 	{ "rstats_enable",		V_01				},
@@ -592,7 +581,6 @@ static const nvset_t nvset_list[] = {
 	{ "rstats_bak",			V_01				},
 
 // admin-buttons
-	{ "sesx_led",			V_RANGE(0, 255)		},	// amber, white, aoss
 	{ "sesx_b0",			V_RANGE(0, 4)		},	// 0-4: toggle wireless, reboot, shutdown, script
 	{ "sesx_b1",			V_RANGE(0, 4)		},	// "
 	{ "sesx_b2",			V_RANGE(0, 4)		},	// "
@@ -638,8 +626,8 @@ static const nvset_t nvset_list[] = {
 	{ "log_events",			V_TEXT(0, 32)		},	// "acre,crond,ntp"
 
 // admin-cifs
-	{ "cifs1",				V_LENGTH(5, 384)	},
-	{ "cifs2",				V_LENGTH(5, 384)	},
+	{ "cifs1",				V_LENGTH(1, 1024)	},
+	{ "cifs2",				V_LENGTH(1, 1024)	},
 
 // admin-jffs2
 	{ "jffs2_on",			V_01				},
@@ -660,7 +648,7 @@ static const nvset_t nvset_list[] = {
 	{ "qos_default",		V_RANGE(0, 9)		},
 	{ "qos_irates",			V_LENGTH(0, 128)	},
 	{ "qos_orates",			V_LENGTH(0, 128)	},
-	
+
 	{ "ne_vegas",			V_01				},
 	{ "ne_valpha",			V_NUM				},
 	{ "ne_vbeta",			V_NUM				},
@@ -848,9 +836,7 @@ static void wo_tomato(char *url)
 
 	if (commit) {
 		_dprintf("commit from tomato.cgi\n");
-		if (!nvram_match("debug_nocommit", "1")) {
-			nvram_commit();
-		}
+		nvram_commit_x();
 	}
 
 	if ((v = webcgi_get("_service")) != NULL) {
@@ -917,41 +903,7 @@ static void wo_service(char *url)
 	common_redirect();
 }
 
-
-
 /*
-static void wo_login(char *url)
-{
-	const char *u;
-	const char *p;
-
-	u = webcgi_safeget("user", "");
-	p = webcgi_safeget("pass", "");
-
-	if ((*u) && (*p)) {
-		if ((strcmp(u, "root") == 0) || (strcmp(u, "admin") == 0)) {
-			if (strcmp(p, nvram_safe_get("http_password")) == 0) {
-				nvram_set("web_logout", "0");
-				common_redirect();
-				return;
-			}
-		}
-	}
-
-	web_printf("<form action='login'><input type='text' name='user'><input type='text' name='pass'></form>");
-}
-*/
-
-#if 0
-void gen_sessnum(void)
-{
-	char s[256];
-
-	sprintf(s, "%llx", (unsigned long long)time(NULL) * rand());
-	nvram_set("web_sess", s);
-}
-#endif
-
 static void wo_logout(char *url)
 {
 	char s[256];
@@ -965,35 +917,8 @@ static void wo_logout(char *url)
 	else {
 		send_authenticate(NULL);
 	}
-
-#if 0
-	gen_sessnum();
-#endif
-
-	//
-#if 0
-	char *c;
-	char *p;
-
-	p = nvram_safe_get("web_out");
-	c = inet_ntoa(clientsai.sin_addr);
-	if ((c != NULL) && (!find_word(p, c))) {
-		while (strlen(p) > 128) {
-			p = strchr(p, ',');
-			if (!p) break;
-			++p;
-		}
-		if ((p) && (*p)) {
-			sprintf(s, "%s,%s", p, c);
-			nvram_set("web_out", s);
-		}
-		else {
-			nvram_set("web_out", c);
-		}
-		nvram_unset("web_outx");
-	}
-#endif
 }
+*/
 
 static void wo_shutdown(char *url)
 {

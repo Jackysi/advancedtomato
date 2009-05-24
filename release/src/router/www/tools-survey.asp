@@ -1,7 +1,7 @@
 <!DOCTYPE HTML PUBLIC '-//W3C//DTD HTML 4.0//EN'>
 <!--
 	Tomato GUI
-	Copyright (C) 2006-2008 Jonathan Zarate
+	Copyright (C) 2006-2009 Jonathan Zarate
 	http://www.polarcloud.com/tomato/
 
 	For use with Tomato Firmware only.
@@ -110,7 +110,7 @@ sg.populate = function()
 		setMsg("error: " + wlscandata[0][1]);
 		return;
 	}
-	
+
 	for (i = 0; i < wlscandata.length; ++i) {
 		s = wlscandata[i];
 		e = null;
@@ -185,7 +185,7 @@ sg.populate = function()
 
 	for (i = 0; i < entries.length; ++i) {
 		var seen, m, mac;
-		
+
 		e = entries[i];
 
 		if (!e.saw) {
@@ -197,7 +197,7 @@ sg.populate = function()
 		e.saw = 0;
 
 		e.qual = MAX(e.rssi - e.noise, 0);
-		
+
 		seen = e.lastSeen.toWHMS();
 		if (useAjax()) {
 			m = Math.floor(((new Date()).getTime() - e.firstSeen.getTime()) / 60000);

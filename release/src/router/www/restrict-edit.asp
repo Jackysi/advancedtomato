@@ -1,7 +1,7 @@
 <!DOCTYPE HTML PUBLIC '-//W3C//DTD HTML 4.0//EN'>
 <!--
 	Tomato GUI
-	Copyright (C) 2006-2008 Jonathan Zarate
+	Copyright (C) 2006-2009 Jonathan Zarate
 	http://www.polarcloud.com/tomato/
 
 	For use with Tomato Firmware only.
@@ -110,7 +110,7 @@ cg.setup = function() {
 			++count;
 		}
 	}
-	
+
 	a = E('_f_comp_all')
 	if (count) {
 		a.value = ex ? 2 : 1;
@@ -236,7 +236,7 @@ function verifyFields(focused, quiet)
 	elem.display(PR('res-bp-grid'), PR('_f_block_http'), PR('_f_activex'), b && !E('_f_block_all').checked);
 
 	ferror.clear('_f_comp_all');
-	
+
 	e = E('_f_block_http');
 	e.value = e.value.replace(/[|"']/g, ' ');
 	if (!v_length(e, quiet, 0, 2048 - 16)) return 0;
@@ -258,7 +258,7 @@ function remove()
 	if (!confirm('Delete this rule?')) return;
 
 	E('delete-button').disabled = 1;
-	
+
 	e = E('_rrule');
 	e.name = 'rrule' + rruleN;
 	e.value = '';
@@ -288,7 +288,7 @@ function save()
 		if (n == 0) n = 0x7F;
 	}
 	data.push(n);
-	
+
 	if (E('rt_norm').checked) {
 		e = E('_f_comp_all');
 		if (e.value != 0) {
@@ -309,19 +309,19 @@ function save()
 		}
 		else {
 			a = bpg.getAllData();
-			b = [];		
+			b = [];
 			for (i = 0; i < a.length; ++i) {
 				a[i][2] = a[i][2].replace(/-/g, ':');
 				b.push(a[i].join('<'));
 			}
 			data.push(b.join('>'));
 			data.push(E('_f_block_http').value.replace(/\r+/g, ' ').replace(/\n+/g, '\n').replace(/ +/g, ' ').replace(/^\s+|\s+$/g, ''));
-			
+
 			n = 0;
 			if (E('_f_activex').checked) n = 1;
 			if (E('_f_flash').checked) n |= 2;
 			if (E('_f_java').checked) n |= 4;
-			data.push(n);		
+			data.push(n);
 		}
 	}
 	else {
@@ -331,12 +331,12 @@ function save()
 
 	data.push(E('_f_desc').value);
 	data = data.join('|');
-	
+
 	if (data.length >= 2048) {
 		alert('This rule is too big. Please reduce by ' + (data.length - 2048) + ' characters.');
 		return;
 	}
-	
+
 	e = E('_rrule');
 	e.name = 'rrule' + rruleN;
 	e.value = data;

@@ -1,7 +1,7 @@
 /*
 
 	Tomato Firmware
-	Copyright (C) 2006-2008 Jonathan Zarate
+	Copyright (C) 2006-2009 Jonathan Zarate
 
 */
 
@@ -26,7 +26,7 @@ void wo_viewlog(char *url)
 	int n;
 
 	if (!logok()) return;
-	
+
 	if ((p = webcgi_get("find")) != NULL) {
 		send_header(200, NULL, mime_plain, 0);
 		if (strlen(p) > 64) return;
@@ -52,7 +52,7 @@ void wo_viewlog(char *url)
 		web_pipecmd(s, WOF_NONE);
 		return;
 	}
-	
+
 	if ((p = webcgi_get("which")) == NULL) return;
 	if (strcmp(p, "all") == 0) {
 		send_header(200, NULL, mime_plain, 0);
@@ -69,7 +69,7 @@ void wo_viewlog(char *url)
 
 void wo_syslog(char *url)
 {
-	if (!logok()) return;	
+	if (!logok()) return;
 	send_header(200, NULL, mime_binary, 0);
 	do_file("/var/log/messages.0");
 	do_file("/var/log/messages");

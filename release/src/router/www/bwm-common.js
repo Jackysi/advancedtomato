@@ -1,6 +1,6 @@
 /*
 	Tomato GUI
-	Copyright (C) 2006-2008 Jonathan Zarate
+	Copyright (C) 2006-2009 Jonathan Zarate
 	http://www.polarcloud.com/tomato/
 
 	For use with Tomato Firmware only.
@@ -23,7 +23,7 @@ var drawColor = 0;
 var avgMode = 0;
 var avgLast = -1;
 var colorX = 0;
-var colors = [	
+var colors = [
 	['Green &amp; Blue', '#118811', '#6495ed'], ['Blue &amp; Orange', '#003EBA', '#FF9000'],
 	['Blue &amp; Red', '#003EDD', '#CC4040'], ['Blue', '#22f', '#225'], ['Gray', '#000', '#999'],
 	['Red &amp; Black', '#d00', '#000']];
@@ -46,7 +46,7 @@ function showCTab()
 function showSelectedOption(prefix, prev, now)
 {
 	var e;
-	
+
 	elem.removeClass(prefix + prev, 'selected');	// safe if prev doesn't exist
 	if ((e = E(prefix + now)) != null) {
 		elem.addClass(e, 'selected');
@@ -130,25 +130,25 @@ function showTab(name)
 	var i;
 	var rx, tx;
 	var e;
-	
+
 	ifname = name.replace('speed-tab-', '');
 	cookie.set(cprefix + 'tab', ifname, 14);
 	tabHigh(name);
 
 	h = speed_history[ifname];
 	if (!h) return;
-	
+
 	E('rx-current').innerHTML = xpsb(h.rx[h.rx.length - 1] / updateDiv);
 	E('rx-avg').innerHTML = xpsb(h.rx_avg);
 	E('rx-max').innerHTML = xpsb(h.rx_max);
-	
+
 	E('tx-current').innerHTML = xpsb(h.tx[h.tx.length - 1] / updateDiv);
 	E('tx-avg').innerHTML = xpsb(h.tx_avg);
 	E('tx-max').innerHTML = xpsb(h.tx_max);
-	
+
 	E('rx-total').innerHTML = scaleSize(h.rx_total);
 	E('tx-total').innerHTML = scaleSize(h.tx_total);
-	
+
 	if (svgReady) {
 		max = scaleMode ? MAX(h.rx_max, h.tx_max) : xx_max
 		if (max > 12500) max = Math.round((max + 12499) / 12500) * 12500;
@@ -171,7 +171,7 @@ function loadData()
 	old = tabs;
 	tabs = [];
 	clock = new Date();
-	
+
 	if (!speed_history) {
 		speed_history = [];
 	}
@@ -182,7 +182,7 @@ function loadData()
 				delete speed_history[i];
 				continue;
 			}
-			
+
 			if (updateReTotal) {
 				h.rx_total = h.rx_max = 0;
 				h.tx_total = h.tx_max = 0;
@@ -197,7 +197,7 @@ function loadData()
 				h.rx_avg = h.rx_total / updateMaxL;
 				h.tx_avg = h.tx_total / updateMaxL;
 			}
-			
+
 			if (updateDiv > 1) {
 				h.rx_max /= updateDiv;
 				h.tx_max /= updateDiv;
@@ -266,7 +266,7 @@ function initCommon(defAvg, defDrawMode, defDrawColor)
 		c[0] = escapeHTML(c[0]);
 		colors.push(c.splice(0, 3));
 	}
-	
+
 	c = (cookie.get(cprefix + 'color') || '').split(',');
 	if (c.length == 2) {
 		drawColor = fixInt(c[0], 0, colors.length - 1, defDrawColor);
@@ -282,13 +282,13 @@ function initCommon(defAvg, defDrawMode, defDrawColor)
 
 	avgMode = fixInt(cookie.get(cprefix + 'avg'), 1, 10, defAvg);
 	showAvg();
-	
+
 	// if just switched
 	if ((nvram.wan_proto == 'disabled') || (nvram.wan_proto == 'wet')) {
-		nvram.wan_ifname = '';	
+		nvram.wan_ifname = '';
 	}
-	
+
 	htmReady = 1;
-	initData();	
+	initData();
 	E('refresh-spinner').style.visibility = 'hidden';
 }

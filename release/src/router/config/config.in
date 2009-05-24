@@ -1,10 +1,6 @@
 
 mainmenu "Tomato Configuration"
 
-#	config TCONFIG_HEARTBEAT
-#		bool "Heartbeat"
-#		default y
-
 config TCONFIG_L2TP
 	bool "L2TP"
 	default y
@@ -44,9 +40,5 @@ config TCONFIG_L7
 config TCONFIG_L7PAT
 	bool "Standard Layer 7 Patterns"
 	depends on TCONFIG_L7
-	default y
-
-config TCONFIG_IPP2P
-	bool "IPP2P Netfilter"
 	default y
 

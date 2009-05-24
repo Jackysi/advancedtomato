@@ -1,7 +1,7 @@
 <!DOCTYPE HTML PUBLIC '-//W3C//DTD HTML 4.0//EN'>
 <!--
 	Tomato GUI
-	Copyright (C) 2006-2008 Jonathan Zarate
+	Copyright (C) 2006-2009 Jonathan Zarate
 	http://www.polarcloud.com/tomato/
 
 	For use with Tomato Firmware only.
@@ -23,7 +23,6 @@
 <script type='text/javascript'>
 
 //	<% nvram("block_wan,multicast_pass,nf_loopback,ne_syncookies"); %>
-
 
 function verifyFields(focused, quiet)
 {
@@ -69,10 +68,10 @@ function save()
 <div class='section'>
 <script type='text/javascript'>
 createFieldTable('', [
-	{ title: 'Respond To ICMP Ping', name: 'f_icmp', type: 'checkbox', value: nvram.block_wan == '0' },
-	{ title: 'Allow Multicast', name: 'f_multicast', type: 'checkbox', value: nvram.multicast_pass == '1' },
-	{ title: 'NAT Loopback', name: 'nf_loopback', type: 'select', options: [[0,'All'],[1,'Forwarded Only'],[2,'Disabled']], value: fixInt(nvram.nf_loopback, 0, 2, 1) },
-	{ title: 'SYN Cookies', name: 'f_syncookies', type: 'checkbox', value: nvram.ne_syncookies != '0' }
+	{ title: 'Respond to ICMP ping', name: 'f_icmp', type: 'checkbox', value: nvram.block_wan == '0' },
+	{ title: 'Allow multicast', name: 'f_multicast', type: 'checkbox', value: nvram.multicast_pass == '1' },
+	{ title: 'NAT loopback', name: 'nf_loopback', type: 'select', options: [[0,'All'],[1,'Forwarded Only'],[2,'Disabled']], value: fixInt(nvram.nf_loopback, 0, 2, 1) },
+	{ title: 'Enable SYN cookies', name: 'f_syncookies', type: 'checkbox', value: nvram.ne_syncookies != '0' },
 ]);
 </script>
 </div>
