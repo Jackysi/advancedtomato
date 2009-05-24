@@ -126,6 +126,10 @@ install package: $(obj-install) $(LINUXDIR)/.config
 	cd $(TARGETDIR)/lib/modules/2.4.20/kernel/drivers/net && mv wl/* . && rm -rf wl
 	cd $(TARGETDIR)/lib/modules/2.4.20/kernel/fs && mv cifs/* . && rm -rf cifs
 	cd $(TARGETDIR)/lib/modules/2.4.20/kernel/fs && mv jffs2/* . && rm -rf jffs2
+	cd $(TARGETDIR)/lib/modules/2.4.20/kernel/lib && mv zlib_inflate/* . && rm -rf zlib_inflate
+	cd $(TARGETDIR)/lib/modules/2.4.20/kernel/lib && mv zlib_deflate/* . && rm -rf zlib_deflate
+	rm -rf $(TARGETDIR)/lib/modules/2.4.20/pcmcia
+
 ##!!TB
 	cd $(TARGETDIR)/lib/modules/2.4.20/kernel/fs && mv ext2/* . && rm -rf ext2 || true
 	cd $(TARGETDIR)/lib/modules/2.4.20/kernel/fs && mv ext3/* . && rm -rf ext3 || true
@@ -135,14 +139,13 @@ install package: $(obj-install) $(LINUXDIR)/.config
 ifneq ($(TCONFIG_SAMBASRV),y)
 	rm -rf $(TARGETDIR)/lib/modules/2.4.20/kernel/fs/nls || true
 endif
+ifneq ($(TCONFIG_USB_EXTRAS),y)
+	rm -rf $(TARGETDIR)/lib/modules/2.4.20/kernel/drivers/block || true
+endif
 	cd $(TARGETDIR)/lib/modules/2.4.20/kernel/fs && mv nls/* . && rm -rf nls || true
 	cd $(TARGETDIR)/lib/modules/2.4.20/kernel/drivers/usb && mv hcd/* . && rm -rf hcd || true
 	cd $(TARGETDIR)/lib/modules/2.4.20/kernel/drivers/usb && mv host/* . && rm -rf host || true
 	cd $(TARGETDIR)/lib/modules/2.4.20/kernel/drivers/usb && mv storage/* . && rm -rf storage || true
-
-	cd $(TARGETDIR)/lib/modules/2.4.20/kernel/lib && mv zlib_inflate/* . && rm -rf zlib_inflate
-	cd $(TARGETDIR)/lib/modules/2.4.20/kernel/lib && mv zlib_deflate/* . && rm -rf zlib_deflate
-	rm -rf $(TARGETDIR)/lib/modules/2.4.20/pcmcia
 
 # misc
 	for dir in $(wildcard $(patsubst %,$(INSTALLDIR)/%,$(obj-y))) ; do \

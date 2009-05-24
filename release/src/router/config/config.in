@@ -55,3 +55,7 @@ config TCONFIG_FTP_SSL
 config TCONFIG_SAMBASRV
 	bool "Samba File Sharing"
 	default y
+
+config TCONFIG_USB_EXTRAS
+	bool "Additional modules and utilities"
+	default n
