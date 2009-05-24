@@ -1,7 +1,7 @@
 <!DOCTYPE HTML PUBLIC '-//W3C//DTD HTML 4.0//EN'>
 <!--
 	Tomato GUI
-	Copyright (C) 2006-2008 Jonathan Zarate
+	Copyright (C) 2006-2009 Jonathan Zarate
 	http://www.polarcloud.com/tomato/
 
 	For use with Tomato Firmware only.
@@ -44,12 +44,12 @@ function save()
 function genData()
 {
 	var w, i, h, t;
-	
+
 	w = window.open('', 'tomato_data_d');
 	w.document.writeln('<pre>');
 	for (i = 0; i < daily_history.length; ++i) {
 		h = daily_history[i];
-		t = getYMD(h[0]);		
+		t = getYMD(h[0]);
 		w.document.writeln([t[0], t[1] + 1, t[2], h[1], h[2]].join(','));
 	}
 	w.document.writeln('</pre>');
@@ -78,8 +78,8 @@ function redraw()
 		E('last-dates').innerHTML = '(' + ymdText(ymd[0], ymd[1], ymd[2]) + ' to ' + ymdText(d.getFullYear(), d.getMonth(), d.getDate()) + ')';
 
 		lastt = ((d.getFullYear() - 1900) << 16) | (d.getMonth() << 8) | d.getDate();
-	}			
-	
+	}
+
 	lastd = 0;
 	lastu = 0;
 	rows = 0;
@@ -88,7 +88,7 @@ function redraw()
 
 	grid = '<table class="bwmg" cellspacing="1">';
 	grid += makeRow('header', 'Date', 'Download', 'Upload', 'Total');
-	
+
 	for (i = 0; i < daily_history.length; ++i) {
 		h = daily_history[i];
 		ymd = getYMD(h[0]);
@@ -119,8 +119,8 @@ function init()
 			E('scale').value = scale = RegExp.$1 * 1;
 		}
 	}
-	
-	initDate('ymd');	
+
+	initDate('ymd');
 	daily_history.sort(cmpHist);
 	redraw();
 }

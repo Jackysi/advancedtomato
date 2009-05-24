@@ -11,6 +11,14 @@
 
 #include "libbb.h"
 
+/* All known arches use small ints for signals */
+smallint bb_got_signal;
+
+void record_signo(int signo)
+{
+	bb_got_signal = signo;
+}
+
 /* Saves 2 bytes on x86! Oh my... */
 int FAST_FUNC sigaction_set(int signum, const struct sigaction *act)
 {
@@ -39,7 +47,7 @@ void FAST_FUNC bb_signals(int sigs, void (*f)(int))
 	}
 }
 
-void FAST_FUNC bb_signals_recursive(int sigs, void (*f)(int))
+void FAST_FUNC bb_signals_recursive_norestart(int sigs, void (*f)(int))
 {
 	int sig_no = 0;
 	int bit = 1;

@@ -1,7 +1,7 @@
 /*
 
 	ntpc/ntpsync
-	Copyright (C) 2006-2008 Jonathan Zarate
+	Copyright (C) 2006-2009 Jonathan Zarate
 
 	Licensed under GNU GPL v2 or later.
 
@@ -95,7 +95,7 @@ static int ntpc(struct in_addr addr)
 			}
 			else {
 				gettimeofday(&rxtime, NULL);
-				
+
 				u = ntohl(packet[0]);
 
 				_dprintf("u = 0x%08x\n", u);
@@ -114,14 +114,14 @@ static int ntpc(struct in_addr addr)
 
 					// notes:
 					//	- Windows' ntpd returns vn=3, stratum=0
-	
+
 					if ((u & 0x00FF0000) == 0) {			// stratum == 0
 						printf("Received stratum=0\n");
 						if (!nvram_match("ntpc_kiss_ignore", "1")) {
 							return 2;
 						}
 					}
-				
+
 					ntpt = ntohl(packet[I_TXTIME]) - TIMEFIX;
 					t = (rxtime.tv_sec - txtime.tv_sec) >> 1;
 					diff = (ntpt - rxtime.tv_sec) + t;
@@ -131,11 +131,11 @@ static int ntpc(struct in_addr addr)
 					_dprintf("ntpt   = %ld\n", ntpt);
 					_dprintf("rtt/2  = %ld\n", t);
 					_dprintf("diff   = %ld\n", diff);
-					
+
 //					if (!nvram_match("ntp_relaxed", "0")) {
 //						if ((diff >= -1) && (diff <= 1)) diff = 0;
 //					}
-					
+
 					if (diff != 0) {
 						gettimeofday(&tv, NULL);
 						tv.tv_sec  += diff;
@@ -187,11 +187,11 @@ static int ntpc_main(int argc, char **argv)
 			printf("Unable to resolve: %s\n", argv[i]);
 		}
 	}
-	
+
 	if (argc < 2) {
 		printf("Usage: ntpc <server>\n");
 	}
-	
+
 	return 1;
 }
 
@@ -217,7 +217,7 @@ static int ntpsync_main(int argc, char **argv)
 	enum { USER, INIT, CRON } mode;
 
 	nu = nvram_get_int("ntp_updates");
-	
+
 	mode = USER;
 	if (argc == 2) {
 		if (strcmp(argv[1], "--cron") == 0) {		// try for a few minutes
@@ -239,17 +239,20 @@ static int ntpsync_main(int argc, char **argv)
 		return 1;
 	}
 
-	
+	_dprintf("[ntpsync %ld] start\n", get_uptime());
+
 	if ((get_wan_proto() != WP_DISABLED) && (mode != INIT) &&
 		(!check_wanup()) && (nvram_match("ntp_tdod", "0"))) {
-		printf("WAN is down, not updating.");
+		_dprintf("WAN is down, not updating.");
 		return 1;
 	}
-	
+
 	srand(time(0));
 	retries = 0;
-	
+
 	while (1) {
+		_dprintf("[ntpsync %ld] while\n", get_uptime());
+
 		count = 0;
 		servers = p = strdup(nvram_safe_get("ntp_server"));
 		if (!servers) {
@@ -263,13 +266,13 @@ static int ntpsync_main(int argc, char **argv)
 
 		while (count > 0) {
 			i = (rand() % count);
-			_dprintf("[%d] %s\n", i, addr[i]);
-			
+			_dprintf("[ntpsync] i=%d addr=%s\n", i, addr[i]);
+
 			if ((he = gethostbyname(addr[i])) != NULL) {
 				memcpy(&ia, he->h_addr_list[0], sizeof(ia));
 				ips = inet_ntoa(ia);
-				_dprintf("%s\n", ips);
-				
+				_dprintf("ip = %s\n", ips);
+
 				nvkiss = nvram_safe_get("ntp_kiss");
 				if (find_word(nvkiss, ips)) {
 					_dprintf("kiss: %s\n", ips);
@@ -277,6 +280,7 @@ static int ntpsync_main(int argc, char **argv)
 				else {
 					switch (ntpc(ia)) {
 					case 0:
+						_dprintf("[ntpsync] %ld OK\n", get_uptime());
 						if (mode == INIT) {
 							tt = time(0);
 							if ((nu > 0) && ((tms = localtime(&tt)) != NULL)) {
@@ -292,9 +296,10 @@ static int ntpsync_main(int argc, char **argv)
 								system(s);
 							}
 						}
-						
+
 						// make sure access restriction is ok
 						system("rcheck");
+						_dprintf("[ntpsync] %ld exit\n", get_uptime());
 						return 0;
 					case 2:
 						while ((nvkiss) && (strlen(nvkiss) > 128)) nvkiss = strchr(nvkiss + 1, ' ');
@@ -314,11 +319,13 @@ static int ntpsync_main(int argc, char **argv)
 
 		if (mode == USER) break;
 		if ((mode == CRON) && (retries == 5)) break;
-		
+
 		if (++retries > 300) retries = 300;		// 5m
+		_dprintf("[ntpsync %ld] sleep=%d\n", get_uptime(), retries);
 		sleep(retries);
 	}
 
+	_dprintf("[ntpsync] %ld exit\n", get_uptime());
 	return 1;
 }
 
@@ -330,7 +337,7 @@ int main(int argc, char **argv)
 	if (!nvram_contains_word("log_events", "ntp")) {
 		setlogmask(LOG_MASK(LOG_EMERG));	// can't set to 0
 	}
-	
+
 	if (strstr(argv[0], "ntpsync") != 0) return ntpsync_main(argc, argv);
 	return ntpc_main(argc, argv);
 }

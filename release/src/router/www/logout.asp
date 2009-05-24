@@ -1,7 +1,7 @@
 <html>
 <!--
 	Tomato GUI
-	Copyright (C) 2006-2008 Jonathan Zarate
+	Copyright (C) 2006-2009 Jonathan Zarate
 	http://www.polarcloud.com/tomato/
 
 	For use with Tomato Firmware only.
@@ -10,15 +10,23 @@
 <head>
 <meta http-equiv='content-type' content='text/html;charset=utf-8'>
 <meta name='robots' content='noindex,nofollow'>
-<script type='text/javascript'>
-function init()
-{
-	window.location.replace('/logout.cgi?_http_id=<% nv(http_id); %>');
-}
-</script>
 </head>
-<body style='background-color:#fff;font:13px sans-serif;color:#000' onload='setTimeout("init()", 500)'>
-<div style='width:350px;padding:10em 1em;background:#eee;text-align:center'>
-<b>Logout</b><br>Select cancel when prompted for a username/password.
+<body style='background-color:#fff;font:13px sans-serif;color:#000' onload='setTimeout("go.submit()", 1200)'>
+
+<div style='width:300px;padding:50px;background:#eee'>
+<b>Logout</b><br>
+<hr size=1><br>
+To clear the credentials cached by the browser:<br>
+<br>
+<b>Firefox, Internet Explorer, Opera, Safari</b><br>
+- Leave the password field blank.<br>
+- Click OK/Login<br>
+<br>
+<b>Chrome</b><br>
+- Select Cancel.<br>
 </div>
+
+<form name='go' method='post' action='logout'>
+<input type='hidden' name='_http_id' value='<% nv(http_id); %>'>
+</form>
 </body></html>

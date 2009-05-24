@@ -1,7 +1,7 @@
 <!DOCTYPE HTML PUBLIC '-//W3C//DTD HTML 4.0//EN'>
 <!--
 	Tomato GUI
-	Copyright (C) 2006-2008 Jonathan Zarate
+	Copyright (C) 2006-2009 Jonathan Zarate
 	http://www.polarcloud.com/tomato/
 
 	For use with Tomato Firmware only.
@@ -22,7 +22,7 @@
 
 <script type='text/javascript'>
 
-//	<% nvram("ddnsx0,ddnsx1,ddnsx_ip,wan_dns,wan_get_dns,dns_addget"); %>
+//	<% nvram("ddnsx0,ddnsx1,ddnsx_ip,wan_dns,wan_get_dns,dns_addget,ddnsx_refresh,ddnsx_save"); %>
 //	<% ddnsx(); %>
 
 /* REMOVE-BEGIN
@@ -38,6 +38,7 @@ b = backup MX
 o = use OpenDNS
 a = freedns.afraid
 z = can't use client-given IP address
+s = save state checkbox
 
 REMOVE-END */
 
@@ -47,12 +48,12 @@ var services = [
 	['3322-static', '3322 - Static', 'http://www.3322.org/', 'uhwmb'],
 	['dnsexit', 'DNS Exit', 'http://www.dnsexit.com/', 'uh'],
 	['dnsomatic', 'DNS-O-Matic', 'http://www.dnsomatic.com/', 'u'],
-	['dyndns', 'DynDNS - Dynamic', 'http://www.dyndns.com/', 'uhwmb'],
-	['dyndns-static', 'DynDNS - Static', 'http://www.dyndns.com/', 'uhwmb'],
-	['dyndns-custom', 'DynDNS - Custom', 'http://www.dyndns.com/', 'uhwmb'],
-	['sdyndns', 'DynDNS (https) - Dynamic', 'http://www.dyndns.com/', 'uhwmb'],
-	['sdyndns-static', 'DynDNS (https) - Static', 'http://www.dyndns.com/', 'uhwmb'],
-	['sdyndns-custom', 'DynDNS (https) - Custom', 'http://www.dyndns.com/', 'uhwmb'],
+	['dyndns', 'DynDNS - Dynamic', 'http://www.dyndns.com/', 'uhwmbs'],
+	['dyndns-static', 'DynDNS - Static', 'http://www.dyndns.com/', 'uhwmbs'],
+	['dyndns-custom', 'DynDNS - Custom', 'http://www.dyndns.com/', 'uhwmbs'],
+	['sdyndns', 'DynDNS (https) - Dynamic', 'http://www.dyndns.com/', 'uhwmbs'],
+	['sdyndns-static', 'DynDNS (https) - Static', 'http://www.dyndns.com/', 'uhwmbs'],
+	['sdyndns-custom', 'DynDNS (https) - Custom', 'http://www.dyndns.com/', 'uhwmbs'],
 	['dyns', 'DyNS', 'http://www.dyns.cx/', 'uh'],
 	['easydns', 'easyDNS', 'http://www.easydns.com/', 'uhwm'],
 	['seasydns', 'easyDNS (https)', 'http://www.easydns.com/', 'uhwm'],
@@ -92,12 +93,12 @@ function msgLoc(s)
 function mop(s)
 {
 	var op, i;
-	
+
 	op = {};
 	for (i = s.length - 1; i >= 0; --i) {
 		op[s.charAt(i)] = 1;
 	}
-	
+
 	return op;
 }
 
@@ -108,16 +109,18 @@ function verifyFields(focused, quiet)
 	var op;
 	var enabled;
 	var b;
-	
+
 	b = E('_f_ddnsx_ip').value == 'custom';
 	elem.display(PR('_f_custom_ip'), b);
 	if ((b) && (!v_ip('_f_custom_ip', quiet))) return 0;
 	
+	if (!v_range('_ddnsx_refresh', quiet, 0, 90)) return 0;
+
 	r = 1;
 	for (i = 0; i < 2; ++i) {
 		data = services[E('_f_service' + i).selectedIndex] || services[0];
 		enabled = (data[0] != '');
-	
+
 		op = mop(data[3]);
 
 		elem.display(PR('url' + i), (enabled) && (data[0] != 'custom'));
@@ -127,13 +130,14 @@ function verifyFields(focused, quiet)
 		elem.display(PR('_f_user' + i), PR('_f_pass' + i), op.u);
 		elem.display(PR('_f_host' + i), op.h || op.j);
 		elem.display(PR('_f_cust' + i), 'custmsg' + i, op.c);
-		
+
 		elem.display(PR('_f_wild' + i), op.w);
 		elem.display(PR('_f_mx' + i), op.m);
 		elem.display(PR('_f_bmx' + i), op.b);
 		elem.display(PR('_f_opendns' + i), op.o);
 		elem.display(PR('_f_afraid' + i), op.a);
-		
+		elem.display(PR('_f_ddnsx_save' + i), op.s);
+
 		elem.display(PR('_f_force' + i), 'last-response' + i, enabled);
 		elem.display('last-update' + i, enabled && !op.z);
 
@@ -184,11 +188,14 @@ function verifyFields(focused, quiet)
 			}
 		}
 	}
-	
+
 	// shouldn't do this twice, but...
 	if (E('_f_opendns0') == focused) E('_f_opendns1').checked = E('_f_opendns0').checked;
 	if (E('_f_opendns1') == focused) E('_f_opendns0').checked = E('_f_opendns1').checked;
 	
+	if (E('_f_ddnsx_save0') == focused) E('_f_ddnsx_save1').checked = E('_f_ddnsx_save0').checked;
+	if (E('_f_ddnsx_save1') == focused) E('_f_ddnsx_save0').checked = E('_f_ddnsx_save1').checked;
+
 	return r;
 }
 
@@ -199,13 +206,14 @@ function save()
 	var data, a, b;
 	var setopendns;
 	var op;
-	
+
 	if (!verifyFields(null, 0)) return;
 
 	fom = E('_fom')
-	
+	fom.ddnsx_save.value = (nvram.ddnsx_save == 1) ? 1 : 0;
+
 	fom.ddnsx_ip.value = (E('_f_ddnsx_ip').value == 'custom') ? E('_f_custom_ip').value : E('_f_ddnsx_ip').value;
-	
+
 	setopendns = -1;
 	for (i = 0; i < 2; ++i) {
 		s = [];
@@ -224,9 +232,10 @@ b = backup MX
 o = use OpenDNS
 a = freedns.afraid
 z = can't use client-given IP address
+s = save state checkbox
 
 */
-		
+
 /*
 
 	username:password<
@@ -240,7 +249,7 @@ REMOVE-END */
 			op = mop(data[3]);
 
 			if (op.u) s.push(E('_f_user' + i).value + ':' + E('_f_pass' + i).value);
-				else s.push('');				
+				else s.push('');
 
 			if (op.t) {
 				s.push(E('_f_hosttop' + i).value);
@@ -249,7 +258,7 @@ REMOVE-END */
 				s.push(E('_f_host' + i).value);
 			}
 			else {
-				s.push('');					
+				s.push('');
 			}
 
 			if (op.w) s.push(E('_f_wild' + i).checked ? 1 : 0);
@@ -267,6 +276,10 @@ REMOVE-END */
 			}
 			else {
 				s.push('');
+			}
+			
+			if (op.s) {
+				fom.ddnsx_save.value = E('_f_ddnsx_save' + i).checked ? 1 : 0;
 			}
 
 			if (data[0] == 'opendns') setopendns = E('_f_opendns' + i).checked;
@@ -341,6 +354,7 @@ function init()
 <input type='hidden' name='ddnsx1_cache' value='' disabled>
 <input type='hidden' name='wan_dns' value='' disabled>
 <input type='hidden' name='ddnsx_ip' value=''>
+<input type='hidden' name='ddnsx_save' value=''>
 
 
 <div class='section-title'>Dynamic DNS</div>
@@ -349,7 +363,7 @@ function init()
 s = nvram.ddnsx_ip;
 a = (s != '') && (s.indexOf('@') != 0) && (s != '0.0.0.0') && (s != '1.1.1.1') && (s != '10.1.1.1');
 createFieldTable('', [
-	{ title: 'IP Address', name: 'f_ddnsx_ip', type: 'select',
+	{ title: 'IP address', name: 'f_ddnsx_ip', type: 'select',
 		options: [
 			['', 'Use WAN IP Address ' + ddnsx_ip + ' (recommended)'],
 			['@', 'Use External IP Address Checker (every 10 minutes)'],
@@ -359,8 +373,9 @@ createFieldTable('', [
 			['custom', 'Custom IP Address...']
 			],
 		value: a ? 'custom' : nvram.ddnsx_ip },
-	{ title: 'Custom IP Address', indent: 2, name: 'f_custom_ip', type: 'text', maxlen: 15, size: 20,
+	{ title: 'Custom IP address', indent: 2, name: 'f_custom_ip', type: 'text', maxlen: 15, size: 20,
 		value: a ? nvram.ddnsx_ip : '', hidden: !a },
+	{ title: 'Auto refresh every', name: 'ddnsx_refresh', type: 'text', maxlen: 8, size: 8, suffix: ' days <small>(0 = disable)</small>', value: fixInt(nvram.ddnsx_refresh, 0, 90, 28) }
 ]);
 </script>
 </div>
@@ -397,7 +412,7 @@ dns = dns.join(', ');
 for (i = 0; i < 2; ++i) {
 	v = nvram['ddnsx' + i].split('<');
 	if (v.length != 7) v = ['', '', '', 0, '', 0, ''];
-	
+
 	u = v[1].split(':');
 	if (u.length != 2) u = ['', ''];
 	h = (v[0] == '');
@@ -419,7 +434,8 @@ for (i = 0; i < 2; ++i) {
 		{ title: 'Use as DNS', name: 'f_opendns' + i, type: 'checkbox', value: (opendnsInUse == opendns.length),
 			suffix: '<br><small>(Current DNS: ' + dns  + ')</small>', hidden: 1 },
 		{ title: 'Token / URL', name: 'f_afraid' + i, type: 'text', maxlen: 255, size: 80, value: v[6], hidden: 1 },
-		{ title: 'Force Next Update', name: 'f_force' + i, type: 'checkbox', value: 0, hidden: 1 },
+		{ title: 'Save state when IP changes (nvram commit)', name: 'f_ddnsx_save' + i, type: 'checkbox', value: nvram.ddnsx_save == '1', hidden: 1 },
+		{ title: 'Force next update', name: 'f_force' + i, type: 'checkbox', value: 0, hidden: 1 },
 		null,
 		{ title: 'Last IP Address', custom: msgLoc(ddnsx_last[i]), rid: 'last-update' + i, hidden: 1 },
 		{ title: 'Last Result', custom: msgLoc(ddnsx_msg[i]), rid: 'last-response' + i, hidden: h }

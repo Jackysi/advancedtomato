@@ -1,6 +1,6 @@
 /*
 	Tomato GUI
-	Copyright (C) 2006-2008 Jonathan Zarate
+	Copyright (C) 2006-2009 Jonathan Zarate
 	http://www.polarcloud.com/tomato/
 
 	For use with Tomato Firmware only.
@@ -71,7 +71,7 @@ do {
 
 	stats.wanstatus = '<% wanstatus(); %>';
 	if (stats.wanstatus != 'Connected') stats.wanstatus = '<b>' + stats.wanstatus + '</b>';
-	
+
 	a = i = '<% wlchannel(); %>' * 1;
 	if (i < 0) i = -i;
 	if ((i >= 1) && (i <= 14)) {
@@ -84,7 +84,7 @@ do {
 	else {
 		stats.channel = '-';
 	}
-	
+
 	wlcrssi = wlnoise = stats.qual = '';
 	isClient = ((nvram.wl_mode == 'wet') || (nvram.wl_mode == 'sta'));
 	if (wlradio) {

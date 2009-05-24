@@ -9,16 +9,7 @@ OBJS += nvram.o log.o webio.o wl.o devlist.o ddns.o config.o bwm.o
 OBJS += blackhole.o
 
 LIBS = -L../nvram -lnvram -L../shared -lshared
-
-ifeq ($(TCONFIG_HTTPS),y)
-#	LIBS += ../matrixssl/src/libmatrixsslstatic.a
-#	OBJS += mssl.o
 LIBS += -L../mssl -lmssl
-endif
-
-ifeq ($(TCONFIG_SAMBA),y)
-OBJS += share.o
-endif
 
 all: httpd
 

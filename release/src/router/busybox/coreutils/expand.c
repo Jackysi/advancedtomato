@@ -29,98 +29,78 @@ enum {
 	OPT_ALL         = 1 << 2,
 };
 
-static void xputchar(char c)
-{
-	if (putchar(c) < 0)
-		bb_error_msg_and_die(bb_msg_write_error);
-}
-
 #if ENABLE_EXPAND
-static void expand(FILE *file, unsigned tab_size, unsigned opt)
+static void expand(FILE *file, int tab_size, unsigned opt)
 {
 	char *line;
-	char *ptr;
-	int convert;
-	unsigned pos;
 
-	/* Increment tab_size by 1 locally.*/
-	tab_size++;
+	tab_size = -tab_size;
 
 	while ((line = xmalloc_fgets(file)) != NULL) {
-		convert = 1;
-		pos = 0;
-		ptr = line;
-		while (*line) {
-			pos++;
-			if (*line == '\t' && convert) {
-				for (; pos < tab_size; pos++) {
-					xputchar(' ');
-				}
-			} else {
-				if ((opt & OPT_INITIAL) && !isblank(*line)) {
-					convert = 0;
-				}
-				xputchar(*line);
+		int pos;
+		unsigned char c;
+		char *ptr = line;
+
+		goto start;
+		while ((c = *ptr) != '\0') {
+			if ((opt & OPT_INITIAL) && !isblank(c)) {
+				fputs(ptr, stdout);
+				break;
 			}
-			if (pos == tab_size) {
-				pos = 0;
+			ptr++;
+			if (c == '\t') {
+				c = ' ';
+				while (++pos < 0)
+					bb_putchar(c);
 			}
-			line++;
+			bb_putchar(c);
+			if (++pos >= 0) {
+ start:
+				pos = tab_size;
+			}
 		}
-		free(ptr);
+		free(line);
 	}
 }
 #endif
 
 #if ENABLE_UNEXPAND
-static void unexpand(FILE *file, unsigned int tab_size, unsigned opt)
+static void unexpand(FILE *file, unsigned tab_size, unsigned opt)
 {
 	char *line;
-	char *ptr;
-	int convert;
-	int pos;
-	int i = 0;
-	unsigned column = 0;
 
 	while ((line = xmalloc_fgets(file)) != NULL) {
-		convert = 1;
-		pos = 0;
-		ptr = line;
-		while (*line) {
-			while ((*line == ' ' || *line == '\t') && convert) {
-				pos += (*line == ' ') ? 1 : tab_size;
-				line++;
+		char *ptr = line;
+		unsigned column = 0;
+
+		while (*ptr) {
+			unsigned n;
+
+			while (*ptr == ' ') {
 				column++;
-				if ((opt & OPT_ALL) && column == tab_size) {
-					column = 0;
-					goto put_tab;
-				}
+				ptr++;
 			}
-			if (pos) {
-				i = pos / tab_size;
-				if (i) {
-					for (; i > 0; i--) {
- put_tab:
-						xputchar('\t');
-					}
-				} else {
-					for (i = pos % tab_size; i > 0; i--) {
-						xputchar(' ');
-					}
-				}
-				pos = 0;
-			} else {
-				if (opt & OPT_INITIAL) {
-					convert = 0;
-				}
-				if (opt & OPT_ALL) {
-					column++;
-				}
-				xputchar(*line);
-				line++;
+			if (*ptr == '\t') {
+				column += tab_size - (column % tab_size);
+				ptr++;
+				continue;
 			}
+
+			n = column / tab_size;
+			column = column % tab_size;
+			while (n--)
+				putchar('\t');
+
+			if ((opt & OPT_INITIAL) && ptr != line) {
+				printf("%*s%s", column, "", ptr);
+				break;
+			}
+			n = strcspn(ptr, "\t ");
+			printf("%*s%.*s", column, "", n, ptr);
+			ptr += n;
+			column = (column + n) % tab_size;
 		}
-		free(ptr);
+		free(line);
 	}
 }
 #endif

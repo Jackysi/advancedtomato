@@ -1,7 +1,7 @@
 /*
 
 	Tomato Firmware
-	Copyright (C) 2006-2008 Jonathan Zarate
+	Copyright (C) 2006-2009 Jonathan Zarate
 
 */
 
@@ -208,14 +208,14 @@ void asp_devlist(int argc, char **argv)
 		// dump the leases to a file
 		if (killall("dnsmasq", SIGUSR2) == 0) {
 			// helper in dnsmasq will remove this when it's done
-			wait_file_exists("/var/tmp/dhcp/leases.!", 5, 1);
+			f_wait_notexists("/var/tmp/dhcp/leases.!", 5);
 		}
 
 		if ((f = fopen("/var/tmp/dhcp/leases", "r")) != NULL) {
 			comma = ' ';
 			while (fgets(buf, sizeof(buf), f)) {
 				if (sscanf(buf, "%lu %17s %15s %255s", &expires, mac, ip, hostname) != 4) continue;
-				host = js_string(hostname);
+				host = js_string((hostname[0] == '*') ? "" : hostname);
 				web_printf("%c['%s','%s','%s','%s']", comma,
 						(host ? host : ""), ip, mac, ((expires == 0) ? "non-expiring" : reltime(buf, expires)));
 				free(host);

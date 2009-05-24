@@ -1,7 +1,7 @@
 /*
 
 	Tomato Firmware
-	Copyright (C) 2006-2008 Jonathan Zarate
+	Copyright (C) 2006-2009 Jonathan Zarate
 
 */
 
@@ -29,6 +29,7 @@
 #include "httpd.h"
 
 
+#define USE_MINIUPNPD
 //	#define BLACKHOLE		// for testing
 
 
@@ -38,6 +39,7 @@
 extern int rboot;
 
 extern void exec_service(const char *action);
+extern void wi_generic(char *url, int len, char *boundary);
 extern void common_redirect(void);
 
 extern const char *resmsg_get(void);
@@ -52,7 +54,6 @@ extern void asp_nvramseq(int argc, char **argv);
 extern void asp_nv(int argc, char **argv);
 
 // misc.c
-extern int wait_file_exists(const char *name, int max, int invert);
 extern char *js_string(const char *s);
 extern char *html_string(const char *s);
 extern char *unix_string(const char *s);
@@ -110,7 +111,7 @@ extern void asp_build_time(int argc, char **argv);
 extern void asp_version(int argc, char **argv);
 
 // traceping.c
-extern void wo_trace(char *url);	
+extern void wo_trace(char *url);
 extern void wo_ping(char *url);
 
 // log.c

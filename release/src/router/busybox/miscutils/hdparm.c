@@ -59,7 +59,7 @@
 #define ADV_PIO_MODES		64  /* advanced PIO modes supported */
 				    /* multiword DMA xfer cycle time: */
 #define DMA_TIME_MIN		65  /*   - minimum */
-#define DMA_TIME_NORM		66  /*   - manufacturer's recommended	*/
+#define DMA_TIME_NORM		66  /*   - manufacturer's recommended */
 				    /* minimum PIO xfer cycle time: */
 #define PIO_NO_FLOW		67  /*   - without flow control */
 #define PIO_FLOW		68  /*   - with IORDY flow control */
@@ -82,7 +82,7 @@
 #define ENH_ERASE_TIME		90  /*   - enhanced */
 #define ADV_PWR			91  /* current advanced power management level
 				       in low byte, 0x40 in high byte. */
-#define PSWD_CODE		92  /* master password revision code	*/
+#define PSWD_CODE		92  /* master password revision code */
 #define HWRST_RSLT		93  /* hardware reset result */
 #define ACOUSTIC		94  /* acoustic mgmt values ( >= ATA-6) */
 #define LBA_LSB			100 /* LBA: maximum.  Currently only 48 */
@@ -1759,7 +1759,7 @@ static void process_dev(char *devname)
 		}
 	}
 	if (get_unmask) {
-		if(!ioctl_or_warn(fd, HDIO_GET_UNMASKINTR, &parm))
+		if (!ioctl_or_warn(fd, HDIO_GET_UNMASKINTR, &parm))
 			print_value_on_off("unmaskirq", parm);
 	}
 
@@ -1777,25 +1777,25 @@ static void process_dev(char *devname)
 #endif
 #ifdef HDIO_GET_QDMA
 	if (get_dma_q) {
-		if(!ioctl_or_warn(fd, HDIO_GET_QDMA, &parm))
+		if (!ioctl_or_warn(fd, HDIO_GET_QDMA, &parm))
 			print_value_on_off("queue_depth", parm);
 	}
 #endif
 	if (get_keep) {
-		if(!ioctl_or_warn(fd, HDIO_GET_KEEPSETTINGS, &parm))
+		if (!ioctl_or_warn(fd, HDIO_GET_KEEPSETTINGS, &parm))
 			print_value_on_off("keepsettings", parm);
 	}
 
 	if (get_nowerr) {
-		if(!ioctl_or_warn(fd, HDIO_GET_NOWERR, &parm))
+		if (!ioctl_or_warn(fd, HDIO_GET_NOWERR, &parm))
 			print_value_on_off("nowerr", parm);
 	}
 	if (get_readonly) {
-		if(!ioctl_or_warn(fd, BLKROGET, &parm))
+		if (!ioctl_or_warn(fd, BLKROGET, &parm))
 			print_value_on_off("readonly", parm);
 	}
 	if (get_readahead) {
-		if(!ioctl_or_warn(fd, BLKRAGET, &parm))
+		if (!ioctl_or_warn(fd, BLKRAGET, &parm))
 			print_value_on_off("readahead", parm);
 	}
 	if (get_geom) {

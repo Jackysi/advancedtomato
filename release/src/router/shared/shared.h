@@ -60,6 +60,8 @@ extern int nvram_get_int(const char *key);
 extern int nvram_get_file(const char *key, const char *fname, int max);
 extern int nvram_set_file(const char *key, const char *fname, int max);
 extern int nvram_contains_word(const char *key, const char *word);
+extern int nvram_is_empty(const char *key);
+extern void nvram_commit_x(void);
 extern int connect_timeout(int fd, const struct sockaddr *addr, socklen_t len, int timeout);
 
 
@@ -89,8 +91,11 @@ enum {
 	MODEL_RT390W,
 	MODEL_MN700,
 	MODEL_WRH54G,
-	MODEL_WHRG125
-
+	MODEL_WHRG125,
+	MODEL_WZRG108,
+	MODEL_WTR54GS,
+	MODEL_WR100
+	
 #if TOMATO_N
 	,
 	MODEL_WZRG300N,
@@ -108,6 +113,7 @@ enum {
 	HW_BCM4712_BCM5325E,
 	HW_BCM4704_BCM5325F_EWC,
 	HW_BCM4705L_BCM5325E_EWC,
+	HW_BCM5350,
 	HW_UNKNOWN
 };
 
@@ -145,6 +151,8 @@ extern int f_read_string(const char *file, char *buffer, int max);										// r
 extern int f_write_string(const char *file, const char *buffer, unsigned flags, unsigned cmode);		//
 extern int f_read_alloc(const char *path, char **buffer, int max);
 extern int f_read_alloc_string(const char *path, char **buffer, int max);
+extern int f_wait_exists(const char *name, int max);
+extern int f_wait_notexists(const char *name, int max);
 
 
 // led.c
