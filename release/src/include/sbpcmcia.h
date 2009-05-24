@@ -1,14 +1,15 @@
 /*
  * BCM43XX Sonics SiliconBackplane PCMCIA core hardware definitions.
  *
- * $Id: sbpcmcia.h,v 1.1.1.7 2005/03/07 07:31:12 kanki Exp $
- * Copyright 2005, Broadcom Corporation      
- * All Rights Reserved.      
- *       
- * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY      
- * KIND, EXPRESS OR IMPLIED, BY STATUTE, COMMUNICATION OR OTHERWISE. BROADCOM      
- * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS      
- * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.      
+ * Copyright 2006, Broadcom Corporation
+ * All Rights Reserved.
+ * 
+ * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
+ * KIND, EXPRESS OR IMPLIED, BY STATUTE, COMMUNICATION OR OTHERWISE. BROADCOM
+ * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
+ * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
+ *
+ * $Id$
  */
 
 #ifndef	_SBPCMCIA_H
@@ -74,6 +75,8 @@
 #define SROM_DATAH		(0x073a / 2)
 #define SROM_ADDRL		(0x073c / 2)
 #define SROM_ADDRH		(0x073e / 2)
+#define	SROM_INFO2		(0x0772 / 2)	/* Corerev >= 2 && <= 5 */
+#define	SROM_INFO		(0x07be / 2)	/* Corerev >= 6 */
 
 /*  Values for srom_cs: */
 #define SROM_IDLE		0
@@ -83,6 +86,11 @@
 #define SROM_WDS		7
 #define SROM_DONE		8
 
+/* Fields in srom_info: */
+#define	SRI_SZ_MASK		0x03
+#define	SRI_BLANK		0x04
+#define	SRI_OTP			0x80
+
 /* CIS stuff */
 
 /* The CIS stops where the FCRs start */
@@ -90,9 +98,15 @@
 
 /* Standard tuples we know about */
 
+#define	CISTPL_VERS_1		0x15		/* CIS ver, manf, dev & ver strings */
 #define	CISTPL_MANFID		0x20		/* Manufacturer and device id */
+#define CISTPL_FUNCID		0x21		/* Function identification */
 #define	CISTPL_FUNCE		0x22		/* Function extensions */
 #define	CISTPL_CFTABLE		0x1b		/* Config table entry */
+
+/* Function identifier provides context for the function extentions tuple */
+
+#define CISTPL_FID_SDIO		0x0c		/* Extensions defined by SDIO spec */
 
 /* Function extensions for LANs */
 
@@ -116,18 +130,40 @@
 
 /* Subtypes of BRCM_HNBU: */
 
-#define	HNBU_CHIPID		0x01		/* Six bytes with PCI vendor &
-						 * device id and chiprev
+#define HNBU_SROMREV		0x00		/* A byte with sromrev, 1 if not present */
+#define HNBU_CHIPID		0x01		/* Two 16bit values: PCI vendor & device id */
+#define HNBU_BOARDREV		0x02		/* One byte board revision */
+#define HNBU_PAPARMS		0x03		/* PA parameters: 8 (sromrev == 1)
+						 * or 9 (sromrev > 1) bytes
 						 */
-#define	HNBU_BOARDREV		0x02		/* Two bytes board revision */
-#define	HNBU_PAPARMS		0x03		/* Eleven bytes PA parameters */
-#define	HNBU_OEM		0x04		/* Eight bytes OEM data */
-#define	HNBU_CC			0x05		/* Default country code */
+#define HNBU_OEM		0x04		/* Eight bytes OEM data (sromrev == 1) */
+#define HNBU_CC			0x05		/* Default country code (sromrev == 1) */
 #define	HNBU_AA			0x06		/* Antennas available */
 #define	HNBU_AG			0x07		/* Antenna gain */
-#define HNBU_BOARDFLAGS		0x08		/* board flags */
-#define HNBU_LED		0x09		/* LED set */
-
+#define HNBU_BOARDFLAGS		0x08		/* board flags (2 or 4 bytes) */
+#define HNBU_LEDS		0x09		/* LED set */
+#define HNBU_CCODE		0x0a		/* Country code (2 bytes ascii + 1 byte cctl)
+						 * in rev 2
+						 */
+#define HNBU_CCKPO		0x0b		/* 2 byte cck power offsets in rev 3 */
+#define HNBU_OFDMPO		0x0c		/* 4 byte 11g ofdm power offsets in rev 3 */
+#define HNBU_GPIOTIMER		0x0d		/* 2 bytes with on/off values in rev 3 */
+#define HNBU_PAPARMS5G		0x0e		/* 4328 5G PA params */
+#define HNBU_ANT5G		0x0f		/* 4328 5G antennas available/gain */
+#define HNBU_RDLID		0x10		/* 2 byte USB remote downloader (RDL) product Id */
+#define HNBU_RSSISMBXA2G	0x11		/* 4328 2G RSSI mid pt sel & board switch arch,
+						 * 2 bytes, rev 3.
+						 */
+#define HNBU_RSSISMBXA5G	0x12		/* 4328 5G RSSI mid pt sel & board switch arch,
+						 * 2 bytes, rev 3.
+						 */
+#define HNBU_XTALFREQ		0x13		/* 4 byte Crystal frequency in kilohertz */
+#define HNBU_TRI2G		0x14		/* 4328 2G TR isolation, 1 byte */
+#define HNBU_TRI5G		0x15		/* 4328 5G TR isolation, 3 bytes */
+#define HNBU_RXPO2G		0x16		/* 4328 2G RX power offset, 1 byte */
+#define HNBU_RXPO5G		0x17		/* 4328 5G RX power offset, 1 byte */
+#define HNBU_RDLRNDIS		0x20		/* 1 byte; 1 = RDL advertises RNDIS config */
+#define HNBU_RDLRWU		0x30		/* 1 byte; 1 = RDL advertises Remote Wake-up */
 
 /* sbtmstatelow */
 #define SBTML_INT_ACK		0x40000		/* ack the sb interrupt */

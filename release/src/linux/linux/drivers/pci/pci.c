@@ -1,5 +1,5 @@
 /*
- *	$Id: pci.c,v 1.1.1.4 2003/10/14 08:08:31 sparq Exp $
+ *	$Id$
  *
  *	PCI Bus Services, see include/linux/pci.h for further explanation.
  *
@@ -1056,6 +1056,17 @@ static void pci_read_bases(struct pci_dev *dev, unsigned int howmany, int rom)
 		res = &dev->resource[pos];
 		res->name = dev->name;
 		reg = PCI_BASE_ADDRESS_0 + (pos << 2);
+#ifdef BCM_47XX_PCIBUS
+/* 
+   On the bcm 47xx boards, there is no bios to set the bar addresses. There could be junk 
+   that could make us fail. Clear the bar first and verify.
+*/
+		pci_write_config_dword(dev,reg+4,0);
+		pci_read_config_dword(dev, reg+4, &l);
+		if(l) {
+			continue;
+		}
+#endif
 		pci_read_config_dword(dev, reg, &l);
 		pci_write_config_dword(dev, reg, ~0);
 		pci_read_config_dword(dev, reg, &sz);
@@ -1090,10 +1101,10 @@ static void pci_read_bases(struct pci_dev *dev, unsigned int howmany, int rom)
 						(((unsigned long) ~sz) << 32);
 #else
 			if (l) {
-				printk(KERN_ERR "PCI: Unable to handle 64-bit address for device %s\n", dev->slot_name);
-				res->start = 0;
-				res->flags = 0;
-				continue;
+				printk(KERN_ERR "PCI: Unable to handle 64-bit address for device %s\n", 
+				       dev->slot_name);
+				
+				pci_write_config_dword(dev,reg+4,0);
 			}
 #endif
 		}
@@ -1366,8 +1377,6 @@ int pci_setup_device(struct pci_dev * dev)
 	dev->class = class;
 	class >>= 8;
 
-	DBG("Found %02x:%02x [%04x/%04x] %06x %02x\n", dev->bus->number, dev->devfn, dev->vendor, dev->device, class, dev->hdr_type);
-
 	/* "Unknown power state" */
 	dev->current_state = 4;
 
@@ -1468,6 +1477,10 @@ struct pci_dev * __devinit pci_scan_slot(struct pci_dev *temp)
 		dev = pci_scan_device(temp);
 		if (!dev)
 			continue;
+
+		DBG("Found %02x:%02x [%04x/%04x] %06x %02x\n", dev->bus->number, dev->devfn,
+		    dev->vendor, dev->device, dev->class, hdr_type);
+
 		pci_name_device(dev);
 		if (!func) {
 			is_multi = hdr_type & 0x80;

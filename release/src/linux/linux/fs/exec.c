@@ -923,9 +923,14 @@ int do_execve(char * filename, char ** argv, char ** envp, struct pt_regs * regs
 		goto out; 
 
 	retval = search_binary_handler(&bprm,regs);
-	if (retval >= 0)
+	if (retval >= 0) {
+#ifdef CONFIG_HND_BMIPS3300_PROF
+		extern void sb1250_prof_mm_changed(struct task_struct *task, int sem);
+		sb1250_prof_mm_changed(current, 0);
+#endif	/* CONFIG_HND_BMIPS3300_PROF */
 		/* execve success */
 		return retval;
+	}
 
 out:
 	/* Something went wrong, return the inode and free the argument pages*/

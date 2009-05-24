@@ -3,7 +3,7 @@
  *
  * Author: Jonas Holmberg <jonas.holmberg@axis.com>
  *
- * $Id: amd_flash.c,v 1.1.1.4 2003/10/14 08:08:17 sparq Exp $
+ * $Id$
  *
  * Copyright (c) 2001 Axis Communications AB
  *
@@ -57,6 +57,7 @@
 #define MANUFACTURER_ST		0x0020
 #define MANUFACTURER_SST	0x00BF
 #define MANUFACTURER_TOSHIBA	0x0098
+#define MANUFACTURER_MACRONIX	0x00C2
 
 /* AMD */
 #define AM29F800BB	0x2258
@@ -88,6 +89,10 @@
 /* Toshiba */
 #define TC58FVT160	0x00C2
 #define TC58FVB160	0x0043
+
+/* Macronix */
+#define MX29LV160CT	0x22C4
+#define MX29LV160CB	0x2249
 
 #define D6_MASK	0x40
 
@@ -637,7 +642,31 @@ static struct mtd_info *amd_flash_probe(struct map_info *map)
 			{ offset: 0x000000, erasesize: 0x10000, numblocks: 31 },
 			{ offset: 0x1F0000, erasesize: 0x02000, numblocks:  8 }
 		}
-	} 
+	}, {
+		mfr_id: MANUFACTURER_MACRONIX,
+		dev_id: MX29LV160CT,
+		name: "Macronix MX29LV160CT",
+		size: 0x00200000,
+		numeraseregions: 4,
+		regions: {
+			{ offset: 0x000000, erasesize: 0x10000, numblocks: 31 },
+			{ offset: 0x1F0000, erasesize: 0x08000, numblocks:  1 },
+			{ offset: 0x1F8000, erasesize: 0x02000, numblocks:  2 },
+			{ offset: 0x1FC000, erasesize: 0x04000, numblocks:  1 }
+		}
+	}, {
+		mfr_id: MANUFACTURER_MACRONIX,
+		dev_id: MX29LV160CB,
+		name: "Macronix MX29LV160CB",
+		size: 0x00200000,
+		numeraseregions: 4,
+		regions: {
+			{ offset: 0x000000, erasesize: 0x04000, numblocks:  1 },
+			{ offset: 0x004000, erasesize: 0x02000, numblocks:  2 },
+			{ offset: 0x008000, erasesize: 0x08000, numblocks:  1 },
+			{ offset: 0x010000, erasesize: 0x10000, numblocks: 31 }
+		}
+	}
 	};
 
 	struct mtd_info *mtd;

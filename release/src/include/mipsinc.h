@@ -1,7 +1,7 @@
 /*
  * HND Run Time Environment for standalone MIPS programs.
  *
- * Copyright 2005, Broadcom Corporation
+ * Copyright 2006, Broadcom Corporation
  * All Rights Reserved.
  * 
  * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
@@ -9,11 +9,11 @@
  * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
  * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
  *
- * $Id: mipsinc.h,v 1.1.1.3 2005/03/07 07:31:12 kanki Exp $
+ * $Id$
  */
 
 #ifndef	_MISPINC_H
-#define	_MISPINC_H
+#define _MISPINC_H
 
 
 /* MIPS defines */
@@ -59,9 +59,7 @@
 #define ra	$31	/* return address */
 
 
-/*  *********************************************************************
-    *  CP0 Registers 
-    ********************************************************************* */
+/* CP0 Registers */
 
 #define C0_INX		$0
 #define C0_RAND		$1
@@ -87,6 +85,7 @@
 #define C0_XCTEXT	$20
 #define C0_DIAGNOSTIC	$22
 #define C0_BROADCOM	C0_DIAGNOSTIC
+#define	C0_PERFORMANCE	$25
 #define C0_ECC		$26
 #define C0_CACHEERR	$27
 #define C0_TAGLO	$28
@@ -97,21 +96,28 @@
 /*
  * LEAF - declare leaf routine
  */
-#define	LEAF(symbol)				\
+#define LEAF(symbol)				\
 		.globl	symbol;			\
 		.align	2;			\
-		.type	symbol,@function;	\
-		.ent	symbol,0;		\
-symbol:		.frame	sp,0,ra
+		.type	symbol, @function;	\
+		.ent	symbol, 0;		\
+symbol:		.frame	sp, 0, ra
 
 /*
  * END - mark end of function
  */
-#define	END(function)				\
+#define END(function)				\
 		.end	function;		\
-		.size	function,.-function
+		.size	function, . - function
 
-#define	_ULCAST_
+#define _ULCAST_
+
+#define MFC0_SEL(dst, src, sel) \
+		.word\t(0x40000000 | ((dst) << 16) | ((src) << 11) | (sel))
+
+
+#define MTC0_SEL(dst, src, sel) \
+		.word\t(0x40800000 | ((dst) << 16) | ((src) << 11) | (sel))
 
 #else
 
@@ -126,12 +132,10 @@ symbol:		.frame	sp,0,ra
 #define STR(x) __STR(x)
 #endif
 
-#define	_ULCAST_ (unsigned long)
+#define _ULCAST_ (unsigned long)
 
 
-/*  *********************************************************************
-    *  CP0 Registers 
-    ********************************************************************* */
+/* CP0 Registers */
 
 #define C0_INX		0		/* CP0: TLB Index */
 #define C0_RAND		1		/* CP0: TLB Random */
@@ -157,6 +161,7 @@ symbol:		.frame	sp,0,ra
 #define C0_XCTEXT	20		/* CP0: XContext */
 #define C0_DIAGNOSTIC	22		/* CP0: Diagnostic */
 #define C0_BROADCOM	C0_DIAGNOSTIC	/* CP0: Broadcom Register */
+#define	C0_PERFORMANCE	25		/* CP0: Performance Counter/Control Registers */
 #define C0_ECC		26		/* CP0: ECC */
 #define C0_CACHEERR	27		/* CP0: CacheErr */
 #define C0_TAGLO	28		/* CP0: TagLo */
@@ -201,10 +206,10 @@ symbol:		.frame	sp,0,ra
 /*
  * Cache Operations
  */
-#define Index_Invalidate_I      0x00
-#define Index_Writeback_Inv_D   0x01
-#define Index_Invalidate_SI     0x02
-#define Index_Writeback_Inv_SD  0x03
+#define Index_Invalidate_I	0x00
+#define Index_Writeback_Inv_D	0x01
+#define Index_Invalidate_SI	0x02
+#define Index_Writeback_Inv_SD	0x03
 #define Index_Load_Tag_I	0x04
 #define Index_Load_Tag_D	0x05
 #define Index_Load_Tag_SI	0x06
@@ -232,117 +237,22 @@ symbol:		.frame	sp,0,ra
 					/* 0x1e is unused */
 #define Hit_Set_Virtual_SI	0x1e
 #define Hit_Set_Virtual_SD	0x1f
-#endif
-
-#ifndef	_LANGUAGE_ASSEMBLY
-
-/*
- * Macros to access the system control coprocessor
- */
-
-#define MFC0(source, sel)					\
-({								\
-	int __res;						\
-	__asm__ __volatile__(					\
-	".set\tnoreorder\n\t"					\
-	".set\tnoat\n\t"					\
-	".word\t"STR(0x40010000 | ((source)<<11) | (sel))"\n\t"	\
-	"move\t%0,$1\n\t"					\
-	".set\tat\n\t"						\
-	".set\treorder"						\
-	:"=r" (__res)						\
-	:							\
-	:"$1");							\
-	__res;							\
-})
-
-#define MTC0(source, sel, value)				\
-do {								\
-	__asm__ __volatile__(					\
-	".set\tnoreorder\n\t"					\
-	".set\tnoat\n\t"					\
-	"move\t$1,%z0\n\t"					\
-	".word\t"STR(0x40810000 | ((source)<<11) | (sel))"\n\t"	\
-	".set\tat\n\t"						\
-	".set\treorder"						\
-	:							\
-	:"jr" (value)						\
-	:"$1");							\
-} while (0)
-
-#define get_c0_count()						\
-({								\
-	int __res;						\
-	__asm__ __volatile__(					\
-	".set\tnoreorder\n\t"					\
-	".set\tnoat\n\t"					\
-	"mfc0\t%0,$9\n\t"					\
-	".set\tat\n\t"						\
-	".set\treorder"						\
-	:"=r" (__res));						\
-	__res;							\
-})
-
-static INLINE void icache_probe(uint32 config1, uint *size, uint *lsize)
-{
-	uint lsz, sets, ways;
-
-	/* Instruction Cache Size = Associativity * Line Size * Sets Per Way */
-	if ((lsz = ((config1 >> 19) & 7)))
-		lsz = 2 << lsz;
-	sets = 64 << ((config1 >> 22) & 7);
-	ways = 1 + ((config1 >> 16) & 7);
-	*size = lsz * sets * ways;
-	*lsize = lsz;
-}
-
-static INLINE void dcache_probe(uint32 config1, uint *size, uint *lsize)
-{
-	uint lsz, sets, ways;
-
-	/* Data Cache Size = Associativity * Line Size * Sets Per Way */
-	if ((lsz = ((config1 >> 10) & 7)))
-		lsz = 2 << lsz;
-	sets = 64 << ((config1 >> 13) & 7);
-	ways = 1 + ((config1 >> 7) & 7);
-	*size = lsz * sets * ways;
-	*lsize = lsz;
-}
-
-#define cache_unroll(base,op)	        	\
-	__asm__ __volatile__("	         	\
-		.set noreorder;		        \
-		.set mips3;		        \
-                cache %1, (%0);	                \
-		.set mips0;			\
-		.set reorder"			\
-		:				\
-		: "r" (base),			\
-		  "i" (op));
-
-#endif /* !_LANGUAGE_ASSEMBLY */
+#endif	/* !Index_Invalidate_I */
 
 
 /*
  * R4x00 interrupt enable / cause bits
  */
-#undef IE_SW0
-#undef IE_SW1
-#undef IE_IRQ0
-#undef IE_IRQ1
-#undef IE_IRQ2
-#undef IE_IRQ3
-#undef IE_IRQ4
-#undef IE_IRQ5
-#define IE_SW0		(1<< 8)
-#define IE_SW1		(1<< 9)
-#define IE_IRQ0		(1<<10)
-#define IE_IRQ1		(1<<11)
-#define IE_IRQ2		(1<<12)
-#define IE_IRQ3		(1<<13)
-#define IE_IRQ4		(1<<14)
-#define IE_IRQ5		(1<<15)
+#define IE_SW0			(_ULCAST_(1) <<  8)
+#define IE_SW1			(_ULCAST_(1) <<  9)
+#define IE_IRQ0			(_ULCAST_(1) << 10)
+#define IE_IRQ1			(_ULCAST_(1) << 11)
+#define IE_IRQ2			(_ULCAST_(1) << 12)
+#define IE_IRQ3			(_ULCAST_(1) << 13)
+#define IE_IRQ4			(_ULCAST_(1) << 14)
+#define IE_IRQ5			(_ULCAST_(1) << 15)
 
+#ifndef	ST0_UM
 /*
  * Bitfields in the mips32 cp0 status register
  */
@@ -370,6 +280,7 @@ static INLINE void dcache_probe(uint32 config1, uint *size, uint *lsize)
 #define ST0_CU1			0x20000000
 #define ST0_CU2			0x40000000
 #define ST0_CU3			0x80000000
+#endif	/* !ST0_UM */
 
 
 /*
@@ -379,14 +290,14 @@ static INLINE void dcache_probe(uint32 config1, uint *size, uint *lsize)
 #define C_EXC_SHIFT		2
 #define C_INT			0x0000ff00
 #define C_INT_SHIFT		8
-#define C_SW0			0x00000100
-#define C_SW1			0x00000200
-#define C_IRQ0			0x00000400
-#define C_IRQ1			0x00000800
-#define C_IRQ2			0x00001000
-#define C_IRQ3			0x00002000
-#define C_IRQ4			0x00004000
-#define C_IRQ5			0x00008000
+#define C_SW0			(_ULCAST_(1) <<  8)
+#define C_SW1			(_ULCAST_(1) <<  9)
+#define C_IRQ0			(_ULCAST_(1) << 10)
+#define C_IRQ1			(_ULCAST_(1) << 11)
+#define C_IRQ2			(_ULCAST_(1) << 12)
+#define C_IRQ3			(_ULCAST_(1) << 13)
+#define C_IRQ4			(_ULCAST_(1) << 14)
+#define C_IRQ5			(_ULCAST_(1) << 15)
 #define C_WP			0x00400000
 #define C_IV			0x00800000
 #define C_CE			0x30000000
@@ -428,39 +339,45 @@ static INLINE void dcache_probe(uint32 config1, uint *size, uint *lsize)
 #define CONF_DB				(_ULCAST_(1) <<  4)
 #define CONF_IB				(_ULCAST_(1) <<  5)
 #define CONF_SE				(_ULCAST_(1) << 12)
+#ifndef CONF_BE				    /* duplicate in mipsregs.h */
+#define CONF_BE				(_ULCAST_(1) << 15)
+#endif
 #define CONF_SC				(_ULCAST_(1) << 17)
 #define CONF_AC				(_ULCAST_(1) << 23)
 #define CONF_HALT			(_ULCAST_(1) << 25)
+#ifndef CONF_M				    /* duplicate in mipsregs.h */
+#define CONF_M				(_ULCAST_(1) << 31)
+#endif
 
 
 /*
  * Bits in the cp0 config register select 1.
  */
-#define CONF1_FP			0x00000001		/* FPU present */
-#define CONF1_EP			0x00000002		/* EJTAG present */
-#define CONF1_CA			0x00000004		/* mips16 implemented */
-#define CONF1_WR			0x00000008		/* Watch registers present */
-#define CONF1_PC			0x00000010		/* Performance counters present */
-#define	CONF1_DA_SHIFT			7			/* D$ associativity */
-#define CONF1_DA_MASK			0x00000380
-#define CONF1_DA_BASE			1
-#define CONF1_DL_SHIFT			10			/* D$ line size */
-#define CONF1_DL_MASK			0x00001c00
-#define CONF1_DL_BASE			2
-#define CONF1_DS_SHIFT			13			/* D$ sets/way */
-#define CONF1_DS_MASK			0x0000e000
-#define CONF1_DS_BASE			64
-#define CONF1_IA_SHIFT			16			/* I$ associativity */
-#define CONF1_IA_MASK			0x00070000
-#define CONF1_IA_BASE			1
-#define CONF1_IL_SHIFT			19			/* I$ line size */
-#define CONF1_IL_MASK			0x00380000
-#define CONF1_IL_BASE			2
-#define CONF1_IS_SHIFT			22			/* Instruction cache sets/way */
-#define CONF1_IS_MASK			0x01c00000
-#define CONF1_IS_BASE			64
-#define CONF1_MS_MASK			0x7e000000		/* Number of tlb entries */
-#define CONF1_MS_SHIFT			25
+#define CONF1_FP		0x00000001	/* FPU present */
+#define CONF1_EP		0x00000002	/* EJTAG present */
+#define CONF1_CA		0x00000004	/* mips16 implemented */
+#define CONF1_WR		0x00000008	/* Watch registers present */
+#define CONF1_PC		0x00000010	/* Performance counters present */
+#define CONF1_DA_SHIFT		7		/* D$ associativity */
+#define CONF1_DA_MASK		0x00000380
+#define CONF1_DA_BASE		1
+#define CONF1_DL_SHIFT		10		/* D$ line size */
+#define CONF1_DL_MASK		0x00001c00
+#define CONF1_DL_BASE		2
+#define CONF1_DS_SHIFT		13		/* D$ sets/way */
+#define CONF1_DS_MASK		0x0000e000
+#define CONF1_DS_BASE		64
+#define CONF1_IA_SHIFT		16		/* I$ associativity */
+#define CONF1_IA_MASK		0x00070000
+#define CONF1_IA_BASE		1
+#define CONF1_IL_SHIFT		19		/* I$ line size */
+#define CONF1_IL_MASK		0x00380000
+#define CONF1_IL_BASE		2
+#define CONF1_IS_SHIFT		22		/* Instruction cache sets/way */
+#define CONF1_IS_MASK		0x01c00000
+#define CONF1_IS_BASE		64
+#define CONF1_MS_MASK		0x7e000000	/* Number of tlb entries */
+#define CONF1_MS_SHIFT		25
 
 /* PRID register */
 #define PRID_COPT_MASK		0xff000000
@@ -476,45 +393,149 @@ static INLINE void dcache_probe(uint32 config1, uint *size, uint *lsize)
 #define PRID_IMP_BCM4710	0x4000
 #define PRID_IMP_BCM3302	0x9000
 #define PRID_IMP_BCM3303	0x9100
-#define	PRID_IMP_BCM3303	0x9100
 
 #define PRID_IMP_UNKNOWN	0xff00
 
-#define       BCM330X(id) \
-	(((id & (PRID_COMP_MASK | PRID_IMP_MASK)) == (PRID_COMP_BROADCOM | PRID_IMP_BCM3302)) \
-	|| ((id & (PRID_COMP_MASK | PRID_IMP_MASK)) == (PRID_COMP_BROADCOM | PRID_IMP_BCM3303)))
+#define BCM330X(id) \
+		(((id & (PRID_COMP_MASK | PRID_IMP_MASK)) == \
+		 (PRID_COMP_BROADCOM | PRID_IMP_BCM3302)) || \
+		((id & (PRID_COMP_MASK | PRID_IMP_MASK)) == \
+		 (PRID_COMP_BROADCOM | PRID_IMP_BCM3303)))
 
 /* Bits in C0_BROADCOM */
-#define	BRCM_PFC_AVAIL		0x20000000	/* PFC is available */
-#define	BRCM_DC_ENABLE		0x40000000	/* Enable Data $ */
-#define	BRCM_IC_ENABLE		0x80000000	/* Enable Instruction $ */
-#define	BRCM_PFC_ENABLE		0x00400000	/* Obsolete? Enable PFC (at least on 4310) */
+#define BRCM_PFC_AVAIL		0x20000000	/* PFC is available */
+#define BRCM_DC_ENABLE		0x40000000	/* Enable Data $ */
+#define BRCM_IC_ENABLE		0x80000000	/* Enable Instruction $ */
+#define BRCM_PFC_ENABLE		0x00400000	/* Obsolete? Enable PFC (at least on 4310) */
+#define BRCM_CLF_ENABLE		0x00100000	/* Enable cache line first feature */
 
 /* PreFetch Cache aka Read Ahead Cache */
 
-#define	PFC_CR0		0xff400000	/* control reg 0 */
-#define	PFC_CR1		0xff400004	/* control reg 1 */
+#define PFC_CR0			0xff400000	/* control reg 0 */
+#define PFC_CR1			0xff400004	/* control reg 1 */
 
-/* 
- * These are the UART port assignments, expressed as offsets from the base
- * register.  These assignments should hold for any serial port based on
- * a 8250, 16450, or 16550(A).
+/* PFC operations */
+#define PFC_I			0x00000001	/* Enable PFC use for instructions */
+#define PFC_D			0x00000002	/* Enable PFC use for data */
+#define PFC_PFI			0x00000004	/* Enable seq. prefetch for instructions */
+#define PFC_PFD			0x00000008	/* Enable seq. prefetch for data */
+#define PFC_CINV		0x00000010	/* Enable selective (i/d) cacheop flushing */
+#define PFC_NCH			0x00000020	/* Disable flushing based on cacheops */
+#define PFC_DPF			0x00000040	/* Enable directional prefetching */
+#define PFC_FLUSH		0x00000100	/* Flush the PFC */
+#define PFC_BRR			0x40000000	/* Bus error indication */
+#define PFC_PWR			0x80000000	/* Disable power saving (clock gating) */
+
+/* Handy defaults */
+#define PFC_DISABLED		0
+#define PFC_AUTO			0xffffffff	/* auto select the default mode */
+#define PFC_INST		(PFC_I | PFC_PFI | PFC_CINV)
+#define PFC_INST_NOPF		(PFC_I | PFC_CINV)
+#define PFC_DATA		(PFC_D | PFC_PFD | PFC_CINV)
+#define PFC_DATA_NOPF		(PFC_D | PFC_CINV)
+#define PFC_I_AND_D		(PFC_INST | PFC_DATA)
+#define PFC_I_AND_D_NOPF	(PFC_INST_NOPF | PFC_DATA_NOPF)
+
+#ifndef	_LANGUAGE_ASSEMBLY
+
+/*
+ * Macros to access the system control coprocessor
  */
 
-#define UART_RX		0	/* In:  Receive buffer (DLAB=0) */
-#define UART_TX		0	/* Out: Transmit buffer (DLAB=0) */
-#define UART_DLL	0	/* Out: Divisor Latch Low (DLAB=1) */
-#define UART_DLM	1	/* Out: Divisor Latch High (DLAB=1) */
-#define UART_LCR	3	/* Out: Line Control Register */
-#define UART_MCR	4	/* Out: Modem Control Register */
-#define UART_LSR	5	/* In:  Line Status Register */
-#define UART_MSR	6	/* In:  Modem Status Register */
-#define UART_SCR	7	/* I/O: Scratch Register */
-#define UART_LCR_DLAB	0x80	/* Divisor latch access bit */
-#define UART_LCR_WLEN8  0x03	/* Wordlength: 8 bits */
-#define UART_MCR_LOOP	0x10	/* Enable loopback test mode */
-#define UART_LSR_THRE	0x20	/* Transmit-hold-register empty */
-#define UART_LSR_RXRDY	0x01	/* Receiver ready */
+#define MFC0(source, sel)					\
+({								\
+	int __res;						\
+	__asm__ __volatile__("					\
+	.set\tnoreorder;					\
+	.set\tnoat;						\
+	.word\t"STR(0x40010000 | ((source) << 11) | (sel))";	\
+	move\t%0, $1;						\
+	.set\tat;						\
+	.set\treorder"						\
+	:"=r" (__res)						\
+	:							\
+	:"$1");							\
+	__res;							\
+})
 
+#define MTC0(source, sel, value)				\
+do {								\
+	__asm__ __volatile__("					\
+	.set\tnoreorder;					\
+	.set\tnoat;						\
+	move\t$1, %z0;						\
+	.word\t"STR(0x40810000 | ((source) << 11) | (sel))";	\
+	.set\tat;						\
+	.set\treorder"						\
+	:							\
+	:"jr" (value)						\
+	:"$1");							\
+} while (0)
+
+#define get_c0_count()						\
+({								\
+	int __res;						\
+	__asm__ __volatile__("					\
+	.set\tnoreorder;					\
+	.set\tnoat;						\
+	mfc0\t%0, $9;						\
+	.set\tat;						\
+	.set\treorder"						\
+	:"=r" (__res));						\
+	__res;							\
+})
+
+static INLINE void icache_probe(uint32 config1, uint *size, uint *lsize)
+{
+	uint lsz, sets, ways;
+
+	/* Instruction Cache Size = Associativity * Line Size * Sets Per Way */
+	if ((lsz = ((config1 & CONF1_IL_MASK) >> CONF1_IL_SHIFT)))
+		lsz = CONF1_IL_BASE << lsz;
+	sets = CONF1_IS_BASE << ((config1 & CONF1_IS_MASK) >> CONF1_IS_SHIFT);
+	ways = CONF1_IA_BASE + ((config1 & CONF1_IA_MASK) >> CONF1_IA_SHIFT);
+	*size = lsz * sets * ways;
+	*lsize = lsz;
+}
+
+static INLINE void dcache_probe(uint32 config1, uint *size, uint *lsize)
+{
+	uint lsz, sets, ways;
+
+	/* Data Cache Size = Associativity * Line Size * Sets Per Way */
+	if ((lsz = ((config1 & CONF1_DL_MASK) >> CONF1_DL_SHIFT)))
+		lsz = CONF1_DL_BASE << lsz;
+	sets = CONF1_DS_BASE << ((config1 & CONF1_DS_MASK) >> CONF1_DS_SHIFT);
+	ways = CONF1_DA_BASE + ((config1 & CONF1_DA_MASK) >> CONF1_DA_SHIFT);
+	*size = lsz * sets * ways;
+	*lsize = lsz;
+}
+
+#define cache_op(base, op)			\
+	__asm__ __volatile__("			\
+		.set noreorder;			\
+		.set mips3;			\
+		cache %1, (%0);			\
+		.set mips0;			\
+		.set reorder"			\
+		:				\
+		: "r" (base),			\
+		  "i" (op));
+
+#define cache_unroll4(base, delta, op)		\
+	__asm__ __volatile__("			\
+		.set noreorder;			\
+		.set mips3;			\
+		cache %1, 0(%0);		\
+		cache %1, delta(%0);		\
+		cache %1, (2 * delta)(%0);	\
+		cache %1, (3 * delta)(%0);	\
+		.set mips0;			\
+		.set reorder"			\
+		:				\
+		: "r" (base),			\
+		  "i" (op));
+
+#endif /* !_LANGUAGE_ASSEMBLY */
 
 #endif	/* _MISPINC_H */
