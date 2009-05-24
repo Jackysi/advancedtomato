@@ -1975,16 +1975,22 @@ function navi()
 		['Access Restriction',	'restrict.asp'],
 // ---- !!TB - USB, FTP, Samba
 		['USB and NAS',			'nas', 0, [
-			['USB Support',		'usb.asp'],
-			['FTP Server',		'ftp.asp'],
-			['File Sharing',	'samba.asp']
+			['USB Support',		'usb.asp']
+/* FTP-BEGIN */			
+			,['FTP Server',		'ftp.asp']
+/* FTP-END */
+/* SAMBA-BEGIN */
+			,['File Sharing',	'samba.asp']
+/* SAMBA-END */
 			] ],
 		null,
 		['Administration',		'admin', 0, [
 			['Admin Access',	'access.asp'],
 			['Bandwidth Monitoring','bwm.asp'],
 			['Buttons',			'buttons.asp'],
+/* CIFS-BEGIN */
 			['CIFS Client',		'cifs.asp'],
+/* CIFS-END */
 			['Configuration',	'config.asp'],
 			['Debugging',		'debug.asp'],
 			['JFFS2',			'jffs2.asp'],
