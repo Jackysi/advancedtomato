@@ -32,11 +32,12 @@ int sulogin_main(int argc UNUSED_PARAM, char **argv)
 
 	opt_complementary = "t+"; /* -t N */
 	getopt32(argv, "t:", &timeout);
+	argv += optind;
 
-	if (argv[optind]) {
+	if (argv[0]) {
 		close(0);
 		close(1);
-		dup(xopen(argv[optind], O_RDWR));
+		dup(xopen(argv[0], O_RDWR));
 		close(2);
 		dup(0);
 	}
@@ -50,7 +51,7 @@ int sulogin_main(int argc UNUSED_PARAM, char **argv)
 	/* Clear dangerous stuff, set PATH */
 	sanitize_env_if_suid();
 
-// bb_askpass() already handles this
+// bb_ask() already handles this
 //	signal(SIGALRM, catchalarm);
 
 	pwd = getpwuid(0);
@@ -76,7 +77,7 @@ int sulogin_main(int argc UNUSED_PARAM, char **argv)
 		int r;
 
 		/* cp points to a static buffer that is zeroed every time */
-		cp = bb_askpass(timeout,
+		cp = bb_ask(STDIN_FILENO, timeout,
 				"Give root password for system maintenance\n"
 				"(or type Control-D for normal startup):");
 

@@ -8,8 +8,6 @@
  * Licensed under GPLv2 or later, see file LICENSE in this tarball for details.
  */
 
-#include <termios.h>
-
 #include "libbb.h"
 
 /* do nothing signal handler */
@@ -17,7 +15,11 @@ static void askpass_timeout(int UNUSED_PARAM ignore)
 {
 }
 
-char* FAST_FUNC bb_askpass(int timeout, const char *prompt)
+char* FAST_FUNC bb_ask_stdin(const char *prompt)
+{
+	return bb_ask(STDIN_FILENO, 0, prompt);
+}
+char* FAST_FUNC bb_ask(const int fd, int timeout, const char *prompt)
 {
 	/* Was static char[BIGNUM] */
 	enum { sizeof_passwd = 128 };
@@ -32,12 +34,12 @@ char* FAST_FUNC bb_askpass(int timeout, const char *prompt)
 		passwd = xmalloc(sizeof_passwd);
 	memset(passwd, 0, sizeof_passwd);
 
-	tcgetattr(STDIN_FILENO, &oldtio);
-	tcflush(STDIN_FILENO, TCIFLUSH);
+	tcgetattr(fd, &oldtio);
+	tcflush(fd, TCIFLUSH);
 	tio = oldtio;
 	tio.c_iflag &= ~(IUCLC|IXON|IXOFF|IXANY);
 	tio.c_lflag &= ~(ECHO|ECHOE|ECHOK|ECHONL|TOSTOP);
-	tcsetattr(STDIN_FILENO, TCSANOW, &tio);
+	tcsetattr_stdin_TCSANOW(&tio);
 
 	memset(&sa, 0, sizeof(sa));
 	/* sa.sa_flags = 0; - no SA_RESTART! */
@@ -54,7 +56,7 @@ char* FAST_FUNC bb_askpass(int timeout, const char *prompt)
 	ret = NULL;
 	/* On timeout or Ctrl-C, read will hopefully be interrupted,
 	 * and we return NULL */
-	if (read(STDIN_FILENO, passwd, sizeof_passwd - 1) > 0) {
+	if (read(fd, passwd, sizeof_passwd - 1) > 0) {
 		ret = passwd;
 		i = 0;
 		/* Last byte is guaranteed to be 0
@@ -70,7 +72,7 @@ char* FAST_FUNC bb_askpass(int timeout, const char *prompt)
 	}
 	sigaction_set(SIGINT, &oldsa);
 
-	tcsetattr(STDIN_FILENO, TCSANOW, &oldtio);
+	tcsetattr_stdin_TCSANOW(&oldtio);
 	bb_putchar('\n');
 	fflush(stdout);
 	return ret;

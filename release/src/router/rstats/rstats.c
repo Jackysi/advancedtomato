@@ -1,7 +1,7 @@
 /*
 
 	rstats
-	Copyright (C) 2006-2008 Jonathan Zarate
+	Copyright (C) 2006-2009 Jonathan Zarate
 
 
 	This program is free software; you can redistribute it and/or
@@ -13,7 +13,7 @@
 	but WITHOUT ANY WARRANTY; without even the implied warranty of
 	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 	GNU General Public License for more details.
-	
+
 */
 
 #include <stdio.h>
@@ -81,7 +81,7 @@ typedef struct {
 
 typedef struct {
 	uint32_t id;
-	
+
 	data_t daily[MAX_NDAILY];
 	int dailyp;
 
@@ -91,7 +91,7 @@ typedef struct {
 
 typedef struct {
 	uint32_t id;
-	
+
 	data_t daily[62];
 	int dailyp;
 
@@ -128,7 +128,7 @@ const char source_fn[] = "/var/lib/misc/rstats-source";
 static int get_stime(void)
 {
 #ifdef DEBUG_STIME
-	return 90; 
+	return 90;
 #else
 	int t;
 	t = nvram_get_int("rstats_stime");
@@ -143,7 +143,7 @@ static int comp(const char *path, void *buffer, int size)
 	char s[256];
 
 	if (f_write(path, buffer, size, 0, 0) != size) return 0;
-	
+
 	sprintf(s, "%s.gz", path);
 	unlink(s);
 
@@ -169,7 +169,7 @@ static void save(int quick)
 
 	comp(speed_fn, speed, sizeof(speed[0]) * speed_count);
 
-/*	
+/*
 	if ((now = time(0)) < Y2K) {
 		_dprintf("%s: time not set\n", __FUNCTION__);
 		return;
@@ -177,16 +177,16 @@ static void save(int quick)
 */
 
 	comp(history_fn, &history, sizeof(history));
-	
+
 	_dprintf("%s: write source=%s\n", __FUNCTION__, save_path);
 	f_write_string(source_fn, save_path, 0, 0);
-	
+
 	if (quick) {
 		return;
 	}
 
 	sprintf(hgz, "%s.gz", history_fn);
-	
+
 	if (strcmp(save_path, "*nvram") == 0) {
 		if (!wait_action_idle(10)) {
 			_dprintf("%s: busy, not saving\n", __FUNCTION__);
@@ -199,9 +199,9 @@ static void save(int quick)
 				bo[n] = 0;
 				nvram_set("rstats_data", bo);
 				if (!nvram_match("debug_nocommit", "1")) nvram_commit();
-				
+
 				_dprintf("%s: nvram commit\n", __FUNCTION__);
-				
+
 				free(bo);
 			}
 		}
@@ -210,7 +210,7 @@ static void save(int quick)
 	else if (save_path[0] != 0) {
 		strcpy(tmp, save_path);
 		strcat(tmp, ".tmp");
-	
+
 		for (i = 15; i > 0; --i) {
 			if (!wait_action_idle(10)) {
 				_dprintf("%s: busy, not saving\n", __FUNCTION__);
@@ -268,7 +268,7 @@ static int decomp(const char *fname, void *buffer, int size, int max)
 		_dprintf("%s: %s != 0\n", __FUNCTION__, s);
 	}
 	unlink(uncomp_fn);
-	memset((char *)buffer + (size * n), 0, (max - n) * size);	
+	memset((char *)buffer + (size * n), 0, (max - n) * size);
 	return n;
 }
 
@@ -286,7 +286,7 @@ static int load_history(const char *fname)
 
 	if ((decomp(fname, &hist, sizeof(hist), 1) != 1) || (hist.id != CURRENT_ID)) {
 		history_v0_t v0;
-		
+
 		if ((decomp(fname, &v0, sizeof(v0), 1) != 1) || (v0.id != ID_V0)) {
 			_dprintf("%s: load failed\n", __FUNCTION__);
 			return 0;
@@ -347,18 +347,18 @@ static void load(int new)
 	_dprintf("%s: uptime = %dm, save_utime = %dm\n", __FUNCTION__, uptime / 60, save_utime / 60);
 
 	//
-	
+
 	sprintf(hgz, "%s.gz", speed_fn);
 	speed_count = decomp(hgz, speed, sizeof(speed[0]), MAX_SPEED_IF);
 	_dprintf("%s: speed_count = %d\n", __FUNCTION__, speed_count);
-	
+
 	for (i = 0; i < speed_count; ++i) {
 		if (speed[i].utime > uptime) {
 			speed[i].utime = uptime;
 			speed[i].sync = 1;
 		}
 	}
-	
+
 	//
 
 	sprintf(hgz, "%s.gz", history_fn);
@@ -368,18 +368,18 @@ static void load(int new)
 		save_utime = 0;
 		return;
 	}
-	
+
 	f_read_string(source_fn, sp, sizeof(sp));	// always terminated
 	_dprintf("%s: read source=%s save_path=%s\n", __FUNCTION__, sp, save_path);
 	if ((strcmp(sp, save_path) == 0) && (load_history(hgz))) {
 		_dprintf("%s: using local file\n", __FUNCTION__);
 		return;
 	}
-	
+
 	if (save_path[0] != 0) {
 		if (strcmp(save_path, "*nvram") == 0) {
 			if (!wait_action_idle(60)) exit(0);
-			
+
 			bi = nvram_safe_get("rstats_data");
 			if ((n = strlen(bi)) > 0) {
 				if ((bo = malloc(base64_decoded_len(n))) != NULL) {
@@ -392,7 +392,7 @@ static void load(int new)
 			}
 		}
 		else {
-			i = 0;
+			i = 1;
 			while (1) {
 				if (wait_action_idle(10)) {
 
@@ -404,18 +404,18 @@ static void load(int new)
 						break;
 					}
 				}
-				
+
 				// not ready...
-				sleep(2);
+				sleep(i);
+				if ((i *= 2) > 900) i = 900;	// 15m
 
 				if (gotterm) {
 					save_path[0] = 0;
 					return;
 				}
 
-				_dprintf("%s: not ready i=%d\n", __FUNCTION__, i);
-				if ((++i % 600) == 90) {	// aprox. every 20m, 3m into it
-					syslog(LOG_ERR, "Problem loading %s. Still trying...", save_path);
+				if (i > (3 * 60)) {
+					syslog(LOG_WARNING, "Problem loading %s. Still trying...", save_path);
 				}
 			}
 		}
@@ -438,7 +438,7 @@ static void save_speedjs(long next)
 	_dprintf("%s: speed_count = %d\n", __FUNCTION__, speed_count);
 
 	fprintf(f, "\nspeed_history = {\n");
-	
+
 	for (i = 0; i < speed_count; ++i) {
 		sp = &speed[i];
 		fprintf(f, "%s'%s': {\n", i ? " },\n" : "", sp->ifname);
@@ -454,7 +454,7 @@ static void save_speedjs(long next)
 				if (n > tmax) tmax = n;
 			}
 			fprintf(f, "],\n");
-			
+
 			c = j ? 't' : 'r';
 			fprintf(f, " %cx_avg: %llu,\n %cx_max: %llu,\n %cx_total: %llu",
 				c, total / MAX_NSPEED, c, tmax, c, total);
@@ -577,7 +577,7 @@ static void calc(void)
 		}
 		if (i == 0) {
 			if (speed_count >= MAX_SPEED_IF) continue;
-			
+
 			_dprintf("%s: add %s as #%d\n", __FUNCTION__, ifname, speed_count);
 
 			i = speed_count++;
@@ -637,7 +637,7 @@ static void calc(void)
 			tms = localtime(&now);
 			bump(history.daily, &history.dailyp, MAX_NDAILY,
 				(tms->tm_year << 16) | ((uint32_t)tms->tm_mon << 8) | tms->tm_mday, counter);
-			
+
 			n = nvram_get_int("rstats_offset");
 			if ((n < 1) || (n > 31)) n = 1;
 			mon = now + ((1 - n) * (60 * 60 * 24));
@@ -700,8 +700,8 @@ int main(int argc, char *argv[])
 	long z;
 	int new;
 
-	printf("rstats\nCopyright (C) 2006-2008 Jonathan Zarate\n\n");
-	
+	printf("rstats\nCopyright (C) 2006-2009 Jonathan Zarate\n\n");
+
 	if (fork() != 0) return 0;
 
 	openlog("rstats", LOG_PID, LOG_USER);
@@ -713,7 +713,7 @@ int main(int argc, char *argv[])
 			_dprintf("new=1\n");
 		}
 	}
-	
+
 	clear_history();
 	unlink("/var/tmp/rstats-load");
 

@@ -43,6 +43,7 @@ extern int web_open(void);
 extern int web_close(void);
 
 extern int web_pipecmd(const char *cmd, wofilter_t wof);
+extern int web_putfile(const char *fname, wofilter_t wof);
 
 extern int _web_printf(wofilter_t wof, const char *format, ...);
 #define web_printf(args...)		_web_printf(WOF_NONE, ##args)
@@ -88,6 +89,6 @@ extern int parse_asp(const char *path);
 
 
 //
-extern void check_id(void);
+extern void check_id(const char *url);
 
 #endif

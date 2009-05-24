@@ -1,7 +1,7 @@
 /*
 
 	Tomato Firmware
-	Copyright (C) 2006-2008 Jonathan Zarate
+	Copyright (C) 2006-2009 Jonathan Zarate
 
 */
 
@@ -40,7 +40,8 @@ int mount_cifs_main(int argc, char *argv[])
 			done[1] = 0;
 			done[2] = 0;
 			first = 1;
-			for (try = 60; try > 0; --try) {
+			try = 0;
+			while (1) {
 				for (i = 1; i <= 2; ++i) {
 					if (done[i]) continue;
 
@@ -67,6 +68,7 @@ int mount_cifs_main(int argc, char *argv[])
 					umount(mpath);
 					if (mount("-", mpath, "cifs", MS_NOATIME|MS_NODIRATIME, opt) != 0) continue;
 					done[i] = 1;
+					if (try > 12) try = 12;	// 1 min
 
 					if (*exec) {
 						chdir(mpath);
@@ -75,15 +77,21 @@ int mount_cifs_main(int argc, char *argv[])
 						_eval(exargv, NULL, 0, &pid);
 					}
 				}
-				if ((done[1]) && (done[2])) break;
-				sleep(2);
+				if ((done[1]) && (done[2])) {
+					notice_set("cifs", "");
+					return 0;
+				}
+
+				sleep(5 * ++try);
+				if (try == 24) {	// 2 min
+					sprintf(s, "Error mounting CIFS #%s. Still trying... ", (done[1] == done[2]) ? "1 and #2" : ((done[1] == 0) ? "1" : "2"));
+					notice_set("cifs", s);
+				}
+				else if (try > 180) {	// 15 mins
+					try = 180;
+				}
 			}
 
-			s[0] = 0;
-			for (i = 1; i <= 2; ++i) {
-				if (done[i] == 0) sprintf(s + strlen(s), "Error mounting CIFS %d. ", i);
-			}
-			notice_set("cifs", s);
 			return 1;
 		}
 		if (strcmp(argv[1], "-u") == 0) {

@@ -1,7 +1,7 @@
 /*
 
 	Tomato Firmware
-	Copyright (C) 2006-2008 Jonathan Zarate
+	Copyright (C) 2006-2009 Jonathan Zarate
 
 */
 #include <string.h>
@@ -37,7 +37,6 @@ int get_wan_proto(void)
 	const char *names[] = {	// order must be synced with def at shared.h
 		"static",
 		"dhcp",
-//	hbobs		"heartbeat",
 		"l2tp",
 		"pppoe",
 		"pptp",
@@ -55,11 +54,6 @@ int get_wan_proto(void)
 
 int using_dhcpc(void)
 {
-#if 0	// hbobs
-	const char *proto = nvram_safe_get("wan_proto");
-	return (strcmp(proto, "dhcp") == 0) || (strcmp(proto, "l2tp") == 0) || (strcmp(proto, "heartbeat") == 0);
-#endif
-
 	switch (get_wan_proto()) {
 	case WP_DHCP:
 	case WP_L2TP:
@@ -308,6 +302,23 @@ long nvram_xget_long(const char *name, long min, long max, long def)
 
 int nvram_get_file(const char *key, const char *fname, int max)
 {
+	int n;
+	char *p;
+	char *b;
+	int r;
+
+	r = 0;
+	p = nvram_safe_get(key);
+	n = strlen(p);
+	if (n <= max) {
+		if ((b = malloc(base64_decoded_len(n) + 128)) != NULL) {
+			n = base64_decode(p, b, n);
+			if (n > 0) r = (f_write(fname, b, n, 0, 0644) == n);
+			free(b);
+		}
+	}
+	return r;
+/*
 	char b[2048];
 	int n;
 	char *p;
@@ -319,10 +330,32 @@ int nvram_get_file(const char *key, const char *fname, int max)
 		if (n > 0) return (f_write(fname, b, n, 0, 0700) == n);
 	}
 	return 0;
+*/
 }
 
 int nvram_set_file(const char *key, const char *fname, int max)
 {
+	char *in;
+	char *out;
+	long len;
+	int n;
+	int r;
+
+	if ((len = f_size(fname)) > max) return 0;
+	max = (int)len;
+	r = 0;
+	if (f_read_alloc(fname, &in, max) == max) {
+		if ((out = malloc(base64_encoded_len(max) + 128)) != NULL) {
+			n = base64_encode(in, out, max);
+			out[n] = 0;
+			nvram_set(key, out);
+			free(out);
+			r = 1;
+		}
+		free(in);
+	}
+	return r;
+/*
 	char a[2048];
 	char b[4096];
 	int n;
@@ -334,11 +367,23 @@ int nvram_set_file(const char *key, const char *fname, int max)
 		return 1;
 	}
 	return 0;
+*/
 }
 
 int nvram_contains_word(const char *key, const char *word)
 {
 	return (find_word(nvram_safe_get(key), word) != NULL);
+}
+
+int nvram_is_empty(const char *key)
+{
+	char *p;
+	return (((p = nvram_get(key)) == NULL) || (*p == 0));
+}
+
+void nvram_commit_x(void)
+{
+	if (!nvram_get_int("debug_nocommit")) nvram_commit();
 }
 
 int connect_timeout(int fd, const struct sockaddr *addr, socklen_t len, int timeout)
@@ -362,7 +407,7 @@ int connect_timeout(int fd, const struct sockaddr *addr, socklen_t len, int time
 			_dprintf("%s: error in connect %d errno=%d\n", __FUNCTION__, fd, errno);
 			return -1;
 		}
-		
+
 		while (1) {
 			tv.tv_sec = timeout;
 			tv.tv_usec = 0;
@@ -391,11 +436,11 @@ int connect_timeout(int fd, const struct sockaddr *addr, socklen_t len, int time
 			}
 		}
 	}
-	
+
 	if (fcntl(fd, F_SETFL, flags) < 0) {
 		_dprintf("%s: error in F_*ETFL %d\n", __FUNCTION__, fd);
 		return -1;
-	}	
+	}
 
 //	_dprintf("%s: OK %d\n", __FUNCTION__, fd);
 	return 0;

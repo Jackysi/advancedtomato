@@ -65,6 +65,7 @@ const defaults_t defaults[] = {
 //!	{ "wan_ifnames",		""				},	// WAN interface names
 	{ "wan_hwname",			""				},	// WAN driver name (e.g. et1)
 	{ "wan_hwaddr",			""				},	// WAN interface MAC address
+	{ "wan_ifnameX",		NULL			},	// real wan if; see wan.c:start_wan
 
 	// WAN TCP/IP parameters
 	{ "wan_proto",			"dhcp"			},	// [static|dhcp|pppoe|disabled]
@@ -74,6 +75,7 @@ const defaults_t defaults[] = {
 	{ "wan_dns",			""				},	// x.x.x.x x.x.x.x ...
 	{ "wan_wins",			""				},	// x.x.x.x x.x.x.x ...
 	{ "wan_lease",			"86400"			},	// WAN lease time in seconds
+	{ "wan_islan",			"0"				},
 
 	{ "wan_primary",		"1"				},	// Primary wan connection
 	{ "wan_unit",			"0"				},	// Last configured connection
@@ -89,8 +91,8 @@ const defaults_t defaults[] = {
 	{ "autofw_port0",		""				},	// out_proto:out_port,in_proto:in_port0-in_port1>to_port0-to_port1,enable,desc
 
 	// DHCP server parameters
-	{ "dhcp_start",			"100"			},	// 
-	{ "dhcp_num",			"50"			},	// 
+	{ "dhcp_start",			"100"			},	//
+	{ "dhcp_num",			"50"			},	//
 	{ "dhcpd_startip",		"" 				},	// if empty, tomato will use dhcp_start/dchp_num for better compatibility
 	{ "dhcpd_endip",		"" 				},	// "
 	{ "dhcp_lease",			"0"				},	// LAN lease time in minutes
@@ -114,7 +116,7 @@ const defaults_t defaults[] = {
 	{ "ppp_static_ip",		""				},	// PPPoE Static IP
 	{ "ppp_get_ac",			""				},	// PPPoE Server ac name
 	{ "ppp_get_srv",		""				},	// PPPoE Server service name
-	
+
 	{ "pppoe_lei",			""				},
 	{ "pppoe_lef",			""				},
 
@@ -199,6 +201,10 @@ const defaults_t defaults[] = {
 	{ "wl_unit",			"0"				},	// Last configured interface
 	{ "wl_mac_deny",		""				},	// filter MAC	// Add
 
+	{ "wl_leddc",			"0x640000"		},	// !!TB - 100% duty cycle for LED on router (WLAN LED fix for some routers)
+	{ "wl_bss_enabled",		"1"				},	// !!TB - If not present the new versions of wlconf may not bring up wlan
+	{ "wl_reg_mode",		"off"			},	// !!TB - Regulatory: 802.11H(h)/802.11D(d)/off(off)
+
 	{ "pptp_server_ip",		""				},	// as same as WAN gateway
 	{ "pptp_get_ip",		""				},	// IP Address assigned by PPTP server
 
@@ -228,6 +234,8 @@ const defaults_t defaults[] = {
 	{ "ddnsx1",				""				},
 	{ "ddnsx0_cache",		""				},
 	{ "ddnsx1_cache",		""				},
+	{ "ddnsx_save",			"1"				},
+	{ "ddnsx_refresh",		"28"			},
 
 // basic-network
 	{ "wds_save",			""				},
@@ -291,6 +299,7 @@ const defaults_t defaults[] = {
 	{ "block_wan",			"1"				},	// block inbound icmp
 	{ "multicast_pass",		"0"				},	// enable multicast proxy
 	{ "ne_syncookies",		"0"				},	// tcp_syncookies
+	{ "ne_shlimit",			"0,3,60"		},
 
 // advanced-routing
 	{ "routes_static",		""				},
@@ -316,15 +325,17 @@ const defaults_t defaults[] = {
 
 // forward-upnp
 	{ "upnp_enable",		"1"				},
+	{ "upnp_secure",		"1"				},
+	{ "upnp_port",			"5000"			},
+#if 0	// disabled for miniupnpd
 	{ "upnp_ssdp_interval",	"60"			},	// SSDP interval
 	{ "upnp_max_age",		"180"			},	// Max age
 	{ "upnp_mnp",			"0"				},
 	{ "upnp_config",		"0"				},
+#endif
 
 // qos
 	{ "qos_enable",			"0"				},
-	{ "qos_method",			"0"				},	// remove later	zzz
-	{ "qos_sticky",			"1"				},	// remove later	zzz
 	{ "qos_ack",			"1"				},
 	{ "qos_syn",			"0"				},
 	{ "qos_fin",			"0"				},
@@ -339,7 +350,7 @@ const defaults_t defaults[] = {
 
 	{ "qos_default",		"3"				},
 	{ "qos_orates",			"80-100,10-100,5-100,3-100,2-95,1-50,1-40,1-30,1-20,1-10"	},
-	
+
 	{ "ne_vegas",			"0"				},	// TCP Vegas
 	{ "ne_valpha",			"2"				},	// "
 	{ "ne_vbeta",			"6"				},	// "
@@ -375,7 +386,7 @@ const defaults_t defaults[] = {
 	{ "https_crt_file",		""				},
 	{ "https_crt",			""				},
 	{ "web_wl_filter",		"0"				},	// Allow/Deny Wireless Access Web
-	{ "web_favicon",		"0"				},
+//	{ "web_favicon",		"0"				},
 	{ "web_css",			"tomato"		},
 	{ "web_svg",			"1"				},
 	{ "telnetd_eas",		"1"				},
@@ -388,7 +399,7 @@ const defaults_t defaults[] = {
 	{ "sshd_authkeys",		""				},
 	{ "sshd_hostkey",		""				},
 	{ "rmgt_sip",			""				},	// remote management: source ip address
-	
+
 	{ "http_id",			""				},
 
 // admin-bwm
@@ -403,7 +414,6 @@ const defaults_t defaults[] = {
 	{ "rstats_bak",			"0"				},
 
 // advanced-buttons
-	{ "sesx_led",			"0"				},
 	{ "sesx_b0",			"1"				},
 	{ "sesx_b1",			"4"				},
 	{ "sesx_b2",			"4"				},
@@ -555,7 +565,7 @@ const defaults_t defaults[] = {
 	{ "aol_block_traffic2",	"0"				},	// 0:Disable 1:Enable for "Parental control"
 	{ "skip_amd_check",		"0"				},	// 0:Disable 1:Enable
 	{ "skip_intel_check",	"0"				},	// 0:Disable 1:Enable
-	
+
 // advanced-watchdog
 	{ "wd_en",				""				},
 	{ "wd_atp0",			""				},
@@ -568,7 +578,7 @@ const defaults_t defaults[] = {
 	{ "wd_cki",				"300"			},
 	{ "wd_fdm",				""				},
 	{ "wd_aof",				""				},
-	
+
 #endif	// 0
 
 	{ NULL, NULL	}

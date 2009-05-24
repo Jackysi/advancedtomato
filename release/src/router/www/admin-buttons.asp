@@ -1,7 +1,7 @@
 <!DOCTYPE HTML PUBLIC '-//W3C//DTD HTML 4.0//EN'>
 <!--
 	Tomato GUI
-	Copyright (C) 2006-2008 Jonathan Zarate
+	Copyright (C) 2006-2009 Jonathan Zarate
 	http://www.polarcloud.com/tomato/
 
 	For use with Tomato Firmware only.
@@ -28,12 +28,10 @@ textarea {
 <script type='text/javascript' src='debug.js'></script>
 
 <script type='text/javascript'>
-//	<% nvram("sesx_led,sesx_b0,sesx_b1,sesx_b2,sesx_b3,sesx_script,script_brau,t_model,t_features"); %>
+//	<% nvram("sesx_b0,sesx_b1,sesx_b2,sesx_b3,sesx_script,script_brau,t_model,t_features"); %>
 
 var ses = features('ses');
 var brau = features('brau');
-var aoss = features('aoss');
-var wham = features('wham');
 
 function verifyFields(focused, quiet)
 {
@@ -42,17 +40,7 @@ function verifyFields(focused, quiet)
 
 function save()
 {
-	var n;
-	var fom;
-	
-	fom = E('_fom');
-	n = 0;
-	if (fom._led0.checked) n |= 1;
-	if (fom._led1.checked) n |= 2;
-	if (fom._led2.checked) n |= 4;
-	if (fom._led3.checked) n |= 8;
-	fom.sesx_led.value = n;
-	form.submit(fom, 1);
+	form.submit('_fom', 1);
 }
 
 function earlyInit()
@@ -61,10 +49,9 @@ function earlyInit()
 		E('save-button').disabled = 1;
 		return;
 	}
-	
+
 	if (brau) E('braudiv').style.display = '';
 	E('sesdiv').style.display = '';
-	if ((wham) || (aoss) || (brau)) E('leddiv').style.display = '';
 }
 </script>
 </head>
@@ -102,25 +89,11 @@ createFieldTable('', [
 </div>
 
 <div id='braudiv' style='display:none'>
-<div class='section-title'>Bridge-Auto Switch</div>
+<div class='section-title'>Bridge/Auto Switch</div>
 <div class='section'>
 <script type='text/javascript'>
 createFieldTable('', [
 	{ title: 'Custom Script', indent: 2, name: 'script_brau', type: 'textarea', value: nvram.script_brau }
-]);
-</script>
-</div>
-</div>
-
-<div id='leddiv' style='display:none'>
-<div class='section-title'>Startup LED</div>
-<div class='section'>
-<script type='text/javascript'>
-createFieldTable('', [
-	{ title: 'Amber SES', name: '_led0', type: 'checkbox', value: nvram.sesx_led & 1, hidden: !wham },
-	{ title: 'White SES', name: '_led1', type: 'checkbox', value: nvram.sesx_led & 2, hidden: !wham },
-	{ title: 'AOSS', name: '_led2', type: 'checkbox', value: nvram.sesx_led & 4, hidden: !aoss },
-	{ title: 'Bridge', name: '_led3', type: 'checkbox', value: nvram.sesx_led & 8, hidden: !brau }
 ]);
 </script>
 </div>

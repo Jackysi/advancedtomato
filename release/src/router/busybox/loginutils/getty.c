@@ -19,7 +19,7 @@
 #include <syslog.h>
 
 #if ENABLE_FEATURE_UTMP
-#include <utmp.h>
+#include <utmp.h> /* updwtmp() */
 #endif
 
 /*
@@ -28,10 +28,6 @@
  */
 #ifdef LOGIN_PROCESS                    /* defined in System V utmp.h */
 #include <sys/utsname.h>
-#include <time.h>
-#if ENABLE_FEATURE_WTMP
-extern void updwtmp(const char *filename, const struct utmp *ut);
-#endif
 #else /* if !sysV style, wtmp/utmp code is off */
 #undef ENABLE_FEATURE_UTMP
 #undef ENABLE_FEATURE_WTMP
@@ -167,8 +163,9 @@ static void parse_speeds(struct options *op, char *arg)
 	debug("entered parse_speeds\n");
 	while ((cp = strsep(&arg, ",")) != NULL) {
 		op->speeds[op->numspeed] = bcode(cp);
-		if (op->speeds[op->numspeed] <= 0)
+		if (op->speeds[op->numspeed] < 0)
 			bb_error_msg_and_die("bad speed: %s", cp);
+		/* note: arg "0" turns into speed B0 */
 		op->numspeed++;
 		if (op->numspeed > MAX_SPEED)
 			bb_error_msg_and_die("too many alternate speeds");
@@ -274,6 +271,7 @@ static void open_tty(const char *tty)
 /* termios_init - initialize termios settings */
 static void termios_init(struct termios *tp, int speed, struct options *op)
 {
+	speed_t ispeed, ospeed;
 	/*
 	 * Initial termios settings: 8-bit characters, raw-mode, blocking i/o.
 	 * Special characters are set after we have read the login name; all
@@ -282,12 +280,20 @@ static void termios_init(struct termios *tp, int speed, struct options *op)
 	 */
 #ifdef __linux__
 	/* flush input and output queues, important for modems! */
-	ioctl(0, TCFLSH, TCIOFLUSH);
+	ioctl(0, TCFLSH, TCIOFLUSH); /* tcflush(0, TCIOFLUSH)? - same */
 #endif
-
-	tp->c_cflag = CS8 | HUPCL | CREAD | speed;
+	ispeed = ospeed = speed;
+	if (speed == B0) {
+		/* Speed was specified as "0" on command line.
+		 * Just leave it unchanged */
+		ispeed = cfgetispeed(tp);
+		ospeed = cfgetospeed(tp);
+	}
+	tp->c_cflag = CS8 | HUPCL | CREAD;
 	if (op->flags & F_LOCAL)
 		tp->c_cflag |= CLOCAL;
+	cfsetispeed(tp, ispeed);
+	cfsetospeed(tp, ospeed);
 
 	tp->c_iflag = tp->c_lflag = tp->c_line = 0;
 	tp->c_oflag = OPOST | ONLCR;
@@ -300,7 +306,7 @@ static void termios_init(struct termios *tp, int speed, struct options *op)
 		tp->c_cflag |= CRTSCTS;
 #endif
 
-	ioctl(0, TCSETS, tp);
+	tcsetattr_stdin_TCSANOW(tp);
 
 	debug("term_io 2\n");
 }
@@ -337,7 +343,7 @@ static void auto_baud(char *buf, unsigned size_buf, struct termios *tp)
 	tp->c_iflag |= ISTRIP;          /* enable 8th-bit stripping */
 	vmin = tp->c_cc[VMIN];
 	tp->c_cc[VMIN] = 0;             /* don't block if queue empty */
-	ioctl(0, TCSETS, tp);
+	tcsetattr_stdin_TCSANOW(tp);
 
 	/*
 	 * Wait for a while, then read everything the modem has said so far and
@@ -362,7 +368,7 @@ static void auto_baud(char *buf, unsigned size_buf, struct termios *tp)
 	/* Restore terminal settings. Errors will be dealt with later on. */
 	tp->c_iflag = iflag;
 	tp->c_cc[VMIN] = vmin;
-	ioctl(0, TCSETS, tp);
+	tcsetattr_stdin_TCSANOW(tp);
 }
 
 /* do_prompt - show login prompt, optionally preceded by /etc/issue contents */
@@ -407,7 +413,7 @@ static char *get_logname(char *logname, unsigned size_logname,
 
 	/* Flush pending input (esp. after parsing or switching the baud rate). */
 	sleep(1);
-	ioctl(0, TCFLSH, TCIFLUSH);
+	ioctl(0, TCFLSH, TCIFLUSH); /* tcflush(0, TCIOFLUSH)? - same */
 
 	/* Prompt for and read a login name. */
 	logname[0] = '\0';
@@ -477,7 +483,7 @@ static char *get_logname(char *logname, unsigned size_logname,
 			case CTL('D'):
 				exit(EXIT_SUCCESS);
 			default:
-				if (!isascii(ascval) || !isprint(ascval)) {
+				if (!isprint(ascval)) {
 					/* ignore garbage characters */
 				} else if ((int)(bp - logname) >= size_logname - 1) {
 					bb_error_msg_and_die("%s: input overrun", op->tty);
@@ -555,12 +561,13 @@ static void termios_final(struct options *op, struct termios *tp, struct chardat
 	}
 #endif
 	/* Optionally enable hardware flow control */
-#ifdef  CRTSCTS
+#ifdef CRTSCTS
 	if (op->flags & F_RTSCTS)
 		tp->c_cflag |= CRTSCTS;
 #endif
 
 	/* Finally, make the new settings effective */
+	/* It's tcsetattr_stdin_TCSANOW() + error check */
 	ioctl_or_perror_and_die(0, TCSETS, tp, "%s: TCSETS", op->tty);
 }
 
@@ -692,6 +699,7 @@ int getty_main(int argc UNUSED_PARAM, char **argv)
 	 * by patching the SunOS kernel variable "zsadtrlow" to a larger value;
 	 * 5 seconds seems to be a good value.
 	 */
+	/* tcgetattr() + error check */
 	ioctl_or_perror_and_die(0, TCGETS, &termios, "%s: TCGETS", options.tty);
 
 #ifdef __linux__
@@ -715,6 +723,7 @@ int getty_main(int argc UNUSED_PARAM, char **argv)
 	/* Write the modem init string and DON'T flush the buffers */
 	if (options.flags & F_INITSTRING) {
 		debug("writing init string\n");
+		/* todo: use xwrite_str? */
 		full_write(STDOUT_FILENO, options.initstring, strlen(options.initstring));
 	}
 
@@ -754,9 +763,9 @@ int getty_main(int argc UNUSED_PARAM, char **argv)
 				break;
 			/* we are here only if options.numspeed > 1 */
 			baud_index = (baud_index + 1) % options.numspeed;
-			termios.c_cflag &= ~CBAUD;
-			termios.c_cflag |= options.speeds[baud_index];
-			ioctl(0, TCSETS, &termios);
+			cfsetispeed(&termios, options.speeds[baud_index]);
+			cfsetospeed(&termios, options.speeds[baud_index]);
+			tcsetattr_stdin_TCSANOW(&termios);
 		}
 	}
 
