@@ -1,7 +1,7 @@
 <!DOCTYPE HTML PUBLIC '-//W3C//DTD HTML 4.0//EN'>
 <!--
 	Tomato GUI
-	Copyright (C) 2006-2008 Jonathan Zarate
+	Copyright (C) 2006-2009 Jonathan Zarate
 	http://www.polarcloud.com/tomato/
 
 	For use with Tomato Firmware only.
@@ -53,7 +53,7 @@ function formatClock()
 function save(format)
 {
 	if (!verifyFields(null, 0)) return;
-	
+
 	E('format').disabled = 1;
 	if (format) E('fmsg').style.visibility = 'visible';
 
@@ -71,7 +71,7 @@ function save(format)
 		fom._nextwait.value = on ? 15 : 3;
 	}
 	form.submit(fom, 1);
-	
+
 	if (format) {
 		ftime = 60;
 		formatClock();

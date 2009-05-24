@@ -1,7 +1,7 @@
 <!DOCTYPE HTML PUBLIC '-//W3C//DTD HTML 4.0//EN'>
 <!--
 	Tomato GUI
-	Copyright (C) 2006-2008 Jonathan Zarate
+	Copyright (C) 2006-2009 Jonathan Zarate
 	http://www.polarcloud.com/tomato/
 
 	For use with Tomato Firmware only.
@@ -26,7 +26,7 @@
 
 function nvramCommit()
 {
-	fields.disableAll('_fom', 1);	
+	fields.disableAll('_fom', 1);
 	form.submitHidden('nvcommit.cgi', { '_nextpage': myName() });
 }
 
@@ -44,13 +44,13 @@ function save()
 	fom.t_cafree.value = fom.f_cafree.checked ? 1 : 0;
 	fom.t_hidelr.value = fom.f_hidelr.checked ? 1 : 0;
 	fom.debug_ddns.value = fom.f_debug_ddns.checked ? 1 : 0;
-	
+
 	var a = [];
 	if (fom.f_nr_crond.checked) a.push('crond');
 	if (fom.f_nr_dnsmasq.checked) a.push('dnsmasq');
 	if (fom.f_nr_igmprt.checked) a.push('igmprt');
-	fom.debug_norestart.value = a.join(',');	
-	
+	fom.debug_norestart.value = a.join(',');
+
 	form.submit(fom, 1);
 }
 </script>

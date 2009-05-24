@@ -1,6 +1,6 @@
 /*
 	Tomato GUI
-	Copyright (C) 2006-2008 Jonathan Zarate
+	Copyright (C) 2006-2009 Jonathan Zarate
 	http://www.polarcloud.com/tomato/
 
 	For use with Tomato Firmware only.
@@ -239,7 +239,7 @@ var form = {
 
 		if ((!async) || (!useAjax())) {
 			this.addId(fom);
-			if (url) fom.action = url;		
+			if (url) fom.action = url;
 			fom.submit();
 			return;
 		}
@@ -285,7 +285,7 @@ var form = {
 
 		this.xhttp.post(url ? url : fom.action, v.join('&'));
 	},
-	
+
 	addId: function(fom) {
 		var e;
 
@@ -334,7 +334,7 @@ var ferror = {
 		for (var i = 0; i < e.length; ++i)
 			this.clear(e[i]);
 	},
-	
+
 	show: function(e) {
 		if ((e = E(e)) == null) return;
 		if (!e._error_msg) return;
@@ -510,64 +510,88 @@ function ntoa(ip)
 	return ((ip >> 24) & 255) + '.' + ((ip >> 16) & 255) + '.' + ((ip >> 8) & 255) + '.' + (ip & 255);
 }
 
+
 // 1.2.3.4, 1.2.3.4/24, 1.2.3.4/255.255.255.0, 1.2.3.4-1.2.3.5
-function v_iptip(e, quiet)
+function _v_iptip(e, ip, quiet)
 {
-	var ip, ma, x, y, z;
+	var ma, x, y, z, oip;
+	var a, b;
 
-	if ((e = E(e)) == null) return 0;
+	oip = ip;
 
-	ip = e.value;
-	ma = '';
+	// x.x.x.x - y.y.y.y
 	if (ip.match(/^(.*)-(.*)$/)) {
-		ip = fixIP(RegExp.$1);
-		x = fixIP(RegExp.$2);
-		if ((ip == null) || (x == null)) {
-			ferror.set(e, 'Invalid IP address range', quiet);
-			return 0;
+		a = fixIP(RegExp.$1);
+		b = fixIP(RegExp.$2);
+		if ((a == null) || (b == null)) {
+			ferror.set(e, 'Invalid IP address range - ' + oip, quiet);
+			return null;
 		}
 		ferror.clear(e);
-		y = aton(ip);
-		z = aton(x);
-		if (y == z) {
-			e.value = ip;
-		}
-		else if (z < y) {
-			e.value = x + '-' + ip;
-		}
-		else {
-			e.value = ip + '-' + x;
-		}
-		return 1;
+		
+		if (aton(a) > aton(b)) return b + '-' + a;
+		return a + '-' + b;
 	}
+
+	ma = '';
+
+	// x.x.x.x/nn 
+	// x.x.x.x/y.y.y.y
 	if (ip.match(/^(.*)\/(.*)$/)) {
 		ip = RegExp.$1;
-		ma = RegExp.$2;
-		x = ma * 1;
-		if (!isNaN(x)) {
-			if ((x < 0) || (x > 32)) {
-				ferror.set(e, 'Invalid netmask', quiet);
-				return 0;
+		b = RegExp.$2;
+		
+		ma = b * 1;
+		if (isNaN(ma)) {
+			ma = fixIP(b);
+			if ((ma == null) || (!_v_netmask(ma))) {
+				ferror.set(e, 'Invalid netmask - ' + oip, quiet);
+				return null;
 			}
-			ma = x;
 		}
 		else {
-			ma = fixIP(ma);
-			if ((ma == null) || (!_v_netmask(ma))) {
-				ferror.set(e, 'Invalid netmask', quiet);
-				return 0;
+			if ((ma < 0) || (ma > 32)) {
+				ferror.set(e, 'Invalid netmask - ' + oip, quiet);
+				return null;
 			}
 		}
 	}
+		
 	ip = fixIP(ip);
 	if (!ip) {
-		ferror.set(e, 'Invalid IP address', quiet);
-		return 0;
+		ferror.set(e, 'Invalid IP address - ' + oip, quiet);
+		return null;
 	}
-	e.value = ip + ((ma != '') ? ('/' + ma) : '');
+
 	ferror.clear(e);
+	return ip + ((ma != '') ? ('/' + ma) : '');
+}
+
+function v_iptip(e, quiet, multi)
+{
+	var v, i;
+
+	if ((e = E(e)) == null) return 0;
+	v = e.value.split(',');
+	if (multi) {
+		if (v.length > multi) {
+			ferror.set(e, 'Too many IP addresses', quiet);
+			return 0;
+		}
+	}
+	else {
+		if (v.length > 1) {
+			ferror.set(e, 'Invalid IP address', quiet);
+			return 0;
+		}
+	}
+	for (i = 0; i < v.length; ++i) {
+		if ((v[i] = _v_iptip(e, v[i], quiet)) == null) return 0;
+	}
+	e.value = v.join(', ');
 	return 1;
 }
+
 
 function fixPort(p, def)
 {
@@ -878,7 +902,7 @@ TomatoGrid.prototype = {
 		this.header = e = this._insert(0, cells, escCells);
 		e.className = 'header';
 
-		for (i = 0; i < e.cells.length; ++i) {		
+		for (i = 0; i < e.cells.length; ++i) {
 			e.cells[i].cellN = i;	// cellIndex broken in Safari
 			e.cells[i].onclick = function() { return TGO(this).headerClick(this); };
 		}
@@ -946,7 +970,7 @@ TomatoGrid.prototype = {
 		me.moving = e;
 		img.style.border = "1px dotted red";
 	},
-	
+
 	rpDel: function(e) {
 		e = PR(e);
 		TGO(e).moving = null;
@@ -991,7 +1015,7 @@ TomatoGrid.prototype = {
 
 		document.body.appendChild(e);
 	},
-	
+
 	rpHide: tgHideIcons,
 
 	//
@@ -1588,14 +1612,14 @@ TomatoRefresh.prototype = {
 			else {
 				p.stop();
 			}
-			
+
 			p.errors = 0;
 		}
 
 		this.http.onError = function(ex) {
 			var p = this.parent;
 			if ((!p) || (!p.running)) return;
-			
+
 			p.timer.stop();
 
 			if (++p.errors <= 3) {
@@ -1603,7 +1627,7 @@ TomatoRefresh.prototype = {
 				p.timer.start(3000);
 				return;
 			}
-			
+
 			if (p.cookieTag) {
 				var e = cookie.get(p.cookieTag + '-error') * 1;
 				if (isNaN(e)) e = 0;
@@ -1940,7 +1964,7 @@ function navi()
 			['Basic',			'basic.asp'],
 			['DMZ',				'dmz.asp'],
 			['Triggered',		'triggered.asp'],
-			['UPnP',			'upnp.asp'] ] ],
+			['UPnP / NAT-PMP',	'upnp.asp'] ] ],
 		['QoS',					'qos', 0, [
 			['Basic Settings',	'settings.asp'],
 			['Classification',	'classify.asp'],
@@ -1960,7 +1984,7 @@ function navi()
 		['Administration',		'admin', 0, [
 			['Admin Access',	'access.asp'],
 			['Bandwidth Monitoring','bwm.asp'],
-			['Buttons / LED',	'buttons.asp'],
+			['Buttons',			'buttons.asp'],
 			['CIFS Client',		'cifs.asp'],
 			['Configuration',	'config.asp'],
 			['Debugging',		'debug.asp'],
@@ -1996,7 +2020,7 @@ function navi()
 			buf.push("<br>");
 			continue;
 		}
-		
+/*
 		if (m[1] == 'javascript:logout()') {
 			// can't logout in IE...
 			try {
@@ -2007,7 +2031,7 @@ function navi()
 			catch (ex) {
 			}
 		}
-		
+*/
 		if (m.length == 2) {
 			buf.push('<a href="' + m[1] + '" class="indent1' + (((base == '') && (name == m[1])) ? ' active' : '') + '">' + m[0] + '</a>');
 		}
@@ -2057,6 +2081,8 @@ function createFieldTable(flags, desc)
 	var f;
 	var a;
 	var buf = [];
+	var buf2;
+	var id1;
 	var tr;
 
 	if ((flags.indexOf('noopen') == -1)) buf.push('<table class="fields">');
@@ -2085,52 +2111,63 @@ function createFieldTable(flags, desc)
 			continue;
 		}
 
-		buf.push('<td class="title indent' + (v.indent ? v.indent : 1) + '">' + v.title + '</td>');
-		buf.push('<td class="content">');
+		id1 = '';
+		buf2 = [];
+		buf2.push('<td class="content">');
 
 		if (v.multi) fields = v.multi;
 			else fields = [v];
 
 		for (n = 0; n < fields.length; ++n) {
 			f = fields[n];
-			if (f.prefix) buf.push(f.prefix);
+			if (f.prefix) buf2.push(f.prefix);
 
 			if ((f.type == 'radio') && (!f.id)) id = '_' + f.name + '_' + i;
 				else id = (f.id ? f.id : ('_' + f.name));
+				
+			if (id1 == '') id1 = id;
+				
 			common = ' onchange="verifyFields(this, 1)" id="' + id + '"';
 			if (f.attrib) common += ' ' + f.attrib;
 			name = f.name ? (' name="' + f.name + '"') : '';
 
 			switch (f.type) {
 			case 'checkbox':
-				buf.push('<input type="checkbox"' + name + (f.value ? ' checked' : '') + ' onclick="verifyFields(this, 1)"' + common + '>');
+				buf2.push('<input type="checkbox"' + name + (f.value ? ' checked' : '') + ' onclick="verifyFields(this, 1)"' + common + '>');
 				break;
 			case 'radio':
-				buf.push('<input type="radio"' + name + (f.value ? ' checked' : '') + ' onclick="verifyFields(this, 1)"' + common + '>');
+				buf2.push('<input type="radio"' + name + (f.value ? ' checked' : '') + ' onclick="verifyFields(this, 1)"' + common + '>');
 				break;
 			case 'password':
+				common += ' autocomplete="off"';
 			case 'text':
-				buf.push('<input type="' + f.type + '"' + name + ' value="' + escapeHTML(UT(f.value)) + '" maxlength=' + f.maxlen + (f.size ? (' size=' + f.size) : '') + common + '>');
+				buf2.push('<input type="' + f.type + '"' + name + ' value="' + escapeHTML(UT(f.value)) + '" maxlength=' + f.maxlen + (f.size ? (' size=' + f.size) : '') + common + '>');
 				break;
 			case 'select':
-				buf.push('<select' + name + common + '>');
+				buf2.push('<select' + name + common + '>');
 				for (i = 0; i < f.options.length; ++i) {
 					a = f.options[i];
 					if (a.length == 1) a.push(a[0]);
-					buf.push('<option value="' + a[0] + '"' + ((a[0] == f.value) ? ' selected' : '') + '>' + a[1] + '</option>');
+					buf2.push('<option value="' + a[0] + '"' + ((a[0] == f.value) ? ' selected' : '') + '>' + a[1] + '</option>');
 				}
-				buf.push('</select>');
+				buf2.push('</select>');
 				break;
 			case 'textarea':
-				buf.push('<textarea' + name + common + '>' + escapeHTML(UT(f.value)) + '</textarea>');
+				buf2.push('<textarea' + name + common + '>' + escapeHTML(UT(f.value)) + '</textarea>');
 				break;
 			default:
-				if (f.custom) buf.push(f.custom);
+				if (f.custom) buf2.push(f.custom);
 				break;
 			}
-			if (f.suffix) buf.push(f.suffix);
+			if (f.suffix) buf2.push(f.suffix);
 		}
-		buf.push('</td>');
+		buf2.push('</td>');
+
+		buf.push('<td class="title indent' + (v.indent ? v.indent : 1) + '">');
+		if (id1 != '') buf.push('<label for="' + id + '">' + v.title + '</label></td>');
+			else buf.push(+ v.title + '</td>');
+
+		buf.push(buf2.join(''));
 		buf.push('</tr>');
 	}
 	if ((!flags) || (flags.indexOf('noclose') == -1)) buf.push('</table>');

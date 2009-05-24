@@ -33,8 +33,6 @@ install: all
 clean:
 	rm -f *.o *.so *.a .*.depend
 
-#	.PHONY: version.c
-
 %.o: %.c .%.depend
 	@echo " [shared] CC $@"
 	@$(CC) $(CFLAGS) -o $@ -c $<

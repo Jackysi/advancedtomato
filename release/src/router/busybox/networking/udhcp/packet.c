@@ -1,4 +1,10 @@
 /* vi: set sw=4 ts=4: */
+/*
+ * packet.c -- packet ops
+ * Rewrite by Russ Dill <Russ.Dill@asu.edu> July 2001
+ *
+ * Licensed under GPLv2, see file LICENSE in this tarball for details.
+ */
 
 #include <netinet/in.h>
 #if (defined(__GLIBC__) && __GLIBC__ >= 2 && __GLIBC_MINOR__ >= 1) || defined _NEWLIB_VERSION
@@ -16,15 +22,15 @@
 
 int minpkt = 0;	// zzz
 
-void udhcp_init_header(struct dhcpMessage *packet, char type)
+void FAST_FUNC udhcp_init_header(struct dhcpMessage *packet, char type)
 {
 	memset(packet, 0, sizeof(struct dhcpMessage));
-	packet->op = BOOTREQUEST;
+	packet->op = BOOTREQUEST; /* if client to a server */
 	switch (type) {
 	case DHCPOFFER:
 	case DHCPACK:
 	case DHCPNAK:
-		packet->op = BOOTREPLY;
+		packet->op = BOOTREPLY; /* if server to client */
 	}
 	packet->htype = ETH_10MB;
 	packet->hlen = ETH_10MB_LEN;
@@ -35,7 +41,7 @@ void udhcp_init_header(struct dhcpMessage *packet, char type)
 
 
 /* read a packet from socket fd, return -1 on read error, -2 on packet error */
-int udhcp_recv_kernel_packet(struct dhcpMessage *packet, int fd)
+int FAST_FUNC udhcp_recv_kernel_packet(struct dhcpMessage *packet, int fd)
 {
 	int bytes;
 	unsigned char *vendor;
@@ -66,7 +72,7 @@ int udhcp_recv_kernel_packet(struct dhcpMessage *packet, int fd)
 				if (vendor[OPT_LEN - 2] == (uint8_t)strlen(broken_vendors[i])
 				 && !strncmp((char*)vendor, broken_vendors[i], vendor[OPT_LEN - 2])
 				) {
-					DEBUG("broken client (%s), forcing broadcast",
+					DEBUG("broken client (%s), forcing broadcast replies",
 						broken_vendors[i]);
 					packet->flags |= htons(BROADCAST_FLAG);
 				}
@@ -75,7 +81,7 @@ int udhcp_recv_kernel_packet(struct dhcpMessage *packet, int fd)
 			if (vendor[OPT_LEN - 2] == (uint8_t)(sizeof("MSFT 98")-1)
 			 && memcmp(vendor, "MSFT 98", sizeof("MSFT 98")-1) == 0
 			) {
-				DEBUG("broken client (%s), forcing broadcast", "MSFT 98");
+				DEBUG("broken client (%s), forcing broadcast replies", "MSFT 98");
 				packet->flags |= htons(BROADCAST_FLAG);
 			}
 #endif
@@ -86,7 +92,7 @@ int udhcp_recv_kernel_packet(struct dhcpMessage *packet, int fd)
 }
 
 
-uint16_t udhcp_checksum(void *addr, int count)
+uint16_t FAST_FUNC udhcp_checksum(void *addr, int count)
 {
 	/* Compute Internet Checksum for "count" bytes
 	 *         beginning at location "addr".
@@ -117,9 +123,10 @@ uint16_t udhcp_checksum(void *addr, int count)
 
 
 /* Construct a ip/udp header for a packet, send packet */
-int udhcp_send_raw_packet(struct dhcpMessage *payload,
+int FAST_FUNC udhcp_send_raw_packet(struct dhcpMessage *payload,
 		uint32_t source_ip, int source_port,
-		uint32_t dest_ip, int dest_port, const uint8_t *dest_arp, int ifindex)
+		uint32_t dest_ip, int dest_port, const uint8_t *dest_arp,
+		int ifindex)
 {
 	struct sockaddr_ll dest;
 	struct udp_dhcp_packet packet;
@@ -224,7 +231,7 @@ int udhcp_send_raw_packet(struct dhcpMessage *payload,
 
 
 /* Let the kernel do all the work for packet generation */
-int udhcp_send_kernel_packet(struct dhcpMessage *payload,
+int FAST_FUNC udhcp_send_kernel_packet(struct dhcpMessage *payload,
 		uint32_t source_ip, int source_port,
 		uint32_t dest_ip, int dest_port)
 {

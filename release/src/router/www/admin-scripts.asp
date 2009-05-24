@@ -1,7 +1,7 @@
 <!DOCTYPE HTML PUBLIC '-//W3C//DTD HTML 4.0//EN'>
 <!--
 	Tomato GUI
-	Copyright (C) 2006-2008 Jonathan Zarate
+	Copyright (C) 2006-2009 Jonathan Zarate
 	http://www.polarcloud.com/tomato/
 
 	For use with Tomato Firmware only.
@@ -64,7 +64,7 @@ function wordWrap()
 function save()
 {
 	var i, t, n, x;
-	
+
 	for (i = 0; i < tabs.length; ++i) {
 		t = tabs[i];
 		n = E(t[0] + '-text').value.length;

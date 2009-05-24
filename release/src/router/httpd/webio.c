@@ -1,7 +1,7 @@
 /*
 
 	Tomato Firmware
-	Copyright (C) 2006-2008 Jonathan Zarate
+	Copyright (C) 2006-2009 Jonathan Zarate
 
 */
 #include "tomato.h"
@@ -89,7 +89,7 @@ int _web_printf(wofilter_t wof, const char *format, ...)
 			size = n + 1;
 		}
 		else size *= 2;
-		
+
 		free(b);
 		if (size > (4 * 1024)) return 0;
 	}
@@ -181,30 +181,49 @@ int web_close(void)
 // --------------------------------------------------------------------------------------------------------------------
 
 
-int web_pipecmd(const char *cmd, wofilter_t wof)
+static void _web_putfile(FILE *f, wofilter_t wof)
 {
-	FILE *f;
 	char buf[2048];
 	int nr;
 
-	if ((f = popen(cmd, "r")) != NULL) {
-		while ((nr = fread(buf, 1, sizeof(buf) - 1, f)) > 0) {
-			buf[nr] = 0;
-			switch (wof) {
-			case WOF_JAVASCRIPT:
-				web_putj(buf);
-				break;
-			case WOF_HTML:
-				web_puth(buf);
-				break;
-			default:
-				web_puts(buf);
-				break;
-			}
+	while ((nr = fread(buf, 1, sizeof(buf) - 1, f)) > 0) {
+		buf[nr] = 0;
+		switch (wof) {
+		case WOF_JAVASCRIPT:
+			web_putj(buf);
+			break;
+		case WOF_HTML:
+			web_puth(buf);
+			break;
+		default:
+			web_puts(buf);
+			break;
 		}
+	}
+}
+
+int web_putfile(const char *fname, wofilter_t wof)
+{
+	FILE *f;
+
+	if ((f = fopen(fname, "r")) != NULL) {
+		_web_putfile(f, wof);
+		fclose(f);
+		return 1;
+	}
+	return 0;
+}
+
+int web_pipecmd(const char *cmd, wofilter_t wof)
+{
+	FILE *f;
+
+	if ((f = popen(cmd, "r")) != NULL) {
+		_web_putfile(f, wof);
 		pclose(f);
 		return 1;
 	}
 	return 0;
 }
+
 

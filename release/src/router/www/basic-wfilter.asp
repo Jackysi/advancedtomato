@@ -1,7 +1,7 @@
 <!DOCTYPE HTML PUBLIC '-//W3C//DTD HTML 4.0//EN'>
 <!--
 	Tomato GUI
-	Copyright (C) 2006-2008 Jonathan Zarate
+	Copyright (C) 2006-2009 Jonathan Zarate
 	http://www.polarcloud.com/tomato/
 
 	For use with Tomato Firmware only.
@@ -47,7 +47,7 @@ smg.resetNewEditor = function() {
 
 	f = fields.getAll(this.newEditor);
 	ferror.clearAll(f);
-	
+
 	if ((c = cookie.get('addmac')) != null) {
 		cookie.set('addmac', '', 0);
 		c = c.split(',');
@@ -65,8 +65,8 @@ smg.resetNewEditor = function() {
 smg.setup = function() {
 	var i, i, m, s, t, n;
 	var macs, names;
-	
-	this.init('sm-grid', 'sort', 100, [
+
+	this.init('sm-grid', 'sort', 200, [
 		{ type: 'text', maxlen: 17 },
 		{ type: 'text', maxlen: 48 }
 	]);
@@ -97,18 +97,18 @@ function save()
 {
 	var fom;
 	var d, i, macs, names, ma, na;
-	
+
 	if (smg.isEditing()) return;
 
 	fom = E('_fom');
-	
+
 	macs = [];
 	names = [];
 	d = smg.getAllData();
 	for (i = 0; i < d.length; ++i) {
 		ma = d[i][0];
 		na = d[i][1].replace(/[<>|]/g, '');
-		
+
 		macs.push(ma);
 		if (na.length) {
 			names.push(ma.replace(/:/g, '') + '<' + na);

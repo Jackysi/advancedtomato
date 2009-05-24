@@ -1,7 +1,7 @@
 <!DOCTYPE HTML PUBLIC '-//W3C//DTD HTML 4.0//EN'>
 <!--
 	Tomato GUI
-	Copyright (C) 2006-2008 Jonathan Zarate
+	Copyright (C) 2006-2009 Jonathan Zarate
 	http://www.polarcloud.com/tomato/
 
 	For use with Tomato Firmware only.
@@ -28,12 +28,15 @@ textarea {
 <script type='text/javascript' src='debug.js'></script>
 
 <script type='text/javascript'>
-	
-//	<% nvram("http_enable,https_enable,http_lanport,https_lanport,remote_management,remote_mgt_https,web_wl_filter,web_favicon,web_css,sshd_eas,sshd_pass,sshd_remote,telnetd_eas,http_wanport,sshd_authkeys,sshd_port,sshd_rport,telnetd_port,rmgt_sip,https_crt_cn,https_crt_save"); %>
+
+//	<% nvram("http_enable,https_enable,http_lanport,https_lanport,remote_management,remote_mgt_https,web_wl_filter,web_css,sshd_eas,sshd_pass,sshd_remote,telnetd_eas,http_wanport,sshd_authkeys,sshd_port,sshd_rport,telnetd_port,rmgt_sip,https_crt_cn,https_crt_save,lan_ipaddr,ne_shlimit"); %>
 
 changed = 0;
 tdup = parseInt('<% psup("telnetd"); %>');
 sdup = parseInt('<% psup("dropbear"); %>');
+
+shlimit = nvram.ne_shlimit.split(',');
+if (shlimit.length != 3) shlimit = [0,3,60];
 
 function toggle(service, isup)
 {
@@ -52,6 +55,7 @@ function verifyFields(focused, quiet)
 {
 	var ok = 1;
 	var a, b, c;
+	var i;
 
 	try {
 		a = E('_web_css').value;
@@ -72,7 +76,7 @@ function verifyFields(focused, quiet)
 	else {
 		ferror.clear(a);
 	}
-	
+
 	elem.display(PR('_http_lanport'), (a.value == 1) || (a.value == 3));
 
 	c = (a.value == 2) || (a.value == 3);
@@ -108,9 +112,13 @@ function verifyFields(focused, quiet)
 			ok = 0;
 		}
 	}
-	
-	a = E('_rmgt_sip');
-	if ((a.value.length) && (!v_iptip(a))) return 0;
+
+	a = E('_f_rmgt_sip');
+	if ((a.value.length) && (!v_iptip(a, quiet, 15))) return 0;
+	ferror.clear(a);
+
+	if (!v_range('_f_limit_hit', quiet, 1, 100)) return 0;
+	if (!v_range('_f_limit_sec', quiet, 3, 3600)) return 0;
 
 	a = E('_set_password_1');
 	b = E('_set_password_2');
@@ -148,21 +156,55 @@ function save()
 	fom.http_enable.value = (a & 1) ? 1 : 0;
 	fom.https_enable.value = (a & 2) ? 1 : 0;
 	
-	fom.https_crt_gen.value = a ? 1 : 0;
-	fom.https_crt_save.value = E('_f_https_crt_save').checked ? 1 : 0;
+	nvram.lan_ipaddr = location.hostname;
+	if ((a != 0) && (location.hostname == nvram.lan_ipaddr)) {
+		if (location.protocol == 'https:') {
+			b = 's';
+			if ((a & 2) == 0) b = '';
+		}
+		else {
+			b = '';
+			if ((a & 1) == 0) b = 's';
+		}
+
+		a = 'http' + b + '://' + location.hostname;
+		if (b == 's') {
+			if (fom.https_lanport.value != 443) a += ':' + fom.https_lanport.value;
+		}
+		else {
+			if (fom.http_lanport.value != 80) a += ':' + fom.http_lanport.value;
+		}
+		fom._nextpage.value = a + '/admin-access.asp';
+	}
 
 	a = E('_f_http_remote').value;
 	fom.remote_management.value = (a != 0) ? 1 : 0;
 	fom.remote_mgt_https.value = (a == 2) ? 1 : 0;
-	
+/*
+	if ((a != 0) && (location.hostname != nvram.lan_ipaddr)) {
+		if (location.protocol == 'https:') {
+			if (a != 2) fom._nextpage.value = 'http://' + location.hostname + ':' + fom.http_wanport.value + '/admin-access.asp';
+		}
+		else {
+			if (a == 2) fom._nextpage.value = 'https://' + location.hostname + ':' + fom.http_wanport.value + '/admin-access.asp';
+		}
+	}
+*/
+	fom.https_crt_gen.value = E('_f_https_crt_gen').checked ? 1 : 0;
+	fom.https_crt_save.value = E('_f_https_crt_save').checked ? 1 : 0;
+
 	fom.web_wl_filter.value = E('_f_http_wireless').checked ? 0 : 1;
-	fom.web_favicon.value = E('_f_favicon').checked ? 1 : 0;
 
 	fom.telnetd_eas.value = E('_f_telnetd_eas').checked ? 1 : 0;
 
 	fom.sshd_eas.value = E('_f_sshd_eas').checked ? 1 : 0;
 	fom.sshd_pass.value = E('_f_sshd_pass').checked ? 1 : 0;
 	fom.sshd_remote.value = E('_f_sshd_remote').checked ? 1 : 0;
+
+	fom.rmgt_sip.value = fom.f_rmgt_sip.value.split(/\s*,\s*/).join(',');
+	
+	fom.ne_shlimit.value = ((E('_f_limit_ssh').checked ? 1 : 0) | (E('_f_limit_telnet').checked ? 2 : 0)) +
+		',' + E('_f_limit_hit').value + ',' + E('_f_limit_sec').value;
 
 	form.submit(fom, 0);
 }
@@ -197,12 +239,12 @@ function init()
 <input type='hidden' name='remote_management'>
 <input type='hidden' name='remote_mgt_https'>
 <input type='hidden' name='web_wl_filter'>
-<input type='hidden' name='web_favicon'>
 <input type='hidden' name='telnetd_eas'>
 <input type='hidden' name='sshd_eas'>
 <input type='hidden' name='sshd_pass'>
 <input type='hidden' name='sshd_remote'>
-
+<input type='hidden' name='ne_shlimit'>
+<input type='hidden' name='rmgt_sip'>
 
 <div class='section-title'>Web Admin</div>
 <div class='section'>
@@ -223,8 +265,7 @@ createFieldTable('', [
 	{ title: 'Allow Wireless Access', name: 'f_http_wireless', type: 'checkbox', value:  nvram.web_wl_filter == 0 },
 	null,
 	{ title: 'Color Scheme', name: 'web_css', type: 'select',
-		options: [['red','Tomato'],['black','Black'],['blue','Blue'],['bluegreen','Blue &amp; Green (Lighter)'],['bluegreen2','Blue &amp; Green (Darker)'],['brown','Brown'],['cyan','Cyan'],['olive','Olive'],['pumpkin','Pumpkin'],['ext/custom','Custom (ext/custom.css)']], value: nvram.web_css },
-	{ title: 'Show Browser Icon', name: 'f_favicon', type: 'checkbox', value:  nvram.web_favicon == 1 }
+		options: [['red','Tomato'],['black','Black'],['blue','Blue'],['bluegreen','Blue &amp; Green (Lighter)'],['bluegreen2','Blue &amp; Green (Darker)'],['brown','Brown'],['cyan','Cyan'],['olive','Olive'],['pumpkin','Pumpkin'],['ext/custom','Custom (ext/custom.css)']], value: nvram.web_css }
 ]);
 </script>
 </div>
@@ -244,16 +285,6 @@ W('<input type="button" value="' + (sdup ? 'Stop' : 'Start') + ' Now" onclick="t
 </script>
 </div>
 
-<div class='section-title'>Remote Web/SSH Admin Restriction</div>
-<div class='section'>
-<script type='text/javascript'>
-createFieldTable('', [
-	{ title: 'Allowed IP Address', name: 'rmgt_sip', type: 'text', maxlen: 32, size: 32, value: nvram.rmgt_sip,
-		suffix: '&nbsp;<small>(optional; ex: "1.1.1.1", "1.1.1.0/24" or "1.1.1.1 - 2.2.2.2")</small>' }
-]);
-</script>
-</div>
-
 <div class='section-title'>Telnet Daemon</div>
 <div class='section'>
 <script type='text/javascript'>
@@ -262,6 +293,24 @@ createFieldTable('', [
 	{ title: 'Port', name: 'telnetd_port', type: 'text', maxlen: 5, size: 7, value: nvram.telnetd_port }
 ]);
 W('<input type="button" value="' + (tdup ? 'Stop' : 'Start') + ' Now" onclick="toggle(\'telnetd\', tdup)" id="_telnetd_button">');
+</script>
+</div>
+
+<div class='section-title'>Admin Restrictions</div>
+<div class='section'>
+<script type='text/javascript'>
+createFieldTable('', [
+	{ title: 'Allowed Remote<br>IP Address', name: 'f_rmgt_sip', type: 'text', maxlen: 512, size: 64, value: nvram.rmgt_sip,
+		suffix: '<br><small>(optional; ex: "1.1.1.1", "1.1.1.0/24" or "1.1.1.1 - 2.2.2.2")</small>' },
+	{ title: 'Limit Connection Attempts', multi: [
+		{ suffix: '&nbsp; SSH &nbsp; / &nbsp;', name: 'f_limit_ssh', type: 'checkbox', value: (shlimit[0] & 1) != 0 },
+		{ suffix: '&nbsp; Telnet &nbsp;', name: 'f_limit_telnet', type: 'checkbox', value: (shlimit[0] & 2) != 0 }
+	] },
+	{ title: '', indent: 2, multi: [
+		{ name: 'f_limit_hit', type: 'text', maxlen: 4, size: 6, suffix: '&nbsp; every &nbsp;', value: shlimit[1] },
+		{ name: 'f_limit_sec', type: 'text', maxlen: 4, size: 6, suffix: '&nbsp; seconds', value: shlimit[2] }
+	] }	
+]);
 </script>
 </div>
 

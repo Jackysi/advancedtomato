@@ -1,7 +1,7 @@
 /*
 
 	Tomato Firmware
-	Copyright (C) 2006-2008 Jonathan Zarate
+	Copyright (C) 2006-2009 Jonathan Zarate
 
 */
 
@@ -25,16 +25,6 @@
 
 #include <wlioctl.h>
 #include <wlutils.h>
-
-
-int wait_file_exists(const char *name, int max, int invert)
-{
-	while (max-- > 0) {
-		if (f_exists(name) ^ invert) return 1;
-		sleep(1);
-	}
-	return 0;
-}
 
 // to javascript-safe string
 char *js_string(const char *s)
@@ -121,7 +111,7 @@ IP address       HW type     Flags       HW address            Mask     Device
 192.168.0.1      0x1         0x2         00:01:02:03:04:05     *        vlan1
 192.168.1.5      0x1         0x2         00:05:06:07:08:09     *        br0
 */
-	
+
 	if ((f = fopen("/proc/net/arp", "r")) != NULL) {
 		while (fgets(s, sizeof(s), f)) {
 			if (sscanf(s, "%15s %*s %*s %17s %*s %16s", ips, mac, ifname) == 3) {
@@ -215,7 +205,7 @@ static int get_memory(meminfo_t *m)
 	FILE *f;
 	char s[128];
 	int ok = 0;
-	
+
 	if ((f = fopen("/proc/meminfo", "r")) != NULL) {
 		while (fgets(s, sizeof(s), f)) {
 			if (strncmp(s, "Mem:", 4) == 0) {
@@ -248,10 +238,10 @@ void asp_sysinfo(int argc, char **argv)
 	struct sysinfo si;
 	char s[64];
 	meminfo_t mem;
-	
+
 	web_puts("\nsysinfo = {\n");
 	sysinfo(&si);
-	get_memory(&mem);	
+	get_memory(&mem);
 	web_printf(
 		"\tuptime: %ld,\n"
 		"\tuptime_s: '%s',\n"
@@ -356,7 +346,7 @@ void asp_wanup(int argc, char **argv)
 void asp_wanstatus(int argc, char **argv)
 {
 	const char *p;
-	
+
 	if ((using_dhcpc()) && (f_exists("/var/lib/misc/dhcpc.renewing"))) {
 		p = "Renewing...";
 	}
@@ -405,7 +395,7 @@ void asp_bandwidth(int argc, char **argv)
 		}
 		unlink(name);
 		killall("rstats", sig);
-		wait_file_exists(name, 5, 0);
+		f_wait_exists(name, 5);
 		do_file(name);
 		unlink(name);
 	}
@@ -427,7 +417,7 @@ void asp_compmac(int argc, char **argv)
 {
 	char mac[32];
 	char ifname[32];
-	
+
 	if (get_client_info(mac, ifname)) {
 		web_puts(mac);
 	}
@@ -474,7 +464,7 @@ void wo_wakeup(char *url)
 	char *mac;
 	char *p;
 	char *end;
-	
+
 	if ((mac = webcgi_get("mac")) != NULL) {
 		end = mac + strlen(mac);
 		while (mac < end) {
@@ -484,7 +474,7 @@ void wo_wakeup(char *url)
 			p = mac;
 			while ((*p != 0) && (*p != ' ') && (*p != '\r') && (*p != '\n')) ++p;
 			*p = 0;
-			
+
 			eval("ether-wake", "-i", nvram_safe_get("lan_ifname"), mac);
 			mac = p + 1;
 		}
@@ -515,7 +505,7 @@ void wo_resolve(char *url)
 	struct in_addr ia;
 	char comma;
 	char *js;
-	
+
 	comma = ' ';
 	web_puts("\nresolve_data = [\n");
 	if ((p = webcgi_get("ip")) != NULL) {

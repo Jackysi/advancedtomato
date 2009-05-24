@@ -18,10 +18,10 @@ int main(int argc, char **argv) {
 
     if (!strcmp(progname, "iptables"))
       return iptables_main(argc, argv);
-    
-//    if (!strcmp(progname, "iptables-save"))
-//      return iptables_save_main(argc, argv);
-    
+#ifdef IPTABLES_SAVE
+	if (!strcmp(progname, "iptables-save"))
+		return iptables_save_main(argc, argv);
+#endif
     if (!strcmp(progname, "iptables-restore"))
       return iptables_restore_main(argc, argv);
     
