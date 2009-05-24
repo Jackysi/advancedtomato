@@ -1,7 +1,7 @@
 /*
 
 	Tomato Firmware
-	Copyright (C) 2006-2008 Jonathan Zarate
+	Copyright (C) 2006-2009 Jonathan Zarate
 
 */
 #include "rc.h"
@@ -68,7 +68,7 @@ int buttons_main(int argc, char *argv[])
 	ses_led = LED_DIAG;
 
 	// moveme
-	switch (nvram_match("btn_override", "1") ? MODEL_UNKNOWN : get_model()) {
+	switch (nvram_get_int("btn_override") ? MODEL_UNKNOWN : get_model()) {
 	case MODEL_WRT54G:
 	case MODEL_WRTSL54GS:
 		reset_mask = 1 << 6;
@@ -80,6 +80,10 @@ int buttons_main(int argc, char *argv[])
 		reset_mask = 1 << 6;
 		break;
 */
+	case MODEL_WTR54GS:
+		reset_mask = 1 << 3;
+		ses_mask = 1 << 2;
+		break;
 	case MODEL_WHRG54S:
 	case MODEL_WHRHPG54:
 	case MODEL_WHR2A54G54:
@@ -106,10 +110,16 @@ int buttons_main(int argc, char *argv[])
 		ses_mask = 1 << 0;
 		ses_led = LED_AOSS;
 		break;
+	case MODEL_WZRG108:
+		reset_mask = reset_pushed = 1 << 7;
+		ses_mask = 1 << 0;
+		ses_led = LED_AOSS;
+		break;
 	case MODEL_WR850GV1:
 		reset_mask = 1 << 0;
 		break;
 	case MODEL_WR850GV2:
+	case MODEL_WR100:
 		reset_mask = 1 << 5;
 		break;
 	case MODEL_WL500GP:
@@ -126,7 +136,7 @@ int buttons_main(int argc, char *argv[])
 	default:
 		get_btn("btn_ses", &ses_mask, &ses_pushed);
 		if (!get_btn("btn_reset", &reset_mask, &reset_pushed)) {
-			fprintf(stderr, "Not supported.\n");
+//			fprintf(stderr, "Not supported.\n");
 			return 1;
 		}
 		break;
@@ -134,7 +144,7 @@ int buttons_main(int argc, char *argv[])
 	mask = reset_mask | ses_mask | brau_mask;
 
 #ifdef DEBUG_TEST
-	cprintf("reset_mask=0x%X reset_pushed=%0x%X\n", reset_mask, reset_pushed);
+	cprintf("reset_mask=0x%X reset_pushed=0x%X\n", reset_mask, reset_pushed);
 	cprintf("ses_mask=0x%X\n", ses_mask);
 	cprintf("brau_mask=0x%X\n", brau_mask);
 	cprintf("ses_led=%d\n", ses_led);
@@ -195,19 +205,20 @@ int buttons_main(int argc, char *argv[])
 		if ((ses_mask) && ((gpio & ses_mask) == ses_pushed)) {
 			count = 0;
 			do {
+				//	syslog(LOG_DEBUG, "ses-pushed: gpio=x%X, pushed=x%X, mask=x%X, count=%d", gpio, ses_pushed, ses_mask, count);
+
 				led(ses_led, LED_ON);
 				usleep(500000);
 				led(ses_led, LED_OFF);
 				usleep(500000);
 				++count;
-			} while (((gpio = _gpio_read()) != ~0) && ((gpio & ses_mask) == 0));
+			} while (((gpio = _gpio_read()) != ~0) && ((gpio & ses_mask) == ses_pushed));
 			gpio &= mask;
 
-			if ((ses_led == LED_DMZ) && (nvram_match("dmz_enable", "1"))) led(LED_DMZ, 1);
+			if ((ses_led == LED_DMZ) && (nvram_get_int("dmz_enable") > 0)) led(LED_DMZ, 1);
 
-#ifdef DEBUG_TEST
-				cprintf("ses count=%d\n", count);
-#endif
+			//	syslog(LOG_DEBUG, "ses-released: gpio=x%X, pushed=x%X, mask=x%X, count=%d", gpio, ses_pushed, ses_mask, count);
+			syslog(LOG_INFO, "SES pushed. Count was %d.", count);
 
 			if ((count != 3) && (count != 7) && (count != 11)) {
 				n = count >> 2;
@@ -223,6 +234,7 @@ int buttons_main(int argc, char *argv[])
 				cprintf("ses func=%d\n", n);
 #else
 				sprintf(s, "sesx_b%d", n);
+				//	syslog(LOG_DEBUG, "ses-func: count=%d %s='%s'", count, s, nvram_safe_get(s));
 				if ((p = nvram_get(s)) != NULL) {
 					switch (*p) {
 					case '1':	// toggle wl

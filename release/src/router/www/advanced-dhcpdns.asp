@@ -1,7 +1,7 @@
 <!DOCTYPE HTML PUBLIC '-//W3C//DTD HTML 4.0//EN'>
 <!--
 	Tomato GUI
-	Copyright (C) 2006-2008 Jonathan Zarate
+	Copyright (C) 2006-2009 Jonathan Zarate
 	http://www.polarcloud.com/tomato/
 
 	For use with Tomato Firmware only.
@@ -56,7 +56,7 @@ function save()
 	fom.dns_addget.value = E('_f_dns_addget').checked ? 1 : 0;
 	fom.dns_intcpt.value = E('_f_dns_intcpt').checked ? 1 : 0;
 	fom.dhcpc_minpkt.value = E('_f_dhcpc_minpkt').checked ? 1 : 0;
-	
+
 	if (fom.dhcpc_minpkt.value != nvram.dhcpc_minpkt) {
 		nvram.dhcpc_minpkt = fom.dhcpc_minpkt.value;
 		fom._service.value = '*';
@@ -64,11 +64,11 @@ function save()
 	else {
 		fom._service.value = 'dnsmasq-restart';
 	}
-	
+
 	if (fom.dns_intcpt.value != nvram.dns_intcpt) {
 		nvram.dns_intcpt = fom.dns_intcpt.value;
 		if (fom._service.value != '*') fom._service.value += ',firewall-restart';
-	}	
+	}
 
 	form.submit(fom, 1);
 }

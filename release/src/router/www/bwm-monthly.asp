@@ -1,7 +1,7 @@
 <!DOCTYPE HTML PUBLIC '-//W3C//DTD HTML 4.0//EN'>
 <!--
 	Tomato GUI
-	Copyright (C) 2006-2008 Jonathan Zarate
+	Copyright (C) 2006-2009 Jonathan Zarate
 	http://www.polarcloud.com/tomato/
 
 	For use with Tomato Firmware only.
@@ -39,12 +39,12 @@ if (typeof(monthly_history) == 'undefined') {
 function genData()
 {
 	var w, i, h;
-	
+
 	w = window.open('', 'tomato_data_m');
 	w.document.writeln('<pre>');
 	for (i = 0; i < monthly_history.length; ++i) {
 		h = monthly_history[i];
-		w.document.writeln([(((h[0] >> 16) & 0xFF) + 1900), (((h[0] >>> 8) & 0xFF) + 1), h[1], h[2]].join(','));		
+		w.document.writeln([(((h[0] >> 16) & 0xFF) + 1900), (((h[0] >>> 8) & 0xFF) + 1), h[1], h[2]].join(','));
 	}
 	w.document.writeln('</pre>');
 	w.document.close();
@@ -61,14 +61,14 @@ function redraw()
 	var grid;
 	var rows;
 	var yr, mo, da;
-	
+
 	rows = 0;
 	block = '';
 	gn = 0;
 
 	grid = '<table class="bwmg" cellspacing="1">';
 	grid += makeRow('header', 'Date', 'Download', 'Upload', 'Total');
-	
+
 	for (i = 0; i < monthly_history.length; ++i) {
 		h = monthly_history[i];
 		yr = (((h[0] >> 16) & 0xFF) + 1900);

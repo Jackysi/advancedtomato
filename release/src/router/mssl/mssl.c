@@ -1,10 +1,10 @@
 /*
 
 	Minimal MatrixSSL Helper
-	Copyright (C) 2006-2008 Jonathan Zarate
-	
+	Copyright (C) 2006-2009 Jonathan Zarate
+
 	Licensed under GNU GPL v2 or later.
-	
+
 */
 
 #define _GNU_SOURCE
@@ -324,7 +324,7 @@ static int cert_valid(sslCertInfo_t *cert, void *arg)
 {
 	// note: no validation!
 	return SSL_ALLOW_ANON_CONNECTION;
-}		
+}
 
 static const cookie_io_functions_t mssl = {
 	mssl_read, mssl_write, mssl_seek, mssl_close
@@ -353,7 +353,7 @@ static FILE *_ssl_fopen(int sd, int client)
 
 	sb_alloc(&kuki->insock, 1024);
 	sb_alloc(&kuki->outsock, 2048);
-	
+
 	if (client) {
 		matrixSslSetCertValidator(kuki->ssl, cert_valid, NULL);
 
@@ -367,7 +367,7 @@ static FILE *_ssl_fopen(int sd, int client)
 			goto ERROR;
 		}
 	}
-	
+
 MORE:
 	r = mssl_read(kuki, buf, sizeof(buf));
 	if (r == 0) {
@@ -386,10 +386,10 @@ MORE:
 		}
 		return f;
 	}
-	
+
 	_dprintf("%s: read error r=%d errno=%d\n", __FUNCTION__, r, errno);
 	errno = EIO;
-	
+
 ERROR:
 	mssl_close(kuki);
 	return NULL;

@@ -1,7 +1,7 @@
 /*
 
 	MDU -- Mini DDNS Updater
-	Copyright (C) 2007-2008 Jonathan Zarate
+	Copyright (C) 2007-2009 Jonathan Zarate
 
 	Licensed under GNU GPL v2 or later versions.
 
@@ -69,15 +69,16 @@ char **g_argv;
 
 char *f_argv[32];
 int f_argc = -1;
+int refresh = 0;
 
-
-void save_cookie(void);
+static void save_cookie(void);
+static void update_noip_refresh(void);
 
 
 static void trimamp(char *s)
 {
 	int n;
-	
+
 	n = strlen(s);
 	if ((n > 0) && (s[--n] == '&')) s[n] = 0;
 }
@@ -90,7 +91,7 @@ static const char *get_option(const char *name)
 	FILE *f;
 	const char *c;
 	char s[384];
-	
+
 	if (f_argc < 0) {
 		f_argc = 0;
 		if ((c = get_option("conf")) != NULL) {
@@ -115,7 +116,7 @@ static const char *get_option(const char *name)
 			}
 		}
 	}
-	
+
 	n = strlen(name);
 	for (i = 0; i < f_argc; ++i) {
 		c = f_argv[i];
@@ -123,7 +124,7 @@ static const char *get_option(const char *name)
 			return c + n + 1;
 		}
 	}
-	
+
 	for (i = 0; i < g_argc; ++i) {
 		p = g_argv[i];
 		if ((p[0] == '-') && (p[1] == '-')) {
@@ -147,7 +148,7 @@ static const char *get_option_safe(const char *name)
 static const char *get_option_required(const char *name)
 {
 	const char *p;
-	
+
 	if ((p = get_option(name)) != NULL) return p;
 	fprintf(stderr, "Required option --%s is missing.\n", name);
 	exit(2);
@@ -161,7 +162,7 @@ static const char *get_option_or(const char *name, const char *alt)
 static const int get_option_onoff(const char *name, int def)
 {
 	const char *p;
-	
+
 	if ((p = get_option(name)) == NULL) return def;
 	if ((strcmp(p, "on") == 0) || (strcmp(p, "1") == 0)) return 1;
 	if ((strcmp(p, "off") == 0) || (strcmp(p, "0") == 0)) return 0;
@@ -175,7 +176,7 @@ static const int get_option_onoff(const char *name, int def)
 static void save_msg(const char *s)
 {
 	const char *path;
-	
+
 	if ((path = get_option("msg")) != NULL) {
 		f_write_string(path, s, FW_NEWLINE, 0);
 	}
@@ -192,7 +193,7 @@ static void error(const char *fmt, ...)
 	va_end(args);
 
 	_dprintf("%s: %s\n", __FUNCTION__, s);
-	
+
 	printf("%s\n", s);
 	save_msg(s);
 	exit(error_exitcode);
@@ -203,7 +204,7 @@ static void success(void)
 	save_cookie();
 
 	_dprintf("%s\n", __FUNCTION__);
-	
+
 	printf("%s\n", "Update successful");
 	save_msg("Update successful");
 	exit(0);
@@ -231,14 +232,14 @@ static int _wget(int ssl, const char *host, int port, const char *request, char 
 	char *p;
 	const char *c;
 	struct timeval tv;
-	
+
 	_dprintf("\n*** %s\n", host);
-	
+
 	sd = -1;	// for gcc warning
-	
+
 	for (trys = 4; trys > 0; --trys) {
 		_dprintf("_wget trys=%d\n", trys);
-		
+
 		for (i = 4; i > 0; --i) {
 			if ((he = gethostbyname(host)) != NULL) {
 				if ((sd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
@@ -248,8 +249,8 @@ static int _wget(int ssl, const char *host, int port, const char *request, char 
 				sa.sin_family = AF_INET;
 				sa.sin_port = htons(port);
 				memcpy(&sa.sin_addr, he->h_addr, sizeof(sa.sin_addr));
-				
-#ifdef DEBUG			
+
+#ifdef DEBUG
 				struct in_addr ia;
 				ia.s_addr = sa.sin_addr.s_addr;
 
@@ -258,11 +259,11 @@ static int _wget(int ssl, const char *host, int port, const char *request, char 
 #endif
 
 				if (connect_timeout(sd, (struct sockaddr *)&sa, sizeof(sa), 10) == 0) {
-					_dprintf("connected\n");			
+					_dprintf("connected\n");
 					break;
 				}
-#ifdef DEBUG			
-				perror("connect");			
+#ifdef DEBUG
+				perror("connect");
 #endif
 				close(sd);
 				sleep(2);
@@ -274,7 +275,7 @@ static int _wget(int ssl, const char *host, int port, const char *request, char 
 		tv.tv_usec = 0;
 		setsockopt(sd, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv));
 		setsockopt(sd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
-	
+
 		if (ssl) {
 			ssl_init(NULL, NULL);
 			f = ssl_client_fopen(sd);
@@ -287,7 +288,7 @@ static int _wget(int ssl, const char *host, int port, const char *request, char 
 			close(sd);
 			continue;
 		}
-		
+
 		i = strlen(request);
 		if (fwrite(request, 1, i, f) != i) {
 			_dprintf("error writing i=%d\n", i);
@@ -306,10 +307,10 @@ static int _wget(int ssl, const char *host, int port, const char *request, char 
 		}
 		buffer[i] = 0;
 
-		_dprintf("recvd=[%s]\n", buffer);	
+		_dprintf("recvd=[%s]\n", buffer);
 
 		fclose(f);
-		close(sd);	
+		close(sd);
 
 		if ((c = get_dump_name()) != NULL) {
 			if ((f = fopen(c, "a")) != NULL) {
@@ -323,7 +324,7 @@ static int _wget(int ssl, const char *host, int port, const char *request, char 
 		}
 
 		if ((sscanf(buffer, "HTTP/1.%*d %d", &i) == 1) && (i >= 100) && (i <= 999)) {
-			_dprintf("HTTP/1.* i=%d\n", i);	
+			_dprintf("HTTP/1.* i=%d\n", i);
 			if ((p = strstr(buffer, "\r\n\r\n")) != NULL) p += 4;
 				else if ((p = strstr(buffer, "\n\n")) != NULL) p += 2;
 			if (p) {
@@ -338,7 +339,7 @@ static int _wget(int ssl, const char *host, int port, const char *request, char 
 			}
 		}
 	}
-	
+
 	return -1;
 }
 
@@ -349,13 +350,13 @@ static int wget(int ssl, int static_host, const char *host, const char *get, con
 	char a[512];
 	char b[512];
 	int n;
-	
+
 	if (!static_host) host = get_option_or("server", host);
-	
+
 	n = strlen(get);
 	if (header) n += strlen(header);
 	if (n > (BLOB_SIZE - 512)) return -1;	// just don't go over 512 below...
-	
+
 	sprintf(blob,
 		"GET %s HTTP/1.0\r\n"
 		"Host: %s\r\n"
@@ -372,8 +373,8 @@ static int wget(int ssl, int static_host, const char *host, const char *get, con
 		if (header[n - 1] != '\n') strcat(blob, "\r\n");
 	}
 	strcat(blob, "\r\n");
-	
-	
+
+
 	_dprintf("blob=[%s]\n", blob);
 
 	port = ssl ? 443 : 80;
@@ -382,7 +383,7 @@ static int wget(int ssl, int static_host, const char *host, const char *get, con
 		*p = 0;
 		if ((n = atoi(p + 1)) > 0) port = n;
 	}
-	
+
 	if ((p = strdup(blob)) == NULL) return -1;
 	n = _wget(ssl, a, port, p, blob, BLOB_SIZE, body);
 	free(p);
@@ -434,7 +435,7 @@ const char *get_address(int required)
 						return addr;
 					}
 				}
-				
+
 				if (strcmp(c, "dyndns") == 0) {
 					if ((wget(0, 1, "checkip.dyndns.org:8245", "/", NULL, 0, &body) != 200) &&
 						(wget(0, 1, "checkip.dyndns.org", "/", NULL, 0, &body) != 200)) {
@@ -476,18 +477,18 @@ const char *get_address(int required)
 					// noip, dnsomatic
 					p = body;
 				}
-					
+
 				while (*p == ' ') ++p;
 
 				q = p;
 				while (((*q >= '0') && (*q <= '9')) || (*q == '.')) ++q;
 				*q = 0;
-				
+
 				if ((ia.s_addr = inet_addr(p)) != -1) {
 					q = inet_ntoa(ia);
 					sprintf(s, "%ld,%s", ut + (10 * 60), p);
 					f_write_string(cache_name, s, 0, 0);
-					
+
 					_dprintf("%s: saved '%s'\n", __FUNCTION__, s);
 					return p;
 				}
@@ -496,14 +497,14 @@ const char *get_address(int required)
 		}
 		return c;
 	}
-	
+
 	return required ? get_option_required("addr") : NULL;
 }
 
 static void append_addr_option(char *buffer, const char *format)
 {
 	const char *c;
-	
+
 	if ((c = get_address(0)) != NULL) {
 		sprintf(buffer + strlen(buffer), format, c);
 	}
@@ -516,15 +517,15 @@ static void append_addr_option(char *buffer, const char *format)
 
 	DNS Update API
 	http://www.dyndns.com/developers/specs/
-	
+
 	---
 
 	DynDNS:
 		http: 80, 8245
 		https: 443
-	
+
 	http://test:test@members.dyndns.org/nic/update?system=dyndns&hostname=test.shacknet.nu
-		
+
 	GET /nic/update?
 	    system=statdns&
 	    hostname=yourhost.ourdomain.ext,yourhost2.dyndns.org&
@@ -535,7 +536,7 @@ static void append_addr_option(char *buffer, const char *format)
 	    offline=NO
 	    HTTP/1.0
 	Host: members.dyndns.org
-	Authorization: Basic username:pass 
+	Authorization: Basic username:pass
 	User-Agent: Company - Device - Version Number
 
 */
@@ -548,14 +549,14 @@ static void update_dua(const char *type, int ssl, const char *server, const char
 
 	// +opt
 	sprintf(query, "%s?", path ? path : get_option_required("path"));
-	
+
 	// +opt
 	if (type) sprintf(query + strlen(query), "system=%s&", type);
 
 	// +opt
 	p = reqhost ? get_option_required("host") : get_option("host");
 	if (p) sprintf(query + strlen(query), "hostname=%s&", p);
-	
+
 	// +opt
 	if (((p = get_option("mx")) != NULL) && (*p)) {
 		sprintf(query + strlen(query),
@@ -564,10 +565,10 @@ static void update_dua(const char *type, int ssl, const char *server, const char
 			p,
 			(get_option_onoff("backmx", 0)) ? "YES" : "NO");
 	}
-	
+
 	// +opt
 	append_addr_option(query, "myip=%s&");
-	
+
 	if (get_option_onoff("wildcard", 0)) {
 		strcat(query, "wildcard=ON");
 	}
@@ -599,11 +600,19 @@ static void update_dua(const char *type, int ssl, const char *server, const char
 			error(M_TOOSOON);
 		}
 
-		if ((strstr(body, "good")) || (strstr(body, "nochg")) || strstr(body, "NOERROR")) {
+		if (strstr(body, "nochg")) {
+			if ((strcmp(get_option("service"), "noip") == 0) && (refresh)) {
+				update_noip_refresh();
+			}
 			success();
 			return;
 		}
-		
+
+		if ((strstr(body, "good")) || (strstr(body, "NOERROR"))) {
+			success();
+			return;
+		}
+
 		error(M_UNKNOWN_RESPONSE__D, -1);
 		break;
 	case 401:
@@ -620,7 +629,7 @@ static void update_dua(const char *type, int ssl, const char *server, const char
 	http://namecheap.simplekb.com/kb.aspx?show=article&articleid=27&categoryid=22
 
 	---
- 
+
 http://dynamicdns.park-your-domain.com/update?host=host_name&domain=domain.com&password=domain_password[&ip=your_ip]
 
 ok response:
@@ -708,10 +717,10 @@ static void update_namecheap(void)
 				if ((q - p) >= 64) p[64] = 0;
 				error("%s", p);
 			}
-		}		
+		}
 		error(M_UNKNOWN_RESPONSE__D, -1);
 	}
-	
+
 	error(M_UNKNOWN_ERROR__D, r);
 }
 
@@ -720,7 +729,7 @@ static void update_namecheap(void)
 
 	eNom
 	http://www.enom.com/help/faq_dynamicdns.asp
-	
+
 	---
 
 good:
@@ -769,7 +778,7 @@ static void update_enom(void)
 	char *q;
 	char *body;
 	char query[2048];
-	
+
 	// http://dynamic.name-services.com/interface.asp?Command=SetDNSHost&HostName=test&Zone=test.com&Address=1.2.3.4&DomainPassword=password
 
 	// +opt +opt +opt
@@ -788,14 +797,14 @@ static void update_enom(void)
 			p += 5;
 			if ((q = strchr(p, '\n')) != NULL) {
 				*q = 0;
-				if ((q - p) >= 64) p[64] = 0;				
+				if ((q - p) >= 64) p[64] = 0;
 				if ((q = strchr(p, '\r')) != NULL) *q = 0;
 				error("%s", p);
 			}
-		}		
+		}
 		error(M_UNKNOWN_RESPONSE__D, -1);
 	}
-	
+
 	error(M_UNKNOWN_ERROR__D, r);
 }
 
@@ -809,7 +818,7 @@ static void update_enom(void)
 	http://www.dnsexit.com/Direct.sv?cmd=ipClients
 
 	---
-	
+
 "HTTP/1.1 200 OK
 ...
 
@@ -823,7 +832,7 @@ static void update_enom(void)
 4=Update too often. Please wait at least 8 minutes since the last update"
 
 " HTTP/1.1 200 OK" <-- extra in body?
-	
+
 */
 static void update_dnsexit(void)
 {
@@ -837,7 +846,7 @@ static void update_dnsexit(void)
 
 	// +opt
 	append_addr_option(query, "&myip=%s");
-		
+
 	r = wget(0, 0, "www.dnsexit.com", query, NULL, 0, &body);
 	if (r == 200) {
 		// (\d+)=.+
@@ -854,7 +863,7 @@ static void update_dnsexit(void)
 		if (strstr(body, "4=Update") != NULL) {
 			error(M_TOOSOON);
 		}
-		
+
 		error(M_UNKNOWN_RESPONSE__D, -1);
 	}
 
@@ -884,7 +893,7 @@ static void update_noip(void)
 	// +opt +opt
 	sprintf(query, "/dns?username=%s&password=%s&",
 		get_option_required("user"), get_option_required("pass"));
-	
+
 	// +opt
 	if (((c = get_option("group")) != NULL) && (*c)) {
 		sprintf(query + strlen(query), "group=%s", c);
@@ -892,10 +901,10 @@ static void update_noip(void)
 	else {
 		sprintf(query + strlen(query), "hostname=%s", get_option_required("host"));
 	}
-		
+
 	// +opt
 	append_addr_option(query, "&ip=%s");
-	
+
 	r = wget(0, 0, "dynupdate.no-ip.com", query, NULL, 0, &body);
 	if (r == 200) {
 		if ((c = strchr(body, ':')) != NULL) {
@@ -931,7 +940,7 @@ static void update_noip(void)
 			case 99:	// client banned
 			case 100:	// invalid parameter
 			case 9:		// redirect type
-			case 13:	// 
+			case 13:	//
 				error(M_INVALID_PARAM__D, r);
 				break;
 			default:
@@ -947,6 +956,34 @@ static void update_noip(void)
 	error(M_UNKNOWN_ERROR__D, r);
 }
 */
+
+
+/*
+
+	No-IP.com -- refresh
+	
+	http://www.no-ip.com/hostactive.php?host=<host>&domain=<dom>
+	
+*/
+static void update_noip_refresh(void)
+{
+	char query[2048];
+	char host[256];
+	char *domain;
+
+	strlcpy(host, get_option_required("host"), sizeof(host));
+	if ((domain = strchr(host, '.')) != NULL) {
+		*domain++ = 0;
+	}
+	
+	sprintf(query, "/hostactive.php?host=%s", host);
+	if (domain) sprintf(query + strlen(query), "&domain=%s", domain);
+	
+	wget(0, 1, "www.no-ip.com", query, NULL, 0, NULL);
+	// return ignored
+}
+
+
 
 /*
 
@@ -972,22 +1009,22 @@ static void update_ieserver(void)
 	// +opt +opt
 	sprintf(query, "/cgi-bin/dip.cgi?username=%s&domain=%s&password=%s&updatehost=1",
 		get_option_required("user"), get_option_required("host"), get_option_required("pass"));
-	
+
 	r = wget(0, 0, "ieserver.net", query, NULL, 0, &body);
 	if (r == 200) {
 		if (strstr(body, "<title>Error") != NULL) {
-		
+
 			//	<p>yuuzaa na mata pasuwoodo (EUC-JP)
 			if ((p = strstr(body, "<p>\xA5\xE6\xA1\xBC\xA5\xB6\xA1\xBC")) != NULL) {	// <p>user
 				error(M_INVALID_AUTH);
-			}		
-		
+			}
+
 			error(M_UNKNOWN_RESPONSE__D, -1);
 		}
 
 		success();
 	}
-	
+
 	error(M_UNKNOWN_ERROR__D, r);
 }
 
@@ -999,12 +1036,12 @@ static void update_ieserver(void)
 	http://www.dyns.cx/documentation/technical/protocol/v1.1.php
 
 	---
-	
+
 "HTTP/1.1 200 OK
 ...
 
 401 testuser not authenticated"
-	
+
 */
 
 static void update_dyns(void)
@@ -1013,14 +1050,14 @@ static void update_dyns(void)
 	char *body;
 	char query[2048];
 
-	
+
 	// +opt +opt +opt
 	sprintf(query, "/postscript011.php?username=%s&password=%s&host=%s",
 		get_option_required("user"), get_option_required("pass"), get_option_required("host"));
-		
+
 	// +opt
 	append_addr_option(query, "&ip=%s");
-	
+
 #if 0
 	sprintf(query + strlen(query), "&devel=1");
 #endif
@@ -1047,10 +1084,10 @@ static void update_dyns(void)
 			error(M_INVALID_HOST);
 			break;
 		}
-		
+
 		error(M_UNKNOWN_RESPONSE__D, r);
 	}
-	
+
 	error(M_UNKNOWN_ERROR__D, r);
 }
 
@@ -1062,7 +1099,7 @@ static void update_dyns(void)
 	http://www.tzo.com/
 
 	---
-	
+
 "HTTP/1.1 200 OK
 ...
 
@@ -1112,14 +1149,14 @@ static void update_tzo(void)
 	char *body;
 	char query[2048];
 	char *p;
-	
+
 	// +opt +opt +opt
 	sprintf(query, "/webclient/signedon.html?TZOName=%s&Email=%s&TZOKey=%s",
 		get_option_required("host"), get_option_required("user"), get_option_required("pass"));
-		
+
 	// +opt
 	append_addr_option(query, "&IPAddress=%s");
-	
+
 	r = wget(0, 0, "cgi.tzo.com", query, NULL, 0, &body);
 	if (r == 200) {
 		if ((p = strstr(body, "Error=")) != NULL) {
@@ -1129,12 +1166,12 @@ static void update_tzo(void)
 			}
 			if (strncmp(p, "Try again", 9) == 0) {
 				error(M_TOOSOON);
-			}			
+			}
 			error(M_UNKNOWN_ERROR__D, -1);
 		}
 		success();
 	}
-	
+
 	error(M_UNKNOWN_ERROR__D, r);
 }
 
@@ -1147,7 +1184,7 @@ static void update_tzo(void)
 	http://www.zoneedit.com/doc/dynamic.html
 
 	---
-	
+
 "HTTP/1.1 200 OK
 ...
 <SUCCESS CODE="200" TEXT="Update succeeded." ZONE="test123.com" HOST="www.test123.com" IP="1.2.3.4">"
@@ -1167,7 +1204,7 @@ SUCCESS CODE="200" TEXT="Update succeeded." ZONE="%zone%" IP="%dnsto%"
 SUCCESS CODE="201" TEXT="No records need updating." ZONE="%zone%"
 ERROR CODE="702" TEXT="Update failed." ZONE="%zone%"
 ERROR CODE="705" TEXT="Zone cannot be empty" ZONE="%zone%"
-	
+
 */
 static void update_zoneedit(void)
 {
@@ -1175,13 +1212,13 @@ static void update_zoneedit(void)
 	char *body;
 	char *c;
 	char query[2048];
-	
+
 	// +opt
 	sprintf(query, "/auth/dynamic.html?host=%s", get_option_required("host"));
-		
+
 	// +opt
 	append_addr_option(query, "&dnsto=%s");
-	
+
 	r = wget(0, 0, "dynamic.zoneedit.com", query, NULL, 1, &body);
 	switch (r) {
 	case 200:
@@ -1198,7 +1235,7 @@ static void update_zoneedit(void)
 				if (strstr(c, "Duplicate") != NULL) success();
 					else error(M_TOOSOON);
 				break;
-			}			
+			}
 			error(M_UNKNOWN_RESPONSE__D, r);
 		}
 		error(M_UNKNOWN_RESPONSE__D, -1);
@@ -1207,7 +1244,7 @@ static void update_zoneedit(void)
 		error(M_INVALID_AUTH);
 		break;
 	}
-	
+
 	error(M_UNKNOWN_ERROR__D, r);
 }
 
@@ -1217,7 +1254,7 @@ static void update_zoneedit(void)
 	FreeDNS.afraid.org
 
 	---
-	
+
 
 http://freedns.afraid.org/dynamic/update.php?XXXXXXXXXXYYYYYYYYYYYZZZZZZZ1111222
 
@@ -1240,10 +1277,10 @@ static void update_afraid(void)
 	int r;
 	char *body;
 	char query[2048];
-	
+
 	// +opt
 	sprintf(query, "/dynamic/update.php?%s", get_option_required("ahash"));
-	
+
 	r = wget(0, 0, "freedns.afraid.org", query, NULL, 0, &body);
 	if (r == 200) {
 		if ((strstr(body, "ERROR") != NULL) || (strstr(body, "fail") != NULL)) {
@@ -1259,7 +1296,7 @@ static void update_afraid(void)
 			error(M_UNKNOWN_RESPONSE__D, -1);
 		}
 	}
-	
+
 	error(M_UNKNOWN_ERROR__D, r);
 }
 
@@ -1284,13 +1321,13 @@ static void update_everydns(void)
 	char *body;
 	char query[2048];
 	const char *p;
-	
+
 	strcpy(query, "/index.php?ver=0.1");
 	append_addr_option(query, "&ip=%s");
-	
+
 	p = get_option("host");
 	if (p) sprintf(query + strlen(query), "&domain=%s", p);
-	
+
 	r = wget(0, 0, "dyn.everydns.net", query, NULL, 1, &body);
 	if (r == 200) {
 		if ((p = strstr(body, "Exit code:")) != NULL) {
@@ -1309,7 +1346,7 @@ static void update_everydns(void)
 		}
 		error(M_UNKNOWN_RESPONSE__D, -1);
 	}
-	
+
 	error(M_UNKNOWN_ERROR__D, r);
 }
 
@@ -1333,7 +1370,7 @@ static void update_wget(void)
 
 	// http://user:pass@domain:port/path?query
 	// https://user:pass@domain:port/path?query
-	
+
 	strcpy(url, get_option_required("url"));
 	https = 0;
 	host = url + 7;
@@ -1356,7 +1393,7 @@ static void update_wget(void)
 		strcpy(c, get_address(1));
 		strcat(c, s);
 	}
-	
+
 	if ((c = strrchr(host, '@')) != NULL) {
 		*c = 0;
 		s[base64_encode(host, s, c - host)] = 0;
@@ -1367,7 +1404,7 @@ static void update_wget(void)
 	else {
 		header = NULL;
 	}
-	
+
 	r = wget(https, 1, host, path, header, 0, NULL);
 	switch (r) {
 	case 200:
@@ -1378,7 +1415,7 @@ static void update_wget(void)
 		error(M_INVALID_AUTH);
 		break;
 	}
-	
+
 	error(M_UNKNOWN_ERROR__D, r);
 }
 
@@ -1386,14 +1423,15 @@ static void update_wget(void)
 
 
 
-void check_cookie(void)
+static void check_cookie(void)
 {
 	const char *c;
 	char addr[16];
 	long tm;
-	
+
 	if (((c = get_option("cookie")) == NULL) || (!read_tmaddr(c, &tm, addr))) {
 		_dprintf("%s: no cookie\n", __FUNCTION__);
+		refresh = 1;
 		return;
 	}
 
@@ -1416,7 +1454,7 @@ void check_cookie(void)
 		return;
 	}
 	tm = now - tm;
-	
+
 	_dprintf("%s: addr=%s tm=%ld (relative)\n", __FUNCTION__, addr, tm);
 
 	if ((c = get_option("maxtime")) != NULL) {
@@ -1427,12 +1465,12 @@ void check_cookie(void)
 				return;
 			}
 			_dprintf("%s: maxtime=%ld tm=%ld\n", __FUNCTION__, u, tm);
-			
+
 			puts(M_TOOSOON);
 			exit(3);
 		}
 	}
-	
+
 	if ((c = get_option("mintime")) != NULL) {
 		u = strtol(c, NULL, 0);
 		if ((u > 0) && (tm < u)) {
@@ -1444,18 +1482,18 @@ void check_cookie(void)
 	}
 
 #endif
-	
+
 	puts(M_SAME_IP);
 	exit(3);
 }
 
-void save_cookie(void)
+static void save_cookie(void)
 {
 	const char *cookie;
 	const char *c;
 	long now;
 	char s[256];
-	
+
 	now = time(NULL);
 	if (now < Y2K) {
 		_dprintf("%s: no time", __FUNCTION__, now);
@@ -1471,23 +1509,23 @@ void save_cookie(void)
 		_dprintf("%s: no address specified\n", __FUNCTION__);
 		return;
 	}
-	
+
 	sprintf(s, "%ld,%s", now, c);
 	f_write_string(cookie, s, FW_NEWLINE, 0);
-	
+
 	_dprintf("%s: cookie=%s\n", __FUNCTION__, s);
 }
 
 int main(int argc, char *argv[])
 {
 	const char *p;
-	
+
 	g_argc = argc;
 	g_argv = argv;
 
-	printf("MDU\nCopyright (C) 2007-2008 Jonathan Zarate\n\n");
+	printf("MDU\nCopyright (C) 2007-2009 Jonathan Zarate\n\n");
 	_dprintf("DEBUG\n");
-	
+
 	if ((blob = malloc(BLOB_SIZE)) == NULL) {
 		return 1;
 	}
@@ -1553,7 +1591,6 @@ int main(int argc, char *argv[])
 		update_dua(NULL, 1, "updates.dnsomatic.com", "/nic/update", 0);
 	}
 	else if (strcmp(p, "noip") == 0) {
-		// test ok 9/15 -- zzz
 		update_dua(NULL, 0, "dynupdate.no-ip.com", "/nic/update", 1);
 //		update_noip();
 	}
@@ -1600,7 +1637,7 @@ int main(int argc, char *argv[])
 	else {
 		error("Unknown service");
 	}
-	
+
 //	free(blob);
 	return 1;
 }

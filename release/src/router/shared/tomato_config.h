@@ -11,4 +11,3 @@
 #define TCONFIG_DDNS 1
 #define TCONFIG_L7 1
 #define TCONFIG_L7PAT 1
-#define TCONFIG_IPP2P 1

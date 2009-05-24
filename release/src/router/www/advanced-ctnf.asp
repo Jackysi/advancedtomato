@@ -1,7 +1,7 @@
 <!DOCTYPE HTML PUBLIC '-//W3C//DTD HTML 4.0//EN'>
 <!--
 	Tomato GUI
-	Copyright (C) 2006-2008 Jonathan Zarate
+	Copyright (C) 2006-2009 Jonathan Zarate
 	http://www.polarcloud.com/tomato/
 
 	For use with Tomato Firmware only.
@@ -117,12 +117,12 @@ function save()
 	for (i = 0; i < 10; ++i) {
 		tcp.push(E('_f_tcp_' + i).value);
 	}
-	
+
 	udp = [];
 	for (i = 0; i < 2; ++i) {
 		udp.push(E('_f_udp_' + i).value);
 	}
-	
+
 	fom = E('_fom');
 	fom.ct_tcp_timeout.value = tcp.join(' ');
 	fom.ct_udp_timeout.value = udp.join(' ');

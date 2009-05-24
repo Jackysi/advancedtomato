@@ -99,7 +99,7 @@ static const char *unpack_usage_messages(void)
 
 static void full_write2_str(const char *str)
 {
-	full_write(STDERR_FILENO, str, strlen(str));
+	xwrite_str(STDERR_FILENO, str);
 }
 
 void FAST_FUNC bb_show_usage(void)
@@ -111,9 +111,9 @@ void FAST_FUNC bb_show_usage(void)
 		const char *usage_string = p = unpack_usage_messages();
 
 		if (*p == '\b') {
-			full_write2_str("\nNo help available.\n\n");
+			full_write2_str("No help available.\n\n");
 		} else {
-			full_write2_str("\nUsage: "SINGLE_APPLET_STR" ");
+			full_write2_str("Usage: "SINGLE_APPLET_STR" ");
 			full_write2_str(p);
 			full_write2_str("\n\n");
 		}

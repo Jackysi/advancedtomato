@@ -56,6 +56,8 @@ if [ "$CONFIG_IP6_NF_IPTABLES" != "n" ]; then
   if [ "$CONFIG_IP6_NF_MANGLE" != "n" ]; then
 #    dep_tristate '    TOS target support' CONFIG_IP6_NF_TARGET_TOS $CONFIG_IP_NF_MANGLE
     dep_tristate '    MARK target support' CONFIG_IP6_NF_TARGET_MARK $CONFIG_IP6_NF_MANGLE
+    dep_tristate '    ROUTE target support' CONFIG_IP6_NF_TARGET_ROUTE $CONFIG_IP6_NF_MANGLE
+
     dep_tristate '    IMQ target support' CONFIG_IP6_NF_TARGET_IMQ $CONFIG_IP6_NF_MANGLE
   fi
   #dep_tristate '  LOG target support' CONFIG_IP6_NF_TARGET_LOG $CONFIG_IP6_NF_IPTABLES

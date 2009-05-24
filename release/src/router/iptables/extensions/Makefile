@@ -5,17 +5,17 @@
 # header files are present in the include/linux directory of this iptables
 # package (HW)
 #
-#PF_EXT_SLIB:=ah addrtype comment connlimit connmark conntrack dscp ecn esp hashlimit helper icmp iprange length limit mac mark multiport owner physdev pkttype policy realm rpc sctp standard state tcp tcpmss tos ttl udp unclean CLASSIFY CONNMARK DNAT DSCP ECN LOG MARK MASQUERADE MIRROR NETMAP NFQUEUE NOTRACK REDIRECT REJECT SAME SNAT TARPIT TCPMSS TOS TRACE TTL ULOG
+#PF_EXT_SLIB:=ah addrtype comment connlimit connmark conntrack ecn esp hashlimit helper icmp iprange length limit mac mark multiport owner physdev pkttype policy realm rpc sctp standard state tcp tcpmss tos ttl udp unclean CLASSIFY CONNMARK DNAT DSCP ECN LOG MARK MASQUERADE MIRROR NETMAP NFQUEUE NOTRACK REDIRECT REJECT SAME SNAT TARPIT TCPMSS TOS TRACE TTL ULOG
 #PF6_EXT_SLIB:=connmark eui64 hl icmp6 length limit mac mark multiport owner physdev policy standard state tcp udp CONNMARK HL LOG NFQUEUE MARK TRACE
 
 
 PF_EXT_SLIB:=CLASSIFY CONNMARK DNAT DSCP LOG MARK MASQUERADE REDIRECT REJECT
-PF_EXT_SLIB+=SNAT TCPMSS TOS TRIGGER TTL
+PF_EXT_SLIB+=ROUTE SNAT TCPMSS TOS TRIGGER TTL
 PF_EXT_SLIB+=condition connlimit connmark geoip icmp iprange layer7
 PF_EXT_SLIB+=length limit mac mark mport multiport recent standard state
-PF_EXT_SLIB+=tcp tcpmss time tos u32 udp web
+PF_EXT_SLIB+=tcp tcpmss time tos u32 udp web dscp
 PF_EXT_SLIB+=bcount BCOUNT
-PF_EXT_SLIB+=IMQ
+PF_EXT_SLIB+=IMQ ipp2p
 
 
 ifeq ($(DO_SELINUX), 1)

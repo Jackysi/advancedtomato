@@ -1,7 +1,7 @@
 /*
 
 	Tomato Firmware
-	Copyright (C) 2006-2008 Jonathan Zarate
+	Copyright (C) 2006-2009 Jonathan Zarate
 
 */
 #include "rc.h"
@@ -13,7 +13,7 @@ int gpio_main(int argc, char *argv[])
 	int bit;
 	int i;
 	char s[17];
-	
+
 	if (argc == 3) {
 		bit = atoi(argv[2]);
 		if ((bit >= 0) && (bit <= 15)) {
@@ -37,6 +37,6 @@ int gpio_main(int argc, char *argv[])
 			return 0;
 		}
 	}
-	
+
 	usage_exit(argv[0], "<enable|disable|poll> <pin>\n");
 }

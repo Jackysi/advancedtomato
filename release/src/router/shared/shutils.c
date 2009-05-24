@@ -89,7 +89,7 @@ int _eval(char *const argv[], const char *path, int timeout, int *ppid)
 	if (nvram_match("debug_logeval", "1")) {
 		pid = getpid();
 
-		cprintf("_eval %d ", pid);
+		cprintf("_eval +%ld pid=%d ", get_uptime(), pid);
 		for (n = 0; argv[n]; ++n) cprintf("%s ", argv[n]);
 		cprintf("\n");
 		
