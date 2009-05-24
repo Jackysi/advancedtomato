@@ -94,7 +94,7 @@ function umountHost(a, host)
 		eval(text);
 		if (usb.length == 1) {
 			if (usb[0] != 0)
-				ferror.set(a, 'The device is busy. Please make sure no applications are using it, and try again', 0);
+				ferror.set(a, 'The device is busy. Please make sure no applications are using it, and try again.', 0);
 		}
 		xob = null;
 		_forceRefresh();
@@ -124,7 +124,7 @@ function mountHost(a, host)
 		eval(text);
 		if (usb.length == 1) {
 			if (usb[0] == 0)
-				ferror.set(a, 'Failed to mount. Verify the device is plugged in, and try again', 0);
+				ferror.set(a, 'Failed to mount. Verify the device is plugged in, and try again.', 0);
 		}
 		xob = null;
 		_forceRefresh();
@@ -207,12 +207,8 @@ dg.populate = function()
 		if (e.type != 'Storage')
 			s = '&nbsp<br><small>&nbsp</small>';
 		else {
-			if (xob) {
-				if (e.is_mounted == 0)
-					s = 'No<br><small>Please wait...</small>';
-				else
-					s = 'Yes<br><small>Please wait...</small>';
-			}
+			if (xob)
+				s = ((e.is_mounted == 0) ? 'No' : 'Yes') + '<br><small>Please wait...</small>';
 			else if (e.is_mounted == 0)
 				s = 'No<br><small><a href="javascript:mountHost(\'L' + i + '\',\'' + e.host + '\')" title="Mount all Partitions of Storage Device" id="L' + i + '">[ Mount ]</a></small>';
 			else
@@ -227,15 +223,13 @@ dg.populate = function()
 					p = parts[k];
 					if (p) {
 						desc = desc + '<br>Partition \'' + p[0] + '\'' + (p[3] != '' ? ' ' : '') + p[3] +
-							((p[1] != 0) ? ' mounted ' +  ((p[2] != '') ? 'on ' : '') : ' not mounted ') + p[2];
+							((p[1] != 0) ? ' is mounted ' +  ((p[2] != '') ? 'on ' : '') : ' is not mounted ') + p[2];
 					}
 				}
 			}
 		}
 		desc = desc + '</small>';
-		this.insert(-1, e, [
-			e.type, e.host, e.vendor, desc, s],
-			false);
+		this.insert(-1, e, [e.type, e.host, e.vendor, desc, s], false);
 	}
 
 	list = [];

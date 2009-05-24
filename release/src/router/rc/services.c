@@ -967,6 +967,11 @@ void start_samba(void)
 
 		fprintf(fp, " client code page = %s\n", cp);
 		sprintf(nlsmod, "nls_cp%s", cp);
+
+		cp = nvram_get("smbd_nlsmod");
+		if ((cp) && (*cp != 0) && (strcmp(cp, nlsmod) != 0))
+			modprobe_r(cp);
+
 		modprobe(nlsmod);
 		nvram_set("smbd_nlsmod", nlsmod);
 	}

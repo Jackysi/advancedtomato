@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <ctype.h> // !!TB
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <stdarg.h>

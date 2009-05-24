@@ -57,6 +57,8 @@ void start_usb(void)
 				modprobe("fat");
 				modprobe("vfat");
 			}
+
+			probe_usb_mass(NULL, 1);
 		}
 
 		if (nvram_match("usb_printer", "1")) {
@@ -187,9 +189,18 @@ int mount_r(char *mnt_dev, char *mnt_dir)
 				sprintf(options, "iocharset=%s%s", 
 					isdigit(nvram_get("smbd_cset")[0]) ? "cp" : "",
 						nvram_get("smbd_cset"));
-			if (nvram_invmatch("smbd_cpage", ""))
-				sprintf(options + strlen(options), ",codepage=%s" + (options[0] ? 0 : 1), 
-					nvram_get("smbd_cpage"));
+			if (nvram_invmatch("smbd_cpage", "")) {
+				char *cp = nvram_get("smbd_cpage");
+				sprintf(options + strlen(options), ",codepage=%s" + (options[0] ? 0 : 1), cp);
+				sprintf(flagfn, "nls_cp%s", cp);
+
+				cp = nvram_get("smbd_nlsmod");
+				if ((cp) && (*cp != 0) && (strcmp(cp, flagfn) != 0))
+					modprobe_r(cp);
+
+				modprobe(flagfn);
+				nvram_set("smbd_nlsmod", flagfn);
+			}
 		}
 #endif
 		else if (strcmp(type, "ntfs") == 0)
@@ -628,7 +639,7 @@ void hotplug_usb_mass(char *product)
 }
 
 
-/* Thie gets called at reboot or upgrade.  The system is stopping. */
+/* This gets called at reboot or upgrade.  The system is stopping. */
 void remove_storage_main(void)
 {
 	if (nvram_match("usb_enable", "1") && nvram_match("usb_storage", "1")) {
@@ -696,7 +707,7 @@ void hp_unlock(key_t semid)
  *
  * Special values for Web Administration to unmount or remount
  * all partitions of the host:
- *	INTERFACE=TOMATO/
+ *	INTERFACE=TOMATO/...
  *	ACTION=add/remove
  *	PRODUCT=<host_no>
  * If host_no is negative, we unmount all partions of *all* hosts.
@@ -704,7 +715,7 @@ void hp_unlock(key_t semid)
 void hotplug_usb(void)
 {
 	int add;
-	uint host = 0;
+	int host = 0;
 	char *interface = getenv("INTERFACE");
 	char *action = getenv("ACTION");
 	char *product = getenv("PRODUCT");
@@ -716,7 +727,7 @@ void hotplug_usb(void)
 		return;
 
 	add = (strcmp(action, "add") == 0);
-	if (add) {
+	if (add && (strncmp(interface, "TOMATO/", 7) != 0)) {
 		syslog(LOG_INFO, "usb-hotplug: waiting for device to settle before scanning");
 		sleep(2);
 	}
