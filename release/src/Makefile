@@ -94,8 +94,6 @@ else
 		-t image/tomato-ND-USB-$(V1)$(V2)-$(current_BUILD_DESC).trx 	| tee -a fpkg.log
 endif
 
-	@echo `cat router/shared/tomato_version` " ready"
-
 	@cp fpkg.log image/fpkg-$(V1)$(V2).log
 	@echo ""
 	@echo "-----------------"
