@@ -48,6 +48,15 @@ ifneq ($(TCONFIG_CIFS),y)
 	sed -i $(INSTALLDIR)/www/tomato.js -e "/CIFS-BEGIN/,/CIFS-END/d"
 endif
 
+# Only include extra themes if USB Extras are configured in.
+ifneq ($(TCONFIG_USB_EXTRAS),y)
+	rm -f $(INSTALLDIR)/www/usbred.css
+	rm -f $(INSTALLDIR)/www/usbblue.css
+	rm -f $(INSTALLDIR)/www/tomatousb.png
+	rm -f $(INSTALLDIR)/www/tomatousb_bg.png
+	sed -i $(INSTALLDIR)/www/admin-access.asp -e "/THEMES-BEGIN/,/THEMES-END/d"
+endif
+
 # make sure old and debugging crap is gone
 	@rm -f $(INSTALLDIR)/www/debug.js
 	@rm -f $(INSTALLDIR)/www/*-x.*
