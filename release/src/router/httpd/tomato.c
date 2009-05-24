@@ -516,6 +516,7 @@ static const nvset_t nvset_list[] = {
 	{ "wl_distance",		V_LENGTH(0, 5)		},	// "", 1-99999
 	{ "wlx_hpamp",			V_01				},
 	{ "wlx_hperx",			V_01				},
+	{ "wl_reg_mode",		V_LENGTH(1, 3)			},	// !!TB - Regulatory: off, h, d
 
 #if TOMATO_N
 	{ "wl_nmode_protection",V_WORD,				},	// off, auto
