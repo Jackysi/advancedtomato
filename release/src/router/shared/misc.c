@@ -19,6 +19,7 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <sys/sysinfo.h>
+#include <sys/types.h>
 
 #include <bcmnvram.h>
 #include <bcmdevs.h>
@@ -734,77 +735,64 @@ struct mntent *findmntent(char *file)
 	return mnt;
 }
 
-/* Figure out the volume label. */
-/* If we found it, return Non-Zero and store it at the_label. */
-#define USE_BB	0	/* Use the actual busybox .a file. */
 
-#if USE_BB
-char applet_name[] = "hotplug";	/* Needed to satisfy a reference. */
-int find_label(char *mnt_dev, char *the_label)
+/****************************************************/
+/* Use busybox routines to get labels for fat & ext */
+/* Probe for label the same way that mount does.    */
+/****************************************************/
+
+#define VOLUME_ID_LABEL_SIZE            64
+#define VOLUME_ID_UUID_SIZE             36
+
+struct volume_id {
+	char            label[VOLUME_ID_LABEL_SIZE+1];
+	char            uuid[VOLUME_ID_UUID_SIZE+1];
+	int             fd;
+	uint8_t         *sbbuf;
+	uint8_t         *seekbuf;
+	size_t          sbbuf_len;
+	uint64_t        seekbuf_off;
+	size_t          seekbuf_len;
+};
+extern void volume_id_free_buffer(struct volume_id *id);
+extern int volume_id_probe_ext(struct volume_id *id, uint64_t off);
+extern int volume_id_probe_vfat(struct volume_id *id, uint64_t off);
+extern int volume_id_probe_linux_swap(struct volume_id *id, uint64_t off);
+
+/* Put the label in *label.
+ * Return 0 if no label found, NZ if there is a label.
+ */
+int find_label(char *dev_name, char *label)
 {
-	char *uuid, *label;
-	int i;
-   
-	*the_label = 0;
-	/* heuristic: partition name ends in a digit */
-	if ( !isdigit(mnt_dev[strlen(mnt_dev) - 1]))
-		return(0);
+	struct volume_id id = {{0}};
 
-	cprintf("\n\nGetting volume label for '%s'\n", mnt_dev);
+	label[0] = 0;
+	if ((id.fd = open(dev_name, O_RDONLY)) < 0)
+		return 0;
 
-	/* it's in get_devname.c  */
-	i = get_label_uuid(mnt_dev, &label, &uuid, 0);
-	cprintf("get_label_uuid= %d\n", i);
-	if (i == 0) {
-		cprintf(" label= %s uuid = %s\n", label, uuid);
-		strcpy(the_label, label);
-		return(1);
-	}
-	return (0);
+	if (volume_id_probe_vfat(&id, 0) == 0 ||
+	    volume_id_probe_ext(&id, 0) == 0 ||
+	    volume_id_probe_linux_swap(&id, 0) == 0)
+		strcpy(label, id.label);
+	close(id.fd);
+	volume_id_free_buffer(&id);
+	return(label[0] != 0);
 }
-#else
-int find_label(char *mnt_dev, char *the_label)
+
+void *xmalloc(size_t siz)
 {
-	char *label, *p;
-	FILE *mfp;
-	char buf[128];
-	struct stat st_arg, st_mou;
-
-	*the_label = 0;
-	/* heuristic: partition name ends in a digit */
-	if ( !isdigit(mnt_dev[strlen(mnt_dev) - 1]))
-		return(0);
-
-	mfp = popen("mount LABEL= /no-such-label", "r");
-	if (mfp == NULL) {
-		_dprintf("Cannot popen mount!!\n");
-		return(0);
-	}
-
-	while (fgets(buf, sizeof(buf), mfp)) {
-		if ((p = strchr(buf, '\n')))
-			*p = 0;
-		if ((p = strstr(buf, "LABEL "))) {	/* Isolate the label. */
-			if ((label=strchr(p+6, '\''))) {
-				++label;
-				if ((p = strchr(label, '\''))) {
-					*p++ = 0;
-					if ((p = strchr(p, '/'))) {	/* Isolate the device. */
-						/* See if the argument is the same as what mount gives. */
-						if (stat(mnt_dev, &st_arg) == 0 && stat(p, &st_mou) == 0) {
-							if (S_ISBLK(st_arg.st_mode) && S_ISBLK(st_mou.st_mode) &&
-									st_arg.st_rdev == st_mou.st_rdev) {
-								strcpy(the_label, label);
-								fclose(mfp);
-								return(1);
-							}
-						}
-					}
-				}
-			}
-		}
-	}
-	fclose(mfp);
-	return(0);
+	return (malloc(siz));
 }
-#endif
+
+typedef long long off64_t;
+off64_t xlseek(int fd, off64_t offset, int whence)
+{
+	return lseek(fd, offset, whence);
+}
+
+void volume_id_set_uuid() {}
+
+ssize_t full_read(int fd, void *buf, size_t len)
+{
+	return read(fd, buf, len);
+}

@@ -20,6 +20,7 @@
 
 #include "volume_id_internal.h"
 
+#ifndef UTIL2
 void volume_id_set_unicode16(char *str, size_t len, const uint8_t *buf, enum endian endianess, size_t count)
 {
 	unsigned i, j;
@@ -108,6 +109,9 @@ static size_t strnlen(const char *s, size_t maxlen)
 }
 #endif
 
+#endif
+#ifdef UTIL2
+
 void volume_id_set_label_string(struct volume_id *id, const uint8_t *buf, size_t count)
 {
 	unsigned i;
@@ -122,7 +126,9 @@ void volume_id_set_label_string(struct volume_id *id, const uint8_t *buf, size_t
 	}
 	id->label[i+1] = '\0';
 }
+#endif
 
+#ifndef UTIL2
 void volume_id_set_label_unicode16(struct volume_id *id, const uint8_t *buf, enum endian endianess, size_t count)
 {
 	 volume_id_set_unicode16(id->label, sizeof(id->label), buf, endianess, count);
@@ -190,6 +196,9 @@ set:
 	}
 }
 
+#endif
+
+#ifdef UTIL2
 /* Do not use xlseek here. With it, single corrupted filesystem
  * may result in attempt to seek past device -> exit.
  * It's better to ignore such fs and continue.  */
@@ -280,3 +289,4 @@ void volume_id_free_buffer(struct volume_id *id)
 	id->seekbuf_len = 0;
 	id->seekbuf_off = 0; /* paranoia */
 }
+#endif
