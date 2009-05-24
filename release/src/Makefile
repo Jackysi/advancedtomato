@@ -64,7 +64,7 @@ all:
 	@echo ""
 	@echo ""
 	@echo "Building USB-$(V1)$(V2) $(current_BUILD_DESC) $(current_BUILD_NAME) with $(TOMATO_PROFILE_NAME) Profile"
-	@echo -n "1.23."$(V1)$(V2)" ND USB "$(current_BUILD_DESC) > router/shared/tomato_version
+	@echo -n "1.24."$(V1)$(V2)" ND USB "$(current_BUILD_DESC) > router/shared/tomato_version
 	@btools/uversion.pl --gen
 	@echo ""
 	@echo ""
