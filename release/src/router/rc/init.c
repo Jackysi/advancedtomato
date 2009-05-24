@@ -762,6 +762,7 @@ static void sysinit(void)
 
 	static const char *mkd[] = {
 		"/tmp/etc", "/tmp/var", "/tmp/home", "/tmp/mnt",
+		"/tmp/share",	// !!TB
 		"/var/log", "/var/run", "/var/tmp", "/var/lib", "/var/lib/misc",
 		"/var/spool", "/var/spool/cron", "/var/spool/cron/crontabs", NULL
 	};

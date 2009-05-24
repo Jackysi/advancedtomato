@@ -76,6 +76,29 @@ void set_host_domain_name(void)
 
 	s = nvram_safe_get("wan_hostname");
 	sethostname(s, strlen(s));
+
+#ifdef TCONFIG_SAMBASRV
+	//!!TB - hostname is required for Samba to work
+	nvram_set("lan_hostname", s);
+	if ((s == NULL) || (*s == 0)) {
+		/* derive from et0 mac address */
+		s = nvram_get("et0macaddr");
+		if (s && strlen(s) >= 17) {
+			char hostname[16];
+			sprintf(hostname, "RT-%c%c%c%c%c%c%c%c%c%c%c%c",
+				s[0], s[1], s[3], s[4], s[6], s[7],
+				s[9], s[10], s[12], s[13], s[15], s[16]);
+
+			FILE *f;
+			if ((f = fopen("/proc/sys/kernel/hostname", "w"))) {
+				fputs(hostname, f);
+				fclose(f);
+				nvram_set("lan_hostname", hostname);
+			}
+		}
+	}
+#endif
+
 	s = nvram_get("wan_domain");
 	if ((s == NULL) || (*s == 0)) s = nvram_safe_get("wan_get_domain");
 	setdomainname(s, strlen(s));

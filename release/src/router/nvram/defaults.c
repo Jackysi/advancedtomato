@@ -481,6 +481,39 @@ const defaults_t defaults[] = {
 	{ "script_usbmount", 		""				},
 	{ "script_usbumount", 		""				},
 
+#ifdef TCONFIG_FTP
+// admin-ftp - !!TB
+	{ "ftp_enable",			"0"				},
+	{ "ftp_super",			"0"				},
+	{ "ftp_anonymous",		"0"				},
+	{ "ftp_dirlist",		"0"				},
+	{ "ftp_port",			"21"				},
+	{ "ftp_max",			"0"				},
+	{ "ftp_ipmax",			"0"				},
+	{ "ftp_staytimeout",		"300"				},
+	{ "ftp_rate",			"0"				},
+	{ "ftp_anonrate",		"0"				},
+	{ "ftp_anonroot",		""				},
+	{ "ftp_pubroot",		""				},
+	{ "ftp_pvtroot",		""				},
+	{ "ftp_users",			""				},
+	{ "ftp_custom",			""				},
+	{ "log_ftp",			"0"				},
+#endif
+
+#ifdef TCONFIG_SAMBASRV
+// admin-samba - !!TB
+	{ "smbd_enable",		"0"				},
+	{ "smbd_wgroup",		"WORKGROUP"			},
+	{ "smbd_cpage",			""				},
+	{ "smbd_cset",			""				},
+	{ "smbd_loglevel",		"0"				},
+	{ "smbd_custom",		""				},
+	{ "smbd_shares",
+		"share</mnt<Default Share<0<0>root$</<Hidden Root<0<1"
+	},
+#endif
+
 // admin-sch
 	{ "sch_rboot",			""				},
 	{ "sch_rcon",			""				},

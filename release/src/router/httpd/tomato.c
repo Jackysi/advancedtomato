@@ -650,6 +650,37 @@ static const nvset_t nvset_list[] = {
 	{ "script_usbmount", 		V_TEXT(0, 2048)			},
 	{ "script_usbumount", 		V_TEXT(0, 2048)			},
 
+// admin-ftp - !!TB
+#ifdef TCONFIG_FTP
+	{ "ftp_enable",			V_RANGE(0, 2)			},
+	{ "ftp_super",			V_01				},
+	{ "ftp_anonymous",		V_RANGE(0, 3)			},
+	{ "ftp_dirlist",		V_RANGE(0, 2)			},
+	{ "ftp_port",			V_PORT				},
+	{ "ftp_max",			V_RANGE(0, 12)			},
+	{ "ftp_ipmax",			V_RANGE(0, 12)			},
+	{ "ftp_staytimeout",		V_RANGE(0, 65535)		},
+	{ "ftp_rate",			V_RANGE(0, 99999)		},
+	{ "ftp_anonrate",		V_RANGE(0, 99999)		},
+	{ "ftp_anonroot",		V_LENGTH(0, 256)		},
+	{ "ftp_pubroot",		V_LENGTH(0, 256)		},
+	{ "ftp_pvtroot",		V_LENGTH(0, 256)		},
+	{ "ftp_users",			V_LENGTH(0, 4096)		},
+	{ "ftp_custom",			V_TEXT(0, 2048)			},
+	{ "log_ftp",			V_01				},
+#endif
+
+#ifdef TCONFIG_SAMBASRV
+// admin-samba - !!TB
+	{ "smbd_enable",		V_RANGE(0, 2)			},
+	{ "smbd_wgroup",		V_LENGTH(0, 20)			},
+	{ "smbd_cpage",			V_LENGTH(0, 4)			},
+	{ "smbd_cset",			V_LENGTH(0, 20)			},
+	{ "smbd_loglevel",		V_RANGE(0, 100)			},
+	{ "smbd_custom",		V_TEXT(0, 2048)			},
+	{ "smbd_shares",		V_LENGTH(0, 4096)		},
+#endif
+
 //	qos
 	{ "qos_enable",			V_01				},
 	{ "qos_ack",			V_01				},
