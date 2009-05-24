@@ -470,7 +470,6 @@ static int ehci_start (struct usb_hcd *hcd)
 				return -EOPNOTSUPP;
 			break;
 		case 0:			/* illegal reserved capability */
-			ehci_warn (ehci, "illegal capability!\n");
 			cap = 0;
 			/* FALLTHROUGH */
 		default:		/* unknown */
