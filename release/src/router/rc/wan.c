@@ -803,6 +803,7 @@ void stop_wan(void)
 	_dprintf("%s: begin\n", __FUNCTION__);
 
 	stop_qos();
+	stop_upnp();	//!!TB - moved from stop_services()
 	stop_firewall();
 	stop_igmp_proxy();
 	stop_ntpc();

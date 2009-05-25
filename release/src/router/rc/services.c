@@ -710,7 +710,7 @@ void start_services(void)
 	start_cifs();
 	start_httpd();
 	start_cron();
-	start_upnp();
+	//start_upnp();	//!!TB - already in start_wan_done()
 	start_rstats(0);
 	start_sched();
 #ifdef TCONFIG_SAMBA
@@ -727,7 +727,7 @@ void stop_services(void)
 #endif
 	stop_sched();
 	stop_rstats();
-	stop_upnp();
+	//stop_upnp();	//!!TB - moved to stop_wan()
 	stop_cron();
 	stop_httpd();
 	stop_cifs();
