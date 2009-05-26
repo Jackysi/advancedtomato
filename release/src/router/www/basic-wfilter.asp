@@ -158,9 +158,9 @@ function init()
 
 <div class='section-title'>Wireless Client Filter</div>
 <div class='section'>
-	<input type='radio' name='f_type' id='_f_disable' value='disabled'> Disable Filter<br>
-	<input type='radio' name='f_type' id='_f_allow' value='allow'> Permit Only The Following Clients<br>
-	<input type='radio' name='f_type' id='_f_deny' value='deny'> Block The Following Clients<br>
+	<input type='radio' name='f_type' id='_f_disable' value='disabled'> <label for='_f_disable'>Disable filter</label><br>
+	<input type='radio' name='f_type' id='_f_allow' value='allow'> <label for='_f_allow'>Permit only the following clients</label><br>
+	<input type='radio' name='f_type' id='_f_deny' value='deny'> <label for='_f_deny'>Block the following clients</label><br>
 	<br>
 	<table id='sm-grid' class='tomato-grid'></table>
 </div>
