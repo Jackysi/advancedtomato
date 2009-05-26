@@ -2465,6 +2465,7 @@ void __init ip_rt_init(void)
 		panic("IP: failed to allocate ip_dst_cache\n");
 
 	goal = num_physpages >> (26 - PAGE_SHIFT);
+//	goal = num_physpages >> (21 - PAGE_SHIFT);
 
 	for (order = 0; (1UL << order) < goal; order++)
 		/* NOTHING */;
@@ -2494,8 +2495,17 @@ void __init ip_rt_init(void)
 		rt_hash_table[i].chain = NULL;
 	}
 
+//	ip_rt_max_size = (rt_hash_mask + 1) * 2;
+//	ipv4_dst_ops.gc_thresh = (ip_rt_max_size / 4);
+
 	ipv4_dst_ops.gc_thresh = (rt_hash_mask + 1);
 	ip_rt_max_size = (rt_hash_mask + 1) * 16;
+
+//	printk("gc_thresh=%d\n", ipv4_dst_ops.gc_thresh);
+//	printk("ip_rt_max_size=%d\n", ip_rt_max_size);
+//	printk("rt_hash_mask=%d\n", rt_hash_mask);
+//	printk("goal=%d\n", goal);
+
 
 	devinet_init();
 	ip_fib_init();
