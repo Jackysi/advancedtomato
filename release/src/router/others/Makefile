@@ -11,7 +11,7 @@ install:
 	install -m 0700 cru $(INSTALLDIR)/usr/sbin
 
 # playing with ipkg / from OpenWrt svn
-	install -m 0700 ipkg $(INSTALLDIR)/usr/sbin
+#!!TB	install -m 0700 ipkg $(INSTALLDIR)/usr/sbin
 
 # keep winscp happy
 #	install -m 0700 groups $(INSTALLDIR)/usr/bin

@@ -70,12 +70,52 @@ typedef u_int8_t u8;
 #define IFUP (IFF_UP | IFF_RUNNING | IFF_BROADCAST | IFF_MULTICAST)
 #define sin_addr(s) (((struct sockaddr_in *)(s))->sin_addr)
 
+#ifdef TCONFIG_SAMBASRV
+//!!TB - hostname is required for Samba to work
+void set_lan_hostname(const char *wan_hostname)
+{
+	const char *s;
+	FILE *f;
+
+	nvram_set("lan_hostname", wan_hostname);
+	if ((wan_hostname == NULL) || (*wan_hostname == 0)) {
+		/* derive from et0 mac address */
+		s = nvram_get("et0macaddr");
+		if (s && strlen(s) >= 17) {
+			char hostname[16];
+			sprintf(hostname, "RT-%c%c%c%c%c%c%c%c%c%c%c%c",
+				s[0], s[1], s[3], s[4], s[6], s[7],
+				s[9], s[10], s[12], s[13], s[15], s[16]);
+
+			if ((f = fopen("/proc/sys/kernel/hostname", "w"))) {
+				fputs(hostname, f);
+				fclose(f);
+			}
+			nvram_set("lan_hostname", hostname);
+		}
+	}
+
+	if ((f = fopen("/etc/hosts", "w"))) {
+		fprintf(f, "127.0.0.1  localhost\n");
+		fprintf(f, "%s  %s\n",
+			nvram_safe_get("lan_ipaddr"), nvram_safe_get("lan_hostname"));
+		fclose(f);
+	}
+}
+#endif
+
 void set_host_domain_name(void)
 {
 	const char *s;
 
 	s = nvram_safe_get("wan_hostname");
 	sethostname(s, strlen(s));
+
+#ifdef TCONFIG_SAMBASRV
+	//!!TB - hostname is required for Samba to work
+	set_lan_hostname(s);
+#endif
+
 	s = nvram_get("wan_domain");
 	if ((s == NULL) || (*s == 0)) s = nvram_safe_get("wan_get_domain");
 	setdomainname(s, strlen(s));
@@ -263,6 +303,11 @@ void start_lan(void)
 
 	config_loopback();
 	do_static_routes(1);
+
+#ifdef TCONFIG_SAMBASRV
+	//!!TB - hostname is required for Samba to work
+	set_lan_hostname(nvram_safe_get("wan_hostname"));
+#endif
 
 	if (nvram_match("wan_proto", "disabled")) {
 		char *gateway = nvram_safe_get("lan_gateway") ;

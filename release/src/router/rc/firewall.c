@@ -486,6 +486,13 @@ static void filter_input(void)
 	} while (*p);
 
 
+#ifdef TCONFIG_FTP	// !!TB - FTP Server
+	if (nvram_match("ftp_enable", "1")) {
+		ipt_write("-A INPUT -p tcp -m tcp --dport %s -j %s\n",
+			nvram_safe_get("ftp_port"), chain_in_accept);
+	}
+#endif
+
 	// IGMP query from WAN interface
 	if (nvram_match("multicast_pass", "1")) {
 		ipt_write("-A INPUT -p igmp -j ACCEPT\n");

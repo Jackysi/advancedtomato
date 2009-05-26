@@ -1,0 +1,18 @@
+#
+# The baseline configuration for Tomato USB.
+# All other build configurations are derived from this.
+#
+TCONFIG_L2TP=y
+TCONFIG_PPTP=y
+TCONFIG_HTTPS=y
+TCONFIG_SSH=y
+TCONFIG_CIFS=y
+TCONFIG_JFFS2=y
+TCONFIG_ZEBRA=y
+TCONFIG_DDNS=y
+TCONFIG_L7=y
+TCONFIG_L7PAT=y
+TCONFIG_FTP=y
+# TCONFIG_FTP_SSL is not set
+TCONFIG_SAMBASRV=y
+# TCONFIG_USB_EXTRAS is not set

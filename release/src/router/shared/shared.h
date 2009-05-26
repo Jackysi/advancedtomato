@@ -7,6 +7,8 @@
 #include <stdint.h>
 #include <errno.h>
 
+#include <mntent.h>	// !!TB
+
 #define Y2K			946684800UL		// seconds since 1970
 
 #define ASIZE(array)	(sizeof(array) / sizeof(array[0]))
@@ -63,7 +65,24 @@ extern int nvram_contains_word(const char *key, const char *word);
 extern int nvram_is_empty(const char *key);
 extern void nvram_commit_x(void);
 extern int connect_timeout(int fd, const struct sockaddr *addr, socklen_t len, int timeout);
+//!!TB
+extern char *detect_fs_type(char *device);
+extern struct mntent *findmntent(char *file);
+extern int find_label(char *mnt_dev, char *the_label);
+extern int usb_lock(void);
+extern void usb_unlock(int lockfd);
 
+#define DEV_DISCS_ROOT	"/dev/discs"
+
+/* Flags used in exec_for_host calls
+ */
+#define EFH_1ST_HOST	0x00000001	/* func is called for the 1st time for this host */
+#define EFH_1ST_DISC	0x00000002	/* func is called for the 1st time for this disc */
+#define EFH_HUNKNOWN	0x00000004	/* host is unknown */
+#define EFH_USER	0x00000008	/* process is user-initiated - either via Web GUI or a script */
+
+typedef int (*host_exec)(char *dev_name, int host_num, int disc_num, int part_num, uint flags);
+extern int exec_for_host(int host, int when_to_update, uint flags, host_exec func);
 
 // id.c
 enum {

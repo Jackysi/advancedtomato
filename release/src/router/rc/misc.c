@@ -153,7 +153,23 @@ void setup_conntrack(void)
 		modprobe_r("ip_conntrack_rtsp");
 	}
 
-	if (!nvram_match("nf_ftp", "0")) {
+	// !!TB - FTP Server
+#ifdef TCONFIG_FTP
+	if (nvram_match("ftp_enable", "1") && atoi(nvram_get("ftp_port")) != 21)
+	{
+		char ports[32];
+
+		sprintf(ports, "ports=21,%d", atoi(nvram_get("ftp_port")));
+		eval("modprobe", "-s", "ip_conntrack_ftp", ports);
+		eval("modprobe", "-s", "ip_nat_ftp", ports);
+	}
+	else 
+#endif
+	if (!nvram_match("nf_ftp", "0")
+#ifdef TCONFIG_FTP
+		|| nvram_match("ftp_enable", "1")	// !!TB - FTP Server
+#endif
+		) {
 		modprobe("ip_conntrack_ftp");
 		modprobe("ip_nat_ftp");
 	}

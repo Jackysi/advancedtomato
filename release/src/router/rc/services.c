@@ -33,7 +33,6 @@
 	Portions, Copyright (C) 2006-2009 Jonathan Zarate
 
 */
-
 #include "rc.h"
 
 #include <arpa/inet.h>
@@ -41,11 +40,13 @@
 #include <sys/time.h>
 #include <errno.h>
 
+// !!TB
+#include <sys/mount.h>
+#include <mntent.h>
+#include <dirent.h>
+
 #define IFUP (IFF_UP | IFF_RUNNING | IFF_BROADCAST | IFF_MULTICAST)
 #define sin_addr(s) (((struct sockaddr_in *)(s))->sin_addr)
-
-
-
 
 // -----------------------------------------------------------------------------
 
@@ -179,6 +180,10 @@ void start_dnsmasq()
 	if ((hf = fopen(dmhosts, "w")) != NULL) {
 		if (((nv = nvram_get("wan_hostname")) != NULL) && (*nv))
 			fprintf(hf, "%s %s\n", router_ip, nv);
+#ifdef TCONFIG_SAMBASRV
+		else if (((nv = nvram_get("lan_hostname")) != NULL) && (*nv))
+			fprintf(hf, "%s %s\n", router_ip, nv);
+#endif
 	}
 
 	// 00:aa:bb:cc:dd:ee<123<xxxxxxxxxxxxxxxxxxxxxxxxxx.xyz> = 53 w/ delim
@@ -670,6 +675,442 @@ static void start_rstats(int new)
 
 // -----------------------------------------------------------------------------
 
+// !!TB - FTP Server
+
+/* 
+ * Return non-zero if we created the directory,
+ * and zero if it already existed.
+ */
+int mkdir_if_none(char *dir)
+{
+	DIR *dp;
+	if (!(dp=opendir(dir))) {
+		umask(0000);
+		mkdir(dir, 0777);
+		return 1;
+	}
+	closedir(dp);
+	return 0;
+}
+
+char *get_full_storage_path(char *val)
+{
+	static char buf[128];
+	int len;
+
+	if (val[0] == '/')
+		len = sprintf(buf, "%s", val);
+	else
+		len = sprintf(buf, "%s/%s", MOUNT_ROOT, val);
+
+	if (len > 1 && buf[len - 1] == '/')
+		buf[len - 1] = 0;
+
+	return buf;
+}
+
+char *nvram_storage_path(char *var)
+{
+	char *val = nvram_safe_get(var);
+	return get_full_storage_path(val);
+}
+
+#ifdef TCONFIG_FTP
+
+char vsftpd_conf[] = "/etc/vsftpd.conf";
+char vsftpd_users[] = "/etc/vsftpd.users";
+char vsftpd_passwd[] = "/etc/vsftpd.passwd";
+#endif
+
+/* VSFTPD code mostly stolen from Oleg's ASUS Custom Firmware GPL sources */
+void start_ftpd(void)
+{
+#ifdef TCONFIG_FTP
+
+	char tmp[256];
+	FILE *fp, *f;
+
+	killall("vsftpd", SIGTERM);
+	if (!nvram_get_int("ftp_enable")) return;
+
+	mkdir_if_none(vsftpd_users);
+	mkdir_if_none("/var/run/vsftpd");
+
+	if ((fp = fopen(vsftpd_conf, "w")) == NULL)
+		return;
+
+	if (nvram_match("ftp_super", "1"))
+	{
+		/* rights */
+		sprintf(tmp, "%s/%s", vsftpd_users, "admin");
+		if ((f = fopen(tmp, "w")))
+		{
+			fprintf(f,
+				"dirlist_enable=yes\n"
+				"write_enable=yes\n"
+				"download_enable=yes\n");
+			fclose(f);
+		}
+	}
+
+#ifdef TCONFIG_SAMBASRV
+	if (nvram_match("smbd_cset", "utf8"))
+		fprintf(fp, "utf8=yes\n");
+#endif
+
+	if (nvram_invmatch("ftp_anonymous", "0"))
+	{
+		fprintf(fp,
+			"anon_allow_writable_root=yes\n"
+			"anon_world_readable_only=no\n"
+			"anon_umask=022\n");
+		
+		/* rights */
+		sprintf(tmp, "%s/ftp", vsftpd_users);
+		if ((f = fopen(tmp, "w")))
+		{
+			if (nvram_match("ftp_dirlist", "0"))
+				fprintf(f, "dirlist_enable=yes\n");
+			if (nvram_match("ftp_anonymous", "1") || 
+			    nvram_match("ftp_anonymous", "3"))
+				fprintf(f, "write_enable=yes\n");
+			if (nvram_match("ftp_anonymous", "1") || 
+			    nvram_match("ftp_anonymous", "2"))
+				fprintf(f, "download_enable=yes\n");
+			fclose(f);
+		}
+		if (nvram_match("ftp_anonymous", "1") || 
+		    nvram_match("ftp_anonymous", "3"))
+			fprintf(fp, 
+				"anon_upload_enable=yes\n"
+				"anon_mkdir_write_enable=yes\n"
+				"anon_other_write_enable=yes\n");
+	} else {
+		fprintf(fp, "anonymous_enable=no\n");
+	}
+	
+	fprintf(fp,
+		"dirmessage_enable=yes\n"
+		"download_enable=no\n"
+		"dirlist_enable=no\n"
+		"hide_ids=yes\n"
+		"syslog_enable=yes\n"
+		"local_enable=yes\n"
+		"local_umask=022\n"
+		"chmod_enable=no\n"
+		"chroot_local_user=yes\n"
+		"check_shell=no\n"
+		"user_config_dir=%s\n"
+		"passwd_file=%s\n",
+		vsftpd_users, vsftpd_passwd);
+
+	if (nvram_match("log_ftp", "1")) {
+		fprintf(fp, "log_ftp_protocol=yes\n");
+	}
+	else {
+		fprintf(fp, "log_ftp_protocol=no\n");
+	}
+
+	fprintf(fp, "listen=yes\nlisten_port=%s\nbackground=yes\n",
+		nvram_get("ftp_port") ? : "21");
+	fprintf(fp, "max_clients=%s\n", nvram_get("ftp_max") ? : "0");
+	fprintf(fp, "max_per_ip=%s\n", nvram_get("ftp_ipmax") ? : "0");
+	fprintf(fp, "idle_session_timeout=%s\n", nvram_get("ftp_staytimeout") ? : "300");
+	fprintf(fp, "use_sendfile=no\n");
+	//fprintf(fp, "ftpd_banner=Welcome to the %s FTP service.\n", nvram_get("t_model_name") ? : "router");
+
+	/* bandwidth */
+	fprintf(fp, "anon_max_rate=%d\nlocal_max_rate=%d\n",
+		atoi(nvram_safe_get("ftp_anonrate")) * 1024,
+		atoi(nvram_safe_get("ftp_rate")) * 1024);
+
+	fprintf(fp, "%s\n\n", nvram_safe_get("ftp_custom"));
+	
+	fclose(fp);
+
+	/* prepare passwd file and default users */
+	if ((fp = fopen(vsftpd_passwd, "w")) == NULL)
+		return;
+
+	fprintf(fp, /* anonymous, admin, nobody */
+		"ftp:x:0:0:ftp:%s:/sbin/nologin\n"
+		"%s:%s:0:0:root:/:/sbin/nologin\n"
+		"nobody:x:65534:65534:nobody:%s/:/sbin/nologin\n",
+		nvram_storage_path("ftp_anonroot"), "admin",
+		nvram_match("ftp_super", "1") ? crypt(nvram_safe_get("http_passwd"), "$1$") : "x",
+		MOUNT_ROOT);
+
+	char *buf;
+	char *p, *q;
+	char *user, *pass, *rights;
+
+	if ((buf = strdup(nvram_safe_get("ftp_users"))) != NULL)
+	{
+		/*
+		username<password<rights
+		rights:
+			Read/Write
+			Read Only
+			View Only
+			Private
+		*/
+		p = buf;
+		while ((q = strsep(&p, ">")) != NULL) {
+			if (vstrsep(q, "<", &user, &pass, &rights) != 3) continue;
+			if (!user || !pass) continue;
+
+			/* directory */
+			if (strncmp(rights, "Private", 7) == 0)
+			{
+				sprintf(tmp, "%s/%s", nvram_storage_path("ftp_pvtroot"), user);
+				mkdir_if_none(tmp);
+			}
+			else
+				sprintf(tmp, "%s", nvram_storage_path("ftp_pubroot"));
+
+			fprintf(fp, "%s:%s:0:0:%s:%s:/sbin/nologin\n",
+				user, crypt(pass, "$1$"), user, tmp);
+
+			/* rights */
+			sprintf(tmp, "%s/%s", vsftpd_users, user);
+			if ((f = fopen(tmp, "w")))
+			{
+				tmp[0] = 0;
+				if (nvram_invmatch("ftp_dirlist", "1"))
+					strcat(tmp, "dirlist_enable=yes\n");
+				if (strstr(rights, "Read") || !strcmp(rights, "Private"))
+					strcat(tmp, "download_enable=yes\n");
+				if (strstr(rights, "Write") || !strncmp(rights, "Private", 7))
+					strcat(tmp, "write_enable=yes\n");
+					
+				fputs(tmp, f);
+				fclose(f);
+			}
+		}
+		free(buf);
+	}
+
+	fclose(fp);
+
+	eval("vsftpd");
+#endif
+}
+
+void stop_ftpd(void)
+{
+#ifdef TCONFIG_FTP
+	killall("vsftpd", SIGTERM);
+	unlink(vsftpd_passwd);
+	unlink(vsftpd_conf);
+	eval("rm", "-rf", vsftpd_users);
+#endif
+}
+
+// -----------------------------------------------------------------------------
+
+// !!TB - Samba
+
+#ifdef TCONFIG_SAMBASRV
+void kill_samba(int sig)
+{
+	killall("smbd", sig);
+	killall("nmbd", sig);
+}
+#endif
+
+void start_samba(void)
+{
+#ifdef TCONFIG_SAMBASRV
+
+	FILE *fp;
+	DIR *dir = NULL;
+	struct dirent *dp;
+	char nlsmod[15];
+	int mode;
+	
+	mode = nvram_get_int("smbd_enable");
+	if (!mode || !nvram_invmatch("lan_hostname", ""))
+		return;
+
+	if ((fp = fopen("/etc/smb.conf", "w")) == NULL) {
+		perror("/etc/smb.conf");
+		return;
+	}
+
+	fprintf(fp, "[global]\n"
+		" interfaces = %s\n"
+		" bind interfaces only = yes\n"
+		" workgroup = %s\n"
+		" server string = %s\n"
+		" guest account = nobody\n"
+		" security = %s\n"
+		" browseable = yes\n"
+		" guest ok = yes\n"
+		" guest only = no\n"
+		" log level = %d\n"
+		" syslog only = yes\n"
+		" syslog = 1\n"
+		" encrypt passwords = yes\n"
+		" local master = %s\n"
+		" preserve case = yes\n"
+		" short preserve case = yes\n",
+		nvram_get("lan_ifname") ? : "br0",
+		nvram_get("smbd_wgroup") ? : "WORKGROUP",
+		nvram_get("router_name") ? : "Tomato",
+		mode == 2 ? "user" : "share",
+		nvram_get_int("smbd_loglevel"),
+		nvram_get_int("smbd_master") ? "yes" : "no"
+	);
+
+	if (nvram_invmatch("smbd_cpage", "")) {
+		char *cp = nvram_get("smbd_cpage");
+
+		fprintf(fp, " client code page = %s\n", cp);
+		sprintf(nlsmod, "nls_cp%s", cp);
+
+		cp = nvram_get("smbd_nlsmod");
+		if ((cp) && (*cp != 0) && (strcmp(cp, nlsmod) != 0))
+			modprobe_r(cp);
+
+		modprobe(nlsmod);
+		nvram_set("smbd_nlsmod", nlsmod);
+	}
+
+	if (nvram_match("smbd_cset", "utf8"))
+		fprintf(fp, " coding system = utf8\n");
+	else if (nvram_invmatch("smbd_cset", ""))
+		fprintf(fp, " character set = %s\n", nvram_get("smbd_cset"));
+
+	fprintf(fp, "%s\n\n", nvram_safe_get("smbd_custom"));
+	
+	/* configure shares */
+
+	char *buf;
+	char *p, *q;
+	char *name, *path, *comment, *writeable, *hidden;
+	int cnt = 0;
+
+	if ((buf = strdup(nvram_safe_get("smbd_shares"))) != NULL)
+	{
+		/* sharename<path<comment<writeable[0|1]<hidden[0|1] */
+
+		p = buf;
+		while ((q = strsep(&p, ">")) != NULL) {
+			if (vstrsep(q, "<", &name, &path, &comment, &writeable, &hidden) != 5) continue;
+			if (!path || !name) continue;
+
+			/* share name */
+			fprintf(fp, "\n[%s]\n", name);
+
+			/* path */
+			fprintf(fp, " path = %s\n", path);
+
+			/* access level */
+			if (!strcmp(writeable, "1"))
+				fprintf(fp, " writable = yes\n force user = %s\n", "root");
+			if (!strcmp(hidden, "1"))
+				fprintf(fp, " browseable = no\n");
+
+			/* comment */
+			if (comment)
+				fprintf(fp, " comment = %s\n", comment);
+
+			cnt++;
+		}
+		free(buf);
+	}
+
+	/* share everything below MOUNT_ROOT */
+	if (nvram_get_int("smbd_autoshare") && (dir = opendir(MOUNT_ROOT))) {
+		while ((dp = readdir(dir))) {
+			if (strcmp(dp->d_name, ".") && strcmp(dp->d_name, "..")) {
+
+				/* smbd_autoshare: 0 - disable, 1 - read-only, 2 - writable, 3 - hidden writable */
+				fprintf(fp, "\n[%s]\n path = %s/%s\n",
+					dp->d_name, MOUNT_ROOT, dp->d_name);
+				if (nvram_match("smbd_autoshare", "3"))	// Hidden
+					fprintf(fp, "\n[%s$]\n path = %s/%s\n browseable = no\n",
+						dp->d_name, MOUNT_ROOT, dp->d_name);
+				if (nvram_match("smbd_autoshare", "2") || nvram_match("smbd_autoshare", "3"))	// RW
+					fprintf(fp, " writable = yes\n force user = %s\n", "root");
+
+				cnt++;
+			}
+		}
+	}
+	if (dir) closedir(dir);
+
+	if (cnt == 0) {
+		/* by default share MOUNT_ROOT as read-only */
+		fprintf(fp, "\n[share]\n"
+			" path = %s\n"
+			" writable = no\n",
+			MOUNT_ROOT);
+	}
+
+	fclose(fp);
+
+	mkdir_if_none("/var/run/samba");
+	mkdir_if_none("/etc/samba");
+
+	/* write smbpasswd */
+	eval("smbpasswd", "-a", "nobody", "\"\"");
+	if (mode == 2) {
+		char *smbd_user;
+		if (((smbd_user = nvram_get("smbd_user")) == NULL) || (*smbd_user == 0) || !strcmp(smbd_user, "root"))
+			smbd_user = "nas";
+		eval("smbpasswd", "-a", smbd_user, nvram_safe_get("smbd_passwd"));
+	}
+
+	kill_samba(SIGHUP);
+	int ret1 = 0, ret2 = 0;
+	/* start samba if it's not already running */
+	if (pidof("nmbd") <= 0)
+		ret1 = eval("nmbd", "-D");
+	if (pidof("smbd") <= 0)
+		ret2 = eval("smbd", "-D");
+
+	if (ret1 || ret2) kill_samba(SIGTERM);
+#endif
+}
+
+void stop_samba(void)
+{
+#ifdef TCONFIG_SAMBASRV
+	kill_samba(SIGTERM);
+	sleep(2); /* wait for smbd to finish */
+
+	if (nvram_invmatch("smbd_nlsmod", "")) {
+		modprobe_r(nvram_get("smbd_nlsmod"));
+		nvram_set("smbd_nlsmod", "");
+	}
+
+	/* clean up */
+	unlink("/var/log/smb");
+	unlink("/var/log/nmb");
+	eval("rm", "-rf", "/var/run/samba");
+#endif
+}
+
+void restart_nas_services(int start)
+{	
+	/* restart all NAS applications */
+#ifdef TCONFIG_SAMBASRV
+	if (start && nvram_get_int("smbd_enable"))
+		start_samba();
+	else 
+		kill_samba(SIGTERM);
+#endif
+#ifdef TCONFIG_FTP
+	if (start && nvram_get_int("ftp_enable"))
+		start_ftpd();
+	else
+		killall("vsftpd", SIGTERM);
+#endif
+}
+
+// -----------------------------------------------------------------------------
+
 static void _check(pid_t *pid, const char *name, void (*func)(void) )
 {
 	if (*pid != -1) {
@@ -716,12 +1157,16 @@ void start_services(void)
 #ifdef TCONFIG_SAMBA
 	start_smbd();
 #endif
+	start_samba();		// !!TB - Samba
+	start_ftpd();		// !!TB - FTP Server
 }
 
 void stop_services(void)
 {
 	clear_resolv();
 
+	stop_ftpd();		// !!TB - FTP Server
+	stop_samba();		// !!TB - Samba
 #ifdef TCONFIG_SAMBA
 	stop_smbd();
 #endif
@@ -917,6 +1362,8 @@ TOP:
 			stop_usbevent();
 			stop_smbd();
 #endif
+			stop_ftpd();		// !!TB - FTP Server
+			stop_samba();		// !!TB - Samba
 			stop_jffs2();
 //			stop_cifs();
 			stop_zebra();
@@ -927,6 +1374,8 @@ TOP:
 			killall("rstats", SIGTERM);
 			killall("buttons", SIGTERM);
 			stop_syslog();
+			remove_storage_main();	// !!TB - USB Support
+			stop_usb();		// !!TB - USB Support
 		}
 		goto CLEAR;
 	}
@@ -1039,6 +1488,41 @@ TOP:
 		if (action & A_START) start_sched();
 		goto CLEAR;
 	}
+
+	// !!TB - USB Support
+	if (strcmp(service, "usb") == 0) {
+		if (action & A_STOP) stop_usb();
+		if (action & A_START) {
+			start_usb();
+			// restart Samba and ftp since they may be killed by stop_usb()
+			restart_nas_services(1);
+		}
+		goto CLEAR;
+	}
+	
+#ifdef TCONFIG_FTP
+	// !!TB - FTP Server
+	if (strcmp(service, "ftpd") == 0) {
+		if (action & A_STOP) stop_ftpd();
+		setup_conntrack();
+		stop_firewall();
+		start_firewall();
+		if (action & A_START) start_ftpd();
+		goto CLEAR;
+	}
+#endif
+
+#ifdef TCONFIG_SAMBASRV
+	// !!TB - Samba
+	if (strcmp(service, "samba") == 0) {
+		if (action & A_STOP) stop_samba();
+		if (action & A_START) {
+			create_passwd();
+			start_samba();
+		}
+		goto CLEAR;
+	}
+#endif
 
 CLEAR:
 	if (next) goto TOP;

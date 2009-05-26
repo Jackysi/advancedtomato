@@ -1910,7 +1910,8 @@ function nothing()
 
 function show_notice1(s)
 {
-	if (s.length) document.write('<div id="notice1">' + s + '</div><br style="clear:both">');
+// ---- !!TB - USB Support: multi-line notices
+	if (s.length) document.write('<div id="notice1">' + s.replace(/\n/g, '<br>') + '</div><br style="clear:both">');
 }
 
 // -----------------------------------------------------------------------------
@@ -1972,20 +1973,24 @@ function navi()
 			['View Details',	'detailed.asp']
 			] ],
 		['Access Restriction',	'restrict.asp'],
-/*
-		['Scripts',				'sc', 0, [
-			['Startup',			'startup.asp'],
-			['Shutdown',		'shutdown.asp'],
-			['Firewall',		'firewall.asp'],
-			['WAN Up',			'wanup.asp']
+// ---- !!TB - USB, FTP, Samba
+		['USB and NAS',			'nas', 0, [
+			['USB Support',		'usb.asp']
+/* FTP-BEGIN */			
+			,['FTP Server',		'ftp.asp']
+/* FTP-END */
+/* SAMBA-BEGIN */
+			,['File Sharing',	'samba.asp']
+/* SAMBA-END */
 			] ],
-*/
 		null,
 		['Administration',		'admin', 0, [
 			['Admin Access',	'access.asp'],
 			['Bandwidth Monitoring','bwm.asp'],
 			['Buttons',			'buttons.asp'],
+/* CIFS-BEGIN */
 			['CIFS Client',		'cifs.asp'],
+/* CIFS-END */
 			['Configuration',	'config.asp'],
 			['Debugging',		'debug.asp'],
 			['JFFS2',			'jffs2.asp'],

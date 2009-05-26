@@ -144,6 +144,12 @@ sub fixDyn
 	fixDynDep("l2tpd", "cmd.so");
 	fixDynDep("l2tpd", "sync-pppd.so");
 	
+#!!TB - Samba
+	fixDynDep("libsmb.so", "libc.so.0");
+	fixDynDep("smbd", "libsmb.so");
+	fixDynDep("nmbd", "libsmb.so");
+	fixDynDep("smbpasswd", "libsmb.so");
+
 #	fixDynDep("libbcm.so", "libshared.so");
 #	fixDynDep("libbcm.so", "libc.so.0");
 }
@@ -397,6 +403,12 @@ genSO("${root}/lib/libutil.so.0", "${uclibc}/lib/libutil.a");
 
 genSO("${root}/usr/lib/libcrypto.so", "${router}/openssl/libcrypto.a");
 genSO("${root}/usr/lib/libzebra.so", "${router}/zebra/lib/libzebra.a");
+
+#!!TB - Samba
+#genSO("${root}/usr/lib/libsmb.so", "${router}/samba/source/bin/libsmb.a");
+#!!TB - FTP SSL
+genSO("${root}/usr/lib/libssl.so", "${router}/openssl/libssl.a");
+
 #	genSO("${root}/usr/lib/libtamba.so", "${router}/samba3/source/bin/libtamba.a");
 #	genSO("${root}/usr/lib/libiptc.so", "${router}/iptables/libiptc/libiptc.a");
 #	genSO("${root}/usr/lib/libshared.so", "${router}/shared/libshared.a");
