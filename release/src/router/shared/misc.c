@@ -741,23 +741,27 @@ struct mntent *findmntent(char *file)
 /* Probe for label the same way that mount does.    */
 /****************************************************/
 
-#define VOLUME_ID_LABEL_SIZE            64
-#define VOLUME_ID_UUID_SIZE             36
+#define VOLUME_ID_LABEL_SIZE		64
+#define VOLUME_ID_UUID_SIZE		36
+#define SB_BUFFER_SIZE			0x11000
 
 struct volume_id {
-	char            label[VOLUME_ID_LABEL_SIZE+1];
-	char            uuid[VOLUME_ID_UUID_SIZE+1];
-	int             fd;
-	uint8_t         *sbbuf;
-	uint8_t         *seekbuf;
-	size_t          sbbuf_len;
-	uint64_t        seekbuf_off;
-	size_t          seekbuf_len;
+	int		fd;
+	int		error;
+	size_t		sbbuf_len;
+	size_t		seekbuf_len;
+	uint8_t		*sbbuf;
+	uint8_t		*seekbuf;
+	uint64_t	seekbuf_off;
+	char		label[VOLUME_ID_LABEL_SIZE+1];
+	char		uuid[VOLUME_ID_UUID_SIZE+1];
 };
+
+extern void *volume_id_get_buffer(struct volume_id *id, uint64_t off, size_t len);
 extern void volume_id_free_buffer(struct volume_id *id);
-extern int volume_id_probe_ext(struct volume_id *id, uint64_t off);
-extern int volume_id_probe_vfat(struct volume_id *id, uint64_t off);
-extern int volume_id_probe_linux_swap(struct volume_id *id, uint64_t off);
+extern int volume_id_probe_ext(struct volume_id *id);
+extern int volume_id_probe_vfat(struct volume_id *id);
+extern int volume_id_probe_linux_swap(struct volume_id *id);
 
 /* Put the label in *label.
  * Return 0 if no label found, NZ if there is a label.
@@ -766,17 +770,21 @@ int find_label(char *dev_name, char *label)
 {
 	struct volume_id id = {{0}};
 
-	label[0] = 0;
+	label[0] = '\0';
 	if ((id.fd = open(dev_name, O_RDONLY)) < 0)
 		return 0;
 
-	if (volume_id_probe_vfat(&id, 0) == 0 ||
-	    volume_id_probe_ext(&id, 0) == 0 ||
-	    volume_id_probe_linux_swap(&id, 0) == 0)
+	if (volume_id_probe_vfat(&id) == 0)
+		goto ret;
+	volume_id_get_buffer(&id, 0, SB_BUFFER_SIZE);
+	if (volume_id_probe_ext(&id) == 0 || volume_id_probe_linux_swap(&id) == 0) { }
+	volume_id_free_buffer(&id);
+
+ret:
+	if (id.label[0] != '\0')
 		strcpy(label, id.label);
 	close(id.fd);
-	volume_id_free_buffer(&id);
-	return(label[0] != 0);
+	return(label[0] != '\0');
 }
 
 void *xmalloc(size_t siz)
