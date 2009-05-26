@@ -107,23 +107,21 @@ g:
 	@$(MAKE) setprofile U=G L=g N=G
 
 setprofile:
-	@echo "\
-#ifndef TOMATO_PROFILE\n\
-#define TOMATO_$(U) 1\n\
-#define PROFILE_G 1\n\
-#define PROFILE_N 2\n\
-#define TOMATO_PROFILE PROFILE_$(U)\n\
-#define TOMATO_PROFILE_NAME \"$(N)\"\n\
-#endif\n" > router/shared/tomato_profile.h
+	@echo "#ifndef TOMATO_PROFILE"                > router/shared/tomato_profile.h
+	@echo "#define TOMATO_$(U) 1"                >> router/shared/tomato_profile.h
+	@echo "#define PROFILE_G 1"                  >> router/shared/tomato_profile.h
+	@echo "#define PROFILE_N 2"                  >> router/shared/tomato_profile.h
+	@echo "#define TOMATO_PROFILE PROFILE_$(U)"  >> router/shared/tomato_profile.h
+	@echo "#define TOMATO_PROFILE_NAME \"$(N)\"" >> router/shared/tomato_profile.h
+	@echo "#endif"                               >> router/shared/tomato_profile.h
 
-	@echo "\
-TOMATO_$(U) = 1\n\
-PROFILE_G = 1\n\
-PROFILE_N = 2\n\
-TOMATO_PROFILE = \$$(PROFILE_$(U))\n\
-TOMATO_PROFILE_NAME = \"$(N)\"\n\
-TOMATO_PROFILE_L = $(L)\n\
-TOMATO_PROFILE_U = $(U)\n" > tomato_profile.mak
+	@echo "TOMATO_$(U) = 1"                     > tomato_profile.mak
+	@echo "PROFILE_G = 1"                      >> tomato_profile.mak
+	@echo "PROFILE_N = 2"                      >> tomato_profile.mak
+	@echo "TOMATO_PROFILE = \$$(PROFILE_$(U))" >> tomato_profile.mak
+	@echo "TOMATO_PROFILE_NAME = \"$(N)\""     >> tomato_profile.mak
+	@echo "TOMATO_PROFILE_L = $(L)"            >> tomato_profile.mak
+	@echo "TOMATO_PROFILE_U = $(U)"            >> tomato_profile.mak
 
 	@cd router && \
 		[ -s .config ] && cat .config > config_current; \
