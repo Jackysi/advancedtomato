@@ -1,7 +1,7 @@
 <!DOCTYPE HTML PUBLIC '-//W3C//DTD HTML 4.0//EN'>
 <!--
 	Tomato GUI
-	Copyright (C) 2006-2008 Jonathan Zarate
+	Copyright (C) 2006-2009 Jonathan Zarate
 	http://www.polarcloud.com/tomato/
 
 	For use with Tomato Firmware only.
@@ -71,7 +71,7 @@ fog.sortCompare = function(a, b) {
 		r = cmpText(da[col], db[col]);
 		break;
 	}
-	
+
 	return this.sortAscending ? r : -r;
 }
 
@@ -106,7 +106,7 @@ fog.verifyFields = function(row, quiet) {
 		}
 	}
 	ferror.clear(f[4]);
-	
+
 	if (f[5].value.indexOf('.') == -1) f[5].value = lipp + f[5].value;
 	if (!v_ip(f[5], quiet, 1)) return 0;
 
@@ -139,7 +139,7 @@ fog.setup = function() {
 	var nv = nvram.portforward.split('>');
 	for (var i = 0; i < nv.length; ++i) {
 		var r;
-		
+
 		// temp: <=1.06
 		if (r = nv[i].match(/^(\d)<(\d)<([\d\-\:,]+)<(\d*)<(.*)<(.*)$/)) {
 			r[1] *= 1;

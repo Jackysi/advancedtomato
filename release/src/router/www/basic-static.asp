@@ -1,7 +1,7 @@
 <!DOCTYPE HTML PUBLIC '-//W3C//DTD HTML 4.0//EN'>
 <!--
 	Tomato GUI
-	Copyright (C) 2006-2008 Jonathan Zarate
+	Copyright (C) 2006-2009 Jonathan Zarate
 	http://www.polarcloud.com/tomato/
 
 	For use with Tomato Firmware only.
@@ -170,7 +170,7 @@ sg.resetNewEditor = function() {
 sg.setup = function()
 {
 	this.init('bs-grid', 'sort', 100,
-		[{ type: 'text', maxlen: 17 }, { type: 'text', maxlen: 15 }, { type: 'text', maxlen: 32 }]);
+		[{ type: 'text', maxlen: 17 }, { type: 'text', maxlen: 15 }, { type: 'text', maxlen: 50 }]);
 	this.headerSet(['MAC Address', 'IP Address', 'Hostname']);
 	var s = nvram.dhcpd_static.split('>');
 	for (var i = 0; i < s.length; ++i) {

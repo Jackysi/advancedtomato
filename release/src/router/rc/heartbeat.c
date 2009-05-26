@@ -2,7 +2,7 @@
 /*
 
 	Modified for Tomato Firmware
-	Portions, Copyright (C) 2006-2007 Jonathan Zarate
+	Portions, Copyright (C) 2006-2009 Jonathan Zarate
 
 */
 

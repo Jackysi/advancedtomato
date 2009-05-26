@@ -1,7 +1,7 @@
 <!DOCTYPE HTML PUBLIC '-//W3C//DTD HTML 4.0//EN'>
 <!--
 	Tomato GUI
-	Copyright (C) 2006-2008 Jonathan Zarate
+	Copyright (C) 2006-2009 Jonathan Zarate
 	http://www.polarcloud.com/tomato/
 
 	For use with Tomato Firmware only.
@@ -27,28 +27,28 @@
 function verifyFields(focused, quiet)
 {
 	var a, b;
-	
+
 	a = E('_f_log_file').checked;
 	b = E('_f_log_remote').checked;
 
 	a = !(a || b);
 	E('_log_in').disabled = a;
 	E('_log_out').disabled = a;
-	E('_log_limit').disabled = a;	
+	E('_log_limit').disabled = a;
 	E('_log_mark').disabled = a;
-	E('_f_log_acre').disabled = a;	
+	E('_f_log_acre').disabled = a;
 	E('_f_log_crond').disabled = a;
 	E('_f_log_dhcpc').disabled = a;
-	E('_f_log_ntp').disabled = a;	
+	E('_f_log_ntp').disabled = a;
 	E('_f_log_pppoe').disabled = a;
-	E('_f_log_sched').disabled = a;	
+	E('_f_log_sched').disabled = a;
 
 	elem.display(PR('_log_remoteip'), b);
 	E('_log_remoteip').disabled = !b;
 	E('_log_remoteport').disabled = !b;
-	
+
 	if (a) return 1;
-	
+
 	if (!v_range('_log_limit', quiet, 0, 2400)) return 0;
 	if (!v_range('_log_mark', quiet, 0, 1440)) return 0;
 	if (b) {
@@ -66,7 +66,7 @@ function save()
 	fom = E('_fom');
 	fom.log_remote.value = E('_f_log_remote').checked ? 1 : 0;
 	fom.log_file.value = E('_f_log_file').checked ? 1 : 0;
-	
+
 	a = [];
 	if (E('_f_log_acre').checked) a.push('acre');
 	if (E('_f_log_crond').checked) a.push('crond');
@@ -75,7 +75,7 @@ function save()
 	if (E('_f_log_pppoe').checked) a.push('pppoe');
 	if (E('_f_log_sched').checked) a.push('sched');
 	fom.log_events.value = a.join(',');
-	
+
 	form.submit(fom, 1);
 }
 </script>
@@ -117,22 +117,22 @@ if (nvram.log_mark >= 120) nvram.log_mark = 120;
 
 createFieldTable('', [
 	{ title: 'Log Internally', name: 'f_log_file', type: 'checkbox', value: nvram.log_file == 1 },
-	{ title: 'Log to Remote System', name: 'f_log_remote', type: 'checkbox', value: nvram.log_remote == 1 },
+	{ title: 'Log To Remote System', name: 'f_log_remote', type: 'checkbox', value: nvram.log_remote == 1 },
 	{ title: 'IP Address / Port', indent: 2, multi: [
 		{ name: 'log_remoteip', type: 'text', maxlen: 15, size: 17, value: nvram.log_remoteip, suffix: ':' },
 		{ name: 'log_remoteport', type: 'text', maxlen: 5, size: 7, value: nvram.log_remoteport } ]},
 	{ title: 'Generate Marker', name: 'log_mark', type: 'select', options: [[0,'Disabled'],[30,'Every 30 Minutes'],[60,'Every 1 Hour'],[120,'Every 2 Hours']], value: nvram.log_mark },
 	{ title: 'Events Logged', text: '<small>(some of the changes will take effect after a restart)</small>' },
-		{ title: 'Access Restriction De/Activiation', indent: 2, name: 'f_log_acre', type: 'checkbox', value: (nvram.log_events.indexOf('acre') != -1) },
+		{ title: 'Access Restriction', indent: 2, name: 'f_log_acre', type: 'checkbox', value: (nvram.log_events.indexOf('acre') != -1) },
 		{ title: 'Cron', indent: 2, name: 'f_log_crond', type: 'checkbox', value: (nvram.log_events.indexOf('crond') != -1) },
 		{ title: 'DHCP Client', indent: 2, name: 'f_log_dhcpc', type: 'checkbox', value: (nvram.log_events.indexOf('dhcpc') != -1) },
 		{ title: 'NTP', indent: 2, name: 'f_log_ntp', type: 'checkbox', value: (nvram.log_events.indexOf('ntp') != -1) },
 		{ title: 'PPPoE', indent: 2, name: 'f_log_pppoe', type: 'checkbox', value: (nvram.log_events.indexOf('pppoe') != -1) },
 		{ title: 'Scheduler', indent: 2, name: 'f_log_sched', type: 'checkbox', value: (nvram.log_events.indexOf('sched') != -1) },
 	{ title: 'Connection Logging' },
-		{ title: 'Inbound Connection', indent: 2, name: 'log_in', type: 'select', options: [[0,'Disabled (recommended)'],[1,'If Blocked By Firewall'],[2,'If Allowed By Firewall'],[3,'Both']], value: nvram.log_in },
-		{ title: 'Outbound Connection', indent: 2, name: 'log_out', type: 'select', options: [[0,'Disabled (recommended)'],[1,'If Blocked By Firewall'],[2,'If Allowed By Firewall'],[3,'Both']], value: nvram.log_out },
-		{ title: 'Limit Logging', indent: 2, name: 'log_limit', type: 'text', maxlen: 4, size: 5, value: nvram.log_limit, suffix: ' <small>(messages per minute / 0 for unlimited)</small>' }
+		{ title: 'Inbound', indent: 2, name: 'log_in', type: 'select', options: [[0,'Disabled (recommended)'],[1,'If Blocked By Firewall'],[2,'If Allowed By Firewall'],[3,'Both']], value: nvram.log_in },
+		{ title: 'Outbound', indent: 2, name: 'log_out', type: 'select', options: [[0,'Disabled (recommended)'],[1,'If Blocked By Firewall'],[2,'If Allowed By Firewall'],[3,'Both']], value: nvram.log_out },
+		{ title: 'Limit', indent: 2, name: 'log_limit', type: 'text', maxlen: 4, size: 5, value: nvram.log_limit, suffix: ' <small>(messages per minute / 0 for unlimited)</small>' }
 ]);
 </script>
 </div>

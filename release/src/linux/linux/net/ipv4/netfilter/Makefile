@@ -112,6 +112,7 @@ obj-$(CONFIG_IP_NF_NAT) += iptable_nat.o
 # matches
 obj-$(CONFIG_IP_NF_MATCH_HELPER) += ipt_helper.o
 obj-$(CONFIG_IP_NF_MATCH_LIMIT) += ipt_limit.o
+obj-$(CONFIG_IP_NF_MATCH_IPP2P) += ipt_ipp2p.o
 obj-$(CONFIG_IP_NF_MATCH_GEOIP) += ipt_geoip.o
 obj-$(CONFIG_IP_NF_MATCH_QUOTA) += ipt_quota.o
 obj-$(CONFIG_IP_NF_MATCH_IPRANGE) += ipt_iprange.o
@@ -158,6 +159,7 @@ obj-$(CONFIG_IP_NF_TARGET_MARK) += ipt_MARK.o
 obj-$(CONFIG_IP_NF_TARGET_IMQ) += ipt_IMQ.o
 obj-$(CONFIG_IP_NF_TARGET_MASQUERADE) += ipt_MASQUERADE.o
 obj-$(CONFIG_IP_NF_TARGET_REDIRECT) += ipt_REDIRECT.o
+obj-$(CONFIG_IP_NF_TARGET_ROUTE) += ipt_ROUTE.o
 obj-$(CONFIG_IP_NF_NAT_SNMP_BASIC) += ip_nat_snmp_basic.o
 obj-$(CONFIG_IP_NF_TARGET_LOG) += ipt_LOG.o
 obj-$(CONFIG_IP_NF_TARGET_CONNMARK) += ipt_CONNMARK.o

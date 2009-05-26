@@ -1,10 +1,10 @@
 /*
 
 	Minimal MatrixSSL Helper
-	Copyright (C) 2006-2008 Jonathan Zarate
-	
+	Copyright (C) 2006-2009 Jonathan Zarate
+
 	Licensed under GNU GPL v2 or later.
-	
+
 */
 #ifndef __MSSL_H__
 #define __MSSL_H__

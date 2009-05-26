@@ -41,7 +41,7 @@ static void do_chflags(char *dev, uint32_t flags, uint32_t mask)
 	struct ifreq ifr;
 	int fd;
 
-	strncpy(ifr.ifr_name, dev, sizeof(ifr.ifr_name));
+	strncpy_IFNAMSIZ(ifr.ifr_name, dev);
 	fd = get_ctl_fd();
 	xioctl(fd, SIOCGIFFLAGS, &ifr);
 	if ((ifr.ifr_flags ^ flags) & mask) {
@@ -58,8 +58,8 @@ static void do_changename(char *dev, char *newdev)
 	struct ifreq ifr;
 	int fd;
 
-	strncpy(ifr.ifr_name, dev, sizeof(ifr.ifr_name));
-	strncpy(ifr.ifr_newname, newdev, sizeof(ifr.ifr_newname));
+	strncpy_IFNAMSIZ(ifr.ifr_name, dev);
+	strncpy_IFNAMSIZ(ifr.ifr_newname, newdev);
 	fd = get_ctl_fd();
 	xioctl(fd, SIOCSIFNAME, &ifr);
 	close(fd);
@@ -73,7 +73,7 @@ static void set_qlen(char *dev, int qlen)
 
 	s = get_ctl_fd();
 	memset(&ifr, 0, sizeof(ifr));
-	strncpy(ifr.ifr_name, dev, sizeof(ifr.ifr_name));
+	strncpy_IFNAMSIZ(ifr.ifr_name, dev);
 	ifr.ifr_qlen = qlen;
 	xioctl(s, SIOCSIFTXQLEN, &ifr);
 	close(s);
@@ -87,7 +87,7 @@ static void set_mtu(char *dev, int mtu)
 
 	s = get_ctl_fd();
 	memset(&ifr, 0, sizeof(ifr));
-	strncpy(ifr.ifr_name, dev, sizeof(ifr.ifr_name));
+	strncpy_IFNAMSIZ(ifr.ifr_name, dev);
 	ifr.ifr_mtu = mtu;
 	xioctl(s, SIOCSIFMTU, &ifr);
 	close(s);
@@ -104,7 +104,7 @@ static int get_address(char *dev, int *htype)
 	s = xsocket(PF_PACKET, SOCK_DGRAM, 0);
 
 	memset(&ifr, 0, sizeof(ifr));
-	strncpy(ifr.ifr_name, dev, sizeof(ifr.ifr_name));
+	strncpy_IFNAMSIZ(ifr.ifr_name, dev);
 	xioctl(s, SIOCGIFINDEX, &ifr);
 
 	memset(&me, 0, sizeof(me));
@@ -128,7 +128,7 @@ static void parse_address(char *dev, int hatype, int halen, char *lla, struct if
 	int alen;
 
 	memset(ifr, 0, sizeof(*ifr));
-	strncpy(ifr->ifr_name, dev, sizeof(ifr->ifr_name));
+	strncpy_IFNAMSIZ(ifr->ifr_name, dev);
 	ifr->ifr_hwaddr.sa_family = hatype;
 
 	alen = hatype == 1/*ARPHRD_ETHER*/ ? 14/*ETH_HLEN*/ : 19/*INFINIBAND_HLEN*/;
@@ -174,15 +174,18 @@ static int do_set(char **argv)
 	char *newname = NULL;
 	int htype, halen;
 	static const char keywords[] ALIGN1 =
-		"up\0""down\0""name\0""mtu\0""multicast\0""arp\0""addr\0""dev\0";
-	enum { ARG_up = 0, ARG_down, ARG_name, ARG_mtu, ARG_multicast, ARG_arp,
-		ARG_addr, ARG_dev };
+		"up\0""down\0""name\0""mtu\0""multicast\0"
+		"arp\0""address\0""dev\0";
+	enum { ARG_up = 0, ARG_down, ARG_name, ARG_mtu, ARG_multicast,
+		ARG_arp, ARG_addr, ARG_dev };
 	static const char str_on_off[] ALIGN1 = "on\0""off\0";
 	enum { PARM_on = 0, PARM_off };
 	smalluint key;
 
 	while (*argv) {
-		key = index_in_strings(keywords, *argv);
+		/* substring search ensures that e.g. "addr" and "address"
+		 * are both accepted */
+		key = index_in_substrings(keywords, *argv);
 		if (key == ARG_up) {
 			mask |= IFF_UP;
 			flags |= IFF_UP;
@@ -199,8 +202,7 @@ static int do_set(char **argv)
 			NEXT_ARG();
 			if (mtu != -1)
 				duparg("mtu", *argv);
-			if (get_integer(&mtu, *argv, 0))
-				invarg(*argv, "mtu");
+			mtu = get_unsigned(*argv, "mtu");
 		}
 		if (key == ARG_multicast) {
 			int param;

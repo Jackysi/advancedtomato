@@ -1,7 +1,7 @@
 <!DOCTYPE HTML PUBLIC '-//W3C//DTD HTML 4.0//EN'>
 <!--
 	Tomato GUI
-	Copyright (C) 2006-2008 Jonathan Zarate
+	Copyright (C) 2006-2009 Jonathan Zarate
 	http://www.polarcloud.com/tomato/
 
 	For use with Tomato Firmware only.
@@ -11,7 +11,7 @@
 <head>
 <meta http-equiv='content-type' content='text/html;charset=utf-8'>
 <meta name='robots' content='noindex,nofollow'>
-<title>[<% ident(); %>] Forwarding: UPnP</title>
+<title>[<% ident(); %>] Forwarding: UPnP / NAT-PMP</title>
 <link rel='stylesheet' type='text/css' href='tomato.css'>
 <link rel='stylesheet' type='text/css' href='color.css'>
 <script type='text/javascript' src='tomato.js'></script>
@@ -37,21 +37,26 @@
 
 <script type='text/javascript'>
 
-//	<% nvram("upnp_enable,upnp_mnp"); %>
+//	<% nvram("upnp_enable"); %>
 // <% upnpinfo(); %>
 
-function submitDelete(proto, port)
+/* REMOVE-BEGIN
+nvram.upnp_enable = 2;
+mupnp_data = 'UDP 12345 192.168.1.5 1234 [NAT-PMP 1234]\n';
+REMOVE-END */
+
+function submitDelete(proto, eport)
 {
 	form.submitHidden('upnp.cgi', {
-		remove_ext_proto: proto,
-		remove_ext_port: port,
-		_redirect: 'forward-upnp.asp' });	
+		remove_proto: proto,
+		remove_eport: eport,
+		_redirect: 'forward-upnp.asp' });
 }
 
 function deleteData(data)
 {
-	if (!confirm('Delete ' + data[4] + '? [' + data[0] + '->' + data[1] + ' ' + data[2] + ']')) return;
-	submitDelete((data[3] == 'TCP') ? 6 : 17, data[0]);
+	if (!confirm('Delete ' + data[3] + ' ' + data[0] + ' -> ' + data[2] + ':' + data[1] + ' ?')) return;
+	submitDelete(data[3], data[0]);
 }
 
 var ug = new TomatoGrid();
@@ -64,7 +69,7 @@ ug.rpDel = function(e) {
 	deleteData(PR(e).getRowData());
 }
 
-	
+
 ug.setup = function() {
 	this.init('upnp-grid', 'sort delete');
 	this.headerSet(['External', 'Internal', 'Internal Address', 'Protocol', 'Description']);
@@ -72,14 +77,15 @@ ug.setup = function() {
 }
 
 ug.populate = function() {
-	var i, j, r, row;
+	var i, j, r, row, data;
 
 	if (nvram.upnp_enable != 0) {
-		for (i = 0; i < upnp_data.length; ++i) {
-			r = upnp_data[i];
-			if (r.length != 6) continue;
-			row = this.insertData(-1, [r[2],r[3],r[4],r[1],r[5]]);
-			
+		var data = mupnp_data.split('\n');
+		for (i = 0; i < data.length; ++i) {
+			r = data[i].match(/^(UDP|TCP)\s+(\d+)\s+(.+?)\s+(\d+)\s+\[(.*)\]$/);
+			if (r == null) continue;
+			row = this.insertData(-1, [r[2], r[4], r[3], r[1], r[5]]);
+
 			if (!r[0]) {
 				for (j = 0; j < 5; ++j) {
 					elem.addClass(row.cells[j], 'disabled');
@@ -89,14 +95,15 @@ ug.populate = function() {
 				row.cells[j].title = 'Click to delete';
 			}
 		}
+		this.sort(2);
 	}
-	this.sort(4);
+	E('upnp-delete-all').disabled = (ug.getDataCount() == 0);
 }
 
 function deleteAll()
 {
 	if (!confirm('Delete all entries?')) return;
-	submitDelete('0', '0');
+	submitDelete('*', '0');
 }
 
 function verifyFields(focused, quiet)
@@ -107,18 +114,15 @@ function verifyFields(focused, quiet)
 function save()
 {
 	var fom = E('_fom');
-	var enable = E('_f_upnp_enable').checked;
-	fom.upnp_enable.value = enable ? 1 : 0;
-	fom.upnp_mnp.value = E('_f_upnp_mnp').checked ? 1 : 0;
-	form.submit(fom, (enable == (nvram.upnp_enable != '0')));
+	fom.upnp_enable.value = 0;
+	if (fom.f_enable_upnp.checked) fom.upnp_enable.value = 1;
+	if (fom.f_enable_natpmp.checked) fom.upnp_enable.value |= 2;
+	form.submit(fom, 0);
 }
 
 function init()
 {
-	ug.recolor();	// opera
-	if (ug.getDataCount() == 0) {
-		E('upnp-delete-all').disabled = true;
-	}
+	ug.recolor();
 }
 </script>
 
@@ -140,9 +144,8 @@ function init()
 <input type='hidden' name='_service' value='upnp-restart'>
 
 <input type='hidden' name='upnp_enable'>
-<input type='hidden' name='upnp_mnp'>
 
-<div class='section-title'>UPnP Forwarded Ports</div>
+<div class='section-title'>Forwarded Ports</div>
 <div class='section'>
 	<table id='upnp-grid' class='tomato-grid'></table>
 	<div style='width: 100%; text-align: right'><input type='button' value='Delete All' onclick='deleteAll()' id='upnp-delete-all'> <input type='button' value='Refresh' onclick='javascript:reloadPage();'></div>
@@ -152,8 +155,8 @@ function init()
 <div class='section'>
 <script type='text/javascript'>
 createFieldTable('', [
-	{ title: 'Enable UPnP', name: 'f_upnp_enable', type: 'checkbox', value: (nvram.upnp_enable == '1') },
-	{ title: 'Show In My Network Places',  name: 'f_upnp_mnp',  type: 'checkbox',  value: (nvram.upnp_mnp == '1') }
+	{ title: 'Enable UPnP', name: 'f_enable_upnp', type: 'checkbox', value: ((nvram.upnp_enable * 1) & 1) },
+	{ title: 'Enable NAT-PMP', name: 'f_enable_natpmp', type: 'checkbox', value: ((nvram.upnp_enable * 1) & 2) }
 ]);
 </script>
 </div>

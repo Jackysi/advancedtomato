@@ -1,7 +1,7 @@
 <!DOCTYPE HTML PUBLIC '-//W3C//DTD HTML 4.0//EN'>
 <!--
 	Tomato GUI
-	Copyright (C) 2006-2008 Jonathan Zarate
+	Copyright (C) 2006-2009 Jonathan Zarate
 	http://www.polarcloud.com/tomato/
 
 	For use with Tomato Firmware only.
@@ -29,7 +29,7 @@
 
 <script type='text/javascript' src='md5.js'></script>
 <script type='text/javascript'>
-//	<% nvram("dhcp_lease,dhcp_num,dhcp_start,dhcpd_startip,dhcpd_endip,l2tp_server_ip,lan_gateway,lan_ipaddr,lan_netmask,lan_proto,mtu_enable,ppp_demand,ppp_idletime,ppp_passwd,ppp_redialperiod,ppp_service,ppp_username,pptp_server_ip,security_mode2,wan_dns,wan_gateway,wan_ipaddr,wan_mtu,wan_netmask,wan_proto,wan_wins,wds_enable,wl_channel,wl_closed,wl_crypto,wl_key,wl_key1,wl_key2,wl_key3,wl_key4,wl_lazywds,wl_mode,wl_net_mode,wl_passphrase,wl_radio,wl_radius_ipaddr,wl_radius_port,wl_ssid,wl_wds,wl_wep_bit,wl_wpa_gtk_rekey,wl_wpa_psk,wl_radius_key,wds_save,wl_auth,wl0_hwaddr"); %>
+//	<% nvram("dhcp_lease,dhcp_num,dhcp_start,dhcpd_startip,dhcpd_endip,l2tp_server_ip,lan_gateway,lan_ipaddr,lan_netmask,lan_proto,mtu_enable,ppp_demand,ppp_idletime,ppp_passwd,ppp_redialperiod,ppp_service,ppp_username,pptp_server_ip,security_mode2,wan_dns,wan_gateway,wan_ipaddr,wan_mtu,wan_netmask,wan_proto,wan_wins,wds_enable,wl_channel,wl_closed,wl_crypto,wl_key,wl_key1,wl_key2,wl_key3,wl_key4,wl_lazywds,wl_mode,wl_net_mode,wl_passphrase,wl_radio,wl_radius_ipaddr,wl_radius_port,wl_ssid,wl_wds,wl_wep_bit,wl_wpa_gtk_rekey,wl_wpa_psk,wl_radius_key,wds_save,wl_auth,wl0_hwaddr,wan_islan"); %>
 
 xob = null;
 ghz = [['1', '1 - 2.412 GHz'],['2', '2 - 2.417 GHz'],['3', '3 - 2.422 GHz'],['4', '4 - 2.427 GHz'],['5', '5 - 2.432 GHz'],['6', '6 - 2.437 GHz'],['7', '7 - 2.442 GHz'],['8', '8 - 2.447 GHz'],['9', '9 - 2.452 GHz'],['10', '10 - 2.457 GHz'],['11', '11 - 2.462 GHz'],['12', '12 - 2.467 GHz'],['13', '13 - 2.472 GHz'],['14', '14 - 2.484 GHz']]
@@ -204,8 +204,6 @@ function verifyFields(focused, quiet)
 	// --- visibility ---
 
 	var vis = {
-		_wan_na: 1,
-
 		_wan_proto: 1,
 		_ppp_username: 1,
 		_ppp_passwd: 1,
@@ -220,6 +218,7 @@ function verifyFields(focused, quiet)
 		_ppp_redialperiod: 1,
 		_mtu_enable: 1,
 		_f_wan_mtu: 1,
+		_f_wan_islan: 0,
 
 		_dhcp_lease: 1,
 		_f_dhcpd_enable: 1,
@@ -272,7 +271,10 @@ function verifyFields(focused, quiet)
 		vis._f_dhcpd_enable = 0;
 		vis._dhcp_lease = 0;
 	}
-	else vis._wan_na = 0;
+	
+	if ((wan == 'disabled') || (wmode == 'sta') || (wmode == 'wet')) {
+		vis._f_wan_islan = 1;
+	}
 
 	switch (wan) {
 	case 'disabled':
@@ -450,7 +452,7 @@ function verifyFields(focused, quiet)
 	// --- verify ---
 
 	if (wmode == 'sta') {
-		if (wan == 'disabled') {
+		if ((wan == 'disabled') && (E('_f_wl_radio').checked)) {
 			ferror.set('_wan_proto', 'Wireless Client mode requires a valid WAN setting (usually DHCP).', quiet);
 			return 0;
 		}
@@ -530,7 +532,7 @@ function verifyFields(focused, quiet)
 
 	a = E('_dhcpd_startip');
 	b = E('_dhcpd_endip');
-	
+
 	if ((!a._error_msg) && (!b._error_msg)) {
 		c = aton(E('_lan_netmask').value);
 		d = aton(E('_lan_ipaddr').value) & c;
@@ -544,14 +546,14 @@ function verifyFields(focused, quiet)
 			ok = 0;
 		}
 	}
-	
+
 	if ((!a._error_msg) && (!b._error_msg)) {
 		if (aton(a.value) > aton(b.value)) {
 			c = a.value;
 			a.value = b.value;
 			b.value = c;
 		}
-		
+
 		elem.setInnerHTML('dhcp_count', '(' + ((aton(b.value) - aton(a.value)) + 1) + ')');
 	}
 
@@ -588,6 +590,8 @@ function save()
 		fom.wan_proto.disabled = 0;
 		fom.lan_proto.value = 'static';
 	}
+	
+	fom.wan_islan.value = fom.f_wan_islan.checked ? 1 : 0;
 
 	a = [];
 	for (i = 0; i < 10; ++i) a.push(E('_f_wds_' + i).value);
@@ -647,7 +651,8 @@ function save()
 	fom.wl_closed.value = fom.f_bcast.checked ? 0 : 1;
 	fom.wl_closed.disabled = fom.f_bcast.disabled;
 
-	fom.wl_key.value = fields.radio.selected(fom.f_wepidx).value;
+	a = fields.radio.selected(fom.f_wepidx);
+	if (a) fom.wl_key.value = a.value;
 	fom.wl_key.disabled = fom.wl_key1.disabled;
 
 	fom.wl_mode.disabled = fom.wl_wds.disabled = fom.wds_enable.disabled = !fom.f_wl_radio.checked;
@@ -682,6 +687,7 @@ function save()
 <input type='hidden' name='_moveip' value='0'>
 
 <input type='hidden' name='wan_mtu'>
+<input type='hidden' name='wan_islan'>
 <input type='hidden' name='wl_mode'>
 <input type='hidden' name='wds_enable'>
 <input type='hidden' name='wl_wds'>
@@ -704,7 +710,6 @@ function save()
 <div class='section'>
 <script type='text/javascript'>
 createFieldTable('', [
-	{ text: '<span id="_wan_na"><i>Wireless Ethernet Bridge Mode</i></span>' },
 	{ title: 'Type', name: 'wan_proto', type: 'select', options: [['dhcp','DHCP'],['pppoe','PPPoE'],['static','Static'],['pptp','PPTP'],['l2tp','L2TP'],['disabled','Disabled']],
 		value: nvram.wan_proto },
 	{ title: 'Username', name: 'ppp_username', type: 'text', maxlen: 50, size: 54, value: nvram.ppp_username },
@@ -723,7 +728,8 @@ createFieldTable('', [
 		value: nvram.ppp_redialperiod },
 	{ title: 'MTU', multi: [
 		{ name: 'mtu_enable', type: 'select', options: [['0', 'Default'],['1','Manual']], value: nvram.mtu_enable },
-		{ name: 'f_wan_mtu', type: 'text', maxlen: 4, size: 6, value: nvram.wan_mtu } ] }
+		{ name: 'f_wan_mtu', type: 'text', maxlen: 4, size: 6, value: nvram.wan_mtu } ] },
+	{ title: 'Use WAN port for LAN', name: 'f_wan_islan', type: 'checkbox', value: (nvram.wan_islan == 1) }
 ]);
 </script>
 </div>
@@ -746,7 +752,7 @@ createFieldTable('', [
 		{ name: 'dhcpd_startip', type: 'text', maxlen: 15, size: 17, value: nvram.dhcpd_startip, suffix: ' - ' },
 		{ name: 'dhcpd_endip', type: 'text', maxlen: 15, size: 17, value: nvram.dhcpd_endip, suffix: ' <i id="dhcp_count"></i>' }
 	] },
-	
+
 	{ title: 'Lease Time', indent: 2, name: 'dhcp_lease', type: 'text', maxlen: 6, size: 8, suffix: ' <i>(minutes)</i>',
 		value: (nvram.dhcp_lease > 0) ? nvram.dhcp_lease : 1440 },
 	{ title: 'WINS', indent: 2, name: 'wan_wins', type: 'text', maxlen: 15, size: 17, value: nvram.wan_wins }
