@@ -24,7 +24,7 @@ sub help
 #
 #
 
-if ($#ARGV != 0) {
+if ($#ARGV < 0) {
 	help();
 }
 
@@ -37,7 +37,7 @@ $suffix = "";
 
 open(F, "$path/tomato_version") || error("opening tomato_version: $!");
 $_ = <F>;
-if (!(($major, $minor, $build, $space, $suffix) = /^(\d+)\.(\d+)\.(\d+)(\s+)?(.+)$/)) {
+if (!(($major, $minor, $build, $space, $suffix) = /^(\d+)\.(\d+)\.(\d+)(\s+)?(.+)?$/)) {
 	error("Invalid version: '$_'");
 }
 close(F);
@@ -59,6 +59,28 @@ $time = strftime("%a, %d %b %Y %H:%M:%S %z", localtime());
 $minor = sprintf("%02d", $minor);
 $build = sprintf("%04d", $build);
 
+# read the build number from the command line
+if ($#ARGV > 0) {
+	if ($ARGV[1] ne "--def") {
+		$build = sprintf("%04d", $ARGV[1]);
+	}
+}
+
+# read the version suffix from the command line
+if ($#ARGV > 1) {
+	$start = 2;
+	$stop = $#ARGV;
+	$suffix = "";
+	for ($i=$start; $i <= $stop; $i++) {
+		if ($suffix eq "") {
+			$suffix = $ARGV[$i];
+		}
+		elsif ($ARGV[$i] ne "") {
+			$suffix = sprintf("%s %s", $suffix, $ARGV[$i]);
+		}
+	}
+}
+
 open(F, ">$path/tomato_version.h~") || error("creating temp file: $!");
 print F <<"END";
 #ifndef __TOMATO_VERSION_H__
@@ -72,6 +94,11 @@ print F <<"END";
 END
 close(F);
 rename("$path/tomato_version.h~", "$path/tomato_version.h") || error("renaming: $!");
+
+open(F, ">$path/tomato_version.~") || error("creating temp file: $!");
+printf F "%d.%02d.%04d %s", $major, $minor, $build, $suffix;
+close(F);
+rename("$path/tomato_version.~", "$path/tomato_version") || error("renaming: $!");
 
 print "Version: $major.$minor.$build $suffix ($time)\n";
 exit(0);

@@ -22,7 +22,7 @@
 #	be the update to the version.
 #
 # Example:
-# make V1=8516 V2=".jffs.1" a b c d m
+# make V1=8516 V2="jffs.1" a b c d m
 
 # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
@@ -33,9 +33,9 @@ RELEASEDIR := $(shell (cd $(SRCBASE)/.. && pwd -P))
 PATH := $(RELEASEDIR)/tools:$(PATH)
 
 
-# Normally you'd do something like "make V1=8516 V2=.sub a b c d"
-# But if you don't give anything for "V1", it'll get a default of "0000".
-V1 ?= "0000"
+# Normally you'd do something like "make V1=8516 V2=sub-ver a b c d"
+# But if you don't give anything for "V1", it'll get a default from tomato_version.
+V1 ?= "--def"
 
 -include tomato_profile.mak
 
@@ -64,11 +64,9 @@ all:
 	@echo ""
 	@echo ""
 	@echo "Building USB-$(V1)$(V2) $(current_BUILD_DESC) $(current_BUILD_NAME) with $(TOMATO_PROFILE_NAME) Profile"
-	@echo -n "1.24."$(V1)$(V2)" ND USB "$(current_BUILD_DESC) > router/shared/tomato_version
-	@btools/uversion.pl --gen
+	@btools/uversion.pl --gen $(V1) $(V2) "ND USB" $(current_BUILD_DESC)
 	@echo ""
 	@echo ""
-	
 
 	@-mkdir image
 	@$(MAKE) -C router all
