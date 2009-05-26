@@ -87,7 +87,7 @@ static int wlconf(char *ifname)
 
 	r = eval("wlconf", ifname, "up");
 	if (r == 0) {
-		set_mac(ifname, "mac_wl", 2);
+//		set_mac(ifname, "mac_wl", 2);
 
 		nvram_set("rrules_radio", "-1");
 
@@ -161,6 +161,7 @@ void start_lan(void)
 	char *lan_ifnames, *ifname, *p;
 	int sfd;
 
+	set_mac(nvram_safe_get("wl_ifname"), "mac_wl", 2);
 	check_afterburner();
 
 	if ((sfd = socket(AF_INET, SOCK_RAW, IPPROTO_RAW)) < 0) return;
@@ -176,7 +177,7 @@ void start_lan(void)
 			while ((ifname = strsep(&p, " ")) != NULL) {
 				while (*ifname == ' ') ++ifname;
 				if (*ifname == 0) break;
-
+				
 				// bring up interface
 				if (ifconfig(ifname, IFUP, NULL, NULL) != 0) continue;
 
