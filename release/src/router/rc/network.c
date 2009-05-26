@@ -36,7 +36,7 @@
 /*
 
 	Modified for Tomato Firmware
-	Portions, Copyright (C) 2006-2008 Jonathan Zarate
+	Portions, Copyright (C) 2006-2009 Jonathan Zarate
 
 */
 
@@ -87,6 +87,8 @@ static int wlconf(char *ifname)
 
 	r = eval("wlconf", ifname, "up");
 	if (r == 0) {
+//		set_mac(ifname, "mac_wl", 2);
+
 		nvram_set("rrules_radio", "-1");
 
 		eval("wl", "antdiv", nvram_safe_get("wl_antdiv"));
@@ -95,23 +97,6 @@ static int wlconf(char *ifname)
 
 		killall("wldist", SIGTERM);
 		eval("wldist");
-
-#if 0
-		char s[32];
-		char *key;
-		int i;
-
-		// an ugly wep workaround
-		if ((nvram_match("security_mode2", "wep")) && (!nvram_match("debug_wepfix", "0"))) {
-			snprintf(s, sizeof(s), "wl_key%s", nvram_safe_get("wl_key"));
-			if (((key = nvram_get(s)) != NULL) && (*key)) {
-				for (i = 3; i >= 0; --i) {
-					sprintf(s, "%d", i);
-					eval("wl", "addwep", s, key);
-				}
-			}
-		}
-#endif
 
 		if (wl_client()) {
 			if (nvram_match("wl_mode", "wet")) {
@@ -173,35 +158,15 @@ void start_lan(void)
 
 	char *lan_ifname;
 	struct ifreq ifr;
-	const char *wl_iface;
-	const char *wan_iface;
 	char *lan_ifnames, *ifname, *p;
 	int sfd;
 
+	set_mac(nvram_safe_get("wl_ifname"), "mac_wl", 2);
 	check_afterburner();
 
+	if ((sfd = socket(AF_INET, SOCK_RAW, IPPROTO_RAW)) < 0) return;
+
 	lan_ifname = strdup(nvram_safe_get("lan_ifname"));
-	wl_iface = default_wlif();
-	wan_iface = default_wanif();
-
-	set_mac(wl_iface, "mac_wl", 2);
-
-	if (nvram_match("wl_mode", "sta")) {
-		ifconfig((char *)wan_iface, IFUP, "0.0.0.0", NULL);
-		nvram_set("wan_ifname", wl_iface);
-		nvram_set("wan_ifnames", wl_iface);
-	}
-	else {
-		nvram_set("wan_ifname", wan_iface);
-		nvram_set("wan_ifnames", wan_iface);
-	}
-
-	if ((sfd = socket(AF_INET, SOCK_RAW, IPPROTO_RAW)) < 0) {
-		perror("start_lan socket");
-		free(lan_ifname);
-		return;
-	}
-
 	if (strncmp(lan_ifname, "br", 2) == 0) {
 		eval("brctl", "addbr", lan_ifname);
 		eval("brctl", "setfd", lan_ifname, "0");
@@ -212,7 +177,7 @@ void start_lan(void)
 			while ((ifname = strsep(&p, " ")) != NULL) {
 				while (*ifname == ' ') ++ifname;
 				if (*ifname == 0) break;
-
+				
 				// bring up interface
 				if (ifconfig(ifname, IFUP, NULL, NULL) != 0) continue;
 
@@ -233,6 +198,14 @@ void start_lan(void)
 				}
 				eval("brctl", "addif", lan_ifname, ifname);
 			}
+			
+			if ((nvram_get_int("wan_islan")) &&
+				((get_wan_proto() == WP_DISABLED) || (nvram_match("wl_mode", "sta")))) {
+				ifname = nvram_get("wan_ifnameX");
+				if (ifconfig(ifname, IFUP, NULL, NULL) == 0)
+					eval("brctl", "addif", lan_ifname, ifname);
+			}
+			
 			free(lan_ifnames);
 		}
 	}

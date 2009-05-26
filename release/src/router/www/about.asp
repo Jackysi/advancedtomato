@@ -1,7 +1,7 @@
 <!DOCTYPE HTML PUBLIC '-//W3C//DTD HTML 4.0//EN'>
 <!--
 	Tomato GUI
-	Copyright (C) 2006-2008 Jonathan Zarate
+	Copyright (C) 2006-2009 Jonathan Zarate
 	http://www.polarcloud.com/tomato/
 
 	For use with Tomato Firmware only.
@@ -30,13 +30,13 @@ function moo()
 	r += rd;
 	t += (Math.PI / 10);
 	if (t > (2 * Math.PI)) t = 0;
-	
+
 	var x = tux.origX + (r * Math.sin(t));
 	var y = tux.origY + (r * Math.cos(t));
-	
+
 	tux.style.left = x + 'px';
 	tux.style.top = y + 'px';
-	
+
 	if (clicks > 0) setTimeout(moo, 33);
 }
 
@@ -55,15 +55,15 @@ function init()
 {
 	try {
 		tux = E('tux');
-		
+
 		var o = elem.getOffset(tux);
 		tux.origX = o.x;
 		tux.origY = o.y;
-		
+
 		tux.style.position = 'absolute';
 		tux.style.left = o.x + 'px';
 		tux.style.top = o.y + 'px';
-		
+
 		tux.addEventListener('click', onClick, false);
 	}
 	catch (ex) {
@@ -90,7 +90,7 @@ function init()
 </div>
 <div style='margin:20px 20px;font-size:14px;color:#555;'>
 Tomato Firmware v<% version(1); %><br>
-Copyright (C) 2006-2008 Jonathan Zarate<br>
+Copyright (C) 2006-2009 Jonathan Zarate<br>
 <a href='http://www.polarcloud.com/tomato/' target='_new'>http://www.polarcloud.com/tomato/</a><br>
 <br>
 Built on <% build_time(); %><br>
@@ -99,7 +99,7 @@ Built on <% build_time(); %><br>
 <!--
 
 	Please do not remove or change the homepage link or donate button.
-	
+
 	Thanks.
 	- Jon
 

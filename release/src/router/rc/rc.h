@@ -35,7 +35,7 @@
 #include <tomato_profile.h>
 #include <tomato_config.h>
 
-//	#define TEST_MINIUPNP
+#define USE_MINIUPNPD
 
 //	#define DEBUG_IPTFILE
 //	#define DEBUG_RCTEST
@@ -43,8 +43,10 @@
 
 #ifdef DEBUG_NOISY
 #define _dprintf(args...) cprintf(args)
+#define TRACE_PT(args...) do { cprintf("[%d:%s +%ld] ", getpid(), __FUNCTION__, get_uptime()); cprintf(args); } while(0)
 #else
 #define _dprintf(args...) do { } while(0)
+#define TRACE_PT(args...) do { } while(0)
 #endif
 
 
@@ -171,6 +173,7 @@ extern void exec_service(void);
 extern int service_main(int argc, char *argv[]);
 extern void start_service(const char *name);
 extern void stop_service(const char *name);
+extern void restart_service(const char *name);
 extern void start_services(void);
 extern void stop_services(void);
 
@@ -256,12 +259,13 @@ extern void run_nvscript(const char *nv, const char *arg1, int wtime);
 extern void setup_conntrack(void);
 extern void set_mac(const char *ifname, const char *nvname, int plus);
 extern const char *default_wanif(void);
-extern const char *default_wlif(void);
+//	extern const char *default_wlif(void);
 #define vstrsep(buf, sep, args...) _vstrsep(buf, sep, args, NULL)
 extern int _vstrsep(char *buf, const char *sep, ...);
 extern void simple_unlock(const char *name);
 extern void simple_lock(const char *name);
 extern void killall_tk(const char *name);
+long fappend(FILE *out, const char *fname);
 
 // telssh.c
 extern void create_passwd(void);

@@ -30,7 +30,7 @@
 /*
 
 	Modified for Tomato Firmware
-	Portions, Copyright (C) 2006-2008 Jonathan Zarate
+	Portions, Copyright (C) 2006-2009 Jonathan Zarate
 
 */
 
@@ -43,6 +43,7 @@
 
 #define IFUP (IFF_UP | IFF_RUNNING | IFF_BROADCAST | IFF_MULTICAST)
 #define sin_addr(s) (((struct sockaddr_in *)(s))->sin_addr)
+
 
 
 
@@ -76,7 +77,9 @@ void start_dnsmasq()
 	int dhcp_lease;
 	int do_dhcpd;
 	int do_dns;
-	
+
+	TRACE_PT("begin\n");
+
 	if (getpid() != 1) {
 		start_service("dnsmasq");
 		return;
@@ -85,14 +88,6 @@ void start_dnsmasq()
 	stop_dnsmasq();
 
 	if (nvram_match("wl_mode", "wet")) return;
-/*	
-	if (nvram_get_int("dnsmasq_norw")) {
-		if (f_exists("/etc/dnsmasq.conf")) {
-			syslog(LOG_INFO, "%s exists. Not rewriting.", "/etc/dnsmasq.conf");
-			goto RUN;
-		}
-	}
-*/
 	if ((f = fopen("/etc/dnsmasq.conf", "w")) == NULL) return;
 
 	lan_ifname = nvram_safe_get("lan_ifname");
@@ -100,7 +95,7 @@ void start_dnsmasq()
 	strlcpy(lan, router_ip, sizeof(lan));
 	if ((p = strrchr(lan, '.')) != NULL) *(p + 1) = 0;
 
-	fprintf(f, 
+	fprintf(f,
 		"pid-file=%s\n"
 		"interface=%s\n",
 		dmpid, lan_ifname);
@@ -132,7 +127,7 @@ void start_dnsmasq()
 
 		if (!do_dns) {
 			// if not using dnsmasq for dns
-			
+
 			const dns_list_t *dns = get_dns();	// this always points to a static buffer
 			if ((dns->count == 0) && (nvram_match("dhcpd_llndns", "1"))) {
 				// no DNS might be temporary. use a low lease time to force clients to update.
@@ -164,29 +159,11 @@ void start_dnsmasq()
 		fprintf(f,
 			"dhcp-option=3,%s\n"	// gateway
 			"dhcp-lease-max=%d\n",
-			router_ip,			
+			router_ip,
 			(n > 0) ? n : 255);
-
-/*
-		dhcp_start = nvram_get_int("dhcp_start");
-		dhcp_count = nvram_get_int("dhcp_num");
-		n = nvram_get_int("dhcpd_lmax");
-		fprintf(f,
-			"dhcp-range=%s%d,%s%d,%s,%dm\n"		// lease config
-			"dhcp-option=3,%s\n"				// gateway
-			"dhcp-lease-max=%d\n",
-			lan, dhcp_start, lan, dhcp_start + dhcp_count - 1, nvram_safe_get("lan_netmask"), dhcp_lease,
-			router_ip,			
-			(n > 0) ? n : 255);
-*/
 
 		if (nvram_get_int("dhcpd_auth") >= 0) {
 			fprintf(f, "dhcp-authoritative\n");
-		}
-			
-		if (check_wanup()) {
-			// avoid leasing wan ip incase the modem gives an ip in our range
-			fprintf(f, "dhcp-host=01:02:03:04:05:06,%s\n", nvram_safe_get("wan_ipaddr"));
 		}
 
 		if (((nv = nvram_get("wan_wins")) != NULL) && (*nv) && (strcmp(nv, "0.0.0.0") != 0)) {
@@ -204,10 +181,12 @@ void start_dnsmasq()
 			fprintf(hf, "%s %s\n", router_ip, nv);
 	}
 
-	p = nvram_safe_get("dhcpd_static");	// 00:aa:bb:cc:dd:ee<123<xxxxxxxxxxxxxxxxxxxxxxxxxx.xyz> = 53 w/ delim
+	// 00:aa:bb:cc:dd:ee<123<xxxxxxxxxxxxxxxxxxxxxxxxxx.xyz> = 53 w/ delim
+	// 00:aa:bb:cc:dd:ee<123.123.123.123<xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.xyz> = 85 w/ delim
+	p = nvram_safe_get("dhcpd_static");
 	while ((e = strchr(p, '>')) != NULL) {
 		n = (e - p);
-		if (n > 52) {
+		if (n > 84) {
 			p = e + 1;
 			continue;
 		}
@@ -247,23 +226,13 @@ void start_dnsmasq()
 	if (hf) fclose(hf);
 
 	//
-	
+
 	fprintf(f, "%s\n\n", nvram_safe_get("dnsmasq_custom"));
 
+	fappend(f, "/etc/dnsmasq.custom");
+
 	//
 
-	FILE *af;
-
-	fflush(f);
-	if ((af = fopen("/etc/dnsmasq.custom", "r")) != NULL) {
-		while ((n = fread(buf, 1, sizeof(buf), af)) > 0) {
-			fwrite(buf, 1, n, f);
-		}
-		fclose(af);
-	}
-	
-	//
-	
 	fclose(f);
 
 	if (do_dns) {
@@ -271,17 +240,22 @@ void start_dnsmasq()
 		symlink("/rom/etc/resolv.conf", "/etc/resolv.conf");	// nameserver 127.0.0.1
 	}
 
-//	RUN:	
+	TRACE_PT("run dnsmasq\n");
+
 	eval("dnsmasq");
 
 	if (!nvram_contains_word("debug_norestart", "dnsmasq")) {
 		f_read_string(dmpid, buf, sizeof(buf));
 		pid_dnsmasq = atol(buf);
 	}
+
+	TRACE_PT("end\n");
 }
 
 void stop_dnsmasq(void)
 {
+	TRACE_PT("begin\n");
+
 	if (getpid() != 1) {
 		stop_service("dnsmasq");
 		return;
@@ -293,6 +267,8 @@ void stop_dnsmasq(void)
 	symlink(dmresolv, "/etc/resolv.conf");
 
 	killall_tk("dnsmasq");
+
+	TRACE_PT("end\n");
 }
 
 void clear_resolv(void)
@@ -316,7 +292,7 @@ void dns_to_resolv(void)
 		dns = get_dns();	// static buffer
 		if (dns->count == 0) {
 			// Put a pseudo DNS IP to trigger Connect On Demand
-			if ((nvram_match("ppp_demand", "1")) && 
+			if ((nvram_match("ppp_demand", "1")) &&
 				(nvram_match("wan_proto", "pppoe") || nvram_match("wan_proto", "pptp") || nvram_match("wan_proto", "l2tp"))) {
 				fprintf(f, "nameserver 1.1.1.1\n");
 			}
@@ -354,27 +330,64 @@ void stop_httpd(void)
 
 void start_upnp(void)
 {
-	if ((nvram_match("upnp_enable", "1")) && (get_wan_proto() != WP_DISABLED)) {
-#ifdef TEST_MINIUPNP
-		xstart("miniupnpd",
-			"-i", nvram_safe_get("wan_iface"),
-			"-a", nvram_safe_get("lan_ipaddr"),
-			"-p", "5555",
-			"-U");
+	if (get_wan_proto() == WP_DISABLED) return;
+
+#ifdef USE_MINIUPNPD
+	int enable;
+	FILE *f;
+	int upnp_port;
+	
+	if (((enable = nvram_get_int("upnp_enable")) & 3) != 0) {
+		mkdir("/etc/upnp", 0777);
+		if (f_exists("/etc/upnp/config.alt")) {
+			xstart("miniupnpd", "-f", "/etc/upnp/config.alt");
+		}
+		else {
+			if ((f = fopen("/etc/upnp/config", "w")) != NULL) {
+				upnp_port = nvram_get_int("upnp_port");
+				if ((upnp_port <= 0) || (upnp_port >= 0xFFFF)) upnp_port = 5000;
+				
+				fprintf(f,
+					"ext_ifname=%s\n"
+					"listening_ip=%s\n"
+					"port=%d\n"
+					"enable_upnp=%s\n"
+					"enable_natpmp=%s\n"
+					"secure_mode=%s\n"
+					"upnp_forward_chain=upnp\n"
+					"upnp_nat_chain=upnp\n"
+					"system_uptime=yes\n"
+					"\n"
+					,
+					nvram_safe_get("wan_iface"),
+					nvram_safe_get("lan_ipaddr"),
+					upnp_port,
+					(enable & 1) ? "yes" : "no",						// upnp enable
+					(enable & 2) ? "yes" : "no",						// natpmp enable
+					nvram_get_int("upnp_secure") ? "yes" : "no"			// secure_mode (only forward to self)
+				);
+				fappend(f, "/etc/upnp/config.custom");
+				fclose(f);
+				
+				xstart("miniupnpd", "-f", "/etc/upnp/config");
+			}
+		}
+	}
 #else
+	if (nvram_get_int("upnp_enable")) {
 		xstart("upnp",
 			"-D",
 			"-L", nvram_safe_get("lan_ifname"),
 			"-W", nvram_safe_get("wan_iface"),
 			"-I", nvram_safe_get("upnp_ssdp_interval"),
 			"-A", nvram_safe_get("upnp_max_age"));
-#endif
 	}
+#endif
 }
 
 void stop_upnp(void)
 {
-#ifdef TEST_MINIUPNP
+#ifdef USE_MINIUPNPD
 	killall_tk("miniupnpd");
 #else
 	killall_tk("upnp");
@@ -387,25 +400,20 @@ static pid_t pid_crond = -1;
 
 void start_cron(void)
 {
-	_dprintf("%s\n", __FUNCTION__);
+	char *argv[] = { "crond", "-l", "9", NULL };
 
 	stop_cron();
 
-	char *argv[] = { "crond", "-l", "9", NULL };
-	
 	if (nvram_contains_word("log_events", "crond")) argv[1] = NULL;
 	_eval(argv, NULL, 0, NULL);
-	
 	if (!nvram_contains_word("debug_norestart", "crond")) {
-		pid_crond = -2;	// intentionally fail test_cron()
+		pid_crond = -2;
 	}
 }
 
 
 void stop_cron(void)
 {
-	_dprintf("%s\n", __FUNCTION__);
-
 	pid_crond = -1;
 	killall_tk("crond");
 }
@@ -442,7 +450,7 @@ void start_zebra(void)
 		fprintf(fp, "network %s\n", wan_ifname);
 		fprintf(fp, "redistribute connected\n");
 		//fprintf(fp, "redistribute static\n");
-		
+
 		// 43011: modify by zg 2006.10.18 for cdrouter3.3 item 173(cdrouter_rip_30) bug
 		// fprintf(fp, "redistribute kernel\n"); // 1.11: removed, redistributes indirect -- zzz
 
@@ -516,12 +524,12 @@ void start_syslog(void)
 		argv[argc] = NULL;
 		_eval(argv, NULL, 0, NULL);
 		usleep(500000);
-		
+
 		argv[0] = "klogd";
 		argv[1] = NULL;
 		_eval(argv, NULL, 0, NULL);
 		usleep(500000);
-		
+
 		// used to be available in syslogd -m
 		n = nvram_get_int("log_mark");
 		if (n > 0) {
@@ -529,8 +537,11 @@ void start_syslog(void)
 				(n < 60) ? "*/30" : "0", (n < 120) ? "*" : "*/2");
 			system(s);
 		}
+		else {
+			system("cru d syslogdmark");
+		}
 	}
-	
+
 #else
 	char *argv[12];
 	int argc;
@@ -561,7 +572,7 @@ void start_syslog(void)
 		argv[argc] = NULL;
 		_eval(argv, NULL, 0, NULL);
 		usleep(500000);
-		
+
 		argv[0] = "klogd";
 		argv[1] = NULL;
 		_eval(argv, NULL, 0, NULL);
@@ -583,7 +594,7 @@ static pid_t pid_igmp = -1;
 void start_igmp_proxy(void)
 {
 	char *p;
-	
+
 	pid_igmp = -1;
 	if (nvram_match("multicast_pass", "1")) {
 		switch (get_wan_proto()) {
@@ -597,7 +608,7 @@ void start_igmp_proxy(void)
 			break;
 		}
 		xstart("igmprt", "-f", "-i", nvram_safe_get(p));
-		
+
 		if (!nvram_contains_word("debug_norestart", "igmprt")) {
 			pid_igmp = -2;
 		}
@@ -621,7 +632,7 @@ void set_tz(void)
 void start_ntpc(void)
 {
 	set_tz();
-	
+
 	stop_ntpc();
 
 	if (nvram_get_int("ntp_updates") >= 0) {
@@ -640,7 +651,7 @@ static void stop_rstats(void)
 {
 	int n;
 	int pid;
-	
+
 	n = 60;
 	while ((n-- > 0) && ((pid = pidof("rstats")) > 0)) {
 		if (kill(pid, SIGTERM) != 0) break;
@@ -685,8 +696,8 @@ void start_services(void)
 		once = 0;
 
 		create_passwd();
-		if (nvram_match("telnetd_eas", "1")) start_telnetd();
-		if (nvram_match("sshd_eas", "1")) start_sshd();
+		if (nvram_get_int("telnetd_eas")) start_telnetd();
+		if (nvram_get_int("sshd_eas")) start_sshd();
 	}
 
 	start_syslog();
@@ -745,21 +756,21 @@ void exec_service(void)
 
 	strlcpy(buffer, nvram_safe_get("action_service"), sizeof(buffer));
 	next = buffer;
-	
+
 TOP:
 	act = strsep(&next, ",");
 	service = strsep(&act, "-");
 	if (act == NULL) {
 		next = NULL;
-		goto CLEAR;	
+		goto CLEAR;
 	}
+
+	TRACE_PT("service=%s action=%s\n", service, act);
 
 	if (strcmp(act, "start") == 0) action = A_START;
 		else if (strcmp(act, "stop") == 0) action = A_STOP;
 		else if (strcmp(act, "restart") == 0) action = A_RESTART;
 		else action = 0;
-
-	_dprintf("%s %s service=%s action=%s\n", __FILE__, __FUNCTION__, service, act);
 
 
 	if (strcmp(service, "dhcpc") == 0) {
@@ -807,7 +818,7 @@ TOP:
 		}
 		goto CLEAR;
 	}
-	
+
 	if (strcmp(service, "qos") == 0) {
 		if (action & A_STOP) {
 			stop_qos();
@@ -819,7 +830,7 @@ TOP:
 		}
 		goto CLEAR;
 	}
-	
+
 	if (strcmp(service, "upnp") == 0) {
 		if (action & A_STOP) {
 			stop_upnp();
@@ -843,6 +854,12 @@ TOP:
 		goto CLEAR;
 	}
 
+	if (strcmp(service, "httpd") == 0) {
+		if (action & A_STOP) stop_httpd();
+		if (action & A_START) start_httpd();
+		goto CLEAR;
+	}
+	
 	if (strcmp(service, "admin") == 0) {
 		if (action & A_STOP) {
 			stop_sshd();
@@ -954,7 +971,7 @@ TOP:
 		}
 		goto CLEAR;
 	}
-	
+
 	if (strcmp(service, "wan") == 0) {
 		if (action & A_STOP) {
 			if (get_wan_proto() == WP_PPPOE) {
@@ -971,16 +988,16 @@ TOP:
 				stop_wan();
 			}
 		}
-	
+
 		if (action & A_START) {
 			rename("/tmp/ppp/log", "/tmp/ppp/log.~");
-			
+
 			if (get_wan_proto() == WP_PPPOE) {
 				stop_singe_pppoe(PPPOE0);
-				start_pppoe(PPPOE0);		
+				start_pppoe(PPPOE0);
 				if (nvram_invmatch("ppp_demand", "1")) {
 					start_redial();
-				}				
+				}
 			}
 			else {
 				start_wan(BOOT);
@@ -1022,25 +1039,10 @@ TOP:
 		if (action & A_START) start_sched();
 		goto CLEAR;
 	}
-	
-#if TOMATO_SL
-	if (strcmp(service, "smbd") == 0) {
-		if (action & A_STOP) stop_smbd();
-		if (action & A_START) start_smbd();
-		goto CLEAR;
-	}
-
-	if (strcmp(service, "test1") == 0) {
-		if (action & A_STOP) stop_test_1();
-		if (action & A_START) start_test_1();
-		goto CLEAR;
-	}
-#endif
-
 
 CLEAR:
 	if (next) goto TOP;
-	
+
 	// some functions check action_service and must be cleared at end	-- zzz
 	nvram_set("action_service", "");
 }
@@ -1049,7 +1051,7 @@ static void do_service(const char *name, const char *action, int user)
 {
 	int n;
 	char s[64];
-	
+
 	n = 15;
 	while (!nvram_match("action_service", "")) {
 		if (user) {
@@ -1059,7 +1061,7 @@ static void do_service(const char *name, const char *action, int user)
 		else if (--n < 0) break;
 		sleep(1);
 	}
-	
+
 	snprintf(s, sizeof(s), "%s-%s", name, action);
 	nvram_set("action_service", s);
 	kill(1, SIGUSR1);
@@ -1070,7 +1072,9 @@ static void do_service(const char *name, const char *action, int user)
 			putchar('.');
 			fflush(stdout);
 		}
-		else if (--n < 0) break;
+		else if (--n < 0) {
+			break;
+		}
 		sleep(1);
 	}
 }
@@ -1092,3 +1096,10 @@ void stop_service(const char *name)
 {
 	do_service(name, "stop", 0);
 }
+
+/*
+void restart_service(const char *name)
+{
+	do_service(name, "restart", 0);
+}
+*/

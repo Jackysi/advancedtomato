@@ -7,13 +7,11 @@
  *
  * Licensed under the GPL v2 or later, see the file LICENSE in this tarball.
  */
-
 #include "libbb.h"
 
 #define OPT_DONT_SET_PASS  (1 << 4)
 #define OPT_SYSTEM_ACCOUNT (1 << 5)
 #define OPT_DONT_MAKE_HOME (1 << 6)
-
 
 /* remix */
 /* recoded such that the uid may be passed in *p */
@@ -33,18 +31,17 @@ static void passwd_study(struct passwd *p)
 	}
 
 	/* check for a free uid (and maybe gid) */
-	while (getpwuid(p->pw_uid) || (!p->pw_gid && getgrgid(p->pw_uid)))
+	while (getpwuid(p->pw_uid) || (p->pw_gid == (gid_t)-1 && getgrgid(p->pw_uid))) {
 		p->pw_uid++;
+		if (p->pw_uid > max)
+			bb_error_msg_and_die("no free uids left");
+	}
 
-	if (!p->pw_gid) {
-		/* new gid = uid */
-		p->pw_gid = p->pw_uid;
+	if (p->pw_gid == (gid_t)-1) {
+		p->pw_gid = p->pw_uid; /* new gid = uid */
 		if (getgrnam(p->pw_name))
 			bb_error_msg_and_die("group name '%s' is in use", p->pw_name);
 	}
-
-	if (p->pw_uid > max)
-		bb_error_msg_and_die("no free uids left");
 }
 
 static void addgroup_wrapper(struct passwd *p)
@@ -89,7 +86,7 @@ int adduser_main(int argc UNUSED_PARAM, char **argv)
 {
 	struct passwd pw;
 	const char *usegroup = NULL;
-	FILE *file;
+	char *p;
 
 #if ENABLE_FEATURE_ADDUSER_LONG_OPTIONS
 	applet_long_options = adduser_longopts;
@@ -117,35 +114,24 @@ int adduser_main(int argc UNUSED_PARAM, char **argv)
 		pw.pw_dir = xasprintf("/home/%s", argv[0]);
 	}
 	pw.pw_passwd = (char *)"x";
-	pw.pw_gid = usegroup ? xgroup2gid(usegroup) : 0; /* exits on failure */
+	pw.pw_gid = usegroup ? xgroup2gid(usegroup) : -1; /* exits on failure */
 
 	/* make sure everything is kosher and setup uid && maybe gid */
 	passwd_study(&pw);
 
-	/* add to passwd */
-	file = xfopen(bb_path_passwd_file, "a");
-	//fseek(file, 0, SEEK_END); /* paranoia, "a" should ensure that anyway */
-	if (putpwent(&pw, file) != 0) {
-		bb_perror_nomsg_and_die();
+	p = xasprintf("x:%u:%u:%s:%s:%s", pw.pw_uid, pw.pw_gid, pw.pw_gecos, pw.pw_dir, pw.pw_shell);
+	if (update_passwd(bb_path_passwd_file, pw.pw_name, p, NULL) < 0) {
+		return EXIT_FAILURE;
 	}
-	/* do fclose even if !ENABLE_FEATURE_CLEAN_UP.
-	 * We will exec passwd, files must be flushed & closed before that! */
-	fclose(file);
+	if (ENABLE_FEATURE_CLEAN_UP)
+		free(p);
 
 #if ENABLE_FEATURE_SHADOWPASSWDS
-	/* add to shadow if necessary */
-	file = fopen_or_warn(bb_path_shadow_file, "a");
-	if (file) {
-		//fseek(file, 0, SEEK_END);
-		fprintf(file, "%s:!:%u:0:99999:7:::\n",
-				pw.pw_name,             /* username */
-				(unsigned)(time(NULL) / 86400) /* sp->sp_lstchg */
-				/*0,*/                  /* sp->sp_min */
-				/*99999,*/              /* sp->sp_max */
-				/*7*/                   /* sp->sp_warn */
-		);
-		fclose(file);
-	}
+	p = xasprintf("!:%u:0:99999:7:::", (unsigned)(time(NULL) / 86400)); /* sp->sp_lstchg */
+	/* ignore errors: if file is missing we suppose admin doesn't want it */
+	update_passwd(bb_path_shadow_file, pw.pw_name, p, NULL);
+	if (ENABLE_FEATURE_CLEAN_UP)
+		free(p);
 #endif
 
 	/* add to group */
@@ -154,7 +140,7 @@ int adduser_main(int argc UNUSED_PARAM, char **argv)
 	if (!usegroup)
 		addgroup_wrapper(&pw);
 
-	/* Clear the umask for this process so it doesn't
+	/* clear the umask for this process so it doesn't
 	 * screw up the permissions on the mkdir and chown. */
 	umask(0);
 	if (!(option_mask32 & OPT_DONT_MAKE_HOME)) {

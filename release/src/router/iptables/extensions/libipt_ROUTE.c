@@ -7,13 +7,23 @@
 #include <string.h>
 #include <stdlib.h>
 #include <getopt.h>
-#include <iptables.h>
 #include <net/if.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+
+#include <iptables.h>
 #include <linux/netfilter_ipv4/ip_tables.h>
 #include <linux/netfilter_ipv4/ipt_ROUTE.h>
+
+#ifndef XTABLES_VERSION
+#define XTABLES_VERSION IPTABLES_VERSION
+#endif
+
+#ifdef IPT_LIB_DIR
+#define xtables_target iptables_target
+#define xtables_register_target register_target
+#endif
 
 /* compile IPT_ROUTE_TEE support even if kernel headers are unpatched */
 #ifndef IPT_ROUTE_TEE
@@ -49,7 +59,11 @@ static struct option opts[] = {
 
 /* Initialize the target. */
 static void
+#ifdef _XTABLES_H
+init(struct xt_entry_target *t)
+#else
 init(struct ipt_entry_target *t, unsigned int *nfcache)
+#endif
 {
 	struct ipt_route_target_info *route_info = 
 		(struct ipt_route_target_info*)t->data;
@@ -71,8 +85,11 @@ init(struct ipt_entry_target *t, unsigned int *nfcache)
    ate an option */
 static int
 parse(int c, char **argv, int invert, unsigned int *flags,
-      const struct ipt_entry *entry,
-      struct ipt_entry_target **target)
+#ifdef _XTABLES_H
+      const void *entry, struct xt_entry_target **target)
+#else
+      const struct ipt_entry *entry, struct ipt_entry_target **target)
+#endif
 {
 	struct ipt_route_target_info *route_info = 
 		(struct ipt_route_target_info*)(*target)->data;
@@ -189,8 +206,13 @@ final_check(unsigned int flags)
 
 /* Prints out the targinfo. */
 static void
+#ifdef _XTABLES_H
+print(const void *ip,
+      const struct xt_entry_target *target,
+#else
 print(const struct ipt_ip *ip,
       const struct ipt_entry_target *target,
+#endif
       int numeric)
 {
 	const struct ipt_route_target_info *route_info
@@ -205,8 +227,8 @@ print(const struct ipt_ip *ip,
 		printf("iif:%s ", route_info->iif);
 
 	if (route_info->gw) {
-		struct in_addr ip = { route_info->gw };
-		printf("gw:%s ", inet_ntoa(ip));
+		struct in_addr gw = { route_info->gw };
+		printf("gw:%s ", inet_ntoa(gw));
 	}
 
 	if (route_info->flags & IPT_ROUTE_CONTINUE)
@@ -217,9 +239,14 @@ print(const struct ipt_ip *ip,
 
 }
 
-
-static void save(const struct ipt_ip *ip, 
-		 const struct ipt_entry_target *target)
+static void
+#ifdef _XTABLES_H
+save(const void *ip,
+     const struct xt_entry_target *target)
+#else
+save(const struct ipt_ip *ip,
+     const struct ipt_entry_target *target)
+#endif
 {
 	const struct ipt_route_target_info *route_info
 		= (const struct ipt_route_target_info *)target->data;
@@ -231,8 +258,8 @@ static void save(const struct ipt_ip *ip,
 		printf("--iif %s ", route_info->iif);
 
 	if (route_info->gw) {
-		struct in_addr ip = { route_info->gw };
-		printf("--gw %s ", inet_ntoa(ip));
+		struct in_addr gw = { route_info->gw };
+		printf("--gw %s ", inet_ntoa(gw));
 	}
 
 	if (route_info->flags & IPT_ROUTE_CONTINUE)
@@ -243,10 +270,10 @@ static void save(const struct ipt_ip *ip,
 }
 
 
-static struct iptables_target route = { 
+static struct xtables_target route = { 
 	.next		= NULL,
 	.name		= "ROUTE",
-	.version	= IPTABLES_VERSION,
+	.version	= XTABLES_VERSION,
 	.size		= IPT_ALIGN(sizeof(struct ipt_route_target_info)),
 	.userspacesize	= IPT_ALIGN(sizeof(struct ipt_route_target_info)),
 	.help		= &help,
@@ -260,5 +287,5 @@ static struct iptables_target route = {
 
 void _init(void)
 {
-	register_target(&route);
+	xtables_register_target(&route);
 }

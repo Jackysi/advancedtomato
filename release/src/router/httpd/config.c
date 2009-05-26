@@ -1,7 +1,7 @@
 /*
 
 	Tomato Firmware
-	Copyright (C) 2006-2008 Jonathan Zarate
+	Copyright (C) 2006-2009 Jonathan Zarate
 
 */
 
@@ -26,17 +26,17 @@ void wo_defaults(char *url)
 {
 	const char *v;
 	int mode;
-	
+
 	if ((v = webcgi_get("mode")) != NULL) {
 		mode = atoi(v);
 		if ((mode == 1) || (mode == 2)) {
 			prepare_upgrade();
-		
+
 			parse_asp("reboot-default.asp");
 			web_close();
 
 			killall("pppoecd", SIGTERM);
-			
+
 			led(LED_DIAG, 1);
 			sleep(2);
 
@@ -55,7 +55,7 @@ void wo_defaults(char *url)
 			exit(0);
 		}
 	}
-		
+
 	redirect("/admin-config.asp");
 }
 
@@ -66,7 +66,7 @@ void wo_backup(char *url)
 	static char *args[] = {
 		NVRAMCMD, "backup", NULL, NULL
 	};
-	
+
 	strcpy(tmp, "/tmp/backupXXXXXX");
 	mktemp(tmp);
 	args[2] = tmp;
@@ -83,7 +83,7 @@ void wo_backup(char *url)
 		send_header(200, NULL, mime_html, 0);
 		parse_asp("error.asp");
 	}
-	
+
 	unlink(msg + 1);
 }
 
@@ -94,8 +94,8 @@ void wi_restore(char *url, int len, char *boundary)
 	int ok;
 	int n;
 	char tmp[64];
-	
-	check_id();
+
+	check_id(url);
 
 	tmp[0] = 0;
 	buf = NULL;
@@ -124,20 +124,20 @@ void wi_restore(char *url, int len, char *boundary)
 	if (f_write(tmp, buf, n, 0, 0600) != n) {
 		error = "Error writing temporary file";
 		goto ERROR;
-	}	
-	
+	}
+
 	rboot = 1;
 	prepare_upgrade();
-	
+
 	char msg[64];
 	static char *args[] = {
 		NVRAMCMD, "restore", NULL, NULL
 	};
-	
+
 	args[2] = tmp;
-	
+
 	sprintf(msg, ">%s.msg", tmp);
-	
+
 	if (_eval(args, msg, 0, NULL) != 0) {
 		resmsg_fread(msg + 1);
 	}
@@ -145,7 +145,7 @@ void wi_restore(char *url, int len, char *boundary)
 	unlink(msg + 1);
 #endif
 	error = NULL;
-	
+
 ERROR:
 	free(buf);
 	if (error != NULL) resmsg_set(error);

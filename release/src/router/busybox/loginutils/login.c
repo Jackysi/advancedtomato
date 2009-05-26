@@ -52,7 +52,7 @@ static char* short_tty;
  *	command line flags.
  */
 
-static void read_or_build_utent(struct utmp *utptr, int picky)
+static void read_or_build_utent(struct utmp *utptr, int run_by_root)
 {
 	struct utmp *ut;
 	pid_t pid = getpid();
@@ -60,30 +60,33 @@ static void read_or_build_utent(struct utmp *utptr, int picky)
 	setutent();
 
 	/* First, try to find a valid utmp entry for this process.  */
-	while ((ut = getutent()))
-		if (ut->ut_pid == pid && ut->ut_line[0] && ut->ut_id[0] &&
-		(ut->ut_type == LOGIN_PROCESS || ut->ut_type == USER_PROCESS))
-			break;
+	/* If there is one, just use it.  */
+	while ((ut = getutent()) != NULL)
+		if (ut->ut_pid == pid && ut->ut_line[0] && ut->ut_id[0]
+		 && (ut->ut_type == LOGIN_PROCESS || ut->ut_type == USER_PROCESS)
+		) {
+			*utptr = *ut; /* struct copy */
+			if (run_by_root) /* why only for root? */
+				memset(utptr->ut_host, 0, sizeof(utptr->ut_host));
+			return;
+		}
 
-	/* If there is one, just use it, otherwise create a new one.  */
-	if (ut) {
-		*utptr = *ut;
-	} else {
-		if (picky)
-			bb_error_msg_and_die("no utmp entry found");
+// Why? Do we require non-root to exec login from another
+// former login process (e.g. login shell)? Some login's have
+// login shells as children, so it won't work...
+//	if (!run_by_root)
+//		bb_error_msg_and_die("no utmp entry found");
 
-		memset(utptr, 0, sizeof(*utptr));
-		utptr->ut_type = LOGIN_PROCESS;
-		utptr->ut_pid = pid;
-		strncpy(utptr->ut_line, short_tty, sizeof(utptr->ut_line));
-		/* This one is only 4 chars wide. Try to fit something
-		 * remotely meaningful by skipping "tty"... */
-		strncpy(utptr->ut_id, short_tty + 3, sizeof(utptr->ut_id));
-		strncpy(utptr->ut_user, "LOGIN", sizeof(utptr->ut_user));
-		utptr->ut_tv.tv_sec = time(NULL);
-	}
-	if (!picky)	/* root login */
-		memset(utptr->ut_host, 0, sizeof(utptr->ut_host));
+	/* Otherwise create a new one.  */
+	memset(utptr, 0, sizeof(*utptr));
+	utptr->ut_type = LOGIN_PROCESS;
+	utptr->ut_pid = pid;
+	strncpy(utptr->ut_line, short_tty, sizeof(utptr->ut_line));
+	/* This one is only 4 chars wide. Try to fit something
+	 * remotely meaningful by skipping "tty"... */
+	strncpy(utptr->ut_id, short_tty + 3, sizeof(utptr->ut_id));
+	strncpy(utptr->ut_user, "LOGIN", sizeof(utptr->ut_user));
+	utptr->ut_tv.tv_sec = time(NULL);
 }
 
 /*
@@ -109,7 +112,7 @@ static void write_utent(struct utmp *utptr, const char *username)
 #endif
 }
 #else /* !ENABLE_FEATURE_UTMP */
-#define read_or_build_utent(utptr, picky) ((void)0)
+#define read_or_build_utent(utptr, run_by_root) ((void)0)
 #define write_utent(utptr, username) ((void)0)
 #endif /* !ENABLE_FEATURE_UTMP */
 
@@ -118,18 +121,25 @@ static void die_if_nologin(void)
 {
 	FILE *fp;
 	int c;
-
-	if (access("/etc/nologin", F_OK))
-		return;
+	int empty = 1;
 
 	fp = fopen_for_read("/etc/nologin");
-	if (fp) {
-		while ((c = getc(fp)) != EOF)
-			bb_putchar((c=='\n') ? '\r' : c);
-		fflush(stdout);
-		fclose(fp);
-	} else
+	if (!fp) /* assuming it does not exist */
+		return;
+
+	while ((c = getc(fp)) != EOF) {
+		if (c == '\n')
+			bb_putchar('\r');
+		bb_putchar(c);
+		empty = 0;
+	}
+	if (empty)
 		puts("\r\nSystem closed for routine maintenance\r");
+
+	fclose(fp);
+	fflush(NULL);
+	/* Users say that they do need this prior to exit: */
+	tcdrain(STDOUT_FILENO);
 	exit(EXIT_FAILURE);
 }
 #else
@@ -153,6 +163,56 @@ static int check_securetty(void)
 }
 #else
 static ALWAYS_INLINE int check_securetty(void) { return 1; }
+#endif
+
+#if ENABLE_SELINUX
+static void initselinux(char *username, char *full_tty,
+						security_context_t *user_sid)
+{
+	security_context_t old_tty_sid, new_tty_sid;
+
+	if (!is_selinux_enabled())
+		return;
+
+	if (get_default_context(username, NULL, user_sid)) {
+		bb_error_msg_and_die("cannot get SID for %s", username);
+	}
+	if (getfilecon(full_tty, &old_tty_sid) < 0) {
+		bb_perror_msg_and_die("getfilecon(%s) failed", full_tty);
+	}
+	if (security_compute_relabel(*user_sid, old_tty_sid,
+				SECCLASS_CHR_FILE, &new_tty_sid) != 0) {
+		bb_perror_msg_and_die("security_change_sid(%s) failed", full_tty);
+	}
+	if (setfilecon(full_tty, new_tty_sid) != 0) {
+		bb_perror_msg_and_die("chsid(%s, %s) failed", full_tty, new_tty_sid);
+	}
+}
+#endif
+
+#if ENABLE_LOGIN_SCRIPTS
+static void run_login_script(struct passwd *pw, char *full_tty)
+{
+	char *t_argv[2];
+
+	t_argv[0] = getenv("LOGIN_PRE_SUID_SCRIPT");
+	if (t_argv[0]) {
+		t_argv[1] = NULL;
+		xsetenv("LOGIN_TTY", full_tty);
+		xsetenv("LOGIN_USER", pw->pw_name);
+		xsetenv("LOGIN_UID", utoa(pw->pw_uid));
+		xsetenv("LOGIN_GID", utoa(pw->pw_gid));
+		xsetenv("LOGIN_SHELL", pw->pw_shell);
+		spawn_and_wait(t_argv);	/* NOMMU-friendly */
+		unsetenv("LOGIN_TTY");
+		unsetenv("LOGIN_USER");
+		unsetenv("LOGIN_UID");
+		unsetenv("LOGIN_GID");
+		unsetenv("LOGIN_SHELL");
+	}
+}
+#else
+void run_login_script(struct passwd *pw, char *full_tty);
 #endif
 
 static void get_username_or_die(char *buf, int size_buf)
@@ -218,13 +278,13 @@ int login_main(int argc UNUSED_PARAM, char **argv)
 	char *fromhost;
 	char username[USERNAME_SIZE];
 	const char *tmp;
-	int amroot;
+	int run_by_root;
 	unsigned opt;
 	int count = 0;
 	struct passwd *pw;
 	char *opt_host = opt_host; /* for compiler */
 	char *opt_user = opt_user; /* for compiler */
-	char full_tty[TTYNAME_SIZE];
+	char *full_tty;
 	USE_SELINUX(security_context_t user_sid = NULL;)
 	USE_FEATURE_UTMP(struct utmp utent;)
 #if ENABLE_PAM
@@ -236,13 +296,13 @@ int login_main(int argc UNUSED_PARAM, char **argv)
 	char pwdbuf[256];
 #endif
 
-	short_tty = full_tty;
 	username[0] = '\0';
 	signal(SIGALRM, alarm_handler);
 	alarm(TIMEOUT);
 
-	/* More of suid paranoia if called by non-root */
-	amroot = !sanitize_env_if_suid(); /* Clear dangerous stuff, set PATH */
+	/* More of suid paranoia if called by non-root: */
+	/* Clear dangerous stuff, set PATH */
+	run_by_root = !sanitize_env_if_suid();
 
 	/* Mandatory paranoia for suid applet:
 	 * ensure that fd# 0,1,2 are opened (at least to /dev/null)
@@ -252,7 +312,7 @@ int login_main(int argc UNUSED_PARAM, char **argv)
 
 	opt = getopt32(argv, "f:h:p", &opt_user, &opt_host);
 	if (opt & LOGIN_OPT_f) {
-		if (!amroot)
+		if (!run_by_root)
 			bb_error_msg_and_die("-f is for root only");
 		safe_strncpy(username, opt_user, sizeof(username));
 	}
@@ -261,30 +321,28 @@ int login_main(int argc UNUSED_PARAM, char **argv)
 		safe_strncpy(username, argv[0], sizeof(username));
 
 	/* Let's find out and memorize our tty */
-	if (!isatty(0) || !isatty(1) || !isatty(2))
+	if (!isatty(STDIN_FILENO) || !isatty(STDOUT_FILENO) || !isatty(STDERR_FILENO))
 		return EXIT_FAILURE;		/* Must be a terminal */
-	safe_strncpy(full_tty, "UNKNOWN", sizeof(full_tty));
-	tmp = ttyname(0);
-	if (tmp) {
-		safe_strncpy(full_tty, tmp, sizeof(full_tty));
-		if (strncmp(full_tty, "/dev/", 5) == 0)
-			short_tty = full_tty + 5;
-	}
+	full_tty = xmalloc_ttyname(STDIN_FILENO);
+	if (!full_tty)
+		full_tty = xstrdup("UNKNOWN");
+	short_tty = full_tty;
+	if (strncmp(full_tty, "/dev/", 5) == 0)
+		short_tty += 5;
 
-	read_or_build_utent(&utent, !amroot);
+	read_or_build_utent(&utent, run_by_root);
 
 	if (opt & LOGIN_OPT_h) {
-		USE_FEATURE_UTMP(
-			safe_strncpy(utent.ut_host, opt_host, sizeof(utent.ut_host));
-		)
+		USE_FEATURE_UTMP(safe_strncpy(utent.ut_host, opt_host, sizeof(utent.ut_host));)
 		fromhost = xasprintf(" on '%s' from '%s'", short_tty, opt_host);
-	} else
+	} else {
 		fromhost = xasprintf(" on '%s'", short_tty);
+	}
 
 	/* Was breaking "login <username>" from shell command line: */
 	/*bb_setpgrp();*/
 
-	openlog(applet_name, LOG_PID | LOG_CONS | LOG_NOWAIT, LOG_AUTH);
+	openlog(applet_name, LOG_PID | LOG_CONS, LOG_AUTH);
 
 	while (1) {
 		/* flush away any type-ahead (as getty does) */
@@ -389,62 +447,26 @@ int login_main(int argc UNUSED_PARAM, char **argv)
 			return EXIT_FAILURE;
 		}
 		username[0] = '\0';
-	}
+	} /* while (1) */
 
 	alarm(0);
-	if (!amroot)
+	/* We can ignore /etc/nologin if we are logging in as root,
+	 * it doesn't matter whether we are run by root or not */
+	if (pw->pw_uid != 0)
 		die_if_nologin();
 
 	write_utent(&utent, username);
 
-#if ENABLE_SELINUX
-	if (is_selinux_enabled()) {
-		security_context_t old_tty_sid, new_tty_sid;
+	USE_SELINUX(initselinux(username, full_tty, &user_sid));
 
-		if (get_default_context(username, NULL, &user_sid)) {
-			bb_error_msg_and_die("cannot get SID for %s",
-					username);
-		}
-		if (getfilecon(full_tty, &old_tty_sid) < 0) {
-			bb_perror_msg_and_die("getfilecon(%s) failed",
-					full_tty);
-		}
-		if (security_compute_relabel(user_sid, old_tty_sid,
-					SECCLASS_CHR_FILE, &new_tty_sid) != 0) {
-			bb_perror_msg_and_die("security_change_sid(%s) failed",
-					full_tty);
-		}
-		if (setfilecon(full_tty, new_tty_sid) != 0) {
-			bb_perror_msg_and_die("chsid(%s, %s) failed",
-					full_tty, new_tty_sid);
-		}
-	}
-#endif
 	/* Try these, but don't complain if they fail.
 	 * _f_chown is safe wrt race t=ttyname(0);...;chown(t); */
 	fchown(0, pw->pw_uid, pw->pw_gid);
 	fchmod(0, 0600);
 
 	/* We trust environment only if we run by root */
-	if (ENABLE_LOGIN_SCRIPTS && amroot) {
-		char *t_argv[2];
-
-		t_argv[0] = getenv("LOGIN_PRE_SUID_SCRIPT");
-		if (t_argv[0]) {
-			t_argv[1] = NULL;
-			xsetenv("LOGIN_TTY", full_tty);
-			xsetenv("LOGIN_USER", pw->pw_name);
-			xsetenv("LOGIN_UID", utoa(pw->pw_uid));
-			xsetenv("LOGIN_GID", utoa(pw->pw_gid));
-			xsetenv("LOGIN_SHELL", pw->pw_shell);
-			spawn_and_wait(t_argv); /* NOMMU-friendly */
-			unsetenv("LOGIN_TTY"  );
-			unsetenv("LOGIN_USER" );
-			unsetenv("LOGIN_UID"  );
-			unsetenv("LOGIN_GID"  );
-			unsetenv("LOGIN_SHELL");
-		}
-	}
+	if (ENABLE_LOGIN_SCRIPTS && run_by_root)
+		run_login_script(pw, full_tty);
 
 	change_identity(pw);
 	tmp = pw->pw_shell;
@@ -457,11 +479,10 @@ int login_main(int argc UNUSED_PARAM, char **argv)
 
 	if (pw->pw_uid == 0)
 		syslog(LOG_INFO, "root login%s", fromhost);
-#if ENABLE_SELINUX
+
 	/* well, a simple setexeccon() here would do the job as well,
 	 * but let's play the game for now */
-	set_current_security_context(user_sid);
-#endif
+	USE_SELINUX(set_current_security_context(user_sid);)
 
 	// util-linux login also does:
 	// /* start new session */
@@ -472,14 +493,16 @@ int login_main(int argc UNUSED_PARAM, char **argv)
 	// bb_setpgrp();
 	// If this stuff is really needed, add it and explain why!
 
-	/* set signals to defaults */
-	signal(SIGALRM, SIG_DFL);
+	/* Set signals to defaults */
+	/* Non-ignored signals revert to SIG_DFL on exec anyway */
+	/*signal(SIGALRM, SIG_DFL);*/
+
 	/* Is this correct? This way user can ctrl-c out of /etc/profile,
 	 * potentially creating security breach (tested with bash 3.0).
 	 * But without this, bash 3.0 will not enable ctrl-c either.
 	 * Maybe bash is buggy?
 	 * Need to find out what standards say about /bin/login -
-	 * should it leave SIGINT etc enabled or disabled? */
+	 * should we leave SIGINT etc enabled or disabled? */
 	signal(SIGINT, SIG_DFL);
 
 	/* Exec login shell with no additional parameters */
