@@ -348,7 +348,7 @@ static void check_bootnv(void)
 		dirty |= check_nv("pa0b0", "0x15eb");
 		dirty |= check_nv("pa0b1", "0xfa82");
 		dirty |= check_nv("pa0b2", "0xfe66");
-		dirty |= check_nv("pa0maxpwr", "0x4e");
+		//dirty |= check_nv("pa0maxpwr", "0x4e");
 		break;
 	case HW_BCM5352E:	// G v4, GS v3, v4
 		dirty |= check_nv("sdram_init", "0x010b");
@@ -360,7 +360,7 @@ static void check_bootnv(void)
 		dirty |= check_nv("pa0b0", "0x168b");
 		dirty |= check_nv("pa0b1", "0xfabf");
 		dirty |= check_nv("pa0b2", "0xfeaf");
-		dirty |= check_nv("pa0maxpwr", "0x4e");
+		//dirty |= check_nv("pa0maxpwr", "0x4e");
 		dirty |= check_nv("vlan0ports", "3 2 1 0 5*");
 		break;
 	case HW_BCM5354G:
@@ -368,7 +368,7 @@ static void check_bootnv(void)
 		dirty |= check_nv("pa0b0", "0x1326");
 		dirty |= check_nv("pa0b1", "0xFB51");
 		dirty |= check_nv("pa0b2", "0xFE87");
-		dirty |= check_nv("pa0maxpwr", "0x4e");
+		//dirty |= check_nv("pa0maxpwr", "0x4e");
 		break;
 	case HW_BCM4704_BCM5325F:
 		// nothing to do
@@ -378,7 +378,7 @@ static void check_bootnv(void)
 		dirty |= check_nv("pa0b0", "0x170c");
 		dirty |= check_nv("pa0b1", "0xfa24");
 		dirty |= check_nv("pa0b2", "0xfe70");
-		dirty |= check_nv("pa0maxpwr", "0x48");
+		//dirty |= check_nv("pa0maxpwr", "0x48");
 		break;
 	}
 
@@ -457,7 +457,7 @@ static int init_nvram(void)
 		nvram_set("pa0b0", "0x1542");
 		nvram_set("pa0b1", "0xfacb");
 		nvram_set("pa0b2", "0xfec7");
-		nvram_set("pa0maxpwr", "0x4c");
+		//nvram_set("pa0maxpwr", "0x4c");
 		features = SUP_SES;
 		break;
 	case MODEL_WRTSL54GS:
@@ -683,6 +683,8 @@ static int init_nvram(void)
 		s[64] = 0;
 	}
 	nvram_set("t_model_name", s);
+
+	nvram_set("pa0maxpwr", "251");				// allow Tx power up tp 251 mW, needed for ND only
 
 	sprintf(s, "0x%lX", features);
 	nvram_set("t_features", s);
