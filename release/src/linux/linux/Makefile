@@ -361,12 +361,12 @@ include/linux/compile.h: $(CONFIGURATION) include/linux/version.h newversion
 	@LANG=C echo ' '`date` >> .ver1
 	@echo \#define UTS_VERSION \"`cat .ver1 | $(uts_truncate)`\" > .ver
 	@LANG=C echo \#define LINUX_COMPILE_TIME \"`date +%T`\" >> .ver
-	@echo \#define LINUX_COMPILE_BY \"`whoami`\" >> .ver
-	@echo \#define LINUX_COMPILE_HOST \"`hostname | $(uts_truncate)`\" >> .ver
+	@echo \#define LINUX_COMPILE_BY \"root\" >> .ver
+	@echo \#define LINUX_COMPILE_HOST \"tomato\" >> .ver
 	@([ -x /bin/dnsdomainname ] && /bin/dnsdomainname > .ver1) || \
 	 ([ -x /bin/domainname ] && /bin/domainname > .ver1) || \
 	 echo > .ver1
-	@echo \#define LINUX_COMPILE_DOMAIN \"`cat .ver1 | $(uts_truncate)`\" >> .ver
+	@echo \#define LINUX_COMPILE_DOMAIN \"localdomain\" >> .ver
 	@echo \#define LINUX_COMPILER \"`$(CC) $(CFLAGS) -v 2>&1 | tail -1`\" >> .ver
 	@mv -f .ver $@
 	@rm -f .ver1

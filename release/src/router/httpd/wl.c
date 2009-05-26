@@ -245,3 +245,57 @@ void asp_wlchannel(int argc, char **argv)
 		web_printf("%d", (ch.scan_channel > 0) ? -ch.scan_channel : ch.hw_channel);
 	}
 }
+
+void asp_wlchannels(int argc, char **argv)
+{
+	char s[40];
+	int d[14];
+	FILE *f;
+	int n, i;
+	const char *ghz[] = {
+		"2.412", "2.417", "2.422", "2.427", "2.432", "2.437", "2.442",
+		"2.447", "2.452", "2.457", "2.462", "2.467", "2.472", "2.484"};
+
+	web_puts("\nwl_channels = [\n['0', 'Auto']");
+	if ((f = popen("wl channels", "r")) != NULL) {
+		if (fgets(s, sizeof(s), f)) {
+			n = sscanf(s, "%d %d %d %d %d %d %d %d %d %d %d %d %d %d",
+				&d[0], &d[1], &d[2], &d[3],  &d[4],  &d[5],  &d[6],
+				&d[7], &d[8], &d[9], &d[10], &d[11], &d[12], &d[13]);
+			for (i = 0; i < n; ++i) {
+				if (d[i] <= 14) {
+					web_printf(",['%d', '%d - %s GHz']",
+						d[i], d[i], ghz[d[i] - 1]);
+				}
+			}
+		}
+		fclose(f);
+	}
+	web_puts("];\n");
+}
+
+#if 0
+void asp_wlcountries(int argc, char **argv)
+{
+	char *js, s[128], code[15], country[64];
+	FILE *f;
+	int i = 0;
+
+	web_puts("\nwl_countries = [\n");
+	if ((f = popen("wl country list", "r")) != NULL) {
+		while (fgets(s, sizeof(s), f)) {
+			if (sscanf(s, "%s %s", code, country) == 2) {
+				// skip all bogus country names
+				if (strlen(code) < 5 && strcmp(code, country) != 0) {
+					js = js_string(strstr(s, country));
+					web_printf("%c['%s', '%s']", i == 0 ? ' ' : ',', code, js);
+					free(js);
+					i++;
+				}
+			}
+		}
+		fclose(f);
+	}
+	web_puts("];\n");
+}
+#endif

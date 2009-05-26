@@ -1,0 +1,208 @@
+
+Some updates to the default 'ntpc' in Tomato
+
+I modified the ntpc from the latest version
+of Tomato at the time, which is Tomato 1.23.
+
+
+1) I created 'ntpstep', via a symbolic link like 
+   it was done for 'ntpsync'.
+
+2) Updated SYSLOG so an entry is made even if no
+   correction was applied.
+
+3) When an update to the time is applied, use the
+   fracional seconds supplied with the data from
+   the NTP server.
+
+
+The timekeeping ability of a typical WRT54G can be
+quite poor. I have use over 6 different routers and all
+drifted by 30+ seconds per day. Though the absolute
+accuracy is poor, they do appear to be quite consistent.
+
+And if this drift is consistent, it can be calibrated out.
+
+I created a new executable, called 'ntpstep'. ntpstep 
+will simply adjust the current clock by a specific 
+offset that is supplied on the command line.
+
+ntpstep takes two command line arguments, 'seconds' and 
+'microseconds'.  So in the scheduled tasks (like 'Custom 1'), 
+run ntpstep every hour with something like
+
+/bin/ntpstep 1 215000
+
+
+This advances the clock by 1.215 seconds every hour. So when 
+the real ntpc runs, the correction is quite small. Every router 
+will be different.  You can also go backwards in time if needed. 
+'seconds' can be negative, but 'microseconds' must be positive 
+(the way I implemented it).
+
+So -4.32 seconds would be /bin/ntpstep -5 680000
+
+
+With just 2 or 3 iterations, you can zero in on the correct
+adjustments for your router. See a sample SYSLOG from my
+router at the end of the README.
+
+
+In the default Tomato source tree, replace 'Makefile' 
+and 'ntpc.c' with the files included here. 
+
+Location in the tomato source tree:
+
+./tomato/release/src/router/ntpc
+
+
+
+
+M. Ring - 2009/04/05
+
+ringx004 at tc dot umn dot edu
+
+======================================================================
+
+Sample SYSLOG :
+
+Mar 31 22:42:42 unknown syslog.info -- MARK --
+Mar 31 23:42:43 unknown syslog.info -- MARK --
+Apr  1 00:42:44 unknown syslog.info -- MARK --
+Apr  1 01:42:46 unknown syslog.info -- MARK --
+Apr  1 02:21:01 unknown user.info ntpc[442]: Time Updated: No change needed
+Apr  1 02:42:47 unknown syslog.info -- MARK --
+Apr  1 03:42:48 unknown syslog.info -- MARK --
+Apr  1 04:42:49 unknown syslog.info -- MARK --
+Apr  1 05:42:50 unknown syslog.info -- MARK --
+Apr  1 06:42:51 unknown syslog.info -- MARK --
+Apr  1 07:42:52 unknown syslog.info -- MARK --
+Apr  1 08:21:01 unknown user.info ntpc[559]: Time Updated: No change needed
+Apr  1 08:42:54 unknown syslog.info -- MARK --
+Apr  1 09:42:55 unknown syslog.info -- MARK --
+Apr  1 10:42:56 unknown syslog.info -- MARK --
+Apr  1 11:42:57 unknown syslog.info -- MARK --
+Apr  1 12:42:58 unknown syslog.info -- MARK --
+Apr  1 13:42:59 unknown syslog.info -- MARK --
+Apr  1 14:21:01 unknown user.info ntpc[662]: Time Updated: No change needed
+Apr  1 14:43:01 unknown syslog.info -- MARK --
+Apr  1 15:43:02 unknown syslog.info -- MARK --
+Apr  1 16:43:03 unknown syslog.info -- MARK --
+Apr  1 17:43:04 unknown syslog.info -- MARK --
+Apr  1 18:43:06 unknown syslog.info -- MARK --
+Apr  1 19:43:07 unknown syslog.info -- MARK --
+Apr  1 20:21:01 unknown user.info ntpc[815]: Time Updated: No change needed
+Apr  1 20:43:09 unknown syslog.info -- MARK --
+Apr  1 21:43:10 unknown syslog.info -- MARK --
+Apr  1 22:43:11 unknown syslog.info -- MARK --
+Apr  1 23:43:12 unknown syslog.info -- MARK --
+Apr  2 00:43:13 unknown syslog.info -- MARK --
+Apr  2 01:43:14 unknown syslog.info -- MARK --
+Apr  2 02:21:01 unknown user.info ntpc[946]: Time Updated: No change needed
+Apr  2 02:43:16 unknown syslog.info -- MARK --
+Apr  2 03:43:17 unknown syslog.info -- MARK --
+Apr  2 04:43:18 unknown syslog.info -- MARK --
+Apr  2 05:43:19 unknown syslog.info -- MARK --
+Apr  2 06:43:20 unknown syslog.info -- MARK --
+Apr  2 07:43:21 unknown syslog.info -- MARK --
+Apr  2 08:21:01 unknown user.info ntpc[1049]: Time Updated: No change needed
+Apr  2 08:43:23 unknown syslog.info -- MARK --
+Apr  2 09:43:24 unknown syslog.info -- MARK --
+Apr  2 10:43:25 unknown syslog.info -- MARK --
+Apr  2 11:43:26 unknown syslog.info -- MARK --
+Apr  2 12:43:27 unknown syslog.info -- MARK --
+Apr  2 13:43:28 unknown syslog.info -- MARK --
+Apr  2 14:21:01 unknown user.info ntpc[1152]: Time Updated: Thu, 02 Apr 2009 14:21:01 -0500 [-0.443s]
+Apr  2 14:43:29 unknown syslog.info -- MARK --
+Apr  2 15:43:30 unknown syslog.info -- MARK --
+Apr  2 16:43:31 unknown syslog.info -- MARK --
+Apr  2 17:43:32 unknown syslog.info -- MARK --
+Apr  2 18:43:34 unknown syslog.info -- MARK --
+Apr  2 19:43:35 unknown syslog.info -- MARK --
+Apr  2 20:21:01 unknown user.info ntpc[1336]: Time Updated: No change needed
+Apr  2 20:43:36 unknown syslog.info -- MARK --
+Apr  2 21:43:37 unknown syslog.info -- MARK --
+Apr  2 22:43:38 unknown syslog.info -- MARK --
+Apr  2 23:43:39 unknown syslog.info -- MARK --
+Apr  3 00:43:41 unknown syslog.info -- MARK --
+Apr  3 01:43:42 unknown syslog.info -- MARK --
+Apr  3 02:21:01 unknown user.info ntpc[1488]: Time Updated: No change needed
+Apr  3 02:43:43 unknown syslog.info -- MARK --
+Apr  3 03:43:44 unknown syslog.info -- MARK --
+Apr  3 04:43:45 unknown syslog.info -- MARK --
+Apr  3 05:43:46 unknown syslog.info -- MARK --
+Apr  3 06:43:47 unknown syslog.info -- MARK --
+Apr  3 07:43:49 unknown syslog.info -- MARK --
+Apr  3 08:21:01 unknown user.info ntpc[1591]: Time Updated: Fri, 03 Apr 2009 08:21:01 -0500 [-0.520s]
+Apr  3 08:43:49 unknown syslog.info -- MARK --
+Apr  3 09:43:50 unknown syslog.info -- MARK --
+Apr  3 10:43:52 unknown syslog.info -- MARK --
+Apr  3 11:43:53 unknown syslog.info -- MARK --
+Apr  3 12:43:54 unknown syslog.info -- MARK --
+Apr  3 13:43:55 unknown syslog.info -- MARK --
+Apr  3 14:21:01 unknown user.info ntpc[1694]: Time Updated: No change needed
+Apr  3 14:43:56 unknown syslog.info -- MARK --
+Apr  3 15:43:57 unknown syslog.info -- MARK --
+Apr  3 16:43:58 unknown syslog.info -- MARK --
+Apr  3 17:44:00 unknown syslog.info -- MARK --
+Apr  3 18:44:01 unknown syslog.info -- MARK --
+Apr  3 19:44:02 unknown syslog.info -- MARK --
+Apr  3 20:21:01 unknown user.info ntpc[1834]: Time Updated: No change needed
+Apr  3 20:44:03 unknown syslog.info -- MARK --
+Apr  3 21:44:04 unknown syslog.info -- MARK --
+Apr  3 22:44:05 unknown syslog.info -- MARK --
+Apr  3 23:44:07 unknown syslog.info -- MARK --
+Apr  4 00:44:08 unknown syslog.info -- MARK --
+Apr  4 01:44:09 unknown syslog.info -- MARK --
+Apr  4 02:21:01 unknown user.info ntpc[2031]: Time Updated: No change needed
+Apr  4 02:44:10 unknown syslog.info -- MARK --
+Apr  4 03:44:11 unknown syslog.info -- MARK --
+Apr  4 04:44:12 unknown syslog.info -- MARK --
+Apr  4 05:44:14 unknown syslog.info -- MARK --
+Apr  4 06:44:15 unknown syslog.info -- MARK --
+Apr  4 07:44:16 unknown syslog.info -- MARK --
+Apr  4 08:21:01 unknown user.info ntpc[2134]: Time Updated: Sat, 04 Apr 2009 08:21:01 -0500 [-0.482s]
+Apr  4 08:44:16 unknown syslog.info -- MARK --
+Apr  4 09:44:18 unknown syslog.info -- MARK --
+Apr  4 10:44:19 unknown syslog.info -- MARK --
+Apr  4 11:44:20 unknown syslog.info -- MARK --
+Apr  4 12:44:21 unknown syslog.info -- MARK --
+Apr  4 13:44:22 unknown syslog.info -- MARK --
+Apr  4 14:21:01 unknown user.info ntpc[2266]: Time Updated: No change needed
+Apr  4 14:44:23 unknown syslog.info -- MARK --
+Apr  4 15:44:25 unknown syslog.info -- MARK --
+Apr  4 16:44:26 unknown syslog.info -- MARK --
+Apr  4 17:44:27 unknown syslog.info -- MARK --
+Apr  4 18:44:28 unknown syslog.info -- MARK --
+Apr  4 19:44:29 unknown syslog.info -- MARK --
+Apr  4 20:21:01 unknown user.info ntpc[2418]: Time Updated: No change needed
+Apr  4 20:44:30 unknown syslog.info -- MARK --
+Apr  4 21:44:32 unknown syslog.info -- MARK --
+Apr  4 22:44:33 unknown syslog.info -- MARK --
+Apr  4 23:44:34 unknown syslog.info -- MARK --
+Apr  5 00:44:35 unknown syslog.info -- MARK --
+Apr  5 01:44:36 unknown syslog.info -- MARK --
+Apr  5 02:21:01 unknown user.info ntpc[2542]: Time Updated: No change needed
+Apr  5 02:44:37 unknown syslog.info -- MARK --
+Apr  5 03:44:38 unknown syslog.info -- MARK --
+Apr  5 04:44:40 unknown syslog.info -- MARK --
+Apr  5 05:44:41 unknown syslog.info -- MARK --
+Apr  5 06:44:42 unknown syslog.info -- MARK --
+Apr  5 07:44:43 unknown syslog.info -- MARK --
+Apr  5 08:21:01 unknown user.info ntpc[2645]: Time Updated: Sun, 05 Apr 2009 08:21:01 -0500 [-0.433s]
+Apr  5 08:44:44 unknown syslog.info -- MARK --
+Apr  5 09:44:45 unknown syslog.info -- MARK --
+Apr  5 10:44:46 unknown syslog.info -- MARK --
+Apr  5 11:44:47 unknown syslog.info -- MARK --
+Apr  5 12:44:48 unknown syslog.info -- MARK --
+Apr  5 13:44:50 unknown syslog.info -- MARK --
+Apr  5 14:21:01 unknown user.info ntpc[2748]: Time Updated: No change needed
+Apr  5 14:44:51 unknown syslog.info -- MARK --
+Apr  5 15:44:52 unknown syslog.info -- MARK --
+Apr  5 16:44:53 unknown syslog.info -- MARK --
+Apr  5 17:44:54 unknown syslog.info -- MARK --
+Apr  5 18:44:55 unknown syslog.info -- MARK --
+Apr  5 19:44:56 unknown syslog.info -- MARK --
+Apr  5 20:21:01 unknown user.info ntpc[2952]: Time Updated: No change needed
+Apr  5 20:44:58 unknown syslog.info -- MARK --
+

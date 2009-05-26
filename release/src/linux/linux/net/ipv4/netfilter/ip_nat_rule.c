@@ -25,6 +25,12 @@
 
 #define NAT_VALID_HOOKS ((1<<NF_IP_PRE_ROUTING) | (1<<NF_IP_POST_ROUTING) | (1<<NF_IP_LOCAL_OUT))
 
+#if defined(CONFIG_IP_NF_TARGET_MASQUERADE) || \
+	defined(CONFIG_IP_NF_TARGET_MASQUERADE_MODULE)
+DECLARE_RWLOCK_EXTERN(masq_lock);
+#define CONFIG_IP_NF_TARGET_TRACKSNAT
+#endif
+
 /* Standard entry. */
 struct ipt_standard
 {
@@ -120,6 +126,18 @@ static unsigned int ipt_snat_target(struct sk_buff **pskb,
 	/* Connection must be valid and new. */
 	IP_NF_ASSERT(ct && (ctinfo == IP_CT_NEW || ctinfo == IP_CT_RELATED));
 	IP_NF_ASSERT(out);
+
+#ifdef CONFIG_IP_NF_TARGET_TRACKSNAT
+	/* Use MASQUERADE index and iface event
+	   handlers to do the conntrack drop job.
+	   This will work but only if ipt_MASQUERADE
+	   is compiled into kernel, or loaded as a
+	   separate module.
+	*/
+	WRITE_LOCK(&masq_lock);
+	ct->nat.masq_index = out->ifindex;
+	WRITE_UNLOCK(&masq_lock);
+#endif
 
 	return ip_nat_setup_info(ct, targinfo, hooknum);
 }

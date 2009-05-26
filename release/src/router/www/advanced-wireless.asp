@@ -22,7 +22,10 @@
 
 <script type='text/javascript'>
 
-//	<% nvram("security_mode,wl_afterburner,wl_antdiv,wl_ap_isolate,wl_auth,wl_bcn,wl_dtim,wl_frag,wl_frameburst,wl_gmode_protection,wl_plcphdr,wl_rate,wl_rateset,wl_rts,wl_txant,wl_wme,wl_wme_no_ack,wl_txpwr,wl_mrate,t_features,wl_distance,wl_maxassoc,wlx_hpamp,wlx_hperx"); %>
+/* REMOVE-BEGIN
+	!!TB - Added wl_reg_mode, wl_country, wl_country_code
+REMOVE-END */
+//	<% nvram("security_mode,wl_afterburner,wl_antdiv,wl_ap_isolate,wl_auth,wl_bcn,wl_dtim,wl_frag,wl_frameburst,wl_gmode_protection,wl_plcphdr,wl_rate,wl_rateset,wl_rts,wl_txant,wl_wme,wl_wme_no_ack,wl_txpwr,wl_mrate,t_features,wl_distance,wl_maxassoc,wlx_hpamp,wlx_hperx,wl_reg_mode,wl_country_code,wl_country"); %>
 
 hp = features('hpamp');
 
@@ -64,6 +67,8 @@ function save()
 		fom.wlx_hperx.disabled = 1;
 	}
 
+	fom.wl_country.value = fom._wl_country_code.value;
+
 	form.submit(fom, 1);
 }
 </script>
@@ -88,6 +93,7 @@ function save()
 <input type='hidden' name='_reboot' value='0'>
 
 <input type='hidden' name='wl_distance'>
+<input type='hidden' name='wl_country'>
 
 <div class='section-title'>Settings</div>
 <div class='section'>
@@ -107,6 +113,15 @@ createFieldTable('', [
 		suffix: ' <small>(range: 1 - 65535; default: 100)</small>', value: nvram.wl_bcn },
 	{ title: 'CTS Protection Mode', name: 'wl_gmode_protection', type: 'select', options: [['off','Disable *'],['auto','Auto']],
 		value: nvram.wl_gmode_protection },
+/* REMOVE-BEGIN
+	!!TB - Added wl_reg_mode, wl_country
+REMOVE-END */
+	{ title: 'Regulatory Mode', name: 'wl_reg_mode', type: 'select',
+		options: [['off', 'Off *'],['d', '802.11d'],['h', '802.11h']],
+		value: nvram.wl_reg_mode },
+	{ title: 'Country / Region', name: 'wl_country_code', type: 'select',
+		options: [['CN','China'],['DE','Europe'],['IL','Israel'],['JP','Japan'],['JO','Jordan'],['SG','Singapore'],['TW','Taiwan'],['TH','Thailand'],['US','U.S. / Americas, FCC'],['AU','Worldwide']],
+		value: nvram.wl_country_code },
 	{ title: 'Distance / ACK Timing', name: 'f_distance', type: 'text', maxlen: 5, size: 7,
 		suffix: ' <small>meters</small>&nbsp;&nbsp;<small>(range: 0 - 99999; 0 = use default)</small>',
 			value: (nvram.wl_distance == '') ? '0' : nvram.wl_distance },
@@ -137,7 +152,7 @@ createFieldTable('', [
 	{ title: 'Transmit Power', name: 'wl_txpwr', type: 'text', maxlen: 3, size: 5,
 		suffix: hp ?
 			' <small>mW (before amplification)</small>&nbsp;&nbsp;<small>(range: 1 - 251; default: 10)</small>' :
-			' <small>mW</small>&nbsp;&nbsp;<small>(range: 1 - 251; default: 42)</small>',
+			' <small>mW</small>&nbsp;&nbsp;<small>(range: 1 - 251, actual max depends on Country selected; default: 42)</small>',
 			value: nvram.wl_txpwr },
 	{ title: 'Transmission Rate', name: 'wl_rate', type: 'select',
 		options: [['0','Auto *'],['1000000','1 Mbps'],['2000000','2 Mbps'],['5500000','5.5 Mbps'],['6000000','6 Mbps'],['9000000','9 Mbps'],['11000000','11 Mbps'],['12000000','12 Mbps'],['18000000','18 Mbps'],['24000000','24 Mbps'],['36000000','36 Mbps'],['48000000','48 Mbps'],['54000000','54 Mbps']],

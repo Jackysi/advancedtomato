@@ -180,6 +180,13 @@ extern struct tm *_time_t2tm(const time_t *__restrict timer,
 
 extern time_t _time_mktime(struct tm *timeptr, int store_on_success);
 
+extern struct tm *__time_localtime_tzi(const time_t *__restrict timer,
+									   struct tm *__restrict result,
+									   rule_struct *tzi);
+
+extern time_t _time_mktime_tzi(struct tm *timeptr, int store_on_success,
+                                                           rule_struct *tzi);
+                                                           
 /**********************************************************************/
 #ifdef L_asctime
 
@@ -598,6 +605,162 @@ struct tm *localtime_r(register const time_t *__restrict timer,
 	} while ((result->tm_isdst = tm_isdst(result)) != 0);
 
 	TZUNLOCK;
+
+	return result;
+}
+
+#endif
+/**********************************************************************/
+#ifdef L__time_localtime_tzi
+
+#ifdef __UCLIBC_HAS_TM_EXTENSIONS__
+
+struct ll_tzname_item;
+
+typedef struct ll_tzname_item {
+	struct ll_tzname_item *next;
+	char tzname[TZNAME_MAX+1];
+} ll_tzname_item_t;
+
+static ll_tzname_item_t ll_tzname[] = {
+	{ ll_tzname + 1, "UTC" },	/* Always 1st. */
+	{ NULL, "???" }		  /* Always 2nd. (invalid or out-of-memory) */
+};
+
+static const char *lookup_tzname(const char *key)
+{
+	ll_tzname_item_t *p;
+
+	for (p=ll_tzname ; p ; p=p->next) {
+		if (!strcmp(p->tzname, key)) {
+			return p->tzname;
+		}
+	}
+
+	/* Hmm... a new name. */
+	if (strnlen(key, TZNAME_MAX+1) < TZNAME_MAX+1) { /* Verify legal length */
+		if ((p = malloc(sizeof(ll_tzname_item_t))) != NULL) {
+			/* Insert as 3rd item in the list. */
+			p->next = ll_tzname[1].next;
+			ll_tzname[1].next = p;
+			strcpy(p->tzname, key);
+			return p->tzname;
+		}
+	}
+
+	/* Either invalid or couldn't alloc. */
+	return ll_tzname[1].tzname;
+}
+
+#endif /* __UCLIBC_HAS_TM_EXTENSIONS__ */
+
+static const unsigned char day_cor[] = { /* non-leap */
+	31, 31, 34, 34, 35, 35, 36, 36, 36, 37, 37, 38, 38
+/* 	 0,  0,  3,  3,  4,  4,  5,  5,  5,  6,  6,  7,  7 */
+/*	    31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 */
+};
+
+/* Note: timezone locking is done by localtime_r. */
+
+static int tm_isdst(register const struct tm *__restrict ptm,
+					register rule_struct *r)
+{
+	long sec;
+	int i, isdst, isleap, day, day0, monlen, mday;
+	int oday;					/* Note: oday can be uninitialized. */
+
+	isdst = 0;
+	if (r[1].tzname[0] != 0) {
+		/* First, get the current seconds offset from the start of the year.
+		 * Fields of ptm are assumed to be in their normal ranges. */
+		sec = ptm->tm_sec
+			+ 60 * (ptm->tm_min
+					+ 60 * (long)(ptm->tm_hour
+								  + 24 * ptm->tm_yday));
+		/* Do some prep work. */
+		i = (ptm->tm_year % 400) + 1900; /* Make sure we don't overflow. */
+		isleap = __isleap(i);
+		--i;
+		day0 = (1
+				+ i				/* Normal years increment 1 wday. */
+				+ (i/4)
+				- (i/100)
+				+ (i/400) ) % 7;
+		i = 0;
+		do {
+			day = r->day;		/* Common for 'J' and # case. */
+			if (r->rule_type == 'J') {
+				if (!isleap || (day < (31+29))) {
+					--day;
+				}
+			} else if (r->rule_type == 'M') {
+				/* Find 0-based day number for 1st of the month. */
+				day = 31*r->month - day_cor[r->month -1];
+				if (isleap && (day >= 59)) {
+					++day;
+				}
+				monlen = 31 + day_cor[r->month -1] - day_cor[r->month];
+				if (isleap && (r->month > 1)) {
+					++monlen;
+				}
+				/* Wweekday (0 is Sunday) of 1st of the month
+				 * is (day0 + day) % 7. */
+				if ((mday = r->day - ((day0 + day) % 7)) >= 0) {
+					mday -= 7;	/* Back up into prev month since r->week>0. */
+				}
+				if ((mday += 7 * r->week) >= monlen) {
+					mday -= 7;
+				}
+				/* So, 0-based day number is... */
+				day += mday;
+			}
+
+			if (i != 0) {
+				/* Adjust sec since dst->std change time is in dst. */
+				sec += (r[-1].gmt_offset - r->gmt_offset);
+				if (oday > day) {
+					++isdst;	/* Year starts in dst. */
+				}
+			}
+			oday = day;
+
+			/* Now convert day to seconds and add offset and compare. */
+			if (sec >= (day * 86400L) + r->dst_offset) {
+				++isdst;
+			}
+			++r;
+		} while (++i < 2);
+	}
+
+	return (isdst & 1);
+}
+
+struct tm *__time_localtime_tzi(register const time_t *__restrict timer,
+								register struct tm *__restrict result,
+								rule_struct *tzi)
+{
+	time_t x[1];
+	long offset;
+	int days, dst;
+
+	dst = 0;
+	do {
+		days = -7;
+		offset = 604800L - tzi[dst].gmt_offset;
+		if (*timer > (LONG_MAX - 604800L)) {
+			days = -days;
+			offset = -offset;
+		}
+		*x = *timer + offset;
+
+		_time_t2tm(x, days, result);
+		result->tm_isdst = dst;
+#ifdef __UCLIBC_HAS_TM_EXTENSIONS__
+		result->tm_gmtoff = - tzi[dst].gmt_offset;
+		result->tm_zone = lookup_tzname(tzi[dst].tzname);
+#endif /* __UCLIBC_HAS_TM_EXTENSIONS__ */
+	} while ((++dst < 2)
+			 && ((result->tm_isdst = tm_isdst(result, tzi)) != 0));
 
 	return result;
 }
@@ -1953,6 +2116,22 @@ static const unsigned char vals[] = {
 
 time_t _time_mktime(struct tm *timeptr, int store_on_success)
 {
+	time_t t;
+
+	TZLOCK;
+
+	tzset();
+
+	t = _time_mktime_tzi(timeptr, store_on_success, _time_tzinfo);
+
+	TZUNLOCK;
+
+	return t;
+}
+
+time_t _time_mktime_tzi(struct tm *timeptr, int store_on_success,
+						rule_struct *tzi)
+{
 #ifdef __BCC__
 	long days, secs;
 #else
@@ -1963,11 +2142,19 @@ time_t _time_mktime(struct tm *timeptr, int store_on_success)
 	/* 0:sec  1:min  2:hour  3:mday  4:mon  5:year  6:wday  7:yday  8:isdst */
 	register int *p = (int *) &x;
 	register const unsigned char *s;
-	int d;
-
-	tzset();
+	int d, default_dst;
 
 	memcpy(p, timeptr, sizeof(struct tm));
+
+	if (!tzi[1].tzname[0]) { /* No dst in this timezone, */
+		p[8] = 0;				/* so set tm_isdst to 0. */
+	}
+
+	default_dst = 0;
+	if (p[8]) {					/* Either dst or unknown? */
+		default_dst = 1;		/* Assume advancing (even if unknown). */
+		p[8] = ((p[8] > 0) ? 1 : -1); /* Normalize so abs() <= 1. */
+	}
 
 	d = 400;
 	p[5] = (p[5] - ((p[6] = p[5]/d) * d)) + (p[7] = p[4]/12);
@@ -1997,45 +2184,61 @@ time_t _time_mktime(struct tm *timeptr, int store_on_success)
 	d = p[5] - 1;
 	days = -719163L + ((long)d)*365 + ((d/4) - (d/100) + (d/400) + p[3] + p[7]);
 	secs = p[0] + 60*( p[1] + 60*((long)(p[2])) )
-		+ _time_tzinfo[timeptr->tm_isdst > 0].gmt_offset;
+		+ tzi[default_dst].gmt_offset;
+ DST_CORRECT:
 	if (secs < 0) {
 		secs += 120009600L;
 		days -= 1389;
 	}
 	if ( ((unsigned long)(days + secs/86400L)) > 49710L) {
-		return -1;
+		t = ((time_t)(-1));
+		goto DONE;
 	}
 	secs += (days * 86400L);
 #else
-	TZLOCK;
 	d = p[5] - 1;
 	d = -719163L + d*365 + (d/4) - (d/100) + (d/400);
 	secs = p[0]
-		+ _time_tzinfo[timeptr->tm_isdst > 0].gmt_offset
+		+ tzi[default_dst].gmt_offset
 		+ 60*( p[1]
 			   + 60*(p[2]
 					 + 24*(((146073L * ((long long)(p[6])) + d)
 							+ p[3]) + p[7])));
-	TZUNLOCK;
+
+ DST_CORRECT:
 	if (((unsigned long long)(secs - LONG_MIN))
 		> (((unsigned long long)LONG_MAX) - LONG_MIN)
 		) {
-		return -1;
+		t = ((time_t)(-1));
+		goto DONE;
 	}
 #endif
 
+	d = ((struct tm *)p)->tm_isdst;
 	t = secs;
 
-	localtime_r(&t, (struct tm *)p);
+	__time_localtime_tzi(&t, (struct tm *)p, tzi);
 
-	if (t < 0) {
-	    return -1;
+	if (t == ((time_t)(-1))) {	/* Remember, time_t can be unsigned. */
+	    goto DONE;
 	}
+
+	if ((d < 0) && (((struct tm *)p)->tm_isdst != default_dst)) {
+#ifdef __BCC__
+		secs -= (days * 86400L);
+#endif
+		secs += (tzi[1-default_dst].gmt_offset
+				 - tzi[default_dst].gmt_offset);
+		goto DST_CORRECT;
+	}
+
 
 	if (store_on_success) {
 		memcpy(timeptr, p, sizeof(struct tm));
 	}
 
+
+ DONE:
 	return t;
 }
 

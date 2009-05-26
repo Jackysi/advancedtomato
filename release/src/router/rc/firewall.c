@@ -294,6 +294,16 @@ static void mangle_table(void)
 // NAT
 // -----------------------------------------------------------------------------
 
+in_addr_t _inet_addr(const char *cp)
+{
+	struct in_addr a;
+
+	if (!inet_aton(cp, &a))
+		return INADDR_ANY;
+	else
+		return a.s_addr;
+}
+
 static void nat_table(void)
 {
 	char lanaddr[32];
@@ -393,17 +403,44 @@ static void nat_table(void)
 
 		////
 
-		ipt_write("-A POSTROUTING -o %s -j MASQUERADE\n", wanface);
+		/* Using SNAT instead of MASQUERADE can speed up routing since
+		 * SNAT does not seek the external IP every time a chain is traversed.
+		 * Recommended to use with kernel patch to drop SNAT'ed connections
+		 * on wanface down or wanip change.
+		 */
+		if (wanup && nvram_match("ne_snat", "1")) {
+			if (_inet_addr(wanaddr))
+				ipt_write("-A POSTROUTING -o %s ! -s %s -j SNAT --to-source %s\n",
+					wanface, 
+					wanaddr, wanaddr);
+		
+			/* SNAT physical WAN port connection */
+			char *wanip = nvram_safe_get("wan_ipaddr");
+			if (nvram_invmatch("wan_ifname", wanface) && _inet_addr(wanip))
+				ipt_write("-A POSTROUTING -o %s ! -s %s -j SNAT --to-source %s\n",
+					nvram_safe_get("wan_ifname"),
+					wanip, wanip);
+		}
+		else {
+			ipt_write("-A POSTROUTING -o %s -j MASQUERADE\n", wanface);
+		}
 
 		switch (nvram_get_int("nf_loopback")) {
 		case 1:		// 1 = forwarded-only
 		case 2:		// 2 = disable
 			break;
 		default:	// 0 = all (same as block_loopback=0)
-			ipt_write("-A POSTROUTING -o %s -s %s/%s -d %s/%s -j MASQUERADE\n",
-				lanface,
-				lanaddr, lanmask,
-				lanaddr, lanmask);
+			if (nvram_match("ne_snat", "1"))
+				ipt_write("-A POSTROUTING -o %s -s %s/%s -d %s/%s -j SNAT --to-source %s\n",
+					lanface,
+					lanaddr, lanmask,
+					lanaddr, lanmask,
+					lanaddr);
+			else
+				ipt_write("-A POSTROUTING -o %s -s %s/%s -d %s/%s -j MASQUERADE\n",
+					lanface,
+					lanaddr, lanmask,
+					lanaddr, lanmask);
 			break;
 		}
 	}

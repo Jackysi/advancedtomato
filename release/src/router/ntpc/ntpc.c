@@ -42,6 +42,125 @@ static void add_word(char *buffer, const char *word, int max)
 	strlcat(buffer, word, max);
 }
 
+
+/*
+ *	convert 2^32 fractional seconds into 0-999999 microseconds
+ *
+ *	       fractional_second
+ *	usec = -----------------
+ *                4294.967296
+ *
+ *
+ *      4294.967296 = 2 ^ 32 / 1000000
+ *
+ *      this relatively simple algorithm gives the correct answer 
+ *      to within 6 microseconds
+ *
+ *      M. Ring - 2009/03/28
+ */
+
+static  uint32_t usec_convert(uint32_t frac_in)
+{
+	uint32_t val, t;
+
+	t    = frac_in >> 13;
+	val  = t;
+	val += t >> 1;
+	val += t >> 2;
+	val += t >> 3;
+	val += t >> 5;
+	val += t >> 10;
+	val += t >> 13;
+
+	return(val);
+}
+
+
+/*
+ *	compute time difference between 2 time values, where the inputs
+ *	are in 'seconds' and 'microseconds'. 
+ *
+ *	fill *tdiff2 with the difference, in seconds, as a double
+ *
+ *      M. Ring - 2009/03/28
+ */
+
+static void compute_time_diff(int32 newsec2, int32 oldsec2, 
+			      int32 newusec2, int32 oldusec2, 
+			      double *tdiff2)
+{
+	double	tnew, told;
+	int32	c, newsec, oldsec;
+
+	c = newsec2;
+	if (newsec2 >= oldsec2)
+  	  {
+	   c = oldsec2;
+	  }
+
+	newsec = newsec2 - c;
+	oldsec = oldsec2 - c;
+
+	tnew   = (double)newsec + (1.0E-6 * (double)newusec2);
+	told   = (double)oldsec + (1.0E-6 * (double)oldusec2);
+
+	*tdiff2 = tnew - told;
+	}
+
+
+/*
+ *	adjust the current clock by a fixed offset,
+ *	which may be postive or negative (or 0)
+ *
+ *	Usage:
+ *
+ *	/bin/ntpstep seconds microseconds
+ *
+ *	seconds can be positive or negative (or 0)
+ *	microseconds MUST BE POSITIVE (or 0)
+ *
+ *	Examples
+ *
+ *	/bin/ntpstep 2 348000    -> adjust clock by 2.348 seconds
+ *
+ *	/bin/ntpstep -5 287435   -> adjust clock by -4.712565 seconds
+ *
+ *      M. Ring - 2009/03/28
+ */
+
+static int ntpstep_main(int argc, char **argv)
+{
+	int32    sec;
+	uint32_t usec;
+	struct timeval tv;
+	// int fd;
+	// char s[64], q[128];
+	
+	if (argc != 3)
+	  return 1;
+
+	sec  = atol(argv[1]);
+	usec = atol(argv[2]);
+
+	if (sec == 0 && usec == 0)   /* 0.0 seconds, return now */
+	  return 2;
+
+	gettimeofday(&tv, NULL);
+
+	tv.tv_sec  += sec;
+	tv.tv_usec += usec;
+
+	if (tv.tv_usec >= 1000000)
+	{
+	    tv.tv_usec -= 1000000;
+	    tv.tv_sec  += 1;
+	}
+
+	settimeofday(&tv, NULL);
+
+	return 0;
+}
+
 // 0 = ok, 1 = failed, 2 = permanent failure
 static int ntpc(struct in_addr addr)
 {
@@ -49,8 +168,8 @@ static int ntpc(struct in_addr addr)
 	struct timeval txtime;
 	struct timeval rxtime;
 	struct timeval tv;
-	uint32_t u;
-	uint32_t txn;
+	struct timeval tvorg;
+	uint32_t u, u2;
 	int fd;
 	fd_set fds;
 	int len;
@@ -59,6 +178,8 @@ static int ntpc(struct in_addr addr)
 	time_t t;
 	time_t ntpt;
 	time_t diff;
+	int32  newsec, oldsec, newusec, oldusec;
+	double tdiff;
 
 	memset(&sa, 0, sizeof(sa));
 	sa.sin_addr = addr;
@@ -74,11 +195,11 @@ static int ntpc(struct in_addr addr)
 		printf("Unable to connect\n");
 	}
 	else {
-		memset(&packet, 0, sizeof(packet));
+		memset(packet, 0, sizeof(packet));
 		packet[I_MISC] = htonl((4 << 27) | (3 << 24));	// VN=v4 | mode=3 (client)
 //		packet[I_MISC] = htonl((3 << 27) | (3 << 24));	// VN=v3 | mode=3 (client)
 		gettimeofday(&txtime, NULL);
-		packet[I_TXTIME] = txn = htonl(txtime.tv_sec + TIMEFIX);
+		packet[I_TXTIME] = htonl(txtime.tv_sec + TIMEFIX);
 		send(fd, packet, sizeof(packet), 0);
 
 		FD_ZERO(&fds);
@@ -135,8 +256,36 @@ static int ntpc(struct in_addr addr)
 //					if (!nvram_match("ntp_relaxed", "0")) {
 //						if ((diff >= -1) && (diff <= 1)) diff = 0;
 //					}
+					
+					if (diff != 0) {        // M. Ring - 2009/03/28
+						gettimeofday(&tvorg, NULL);
 
-					if (diff != 0) {
+						// may want to adjust for round trip delay
+						// future enhancement
+
+						tv.tv_sec  = ntpt;
+						u2         = ntohl(packet[I_TXTIME+1]);
+						tv.tv_usec = usec_convert(u2);
+
+						settimeofday(&tv, NULL);
+
+						newsec  = tv.tv_sec;
+						newusec = tv.tv_usec;
+
+						oldsec  = tvorg.tv_sec;
+						oldusec = tvorg.tv_usec;
+
+						compute_time_diff(newsec, oldsec, newusec, oldusec, &tdiff);
+
+						strftime(s, sizeof(s), "%a, %d %b %Y %H:%M:%S %z", localtime(&tv.tv_sec));
+						sprintf(q, "Time Updated: %s [%+.3fs]", s, tdiff);
+						printf("\n\n%s\n", q);
+						syslog(LOG_INFO, q);
+
+						/*
+						 
+						ORIGINAL CODE BELOW
+						 
 						gettimeofday(&tv, NULL);
 						tv.tv_sec  += diff;
 //						tv.tv_usec = 0;// sorry, I'm not a time geek :P
@@ -148,11 +297,15 @@ static int ntpc(struct in_addr addr)
 						sprintf(q, "Time Updated: %s [%s%lds]", s, diff > 0 ? "+" : "", diff);
 						printf("\n\n%s\n", q);
 						syslog(LOG_INFO, q);
+						*/
 					}
 					else {
 						t = time(0);
 						strftime(s, sizeof(s), "%a, %d %b %Y %H:%M:%S %z", localtime(&t));
+						sprintf(q, "Time Updated: no change needed");
+
 						printf("\n\n%s\nNo change was needed.\n", s);
+						syslog(LOG_INFO, q);
 					}
 					return 0;
 				}
@@ -339,6 +492,8 @@ int main(int argc, char **argv)
 	}
 
 	if (strstr(argv[0], "ntpsync") != 0) return ntpsync_main(argc, argv);
+	if (strstr(argv[0], "ntpstep") != 0) return ntpstep_main(argc, argv);
+
 	return ntpc_main(argc, argv);
 }
 

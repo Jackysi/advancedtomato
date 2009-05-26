@@ -258,6 +258,7 @@ const aspapi_t aspapi[] = {
 	{ "wlnoise",			asp_wlnoise			},
 	{ "wlradio",			asp_wlradio			},
 	{ "wlscan",				asp_wlscan			},
+	{ "wlchannels",			asp_wlchannels	},	//!!TB
 #if TOMATO_SL
 	{ "sharelist",			asp_sharelist		},
 #endif
@@ -407,7 +408,7 @@ static const nvset_t nvset_list[] = {
 	{ "wl_net_mode",		V_LENGTH(5, 8)		},  // disabled, mixed, b-only, g-only, bg-mixed, n-only [speedbooster]
 	{ "wl_ssid",			V_LENGTH(1, 32)		},
 	{ "wl_closed",			V_01				},
-	{ "wl_channel",			V_RANGE(1, 14)		},
+	{ "wl_channel",			V_RANGE(0, 14)		},	//!!TB - 0=Auto
 #if TOMATO_N
 	// ! update
 #endif
@@ -474,6 +475,7 @@ static const nvset_t nvset_list[] = {
 	{ "block_loopback",		V_01				},
 	{ "nf_loopback",		V_NUM				},
 	{ "ne_syncookies",		V_01				},
+	{ "ne_snat",			V_01				},
 
 // advanced-misc
 	{ "wait_time",			V_RANGE(3, 20)		},
@@ -494,6 +496,8 @@ static const nvset_t nvset_list[] = {
 	{ "dr_wan_rx",			V_LENGTH(0, 32)		},
 
 // advanced-wireless
+	{ "wl_country",			V_LENGTH(0, 64)		},	// !!TB - Country code
+	{ "wl_country_code",		V_LENGTH(0, 4)		},	// !!TB - Country code
 	{ "wl_afterburner",		V_LENGTH(2, 4)		},	// off, on, auto
 	{ "wl_auth",			V_01				},
 	{ "wl_rateset",			V_LENGTH(2, 7)		},	// all, default, 12
@@ -516,6 +520,7 @@ static const nvset_t nvset_list[] = {
 	{ "wl_distance",		V_LENGTH(0, 5)		},	// "", 1-99999
 	{ "wlx_hpamp",			V_01				},
 	{ "wlx_hperx",			V_01				},
+	{ "wl_reg_mode",		V_LENGTH(1, 3)			},	// !!TB - Regulatory: off, h, d
 
 #if TOMATO_N
 	{ "wl_nmode_protection",V_WORD,				},	// off, auto
@@ -692,6 +697,7 @@ static const nvset_t nvset_list[] = {
 	{ "qos_rst",			V_01				},
 	{ "qos_icmp",			V_01				},
 	{ "qos_reset",			V_01				},
+	{ "qos_pfifo",			V_01				}, // !!TB
 	{ "qos_obw",			V_RANGE(10, 999999)	},
 	{ "qos_ibw",			V_RANGE(10, 999999)	},
 	{ "qos_orules",			V_LENGTH(0, 4096)	},

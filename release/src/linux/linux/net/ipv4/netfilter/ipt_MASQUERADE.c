@@ -15,7 +15,7 @@
 #define DEBUGP(format, args...)
 
 /* Lock protects masq region inside conntrack */
-static DECLARE_RWLOCK(masq_lock);
+DECLARE_RWLOCK(masq_lock);
 
 static int
 masquerade_check(const char *tablename,
@@ -198,3 +198,5 @@ static void __exit fini(void)
 module_init(init);
 module_exit(fini);
 MODULE_LICENSE("GPL");
+
+EXPORT_SYMBOL(masq_lock);
