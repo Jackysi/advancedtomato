@@ -284,7 +284,7 @@ static int export_main(int argc, char **argv)
 	int mode;
 
 	// C, set, quote
-	static const char *start[4] = { "\"", "nvram set \"", "{ \"", "" };
+	static const char *start[4] = { "\"", "nvram set ", "{ \"", "" };
 	static const char *stop[4] = { "\"", "\"", "\" },", "" };
 
 
@@ -315,21 +315,31 @@ static int export_main(int argc, char **argv)
 		do {
 			switch (*p) {
 			case 9:
-				printf("\\t");
+				if (mode == X_SET) putchar(*p);
+				else printf("\\t");
 				break;
 			case 13:
-				printf("\\r");
+				if (mode == X_SET) putchar(*p);
+				else printf("\\r");
 				break;
 			case 10:
-				printf("\\n");
+				if (mode == X_SET) putchar(*p);
+				else printf("\\n");
 				break;
 			case '"':
 			case '\\':
 				printf("\\%c", *p);
 				break;
+			case '$':
+			case '`':
+				if (mode != X_SET) putchar(*p);
+				else printf("\\$");
+				break;
 			case '=':
-				if ((eq == 0) && (mode > X_SET)) {
-					printf((mode == X_C) ? "\", \"" : "\t");
+				if ((eq == 0) && (mode > X_QUOTE)) {
+					printf((mode == X_C) ? "\", \"" :
+						((mode == X_SET) ? "=\"" : "\t"));
+					eq = 1;
 					break;
 				}
 				eq = 1;
