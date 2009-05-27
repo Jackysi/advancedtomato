@@ -324,13 +324,17 @@ const defaults_t defaults[] = {
 	{ "dmz_sip",			""				},
 
 // forward-upnp
-	{ "upnp_enable",		"1"				},
+	{ "upnp_enable",		"0"				},
 	{ "upnp_secure",		"1"				},
-	{ "upnp_port",			"5000"			},
-#if 0	// disabled for miniupnpd
-	{ "upnp_ssdp_interval",	"60"			},	// SSDP interval
-	{ "upnp_max_age",		"180"			},	// Max age
+	{ "upnp_port",			"0"				},
+	{ "upnp_ssdp_interval",		"60"				},	// SSDP interval
 	{ "upnp_mnp",			"0"				},
+
+	{ "upnp_clean",			"1"				},	/* 0:Disable 1:Enable */
+	{ "upnp_clean_interval",	"600"				},	/* Cleaning interval in seconds */
+	{ "upnp_clean_threshold",	"20"				},	/* Threshold for cleaning unused rules */
+#if 0	// disabled for miniupnpd
+	{ "upnp_max_age",		"180"			},	// Max age
 	{ "upnp_config",		"0"				},
 #endif
 

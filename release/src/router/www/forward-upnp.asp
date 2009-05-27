@@ -37,7 +37,11 @@
 
 <script type='text/javascript'>
 
-//	<% nvram("upnp_enable"); %>
+/* REMOVE-BEGIN
+	!!TB - additional miniupnp settings
+REMOVE-END */
+//	<% nvram("upnp_enable,upnp_mnp,upnp_clean,upnp_secure,upnp_clean_interval,upnp_clean_threshold"); %>
+
 // <% upnpinfo(); %>
 
 /* REMOVE-BEGIN
@@ -108,21 +112,65 @@ function deleteAll()
 
 function verifyFields(focused, quiet)
 {
+/* REMOVE-BEGIN
+	!!TB - additional miniupnp settings
+REMOVE-END */
+	var enable = E('_f_enable_upnp').checked || E('_f_enable_natpmp').checked;
+	var bc = E('_f_upnp_clean').checked;
+
+	E('_f_upnp_clean').disabled = (enable == 0);
+	E('_f_upnp_secure').disabled = (enable == 0);
+	E('_f_upnp_mnp').disabled = (E('_f_enable_upnp').checked == 0);
+	E('_upnp_clean_interval').disabled = (enable == 0) || (bc == 0);
+	E('_upnp_clean_threshold').disabled = (enable == 0) || (bc == 0);
+	elem.display(PR(E('_upnp_clean_interval')), (enable != 0) && (bc != 0));
+	elem.display(PR(E('_upnp_clean_threshold')), (enable != 0) && (bc != 0));
+
+	if ((enable != 0) && (bc != 0)) {
+		if (!v_range('_upnp_clean_interval', quiet, 60, 65535)) return 0;
+		if (!v_range('_upnp_clean_threshold', quiet, 0, 9999)) return 0;
+	}
+	else {
+		ferror.clear(E('_upnp_clean_interval'));
+		ferror.clear(E('_upnp_clean_threshold'));
+	}
+
 	return 1;
 }
 
 function save()
 {
+/* REMOVE-BEGIN
+	!!TB - miniupnp
+REMOVE-END */
+	if (!verifyFields(null, 0)) return;
+
 	var fom = E('_fom');
 	fom.upnp_enable.value = 0;
 	if (fom.f_enable_upnp.checked) fom.upnp_enable.value = 1;
 	if (fom.f_enable_natpmp.checked) fom.upnp_enable.value |= 2;
+
+/* REMOVE-BEGIN
+	!!TB - additional miniupnp settings
+REMOVE-END */
+	fom.upnp_mnp.value = E('_f_upnp_mnp').checked ? 1 : 0;
+	fom.upnp_clean.value = E('_f_upnp_clean').checked ? 1 : 0;
+	fom.upnp_secure.value = E('_f_upnp_secure').checked ? 1 : 0;
+
 	form.submit(fom, 0);
 }
 
 function init()
 {
 	ug.recolor();
+}
+
+/* REMOVE-BEGIN
+	!!TB - miniupnp
+REMOVE-END */
+function submit_complete()
+{
+	reloadPage();
 }
 </script>
 
@@ -144,6 +192,12 @@ function init()
 <input type='hidden' name='_service' value='upnp-restart'>
 
 <input type='hidden' name='upnp_enable'>
+/* REMOVE-BEGIN
+	!!TB - additional miniupnp settings
+REMOVE-END */
+<input type='hidden' name='upnp_mnp'>
+<input type='hidden' name='upnp_clean'>
+<input type='hidden' name='upnp_secure'>
 
 <div class='section-title'>Forwarded Ports</div>
 <div class='section'>
@@ -156,7 +210,20 @@ function init()
 <script type='text/javascript'>
 createFieldTable('', [
 	{ title: 'Enable UPnP', name: 'f_enable_upnp', type: 'checkbox', value: ((nvram.upnp_enable * 1) & 1) },
-	{ title: 'Enable NAT-PMP', name: 'f_enable_natpmp', type: 'checkbox', value: ((nvram.upnp_enable * 1) & 2) }
+	{ title: 'Enable NAT-PMP', name: 'f_enable_natpmp', type: 'checkbox', value: ((nvram.upnp_enable * 1) & 2) },
+/* REMOVE-BEGIN
+	!!TB - additional miniupnp settings
+REMOVE-END */
+	{ title: 'Inactive Rules Cleaning', name: 'f_upnp_clean', type: 'checkbox', value: (nvram.upnp_clean == '1') },
+	{ title: 'Cleaning Interval', indent: 2, name: 'upnp_clean_interval', type: 'text', maxlen: 5, size: 7,
+		suffix: ' <small>seconds</small>', value: nvram.upnp_clean_interval },
+	{ title: 'Cleaning Threshold', indent: 2, name: 'upnp_clean_threshold', type: 'text', maxlen: 4, size: 7,
+		suffix: ' <small>redirections</small>', value: nvram.upnp_clean_threshold },
+	{ title: 'Secure Mode', name: 'f_upnp_secure', type: 'checkbox',
+		suffix: ' <small>(when enabled, UPnP clients are allowed to add mappings only to their IP)</small>',
+		value: (nvram.upnp_secure == '1') },
+	null,
+	{ title: 'Show In My Network Places',  name: 'f_upnp_mnp',  type: 'checkbox',  value: (nvram.upnp_mnp == '1') }
 ]);
 </script>
 </div>
@@ -172,6 +239,9 @@ createFieldTable('', [
 </td></tr>
 </table>
 </form>
-<script type='text/javascript'>ug.setup();</script>
+/* REMOVE-BEGIN
+	!!TB - added verifyFields
+REMOVE-END */
+<script type='text/javascript'>ug.setup();verifyFields(null, 1);</script>
 </body>
 </html>
