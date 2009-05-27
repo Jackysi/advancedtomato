@@ -586,9 +586,9 @@ static int init_nvram(void)
 			nvram_set("sdram_init", "0x0009");	// 32MB; defaults: 0x000b, 0x0009
 			nvram_set("vlan1ports", "0 5");		// default: 0 5u
 			nvram_set("lan_ifnames", "vlan0 eth1 eth2 eth3");	// set to "vlan0 eth2" by DD-WRT; default: vlan0 eth1
-		}
-		// !!TB - WLAN LED fix
-		nvram_set("wl0gpio0", "136");
+			// !!TB - WLAN LED fix
+			nvram_set("wl0gpio0", "136");
+		}		
 		break;
 	case MODEL_WL500GE:
 		mfr = "Asus";
@@ -607,6 +607,10 @@ static int init_nvram(void)
 	case MODEL_MN700:
 		mfr = "Microsoft";
 		name = "MN-700";
+		break;
+	case MODEL_WR100:
+		mfr = "Viewsonic";
+		name = "WR100";
 		break;
 #ifndef WL_BSS_INFO_VERSION
 #error WL_BSS_INFO_VERSION
@@ -648,16 +652,12 @@ static int init_nvram(void)
 		if (!nvram_match("t_fix1", (char *)name)) {
 			nvram_set("t_fix1", name);
 			nvram_set("vlan1ports", "0 5");
+			// !!TB - LED fix
+			nvram_set("wl0gpio0", "0");
+			nvram_set("wl0gpio1", "136");
+			nvram_set("wl0gpio2", "0");
+			nvram_set("wl0gpio3", "0");
 		}
-		// !!TB - LED fix
-		nvram_set("wl0gpio0", "0");
-		nvram_set("wl0gpio1", "136");
-		nvram_set("wl0gpio2", "0");
-		nvram_set("wl0gpio3", "0");
-		break;
-	case MODEL_WR100:
-		mfr = "Viewsonic";
-		name = "WR100";
 		break;
 #endif
 #if TOMATO_N
