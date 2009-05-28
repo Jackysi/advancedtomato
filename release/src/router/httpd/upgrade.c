@@ -1,7 +1,7 @@
 /*
 
 	Tomato Firmware
-	Copyright (C) 2006-2008 Jonathan Zarate
+	Copyright (C) 2006-2009 Jonathan Zarate
 
 */
 
@@ -43,8 +43,8 @@ void wi_upgrade(char *url, int len, char *boundary)
 	const char *error = "Error reading file";
 	int ok = 0;
 	int n;
-	
-	check_id();
+
+	check_id(url);
 
 	// quickly check if JFFS2 is mounted by checking if /jffs/ is not squashfs
 	struct statfs sf;
@@ -53,7 +53,7 @@ void wi_upgrade(char *url, int len, char *boundary)
 			"JFFS2 partition, please backup the contents, disable JFFS2, then reboot the router";
 		goto ERROR;
 	}
-	
+
 	// skip the rest of the header
 	if (!skip_header(&len)) goto ERROR;
 
@@ -63,11 +63,11 @@ void wi_upgrade(char *url, int len, char *boundary)
 	}
 
 	// -- anything after here ends in a reboot --
-	
+
 	rboot = 1;
 
 	led(LED_DIAG, 1);
-	
+
 	signal(SIGTERM, SIG_IGN);
 	signal(SIGINT, SIG_IGN);
 	signal(SIGHUP, SIG_IGN);
@@ -79,7 +79,7 @@ void wi_upgrade(char *url, int len, char *boundary)
 	char fifo[] = "/tmp/flashXXXXXX";
 	int pid = -1;
 	FILE *f = NULL;
-	
+
 	if ((mktemp(fifo) == NULL) ||
 		(mkfifo(fifo, S_IRWXU) < 0)) {
 		error = "Unable to create a fifo";
@@ -96,7 +96,7 @@ void wi_upgrade(char *url, int len, char *boundary)
 		error = "Unable to start pipe for mtd write";
 		goto ERROR2;
 	}
-	
+
 	// !!! This will actually write the boundary. But since mtd-write
 	// uses trx length... -- zzz
 

@@ -23,6 +23,7 @@
 #include <sys/reboot.h>
 #include <sys/klog.h>
 #include <wlutils.h>
+#include <bcmdevs.h>
 
 #define SHELL "/bin/sh"
 
@@ -203,7 +204,7 @@ static void shutdn(int rb)
 	sigset_t ss;
 
 	_dprintf("shutdn rb=%d\n", rb);
-	
+
 	sigemptyset(&ss);
 	for (i = 0; i < sizeof(fatalsigs) / sizeof(fatalsigs[0]); i++)
 		sigaddset(&ss, fatalsigs[i]);
@@ -268,9 +269,7 @@ void handle_reap(int sig)
 
 static void handle_initsigs(int sig)
 {
-	_dprintf("handle_initsigs sig=%d, state=%d, signaled=%d\n", sig, state, signaled);
-	
-	if (state != IDLE) return;
+//	TRACE_PT("sig=%d state=%d, signaled=%d\n", sig, state, signaled);
 
 	switch (sig) {
 	case SIGHUP:
@@ -311,7 +310,7 @@ static void check_bootnv(void)
 {
 	int dirty;
 	int hardware;
-	
+
 	if (get_model() != MODEL_WRT54G) return;
 	if (strncmp(nvram_safe_get("pmon_ver"), "CFE", 3) != 0) return;
 
@@ -401,11 +400,11 @@ static int init_nvram(void)
 	char s[256];
 	unsigned long bf;
 	unsigned long n;
-
+	
 	model = get_model();
 	sprintf(s, "%d", model);
 	nvram_set("t_model", s);
-	
+
 	mfr = "Broadcom";
 	name = NULL;
 	features = 0;
@@ -431,14 +430,35 @@ static int init_nvram(void)
 		case HW_BCM5352E:
 			nvram_set("opo", "0x0008");
 			nvram_set("ag0", "0x02");
-			// drop		
+			// drop
 		default:
 			nvram_set("gpio2", "ses_led");
 			nvram_set("gpio3", "ses_led2");
-			nvram_set("gpio4", "ses_button");		
+			nvram_set("gpio4", "ses_button");
 			features = SUP_SES | SUP_WHAM_LED;
 			break;
 		}
+		break;
+	case MODEL_WTR54GS:
+		mfr = "Linksys";
+		name = "WTR54GS";
+		if (!nvram_match("t_fix1", (char *)name)) {
+			nvram_set ("vlan0hwname", "et0");
+			nvram_set ("vlan1hwname", "et0");
+			nvram_set("vlan0ports", "0 5*");
+			nvram_set("vlan1ports", "1 5");
+			nvram_set("vlan_enable", "1");
+			nvram_set("lan_ifnames", "vlan0 eth1");
+			nvram_set("gpio2", "ses_button");
+			nvram_set("reset_gpio", "7");
+
+		}
+		nvram_set("pa0itssit", "62");
+		nvram_set("pa0b0", "0x1542");
+		nvram_set("pa0b1", "0xfacb");
+		nvram_set("pa0b2", "0xfec7");
+		nvram_set("pa0maxpwr", "0x4c");
+		features = SUP_SES;
 		break;
 	case MODEL_WRTSL54GS:
 		mfr = "Linksys";
@@ -467,7 +487,7 @@ static int init_nvram(void)
 			features = SUP_SES | SUP_AOSS_LED | SUP_BRAU | SUP_HPAMP;
 			break;
 		}
-		
+
 		bf = strtoul(nvram_safe_get("boardflags"), NULL, 0);
 		switch (bf) {
 		case 0x0758:
@@ -479,7 +499,7 @@ static int init_nvram(void)
 				nvram_set("wlx_hpamp", "1");
 				nvram_set("wlx_hperx", "0");
 			}
-		
+
 			n = bf;
 			if (nvram_match("wlx_hpamp", "0")) {
 				n &= ~0x2000UL;
@@ -527,7 +547,7 @@ static int init_nvram(void)
 		mfr = "Buffalo";
 		name = "WZR-G54";
 		features = SUP_SES | SUP_AOSS_LED;
-		break;		
+		break;
 	case MODEL_WZRRSG54:
 		mfr = "Buffalo";
 		name = "WZR-RS-G54";
@@ -537,6 +557,11 @@ static int init_nvram(void)
 		mfr = "Buffalo";
 		name = "WVR-G54-NF";
 		features = SUP_SES;
+		break;
+	case MODEL_WZRG108:
+		mfr = "Buffalo";
+		name = "WZR-G108";
+		features = SUP_SES | SUP_AOSS_LED;
 		break;
 	case MODEL_RT390W:
 	    mfr = "Fuji";
@@ -560,14 +585,14 @@ static int init_nvram(void)
 			nvram_set("t_fix1", name);
 			nvram_set("sdram_init", "0x0009");	// 32MB; defaults: 0x000b, 0x0009
 			nvram_set("vlan1ports", "0 5");		// default: 0 5u
-			nvram_set("wan_ifname", "vlan1");	// default: eth0
-			nvram_set("wan_ifnames", "vlan1");	// default: eth0
 			nvram_set("lan_ifnames", "vlan0 eth1 eth2 eth3");	// set to "vlan0 eth2" by DD-WRT; default: vlan0 eth1
-		}
+			// !!TB - WLAN LED fix
+			nvram_set("wl0gpio0", "136");
+		}		
 		break;
 	case MODEL_WL500GE:
 		mfr = "Asus";
-		name = "WL-500gE";	
+		name = "WL-500gE";
 		//	features = ?
 		if (!nvram_match("t_fix1", (char *)name)) {
 			nvram_set("t_fix1", name);
@@ -583,6 +608,10 @@ static int init_nvram(void)
 		mfr = "Microsoft";
 		name = "MN-700";
 		break;
+	case MODEL_WR100:
+		mfr = "Viewsonic";
+		name = "WR100";
+		break;
 #ifndef WL_BSS_INFO_VERSION
 #error WL_BSS_INFO_VERSION
 #endif
@@ -591,8 +620,8 @@ static int init_nvram(void)
 	case MODEL_WRH54G:
 		mfr = "Linksys";
 		name = "WRH54G";
-		
-		nvram_set("opo", "12");		
+
+		nvram_set("opo", "12");
 		break;
 */
 	case MODEL_WHRG125:
@@ -602,7 +631,7 @@ static int init_nvram(void)
 
 		nvram_set("opo", "0x0008");
 		nvram_set("ag0", "0x0C");
-		break;	
+		break;
 	case MODEL_WL500GPv2:
 		mfr = "Asus";
 		name = "WL-500gP v2";
@@ -623,6 +652,11 @@ static int init_nvram(void)
 		if (!nvram_match("t_fix1", (char *)name)) {
 			nvram_set("t_fix1", name);
 			nvram_set("vlan1ports", "0 5");
+			// !!TB - LED fix
+			nvram_set("wl0gpio0", "0");
+			nvram_set("wl0gpio1", "136");
+			nvram_set("wl0gpio2", "0");
+			nvram_set("wl0gpio3", "0");
 		}
 		break;
 #endif
@@ -644,7 +678,7 @@ static int init_nvram(void)
 		sprintf(s, "%s %s", mfr, name);
 	}
 	else {
-		snprintf(s, sizeof(s), "%s %d/%s/%s/%s/%s", mfr, check_hw_type(), 
+		snprintf(s, sizeof(s), "%s %d/%s/%s/%s/%s", mfr, check_hw_type(),
 			nvram_safe_get("boardtype"), nvram_safe_get("boardnum"), nvram_safe_get("boardrev"), nvram_safe_get("boardflags"));
 		s[64] = 0;
 	}
@@ -652,6 +686,27 @@ static int init_nvram(void)
 
 	sprintf(s, "0x%lX", features);
 	nvram_set("t_features", s);
+
+
+	/*
+	
+		note: set wan_ifnameX if wan_ifname needs to be overriden
+	
+	*/
+	if (nvram_is_empty("wan_ifnameX")) {
+#if 1
+		nvram_set("wan_ifnameX", ((strtoul(nvram_safe_get("boardflags"), NULL, 0) & BFL_ENETVLAN) ||
+				(check_hw_type() == HW_BCM4712)) ? "vlan1" : "eth1");
+#else
+		p = nvram_safe_get("wan_ifname");
+		if ((*p == 0) || (nvram_match("wl_ifname", p))) {
+			p = ((strtoul(nvram_safe_get("boardflags"), NULL, 0) & BFL_ENETVLAN) ||
+				(check_hw_type() == HW_BCM4712)) ? "vlan1" : "eth1";
+		}
+		nvram_set("wan_ifnameX", p);
+#endif
+	}
+
 
 	nvram_set("wl_hwaddr", "");				// when disabling wireless, we must get null wireless mac 	??
 	nvram_set("wl_country", "JP");
@@ -663,14 +718,14 @@ static int init_nvram(void)
 	nvram_set("jffs2_format", "0");
 	nvram_set("rrules_radio", "-1");
 	nvram_unset("https_crt_gen");
-	if (nvram_match("http_id_gen", "1")) nvram_unset("http_id");
+	if (nvram_get_int("http_id_gen") == 1) nvram_unset("http_id");
 
 	nvram_unset("sch_rboot_last");
 	nvram_unset("sch_rcon_last");
 	nvram_unset("sch_c1_last");
 	nvram_unset("sch_c2_last");
 	nvram_unset("sch_c3_last");
-	
+
 	nvram_set("brau_state", "");
 	if ((features & SUP_BRAU) == 0) nvram_set("script_brau", "");
 	if ((features & SUP_SES) == 0) nvram_set("sesx_script", "");
@@ -679,7 +734,7 @@ static int init_nvram(void)
 		nvram_set("wl_radio", "0");
 		nvram_set("wl_net_mode", "mixed");
 	}
-	
+
 	return 0;
 }
 
@@ -700,7 +755,7 @@ static void sysinit(void)
 	if (console_init()) noconsole = 1;
 
 	stime(&tm);
-	
+
 	static const char *mkd[] = {
 		"/tmp/etc", "/tmp/var", "/tmp/home", "/tmp/mnt",
 		"/var/log", "/var/run", "/var/tmp", "/var/lib", "/var/lib/misc",
@@ -741,7 +796,7 @@ static void sysinit(void)
 		printf("\n\nHit ENTER for console...\n\n");
 		run_shell(1, 0);
 	}
-	
+
 	check_bootnv();
 
 	for (i = 0; i < sizeof(fatalsigs) / sizeof(fatalsigs[0]); i++) {
@@ -765,7 +820,7 @@ static void sysinit(void)
 
 	system("nvram defaults --initcheck");
 	init_nvram();
-	
+
 	klogctl(8, NULL, nvram_get_int("console_loglevel"));
 
 	setup_conntrack();
@@ -791,14 +846,9 @@ static void sysinit(void)
 	eval("buttons");
 
 	start_jffs2();
-	
+
 	set_tz();
 
-	i = nvram_get_int("sesx_led");
-	led(LED_AMBER, (i & 1) != 0);
-	led(LED_WHITE, (i & 2) != 0);
-	led(LED_AOSS, (i & 4) != 0);
-	led(LED_BRIDGE, (i & 8) != 0);
 	led(LED_DIAG, 1);
 }
 
@@ -819,7 +869,7 @@ int init_main(int argc, char *argv[])
 #endif
 
 	for (;;) {
-		_dprintf("init_main: state=%d\n", state);
+//		TRACE_PT("main loop state=%d\n", state);
 
 		switch (state) {
 		case USER1:
@@ -833,7 +883,7 @@ int init_main(int argc, char *argv[])
 			led(LED_DIAG, 1);
 
 			run_nvscript("script_shut", NULL, 10);
-			
+
 			stop_services();
 			stop_wan();
 			stop_lan();
@@ -842,7 +892,7 @@ int init_main(int argc, char *argv[])
 			if ((state == REBOOT) || (state == HALT)) {
 				shutdn(state == REBOOT);
 				exit(0);
-			}			
+			}
 			if (state == STOP) {
 				state = IDLE;
 				break;
@@ -856,29 +906,28 @@ int init_main(int argc, char *argv[])
 			run_nvscript("script_init", NULL, 2);
 
 			start_vlan();
-			start_lan();			
+			start_lan();
 			start_wan(BOOT);
 			start_services();
-			
+
 			syslog(LOG_INFO, "Tomato %s", tomato_version);
 			syslog(LOG_INFO, "%s", nvram_safe_get("t_model_name"));
 
 			led(LED_DIAG, 0);
 
 			state = IDLE;
-			
+
 			// fall through
 
 		case IDLE:
 			while (signaled == -1) {
-				check_services();				
+				check_services();
 				if ((!noconsole) && ((!shell_pid) || (kill(shell_pid, 0) != 0))) {
 					shell_pid = run_shell(0, 1);
 				}
 				else {
 					pause();
 				}
-				
 			}
 			state = signaled;
 			signaled = -1;

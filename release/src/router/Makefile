@@ -13,15 +13,12 @@
 
 include common.mak
 
+#	TOMATO_EXPERIMENTAL=1
 
 #
 #
 #
-ifeq ($(TOMATO_DEV),jon)
-SEP=echo -e "\033[41;1m   $@   \033[0m"
-else
-SEP=true
-endif
+SEP=echo "\033[41;1m   $@   \033[0m"
 
 #
 # standard packages
@@ -45,20 +42,11 @@ obj-y += ppp
 obj-y += ttcp
 obj-y += ntpc
 obj-y += rstats
-#	obj-y += ebtables
-#	obj-y += libbcm
-#	obj-y += libbcmcrypto
-#	obj-y += nas
-#	obj-y += wlconf
-
 obj-y += mssl
 obj-y += mdu
 
-ifeq ($(TEST_MINIUPNPD),1)
 obj-y += miniupnpd
-else
-obj-y += upnp
-endif
+#	obj-y += upnp
 
 
 #
@@ -66,13 +54,11 @@ endif
 #
 obj-$(TCONFIG_L2TP) += rp-l2tp
 obj-$(TCONFIG_PPTP) += pptp-client
-#	obj-$(TCONFIG_HEARTBEAT) += bpalogin
-#	obj-$(TCONFIG_DDNS) += ipupdate
 obj-$(TCONFIG_HTTPS) += openssl
 obj-$(TCONFIG_HTTPS) += matrixssl
 obj-$(TCONFIG_SSH) += dropbear
 obj-$(TCONFIG_ZEBRA) += zebra
-obj-$(TCONFIG_IPP2P) += ipp2p
+#	obj-$(TCONFIG_IPP2P) += ipp2p
 
 ifeq ($(TCONFIG_L2TP),y)
 NEED_PPPD = y
@@ -109,8 +95,9 @@ kernel: $(LINUXDIR)/.config
 kmod: dummy
 	$(MAKE) -C $(LINUXDIR) modules
 
-fooit:
-	@../btools/libfoo.pl
+testfind:
+	cd $(TARGETDIR)/lib/modules/2.4.20 && find -name "*.o" -exec mv -i {} . \; || true
+	cd $(TARGETDIR)/lib/modules/2.4.20 && find -type d -delete || true
 
 install package: $(obj-install) $(LINUXDIR)/.config
 	@$(SEP)
@@ -165,13 +152,15 @@ endif
 	install $(LIBDIR)/libc.so.0 $(TARGETDIR)/lib/
 	install $(LIBDIR)/libdl.so.0 $(TARGETDIR)/lib/
 	install $(LIBDIR)/libm.so.0 $(TARGETDIR)/lib/
-	install $(LIBDIR)/libutil.so.0 $(TARGETDIR)/lib/
 	install $(LIBDIR)/libnsl.so.0 $(TARGETDIR)/lib/
+ifeq ($(TCONFIG_SSH),y)
+	install $(LIBDIR)/libutil.so.0 $(TARGETDIR)/lib/
+endif
 
 	@cd $(TARGETDIR) && $(TOP)/others/rootprep.sh
 
 	@echo ---
-	busybox/examples/depmod.pl -k $(LINUXDIR)/vmlinux -b $(TARGETDIR)/lib/modules/2.4.20/
+	busybox/examples/depmod-t.pl -k $(LINUXDIR)/vmlinux -b $(TARGETDIR)/lib/modules/2.4.20/
 	@echo ---
 
 	@rm -f $(TARGETDIR)/lib/modules/2.4.20/build
@@ -262,31 +251,35 @@ oldconfig oldconf: roldconf koldconf
 # overrides and extra dependencies
 #
 
-busybox: dummy
-	$(MAKE) -C busybox CFLAGS="-Os"
+busybox:
+	@cd busybox && [ -s .config ] || ( cp config.save .config; $(MAKE) oldconfig )
+	@$(MAKE) -C busybox CFLAGS="-Os"
+	@cp busybox/.config busybox/config.save
+
 # V=1
 
 busybox-install:
 	rm -rf $(INSTALLDIR)/busybox
 	$(MAKE) -C busybox install CONFIG_PREFIX=$(INSTALLDIR)/busybox CFLAGS="-Os"
 
+busybox-clean:
+	cd busybox && [ -s .config ] && cp .config config.save
+	$(MAKE) -C busybox distclean
+	cd busybox && mv config.save .config
+
+busybox-config:
+	$(MAKE) -C busybox menuconfig
+
 busybox-test: dummy
 	$(MAKE) -C busybox objsizes CFLAGS="-Os"
 
-# 1.2:
-#	busybox: busybox/include/bb_config.h
-#		@$(MAKE) -C busybox CROSS_CFLAGS="-mips2"
-#	busybox/include/bb_config.h:
-#		@$(MAKE) -C busybox oldconfig
-#		@$(MAKE) -C busybox clean
-#	busybox-install:
-#		rm -rf $(INSTALLDIR)/busybox
-#		$(MAKE) -C busybox install PREFIX=$(INSTALLDIR)/busybox
 	
 httpd: matrixssl shared nvram mssl
 	@$(SEP)
 	@$(MAKE) -C httpd
 
+www-install:
+	@$(MAKE) -C www install INSTALLDIR=$(INSTALLDIR)/www TOMATO_EXPERIMENTAL=$(TOMATO_EXPERIMENTAL)
 
 matrixssl:
 	@$(SEP)
@@ -364,12 +357,18 @@ ppp-%:
 	$(MAKE) -C ppp/pppoecd $* INSTALLDIR=$(INSTALLDIR)/ppp
 
 
-
 upnp: nvram shared iptables
 
-#	miniupnpd-install:
-#		install -D miniupnpd/miniupnpd $(INSTALLDIR)/miniupnpd/usr/sbin/miniupnpd
-#		$(STRIP) $(INSTALLDIR)/miniupnpd/usr/sbin/miniupnpd
+miniupnpd: iptables
+	@$(SEP)
+	$(MAKE) -C miniupnpd -f Makefile.tomato
+
+miniupnpd-clean:
+	-$(MAKE) -C miniupnpd -f Makefile.tomato clean
+
+miniupnpd-install:
+	install -D miniupnpd/miniupnpd $(INSTALLDIR)/miniupnpd/usr/sbin/miniupnpd
+	$(STRIP) $(INSTALLDIR)/miniupnpd/usr/sbin/miniupnpd
 
 nvram: shared
 

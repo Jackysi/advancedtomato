@@ -2,6 +2,8 @@
 /*
  * options.c -- DHCP server option packet tools
  * Rewrite by Russ Dill <Russ.Dill@asu.edu> July 2001
+ *
+ * Licensed under GPLv2, see file LICENSE in this tarball for details.
  */
 
 #include "common.h"
@@ -43,7 +45,7 @@ const struct dhcp_option dhcp_options[] = {
 	{ OPTION_STRING                           , 0x42 }, /* tftp               */
 	{ OPTION_STRING                           , 0x43 }, /* bootfile           */
 	{ OPTION_STRING                           , 0x4D }, /* userclass          */
-#if ENABLE_FEATURE_RFC3397
+#if ENABLE_FEATURE_UDHCP_RFC3397
 	{ OPTION_STR1035 | OPTION_LIST            , 0x77 }, /* search             */
 #endif
 	/* MSIE's "Web Proxy Autodiscovery Protocol" support */
@@ -92,7 +94,7 @@ const char dhcp_option_strings[] ALIGN1 =
 	"tftp" "\0"
 	"bootfile" "\0"
 	"userclass" "\0"
-#if ENABLE_FEATURE_RFC3397
+#if ENABLE_FEATURE_UDHCP_RFC3397
 	"search" "\0"
 #endif
 	/* MSIE's "Web Proxy Autodiscovery Protocol" support */
@@ -106,7 +108,7 @@ const uint8_t dhcp_option_lengths[] ALIGN1 = {
 	[OPTION_IP_PAIR] = 8,
 	[OPTION_BOOLEAN] = 1,
 	[OPTION_STRING] =  1,
-#if ENABLE_FEATURE_RFC3397
+#if ENABLE_FEATURE_UDHCP_RFC3397
 	[OPTION_STR1035] = 1,
 #endif
 	[OPTION_U8] =      1,
@@ -117,81 +119,83 @@ const uint8_t dhcp_option_lengths[] ALIGN1 = {
 };
 
 
-/* get an option with bounds checking (warning, not aligned). */
-uint8_t *get_option(struct dhcpMessage *packet, int code)
+/* get an option with bounds checking (warning, result is not aligned). */
+uint8_t* FAST_FUNC get_option(struct dhcpMessage *packet, int code)
 {
-	int i, length;
 	uint8_t *optionptr;
-	int over = 0;
-	int curr = OPTION_FIELD;
+	int len;
+	int rem;
+	int overload = 0;
+	enum {
+		FILE_FIELD101  = FILE_FIELD  * 0x101,
+		SNAME_FIELD101 = SNAME_FIELD * 0x101,
+	};
 
+	/* option bytes: [code][len][data1][data2]..[dataLEN] */
 	optionptr = packet->options;
-	i = 0;
-	length = sizeof(packet->options);
+	rem = sizeof(packet->options);
 	while (1) {
-		if (i >= length) {
-			bb_error_msg("bogus packet, option fields too long");
+		if (rem <= 0) {
+			bb_error_msg("bogus packet, malformed option field");
 			return NULL;
 		}
-		if (optionptr[i + OPT_CODE] == code) {
-			if (i + 1 + optionptr[i + OPT_LEN] >= length) {
-				bb_error_msg("bogus packet, option fields too long");
-				return NULL;
-			}
-			return optionptr + i + 2;
+		if (optionptr[OPT_CODE] == DHCP_PADDING) {
+			rem--;
+			optionptr++;
+			continue;
 		}
-		switch (optionptr[i + OPT_CODE]) {
-		case DHCP_PADDING:
-			i++;
-			break;
-		case DHCP_OPTION_OVER:
-			if (i + 1 + optionptr[i + OPT_LEN] >= length) {
-				bb_error_msg("bogus packet, option fields too long");
-				return NULL;
-			}
-			over = optionptr[i + 3];
-			i += optionptr[OPT_LEN] + 2;
-			break;
-		case DHCP_END:
-			if (curr == OPTION_FIELD && (over & FILE_FIELD)) {
+		if (optionptr[OPT_CODE] == DHCP_END) {
+			if ((overload & FILE_FIELD101) == FILE_FIELD) {
+				/* can use packet->file, and didn't look at it yet */
+				overload |= FILE_FIELD101; /* "we looked at it" */
 				optionptr = packet->file;
-				i = 0;
-				length = sizeof(packet->file);
-				curr = FILE_FIELD;
-			} else if (curr == FILE_FIELD && (over & SNAME_FIELD)) {
+				rem = sizeof(packet->file);
+				continue;
+			}
+			if ((overload & SNAME_FIELD101) == SNAME_FIELD) {
+				/* can use packet->sname, and didn't look at it yet */
+				overload |= SNAME_FIELD101; /* "we looked at it" */
 				optionptr = packet->sname;
-				i = 0;
-				length = sizeof(packet->sname);
-				curr = SNAME_FIELD;
-			} else
-				return NULL;
-			break;
-		default:
-			i += optionptr[OPT_LEN + i] + 2;
+				rem = sizeof(packet->sname);
+				continue;
+			}
+			return NULL;
 		}
+		len = 2 + optionptr[OPT_LEN];
+		rem -= len;
+		if (rem < 0)
+			continue; /* complain and return NULL */
+
+		if (optionptr[OPT_CODE] == code)
+			return optionptr + OPT_DATA;
+
+		if (optionptr[OPT_CODE] == DHCP_OPTION_OVERLOAD) {
+			overload |= optionptr[OPT_DATA];
+			/* fall through */
+		}
+		optionptr += len;
 	}
 	return NULL;
 }
 
 
 /* return the position of the 'end' option (no bounds checking) */
-int end_option(uint8_t *optionptr)
+int FAST_FUNC end_option(uint8_t *optionptr)
 {
 	int i = 0;
 
 	while (optionptr[i] != DHCP_END) {
-		if (optionptr[i] == DHCP_PADDING)
-			i++;
-		else
-			i += optionptr[i + OPT_LEN] + 2;
+		if (optionptr[i] != DHCP_PADDING)
+			i += optionptr[i + OPT_LEN] + 1;
+		i++;
 	}
 	return i;
 }
 
 
-/* add an option string to the options (an option string contains an option code,
- * length, then data) */
-int add_option_string(uint8_t *optionptr, uint8_t *string)
+/* add an option string to the options */
+/* option bytes: [code][len][data1][data2]..[dataLEN] */
+int FAST_FUNC add_option_string(uint8_t *optionptr, uint8_t *string)
 {
 	int end = end_option(optionptr);
 
@@ -209,7 +213,7 @@ int add_option_string(uint8_t *optionptr, uint8_t *string)
 
 
 /* add a one to four byte option to a packet */
-int add_simple_option(uint8_t *optionptr, uint8_t code, uint32_t data)
+int FAST_FUNC add_simple_option(uint8_t *optionptr, uint8_t code, uint32_t data)
 {
 	const struct dhcp_option *dh;
 
@@ -222,9 +226,8 @@ int add_simple_option(uint8_t *optionptr, uint8_t code, uint32_t data)
 			option[OPT_LEN] = len;
 			if (BB_BIG_ENDIAN)
 				data <<= 8 * (4 - len);
-			/* This memcpy is for processors which can't
-			 * handle a simple unaligned 32-bit assignment */
-			memcpy(&option[OPT_DATA], &data, 4);
+			/* Assignment is unaligned! */
+			move_to_unaligned32(&option[OPT_DATA], data);
 			return add_option_string(optionptr, option);
 		}
 	}

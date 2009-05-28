@@ -30,7 +30,7 @@
 /*
 
 	Modified for Tomato Firmware
-	Portions, Copyright (C) 2006-2008 Jonathan Zarate
+	Portions, Copyright (C) 2006-2009 Jonathan Zarate
 
 */
 
@@ -40,6 +40,7 @@
 #include <arpa/inet.h>
 #include <sys/sysinfo.h>
 #include <time.h>
+#include <bcmdevs.h>
 
 
 #define IFUP (IFF_UP | IFF_RUNNING | IFF_BROADCAST | IFF_MULTICAST)
@@ -532,18 +533,29 @@ void start_wan(int mode)
 {
 	int wan_proto;
 	char *wan_ifname;
+	char *p;
 	struct ifreq ifr;
 	int sd;
 	int max;
 	int mtu;
 	char buf[128];
 
-	_dprintf("%s: begin mode=%d\n", __FUNCTION__, mode);
-
 	f_write(wan_connecting, NULL, 0, 0, 0);
-
-	set_mac(default_wanif(), "mac_wan", 1);
 	
+	//
+
+	if (nvram_match("wl_mode", "sta")) {
+		p = nvram_safe_get("wl_ifname");
+	}
+	else {
+		p = nvram_safe_get("wan_ifnameX");
+		set_mac(p, "mac_wan", 1);
+	}
+	nvram_set("wan_ifname", p);
+	nvram_set("wan_ifnames", p);
+
+	//
+
 	wan_ifname = nvram_safe_get("wan_ifname");
 	wan_proto = get_wan_proto();
 
@@ -651,7 +663,7 @@ void start_wan_done(char *wan_ifname)
 	struct sysinfo si;
 	int wanup;
 		
-	_dprintf("%s: begin wan_ifname=%s\n", __FUNCTION__, wan_ifname);
+	TRACE_PT("begin wan_ifname=%s\n", wan_ifname);
 	
 	sysinfo(&si);
 	f_write("/var/lib/misc/wantime", &si.uptime, sizeof(si.uptime), 0, 0);
@@ -736,8 +748,6 @@ void start_wan_done(char *wan_ifname)
 		}
 	}
 
-
-	stop_dnsmasq();
 	dns_to_resolv();
 	start_dnsmasq();
 
@@ -782,7 +792,7 @@ void start_wan_done(char *wan_ifname)
 
 	unlink(wan_connecting);
 
-	_dprintf("%s: end\n", __FUNCTION__);
+	TRACE_PT("end\n");
 }
 
 void stop_wan(void)

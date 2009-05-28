@@ -1,7 +1,7 @@
 /*
 
 	Tomato Firmware
-	Copyright (C) 2006-2008 Jonathan Zarate
+	Copyright (C) 2006-2009 Jonathan Zarate
 
 */
 
@@ -79,7 +79,7 @@ int rcheck_main(int argc, char *argv[])
 	}
 
 	simple_lock("restrictions");
-	
+
 	now = time(0);
 	if (now < Y2K) {
 		if (!nvram_match("rrules_timewarn", "1")) {
@@ -93,7 +93,7 @@ int rcheck_main(int argc, char *argv[])
 		now_dow = 1 << tms->tm_wday;
 		now_mins = (tms->tm_hour * 60) + tms->tm_min;
 	}
-	
+
 	activated = strtoull(nvram_safe_get("rrules_activated"), NULL, 16);
 	count = 0;
 	radio = nvram_match("wl_radio", "1") ? -1 : -2;
@@ -117,22 +117,22 @@ int rcheck_main(int argc, char *argv[])
 		if ((insch) == ((activated & n) != 0)) {
 			continue;
 		}
-		
+
 		syslog(LOG_INFO, "%sctivating rule %d", insch ? "A" : "Dea", nrule);
-		
+
 		if (comp == '~') {
 			if ((radio != 0) && (radio != -2)) radio = !insch;
 		}
 		else {
 			sprintf(buf, "r%s%02d", (comp != '|') ? "dev" : "res", nrule);
-			
+
 			r = eval("iptables", "-D", "restrict", "-j", buf);
 			if (insch) {
 				// ignore error above (if any)
 
 				r = eval("iptables", "-A", "restrict", "-j", buf);
 			}
-			
+
 			if (r != 0) {
 				syslog(LOG_ERR, "Iptables command failed. Retrying in 15 minutes.");
 				continue;
@@ -144,14 +144,14 @@ int rcheck_main(int argc, char *argv[])
 			}
 */
 		}
-	
+
 		if (insch) activated |= n;
 			else activated &= ~n;
 	}
 
 	sprintf(buf, "%llx", activated);
 	nvram_set("rrules_activated", buf);
-	
+
 	if (count > 0) {
 		if ((argc != 2) || (strcmp(argv[1], "--cron") != 0)) {
 			system("cru a rcheck '*/15 * * * * rcheck --cron'");
@@ -199,19 +199,19 @@ void ipt_restrictions(void)
 	int http_file;
 	int ex;
 	int first;
-	
+
 	need_web = 0;
 	first = 1;
 	nvram_unset("rrules_timewarn");
 	nvram_set("rrules_radio", "-1");
 	unsched_restrictions();
-	
+
 	for (nrule = 0; nrule < MAX_NRULES; ++nrule) {
 		sprintf(buf, "rrule%d", nrule);
 		if ((p = nvram_get(buf)) == NULL) continue;
 		if (strlen(p) >= sizeof(buf)) continue;
 		strcpy(buf, p);
-		
+
 		if ((vstrsep(buf, "|",
 			&q,			// 0/1
 			&p, &p, &p,	// time (ignored)
@@ -224,7 +224,7 @@ void ipt_restrictions(void)
 
 		if (comps[0] == '~') {
 			// a wireless disable rule, skip
-			continue;	
+			continue;
 		}
 
 		if (first) {
@@ -237,11 +237,11 @@ void ipt_restrictions(void)
 		ipt_write(":%s - [0:0]\n", reschain);
 
 		blockall = 1;
-		
+
 		/*
-		
+
 		proto<dir<port<ipp2p<layer7
-		
+
 		proto:
 			-1 = both tcp/udp
 			else = proto #
@@ -286,13 +286,13 @@ void ipt_restrictions(void)
 				ipt_write("-A %s %s -j %s\n", reschain, app, chain_out_drop);
 				continue;
 			}
-			
+
 			if (proto != 17)
 				ipt_write("-A %s -p %sp %s %s -j %s\n", reschain, "tc", ports, app, chain_out_drop);
 			if (proto != 6)
 				ipt_write("-A %s -p %sp %s %s -j %s\n", reschain, "ud", ports, app, chain_out_drop);
 		}
-		
+
 		//
 
 		p = http;
@@ -318,7 +318,7 @@ void ipt_restrictions(void)
 			http = p + 1;
 		}
 
-		
+
 		//
 		app[0] = 0;
 		if (http_file & 1) strcat(app, ".ocx$ .cab$ ");
@@ -360,7 +360,7 @@ void ipt_restrictions(void)
 				}
 				ipt_write("-A %s %s %s %s\n", devchain, p, q, ex ? "-j RETURN" : nextchain);
 			}
-			
+
 			if (ex) {
 				ipt_write("-A %s %s\n", devchain, nextchain);
 			}
@@ -371,6 +371,6 @@ void ipt_restrictions(void)
 	}
 
 	nvram_set("rrules_activated", "0");
-	
+
 	if (need_web) modprobe("ipt_web");
 }

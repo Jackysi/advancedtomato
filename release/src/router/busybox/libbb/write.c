@@ -2,7 +2,7 @@
 /*
  * Utility routines.
  *
- * Copyright (C) 2008 Bernhard Fischer
+ * Copyright (C) 2008 Bernhard Reutner-Fischer
  *
  * Licensed under GPLv2 or later, see file LICENSE in this tarball for details.
  */
@@ -10,11 +10,10 @@
 #include "libbb.h"
 
 /* Open file and write string str to it, close file.
- * Die on any open or write-error.  */
+ * Die on any open or write error.  */
 void FAST_FUNC xopen_xwrite_close(const char* file, const char* str)
 {
 	int fd = xopen(file, O_WRONLY);
-
-	xwrite(fd, str, strlen(str));
+	xwrite_str(fd, str);
 	close(fd);
 }

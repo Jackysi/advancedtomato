@@ -19,7 +19,7 @@
 /*
 
 	Modified for Tomato Firmware
-	Portions, Copyright (C) 2006-2008 Jonathan Zarate
+	Portions, Copyright (C) 2006-2009 Jonathan Zarate
 
 */
 
@@ -96,9 +96,9 @@ static int dmz_dst(char *s)
 	struct in_addr ia;
 	char *p;
 	int n;
-	
-	if (!nvram_match("dmz_enable", "1")) return 0;
-	
+
+	if (nvram_get_int("dmz_enable") <= 0) return 0;
+
 	p = nvram_safe_get("dmz_ipaddr");
 	if ((ia.s_addr = inet_addr(p)) == (in_addr_t)-1) {
 		if (((n = atoi(p)) <= 0) || (n >= 255)) return 0;
@@ -110,6 +110,13 @@ static int dmz_dst(char *s)
 	return 1;
 }
 
+static void ipt_source(const char *s, char *src)
+{
+	if ((*s) && (strlen(s) < 32)) sprintf(src, "-%s %s", strchr(s, '-') ? "m iprange --src-range" : "s", s);
+		else *src = 0;
+}
+
+/*
 static void get_src(const char *nv, char *src)
 {
 	char *p;
@@ -121,6 +128,7 @@ static void get_src(const char *nv, char *src)
 		*src = 0;
 	}
 }
+*/
 
 void ipt_write(const char *format, ...)
 {
@@ -130,7 +138,6 @@ void ipt_write(const char *format, ...)
 	vfprintf(ipt_file, format, args);
 	va_end(args);
 }
-
 
 // -----------------------------------------------------------------------------
 
@@ -256,7 +263,7 @@ static void mangle_table(void)
 		"*mangle\n"
 		":PREROUTING ACCEPT [0:0]\n"
 		":OUTPUT ACCEPT [0:0]\n");
-		
+
 	if (wanup) {
 		ipt_qos();
 
@@ -293,7 +300,9 @@ static void nat_table(void)
 	char lanmask[32];
 	char dst[64];
 	char src[64];
-	
+	char t[512];
+	char *p, *c;
+
 	ipt_write("*nat\n"
 		":PREROUTING ACCEPT [0:0]\n"
 		":POSTROUTING ACCEPT [0:0]\n"
@@ -301,7 +310,7 @@ static void nat_table(void)
 	if (gateway_mode) {
 		strlcpy(lanaddr, nvram_safe_get("lan_ipaddr"), sizeof(lanaddr));
 		strlcpy(lanmask, nvram_safe_get("lan_netmask"), sizeof(lanmask));
-	
+
 		// Drop incoming packets which destination IP address is to our LAN side directly
 		ipt_write("-A PREROUTING -i %s -d %s/%s -j DROP\n",
 			wanface,
@@ -318,39 +327,69 @@ static void nat_table(void)
 			// ICMP packets are always redirected to INPUT chains
 			ipt_write("-A PREROUTING -p icmp -d %s -j DNAT --to-destination %s\n", wanaddr, lanaddr);
 
-			get_src("rmgt_sip", src);	// -s xxx or -m iprange --src-range xxx or ""
 
-			if (remotemanage) {
-				ipt_write("-A PREROUTING -p tcp -m tcp %s -d %s --dport %s -j DNAT --to-destination %s:%d\n",
-					src,
-					wanaddr, nvram_safe_get("http_wanport"),
-					lanaddr, web_lanport);
-			}
+			strlcpy(t, nvram_safe_get("rmgt_sip"), sizeof(t));
+			p = t;
+			do {
+				if ((c = strchr(p, ',')) != NULL) *c = 0;
+				ipt_source(p, src);
 
-			if (nvram_match("sshd_remote", "1")) {
-				ipt_write("-A PREROUTING %s -p tcp -m tcp -d %s --dport %s -j DNAT --to-destination %s:%s\n",
-					src,
-					wanaddr, nvram_safe_get("sshd_rport"),
-					lanaddr, nvram_safe_get("sshd_port"));
-			}
+				if (remotemanage) {
+					ipt_write("-A PREROUTING -p tcp -m tcp %s -d %s --dport %s -j DNAT --to-destination %s:%d\n",
+						src,
+						wanaddr, nvram_safe_get("http_wanport"),
+						lanaddr, web_lanport);
+				}
+				if (nvram_get_int("sshd_remote")) {
+					ipt_write("-A PREROUTING %s -p tcp -m tcp -d %s --dport %s -j DNAT --to-destination %s:%s\n",
+						src,
+						wanaddr, nvram_safe_get("sshd_rport"),
+						lanaddr, nvram_safe_get("sshd_port"));
+				}
+
+				if (!c) break;
+				p = c + 1;
+			} while (*p);
 
 			ipt_forward(IPT_TABLE_NAT);
 			ipt_triggered(IPT_TABLE_NAT);
 		}
 
-		if (nvram_match("upnp_enable", "1")) {
+#ifdef USE_MINIUPNPD
+		if (nvram_get_int("upnp_enable") & 3) {
+			ipt_write(":upnp - [0:0]\n");
+			if (wanup) {
+				// ! for loopback (all) to work
+				ipt_write("-A PREROUTING -d %s -j upnp\n", wanaddr);
+			}
+			else {
+				ipt_write("-A PREROUTING -i %s -j upnp\n", wanface);
+			}
+		}
+#else
+		if (nvram_get_int("upnp_enable")) {
 			ipt_write(
 				":upnp - [0:0]\n"
 				"-A PREROUTING -i %s -j upnp\n",
 					wanface);
 		}
+#endif
 
 		if (wanup) {
 			if (dmz_dst(dst)) {
-				get_src("dmz_sip", src);
-				ipt_write("-A PREROUTING %s -d %s -j DNAT --to-destination %s\n", src, wanaddr, dst);
+				strlcpy(t, nvram_safe_get("dmz_sip"), sizeof(t));
+				p = t;
+				do {
+					if ((c = strchr(p, ',')) != NULL) *c = 0;
+					ipt_source(p, src);
+					ipt_write("-A PREROUTING %s -d %s -j DNAT --to-destination %s\n", src, wanaddr, dst);
+					if (!c) break;
+					p = c + 1;
+				} while (*p);
 			}
 		}
+
+
 
 		////
 
@@ -366,7 +405,7 @@ static void nat_table(void)
 				lanaddr, lanmask,
 				lanaddr, lanmask);
 			break;
-		}			
+		}
 	}
 	ipt_write("COMMIT\n");
 }
@@ -377,19 +416,46 @@ static void nat_table(void)
 
 static void filter_input(void)
 {
-	char src[64];
+	char s[64];
+	char t[512];
+	char *en;
+	char *sec;
+	char *hit;
+	int n;
+	char *p, *c;
 
 	if ((nvram_get_int("nf_loopback") != 0) && (wanup)) {	// 0 = all
 		ipt_write("-A INPUT -i %s -d %s -j DROP\n", lanface, wanaddr);
 	}
 
-	// filter known SPI state
 	ipt_write(
 		"-A INPUT -m state --state INVALID -j %s\n"
-		"-A INPUT -m state --state RELATED,ESTABLISHED -j ACCEPT\n"
+		"-A INPUT -m state --state RELATED,ESTABLISHED -j ACCEPT\n",
+		chain_in_drop);
+
+
+	strlcpy(s, nvram_safe_get("ne_shlimit"), sizeof(s));
+	if ((vstrsep(s, ",", &en, &hit, &sec) == 3) && ((n = atoi(en) & 3) != 0)) {
+/*
+		? what if the user uses the start button in GUI ?
+		if (nvram_get_int("telnetd_eas"))
+		if (nvram_get_int("sshd_eas"))
+*/
+		modprobe("ipt_recent");
+
+		ipt_write(
+			"-N shlimit\n"
+			"-A shlimit -m recent --set --name shlimit\n"
+			"-A shlimit -m recent --update --hitcount %s --seconds %s --name shlimit -j DROP\n",
+			hit, sec);
+
+		if (n & 1) ipt_write("-A INPUT -p tcp --dport %s -m state --state NEW -j shlimit\n", nvram_safe_get("sshd_port"));
+		if (n & 2) ipt_write("-A INPUT -p tcp --dport %s -m state --state NEW -j shlimit\n", nvram_safe_get("telnetd_port"));
+	}
+
+	ipt_write(
 		"-A INPUT -i %s -j ACCEPT\n"
 		"-A INPUT -i lo -j ACCEPT\n",
-			chain_in_drop,
 			lanface);
 
 	// ICMP request from WAN interface
@@ -397,17 +463,28 @@ static void filter_input(void)
 		ipt_write("-A INPUT -p icmp -j ACCEPT\n");
 	}
 
-	get_src("rmgt_sip", src);	// -s xxx or -m iprange --src-range xxx or ""
 
-	if (remotemanage) {
-		ipt_write("-A INPUT -p tcp %s -m tcp -d %s --dport %d -j %s\n",
-			src, nvram_safe_get("lan_ipaddr"), web_lanport, chain_in_accept);
-	}
+	strlcpy(t, nvram_safe_get("rmgt_sip"), sizeof(t));
+	p = t;
+	do {
+		if ((c = strchr(p, ',')) != NULL) *c = 0;
 
-	if (nvram_match("sshd_remote", "1")) {
-		ipt_write("-A INPUT -p tcp %s -m tcp -d %s --dport %s -j %s\n",
-			src, nvram_safe_get("lan_ipaddr"), nvram_safe_get("sshd_port"), chain_in_accept);
-	}
+		ipt_source(p, s);
+
+		if (remotemanage) {
+			ipt_write("-A INPUT -p tcp %s -m tcp -d %s --dport %d -j %s\n",
+				s, nvram_safe_get("lan_ipaddr"), web_lanport, chain_in_accept);
+		}
+
+		if (nvram_get_int("sshd_remote")) {
+			ipt_write("-A INPUT -p tcp %s -m tcp -d %s --dport %s -j %s\n",
+				s, nvram_safe_get("lan_ipaddr"), nvram_safe_get("sshd_port"), chain_in_accept);
+		}
+
+		if (!c) break;
+		p = c + 1;
+	} while (*p);
+
 
 	// IGMP query from WAN interface
 	if (nvram_match("multicast_pass", "1")) {
@@ -445,6 +522,8 @@ static void filter_forward(void)
 {
 	char dst[64];
 	char src[64];
+	char t[512];
+	char *p, *c;
 
 	ipt_write(
 		"-A FORWARD -i %s -o %s -j ACCEPT\n"				// accept all lan to lan
@@ -468,14 +547,23 @@ static void filter_forward(void)
 		"-A FORWARD -i %s -j %s\n",										// from lan
 		wanface, wanface, lanface, chain_out_accept);
 
-	if (nvram_match("upnp_enable", "1")) {
+#ifdef USE_MINIUPNPD
+	if (nvram_get_int("upnp_enable") & 3) {
+		ipt_write(
+			":upnp - [0:0]\n"
+			"-A FORWARD -i %s -j upnp\n",
+			wanface);
+	}
+#else
+	if (nvram_get_int("upnp_enable")) {
 		ipt_write(
 			":upnp - [0:0]\n"
 			"-A FORWARD -i %s -j upnp\n",
 				wanface);
 	}
+#endif
 
-	if (wanup) {	
+	if (wanup) {
 		if (nvram_match("multicast_pass", "1")) {
 			ipt_write("-A wanin -p udp -m udp -d 224.0.0.0/4 -j %s\n", chain_in_accept);
 		}
@@ -483,11 +571,18 @@ static void filter_forward(void)
 		ipt_forward(IPT_TABLE_FILTER);
 
 		if (dmz_dst(dst)) {
-			get_src("dmz_sip", src);
-			ipt_write("-A FORWARD -o %s %s -d %s -j %s\n", lanface, src, dst, chain_in_accept);
+			strlcpy(t, nvram_safe_get("dmz_sip"), sizeof(t));
+			p = t;
+			do {
+				if ((c = strchr(p, ',')) != NULL) *c = 0;
+				ipt_source(p, src);
+				ipt_write("-A FORWARD -o %s %s -d %s -j %s\n", lanface, src, dst, chain_in_accept);
+				if (!c) break;
+				p = c + 1;
+			} while (*p);
 		}
 	}
-			
+
 
 	// default policy: DROP
 }
@@ -553,7 +648,7 @@ int start_firewall(void)
 	char *c;
 	int n;
 	int wanproto;
-	
+
 	simple_lock("firewall");
 	simple_lock("restrictions");
 
@@ -579,7 +674,7 @@ int start_firewall(void)
 		}
 		closedir(dir);
 	}
-	
+
 	f_write_string("/proc/sys/net/ipv4/tcp_syncookies", nvram_get_int("ne_syncookies") ? "1" : "0", 0, 0);
 
 	n = nvram_get_int("log_in");
@@ -642,12 +737,21 @@ int start_firewall(void)
 #ifdef DEBUG_IPTFILE
 	if (debug_only) {
 		simple_unlock("firewall");
+		simple_unlock("restrictions");
 		return 0;
 	}
 #endif
 
+#ifdef USE_MINIUPNPD
+	if (nvram_get_int("upnp_enable") & 3) {
+		f_write("/etc/upnp/save", NULL, 0, 0, 0);
+		if (killall("miniupnpd", SIGUSR2) == 0) {
+			f_wait_notexists("/etc/upnp/save", 5);
+		}
+	}
+#endif
+
 	if (eval("iptables-restore", (char *)ipt_fname) == 0) {
-//		if (!nvram_match("debug_keepfiles", "1")) unlink(ipt_fname);
 		led(LED_DIAG, 0);
 	}
 	else {
@@ -655,29 +759,32 @@ int start_firewall(void)
 		rename(ipt_fname, s);
 		syslog(LOG_CRIT, "Error while loading rules. See %s file.", s);
 		led(LED_DIAG, 1);
-		
+
 		/*
-		
+
 		-P INPUT DROP
 		-F INPUT
 		-A INPUT -m state --state RELATED,ESTABLISHED -j ACCEPT
 		-A INPUT -i br0 -j ACCEPT
-		
+
 		-P FORWARD DROP
 		-F FORWARD
 		-A FORWARD -m state --state RELATED,ESTABLISHED -j ACCEPT
 		-A FORWARD -i br0 -j ACCEPT
-		
+
 		*/
 	}
 
-	if (nvram_match("upnp_enable", "1")) {
-#ifdef TEST_MINIUPNP
-		system("/tmp/upnptest post");
-#else
-		killall("upnp", SIGHUP);
-#endif
+#ifdef USE_MINIUPNPD
+	if (nvram_get_int("upnp_enable") & 3) {
+		f_write("/etc/upnp/load", NULL, 0, 0, 0);
+		killall("miniupnpd", SIGUSR2);
 	}
+#else
+	if (nvram_get_int("upnp_enable")) {
+		killall("upnp", SIGHUP);
+	}
+#endif
 
 	simple_unlock("restrictions");
 	sched_restrictions();

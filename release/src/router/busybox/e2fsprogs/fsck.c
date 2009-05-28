@@ -20,10 +20,7 @@
  * Copyright (C) 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
  *      2001, 2002, 2003, 2004, 2005 by  Theodore Ts'o.
  *
- * %Begin-Header%
- * This file may be redistributed under the terms of the GNU Public
- * License.
- * %End-Header%
+ * Licensed under GPLv2, see file LICENSE in this tarball for details.
  */
 
 /* All filesystem specific hooks have been removed.
@@ -313,10 +310,10 @@ static void load_fs_info(const char *filename)
 	// Loop through entries
 	while (getmntent_r(fstab, &mte, bb_common_bufsiz1, COMMON_BUFSIZE)) {
 		//bb_info_msg("CREATE[%s][%s][%s][%s][%d]", mte.mnt_fsname, mte.mnt_dir,
-		//	mte.mnt_type, mte.mnt_opts, 
+		//	mte.mnt_type, mte.mnt_opts,
 		//	mte.mnt_passno);
 		fs = create_fs_device(mte.mnt_fsname, mte.mnt_dir,
-			mte.mnt_type, mte.mnt_opts, 
+			mte.mnt_type, mte.mnt_opts,
 			mte.mnt_passno);
 	}
 	endmntent(fstab);

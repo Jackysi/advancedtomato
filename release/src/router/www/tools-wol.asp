@@ -1,7 +1,7 @@
 <!DOCTYPE HTML PUBLIC '-//W3C//DTD HTML 4.0//EN'>
 <!--
 	Tomato GUI
-	Copyright (C) 2006-2008 Jonathan Zarate
+	Copyright (C) 2006-2009 Jonathan Zarate
 	http://www.polarcloud.com/tomato/
 
 	For use with Tomato Firmware only.
@@ -56,9 +56,9 @@ wg.setup = function() {
 wg.populate = function()
 {
 	var i, j, r, s;
-	
+
 	this.removeAllData();
-	
+
 	// show entries in static dhcp list
 	s = nvram.dhcpd_static.split('>');
 	for (i = 0; i < s.length; ++i) {
@@ -96,7 +96,7 @@ wg.onClick = function(cell)
 function verifyFields(focused, quiet)
 {
 	var e;
-	
+
 	e = E('_f_mac');
 	e.value = e.value.replace(/[\t ]+/g, ' ');
 	return 1;
@@ -132,7 +132,7 @@ function refresh()
 	if (!running) return;
 
 	timer.stop();
-	
+
 	refresher = new XmlHttp();
 	refresher.onCompleted = function(text, xml) {
 		eval(text);

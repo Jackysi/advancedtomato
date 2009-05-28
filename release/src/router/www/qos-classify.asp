@@ -1,7 +1,7 @@
 <!DOCTYPE HTML PUBLIC '-//W3C//DTD HTML 4.0//EN'>
 <!--
 	Tomato GUI
-	Copyright (C) 2006-2008 Jonathan Zarate
+	Copyright (C) 2006-2009 Jonathan Zarate
 	http://www.polarcloud.com/tomato/
 
 	For use with Tomato Firmware only.
@@ -143,7 +143,7 @@ qosg.dataToView = function(data) {
 	else if (data[6] != '') {
 		b.push('L7: ' + data[6])
 	}
-	
+
 	if (data[7] != '') {
 		b.push('Transferred: ' + data[7] + ((data[8] == '') ? '<small>KB+</small>' : (' - ' + data[8] + '<small>KB</small>')));
 	}
@@ -224,7 +224,7 @@ qosg.verifyFields = function(row, quiet) {
 		if (!v_range(e, quiet, 0, BMAX)) return 0;
 		a *= 1;
 	}
-		
+
 	e = f[8];
 	b = e.value = e.value.trim();
 	if (b != '') {
@@ -236,12 +236,12 @@ qosg.verifyFields = function(row, quiet) {
 	else if (a != '') {
 		b = BMAX;
 	}
-	
+
 	if ((b != '') && (a >= b)) {
 		ferror.set(f[7], 'Invalid range', quiet);
 		return 0;
 	}
-	
+
 	return v_length(f[10], quiet);
 }
 
@@ -264,10 +264,10 @@ qosg.setup = function() {
             { type: 'text', prefix: '<div class="x2c">', suffix: '</div>' },
 			{ type: 'select', prefix: '<div class="x3a">', suffix: '</div>', options: ipp2p },
 			{ type: 'select', prefix: '<div class="x3b">', suffix: '</div>', options: layer7 },
-			
+
 			{ type: 'text', prefix: '<div class="x4a">', suffix: '</div>' },
 			{ type: 'text', prefix: '<div class="x4b"> - </div><div class="x4c">', suffix: '</div><div class="x4d">KB Transferred</div>' }
-			
+
 		] },
 		{ type: 'select', options: class1, vtop: 1 },
 		{ type: 'text', maxlen: 32, vtop: 1 }
@@ -276,7 +276,7 @@ qosg.setup = function() {
 	this.headerSet(['Match Rule', 'Class', 'Description']);
 
 // addr_type < addr < proto < port_type < port < ipp2p < L7 < bcount < class < desc
-	
+
 	a = nvram.qos_orules.split('>');
 	for (i = 0; i < a.length; ++i) {
 		b = a[i].split('<');

@@ -44,13 +44,11 @@ int su_main(int argc UNUSED_PARAM, char **argv)
 		But getlogin can fail -- usually due to lack of utmp entry.
 		in this case resort to getpwuid.  */
 		old_user = xstrdup(USE_FEATURE_UTMP(getlogin() ? : ) (pw = getpwuid(cur_uid)) ? pw->pw_name : "");
-		tty = ttyname(2) ? : "none";
+		tty = xmalloc_ttyname(2) ? : "none";
 		openlog(applet_name, 0, LOG_AUTH);
 	}
 
-	pw = getpwnam(opt_username);
-	if (!pw)
-		bb_error_msg_and_die("unknown id: %s", opt_username);
+	pw = xgetpwnam(opt_username);
 
 	/* Make sure pw->pw_shell is non-NULL.  It may be NULL when NEW_USER
 	   is a username that is retrieved via NIS (YP), but that doesn't have

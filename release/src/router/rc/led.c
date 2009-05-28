@@ -1,7 +1,7 @@
 /*
 
 	Tomato Firmware
-	Copyright (C) 2006-2008 Jonathan Zarate
+	Copyright (C) 2006-2009 Jonathan Zarate
 
 */
 
@@ -12,7 +12,7 @@ static void help(void)
 {
 	char s[256];
 	int i;
-	
+
 	s[0] = 0;
 	for (i = 0; i < LED_COUNT; ++i) {
 		if (led(i, LED_PROBE)) {
@@ -28,14 +28,14 @@ static void help(void)
 	}
 	exit(1);
 }
-	
+
 int led_main(int argc, char *argv[])
 {
-	
+
 	int i;
 	int j;
 	char *a;
-	
+
 	if ((argc < 3) || ((argc % 2) != 1)) help();
 
 	for (j = 1; j < argc; j += 2) {
