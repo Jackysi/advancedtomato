@@ -217,6 +217,7 @@ handle_user_command(struct vsf_session* p_sess)
     if ((located && tunable_userlist_deny) ||
         (!located && !tunable_userlist_deny))
     {
+      check_login_delay();
       vsf_cmdio_write(p_sess, FTP_LOGINERR, "Permission denied.");
       check_login_fails(p_sess);
       str_empty(&p_sess->user_str);

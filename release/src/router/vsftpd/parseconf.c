@@ -106,6 +106,7 @@ parseconf_bool_array[] =
   { "implicit_ssl", &tunable_implicit_ssl },
   { "sandbox", &tunable_sandbox },
   { "require_ssl_reuse", &tunable_require_ssl_reuse },
+  { "isolate", &tunable_isolate },
   { 0, 0 }
 };
 

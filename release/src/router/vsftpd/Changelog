@@ -1097,3 +1097,32 @@ using O_CLOEXEC more).
 
 At this point: v2.1.0 released!
 ===============================
+
+- Apply Tavis' RLIMIT_NOFILE trick in the twoprocess model's initial
+unprivileged child.
+- Fix build error due to __NR_utimes.
+- Ugh. Can't use RLIMIT_NOFILE in the SSL case because the process later
+receives data transfer fd's via recvmsg(). It's a total shame because doing
+the SSL handshake under even lower privs would be a real boost.
+(v2.1.1pre1 here)
+- Fix some declarations occuring in the middle of a block; broke older more
+strict compilers.
+- Handle the case where libcap is now libcap.so.2; fixes build on my new
+Ubuntu 9.04.
+- Enhance 522 error message to point to require_ssl_reuse option.
+- Fix NASTY regression whereby data transfer timeouts would fire incorrectly
+under SSL transfers. In addition, the transfer rate caps were not working
+under SSL transfers. Reported by several people.
+- Use the login delay machinery for userlist-based denials too. Thanks to
+Tomas Hoger <thoger@redhat.com> for the patch.
+- Fix another tedious regression whereby absent per-user config files were
+causing a session fail rather than being gracefully ignored.
+- Use the somewhat new CLONE_NEWPID / CLONE_NEWIPC to provide more isolation
+in the vsftpd low-priv processes (CLONE_NEWNET pending).
+- Use RLIMIT_NPROC to disallow fork()ing etc. in processes that do not need
+to create new ones.
+- Add "isolate" config flag to disable the new weird clone() flags if
+necessary.
+
+At this point: v2.1.1 released!
+===============================

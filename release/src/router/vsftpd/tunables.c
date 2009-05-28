@@ -82,6 +82,7 @@ int tunable_delete_failed_uploads;
 int tunable_implicit_ssl;
 int tunable_sandbox;
 int tunable_require_ssl_reuse;
+int tunable_isolate;
 
 unsigned int tunable_accept_timeout;
 unsigned int tunable_connect_timeout;
@@ -216,6 +217,7 @@ tunables_load_defaults()
   tunable_implicit_ssl = 0;
   tunable_sandbox = 0;
   tunable_require_ssl_reuse = 1;
+  tunable_isolate = 1;
 
   tunable_accept_timeout = 60;
   tunable_connect_timeout = 60;

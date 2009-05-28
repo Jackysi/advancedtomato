@@ -51,6 +51,7 @@
 #undef VSF_SYSDEP_HAVE_HPUX_SETPROCTITLE
 #undef VSF_SYSDEP_HAVE_MAP_ANON
 #undef VSF_SYSDEP_NEED_OLD_FD_PASSING
+#undef VSF_SYSDEP_HAVE_LINUX_CLONE
 #ifdef VSF_BUILD_PAM
   #define VSF_SYSDEP_HAVE_PAM
 #endif
@@ -63,6 +64,17 @@
 #include <utmpx.h>
 
 /* BEGIN config */
+#if defined(__linux__)
+  #define VSF_SYSDEP_HAVE_LINUX_CLONE
+  #include <sched.h>
+  #ifndef CLONE_NEWPID
+    #define CLONE_NEWPID 0x20000000
+  #endif
+  #ifndef CLONE_NEWIPC
+    #define CLONE_NEWIPC 0x08000000
+  #endif
+#endif
+
 #if defined(__linux__) && !defined(__ia64__) && !defined(__s390__)
   #define VSF_SYSDEP_TRY_LINUX_SETPROCTITLE_HACK
   #include <linux/version.h>
@@ -1218,5 +1230,36 @@ vsf_set_term_if_parent_dies()
   {
     die("prctl");
   }
+#endif
+}
+
+int
+vsf_sysutil_fork_isolate_failok()
+{
+#ifdef VSF_SYSDEP_HAVE_LINUX_CLONE
+  static int cloneflags_work = 1;
+  if (cloneflags_work)
+  {
+    int ret = syscall(__NR_clone, CLONE_NEWPID | CLONE_NEWIPC | SIGCHLD, NULL);
+    if (ret != -1 || errno != EINVAL)
+    {
+      vsf_sysutil_clear_pid_cache();
+      return ret;
+    }
+    cloneflags_work = 0;
+  }
+#endif
+  return vsf_sysutil_fork_failok();
+}
+
+int
+vsf_sysutil_getpid_nocache(void)
+{
+#ifdef VSF_SYSDEP_HAVE_LINUX_CLONE
+  // Need to defeat the glibc pid caching because we need to hit a raw
+  // sys_clone() above.
+  return syscall(__NR_getpid);
+#else
+  return getpid();
 #endif
 }

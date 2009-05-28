@@ -23,6 +23,7 @@
 void
 priv_sock_init(struct vsf_session* p_sess)
 {
+  struct vsf_sysutil_socketpair_retval retval;
   if (p_sess->parent_fd != -1)
   {
     bug("parent_fd active");
@@ -31,8 +32,7 @@ priv_sock_init(struct vsf_session* p_sess)
   {
     bug("child_fd active");
   }
-  const struct vsf_sysutil_socketpair_retval retval =
-    vsf_sysutil_unix_stream_socketpair();
+  retval = vsf_sysutil_unix_stream_socketpair();
   p_sess->parent_fd = retval.socket_one;
   p_sess->child_fd = retval.socket_two;
 }

@@ -83,6 +83,7 @@ extern int tunable_delete_failed_uploads;     /* Delete an upload that failed */
 extern int tunable_implicit_ssl;              /* Use implicit SSL protocol */
 extern int tunable_sandbox;                   /* Deploy ptrace sandbox */
 extern int tunable_require_ssl_reuse;         /* Require re-used data conn */
+extern int tunable_isolate;                   /* Use container clone() flags */
 
 /* Integer/numeric defines */
 extern unsigned int tunable_accept_timeout;

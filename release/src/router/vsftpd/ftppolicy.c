@@ -162,6 +162,7 @@ policy_setup(struct pt_sandbox* p_sandbox, const struct vsf_session* p_sess)
 static int
 socket_validator(struct pt_sandbox* p_sandbox, void* p_arg)
 {
+  int ret;
   struct vsf_session* p_sess = (struct vsf_session*) p_arg;
   unsigned long arg1;
   unsigned long arg2;
@@ -170,7 +171,7 @@ socket_validator(struct pt_sandbox* p_sandbox, void* p_arg)
   {
     expected_family = AF_INET6;
   }
-  int ret = ptrace_sandbox_get_socketcall_arg(p_sandbox, 0, &arg1);
+  ret = ptrace_sandbox_get_socketcall_arg(p_sandbox, 0, &arg1);
   if (ret != 0)
   {
     return ret;
@@ -190,6 +191,7 @@ socket_validator(struct pt_sandbox* p_sandbox, void* p_arg)
 static int
 connect_validator(struct pt_sandbox* p_sandbox, void* p_arg)
 {
+  int ret;
   struct vsf_session* p_sess = (struct vsf_session*) p_arg;
   unsigned long arg2;
   unsigned long arg3;
@@ -203,7 +205,7 @@ connect_validator(struct pt_sandbox* p_sandbox, void* p_arg)
     expected_family = AF_INET6;
     expected_len = sizeof(struct sockaddr_in6);
   }
-  int ret = ptrace_sandbox_get_socketcall_arg(p_sandbox, 1, &arg2);
+  ret = ptrace_sandbox_get_socketcall_arg(p_sandbox, 1, &arg2);
   if (ret != 0)
   {
     return ret;
@@ -258,10 +260,11 @@ connect_validator(struct pt_sandbox* p_sandbox, void* p_arg)
 static int
 getsockopt_validator(struct pt_sandbox* p_sandbox, void* p_arg)
 {
+  int ret;
   unsigned long arg2;
   unsigned long arg3;
   (void) p_arg;
-  int ret = ptrace_sandbox_get_socketcall_arg(p_sandbox, 1, &arg2);
+  ret = ptrace_sandbox_get_socketcall_arg(p_sandbox, 1, &arg2);
   if (ret != 0)
   {
     return ret;
@@ -281,10 +284,11 @@ getsockopt_validator(struct pt_sandbox* p_sandbox, void* p_arg)
 static int
 setsockopt_validator(struct pt_sandbox* p_sandbox, void* p_arg)
 {
+  int ret;
   unsigned long arg2;
   unsigned long arg3;
   (void) p_arg;
-  int ret = ptrace_sandbox_get_socketcall_arg(p_sandbox, 1, &arg2);
+  ret = ptrace_sandbox_get_socketcall_arg(p_sandbox, 1, &arg2);
   if (ret != 0)
   {
     return ret;

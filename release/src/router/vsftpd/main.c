@@ -35,7 +35,6 @@ static void limits_init(void);
 int
 main(int argc, const char* argv[])
 {
-  tunables_load_defaults();
   struct vsf_session the_session =
   {
     /* Control connection */
@@ -69,6 +68,7 @@ main(int argc, const char* argv[])
   };
   int config_specified = 0;
   const char* p_config_name = VSFTP_DEFAULT_CONFIG;
+  tunables_load_defaults();
   /* Zero or one argument supported. If one argument is passed, it is the
    * path to the config file
    */

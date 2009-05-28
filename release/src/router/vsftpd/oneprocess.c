@@ -36,7 +36,7 @@ vsf_one_process_start(struct vsf_session* p_sess)
     struct pt_sandbox* p_sandbox = ptrace_sandbox_alloc();
     if (p_sandbox == 0)
     {
-      die("could not allocate sandbox");
+      die("could not allocate sandbox (only works for 32-bit builds)");
     }
     policy_setup(p_sandbox, p_sess);
     if (ptrace_sandbox_launch_process(p_sandbox,
@@ -90,7 +90,9 @@ one_process_start(void* p_arg)
     else
     {
       vsf_secutil_change_credentials(&user_name, 0, &chdir_str, caps,
-          VSF_SECUTIL_OPTION_CHROOT | VSF_SECUTIL_OPTION_USE_GROUPS);
+          VSF_SECUTIL_OPTION_CHROOT |
+          VSF_SECUTIL_OPTION_USE_GROUPS |
+          VSF_SECUTIL_OPTION_NO_PROCS);
     }
     str_free(&user_name);
     str_free(&chdir_str);
