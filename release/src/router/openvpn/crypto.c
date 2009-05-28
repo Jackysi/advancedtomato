@@ -159,7 +159,6 @@ openvpn_encrypt (struct buffer *buf, struct buffer work,
 	  /* Flush the encryption buffer */
 	  ASSERT (EVP_CipherFinal (ctx->cipher, BPTR (&work) + outlen, &outlen));
 	  work.len += outlen;
-	  ASSERT (outlen == iv_size);
 
 	  /* prepend the IV to the ciphertext */
 	  if (opt->flags & CO_USE_IV)
