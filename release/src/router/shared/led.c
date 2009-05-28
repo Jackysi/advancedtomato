@@ -1,7 +1,7 @@
 /*
 
 	Tomato Firmware
-	Copyright (C) 2006-2008 Jonathan Zarate
+	Copyright (C) 2006-2009 Jonathan Zarate
 
 */
 #include <stdio.h>
@@ -92,6 +92,7 @@ int led(int which, int mode)
 	static int wzrg54[]		= { 2,    7,    255,  255,  255,  6,    255,  255	};
 	static int wr850g1[]	= { 7,    3,    255,  255,  255,  255,  255,  255	};
 	static int wr850g2[]	= { 0,    1,    255,  255,  255,  255,  255,  255	};
+	static int wtr54gs[]	= { 1,    -1,   255,  255,  255,  255,  255,  255	};
 	char s[16];
 	int n;
 	int b;
@@ -121,6 +122,9 @@ int led(int which, int mode)
 		}
 		b = wrt54g[which];
 		break;
+	case MODEL_WTR54GS:
+		b = wtr54gs[which];
+		break;
 	case MODEL_WRTSL54GS:
 		b = wrtsl[which];
 		break;
@@ -136,6 +140,7 @@ int led(int which, int mode)
 	case MODEL_WVRG54NF:
 	case MODEL_WHR2A54G54:
 	case MODEL_WHR3AG54:
+	case MODEL_WZRG108:
 		b = wzrg54[which];
 		break;
 /*		
@@ -155,6 +160,7 @@ int led(int which, int mode)
 		b = wr850g1[which];
 		break;
 	case MODEL_WR850GV2:
+	case MODEL_WR100:
 		b = wr850g2[which];
 		break;
 	case MODEL_WL500GP:

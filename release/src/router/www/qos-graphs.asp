@@ -1,7 +1,7 @@
 <!DOCTYPE HTML PUBLIC '-//W3C//DTD HTML 4.0//EN'>
 <!--
 	Tomato GUI
-	Copyright (C) 2006-2008 Jonathan Zarate
+	Copyright (C) 2006-2009 Jonathan Zarate
 	http://www.polarcloud.com/tomato/
 
 	For use with Tomato Firmware only.
@@ -73,7 +73,7 @@ function showData()
 {
 	var i, n, p;
 	var ct, rt;
-	
+
 	ct = rt = 0;
 	for (i = 0; i < 11; ++i) {
 		if (!nfmarks[i]) nfmarks[i] = 0;
@@ -81,7 +81,7 @@ function showData()
 		if (!qrates[i]) qrates[i] = 0;
 		rt += qrates[i];
 	}
-	
+
 	for (i = 0; i < 11; ++i) {
 		n = nfmarks[i];
 		E('ccnt' + i).innerHTML = n;
@@ -118,7 +118,7 @@ ref.refresh = function(text)
 		qrates = [];
 	}
 
-	showData();	
+	showData();
 	if (svgReady == 1) {
 		updateCD(nfmarks);
 		updateBD(qrates);
@@ -142,7 +142,7 @@ function checkSVG()
 	}
 	catch (ex) {
 	}
-	
+
 	if (i < 0) {
 		svgReady = 1;
 		updateCD(nfmarks);
@@ -184,7 +184,7 @@ for (i = 0; i < 11; ++i) {
 	W('<tr style="cursor:pointer" onclick="mClick(' + i + ')">' +
 		'<td class="color" style="background:#' + colors[i] + '" onclick="mClick(' + i + ')">&nbsp;</td>' +
 		'<td class="title" style="width:60px"><a href="qos-detailed.asp?class=' + i + '">' + abc[i] + '</a></td>' +
-		'<td id="ccnt' + i + '" class="count" style="width:90px"></td>' + 
+		'<td id="ccnt' + i + '" class="count" style="width:90px"></td>' +
 		'<td id="cpct' + i + '" class="pct"></td></tr>');
 }
 </script>
@@ -210,8 +210,8 @@ for (i = 1; i < 11; ++i) {
 	W('<tr style="cursor:pointer" onclick="mClick(' + i + ')">' +
 		'<td class="color" style="background:#' + colors[i] + '" onclick="mClick(' + i + ')">&nbsp;</td>' +
 		'<td class="title" style="width:45px"><a href="qos-detailed.asp?class=' + i + '">' + abc[i] + '</a></td>' +
-		'<td id="bcnt' + i + '" class="count" style="width:60px"></td>' + 
-		'<td id="bcntx' + i + '" class="count" style="width:50px"></td>' + 
+		'<td id="bcnt' + i + '" class="count" style="width:60px"></td>' +
+		'<td id="bcntx' + i + '" class="count" style="width:50px"></td>' +
 		'<td id="bpct' + i + '" class="pct"></td></tr>');
 }
 </script>

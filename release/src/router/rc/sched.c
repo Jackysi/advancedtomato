@@ -1,7 +1,7 @@
 /*
 
 	Tomato Firmware
-	Copyright (C) 2006-2008 Jonathan Zarate
+	Copyright (C) 2006-2009 Jonathan Zarate
 
 */
 
@@ -16,9 +16,9 @@
 static void unsched(const char *key)
 {
 	char s[64];
-	
+
 	DLOG("%s: %s", __FUNCTION__, key);
-	
+
 	sprintf(s, "cru d %s", key);
 	system(s);
 }
@@ -33,7 +33,7 @@ static void sched(const char *key, int resched)
 	int i;
 	struct tm tm;
 	long tt, qq;
-	
+
 	// en,time,days
 	if ((sscanf(nvram_safe_get(key), "%d,%d,%d", &en, &t, &dow) != 3) || (!en)) {
 		unsched(key);
@@ -60,7 +60,7 @@ static void sched(const char *key, int resched)
 			sprintf(w + strlen(w), ",%d", i);
 		}
 	}
-	
+
 	if (t >= 0) {	// specific time
 		sprintf(s, "cru a %s \"%d %d * * %s sched %s\"", key, t % 60, t / 60, w + 1, key);
 	}
@@ -72,7 +72,7 @@ static void sched(const char *key, int resched)
 		else {
 			t *= 60;
 			DLOG("%s: t=%d", __FUNCTION__, t);
-			
+
 			tt = time(0) + 59;
 			tm = *localtime(&tt);
 			DLOG("%s: now=%d:%02d %02d/%02d", __FUNCTION__, tm.tm_hour, tm.tm_min, tm.tm_mon + 1, tm.tm_mday);
@@ -91,7 +91,7 @@ static void sched(const char *key, int resched)
 				if (dow & (1 << tm.tm_wday)) break;
 				tt += 60;
 			}
-			
+
 			sprintf(s, "cru a %s \"%d %d %d %d * sched %s\"", key, tm.tm_min, tm.tm_hour, tm.tm_mday, tm.tm_mon + 1, key);
 		}
 	}
@@ -111,15 +111,15 @@ int sched_main(int argc, char *argv[])
 	int n;
 	char s[64];
 	int log;
-	
+
 	if (argc == 2) {
 		DLOG("%s: %s", __FUNCTION__, argv[1]);
-		
+
 		log = nvram_contains_word("log_events", "sched");
 
 		if (strncmp(argv[1], "sch_", 4) == 0) {
 			wait_action_idle(5 * 60);
-			
+
 			if (is_sched(argv[1])) {
 				if (strcmp(argv[1], "sch_rboot") == 0) {
 					syslog(LOG_INFO, "Performing scheduled %s...", "reboot");
@@ -135,7 +135,7 @@ int sched_main(int argc, char *argv[])
 					n = atoi(argv[1] + 5);
 					if ((n >= 1) && (n <= 3)) {
 						sched(argv[1], 1);
-						
+
 						if (log) {
 							sprintf(s, "custom #%d", n);
 							syslog(LOG_INFO, "Performing scheduled %s...", s);
@@ -144,7 +144,7 @@ int sched_main(int argc, char *argv[])
 						signal(SIGCHLD, handle_reap);
 
 						sprintf(s, "%s_cmd", argv[1]);
-						DLOG("%s: run=%s", __FUNCTION__, nvram_safe_get(s));						
+						DLOG("%s: run=%s", __FUNCTION__, nvram_safe_get(s));
 						run_nvscript(s, "", 60);
 					}
 				}

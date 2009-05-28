@@ -247,11 +247,10 @@ static void update_status(struct svdir *s)
 
 static unsigned custom(struct svdir *s, char c)
 {
-	int pid;
+	pid_t pid;
 	int w;
 	char a[10];
 	struct stat st;
-	char *prog[2];
 
 	if (s->islog) return 0;
 	strcpy(a, "control/?");
@@ -267,13 +266,11 @@ static unsigned custom(struct svdir *s, char c)
 				/* child */
 				if (haslog && dup2(logpipe.wr, 1) == -1)
 					warn_cannot("setup stdout for control/?");
-				prog[0] = a;
-				prog[1] = NULL;
-				execv(a, prog);
+				execl(a, a, (char *) NULL);
 				fatal_cannot("run control/?");
 			}
 			/* parent */
-			while (safe_waitpid(pid, &w, 0) == -1) {
+			if (safe_waitpid(pid, &w, 0) == -1) {
 				warn_cannot("wait for child control/?");
 				return 0;
 			}
@@ -307,15 +304,14 @@ static void stopservice(struct svdir *s)
 static void startservice(struct svdir *s)
 {
 	int p;
-	char *run[2];
+	const char *run;
 
 	if (s->state == S_FINISH)
-		run[0] = (char*)"./finish";
+		run = "./finish";
 	else {
-		run[0] = (char*)"./run";
+		run = "./run";
 		custom(s, 'u');
 	}
-	run[1] = NULL;
 
 	if (s->pid != 0)
 		stopservice(s); /* should never happen */
@@ -336,14 +332,15 @@ static void startservice(struct svdir *s)
 				xdup2(logpipe.wr, 1);
 			}
 		}
-		bb_signals(0
+		/* Non-ignored signals revert to SIG_DFL on exec anyway */
+		/*bb_signals(0
 			+ (1 << SIGCHLD)
 			+ (1 << SIGTERM)
-			, SIG_DFL);
+			, SIG_DFL);*/
 		sig_unblock(SIGCHLD);
 		sig_unblock(SIGTERM);
-		execvp(*run, run);
-		fatal2_cannot(s->islog ? "start log/" : "start ", *run);
+		execl(run, run, (char *) NULL);
+		fatal2_cannot(s->islog ? "start log/" : "start ", run);
 	}
 	/* parent */
 	if (s->state != S_FINISH) {
@@ -397,8 +394,7 @@ static int ctrl(struct svdir *s, char c)
 	case 'c': /* sig cont */
 		if (s->pid && !custom(s, c))
 			kill(s->pid, SIGCONT);
-		if (s->ctrl & C_PAUSE)
-			s->ctrl &= ~C_PAUSE;
+		s->ctrl &= ~C_PAUSE;
 		update_status(s);
 		break;
 	case 'o': /* once */
@@ -454,9 +450,9 @@ int runsv_main(int argc UNUSED_PARAM, char **argv)
 	ndelay_on(selfpipe.wr);
 
 	sig_block(SIGCHLD);
-	bb_signals_recursive(1 << SIGCHLD, s_child);
+	bb_signals_recursive_norestart(1 << SIGCHLD, s_child);
 	sig_block(SIGTERM);
-	bb_signals_recursive(1 << SIGTERM, s_term);
+	bb_signals_recursive_norestart(1 << SIGTERM, s_term);
 
 	xchdir(dir);
 	/* bss: svd[0].pid = 0; */
@@ -584,7 +580,7 @@ int runsv_main(int argc UNUSED_PARAM, char **argv)
 			continue;
 
 		for (;;) {
-			int child;
+			pid_t child;
 			int wstat;
 
 			child = wait_any_nohang(&wstat);

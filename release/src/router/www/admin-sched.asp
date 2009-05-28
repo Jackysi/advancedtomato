@@ -1,7 +1,7 @@
 <!DOCTYPE HTML PUBLIC '-//W3C//DTD HTML 4.0//EN'>
 <!--
 	Tomato GUI
-	Copyright (C) 2006-2008 Jonathan Zarate
+	Copyright (C) 2006-2009 Jonathan Zarate
 	http://www.polarcloud.com/tomato/
 
 	For use with Tomato Firmware only.
@@ -33,7 +33,7 @@ textarea {
 <script type='text/javascript'>
 
 //	<% nvram("sch_rboot,sch_rcon,sch_c1,sch_c1_cmd,sch_c2,sch_c2_cmd,sch_c3,sch_c3_cmd"); %>
-	
+
 var dowNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 var dowLow = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
 var scheds = []
@@ -60,16 +60,16 @@ function makeSched(key, custom)
 	var oe;
 
 	scheds.push(key);
-	
+
 	s = nvram['sch_' + key] || '';
 	if ((v = s.match(/^(0|1),(-?\d+),(\d+)$/)) == null) {
 		v = custom ? ['', 0, -30, 0] : ['', 0, 0, 0];
 	}
 	w = v[3] * 1;
 	if (w <= 0) w = 0xFF;
-	
+
 	key = key + '_';
-	
+
 	if (custom) {
 		t = tm;
 	}
@@ -79,7 +79,7 @@ function makeSched(key, custom)
 			if ((tm[i][0] >= 0) || (tm[i][0] <= -60) || (tm[i][0] == 'e')) t.push(tm[i]);
 		}
 	}
-	
+
 	oe = 1;
 	for (i = 0; i < t.length; ++i) {
 		if (v[2] == t[i][0]) {
@@ -87,7 +87,7 @@ function makeSched(key, custom)
 			break;
 		}
 	}
-	
+
 	a = [
 		{ title: 'Enabled', name: key + 'enabled', type: 'checkbox', value: v[1] == '1' },
 		{ title: 'Time', multi: [
@@ -104,11 +104,11 @@ function makeSched(key, custom)
 			{ name: key + 'sat', type: 'checkbox', suffix: ' Sat &nbsp; &nbsp;', value: w & 64 },
 			{ name: key + 'everyday', type: 'checkbox', suffix: ' Everyday', value: (w & 0x7F) == 0x7F } ] }
 	];
-	
+
 	if (custom) {
 		a.push({ title: 'Command', name: 'sch_' + key + 'cmd', type: 'textarea', value: nvram['sch_' + key + 'cmd' ] });
 	}
-	
+
 	createFieldTable('', a);
 }
 
@@ -116,16 +116,16 @@ function verifySched(focused, quiet, key)
 {
 	var e, f, i, n, b;
 	var eTime, eEvery, eEveryday, eCmd;
-	
+
 	key = '_' + key + '_';
 
 	eTime = E(key + 'time');
 	eEvery = E(key + 'every');
 	eEvery.style.visibility = E(key + 'mins').style.visibility = (eTime.value == 'e') ? 'visible' : 'hidden';
-	
+
 	eCmd = E('_sch' + key + 'cmd');
 	eEveryday = E(key + 'everyday');
-	
+
 	if (E(key + 'enabled').checked) {
 		eEveryday.disabled = 0;
 		eTime.disabled = 0;
@@ -148,9 +148,9 @@ function verifySched(focused, quiet, key)
 			}
 			eEveryday.checked = (n == 7);
 		}
-		
+
 		if ((eTime.value == 'e') && (!v_mins(eEvery, quiet, eCmd ? 1 : 60, 60 * 24 * 60))) return 0;
-		
+
 		if ((eCmd) && (!v_length(eCmd, quiet, quiet ? 0 : 1, 2048))) return 0;
 	}
 	else {
@@ -162,7 +162,7 @@ function verifySched(focused, quiet, key)
 		}
 		if (eCmd) eCmd.disabled = 1;
 	}
-	
+
 	if (eCmd) {
 		if ((eCmd.value.length) || (!eTime.disabled)) {
 			elem.removeClass(eCmd, 'empty');
@@ -171,7 +171,7 @@ function verifySched(focused, quiet, key)
 			elem.addClass(eCmd, 'empty');
 		}
 	}
-	
+
 	return 1;
 }
 
@@ -186,17 +186,17 @@ function verifyFields(focused, quiet)
 function saveSched(fom, key)
 {
 	var s, i, n, k, en, e;
-	
+
 	k = '_' + key + '_';
 
 	en = E(k + 'enabled').checked;
 	s = en ? '1' : '0';
 	s += ',';
-	
+
 	e = E(k + 'time').value;
 	if (e == 'e') s += -(E(k + 'every').value * 1);
 		else s += e;
-	
+
 	n = 0;
 	for (i = 0; i < 7; ++i) {
 		if (E(k + dowLow[i]).checked) n |= (1 << i);
@@ -207,7 +207,7 @@ function saveSched(fom, key)
 		e.checked = 1;
 		verifySched(e, key);
 	}
-	
+
 	e = fom['sch_' + key];
 	e.value = s + ',' + n;
 }
@@ -215,14 +215,14 @@ function saveSched(fom, key)
 function save()
 {
 	var fom, i
-	
+
 	if (!verifyFields(null, false)) return;
-	
+
 	fom = E('_fom');
 	for (i = 0; i < scheds.length; ++i) {
 		saveSched(fom, scheds[i]);
 	}
-	
+
 	form.submit(fom, 1);
 }
 

@@ -1,6 +1,6 @@
 # ReplayTV Internet Video Sharing - Digital Video Recorder - http://replaytv.com
 # Pattern attributes: good veryfast fast
-# Protocol groups: 
+# Protocol groups:
 # Wiki: http://www.protocolinfo.org/wiki/ReplayTV
 # Copyright (C) 2008 Matthew Strait, Ethan Sommer; See ../LICENSE
 #

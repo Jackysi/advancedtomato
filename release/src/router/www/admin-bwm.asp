@@ -1,7 +1,7 @@
 <!DOCTYPE HTML PUBLIC '-//W3C//DTD HTML 4.0//EN'>
 <!--
 	Tomato GUI
-	Copyright (C) 2006-2008 Jonathan Zarate
+	Copyright (C) 2006-2009 Jonathan Zarate
 	http://www.polarcloud.com/tomato/
 
 	For use with Tomato Firmware only.
@@ -142,7 +142,7 @@ function verifyFields(focused, quiet)
 	else {
 		bak = 1;
 	}
-	
+
 	E('_f_bak').disabled = bak;
 
 	return v_range(eOfs, quiet, 1, 31);
@@ -285,7 +285,7 @@ createFieldTable('', [
 </td></tr>
 <tr><td id='footer' colspan=2>
 	<form>
-	<span id='footer-msg'></span>	
+	<span id='footer-msg'></span>
 	<input type='button' value='Save' id='save-button' onclick='save()'>
 	<input type='button' value='Cancel' id='cancel-button' onclick='javascript:reloadPage();'>
 	</form>

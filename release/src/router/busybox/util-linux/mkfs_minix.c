@@ -2,8 +2,9 @@
 /*
  * mkfs.c - make a linux (minix) file-system.
  *
- * (C) 1991 Linus Torvalds. This file may be redistributed as per
- * the Linux copyright.
+ * (C) 1991 Linus Torvalds.
+ *
+ * Licensed under GPLv2, see file LICENSE in this tarball for details.
  */
 
 /*
@@ -160,7 +161,7 @@ static ALWAYS_INLINE unsigned div_roundup(unsigned size, unsigned n)
 
 static int minix_bit(const char* a, unsigned i)
 {
-	  return a[i >> 3] & (1<<(i & 7));
+	return a[i >> 3] & (1<<(i & 7));
 }
 
 static void minix_setbit(char *a, unsigned i)

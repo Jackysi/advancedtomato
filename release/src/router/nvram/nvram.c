@@ -1,7 +1,7 @@
 /*
 
 	NVRAM Utility
-	Copyright (C) 2006-2008 Jonathan Zarate
+	Copyright (C) 2006-2009 Jonathan Zarate
 
 */
 
@@ -27,12 +27,14 @@ static void help(void)
 {
 	printf(
 		"NVRAM Utility\n"
-		"Copyright (C) 2006-2008 Jonathan Zarate\n\n"	
+		"Copyright (C) 2006-2009 Jonathan Zarate\n\n"	
 		"Usage: nvram set <key=value> | get <key> | unset <key> | "
 		"ren <key> <key> | commit | show [--nosort|--nostat] | "
 		"find <text> | defaults <--yes|--initcheck> | backup <filename> | "
-		"restore <filename> [--test] [--force] [--nocommit] | "
-		"export <--c|--dump|--dump0|--set|--tab>"
+		"restore <filename> [--test] [--force] [--forceall] [--nocommit] | "
+		"export <--quote|--c|--dump|--dump0|--set|--tab> | "
+		"import [--forceall] | "
+		"setfb64 <key> <filename> | getfb64 <key> <filename>"
 //		"test"
 		"\n");
 	exit(1);
@@ -186,9 +188,16 @@ static int defaults_main(int argc, char **argv)
 
 	for (t = defaults; t->key; t++) {
 		if (((p = nvram_get(t->key)) == NULL) || (force)) {
-			nvram_set(t->key, t->value);
-			commit = 1;
-//			if (!force) cprintf("SET %s=%s\n", t->key, t->value);
+			if (t->value == NULL) {
+				if (p != NULL) {
+					nvram_unset(t->key);
+					commit = 1;
+				}
+			}
+			else {
+				nvram_set(t->key, t->value);
+				commit = 1;
+			}
 		}
 		else if (strncmp(t->key, "wl_", 3) == 0) {
 			// sync wl_ and wl0_
@@ -262,9 +271,10 @@ static int commit_main(int argc, char **argv)
 	return r ? 1 : 0;
 }
 
-#define X_C			0
+#define X_QUOTE		0
 #define X_SET		1
-#define X_TAB		2
+#define X_C			2
+#define X_TAB		3
 
 static int export_main(int argc, char **argv)
 {
@@ -272,6 +282,11 @@ static int export_main(int argc, char **argv)
 	char buffer[NVRAM_SPACE];
 	int eq;
 	int mode;
+
+	// C, set, quote
+	static const char *start[4] = { "\"", "nvram set \"", "{ \"", "" };
+	static const char *stop[4] = { "\"", "\"", "\" },", "" };
+
 
 	getall(buffer);
 	p = buffer;
@@ -291,11 +306,12 @@ static int export_main(int argc, char **argv)
 	if (strcmp(argv[1], "--c") == 0) mode = X_C;
 	else if (strcmp(argv[1], "--set") == 0) mode = X_SET;
 	else if (strcmp(argv[1], "--tab") == 0) mode = X_TAB;
+	else if (strcmp(argv[1], "--quote") == 0) mode = X_QUOTE;
 	else help();
 
 	while (*p) {
 		eq = 0;
-		if (mode != X_TAB) printf((mode == X_SET) ? "nvram set \"" : "{ \"");
+		printf("%s", start[mode]);
 		do {
 			switch (*p) {
 			case 9:
@@ -312,7 +328,7 @@ static int export_main(int argc, char **argv)
 				printf("\\%c", *p);
 				break;
 			case '=':
-				if ((eq == 0) && (mode != X_SET)) {
+				if ((eq == 0) && (mode > X_SET)) {
 					printf((mode == X_C) ? "\", \"" : "\t");
 					break;
 				}
@@ -324,10 +340,113 @@ static int export_main(int argc, char **argv)
 			}
 			++p;
 		} while (*p);
-		if (mode != X_TAB) printf((mode == X_SET) ? "\"" : "\" },");
-		putchar('\n');
+		printf("%s\n", stop[mode]);
 		++p;
 	}
+	return 0;
+}
+
+static int in_defaults(const char *key)
+{
+	const defaults_t *t;
+	int n;
+
+	for (t = defaults; t->key; t++) {
+		if (strcmp(t->key, key) == 0) return 1;
+	}
+	
+	if ((strncmp(key, "rrule", 5) == 0) && ((n = atoi(key + 5)) > 0) && (n < 50)) return 1;
+
+	return 0;
+}
+
+static int import_main(int argc, char **argv)
+{
+	FILE *f;
+	char s[10240];
+	int n;
+	char *k, *v;
+	char *p, *q;
+	int all;
+	int same, skip, set;
+
+	all = 0;
+	if (strcmp(argv[1], "--forceall") == 0) {
+		all = 1;
+		++argv;
+	}
+	
+	if ((f = fopen(argv[1], "r")) == NULL) {
+		printf("Error opening file.\n");
+		return 1;
+	}
+	
+	same = skip = set = 0;
+
+	while (fgets(s, sizeof(s), f) != NULL) {
+		n = strlen(s);
+		while ((--n > 0) && (isspace(s[n]))) ;
+		if ((n <= 0) || (s[n] != '"')) continue;
+		s[n] = 0;
+		
+		k = s;
+		while (isspace(*k)) ++k;
+		if (*k != '"') continue;
+		++k;
+		
+		if ((v = strchr(k, '=')) == NULL) continue;
+		*v++ = 0;
+		
+		p = q = v;
+		while (*p) {
+			if (*p == '\\') {
+				++p;
+				switch (*p) {
+				case 't':
+					*q++ = '\t';
+					break;
+				case 'r':
+					*q++ = '\n';
+					break;
+				case 'n':
+					*q++ = '\n';
+					break;
+				case '\\':
+				case '"':
+					*q++ = *p;
+					break;
+				default:
+					printf("Error unescaping %s=%s\n", k, v);
+					return 1;
+				}
+			}
+			else {
+				*q++ = *p;
+			}
+			++p;
+		}
+		*q = 0;
+		
+		if ((all) || (in_defaults(k))) {
+			if (nvram_match(k, v)) {
+				++same;
+//				printf("SAME: %s=%s\n", k, v);
+			}
+			else {
+				++set;
+				printf("%s=%s\n", k, v);
+				nvram_set(k, v);
+			}
+		}
+		else {
+			++skip;
+//			printf("SKIP: %s=%s\n", k, v);
+		}
+	}
+
+	fclose(f);	
+	
+	printf("---\n%d skipped, %d same, %d set\n", skip, same, set);
 	return 0;
 }
 
@@ -409,6 +528,9 @@ static int restore_main(int argc, char **argv)
 			}
 			else if (strcmp(argv[i], "--force") == 0) {
 				force = 1;
+			}
+			else if (strcmp(argv[i], "--forceall") == 0) {
+				force = 2;
 			}
 			else if (strcmp(argv[i], "--nocommit") == 0) {
 				commit = 0;
@@ -506,13 +628,15 @@ CORRUPT:
 		bv = strchr(bk, '=');
 		*bv++ = 0;
 
-		if (!nvram_match(bk, bv)) {
-			if (test) printf("nvram set \"%s=%s\"\n", bk, bv);
-				else nvram_set(bk, bv);
-			++nset;
-		}
-		else {
-			++nsame;
+		if ((force != 1) || (in_defaults(bk))) {
+			if (!nvram_match(bk, bv)) {
+				if (test) printf("nvram set \"%s=%s\"\n", bk, bv);
+					else nvram_set(bk, bv);
+				++nset;
+			}
+			else {
+				++nsame;
+			}
 		}
 
 		*(bv - 1) = '=';
@@ -532,23 +656,26 @@ CORRUPT:
 		}
 		*cv++ = 0;
 
-		cmp = 1;
-		b = data.buffer;
-		while (*b) {
-			bk = b;
-			b += strlen(b) + 1;
-			bv = strchr(bk, '=');
-			*bv++ = 0;
-			cmp = strcmp(bk, ck);
-			*(bv - 1) = '=';
-			if (cmp == 0) break;
-		}
-		if (cmp != 0) {
-			++nunset;
-			if (test) printf("nvram unset \"%s\"\n", ck);
-				else nvram_unset(ck);
+		if ((force != 1) || (in_defaults(ck))) {
+			cmp = 1;
+			b = data.buffer;
+			while (*b) {
+				bk = b;
+				b += strlen(b) + 1;
+				bv = strchr(bk, '=');
+				*bv++ = 0;
+				cmp = strcmp(bk, ck);
+				*(bv - 1) = '=';
+				if (cmp == 0) break;
+			}
+			if (cmp != 0) {
+				++nunset;
+				if (test) printf("nvram unset \"%s\"\n", ck);
+					else nvram_unset(ck);
+			}
 		}
 	}
+	
 
 	if ((nset == 0) && (nunset == 0)) commit = 0;
 	printf("\nPerformed %d set and %d unset operations. %d required no changes.\n%s\n",
@@ -615,6 +742,24 @@ static int test_main(int argc, char **argv)
 #endif
 
 
+static int setfb64_main(int argc, char **argv)
+{
+	if (!nvram_set_file(argv[1], argv[2], 10240)) {
+		fprintf(stderr, "Unable to set %s or read %s\n", argv[1], argv[2]);
+		return 1;
+	}
+	return 0;
+}
+
+static int getfb64_main(int argc, char **argv)
+{
+	if (!nvram_get_file(argv[1], argv[2], 10240)) {
+		fprintf(stderr, "Unable to get %s or write %s\n", argv[1], argv[2]);
+		return 1;
+	}
+	return 0;
+}
+
 // -----------------------------------------------------------------------------
 
 typedef struct {
@@ -632,9 +777,12 @@ static const applets_t applets[] = {
 	{ "commit",		2,	commit_main		},
 	{ "find",		3,	find_main		},
 	{ "export",		3,	export_main		},
+	{ "import",		-3,	import_main		},
 	{ "defaults",	3,	defaults_main	},
 	{ "backup",		3,	backup_main		},
 	{ "restore",	-3,	restore_main	},
+	{ "setfb64",	4,	setfb64_main	},
+	{ "getfb64",	4,	getfb64_main	},
 //	{ "test",		2,	test_main		},
 	{ NULL, 		0,	NULL			}
 };

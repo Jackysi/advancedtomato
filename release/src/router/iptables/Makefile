@@ -7,6 +7,8 @@
 DO_IPV6 = 0
 DO_MULTI = 1
 
+DO_SAVE = 0
+
 ######################################################################
 # YOU SHOULD NOT NEED TO TOUCH ANYTHING BELOW THIS LINE
 ######################################################################
@@ -65,37 +67,37 @@ EXTRA_INSTALLS_EXP+=$(DESTDIR)$(BINDIR)/ip6tables-save $(DESTDIR)$(BINDIR)/ip6ta
 endif
 
 # Sparc64 hack
-ifeq ($(shell uname -m),sparc64)
-	POINTERTEST:=1
-	32bituser := $(shell echo -e "\#include <stdio.h>\n\#if !defined(__sparcv9) && !defined(__arch64__) && !defined(_LP64)\nuserspace_is_32bit\n\#endif" | $(CC) $(CFLAGS) -E - | grep userspace_is_32bit)
-	ifdef 32bituser
-		# The kernel is 64-bit, even though userspace is 32.
-		CFLAGS+=-DIPT_MIN_ALIGN=8 -DKERNEL_64_USERSPACE_32
-	else
-		EXT_LDFLAGS+=-Wl,-m,elf64_sparc
-	endif
-endif
+#	ifeq ($(shell uname -m),sparc64)
+#		POINTERTEST:=1
+#		32bituser := $(shell echo -e "\#include <stdio.h>\n\#if !defined(__sparcv9) && !defined(__arch64__) && !defined(_LP64)\nuserspace_is_32bit\n\#endif" | $(CC) $(CFLAGS) -E - | grep userspace_is_32bit)
+#		ifdef 32bituser
+#			# The kernel is 64-bit, even though userspace is 32.
+#			CFLAGS+=-DIPT_MIN_ALIGN=8 -DKERNEL_64_USERSPACE_32
+#		else
+#			EXT_LDFLAGS+=-Wl,-m,elf64_sparc
+#		endif
+#	endif
 
 # Alpha only has 64bit userspace and fails the test below
-ifeq ($(shell uname -m), alpha)
-	POINTERTEST:=1
-endif
+#	ifeq ($(shell uname -m), alpha)
+#		POINTERTEST:=1
+#	endif
 
 # Generic test if arch wasn't found above
-ifneq ($(POINTERTEST),1)
-	# Try to determine if kernel is 64bit and we are compiling for 32bit
-	ifeq ($(shell [ -a $(KERNEL_DIR)/include/asm ] && echo YES), YES)
-		64bitkernel := $(shell echo -e "\#include <asm/types.h>\n\#if BITS_PER_LONG == 64\nkernel_is_64bits\n\#endif" | $(CC) $(CFLAGS) -D__KERNEL__ -E - | grep kernel_is_64bits)
-		ifdef 64bitkernel
-			32bituser := $(shell echo -e "\#include <stdio.h>\n\#if !defined(__arch64__) && !defined(_LP64)\nuserspace_is_32bit\n\#endif" | $(CC) $(CFLAGS) -E - | grep userspace_is_32bit)
-			ifdef 32bituser
-				CFLAGS+=-DIPT_MIN_ALIGN=8 -DKERNEL_64_USERSPACE_32
-			endif
-		endif
-	else
-		CFLAGS+=-D_UNKNOWN_KERNEL_POINTER_SIZE
-	endif
-endif
+#	ifneq ($(POINTERTEST),1)
+#		# Try to determine if kernel is 64bit and we are compiling for 32bit
+#		ifeq ($(shell [ -a $(KERNEL_DIR)/include/asm ] && echo YES), YES)
+#			64bitkernel := $(shell echo -e "\#include <asm/types.h>\n\#if BITS_PER_LONG == 64\nkernel_is_64bits\n\#endif" | $(CC) $(CFLAGS) -D__KERNEL__ -E - | grep kernel_is_64bits)
+#			ifdef 64bitkernel
+#				32bituser := $(shell echo -e "\#include <stdio.h>\n\#if !defined(__arch64__) && !defined(_LP64)\nuserspace_is_32bit\n\#endif" | $(CC) $(CFLAGS) -E - | grep userspace_is_32bit)
+#				ifdef 32bituser
+#					CFLAGS+=-DIPT_MIN_ALIGN=8 -DKERNEL_64_USERSPACE_32
+#				endif
+#			endif
+#		else
+#			CFLAGS+=-D_UNKNOWN_KERNEL_POINTER_SIZE
+#		endif
+#	endif
 
 ifndef IPT_LIBDIR
 IPT_LIBDIR:=$(LIBDIR)/iptables
@@ -136,15 +138,25 @@ iptables.o: iptables.c
 libiptc.so: libiptc/libiptc.a
 	$(LD) -shared -o $@ --whole-archive -Llibiptc -liptc
 
+
 ifeq ($(DO_MULTI), 1)
-#iptables: iptables-multi.c iptables-save.c iptables-restore.c iptables-xml.c iptables-standalone.c iptables.o $(STATIC_LIBS) libiptc/libiptc.a
-#	$(CC) $(CFLAGS) -DIPTABLES_MULTI -DIPT_LIB_DIR=\"$(IPT_LIBDIR)\" $(LDFLAGS) -o $@ $^ $(LDLIBS)
+
+ifeq ($(DO_SAVE), 1)
+iptables: iptables-multi.c iptables-save.c iptables-restore.c iptables-standalone.c iptables.o $(STATIC_LIBS)
+	$(CC) $(CFLAGS) -DIPTABLES_MULTI -DIPTABLES_SAVE -DIPT_LIB_DIR=\"$(IPT_LIBDIR)\" $(LDFLAGS) -o $@ $^ $(LDLIBS) -L. -liptc
+else
 iptables: iptables-multi.c iptables-restore.c iptables-standalone.c iptables.o $(STATIC_LIBS)
 	$(CC) $(CFLAGS) -DIPTABLES_MULTI -DIPT_LIB_DIR=\"$(IPT_LIBDIR)\" $(LDFLAGS) -o $@ $^ $(LDLIBS) -L. -liptc
+endif
+
+#	iptables: iptables-multi.c iptables-save.c iptables-restore.c iptables-xml.c iptables-standalone.c iptables.o $(STATIC_LIBS) libiptc/libiptc.a
+#		$(CC) $(CFLAGS) -DIPTABLES_MULTI -DIPT_LIB_DIR=\"$(IPT_LIBDIR)\" $(LDFLAGS) -o $@ $^ $(LDLIBS)
+
 else
 iptables: iptables-standalone.c iptables.o $(STATIC_LIBS) libiptc/libiptc.a
 	$(CC) $(CFLAGS) -DIPT_LIB_DIR=\"$(IPT_LIBDIR)\" $(LDFLAGS) -o $@ $^ $(LDLIBS)
 endif
+
 
 $(DESTDIR)$(BINDIR)/iptables: iptables
 	@[ -d $(DESTDIR)$(BINDIR) ] || mkdir -p $(DESTDIR)$(BINDIR)

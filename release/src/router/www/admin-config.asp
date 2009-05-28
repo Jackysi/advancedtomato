@@ -1,7 +1,7 @@
 <!DOCTYPE HTML PUBLIC '-//W3C//DTD HTML 4.0//EN'>
 <!--
 	Tomato GUI
-	Copyright (C) 2006-2008 Jonathan Zarate
+	Copyright (C) 2006-2009 Jonathan Zarate
 	http://www.polarcloud.com/tomato/
 
 	For use with Tomato Firmware only.
@@ -35,8 +35,8 @@ function fix(name)
 function backupButton()
 {
 	var name;
-	
-	name = fix(E('backup-name').value);	
+
+	name = fix(E('backup-name').value);
 	if (name.length <= 1) {
 		alert('Invalid filename');
 		return;
@@ -56,7 +56,7 @@ function restoreButton()
 	}
 	if (!confirm('Are you sure?')) return;
 	E('restore-button').disabled = 1;
-	
+
 	f = E('restore-form');
 	form.addIdAction(f);
 	f.submit();
@@ -65,7 +65,7 @@ function restoreButton()
 function resetButton()
 {
 	var i;
-	
+
 	i = E('restore-mode').value;
 	if (i == 0) return;
 	if ((i == 2) && (features('!nve'))) {
