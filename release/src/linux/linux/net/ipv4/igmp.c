@@ -677,8 +677,9 @@ int ip_mc_join_group(struct sock *sk , struct ip_mreqn *imr)
 		count++;
 	}
 	err = -ENOBUFS;
-	//if (iml == NULL || count >= sysctl_igmp_max_memberships)
-        if (iml == NULL || count > sysctl_igmp_max_memberships)// modify for cdrouter v3.3 item 300(cdrouter_mcast_100) bug
+	// if (iml == NULL || count >= sysctl_igmp_max_memberships)
+	// 43011: modify for cdrouter v3.3 item 300(cdrouter_mcast_100) bug
+	if (iml == NULL || count > sysctl_igmp_max_memberships)
 		goto done;
 	memcpy(&iml->multi, imr, sizeof(*imr));
 	iml->next = sk->protinfo.af_inet.mc_list;
