@@ -768,8 +768,9 @@ extern int volume_id_probe_linux_swap(struct volume_id *id);
  */
 int find_label(char *dev_name, char *label)
 {
-	struct volume_id id = {{0}};
+	struct volume_id id;
 
+	memset(&id, 0x00, sizeof(id));
 	label[0] = '\0';
 	if ((id.fd = open(dev_name, O_RDONLY)) < 0)
 		return 0;
@@ -795,12 +796,6 @@ void *xmalloc(size_t siz)
 void *xrealloc(void *old, size_t size)
 {
 	return realloc(old, size);
-}
-
-typedef long long off64_t;
-off64_t xlseek(int fd, off64_t offset, int whence)
-{
-	return lseek(fd, offset, whence);
 }
 
 void volume_id_set_uuid() {}
