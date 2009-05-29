@@ -23,7 +23,7 @@ APPS=
 
 LIB=$(TOP)/libcrypto.a
 LIBSRC= encode.c digest.c evp_enc.c evp_key.c \
-	e_des.c e_bf.c e_idea.c e_des3.c \
+	e_des.c e_bf.c e_aes.c e_idea.c e_des3.c \
 	e_rc4.c names.c \
 	e_xcbc_d.c e_rc2.c e_cast.c e_rc5.c \
 	m_null.c m_md2.c m_md4.c m_md5.c m_sha.c m_sha1.c \
@@ -34,7 +34,7 @@ LIBSRC= encode.c digest.c evp_enc.c evp_key.c \
 	evp_pkey.c evp_pbe.c p5_crpt.c p5_crpt2.c
 
 LIBOBJ=	encode.o digest.o evp_enc.o evp_key.o \
-	e_des.o e_bf.o e_idea.o e_des3.o \
+	e_des.o e_bf.o e_aes.o e_idea.o e_des3.o \
 	e_rc4.o names.o \
 	e_xcbc_d.o e_rc2.o e_cast.o e_rc5.o \
 	m_null.o m_md2.o m_md4.o m_md5.o m_sha.o m_sha1.o \
