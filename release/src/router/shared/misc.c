@@ -736,71 +736,50 @@ struct mntent *findmntent(char *file)
 }
 
 
-/****************************************************/
-/* Use busybox routines to get labels for fat & ext */
-/* Probe for label the same way that mount does.    */
-/****************************************************/
-
-#define VOLUME_ID_LABEL_SIZE		64
-#define VOLUME_ID_UUID_SIZE		36
-#define SB_BUFFER_SIZE			0x11000
-
-struct volume_id {
-	int		fd;
-	int		error;
-	size_t		sbbuf_len;
-	size_t		seekbuf_len;
-	uint8_t		*sbbuf;
-	uint8_t		*seekbuf;
-	uint64_t	seekbuf_off;
-	char		label[VOLUME_ID_LABEL_SIZE+1];
-	char		uuid[VOLUME_ID_UUID_SIZE+1];
-};
-
-extern void *volume_id_get_buffer(struct volume_id *id, uint64_t off, size_t len);
-extern void volume_id_free_buffer(struct volume_id *id);
-extern int volume_id_probe_ext(struct volume_id *id);
-extern int volume_id_probe_vfat(struct volume_id *id);
-extern int volume_id_probe_linux_swap(struct volume_id *id);
-
 /* Put the label in *label.
  * Return 0 if no label found, NZ if there is a label.
  */
 int find_label(char *dev_name, char *label)
 {
-	struct volume_id id;
+	char *lbl, *p;
+	FILE *mfp;
+	char buf[128];
+	struct stat st_arg, st_mou;
 
-	memset(&id, 0x00, sizeof(id));
-	label[0] = '\0';
-	if ((id.fd = open(dev_name, O_RDONLY)) < 0)
+	*label = 0;
+	/* heuristic: partition name ends in a digit */
+	if (!isdigit(dev_name[strlen(dev_name) - 1]))
+		return(0);
+
+	mfp = popen("mount LABEL= /no-such-label", "r");
+	if (mfp == NULL)
 		return 0;
 
-	if (volume_id_probe_vfat(&id) == 0)
-		goto ret;
-	volume_id_get_buffer(&id, 0, SB_BUFFER_SIZE);
-	if (volume_id_probe_ext(&id) == 0 || volume_id_probe_linux_swap(&id) == 0) { }
-	volume_id_free_buffer(&id);
-
-ret:
-	if (id.label[0] != '\0')
-		strcpy(label, id.label);
-	close(id.fd);
-	return(label[0] != '\0');
-}
-
-void *xmalloc(size_t siz)
-{
-	return (malloc(siz));
-}
-
-void *xrealloc(void *old, size_t size)
-{
-	return realloc(old, size);
-}
-
-void volume_id_set_uuid() {}
-
-ssize_t full_read(int fd, void *buf, size_t len)
-{
-	return read(fd, buf, len);
+	while (fgets(buf, sizeof(buf), mfp)) {
+		if ((p = strchr(buf, '\n')))
+			*p = 0;
+		if ((p = strstr(buf, "LABEL "))) {
+			/* Isolate the label. */
+			if ((lbl = strchr(p+6, '\''))) {
+				++lbl;
+				if ((p = strchr(lbl, '\''))) {
+					*p++ = 0;
+					if ((p = strchr(p, '/'))) {
+						/* Isolate the device. */
+						/* See if the argument is the same as what mount gives. */
+						if (stat(dev_name, &st_arg) == 0 && stat(p, &st_mou) == 0) {
+							if (S_ISBLK(st_arg.st_mode) && S_ISBLK(st_mou.st_mode) &&
+									st_arg.st_rdev == st_mou.st_rdev) {
+								strcpy(label, lbl);
+								fclose(mfp);
+								return 1;
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	fclose(mfp);
+	return 0;
 }
