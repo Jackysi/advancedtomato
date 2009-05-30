@@ -47,3 +47,12 @@ endif
 	@rm -f $(INSTALLDIR)/www/color.css
 
 	chmod 0644 $(INSTALLDIR)/www/*
+
+# install extra vpngui files and directories
+
+ifeq ($(TCONFIG_OPENVPN),y)
+	mkdir -p $(INSTALLDIR)/rom/openvpn
+	cp openvpn-updown.sh $(INSTALLDIR)/rom/openvpn/updown.sh
+	chmod 0755 $(INSTALLDIR)/rom/openvpn/updown.sh
+endif
+

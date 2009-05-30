@@ -291,6 +291,9 @@ void dns_to_resolv(void)
 
 	m = umask(022);	// 077 from pppoecd
 	if ((f = fopen(dmresolv, "w")) != NULL) {
+		// Check for VPN DNS entries
+		write_vpn_resolv(f);
+
 		dns = get_dns();	// static buffer
 		if (dns->count == 0) {
 			// Put a pseudo DNS IP to trigger Connect On Demand
