@@ -188,6 +188,14 @@ void start_vpnclient(int clientNum)
 	sprintf(&buffer[0], "vpn_client%d_cipher", clientNum);
 	if ( !nvram_contains_word(&buffer[0], "default") )
 		fprintf(fp, "cipher %s\n", nvram_safe_get(&buffer[0]));
+	sprintf(&buffer[0], "vpn_client%d_rgw", clientNum);
+	if ( nvram_get_int(&buffer[0]) )
+	{
+		sprintf(&buffer[0], "vpn_client%d_gw", clientNum);
+		if ( ifType == TAP && nvram_safe_get(&buffer[0])[0] != '\0' )
+			fprintf(fp, "route-gateway %s\n", nvram_safe_get(&buffer[0]));
+		fprintf(fp, "redirect-gateway def1\n");
+	}
 	fprintf(fp, "verb 3\n");
 	if ( cryptMode == TLS )
 	{
@@ -622,6 +630,14 @@ void start_vpnserver(int serverNum)
 			if ( nvram_safe_get("wan_domain")[0] != '\0' )
 				fprintf(fp, "push \"dhcp-option DOMAIN %s\"\n", nvram_safe_get("wan_domain"));
 			fprintf(fp, "push \"dhcp-option DNS %s\"\n", nvram_safe_get("lan_ipaddr"));
+		}
+
+		sprintf(&buffer[0], "vpn_server%d_rgw", serverNum);
+		if ( nvram_get_int(&buffer[0]) )
+		{
+			if ( ifType == TAP )
+				fprintf(fp, "push \"route-gateway %s\"\n", nvram_safe_get("lan_ipaddr"));
+			fprintf(fp, "push \"redirect-gateway def1\"\n");
 		}
 
 		sprintf(&buffer[0], "vpn_server%d_hmac", serverNum);
