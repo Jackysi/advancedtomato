@@ -1126,3 +1126,9 @@ necessary.
 
 At this point: v2.1.1 released!
 ===============================
+
+- Fix compile error in sysdeputil.c on some Linux systems.
+
+At this point: v2.1.2 released!
+===============================
+

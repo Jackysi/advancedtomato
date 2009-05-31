@@ -73,6 +73,9 @@
   #ifndef CLONE_NEWIPC
     #define CLONE_NEWIPC 0x08000000
   #endif
+  #include <linux/unistd.h>
+  #include <errno.h>
+  #include <syscall.h>
 #endif
 
 #if defined(__linux__) && !defined(__ia64__) && !defined(__s390__)
