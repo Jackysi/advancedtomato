@@ -98,6 +98,10 @@ vsf_secutil_change_credentials(const struct mystr* p_user_str,
     }
     str_free(&dir_str);
   }
+  if (options & VSF_SECUTIL_OPTION_NO_FDS)
+  {
+    vsf_sysutil_set_no_fds();
+  }
   /* Handle capabilities */
   if (caps)
   {
@@ -120,6 +124,10 @@ vsf_secutil_change_credentials(const struct mystr* p_user_str,
   if (caps)
   {
     vsf_sysdep_adopt_capabilities(caps);
+  }
+  if (options & VSF_SECUTIL_OPTION_NO_PROCS)
+  {
+    vsf_sysutil_set_no_procs();
   }
 }
 

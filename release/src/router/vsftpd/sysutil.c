@@ -15,6 +15,7 @@
 #include "sysutil.h"
 #include "utility.h"
 #include "tunables.h"
+#include "sysdeputil.h"
 
 /* Activate 64-bit file support on Linux/32bit plus others */
 #define _FILE_OFFSET_BITS 64
@@ -533,7 +534,7 @@ vsf_sysutil_getpid(void)
 {
   if (s_current_pid == -1)
   {
-    s_current_pid = getpid();
+    s_current_pid = vsf_sysutil_getpid_nocache();
   }
   return (unsigned int) s_current_pid;
 }
@@ -563,7 +564,7 @@ vsf_sysutil_fork_failok(void)
   int retval = fork();
   if (retval == 0)
   {
-    s_current_pid = -1;
+    vsf_sysutil_clear_pid_cache();
   }
   return retval;
 }
@@ -687,7 +688,7 @@ vsf_sysutil_set_nodelay(int fd)
 void
 vsf_sysutil_activate_sigurg(int fd)
 {
-  int retval = fcntl(fd, F_SETOWN, getpid());
+  int retval = fcntl(fd, F_SETOWN, vsf_sysutil_getpid());
   if (retval != 0)
   {
     die("fcntl");
@@ -2513,7 +2514,7 @@ vsf_sysutil_make_session_leader(void)
   /* This makes us the leader if we are not already */
   (void) setsid();
   /* Check we're the leader */
-  if (getpid() != getpgrp())
+  if ((int) vsf_sysutil_getpid() != getpgrp())
   {
     die("not session leader");
   }
@@ -2789,4 +2790,38 @@ vsf_sysutil_set_address_space_limit(long bytes)
   }
 #endif /* RLIMIT_AS */
   (void) bytes;
+}
+
+void
+vsf_sysutil_set_no_fds()
+{
+  int ret;
+  struct rlimit rlim;
+  rlim.rlim_cur = 0;
+  rlim.rlim_max = 0;
+  ret = setrlimit(RLIMIT_NOFILE, &rlim);
+  if (ret != 0)
+  {
+    die("setrlimit NOFILE");
+  }
+}
+
+void
+vsf_sysutil_set_no_procs()
+{
+  int ret;
+  struct rlimit rlim;
+  rlim.rlim_cur = 0;
+  rlim.rlim_max = 0;
+  ret = setrlimit(RLIMIT_NPROC, &rlim);
+  if (ret != 0)
+  {
+    die("setrlimit NPROC");
+  }
+}
+
+void
+vsf_sysutil_clear_pid_cache()
+{
+  s_current_pid = -1;
 }

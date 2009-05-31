@@ -151,7 +151,14 @@ vsf_standalone_main(void)
     child_info.num_this_ip = 0;
     p_raw_addr = vsf_sysutil_sockaddr_get_raw_addr(p_accept_addr);
     child_info.num_this_ip = handle_ip_count(p_raw_addr);
-    new_child = vsf_sysutil_fork_failok();
+    if (tunable_isolate)
+    {
+      new_child = vsf_sysutil_fork_isolate_failok();
+    }
+    else
+    {
+      new_child = vsf_sysutil_fork_failok();
+    }
     if (new_child != 0)
     {
       /* Parent context */

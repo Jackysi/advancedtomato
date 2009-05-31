@@ -199,6 +199,8 @@ vsf_ftpdataio_post_mark_connect(struct vsf_session* p_sess)
     if (tunable_require_ssl_reuse)
     {
       str_append_text(&s_err_msg, "; session reuse required");
+      str_append_text(
+          &s_err_msg, ": see require_ssl_reuse option in vsftpd.conf man page");
     }
     vsf_cmdio_write_str(p_sess, FTP_DATATLSBAD, &s_err_msg);
   }
