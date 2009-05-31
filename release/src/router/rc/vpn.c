@@ -188,9 +188,27 @@ void start_vpnclient(int clientNum)
 	sprintf(&buffer[0], "vpn_client%d_cipher", clientNum);
 	if ( !nvram_contains_word(&buffer[0], "default") )
 		fprintf(fp, "cipher %s\n", nvram_safe_get(&buffer[0]));
+	sprintf(&buffer[0], "vpn_client%d_rgw", clientNum);
+	if ( nvram_get_int(&buffer[0]) )
+	{
+		sprintf(&buffer[0], "vpn_client%d_gw", clientNum);
+		if ( ifType == TAP && nvram_safe_get(&buffer[0])[0] != '\0' )
+			fprintf(fp, "route-gateway %s\n", nvram_safe_get(&buffer[0]));
+		fprintf(fp, "redirect-gateway def1\n");
+	}
 	fprintf(fp, "verb 3\n");
 	if ( cryptMode == TLS )
 	{
+		sprintf(&buffer[0], "vpn_client%d_adns", clientNum);
+		if ( nvram_get_int(&buffer[0]) )
+		{
+			sprintf(&buffer[0], "/etc/openvpn/client%d/updown.sh", clientNum);
+			symlink("/rom/openvpn/updown.sh", &buffer[0]);
+			fprintf(fp, "script-security 2\n");
+			fprintf(fp, "up updown.sh\n");
+			fprintf(fp, "down updown.sh\n");
+		}
+
 		sprintf(&buffer[0], "vpn_client%d_hmac", clientNum);
 		nvi = nvram_get_int(&buffer[0]);
 		if ( nvi >= 0 )
@@ -606,6 +624,22 @@ void start_vpnserver(int serverNum)
 			vpnlog(VPN_LOG_EXTRA,"CCD processing complete");
 		}
 
+		sprintf(&buffer[0], "vpn_server%d_pdns", serverNum);
+		if ( nvram_get_int(&buffer[0]) )
+		{
+			if ( nvram_safe_get("wan_domain")[0] != '\0' )
+				fprintf(fp, "push \"dhcp-option DOMAIN %s\"\n", nvram_safe_get("wan_domain"));
+			fprintf(fp, "push \"dhcp-option DNS %s\"\n", nvram_safe_get("lan_ipaddr"));
+		}
+
+		sprintf(&buffer[0], "vpn_server%d_rgw", serverNum);
+		if ( nvram_get_int(&buffer[0]) )
+		{
+			if ( ifType == TAP )
+				fprintf(fp, "push \"route-gateway %s\"\n", nvram_safe_get("lan_ipaddr"));
+			fprintf(fp, "push \"redirect-gateway def1\"\n");
+		}
+
 		sprintf(&buffer[0], "vpn_server%d_hmac", serverNum);
 		nvi = nvram_get_int(&buffer[0]);
 		if ( nvi >= 0 )
@@ -859,5 +893,43 @@ void write_vpn_dnsmasq_config(FILE* f)
 			fprintf(f, "interface=%s%d\n", nvram_safe_get(&nv[0]), SERVER_IF_START+cur);
 		}
 	}
+}
+
+void write_vpn_resolv(FILE* f)
+{
+	DIR *dir;
+	struct dirent *file;
+	char *fn, ch;
+	FILE *dnsf;
+
+	if ( chdir("/etc/openvpn/dns") )
+		return;
+
+	dir = opendir("/etc/openvpn/dns");
+
+	vpnlog(VPN_LOG_EXTRA, "Adding DNS entries...");
+	while ( (file = readdir(dir)) != NULL )
+	{
+		fn = file->d_name;
+
+		if ( fn[0] == '.' )
+			continue;
+
+		if ( (dnsf = fopen(fn, "r")) == NULL )
+			continue;
+
+		vpnlog(VPN_LOG_INFO,"Adding DNS entries from %s", fn);
+
+		while( !feof(dnsf) )
+		{
+			ch = fgetc(dnsf);
+			fputc(ch==EOF?'\n':ch, f);
+		}
+
+		fclose(dnsf);
+	}
+	vpnlog(VPN_LOG_EXTRA, "Done with DNS entries...");
+
+	closedir(dir);
 }
 

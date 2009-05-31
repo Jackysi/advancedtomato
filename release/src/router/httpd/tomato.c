@@ -678,6 +678,8 @@ static const nvset_t nvset_list[] = {
 	{ "vpn_server1_c2c",      V_01                },
 	{ "vpn_server1_ccd_excl", V_01                },
 	{ "vpn_server1_ccd_val",  V_NONE              },
+	{ "vpn_server1_pdns",     V_01                },
+	{ "vpn_server1_rgw",      V_01                },
 	{ "vpn_server1_custom",   V_NONE              },
 	{ "vpn_server1_static",   V_NONE              },
 	{ "vpn_server1_ca",       V_NONE              },
@@ -699,6 +701,8 @@ static const nvset_t nvset_list[] = {
 	{ "vpn_server2_local",    V_IP                },
 	{ "vpn_server2_remote",   V_IP                },
 	{ "vpn_server2_hmac",     V_RANGE(-1, 2)      },
+	{ "vpn_server2_pdns",     V_01                },
+	{ "vpn_server2_rgw",      V_01                },
 	{ "vpn_server2_custom",   V_NONE              },
 	{ "vpn_server2_ccd",      V_01                },
 	{ "vpn_server2_c2c",      V_01                },
@@ -725,6 +729,9 @@ static const nvset_t nvset_list[] = {
 	{ "vpn_client1_remote",   V_IP                },
 	{ "vpn_client1_nm",       V_IP                },
 	{ "vpn_client1_hmac",     V_RANGE(-1, 2)      },
+	{ "vpn_client1_adns",     V_01                },
+	{ "vpn_client1_rgw",      V_01                },
+	{ "vpn_client1_gw",       V_TEXT(0, 15)       },
 	{ "vpn_client1_custom",   V_NONE              },
 	{ "vpn_client1_static",   V_NONE              },
 	{ "vpn_client1_ca",       V_NONE              },
@@ -745,6 +752,9 @@ static const nvset_t nvset_list[] = {
 	{ "vpn_client2_remote",   V_IP                },
 	{ "vpn_client2_nm",       V_IP                },
 	{ "vpn_client2_hmac",     V_RANGE(-1, 2)      },
+	{ "vpn_client2_adns",     V_01                },
+	{ "vpn_client2_rgw",      V_01                },
+	{ "vpn_client2_gw",       V_TEXT(0, 15)       },
 	{ "vpn_client2_custom",   V_NONE              },
 	{ "vpn_client2_static",   V_NONE              },
 	{ "vpn_client2_ca",       V_NONE              },
@@ -936,7 +946,7 @@ static void wo_tomato(char *url)
 		nvram_commit_x();
 	}
 
-	if ((v = webcgi_get("_service")) != NULL) {
+	if ((v = webcgi_get("_service")) != NULL && *v != '/0') {
 		if (!*red) {
 			if (ajax) web_printf(" Some services are being restarted...");
 			web_close();
@@ -946,7 +956,7 @@ static void wo_tomato(char *url)
 		if (*v == '*') {
 			kill(1, SIGHUP);
 		}
-		else if (*v != 0) {
+		else {
 			exec_service(v);
 		}
 	}
