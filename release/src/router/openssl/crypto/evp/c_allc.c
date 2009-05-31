@@ -146,4 +146,21 @@ void OpenSSL_add_all_ciphers(void)
 #endif
 	PKCS12_PBE_add();
 	PKCS5_PBE_add();
+
+#ifndef NO_AES
+	EVP_add_cipher(EVP_aes_128_ecb());
+	EVP_add_cipher(EVP_aes_128_cbc());
+	EVP_add_cipher(EVP_aes_128_ofb());
+	EVP_add_cipher(EVP_aes_128_cfb());
+
+	EVP_add_cipher(EVP_aes_192_ecb());
+	EVP_add_cipher(EVP_aes_192_cbc());
+	EVP_add_cipher(EVP_aes_192_ofb());
+	EVP_add_cipher(EVP_aes_192_cfb());
+
+	EVP_add_cipher(EVP_aes_256_ecb());
+	EVP_add_cipher(EVP_aes_256_cbc());
+	EVP_add_cipher(EVP_aes_256_ofb());
+	EVP_add_cipher(EVP_aes_256_cfb());
+#endif
 	}
