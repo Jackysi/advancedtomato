@@ -4,6 +4,8 @@
  *
  * Mostly stolen from: dhcpcd - DHCP client daemon
  * by Yoichi Hariguchi <yoichi@fore.com>
+ *
+ * Licensed under GPLv2, see file LICENSE in this tarball for details.
  */
 
 #include <netinet/if_ether.h>
@@ -39,7 +41,7 @@ enum {
 
 /* Returns 1 if no reply received */
 
-int arpping(uint32_t test_ip, uint32_t from_ip, uint8_t *from_mac, const char *interface)
+int FAST_FUNC arpping(uint32_t test_ip, uint32_t from_ip, uint8_t *from_mac, const char *interface)
 {
 	int timeout_ms;
 	struct pollfd pfd[1];

@@ -8,7 +8,6 @@
  * Copyright (c) 1997-2005 Herbert Xu <herbert@gondor.apana.org.au>
  * was re-ported from NetBSD and debianized.
  *
- *
  * This code is derived from software contributed to Berkeley by
  * Kenneth Almquist.
  *
@@ -18,21 +17,7 @@
  */
 
 /*
- * rewrite arith.y to micro stack based cryptic algorithm by
- * Copyright (c) 2001 Aaron Lehmann <aaronl@vitelus.com>
- *
- * Modified by Paul Mundt <lethal@linux-sh.org> (c) 2004 to support
- * dynamic variables.
- *
- * Modified by Vladimir Oleynik <dzo@simtreas.ru> (c) 2001-2005 to be
- * used in busybox and size optimizations,
- * rewrote arith (see notes to this), added locale support,
- * rewrote dynamic variables.
- *
- */
-
-/*
- * The follow should be set to reflect the type of system you have:
+ * The following should be set to reflect the type of system you have:
  *      JOBS -> 1 if you have Berkeley job control, 0 otherwise.
  *      define SYSV if you are running under System V.
  *      define DEBUG=1 to compile in debugging ('set -o debug' to turn on)
@@ -42,6 +27,11 @@
  * a quit signal will generate a core dump.
  */
 #define DEBUG 0
+/* Tweak debug output verbosity here */
+#define DEBUG_TIME 0
+#define DEBUG_PID 1
+#define DEBUG_SIG 1
+
 #define PROFILE 0
 
 #define IFS_BROKEN
@@ -49,25 +39,36 @@
 #define JOBS ENABLE_ASH_JOB_CONTROL
 
 #if DEBUG
-#ifndef _GNU_SOURCE
-#define _GNU_SOURCE
-#endif
+# ifndef _GNU_SOURCE
+#  define _GNU_SOURCE
+# endif
 #endif
 
 #include "busybox.h" /* for applet_names */
+//TODO: pull in some .h and find out do we have SINGLE_APPLET_MAIN?
+//#include "applet_tables.h" doesn't work
 #include <paths.h>
 #include <setjmp.h>
 #include <fnmatch.h>
-#if JOBS || ENABLE_ASH_READ_NCHARS
-#include <termios.h>
+#include "math.h"
+
+#if defined SINGLE_APPLET_MAIN
+/* STANDALONE does not make sense, and won't compile */
+#undef CONFIG_FEATURE_SH_STANDALONE
+#undef ENABLE_FEATURE_SH_STANDALONE
+#undef USE_FEATURE_SH_STANDALONE
+#undef SKIP_FEATURE_SH_STANDALONE(...)
+#define ENABLE_FEATURE_SH_STANDALONE 0
+#define USE_FEATURE_SH_STANDALONE(...)
+#define SKIP_FEATURE_SH_STANDALONE(...) __VA_ARGS__
 #endif
 
 #ifndef PIPE_BUF
-#define PIPE_BUF 4096           /* amount of buffering in a pipe */
+# define PIPE_BUF 4096           /* amount of buffering in a pipe */
 #endif
 
 #if defined(__uClinux__)
-#error "Do not even bother, ash will not run on uClinux"
+# error "Do not even bother, ash will not run on NOMMU machine"
 #endif
 
 
@@ -76,14 +77,6 @@
 #define VTABSIZE 39
 #define ATABSIZE 39
 #define CMDTABLESIZE 31         /* should be prime */
-
-
-/* ============ Misc helpers */
-
-#define xbarrier() do { __asm__ __volatile__ ("": : :"memory"); } while (0)
-
-/* C99 say: "char" declaration may be signed or unsigned default */
-#define signed_char2int(sc) ((int)((signed char)sc))
 
 
 /* ============ Shell options */
@@ -124,7 +117,7 @@ static const char illnum[] ALIGN1 = "Illegal number: %s";
 /*
  * We enclose jmp_buf in a structure so that we can declare pointers to
  * jump locations.  The global variable handler contains the location to
- * jump to when an exception occurs, and the global variable exception
+ * jump to when an exception occurs, and the global variable exception_type
  * contains a code identifying the exception.  To implement nested
  * exception handlers, the user should save the value of handler on entry
  * to an inner scope, set handler to point to a jmploc structure for the
@@ -154,10 +147,13 @@ struct globals_misc {
 //	/* do we generate EXSIG events */
 //	int exsig; /* counter */
 	volatile int suppressint; /* counter */
+// TODO: rename
+// pendingsig -> pending_sig
+// intpending -> pending_int
 	volatile /*sig_atomic_t*/ smallint intpending; /* 1 = got SIGINT */
 	/* last pending signal */
 	volatile /*sig_atomic_t*/ smallint pendingsig;
-	smallint exception; /* kind of exception (0..5) */
+	smallint exception_type; /* kind of exception (0..5) */
 	/* exceptions */
 #define EXINT 0         /* SIGINT received */
 #define EXERROR 1       /* a generic error */
@@ -193,17 +189,16 @@ struct globals_misc {
 	/*
 	 * Sigmode records the current value of the signal handlers for the various
 	 * modes.  A value of zero means that the current handler is not known.
-	 * S_HARD_IGN indicates that the signal was ignored on entry to the shell,
+	 * S_HARD_IGN indicates that the signal was ignored on entry to the shell.
 	 */
 	char sigmode[NSIG - 1];
-#define S_DFL 1                 /* default signal handling (SIG_DFL) */
-#define S_CATCH 2               /* signal is caught */
-#define S_IGN 3                 /* signal is ignored (SIG_IGN) */
+#define S_DFL      1            /* default signal handling (SIG_DFL) */
+#define S_CATCH    2            /* signal is caught */
+#define S_IGN      3            /* signal is ignored (SIG_IGN) */
 #define S_HARD_IGN 4            /* signal is ignored permenantly */
-#define S_RESET 5               /* temporary - to reset a hard ignored sig */
 
 	/* indicates specified signal received */
-	char gotsig[NSIG - 1]; /* offset by 1: "signal" 0 is meaningless */
+	uint8_t gotsig[NSIG - 1]; /* offset by 1: "signal" 0 is meaningless */
 	char *trap[NSIG];
 
 	/* Rarely referenced stuff */
@@ -224,7 +219,7 @@ extern struct globals_misc *const ash_ptr_to_globals_misc;
 #define physdir     (G_misc.physdir    )
 #define arg0        (G_misc.arg0       )
 #define exception_handler (G_misc.exception_handler)
-#define exception         (G_misc.exception        )
+#define exception_type    (G_misc.exception_type   )
 #define suppressint       (G_misc.suppressint      )
 #define intpending        (G_misc.intpending       )
 //#define exsig             (G_misc.exsig            )
@@ -247,8 +242,40 @@ extern struct globals_misc *const ash_ptr_to_globals_misc;
 } while (0)
 
 
-/* ============ Interrupts / exceptions */
+/* ============ DEBUG */
+#if DEBUG
+static void trace_printf(const char *fmt, ...);
+static void trace_vprintf(const char *fmt, va_list va);
+# define TRACE(param)    trace_printf param
+# define TRACEV(param)   trace_vprintf param
+# define close(fd) do { \
+	int dfd = (fd); \
+	if (close(dfd) < 0) \
+		bb_error_msg("bug on %d: closing %d(%x)", \
+			__LINE__, dfd, dfd); \
+} while (0)
+#else
+# define TRACE(param)
+# define TRACEV(param)
+#endif
 
+
+/* ============ Utility functions */
+#define xbarrier() do { __asm__ __volatile__ ("": : :"memory"); } while (0)
+
+/* C99 say: "char" declaration may be signed or unsigned by default */
+#define signed_char2int(sc) ((int)(signed char)(sc))
+
+static int isdigit_str9(const char *str)
+{
+	int maxlen = 9 + 1; /* max 9 digits: 999999999 */
+	while (--maxlen && isdigit(*str))
+		str++;
+	return (*str == '\0');
+}
+
+
+/* ============ Interrupts / exceptions */
 /*
  * These macros allow the user to suspend the handling of interrupt signals
  * over a period of time.  This is similar to SIGHOLD or to sigblock, but
@@ -263,7 +290,7 @@ extern struct globals_misc *const ash_ptr_to_globals_misc;
 /*
  * Called to raise an exception.  Since C doesn't include exceptions, we
  * just do a longjmp to the exception handler.  The type of exception is
- * stored in the global variable "exception".
+ * stored in the global variable "exception_type".
  */
 static void raise_exception(int) NORETURN;
 static void
@@ -274,9 +301,15 @@ raise_exception(int e)
 		abort();
 #endif
 	INT_OFF;
-	exception = e;
+	exception_type = e;
 	longjmp(exception_handler->loc, 1);
 }
+#if DEBUG
+#define raise_exception(e) do { \
+	TRACE(("raising exception %d on line %d\n", (e), __LINE__)); \
+	raise_exception(e); \
+} while (0)
+#endif
 
 /*
  * Called from trap.c when a SIGINT is received.  (If the user specifies
@@ -289,7 +322,7 @@ static void raise_interrupt(void) NORETURN;
 static void
 raise_interrupt(void)
 {
-	int i;
+	int ex_type;
 
 	intpending = 0;
 	/* Signal is not automatically unmasked after it is raised,
@@ -297,49 +330,43 @@ raise_interrupt(void)
 	sigprocmask_allsigs(SIG_UNBLOCK);
 	/* pendingsig = 0; - now done in onsig() */
 
-	i = EXSIG;
+	ex_type = EXSIG;
 	if (gotsig[SIGINT - 1] && !trap[SIGINT]) {
 		if (!(rootshell && iflag)) {
 			/* Kill ourself with SIGINT */
 			signal(SIGINT, SIG_DFL);
 			raise(SIGINT);
 		}
-		i = EXINT;
+		ex_type = EXINT;
 	}
-	raise_exception(i);
+	raise_exception(ex_type);
 	/* NOTREACHED */
 }
+#if DEBUG
+#define raise_interrupt() do { \
+	TRACE(("raising interrupt on line %d\n", __LINE__)); \
+	raise_interrupt(); \
+} while (0)
+#endif
 
-#if ENABLE_ASH_OPTIMIZE_FOR_SIZE
-static void
+static USE_ASH_OPTIMIZE_FOR_SIZE(inline) void
 int_on(void)
 {
+	xbarrier();
 	if (--suppressint == 0 && intpending) {
 		raise_interrupt();
 	}
 }
 #define INT_ON int_on()
-static void
+static USE_ASH_OPTIMIZE_FOR_SIZE(inline) void
 force_int_on(void)
 {
+	xbarrier();
 	suppressint = 0;
 	if (intpending)
 		raise_interrupt();
 }
 #define FORCE_INT_ON force_int_on()
-#else
-#define INT_ON do { \
-	xbarrier(); \
-	if (--suppressint == 0 && intpending) \
-		raise_interrupt(); \
-} while (0)
-#define FORCE_INT_ON do { \
-	xbarrier(); \
-	suppressint = 0; \
-	if (intpending) \
-		raise_interrupt(); \
-} while (0)
-#endif /* ASH_OPTIMIZE_FOR_SIZE */
 
 #define SAVE_INT(v) ((v) = suppressint)
 
@@ -349,36 +376,6 @@ force_int_on(void)
 	if (suppressint == 0 && intpending) \
 		raise_interrupt(); \
 } while (0)
-
-/*
- * Ignore a signal. Only one usage site - in forkchild()
- */
-static void
-ignoresig(int signo)
-{
-	if (sigmode[signo - 1] != S_IGN && sigmode[signo - 1] != S_HARD_IGN) {
-		signal(signo, SIG_IGN);
-	}
-	sigmode[signo - 1] = S_HARD_IGN;
-}
-
-/*
- * Signal handler. Only one usage site - in setsignal()
- */
-static void
-onsig(int signo)
-{
-	gotsig[signo - 1] = 1;
-	pendingsig = signo;
-
-	if (/* exsig || */ (signo == SIGINT && !trap[SIGINT])) {
-		if (!suppressint) {
-			pendingsig = 0;
-			raise_interrupt(); /* does not return */
-		}
-		intpending = 1;
-	}
-}
 
 
 /* ============ Stdout/stderr output */
@@ -500,32 +497,36 @@ static const char dolatstr[] ALIGN1 = {
 	CTLVAR, VSNORMAL|VSQUOTE, '@', '=', '\0'
 };
 
-#define NCMD 0
-#define NPIPE 1
-#define NREDIR 2
-#define NBACKGND 3
+#define NCMD      0
+#define NPIPE     1
+#define NREDIR    2
+#define NBACKGND  3
 #define NSUBSHELL 4
-#define NAND 5
-#define NOR 6
-#define NSEMI 7
-#define NIF 8
-#define NWHILE 9
-#define NUNTIL 10
-#define NFOR 11
-#define NCASE 12
-#define NCLIST 13
-#define NDEFUN 14
-#define NARG 15
-#define NTO 16
-#define NCLOBBER 17
-#define NFROM 18
-#define NFROMTO 19
-#define NAPPEND 20
-#define NTOFD 21
-#define NFROMFD 22
-#define NHERE 23
-#define NXHERE 24
-#define NNOT 25
+#define NAND      5
+#define NOR       6
+#define NSEMI     7
+#define NIF       8
+#define NWHILE    9
+#define NUNTIL   10
+#define NFOR     11
+#define NCASE    12
+#define NCLIST   13
+#define NDEFUN   14
+#define NARG     15
+#define NTO      16
+#if ENABLE_ASH_BASH_COMPAT
+#define NTO2     17
+#endif
+#define NCLOBBER 18
+#define NFROM    19
+#define NFROMTO  20
+#define NAPPEND  21
+#define NTOFD    22
+#define NFROMFD  23
+#define NHERE    24
+#define NXHERE   25
+#define NNOT     26
+#define N_NUMBER 27
 
 union node;
 
@@ -588,20 +589,26 @@ struct narg {
 	struct nodelist *backquote;
 };
 
+/* nfile and ndup layout must match!
+ * NTOFD (>&fdnum) uses ndup structure, but we may discover mid-flight
+ * that it is actually NTO2 (>&file), and change its type.
+ */
 struct nfile {
 	smallint type;
 	union node *next;
 	int fd;
+	int _unused_dupfd;
 	union node *fname;
 	char *expfname;
 };
 
 struct ndup {
 	smallint type;
-	union node *next; /* must match nfile's layout */
-	int fd; /* must match nfile's layout */
+	union node *next;
+	int fd;
 	int dupfd;
 	union node *vname;
+	char *_unused_expfname;
 };
 
 struct nhere {
@@ -667,6 +674,12 @@ trace_printf(const char *fmt, ...)
 
 	if (debug != 1)
 		return;
+	if (DEBUG_TIME)
+		fprintf(tracefile, "%u ", (int) time(NULL));
+	if (DEBUG_PID)
+		fprintf(tracefile, "[%u] ", (int) getpid());
+	if (DEBUG_SIG)
+		fprintf(tracefile, "pending s:%d i:%d(supp:%d) ", pendingsig, intpending, suppressint);
 	va_start(va, fmt);
 	vfprintf(tracefile, fmt, va);
 	va_end(va);
@@ -677,6 +690,12 @@ trace_vprintf(const char *fmt, va_list va)
 {
 	if (debug != 1)
 		return;
+	if (DEBUG_TIME)
+		fprintf(tracefile, "%u ", (int) time(NULL));
+	if (DEBUG_PID)
+		fprintf(tracefile, "[%u] ", (int) getpid());
+	if (DEBUG_SIG)
+		fprintf(tracefile, "pending s:%d i:%d(supp:%d) ", pendingsig, intpending, suppressint);
 	vfprintf(tracefile, fmt, va);
 }
 
@@ -904,8 +923,11 @@ shcmd(union node *cmd, FILE *fp)
 		case NTO:      s = ">>"+1; dftfd = 1; break;
 		case NCLOBBER: s = ">|"; dftfd = 1; break;
 		case NAPPEND:  s = ">>"; dftfd = 1; break;
+#if ENABLE_ASH_BASH_COMPAT
+		case NTO2:
+#endif
 		case NTOFD:    s = ">&"; dftfd = 1; break;
-		case NFROM:    s = "<";  break;
+		case NFROM:    s = "<"; break;
 		case NFROMFD:  s = "<&"; break;
 		case NFROMTO:  s = "<>"; break;
 		default:       s = "*error*"; break;
@@ -978,14 +1000,6 @@ showtree(union node *n)
 	shtree(n, 1, NULL, stdout);
 }
 
-#define TRACE(param)    trace_printf param
-#define TRACEV(param)   trace_vprintf param
-
-#else
-
-#define TRACE(param)
-#define TRACEV(param)
-
 #endif /* DEBUG */
 
 
@@ -1003,8 +1017,8 @@ struct alias;
 
 struct strpush {
 	struct strpush *prev;   /* preceding string on stack */
-	char *prevstring;
-	int prevnleft;
+	char *prev_string;
+	int prev_left_in_line;
 #if ENABLE_ASH_ALIAS
 	struct alias *ap;       /* if push was associated with an alias */
 #endif
@@ -1015,9 +1029,9 @@ struct parsefile {
 	struct parsefile *prev; /* preceding file on stack */
 	int linno;              /* current line */
 	int fd;                 /* file descriptor (or -1 if string) */
-	int nleft;              /* number of chars left in this line */
-	int lleft;              /* number of chars left in this buffer */
-	char *nextc;            /* next char in buffer */
+	int left_in_line;       /* number of chars left in this line */
+	int left_in_buffer;     /* number of chars left in this buffer past the line */
+	char *next_to_pgetc;    /* next char in buffer */
 	char *buf;              /* input buffer */
 	struct strpush *strpush; /* for pushing strings at this level */
 	struct strpush basestrpush; /* so pushing one is fast */
@@ -1082,6 +1096,14 @@ ash_msg_and_raise_error(const char *msg, ...)
 	ash_vmsg_and_raise(EXERROR, msg, ap);
 	/* NOTREACHED */
 	va_end(ap);
+}
+
+static void raise_error_syntax(const char *) NORETURN;
+static void
+raise_error_syntax(const char *msg)
+{
+	ash_msg_and_raise_error("syntax error: %s", msg);
+	/* NOTREACHED */
 }
 
 static void ash_msg_and_raise(int, const char *, ...) NORETURN;
@@ -1958,7 +1980,7 @@ findvar(struct var **vpp, const char *name)
 /*
  * Find the value of a variable.  Returns NULL if not set.
  */
-static char *
+static const char *
 lookupvar(const char *name)
 {
 	struct var *v;
@@ -1984,7 +2006,7 @@ lookupvar(const char *name)
 /*
  * Search the environment of a builtin command.
  */
-static char *
+static const char *
 bltinlookup(const char *name)
 {
 	struct strlist *sp;
@@ -2553,34 +2575,36 @@ pwdcmd(int argc UNUSED_PARAM, char **argv UNUSED_PARAM)
 
 /* ============ ... */
 
+
 #define IBUFSIZ COMMON_BUFSIZE
-#define basebuf bb_common_bufsiz1       /* buffer for top level input file */
+/* buffer for top level input file */
+#define basebuf bb_common_bufsiz1
 
 /* Syntax classes */
-#define CWORD 0                 /* character is nothing special */
-#define CNL 1                   /* newline character */
-#define CBACK 2                 /* a backslash character */
-#define CSQUOTE 3               /* single quote */
-#define CDQUOTE 4               /* double quote */
+#define CWORD     0             /* character is nothing special */
+#define CNL       1             /* newline character */
+#define CBACK     2             /* a backslash character */
+#define CSQUOTE   3             /* single quote */
+#define CDQUOTE   4             /* double quote */
 #define CENDQUOTE 5             /* a terminating quote */
-#define CBQUOTE 6               /* backwards single quote */
-#define CVAR 7                  /* a dollar sign */
-#define CENDVAR 8               /* a '}' character */
-#define CLP 9                   /* a left paren in arithmetic */
-#define CRP 10                  /* a right paren in arithmetic */
+#define CBQUOTE   6             /* backwards single quote */
+#define CVAR      7             /* a dollar sign */
+#define CENDVAR   8             /* a '}' character */
+#define CLP       9             /* a left paren in arithmetic */
+#define CRP      10             /* a right paren in arithmetic */
 #define CENDFILE 11             /* end of file */
-#define CCTL 12                 /* like CWORD, except it must be escaped */
-#define CSPCL 13                /* these terminate a word */
-#define CIGN 14                 /* character should be ignored */
+#define CCTL     12             /* like CWORD, except it must be escaped */
+#define CSPCL    13             /* these terminate a word */
+#define CIGN     14             /* character should be ignored */
 
 #if ENABLE_ASH_ALIAS
-#define SYNBASE 130
-#define PEOF -130
-#define PEOA -129
+#define SYNBASE       130
+#define PEOF         -130
+#define PEOA         -129
 #define PEOA_OR_PEOF PEOA
 #else
-#define SYNBASE 129
-#define PEOF -129
+#define SYNBASE       129
+#define PEOF         -129
 #define PEOA_OR_PEOF PEOF
 #endif
 
@@ -2595,7 +2619,7 @@ pwdcmd(int argc UNUSED_PARAM, char **argv UNUSED_PARAM)
 #define USE_SIT_FUNCTION
 #endif
 
-#if ENABLE_ASH_MATH_SUPPORT
+#if ENABLE_SH_MATH_SUPPORT
 static const char S_I_T[][4] = {
 #if ENABLE_ASH_ALIAS
 	{ CSPCL, CIGN, CIGN, CIGN },            /* 0, PEOA */
@@ -2639,7 +2663,7 @@ static const char S_I_T[][3] = {
 	{ CCTL, CCTL, CCTL }                    /* 14, CTLESC ... */
 #endif
 };
-#endif /* ASH_MATH_SUPPORT */
+#endif /* SH_MATH_SUPPORT */
 
 #ifdef USE_SIT_FUNCTION
 
@@ -2665,23 +2689,24 @@ SIT(int c, int syntax)
 	const char *s;
 	int indx;
 
-	if (c == PEOF)          /* 2^8+2 */
+	if (c == PEOF) {         /* 2^8+2 */
 		return CENDFILE;
+	}
 #if ENABLE_ASH_ALIAS
-	if (c == PEOA)          /* 2^8+1 */
+	if (c == PEOA) {         /* 2^8+1 */
 		indx = 0;
-	else
+	} else
 #endif
-#define U_C(c) ((unsigned char)(c))
-
-	if ((unsigned char)c >= (unsigned char)(CTLESC)
-	 && (unsigned char)c <= (unsigned char)(CTLQUOTEMARK)
-	) {
-		return CCTL;
-	} else {
+	{
+		if ((unsigned char)c >= (unsigned char)(CTLESC)
+		 && (unsigned char)c <= (unsigned char)(CTLQUOTEMARK)
+		) {
+			return CCTL;
+		}
 		s = strchrnul(spec_symbls, c);
-		if (*s == '\0')
+		if (*s == '\0') {
 			return CWORD;
+		}
 		indx = syntax_index_table[s - spec_symbls];
 	}
 	return S_I_T[indx][syntax];
@@ -2986,7 +3011,7 @@ static const char syntax_index_table[258] = {
 	/* 257   127      */ CWORD_CWORD_CWORD_CWORD,
 };
 
-#define SIT(c, syntax) (S_I_T[(int)syntax_index_table[((int)c)+SYNBASE]][syntax])
+#define SIT(c, syntax) (S_I_T[(int)syntax_index_table[(int)(c) + SYNBASE]][syntax])
 
 #endif  /* USE_SIT_FUNCTION */
 
@@ -3258,87 +3283,129 @@ static void setjobctl(int);
 #endif
 
 /*
+ * Ignore a signal.
+ */
+static void
+ignoresig(int signo)
+{
+	/* Avoid unnecessary system calls. Is it already SIG_IGNed? */
+	if (sigmode[signo - 1] != S_IGN && sigmode[signo - 1] != S_HARD_IGN) {
+		/* No, need to do it */
+		signal(signo, SIG_IGN);
+	}
+	sigmode[signo - 1] = S_HARD_IGN;
+}
+
+/*
+ * Signal handler. Only one usage site - in setsignal()
+ */
+static void
+onsig(int signo)
+{
+	gotsig[signo - 1] = 1;
+
+	if (/* exsig || */ (signo == SIGINT && !trap[SIGINT])) {
+		if (!suppressint) {
+			pendingsig = 0;
+			raise_interrupt(); /* does not return */
+		}
+		intpending = 1;
+	} else {
+		pendingsig = signo;
+	}
+}
+
+/*
  * Set the signal handler for the specified signal.  The routine figures
  * out what it should be set to.
  */
 static void
 setsignal(int signo)
 {
-	int action;
-	char *t, tsig;
+	char *t;
+	char cur_act, new_act;
 	struct sigaction act;
 
 	t = trap[signo];
-	action = S_IGN;
-	if (t == NULL)
-		action = S_DFL;
-	else if (*t != '\0')
-		action = S_CATCH;
-	if (rootshell && action == S_DFL) {
+	new_act = S_DFL;
+	if (t != NULL) { /* trap for this sig is set */
+		new_act = S_CATCH;
+		if (t[0] == '\0') /* trap is "": ignore this sig */
+			new_act = S_IGN;
+	}
+
+	if (rootshell && new_act == S_DFL) {
 		switch (signo) {
 		case SIGINT:
 			if (iflag || minusc || sflag == 0)
-				action = S_CATCH;
+				new_act = S_CATCH;
 			break;
 		case SIGQUIT:
 #if DEBUG
 			if (debug)
 				break;
 #endif
-			/* FALLTHROUGH */
+			/* man bash:
+			 * "In all cases, bash ignores SIGQUIT. Non-builtin
+			 * commands run by bash have signal handlers
+			 * set to the values inherited by the shell
+			 * from its parent". */
+			new_act = S_IGN;
+			break;
 		case SIGTERM:
 			if (iflag)
-				action = S_IGN;
+				new_act = S_IGN;
 			break;
 #if JOBS
 		case SIGTSTP:
 		case SIGTTOU:
 			if (mflag)
-				action = S_IGN;
+				new_act = S_IGN;
 			break;
 #endif
 		}
 	}
+//TODO: if !rootshell, we reset SIGQUIT to DFL,
+//whereas we have to restore it to what shell got on entry
+//from the parent. See comment above
 
 	t = &sigmode[signo - 1];
-	tsig = *t;
-	if (tsig == 0) {
-		/*
-		 * current setting unknown
-		 */
-		if (sigaction(signo, NULL, &act) == -1) {
-			/*
-			 * Pretend it worked; maybe we should give a warning
-			 * here, but other shells don't. We don't alter
-			 * sigmode, so that we retry every time.
-			 */
+	cur_act = *t;
+	if (cur_act == 0) {
+		/* current setting is not yet known */
+		if (sigaction(signo, NULL, &act)) {
+			/* pretend it worked; maybe we should give a warning,
+			 * but other shells don't. We don't alter sigmode,
+			 * so we retry every time.
+			 * btw, in Linux it never fails. --vda */
 			return;
 		}
-		tsig = S_RESET; /* force to be set */
 		if (act.sa_handler == SIG_IGN) {
-			tsig = S_HARD_IGN;
+			cur_act = S_HARD_IGN;
 			if (mflag
 			 && (signo == SIGTSTP || signo == SIGTTIN || signo == SIGTTOU)
 			) {
-				tsig = S_IGN;   /* don't hard ignore these */
+				cur_act = S_IGN;   /* don't hard ignore these */
 			}
 		}
 	}
-	if (tsig == S_HARD_IGN || tsig == action)
+	if (cur_act == S_HARD_IGN || cur_act == new_act)
 		return;
+
 	act.sa_handler = SIG_DFL;
-	switch (action) {
+	switch (new_act) {
 	case S_CATCH:
 		act.sa_handler = onsig;
+		act.sa_flags = 0; /* matters only if !DFL and !IGN */
+		sigfillset(&act.sa_mask); /* ditto */
 		break;
 	case S_IGN:
 		act.sa_handler = SIG_IGN;
 		break;
 	}
-	*t = action;
-	act.sa_flags = 0;
-	sigfillset(&act.sa_mask);
 	sigaction_set(signo, &act);
+
+	*t = new_act;
 }
 
 /* mode flags for set_curjob */
@@ -3742,48 +3809,6 @@ sprint_status(char *s, int status, int sigonly)
 	return col;
 }
 
-/*
- * Do a wait system call.  If job control is compiled in, we accept
- * stopped processes.  If block is zero, we return a value of zero
- * rather than blocking.
- *
- * System V doesn't have a non-blocking wait system call.  It does
- * have a SIGCLD signal that is sent to a process when one of it's
- * children dies.  The obvious way to use SIGCLD would be to install
- * a handler for SIGCLD which simply bumped a counter when a SIGCLD
- * was received, and have waitproc bump another counter when it got
- * the status of a process.  Waitproc would then know that a wait
- * system call would not block if the two counters were different.
- * This approach doesn't work because if a process has children that
- * have not been waited for, System V will send it a SIGCLD when it
- * installs a signal handler for SIGCLD.  What this means is that when
- * a child exits, the shell will be sent SIGCLD signals continuously
- * until is runs out of stack space, unless it does a wait call before
- * restoring the signal handler.  The code below takes advantage of
- * this (mis)feature by installing a signal handler for SIGCLD and
- * then checking to see whether it was called.  If there are any
- * children to be waited for, it will be.
- *
- * If neither SYSV nor BSD is defined, we don't implement nonblocking
- * waits at all.  In this case, the user will not be informed when
- * a background process until the next time she runs a real program
- * (as opposed to running a builtin command or just typing return),
- * and the jobs command may give out of date information.
- */
-static int
-waitproc(int wait_flags, int *status)
-{
-#if JOBS
-	if (doing_jobctl)
-		wait_flags |= WUNTRACED;
-#endif
-	/* NB: _not_ safe_waitpid, we need to detect EINTR */
-	return waitpid(-1, status, wait_flags);
-}
-
-/*
- * Wait for a process to terminate.
- */
 static int
 dowait(int wait_flags, struct job *job)
 {
@@ -3793,17 +3818,18 @@ dowait(int wait_flags, struct job *job)
 	struct job *thisjob;
 	int state;
 
-	TRACE(("dowait(%d) called\n", wait_flags));
-	pid = waitproc(wait_flags, &status);
-	TRACE(("wait returns pid=%d, status=%d\n", pid, status));
-	if (pid <= 0) {
-		/* If we were doing blocking wait and (probably) got EINTR,
-		 * check for pending sigs received while waiting.
-		 * (NB: can be moved into callers if needed) */
-		if (wait_flags == DOWAIT_BLOCK && pendingsig)
-			raise_exception(EXSIG);
+	TRACE(("dowait(0x%x) called\n", wait_flags));
+
+	/* Do a wait system call. If job control is compiled in, we accept
+	 * stopped processes. wait_flags may have WNOHANG, preventing blocking.
+	 * NB: _not_ safe_waitpid, we need to detect EINTR */
+	pid = waitpid(-1, &status,
+			(doing_jobctl ? (wait_flags | WUNTRACED) : wait_flags));
+	TRACE(("wait returns pid=%d, status=0x%x, errno=%d(%s)\n",
+				pid, status, errno, strerror(errno)));
+	if (pid <= 0)
 		return pid;
-	}
+
 	INT_OFF;
 	thisjob = NULL;
 	for (jp = curjob; jp; jp = jp->prev_job) {
@@ -3872,6 +3898,15 @@ dowait(int wait_flags, struct job *job)
 			out2str(s);
 		}
 	}
+	return pid;
+}
+
+static int
+blocking_wait_with_raise_on_sig(struct job *job)
+{
+	pid_t pid = dowait(DOWAIT_BLOCK, job);
+	if (pid <= 0 && pendingsig)
+		raise_exception(EXSIG);
 	return pid;
 }
 
@@ -3954,7 +3989,7 @@ showjobs(FILE *out, int mode)
 
 	TRACE(("showjobs(%x) called\n", mode));
 
-	/* If not even one job changed, there is nothing to do */
+	/* Handle all finished jobs */
 	while (dowait(DOWAIT_NONBLOCK, NULL) > 0)
 		continue;
 
@@ -4046,7 +4081,14 @@ waitcmd(int argc UNUSED_PARAM, char **argv)
 				jp->waited = 1;
 				jp = jp->prev_job;
 			}
-			dowait(DOWAIT_BLOCK, NULL);
+	/* man bash:
+	 * "When bash is waiting for an asynchronous command via
+	 * the wait builtin, the reception of a signal for which a trap
+	 * has been set will cause the wait builtin to return immediately
+	 * with an exit status greater than 128, immediately after which
+	 * the trap is executed."
+	 * Do we do it that way? */
+			blocking_wait_with_raise_on_sig(NULL);
 		}
 	}
 
@@ -4066,11 +4108,10 @@ waitcmd(int argc UNUSED_PARAM, char **argv)
 			job = getjob(*argv, 0);
 		/* loop until process terminated or stopped */
 		while (job->state == JOBRUNNING)
-			dowait(DOWAIT_BLOCK, NULL);
+			blocking_wait_with_raise_on_sig(NULL);
 		job->waited = 1;
 		retval = getstatus(job);
- repeat:
-		;
+ repeat: ;
 	} while (*++argv);
 
  ret:
@@ -4217,7 +4258,7 @@ cmdputs(const char *s)
 		case CTLBACKQ+CTLQUOTE:
 			str = "\"$(...)\"";
 			goto dostr;
-#if ENABLE_ASH_MATH_SUPPORT
+#if ENABLE_SH_MATH_SUPPORT
 		case CTLARI:
 			str = "$((";
 			goto dostr;
@@ -4408,6 +4449,9 @@ cmdtxt(union node *n)
 	case NAPPEND:
 		p = ">>";
 		goto redir;
+#if ENABLE_ASH_BASH_COMPAT
+	case NTO2:
+#endif
 	case NTOFD:
 		p = ">&";
 		goto redir;
@@ -4494,6 +4538,10 @@ forkchild(struct job *jp, /*union node *n,*/ int mode)
 	oldlvl = shlvl;
 	shlvl++;
 
+	/* man bash: "Non-builtin commands run by bash have signal handlers
+	 * set to the values inherited by the shell from its parent".
+	 * Do we do it correctly? */
+
 	closescript();
 	clear_traps();
 #if JOBS
@@ -4506,8 +4554,8 @@ forkchild(struct job *jp, /*union node *n,*/ int mode)
 			pgrp = getpid();
 		else
 			pgrp = jp->ps[0].pid;
-		/* This can fail because we are doing it in the parent also */
-		(void)setpgid(0, pgrp);
+		/* this can fail because we are doing it in the parent also */
+		setpgid(0, pgrp);
 		if (mode == FORK_FG)
 			xtcsetpgrp(ttyfd, pgrp);
 		setsignal(SIGTSTP);
@@ -4515,18 +4563,28 @@ forkchild(struct job *jp, /*union node *n,*/ int mode)
 	} else
 #endif
 	if (mode == FORK_BG) {
+		/* man bash: "When job control is not in effect,
+		 * asynchronous commands ignore SIGINT and SIGQUIT" */
 		ignoresig(SIGINT);
 		ignoresig(SIGQUIT);
 		if (jp->nprocs == 0) {
 			close(0);
 			if (open(bb_dev_null, O_RDONLY) != 0)
-				ash_msg_and_raise_error("can't open %s", bb_dev_null);
+				ash_msg_and_raise_error("can't open '%s'", bb_dev_null);
 		}
 	}
-	if (!oldlvl && iflag) {
-		setsignal(SIGINT);
+	if (!oldlvl) {
+		if (iflag) { /* why if iflag only? */
+			setsignal(SIGINT);
+			setsignal(SIGTERM);
+		}
+		/* man bash:
+		 * "In all cases, bash ignores SIGQUIT. Non-builtin
+		 * commands run by bash have signal handlers
+		 * set to the values inherited by the shell
+		 * from its parent".
+		 * Take care of the second rule: */
 		setsignal(SIGQUIT);
-		setsignal(SIGTERM);
 	}
 	for (jp = curjob; jp; jp = jp->prev_job)
 		freejob(jp);
@@ -4598,12 +4656,12 @@ forkshell(struct job *jp, union node *n, int mode)
 /*
  * Wait for job to finish.
  *
- * Under job control we have the problem that while a child process is
- * running interrupts generated by the user are sent to the child but not
- * to the shell.  This means that an infinite loop started by an inter-
- * active user may be hard to kill.  With job control turned off, an
- * interactive user may place an interactive program inside a loop.  If
- * the interactive program catches interrupts, the user doesn't want
+ * Under job control we have the problem that while a child process
+ * is running interrupts generated by the user are sent to the child
+ * but not to the shell.  This means that an infinite loop started by
+ * an interactive user may be hard to kill.  With job control turned off,
+ * an interactive user may place an interactive program inside a loop.
+ * If the interactive program catches interrupts, the user doesn't want
  * these interrupts to also abort the loop.  The approach we take here
  * is to have the shell ignore interrupt signals while waiting for a
  * foreground process to terminate, and then send itself an interrupt
@@ -4621,9 +4679,43 @@ waitforjob(struct job *jp)
 	int st;
 
 	TRACE(("waitforjob(%%%d) called\n", jobno(jp)));
+
+	INT_OFF;
 	while (jp->state == JOBRUNNING) {
+		/* In non-interactive shells, we _can_ get
+		 * a keyboard signal here and be EINTRed,
+		 * but we just loop back, waiting for command to complete.
+		 *
+		 * man bash:
+		 * "If bash is waiting for a command to complete and receives
+		 * a signal for which a trap has been set, the trap
+		 * will not be executed until the command completes."
+		 *
+		 * Reality is that even if trap is not set, bash
+		 * will not act on the signal until command completes.
+		 * Try this. sleep5intoff.c:
+		 * #include <signal.h>
+		 * #include <unistd.h>
+		 * int main() {
+		 *         sigset_t set;
+		 *         sigemptyset(&set);
+		 *         sigaddset(&set, SIGINT);
+		 *         sigaddset(&set, SIGQUIT);
+		 *         sigprocmask(SIG_BLOCK, &set, NULL);
+		 *         sleep(5);
+		 *         return 0;
+		 * }
+		 * $ bash -c './sleep5intoff; echo hi'
+		 * ^C^C^C^C <--- pressing ^C once a second
+		 * $ _
+		 * $ bash -c './sleep5intoff; echo hi'
+		 * ^\^\^\^\hi <--- pressing ^\ (SIGQUIT)
+		 * $ _
+		 */
 		dowait(DOWAIT_BLOCK, jp);
 	}
+	INT_ON;
+
 	st = getstatus(jp);
 #if JOBS
 	if (jp->jobctl) {
@@ -4759,12 +4851,10 @@ openhere(union node *redir)
 	if (forkshell((struct job *)NULL, (union node *)NULL, FORK_NOJOB) == 0) {
 		/* child */
 		close(pip[0]);
-		signal(SIGINT, SIG_IGN);
-		signal(SIGQUIT, SIG_IGN);
-		signal(SIGHUP, SIG_IGN);
-#ifdef SIGTSTP
-		signal(SIGTSTP, SIG_IGN);
-#endif
+		ignoresig(SIGINT);  //signal(SIGINT, SIG_IGN);
+		ignoresig(SIGQUIT); //signal(SIGQUIT, SIG_IGN);
+		ignoresig(SIGHUP);  //signal(SIGHUP, SIG_IGN);
+		ignoresig(SIGTSTP); //signal(SIGTSTP, SIG_IGN);
 		signal(SIGPIPE, SIG_DFL);
 		if (redir->type == NHERE)
 			full_write(pip[1], redir->nhere.doc->narg.text, len);
@@ -4797,6 +4887,9 @@ openredirect(union node *redir)
 			goto ecreate;
 		break;
 	case NTO:
+#if ENABLE_ASH_BASH_COMPAT
+	case NTO2:
+#endif
 		/* Take care of noclobber mode. */
 		if (Cflag) {
 			fname = redir->nfile.expfname;
@@ -4959,6 +5052,10 @@ redirect(union node *redir, int flags)
 		union node *tmp = redir;
 		do {
 			sv_pos++;
+#if ENABLE_ASH_BASH_COMPAT
+			if (redir->nfile.type == NTO2)
+				sv_pos++;
+#endif
 			tmp = tmp->nfile.next;
 		} while (tmp);
 		sv = ckmalloc(sizeof(*sv) + sv_pos * sizeof(sv->two_fd[0]));
@@ -4997,6 +5094,9 @@ redirect(union node *redir, int flags)
 				continue;
 			}
 		}
+#if ENABLE_ASH_BASH_COMPAT
+ redirect_more:
+#endif
 		if (need_to_remember(sv, fd)) {
 			/* Copy old descriptor */
 			i = fcntl(fd, F_DUPFD, 10);
@@ -5033,14 +5133,27 @@ redirect(union node *redir, int flags)
 		if (newfd < 0) {
 			/* NTOFD/NFROMFD: copy redir->ndup.dupfd to fd */
 			if (redir->ndup.dupfd < 0) { /* "fd>&-" */
-				close(fd);
+				/* Don't want to trigger debugging */
+				if (fd != -1)
+					close(fd);
 			} else {
 				copyfd(redir->ndup.dupfd, fd | COPYFD_EXACT);
 			}
 		} else if (fd != newfd) { /* move newfd to fd */
 			copyfd(newfd, fd | COPYFD_EXACT);
-			close(newfd);
+#if ENABLE_ASH_BASH_COMPAT
+			if (!(redir->nfile.type == NTO2 && fd == 2))
+#endif
+				close(newfd);
 		}
+#if ENABLE_ASH_BASH_COMPAT
+		if (redir->nfile.type == NTO2 && fd == 1) {
+			/* We already redirected it to fd 1, now copy it to 2 */
+			newfd = 1;
+			fd = 2;
+			goto redirect_more;
+		}
+#endif
 	} while ((redir = redir->nfile.next) != NULL);
 
 	INT_ON;
@@ -5075,7 +5188,7 @@ popredir(int drop, int restore)
 				/*close(fd);*/
 				copyfd(copy, fd | COPYFD_EXACT);
 			}
-			close(copy);
+			close(copy & ~COPYFD_RESTORE);
 		}
 	}
 	redirlist = rp->next;
@@ -5118,7 +5231,7 @@ redirectsafe(union node *redir, int flags)
 		redirect(redir, flags);
 	}
 	exception_handler = savehandler;
-	if (err && exception != EXERROR)
+	if (err && exception_type != EXERROR)
 		longjmp(exception_handler->loc, 1);
 	RESTORE_INT(saveint);
 	return err;
@@ -5130,17 +5243,33 @@ redirectsafe(union node *redir, int flags)
  * We have to deal with backquotes, shell variables, and file metacharacters.
  */
 
-#if ENABLE_ASH_MATH_SUPPORT_64
-typedef int64_t arith_t;
-#define arith_t_type long long
-#else
-typedef long arith_t;
-#define arith_t_type long
-#endif
+#if ENABLE_SH_MATH_SUPPORT
+static arith_t
+ash_arith(const char *s)
+{
+	arith_eval_hooks_t math_hooks;
+	arith_t result;
+	int errcode = 0;
 
-#if ENABLE_ASH_MATH_SUPPORT
-static arith_t dash_arith(const char *);
-static arith_t arith(const char *expr, int *perrcode);
+	math_hooks.lookupvar = lookupvar;
+	math_hooks.setvar = setvar;
+	math_hooks.endofname = endofname;
+
+	INT_OFF;
+	result = arith(s, &errcode, &math_hooks);
+	if (errcode < 0) {
+		if (errcode == -3)
+			ash_msg_and_raise_error("exponent less than 0");
+		if (errcode == -2)
+			ash_msg_and_raise_error("divide by zero");
+		if (errcode == -5)
+			ash_msg_and_raise_error("expression recursion loop detected");
+		raise_error_syntax(s);
+	}
+	INT_ON;
+
+	return result;
+}
 #endif
 
 /*
@@ -5200,11 +5329,7 @@ cvtnum(arith_t num)
 	int len;
 
 	expdest = makestrspace(32, expdest);
-#if ENABLE_ASH_MATH_SUPPORT_64
-	len = fmtstr(expdest, 32, "%lld", (long long) num);
-#else
-	len = fmtstr(expdest, 32, "%ld", num);
-#endif
+	len = fmtstr(expdest, 32, arith_t_fmt, num);
 	STADJUST(len, expdest);
 	return len;
 }
@@ -5473,9 +5598,8 @@ evalbackcmd(union node *n, struct backcmd *result)
 	result->buf = NULL;
 	result->nleft = 0;
 	result->jp = NULL;
-	if (n == NULL) {
+	if (n == NULL)
 		goto out;
-	}
 
 	saveherefd = herefd;
 	herefd = -1;
@@ -5569,7 +5693,7 @@ expbackq(union node *cmd, int quoted, int quotes)
 		stackblock() + startloc));
 }
 
-#if ENABLE_ASH_MATH_SUPPORT
+#if ENABLE_SH_MATH_SUPPORT
 /*
  * Expand arithmetic expression.  Backup to start of expression,
  * evaluate, place result in (backed up) result, adjust string position.
@@ -5582,7 +5706,7 @@ expari(int quotes)
 	int flag;
 	int len;
 
-	/*      ifsfree(); */
+	/* ifsfree(); */
 
 	/*
 	 * This routine is slightly over-complicated for
@@ -5624,7 +5748,7 @@ expari(int quotes)
 	if (quotes)
 		rmescapes(p + 2);
 
-	len = cvtnum(dash_arith(p + 2));
+	len = cvtnum(ash_arith(p + 2));
 
 	if (flag != '"')
 		recordregion(begoff, begoff + len, 0);
@@ -5655,7 +5779,7 @@ argstr(char *p, int flag, struct strlist *var_str_list)
 		CTLVAR,
 		CTLBACKQ,
 		CTLBACKQ | CTLQUOTE,
-#if ENABLE_ASH_MATH_SUPPORT
+#if ENABLE_SH_MATH_SUPPORT
 		CTLENDARI,
 #endif
 		0
@@ -5692,7 +5816,7 @@ argstr(char *p, int flag, struct strlist *var_str_list)
 		length += strcspn(p + length, reject);
 		c = p[length];
 		if (c && (!(c & 0x80)
-#if ENABLE_ASH_MATH_SUPPORT
+#if ENABLE_SH_MATH_SUPPORT
 					|| c == CTLENDARI
 #endif
 		   )) {
@@ -5770,7 +5894,7 @@ argstr(char *p, int flag, struct strlist *var_str_list)
 			expbackq(argbackq->n, c, quotes);
 			argbackq = argbackq->next;
 			goto start;
-#if ENABLE_ASH_MATH_SUPPORT
+#if ENABLE_SH_MATH_SUPPORT
 		case CTLENDARI:
 			p--;
 			expari(quotes);
@@ -5900,8 +6024,9 @@ varunset(const char *end, const char *var, const char *umsg, int varflags)
 		if (*end == CTLENDVAR) {
 			if (varflags & VSNUL)
 				tail = " or null";
-		} else
+		} else {
 			msg = umsg;
+		}
 	}
 	ash_msg_and_raise_error("%.*s: %s%s", end - var - 1, var, msg, tail);
 }
@@ -5980,7 +6105,7 @@ subevalvar(char *p, char *str, int strloc, int subtype,
 
 			/* We must adjust the length by the number of escapes we find. */
 			for (ptr = startp; ptr < (str - 1); ptr++) {
-				if(*ptr == CTLESC) {
+				if (*ptr == CTLESC) {
 					len--;
 					ptr++;
 				}
@@ -6056,7 +6181,7 @@ subevalvar(char *p, char *str, int strloc, int subtype,
 	if (subtype == VSREPLACE || subtype == VSREPLACEALL) {
 		char *idx, *end, *restart_detect;
 
-		if(!repl) {
+		if (!repl) {
 			repl = parse_sub_pattern(str, varflags & VSQUOTE);
 			if (!repl)
 				repl = &null;
@@ -6095,8 +6220,9 @@ subevalvar(char *p, char *str, int strloc, int subtype,
 					idx++;
 					rmesc++;
 				}
-			} else
+			} else {
 				idx = loc;
+			}
 
 			for (loc = repl; *loc; loc++) {
 				restart_detect = stackblock();
@@ -6162,7 +6288,7 @@ static ssize_t
 varvalue(char *name, int varflags, int flags, struct strlist *var_str_list)
 {
 	int num;
-	char *p;
+	const char *p;
 	int i;
 	int sep = 0;
 	int sepq = 0;
@@ -6195,14 +6321,13 @@ varvalue(char *name, int varflags, int flags, struct strlist *var_str_list)
 		len = cvtnum(num);
 		break;
 	case '-':
-		p = makestrspace(NOPTS, expdest);
+		expdest = makestrspace(NOPTS, expdest);
 		for (i = NOPTS - 1; i >= 0; i--) {
 			if (optlist[i]) {
-				USTPUTC(optletters(i), p);
+				USTPUTC(optletters(i), expdest);
 				len++;
 			}
 		}
-		expdest = p;
 		break;
 	case '@':
 		if (sep)
@@ -7538,43 +7663,46 @@ commandcmd(int argc UNUSED_PARAM, char **argv UNUSED_PARAM)
 
 /* ============ eval.c */
 
-static int funcblocksize;          /* size of structures in function */
-static int funcstringsize;         /* size of strings in node */
-static void *funcblock;            /* block to allocate function from */
-static char *funcstring;           /* block to allocate strings from */
+static int funcblocksize;       /* size of structures in function */
+static int funcstringsize;      /* size of strings in node */
+static void *funcblock;         /* block to allocate function from */
+static char *funcstring;        /* block to allocate strings from */
 
 /* flags in argument to evaltree */
-#define EV_EXIT 01              /* exit after evaluating tree */
-#define EV_TESTED 02            /* exit status is checked; ignore -e flag */
+#define EV_EXIT    01           /* exit after evaluating tree */
+#define EV_TESTED  02           /* exit status is checked; ignore -e flag */
 #define EV_BACKCMD 04           /* command executing within back quotes */
 
-static const short nodesize[26] = {
-	SHELL_ALIGN(sizeof(struct ncmd)),
-	SHELL_ALIGN(sizeof(struct npipe)),
-	SHELL_ALIGN(sizeof(struct nredir)),
-	SHELL_ALIGN(sizeof(struct nredir)),
-	SHELL_ALIGN(sizeof(struct nredir)),
-	SHELL_ALIGN(sizeof(struct nbinary)),
-	SHELL_ALIGN(sizeof(struct nbinary)),
-	SHELL_ALIGN(sizeof(struct nbinary)),
-	SHELL_ALIGN(sizeof(struct nif)),
-	SHELL_ALIGN(sizeof(struct nbinary)),
-	SHELL_ALIGN(sizeof(struct nbinary)),
-	SHELL_ALIGN(sizeof(struct nfor)),
-	SHELL_ALIGN(sizeof(struct ncase)),
-	SHELL_ALIGN(sizeof(struct nclist)),
-	SHELL_ALIGN(sizeof(struct narg)),
-	SHELL_ALIGN(sizeof(struct narg)),
-	SHELL_ALIGN(sizeof(struct nfile)),
-	SHELL_ALIGN(sizeof(struct nfile)),
-	SHELL_ALIGN(sizeof(struct nfile)),
-	SHELL_ALIGN(sizeof(struct nfile)),
-	SHELL_ALIGN(sizeof(struct nfile)),
-	SHELL_ALIGN(sizeof(struct ndup)),
-	SHELL_ALIGN(sizeof(struct ndup)),
-	SHELL_ALIGN(sizeof(struct nhere)),
-	SHELL_ALIGN(sizeof(struct nhere)),
-	SHELL_ALIGN(sizeof(struct nnot)),
+static const short nodesize[N_NUMBER] = {
+	[NCMD     ] = SHELL_ALIGN(sizeof(struct ncmd)),
+	[NPIPE    ] = SHELL_ALIGN(sizeof(struct npipe)),
+	[NREDIR   ] = SHELL_ALIGN(sizeof(struct nredir)),
+	[NBACKGND ] = SHELL_ALIGN(sizeof(struct nredir)),
+	[NSUBSHELL] = SHELL_ALIGN(sizeof(struct nredir)),
+	[NAND     ] = SHELL_ALIGN(sizeof(struct nbinary)),
+	[NOR      ] = SHELL_ALIGN(sizeof(struct nbinary)),
+	[NSEMI    ] = SHELL_ALIGN(sizeof(struct nbinary)),
+	[NIF      ] = SHELL_ALIGN(sizeof(struct nif)),
+	[NWHILE   ] = SHELL_ALIGN(sizeof(struct nbinary)),
+	[NUNTIL   ] = SHELL_ALIGN(sizeof(struct nbinary)),
+	[NFOR     ] = SHELL_ALIGN(sizeof(struct nfor)),
+	[NCASE    ] = SHELL_ALIGN(sizeof(struct ncase)),
+	[NCLIST   ] = SHELL_ALIGN(sizeof(struct nclist)),
+	[NDEFUN   ] = SHELL_ALIGN(sizeof(struct narg)),
+	[NARG     ] = SHELL_ALIGN(sizeof(struct narg)),
+	[NTO      ] = SHELL_ALIGN(sizeof(struct nfile)),
+#if ENABLE_ASH_BASH_COMPAT
+	[NTO2     ] = SHELL_ALIGN(sizeof(struct nfile)),
+#endif
+	[NCLOBBER ] = SHELL_ALIGN(sizeof(struct nfile)),
+	[NFROM    ] = SHELL_ALIGN(sizeof(struct nfile)),
+	[NFROMTO  ] = SHELL_ALIGN(sizeof(struct nfile)),
+	[NAPPEND  ] = SHELL_ALIGN(sizeof(struct nfile)),
+	[NTOFD    ] = SHELL_ALIGN(sizeof(struct ndup)),
+	[NFROMFD  ] = SHELL_ALIGN(sizeof(struct ndup)),
+	[NHERE    ] = SHELL_ALIGN(sizeof(struct nhere)),
+	[NXHERE   ] = SHELL_ALIGN(sizeof(struct nhere)),
+	[NNOT     ] = SHELL_ALIGN(sizeof(struct nnot)),
 };
 
 static void calcsize(union node *n);
@@ -7644,6 +7772,9 @@ calcsize(union node *n)
 		calcsize(n->narg.next);
 		break;
 	case NTO:
+#if ENABLE_ASH_BASH_COMPAT
+	case NTO2:
+#endif
 	case NCLOBBER:
 	case NFROM:
 	case NFROMTO:
@@ -7757,6 +7888,9 @@ copynode(union node *n)
 		new->narg.next = copynode(n->narg.next);
 		break;
 	case NTO:
+#if ENABLE_ASH_BASH_COMPAT
+	case NTO2:
+#endif
 	case NCLOBBER:
 	case NFROM:
 	case NFROMTO:
@@ -7822,51 +7956,64 @@ defun(char *name, union node *func)
 	INT_ON;
 }
 
-static int evalskip;            /* set if we are skipping commands */
-/* reasons for skipping commands (see comment on breakcmd routine) */
+/* Reasons for skipping commands (see comment on breakcmd routine) */
 #define SKIPBREAK      (1 << 0)
 #define SKIPCONT       (1 << 1)
 #define SKIPFUNC       (1 << 2)
 #define SKIPFILE       (1 << 3)
 #define SKIPEVAL       (1 << 4)
+static smallint evalskip;       /* set to SKIPxxx if we are skipping commands */
 static int skipcount;           /* number of levels to skip */
 static int funcnest;            /* depth of function calls */
 static int loopnest;            /* current loop nesting level */
 
-/* forward decl way out to parsing code - dotrap needs it */
+/* Forward decl way out to parsing code - dotrap needs it */
 static int evalstring(char *s, int mask);
 
-/*
- * Called to execute a trap.  Perhaps we should avoid entering new trap
- * handlers while we are executing a trap handler.
+/* Called to execute a trap.
+ * Single callsite - at the end of evaltree().
+ * If we return non-zero, exaltree raises EXEXIT exception.
+ *
+ * Perhaps we should avoid entering new trap handlers
+ * while we are executing a trap handler. [is it a TODO?]
  */
 static int
 dotrap(void)
 {
-	char *p;
-	char *q;
-	int i;
-	int savestatus;
-	int skip;
+	uint8_t *g;
+	int sig;
+	uint8_t savestatus;
 
 	savestatus = exitstatus;
 	pendingsig = 0;
 	xbarrier();
 
-	for (i = 1, q = gotsig; i < NSIG; i++, q++) {
-		if (!*q)
-			continue;
-		*q = '\0';
+	TRACE(("dotrap entered\n"));
+	for (sig = 1, g = gotsig; sig < NSIG; sig++, g++) {
+		int want_exexit;
+		char *t;
 
-		p = trap[i];
-		if (!p)
+		if (*g == 0)
 			continue;
-		skip = evalstring(p, SKIPEVAL);
+		t = trap[sig];
+		/* non-trapped SIGINT is handled separately by raise_interrupt,
+		 * don't upset it by resetting gotsig[SIGINT-1] */
+		if (sig == SIGINT && !t)
+			continue;
+
+		TRACE(("sig %d is active, will run handler '%s'\n", sig, t));
+		*g = 0;
+		if (!t)
+			continue;
+		want_exexit = evalstring(t, SKIPEVAL);
 		exitstatus = savestatus;
-		if (skip)
-			return skip;
+		if (want_exexit) {
+			TRACE(("dotrap returns %d\n", want_exexit));
+			return want_exexit;
+		}
 	}
 
+	TRACE(("dotrap returns 0\n"));
 	return 0;
 }
 
@@ -7888,28 +8035,34 @@ static void prehash(union node *);
 static void
 evaltree(union node *n, int flags)
 {
-
 	struct jmploc *volatile savehandler = exception_handler;
 	struct jmploc jmploc;
 	int checkexit = 0;
 	void (*evalfn)(union node *, int);
 	int status;
+	int int_level;
+
+	SAVE_INT(int_level);
 
 	if (n == NULL) {
 		TRACE(("evaltree(NULL) called\n"));
 		goto out1;
 	}
-	TRACE(("pid %d, evaltree(%p: %d, %d) called\n",
-			getpid(), n, n->type, flags));
+	TRACE(("evaltree(%p: %d, %d) called\n", n, n->type, flags));
 
 	exception_handler = &jmploc;
 	{
 		int err = setjmp(jmploc.loc);
 		if (err) {
 			/* if it was a signal, check for trap handlers */
-			if (exception == EXSIG)
+			if (exception_type == EXSIG) {
+				TRACE(("exception %d (EXSIG) in evaltree, err=%d\n",
+						exception_type, err));
 				goto out;
+			}
 			/* continue on the way out */
+			TRACE(("exception %d in evaltree, propagating err=%d\n",
+					exception_type, err));
 			exception_handler = savehandler;
 			longjmp(exception_handler->loc, err);
 		}
@@ -7992,7 +8145,8 @@ evaltree(union node *n, int flags)
 		if (exitstatus == 0) {
 			n = n->nif.ifpart;
 			goto evaln;
-		} else if (n->nif.elsepart) {
+		}
+		if (n->nif.elsepart) {
 			n = n->nif.elsepart;
 			goto evaln;
 		}
@@ -8018,6 +8172,9 @@ evaltree(union node *n, int flags)
  exexit:
 		raise_exception(EXEXIT);
 	}
+
+	RESTORE_INT(int_level);
+	TRACE(("leaving evaltree (no interrupts)\n"));
 }
 
 #if !defined(__alpha__) || (defined(__GNUC__) && __GNUC__ >= 3)
@@ -8178,17 +8335,33 @@ expredir(union node *n)
 		case NFROMTO:
 		case NFROM:
 		case NTO:
+#if ENABLE_ASH_BASH_COMPAT
+		case NTO2:
+#endif
 		case NCLOBBER:
 		case NAPPEND:
 			expandarg(redir->nfile.fname, &fn, EXP_TILDE | EXP_REDIR);
+#if ENABLE_ASH_BASH_COMPAT
+ store_expfname:
+#endif
 			redir->nfile.expfname = fn.list->text;
 			break;
 		case NFROMFD:
-		case NTOFD:
+		case NTOFD: /* >& */
 			if (redir->ndup.vname) {
 				expandarg(redir->ndup.vname, &fn, EXP_FULL | EXP_TILDE);
 				if (fn.list == NULL)
 					ash_msg_and_raise_error("redir error");
+#if ENABLE_ASH_BASH_COMPAT
+//FIXME: we used expandarg with different args!
+				if (!isdigit_str9(fn.list->text)) {
+					/* >&file, not >&fd */
+					if (redir->nfile.fd != 1) /* 123>&file - BAD */
+						ash_msg_and_raise_error("redir error");
+					redir->type = NTO2;
+					goto store_expfname;
+				}
+#endif
 				fixredir(redir, fn.list->text, 1);
 			}
 			break;
@@ -8247,7 +8420,9 @@ evalpipe(union node *n, int flags)
 		if (prevfd >= 0)
 			close(prevfd);
 		prevfd = pip[0];
-		close(pip[1]);
+		/* Don't want to trigger debugging */
+		if (pip[1] != -1)
+			close(pip[1]);
 	}
 	if (n->npipe.pipe_backgnd == 0) {
 		exitstatus = waitforjob(jp);
@@ -8531,7 +8706,7 @@ static int getoptscmd(int, char **);
 #if !ENABLE_FEATURE_SH_EXTRA_QUIET
 static int helpcmd(int, char **);
 #endif
-#if ENABLE_ASH_MATH_SUPPORT
+#if ENABLE_SH_MATH_SUPPORT
 static int letcmd(int, char **);
 #endif
 static int readcmd(int, char **);
@@ -8613,7 +8788,7 @@ static const struct builtincmd builtintab[] = {
 	{ BUILTIN_REGULAR       "jobs", jobscmd },
 	{ BUILTIN_REGULAR       "kill", killcmd },
 #endif
-#if ENABLE_ASH_MATH_SUPPORT
+#if ENABLE_SH_MATH_SUPPORT
 	{ BUILTIN_NOSPEC        "let", letcmd },
 #endif
 	{ BUILTIN_ASSIGN        "local", localcmd },
@@ -8857,7 +9032,10 @@ evalcommand(union node *cmd, int flags)
 	/* Execute the command. */
 	switch (cmdentry.cmdtype) {
 	default:
+
 #if ENABLE_FEATURE_SH_NOFORK
+/* Hmmm... shouldn't it happen somewhere in forkshell() instead?
+ * Why "fork off a child process if necessary" doesn't apply to NOFORK? */
 	{
 		/* find_command() encodes applet_no as (-2 - applet_no) */
 		int applet_no = (- cmdentry.u.index - 2);
@@ -8869,7 +9047,6 @@ evalcommand(union node *cmd, int flags)
 		}
 	}
 #endif
-
 		/* Fork off a child process if necessary. */
 		if (!(flags & EV_EXIT) || trap[0]) {
 			INT_OFF;
@@ -8877,6 +9054,7 @@ evalcommand(union node *cmd, int flags)
 			if (forkshell(jp, cmd, FORK_FG) != 0) {
 				exitstatus = waitforjob(jp);
 				INT_ON;
+				TRACE(("forked child exited with %d\n", exitstatus));
 				break;
 			}
 			FORCE_INT_ON;
@@ -8897,9 +9075,15 @@ evalcommand(union node *cmd, int flags)
 			}
 			listsetvar(list, i);
 		}
+		/* Tight loop with builtins only:
+		 * "while kill -0 $child; do true; done"
+		 * will never exit even if $child died, unless we do this
+		 * to reap the zombie and make kill detect that it's gone: */
+		dowait(DOWAIT_NONBLOCK, NULL);
+
 		if (evalbltin(cmdentry.u.cmd, argc, argv)) {
 			int exit_status;
-			int i = exception;
+			int i = exception_type;
 			if (i == EXEXIT)
 				goto raise;
 			exit_status = 2;
@@ -8918,6 +9102,8 @@ evalcommand(union node *cmd, int flags)
 
 	case CMDFUNCTION:
 		listsetvar(varlist.list, 0);
+		/* See above for the rationale */
+		dowait(DOWAIT_NONBLOCK, NULL);
 		if (evalfun(cmdentry.u.func, argc, argv, flags))
 			goto raise;
 		break;
@@ -9025,25 +9211,52 @@ breakcmd(int argc UNUSED_PARAM, char **argv)
  * This implements the input routines used by the parser.
  */
 
-#define EOF_NLEFT -99           /* value of parsenleft when EOF pushed back */
-
 enum {
 	INPUT_PUSH_FILE = 1,
 	INPUT_NOFILE_OK = 2,
 };
-
-static int plinno = 1;                  /* input line number */
-/* number of characters left in input buffer */
-static int parsenleft;                  /* copy of parsefile->nleft */
-static int parselleft;                  /* copy of parsefile->lleft */
-/* next character in input buffer */
-static char *parsenextc;                /* copy of parsefile->nextc */
 
 static smallint checkkwd;
 /* values of checkkwd variable */
 #define CHKALIAS        0x1
 #define CHKKWD          0x2
 #define CHKNL           0x4
+
+/*
+ * Push a string back onto the input at this current parsefile level.
+ * We handle aliases this way.
+ */
+#if !ENABLE_ASH_ALIAS
+#define pushstring(s, ap) pushstring(s)
+#endif
+static void
+pushstring(char *s, struct alias *ap)
+{
+	struct strpush *sp;
+	int len;
+
+	len = strlen(s);
+	INT_OFF;
+	if (g_parsefile->strpush) {
+		sp = ckzalloc(sizeof(*sp));
+		sp->prev = g_parsefile->strpush;
+	} else {
+		sp = &(g_parsefile->basestrpush);
+	}
+	g_parsefile->strpush = sp;
+	sp->prev_string = g_parsefile->next_to_pgetc;
+	sp->prev_left_in_line = g_parsefile->left_in_line;
+#if ENABLE_ASH_ALIAS
+	sp->ap = ap;
+	if (ap) {
+		ap->flag |= ALIASINUSE;
+		sp->string = s;
+	}
+#endif
+	g_parsefile->next_to_pgetc = s;
+	g_parsefile->left_in_line = len;
+	INT_ON;
+}
 
 static void
 popstring(void)
@@ -9053,7 +9266,9 @@ popstring(void)
 	INT_OFF;
 #if ENABLE_ASH_ALIAS
 	if (sp->ap) {
-		if (parsenextc[-1] == ' ' || parsenextc[-1] == '\t') {
+		if (g_parsefile->next_to_pgetc[-1] == ' '
+		 || g_parsefile->next_to_pgetc[-1] == '\t'
+		) {
 			checkkwd |= CHKALIAS;
 		}
 		if (sp->string != sp->ap->val) {
@@ -9065,25 +9280,29 @@ popstring(void)
 		}
 	}
 #endif
-	parsenextc = sp->prevstring;
-	parsenleft = sp->prevnleft;
-/*dprintf("*** calling popstring: restoring to '%s'\n", parsenextc);*/
+	g_parsefile->next_to_pgetc = sp->prev_string;
+	g_parsefile->left_in_line = sp->prev_left_in_line;
 	g_parsefile->strpush = sp->prev;
 	if (sp != &(g_parsefile->basestrpush))
 		free(sp);
 	INT_ON;
 }
 
+//FIXME: BASH_COMPAT with "...&" does TWO pungetc():
+//it peeks whether it is &>, and then pushes back both chars.
+//This function needs to save last *next_to_pgetc to buf[0]
+//to make two pungetc() reliable. Currently,
+// pgetc (out of buf: does preadfd), pgetc, pungetc, pungetc won't work...
 static int
 preadfd(void)
 {
 	int nr;
 	char *buf = g_parsefile->buf;
-	parsenextc = buf;
 
+	g_parsefile->next_to_pgetc = buf;
 #if ENABLE_FEATURE_EDITING
  retry:
-	if (!iflag || g_parsefile->fd)
+	if (!iflag || g_parsefile->fd != STDIN_FILENO)
 		nr = nonblock_safe_read(g_parsefile->fd, buf, BUFSIZ - 1);
 	else {
 #if ENABLE_FEATURE_TAB_COMPLETION
@@ -9131,94 +9350,143 @@ preadfd(void)
  * Refill the input buffer and return the next input character:
  *
  * 1) If a string was pushed back on the input, pop it;
- * 2) If an EOF was pushed back (parsenleft == EOF_NLEFT) or we are reading
- *    from a string so we can't refill the buffer, return EOF.
+ * 2) If an EOF was pushed back (g_parsefile->left_in_line < -BIGNUM)
+ *    or we are reading from a string so we can't refill the buffer,
+ *    return EOF.
  * 3) If the is more stuff in this buffer, use it else call read to fill it.
  * 4) Process input up to the next newline, deleting nul characters.
+ */
+//#define pgetc_debug(...) bb_error_msg(__VA_ARGS__)
+#define pgetc_debug(...) ((void)0)
+/*
+ * NB: due to SIT(c) internals (syntax_index_table[] vector),
+ * pgetc() and related functions must return chars SIGN-EXTENDED into ints,
+ * not zero-extended. Seems fragile to me. Affects only !USE_SIT_FUNCTION case,
+ * so we can fix it by ditching !USE_SIT_FUNCTION if Unicode requires that.
  */
 static int
 preadbuffer(void)
 {
 	char *q;
 	int more;
-	char savec;
 
 	while (g_parsefile->strpush) {
 #if ENABLE_ASH_ALIAS
-		if (parsenleft == -1 && g_parsefile->strpush->ap &&
-			parsenextc[-1] != ' ' && parsenextc[-1] != '\t') {
+		if (g_parsefile->left_in_line == -1
+		 && g_parsefile->strpush->ap
+		 && g_parsefile->next_to_pgetc[-1] != ' '
+		 && g_parsefile->next_to_pgetc[-1] != '\t'
+		) {
+			pgetc_debug("preadbuffer PEOA");
 			return PEOA;
 		}
 #endif
 		popstring();
-		if (--parsenleft >= 0)
-			return signed_char2int(*parsenextc++);
+		/* try "pgetc" now: */
+		pgetc_debug("preadbuffer internal pgetc at %d:%p'%s'",
+				g_parsefile->left_in_line,
+				g_parsefile->next_to_pgetc,
+				g_parsefile->next_to_pgetc);
+		if (--g_parsefile->left_in_line >= 0)
+			return (unsigned char)(*g_parsefile->next_to_pgetc++);
 	}
-	if (parsenleft == EOF_NLEFT || g_parsefile->buf == NULL)
-		return PEOF;
-	flush_stdout_stderr();
+	/* on both branches above g_parsefile->left_in_line < 0.
+	 * "pgetc" needs refilling.
+	 */
 
-	more = parselleft;
+	/* -90 is our -BIGNUM. Below we use -99 to mark "EOF on read",
+	 * pungetc() may increment it a few times.
+	 * Assuming it won't increment it to less than -90.
+	 */
+	if (g_parsefile->left_in_line < -90 || g_parsefile->buf == NULL) {
+		pgetc_debug("preadbuffer PEOF1");
+		/* even in failure keep left_in_line and next_to_pgetc
+		 * in lock step, for correct multi-layer pungetc.
+		 * left_in_line was decremented before preadbuffer(),
+		 * must inc next_to_pgetc: */
+		g_parsefile->next_to_pgetc++;
+		return PEOF;
+	}
+
+	more = g_parsefile->left_in_buffer;
 	if (more <= 0) {
+		flush_stdout_stderr();
  again:
 		more = preadfd();
 		if (more <= 0) {
-			parselleft = parsenleft = EOF_NLEFT;
+			/* don't try reading again */
+			g_parsefile->left_in_line = -99;
+			pgetc_debug("preadbuffer PEOF2");
+			g_parsefile->next_to_pgetc++;
 			return PEOF;
 		}
 	}
 
-	q = parsenextc;
-
-	/* delete nul characters */
+	/* Find out where's the end of line.
+	 * Set g_parsefile->left_in_line
+	 * and g_parsefile->left_in_buffer acordingly.
+	 * NUL chars are deleted.
+	 */
+	q = g_parsefile->next_to_pgetc;
 	for (;;) {
-		int c;
+		char c;
 
 		more--;
-		c = *q;
 
-		if (!c)
+		c = *q;
+		if (c == '\0') {
 			memmove(q, q + 1, more);
-		else {
+		} else {
 			q++;
 			if (c == '\n') {
-				parsenleft = q - parsenextc - 1;
+				g_parsefile->left_in_line = q - g_parsefile->next_to_pgetc - 1;
 				break;
 			}
 		}
 
 		if (more <= 0) {
-			parsenleft = q - parsenextc - 1;
-			if (parsenleft < 0)
+			g_parsefile->left_in_line = q - g_parsefile->next_to_pgetc - 1;
+			if (g_parsefile->left_in_line < 0)
 				goto again;
 			break;
 		}
 	}
-	parselleft = more;
-
-	savec = *q;
-	*q = '\0';
+	g_parsefile->left_in_buffer = more;
 
 	if (vflag) {
-		out2str(parsenextc);
+		char save = *q;
+		*q = '\0';
+		out2str(g_parsefile->next_to_pgetc);
+		*q = save;
 	}
 
-	*q = savec;
-
-	return signed_char2int(*parsenextc++);
+	pgetc_debug("preadbuffer at %d:%p'%s'",
+			g_parsefile->left_in_line,
+			g_parsefile->next_to_pgetc,
+			g_parsefile->next_to_pgetc);
+	return signed_char2int(*g_parsefile->next_to_pgetc++);
 }
 
-#define pgetc_as_macro() (--parsenleft >= 0? signed_char2int(*parsenextc++) : preadbuffer())
+#define pgetc_as_macro() \
+	(--g_parsefile->left_in_line >= 0 \
+	? signed_char2int(*g_parsefile->next_to_pgetc++) \
+	: preadbuffer() \
+	)
+
 static int
 pgetc(void)
 {
+	pgetc_debug("pgetc_fast at %d:%p'%s'",
+			g_parsefile->left_in_line,
+			g_parsefile->next_to_pgetc,
+			g_parsefile->next_to_pgetc);
 	return pgetc_as_macro();
 }
 
 #if ENABLE_ASH_OPTIMIZE_FOR_SIZE
-#define pgetc_macro() pgetc()
+#define pgetc_fast() pgetc()
 #else
-#define pgetc_macro() pgetc_as_macro()
+#define pgetc_fast() pgetc_as_macro()
 #endif
 
 /*
@@ -9229,18 +9497,17 @@ static int
 pgetc2(void)
 {
 	int c;
-
 	do {
-		c = pgetc_macro();
+		pgetc_debug("pgetc_fast at %d:%p'%s'",
+				g_parsefile->left_in_line,
+				g_parsefile->next_to_pgetc,
+				g_parsefile->next_to_pgetc);
+		c = pgetc_fast();
 	} while (c == PEOA);
 	return c;
 }
 #else
-static int
-pgetc2(void)
-{
-	return pgetc_macro();
-}
+#define pgetc2() pgetc()
 #endif
 
 /*
@@ -9275,44 +9542,12 @@ pfgets(char *line, int len)
 static void
 pungetc(void)
 {
-	parsenleft++;
-	parsenextc--;
-}
-
-/*
- * Push a string back onto the input at this current parsefile level.
- * We handle aliases this way.
- */
-#if !ENABLE_ASH_ALIAS
-#define pushstring(s, ap) pushstring(s)
-#endif
-static void
-pushstring(char *s, struct alias *ap)
-{
-	struct strpush *sp;
-	size_t len;
-
-	len = strlen(s);
-	INT_OFF;
-/*dprintf("*** calling pushstring: %s, %d\n", s, len);*/
-	if (g_parsefile->strpush) {
-		sp = ckzalloc(sizeof(struct strpush));
-		sp->prev = g_parsefile->strpush;
-		g_parsefile->strpush = sp;
-	} else
-		sp = g_parsefile->strpush = &(g_parsefile->basestrpush);
-	sp->prevstring = parsenextc;
-	sp->prevnleft = parsenleft;
-#if ENABLE_ASH_ALIAS
-	sp->ap = ap;
-	if (ap) {
-		ap->flag |= ALIASINUSE;
-		sp->string = s;
-	}
-#endif
-	parsenextc = s;
-	parsenleft = len;
-	INT_ON;
+	g_parsefile->left_in_line++;
+	g_parsefile->next_to_pgetc--;
+	pgetc_debug("pushed back to %d:%p'%s'",
+			g_parsefile->left_in_line,
+			g_parsefile->next_to_pgetc,
+			g_parsefile->next_to_pgetc);
 }
 
 /*
@@ -9324,10 +9559,6 @@ pushfile(void)
 {
 	struct parsefile *pf;
 
-	g_parsefile->nleft = parsenleft;
-	g_parsefile->lleft = parselleft;
-	g_parsefile->nextc = parsenextc;
-	g_parsefile->linno = plinno;
 	pf = ckzalloc(sizeof(*pf));
 	pf->prev = g_parsefile;
 	pf->fd = -1;
@@ -9349,10 +9580,6 @@ popfile(void)
 		popstring();
 	g_parsefile = pf->prev;
 	free(pf);
-	parsenleft = g_parsefile->nleft;
-	parselleft = g_parsefile->lleft;
-	parsenextc = g_parsefile->nextc;
-	plinno = g_parsefile->linno;
 	INT_ON;
 }
 
@@ -9390,13 +9617,14 @@ setinputfd(int fd, int push)
 	close_on_exec_on(fd);
 	if (push) {
 		pushfile();
-		g_parsefile->buf = 0;
+		g_parsefile->buf = NULL;
 	}
 	g_parsefile->fd = fd;
 	if (g_parsefile->buf == NULL)
 		g_parsefile->buf = ckmalloc(IBUFSIZ);
-	parselleft = parsenleft = 0;
-	plinno = 1;
+	g_parsefile->left_in_buffer = 0;
+	g_parsefile->left_in_line = 0;
+	g_parsefile->linno = 1;
 }
 
 /*
@@ -9414,7 +9642,7 @@ setinputfile(const char *fname, int flags)
 	if (fd < 0) {
 		if (flags & INPUT_NOFILE_OK)
 			goto out;
-		ash_msg_and_raise_error("can't open %s", fname);
+		ash_msg_and_raise_error("can't open '%s'", fname);
 	}
 	if (fd < 10) {
 		fd2 = copyfd(fd, 10);
@@ -9437,10 +9665,10 @@ setinputstring(char *string)
 {
 	INT_OFF;
 	pushfile();
-	parsenextc = string;
-	parsenleft = strlen(string);
+	g_parsefile->next_to_pgetc = string;
+	g_parsefile->left_in_line = strlen(string);
 	g_parsefile->buf = NULL;
-	plinno = 1;
+	g_parsefile->linno = 1;
 	INT_ON;
 }
 
@@ -9927,14 +10155,6 @@ static struct heredoc *heredoc;
  */
 #define NEOF ((union node *)&tokpushback)
 
-static void raise_error_syntax(const char *) NORETURN;
-static void
-raise_error_syntax(const char *msg)
-{
-	ash_msg_and_raise_error("syntax error: %s", msg);
-	/* NOTREACHED */
-}
-
 /*
  * Called when an unexpected token is read during the parse.  The argument
  * is the token that is expected, or -1 if more than one type of token can
@@ -9947,7 +10167,7 @@ raise_error_unexpected_syntax(int token)
 	char msg[64];
 	int l;
 
-	l = sprintf(msg, "%s unexpected", tokname(lasttoken));
+	l = sprintf(msg, "unexpected %s", tokname(lasttoken));
 	if (token >= 0)
 		sprintf(msg + l, " (expecting %s)", tokname(token));
 	raise_error_syntax(msg);
@@ -10129,7 +10349,7 @@ fixredir(union node *n, const char *text, int err)
 		n->ndup.dupfd = -1;
 	else {
 		if (err)
-			raise_error_syntax("Bad fd number");
+			raise_error_syntax("bad fd number");
 		n->ndup.vname = makename();
 	}
 }
@@ -10139,9 +10359,9 @@ fixredir(union node *n, const char *text, int err)
  * or backquotes).
  */
 static int
-noexpand(char *text)
+noexpand(const char *text)
 {
-	char *p;
+	const char *p;
 	char c;
 
 	p = text;
@@ -10150,7 +10370,7 @@ noexpand(char *text)
 			continue;
 		if (c == CTLESC)
 			p++;
-		else if (SIT(c, BASESYNTAX) == CCTL)
+		else if (SIT((signed char)c, BASESYNTAX) == CCTL)
 			return 0;
 	}
 	return 1;
@@ -10172,7 +10392,7 @@ parsefname(void)
 			n->type = NXHERE;
 		TRACE(("Here document %d\n", n->type));
 		if (!noexpand(wordtext) || (i = strlen(wordtext)) == 0 || i > EOFMARKLEN)
-			raise_error_syntax("Illegal eof marker for << redirection");
+			raise_error_syntax("illegal eof marker for << redirection");
 		rmescapes(wordtext);
 		here->eofmark = wordtext;
 		here->next = NULL;
@@ -10264,7 +10484,7 @@ simplecmd(void)
 				if (!goodname(name)
 				 || ((bcmd = find_builtin(name)) && IS_BUILTIN_SPECIAL(bcmd))
 				) {
-					raise_error_syntax("Bad function name");
+					raise_error_syntax("bad function name");
 				}
 				n->type = NDEFUN;
 				checkkwd = CHKNL | CHKKWD | CHKALIAS;
@@ -10349,7 +10569,7 @@ parse_command(void)
 	}
 	case TFOR:
 		if (readtoken() != TWORD || quoteflag || !goodname(wordtext))
-			raise_error_syntax("Bad for loop variable");
+			raise_error_syntax("bad for loop variable");
 		n1 = stzalloc(sizeof(struct nfor));
 		n1->type = NFOR;
 		n1->nfor.var = wordtext;
@@ -10584,7 +10804,7 @@ readtoken1(int firstc, int syntax, char *eofmark, int striptabs)
 	(void) &prevsyntax;
 	(void) &syntax;
 #endif
-	startlinno = plinno;
+	startlinno = g_parsefile->linno;
 	bqlist = NULL;
 	quotef = 0;
 	oldstyle = 0;
@@ -10601,7 +10821,9 @@ readtoken1(int firstc, int syntax, char *eofmark, int striptabs)
 	dqvarnest = 0;
 
 	STARTSTACKSTR(out);
-	loop: { /* for each line, until end of word */
+ loop:
+	/* For each line, until end of word */
+	{
 		CHECKEND();     /* set c to PEOF if at end of here document */
 		for (;;) {      /* until end of line or end of word */
 			CHECKSTRSPACE(4, out);  /* permit 4 calls to USTPUTC */
@@ -10610,7 +10832,7 @@ readtoken1(int firstc, int syntax, char *eofmark, int striptabs)
 				if (syntax == BASESYNTAX)
 					goto endword;   /* exit outer loop */
 				USTPUTC(c, out);
-				plinno++;
+				g_parsefile->linno++;
 				if (doprompt)
 					setprompt(2);
 				c = pgetc();
@@ -10701,7 +10923,7 @@ readtoken1(int firstc, int syntax, char *eofmark, int striptabs)
 					USTPUTC(c, out);
 				}
 				break;
-#if ENABLE_ASH_MATH_SUPPORT
+#if ENABLE_SH_MATH_SUPPORT
 			case CLP:       /* '(' in arithmetic */
 				parenlevel++;
 				USTPUTC(c, out);
@@ -10737,39 +10959,45 @@ readtoken1(int firstc, int syntax, char *eofmark, int striptabs)
 			case CIGN:
 				break;
 			default:
-				if (varnest == 0)
+				if (varnest == 0) {
+#if ENABLE_ASH_BASH_COMPAT
+					if (c == '&') {
+						if (pgetc() == '>')
+							c = 0x100 + '>'; /* flag &> */
+						pungetc();
+					}
+#endif
 					goto endword;   /* exit outer loop */
+				}
 #if ENABLE_ASH_ALIAS
 				if (c != PEOA)
 #endif
 					USTPUTC(c, out);
 
 			}
-			c = pgetc_macro();
+			c = pgetc_fast();
 		} /* for (;;) */
 	}
  endword:
-#if ENABLE_ASH_MATH_SUPPORT
+#if ENABLE_SH_MATH_SUPPORT
 	if (syntax == ARISYNTAX)
-		raise_error_syntax("Missing '))'");
+		raise_error_syntax("missing '))'");
 #endif
 	if (syntax != BASESYNTAX && !parsebackquote && eofmark == NULL)
-		raise_error_syntax("Unterminated quoted string");
+		raise_error_syntax("unterminated quoted string");
 	if (varnest != 0) {
-		startlinno = plinno;
+		startlinno = g_parsefile->linno;
 		/* { */
-		raise_error_syntax("Missing '}'");
+		raise_error_syntax("missing '}'");
 	}
 	USTPUTC('\0', out);
 	len = out - (char *)stackblock();
 	out = stackblock();
 	if (eofmark == NULL) {
-		if ((c == '>' || c == '<') && quotef == 0) {
-			int maxlen = 9 + 1; /* max 9 digit fd#: 999999999 */
-			char *np = out;
-			while (--maxlen && isdigit(*np))
-				np++;
-			if (*np == '\0') {
+		if ((c == '>' || c == '<' USE_ASH_BASH_COMPAT( || c == 0x100 + '>'))
+		 && quotef == 0
+		) {
+			if (isdigit_str9(out)) {
 				PARSEREDIR(); /* passed as params: out, c */
 				lasttoken = TREDIR;
 				return lasttoken;
@@ -10813,7 +11041,7 @@ checkend: {
 					continue;
 				if (*p == '\n' && *q == '\0') {
 					c = PEOF;
-					plinno++;
+					g_parsefile->linno++;
 					needprompt = doprompt;
 				} else {
 					pushstring(line, NULL);
@@ -10844,11 +11072,20 @@ parseredir: {
 			np->type = NCLOBBER;
 		else if (c == '&')
 			np->type = NTOFD;
+			/* it also can be NTO2 (>&file), but we can't figure it out yet */
 		else {
 			np->type = NTO;
 			pungetc();
 		}
-	} else {        /* c == '<' */
+	}
+#if ENABLE_ASH_BASH_COMPAT
+	else if (c == 0x100 + '>') { /* this flags &> redirection */
+		np->nfile.fd = 1;
+		pgetc(); /* this is '>', no need to check */
+		np->type = NTO2;
+	}
+#endif
+	else { /* c == '<' */
 		/*np->nfile.fd = 0; - stzalloc did it */
 		c = pgetc();
 		switch (c) {
@@ -10919,7 +11156,7 @@ parsesub: {
 		pungetc();
 	} else if (c == '(') {  /* $(command) or $((arith)) */
 		if (pgetc() == '(') {
-#if ENABLE_ASH_MATH_SUPPORT
+#if ENABLE_SH_MATH_SUPPORT
 			PARSEARITH();
 #else
 			raise_error_syntax("you disabled math support for $((arith)) syntax");
@@ -10957,8 +11194,10 @@ parsesub: {
 		} else if (is_special(c)) {
 			USTPUTC(c, out);
 			c = pgetc();
-		} else
- badsub:		raise_error_syntax("Bad substitution");
+		} else {
+ badsub:
+			raise_error_syntax("bad substitution");
+		}
 
 		STPUTC('=', out);
 		flags = 0;
@@ -11078,7 +11317,7 @@ parsebackq: {
 			case '\\':
 				pc = pgetc();
 				if (pc == '\n') {
-					plinno++;
+					g_parsefile->linno++;
 					if (doprompt)
 						setprompt(2);
 					/*
@@ -11101,11 +11340,11 @@ parsebackq: {
 #if ENABLE_ASH_ALIAS
 			case PEOA:
 #endif
-				startlinno = plinno;
+				startlinno = g_parsefile->linno;
 				raise_error_syntax("EOF in backquote substitution");
 
 			case '\n':
-				plinno++;
+				g_parsefile->linno++;
 				needprompt = doprompt;
 				break;
 
@@ -11172,7 +11411,7 @@ parsebackq: {
 	goto parsebackq_newreturn;
 }
 
-#if ENABLE_ASH_MATH_SUPPORT
+#if ENABLE_SH_MATH_SUPPORT
 /*
  * Parse an arithmetic expansion (indicate start of one and set state)
  */
@@ -11219,8 +11458,13 @@ parsearith: {
 #ifdef NEW_xxreadtoken
 /* singles must be first! */
 static const char xxreadtoken_chars[7] ALIGN1 = {
-	'\n', '(', ')', '&', '|', ';', 0
+	'\n', '(', ')', /* singles */
+	'&', '|', ';',  /* doubles */
+	0
 };
+
+#define xxreadtoken_singles 3
+#define xxreadtoken_doubles 3
 
 static const char xxreadtoken_tokens[] ALIGN1 = {
 	TNL, TLP, TRP,          /* only single occurrence allowed */
@@ -11228,11 +11472,6 @@ static const char xxreadtoken_tokens[] ALIGN1 = {
 	TEOF,                   /* corresponds to trailing nul */
 	TAND, TOR, TENDCASE     /* if double occurrence */
 };
-
-#define xxreadtoken_doubles \
-	(sizeof(xxreadtoken_tokens) - sizeof(xxreadtoken_chars))
-#define xxreadtoken_singles \
-	(sizeof(xxreadtoken_chars) - xxreadtoken_doubles - 1)
 
 static int
 xxreadtoken(void)
@@ -11246,58 +11485,59 @@ xxreadtoken(void)
 	if (needprompt) {
 		setprompt(2);
 	}
-	startlinno = plinno;
+	startlinno = g_parsefile->linno;
 	for (;;) {                      /* until token or start of word found */
-		c = pgetc_macro();
+		c = pgetc_fast();
+		if (c == ' ' || c == '\t' USE_ASH_ALIAS( || c == PEOA))
+			continue;
 
-		if ((c != ' ') && (c != '\t')
-#if ENABLE_ASH_ALIAS
-		 && (c != PEOA)
-#endif
-		) {
-			if (c == '#') {
-				while ((c = pgetc()) != '\n' && c != PEOF)
-					continue;
+		if (c == '#') {
+			while ((c = pgetc()) != '\n' && c != PEOF)
+				continue;
+			pungetc();
+		} else if (c == '\\') {
+			if (pgetc() != '\n') {
 				pungetc();
-			} else if (c == '\\') {
-				if (pgetc() != '\n') {
-					pungetc();
-					goto READTOKEN1;
-				}
-				startlinno = ++plinno;
-				if (doprompt)
-					setprompt(2);
-			} else {
-				const char *p
-					= xxreadtoken_chars + sizeof(xxreadtoken_chars) - 1;
-
-				if (c != PEOF) {
-					if (c == '\n') {
-						plinno++;
-						needprompt = doprompt;
-					}
-
-					p = strchr(xxreadtoken_chars, c);
-					if (p == NULL) {
- READTOKEN1:
-						return readtoken1(c, BASESYNTAX, (char *) NULL, 0);
-					}
-
-					if ((size_t)(p - xxreadtoken_chars) >= xxreadtoken_singles) {
-						if (pgetc() == *p) {    /* double occurrence? */
-							p += xxreadtoken_doubles + 1;
-						} else {
-							pungetc();
-						}
-					}
-				}
-				lasttoken = xxreadtoken_tokens[p - xxreadtoken_chars];
-				return lasttoken;
+				break; /* return readtoken1(...) */
 			}
+			startlinno = ++g_parsefile->linno;
+			if (doprompt)
+				setprompt(2);
+		} else {
+			const char *p;
+
+			p = xxreadtoken_chars + sizeof(xxreadtoken_chars) - 1;
+			if (c != PEOF) {
+				if (c == '\n') {
+					g_parsefile->linno++;
+					needprompt = doprompt;
+				}
+
+				p = strchr(xxreadtoken_chars, c);
+				if (p == NULL)
+					break; /* return readtoken1(...) */
+
+				if ((int)(p - xxreadtoken_chars) >= xxreadtoken_singles) {
+					int cc = pgetc();
+					if (cc == c) {    /* double occurrence? */
+						p += xxreadtoken_doubles + 1;
+					} else {
+						pungetc();
+#if ENABLE_ASH_BASH_COMPAT
+						if (c == '&' && cc == '>') /* &> */
+							break; /* return readtoken1(...) */
+#endif
+					}
+				}
+			}
+			lasttoken = xxreadtoken_tokens[p - xxreadtoken_chars];
+			return lasttoken;
 		}
-	} /* for */
+	} /* for (;;) */
+
+	return readtoken1(c, BASESYNTAX, (char *) NULL, 0);
 }
-#else
+#else /* old xxreadtoken */
 #define RETURN(token)   return lasttoken = token
 static int
 xxreadtoken(void)
@@ -11311,9 +11551,9 @@ xxreadtoken(void)
 	if (needprompt) {
 		setprompt(2);
 	}
-	startlinno = plinno;
+	startlinno = g_parsefile->linno;
 	for (;;) {      /* until token or start of word found */
-		c = pgetc_macro();
+		c = pgetc_fast();
 		switch (c) {
 		case ' ': case '\t':
 #if ENABLE_ASH_ALIAS
@@ -11327,7 +11567,7 @@ xxreadtoken(void)
 			continue;
 		case '\\':
 			if (pgetc() == '\n') {
-				startlinno = ++plinno;
+				startlinno = ++g_parsefile->linno;
 				if (doprompt)
 					setprompt(2);
 				continue;
@@ -11335,7 +11575,7 @@ xxreadtoken(void)
 			pungetc();
 			goto breakloop;
 		case '\n':
-			plinno++;
+			g_parsefile->linno++;
 			needprompt = doprompt;
 			RETURN(TNL);
 		case PEOF:
@@ -11367,7 +11607,7 @@ xxreadtoken(void)
 	return readtoken1(c, BASESYNTAX, (char *)NULL, 0);
 #undef RETURN
 }
-#endif /* NEW_xxreadtoken */
+#endif /* old xxreadtoken */
 
 static int
 readtoken(void)
@@ -11505,7 +11745,8 @@ expandstr(const char *ps)
 {
 	union node n;
 
-	/* XXX Fix (char *) cast. */
+	/* XXX Fix (char *) cast. It _is_ a bug. ps is variable's value,
+	 * and token processing _can_ alter it (delete NULs etc). */
 	setinputstring((char *)ps);
 	readtoken1(pgetc(), PSSYNTAX, nullstr, 0);
 	popfile();
@@ -11607,7 +11848,9 @@ cmdloop(int top)
 #endif
 		}
 		n = parsecmd(inter);
-		/* showtree(n); DEBUG */
+#if DEBUG
+		showtree(n);
+#endif
 		if (n == NEOF) {
 			if (!top || numeof >= 50)
 				break;
@@ -11649,7 +11892,16 @@ find_dot_file(char *name)
 	if (strchr(name, '/'))
 		return name;
 
+	/* IIRC standards do not say whether . is to be searched.
+	 * And it is even smaller this way, making it unconditional for now:
+	 */
+	if (1) { /* ENABLE_ASH_BASH_COMPAT */
+		fullname = name;
+		goto try_cur_dir;
+	}
+
 	while ((fullname = padvance(&path, name)) != NULL) {
+ try_cur_dir:
 		if ((stat(fullname, &statb) == 0) && S_ISREG(statb.st_mode)) {
 			/*
 			 * Don't bother freeing here, since it will
@@ -11980,7 +12232,9 @@ helpcmd(int argc UNUSED_PARAM, char **argv UNUSED_PARAM)
 	unsigned col;
 	unsigned i;
 
-	out1fmt("\nBuilt-in commands:\n-------------------\n");
+	out1fmt("\n"
+		"Built-in commands:\n"
+		"------------------\n");
 	for (col = 0, i = 0; i < ARRAY_SIZE(builtintab); i++) {
 		col += out1fmt("%c%s", ((col == 0) ? '\t' : ' '),
 					builtintab[i].name + 1);
@@ -12122,34 +12376,12 @@ timescmd(int argc UNUSED_PARAM, char **argv UNUSED_PARAM)
 	return 0;
 }
 
-#if ENABLE_ASH_MATH_SUPPORT
-static arith_t
-dash_arith(const char *s)
-{
-	arith_t result;
-	int errcode = 0;
-
-	INT_OFF;
-	result = arith(s, &errcode);
-	if (errcode < 0) {
-		if (errcode == -3)
-			ash_msg_and_raise_error("exponent less than 0");
-		if (errcode == -2)
-			ash_msg_and_raise_error("divide by zero");
-		if (errcode == -5)
-			ash_msg_and_raise_error("expression recursion loop detected");
-		raise_error_syntax(s);
-	}
-	INT_ON;
-
-	return result;
-}
-
+#if ENABLE_SH_MATH_SUPPORT
 /*
- *  The let builtin. partial stolen from GNU Bash, the Bourne Again SHell.
- *  Copyright (C) 1987, 1989, 1991 Free Software Foundation, Inc.
+ * The let builtin. partial stolen from GNU Bash, the Bourne Again SHell.
+ * Copyright (C) 1987, 1989, 1991 Free Software Foundation, Inc.
  *
- *  Copyright (C) 2003 Vladimir Oleynik <dzo@simtreas.ru>
+ * Copyright (C) 2003 Vladimir Oleynik <dzo@simtreas.ru>
  */
 static int
 letcmd(int argc UNUSED_PARAM, char **argv)
@@ -12160,12 +12392,12 @@ letcmd(int argc UNUSED_PARAM, char **argv)
 	if (!*argv)
 		ash_msg_and_raise_error("expression expected");
 	do {
-		i = dash_arith(*argv);
+		i = ash_arith(*argv);
 	} while (*++argv);
 
 	return !i;
 }
-#endif /* ASH_MATH_SUPPORT */
+#endif /* SH_MATH_SUPPORT */
 
 
 /* ============ miscbltin.c
@@ -12312,7 +12544,7 @@ readcmd(int argc UNUSED_PARAM, char **argv UNUSED_PARAM)
 #endif
 
 	status = 0;
-	startword = 1;
+	startword = 2;
 	backslash = 0;
 #if ENABLE_ASH_READ_TIMEOUT
 	if (timeout) /* NB: ensuring end_ms is nonzero */
@@ -12320,6 +12552,8 @@ readcmd(int argc UNUSED_PARAM, char **argv UNUSED_PARAM)
 #endif
 	STARTSTACKSTR(p);
 	do {
+		const char *is_ifs;
+
 #if ENABLE_ASH_READ_TIMEOUT
 		if (end_ms) {
 			struct pollfd pfd[1];
@@ -12349,25 +12583,36 @@ readcmd(int argc UNUSED_PARAM, char **argv UNUSED_PARAM)
 			continue;
 		}
 		if (!rflag && c == '\\') {
-			backslash++;
+			backslash = 1;
 			continue;
 		}
 		if (c == '\n')
 			break;
-		if (startword && *ifs == ' ' && strchr(ifs, c)) {
-			continue;
+		/* $IFS splitting */
+/* http://www.opengroup.org/onlinepubs/9699919799/utilities/V3_chap02.html#tag_18_06_05 */
+		is_ifs = strchr(ifs, c);
+		if (startword && is_ifs) {
+			if (isspace(c))
+				continue;
+			/* it is a non-space ifs char */
+			startword--;
+			if (startword == 1) /* first one? */
+				continue; /* yes, it is not next word yet */
 		}
 		startword = 0;
-		if (ap[1] != NULL && strchr(ifs, c) != NULL) {
+		if (ap[1] != NULL && is_ifs) {
+			const char *beg;
 			STACKSTRNUL(p);
-			setvar(*ap, stackblock(), 0);
+			beg = stackblock();
+			setvar(*ap, beg, 0);
 			ap++;
-			startword = 1;
+			/* can we skip one non-space ifs char? (2: yes) */
+			startword = isspace(c) ? 2 : 1;
 			STARTSTACKSTR(p);
-		} else {
- put:
-			STPUTC(c, p);
+			continue;
 		}
+ put:
+		STPUTC(c, p);
 	}
 /* end of do {} while: */
 #if ENABLE_ASH_READ_NCHARS
@@ -12381,8 +12626,8 @@ readcmd(int argc UNUSED_PARAM, char **argv UNUSED_PARAM)
 #endif
 
 	STACKSTRNUL(p);
-	/* Remove trailing blanks */
-	while ((char *)stackblock() <= --p && strchr(ifs, *p) != NULL)
+	/* Remove trailing space ifs chars */
+	while ((char *)stackblock() <= --p && isspace(*p) && strchr(ifs, *p) != NULL)
 		*p = '\0';
 	setvar(*ap, stackblock(), 0);
 	while (*++ap != NULL)
@@ -12676,654 +12921,6 @@ ulimitcmd(int argc UNUSED_PARAM, char **argv UNUSED_PARAM)
 	return 0;
 }
 
-
-/* ============ Math support */
-
-#if ENABLE_ASH_MATH_SUPPORT
-
-/* Copyright (c) 2001 Aaron Lehmann <aaronl@vitelus.com>
-
-   Permission is hereby granted, free of charge, to any person obtaining
-   a copy of this software and associated documentation files (the
-   "Software"), to deal in the Software without restriction, including
-   without limitation the rights to use, copy, modify, merge, publish,
-   distribute, sublicense, and/or sell copies of the Software, and to
-   permit persons to whom the Software is furnished to do so, subject to
-   the following conditions:
-
-   The above copyright notice and this permission notice shall be
-   included in all copies or substantial portions of the Software.
-
-   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-   EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-   MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-   IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-   CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-   TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-   SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-*/
-
-/* This is my infix parser/evaluator. It is optimized for size, intended
- * as a replacement for yacc-based parsers. However, it may well be faster
- * than a comparable parser written in yacc. The supported operators are
- * listed in #defines below. Parens, order of operations, and error handling
- * are supported. This code is thread safe. The exact expression format should
- * be that which POSIX specifies for shells. */
-
-/* The code uses a simple two-stack algorithm. See
- * http://www.onthenet.com.au/~grahamis/int2008/week02/lect02.html
- * for a detailed explanation of the infix-to-postfix algorithm on which
- * this is based (this code differs in that it applies operators immediately
- * to the stack instead of adding them to a queue to end up with an
- * expression). */
-
-/* To use the routine, call it with an expression string and error return
- * pointer */
-
-/*
- * Aug 24, 2001              Manuel Novoa III
- *
- * Reduced the generated code size by about 30% (i386) and fixed several bugs.
- *
- * 1) In arith_apply():
- *    a) Cached values of *numptr and &(numptr[-1]).
- *    b) Removed redundant test for zero denominator.
- *
- * 2) In arith():
- *    a) Eliminated redundant code for processing operator tokens by moving
- *       to a table-based implementation.  Also folded handling of parens
- *       into the table.
- *    b) Combined all 3 loops which called arith_apply to reduce generated
- *       code size at the cost of speed.
- *
- * 3) The following expressions were treated as valid by the original code:
- *       1()  ,    0!  ,    1 ( *3 )   .
- *    These bugs have been fixed by internally enclosing the expression in
- *    parens and then checking that all binary ops and right parens are
- *    preceded by a valid expression (NUM_TOKEN).
- *
- * Note: It may be desirable to replace Aaron's test for whitespace with
- * ctype's isspace() if it is used by another busybox applet or if additional
- * whitespace chars should be considered.  Look below the "#include"s for a
- * precompiler test.
- */
-
-/*
- * Aug 26, 2001              Manuel Novoa III
- *
- * Return 0 for null expressions.  Pointed out by Vladimir Oleynik.
- *
- * Merge in Aaron's comments previously posted to the busybox list,
- * modified slightly to take account of my changes to the code.
- *
- */
-
-/*
- *  (C) 2003 Vladimir Oleynik <dzo@simtreas.ru>
- *
- * - allow access to variable,
- *   used recursive find value indirection (c=2*2; a="c"; $((a+=2)) produce 6)
- * - realize assign syntax (VAR=expr, +=, *= etc)
- * - realize exponentiation (** operator)
- * - realize comma separated - expr, expr
- * - realise ++expr --expr expr++ expr--
- * - realise expr ? expr : expr (but, second expr calculate always)
- * - allow hexadecimal and octal numbers
- * - was restored loses XOR operator
- * - remove one goto label, added three ;-)
- * - protect $((num num)) as true zero expr (Manuel`s error)
- * - always use special isspace(), see comment from bash ;-)
- */
-
-#define arith_isspace(arithval) \
-	(arithval == ' ' || arithval == '\n' || arithval == '\t')
-
-typedef unsigned char operator;
-
-/* An operator's token id is a bit of a bitfield. The lower 5 bits are the
- * precedence, and 3 high bits are an ID unique across operators of that
- * precedence. The ID portion is so that multiple operators can have the
- * same precedence, ensuring that the leftmost one is evaluated first.
- * Consider * and /. */
-
-#define tok_decl(prec,id) (((id)<<5)|(prec))
-#define PREC(op) ((op) & 0x1F)
-
-#define TOK_LPAREN tok_decl(0,0)
-
-#define TOK_COMMA tok_decl(1,0)
-
-#define TOK_ASSIGN tok_decl(2,0)
-#define TOK_AND_ASSIGN tok_decl(2,1)
-#define TOK_OR_ASSIGN tok_decl(2,2)
-#define TOK_XOR_ASSIGN tok_decl(2,3)
-#define TOK_PLUS_ASSIGN tok_decl(2,4)
-#define TOK_MINUS_ASSIGN tok_decl(2,5)
-#define TOK_LSHIFT_ASSIGN tok_decl(2,6)
-#define TOK_RSHIFT_ASSIGN tok_decl(2,7)
-
-#define TOK_MUL_ASSIGN tok_decl(3,0)
-#define TOK_DIV_ASSIGN tok_decl(3,1)
-#define TOK_REM_ASSIGN tok_decl(3,2)
-
-/* all assign is right associativity and precedence eq, but (7+3)<<5 > 256 */
-#define convert_prec_is_assing(prec) do { if (prec == 3) prec = 2; } while (0)
-
-/* conditional is right associativity too */
-#define TOK_CONDITIONAL tok_decl(4,0)
-#define TOK_CONDITIONAL_SEP tok_decl(4,1)
-
-#define TOK_OR tok_decl(5,0)
-
-#define TOK_AND tok_decl(6,0)
-
-#define TOK_BOR tok_decl(7,0)
-
-#define TOK_BXOR tok_decl(8,0)
-
-#define TOK_BAND tok_decl(9,0)
-
-#define TOK_EQ tok_decl(10,0)
-#define TOK_NE tok_decl(10,1)
-
-#define TOK_LT tok_decl(11,0)
-#define TOK_GT tok_decl(11,1)
-#define TOK_GE tok_decl(11,2)
-#define TOK_LE tok_decl(11,3)
-
-#define TOK_LSHIFT tok_decl(12,0)
-#define TOK_RSHIFT tok_decl(12,1)
-
-#define TOK_ADD tok_decl(13,0)
-#define TOK_SUB tok_decl(13,1)
-
-#define TOK_MUL tok_decl(14,0)
-#define TOK_DIV tok_decl(14,1)
-#define TOK_REM tok_decl(14,2)
-
-/* exponent is right associativity */
-#define TOK_EXPONENT tok_decl(15,1)
-
-/* For now unary operators. */
-#define UNARYPREC 16
-#define TOK_BNOT tok_decl(UNARYPREC,0)
-#define TOK_NOT tok_decl(UNARYPREC,1)
-
-#define TOK_UMINUS tok_decl(UNARYPREC+1,0)
-#define TOK_UPLUS tok_decl(UNARYPREC+1,1)
-
-#define PREC_PRE (UNARYPREC+2)
-
-#define TOK_PRE_INC tok_decl(PREC_PRE, 0)
-#define TOK_PRE_DEC tok_decl(PREC_PRE, 1)
-
-#define PREC_POST (UNARYPREC+3)
-
-#define TOK_POST_INC tok_decl(PREC_POST, 0)
-#define TOK_POST_DEC tok_decl(PREC_POST, 1)
-
-#define SPEC_PREC (UNARYPREC+4)
-
-#define TOK_NUM tok_decl(SPEC_PREC, 0)
-#define TOK_RPAREN tok_decl(SPEC_PREC, 1)
-
-#define NUMPTR (*numstackptr)
-
-static int
-tok_have_assign(operator op)
-{
-	operator prec = PREC(op);
-
-	convert_prec_is_assing(prec);
-	return (prec == PREC(TOK_ASSIGN) ||
-			prec == PREC_PRE || prec == PREC_POST);
-}
-
-static int
-is_right_associativity(operator prec)
-{
-	return (prec == PREC(TOK_ASSIGN) || prec == PREC(TOK_EXPONENT)
-	        || prec == PREC(TOK_CONDITIONAL));
-}
-
-typedef struct {
-	arith_t val;
-	arith_t contidional_second_val;
-	char contidional_second_val_initialized;
-	char *var;      /* if NULL then is regular number,
-			   else is variable name */
-} v_n_t;
-
-typedef struct chk_var_recursive_looped_t {
-	const char *var;
-	struct chk_var_recursive_looped_t *next;
-} chk_var_recursive_looped_t;
-
-static chk_var_recursive_looped_t *prev_chk_var_recursive;
-
-static int
-arith_lookup_val(v_n_t *t)
-{
-	if (t->var) {
-		const char * p = lookupvar(t->var);
-
-		if (p) {
-			int errcode;
-
-			/* recursive try as expression */
-			chk_var_recursive_looped_t *cur;
-			chk_var_recursive_looped_t cur_save;
-
-			for (cur = prev_chk_var_recursive; cur; cur = cur->next) {
-				if (strcmp(cur->var, t->var) == 0) {
-					/* expression recursion loop detected */
-					return -5;
-				}
-			}
-			/* save current lookuped var name */
-			cur = prev_chk_var_recursive;
-			cur_save.var = t->var;
-			cur_save.next = cur;
-			prev_chk_var_recursive = &cur_save;
-
-			t->val = arith (p, &errcode);
-			/* restore previous ptr after recursiving */
-			prev_chk_var_recursive = cur;
-			return errcode;
-		}
-		/* allow undefined var as 0 */
-		t->val = 0;
-	}
-	return 0;
-}
-
-/* "applying" a token means performing it on the top elements on the integer
- * stack. For a unary operator it will only change the top element, but a
- * binary operator will pop two arguments and push a result */
-static int
-arith_apply(operator op, v_n_t *numstack, v_n_t **numstackptr)
-{
-	v_n_t *numptr_m1;
-	arith_t numptr_val, rez;
-	int ret_arith_lookup_val;
-
-	/* There is no operator that can work without arguments */
-	if (NUMPTR == numstack) goto err;
-	numptr_m1 = NUMPTR - 1;
-
-	/* check operand is var with noninteger value */
-	ret_arith_lookup_val = arith_lookup_val(numptr_m1);
-	if (ret_arith_lookup_val)
-		return ret_arith_lookup_val;
-
-	rez = numptr_m1->val;
-	if (op == TOK_UMINUS)
-		rez *= -1;
-	else if (op == TOK_NOT)
-		rez = !rez;
-	else if (op == TOK_BNOT)
-		rez = ~rez;
-	else if (op == TOK_POST_INC || op == TOK_PRE_INC)
-		rez++;
-	else if (op == TOK_POST_DEC || op == TOK_PRE_DEC)
-		rez--;
-	else if (op != TOK_UPLUS) {
-		/* Binary operators */
-
-		/* check and binary operators need two arguments */
-		if (numptr_m1 == numstack) goto err;
-
-		/* ... and they pop one */
-		--NUMPTR;
-		numptr_val = rez;
-		if (op == TOK_CONDITIONAL) {
-			if (!numptr_m1->contidional_second_val_initialized) {
-				/* protect $((expr1 ? expr2)) without ": expr" */
-				goto err;
-			}
-			rez = numptr_m1->contidional_second_val;
-		} else if (numptr_m1->contidional_second_val_initialized) {
-			/* protect $((expr1 : expr2)) without "expr ? " */
-			goto err;
-		}
-		numptr_m1 = NUMPTR - 1;
-		if (op != TOK_ASSIGN) {
-			/* check operand is var with noninteger value for not '=' */
-			ret_arith_lookup_val = arith_lookup_val(numptr_m1);
-			if (ret_arith_lookup_val)
-				return ret_arith_lookup_val;
-		}
-		if (op == TOK_CONDITIONAL) {
-			numptr_m1->contidional_second_val = rez;
-		}
-		rez = numptr_m1->val;
-		if (op == TOK_BOR || op == TOK_OR_ASSIGN)
-			rez |= numptr_val;
-		else if (op == TOK_OR)
-			rez = numptr_val || rez;
-		else if (op == TOK_BAND || op == TOK_AND_ASSIGN)
-			rez &= numptr_val;
-		else if (op == TOK_BXOR || op == TOK_XOR_ASSIGN)
-			rez ^= numptr_val;
-		else if (op == TOK_AND)
-			rez = rez && numptr_val;
-		else if (op == TOK_EQ)
-			rez = (rez == numptr_val);
-		else if (op == TOK_NE)
-			rez = (rez != numptr_val);
-		else if (op == TOK_GE)
-			rez = (rez >= numptr_val);
-		else if (op == TOK_RSHIFT || op == TOK_RSHIFT_ASSIGN)
-			rez >>= numptr_val;
-		else if (op == TOK_LSHIFT || op == TOK_LSHIFT_ASSIGN)
-			rez <<= numptr_val;
-		else if (op == TOK_GT)
-			rez = (rez > numptr_val);
-		else if (op == TOK_LT)
-			rez = (rez < numptr_val);
-		else if (op == TOK_LE)
-			rez = (rez <= numptr_val);
-		else if (op == TOK_MUL || op == TOK_MUL_ASSIGN)
-			rez *= numptr_val;
-		else if (op == TOK_ADD || op == TOK_PLUS_ASSIGN)
-			rez += numptr_val;
-		else if (op == TOK_SUB || op == TOK_MINUS_ASSIGN)
-			rez -= numptr_val;
-		else if (op == TOK_ASSIGN || op == TOK_COMMA)
-			rez = numptr_val;
-		else if (op == TOK_CONDITIONAL_SEP) {
-			if (numptr_m1 == numstack) {
-				/* protect $((expr : expr)) without "expr ? " */
-				goto err;
-			}
-			numptr_m1->contidional_second_val_initialized = op;
-			numptr_m1->contidional_second_val = numptr_val;
-		} else if (op == TOK_CONDITIONAL) {
-			rez = rez ?
-				numptr_val : numptr_m1->contidional_second_val;
-		} else if (op == TOK_EXPONENT) {
-			if (numptr_val < 0)
-				return -3;      /* exponent less than 0 */
-			else {
-				arith_t c = 1;
-
-				if (numptr_val)
-					while (numptr_val--)
-						c *= rez;
-				rez = c;
-			}
-		} else if (numptr_val==0)          /* zero divisor check */
-			return -2;
-		else if (op == TOK_DIV || op == TOK_DIV_ASSIGN)
-			rez /= numptr_val;
-		else if (op == TOK_REM || op == TOK_REM_ASSIGN)
-			rez %= numptr_val;
-	}
-	if (tok_have_assign(op)) {
-		char buf[sizeof(arith_t_type)*3 + 2];
-
-		if (numptr_m1->var == NULL) {
-			/* Hmm, 1=2 ? */
-			goto err;
-		}
-		/* save to shell variable */
-#if ENABLE_ASH_MATH_SUPPORT_64
-		snprintf(buf, sizeof(buf), "%lld", (arith_t_type) rez);
-#else
-		snprintf(buf, sizeof(buf), "%ld", (arith_t_type) rez);
-#endif
-		setvar(numptr_m1->var, buf, 0);
-		/* after saving, make previous value for v++ or v-- */
-		if (op == TOK_POST_INC)
-			rez--;
-		else if (op == TOK_POST_DEC)
-			rez++;
-	}
-	numptr_m1->val = rez;
-	/* protect geting var value, is number now */
-	numptr_m1->var = NULL;
-	return 0;
- err:
-	return -1;
-}
-
-/* longest must be first */
-static const char op_tokens[] ALIGN1 = {
-	'<','<','=',0, TOK_LSHIFT_ASSIGN,
-	'>','>','=',0, TOK_RSHIFT_ASSIGN,
-	'<','<',    0, TOK_LSHIFT,
-	'>','>',    0, TOK_RSHIFT,
-	'|','|',    0, TOK_OR,
-	'&','&',    0, TOK_AND,
-	'!','=',    0, TOK_NE,
-	'<','=',    0, TOK_LE,
-	'>','=',    0, TOK_GE,
-	'=','=',    0, TOK_EQ,
-	'|','=',    0, TOK_OR_ASSIGN,
-	'&','=',    0, TOK_AND_ASSIGN,
-	'*','=',    0, TOK_MUL_ASSIGN,
-	'/','=',    0, TOK_DIV_ASSIGN,
-	'%','=',    0, TOK_REM_ASSIGN,
-	'+','=',    0, TOK_PLUS_ASSIGN,
-	'-','=',    0, TOK_MINUS_ASSIGN,
-	'-','-',    0, TOK_POST_DEC,
-	'^','=',    0, TOK_XOR_ASSIGN,
-	'+','+',    0, TOK_POST_INC,
-	'*','*',    0, TOK_EXPONENT,
-	'!',        0, TOK_NOT,
-	'<',        0, TOK_LT,
-	'>',        0, TOK_GT,
-	'=',        0, TOK_ASSIGN,
-	'|',        0, TOK_BOR,
-	'&',        0, TOK_BAND,
-	'*',        0, TOK_MUL,
-	'/',        0, TOK_DIV,
-	'%',        0, TOK_REM,
-	'+',        0, TOK_ADD,
-	'-',        0, TOK_SUB,
-	'^',        0, TOK_BXOR,
-	/* uniq */
-	'~',        0, TOK_BNOT,
-	',',        0, TOK_COMMA,
-	'?',        0, TOK_CONDITIONAL,
-	':',        0, TOK_CONDITIONAL_SEP,
-	')',        0, TOK_RPAREN,
-	'(',        0, TOK_LPAREN,
-	0
-};
-/* ptr to ")" */
-#define endexpression (&op_tokens[sizeof(op_tokens)-7])
-
-static arith_t
-arith(const char *expr, int *perrcode)
-{
-	char arithval; /* Current character under analysis */
-	operator lasttok, op;
-	operator prec;
-	operator *stack, *stackptr;
-	const char *p = endexpression;
-	int errcode;
-	v_n_t *numstack, *numstackptr;
-	unsigned datasizes = strlen(expr) + 2;
-
-	/* Stack of integers */
-	/* The proof that there can be no more than strlen(startbuf)/2+1 integers
-	 * in any given correct or incorrect expression is left as an exercise to
-	 * the reader. */
-	numstackptr = numstack = alloca((datasizes / 2) * sizeof(numstack[0]));
-	/* Stack of operator tokens */
-	stackptr = stack = alloca(datasizes * sizeof(stack[0]));
-
-	*stackptr++ = lasttok = TOK_LPAREN;     /* start off with a left paren */
-	*perrcode = errcode = 0;
-
-	while (1) {
-		arithval = *expr;
-		if (arithval == 0) {
-			if (p == endexpression) {
-				/* Null expression. */
-				return 0;
-			}
-
-			/* This is only reached after all tokens have been extracted from the
-			 * input stream. If there are still tokens on the operator stack, they
-			 * are to be applied in order. At the end, there should be a final
-			 * result on the integer stack */
-
-			if (expr != endexpression + 1) {
-				/* If we haven't done so already, */
-				/* append a closing right paren */
-				expr = endexpression;
-				/* and let the loop process it. */
-				continue;
-			}
-			/* At this point, we're done with the expression. */
-			if (numstackptr != numstack+1) {
-				/* ... but if there isn't, it's bad */
- err:
-				*perrcode = -1;
-				return *perrcode;
-			}
-			if (numstack->var) {
-				/* expression is $((var)) only, lookup now */
-				errcode = arith_lookup_val(numstack);
-			}
- ret:
-			*perrcode = errcode;
-			return numstack->val;
-		}
-
-		/* Continue processing the expression. */
-		if (arith_isspace(arithval)) {
-			/* Skip whitespace */
-			goto prologue;
-		}
-		p = endofname(expr);
-		if (p != expr) {
-			size_t var_name_size = (p-expr) + 1;  /* trailing zero */
-
-			numstackptr->var = alloca(var_name_size);
-			safe_strncpy(numstackptr->var, expr, var_name_size);
-			expr = p;
- num:
-			numstackptr->contidional_second_val_initialized = 0;
-			numstackptr++;
-			lasttok = TOK_NUM;
-			continue;
-		}
-		if (isdigit(arithval)) {
-			numstackptr->var = NULL;
-#if ENABLE_ASH_MATH_SUPPORT_64
-			numstackptr->val = strtoll(expr, (char **) &expr, 0);
-#else
-			numstackptr->val = strtol(expr, (char **) &expr, 0);
-#endif
-			goto num;
-		}
-		for (p = op_tokens; ; p++) {
-			const char *o;
-
-			if (*p == 0) {
-				/* strange operator not found */
-				goto err;
-			}
-			for (o = expr; *p && *o == *p; p++)
-				o++;
-			if (!*p) {
-				/* found */
-				expr = o - 1;
-				break;
-			}
-			/* skip tail uncompared token */
-			while (*p)
-				p++;
-			/* skip zero delim */
-			p++;
-		}
-		op = p[1];
-
-		/* post grammar: a++ reduce to num */
-		if (lasttok == TOK_POST_INC || lasttok == TOK_POST_DEC)
-			lasttok = TOK_NUM;
-
-		/* Plus and minus are binary (not unary) _only_ if the last
-		 * token was as number, or a right paren (which pretends to be
-		 * a number, since it evaluates to one). Think about it.
-		 * It makes sense. */
-		if (lasttok != TOK_NUM) {
-			switch (op) {
-			case TOK_ADD:
-				op = TOK_UPLUS;
-				break;
-			case TOK_SUB:
-				op = TOK_UMINUS;
-				break;
-			case TOK_POST_INC:
-				op = TOK_PRE_INC;
-				break;
-			case TOK_POST_DEC:
-				op = TOK_PRE_DEC;
-				break;
-			}
-		}
-		/* We don't want a unary operator to cause recursive descent on the
-		 * stack, because there can be many in a row and it could cause an
-		 * operator to be evaluated before its argument is pushed onto the
-		 * integer stack. */
-		/* But for binary operators, "apply" everything on the operator
-		 * stack until we find an operator with a lesser priority than the
-		 * one we have just extracted. */
-		/* Left paren is given the lowest priority so it will never be
-		 * "applied" in this way.
-		 * if associativity is right and priority eq, applied also skip
-		 */
-		prec = PREC(op);
-		if ((prec > 0 && prec < UNARYPREC) || prec == SPEC_PREC) {
-			/* not left paren or unary */
-			if (lasttok != TOK_NUM) {
-				/* binary op must be preceded by a num */
-				goto err;
-			}
-			while (stackptr != stack) {
-				if (op == TOK_RPAREN) {
-					/* The algorithm employed here is simple: while we don't
-					 * hit an open paren nor the bottom of the stack, pop
-					 * tokens and apply them */
-					if (stackptr[-1] == TOK_LPAREN) {
-						--stackptr;
-						/* Any operator directly after a */
-						lasttok = TOK_NUM;
-						/* close paren should consider itself binary */
-						goto prologue;
-					}
-				} else {
-					operator prev_prec = PREC(stackptr[-1]);
-
-					convert_prec_is_assing(prec);
-					convert_prec_is_assing(prev_prec);
-					if (prev_prec < prec)
-						break;
-					/* check right assoc */
-					if (prev_prec == prec && is_right_associativity(prec))
-						break;
-				}
-				errcode = arith_apply(*--stackptr, numstack, &numstackptr);
-				if (errcode) goto ret;
-			}
-			if (op == TOK_RPAREN) {
-				goto err;
-			}
-		}
-
-		/* Push this operator to the stack and remember it. */
-		*stackptr++ = lasttok = op;
- prologue:
-		++expr;
-	} /* while */
-}
-#endif /* ASH_MATH_SUPPORT */
-
-
 /* ============ main() and helpers */
 
 /*
@@ -13340,7 +12937,7 @@ exitshell(void)
 	status = exitstatus;
 	TRACE(("pid %d, exitshell(%d)\n", getpid(), status));
 	if (setjmp(loc.loc)) {
-		if (exception == EXEXIT)
+		if (exception_type == EXEXIT)
 /* dash bug: it just does _exit(exitstatus) here
  * but we have to do setjobctl(0) first!
  * (bug is still not fixed in dash-0.5.3 - if you run dash
@@ -13365,7 +12962,7 @@ static void
 init(void)
 {
 	/* from input.c: */
-	basepf.nextc = basepf.buf = basebuf;
+	basepf.next_to_pgetc = basepf.buf = basebuf;
 
 	/* from trap.c: */
 	signal(SIGCHLD, SIG_DFL);
@@ -13486,7 +13083,8 @@ reset(void)
 	evalskip = 0;
 	loopnest = 0;
 	/* from input.c: */
-	parselleft = parsenleft = 0;      /* clear input buffer */
+	g_parsefile->left_in_buffer = 0;
+	g_parsefile->left_in_line = 0;      /* clear input buffer */
 	popallfiles();
 	/* from parser.c: */
 	tokpushback = 0;
@@ -13510,8 +13108,8 @@ extern int etext();
 int ash_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
 int ash_main(int argc UNUSED_PARAM, char **argv)
 {
-	char *shinit;
-	volatile int state;
+	const char *shinit;
+	volatile smallint state;
 	struct jmploc jmploc;
 	struct stackmark smark;
 
@@ -13533,21 +13131,20 @@ int ash_main(int argc UNUSED_PARAM, char **argv)
 #endif
 	state = 0;
 	if (setjmp(jmploc.loc)) {
-		int e;
-		int s;
+		smallint e;
+		smallint s;
 
 		reset();
 
-		e = exception;
+		e = exception_type;
 		if (e == EXERROR)
 			exitstatus = 2;
 		s = state;
 		if (e == EXEXIT || s == 0 || iflag == 0 || shlvl)
 			exitshell();
-
-		if (e == EXINT) {
+		if (e == EXINT)
 			outcslow('\n', stderr);
-		}
+
 		popstackmark(&smark);
 		FORCE_INT_ON; /* enable interrupts */
 		if (s == 1)
@@ -13561,7 +13158,7 @@ int ash_main(int argc UNUSED_PARAM, char **argv)
 	exception_handler = &jmploc;
 #if DEBUG
 	opentrace();
-	trace_puts("Shell args: ");
+	TRACE(("Shell args: "));
 	trace_puts_args(argv);
 #endif
 	rootpid = getpid();
@@ -13589,7 +13186,7 @@ int ash_main(int argc UNUSED_PARAM, char **argv)
 		}
 	}
 #endif
-	if (argv[0] && argv[0][0] == '-')
+	if (/* argv[0] && */ argv[0][0] == '-')
 		isloginsh = 1;
 	if (isloginsh) {
 		state = 1;
@@ -13613,15 +13210,21 @@ int ash_main(int argc UNUSED_PARAM, char **argv)
 	}
  state3:
 	state = 4;
-	if (minusc)
+	if (minusc) {
+		/* evalstring pushes parsefile stack.
+		 * Ensure we don't falsely claim that 0 (stdin)
+		 * is one of stacked source fds.
+		 * Testcase: ash -c 'exec 1>&0' must not complain. */
+		if (!sflag)
+			g_parsefile->fd = -1;
 		evalstring(minusc, 0);
+	}
 
 	if (sflag || minusc == NULL) {
 #if ENABLE_FEATURE_EDITING_SAVEHISTORY
 		if (iflag) {
 			const char *hp = lookupvar("HISTFILE");
-
-			if (hp != NULL)
+			if (hp)
 				line_input_state->hist_file = hp;
 		}
 #endif
@@ -13640,14 +13243,6 @@ int ash_main(int argc UNUSED_PARAM, char **argv)
 	exitshell();
 	/* NOTREACHED */
 }
-
-#if DEBUG
-const char *applet_name = "debug stuff usage";
-int main(int argc, char **argv)
-{
-	return ash_main(argc, argv);
-}
-#endif
 
 
 /*-

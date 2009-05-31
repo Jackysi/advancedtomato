@@ -28,9 +28,12 @@ all:
 else
 
 all:
-	@echo -e "\n\n$(TOMATO_PROFILE_NAME) Profile"
+	@echo ""
+	@echo ""
+	@echo "$(TOMATO_PROFILE_NAME) Profile"
 	@btools/uversion.pl --gen
-	@echo -e "\n\n"
+	@echo ""
+	@echo ""
 	
 	@$(MAKE) -C router all
 	@$(MAKE) -C router install
@@ -50,11 +53,14 @@ ifeq ($(wildcard include/bcm20xx.h),)
 else
 	@btools/fpkg -i linux/linux/arch/mips/brcm-boards/bcm947xx/compressed/vmlinuz -i router/mipsel-uclibc/target.image \
 		-t image/tomato-ND.trx
-#		-l WR41,image/WRH54G.bin
 endif
 
-	
-	@echo -e "\n-----------------\n" `cat build_version` " ready\n-----------------"
+
+	@echo ""
+	@echo "-----------------"
+	@echo `cat build_version` " ready"
+	@echo "-----------------"
+
 
 clean: cleanimage
 	@$(MAKE) -C router $@
@@ -77,8 +83,6 @@ distclean: clean cleankernel cleantools cleanlibc
 ifneq ($(INSIDE_MAK),1)
 	@$(MAKE) -C router $@ INSIDE_MAK=1
 endif
-	@$(MAKE) -C router/busybox distclean
-	@rm -f router/busybox/config_current
 	@rm -f router/config_current
 	@rm -f router/.config.cmd router/.config.old
 	@rm -f router/libfoo_xref.txt
@@ -88,7 +92,8 @@ prepk:
 	$(MAKE) -C linux/linux oldconfig dep
 
 what:
-	@echo -e "\n$(TOMATO_PROFILE_NAME) Profile\n"
+	@echo ""
+	@echo "$(TOMATO_PROFILE_NAME) Profile\n"
 
 endif
 
@@ -97,23 +102,21 @@ g:
 	@$(MAKE) setprofile U=G L=g N=G
 
 setprofile:
-	@echo -e "\
-#ifndef TOMATO_PROFILE\n\
-#define TOMATO_$(U) 1\n\
-#define PROFILE_G 1\n\
-#define PROFILE_N 2\n\
-#define TOMATO_PROFILE PROFILE_$(U)\n\
-#define TOMATO_PROFILE_NAME \"$(N)\"\n\
-#endif\n" > router/shared/tomato_profile.h
+	@echo "#ifndef TOMATO_PROFILE"                > router/shared/tomato_profile.h
+	@echo "#define TOMATO_$(U) 1"                >> router/shared/tomato_profile.h
+	@echo "#define PROFILE_G 1"                  >> router/shared/tomato_profile.h
+	@echo "#define PROFILE_N 2"                  >> router/shared/tomato_profile.h
+	@echo "#define TOMATO_PROFILE PROFILE_$(U)"  >> router/shared/tomato_profile.h
+	@echo "#define TOMATO_PROFILE_NAME \"$(N)\"" >> router/shared/tomato_profile.h
+	@echo "#endif"                               >> router/shared/tomato_profile.h
 
-	@echo -e "\
-TOMATO_$(U) = 1\n\
-PROFILE_G = 1\n\
-PROFILE_N = 2\n\
-TOMATO_PROFILE = \$$(PROFILE_$(U))\n\
-TOMATO_PROFILE_NAME = \"$(N)\"\n\
-TOMATO_PROFILE_L = $(L)\n\
-TOMATO_PROFILE_U = $(U)\n" > tomato_profile.mak
+	@echo "TOMATO_$(U) = 1"                     > tomato_profile.mak
+	@echo "PROFILE_G = 1"                      >> tomato_profile.mak
+	@echo "PROFILE_N = 2"                      >> tomato_profile.mak
+	@echo "TOMATO_PROFILE = \$$(PROFILE_$(U))" >> tomato_profile.mak
+	@echo "TOMATO_PROFILE_NAME = \"$(N)\""     >> tomato_profile.mak
+	@echo "TOMATO_PROFILE_L = $(L)"            >> tomato_profile.mak
+	@echo "TOMATO_PROFILE_U = $(U)"            >> tomato_profile.mak
 
 	@cd router && \
 		[ -s .config ] && cat .config > config_current; \
@@ -122,14 +125,9 @@ TOMATO_PROFILE_U = $(U)\n" > tomato_profile.mak
 		cp config_$(L) .config
 	@$(MAKE) -C router oldconfig
 
-	@cd router/busybox && \
-		[ -s .config ] && cat .config > config_current; \
-		rm -f config_current && \
-		ln -s config_$(L) config_current && \
-		cp config_$(L) .config
-	@$(MAKE) -C router/busybox oldconfig
-
-	@echo -e "\nUsing $(N) profile.\n"
+	@echo ""
+	@echo "Using $(N) profile."
+	@echo ""
 
 
 cleanlibc:
@@ -138,7 +136,10 @@ cleanlibc:
 libc: cleanlibc
 	@$(MAKE) -C ../../tools-src/uClibc
 	@$(MAKE) -C ../../tools-src/uClibc install
-	
+
+echotest:
+	@( echo -e foo | grep "\-e foo" ) && echo bar || echo foo
+
 help:
 	@echo "g            use G profile"
 	@echo "clean        -C router clean"

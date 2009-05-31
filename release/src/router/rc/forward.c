@@ -1,7 +1,7 @@
 /*
 
 	Tomato Firmware
-	Copyright (C) 2006-2008 Jonathan Zarate
+	Copyright (C) 2006-2009 Jonathan Zarate
 
 */
 
@@ -42,7 +42,7 @@ void ipt_forward(ipt_table_t table)
 
 		*/
 		if ((vstrsep(b, "<", &c, &proto, &saddr, &xports, &iport, &iaddr) != 6) || (*c != '1')) continue;
-		
+
 		src[0] = 0;
 		if (*saddr != 0) {
 			if (strchr(saddr, '.') == NULL) {
@@ -78,23 +78,13 @@ void ipt_forward(ipt_table_t table)
 						ip,  *iport ? ":" : "", iport);
 
 					if (nvram_match("nf_loopback", "1")) {
-#if 1
 						ipt_write("-A POSTROUTING -p %s %s %s -s %s/%s -d %s -j SNAT --to-source %s\n",
 							c,
 							mdport, *iport ? iport : xports,
 							nvram_safe_get("lan_ipaddr"),	// corrected by ipt
 							nvram_safe_get("lan_netmask"),
 							ip,
-							nvram_safe_get("lan_ipaddr"));
-#else
-						ipt_write("-A POSTROUTING -p %s %s %s -s %s/%s -d %s -j SNAT --to-source %s\n",
-							c,
-							mdport, xports,
-							nvram_safe_get("lan_ipaddr"),	// corrected by ipt
-							nvram_safe_get("lan_netmask"),
-							ip,
-							nvram_safe_get("lan_ipaddr"));
-#endif
+							nvram_safe_get("wan_ipaddr"));
 					}
 				}
 				else {	// filter

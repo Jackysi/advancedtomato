@@ -1,7 +1,7 @@
 /*
 
 	Tomato Firmware
-	Copyright (C) 2006-2008 Jonathan Zarate
+	Copyright (C) 2006-2009 Jonathan Zarate
 
 */
 #include <string.h>
@@ -27,14 +27,16 @@ WRT54GS 1.1, 2.x    BCM5325E              0x0708       42        0x10      0x031
 WRT54GS 3.0, 4.0    BCM5352E              0x0467       42        0x10      0x2758
 WRT300N 1.0         BCM4704_BCM5325F_EWC  0x0472       42        0x10      0x10
 WRTSL54GS           BCM4704_BCM5325F      0x042f       42        0x10      0x0018
+WTR54GS v1, v2      BCM5350               0x456        56        0x10      0xb18       (source: BaoWeiQuan)
 
 WHR-G54S            BCM5352E              0x467        00        0x13      0x2758      melco_id=30182
-WHR-HP-G54S			BCM5352E              0x467        00        0x13      0x2758      melco_id=30189
+WHR-HP-G54S         BCM5352E              0x467        00        0x13      0x2758      melco_id=30189
 WZR-G300N           BCM4704_BCM5325F_EWC  0x0472       ?         0x10      0x10        melco_id=31120
 WZR-G54             BCM4704_BCM5325F      0x042f       42        0x10      0x10        melco_id=29115  melco_id=30061 (source: piggy)
 WBR-G54                                   bcm94710ap   42                              melco_id=ca020906
 WHR2-A54G54         BCM4704_BCM5325F      0x042f       42        0x10      0x0210      melco_id=290441dd
-WBR2-G54			BCM4712               0x0101       00        0x10      0x0188      buffalo_id=29bb0332
+WBR2-G54            BCM4712               0x0101       00        0x10      0x0188      buffalo_id=29bb0332
+WZR-G108            BCM4704_BCM5325F      0x042f       42        0x10      0x10        melco_id=30153  melco_id=31095 (source: BaoWeiQuan)
 
 WHR-G125			BCM5354G              0x048E       00        0x11      0x750       melco_id=32093
 
@@ -75,6 +77,8 @@ WR850G v1			BCM4702               bcm94710r4   100
 
 *WRH54G				BCM5354G              0x048E       ?         0x10      ?
 
+Viewsonic WR100		BCM4712               0x0101       44        0x10      0x0188      CFEver=SparkLanv100
+
 * not supported/not tested
 
 
@@ -88,12 +92,12 @@ int check_hw_type(void)
 {
 	const char *s;
 	unsigned long bf;
-	
+
 	bf = strtoul(nvram_safe_get("boardflags"), NULL, 0);
 	s = nvram_safe_get("boardtype");
 	switch (strtoul(s, NULL, 0)) {
 	case 0x467:
-		return HW_BCM5352E;	
+		return HW_BCM5352E;
 	case 0x101:
 		return ((bf & BFL_ENETADM) == 0) ? HW_BCM4712_BCM5325E : HW_BCM4712;
 	case 0x708:
@@ -106,13 +110,15 @@ int check_hw_type(void)
 		return HW_BCM4705L_BCM5325E_EWC;
 	case 0x48E:
 		return HW_BCM5354G;
+	case 0x456:
+		return HW_BCM5350;
 	}
 
 	// WR850G may have "bcm94710dev " (extra space)
 	if ((strncmp(s, "bcm94710dev", 11) == 0) || (strcmp(s, "bcm94710r4") == 0)) {
 		return HW_BCM4702;
 	}
-	
+
 	return HW_UNKNOWN;
 }
 
@@ -120,7 +126,7 @@ int get_model(void)
 {
 	int hw;
 	char *c;
-	
+
 	hw = check_hw_type();
 
 	switch (strtoul(nvram_safe_get("melco_id"), NULL, 16)) {
@@ -147,6 +153,9 @@ int get_model(void)
 		return MODEL_WHR2A54G54;
 	case 0x32093:
 		return MODEL_WHRG125;
+	case 0x30153:
+	case 0x31095:
+		return MODEL_WZRG108;
 #if TOMATO_N
 	case 0x31120:
 		return MODEL_WZRG300N;
@@ -165,14 +174,14 @@ int get_model(void)
 	default:
 		return MODEL_UNKNOWN;
 	}
-	
+
 	if (nvram_match("boardnum", "mn700")) {
 		return MODEL_MN700;
 	}
-	
+
 	if (hw == HW_UNKNOWN) return MODEL_UNKNOWN;
 
-/*	
+/*
 	if (hw == HW_BCM5354G) {
 		if (nvram_match("boardrev", "0x11")) {
 			return MODEL_WRH54G;
@@ -209,9 +218,13 @@ int get_model(void)
 		c = nvram_safe_get("CFEver");
 		if (strncmp(c, "MotoWRv", 7) == 0) return MODEL_WR850GV2;
 		if (strncmp(c, "GW_WR110G", 9) == 0) return MODEL_WX6615GT;
+		if (strcmp(c, "SparkLanv100") == 0) return MODEL_WR100;
 		break;
 	case 100:
 		if (strcmp(nvram_safe_get("clkfreq"), "264") == 0) return MODEL_RT390W;
+		break;
+	case 56:
+		if (hw == HW_BCM5350) return MODEL_WTR54GS;
 		break;
 	}
 

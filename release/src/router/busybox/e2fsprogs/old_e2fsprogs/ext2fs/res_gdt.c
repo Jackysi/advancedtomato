@@ -113,11 +113,11 @@ errcode_t ext2fs_create_resize_inode(ext2_filsys fs)
 		inode_size *= fs->blocksize;
 		inode.i_size = inode_size & 0xFFFFFFFF;
 		inode.i_size_high = (inode_size >> 32) & 0xFFFFFFFF;
-		if(inode.i_size_high) {
+		if (inode.i_size_high) {
 			sb->s_feature_ro_compat |=
 				EXT2_FEATURE_RO_COMPAT_LARGE_FILE;
 		}
-		inode.i_ctime = time(0);
+		inode.i_ctime = time(NULL);
 	}
 
 	for (rsv_off = 0, gdt_off = fs->desc_blocks,
@@ -209,7 +209,7 @@ out_inode:
 	       inode.i_size);
 #endif
 	if (inode_dirty) {
-		inode.i_atime = inode.i_mtime = time(0);
+		inode.i_atime = inode.i_mtime = time(NULL);
 		retval2 = ext2fs_write_inode(fs, EXT2_RESIZE_INO, &inode);
 		if (!retval)
 			retval = retval2;

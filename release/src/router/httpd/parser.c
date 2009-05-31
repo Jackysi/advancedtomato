@@ -1,7 +1,7 @@
 /*
 
 	Tomato Firmware
-	Copyright (C) 2006-2008 Jonathan Zarate
+	Copyright (C) 2006-2009 Jonathan Zarate
 
 */
 
@@ -15,7 +15,7 @@
 
 	Syntax checking is very relaxed and all arguments are considered a
 	string. Example, the following are the same:
-	
+
 		<% ident(foo); %>
 		<% ident('foo'); %>
 
@@ -30,12 +30,12 @@ int parse_asp(const char *path)
 	char *argv[32];
 	char *ident;
 	const aspapi_t *api;
-	
+
 #if TOMATO_N
 	// temp!!!
 	char npath[256];
 	int n;
-	
+
 	if (!nvram_match("debug_npages", "0")) {
 		if (((a = strrchr(path, '.')) != NULL) && ((n = a - path) > 3) && (strncmp(a - 2, "-n", 2) != 0)) {
 			memcpy(npath, path, n);
@@ -47,7 +47,7 @@ int parse_asp(const char *path)
 		}
 	}
 #endif
-	
+
 	if (f_read_alloc_string(path, &buffer, 128 * 1024) < 0) {
 		free(buffer);
 		if (!header_sent) send_error(500, NULL, "Read error");
@@ -55,24 +55,24 @@ int parse_asp(const char *path)
 	}
 
 	if (!header_sent) send_header(200, NULL, mime_html, 0);
-	
+
 	// <% id(arg, arg); %>
 	cp = buffer;
 	while (*cp) {
 		if ((b = strstr(cp, "%>")) == NULL) {
 			web_puts(cp);
-			break;	
+			break;
 		}
 		*b = 0;
 
 		//xx <% <% %>
 		//xx %>
-		
+
 		a = cp;
 		while ((c = strstr(a, "<%")) != NULL) {
 			a = c + 2;
 		}
-		
+
 		if (a == cp) {
 			*b = '%';
 			b += 2;
@@ -80,18 +80,18 @@ int parse_asp(const char *path)
 			cp = b;
 			continue;
 		}
-		
+
 		web_write(cp, (a - cp) - 2);
-		
+
 		cp = b + 2;
-		
+
 		while (*a == ' ') ++a;
 		ident = a;
 		while (((*a >= 'a') && (*a <= 'z')) || ((*a >= 'A') && (*a <= 'Z')) || ((*a >= '0') && (*a <= '9')) || (*a == '_')) {
 			++a;
 		}
 		if (ident == a) {
-#ifdef DEBUG		
+#ifdef DEBUG
 			syslog(LOG_WARNING, "Identifier not found in %s @%u", path, a - buffer);
 #endif
 			continue;
@@ -99,34 +99,34 @@ int parse_asp(const char *path)
 		b = a;
 		while (*a == ' ') ++a;
 		if (*a++ != '(') {
-#ifdef DEBUG		
+#ifdef DEBUG
 			syslog(LOG_WARNING, "Expecting ( in %s @%u", path, a - buffer);
 #endif
 			continue;
 		}
 		*b = 0;
-		
+
 		// <% foo(123, "arg"); %>
 		// a -----^            ^--- null
-		
+
 //		printf("\n[[['%s'\n", ident);
-		
+
 		argc = 0;
 		while (*a) {
 			while (*a == ' ') ++a;
 			if (*a == ')') {
-FINAL:			
+FINAL:
 				++a;
 				while ((*a == ' ') || (*a == ';')) ++a;
 				if (*a != 0) break;
-	
+
 				for (api = aspapi; api->name; ++api) {
 					if (strcmp(api->name, ident) == 0) {
 						api->exec(argc, argv);
 						break;
 					}
 				}
-	
+
 				a = NULL;
 /*
 				int z;
@@ -136,14 +136,14 @@ FINAL:
 */
 				break;
 			}
-			
+
 			if (argc >= 32) {
-#ifdef DEBUG		
+#ifdef DEBUG
 				syslog(LOG_WARNING, "Error while parsing arguments in %s @%u", path, a - buffer);
 #endif
 				break;
 			}
-			
+
 			if ((*a == '"') || (*a == '\'')) {
 				x = *a;
 				argv[argc++] = a + 1;
@@ -168,15 +168,15 @@ FINAL:
 			if (*a != ',') break;
 			*a++ = 0;
 		}
-		
-#ifdef DEBUG		
+
+#ifdef DEBUG
 		if (a != NULL) syslog(LOG_WARNING, "Error while parsing arguments in %s @%u", path, a - buffer);
 #endif
-		
+
 //		printf("argc=%d]]]\n", argc);
 	}
-	
-	
+
+
 	free(buffer);
 	return 1;
 }

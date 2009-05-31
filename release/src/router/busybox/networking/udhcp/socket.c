@@ -37,7 +37,7 @@
 #include "common.h"
 
 
-int read_interface(const char *interface, int *ifindex, uint32_t *addr, uint8_t *arp)
+int FAST_FUNC udhcp_read_interface(const char *interface, int *ifindex, uint32_t *addr, uint8_t *arp)
 {
 	int fd;
 	struct ifreq ifr;
@@ -47,7 +47,7 @@ int read_interface(const char *interface, int *ifindex, uint32_t *addr, uint8_t 
 	fd = xsocket(AF_INET, SOCK_RAW, IPPROTO_RAW);
 
 	ifr.ifr_addr.sa_family = AF_INET;
-	strncpy(ifr.ifr_name, interface, sizeof(ifr.ifr_name));
+	strncpy_IFNAMSIZ(ifr.ifr_name, interface);
 	if (addr) {
 		if (ioctl_or_perror(fd, SIOCGIFADDR, &ifr,
 			"is interface %s up and configured?", interface)
@@ -57,7 +57,7 @@ int read_interface(const char *interface, int *ifindex, uint32_t *addr, uint8_t 
 		}
 		our_ip = (struct sockaddr_in *) &ifr.ifr_addr;
 		*addr = our_ip->sin_addr.s_addr;
-		DEBUG("%s (our ip) = %s", ifr.ifr_name, inet_ntoa(our_ip->sin_addr));
+		DEBUG("ip of %s = %s", interface, inet_ntoa(our_ip->sin_addr));
 	}
 
 	if (ifindex) {
@@ -85,10 +85,9 @@ int read_interface(const char *interface, int *ifindex, uint32_t *addr, uint8_t 
 
 /* 1. None of the callers expects it to ever fail */
 /* 2. ip was always INADDR_ANY */
-int listen_socket(/*uint32_t ip,*/ int port, const char *inf)
+int FAST_FUNC udhcp_listen_socket(/*uint32_t ip,*/ int port, const char *inf)
 {
 	int fd;
-	struct ifreq interface;
 	struct sockaddr_in addr;
 
 	DEBUG("Opening listen socket on *:%d %s", port, inf);
@@ -98,9 +97,9 @@ int listen_socket(/*uint32_t ip,*/ int port, const char *inf)
 	if (setsockopt_broadcast(fd) == -1)
 		bb_perror_msg_and_die("SO_BROADCAST");
 
-	strncpy(interface.ifr_name, inf, IFNAMSIZ);
-	if (setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE, &interface, sizeof(interface)) == -1)
-		bb_perror_msg_and_die("SO_BINDTODEVICE");
+	/* NB: bug 1032 says this doesn't work on ethernet aliases (ethN:M) */
+	if (setsockopt_bindtodevice(fd, inf))
+		xfunc_die(); /* warning is already printed */
 
 	memset(&addr, 0, sizeof(addr));
 	addr.sin_family = AF_INET;

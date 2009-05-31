@@ -1,7 +1,7 @@
 /*
 
 	Tomato Firmware
-	Copyright (C) 2006-2008 Jonathan Zarate
+	Copyright (C) 2006-2009 Jonathan Zarate
 
 */
 
@@ -35,7 +35,7 @@ int f_read(const char *path, void *buffer, int max)
 {
 	int f;
 	int n;
-	
+
 	if ((f = open(path, O_RDONLY)) < 0) return -1;
 	n = read(f, buffer, max);
 	close(f);
@@ -48,7 +48,7 @@ int f_write(const char *path, const void *buffer, int len, unsigned flags, unsig
 	int f;
 	int r = -1;
 	mode_t m;
-	
+
 	m = umask(0);
 	if (cmode == 0) cmode = 0666;
 	if ((f = open(path, (flags & FW_APPEND) ? (O_WRONLY|O_CREAT|O_APPEND) : (O_WRONLY|O_CREAT|O_TRUNC), cmode)) >= 0) {
@@ -105,4 +105,24 @@ int f_read_alloc(const char *path, char **buffer, int max)
 int f_read_alloc_string(const char *path, char **buffer, int max)
 {
 	return _f_read_alloc(path, buffer, max, 1);
+}
+
+
+static int _f_wait_exists(const char *name, int max, int invert)
+{
+	while (max-- > 0) {
+		if (f_exists(name) ^ invert) return 1;
+		sleep(1);
+	}
+	return 0;
+}
+
+int f_wait_exists(const char *name, int max)
+{
+	return _f_wait_exists(name, max, 0);
+}
+
+int f_wait_notexists(const char *name, int max)
+{
+	return _f_wait_exists(name, max, 1);
 }

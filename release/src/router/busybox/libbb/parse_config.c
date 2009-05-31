@@ -5,11 +5,12 @@
  * Copyright (C) 2008 by Vladimir Dronnikov <dronnikov@gmail.com>
  *
  * Licensed under GPLv2 or later, see file LICENSE in this tarball for details.
+ * Also for use in uClibc (http://uclibc.org/) licensed under LGPLv2.1 or later.
  */
 
 #include "libbb.h"
 
-#if ENABLE_PARSE
+#if defined ENABLE_PARSE && ENABLE_PARSE
 int parse_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
 int parse_main(int argc UNUSED_PARAM, char **argv)
 {
