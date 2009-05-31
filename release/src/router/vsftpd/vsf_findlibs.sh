@@ -45,6 +45,8 @@ locate_library /usr/lib/libsec.sl && echo "-lsec";
 # Look for libcap (capabilities)
 if locate_library /lib/libcap.so.1; then
   echo "/lib/libcap.so.1";
+elif locate_library /lib/libcap.so.2; then
+  echo "/lib/libcap.so.2";
 else
   locate_library /usr/lib/libcap.so && echo "-lcap";
   locate_library /lib/libcap.so && echo "-lcap";

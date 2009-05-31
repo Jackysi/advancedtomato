@@ -74,7 +74,8 @@ all:
 	@$(MAKE) -C btools
 
 	@rm -f image/tomato-ND-USB-$(V1)$(V2)-$(current_BUILD_DESC).trx
-	@echo "\n\n***********************" `date` "************************" >>fpkg.log
+	@echo "" >>fpkg.log
+	@echo "***********************" `date` "************************" >>fpkg.log
 	@cat router/shared/tomato_version >>fpkg.log
 	@echo "" >>fpkg.log
 	@cat router/target.info >>fpkg.log

@@ -164,6 +164,7 @@ void vsf_sysutil_free(void* p_ptr);
 
 /* Process creation/exit/process handling */
 unsigned int vsf_sysutil_getpid(void);
+void vsf_sysutil_clear_pid_cache(void);
 int vsf_sysutil_fork(void);
 int vsf_sysutil_fork_failok(void);
 void vsf_sysutil_exit(int exit_code);
@@ -339,6 +340,8 @@ int vsf_sysutil_setmodtime(const char* p_file, long the_time, int is_localtime);
 
 /* Limits */
 void vsf_sysutil_set_address_space_limit(long bytes);
+void vsf_sysutil_set_no_fds(void);
+void vsf_sysutil_set_no_procs(void);
 
 #endif /* VSF_SYSUTIL_H */
 

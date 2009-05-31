@@ -67,8 +67,9 @@ ssl_slave(struct vsf_session* p_sess)
     }
     else if (cmd == PRIV_SOCK_DO_SSL_READ)
     {
+      int ret;
       str_trunc(&data_str, VSFTP_DATA_BUFSIZE);
-      int ret = ssl_read_into_str(p_sess, p_sess->p_data_ssl, &data_str);
+      ret = ssl_read_into_str(p_sess, p_sess->p_data_ssl, &data_str);
       priv_sock_send_int(p_sess->ssl_slave_fd, ret);
       priv_sock_send_str(p_sess->ssl_slave_fd, &data_str);
     }

@@ -414,8 +414,6 @@ samba: shared
 
 nvram: shared
 
-shared: busybox
-
 # !!TB
 vsftpd: shared openssl
 	@$(SEP)
