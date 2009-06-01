@@ -1,7 +1,7 @@
 <!DOCTYPE HTML PUBLIC '-//W3C//DTD HTML 4.0//EN'>
 <!--
 	Tomato GUI
-	Copyright (C) 2006-2008 Jonathan Zarate
+	Copyright (C) 2006-2009 Jonathan Zarate
 	http://www.polarcloud.com/tomato/
 
 	For use with Tomato Firmware only.
@@ -47,7 +47,7 @@ smg.resetNewEditor = function() {
 
 	f = fields.getAll(this.newEditor);
 	ferror.clearAll(f);
-	
+
 	if ((c = cookie.get('addmac')) != null) {
 		cookie.set('addmac', '', 0);
 		c = c.split(',');
@@ -65,8 +65,8 @@ smg.resetNewEditor = function() {
 smg.setup = function() {
 	var i, i, m, s, t, n;
 	var macs, names;
-	
-	this.init('sm-grid', 'sort', 100, [
+
+	this.init('sm-grid', 'sort', 200, [
 		{ type: 'text', maxlen: 17 },
 		{ type: 'text', maxlen: 48 }
 	]);
@@ -97,18 +97,18 @@ function save()
 {
 	var fom;
 	var d, i, macs, names, ma, na;
-	
+
 	if (smg.isEditing()) return;
 
 	fom = E('_fom');
-	
+
 	macs = [];
 	names = [];
 	d = smg.getAllData();
 	for (i = 0; i < d.length; ++i) {
 		ma = d[i][0];
 		na = d[i][1].replace(/[<>|]/g, '');
-		
+
 		macs.push(ma);
 		if (na.length) {
 			names.push(ma.replace(/:/g, '') + '<' + na);
@@ -158,9 +158,9 @@ function init()
 
 <div class='section-title'>Wireless Client Filter</div>
 <div class='section'>
-	<input type='radio' name='f_type' id='_f_disable' value='disabled'> Disable Filter<br>
-	<input type='radio' name='f_type' id='_f_allow' value='allow'> Permit Only The Following Clients<br>
-	<input type='radio' name='f_type' id='_f_deny' value='deny'> Block The Following Clients<br>
+	<input type='radio' name='f_type' id='_f_disable' value='disabled'> <label for='_f_disable'>Disable filter</label><br>
+	<input type='radio' name='f_type' id='_f_allow' value='allow'> <label for='_f_allow'>Permit only the following clients</label><br>
+	<input type='radio' name='f_type' id='_f_deny' value='deny'> <label for='_f_deny'>Block the following clients</label><br>
 	<br>
 	<table id='sm-grid' class='tomato-grid'></table>
 </div>

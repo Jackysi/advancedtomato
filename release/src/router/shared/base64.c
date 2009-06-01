@@ -1,7 +1,7 @@
 /*
 
 	Tomato Firmware
-	Copyright (C) 2006-2008 Jonathan Zarate
+	Copyright (C) 2006-2009 Jonathan Zarate
 
 */
 #include <stdio.h>
@@ -32,7 +32,7 @@ static const char base64_xlat[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrs
 int base64_encode(const unsigned char *in, char *out, int inlen)
 {
 	char *o;
-	
+
 	o = out;
 	while (inlen >= 3) {
 		*out++ = base64_xlat[*in >> 2];
@@ -118,7 +118,7 @@ int main(int argc, char **argv)
 	memset(buf, 0, sizeof(buf));
 	base64_encode(test, buf, strlen(test));
 	printf("buf=%s\n", buf);
-	
+
 	memset(buf2, 0, sizeof(buf2));
 	base64_decode(buf, buf2, base64_encoded_len(strlen(test)));
 	printf("buf2=%s\n", buf2);

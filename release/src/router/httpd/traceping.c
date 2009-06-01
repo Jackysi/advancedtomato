@@ -1,7 +1,7 @@
 /*
 
 	Tomato Firmware
-	Copyright (C) 2006-2008 Jonathan Zarate
+	Copyright (C) 2006-2009 Jonathan Zarate
 
 */
 
@@ -81,7 +81,7 @@ int main(int argc, char **argv)
 
 	while (fgets(s, sizeof(s), f)) {
 
-		// 
+		//
 		if (regcomp(&re, "^ +[0-9]+ +(.+?) +\\((.+?)\\) +(.+?) ms +(.+?) ms +(.+?) ms", REG_EXTENDED) != 0) {
 			printf("error: regcomp\n");
 			return 1;

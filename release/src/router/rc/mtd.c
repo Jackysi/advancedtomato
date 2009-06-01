@@ -14,7 +14,7 @@
 	KIND, EXPRESS OR IMPLIED, BY STATUTE, COMMUNICATION OR OTHERWISE.  CYBERTAN
 	SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
 	FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE
-	
+
 */
 /*
 
@@ -25,12 +25,12 @@
 	KIND, EXPRESS OR IMPLIED, BY STATUTE, COMMUNICATION OR OTHERWISE. BROADCOM
 	SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
 	FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
-	
+
 */
 /*
 
 	Modified for Tomato Firmware
-	Portions, Copyright (C) 2006-2008 Jonathan Zarate
+	Portions, Copyright (C) 2006-2009 Jonathan Zarate
 
 */
 
@@ -85,7 +85,7 @@ static int crc_init(void)
 {
 	uint32 c;
 	int i, j;
-	
+
 	if (crc_table == NULL) {
 		if ((crc_table = malloc(sizeof(uint32) * 256)) == NULL) return 0;
 		for (i = 255; i >= 0; --i) {
@@ -96,7 +96,7 @@ static int crc_init(void)
 			}
 			crc_table[i] = c;
 		}
-	}	
+	}
 	return 1;
 }
 
@@ -237,7 +237,7 @@ int mtd_unlock_erase_main(int argc, char *argv[])
 {
 	char c;
 	char *dev = NULL;
-	
+
 	while ((c = getopt(argc, argv, "d:")) != -1) {
 		switch (c) {
 		case 'd':
@@ -249,7 +249,7 @@ int mtd_unlock_erase_main(int argc, char *argv[])
 	if (!dev) {
 		usage_exit(argv[0], "-d part");
 	}
-	
+
 	return _unlock_erase(dev, strstr(argv[0], "erase") ? 1 : 0);
 }
 
@@ -295,14 +295,14 @@ int mtd_write_main(int argc, char *argv[])
 	if (!wait_action_idle(10)) {
 		printf("System is busy\n");
 		return 1;
-	}	
+	}
 	set_action(ACT_WEB_UPGRADE);
 
 	if ((f = fopen(iname, "r")) == NULL) {
 		error = "Error opening input file";
 		goto ERROR;
 	}
-	
+
 	error = "File contains an invalid header";
 
 	if (safe_fread(&sig, 1, sizeof(sig), f) != sizeof(sig)) {
@@ -337,7 +337,7 @@ int mtd_write_main(int argc, char *argv[])
 		// moto
 		if (safe_fread(&sig, 1, sizeof(sig), f) != sizeof(sig)) {
 			goto ERROR;
-		}	
+		}
 		switch (sig) {
 		case 0x50705710:	// WR850G
 			// trx
@@ -350,7 +350,7 @@ int mtd_write_main(int argc, char *argv[])
 		}
 		break;
 	}
-	
+
 	if (sig != TRX_MAGIC) {
 		goto ERROR;
 	}

@@ -1,10 +1,8 @@
 /* vi: set sw=4 ts=4: */
-#ifndef	__UNARCHIVE_H__
-#define	__UNARCHIVE_H__
+#ifndef UNARCHIVE_H
+#define UNARCHIVE_H 1
 
-#if __GNUC_PREREQ(4,1)
-# pragma GCC visibility push(hidden)
-#endif
+PUSH_AND_SET_FUNCTION_VISIBILITY_TO_HIDDEN
 
 #define ARCHIVE_PRESERVE_DATE           1
 #define ARCHIVE_CREATE_LEADING_DIRS     2
@@ -77,6 +75,12 @@ typedef struct archive_handle_t {
 } archive_handle_t;
 
 
+/* Info struct unpackers can fill out to inform users of thing like
+ * timestamps of unpacked files */
+typedef struct unpack_info_t {
+	time_t mtime;
+} unpack_info_t;
+
 extern archive_handle_t *init_handle(void) FAST_FUNC;
 
 extern char filter_accept_all(archive_handle_t *archive_handle) FAST_FUNC;
@@ -126,9 +130,14 @@ USE_DESKTOP(long long) int unpack_lzma_stream(int src_fd, int dst_fd) FAST_FUNC;
 /* the rest wants 2 first bytes already skipped by the caller */
 USE_DESKTOP(long long) int unpack_bz2_stream(int src_fd, int dst_fd) FAST_FUNC;
 USE_DESKTOP(long long) int unpack_gz_stream(int src_fd, int dst_fd) FAST_FUNC;
+USE_DESKTOP(long long) int unpack_gz_stream_with_info(int src_fd, int dst_fd, unpack_info_t *info) FAST_FUNC;
 USE_DESKTOP(long long) int unpack_Z_stream(int fd_in, int fd_out) FAST_FUNC;
 /* wrapper which checks first two bytes to be "BZ" */
 USE_DESKTOP(long long) int unpack_bz2_stream_prime(int src_fd, int dst_fd) FAST_FUNC;
+
+int bbunpack(char **argv,
+	     char* (*make_new_name)(char *filename),
+	     USE_DESKTOP(long long) int (*unpacker)(unpack_info_t *info)) FAST_FUNC;
 
 #if BB_MMU
 void open_transformer(int fd,
@@ -139,8 +148,6 @@ void open_transformer(int src_fd, const char *transform_prog) FAST_FUNC;
 #define open_transformer(fd, transformer, transform_prog) open_transformer(fd, transform_prog)
 #endif
 
-#if __GNUC_PREREQ(4,1)
-# pragma GCC visibility pop
-#endif
+POP_SAVED_FUNCTION_VISIBILITY
 
 #endif

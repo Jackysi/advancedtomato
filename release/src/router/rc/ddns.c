@@ -1,7 +1,7 @@
 /*
 
 	Tomato Firmware
-	Copyright (C) 2006-2008 Jonathan Zarate
+	Copyright (C) 2006-2009 Jonathan Zarate
 
 */
 
@@ -36,13 +36,13 @@ static void update(int num, int *dirty, int force)
 	int exitcode;
 	int errors;
 	FILE *f;
-	
+
 	DLOG("%s", __FUNCTION__);
-	
+
 	sprintf(s, "cru d ddns%d", num);
 	system(s);
 	DLOG("%s: %s", __FUNCTION__, s);
-	
+
 	sprintf(s, "cru d ddnsf%d", num);
 	system(s);
 	DLOG("%s: %s", __FUNCTION__, s);
@@ -50,19 +50,19 @@ static void update(int num, int *dirty, int force)
 	sprintf(ddnsx, "ddnsx%d", num);
 	sprintf(ddnsx_path, "/var/lib/mdu/%s", ddnsx);
 	strlcpy(config, nvram_safe_get(ddnsx), sizeof(config));
-	
+
 	mkdir("/var/lib/mdu", 0700);
 	sprintf(msg_fn, "%s.msg", ddnsx_path);
-	
+
 	if ((vstrsep(config, "<", &serv, &user, &host, &wild, &mx, &bmx, &cust) != 7) || (*serv == 0)) {
 		_dprintf("%s: msg=''\n", __FUNCTION__);
 		f_write(msg_fn, NULL, 0, 0, 0);
 		return;
 	}
-	
+
 	if ((pass = strchr(user, ':')) != NULL) *pass++ = 0;
 		else pass = "";
-		
+
 	for (n = 120; (n > 0) && (time(0) < Y2K); --n) {
 		sleep(1);
 	}
@@ -84,14 +84,14 @@ static void update(int num, int *dirty, int force)
 	simple_lock("ddns");
 
 	strlcpy(ip, nvram_safe_get("ddnsx_ip"), sizeof(ip));
-	
+
 	if (!check_wanup()) {
 		if ((get_wan_proto() != WP_DISABLED) || (ip[0] == 0)) {
 			DLOG("%s: !check_wanup", __FUNCTION__);
 			goto CLEANUP;
 		}
 	}
-	
+
 	if (ip[0] == '@') {
 		if ((strcmp(serv, "zoneedit") == 0) || (strcmp(serv, "tzo") == 0) || (strcmp(serv, "noip") == 0) || (strcmp(serv, "dnsomatic") == 0)) {
 			strcpy(ip + 1, serv);
@@ -100,19 +100,19 @@ static void update(int num, int *dirty, int force)
 			strcpy(ip + 1, "dyndns");
 		}
 	}
-	else if (inet_addr(ip) == -1) {		
+	else if (inet_addr(ip) == -1) {
 		strcpy(ip, get_wanip());
 	}
-	
+
 	sprintf(cache_fn, "%s.cache", ddnsx_path);
 	f_write_string(cache_fn, nvram_safe_get(cache_nv), 0, 0);
-	
+
 	if (!f_exists(msg_fn)) {
 		DLOG("%s: !f_exist(%s)", __FUNCTION__, msg_fn);
 		f_write(msg_fn, NULL, 0, 0, 0);
 	}
-	
-	
+
+
 	sprintf(conf_fn, "%s.conf", ddnsx_path);
 	if ((f = fopen(conf_fn, "w")) == NULL) goto CLEANUP;
 	// note: options not needed for the service are ignored by mdu
@@ -147,10 +147,10 @@ static void update(int num, int *dirty, int force)
 	}
 
 	fclose(f);
-	
+
 	exitcode = eval("mdu", "--service", serv, "--conf", conf_fn);
 	DLOG("%s: mdu exitcode=%d", __FUNCTION__, exitcode);
-	
+
 	sprintf(s, "%s_errors", ddnsx);
 	if ((exitcode == 1) || (exitcode == 2)) {
 		if (nvram_match("ddnsx_retry", "0")) goto CLEANUP;
@@ -179,10 +179,12 @@ static void update(int num, int *dirty, int force)
 	if ((p = strchr(s, '\n')) != NULL) *p = 0;
 	t = strtoul(s, &p, 10);
 	if (*p != ',') goto CLEANUP;
-	
+
 	if (!nvram_match(cache_nv, s)) {
 		nvram_set(cache_nv, s);
-		if (strncmp(serv, "dyndns", 6) == 0) *dirty = 1;
+		if (nvram_get_int("ddnsx_save")) {
+			if (strstr(serv, "dyndns") == 0) *dirty = 1;
+		}
 	}
 
 	n = 28;
@@ -192,6 +194,12 @@ static void update(int num, int *dirty, int force)
 	if (n) {
 		if ((n < 0) || (n > 90)) n = 28;
 		t += (n * 86400);	// refresh every n days
+		
+		//!!TB - fix: if time is in the past, make it current
+		time_t now;
+		time(&now);
+		if (t < now + 60) t = now + 60;
+
 		tm = localtime(&t);
 		sprintf(s, "cru a ddnsf%d \"%d %d %d %d * ddns-update %d force\"", num,
 			tm->tm_min, tm->tm_hour, tm->tm_mday, tm->tm_mon + 1, num);
@@ -222,11 +230,11 @@ SCHED:
 		t = time(0) + (n * 60);
 		tm = localtime(&t);
 		DLOG("%s: sch: %d:%d\n", __FUNCTION__, tm->tm_hour, tm->tm_min);
-		
+
 		sprintf(s, "cru a ddns%d \"%d * * * * ddns-update %d\"", num, tm->tm_min, num);
 		DLOG("%s: %s", __FUNCTION__, s);
 		system(s);
-			
+
 		//	sprintf(s, "cru a ddns%d \"*/10 * * * * ddns-update %d\"", num);
 		//	system(s);
 	}
@@ -248,10 +256,10 @@ int ddns_update_main(int argc, char **argv)
 	int dirty;
 
 	DLOG("%s: %s %s", __FUNCTION__, (argc >= 2) ? argv[1] : "", (argc >= 3) ? argv[2] : "");
-	
+
 	dirty = 0;
 	umask(077);
-	
+
 	if (argc == 1) {
 		update(0, &dirty, 0);
 		update(1, &dirty, 0);
@@ -262,9 +270,7 @@ int ddns_update_main(int argc, char **argv)
 			update(num, &dirty, (argc == 3) && (strcmp(argv[2], "force") == 0));
 		}
 	}
-	if (dirty) {
-		if (!nvram_match("debug_nocommit", "1")) nvram_commit();
-	}
+	if (dirty) nvram_commit_x();
 	return 0;
 }
 
@@ -291,5 +297,5 @@ void stop_ddns(void)
 	system("cru d ddnsf0");
 	system("cru d ddnsf1");
 	killall("ddns-update", SIGKILL);
-	killall("mdu", SIGKILL);	
+	killall("mdu", SIGKILL);
 }

@@ -159,7 +159,6 @@ openvpn_encrypt (struct buffer *buf, struct buffer work,
 	  /* Flush the encryption buffer */
 	  ASSERT (EVP_CipherFinal (ctx->cipher, BPTR (&work) + outlen, &outlen));
 	  work.len += outlen;
-	  ASSERT (outlen == iv_size);
 
 	  /* prepend the IV to the ciphertext */
 	  if (opt->flags & CO_USE_IV)
@@ -1158,8 +1157,11 @@ read_key_file (struct key2 *key2, const char *file, const unsigned int flags)
 	     error_filename, count, onekeylen, keylen);
     }
 
-  /* zero file read buffer */
-  buf_clear (&in);
+  /* zero file read buffer if not an inline file */
+#if ENABLE_INLINE_FILES
+  if (!(flags & RKF_INLINE))
+#endif
+    buf_clear (&in);
 
   if (key2->n)
     warn_if_group_others_accessible (error_filename);

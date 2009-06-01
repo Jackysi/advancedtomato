@@ -28,6 +28,7 @@ tristate 'IP tables support (required for filtering/masq/NAT)' CONFIG_IP_NF_IPTA
 if [ "$CONFIG_IP_NF_IPTABLES" != "n" ]; then
 # The simple matches.
   dep_tristate '  limit match support' CONFIG_IP_NF_MATCH_LIMIT $CONFIG_IP_NF_IPTABLES
+  dep_tristate '  IPP2P match support' CONFIG_IP_NF_MATCH_IPP2P $CONFIG_IP_NF_IPTABLES
   dep_tristate '  geoip match support' CONFIG_IP_NF_MATCH_GEOIP $CONFIG_IP_NF_IPTABLES
   dep_tristate '  quota match support' CONFIG_IP_NF_MATCH_QUOTA $CONFIG_IP_NF_IPTABLES
   dep_tristate '  IP range match support' CONFIG_IP_NF_MATCH_IPRANGE $CONFIG_IP_NF_IPTABLES
@@ -205,7 +206,8 @@ if [ "$CONFIG_IP_NF_IPTABLES" != "n" ]; then
     dep_tristate '    DSCP target support' CONFIG_IP_NF_TARGET_DSCP $CONFIG_IP_NF_MANGLE
  
     dep_tristate '    MARK target support' CONFIG_IP_NF_TARGET_MARK $CONFIG_IP_NF_MANGLE
-    dep_tristate '    CLASSIFY target support (EXPERIMENTAL)' CONFIG_IP_NF_TARGET_CLASSIFY $CONFIG_IP_NF_FILTER
+    dep_tristate '    ROUTE target support' CONFIG_IP_NF_TARGET_ROUTE $CONFIG_IP_NF_MANGLE
+     dep_tristate '    CLASSIFY target support (EXPERIMENTAL)' CONFIG_IP_NF_TARGET_CLASSIFY $CONFIG_IP_NF_FILTER
 	dep_tristate '    IMQ target support' CONFIG_IP_NF_TARGET_IMQ $CONFIG_IP_NF_MANGLE
   fi
   dep_tristate '  LOG target support' CONFIG_IP_NF_TARGET_LOG $CONFIG_IP_NF_IPTABLES

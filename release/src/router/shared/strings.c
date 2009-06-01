@@ -1,8 +1,8 @@
 /*
-	
+
 	Tomato Firmware
-	Copyright (C) 2006-2008 Jonathan Zarate
-	
+	Copyright (C) 2006-2009 Jonathan Zarate
+
 */
 
 #include <string.h>
@@ -21,7 +21,7 @@ const char *find_word(const char *buffer, const char *word)
 {
 	const char *p, *q;
 	int n;
-	
+
 	n = strlen(word);
 	p = buffer;
 	while ((p = strstr(p, word)) != NULL) {
@@ -32,7 +32,7 @@ const char *find_word(const char *buffer, const char *word)
 			}
 		}
 		++p;
-	}	
+	}
 	return NULL;
 }
 
@@ -49,7 +49,7 @@ int remove_word(char *buffer, const char *word)
 {
 	char *p;
 	char *q;
-	
+
 	if ((p = strstr(buffer, word)) == NULL) return 0;
 	q = p;
 	p += strlen(word);

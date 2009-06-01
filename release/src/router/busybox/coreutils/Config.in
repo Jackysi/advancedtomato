@@ -136,12 +136,12 @@ config DF
 	  df reports the amount of disk space used and available
 	  on filesystems.
 
-config FEATURE_DF_INODE
-	bool "Enable -i (inode information)"
+config FEATURE_DF_FANCY
+	bool "Enable -a, -i, -B"
 	default n
 	depends on DF
 	help
-	  This option enables support for df -i.
+	  This option enables -a, -i and -B.
 
 config DIRNAME
 	bool "dirname"
@@ -189,7 +189,7 @@ config ECHO
 config FEATURE_FANCY_ECHO
 	bool "Enable echo options (-n and -e)"
 	default y
-	depends on ECHO
+	depends on ECHO || ASH_BUILTIN_ECHO || HUSH
 	help
 	  This adds options (-n and -e) to echo.
 
@@ -509,6 +509,18 @@ config SHA1SUM
 	help
 	  Compute and check SHA1 message digest
 
+config SHA256SUM
+	bool "sha256sum"
+	default n
+	help
+	  Compute and check SHA256 message digest
+
+config SHA512SUM
+	bool "sha512sum"
+	default n
+	help
+	  Compute and check SHA512 message digest
+
 config SLEEP
 	bool "sleep"
 	default n
@@ -649,7 +661,7 @@ config TEST
 config FEATURE_TEST_64
 	bool "Extend test to 64 bit"
 	default n
-	depends on TEST
+	depends on TEST || ASH_BUILTIN_TEST
 	help
 	  Enable 64-bit support in test.
 
@@ -754,7 +766,7 @@ config FEATURE_WC_LARGE
 	default n
 	depends on WC
 	help
-	  Use "unsigned long long" in wc for count variables.
+	  Use "unsigned long long" in wc for counter variables.
 
 config WHO
 	bool "who"

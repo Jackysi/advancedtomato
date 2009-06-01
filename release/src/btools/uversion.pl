@@ -57,9 +57,9 @@ print F <<"END";
 #define __TOMATO_VERSION_H__
 #define TOMATO_MAJOR		"$major"
 #define TOMATO_MINOR		"$minor"
-#define TOMATO_VPN          "$vpn"
+#define TOMATO_VPN		"$vpnmajor.$vpnminor"
 #define TOMATO_BUILD		"$build"
-#define	TOMATO_BUILDTIME	"$time"
+#define TOMATO_BUILDTIME	"$time"
 #define TOMATO_VERSION		"$fullversion"
 #endif
 END

@@ -30,7 +30,7 @@
 /*
 
 	Modified for Tomato Firmware
-	Portions, Copyright (C) 2006-2008 Jonathan Zarate
+	Portions, Copyright (C) 2006-2009 Jonathan Zarate
 
 */
 
@@ -83,7 +83,7 @@ static const char renewing[] = "/var/lib/misc/dhcpc.renewing";
 
 static int deconfig(char *ifname)
 {
-	_dprintf("%s: begin\n", __FUNCTION__);
+	TRACE_PT("begin\n");
 
 	ifconfig(ifname, IFUP, "0.0.0.0", NULL);
 
@@ -97,7 +97,7 @@ static int deconfig(char *ifname)
 	//	int i = 10;
 	//	while ((route_del(ifname, 0, NULL, NULL, NULL) == 0) && (i-- > 0)) { }
 
-	_dprintf("%s: end\n", __FUNCTION__);
+	TRACE_PT("end\n");
 	return 0;
 }
 
@@ -106,7 +106,7 @@ static int renew(char *ifname)
 	char *a, *b;
 	int changed;
 
-	_dprintf("%s: begin\n", __FUNCTION__);
+	TRACE_PT("begin\n");
 
 	unlink(renewing);
 
@@ -116,7 +116,7 @@ static int renew(char *ifname)
 		ifconfig(ifname, IFUP, nvram_safe_get("wan_ipaddr"), nvram_safe_get("wan_netmask"));
 	}
 
-	if (get_wan_proto() == WP_L2TP) {	
+	if (get_wan_proto() == WP_L2TP) {
 		env2nv_gateway("wan_gateway_buf");
 	}
 	else {
@@ -130,7 +130,7 @@ static int renew(char *ifname)
 		}
 		free(a);
 	}
-	
+
 	changed |= env2nv("domain", "wan_get_domain");
 	changed |= env2nv("dns", "wan_get_dns");
 
@@ -141,24 +141,22 @@ static int renew(char *ifname)
 
 	if (changed) {
 		set_host_domain_name();
-		stop_dnsmasq();
-		dns_to_resolv();
-		start_dnsmasq();
+		start_dnsmasq();	// (re)start
 	}
-	
-	_dprintf("wan_ipaddr=%s\n", nvram_safe_get("wan_ipaddr"));
-	_dprintf("wan_netmask=%s\n", nvram_safe_get("wan_netmask"));
-	_dprintf("wan_gateway=%s\n", nvram_safe_get("wan_gateway"));
-	_dprintf("wan_get_domain=%s\n", nvram_safe_get("wan_get_domain"));
-	_dprintf("wan_get_dns=%s\n", nvram_safe_get("wan_get_dns"));
-	_dprintf("wan_lease=%s\n", nvram_safe_get("wan_lease"));
-	_dprintf("%s: end\n", __FUNCTION__);
+
+	TRACE_PT("wan_ipaddr=%s\n", nvram_safe_get("wan_ipaddr"));
+	TRACE_PT("wan_netmask=%s\n", nvram_safe_get("wan_netmask"));
+	TRACE_PT("wan_gateway=%s\n", nvram_safe_get("wan_gateway"));
+	TRACE_PT("wan_get_domain=%s\n", nvram_safe_get("wan_get_domain"));
+	TRACE_PT("wan_get_dns=%s\n", nvram_safe_get("wan_get_dns"));
+	TRACE_PT("wan_lease=%s\n", nvram_safe_get("wan_lease"));
+	TRACE_PT("end\n");
 	return 0;
 }
 
 static int bound(char *ifname)
 {
-	_dprintf("%s: begin\n", __FUNCTION__);
+	TRACE_PT("begin\n");
 
 	unlink(renewing);
 
@@ -169,14 +167,14 @@ static int bound(char *ifname)
 	env2nv("domain", "wan_get_domain");
 	env2nv("lease", "wan_lease");
 	expires(atoi(safe_getenv("lease")));
-	
-	_dprintf("wan_ipaddr=%s\n", nvram_safe_get("wan_ipaddr"));
-	_dprintf("wan_netmask=%s\n", nvram_safe_get("wan_netmask"));
-	_dprintf("wan_gateway=%s\n", nvram_safe_get("wan_gateway"));
-	_dprintf("wan_get_domain=%s\n", nvram_safe_get("wan_get_domain"));
-	_dprintf("wan_get_dns=%s\n", nvram_safe_get("wan_get_dns"));
-	_dprintf("wan_lease=%s\n", nvram_safe_get("wan_lease"));
-	
+
+	TRACE_PT("wan_ipaddr=%s\n", nvram_safe_get("wan_ipaddr"));
+	TRACE_PT("wan_netmask=%s\n", nvram_safe_get("wan_netmask"));
+	TRACE_PT("wan_gateway=%s\n", nvram_safe_get("wan_gateway"));
+	TRACE_PT("wan_get_domain=%s\n", nvram_safe_get("wan_get_domain"));
+	TRACE_PT("wan_get_dns=%s\n", nvram_safe_get("wan_get_dns"));
+	TRACE_PT("wan_lease=%s\n", nvram_safe_get("wan_lease"));
+
 
 	ifconfig(ifname, IFUP, nvram_safe_get("wan_ipaddr"), nvram_safe_get("wan_netmask"));
 
@@ -203,7 +201,7 @@ static int bound(char *ifname)
 		start_wan_done(ifname);
 	}
 
-	_dprintf("%s: end\n", __FUNCTION__);
+	TRACE_PT("end\n");
 	return 0;
 }
 
@@ -213,19 +211,14 @@ int dhcpc_event_main(int argc, char **argv)
 
 	if (!wait_action_idle(10)) return 1;
 
-#if 0
-	if (nvram_match("debug_dhcpcenv", "1")) {
-		system("( date; env ) >> /tmp/dhcpc_event.env");
-	}
-#endif
-
 	if ((argc == 2) && (ifname = getenv("interface")) != NULL) {
+		TRACE_PT("event=%s\n", argv[1]);
+
 		if (strcmp(argv[1], "deconfig") == 0) return deconfig(ifname);
 		if (strcmp(argv[1], "bound") == 0) return bound(ifname);
 		if ((strcmp(argv[1], "renew") == 0) || (strcmp(argv[1], "update") == 0)) return renew(ifname);
 	}
-	
-	_dprintf("%s: unknown event %s\n", __FUNCTION__, argv[1]);
+
 	return 1;
 }
 
@@ -235,7 +228,7 @@ int dhcpc_event_main(int argc, char **argv)
 
 int dhcpc_release_main(int argc, char **argv)
 {
-	_dprintf("%s: begin\n", __FUNCTION__);
+	TRACE_PT("begin\n");
 
 	if (!using_dhcpc()) return 1;
 
@@ -243,8 +236,8 @@ int dhcpc_release_main(int argc, char **argv)
 	killall("udhcpc", SIGUSR2);
 	unlink(renewing);
 	unlink("/var/lib/misc/wan.connecting");
-	
-	_dprintf("%s: end\n", __FUNCTION__);
+
+	TRACE_PT("end\n");
 	return 0;
 }
 
@@ -252,7 +245,7 @@ int dhcpc_renew_main(int argc, char **argv)
 {
 	int pid;
 
-	_dprintf("%s: begin\n", __FUNCTION__);
+	TRACE_PT("begin\n");
 
 	if (!using_dhcpc()) return 1;
 
@@ -264,8 +257,8 @@ int dhcpc_renew_main(int argc, char **argv)
 		stop_dhcpc();
 		start_dhcpc();
 	}
-	
-	_dprintf("%s: end\n", __FUNCTION__);	
+
+	TRACE_PT("end\n");
 	return 0;
 }
 
@@ -279,7 +272,7 @@ void start_dhcpc(void)
 	int argc;
 	char *ifname;
 
-	_dprintf("%s: begin\n", __FUNCTION__);
+	TRACE_PT("begin\n");
 
 	nvram_set("wan_get_dns", "");
 	f_write(renewing, NULL, 0, 0, 0);
@@ -295,7 +288,7 @@ void start_dhcpc(void)
 		argv[0] = "-H";
 		argc = 2;
 	}
-	
+
 	if (nvram_match("dhcpc_minpkt", "1")) argv[argc++] = "-m";
 
 #if 1
@@ -312,7 +305,7 @@ void start_dhcpc(void)
 	);
 #else
 	if (!nvram_contains_word("log_events", "dhcpc")) argv[argc++] = "-Q";
-	
+
 	if (!nvram_match("dhcpc_lanping", "0")) {
 		argv[argc++] = "-l";
 		argv[argc++] = nvram_safe_get("lan_ifname");
@@ -328,12 +321,12 @@ void start_dhcpc(void)
 		argv[4], argv[5]	// -l lan_ifname
 	);
 #endif
-	_dprintf("%s: end\n", __FUNCTION__);
+	TRACE_PT("end\n");
 }
 
 void stop_dhcpc(void)
 {
-	_dprintf("%s: begin\n", __FUNCTION__);
+	TRACE_PT("begin\n");
 
 	killall("dhcpc-event", SIGTERM);
 	if (killall("udhcpc", SIGUSR2) == 0) {	// release
@@ -341,7 +334,7 @@ void stop_dhcpc(void)
 	}
 	killall_tk("udhcpc");
 	unlink(renewing);
-	
-	_dprintf("%s: end\n", __FUNCTION__);
+
+	TRACE_PT("end\n");
 }
 
