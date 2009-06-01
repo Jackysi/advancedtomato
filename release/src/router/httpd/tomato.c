@@ -210,6 +210,8 @@ const struct mime_handler mime_handlers[] = {
 	{ "service.cgi",	NULL,						0,	wi_generic,			wo_service,		1 },
 //	{ "logout.cgi",		NULL,	   		 			0,	wi_generic,			wo_logout,		0 },	// see httpd.c
 	{ "shutdown.cgi",	mime_html,					0,	wi_generic,			wo_shutdown,	1 },
+	{ "vpnstatus.cgi",	mime_javascript,			0,	wi_generic,			wo_vpn_status,		1 },
+
 	{ "usbcmd.cgi",			mime_javascript,			0,	wi_generic,		wo_usbcommand,		1 },	//!!TB - USB
 #ifdef BLACKHOLE
 	{ "blackhole.cgi",	NULL,						0,	wi_blackhole,		NULL,			1 },
@@ -710,6 +712,112 @@ static const nvset_t nvset_list[] = {
 	{ "ne_vbeta",			V_NUM				},
 	{ "ne_vgamma",			V_NUM				},
 
+// vpn
+	{ "vpn_debug",            V_01                },
+	{ "vpn_server_eas",       V_NONE              },
+	{ "vpn_server_dns",       V_NONE              },
+	{ "vpn_server1_if",       V_TEXT(3, 3)        },  // tap, tun
+	{ "vpn_server1_proto",    V_TEXT(3, 10)       },  // udp, tcp-server
+	{ "vpn_server1_port",     V_PORT              },
+	{ "vpn_server1_firewall", V_TEXT(0, 8)        },  // auto, external, custom
+	{ "vpn_server1_crypt",    V_TEXT(0, 6)        },  // tls, secret, custom
+	{ "vpn_server1_comp",     V_TEXT(0, 8)        },  // yes, no, adaptive
+	{ "vpn_server1_cipher",   V_TEXT(0, 16)       },
+	{ "vpn_server1_dhcp",     V_01                },
+	{ "vpn_server1_r1",       V_IP                },
+	{ "vpn_server1_r2",       V_IP                },
+	{ "vpn_server1_sn",       V_IP                },
+	{ "vpn_server1_nm",       V_IP                },
+	{ "vpn_server1_local",    V_IP                },
+	{ "vpn_server1_remote",   V_IP                },
+	{ "vpn_server1_hmac",     V_RANGE(-1, 2)      },
+	{ "vpn_server1_ccd",      V_01                },
+	{ "vpn_server1_c2c",      V_01                },
+	{ "vpn_server1_ccd_excl", V_01                },
+	{ "vpn_server1_ccd_val",  V_NONE              },
+	{ "vpn_server1_pdns",     V_01                },
+	{ "vpn_server1_rgw",      V_01                },
+	{ "vpn_server1_custom",   V_NONE              },
+	{ "vpn_server1_static",   V_NONE              },
+	{ "vpn_server1_ca",       V_NONE              },
+	{ "vpn_server1_crt",      V_NONE              },
+	{ "vpn_server1_key",      V_NONE              },
+	{ "vpn_server1_dh",       V_NONE              },
+	{ "vpn_server2_if",       V_TEXT(3, 3)        },  // tap, tun
+	{ "vpn_server2_proto",    V_TEXT(3, 10)       },  // udp, tcp-server
+	{ "vpn_server2_port",     V_PORT              },
+	{ "vpn_server2_firewall", V_TEXT(0, 8)        },  // auto, external, custom
+	{ "vpn_server2_crypt",    V_TEXT(0, 6)        },  // tls, secret, custom
+	{ "vpn_server2_comp",     V_TEXT(0, 8)        },  // yes, no, adaptive
+	{ "vpn_server2_cipher",   V_TEXT(0, 16)       },
+	{ "vpn_server2_dhcp",     V_01                },
+	{ "vpn_server2_r1",       V_IP                },
+	{ "vpn_server2_r2",       V_IP                },
+	{ "vpn_server2_sn",       V_IP                },
+	{ "vpn_server2_nm",       V_IP                },
+	{ "vpn_server2_local",    V_IP                },
+	{ "vpn_server2_remote",   V_IP                },
+	{ "vpn_server2_hmac",     V_RANGE(-1, 2)      },
+	{ "vpn_server2_pdns",     V_01                },
+	{ "vpn_server2_rgw",      V_01                },
+	{ "vpn_server2_custom",   V_NONE              },
+	{ "vpn_server2_ccd",      V_01                },
+	{ "vpn_server2_c2c",      V_01                },
+	{ "vpn_server2_ccd_excl", V_01                },
+	{ "vpn_server2_ccd_val",  V_NONE              },
+	{ "vpn_server2_static",   V_NONE              },
+	{ "vpn_server2_ca",       V_NONE              },
+	{ "vpn_server2_crt",      V_NONE              },
+	{ "vpn_server2_key",      V_NONE              },
+	{ "vpn_server2_dh",       V_NONE              },
+	{ "vpn_client_eas",       V_NONE              },
+	{ "vpn_client1_if",       V_TEXT(3, 3)        },  // tap, tun
+	{ "vpn_client1_bridge",   V_01                },
+	{ "vpn_client1_nat",      V_01                },
+	{ "vpn_client1_proto",    V_TEXT(3, 10)       },  // udp, tcp-server
+	{ "vpn_client1_addr",     V_NONE              },
+	{ "vpn_client1_port",     V_PORT              },
+	{ "vpn_client1_retry",    V_RANGE(-1,32767)   },  // -1 infinite, 0 disabled, >= 1 custom
+	{ "vpn_client1_firewall", V_TEXT(0, 6)        },  // auto, custom
+	{ "vpn_client1_crypt",    V_TEXT(0, 6)        },  // tls, secret, custom
+	{ "vpn_client1_comp",     V_TEXT(0, 8)        },  // yes, no, adaptive
+	{ "vpn_client1_cipher",   V_TEXT(0, 16)       },
+	{ "vpn_client1_local",    V_IP                },
+	{ "vpn_client1_remote",   V_IP                },
+	{ "vpn_client1_nm",       V_IP                },
+	{ "vpn_client1_hmac",     V_RANGE(-1, 2)      },
+	{ "vpn_client1_adns",     V_01                },
+	{ "vpn_client1_rgw",      V_01                },
+	{ "vpn_client1_gw",       V_TEXT(0, 15)       },
+	{ "vpn_client1_custom",   V_NONE              },
+	{ "vpn_client1_static",   V_NONE              },
+	{ "vpn_client1_ca",       V_NONE              },
+	{ "vpn_client1_crt",      V_NONE              },
+	{ "vpn_client1_key",      V_NONE              },
+	{ "vpn_client2_if",       V_TEXT(3, 3)        },  // tap, tun
+	{ "vpn_client2_bridge",   V_01                },
+	{ "vpn_client2_nat",      V_01                },
+	{ "vpn_client2_proto",    V_TEXT(3, 10)       },  // udp, tcp-server
+	{ "vpn_client2_addr",     V_NONE              },
+	{ "vpn_client2_port",     V_PORT              },
+	{ "vpn_client2_retry",    V_RANGE(-1,32767)   },  // -1 infinite, 0 disabled, >= 1 custom
+	{ "vpn_client2_firewall", V_TEXT(0, 6)        },  // auto, custom
+	{ "vpn_client2_crypt",    V_TEXT(0, 6)        },  // tls, secret, custom
+	{ "vpn_client2_comp",     V_TEXT(0, 8)        },  // yes, no, adaptive
+	{ "vpn_client2_cipher",   V_TEXT(0, 16)       },
+	{ "vpn_client2_local",    V_IP                },
+	{ "vpn_client2_remote",   V_IP                },
+	{ "vpn_client2_nm",       V_IP                },
+	{ "vpn_client2_hmac",     V_RANGE(-1, 2)      },
+	{ "vpn_client2_adns",     V_01                },
+	{ "vpn_client2_rgw",      V_01                },
+	{ "vpn_client2_gw",       V_TEXT(0, 15)       },
+	{ "vpn_client2_custom",   V_NONE              },
+	{ "vpn_client2_static",   V_NONE              },
+	{ "vpn_client2_ca",       V_NONE              },
+	{ "vpn_client2_crt",      V_NONE              },
+	{ "vpn_client2_key",      V_NONE              },
+
 
 /*
 ppp_static			0/1
@@ -895,7 +1003,7 @@ static void wo_tomato(char *url)
 		nvram_commit_x();
 	}
 
-	if ((v = webcgi_get("_service")) != NULL) {
+	if ((v = webcgi_get("_service")) != NULL && *v != '/0') {
 		if (!*red) {
 			if (ajax) web_printf(" Some services are being restarted...");
 			web_close();
@@ -905,7 +1013,7 @@ static void wo_tomato(char *url)
 		if (*v == '*') {
 			kill(1, SIGHUP);
 		}
-		else if (*v != 0) {
+		else {
 			exec_service(v);
 		}
 	}

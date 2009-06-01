@@ -232,6 +232,8 @@ void start_dnsmasq()
 
 	//
 
+	write_vpn_dnsmasq_config(f);
+
 	fprintf(f, "%s\n\n", nvram_safe_get("dnsmasq_custom"));
 
 	fappend(f, "/etc/dnsmasq.custom");
@@ -294,6 +296,9 @@ void dns_to_resolv(void)
 
 	m = umask(022);	// 077 from pppoecd
 	if ((f = fopen(dmresolv, "w")) != NULL) {
+		// Check for VPN DNS entries
+		write_vpn_resolv(f);
+
 		dns = get_dns();	// static buffer
 		if (dns->count == 0) {
 			// Put a pseudo DNS IP to trigger Connect On Demand
@@ -1159,6 +1164,7 @@ void start_services(void)
 #endif
 	start_samba();		// !!TB - Samba
 	start_ftpd();		// !!TB - FTP Server
+	start_vpn_eas();
 }
 
 void stop_services(void)
@@ -1499,7 +1505,7 @@ TOP:
 		}
 		goto CLEAR;
 	}
-	
+
 #ifdef TCONFIG_FTP
 	// !!TB - FTP Server
 	if (strcmp(service, "ftpd") == 0) {
@@ -1523,6 +1529,18 @@ TOP:
 		goto CLEAR;
 	}
 #endif
+
+	if (strncmp(service, "vpnclient", 9) == 0) {
+		if (action & A_STOP) stop_vpnclient(atoi(&service[9]));
+		if (action & A_START) start_vpnclient(atoi(&service[9]));
+		goto CLEAR;
+	}
+
+	if (strncmp(service, "vpnserver", 9) == 0) {
+		if (action & A_STOP) stop_vpnserver(atoi(&service[9]));
+		if (action & A_START) start_vpnserver(atoi(&service[9]));
+		goto CLEAR;
+	}
 
 CLEAR:
 	if (next) goto TOP;

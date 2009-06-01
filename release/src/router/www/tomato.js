@@ -780,7 +780,7 @@ function v_domain(e, quiet)
 
 	if ((e = E(e)) == null) return 0;
 	s = e.value.trim().replace(/\s+/g, ' ');
-	if ((s.length > 32) || ((s.length > 0) && (s.search(/^[.a-zA-Z0-9_\- ]+$/) == -1))) {
+	if ((s.length > 0) && (s.search(/^[.a-zA-Z0-9_\- ]+$/) == -1)) {
 		ferror.set(e, "Invalid name. Only characters \"A-Z 0-9 . - _\" are allowed.", quiet);
 		return 0;
 	}
@@ -1320,7 +1320,7 @@ TomatoGrid.prototype = {
 			if (f.selectedIndex) f.selectedIndex = 0;
 				else f.value = '';
 		}
-		if (e.length) e[0].focus();
+		try { if (e.length) e[0].focus(); } catch (er) { }
 	},
 
 	getDataCount: function() {
@@ -1983,6 +1983,11 @@ function navi()
 			,['File Sharing',	'samba.asp']
 /* SAMBA-END */
 			] ],
+/* VPN-BEGIN */
+		['VPN Tunneling', 		'vpn', 0, [
+			['Server',			'server.asp'],
+			['Client',			'client.asp'] ] ],
+/* VPN-END */
 		null,
 		['Administration',		'admin', 0, [
 			['Admin Access',	'access.asp'],

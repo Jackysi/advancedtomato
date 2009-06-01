@@ -57,6 +57,11 @@ ifneq ($(TCONFIG_USB_EXTRAS),y)
 	sed -i $(INSTALLDIR)/www/admin-access.asp -e "/THEMES-BEGIN/,/THEMES-END/d"
 endif
 
+# Only include the vpn pages in the navigation if OpenVPN is compiled in
+ifneq ($(TCONFIG_OPENVPN),y)
+	sed -i $(INSTALLDIR)/www/tomato.js -e "/VPN-BEGIN/,/VPN-END/d"
+endif
+
 # make sure old and debugging crap is gone
 	@rm -f $(INSTALLDIR)/www/debug.js
 	@rm -f $(INSTALLDIR)/www/*-x.*
@@ -64,3 +69,12 @@ endif
 	@rm -f $(INSTALLDIR)/www/color.css
 
 	chmod 0644 $(INSTALLDIR)/www/*
+
+# install extra vpngui files and directories
+
+ifeq ($(TCONFIG_OPENVPN),y)
+	mkdir -p $(INSTALLDIR)/rom/openvpn
+	cp openvpn-updown.sh $(INSTALLDIR)/rom/openvpn/updown.sh
+	chmod 0755 $(INSTALLDIR)/rom/openvpn/updown.sh
+endif
+
