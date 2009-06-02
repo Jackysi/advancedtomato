@@ -210,7 +210,9 @@ const struct mime_handler mime_handlers[] = {
 	{ "service.cgi",	NULL,						0,	wi_generic,			wo_service,		1 },
 //	{ "logout.cgi",		NULL,	   		 			0,	wi_generic,			wo_logout,		0 },	// see httpd.c
 	{ "shutdown.cgi",	mime_html,					0,	wi_generic,			wo_shutdown,	1 },
+#ifdef TCONFIG_OPENVPN
 	{ "vpnstatus.cgi",	mime_javascript,			0,	wi_generic,			wo_vpn_status,		1 },
+#endif
 
 	{ "usbcmd.cgi",			mime_javascript,			0,	wi_generic,		wo_usbcommand,		1 },	//!!TB - USB
 #ifdef BLACKHOLE
@@ -712,6 +714,7 @@ static const nvset_t nvset_list[] = {
 	{ "ne_vbeta",			V_NUM				},
 	{ "ne_vgamma",			V_NUM				},
 
+#ifdef TCONFIG_OPENVPN
 // vpn
 	{ "vpn_debug",            V_01                },
 	{ "vpn_server_eas",       V_NONE              },
@@ -817,7 +820,7 @@ static const nvset_t nvset_list[] = {
 	{ "vpn_client2_ca",       V_NONE              },
 	{ "vpn_client2_crt",      V_NONE              },
 	{ "vpn_client2_key",      V_NONE              },
-
+#endif // vpn
 
 /*
 ppp_static			0/1

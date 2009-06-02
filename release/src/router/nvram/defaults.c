@@ -538,6 +538,7 @@ const defaults_t defaults[] = {
 	{ "script_fire",		""				},
 	{ "script_wanup",		""				},
 
+#ifdef TCONFIG_OPENVPN
 // vpn
 	{ "vpn_debug",            "0"             },
 	{ "vpn_server_eas",       ""              },
@@ -645,6 +646,7 @@ const defaults_t defaults[] = {
 	{ "vpn_client2_ca",       ""              },
 	{ "vpn_client2_crt",      ""              },
 	{ "vpn_client2_key",      ""              },
+#endif	// vpn
 
 #if 0
 // safe to remove?

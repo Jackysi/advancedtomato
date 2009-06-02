@@ -841,7 +841,9 @@ int start_firewall(void)
 	modprobe_r("ipt_web");
 	modprobe_r("ipt_TTL");
 
+#ifdef TCONFIG_OPENVPN
 	run_vpn_firewall_scripts();
+#endif
 	run_nvscript("script_fire", NULL, 1);
 
 	simple_unlock("firewall");

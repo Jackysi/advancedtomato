@@ -60,15 +60,10 @@ endif
 # Only include the vpn pages in the navigation if OpenVPN is compiled in
 ifneq ($(TCONFIG_OPENVPN),y)
 	sed -i $(INSTALLDIR)/www/tomato.js -e "/VPN-BEGIN/,/VPN-END/d"
+	rm -f $(INSTALLDIR)/www/vpn.js
+	rm -f $(INSTALLDIR)/www/vpn-client.asp
+	rm -f $(INSTALLDIR)/www/vpn-server.asp
 endif
-
-# make sure old and debugging crap is gone
-	@rm -f $(INSTALLDIR)/www/debug.js
-	@rm -f $(INSTALLDIR)/www/*-x.*
-	@rm -f $(INSTALLDIR)/www/*-old.*
-	@rm -f $(INSTALLDIR)/www/color.css
-
-	chmod 0644 $(INSTALLDIR)/www/*
 
 # install extra vpngui files and directories
 
@@ -78,3 +73,10 @@ ifeq ($(TCONFIG_OPENVPN),y)
 	chmod 0755 $(INSTALLDIR)/rom/openvpn/updown.sh
 endif
 
+# make sure old and debugging crap is gone
+	@rm -f $(INSTALLDIR)/www/debug.js
+	@rm -f $(INSTALLDIR)/www/*-x.*
+	@rm -f $(INSTALLDIR)/www/*-old.*
+	@rm -f $(INSTALLDIR)/www/color.css
+
+	chmod 0644 $(INSTALLDIR)/www/*
