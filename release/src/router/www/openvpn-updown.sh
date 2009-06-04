@@ -1,6 +1,6 @@
 #!/bin/sh
 filedir=/etc/openvpn/dns
-filename=$filedir/$dev.resolv
+filename=`echo $filedir/$dev.resolv | sed 's/\(tun\|tap\)1/client/;s/\(tun\|tap\)2/server/'`
 fileexists=`if [ -f $filename ]; then echo 1; else echo 0; fi`
 if [ ! -d $filedir ]; then mkdir /etc/openvpn/dns; fi
 if [ -f $filename ]; then rm $filename; fi
