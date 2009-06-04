@@ -35,6 +35,10 @@
 
 #include <asm/unistd.h>
 
+#ifndef __NR_utimes
+  #define __NR_utimes 271
+#endif
+
 /* For the socketcall() multiplex args. */
 #include <linux/net.h>
 

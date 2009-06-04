@@ -133,6 +133,14 @@ drop_all_privs(void)
 {
   struct mystr user_str = INIT_MYSTR;
   struct mystr dir_str = INIT_MYSTR;
+  int option = VSF_SECUTIL_OPTION_CHROOT | VSF_SECUTIL_OPTION_NO_PROCS;
+  if (!tunable_ssl_enable)
+  {
+    /* Unfortunately, can only enable this if we can be sure of not using SSL.
+     * In the SSL case, we'll need to receive data transfer file descriptors.
+     */
+    option |= VSF_SECUTIL_OPTION_NO_FDS;
+  }
   str_alloc_text(&user_str, tunable_nopriv_user);
   str_alloc_text(&dir_str, tunable_secure_chroot_dir);
   /* Be kind: give good error message if the secure dir is missing */
@@ -145,8 +153,7 @@ drop_all_privs(void)
     }
     vsf_sysutil_free(p_statbuf);
   }
-  vsf_secutil_change_credentials(&user_str, &dir_str, 0, 0,
-                                 VSF_SECUTIL_OPTION_CHROOT);
+  vsf_secutil_change_credentials(&user_str, &dir_str, 0, 0, option);
   str_free(&user_str);
   str_free(&dir_str);
 }
@@ -324,7 +331,8 @@ common_do_login(struct vsf_session* p_sess, const struct mystr* p_user_str,
     struct mystr chroot_str = INIT_MYSTR;
     struct mystr chdir_str = INIT_MYSTR;
     struct mystr userdir_str = INIT_MYSTR;
-    unsigned int secutil_option = VSF_SECUTIL_OPTION_USE_GROUPS;
+    unsigned int secutil_option = VSF_SECUTIL_OPTION_USE_GROUPS |
+                                  VSF_SECUTIL_OPTION_NO_PROCS;
     /* Child - drop privs and start proper FTP! */
     /* This PR_SET_PDEATHSIG doesn't work for all possible process tree setups.
      * The other cases are taken care of by a shutdown() of the command
@@ -406,8 +414,11 @@ handle_per_user_config(const struct mystr* p_user_str)
   str_append_char(&filename_str, '/');
   str_append_str(&filename_str, p_user_str);
   retval = str_stat(&filename_str, &p_statbuf);
-  /* Security - file ownership check now in vsf_parseconf_load_file() */
-  vsf_parseconf_load_file(str_getbuf(&filename_str), 1);
+  if (!vsf_sysutil_retval_is_error(retval))
+  {
+    /* Security - file ownership check now in vsf_parseconf_load_file() */
+    vsf_parseconf_load_file(str_getbuf(&filename_str), 1);
+  }
   str_free(&filename_str);
   vsf_sysutil_free(p_statbuf);
 }

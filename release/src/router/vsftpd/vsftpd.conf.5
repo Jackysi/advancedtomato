@@ -119,7 +119,7 @@ vsftpd will not check /etc/shells for a valid user shell for local logins.
 Default: YES
 .TP
 .B chmod_enable
-When enables, allows use of the SITE CHMOD command. NOTE! This only applies
+When enabled, allows use of the SITE CHMOD command. NOTE! This only applies
 to local users. Anonymous users never get to use SITE CHMOD.
 
 Default: YES
@@ -401,7 +401,10 @@ Default: NO
 .B require_ssl_reuse
 If set to yes, all SSL data connections are required to exhibit SSL session
 reuse (which proves that they know the same master secret as the control
-channel). (Added in v2.1.0).
+channel). Although this is a secure default, it may break many FTP clients,
+so you may want to disable it. For a discussion of the consequences, see
+http://scarybeastsecurity.blogspot.com/2009/02/vsftpd-210-released.html
+(Added in v2.1.0).
 
 Default: YES
 .TP

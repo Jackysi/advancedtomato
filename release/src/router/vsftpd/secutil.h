@@ -28,6 +28,10 @@ struct mystr;
 #define VSF_SECUTIL_OPTION_USE_GROUPS   2
 /* Do the chdir() as the effective userid of the target user */
 #define VSF_SECUTIL_OPTION_CHANGE_EUID  4
+/* Use RLIMIT_NOFILE to prevent the opening of new fds */
+#define VSF_SECUTIL_OPTION_NO_FDS       8
+/* Use RLIMIT_NPROC to prevent the launching of new processes */
+#define VSF_SECUTIL_OPTION_NO_PROCS     16
 
 void vsf_secutil_change_credentials(const struct mystr* p_user_str,
                                     const struct mystr* p_dir_str,

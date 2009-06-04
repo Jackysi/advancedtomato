@@ -739,7 +739,7 @@ void start_ftpd(void)
 	if ((fp = fopen(vsftpd_conf, "w")) == NULL)
 		return;
 
-	if (nvram_match("ftp_super", "1"))
+	if (nvram_get_int("ftp_super"))
 	{
 		/* rights */
 		sprintf(tmp, "%s/%s", vsftpd_users, "admin");
@@ -804,7 +804,7 @@ void start_ftpd(void)
 		"passwd_file=%s\n",
 		vsftpd_users, vsftpd_passwd);
 
-	if (nvram_match("log_ftp", "1")) {
+	if (nvram_get_int("log_ftp")) {
 		fprintf(fp, "log_ftp_protocol=yes\n");
 	}
 	else {
@@ -837,7 +837,7 @@ void start_ftpd(void)
 		"%s:%s:0:0:root:/:/sbin/nologin\n"
 		"nobody:x:65534:65534:nobody:%s/:/sbin/nologin\n",
 		nvram_storage_path("ftp_anonroot"), "admin",
-		nvram_match("ftp_super", "1") ? crypt(nvram_safe_get("http_passwd"), "$1$") : "x",
+		nvram_get_int("ftp_super") ? crypt(nvram_safe_get("http_passwd"), "$1$") : "x",
 		MOUNT_ROOT);
 
 	char *buf;
@@ -951,16 +951,22 @@ void start_samba(void)
 		" syslog only = yes\n"
 		" syslog = 1\n"
 		" encrypt passwords = yes\n"
-		" local master = %s\n"
 		" preserve case = yes\n"
 		" short preserve case = yes\n",
 		nvram_get("lan_ifname") ? : "br0",
 		nvram_get("smbd_wgroup") ? : "WORKGROUP",
 		nvram_get("router_name") ? : "Tomato",
 		mode == 2 ? "user" : "share",
-		nvram_get_int("smbd_loglevel"),
-		nvram_get_int("smbd_master") ? "yes" : "no"
+		nvram_get_int("smbd_loglevel")
 	);
+
+	if (nvram_invmatch("smbd_master", "")) {
+		char *master = nvram_get_int("smbd_master") ? "yes" : "no";
+		fprintf(fp,
+			" local master = %s\n"
+			" preferred master = %s\n",
+			master, master);
+	}
 
 	if (nvram_invmatch("smbd_cpage", "")) {
 		char *cp = nvram_get("smbd_cpage");
