@@ -15,6 +15,7 @@ fi
 
 if [[ -f $filename || $fileexists ]]; then service dnsmasq restart; fi
 rmdir /etc/openvpn/dns
+rmdir /etc/openvpn
 
 exit 0
 
