@@ -200,7 +200,7 @@ void start_vpnclient(int clientNum)
 	if ( cryptMode == TLS )
 	{
 		sprintf(&buffer[0], "vpn_client%d_adns", clientNum);
-		if ( nvram_get_int(&buffer[0]) )
+		if ( nvram_get_int(&buffer[0]) > 0 )
 		{
 			sprintf(&buffer[0], "/etc/openvpn/client%d/updown.sh", clientNum);
 			symlink("/rom/openvpn/updown.sh", &buffer[0]);
@@ -878,9 +878,11 @@ void run_vpn_firewall_scripts()
 void write_vpn_dnsmasq_config(FILE* f)
 {
 	char nv[16];
-	char buf[16];
+	char buf[24];
 	char *pos;
 	int cur;
+	DIR *dir;
+	struct dirent *file;
 
 	strlcpy(&buf[0], nvram_safe_get("vpn_server_dns"), sizeof(buf));
 	for ( pos = strtok(&buf[0],","); pos != NULL; pos=strtok(NULL, ",") )
@@ -889,21 +891,43 @@ void write_vpn_dnsmasq_config(FILE* f)
 		if ( cur )
 		{
 			vpnlog(VPN_LOG_EXTRA, "Adding server %d interface to dns config", cur);
-			snprintf(&nv[0], 16, "vpn_server%d_if", cur);
+			snprintf(&nv[0], sizeof(nv), "vpn_server%d_if", cur);
 			fprintf(f, "interface=%s%d\n", nvram_safe_get(&nv[0]), SERVER_IF_START+cur);
+		}
+	}
+
+	if ( (dir = opendir("/etc/openvpn/dns")) != NULL )
+	{
+		while ( (file = readdir(dir)) != NULL )
+		{
+			if ( file->d_name[0] == '.' )
+				continue;
+
+			if ( sscanf(file->d_name, "client%d.resolv", &cur) == 1 )
+			{
+				vpnlog(VPN_LOG_EXTRA, "Checking ADNS settings for client %d", cur);
+				snprintf(&buf[0], sizeof(buf), "vpn_client%d_adns", cur);
+				if ( nvram_get_int(&buf[0]) == 2 )
+				{
+					vpnlog(VPN_LOG_INFO, "Adding strict-order to dnsmasq config for client %d", cur);
+					fprintf(f, "strict-order\n");
+					break;
+				}
+			}
 		}
 	}
 }
 
-void write_vpn_resolv(FILE* f)
+int write_vpn_resolv(FILE* f)
 {
 	DIR *dir;
 	struct dirent *file;
-	char *fn, ch;
+	char *fn, ch, buf[24];
 	FILE *dnsf;
+	int exclusive = 0;
 
 	if ( chdir("/etc/openvpn/dns") )
-		return;
+		return 0;
 
 	dir = opendir("/etc/openvpn/dns");
 
@@ -927,9 +951,19 @@ void write_vpn_resolv(FILE* f)
 		}
 
 		fclose(dnsf);
+
+		if ( sscanf(fn, "client%c.resolv", &ch) == 1 )
+		{
+			snprintf(&buf[0], sizeof(buf), "vpn_client%c_adns", ch);
+			if ( nvram_get_int(&buf[0]) == 3 )
+				exclusive = 1;
+		}
+
 	}
 	vpnlog(VPN_LOG_EXTRA, "Done with DNS entries...");
 
 	closedir(dir);
+
+	return exclusive;
 }
 
