@@ -1,0 +1,1 @@
+#undef  CONFIG_NLS_UTF8

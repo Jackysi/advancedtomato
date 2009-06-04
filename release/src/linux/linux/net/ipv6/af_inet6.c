@@ -655,6 +655,7 @@ static int __init inet6_init(void)
 	ip6_flowlabel_init();
 	addrconf_init();
 	sit_init();
+	ipv6_frag_init();
 
 	/* Init v6 transport protocols. */
 	udpv6_init();

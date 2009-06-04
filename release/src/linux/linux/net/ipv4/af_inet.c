@@ -1094,6 +1094,7 @@ inet_unregister_protosw(struct inet_protosw *p)
 	}
 }
 
+extern void ipfrag_init(void);
 
 /*
  *	Called by socket.c on kernel startup.  
@@ -1190,6 +1191,9 @@ static int __init inet_init(void)
 	proc_net_create ("tcp", 0, tcp_get_info);
 	proc_net_create ("udp", 0, udp_get_info);
 #endif		/* CONFIG_PROC_FS */
+
+	ipfrag_init();
+
 	return 0;
 }
 module_init(inet_init);

@@ -114,6 +114,8 @@ struct rt_cache_stat
         unsigned int gc_ignored;
         unsigned int gc_goal_miss;
         unsigned int gc_dst_overflow;
+	unsigned int in_hlist_search;
+	unsigned int out_hlist_search;
 } ____cacheline_aligned_in_smp;
 
 extern struct ip_rt_acct *ip_rt_acct;

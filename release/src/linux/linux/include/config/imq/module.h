@@ -1,0 +1,1 @@
+#define CONFIG_IMQ_MODULE 1

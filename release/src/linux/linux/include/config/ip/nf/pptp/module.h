@@ -1,0 +1,1 @@
+#define CONFIG_IP_NF_PPTP_MODULE 1

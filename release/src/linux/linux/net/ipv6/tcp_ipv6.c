@@ -34,6 +34,7 @@
 #include <linux/in6.h>
 #include <linux/netdevice.h>
 #include <linux/init.h>
+#include <linux/jhash.h>
 #include <linux/ipsec.h>
 
 #include <linux/ipv6.h>
@@ -357,12 +358,24 @@ __inline__ struct sock *tcp_v6_lookup(struct in6_addr *saddr, u16 sport,
  * Open request hash tables.
  */
 
-static __inline__ unsigned tcp_v6_synq_hash(struct in6_addr *raddr, u16 rport)
+static u32 tcp_v6_synq_hash(struct in6_addr *raddr, u16 rport, u32 rnd)
 {
-	unsigned h = raddr->s6_addr32[3] ^ rport;
-	h ^= h>>16;
-	h ^= h>>8;
-	return h&(TCP_SYNQ_HSIZE-1);
+	u32 a, b, c;
+
+	a = raddr->s6_addr32[0];
+	b = raddr->s6_addr32[1];
+	c = raddr->s6_addr32[2];
+
+	a += JHASH_GOLDEN_RATIO;
+	b += JHASH_GOLDEN_RATIO;
+	c += rnd;
+	__jhash_i_mix(a, b, c);
+
+	a += raddr->s6_addr32[3];
+	b += (u32) rport;
+	__jhash_mix(a, b, c);
+
+	return c & (TCP_SYNQ_HSIZE - 1);
 }
 
 static struct open_request *tcp_v6_search_req(struct tcp_opt *tp,
@@ -375,7 +388,7 @@ static struct open_request *tcp_v6_search_req(struct tcp_opt *tp,
 	struct tcp_listen_opt *lopt = tp->listen_opt;
 	struct open_request *req, **prev;  
 
-	for (prev = &lopt->syn_table[tcp_v6_synq_hash(raddr, rport)];
+	for (prev = &lopt->syn_table[tcp_v6_synq_hash(&ip6h->saddr, rport, lopt->hash_rnd)];
 	     (req = *prev) != NULL;
 	     prev = &req->dl_next) {
 		if (req->rmt_port == rport &&
@@ -1116,7 +1129,7 @@ static void tcp_v6_synq_add(struct sock *sk, struct open_request *req)
 {
 	struct tcp_opt *tp = &sk->tp_pinfo.af_tcp;
 	struct tcp_listen_opt *lopt = tp->listen_opt;
-	unsigned h = tcp_v6_synq_hash(&req->af.v6_req.rmt_addr, req->rmt_port);
+	u32 h = tcp_v6_synq_hash(&req->af.v6_req.rmt_addr, req->rmt_port, lopt->hash_rnd);
 
 	req->sk = NULL;
 	req->expires = jiffies + TCP_TIMEOUT_INIT;

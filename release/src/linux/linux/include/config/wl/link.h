@@ -1,1 +1,1 @@
-#define CONFIG_WL_LINK "AP"
+#define CONFIG_WL_LINK "APSTA"

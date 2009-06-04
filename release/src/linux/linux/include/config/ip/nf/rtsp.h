@@ -1,1 +1,1 @@
-#define CONFIG_IP_NF_RTSP 1
+#undef  CONFIG_IP_NF_RTSP

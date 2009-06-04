@@ -1,1 +1,1 @@
-#define CONFIG_IP_NF_SIP 1
+#undef  CONFIG_IP_NF_SIP

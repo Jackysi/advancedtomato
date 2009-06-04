@@ -1,0 +1,1 @@
+#define CONFIG_IP_NF_RTSP_MODULE 1

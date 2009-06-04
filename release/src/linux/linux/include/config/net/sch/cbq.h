@@ -1,1 +1,1 @@
-#define CONFIG_NET_SCH_CBQ 1
+#undef  CONFIG_NET_SCH_CBQ

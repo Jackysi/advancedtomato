@@ -1,1 +1,1 @@
-#undef  CONFIG_NET_CLS_FW
+#define CONFIG_NET_CLS_FW 1

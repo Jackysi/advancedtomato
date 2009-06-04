@@ -1,0 +1,1 @@
+#define CONFIG_NET_SCH_HFSC_MODULE 1

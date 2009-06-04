@@ -1,0 +1,1 @@
+#define CONFIG_IP_NF_FTP_MODULE 1
