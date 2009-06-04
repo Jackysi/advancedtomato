@@ -517,7 +517,6 @@ const defaults_t defaults[] = {
 	},
 	{ "smbd_user",			"nas"				},
 	{ "smbd_passwd",		""				},
-	{ "smbd_master",		"1"				},
 #endif
 
 // admin-sch
