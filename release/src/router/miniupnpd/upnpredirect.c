@@ -1,7 +1,7 @@
-/* $Id: upnpredirect.c,v 1.40 2009/02/14 11:24:39 nanard Exp $ */
+/* $Id: upnpredirect.c,v 1.44 2009/06/04 23:30:10 nanard Exp $ */
 /* MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
- * (c) 2006-2007 Thomas Bernard 
+ * (c) 2006-2009 Thomas Bernard 
  * This software is subject to the conditions detailed
  * in the LICENCE file provided within the distribution */
 
@@ -38,10 +38,21 @@
 #include <sys/stat.h>
 #endif
 
+/* proto_atoi() 
+ * convert the string "UDP" or "TCP" to IPPROTO_UDP and IPPROTO_UDP */
+static int
+proto_atoi(const char * protocol)
+{
+	int proto = IPPROTO_TCP;
+	if(strcmp(protocol, "UDP") == 0)
+		proto = IPPROTO_UDP;
+	return proto;
+}
+
 #ifdef ENABLE_LEASEFILE
 static int lease_file_add( unsigned short eport, const char * iaddr, unsigned short iport, int proto, const char * desc)
 {
-FILE* fd;
+	FILE * fd;
 
 	if (lease_file == NULL) return 0;
 
@@ -51,7 +62,8 @@ FILE* fd;
 		return -1;
 	}
 
-	fprintf( fd, "%s:%hu:%s:%hu:%s\n", ((proto==IPPROTO_TCP)?"TCP":"UDP"), eport, iaddr, iport, desc);
+	fprintf( fd, "%s:%hu:%s:%hu:%s\n",
+	         ((proto==IPPROTO_TCP)?"TCP":"UDP"), eport, iaddr, iport, desc);
 	fclose(fd);
 	
 	return 0;
@@ -126,12 +138,16 @@ int reload_from_lease_file()
 	char * iaddr;
 	char * desc;
 	char line[128];
+	int r;
 
 	if(!lease_file) return -1;
 	fd = fopen( lease_file, "r");
 	if (fd==NULL) {
 		syslog(LOG_ERR, "could not open lease file: %s", lease_file);
 		return -1;
+	}
+	if(unlink(lease_file) < 0) {
+		syslog(LOG_WARNING, "could not unlink file %s : %m", lease_file);
 	}
 
 	while(fgets(line, sizeof(line), fd)) {
@@ -163,10 +179,14 @@ int reload_from_lease_file()
 		}
 		*(desc++) = '\0';
 		iport = (unsigned short)atoi(p);
-		
-		if(upnp_redirect(eport, iaddr, iport, proto, desc) == -1) {
+
+		r = upnp_redirect(eport, iaddr, iport, proto, desc);
+		if(r == -1) {
 			syslog(LOG_ERR, "Failed to redirect %hu -> %s:%hu protocol %s",
 			       eport, iaddr, iport, proto);
+		} else if(r == -2) {
+			/* Add the redirection again to the lease file */
+			lease_file_add(eport, iaddr, iport, proto_atoi(proto), desc);
 		}
 	}
 	fclose(fd);
@@ -174,17 +194,6 @@ int reload_from_lease_file()
 	return 0;
 }
 #endif
-
-/* proto_atoi() 
- * convert the string "UDP" or "TCP" to IPPROTO_UDP and IPPROTO_UDP */
-static int
-proto_atoi(const char * protocol)
-{
-	int proto = IPPROTO_TCP;
-	if(strcmp(protocol, "UDP") == 0)
-		proto = IPPROTO_UDP;
-	return proto;
-}
 
 /* upnp_redirect() 
  * calls OS/fw dependant implementation of the redirection.
@@ -204,60 +213,35 @@ upnp_redirect(unsigned short eport,
 	unsigned short iport_old;
 	struct in_addr address;
 	proto = proto_atoi(protocol);
-	if(inet_aton(iaddr, &address) < 0)
-	{
+	if(inet_aton(iaddr, &address) < 0) {
 		syslog(LOG_ERR, "inet_aton(%s) : %m", iaddr);
 		return -1;
 	}
 
 	if(!check_upnp_rule_against_permissions(upnppermlist, num_upnpperm,
-	                                        eport, address, iport))
-	{
+	                                        eport, address, iport)) {
 		syslog(LOG_INFO, "redirection permission check failed for "
 		                 "%hu->%s:%hu %s", eport, iaddr, iport, protocol);
 		return -3;
 	}
 	r = get_redirect_rule(ext_if_name, eport, proto,
 	                      iaddr_old, sizeof(iaddr_old), &iport_old, 0, 0, 0, 0);
-	if(r == 0)
-	{
+	if(r == 0) {
 		/* if existing redirect rule matches redirect request return success
 		 * xbox 360 does not keep track of the port it redirects and will
 		 * redirect another port when receiving ConflictInMappingEntry */
-		if(strcmp(iaddr,iaddr_old)==0 && iport==iport_old)
-		{
+		if(strcmp(iaddr,iaddr_old)==0 && iport==iport_old) {
 			syslog(LOG_INFO, "ignoring redirect request as it matches existing redirect");
-		}
-		else
-		{
+		} else {
 
 			syslog(LOG_INFO, "port %hu protocol %s already redirected to %s:%hu",
 				eport, protocol, iaddr_old, iport_old);
 			return -2;
 		}
-	}
-	else
-	{
+	} else {
 		syslog(LOG_INFO, "redirecting port %hu to %s:%hu protocol %s for: %s",
 			eport, iaddr, iport, protocol, desc);			
 		return upnp_redirect_internal(eport, iaddr, iport, proto, desc);
-#if 0
-		if(add_redirect_rule2(ext_if_name, eport, iaddr, iport, proto, desc) < 0)
-		{
-			return -1;
-		}
-
-		syslog(LOG_INFO, "creating pass rule to %s:%hu protocol %s for: %s",
-			iaddr, iport, protocol, desc);
-		if(add_filter_rule2(ext_if_name, iaddr, eport, iport, proto, desc) < 0)
-		{
-			/* clean up the redirect rule */
-#if !defined(__linux__)
-			delete_redirect_rule(ext_if_name, eport, proto);
-#endif
-			return -1;
-		}
-#endif
 	}
 
 	return 0;
@@ -270,8 +254,7 @@ upnp_redirect_internal(unsigned short eport,
 {
 	/*syslog(LOG_INFO, "redirecting port %hu to %s:%hu protocol %s for: %s",
 		eport, iaddr, iport, protocol, desc);			*/
-	if(add_redirect_rule2(ext_if_name, eport, iaddr, iport, proto, desc) < 0)
-	{
+	if(add_redirect_rule2(ext_if_name, eport, iaddr, iport, proto, desc) < 0) {
 		return -1;
 	}
 
@@ -280,8 +263,7 @@ upnp_redirect_internal(unsigned short eport,
 #endif
 /*	syslog(LOG_INFO, "creating pass rule to %s:%hu protocol %s for: %s",
 		iaddr, iport, protocol, desc);*/
-	if(add_filter_rule2(ext_if_name, iaddr, eport, iport, proto, desc) < 0)
-	{
+	if(add_filter_rule2(ext_if_name, iaddr, eport, iport, proto, desc) < 0) {
 		/* clean up the redirect rule */
 #if !defined(__linux__)
 		delete_redirect_rule(ext_if_name, eport, proto);
