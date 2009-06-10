@@ -21,7 +21,7 @@
 
 <script type='text/javascript'>
 
-//	<% nvram("qos_enable,qos_ack,qos_syn,qos_fin,qos_rst,qos_icmp,qos_default,qos_obw,qos_ibw,qos_orates,qos_irates,qos_reset,ne_vegas,ne_valpha,ne_vbeta,ne_vgamma"); %>
+//	<% nvram("qos_enable,qos_pfifo,qos_ack,qos_syn,qos_fin,qos_rst,qos_icmp,qos_default,qos_obw,qos_ibw,qos_orates,qos_irates,qos_reset,ne_vegas,ne_valpha,ne_vbeta,ne_vgamma"); %>
 
 classNames = ['Highest', 'High', 'Medium', 'Low', 'Lowest', 'Class A', 'Class B', 'Class C', 'Class D', 'Class E'];
 
@@ -83,6 +83,7 @@ function save()
 	var i, a, c;
 
 	fom.qos_enable.value = E('_f_qos_enable').checked ? 1 : 0;
+	fom.qos_pfifo.value = E('_f_qos_pfifo').checked ? 1 : 0;
 	fom.qos_ack.value = E('_f_qos_ack').checked ? 1 : 0;
 	fom.qos_syn.value = E('_f_qos_syn').checked ? 1 : 0;
 	fom.qos_fin.value = E('_f_qos_fin').checked ? 1 : 0;
@@ -126,6 +127,7 @@ function save()
 <input type='hidden' name='_service' value='qos-restart'>
 
 <input type='hidden' name='qos_enable'>
+<input type='hidden' name='qos_pfifo'>
 <input type='hidden' name='qos_ack'>
 <input type='hidden' name='qos_syn'>
 <input type='hidden' name='qos_fin'>
@@ -145,6 +147,7 @@ for (i = 0; i < 10; ++i) {
 }
 createFieldTable('', [
 	{ title: 'Enable QoS', name: 'f_qos_enable', type: 'checkbox', value: nvram.qos_enable == '1' },
+	{ title: 'Activate PFifo', name: 'f_qos_pfifo', type: 'checkbox', value: nvram.qos_pfifo == '1' },
 	{ title: 'Prioritize small packets with these control flags', multi: [
 		{ suffix: ' ACK &nbsp;', name: 'f_qos_ack', type: 'checkbox', value: nvram.qos_ack == '1' },
 		{ suffix: ' SYN &nbsp;', name: 'f_qos_syn', type: 'checkbox', value: nvram.qos_syn == '1' },

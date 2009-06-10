@@ -325,6 +325,7 @@ const defaults_t defaults[] = {
 	{ "qos_enable",			"0"				},
 	{ "qos_method",			"0"				},	// remove later	zzz
 	{ "qos_sticky",			"1"				},	// remove later	zzz
+	{ "qos_pfifo",			"0"				},
 	{ "qos_ack",			"1"				},
 	{ "qos_syn",			"0"				},
 	{ "qos_fin",			"0"				},
