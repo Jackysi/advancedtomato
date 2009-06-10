@@ -1,0 +1,43 @@
+a {
+	color: #B21D19;
+}
+a:hover {
+	background: #FF0000;
+}
+input[type='button']:hover {
+	background: #FF0000;
+}
+#header {
+	background: #404040;
+	padding: 0px 0px 5px 0px;
+	border-bottom: 2px dotted #ddd;
+}
+#header .title {
+	background-image: url("buffalo.gif");
+	font: 0px sans-serif;
+	height: 154px;
+	width: 898px;
+}
+#header .version {
+	font: 15px sans-serif;
+	font-weight: bold;
+	margin-top: -25px;
+	padding-right: 5px;
+	text-align: right;
+}
+#navi a {
+	color: #B21D19;
+}
+#navi a:hover {
+	background: #FF0000;
+}
+#tabs a.active {
+	background: #FF0000;
+}
+#tabs a:hover {
+	background: #AFAFAF;
+}
+.tomato-grid .odd:hover,
+.tomato-grid .even:hover {
+	background: #AFAFAF;
+}
