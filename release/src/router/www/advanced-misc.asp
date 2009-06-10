@@ -22,7 +22,7 @@
 
 <script type='text/javascript'>
 
-//	<% nvram("wait_time,wan_speed"); %>
+//	<% nvram("wait_time,wan_speed,clkfreq"); %>
 
 
 function verifyFields(focused, quiet)
@@ -67,11 +67,12 @@ a = [];
 for (i = 3; i <= 20; ++i) a.push([i, i + ' seconds']);
 createFieldTable('', [
 	{ title: 'Boot Wait Time *', name: 'wait_time', type: 'select', options: a, value: fixInt(nvram.wait_time, 3, 20, 3) },
-	{ title: 'WAN Port Speed *', name: 'wan_speed', type: 'select', options: [[0,'10Mb Full'],[1,'10Mb Half'],[2,'100Mb Full'],[3,'100Mb Half'],[4,'Auto']], value: nvram.wan_speed }
+	{ title: 'WAN Port Speed *', name: 'wan_speed', type: 'select', options: [[0,'10Mb Full'],[1,'10Mb Half'],[2,'100Mb Full'],[3,'100Mb Half'],[4,'Auto']], value: nvram.wan_speed },
+	{ title: 'CPU Frequency *', name: 'clkfreq', type: 'text', maxlen: 3, size: 3, value: nvram.clkfreq }
 ]);
 </script>
 <br>
-<small>* Not all models support these options.</small>
+<small>* Not all models support these options, check logs message</small>
 </div>
 
 

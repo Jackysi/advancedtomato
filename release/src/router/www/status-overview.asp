@@ -92,6 +92,7 @@ function c(id, htm)
 function show()
 {
 	c('cpu', stats.cpuload);
+	c('freqcpu', stats.freqcpu); //Victek
 	c('uptime', stats.uptime);
 	c('time', stats.time);
 	c('wanip', stats.wanip);
@@ -161,7 +162,8 @@ createFieldTable('', [
 	{ title: 'Time', rid: 'time', text: stats.time },
 	{ title: 'Uptime', rid: 'uptime', text: stats.uptime },
 	{ title: 'CPU Load <small>(1 / 5 / 15 mins)</small>', rid: 'cpu', text: stats.cpuload },
-	{ title: 'Total / Free Memory', rid: 'memory', text: stats.memory }
+	{ title: 'Total / Free Memory', rid: 'memory', text: stats.memory },
+	{ title: 'CPU Frequency (MHz)', rid: 'freqcpu', text: stats.freqcpu } //Victek
 ]);
 </script>
 </div>

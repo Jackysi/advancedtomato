@@ -476,6 +476,7 @@ static const nvset_t nvset_list[] = {
 // advanced-misc
 	{ "wait_time",			V_RANGE(3, 20)		},
 	{ "wan_speed",			V_RANGE(0, 4)		},
+	{ "clkfreq",			V_RANGE(125,300)	},
 
 // advanced-mac
 	{ "mac_wan",			V_LENGTH(0, 17)		},
