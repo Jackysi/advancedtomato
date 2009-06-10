@@ -28,7 +28,7 @@ textarea {
 <script type='text/javascript' src='debug.js'></script>
 
 <script type='text/javascript'>
-//	<% nvram("sesx_led,sesx_b0,sesx_b1,sesx_b2,sesx_b3,sesx_script,script_brau,t_model,t_features"); %>
+//	<% nvram("sesx_led,sesx_b0,sesx_b1,sesx_b2,sesx_b3,sesx_b4,sesx_script,sesx_script_1,sesx_script_2,script_brau,t_model,t_features"); %>
 
 var ses = features('ses');
 var brau = features('brau');
@@ -88,14 +88,17 @@ function earlyInit()
 <div class='section-title'>SES/AOSS Button</div>
 <div class='section'>
 <script type='text/javascript'>
-a = [[0,'Do Nothing'],[1,'Toggle Wireless'],[2,'Reboot'],[3,'Shutdown'],[4,'Run Custom Script']];
+a = [[0,'Do Nothing'],[1,'Toggle Wireless'],[2,'Reboot'],[3,'Shutdown'],[4,'Run Custom Script'],[5, 'Run Custom Script 1'],[6, 'Run Custom Script 2']];
 createFieldTable('', [
 	{ title: "When Pushed For..." },
 	{ title: '0-2 Seconds', indent: 2, name: 'sesx_b0', type: 'select', options: a, value: nvram.sesx_b0 || 0 },
 	{ title: '4-6 Seconds', indent: 2, name: 'sesx_b1', type: 'select', options: a, value: nvram.sesx_b1 || 0 },
 	{ title: '8-10 Seconds', indent: 2, name: 'sesx_b2', type: 'select', options: a, value: nvram.sesx_b2 || 0 },
-	{ title: '12+ Seconds', indent: 2, name: 'sesx_b3', type: 'select', options: a, value: nvram.sesx_b3 || 0 },
-	{ title: 'Custom Script', indent: 2, name: 'sesx_script', type: 'textarea', value: nvram.sesx_script }
+	{ title: '12-14 Seconds', indent: 2, name: 'sesx_b3', type: 'select', options: a, value: nvram.sesx_b3 || 0 },
+	{ title: '16+ Seconds', indent: 2, name: 'sesx_b4', type: 'select', options: a, value: nvram.sesx_b4 || 0 },
+	{ title: 'Custom Script', indent: 2, name: 'sesx_script', type: 'textarea', value: nvram.sesx_script },
+	{ title: 'Custom Script 1', indent: 2, name: 'sesx_script_1', type: 'textarea', value: nvram.sesx_script_1 },
+	{ title: 'Custom Script 2', indent: 2, name: 'sesx_script_2', type: 'textarea', value: nvram.sesx_script_2 }
 ]);
 </script>
 </div>

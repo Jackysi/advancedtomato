@@ -207,16 +207,18 @@ int buttons_main(int argc, char *argv[])
 
 #ifdef DEBUG_TEST
 				cprintf("ses count=%d\n", count);
+
 #endif
 
-			if ((count != 3) && (count != 7) && (count != 11)) {
+			if ((count != 3) && (count != 7) && (count != 11) && (count != 15) && (count != 19)) {
 				n = count >> 2;
 				if (n > 3) n = 3;
 				/*
 					0-2  = func0
 					4-6  = func1
 					8-10 = func2
-					12+  = func3
+					12-14 = func3
+					18+ = func4
 				*/
 
 #ifdef DEBUG_TEST
@@ -238,6 +240,14 @@ int buttons_main(int argc, char *argv[])
 					case '4':	// run a script
 						sprintf(s, "%d", count);
 						run_nvscript("sesx_script", s, 2);
+						break;
+					case '5':	// run a script
+						sprintf(s, "%d", count);
+						run_nvscript("sesx_script_1", s, 2);
+						break;
+					case '6':	// run a script
+						sprintf(s, "%d", count);
+						run_nvscript("sesx_script_2", s, 2);
 						break;
 					}
 				}

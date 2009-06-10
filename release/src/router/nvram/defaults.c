@@ -408,9 +408,12 @@ const defaults_t defaults[] = {
 	{ "sesx_b1",			"4"				},
 	{ "sesx_b2",			"4"				},
 	{ "sesx_b3",			"4"				},
+	{ "sesx_b4",			"4"				},
 	{ "sesx_script",
 		"[ $1 -ge 20 ] && telnetd -p 233 -l /bin/sh\n"
 	},
+	{ "sesx_script_1",		""				},
+	{ "sesx_script_2",		""				},
 	{ "script_brau",
 		"if [ ! -e /tmp/switch-start ]; then\n"
 		"  # do something at startup\n"
