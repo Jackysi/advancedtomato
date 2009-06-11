@@ -228,7 +228,7 @@ createFieldTable('', [
 		options: [['0', 'No'],['1', 'Yes, WAN and LAN'],['2', 'Yes, LAN only']],
 		value: nvram.ftp_enable },
 	{ title: 'FTP Port', indent: 2, name: 'ftp_port', type: 'text', maxlen: 5, size: 7, value: fixPort(nvram.ftp_port, 21) },
-	{ title: 'Allowed Remote<br>IP Address(es)', name: 'f_ftp_sip', type: 'text', maxlen: 512, size: 64, value: nvram.ftp_sip,
+	{ title: 'Allowed Remote<br>Address(es)', indent: 2, name: 'f_ftp_sip', type: 'text', maxlen: 512, size: 64, value: nvram.ftp_sip,
 		suffix: '<br><small>(optional; ex: "1.1.1.1", "1.1.1.0/24", "1.1.1.1 - 2.2.2.2" or "me.example.com")</small>' },
 	{ title: 'Anonymous Users Access', name: 'ftp_anonymous', type: 'select',
 		options: [['0', 'Disabled'],['1', 'Read/Write'],['2', 'Read Only'],['3', 'Write Only']],
@@ -259,6 +259,7 @@ createFieldTable('', [
 		value: nvram.ftp_anonroot },
 	{ title: 'Directory Listings', name: 'ftp_dirlist', type: 'select',
 		options: [['0', 'Enabled'],['1', 'Disabled'],['2', 'Disabled for Anonymous']],
+		suffix: ' <small>(always enabled for Super User)</small>',
 		value: nvram.ftp_dirlist }
 ]);
 </script>
@@ -293,7 +294,7 @@ createFieldTable('', [
 <div class='section'>
 <script type='text/javascript'>
 createFieldTable('', [
-	{ title: '<a href="http://vsftpd.beasts.org/" target="_new">Vsftpd</a><br>Custom Configuration', name: 'ftp_custom', type: 'textarea', value: nvram.ftp_custom }
+	{ title: '<a href="http://vsftpd.beasts.org/vsftpd_conf.html" target="_new">Vsftpd</a><br>Custom Configuration', name: 'ftp_custom', type: 'textarea', value: nvram.ftp_custom }
 ]);
 </script>
 </div>
