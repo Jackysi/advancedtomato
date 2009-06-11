@@ -789,13 +789,17 @@ int find_label(char *dev_name, char *label)
 	if ((id.fd = open(dev_name, O_RDONLY)) < 0)
 		return 0;
 
-	if (volume_id_probe_vfat(&id) == 0)
+	if (volume_id_probe_vfat(&id) == 0 || id.error)
 		goto ret;
-	volume_id_get_buffer(&id, 0, SB_BUFFER_SIZE);
-	if (volume_id_probe_ext(&id) == 0 || volume_id_probe_linux_swap(&id) == 0) { }
-	volume_id_free_buffer(&id);
 
+	volume_id_get_buffer(&id, 0, SB_BUFFER_SIZE);
+
+	if (volume_id_probe_ext(&id) == 0 || id.error)
+		goto ret;
+	if (volume_id_probe_linux_swap(&id) == 0 || id.error)
+		goto ret;
 ret:
+	volume_id_free_buffer(&id);
 	if (id.label[0] != '\0')
 		strcpy(label, id.label);
 	close(id.fd);
