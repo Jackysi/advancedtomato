@@ -312,5 +312,9 @@ extern void start_smbd(void);
 extern void stop_smbd(void);
 #endif
 
+// new_qoslimit.c
+extern void new_qoslimit_start(void);
+extern void new_qoslimit_stop(void);
+
 
 #endif

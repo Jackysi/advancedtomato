@@ -571,6 +571,12 @@ const defaults_t defaults[] = {
 	
 #endif	// 0
 
+// new_qoslimit
+	{ "new_qoslimit_enable",		"0"			},
+	{ "new_qoslimit_obw",			""			},
+	{ "new_qoslimit_ibw",			""			},
+	{ "new_qoslimit_rules",			"" 			},
+
 	{ NULL, NULL	}
 };
 
