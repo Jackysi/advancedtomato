@@ -40,8 +40,10 @@ textarea {
 
 <script type='text/javascript'>
 
-//	<% nvram("ftp_enable,ftp_super,ftp_anonymous,ftp_dirlist,ftp_port,ftp_max,ftp_ipmax,ftp_staytimeout,ftp_rate,ftp_anonrate,ftp_anonroot,ftp_pubroot,ftp_pvtroot,ftp_custom,ftp_users,ftp_sip,log_ftp"); %>
+//	<% nvram("ftp_enable,ftp_super,ftp_anonymous,ftp_dirlist,ftp_port,ftp_max,ftp_ipmax,ftp_staytimeout,ftp_rate,ftp_anonrate,ftp_anonroot,ftp_pubroot,ftp_pvtroot,ftp_custom,ftp_users,ftp_sip,ftp_limit,log_ftp"); %>
 
+ftplimit = nvram.ftp_limit.split(',');
+if (ftplimit.length != 3) ftplimit = [0,3,60];
 
 var aftg = new TomatoGrid();
 
@@ -135,6 +137,7 @@ aftg.setup = function()
 function verifyFields(focused, quiet)
 {
 	var a, b;
+	var ok = 1;
 
 	a = E('_ftp_enable').value;	
 	b = E('_ftp_port');
@@ -142,6 +145,10 @@ function verifyFields(focused, quiet)
 	b = E('_f_ftp_sip');
 	elem.display(PR(b), (a == 1));
 
+	E('_f_limit').disabled = (a != 1);
+	b = E('_f_limit').checked;
+	elem.display(PR('_f_limit_hit'), (a == 1 && b));
+	elem.display(PR('_f_limit_sec'), (a == 1 && b));
 	E('_ftp_anonymous').disabled = (a == 0);
 	E('_f_ftp_super').disabled = (a == 0);
 	E('_f_log_ftp').disabled = (a == 0);
@@ -157,25 +164,30 @@ function verifyFields(focused, quiet)
 	E('_ftp_custom').disabled = (a == 0);
 
 	if (a != 0) {
-		if (!v_port('_ftp_port', quiet)) return 0;
-		if (!v_range('_ftp_max', quiet, 0, 12)) return 0;
-		if (!v_range('_ftp_ipmax', quiet, 0, 12)) return 0;
-		if (!v_range('_ftp_rate', quiet, 0, 99999)) return 0;
-		if (!v_range('_ftp_anonrate', quiet, 0, 99999)) return 0;
-		if (!v_range('_ftp_staytimeout', quiet, 0, 65535)) return 0;
-		if (!v_length('_ftp_custom', quiet, 0, 2048)) return 0;
+		if (!v_port('_ftp_port', quiet || !ok)) ok = 0;
+		if (!v_range('_ftp_max', quiet || !ok, 0, 12)) ok = 0;
+		if (!v_range('_ftp_ipmax', quiet || !ok, 0, 12)) ok = 0;
+		if (!v_range('_ftp_rate', quiet || !ok, 0, 99999)) ok = 0;
+		if (!v_range('_ftp_anonrate', quiet || !ok, 0, 99999)) ok = 0;
+		if (!v_range('_ftp_staytimeout', quiet || !ok, 0, 65535)) ok = 0;
+		if (!v_length('_ftp_custom', quiet || !ok, 0, 2048)) ok = 0;
+		if (a == 1 && b) {
+			if (!v_range('_f_limit_hit', quiet || !ok, 1, 100)) ok = 0;
+			if (!v_range('_f_limit_sec', quiet || !ok, 3, 3600)) ok = 0;
+		}
 	}
 
 	if (a == 1) {
 		b = E('_f_ftp_sip');
 		if ((b.value.length) && (!v_domain(b, 1)) && (!v_iptip(b, 1, 15))) {
-			if (!quiet) ferror.show(b);
-			return 0;
+			if (!quiet && ok) ferror.show(b);
+			ok = 0;
 		}
-		ferror.clear(b);
+		else
+			ferror.clear(b);
 	}
 
-	return 1;
+	return ok;
 }
 
 function save()
@@ -193,6 +205,9 @@ function save()
 	fom.ftp_sip.value = fom.f_ftp_sip.value.split(/\s*,\s*/).join(',');
 	fom.ftp_super.value = E('_f_ftp_super').checked ? 1 : 0;
 	fom.log_ftp.value = E('_f_log_ftp').checked ? 1 : 0;
+
+	fom.ftp_limit.value = (E('_f_limit').checked ? 1 : 0) +
+		',' + E('_f_limit_hit').value + ',' + E('_f_limit_sec').value;
 
 	form.submit(fom, 1);
 }
@@ -219,6 +234,7 @@ function save()
 <input type='hidden' name='log_ftp'>
 <input type='hidden' name='ftp_users'>
 <input type='hidden' name='ftp_sip'>
+<input type='hidden' name='ftp_limit'>
 
 <div class='section-title'>FTP Server Configuration</div>
 <div class='section'>
@@ -285,7 +301,13 @@ createFieldTable('', [
 		value: nvram.ftp_rate },
 	{ title: 'Idle Timeout', name: 'ftp_staytimeout', type: 'text', maxlen: 5, size: 7,
 		suffix: ' <small>seconds (0 - no timeout)</small>',
-		value: nvram.ftp_staytimeout }
+		value: nvram.ftp_staytimeout },
+	{ title: 'Limit Connection Attempts', name: 'f_limit', type: 'checkbox',
+		value: ftplimit[0] != 0 },
+	{ title: '', indent: 2, multi: [
+		{ name: 'f_limit_hit', type: 'text', maxlen: 4, size: 6, suffix: '&nbsp; <small>every</small> &nbsp;', value: ftplimit[1] },
+		{ name: 'f_limit_sec', type: 'text', maxlen: 4, size: 6, suffix: '&nbsp; <small>seconds</small>', value: ftplimit[2] }
+	] }
 ]);
 </script>
 </div>

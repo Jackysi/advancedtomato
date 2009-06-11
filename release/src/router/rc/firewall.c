@@ -462,6 +462,20 @@ static void filter_input(void)
 		if (n & 2) ipt_write("-A INPUT -p tcp --dport %s -m state --state NEW -j shlimit\n", nvram_safe_get("telnetd_port"));
 	}
 
+#ifdef TCONFIG_FTP
+	strlcpy(s, nvram_safe_get("ftp_limit"), sizeof(s));
+	if ((vstrsep(s, ",", &en, &hit, &sec) == 3) && (atoi(en)) && (nvram_get_int("ftp_enable") == 1)) {
+		modprobe("ipt_recent");
+
+		ipt_write(
+			"-N ftplimit\n"
+			"-A ftplimit -m recent --set --name ftp\n"
+			"-A ftplimit -m recent --update --hitcount %s --seconds %s --name ftp -j DROP\n",
+			hit, sec);
+		ipt_write("-A INPUT -p tcp --dport %s -m state --state NEW -j ftplimit\n", nvram_safe_get("ftp_port"));
+	}
+#endif
+
 	ipt_write(
 		"-A INPUT -i %s -j ACCEPT\n"
 		"-A INPUT -i lo -j ACCEPT\n",

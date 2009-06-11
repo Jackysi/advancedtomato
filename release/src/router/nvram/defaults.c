@@ -501,6 +501,7 @@ const defaults_t defaults[] = {
 	{ "ftp_users",			""				},
 	{ "ftp_custom",			""				},
 	{ "ftp_sip",			""				},	// wan ftp access: source ip address(es)
+	{ "ftp_limit",			"0,3,60"			},
 	{ "log_ftp",			"0"				},
 #endif
 
