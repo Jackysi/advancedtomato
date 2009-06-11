@@ -771,7 +771,7 @@ static void sysinit(void)
 	int model;
 
 	mount("", "/proc", "proc", 0, NULL);
-	mount("", "/tmp", "ramfs", 0, NULL);
+	mount("tmpfs", "/tmp", "tmpfs", 0, NULL);
 
 	if (console_init()) noconsole = 1;
 
