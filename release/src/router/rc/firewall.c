@@ -487,9 +487,19 @@ static void filter_input(void)
 
 
 #ifdef TCONFIG_FTP	// !!TB - FTP Server
-	if (nvram_match("ftp_enable", "1")) {
-		ipt_write("-A INPUT -p tcp -m tcp --dport %s -j %s\n",
-			nvram_safe_get("ftp_port"), chain_in_accept);
+	if (nvram_match("ftp_enable", "1")) {	// FTP WAN access enabled
+		strlcpy(t, nvram_safe_get("ftp_sip"), sizeof(t));
+		p = t;
+		do {
+			if ((c = strchr(p, ',')) != NULL) *c = 0;
+			ipt_source(p, s);
+
+			ipt_write("-A INPUT -p tcp %s -m tcp --dport %s -j %s\n",
+				s, nvram_safe_get("ftp_port"), chain_in_accept);
+
+			if (!c) break;
+			p = c + 1;
+		} while (*p);
 	}
 #endif
 
