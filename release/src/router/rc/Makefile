@@ -12,7 +12,7 @@ OBJS := rc.o init.o interface.o network.o wan.o services.o dhcp.o
 OBJS += firewall.o ppp.o telssh.o wnas.o
 OBJS += listen.o redial.o led.o qos.o forward.o misc.o mtd.o
 OBJS += buttons.o restrict.o gpio.o sched.o
-OBJS += new_qoslimit.o
+OBJS += new_qoslimit.o new_arpbind.o
 #	heartbeat.o
 
 ifeq ($(TCONFIG_DDNS),y)

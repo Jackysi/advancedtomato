@@ -316,5 +316,9 @@ extern void stop_smbd(void);
 extern void new_qoslimit_start(void);
 extern void new_qoslimit_stop(void);
 
+// new_arpbind.c
+extern void new_arpbind_start(void);
+extern void new_arpbind_stop(void);
+
 
 #endif

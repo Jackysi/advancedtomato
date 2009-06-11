@@ -672,6 +672,11 @@ static const nvset_t nvset_list[] = {
        { "new_qoslimit_ibw",            V_RANGE(10, 999999)     },
        { "new_qoslimit_rules",          V_LENGTH(0, 4096)       },
 
+// new_arpbind
+       { "new_arpbind_enable",          V_01                    },
+       { "new_arpbind_only",            V_01    		},
+       { "new_arpbind_list",            V_LENGTH(0, 4096)       },
+
 
 /*
 ppp_static			0/1
