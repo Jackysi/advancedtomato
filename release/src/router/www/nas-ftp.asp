@@ -168,7 +168,10 @@ function verifyFields(focused, quiet)
 
 	if (a == 1) {
 		b = E('_f_ftp_sip');
-		if ((b.value.length) && (!v_iptip(b, quiet, 15))) return 0;
+		if ((b.value.length) && (!v_domain(b, 1)) && (!v_iptip(b, 1, 15))) {
+			if (!quiet) ferror.show(b);
+			return 0;
+		}
 		ferror.clear(b);
 	}
 
@@ -226,7 +229,7 @@ createFieldTable('', [
 		value: nvram.ftp_enable },
 	{ title: 'FTP Port', indent: 2, name: 'ftp_port', type: 'text', maxlen: 5, size: 7, value: fixPort(nvram.ftp_port, 21) },
 	{ title: 'Allowed Remote<br>IP Address(es)', name: 'f_ftp_sip', type: 'text', maxlen: 512, size: 64, value: nvram.ftp_sip,
-		suffix: '<br><small>(optional; ex: "1.1.1.1", "1.1.1.0/24" or "1.1.1.1 - 2.2.2.2")</small>' },
+		suffix: '<br><small>(optional; ex: "1.1.1.1", "1.1.1.0/24", "1.1.1.1 - 2.2.2.2" or "me.example.com")</small>' },
 	{ title: 'Anonymous Users Access', name: 'ftp_anonymous', type: 'select',
 		options: [['0', 'Disabled'],['1', 'Read/Write'],['2', 'Read Only'],['3', 'Write Only']],
 		value: nvram.ftp_anonymous },

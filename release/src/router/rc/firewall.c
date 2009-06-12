@@ -112,8 +112,17 @@ static int dmz_dst(char *s)
 
 static void ipt_source(const char *s, char *src)
 {
-	if ((*s) && (strlen(s) < 32)) sprintf(src, "-%s %s", strchr(s, '-') ? "m iprange --src-range" : "s", s);
-		else *src = 0;
+	char p[32];
+
+	if ((*s) && (strlen(s) < 32))
+	{
+		if (sscanf(s, "%[0-9.]-%[0-9.]", p, p) == 2)
+			sprintf(src, "-m iprange --src-range %s", s);
+		else
+			sprintf(src, "-s %s", s);
+	}
+	else
+		*src = 0;
 }
 
 /*
