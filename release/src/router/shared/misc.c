@@ -461,8 +461,16 @@ int time_ok(void)
 
 /* Serialize using fcntl() calls 
  */
+
+#ifndef USB_LOCK_TIMEOUT
+#define USB_LOCK_TIMEOUT 8
+#endif
+
 int usb_lock(void)
 {
+	if (nvram_get_int("usb_nolock"))
+		return -1;
+
 	const char fn[] = "/var/lock/usb.lock";
 	struct flock lock;
 	int lockfd = -1;
@@ -473,9 +481,15 @@ int usb_lock(void)
 	memset(&lock, 0, sizeof(lock));
 	lock.l_type = F_WRLCK;
 	lock.l_pid = getpid();
-	if (fcntl(lockfd, F_SETLKW, &lock) < 0)
-		goto lock_error;
+	alarm(USB_LOCK_TIMEOUT);
 
+	if (fcntl(lockfd, F_SETLKW, &lock) < 0) {
+		close(lockfd);
+		alarm(0);
+		goto lock_error;
+	}
+
+	alarm(0);
 	return lockfd;
 lock_error:
 	// No proper error processing
@@ -731,7 +745,7 @@ struct mntent *findmntent(char *file)
 		}
 	}
 
-	fclose(f);
+	endmntent(f);
 	return mnt;
 }
 
@@ -775,13 +789,17 @@ int find_label(char *dev_name, char *label)
 	if ((id.fd = open(dev_name, O_RDONLY)) < 0)
 		return 0;
 
-	if (volume_id_probe_vfat(&id) == 0)
+	if (volume_id_probe_vfat(&id) == 0 || id.error)
 		goto ret;
-	volume_id_get_buffer(&id, 0, SB_BUFFER_SIZE);
-	if (volume_id_probe_ext(&id) == 0 || volume_id_probe_linux_swap(&id) == 0) { }
-	volume_id_free_buffer(&id);
 
+	volume_id_get_buffer(&id, 0, SB_BUFFER_SIZE);
+
+	if (volume_id_probe_ext(&id) == 0 || id.error)
+		goto ret;
+	if (volume_id_probe_linux_swap(&id) == 0 || id.error)
+		goto ret;
 ret:
+	volume_id_free_buffer(&id);
 	if (id.label[0] != '\0')
 		strcpy(label, id.label);
 	close(id.fd);

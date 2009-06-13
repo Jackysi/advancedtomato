@@ -502,6 +502,8 @@ const defaults_t defaults[] = {
 	{ "ftp_pvtroot",		""				},
 	{ "ftp_users",			""				},
 	{ "ftp_custom",			""				},
+	{ "ftp_sip",			""				},	// wan ftp access: source ip address(es)
+	{ "ftp_limit",			"0,3,60"			},
 	{ "log_ftp",			"0"				},
 #endif
 
@@ -519,7 +521,6 @@ const defaults_t defaults[] = {
 	},
 	{ "smbd_user",			"nas"				},
 	{ "smbd_passwd",		""				},
-	{ "smbd_master",		"1"				},
 #endif
 
 // admin-sch
