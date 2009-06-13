@@ -320,7 +320,97 @@ struct usb_string_descriptor {
 	__u16 wData[1];
 } __attribute__ ((packed));
 
-struct usb_device;
+enum usb_device_speed {
+	USB_SPEED_UNKNOWN = 0,			/* enumerating */
+	USB_SPEED_LOW, USB_SPEED_FULL,		/* usb 1.1 */
+	USB_SPEED_HIGH				/* usb 2.0 */
+};
+
+/*
+ * As of USB 2.0, full/low speed devices are segregated into trees.
+ * One type grows from USB 1.1 host controllers (OHCI, UHCI etc).
+ * The other type grows from high speed hubs when they connect to
+ * full/low speed devices using "Transaction Translators" (TTs).
+ *
+ * TTs should only be known to the hub driver, and high speed bus
+ * drivers (only EHCI for now).  They affect periodic scheduling and
+ * sometimes control/bulk error recovery.
+ */
+struct usb_tt {
+	struct usb_device	*hub;	/* upstream highspeed hub */
+	int			multi;	/* true means one TT per port */
+	unsigned		think_time;	/* think time in ns */
+};
+
+
+/* This is arbitrary.
+ * From USB 2.0 spec Table 11-13, offset 7, a hub can
+ * have up to 255 ports. The most yet reported is 10.
+ */
+#define USB_MAXCHILDREN		(16)
+
+struct usb_device {
+	int		devnum;		/* Address on USB bus */
+	char		devpath [16];	/* Use in messages: /port/port/... */
+
+	enum usb_device_speed speed;
+
+	struct usb_tt	*tt; 		/* low/full speed dev, highspeed hub */
+	int		ttport;		/* device port on that tt hub */
+
+	atomic_t refcnt;		/* Reference count */
+	struct semaphore serialize;
+
+	/*
+	 * This is our custom open-coded lock, similar to r/w locks in concept.
+	 * It prevents drivers and /proc access from simultaneous access.
+	 * Type:
+	 *   0 - unlocked
+	 *   1 - locked for reads
+	 *   2 - locked for writes
+	 *   3 - locked for everything
+	 */
+	wait_queue_head_t excl_wait;
+	spinlock_t excl_lock;
+	unsigned excl_type;
+
+	unsigned int toggle[2];		/* one bit for each endpoint ([0] = IN, [1] = OUT) */
+	unsigned int halted[2];		/* endpoint halts; one bit per endpoint # & direction; */
+					/* [0] = IN, [1] = OUT */
+	int epmaxpacketin[16];		/* INput endpoint specific maximums */
+	int epmaxpacketout[16];		/* OUTput endpoint specific maximums */
+
+	struct usb_device *parent;
+	struct usb_bus *bus;		/* Bus we're part of */
+
+	struct usb_device_descriptor descriptor;/* Descriptor */
+	struct usb_config_descriptor *config;	/* All of the configs */
+	struct usb_config_descriptor *actconfig;/* the active configuration */
+
+	char **rawdescriptors;		/* Raw descriptors for each config */
+
+	int have_langid;		/* whether string_langid is valid yet */
+	int string_langid;		/* language ID for strings */
+
+	void *hcpriv;			/* Host Controller private data */
+
+	/* usbdevfs inode list */
+	struct list_head inodes;
+	struct list_head filelist;
+
+	int storage_host_number;	/* 1+SCSI storage host number. 0 means not set/unknown. */
+
+	/*
+	 * Child devices - these can be either new devices
+	 * (if this is a hub device), or different instances
+	 * of this same device.
+	 *
+	 * Each instance needs its own set of data structures.
+	 */
+
+	int maxchild;			/* Number of ports if hub */
+	struct usb_device *children[USB_MAXCHILDREN];
+};
 
 /*
  * Device table entry for "new style" table-driven USB drivers.
@@ -739,7 +829,10 @@ static inline void usb_fill_int_urb (struct urb *urb,
 	urb->transfer_buffer_length = buffer_length;
 	urb->complete = complete;
 	urb->context = context;
-	urb->interval = interval;
+	if (dev->speed == USB_SPEED_HIGH)
+		urb->interval = 1 << (interval - 1);
+	else
+		urb->interval = interval;
 	urb->start_frame = -1;
 }
 
@@ -802,96 +895,6 @@ struct usb_bus {
 	struct list_head inodes;
 
 	atomic_t refcnt;
-};
-
-/*
- * As of USB 2.0, full/low speed devices are segregated into trees.
- * One type grows from USB 1.1 host controllers (OHCI, UHCI etc).
- * The other type grows from high speed hubs when they connect to
- * full/low speed devices using "Transaction Translators" (TTs).
- *
- * TTs should only be known to the hub driver, and high speed bus
- * drivers (only EHCI for now).  They affect periodic scheduling and
- * sometimes control/bulk error recovery.
- */
-struct usb_tt {
-	struct usb_device	*hub;	/* upstream highspeed hub */
-	int			multi;	/* true means one TT per port */
-	unsigned		think_time;	/* think time in ns */
-};
-
-
-/* This is arbitrary.
- * From USB 2.0 spec Table 11-13, offset 7, a hub can
- * have up to 255 ports. The most yet reported is 10.
- */
-#define USB_MAXCHILDREN		(16)
-
-struct usb_device {
-	int		devnum;		/* Address on USB bus */
-	char		devpath [16];	/* Use in messages: /port/port/... */
-
-	enum {
-		USB_SPEED_UNKNOWN = 0,			/* enumerating */
-		USB_SPEED_LOW, USB_SPEED_FULL,		/* usb 1.1 */
-		USB_SPEED_HIGH				/* usb 2.0 */
-	} speed;
-
-	struct usb_tt	*tt; 		/* low/full speed dev, highspeed hub */
-	int		ttport;		/* device port on that tt hub */
-
-	atomic_t refcnt;		/* Reference count */
-	struct semaphore serialize;
-
-	/*
-	 * This is our custom open-coded lock, similar to r/w locks in concept.
-	 * It prevents drivers and /proc access from simultaneous access.
-	 * Type:
-	 *   0 - unlocked
-	 *   1 - locked for reads
-	 *   2 - locked for writes
-	 *   3 - locked for everything
-	 */
-	wait_queue_head_t excl_wait;
-	spinlock_t excl_lock;
-	unsigned excl_type;
-
-	unsigned int toggle[2];		/* one bit for each endpoint ([0] = IN, [1] = OUT) */
-	unsigned int halted[2];		/* endpoint halts; one bit per endpoint # & direction; */
-					/* [0] = IN, [1] = OUT */
-	int epmaxpacketin[16];		/* INput endpoint specific maximums */
-	int epmaxpacketout[16];		/* OUTput endpoint specific maximums */
-
-	struct usb_device *parent;
-	struct usb_bus *bus;		/* Bus we're part of */
-
-	struct usb_device_descriptor descriptor;/* Descriptor */
-	struct usb_config_descriptor *config;	/* All of the configs */
-	struct usb_config_descriptor *actconfig;/* the active configuration */
-
-	char **rawdescriptors;		/* Raw descriptors for each config */
-
-	int have_langid;		/* whether string_langid is valid yet */
-	int string_langid;		/* language ID for strings */
-  
-	void *hcpriv;			/* Host Controller private data */
-	
-        /* usbdevfs inode list */
-	struct list_head inodes;
-	struct list_head filelist;
-
-	int storage_host_number;	/* 1+SCSI storage host number. 0 means not set/unknown. */
-
-	/*
-	 * Child devices - these can be either new devices
-	 * (if this is a hub device), or different instances
-	 * of this same device.
-	 *
-	 * Each instance needs its own set of data structures.
-	 */
-
-	int maxchild;			/* Number of ports if hub */
-	struct usb_device *children[USB_MAXCHILDREN];
 };
 
 extern int usb_ifnum_to_ifpos(struct usb_device *dev, unsigned ifnum);
