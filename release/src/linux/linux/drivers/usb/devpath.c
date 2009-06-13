@@ -95,8 +95,8 @@ static ssize_t usb_devpath_read(struct file *file, char *buf, size_t nbytes, lof
 		return 0;
 	if (!access_ok(VERIFY_WRITE, buf, nbytes))
 		return -EFAULT;
-        if (!(page = (char*) __get_free_page(GFP_KERNEL)))
-                return -ENOMEM;
+	if (!(page = (char*) __get_free_page(GFP_KERNEL)))
+		return -ENOMEM;
 	start = page;
 	end = page + (PAGE_SIZE - 100);
 

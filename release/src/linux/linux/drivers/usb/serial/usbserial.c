@@ -1666,8 +1666,8 @@ static void * usb_serial_probe(struct usb_device *dev, unsigned int ifnum,
 		info("%s converter now attached to ttyUSB%d (or usb/tts/%d for devfs)", 
 		     type->name, serial->port[i].number, serial->port[i].number);
 #ifdef CONFIG_USB_DEVPATH
-                sprintf(devfsname, serial_tty_driver.name, serial->port[i].number);
-                usb_register_devpath(dev, ifnum+i*10, devfsname);
+		sprintf(devfsname, serial_tty_driver.name, serial->port[i].number);
+		usb_register_devpath(dev, ifnum+i*10, devfsname);
 #endif
 	}
 
