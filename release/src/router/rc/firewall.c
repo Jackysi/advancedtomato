@@ -112,8 +112,17 @@ static int dmz_dst(char *s)
 
 static void ipt_source(const char *s, char *src)
 {
-	if ((*s) && (strlen(s) < 32)) sprintf(src, "-%s %s", strchr(s, '-') ? "m iprange --src-range" : "s", s);
-		else *src = 0;
+	char p[32];
+
+	if ((*s) && (strlen(s) < 32))
+	{
+		if (sscanf(s, "%[0-9.]-%[0-9.]", p, p) == 2)
+			sprintf(src, "-m iprange --src-range %s", s);
+		else
+			sprintf(src, "-s %s", s);
+	}
+	else
+		*src = 0;
 }
 
 /*
@@ -490,6 +499,20 @@ static void filter_input(void)
 		if (n & 2) ipt_write("-A INPUT -p tcp --dport %s -m state --state NEW -j shlimit\n", nvram_safe_get("telnetd_port"));
 	}
 
+#ifdef TCONFIG_FTP
+	strlcpy(s, nvram_safe_get("ftp_limit"), sizeof(s));
+	if ((vstrsep(s, ",", &en, &hit, &sec) == 3) && (atoi(en)) && (nvram_get_int("ftp_enable") == 1)) {
+		modprobe("ipt_recent");
+
+		ipt_write(
+			"-N ftplimit\n"
+			"-A ftplimit -m recent --set --name ftp\n"
+			"-A ftplimit -m recent --update --hitcount %s --seconds %s --name ftp -j DROP\n",
+			hit, sec);
+		ipt_write("-A INPUT -p tcp --dport %s -m state --state NEW -j ftplimit\n", nvram_safe_get("ftp_port"));
+	}
+#endif
+
 	ipt_write(
 		"-A INPUT -i %s -j ACCEPT\n"
 		"-A INPUT -i lo -j ACCEPT\n",
@@ -524,9 +547,19 @@ static void filter_input(void)
 
 
 #ifdef TCONFIG_FTP	// !!TB - FTP Server
-	if (nvram_match("ftp_enable", "1")) {
-		ipt_write("-A INPUT -p tcp -m tcp --dport %s -j %s\n",
-			nvram_safe_get("ftp_port"), chain_in_accept);
+	if (nvram_match("ftp_enable", "1")) {	// FTP WAN access enabled
+		strlcpy(t, nvram_safe_get("ftp_sip"), sizeof(t));
+		p = t;
+		do {
+			if ((c = strchr(p, ',')) != NULL) *c = 0;
+			ipt_source(p, s);
+
+			ipt_write("-A INPUT -p tcp %s -m tcp --dport %s -j %s\n",
+				s, nvram_safe_get("ftp_port"), chain_in_accept);
+
+			if (!c) break;
+			p = c + 1;
+		} while (*p);
 	}
 #endif
 

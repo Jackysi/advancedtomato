@@ -808,6 +808,18 @@ static void sysinit(void)
 	}
 	symlink("/proc/mounts", "/etc/mtab");
 
+#ifdef TCONFIG_SAMBASRV
+	if ((d = opendir("/usr/codepages")) != NULL) {
+		while ((de = readdir(d)) != NULL) {
+			if (de->d_name[0] == '.') continue;
+			snprintf(s, sizeof(s), "/usr/codepages/%s", de->d_name);
+			snprintf(t, sizeof(t), "/usr/share/%s", de->d_name);
+			symlink(s, t);
+		}
+		closedir(d);
+	}
+#endif
+
 	set_action(ACT_IDLE);
 
 	for (i = 0; defenv[i]; ++i) {

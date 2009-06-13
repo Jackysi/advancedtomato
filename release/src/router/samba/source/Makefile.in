@@ -55,7 +55,7 @@ SWATDIR = @swatdir@
 LOCKDIR = @lockdir@
 
 # The directory where code page definition files go
-CODEPAGEDIR = $(BASEDIR)/codepages
+CODEPAGEDIR = $(BASEDIR)/share
 
 # The current codepage definition list.
 CODEPAGELIST= 437 737 775 850 852 861 932 866 949 950 936 1251 ISO8859-1 ISO8859-2 ISO8859-5 ISO8859-7 KOI8-R
