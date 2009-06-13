@@ -25,7 +25,7 @@ APPS=
 LIB=$(TOP)/libcrypto.a
 
 LIBSRC=aes_core.c aes_misc.c aes_ecb.c aes_cbc.c aes_ofb.c aes_cfb.c
-LIBOBJ=aes_misc.o aes_ecb.o aes_cbc.o aes_ofb.o aes_cfb.o $(AES_ASM_OBJ)
+LIBOBJ=aes_misc.o aes_ecb.o aes_cbc.o aes_ofb.o aes_cfb.o $(AES_ASM_OBJ) aes-mips.o
 
 # LIBSRC=aes_core.c aes_misc.c aes_ecb.c aes_cbc.c aes_cfb.c aes_ofb.c \
 #        aes_ctr.c aes_wrap.c # aes_ige.c
@@ -50,6 +50,9 @@ lib:	$(LIBOBJ)
 	@touch lib
 
 $(LIBOBJ): $(LIBSRC)
+
+aes-mips.S: asm/AESMipsGen.py
+	asm/AESMipsGen.py --byteswap -o $@
 
 aes-ia64.s: asm/aes-ia64.S
 	$(CC) $(CFLAGS) -E asm/aes-ia64.S > $@
@@ -97,6 +100,6 @@ dclean:
 	mv -f Makefile.new $(MAKEFILE)
 
 clean:
-	rm -f *.s *.o *.obj lib tags core .pure .nfs* *.old *.bak fluff
+	rm -f *.s *.S *.o *.obj lib tags core .pure .nfs* *.old *.bak fluff
 
 # DO NOT DELETE THIS LINE -- make depend depends on it.
