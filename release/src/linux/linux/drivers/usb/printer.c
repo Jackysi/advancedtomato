@@ -633,6 +633,9 @@ static void usblp_cleanup (struct usblp *usblp)
 {
 	devfs_unregister (usblp->devfs);
 	usblp_table [usblp->minor] = NULL;
+#ifdef CONFIG_USB_DEVPATH
+	usb_deregister_devpath(usblp->dev);
+#endif
 	//info("usblp%d: removed", usblp->minor);
 
 	/* Added by PaN */
@@ -1390,8 +1393,8 @@ static void *usblp_probe(struct usb_device *dev, unsigned int ifnum,
 				      S_IFCHR | S_IRUSR | S_IWUSR | S_IRGRP |
 				      S_IWGRP, &usblp_fops, NULL);
 #ifdef CONFIG_USB_DEVPATH
-	sprintf(devfsname, "usb/lp%d", usblp->minor);
-	usb_register_devpath(dev, 0, devfsname);
+	sprintf(devfsname, "usb/%s", name);
+	usb_register_devpath(dev, ifnum, devfsname);
 #endif
 
 	info("usblp%d: USB %sdirectional printer dev %d "
@@ -1624,9 +1627,6 @@ static void usblp_disconnect(struct usb_device *dev, void *ptr)
 
 	if (!usblp->used)
 		usblp_cleanup (usblp);
-#ifdef CONFIG_USB_DEVPATH
-	usb_deregister_devpath(dev);
-#endif
 	up (&usblp_sem);
 }
 
