@@ -90,7 +90,7 @@ cg.verifyFields = function(row, quiet) {
 cg.setup = function() {
 	var a, i, count, ex;
 
-	this.init('res-comp-grid', 'sort', 50, [ { type: 'text', maxlen: 32 } ] );
+	this.init('res-comp-grid', 'sort', 100, [ { type: 'text', maxlen: 32 } ] );
 	this.headerSet(['MAC / IP Address']);
 	this.showNewEditor();
 	this.resetNewEditor();
@@ -195,7 +195,7 @@ bpg.enDiFields = function(row) {
 bpg.setup = function() {
 	var a, i, r, count;
 
-	this.init('res-bp-grid', 'sort', 50, [ { multi: [
+	this.init('res-bp-grid', 'sort', 100, [ { multi: [
 		{ type: 'select', prefix: '<div class="box1">', suffix: '</div>',options: [[-1, 'TCP/UDP'], [6, 'TCP'], [17, 'UDP']] },
 		{ type: 'select', prefix: '<div class="box2">', suffix: '</div>',
 			options: [['a','Any Port'],['d','Dst Port'],['s','Src Port'],['x','Src or Dst']] },
