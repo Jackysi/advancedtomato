@@ -18,7 +18,7 @@
 #include <shared.h>
 
 
-#define MAX_PMAP_ENTRIES	25
+#define MAX_PMAP_ENTRIES	100
 
 typedef struct {
 	char enabled;
