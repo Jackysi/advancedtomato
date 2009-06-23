@@ -47,14 +47,14 @@ sg.exist = function(f, v)
 {
 	var data = this.getAllData();
 	for (var i = 0; i < data.length; ++i) {
-		if (data[i][f] == v) return true;
+		if (data[i][f] == v) return i;
 	}
-	return false;
+	return -1;
 }
 
 sg.existMAC = function(mac)
 {
-	if (mac == "00:00:00:00:00:00") return false;
+	if (mac == "00:00:00:00:00:00") return -1;
 	return this.exist(0, mac);
 }
 
@@ -89,12 +89,11 @@ sg.verifyFields = function(row, quiet)
 	var f, s;
 
 	f = fields.getAll(row);
+	ferror.clear(f[0]);
+	ferror.clear(f[1]);
+	ferror.clear(f[2]);
 
 	if (!v_macz(f[0], quiet)) return 0;
-	if (this.existMAC(f[0].value)) {
-		ferror.set(f[0], 'Duplicate MAC address', quiet);
-		return 0;
-	}
 
 	if (f[1].value.indexOf('.') == -1) {
 		s = parseInt(f[1].value, 10)
@@ -105,22 +104,18 @@ sg.verifyFields = function(row, quiet)
 		f[1].value = ipp + s;
 	}
 
-	if ((f[0].value != "00:00:00:00:00:00") && (this.inStatic(f[1].value))) {
-		ferror.set(f[1], 'Duplicate IP address', quiet);
-		return 0;
-	}
-
 	s = f[2].value.trim().replace(/\s+/g, ' ');
 	if (s.length > 0) {
 		if (s.search(/^[.a-zA-Z0-9_\- ]+$/) == -1) {
 			ferror.set(f[2], 'Invalid name. Only characters "A-Z 0-9 . - _" are allowed.', quiet);
 			return 0;
 		}
-		if (this.existName(s)) {
-			ferror.set(f[2], 'Duplicate name.', quiet);
-			return 0;
-		}
 		f[2].value = s;
+	}
+
+	if (this.existMAC(f[0].value) >= 0) {
+		ferror.set(f[0], 'Duplicate MAC address', quiet);
+		return 0;
 	}
 
 	if (f[0].value == '00:00:00:00:00:00') {
@@ -128,6 +123,19 @@ sg.verifyFields = function(row, quiet)
 			s = 'Both MAC address and name fields must not be empty.';
 			ferror.set(f[0], s, 1);
 			ferror.set(f[2], s, quiet);
+			return 0;
+		}
+		if (this.existName(f[2].value) >= 0) {
+			ferror.set(f[0], 'Duplicate name', quiet);
+			return 0;
+		}
+	}
+	else {
+		if (this.inStatic(f[1].value) != this.existName(s)) {
+			if (this.inStatic(f[1].value) >= 0)
+				ferror.set(f[1], 'Duplicate IP address', quiet);
+			else
+				ferror.set(f[2], 'Duplicate name', quiet);
 			return 0;
 		}
 	}
@@ -177,7 +185,10 @@ sg.setup = function()
 		var t = s[i].split('<');
 		if (t.length == 3) {
 			if (t[1].indexOf('.') == -1) t[1] = ipp + t[1];
-			this.insertData(-1, t);
+
+			var u = t[0].split(',');
+			for (var j = 0; j < u.length; ++j)
+				this.insertData(-1, new Array(u[j], t[1], t[2]));
 		}
 	}
 	this.sort(2);
@@ -194,7 +205,15 @@ function save()
 	var i;
 
 	for (i = 0; i < data.length; ++i) {
-		sdhcp += data[i].join('<') + '>';
+		var prev = sg.inStatic(data[i][1]);
+		if (prev >= 0 && prev < i) {
+			data[prev] = new Array(data[prev][0]+','+data[i][0],data[prev][1],data[prev][2]);
+			data[i] = null;
+		}
+	}
+	for (i = 0; i < data.length; ++i) {
+		if (data[i] != null)
+			sdhcp += data[i].join('<') + '>';
 	}
 
 	var fom = E('_fom');
