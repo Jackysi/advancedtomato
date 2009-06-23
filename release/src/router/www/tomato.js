@@ -1947,6 +1947,10 @@ function navi()
 			['View Graphs',		'graphs.asp'],
 			['View Details',	'detailed.asp']
 			] ],
+		['IP/MAC BW Limiter',    		'new', 0, [
+                       ['IP/MAC BW Limit',     'qoslimit.asp'],
+                       ['ARP Binding',         'arpbind.asp']
+                       ] ],
 		['Access Restriction',	'restrict.asp'],
 /*
 		['Scripts',				'sc', 0, [
