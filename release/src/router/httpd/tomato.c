@@ -122,9 +122,9 @@ void wi_cgi_bin(char *url, int len, char *boundary)
 
 static void wo_cgi_bin(char *url)
 {
-	char webExecFile[] = "/tmp/.webexecXXXXXX";
-	char webQueryFile[] = "/tmp/.webqueryXXXXXX";
-	char webASPFile[] = "/tmp/.weboutXXXXXX";
+	char webExecFile[] = "/tmp/.wxXXXXXX";
+	char webQueryFile[] = "/tmp/.wqXXXXXX";
+	char webASPFile[] = "/tmp/.woXXXXXX";
 
 	FILE *f;
 

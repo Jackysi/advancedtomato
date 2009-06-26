@@ -404,6 +404,7 @@ static void handle_request(void)
 
 	if ((cp = strchr(file, '?')) != NULL) {
 		*cp = 0;
+		setenv("QUERY_STRING", cp + 1, 1);
 		webcgi_init(cp + 1);
 	}
 
