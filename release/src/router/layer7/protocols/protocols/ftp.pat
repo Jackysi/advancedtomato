@@ -27,7 +27,7 @@
 
 ftp
 # by default, we allow only ASCII
-^220[\x09-\x0d -~]*ftp
+#^220[\x09-\x0d -~]*ftp
 
 # This covers UTF-8 as well 
 #^220[\x09-\x0d -~\x80-\xfd]*ftp
@@ -43,4 +43,4 @@ ftp
 #^220[\x09-\x0d -~]*\x0d\x0aUSER[\x09-\x0d -~]*\x0d\x0a331
 
 # same as above, but slightly less precise and only takes 2 packets.
-#^220[\x09-\x0d -~]*\x0d\x0aUSER[\x09-\x0d -~]*\x0d\x0a
+^220[\x09-\x0d -~]*\x0d\x0aUSER[\x09-\x0d -~]*\x0d\x0a
