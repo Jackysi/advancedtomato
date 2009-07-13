@@ -76,7 +76,7 @@ static void wi_generic_noid(char *url, int len, char *boundary)
 			exit(1);
 		}
 
-		if (!post_buf) free(post_buf);
+		if (post_buf) free(post_buf);
 		if ((post_buf = malloc(len + 1)) == NULL) {
 //			syslog(LOG_CRIT, "Unable to allocate post buffer");
 			exit(1);
