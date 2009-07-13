@@ -99,7 +99,7 @@ void wi_generic(char *url, int len, char *boundary)
 // !!TB - CGI Support
 void wi_cgi_bin(char *url, int len, char *boundary)
 {
-	if (!post_buf) free(post_buf);
+	if (post_buf) free(post_buf);
 	post_buf = NULL;
 
 	if (post) {
@@ -120,52 +120,78 @@ void wi_cgi_bin(char *url, int len, char *boundary)
 	}
 }
 
-static void wo_cgi_bin(char *url)
+static void _execute_command(char *url, char *command, char *query, char *output)
 {
-	char webExecFile[] = "/tmp/.wxXXXXXX";
+	char webExecFile[]  = "/tmp/.wxXXXXXX";
 	char webQueryFile[] = "/tmp/.wqXXXXXX";
-	char webASPFile[] = "/tmp/.woXXXXXX";
-
 	FILE *f;
 
 	mktemp(webExecFile);
-	if (post_buf) mktemp(webQueryFile);
+	if (query) mktemp(webQueryFile);
 
 	if ((f = fopen(webExecFile, "wb")) != NULL) {
-		fprintf(f, "#!/bin/sh\nexport REQUEST_METHOD=\"%s\"\n", post ? "POST" : "GET");
-		if (post_buf)
-			fprintf(f, "./%s <%s\n", url, webQueryFile);
-		else
-			fprintf(f, "./%s\n", url);
+		fprintf(f,
+			"#!/bin/sh\n"
+			"export REQUEST_METHOD=\"%s\"\n"
+			"export PATH=%s\n"
+			". /etc/profile\n"
+			"%s%s %s%s\n",
+			post ? "POST" : "GET", getenv("PATH"),
+			command ? "" : "./", command ? command : url,
+			query ? "<" : "", query ? webQueryFile : "");
 		fclose(f);
 	}
 	else {
+		unlink(output);
 		exit(1);
 	}
+	chmod(webExecFile, 0700);
 
-	if (post_buf) {
+	if (query) {
 		if ((f = fopen(webQueryFile, "wb")) != NULL) {
-			fprintf(f, "%s\n", post_buf);
+			fprintf(f, "%s\n", query);
 			fclose(f);
-			free(post_buf);
-			post_buf = NULL;
 		}
 		else {
+			unlink(output);
 			unlink(webExecFile);
 			exit(1);
 		}
 	}
 
-	chmod(webExecFile, 0700);
-
 	char cmd[128];
-	mktemp(webASPFile);
-	sprintf(cmd, "%s >%s", webExecFile, webASPFile);
+	sprintf(cmd, "%s >%s 2>&1", webExecFile, output);
 	system(cmd);
 	unlink(webQueryFile);
 	unlink(webExecFile);
-	wo_asp(webASPFile);
-	unlink(webASPFile);
+}
+
+static void wo_cgi_bin(char *url)
+{
+	char webOutpFile[] = "/tmp/.woXXXXXX";
+
+	mktemp(webOutpFile);
+	_execute_command(url, NULL, post_buf, webOutpFile);
+
+	if (post_buf) {
+		free(post_buf);
+		post_buf = NULL;
+	}
+	wo_asp(webOutpFile);
+	unlink(webOutpFile);
+}
+
+static void wo_shell(char *url)
+{
+	char webOutpFile[] = "/tmp/.woXXXXXX";
+
+	mktemp(webOutpFile);
+	_execute_command(NULL, webcgi_get("command"), NULL, webOutpFile);
+
+	web_puts("\ncmdresult = '");
+	web_putfile(webOutpFile, WOF_JAVASCRIPT);
+	web_puts("';");
+	unlink(webOutpFile);
 }
 
 static void wo_blank(char *url)
@@ -268,6 +294,7 @@ const struct mime_handler mime_handlers[] = {
 // !!TB - CGI Support, enable downloading archives
 	{ "**/cgi-bin/**|**.sh",	NULL,					0,	wi_cgi_bin,		wo_cgi_bin,			1 },
 	{ "**.tar|**.gz",		mime_binary,				0,	wi_generic_noid,	do_file,		1 },
+	{ "shell.cgi",			mime_javascript,			0,	wi_generic,		wo_shell,		1 },
 
 	{ "dhcpc.cgi",		NULL,						0,	wi_generic,			wo_dhcpc,		1 },
 	{ "dhcpd.cgi",		mime_javascript,			0,	wi_generic,			wo_dhcpd,		1 },
