@@ -930,6 +930,8 @@ int init_main(int argc, char *argv[])
 
 			if (nvram_get_int("usb_nolock"))
 				start_usb();
+			usb_unlock(fd);	// allow to process usb hotplug events
+
 			start_vlan();
 			start_lan();
 			start_wan(BOOT);
@@ -937,8 +939,6 @@ int init_main(int argc, char *argv[])
 
 			syslog(LOG_INFO, "Tomato %s", tomato_version);
 			syslog(LOG_INFO, "%s", nvram_safe_get("t_model_name"));
-
-			usb_unlock(fd);	// allow to process usb hotplug events
 
 			led(LED_DIAG, 0);
 
