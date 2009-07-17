@@ -237,9 +237,7 @@ input[type='button']:hover {
 }
 
 label {
-	display:block;
-	font-weight:bold;
-	margin:5px 0;
+	margin: 5px 0;
 }
 input {
 	padding: 2px;
