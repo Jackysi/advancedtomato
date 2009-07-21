@@ -92,6 +92,14 @@
 #define ELFCLASSM	ELFCLASS32
 #endif
 
+/* X86_64  */
+#if defined(__x86_64__)
+#define MATCH_MACHINE(x) (x == EM_X86_64)
+#define SHT_RELM	SHT_REL
+#define Elf64_RelM	Elf64_Rel
+#define ELFCLASSM	ELFCLASS64
+#endif
+ 
 #ifndef MATCH_MACHINE
 #warning "You really should add a MATCH_MACHINE() macro for your architecture"
 #endif
