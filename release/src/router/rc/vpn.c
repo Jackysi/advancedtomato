@@ -39,6 +39,7 @@ void start_vpnclient(int clientNum)
 	enum { TAP, TUN } ifType = TUN;
 	enum { BRIDGE, NAT, NONE } routeMode = NONE;
 	int nvi, ip[4], nm[4];
+	long int nvl;
 
 	vpnlog(VPN_LOG_INFO,"VPN GUI client backend starting...");
 
@@ -180,6 +181,9 @@ void start_vpnclient(int clientNum)
 		fprintf(fp, "resolv-retry %d\n", nvi);
 	else
 		fprintf(fp, "resolv-retry infinite\n");
+	sprintf(&buffer[0], "vpn_client%d_reneg", clientNum);
+	if ( (nvl = atol(nvram_safe_get(&buffer[0]))) >= 0 )
+		fprintf(fp, "reneg-sec %ld\n", nvl);
 	fprintf(fp, "nobind\n");
 	fprintf(fp, "persist-key\n");
 	fprintf(fp, "persist-tun\n");
@@ -390,6 +394,7 @@ void start_vpnserver(int serverNum)
 	enum { TAP, TUN } ifType = TUN;
 	enum { TLS, SECRET, CUSTOM } cryptMode = CUSTOM;
 	int nvi, ip[4], nm[4];
+	long int nvl;
 
 	vpnlog(VPN_LOG_INFO,"VPN GUI server backend starting...");
 
@@ -533,6 +538,9 @@ void start_vpnserver(int serverNum)
 		fprintf(fp, "cipher %s\n", nvram_safe_get(&buffer[0]));
 	sprintf(&buffer[0], "vpn_server%d_comp", serverNum);
 	fprintf(fp, "comp-lzo %s\n", nvram_safe_get(&buffer[0]));
+	sprintf(&buffer[0], "vpn_server%d_reneg", serverNum);
+	if ( (nvl = atol(nvram_safe_get(&buffer[0]))) >= 0 )
+		fprintf(fp, "reneg-sec %ld\n", nvl);
 	fprintf(fp, "keepalive 15 60\n");
 	fprintf(fp, "verb 3\n");
 	if ( cryptMode == TLS )
