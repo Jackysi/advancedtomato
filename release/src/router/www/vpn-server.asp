@@ -176,6 +176,20 @@ function verifyFields(focused, quiet)
 		elem.display(PR('_f_vpn_'+t+'_ccd'), auth.value == "tls");
 		elem.display(PR('_f_vpn_'+t+'_c2c'),PR('_f_vpn_'+t+'_ccd_excl'),PR('table_'+t+'_ccd'), auth.value == "tls" && ccd.checked);
 		elem.display(PR('_f_vpn_'+t+'_pdns'), auth.value == "tls" && dns.checked );
+
+		keyHelp = E(t+'-keyhelp');
+		switch (auth.value)
+		{
+		case "tls":
+			keyHelp.href = helpURL['TLSKeys'];
+			break;
+		case "secret":
+			keyHelp.href = helpURL['staticKeys'];
+			break;
+		default:
+			keyHelp.href = helpURL['howto'];
+			break;
+		}
 	}
 
 	return ret;
@@ -343,6 +357,11 @@ textarea
 	width: 98%;
 	height: 10em;
 }
+p.keyhelp
+{
+	font-size: smaller;
+	font-style: italic;
+}
 div.status-header p
 {
 	font-weight: bold;
@@ -436,6 +455,7 @@ for (i = 0; i < tabs.length; ++i)
 	]);
 	W('</div>');
 	W('<div id=\''+t+'-keys\'>');
+	W('<p class=\'keyhelp\'>For help generating keys, refer to the OpenVPN <a id=\''+t+'-keyhelp\'>HOWTO</a>.</p>');
 	createFieldTable('', [
 		{ title: 'Static Key', name: 'vpn_'+t+'_static', type: 'textarea', value: eval( 'nvram.vpn_'+t+'_static' ) },
 		{ title: 'Certificate Authority', name: 'vpn_'+t+'_ca', type: 'textarea', value: eval( 'nvram.vpn_'+t+'_ca' ) },
