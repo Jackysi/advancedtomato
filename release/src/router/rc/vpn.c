@@ -637,6 +637,8 @@ void start_vpnserver(int serverNum)
 		{
 			if ( nvram_safe_get("wan_domain")[0] != '\0' )
 				fprintf(fp, "push \"dhcp-option DOMAIN %s\"\n", nvram_safe_get("wan_domain"));
+			if ( (nvram_safe_get("wan_wins")[0] != '\0' && strcmp(nvram_safe_get("wan_wins"), "0.0.0.0") != 0) )
+				fprintf(fp, "push \"dhcp-option WINS %s\"\n", nvram_safe_get("wan_wins"));
 			fprintf(fp, "push \"dhcp-option DNS %s\"\n", nvram_safe_get("lan_ipaddr"));
 		}
 
@@ -887,10 +889,11 @@ void write_vpn_dnsmasq_config(FILE* f)
 {
 	char nv[16];
 	char buf[24];
-	char *pos;
+	char *pos, ch;
 	int cur;
 	DIR *dir;
 	struct dirent *file;
+	FILE *dnsf;
 
 	strlcpy(&buf[0], nvram_safe_get("vpn_server_dns"), sizeof(buf));
 	for ( pos = strtok(&buf[0],","); pos != NULL; pos=strtok(NULL, ",") )
@@ -911,7 +914,7 @@ void write_vpn_dnsmasq_config(FILE* f)
 			if ( file->d_name[0] == '.' )
 				continue;
 
-			if ( sscanf(file->d_name, "client%d.resolv", &cur) == 1 )
+			if ( sscanf(file->d_name, "client%d.resol%c", &cur, &ch) == 2 )
 			{
 				vpnlog(VPN_LOG_EXTRA, "Checking ADNS settings for client %d", cur);
 				snprintf(&buf[0], sizeof(buf), "vpn_client%d_adns", cur);
@@ -920,6 +923,22 @@ void write_vpn_dnsmasq_config(FILE* f)
 					vpnlog(VPN_LOG_INFO, "Adding strict-order to dnsmasq config for client %d", cur);
 					fprintf(f, "strict-order\n");
 					break;
+				}
+			}
+
+			if ( sscanf(file->d_name, "client%d.con%c", &cur, &ch) == 2 )
+			{
+				if ( (dnsf = fopen(file->d_name, "r")) != NULL )
+				{
+					vpnlog(VPN_LOG_INFO, "Adding Dnsmasq config from %s", file->d_name);
+
+					while( !feof(dnsf) )
+					{
+						ch = fgetc(dnsf);
+						fputc(ch==EOF?'\n':ch, f);
+					}
+
+					fclose(dnsf);
 				}
 			}
 		}
@@ -947,26 +966,25 @@ int write_vpn_resolv(FILE* f)
 		if ( fn[0] == '.' )
 			continue;
 
-		if ( (dnsf = fopen(fn, "r")) == NULL )
-			continue;
-
-		vpnlog(VPN_LOG_INFO,"Adding DNS entries from %s", fn);
-
-		while( !feof(dnsf) )
+		if ( sscanf(fn, "client%c.resol%c", &ch, &ch) == 2 )
 		{
-			ch = fgetc(dnsf);
-			fputc(ch==EOF?'\n':ch, f);
-		}
+			if ( (dnsf = fopen(fn, "r")) == NULL )
+				continue;
 
-		fclose(dnsf);
+			vpnlog(VPN_LOG_INFO,"Adding DNS entries from %s", fn);
 
-		if ( sscanf(fn, "client%c.resolv", &ch) == 1 )
-		{
+			while( !feof(dnsf) )
+			{
+				ch = fgetc(dnsf);
+				fputc(ch==EOF?'\n':ch, f);
+			}
+
+			fclose(dnsf);
+
 			snprintf(&buf[0], sizeof(buf), "vpn_client%c_adns", ch);
 			if ( nvram_get_int(&buf[0]) == 3 )
 				exclusive = 1;
 		}
-
 	}
 	vpnlog(VPN_LOG_EXTRA, "Done with DNS entries...");
 
