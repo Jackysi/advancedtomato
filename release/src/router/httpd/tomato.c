@@ -497,6 +497,7 @@ static const nvset_t nvset_list[] = {
 // advanced-wireless
 	{ "wl_country",			V_LENGTH(0, 64)		},	// !!TB - Country code
 	{ "wl_country_code",		V_LENGTH(0, 4)		},	// !!TB - Country code
+	{ "wl_btc_mode",		V_RANGE(0, 2)		},	// !!TB - BT Coexistence Mode: 0 (disable), 1 (enable), 2 (preemption)
 	{ "wl_afterburner",		V_LENGTH(2, 4)		},	// off, on, auto
 	{ "wl_auth",			V_01				},
 	{ "wl_rateset",			V_LENGTH(2, 7)		},	// all, default, 12

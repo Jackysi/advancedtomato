@@ -162,6 +162,7 @@ const defaults_t defaults[] = {
 	{ "wl_wme",				"off"			},	// WME mode (off|on)
 	{ "wl_antdiv",			"-1"			},	// Antenna Diversity (-1|0|1|3)
 	{ "wl_infra",			"1"				},	// Network Type (BSS/IBSS)
+	{ "wl_btc_mode",		"0"				},	// !!TB - BT Coexistence Mode
 
 	{ "wl_passphrase",		""				},	// Passphrase	// Add
 	{ "wl_wep_bit",			"128"			},	// WEP encryption [64 | 128] // Add
