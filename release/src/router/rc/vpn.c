@@ -320,7 +320,7 @@ void start_vpnclient(int clientNum)
 		vpnlog(VPN_LOG_EXTRA,"Done running firewall rules");
 	}
 
-	vpnlog(VPN_LOG_INFO,"VPN GUI server backend complete.");
+	vpnlog(VPN_LOG_INFO,"VPN GUI client backend complete.");
 }
 
 void stop_vpnclient(int clientNum)
@@ -545,7 +545,8 @@ void start_vpnserver(int serverNum)
 	fprintf(fp, "verb 3\n");
 	if ( cryptMode == TLS )
 	{
-		if ( ifType == TUN )
+		sprintf(&buffer[0], "vpn_server%d_plan", serverNum);
+		if ( ifType == TUN && nvram_get_int(&buffer[0]) )
 		{
 			sscanf(nvram_safe_get("lan_ipaddr"), "%d.%d.%d.%d", &ip[0], &ip[1], &ip[2], &ip[3]);
 			sscanf(nvram_safe_get("lan_netmask"), "%d.%d.%d.%d", &nm[0], &nm[1], &nm[2], &nm[3]);
