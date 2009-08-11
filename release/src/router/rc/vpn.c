@@ -188,7 +188,8 @@ void start_vpnclient(int clientNum)
 	fprintf(fp, "persist-key\n");
 	fprintf(fp, "persist-tun\n");
 	sprintf(&buffer[0], "vpn_client%d_comp", clientNum);
-	fprintf(fp, "comp-lzo %s\n", nvram_safe_get(&buffer[0]));
+	if ( nvram_get_int(&buffer[0]) >= 0 )
+		fprintf(fp, "comp-lzo %s\n", nvram_safe_get(&buffer[0]));
 	sprintf(&buffer[0], "vpn_client%d_cipher", clientNum);
 	if ( !nvram_contains_word(&buffer[0], "default") )
 		fprintf(fp, "cipher %s\n", nvram_safe_get(&buffer[0]));
@@ -537,7 +538,8 @@ void start_vpnserver(int serverNum)
 	if ( !nvram_contains_word(&buffer[0], "default") )
 		fprintf(fp, "cipher %s\n", nvram_safe_get(&buffer[0]));
 	sprintf(&buffer[0], "vpn_server%d_comp", serverNum);
-	fprintf(fp, "comp-lzo %s\n", nvram_safe_get(&buffer[0]));
+	if ( nvram_get_int(&buffer[0]) >= 0 )
+		fprintf(fp, "comp-lzo %s\n", nvram_safe_get(&buffer[0]));
 	sprintf(&buffer[0], "vpn_server%d_reneg", serverNum);
 	if ( (nvl = atol(nvram_safe_get(&buffer[0]))) >= 0 )
 		fprintf(fp, "reneg-sec %ld\n", nvl);
