@@ -771,6 +771,7 @@ static void sysinit(void)
 	mkdir("/home/root", 0700);
 	chmod("/tmp", 0777);
 	f_write("/etc/hosts", NULL, 0, 0, 0644);			// blank
+	f_write("/etc/fstab", NULL, 0, 0, 0644);			// !!TB - blank
 	simple_unlock("cron");
 	simple_unlock("firewall");
 	simple_unlock("restrictions");
