@@ -51,9 +51,6 @@ lib:	$(LIBOBJ)
 
 $(LIBOBJ): $(LIBSRC)
 
-aes-mips.S: asm/AESMipsGen.py
-	asm/AESMipsGen.py --byteswap -o $@
-
 aes-ia64.s: asm/aes-ia64.S
 	$(CC) $(CFLAGS) -E asm/aes-ia64.S > $@
 
