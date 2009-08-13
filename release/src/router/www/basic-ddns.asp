@@ -29,6 +29,7 @@
 
 t = hostname (top)
 u = username/password
+p = password
 h = hostname
 j = hostname (optional)
 c = custom url
@@ -57,6 +58,7 @@ var services = [
 	['dyns', 'DyNS', 'http://www.dyns.cx/', 'uh'],
 	['easydns', 'easyDNS', 'http://www.easydns.com/', 'uhwm'],
 	['seasydns', 'easyDNS (https)', 'http://www.easydns.com/', 'uhwm'],
+	['editdns', 'EditDNS', 'http://www.editdns.net/', 'tpz'],
 	['everydns', 'EveryDNS', 'http://www.everydns.net/', 'uj', null, null, 'Domain <small>(optional)</small>'],
 	['enom', 'eNom', 'http://www.enom.com/', 'ut', 'Domain'],
 	['afraid', 'FreeDNS (afraid.org)', 'http://freedns.afraid.org/', 'az'],
@@ -127,7 +129,8 @@ function verifyFields(focused, quiet)
 		elem.display('row_z' + i, op.z);
 
 		elem.display(PR('_f_hosttop' + i), op.t);
-		elem.display(PR('_f_user' + i), PR('_f_pass' + i), op.u);
+		elem.display(PR('_f_user' + i), op.u);
+		elem.display(PR('_f_pass' + i), op.u || op.p);
 		elem.display(PR('_f_host' + i), op.h || op.j);
 		elem.display(PR('_f_cust' + i), 'custmsg' + i, op.c);
 
@@ -179,7 +182,7 @@ function verifyFields(focused, quiet)
 				}
 			}
 			else {
-				if ((!v_length('_f_user' + i, quiet, 1)) ||
+				if (((op.u) && (!v_length('_f_user' + i, quiet, 1))) ||
 					(!v_length('_f_pass' + i, quiet, 1)) ||
 					((op.h) && (!op.o) && (!v_length('_f_host' + i, quiet, 1))) ||
 					((op.t) && (!v_length('_f_hosttop' + i, quiet, 1)))) {
@@ -248,7 +251,7 @@ s = save state checkbox
 REMOVE-END */
 			op = mop(data[3]);
 
-			if (op.u) s.push(E('_f_user' + i).value + ':' + E('_f_pass' + i).value);
+			if (op.u || op.p) s.push(E('_f_user' + i).value + ':' + E('_f_pass' + i).value);
 				else s.push('');
 
 			if (op.t) {

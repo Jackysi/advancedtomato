@@ -325,7 +325,7 @@ extern void stop_vpnserver(int serverNum);
 extern void start_vpn_eas();
 extern void run_vpn_firewall_scripts();
 extern void write_vpn_dnsmasq_config(FILE*);
-extern void write_vpn_resolv(FILE*);
+extern int write_vpn_resolv(FILE*);
 #else
 static inline void start_vpnclient(int clientNum) {}
 static inline void stop_vpnclient(int clientNum) {}
@@ -334,7 +334,7 @@ static inline void stop_vpnserver(int serverNum) {}
 static inline void start_vpn_eas() {}
 static inline void run_vpn_firewall_scripts() {}
 static inline void write_vpn_dnsmasq_config(FILE*) {}
-static inline void write_vpn_resolv(FILE*) {}
+static inline int write_vpn_resolv(FILE*) { return 0; }
 #endif
 
 #endif

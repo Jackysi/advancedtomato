@@ -437,13 +437,13 @@
 #define PACKAGE_NAME "OpenVPN"
 
 /* Define to the full name and version of this package. */
-#define PACKAGE_STRING "OpenVPN 2.1_rc15"
+#define PACKAGE_STRING "OpenVPN 2.1_rc19"
 
 /* Define to the one symbol short name of this package. */
 #define PACKAGE_TARNAME "openvpn"
 
 /* Define to the version of this package. */
-#define PACKAGE_VERSION "2.1_rc15"
+#define PACKAGE_VERSION "2.1_rc19"
 
 /* Define to the necessary symbol if this constant uses a non-standard name on
    your system. */
@@ -534,7 +534,7 @@
 /* #undef USE_VALGRIND */
 
 /* Version number of package */
-#define VERSION "2.1_rc15"
+#define VERSION "2.1_rc19"
 
 /* Enable GNU extensions on systems that have them.  */
 #ifndef _GNU_SOURCE

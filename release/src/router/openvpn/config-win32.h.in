@@ -5,7 +5,7 @@
  *             packet encryption, packet authentication, and
  *             packet compression.
  *
- *  Copyright (C) 2002-2008 OpenVPN Technologies, Inc. <sales@openvpn.net>
+ *  Copyright (C) 2002-2009 OpenVPN Technologies, Inc. <sales@openvpn.net>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License version 2
@@ -318,7 +318,6 @@ typedef unsigned long in_addr_t;
 #define S_IRUSR 0
 #define S_IWUSR 0
 typedef int intptr_t;
-#undef S_NORMAL
 /* Visual Studio 2005 supports vararg macros */
 #if _MSC_VER >= 1400
 #define HAVE_CPP_VARARG_MACRO_ISO 1

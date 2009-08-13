@@ -4,7 +4,7 @@
  *
  *  This code was inspired by the CIPE-Win32 driver by Damion K. Wilson.
  *
- *  This source code is Copyright (C) 2002-2008 OpenVPN Technologies, Inc.,
+ *  This source code is Copyright (C) 2002-2009 OpenVPN Technologies, Inc.,
  *  and is released under the GPL version 2 (see below), however due
  *  to the extra costs of supporting Windows Vista, OpenVPN Solutions
  *  LLC reserves the right to change the terms of the TAP-Win32/TAP-Win64
@@ -51,5 +51,6 @@
 
 #define PACKET_QUEUE_SIZE   64 // tap -> userspace queue size
 #define IRP_QUEUE_SIZE      16 // max number of simultaneous i/o operations from userspace
+#define INJECT_QUEUE_SIZE   16 // DHCP/ARP -> tap injection queue
 
 #define TAP_LITTLE_ENDIAN      // affects ntohs, htonl, etc. functions

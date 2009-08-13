@@ -186,7 +186,7 @@ void start_dnsmasq()
 	p = nvram_safe_get("dhcpd_static");
 	while ((e = strchr(p, '>')) != NULL) {
 		n = (e - p);
-		if (n > 84) {
+		if (n > sizeof(buf)-1) {
 			p = e + 1;
 			continue;
 		}
@@ -292,19 +292,19 @@ void dns_to_resolv(void)
 	m = umask(022);	// 077 from pppoecd
 	if ((f = fopen(dmresolv, "w")) != NULL) {
 		// Check for VPN DNS entries
-		write_vpn_resolv(f);
-
-		dns = get_dns();	// static buffer
-		if (dns->count == 0) {
-			// Put a pseudo DNS IP to trigger Connect On Demand
-			if ((nvram_match("ppp_demand", "1")) &&
-				(nvram_match("wan_proto", "pppoe") || nvram_match("wan_proto", "pptp") || nvram_match("wan_proto", "l2tp"))) {
-				fprintf(f, "nameserver 1.1.1.1\n");
+		if (!write_vpn_resolv(f)) {
+			dns = get_dns();	// static buffer
+			if (dns->count == 0) {
+				// Put a pseudo DNS IP to trigger Connect On Demand
+				if ((nvram_match("ppp_demand", "1")) &&
+					(nvram_match("wan_proto", "pppoe") || nvram_match("wan_proto", "pptp") || nvram_match("wan_proto", "l2tp"))) {
+					fprintf(f, "nameserver 1.1.1.1\n");
+				}
 			}
-		}
-		else {
-			for (i = 0; i < dns->count; i++) {
-				fprintf(f, "nameserver %s\n", inet_ntoa(dns->dns[i]));
+			else {
+				for (i = 0; i < dns->count; i++) {
+					fprintf(f, "nameserver %s\n", inet_ntoa(dns->dns[i]));
+				}
 			}
 		}
 		fclose(f);
