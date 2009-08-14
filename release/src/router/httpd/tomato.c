@@ -645,6 +645,9 @@ static const nvset_t nvset_list[] = {
 	{ "usb_printer_bidirect",	V_01				},
 	{ "usb_fs_ext3",		V_01				},
 	{ "usb_fs_fat",			V_01				},
+#ifdef TCONFIG_NTFS
+	{ "usb_fs_ntfs",		V_01				},
+#endif
 	{ "usb_automount",		V_01				},
 	{ "script_usbhotplug", 		V_TEXT(0, 2048)			},
 	{ "script_usbmount", 		V_TEXT(0, 2048)			},

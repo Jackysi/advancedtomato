@@ -477,6 +477,9 @@ const defaults_t defaults[] = {
 	{ "usb_printer_bidirect",	"1"				},
 	{ "usb_fs_ext3",		"0"				},
 	{ "usb_fs_fat",			"0"				},
+#ifdef TCONFIG_NTFS
+	{ "usb_fs_ntfs",		"0"				},
+#endif
 	{ "usb_automount",		"0"				},
 	{ "usb_bdflush",		"30 500 0 0 100 100 60 0 0"	},
 	{ "script_usbhotplug", 		""				},

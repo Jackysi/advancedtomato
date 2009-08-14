@@ -51,6 +51,9 @@ textarea {
 <script type='text/javascript'>
 
 //	<% nvram("usb_enable,usb_uhci,usb_ohci,usb_usb2,usb_storage,usb_printer,usb_printer_bidirect,usb_automount,usb_fs_ext3,usb_fs_fat,script_usbmount,script_usbumount,script_usbhotplug"); %>
+/* NTFS-BEGIN */
+//	<% nvram("usb_fs_ntfs"); %>
+/* NTFS-END */
 //	<% usbdevices(); %>
 
 list = [];
@@ -271,6 +274,9 @@ function verifyFields(focused, quiet)
 
 	E('_f_ext3').disabled = b || a;
 	E('_f_fat').disabled = b || a;
+/* NTFS-BEGIN */
+	E('_f_ntfs').disabled = b || a;
+/* NTFS-END */
 	E('_f_automount').disabled = b || a;
 	E('_f_bprint').disabled = b || !E('_f_print').checked;
 
@@ -302,6 +308,9 @@ function save()
 	fom.usb_printer_bidirect.value = E('_f_bprint').checked ? 1 : 0;
 	fom.usb_fs_ext3.value = E('_f_ext3').checked ? 1 : 0;
 	fom.usb_fs_fat.value = E('_f_fat').checked ? 1 : 0;
+/* NTFS-BEGIN */
+	fom.usb_fs_ntfs.value = E('_f_ntfs').checked ? 1 : 0;
+/* NTFS-END */
 	fom.usb_automount.value = E('_f_automount').checked ? 1 : 0;
 
 	form.submit(fom, 1);
@@ -339,6 +348,9 @@ function submit_complete()
 <input type='hidden' name='usb_printer_bidirect'>
 <input type='hidden' name='usb_fs_ext3'>
 <input type='hidden' name='usb_fs_fat'>
+/* NTFS-BEGIN */
+<input type='hidden' name='usb_fs_ntfs'>
+/* NTFS-END */
 <input type='hidden' name='usb_automount'>
 
 <div class='section-title'>USB Support</div>
@@ -357,6 +369,9 @@ createFieldTable('', [
 	{ title: 'USB Storage Support', name: 'f_storage', type: 'checkbox', value: nvram.usb_storage == 1 },
 		{ title: 'Ext2 / Ext3 File System Support', indent: 2, name: 'f_ext3', type: 'checkbox', value: nvram.usb_fs_ext3 == 1 },
 		{ title: 'FAT File System Support', indent: 2, name: 'f_fat', type: 'checkbox', value: nvram.usb_fs_fat == 1 },
+/* NTFS-BEGIN */
+		{ title: 'NTFS File System Support', indent: 2, name: 'f_ntfs', type: 'checkbox', suffix: ' <small>(limited write support)</small>', value: nvram.usb_fs_ntfs == 1 },
+/* NTFS-END */
 		{ title: 'Automount', indent: 2, name: 'f_automount', type: 'checkbox',
 			suffix: ' <small>Automatically mount all partitions to sub-directories in <i>/mnt</i>.</small>', value: nvram.usb_automount == 1 },
 	{ title: 'Run after mounting', indent: 2, name: 'script_usbmount', type: 'textarea', value: nvram.script_usbmount },
