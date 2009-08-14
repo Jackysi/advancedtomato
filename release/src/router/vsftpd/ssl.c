@@ -257,8 +257,9 @@ ssl_read_common(struct vsf_session* p_sess,
   }
   while (retval < 0 && (err == SSL_ERROR_WANT_READ ||
                         err == SSL_ERROR_WANT_WRITE));
-  // If we hit an EOF, make sure it was from the peer, not injected by the
-  // attacker.
+  /* If we hit an EOF, make sure it was from the peer, not injected by the
+   * attacker.
+   */
   if (retval == 0 && SSL_get_shutdown(p_ssl) != SSL_RECEIVED_SHUTDOWN)
   {
     str_alloc_text(&debug_str, "Connection terminated without SSL shutdown "
@@ -366,14 +367,15 @@ ssl_data_close(struct vsf_session* p_sess)
   {
     int ret;
     maybe_log_shutdown_state(p_sess);
-    // This is a mess. Ideally, when we're the sender, we'd like to get to the
-    // SSL_RECEIVED_SHUTDOWN state to get a cryptographic guarantee that the
-    // peer received all the data and shut the connection down cleanly. It
-    // doesn't matter hugely apart from logging, but it's a nagging detail.
-    // Unfortunately, no FTP client I found was able to get sends into that
-    // state, so the best we can do is issue SSL_shutdown but not check the
-    // errors / returns. At least this enables the receiver to be sure of the
-    // integrity of the send in terms of unwanted truncation.
+    /* This is a mess. Ideally, when we're the sender, we'd like to get to the
+     * SSL_RECEIVED_SHUTDOWN state to get a cryptographic guarantee that the
+     * peer received all the data and shut the connection down cleanly. It
+     * doesn't matter hugely apart from logging, but it's a nagging detail.
+     * Unfortunately, no FTP client I found was able to get sends into that
+     * state, so the best we can do is issue SSL_shutdown but not check the
+     * errors / returns. At least this enables the receiver to be sure of the
+     * integrity of the send in terms of unwanted truncation.
+     */
     ret = SSL_shutdown(p_ssl);
     maybe_log_shutdown_state(p_sess);
     if (ret == 0)

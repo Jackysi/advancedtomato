@@ -128,7 +128,32 @@ vsf_one_process_login(struct vsf_session* p_sess,
 int
 vsf_one_process_get_priv_data_sock(struct vsf_session* p_sess)
 {
-  return vsf_privop_get_ftp_port_sock(p_sess);
+  unsigned short port = vsf_sysutil_sockaddr_get_port(p_sess->p_port_sockaddr);
+  return vsf_privop_get_ftp_port_sock(p_sess, port);
+}
+
+void
+vsf_one_process_pasv_cleanup(struct vsf_session* p_sess)
+{
+  vsf_privop_pasv_cleanup(p_sess);
+}
+
+int
+vsf_one_process_pasv_active(struct vsf_session* p_sess)
+{
+  return vsf_privop_pasv_active(p_sess);
+}
+
+unsigned short
+vsf_one_process_listen(struct vsf_session* p_sess)
+{
+  return vsf_privop_pasv_listen(p_sess);
+}
+
+int
+vsf_one_process_get_pasv_fd(struct vsf_session* p_sess)
+{
+  return vsf_privop_accept_pasv(p_sess);
 }
 
 void

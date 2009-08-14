@@ -98,32 +98,27 @@ int
 vsf_ftpdataio_get_pasv_fd(struct vsf_session* p_sess)
 {
   int remote_fd;
-  struct vsf_sysutil_sockaddr* p_accept_addr = 0;
-  vsf_sysutil_sockaddr_alloc(&p_accept_addr);
-  remote_fd = vsf_sysutil_accept_timeout(p_sess->pasv_listen_fd, p_accept_addr,
-                                         tunable_accept_timeout);
-  if (vsf_sysutil_retval_is_error(remote_fd))
+  if (tunable_one_process_model)
+  {
+    remote_fd = vsf_one_process_get_pasv_fd(p_sess);
+  }
+  else
+  {
+    remote_fd = vsf_two_process_get_pasv_fd(p_sess);
+  }
+  /* Yes, yes, hardcoded bad I know. */
+  if (remote_fd == -1)
   {
     vsf_cmdio_write(p_sess, FTP_BADSENDCONN,
                     "Failed to establish connection.");
-    vsf_sysutil_sockaddr_clear(&p_accept_addr);
     return remote_fd;
   }
-  /* SECURITY:
-   * Reject the connection if it wasn't from the same IP as the
-   * control connection.
-   */
-  if (!tunable_pasv_promiscuous)
+  else if (remote_fd == -2)
   {
-    if (!vsf_sysutil_sockaddr_addr_equal(p_sess->p_remote_addr, p_accept_addr))
-    {
-      vsf_cmdio_write(p_sess, FTP_BADSENDCONN, "Security: Bad IP connecting.");
-      vsf_sysutil_close(remote_fd);
-      vsf_sysutil_sockaddr_clear(&p_accept_addr);
-      return -1;
-    }
+    vsf_cmdio_write(p_sess, FTP_BADSENDCONN, "Security: Bad IP connecting.");
+    vsf_sysutil_close(remote_fd);
+    return -1;
   }
-  vsf_sysutil_sockaddr_clear(&p_accept_addr);
   init_data_sock_params(p_sess, remote_fd);
   return remote_fd;
 }
@@ -131,38 +126,19 @@ vsf_ftpdataio_get_pasv_fd(struct vsf_session* p_sess)
 int
 vsf_ftpdataio_get_port_fd(struct vsf_session* p_sess)
 {
-  int retval;
   int remote_fd;
-  if (tunable_connect_from_port_20)
+  if (tunable_one_process_model || tunable_port_promiscuous)
   {
-    if (tunable_one_process_model)
-    {
-      remote_fd = vsf_one_process_get_priv_data_sock(p_sess);
-    }
-    else
-    {
-      remote_fd = vsf_two_process_get_priv_data_sock(p_sess);
-    }
+    remote_fd = vsf_one_process_get_priv_data_sock(p_sess);
   }
   else
   {
-    static struct vsf_sysutil_sockaddr* s_p_addr;
-    remote_fd = vsf_sysutil_get_ipsock(p_sess->p_local_addr);
-    vsf_sysutil_sockaddr_clone(&s_p_addr, p_sess->p_local_addr);
-    vsf_sysutil_sockaddr_set_port(s_p_addr, 0);
-    retval = vsf_sysutil_bind(remote_fd, s_p_addr);
-    if (retval != 0)
-    { 
-      die("vsf_sysutil_bind");
-    }
+    remote_fd = vsf_two_process_get_priv_data_sock(p_sess);
   }
-  retval = vsf_sysutil_connect_timeout(remote_fd, p_sess->p_port_sockaddr,
-                                       tunable_connect_timeout);
-  if (vsf_sysutil_retval_is_error(retval))
+  if (vsf_sysutil_retval_is_error(remote_fd))
   {
     vsf_cmdio_write(p_sess, FTP_BADSENDCONN,
                     "Failed to establish connection.");
-    vsf_sysutil_close(remote_fd);
     return -1;
   }
   init_data_sock_params(p_sess, remote_fd);

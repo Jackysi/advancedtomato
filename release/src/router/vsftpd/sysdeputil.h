@@ -15,7 +15,7 @@ struct mystr;
 
 /* Authentication of local users */
 /* Return 0 for fail, 1 for success */
-int vsf_sysdep_check_auth(const struct mystr* p_user,
+int vsf_sysdep_check_auth(struct mystr* p_user,
                           const struct mystr* p_pass,
                           const struct mystr* p_remote_host);
 
@@ -60,8 +60,12 @@ void vsf_set_die_if_parent_dies();
 /* Or a softer version delivering SIGTERM. */
 void vsf_set_term_if_parent_dies();
 
-/* If supported, the ability to fork into different secure namespaces. */
+/* If supported, the ability to fork into different secure namespaces (PID
+ * and IPC. Fails back to normal fork() */
 int vsf_sysutil_fork_isolate_failok();
+/* If supported, the ability to fork into an empty network namespace.
+ * Fails back to normal fork() */
+int vsf_sysutil_fork_newnet();
 int vsf_sysutil_getpid_nocache();
 
 #endif /* VSF_SYSDEPUTIL_H */

@@ -90,7 +90,15 @@ vsf_two_process_start(struct vsf_session* p_sess)
   }
   vsf_sysutil_install_sighandler(kVSFSysUtilSigCHLD, handle_sigchld, 0, 1);
   {
-    int newpid = vsf_sysutil_fork();
+    int newpid;
+    if (tunable_isolate_network)
+    {
+      newpid = vsf_sysutil_fork_newnet();
+    }
+    else
+    {
+      newpid = vsf_sysutil_fork();
+    }
     if (newpid != 0)
     {
       priv_sock_set_parent_context(p_sess);
@@ -120,7 +128,7 @@ vsf_two_process_start(struct vsf_session* p_sess)
                               VSFTP_CONF_FILE_MAX);
     if (vsf_sysutil_retval_is_error(retval))
     {
-      die2("cannot open user list file:", tunable_userlist_file);
+      die2("cannot read user list file:", tunable_userlist_file);
     }
   }
   drop_all_privs();
@@ -200,11 +208,60 @@ int
 vsf_two_process_get_priv_data_sock(struct vsf_session* p_sess)
 {
   char res;
+  unsigned short port = vsf_sysutil_sockaddr_get_port(p_sess->p_port_sockaddr);
   priv_sock_send_cmd(p_sess->child_fd, PRIV_SOCK_GET_DATA_SOCK);
+  priv_sock_send_int(p_sess->child_fd, port);
+  res = priv_sock_get_result(p_sess->child_fd);
+  if (res == PRIV_SOCK_RESULT_BAD)
+  {
+    return -1;
+  }
+  else if (res != PRIV_SOCK_RESULT_OK)
+  {
+    die("could not get privileged socket");
+  }
+  return priv_sock_recv_fd(p_sess->child_fd);
+}
+
+void
+vsf_two_process_pasv_cleanup(struct vsf_session* p_sess)
+{
+  char res;
+  priv_sock_send_cmd(p_sess->child_fd, PRIV_SOCK_PASV_CLEANUP);
   res = priv_sock_get_result(p_sess->child_fd);
   if (res != PRIV_SOCK_RESULT_OK)
   {
-    die("could not get privileged socket");
+    die("could not clean up socket");
+  }
+}
+
+int
+vsf_two_process_pasv_active(struct vsf_session* p_sess)
+{
+  priv_sock_send_cmd(p_sess->child_fd, PRIV_SOCK_PASV_ACTIVE);
+  return priv_sock_get_int(p_sess->child_fd);
+}
+
+unsigned short
+vsf_two_process_listen(struct vsf_session* p_sess)
+{
+  priv_sock_send_cmd(p_sess->child_fd, PRIV_SOCK_PASV_LISTEN);
+  return (unsigned short) priv_sock_get_int(p_sess->child_fd);
+}
+
+int
+vsf_two_process_get_pasv_fd(struct vsf_session* p_sess)
+{
+  char res;
+  priv_sock_send_cmd(p_sess->child_fd, PRIV_SOCK_PASV_ACCEPT);
+  res = priv_sock_get_result(p_sess->child_fd);
+  if (res == PRIV_SOCK_RESULT_BAD)
+  {
+    return priv_sock_get_int(p_sess->child_fd);
+  }
+  else if (res != PRIV_SOCK_RESULT_OK)
+  {
+    die("could not accept on listening socket");
   }
   return priv_sock_recv_fd(p_sess->child_fd);
 }
@@ -273,7 +330,7 @@ process_login_req(struct vsf_session* p_sess)
                                     VSFTP_CONF_FILE_MAX);
           if (vsf_sysutil_retval_is_error(retval))
           {
-            die2("could not open chroot() list file:",
+            die2("could not read chroot() list file:",
                  tunable_chroot_list_file);
           }
           if (str_contains_line(&chroot_list_file, &p_sess->user_str))
@@ -324,7 +381,14 @@ common_do_login(struct vsf_session* p_sess, const struct mystr* p_user_str,
   priv_sock_close(p_sess);
   priv_sock_init(p_sess);
   vsf_sysutil_install_sighandler(kVSFSysUtilSigCHLD, handle_sigchld, 0, 1);
-  newpid = vsf_sysutil_fork(); 
+  if (tunable_isolate_network && !tunable_port_promiscuous)
+  {
+    newpid = vsf_sysutil_fork_newnet();
+  }
+  else
+  {
+    newpid = vsf_sysutil_fork();
+  }
   if (newpid == 0)
   {
     struct mystr guest_user_str = INIT_MYSTR;
@@ -418,6 +482,10 @@ handle_per_user_config(const struct mystr* p_user_str)
   {
     /* Security - file ownership check now in vsf_parseconf_load_file() */
     vsf_parseconf_load_file(str_getbuf(&filename_str), 1);
+  }
+  else if (vsf_sysutil_get_error() != kVSFSysUtilErrNOENT)
+  {
+    die("error opening per-user config file");
   }
   str_free(&filename_str);
   vsf_sysutil_free(p_statbuf);
