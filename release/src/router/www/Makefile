@@ -65,14 +65,7 @@ ifneq ($(TCONFIG_OPENVPN),y)
 	rm -f $(INSTALLDIR)/www/vpn-server.asp
 endif
 
-# install extra vpngui files and directories
-
-ifeq ($(TCONFIG_OPENVPN),y)
-	mkdir -p $(INSTALLDIR)/rom/openvpn
-	cp openvpn-updown.sh $(INSTALLDIR)/rom/openvpn/updown.sh
-	chmod 0755 $(INSTALLDIR)/rom/openvpn/updown.sh
-endif
-
+	
 # make sure old and debugging crap is gone
 	@rm -f $(INSTALLDIR)/www/debug.js
 	@rm -f $(INSTALLDIR)/www/*-x.*

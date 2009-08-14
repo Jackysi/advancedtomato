@@ -735,7 +735,9 @@ static const nvset_t nvset_list[] = {
 	{ "vpn_server1_nm",       V_IP                },
 	{ "vpn_server1_local",    V_IP                },
 	{ "vpn_server1_remote",   V_IP                },
+	{ "vpn_server1_reneg",    V_RANGE(-1,2147483647)},
 	{ "vpn_server1_hmac",     V_RANGE(-1, 2)      },
+	{ "vpn_server1_plan",     V_01                },
 	{ "vpn_server1_ccd",      V_01                },
 	{ "vpn_server1_c2c",      V_01                },
 	{ "vpn_server1_ccd_excl", V_01                },
@@ -762,7 +764,9 @@ static const nvset_t nvset_list[] = {
 	{ "vpn_server2_nm",       V_IP                },
 	{ "vpn_server2_local",    V_IP                },
 	{ "vpn_server2_remote",   V_IP                },
+	{ "vpn_server2_reneg",    V_RANGE(-1,2147483647)},
 	{ "vpn_server2_hmac",     V_RANGE(-1, 2)      },
+	{ "vpn_server2_plan",     V_01                },
 	{ "vpn_server2_pdns",     V_01                },
 	{ "vpn_server2_rgw",      V_01                },
 	{ "vpn_server2_custom",   V_NONE              },
@@ -790,8 +794,9 @@ static const nvset_t nvset_list[] = {
 	{ "vpn_client1_local",    V_IP                },
 	{ "vpn_client1_remote",   V_IP                },
 	{ "vpn_client1_nm",       V_IP                },
+	{ "vpn_client1_reneg",    V_RANGE(-1,2147483647)},
 	{ "vpn_client1_hmac",     V_RANGE(-1, 2)      },
-	{ "vpn_client1_adns",     V_01                },
+	{ "vpn_client1_adns",     V_RANGE(0, 3)       },
 	{ "vpn_client1_rgw",      V_01                },
 	{ "vpn_client1_gw",       V_TEXT(0, 15)       },
 	{ "vpn_client1_custom",   V_NONE              },
@@ -813,8 +818,9 @@ static const nvset_t nvset_list[] = {
 	{ "vpn_client2_local",    V_IP                },
 	{ "vpn_client2_remote",   V_IP                },
 	{ "vpn_client2_nm",       V_IP                },
+	{ "vpn_client2_reneg",    V_RANGE(-1,2147483647)},
 	{ "vpn_client2_hmac",     V_RANGE(-1, 2)      },
-	{ "vpn_client2_adns",     V_01                },
+	{ "vpn_client2_adns",     V_RANGE(0, 3)       },
 	{ "vpn_client2_rgw",      V_01                },
 	{ "vpn_client2_gw",       V_TEXT(0, 15)       },
 	{ "vpn_client2_custom",   V_NONE              },
@@ -1008,7 +1014,7 @@ static void wo_tomato(char *url)
 		nvram_commit_x();
 	}
 
-	if ((v = webcgi_get("_service")) != NULL && *v != '/0') {
+	if ((v = webcgi_get("_service")) != NULL && *v != 0) {
 		if (!*red) {
 			if (ajax) web_printf(" Some services are being restarted...");
 			web_close();

@@ -98,6 +98,12 @@ ifeq ($(TOMATO_SL),1)
 	@cd $(INSTALLDIR)/sbin && ln -sf rc umountx
 endif
 
+ifeq ($(TCONFIG_OPENVPN),y)
+	@mkdir -p $(INSTALLDIR)/rom/openvpn
+	@cp openvpn-updown.sh $(INSTALLDIR)/rom/openvpn/updown.sh
+	@chmod 0755 $(INSTALLDIR)/rom/openvpn/updown.sh
+endif
+
 clean:
 	rm -f rc *.o .*.depend
 
