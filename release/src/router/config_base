@@ -16,5 +16,6 @@ TCONFIG_FTP=y
 # TCONFIG_FTP_SSL is not set
 TCONFIG_SAMBASRV=y
 # TCONFIG_USB_EXTRAS is not set
+# TCONFIG_NTFS is not set
 # TCONFIG_LZO is not set
 # TCONFIG_OPENVPN is not set

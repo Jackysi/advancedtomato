@@ -1132,3 +1132,53 @@ At this point: v2.1.1 released!
 At this point: v2.1.2 released!
 ===============================
 
+- Fix compile on systems with no RLIMIT_NPROC, oops.
+- Change some unsigned int to socklen_t's to avoid warnings on various
+platforms, e.g. AIX.
+- Add some syscall constants to ptracesandbox.c to fix the build on systems
+with 2.4 kernel headers.
+- Look for libs in /lib64 and /usr/lib64 too (Fixes Fedora 11 x86_64 compile).
+- Fix EACCES mapping, thanks Solar Designer <solar@openwall.com>.
+- Dont emit a bogus "OOPS: " message upon a QUIT, report from Solar Designer
+<solar@openwall.com>.
+- Tweak example vsftpd.conf to add commented out chroot_local_user=YES,
+from Ivan I. Grushin <mcgru@intrice.ru>.
+- Where available, use CLONE_NEWNET to isolate the untrusted processes so that
+they can't do arbitrary connect() and instead have to ask the privileged
+process for sockets. Moderate code disturbance - hope for no breakage :-/
+- Disable implicit activation of one_process_model so that an anonymous setup
+can benefit from the no-network isolation of the unprivileged process (where
+available).
+(vsftpd-2.2.0pre1)
+- Call pam_get_item(PAM_USER) after authentication in case a PAM module
+remapped the username. Based on a patch from John McNair <john.mcnair@ihg.com>.
+- Apply a couple of IPv6 fixes from Corinna Schultz <corinna.schultz@gmail.com>,
+particularly when MS operating systems are talking on link local addresses.
+- Handle the error case for accepting a PASV connection in the two process
+model properly.
+- Pull in a couple of minor tidyup patches from Openwall.
+- Add "-o" command line option to specify option, e.g. vsftpd -olisten=NO. Also
+respect ordering with respect config files, e.g.
+vsftpd -olisten=NO /etc/vsftpd.conf -olocal_enable=NO
+Inspiration from Solar / Openwall.
+(vsftpd-2.2.0pre2)
+- Revert listen to be "NO" by default and also set max_per_ip / max_clients
+to 2000 / 50 as a default. Thanks to Solar.
+- Sanity check for admin: check config files are regular files.
+- Error out if opening the per-user config file gives an error other than
+ENOENT. Thanks Solar (who is on fire today ;-)
+(vsftpd-2.2.0pre3)
+- Apply some typo fixes from Solar.
+- Error out on read() errors when reading config files.
+(vsftpd-2.2.0pre4)
+- Add tunable_isolate_network to parseconf.c, thanks Stefan Pfetzing
+<dreamind@dreamind.de>.
+- Don't try and use CLONE_NEWPID etc. if we get EPERM -- may happen even to
+root if using linux-vserver. Also thanks to Stefan Pfetzing
+<dreamind@dreamind.de>.
+- Couple of typo tweaks from Cristi Terpea <cristi.terpea@fortech.ro>.
+- Change // style comments to /* style.
+- Fix pointer aliasing issue in new PAM_USER item support, thanks to Solar.
+
+At this point: v2.2.0 released!
+===============================

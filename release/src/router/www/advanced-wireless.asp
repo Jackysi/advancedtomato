@@ -23,9 +23,9 @@
 <script type='text/javascript'>
 
 /* REMOVE-BEGIN
-	!!TB - Added wl_reg_mode, wl_country, wl_country_code
+	!!TB - Added wl_reg_mode, wl_country, wl_country_code, wl_btc_mode
 REMOVE-END */
-//	<% nvram("security_mode,wl_afterburner,wl_antdiv,wl_ap_isolate,wl_auth,wl_bcn,wl_dtim,wl_frag,wl_frameburst,wl_gmode_protection,wl_plcphdr,wl_rate,wl_rateset,wl_rts,wl_txant,wl_wme,wl_wme_no_ack,wl_txpwr,wl_mrate,t_features,wl_distance,wl_maxassoc,wlx_hpamp,wlx_hperx,wl_reg_mode,wl_country_code,wl_country"); %>
+//	<% nvram("security_mode,wl_afterburner,wl_antdiv,wl_ap_isolate,wl_auth,wl_bcn,wl_dtim,wl_frag,wl_frameburst,wl_gmode_protection,wl_plcphdr,wl_rate,wl_rateset,wl_rts,wl_txant,wl_wme,wl_wme_no_ack,wl_txpwr,wl_mrate,t_features,wl_distance,wl_maxassoc,wlx_hpamp,wlx_hperx,wl_reg_mode,wl_country_code,wl_country,wl_btc_mode"); %>
 
 hp = features('hpamp');
 
@@ -114,7 +114,7 @@ createFieldTable('', [
 	{ title: 'CTS Protection Mode', name: 'wl_gmode_protection', type: 'select', options: [['off','Disable *'],['auto','Auto']],
 		value: nvram.wl_gmode_protection },
 /* REMOVE-BEGIN
-	!!TB - Added wl_reg_mode, wl_country
+	!!TB - Added wl_reg_mode, wl_country, wl_btc_mode
 REMOVE-END */
 	{ title: 'Regulatory Mode', name: 'wl_reg_mode', type: 'select',
 		options: [['off', 'Off *'],['d', '802.11d'],['h', '802.11h']],
@@ -122,6 +122,9 @@ REMOVE-END */
 	{ title: 'Country / Region', name: 'wl_country_code', type: 'select',
 		options: [['CN','China'],['DE','Europe'],['IL','Israel'],['JP','Japan'],['JO','Jordan'],['SG','Singapore'],['TW','Taiwan'],['TH','Thailand'],['US','U.S. / Americas, FCC'],['AU','Worldwide']],
 		value: nvram.wl_country_code },
+	{ title: 'Bluetooth Coexistence', name: 'wl_btc_mode', type: 'select',
+		options: [['0', 'Disable *'],['1', 'Enable'],['2', 'Preemption']],
+		value: nvram.wl_btc_mode },
 	{ title: 'Distance / ACK Timing', name: 'f_distance', type: 'text', maxlen: 5, size: 7,
 		suffix: ' <small>meters</small>&nbsp;&nbsp;<small>(range: 0 - 99999; 0 = use default)</small>',
 			value: (nvram.wl_distance == '') ? '0' : nvram.wl_distance },

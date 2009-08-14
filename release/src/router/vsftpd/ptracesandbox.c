@@ -35,6 +35,14 @@
 
 #include <asm/unistd.h>
 
+#ifndef __NR_sendfile64
+  #define __NR_sendfile64 239
+#endif
+
+#ifndef __NR_exit_group
+  #define __NR_exit_group 252
+#endif
+
 #ifndef __NR_utimes
   #define __NR_utimes 271
 #endif

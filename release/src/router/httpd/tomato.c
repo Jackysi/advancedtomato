@@ -502,6 +502,7 @@ static const nvset_t nvset_list[] = {
 // advanced-wireless
 	{ "wl_country",			V_LENGTH(0, 64)		},	// !!TB - Country code
 	{ "wl_country_code",		V_LENGTH(0, 4)		},	// !!TB - Country code
+	{ "wl_btc_mode",		V_RANGE(0, 2)		},	// !!TB - BT Coexistence Mode: 0 (disable), 1 (enable), 2 (preemption)
 	{ "wl_afterburner",		V_LENGTH(2, 4)		},	// off, on, auto
 	{ "wl_auth",			V_01				},
 	{ "wl_rateset",			V_LENGTH(2, 7)		},	// all, default, 12
@@ -576,6 +577,7 @@ static const nvset_t nvset_list[] = {
 	{ "sshd_pass",			V_01				},
 	{ "sshd_port",			V_PORT				},
 	{ "sshd_remote",		V_01				},
+	{ "sshd_forwarding",		V_01				},
 	{ "sshd_rport", 		V_PORT				},
 	{ "sshd_authkeys",		V_TEXT(0, 4096)		},
 	{ "rmgt_sip",			V_LENGTH(0, 512)	},
@@ -654,6 +656,9 @@ static const nvset_t nvset_list[] = {
 	{ "usb_printer_bidirect",	V_01				},
 	{ "usb_fs_ext3",		V_01				},
 	{ "usb_fs_fat",			V_01				},
+#ifdef TCONFIG_NTFS
+	{ "usb_fs_ntfs",		V_01				},
+#endif
 	{ "usb_automount",		V_01				},
 	{ "script_usbhotplug", 		V_TEXT(0, 2048)			},
 	{ "script_usbmount", 		V_TEXT(0, 2048)			},

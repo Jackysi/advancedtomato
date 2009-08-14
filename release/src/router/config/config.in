@@ -68,3 +68,7 @@ config TCONFIG_SAMBASRV
 config TCONFIG_USB_EXTRAS
 	bool "Additional modules and utilities"
 	default n
+
+config TCONFIG_NTFS
+	bool "NTFS Support"
+	default n

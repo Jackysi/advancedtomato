@@ -34,6 +34,44 @@ void vsf_one_process_login(struct vsf_session* p_sess,
  */
 int vsf_one_process_get_priv_data_sock(struct vsf_session* p_sess);
 
+/* vsf_one_process_pasv_cleanup()
+ * PURPOSE
+ * Clean up any listening passive socket.
+ * PARAMETERS
+ * p_sess       - the current session object
+ */
+void vsf_one_process_pasv_cleanup(struct vsf_session* p_sess);
+
+/* vsf_one_process_pasv_active()
+ * PURPOSE
+ * Determine whether a listening pasv socket is active.
+ * PARAMETERS
+ * p_sess       - the current session object
+ * RETURNS
+ * 1 if active, 0 if not.
+ */
+int vsf_one_process_pasv_active(struct vsf_session* p_sess);
+
+/* vsf_one_process_listen()
+ * PURPOSE
+ * Start listening for an incoming connection.
+ * PARAMETERS
+ * p_sess       - the current session object
+ * RETURNS
+ * The port we listened on.
+ */
+unsigned short vsf_one_process_listen(struct vsf_session* p_sess);
+
+/* vsf_one_process_get_pasv_fd()
+ * PURPOSE
+ * Accept an incoming connection.
+ * PARAMETERS
+ * p_sess       - the current session object
+ * RETURNS
+ * The file descriptor for the incoming connection.
+ */
+int vsf_one_process_get_pasv_fd(struct vsf_session* p_sess);
+
 /* vsf_one_process_chown_upload()
  * PURPOSE
  * Change ownership of an uploaded file using the one process model.

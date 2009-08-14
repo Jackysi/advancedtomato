@@ -172,8 +172,7 @@ process_post_login(struct vsf_session* p_sess)
     }
     else if (str_equal_text(&p_sess->ftp_cmd_str, "QUIT"))
     {
-      vsf_cmdio_write(p_sess, FTP_GOODBYE, "Goodbye.");
-      vsf_sysutil_exit(0);
+      vsf_cmdio_write_exit(p_sess, FTP_GOODBYE, "Goodbye.");
     }
     else if (str_equal_text(&p_sess->ftp_cmd_str, "PWD") ||
              str_equal_text(&p_sess->ftp_cmd_str, "XPWD"))
@@ -426,7 +425,7 @@ process_post_login(struct vsf_session* p_sess)
     else if (str_isempty(&p_sess->ftp_cmd_str) &&
              str_isempty(&p_sess->ftp_arg_str))
     {
-      // Deliberately ignore to avoid NAT device bugs. ProFTPd does the same.
+      /* Deliberately ignore to avoid NAT device bugs. ProFTPd does the same. */
     }
     else
     {
@@ -503,9 +502,16 @@ static int
 pasv_active(struct vsf_session* p_sess)
 {
   int ret = 0;
-  if (p_sess->pasv_listen_fd != -1)
+  if (tunable_one_process_model)
   {
-    ret = 1;
+    ret = vsf_one_process_pasv_active(p_sess);
+  }
+  else
+  {
+    ret = vsf_two_process_pasv_active(p_sess);
+  }
+  if (ret)
+  {
     if (port_active(p_sess))
     {
       bug("pasv and port both active");
@@ -523,23 +529,22 @@ port_cleanup(struct vsf_session* p_sess)
 static void
 pasv_cleanup(struct vsf_session* p_sess)
 {
-  if (p_sess->pasv_listen_fd != -1)
+  if (tunable_one_process_model)
   {
-    vsf_sysutil_close(p_sess->pasv_listen_fd);
-    p_sess->pasv_listen_fd = -1;
+    vsf_one_process_pasv_cleanup(p_sess);
+  }
+  else
+  {
+    vsf_two_process_pasv_cleanup(p_sess);
   }
 }
 
 static void
 handle_pasv(struct vsf_session* p_sess, int is_epsv)
 {
+  unsigned short the_port;
   static struct mystr s_pasv_res_str;
   static struct vsf_sysutil_sockaddr* s_p_sockaddr;
-  int bind_retries = 10;
-  unsigned short the_port = 0;
-  /* IPPORT_RESERVED */
-  unsigned short min_port = 1024;
-  unsigned short max_port = 65535;
   int is_ipv6 = vsf_sysutil_sockaddr_is_ipv6(p_sess->p_local_addr);
   if (is_epsv && !str_isempty(&p_sess->ftp_arg_str))
   {
@@ -560,58 +565,13 @@ handle_pasv(struct vsf_session* p_sess, int is_epsv)
   }
   pasv_cleanup(p_sess);
   port_cleanup(p_sess);
-  if (is_ipv6)
+  if (tunable_one_process_model)
   {
-    p_sess->pasv_listen_fd = vsf_sysutil_get_ipv6_sock();
+    the_port = vsf_one_process_listen(p_sess);
   }
   else
   {
-    p_sess->pasv_listen_fd = vsf_sysutil_get_ipv4_sock();
-  }
-  vsf_sysutil_activate_reuseaddr(p_sess->pasv_listen_fd);
-
-  if (tunable_pasv_min_port > min_port && tunable_pasv_min_port <= max_port)
-  {
-    min_port = tunable_pasv_min_port;
-  }
-  if (tunable_pasv_max_port >= min_port && tunable_pasv_max_port < max_port)
-  {
-    max_port = tunable_pasv_max_port;
-  }
-
-  while (--bind_retries)
-  {
-    int retval;
-    double scaled_port;
-    the_port = vsf_sysutil_get_random_byte();
-    the_port <<= 8;
-    the_port |= vsf_sysutil_get_random_byte();
-    scaled_port = (double) min_port;
-    scaled_port += ((double) the_port / (double) 65536) *
-                   ((double) max_port - min_port + 1);
-    the_port = (unsigned short) scaled_port;
-    vsf_sysutil_sockaddr_clone(&s_p_sockaddr, p_sess->p_local_addr);
-    vsf_sysutil_sockaddr_set_port(s_p_sockaddr, the_port);
-    retval = vsf_sysutil_bind(p_sess->pasv_listen_fd, s_p_sockaddr);
-    if (!vsf_sysutil_retval_is_error(retval))
-    {
-      retval = vsf_sysutil_listen(p_sess->pasv_listen_fd, 1);
-      if (!vsf_sysutil_retval_is_error(retval))
-      {
-        break;
-      }
-    }
-    /* SELinux systems can give you an inopportune EACCES, it seems. */
-    if (vsf_sysutil_get_error() == kVSFSysUtilErrADDRINUSE ||
-        vsf_sysutil_get_error() == kVSFSysUtilErrACCES)
-    {
-      continue;
-    }
-    die("vsf_sysutil_bind / listen");
-  }
-  if (!bind_retries)
-  {
-    die("vsf_sysutil_bind");
+    the_port = vsf_two_process_listen(p_sess);
   }
   if (is_epsv)
   {
@@ -628,6 +588,10 @@ handle_pasv(struct vsf_session* p_sess, int is_epsv)
     {
       die("invalid pasv_address");
     }
+  }
+  else
+  {
+    vsf_sysutil_sockaddr_clone(&s_p_sockaddr, p_sess->p_local_addr);
   }
   str_alloc_text(&s_pasv_res_str, "Entering Passive Mode (");
   if (!is_ipv6)
@@ -1656,6 +1620,7 @@ handle_eprt(struct vsf_session* p_sess)
 {
   static struct mystr s_part1_str;
   static struct mystr s_part2_str;
+  static struct mystr s_scopeid_str;
   int proto;
   int port;
   const unsigned char* p_raw_addr;
@@ -1680,6 +1645,7 @@ handle_eprt(struct vsf_session* p_sess)
   str_split_char(&s_part1_str, &s_part2_str, '|');
   if (proto == 2)
   {
+    str_split_char(&s_part1_str, &s_scopeid_str, '%');
     p_raw_addr = vsf_sysutil_parse_ipv6(&s_part1_str);
   }
   else

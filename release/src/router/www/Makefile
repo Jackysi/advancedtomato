@@ -56,6 +56,10 @@ ifneq ($(TCONFIG_USB_EXTRAS),y)
 	rm -f $(INSTALLDIR)/www/tomatousb_bg.png
 	sed -i $(INSTALLDIR)/www/admin-access.asp -e "/THEMES-BEGIN/,/THEMES-END/d"
 endif
+# Only include NTFS settings if NTFS support is configured in.
+ifneq ($(TCONFIG_NTFS),y)
+	sed -i $(INSTALLDIR)/www/nas-usb.asp -e "/NTFS-BEGIN/,/NTFS-END/d"
+endif
 
 # Only include the vpn pages in the navigation if OpenVPN is compiled in
 ifneq ($(TCONFIG_OPENVPN),y)

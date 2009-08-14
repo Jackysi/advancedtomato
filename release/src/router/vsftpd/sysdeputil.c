@@ -65,6 +65,8 @@
 
 /* BEGIN config */
 #if defined(__linux__)
+  #include <errno.h>
+  #include <syscall.h>
   #define VSF_SYSDEP_HAVE_LINUX_CLONE
   #include <sched.h>
   #ifndef CLONE_NEWPID
@@ -72,6 +74,9 @@
   #endif
   #ifndef CLONE_NEWIPC
     #define CLONE_NEWIPC 0x08000000
+  #endif
+  #ifndef CLONE_NEWNET
+    #define CLONE_NEWNET 0x40000000
   #endif
   #include <linux/unistd.h>
   #include <errno.h>
@@ -232,7 +237,7 @@ void vsf_remove_uwtmp(void);
 
 #ifndef VSF_SYSDEP_HAVE_PAM
 int
-vsf_sysdep_check_auth(const struct mystr* p_user_str,
+vsf_sysdep_check_auth(struct mystr* p_user_str,
                       const struct mystr* p_pass_str,
                       const struct mystr* p_remote_host)
 {
@@ -298,6 +303,15 @@ vsf_sysdep_check_auth(const struct mystr* p_user_str,
 
 #else /* VSF_SYSDEP_HAVE_PAM */
 
+#if (defined(__sun) || defined(__hpux)) && \
+    !defined(LINUX_PAM) && !defined(_OPENPAM)
+/* Sun's PAM doesn't use const here, while Linux-PAM and OpenPAM do */
+#define lo_const
+#else
+#define lo_const const
+#endif
+typedef lo_const void* pam_item_t;
+
 static pam_handle_t* s_pamh;
 static struct mystr s_pword_str;
 static int pam_conv_func(int nmsg, const struct pam_message** p_msg,
@@ -305,11 +319,13 @@ static int pam_conv_func(int nmsg, const struct pam_message** p_msg,
 static void vsf_auth_shutdown(void);
 
 int
-vsf_sysdep_check_auth(const struct mystr* p_user_str,
+vsf_sysdep_check_auth(struct mystr* p_user_str,
                       const struct mystr* p_pass_str,
                       const struct mystr* p_remote_host)
 {
   int retval;
+  pam_item_t item;
+  const char* pam_user_name = 0;
   struct pam_conv the_conv =
   {
     &pam_conv_func,
@@ -361,6 +377,17 @@ vsf_sysdep_check_auth(const struct mystr* p_user_str,
     s_pamh = 0;
     return 0;
   }
+#ifdef PAM_USER
+  retval = pam_get_item(s_pamh, PAM_USER, &item);
+  if (retval != PAM_SUCCESS)
+  {
+    (void) pam_end(s_pamh, retval);
+    s_pamh = 0;
+    return 0;
+  }
+  pam_user_name = item;
+  str_alloc_text(p_user_str, pam_user_name);
+#endif
   retval = pam_acct_mgmt(s_pamh, 0);
   if (retval != PAM_SUCCESS)
   {
@@ -1243,7 +1270,7 @@ vsf_sysutil_fork_isolate_failok()
   if (cloneflags_work)
   {
     int ret = syscall(__NR_clone, CLONE_NEWPID | CLONE_NEWIPC | SIGCHLD, NULL);
-    if (ret != -1 || errno != EINVAL)
+    if (ret != -1 || (errno != EINVAL && errno != EPERM))
     {
       vsf_sysutil_clear_pid_cache();
       return ret;
@@ -1255,11 +1282,31 @@ vsf_sysutil_fork_isolate_failok()
 }
 
 int
+vsf_sysutil_fork_newnet()
+{
+#ifdef VSF_SYSDEP_HAVE_LINUX_CLONE
+  static int cloneflags_work = 1;
+  if (cloneflags_work)
+  {
+    int ret = syscall(__NR_clone, CLONE_NEWNET | SIGCHLD, NULL);
+    if (ret != -1 || (errno != EINVAL && errno != EPERM))
+    {
+      vsf_sysutil_clear_pid_cache();
+      return ret;
+    }
+    cloneflags_work = 0;
+  }
+#endif
+  return vsf_sysutil_fork();
+}
+
+int
 vsf_sysutil_getpid_nocache(void)
 {
 #ifdef VSF_SYSDEP_HAVE_LINUX_CLONE
-  // Need to defeat the glibc pid caching because we need to hit a raw
-  // sys_clone() above.
+  /* Need to defeat the glibc pid caching because we need to hit a raw
+   * sys_clone() above.
+   */
   return syscall(__NR_getpid);
 #else
   return getpid();

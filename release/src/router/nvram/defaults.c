@@ -163,6 +163,7 @@ const defaults_t defaults[] = {
 	{ "wl_wme",				"off"			},	// WME mode (off|on)
 	{ "wl_antdiv",			"-1"			},	// Antenna Diversity (-1|0|1|3)
 	{ "wl_infra",			"1"				},	// Network Type (BSS/IBSS)
+	{ "wl_btc_mode",		"0"				},	// !!TB - BT Coexistence Mode
 
 	{ "wl_passphrase",		""				},	// Passphrase	// Add
 	{ "wl_wep_bit",			"128"			},	// WEP encryption [64 | 128] // Add
@@ -401,6 +402,7 @@ const defaults_t defaults[] = {
 	{ "sshd_rport",			"2222"			},
 	{ "sshd_authkeys",		""				},
 	{ "sshd_hostkey",		""				},
+	{ "sshd_forwarding",		"1"				},
 	{ "rmgt_sip",			""				},	// remote management: source ip address
 
 	{ "http_id",			""				},
@@ -479,6 +481,9 @@ const defaults_t defaults[] = {
 	{ "usb_printer_bidirect",	"1"				},
 	{ "usb_fs_ext3",		"0"				},
 	{ "usb_fs_fat",			"0"				},
+#ifdef TCONFIG_NTFS
+	{ "usb_fs_ntfs",		"0"				},
+#endif
 	{ "usb_automount",		"0"				},
 	{ "usb_bdflush",		"30 500 0 0 100 100 60 0 0"	},
 	{ "script_usbhotplug", 		""				},

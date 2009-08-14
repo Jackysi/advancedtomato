@@ -66,45 +66,55 @@ main(int argc, const char* argv[])
     /* Login fails */
     0
   };
-  int config_specified = 0;
-  const char* p_config_name = VSFTP_DEFAULT_CONFIG;
+  int config_loaded = 0;
+  int i;
   tunables_load_defaults();
-  /* Zero or one argument supported. If one argument is passed, it is the
-   * path to the config file
-   */
-  if (argc > 2)
-  {
-    die("vsftpd: too many arguments (I take an optional config file only)");
-  }
-  else if (argc == 0)
-  {
-    die("vsftpd: missing argv[0]");
-  }
-  if (argc == 2)
-  {
-    if (!vsf_sysutil_strcmp(argv[1], "-v"))
-    {
-      vsf_exit("vsftpd: version " VSF_VERSION "\n");
-    }
-    p_config_name = argv[1];
-    config_specified = 1;
-  }
   /* This might need to open /dev/zero on systems lacking MAP_ANON. Needs
    * to be done early (i.e. before config file parse, which may use
    * anonymous pages
    */
   vsf_sysutil_map_anon_pages_init();
-  /* Parse config file if it's there */
+  /* Argument parsing. Any argument not starting with "-" is a config file,
+   * loaded in the order encountered. -o opt=value options are loading in the
+   * order encountered, including correct ordering with respect intermingled
+   * config files.
+   * If we see -v (version) or an unknown option, parsing bails and exits.
+   */
+  if (argc == 0)
   {
+    die("vsftpd: missing argv[0]");
+  }
+  for (i = 1; i < argc; ++i)
+  {
+    const char* p_arg = argv[i];
+    if (p_arg[0] != '-')
+    {
+      config_loaded = 1;
+      vsf_parseconf_load_file(p_arg, 1);
+    }
+    else
+    {
+      if (p_arg[1] == 'v')
+      {
+        vsf_exit("vsftpd: version " VSF_VERSION "\n");
+      }
+      else if (p_arg[1] == 'o')
+      {
+        vsf_parseconf_load_setting(&p_arg[2], 1);
+      }
+      else
+      {
+        die2("unrecognise option: ", p_arg);
+      }
+    }
+  }
+  /* Parse default config file if necessary */
+  if (!config_loaded) {
     struct vsf_sysutil_statbuf* p_statbuf = 0;
-    int retval = vsf_sysutil_stat(p_config_name, &p_statbuf);
+    int retval = vsf_sysutil_stat(VSFTP_DEFAULT_CONFIG, &p_statbuf);
     if (!vsf_sysutil_retval_is_error(retval))
     {
-      vsf_parseconf_load_file(p_config_name, 1);
-    }
-    else if (config_specified)
-    {
-      die2("vsftpd: cannot open config file:", p_config_name);
+      vsf_parseconf_load_file(VSFTP_DEFAULT_CONFIG, 1);
     }
     vsf_sysutil_free(p_statbuf);
   }
@@ -192,7 +202,7 @@ main(int argc, const char* argv[])
                               tunable_banned_email_file, VSFTP_CONF_FILE_MAX);
     if (vsf_sysutil_retval_is_error(retval))
     {
-      die2("cannot open anon e-mail list file:", tunable_banned_email_file);
+      die2("cannot read anon e-mail list file:", tunable_banned_email_file);
     }
   }
   if (tunable_banner_file)
@@ -201,7 +211,7 @@ main(int argc, const char* argv[])
                               VSFTP_CONF_FILE_MAX);
     if (vsf_sysutil_retval_is_error(retval))
     {
-      die2("cannot open banner file:", tunable_banner_file);
+      die2("cannot read banner file:", tunable_banner_file);
     }
   }
   if (tunable_secure_email_list_enable)
@@ -211,16 +221,8 @@ main(int argc, const char* argv[])
                               VSFTP_CONF_FILE_MAX);
     if (vsf_sysutil_retval_is_error(retval))
     {
-      die2("cannot open email passwords file:", tunable_email_password_file);
+      die2("cannot read email passwords file:", tunable_email_password_file);
     }
-  }
-  /* Special case - can force one process model if we've got a setup
-   * needing _no_ privs
-   */
-  if (!tunable_local_enable && !tunable_connect_from_port_20 &&
-      !tunable_chown_uploads)
-  {
-    tunable_one_process_model = 1;
   }
   if (tunable_run_as_launching_user)
   {
