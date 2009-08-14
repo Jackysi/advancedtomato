@@ -26,6 +26,10 @@ static void minimize_privilege(struct vsf_session* p_sess);
 static void process_post_login_req(struct vsf_session* p_sess);
 static void cmd_process_chown(struct vsf_session* p_sess);
 static void cmd_process_get_data_sock(struct vsf_session* p_sess);
+static void cmd_process_pasv_cleanup(struct vsf_session* p_sess);
+static void cmd_process_pasv_active(struct vsf_session* p_sess);
+static void cmd_process_pasv_listen(struct vsf_session* p_sess);
+static void cmd_process_pasv_accept(struct vsf_session* p_sess);
 
 void
 vsf_priv_parent_postlogin(struct vsf_session* p_sess)
@@ -48,9 +52,25 @@ process_post_login_req(struct vsf_session* p_sess)
   {
     cmd_process_chown(p_sess);
   }
-  else if (tunable_connect_from_port_20 && cmd == PRIV_SOCK_GET_DATA_SOCK)
+  else if (cmd == PRIV_SOCK_GET_DATA_SOCK)
   {
     cmd_process_get_data_sock(p_sess);
+  }
+  else if (cmd == PRIV_SOCK_PASV_CLEANUP)
+  {
+    cmd_process_pasv_cleanup(p_sess);
+  }
+  else if (cmd == PRIV_SOCK_PASV_ACTIVE)
+  {
+    cmd_process_pasv_active(p_sess);
+  }
+  else if (cmd == PRIV_SOCK_PASV_LISTEN)
+  {
+    cmd_process_pasv_listen(p_sess);
+  }
+  else if (cmd == PRIV_SOCK_PASV_ACCEPT)
+  {
+    cmd_process_pasv_accept(p_sess);
   }
   else
   {
@@ -104,9 +124,51 @@ cmd_process_chown(struct vsf_session* p_sess)
 static void
 cmd_process_get_data_sock(struct vsf_session* p_sess)
 {
-  int sock_fd = vsf_privop_get_ftp_port_sock(p_sess);
+  unsigned short port = (unsigned short) priv_sock_get_int(p_sess->parent_fd);
+  int sock_fd = vsf_privop_get_ftp_port_sock(p_sess, port);
+  if (sock_fd == -1)
+  {
+    priv_sock_send_result(p_sess->parent_fd, PRIV_SOCK_RESULT_BAD);
+    return;
+  }
   priv_sock_send_result(p_sess->parent_fd, PRIV_SOCK_RESULT_OK);
   priv_sock_send_fd(p_sess->parent_fd, sock_fd);
   vsf_sysutil_close(sock_fd);
+}
+
+static void
+cmd_process_pasv_cleanup(struct vsf_session* p_sess)
+{
+  vsf_privop_pasv_cleanup(p_sess);
+  priv_sock_send_result(p_sess->parent_fd, PRIV_SOCK_RESULT_OK);
+}
+
+static void
+cmd_process_pasv_active(struct vsf_session* p_sess)
+{
+  int active = vsf_privop_pasv_active(p_sess);
+  priv_sock_send_int(p_sess->parent_fd, active);
+}
+
+static void
+cmd_process_pasv_listen(struct vsf_session* p_sess)
+{
+  unsigned short port = vsf_privop_pasv_listen(p_sess);
+  priv_sock_send_int(p_sess->parent_fd, port);
+}
+
+static void
+cmd_process_pasv_accept(struct vsf_session* p_sess)
+{
+  int fd = vsf_privop_accept_pasv(p_sess);
+  if (fd < 0)
+  {
+    priv_sock_send_result(p_sess->parent_fd, PRIV_SOCK_RESULT_BAD);
+    priv_sock_send_int(p_sess->parent_fd, fd);
+    return;
+  }
+  priv_sock_send_result(p_sess->parent_fd, PRIV_SOCK_RESULT_OK);
+  priv_sock_send_fd(p_sess->parent_fd, fd);
+  vsf_sysutil_close(fd);
 }
 

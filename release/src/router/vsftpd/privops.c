@@ -23,21 +23,31 @@
 static enum EVSFPrivopLoginResult handle_anonymous_login(
   struct vsf_session* p_sess, const struct mystr* p_pass_str);
 static enum EVSFPrivopLoginResult handle_local_login(
-  struct vsf_session* p_sess, const struct mystr* p_user_str,
+  struct vsf_session* p_sess, struct mystr* p_user_str,
   const struct mystr* p_pass_str);
 static void setup_username_globals(struct vsf_session* p_sess,
                                    const struct mystr* p_str);
 static enum EVSFPrivopLoginResult handle_login(
-  struct vsf_session* p_sess, const struct mystr* p_user_str,
+  struct vsf_session* p_sess, struct mystr* p_user_str,
   const struct mystr* p_pass_str);
 
 int
-vsf_privop_get_ftp_port_sock(struct vsf_session* p_sess)
+vsf_privop_get_ftp_port_sock(struct vsf_session* p_sess,
+                             unsigned short remote_port)
 {
   static struct vsf_sysutil_sockaddr* p_sockaddr;
   int retval;
   int i;
   int s = vsf_sysutil_get_ipsock(p_sess->p_local_addr);
+  int port = 0;
+  if (vsf_sysutil_is_port_reserved(remote_port))
+  {
+    die("Illegal port request");
+  }
+  if (tunable_connect_from_port_20)
+  {
+    port = tunable_ftp_data_port;
+  }
   vsf_sysutil_activate_reuseaddr(s);
   /* A report of failure here on Solaris, presumably buggy address reuse
    * support? We'll retry.
@@ -46,11 +56,11 @@ vsf_privop_get_ftp_port_sock(struct vsf_session* p_sess)
   {
     double sleep_for;
     vsf_sysutil_sockaddr_clone(&p_sockaddr, p_sess->p_local_addr);
-    vsf_sysutil_sockaddr_set_port(p_sockaddr, tunable_ftp_data_port);
+    vsf_sysutil_sockaddr_set_port(p_sockaddr, port);
     retval = vsf_sysutil_bind(s, p_sockaddr);
     if (retval == 0)
     {
-      return s;
+      break;
     }
     if (vsf_sysutil_get_error() != kVSFSysUtilErrADDRINUSE || i == 1)
     {
@@ -61,7 +71,131 @@ vsf_privop_get_ftp_port_sock(struct vsf_session* p_sess)
     sleep_for += 1.0;
     vsf_sysutil_sleep(sleep_for);
   }
+  vsf_sysutil_sockaddr_set_port(p_sess->p_remote_addr, remote_port);
+  retval = vsf_sysutil_connect_timeout(s, p_sess->p_remote_addr,
+                                       tunable_connect_timeout);
+  if (vsf_sysutil_retval_is_error(retval))
+  {
+    vsf_sysutil_close(s);
+    s = -1;
+  }
   return s;
+}
+
+void
+vsf_privop_pasv_cleanup(struct vsf_session* p_sess)
+{
+  if (p_sess->pasv_listen_fd != -1)
+  {
+    vsf_sysutil_close(p_sess->pasv_listen_fd);
+    p_sess->pasv_listen_fd = -1;
+  }
+}
+
+int
+vsf_privop_pasv_active(struct vsf_session* p_sess)
+{
+  if (p_sess->pasv_listen_fd != -1)
+  {
+    return 1;
+  }
+  return 0;
+}
+
+unsigned short
+vsf_privop_pasv_listen(struct vsf_session* p_sess)
+{
+  static struct vsf_sysutil_sockaddr* s_p_sockaddr;
+  int bind_retries = 10;
+  unsigned short the_port = 0;
+  /* IPPORT_RESERVED */
+  unsigned short min_port = 1024;
+  unsigned short max_port = 65535;
+  int is_ipv6 = vsf_sysutil_sockaddr_is_ipv6(p_sess->p_local_addr);
+  if (is_ipv6)
+  {
+    p_sess->pasv_listen_fd = vsf_sysutil_get_ipv6_sock();
+  }
+  else
+  {
+    p_sess->pasv_listen_fd = vsf_sysutil_get_ipv4_sock();
+  }
+  vsf_sysutil_activate_reuseaddr(p_sess->pasv_listen_fd);
+
+  if (tunable_pasv_min_port > min_port && tunable_pasv_min_port <= max_port)
+  {
+    min_port = tunable_pasv_min_port;
+  }
+  if (tunable_pasv_max_port >= min_port && tunable_pasv_max_port < max_port)
+  {
+    max_port = tunable_pasv_max_port;
+  }
+
+  while (--bind_retries)
+  {
+    int retval;
+    double scaled_port;
+    the_port = vsf_sysutil_get_random_byte();
+    the_port <<= 8;
+    the_port |= vsf_sysutil_get_random_byte();
+    scaled_port = (double) min_port;
+    scaled_port += ((double) the_port / (double) 65536) *
+                   ((double) max_port - min_port + 1);
+    the_port = (unsigned short) scaled_port;
+    vsf_sysutil_sockaddr_clone(&s_p_sockaddr, p_sess->p_local_addr);
+    vsf_sysutil_sockaddr_set_port(s_p_sockaddr, the_port);
+    retval = vsf_sysutil_bind(p_sess->pasv_listen_fd, s_p_sockaddr);
+    if (!vsf_sysutil_retval_is_error(retval))
+    {
+      retval = vsf_sysutil_listen(p_sess->pasv_listen_fd, 1);
+      if (!vsf_sysutil_retval_is_error(retval))
+      {
+        break;
+      }
+    }
+    /* SELinux systems can give you an inopportune EACCES, it seems. */
+    if (vsf_sysutil_get_error() == kVSFSysUtilErrADDRINUSE ||
+        vsf_sysutil_get_error() == kVSFSysUtilErrACCES)
+    {
+      continue;
+    }
+    die("vsf_sysutil_bind / listen");
+  }
+  if (!bind_retries)
+  {
+    die("vsf_sysutil_bind");
+  }
+  return the_port;
+}
+
+int
+vsf_privop_accept_pasv(struct vsf_session* p_sess)
+{
+  struct vsf_sysutil_sockaddr* p_accept_addr = 0;
+  int remote_fd;
+  vsf_sysutil_sockaddr_alloc(&p_accept_addr);
+  remote_fd = vsf_sysutil_accept_timeout(p_sess->pasv_listen_fd, p_accept_addr,
+                                         tunable_accept_timeout);
+  if (vsf_sysutil_retval_is_error(remote_fd))
+  {
+    vsf_sysutil_sockaddr_clear(&p_accept_addr);
+    return -1;
+  }
+  /* SECURITY:
+   * Reject the connection if it wasn't from the same IP as the
+   * control connection.
+   */
+  if (!tunable_pasv_promiscuous)
+  {
+    if (!vsf_sysutil_sockaddr_addr_equal(p_sess->p_remote_addr, p_accept_addr))
+    {
+      vsf_sysutil_close(remote_fd);
+      vsf_sysutil_sockaddr_clear(&p_accept_addr);
+      return -2;
+    }
+  }
+  vsf_sysutil_sockaddr_clear(&p_accept_addr);
+  return remote_fd;
 }
 
 void
@@ -115,7 +249,7 @@ vsf_privop_do_login(struct vsf_session* p_sess,
 }
 
 static enum EVSFPrivopLoginResult
-handle_login(struct vsf_session* p_sess, const struct mystr* p_user_str,
+handle_login(struct vsf_session* p_sess, struct mystr* p_user_str,
              const struct mystr* p_pass_str)
 {
   /* Do not assume PAM can cope with dodgy input, even though it
@@ -216,7 +350,7 @@ handle_anonymous_login(struct vsf_session* p_sess,
 
 static enum EVSFPrivopLoginResult
 handle_local_login(struct vsf_session* p_sess,
-                   const struct mystr* p_user_str,
+                   struct mystr* p_user_str,
                    const struct mystr* p_pass_str)
 {
   if (!vsf_sysdep_check_auth(p_user_str, p_pass_str, &p_sess->remote_ip_str))

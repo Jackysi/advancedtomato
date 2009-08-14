@@ -17,5 +17,15 @@
  */
 void vsf_parseconf_load_file(const char* p_filename, int errs_fatal);
 
+/* vsf_parseconf_parse_setting()
+ * PURPOSE
+ * Handle a given name=value setting and apply it. Any whitespace at the
+ * beginning is skipped.
+ * PARAMETERS
+ * p_settings    - the name=value pair to apply
+ * errs_fatal    - errors will cause the calling process to exit if not 0
+ */
+void vsf_parseconf_load_setting(const char* p_setting, int errs_fatal);
+
 #endif /* VSF_PARSECONF_H */
 

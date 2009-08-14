@@ -6,13 +6,59 @@ struct vsf_session;
 
 /* vsf_privop_get_ftp_port_sock()
  * PURPOSE
- * Return a network socket bound to a privileged port (less than 1024).
+ * Return a network socket potentially bound to a privileged port (less than
+ * 1024) and connected to the remote.
+ * PARAMETERS
+ * p_sess       - the current session object
+ * remote_port  - the remote port to connect to
+ * RETURNS
+ * A file descriptor which is a socket bound to the privileged port, and
+ * connected to the remote on the specified port.
+ * Kills the process / session if the bind() fails.
+ * Returns -1 if the bind() worked but the connect() was not possible.
+ */
+int vsf_privop_get_ftp_port_sock(struct vsf_session* p_sess,
+                                 unsigned short remote_port);
+
+/* vsf_privop_pasv_cleanup()
+ * PURPOSE
+ * Makes sure any listening passive socket is closed.
+ * PARAMETERS
+ * p_sess       - the current session object
+ */
+void vsf_privop_pasv_cleanup(struct vsf_session* p_sess);
+
+/* vsf_privop_pasv_listen()
+ * PURPOSE
+ * Start listening for an FTP data connection.
  * PARAMETERS
  * p_sess       - the current session object
  * RETURNS
- * A file descriptor which is a socket bound to the privileged port.
+ * The port we ended up listening on.
  */
-int vsf_privop_get_ftp_port_sock(struct vsf_session* p_sess);
+unsigned short vsf_privop_pasv_listen(struct vsf_session* p_sess);
+
+/* vsf_privop_pasv_active()
+ * PURPOSE
+ * Determine whether there is a passive listening socket active.
+ * PARAMETERS
+ * p_sess       - the current session object
+ * RETURNS
+ * 1 if active, 0 if not.
+ */
+int vsf_privop_pasv_active(struct vsf_session* p_sess);
+
+/* vsf_privop_accept_pasv()
+ * PURPOSE
+ * Accept a connection on the listening data socket.
+ * PARAMETERS
+ * p_sess       - the current session object
+ * RETURNS
+ * The file descriptor of the accepted incoming connection; or -1 if a
+ * network error occurred or -2 if the incoming connection was from the
+ * wrong IP (security issue).
+ */
+int vsf_privop_accept_pasv(struct vsf_session* p_sess);
 
 /* vsf_privop_do_file_chown()
  * PURPOSE
