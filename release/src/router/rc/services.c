@@ -1062,8 +1062,8 @@ void do_start_stop_samba(int stop, int start, int restart)
 			if (strcmp(dp->d_name, ".") && strcmp(dp->d_name, "..")) {
 
 				/* smbd_autoshare: 0 - disable, 1 - read-only, 2 - writable, 3 - hidden writable */
-				fprintf(fp, "\n[%s]\n path = %s/%s\n",
-					dp->d_name, MOUNT_ROOT, dp->d_name);
+				fprintf(fp, "\n[%s]\n path = %s/%s\n comment = %s\n",
+					dp->d_name, MOUNT_ROOT, dp->d_name, dp->d_name);
 				if (nvram_match("smbd_autoshare", "3"))	// Hidden
 					fprintf(fp, "\n[%s$]\n path = %s/%s\n browseable = no\n",
 						dp->d_name, MOUNT_ROOT, dp->d_name);
