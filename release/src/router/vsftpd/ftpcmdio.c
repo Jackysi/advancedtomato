@@ -83,6 +83,7 @@ vsf_cmdio_write_exit(struct vsf_session* p_sess, int status, const char* p_text)
    */
   vsf_sysutil_shutdown_read_failok(VSFTP_COMMAND_FD);
   ftp_write_text_common(p_sess, status, p_text, 1, ' ');
+  vsf_sysutil_shutdown_failok(VSFTP_COMMAND_FD);
   vsf_sysutil_exit(0);
 }
 

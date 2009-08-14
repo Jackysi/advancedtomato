@@ -723,9 +723,20 @@ char vsftpd_passwd[] = "/etc/vsftpd.passwd";
 #endif
 
 /* VSFTPD code mostly stolen from Oleg's ASUS Custom Firmware GPL sources */
-void start_ftpd(void)
+void do_start_stop_ftpd(int stop, int start, int restart)
 {
 #ifdef TCONFIG_FTP
+	static int stopped = 0;
+	if (stop) {
+		if (pidof("vsftpd") > 0) {
+			stopped = 1;
+			killall("vsftpd", SIGTERM);
+		}
+		if (!start) return;
+	}
+	if (start) {
+		if (restart && !stopped && (pidof("vsftpd") <= 0)) return;
+	}
 
 	char tmp[256];
 	FILE *fp, *f;
@@ -896,10 +907,17 @@ void start_ftpd(void)
 #endif
 }
 
+void start_ftpd(void)
+{
+#ifdef TCONFIG_FTP
+	do_start_stop_ftpd(0, 1, 0);
+#endif
+}
+
 void stop_ftpd(void)
 {
 #ifdef TCONFIG_FTP
-	killall("vsftpd", SIGTERM);
+	do_start_stop_ftpd(1, 0, 0);
 	unlink(vsftpd_passwd);
 	unlink(vsftpd_conf);
 	eval("rm", "-rf", vsftpd_users);
@@ -918,9 +936,21 @@ void kill_samba(int sig)
 }
 #endif
 
-void start_samba(void)
+void do_start_stop_samba(int stop, int start, int restart)
 {
 #ifdef TCONFIG_SAMBASRV
+	static int stopped = 0;
+	if (stop) {
+		if (pidof("smbd") > 0 || pidof("nmbd") > 0) {
+			stopped = 1;
+			kill_samba(SIGTERM);
+		}
+		if (!start) return;
+	}
+	if (start) {
+		if (restart && !stopped && (pidof("smbd") <= 0))
+			return;
+	}
 
 	FILE *fp;
 	DIR *dir = NULL;
@@ -1032,8 +1062,8 @@ void start_samba(void)
 			if (strcmp(dp->d_name, ".") && strcmp(dp->d_name, "..")) {
 
 				/* smbd_autoshare: 0 - disable, 1 - read-only, 2 - writable, 3 - hidden writable */
-				fprintf(fp, "\n[%s]\n path = %s/%s\n",
-					dp->d_name, MOUNT_ROOT, dp->d_name);
+				fprintf(fp, "\n[%s]\n path = %s/%s\n comment = %s\n",
+					dp->d_name, MOUNT_ROOT, dp->d_name, dp->d_name);
 				if (nvram_match("smbd_autoshare", "3"))	// Hidden
 					fprintf(fp, "\n[%s$]\n path = %s/%s\n browseable = no\n",
 						dp->d_name, MOUNT_ROOT, dp->d_name);
@@ -1080,10 +1110,17 @@ void start_samba(void)
 #endif
 }
 
+void start_samba(void)
+{
+#ifdef TCONFIG_SAMBASRV
+	do_start_stop_samba(0, 1, 0);
+#endif
+}
+
 void stop_samba(void)
 {
 #ifdef TCONFIG_SAMBASRV
-	kill_samba(SIGTERM);
+	do_start_stop_samba(1, 0, 0);
 	sleep(2); /* wait for smbd to finish */
 
 	if (nvram_invmatch("smbd_nlsmod", "")) {
@@ -1103,15 +1140,15 @@ void restart_nas_services(int start)
 	/* restart all NAS applications */
 #ifdef TCONFIG_SAMBASRV
 	if (start && nvram_get_int("smbd_enable"))
-		start_samba();
-	else 
-		kill_samba(SIGTERM);
+		do_start_stop_samba(0, 1, 1);
+	else
+		do_start_stop_samba(1, 0, 1);
 #endif
 #ifdef TCONFIG_FTP
 	if (start && nvram_get_int("ftp_enable"))
-		start_ftpd();
+		do_start_stop_ftpd(0, 1, 1);
 	else
-		killall("vsftpd", SIGTERM);
+		do_start_stop_ftpd(1, 0, 1);
 #endif
 }
 

@@ -165,6 +165,10 @@ int priv_sock_get_int(int fd);
 #define PRIV_SOCK_DO_SSL_CLOSE      7
 #define PRIV_SOCK_DO_SSL_READ       8
 #define PRIV_SOCK_DO_SSL_WRITE      9
+#define PRIV_SOCK_PASV_CLEANUP      10
+#define PRIV_SOCK_PASV_ACTIVE       11
+#define PRIV_SOCK_PASV_LISTEN       12
+#define PRIV_SOCK_PASV_ACCEPT       13
 
 #define PRIV_SOCK_RESULT_OK         1
 #define PRIV_SOCK_RESULT_BAD        2

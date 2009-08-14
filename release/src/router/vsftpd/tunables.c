@@ -85,6 +85,7 @@ int tunable_implicit_ssl;
 int tunable_sandbox;
 int tunable_require_ssl_reuse;
 int tunable_isolate;
+int tunable_isolate_network;
 
 unsigned int tunable_accept_timeout;
 unsigned int tunable_connect_timeout;
@@ -179,7 +180,7 @@ tunables_load_defaults()
   tunable_use_localtime = 0;
   tunable_check_shell = 1;
   tunable_hide_ids = 0;
-  tunable_listen = 1;
+  tunable_listen = 0;
   tunable_port_promiscuous = 0;
   tunable_passwd_chroot_enable = 0;
   tunable_no_anon_password = 0;
@@ -223,6 +224,7 @@ tunables_load_defaults()
   tunable_sandbox = 0;
   tunable_require_ssl_reuse = 1;
   tunable_isolate = 1;
+  tunable_isolate_network = 1;
 
   tunable_accept_timeout = 60;
   tunable_connect_timeout = 60;
@@ -238,10 +240,10 @@ tunables_load_defaults()
   tunable_local_max_rate = 0;
   /* IPPORT_FTP */
   tunable_listen_port = 21;
-  tunable_max_clients = 0;
+  tunable_max_clients = 2000;
   /* -rw-rw-rw- */
   tunable_file_open_mode = 0666;
-  tunable_max_per_ip = 0;
+  tunable_max_per_ip = 50;
   tunable_trans_chunk_size = 0;
   tunable_delay_failed_login = 1;
   tunable_delay_successful_login = 0;
