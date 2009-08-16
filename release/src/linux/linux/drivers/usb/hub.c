@@ -132,7 +132,7 @@ static void hub_irq(struct urb *urb)
 
 	/* Something happened, let khubd figure it out */
 	spin_lock_irqsave(&hub_event_lock, flags);
-	if (list_empty(&hub->event_list)) {
+	if (!hub->disconnected && list_empty(&hub->event_list)) {
 		list_add(&hub->event_list, &hub_event_list);
 		wake_up(&khubd_wait);
 	}
@@ -425,6 +425,7 @@ static void hub_disconnect(struct usb_device *dev, void *ptr)
 	/* Delete it and then reset it */
 	list_del(&hub->event_list);
 	INIT_LIST_HEAD(&hub->event_list);
+	hub->disconnected = 1;
 	list_del(&hub->hub_list);
 	INIT_LIST_HEAD(&hub->hub_list);
 
@@ -842,6 +843,9 @@ static void usb_hub_events(void)
 		down(&hub->khubd_sem); /* never blocks, we were on list */
 		spin_unlock_irqrestore(&hub_event_lock, flags);
 
+		if (unlikely(hub->disconnected))
+			goto loop;
+
 		if (hub->error) {
 			dbg("resetting hub %d for error %d", dev->devnum, hub->error);
 
@@ -923,6 +927,7 @@ static void usb_hub_events(void)
 			}
 			kfree(hubsts);
 		}
+loop:
 		up(&hub->khubd_sem);
         } /* end while (1) */
 
@@ -1006,7 +1011,8 @@ void usb_hub_cleanup(void)
 	/* Kill the thread */
 	ret = kill_proc(khubd_pid, SIGTERM, 1);
 
-	wait_for_completion(&khubd_exited);
+	if (ret != -ESRCH)
+		wait_for_completion(&khubd_exited);
 
 	/*
 	 * Hub resources are freed for us by usb_deregister. It calls

@@ -144,6 +144,8 @@ struct usb_hub {
 
 	struct semaphore khubd_sem;
 	struct usb_tt		tt;		/* Transaction Translator */
+
+	unsigned	disconnected:1;
 };
 
 #endif /* __LINUX_HUB_H */
