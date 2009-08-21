@@ -50,7 +50,7 @@
 #define ENABLE_L3F_SERVICE
 
 /* Experimental UPnP Events support. */
-/*#define ENABLE_EVENTS*/
+#define ENABLE_EVENTS
 
 /* include interface name in pf and ipf rules */
 #define USE_IFNAME_IN_RULES
