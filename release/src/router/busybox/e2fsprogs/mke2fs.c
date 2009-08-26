@@ -201,8 +201,8 @@ static void mke2fs_verbose_done(void)
 	mke2fs_verbose("done\n");
 }
 
-static void mke2fs_warning_msg(int retval, char *fmt, ... ) __attribute__ ((format (printf, 2, 3)));
-static void mke2fs_warning_msg(int retval, char *fmt, ... )
+static void mke2fs_warning_msg(int retval, const char *fmt, ... ) __attribute__ ((format (printf, 2, 3)));
+static void mke2fs_warning_msg(int retval, const char *fmt, ... )
 {
 	va_list ap;
 
@@ -485,7 +485,7 @@ static void create_lost_and_found(ext2_filsys fs)
 	ext2_ino_t		ino;
 	const char		*name = "lost+found";
 	int			i = 1;
-	char			*msg = "create";
+	const char		*msg = "create";
 	int			lpf_size = 0;
 
 	fs->umask = 077;
@@ -542,7 +542,7 @@ static void reserve_inodes(ext2_filsys fs)
 static void zap_sector(ext2_filsys fs, int sect, int nsect)
 {
 	char *buf;
-	char *fmt = "could not %s %d";
+	const char *fmt = "could not %s %d";
 	int retval;
 	unsigned int *magic;
 
@@ -574,7 +574,7 @@ static void create_journal_dev(ext2_filsys fs)
 	struct progress_struct	progress;
 	errcode_t		retval;
 	char			*buf;
-	char			*fmt = "%s journal superblock";
+	const char		*fmt = "%s journal superblock";
 	blk_t			blk;
 	int			count;
 

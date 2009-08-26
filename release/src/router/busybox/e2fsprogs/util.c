@@ -72,7 +72,7 @@ void check_plausibility(const char *device, int force)
 #endif
 }
 
-void check_mount(const char *device, int force, const char *type)
+void check_mount(const char *device, int force, const char *type UNUSED_PARAM)
 {
 	errcode_t retval;
 	int mount_flags;
@@ -258,7 +258,7 @@ char *e2fs_set_sbin_path(void)
 	if (oldpath)
 		oldpath = xasprintf("%s:%s", PATH_SET, oldpath);
 	 else
-		oldpath = PATH_SET;
+		oldpath = (char *)PATH_SET;
 	putenv(oldpath);
 	return oldpath;
 }
