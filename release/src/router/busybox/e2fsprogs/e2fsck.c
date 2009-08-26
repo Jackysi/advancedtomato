@@ -2547,7 +2547,7 @@ static void expand_inode_expression(char ch,
 		if (do_gmt == -1) {
 			time_str = getenv("TZ");
 			if (!time_str)
-				time_str = "";
+				time_str = (char *)"";
 			do_gmt = !strcmp(time_str, "GMT");
 		}
 		t = inode->i_mtime;
@@ -4421,7 +4421,7 @@ static int process_bad_block(ext2_filsys fs FSCK_ATTR((unused)),
  * out, so we can try to allocate new block(s) to replace the bad
  * blocks.
  */
-static void handle_fs_bad_blocks(e2fsck_t ctx)
+static void handle_fs_bad_blocks(e2fsck_t ctx EXT2FS_ATTR((unused)))
 {
 	printf("Bad blocks detected on your filesystem\n"
 		"You should get your data off as the device will soon die\n");
@@ -12212,7 +12212,7 @@ static void swap_filesys(e2fsck_t ctx)
  */
 
 
-void *e2fsck_allocate_memory(e2fsck_t ctx, unsigned int size,
+void *e2fsck_allocate_memory(e2fsck_t ctx EXT2FS_ATTR((unused)), unsigned int size,
 			     const char *description)
 {
 	void *ret;
