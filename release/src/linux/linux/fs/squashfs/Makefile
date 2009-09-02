@@ -4,7 +4,7 @@
 
 O_TARGET := squashfs.o
 
-obj-y  := inode.o squashfs2_0.o 
+obj-y  := inode.o 
 
 ifdef CONFIG_LZMA_FS_INFLATE
 obj-y += LzmaDecode.o
