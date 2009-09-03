@@ -118,8 +118,8 @@ install package: $(obj-install) $(LINUXDIR)/.config
 	cd $(TARGETDIR)/lib/modules/2.4.20/kernel/fs && mv cifs/* . && rm -rf cifs
 	cd $(TARGETDIR)/lib/modules/2.4.20/kernel/fs && mv jffs2/* . && rm -rf jffs2 || true
 	cd $(TARGETDIR)/lib/modules/2.4.20/kernel/fs && mv jffs/* . && rm -rf jffs || true
-	cd $(TARGETDIR)/lib/modules/2.4.20/kernel/lib && mv zlib_inflate/* . && rm -rf zlib_inflate
-	cd $(TARGETDIR)/lib/modules/2.4.20/kernel/lib && mv zlib_deflate/* . && rm -rf zlib_deflate
+	cd $(TARGETDIR)/lib/modules/2.4.20/kernel/lib && mv zlib_inflate/* . && rm -rf zlib_inflate || true
+	cd $(TARGETDIR)/lib/modules/2.4.20/kernel/lib && mv zlib_deflate/* . && rm -rf zlib_deflate || true
 	rm -rf $(TARGETDIR)/lib/modules/2.4.20/pcmcia
 
 # misc
@@ -130,7 +130,7 @@ install package: $(obj-install) $(LINUXDIR)/.config
 ifneq ($(TCONFIG_JFFS2),y)
 	rm -f $(TARGETDIR)/lib/modules/2.4.20/kernel/fs/jffs2.o || true
 	rm -f $(TARGETDIR)/lib/modules/2.4.20/kernel/fs/jffs.o || true
-	rm -rf $(TARGETDIR)/lib/modules/2.4.20/kernel/lib/zlib_*
+	rm -rf $(TARGETDIR)/lib/modules/2.4.20/kernel/lib/zlib_* || true
 endif
 
 ifneq ($(TCONFIG_CIFS),y)
