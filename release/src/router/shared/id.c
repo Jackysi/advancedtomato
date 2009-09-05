@@ -211,6 +211,12 @@ int get_model(void)
 			return MODEL_WL500GPv2;
 		}
 		break;
+	case 0:
+		switch (hw) {
+		case HW_BCM5354G:
+			if (nvram_match("boardrev", "0x35")) return MODEL_DIR320;
+		}
+		break;
 	case 2:
 		if (nvram_match("GemtekPmonVer", "9")) return MODEL_WR850GV1;
 		break;

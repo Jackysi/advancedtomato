@@ -659,6 +659,30 @@ static int init_nvram(void)
 			nvram_set("wl0gpio3", "0");
 		}
 		break;
+	case MODEL_DIR320:
+		mfr = "D-Link";
+		name = "DIR-320";
+		//	features = ?;
+		if (nvram_match("wl0gpio0", "255"))
+		{
+			nvram_set("wl0gpio0", "8");
+			nvram_set("wl0gpio1", "0");
+			nvram_set("wl0gpio2", "0");
+			nvram_set("wl0gpio3", "0");
+		}
+		if (!nvram_match("t_fix1", (char *)name)) {
+			nvram_set("t_fix1", name);
+			nvram_unset( "vlan2ports" );
+			nvram_unset( "vlan2hwname" );
+			nvram_set("vlan1hwname", "et0");
+			nvram_set("vlan1ports", "0 5");
+			nvram_set("wandevs", "vlan1");
+			nvram_set("wan_ifname", "vlan1");
+			nvram_set("wan_ifnames", "vlan1");
+			nvram_set("wan0_ifname", "vlan1");
+			nvram_set("wan0_ifnames", "vlan1");
+		}
+		break;
 #endif
 #if TOMATO_N
 	case MODEL_WZRG300N:
