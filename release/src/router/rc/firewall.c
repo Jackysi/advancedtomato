@@ -400,10 +400,11 @@ static void nat_table(void)
 		case 2:		// 2 = disable
 			break;
 		default:	// 0 = all (same as block_loopback=0)
-			ipt_write("-A POSTROUTING -o %s -s %s/%s -d %s/%s -j MASQUERADE\n",
+			ipt_write("-A POSTROUTING -o %s -s %s/%s -d %s/%s -j SNAT --to-source %s\n",
 				lanface,
 				lanaddr, lanmask,
-				lanaddr, lanmask);
+				lanaddr, lanmask,
+				lanaddr);
 			break;
 		}
 	}
