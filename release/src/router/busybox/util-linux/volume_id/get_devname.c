@@ -24,7 +24,7 @@ static struct uuidCache_s {
  * Otherwise, returns malloc'ed strings for label and uuid
  * (and they can't be NULL, although they can be "").
  * NB: closes fd. */
-int
+static int
 get_label_uuid(int fd, char **label, char **uuid)
 {
 	int rv = 1;
@@ -225,14 +225,12 @@ char *get_devname_from_label(const char *spec)
 	struct uuidCache_s *uc;
 
 	uuidcache_init();
-	int spec_len = spec ? strlen(spec) : -1;
-	for (uc = uuidCache; uc; uc = uc->next) {
-		if (spec_len <= 0) {
-			if (uc->label[0])
-				printf("   LABEL '%s' on %s\n", uc->label, uc->device);
-		} else if (uc->label[0] && strcmp(spec, uc->label) == 0) {
+	uc = uuidCache;
+	while (uc) {
+		if (uc->label[0] && strcmp(spec, uc->label) == 0) {
 			return xstrdup(uc->device);
 		}
+		uc = uc->next;
 	}
 	return NULL;
 }
