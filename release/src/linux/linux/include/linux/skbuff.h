@@ -919,6 +919,49 @@ static inline void skb_reserve(struct sk_buff *skb, unsigned int len)
 	skb->tail+=len;
 }
 
+/*
+ * CPUs often take a performance hit when accessing unaligned memory
+ * locations. The actual performance hit varies, it can be small if the
+ * hardware handles it or large if we have to take an exception and fix it
+ * in software.
+ *
+ * Since an ethernet header is 14 bytes network drivers often end up with
+ * the IP header at an unaligned offset. The IP header can be aligned by
+ * shifting the start of the packet by 2 bytes. Drivers should do this
+ * with:
+ *
+ * skb_reserve(NET_IP_ALIGN);
+ *
+ * The downside to this alignment of the IP header is that the DMA is now
+ * unaligned. On some architectures the cost of an unaligned DMA is high
+ * and this cost outweighs the gains made by aligning the IP header.
+ * 
+ * Since this trade off varies between architectures, we allow NET_IP_ALIGN
+ * to be overridden.
+ */
+#ifndef NET_IP_ALIGN
+#define NET_IP_ALIGN    2
+#endif
+
+/*
+ * The networking layer reserves some headroom in skb data (via
+ * dev_alloc_skb). This is used to avoid having to reallocate skb data when
+ * the header has to grow. In the default case, if the header has to grow
+ * 16 bytes or less we avoid the reallocation.
+ *
+ * Unfortunately this headroom changes the DMA alignment of the resulting
+ * network packet. As for NET_IP_ALIGN, this unaligned DMA is expensive
+ * on some architectures. An architecture can override this value,
+ * perhaps setting it to a cacheline in size (since that will maintain
+ * cacheline alignment of the DMA). It must be a power of 2.
+ *
+ * Various parts of the networking layer expect at least 16 bytes of
+ * headroom, you should not reduce this.
+ */
+#ifndef NET_SKB_PAD
+#define NET_SKB_PAD     16
+#endif
+ 
 extern int ___pskb_trim(struct sk_buff *skb, unsigned int len, int realloc);
 
 static inline void __skb_trim(struct sk_buff *skb, unsigned int len)
