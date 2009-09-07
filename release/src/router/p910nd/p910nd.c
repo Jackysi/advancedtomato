@@ -335,8 +335,12 @@ int copy_stream(int fd, int lp)
 				if ((now.tv_sec > then.tv_sec) || (now.tv_sec == then.tv_sec && now.tv_usec > then.tv_usec)) {
 					timer = 0;
 				} else {
-					timeout.tv_sec = then.tv_sec;
-					timeout.tv_usec = then.tv_usec;
+					timeout.tv_sec = then.tv_sec - now.tv_sec;
+					timeout.tv_usec = then.tv_usec - now.tv_usec;
+					if (timeout.tv_usec < 0) {
+						timeout.tv_usec += 1000000;
+						timeout.tv_sec--;
+					}
 					FD_CLR(lp, &readfds);
 				}
 			}
