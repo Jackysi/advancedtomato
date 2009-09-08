@@ -20,7 +20,7 @@
 
 #include "volume_id_internal.h"
 
-#ifndef UTIL2
+#ifdef UTIL2
 void volume_id_set_unicode16(char *str, size_t len, const uint8_t *buf, enum endian endianess, size_t count)
 {
 	unsigned i, j;
@@ -54,7 +54,9 @@ void volume_id_set_unicode16(char *str, size_t len, const uint8_t *buf, enum end
 	}
 	str[j] = '\0';
 }
+#endif
 
+#ifndef UTIL2
 #ifdef UNUSED
 static const char *usage_to_string(enum volume_id_usage usage_id)
 {
@@ -126,13 +128,14 @@ void volume_id_set_label_string(struct volume_id *id, const uint8_t *buf, size_t
 	}
 	id->label[i+1] = '\0';
 }
-#endif
 
-#ifndef UTIL2
 void volume_id_set_label_unicode16(struct volume_id *id, const uint8_t *buf, enum endian endianess, size_t count)
 {
 	 volume_id_set_unicode16(id->label, sizeof(id->label), buf, endianess, count);
 }
+
+#endif
+#ifndef UTIL2
 
 void volume_id_set_uuid(struct volume_id *id, const uint8_t *buf, enum uuid_format format)
 {

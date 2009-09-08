@@ -791,6 +791,8 @@ int find_label(char *dev_name, char *label)
 		goto ret;
 	if (volume_id_probe_linux_swap(&id) == 0 || id.error)
 		goto ret;
+	if (volume_id_probe_ntfs(&id) == 0 || id.error)
+		goto ret;
 ret:
 	volume_id_free_buffer(&id);
 	if (id.label[0] != '\0')
