@@ -129,7 +129,7 @@ etc) slower (perhaps by 50%). Recommended for most small systems. */
 /* #define DSS_PROTOK */
 
 /* Whether to do reverse DNS lookups. */
-#define DO_HOST_LOOKUP
+//#define DO_HOST_LOOKUP
 
 /* Whether to print the message of the day (MOTD). This doesn't add much code
  * size */
