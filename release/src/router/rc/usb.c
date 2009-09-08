@@ -24,7 +24,7 @@
  * Do this here, because Tomato doesn't have the sysctl command.
  * With these values, a disk block should be written to disk within 2 seconds.
  */
-#if 0
+#if 1
 #define SET_PARM(n) (n * 2 | 1)
 
 void tune_bdflush()
