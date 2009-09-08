@@ -324,8 +324,11 @@ int main(int argc, char **argv)
 		printf("   Images ...... : %u (0x%08x)\n", l , l);
 		printf("   Padding ..... : %d\n", trx_padding);
 		/* Reserved: 2 EBs for pmon, 1 EB for nvram. */
-		l = (4 * 1024 * 1024) - (3 * 64 * 1024) - l;
-		printf("   Avail for jffs: %d EBs + %d\n", l / (64*1024), l % (64*1024));
+		if (l < (4 * 1024 * 1024) - (3 * 64 * 1024))
+			l = (4 * 1024 * 1024) - (3 * 64 * 1024) - l;
+		else
+			l = 0;
+		printf(" Avail for jffs. : %d EBs + %d\n", l / (64*1024), l % (64*1024));
 		printf(" CRC-32 ........ : %8X\n", trx->crc32);
 		l = (ROUNDUP(trx->length, (128 * 1024)) / (128 * 1024));
 		printf(" 128K Blocks ... : %u (0x%08X)\n", l, l);
