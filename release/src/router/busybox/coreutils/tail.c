@@ -50,12 +50,12 @@ static ssize_t tail_read(int fd, char *buf, size_t count)
 	off_t current;
 	struct stat sbuf;
 
-	/* (A good comment is missing here) */
-	current = lseek(fd, 0, SEEK_CUR);
 	/* /proc files report zero st_size, don't lseek them. */
-	if (fstat(fd, &sbuf) == 0 && sbuf.st_size)
+	if (fstat(fd, &sbuf) == 0 && sbuf.st_size > 0) {
+		current = lseek(fd, 0, SEEK_CUR);
 		if (sbuf.st_size < current)
-			lseek(fd, 0, SEEK_SET);
+			xlseek(fd, 0, SEEK_SET);
+	}
 
 	r = full_read(fd, buf, count);
 	if (r < 0) {
@@ -169,20 +169,36 @@ int tail_main(int argc, char **argv)
 			fmt = header_fmt;
 		}
 
-		/* Optimizing count-bytes case if the file is seekable.
-		 * Beware of backing up too far.
-		 * Also we exclude files with size 0 (because of /proc/xxx) */
-		if (COUNT_BYTES && !from_top) {
+		if (!from_top) {
 			off_t current = lseek(fds[i], 0, SEEK_END);
+			unsigned off;
 			if (current > 0) {
-				if (count == 0)
-					continue; /* showing zero lines is easy :) */
-				current -= count;
+				if (COUNT_BYTES) {
+				/* Optimizing count-bytes case if the file is seekable.
+				 * Beware of backing up too far.
+				 * Also we exclude files with size 0 (because of /proc/xxx) */
+					if (count == 0)
+						continue; /* showing zero bytes is easy :) */
+					current -= count;
+					if (current < 0)
+						current = 0;
+					xlseek(fds[i], current, SEEK_SET);
+					bb_copyfd_size(fds[i], STDOUT_FILENO, count);
+					continue;
+				}
+#if 1 /* This is technically incorrect for *LONG* strings, but very useful */
+				/* Optimizing count-lines case if the file is seekable.
+				 * We assume the lines are <64k.
+				 * (Users complain that tail takes too long
+				 * on multi-gigabyte files) */
+				off = (count | 0xf); /* for small counts, be more paranoid */
+				if (off > (INT_MAX / (64*1024)))
+					off = (INT_MAX / (64*1024));
+				current -= off * (64*1024);
 				if (current < 0)
 					current = 0;
 				xlseek(fds[i], current, SEEK_SET);
-				bb_copyfd_size(fds[i], STDOUT_FILENO, count);
-				continue;
+#endif
 			}
 		}
 

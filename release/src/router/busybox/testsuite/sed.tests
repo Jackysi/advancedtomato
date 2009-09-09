@@ -207,4 +207,11 @@ testing "sed n command must reset 'substituted' bit" \
 	"sed 's/1/x/;T;n;: next;s/3/y/;t quit;n;b next;: quit;q'" \
 	"0\nx\n2\ny\n" "" "0\n1\n2\n3\n"
 
+# Regex means: "match / at BOL or nothing, then one or more not-slashes".
+# The bug was that second slash in /usr/lib was treated as "at BOL" too.
+testing "sed beginning (^) matches only once" \
+	"sed 's,\(^/\|\)[^/][^/]*,>\0<,g'" \
+	">/usr</>lib<\n" "" \
+	"/usr/lib\n"
+
 exit $FAILCOUNT
