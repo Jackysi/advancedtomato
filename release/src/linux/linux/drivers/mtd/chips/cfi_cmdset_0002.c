@@ -76,6 +76,8 @@ struct mtd_info *cfi_cmdset_0002(struct map_info *map, int primary)
 		cfi->mfr = cfi_read_query(map, base);
 		cfi->id = cfi_read_query(map, base + ofs_factor);
 
+		printk(KERN_NOTICE " Flash Id: Vendor: 0x%04x Device: 0x%04x\n", cfi->mfr, cfi->id);
+
 		/* Wheee. Bring me the head of someone at AMD. */
 #ifdef AMD_BOOTLOC_BUG
 		if (((major << 8) | minor) < 0x3131) {
