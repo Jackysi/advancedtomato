@@ -237,9 +237,12 @@ int mount_r(char *mnt_dev, char *mnt_dir, char *type)
 			}
 
 			ret = mount(mnt_dev, mnt_dir, type, flags, options[0] ? options : "");
+			/* try ntfs-3g in case it's installed */
+			if (ret != 0 && strcmp(type, "ntfs") == 0)
+				ret = eval("ntfs-3g", "-o", "noatime,nodev", mnt_dev, mnt_dir);
 			if (ret != 0) /* give it another try - guess fs */
 				ret = eval("mount", "-o", "noatime,nodev", mnt_dev, mnt_dir);
-			
+
 			if (ret == 0) {
 				syslog(LOG_INFO, "USB %s%s fs at %s mounted on %s",
 					type, (flags & MS_RDONLY) ? " (ro)" : "", mnt_dev, mnt_dir);
