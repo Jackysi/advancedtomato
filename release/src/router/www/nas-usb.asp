@@ -230,7 +230,8 @@ dg.populate = function()
 					if (p) {
 						desc = desc + '<br>Partition \'' + p[0] + '\'' + (p[3] != '' ? ' ' + p[3] : '') +
 							(p[5] != '0' && p[5] != '' ? ' (' + p[5] + ' MB)' : '') +
-							((p[1] != 0) ? ' is mounted ' +  ((p[2] != '') ? 'on ' : '') : ' is not mounted ') + p[2];
+							((p[1] != 0) ? ((p[1] == 2) ? ' is active ' : ' is mounted ') +
+							((p[2] != '') ? 'on ' : '') : ' is not mounted ') + p[2];
 					}
 				}
 			}

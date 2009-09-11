@@ -695,15 +695,41 @@ int exec_for_host(int host, int when_to_update, uint flags, host_exec func)
 	return result;
 }
 
-/* Stolen from the e2fsprogs/ismounted.c.
+/* Concept taken from the e2fsprogs/ismounted.c.
  * Find wherever 'file' (actually: device) is mounted.
  * Either the exact same device-name, or another device-name.
  * The latter is detected by comparing the rdev or dev&inode.
  * So aliasing won't fool us---we'll still find if it's mounted.
  * Return its mnt entry.
  * In particular, the caller would look at the mnt->mountpoint.
+ *
+ * Find the matching devname(s) in mounts or swaps.
+ * If func is supplied, call it for each match.  If not, return mnt on the first match.
  */
-struct mntent *findmntent(char *file)
+
+static inline int is_same_device(char *fsname, dev_t file_rdev, dev_t file_dev, ino_t file_ino)
+{
+	struct stat st_buf;
+
+	if (stat(fsname, &st_buf) == 0) {
+		if (S_ISBLK(st_buf.st_mode)) {
+			if (file_rdev && (file_rdev == st_buf.st_rdev))
+				return 1;
+		}
+		else {
+			if (file_dev && ((file_dev == st_buf.st_dev) &&
+				(file_ino == st_buf.st_ino)))
+				return 1;
+			/* Check for [swap]file being on the device. */
+			if (file_dev == 0 && file_ino == 0 && file_rdev == st_buf.st_dev)
+				return 1;
+		}
+	}
+	return 0;
+}
+
+
+struct mntent *findmntents(char *file, int swp, int (*func)(struct mntent *mnt, uint flags), uint flags)
 {
 	struct mntent 	*mnt;
 	struct stat	st_buf;
@@ -711,30 +737,24 @@ struct mntent *findmntent(char *file)
 	ino_t		file_ino=0;
 	FILE 		*f;
 	
-	if ((f = setmntent("/proc/mounts", "r")) == NULL)
+	if ((f = setmntent(swp? "/proc/swaps": "/proc/mounts", "r")) == NULL)
 		return NULL;
 
 	if (stat(file, &st_buf) == 0) {
 		if (S_ISBLK(st_buf.st_mode)) {
 			file_rdev = st_buf.st_rdev;
-		} else {
+		}
+		else {
 			file_dev = st_buf.st_dev;
 			file_ino = st_buf.st_ino;
 		}
 	}
 	while ((mnt = getmntent(f)) != NULL) {
-		if (strcmp(file, mnt->mnt_fsname) == 0)
-			break;
-
-		if (stat(mnt->mnt_fsname, &st_buf) == 0) {
-			if (S_ISBLK(st_buf.st_mode)) {
-				if (file_rdev && (file_rdev == st_buf.st_rdev))
-					break;
-			} else {
-				if (file_dev && ((file_dev == st_buf.st_dev) &&
-						 (file_ino == st_buf.st_ino)))
-					break;
-			}
+		if (strcmp(file, mnt->mnt_fsname) == 0 ||
+			is_same_device(mnt->mnt_fsname, file_rdev , file_dev, file_ino)) {
+			if (func == NULL)
+				break;
+			(*func)(mnt, flags);
 		}
 	}
 

@@ -18,7 +18,7 @@
 #include <mntent.h>
 #include <dirent.h>
 #include <sys/file.h>
-
+#include <sys/swap.h>
 
 /* Adjust bdflush parameters.
  * Do this here, because Tomato doesn't have the sysctl command.
@@ -180,7 +180,7 @@ int mount_r(char *mnt_dev, char *mnt_dir, char *type)
 	char flagfn[128];
 	int dir_made;
 	
-	if ((mnt = findmntent(mnt_dev))) {
+	if ((mnt = findmntents(mnt_dev, 0, 0, 0))) {
 		syslog(LOG_INFO, "USB partition at %s already mounted on %s",
 			mnt_dev, mnt->mnt_dir);
 		return MOUNT_VAL_EXIST;
@@ -295,15 +295,18 @@ static int usb_ufd_connected(int host_no)
 #ifndef MNT_DETACH
 #define MNT_DETACH	0x00000002      /* from linux/fs.h - just detach from the tree */
 #endif
+int umount_mountpoint(struct mntent *mnt, uint flags);
+int uswap_mountpoint(struct mntent *mnt, uint flags);
 
-/* Unmount this partition.
- * If the special flagfile is now revealed, delete it and [attempt to] delete the directory.
+/* Unmount this partition from all its mountpoints.  Note that it may
+ * actually be mounted several times, either with different names or
+ * with "-o bind" flag.
+ * If the special flagfile is now revealed, delete it and [attempt to] delete
+ * the directory.
  */
 int umount_partition(char *dev_name, int host_num, int disc_num, int part_num, uint flags)
 {
-	struct mntent *mnt;
-	int ret = 1, count;
-	char flagfn[128];
+	sync();	/* This won't matter if the device is unplugged, though. */
 
 	if (flags & EFH_HUNKNOWN) {
 		/* EFH_HUNKNOWN flag is passed if the host was unknown.
@@ -312,10 +315,26 @@ int umount_partition(char *dev_name, int host_num, int disc_num, int part_num, u
 		if (usb_ufd_connected(host_num))
 			return(0);
 	}
- 
-	mnt = findmntent(dev_name);
-	if (mnt) {
-		sync();	/* This won't matter if the device is unplugged, though. */
+
+	/* Find all the active swaps that are on this device and stop them. */
+	findmntents(dev_name, 1, uswap_mountpoint, flags);
+
+	/* Find all the mountpoints that are for this device and unmount them. */
+	findmntents(dev_name, 0, umount_mountpoint, flags);
+	return 0;
+}
+
+int uswap_mountpoint(struct mntent *mnt, uint flags)
+{
+	swapoff(mnt->mnt_fsname);
+	return 0;
+}
+
+int umount_mountpoint(struct mntent *mnt, uint flags)
+{
+	int ret = 1, count;
+	char flagfn[128];
+
 		sprintf(flagfn, "%s/.autocreated-dir", mnt->mnt_dir);
 		count = 0;
 		while ((ret = umount(mnt->mnt_dir)) && (count < 2)) {
@@ -345,7 +364,6 @@ int umount_partition(char *dev_name, int host_num, int disc_num, int part_num, u
 				rmdir(mnt->mnt_dir);
 			}
 		}
-	}
 	return(!ret);
 }
 
