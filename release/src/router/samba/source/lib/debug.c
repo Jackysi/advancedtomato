@@ -544,7 +544,7 @@ void dbgflush( void )
  * ************************************************************************** **
  */
 
-BOOL dbghdr( int level, char *file, char *func, int line )
+BOOL dbghdr( int level, const char *file, const char *func, int line )
 {
   /* Ensure we don't lose any real errno value. */
   int old_errno = errno;

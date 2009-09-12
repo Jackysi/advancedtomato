@@ -57,7 +57,7 @@ void force_check_log_size( void );
 BOOL need_to_check_log_size( void );
 void check_log_size( void );
 void dbgflush( void );
-BOOL dbghdr( int level, char *file, char *func, int line );
+BOOL dbghdr( int level, const char *file, const char *func, int line );
 
 /*The following definitions come from  lib/doscalls.c  */
 
