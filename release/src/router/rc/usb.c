@@ -336,6 +336,7 @@ int umount_mountpoint(struct mntent *mnt, uint flags)
 	char flagfn[128];
 
 		sprintf(flagfn, "%s/.autocreated-dir", mnt->mnt_dir);
+		run_nvscript("script_autostop", mnt->mnt_dir, 5);
 		count = 0;
 		while ((ret = umount(mnt->mnt_dir)) && (count < 2)) {
 			count++;
@@ -379,36 +380,53 @@ int umount_mountpoint(struct mntent *mnt, uint flags)
  *  We delay invoking mount because mount will probe all the partitions
  *	to read the labels, and we don't want it to do that early on.
  *  We don't invoke swapon until we actually find a swap partition.
+ *
+ * If the mount succeeds, execute the *.autorun scripts in the top
+ * directory of the newly mounted partition.
+ * Returns 0 for success, NZ for failure.
  */
 int mount_partition(char *dev_name, int host_num, int disc_num, int part_num, uint flags)
 {
 	char the_label[128], mountpoint[128];
 	int ret = MOUNT_VAL_FAIL;
 	char *type;
-	char *argv[] = { NULL, "-a", NULL };
+	static char *swp_argv[] = {"swapon", "-a", NULL };
+	static char *mnt_argv[] = {"mount", "-a", NULL };
+	struct mntent *mnt;
 
 	if ((type = detect_fs_type(dev_name)) == NULL)
 		return(0);
 
 	if (f_exists("/etc/fstab")) {
 		if (strcmp(type, "swap") == 0) {
-			argv[0] = "swapon";
-			_eval(argv, NULL, 0, NULL);
+			_eval(swp_argv, NULL, 0, NULL);
 			return(0);
 		}
-		argv[0] = "mount";
-		_eval(argv, NULL, 0, NULL);
+
+		if (mount_r(dev_name, NULL, NULL) == MOUNT_VAL_EXIST)
+			return(MOUNT_VAL_EXIST);
+
+		_eval(mnt_argv, NULL, 0, NULL);
+		if ((mnt = findmntents(dev_name, 0, 0, 0))) {
+			run_userfile(mnt->mnt_dir, ".autorun", mnt->mnt_dir, 3);
+			return(0);
+		}
 	}
 
 	if (find_label(dev_name, the_label)) {
 		sprintf(mountpoint, "%s/%s", MOUNT_ROOT, the_label);
-		if ((ret = mount_r(dev_name, mountpoint, type)))
+		if ((ret = mount_r(dev_name, mountpoint, type))) {
+			if (ret == MOUNT_VAL_RONLY || ret == MOUNT_VAL_RW)
+				run_userfile(mountpoint, ".autorun", mountpoint, 3);
 			return(ret != MOUNT_VAL_EXIST);
+		}
 	}
 
 	/* Can't mount to /mnt/LABEL, so try mounting to /mnt/discDN_PN */
 	sprintf(mountpoint, "%s/disc%d_%d", MOUNT_ROOT, disc_num, part_num);
 	ret = mount_r(dev_name, mountpoint, type);
+	if (ret == MOUNT_VAL_RONLY || ret == MOUNT_VAL_RW)
+		run_userfile(mountpoint, ".autorun", mountpoint, 3);
 	return(ret != MOUNT_VAL_FAIL && ret != MOUNT_VAL_EXIST);
 }
 
