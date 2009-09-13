@@ -788,6 +788,7 @@ extern void *volume_id_get_buffer(struct volume_id *id, uint64_t off, size_t len
 extern void volume_id_free_buffer(struct volume_id *id);
 extern int volume_id_probe_ext(struct volume_id *id);
 extern int volume_id_probe_vfat(struct volume_id *id);
+extern int volume_id_probe_ntfs(struct volume_id *id);
 extern int volume_id_probe_linux_swap(struct volume_id *id);
 
 /* Put the label in *label.

@@ -556,7 +556,7 @@ int is_partition_mounted(char *dev_name, int host_num, int disc_num, int part_nu
 		web_printf("%s['%s',", (flags & EFH_1ST_DISC) ? "" : ",", the_label);
 	}
 
-	if (mnt = findmntents(dev_name, 0, 0, 0)) {
+	if ((mnt = findmntents(dev_name, 0, 0, 0))) {
 		is_mounted = 1;
 		if (flags & EFH_PRINT) {
 			if (statfs(mnt->mnt_dir, &s) == 0) {
@@ -566,7 +566,7 @@ int is_partition_mounted(char *dev_name, int host_num, int disc_num, int part_nu
 				mnt->mnt_dir, mnt->mnt_type, mnt->mnt_opts, psize);
 		}
 	}
-	else if (mnt = findmntents(dev_name, 1, 0, 0)) {
+	else if ((mnt = findmntents(dev_name, 1, 0, 0))) {
 		is_mounted = 1;
 		if (flags & EFH_PRINT) {
 			web_printf("2,'','%s','','%ld']",

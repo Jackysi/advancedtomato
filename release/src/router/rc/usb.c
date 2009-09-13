@@ -25,6 +25,7 @@
  * With these values, a disk block should be written to disk within 2 seconds.
  */
 #if 1
+#include <sys/kdaemon.h>
 #define SET_PARM(n) (n * 2 | 1)
 
 void tune_bdflush()
