@@ -2290,12 +2290,13 @@ struct passwd *getpwnam(const char *name)
 {
     FILE *f;
     static char line_buff[256 /*PWD_BUFFER_SIZE*/];
-    static struct passwd pwd;
+    static struct passwd pwdbuf;
+    struct passwd *pwd;
 
     if (tunable_passwd_file == NULL)
     {
-        if (getpwnam_r(name, &pwd, line_buff, sizeof(line_buff), NULL) != -1) {
-            return &pwd;
+        if (getpwnam_r(name, &pwdbuf, line_buff, sizeof(line_buff), &pwd) == 0) {
+            return &pwdbuf;
         }
         return NULL;
     }
@@ -2303,12 +2304,12 @@ struct passwd *getpwnam(const char *name)
     f = fopen(tunable_passwd_file, "r");
     if (f != NULL)
     {
-        while (fgetpwent_r(f, &pwd, line_buff, sizeof(line_buff), NULL) != -1)
-            if (!strcmp(pwd.pw_name, name)) {
+        while (fgetpwent_r(f, &pwdbuf, line_buff, sizeof(line_buff), &pwd) == 0) {
+            if (!strncmp(pwdbuf.pw_name, name, 256)) {
                 fclose(f);
-                return &pwd;
+                return &pwdbuf;
             }
-    
+        }
         fclose(f);
     }
 
