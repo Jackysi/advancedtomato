@@ -139,6 +139,7 @@ install package: $(obj-install) $(LINUXDIR)/.config
 	cd $(TARGETDIR)/lib/modules/2.4.20/kernel/fs && mv vfat/* . && rm -rf vfat || true
 	cd $(TARGETDIR)/lib/modules/2.4.20/kernel/fs && mv ntfs/* . && rm -rf ntfs || true
 	cd $(TARGETDIR)/lib/modules/2.4.20/kernel/fs && mv smbfs/* . && rm -rf smbfs || true
+	cd $(TARGETDIR)/lib/modules/2.4.20/kernel/fs && mv reiserfs/* . && rm -rf reiserfs || true
 ifneq ($(TCONFIG_SAMBASRV),y)
 	rm -rf $(TARGETDIR)/lib/modules/2.4.20/kernel/fs/nls || true
 endif
@@ -199,6 +200,7 @@ ifneq ($(TCONFIG_NTFS),y)
 	@mv $(TARGETDIR)/lib/modules/2.4.20/kernel/fs/ntfs.o $(PLATFORMDIR)/extras/ || true
 endif
 	@mv $(TARGETDIR)/lib/modules/2.4.20/kernel/fs/smbfs.o $(PLATFORMDIR)/extras/ || true
+	@mv $(TARGETDIR)/lib/modules/2.4.20/kernel/fs/reiserfs.o $(PLATFORMDIR)/extras/ || true
 	@mv $(TARGETDIR)/lib/modules/2.4.20/kernel/drivers/usb/scanner.o $(PLATFORMDIR)/extras/ || true
 ifneq ($(TCONFIG_USB_EXTRAS),y)
 	@mv $(TARGETDIR)/lib/modules/2.4.20/kernel/drivers/block/loop.o $(PLATFORMDIR)/extras/ || true
