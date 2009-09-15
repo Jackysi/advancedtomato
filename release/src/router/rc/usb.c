@@ -384,15 +384,15 @@ int umount_mountpoint(struct mntent *mnt, uint flags)
  *
  * If the mount succeeds, execute the *.autorun scripts in the top
  * directory of the newly mounted partition.
- * Returns 0 for success, NZ for failure.
+ * Returns NZ for success, 0 if we did not mount anything.
  */
 int mount_partition(char *dev_name, int host_num, int disc_num, int part_num, uint flags)
 {
 	char the_label[128], mountpoint[128];
-	int ret = MOUNT_VAL_FAIL;
+	int ret;
 	char *type;
-	static char *swp_argv[] = {"swapon", "-a", NULL };
-	static char *mnt_argv[] = {"mount", "-a", NULL };
+	static char *swp_argv[] = { "swapon", "-a", NULL };
+	static char *mnt_argv[] = { "mount", "-a", NULL };
 	struct mntent *mnt;
 
 	if ((type = detect_fs_type(dev_name)) == NULL)
@@ -405,12 +405,12 @@ int mount_partition(char *dev_name, int host_num, int disc_num, int part_num, ui
 		}
 
 		if (mount_r(dev_name, NULL, NULL) == MOUNT_VAL_EXIST)
-			return(MOUNT_VAL_EXIST);
+			return(0);
 
 		_eval(mnt_argv, NULL, 0, NULL);
 		if ((mnt = findmntents(dev_name, 0, 0, 0))) {
 			run_userfile(mnt->mnt_dir, ".autorun", mnt->mnt_dir, 3);
-			return(0);
+			return(1);
 		}
 	}
 
@@ -419,7 +419,7 @@ int mount_partition(char *dev_name, int host_num, int disc_num, int part_num, ui
 		if ((ret = mount_r(dev_name, mountpoint, type))) {
 			if (ret == MOUNT_VAL_RONLY || ret == MOUNT_VAL_RW)
 				run_userfile(mountpoint, ".autorun", mountpoint, 3);
-			return(ret != MOUNT_VAL_EXIST);
+			return(ret == MOUNT_VAL_RONLY || ret == MOUNT_VAL_RW);
 		}
 	}
 
@@ -428,7 +428,7 @@ int mount_partition(char *dev_name, int host_num, int disc_num, int part_num, ui
 	ret = mount_r(dev_name, mountpoint, type);
 	if (ret == MOUNT_VAL_RONLY || ret == MOUNT_VAL_RW)
 		run_userfile(mountpoint, ".autorun", mountpoint, 3);
-	return(ret != MOUNT_VAL_FAIL && ret != MOUNT_VAL_EXIST);
+	return(ret == MOUNT_VAL_RONLY || ret == MOUNT_VAL_RW);
 }
 
 
@@ -449,9 +449,10 @@ void hotplug_usb_storage_device(int host_no, int action_add, uint flags)
 			/* Do not probe the device here. It's either initiated by user,
 			 * or hotplug_usb() already did.
 			 */
-			exec_for_host(host_no, 0x00, flags, mount_partition);
-			restart_nas_services(1); // restart all NAS applications
-			run_nvscript("script_usbmount", NULL, 3);
+			if (exec_for_host(host_no, 0x00, flags, mount_partition)) {
+				restart_nas_services(1); // restart all NAS applications
+				run_nvscript("script_usbmount", NULL, 3);
+			}
 		}
 	}
 	else {
