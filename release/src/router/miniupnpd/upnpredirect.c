@@ -1,4 +1,4 @@
-/* $Id: upnpredirect.c,v 1.44 2009/06/04 23:30:10 nanard Exp $ */
+/* $Id: upnpredirect.c,v 1.45 2009/08/20 09:12:26 nanard Exp $ */
 /* MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
  * (c) 2006-2009 Thomas Bernard 
@@ -29,6 +29,9 @@
 #endif
 #if defined(USE_IPF)
 #include "ipf/ipfrdr.h"
+#endif
+#if defined(USE_IPFW)
+#include "ipfw/ipfwrdr.h"
 #endif
 #ifdef USE_MINIUPNPDCTL
 #include <stdio.h>

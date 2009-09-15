@@ -1,4 +1,4 @@
-# $Id: Makefile,v 1.50 2009/05/11 12:38:35 nanard Exp $
+# $Id: Makefile,v 1.52 2009/09/04 16:14:04 nanard Exp $
 # MiniUPnP project
 # http://miniupnp.free.fr/
 # Author: Thomas Bernard
@@ -106,9 +106,13 @@ clean:
 
 install:	miniupnpd genuuid
 	$(STRIP) miniupnpd
-	$(INSTALL) -m 555 miniupnpd $(INSTALLBINDIR)
-	$(INSTALL) -b miniupnpd.conf $(INSTALLETCDIR)
-	$(INSTALL) miniupnpd.1 $(INSTALLMANDIR)
+	$(INSTALL) -d $(DESTDIR)$(INSTALLBINDIR)
+	$(INSTALL) -m 555 miniupnpd $(DESTDIR)$(INSTALLBINDIR)
+	$(INSTALL) -d $(DESTDIR)$(INSTALLETCDIR)
+	$(INSTALL) -b miniupnpd.conf $(DESTDIR)$(INSTALLETCDIR)
+	# TODO : install man page correctly
+#	$(INSTALL) -d $(INSTALLMANDIR)
+#	$(INSTALL) miniupnpd.1 $(INSTALLMANDIR)/cat1/miniupnpd.0
 
 # genuuid is using the uuid cli tool available under OpenBSD 4.0 in
 # the uuid-1.5.0 package

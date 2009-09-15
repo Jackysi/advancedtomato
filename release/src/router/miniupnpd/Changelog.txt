@@ -1,4 +1,14 @@
-$Id: Changelog.txt,v 1.172 2009/06/04 23:11:59 nanard Exp $
+$Id: Changelog.txt,v 1.176 2009/09/04 16:14:04 nanard Exp $
+
+2009/09/04:
+  Fixes in ipf code thanks to Roy Marples
+  Enable DragonFly BSD Support thanks to Roy Marples.
+  Allow packager to define default location of config file via CFLAGS
+  Respect $DESTDIR when installing
+
+2009/08/20:
+  Adding some support for MacOS X and IPFW
+  SO_REUSEADDR in minissdp.c for SSDP listening socket
 
 2009/06/05:
   unlink lease file in reload_from_lease_file()

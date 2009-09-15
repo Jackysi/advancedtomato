@@ -1,7 +1,7 @@
-/* $Id: minissdp.c,v 1.16 2009/05/16 08:44:16 nanard Exp $ */
+/* $Id: minissdp.c,v 1.17 2009/08/20 09:10:38 nanard Exp $ */
 /* MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
- * (c) 2006 Thomas Bernard
+ * (c) 2006-2009 Thomas Bernard
  * This software is subject to the conditions detailed
  * in the LICENCE file provided within the distribution */
 
@@ -51,6 +51,7 @@ OpenAndConfSSDPReceiveSocket()
 {
 	int s;
 	int i;
+	int j = 1;
 	struct sockaddr_in sockname;
 	
 	if( (s = socket(PF_INET, SOCK_DGRAM, 0)) < 0)
@@ -66,6 +67,12 @@ OpenAndConfSSDPReceiveSocket()
     /*sockname.sin_addr.s_addr = inet_addr(UPNP_MCAST_ADDR);*/
     sockname.sin_addr.s_addr = htonl(INADDR_ANY);
     /*sockname.sin_addr.s_addr = inet_addr(ifaddr);*/
+
+	if(setsockopt(s, SOL_SOCKET, SO_REUSEADDR, &j, sizeof(j)) < 0)
+	{
+		syslog(LOG_WARNING, "setsockopt(udp, SO_REUSEADDR): %m");
+	}
+
 
     if(bind(s, (struct sockaddr *)&sockname, sizeof(struct sockaddr_in)) < 0)
 	{
