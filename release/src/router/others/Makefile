@@ -7,6 +7,10 @@ install:
 	install -d $(INSTALLDIR)/usr/sbin
 	install -d $(INSTALLDIR)/lib
 
+# Optware perl symlink
+	install -d $(INSTALLDIR)/usr/bin
+	ln -sf /opt/bin/perl $(INSTALLDIR)/usr/bin/perl
+
 # cron helper
 	install -m 0700 cru $(INSTALLDIR)/usr/sbin
 
