@@ -77,7 +77,7 @@ void ipt_forward(ipt_table_t table)
 						mdport, xports,
 						ip,  *iport ? ":" : "", iport);
 
-					if (nvram_match("nf_loopback", "1")) {
+					if (nvram_get_int("nf_loopback") == 1) {
 						ipt_write("-A POSTROUTING -p %s %s %s -s %s/%s -d %s -j SNAT --to-source %s\n",
 							c,
 							mdport, *iport ? iport : xports,

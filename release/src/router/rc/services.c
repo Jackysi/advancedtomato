@@ -155,11 +155,18 @@ void start_dnsmasq()
 			fprintf(f, "dhcp-range=%s%d,%s%d,%s,%dm\n",
 				lan, dhcp_start, lan, dhcp_start + dhcp_count - 1, nvram_safe_get("lan_netmask"), dhcp_lease);
 		}
+
+		nv = router_ip;
+		if ((nvram_get_int("dhcpd_gwmode") == 1) && (get_wan_proto() == WP_DISABLED)) {
+			p = nvram_safe_get("lan_gateway");
+			if ((*p) && (strcmp(p, "0.0.0.0") != 0)) nv = p;
+		}
+
 		n = nvram_get_int("dhcpd_lmax");
 		fprintf(f,
 			"dhcp-option=3,%s\n"	// gateway
 			"dhcp-lease-max=%d\n",
-			router_ip,
+			nv,
 			(n > 0) ? n : 255);
 
 		if (nvram_get_int("dhcpd_auth") >= 0) {
@@ -183,10 +190,11 @@ void start_dnsmasq()
 
 	// 00:aa:bb:cc:dd:ee<123<xxxxxxxxxxxxxxxxxxxxxxxxxx.xyz> = 53 w/ delim
 	// 00:aa:bb:cc:dd:ee<123.123.123.123<xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.xyz> = 85 w/ delim
+	// 00:aa:bb:cc:dd:ee,00:aa:bb:cc:dd:ee<123.123.123.123<xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.xyz> = 106 w/ delim
 	p = nvram_safe_get("dhcpd_static");
 	while ((e = strchr(p, '>')) != NULL) {
 		n = (e - p);
-		if (n > 84) {
+		if (n > 105) {
 			p = e + 1;
 			continue;
 		}

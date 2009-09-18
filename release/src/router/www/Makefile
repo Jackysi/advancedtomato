@@ -33,8 +33,16 @@ install:
 			-e "/^<!--$$/,/^-->$$/! { s,^\s\+, , }" $$F > $(INSTALLDIR)/www/$$F; \
 	done
 
+ifeq ($(TOMATO_EXPERIMENTAL),1)
+	cd $(INSTALLDIR)/www && \
+	for F in $(wildcard *.asp); do \
+		sed -e "s,<div class='title'>Tomato</div>,<div class='title'>Tomato <small><i>(beta)</i></small></div>," $$F > $$F.tmp; \
+		mv $$F.tmp $$F; \
+	done
+endif
 
-	
+
+
 # make sure old and debugging crap is gone
 	@rm -f $(INSTALLDIR)/www/debug.js
 	@rm -f $(INSTALLDIR)/www/*-x.*

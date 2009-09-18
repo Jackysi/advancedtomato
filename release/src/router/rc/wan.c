@@ -557,6 +557,18 @@ void start_wan(int mode)
 	//
 
 	wan_ifname = nvram_safe_get("wan_ifname");
+	if (wan_ifname[0] == 0) {
+		wan_ifname = "none";
+		nvram_set("wan_ifname", wan_ifname);
+	}
+
+	if (strcmp(wan_ifname, "none") == 0) {
+		nvram_set("wan_proto", "disabled");
+		syslog(LOG_INFO, "No WAN");
+	}
+	
+	//
+	
 	wan_proto = get_wan_proto();
 
 	if (wan_proto == WP_DISABLED) {

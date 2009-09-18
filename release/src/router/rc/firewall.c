@@ -355,7 +355,6 @@ static void nat_table(void)
 			ipt_triggered(IPT_TABLE_NAT);
 		}
 
-#ifdef USE_MINIUPNPD
 		if (nvram_get_int("upnp_enable") & 3) {
 			ipt_write(":upnp - [0:0]\n");
 			if (wanup) {
@@ -366,14 +365,6 @@ static void nat_table(void)
 				ipt_write("-A PREROUTING -i %s -j upnp\n", wanface);
 			}
 		}
-#else
-		if (nvram_get_int("upnp_enable")) {
-			ipt_write(
-				":upnp - [0:0]\n"
-				"-A PREROUTING -i %s -j upnp\n",
-					wanface);
-		}
-#endif
 
 		if (wanup) {
 			if (dmz_dst(dst)) {
@@ -388,12 +379,13 @@ static void nat_table(void)
 				} while (*p);
 			}
 		}
-
-
-
-		////
-
-		ipt_write("-A POSTROUTING -o %s -j MASQUERADE\n", wanface);
+		
+		if ((!wanup) || (nvram_get_int("net_snat") != 1)) {
+			ipt_write("-A POSTROUTING -o %s -j MASQUERADE\n", wanface);
+		}
+		else {
+			ipt_write("-A POSTROUTING -o %s -j SNAT --to-source %s\n", wanface, wanaddr);
+		}
 
 		switch (nvram_get_int("nf_loopback")) {
 		case 1:		// 1 = forwarded-only

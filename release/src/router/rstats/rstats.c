@@ -537,7 +537,7 @@ static void calc(void)
 {
 	FILE *f;
 	char buf[256];
-	char *ifname, *ifname_real;
+	char *ifname;
 	char *p;
 	unsigned long counter[MAX_COUNTER];
 	speed_t *sp;
@@ -563,8 +563,6 @@ static void calc(void)
 		*p = 0;
 		if ((ifname = strrchr(buf, ' ')) == NULL) ifname = buf;
 			else ++ifname;
-		ifname_real = ifname;
-//		if (strncmp(ifname, "ppp", 3) == 0) ifname = "ppp";
 		if ((strcmp(ifname, "lo") == 0) || (find_word(exclude, ifname))) continue;
 
 		// <rx bytes, packets, errors, dropped, fifo errors, frame errors, compressed, multicast><tx ...>
@@ -629,11 +627,16 @@ static void calc(void)
 			}
 		}
 
-//		_dprintf("\n");
-
 		// todo: split, delay
 
-		if ((now > Y2K) && (!nvram_match("wan_proto", "disabled")) && (nvram_match("wan_iface", ifname_real))) {
+		if (now > Y2K) {
+			if (get_wan_proto() == WP_DISABLED) {
+				if ((nvram_get_int("wan_islan") == 0) || (!nvram_match("wan_ifnameX", ifname))) continue;
+			}
+			else {
+				if (!nvram_match("wan_iface", ifname)) continue;
+			}
+			
 			tms = localtime(&now);
 			bump(history.daily, &history.dailyp, MAX_NDAILY,
 				(tms->tm_year << 16) | ((uint32_t)tms->tm_mon << 8) | tms->tm_mday, counter);

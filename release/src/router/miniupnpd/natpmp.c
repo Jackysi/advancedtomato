@@ -182,7 +182,8 @@ void ProcessIncomingNATPMPPacket(int s)
 					r = _upnp_delete_redir(eport, proto);
 					/*syslog(LOG_DEBUG, "%hu %d r=%d", eport, proto, r);*/
 					if(r<0) {
-						syslog(LOG_ERR, "Failed to remove NAT-PMP mapping eport %hu, protocol %s", eport, (proto==IPPROTO_TCP)?"TCP":"UDP");
+					//	noisy; removed logging -- zzz
+					//	syslog(LOG_ERR, "Failed to remove NAT-PMP mapping eport %hu, protocol %s", eport, (proto==IPPROTO_TCP)?"TCP":"UDP");
 						resp[3] = 2;	/* Not Authorized/Refused */
 					}
 				}

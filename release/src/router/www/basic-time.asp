@@ -247,6 +247,7 @@ createFieldTable('', [
 		['UTC-3','UTC+03:00 Iraq, Jordan, Kuwait'],
 		['MSK-3MSD,M3.5.0/3,M10.5.0/4','UTC+03:00 Moscow'],
 		['UTC-4','UTC+04:00 Armenia'],
+		['UTC-4:30','UTC+04:30 Kabul'],
 		['UTC-5','UTC+05:00 Pakistan, Russia'],
 		['UTC-5:30','UTC+05:30 Bombay, Calcutta, Madras, New Delhi'],
 		['UTC-6','UTC+06:00 Bangladesh, Russia'],

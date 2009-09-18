@@ -16,6 +16,8 @@
 
 #include "dnsmasq.h"
 
+#ifdef HAVE_DHCP
+
 static struct dhcp_lease *leases = NULL, *old_leases = NULL;
 static int dns_dirty, file_dirty, leases_left;
 
@@ -57,7 +59,7 @@ void lease_init(time_t now)
       if (!leasestream)
 	die(_("cannot open or create lease file %s: %s"), daemon->lease_file, EC_FILE);
       
-      /* a+ mode lease pointer at end. */
+      /* a+ mode leaves pointer at end. */
       rewind(leasestream);
     }
   
@@ -239,7 +241,7 @@ void lease_update_file(time_t now)
       if (next_event == 0 || difftime(next_event, LEASE_RETRY + now) > 0.0)
 	next_event = LEASE_RETRY + now;
       
-      my_syslog(LOG_ERR, _("failed to write %s: %s (retry in %us)"), 
+      my_syslog(MS_DHCP | LOG_ERR, _("failed to write %s: %s (retry in %us)"), 
 		daemon->lease_file, strerror(err),
 		(unsigned int)difftime(next_event, now));
     }
@@ -657,3 +659,5 @@ void flush_lease_file(time_t now)
 	file_dirty = 1;
 	lease_update_file(now);
 }
+
+#endif

@@ -1,4 +1,4 @@
-/* $Id: obsdrdr.c,v 1.47 2008/08/24 19:54:57 nanard Exp $ */
+/* $Id: obsdrdr.c,v 1.48 2009/09/04 09:18:30 nanard Exp $ */
 /* MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
  * (c) 2006-2008 Thomas Bernard 
@@ -7,11 +7,16 @@
 
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <sys/param.h>
 #include <net/if.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <arpa/inet.h>
+#ifdef __DragonFly__
+#include <net/pf/pfvar.h>
+#else
 #include <net/pfvar.h>
+#endif
 #include <fcntl.h>
 #include <sys/ioctl.h>
 #include <unistd.h>

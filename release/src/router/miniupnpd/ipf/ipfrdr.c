@@ -1,4 +1,4 @@
-/* $Id: ipfrdr.c,v 1.9 2008/08/24 19:54:57 nanard Exp $ */
+/* $Id: ipfrdr.c,v 1.10 2009/09/04 08:53:38 nanard Exp $ */
 /* MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
  * (c) 2007 Darren Reed
@@ -249,7 +249,7 @@ get_redirect_rule(const char * ifname, unsigned short eport, int proto,
 			if (bytes != NULL)
 				*bytes = 0;
 			if (iport != NULL)
-				*iport = ipn.in_pnext;
+				*iport = ntohs(ipn.in_pnext);
 			inet_ntop(AF_INET, &ipn.in_in[0].in4, iaddr, iaddrlen);
 			return 0;
 		}
@@ -395,7 +395,7 @@ delete_filter_rule(const char * ifname, unsigned short eport, int proto)
 	wobj.ipfo_size = sizeof(fio);
 	wobj.ipfo_ptr = &fio;
 
-	if (ioctl(dev, SIOCGETFS, &wobj) == -1) {
+	if (ioctl(dev_ipl, SIOCGETFS, &wobj) == -1) {
 		syslog(LOG_ERR, "ioctl(SIOCGETFS): %m");
 		goto error;
 	}
@@ -416,6 +416,7 @@ delete_filter_rule(const char * ifname, unsigned short eport, int proto)
 	rule.iri_v = 4;
 #endif
 	rule.iri_rule = fp;
+	strlcpy(rule.iri_group, group_name, sizeof(rule.iri_group));
 
 	dobj.ipfo_rev = IPFILTER_VERSION;
 	dobj.ipfo_size = sizeof(*fp);

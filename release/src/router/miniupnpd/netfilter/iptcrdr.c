@@ -1,4 +1,4 @@
-/* $Id: iptcrdr.c,v 1.28 2008/10/01 12:46:47 nanard Exp $ */
+/* $Id: iptcrdr.c,v 1.29 2009/04/13 16:37:19 nanard Exp $ */
 /* MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
  * (c) 2006-2008 Thomas Bernard
@@ -17,14 +17,21 @@
 #include <iptables.h>
 
 #include <linux/version.h>
+
+#if IPTABLES_143
+/* IPTABLES API version >= 1.4.3 */
+#include <net/netfilter/nf_nat.h>
+#define ip_nat_multi_range	nf_nat_multi_range
+#define ip_nat_range		nf_nat_range
+#define IPTC_HANDLE		struct iptc_handle *
+#else
+/* IPTABLES API version < 1.4.3 */
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,22)
 #include <linux/netfilter_ipv4/ip_nat.h>
 #else
 #include <linux/netfilter/nf_nat.h>
-/*
-#define ip_nat_multi_range	nf_nat_multi_range
-#define ip_nat_range		nf_nat_range
-*/
+#endif
+#define IPTC_HANDLE		iptc_handle_t
 #endif
 
 #include "iptcrdr.h"
@@ -151,7 +158,7 @@ get_redirect_rule(const char * ifname, unsigned short eport, int proto,
                   u_int64_t * packets, u_int64_t * bytes)
 {
 	int r = -1;
-	iptc_handle_t h;
+	IPTC_HANDLE h;
 	const struct ipt_entry * e;
 	const struct ipt_entry_target * target;
 	const struct ip_nat_multi_range * mr;
@@ -171,9 +178,15 @@ get_redirect_rule(const char * ifname, unsigned short eport, int proto,
 	}
 	else
 	{
+#ifdef IPTABLES_143
+		for(e = iptc_first_rule(miniupnpd_nat_chain, h);
+		    e;
+			e = iptc_next_rule(e, h))
+#else
 		for(e = iptc_first_rule(miniupnpd_nat_chain, &h);
 		    e;
 			e = iptc_next_rule(e, &h))
+#endif
 		{
 			if(proto==e->ip.proto)
 			{
@@ -193,6 +206,7 @@ get_redirect_rule(const char * ifname, unsigned short eport, int proto,
 						continue;
 				}
 				target = (void *)e + e->target_offset;
+				//target = ipt_get_target(e);
 				mr = (const struct ip_nat_multi_range *)&target->data[0];
 				snprintip(iaddr, iaddrlen, ntohl(mr->range[0].min_ip));
 				*iport = ntohs(mr->range[0].min.all);
@@ -208,7 +222,11 @@ get_redirect_rule(const char * ifname, unsigned short eport, int proto,
 			}
 		}
 	}
+#ifdef IPTABLES_143
+	iptc_free(h);
+#else
 	iptc_free(&h);
+#endif
 	return r;
 }
 
@@ -223,7 +241,7 @@ get_redirect_rule_by_index(int index,
 {
 	int r = -1;
 	int i = 0;
-	iptc_handle_t h;
+	IPTC_HANDLE h;
 	const struct ipt_entry * e;
 	const struct ipt_entry_target * target;
 	const struct ip_nat_multi_range * mr;
@@ -243,9 +261,15 @@ get_redirect_rule_by_index(int index,
 	}
 	else
 	{
+#ifdef IPTABLES_143
+		for(e = iptc_first_rule(miniupnpd_nat_chain, h);
+		    e;
+			e = iptc_next_rule(e, h))
+#else
 		for(e = iptc_first_rule(miniupnpd_nat_chain, &h);
 		    e;
 			e = iptc_next_rule(e, &h))
+#endif
 		{
 			if(i==index)
 			{
@@ -280,24 +304,37 @@ get_redirect_rule_by_index(int index,
 			i++;
 		}
 	}
+#ifdef IPTABLES_143
+	iptc_free(h);
+#else
 	iptc_free(&h);
+#endif
 	return r;
 }
 
 /* delete_rule_and_commit() :
  * subfunction used in delete_redirect_and_filter_rules() */
 static int
-delete_rule_and_commit(unsigned int index, iptc_handle_t *h, const char *miniupnpd_chain,
+delete_rule_and_commit(unsigned int index, IPTC_HANDLE h,
+                       const char * miniupnpd_chain,
                        const char * logcaller)
 {
 	int r = 0;
+#ifdef IPTABLES_143
 	if(!iptc_delete_num_entry(miniupnpd_chain, index, h))
+#else
+	if(!iptc_delete_num_entry(miniupnpd_chain, index, &h))
+#endif
 	{
 		syslog(LOG_ERR, "%s() : iptc_delete_num_entry(): %s\n",
 	    	   logcaller, iptc_strerror(errno));
 		r = -1;
 	}
+#ifdef IPTABLES_143
 	else if(!iptc_commit(h))
+#else
+	else if(!iptc_commit(&h))
+#endif
 	{
 		syslog(LOG_ERR, "%s() : iptc_commit(): %s\n",
 	    	   logcaller, iptc_strerror(errno));
@@ -314,7 +351,7 @@ delete_redirect_and_filter_rules(unsigned short eport, int proto)
 	int r = -1;
 	unsigned index = 0;
 	unsigned i = 0;
-	iptc_handle_t h;
+	IPTC_HANDLE h;
 	const struct ipt_entry * e;
 	const struct ipt_entry_match *match;
 
@@ -332,9 +369,15 @@ delete_redirect_and_filter_rules(unsigned short eport, int proto)
 	}
 	else
 	{
+#ifdef IPTABLES_143
+		for(e = iptc_first_rule(miniupnpd_nat_chain, h);
+		    e;
+			e = iptc_next_rule(e, h), i++)
+#else
 		for(e = iptc_first_rule(miniupnpd_nat_chain, &h);
 		    e;
 			e = iptc_next_rule(e, &h), i++)
+#endif
 		{
 			if(proto==e->ip.proto)
 			{
@@ -359,7 +402,11 @@ delete_redirect_and_filter_rules(unsigned short eport, int proto)
 			}
 		}
 	}
+#ifdef IPTABLES_143
+	iptc_free(h);
+#else
 	iptc_free(&h);
+#endif
 	if(r == 0)
 	{
 		syslog(LOG_INFO, "Trying to delete rules at index %u", index);
@@ -367,12 +414,12 @@ delete_redirect_and_filter_rules(unsigned short eport, int proto)
 		h = iptc_init("nat");
 		if(h)
 		{
-			r = delete_rule_and_commit(index, &h, miniupnpd_nat_chain, "delete_redirect_rule");
+			r = delete_rule_and_commit(index, h, miniupnpd_nat_chain, "delete_redirect_rule");
 		}
 		h = iptc_init("filter");
 		if(h && (r == 0))
 		{
-			r = delete_rule_and_commit(index, &h, miniupnpd_forward_chain, "delete_filter_rule");
+			r = delete_rule_and_commit(index, h, miniupnpd_forward_chain, "delete_filter_rule");
 		}
 	}
 	del_redirect_desc(eport, proto);
@@ -450,7 +497,7 @@ static int
 iptc_init_verify_and_append(const char * table, const char * miniupnpd_chain, struct ipt_entry * e,
                             const char * logcaller)
 {
-	iptc_handle_t h;
+	IPTC_HANDLE h;
 	h = iptc_init(table);
 	if(!h)
 	{
@@ -464,13 +511,21 @@ iptc_init_verify_and_append(const char * table, const char * miniupnpd_chain, st
 		       logcaller, iptc_strerror(errno));
 		return -1;
 	}
+#ifdef IPTABLES_143
+	if(!iptc_append_entry(miniupnpd_chain, e, h))
+#else
 	if(!iptc_append_entry(miniupnpd_chain, e, &h))
+#endif
 	{
 		syslog(LOG_ERR, "%s : iptc_append_entry() error : %s\n",
 		       logcaller, iptc_strerror(errno));
 		return -1;
 	}
+#ifdef IPTABLES_143
+	if(!iptc_commit(h))
+#else
 	if(!iptc_commit(&h))
+#endif
 	{
 		syslog(LOG_ERR, "%s : iptc_commit() error : %s\n",
 		       logcaller, iptc_strerror(errno));
@@ -638,7 +693,7 @@ printip(uint32_t ip)
 int
 list_redirect_rule(const char * ifname)
 {
-	iptc_handle_t h;
+	IPTC_HANDLE h;
 	const struct ipt_entry * e;
 	const struct ipt_entry_target * target;
 	const struct ip_nat_multi_range * mr;
@@ -655,11 +710,19 @@ list_redirect_rule(const char * ifname)
 		printf("chain %s not found\n", miniupnpd_nat_chain);
 		return -1;
 	}
+#ifdef IPTABLES_143
+	for(e = iptc_first_rule(miniupnpd_nat_chain, h);
+		e;
+		e = iptc_next_rule(e, h))
+	{
+		target_str = iptc_get_target(e, h);
+#else
 	for(e = iptc_first_rule(miniupnpd_nat_chain, &h);
 		e;
 		e = iptc_next_rule(e, &h))
 	{
 		target_str = iptc_get_target(e, &h);
+#endif
 		printf("===\n");
 		printf("src = %s%s/%s\n", (e->ip.invflags & IPT_INV_SRCIP)?"! ":"",
 		       inet_ntoa(e->ip.src), inet_ntoa(e->ip.smsk));
@@ -692,7 +755,11 @@ list_redirect_rule(const char * ifname)
 		          ntohs(mr->range[0].max.all));
 		printf("flags = %x\n", mr->range[0].flags);
 	}
+#ifdef IPTABLES_143
+	iptc_free(h);
+#else
 	iptc_free(&h);
+#endif
 	return 0;
 }
 

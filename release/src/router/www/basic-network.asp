@@ -162,11 +162,19 @@ function random_wep()
 
 function v_wep(e, quiet)
 {
-	var s = e.value.toUpperCase().replace(/[^0-9A-F]/g, '');
-	if (s.length != e.maxLength) {
-		ferror.set(e, 'Invalid WEP key, ', quiet);
-		return 0;
+	var s = e.value;
+	
+	if (((s.length == 5) || (s.length == 13)) && (s.length == (e.maxLength >> 1))) {
+		// no checking
 	}
+	else {
+		s = s.toUpperCase().replace(/[^0-9A-F]/g, '');
+		if (s.length != e.maxLength) {
+			ferror.set(e, 'Invalid WEP key. Expecting ' + e.maxLength + ' hex or ' + (e.maxLength >> 1) + ' ASCII characters.', quiet);
+			return 0;
+		}
+	}
+
 	e.value = s;
 	ferror.clear(e);
 	return 1;
@@ -713,7 +721,7 @@ createFieldTable('', [
 	{ title: 'Type', name: 'wan_proto', type: 'select', options: [['dhcp','DHCP'],['pppoe','PPPoE'],['static','Static'],['pptp','PPTP'],['l2tp','L2TP'],['disabled','Disabled']],
 		value: nvram.wan_proto },
 	{ title: 'Username', name: 'ppp_username', type: 'text', maxlen: 50, size: 54, value: nvram.ppp_username },
-	{ title: 'Password', name: 'ppp_passwd', type: 'password', maxlen: 50, size: 54, value: nvram.ppp_passwd },
+	{ title: 'Password', name: 'ppp_passwd', type: 'password', maxlen: 50, size: 54, peekaboo: 1, value: nvram.ppp_passwd },
 	{ title: 'Service Name', name: 'ppp_service', type: 'text', maxlen: 50, size: 54, value: nvram.ppp_service },
 	{ title: 'L2TP Server', name: 'l2tp_server_ip', type: 'text', maxlen: 15, size: 17, value: nvram.l2tp_server_ip },
 	{ title: 'IP Address', name: 'wan_ipaddr', type: 'text', maxlen: 15, size: 17, value: nvram.wan_ipaddr },
@@ -782,10 +790,10 @@ f = [
 		value: nvram.security_mode2 },
 	{ title: 'Encryption', indent: 2, name: 'wl_crypto', type: 'select',
 		options: [['tkip','TKIP'],['aes','AES'],['tkip+aes','TKIP / AES']], value: nvram.wl_crypto },
-	{ title: 'Shared Key', indent: 2, name: 'wl_wpa_psk', type: 'text', maxlen: 64, size: 66,
+	{ title: 'Shared Key', indent: 2, name: 'wl_wpa_psk', type: 'password', maxlen: 64, size: 66, peekaboo: 1, 
 		suffix: ' <input type="button" id="_f_psk_random1" value="Random" onclick="random_psk(\'_wl_wpa_psk\')">',
 		value: nvram.wl_wpa_psk },
-	{ title: 'Shared Key', indent: 2, name: 'wl_radius_key', type: 'text', maxlen: 80, size: 32,
+	{ title: 'Shared Key', indent: 2, name: 'wl_radius_key', type: 'password', maxlen: 80, size: 32, peekaboo: 1,
 		suffix: ' <input type="button" id="_f_psk_random2" value="Random" onclick="random_psk(\'_wl_radius_key\')">',
 		value: nvram.wl_radius_key },
 	{ title: 'Group Key Renewal', indent: 2, name: 'wl_wpa_gtk_rekey', type: 'text', maxlen: 4, size: 6, suffix: ' <i>(seconds)</i>',

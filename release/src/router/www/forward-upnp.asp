@@ -40,10 +40,8 @@
 //	<% nvram("upnp_enable"); %>
 // <% upnpinfo(); %>
 
-/* REMOVE-BEGIN
-nvram.upnp_enable = 2;
-mupnp_data = 'UDP 12345 192.168.1.5 1234 [NAT-PMP 1234]\n';
-REMOVE-END */
+nvram.upnp_enable = fixInt(nvram.upnp_enable, 0, 3, 0);
+
 
 function submitDelete(proto, eport)
 {
@@ -155,8 +153,8 @@ function init()
 <div class='section'>
 <script type='text/javascript'>
 createFieldTable('', [
-	{ title: 'Enable UPnP', name: 'f_enable_upnp', type: 'checkbox', value: ((nvram.upnp_enable * 1) & 1) },
-	{ title: 'Enable NAT-PMP', name: 'f_enable_natpmp', type: 'checkbox', value: ((nvram.upnp_enable * 1) & 2) }
+	{ title: 'Enable UPnP', name: 'f_enable_upnp', type: 'checkbox', value: (nvram.upnp_enable & 1) },
+	{ title: 'Enable NAT-PMP', name: 'f_enable_natpmp', type: 'checkbox', value: (nvram.upnp_enable & 2) }
 ]);
 </script>
 </div>

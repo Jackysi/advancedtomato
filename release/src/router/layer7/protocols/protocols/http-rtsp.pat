@@ -1,5 +1,5 @@
 # RTSP tunneled within HTTP
-# Pattern attributes: ok notsofast notsofast subset
+# Pattern attributes: ok notsofast fast subset
 # Protocol groups: streaming_audio streaming_video ietf_draft_standard
 # Wiki: http://www.protocolinfo.org/wiki/RTSP
 # Copyright (C) 2008 Matthew Strait, Ethan Sommer; See ../LICENSE
