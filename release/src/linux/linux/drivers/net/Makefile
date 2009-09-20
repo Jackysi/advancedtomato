@@ -21,6 +21,10 @@ export-objs     :=	8390.o arlan.o aironet4500_core.o aironet4500_card.o \
 list-multi	:=	rcpci.o
 rcpci-objs	:=	rcpci45.o rclanmtl.o
 
+ifeq ($(CONFIG_BCM4702),y)
+  subdir-m += diag
+endif
+
 ifeq ($(CONFIG_TULIP),y)
   obj-y += tulip/tulip.o
 endif
