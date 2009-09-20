@@ -177,6 +177,8 @@ EXPORT_SYMBOL(__d_path);
 EXPORT_SYMBOL(mark_buffer_dirty);
 EXPORT_SYMBOL(set_buffer_async_io); /* for reiserfs_writepage */
 EXPORT_SYMBOL(end_buffer_io_async);
+EXPORT_SYMBOL(end_buffer_io_sync);
+EXPORT_SYMBOL(__mark_dirty);
 EXPORT_SYMBOL(__mark_buffer_dirty);
 EXPORT_SYMBOL(__mark_inode_dirty);
 EXPORT_SYMBOL(fd_install);

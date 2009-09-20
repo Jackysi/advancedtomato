@@ -11,6 +11,7 @@ enum km_type {
 	KM_BH_IRQ,
 	KM_SOFTIRQ0,
 	KM_SOFTIRQ1,
+	KM_BIO_IRQ,
 	KM_TYPE_NR
 };
 
