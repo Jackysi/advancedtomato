@@ -1,7 +1,7 @@
 /*
  * NVRAM variable manipulation (direct mapped flash)
  *
- * Copyright 2006, Broadcom Corporation
+ * Copyright 2007, Broadcom Corporation
  * All Rights Reserved.
  * 
  * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
@@ -28,7 +28,7 @@ struct nvram_tuple * _nvram_realloc(struct nvram_tuple *t, const char *name, con
 void  _nvram_free(struct nvram_tuple *t);
 int  _nvram_read(void *buf);
 
-extern char * _nvram_get(const char *name);
+extern char *_nvram_get(const char *name);
 extern int _nvram_set(const char *name, const char *value);
 extern int _nvram_unset(const char *name);
 extern int _nvram_getall(char *buf, int count);
@@ -37,7 +37,6 @@ extern int _nvram_init(void *sb);
 extern void _nvram_exit(void);
 
 static struct nvram_header *nvram_header = NULL;
-static 	ulong flash_base = 0;
 static bool nvram_do_reset = FALSE;
 
 #define NVRAM_LOCK()	do {} while (0)
@@ -48,7 +47,7 @@ static bool nvram_do_reset = FALSE;
 #define MB * 1024 * 1024
 
 char *
-BCMINITFN(nvram_get)(const char *name)
+nvram_get(const char *name)
 {
 	char *value;
 
@@ -60,7 +59,7 @@ BCMINITFN(nvram_get)(const char *name)
 }
 
 int
-BCMINITFN(nvram_getall)(char *buf, int count)
+nvram_getall(char *buf, int count)
 {
 	int ret;
 
@@ -114,11 +113,12 @@ BCMINITFN(nvram_resetgpio_init)(void *sb)
 
 	/* Setup GPIO input */
 	sb_gpioouten(sbh, ((uint32) 1 << gpio), 0, GPIO_DRV_PRIORITY);
+
 	return gpio;
 }
 
 bool
-BCMINITFN(nvram_reset)(void *sb)
+BCMINITFN(nvram_reset)(void  *sb)
 {
 	int gpio;
 	uint msec;
@@ -149,13 +149,10 @@ BCMINITFN(find_nvram)(bool embonly, bool *isemb)
 
 	if (!embonly) {
 		*isemb = FALSE;
-		if (flash_base == SB_FLASH1)
-			lim = SB_FLASH1_SZ;
-		else
-			lim = SB_FLASH2_SZ;
+		lim = SB_FLASH2_SZ;
 		off = FLASH_MIN;
 		while (off <= lim) {
-			nvh = (struct nvram_header *)KSEG1ADDR(flash_base + off - NVRAM_SPACE);
+			nvh = (struct nvram_header *)KSEG1ADDR(SB_FLASH2 + off - NVRAM_SPACE);
 			if (nvh->magic == NVRAM_MAGIC)
 				/* if (nvram_calc_crc(nvh) == (uint8) nvh->crc_ver_init) */{
 					return (nvh);
@@ -166,16 +163,12 @@ BCMINITFN(find_nvram)(bool embonly, bool *isemb)
 
 	/* Now check embedded nvram */
 	*isemb = TRUE;
-	nvh = (struct nvram_header *)KSEG1ADDR(flash_base + (4 * 1024));
+	nvh = (struct nvram_header *)KSEG1ADDR(SB_FLASH2 + (4 * 1024));
 	if (nvh->magic == NVRAM_MAGIC)
-/*		if (nvram_calc_crc(nvh) == (uint8) nvh->crc_ver_init) */{
-			return (nvh);
-		}
-	nvh = (struct nvram_header *)KSEG1ADDR(flash_base + 1024);
+		return (nvh);
+	nvh = (struct nvram_header *)KSEG1ADDR(SB_FLASH2 + 1024);
 	if (nvh->magic == NVRAM_MAGIC)
-/*		if (nvram_calc_crc(nvh) == (uint8) nvh->crc_ver_init) */{
-			return (nvh);
-		}
+		return (nvh);
 #ifdef _CFE_
 	nvh = (struct nvram_header *)embedded_nvram;
 	if (nvh->magic == NVRAM_MAGIC)
@@ -188,7 +181,6 @@ BCMINITFN(find_nvram)(bool embonly, bool *isemb)
 int
 BCMINITFN(nvram_init)(void *sb)
 {
-	uint idx;
 	bool isemb;
 	int ret;
 	sb_t *sbh;
@@ -204,14 +196,7 @@ BCMINITFN(nvram_init)(void *sb)
 
 	sbh = (sb_t *)sb;
 
-
-	idx = sb_coreidx(sbh);
-	if (sb_setcore(sbh, SB_CC, 0) != NULL) {
-		flash_base = SB_FLASH2;
-		sb_setcoreidx(sbh, idx);
-	} else
-		flash_base = SB_FLASH1;
-
+	/* Restore defaults from embedded NVRAM if button held down */
 	if (nvram_do_reset) {
 		/* Initialize with embedded NVRAM */
 		nvram_header = find_nvram(TRUE, &isemb);
@@ -235,6 +220,12 @@ BCMINITFN(nvram_init)(void *sb)
 	}
 	nvram_status = ret;
 	return ret;
+}
+
+int
+BCMINITFN(nvram_append)(void *sb, char *vars, uint varsz)
+{
+	return 0;
 }
 
 void

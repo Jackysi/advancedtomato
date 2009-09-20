@@ -1,7 +1,7 @@
 /*
  * HND Minimal OS Abstraction Layer.
  *
- * Copyright 2006, Broadcom Corporation
+ * Copyright 2004, Broadcom Corporation
  * All Rights Reserved.
  * 
  * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
@@ -26,13 +26,7 @@ extern void blast_dcache(void);
 extern void blast_icache(void);
 
 /* assert & debugging */
-#if defined(BCMDBG)
-extern void assfail(char *exp, char *file, int line);
-#define ASSERT(exp) \
-	do { if (!(exp)) assfail(#exp, __FILE__, __LINE__); } while (0)
-#else
 #define	ASSERT(exp)		do {} while (0)
-#endif
 
 /* PCMCIA attribute space access macros */
 #define	OSL_PCMCIA_READ_ATTR(osh, offset, buf, size) \

@@ -1,13 +1,13 @@
 /*
  * Fundamental types and constants relating to WPA
  *
- * Copyright 2006, Broadcom Corporation
- * All Rights Reserved.
- * 
- * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
- * KIND, EXPRESS OR IMPLIED, BY STATUTE, COMMUNICATION OR OTHERWISE. BROADCOM
- * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
- * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
+ * Copyright 2004, Broadcom Corporation      
+ * All Rights Reserved.      
+ *       
+ * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY      
+ * KIND, EXPRESS OR IMPLIED, BY STATUTE, COMMUNICATION OR OTHERWISE. BROADCOM      
+ * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS      
+ * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.      
  *
  * $Id$
  */
@@ -29,19 +29,19 @@
 /* Reason Codes */
 
 /* 13 through 23 taken from IEEE Std 802.11i-2004 */
-#define DOT11_RC_INVALID_WPA_IE		13	/* Invalid info. element */
-#define DOT11_RC_MIC_FAILURE		14	/* Michael failure */
-#define DOT11_RC_4WH_TIMEOUT		15	/* 4-way handshake timeout */
-#define DOT11_RC_GTK_UPDATE_TIMEOUT	16	/* Group key update timeout */
+#define DOT11_RC_INVALID_WPA_IE			13	/* Invalid info. element */
+#define DOT11_RC_MIC_FAILURE			14	/* Michael failure */
+#define DOT11_RC_4WH_TIMEOUT			15	/* 4-way handshake timeout */
+#define DOT11_RC_GTK_UPDATE_TIMEOUT		16	/* Group key update timeout */
 #define DOT11_RC_WPA_IE_MISMATCH	17	/* WPA IE in 4-way handshake differs from
 						 * (re-)assoc. request/probe response
 						 */
-#define DOT11_RC_INVALID_MC_CIPHER	18	/* Invalid multicast cipher */
-#define DOT11_RC_INVALID_UC_CIPHER	19	/* Invalid unicast cipher */
-#define DOT11_RC_INVALID_AKMP		20	/* Invalid authenticated key management protocol */
-#define DOT11_RC_BAD_WPA_VERSION	21	/* Unsupported WPA version */
-#define DOT11_RC_INVALID_WPA_CAP	22	/* Invalid WPA IE capabilities */
-#define DOT11_RC_8021X_AUTH_FAIL	23	/* 802.1X authentication failure */
+#define DOT11_RC_INVALID_MC_CIPHER		18	/* Invalid multicast cipher */
+#define DOT11_RC_INVALID_UC_CIPHER		19	/* Invalid unicast cipher */
+#define DOT11_RC_INVALID_AKMP			20	/* Invalid authenticated key management protocol */
+#define DOT11_RC_BAD_WPA_VERSION		21	/* Unsupported WPA version */
+#define DOT11_RC_INVALID_WPA_CAP		22	/* Invalid WPA IE capabilities */
+#define DOT11_RC_8021X_AUTH_FAIL		23	/* 802.1X authentication failure */
 
 #define WPA2_PMKID_LEN	16
 

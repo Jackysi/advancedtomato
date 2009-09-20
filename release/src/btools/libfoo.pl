@@ -146,6 +146,13 @@ sub fixDyn
 	
 #	fixDynDep("libbcm.so", "libshared.so");
 #	fixDynDep("libbcm.so", "libc.so.0");
+
+#!!TB - Updated Broadcom WL driver
+	fixDynDep("libbcmcrypto.so", "libc.so.0");
+	fixDynDep("nas", "libbcmcrypto.so");
+	fixDynDep("wl", "libbcmcrypto.so");
+	fixDynDep("nas", "libc.so.0");
+	fixDynDep("wl", "libc.so.0");
 }
 
 sub usersOf
@@ -303,6 +310,12 @@ sub genSO
 		print "$name: not found, skipping...\n";
 		return 0;
 	}
+
+	#!!TB
+	if (!-f $arc) {
+		print "$arc: not found, skipping...\n";
+		return 0;
+	}
 	
 	foreach $sym (sort keys %{$elf_exp{$name}}) {
 		if (scalar(usersOf($name, $sym)) > 0) {
@@ -401,6 +414,9 @@ genSO("${root}/usr/lib/libzebra.so", "${router}/zebra/lib/libzebra.a");
 #	genSO("${root}/usr/lib/libiptc.so", "${router}/iptables/libiptc/libiptc.a");
 #	genSO("${root}/usr/lib/libshared.so", "${router}/shared/libshared.a");
 #	genSO("${root}/usr/lib/libnvram.so", "${router}/nvram/libnvram.a");
+
+#!!TB - Updated Broadcom WL driver
+genSO("${root}/usr/lib/libbcmcrypto.so", "${router}/libbcmcrypto/libbcmcrypto.a");
 
 print "\n";
 

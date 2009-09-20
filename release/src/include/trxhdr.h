@@ -1,7 +1,7 @@
 /*
  * TRX image file header format.
  *
- * Copyright 2006, Broadcom Corporation
+ * Copyright 2005, Broadcom Corporation
  * All Rights Reserved.
  * 
  * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
@@ -10,15 +10,14 @@
  * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
  *
  * $Id$
- */
+ */ 
 
 #include <typedefs.h>
 
 #define TRX_MAGIC	0x30524448	/* "HDR0" */
 #define TRX_VERSION	1		/* Version 1 */
-#define MFG_TRX_MAX_LEN	0x3A0000	/* Max length */
-#define TRX_MAX_LEN	0x1000	/* Max length */
-#define TRX_NO_HEADER	1		/* Do not write TRX header */
+#define TRX_MAX_LEN	0x7A0000	/* Max length */
+#define TRX_NO_HEADER	1		/* Do not write TRX header */	
 #define TRX_GZ_FILES	0x2     /* Contains up to TRX_MAX_OFFSET individual gzip files */
 #define TRX_MAX_OFFSET	3		/* Max number of individual files */
 

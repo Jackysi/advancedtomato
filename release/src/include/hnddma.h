@@ -1,14 +1,14 @@
 /*
- * Generic Broadcom Home Networking Division (HND) DMA engine SW interface
+ * Generic Broadcom Home Networking Division (HND) DMA engine definitions.
  * This supports the following chips: BCM42xx, 44xx, 47xx .
  *
- * Copyright 2006, Broadcom Corporation
- * All Rights Reserved.
- * 
- * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
- * KIND, EXPRESS OR IMPLIED, BY STATUTE, COMMUNICATION OR OTHERWISE. BROADCOM
- * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
- * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
+ * Copyright 2004, Broadcom Corporation      
+ * All Rights Reserved.      
+ *       
+ * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY      
+ * KIND, EXPRESS OR IMPLIED, BY STATUTE, COMMUNICATION OR OTHERWISE. BROADCOM      
+ * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS      
+ * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.      
  * $Id$
  */
 
@@ -109,7 +109,7 @@ struct hnddma_pub {
 
 
 extern hnddma_t * dma_attach(osl_t *osh, char *name, sb_t *sbh, void *dmaregstx, void *dmaregsrx,
-                             uint ntxd, uint nrxd, uint rxbufsize, uint nrxpost, uint rxoffset,
+	uint ntxd, uint nrxd, uint rxbufsize, uint nrxpost, uint rxoffset,
                              uint *msg_level);
 #define dma_detach(di)			((di)->di_fn.detach(di))
 #define dma_txreset(di)			((di)->di_fn.txreset(di))
@@ -141,13 +141,7 @@ extern hnddma_t * dma_attach(osl_t *osh, char *name, sb_t *sbh, void *dmaregstx,
 #define dma_txactive(di)                ((di)->di_fn.txactive(di))
 #define dma_txrotate(di)                ((di)->di_fn.txrotate(di))
 #define dma_counterreset(di)            ((di)->di_fn.counterreset(di))
-#ifdef BCMDBG
-#define dma_dump(di, buf, dumpring)	((di)->di_fn.dump(di, buf, dumpring))
-#define dma_dumptx(di, buf, dumpring)	((di)->di_fn.dumptx(di, buf, dumpring))
-#define dma_dumprx(di, buf, dumpring)	((di)->di_fn.dumprx(di, buf, dumpring))
-#endif
 
-#define DMA_DUMP_SIZE 2048
 /* return addresswidth allowed
  * This needs to be done after SB attach but before dma attach.
  * SB attach provides ability to probe backplane and dma core capabilities

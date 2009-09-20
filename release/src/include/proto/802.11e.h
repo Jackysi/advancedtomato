@@ -1,7 +1,7 @@
 /*
  * 802.11e protocol header file
  *
- * Copyright 2006, Broadcom Corporation
+ * Copyright 2007, Broadcom Corporation
  * All Rights Reserved.
  * 
  * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
@@ -23,9 +23,6 @@
 #define	PACKED
 #endif
 
-#ifdef BCMDBG
-extern const char *aci_names[];
-#endif /* BCMDBG */
 
 /* WME Traffic Specification (TSPEC) element */
 #define WME_TSPEC_HDR_LEN           2           /* WME TSPEC header length */

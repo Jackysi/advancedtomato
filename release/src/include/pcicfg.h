@@ -1,7 +1,7 @@
 /*
- * pcicfg.h: PCI configuration constants and structures.
+ * pcicfg.h: PCI configuration  constants and structures.
  *
- * Copyright 2006, Broadcom Corporation
+ * Copyright 2004, Broadcom Corporation
  * All Rights Reserved.
  * 
  * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
@@ -102,29 +102,29 @@
 #define PCI_CAPPTR_PRESENT	0x0010
 
 typedef struct _pci_config_regs {
-	unsigned short	vendor;
-	unsigned short	device;
-	unsigned short	command;
-	unsigned short	status;
-	unsigned char	rev_id;
-	unsigned char	prog_if;
-	unsigned char	sub_class;
-	unsigned char	base_class;
-	unsigned char	cache_line_size;
-	unsigned char	latency_timer;
-	unsigned char	header_type;
-	unsigned char	bist;
-	unsigned long	base[PCI_BAR_MAX];
-	unsigned long	cardbus_cis;
-	unsigned short	subsys_vendor;
-	unsigned short	subsys_id;
-	unsigned long	baserom;
-	unsigned long	rsvd_a[PCR_RSVDA_MAX];
-	unsigned char	int_line;
-	unsigned char	int_pin;
-	unsigned char	min_gnt;
-	unsigned char	max_lat;
-	unsigned char	dev_dep[192];
+    unsigned short	vendor;
+    unsigned short	device;
+    unsigned short	command;
+    unsigned short	status;
+    unsigned char	rev_id;
+    unsigned char	prog_if;
+    unsigned char	sub_class;
+    unsigned char	base_class;
+    unsigned char	cache_line_size;
+    unsigned char	latency_timer;
+    unsigned char	header_type;
+    unsigned char	bist;
+    unsigned long	base[PCI_BAR_MAX];
+    unsigned long	cardbus_cis;
+    unsigned short	subsys_vendor;
+    unsigned short	subsys_id;
+    unsigned long	baserom;
+    unsigned long	rsvd_a[PCR_RSVDA_MAX];
+    unsigned char	int_line;
+    unsigned char	int_pin;
+    unsigned char	min_gnt;
+    unsigned char	max_lat;
+    unsigned char	dev_dep[192];
 } pci_config_regs;
 
 #define	SZPCR		(sizeof (pci_config_regs))
@@ -170,129 +170,137 @@ typedef struct _pci_config_regs {
 #undef	PCI_CLASS_DOCK
 #endif	/* __NetBSD__ */
 
+#ifdef EFI
+#undef PCI_CLASS_BRIDGE
+#undef PCI_CLASS_OLD
+#undef PCI_CLASS_DISPLAY
+#undef PCI_CLASS_SERIAL
+#undef PCI_CLASS_SATELLITE
+#endif /* EFI */
+
 /* Classes and subclasses */
 
 typedef enum {
-	PCI_CLASS_OLD = 0,
-	PCI_CLASS_DASDI,
-	PCI_CLASS_NET,
-	PCI_CLASS_DISPLAY,
-	PCI_CLASS_MMEDIA,
-	PCI_CLASS_MEMORY,
-	PCI_CLASS_BRIDGE,
-	PCI_CLASS_COMM,
-	PCI_CLASS_BASE,
-	PCI_CLASS_INPUT,
-	PCI_CLASS_DOCK,
-	PCI_CLASS_CPU,
-	PCI_CLASS_SERIAL,
-	PCI_CLASS_INTELLIGENT = 0xe,
-	PCI_CLASS_SATELLITE,
-	PCI_CLASS_CRYPT,
-	PCI_CLASS_DSP,
+    PCI_CLASS_OLD = 0,
+    PCI_CLASS_DASDI,
+    PCI_CLASS_NET,
+    PCI_CLASS_DISPLAY,
+    PCI_CLASS_MMEDIA,
+    PCI_CLASS_MEMORY,
+    PCI_CLASS_BRIDGE,
+    PCI_CLASS_COMM,
+    PCI_CLASS_BASE,
+    PCI_CLASS_INPUT,
+    PCI_CLASS_DOCK,
+    PCI_CLASS_CPU,
+    PCI_CLASS_SERIAL,
+    PCI_CLASS_INTELLIGENT = 0xe,
+    PCI_CLASS_SATELLITE,
+    PCI_CLASS_CRYPT,
+    PCI_CLASS_DSP,
 	PCI_CLASS_XOR = 0xfe
 } pci_classes;
 
 typedef enum {
-	PCI_DASDI_SCSI,
-	PCI_DASDI_IDE,
-	PCI_DASDI_FLOPPY,
-	PCI_DASDI_IPI,
-	PCI_DASDI_RAID,
-	PCI_DASDI_OTHER = 0x80
+    PCI_DASDI_SCSI,
+    PCI_DASDI_IDE,
+    PCI_DASDI_FLOPPY,
+    PCI_DASDI_IPI,
+    PCI_DASDI_RAID,
+    PCI_DASDI_OTHER = 0x80
 } pci_dasdi_subclasses;
 
 typedef enum {
-	PCI_NET_ETHER,
-	PCI_NET_TOKEN,
-	PCI_NET_FDDI,
-	PCI_NET_ATM,
-	PCI_NET_OTHER = 0x80
+    PCI_NET_ETHER,
+    PCI_NET_TOKEN,
+    PCI_NET_FDDI,
+    PCI_NET_ATM,
+    PCI_NET_OTHER = 0x80
 } pci_net_subclasses;
 
 typedef enum {
-	PCI_DISPLAY_VGA,
-	PCI_DISPLAY_XGA,
-	PCI_DISPLAY_3D,
-	PCI_DISPLAY_OTHER = 0x80
+    PCI_DISPLAY_VGA,
+    PCI_DISPLAY_XGA,
+    PCI_DISPLAY_3D,
+    PCI_DISPLAY_OTHER = 0x80
 } pci_display_subclasses;
 
 typedef enum {
-	PCI_MMEDIA_VIDEO,
-	PCI_MMEDIA_AUDIO,
-	PCI_MMEDIA_PHONE,
-	PCI_MEDIA_OTHER = 0x80
+    PCI_MMEDIA_VIDEO,
+    PCI_MMEDIA_AUDIO,
+    PCI_MMEDIA_PHONE,
+    PCI_MEDIA_OTHER = 0x80
 } pci_mmedia_subclasses;
 
 typedef enum {
-	PCI_MEMORY_RAM,
-	PCI_MEMORY_FLASH,
-	PCI_MEMORY_OTHER = 0x80
+    PCI_MEMORY_RAM,
+    PCI_MEMORY_FLASH,
+    PCI_MEMORY_OTHER = 0x80
 } pci_memory_subclasses;
 
 typedef enum {
-	PCI_BRIDGE_HOST,
-	PCI_BRIDGE_ISA,
-	PCI_BRIDGE_EISA,
-	PCI_BRIDGE_MC,
-	PCI_BRIDGE_PCI,
-	PCI_BRIDGE_PCMCIA,
-	PCI_BRIDGE_NUBUS,
-	PCI_BRIDGE_CARDBUS,
-	PCI_BRIDGE_RACEWAY,
-	PCI_BRIDGE_OTHER = 0x80
+    PCI_BRIDGE_HOST,
+    PCI_BRIDGE_ISA,
+    PCI_BRIDGE_EISA,
+    PCI_BRIDGE_MC,
+    PCI_BRIDGE_PCI,
+    PCI_BRIDGE_PCMCIA,
+    PCI_BRIDGE_NUBUS,
+    PCI_BRIDGE_CARDBUS,
+    PCI_BRIDGE_RACEWAY,
+    PCI_BRIDGE_OTHER = 0x80
 } pci_bridge_subclasses;
 
 typedef enum {
-	PCI_COMM_UART,
-	PCI_COMM_PARALLEL,
-	PCI_COMM_MULTIUART,
-	PCI_COMM_MODEM,
-	PCI_COMM_OTHER = 0x80
+    PCI_COMM_UART,
+    PCI_COMM_PARALLEL,
+    PCI_COMM_MULTIUART,
+    PCI_COMM_MODEM,
+    PCI_COMM_OTHER = 0x80
 } pci_comm_subclasses;
 
 typedef enum {
-	PCI_BASE_PIC,
-	PCI_BASE_DMA,
-	PCI_BASE_TIMER,
-	PCI_BASE_RTC,
-	PCI_BASE_PCI_HOTPLUG,
-	PCI_BASE_OTHER = 0x80
+    PCI_BASE_PIC,
+    PCI_BASE_DMA,
+    PCI_BASE_TIMER,
+    PCI_BASE_RTC,
+    PCI_BASE_PCI_HOTPLUG,
+    PCI_BASE_OTHER = 0x80
 } pci_base_subclasses;
 
 typedef enum {
-	PCI_INPUT_KBD,
-	PCI_INPUT_PEN,
-	PCI_INPUT_MOUSE,
-	PCI_INPUT_SCANNER,
-	PCI_INPUT_GAMEPORT,
-	PCI_INPUT_OTHER = 0x80
+    PCI_INPUT_KBD,
+    PCI_INPUT_PEN,
+    PCI_INPUT_MOUSE,
+    PCI_INPUT_SCANNER,
+    PCI_INPUT_GAMEPORT,
+    PCI_INPUT_OTHER = 0x80
 } pci_input_subclasses;
 
 typedef enum {
-	PCI_DOCK_GENERIC,
-	PCI_DOCK_OTHER = 0x80
+    PCI_DOCK_GENERIC,
+    PCI_DOCK_OTHER = 0x80
 } pci_dock_subclasses;
 
 typedef enum {
-	PCI_CPU_386,
-	PCI_CPU_486,
-	PCI_CPU_PENTIUM,
-	PCI_CPU_ALPHA = 0x10,
-	PCI_CPU_POWERPC = 0x20,
-	PCI_CPU_MIPS = 0x30,
-	PCI_CPU_COPROC = 0x40,
-	PCI_CPU_OTHER = 0x80
+    PCI_CPU_386,
+    PCI_CPU_486,
+    PCI_CPU_PENTIUM,
+    PCI_CPU_ALPHA = 0x10,
+    PCI_CPU_POWERPC = 0x20,
+    PCI_CPU_MIPS = 0x30,
+    PCI_CPU_COPROC = 0x40,
+    PCI_CPU_OTHER = 0x80
 } pci_cpu_subclasses;
 
 typedef enum {
-	PCI_SERIAL_IEEE1394,
-	PCI_SERIAL_ACCESS,
-	PCI_SERIAL_SSA,
-	PCI_SERIAL_USB,
-	PCI_SERIAL_FIBER,
-	PCI_SERIAL_SMBUS,
-	PCI_SERIAL_OTHER = 0x80
+    PCI_SERIAL_IEEE1394,
+    PCI_SERIAL_ACCESS,
+    PCI_SERIAL_SSA,
+    PCI_SERIAL_USB,
+    PCI_SERIAL_FIBER,
+    PCI_SERIAL_SMBUS,
+    PCI_SERIAL_OTHER = 0x80
 } pci_serial_subclasses;
 
 typedef enum {
@@ -300,22 +308,22 @@ typedef enum {
 } pci_intelligent_subclasses;
 
 typedef enum {
-	PCI_SATELLITE_TV,
-	PCI_SATELLITE_AUDIO,
-	PCI_SATELLITE_VOICE,
-	PCI_SATELLITE_DATA,
-	PCI_SATELLITE_OTHER = 0x80
+    PCI_SATELLITE_TV,
+    PCI_SATELLITE_AUDIO,
+    PCI_SATELLITE_VOICE,
+    PCI_SATELLITE_DATA,
+    PCI_SATELLITE_OTHER = 0x80
 } pci_satellite_subclasses;
 
 typedef enum {
-	PCI_CRYPT_NETWORK,
-	PCI_CRYPT_ENTERTAINMENT,
-	PCI_CRYPT_OTHER = 0x80
+    PCI_CRYPT_NETWORK,
+    PCI_CRYPT_ENTERTAINMENT,
+    PCI_CRYPT_OTHER = 0x80
 } pci_crypt_subclasses;
 
 typedef enum {
-	PCI_DSP_DPIO,
-	PCI_DSP_OTHER = 0x80
+    PCI_DSP_DPIO,
+    PCI_DSP_OTHER = 0x80
 } pci_dsp_subclasses;
 
 typedef enum {
@@ -337,45 +345,45 @@ typedef enum {
 #define	PPB_RSVDD_MAX		8
 
 typedef struct _ppb_config_regs {
-	unsigned short	vendor;
-	unsigned short	device;
-	unsigned short	command;
-	unsigned short	status;
-	unsigned char	rev_id;
-	unsigned char	prog_if;
-	unsigned char	sub_class;
-	unsigned char	base_class;
-	unsigned char	cache_line_size;
-	unsigned char	latency_timer;
-	unsigned char	header_type;
-	unsigned char	bist;
-	unsigned long	rsvd_a[PPB_RSVDA_MAX];
-	unsigned char	prim_bus;
-	unsigned char	sec_bus;
-	unsigned char	sub_bus;
-	unsigned char	sec_lat;
-	unsigned char	io_base;
-	unsigned char	io_lim;
-	unsigned short	sec_status;
-	unsigned short	mem_base;
-	unsigned short	mem_lim;
-	unsigned short	pf_mem_base;
-	unsigned short	pf_mem_lim;
-	unsigned long	pf_mem_base_hi;
-	unsigned long	pf_mem_lim_hi;
-	unsigned short	io_base_hi;
-	unsigned short	io_lim_hi;
-	unsigned short	subsys_vendor;
-	unsigned short	subsys_id;
-	unsigned long	rsvd_b;
-	unsigned char	rsvd_c;
-	unsigned char	int_pin;
-	unsigned short	bridge_ctrl;
-	unsigned char	chip_ctrl;
-	unsigned char	diag_ctrl;
-	unsigned short	arb_ctrl;
-	unsigned long	rsvd_d[PPB_RSVDD_MAX];
-	unsigned char	dev_dep[192];
+    unsigned short	vendor;
+    unsigned short	device;
+    unsigned short	command;
+    unsigned short	status;
+    unsigned char	rev_id;
+    unsigned char	prog_if;
+    unsigned char	sub_class;
+    unsigned char	base_class;
+    unsigned char	cache_line_size;
+    unsigned char	latency_timer;
+    unsigned char	header_type;
+    unsigned char	bist;
+    unsigned long	rsvd_a[PPB_RSVDA_MAX];
+    unsigned char	prim_bus;
+    unsigned char	sec_bus;
+    unsigned char	sub_bus;
+    unsigned char	sec_lat;
+    unsigned char	io_base;
+    unsigned char	io_lim;
+    unsigned short	sec_status;
+    unsigned short	mem_base;
+    unsigned short	mem_lim;
+    unsigned short	pf_mem_base;
+    unsigned short	pf_mem_lim;
+    unsigned long	pf_mem_base_hi;
+    unsigned long	pf_mem_lim_hi;
+    unsigned short	io_base_hi;
+    unsigned short	io_lim_hi;
+    unsigned short	subsys_vendor;
+    unsigned short	subsys_id;
+    unsigned long	rsvd_b;
+    unsigned char	rsvd_c;
+    unsigned char	int_pin;
+    unsigned short	bridge_ctrl;
+    unsigned char	chip_ctrl;
+    unsigned char	diag_ctrl;
+    unsigned short	arb_ctrl;
+    unsigned long	rsvd_d[PPB_RSVDD_MAX];
+    unsigned char	dev_dep[192];
 } ppb_config_regs;
 
 
@@ -405,6 +413,11 @@ typedef struct _pciconfig_cap_pwrmgmt {
 	unsigned char pme_bridge_ext;
 	unsigned char data;
 } pciconfig_cap_pwrmgmt;
+
+#define PME_CAP_PM_STATES (0x1f << 27)	/* Bits 31:27 states that can generate PME */
+#define PME_CSR_OFFSET	    0x4		/* 4-bytes offset */
+#define PME_CSR_PME_EN	  (1 << 8)	/* Bit 8 Enable generating of PME */
+#define PME_CSR_PME_STAT  (1 << 15)	/* Bit 15 PME got asserted */
 
 /* Data structure to define the PCIE capability */
 typedef struct _pciconfig_cap_pcie {
@@ -463,7 +476,7 @@ typedef struct _pcie_enhanced_caphdr {
 						 * 8KB window, so their address is the "regular"
 						 * address plus 4K
 						 */
-#define PCI_BAR0_WINSZ		8192		/* bar0 window size */
+#define PCI_BAR0_WINSZ		(16 * 1024)	/* bar0 window size Match with corerev 13 */
 
 /* On pci corerev >= 13 and all pcie, the bar0 is now 16KB and it maps: */
 #define	PCI_16KB0_PCIREGS_OFFSET (8 * 1024)	/* bar0 + 8K accesses pci/pcie core registers */

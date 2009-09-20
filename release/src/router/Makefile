@@ -42,6 +42,12 @@ obj-y += ppp
 obj-y += ttcp
 obj-y += ntpc
 obj-y += rstats
+
+# !!TB - updated Broadcom Wireless driver
+obj-y += et
+obj-y += libbcmcrypto
+obj-y += wlconf
+
 obj-y += mssl
 obj-y += mdu
 

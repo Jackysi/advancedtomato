@@ -1,13 +1,13 @@
 /*
- * Copyright 2006, Broadcom Corporation
- * All Rights Reserved.
- * 
- * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
- * KIND, EXPRESS OR IMPLIED, BY STATUTE, COMMUNICATION OR OTHERWISE. BROADCOM
- * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
- * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
+ * Copyright 2004, Broadcom Corporation      
+ * All Rights Reserved.      
+ *       
+ * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY      
+ * KIND, EXPRESS OR IMPLIED, BY STATUTE, COMMUNICATION OR OTHERWISE. BROADCOM      
+ * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS      
+ * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.      
  *
- * Fundamental types and constants relating to 802.11
+ * Fundamental types and constants relating to 802.11 
  *
  * $Id$
  */
@@ -24,6 +24,7 @@
 #endif
 
 #include <proto/wpa.h>
+
 
 /* enable structure packing */
 #if defined(__GNUC__)
@@ -213,7 +214,7 @@ struct dot11_bcn_prb {
 	uint16			beacon_interval;
 	uint16			capability;
 } PACKED;
-#define	DOT11_BCN_PRB_LEN	12		/* d11 beacon probe frame length */
+#define	DOT11_BCN_PRB_LEN	12		/* 802.11 beacon/probe frame fixed length */
 
 struct dot11_auth {
 	uint16			alg;		/* algorithm */
@@ -260,9 +261,22 @@ struct dot11_action_ht_ch_width {
 struct dot11_action_ht_mimops {
 	uint8	category;
 	uint8	action;
-	uint8	enable;
-	uint8	psmode;
+	uint8	control;
 } PACKED;
+
+#define SM_PWRSAVE_ENABLE	1
+#define SM_PWRSAVE_MODE		2
+
+struct dot11_action_ht_info_xchg {
+	uint8	category;
+	uint8	action;
+	uint8	info;
+} PACKED;
+
+#define	DOT11_HT_INFO_XCHG_INFO_REQ		0x01
+#define	DOT11_HT_INFO_XCHG_40MHZ_INTOLERANT	0x02
+#define	DOT11_HT_INFO_XCHG_STA_CHAN_WIDTH	0x04
+
 
 /* ************* 802.11h related definitions. ************* */
 struct dot11_power_cnst {
@@ -285,7 +299,7 @@ struct dot11_tpc_rep {
 	uint8 margin;
 } PACKED;
 typedef struct dot11_tpc_rep dot11_tpc_rep_t;
-#define DOT11_MNG_IE_TPC_REPORT_LEN	2 	/* length of IE data, not including 2 byte header */
+#define DOT11_MNG_IE_TPC_REPORT_LEN	2	/* length of IE data, not including 2 byte header */
 
 struct dot11_supp_channels {
 	uint8 id;
@@ -325,6 +339,12 @@ typedef struct dot11_brcm_extch dot11_brcm_extch_ie_t;
 #define DOT11_EXT_CH_LOWER	0x03	/* ext. ch. on lower sb */
 #define DOT11_EXT_CH_NONE	0x00	/* no extension ch.  */
 
+struct dot11_action_frmhdr {
+	uint8	category;
+	uint8	action;
+	uint8	data[1];
+} PACKED;
+
 /* CSA IE data structure */
 struct dot11_channel_switch {
 	uint8 id;	/* id DOT11_MNG_CHANNEL_SWITCH_ID */
@@ -346,6 +366,24 @@ struct dot11_action_switch_channel {
 	dot11_chan_switch_ie_t chan_switch_ie;	/* for switch IE */
 	dot11_brcm_extch_ie_t extch_ie;		/* extension channel offset */
 } PACKED;
+
+/* 11n Extended Channel Switch IE data structure */
+struct dot11_ext_csa {
+	uint8 id;	/* id DOT11_MNG_EXT_CHANNEL_SWITCH_ID */
+	uint8 len;	/* length of IE */
+	uint8 mode;	/* mode 0 or 1 */
+	uint8 reg;	/* regulatory class */
+	uint8 channel;	/* channel switch to */
+	uint8 count;	/* number of beacons before switching */
+} PACKED;
+typedef struct dot11_ext_csa dot11_ext_csa_ie_t;
+#define DOT11_EXT_CSA_IE_LEN	4	/* length of extended channel switch IE body */
+
+struct dot11_action_ext_csa {
+	uint8	category;
+	uint8	action;
+	dot11_ext_csa_ie_t chan_switch_ie;	/* for switch IE */
+}  PACKED;
 
 /* 802.11h Measurement Request/Report IEs */
 /* Measurement Type field */
@@ -389,7 +427,7 @@ struct dot11_meas_rep {
 	uint8 token;
 	uint8 mode;
 	uint8 type;
-	union
+	union 
 	{
 		struct {
 			uint8 channel;
@@ -604,10 +642,9 @@ struct dot11_management_notification {
 #define BCN_PRB_SSID(body) ((char*)(body) + DOT11_BCN_PRB_LEN)
 
 /* Authentication frame payload constants */
-#define DOT11_OPEN_SYSTEM	0	/* 802.11 open authentication */
-#define DOT11_SHARED_KEY	1	/* 802.11 shared authentication */
-#define DOT11_OPEN_SHARED	2	
-#define DOT11_CHALLENGE_LEN	128	/* 802.11 challenge text length */
+#define DOT11_OPEN_SYSTEM	0	/* d11 open authentication */
+#define DOT11_SHARED_KEY	1	/* d11 shared authentication */
+#define DOT11_CHALLENGE_LEN	128	/* d11 challenge text length */
 
 /* Frame control macros */
 #define FC_PVER_MASK		0x3	/* PVER mask */
@@ -658,8 +695,10 @@ struct dot11_management_notification {
 #define FC_SUBTYPE_AUTH			11	/* authentication */
 #define FC_SUBTYPE_DEAUTH		12	/* de-authentication */
 #define FC_SUBTYPE_ACTION		13	/* action */
+#define FC_SUBTYPE_ACTION_NOACK		14	/* action no-ack */
 
 /* Control Subtypes */
+#define FC_SUBTYPE_CTL_WRAPPER		7	/* Control Wrapper */
 #define FC_SUBTYPE_BLOCKACK_REQ		8	/* Block Ack Req */
 #define FC_SUBTYPE_BLOCKACK		9	/* Block Ack */
 #define FC_SUBTYPE_PS_POLL		10	/* PS poll */
@@ -711,7 +750,9 @@ struct dot11_management_notification {
 #define FC_AUTH		FC_KIND(FC_TYPE_MNG, FC_SUBTYPE_AUTH)		/* authentication */
 #define FC_DEAUTH	FC_KIND(FC_TYPE_MNG, FC_SUBTYPE_DEAUTH)		/* deauthentication */
 #define FC_ACTION	FC_KIND(FC_TYPE_MNG, FC_SUBTYPE_ACTION)		/* action */
+#define FC_ACTION_NOACK	FC_KIND(FC_TYPE_MNG, FC_SUBTYPE_ACTION_NOACK)	/* action no-ack */
 
+#define FC_CTL_WRAPPER	FC_KIND(FC_TYPE_CTL, FC_SUBTYPE_CTL_WRAPPER)	/* Control Wrapper */
 #define FC_BLOCKACK_REQ	FC_KIND(FC_TYPE_CTL, FC_SUBTYPE_BLOCKACK_REQ)	/* Block Ack Req */
 #define FC_BLOCKACK	FC_KIND(FC_TYPE_CTL, FC_SUBTYPE_BLOCKACK)	/* Block Ack */
 #define FC_PS_POLL	FC_KIND(FC_TYPE_CTL, FC_SUBTYPE_PS_POLL)	/* PS poll */
@@ -753,13 +794,6 @@ struct dot11_management_notification {
 #define QOS_ACK_MASK		0x0060	/* QoS ACK mask */
 #define QOS_ACK(qos)		(((qos) & QOS_ACK_MASK) >> QOS_ACK_SHIFT)	/* QoS ACK */
 
-/* HT Control Field */
-
-/* Link Adaptation Control Subfields */
-#define HTC_LAC_MA		0x0001	/* payload of QoS NULL Data is Mgmt Act frame */
-#define HTC_LAC_TRQ		0x0002	/* req to responder to txmit a sounding PPDU */
-#define HTC_LAC_MRQ		0x0004	/* req for mcs feedback */
-
 /* A-MSDU flag */
 #define QOS_AMSDU_SHIFT		7	/* AMSDU shift */
 #define QOS_AMSDU_MASK		0x0080	/* AMSDU mask */
@@ -785,22 +819,22 @@ struct dot11_management_notification {
 
 /* Reason Codes */
 #define DOT11_RC_RESERVED		0	/* d11 RC reserved */
-#define DOT11_RC_UNSPECIFIED		1	/* Unspecified reason */
-#define DOT11_RC_AUTH_INVAL		2	/* Previous authentication no longer valid */
+#define DOT11_RC_UNSPECIFIED			1	/* Unspecified reason */
+#define DOT11_RC_AUTH_INVAL			2	/* Previous authentication no longer valid */
 #define DOT11_RC_DEAUTH_LEAVING		3	/* Deauthenticated because sending station
 						 * is leaving (or has left) IBSS or ESS
 						 */
-#define DOT11_RC_INACTIVITY		4	/* Disassociated due to inactivity */
-#define DOT11_RC_BUSY			5	/* Disassociated because AP is unable to handle
+#define DOT11_RC_INACTIVITY			4	/* Disassociated due to inactivity */
+#define DOT11_RC_BUSY				5	/* Disassociated because AP is unable to handle
 						 * all currently associated stations
 						 */
-#define DOT11_RC_INVAL_CLASS_2		6	/* Class 2 frame received from
+#define DOT11_RC_INVAL_CLASS_2			6	/* Class 2 frame received from
 						 * nonauthenticated station
 						 */
-#define DOT11_RC_INVAL_CLASS_3		7	/* Class 3 frame received from
+#define DOT11_RC_INVAL_CLASS_3			7	/* Class 3 frame received from
 						 *  nonassociated station
 						 */
-#define DOT11_RC_DISASSOC_LEAVING	8	/* Disassociated because sending station is
+#define DOT11_RC_DISASSOC_LEAVING		8	/* Disassociated because sending station is
 						 * leaving (or has left) BSS
 						 */
 #define DOT11_RC_NOT_AUTH		9	/* Station requesting (re)association is not
@@ -810,80 +844,93 @@ struct dot11_management_notification {
 #define DOT11_RC_BAD_CHANNELS		11	/* Unacceptable supported channels element */
 /* 12 is unused */
 
-#define DOT11_RC_MAX			23	/* Reason codes > 23 are reserved */
+/* 32-39 are QSTA specific reasons added in 11e */
+#define DOT11_RC_UNSPECIFIED_QOS	32	/* unspecified QoS-related reason */
+#define DOT11_RC_INSUFFCIENT_BW		33	/* QAP lacks sufficient bandwidth */
+#define DOT11_RC_EXCESSIVE_FRAMES	34	/* excessive number of frames need ack */
+#define DOT11_RC_TX_OUTSIDE_TXOP	35	/* transmitting outside the limits of txop */
+#define DOT11_RC_LEAVING_QBSS		36	/* QSTA is leaving the QBSS (or restting) */
+#define DOT11_RC_BAD_MECHANISM		37	/* does not want to use the mechanism */
+#define DOT11_RC_SETUP_NEEDED		38	/* mechanism needs a setup */
+#define DOT11_RC_TIMEOUT		39	/* timeout */
+
+#define DOT11_RC_MAX				23	/* Reason codes > 23 are reserved */
 
 /* Status Codes */
-#define DOT11_STATUS_SUCCESS			0	/* Successful */
-#define DOT11_STATUS_FAILURE			1	/* Unspecified failure */
-#define DOT11_STATUS_CAP_MISMATCH		10	/* Cannot support all requested
-							 * capabilities in the Capability
-							 * Information field
-							 */
-#define DOT11_STATUS_REASSOC_FAIL		11	/* Reassociation denied due to inability
-							 * to confirm that association exists
-							 */
-#define DOT11_STATUS_ASSOC_FAIL			12	/* Association denied due to reason
-							 * outside the scope of this standard
-							 */
-#define DOT11_STATUS_AUTH_MISMATCH		13	/* Responding station does not support
-							 * the specified authentication
-							 * algorithm
-							 */
-#define DOT11_STATUS_AUTH_SEQ			14	/* Received an Authentication frame
-							 * with authentication transaction
-							 * sequence number out of expected
-							 * sequence
-							 */
-#define DOT11_STATUS_AUTH_CHALLENGE_FAIL	15	/* Authentication rejected because of
-							 * challenge failure
-							 */
-#define DOT11_STATUS_AUTH_TIMEOUT		16	/* Authentication rejected due to timeout
-							 * waiting for next frame in sequence
-							 */
-#define DOT11_STATUS_ASSOC_BUSY_FAIL		17	/* Association denied because AP is
-							 * unable to handle additional
-							 * associated stations
-							 */
-#define DOT11_STATUS_ASSOC_RATE_MISMATCH	18	/* Association denied due to requesting
-							 * station not supporting all of the
-							 * data rates in the BSSBasicRateSet
-							 * parameter
-							 */
-#define DOT11_STATUS_ASSOC_SHORT_REQUIRED	19	/* Association denied due to requesting
-							 * station not supporting the Short
-							 * Preamble option
-							 */
-#define DOT11_STATUS_ASSOC_PBCC_REQUIRED	20	/* Association denied due to requesting
-							 * station not supporting the PBCC
-							 * Modulation option
-							 */
-#define DOT11_STATUS_ASSOC_AGILITY_REQUIRED	21	/* Association denied due to requesting
-							 * station not supporting the Channel
-							 * Agility option
-							 */
-#define DOT11_STATUS_ASSOC_SPECTRUM_REQUIRED	22	/* Association denied because Spectrum
+#define DOT11_SC_SUCCESS		0	/* Successful */
+#define DOT11_SC_FAILURE		1	/* Unspecified failure */
+#define DOT11_SC_CAP_MISMATCH		10	/* Cannot support all requested
+						 * capabilities in the Capability
+						 * Information field
+						 */
+#define DOT11_SC_REASSOC_FAIL		11	/* Reassociation denied due to inability
+						 * to confirm that association exists
+						 */
+#define DOT11_SC_ASSOC_FAIL		12	/* Association denied due to reason
+						 * outside the scope of this standard
+						 */
+#define DOT11_SC_AUTH_MISMATCH		13	/* Responding station does not support
+						 * the specified authentication
+						 * algorithm
+						 */
+#define DOT11_SC_AUTH_SEQ		14	/* Received an Authentication frame
+						 * with authentication transaction
+						 * sequence number out of expected
+						 * sequence
+						 */
+#define DOT11_SC_AUTH_CHALLENGE_FAIL	15	/* Authentication rejected because of
+						 * challenge failure
+						 */
+#define DOT11_SC_AUTH_TIMEOUT		16	/* Authentication rejected due to timeout
+						 * waiting for next frame in sequence
+						 */
+#define DOT11_SC_ASSOC_BUSY_FAIL	17	/* Association denied because AP is
+						 * unable to handle additional
+						 * associated stations
+						 */
+#define DOT11_SC_ASSOC_RATE_MISMATCH	18	/* Association denied due to requesting
+						 * station not supporting all of the
+						 * data rates in the BSSBasicRateSet
+						 * parameter
+						 */
+#define DOT11_SC_ASSOC_SHORT_REQUIRED	19	/* Association denied due to requesting
+						 * station not supporting the Short
+						 * Preamble option
+						 */
+#define DOT11_SC_ASSOC_PBCC_REQUIRED	20	/* Association denied due to requesting
+						 * station not supporting the PBCC
+						 * Modulation option
+						 */
+#define DOT11_SC_ASSOC_AGILITY_REQUIRED	21	/* Association denied due to requesting
+						 * station not supporting the Channel
+						 * Agility option
+						 */
+#define DOT11_SC_ASSOC_SPECTRUM_REQUIRED	22	/* Association denied because Spectrum
 							 * Management capability is required.
 							 */
-#define DOT11_STATUS_ASSOC_BAD_POWER_CAP	23	/* Association denied because the info
-							 * in the Power Cap element is
-							 * unacceptable.
-							 */
-#define DOT11_STATUS_ASSOC_BAD_SUP_CHANNELS	24	/* Association denied because the info
-							 * in the Supported Channel element is
-							 * unacceptable
-							 */
-#define DOT11_STATUS_ASSOC_SHORTSLOT_REQUIRED	25	/* Association denied due to requesting
+#define DOT11_SC_ASSOC_BAD_POWER_CAP	23	/* Association denied because the info
+						 * in the Power Cap element is
+						 * unacceptable.
+						 */
+#define DOT11_SC_ASSOC_BAD_SUP_CHANNELS	24	/* Association denied because the info
+						 * in the Supported Channel element is
+						 * unacceptable
+						 */
+#define DOT11_SC_ASSOC_SHORTSLOT_REQUIRED	25	/* Association denied due to requesting
 							 * station not supporting the Short Slot
 							 * Time option
 							 */
-#define DOT11_STATUS_ASSOC_ERPBCC_REQUIRED	26	/* Association denied due to requesting
-							 * station not supporting the ER-PBCC
-							 * Modulation option
-							 */
-#define DOT11_STATUS_ASSOC_DSSOFDM_REQUIRED	27	/* Association denied due to requesting
-							 * station not supporting the DSS-OFDM
-							 * option
-							 */
+#define DOT11_SC_ASSOC_ERPBCC_REQUIRED	26	/* Association denied due to requesting
+						 * station not supporting the ER-PBCC
+						 * Modulation option
+						 */
+#define DOT11_SC_ASSOC_DSSOFDM_REQUIRED	27	/* Association denied due to requesting
+						 * station not supporting the DSS-OFDM
+						 * option
+						 */
+
+#define	DOT11_SC_DECLINED		37	/* request declined */
+#define	DOT11_SC_INVALID_PARAMS		38	/* One or more params have invalid values */
 
 /* Info Elts, length of INFORMATION portion of Info Elts */
 #define DOT11_MNG_DS_PARAM_LEN			1	/* d11 management DS parameter length */
@@ -923,7 +970,7 @@ struct dot11_management_notification {
 #define DOT11_MNG_TPC_REQUEST_ID 		34    /* 11H TPC Request	*/
 #define DOT11_MNG_TPC_REPORT_ID			35    /* 11H TPC Report		*/
 #define DOT11_MNG_SUPP_CHANNELS_ID		36    /* 11H Supported Channels	*/
-#define DOT11_MNG_CHANNEL_SWITCH_ID		37    /* 11H ChannelSwitch Announcement */
+#define DOT11_MNG_CHANNEL_SWITCH_ID		37	/* 11H ChannelSwitch Announcement */
 #define DOT11_MNG_MEASURE_REQUEST_ID		38    /* 11H MeasurementRequest	*/
 #define DOT11_MNG_MEASURE_REPORT_ID		39    /* 11H MeasurementReport	*/
 #define DOT11_MNG_QUIET_ID			40    /* 11H Quiet		*/
@@ -934,8 +981,10 @@ struct dot11_management_notification {
 #define DOT11_MNG_NONERP_ID			47	/* d11 management NON-ERP id */
 #define DOT11_MNG_RSN_ID			48	/* d11 management RSN id */
 #define DOT11_MNG_EXT_RATES_ID			50	/* d11 management ext. rates id */
+#define DOT11_MNG_EXT_CSA_ID			60	/* d11 Extended CSA */
 #define	DOT11_MNG_HT_ADD			61	/* d11 mgmt additional HT info */
 #define	DOT11_MNG_EXT_CHANNEL_OFFSET		62	/* d11 mgmt ext channel offset */
+#define	DOT11_MNG_EXT_CAP			127	/* d11 mgmt ext capability */
 #define DOT11_MNG_WPA_ID			221	/* d11 management WPA id */
 #define DOT11_MNG_PROPR_ID			221	/* d11 management proprietary id */
 
@@ -971,12 +1020,16 @@ struct dot11_management_notification {
 #define DOT11_CAP_SHORTSLOT			0x0400	/* d11 cap. shortslot */
 #define DOT11_CAP_CCK_OFDM			0x2000	/* d11 cap. CCK/OFDM */
 
+/* Extended Capability Information Field */
+#define DOT11_EXT_CAP_HT_IE_SUPPORT	0x01	/* support for info xchg action frame */
+
 /* Action Frame Constants */
 #define DOT11_ACTION_HDR_LEN		2	/* action frame header length */
 #define DOT11_ACTION_CAT_ERR_MASK	0x80	/* d11 action category error mask */
 #define DOT11_ACTION_CAT_MASK		0x7F	/* d11 action category mask */
 #define DOT11_ACTION_CAT_SPECT_MNG	0x00	/* d11 action category spectrum management */
 #define DOT11_ACTION_CAT_BLOCKACK	0x03	/* d11 action category block ack */
+#define DOT11_ACTION_CAT_HT		0x07	/* d11 action category for HT */
 #define DOT11_ACTION_NOTIFICATION	0x11	/* 17 */
 
 #define DOT11_ACTION_ID_M_REQ		0	/* d11 action measurement request */
@@ -984,10 +1037,12 @@ struct dot11_management_notification {
 #define DOT11_ACTION_ID_TPC_REQ		2	/* d11 action TPC request */
 #define DOT11_ACTION_ID_TPC_REP		3	/* d11 action TPC response */
 #define DOT11_ACTION_ID_CHANNEL_SWITCH	4	/* d11 action channel switch */
+#define DOT11_ACTION_ID_EXT_CSA		5	/* d11 extened CSA for 11n */
 
-/* HT (EWC) action ids */
-#define DOT11_ACTION_ID_HT_CH_WIDTH	0	/* mimo ps action frame id */
-#define DOT11_ACTION_ID_HT_MIMO_PS	1	/* mimo ps action frame id */
+/* HT action ids */
+#define DOT11_ACTION_ID_HT_CH_WIDTH	0	/* notify channel width action id */
+#define DOT11_ACTION_ID_HT_MIMO_PS	1	/* mimo ps action id */
+#define DOT11_ACTION_ID_HT_INFO_XCHG	8	/* HT Information Exchange action id */
 
 /* Block Ack action types */
 #define DOT11_BA_ACTION_ADDBA_REQ	0	/* ADDBA Req action frame type */
@@ -995,6 +1050,7 @@ struct dot11_management_notification {
 #define DOT11_BA_ACTION_DELBA		2	/* DELBA action frame type */
 
 /* ADDBA action parameters */
+#define DOT11_ADDBA_PARAM_AMSDU_SUP	0x0001	/* AMSDU supported under BA */
 #define DOT11_ADDBA_PARAM_POLICY_MASK	0x0002	/* policy mask(ack vs delayed) */
 #define DOT11_ADDBA_PARAM_POLICY_SHIFT	1	/* policy shift */
 #define DOT11_ADDBA_PARAM_TID_MASK	0x003c	/* tid mask */
@@ -1051,8 +1107,11 @@ typedef struct dot11_delba dot11_delba_t;
 
 /* 802.11 BRCM "Compromise" Pre N constants */
 #define PREN_PREAMBLE		24	/* green field preamble time */
-#define PREN_MM_EXT		16	/* extra mixed mode preamble time */
+#define PREN_MM_EXT		8	/* extra mixed mode preamble time */
 #define PREN_PREAMBLE_EXT	4	/* extra preamble (multiply by unique_streams-1) */
+
+/* 802.11 N PHY constants */
+#define NPHY_RIFS_TIME		2	/* NPHY RIFS time */
 
 /* 802.11 A PHY constants */
 #define APHY_SLOT_TIME		9	/* APHY slot time */
@@ -1130,6 +1189,7 @@ typedef	struct brcm_ie brcm_ie_t;
 
 /* brcm_ie flags1 */
 #define	BRF1_AMSDU		0x1	/* A-MSDU capable */
+#define	BRF1_DPT		0x2	/* DPT capable */
 
 #define AB_WDS_TIMEOUT_MAX	15	/* afterburner wds Max count indicating not
 					 * locally capable
@@ -1166,8 +1226,8 @@ typedef struct ewc_prop_cap_ie ewc_prop_cap_ie_t;
 #define EWC_CAP_IE_LEN	26	
 #define EWC_CAP_IE_TYPE	51      
 
-#define EWC_CAP_ADC_CODING	0x0001	/* Advance coding support */
-#define EWC_CAP_40MHZ		0x0002  /* FALSE:20Mhz, TRUE: 20 and 40MHZ supported */
+#define EWC_CAP_LDPC_CODING	0x0001	/* Support for rx of LDPC coded pkts */
+#define EWC_CAP_40MHZ		0x0002  /* FALSE:20Mhz, TRUE:20/40MHZ supported */
 #define EWC_CAP_MIMO_PS_MASK	0x000C  /* Mimo PS mask */
 #define EWC_CAP_MIMO_PS_SHIFT	0x0002	/* Mimo PS shift */
 #define EWC_CAP_MIMO_PS_OFF	0x0003	/* Mimo PS, no restriction */
@@ -1183,7 +1243,7 @@ typedef struct ewc_prop_cap_ie ewc_prop_cap_ie_t;
 #define EWC_CAP_MAX_AMSDU	0x0800	/* Max AMSDU size in bytes , 0=3839, 1=7935 */
 #define EWC_CAP_DSSS_CCK	0x1000	/* DSSS/CCK supported by the BSS */
 #define EWC_CAP_PSMP		0x2000	/* Power Save Multi Poll support */
-#define EWC_CAP_STBC_CTL	0x4000	/* STBC control frame support */
+#define EWC_CAP_40MHZ_INTOLERANT 0x4000	/* 40MHz Intolerant */
 #define EWC_CAP_LSIG_TXOP	0x8000	/* L-SIG TXOP protection support */
 
 #define EWC_CAP_RX_STBC_NO		0x0	/* no rx STBC support */
@@ -1232,11 +1292,15 @@ typedef struct ewc_prop_add_ie ewc_prop_add_ie_t;
 #define EWC_RIFS_PERMITTED     	0x08	/* RIFS allowed */
 
 /* opmode defn's */
-#define EWC_OPMODE_MASK		0x0003	/* protection mode mask */
+#define EWC_OPMODE_MASK	        0x0003	/* protection mode mask */
+#define EWC_OPMODE_SHIFT	0	/* protection mode shift */
 #define EWC_OPMODE_PURE		0x0000	/* protection mode PURE */
+#define EWC_OPMODE_OPTIONAL	0x0001	/* protection mode optional */
 #define EWC_OPMODE_HT20IN40	0x0002	/* protection mode 20MHz HT in 40MHz BSS */
 #define EWC_OPMODE_MIXED	0x0003	/* protection mode Mixed Mode */
-#define EWC_NONGF_PRESENT	0x0004	/* protection mode non-GF */
+#define EWC_OPMODE_NONGF	0x0004	/* protection mode non-GF */
+#define DOT11N_TXBURST		0x0008	/* Tx burst limit */
+#define DOT11N_OBSS_NONHT	0x0010	/* OBSS Non-HT STA present */
 
 /* misc_bites defn's */
 #define EWC_BASIC_STBC_MCS	0x007f	/* basic STBC MCS */
@@ -1246,13 +1310,27 @@ typedef struct ewc_prop_add_ie ewc_prop_add_ie_t;
 #define EWC_PCO_ACTIVE		0x0400	/* PCO active */
 #define EWC_PCO_PHASE		0x0800	/* PCO phase */
 
+/* Tx Burst Limits */
+#define DOT11N_2G_TXBURST_LIMIT	6160	/* 2G band Tx burst limit per 802.11n Draft 1.10 (usec) */
+#define DOT11N_5G_TXBURST_LIMIT	3080	/* 5G band Tx burst limit per 802.11n Draft 1.10 (usec) */
+
 /* Macros for opmode */
-#define EWC_MIXEDMODE_PRESENT(add_ie) ((ltoh16_ua(&add_ie->opmode) & EWC_OPMODE_MASK) \
-				   == EWC_OPMODE_MIXED)	/* mixed mode present */
+#define GET_EWC_OPMODE(add_ie)		((ltoh16_ua(&add_ie->opmode) & EWC_OPMODE_MASK) \
+					>> EWC_OPMODE_SHIFT)
+#define EWC_MIXEDMODE_PRESENT(add_ie)	((ltoh16_ua(&add_ie->opmode) & EWC_OPMODE_MASK) \
+					== EWC_OPMODE_MIXED)	/* mixed mode present */
 #define EWC_HT20_PRESENT(add_ie)	((ltoh16_ua(&add_ie->opmode) & EWC_OPMODE_MASK) \
-				== EWC_OPMODE_HT20IN40)	/* 20MHz HT present */
-#define EWC_USE_PROTECTION(add_ie) (EWC_HT20_PRESENT((add_ie)) || \
-				EWC_MIXEDMODE_PRESENT((add_ie)))	/* use protection */
+					== EWC_OPMODE_HT20IN40)	/* 20MHz HT present */
+#define EWC_OPTIONAL_PRESENT(add_ie)	((ltoh16_ua(&add_ie->opmode) & EWC_OPMODE_MASK) \
+					== EWC_OPMODE_OPTIONAL)	/* Optional protection present */
+#define EWC_USE_PROTECTION(add_ie)	(EWC_HT20_PRESENT((add_ie)) || \
+					EWC_MIXEDMODE_PRESENT((add_ie))) /* use protection */
+#define EWC_NONGF_PRESENT(add_ie)	((ltoh16_ua(&add_ie->opmode) & EWC_OPMODE_NONGF) \
+					== EWC_OPMODE_NONGF)	/* non-GF present */
+#define DOT11N_TXBURST_PRESENT(add_ie)	((ltoh16_ua(&add_ie->opmode) & DOT11N_TXBURST) \
+					== DOT11N_TXBURST)	/* Tx Burst present */
+#define DOT11N_OBSS_NONHT_PRESENT(add_ie)	((ltoh16_ua(&add_ie->opmode) & DOT11N_OBSS_NONHT) \
+					== DOT11N_OBSS_NONHT)	/* OBSS Non-HT present */
 
 /* Vendor IE structure */
 struct vndr_ie {
@@ -1281,6 +1359,7 @@ typedef struct vndr_ie vndr_ie_t;
 #define RSN_AKM_NONE		0	/* None (IBSS) */
 #define RSN_AKM_UNSPECIFIED	1	/* Over 802.1x */
 #define RSN_AKM_PSK		2	/* Pre-shared Key */
+
 
 /* Key related defines */
 #define DOT11_MAX_DEFAULT_KEYS	4	/* number of default keys */

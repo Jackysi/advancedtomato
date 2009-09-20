@@ -28,7 +28,7 @@ obj-m		:= $(O_TARGET)
 EXTRA_CFLAGS	+= -DDMA -Werror
 
 # Search for sources under src/et/sys or objects under src/et/linux
-ifneq ($(wildcard $(SRCBASE)/et/sys),)
+ifneq ($(wildcard $(SRCBASE)/et/sys/*.c),)
 EXTRA_CFLAGS	+= -I$(SRCBASE)/et/sys
 vpath %.c $(SRCBASE)/et/sys $(SRCBASE)/shared
 else

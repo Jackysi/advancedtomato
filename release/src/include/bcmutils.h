@@ -1,7 +1,7 @@
 /*
  * Misc useful os-independent macros and functions.
  *
- * Copyright 2006, Broadcom Corporation
+ * Copyright 2004, Broadcom Corporation
  * All Rights Reserved.
  * 
  * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
@@ -25,7 +25,7 @@
 #define _BCM_SP	0x80	/* hard space (0x20) */
 
 extern const unsigned char bcm_ctype[];
-#define bcm_ismask(x)	(bcm_ctype[(int)(unsigned char)(x)])
+#define bcm_ismask(x) (bcm_ctype[(int)(unsigned char)(x)])
 
 #define bcm_isalnum(c)	((bcm_ismask(c)&(_BCM_U|_BCM_L|_BCM_D)) != 0)
 #define bcm_isalpha(c)	((bcm_ismask(c)&(_BCM_U|_BCM_L)) != 0)
@@ -82,8 +82,8 @@ struct bcmstrbuf {
 #endif
 
 typedef struct pktq_prec {
-	void *head;     /* first packet to dequeue */
-	void *tail;     /* last packet to dequeue */
+	void *head;	/* first packet to dequeue */
+	void *tail;	/* last packet to dequeue */
 	uint16 len;     /* number of queued packets */
 	uint16 max;     /* maximum number of queued packets */
 } pktq_prec_t;
@@ -139,7 +139,6 @@ extern bool pktq_pdel(struct pktq *pq, void *p, int prec);
 
 extern int pktq_mlen(struct pktq *pq, uint prec_bmp);
 extern void *pktq_mdeq(struct pktq *pq, uint prec_bmp, int *prec_out);
-extern int pktq_setmax(struct pktq *pq, int max_len);
 
 /* operations on packet queue as a whole */
 
@@ -163,6 +162,7 @@ extern void *pktq_deq_tail(struct pktq *pq, int *prec_out);
 extern void *pktq_peek(struct pktq *pq, int *prec_out);
 extern void *pktq_peek_tail(struct pktq *pq, int *prec_out);
 extern void pktq_flush(osl_t *osh, struct pktq *pq, bool dir); /* Empty the entire queue */
+extern int pktq_setmax(struct pktq *pq, int max_len);
 
 /* externs */
 /* packet */
@@ -170,31 +170,34 @@ extern uint pktcopy(osl_t *osh, void *p, uint offset, int len, uchar *buf);
 extern uint pkttotlen(osl_t *osh, void *p);
 extern void *pktlast(osl_t *osh, void *p);
 
-extern void pktsetprio(void *pkt, bool update_vtag);
+/* Get priority from a packet and pass it back in scb (or equiv) */
+extern uint pktsetprio(void *pkt, bool update_vtag);
+#define	PKTPRIO_VDSCP	0x100		/* DSCP prio found after VLAN tag */
+#define	PKTPRIO_VLAN	0x200		/* VLAN prio found */
+#define	PKTPRIO_UPD	0x400		/* DSCP used to update VLAN prio */
+#define	PKTPRIO_DSCP	0x800		/* DSCP prio found */
 
 /* string */
 extern int BCMROMFN(bcm_atoi)(char *s);
 extern ulong BCMROMFN(bcm_strtoul)(char *cp, char **endp, uint base);
 extern char *BCMROMFN(bcmstrstr)(char *haystack, char *needle);
 extern char *BCMROMFN(bcmstrcat)(char *dest, const char *src);
+extern char *BCMROMFN(bcmstrncat)(char *dest, const char *src, uint size);
 extern ulong wchar2ascii(char *abuf, ushort *wbuf, ushort wbuflen, ulong abuflen);
 /* ethernet address */
 extern char *bcm_ether_ntoa(struct ether_addr *ea, char *buf);
 extern int BCMROMFN(bcm_ether_atoe)(char *p, struct ether_addr *ea);
+
+/* ip address */
+struct ipv4_addr;
+extern char *bcm_ip_ntoa(struct ipv4_addr *ia, char *buf);
+
 /* delay */
 extern void bcm_mdelay(uint ms);
 /* variable access */
 extern char *getvar(char *vars, const char *name);
 extern int getintvar(char *vars, const char *name);
 extern uint getgpiopin(char *vars, char *pin_name, uint def_pin);
-/*******************************
- * modify by tanghui @ 2006-11-22
- * for build wltest
- *******************************/
-#ifdef BCMDBG
-//#if 1
-extern void prpkt(const char *msg, osl_t *osh, void *p0);
-#endif /* BCMDBG */
 #ifdef BCMPERFSTATS
 extern void bcm_perf_enable(void);
 extern void bcmstats(char *fmt);
@@ -240,6 +243,11 @@ typedef struct bcm_iovar {
 
 /* flags are per-driver based on driver attributes */
 
+extern const bcm_iovar_t *bcm_iovar_lookup(const bcm_iovar_t *table, const char *name);
+extern int bcm_iovar_lencheck(const bcm_iovar_t *table, void *arg, int len, bool set);
+
+#endif	/* BCMDRIVER */
+
 /* Base type definitions */
 #define IOVT_VOID	0	/* no value (implictly set only) */
 #define IOVT_BOOL	1	/* any value ok (zero/nonzero) */
@@ -250,11 +258,29 @@ typedef struct bcm_iovar {
 #define IOVT_INT32	6	/* int 32 bits */
 #define IOVT_UINT32	7	/* unsigned int 32 bits */
 #define IOVT_BUFFER	8	/* buffer is size-checked as per minlen */
+#define BCM_IOVT_VALID(type) (((unsigned int)(type)) <= IOVT_BUFFER)
 
-extern const bcm_iovar_t *bcm_iovar_lookup(const bcm_iovar_t *table, const char *name);
-extern int bcm_iovar_lencheck(const bcm_iovar_t *table, void *arg, int len, bool set);
+/* Initializer for IOV type strings */
+#define BCM_IOV_TYPE_INIT { \
+	"void", \
+	"bool", \
+	"int8", \
+	"uint8", \
+	"int16", \
+	"uint16", \
+	"int32", \
+	"uint32", \
+	"buffer", \
+	"" }
 
-#endif	/* BCMDRIVER */
+#define BCM_IOVT_IS_INT(type) (\
+	(type == IOVT_BOOL) || \
+	(type == IOVT_INT8) || \
+	(type == IOVT_UINT8) || \
+	(type == IOVT_INT16) || \
+	(type == IOVT_UINT16) || \
+	(type == IOVT_INT32) || \
+	(type == IOVT_UINT32))
 
 /* ** driver/apps-shared section ** */
 
@@ -307,7 +333,8 @@ extern int bcm_iovar_lencheck(const bcm_iovar_t *table, void *arg, int len, bool
 #define BCME_NOT_WME_ASSOCIATION	-34	/* Not WME Association */
 #define BCME_SDIO_ERROR			-35	/* SDIO Bus Error */
 #define BCME_DONGLE_DOWN		-36	/* Dongle Not Accessible */
-#define BCME_LAST			BCME_DONGLE_DOWN
+#define BCME_VERSION			-37 /* Incorrect version */
+#define BCME_LAST			BCME_VERSION
 
 /* These are collection of BCME Error strings */
 #define BCMERRSTRINGTABLE {		\
@@ -347,7 +374,8 @@ extern int bcm_iovar_lencheck(const bcm_iovar_t *table, void *arg, int len, bool
 	"ACM Not Supported",		\
 	"Not WME Association",		\
 	"SDIO Bus Error",		\
-	"Dongle Not Accessible"		\
+	"Dongle Not Accessible",	\
+	"Incorrect version"	\
 }
 
 #ifndef ABS
@@ -370,7 +398,9 @@ extern int bcm_iovar_lencheck(const bcm_iovar_t *table, void *arg, int len, bool
 #ifndef OFFSETOF
 #define	OFFSETOF(type, member)	((uint)(uintptr)&((type *)0)->member)
 #endif /* OFFSETOF */
+#ifndef ARRAYSIZE
 #define ARRAYSIZE(a)		(sizeof(a)/sizeof(a[0]))
+#endif
 
 /* bit map related macros */
 #ifndef setbit
@@ -505,17 +535,7 @@ extern uint8 BCMROMFN(hndcrc8)(uint8 *p, uint nbytes, uint8 crc);
 extern uint16 BCMROMFN(hndcrc16)(uint8 *p, uint nbytes, uint16 crc);
 extern uint32 BCMROMFN(hndcrc32)(uint8 *p, uint nbytes, uint32 crc);
 /* format/print */
-/*******************************
- * modify by tanghui @ 2006-11-22
- * for build wltest
- *******************************/
-#ifdef BCMDBG
-//#if 1
-extern int bcm_format_flags(const bcm_bit_desc_t *bd, uint32 flags, char* buf, int len);
-extern int bcm_format_hex(char *str, const void *bytes, int len);
-extern void deadbeef(void *p, uint len);
-extern void prhex(const char *msg, uchar *buf, uint len);
-#endif /* BCMDBG */
+extern char *bcm_brev_str(uint16 brev, char *buf);
 extern void printfbig(char *buf);
 
 /* IE parsing */
@@ -528,9 +548,9 @@ extern const char *bcmerrorstr(int bcmerror);
 
 /* multi-bool data type: set of bools, mbool is true if any is set */
 typedef uint32 mbool;
-#define mboolset(mb, bit)		(mb |= bit)		/* set one bool */
-#define mboolclr(mb, bit)		(mb &= ~bit)		/* clear one bool */
-#define mboolisset(mb, bit)		((mb & bit) != 0)	/* TRUE if one bool is set */
+#define mboolset(mb, bit)		((mb) |= (bit))		/* set one bool */
+#define mboolclr(mb, bit)		((mb) &= ~(bit))	/* clear one bool */
+#define mboolisset(mb, bit)		(((mb) & (bit)) != 0)	/* TRUE if one bool is set */
 #define	mboolmaskset(mb, mask, val)	((mb) = (((mb) & ~(mask)) | (val)))
 
 /* power conversion */
