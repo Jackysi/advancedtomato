@@ -2922,6 +2922,8 @@ void wakeup_kupdate(void)
 		wake_up(&kupdate_wait);
 }
 
+EXPORT_SYMBOL(wakeup_bdflush);
+
 /* 
  * Here we attempt to write back old buffers.  We also try to flush inodes 
  * and supers as well, since this function is essentially "update", and 

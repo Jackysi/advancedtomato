@@ -222,6 +222,12 @@ static atomic_t channel_count = ATOMIC_INIT(0);
 /* Get the PPP protocol number from a skb */
 #define PPP_PROTO(skb)	(((skb)->data[0] << 8) + (skb)->data[1])
 
+// zzz
+#define IP_PROTO(skb)   (skb)->data[11]
+#define SRC_PORT(skb)   (((skb)->data[22] << 8) + (skb)->data[23])
+#define DST_PORT(skb)   (((skb)->data[24] << 8) + (skb)->data[25])
+//#define	MARK_LAN2WAN	0x100
+
 /* We limit the length of ppp->file.rq to this (arbitrary) value */
 #define PPP_MAX_RQLEN	32
 
@@ -991,8 +997,37 @@ ppp_send_frame(struct ppp *ppp, struct sk_buff *skb)
 			ppp->last_xmit = jiffies;
 		skb_pull(skb, 2);
 #else
+
+#if 1	// zzz
+		switch (IP_PROTO(skb)) {
+		case 6:	// TCP
+			switch (DST_PORT(skb)) {
+			case 139:	// netbios-ssn
+			case 445:	// microsoft-ds
+				break;
+			default:
+				ppp->last_xmit = jiffies;
+				break;
+			}
+			break;
+		case 17:	// UDP
+			switch (DST_PORT(skb)) {
+			case 137:	// netbios-ns
+			case 138:	// netbios-dgm
+				break;
+			default:
+				ppp->last_xmit = jiffies;
+				break;
+			}
+			break;
+		default:
+			ppp->last_xmit = jiffies;
+			break;
+		}
+#else
 		/* for data packets, record the time */
 		ppp->last_xmit = jiffies;
+#endif
 #endif /* CONFIG_PPP_FILTER */
 	}
 
