@@ -1172,6 +1172,8 @@ struct super_block * ext3_read_super (struct super_block * sb, void * data,
 	 */
 	if (!test_opt(sb, NOLOAD) &&
 	    EXT3_HAS_COMPAT_FEATURE(sb, EXT3_FEATURE_COMPAT_HAS_JOURNAL)) {
+		if (needs_recovery)
+			printk (KERN_INFO "EXT3-fs: recovery starting.\n");
 		if (ext3_load_journal(sb, es))
 			goto failed_mount2;
 	} else if (journal_inum) {
