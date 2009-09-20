@@ -110,7 +110,7 @@ static struct usb_device_id blacklist_ids[] = {
 	{ }	/* Terminating entry */
 };
 
-struct _urb *_urb_alloc(int isoc, int gfp)
+static struct _urb *_urb_alloc(int isoc, int gfp)
 {
 	struct _urb *_urb = kmalloc(sizeof(struct _urb) +
 				sizeof(struct iso_packet_descriptor) * isoc, gfp);
@@ -121,7 +121,7 @@ struct _urb *_urb_alloc(int isoc, int gfp)
 	return _urb;
 }
 
-struct _urb *_urb_dequeue(struct _urb_queue *q)
+static struct _urb *_urb_dequeue(struct _urb_queue *q)
 {
 	struct _urb *_urb = NULL;
         unsigned long flags;
@@ -256,9 +256,12 @@ static int hci_usb_isoc_rx_submit(struct hci_usb *husb)
 	struct _urb *_urb;
 	struct urb *urb;
 	int err, mtu, size;
-	void *buf;
+	void __attribute__((aligned(2))) *buf;
 
 	mtu  = husb->isoc_in_ep->wMaxPacketSize;
+#ifdef CONFIG_BCM4710
+	mtu &= ~1;		/* brcm: isoc buffers must be aligned on word boundary */
+#endif
         size = mtu * HCI_MAX_ISOC_FRAMES;
 
 	buf = kmalloc(size, GFP_ATOMIC);
@@ -279,6 +282,7 @@ static int hci_usb_isoc_rx_submit(struct hci_usb *husb)
 	urb->dev      = husb->udev;
 	urb->pipe     = usb_rcvisocpipe(husb->udev, husb->isoc_in_ep->bEndpointAddress);
 	urb->complete = hci_usb_rx_complete;
+	urb->interval = husb->isoc_in_ep->bInterval;
 
 	urb->transfer_buffer_length = size;
 	urb->transfer_buffer = buf;
@@ -512,6 +516,7 @@ static inline int hci_usb_send_isoc(struct hci_usb *husb, struct sk_buff *skb)
 	urb->pipe     = usb_sndisocpipe(husb->udev, husb->isoc_out_ep->bEndpointAddress);
 	urb->complete = hci_usb_tx_complete;
 	urb->transfer_flags = USB_ISO_ASAP;
+	urb->interval = husb->isoc_in_ep->bInterval;
 
 	urb->transfer_buffer = skb->data;
 	urb->transfer_buffer_length = skb->len;

@@ -17,6 +17,12 @@
 
 unsigned int vced_count, vcei_count;
 
+#ifndef CONFIG_CPU_HAS_LLSC
+unsigned long ll_ops, sc_ops;
+#endif
+
+extern unsigned long unaligned_instructions;
+
 static const char *cpu_name[] = {
 	[CPU_UNKNOWN]	"unknown",
 	[CPU_R2000]	"R2000",
@@ -78,8 +84,9 @@ static const char *cpu_name[] = {
 	[CPU_AU1550]	"Au1550",
 	[CPU_24K]	"MIPS 24K",
 	[CPU_AU1200]	"Au1200",
+	[CPU_BCM4710]   "BCM4710",
+	[CPU_BCM3302]   "BCM3302",
 };
-
 
 static int show_cpuinfo(struct seq_file *m, void *v)
 {
@@ -117,11 +124,39 @@ static int show_cpuinfo(struct seq_file *m, void *v)
 	              cpu_has_divec ? "yes" : "no");
 	seq_printf(m, "hardware watchpoint\t: %s\n",
 	              cpu_has_watch ? "yes" : "no");
+	seq_printf(m, "ASEs implemented\t:%s%s%s%s%s%s\n",
+		      cpu_has_mips16 ? " mips16" : "",
+		      cpu_has_mdmx ? " mdmx" : "",
+		      cpu_has_mips3d ? " mips3d" : "",
+		      cpu_has_smartmips ? " smartmips" : "",
+		      cpu_has_dsp ? " dsp" : "",
+		      cpu_has_mipsmt ? " mt" : ""
+		);
 
 	sprintf(fmt, "VCE%%c exceptions\t\t: %s\n",
 	        cpu_has_vce ? "%u" : "not available");
 	seq_printf(m, fmt, 'D', vced_count);
 	seq_printf(m, fmt, 'I', vcei_count);
+
+#ifndef CONFIG_CPU_HAS_LLSC
+	seq_printf(m, "ll emulations\t\t: %lu\n", ll_ops);
+	seq_printf(m, "sc emulations\t\t: %lu\n", sc_ops);
+#endif
+
+	seq_printf(m, "unaligned_instructions\t: %lu\n", unaligned_instructions);
+
+#if defined(CONFIG_BCM4710) || defined(CONFIG_BCM4704)
+	seq_printf(m, "dcache hits\t\t: %u\n",
+		   read_perf_cntr(0));
+	seq_printf(m, "dcache misses\t\t: %u\n",
+		   read_perf_cntr(1));
+	seq_printf(m, "icache hits\t\t: %u\n",
+		   read_perf_cntr(2));
+	seq_printf(m, "icache misses\t\t: %u\n",
+		   read_perf_cntr(3));
+	seq_printf(m, "instructions\t\t: %u\n",
+		   read_perf_cntr(4));
+#endif
 
 	return 0;
 }

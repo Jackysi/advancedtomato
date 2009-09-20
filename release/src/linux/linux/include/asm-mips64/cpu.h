@@ -22,6 +22,11 @@
    spec.
 */
 
+#define PRID_COPT_MASK         0xff000000
+#define PRID_COMP_MASK         0x00ff0000
+#define PRID_IMP_MASK          0x0000ff00
+#define PRID_REV_MASK          0x000000ff
+
 #define PRID_COMP_LEGACY       0x000000
 #define PRID_COMP_MIPS         0x010000
 #define PRID_COMP_BROADCOM     0x020000
@@ -58,6 +63,7 @@
 #define PRID_IMP_RM7000		0x2700
 #define PRID_IMP_NEVADA		0x2800		/* RM5260 ??? */
 #define PRID_IMP_RM9000		0x3400
+#define PRID_IMP_BCM4710	0x4000
 #define PRID_IMP_R5432		0x5400
 #define PRID_IMP_R5500		0x5500
 #define PRID_IMP_4KC		0x8000
@@ -66,9 +72,15 @@
 #define PRID_IMP_4KEC		0x8400
 #define PRID_IMP_4KSC		0x8600
 #define PRID_IMP_25KF		0x8800
+#define PRID_IMP_BCM3302	0x9000
+#define PRID_IMP_BCM3303	0x9100
 #define PRID_IMP_24K		0x9300
 
 #define PRID_IMP_UNKNOWN	0xff00
+
+#define       BCM330X(id) \
+	(((id & (PRID_COMP_MASK | PRID_IMP_MASK)) == (PRID_COMP_BROADCOM | PRID_IMP_BCM3302)) \
+	|| ((id & (PRID_COMP_MASK | PRID_IMP_MASK)) == (PRID_COMP_BROADCOM | PRID_IMP_BCM3303)))
 
 /*
  * These are the PRID's for when 23:16 == PRID_COMP_SIBYTE
@@ -174,7 +186,9 @@
 #define CPU_AU1550		57
 #define CPU_24K			58
 #define CPU_AU1200		59
-#define CPU_LAST		59
+#define CPU_BCM4710		60
+#define CPU_BCM3302		61
+#define CPU_LAST		61
 
 /*
  * ISA Level encodings
@@ -204,16 +218,29 @@
 #define MIPS_CPU_32FPR		0x00000020 /* 32 dbl. prec. FP registers */
 #define MIPS_CPU_COUNTER	0x00000040 /* Cycle count/compare */
 #define MIPS_CPU_WATCH		0x00000080 /* watchpoint registers */
-#define MIPS_CPU_MIPS16		0x00000100 /* code compression */
 #define MIPS_CPU_DIVEC		0x00000200 /* dedicated interrupt vector */
 #define MIPS_CPU_VCE		0x00000400 /* virt. coherence conflict possible */
 #define MIPS_CPU_CACHE_CDEX_P	0x00000800 /* Create_Dirty_Exclusive CACHE op */
 #define MIPS_CPU_CACHE_CDEX_S	0x00001000 /* ... same for seconary cache ... */
 #define MIPS_CPU_MCHECK		0x00002000 /* Machine check exception */
 #define MIPS_CPU_EJTAG		0x00004000 /* EJTAG exception */
-#define MIPS_CPU_NOFPUEX	0x00000000 /* no FPU exception; never set */
+#define MIPS_CPU_NOFPUEX	0x00008000 /* no FPU exception */
 #define MIPS_CPU_LLSC		0x00010000 /* CPU has ll/sc instructions */
 #define MIPS_CPU_SUBSET_CACHES	0x00020000 /* P-cache subset enforced */
 #define MIPS_CPU_PREFETCH	0x00040000 /* CPU has usable prefetch */
+#define MIPS_CPU_VINT		0x00080000 /* CPU supports MIPSR2 vectored interrupts */
+#define MIPS_CPU_VEIC		0x00100000 /* CPU supports MIPSR2 external interrupt controller mode */
+#define MIPS_CPU_ULRI		0x00200000 /* CPU has ULRI feature */
+
+/*
+ * CPU ASE encodings
+ */
+#define MIPS_ASE_MIPS16		0x00000001 /* code compression */
+#define MIPS_ASE_MDMX		0x00000002 /* MIPS digital media extension */
+#define MIPS_ASE_MIPS3D		0x00000004 /* MIPS-3D */
+#define MIPS_ASE_SMARTMIPS	0x00000008 /* SmartMIPS */
+#define MIPS_ASE_DSP		0x00000010 /* Signal Processing ASE */
+#define MIPS_ASE_MIPSMT		0x00000020 /* CPU supports MIPS MT */
+
 
 #endif /* _ASM_CPU_H */

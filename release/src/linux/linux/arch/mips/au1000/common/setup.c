@@ -174,6 +174,40 @@ void __init au1x00_setup(void)
 	initrd_end = (unsigned long)&__rd_end;
 #endif
 
+#if defined(CONFIG_SOC_AU1200)
+#ifdef CONFIG_USB_EHCI_HCD
+	if ((argptr = strstr(argptr, "usb_ehci=")) == NULL) {
+	        char usb_args[80];
+		argptr = prom_getcmdline();
+		memset(usb_args, 0, sizeof(usb_args));
+		sprintf(usb_args, " usb_ehci=base:0x%x,len:0x%x,irq:%d",
+			USB_EHCI_BASE, USB_EHCI_LEN, AU1000_USB_HOST_INT);
+		strcat(argptr, usb_args);
+	}
+#ifdef CONFIG_USB_AMD5536UDC
+	/* enable EHC + OHC + UDC clocks, memory and bus mastering */
+/*	au_writel( 0x00DF207F, USB_MSR_BASE + 4); */
+	au_writel( 0xC0DF207F, USB_MSR_BASE + 4);  // incl. prefetch
+#else
+	/* enable EHC + OHC clocks, memory and bus mastering */
+/*	au_writel( 0x00DB200F, USB_MSR_BASE + 4); */
+	au_writel( 0xC0DB200F, USB_MSR_BASE + 4);  /* incl. prefetch */
+#endif
+	udelay(1000);
+
+#else /* CONFIG_USB_EHCI_HCD */
+
+#ifdef CONFIG_USB_AMD5536UDC
+#ifndef CONFIG_USB_OHCI
+	/* enable UDC clocks, memory and bus mastering */
+/*	au_writel( 0x00DC2070, USB_MSR_BASE + 4); */
+	au_writel( 0xC0DC2070, USB_MSR_BASE + 4);  // incl. prefetch
+	udelay(1000);
+#endif
+#endif
+#endif /* CONFIG_USB_EHCI_HCD */
+#endif /* CONFIG_SOC_AU1200 */
+
 #if defined (CONFIG_USB_OHCI) || defined (CONFIG_AU1X00_USB_DEVICE)
 #ifdef CONFIG_USB_OHCI
 	if ((argptr = strstr(argptr, "usb_ohci=")) == NULL) {
@@ -187,19 +221,38 @@ void __init au1x00_setup(void)
 #endif
 
 #ifdef CONFIG_USB_OHCI
-	// enable host controller and wait for reset done
+#if defined(CONFIG_SOC_AU1200)
+#ifndef CONFIG_USB_EHCI_HCD
+#ifdef CONFIG_USB_AMD5536UDC
+	/* enable OHC + UDC clocks, memory and bus mastering */
+/*	au_writel( 0x00DD2073, USB_MSR_BASE + 4); */
+	au_writel( 0xC0DD2073, USB_MSR_BASE + 4);  // incl. prefetch
+#else
+	/* enable OHC clocks, memory and bus mastering */
+	au_writel( 0x00D12003, USB_MSR_BASE + 4);
+#endif
+	udelay(1000);
+printk("DEBUG: Reading Au1200 USB2 reg 0x%x\n", au_readl(USB_MSR_BASE + 4));
+#endif
+#else
+	/* Au1000, Au1500, Au1100, Au1550 */
+	/* enable host controller and wait for reset done */
 	au_writel(0x08, USB_HOST_CONFIG);
 	udelay(1000);
 	au_writel(0x0E, USB_HOST_CONFIG);
 	udelay(1000);
-	au_readl(USB_HOST_CONFIG); // throw away first read
+	au_readl(USB_HOST_CONFIG); /* throw away first read */
 	while (!(au_readl(USB_HOST_CONFIG) & 0x10))
 		au_readl(USB_HOST_CONFIG);
+#endif /* CONFIG_SOC_AU1200 */
 #endif
-#endif // defined (CONFIG_USB_OHCI) || defined (CONFIG_AU1X00_USB_DEVICE)
+#else
+
+#endif /* defined (CONFIG_USB_OHCI) || defined (CONFIG_AU1X00_USB_DEVICE) */
+
 
 #ifdef CONFIG_FB
-	// Needed if PCI video card in use
+	/* Needed if PCI video card in use */
 	conswitchp = &dummy_con;
 #endif
 
@@ -209,8 +262,7 @@ void __init au1x00_setup(void)
 #endif
 
 #ifdef CONFIG_BLK_DEV_IDE
-	/* Board setup takes precedence for unique devices.
-	*/
+	/* Board setup takes precedence for unique devices.  */
 	if ((ide_ops == NULL) || (ide_ops == &no_ide_ops))
 		ide_ops = &std_ide_ops;
 #endif

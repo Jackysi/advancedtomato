@@ -263,6 +263,21 @@ enum tcp_congestion_algo {
  	TCP_BIC,
 };
  
+/* UDP socket options */
+#define UDP_CORK        1       /* Never send partially complete segments */
+#define UDP_ENCAP       100     /* Set the socket to accept encapsulated packets */
+
+/* UDP encapsulation types */
+#define UDP_ENCAP_ESPINUDP_NON_IKE	1 /* draft-ietf-ipsec-nat-t-ike-00/01 */
+#define UDP_ENCAP_ESPINUDP		2 /* draft-ietf-ipsec-udp-encaps-06 */
+#define UDP_ENCAP_L2TPINUDP		3 /* rfc2661 */
+
+struct udp_opt {
+	__u16 esp_in_udp;
+	__u16 encap_type;
+	int (*encap_rcv)(struct sock *sk, struct sk_buff *skb);
+};
+
 struct tcp_opt {
 	int	tcp_header_len;	/* Bytes of tcp header to send		*/
 
@@ -655,6 +670,9 @@ struct sock {
 #if defined(CONFIG_SPX) || defined (CONFIG_SPX_MODULE)
 		struct spx_opt		af_spx;
 #endif /* CONFIG_SPX */
+#if 1
+		struct udp_opt 		af_udp;
+#endif
 
 	} tp_pinfo;
 

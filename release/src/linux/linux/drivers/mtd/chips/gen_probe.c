@@ -278,6 +278,7 @@ typedef struct mtd_info *cfi_cmdset_fn_t(struct map_info *, int);
 extern cfi_cmdset_fn_t cfi_cmdset_0001;
 extern cfi_cmdset_fn_t cfi_cmdset_0002;
 extern cfi_cmdset_fn_t cfi_cmdset_0020;
+extern cfi_cmdset_fn_t cfi_cmdset_0701;
 
 static inline struct mtd_info *cfi_cmdset_unknown(struct map_info *map, 
 						  int primary)
@@ -328,12 +329,17 @@ static struct mtd_info *check_cmd_set(struct map_info *map, int primary)
 		return cfi_cmdset_0001(map, primary);
 #endif
 #ifdef CONFIG_MTD_CFI_AMDSTD
+	case 0x0006:
 	case 0x0002:
 		return cfi_cmdset_0002(map, primary);
 #endif
 #ifdef CONFIG_MTD_CFI_STAA
-        case 0x0020:
+	case 0x0020:
 		return cfi_cmdset_0020(map, primary);
+#endif
+#ifdef CONFIG_MTD_CFI_SSTSTD
+	case 0x0701:
+		return cfi_cmdset_0701(map, primary);
 #endif
 	}
 

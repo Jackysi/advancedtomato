@@ -19,7 +19,7 @@
  * PPP driver, written by Michael Callahan and Al Longyear, and
  * subsequently hacked by Paul Mackerras.
  *
- * ==FILEVERSION 20020217==
+ * ==FILEVERSION 20040509==
  */
 
 #include <linux/config.h>
@@ -30,6 +30,7 @@
 #include <linux/list.h>
 #include <linux/devfs_fs_kernel.h>
 #include <linux/netdevice.h>
+#include <linux/inetdevice.h>
 #include <linux/poll.h>
 #include <linux/ppp_defs.h>
 #include <linux/filter.h>
@@ -47,6 +48,7 @@
 #include <linux/stddef.h>
 #include <net/slhc_vj.h>
 #include <asm/atomic.h>
+#include <linux/sysctl.h>
 
 #define PPP_VERSION	"2.4.2"
 
@@ -102,6 +104,7 @@ struct ppp {
 	spinlock_t	rlock;		/* lock for receive side 58 */
 	spinlock_t	wlock;		/* lock for transmit side 5c */
 	int		mru;		/* max receive unit 60 */
+	int		mru_alloc;	/* MAX(1500,MRU) for dev_alloc_skb() */
 	unsigned int	flags;		/* control bits 64 */
 	unsigned int	xstate;		/* transmit state bits 68 */
 	unsigned int	rstate;		/* receive state bits 6c */
@@ -169,6 +172,10 @@ struct channel {
  * The lock ordering is: channel.upl -> ppp.wlock -> ppp.rlock ->
  * channel.downl.
  */
+
+static int ppp_filter = 0;
+static ctl_table ppp_filter_root_table[];
+static struct ctl_table_header *ppp_filter_sysctl_header;
 
 /*
  * A cardmap represents a mapping from unsigned integers to pointers,
@@ -552,7 +559,9 @@ static int ppp_ioctl(struct inode *inode, struct file *file,
 	case PPPIOCSMRU:
 		if (get_user(val, (int *) arg))
 			break;
-		ppp->mru = val;
+		ppp->mru_alloc = ppp->mru = val;
+		if (ppp->mru_alloc < PPP_MRU)
+		    ppp->mru_alloc = PPP_MRU;	/* increase for broken peers */
 		err = 0;
 		break;
 
@@ -793,6 +802,9 @@ int __init ppp_init(void)
 				      S_IFCHR | S_IRUSR | S_IWUSR,
 				      &ppp_device_fops, NULL);
 
+	ppp_filter_sysctl_header
+		= register_sysctl_table(ppp_filter_root_table, 0);
+
 	return 0;
 }
 
@@ -989,6 +1001,18 @@ ppp_send_frame(struct ppp *ppp, struct sk_buff *skb)
 
 	switch (proto) {
 	case PPP_IP:
+		if (ppp_filter &&
+		    (((struct iphdr *)(skb->data + 2))->saddr & 
+		     ((struct in_device *)(ppp->dev->ip_ptr))->ifa_list->ifa_mask)
+		    !=
+		    (((struct in_device *)(ppp->dev->ip_ptr))->ifa_list->ifa_local &
+		     ((struct in_device *)(ppp->dev->ip_ptr))->ifa_list->ifa_mask)
+		   )
+		{
+			kfree_skb(skb);
+			return;
+		}
+		
 		if (ppp->vj == 0 || (ppp->flags & SC_COMP_TCP) == 0)
 			break;
 		/* try to do VJ TCP header compression */
@@ -1025,14 +1049,37 @@ ppp_send_frame(struct ppp *ppp, struct sk_buff *skb)
 	case PPP_CCP:
 		/* peek at outbound CCP frames */
 		ppp_ccp_peek(ppp, skb, 0);
+		/*
+		 * When LZS or MPPE/MPPC has been negotiated we don't send
+		 * CCP_RESETACK after receiving CCP_RESETREQ; in fact pppd
+		 * sends such a packet but we silently discard it here
+		 */
+		if (CCP_CODE(skb->data+2) == CCP_RESETACK
+		    && (ppp->xcomp->compress_proto == CI_MPPE
+			|| ppp->xcomp->compress_proto == CI_LZS)) {
+		    --ppp->stats.tx_packets;
+		    ppp->stats.tx_bytes -= skb->len - 2;
+		    kfree_skb(skb);
+		    return;
+		}
 		break;
 	}
 
 	/* try to do packet compression */
 	if ((ppp->xstate & SC_COMP_RUN) && ppp->xc_state != 0
 	    && proto != PPP_LCP && proto != PPP_CCP) {
-		new_skb = alloc_skb(ppp->dev->mtu + ppp->dev->hard_header_len,
-				    GFP_ATOMIC);
+		int comp_ovhd = 0;
+		/* 
+		 * because of possible data expansion when MPPC or LZS
+		 * is used, allocate compressor's buffer 12.5% bigger
+		 * than MTU
+		 */
+		if (ppp->xcomp->compress_proto == CI_MPPE)
+		    comp_ovhd = ((ppp->dev->mtu * 9) / 8) + 1 + MPPE_OVHD;
+		else if (ppp->xcomp->compress_proto == CI_LZS)
+		    comp_ovhd = ((ppp->dev->mtu * 9) / 8) + 1 + LZS_OVHD;
+		new_skb = alloc_skb(ppp->dev->mtu + ppp->dev->hard_header_len
+				    + comp_ovhd, GFP_ATOMIC);
 		if (new_skb == 0) {
 			printk(KERN_ERR "PPP: no memory (comp pkt)\n");
 			goto drop;
@@ -1050,9 +1097,21 @@ ppp_send_frame(struct ppp *ppp, struct sk_buff *skb)
 			skb = new_skb;
 			skb_put(skb, len);
 			skb_pull(skb, 2);	/* pull off A/C bytes */
-		} else {
+		} else if (len == 0) {
 			/* didn't compress, or CCP not up yet */
 			kfree_skb(new_skb);
+		} else {
+			/*
+			 * (len < 0)
+			 * MPPE requires that we do not send unencrypted
+			 * frames.  The compressor will return -1 if we
+			 * should drop the frame.  We cannot simply test
+			 * the compress_proto because MPPE and MPPC share
+			 * the same number.
+			 */
+			printk(KERN_ERR "ppp: compressor dropped pkt\n");
+			kfree_skb(new_skb);
+			goto drop;
 		}
 	}
 
@@ -1540,14 +1599,15 @@ ppp_decompress_frame(struct ppp *ppp, struct sk_buff *skb)
 	int len;
 
 	if (proto == PPP_COMP) {
-		ns = dev_alloc_skb(ppp->mru + PPP_HDRLEN);
+		ns = dev_alloc_skb(ppp->mru_alloc + PPP_HDRLEN);
 		if (ns == 0) {
 			printk(KERN_ERR "ppp_decompress_frame: no memory\n");
 			goto err;
 		}
 		/* the decompressor still expects the A/C bytes in the hdr */
 		len = ppp->rcomp->decompress(ppp->rc_state, skb->data - 2,
-				skb->len + 2, ns->data, ppp->mru + PPP_HDRLEN);
+				skb->len + 2, ns->data,
+				ppp->mru_alloc + PPP_HDRLEN);
 		if (len < 0) {
 			/* Pass the compressed frame to pppd as an
 			   error indication. */
@@ -1573,7 +1633,14 @@ ppp_decompress_frame(struct ppp *ppp, struct sk_buff *skb)
 	return skb;
 
  err:
-	ppp->rstate |= SC_DC_ERROR;
+	if (ppp->rcomp->compress_proto != CI_MPPE
+	    && ppp->rcomp->compress_proto != CI_LZS) {
+	    /*
+	     * If decompression protocol isn't MPPE/MPPC or LZS, we set
+	     * SC_DC_ERROR flag and wait for CCP_RESETACK
+	     */
+	    ppp->rstate |= SC_DC_ERROR;
+	}
 	ppp_receive_error(ppp);
 	return skb;
 }
@@ -2253,6 +2320,7 @@ ppp_create_interface(int unit, int *retp)
 	/* Initialize the new ppp unit */
 	ppp->file.index = unit;
 	ppp->mru = PPP_MRU;
+	ppp->mru_alloc = PPP_MRU;
 	init_ppp_file(&ppp->file, INTERFACE);
 	ppp->file.hdrlen = PPP_HDRLEN - 2;	/* don't count proto bytes */
 	for (i = 0; i < NUM_NP; ++i)
@@ -2515,6 +2583,7 @@ static void __exit ppp_cleanup(void)
 	if (devfs_unregister_chrdev(PPP_MAJOR, "ppp") != 0)
 		printk(KERN_ERR "PPP: failed to unregister PPP device\n");
 	devfs_unregister(devfs_handle);
+	unregister_sysctl_table(ppp_filter_sysctl_header);
 }
 
 /*
@@ -2624,6 +2693,26 @@ static void cardmap_destroy(struct cardmap **pmap)
 	}
 	*pmap = NULL;
 }
+
+#define NET_PPP_FILTER 2091
+#define NET_PPP_FILTER_NAME "ppp_filter"
+
+static ctl_table ppp_filter_table[] = {
+	{ NET_PPP_FILTER, NET_PPP_FILTER_NAME, &ppp_filter,
+	  sizeof(ppp_filter), 0644,  NULL, proc_dointvec },
+ 	{ 0 }
+};
+
+static ctl_table ppp_filter_dir_table[] = {
+	{NET_IPV4, "ipv4", NULL, 0, 0555, ppp_filter_table, 0, 0, 0, 0, 0},
+	{ 0 }
+};
+
+static ctl_table ppp_filter_root_table[] = {
+	{CTL_NET, "net", NULL, 0, 0555, ppp_filter_dir_table, 0, 0, 0, 0, 0},
+	{ 0 }
+};
+
 
 /* Module/initialization stuff */
 

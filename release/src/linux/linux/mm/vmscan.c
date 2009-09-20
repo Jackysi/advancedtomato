@@ -846,6 +846,7 @@ int kswapd(void *unused)
 		kswapd_balance();
 		run_task_queue(&tq_disk);
 	}
+	return 0;
 }
 
 static int __init kswapd_init(void)

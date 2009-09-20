@@ -328,10 +328,11 @@ static int duart_write(struct tty_struct * tty, int from_user,
 		if (c <= 0) break;
 
 		if (from_user) {
+			spin_unlock_irqrestore(&us->outp_lock, flags);
 			if (copy_from_user(us->outp_buf + us->outp_tail, buf, c)) {
-				spin_unlock_irqrestore(&us->outp_lock, flags);
 				return -EFAULT;
 			}
+			spin_lock_irqsave(&us->outp_lock, flags);
 		} else {
 			memcpy(us->outp_buf + us->outp_tail, buf, c);
 		}
@@ -498,9 +499,31 @@ static void duart_set_termios(struct tty_struct *tty, struct termios *old)
 	duart_set_cflag(us->line, tty->termios->c_cflag);
 }
 
+static int get_serial_info(uart_state_t *us, struct serial_struct * retinfo) {
+
+	struct serial_struct tmp;
+
+	memset(&tmp, 0, sizeof(tmp));
+
+	tmp.type=PORT_SB1250;
+	tmp.line=us->line;
+	tmp.port=A_DUART_CHANREG(tmp.line,0);
+	tmp.irq=K_INT_UART_0 + tmp.line;
+	tmp.xmit_fifo_size=16; /* fixed by hw */
+	tmp.baud_base=5000000;
+	tmp.io_type=SERIAL_IO_MEM;
+
+	if (copy_to_user(retinfo,&tmp,sizeof(*retinfo)))
+		return -EFAULT;
+
+	return 0;
+}
+
 static int duart_ioctl(struct tty_struct *tty, struct file * file,
 		       unsigned int cmd, unsigned long arg)
 {
+	uart_state_t *us = (uart_state_t *) tty->driver_data;
+
 /*	if (serial_paranoia_check(info, tty->device, "rs_ioctl"))
 	return -ENODEV;*/
 	switch (cmd) {
@@ -517,7 +540,7 @@ static int duart_ioctl(struct tty_struct *tty, struct file * file,
 		printk("Ignoring TIOCMSET\n");
 		break;
 	case TIOCGSERIAL:
-		printk("Ignoring TIOCGSERIAL\n");
+		return get_serial_info(us,(struct serial_struct *) arg);
 		break;
 	case TIOCSSERIAL:
 		printk("Ignoring TIOCSSERIAL\n");

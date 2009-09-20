@@ -107,6 +107,19 @@ int ip_forward(struct sk_buff *skb)
 	 */
 
 	skb->priority = rt_tos2priority(iph->tos);
+
+#if defined(CONFIG_BCMIPDSCP)
+	/* Set the priority as max of TOS bits or DSCP bits as we don't know how other
+	 * end sent it. DSCP priority is converted to 802.1d priority by using only bits 5-7
+	 */
+	{
+		u8 dscp_prio;
+		dscp_prio = IPTOS_DSCP(iph->tos) >> 5;
+		if (dscp_prio > skb->priority)
+			skb->priority = dscp_prio;
+	}
+#endif
+
 	dev2 = rt->u.dst.dev;
 	mtu = rt->u.dst.pmtu;
 

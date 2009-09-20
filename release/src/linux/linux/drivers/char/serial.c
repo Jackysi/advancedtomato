@@ -62,6 +62,12 @@
  *        Robert Schwebel <robert@schwebel.de>,
  *        Juergen Beisert <jbeisert@eurodsn.de>,
  *        Theodore Ts'o <tytso@mit.edu>
+ *
+ * 10/00: Added suport for MIPS Atlas board.
+ * 11/00: Hooks for serial kernel debug port support added.
+ *        Kevin D. Kissell, kevink@mips.com and Carsten Langgaard,
+ *        carstenl@mips.com
+ *        Copyright (C) 2000 MIPS Technologies, Inc.  All rights reserved.
  */
 
 static char *serial_version = "5.05c";
@@ -413,6 +419,22 @@ static inline int serial_paranoia_check(struct async_struct *info,
 	return 0;
 }
 
+#if defined(CONFIG_MIPS_ATLAS) || defined(CONFIG_MIPS_SEAD)
+
+#include <asm/mips-boards/atlas.h>
+
+static _INLINE_ unsigned int serial_in(struct async_struct *info, int offset)
+{
+        return (*(volatile unsigned int *)(mips_io_port_base + ATLAS_UART_REGS_BASE + offset*8) & 0xff);
+}
+
+static _INLINE_ void serial_out(struct async_struct *info, int offset, int value)
+{
+        *(volatile unsigned int *)(mips_io_port_base + ATLAS_UART_REGS_BASE + offset*8) = value;
+}
+
+#else
+
 static _INLINE_ unsigned int serial_in(struct async_struct *info, int offset)
 {
 	switch (info->io_type) {
@@ -422,6 +444,10 @@ static _INLINE_ unsigned int serial_in(struct async_struct *info, int offset)
 		return inb(info->port+1);
 #endif
 	case SERIAL_IO_MEM:
+#ifdef CONFIG_BCM4310
+		readb((unsigned long) info->iomem_base +
+				(UART_SCR<<info->iomem_reg_shift));
+#endif
 		return readb((unsigned long) info->iomem_base +
 			     (offset<<info->iomem_reg_shift));
 	default:
@@ -442,11 +468,16 @@ static _INLINE_ void serial_out(struct async_struct *info, int offset,
 	case SERIAL_IO_MEM:
 		writeb(value, (unsigned long) info->iomem_base +
 			      (offset<<info->iomem_reg_shift));
+#ifdef CONFIG_BCM4704
+		*((volatile unsigned int *) KSEG1ADDR(0x18000000));
+#endif
 		break;
 	default:
 		outb(value, info->port+offset);
 	}
 }
+#endif
+
 
 /*
  * We used to support using pause I/O for certain machines.  We
@@ -1704,7 +1735,7 @@ static void change_speed(struct async_struct *info,
 			/* Special case since 134 is really 134.5 */
 			quot = (2*baud_base / 269);
 		else if (baud)
-			quot = baud_base / baud;
+			quot = (baud_base + (baud / 2)) / baud;
 	}
 	/* If the quotient is zero refuse the change */
 	if (!quot && old_termios) {
@@ -1721,12 +1752,12 @@ static void change_speed(struct async_struct *info,
 				/* Special case since 134 is really 134.5 */
 				quot = (2*baud_base / 269);
 			else if (baud)
-				quot = baud_base / baud;
+				quot = (baud_base + (baud / 2)) / baud;
 		}
 	}
 	/* As a last resort, if the quotient is zero, default to 9600 bps */
 	if (!quot)
-		quot = baud_base / 9600;
+		quot = (baud_base + 4800) / 9600;
 	/*
 	 * Work around a bug in the Oxford Semiconductor 952 rev B
 	 * chip which causes it to seriously miscalculate baud rates
@@ -5434,18 +5465,6 @@ static int __init rs_init(void)
 		       sizeof(struct rs_multiport_struct));
 #endif
 	}
-#ifdef CONFIG_SERIAL_CONSOLE
-	/*
-	 *	The interrupt of the serial console port
-	 *	can't be shared.
-	 */
-	if (sercons.flags & CON_CONSDEV) {
-		for(i = 0; i < NR_PORTS; i++)
-			if (i != sercons.index &&
-			    rs_table[i].irq == rs_table[sercons.index].irq)
-				rs_table[i].irq = 0;
-	}
-#endif
 	show_serial_version();
 
 	/* Initialize the tty_driver structure */
@@ -5982,6 +6001,13 @@ static int __init serial_console_setup(struct console *co, char *options)
 	 *	Divisor, bytesize and parity
 	 */
 	state = rs_table + co->index;
+	/*
+ 	 * Safe guard: state structure must have been initialized
+	 */
+	if (state->iomem_base == NULL) {
+		printk("!unable to setup serial console!\n");
+		return -1;
+	}
 	if (doflow)
 		state->flags |= ASYNC_CONS_FLOW;
 	info = &async_sercons;
@@ -5995,7 +6021,7 @@ static int __init serial_console_setup(struct console *co, char *options)
 	info->io_type = state->io_type;
 	info->iomem_base = state->iomem_base;
 	info->iomem_reg_shift = state->iomem_reg_shift;
-	quot = state->baud_base / baud;
+	quot = (state->baud_base + (baud / 2)) / baud;
 	cval = cflag & (CSIZE | CSTOPB);
 #if defined(__powerpc__) || defined(__alpha__)
 	cval >>= 8;

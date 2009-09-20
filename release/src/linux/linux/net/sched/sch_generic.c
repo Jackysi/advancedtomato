@@ -29,6 +29,9 @@
 #include <linux/skbuff.h>
 #include <linux/rtnetlink.h>
 #include <linux/init.h>
+#if defined(CONFIG_IMQ) || defined(CONFIG_IMQ_MODULE)
+#include <linux/imq.h>
+#endif
 #include <linux/list.h>
 #include <net/sock.h>
 #include <net/pkt_sched.h>
@@ -80,7 +83,16 @@ int qdisc_restart(struct net_device *dev)
 	struct Qdisc *q = dev->qdisc;
 	struct sk_buff *skb;
 
+	/* BRCM: bail out if queue is null */
+	if (!q)
+		return 0;
+
 	/* Dequeue packet */
+	if (!q) {
+		if (net_ratelimit())
+			printk(KERN_DEBUG "HELP ME! qdisc_restart called, but no Qdisc!\n");
+		return 0;
+	}
 	if ((skb = q->dequeue(q)) != NULL) {
 		if (spin_trylock(&dev->xmit_lock)) {
 			/* Remember that the driver is grabbed by us. */
@@ -90,7 +102,11 @@ int qdisc_restart(struct net_device *dev)
 			spin_unlock(&dev->queue_lock);
 
 			if (!netif_queue_stopped(dev)) {
-				if (netdev_nit)
+				if (netdev_nit
+#if defined(CONFIG_IMQ) || defined(CONFIG_IMQ_MODULE)
+				    && !(skb->imq_flags & IMQ_F_ENQUEUE)
+#endif
+				    )
 					dev_queue_xmit_nit(skb, dev);
 
 				if (dev->hard_start_xmit(skb, dev) == 0) {
@@ -392,7 +408,6 @@ struct Qdisc * qdisc_create_dflt(struct net_device *dev, struct Qdisc_ops *ops)
 		return NULL;
 	memset(sch, 0, size);
 
-	INIT_LIST_HEAD(&sch->list);
 	skb_queue_head_init(&sch->q);
 	sch->ops = ops;
 	sch->enqueue = ops->enqueue;
@@ -422,11 +437,22 @@ void qdisc_reset(struct Qdisc *qdisc)
 void qdisc_destroy(struct Qdisc *qdisc)
 {
 	struct Qdisc_ops *ops = qdisc->ops;
+	struct net_device *dev;
 
 	if (qdisc->flags&TCQ_F_BUILTIN ||
 	    !atomic_dec_and_test(&qdisc->refcnt))
 		return;
-	list_del(&qdisc->list);
+
+	dev = qdisc->dev;
+	if (dev) {
+		struct Qdisc *q, **qp;
+		for (qp = &qdisc->dev->qdisc_list; (q=*qp) != NULL; qp = &q->next) {
+			if (q == qdisc) {
+				*qp = q->next;
+				break;
+			}
+		}
+	}
 #ifdef CONFIG_NET_ESTIMATOR
 	qdisc_kill_estimator(&qdisc->stats);
 #endif
@@ -455,9 +481,9 @@ void dev_activate(struct net_device *dev)
 				return;
 			}
 			write_lock(&qdisc_tree_lock);
-			list_add_tail(&qdisc->list, &dev->qdisc_list);
+			qdisc->next = dev->qdisc_list;
+			dev->qdisc_list = qdisc;
 			write_unlock(&qdisc_tree_lock);
-
 		} else {
 			qdisc =  &noqueue_qdisc;
 		}
@@ -501,7 +527,7 @@ void dev_init_scheduler(struct net_device *dev)
 	dev->qdisc = &noop_qdisc;
 	spin_unlock_bh(&dev->queue_lock);
 	dev->qdisc_sleeping = &noop_qdisc;
-	INIT_LIST_HEAD(&dev->qdisc_list);
+	dev->qdisc_list = NULL;
 	write_unlock(&qdisc_tree_lock);
 
 	dev_watchdog_init(dev);
@@ -523,7 +549,7 @@ void dev_shutdown(struct net_device *dev)
 		qdisc_destroy(qdisc);
         }
 #endif
-	BUG_TRAP(list_empty(&dev->qdisc_list));
+	BUG_TRAP(dev->qdisc_list == NULL);
 	BUG_TRAP(!timer_pending(&dev->watchdog_timer));
 	spin_unlock_bh(&dev->queue_lock);
 	write_unlock(&qdisc_tree_lock);

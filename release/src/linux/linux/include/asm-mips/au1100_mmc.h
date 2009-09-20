@@ -39,14 +39,20 @@
 #define __ASM_AU1100_MMC_H
 
 
-#define NUM_AU1100_MMC_CONTROLLERS	2
+#if defined(CONFIG_SOC_AU1100)
+#define NUM_MMC_CONTROLLERS	2
+#define AU1X_MMC_INT AU1100_SD_INT
+#endif
 
-
-#define AU1100_SD_IRQ	2
-
+#if defined(CONFIG_SOC_AU1200)
+#define NUM_MMC_CONTROLLERS	2
+#define AU1X_MMC_INT AU1200_SD_INT
+#endif
 
 #define SD0_BASE	0xB0600000
 #define SD1_BASE	0xB0680000
+
+
 
 
 /*
@@ -199,6 +205,13 @@
 #define SD_CMD_RT_5	(0x00050000)
 #define SD_CMD_RT_6	(0x00060000)
 #define SD_CMD_RT_1B	(0x00810000)
+
+
+/* support routines required on a platform-specific basis */
+extern void mmc_card_inserted(int _n_, int *_res_);
+extern void mmc_card_writable(int _n_, int *_res_);
+extern void mmc_power_on(int _n_);
+extern void mmc_power_off(int _n_);
 
 
 #endif /* __ASM_AU1100_MMC_H */

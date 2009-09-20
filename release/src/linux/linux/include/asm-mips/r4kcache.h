@@ -15,6 +15,18 @@
 #include <asm/asm.h>
 #include <asm/cacheops.h>
 
+#ifdef CONFIG_BCM4710
+#define BCM4710_DUMMY_RREG() (((sbconfig_t *)(KSEG1ADDR(SB_ENUM_BASE + SBCONFIGOFF)))->sbimstate)
+
+#define BCM4710_FILL_TLB(addr) (*(volatile unsigned long *)(addr))
+#define BCM4710_PROTECTED_FILL_TLB(addr) ({ unsigned long x; get_dbe(x, (volatile unsigned long *)(addr)); })
+#else
+#define BCM4710_DUMMY_RREG()
+
+#define BCM4710_FILL_TLB(addr)
+#define BCM4710_PROTECTED_FILL_TLB(addr)
+#endif
+
 #define cache_op(op,addr)						\
 	__asm__ __volatile__(						\
 	"	.set	noreorder				\n"	\
@@ -27,12 +39,25 @@
 
 static inline void flush_icache_line_indexed(unsigned long addr)
 {
-	cache_op(Index_Invalidate_I, addr);
+	unsigned int way;
+	unsigned long ws_inc = 1UL << current_cpu_data.dcache.waybit;
+	
+	for (way = 0; way < current_cpu_data.dcache.ways; way++) {
+		cache_op(Index_Invalidate_I, addr);
+		addr += ws_inc;
+	}
 }
 
 static inline void flush_dcache_line_indexed(unsigned long addr)
 {
-	cache_op(Index_Writeback_Inv_D, addr);
+	unsigned int way;
+	unsigned long ws_inc = 1UL << current_cpu_data.dcache.waybit;
+	
+	for (way = 0; way < current_cpu_data.dcache.ways; way++) {
+		BCM4710_DUMMY_RREG();
+		cache_op(Index_Writeback_Inv_D, addr);
+		addr += ws_inc;
+	}
 }
 
 static inline void flush_scache_line_indexed(unsigned long addr)
@@ -47,6 +72,7 @@ static inline void flush_icache_line(unsigned long addr)
 
 static inline void flush_dcache_line(unsigned long addr)
 {
+	BCM4710_DUMMY_RREG();
 	cache_op(Hit_Writeback_Inv_D, addr);
 }
 
@@ -91,6 +117,7 @@ static inline void protected_flush_icache_line(unsigned long addr)
  */
 static inline void protected_writeback_dcache_line(unsigned long addr)
 {
+	BCM4710_DUMMY_RREG();
 	__asm__ __volatile__(
 		".set noreorder\n\t"
 		".set mips3\n"
@@ -138,6 +165,62 @@ static inline void invalidate_tcache_page(unsigned long addr)
 		: "r" (base),						\
 		  "i" (op));
 
+#define cache_unroll(base,op)                   \
+	__asm__ __volatile__("                  \
+		.set noreorder;                 \
+		.set mips3;                     \
+		cache %1, (%0);                 \
+		.set mips0;                     \
+		.set reorder"                   \
+		:                               \
+		: "r" (base),                   \
+		  "i" (op));
+
+
+static inline void blast_dcache(void)
+{
+	unsigned long start = KSEG0;
+	unsigned long dcache_size = current_cpu_data.dcache.waysize * current_cpu_data.dcache.ways;
+	unsigned long end = (start + dcache_size);
+
+	while(start < end) {
+		BCM4710_DUMMY_RREG();
+		cache_unroll(start,Index_Writeback_Inv_D);
+		start += current_cpu_data.dcache.linesz;
+	}
+}
+
+static inline void blast_dcache_page(unsigned long page)
+{
+	unsigned long start = page;
+	unsigned long end = start + PAGE_SIZE;
+
+	BCM4710_FILL_TLB(start);
+	do {
+		BCM4710_DUMMY_RREG();
+		cache_unroll(start,Hit_Writeback_Inv_D);
+		start += current_cpu_data.dcache.linesz;
+	} while (start < end);
+}
+
+static inline void blast_dcache_page_indexed(unsigned long page)
+{
+	unsigned long start = page;
+	unsigned long end = start + PAGE_SIZE;
+	unsigned long ws_inc = 1UL << current_cpu_data.dcache.waybit;
+	unsigned long ws_end = current_cpu_data.dcache.ways <<
+	                       current_cpu_data.dcache.waybit;
+	unsigned long ws, addr;
+
+	for (ws = 0; ws < ws_end; ws += ws_inc) {
+		start = page + ws;
+		for (addr = start; addr < end; addr += current_cpu_data.dcache.linesz) {
+			BCM4710_DUMMY_RREG();
+			cache_unroll(addr,Index_Writeback_Inv_D);
+		}
+	}	
+}
+
 static inline void blast_dcache16(void)
 {
 	unsigned long start = KSEG0;
@@ -148,8 +231,9 @@ static inline void blast_dcache16(void)
 	unsigned long ws, addr;
 
 	for (ws = 0; ws < ws_end; ws += ws_inc) 
-		for (addr = start; addr < end; addr += 0x200)
+		for (addr = start; addr < end; addr += 0x200) {
 			cache16_unroll32(addr|ws,Index_Writeback_Inv_D);
+		}
 }
 
 static inline void blast_dcache16_page(unsigned long page)
@@ -173,8 +257,9 @@ static inline void blast_dcache16_page_indexed(unsigned long page)
 	unsigned long ws, addr;
 
 	for (ws = 0; ws < ws_end; ws += ws_inc) 
-		for (addr = start; addr < end; addr += 0x200) 
+		for (addr = start; addr < end; addr += 0x200) {
 			cache16_unroll32(addr|ws,Index_Writeback_Inv_D);
+		}
 }
 
 static inline void blast_icache16(void)
@@ -196,6 +281,7 @@ static inline void blast_icache16_page(unsigned long page)
 	unsigned long start = page;
 	unsigned long end = start + PAGE_SIZE;
 
+	BCM4710_FILL_TLB(start);
 	do {
 		cache16_unroll32(start,Hit_Invalidate_I);
 		start += 0x200;
@@ -281,6 +367,7 @@ static inline void blast_scache16_page_indexed(unsigned long page)
 		: "r" (base),						\
 		  "i" (op));
 
+
 static inline void blast_dcache32(void)
 {
 	unsigned long start = KSEG0;
@@ -291,8 +378,9 @@ static inline void blast_dcache32(void)
 	unsigned long ws, addr;
 
 	for (ws = 0; ws < ws_end; ws += ws_inc) 
-		for (addr = start; addr < end; addr += 0x400) 
+		for (addr = start; addr < end; addr += 0x400) {
 			cache32_unroll32(addr|ws,Index_Writeback_Inv_D);
+		}
 }
 
 static inline void blast_dcache32_page(unsigned long page)
@@ -316,8 +404,9 @@ static inline void blast_dcache32_page_indexed(unsigned long page)
 	unsigned long ws, addr;
 
 	for (ws = 0; ws < ws_end; ws += ws_inc) 
-		for (addr = start; addr < end; addr += 0x400) 
+		for (addr = start; addr < end; addr += 0x400) {
 			cache32_unroll32(addr|ws,Index_Writeback_Inv_D);
+		}
 }
 
 static inline void blast_icache32(void)
@@ -339,6 +428,7 @@ static inline void blast_icache32_page(unsigned long page)
 	unsigned long start = page;
 	unsigned long end = start + PAGE_SIZE;
 
+	BCM4710_FILL_TLB(start);
 	do {
 		cache32_unroll32(start,Hit_Invalidate_I);
 		start += 0x400;
@@ -443,6 +533,7 @@ static inline void blast_icache64_page(unsigned long page)
 	unsigned long start = page;
 	unsigned long end = start + PAGE_SIZE;
 
+	BCM4710_FILL_TLB(start);
 	do {
 		cache64_unroll32(start,Hit_Invalidate_I);
 		start += 0x800;
@@ -566,5 +657,18 @@ static inline void blast_scache128_page_indexed(unsigned long page)
 		for (addr = start; addr < end; addr += 0x1000) 
 			cache128_unroll32(addr|ws,Index_Writeback_Inv_SD);
 }
+
+extern inline void fill_icache_line(unsigned long addr)
+{       
+	__asm__ __volatile__(
+		".set noreorder\n\t"
+		".set mips3\n\t"
+		"cache %1, (%0)\n\t"
+		".set mips0\n\t"
+		".set reorder"
+		:
+		: "r" (addr),
+		"i" (Fill));
+}      
 
 #endif /* __ASM_R4KCACHE_H */

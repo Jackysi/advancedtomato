@@ -933,7 +933,8 @@ static int __init ic_bootp_recv(struct sk_buff *skb, struct net_device *dev, str
 	/* We have a winner! */
 	ic_dev = dev;
 	ic_myaddr = b->your_ip;
-	ic_servaddr = b->server_ip;
+	if (ic_servaddr == INADDR_NONE)
+		ic_servaddr = b->server_ip;
 	if (ic_gateway == INADDR_NONE && b->relay_ip)
 		ic_gateway = b->relay_ip;
 	if (ic_nameservers[0] == INADDR_NONE)

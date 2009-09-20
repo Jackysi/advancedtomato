@@ -50,7 +50,6 @@
 
 static void calibrate_delay(void);
 
-extern void set_au1x00_speed(unsigned int new_freq);
 extern unsigned int get_au1x00_speed(void);
 extern unsigned long get_au1x00_uart_baud_base(void);
 extern void set_au1x00_uart_baud_base(unsigned long new_baud_base);
@@ -116,6 +115,7 @@ save_core_regs(void)
 	sleep_uart0_clkdiv = au_readl(UART0_ADDR + UART_CLK);
 	sleep_uart0_enable = au_readl(UART0_ADDR + UART_MOD_CNTRL);
 
+#ifndef CONFIG_SOC_AU1200
 	/* Shutdown USB host/device.
 	*/
 	sleep_usbhost_enable = au_readl(USB_HOST_CONFIG);
@@ -127,6 +127,7 @@ save_core_regs(void)
 
 	sleep_usbdev_enable = au_readl(USBD_ENABLE);
 	au_writel(0, USBD_ENABLE); au_sync();
+#endif
 
 	/* Save interrupt controller state.
 	*/
@@ -212,13 +213,11 @@ void wakeup_from_suspend(void)
 int au_sleep(void)
 {
 	unsigned long wakeup, flags;
-	extern	void	save_and_sleep(void);
+	extern unsigned int save_and_sleep(void);
 
 	spin_lock_irqsave(&pm_lock,flags);
 
 	save_core_regs();
-
-	flush_cache_all();
 
 	/** The code below is all system dependent and we should probably
 	 ** have a function call out of here to set this up.  You need
@@ -227,27 +226,26 @@ int au_sleep(void)
 	 ** For testing, the TOY counter wakeup is useful.
 	 **/
 
-#if 0
+#if 1
 	au_writel(au_readl(SYS_PINSTATERD) & ~(1 << 11), SYS_PINSTATERD);
 
 	/* gpio 6 can cause a wake up event */
 	wakeup = au_readl(SYS_WAKEMSK);
 	wakeup &= ~(1 << 8);	/* turn off match20 wakeup */
-	wakeup |= 1 << 6;	/* turn on gpio 6 wakeup   */
+	wakeup = 1 << 5;	/* turn on gpio 6 wakeup   */
 #else
-	/* For testing, allow match20 to wake us up.
-	*/
+	/* For testing, allow match20 to wake us up.  */
 #ifdef SLEEP_TEST_TIMEOUT
 	wakeup_counter0_set(sleep_ticks);
 #endif
 	wakeup = 1 << 8;	/* turn on match20 wakeup   */
 	wakeup = 0;
 #endif
-	au_writel(1, SYS_WAKESRC);	/* clear cause */
+	au_writel(0, SYS_WAKESRC);	/* clear cause */
 	au_sync();
 	au_writel(wakeup, SYS_WAKEMSK);
 	au_sync();
-
+	DPRINTK("Entering sleep!\n");
 	save_and_sleep();
 
 	/* after a wakeup, the cpu vectors back to 0x1fc00000 so
@@ -255,6 +253,7 @@ int au_sleep(void)
 	 */
 	restore_core_regs();
 	spin_unlock_irqrestore(&pm_lock, flags);
+	DPRINTK("Leaving sleep!\n");
 	return 0;
 }
 
@@ -285,7 +284,6 @@ static int pm_do_sleep(ctl_table * ctl, int write, struct file *file,
 
 		if (retval)
 			return retval;
-
 		au_sleep();
 		retval = pm_send_all(PM_RESUME, (void *) 0);
 	}
@@ -296,7 +294,6 @@ static int pm_do_suspend(ctl_table * ctl, int write, struct file *file,
 			 void *buffer, size_t * len)
 {
 	int retval = 0;
-	void	au1k_wait(void);
 
 	if (!write) {
 		*len = 0;
@@ -305,119 +302,9 @@ static int pm_do_suspend(ctl_table * ctl, int write, struct file *file,
 		if (retval)
 			return retval;
 		suspend_mode = 1;
-		au1k_wait();
+
 		retval = pm_send_all(PM_RESUME, (void *) 0);
 	}
-	return retval;
-}
-
-
-static int pm_do_freq(ctl_table * ctl, int write, struct file *file,
-		      void *buffer, size_t * len)
-{
-	int retval = 0, i;
-	unsigned long val, pll;
-#define TMPBUFLEN 64
-#define MAX_CPU_FREQ 396
-	char buf[TMPBUFLEN], *p;
-	unsigned long flags, intc0_mask, intc1_mask;
-	unsigned long old_baud_base, old_cpu_freq, baud_rate, old_clk,
-	    old_refresh;
-	unsigned long new_baud_base, new_cpu_freq, new_clk, new_refresh;
-
-	spin_lock_irqsave(&pm_lock, flags);
-	if (!write) {
-		*len = 0;
-	} else {
-		/* Parse the new frequency */
-		if (*len > TMPBUFLEN - 1) {
-			spin_unlock_irqrestore(&pm_lock, flags);
-			return -EFAULT;
-		}
-		if (copy_from_user(buf, buffer, *len)) {
-			spin_unlock_irqrestore(&pm_lock, flags);
-			return -EFAULT;
-		}
-		buf[*len] = 0;
-		p = buf;
-		val = simple_strtoul(p, &p, 0);
-		if (val > MAX_CPU_FREQ) {
-			spin_unlock_irqrestore(&pm_lock, flags);
-			return -EFAULT;
-		}
-
-		pll = val / 12;
-		if ((pll > 33) || (pll < 7)) {	/* 396 MHz max, 84 MHz min */
-			/* revisit this for higher speed cpus */
-			spin_unlock_irqrestore(&pm_lock, flags);
-			return -EFAULT;
-		}
-
-		old_baud_base = get_au1x00_uart_baud_base();
-		old_cpu_freq = get_au1x00_speed();
-
-		new_cpu_freq = pll * 12 * 1000000;
-	        new_baud_base =  (new_cpu_freq / (2 * ((int)(au_readl(SYS_POWERCTRL)&0x03) + 2) * 16));
-		set_au1x00_speed(new_cpu_freq);
-		set_au1x00_uart_baud_base(new_baud_base);
-
-		old_refresh = au_readl(MEM_SDREFCFG) & 0x1ffffff;
-		new_refresh =
-		    ((old_refresh * new_cpu_freq) /
-		     old_cpu_freq) | (au_readl(MEM_SDREFCFG) & ~0x1ffffff);
-
-		au_writel(pll, SYS_CPUPLL);
-		au_sync_delay(1);
-		au_writel(new_refresh, MEM_SDREFCFG);
-		au_sync_delay(1);
-
-		for (i = 0; i < 4; i++) {
-			if (au_readl
-			    (UART_BASE + UART_MOD_CNTRL +
-			     i * 0x00100000) == 3) {
-				old_clk =
-				    au_readl(UART_BASE + UART_CLK +
-					  i * 0x00100000);
-				// baud_rate = baud_base/clk
-				baud_rate = old_baud_base / old_clk;
-				/* we won't get an exact baud rate and the error
-				 * could be significant enough that our new
-				 * calculation will result in a clock that will
-				 * give us a baud rate that's too far off from
-				 * what we really want.
-				 */
-				if (baud_rate > 100000)
-					baud_rate = 115200;
-				else if (baud_rate > 50000)
-					baud_rate = 57600;
-				else if (baud_rate > 30000)
-					baud_rate = 38400;
-				else if (baud_rate > 17000)
-					baud_rate = 19200;
-				else
-					(baud_rate = 9600);
-				// new_clk = new_baud_base/baud_rate
-				new_clk = new_baud_base / baud_rate;
-				au_writel(new_clk,
-				       UART_BASE + UART_CLK +
-				       i * 0x00100000);
-				au_sync_delay(10);
-			}
-		}
-	}
-
-
-	/* We don't want _any_ interrupts other than
-	 * match20. Otherwise our calibrate_delay()
-	 * calculation will be off, potentially a lot.
-	 */
-	intc0_mask = save_local_and_disable(0);
-	intc1_mask = save_local_and_disable(1);
-	local_enable_irq(AU1000_TOY_MATCH2_INT);
-	spin_unlock_irqrestore(&pm_lock, flags);
-	calibrate_delay();
-	restore_local_and_enable(0, intc0_mask);
-	restore_local_and_enable(1, intc1_mask);
 	return retval;
 }
 
@@ -425,7 +312,6 @@ static int pm_do_freq(ctl_table * ctl, int write, struct file *file,
 static struct ctl_table pm_table[] = {
 	{ACPI_S1_SLP_TYP, "suspend", NULL, 0, 0600, NULL, &pm_do_suspend},
 	{ACPI_SLEEP, "sleep", NULL, 0, 0600, NULL, &pm_do_sleep},
-	{CTL_ACPI, "freq", NULL, 0, 0600, NULL, &pm_do_freq},
 	{0}
 };
 

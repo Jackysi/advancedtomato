@@ -121,5 +121,13 @@ extern int ip_nat_used_tuple(const struct ip_conntrack_tuple *tuple,
 extern u_int16_t ip_nat_cheat_check(u_int32_t oldvalinv,
 				    u_int32_t newval,
 				    u_int16_t oldcheck);
+
+/* Call input routing for SNAT-ed traffic */
+extern unsigned int ip_nat_route_input(unsigned int hooknum,
+				       struct sk_buff **pskb,
+				       const struct net_device *in,
+				       const struct net_device *out,
+				       int (*okfn)(struct sk_buff *));
+
 #endif /*__KERNEL__*/
 #endif

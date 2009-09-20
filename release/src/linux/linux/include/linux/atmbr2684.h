@@ -3,6 +3,7 @@
 
 #include <linux/atm.h>
 #include <linux/if.h>		/* For IFNAMSIZ */
+#include <linux/if_ether.h>	/* ETH_P_* */
 
 /*
  * Type of media we're bridging (ethernet, token ring, etc)  Currently only
@@ -36,15 +37,24 @@
 #define BR2684_ENCAPS_AUTODETECT (2)	/* Unsuported */
 
 /*
+ * Is this VC bridged or routed?
+ */
+
+#define	BR2684_PAYLOAD_ROUTED	(0)
+#define	BR2684_PAYLOAD_BRIDGED	(1)
+
+
+/*
  * This is for the ATM_NEWBACKENDIF call - these are like socket families:
  * the first element of the structure is the backend number and the rest
  * is per-backend specific
  */
 struct atm_newif_br2684 {
-	atm_backend_t	backend_num;	/* ATM_BACKEND_BR2684 */
-	int		media;		/* BR2684_MEDIA_* */
-	char		ifname[IFNAMSIZ];
-	int		mtu;
+	atm_backend_t backend_num;	/* ATM_BACKEND_BR2684 */
+	int media;		/* BR2684_MEDIA_* */
+	char ifname[IFNAMSIZ];
+	int mtu;
+	int payload;		/* bridged or routed */
 };
 
 /*
@@ -68,16 +78,17 @@ struct br2684_if_spec {
  * is per-backend specific
  */
 struct atm_backend_br2684 {
-	atm_backend_t	backend_num;	/* ATM_BACKEND_BR2684 */
+	atm_backend_t backend_num;	/* ATM_BACKEND_BR2684 */
 	struct br2684_if_spec ifspec;
-	int	fcs_in;		/* BR2684_FCSIN_* */
-	int	fcs_out;	/* BR2684_FCSOUT_* */
-	int	fcs_auto;	/* 1: fcs_{in,out} disabled if no FCS rx'ed */
-	int	encaps;		/* BR2684_ENCAPS_* */
-	int	has_vpiid;	/* 1: use vpn_id - Unsupported */
-	__u8	vpn_id[7];
-	int	send_padding;	/* unsupported */
-	int	min_size;	/* we will pad smaller packets than this */
+	int fcs_in;		/* BR2684_FCSIN_* */
+	int fcs_out;		/* BR2684_FCSOUT_* */
+	int fcs_auto;		/* 1: fcs_{in,out} disabled if no FCS rx'ed */
+	int encaps;		/* BR2684_ENCAPS_* */
+	int payload;		/* BR2684_PAYLOAD_* */
+	int has_vpiid;		/* 1: use vpn_id - Unsupported */
+	__u8 vpn_id[7];
+	int send_padding;	/* unsupported */
+	int min_size;		/* we will pad smaller packets than this */
 };
 
 /*
@@ -95,7 +106,12 @@ struct br2684_filter_set {
 	struct br2684_filter filter;
 };
 
+enum br2684_payload {
+	p_routed = BR2684_PAYLOAD_ROUTED,
+	p_bridged = BR2684_PAYLOAD_BRIDGED,
+};
+
 #define BR2684_SETFILT	_IOW( 'a', ATMIOC_BACKEND + 0, \
 				struct br2684_filter_set)
 
-#endif /* _LINUX_ATMBR2684_H */
+#endif				/* _LINUX_ATMBR2684_H */

@@ -1277,6 +1277,9 @@ static int __init i2c_init(void)
 #ifdef CONFIG_I2C_MAX1617
 	extern int i2c_max1617_init(void);
 #endif
+#ifdef CONFIG_I2C_ALGO_AU1550
+	extern int i2c_pb1550_init(void);
+#endif
 
 #ifdef CONFIG_I2C_PROC
 	extern int sensors_init(void);
@@ -1330,6 +1333,10 @@ int __init i2c_init_all(void)
 #endif
 #ifdef CONFIG_I2C_MAX1617
 	i2c_max1617_init();
+#endif
+
+#ifdef CONFIG_I2C_ALGO_AU1550
+	i2c_pb1550_init();
 #endif
 
 	/* -------------- proc interface ---- */

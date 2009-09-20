@@ -601,7 +601,7 @@ static void mtd_notify_add(struct mtd_info* mtd)
         sprintf(name, "%d", mtd->index);
         devfs_rw_handle[mtd->index] = devfs_register(devfs_dir_handle, name,
                         DEVFS_FL_DEFAULT, MTD_BLOCK_MAJOR, mtd->index,
-                        S_IFBLK | S_IRUGO | S_IWUGO,
+                        S_IFBLK | S_IRUSR | S_IWUSR,
                         &mtd_fops, NULL);
 }
 

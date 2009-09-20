@@ -246,7 +246,7 @@ static struct file_operations au1000gpio_fops =
 
 static struct miscdevice au1000gpio_miscdev =
 {
-	GPIO_MINOR,
+	MISC_DYNAMIC_MINOR,
 	"au1000_gpio",
 	&au1000gpio_fops
 };

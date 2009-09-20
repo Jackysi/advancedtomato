@@ -6,10 +6,19 @@ comment '  IP: Netfilter Configuration'
 
 tristate 'Connection tracking (required for masq/NAT)' CONFIG_IP_NF_CONNTRACK
 if [ "$CONFIG_IP_NF_CONNTRACK" != "n" ]; then
+  bool '  Connection mark tracking support' CONFIG_IP_NF_CONNTRACK_MARK
   dep_tristate '  FTP protocol support' CONFIG_IP_NF_FTP $CONFIG_IP_NF_CONNTRACK
   dep_tristate '  Amanda protocol support' CONFIG_IP_NF_AMANDA $CONFIG_IP_NF_CONNTRACK
+  dep_tristate '  STARCRAFT protocol support' CONFIG_IP_NF_STARCRAFT $CONFIG_IP_NF_CONNTRACK
   dep_tristate '  TFTP protocol support' CONFIG_IP_NF_TFTP $CONFIG_IP_NF_CONNTRACK
   dep_tristate '  IRC protocol support' CONFIG_IP_NF_IRC $CONFIG_IP_NF_CONNTRACK
+  dep_tristate '  Connection tracking flow accounting' CONFIG_IP_NF_CT_ACCT $CONFIG_IP_NF_CONNTRACK
+  dep_tristate '  Connection byte counter support' CONFIG_IP_NF_MATCH_CONNBYTES $CONFIG_IP_NF_CT_ACCT $CONFIG_IP_NF_CONNTRACK $CONFIG_IP_NF_IPTABLES
+  dep_tristate '  GRE protocol support' CONFIG_IP_NF_CT_PROTO_GRE $CONFIG_IP_NF_CONNTRACK
+  dep_tristate '   PPTP protocol support' CONFIG_IP_NF_PPTP $CONFIG_IP_NF_CT_PROTO_GRE
+  dep_tristate '  H.323 (netmeeting) support' CONFIG_IP_NF_H323 $CONFIG_IP_NF_CONNTRACK
+  dep_tristate '  RTSP protocol support' CONFIG_IP_NF_RTSP $CONFIG_IP_NF_CONNTRACK
+  dep_tristate '  MMS protocol support' CONFIG_IP_NF_MMS $CONFIG_IP_NF_CONNTRACK
 fi
 
 if [ "$CONFIG_EXPERIMENTAL" = "y" ]; then
@@ -19,13 +28,21 @@ tristate 'IP tables support (required for filtering/masq/NAT)' CONFIG_IP_NF_IPTA
 if [ "$CONFIG_IP_NF_IPTABLES" != "n" ]; then
 # The simple matches.
   dep_tristate '  limit match support' CONFIG_IP_NF_MATCH_LIMIT $CONFIG_IP_NF_IPTABLES
+  dep_tristate '  IP range match support' CONFIG_IP_NF_MATCH_IPRANGE $CONFIG_IP_NF_IPTABLES
+  dep_tristate '  quota match support' CONFIG_IP_NF_MATCH_QUOTA $CONFIG_IP_NF_IPTABLES
   dep_tristate '  MAC address match support' CONFIG_IP_NF_MATCH_MAC $CONFIG_IP_NF_IPTABLES
   dep_tristate '  Packet type match support' CONFIG_IP_NF_MATCH_PKTTYPE $CONFIG_IP_NF_IPTABLES
   dep_tristate '  netfilter MARK match support' CONFIG_IP_NF_MATCH_MARK $CONFIG_IP_NF_IPTABLES
   dep_tristate '  Multiple port match support' CONFIG_IP_NF_MATCH_MULTIPORT $CONFIG_IP_NF_IPTABLES
   dep_tristate '  TOS match support' CONFIG_IP_NF_MATCH_TOS $CONFIG_IP_NF_IPTABLES
+  dep_tristate '  TIME match support (EXPERIMENTAL)' CONFIG_IP_NF_MATCH_TIME $CONFIG_IP_NF_IPTABLES
+  dep_tristate '  condition match support' CONFIG_IP_NF_MATCH_CONDITION $CONFIG_IP_NF_IPTABLES
+  dep_tristate '  Nth match support' CONFIG_IP_NF_MATCH_NTH $CONFIG_IP_NF_IPTABLES
+  dep_tristate '  psd match support' CONFIG_IP_NF_MATCH_PSD $CONFIG_IP_NF_IPTABLES
+  dep_tristate '  random match support' CONFIG_IP_NF_MATCH_RANDOM $CONFIG_IP_NF_IPTABLES
   dep_tristate '  recent match support' CONFIG_IP_NF_MATCH_RECENT $CONFIG_IP_NF_IPTABLES
   dep_tristate '  ECN match support' CONFIG_IP_NF_MATCH_ECN $CONFIG_IP_NF_IPTABLES
+  dep_tristate '  peer to peer traffic match support' CONFIG_IP_NF_MATCH_IPP2P $CONFIG_IP_NF_IPTABLES
  
   dep_tristate '  DSCP match support' CONFIG_IP_NF_MATCH_DSCP $CONFIG_IP_NF_IPTABLES
  
@@ -39,10 +56,19 @@ if [ "$CONFIG_IP_NF_IPTABLES" != "n" ]; then
   if [ "$CONFIG_IP_NF_CONNTRACK" != "n" ]; then
     dep_tristate '  Connection state match support' CONFIG_IP_NF_MATCH_STATE $CONFIG_IP_NF_CONNTRACK $CONFIG_IP_NF_IPTABLES 
     dep_tristate '  Connection tracking match support' CONFIG_IP_NF_MATCH_CONNTRACK $CONFIG_IP_NF_CONNTRACK $CONFIG_IP_NF_IPTABLES 
+	if [ "$CONFIG_IP_NF_CONNTRACK_MARK" != "n" ]; then
+	  dep_tristate '  Connection mark match support' CONFIG_IP_NF_MATCH_CONNMARK $CONFIG_IP_NF_IPTABLES
+          dep_tristate '  Connections/IP limit match support' CONFIG_IP_NF_MATCH_CONNLIMIT $CONFIG_IP_NF_IPTABLES
+	fi
   fi
   if [ "$CONFIG_EXPERIMENTAL" = "y" ]; then
     dep_tristate '  Unclean match support (EXPERIMENTAL)' CONFIG_IP_NF_MATCH_UNCLEAN $CONFIG_IP_NF_IPTABLES
+    dep_tristate '  String match support (EXPERIMENTAL) ' CONFIG_IP_NF_MATCH_STRING $CONFIG_IP_NF_IPTABLES
     dep_tristate '  Owner match support (EXPERIMENTAL)' CONFIG_IP_NF_MATCH_OWNER $CONFIG_IP_NF_IPTABLES
+    dep_tristate '  Layer 7 match support (EXPERIMENTAL)' CONFIG_IP_NF_MATCH_LAYER7 $CONFIG_IP_NF_CONNTRACK
+    dep_mbool '  Layer 7 debugging output (EXPERIMENTAL)' CONFIG_IP_NF_MATCH_LAYER7_DEBUG $CONFIG_IP_NF_MATCH_LAYER7
+    dep_tristate '  Webstr match support (EXPERIMENTAL)' CONFIG_IP_NF_MATCH_WEBSTR $CONFIG_IP_NF_IPTABLES
+ 
   fi
 # The targets
   dep_tristate '  Packet filtering' CONFIG_IP_NF_FILTER $CONFIG_IP_NF_IPTABLES 
@@ -50,6 +76,7 @@ if [ "$CONFIG_IP_NF_IPTABLES" != "n" ]; then
     dep_tristate '    REJECT target support' CONFIG_IP_NF_TARGET_REJECT $CONFIG_IP_NF_FILTER
     if [ "$CONFIG_EXPERIMENTAL" = "y" ]; then
       dep_tristate '    MIRROR target support (EXPERIMENTAL)' CONFIG_IP_NF_TARGET_MIRROR $CONFIG_IP_NF_FILTER
+      dep_tristate '    TARPIT target support (EXPERIMENTAL)' CONFIG_IP_NF_TARGET_TARPIT $CONFIG_IP_NF_FILTER
     fi
   fi
 
@@ -59,12 +86,70 @@ if [ "$CONFIG_IP_NF_IPTABLES" != "n" ]; then
       define_bool CONFIG_IP_NF_NAT_NEEDED y
       dep_tristate '    MASQUERADE target support' CONFIG_IP_NF_TARGET_MASQUERADE $CONFIG_IP_NF_NAT
       dep_tristate '    REDIRECT target support' CONFIG_IP_NF_TARGET_REDIRECT $CONFIG_IP_NF_NAT
+      dep_tristate '    NETMAP target support' CONFIG_IP_NF_TARGET_NETMAP $CONFIG_IP_NF_NAT
+      dep_tristate '    Automatic port forwarding (autofw) target support' CONFIG_IP_NF_AUTOFW $CONFIG_IP_NF_NAT
+      if [ "$CONFIG_IP_NF_PPTP" = "m" ]; then
+        define_tristate CONFIG_IP_NF_NAT_PPTP m
+      else
+        if [ "$CONFIG_IP_NF_PPTP" = "y" ]; then
+          define_tristate CONFIG_IP_NF_NAT_PPTP $CONFIG_IP_NF_NAT
+        fi
+      fi
+      if [ "$CONFIG_IP_NF_CT_PROTO_GRE" = "m" ]; then
+        define_tristate CONFIG_IP_NF_NAT_PROTO_GRE m
+      else
+        if [ "$CONFIG_IP_NF_CT_PROTO_GRE" = "y" ]; then
+          define_tristate CONFIG_IP_NF_NAT_PROTO_GRE $CONFIG_IP_NF_NAT
+        fi
+      fi
       if [ "$CONFIG_IP_NF_AMANDA" = "m" ]; then
         define_tristate CONFIG_IP_NF_NAT_AMANDA m
       else
         if [ "$CONFIG_IP_NF_AMANDA" = "y" ]; then
           define_tristate CONFIG_IP_NF_NAT_AMANDA $CONFIG_IP_NF_NAT
         fi
+      fi
+      if [ "$CONFIG_IP_NF_H323" = "m" ]; then
+       define_tristate CONFIG_IP_NF_NAT_H323 m
+      else
+       if [ "$CONFIG_IP_NF_H323" = "y" ]; then
+         define_tristate CONFIG_IP_NF_NAT_H323 $CONFIG_IP_NF_NAT
+       fi
+      fi
+      if [ "$CONFIG_IP_NF_RTSP" = "m" ]; then
+        define_tristate CONFIG_IP_NF_NAT_RTSP m
+      else
+       if [ "$CONFIG_IP_NF_RTSP" = "y" ]; then
+         define_tristate CONFIG_IP_NF_NAT_RTSP $CONFIG_IP_NF_NAT
+       fi
+      fi
+      if [ "$CONFIG_IP_NF_MMS" = "m" ]; then
+       define_tristate CONFIG_IP_NF_NAT_MMS m
+      else
+       if [ "$CONFIG_IP_NF_MMS" = "y" ]; then
+         define_tristate CONFIG_IP_NF_NAT_MMS $CONFIG_IP_NF_NAT
+       fi
+      fi
+      if [ "$CONFIG_IP_NF_H323" = "m" ]; then
+       define_tristate CONFIG_IP_NF_NAT_H323 m
+      else
+       if [ "$CONFIG_IP_NF_H323" = "y" ]; then
+         define_tristate CONFIG_IP_NF_NAT_H323 $CONFIG_IP_NF_NAT
+       fi
+      fi
+      if [ "$CONFIG_IP_NF_RTSP" = "m" ]; then
+        define_tristate CONFIG_IP_NF_NAT_RTSP m
+      else
+       if [ "$CONFIG_IP_NF_RTSP" = "y" ]; then
+         define_tristate CONFIG_IP_NF_NAT_RTSP $CONFIG_IP_NF_NAT
+       fi
+      fi
+      if [ "$CONFIG_IP_NF_MMS" = "m" ]; then
+       define_tristate CONFIG_IP_NF_NAT_MMS m
+      else
+       if [ "$CONFIG_IP_NF_MMS" = "y" ]; then
+         define_tristate CONFIG_IP_NF_NAT_MMS $CONFIG_IP_NF_NAT
+       fi
       fi
       if [ "$CONFIG_EXPERIMENTAL" = "y" ]; then
         dep_tristate '    Basic SNMP-ALG support (EXPERIMENTAL)' CONFIG_IP_NF_NAT_SNMP_BASIC $CONFIG_IP_NF_NAT
@@ -92,6 +177,16 @@ if [ "$CONFIG_IP_NF_IPTABLES" != "n" ]; then
           define_tristate CONFIG_IP_NF_NAT_TFTP $CONFIG_IP_NF_NAT
         fi
       fi
+      # If they want Starcraft, set to $CONFIG_IP_NF_NAT (m or y), 
+      # or $CONFIG_IP_NF_STARCRAFT (m or y), whichever is weaker.  Argh.
+      if [ "$CONFIG_IP_NF_STARCRAFT" = "m" ]; then
+        define_tristate CONFIG_IP_NF_NAT_STARCRAFT m
+      else
+        if [ "$CONFIG_IP_NF_STARCRAFT" = "y" ]; then
+          define_tristate CONFIG_IP_NF_NAT_STARCRAFT $CONFIG_IP_NF_NAT
+        fi
+      fi
+
     fi
   fi
 
@@ -103,9 +198,14 @@ if [ "$CONFIG_IP_NF_IPTABLES" != "n" ]; then
     dep_tristate '    DSCP target support' CONFIG_IP_NF_TARGET_DSCP $CONFIG_IP_NF_MANGLE
  
     dep_tristate '    MARK target support' CONFIG_IP_NF_TARGET_MARK $CONFIG_IP_NF_MANGLE
+    dep_tristate '    IMQ target support' CONFIG_IP_NF_TARGET_IMQ $CONFIG_IP_NF_MANGLE
     dep_tristate '    CLASSIFY target support (EXPERIMENTAL)' CONFIG_IP_NF_TARGET_CLASSIFY $CONFIG_IP_NF_MANGLE
   fi
+  if [ "$CONFIG_IP_NF_CONNTRACK_MARK" != "n" ]; then
+    dep_tristate '  CONNMARK target support' CONFIG_IP_NF_TARGET_CONNMARK $CONFIG_IP_NF_IPTABLES
+  fi
   dep_tristate '  LOG target support' CONFIG_IP_NF_TARGET_LOG $CONFIG_IP_NF_IPTABLES
+  dep_tristate '  TTL target support' CONFIG_IP_NF_TARGET_TTL $CONFIG_IP_NF_IPTABLES
   dep_tristate '  ULOG target support' CONFIG_IP_NF_TARGET_ULOG $CONFIG_IP_NF_IPTABLES
   dep_tristate '  TCPMSS target support' CONFIG_IP_NF_TARGET_TCPMSS $CONFIG_IP_NF_IPTABLES
 fi
@@ -133,4 +233,22 @@ if [ "$CONFIG_IP_NF_CONNTRACK" != "y" ]; then
     fi
   fi
 fi
+  dep_tristate '  IP set support' CONFIG_IP_NF_SET $CONFIG_IP_NF_IPTABLES
+  if [ "$CONFIG_IP_NF_SET" != "n" ]; then
+    int '     Maximum number of sets' CONFIG_IP_NF_SET_MAX 256
+    int '     Hash size for bindings of IP sets' CONFIG_IP_NF_SET_HASHSIZE 1024
+    dep_tristate '    set match support' CONFIG_IP_NF_MATCH_SET $CONFIG_IP_NF_SET
+    dep_tristate '    SET target support' CONFIG_IP_NF_TARGET_SET $CONFIG_IP_NF_SET
+    dep_tristate '    ipmap set type support' CONFIG_IP_NF_SET_IPMAP $CONFIG_IP_NF_SET
+    dep_tristate '    macipmap set type support' CONFIG_IP_NF_SET_MACIPMAP $CONFIG_IP_NF_SET
+    dep_tristate '    portmap set type support' CONFIG_IP_NF_SET_PORTMAP $CONFIG_IP_NF_SET
+    dep_tristate '    iphash set type support' CONFIG_IP_NF_SET_IPHASH $CONFIG_IP_NF_SET
+    dep_tristate '    nethash set type support' CONFIG_IP_NF_SET_NETHASH $CONFIG_IP_NF_SET
+    dep_tristate '    ipporthash set type support' CONFIG_IP_NF_SET_IPPORTHASH $CONFIG_IP_NF_SET
+    dep_tristate '    ipportiphash set type support' CONFIG_IP_NF_SET_IPPORTIPHASH $CONFIG_IP_NF_SET
+    dep_tristate '    ipportnethash set type support' CONFIG_IP_NF_SET_IPPORTNETHASH $CONFIG_IP_NF_SET
+    dep_tristate '    iptree set type support' CONFIG_IP_NF_SET_IPTREE $CONFIG_IP_NF_SET
+    dep_tristate '    iptreemap set type support' CONFIG_IP_NF_SET_IPTREEMAP $CONFIG_IP_NF_SET
+    dep_tristate '    setlist set type support' CONFIG_IP_NF_SET_SETLIST $CONFIG_IP_NF_SET
+  fi
 endmenu

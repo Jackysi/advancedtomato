@@ -1,0 +1,48 @@
+#
+# Broadcom Home Networking Division (HND) driver configuration
+#
+# Copyright 2006, Broadcom Corporation
+# All Rights Reserved.
+# 
+# THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
+# KIND, EXPRESS OR IMPLIED, BY STATUTE, COMMUNICATION OR OTHERWISE. BROADCOM
+# SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
+# FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
+#
+
+mainmenu_option next_comment
+   comment 'Broadcom HND network devices'
+   dep_bool 'Broadcom HND network device support' CONFIG_HND $CONFIG_PCI
+   if [ "$CONFIG_HND" != "n" ]; then
+      dep_tristate '  InsideLine HPNA support' CONFIG_IL $CONFIG_HND
+      if [ "$CONFIG_IL" != "n" ]; then
+         bool '    BCM42xx support' CONFIG_IL_42XX
+         bool '    BCM47xx support' CONFIG_IL_47XX
+         int '    LARQ buffer allocation (0 = tiny, 2 = huge)' CONFIG_LARQ_BUF 0
+      fi
+      dep_tristate '  10/100 Ethernet support' CONFIG_ET $CONFIG_HND 
+      if [ "$CONFIG_ET" != "n" ]; then
+         bool '    BCM47xx support' CONFIG_ET_47XX
+      fi
+      dep_tristate '  WL emulation using Gigabit ethernet' CONFIG_WL_EMULATOR $CONFIG_HND
+      if [ "$CONFIG_WL_EMULATOR" != "n" ]; then
+         comment '    BCM57xx support is ON'
+         define_tristate CONFIG_BCM57XX $CONFIG_WL_EMULATOR
+         comment '    Wireless feature variant is set to AP'
+         define_tristate CONFIG_WL $CONFIG_WL_EMULATOR
+         define_bool CONFIG_WL_USE_AP y
+      else
+         dep_tristate '  BCM57xx Gigabit Ethernet support' CONFIG_BCM57XX $CONFIG_HND
+         dep_tristate '  BCM43xx 802.11 Wireless support' CONFIG_WL $CONFIG_HND
+      if [ "$CONFIG_WL" != "n" ]; then
+            choice '    Wireless feature variant' \
+               "ap	CONFIG_WL_USE_AP \
+                sta	CONFIG_WL_USE_STA \
+                apsta	CONFIG_WL_USE_APSTA \
+                ap_onchip_g	CONFIG_WL_USE_AP_ONCHIP_G \
+                sta_onchip_g	CONFIG_WL_USE_STA_ONCHIP_G \
+                apsta_onchip_g	CONFIG_WL_USE_APSTA_ONCHIP_G"
+         fi
+      fi
+   fi
+endmenu

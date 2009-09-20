@@ -6,8 +6,10 @@
  * Copyright (C) 1991, 1992  Linus Torvalds
  * Copyright (C) 1994 - 1999  Ralf Baechle
  * Copyright (C) 1999 Silicon Graphics, Inc.
+ * Copyright (C) 2004  Maciej W. Rozycki
  */
 #include <linux/config.h>
+#include <linux/compiler.h>
 #include <linux/sched.h>
 #include <linux/mm.h>
 #include <linux/smp.h>
@@ -76,7 +78,9 @@ int copy_siginfo_to_user(siginfo_t *to, siginfo_t *from)
  * Atomically swap in the new signal mask, and wait for a signal.
  */
 save_static_function(sys_sigsuspend);
-static_unused int _sys_sigsuspend(struct pt_regs regs)
+static int _sys_sigsuspend(struct pt_regs regs)
+	__asm__("_sys_sigsuspend") __attribute_used__;
+static int _sys_sigsuspend(struct pt_regs regs)
 {
 	sigset_t *uset, saveset, newset;
 
@@ -102,7 +106,9 @@ static_unused int _sys_sigsuspend(struct pt_regs regs)
 }
 
 save_static_function(sys_rt_sigsuspend);
-static_unused int _sys_rt_sigsuspend(struct pt_regs regs)
+static int _sys_rt_sigsuspend(struct pt_regs regs)
+	__asm__("_sys_rt_sigsuspend") __attribute_used__;
+static int _sys_rt_sigsuspend(struct pt_regs regs)
 {
 	sigset_t *unewset, saveset, newset;
         size_t sigsetsize;

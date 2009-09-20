@@ -79,6 +79,18 @@ print_expect(char *buffer, const struct ip_conntrack_expect *expect)
 	return len;
 }
 
+#if defined(CONFIG_IP_NF_CT_ACCT) || \
+	defined(CONFIG_IP_NF_CT_ACCT_MODULE)
+static unsigned int
+print_counters(char *buffer, struct ip_conntrack_counter *counter)
+{
+       return sprintf(buffer, "packets=%llu bytes=%llu ", 
+                       counter->packets, counter->bytes);
+}
+#else
+#define print_counters(x, y)   0
+#endif
+
 static unsigned int
 print_conntrack(char *buffer, struct ip_conntrack *conntrack)
 {
@@ -98,15 +110,29 @@ print_conntrack(char *buffer, struct ip_conntrack *conntrack)
 	len += print_tuple(buffer + len,
 			   &conntrack->tuplehash[IP_CT_DIR_ORIGINAL].tuple,
 			   proto);
+        len += print_counters(buffer + len, 
+                           &conntrack->counters[IP_CT_DIR_ORIGINAL]);
 	if (!(test_bit(IPS_SEEN_REPLY_BIT, &conntrack->status)))
 		len += sprintf(buffer + len, "[UNREPLIED] ");
 	len += print_tuple(buffer + len,
 			   &conntrack->tuplehash[IP_CT_DIR_REPLY].tuple,
 			   proto);
+        len += print_counters(buffer + len, 
+                           &conntrack->counters[IP_CT_DIR_REPLY]);
 	if (test_bit(IPS_ASSURED_BIT, &conntrack->status))
 		len += sprintf(buffer + len, "[ASSURED] ");
 	len += sprintf(buffer + len, "use=%u ",
 		       atomic_read(&conntrack->ct_general.use));
+	#if defined(CONFIG_IP_NF_CONNTRACK_MARK)
+	len += sprintf(buffer + len, "mark=%ld ", conntrack->mark);
+	#endif
+
+	#if defined(CONFIG_IP_NF_MATCH_LAYER7) || defined(CONFIG_IP_NF_MATCH_LAYER7_MODULE)
+	if(conntrack->layer7.app_proto)
+		len += sprintf(buffer + len, "l7proto=%s ",
+				conntrack->layer7.app_proto); 
+	#endif
+
 	len += sprintf(buffer + len, "\n");
 
 	return len;
@@ -251,6 +277,7 @@ static struct nf_hook_ops ip_conntrack_local_in_ops
 
 /* From ip_conntrack_core.c */
 extern int ip_conntrack_max;
+extern int ip_conntrack_clear;
 extern unsigned int ip_conntrack_htable_size;
 
 /* From ip_conntrack_proto_tcp.c */
@@ -322,11 +349,15 @@ static ctl_table ip_ct_sysctl_table[] = {
 };
 
 #define NET_IP_CONNTRACK_MAX 2089
+#define NET_IP_CONNTRACK_CLEAR 2090
 
 static ctl_table ip_ct_netfilter_table[] = {
 	{NET_IPV4_NETFILTER, "netfilter", NULL, 0, 0555, ip_ct_sysctl_table, 0, 0, 0, 0, 0},
 	{NET_IP_CONNTRACK_MAX, "ip_conntrack_max",
 	 &ip_conntrack_max, sizeof(int), 0644, NULL,
+	 &proc_dointvec},
+	{NET_IP_CONNTRACK_CLEAR, "ip_conntrack_clear",
+	 &ip_conntrack_clear, sizeof(ip_conntrack_clear), 0644,  NULL,
 	 &proc_dointvec},
 	{0}
 };
@@ -471,7 +502,7 @@ EXPORT_SYMBOL(ip_conntrack_get);
 EXPORT_SYMBOL(ip_conntrack_helper_register);
 EXPORT_SYMBOL(ip_conntrack_helper_unregister);
 EXPORT_SYMBOL(ip_ct_iterate_cleanup);
-EXPORT_SYMBOL(ip_ct_refresh);
+EXPORT_SYMBOL(ip_ct_refresh_acct);
 EXPORT_SYMBOL(ip_ct_find_proto);
 EXPORT_SYMBOL(__ip_ct_find_proto);
 EXPORT_SYMBOL(ip_ct_find_helper);

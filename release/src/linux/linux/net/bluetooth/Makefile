@@ -16,6 +16,7 @@ obj-$(CONFIG_BLUEZ_SCO) += sco.o
 subdir-$(CONFIG_BLUEZ_RFCOMM) += rfcomm
 subdir-$(CONFIG_BLUEZ_BNEP) += bnep
 subdir-$(CONFIG_BLUEZ_CMTP) += cmtp
+subdir-$(CONFIG_BLUEZ_HIDP) += hidp
 
 ifeq ($(CONFIG_BLUEZ_RFCOMM),y)
 obj-y += rfcomm/rfcomm.o
@@ -23,6 +24,14 @@ endif
 
 ifeq ($(CONFIG_BLUEZ_BNEP),y)
 obj-y += bnep/bnep.o
+endif
+
+ifeq ($(CONFIG_BLUEZ_CMTP),y)
+obj-y += cmtp/cmtp.o
+endif
+
+ifeq ($(CONFIG_BLUEZ_HIDP),y)
+obj-y += hidp/hidp.o
 endif
 
 include $(TOPDIR)/Rules.make

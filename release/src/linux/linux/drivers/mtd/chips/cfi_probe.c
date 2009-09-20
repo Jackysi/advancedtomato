@@ -67,8 +67,15 @@ static int cfi_probe_chip(struct map_info *map, __u32 base,
 	cfi_send_gen_cmd(0xF0, 0, base, map, cfi, cfi->device_type, NULL);
 	cfi_send_gen_cmd(0x98, 0x55, base, map, cfi, cfi->device_type, NULL);
 
-	if (!qry_present(map,base,cfi))
-		return 0;
+	if (!qry_present(map,base,cfi)) {
+		/* rather broken SST cfi probe (requires SST unlock) */
+		cfi_send_gen_cmd(0xF0, 0, base, map, cfi, cfi->device_type, NULL);
+		cfi_send_gen_cmd(0xAA, 0x5555, base, map, cfi, cfi->device_type, NULL);
+		cfi_send_gen_cmd(0x55, 0x2AAA, base, map, cfi, cfi->device_type, NULL);
+		cfi_send_gen_cmd(0x98, 0x5555, base, map, cfi, cfi->device_type, NULL);
+		if (!qry_present(map,base,cfi))
+			return 0;
+	}
 
 	if (!cfi->numchips) {
 		/* This is the first time we're called. Set up the CFI 

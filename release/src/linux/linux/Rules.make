@@ -126,7 +126,7 @@ endif
 # This make dependencies quickly
 #
 fastdep: dummy
-	$(TOPDIR)/scripts/mkdep $(CFLAGS) $(EXTRA_CFLAGS_nostdinc) -- $(wildcard *.[chS]) > .depend
+	find . -name '*.[chS]' | xargs $(TOPDIR)/scripts/mkdep $(CFLAGS) $(EXTRA_CFLAGS_nostdinc) -- > .depend
 ifdef ALL_SUB_DIRS
 	$(MAKE) $(patsubst %,_sfdep_%,$(ALL_SUB_DIRS)) _FASTDEP_ALL_SUB_DIRS="$(ALL_SUB_DIRS)"
 endif
@@ -176,7 +176,14 @@ modules: $(ALL_MOBJS) dummy \
 _modinst__: dummy
 ifneq "$(strip $(ALL_MOBJS))" ""
 	mkdir -p $(MODLIB)/kernel/$(MOD_DESTDIR)
-	cp $(sort $(ALL_MOBJS)) $(MODLIB)/kernel/$(MOD_DESTDIR)
+	#@cp $(sort $(ALL_MOBJS)) $(MODLIB)/kernel/$(MOD_DESTDIR)
+	for f in $(ALL_MOBJS) ; do \
+		$(OBJCOPY) -R __ksymtab -R .comment -R .note -x \
+		`$(NM) $$f | cut -f3- -d' ' | sed -n \
+			-e 's/__module_parm_\(.*\)/-K \1/p' \
+			-e 's/__ks..tab_\(.*\)/-K \1/p'` \
+		$$f $(MODLIB)/kernel/$(MOD_DESTDIR)$(MOD_TARGET)`basename $$f`; \
+	done
 endif
 
 .PHONY: modules_install

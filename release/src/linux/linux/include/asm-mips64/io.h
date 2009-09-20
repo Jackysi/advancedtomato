@@ -414,7 +414,8 @@ static inline unsigned int inl_p(unsigned long port)
 	return __ioswab32(__val);
 }
 
-static inline void __outsb(unsigned long port, void *addr, unsigned int count)
+static inline void __outsb(unsigned long port, const void *addr,
+	unsigned int count)
 {
 	while (count--) {
 		outb(*(u8 *)addr, port);
@@ -430,7 +431,8 @@ static inline void __insb(unsigned long port, void *addr, unsigned int count)
 	}
 }
 
-static inline void __outsw(unsigned long port, void *addr, unsigned int count)
+static inline void __outsw(unsigned long port, const void *addr,
+	unsigned int count)
 {
 	while (count--) {
 		outw(*(u16 *)addr, port);
@@ -446,7 +448,8 @@ static inline void __insw(unsigned long port, void *addr, unsigned int count)
 	}
 }
 
-static inline void __outsl(unsigned long port, void *addr, unsigned int count)
+static inline void __outsl(unsigned long port, const void *addr,
+	unsigned int count)
 {
 	while (count--) {
 		outl(*(u32 *)addr, port);

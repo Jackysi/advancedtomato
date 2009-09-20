@@ -176,10 +176,11 @@ static ssize_t mtd_read(struct file *file, char *buf, size_t count,loff_t *ppos)
 	return total_retlen;
 } /* mtd_read */
 
+#define MTD_BUFLEN	32
 static ssize_t mtd_write(struct file *file, const char *buf, size_t count,loff_t *ppos)
 {
 	struct mtd_info *mtd = (struct mtd_info *)file->private_data;
-	char *kbuf;
+	char kbuf[MTD_BUFLEN];
 	size_t retlen;
 	size_t total_retlen=0;
 	loff_t pos = *ppos;
@@ -198,36 +199,20 @@ static ssize_t mtd_write(struct file *file, const char *buf, size_t count,loff_t
 		return 0;
 
 	while (count) {
-		if (count > MAX_KMALLOC_SIZE) 
-			len = MAX_KMALLOC_SIZE;
-		else
-			len = count;
+		len = (count > MTD_BUFLEN) ? MTD_BUFLEN : count;
 
-		kbuf=kmalloc(len,GFP_KERNEL);
-		if (!kbuf) {
-			printk("kmalloc is null\n");
-			return -ENOMEM;
-		}
-
-		if (copy_from_user(kbuf, buf, len)) {
-			kfree(kbuf);
+		if (copy_from_user(kbuf, buf, len))
 			return -EFAULT;
-		}
 		
 	        ret = (*(mtd->write))(mtd, pos, len, &retlen, kbuf);
-		if (!ret) {
+		if (ret)
+			return ret;
+
 			pos += retlen;
 			total_retlen += retlen;
 			count -= retlen;
 			buf += retlen;
 		}
-		else {
-			kfree(kbuf);
-			return ret;
-		}
-		
-		kfree(kbuf);
-	}
 	*ppos = pos;
 
 	return total_retlen;
@@ -558,13 +543,13 @@ static void mtd_notify_add(struct mtd_info* mtd)
 	sprintf(name, "%d", mtd->index);
 	devfs_rw_handle[mtd->index] = devfs_register(devfs_dir_handle, name,
 			DEVFS_FL_DEFAULT, MTD_CHAR_MAJOR, mtd->index*2,
-			S_IFCHR | S_IRUGO | S_IWUGO,
+			S_IFCHR | S_IRUSR | S_IWUSR,
 			&mtd_fops, NULL);
 
 	sprintf(name, "%dro", mtd->index);
 	devfs_ro_handle[mtd->index] = devfs_register(devfs_dir_handle, name,
 			DEVFS_FL_DEFAULT, MTD_CHAR_MAJOR, mtd->index*2+1,
-			S_IFCHR | S_IRUGO,
+			S_IFCHR | S_IRUSR,
 			&mtd_fops, NULL);
 }
 

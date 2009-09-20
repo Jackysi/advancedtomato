@@ -51,11 +51,18 @@ void board_reset (void)
 {
 }
 
+void board_power_off (void)
+{
+}
+
 void __init board_setup(void)
 {
 	u32 pin_func;
 
 	rtc_ops = &no_rtc_ops;
+
+	/* Set GPIO14 high to make CD/DAT1 high for MMC to work */
+	au_writel(1<<14, SYS_OUTPUTSET);
 
 #ifdef CONFIG_AU1X00_USB_DEVICE
 	// 2nd USB port is USB device

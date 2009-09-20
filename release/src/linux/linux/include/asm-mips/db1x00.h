@@ -1,5 +1,5 @@
 /*
- * AMD Alchemy DB1x00 Reference Boards
+ * AMD Alchemy DB1x00 Reference Boards (BUT NOT DB1200)
  *
  * Copyright 2001 MontaVista Software Inc.
  * Author: MontaVista Software, Inc.
@@ -36,9 +36,18 @@
 #define AC97_PSC_BASE       PSC1_BASE_ADDR
 #define SMBUS_PSC_BASE      PSC2_BASE_ADDR
 #define I2S_PSC_BASE        PSC3_BASE_ADDR
+#define NAND_CS 1
+/* for drivers/pcmcia/au1000_db1x00.c */
+#define BOARD_PC0_INT AU1000_GPIO_3
+#define BOARD_PC1_INT AU1000_GPIO_5
+#define BOARD_CARD_INSERTED(SOCKET) !(bcsr->status & (1<<(4+SOCKET)))
 
 #else
 #define BCSR_KSEG1_ADDR 0xAE000000
+/* for drivers/pcmcia/au1000_db1x00.c */
+#define BOARD_PC0_INT AU1000_GPIO_2
+#define BOARD_PC1_INT AU1000_GPIO_5
+#define BOARD_CARD_INSERTED(SOCKET) !(bcsr->status & (1<<(4+SOCKET)))
 #endif
 
 /*
@@ -66,6 +75,7 @@ typedef volatile struct
 
 } BCSR;
 
+static BCSR * const bcsr = (BCSR *)BCSR_KSEG1_ADDR;
 
 /*
  * Register/mask bit definitions for the BCSRs
@@ -130,14 +140,6 @@ typedef volatile struct
 
 #define BCSR_SWRESET_RESET		0x0080
 
-/* PCMCIA Db1x00 specific defines */
-#define PCMCIA_MAX_SOCK 1
-#define PCMCIA_NUM_SOCKS (PCMCIA_MAX_SOCK+1)
-
-/* VPP/VCC */
-#define SET_VCC_VPP(VCC, VPP, SLOT)\
-	((((VCC)<<2) | ((VPP)<<0)) << ((SLOT)*8))
-
 /* MTD CONFIG OPTIONS */
 #if defined(CONFIG_MTD_DB1X00_BOOT) && defined(CONFIG_MTD_DB1X00_USER)
 #define DB1X00_BOTH_BANKS
@@ -147,48 +149,15 @@ typedef volatile struct
 #define DB1X00_USER_ONLY
 #endif
 
-/* SD controller macros */
+#if defined(CONFIG_BLK_DEV_IDE_AU1XXX) && defined(CONFIG_MIPS_DB1550)
 /*
- * Detect card.
+ * Daughter card information.
  */
-#define mmc_card_inserted(_n_, _res_) \
-	do { \
-		BCSR * const bcsr = (BCSR *)0xAE000000; \
-		unsigned long mmc_wp, board_specific; \
-		if ((_n_)) { \
-			mmc_wp = BCSR_BOARD_SD1_WP; \
-		} else { \
-			mmc_wp = BCSR_BOARD_SD0_WP; \
-		} \
-		board_specific = au_readl((unsigned long)(&bcsr->specific)); \
-		if (!(board_specific & mmc_wp)) {/* low means card present */ \
-			*(int *)(_res_) = 1; \
-		} else { \
-			*(int *)(_res_) = 0; \
-		} \
-	} while (0)
-
-/*
- * Apply power to card slot(s).
- */
-#define mmc_power_on(_n_) \
-	do { \
-		BCSR * const bcsr = (BCSR *)0xAE000000; \
-		unsigned long mmc_pwr, mmc_wp, board_specific; \
-		if ((_n_)) { \
-			mmc_pwr = BCSR_BOARD_SD1_PWR; \
-			mmc_wp = BCSR_BOARD_SD1_WP; \
-		} else { \
-			mmc_pwr = BCSR_BOARD_SD0_PWR; \
-			mmc_wp = BCSR_BOARD_SD0_WP; \
-		} \
-		board_specific = au_readl((unsigned long)(&bcsr->specific)); \
-		if (!(board_specific & mmc_wp)) {/* low means card present */ \
-			board_specific |= mmc_pwr; \
-			au_writel(board_specific, (int)(&bcsr->specific)); \
-			au_sync(); \
-		} \
-	} while (0)
+#define DAUGHTER_CARD_IRQ		(AU1000_GPIO_8)
+/* DC_IDE */
+#define AU1XXX_ATA_PHYS_ADDR		(0x0C000000)
+#define AU1XXX_ATA_REG_OFFSET		(5)	
+#endif /* CONFIG_MIPS_DB1550 */
 
 #endif /* __ASM_DB1X00_H */
 

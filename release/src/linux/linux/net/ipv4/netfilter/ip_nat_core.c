@@ -424,7 +424,7 @@ get_unique_tuple(struct ip_conntrack_tuple *tuple,
 	*tuple = *orig_tuple;
 	while ((rptr = find_best_ips_proto_fast(tuple, mr, conntrack, hooknum))
 	       != NULL) {
-		DEBUGP("Found best for "); DUMP_TUPLE(tuple);
+		DEBUGP("Found best for "); DUMP_TUPLE_RAW(tuple);
 		/* 3) The per-protocol part of the manip is made to
 		   map into the range to make a unique tuple. */
 
@@ -564,9 +564,9 @@ ip_nat_setup_info(struct ip_conntrack *conntrack,
 		       HOOK2MANIP(hooknum)==IP_NAT_MANIP_SRC ? "SRC" : "DST",
 		       conntrack);
 		DEBUGP("Original: ");
-		DUMP_TUPLE(&orig_tp);
+		DUMP_TUPLE_RAW(&orig_tp);
 		DEBUGP("New: ");
-		DUMP_TUPLE(&new_tuple);
+		DUMP_TUPLE_RAW(&new_tuple);
 #endif
 
 		/* We now have two tuples (SRCIP/SRCPT/DSTIP/DSTPT):
@@ -990,6 +990,60 @@ icmp_reply_translation(struct sk_buff *skb,
 	hdr->checksum = 0;
 	hdr->checksum = ip_compute_csum((unsigned char *)hdr,
 					sizeof(*hdr) + datalen);
+
+	return NF_ACCEPT;
+}
+
+unsigned int
+ip_nat_route_input(unsigned int hooknum,
+		struct sk_buff **pskb,
+		const struct net_device *in,
+		const struct net_device *out,
+		int (*okfn)(struct sk_buff *))
+{
+	struct sk_buff *skb = *pskb;
+	struct iphdr *iph;
+	struct ip_conntrack *ct;
+	enum ip_conntrack_info ctinfo;
+	struct ip_nat_info *info;
+	enum ip_conntrack_dir dir;
+	__u32 saddr;
+	int i;
+
+	if (!(ct = ip_conntrack_get(skb, &ctinfo)))
+		return NF_ACCEPT;
+
+	info = &ct->nat.info;
+	if (!info->initialized)
+		return NF_ACCEPT;
+
+	if (skb->dst)
+		return NF_ACCEPT;
+
+	if (skb->len < sizeof(struct iphdr))
+		return NF_ACCEPT;
+
+	iph = skb->nh.iph;
+	saddr = iph->saddr;
+	hooknum = NF_IP_POST_ROUTING;
+	dir = CTINFO2DIR(ctinfo);
+
+	READ_LOCK(&ip_nat_lock);
+	for (i = 0; i < info->num_manips; i++) {
+		if (info->manips[i].direction == dir
+		    && info->manips[i].hooknum == hooknum
+		    && info->manips[i].maniptype == IP_NAT_MANIP_SRC) {
+			saddr = info->manips[i].manip.ip;
+		}
+	}
+	READ_UNLOCK(&ip_nat_lock);
+
+	if (saddr == iph->saddr)
+		return NF_ACCEPT;
+
+	if (ip_route_input_lookup(skb, iph->daddr, iph->saddr, iph->tos,
+	    skb->dev, saddr))
+		return NF_DROP;
 
 	return NF_ACCEPT;
 }

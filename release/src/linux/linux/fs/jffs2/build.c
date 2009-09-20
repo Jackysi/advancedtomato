@@ -31,6 +31,10 @@
  * provisions above, a recipient may use your version of this file
  * under either the RHEPL or the GPL.
  *
+ * Modification for automatically cleaning the filesystem after
+ * a specially marked block
+ * Copyright (C) 2006 Felix Fietkau <nbd@openwrt.org>
+ *
  * $Id: build.c,v 1.16.2.3 2003/04/30 09:43:32 dwmw2 Exp $
  *
  */
@@ -38,6 +42,7 @@
 #include <linux/kernel.h>
 #include <linux/jffs2.h>
 #include <linux/slab.h>
+#include <linux/mtd/mtd.h>
 #include "nodelist.h"
 
 int jffs2_build_inode_pass1(struct jffs2_sb_info *, struct jffs2_inode_cache *);
@@ -88,6 +93,18 @@ int jffs2_build_filesystem(struct jffs2_sb_info *c)
 
 	if (ret)
 		return ret;
+
+	if (c->flags & (1 << 7)) {
+		printk("%s(): unlocking the mtd device... ", __func__);
+		if (c->mtd->unlock)
+			c->mtd->unlock(c->mtd, 0, c->mtd->size);
+		printk("done.\n");
+		
+		printk("%s(): erasing all blocks after the end marker... ", __func__);
+		jffs2_erase_pending_blocks(c);
+		jffs2_mark_erased_blocks(c);
+		printk("done.\n");
+	}
 
 	D1(printk(KERN_DEBUG "Scanned flash completely\n"));
 	/* Now build the data map for each inode, marking obsoleted nodes

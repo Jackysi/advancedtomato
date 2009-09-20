@@ -314,20 +314,20 @@ fi
 dep_tristate 'AMD 76x native power management (Experimental)' CONFIG_AMD_PM768 $CONFIG_PCI
 tristate '/dev/nvram support' CONFIG_NVRAM
 tristate 'Enhanced Real Time Clock Support' CONFIG_RTC
+if [ "$CONFIG_BCM947XX" = "y" ]; then
+   tristate 'Ricoh RV5C386A RTC Support' CONFIG_GPIO_RTC
+fi
 if [ "$CONFIG_IA64" = "y" ]; then
    bool 'EFI Real Time Clock Services' CONFIG_EFI_RTC
 fi
 if [ "$CONFIG_OBSOLETE" = "y" -a "$CONFIG_ALPHA_BOOK1" = "y" ]; then
    bool 'Tadpole ANA H8 Support (OBSOLETE)'  CONFIG_H8
 fi
-if [ "$CONFIG_MIPS" = "y" -a "$CONFIG_NEW_TIME_C" = "y" ]; then
-   tristate 'Generic MIPS RTC Support' CONFIG_MIPS_RTC
-fi
 if [ "$CONFIG_SGI_IP22" = "y" ]; then
-   bool 'SGI DS1286 RTC support' CONFIG_SGI_DS1286
+   tristate 'Dallas DS1286 RTC support' CONFIG_DS1286
 fi
 if [ "$CONFIG_SGI_IP27" = "y" ]; then
-   bool 'SGI M48T35 RTC support' CONFIG_SGI_IP27_RTC
+   tristate 'SGI M48T35 RTC support' CONFIG_SGI_IP27_RTC
 fi
 if [ "$CONFIG_TOSHIBA_RBTX4927" = "y" -o "$CONFIG_TOSHIBA_JMR3927" = "y" ]; then
    tristate 'Dallas DS1742 RTC support' CONFIG_DS1742
@@ -390,6 +390,11 @@ if [ "$CONFIG_DRM" = "y" ]; then
       source drivers/char/drm/Config.in
    fi
 fi
+
+if [ "$CONFIG_X86" = "y" ]; then
+   tristate 'ACP Modem (Mwave) support' CONFIG_MWAVE
+fi
+
 endmenu
 
 if [ "$CONFIG_HOTPLUG" = "y" -a "$CONFIG_PCMCIA" != "n" ]; then
@@ -398,6 +403,7 @@ fi
 if [ "$CONFIG_SOC_AU1X00" = "y" ]; then
    tristate ' Alchemy Au1x00 GPIO device support' CONFIG_AU1X00_GPIO
    tristate ' Au1000/ADS7846 touchscreen support' CONFIG_TS_AU1X00_ADS7846
+   #tristate ' Alchemy Au1550 PSC SPI support' CONFIG_AU1550_PSC_SPI
 fi
 if [ "$CONFIG_MIPS_ITE8172" = "y" ]; then
   tristate ' ITE GPIO' CONFIG_ITE_GPIO

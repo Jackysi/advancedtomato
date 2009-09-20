@@ -78,6 +78,8 @@ struct mtd_info *cfi_cmdset_0002(struct map_info *map, int primary)
 		cfi->mfr = cfi_read_query(map, base);
 		cfi->id = cfi_read_query(map, base + ofs_factor);    
 
+		printk(KERN_NOTICE " Flash Id: Vendor: 0x%04x Device: 0x%04x\n", cfi->mfr, cfi->id);
+
 		/* Wheee. Bring me the head of someone at AMD. */
 #ifdef AMD_BOOTLOC_BUG
 		if (((major << 8) | minor) < 0x3131) {
@@ -501,9 +503,22 @@ static int do_write_oneword(struct map_info *map, struct flchip *chip, unsigned 
 
 	cfi_write(map, datum, adr);
 
+/*
+bhupesh.
+Disabled the first timeout wait.
+This was probably done this way to find out the typical timeout for the flash part and
+then wait for that amount for the first time.  If the chip was still not programmed,
+then we wait for a little longer in the for loop below.  The for loop is long enough
+for most of the chips and hence, there is no need for this extra waiting.
+This modification was done specifially to overcome the long timeout (128us) for the
+AM29LV641M mirror bit parts.  Ideally, there should be a driver that supports
+the buffere writes for these parts.
+*/
+#if 0 /* BCM94780 */
 	cfi_spin_unlock(chip->mutex);
 	cfi_udelay(chip->word_write_time);
 	cfi_spin_lock(chip->mutex);
+#endif
 
 	/* Polling toggle bits instead of reading back many times
 	   This ensures that write operation is really completed,
@@ -539,10 +554,10 @@ static int do_write_oneword(struct map_info *map, struct flchip *chip, unsigned 
 			oldstatus = cfi_read(map, adr);
 			status = cfi_read(map, adr);
 		    
-			if ( (oldstatus & 0x00FF) == (status & 0x00FF) ) {
-				printk(KERN_WARNING "Warning: DQ5 raised while program operation was in progress, however operation completed OK\n" );
-			} else { 
-				/* DQ5 is active so we can do a reset and stop the erase */
+			if ( (oldstatus & 0x00FF) != (status & 0x00FF) ) {
+//				printk(KERN_WARNING "Warning: DQ5 raised while program operation was in progress, however operation completed OK\n" );
+//			} else { 
+				/* DQ5 is active and DQ6 is toggling too, so we should do a reset and stop the erase */
 				cfi_write(map, CMD(0xF0), chip->start);
 				printk(KERN_WARNING "Internal flash device timeout occurred or write operation was performed while flash was programming.\n" );
 			}

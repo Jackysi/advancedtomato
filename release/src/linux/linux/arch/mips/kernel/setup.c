@@ -5,7 +5,7 @@
  *
  * Copyright (C) 1995  Linus Torvalds
  * Copyright (C) 1995  Waldorf Electronics
- * Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000, 2001  Ralf Baechle
+ * Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000, 01, 05  Ralf Baechle
  * Copyright (C) 1996  Stoned Elipot
  * Copyright (C) 2000, 2001, 2002  Maciej W. Rozycki
  */
@@ -71,6 +71,8 @@ extern void * __rd_start, * __rd_end;
 extern struct rtc_ops no_rtc_ops;
 struct rtc_ops *rtc_ops;
 
+EXPORT_SYMBOL(rtc_ops);
+
 #ifdef CONFIG_PC_KEYB
 struct kbd_ops *kbd_ops;
 #endif
@@ -131,10 +133,6 @@ init_arch(int argc, char **argv, char **envp, int *prom_vec)
 	 * variants this also sets CP0_WIRED to zero.
 	 */
 	load_mmu();
-
-	/* Disable coprocessors and set FPU for 16/32 FPR register model */
-	clear_c0_status(ST0_CU1|ST0_CU2|ST0_CU3|ST0_KX|ST0_SX|ST0_FR);
-	set_c0_status(ST0_CU0);
 
 	start_kernel();
 }
@@ -495,6 +493,7 @@ void __init setup_arch(char **cmdline_p)
 	void swarm_setup(void);
 	void hp_setup(void);
 	void au1x00_setup(void);
+	void brcm_setup(void);
 	void frame_info_init(void);
 
 	frame_info_init();
@@ -693,6 +692,11 @@ void __init setup_arch(char **cmdline_p)
                 pmc_yosemite_setup();
                 break;
 #endif
+#if defined(CONFIG_BCM4710) || defined(CONFIG_BCM4310)
+	case MACH_GROUP_BRCM:
+			brcm_setup();
+			break;
+#endif	
 	default:
 		panic("Unsupported architecture");
 	}

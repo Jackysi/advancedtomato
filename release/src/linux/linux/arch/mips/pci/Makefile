@@ -13,7 +13,9 @@ obj-$(CONFIG_MIPS_GT64120)	+= ops-gt64120.o
 obj-$(CONFIG_MIPS_MSC)		+= ops-msc.o
 obj-$(CONFIG_MIPS_NILE4)	+= ops-nile4.o
 obj-$(CONFIG_SNI_RM200_PCI)	+= ops-sni.o
+ifndef CONFIG_BCM947XX
 obj-y				+= pci.o
+endif
 obj-$(CONFIG_PCI_AUTO)		+= pci_auto.o
 
 include $(TOPDIR)/Rules.make

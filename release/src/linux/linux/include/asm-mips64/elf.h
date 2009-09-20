@@ -64,9 +64,10 @@ typedef elf_fpreg_t elf_fpregset_t[ELF_NFPREG];
 #define USE_ELF_CORE_DUMP
 #define ELF_EXEC_PAGESIZE	PAGE_SIZE
 
-#define ELF_CORE_COPY_REGS(_dest,_regs)				\
-	memcpy((char *) &_dest, (char *) _regs,			\
-	       sizeof(struct pt_regs));
+extern void dump_regs(elf_greg_t *, struct pt_regs *regs);
+
+#define ELF_CORE_COPY_REGS(elf_regs, regs)			\
+	dump_regs((elf_greg_t *)&(elf_regs), regs);
 
 /* This yields a mask that user programs can use to figure out what
    instruction set this cpu supports.  This could be done in userspace,

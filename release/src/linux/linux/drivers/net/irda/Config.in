@@ -38,6 +38,7 @@ dep_tristate 'SMC IrCC (Experimental)' CONFIG_SMC_IRCC_FIR $CONFIG_IRDA
 dep_tristate 'ALi M5123 FIR (Experimental)' CONFIG_ALI_FIR $CONFIG_IRDA
 dep_tristate 'VLSI 82C147 SIR/MIR/FIR (Experimental)' CONFIG_VLSI_FIR $CONFIG_IRDA
 dep_tristate 'VIA IrCC (Experimental)' CONFIG_VIA_IRCC_FIR $CONFIG_IRDA
+dep_tristate 'SigmaTel STIr4200 bridge (Experimental)' CONFIG_SIGMATEL_FIR $CONFIG_IRDA
 fi
 if [ "$CONFIG_ARCH_SA1100" = "y" ]; then
    dep_tristate 'SA1100 Internal IR' CONFIG_SA1100_FIR $CONFIG_IRDA

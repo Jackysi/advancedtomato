@@ -48,7 +48,12 @@ ifeq ($(ARCH),mips)
     KEYBD    =
   endif
   ifeq ($(CONFIG_VR41XX_KIU),y)
-    KEYMAP   =
+    ifeq ($(CONFIG_IBM_WORKPAD),y)
+      KEYMAP = ibm_workpad_keymap.o
+    endif
+    ifeq ($(CONFIG_VICTOR_MPC30X),y)
+      KEYMAP = victor_mpc30x_keymap.o
+    endif
     KEYBD    = vr41xx_keyb.o
   endif
 endif
@@ -249,9 +254,9 @@ obj-$(CONFIG_ADBMOUSE) += adbmouse.o
 obj-$(CONFIG_PC110_PAD) += pc110pad.o
 obj-$(CONFIG_MK712_MOUSE) += mk712.o
 obj-$(CONFIG_RTC) += rtc.o
+obj-$(CONFIG_GPIO_RTC) += gpiortc.o
 obj-$(CONFIG_GEN_RTC) += genrtc.o
 obj-$(CONFIG_EFI_RTC) += efirtc.o
-obj-$(CONFIG_SGI_DS1286) += ds1286.o
 obj-$(CONFIG_MIPS_RTC) += mips_rtc.o
 obj-$(CONFIG_SGI_IP27_RTC) += ip27-rtc.o
 ifeq ($(CONFIG_PPC),)
@@ -259,6 +264,7 @@ ifeq ($(CONFIG_PPC),)
 endif
 obj-$(CONFIG_TOSHIBA) += toshiba.o
 obj-$(CONFIG_I8K) += i8k.o
+obj-$(CONFIG_DS1286) += ds1286.o
 obj-$(CONFIG_DS1620) += ds1620.o
 obj-$(CONFIG_DS1742) += ds1742.o
 obj-$(CONFIG_INTEL_RNG) += i810_rng.o
@@ -270,6 +276,7 @@ obj-$(CONFIG_BRIQ_PANEL) += briq_panel.o
 
 obj-$(CONFIG_ITE_GPIO) += ite_gpio.o
 obj-$(CONFIG_AU1X00_GPIO) += au1000_gpio.o
+obj-$(CONFIG_AU1550_PSC_SPI) += au1550_psc_spi.o
 obj-$(CONFIG_AU1X00_USB_TTY) += au1000_usbtty.o
 obj-$(CONFIG_AU1X00_USB_RAW) += au1000_usbraw.o
 obj-$(CONFIG_COBALT_LCD) += lcd.o
@@ -356,4 +363,10 @@ defkeymap.c: defkeymap.map
 	set -e ; loadkeys --mktable $< | sed -e 's/^static *//' > $@
 
 qtronixmap.c: qtronixmap.map
+	set -e ; loadkeys --mktable $< | sed -e 's/^static *//' > $@
+
+ibm_workpad_keymap.c: ibm_workpad_keymap.map
+	set -e ; loadkeys --mktable $< | sed -e 's/^static *//' > $@
+
+victor_mpc30x_keymap.c: victor_mpc30x_keymap.map
 	set -e ; loadkeys --mktable $< | sed -e 's/^static *//' > $@

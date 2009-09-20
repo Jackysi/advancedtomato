@@ -192,6 +192,34 @@ static struct mtd_partition pb1xxx_partitions[] = {
 #else
 #error MTD_PB1500 define combo error /* should never happen */
 #endif
+#elif defined(CONFIG_MTD_BOSPORUS)
+static unsigned char flash_buswidth = 2;
+static unsigned long flash_size 	= 0x02000000;
+#define WINDOW_ADDR 0x1F000000
+#define WINDOW_SIZE 0x2000000
+static struct mtd_partition pb1xxx_partitions[] = {
+        {
+                name:   "User FS",
+                size:   0x00400000,
+                offset: 0x00000000,
+        },{
+                name:   "Yamon-2",
+                size:   0x00100000,
+                offset: 0x00400000,
+        },{
+                name:   "Root FS",
+                size:   0x00700000,
+                offset: 0x00500000,
+        },{
+                name:   "Yamon-1",
+                size:   0x00100000,
+                offset: 0x00C00000,
+        },{
+                name:   "Kernel",
+                size:   0x00300000,
+                offset: 0x00D00000,
+        }
+};
 #else
 #error Unsupported board
 #endif

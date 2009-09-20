@@ -454,10 +454,26 @@ static int do_probe (ide_drive_t *drive, u8 cmd)
 		(cmd == WIN_IDENTIFY) ? "ATA" : "ATAPI");
 #endif
 
-	/* needed for some systems
-	 * (e.g. crw9624 as drive0 with disk as slave)
-	 */
-	ide_delay_50ms();
+	if ((hwif->INB(IDE_STATUS_REG)) & BUSY_STAT) {
+		unsigned long timeout;
+		timeout = jiffies;
+		printk("IDE: While probing, found an IDE channel that is "
+			"busy (%s).\n", drive->name);
+		printk("IDE: Probably, this means the drive hasn't spun up "
+			"yet.\n");
+		printk("IDE: We'll wait for it to spin up (but no more than 30"
+			" seconds).\n");
+		do {
+			ide_delay_50ms();
+		} while (((hwif->INB(IDE_STATUS_REG)) & BUSY_STAT) &&
+			 time_before(jiffies, timeout + WAIT_WORSTCASE));
+		if (!time_before(jiffies, timeout + WAIT_WORSTCASE)) {
+		    printk("IDE: Timed out waiting for drive %s to spin up.\n", drive->name);
+		} else {
+		    printk("IDE: The IDE channel is not busy any more, so we can "
+			    "continue probing.\n");
+		}
+	}
 	SELECT_DRIVE(drive);
 	ide_delay_50ms();
 	if (hwif->INB(IDE_SELECT_REG) != drive->select.all && !drive->present) {

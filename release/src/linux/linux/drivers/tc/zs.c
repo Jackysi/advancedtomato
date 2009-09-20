@@ -68,6 +68,8 @@
 #include <asm/bitops.h>
 #include <asm/uaccess.h>
 #include <asm/bootinfo.h>
+#include <asm/dec/serial.h>
+
 #ifdef CONFIG_DECSTATION
 #include <asm/dec/interrupts.h>
 #include <asm/dec/machtype.h>
@@ -160,8 +162,8 @@ struct tty_struct zs_ttys[NUM_CHANNELS];
 #ifdef CONFIG_SERIAL_DEC_CONSOLE
 static struct console sercons;
 #endif
-#if defined(CONFIG_SERIAL_DEC_CONSOLE) && defined(CONFIG_MAGIC_SYSRQ) \
-    && !defined(MODULE)
+#if defined(CONFIG_SERIAL_DEC_CONSOLE) && defined(CONFIG_MAGIC_SYSRQ) && \
+   !defined(MODULE)
 static unsigned long break_pressed; /* break, really ... */
 #endif
 
@@ -196,7 +198,6 @@ static int serial_refcount;
 /*
  * Debugging.
  */
-#undef SERIAL_DEBUG_INTR
 #undef SERIAL_DEBUG_OPEN
 #undef SERIAL_DEBUG_FLOW
 #undef SERIAL_DEBUG_THROTTLE
@@ -220,10 +221,6 @@ static void rs_wait_until_sent(struct tty_struct *tty, int timeout);
 static struct tty_struct *serial_table[NUM_CHANNELS];
 static struct termios *serial_termios[NUM_CHANNELS];
 static struct termios *serial_termios_locked[NUM_CHANNELS];
-
-#ifndef MIN
-#define MIN(a,b)	((a) < (b) ? (a) : (b))
-#endif
 
 /*
  * tmp_buf is used as a temporary buffer by serial_write.  We need to
@@ -386,8 +383,6 @@ static inline void rs_recv_clear(struct dec_zschannel *zsc)
  * -----------------------------------------------------------------------
  */
 
-static int tty_break;	/* Set whenever BREAK condition is detected.  */
-
 /*
  * This routine is used by the interrupt handler to schedule
  * processing in the software interrupt portion of the driver.
@@ -414,20 +409,15 @@ static _INLINE_ void receive_chars(struct dec_serial *info,
 		if (!tty && (!info->hook || !info->hook->rx_char))
 			continue;
 
-		if (tty_break) {
-			tty_break = 0;
-#if defined(CONFIG_SERIAL_DEC_CONSOLE) && defined(CONFIG_MAGIC_SYSRQ) && !defined(MODULE)
-			if (info->line == sercons.index) {
-				if (!break_pressed) {
-					break_pressed = jiffies;
-					goto ignore_char;
-				}
-				break_pressed = 0;
-			}
-#endif
+		flag = TTY_NORMAL;
+		if (info->tty_break) {
+			info->tty_break = 0;
 			flag = TTY_BREAK;
 			if (info->flags & ZILOG_SAK)
 				do_SAK(tty);
+			/* Ignore the null char got when BREAK is removed.  */
+			if (ch == 0)
+				continue;
 		} else {
 			if (stat & Rx_OVR) {
 				flag = TTY_OVERRUN;
@@ -435,20 +425,22 @@ static _INLINE_ void receive_chars(struct dec_serial *info,
 				flag = TTY_FRAME;
 			} else if (stat & PAR_ERR) {
 				flag = TTY_PARITY;
-			} else
-				flag = 0;
-			if (flag)
+			}
+			if (flag != TTY_NORMAL)
 				/* reset the error indication */
 				write_zsreg(info->zs_channel, R0, ERR_RES);
 		}
 
-#if defined(CONFIG_SERIAL_DEC_CONSOLE) && defined(CONFIG_MAGIC_SYSRQ) && !defined(MODULE)
+#if defined(CONFIG_SERIAL_DEC_CONSOLE) && defined(CONFIG_MAGIC_SYSRQ) && \
+   !defined(MODULE)
 		if (break_pressed && info->line == sercons.index) {
-			if (ch != 0 &&
-			    time_before(jiffies, break_pressed + HZ*5)) {
+			/* Ignore the null char got when BREAK is removed.  */
+			if (ch == 0)
+				continue;
+			if (time_before(jiffies, break_pressed + HZ * 5)) {
 				handle_sysrq(ch, regs, NULL, NULL);
 				break_pressed = 0;
-				goto ignore_char;
+				continue;
 			}
 			break_pressed = 0;
 		}
@@ -459,23 +451,7 @@ static _INLINE_ void receive_chars(struct dec_serial *info,
 			return;
   		}
 
-		if (tty->flip.count >= TTY_FLIPBUF_SIZE) {
-			static int flip_buf_ovf;
-			++flip_buf_ovf;
-			continue;
-		}
-		tty->flip.count++;
-		{
-			static int flip_max_cnt;
-			if (flip_max_cnt < tty->flip.count)
-				flip_max_cnt = tty->flip.count;
-		}
-
-		*tty->flip.flag_buf_ptr++ = flag;
-		*tty->flip.char_buf_ptr++ = ch;
-#if defined(CONFIG_SERIAL_DEC_CONSOLE) && defined(CONFIG_MAGIC_SYSRQ) && !defined(MODULE)
-	ignore_char:
-#endif
+		tty_insert_flip_char(tty, ch, flag);
 	}
 	if (tty)
 		tty_flip_buffer_push(tty);
@@ -517,11 +493,15 @@ static _INLINE_ void status_handle(struct dec_serial *info)
 	/* Get status from Read Register 0 */
 	stat = read_zsreg(info->zs_channel, R0);
 
-	if (stat & BRK_ABRT) {
-#ifdef SERIAL_DEBUG_INTR
-		printk("handling break....");
+	if ((stat & BRK_ABRT) && !(info->read_reg_zero & BRK_ABRT)) {
+#if defined(CONFIG_SERIAL_DEC_CONSOLE) && defined(CONFIG_MAGIC_SYSRQ) && \
+   !defined(MODULE)
+		if (info->line == sercons.index) {
+			if (!break_pressed)
+				break_pressed = jiffies;
+		} else
 #endif
-		tty_break = 1;
+			info->tty_break = 1;
 	}
 
 	if (info->zs_channel != info->zs_chan_a) {
@@ -957,7 +937,7 @@ static int rs_write(struct tty_struct * tty, int from_user,
 	save_flags(flags);
 	while (1) {
 		cli();
-		c = MIN(count, MIN(SERIAL_XMIT_SIZE - info->xmit_cnt - 1,
+		c = min(count, min(SERIAL_XMIT_SIZE - info->xmit_cnt - 1,
 				   SERIAL_XMIT_SIZE - info->xmit_head));
 		if (c <= 0)
 			break;
@@ -965,7 +945,7 @@ static int rs_write(struct tty_struct * tty, int from_user,
 		if (from_user) {
 			down(&tmp_buf_sem);
 			copy_from_user(tmp_buf, buf, c);
-			c = MIN(c, MIN(SERIAL_XMIT_SIZE - info->xmit_cnt - 1,
+			c = min(c, min(SERIAL_XMIT_SIZE - info->xmit_cnt - 1,
 				       SERIAL_XMIT_SIZE - info->xmit_head));
 			memcpy(info->xmit_buf + info->xmit_head, tmp_buf, c);
 			up(&tmp_buf_sem);
@@ -1282,46 +1262,48 @@ static int rs_ioctl(struct tty_struct *tty, struct file * file,
 	}
 
 	switch (cmd) {
-		case TIOCMGET:
-			error = verify_area(VERIFY_WRITE, (void *) arg,
-				sizeof(unsigned int));
-			if (error)
-				return error;
-			return get_modem_info(info, (unsigned int *) arg);
-		case TIOCMBIS:
-		case TIOCMBIC:
-		case TIOCMSET:
-			return set_modem_info(info, cmd, (unsigned int *) arg);
-		case TIOCGSERIAL:
-			error = verify_area(VERIFY_WRITE, (void *) arg,
-						sizeof(struct serial_struct));
-			if (error)
-				return error;
-			return get_serial_info(info,
-					       (struct serial_struct *) arg);
-		case TIOCSSERIAL:
-			return set_serial_info(info,
-					       (struct serial_struct *) arg);
-		case TIOCSERGETLSR: /* Get line status register */
-			error = verify_area(VERIFY_WRITE, (void *) arg,
-				sizeof(unsigned int));
-			if (error)
-				return error;
-			else
-			    return get_lsr_info(info, (unsigned int *) arg);
+	case TIOCMGET:
+		error = verify_area(VERIFY_WRITE, (void *)arg,
+				    sizeof(unsigned int));
+		if (error)
+			return error;
+		return get_modem_info(info, (unsigned int *)arg);
 
-		case TIOCSERGSTRUCT:
-			error = verify_area(VERIFY_WRITE, (void *) arg,
-						sizeof(struct dec_serial));
-			if (error)
-				return error;
-			copy_from_user((struct dec_serial *) arg,
-				       info, sizeof(struct dec_serial));
-			return 0;
+	case TIOCMBIS:
+	case TIOCMBIC:
+	case TIOCMSET:
+		return set_modem_info(info, cmd, (unsigned int *)arg);
 
-		default:
-			return -ENOIOCTLCMD;
-		}
+	case TIOCGSERIAL:
+		error = verify_area(VERIFY_WRITE, (void *)arg,
+				    sizeof(struct serial_struct));
+		if (error)
+			return error;
+		return get_serial_info(info, (struct serial_struct *)arg);
+
+	case TIOCSSERIAL:
+		return set_serial_info(info, (struct serial_struct *)arg);
+
+	case TIOCSERGETLSR:			/* Get line status register */
+		error = verify_area(VERIFY_WRITE, (void *)arg,
+				    sizeof(unsigned int));
+		if (error)
+			return error;
+		else
+			return get_lsr_info(info, (unsigned int *)arg);
+
+	case TIOCSERGSTRUCT:
+		error = verify_area(VERIFY_WRITE, (void *)arg,
+				    sizeof(struct dec_serial));
+		if (error)
+			return error;
+		copy_from_user((struct dec_serial *)arg, info,
+			       sizeof(struct dec_serial));
+		return 0;
+
+	default:
+		return -ENOIOCTLCMD;
+	}
 	return 0;
 }
 
@@ -1446,7 +1428,8 @@ static void rs_close(struct tty_struct *tty, struct file * filp)
 static void rs_wait_until_sent(struct tty_struct *tty, int timeout)
 {
 	struct dec_serial *info = (struct dec_serial *) tty->driver_data;
-	unsigned long orig_jiffies, char_time;
+	unsigned long orig_jiffies;
+	int char_time;
 
 	if (serial_paranoia_check(info, tty->device, "rs_wait_until_sent"))
 		return;
@@ -1462,7 +1445,7 @@ static void rs_wait_until_sent(struct tty_struct *tty, int timeout)
 	if (char_time == 0)
 		char_time = 1;
 	if (timeout)
-		char_time = MIN(char_time, timeout);
+		char_time = min(char_time, timeout);
 	while ((read_zsreg(info->zs_channel, 1) & Tx_BUF_EMP) == 0) {
 		current->state = TASK_INTERRUPTIBLE;
 		schedule_timeout(char_time);
@@ -1714,7 +1697,7 @@ int rs_open(struct tty_struct *tty, struct file * filp)
 
 static void __init show_serial_version(void)
 {
-	printk("DECstation Z8530 serial driver version 0.08\n");
+	printk("DECstation Z8530 serial driver version 0.09\n");
 }
 
 /*  Initialize Z8530s zs_channels
@@ -1994,8 +1977,9 @@ int __init zs_init(void)
  * polling I/O routines
  */
 static int
-zs_poll_tx_char(struct dec_serial *info, unsigned char ch)
+zs_poll_tx_char(void *handle, unsigned char ch)
 {
+	struct dec_serial *info = handle;
 	struct dec_zschannel *chan = info->zs_channel;
 	int    ret;
 
@@ -2017,8 +2001,9 @@ zs_poll_tx_char(struct dec_serial *info, unsigned char ch)
 }
 
 static int
-zs_poll_rx_char(struct dec_serial *info)
+zs_poll_rx_char(void *handle)
 {
+	struct dec_serial *info = handle;
         struct dec_zschannel *chan = info->zs_channel;
         int    ret;
 
@@ -2038,12 +2023,13 @@ zs_poll_rx_char(struct dec_serial *info)
 		return -ENODEV;
 }
 
-unsigned int register_zs_hook(unsigned int channel, struct zs_hook *hook)
+int register_zs_hook(unsigned int channel, struct dec_serial_hook *hook)
 {
 	struct dec_serial *info = &zs_soft[channel];
 
 	if (info->hook) {
-		printk(__FUNCTION__": line %d has already a hook registered\n", channel);
+		printk("%s: line %d has already a hook registered\n",
+		       __FUNCTION__, channel);
 
 		return 0;
 	} else {
@@ -2055,7 +2041,7 @@ unsigned int register_zs_hook(unsigned int channel, struct zs_hook *hook)
 	}
 }
 
-unsigned int unregister_zs_hook(unsigned int channel)
+int unregister_zs_hook(unsigned int channel)
 {
 	struct dec_serial *info = &zs_soft[channel];
 
@@ -2063,8 +2049,8 @@ unsigned int unregister_zs_hook(unsigned int channel)
                 info->hook = NULL;
                 return 1;
         } else {
-                printk(__FUNCTION__": trying to unregister hook on line %d,"
-                       " but none is registered\n", channel);
+                printk("%s: trying to unregister hook on line %d,"
+                       " but none is registered\n", __FUNCTION__, channel);
                 return 0;
         }
 }
@@ -2319,22 +2305,23 @@ void kgdb_interruptible(int yes)
 	write_zsreg(chan, 9, nine);
 }
 
-static int kgdbhook_init_channel(struct dec_serial* info)
+static int kgdbhook_init_channel(void *handle)
 {
 	return 0;
 }
 
-static void kgdbhook_init_info(struct dec_serial* info)
+static void kgdbhook_init_info(void *handle)
 {
 }
 
-static void kgdbhook_rx_char(struct dec_serial* info,
-			     unsigned char ch, unsigned char stat)
+static void kgdbhook_rx_char(void *handle, unsigned char ch, unsigned char fl)
 {
+	struct dec_serial *info = handle;
+
+	if (fl != TTY_NORMAL)
+		return;
 	if (ch == 0x03 || ch == '$')
 		breakpoint();
-	if (stat & (Rx_OVR|FRM_ERR|PAR_ERR))
-		write_zsreg(info->zs_channel, 0, ERR_RES);
 }
 
 /* This sets up the serial port we're using, and turns on
@@ -2360,11 +2347,11 @@ static inline void kgdb_chaninit(struct dec_zschannel *ms, int intson, int bps)
  * for /dev/ttyb which is determined in setup_arch() from the
  * boot command line flags.
  */
-struct zs_hook zs_kgdbhook = {
-	init_channel : kgdbhook_init_channel,
-	init_info    : kgdbhook_init_info,
-	cflags       : B38400|CS8|CLOCAL,
-	rx_char      : kgdbhook_rx_char,
+struct dec_serial_hook zs_kgdbhook = {
+	.init_channel	= kgdbhook_init_channel,
+	.init_info	= kgdbhook_init_info,
+	.rx_char	= kgdbhook_rx_char,
+	.cflags		= B38400 | CS8 | CLOCAL,
 }
 
 void __init zs_kgdb_hook(int tty_num)

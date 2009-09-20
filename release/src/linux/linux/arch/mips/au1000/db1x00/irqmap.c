@@ -53,6 +53,7 @@ au1xxx_irq_map_t au1xxx_irq_map[] = {
 #ifdef CONFIG_MIPS_DB1550
 	{ AU1000_GPIO_3, INTC_INT_LOW_LEVEL, 0 }, // PCMCIA Card 0 IRQ#
 	{ AU1000_GPIO_5, INTC_INT_LOW_LEVEL, 0 }, // PCMCIA Card 1 IRQ#
+	{ AU1000_GPIO_8, INTC_INT_LOW_LEVEL, 0 }, // Daughtercard IRQ#
 #else
 	{ AU1000_GPIO_0, INTC_INT_LOW_LEVEL, 0 }, // PCMCIA Card 0 Fully_Interted#
 	{ AU1000_GPIO_1, INTC_INT_LOW_LEVEL, 0 }, // PCMCIA Card 0 STSCHG#

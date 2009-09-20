@@ -60,6 +60,7 @@ struct cpuinfo_mips {
 	 * Capability and feature descriptor structure for MIPS CPU
 	 */
 	unsigned long options;
+	unsigned long ases;
 	unsigned int processor_id;
 	unsigned int fpu_id;
 	unsigned int cputype;
@@ -82,7 +83,6 @@ struct cpuinfo_mips {
 #define cpu_has_32fpr		(cpu_data[0].options & MIPS_CPU_32FPR)
 #define cpu_has_counter		(cpu_data[0].options & MIPS_CPU_COUNTER)
 #define cpu_has_watch		(cpu_data[0].options & MIPS_CPU_WATCH)
-#define cpu_has_mips16		(cpu_data[0].options & MIPS_CPU_MIPS16)
 #define cpu_has_divec		(cpu_data[0].options & MIPS_CPU_DIVEC)
 #define cpu_has_vce		(cpu_data[0].options & MIPS_CPU_VCE)
 #define cpu_has_cache_cdex_p	(cpu_data[0].options & MIPS_CPU_CACHE_CDEX_P)
@@ -92,6 +92,12 @@ struct cpuinfo_mips {
 #define cpu_has_ejtag		(cpu_data[0].options & MIPS_CPU_EJTAG)
 #define cpu_has_nofpuex		(cpu_data[0].options & MIPS_CPU_NOFPUEX)
 #define cpu_has_llsc		(cpu_data[0].options & MIPS_CPU_LLSC)
+#define cpu_has_mips16		(cpu_data[0].ases & MIPS_ASE_MIPS16)
+#define cpu_has_mdmx		(cpu_data[0].ases & MIPS_ASE_MDMX)
+#define cpu_has_mips3d		(cpu_data[0].ases & MIPS_ASE_MIPS3D)
+#define cpu_has_smartmips	(cpu_data[0].ases & MIPS_ASE_SMARTMIPS)
+#define cpu_has_dsp		(cpu_data[0].ases & MIPS_ASE_DSP)
+#define cpu_has_mipsmt		(cpu_data[0].ases & MIPS_ASE_MIPSMT)
 #define cpu_has_vtag_icache	(cpu_data[0].icache.flags & MIPS_CACHE_VTAG)
 #define cpu_has_dc_aliases	(cpu_data[0].dcache.flags & MIPS_CACHE_ALIASES)
 #define cpu_has_ic_fills_f_dc	(cpu_data[0].dcache.flags & MIPS_CACHE_IC_F_DC)

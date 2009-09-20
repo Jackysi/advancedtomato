@@ -927,6 +927,7 @@ static inline void break_cow(struct vm_area_struct * vma, struct page * new_page
 	flush_page_to_ram(new_page);
 	flush_cache_page(vma, address);
 	establish_pte(vma, address, page_table, pte_mkwrite(pte_mkdirty(mk_pte(new_page, vma->vm_page_prot))));
+	flush_icache_page(vma, new_page);
 }
 
 /*

@@ -68,7 +68,7 @@ struct rt_sigframe_n32 {
 };
 
 extern asmlinkage int restore_sigcontext(struct pt_regs *regs, struct sigcontext *sc);
-extern int inline setup_sigcontext(struct pt_regs *regs, struct sigcontext *sc);
+extern int setup_sigcontext(struct pt_regs *regs, struct sigcontext *sc);
 
 asmlinkage void sysn32_rt_sigreturn(abi64_no_regargs, struct pt_regs regs)
 {

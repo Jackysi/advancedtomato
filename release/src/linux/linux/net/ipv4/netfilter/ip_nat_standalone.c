@@ -245,6 +245,9 @@ ip_nat_local_fn(unsigned int hooknum,
 /* Before packet filtering, change destination */
 static struct nf_hook_ops ip_nat_in_ops
 = { { NULL, NULL }, ip_nat_in, PF_INET, NF_IP_PRE_ROUTING, NF_IP_PRI_NAT_DST };
+/* Before routing, route before mangling */
+static struct nf_hook_ops ip_nat_inr_ops
+= { { NULL, NULL }, ip_nat_route_input, PF_INET, NF_IP_PRE_ROUTING, NF_IP_PRI_LAST-1 };
 /* After packet filtering, change source */
 static struct nf_hook_ops ip_nat_out_ops
 = { { NULL, NULL }, ip_nat_out, PF_INET, NF_IP_POST_ROUTING, NF_IP_PRI_NAT_SRC};
@@ -313,10 +316,15 @@ static int init_or_cleanup(int init)
 		printk("ip_nat_init: can't register in hook.\n");
 		goto cleanup_nat;
 	}
+	ret = nf_register_hook(&ip_nat_inr_ops);
+	if (ret < 0) {
+		printk("ip_nat_init: can't register inr hook.\n");
+		goto cleanup_inops;
+	}
 	ret = nf_register_hook(&ip_nat_out_ops);
 	if (ret < 0) {
 		printk("ip_nat_init: can't register out hook.\n");
-		goto cleanup_inops;
+		goto cleanup_inrops;
 	}
 	ret = nf_register_hook(&ip_nat_local_out_ops);
 	if (ret < 0) {
@@ -336,6 +344,8 @@ static int init_or_cleanup(int init)
 	nf_unregister_hook(&ip_nat_local_out_ops);
  cleanup_outops:
 	nf_unregister_hook(&ip_nat_out_ops);
+ cleanup_inrops:
+	nf_unregister_hook(&ip_nat_inr_ops);
  cleanup_inops:
 	nf_unregister_hook(&ip_nat_in_ops);
  cleanup_nat:

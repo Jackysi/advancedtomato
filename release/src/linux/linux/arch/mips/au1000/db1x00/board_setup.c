@@ -46,15 +46,34 @@
 #include <asm/au1000.h>
 #include <asm/db1x00.h>
 
-extern struct rtc_ops no_rtc_ops;
+#if defined(CONFIG_BLK_DEV_IDE_AU1XXX) && defined(CONFIG_MIPS_DB1550)
+#include <asm/au1xxx_dbdma.h>
+extern struct ide_ops *ide_ops;
+extern struct ide_ops au1xxx_ide_ops;
+extern u32 au1xxx_ide_virtbase;
+extern u64 au1xxx_ide_physbase;
+extern int au1xxx_ide_irq;
 
-/* not correct for db1550 */
-static BCSR * const bcsr = (BCSR *)0xAE000000;
+/* Ddma */
+chan_tab_t *ide_read_ch, *ide_write_ch;
+u32 au1xxx_ide_ddma_enable = 0, switch4ddma = 1; // PIO+ddma
+
+dbdev_tab_t new_dbdev_tab_element = { DSCR_CMD0_THROTTLE, DEV_FLAGS_ANYUSE, 0, 0, 0x00000000, 0, 0 };
+#endif /* end CONFIG_BLK_DEV_IDE_AU1XXX */
+
+extern struct rtc_ops no_rtc_ops;
 
 void board_reset (void)
 {
 	/* Hit BCSR.SYSTEM_CONTROL[SW_RST] */
 	au_writel(0x00000000, 0xAE00001C);
+}
+
+void board_power_off (void)
+{
+#ifdef CONFIG_MIPS_MIRAGE
+	au_writel((1 << 26) | (1 << 10), GPIO2_OUTPUT);
+#endif
 }
 
 void __init board_setup(void)
@@ -108,7 +127,41 @@ void __init board_setup(void)
 	au_writel(0x02000200, GPIO2_OUTPUT);
 #endif
 
+#if defined(CONFIG_AU1XXX_SMC91111)
+#define CPLD_CONTROL (0xAF00000C)
+	{
+	extern uint32_t au1xxx_smc91111_base;
+	extern unsigned int au1xxx_smc91111_irq;
+	extern int au1xxx_smc91111_nowait;
+
+	au1xxx_smc91111_base = 0xAC000300;
+	au1xxx_smc91111_irq = AU1000_GPIO_8;
+	au1xxx_smc91111_nowait = 1;
+
+	/* set up the Static Bus timing - only 396Mhz */
+	bcsr->resets |= 0x7;
+	au_writel(0x00010003, MEM_STCFG0);
+	au_writel(0x000c00c0, MEM_STCFG2);
+	au_writel(0x85E1900D, MEM_STTIME2);
+	}
+#endif /* end CONFIG_SMC91111 */
 	au_sync();
+
+#if defined(CONFIG_BLK_DEV_IDE_AU1XXX) && defined(CONFIG_MIPS_DB1550)
+	/*
+	 * Iniz IDE parameters
+	 */
+	ide_ops = &au1xxx_ide_ops;
+	au1xxx_ide_irq = DAUGHTER_CARD_IRQ;
+	au1xxx_ide_physbase = AU1XXX_ATA_PHYS_ADDR;
+	au1xxx_ide_virtbase = KSEG1ADDR(AU1XXX_ATA_PHYS_ADDR);
+
+	/*
+	 * change PIO or PIO+Ddma
+	 * check the GPIO-6 pin condition. db1550:s6_dot
+	 */
+	switch4ddma = (au_readl(SYS_PINSTATERD) & (1 << 6)) ? 1 : 0;
+#endif
 
 #ifdef CONFIG_MIPS_DB1000
     printk("AMD Alchemy Au1000/Db1000 Board\n");

@@ -51,6 +51,14 @@ if [ "$CONFIG_JFFS2_FS" = "y" -o "$CONFIG_JFFS2_FS" = "m" ] ; then
    int 'JFFS2 debugging verbosity (0 = quiet, 2 = noisy)' CONFIG_JFFS2_FS_DEBUG 0
 fi
 tristate 'Compressed ROM file system support' CONFIG_CRAMFS
+tristate 'Squashed file system support' CONFIG_SQUASHFS
+if [ "$CONFIG_SQUASHFS" = "y" -o "$CONFIG_SQUASHFS" = "m" ] ; then
+bool 'Additional options for memory constrained systems ' CONFIG_SQUASHFS_EMBEDDED
+fi
+if [ "$CONFIG_SQUASHFS_EMBEDDED" = "y" ] ; then
+int 'Number of fragments cached' CONFIG_SQUASHFS_FRAGMENT_CACHE_SIZE 3
+bool 'Use Vmalloc rather than Kmalloc'  CONFIG_SQUASHFS_VMALLOC
+fi
 bool 'Virtual memory file system support (former shm fs)' CONFIG_TMPFS
 define_bool CONFIG_RAMFS y
 
@@ -138,6 +146,10 @@ if [ "$CONFIG_NET" = "y" ]; then
    if [ "$CONFIG_NFSD_V3" = "y" -o "$CONFIG_NFS_V3" = "y" ]; then
      define_bool CONFIG_LOCKD_V4 y
    fi
+
+   dep_tristate 'CIFS support (advanced network filesystem for Samba, Window and other CIFS compliant servers)' CONFIG_CIFS $CONFIG_INET
+   dep_mbool '  CIFS statistics' CONFIG_CIFS_STATS $CONFIG_CIFS
+   dep_mbool '  CIFS POSIX Protocol Extensions' CONFIG_CIFS_POSIX $CONFIG_CIFS
 
    dep_tristate 'SMB file system support (to mount Windows shares etc.)' CONFIG_SMB_FS $CONFIG_INET
    if [ "$CONFIG_SMB_FS" != "n" ]; then

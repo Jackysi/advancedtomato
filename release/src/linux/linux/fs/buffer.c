@@ -3065,6 +3065,7 @@ int bdflush(void *startup)
 		if (ndirty > 0 || bdflush_stop())
 			interruptible_sleep_on(&bdflush_wait);
 	}
+	return 0;
 }
 
 /*
@@ -3129,6 +3130,7 @@ int kupdate(void *startup)
 			fsync_dev(NODEV);
 		run_task_queue(&tq_disk);
 	}
+	return 0;
 }
 
 static int __init bdflush_init(void)

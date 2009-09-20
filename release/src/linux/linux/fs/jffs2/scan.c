@@ -31,6 +31,10 @@
  * provisions above, a recipient may use your version of this file
  * under either the RHEPL or the GPL.
  *
+ * Modification for automatically cleaning the filesystem after
+ * a specially marked block
+ * Copyright (C) 2006 Felix Fietkau <nbd@openwrt.org>
+ *
  * $Id: scan.c,v 1.51.2.4 2003/11/02 13:51:18 dwmw2 Exp $
  *
  */
@@ -88,7 +92,12 @@ int jffs2_scan_medium(struct jffs2_sb_info *c)
 	for (i=0; i<c->nr_blocks; i++) {
 		struct jffs2_eraseblock *jeb = &c->blocks[i];
 
-		ret = jffs2_scan_eraseblock(c, jeb);
+
+		if (c->flags & (1 << 7))
+			ret = 1;
+		else
+			ret = jffs2_scan_eraseblock(c, jeb);
+
 		if (ret < 0)
 			return ret;
 
@@ -181,6 +190,7 @@ static int jffs2_scan_eraseblock (struct jffs2_sb_info *c, struct jffs2_eraseblo
 
 	while(ofs < jeb->offset + c->sector_size) {
 		ssize_t retlen;
+		unsigned char *buf = (unsigned char *) &node;
 		ACCT_PARANOIA_CHECK(jeb);
 		
 		if (ofs & 3) {
@@ -202,8 +212,18 @@ static int jffs2_scan_eraseblock (struct jffs2_sb_info *c, struct jffs2_eraseblo
 			break;
 		}
 
-		err = c->mtd->read(c->mtd, ofs, sizeof(node), &retlen, (char *)&node);
+		err = c->mtd->read(c->mtd, ofs, sizeof(node), &retlen, buf);
+		if ((buf[0] == 0xde) &&
+			(buf[1] == 0xad) &&
+			(buf[2] == 0xc0) &&
+			(buf[3] == 0xde)) {
+				
+			/* end of filesystem. erase everything after this point */
+			c->flags |= (1 << 7);
+			printk("jffs2_scan_eraseblock(): End of filesystem marker found at 0x%x\n", jeb->offset);
 		
+			return 1;
+		}
 		if (err) {
 			D1(printk(KERN_WARNING "mtd->read(0x%x bytes from 0x%x) returned %d\n", sizeof(node), ofs, err));
 			return err;

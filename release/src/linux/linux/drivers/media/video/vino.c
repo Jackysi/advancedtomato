@@ -5,6 +5,8 @@
  * License version 2 as published by the Free Software Foundation.
  *
  * Copyright (C) 2003 Ladislav Michl <ladis@linux-mips.org>
+ * Copyright (C) 2004 Mikael Nousiainen <tmnousia@cc.hut.fi>
+ * 
  */
 
 #include <linux/module.h>
@@ -37,13 +39,23 @@
 #define DEBUG(x...)
 #endif
 
+/* Channels (who could have guessed) */
+#define VINO_CHAN_NONE		0
+#define VINO_CHAN_A		1
+#define VINO_CHAN_B		2
+
 /* VINO video size */
 #define VINO_PAL_WIDTH		768
 #define VINO_PAL_HEIGHT		576
 #define VINO_NTSC_WIDTH		646
 #define VINO_NTSC_HEIGHT	486
 
-/* set this to some sensible values. note: VINO_MIN_WIDTH has to be 8*x */
+/* Minimum value for Y-clipping (for smaller values the images
+ * will be corrupted) */
+#define VINO_MIN_Y_CLIPPING	2
+ 
+/* Set these to some sensible values.
+ * Note: the picture width has to be divisible by 8 */
 #define VINO_MIN_WIDTH		32
 #define VINO_MIN_HEIGHT		32
 
@@ -64,9 +76,7 @@ static int threshold_b = 512;
 
 struct vino_device {
 	struct video_device vdev;
-#define VINO_CHAN_A	1
-#define VINO_CHAN_B	2
-	int chan;
+	int chan;	/* VINO_CHAN_NONE, VINO_CHAN_A or VINO_CHAN_B */
 	int alpha;
 	/* clipping... */
 	unsigned int left, right, top, bottom;
@@ -106,7 +116,7 @@ struct vino_device {
 
 struct vino_client {
 	struct i2c_client *driver;
-	int owner;
+	int owner;	/* VINO_CHAN_NONE, VINO_CHAN_A or VINO_CHAN_B */
 };
 
 struct vino_video {
@@ -362,6 +372,7 @@ static int set_scaling(struct vino_device *v, int w, int h)
 static int dma_setup(struct vino_device *v)
 {
 	u32 ctrl, intr;
+	int ofs;
 	struct sgi_vino_channel *ch;
 
 	ch = (v->chan == VINO_CHAN_A) ? &vino->a : &vino->b;
@@ -377,14 +388,24 @@ static int dma_setup(struct vino_device *v)
 	ch->line_size = v->line_size - 8;
 	/* set the alpha register */
 	ch->alpha = v->alpha;
-	/* set cliping registers */
-	ch->clip_start = VINO_CLIP_ODD(v->top) | VINO_CLIP_EVEN(v->top+1) |
-			 VINO_CLIP_X(v->left);
-	ch->clip_end = VINO_CLIP_ODD(v->bottom) | VINO_CLIP_EVEN(v->bottom+1) |
-		       VINO_CLIP_X(v->right);
-	/* FIXME: end-of-field bug workaround
-		       VINO_CLIP_X(VINO_PAL_WIDTH);
+	/* Set the clipping registers, this is the constant source of fun :)
+	 * Y clipping start has to be >= 2 and end has to be start + height/2
+	 * The values of top and bottom are even so dividing is not a problem
+	 *
+	 * The docs say that clipping values for the even field should be
+	 * odd_end + something_to_skip_vertical_blanking + some_lines and
+	 * even_start + height/2, though the image is good this way also
+	 *
+	 * TODO: for analog sources (SAA7191), the clipping values are a bit
+	 * different and that case isn't yet handled
 	 */
+	ofs = VINO_MIN_Y_CLIPPING;	/* Should depend on input source */
+	ch->clip_start = VINO_CLIP_ODD(ofs + v->top / 2) |
+			 VINO_CLIP_EVEN(ofs + v->top / 2 + 1) |
+			 VINO_CLIP_X(v->left);
+	ch->clip_end = VINO_CLIP_ODD(ofs + v->bottom / 2 - 1) |
+		       VINO_CLIP_EVEN(ofs + v->bottom / 2) |
+		       VINO_CLIP_X(v->right);
 	/* init the frame rate and norm (full frame rate only for now...) */
 	ch->frame_rate = VINO_FRAMERT_RT(0x1fff) |
 			 (get_capture_norm(v) == VIDEO_MODE_PAL ?
@@ -510,6 +531,7 @@ static void field_done(struct vino_device *v)
 static void vino_interrupt(int irq, void *dev_id, struct pt_regs *regs)
 {
 	u32 intr, ctrl;
+	int a_eof, b_eof;
 
 	spin_lock(&Vino->vino_lock);
 	ctrl = vino->control;
@@ -525,12 +547,14 @@ static void vino_interrupt(int irq, void *dev_id, struct pt_regs *regs)
 		vino->control = ctrl;
 		clear_eod(&Vino->chB);
 	}
+	a_eof = intr & VINO_INTSTAT_A_EOF;
+	b_eof = intr & VINO_INTSTAT_B_EOF;
 	vino->intr_status = ~intr;
 	spin_unlock(&Vino->vino_lock);
-	/* FIXME: For now we are assuming that interrupt means that frame is
-	 * done. That's not true, but we can live with such brokeness for
-	 * a while ;-) */
-	field_done(&Vino->chA);
+	if (a_eof)
+		field_done(&Vino->chA);
+	if (b_eof)
+		field_done(&Vino->chB);
 }
 
 static int vino_grab(struct vino_device *v, int frame)

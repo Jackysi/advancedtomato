@@ -71,6 +71,7 @@ struct fib_node
 	struct fib_info		*fn_info;
 #define FIB_INFO(f)	((f)->fn_info)
 	fn_key_t		fn_key;
+	int			fn_last_dflt;
 	u8			fn_tos;
 	u8			fn_type;
 	u8			fn_scope;
@@ -336,72 +337,123 @@ out:
 	return err;
 }
 
-static int fn_hash_last_dflt=-1;
-
-static int fib_detect_death(struct fib_info *fi, int order,
-			    struct fib_info **last_resort, int *last_idx)
+static int fib_detect_death(struct fib_info *fi, int order, int last_dflt,
+			    struct fib_info **last_resort, int *last_idx,
+			    int *last_nhsel, const struct rt_key *key)
 {
 	struct neighbour *n;
-	int state = NUD_NONE;
+	int nhsel;
+	int state;
+	struct fib_nh * nh;
+	u32 dst;
+	int flag, dead = 1;
 
-	n = neigh_lookup(&arp_tbl, &fi->fib_nh[0].nh_gw, fi->fib_dev);
-	if (n) {
-		state = n->nud_state;
-		neigh_release(n);
+	/* change_nexthops(fi) { */
+	for (nhsel = 0, nh = fi->fib_nh; nhsel < fi->fib_nhs; nh++, nhsel++) {
+		if (key->oif && key->oif != nh->nh_oif)
+			continue;
+		if (key->gw && key->gw != nh->nh_gw && nh->nh_gw &&
+		    nh->nh_scope == RT_SCOPE_LINK)
+			continue;
+		if (nh->nh_flags & RTNH_F_DEAD)
+			continue;
+
+		flag = 0;
+		if (nh->nh_dev->flags & IFF_NOARP) {
+			dead = 0;
+			goto setfl;
+		}
+
+		dst = nh->nh_gw;
+		if (!nh->nh_gw || nh->nh_scope != RT_SCOPE_LINK)
+			dst = key->dst;
+
+		state = NUD_NONE;
+		n = neigh_lookup(&arp_tbl, &dst, nh->nh_dev);
+		if (n) {
+			state = n->nud_state;
+			neigh_release(n);
+		}
+		if (state==NUD_REACHABLE ||
+			((state&NUD_VALID) && order != last_dflt)) {
+			dead = 0;
+			goto setfl;
+		}
+		if (!(state&NUD_VALID))
+			flag = 1;
+		if (!dead)
+			goto setfl;
+		if ((state&NUD_VALID) ||
+		    (*last_idx<0 && order >= last_dflt)) {
+			*last_resort = fi;
+			*last_idx = order;
+			*last_nhsel = nhsel;
+		}
+
+		setfl:
+
+		read_lock_bh(&fib_nhflags_lock);
+		if (flag)
+			nh->nh_flags |= RTNH_F_SUSPECT;
+		else
+			nh->nh_flags &= ~RTNH_F_SUSPECT;
+		read_unlock_bh(&fib_nhflags_lock);
 	}
-	if (state==NUD_REACHABLE)
-		return 0;
-	if ((state&NUD_VALID) && order != fn_hash_last_dflt)
-		return 0;
-	if ((state&NUD_VALID) ||
-	    (*last_idx<0 && order > fn_hash_last_dflt)) {
-		*last_resort = fi;
-		*last_idx = order;
-	}
-	return 1;
+	/* } endfor_nexthops(fi) */
+
+	return dead;
 }
 
 static void
 fn_hash_select_default(struct fib_table *tb, const struct rt_key *key, struct fib_result *res)
 {
-	int order, last_idx;
-	struct fib_node *f;
+	int order, last_idx, last_dflt, last_nhsel;
+	struct fib_node *f, *first_node;
 	struct fib_info *fi = NULL;
 	struct fib_info *last_resort;
 	struct fn_hash *t = (struct fn_hash*)tb->tb_data;
-	struct fn_zone *fz = t->fn_zones[0];
+	struct fn_zone *fz = t->fn_zones[res->prefixlen];
+	fn_key_t k;
 
 	if (fz == NULL)
 		return;
 
+	k = fz_key(key->dst, fz);
+	last_dflt = -2;
+	first_node = NULL;
 	last_idx = -1;
 	last_resort = NULL;
+	last_nhsel = 0;
 	order = -1;
 
 	read_lock(&fib_hash_lock);
-	for (f = fz->fz_hash[0]; f; f = f->fn_next) {
+	for (f = fz_chain(k, fz); f; f = f->fn_next) {
 		struct fib_info *next_fi = FIB_INFO(f);
 
-		if ((f->fn_state&FN_S_ZOMBIE) ||
+		if (!fn_key_eq(k, f->fn_key) ||
+		    (f->fn_state&FN_S_ZOMBIE) ||
 		    f->fn_scope != res->scope ||
+#ifdef CONFIG_IP_ROUTE_TOS
+		    (f->fn_tos && f->fn_tos != key->tos) ||
+#endif
 		    f->fn_type != RTN_UNICAST)
 			continue;
 
 		if (next_fi->fib_priority > res->fi->fib_priority)
 			break;
-		if (!next_fi->fib_nh[0].nh_gw || next_fi->fib_nh[0].nh_scope != RT_SCOPE_LINK)
-			continue;
 		f->fn_state |= FN_S_ACCESSED;
 
-		if (fi == NULL) {
-			if (next_fi != res->fi)
-				break;
-		} else if (!fib_detect_death(fi, order, &last_resort, &last_idx)) {
+		if (!first_node) {
+			last_dflt = f->fn_last_dflt;
+			first_node = f;
+		}
+		if (fi && !fib_detect_death(fi, order, last_dflt,
+				&last_resort, &last_idx, &last_nhsel, key)) {
 			if (res->fi)
 				fib_info_put(res->fi);
 			res->fi = fi;
 			atomic_inc(&fi->fib_clntref);
-			fn_hash_last_dflt = order;
+			first_node->fn_last_dflt = order;
 			goto out;
 		}
 		fi = next_fi;
@@ -409,16 +461,25 @@ fn_hash_select_default(struct fib_table *tb, const struct rt_key *key, struct fi
 	}
 
 	if (order<=0 || fi==NULL) {
-		fn_hash_last_dflt = -1;
+		if (fi && fi->fib_nhs > 1 &&
+		    fib_detect_death(fi, order, last_dflt,
+			&last_resort, &last_idx, &last_nhsel, key) &&
+		    last_resort == fi) {
+			read_lock_bh(&fib_nhflags_lock);
+			fi->fib_nh[last_nhsel].nh_flags &= ~RTNH_F_SUSPECT;
+			read_unlock_bh(&fib_nhflags_lock);
+		}
+		if (first_node) first_node->fn_last_dflt = -1;
 		goto out;
 	}
 
-	if (!fib_detect_death(fi, order, &last_resort, &last_idx)) {
+	if (!fib_detect_death(fi, order, last_dflt, &last_resort, &last_idx,
+			      &last_nhsel, key)) {
 		if (res->fi)
 			fib_info_put(res->fi);
 		res->fi = fi;
 		atomic_inc(&fi->fib_clntref);
-		fn_hash_last_dflt = order;
+		first_node->fn_last_dflt = order;
 		goto out;
 	}
 
@@ -428,8 +489,11 @@ fn_hash_select_default(struct fib_table *tb, const struct rt_key *key, struct fi
 		res->fi = last_resort;
 		if (last_resort)
 			atomic_inc(&last_resort->fib_clntref);
+		read_lock_bh(&fib_nhflags_lock);
+		last_resort->fib_nh[last_nhsel].nh_flags &= ~RTNH_F_SUSPECT;
+		read_unlock_bh(&fib_nhflags_lock);
+		first_node->fn_last_dflt = last_idx;
 	}
-	fn_hash_last_dflt = last_idx;
 out:
 	read_unlock(&fib_hash_lock);
 }
@@ -589,6 +653,7 @@ replace:
 
 	memset(new_f, 0, sizeof(struct fib_node));
 
+	new_f->fn_last_dflt = -1;
 	new_f->fn_key = key;
 #ifdef CONFIG_IP_ROUTE_TOS
 	new_f->fn_tos = tos;

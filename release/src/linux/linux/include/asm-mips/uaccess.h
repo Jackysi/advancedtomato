@@ -149,7 +149,7 @@ static inline int verify_area(int type, const void * addr, unsigned long size)
  * Returns zero on success, or -EFAULT on error.
  */
 #define put_user(x,ptr)	\
-	__put_user_check((__typeof__(*(ptr)))(x),(ptr),sizeof(*(ptr)))
+	__put_user_check((x),(ptr),sizeof(*(ptr)))
 
 /*
  * get_user: - Get a simple variable from user space.
@@ -169,7 +169,7 @@ static inline int verify_area(int type, const void * addr, unsigned long size)
  * On error, the variable @x is set to zero.
  */
 #define get_user(x,ptr) \
-	__get_user_check((__typeof__(*(ptr)))(x),(ptr),sizeof(*(ptr)))
+	__get_user_check((x),(ptr),sizeof(*(ptr)))
 
 /*
  * __put_user: - Write a simple value into user space, with less checking.
@@ -191,7 +191,7 @@ static inline int verify_area(int type, const void * addr, unsigned long size)
  * Returns zero on success, or -EFAULT on error.
  */
 #define __put_user(x,ptr) \
-	__put_user_nocheck((__typeof__(*(ptr)))(x),(ptr),sizeof(*(ptr)))
+	__put_user_nocheck((x),(ptr),sizeof(*(ptr)))
 
 /*
  * __get_user: - Get a simple variable from user space, with less checking.
@@ -214,7 +214,7 @@ static inline int verify_area(int type, const void * addr, unsigned long size)
  * On error, the variable @x is set to zero.
  */
 #define __get_user(x,ptr) \
-	__get_user_nocheck((__typeof__(*(ptr)))(x),(ptr),sizeof(*(ptr)))
+	__get_user_nocheck((x),(ptr),sizeof(*(ptr)))
 
 struct __large_struct { unsigned long buf[100]; };
 #define __m(x) (*(struct __large_struct *)(x))
@@ -224,53 +224,50 @@ struct __large_struct { unsigned long buf[100]; };
  * for 32 bit mode and old iron.
  */
 #ifdef __mips64
-#define __GET_USER_DW(__gu_err) __get_user_asm("ld", __gu_err)
+#define __GET_USER_DW(val, ptr) __get_user_asm(val, "ld", ptr)
 #else
-#define __GET_USER_DW(__gu_err) __get_user_asm_ll32(__gu_err)
+#define __GET_USER_DW(val, ptr) __get_user_asm_ll32(val, ptr)
 #endif
+
+#define __get_user_common(val, size, ptr)				\
+({									\
+	switch (size) {							\
+	case 1: __get_user_asm(val, "lb", ptr); break;			\
+	case 2: __get_user_asm(val, "lh", ptr); break;			\
+	case 4: __get_user_asm(val, "lw", ptr); break;			\
+	case 8: __GET_USER_DW(val, ptr); break;				\
+	default: __get_user_unknown(); break;				\
+	}								\
+})
 
 #define __get_user_nocheck(x,ptr,size)					\
 ({									\
 	long __gu_err = 0;						\
-	__typeof(*(ptr)) __gu_val = 0;					\
-	long __gu_addr;							\
-	__gu_addr = (long) (ptr);					\
-	switch (size) {							\
-	case 1: __get_user_asm("lb", __gu_err); break;			\
-	case 2: __get_user_asm("lh", __gu_err); break;			\
-	case 4: __get_user_asm("lw", __gu_err); break;			\
-	case 8: __GET_USER_DW(__gu_err); break;				\
-	default: __get_user_unknown(); break;				\
-	}								\
-	 x = (__typeof__(*(ptr))) __gu_val;				\
+	long __gu_addr = (long) (ptr);                                  \
+									\
+	__get_user_common((x), size, ptr);				\
 	__gu_err;							\
 })
 
 #define __get_user_check(x,ptr,size)					\
 ({									\
-	__typeof__(*(ptr)) __gu_val = 0;				\
 	long __gu_addr = (long) (ptr);					\
 	long __gu_err;							\
 									\
 	__gu_err = verify_area(VERIFY_READ, (void *) __gu_addr, size);	\
 									\
 	if (likely(!__gu_err)) {					\
-		switch (size) {						\
-		case 1: __get_user_asm("lb", __gu_err); break;		\
-		case 2: __get_user_asm("lh", __gu_err); break;		\
-		case 4: __get_user_asm("lw", __gu_err); break;		\
-		case 8: __GET_USER_DW(__gu_err); break;			\
-		default: __get_user_unknown(); break;			\
-		}							\
+		__get_user_common((x), size, ptr);			\
 	}								\
-	x = (__typeof__(*(ptr))) __gu_val;				\
 	 __gu_err;							\
 })
 
-#define __get_user_asm(insn,__gu_err)					\
+#define __get_user_asm(val, insn, addr)					\
 ({									\
+        unsigned long __gu_val;						\
+									\
 	__asm__ __volatile__(						\
-	"1:	" insn "	%1, %3				\n"	\
+	"1:	" insn "	%1, %3		# __get_user_asm\n"	\
 	"2:							\n"	\
 	"	.section .fixup,\"ax\"				\n"	\
 	"3:	li	%0, %4					\n"	\
@@ -281,15 +278,19 @@ struct __large_struct { unsigned long buf[100]; };
 	"	.previous					\n"	\
 	: "=r" (__gu_err), "=r" (__gu_val)				\
 	: "0" (__gu_err), "o" (__m(__gu_addr)), "i" (-EFAULT));		\
+                                                                        \
+        (val) = (__typeof__(*(addr))) __gu_val;				\
 })
 
 /*
  * Get a long long 64 using 32 bit registers.
  */
-#define __get_user_asm_ll32(__gu_err)					\
+#define __get_user_asm_ll32(val, addr)					\
 ({									\
+	unsigned long long __gu_val;					\
+									\
 	__asm__ __volatile__(						\
-	"1:	lw	%1, %3					\n"	\
+	"1:	lw	%1, %3		# __get_user_asm_ll32	\n"	\
 	"2:	lw	%D1, %4					\n"	\
 	"	move	%0, $0					\n"	\
 	"3:	.section	.fixup,\"ax\"			\n"	\
@@ -305,6 +306,8 @@ struct __large_struct { unsigned long buf[100]; };
 	: "=r" (__gu_err), "=&r" (__gu_val)				\
 	: "0" (__gu_err), "o" (__m(__gu_addr)),				\
 	  "o" (__m(__gu_addr + 4)), "i" (-EFAULT));			\
+									\
+	(val) = (__typeof__(*(addr))) __gu_val;				\
 })
 
 extern void __get_user_unknown(void);

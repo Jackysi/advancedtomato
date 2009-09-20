@@ -45,6 +45,9 @@
 /*
  * k0/k1 unsaved
  */
+#define EF_REG26		32
+#define EF_REG27		33
+
 #define EF_REG28		34
 #define EF_REG29		35
 #define EF_REG30		36
@@ -60,6 +63,7 @@
 #define EF_CP0_BADVADDR		41
 #define EF_CP0_STATUS		42
 #define EF_CP0_CAUSE		43
+#define EF_UNUSED0		44
 
 #define EF_SIZE			180	/* size in bytes */
 

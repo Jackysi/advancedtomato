@@ -462,9 +462,10 @@ static inline void simulate_ll(struct pt_regs *regs, unsigned int opcode)
 	}
 	ll_task = current;
 
+	compute_return_epc(regs);
+
 	regs->regs[(opcode & RT) >> 16] = value;
 
-	compute_return_epc(regs);
 	return;
 
 sig:
@@ -495,8 +496,8 @@ static inline void simulate_sc(struct pt_regs *regs, unsigned int opcode)
 		goto sig;
 	}
 	if (ll_bit == 0 || ll_task != current) {
-		regs->regs[reg] = 0;
 		compute_return_epc(regs);
+		regs->regs[reg] = 0;
 		return;
 	}
 
@@ -505,9 +506,9 @@ static inline void simulate_sc(struct pt_regs *regs, unsigned int opcode)
 		goto sig;
 	}
 
+	compute_return_epc(regs);
 	regs->regs[reg] = 1;
 
-	compute_return_epc(regs);
 	return;
 
 sig:
@@ -809,13 +810,18 @@ extern asmlinkage int fpu_emulator_restore_context32(struct sigcontext32 *sc);
 void __init per_cpu_trap_init(void)
 {
 	unsigned int cpu = smp_processor_id();
+	unsigned int status_set = ST0_CU0|ST0_FR|ST0_KX|ST0_SX|ST0_UX;
 
-	/* Some firmware leaves the BEV flag set, clear it.  */
-	clear_c0_status(ST0_CU1|ST0_CU2|ST0_CU3|ST0_BEV);
-	set_c0_status(ST0_CU0|ST0_FR|ST0_KX|ST0_SX|ST0_UX);
-
+	/*
+	 * Disable coprocessors, enable 64-bit addressing and set FPU
+	 * for the 32/32 FPR register model.  Reset the BEV flag that
+	 * some firmware may have left set and the TS bit (for IP27).
+	 * Set XX for ISA IV code to work.
+	 */
 	if (current_cpu_data.isa_level == MIPS_CPU_ISA_IV)
-		set_c0_status(ST0_XX);
+		status_set |= ST0_XX;
+	change_c0_status(ST0_CU|ST0_FR|ST0_BEV|ST0_TS|ST0_KX|ST0_SX|ST0_UX,
+			 status_set);
 
 	/*
 	 * Some MIPS CPUs have a dedicated interrupt vector which reduces the
@@ -825,13 +831,11 @@ void __init per_cpu_trap_init(void)
 		set_c0_cause(CAUSEF_IV);
 
 	cpu_data[cpu].asid_cache = ASID_FIRST_VERSION;
-	write_c0_context(((long)(&pgd_current[cpu])) << 23);
-	write_c0_wired(0);
+	TLBMISS_HANDLER_SETUP();
 
 	atomic_inc(&init_mm.mm_count);
 	current->active_mm = &init_mm;
-	if (current->mm)
-		BUG();
+	BUG_ON(current->mm);
 	enter_lazy_tlb(&init_mm, current, cpu);
 }
 
@@ -841,8 +845,6 @@ void __init trap_init(void)
 	extern char except_vec3_generic, except_vec3_r4000;
 	extern char except_vec4;
 	unsigned long i;
-
-	per_cpu_trap_init();
 
 	/* Copy the generic exception handlers to their final destination. */
 	memcpy((void *) KSEG0         , &except_vec0_generic, 0x80);
@@ -933,6 +935,5 @@ void __init trap_init(void)
 
 	flush_icache_range(KSEG0, KSEG0 + 0x400);
 
-	atomic_inc(&init_mm.mm_count);	/* XXX UP?  */
-	current->active_mm = &init_mm;
+	per_cpu_trap_init();
 }

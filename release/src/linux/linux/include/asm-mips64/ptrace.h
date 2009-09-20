@@ -5,6 +5,7 @@
  *
  * Copyright (C) 1994, 95, 96, 97, 98, 99, 2000 by Ralf Baechle
  * Copyright (C) 1999, 2000 Silicon Graphics, Inc.
+ * Copyright (C) 2004  Maciej W. Rozycki
  */
 #ifndef _ASM_PTRACE_H
 #define _ASM_PTRACE_H
@@ -61,11 +62,9 @@ __asm__ (                                                               \
         "sd\t$22,"__str(PT_R22)"($29)\n\t"                              \
         "sd\t$23,"__str(PT_R23)"($29)\n\t"                              \
         "sd\t$30,"__str(PT_R30)"($29)\n\t"                              \
+        "j\t_" #symbol "\n\t"                                           \
         ".end\t" #symbol "\n\t"                                         \
         ".size\t" #symbol",. - " #symbol)
-
-/* Used in declaration of save_static functions.  */
-#define static_unused static __attribute__((unused))
 
 #define abi64_no_regargs						\
 	unsigned long __dummy0,						\

@@ -2888,6 +2888,13 @@ CONFIG_IP_NF_MATCH_LIMIT
   If you want to compile it as a module, say M here and read
   <file:Documentation/modules.txt>.  If unsure, say `N'.
 
+quota match support
+CONFIG_IP_NF_MATCH_QUOTA
+  This match implements network quotas.
+
+  If you want to compile it as a module, say M here and read
+  Documentation/modules.txt.  If unsure, say `N'.
+
 skb->pkt_type packet match support
 CONFIG_IP_NF_MATCH_PKTTYPE
   This patch allows you to match packet in accrodance
@@ -2971,6 +2978,47 @@ CONFIG_IP_NF_MATCH_ECN
 
  
 
+Nth match support
+CONFIG_IP_NF_MATCH_NTH
+  This option adds a `Nth' match, which allow you to make
+  rules that match every Nth packet.  By default there are 
+  16 different counters.
+
+[options]
+   --every     Nth              Match every Nth packet
+  [--counter]  num              Use counter 0-15 (default:0)
+  [--start]    num              Initialize the counter at the number 'num'
+                                instead of 0. Must be between 0 and Nth-1
+  [--packet]   num              Match on 'num' packet. Must be between 0
+                                and Nth-1.
+
+                                If --packet is used for a counter than
+                                there must be Nth number of --packet
+                                rules, covering all values between 0 and
+                                Nth-1 inclusively.
+ 
+  If you want to compile it as a module, say M here and read
+  Documentation/modules.txt.  If unsure, say `N'.
+
+
+psd match support
+CONFIG_IP_NF_MATCH_PSD
+  This option adds a `psd' match, which allows you to create rules in
+  any iptables table wich will detect TCP and UDP port scans.
+ 
+  If you want to compile it as a module, say M here and read
+  Documentation/modules.txt.  If unsure, say `N'.
+
+
+Nth match support
+CONFIG_IP_NF_MATCH_RANDOM
+  This option adds a `random' match,
+  which allow you to match packets randomly
+  following a given probability.
+ 
+  If you want to compile it as a module, say M here and read
+  Documentation/modules.txt.  If unsure, say `N'.
+
 TOS match support
 CONFIG_IP_NF_MATCH_TOS
   TOS matching allows you to match packets based on the Type Of
@@ -2978,6 +3026,22 @@ CONFIG_IP_NF_MATCH_TOS
 
   If you want to compile it as a module, say M here and read
   <file:Documentation/modules.txt>.  If unsure, say `N'.
+
+iprange match support
+CONFIG_IP_NF_MATCH_IPRANGE
+  This option makes possible to match IP addresses against
+  IP address ranges.
+
+  If you want to compile it as a module, say M here and read
+  <file:Documentation/modules.txt>.  If unsure, say `N'.
+
+Condition variable match support
+CONFIG_IP_NF_MATCH_CONDITION
+  This option allows you to match firewall rules against condition
+  variables stored in the /proc/net/ipt_condition directory.
+
+  If you want to compile it as a module, say M here and read
+  Documentation/modules.txt.  If unsure, say `N'.
 
 conntrack match support
 CONFIG_IP_NF_MATCH_CONNTRACK
@@ -2991,6 +3055,14 @@ CONFIG_IP_NF_MATCH_CONNTRACK
   Documentation/modules.txt.  If unsure, say `N'.
 
 
+Connections/IP limit match support
+CONFIG_IP_NF_MATCH_CONNLIMIT
+  This match allows you to restrict the number of parallel TCP
+  connections to a server per client IP address (or address block).
+
+  If you want to compile it as a module, say M here and read
+  Documentation/modules.txt.  If unsure, say `N'.
+
 Connection state match support
 CONFIG_IP_NF_MATCH_STATE
   Connection state matching allows you to match packets based on their
@@ -2999,6 +3071,14 @@ CONFIG_IP_NF_MATCH_STATE
 
   If you want to compile it as a module, say M here and read
   <file:Documentation/modules.txt>.  If unsure, say `N'.
+
+String match support (EXPERIMENTAL)
+CONFIG_IP_NF_MATCH_STRING
+  String matching alows you to match packets which contain a
+  specified string of characters.
+
+  If you want to compile it as a module, say M here and read
+  Documentation/modules.txt.  If unsure, say `N'.
 
 Unclean match support
 CONFIG_IP_NF_MATCH_UNCLEAN
@@ -3086,6 +3166,17 @@ CONFIG_IP_NF_TARGET_REDIRECT
   If you want to compile it as a module, say M here and read
   <file:Documentation/modules.txt>.  If unsure, say `N'.
 
+NETMAP target support
+CONFIG_IP_NF_TARGET_NETMAP
+  NETMAP is an implementation of static 1:1 NAT mapping of network
+  addresses. It maps the network address part, while keeping the
+  host address part intact. It is similar to Fast NAT, except that
+  Netfilter's connection tracking doesn't work well with Fast NAT.
+
+  If you want to compile it as a module, say M here and read
+  Documentation/modules.txt.  The module will be called
+  ipt_NETMAP.o.  If unsure, say `N'.
+
 Packet mangling
 CONFIG_IP_NF_MANGLE
   This option adds a `mangle' table to iptables: see the man page for
@@ -3130,6 +3221,34 @@ CONFIG_IP_NF_TARGET_TOS
   This option adds a `TOS' target, which allows you to create rules in
   the `mangle' table which alter the Type Of Service field of an IP
   packet prior to routing.
+
+  If you want to compile it as a module, say M here and read
+  <file:Documentation/modules.txt>.  If unsure, say `N'.
+
+IMQ target support
+CONFIG_IP_NF_TARGET_IMQ
+  This option adds an `IMQ' target which is used to specify if and
+  to which imq device packets should get enqueued/dequeued.
+
+  You should also say 'Y' or 'M' to "IMQ (intermediate queueing device)
+  support" under "Network device support" to actually make use
+  of this Netfilter target.
+
+  For more information visit: http://www.linuximq.net/
+
+  If you want to compile it as a module, say M here and read
+  <file:Documentation/modules.txt>.  If unsure, say `N'.
+
+IMQ target support
+CONFIG_IP6_NF_TARGET_IMQ
+  This option adds an `IMQ' target which is used to specify if and
+  to which imq device packets should get enqueued/dequeued.
+
+  You should also say 'Y' or 'M' to "IMQ (intermediate queueing device)
+  support" under "Network device support" to actually make use
+  of this Netfilter target.
+
+  For more information visit: http://www.linuximq.net/
 
   If you want to compile it as a module, say M here and read
   <file:Documentation/modules.txt>.  If unsure, say `N'.
@@ -3220,6 +3339,84 @@ CONFIG_IP_NF_TARGET_CLASSIFY
   If you want to compile it as a module, say M here and read
   Documentation/modules.txt.  If unsure, say `N'.
 
+IP set support
+CONFIG_IP_NF_SET
+  This option adds IP set support to the kernel.
+
+  In order to define and use sets, you need userlevel utilities: an
+  iptables binary which knows about IP sets and the program ipset(8), 
+  by which you can define and setup the sets themselves. 
+
+  If you want to compile it as a module, say M here and read
+  <file:Documentation/modules.txt>.  If unsure, say `N'.
+
+set match support
+CONFIG_IP_NF_MATCH_SET
+  This option adds IP set match support.
+  You need the ipset utility to create and set up the sets.
+
+  If you want to compile it as a module, say M here and read
+  <file:Documentation/modules.txt>.  If unsure, say `N'.
+
+SET target support
+CONFIG_IP_NF_TARGET_SET
+  This option adds IP set target support.
+  You need the ipset utility to create and set up the sets.
+
+  If you want to compile it as a module, say M here and read
+  <file:Documentation/modules.txt>.  If unsure, say `N'.
+
+ipmap set type support
+CONFIG_IP_NF_SET_IPMAP
+  This option adds the ipmap set type support.
+
+  If you want to compile it as a module, say M here and read
+  <file:Documentation/modules.txt>.  If unsure, say `N'.
+
+macipmap set type support
+CONFIG_IP_NF_SET_MACIPMAP
+  This option adds the macipmap set type support.
+
+  If you want to compile it as a module, say M here and read
+  <file:Documentation/modules.txt>.  If unsure, say `N'.
+
+portmap set type support
+CONFIG_IP_NF_SET_PORTMAP
+  This option adds the portmap set type support.
+
+  If you want to compile it as a module, say M here and read
+  <file:Documentation/modules.txt>.  If unsure, say `N'.
+
+iphash set type support
+CONFIG_IP_NF_SET_IPHASH
+  This option adds the iphash set type support.
+
+  If you want to compile it as a module, say M here and read
+  <file:Documentation/modules.txt>.  If unsure, say `N'.
+
+nethash set type support
+CONFIG_IP_NF_SET_NETHASH
+  This option adds the nethash set type support.
+
+  If you want to compile it as a module, say M here and read
+  <file:Documentation/modules.txt>.  If unsure, say `N'.
+
+iptree set type support
+CONFIG_IP_NF_SET_IPTREE
+  This option adds the iptree set type support.
+
+  If you want to compile it as a module, say M here and read
+  <file:Documentation/modules.txt>.  If unsure, say `N'.
+
+TTL target support
+CONFIG_IP_NF_TARGET_TTL
+  This option adds a `TTL' target, which enables the user to set
+  the TTL value or increment / decrement the TTL value by a given
+  amount.
+
+  If you want to compile it as a module, say M here and read
+  Documentation/modules.txt.  If unsure, say `N'.
+
 ipchains (2.2-style) support
 CONFIG_IP_NF_COMPAT_IPCHAINS
   This option places ipchains (with masquerading and redirection
@@ -3275,6 +3472,14 @@ CONFIG_IP6_NF_MATCH_MARK
 
   If you want to compile it as a module, say M here and read
   <file:Documentation/modules.txt>.  If unsure, say `N'.
+
+Condition variable match support
+CONFIG_IP6_NF_MATCH_CONDITION
+  This option allows you to match firewall rules against condition
+  variables stored in the /proc/net/ipt_condition directory.
+
+  If you want to compile it as a module, say M here and read
+  Documentation/modules.txt.  If unsure, say `N'.
 
 Multiple port match support
 CONFIG_IP6_NF_MATCH_MULTIPORT
@@ -9815,6 +10020,66 @@ CONFIG_BONDING
   say M here and read <file:Documentation/modules.txt>.  The module
   will be called bonding.o.
 
+Intermediate queueing device support
+CONFIG_IMQ
+  The IMQ device(s) is used as placeholder for QoS queueing disciplines.
+  Every packet entering/leaving the IP stack can be directed through
+  the IMQ device where it's enqueued/dequeued to the attached qdisc.
+  This allows you to treat network devices as classes and distribute
+  bandwidth among them. Iptables is used to specify through which IMQ
+  device, if any, packets travel.
+
+  You should also say 'Y' or 'M' to "IMQ target support" under
+  "IP: Netfilter Configuration" and/or "IPv6: Netfilter Configuration"
+  to actually get use of the device.
+
+  More information at: http://www.linuximq.net/
+
+  If you want to compile this as a module ( = code which ca be
+  inserted in and removed from the running kernel whenever you want),
+  say M here and read <file:Documentation/modules.txt>.  The module
+  will be called imq.o
+
+# choice
+IMQ behavior (PRE/POSTROUTING) (AA)
+CONFIG_IMQ_BEHAVIOR_AA
+  These settings define how IMQ behaves in respect to its
+  hooking in PREROUTING and POSTROUTING.
+
+  IMQ can work in any of the following ways:
+
+   ABBREVIATION |  PREROUTING  |  POSTROUTING
+  --------------|--------------|---------------
+        AA      |  After NAT   |  After NAT
+        AB      |  After NAT   |  Before NAT
+        BA      |  Before NAT  |  After NAT
+        BB      |  Before NAT  |  Before NAT
+
+  The default behavior is to hook before NAT on PREROUTING
+  and after NAT on POSTROUTING (BA).
+
+  You can change it later with the 'behaviour' module parameter.
+
+  These settings are especially useful when using IMQ
+  to shape NATed clients.
+
+  More information can be found at: http://www.linuximq.net
+
+  If not sure leave the default settings alone.
+
+IMQ - Number of devices
+CONFIG_IMQ_NUM_DEVS
+  This settings define how many IMQ devices will be created.
+
+  The default value is 2.
+
+  You can change it later with the 'numdevs' module parameter
+  (if compiled as module).
+
+  More information can be found at: http://www.linuximq.net
+
+  If not sure leave the default setting alone.
+
 SLIP (serial line) support
 CONFIG_SLIP
   Say Y if you intend to use SLIP or CSLIP (compressed SLIP) to
@@ -9985,6 +10250,28 @@ CONFIG_PPP_BSDCOMP
   Note that the BSD compression code will always be compiled as a
   module; it is called bsd_comp.o and will show up in the directory
   modules once you have said "make modules". If unsure, say N.
+
+Microsoft PPP compression/encryption (MPPC/MPPE)
+CONFIG_PPP_MPPE_MPPC
+  Support for the Microsoft Point-To-Point Compression (RFC2118) and 
+  Microsoft Point-To-Point Encryption (RFC3078). These protocols are
+  supported by Microsoft Windows and wide range of "hardware" access
+  servers. MPPE is common protocol in Virtual Private Networks. According
+  to RFC3078, MPPE supports 40, 56 and 128-bit key lengths. Depending on
+  PPP daemon configuration on both ends of the link, following scenarios
+  are possible:
+	- only compression (MPPC) is used,
+	- only encryption (MPPE) is used,
+	- compression and encryption (MPPC+MPPE) are used.
+
+  Please note that Hi/Fn (http://www.hifn.com) holds patent on MPPC so
+  you should check if this patent is valid in your country in order to
+  avoid legal problems.
+
+  For more information please visit http://free.polbox.pl/h/hs001
+
+  To compile this driver as a module, choose M here. The module will
+  be called ppp_mppe_mppc.o.
 
 PPP over Ethernet
 CONFIG_PPPOE
@@ -10661,6 +10948,20 @@ CONFIG_TUN
 
   If you don't know what to use this for, you don't need it.
 
+Allow Net Devices to contribute to /dev/random
+CONFIG_NET_RANDOM
+  If you say Y here, network device interrupts will contribute to the
+  kernel entropy pool. Normally, block devices and some other devices
+  feed the pool. Some systems, such as those that are headless or diskless,
+  need additional entropy sources.  Some people, however, feel that network
+  devices should not contribute to /dev/random because an external attacker
+  could observe incoming packets in an attempt to learn the entropy pool's
+  state.  If you say N, no network device will contribute entropy.
+
+  If you believe there is a chance of your network packets being observed
+  and you doubt the security of the entropy pool's one-way hash, do not
+  enable this.  If unsure, say N.
+
 Ethertap network tap (OBSOLETE)
 CONFIG_ETHERTAP
   If you say Y here (and have said Y to "Kernel/User network link
@@ -10955,6 +11256,24 @@ CONFIG_NET_SCH_HFSC
   This code is also available as a module called sch_hfsc.o ( = code
   which can be inserted in and removed from the running kernel
   whenever you want).  If you want to compile it as a module, say M
+  here and read <file:Documentation/modules.txt>.
+
+ESFQ queue
+CONFIG_NET_SCH_ESFQ
+  Say Y here if you want to use the Stochastic Fairness Queueing (SFQ)
+  packet scheduling algorithm for some of your network devices or as a
+  leaf discipline for the CBQ scheduling algorithm (see the top of
+  <file:net/sched/sch_esfq.c> for details and references about the SFQ
+  algorithm).
+
+  This is an enchanced SFQ version which allows you to control the
+  hardcoded values in the SFQ scheduler: queue depth, hash table size,
+  queues limit. Also adds control to the hash function used to identify
+  packet flows. Hash by src or dst ip and original sfq hash.
+
+  This code is also available as a module called sch_esfq.o ( = code
+  which can be inserted in and removed from the running kernel
+  whenever you want). If you want to compile it as a module, say M
   here and read <file:Documentation/modules.txt>.
 
 CSZ packet scheduler
@@ -17959,6 +18278,34 @@ CONFIG_UNIXWARE_DISKLABEL
 
   If you don't know what all this is about, say N.
 
+CIFS (Common Internet File System) support
+CONFIG_CIFS
+  This is the client VFS module for the Common Internet File System
+  (CIFS) protocol which is the successor to the Server Message Block 
+  (SMB) protocol, the native file sharing mechanism for most early
+  PC operating systems.  CIFS is fully supported by current network
+  file servers such as Windows 2000, Windows 2003 (including  
+  Windows XP) as well by Samba (which provides excellent CIFS
+  server support for Linux and many other operating systems).  
+  The smbfs module should be used instead of this cifs module for
+  mounting to older SMB servers such as OS/2.  The smbfs and cifs
+  modules can coexist and do not conflict.
+
+  The intent of this module is to provide the most advanced network
+  file system function for CIFS compliant servers, including better
+  POSIX compliance, secure per-user session establishment, high
+  performance safe distributed caching (oplock), optional packet
+  signing, Unicode support and other internationalization improvements
+  For more information see the project page at
+  http://us1.samba.org/samba/Linux_CIFS_client.html 
+
+CIFS Debugging
+CONFIG_CIFS_DEBUG
+  If you are experiencing any problems with the CIFS filesystem, say
+  Y here.  This will result in additional debugging messages to be
+  written to the system log.  Under normal circumstances, this
+  results in very little overhead.  
+
 SMB file system support (to mount Windows shares etc.)
 CONFIG_SMB_FS
   SMB (Server Message Block) is the protocol Windows for Workgroups
@@ -23302,6 +23649,7 @@ CONFIG_BLUEZ
                RFCOMM Module (RFCOMM Protocol)
                BNEP Module (Bluetooth Network Encapsulation Protocol)
                CMTP Module (CAPI Message Transport Protocol)
+               HIDP Module (Human Interface Device Protocol)
 
   Say Y here to compile Bluetooth support into the kernel or say M to
   compile it as module (bluez.o).
@@ -23366,6 +23714,15 @@ CONFIG_BLUEZ_CMTP
 
   Say Y here to compile CMTP support into the kernel or say M to
   compile it as module (cmtp.o).
+
+HIDP protocol support
+CONFIG_BLUEZ_HIDP
+  HIDP (Human Interface Device Protocol) is a transport layer
+  for HID reports.  HIDP is required for the Bluetooth Human
+  Interface Device Profile.
+
+  Say Y here to compile HIDP support into the kernel or say M to
+  compile it as module (hidp.o).
 
 HCI UART driver
 CONFIG_BLUEZ_HCIUART
@@ -26722,6 +27079,19 @@ CONFIG_VIA_IRCC_FIR
   here and read <file:Documentation/modules.txt>.  The module will be
   called via-ircc.o.
 
+SigmaTel STIr4200
+CONFIG_SIGMATEL_FIR
+  Say Y here if you want to build support for the SigmaTel STIr4200
+  USB IrDA FIR bridge device driver.  
+
+  USB bridge based on the SigmaTel STIr4200 don't conform to the
+  IrDA-USB device class specification, and therefore need their
+  own specific driver. Those dongles support SIR and FIR (4Mbps)
+  speeds. 
+
+  To compile it as a module, choose M here: the module will be called
+  stir4200.
+
 ALi M5123 FIR controller driver
 CONFIG_ALI_FIR
   Say Y here if you want to build support for the ALi M5123 FIR
@@ -29157,6 +29527,18 @@ CONFIG_SOUND_WM97XX
   say M here.  The module will be called ac97_plugin_wm97xx.o.
   
   If unsure, say N.
+
+CONFIG_IP_NF_MATCH_LAYER7
+   Say Y if you want to be able to classify connections (and their 
+   packets) based on regular expression matching of their application 
+   layer data.   This is one way to classify applications such as 
+   peer-to-peer filesharing systems that do not always use the same 
+   port.
+
+   To compile it as a module, choose M here.  If unsure, say N.
+
+CONFIG_IP_NF_MATCH_LAYER7_DEBUG
+   Say Y to get lots of debugging output.
 
 #
 # A couple of things I keep forgetting:

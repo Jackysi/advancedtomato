@@ -75,9 +75,13 @@ void __init pcibios_fixup(void)
 
 #ifdef CONFIG_NONCOHERENT_IO
 	/* 
-	 *  Set the NC bit in controller for pre-AC silicon
+         *  Set the NC bit in controller for Au1500 pre-AC silicon
 	 */
-	au_writel( 1<<16 | au_readl(Au1500_PCI_CFG), Au1500_PCI_CFG);
+	u32 prid = read_c0_prid();
+	if ( (prid & 0xFF000000) == 0x01000000 && prid < 0x01030202) {
+	       au_writel( 1<<16 | au_readl(Au1500_PCI_CFG), Au1500_PCI_CFG);
+	       printk("Non-coherent PCI accesses enabled\n");
+	}
 	printk("Non-coherent PCI accesses enabled\n");
 #endif
 

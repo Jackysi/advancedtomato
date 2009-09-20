@@ -58,6 +58,10 @@ void board_reset (void)
 {
 }
 
+void board_power_off (void)
+{
+}
+
 void __init board_setup(void)
 {
 	u32 pin_func, static_cfg0;

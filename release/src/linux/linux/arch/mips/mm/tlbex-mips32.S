@@ -90,6 +90,9 @@
 	.set	noat
 	LEAF(except_vec0_r4000)
 	.set	mips3
+#ifdef CONFIG_BCM4704
+	nop
+#endif
 #ifdef CONFIG_SMP
 	mfc0	k1, CP0_CONTEXT
 	la	k0, pgd_current
@@ -196,7 +199,7 @@
 	.set	noat; \
 	SAVE_ALL; \
 	mfc0	a2, CP0_BADVADDR; \
-	STI; \
+	KMODE; \
 	.set	at; \
 	move	a0, sp; \
 	jal	do_page_fault; \

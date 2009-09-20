@@ -125,6 +125,25 @@ int dump_fpu(struct pt_regs *regs, elf_fpregset_t *r)
 	return 1;
 }
 
+void dump_regs(elf_greg_t *gp, struct pt_regs *regs)
+{
+	int i;
+
+	for (i = 0; i < EF_REG0; i++)
+		gp[i] = 0;
+	gp[EF_REG0] = 0;
+	for (i = 1; i <= 31; i++)
+		gp[EF_REG0 + i] = regs->regs[i];
+	gp[EF_REG26] = 0;
+	gp[EF_REG27] = 0;
+	gp[EF_LO] = regs->lo;
+	gp[EF_HI] = regs->hi;
+	gp[EF_CP0_EPC] = regs->cp0_epc;
+	gp[EF_CP0_BADVADDR] = regs->cp0_badvaddr;
+	gp[EF_CP0_STATUS] = regs->cp0_status;
+	gp[EF_CP0_CAUSE] = regs->cp0_cause;
+}
+
 /*
  * Create a kernel thread
  */

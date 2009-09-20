@@ -28,9 +28,17 @@
 #include <linux/slab.h>
 #include <linux/delay.h>
 #include <linux/interrupt.h>
+#include <linux/notifier.h>
+#include <linux/reboot.h>
 #include <linux/mtd/map.h>
 #include <linux/mtd/cfi.h>
 #include <linux/mtd/compatmac.h>
+
+#ifndef container_of
+#define container_of(ptr, type, member) ({                      \
+		        const typeof( ((type *)0)->member ) *__mptr = (ptr);    \
+			        (type *)( (char *)__mptr - offsetof(type,member) );})
+#endif
 
 // debugging, turns off buffer write mode #define FORCE_WORD_WRITE
 
@@ -45,6 +53,7 @@ static int cfi_intelext_lock(struct mtd_info *mtd, loff_t ofs, size_t len);
 static int cfi_intelext_unlock(struct mtd_info *mtd, loff_t ofs, size_t len);
 static int cfi_intelext_suspend (struct mtd_info *);
 static void cfi_intelext_resume (struct mtd_info *);
+static int cfi_intelext_reboot(struct notifier_block *nb, unsigned long val, void *v);
 
 static void cfi_intelext_destroy(struct mtd_info *);
 
@@ -288,6 +297,9 @@ static struct mtd_info *cfi_intelext_setup(struct map_info *map)
 	map->fldrv = &cfi_intelext_chipdrv;
 	MOD_INC_USE_COUNT;
 	mtd->name = map->name;
+	mtd->reboot_notifier.notifier_call = cfi_intelext_reboot;
+	register_reboot_notifier(&mtd->reboot_notifier);
+
 	return mtd;
 
  setup_err:
@@ -1709,6 +1721,8 @@ static void cfi_intelext_sync (struct mtd_info *mtd)
 			chip->state = chip->oldstate;
 			wake_up(&chip->wq);
 		}
+		/* make absolutely sure that chip is out of lock/suspend state */
+		cfi_write(map, CMD(0xFF), 0);
 		spin_unlock(chip->mutex);
 	}
 }
@@ -1827,6 +1841,7 @@ retry:
 	}
 	
 	/* Done and happy. */
+	cfi_write(map, CMD(0x70), adr);
 	chip->state = FL_STATUS;
 	DISABLE_VPP(map);
 	wake_up(&chip->wq);
@@ -1961,10 +1976,40 @@ static void cfi_intelext_resume(struct mtd_info *mtd)
 	}
 }
 
+
+static void cfi_intelext_reset(struct mtd_info *mtd)
+{
+	struct map_info *map = mtd->priv;
+	struct cfi_private *cfi = map->fldrv_priv;
+	int i;
+	struct flchip *chip;
+
+	cfi_intelext_sync(mtd);
+	for (i=0; i<cfi->numchips; i++) {
+		chip = &cfi->chips[i];
+		
+		spin_lock(chip->mutex);
+		cfi_write(map, CMD(0xFF), 0);
+		chip->state = FL_READY;
+		spin_unlock(chip->mutex);
+	}
+}
+
+static int cfi_intelext_reboot(struct notifier_block *nb, unsigned long val, void *v)
+{
+	struct mtd_info *mtd;
+
+	mtd = container_of(nb, struct mtd_info, reboot_notifier);
+	cfi_intelext_reset(mtd);
+	return NOTIFY_DONE;
+}
+
 static void cfi_intelext_destroy(struct mtd_info *mtd)
 {
 	struct map_info *map = mtd->priv;
 	struct cfi_private *cfi = map->fldrv_priv;
+	cfi_intelext_reset(mtd);
+	unregister_reboot_notifier(&mtd->reboot_notifier);
 	kfree(cfi->cmdset_priv);
 	kfree(cfi->cfiq);
 	kfree(cfi);

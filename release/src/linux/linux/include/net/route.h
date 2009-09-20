@@ -49,6 +49,8 @@ struct rt_key
 {
 	__u32			dst;
 	__u32			src;
+	__u32			lsrc;
+	__u32			gw;
 	int			iif;
 	int			oif;
 #ifdef CONFIG_IP_ROUTE_FWMARK
@@ -128,6 +130,7 @@ extern void		ip_rt_advice(struct rtable **rp, int advice);
 extern void		rt_cache_flush(int how);
 extern int		ip_route_output_key(struct rtable **, const struct rt_key *key);
 extern int		ip_route_input(struct sk_buff*, u32 dst, u32 src, u8 tos, struct net_device *devin);
+extern int		ip_route_input_lookup(struct sk_buff*, u32 dst, u32 src, u8 tos, struct net_device *devin, u32 lsrc);
 extern unsigned short	ip_rt_frag_needed(struct iphdr *iph, unsigned short new_mtu);
 extern void		ip_rt_update_pmtu(struct dst_entry *dst, unsigned mtu);
 extern void		ip_rt_send_redirect(struct sk_buff *skb);
@@ -147,6 +150,15 @@ static inline int ip_route_output(struct rtable **rp,
 	return ip_route_output_key(rp, &key);
 }
 
+
+static inline int
+ip_route_output_lookup(struct rtable **rp,
+		       u32 daddr, u32 saddr, u32 tos, int oif, u32 gw)
+{
+	struct rt_key key = { dst:daddr, src:saddr, gw:gw, oif:oif, tos:tos };
+
+	return ip_route_output_key(rp, &key);
+}
 
 static inline void ip_rt_put(struct rtable * rt)
 {

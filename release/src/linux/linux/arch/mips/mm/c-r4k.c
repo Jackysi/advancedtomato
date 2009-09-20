@@ -13,6 +13,13 @@
 #include <linux/sched.h>
 #include <linux/mm.h>
 #include <linux/bitops.h>
+#include <linux/module.h>
+
+#ifdef CONFIG_BCM4710
+#include <typedefs.h>
+#include <sbconfig.h>
+#include <asm/paccess.h>
+#endif
 
 #include <asm/bcache.h>
 #include <asm/bootinfo.h>
@@ -40,6 +47,7 @@ static struct bcache_ops no_sc_ops = {
 	.bc_inv = (void *)no_sc_noop
 };
 
+int bcm4710 = 0;
 struct bcache_ops *bcops = &no_sc_ops;
 
 #define cpu_is_r4600_v1_x()	((read_c0_prid() & 0xfffffff0) == 0x2010)
@@ -64,8 +72,10 @@ static inline void r4k_blast_dcache_page_dc32(unsigned long addr)
 static inline void r4k_blast_dcache_page_setup(void)
 {
 	unsigned long dc_lsize = current_cpu_data.dcache.linesz;
-
-	if (dc_lsize == 16)
+	
+	if (bcm4710)
+		r4k_blast_dcache_page = blast_dcache_page;
+	else if (dc_lsize == 16)
 		r4k_blast_dcache_page = blast_dcache16_page;
 	else if (dc_lsize == 32)
 		r4k_blast_dcache_page = r4k_blast_dcache_page_dc32;
@@ -77,7 +87,9 @@ static void r4k_blast_dcache_page_indexed_setup(void)
 {
 	unsigned long dc_lsize = current_cpu_data.dcache.linesz;
 
-	if (dc_lsize == 16)
+	if (bcm4710)
+		r4k_blast_dcache_page_indexed = blast_dcache_page_indexed;
+	else if (dc_lsize == 16)
 		r4k_blast_dcache_page_indexed = blast_dcache16_page_indexed;
 	else if (dc_lsize == 32)
 		r4k_blast_dcache_page_indexed = blast_dcache32_page_indexed;
@@ -89,7 +101,9 @@ static inline void r4k_blast_dcache_setup(void)
 {
 	unsigned long dc_lsize = current_cpu_data.dcache.linesz;
 
-	if (dc_lsize == 16)
+	if (bcm4710)
+		r4k_blast_dcache = blast_dcache;
+	else if (dc_lsize == 16)
 		r4k_blast_dcache = blast_dcache16;
 	else if (dc_lsize == 32)
 		r4k_blast_dcache = blast_dcache32;
@@ -266,6 +280,7 @@ static void r4k___flush_cache_all(void)
 	r4k_blast_dcache();
 	r4k_blast_icache();
 
+	if (!bcm4710)
 	switch (current_cpu_data.cputype) {
 	case CPU_R4000SC:
 	case CPU_R4000MC:
@@ -304,14 +319,14 @@ static void r4k_flush_cache_mm(struct mm_struct *mm)
 	 * Kludge alert.  For obscure reasons R4000SC and R4400SC go nuts if we
 	 * only flush the primary caches but R10000 and R12000 behave sane ...
 	 */
-	if (current_cpu_data.cputype == CPU_R4000SC ||
+	if (!bcm4710 && (current_cpu_data.cputype == CPU_R4000SC ||
 	    current_cpu_data.cputype == CPU_R4000MC ||
 	    current_cpu_data.cputype == CPU_R4400SC ||
-	    current_cpu_data.cputype == CPU_R4400MC)
+	    current_cpu_data.cputype == CPU_R4400MC))
 		r4k_blast_scache();
 }
 
-static void r4k_flush_cache_page(struct vm_area_struct *vma,
+void r4k_flush_cache_page(struct vm_area_struct *vma,
 					unsigned long page)
 {
 	int exec = vma->vm_flags & VM_EXEC;
@@ -371,6 +386,7 @@ static void r4k_flush_cache_page(struct vm_area_struct *vma,
 			r4k_blast_icache_page_indexed(page);
 	}
 }
+EXPORT_SYMBOL(r4k_flush_cache_page); 
 
 static void r4k_flush_data_cache_page(unsigned long addr)
 {
@@ -383,12 +399,15 @@ static void r4k_flush_icache_range(unsigned long start, unsigned long end)
 	unsigned long ic_lsize = current_cpu_data.icache.linesz;
 	unsigned long addr, aend;
 
+	addr = start & ~(dc_lsize - 1);
+	aend = (end - 1) & ~(dc_lsize - 1);
+
 	if (!cpu_has_ic_fills_f_dc) {
 		if (end - start > dcache_size)
 			r4k_blast_dcache();
 		else {
-			addr = start & ~(dc_lsize - 1);
-			aend = (end - 1) & ~(dc_lsize - 1);
+			BCM4710_PROTECTED_FILL_TLB(addr);
+			BCM4710_PROTECTED_FILL_TLB(aend);
 
 			while (1) {
 				/* Hit_Writeback_Inv_D */
@@ -403,8 +422,6 @@ static void r4k_flush_icache_range(unsigned long start, unsigned long end)
 	if (end - start > icache_size)
 		r4k_blast_icache();
 	else {
-		addr = start & ~(ic_lsize - 1);
-		aend = (end - 1) & ~(ic_lsize - 1);
 		while (1) {
 			/* Hit_Invalidate_I */
 			protected_flush_icache_line(addr);
@@ -413,6 +430,9 @@ static void r4k_flush_icache_range(unsigned long start, unsigned long end)
 			addr += ic_lsize;
 		}
 	}
+
+	if (bcm4710)
+		flush_cache_all();
 }
 
 /*
@@ -443,7 +463,8 @@ static void r4k_flush_icache_page(struct vm_area_struct *vma,
 	if (cpu_has_subset_pcaches) {
 		unsigned long addr = (unsigned long) page_address(page);
 
-		r4k_blast_scache_page(addr);
+		if (!bcm4710)
+			r4k_blast_scache_page(addr);
 		ClearPageDcacheDirty(page);
 
 		return;
@@ -451,6 +472,7 @@ static void r4k_flush_icache_page(struct vm_area_struct *vma,
 
 	if (!cpu_has_ic_fills_f_dc) {
 		unsigned long addr = (unsigned long) page_address(page);
+
 		r4k_blast_dcache_page(addr);
 		ClearPageDcacheDirty(page);
 	}
@@ -477,7 +499,7 @@ static void r4k_dma_cache_wback_inv(unsigned long addr, unsigned long size)
 	/* Catch bad driver code */
 	BUG_ON(size == 0);
 
-	if (cpu_has_subset_pcaches) {
+	if (!bcm4710 && cpu_has_subset_pcaches) {
 		unsigned long sc_lsize = current_cpu_data.scache.linesz;
 
 		if (size >= scache_size) {
@@ -509,6 +531,8 @@ static void r4k_dma_cache_wback_inv(unsigned long addr, unsigned long size)
 		R4600_HIT_CACHEOP_WAR_IMPL;
 		a = addr & ~(dc_lsize - 1);
 		end = (addr + size - 1) & ~(dc_lsize - 1);
+		BCM4710_FILL_TLB(a);
+		BCM4710_FILL_TLB(end);
 		while (1) {
 			flush_dcache_line(a);	/* Hit_Writeback_Inv_D */
 			if (a == end)
@@ -527,7 +551,7 @@ static void r4k_dma_cache_inv(unsigned long addr, unsigned long size)
 	/* Catch bad driver code */
 	BUG_ON(size == 0);
 
-	if (cpu_has_subset_pcaches) {
+	if (!bcm4710 && (cpu_has_subset_pcaches)) {
 		unsigned long sc_lsize = current_cpu_data.scache.linesz;
 
 		if (size >= scache_size) {
@@ -554,6 +578,8 @@ static void r4k_dma_cache_inv(unsigned long addr, unsigned long size)
 		R4600_HIT_CACHEOP_WAR_IMPL;
 		a = addr & ~(dc_lsize - 1);
 		end = (addr + size - 1) & ~(dc_lsize - 1);
+		BCM4710_FILL_TLB(a);
+		BCM4710_FILL_TLB(end);
 		while (1) {
 			flush_dcache_line(a);	/* Hit_Writeback_Inv_D */
 			if (a == end)
@@ -577,6 +603,8 @@ static void r4k_flush_cache_sigtramp(unsigned long addr)
 	unsigned long dc_lsize = current_cpu_data.dcache.linesz;
 
 	R4600_HIT_CACHEOP_WAR_IMPL;
+	BCM4710_PROTECTED_FILL_TLB(addr);
+	BCM4710_PROTECTED_FILL_TLB(addr + 4);
 	protected_writeback_dcache_line(addr & ~(dc_lsize - 1));
 	protected_flush_icache_line(addr & ~(ic_lsize - 1));
 	if (MIPS4K_ICACHE_REFILL_WAR) {
@@ -867,9 +895,16 @@ static void __init probe_pcache(void)
 	 * normally they'd suffer from aliases but magic in the hardware deals
 	 * with that for us so we don't need to take care ourselves.
 	 */
-	if (c->cputype != CPU_R10000 && c->cputype != CPU_R12000)
-		if (c->dcache.waysize > PAGE_SIZE)
-		        c->dcache.flags |= MIPS_CACHE_ALIASES;
+	switch (c->cputype) {
+	case CPU_R10000:
+	case CPU_R12000:
+		break;
+	case CPU_24K:
+		if (!(read_c0_config7() & (1 << 16)))
+	default:
+			if (c->dcache.waysize > PAGE_SIZE)
+				c->dcache.flags |= MIPS_CACHE_ALIASES;
+	}
 
 	switch (c->cputype) {
 	case CPU_20KC:
@@ -979,10 +1014,12 @@ static void __init setup_scache(void)
 	case CPU_R4000MC:
 	case CPU_R4400SC:
 	case CPU_R4400MC:
-		probe_scache_kseg1 = (probe_func_t) (KSEG1ADDR(&probe_scache));
-		sc_present = probe_scache_kseg1(config);
-		if (sc_present)
-			c->options |= MIPS_CPU_CACHE_CDEX_S;
+		if (!bcm4710) {
+			probe_scache_kseg1 = (probe_func_t) (KSEG1ADDR(&probe_scache));
+			sc_present = probe_scache_kseg1(config);
+			if (sc_present)
+				c->options |= MIPS_CPU_CACHE_CDEX_S;
+		}
 		break;
 
 	case CPU_R10000:
@@ -1034,6 +1071,19 @@ static void __init setup_scache(void)
 static inline void coherency_setup(void)
 {
 	change_c0_config(CONF_CM_CMASK, CONF_CM_DEFAULT);
+	
+#if defined(CONFIG_BCM4310) || defined(CONFIG_BCM4704) || defined(CONFIG_BCM5365)
+	if (BCM330X(current_cpu_data.processor_id)) {
+		uint32 cm;
+
+		cm = read_c0_diag();
+		/* Enable icache */
+		cm |= (1 << 31);
+		/* Enable dcache */
+		cm |= (1 << 30);
+		write_c0_diag(cm);
+	}
+#endif
 
 	/*
 	 * c0_status.cu=0 specifies that updates by the sc instruction use
@@ -1066,11 +1116,14 @@ void __init ld_mmu_r4xx0(void)
 	memcpy((void *)(KSEG0 + 0x100), &except_vec2_generic, 0x80);
 	memcpy((void *)(KSEG1 + 0x100), &except_vec2_generic, 0x80);
 
+	if (current_cpu_data.cputype == CPU_BCM4710 && (current_cpu_data.processor_id & PRID_REV_MASK) == 0) {
+		printk("Enabling BCM4710A0 cache workarounds.\n");
+		bcm4710 = 1;
+	} else
+		bcm4710 = 0;
+	
 	probe_pcache();
 	setup_scache();
-
-	if (c->dcache.sets * c->dcache.ways > PAGE_SIZE)
-		c->dcache.flags |= MIPS_CACHE_ALIASES;
 
 	r4k_blast_dcache_page_setup();
 	r4k_blast_dcache_page_indexed_setup();
@@ -1114,3 +1167,47 @@ void __init ld_mmu_r4xx0(void)
 	build_clear_page();
 	build_copy_page();
 }
+
+#ifdef CONFIG_BCM4704
+static void __init mips32_icache_fill(unsigned long addr, uint nbytes)
+{
+	unsigned long ic_lsize = current_cpu_data.icache.linesz;
+	int i;
+	for (i = 0; i < nbytes; i += ic_lsize)
+		fill_icache_line((addr + i));
+}
+
+/*
+ *  This must be run from the cache on 4704A0
+ *  so there are no mips core BIU ops in progress
+ *  when the PFC is enabled.
+ */
+#define PFC_CR0         0xff400000      /* control reg 0 */
+#define PFC_CR1         0xff400004      /* control reg 1 */
+static void __init enable_pfc(u32 mode)
+{
+	/* write range */
+	*(volatile u32 *)PFC_CR1 = 0xffff0000;
+
+	/* enable */
+	*(volatile u32 *)PFC_CR0 = mode;
+}
+#endif
+
+
+void check_enable_mips_pfc(int val)
+{
+
+#ifdef CONFIG_BCM4704
+	struct cpuinfo_mips *c = &current_cpu_data;
+
+	/* enable prefetch cache */
+	if (((c->processor_id & (PRID_COMP_MASK | PRID_IMP_MASK)) == PRID_IMP_BCM3302) 
+		&& (read_c0_diag() & (1 << 29))) {
+			mips32_icache_fill((unsigned long) &enable_pfc, 64);
+			enable_pfc(val);
+	}
+#endif
+}
+
+

@@ -32,6 +32,7 @@ enum {
   IPPROTO_PUP = 12,		/* PUP protocol				*/
   IPPROTO_UDP = 17,		/* User Datagram Protocol		*/
   IPPROTO_IDP = 22,		/* XNS IDP protocol			*/
+  IPPROTO_DCCP = 33,		/* Datagram Congestion Control Protocol */
   IPPROTO_RSVP = 46,		/* RSVP protocol			*/
   IPPROTO_GRE = 47,		/* Cisco GRE tunnels (rfc 1701,1702)	*/
 
@@ -43,6 +44,7 @@ enum {
   IPPROTO_AH = 51,             /* Authentication Header protocol       */
   IPPROTO_COMP   = 108,                /* Compression Header protocol */
   IPPROTO_SCTP   = 132,		/* Stream Control Transport Protocol    */
+  IPPROTO_UDPLITE = 136,	/* UDP-Lite (RFC 3828)                  */
 
   IPPROTO_RAW	 = 255,		/* Raw IP packets			*/
   IPPROTO_MAX
@@ -69,6 +71,9 @@ struct in_addr {
 #define	IP_RECVTOS	13
 #define IP_MTU		14
 #define IP_FREEBIND	15
+#define IP_IPSEC_POLICY	16
+#define IP_XFRM_POLICY	17
+#define IP_PASSSEC	18
 
 /* BSD compatibility */
 #define IP_RECVRETOPTS	IP_RETOPTS

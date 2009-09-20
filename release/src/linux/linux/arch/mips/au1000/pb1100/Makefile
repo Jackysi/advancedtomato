@@ -16,4 +16,10 @@ O_TARGET := pb1100.o
 
 obj-y := init.o board_setup.o irqmap.o
 
+
+ifdef CONFIG_MMC
+obj-y += mmc_support.o
+export-objs += mmc_support.o
+endif
+
 include $(TOPDIR)/Rules.make

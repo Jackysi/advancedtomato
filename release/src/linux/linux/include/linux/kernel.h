@@ -27,7 +27,16 @@
 
 #define STACK_MAGIC	0xdeadbeef
 
+#define _ALIGN(x,a)		__ALIGN_MASK(x,(typeof(x))(a)-1)
+#define __ALIGN_MASK(x,mask)	(((x)+(mask))&~(mask))
+#define PTR_ALIGN(p, a)		((typeof(p))ALIGN((unsigned long)(p), (a)))
+#define IS_ALIGNED(x, a)	(((x) & ((typeof(x))(a) - 1)) == 0)
+
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
+
+#define FIELD_SIZEOF(t, f)	(sizeof(((t*)0)->f))
+#define DIV_ROUND_UP(n,d)	(((n) + (d) - 1) / (d))
+#define roundup(x, y)		((((x) + ((y) - 1)) / (y)) * (y))
 
 #define	KERN_EMERG	"<0>"	/* system is unusable			*/
 #define	KERN_ALERT	"<1>"	/* action must be taken immediately	*/

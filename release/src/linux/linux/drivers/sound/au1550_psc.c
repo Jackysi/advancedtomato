@@ -30,6 +30,7 @@
  *  675 Mass Ave, Cambridge, MA 02139, USA.
  *
  */
+
 #include <linux/version.h>
 #include <linux/module.h>
 #include <linux/string.h>
@@ -61,6 +62,14 @@
 
 #ifdef CONFIG_MIPS_DB1550
 #include <asm/db1x00.h>
+#endif
+
+#ifdef CONFIG_MIPS_PB1200
+#include <asm/pb1200.h>
+#endif
+
+#ifdef CONFIG_MIPS_DB1200
+#include <asm/db1200.h>
 #endif
 
 #undef OSS_DOCUMENTED_MIXER_SEMANTICS
@@ -521,7 +530,14 @@ stop_adc(struct au1550_state *s)
 	spin_unlock_irqrestore(&s->lock, flags);
 }
 
-
+/* 
+   NOTE: The xmit slots cannot be changed on the fly when in full-duplex 
+   because the AC'97 block must be stopped/started.  When using this driver 
+   in full-duplex (in & out at the same time), the DMA engine will stop if 
+   you disable the block.
+   TODO: change implementation to properly restart adc/dac after setting 
+   xmit slots.
+*/
 static void
 set_xmit_slots(int num_channels)
 {
@@ -565,6 +581,14 @@ set_xmit_slots(int num_channels)
 	} while ((stat & PSC_AC97STAT_DR) == 0);
 }
 
+/* 
+   NOTE: The recv slots cannot be changed on the fly when in full-duplex 
+   because the AC'97 block must be stopped/started.  When using this driver 
+   in full-duplex (in & out at the same time), the DMA engine will stop if 
+   you disable the block.
+   TODO: change implementation to properly restart adc/dac after setting 
+   recv slots.
+*/
 static void
 set_recv_slots(int num_channels)
 {
@@ -608,7 +632,6 @@ start_dac(struct au1550_state *s)
 
 	spin_lock_irqsave(&s->lock, flags);
 
-	set_xmit_slots(db->num_channels);
 	au_writel(PSC_AC97PCR_TC, PSC_AC97PCR);
 	au_sync();
 	au_writel(PSC_AC97PCR_TS, PSC_AC97PCR);
@@ -640,7 +663,6 @@ start_adc(struct au1550_state *s)
 			db->nextIn -= db->dmasize;
 	}
 
-	set_recv_slots(db->num_channels);
 	au1xxx_dbdma_start(db->dmanr);
 	au_writel(PSC_AC97PCR_RC, PSC_AC97PCR);
 	au_sync();
@@ -752,12 +774,16 @@ dac_dma_interrupt(int irq, void *dev_id, struct pt_regs *regs)
 	if (ac97c_stat & (AC97C_XU | AC97C_XO | AC97C_TE))
 		dbg("AC97C status = 0x%08x", ac97c_stat);
 #endif
+	/* There is a possiblity that we are getting 1 interrupt for
+	   multiple descriptors. Use ddma api to find out how many
+	   completed.
+	*/
 	db->dma_qcount--;
 
 	if (db->count >= db->fragsize) {
 		if (au1xxx_dbdma_put_source(db->dmanr, db->nextOut,
 							db->fragsize) == 0) {
-			err("qcount < 2 and no ring room!");
+			err("qcount < 2 and no ring room1!");
 		}
 		db->nextOut += db->fragsize;
 		if (db->nextOut >= db->rawbuf + db->dmasize)
@@ -941,11 +967,12 @@ translate_from_user(struct dmabuf *db, char* dmabuf, char* userbuf,
 
 		/* duplicate every audio frame src_factor times
 		*/
-		for (i = 0; i < db->src_factor; i++)
+		for (i = 0; i < db->src_factor; i++) {
 			memcpy(dmabuf, dmasample, db->dma_bytes_per_sample);
+			dmabuf += interp_bytes_per_sample;
+		}
 
 		userbuf += db->user_bytes_per_sample;
-		dmabuf += interp_bytes_per_sample;
 	}
 
 	return num_samples * interp_bytes_per_sample;
@@ -1203,7 +1230,7 @@ au1550_write(struct file *file, const char *buffer, size_t count, loff_t * ppos)
 		while ((db->dma_qcount < 2) && (db->count >= db->fragsize)) {
 			if (au1xxx_dbdma_put_source(db->dmanr, db->nextOut,
 							db->fragsize) == 0) {
-				err("qcount < 2 and no ring room!");
+				err("qcount < 2 and no ring room!0");
 			}
 			db->nextOut += db->fragsize;
 			if (db->nextOut >= db->rawbuf + db->dmasize)
@@ -1481,6 +1508,7 @@ au1550_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
 					return -EINVAL;
 				stop_adc(s);
 				s->dma_adc.num_channels = val;
+				set_recv_slots(val);
 				if ((ret = prog_dmabuf_adc(s)))
 					return ret;
 			}
@@ -1538,6 +1566,7 @@ au1550_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
 				}
 
 				s->dma_dac.num_channels = val;
+				set_xmit_slots(val);
 				if ((ret = prog_dmabuf_dac(s)))
 					return ret;
 			}
@@ -1832,10 +1861,8 @@ au1550_open(struct inode *inode, struct file *file)
 		down(&s->open_sem);
 	}
 
-	stop_dac(s);
-	stop_adc(s);
-
 	if (file->f_mode & FMODE_READ) {
+		stop_adc(s);
 		s->dma_adc.ossfragshift = s->dma_adc.ossmaxfrags =
 			s->dma_adc.subdivision = s->dma_adc.total_bytes = 0;
 		s->dma_adc.num_channels = 1;
@@ -1846,6 +1873,7 @@ au1550_open(struct inode *inode, struct file *file)
 	}
 
 	if (file->f_mode & FMODE_WRITE) {
+		stop_dac(s);
 		s->dma_dac.ossfragshift = s->dma_dac.ossmaxfrags =
 			s->dma_dac.subdivision = s->dma_dac.total_bytes = 0;
 		s->dma_dac.num_channels = 1;
@@ -2090,6 +2118,9 @@ au1550_probe(void)
 	s->ac97_ps = create_proc_read_entry (proc_str, 0, NULL,
 					     ac97_read_proc, &s->codec);
 #endif
+
+	set_xmit_slots(1);
+	set_recv_slots(1);
 
 	return 0;
 

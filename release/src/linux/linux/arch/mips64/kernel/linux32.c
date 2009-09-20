@@ -1101,6 +1101,7 @@ do_readv_writev32(int type, struct file *file, const struct iovec32 *vector,
 	 * specially as they have atomicity guarantees and can handle
 	 * iovec's natively
 	 */
+	inode = file->f_dentry->d_inode;
 	if (inode->i_sock) {
 		int err;
 		err = sock_readv_writev(type, inode, file, iov, count, tot_len);
@@ -1187,72 +1188,19 @@ bad_file:
    lseek back to original location.  They fail just like lseek does on
    non-seekable files.  */
 
-asmlinkage ssize_t sys32_pread(unsigned int fd, char * buf,
-			       size_t count, u32 unused, u64 a4, u64 a5)
+asmlinkage ssize_t sys32_pread(unsigned int fd, char *buf,
+                                 size_t count, u32 unused, u64 a4, u64 a5)
 {
-	ssize_t ret;
-	struct file * file;
-	ssize_t (*read)(struct file *, char *, size_t, loff_t *);
-	loff_t pos;
-
-	ret = -EBADF;
-	file = fget(fd);
-	if (!file)
-		goto bad_file;
-	if (!(file->f_mode & FMODE_READ))
-		goto out;
-	pos = merge_64(a4, a5);
-	ret = locks_verify_area(FLOCK_VERIFY_READ, file->f_dentry->d_inode,
-				file, pos, count);
-	if (ret)
-		goto out;
-	ret = -EINVAL;
-	if (!file->f_op || !(read = file->f_op->read))
-		goto out;
-	if (pos < 0)
-		goto out;
-	ret = read(file, buf, count, &pos);
-	if (ret > 0)
-		dnotify_parent(file->f_dentry, DN_ACCESS);
-out:
-	fput(file);
-bad_file:
-	return ret;
+	return sys_pread(fd, buf, count, merge_64(a4, a5));
 }
 
 asmlinkage ssize_t sys32_pwrite(unsigned int fd, const char * buf,
 			        size_t count, u32 unused, u64 a4, u64 a5)
 {
-	ssize_t ret;
-	struct file * file;
-	ssize_t (*write)(struct file *, const char *, size_t, loff_t *);
-	loff_t pos;
-
-	ret = -EBADF;
-	file = fget(fd);
-	if (!file)
-		goto bad_file;
-	if (!(file->f_mode & FMODE_WRITE))
-		goto out;
-	pos = merge_64(a4, a5);
-	ret = locks_verify_area(FLOCK_VERIFY_WRITE, file->f_dentry->d_inode,
-				file, pos, count);
-	if (ret)
-		goto out;
-	ret = -EINVAL;
-	if (!file->f_op || !(write = file->f_op->write))
-		goto out;
-	if (pos < 0)
-		goto out;
-
-	ret = write(file, buf, count, &pos);
-	if (ret > 0)
-		dnotify_parent(file->f_dentry, DN_MODIFY);
-out:
-	fput(file);
-bad_file:
-	return ret;
+	return sys_pwrite(fd, buf, count, merge_64(a4, a5));
 }
+
+
 /*
  * Ooo, nasty.  We need here to frob 32-bit unsigned longs to
  * 64-bit unsigned longs.

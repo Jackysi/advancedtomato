@@ -122,6 +122,7 @@
 #define  RXCONFIG_FLOW		0x00000020 /* Flow Control Enable */
 #define  RXCONFIG_FLOW_ACCEPT	0x00000040 /* Accept Unicast Flow Control Frame */
 #define  RXCONFIG_RFILT		0x00000080 /* Reject Filter */
+#define  RXCONFIG_CAM_ABSENT	0x00000100 /* CAM Absent */
 #define B44_RXMAXLEN	0x0404UL /* EMAC RX Max Packet Length */
 #define B44_TXMAXLEN	0x0408UL /* EMAC TX Max Packet Length */
 #define B44_MDIO_CTRL	0x0410UL /* EMAC MDIO Control */
@@ -229,8 +230,6 @@
 #define  SBIPSFLAG_IMASK4	0x3f000000 /* Which sbflags --> mips interrupt 4 */
 #define  SBIPSFLAG_ISHIFT4	24
 #define B44_SBTPSFLAG	0x0F18UL /* SB Target Port OCP Slave Flag */
-#define  SBTPS_NUM0_MASK	0x0000003f
-#define  SBTPS_F0EN0		0x00000040
 #define B44_SBADMATCH3	0x0F60UL /* SB Address Match 3 */
 #define B44_SBADMATCH2	0x0F68UL /* SB Address Match 2 */
 #define B44_SBADMATCH1	0x0F70UL /* SB Address Match 1 */
@@ -461,6 +460,8 @@ struct ring_info {
 };
 
 #define B44_MCAST_TABLE_SIZE	32
+#define B44_PHY_ADDR_NO_PHY	30
+#define B44_MDC_RATIO		5000000
 
 /* SW copy of device statistics, kept up to date by periodic timer
  * which probes HW values.  Must have same relative layout as HW

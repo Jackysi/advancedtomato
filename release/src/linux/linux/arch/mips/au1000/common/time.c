@@ -50,7 +50,6 @@
 #include <linux/mc146818rtc.h>
 #include <linux/timex.h>
 
-extern void startup_match20_interrupt(void);
 extern void do_softirq(void);
 extern volatile unsigned long wall_jiffies;
 unsigned long missed_heart_beats = 0;
@@ -59,14 +58,14 @@ static unsigned long r4k_offset; /* Amount to increment compare reg each time */
 static unsigned long r4k_cur;    /* What counter should be at next timer irq */
 extern rwlock_t xtime_lock;
 int	no_au1xxx_32khz;
-void	(*au1k_wait_ptr)(void);
+extern int allow_au1k_wait; 	/* default off for CP0 Counter */
 
 /* Cycle counter value at the previous timer interrupt.. */
 static unsigned int timerhi = 0, timerlo = 0;
 
 #ifdef CONFIG_PM
 #define MATCH20_INC 328
-extern void startup_match20_interrupt(void);
+extern void startup_match20_interrupt(void (*handler)(int, void *, struct pt_regs *));
 static unsigned long last_pc0, last_match20;
 #endif
 
@@ -385,7 +384,6 @@ void __init au1xxx_timer_setup(void)
 {
         unsigned int est_freq;
 	extern unsigned long (*do_gettimeoffset)(void);
-	extern void au1k_wait(void);
 
 	printk("calculating r4koff... ");
 	r4k_offset = cal_r4koff();
@@ -437,9 +435,6 @@ void __init au1xxx_timer_setup(void)
 		au_writel(0, SYS_TOYWRITE);
 		while (au_readl(SYS_COUNTER_CNTRL) & SYS_CNTRL_C0S);
 
-		au_writel(au_readl(SYS_WAKEMSK) | (1<<8), SYS_WAKEMSK);
-		au_writel(~0, SYS_WAKESRC);
-		au_sync();
 		while (au_readl(SYS_COUNTER_CNTRL) & SYS_CNTRL_M20);
 
 		/* setup match20 to interrupt once every 10ms */
@@ -447,13 +442,13 @@ void __init au1xxx_timer_setup(void)
 		au_writel(last_match20 + MATCH20_INC, SYS_TOYMATCH2);
 		au_sync();
 		while (au_readl(SYS_COUNTER_CNTRL) & SYS_CNTRL_M20);
-		startup_match20_interrupt();
+		startup_match20_interrupt(counter0_irq);
 
 		do_gettimeoffset = do_fast_pm_gettimeoffset;
 
 		/* We can use the real 'wait' instruction.
 		*/
-		au1k_wait_ptr = au1k_wait;
+		allow_au1k_wait = 1;
 	}
 
 #else

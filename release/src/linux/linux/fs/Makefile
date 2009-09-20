@@ -37,6 +37,7 @@ subdir-$(CONFIG_MSDOS_FS)	+= msdos
 subdir-$(CONFIG_VFAT_FS)	+= vfat
 subdir-$(CONFIG_BFS_FS)		+= bfs
 subdir-$(CONFIG_ISO9660_FS)	+= isofs
+subdir-$(CONFIG_CIFS)		+= cifs
 subdir-$(CONFIG_DEVFS_FS)	+= devfs
 subdir-$(CONFIG_HFSPLUS_FS)	+= hfsplus # Before hfs to find wrapped HFS+
 subdir-$(CONFIG_HFS_FS)		+= hfs
@@ -65,6 +66,7 @@ subdir-$(CONFIG_REISERFS_FS)	+= reiserfs
 subdir-$(CONFIG_DEVPTS_FS)	+= devpts
 subdir-$(CONFIG_SUN_OPENPROMFS)	+= openpromfs
 subdir-$(CONFIG_BEFS_FS)	+= befs
+subdir-$(CONFIG_SQUASHFS)	+= squashfs
 subdir-$(CONFIG_JFS_FS)		+= jfs
 subdir-$(CONFIG_XFS_FS)		+= xfs
 

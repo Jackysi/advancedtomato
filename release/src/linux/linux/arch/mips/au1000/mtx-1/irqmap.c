@@ -72,10 +72,10 @@ au1xxx_pci_irqmap(struct pci_dev *dev, unsigned char idsel, unsigned char pin)
 	 *	A       B       C       D
 	 */
 	{
-		{INTA, INTB, INTC, INTD},   /* IDSEL 0 */
-		{INTA, INTB, INTC, INTD},   /* IDSEL 1 */
-		{INTA, INTB, INTC, INTD},   /* IDSEL 2 */
-		{INTA, INTB, INTC, INTD},   /* IDSEL 3 */
+		{INTA, INTB, INTX, INTX},   /* IDSEL 0 */
+		{INTB, INTA, INTX, INTX},   /* IDSEL 1 */
+		{INTC, INTD, INTX, INTX},   /* IDSEL 2 */
+		{INTD, INTC, INTX, INTX},   /* IDSEL 3 */
 	};
 	const long min_idsel = 0, max_idsel = 3, irqs_per_slot = 4;
 	return PCI_IRQ_TABLE_LOOKUP;

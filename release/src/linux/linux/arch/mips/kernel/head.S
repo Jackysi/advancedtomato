@@ -28,12 +28,20 @@
 #include <asm/mipsregs.h>
 #include <asm/stackframe.h>
 
+#ifdef CONFIG_BCM4710
+#undef eret
+#define eret nop; nop; eret
+#endif
+
 		.text
+		j       kernel_entry
+		nop
+
 		/*
 		 * Reserved space for exception handlers.
 		 * Necessary for machines which link their kernels at KSEG0.
 		 */
-		.fill	0x400
+		.fill	0x3f4
 
 		/* The following two symbols are used for kernel profiling. */
 		EXPORT(stext)
@@ -43,9 +51,9 @@
 
 		/* Cache Error */
 		LEAF(except_vec2_generic)
+		.set	push
 		.set	noreorder
 		.set	noat
-		.set    mips0
 		/*
 		 * This is a very bad place to be.  Our cache error
 		 * detection has triggered.  If we have write-back data
@@ -64,9 +72,8 @@
 
 		j	cache_parity_error
 		 nop
+		.set	pop
 		END(except_vec2_generic)
-
-		.set	at
 
 		/*
 		 * Special interrupt vector for embedded MIPS.  This is a
@@ -76,8 +83,11 @@
 		 * size!
 		 */
 		NESTED(except_vec4, 0, sp)
+		.set	push
+		.set	noreorder
 1:		j	1b			/* Dummy, will be replaced */
 		 nop
+		.set	pop
 		END(except_vec4)
 
 		/*
@@ -87,8 +97,11 @@
 		 * unconditional jump to this vector.
 		 */
 		NESTED(except_vec_ejtag_debug, 0, sp)
+		.set	push
+		.set	noreorder
 		j	ejtag_debug_handler
 		 nop
+		.set	pop
 		END(except_vec_ejtag_debug)
 
 		__FINIT
@@ -97,6 +110,7 @@
 		 * EJTAG debug exception handler.
 		 */
 		NESTED(ejtag_debug_handler, PT_SIZE, sp)
+		.set	push
 		.set	noat
 		.set	noreorder
 		mtc0	k0, CP0_DESAVE
@@ -120,7 +134,7 @@ ejtag_return:
 		deret
 		.set	mips0
 		 nop
-		.set	at
+		.set	pop
 		END(ejtag_debug_handler)
 
 		__INIT
@@ -132,13 +146,17 @@ ejtag_return:
 		* unconditional jump to this vector.
 		*/
 		NESTED(except_vec_nmi, 0, sp)
+		.set	push
+		.set	noreorder
 		j       nmi_handler
 		 nop
+		.set	pop
 		END(except_vec_nmi)
 
 		__FINIT
 
 		NESTED(nmi_handler, PT_SIZE, sp)
+		.set	push
 		.set    noat
 		.set    noreorder
 		.set    mips3
@@ -147,8 +165,7 @@ ejtag_return:
 		 move   a0, sp
 		RESTORE_ALL
 		eret
-		.set    at
-		.set    mips0
+		.set	pop
 		END(nmi_handler)
 
 		__INIT
@@ -157,7 +174,20 @@ ejtag_return:
 		 * Kernel entry point
 		 */
 		NESTED(kernel_entry, 16, sp)
+		.set	push
+		/*
+		 * For the moment disable interrupts and mark the kernel mode.
+		 * A full initialization of the CPU's status register is done
+		 * later in per_cpu_trap_init().
+		 */
+		mfc0	t0, CP0_STATUS
+		or	t0, ST0_CU0|0x1f
+		xor	t0, 0x1f
+		mtc0	t0, CP0_STATUS
+
 		.set	noreorder
+		sll	zero,3				# ehb
+		.set	reorder
 
 		/*
 		 * The firmware/bootloader passes argc/argp/envp
@@ -170,8 +200,8 @@ ejtag_return:
 		la	t1, (_end - 4)
 1:
 		addiu	t0, 4
+		sw	zero, (t0)
 		bne	t0, t1, 1b
-		 sw	zero, (t0)
 
 		/*
 		 * Stack for kernel and init, current variable
@@ -182,7 +212,7 @@ ejtag_return:
 		sw	t0, kernelsp
 
 		jal	init_arch
-		 nop
+		.set	pop
 		END(kernel_entry)
 
 
@@ -193,17 +223,26 @@ ejtag_return:
  * function after setting up the stack and gp registers.
  */
 		LEAF(smp_bootstrap)
-		.set push
-		.set noreorder
-		mtc0	zero, CP0_WIRED
-		CLI
+		.set	push
+		/*
+		 * For the moment disable interrupts and bootstrap exception
+		 * vectors and mark the kernel mode.  A full initialization of
+		 * the CPU's status register is done later in
+		 * per_cpu_trap_init().
+		 */
 		mfc0	t0, CP0_STATUS
-		li	t1, ~(ST0_CU1|ST0_CU2|ST0_CU3|ST0_KX|ST0_SX|ST0_UX)
-		and	t0, t1
-		or	t0, (ST0_CU0);
+		or	t0, ST0_CU0|ST0_BEV|0x1f
+		xor	t0, ST0_BEV|0x1f
+		mtc0	t0, CP0_STATUS
+
+		.set	noreorder
+		sll	zero,3				# ehb
+		.set	reorder
+
+		mtc0	zero, CP0_WIRED
+
 		jal	start_secondary
-		 mtc0	t0, CP0_STATUS
-		.set pop
+		.set	pop
 		END(smp_bootstrap)
 #endif
 

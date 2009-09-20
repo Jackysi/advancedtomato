@@ -31,12 +31,14 @@ static int std_ide_default_irq(ide_ioreg_t base)
 static ide_ioreg_t std_ide_default_io_base(int index)
 {
 	switch (index) {
+#if 0
 		case 0:	return 0x1f0;
 		case 1:	return 0x170;
 		case 2: return 0x1e8;
 		case 3: return 0x168;
 		case 4: return 0x1e0;
 		case 5: return 0x160;
+#endif
 		default:
 			return 0;
 	}

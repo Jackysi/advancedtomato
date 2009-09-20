@@ -757,10 +757,18 @@ do {									\
 #define read_c0_config1()	__read_32bit_c0_register($16, 1)
 #define read_c0_config2()	__read_32bit_c0_register($16, 2)
 #define read_c0_config3()	__read_32bit_c0_register($16, 3)
+#define read_c0_config4()	__read_32bit_c0_register($16, 4)
+#define read_c0_config5()	__read_32bit_c0_register($16, 5)
+#define read_c0_config6()	__read_32bit_c0_register($16, 6)
+#define read_c0_config7()	__read_32bit_c0_register($16, 7)
 #define write_c0_config(val)	__write_32bit_c0_register($16, 0, val)
 #define write_c0_config1(val)	__write_32bit_c0_register($16, 1, val)
 #define write_c0_config2(val)	__write_32bit_c0_register($16, 2, val)
 #define write_c0_config3(val)	__write_32bit_c0_register($16, 3, val)
+#define write_c0_config4(val)	__write_32bit_c0_register($16, 4, val)
+#define write_c0_config5(val)	__write_32bit_c0_register($16, 5, val)
+#define write_c0_config6(val)	__write_32bit_c0_register($16, 6, val)
+#define write_c0_config7(val)	__write_32bit_c0_register($16, 7, val)
 
 /*
  * The WatchLo register.  There may be upto 8 of them.
@@ -856,42 +864,34 @@ do {									\
  */
 static inline void tlb_probe(void)
 {
-	rm9000_tlb_hazard();
 	__asm__ __volatile__(
 		".set noreorder\n\t"
 		"tlbp\n\t"
 		".set reorder");
-	rm9000_tlb_hazard();
 }
 
 static inline void tlb_read(void)
 {
-	rm9000_tlb_hazard();
 	__asm__ __volatile__(
 		".set noreorder\n\t"
 		"tlbr\n\t"
 		".set reorder");
-	rm9000_tlb_hazard();
 }
 
 static inline void tlb_write_indexed(void)
 {
-	rm9000_tlb_hazard();
 	__asm__ __volatile__(
 		".set noreorder\n\t"
 		"tlbwi\n\t"
 		".set reorder");
-	rm9000_tlb_hazard();
 }
 
 static inline void tlb_write_random(void)
 {
-	rm9000_tlb_hazard();
 	__asm__ __volatile__(
 		".set noreorder\n\t"
 		"tlbwr\n\t"
 		".set reorder");
-	rm9000_tlb_hazard();
 }
 
 /*

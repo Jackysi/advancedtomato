@@ -17,6 +17,7 @@ tristate 'IP6 tables support (required for filtering/masq/NAT)' CONFIG_IP6_NF_IP
 if [ "$CONFIG_IP6_NF_IPTABLES" != "n" ]; then
 # The simple matches.
   dep_tristate '  limit match support' CONFIG_IP6_NF_MATCH_LIMIT $CONFIG_IP6_NF_IPTABLES
+  dep_tristate '  condition match support' CONFIG_IP6_NF_MATCH_CONDITION $CONFIG_IP6_NF_IPTABLES
   dep_tristate '  MAC address match support' CONFIG_IP6_NF_MATCH_MAC $CONFIG_IP6_NF_IPTABLES
   if [ "$CONFIG_EXPERIMENTAL" = "y" ]; then
     dep_tristate '  Routing header match support (EXPERIMENTAL)' CONFIG_IP6_NF_MATCH_RT $CONFIG_IP6_NF_IPTABLES
@@ -59,6 +60,9 @@ if [ "$CONFIG_IP6_NF_IPTABLES" != "n" ]; then
   if [ "$CONFIG_IP6_NF_FILTER" != "n" ]; then
     dep_tristate '    LOG target support' CONFIG_IP6_NF_TARGET_LOG $CONFIG_IP6_NF_FILTER
   fi
+  if [ "$CONFIG_IP6_NF_FILTER" != "n" ]; then
+    dep_tristate '    REJECT target support' CONFIG_IP6_NF_TARGET_REJECT $CONFIG_IP6_NF_FILTER
+  fi
 
 #  if [ "$CONFIG_IP6_NF_FILTER" != "n" ]; then
 #    dep_tristate '    REJECT target support' CONFIG_IP6_NF_TARGET_REJECT $CONFIG_IP6_NF_FILTER
@@ -71,6 +75,7 @@ if [ "$CONFIG_IP6_NF_IPTABLES" != "n" ]; then
   if [ "$CONFIG_IP6_NF_MANGLE" != "n" ]; then
 #    dep_tristate '    TOS target support' CONFIG_IP6_NF_TARGET_TOS $CONFIG_IP_NF_MANGLE
     dep_tristate '    MARK target support' CONFIG_IP6_NF_TARGET_MARK $CONFIG_IP6_NF_MANGLE
+    dep_tristate '    IMQ target support' CONFIG_IP6_NF_TARGET_IMQ $CONFIG_IP6_NF_MANGLE
   fi
   #dep_tristate '  LOG target support' CONFIG_IP6_NF_TARGET_LOG $CONFIG_IP6_NF_IPTABLES
 fi

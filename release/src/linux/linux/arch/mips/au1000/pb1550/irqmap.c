@@ -50,6 +50,9 @@
 au1xxx_irq_map_t au1xxx_irq_map[] = {
 	{ AU1000_GPIO_0, INTC_INT_LOW_LEVEL, 0 },
 	{ AU1000_GPIO_1, INTC_INT_LOW_LEVEL, 0 },
+#ifdef CONFIG_AU1XXX_SMC91111
+	{ AU1000_GPIO_3, INTC_INT_LOW_LEVEL, 0 },
+#endif
 };
 
 int au1xxx_nr_irqs = sizeof(au1xxx_irq_map)/sizeof(au1xxx_irq_map_t);

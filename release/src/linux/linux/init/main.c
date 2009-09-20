@@ -296,7 +296,6 @@ static void __init parse_options(char *line)
 
 
 extern void setup_arch(char **);
-extern void cpu_idle(void);
 
 unsigned long wait_init_idle;
 

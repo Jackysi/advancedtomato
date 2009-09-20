@@ -122,7 +122,7 @@
 #define be16_to_cpus __be16_to_cpus
 #endif
 
-#if defined(__KERNEL__)
+//#if defined(__KERNEL__)
 /*
  * Handle ntohl and suches. These have various compatibility
  * issues - like we want to give the prototype even though we
@@ -165,7 +165,7 @@ extern unsigned short int	htons(unsigned short int);
 
 #endif /* OPTIMIZE */
 
-#endif /* KERNEL */
+//#endif /* KERNEL */
 
 
 #endif /* _LINUX_BYTEORDER_GENERIC_H */

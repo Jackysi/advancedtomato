@@ -121,15 +121,14 @@ reschedule:
 
 trace_a_syscall:
 	SAVE_STATIC
-	sw	t2, PT_R1(sp)
+	move	s0, t2
 	jal	syscall_trace
-	lw	t2, PT_R1(sp)
 
 	lw	a0, PT_R4(sp)		# Restore argument registers
 	lw	a1, PT_R5(sp)
 	lw	a2, PT_R6(sp)
 	lw	a3, PT_R7(sp)
-	jalr	t2
+	jalr	s0
 
 	li	t0, -EMAXERRNO - 1	# error?
 	sltu	t0, t0, v0

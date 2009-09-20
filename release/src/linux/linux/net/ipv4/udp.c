@@ -860,6 +860,9 @@ static void udp_close(struct sock *sk, long timeout)
 
 static int udp_queue_rcv_skb(struct sock * sk, struct sk_buff *skb)
 {
+#if 1
+	struct udp_opt *up =  &(sk->tp_pinfo.af_udp);
+#endif
 	/*
 	 *	Charge it to the socket, dropping if the queue is full.
 	 */
@@ -874,6 +877,67 @@ static int udp_queue_rcv_skb(struct sock * sk, struct sk_buff *skb)
 			return -1;
 		}
 		skb->ip_summed = CHECKSUM_UNNECESSARY;
+	}
+#endif
+
+	if (up->encap_type) {
+		/*
+		 * This is an encapsulation socket so pass the skb to
+		 * the socket's udp_encap_rcv() hook. Otherwise, just
+		 * fall through and pass this up the UDP socket.
+		 * up->encap_rcv() returns the following value:
+		 * =0 if skb was successfully passed to the encap
+		 *    handler or was discarded by it.
+		 * >0 if skb should be passed on to UDP.
+		 * <0 if skb should be resubmitted as proto -N
+		 */
+
+		/* if we're overly short, let UDP handle it */
+		if (skb->len > sizeof(struct udphdr) &&
+		    up->encap_rcv != NULL) {
+			int ret;
+
+			ret = (*up->encap_rcv)(sk, skb);
+			if (ret <= 0) {
+				UDP_INC_STATS_BH(UdpInDatagrams);
+				return -ret;
+			}
+		}
+
+		/* FALLTHROUGH -- it's a UDP Packet */
+	}
+
+#ifdef CONFIG_IPSEC_NAT_TRAVERSAL
+	if (up->esp_in_udp) {
+		/*
+		 * Set skb->sk and xmit packet to ipsec_rcv.
+		 *
+		 * If ret != 0, ipsec_rcv refused the packet (not ESPinUDP),
+		 * restore skb->sk and fall back to sock_queue_rcv_skb
+		 */
+		struct inet_protocol *esp = NULL;
+
+#if defined(CONFIG_IPSEC) && !defined(CONFIG_IPSEC_MODULE)
+               /* optomize only when we know it is statically linked */
+		extern struct inet_protocol esp_protocol;
+		esp = &esp_protocol;
+#else
+		for (esp = (struct inet_protocol *)inet_protos[IPPROTO_ESP & (MAX_INET_PROTOS - 1)];
+			(esp) && (esp->protocol != IPPROTO_ESP);
+			esp = esp->next);
+#endif
+
+		if (esp && esp->handler) {
+			struct sock *sav_sk = skb->sk;
+			skb->sk = sk;
+			if (esp->handler(skb) == 0) {
+				skb->sk = sav_sk;
+				/*not sure we might count ESPinUDP as UDP...*/
+				UDP_INC_STATS_BH(UdpInDatagrams);
+				return 0;
+			}
+			skb->sk = sav_sk;
+		}
 	}
 #endif
 
@@ -1100,13 +1164,46 @@ out:
 	return len;
 }
 
+static int udp_setsockopt(struct sock *sk, int level, int optname,
+	char *optval, int optlen)
+{
+	struct udp_opt *tp = &(sk->tp_pinfo.af_udp);
+	int val;
+	int err = 0;
+
+	if (level != SOL_UDP)
+		return ip_setsockopt(sk, level, optname, optval, optlen);
+
+	if(optlen<sizeof(int))
+		return -EINVAL;
+
+	if (get_user(val, (int *)optval))
+		return -EFAULT;
+	
+	lock_sock(sk);
+
+	switch(optname) {
+#ifdef CONFIG_IPSEC_NAT_TRAVERSAL
+		case UDP_ENCAP:
+			tp->esp_in_udp = val;
+			break;
+#endif
+		default:
+			err = -ENOPROTOOPT;
+			break;
+	}
+
+	release_sock(sk);
+	return err;
+}
+
 struct proto udp_prot = {
  	name:		"UDP",
 	close:		udp_close,
 	connect:	udp_connect,
 	disconnect:	udp_disconnect,
 	ioctl:		udp_ioctl,
-	setsockopt:	ip_setsockopt,
+	setsockopt:	udp_setsockopt,
 	getsockopt:	ip_getsockopt,
 	sendmsg:	udp_sendmsg,
 	recvmsg:	udp_recvmsg,

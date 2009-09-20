@@ -223,6 +223,13 @@
 #define TXX927_SERIAL_PORT_DEFNS
 #endif
 
+#ifdef CONFIG_BCM947XX
+/* reserve 4 ports to be configured at runtime */
+#define BCM947XX_SERIAL_PORT_DEFNS { 0, }, { 0, }, { 0, }, { 0, },
+#else
+#define BCM947XX_SERIAL_PORT_DEFNS
+#endif
+
 #ifdef CONFIG_HAVE_STD_PC_SERIAL_PORT
 #define STD_SERIAL_PORT_DEFNS			\
 	/* UART CLK   PORT IRQ     FLAGS        */			\
@@ -470,6 +477,7 @@
 #define SERIAL_PORT_DFNS			\
 	ATLAS_SERIAL_PORT_DEFNS			\
 	AU1000_SERIAL_PORT_DEFNS		\
+	BCM947XX_SERIAL_PORT_DEFNS		\
 	COBALT_SERIAL_PORT_DEFNS		\
 	DDB5477_SERIAL_PORT_DEFNS		\
 	EV96100_SERIAL_PORT_DEFNS		\

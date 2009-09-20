@@ -30,15 +30,16 @@ if [ "$CONFIG_PCMCIA" != "n" ]; then
       dep_tristate '  M8xx support' CONFIG_PCMCIA_M8XX $CONFIG_PCMCIA
    fi
    if [ "$CONFIG_SOC_AU1X00" = "y" ]; then
-      dep_tristate '  Au1x00 PCMCIA support' CONFIG_PCMCIA_AU1X00 $CONFIG_PCMCIA 
-      if [ "$CONFIG_PCMCIA_AU1X00" != "n" ]; then
-        bool '  Pb1x00 board support' CONFIG_PCMCIA_PB1X00
-        bool '  Db1x00 board support' CONFIG_PCMCIA_DB1X00
-        bool '  XXS1500 board support' CONFIG_PCMCIA_XXS1500
-      fi
+      dep_tristate '  Au1x00 PCMCIA support' CONFIG_PCMCIA_AU1X00 $CONFIG_PCMCIA
+   fi
+   if [ "$CONFIG_BCM4710" = "y" ]; then
+      dep_tristate '  Broadcom4710 PCMCIA support' CONFIG_PCMCIA_BCM4710 $CONFIG_PCMCIA
    fi
    if [ "$CONFIG_SIBYTE_SB1xxx_SOC" = "y" ]; then
       dep_bool '  SiByte PCMCIA support' CONFIG_PCMCIA_SIBYTE $CONFIG_PCMCIA $CONFIG_BLK_DEV_IDE_SIBYTE
+   fi
+   if [ "$CONFIG_VRC4171" = "y" -o "$CONFIG_VRC4171" = "m" ]; then
+      dep_tristate '  NEC VRC4171 Card Controllers support' CONFIG_PCMCIA_VRC4171 $CONFIG_PCMCIA
    fi
    if [ "$CONFIG_VRC4173" = "y" -o "$CONFIG_VRC4173" = "m" ]; then
       dep_tristate '  NEC VRC4173 CARDU support' CONFIG_PCMCIA_VRC4173 $CONFIG_PCMCIA

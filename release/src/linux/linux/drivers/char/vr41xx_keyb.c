@@ -308,7 +308,7 @@ void __devinit kbd_init_hw(void)
 			if (found != 0) {
 				kiu_base = VRC4173_KIU_OFFSET;
 				mkiuintreg = VRC4173_MKIUINTREG_OFFSET;
-				vrc4173_clock_supply(VRC4173_KIU_CLOCK);
+				vrc4173_supply_clock(VRC4173_KIU_CLOCK);
 			}
 		}
 #endif
@@ -325,7 +325,7 @@ void __devinit kbd_init_hw(void)
 
 	if (current_cpu_data.cputype == CPU_VR4111 ||
 	    current_cpu_data.cputype == CPU_VR4121)
-		vr41xx_clock_supply(KIU_CLOCK);
+		vr41xx_supply_clock(KIU_CLOCK);
 
 	kiu_writew(KIURST_KIURST, KIURST);
 

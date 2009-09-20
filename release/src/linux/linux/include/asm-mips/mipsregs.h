@@ -467,6 +467,60 @@
 #define MIPS_CONF_AT		(_ULCAST_(3) << 13)
 #define MIPS_CONF_M		(_ULCAST_(1) << 31)
 
+
+/*
+ * Bits in the MIPS32/64 PRA coprocessor 0 config registers 1 and above.
+ */
+#define MIPS_CONF1_FP		(_ULCAST_(1) <<  0)
+#define MIPS_CONF1_EP		(_ULCAST_(1) <<  1)
+#define MIPS_CONF1_CA		(_ULCAST_(1) <<  2)
+#define MIPS_CONF1_WR		(_ULCAST_(1) <<  3)
+#define MIPS_CONF1_PC		(_ULCAST_(1) <<  4)
+#define MIPS_CONF1_MD		(_ULCAST_(1) <<  5)
+#define MIPS_CONF1_C2		(_ULCAST_(1) <<  6)
+#define MIPS_CONF1_DA		(_ULCAST_(7) <<  7)
+#define MIPS_CONF1_DL		(_ULCAST_(7) << 10)
+#define MIPS_CONF1_DS		(_ULCAST_(7) << 13)
+#define MIPS_CONF1_IA		(_ULCAST_(7) << 16)
+#define MIPS_CONF1_IL		(_ULCAST_(7) << 19)
+#define MIPS_CONF1_IS		(_ULCAST_(7) << 22)
+#define MIPS_CONF1_TLBS		(_ULCAST_(63)<< 25)
+
+#define MIPS_CONF2_SA		(_ULCAST_(15)<<  0)
+#define MIPS_CONF2_SL		(_ULCAST_(15)<<  4)
+#define MIPS_CONF2_SS		(_ULCAST_(15)<<  8)
+#define MIPS_CONF2_SU		(_ULCAST_(15)<< 12)
+#define MIPS_CONF2_TA		(_ULCAST_(15)<< 16)
+#define MIPS_CONF2_TL		(_ULCAST_(15)<< 20)
+#define MIPS_CONF2_TS		(_ULCAST_(15)<< 24)
+#define MIPS_CONF2_TU		(_ULCAST_(7) << 28)
+
+#define MIPS_CONF3_TL		(_ULCAST_(1) <<  0)
+#define MIPS_CONF3_SM		(_ULCAST_(1) <<  1)
+#define MIPS_CONF3_MT		(_ULCAST_(1) <<  2)
+#define MIPS_CONF3_SP		(_ULCAST_(1) <<  4)
+#define MIPS_CONF3_VINT		(_ULCAST_(1) <<  5)
+#define MIPS_CONF3_VEIC		(_ULCAST_(1) <<  6)
+#define MIPS_CONF3_LPA		(_ULCAST_(1) <<  7)
+#define MIPS_CONF3_DSP		(_ULCAST_(1) << 10)
+#define MIPS_CONF3_ULRI		(_ULCAST_(1) << 13)
+
+#define MIPS_CONF7_WII		(_ULCAST_(1) << 31)
+
+#define MIPS_CONF7_RPS		(_ULCAST_(1) << 2)
+
+
+/*
+ * Bits in the MIPS32/64 coprocessor 1 (FPU) revision register.
+ */
+#define MIPS_FPIR_S		(_ULCAST_(1) << 16)
+#define MIPS_FPIR_D		(_ULCAST_(1) << 17)
+#define MIPS_FPIR_PS		(_ULCAST_(1) << 18)
+#define MIPS_FPIR_3D		(_ULCAST_(1) << 19)
+#define MIPS_FPIR_W		(_ULCAST_(1) << 20)
+#define MIPS_FPIR_L		(_ULCAST_(1) << 21)
+#define MIPS_FPIR_F64		(_ULCAST_(1) << 22)
+
 /*
  * R10000 performance counter definitions.
  *
@@ -757,10 +811,18 @@ do {									\
 #define read_c0_config1()	__read_32bit_c0_register($16, 1)
 #define read_c0_config2()	__read_32bit_c0_register($16, 2)
 #define read_c0_config3()	__read_32bit_c0_register($16, 3)
+#define read_c0_config4()	__read_32bit_c0_register($16, 4)
+#define read_c0_config5()	__read_32bit_c0_register($16, 5)
+#define read_c0_config6()	__read_32bit_c0_register($16, 6)
+#define read_c0_config7()	__read_32bit_c0_register($16, 7)
 #define write_c0_config(val)	__write_32bit_c0_register($16, 0, val)
 #define write_c0_config1(val)	__write_32bit_c0_register($16, 1, val)
 #define write_c0_config2(val)	__write_32bit_c0_register($16, 2, val)
 #define write_c0_config3(val)	__write_32bit_c0_register($16, 3, val)
+#define write_c0_config4(val)	__write_32bit_c0_register($16, 4, val)
+#define write_c0_config5(val)	__write_32bit_c0_register($16, 5, val)
+#define write_c0_config6(val)	__write_32bit_c0_register($16, 6, val)
+#define write_c0_config7(val)	__write_32bit_c0_register($16, 7, val)
 
 /*
  * The WatchLo register.  There may be upto 8 of them.
@@ -874,42 +936,34 @@ do {									\
  */
 static inline void tlb_probe(void)
 {
-	rm9000_tlb_hazard();
 	__asm__ __volatile__(
 		".set noreorder\n\t"
 		"tlbp\n\t"
 		".set reorder");
-	rm9000_tlb_hazard();
 }
 
 static inline void tlb_read(void)
 {
-	rm9000_tlb_hazard();
 	__asm__ __volatile__(
 		".set noreorder\n\t"
 		"tlbr\n\t"
 		".set reorder");
-	rm9000_tlb_hazard();
 }
 
 static inline void tlb_write_indexed(void)
 {
-	rm9000_tlb_hazard();
 	__asm__ __volatile__(
 		".set noreorder\n\t"
 		"tlbwi\n\t"
 		".set reorder");
-	rm9000_tlb_hazard();
 }
 
 static inline void tlb_write_random(void)
 {
-	rm9000_tlb_hazard();
 	__asm__ __volatile__(
 		".set noreorder\n\t"
 		"tlbwr\n\t"
 		".set reorder");
-	rm9000_tlb_hazard();
 }
 
 /*
@@ -957,6 +1011,16 @@ __BUILD_SET_C0(status)
 __BUILD_SET_C0(cause)
 __BUILD_SET_C0(config)
 __BUILD_SET_C0(intcontrol)
+
+#ifdef CONFIG_BCM947XX
+/*
+ * Functions to access the performance counter and control registers
+ */
+extern asmlinkage unsigned int read_perf_cntr(unsigned int counter);
+extern asmlinkage void write_perf_cntr(unsigned int counter, unsigned int val);
+extern asmlinkage unsigned int read_perf_cntl(unsigned int counter);
+extern asmlinkage void write_perf_cntl(unsigned int counter, unsigned int val);
+#endif
 
 #endif /* !__ASSEMBLY__ */
 

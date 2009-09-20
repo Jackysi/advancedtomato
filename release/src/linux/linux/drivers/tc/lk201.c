@@ -5,7 +5,7 @@
  * for more details.
  *
  * Copyright (C) 1999-2002 Harald Koerfgen <hkoerfg@web.de>
- * Copyright (C) 2001, 2002, 2003  Maciej W. Rozycki <macro@ds2.pg.gda.pl>
+ * Copyright (C) 2001, 2002, 2003, 2004  Maciej W. Rozycki
  */
 
 #include <linux/config.h>
@@ -23,8 +23,8 @@
 #include <asm/keyboard.h>
 #include <asm/dec/tc.h>
 #include <asm/dec/machtype.h>
+#include <asm/dec/serial.h>
 
-#include "zs.h"
 #include "lk201.h"
 
 /*
@@ -55,19 +55,20 @@ unsigned char *kbd_sysrq_xlate = lk201_sysrq_xlate;
 unsigned char kbd_sysrq_key = -1;
 #endif
 
-#define KEYB_LINE	3
+#define KEYB_LINE_ZS	3
+#define KEYB_LINE_DZ	0
 
-static int __init lk201_init(struct dec_serial *);
-static void __init lk201_info(struct dec_serial *);
-static void lk201_kbd_rx_char(unsigned char, unsigned char);
+static int __init lk201_init(void *);
+static void __init lk201_info(void *);
+static void lk201_rx_char(unsigned char, unsigned char);
 
-struct zs_hook lk201_kbdhook = {
+static struct dec_serial_hook lk201_hook = {
 	.init_channel	= lk201_init,
 	.init_info	= lk201_info,
 	.rx_char	= NULL,
 	.poll_rx_char	= NULL,
 	.poll_tx_char	= NULL,
-	.cflags		= B4800 | CS8 | CSTOPB | CLOCAL
+	.cflags		= B4800 | CS8 | CSTOPB | CLOCAL,
 };
 
 /*
@@ -93,28 +94,28 @@ static unsigned char lk201_reset_string[] = {
 	LK_CMD_ENB_BELL, LK_PARAM_VOLUME(4),
 };
 
-static struct dec_serial* lk201kbd_info;
+static void *lk201_handle;
 
-static int lk201_send(struct dec_serial *info, unsigned char ch)
+static int lk201_send(unsigned char ch)
 {
-	if (info->hook->poll_tx_char(info, ch)) {
+	if (lk201_hook.poll_tx_char(lk201_handle, ch)) {
 		printk(KERN_ERR "lk201: transmit timeout\n");
 		return -EIO;
 	}
 	return 0;
 }
 
-static inline int lk201_get_id(struct dec_serial *info)
+static inline int lk201_get_id(void)
 {
-	return lk201_send(info, LK_CMD_REQ_ID);
+	return lk201_send(LK_CMD_REQ_ID);
 }
 
-static int lk201_reset(struct dec_serial *info)
+static int lk201_reset(void)
 {
 	int i, r;
 
 	for (i = 0; i < sizeof(lk201_reset_string); i++) {
-		r = lk201_send(info, lk201_reset_string[i]);
+		r = lk201_send(lk201_reset_string[i]);
 		if (r < 0)
 			return r;
 	}
@@ -203,24 +204,26 @@ static void parse_kbd_rate(struct kbd_repeat *r)
 
 static int write_kbd_rate(struct kbd_repeat *rep)
 {
-	struct dec_serial* info = lk201kbd_info;
 	int delay, rate;
 	int i;
 
 	delay = rep->delay / 5;
 	rate = rep->rate;
 	for (i = 0; i < 4; i++) {
-		if (info->hook->poll_tx_char(info, LK_CMD_RPT_RATE(i)))
+		if (lk201_hook.poll_tx_char(lk201_handle,
+					    LK_CMD_RPT_RATE(i)))
 			return 1;
-		if (info->hook->poll_tx_char(info, LK_PARAM_DELAY(delay)))
+		if (lk201_hook.poll_tx_char(lk201_handle,
+					    LK_PARAM_DELAY(delay)))
 			return 1;
-		if (info->hook->poll_tx_char(info, LK_PARAM_RATE(rate)))
+		if (lk201_hook.poll_tx_char(lk201_handle,
+					    LK_PARAM_RATE(rate)))
 			return 1;
 	}
 	return 0;
 }
 
-static int lk201kbd_rate(struct kbd_repeat *rep)
+static int lk201_kbd_rate(struct kbd_repeat *rep)
 {
 	if (rep == NULL)
 		return -EINVAL;
@@ -237,10 +240,8 @@ static int lk201kbd_rate(struct kbd_repeat *rep)
 	return 0;
 }
 
-static void lk201kd_mksound(unsigned int hz, unsigned int ticks)
+static void lk201_kd_mksound(unsigned int hz, unsigned int ticks)
 {
-	struct dec_serial* info = lk201kbd_info;
-
 	if (!ticks)
 		return;
 
@@ -253,20 +254,19 @@ static void lk201kd_mksound(unsigned int hz, unsigned int ticks)
 		ticks = 7;
 	ticks = 7 - ticks;
 
-	if (info->hook->poll_tx_char(info, LK_CMD_ENB_BELL))
+	if (lk201_hook.poll_tx_char(lk201_handle, LK_CMD_ENB_BELL))
 		return;
-	if (info->hook->poll_tx_char(info, LK_PARAM_VOLUME(ticks)))
+	if (lk201_hook.poll_tx_char(lk201_handle, LK_PARAM_VOLUME(ticks)))
 		return;
-	if (info->hook->poll_tx_char(info, LK_CMD_BELL))
+	if (lk201_hook.poll_tx_char(lk201_handle, LK_CMD_BELL))
 		return;
 }
 
 void kbd_leds(unsigned char leds)
 {
-	struct dec_serial* info = lk201kbd_info;
 	unsigned char l = 0;
 
-	if (!info)		/* FIXME */
+	if (!lk201_handle)		/* FIXME */
 		return;
 
 	/* FIXME -- Only Hold and Lock LEDs for now. --macro */
@@ -275,13 +275,13 @@ void kbd_leds(unsigned char leds)
 	if (leds & LED_CAP)
 		l |= LK_LED_LOCK;
 
-	if (info->hook->poll_tx_char(info, LK_CMD_LEDS_ON))
+	if (lk201_hook.poll_tx_char(lk201_handle, LK_CMD_LEDS_ON))
 		return;
-	if (info->hook->poll_tx_char(info, LK_PARAM_LED_MASK(l)))
+	if (lk201_hook.poll_tx_char(lk201_handle, LK_PARAM_LED_MASK(l)))
 		return;
-	if (info->hook->poll_tx_char(info, LK_CMD_LEDS_OFF))
+	if (lk201_hook.poll_tx_char(lk201_handle, LK_CMD_LEDS_OFF))
 		return;
-	if (info->hook->poll_tx_char(info, LK_PARAM_LED_MASK(~l)))
+	if (lk201_hook.poll_tx_char(lk201_handle, LK_PARAM_LED_MASK(~l)))
 		return;
 }
 
@@ -307,7 +307,7 @@ char kbd_unexpected_up(unsigned char keycode)
 	return 0x80;
 }
 
-static void lk201_kbd_rx_char(unsigned char ch, unsigned char stat)
+static void lk201_rx_char(unsigned char ch, unsigned char fl)
 {
 	static unsigned char id[6];
 	static int id_i;
@@ -316,9 +316,8 @@ static void lk201_kbd_rx_char(unsigned char ch, unsigned char stat)
 	static int prev_scancode;
 	unsigned char c = scancodeRemap[ch];
 
-	if (stat && stat != TTY_OVERRUN) {
-		printk(KERN_ERR "lk201: keyboard receive error: 0x%02x\n",
-		       stat);
+	if (fl != TTY_NORMAL && fl != TTY_OVERRUN) {
+		printk(KERN_ERR "lk201: keyboard receive error: 0x%02x\n", fl);
 		return;
 	}
 
@@ -335,7 +334,7 @@ static void lk201_kbd_rx_char(unsigned char ch, unsigned char stat)
 			/* OK, the power-up concluded. */
 			lk201_report(id);
 			if (id[2] == LK_STAT_PWRUP_OK)
-				lk201_get_id(lk201kbd_info);
+				lk201_get_id();
 			else {
 				id_i = 0;
 				printk(KERN_ERR "lk201: keyboard power-up "
@@ -345,7 +344,7 @@ static void lk201_kbd_rx_char(unsigned char ch, unsigned char stat)
 			/* We got the ID; report it and start operation. */
 			id_i = 0;
 			lk201_id(id);
-			lk201_reset(lk201kbd_info);
+			lk201_reset();
 		}
 		return;
 	}
@@ -398,29 +397,28 @@ static void lk201_kbd_rx_char(unsigned char ch, unsigned char stat)
 	tasklet_schedule(&keyboard_tasklet);
 }
 
-static void __init lk201_info(struct dec_serial *info)
+static void __init lk201_info(void *handle)
 {
 }
 
-static int __init lk201_init(struct dec_serial *info)
+static int __init lk201_init(void *handle)
 {
 	/* First install handlers. */
-	lk201kbd_info = info;
-	kbd_rate = lk201kbd_rate;
-	kd_mksound = lk201kd_mksound;
+	lk201_handle = handle;
+	kbd_rate = lk201_kbd_rate;
+	kd_mksound = lk201_kd_mksound;
 
-	info->hook->rx_char = lk201_kbd_rx_char;
+	lk201_hook.rx_char = lk201_rx_char;
 
 	/* Then just issue a reset -- the handlers will do the rest. */
-	lk201_send(info, LK_CMD_POWER_UP);
+	lk201_send(LK_CMD_POWER_UP);
 
 	return 0;
 }
 
 void __init kbd_init_hw(void)
 {
-	extern int register_zs_hook(unsigned int, struct zs_hook *);
-	extern int unregister_zs_hook(unsigned int);
+	int keyb_line;
 
 	/* Maxine uses LK501 at the Access.Bus. */
 	if (!LK_IFACE)
@@ -428,19 +426,15 @@ void __init kbd_init_hw(void)
 
 	printk(KERN_INFO "lk201: DECstation LK keyboard driver v0.05.\n");
 
-	if (LK_IFACE_ZS) {
-		/*
-		 * kbd_init_hw() is being called before
-		 * rs_init() so just register the kbd hook
-		 * and let zs_init do the rest :-)
-		 */
-		if(!register_zs_hook(KEYB_LINE, &lk201_kbdhook))
-			unregister_zs_hook(KEYB_LINE);
-	} else {
-		/*
-		 * TODO: modify dz.c to allow similar hooks
-		 * for LK201 handling on DS2100, DS3100, and DS5000/200
-		 */
-		printk(KERN_ERR "lk201: support for DZ11 not yet ready.\n");
-	}
+	/*
+	 * kbd_init_hw() is being called before
+	 * rs_init() so just register the kbd hook
+	 * and let zs_init do the rest :-)
+	 */
+	if (LK_IFACE_ZS)
+		keyb_line = KEYB_LINE_ZS;
+	else
+		keyb_line = KEYB_LINE_DZ;
+	if (!register_dec_serial_hook(keyb_line, &lk201_hook))
+		unregister_dec_serial_hook(keyb_line);
 }

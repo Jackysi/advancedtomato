@@ -45,6 +45,7 @@ fi
 dep_tristate '  Support for Intel/Sharp flash chips' CONFIG_MTD_CFI_INTELEXT $CONFIG_MTD_GEN_PROBE
 dep_tristate '  Support for AMD/Fujitsu flash chips' CONFIG_MTD_CFI_AMDSTD $CONFIG_MTD_GEN_PROBE
 dep_tristate '  Support for ST (Advanced Architecture) flash chips' CONFIG_MTD_CFI_STAA $CONFIG_MTD_GEN_PROBE
+dep_tristate '  Support for SST flash chips' CONFIG_MTD_CFI_SSTSTD $CONFIG_MTD_GEN_PROBE
 
 dep_tristate '  Support for RAM chips in bus mapping' CONFIG_MTD_RAM $CONFIG_MTD
 dep_tristate '  Support for ROM chips in bus mapping' CONFIG_MTD_ROM $CONFIG_MTD

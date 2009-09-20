@@ -53,14 +53,6 @@
 #include <asm/io.h>
 #include <asm/uaccess.h>
 #include <asm/system.h>
-
-/*
- * Check machine
- */
-#if !defined(CONFIG_MIPS) || !defined(CONFIG_NEW_TIME_C)
-#error "This driver is for MIPS machines with CONFIG_NEW_TIME_C defined"
-#endif
-
 #include <asm/time.h>
 
 static unsigned long rtc_status = 0;	/* bitmapped status byte.       */

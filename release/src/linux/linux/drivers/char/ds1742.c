@@ -142,6 +142,7 @@ static int rtc_ds1742_set_time(unsigned long t)
 	CMOS_WRITE(RTC_WRITE, RTC_CONTROL);
 
 	/* convert */
+	memset(&tm, 0, sizeof(struct rtc_time));
 	to_tm(t, &tm);
 
 	/* check each field one by one */
@@ -216,6 +217,7 @@ static int get_ds1742_status(char *buf)
 	unsigned long curr_time;
 
 	curr_time = rtc_ds1742_get_time();
+	memset(&tm, 0, sizeof(struct rtc_time));
 	to_tm(curr_time, &tm);
 
 	p = buf;
@@ -251,8 +253,8 @@ static int ds1742_read_proc(char *page, char **start, off_t off, int count,
 
 void rtc_ds1742_wait(void)
 {
-	while (CMOS_READ(RTC_SECONDS) & 1);
-	while (!(CMOS_READ(RTC_SECONDS) & 1));
+	unsigned char sec = CMOS_READ(RTC_SECONDS);
+	while (sec == CMOS_READ(RTC_SECONDS));
 }
 
 static int ds1742_ioctl(struct inode *inode, struct file *file,
@@ -264,6 +266,7 @@ static int ds1742_ioctl(struct inode *inode, struct file *file,
 	switch (cmd) {
 	case RTC_RD_TIME:	/* Read the time/date from RTC  */
 		curr_time = rtc_ds1742_get_time();
+		memset(&rtc_tm, 0, sizeof(struct rtc_time));
 		to_tm(curr_time, &rtc_tm);
 		rtc_tm.tm_year -= 1900;
 		return copy_to_user((void *) arg, &rtc_tm, sizeof(rtc_tm)) ? 

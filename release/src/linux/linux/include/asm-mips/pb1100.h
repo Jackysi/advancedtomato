@@ -1,5 +1,5 @@
 /*
- * Alchemy Semi PB1100 Referrence Board
+ * AMD Alchemy PB1100 Reference Boards
  *
  * Copyright 2001 MontaVista Software Inc.
  * Author: MontaVista Software, Inc.
@@ -27,55 +27,108 @@
 #ifndef __ASM_PB1100_H
 #define __ASM_PB1100_H
 
-#define PB1100_IDENT          0xAE000000
-#define BOARD_STATUS_REG      0xAE000004
-  #define PB1100_ROM_SEL         (1<<15)
-  #define PB1100_ROM_SIZ         (1<<14)
-  #define PB1100_SWAP_BOOT       (1<<13)
-  #define PB1100_FLASH_WP        (1<<12)
-  #define PB1100_ROM_H_STS       (1<<11)
-  #define PB1100_ROM_L_STS       (1<<10)
-  #define PB1100_FLASH_H_STS      (1<<9)
-  #define PB1100_FLASH_L_STS      (1<<8)
-  #define PB1100_SRAM_SIZ         (1<<7)
-  #define PB1100_TSC_BUSY         (1<<6)
-  #define PB1100_PCMCIA_VS_MASK   (3<<4)
-  #define PB1100_RS232_CD         (1<<3)
-  #define PB1100_RS232_CTS        (1<<2)
-  #define PB1100_RS232_DSR        (1<<1)
-  #define PB1100_RS232_RI         (1<<0)
+#define BCSR_KSEG1_ADDR 0xAE000000
 
-#define PB1100_IRDA_RS232     0xAE00000C
-  #define PB1100_IRDA_FULL       (0<<14) /* full power */
-  #define PB1100_IRDA_SHUTDOWN   (1<<14)
-  #define PB1100_IRDA_TT         (2<<14) /* 2/3 power */
-  #define PB1100_IRDA_OT         (3<<14) /* 1/3 power */
-  #define PB1100_IRDA_FIR        (1<<13)
-
-#define PCMCIA_BOARD_REG     0xAE000010
-  #define PB1100_SD_WP1_RO       (1<<15) /* read only */
-  #define PB1100_SD_WP0_RO       (1<<14) /* read only */
-  #define PB1100_SD_PWR1         (1<<11) /* applies power to SD1 */
-  #define PB1100_SD_PWR0         (1<<10) /* applies power to SD0 */
-  #define PB1100_SEL_SD_CONN1     (1<<9)
-  #define PB1100_SEL_SD_CONN0     (1<<8)
-  #define PC_DEASSERT_RST         (1<<7)
-  #define PC_DRV_EN               (1<<4)
-
-#define PB1100_G_CONTROL      0xAE000014 /* graphics control */
-
-#define PB1100_RST_VDDI       0xAE00001C
-  #define PB1100_SOFT_RESET      (1<<15) /* clear to reset the board */
-  #define PB1100_VDDI_MASK        (0x1F)
-
-#define PB1100_LEDS           0xAE000018
-
-/* 11:8 is 4 discreet LEDs. Clearing a bit illuminates the LED.
- * 7:0 is the LED Display's decimal points.
+/*
+ * Overlay data structure of the Pb1100 board registers.
+ * Registers located at physical 0E0000xx, KSEG1 0xAE0000xx
  */
-#define PB1100_HEX_LED        0xAE000018
+typedef volatile struct
+{
+	/*00*/	unsigned short whoami;
+			unsigned short reserved0;
+	/*04*/	unsigned short status;
+			unsigned short reserved1;
+	/*08*/	unsigned short switches;
+			unsigned short reserved2;
+	/*0C*/	unsigned short resets;
+			unsigned short reserved3;
+	/*10*/	unsigned short pcmcia;
+			unsigned short reserved4;
+	/*14*/	unsigned short graphics; 
+			unsigned short reserved5;
+	/*18*/	unsigned short leds;
+			unsigned short reserved6;
+	/*1C*/	unsigned short swreset;
+			unsigned short reserved7;
 
-/* PCMCIA PB1100 specific defines */
+} BCSR;
+
+
+/*
+ * Register/mask bit definitions for the BCSRs
+ */
+#define BCSR_WHOAMI_DCID		0x000F	
+#define BCSR_WHOAMI_CPLD		0x00F0
+#define BCSR_WHOAMI_BOARD		0x0F00 
+
+#define BCSR_STATUS_RS232_RI	    	0x0001 
+#define BCSR_STATUS_RS232_DSR	 	0x0002 
+#define BCSR_STATUS_RS232_CTS    	0x0004	
+#define BCSR_STATUS_RS232_CD	   	0x0008	 
+#define BCSR_STATUS_PCMCIA_VS_MASK  	0x0030 
+#define BCSR_STATUS_TSC_BUSY        	0x0040 
+#define BCSR_STATUS_SRAM_SIZ		0x0080 
+#define BCSR_STATUS_FLASH_L_STS 	0x0100 
+#define BCSR_STATUS_FLASH_H_STS 	0x0200	
+#define BCSR_STATUS_ROM_H_STS   	0x0400 
+#define BCSR_STATUS_ROM_L_STS   	0x0800	
+#define BCSR_STATUS_FLASH_WP	    	0x1000 
+#define BCSR_STATUS_SWAP_BOOT		0x2000
+#define BCSR_STATUS_ROM_SIZ    		0x4000 
+#define BCSR_STATUS_ROM_SEL      	0x8000	
+
+#define BCSR_SWITCHES_DIP		0x00FF
+#define BCSR_SWITCHES_DIP_1		0x0080
+#define BCSR_SWITCHES_DIP_2		0x0040
+#define BCSR_SWITCHES_DIP_3		0x0020
+#define BCSR_SWITCHES_DIP_4		0x0010
+#define BCSR_SWITCHES_DIP_5		0x0008
+#define BCSR_SWITCHES_DIP_6		0x0004
+#define BCSR_SWITCHES_DIP_7		0x0002
+#define BCSR_SWITCHES_DIP_8		0x0001
+#define BCSR_SWITCHES_ROTARY    	0x0F00
+#define BCSR_SWITCHES_SDO_CL     	0x8000
+
+#define BCSR_RESETS_PHY0		0x0001
+#define BCSR_RESETS_PHY1		0x0002
+#define BCSR_RESETS_DC			0x0004
+#define BCSR_RESETS_RS232_RTS		0x0100
+#define BCSR_RESETS_RS232_DTR   	0x0200
+#define BCSR_RESETS_FIR_SEL		0x2000
+#define BCSR_RESETS_IRDA_MODE_MASK	0xC000
+#define BCSR_RESETS_IRDA_MODE_FULL	0x0000
+#define BCSR_RESETS_IRDA_MODE_OFF	0x4000
+#define BCSR_RESETS_IRDA_MODE_2_3	0x8000
+#define BCSR_RESETS_IRDA_MODE_1_3	0xC000
+
+#define BCSR_PCMCIA_PC0VPP		0x0003
+#define BCSR_PCMCIA_PC0VCC		0x000C
+#define BCSR_PCMCIA_PC0_DR_VEN		0x0010
+#define BCSR_PCMCIA_PC0RST		0x0080
+#define BCSR_PCMCIA_SEL_SD_CON0   	0x0100
+#define BCSR_PCMCIA_SEL_SD_CON1   	0x0200
+#define BCSR_PCMCIA_SD0_PWR		0x0400
+#define BCSR_PCMCIA_SD1_PWR		0x0800
+#define BCSR_PCMCIA_SD0_WP		0x4000
+#define BCSR_PCMCIA_SD1_WP		0x8000
+
+#define PB1100_G_CONTROL		0xAE000014
+#define BCSR_GRAPHICS_GPX_SMPASS    	0x0010
+#define BCSR_GRAPHICS_GPX_BIG_ENDIAN	0x0020
+#define BCSR_GRAPHICS_GPX_RST		0x0040
+
+#define BCSR_LEDS_DECIMALS		0x00FF
+#define BCSR_LEDS_LED0			0x0100
+#define BCSR_LEDS_LED1			0x0200
+#define BCSR_LEDS_LED2			0x0400
+#define BCSR_LEDS_LED3			0x0800
+
+#define BCSR_SWRESET_RESET		0x0080
+#define BCSR_VDDI_VDI			0x001F
+
+
+ /* PCMCIA Pb1x00 specific defines */
 #define PCMCIA_MAX_SOCK 0
 #define PCMCIA_NUM_SOCKS (PCMCIA_MAX_SOCK+1)
 
@@ -83,3 +136,4 @@
 #define SET_VCC_VPP(VCC, VPP) (((VCC)<<2) | ((VPP)<<0))
 
 #endif /* __ASM_PB1100_H */
+

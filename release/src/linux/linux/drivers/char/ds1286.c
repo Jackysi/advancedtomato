@@ -1,6 +1,10 @@
 /*
  * DS1286 Real Time Clock interface for Linux
  *
+ * Copyright (C) 2003 TimeSys Corp.
+ *                    S. James Hill (James.Hill@timesys.com)
+ *                                  (sjhill@realitydiluted.com)
+ *
  * Copyright (C) 1998, 1999, 2000 Ralf Baechle
  *
  * Based on code written by Paul Gortmaker.
@@ -29,6 +33,7 @@
 #include <linux/types.h>
 #include <linux/errno.h>
 #include <linux/miscdevice.h>
+#include <linux/module.h>
 #include <linux/slab.h>
 #include <linux/ioport.h>
 #include <linux/fcntl.h>
@@ -93,6 +98,12 @@ static ssize_t ds1286_read(struct file *file, char *buf,
                            size_t count, loff_t *ppos)
 {
 	return -EIO;
+}
+
+void rtc_ds1286_wait(void)
+{
+	unsigned char sec = CMOS_READ(RTC_SECONDS);
+	while (sec == CMOS_READ(RTC_SECONDS));
 }
 
 static int ds1286_ioctl(struct inode *inode, struct file *file,
@@ -249,23 +260,22 @@ static int ds1286_open(struct inode *inode, struct file *file)
 {
 	spin_lock_irq(&ds1286_lock);
 
-	if (ds1286_status & RTC_IS_OPEN)
-		goto out_busy;
+	if (ds1286_status & RTC_IS_OPEN) {
+		spin_unlock_irq(&ds1286_lock);
+		return -EBUSY;
+	}
 
 	ds1286_status |= RTC_IS_OPEN;
 
-	spin_lock_irq(&ds1286_lock);
+	spin_unlock_irq(&ds1286_lock);
 	return 0;
-
-out_busy:
-	spin_lock_irq(&ds1286_lock);
-	return -EBUSY;
 }
 
 static int ds1286_release(struct inode *inode, struct file *file)
 {
+	spin_lock_irq(&ds1286_lock);
 	ds1286_status &= ~RTC_IS_OPEN;
-
+	spin_unlock_irq(&ds1286_lock);
 	return 0;
 }
 
@@ -274,32 +284,6 @@ static unsigned int ds1286_poll(struct file *file, poll_table *wait)
 	poll_wait(file, &ds1286_wait, wait);
 
 	return 0;
-}
-
-/*
- *	The various file operations we support.
- */
-
-static struct file_operations ds1286_fops = {
-	.llseek		= no_llseek,
-	.read		= ds1286_read,
-	.poll		= ds1286_poll,
-	.ioctl		= ds1286_ioctl,
-	.open		= ds1286_open,
-	.release	= ds1286_release,
-};
-
-static struct miscdevice ds1286_dev=
-{
-	.minor	= RTC_MINOR,
-	.name	= "rtc",
-	.fops	= &ds1286_fops,
-};
-
-int __init ds1286_init(void)
-{
-	printk(KERN_INFO "DS1286 Real Time Clock Driver v%s\n", DS1286_VERSION);
-	return misc_register(&ds1286_dev);
 }
 
 static char *days[] = {
@@ -528,3 +512,38 @@ void ds1286_get_alm_time(struct rtc_time *alm_tm)
 	BCD_TO_BIN(alm_tm->tm_hour);
 	alm_tm->tm_sec = 0;
 }
+
+static struct file_operations ds1286_fops = {
+	.owner		= THIS_MODULE,
+	.llseek		= no_llseek,
+	.read		= ds1286_read,
+	.poll		= ds1286_poll,
+	.ioctl		= ds1286_ioctl,
+	.open		= ds1286_open,
+	.release	= ds1286_release,
+};
+
+static struct miscdevice ds1286_dev =
+{
+	.minor	= RTC_MINOR,
+	.name	= "rtc",
+	.fops	= &ds1286_fops,
+};
+
+static int __init ds1286_init(void)
+{
+	printk(KERN_INFO "DS1286 Real Time Clock Driver v%s\n", DS1286_VERSION);
+	return misc_register(&ds1286_dev);
+}
+
+static void __exit ds1286_exit(void)
+{
+	misc_deregister(&ds1286_dev);
+}
+
+module_init(ds1286_init);
+module_exit(ds1286_exit);
+EXPORT_NO_SYMBOLS;
+
+MODULE_AUTHOR("Ralf Baechle");
+MODULE_LICENSE("GPL");

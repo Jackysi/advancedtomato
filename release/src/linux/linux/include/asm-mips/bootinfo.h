@@ -37,6 +37,7 @@
 #define MACH_GROUP_HP_LJ       20 /* Hewlett Packard LaserJet               */
 #define MACH_GROUP_LASAT       21
 #define MACH_GROUP_TITAN       22 /* PMC-Sierra Titan 			    */
+#define MACH_GROUP_BRCM		   23 /* Broadcom */
 
 /*
  * Valid machtype values for group unknown (low order halfword of mips_machtype)
@@ -180,6 +181,9 @@
 #define MACH_MTX1		7	/* 4G MTX-1 Au1500-based board */
 #define MACH_CSB250		8	/* Cogent Au1500 */
 #define MACH_PB1550     	9       /* Au1550-based eval board */
+#define MACH_PB1200     	10      /* Au1200-based eval board */
+#define MACH_DB1550     	11      /* Au1550-based eval board */
+#define MACH_DB1200     	12      /* Au1200-based eval board */
 
 /*
  * Valid machtype for group NEC_VR41XX
@@ -192,6 +196,15 @@
 #define MACH_CASIO_E55		5	/* CASIO CASSIOPEIA E-10/15/55/65 */
 #define MACH_TANBAC_TB0226	6	/* TANBAC TB0226 (MBASE) */
 #define MACH_TANBAC_TB0229	7	/* TANBAC TB0229 (VR4131DIMM) */
+
+/*
+ * Valid machtypes for group Broadcom
+ */
+#define MACH_BCM93725          0
+#define MACH_BCM93725_VJ       1
+#define MACH_BCM93730          2
+#define MACH_BCM947XX          3
+#define MACH_BCM933XX          4
 
 /*
  * Valid machtype for group TITAN

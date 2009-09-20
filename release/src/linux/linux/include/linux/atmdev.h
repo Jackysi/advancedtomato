@@ -400,6 +400,7 @@ extern rwlock_t vcc_sklist_lock;
 struct atm_dev *atm_dev_register(const char *type,const struct atmdev_ops *ops,
     int number,atm_dev_flags_t *flags); /* number == -1: pick first available */
 struct atm_dev *atm_dev_lookup(int number);
+void atm_dev_set_link_status(struct atm_dev *dev, int status);
 void atm_dev_deregister(struct atm_dev *dev);
 void shutdown_atm_dev(struct atm_dev *dev);
 void vcc_insert_socket(struct sock *sk);

@@ -726,10 +726,12 @@ qm_deps(struct module *mod, char *buf, size_t bufsize, size_t *ret)
 	if (mod == &kernel_module)
 		return -EINVAL;
 	if (!MOD_CAN_QUERY(mod))
+	{
 		if (put_user(0, ret))
 			return -EFAULT;
 		else
 			return 0;
+	}
 
 	space = 0;
 	for (i = 0; i < mod->ndeps; ++i) {
@@ -770,10 +772,12 @@ qm_refs(struct module *mod, char *buf, size_t bufsize, size_t *ret)
 	if (mod == &kernel_module)
 		return -EINVAL;
 	if (!MOD_CAN_QUERY(mod))
+	{
 		if (put_user(0, ret))
 			return -EFAULT;
 		else
 			return 0;
+	}
 
 	space = 0;
 	for (nrefs = 0, ref = mod->refs; ref ; ++nrefs, ref = ref->next_ref) {
@@ -814,10 +818,12 @@ qm_symbols(struct module *mod, char *buf, size_t bufsize, size_t *ret)
 	unsigned long *vals;
 
 	if (!MOD_CAN_QUERY(mod))
+	{
 		if (put_user(0, ret))
 			return -EFAULT;
 		else
 			return 0;
+	}
 
 	space = mod->nsyms * 2*sizeof(void *);
 

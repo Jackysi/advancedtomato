@@ -50,16 +50,19 @@ enum ip_conntrack_status {
 
 #include <linux/netfilter_ipv4/ip_conntrack_tcp.h>
 #include <linux/netfilter_ipv4/ip_conntrack_icmp.h>
+#include <linux/netfilter_ipv4/ip_conntrack_proto_gre.h>
 
 /* per conntrack: protocol private data */
 union ip_conntrack_proto {
 	/* insert conntrack proto private data here */
 	struct ip_ct_tcp tcp;
 	struct ip_ct_icmp icmp;
+	struct ip_ct_gre gre;
 };
 
 union ip_conntrack_expect_proto {
 	/* insert expect proto private data here */
+	struct ip_ct_gre_expect gre;
 };
 
 /* Add protocol helper include file here */
@@ -67,6 +70,11 @@ union ip_conntrack_expect_proto {
 
 #include <linux/netfilter_ipv4/ip_conntrack_ftp.h>
 #include <linux/netfilter_ipv4/ip_conntrack_irc.h>
+#include <linux/netfilter_ipv4/ip_conntrack_pptp.h>
+#include <linux/netfilter_ipv4/ip_conntrack_h323.h>
+#include <linux/netfilter_ipv4/ip_conntrack_rtsp.h>
+#include <linux/netfilter_ipv4/ip_conntrack_mms.h>
+#include <linux/netfilter_ipv4/ip_autofw.h>
 
 /* per expectation: application helper private data */
 union ip_conntrack_expect_help {
@@ -74,6 +82,11 @@ union ip_conntrack_expect_help {
 	struct ip_ct_amanda_expect exp_amanda_info;
 	struct ip_ct_ftp_expect exp_ftp_info;
 	struct ip_ct_irc_expect exp_irc_info;
+	struct ip_ct_pptp_expect exp_pptp_info;
+	struct ip_ct_h225_expect exp_h225_info;
+	struct ip_ct_rtsp_expect exp_rtsp_info;
+	struct ip_ct_mms_expect exp_mms_info;
+        struct ip_autofw_expect exp_autofw_info;
 
 #ifdef CONFIG_IP_NF_NAT_NEEDED
 	union {
@@ -87,14 +100,20 @@ union ip_conntrack_help {
 	/* insert conntrack helper private data (master) here */
 	struct ip_ct_ftp_master ct_ftp_info;
 	struct ip_ct_irc_master ct_irc_info;
+	struct ip_ct_pptp_master ct_pptp_info;
+	struct ip_ct_h225_master ct_h225_info;
+	struct ip_ct_rtsp_master ct_rtsp_info;
+	struct ip_ct_mms_master ct_mms_info;
 };
 
 #ifdef CONFIG_IP_NF_NAT_NEEDED
 #include <linux/netfilter_ipv4/ip_nat.h>
+#include <linux/netfilter_ipv4/ip_nat_pptp.h>
 
 /* per conntrack: nat application helper private data */
 union ip_conntrack_nat_help {
 	/* insert nat helper private data here */
+	struct ip_nat_pptp nat_pptp_info;
 };
 #endif
 
@@ -156,6 +175,12 @@ struct ip_conntrack_expect
 	union ip_conntrack_expect_help help;
 };
 
+struct ip_conntrack_counter
+{
+       u_int64_t packets;
+       u_int64_t bytes;
+};
+
 struct ip_conntrack_helper;
 
 struct ip_conntrack
@@ -172,6 +197,12 @@ struct ip_conntrack
 
 	/* Timer function; drops refcnt when it goes off. */
 	struct timer_list timeout;
+
+#if defined(CONFIG_IP_NF_CT_ACCT) || \
+	defined(CONFIG_IP_NF_CT_ACCT_MODULE)
+       /* Accounting Information (same cache line as other written members) */
+       struct ip_conntrack_counter counters[IP_CT_DIR_MAX];
+#endif
 
 	/* If we're expecting another related connection, this will be
            in expected linked list */
@@ -207,6 +238,20 @@ struct ip_conntrack
 	} nat;
 #endif /* CONFIG_IP_NF_NAT_NEEDED */
 
+#if defined(CONFIG_IP_NF_MATCH_LAYER7) || defined(CONFIG_IP_NF_MATCH_LAYER7_MODULE)
+	struct {
+		unsigned int numpackets; /* surely this is kept track of somewhere else, right? I can't find it... */
+		char * app_proto; /* "http", "ftp", etc.  NULL if unclassifed */
+		
+		/* the application layer data so far.  NULL if ->numpackets > numpackets */
+		char * app_data; 
+
+		unsigned int app_data_len;
+	} layer7;
+#endif
+#if defined(CONFIG_IP_NF_CONNTRACK_MARK)
+	unsigned long mark;
+#endif
 };
 
 /* get master conntrack via master expectation */
@@ -242,8 +287,10 @@ extern int invert_tuplepr(struct ip_conntrack_tuple *inverse,
 			  const struct ip_conntrack_tuple *orig);
 
 /* Refresh conntrack for this many jiffies */
-extern void ip_ct_refresh(struct ip_conntrack *ct,
-			  unsigned long extra_jiffies);
+extern void ip_ct_refresh_acct(struct ip_conntrack *ct,
+                              enum ip_conntrack_info ctinfo,
+                              const struct iphdr *iph,
+                              unsigned long extra_jiffies);
 
 /* These are for NAT.  Icky. */
 /* Call me when a conntrack is destroyed. */

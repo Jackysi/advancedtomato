@@ -801,16 +801,23 @@ asmlinkage long sys_setfsgid(gid_t gid)
 
 asmlinkage long sys_times(struct tms * tbuf)
 {
+	struct tms temp;
+
 	/*
 	 *	In the SMP world we might just be unlucky and have one of
 	 *	the times increment as we use it. Since the value is an
 	 *	atomically safe type this is just fine. Conceptually its
 	 *	as if the syscall took an instant longer to occur.
 	 */
-	if (tbuf)
-		if (copy_to_user(tbuf, &current->times, sizeof(struct tms)))
+	if (tbuf) {
+		temp.tms_utime = hz_to_std(current->times.tms_utime);
+		temp.tms_stime = hz_to_std(current->times.tms_stime);
+		temp.tms_cutime = hz_to_std(current->times.tms_cutime);
+		temp.tms_cstime = hz_to_std(current->times.tms_cstime);
+		if (copy_to_user(tbuf, &temp, sizeof(struct tms)))
 			return -EFAULT;
-	return jiffies;
+	}
+	return hz_to_std(jiffies);
 }
 
 /*

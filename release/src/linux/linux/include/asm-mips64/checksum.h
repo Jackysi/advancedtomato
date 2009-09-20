@@ -144,7 +144,7 @@ static inline unsigned long csum_tcpudp_nofold(unsigned long saddr,
 	"daddu\t%0, %4\n\t"
 	"dsll32\t$1, %0, 0\n\t"
 	"daddu\t%0, $1\n\t"
-	"dsrl32\t%0, %0, 0\n\t"
+	"dsra32\t%0, %0, 0\n\t"
 	".set\tat"
 	: "=&r" (sum)
 	: "0" (daddr), "r"(saddr),

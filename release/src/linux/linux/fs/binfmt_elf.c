@@ -665,6 +665,9 @@ static int load_elf_binary(struct linux_binprm * bprm, struct pt_regs * regs)
 		    bprm->argc++;
 		  }
 		}
+	} else {
+		/* Executables without an interpreter also need a personality  */
+		SET_PERSONALITY(elf_ex, ibcs2_interpreter);
 	}
 
 	/* Flush all traces of the currently running executable */
@@ -1073,8 +1076,6 @@ static inline int maydump(struct vm_area_struct *vma)
 	return 1;
 }
 
-#define roundup(x, y)  ((((x)+((y)-1))/(y))*(y))
-
 /* An ELF note in memory */
 struct memelfnote
 {
@@ -1225,7 +1226,11 @@ static int elf_core_dump(long signr, struct pt_regs * regs, struct file * file)
 	elf.e_entry = 0;
 	elf.e_phoff = sizeof(elf);
 	elf.e_shoff = 0;
+#ifdef ELF_CORE_EFLAGS
+	elf.e_flags = ELF_CORE_EFLAGS;
+#else
 	elf.e_flags = 0;
+#endif
 	elf.e_ehsize = sizeof(elf);
 	elf.e_phentsize = sizeof(struct elf_phdr);
 	elf.e_phnum = segs+1;		/* Include notes */

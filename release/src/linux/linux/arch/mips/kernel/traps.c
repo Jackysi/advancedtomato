@@ -68,6 +68,11 @@ void (*board_nmi_handler_setup)(void);
 
 int kstack_depth_to_print = 24;
 
+#if defined(CONFIG_PROC_FS) && !defined(CONFIG_CPU_HAS_LLSC)
+extern unsigned long ll_ops;
+extern unsigned long sc_ops;
+#endif
+
 /*
  * These constant is for searching for possible module text segments.
  * MODULE_RANGE is a guess of how much space is likely to be vmalloced.
@@ -436,6 +441,10 @@ static inline void simulate_ll(struct pt_regs *regs, unsigned int opcode)
 
 	vaddr = (unsigned long *)((long)(regs->regs[(opcode & BASE) >> 21]) + offset);
 
+#if defined(CONFIG_PROC_FS) && !defined(CONFIG_CPU_HAS_LLSC)
+       ll_ops++;
+#endif
+
 	if ((unsigned long)vaddr & 3) {
 		signal = SIGBUS;
 		goto sig;
@@ -452,9 +461,10 @@ static inline void simulate_ll(struct pt_regs *regs, unsigned int opcode)
 	}
 	ll_task = current;
 
+	compute_return_epc(regs);
+
 	regs->regs[(opcode & RT) >> 16] = value;
 
-	compute_return_epc(regs);
 	return;
 
 sig:
@@ -480,13 +490,17 @@ static inline void simulate_sc(struct pt_regs *regs, unsigned int opcode)
 	vaddr = (unsigned long *)((long)(regs->regs[(opcode & BASE) >> 21]) + offset);
 	reg = (opcode & RT) >> 16;
 
+#if defined(CONFIG_PROC_FS) && !defined(CONFIG_CPU_HAS_LLSC)
+       sc_ops++;
+#endif
+
 	if ((unsigned long)vaddr & 3) {
 		signal = SIGBUS;
 		goto sig;
 	}
 	if (ll_bit == 0 || ll_task != current) {
-		regs->regs[reg] = 0;
 		compute_return_epc(regs);
+		regs->regs[reg] = 0;
 		return;
 	}
 
@@ -495,9 +509,9 @@ static inline void simulate_sc(struct pt_regs *regs, unsigned int opcode)
 		goto sig;
 	}
 
+	compute_return_epc(regs);
 	regs->regs[reg] = 1;
 
-	compute_return_epc(regs);
 	return;
 
 sig:
@@ -887,12 +901,18 @@ extern asmlinkage int fpu_emulator_restore_context(struct sigcontext *sc);
 void __init per_cpu_trap_init(void)
 {
 	unsigned int cpu = smp_processor_id();
+	unsigned int status_set = ST0_CU0;
 
-	/* Some firmware leaves the BEV flag set, clear it.  */
-	clear_c0_status(ST0_CU3|ST0_CU2|ST0_CU1|ST0_BEV|ST0_KX|ST0_SX|ST0_UX);
-
+	/*
+	 * Disable coprocessors and 64-bit addressing and set FPU for
+	 * the 16/32 FPR register model.  Reset the BEV flag that some
+	 * firmware may have left set and the TS bit (for IP27).  Set
+	 * XX for ISA IV code to work.
+	 */
 	if (current_cpu_data.isa_level == MIPS_CPU_ISA_IV)
-		set_c0_status(ST0_XX);
+		status_set |= ST0_XX;
+	change_c0_status(ST0_CU|ST0_FR|ST0_BEV|ST0_TS|ST0_KX|ST0_SX|ST0_UX,
+			 status_set);
 
 	/*
 	 * Some MIPS CPUs have a dedicated interrupt vector which reduces the
@@ -902,7 +922,7 @@ void __init per_cpu_trap_init(void)
 		set_c0_cause(CAUSEF_IV);
 
 	cpu_data[cpu].asid_cache = ASID_FIRST_VERSION;
-	write_c0_context(cpu << 23);
+	TLBMISS_HANDLER_SETUP();
 
 	atomic_inc(&init_mm.mm_count);
 	current->active_mm = &init_mm;
@@ -913,15 +933,15 @@ void __init per_cpu_trap_init(void)
 void __init trap_init(void)
 {
 	extern char except_vec1_generic;
+	extern char except_vec2_generic;
 	extern char except_vec3_generic, except_vec3_r4000;
 	extern char except_vec_ejtag_debug;
 	extern char except_vec4;
 	unsigned long i;
 
-	per_cpu_trap_init();
-
 	/* Copy the generic exception handler code to it's final destination. */
 	memcpy((void *)(KSEG0 + 0x80), &except_vec1_generic, 0x80);
+	memcpy((void *)(KSEG0 + 0x100), &except_vec2_generic, 0x80);
 
 	/*
 	 * Setup default vectors
@@ -980,6 +1000,12 @@ void __init trap_init(void)
 	set_except_vector(13, handle_tr);
 	set_except_vector(22, handle_mdmx);
 
+	if (current_cpu_data.cputype == CPU_SB1) {
+		/* Enable timer interrupt and scd mapped interrupt */
+		clear_c0_status(0xf000);
+		set_c0_status(0xc00);
+	}
+
 	if (cpu_has_fpu && !cpu_has_nofpuex)
 		set_except_vector(15, handle_fpe);
 
@@ -1020,10 +1046,5 @@ void __init trap_init(void)
 
 	flush_icache_range(KSEG0, KSEG0 + 0x400);
 
-	atomic_inc(&init_mm.mm_count);	/* XXX UP?  */
-	current->active_mm = &init_mm;
-
-	/* XXX Must be done for all CPUs  */
-	current_cpu_data.asid_cache = ASID_FIRST_VERSION;
-	TLBMISS_HANDLER_SETUP();
+	per_cpu_trap_init();
 }

@@ -12,6 +12,7 @@ O_TARGET	:= devlink.o
 # here where previously there was none.  We now have to ensure that
 # doc200[01].o are linked before docprobe.o
 
+obj-$(CONFIG_MTD_SFLASH)	+= sflash.o
 obj-$(CONFIG_MTD_DOC1000)	+= doc1000.o
 obj-$(CONFIG_MTD_DOC2000)	+= doc2000.o
 obj-$(CONFIG_MTD_DOC2001)	+= doc2001.o

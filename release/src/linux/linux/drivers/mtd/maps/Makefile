@@ -10,6 +10,7 @@ O_TARGET	:= mapslink.o
 endif
 
 # Chip mappings
+obj-$(CONFIG_MTD_BCM947XX)	+= bcm947xx-flash.o
 obj-$(CONFIG_MTD_CDB89712)	+= cdb89712.o
 obj-$(CONFIG_MTD_ARM_INTEGRATOR)+= integrator-flash.o
 obj-$(CONFIG_MTD_CFI_FLAGADM)	+= cfi_flagadm.o
@@ -52,7 +53,13 @@ obj-$(CONFIG_MTD_PCI)		+= pci.o
 obj-$(CONFIG_MTD_PB1000)	+= pb1xxx-flash.o
 obj-$(CONFIG_MTD_PB1100)	+= pb1xxx-flash.o
 obj-$(CONFIG_MTD_PB1500)	+= pb1xxx-flash.o
+obj-$(CONFIG_MTD_XXS1500)       += xxs1500.o
+obj-$(CONFIG_MTD_MTX1)		+= mtx-1.o
 obj-$(CONFIG_MTD_LASAT)		+= lasat.o
+obj-$(CONFIG_MTD_DB1X00)        += db1x00-flash.o
+obj-$(CONFIG_MTD_PB1550)        += pb1550-flash.o
+obj-$(CONFIG_MTD_HYDROGEN3)     += hydrogen3-flash.o
+obj-$(CONFIG_MTD_BOSPORUS)	+= pb1xxx-flash.o
 obj-$(CONFIG_MTD_AUTCPU12)	+= autcpu12-nvram.o
 obj-$(CONFIG_MTD_EDB7312)	+= edb7312.o
 obj-$(CONFIG_MTD_IMPA7)		+= impa7.o
@@ -61,5 +68,6 @@ obj-$(CONFIG_MTD_REDWOOD)	+= redwood.o
 obj-$(CONFIG_MTD_UCLINUX)	+= uclinux.o
 obj-$(CONFIG_MTD_NETtel)	+= nettel.o
 obj-$(CONFIG_MTD_SCB2_FLASH)	+= scb2_flash.o
+obj-$(CONFIG_MTD_MIRAGE)        += mirage-flash.o
 
 include $(TOPDIR)/Rules.make

@@ -5,6 +5,7 @@
 mainmenu_option next_comment
 
 comment 'Self-contained MTD device drivers'
+bool '  Broadcom Chipcommon Serial Flash support' CONFIG_MTD_SFLASH
 dep_tristate '  Ramix PMC551 PCI Mezzanine RAM card support' CONFIG_MTD_PMC551 $CONFIG_MTD $CONFIG_PCI
 if [ "$CONFIG_MTD_PMC551" = "y" -o  "$CONFIG_MTD_PMC551" = "m" ]; then
    bool '    PMC551 256M DRAM Bugfix' CONFIG_MTD_PMC551_BUGFIX

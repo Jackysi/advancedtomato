@@ -209,6 +209,20 @@
 
 #endif
 
+#if defined(CONFIG_BCM4710) || defined(CONFIG_BCM4704)
+
+#undef RESTORE_SP_AND_RET
+#define RESTORE_SP_AND_RET                               \
+		lw      sp,  PT_R29(sp);                 \
+		.set    mips3;                           \
+		nop;                                     \
+		nop;                                     \
+		eret;                                    \
+		.set    mips0
+
+#endif
+
+
 #define RESTORE_SP                                       \
 		lw	sp,  PT_R29(sp);                 \
 

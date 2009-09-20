@@ -141,3 +141,7 @@ void __init kbd_init_hw(void)
 {
 	printk("Dummy keyboard driver installed.\n");
 }
+#ifdef CONFIG_MAGIC_SYSRQ
+unsigned char kbd_sysrq_key;
+unsigned char kbd_sysrq_xlate[128];
+#endif

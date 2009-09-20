@@ -22,6 +22,7 @@ endif
 
 obj-$(CONFIG_PARPORT)		+= parport.o
 obj-$(CONFIG_PARPORT_PC)	+= parport_pc.o
+obj-$(CONFIG_PARPORT_SPLINK)	+= parport_splink.o
 obj-$(CONFIG_PARPORT_PC_PCMCIA)	+= parport_cs.o
 obj-$(CONFIG_PARPORT_AMIGA)	+= parport_amiga.o
 obj-$(CONFIG_PARPORT_MFC3)	+= parport_mfc3.o

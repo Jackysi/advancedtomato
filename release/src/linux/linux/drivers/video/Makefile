@@ -87,6 +87,7 @@ obj-$(CONFIG_FB_PMAGB_B)          += pmagb-b-fb.o
 obj-$(CONFIG_FB_MAXINE)           += maxinefb.o
 obj-$(CONFIG_FB_TX3912)           += tx3912fb.o
 obj-$(CONFIG_FB_AU1100)		  += au1100fb.o fbgen.o
+obj-$(CONFIG_FB_AU1200)		  += au1200fb.o fbgen.o
 obj-$(CONFIG_FB_IT8181)		  += it8181fb.o fbgen.o
 
 subdir-$(CONFIG_STI_CONSOLE)      += sti

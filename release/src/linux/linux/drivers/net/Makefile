@@ -166,7 +166,9 @@ obj-$(CONFIG_PPP_ASYNC) += ppp_async.o
 obj-$(CONFIG_PPP_SYNC_TTY) += ppp_synctty.o
 obj-$(CONFIG_PPP_DEFLATE) += ppp_deflate.o
 obj-$(CONFIG_PPP_BSDCOMP) += bsd_comp.o
+obj-$(CONFIG_PPP_MPPE_MPPC) += ppp_mppe_mppc.o
 obj-$(CONFIG_PPPOE) += pppox.o pppoe.o
+obj-$(CONFIG_PPPOL2TP) += pppox.o pppol2tp.o
 
 obj-$(CONFIG_SLIP) += slip.o
 ifeq ($(CONFIG_SLIP_COMPRESSED),y)
@@ -175,6 +177,7 @@ endif
 
 obj-$(CONFIG_STRIP) += strip.o
 obj-$(CONFIG_DUMMY) += dummy.o
+obj-$(CONFIG_IMQ) += imq.o
 obj-$(CONFIG_DE600) += de600.o
 obj-$(CONFIG_DE620) += de620.o
 obj-$(CONFIG_AT1500) += lance.o
@@ -266,6 +269,41 @@ ifneq ($(ARCH),s390)
 ifneq ($(ARCH),s390x)
 obj-y += auto_irq.o
 endif
+endif
+
+#
+# Broadcom HND devices
+#
+
+ifdef CONFIG_HND
+subdir-$(CONFIG_HND) += hnd
+endif
+ifdef CONFIG_ET
+subdir-$(CONFIG_ET) += et
+ifdef CONFIG_BCM57XX
+subdir-$(CONFIG_BCM57XX) += bcm57xx
+endif
+endif
+ifdef CONFIG_IL
+subdir-$(CONFIG_IL) += il
+endif
+ifdef CONFIG_WL
+subdir-$(CONFIG_WL) += wl
+endif
+ifeq ($(CONFIG_HND),y)
+  obj-y += hnd/hnd.o
+endif
+ifeq ($(CONFIG_BCM57XX),y)
+  obj-y += bcm57xx/bcm57xx.o
+endif
+ifeq ($(CONFIG_ET),y)
+  obj-y += et/et.o
+endif
+ifeq ($(CONFIG_IL),y)
+  obj-y += il/il.o
+endif
+ifeq ($(CONFIG_WL),y)
+  obj-y += wl/wl.o
 endif
 
 include $(TOPDIR)/Rules.make

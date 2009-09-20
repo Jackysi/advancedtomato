@@ -30,13 +30,11 @@
 
 #define DBDMA_AC97_TX_CHAN DSCR_CMD0_PSC1_TX
 #define DBDMA_AC97_RX_CHAN DSCR_CMD0_PSC1_RX
-#define DBDMA_I2S_TX_CHAN DSCR_CMD0_PSC3_TX
-#define DBDMA_I2S_RX_CHAN DSCR_CMD0_PSC3_RX
-
 #define SPI_PSC_BASE        PSC0_BASE_ADDR
 #define AC97_PSC_BASE       PSC1_BASE_ADDR
 #define SMBUS_PSC_BASE      PSC2_BASE_ADDR
 #define I2S_PSC_BASE        PSC3_BASE_ADDR
+#define NAND_CS 1
 
 #define BCSR_PHYS_ADDR 0xAF000000
 
@@ -160,9 +158,23 @@ static BCSR * const bcsr = (BCSR *)BCSR_PHYS_ADDR;
 #define NAND_T_SU_SHIFT		8
 #define NAND_T_WH_SHIFT		12
 
-#define NAND_TIMING	((NAND_T_H   & 0xF)	<< NAND_T_H_SHIFT)   | \
-			((NAND_T_PUL & 0xF)	<< NAND_T_PUL_SHIFT) | \
-			((NAND_T_SU  & 0xF)	<< NAND_T_SU_SHIFT)  | \
-			((NAND_T_WH  & 0xF)	<< NAND_T_WH_SHIFT)
+#define NAND_TIMING	((NAND_T_H   & 0xF) << NAND_T_H_SHIFT)   | \
+			((NAND_T_PUL & 0xF) << NAND_T_PUL_SHIFT) | \
+			((NAND_T_SU  & 0xF) << NAND_T_SU_SHIFT)  | \
+			((NAND_T_WH  & 0xF) << NAND_T_WH_SHIFT)
+
+/*
+ * Daughter card information.
+ */
+#define DAUGHTER_CARD_BASE		(0xAC000000)
+#define DAUGHTER_CARD_MEM_SIZE		(0xADFFFFFF - DAUGHTER_CARD_BASE + 1)
+#define DAUGHTER_CARD_IRQ		(AU1000_GPIO_3)
+
+/* DC_IDE and DC_ETHERNET */
+#define AU1XXX_ATA_PHYS_ADDR		(0x0C000000)
+#define AU1XXX_ATA_REG_OFFSET		(5)	
+
+#define AU1XXX_SMC91111_PHYS_ADDR	(0x0C000300)
+#define AU1XXX_SMC91111_IRQ		AU1000_GPIO_3
 
 #endif /* __ASM_PB1550_H */

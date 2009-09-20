@@ -368,15 +368,15 @@ int proc_pid_stat(struct task_struct *task, char * buffer)
 		task->cmin_flt,
 		task->maj_flt,
 		task->cmaj_flt,
-		task->times.tms_utime,
-		task->times.tms_stime,
-		task->times.tms_cutime,
-		task->times.tms_cstime,
+		hz_to_std(task->times.tms_utime),
+		hz_to_std(task->times.tms_stime),
+		hz_to_std(task->times.tms_cutime),
+		hz_to_std(task->times.tms_cstime),
 		priority,
 		nice,
 		0UL /* removed */,
 		task->it_real_value,
-		task->start_time,
+		hz_to_std(task->start_time),
 		vsize,
 		mm ? mm->rss : 0, /* you might want to shift this left 3 */
 		task->rlim[RLIMIT_RSS].rlim_cur,
@@ -615,14 +615,14 @@ int proc_pid_cpu(struct task_struct *task, char * buffer)
 
 	len = sprintf(buffer,
 		"cpu  %lu %lu\n",
-		task->times.tms_utime,
-		task->times.tms_stime);
+		hz_to_std(task->times.tms_utime),
+		hz_to_std(task->times.tms_stime));
 		
 	for (i = 0 ; i < smp_num_cpus; i++)
 		len += sprintf(buffer + len, "cpu%d %lu %lu\n",
 			i,
-			task->per_cpu_utime[cpu_logical_map(i)],
-			task->per_cpu_stime[cpu_logical_map(i)]);
+			hz_to_std(task->per_cpu_utime[cpu_logical_map(i)]),
+			hz_to_std(task->per_cpu_stime[cpu_logical_map(i)]));
 
 	return len;
 }

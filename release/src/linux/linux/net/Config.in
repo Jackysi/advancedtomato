@@ -104,4 +104,6 @@ comment 'Network testing'
 dep_tristate 'Packet Generator (USE WITH CAUTION)' CONFIG_NET_PKTGEN $CONFIG_PROC_FS
 endmenu
 
+bool 'IPSEC NAT-Traversal' CONFIG_IPSEC_NAT_TRAVERSAL
+
 endmenu

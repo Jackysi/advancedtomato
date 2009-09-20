@@ -124,6 +124,7 @@ ip_do_nat(struct sk_buff *skb)
 					key.dst = ciph->saddr;
 					key.iif = skb->dev->ifindex;
 					key.oif = 0;
+					key.gw	= 0;
 #ifdef CONFIG_IP_ROUTE_TOS
 					key.tos = RT_TOS(ciph->tos);
 #endif

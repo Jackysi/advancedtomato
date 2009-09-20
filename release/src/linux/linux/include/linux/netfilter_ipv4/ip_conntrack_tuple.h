@@ -14,7 +14,7 @@
 union ip_conntrack_manip_proto
 {
 	/* Add other protocols here. */
-	u_int16_t all;
+	u_int32_t all;
 
 	struct {
 		u_int16_t port;
@@ -25,6 +25,9 @@ union ip_conntrack_manip_proto
 	struct {
 		u_int16_t id;
 	} icmp;
+	struct {
+		u_int32_t key;
+	} gre;
 };
 
 /* The manipulable part of the tuple. */
@@ -44,7 +47,7 @@ struct ip_conntrack_tuple
 		u_int32_t ip;
 		union {
 			/* Add other protocols here. */
-			u_int16_t all;
+			u_int32_t all;
 
 			struct {
 				u_int16_t port;
@@ -55,6 +58,9 @@ struct ip_conntrack_tuple
 			struct {
 				u_int8_t type, code;
 			} icmp;
+			struct {
+				u_int32_t key;
+			} gre;
 		} u;
 
 		/* The protocol. */
@@ -80,10 +86,16 @@ enum ip_conntrack_dir
 #ifdef __KERNEL__
 
 #define DUMP_TUPLE(tp)						\
-DEBUGP("tuple %p: %u %u.%u.%u.%u:%hu -> %u.%u.%u.%u:%hu\n",	\
+DEBUGP("tuple %p: %u %u.%u.%u.%u:%u -> %u.%u.%u.%u:%u\n",	\
        (tp), (tp)->dst.protonum,				\
-       NIPQUAD((tp)->src.ip), ntohs((tp)->src.u.all),		\
-       NIPQUAD((tp)->dst.ip), ntohs((tp)->dst.u.all))
+       NIPQUAD((tp)->src.ip), ntohl((tp)->src.u.all),		\
+       NIPQUAD((tp)->dst.ip), ntohl((tp)->dst.u.all))
+
+#define DUMP_TUPLE_RAW(x) 						\
+	DEBUGP("tuple %p: %u %u.%u.%u.%u:0x%08x -> %u.%u.%u.%u:0x%08x\n",\
+	(x), (x)->dst.protonum,						\
+	NIPQUAD((x)->src.ip), ntohl((x)->src.u.all), 			\
+	NIPQUAD((x)->dst.ip), ntohl((x)->dst.u.all))
 
 #define CTINFO2DIR(ctinfo) ((ctinfo) >= IP_CT_IS_REPLY ? IP_CT_DIR_REPLY : IP_CT_DIR_ORIGINAL)
 

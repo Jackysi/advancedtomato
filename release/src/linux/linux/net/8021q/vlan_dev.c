@@ -867,7 +867,7 @@ void vlan_dev_set_multicast_list(struct net_device *vlan_dev)
 		/* compare the current promiscuity to the last promisc we had.. */
 		inc = vlan_dev->promiscuity - VLAN_DEV_INFO(vlan_dev)->old_promiscuity;
 		if (inc) {
-			printk(KERN_INFO "%s: dev_set_promiscuity(master, %d)\n",
+			printk(KERN_DEBUG "%s: dev_set_promiscuity(master, %d)\n",
 			       vlan_dev->name, inc);
 			dev_set_promiscuity(real_dev, inc); /* found in dev.c */
 			VLAN_DEV_INFO(vlan_dev)->old_promiscuity = vlan_dev->promiscuity;
@@ -875,7 +875,7 @@ void vlan_dev_set_multicast_list(struct net_device *vlan_dev)
 
 		inc = vlan_dev->allmulti - VLAN_DEV_INFO(vlan_dev)->old_allmulti;
 		if (inc) {
-			printk(KERN_INFO "%s: dev_set_allmulti(master, %d)\n",
+			printk(KERN_DEBUG "%s: dev_set_allmulti(master, %d)\n",
 			       vlan_dev->name, inc);
 			dev_set_allmulti(real_dev, inc); /* dev.c */
 			VLAN_DEV_INFO(vlan_dev)->old_allmulti = vlan_dev->allmulti;

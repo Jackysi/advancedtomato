@@ -9,6 +9,7 @@
 #include <linux/delay.h>
 #include <linux/tty.h>
 #include <linux/init.h>
+#include <linux/mtd/mtd.h>
 
 #include <linux/nfs_fs.h>
 #include <linux/nfs_fs_sb.h>
@@ -16,6 +17,7 @@
 #include <linux/minix_fs.h>
 #include <linux/ext2_fs.h>
 #include <linux/romfs_fs.h>
+#include <linux/squashfs_fs.h>
 #include <linux/cramfs_fs.h>
 
 #define BUILD_CRAMDISK
@@ -254,7 +256,13 @@ static struct dev_name_struct {
 	{ "ftlb", 0x2c08 },
 	{ "ftlc", 0x2c10 },
 	{ "ftld", 0x2c18 },
+#if defined(CONFIG_MTD_BLOCK) || defined(CONFIG_MTD_BLOCK_RO)
 	{ "mtdblock", 0x1f00 },
+	{ "mtdblock0",0x1f00 },
+	{ "mtdblock1",0x1f01 },
+	{ "mtdblock2",0x1f02 },
+	{ "mtdblock3",0x1f03 },
+#endif
 	{ "nb", 0x2b00 },
 	{ NULL, 0 }
 };
@@ -485,6 +493,7 @@ static int __init crd_load(int in_fd, int out_fd);
  * 	minix
  * 	ext2
  *	romfs
+ * 	squashfs
  *	cramfs
  * 	gzip
  */
@@ -495,6 +504,7 @@ identify_ramdisk_image(int fd, int start_block)
 	struct minix_super_block *minixsb;
 	struct ext2_super_block *ext2sb;
 	struct romfs_super_block *romfsb;
+ 	struct squashfs_super_block *squashfsb;
 	struct cramfs_super *cramfsb;
 	int nblocks = -1;
 	unsigned char *buf;
@@ -506,6 +516,7 @@ identify_ramdisk_image(int fd, int start_block)
 	minixsb = (struct minix_super_block *) buf;
 	ext2sb = (struct ext2_super_block *) buf;
 	romfsb = (struct romfs_super_block *) buf;
+ 	squashfsb = (struct squashfs_super_block *) buf;
 	cramfsb = (struct cramfs_super *) buf;
 	memset(buf, 0xe5, size);
 
@@ -541,6 +552,15 @@ identify_ramdisk_image(int fd, int start_block)
 		       "RAMDISK: cramfs filesystem found at block %d\n",
 		       start_block);
 		nblocks = (cramfsb->size + BLOCK_SIZE - 1) >> BLOCK_SIZE_BITS;
+		goto done;
+	}
+
+	/* squashfs is at block zero too */
+	if (squashfsb->s_magic == SQUASHFS_MAGIC) {
+		printk(KERN_NOTICE
+		       "RAMDISK: squashfs filesystem found at block %d\n",
+		       start_block);
+		nblocks = (squashfsb->bytes_used+BLOCK_SIZE-1)>>BLOCK_SIZE_BITS;
 		goto done;
 	}
 
@@ -782,7 +802,13 @@ static void __init mount_root(void)
 	}
 #endif
 	devfs_make_root(root_device_name);
-	create_dev("/dev/root", ROOT_DEV, root_device_name);
+	int error;
+	error = create_dev("/dev/root", ROOT_DEV, root_device_name);
+#ifdef CONFIG_RUNTIME_DEBUG
+	if (error) {
+		printk("mount_root: Create root device failed (ret=%d)!\n", error);
+	}
+#endif
 #ifdef CONFIG_BLK_DEV_FD
 	if (MAJOR(ROOT_DEV) == FLOPPY_MAJOR) {
 		/* rd_doload is 2 for a dual initrd/ramload setup */
@@ -794,6 +820,17 @@ static void __init mount_root(void)
 		} else
 			change_floppy("root floppy");
 	}
+#endif
+#if defined(CONFIG_MTD_BLOCK) || defined(CONFIG_MTD_BLOCK_RO)
+        if (MAJOR(ROOT_DEV) == MTD_BLOCK_MAJOR) {
+                /* rd_doload is for a ramload setup */
+                if (rd_doload) {
+                        if (rd_load_disk(0)) {
+                                ROOT_DEV = MKDEV(RAMDISK_MAJOR, 0);
+                                create_dev("/dev/root", ROOT_DEV, NULL);
+                        }
+                }
+        }
 #endif
 	mount_block_root("/dev/root", root_mountflags);
 }

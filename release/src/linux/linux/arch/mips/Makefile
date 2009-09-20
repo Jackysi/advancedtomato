@@ -43,11 +43,11 @@ MAKEBOOT = $(MAKE) -C arch/$(ARCH)/boot
 #
 GCCFLAGS	:= -I $(TOPDIR)/include/asm/gcc
 GCCFLAGS	+= -G 0 -mno-abicalls -fno-pic -pipe
-GCCFLAGS	+= $(call check_gcc, -finline-limit=100000,)
-LINKFLAGS	+= -G 0 -static -n
-MODFLAGS	+= -mlong-calls
+GCCFLAGS	+= $(call if_gcc4,,$(call check_gcc, -finline-limit=10000,))
+LINKFLAGS	+= -G 0 -static -n -nostdlib
+MODFLAGS	+= -mlong-calls -fno-common
 
-ifdef CONFIG_DEBUG_INFO
+ifdef CONFIG_REMOTE_DEBUG
 GCCFLAGS	+= -g
 ifdef CONFIG_SB1XXX_CORELIS
 GCCFLAGS	+= -mno-sched-prolog -fno-omit-frame-pointer
@@ -69,13 +69,13 @@ endif
 set_gccflags = $(shell \
 while :; do \
 	cpu=$(1); isa=-$(2); \
-	for gcc_opt in -march= -mcpu=; do \
+	for gcc_opt in -march= -mtune=; do \
 		$(CC) $$gcc_opt$$cpu $$isa -S -o /dev/null \
 			-xc /dev/null > /dev/null 2>&1 && \
 			break 2; \
 	done; \
 	cpu=$(3); isa=-$(4); \
-	for gcc_opt in -march= -mcpu=; do \
+	for gcc_opt in -march= -mtune=; do \
 		$(CC) $$gcc_opt$$cpu $$isa -S -o /dev/null \
 			-xc /dev/null > /dev/null 2>&1 && \
 			break 2; \
@@ -90,7 +90,7 @@ else \
 fi; \
 gas_abi=-Wa,-32; gas_cpu=$$cpu; gas_isa=-Wa,$$isa; \
 while :; do \
-	for gas_opt in -Wa,-march= -Wa,-mcpu=; do \
+	for gas_opt in -Wa,-march= -Wa,-mtune=; do \
 		$(CC) $$gas_abi $$gas_opt$$cpu $$gas_isa -Wa,-Z -c \
 			-o /dev/null -xassembler /dev/null > /dev/null 2>&1 && \
 			break 2; \
@@ -170,8 +170,10 @@ ifdef CONFIG_SB1_PASS_1_WORKAROUNDS
 MODFLAGS	+= -msb1-pass1-workarounds
 endif
 endif
+GCCFLAGS        += $(call check_gcc, -m4710a0kern, )
 
 AFLAGS		+= $(GCCFLAGS)
+ASFLAGS		+= $(GCCFLAGS)
 CFLAGS		+= $(GCCFLAGS)
 
 LD		+= -m $(ld-emul)
@@ -209,7 +211,7 @@ LOADADDR	:= 0x80080000
 endif
 
 #
-# Au1000 (Alchemy Semi PB1000) eval board
+# Au1x AMD Alchemy eval boards
 #
 ifdef CONFIG_MIPS_PB1000
 LIBS		+= arch/mips/au1000/pb1000/pb1000.o \
@@ -218,9 +220,6 @@ SUBDIRS		+= arch/mips/au1000/pb1000 arch/mips/au1000/common
 LOADADDR	:= 0x80100000
 endif
 
-#
-# Au1100 (Alchemy Semi PB1100) eval board
-#
 ifdef CONFIG_MIPS_PB1100
 LIBS          += arch/mips/au1000/pb1100/pb1100.o \
                  arch/mips/au1000/common/au1000.o
@@ -228,9 +227,6 @@ SUBDIRS       += arch/mips/au1000/pb1100 arch/mips/au1000/common
 LOADADDR      += 0x80100000
 endif
 
-#
-# Au1500 (Alchemy Semi PB1500) eval board
-#
 ifdef CONFIG_MIPS_PB1500
 LIBS		+= arch/mips/au1000/pb1500/pb1500.o \
 		   arch/mips/au1000/common/au1000.o
@@ -238,9 +234,6 @@ SUBDIRS		+= arch/mips/au1000/pb1500 arch/mips/au1000/common
 LOADADDR	:= 0x80100000
 endif
 
-#
-# Au1x00 (AMD/Alchemy) eval boards
-#
 ifdef CONFIG_MIPS_DB1000
 LIBS          += arch/mips/au1000/db1x00/db1x00.o \
                  arch/mips/au1000/common/au1000.o
@@ -308,6 +301,27 @@ ifdef CONFIG_MIPS_PB1550
 LIBS          += arch/mips/au1000/pb1550/pb1550.o \
                  arch/mips/au1000/common/au1000.o
 SUBDIRS       += arch/mips/au1000/pb1550 arch/mips/au1000/common
+LOADADDR      += 0x80100000
+endif
+
+ifdef CONFIG_MIPS_PB1200
+LIBS          += arch/mips/au1000/pb1200/pb1200.o \
+                 arch/mips/au1000/common/au1000.o
+SUBDIRS       += arch/mips/au1000/pb1200 arch/mips/au1000/common
+LOADADDR      += 0x80100000
+endif
+
+ifdef CONFIG_MIPS_DB1200
+LIBS          += arch/mips/au1000/pb1200/pb1200.o \
+                 arch/mips/au1000/common/au1000.o
+SUBDIRS       += arch/mips/au1000/pb1200 arch/mips/au1000/common
+LOADADDR      += 0x80100000
+endif
+
+ifdef CONFIG_MIPS_FICMMP
+LIBS          += arch/mips/au1000/ficmmp/ficmmp.o \
+                 arch/mips/au1000/common/au1000.o
+SUBDIRS       += arch/mips/au1000/ficmmp arch/mips/au1000/common
 LOADADDR      += 0x80100000
 endif
 
@@ -713,6 +727,19 @@ LOADADDR      += 0x80020000
 endif
 
 #
+# Broadcom BCM947XX variants
+#
+ifdef CONFIG_BCM947XX
+LIBS		+= arch/mips/bcm947xx/generic/brcm.o arch/mips/bcm947xx/bcm947xx.o 
+SUBDIRS		+= arch/mips/bcm947xx/generic arch/mips/bcm947xx 
+LOADADDR	:= 0x80001000
+
+zImage: vmlinux
+	$(MAKE) -C arch/$(ARCH)/bcm947xx/compressed
+export LOADADDR
+endif
+
+#
 # Choosing incompatible machines durings configuration will result in
 # error messages during linking.  Select a default linkscript if
 # none has been choosen above.
@@ -726,6 +753,7 @@ LINKFLAGS	+= -T arch/$(ARCH)/ld.script
 HEAD := arch/mips/kernel/head.o arch/mips/kernel/init_task.o
 
 SUBDIRS := $(addprefix arch/mips/, tools) $(SUBDIRS) $(addprefix arch/mips/, kernel mm lib)
+$(SUBDIRS): $(TOPDIR)/include/asm-$(ARCH)/offset.h
 CORE_FILES := arch/mips/kernel/kernel.o arch/mips/mm/mm.o $(CORE_FILES)
 LIBS := arch/mips/lib/lib.a $(LIBS)
 
@@ -765,6 +793,7 @@ archclean:
 	$(MAKE) -C arch/$(ARCH)/tools clean
 	$(MAKE) -C arch/mips/baget clean
 	$(MAKE) -C arch/mips/lasat clean
+	$(MAKE) -C arch/mips/bcm947xx/compressed clean
 
 archmrproper:
 	@$(MAKEBOOT) mrproper
@@ -772,7 +801,7 @@ archmrproper:
 	$(MAKE) -C arch/$(ARCH)/tools mrproper
 
 archdep:
-	if [ ! -f $(TOPDIR)/include/asm-$(ARCH)/offset.h ]; then \
-		touch $(TOPDIR)/include/asm-$(ARCH)/offset.h; \
-	fi;
 	@$(MAKEBOOT) dep
+
+$(TOPDIR)/include/asm-$(ARCH)/offset.h:
+	@$(MAKE) -C arch/mips/tools

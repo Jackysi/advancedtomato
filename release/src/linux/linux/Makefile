@@ -5,19 +5,21 @@ EXTRAVERSION = .5
 
 KERNELRELEASE=$(VERSION).$(PATCHLEVEL).$(SUBLEVEL)$(EXTRAVERSION)
 
-ARCH := $(shell uname -m | sed -e s/i.86/i386/ -e s/sun4u/sparc64/ -e s/arm.*/arm/ -e s/sa110/arm/)
+ARCH := mips
 KERNELPATH=kernel-$(shell echo $(KERNELRELEASE) | sed -e "s/-//g")
 
 CONFIG_SHELL := $(shell if [ -x "$$BASH" ]; then echo $$BASH; \
 	  else if [ -x /bin/bash ]; then echo /bin/bash; \
 	  else echo sh; fi ; fi)
 TOPDIR	:= $(shell /bin/pwd)
+SRCBASE ?= $(TOPDIR)/../..
+export SRCBASE
 
 HPATH   	= $(TOPDIR)/include
 FINDHPATH	= $(HPATH)/asm $(HPATH)/linux $(HPATH)/scsi $(HPATH)/net $(HPATH)/math-emu
 
 HOSTCC  	= gcc
-HOSTCFLAGS	= -Wall -Wstrict-prototypes -O2 -fomit-frame-pointer
+HOSTCFLAGS	= -Wall -Wstrict-prototypes -Os -fomit-frame-pointer
 
 CROSS_COMPILE 	=
 
@@ -88,10 +90,9 @@ export MODLIB
 #
 # standard CFLAGS
 #
-
 CPPFLAGS := -D__KERNEL__ -I$(HPATH)
 
-CFLAGS := $(CPPFLAGS) -Wall -Wstrict-prototypes -Wno-trigraphs -O2 \
+CFLAGS := $(CPPFLAGS) -Wall -Wstrict-prototypes -Wno-trigraphs -Os \
 	  -fno-strict-aliasing -fno-common
 CFLAGS += -fno-builtin-strpbrk -fno-builtin-sprintf
 ifndef CONFIG_FRAME_POINTER
@@ -101,12 +102,6 @@ AFLAGS := -D__ASSEMBLY__ $(CPPFLAGS)
 
 check_gcc = $(shell if $(CC) $(1) -S -o /dev/null -xc /dev/null > /dev/null 2>&1; then echo "$(1)"; else echo "$(2)"; fi)
 if_gcc4 = $(shell if echo __GNUC__ | $(CC) -E -xc - | grep -q '^4$$' > /dev/null 2>&1; then echo "$(1)"; else echo "$(2)"; fi)
-
-# disable pointer signedness warnings in gcc 4.0
-CFLAGS += $(call check_gcc,-Wno-pointer-sign,)
-
-# disable stupid and dangerous "optimization" in gcc 3.2+
-CFLAGS += $(call check_gcc,-fno-delete-null-pointer-checks,)
 
 #
 # ROOT_DEV specifies the default root-device when making the image.
@@ -277,6 +272,14 @@ include arch/$(ARCH)/Makefile
 # 'kbuild_2_4_nostdinc :=' or -I/usr/include for kernel code and you are not UML
 # then your code is broken!  KAO.
 
+# disable pointer signedness warnings in gcc 4.x
+CFLAGS += $(call check_gcc,-Wno-pointer-sign,)
+
+# disable stupid and dangerous "optimization" in gcc 3.2+
+CFLAGS += $(call check_gcc,-fno-delete-null-pointer-checks,)
+
+CFLAGS += -I$(SRCBASE)/include -DBCMDRIVER
+
 kbuild_2_4_nostdinc	:= -nostdinc -iwithprefix include
 export kbuild_2_4_nostdinc
 
@@ -350,21 +353,21 @@ include/linux/compile.h: $(CONFIGURATION) include/linux/version.h newversion
 	@echo -n \#`cat .version` > .ver1
 	@if [ -n "$(CONFIG_SMP)" ] ; then echo -n " SMP" >> .ver1; fi
 	@if [ -f .name ]; then  echo -n \-`cat .name` >> .ver1; fi
-	@LANG=C echo ' '`date` >> .ver1
+	@LANG=C echo ' '`date +%F' '%T' '%Z` >> .ver1
 	@echo \#define UTS_VERSION \"`cat .ver1 | $(uts_truncate)`\" > .ver
 	@LANG=C echo \#define LINUX_COMPILE_TIME \"`date +%T`\" >> .ver
-	@echo \#define LINUX_COMPILE_BY \"`whoami`\" >> .ver
-	@echo \#define LINUX_COMPILE_HOST \"`hostname | $(uts_truncate)`\" >> .ver
+	@echo \#define LINUX_COMPILE_BY \"root\" >> .ver
+	@echo \#define LINUX_COMPILE_HOST \"localhost\" >> .ver
 	@([ -x /bin/dnsdomainname ] && /bin/dnsdomainname > .ver1) || \
 	 ([ -x /bin/domainname ] && /bin/domainname > .ver1) || \
 	 echo > .ver1
-	@echo \#define LINUX_COMPILE_DOMAIN \"`cat .ver1 | $(uts_truncate)`\" >> .ver
+	@echo \#define LINUX_COMPILE_DOMAIN \"localdomain\" >> .ver
 	@echo \#define LINUX_COMPILER \"`$(CC) $(CFLAGS) -v 2>&1 | tail -n 1`\" >> .ver
 	@mv -f .ver $@
 	@rm -f .ver1
 
 include/linux/version.h: ./Makefile
-	@expr length "$(KERNELRELEASE)" \<= $(uts_len) > /dev/null || \
+	@-expr length "$(KERNELRELEASE)" \<= $(uts_len) > /dev/null || \
 	  (echo KERNELRELEASE \"$(KERNELRELEASE)\" exceeds $(uts_len) characters >&2; false)
 	@echo \#define UTS_RELEASE \"$(KERNELRELEASE)\" > .ver
 	@echo \#define LINUX_VERSION_CODE `expr $(VERSION) \\* 65536 + $(PATCHLEVEL) \\* 256 + $(SUBLEVEL)` >> .ver
@@ -430,17 +433,8 @@ else
 depmod_opts	:= -b $(INSTALL_MOD_PATH) -r
 endif
 .PHONY: _modinst_post
-_modinst_post: _modinst_post_pcmcia
+_modinst_post:
 	if [ -r System.map ]; then $(DEPMOD) -ae -F System.map $(depmod_opts) $(KERNELRELEASE); fi
-
-# Backwards compatibilty symlinks for people still using old versions
-# of pcmcia-cs with hard coded pathnames on insmod.  Remove
-# _modinst_post_pcmcia for kernel 2.4.1.
-.PHONY: _modinst_post_pcmcia
-_modinst_post_pcmcia:
-	cd $(MODLIB); \
-	mkdir -p pcmcia; \
-	find kernel -path '*/pcmcia/*' -name '*.o' | xargs -i -r ln -sf ../{} pcmcia
 
 .PHONY: $(patsubst %, _modinst_%, $(SUBDIRS))
 $(patsubst %, _modinst_%, $(SUBDIRS)) :
@@ -472,10 +466,11 @@ mrproper: clean archmrproper
 	$(MAKE) -C Documentation/DocBook mrproper
 
 distclean: mrproper
-	rm -f core `find . \( -not -type d \) -and \
-		\( -name '*.orig' -o -name '*.rej' -o -name '*~' \
-		-o -name '*.bak' -o -name '#*#' -o -name '.*.orig' \
-		-o -name '.*.rej' -o -name '.SUMS' -o -size 0 \) -type f -print` TAGS tags
+	find . \( -not -type d \) -and \
+		\( -name core -o -name '*.orig' -o -name '*.rej' \
+		-o -name '*~' -o -name '*.bak' -o -name '#*#' \
+		-o -name '.*.rej' -o -name '.SUMS' -o -size 0 \
+		-o -name TAGS -o -name tags \) -print | env -i xargs rm -f
 
 backup: mrproper
 	cd .. && tar cf - linux/ | gzip -9 > backup.gz
@@ -502,7 +497,7 @@ mandocs:
 	$(MAKE) -C Documentation/DocBook man
 
 sums:
-	find . -type f -print | sort | xargs sum > .SUMS
+	find . -type f -print | sort | env -i xargs sum > .SUMS
 
 dep-files: scripts/mkdep archdep include/linux/version.h
 	rm -f .depend .hdepend
@@ -510,7 +505,7 @@ dep-files: scripts/mkdep archdep include/linux/version.h
 ifdef CONFIG_MODVERSIONS
 	$(MAKE) update-modverfile
 endif
-	scripts/mkdep -- `find $(FINDHPATH) \( -name SCCS -o -name .svn \) -prune -o -follow -name \*.h ! -name modversions.h -print` > .hdepend
+	find $(FINDHPATH) \( -name SCCS -o -name .svn \) -prune -o -follow -name \*.h ! -name modversions.h -print | xargs scripts/mkdep -- > .hdepend
 	scripts/mkdep -- init/*.c > .depend
 
 ifdef CONFIG_MODVERSIONS

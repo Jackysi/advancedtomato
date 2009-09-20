@@ -11,7 +11,7 @@ USE_STANDARD_AS_RULE := true
 O_TARGET := mm.o
 
 export-objs			:= cache.o ioremap.o loadmmu.o remap.o \
-				   tlb-r4k.o tlb-sb1.o
+				   tlb-r4k.o tlb-sb1.o c-r4k.o
 obj-y				+= cache.o extable.o init.o ioremap.o fault.o \
 				   loadmmu.o
 

@@ -25,11 +25,14 @@
  * 2) is a multiple of page size 3) can be successfully kmalloc()ed
  * by each nfsd.   
  */
+/* Disable dependence from PAGE_SIZE, force it to 32kB
 #if PAGE_SIZE > (16*1024)
 #define NFSSVC_MAXBLKSIZE	(32*1024)
 #else
 #define NFSSVC_MAXBLKSIZE	(2*PAGE_SIZE)
 #endif
+ */
+#define NFSSVC_MAXBLKSIZE	(32*1024)
 
 #ifdef __KERNEL__
 

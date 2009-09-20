@@ -1,10 +1,12 @@
 /*
- * dz.c: Serial port driver for DECStations equiped 
+ * dz.c: Serial port driver for DECstations equipped 
  *       with the DZ chipset.
  *
  * Copyright (C) 1998 Olivier A. D. Lebaillif 
  *             
  * Email: olivier.lebaillif@ifrsys.com
+ *
+ * Copyright (C) 2004  Maciej W. Rozycki
  *
  * [31-AUG-98] triemer
  * Changed IRQ to use Harald's dec internals interrupts.h
@@ -24,6 +26,7 @@
 #undef DEBUG_DZ
 
 #include <linux/config.h>
+#include <linux/delay.h>
 #include <linux/version.h>
 #include <linux/kernel.h>
 #include <linux/sched.h>
@@ -54,32 +57,55 @@
 #include <asm/system.h>
 #include <asm/uaccess.h>
 
-#define CONSOLE_LINE (3)	/* for definition of struct console */
+#ifdef CONFIG_MAGIC_SYSRQ
+#include <linux/sysrq.h>
+#endif
 
 #include "dz.h"
 
-#define DZ_INTR_DEBUG 1
-
 DECLARE_TASK_QUEUE(tq_serial);
 
-static struct dz_serial *lines[4];
+static struct dz_serial multi[DZ_NB_PORT];    /* Four serial lines in the DZ chip */
+static struct tty_driver serial_driver, callout_driver;
+
+static struct tty_struct *serial_table[DZ_NB_PORT];
+static struct termios *serial_termios[DZ_NB_PORT];
+static struct termios *serial_termios_locked[DZ_NB_PORT];
+
+static int serial_refcount;
+
+/*
+ * tmp_buf is used as a temporary buffer by serial_write.  We need to
+ * lock it in case the copy_from_user blocks while swapping in a page,
+ * and some other program tries to do a serial write at the same time.
+ * Since the lock will only come under contention when the system is
+ * swapping and available memory is low, it makes sense to share one
+ * buffer across all the serial ports, since it significantly saves
+ * memory if large numbers of serial ports are open.
+ */
+static unsigned char *tmp_buf;
+static DECLARE_MUTEX(tmp_buf_sem);
+
+static char *dz_name __initdata = "DECstation DZ serial driver version ";
+static char *dz_version __initdata = "1.03";
+
+static struct dz_serial *lines[DZ_NB_PORT];
 static unsigned char tmp_buffer[256];
 
-#ifdef DEBUG_DZ
-/*
- * debugging code to send out chars via prom 
- */
-static void debug_console(const char *s, int count)
-{
-	unsigned i;
-
-	for (i = 0; i < count; i++) {
-		if (*s == 10)
-			prom_printf("%c", 13);
-		prom_printf("%c", *s++);
-	}
-}
+#ifdef CONFIG_SERIAL_DEC_CONSOLE
+static struct console dz_sercons;
 #endif
+#if defined(CONFIG_SERIAL_DEC_CONSOLE) && defined(CONFIG_MAGIC_SYSRQ) && \
+   !defined(MODULE)
+static unsigned long break_pressed; /* break, really ... */
+#endif
+
+static void change_speed (struct dz_serial *);
+
+static int baud_table[] = {
+        0, 50, 75, 110, 134, 150, 200, 300, 600, 1200, 1800, 2400, 4800,
+        9600, 0
+};
 
 /*
  * ------------------------------------------------------------
@@ -94,15 +120,16 @@ static inline unsigned short dz_in(struct dz_serial *info, unsigned offset)
 {
 	volatile unsigned short *addr =
 		(volatile unsigned short *) (info->port + offset);
+
 	return *addr;
 }
 
 static inline void dz_out(struct dz_serial *info, unsigned offset,
                           unsigned short value)
 {
-
 	volatile unsigned short *addr =
 		(volatile unsigned short *) (info->port + offset);
+
 	*addr = value;
 }
 
@@ -143,25 +170,24 @@ static void dz_start(struct tty_struct *tty)
 
 	tmp |= mask;		/* set the TX flag */
 	dz_out(info, DZ_TCR, tmp);
-
 }
 
 /*
  * ------------------------------------------------------------
- * Here starts the interrupt handling routines.  All of the 
- * following subroutines are declared as inline and are folded 
- * into dz_interrupt.  They were separated out for readability's 
- * sake. 
  *
- * Note: rs_interrupt() is a "fast" interrupt, which means that it
+ * Here starts the interrupt handling routines.  All of the following
+ * subroutines are declared as inline and are folded into
+ * dz_interrupt().  They were separated out for readability's sake.
+ *
+ * Note: dz_interrupt() is a "fast" interrupt, which means that it
  * runs with interrupts turned off.  People who may want to modify
- * rs_interrupt() should try to keep the interrupt handler as fast as
+ * dz_interrupt() should try to keep the interrupt handler as fast as
  * possible.  After you are done making modifications, it is not a bad
  * idea to do:
  * 
  * gcc -S -DKERNEL -Wall -Wstrict-prototypes -O6 -fomit-frame-pointer dz.c
  *
- * and look at the resulting assemble code in serial.s.
+ * and look at the resulting assemble code in dz.s.
  *
  * ------------------------------------------------------------
  */
@@ -188,101 +214,97 @@ static inline void dz_sched_event(struct dz_serial *info, int event)
  * This routine deals with inputs from any lines.
  * ------------------------------------------------------------
  */
-static inline void receive_chars(struct dz_serial *info_in)
+static inline void receive_chars(struct dz_serial *info_in,
+				 struct pt_regs *regs)
 {
-
 	struct dz_serial *info;
-	struct tty_struct *tty = 0;
+	struct tty_struct *tty;
 	struct async_icount *icount;
-	int ignore = 0;
-	unsigned short status, tmp;
-	unsigned char ch;
+	int lines_rx[DZ_NB_PORT] = { [0 ... DZ_NB_PORT - 1] = 0 };
+	unsigned short status;
+	unsigned char ch, flag;
+	int i;
 
-	/* this code is going to be a problem...
-	   the call to tty_flip_buffer is going to need
-	   to be rethought...
-	 */
-	do {
-		status = dz_in(info_in, DZ_RBUF);
+	while ((status = dz_in(info_in, DZ_RBUF)) & DZ_DVAL) {
 		info = lines[LINE(status)];
+		tty = info->tty;		/* point to the proper dev */
 
-		/* punt so we don't get duplicate characters */
-		if (!(status & DZ_DVAL))
-			goto ignore_char;
+		ch = UCHAR(status);		/* grab the char */
 
-		ch = UCHAR(status);	/* grab the char */
+		if (!tty && (!info->hook || !info->hook->rx_char))
+			continue;
 
-#if 0
-		if (info->is_console) {
-			if (ch == 0)
-				return;	/* it's a break ... */
-		}
-#endif
-
-		tty = info->tty;	/* now tty points to the proper dev */
 		icount = &info->icount;
-
-		if (!tty)
-			break;
-		if (tty->flip.count >= TTY_FLIPBUF_SIZE)
-			break;
-
-		*tty->flip.char_buf_ptr = ch;
-		*tty->flip.flag_buf_ptr = 0;
 		icount->rx++;
 
-		/* keep track of the statistics */
-		if (status & (DZ_OERR | DZ_FERR | DZ_PERR)) {
-			if (status & DZ_PERR)	/* parity error */
-				icount->parity++;
-			else if (status & DZ_FERR)	/* frame error */
-				icount->frame++;
-			if (status & DZ_OERR)	/* overrun error */
-				icount->overrun++;
-
-			/*  check to see if we should ignore the character
-			   and mask off conditions that should be ignored
+		flag = 0;
+		if (status & DZ_FERR) {		/* frame error */
+			/*
+			 * There is no separate BREAK status bit, so
+			 * treat framing errors as BREAKs for Magic SysRq
+			 * and SAK; normally, otherwise.
 			 */
+#if defined(CONFIG_SERIAL_DEC_CONSOLE) && defined(CONFIG_MAGIC_SYSRQ) && \
+   !defined(MODULE)
+			if (info->line == dz_sercons.index) {
+				if (!break_pressed)
+					break_pressed = jiffies;
+				continue;
+			}
+#endif
+			flag = TTY_BREAK;
+			if (info->flags & DZ_SAK)
+				do_SAK(tty);
+			else
+				flag = TTY_FRAME;
+		} else if (status & DZ_OERR)	/* overrun error */
+			flag = TTY_OVERRUN;
+		else if (status & DZ_PERR)	/* parity error */
+			flag = TTY_PARITY;
 
-			if (status & info->ignore_status_mask) {
-				if (++ignore > 100)
-					break;
-				goto ignore_char;
+#if defined(CONFIG_SERIAL_DEC_CONSOLE) && defined(CONFIG_MAGIC_SYSRQ) && \
+   !defined(MODULE)
+		if (break_pressed && info->line == dz_sercons.index) {
+			if (time_before(jiffies, break_pressed + HZ * 5)) {
+				handle_sysrq(ch, regs, NULL, NULL);
+				break_pressed = 0;
+				continue;
 			}
-			/* mask off the error conditions we want to ignore */
-			tmp = status & info->read_status_mask;
-
-			if (tmp & DZ_PERR) {
-				*tty->flip.flag_buf_ptr = TTY_PARITY;
-#ifdef DEBUG_DZ
-				debug_console("PERR\n", 5);
-#endif
-			} else if (tmp & DZ_FERR) {
-				*tty->flip.flag_buf_ptr = TTY_FRAME;
-#ifdef DEBUG_DZ
-				debug_console("FERR\n", 5);
-#endif
-			}
-			if (tmp & DZ_OERR) {
-#ifdef DEBUG_DZ
-				debug_console("OERR\n", 5);
-#endif
-				if (tty->flip.count < TTY_FLIPBUF_SIZE) {
-					tty->flip.count++;
-					tty->flip.flag_buf_ptr++;
-					tty->flip.char_buf_ptr++;
-					*tty->flip.flag_buf_ptr = TTY_OVERRUN;
-				}
-			}
+			break_pressed = 0;
 		}
-		tty->flip.flag_buf_ptr++;
-		tty->flip.char_buf_ptr++;
-		tty->flip.count++;
-	      ignore_char:
-	} while (status & DZ_DVAL);
+#endif
 
-	if (tty)
-		tty_flip_buffer_push(tty);
+		if (info->hook && info->hook->rx_char) {
+			(*info->hook->rx_char)(ch, flag);
+			return;
+		}
+
+		/* keep track of the statistics */
+		switch (flag) {
+		case TTY_FRAME:
+			icount->frame++;
+			break;
+		case TTY_PARITY:
+			icount->parity++;
+			break;
+		case TTY_OVERRUN:
+			icount->overrun++;
+			break;
+		case TTY_BREAK:
+			icount->brk++;
+			break;
+		default:
+			break;
+		}
+
+		if ((status & info->ignore_status_mask) == 0) {
+			tty_insert_flip_char(tty, ch, flag);
+			lines_rx[LINE(status)] = 1;
+		}
+	}
+	for (i = 0; i < DZ_NB_PORT; i++)
+		if (lines_rx[i])
+			tty_flip_buffer_push(lines[i]->tty);
 }
 
 /*
@@ -292,20 +314,34 @@ static inline void receive_chars(struct dz_serial *info_in)
  * This routine deals with outputs to any lines.
  * ------------------------------------------------------------
  */
-static inline void transmit_chars(struct dz_serial *info)
+static inline void transmit_chars(struct dz_serial *info_in)
 {
+	struct dz_serial *info;
+	unsigned short status;
 	unsigned char tmp;
 
+	status = dz_in(info_in, DZ_CSR);
+	info = lines[LINE(status)];
 
+	if (info->hook || !info->tty) {
+		unsigned short mask, tmp;
 
-	if (info->x_char) {	/* XON/XOFF chars */
+		mask = 1 << info->line;
+		tmp = dz_in(info, DZ_TCR);	/* read the TX flag */
+		tmp &= ~mask;			/* clear the TX flag */
+		dz_out(info, DZ_TCR, tmp);
+		return;
+	}
+
+	if (info->x_char) {			/* XON/XOFF chars */
 		dz_out(info, DZ_TDR, info->x_char);
 		info->icount.tx++;
 		info->x_char = 0;
 		return;
 	}
 	/* if nothing to do or stopped or hardware stopped */
-	if ((info->xmit_cnt <= 0) || info->tty->stopped || info->tty->hw_stopped) {
+	if (info->xmit_cnt <= 0 ||
+	    info->tty->stopped || info->tty->hw_stopped) {
 		dz_stop(info->tty);
 		return;
 	}
@@ -359,15 +395,14 @@ static inline void check_modem_status(struct dz_serial *info)
  */
 static void dz_interrupt(int irq, void *dev, struct pt_regs *regs)
 {
-	struct dz_serial *info;
+	struct dz_serial *info = (struct dz_serial *)dev;
 	unsigned short status;
 
 	/* get the reason why we just got an irq */
-	status = dz_in((struct dz_serial *) dev, DZ_CSR);
-	info = lines[LINE(status)];	/* re-arrange info the proper port */
+	status = dz_in(info, DZ_CSR);
 
 	if (status & DZ_RDONE)
-		receive_chars(info);	/* the receive function */
+		receive_chars(info, regs);
 
 	if (status & DZ_TRDY)
 		transmit_chars(info);
@@ -514,7 +549,7 @@ static void shutdown(struct dz_serial *info)
 
 
 	info->cflags &= ~DZ_CREAD;	/* turn off receive enable flag */
-	dz_out(info, DZ_LPR, info->cflags);
+	dz_out(info, DZ_LPR, info->cflags | info->line);
 
 	if (info->xmit_buf) {	/* free Tx buffer */
 		free_page((unsigned long) info->xmit_buf);
@@ -545,17 +580,20 @@ static void change_speed(struct dz_serial *info)
 {
 	unsigned long flags;
 	unsigned cflag;
-	int baud;
+	int baud, i;
 
-	if (!info->tty || !info->tty->termios)
-		return;
+	if (!info->hook) {
+		if (!info->tty || !info->tty->termios)
+			return;
+		cflag = info->tty->termios->c_cflag;
+	} else {
+		cflag = info->hook->cflags;
+	}
 
 	save_flags(flags);
 	cli();
 
 	info->cflags = info->line;
-
-	cflag = info->tty->termios->c_cflag;
 
 	switch (cflag & CSIZE) {
 	case CS5:
@@ -579,7 +617,16 @@ static void change_speed(struct dz_serial *info)
 	if (cflag & PARODD)
 		info->cflags |= DZ_PARODD;
 
-	baud = tty_get_baud_rate(info->tty);
+	i = cflag & CBAUD;
+	if (i & CBAUDEX) {
+		i &= ~CBAUDEX;
+		if (!info->hook)
+			info->tty->termios->c_cflag &= ~CBAUDEX;
+		else
+			info->hook->cflags &= ~CBAUDEX;
+	}
+        baud = baud_table[i];
+
 	switch (baud) {
 	case 50:
 		info->cflags |= DZ_B50;
@@ -629,16 +676,16 @@ static void change_speed(struct dz_serial *info)
 	}
 
 	info->cflags |= DZ_RXENAB;
-	dz_out(info, DZ_LPR, info->cflags);
+	dz_out(info, DZ_LPR, info->cflags | info->line);
 
 	/* setup accept flag */
 	info->read_status_mask = DZ_OERR;
-	if (I_INPCK(info->tty))
+	if (info->tty && I_INPCK(info->tty))
 		info->read_status_mask |= (DZ_FERR | DZ_PERR);
 
 	/* characters to ignore */
 	info->ignore_status_mask = 0;
-	if (I_IGNPAR(info->tty))
+	if (info->tty && I_IGNPAR(info->tty))
 		info->ignore_status_mask |= (DZ_FERR | DZ_PERR);
 
 	restore_flags(flags);
@@ -694,7 +741,7 @@ static int dz_write(struct tty_struct *tty, int from_user, const unsigned char *
 
 		down(&tmp_buf_sem);
 		while (1) {
-			c = MIN(count, MIN(DZ_XMIT_SIZE - info->xmit_cnt - 1, DZ_XMIT_SIZE - info->xmit_head));
+			c = min(count, min(DZ_XMIT_SIZE - info->xmit_cnt - 1, DZ_XMIT_SIZE - info->xmit_head));
 			if (c <= 0)
 				break;
 
@@ -707,7 +754,7 @@ static int dz_write(struct tty_struct *tty, int from_user, const unsigned char *
 			save_flags(flags);
 			cli();
 
-			c = MIN(c, MIN(DZ_XMIT_SIZE - info->xmit_cnt - 1, DZ_XMIT_SIZE - info->xmit_head));
+			c = min(c, min(DZ_XMIT_SIZE - info->xmit_cnt - 1, DZ_XMIT_SIZE - info->xmit_head));
 			memcpy(info->xmit_buf + info->xmit_head, tmp_buf, c);
 			info->xmit_head = ((info->xmit_head + c) & (DZ_XMIT_SIZE - 1));
 			info->xmit_cnt += c;
@@ -727,7 +774,7 @@ static int dz_write(struct tty_struct *tty, int from_user, const unsigned char *
 			save_flags(flags);
 			cli();
 
-			c = MIN(count, MIN(DZ_XMIT_SIZE - info->xmit_cnt - 1, DZ_XMIT_SIZE - info->xmit_head));
+			c = min(count, min(DZ_XMIT_SIZE - info->xmit_cnt - 1, DZ_XMIT_SIZE - info->xmit_head));
 			if (c <= 0) {
 				restore_flags(flags);
 				break;
@@ -845,7 +892,7 @@ static void dz_send_xchar(struct tty_struct *tty, char ch)
 
 /*
  * ------------------------------------------------------------
- * rs_ioctl () and friends
+ * dz_ioctl () and friends
  * ------------------------------------------------------------
  */
 static int get_serial_info(struct dz_serial *info,
@@ -957,6 +1004,9 @@ static int dz_ioctl(struct tty_struct *tty, struct file *file,
 {
 	struct dz_serial *info = (struct dz_serial *) tty->driver_data;
 	int retval;
+
+	if (info->hook)
+		return -ENODEV;
 
 	if ((cmd != TIOCGSERIAL) && (cmd != TIOCSSERIAL) &&
 	    (cmd != TIOCSERCONFIG) && (cmd != TIOCSERGWILD) &&
@@ -1252,19 +1302,14 @@ static int dz_open(struct tty_struct *tty, struct file *filp)
 	int retval, line;
 
 	line = MINOR(tty->device) - tty->driver.minor_start;
-
-	/* The dz lines for the mouse/keyboard must be
-	 * opened using their respective drivers.
-	 */
 	if ((line < 0) || (line >= DZ_NB_PORT))
 		return -ENODEV;
+	info = lines[line];
 
-	if ((line == DZ_KEYBOARD) || (line == DZ_MOUSE))
+	if (info->hook)
 		return -ENODEV;
 
-	info = lines[line];
 	info->count++;
-
 	tty->driver_data = info;
 	info->tty = tty;
 
@@ -1285,14 +1330,21 @@ static int dz_open(struct tty_struct *tty, struct file *filp)
 		else
 			*tty->termios = info->callout_termios;
 		change_speed(info);
-
 	}
+#ifdef CONFIG_SERIAL_DEC_CONSOLE
+	if (dz_sercons.cflag && dz_sercons.index == line) {
+		tty->termios->c_cflag = dz_sercons.cflag;
+		dz_sercons.cflag = 0;
+		change_speed(info);
+        }
+#endif
+
 	info->session = current->session;
 	info->pgrp = current->pgrp;
 	return 0;
 }
 
-static void show_serial_version(void)
+static void __init show_serial_version(void)
 {
 	printk("%s%s\n", dz_name, dz_version);
 }
@@ -1300,7 +1352,6 @@ static void show_serial_version(void)
 int __init dz_init(void)
 {
 	int i;
-	long flags;
 	struct dz_serial *info;
 
 	/* Setup base handler, and timer table. */
@@ -1311,9 +1362,9 @@ int __init dz_init(void)
 	memset(&serial_driver, 0, sizeof(struct tty_driver));
 	serial_driver.magic = TTY_DRIVER_MAGIC;
 #if (LINUX_VERSION_CODE > 0x2032D && defined(CONFIG_DEVFS_FS))
-	serial_driver.name = "ttyS";
-#else
 	serial_driver.name = "tts/%d";
+#else
+	serial_driver.name = "ttyS";
 #endif
 	serial_driver.major = TTY_MAJOR;
 	serial_driver.minor_start = 64;
@@ -1352,9 +1403,9 @@ int __init dz_init(void)
 	 */
 	callout_driver = serial_driver;
 #if (LINUX_VERSION_CODE > 0x2032D && defined(CONFIG_DEVFS_FS))
-	callout_driver.name = "cua";
-#else
 	callout_driver.name = "cua/%d";
+#else
+	callout_driver.name = "cua";
 #endif
 	callout_driver.major = TTYAUX_MAJOR;
 	callout_driver.subtype = SERIAL_TYPE_CALLOUT;
@@ -1363,25 +1414,27 @@ int __init dz_init(void)
 		panic("Couldn't register serial driver");
 	if (tty_register_driver(&callout_driver))
 		panic("Couldn't register callout driver");
-	save_flags(flags);
-	cli();
 
 	for (i = 0; i < DZ_NB_PORT; i++) {
 		info = &multi[i];
 		lines[i] = info;
-		info->magic = SERIAL_MAGIC;
-
+		info->tty = 0;
+		info->x_char = 0;
 		if (mips_machtype == MACH_DS23100 ||
 		    mips_machtype == MACH_DS5100)
 			info->port = (unsigned long) KN01_DZ11_BASE;
 		else
 			info->port = (unsigned long) KN02_DZ11_BASE;
-
 		info->line = i;
-		info->tty = 0;
+
+		if (info->hook && info->hook->init_info) {
+			(*info->hook->init_info)(info);
+			continue;
+		}
+
+		info->magic = SERIAL_MAGIC;
 		info->close_delay = 50;
 		info->closing_wait = 3000;
-		info->x_char = 0;
 		info->event = 0;
 		info->count = 0;
 		info->blocked_open = 0;
@@ -1393,25 +1446,16 @@ int __init dz_init(void)
 		info->normal_termios = serial_driver.init_termios;
 		init_waitqueue_head(&info->open_wait);
 		init_waitqueue_head(&info->close_wait);
-
-		/*
-		 * If we are pointing to address zero then punt - not correctly
-		 * set up in setup.c to handle this.
-		 */
-		if (!info->port)
-			return 0;
-
-		printk("ttyS%02d at 0x%08x (irq = %d)\n", info->line,
-		       info->port, dec_interrupt[DEC_IRQ_DZ11]);
-
+		printk("ttyS%02d at 0x%08x (irq = %d) is a DC7085 DZ\n",
+		       info->line, info->port, dec_interrupt[DEC_IRQ_DZ11]);
 		tty_register_devfs(&serial_driver, 0,
-				 serial_driver.minor_start + info->line);
+				   serial_driver.minor_start + info->line);
 		tty_register_devfs(&callout_driver, 0,
-				callout_driver.minor_start + info->line);
+				   callout_driver.minor_start + info->line);
 	}
 
-	/* reset the chip */
 #ifndef CONFIG_SERIAL_DEC_CONSOLE
+	/* reset the chip */
 	dz_out(info, DZ_CSR, DZ_CLR);
 	while (dz_in(info, DZ_CSR) & DZ_CLR);
 	iob();
@@ -1420,43 +1464,104 @@ int __init dz_init(void)
 	dz_out(info, DZ_CSR, DZ_MSE);
 #endif
 
-	/* order matters here... the trick is that flags
-	   is updated... in request_irq - to immediatedly obliterate
-	   it is unwise. */
-	restore_flags(flags);
-
-
 	if (request_irq(dec_interrupt[DEC_IRQ_DZ11], dz_interrupt,
-			SA_INTERRUPT, "DZ", lines[0]))
+			0, "DZ", lines[0]))
 		panic("Unable to register DZ interrupt");
+
+	for (i = 0; i < DZ_NB_PORT; i++)
+		if (lines[i]->hook) {
+			startup(lines[i]);
+			if (lines[i]->hook->init_channel)
+				(*lines[i]->hook->init_channel)(lines[i]);
+		}
 
 	return 0;
 }
 
-#ifdef CONFIG_SERIAL_DEC_CONSOLE
-static void dz_console_put_char(unsigned char ch)
+/*
+ * polling I/O routines
+ */
+static int dz_poll_tx_char(void *handle, unsigned char ch)
 {
 	unsigned long flags;
-	int loops = 2500;
-	unsigned short tmp = ch;
-	/* this code sends stuff out to serial device - spinning its
-	   wheels and waiting. */
+	struct dz_serial *info = handle;
+	unsigned short csr, tcr, trdy, mask;
+	int loops = 10000;
+	int ret;
 
-	/* force the issue - point it at lines[3] */
-	dz_console = &multi[CONSOLE_LINE];
+	local_irq_save(flags);
+	csr = dz_in(info, DZ_CSR);
+	dz_out(info, DZ_CSR, csr & ~DZ_TIE);
+	tcr = dz_in(info, DZ_TCR);
+	tcr |= 1 << info->line;
+	mask = tcr;
+	dz_out(info, DZ_TCR, mask);
+	iob();
+	local_irq_restore(flags);
 
-	save_flags(flags);
-	cli();
+	while (loops--) {
+		trdy = dz_in(info, DZ_CSR);
+		if (!(trdy & DZ_TRDY))
+			continue;
+		trdy = (trdy & DZ_TLINE) >> 8;
+		if (trdy == info->line)
+			break;
+		mask &= ~(1 << trdy);
+		dz_out(info, DZ_TCR, mask);
+		iob();
+		udelay(2);
+	}
 
+	if (loops) {
+		dz_out(info, DZ_TDR, ch);
+		ret = 0;
+	} else
+		ret = -EAGAIN;
 
-	/* spin our wheels */
-	while (((dz_in(dz_console, DZ_CSR) & DZ_TRDY) != DZ_TRDY) && loops--);
+	dz_out(info, DZ_TCR, tcr);
+	dz_out(info, DZ_CSR, csr);
 
-	/* Actually transmit the character. */
-	dz_out(dz_console, DZ_TDR, tmp);
-
-	restore_flags(flags);
+	return ret;
 }
+
+static int dz_poll_rx_char(void *handle)
+{
+	return -ENODEV;
+}
+
+int register_dz_hook(unsigned int channel, struct dec_serial_hook *hook)
+{
+	struct dz_serial *info = multi + channel;
+
+	if (info->hook) {
+		printk("%s: line %d has already a hook registered\n",
+		       __FUNCTION__, channel);
+
+		return 0;
+	} else {
+		hook->poll_rx_char = dz_poll_rx_char;
+		hook->poll_tx_char = dz_poll_tx_char;
+		info->hook = hook;
+
+		return 1;
+	}
+}
+
+int unregister_dz_hook(unsigned int channel)
+{
+	struct dz_serial *info = &multi[channel];
+
+	if (info->hook) {
+		info->hook = NULL;
+		return 1;
+	} else {
+		printk("%s: trying to unregister hook on line %d,"
+		       " but none is registered\n", __FUNCTION__, channel);
+		return 0;
+	}
+}
+
+#ifdef CONFIG_SERIAL_DEC_CONSOLE
 /* 
  * -------------------------------------------------------------------
  * dz_console_print ()
@@ -1465,17 +1570,19 @@ static void dz_console_put_char(unsigned char ch)
  * The console must be locked when we get here.
  * ------------------------------------------------------------------- 
  */
-static void dz_console_print(struct console *cons,
+static void dz_console_print(struct console *co,
 			     const char *str,
 			     unsigned int count)
 {
+	struct dz_serial *info = multi + co->index;
+
 #ifdef DEBUG_DZ
 	prom_printf((char *) str);
 #endif
 	while (count--) {
 		if (*str == '\n')
-			dz_console_put_char('\r');
-		dz_console_put_char(*str++);
+			dz_poll_tx_char(info, '\r');
+		dz_poll_tx_char(info, *str++);
 	}
 }
 
@@ -1486,12 +1593,12 @@ static kdev_t dz_console_device(struct console *c)
 
 static int __init dz_console_setup(struct console *co, char *options)
 {
+	struct dz_serial *info = multi + co->index;
 	int baud = 9600;
 	int bits = 8;
 	int parity = 'n';
 	int cflag = CREAD | HUPCL | CLOCAL;
 	char *s;
-	unsigned short mask, tmp;
 
 	if (options) {
 		baud = simple_strtoul(options, NULL, 10);
@@ -1542,44 +1649,31 @@ static int __init dz_console_setup(struct console *co, char *options)
 	}
 	co->cflag = cflag;
 
-	/* TOFIX: force to console line */
-	dz_console = &multi[CONSOLE_LINE];
 	if ((mips_machtype == MACH_DS23100) || (mips_machtype == MACH_DS5100))
-		dz_console->port = KN01_DZ11_BASE;
+		info->port = KN01_DZ11_BASE;
 	else
-		dz_console->port = KN02_DZ11_BASE;
-	dz_console->line = CONSOLE_LINE;
+		info->port = KN02_DZ11_BASE;
+	info->line = co->index;
 
-	dz_out(dz_console, DZ_CSR, DZ_CLR);
-	while ((tmp = dz_in(dz_console, DZ_CSR)) & DZ_CLR);
+	dz_out(info, DZ_CSR, DZ_CLR);
+	while (dz_in(info, DZ_CSR) & DZ_CLR);
 
 	/* enable scanning */
-	dz_out(dz_console, DZ_CSR, DZ_MSE);
+	dz_out(info, DZ_CSR, DZ_MSE);
 
 	/*  Set up flags... */
-	dz_console->cflags = 0;
-	dz_console->cflags |= DZ_B9600;
-	dz_console->cflags |= DZ_CS8;
-	dz_console->cflags |= DZ_PARENB;
-	dz_out(dz_console, DZ_LPR, dz_console->cflags);
+	dz_out(info, DZ_LPR, cflag | info->line);
 
-	mask = 1 << dz_console->line;
-	tmp = dz_in(dz_console, DZ_TCR);	/* read the TX flag */
-	if (!(tmp & mask)) {
-		tmp |= mask;	/* set the TX flag */
-		dz_out(dz_console, DZ_TCR, tmp);
-	}
 	return 0;
 }
 
-static struct console dz_sercons =
-{
-    .name	= "ttyS",
-    .write	= dz_console_print,
-    .device	= dz_console_device,
-    .setup	= dz_console_setup,
-    .flags	= CON_CONSDEV | CON_PRINTBUFFER,
-    .index	= CONSOLE_LINE,
+static struct console dz_sercons = {
+	.name	= "ttyS",
+	.write	= dz_console_print,
+	.device	= dz_console_device,
+	.setup	= dz_console_setup,
+	.flags	= CON_PRINTBUFFER,
+	.index	= -1,
 };
 
 void __init dz_serial_console_init(void)

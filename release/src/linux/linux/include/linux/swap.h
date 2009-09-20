@@ -1,14 +1,18 @@
 #ifndef _LINUX_SWAP_H
 #define _LINUX_SWAP_H
 
+#include <linux/config.h>
+
+#define MAX_SWAPFILES 32
+
+#ifdef __KERNEL__
+
 #include <linux/spinlock.h>
 #include <asm/page.h>
 
 #define SWAP_FLAG_PREFER	0x8000	/* set if swap priority specified */
 #define SWAP_FLAG_PRIO_MASK	0x7fff
 #define SWAP_FLAG_PRIO_SHIFT	0
-
-#define MAX_SWAPFILES 32
 
 /*
  * Magic header for a swap area. The first part of the union is
@@ -38,8 +42,6 @@ union swap_header {
 		unsigned int badpages[1];
 	} info;
 };
-
-#ifdef __KERNEL__
 
 /*
  * Max bad pages in the new format..

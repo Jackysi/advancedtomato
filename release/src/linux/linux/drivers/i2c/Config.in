@@ -57,6 +57,10 @@ if [ "$CONFIG_I2C" != "n" ]; then
    if [ "$CONFIG_SGI_IP22" = "y" ]; then
       dep_tristate 'I2C SGI interfaces' CONFIG_I2C_ALGO_SGI $CONFIG_I2C
    fi
+
+   if [ "$CONFIG_SOC_AU1550" = "y" -o "$CONFIG_SOC_AU1200" ]; then
+      dep_tristate 'Au1550/Au1200 SMBus interface' CONFIG_I2C_ALGO_AU1550 $CONFIG_I2C
+   fi
  
 # This is needed for automatic patch generation: sensors code starts here
 # This is needed for automatic patch generation: sensors code ends here

@@ -65,7 +65,7 @@ struct _urb {
 	struct urb        urb;
 };
 
-struct _urb *_urb_alloc(int isoc, int gfp);
+static struct _urb *_urb_alloc(int isoc, int gfp);
 
 static inline void _urb_free(struct _urb *_urb)
 {
@@ -105,7 +105,7 @@ static inline void _urb_unlink(struct _urb *_urb)
 	}
 }
 
-struct _urb *_urb_dequeue(struct _urb_queue *q);
+static struct _urb *_urb_dequeue(struct _urb_queue *q);
 
 #ifndef container_of
 #define container_of(ptr, type, member) ({                      \

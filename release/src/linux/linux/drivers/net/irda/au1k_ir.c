@@ -81,10 +81,6 @@ static char version[] __devinitdata =
 
 #define RUN_AT(x) (jiffies + (x))
 
-#if defined(CONFIG_MIPS_DB1000) || defined(CONFIG_MIPS_DB1100)
-static BCSR * const bcsr = (BCSR *)0xAE000000;
-#endif
-
 static spinlock_t ir_lock = SPIN_LOCK_UNLOCKED;
 
 /*

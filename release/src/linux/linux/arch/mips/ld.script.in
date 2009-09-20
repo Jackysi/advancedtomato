@@ -9,6 +9,7 @@ SECTIONS
   {
     _ftext = . ;
     *(.text)
+    *(.fixup)
     *(.rodata)
     *(.rodata.*)
     *(.rodata1)

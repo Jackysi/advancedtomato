@@ -38,16 +38,41 @@
 #define AU1X_SOCK0_PHYS_MEM  0xF80000000
 
 /* pcmcia socket 1 needs external glue logic so the memory map
- * differs from board to board.
+ * differs from board to board. the general rule is that
+ * static bus address bit 26 should be used to decode socket 0
+ * from socket 1. alas, some boards dont follow this...
+ * These really belong in a board-specific header file...
  */
-#if defined(CONFIG_MIPS_PB1000) || defined(CONFIG_MIPS_PB1100) || defined(CONFIG_MIPS_PB1500)
-#define AU1X_SOCK1_IO        0xF08000000
-#define AU1X_SOCK1_PHYS_ATTR 0xF48000000
-#define AU1X_SOCK1_PHYS_MEM  0xF88000000
-#elif defined(CONFIG_MIPS_DB1000) || defined(CONFIG_MIPS_DB1100) || defined(CONFIG_MIPS_DB1500) || defined(CONFIG_MIPS_PB1550) || defined(CONFIG_MIPS_DB1550)
-#define AU1X_SOCK1_IO        0xF04000000
-#define AU1X_SOCK1_PHYS_ATTR 0xF44000000
-#define AU1X_SOCK1_PHYS_MEM  0xF84000000
+#ifdef CONFIG_MIPS_PB1000
+#define SOCK1_DECODE (1<<27)
+#endif
+#ifdef CONFIG_MIPS_DB1000
+#define SOCK1_DECODE (1<<26)
+#endif
+#ifdef CONFIG_MIPS_DB1500
+#define SOCK1_DECODE (1<<26)
+#endif
+#ifdef CONFIG_MIPS_DB1100
+#define SOCK1_DECODE (1<<26)
+#endif
+#ifdef CONFIG_MIPS_DB1550
+#define SOCK1_DECODE (1<<26)
+#endif
+#ifdef CONFIG_MIPS_DB1200
+#define SOCK1_DECODE (1<<26)
+#endif
+#ifdef CONFIG_MIPS_PB1550
+#define SOCK1_DECODE (1<<26)
+#endif
+#ifdef CONFIG_MIPS_PB1200
+#define SOCK1_DECODE (1<<26)
+#endif
+
+/* The board has a second PCMCIA socket */
+#ifdef SOCK1_DECODE
+#define AU1X_SOCK1_IO        (0xF00000000|SOCK1_DECODE)
+#define AU1X_SOCK1_PHYS_ATTR (0xF40000000|SOCK1_DECODE)
+#define AU1X_SOCK1_PHYS_MEM  (0xF80000000|SOCK1_DECODE)
 #endif
 
 struct pcmcia_state {

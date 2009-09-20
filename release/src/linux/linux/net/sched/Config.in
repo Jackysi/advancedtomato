@@ -12,6 +12,7 @@ fi
 tristate '  The simplest PRIO pseudoscheduler' CONFIG_NET_SCH_PRIO
 tristate '  RED queue' CONFIG_NET_SCH_RED
 tristate '  SFQ queue' CONFIG_NET_SCH_SFQ
+tristate '  ESFQ queue' CONFIG_NET_SCH_ESFQ
 tristate '  TEQL queue' CONFIG_NET_SCH_TEQL
 tristate '  TBF queue' CONFIG_NET_SCH_TBF
 tristate '  GRED queue' CONFIG_NET_SCH_GRED

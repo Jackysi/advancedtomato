@@ -21,16 +21,19 @@ mainmenu_option next_comment
 comment 'Machine selection'
 dep_bool 'Support for Acer PICA 1 chipset (EXPERIMENTAL)' CONFIG_ACER_PICA_61 $CONFIG_EXPERIMENTAL
 dep_bool 'Support for Alchemy Bosporus board' CONFIG_MIPS_BOSPORUS $CONFIG_MIPS32
+dep_bool 'Support for FIC Multimedia Player board' CONFIG_MIPS_FICMMP $CONFIG_MIPS32
 dep_bool 'Support for Alchemy Mirage board' CONFIG_MIPS_MIRAGE $CONFIG_MIPS32
 dep_bool 'Support for Alchemy Db1000 board' CONFIG_MIPS_DB1000 $CONFIG_MIPS32
 dep_bool 'Support for Alchemy Db1100 board' CONFIG_MIPS_DB1100 $CONFIG_MIPS32
 dep_bool 'Support for Alchemy Db1500 board' CONFIG_MIPS_DB1500 $CONFIG_MIPS32
 dep_bool 'Support for Alchemy Db1550 board' CONFIG_MIPS_DB1550 $CONFIG_MIPS32
+dep_bool 'Support for Alchemy Db1200 board' CONFIG_MIPS_DB1200 $CONFIG_MIPS32
 dep_bool 'Support for Alchemy PB1000 board' CONFIG_MIPS_PB1000 $CONFIG_MIPS32
 dep_bool 'Support for Alchemy PB1100 board' CONFIG_MIPS_PB1100 $CONFIG_MIPS32
 dep_bool 'Support for Alchemy PB1500 board' CONFIG_MIPS_PB1500 $CONFIG_MIPS32
-dep_bool 'Support for Alchemy Hydrogen3 board' CONFIG_MIPS_HYDROGEN3 $CONFIG_MIPS32
 dep_bool 'Support for Alchemy PB1550 board' CONFIG_MIPS_PB1550 $CONFIG_MIPS32
+dep_bool 'Support for Alchemy PB1200 board' CONFIG_MIPS_PB1200 $CONFIG_MIPS32
+dep_bool 'Support for Alchemy Hydrogen3 board' CONFIG_MIPS_HYDROGEN3 $CONFIG_MIPS32
 dep_bool 'Support for MyCable XXS1500 board' CONFIG_MIPS_XXS1500 $CONFIG_MIPS32
 dep_bool 'Support for 4G Systems MTX-1 board' CONFIG_MIPS_MTX1 $CONFIG_MIPS32
 dep_bool 'Support for Cogent CSB250 board' CONFIG_COGENT_CSB250 $CONFIG_MIPS32
@@ -205,6 +208,16 @@ if [ "$CONFIG_SIBYTE_SB1xxx_SOC" = "y" ]; then
    fi
    define_bool CONFIG_MIPS_RTC y
 fi
+dep_bool 'Support for Broadcom MIPS-based boards' CONFIG_MIPS_BRCM $CONFIG_EXPERIMENTAL
+dep_bool 'Support for Broadcom BCM947XX' CONFIG_BCM947XX $CONFIG_MIPS_BRCM
+if [ "$CONFIG_BCM947XX" = "y" ] ; then
+   bool '    Support for Broadcom BCM4710' CONFIG_BCM4710
+   bool '    Support for Broadcom BCM4310' CONFIG_BCM4310
+   bool '    Support for Broadcom BCM4704' CONFIG_BCM4704
+   bool '    Support for Broadcom BCM5354' CONFIG_BCM5354
+   bool '    Support for Broadcom BCM5365' CONFIG_BCM5365
+   bool '    Support for Using DSCP based IP forwarding' CONFIG_BCMIPDSCP
+fi
 bool 'Support for SNI RM200 PCI' CONFIG_SNI_RM200_PCI
 bool 'Support for TANBAC TB0226 (Mbase)' CONFIG_TANBAC_TB0226
 bool 'Support for TANBAC TB0229 (VR4131DIMM)' CONFIG_TANBAC_TB0229
@@ -224,6 +237,11 @@ dep_bool 'High Memory Support' CONFIG_HIGHMEM $CONFIG_MIPS32
 
 define_bool CONFIG_RWSEM_GENERIC_SPINLOCK y
 define_bool CONFIG_RWSEM_XCHGADD_ALGORITHM n
+
+#
+# Provide an option for a default kernel command line
+#
+string 'Default kernel command string' CONFIG_CMDLINE ""
 
 #
 # Select some configuration options automatically based on user selections.
@@ -249,6 +267,12 @@ if [ "$CONFIG_MIPS_MIRAGE" = "y" ]; then
    define_bool CONFIG_PC_KEYB y
    define_bool CONFIG_NONCOHERENT_IO y
 fi
+if [ "$CONFIG_MIPS_FICMMP" = "y" ]; then
+   define_bool CONFIG_SOC_AU1X00 y
+   define_bool CONFIG_SOC_AU1200 y
+   define_bool CONFIG_NONCOHERENT_IO y
+   define_bool CONFIG_PC_KEYB y
+fi
 if [ "$CONFIG_MIPS_BOSPORUS" = "y" ]; then
    define_bool CONFIG_SOC_AU1X00 y
    define_bool CONFIG_SOC_AU1500 y
@@ -263,6 +287,12 @@ if [ "$CONFIG_MIPS_PB1000" = "y" ]; then
    define_bool CONFIG_SWAP_IO_SPACE_W y
    define_bool CONFIG_SWAP_IO_SPACE_L y
 fi
+if [ "$CONFIG_MIPS_PB1500" = "y" ]; then
+   define_bool CONFIG_SOC_AU1X00 y
+   define_bool CONFIG_SOC_AU1500 y
+   define_bool CONFIG_NONCOHERENT_IO y
+   define_bool CONFIG_PC_KEYB y
+fi
 if [ "$CONFIG_MIPS_PB1100" = "y" ]; then
    define_bool CONFIG_SOC_AU1X00 y
    define_bool CONFIG_SOC_AU1100 y
@@ -271,9 +301,15 @@ if [ "$CONFIG_MIPS_PB1100" = "y" ]; then
    define_bool CONFIG_SWAP_IO_SPACE_W y
    define_bool CONFIG_SWAP_IO_SPACE_L y
 fi
-if [ "$CONFIG_MIPS_PB1500" = "y" ]; then
+if [ "$CONFIG_MIPS_PB1550" = "y" ]; then
    define_bool CONFIG_SOC_AU1X00 y
-   define_bool CONFIG_SOC_AU1500 y
+   define_bool CONFIG_SOC_AU1550 y
+   define_bool CONFIG_NONCOHERENT_IO n
+   define_bool CONFIG_PC_KEYB y
+fi
+if [ "$CONFIG_MIPS_PB1200" = "y" ]; then
+   define_bool CONFIG_SOC_AU1X00 y
+   define_bool CONFIG_SOC_AU1200 y
    define_bool CONFIG_NONCOHERENT_IO y
    define_bool CONFIG_PC_KEYB y
 fi
@@ -290,18 +326,24 @@ if [ "$CONFIG_MIPS_DB1500" = "y" ]; then
    define_bool CONFIG_NONCOHERENT_IO y
    define_bool CONFIG_PC_KEYB y
 fi
-if [ "$CONFIG_MIPS_DB1550" = "y" ]; then
-   define_bool CONFIG_SOC_AU1X00 y
-   define_bool CONFIG_SOC_AU1550 y
-   define_bool CONFIG_NONCOHERENT_IO y
-   define_bool CONFIG_PC_KEYB y
-fi
 if [ "$CONFIG_MIPS_DB1100" = "y" ]; then
    define_bool CONFIG_SOC_AU1X00 y
    define_bool CONFIG_SOC_AU1100 y
    define_bool CONFIG_NONCOHERENT_IO y
    define_bool CONFIG_PC_KEYB y
    define_bool CONFIG_SWAP_IO_SPACE y
+fi
+if [ "$CONFIG_MIPS_DB1550" = "y" ]; then
+   define_bool CONFIG_SOC_AU1X00 y
+   define_bool CONFIG_SOC_AU1550 y
+   define_bool CONFIG_NONCOHERENT_IO y
+   define_bool CONFIG_PC_KEYB y
+fi
+if [ "$CONFIG_MIPS_DB1200" = "y" ]; then
+   define_bool CONFIG_SOC_AU1X00 y
+   define_bool CONFIG_SOC_AU1200 y
+   define_bool CONFIG_NONCOHERENT_IO y
+   define_bool CONFIG_PC_KEYB y
 fi
 if [ "$CONFIG_MIPS_HYDROGEN3" = "y" ]; then
    define_bool CONFIG_SOC_AU1X00 y
@@ -325,12 +367,6 @@ if [ "$CONFIG_COGENT_CSB250" = "y" ]; then
    define_bool CONFIG_SOC_AU1X00 y
    define_bool CONFIG_SOC_AU1500 y
    define_bool CONFIG_NONCOHERENT_IO y
-   define_bool CONFIG_PC_KEYB y
-fi
-if [ "$CONFIG_MIPS_PB1550" = "y" ]; then
-   define_bool CONFIG_SOC_AU1X00 y
-   define_bool CONFIG_SOC_AU1550 y
-   define_bool CONFIG_NONCOHERENT_IO n
    define_bool CONFIG_PC_KEYB y
 fi
 if [ "$CONFIG_MIPS_COBALT" = "y" ]; then
@@ -533,6 +569,13 @@ if [ "$CONFIG_SIBYTE_SB1xxx_SOC" = "y" ]; then
    define_bool CONFIG_SWAP_IO_SPACE_L y
    define_bool CONFIG_BOOT_ELF32 y
 fi
+if [ "$CONFIG_BCM947XX" = "y" ] ; then
+   define_bool CONFIG_PCI y
+   define_bool CONFIG_NONCOHERENT_IO y
+   define_bool CONFIG_NEW_TIME_C y
+   define_bool CONFIG_NEW_IRQ y
+   define_bool CONFIG_HND y
+fi
 if [ "$CONFIG_SNI_RM200_PCI" = "y" ]; then
    define_bool CONFIG_ARC32 y
    define_bool CONFIG_ARC_MEMORY y
@@ -729,6 +772,13 @@ if [ "$CONFIG_ACER_PICA_61" = "y" -o \
      "$CONFIG_MIPS_PB1000" = "y" -o \
      "$CONFIG_MIPS_PB1100" = "y" -o \
      "$CONFIG_MIPS_PB1500" = "y" -o \
+     "$CONFIG_MIPS_PB1550" = "y" -o \
+     "$CONFIG_MIPS_PB1200" = "y" -o \
+     "$CONFIG_MIPS_DB1000" = "y" -o \
+     "$CONFIG_MIPS_DB1100" = "y" -o \
+     "$CONFIG_MIPS_DB1500" = "y" -o \
+     "$CONFIG_MIPS_DB1550" = "y" -o \
+     "$CONFIG_MIPS_DB1200" = "y" -o \
      "$CONFIG_NEC_OSPREY" = "y" -o \
      "$CONFIG_NEC_EAGLE" = "y" -o \
      "$CONFIG_NINO" = "y" -o \
@@ -1011,7 +1061,11 @@ comment 'Kernel hacking'
 
 bool 'Are you using a crosscompiler' CONFIG_CROSSCOMPILE
 bool 'Enable run-time debugging' CONFIG_RUNTIME_DEBUG
-bool 'Remote GDB kernel debugging' CONFIG_KGDB
+if [ "$CONFIG_BCM947XX" = "y" ] ; then
+	bool 'Remote GDB kernel debugging' CONFIG_REMOTE_DEBUG
+else 
+	bool 'Remote GDB kernel debugging' CONFIG_KGDB
+fi
 dep_bool '  Console output to GDB' CONFIG_GDB_CONSOLE $CONFIG_KGDB
 if [ "$CONFIG_KGDB" = "y" ]; then
    define_bool CONFIG_DEBUG_INFO y

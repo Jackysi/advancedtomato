@@ -465,7 +465,11 @@ int ide_revalidate_disk (kdev_t i_rdev)
 	minor = drive->select.b.unit << PARTN_BITS;
 	hwgroup = HWGROUP(drive);
 	spin_lock_irqsave(&io_request_lock, flags);
+#if 0 /* NASoC */
 	if (drive->busy || (drive->usage > 1)) {
+#else
+	if (drive->busy) {
+#endif
 		spin_unlock_irqrestore(&io_request_lock, flags);
 		return -EBUSY;
 	};
@@ -1621,6 +1625,14 @@ void ide_delay_50ms (void)
 {
 #ifndef CONFIG_BLK_DEV_IDECS
 	mdelay(50);
+#ifdef CONFIG_BCM4780
+{
+	int i;
+	for (i = 0; i < 10; i++) {
+	    mdelay(50);
+	}
+}
+#endif
 #else
 	__set_current_state(TASK_UNINTERRUPTIBLE);
 	schedule_timeout(1+HZ/20);

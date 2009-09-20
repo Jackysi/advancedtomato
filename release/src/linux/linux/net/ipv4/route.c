@@ -919,6 +919,7 @@ void ip_rt_redirect(u32 old_gw, u32 daddr, u32 new_gw,
 
 				/* Gateway is different ... */
 				rt->rt_gateway		= new_gw;
+				if (rt->key.gw) rt->key.gw = new_gw;
 
 				/* Redirect received -> path was valid */
 				dst_confirm(&rth->u.dst);
@@ -1343,6 +1344,7 @@ static int ip_route_input_mc(struct sk_buff *skb, u32 daddr, u32 saddr,
 	rth->key.fwmark	= skb->nfmark;
 #endif
 	rth->key.src	= saddr;
+	rth->key.lsrc	= 0;
 	rth->rt_src	= saddr;
 #ifdef CONFIG_IP_ROUTE_NAT
 	rth->rt_dst_map	= daddr;
@@ -1356,6 +1358,7 @@ static int ip_route_input_mc(struct sk_buff *skb, u32 daddr, u32 saddr,
 	rth->u.dst.dev	= &loopback_dev;
 	dev_hold(rth->u.dst.dev);
 	rth->key.oif	= 0;
+	rth->key.gw	= 0;
 	rth->rt_gateway	= daddr;
 	rth->rt_spec_dst= spec_dst;
 	rth->rt_type	= RTN_MULTICAST;
@@ -1395,7 +1398,7 @@ e_inval:
  */
 
 int ip_route_input_slow(struct sk_buff *skb, u32 daddr, u32 saddr,
-			u8 tos, struct net_device *dev)
+			u8 tos, struct net_device *dev, u32 lsrc)
 {
 	struct rt_key	key;
 	struct fib_result res;
@@ -1415,16 +1418,17 @@ int ip_route_input_slow(struct sk_buff *skb, u32 daddr, u32 saddr,
 		goto out;
 
 	key.dst		= daddr;
-	key.src		= saddr;
+	key.src		= lsrc? : saddr;
 	key.tos		= tos;
 #ifdef CONFIG_IP_ROUTE_FWMARK
 	key.fwmark	= skb->nfmark;
 #endif
-	key.iif		= dev->ifindex;
+	key.iif		= lsrc? loopback_dev.ifindex : dev->ifindex;
 	key.oif		= 0;
+	key.gw		= 0;
 	key.scope	= RT_SCOPE_UNIVERSE;
 
-	hash = rt_hash_code(daddr, saddr ^ (key.iif << 5), tos);
+	hash = rt_hash_code(daddr, saddr ^ (dev->ifindex << 5), tos);
 
 	/* Check for the most weird martians, which can be not detected
 	   by fib_lookup.
@@ -1445,6 +1449,12 @@ int ip_route_input_slow(struct sk_buff *skb, u32 daddr, u32 saddr,
 	if (BADCLASS(daddr) || ZERONET(daddr) || LOOPBACK(daddr))
 		goto martian_destination;
 
+	if (lsrc) {
+		if (MULTICAST(lsrc) || BADCLASS(lsrc) ||
+		    ZERONET(lsrc) || LOOPBACK(lsrc))
+			goto e_inval;
+	}
+
 	/*
 	 *	Now we are ready to route packet.
 	 */
@@ -1454,6 +1464,10 @@ int ip_route_input_slow(struct sk_buff *skb, u32 daddr, u32 saddr,
 		goto no_route;
 	}
 	free_res = 1;
+	if (lsrc && res.type != RTN_UNICAST && res.type != RTN_NAT)
+		goto e_inval;
+	key.iif = dev->ifindex;
+	key.src = saddr;
 
 	rt_cache_stat[smp_processor_id()].in_slow_tot++;
 
@@ -1464,7 +1478,7 @@ int ip_route_input_slow(struct sk_buff *skb, u32 daddr, u32 saddr,
 
 	if (1) {
 		u32 src_map = saddr;
-		if (res.r)
+		if (res.r && !lsrc)
 			src_map = fib_rules_policy(saddr, &res, &flags);
 
 		if (res.type == RTN_NAT) {
@@ -1503,8 +1517,9 @@ int ip_route_input_slow(struct sk_buff *skb, u32 daddr, u32 saddr,
 	if (res.type != RTN_UNICAST)
 		goto martian_destination;
 
+	fib_select_default(&key, &res);
 #ifdef CONFIG_IP_ROUTE_MULTIPATH
-	if (res.fi->fib_nhs > 1 && key.oif == 0)
+	if (res.fi->fib_nhs > 1)
 		fib_select_multipath(&key, &res);
 #endif
 	out_dev = in_dev_get(FIB_RES_DEV(res));
@@ -1524,6 +1539,7 @@ int ip_route_input_slow(struct sk_buff *skb, u32 daddr, u32 saddr,
 		flags |= RTCF_DIRECTSRC;
 
 	if (out_dev == in_dev && err && !(flags & (RTCF_NAT | RTCF_MASQ)) &&
+	    !lsrc &&
 	    (IN_DEV_SHARED_MEDIA(out_dev) ||
 	     inet_addr_onlink(out_dev, saddr, FIB_RES_GW(res))))
 		flags |= RTCF_DOREDIRECT;
@@ -1550,6 +1566,7 @@ int ip_route_input_slow(struct sk_buff *skb, u32 daddr, u32 saddr,
 #endif
 	rth->key.src	= saddr;
 	rth->rt_src	= saddr;
+	rth->key.lsrc	= lsrc;
 	rth->rt_gateway	= daddr;
 #ifdef CONFIG_IP_ROUTE_NAT
 	rth->rt_src_map	= key.src;
@@ -1562,6 +1579,7 @@ int ip_route_input_slow(struct sk_buff *skb, u32 daddr, u32 saddr,
 	rth->u.dst.dev	= out_dev->dev;
 	dev_hold(rth->u.dst.dev);
 	rth->key.oif 	= 0;
+	rth->key.gw	= 0;
 	rth->rt_spec_dst= spec_dst;
 
 	rth->u.dst.input = ip_forward;
@@ -1572,7 +1590,8 @@ int ip_route_input_slow(struct sk_buff *skb, u32 daddr, u32 saddr,
 	rth->rt_flags = flags;
 
 #ifdef CONFIG_NET_FASTROUTE
-	if (netdev_fastroute && !(flags&(RTCF_NAT|RTCF_MASQ|RTCF_DOREDIRECT))) {
+	if (netdev_fastroute && !(flags&(RTCF_NAT|RTCF_MASQ|RTCF_DOREDIRECT)) &&
+	    !lsrc) {
 		struct net_device *odev = rth->u.dst.dev;
 		if (odev != dev &&
 		    dev->accept_fastpath &&
@@ -1594,6 +1613,8 @@ out:	return err;
 
 brd_input:
 	if (skb->protocol != htons(ETH_P_IP))
+		goto e_inval;
+	if (lsrc)
 		goto e_inval;
 
 	if (ZERONET(saddr))
@@ -1627,6 +1648,7 @@ local_input:
 #endif
 	rth->key.src	= saddr;
 	rth->rt_src	= saddr;
+	rth->key.lsrc	= 0;
 #ifdef CONFIG_IP_ROUTE_NAT
 	rth->rt_dst_map	= key.dst;
 	rth->rt_src_map	= key.src;
@@ -1639,6 +1661,7 @@ local_input:
 	rth->u.dst.dev	= &loopback_dev;
 	dev_hold(rth->u.dst.dev);
 	rth->key.oif 	= 0;
+	rth->key.gw	= 0;
 	rth->rt_gateway	= daddr;
 	rth->rt_spec_dst= spec_dst;
 	rth->u.dst.input= ip_local_deliver;
@@ -1704,8 +1727,9 @@ martian_source:
 	goto e_inval;
 }
 
-int ip_route_input(struct sk_buff *skb, u32 daddr, u32 saddr,
-		   u8 tos, struct net_device *dev)
+static inline int
+ip_route_input_cached(struct sk_buff *skb, u32 daddr, u32 saddr,
+		      u8 tos, struct net_device *dev, u32 lsrc)
 {
 	struct rtable * rth;
 	unsigned	hash;
@@ -1719,6 +1743,7 @@ int ip_route_input(struct sk_buff *skb, u32 daddr, u32 saddr,
 		if (rth->key.dst == daddr &&
 		    rth->key.src == saddr &&
 		    rth->key.iif == iif &&
+		    rth->key.lsrc == lsrc &&
 		    rth->key.oif == 0 &&
 #ifdef CONFIG_IP_ROUTE_FWMARK
 		    rth->key.fwmark == skb->nfmark &&
@@ -1766,9 +1791,21 @@ int ip_route_input(struct sk_buff *skb, u32 daddr, u32 saddr,
 		read_unlock(&inetdev_lock);
 		return -EINVAL;
 	}
-	return ip_route_input_slow(skb, daddr, saddr, tos, dev);
+	return ip_route_input_slow(skb, daddr, saddr, tos, dev, lsrc);
 }
 
+int ip_route_input(struct sk_buff *skb, u32 daddr, u32 saddr,
+		   u8 tos, struct net_device *dev)
+{
+	return ip_route_input_cached(skb, daddr, saddr, tos, dev, 0);
+}
+
+int ip_route_input_lookup(struct sk_buff *skb, u32 daddr, u32 saddr,
+			  u8 tos, struct net_device *dev, u32 lsrc)
+{
+	return ip_route_input_cached(skb, daddr, saddr, tos, dev, lsrc);
+}
+ 
 /*
  * Major route resolver routine.
  */
@@ -1791,6 +1828,7 @@ int ip_route_output_slow(struct rtable **rp, const struct rt_key *oldkey)
 	key.tos		= tos & IPTOS_RT_MASK;
 	key.iif		= loopback_dev.ifindex;
 	key.oif		= oldkey->oif;
+	key.gw		= oldkey->gw;
 #ifdef CONFIG_IP_ROUTE_FWMARK
 	key.fwmark	= oldkey->fwmark;
 #endif
@@ -1880,6 +1918,7 @@ int ip_route_output_slow(struct rtable **rp, const struct rt_key *oldkey)
 		dev_out = &loopback_dev;
 		dev_hold(dev_out);
 		key.oif = loopback_dev.ifindex;
+		key.gw = 0;
 		res.type = RTN_LOCAL;
 		flags |= RTCF_LOCAL;
 		goto make_route;
@@ -1887,7 +1926,7 @@ int ip_route_output_slow(struct rtable **rp, const struct rt_key *oldkey)
 
 	if (fib_lookup(&key, &res)) {
 		res.fi = NULL;
-		if (oldkey->oif) {
+		if (oldkey->oif && dev_out->flags&IFF_UP) {
 			/* Apparently, routing tables are wrong. Assume,
 			   that the destination is on link.
 
@@ -1930,6 +1969,7 @@ int ip_route_output_slow(struct rtable **rp, const struct rt_key *oldkey)
 		dev_out = &loopback_dev;
 		dev_hold(dev_out);
 		key.oif = dev_out->ifindex;
+		key.gw = 0;
 		if (res.fi)
 			fib_info_put(res.fi);
 		res.fi = NULL;
@@ -1937,13 +1977,12 @@ int ip_route_output_slow(struct rtable **rp, const struct rt_key *oldkey)
 		goto make_route;
 	}
 
-#ifdef CONFIG_IP_ROUTE_MULTIPATH
-	if (res.fi->fib_nhs > 1 && key.oif == 0)
-		fib_select_multipath(&key, &res);
-	else
-#endif
-	if (!res.prefixlen && res.type == RTN_UNICAST && !key.oif)
+	if (res.type == RTN_UNICAST)
 		fib_select_default(&key, &res);
+#ifdef CONFIG_IP_ROUTE_MULTIPATH
+	if (res.fi->fib_nhs > 1)
+		fib_select_multipath(&key, &res);
+#endif
 
 	if (!key.src)
 		key.src = FIB_RES_PREFSRC(res);
@@ -2001,7 +2040,9 @@ make_route:
 	rth->key.tos	= tos;
 	rth->key.src	= oldkey->src;
 	rth->key.iif	= 0;
+	rth->key.lsrc	= 0;
 	rth->key.oif	= oldkey->oif;
+	rth->key.gw	= oldkey->gw;
 #ifdef CONFIG_IP_ROUTE_FWMARK
 	rth->key.fwmark	= oldkey->fwmark;
 #endif
@@ -2080,6 +2121,7 @@ int ip_route_output_key(struct rtable **rp, const struct rt_key *key)
 		    rth->key.src == key->src &&
 		    rth->key.iif == 0 &&
 		    rth->key.oif == key->oif &&
+		    rth->key.gw == key->gw &&
 #ifdef CONFIG_IP_ROUTE_FWMARK
 		    rth->key.fwmark == key->fwmark &&
 #endif

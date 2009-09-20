@@ -103,8 +103,6 @@ static ssize_t read_kcore(struct file *file, char *buf, size_t count, loff_t *pp
 }
 #else /* CONFIG_KCORE_AOUT */
 
-#define roundup(x, y)  ((((x)+((y)-1))/(y))*(y))
-
 /* An ELF note in memory */
 struct memelfnote
 {

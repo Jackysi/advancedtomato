@@ -18,9 +18,6 @@
 #define DEBUGP(format, args...)
 #endif
 
-/* Lock protects masq region inside conntrack */
-static DECLARE_RWLOCK(masq_lock);
-
 /* FIXME: Multiple targets. --RR */
 static int
 masquerade_check(const char *tablename,
@@ -87,7 +84,8 @@ masquerade_target(struct sk_buff **pskb,
 	key.dst = (*pskb)->nh.iph->daddr;
 	key.src = 0; /* Unknown: that's what we're trying to establish */
 	key.tos = RT_TOS((*pskb)->nh.iph->tos)|RTO_CONN;
-	key.oif = 0;
+	key.oif = out->ifindex;
+	key.gw	= ((struct rtable *) (*pskb)->dst)->rt_gateway;
 #ifdef CONFIG_IP_ROUTE_FWMARK
 	key.fwmark = (*pskb)->nfmark;
 #endif
@@ -98,21 +96,12 @@ masquerade_target(struct sk_buff **pskb,
                                " No route: Rusty's brain broke!\n");
                 return NF_DROP;
         }
-        if (rt->u.dst.dev != out) {
-                if (net_ratelimit())
-                        printk("MASQUERADE:"
-                               " Route sent us somewhere else.\n");
-			ip_rt_put(rt);
-		return NF_DROP;
-	}
 
 	newsrc = rt->rt_src;
 	DEBUGP("newsrc = %u.%u.%u.%u\n", NIPQUAD(newsrc));
 	ip_rt_put(rt);
 
-	WRITE_LOCK(&masq_lock);
 	ct->nat.masq_index = out->ifindex;
-	WRITE_UNLOCK(&masq_lock);
 
 	/* Transfer from original range. */
 	newrange = ((struct ip_nat_multi_range)
@@ -127,13 +116,7 @@ masquerade_target(struct sk_buff **pskb,
 static inline int
 device_cmp(struct ip_conntrack *i, void *ifindex)
 {
-	int ret;
-
-	READ_LOCK(&masq_lock);
-	ret = (i->nat.masq_index == (int)(long)ifindex);
-	READ_UNLOCK(&masq_lock);
-
-	return ret;
+	return (i->nat.masq_index == (int)(long)ifindex);
 }
 
 static int masq_device_event(struct notifier_block *this,
@@ -144,6 +127,9 @@ static int masq_device_event(struct notifier_block *this,
 
 	if (event == NETDEV_DOWN) {
 		/* Device was downed.  Search entire table for
+		   conntracks which were associated with that device,
+		   and forget them. */
+		/* IP address was deleted.  Search entire table for
 		   conntracks which were associated with that device,
 		   and forget them. */
 		IP_NF_ASSERT(dev->ifindex != 0);
@@ -160,17 +146,7 @@ static int masq_inet_event(struct notifier_block *this,
 			   void *ptr)
 {
 	struct net_device *dev = ((struct in_ifaddr *)ptr)->ifa_dev->dev;
-
-	if (event == NETDEV_DOWN) {
-		/* IP address was deleted.  Search entire table for
-		   conntracks which were associated with that device,
-		   and forget them. */
-		IP_NF_ASSERT(dev->ifindex != 0);
-
-		ip_ct_iterate_cleanup(device_cmp, (void *)(long)dev->ifindex);
-	}
-
-	return NOTIFY_DONE;
+	return masq_device_event(this, event, dev);
 }
 
 static struct notifier_block masq_dev_notifier = {

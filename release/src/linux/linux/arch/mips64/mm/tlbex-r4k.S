@@ -125,23 +125,6 @@ LEAF(except_vec1_r4k)
 	 nop
 END(except_vec1_r4k)
 
-LEAF(except_vec1_sb1)
-#if BCM1250_M3_WAR
-	dmfc0	k0, CP0_BADVADDR
-	dmfc0	k1, CP0_ENTRYHI
-	xor	k0, k1
-	dsrl	k0, k0, _PAGE_SHIFT + 1
-	bnez	k0, 1f
-#endif
-	.set    noat
-	dla     k0, handle_vec1_r4k
-	jr      k0
-	 nop
-
-1:	eret
-	nop
-END(except_vec1_sb1)
-
 	__FINIT
 
 	.align  5
@@ -151,11 +134,9 @@ LEAF(handle_vec1_r4k)
 	ld	k0, 0(k1)			# get even pte
 	ld	k1, 8(k1)			# get odd pte
 	PTE_RELOAD k0 k1
-	rm9000_tlb_hazard
-	b	1f
-	 tlbwr
-1:	nop
-	rm9000_tlb_hazard
+	mtc0_tlbw_hazard
+	tlbwr
+	tlbw_eret_hazard
 	eret
 
 9:						# handle the vmalloc range
@@ -163,13 +144,52 @@ LEAF(handle_vec1_r4k)
 	ld	k0, 0(k1)			# get even pte
 	ld	k1, 8(k1)			# get odd pte
 	PTE_RELOAD k0 k1
-	rm9000_tlb_hazard
-	b	1f
-	 tlbwr
-1:	nop
-	rm9000_tlb_hazard
+	mtc0_tlbw_hazard
+	tlbwr
+	tlbw_eret_hazard
 	eret
 END(handle_vec1_r4k)
+
+	__INIT
+
+LEAF(except_vec1_sb1)
+#if BCM1250_M3_WAR
+	dmfc0	k0, CP0_BADVADDR
+	dmfc0	k1, CP0_ENTRYHI
+	xor	k0, k1
+	dsrl	k0, k0, _PAGE_SHIFT + 1
+	bnez	k0, 1f
+#endif
+	.set    noat
+	dla     k0, handle_vec1_sb1
+	jr      k0
+	 nop
+
+1:	eret
+END(except_vec1_sb1)
+
+	__FINIT
+
+	.align  5
+LEAF(handle_vec1_sb1)
+	.set    noat
+	LOAD_PTE2 k1 k0 9f
+	ld	k0, 0(k1)			# get even pte
+	ld	k1, 8(k1)			# get odd pte
+	PTE_RELOAD k0 k1
+	mtc0_tlbw_hazard
+	tlbwr
+	eret
+
+9:						# handle the vmalloc range
+	LOAD_KPTE2 k1 k0 invalid_vmalloc_address
+	ld	k0, 0(k1)			# get even pte
+	ld	k1, 8(k1)			# get odd pte
+	PTE_RELOAD k0 k1
+	mtc0_tlbw_hazard
+	tlbwr
+	eret
+END(handle_vec1_sb1)
 
 
 	__INIT
@@ -195,10 +215,8 @@ LEAF(handle_vec1_r10k)
 	ld	k0, 0(k1)			# get even pte
 	ld	k1, 8(k1)			# get odd pte
 	PTE_RELOAD k0 k1
-	rm9000_tlb_hazard
-	nop
+	mtc0_tlbw_hazard
 	tlbwr
-	rm9000_tlb_hazard
 	eret
 
 9:						# handle the vmalloc range
@@ -206,10 +224,8 @@ LEAF(handle_vec1_r10k)
 	ld	k0, 0(k1)			# get even pte
 	ld	k1, 8(k1)			# get odd pte
 	PTE_RELOAD k0 k1
-	rm9000_tlb_hazard
-	nop
+	mtc0_tlbw_hazard
 	tlbwr
-	rm9000_tlb_hazard
 	eret
 END(handle_vec1_r10k)
 

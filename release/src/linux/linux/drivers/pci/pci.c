@@ -1068,6 +1068,17 @@ static void pci_read_bases(struct pci_dev *dev, unsigned int howmany, int rom)
 		res = &dev->resource[pos];
 		res->name = dev->name;
 		reg = PCI_BASE_ADDRESS_0 + (pos << 2);
+#ifdef BCM_47XX_PCIBUS
+/* 
+   On the bcm 47xx boards, there is no bios to set the bar addresses. There could be junk 
+   that could make us fail. Clear the bar first and verify.
+*/
+		pci_write_config_dword(dev,reg+4,0);
+		pci_read_config_dword(dev, reg+4, &l);
+		if(l) {
+			continue;
+		}
+#endif
 		pci_read_config_dword(dev, reg, &l);
 		pci_write_config_dword(dev, reg, ~0);
 		pci_read_config_dword(dev, reg, &sz);
@@ -1106,10 +1117,10 @@ static void pci_read_bases(struct pci_dev *dev, unsigned int howmany, int rom)
 						(((unsigned long) ~sz) << 32);
 #else
 			if (l) {
-				printk(KERN_ERR "PCI: Unable to handle 64-bit address for device %s\n", dev->slot_name);
-				res->start = 0;
-				res->flags = 0;
-				continue;
+				printk(KERN_ERR "PCI: Unable to handle 64-bit address for device %s\n", 
+				       dev->slot_name);
+				
+				pci_write_config_dword(dev,reg+4,0);
 			}
 #endif
 		}
@@ -1281,11 +1292,17 @@ static int __devinit pci_scan_bridge(struct pci_bus *bus, struct pci_dev * dev, 
 {
 	unsigned int buses;
 	unsigned short cr;
+	unsigned short bctl;
 	struct pci_bus *child;
 	int is_cardbus = (dev->hdr_type == PCI_HEADER_TYPE_CARDBUS);
 
 	pci_read_config_dword(dev, PCI_PRIMARY_BUS, &buses);
 	DBG("Scanning behind PCI bridge %s, config %06x, pass %d\n", dev->slot_name, buses & 0xffffff, pass);
+	/* Disable MasterAbortMode during probing to avoid reporting
+           of bus errors (in some architectures) */
+	pci_read_config_word(dev, PCI_BRIDGE_CONTROL, &bctl);
+	pci_write_config_word(dev, PCI_BRIDGE_CONTROL, 
+			      bctl & ~PCI_BRIDGE_CTL_MASTER_ABORT);
 	if ((buses & 0xffff00) && !pcibios_assign_all_busses()) {
 		/*
 		 * Bus already configured by firmware, process it in the first
@@ -1351,6 +1368,7 @@ static int __devinit pci_scan_bridge(struct pci_bus *bus, struct pci_dev * dev, 
 		pci_write_config_byte(dev, PCI_SUBORDINATE_BUS, max);
 		pci_write_config_word(dev, PCI_COMMAND, cr);
 	}
+	pci_write_config_word(dev, PCI_BRIDGE_CONTROL, bctl);
 	sprintf(child->name, (is_cardbus ? "PCI CardBus #%02x" : "PCI Bus #%02x"), child->number);
 	return max;
 }
@@ -1390,8 +1408,6 @@ int pci_setup_device(struct pci_dev * dev)
 	class >>= 8;				    /* upper 3 bytes */
 	dev->class = class;
 	class >>= 8;
-
-	DBG("Found %02x:%02x [%04x/%04x] %06x %02x\n", dev->bus->number, dev->devfn, dev->vendor, dev->device, class, dev->hdr_type);
 
 	/* "Unknown power state" */
 	dev->current_state = 4;
@@ -1497,6 +1513,9 @@ struct pci_dev * __devinit pci_scan_slot(struct pci_dev *temp)
 				continue;
 			is_multi = 1;
 		}
+
+		DBG("Found %02x:%02x [%04x/%04x] %06x %02x\n", dev->bus->number, dev->devfn,
+		    dev->vendor, dev->device, dev->class, hdr_type);
 
 		pci_name_device(dev);
 		if (!first_dev) {

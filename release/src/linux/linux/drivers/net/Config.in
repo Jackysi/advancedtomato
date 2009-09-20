@@ -2,12 +2,27 @@
 # Network device configuration
 #
 
+source drivers/net/hnd/Config.in
 source drivers/net/arcnet/Config.in
 
 tristate 'Dummy net driver support' CONFIG_DUMMY
 tristate 'Bonding driver support' CONFIG_BONDING
 tristate 'EQL (serial line load balancing) support' CONFIG_EQUALIZER
+if [ "$CONFIG_NETFILTER" = "y" ]; then
+  tristate 'IMQ (intermediate queueing device) support' CONFIG_IMQ
+  if [ "$CONFIG_IMQ" = "y" -o $CONFIG_IMQ = "m" ]; then
+    choice ' IMQ behavior (PRE/POSTROUTING)'		\
+		"AA		CONFIG_IMQ_BEHAVIOR_AA	\
+		 AB		CONFIG_IMQ_BEHAVIOR_AB	\
+		 BA		CONFIG_IMQ_BEHAVIOR_BA	\
+		 BB		CONFIG_IMQ_BEHAVIOR_BB" BA
+    int '  Number of IMQ devices' CONFIG_IMQ_NUM_DEVS 2
+  fi
+else
+  comment 'IMQ needs CONFIG_NETFILTER enabled'
+fi
 tristate 'Universal TUN/TAP device driver support' CONFIG_TUN
+bool 'Allow Net Devices to contribute to /dev/random' CONFIG_NET_RANDOM
 if [ "$CONFIG_EXPERIMENTAL" = "y" ]; then
    tristate 'Ethertap network tap (OBSOLETE)' CONFIG_ETHERTAP
 fi
@@ -336,8 +351,10 @@ if [ ! "$CONFIG_PPP" = "n" ]; then
    dep_tristate '  PPP support for sync tty ports' CONFIG_PPP_SYNC_TTY $CONFIG_PPP
    dep_tristate '  PPP Deflate compression' CONFIG_PPP_DEFLATE $CONFIG_PPP
    dep_tristate '  PPP BSD-Compress compression' CONFIG_PPP_BSDCOMP $CONFIG_PPP
+   dep_tristate '  Microsoft PPP compression/encryption (MPPC/MPPE)' CONFIG_PPP_MPPE_MPPC $CONFIG_PPP
    if [ "$CONFIG_EXPERIMENTAL" = "y" ]; then
       dep_tristate '  PPP over Ethernet (EXPERIMENTAL)' CONFIG_PPPOE $CONFIG_PPP
+      dep_tristate '  PPP over L2TP (EXPERIMENTAL)' CONFIG_PPPOL2TP $CONFIG_PPP $CONFIG_PPPOE
    fi
    if [ "$CONFIG_ATM" = "y" -o "$CONFIG_ATM" = "m" ]; then
       dep_tristate '  PPP over ATM (EXPERIMENTAL)' CONFIG_PPPOATM $CONFIG_PPP $CONFIG_ATM

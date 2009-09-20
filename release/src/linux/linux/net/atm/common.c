@@ -158,6 +158,7 @@ void br2684_ioctl_set(int (*hook)(struct atm_vcc *, unsigned int, unsigned long)
 }
 #ifdef CONFIG_ATM_BR2684_MODULE
 EXPORT_SYMBOL(br2684_ioctl_set);
+EXPORT_SYMBOL(br2684_ioctl_hook);
 #endif
 #endif
 

@@ -13,6 +13,10 @@
 #define likely(x)	__builtin_expect((x),1)
 #define unlikely(x)	__builtin_expect((x),0)
 
+#ifdef __attribute_used__
+ #undef __attribute_used__
+#endif
+
 #if __GNUC__ > 3
 #define __attribute_used__	__attribute__((__used__))
 #elif __GNUC__ == 3
@@ -33,12 +37,21 @@
 #define __attribute_const__	/* unimplemented */
 #endif
 
-#if __GNUC__ == 3
-#if __GNUC_MINOR__ >= 1
+#if __GNUC__ >= 4 || __GNUC__ == 3 && __GNUC_MINOR__ >= 1
 # define inline         __inline__ __attribute__((always_inline))
 # define __inline__     __inline__ __attribute__((always_inline))
 # define __inline       __inline__ __attribute__((always_inline))
 #endif
+
+/*
+ * A trick to suppress uninitialized variable warning without generating any
+ * code
+ */
+#define uninitialized_var(x) x = x
+
+
+#if __GNUC__ >= 4
+# define __compiler_offsetof(a,b) __builtin_offsetof(a,b)
 #endif
 
 #ifdef __KERNEL__

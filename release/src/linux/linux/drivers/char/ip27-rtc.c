@@ -44,6 +44,7 @@
 #include <asm/sn/klconfig.h>
 #include <asm/sn/sn0/ip27.h>
 #include <asm/sn/sn0/hub.h>
+#include <asm/sn/sn_private.h>
 
 static int rtc_ioctl(struct inode *inode, struct file *file,
 		     unsigned int cmd, unsigned long arg);
@@ -209,11 +210,8 @@ static struct miscdevice rtc_dev=
 
 static int __init rtc_init(void)
 {
-	nasid_t nid;
-
-	nid = get_nasid();
 	rtc = (struct m48t35_rtc *)
-	    (KL_CONFIG_CH_CONS_INFO(nid)->memory_base + IOC3_BYTEBUS_DEV0);
+	(KL_CONFIG_CH_CONS_INFO(master_nasid)->memory_base + IOC3_BYTEBUS_DEV0);
 
 	printk(KERN_INFO "Real Time Clock Driver v%s\n", RTC_VERSION);
 	if (misc_register(&rtc_dev)) {
@@ -325,3 +323,7 @@ static void get_rtc_time(struct rtc_time *rtc_tm)
 
 	rtc_tm->tm_mon--;
 }
+
+MODULE_AUTHOR("Ralf Baechle <ralf@linux-mips.org>");
+MODULE_DESCRIPTION("SGI IP27 M48T35 RTC driver");
+MODULE_LICENSE("GPL");

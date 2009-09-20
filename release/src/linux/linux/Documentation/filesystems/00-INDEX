@@ -10,6 +10,8 @@ befs.txt
 	- info for the BeOS file system (BFS)
 bfs.txt
 	- info for the SCO UnixWare Boot Filesystem (BFS).
+cifs.txt
+	- info on the Common Internet File System (CIFS)
 coda.txt
 	- description of the CODA filesystem.
 cramfs.txt

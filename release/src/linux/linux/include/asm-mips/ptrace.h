@@ -4,6 +4,7 @@
  * for more details.
  *
  * Copyright (C) 1994, 1995, 1996, 1997, 1998, 1999, 2000 by Ralf Baechle
+ * Copyright (C) 2004  Maciej W. Rozycki
  *
  * Machine dependent structs and defines to help the user use
  * the ptrace system call.
@@ -64,11 +65,9 @@ __asm__ (                                                               \
         "sw\t$22,"__str(PT_R22)"($29)\n\t"                              \
         "sw\t$23,"__str(PT_R23)"($29)\n\t"                              \
         "sw\t$30,"__str(PT_R30)"($29)\n\t"                              \
+       "j\t_" #symbol "\n\t"                                           \
         ".end\t" #symbol "\n\t"                                         \
         ".size\t" #symbol",. - " #symbol)
-
-/* Used in declaration of save_static functions.  */
-#define static_unused static __attribute__((unused))
 
 #endif /* !__ASSEMBLY__ */
 

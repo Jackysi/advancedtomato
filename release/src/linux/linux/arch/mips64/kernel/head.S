@@ -91,6 +91,21 @@ EXPORT(_stext)
 	__INIT
 
 NESTED(kernel_entry, 16, sp)			# kernel entry point
+	.set	push
+	/*
+	 * For the moment disable interrupts, mark the kernel mode and
+	 * set ST0_KX so that the CPU does not spit fire when using
+	 * 64-bit addresses.  A full initialization of the CPU's status
+	 * register is done later in per_cpu_trap_init().
+	 */
+	mfc0	t0, CP0_STATUS
+	or	t0, ST0_CU0|ST0_KX|0x1f
+	xor	t0, 0x1f
+	mtc0	t0, CP0_STATUS
+
+	.set	noreorder
+	sll	zero,3				# ehb
+	.set	reorder
 
 	ori	sp, 0xf				# align stack on 16 byte.
 	xori	sp, 0xf
@@ -102,8 +117,6 @@ NESTED(kernel_entry, 16, sp)			# kernel entry point
 #endif /* IP27 */
 
 	ARC64_TWIDDLE_PC
-
-	CLI					# disable interrupts
 
 	/*
 	 * The firmware/bootloader passes argc/argp/envp
@@ -125,6 +138,7 @@ NESTED(kernel_entry, 16, sp)			# kernel entry point
 	dsubu	sp, 4*SZREG			# init stack pointer
 
 	j	init_arch
+	.set	pop
 	END(kernel_entry)
 
 #ifdef CONFIG_SMP
@@ -133,6 +147,23 @@ NESTED(kernel_entry, 16, sp)			# kernel entry point
  * function after setting up the stack and gp registers.
  */
 NESTED(smp_bootstrap, 16, sp)
+	.set	push
+	/*
+	 * For the moment disable interrupts and bootstrap exception
+	 * vectors, mark the kernel mode and set ST0_KX so that the CPU
+	 * does not spit fire when using 64-bit addresses.  A full
+	 * initialization of the CPU's status register is done later in
+	 * per_cpu_trap_init().
+	 */
+	mfc0	t0, CP0_STATUS
+	or	t0, ST0_CU0|ST0_BEV|ST0_KX|0x1f
+	xor	t0, ST0_BEV|0x1f
+	mtc0	t0, CP0_STATUS
+
+	.set	noreorder
+	sll	zero,3				# ehb
+	.set	reorder
+
 #ifdef CONFIG_SGI_IP27
 	GET_NASID_ASM	t1
 	dli	t0, KLDIR_OFFSET + (KLI_KERN_VARS * KLDIR_ENT_SIZE) + \
@@ -146,19 +177,8 @@ NESTED(smp_bootstrap, 16, sp)
 	ARC64_TWIDDLE_PC
 #endif /* CONFIG_SGI_IP27 */
 
-	CLI
-
-	/*
-	 * For the moment set ST0_KU so the CPU will not spit fire when
-	 * executing 64-bit instructions.  The full initialization of the
-	 * CPU's status register is done later in per_cpu_trap_init().
-	 */
-        mfc0	t0, CP0_STATUS
-        or	t0, ST0_KX
-	mtc0	t0, CP0_STATUS
-
 	jal	start_secondary			# XXX: IP27: cboot
-
+	.set	pop
 	END(smp_bootstrap)
 #endif /* CONFIG_SMP */
 

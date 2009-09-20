@@ -1,6 +1,6 @@
 /*
  *
- * Alchemy Semi Db1x00 boards specific pcmcia routines.
+ * AMD Alchemy DUAL-SLOT Db1x00 boards' specific pcmcia routines.
  *
  * Copyright 2002 MontaVista Software Inc.
  * Author: MontaVista Software, Inc.
@@ -54,9 +54,20 @@
 #include <asm/au1000.h>
 #include <asm/au1000_pcmcia.h>
 
+#if defined(CONFIG_MIPS_PB1200)
+#include <asm/pb1200.h>
+#elif defined(CONFIG_MIPS_DB1200)
+#include <asm/db1200.h>
+#else
 #include <asm/db1x00.h>
+#endif
 
-static BCSR * const bcsr = (BCSR *)BCSR_KSEG1_ADDR;
+#define PCMCIA_MAX_SOCK 1
+#define PCMCIA_NUM_SOCKS (PCMCIA_MAX_SOCK+1)
+
+/* VPP/VCC */
+#define SET_VCC_VPP(VCC, VPP, SLOT)\
+    ((((VCC)<<2) | ((VPP)<<0)) << ((SLOT)*8))
 
 static int db1x00_pcmcia_init(struct pcmcia_init *init)
 {
@@ -76,7 +87,7 @@ static int
 db1x00_pcmcia_socket_state(unsigned sock, struct pcmcia_state *state)
 {
 	u32 inserted;
-	unsigned char vs;
+	u16 vs;
 
 	if(sock > PCMCIA_MAX_SOCK) return -1;
 
@@ -87,11 +98,11 @@ db1x00_pcmcia_socket_state(unsigned sock, struct pcmcia_state *state)
 
 	if (sock == 0) {
 		vs = bcsr->status & 0x3;
-		inserted = !(bcsr->status & (1<<4));
+		inserted = BOARD_CARD_INSERTED(0);
 	}
 	else {
 		vs = (bcsr->status & 0xC)>>2;
-		inserted = !(bcsr->status & (1<<5));
+		inserted = BOARD_CARD_INSERTED(1);
 	}
 
 	DEBUG(KERN_DEBUG "db1x00 socket %d: inserted %d, vs %d\n", 
@@ -144,16 +155,9 @@ static int db1x00_pcmcia_get_irq_info(struct pcmcia_irq_info *info)
 	if(info->sock > PCMCIA_MAX_SOCK) return -1;
 
 	if(info->sock == 0)
-#ifdef CONFIG_MIPS_DB1550
-		info->irq = AU1000_GPIO_3;
+		info->irq = BOARD_PC0_INT;
 	else 
-		info->irq = AU1000_GPIO_5;
-#else
-		info->irq = AU1000_GPIO_2;
-	else 
-		info->irq = AU1000_GPIO_5;
-#endif
-
+		info->irq = BOARD_PC1_INT;
 	return 0;
 }
 

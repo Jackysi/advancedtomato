@@ -162,6 +162,7 @@ unsigned long last_entryLo0, last_entryLo1;
 static int config_access(unsigned char access_type, struct pci_dev *dev, 
 			 unsigned char where, u32 * data)
 {
+	int error = PCIBIOS_SUCCESSFUL;
 #if defined( CONFIG_SOC_AU1500 ) || defined( CONFIG_SOC_AU1550 )
 	unsigned char bus = dev->bus->number;
 	unsigned int dev_fn = dev->devfn;
@@ -170,7 +171,6 @@ static int config_access(unsigned char access_type, struct pci_dev *dev,
 	unsigned long offset, status;
 	unsigned long cfg_base;
 	unsigned long flags;
-	int error = PCIBIOS_SUCCESSFUL;
 	unsigned long entryLo0, entryLo1;
 
 	if (device > 19) {
@@ -205,9 +205,8 @@ static int config_access(unsigned char access_type, struct pci_dev *dev,
 		last_entryLo0  = last_entryLo1 = 0xffffffff;
 	}
 
-	/* Since the Au1xxx doesn't do the idsel timing exactly to spec,
-	 * many board vendors implement their own off-chip idsel, so call
-	 * it now.  If it doesn't succeed, may as well bail out at this point.
+	/* Allow board vendors to implement their own off-chip idsel.  
+	 * If it doesn't succeed, may as well bail out at this point.
 	 */
 	if (board_pci_idsel) {
 		if (board_pci_idsel(device, 1) == 0) {
@@ -271,8 +270,11 @@ static int config_access(unsigned char access_type, struct pci_dev *dev,
 	}
 
 	local_irq_restore(flags);
-	return error;
+#else
+	/* Fake out Config space access with no responder */
+	*data = 0xFFFFFFFF;
 #endif
+	return error;
 }
 #endif
 

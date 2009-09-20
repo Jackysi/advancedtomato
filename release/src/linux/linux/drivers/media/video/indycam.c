@@ -50,13 +50,14 @@ static int indycam_attach(struct i2c_adapter *adap, int addr, int kind)
 		0x80,			/* INDYCAM_GAMMA */
 	};
 
-	int err = 0;
 	struct indycam *camera;
 	struct i2c_client *client;
+	int err = 0;
 
 	client = kmalloc(sizeof(*client), GFP_KERNEL);
-	if (!client) 
+	if (!client)
 		return -ENOMEM;
+
 	camera = kmalloc(sizeof(*camera), GFP_KERNEL);
 	if (!camera) {
 		err = -ENOMEM;
@@ -67,7 +68,7 @@ static int indycam_attach(struct i2c_adapter *adap, int addr, int kind)
 	client->adapter = adap;
 	client->addr = addr;
 	client->driver = &i2c_driver_indycam;
-	strcpy(client->name, "IndyCam client");			
+	strcpy(client->name, "IndyCam client");
 	camera->client = client;
 
 	err = i2c_attach_client(client);
@@ -75,18 +76,18 @@ static int indycam_attach(struct i2c_adapter *adap, int addr, int kind)
 		goto out_free_camera;
 
 	camera->version = i2c_smbus_read_byte_data(client, INDYCAM_VERSION);
-	if (camera->version != CAMERA_VERSION_INDY &&
-	    camera->version != CAMERA_VERSION_MOOSE) {
+	if ((camera->version != CAMERA_VERSION_INDY) &&
+	    (camera->version != CAMERA_VERSION_MOOSE)) {
 		err = -ENODEV;
 		goto out_detach_client;
 	}
-	printk(KERN_INFO "Indycam v%d.%d detected.\n",
+	printk(KERN_INFO "IndyCam v%d.%d detected.\n",
 	       INDYCAM_VERSION_MAJOR(camera->version),
 	       INDYCAM_VERSION_MINOR(camera->version));
 
 	err = i2c_master_send(client, initseq, sizeof(initseq));
 	if (err)
-		printk(KERN_INFO "IndyCam initalization failed\n");
+		printk(KERN_ERR "IndyCam initalization failed.\n");
 
 	MOD_INC_USE_COUNT;
 	return 0;

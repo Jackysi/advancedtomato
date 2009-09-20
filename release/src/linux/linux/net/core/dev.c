@@ -1289,6 +1289,19 @@ int netif_rx(struct sk_buff *skb)
 	local_irq_save(flags);
 
 	netdev_rx_stat[this_cpu].total++;
+
+#ifdef CONFIG_BRIDGE
+	/* Optimisation for framebursting (allow interleaving of pkts by
+	 * immediately processing the rx pkt instead of Qing the pkt and deferring
+	 * the processing). Only optimise for bridging and guard against non
+	 * TASKLET based netif_rx calls.
+	 */
+	if (!in_irq() && (skb->dev->br_port != NULL) && br_handle_frame_hook != NULL) {
+		local_irq_restore(flags);
+		return netif_receive_skb(skb);
+	}
+#endif		
+	
 	if (queue->input_pkt_queue.qlen <= netdev_max_backlog) {
 		if (queue->input_pkt_queue.qlen) {
 			if (queue->throttle)
@@ -2219,6 +2232,7 @@ static int dev_ifsioc(struct ifreq *ifr, unsigned int cmd)
 			    cmd == SIOCGMIIPHY ||
 			    cmd == SIOCGMIIREG ||
 			    cmd == SIOCSMIIREG ||
+			    cmd == SIOCETHTOOL ||
 			    cmd == SIOCWANDEV) {
 				if (dev->do_ioctl) {
 					if (!netif_device_present(dev))
@@ -2311,6 +2325,7 @@ int dev_ioctl(unsigned int cmd, void *arg)
 			}
 			return ret;
 
+#ifndef CONFIG_BCM4710
 		case SIOCETHTOOL:
 			dev_load(ifr.ifr_name);
 			rtnl_lock();
@@ -2324,6 +2339,7 @@ int dev_ioctl(unsigned int cmd, void *arg)
 					ret = -EFAULT;
 			}
 			return ret;
+#endif
 
 		/*
 		 *	These ioctl calls:
@@ -2399,6 +2415,7 @@ int dev_ioctl(unsigned int cmd, void *arg)
 		 
 		default:
 			if (cmd == SIOCWANDEV ||
+			    (cmd == SIOCETHTOOL) ||
 			    (cmd >= SIOCDEVPRIVATE &&
 			     cmd <= SIOCDEVPRIVATE + 15)) {
 				dev_load(ifr.ifr_name);
@@ -2426,7 +2443,7 @@ int dev_ioctl(unsigned int cmd, void *arg)
 				/* Follow me in net/core/wireless.c */
 				ret = wireless_process_ioctl(&ifr, cmd);
 				rtnl_unlock();
-				if (!ret && IW_IS_GET(cmd) &&
+				if (IW_IS_GET(cmd) &&
 				    copy_to_user(arg, &ifr, sizeof(struct ifreq)))
 					return -EFAULT;
 				return ret;

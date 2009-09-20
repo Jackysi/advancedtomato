@@ -307,6 +307,11 @@ static void fib_rules_attach(struct net_device *dev)
 	}
 }
 
+int fib_result_table(struct fib_result *res)
+{
+	return res->r->r_table;
+}
+
 int fib_lookup(const struct rt_key *key, struct fib_result *res)
 {
 	int err;
@@ -371,8 +376,10 @@ FRprintk("FAILURE\n");
 
 void fib_select_default(const struct rt_key *key, struct fib_result *res)
 {
-	if (res->r && res->r->r_action == RTN_UNICAST &&
-	    FIB_RES_GW(*res) && FIB_RES_NH(*res).nh_scope == RT_SCOPE_LINK) {
+	if (res->r &&
+	    (res->r->r_action == RTN_UNICAST || res->r->r_action == RTN_NAT) &&
+	    ((FIB_RES_GW(*res) && FIB_RES_NH(*res).nh_scope == RT_SCOPE_LINK) ||
+	     FIB_RES_NH(*res).nh_scope == RT_SCOPE_HOST)) {
 		struct fib_table *tb;
 		if ((tb = fib_get_table(res->r->r_table)) != NULL)
 			tb->tb_select_default(tb, key, res);

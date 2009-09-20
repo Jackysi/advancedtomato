@@ -41,6 +41,7 @@
  *  675 Mass Ave, Cambridge, MA 02139, USA.
  *
  */
+
 #include <linux/version.h>
 #include <linux/module.h>
 #include <linux/string.h>
@@ -62,7 +63,45 @@
 #include <asm/uaccess.h>
 #include <asm/hardirq.h>
 #include <asm/au1000.h>
+
+#if defined(CONFIG_SOC_AU1550)
 #include <asm/pb1550.h>
+#endif
+
+#if defined(CONFIG_MIPS_PB1200)
+#define WM8731
+#define WM_MODE_USB
+#include <asm/pb1200.h>
+#endif
+
+#if defined(CONFIG_MIPS_FICMMP)
+#define WM8721
+#define WM_MODE_NORMAL
+#include <asm/ficmmp.h>
+#endif
+
+
+#define WM_VOLUME_MIN	47
+#define WM_VOLUME_SCALE	80
+
+#if defined(WM8731)
+	/* OSS interface to the wm i2s.. */
+	#define CODEC_NAME "Wolfson WM8731 I2S"
+	#define WM_I2S_STEREO_MASK (SOUND_MASK_PCM | SOUND_MASK_LINE)
+	#define WM_I2S_SUPPORTED_MASK (WM_I2S_STEREO_MASK | SOUND_MASK_MIC)
+	#define WM_I2S_RECORD_MASK (SOUND_MASK_MIC | SOUND_MASK_LINE1 | SOUND_MASK_LINE)
+#elif defined(WM8721)
+	#define CODEC_NAME "Wolfson WM8721 I2S"
+	#define WM_I2S_STEREO_MASK (SOUND_MASK_PCM)
+	#define WM_I2S_SUPPORTED_MASK (WM_I2S_STEREO_MASK)
+	#define WM_I2S_RECORD_MASK (0)
+#endif
+
+
+#define supported_mixer(FOO) ((FOO >= 0) && \
+                                    (FOO < SOUND_MIXER_NRDEVICES) && \
+                                    WM_I2S_SUPPORTED_MASK & (1<<FOO) )
+
 #include <asm/au1xxx_psc.h>
 #include <asm/au1xxx_dbdma.h>
 
@@ -98,13 +137,51 @@
  * 0 = no VRA, 1 = use VRA if codec supports it
  * The framework is here, but we currently force no VRA.
  */
+#if defined(CONFIG_MIPS_PB1200) | defined(CONFIG_MIPS_PB1550)
 static int      vra = 0;
+#elif defined(CONFIG_MIPS_FICMMP)
+static int vra = 1;
+#endif
+
+#define WM_REG_L_HEADPHONE_OUT			0x02
+#define WM_REG_R_HEADPHONE_OUT			0x03
+#define WM_REG_ANALOGUE_AUDIO_PATH_CTRL		0x04
+#define WM_REG_DIGITAL_AUDIO_PATH_CTRL		0x05
+#define WM_REG_POWER_DOWN_CTRL			0x06
+#define WM_REG_DIGITAL_AUDIO_IF			0x07
+#define WM_REG_SAMPLING_CONTROL 		0x08
+#define WM_REG_ACTIVE_CTRL			0x09
+#define WM_REG_RESET				0x0F
+#define WM_SC_SR_96000		(0x7<<2)
+#define WM_SC_SR_88200		(0xF<<2)
+#define WM_SC_SR_48000		(0x0<<2)
+#define WM_SC_SR_44100		(0x8<<2)
+#define WM_SC_SR_32000		(0x6<<2)
+#define WM_SC_SR_8018		(0x9<<2)
+#define WM_SC_SR_8000		(0x1<<2)
+#define WM_SC_MODE_USB		1
+#define WM_SC_MODE_NORMAL	0
+#define WM_SC_BOSR_250FS	(0<<1)
+#define WM_SC_BOSR_272FS	(1<<1)
+#define WM_SC_BOSR_256FS	(0<<1)
+#define WM_SC_BOSR_128FS	(0<<1)
+#define WM_SC_BOSR_384FS	(1<<1)
+#define WM_SC_BOSR_192FS	(1<<1)
+
+#define WS_64FS			31
+#define WS_96FS			47
+#define WS_128FS		63
+#define WS_192FS		95
+
+#define MIN_Q_COUNT		2
+
 MODULE_PARM(vra, "i");
 MODULE_PARM_DESC(vra, "if 1 use VRA if codec supports it");
 
 static struct au1550_state {
 	/* soundcore stuff */
 	int             dev_audio;
+	int				dev_mixer;
 
 	spinlock_t		lock;
 	struct semaphore	open_sem;
@@ -113,6 +190,11 @@ static struct au1550_state {
 	wait_queue_head_t	open_wait;
 	int			no_vra;
 	volatile psc_i2s_t	*psc_addr;
+
+	int level_line;
+	int level_mic;
+	int level_left;
+	int level_right;
 
 	struct dmabuf {
 		u32		dmanr;
@@ -195,60 +277,224 @@ au1550_delay(int msec)
 	}
 }
 
-/* Just a place holder.  The Wolfson codec is a write only device,
- * so we would have to keep a local copy of the data.
- */
-#if 0
-static u8
-rdcodec(u8 addr)
-{
-	return 0  /* data */;
-}
-#endif
-
-
 static void
-wrcodec(u8 ctlreg, u8 val)
+wrcodec(u8 ctlreg, u16 val)
 {
 	int	rcnt;
 	extern int pb1550_wm_codec_write(u8 addr, u8 reg, u8 val);
-
 	/* The codec is a write only device, with a 16-bit control/data
 	 * word.  Although it is written as two bytes on the I2C, the
 	 * format is actually 7 bits of register and 9 bits of data.
 	 * The ls bit of the first byte is the ms bit of the data.
 	 */
 	rcnt = 0;
-	while ((pb1550_wm_codec_write((0x36 >> 1), ctlreg, val) != 1) 
-							&& (rcnt < 50)) {
+	while ((pb1550_wm_codec_write((0x36 >> 1), 
+					(ctlreg << 1) | ((val >> 8) & 0x01), 
+					(u8) (val & 0x00FF)) != 1) && 
+			(rcnt < 50)) {
 		rcnt++;
-#if 0
-		printk("Codec write retry %02x %02x\n", ctlreg, val);
-#endif
+	}
+
+	au1550_delay(10);
+}
+
+static int
+au1550_open_mixdev(struct inode *inode, struct file *file)
+{
+	file->private_data = &au1550_state;
+	return 0;
+}
+
+static int
+au1550_release_mixdev(struct inode *inode, struct file *file)
+{
+	return 0;
+}
+
+static int wm_i2s_read_mixer(struct au1550_state *s, int oss_channel)
+{
+	int ret = 0;
+
+	if (WM_I2S_STEREO_MASK & (1 << oss_channel)) {
+		/* nice stereo mixers .. */
+
+		ret = s->level_left | (s->level_right << 8);
+	} else if (oss_channel == SOUND_MIXER_MIC) {
+		ret = 0;
+		/* TODO: Implement read mixer for input/output codecs */
+	}
+
+	return ret;
+}
+
+static void wm_i2s_write_mixer(struct au1550_state *s, int oss_channel, unsigned int left, unsigned int right)
+{
+	if (WM_I2S_STEREO_MASK & (1 << oss_channel)) {
+		/* stereo mixers */
+		s->level_left = left;
+		s->level_right = right;
+
+		right = (right * WM_VOLUME_SCALE) / 100;
+		left  = (left  * WM_VOLUME_SCALE) / 100;
+		if (right > WM_VOLUME_SCALE)
+			right = WM_VOLUME_SCALE;
+		if (left > WM_VOLUME_SCALE)
+			left = WM_VOLUME_SCALE;
+
+		right += WM_VOLUME_MIN;
+		left  += WM_VOLUME_MIN;
+
+		wrcodec(WM_REG_L_HEADPHONE_OUT, left);
+		wrcodec(WM_REG_R_HEADPHONE_OUT, right);
+
+	}else if (oss_channel == SOUND_MIXER_MIC) {
+		/* TODO: implement write mixer for input/output codecs */
 	}
 }
 
-void
-codec_init(void)
+/* a thin wrapper for write_mixer */
+static void wm_i2s_set_mixer(struct au1550_state *s, unsigned int oss_mixer, unsigned int val )
 {
-	wrcodec(0x1e, 0x00);	/* Reset */
-	au1550_delay(200);
-	wrcodec(0x0c, 0x00);	/* Power up everything */
-	au1550_delay(10);
-	wrcodec(0x12, 0x00);	/* Deactivate codec */
-	au1550_delay(10);
-	wrcodec(0x08, 0x10);	/* Select DAC outputs to line out */
-	au1550_delay(10);
-	wrcodec(0x0a, 0x00);	/* Disable output mute */
-	au1550_delay(10);
-	wrcodec(0x05, 0x70);	/* lower output volume on headphone */
-	au1550_delay(10);
-	wrcodec(0x0e, 0x02);	/* Set slave, 16-bit, I2S modes */
-	au1550_delay(10);
-	wrcodec(0x10, 0x01);	/* 12MHz (USB), 250fs */
-	au1550_delay(10);
-	wrcodec(0x12, 0x01);	/* Activate codec */
-	au1550_delay(10);
+	unsigned int left,right;
+
+	/* cleanse input a little */
+	right = ((val >> 8)  & 0xff) ;
+	left = (val  & 0xff) ;
+
+	if (right > 100) right = 100;
+	if (left > 100) left = 100;
+
+	wm_i2s_write_mixer(s, oss_mixer, left, right);
+}
+
+static int
+au1550_ioctl_mixdev(struct inode *inode, struct file *file, unsigned int cmd, unsigned long arg)
+{
+	struct au1550_state *s = (struct au1550_state *)file->private_data;
+
+	int i, val = 0;
+
+	if (cmd == SOUND_MIXER_INFO) {
+		mixer_info info;
+		strncpy(info.id, CODEC_NAME, sizeof(info.id));
+		strncpy(info.name, CODEC_NAME, sizeof(info.name));
+		info.modify_counter = 0;
+		if (copy_to_user((void *)arg, &info, sizeof(info)))
+			return -EFAULT;
+		return 0;
+	}
+	if (cmd == SOUND_OLD_MIXER_INFO) {
+		_old_mixer_info info;
+		strncpy(info.id, CODEC_NAME, sizeof(info.id));
+		strncpy(info.name, CODEC_NAME, sizeof(info.name));
+		if (copy_to_user((void *)arg, &info, sizeof(info)))
+			return -EFAULT;
+		return 0;
+	}
+
+	if (_IOC_TYPE(cmd) != 'M' || _SIOC_SIZE(cmd) != sizeof(int))
+		return -EINVAL;
+
+	if (cmd == OSS_GETVERSION)
+		return put_user(SOUND_VERSION, (int *)arg);
+
+	if (_SIOC_DIR(cmd) == _SIOC_READ) {
+		switch (_IOC_NR(cmd)) {
+		case SOUND_MIXER_RECSRC: /* give them the current record src */
+			val = 0;
+			/*
+			if (!codec->recmask_io) {
+				val = 0;
+			} else {
+				val = codec->recmask_io(codec, 1, 0);
+			}*/
+			break;
+
+		case SOUND_MIXER_DEVMASK: /* give them the supported mixers */
+			val = WM_I2S_SUPPORTED_MASK;
+			break;
+
+		case SOUND_MIXER_RECMASK: 
+			/* Arg contains a bit for each supported recording 
+			 * source */
+			val = WM_I2S_RECORD_MASK;
+			break;
+
+		case SOUND_MIXER_STEREODEVS: 
+			/* Mixer channels supporting stereo */
+			val = WM_I2S_STEREO_MASK;
+			break;
+
+		case SOUND_MIXER_CAPS:
+			val = SOUND_CAP_EXCL_INPUT;
+			break;
+
+		default: /* read a specific mixer */
+			i = _IOC_NR(cmd);
+
+			if (!supported_mixer(i))
+				return -EINVAL;
+
+			val = wm_i2s_read_mixer(s, i);
+ 			break;
+		}
+		return put_user(val, (int *)arg);
+	}
+
+	if (_SIOC_DIR(cmd) == (_SIOC_WRITE|_SIOC_READ)) {
+		if (get_user(val, (int *)arg))
+			return -EFAULT;
+
+		switch (_IOC_NR(cmd)) {
+		case SOUND_MIXER_RECSRC: 
+			/* Arg contains a bit for each recording source */
+			if (!WM_I2S_RECORD_MASK)
+				return -EINVAL;
+			if (!val)
+				return 0;
+			if (!(val &= WM_I2S_RECORD_MASK))
+				return -EINVAL;
+
+			return 0;
+		default: /* write a specific mixer */
+			i = _IOC_NR(cmd);
+
+			if (!supported_mixer(i))
+				return -EINVAL;
+
+			wm_i2s_set_mixer(s, i, val);
+
+			return 0;
+	}
+}
+	return -EINVAL;
+}
+
+static loff_t
+au1550_llseek(struct file *file, loff_t offset, int origin)
+{
+	return -ESPIPE;
+}
+
+static /*const */ struct file_operations au1550_mixer_fops = {
+	owner:THIS_MODULE,
+	llseek:au1550_llseek,
+	ioctl:au1550_ioctl_mixdev,
+	open:au1550_open_mixdev,
+	release:au1550_release_mixdev,
+};
+
+void
+codec_init(struct au1550_state *s)
+{
+	wrcodec(WM_REG_RESET, 0x00);	/* Reset */
+	wrcodec(WM_REG_POWER_DOWN_CTRL, 0x00);	/* Power up everything */
+	wrcodec(WM_REG_ACTIVE_CTRL, 0x00);	/* Deactivate codec */
+	wrcodec(WM_REG_ANALOGUE_AUDIO_PATH_CTRL, 0x10);	/* Select DAC outputs to line out */
+	wrcodec(WM_REG_DIGITAL_AUDIO_PATH_CTRL, 0x00);	/* Disable output mute */
+	wm_i2s_write_mixer(s, SOUND_MIXER_PCM, 74, 74);
+	wrcodec(WM_REG_DIGITAL_AUDIO_IF, 0x02);	/* Set slave, 16-bit, I2S modes */
+	wrcodec(WM_REG_ACTIVE_CTRL, 0x01);	/* Activate codec */
 }
 
 /* stop the ADC before calling */
@@ -256,27 +502,16 @@ static void
 set_adc_rate(struct au1550_state *s, unsigned rate)
 {
 	struct dmabuf  *adc = &s->dma_adc;
-	struct dmabuf  *dac = &s->dma_dac;
 
-	if (s->no_vra) {
-		/* calc SRC factor
-		*/
+	#if defined(WM_MODE_USB)
 		adc->src_factor = (((SAMP_RATE*2) / rate) + 1) >> 1;
 		adc->sample_rate = SAMP_RATE / adc->src_factor;
 		return;
-	}
+	#else
+	//TODO: Need code for normal mode
+	#endif
 
 	adc->src_factor = 1;
-
-
-#if 0
-	rate = rate > SAMP_RATE ? SAMP_RATE : rate;
-
-	wrcodec(0, 0);	/* I don't yet know what to write here if we vra */
-
-	adc->sample_rate = rate;
-	dac->sample_rate = rate;
-#endif
 }
 
 /* stop the DAC before calling */
@@ -284,26 +519,89 @@ static void
 set_dac_rate(struct au1550_state *s, unsigned rate)
 {
 	struct dmabuf  *dac = &s->dma_dac;
-	struct dmabuf  *adc = &s->dma_adc;
 
-	if (s->no_vra) {
-		/* calc SRC factor
-		*/
-		dac->src_factor = (((SAMP_RATE*2) / rate) + 1) >> 1;
-		dac->sample_rate = SAMP_RATE / dac->src_factor;
-		return;
+	u16 sr, ws, div, bosr, mode;
+	volatile psc_i2s_t* ip = (volatile psc_i2s_t *)I2S_PSC_BASE;
+	u32 cfg;
+
+	#if defined(CONFIG_MIPS_FICMMP)
+		rate = ficmmp_set_i2s_sample_rate(rate);
+	#endif
+
+	switch(rate)
+	{
+		case 96000: 
+			sr = WM_SC_SR_96000; 
+			ws = WS_64FS;  
+			div = PSC_I2SCFG_DIV2;  
+			break;
+		case 88200: 
+			sr = WM_SC_SR_88200; 
+			ws = WS_64FS;  
+			div = PSC_I2SCFG_DIV2;  
+			break;
+		case 44100: 
+			sr = WM_SC_SR_44100; 
+			ws = WS_128FS; 
+			div = PSC_I2SCFG_DIV2;  
+			break;
+		case 48000: 
+			sr = WM_SC_SR_48000; 
+			ws = WS_128FS; 
+			div = PSC_I2SCFG_DIV2;  
+			break;
+		case 32000: 
+			sr = WM_SC_SR_32000; 
+			ws = WS_96FS;  
+			div = PSC_I2SCFG_DIV4;  
+			break;
+		case  8018: 
+			sr = WM_SC_SR_8018;  
+			ws = WS_128FS; 
+			div = PSC_I2SCFG_DIV2;  
+			break;
+		case  8000:
+		default:    
+			sr = WM_SC_SR_8000;  
+			ws = WS_96FS;  
+			div = PSC_I2SCFG_DIV16; 
+			break;
 	}
 
+	#if defined(WM_MODE_USB)
+		mode = WM_SC_MODE_USB;
+	#else
+		mode = WM_SC_MODE_NORMAL;
+	#endif
+
+	bosr = 0;
+
 	dac->src_factor = 1;
-
-#if 0
-	rate = rate > SAMP_RATE ? SAMP_RATE : rate;
-
-	wrcodec(0, 0);	/* I don't yet know what to write here if we vra */
-
-	adc->sample_rate = rate;
 	dac->sample_rate = rate;
-#endif
+
+	/* Deactivate codec */
+	wrcodec(WM_REG_ACTIVE_CTRL, 0x00);
+
+	/* Disable I2S controller */
+	ip->psc_i2scfg &= ~PSC_I2SCFG_DE_ENABLE;
+	/* Wait for device disabled */
+	while ((ip->psc_i2sstat & PSC_I2SSTAT_DR) == 1);
+
+	cfg = ip->psc_i2scfg;
+	/* Clear WS and DIVIDER values */
+	cfg &= ~(PSC_I2SCFG_WS_MASK | PSC_I2SCFG_DIV_MASK);	
+	cfg |= PSC_I2SCFG_WS(ws) | div;
+	/* Reconfigure and enable */
+	ip->psc_i2scfg = cfg | PSC_I2SCFG_DE_ENABLE;	
+
+	/* Wait for device enabled */
+	while ((ip->psc_i2sstat & PSC_I2SSTAT_DR) == 0);
+
+	/* Set appropriate sampling rate */
+	wrcodec(WM_REG_SAMPLING_CONTROL, bosr | mode | sr);
+
+	/* Activate codec */
+	wrcodec(WM_REG_ACTIVE_CTRL, 0x01);
 }
 
 static void
@@ -354,8 +652,7 @@ stop_adc(struct au1550_state *s)
 	ip->psc_i2spcr = PSC_I2SPCR_RP;
 	au_sync();
 
-	/* Wait for Receive Busy to show disabled.
-	*/
+	/* Wait for Receive Busy to show disabled.  */
 	do {
 		stat = ip->psc_i2sstat;
 		au_sync();
@@ -463,7 +760,6 @@ prog_dmabuf(struct au1550_state *s, struct dmabuf *db)
 	if (db->num_channels == 1)
 		db->cnt_factor *= 2;
 	db->cnt_factor *= db->src_factor;
-
 	db->count = 0;
 	db->dma_qcount = 0;
 	db->nextIn = db->nextOut = db->rawbuf;
@@ -546,12 +842,13 @@ dac_dma_interrupt(int irq, void *dev_id, struct pt_regs *regs)
 	if (i2s_stat & (PSC_I2SSTAT_TF | PSC_I2SSTAT_TR | PSC_I2SSTAT_TF))
 		dbg("I2S status = 0x%08x", i2s_stat);
 #endif
+
 	db->dma_qcount--;
 
 	if (db->count >= db->fragsize) {
-		if (au1xxx_dbdma_put_source(db->dmanr, db->nextOut,
-							db->fragsize) == 0) {
-			err("qcount < 2 and no ring room!");
+		if (au1xxx_dbdma_put_source(db->dmanr, db->nextOut, db->fragsize) == 0)
+		{
+			err("qcount < MIN_Q_COUNT and no ring room!");
 		}
 		db->nextOut += db->fragsize;
 		if (db->nextOut >= db->rawbuf + db->dmasize)
@@ -606,65 +903,43 @@ adc_dma_interrupt(int irq, void *dev_id, struct pt_regs *regs)
 
 }
 
-static loff_t
-au1550_llseek(struct file *file, loff_t offset, int origin)
-{
-	return -ESPIPE;
-}
-
-
-#if 0
-static int
-au1550_open_mixdev(struct inode *inode, struct file *file)
-{
-	file->private_data = &au1550_state;
-	return 0;
-}
-
-static int
-au1550_release_mixdev(struct inode *inode, struct file *file)
-{
-	return 0;
-}
-
-static int
-mixdev_ioctl(struct ac97_codec *codec, unsigned int cmd,
-                        unsigned long arg)
-{
-	return codec->mixer_ioctl(codec, cmd, arg);
-}
-
-static int
-au1550_ioctl_mixdev(struct inode *inode, struct file *file,
-			       unsigned int cmd, unsigned long arg)
-{
-	struct au1550_state *s = (struct au1550_state *)file->private_data;
-	struct ac97_codec *codec = s->codec;
-
-	return mixdev_ioctl(codec, cmd, arg);
-}
-
-static /*const */ struct file_operations au1550_mixer_fops = {
-	owner:THIS_MODULE,
-	llseek:au1550_llseek,
-	ioctl:au1550_ioctl_mixdev,
-	open:au1550_open_mixdev,
-	release:au1550_release_mixdev,
-};
-#endif
-
 static int
 drain_dac(struct au1550_state *s, int nonblock)
 {
 	unsigned long   flags;
 	int             count, tmo;
 
+	struct dmabuf  *db = &s->dma_dac;
+
+	//DPRINTF();
 	if (s->dma_dac.mapped || !s->dma_dac.ready || s->dma_dac.stopped)
 		return 0;
 
 	for (;;) {
 		spin_lock_irqsave(&s->lock, flags);
-		count = s->dma_dac.count;
+		count = db->count;
+
+		/* Pad the ddma buffer with zeros if the amount remaining 
+		 * is not a multiple of fragsize */
+		if(count % db->fragsize != 0)
+		{
+			int pad = db->fragsize - (count % db->fragsize);
+			char* bufptr = db->nextIn;
+			char* bufend = db->rawbuf + db->dmasize;
+
+			if((bufend - bufptr) < pad)
+				printk("Error!  ddma padding is bigger than available ring space!\n");
+			else
+			{
+				memset((void*)bufptr, 0, pad);
+				count += pad;
+				db->nextIn += pad;
+				db->count += pad;
+				if (db->dma_qcount == 0)
+						start_dac(s);
+				db->dma_qcount++;
+			}
+		}
 		spin_unlock_irqrestore(&s->lock, flags);
 		if (count <= 0)
 			break;
@@ -672,9 +947,9 @@ drain_dac(struct au1550_state *s, int nonblock)
 			break;
 		if (nonblock)
 			return -EBUSY;
-		tmo = 1000 * count / (s->no_vra ?
-				      SAMP_RATE : s->dma_dac.sample_rate);
+		tmo = 1000 * count / s->dma_dac.sample_rate;
 		tmo /= s->dma_dac.dma_bytes_per_sample;
+
 		au1550_delay(tmo);
 	}
 	if (signal_pending(current))
@@ -698,8 +973,7 @@ static inline s16 U8_TO_S16(u8 ch)
  *     If interpolating (no VRA), duplicate every audio frame src_factor times.
  */
 static int
-translate_from_user(struct dmabuf *db, char* dmabuf, char* userbuf,
-							       int dmacount)
+translate_from_user(struct dmabuf *db, char* dmabuf, char* userbuf, int dmacount)
 {
 	int             sample, i;
 	int             interp_bytes_per_sample;
@@ -737,11 +1011,12 @@ translate_from_user(struct dmabuf *db, char* dmabuf, char* userbuf,
 
 		/* duplicate every audio frame src_factor times
 		*/
-		for (i = 0; i < db->src_factor; i++)
+		for (i = 0; i < db->src_factor; i++) {
 			memcpy(dmabuf, dmasample, db->dma_bytes_per_sample);
+			dmabuf += interp_bytes_per_sample;
+		}
 
 		userbuf += db->user_bytes_per_sample;
-		dmabuf += interp_bytes_per_sample;
 	}
 
 	return num_samples * interp_bytes_per_sample;
@@ -996,15 +1271,14 @@ au1550_write(struct file *file, const char *buffer, size_t count, loff_t * ppos)
 		 * on the dma queue.  If the queue count reaches zero,
 		 * we know the dma has stopped.
 		 */
-		while ((db->dma_qcount < 2) && (db->count >= db->fragsize)) {
+		while ((db->dma_qcount < MIN_Q_COUNT) && (db->count >= db->fragsize)) {
 			if (au1xxx_dbdma_put_source(db->dmanr, db->nextOut,
 							db->fragsize) == 0) {
-				err("qcount < 2 and no ring room!");
+				err("qcount < MIN_Q_COUNT and no ring room!");
 			}
 			db->nextOut += db->fragsize;
 			if (db->nextOut >= db->rawbuf + db->dmasize)
 				db->nextOut -= db->dmasize;
-			db->count -= db->fragsize;
 			db->total_bytes += db->dma_fragsize;
 			if (db->dma_qcount == 0)
 				start_dac(s);
@@ -1017,7 +1291,6 @@ au1550_write(struct file *file, const char *buffer, size_t count, loff_t * ppos)
 		buffer += usercnt;
 		ret += usercnt;
 	}			/* while (count > 0) */
-
 out:
 	up(&s->sem);
 out2:
@@ -1371,9 +1644,6 @@ au1550_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
 			s->dma_dac.cnt_factor;
 		abinfo.fragstotal = s->dma_dac.numfrag;
 		abinfo.fragments = abinfo.bytes >> s->dma_dac.fragshift;
-#ifdef AU1000_VERBOSE_DEBUG
-		dbg("bytes=%d, fragments=%d", abinfo.bytes, abinfo.fragments);
-#endif
 		return copy_to_user((void *) arg, &abinfo,
 				    sizeof(abinfo)) ? -EFAULT : 0;
 
@@ -1536,13 +1806,9 @@ au1550_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
 	case SNDCTL_DSP_SETSYNCRO:
 	case SOUND_PCM_READ_FILTER:
 		return -EINVAL;
+	default: break;
 	}
-
-#if 0
-	return mixdev_ioctl(s->codec, cmd, arg);
-#else
 	return 0;
-#endif
 }
 
 
@@ -1664,15 +1930,15 @@ static /*const */ struct file_operations au1550_audio_fops = {
 MODULE_AUTHOR("Advanced Micro Devices (AMD), dan@embeddededge.com");
 MODULE_DESCRIPTION("Au1550 Audio Driver");
 
+#if defined(WM_MODE_USB)
 /* Set up an internal clock for the PSC3.  This will then get
  * driven out of the Au1550 as the master.
  */
 static void
 intclk_setup(void)
 {
-	uint	clk, rate, stat;
-
-	/* Wire up Freq4 as a clock for the PSC3.
+	uint	clk, rate;
+	/* Wire up Freq4 as a clock for the PSC.
 	 * We know SMBus uses Freq3.
 	 * By making changes to this rate, plus the word strobe
 	 * size, we can make fine adjustments to the actual data rate.
@@ -1700,11 +1966,17 @@ intclk_setup(void)
 	*/
 	clk = au_readl(SYS_CLKSRC);
 	au_sync();
+#if defined(CONFIG_SOC_AU1550)
 	clk &= ~0x01f00000;
 	clk |= (6 << 22);
+#elif defined(CONFIG_SOC_AU1200)
+	clk &= ~0x3e000000;
+	clk |= (6 << 27);
+#endif
 	au_writel(clk, SYS_CLKSRC);
 	au_sync();
 }
+#endif
 
 static int __devinit
 au1550_probe(void)
@@ -1724,6 +1996,11 @@ au1550_probe(void)
 	init_MUTEX(&s->open_sem);
 	spin_lock_init(&s->lock);
 
+	/* CPLD Mux for I2s */
+
+#if defined(CONFIG_MIPS_PB1200)
+	bcsr->resets |= BCSR_RESETS_PCS1MUX;
+#endif
 
 	s->psc_addr = (volatile psc_i2s_t *)I2S_PSC_BASE;
 	ip = s->psc_addr;
@@ -1765,9 +2042,8 @@ au1550_probe(void)
 
 	if ((s->dev_audio = register_sound_dsp(&au1550_audio_fops, -1)) < 0)
 		goto err_dev1;
-#if 0
-	if ((s->codec->dev_mixer =
-	     register_sound_mixer(&au1550_mixer_fops, -1)) < 0)
+#if 1
+	if ((s->dev_mixer = register_sound_mixer(&au1550_mixer_fops, -1)) < 0)
 		goto err_dev2;
 #endif
 
@@ -1777,7 +2053,6 @@ au1550_probe(void)
 				       proc_au1550_dump, NULL);
 #endif /* AU1550_DEBUG */
 
-	intclk_setup();
 
 	/* The GPIO for the appropriate PSC was configured by the
 	 * board specific start up.
@@ -1786,7 +2061,12 @@ au1550_probe(void)
 	 */
 	ip->psc_ctrl = PSC_CTRL_DISABLE;	/* Disable PSC */
 	au_sync();
+#if defined(WM_MODE_USB)
+	intclk_setup();
 	ip->psc_sel = (PSC_SEL_CLK_INTCLK | PSC_SEL_PS_I2SMODE);
+#else
+	ip->psc_sel = (PSC_SEL_CLK_EXTCLK | PSC_SEL_PS_I2SMODE);
+#endif
 	au_sync();
 
 	/* Enable PSC
@@ -1806,42 +2086,18 @@ au1550_probe(void)
 	 * Actual I2S mode (first bit delayed by one clock).
 	 * Master mode (We provide the clock from the PSC).
 	 */
-	val = PSC_I2SCFG_SET_LEN(16);
-#ifdef TRY_441KHz
-	/* This really should be 250, but it appears that all of the
-	 * PLLs, dividers and so on in the chain shift it.  That's the
-	 * problem with sourceing the clock instead of letting the very
-	 * stable codec provide it.  But, the PSC doesn't appear to want
-	 * to work in slave mode, so this is what we get.  It's  not
-	 * studio quality timing, but it's good enough for listening
-	 * to mp3s.
-	 */
-	val |= PSC_I2SCFG_SET_WS(252);
-#else
-	val |= PSC_I2SCFG_SET_WS(250);
-#endif
-	val |= PSC_I2SCFG_RT_FIFO8 | PSC_I2SCFG_TT_FIFO8 | \
+
+	val = PSC_I2SCFG_SET_LEN(16) | PSC_I2SCFG_WS(WS_128FS) | PSC_I2SCFG_RT_FIFO8 | PSC_I2SCFG_TT_FIFO8 | \
 					PSC_I2SCFG_BI | PSC_I2SCFG_XM;
 
-	ip->psc_i2scfg = val;
-	au_sync();
-	val |= PSC_I2SCFG_DE_ENABLE;
-	ip->psc_i2scfg = val;
-	au_sync();
+	ip->psc_i2scfg = val | PSC_I2SCFG_DE_ENABLE;
 
-	/* Wait for Device ready.
-	*/
-	do {
-		val = ip->psc_i2sstat;
-		au_sync();
-	} while ((val & PSC_I2SSTAT_DR) == 0);
+	set_dac_rate(s, 8000);  //Set default rate
 
-	val = ip->psc_i2scfg;
-	au_sync();
+	codec_init(s);
 
-	codec_init();
+	s->no_vra = vra ? 0 : 1;
 
-	s->no_vra = 1;
 	if (s->no_vra)
 		info("no VRA, interpolating and decimating");
 
@@ -1866,6 +2122,8 @@ au1550_probe(void)
  err_dev2:
 	unregister_sound_dsp(s->dev_audio);
 #endif
+ err_dev2:
+	unregister_sound_dsp(s->dev_audio);
  err_dev1:
 	au1xxx_dbdma_chan_free(s->dma_adc.dmanr);
  err_dma2:
