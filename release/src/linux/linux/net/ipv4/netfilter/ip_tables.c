@@ -341,7 +341,7 @@ ipt_do_table(struct sk_buff **pskb,
 					continue;
 				}
 				if (table_base + v
-				    != (void *)e + e->next_offset) {
+				    != (void *)e + e->next_offset && !(e->ip.flags & IPT_F_GOTO)) {
 					/* Save old back ptr in next entry */
 					struct ipt_entry *next
 						= (void *)e + e->next_offset;
@@ -383,6 +383,12 @@ ipt_do_table(struct sk_buff **pskb,
 
 				if (verdict == IPT_CONTINUE)
 					e = (void *)e + e->next_offset;
+				else if (verdict == IPT_RETURN) {		// added -- zzz
+					e = back;
+					back = get_entry(table_base,
+							 back->comefrom);
+					continue;
+				}
 				else
 					/* Verdict */
 					break;
@@ -1705,7 +1711,7 @@ static struct ipt_match icmp_matchstruct
 = { { NULL, NULL }, "icmp", &icmp_match, &icmp_checkentry, NULL };
 
 #ifdef CONFIG_PROC_FS
-static inline int print_name(const char *i,
+static int print_name(const char *i,
 			     off_t start_offset, char *buffer, int length,
 			     off_t *pos, unsigned int *count)
 {

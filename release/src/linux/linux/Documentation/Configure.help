@@ -2940,6 +2940,18 @@ CONFIG_IP_NF_MATCH_TTL
   If you want to compile it as a module, say M here and read
   Documentation/modules.txt.  If unsure, say `N'.
 
+U32 patch support
+CONFIG_IP_NF_MATCH_U32
+  U32 allows you to extract quantities of up to 4 bytes from a packet,
+  AND them with specified masks, shift them by specified amounts and
+  test whether the results are in any of a set of specified ranges.
+  The specification of what to extract is general enough to skip over
+  headers with lengths stored in the packet, as in IP or TCP header
+  lengths.
+
+  Details and examples are in the kernel module source.
+
+
 LENGTH match support
 CONFIG_IP_NF_MATCH_LENGTH
   This option allows you to match the length of a packet against a
@@ -3265,6 +3277,21 @@ CONFIG_IP_NF_TARGET_MARK
   If you want to compile it as a module, say M here and read
   <file:Documentation/modules.txt>.  If unsure, say `N'.
 
+ROUTE target support
+CONFIG_IP_NF_TARGET_ROUTE
+  This option adds a `ROUTE' target, which enables you to setup unusual
+  routes. For example, the ROUTE lets you route a received packet through 
+  an interface or towards a host, even if the regular destination of the 
+  packet is the router itself. The ROUTE target is also able to change the 
+  incoming interface of a packet.
+
+  The target can be or not a final target. It has to be used inside the 
+  mangle table.
+  
+  If you want to compile it as a module, say M here and read
+  Documentation/modules.txt.  The module will be called ipt_ROUTE.o.
+  If unsure, say `N'.
+
 TCPMSS target support
 CONFIG_IP_NF_TARGET_TCPMSS
   This option adds a `TCPMSS' target, which allows you to alter the
@@ -3544,6 +3571,17 @@ CONFIG_IP6_NF_TARGET_MARK
 
   If you want to compile it as a module, say M here and read
   <file:Documentation/modules.txt>.  If unsure, say `N'.
+
+ROUTE target support
+CONFIG_IP6_NF_TARGET_ROUTE
+  This option adds a `ROUTE' target, which enables you to setup unusual
+  routes. The ROUTE target is also able to change the incoming interface
+  of a packet.
+
+  The target can be or not a final target. It has to be used inside the 
+  mangle table.
+  
+  Not working as a module.
 
 ARP tables support
 CONFIG_IP_NF_ARPTABLES

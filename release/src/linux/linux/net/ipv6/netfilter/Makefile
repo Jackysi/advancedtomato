@@ -16,6 +16,7 @@ obj-$(CONFIG_IP6_NF_IPTABLES) += ip6_tables.o
 obj-$(CONFIG_IP6_NF_MATCH_LIMIT) += ip6t_limit.o
 obj-$(CONFIG_IP6_NF_MATCH_CONDITION) += ip6t_condition.o
 obj-$(CONFIG_IP6_NF_MATCH_MARK) += ip6t_mark.o
+obj-$(CONFIG_IP6_NF_TARGET_ROUTE) += ip6t_ROUTE.o
 obj-$(CONFIG_IP6_NF_MATCH_LENGTH) += ip6t_length.o
 obj-$(CONFIG_IP6_NF_MATCH_MAC) += ip6t_mac.o
 obj-$(CONFIG_IP6_NF_MATCH_RT) += ip6t_rt.o

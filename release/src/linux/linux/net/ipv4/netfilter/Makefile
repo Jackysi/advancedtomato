@@ -106,6 +106,9 @@ obj-$(CONFIG_IP_NF_MATCH_CONDITION) += ipt_condition.o
 
 obj-$(CONFIG_IP_NF_MATCH_RECENT) += ipt_recent.o
 
+obj-$(CONFIG_IP_NF_MATCH_ACCOUNT) += ipt_account.o
+obj-$(CONFIG_IP_NF_POOL) += ipt_pool.o ip_pool.o
+
 obj-$(CONFIG_IP_NF_MATCH_NTH) += ipt_nth.o
 obj-$(CONFIG_IP_NF_MATCH_PSD) += ipt_psd.o
 obj-$(CONFIG_IP_NF_MATCH_RANDOM) += ipt_random.o
@@ -128,6 +131,14 @@ obj-$(CONFIG_IP_NF_MATCH_TCPMSS) += ipt_tcpmss.o
 obj-$(CONFIG_IP_NF_MATCH_LAYER7) += ipt_layer7.o
 obj-$(CONFIG_IP_NF_MATCH_WEBSTR) += ipt_webstr.o
 
+obj-$(CONFIG_IP_NF_MATCH_GEOIP) += ipt_geoip.o
+obj-$(CONFIG_IP_NF_MATCH_MPORT) += ipt_mport.o
+obj-$(CONFIG_IP_NF_MATCH_U32) += ipt_u32.o
+obj-$(CONFIG_IP_NF_MATCH_WEB) += ipt_web.o
+obj-$(CONFIG_IP_NF_MATCH_MACSAVE) += ipt_macsave.o
+obj-$(CONFIG_IP_NF_MATCH_EXP) += ipt_exp.o
+obj-$(CONFIG_IP_NF_MATCH_BCOUNT) += ipt_bcount.o
+
 # targets
 obj-$(CONFIG_IP_NF_TARGET_REJECT) += ipt_REJECT.o
 obj-$(CONFIG_IP_NF_TARGET_CLASSIFY) += ipt_CLASSIFY.o
@@ -140,6 +151,7 @@ obj-$(CONFIG_IP_NF_TARGET_MARK) += ipt_MARK.o
 obj-$(CONFIG_IP_NF_TARGET_IMQ) += ipt_IMQ.o
 obj-$(CONFIG_IP_NF_TARGET_MASQUERADE) += ipt_MASQUERADE.o
 obj-$(CONFIG_IP_NF_TARGET_REDIRECT) += ipt_REDIRECT.o
+obj-$(CONFIG_IP_NF_TARGET_ROUTE) += ipt_ROUTE.o
 obj-$(CONFIG_IP_NF_TARGET_NETMAP) += ipt_NETMAP.o
 obj-$(CONFIG_IP_NF_NAT_SNMP_BASIC) += ip_nat_snmp_basic.o
 obj-$(CONFIG_IP_NF_TARGET_LOG) += ipt_LOG.o
@@ -148,6 +160,9 @@ obj-$(CONFIG_IP_NF_TARGET_TTL) += ipt_TTL.o
 obj-$(CONFIG_IP_NF_TARGET_ULOG) += ipt_ULOG.o
 obj-$(CONFIG_IP_NF_TARGET_TCPMSS) += ipt_TCPMSS.o
 obj-$(CONFIG_IP_NF_AUTOFW) += ip_autofw.o
+obj-$(CONFIG_IP_NF_TARGET_TRIGGER) += ipt_TRIGGER.o
+obj-$(CONFIG_IP_NF_TARGET_MACSAVE) += ipt_MACSAVE.o
+obj-$(CONFIG_IP_NF_TARGET_BCOUNT) += ipt_BCOUNT.o
 
 # generic ARP tables
 obj-$(CONFIG_IP_NF_ARPTABLES) += arp_tables.o
@@ -182,6 +197,9 @@ obj-$(CONFIG_IP_NF_TARGET_SET) += ipt_SET.o
 ifdef CONFIG_IP_NF_SET
 	export-objs += ip_set.o
 endif
+
+obj-$(CONFIG_IP_NF_TOMATOCT) += tomato_ct.o
+
 include $(TOPDIR)/Rules.make
 
 ip_conntrack.o: $(ip_conntrack-objs)

@@ -53,6 +53,16 @@ target(struct sk_buff **pskb,
 		if (newmark != ct->mark)
 		    ct->mark = newmark;
 		break;
+	    case IPT_CONNMARK_SET_RETURN:
+			// Set connmark and nfmark, apply mask to nfmark, do IPT_RETURN	- zzz
+			newmark = ct->mark = markinfo->mark;
+			newmark &= markinfo->mask;
+			nfmark = (*pskb)->nfmark;
+			if (newmark != nfmark) {
+			    (*pskb)->nfmark = newmark;
+			    (*pskb)->nfcache |= NFC_ALTERED;
+			}				
+			return IPT_RETURN;
 	    case IPT_CONNMARK_SAVE:
 		newmark = (ct->mark & ~markinfo->mask) | ((*pskb)->nfmark & markinfo->mask);
 		if (ct->mark != newmark)
@@ -60,7 +70,7 @@ target(struct sk_buff **pskb,
 		break;
 	    case IPT_CONNMARK_RESTORE:
 		nfmark = (*pskb)->nfmark;
-		diff = ((ct->mark ^ nfmark) & markinfo->mask);
+		diff = (ct->mark ^ nfmark) & markinfo->mask;	// zzz
 		if (diff != 0) {
 		    (*pskb)->nfmark = nfmark ^ diff;
 		    (*pskb)->nfcache |= NFC_ALTERED;

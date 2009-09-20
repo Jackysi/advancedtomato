@@ -252,6 +252,13 @@ struct ip_conntrack
 #if defined(CONFIG_IP_NF_CONNTRACK_MARK)
 	unsigned long mark;
 #endif
+
+#if defined(CONFIG_IP_NF_TARGET_BCOUNT) || defined(CONFIG_IP_NF_TARGET_BCOUNT_MODULE)
+	u_int32_t bcount;
+#endif
+#if	defined(CONFIG_IP_NF_TARGET_MACSAVE) || defined(CONFIG_IP_NF_TARGET_MACSAVE_MODULE)
+	unsigned char macsave[6];
+#endif
 };
 
 /* get master conntrack via master expectation */

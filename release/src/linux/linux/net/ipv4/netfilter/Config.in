@@ -34,6 +34,7 @@ if [ "$CONFIG_IP_NF_IPTABLES" != "n" ]; then
   dep_tristate '  Packet type match support' CONFIG_IP_NF_MATCH_PKTTYPE $CONFIG_IP_NF_IPTABLES
   dep_tristate '  netfilter MARK match support' CONFIG_IP_NF_MATCH_MARK $CONFIG_IP_NF_IPTABLES
   dep_tristate '  Multiple port match support' CONFIG_IP_NF_MATCH_MULTIPORT $CONFIG_IP_NF_IPTABLES
+  dep_tristate '  Multiple port with ranges match support' CONFIG_IP_NF_MATCH_MPORT $CONFIG_IP_NF_IPTABLES
   dep_tristate '  TOS match support' CONFIG_IP_NF_MATCH_TOS $CONFIG_IP_NF_IPTABLES
   dep_tristate '  TIME match support (EXPERIMENTAL)' CONFIG_IP_NF_MATCH_TIME $CONFIG_IP_NF_IPTABLES
   dep_tristate '  condition match support' CONFIG_IP_NF_MATCH_CONDITION $CONFIG_IP_NF_IPTABLES
@@ -41,6 +42,14 @@ if [ "$CONFIG_IP_NF_IPTABLES" != "n" ]; then
   dep_tristate '  psd match support' CONFIG_IP_NF_MATCH_PSD $CONFIG_IP_NF_IPTABLES
   dep_tristate '  random match support' CONFIG_IP_NF_MATCH_RANDOM $CONFIG_IP_NF_IPTABLES
   dep_tristate '  recent match support' CONFIG_IP_NF_MATCH_RECENT $CONFIG_IP_NF_IPTABLES
+  dep_tristate '  account match support' CONFIG_IP_NF_MATCH_ACCOUNT $CONFIG_IP_NF_IPTABLES $CONFIG_PROC_FS
+  if [ "$CONFIG_IP_NF_MATCH_ACCOUNT" != "n" ]; then 
+    bool '    account debugging output' CONFIG_IP_NF_MATCH_ACCOUNT_DEBUG
+  fi
+  dep_tristate '  IP address pool support' CONFIG_IP_NF_POOL $CONFIG_IP_NF_IPTABLES
+  if [ "$CONFIG_IP_NF_POOL" = "y" -o "$CONFIG_IP_NF_POOL" = "m" ]; then
+    bool '    enable statistics on pool usage' CONFIG_IP_POOL_STATISTICS n
+  fi
   dep_tristate '  ECN match support' CONFIG_IP_NF_MATCH_ECN $CONFIG_IP_NF_IPTABLES
   dep_tristate '  peer to peer traffic match support' CONFIG_IP_NF_MATCH_IPP2P $CONFIG_IP_NF_IPTABLES
  
@@ -69,6 +78,16 @@ if [ "$CONFIG_IP_NF_IPTABLES" != "n" ]; then
     dep_mbool '  Layer 7 debugging output (EXPERIMENTAL)' CONFIG_IP_NF_MATCH_LAYER7_DEBUG $CONFIG_IP_NF_MATCH_LAYER7
     dep_tristate '  Webstr match support (EXPERIMENTAL)' CONFIG_IP_NF_MATCH_WEBSTR $CONFIG_IP_NF_IPTABLES
  
+    dep_tristate '  geoip match support' CONFIG_IP_NF_MATCH_GEOIP $CONFIG_IP_NF_IPTABLES
+
+    dep_tristate '  U32 match support' CONFIG_IP_NF_MATCH_U32 $CONFIG_IP_NF_IPTABLES
+    dep_tristate '  web match' CONFIG_IP_NF_MATCH_WEB $CONFIG_IP_NF_IPTABLES
+    dep_tristate '  BCOUNT target' CONFIG_IP_NF_TARGET_BCOUNT $CONFIG_IP_NF_IPTABLES
+    dep_tristate '  bcount match' CONFIG_IP_NF_MATCH_BCOUNT $CONFIG_IP_NF_TARGET_BCOUNT
+    dep_tristate '  MACSAVE target' CONFIG_IP_NF_TARGET_MACSAVE $CONFIG_IP_NF_IPTABLES
+    dep_tristate '  macsave match' CONFIG_IP_NF_MATCH_MACSAVE $CONFIG_IP_NF_TARGET_MACSAVE
+    dep_tristate '  exp match (experimental rig - do not use)' CONFIG_IP_NF_MATCH_EXP $CONFIG_IP_NF_IPTABLES
+
   fi
 # The targets
   dep_tristate '  Packet filtering' CONFIG_IP_NF_FILTER $CONFIG_IP_NF_IPTABLES 
@@ -88,6 +107,7 @@ if [ "$CONFIG_IP_NF_IPTABLES" != "n" ]; then
       dep_tristate '    REDIRECT target support' CONFIG_IP_NF_TARGET_REDIRECT $CONFIG_IP_NF_NAT
       dep_tristate '    NETMAP target support' CONFIG_IP_NF_TARGET_NETMAP $CONFIG_IP_NF_NAT
       dep_tristate '    Automatic port forwarding (autofw) target support' CONFIG_IP_NF_AUTOFW $CONFIG_IP_NF_NAT
+      dep_tristate '    TRIGGER target support (port-trigger)' CONFIG_IP_NF_TARGET_TRIGGER $CONFIG_IP_NF_NAT
       if [ "$CONFIG_IP_NF_PPTP" = "m" ]; then
         define_tristate CONFIG_IP_NF_NAT_PPTP m
       else
@@ -198,6 +218,7 @@ if [ "$CONFIG_IP_NF_IPTABLES" != "n" ]; then
     dep_tristate '    DSCP target support' CONFIG_IP_NF_TARGET_DSCP $CONFIG_IP_NF_MANGLE
  
     dep_tristate '    MARK target support' CONFIG_IP_NF_TARGET_MARK $CONFIG_IP_NF_MANGLE
+    dep_tristate '    ROUTE target support' CONFIG_IP_NF_TARGET_ROUTE $CONFIG_IP_NF_MANGLE
     dep_tristate '    IMQ target support' CONFIG_IP_NF_TARGET_IMQ $CONFIG_IP_NF_MANGLE
     dep_tristate '    CLASSIFY target support (EXPERIMENTAL)' CONFIG_IP_NF_TARGET_CLASSIFY $CONFIG_IP_NF_MANGLE
   fi
@@ -216,6 +237,10 @@ if [ "$CONFIG_IP_NF_ARPTABLES" != "n" ]; then
 fi
 if [ "$CONFIG_IP_NF_ARPTABLES" != "n" ]; then
   dep_tristate '  ARP payload mangling' CONFIG_IP_NF_ARP_MANGLE $CONFIG_IP_NF_ARPTABLES
+fi
+
+if [ "$CONFIG_EXPERIMENTAL" = "y" ]; then
+  tristate 'tomato_ct' CONFIG_IP_NF_TOMATOCT
 fi
 
 # Backwards compatibility modules: only if you don't build in the others.
