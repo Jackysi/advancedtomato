@@ -42,6 +42,7 @@
 
 /* In BSS to minimize text size and page aligned so it can be mmap()-ed */
 static char nvram_buf[NVRAM_SPACE] __attribute__((aligned(PAGE_SIZE)));
+static char *nvram_commit_buf = NULL;
 
 #ifdef MODULE
 
@@ -355,7 +356,9 @@ erase_callback(struct erase_info *done)
 int
 nvram_commit(void)
 {
+#if 0
 	char *buf;
+#endif
 	size_t erasesize, len, magic_len;
 	unsigned int i;
 	int ret;
@@ -379,28 +382,29 @@ nvram_commit(void)
 
 	/* Backup sector blocks to be erased */
 	erasesize = ROUNDUP(NVRAM_SPACE, nvram_mtd->erasesize);
+#if 0
 	if (!(buf = kmalloc(erasesize, GFP_KERNEL))) {
 		printk("nvram_commit: out of memory\n");
 		return -ENOMEM;
 	}
-
+#endif
 	down(&nvram_sem);
 
 	if ((i = erasesize - NVRAM_SPACE) > 0) {
 		offset = nvram_mtd->size - erasesize;
 		len = 0;
-		ret = MTD_READ(nvram_mtd, offset, i, &len, buf);
+		ret = MTD_READ(nvram_mtd, offset, i, &len, nvram_commit_buf);
 		if (ret || len != i) {
 			printk("nvram_commit: read error ret = %d, len = %d/%d\n", ret, len, i);
 			ret = -EIO;
 			goto done;
 		}
-		header = (struct nvram_header *)(buf + i);
+		header = (struct nvram_header *)(nvram_commit_buf + i);
 		magic_offset = i + ((void *)&header->magic - (void *)header);
 	} else {
 		offset = nvram_mtd->size - NVRAM_SPACE;
 		magic_offset = ((void *)&header->magic - (void *)header);
-		header = (struct nvram_header *)buf;
+		header = (struct nvram_header *)nvram_commit_buf;
 	}
 
 	/* clear the existing magic # to mark the NVRAM as unusable 
@@ -460,7 +464,7 @@ nvram_commit(void)
 	header->magic = NVRAM_INVALID_MAGIC; /* All ones magic */
 	offset = nvram_mtd->size - erasesize;
 	i = erasesize - NVRAM_SPACE + header->len;
-	ret = MTD_WRITE(nvram_mtd, offset, i, &len, buf);
+	ret = MTD_WRITE(nvram_mtd, offset, i, &len, nvram_commit_buf);
 	if (ret || len != i) {
 		printk("nvram_commit: write error\n");
 		ret = -EIO;
@@ -482,12 +486,13 @@ nvram_commit(void)
 	 * Reading a few bytes back here will put the device
 	 * back to the correct mode on certain flashes */
 	offset = nvram_mtd->size - erasesize;
-	ret = MTD_READ(nvram_mtd, offset, 4, &len, buf);
+	ret = MTD_READ(nvram_mtd, offset, 4, &len, nvram_commit_buf);
 
  done:
 	up(&nvram_sem);
+#if 0
 	kfree(buf);
-
+#endif
 	return ret;
 }
 
@@ -724,6 +729,13 @@ dev_nvram_init(void)
 	/* Create /dev/nvram handle */
 	nvram_handle = devfs_register(NULL, "nvram", DEVFS_FL_NONE, nvram_major, 0,
 				      S_IFCHR | S_IRUSR | S_IWUSR | S_IRGRP, &dev_nvram_fops, NULL);
+
+	/* reserve commit read buffer */
+	/* Backup sector blocks to be erased */
+	if (!(nvram_commit_buf = kmalloc(ROUNDUP(NVRAM_SPACE, nvram_mtd->erasesize), GFP_KERNEL))) {
+		printk("dev_nvram_init: nvram_commit_buf out of memory\n");
+		goto err;
+	}
 
 	/* Set the SDRAM NCDL value into NVRAM if not already done */
 	if (getintvar(NULL, "sdram_ncdl") == 0) {

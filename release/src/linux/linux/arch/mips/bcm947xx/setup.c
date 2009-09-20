@@ -257,14 +257,40 @@ bus_error_init(void)
 
 #ifdef CONFIG_MTD_PARTITIONS
 
+/*
+	new layout -- zzz 04/2006
+
+	+--------------+
+	| boot         |
+	+---+----------+	< search for HDR0
+	|   |          |
+	|   | (kernel) |
+	| l |          |
+	| i +----------+	< + trx->offset[1]
+	| n |          |
+	| u | rootfs   |
+	| x |          |
+	+   +----------+	< + trx->len
+	|   | jffs2    |
+	+--------------+ 	< size - NVRAM_SPACE
+	| nvram        |
+	+--------------+	< size
+*/
+
 static struct mtd_partition bcm947xx_parts[] = {
-	{ name: "boot",	offset: 0, size: 0, },
+	{ name: "pmon",	  offset: 0, size: 0, mask_flags: MTD_WRITEABLE, },
 	{ name: "linux", offset: 0, size: 0, },
 	{ name: "rootfs", offset: 0, size: 0, mask_flags: MTD_WRITEABLE, },
 	{ name: "nvram", offset: 0, size: 0, },
-	{ name: "flashfs", offset: 0, size: 0, },
+	{ name: "jffs2", offset: 0, size: 0, },
 	{ name: NULL, },
 };
+
+#define PART_BOOT	0
+#define PART_LINUX	1
+#define PART_ROOTFS	2
+#define PART_NVRAM	3
+#define PART_JFFS2	4
 
 struct mtd_partition * __init
 init_mtd_partitions(struct mtd_info *mtd, size_t size)
@@ -299,7 +325,7 @@ init_mtd_partitions(struct mtd_info *mtd, size_t size)
 
 		/* Try looking at TRX header for rootfs offset */
 		if (le32_to_cpu(trx->magic) == TRX_MAGIC) {
-			bcm947xx_parts[1].offset = off;
+			bcm947xx_parts[PART_LINUX].offset = off;
 			trx_len = trx->len;
 			if (le32_to_cpu(trx->offsets[2]) > off)
 				off = le32_to_cpu(trx->offsets[2]);
@@ -313,38 +339,6 @@ init_mtd_partitions(struct mtd_info *mtd, size_t size)
 		    romfsb->word1 == ROMSB_WORD1) {
 			printk(KERN_NOTICE
 			       "%s: romfs filesystem found at block %d\n",
-			       mtd->name, off / BLOCK_SIZE);
-			goto done;
-		}
-
-		/* squashfs is at block zero too */
-		if (squashfsb->s_magic == SQUASHFS_MAGIC) {
-			printk(KERN_NOTICE
-			       "%s: squashfs filesystem found at block %d\n",
-			       mtd->name, off / BLOCK_SIZE);
-			goto done;
-		}
-
-		/* squashfs is at block zero too */
-		if (squashfsb->s_magic == SQUASHFS_MAGIC) {
-			printk(KERN_NOTICE
-			       "%s: squashfs filesystem found at block %d\n",
-			       mtd->name, off / BLOCK_SIZE);
-			goto done;
-		}
-
-		/* squashfs is at block zero too */
-		if (squashfsb->s_magic == SQUASHFS_MAGIC) {
-			printk(KERN_NOTICE
-			       "%s: squashfs filesystem found at block %d\n",
-			       mtd->name, off / BLOCK_SIZE);
-			goto done;
-		}
-
-		/* squashfs is at block zero too */
-		if (squashfsb->s_magic == SQUASHFS_MAGIC) {
-			printk(KERN_NOTICE
-			       "%s: squashfs filesystem found at block %d\n",
 			       mtd->name, off / BLOCK_SIZE);
 			goto done;
 		}
@@ -390,42 +384,41 @@ init_mtd_partitions(struct mtd_info *mtd, size_t size)
 		}
 	}
 
-	printk(KERN_NOTICE
-	       "%s: Couldn't find valid ROM disk image\n",
-	       mtd->name);
+	// uh, now what...
+	printk(KERN_NOTICE "%s: Unable to find a valid linux partition\n", mtd->name);
 
  done:
 	/* Find and size nvram */
-	bcm947xx_parts[3].offset = size - ROUNDUP(NVRAM_SPACE, mtd->erasesize);
-	bcm947xx_parts[3].size = size - bcm947xx_parts[3].offset;
+	bcm947xx_parts[PART_NVRAM].offset = size - ROUNDUP(NVRAM_SPACE, mtd->erasesize);
+	bcm947xx_parts[PART_NVRAM].size = size - bcm947xx_parts[PART_NVRAM].offset;
 
 	/* Find and size rootfs */
 	if (off < size) {
-		bcm947xx_parts[2].offset = off;
-		bcm947xx_parts[2].size = bcm947xx_parts[3].offset - bcm947xx_parts[2].offset;
+		bcm947xx_parts[PART_ROOTFS].offset = off;
+		bcm947xx_parts[PART_ROOTFS].size = bcm947xx_parts[PART_NVRAM].offset - bcm947xx_parts[PART_ROOTFS].offset;
 	}
 
 	/* Size linux (kernel and rootfs) */
-	bcm947xx_parts[1].size = bcm947xx_parts[3].offset - bcm947xx_parts[1].offset;
+	bcm947xx_parts[PART_LINUX].size = bcm947xx_parts[PART_NVRAM].offset - bcm947xx_parts[PART_LINUX].offset;
 
 	/* Size pmon */
-	bcm947xx_parts[0].size = bcm947xx_parts[1].offset - bcm947xx_parts[0].offset;
+	bcm947xx_parts[PART_BOOT].size = bcm947xx_parts[PART_LINUX].offset - bcm947xx_parts[PART_BOOT].offset;
 
-	/* Find and size flashfs -- nvram reserved + pmon */
-	bcm947xx_parts[4].size = (128*1024 - bcm947xx_parts[3].size) + 
-		(256*1024 - bcm947xx_parts[0].size);
+	/* Find and size jffs2 -- nvram reserved + pmon */
+	bcm947xx_parts[PART_JFFS2].size = (128*1024 - bcm947xx_parts[PART_NVRAM].size) + 
+		(256*1024 - bcm947xx_parts[PART_BOOT].size);
 	/* ... add unused space above 4MB */
 	if (size > 0x400000) {
 		if (trx_len <= 0x3a0000) // Small firmware - fixed amount
-			bcm947xx_parts[4].size += size - 0x400000;
+			bcm947xx_parts[PART_JFFS2].size += size - 0x400000;
 		else {
-			bcm947xx_parts[4].size += size - (trx_len + 128*1024 + 256*1024);
-			bcm947xx_parts[4].size &= (~0xFFFFUL); // Round down 64K
+			bcm947xx_parts[PART_JFFS2].size += size - (trx_len + 128*1024 + 256*1024);
+			bcm947xx_parts[PART_JFFS2].size &= (~0xFFFFUL); // Round down 64K
 		}
 	}
-	bcm947xx_parts[4].offset = bcm947xx_parts[3].offset - bcm947xx_parts[4].size;
-	if (bcm947xx_parts[4].size == 0) {
-		bcm947xx_parts[4].name = NULL;
+	bcm947xx_parts[PART_JFFS2].offset = bcm947xx_parts[PART_NVRAM].offset - bcm947xx_parts[PART_JFFS2].size;
+	if (bcm947xx_parts[PART_JFFS2].size == 0) {
+		bcm947xx_parts[PART_JFFS2].name = NULL;
 	}
 	
 	return bcm947xx_parts;

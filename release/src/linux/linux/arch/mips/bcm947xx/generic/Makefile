@@ -9,7 +9,7 @@ O_TARGET        := brcm.o
 
 obj-y           := int-handler.o
 ifneq ($(strip $(CONFIG_BCM4704)),y)
-obj-y           += irq.o
+#obj-y           += irq.o
 endif
 
 obj-$(CONFIG_REMOTE_DEBUG)      += gdb_hook.o
