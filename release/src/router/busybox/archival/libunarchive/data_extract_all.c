@@ -115,18 +115,22 @@ void FAST_FUNC data_extract_all(archive_handle_t *archive_handle)
 
 	if (!(archive_handle->ah_flags & ARCHIVE_NOPRESERVE_OWN)) {
 #if ENABLE_FEATURE_TAR_UNAME_GNAME
-		uid_t uid = file_header->uid;
-		gid_t gid = file_header->gid;
+		if (!(archive_handle->ah_flags & ARCHIVE_NUMERIC_OWNER)) {
+			uid_t uid = file_header->uid;
+			gid_t gid = file_header->gid;
 
-		if (file_header->uname) {
-			struct passwd *pwd = getpwnam(file_header->uname);
-			if (pwd) uid = pwd->pw_uid;
+			if (file_header->uname) {
+				struct passwd *pwd = getpwnam(file_header->uname);
+				if (pwd) uid = pwd->pw_uid;
+			}
+			if (file_header->gname) {
+				struct group *grp = getgrnam(file_header->gname);
+				if (grp) gid = grp->gr_gid;
+			}
+			lchown(file_header->name, uid, gid);
+		} else {
+			lchown(file_header->name, file_header->uid, file_header->gid);
 		}
-		if (file_header->gname) {
-			struct group *grp = getgrnam(file_header->gname);
-			if (grp) gid = grp->gr_gid;
-		}
-		lchown(file_header->name, uid, gid);
 #else
 		lchown(file_header->name, file_header->uid, file_header->gid);
 #endif
