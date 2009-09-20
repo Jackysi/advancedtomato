@@ -101,9 +101,15 @@
 ; For some systems (MVME166, for example) dmode is always the same, so don't
 ; waste time writing it
 
+#if 1
 #define DMODE_MEMORY_TO_NCR
 #define DMODE_MEMORY_TO_MEMORY
 #define DMODE_NCR_TO_MEMORY
+#else
+#define DMODE_MEMORY_TO_NCR    MOVE dmode_memory_to_ncr TO DMODE
+#define DMODE_MEMORY_TO_MEMORY MOVE dmode_memory_to_memory TO DMODE
+#define DMODE_NCR_TO_MEMORY    MOVE dmode_ncr_to_memory TO DMODE
+#endif
 
 ABSOLUTE dsa_temp_lun = 0		; Patch to lun for current dsa
 ABSOLUTE dsa_temp_next = 0		; Patch to dsa next for current dsa
@@ -174,7 +180,7 @@ dsa_code_begin:
 	DMODE_MEMORY_TO_NCR
 	MOVE MEMORY 4, dsa_temp_addr_dsa_value, addr_scratch
 	DMODE_MEMORY_TO_MEMORY
-#if CHIP == 710
+#if (CHIP == 710)
 	MOVE MEMORY 4, addr_scratch, saved_dsa
 	; We are about to go and select the device, so must set SSCF bits
 	MOVE MEMORY 4, dsa_sscf_710, addr_scratch
@@ -207,7 +213,7 @@ dsa_code_fix_jump:
 ; field.
 ;
 wrong_dsa:
-#if CHIP == 710
+#if (CHIP == 710)
 ;                NOTE DSA is corrupt when we arrive here!
 #endif
 ;		Patch the MOVE MEMORY INSTRUCTION such that 
@@ -223,7 +229,7 @@ wrong_dsa:
 ;
 	MOVE MEMORY 4, dsa_temp_next, addr_scratch
 	DMODE_MEMORY_TO_MEMORY
-#if CHIP == 710
+#if (CHIP == 710)
 	MOVE MEMORY 4, addr_scratch, saved_dsa
 	MOVE MEMORY 4, saved_dsa, addr_dsa
 #else
@@ -234,7 +240,7 @@ wrong_dsa:
 ABSOLUTE dsa_save_data_pointer = 0
 ENTRY dsa_code_save_data_pointer
 dsa_code_save_data_pointer:
-#if CHIP == 710
+#if (CHIP == 710)
 	; When we get here, TEMP has been saved in jump_temp+4, DSA is corrupt
 	; We MUST return with DSA correct
     	MOVE MEMORY 4, jump_temp+4, dsa_temp_addr_saved_pointer
@@ -261,7 +267,7 @@ dsa_code_save_data_pointer:
 ABSOLUTE dsa_restore_pointers = 0
 ENTRY dsa_code_restore_pointers
 dsa_code_restore_pointers:
-#if CHIP == 710
+#if (CHIP == 710)
 	; TEMP and DSA are corrupt when we get here, but who cares!
     	MOVE MEMORY 4, dsa_temp_addr_saved_pointer, jump_temp + 4
 ; HARD CODED : 24 bytes needs to agree with 53c7,8xx.h
@@ -291,7 +297,7 @@ ABSOLUTE dsa_check_reselect = 0
 ; lun match the current DSA
 ENTRY dsa_code_check_reselect
 dsa_code_check_reselect:
-#if CHIP == 710
+#if (CHIP == 710)
 	/* Arrives here with DSA correct */
 	/* Assumes we are always ID 7 */
 	MOVE LCRC TO SFBR		; LCRC has our ID and his ID bits set
@@ -322,7 +328,7 @@ dsa_code_check_reselect:
 ;		next pointer.
 	MOVE MEMORY 4, dsa_temp_addr_next, reselected_ok_patch + 4
 	CALL reselected_ok
-#if CHIP == 710
+#if (CHIP == 710)
 ;	Restore DSA following memory moves in reselected_ok
 ;	dsa_temp_sync doesn't really care about DSA, but it has an
 ;	optional debug INT so a valid DSA is a good idea.
@@ -378,7 +384,7 @@ ABSOLUTE dmode_ncr_to_memory = 0x0
 
 ABSOLUTE addr_scratch = 0x0
 ABSOLUTE addr_temp = 0x0
-#if CHIP == 710
+#if (CHIP == 710)
 ABSOLUTE saved_dsa = 0x0
 ABSOLUTE emulfly = 0x0
 ABSOLUTE addr_dsa = 0x0
@@ -504,7 +510,7 @@ dsa_schedule:
 ; Calculate the address of the next pointer within the DSA 
 ; structure of the command that is currently disconnecting
 ;
-#if CHIP == 710
+#if (CHIP == 710)
     ; Read what should be the current DSA from memory - actual DSA
     ; register is probably corrupt
     MOVE MEMORY 4, saved_dsa, addr_scratch
@@ -525,7 +531,7 @@ dsa_schedule_insert:
     MOVE MEMORY 4, reconnect_dsa_head, 0 
 
 ; And update the head pointer.
-#if CHIP == 710
+#if (CHIP == 710)
     ; Read what should be the current DSA from memory - actual DSA
     ; register is probably corrupt
     MOVE MEMORY 4, saved_dsa, addr_scratch
@@ -537,12 +543,12 @@ dsa_schedule_insert:
     DMODE_MEMORY_TO_MEMORY
 /* Temporarily, see what happens. */
 #ifndef ORIGINAL
-#if CHIP != 710
+#if (CHIP != 710)
     MOVE SCNTL2 & 0x7f TO SCNTL2
 #endif
     CLEAR ACK
 #endif
-#if CHIP == 710
+#if (CHIP == 710)
     ; Time to correct DSA following memory move
     MOVE MEMORY 4, saved_dsa, addr_dsa
 #endif
@@ -603,7 +609,7 @@ select:
 ;
 
 #if (CHIP != 700) && (CHIP != 70066)
-#if CHIP == 710
+#if (CHIP == 710)
     ; Enable selection timer
 #ifdef NO_SELECTION_TIMEOUT
     MOVE CTEST7 & 0xff TO CTEST7
@@ -615,7 +621,7 @@ select:
     JUMP select_msgout, WHEN MSG_OUT
 ENTRY select_msgout
 select_msgout:
-#if CHIP == 710
+#if (CHIP == 710)
     ; Disable selection timer
     MOVE CTEST7 | 0x10 TO CTEST7
 #endif
@@ -645,7 +651,7 @@ select_msgout:
 ;
 
 select_done:
-#if CHIP == 710
+#if (CHIP == 710)
 ; NOTE DSA is corrupt when we arrive here!
     MOVE MEMORY 4, saved_dsa, addr_dsa
 #endif
@@ -668,7 +674,7 @@ select_msg_in:
 
 cmdout:
     INT int_err_unexpected_phase, WHEN NOT CMD
-#if CHIP == 700
+#if (CHIP == 700)
     INT int_norm_selected
 #endif
 ENTRY cmdout_cmdout
@@ -736,7 +742,7 @@ end_data_transfer:
 #if (CHIP != 700) && (CHIP != 70066)
 ; Nasty jump to dsa->dataout
 do_dataout:
-#if CHIP == 710
+#if (CHIP == 710)
     MOVE MEMORY 4, saved_dsa, addr_scratch
 #else
     CALL dsa_to_scratch
@@ -750,7 +756,7 @@ do_dataout:
     DMODE_MEMORY_TO_MEMORY
 dataout_to_jump:
     MOVE MEMORY 4, 0, dataout_jump + 4 
-#if CHIP == 710
+#if (CHIP == 710)
     ; Time to correct DSA following memory move
     MOVE MEMORY 4, saved_dsa, addr_dsa
 #endif
@@ -759,7 +765,7 @@ dataout_jump:
 
 ; Nasty jump to dsa->dsain
 do_datain:
-#if CHIP == 710
+#if (CHIP == 710)
     MOVE MEMORY 4, saved_dsa, addr_scratch
 #else
     CALL dsa_to_scratch
@@ -774,7 +780,7 @@ do_datain:
 ENTRY datain_to_jump
 datain_to_jump:
     MOVE MEMORY 4, 0, datain_jump + 4
-#if CHIP == 710
+#if (CHIP == 710)
     ; Time to correct DSA following memory move
     MOVE MEMORY 4, saved_dsa, addr_dsa
 #endif
@@ -792,26 +798,32 @@ datain_jump:
 
 ENTRY other_out
 other_out:
+#if 0
+    INT 0x03ffdead
+#endif
     INT int_err_unexpected_phase, WHEN CMD
     JUMP msg_in_restart, WHEN MSG_IN 
     INT int_err_unexpected_phase, WHEN MSG_OUT
     INT int_err_unexpected_phase, WHEN DATA_IN
     JUMP command_complete, WHEN STATUS
     JUMP other_out, WHEN NOT DATA_OUT
-#if CHIP == 710
+#if (CHIP == 710)
 ; TEMP should be OK, as we got here from a call in the user dataout code.
 #endif
     RETURN
 
 ENTRY other_in
 other_in:
+#if 0
+    INT 0x03ffdead
+#endif
     INT int_err_unexpected_phase, WHEN CMD
     JUMP msg_in_restart, WHEN MSG_IN 
     INT int_err_unexpected_phase, WHEN MSG_OUT
     INT int_err_unexpected_phase, WHEN DATA_OUT
     JUMP command_complete, WHEN STATUS
     JUMP other_in, WHEN NOT DATA_IN
-#if CHIP == 710
+#if (CHIP == 710)
 ; TEMP should be OK, as we got here from a call in the user datain code.
 #endif
     RETURN
@@ -854,7 +866,7 @@ other_transfer:
 ;
 ;	DISCONNECT messages are handled by moving the command
 ;	to the reconnect_dsa_queue.
-#if CHIP == 710
+#if (CHIP == 710)
 ; NOTE: DSA should be valid when we get here - we cannot save both it
 ;	and TEMP in this routine.
 #endif
@@ -934,7 +946,7 @@ munge_2:
 ;
 
 munge_save_data_pointer:
-#if CHIP == 710
+#if (CHIP == 710)
     ; We have something in TEMP here, so first we must save that
     MOVE TEMP0 TO SFBR
     MOVE SFBR TO SCRATCH0
@@ -964,7 +976,7 @@ jump_dsa_save:
     JUMP 0
 
 munge_restore_pointers:
-#if CHIP == 710
+#if (CHIP == 710)
     ; The code at dsa_restore_pointers will RETURN, but we don't care
     ; about TEMP here, as it will overwrite it anyway.
 #endif
@@ -996,7 +1008,7 @@ munge_disconnect:
  */
  
 #ifdef ORIGINAL
-#if CHIP == 710
+#if (CHIP == 710)
 ; Following clears Unexpected Disconnect bit.  What do we do?
 #else
     MOVE SCNTL2 & 0x7f TO SCNTL2
@@ -1092,7 +1104,7 @@ ENTRY command_complete_msgin
 command_complete_msgin:
     MOVE FROM dsa_msgin, WHEN MSG_IN
 ; Indicate that we should be expecting a disconnect
-#if CHIP != 710
+#if (CHIP != 710)
     MOVE SCNTL2 & 0x7f TO SCNTL2
 #else
     ; Above code cleared the Unexpected Disconnect bit, what do we do?
@@ -1117,7 +1129,11 @@ command_complete_msgin:
 ; added to the HEAD of the queue with the request sense command, or we
 ; must automatically issue the request sense command.
 
-#if CHIP == 710
+#if 0
+    MOVE SCRATCH0 TO SFBR			
+    JUMP command_failed, IF 0x02
+#endif
+#if (CHIP == 710)
 #if defined(MVME16x_INTFLY)
 ; For MVME16x (ie CHIP=710) we will force an INTFLY by triggering a software
 ; interrupt (SW7).  We can use SCRATCH, as we are about to jump to
@@ -1138,7 +1154,7 @@ command_complete_msgin:
     INTFLY
 #endif
 #endif /* (CHIP != 700) && (CHIP != 70066) */
-#if CHIP == 710
+#if (CHIP == 710)
     ; Time to correct DSA following memory move
     MOVE MEMORY 4, saved_dsa, addr_dsa
 #endif
@@ -1212,7 +1228,7 @@ reselected:
     DMODE_MEMORY_TO_NCR
     MOVE MEMORY 4, reconnect_dsa_head, addr_scratch
     DMODE_MEMORY_TO_MEMORY
-#if CHIP == 710
+#if (CHIP == 710)
     MOVE MEMORY 4, addr_scratch, saved_dsa
 #else
     CALL scratch_to_dsa
@@ -1223,7 +1239,7 @@ reselected:
     ; and we remove it from the queue.
 
     MOVE MEMORY 4, addr_reconnect_dsa_head, reselected_ok_patch + 8
-#if CHIP == 710
+#if (CHIP == 710)
     ; Time to correct DSA following memory move
     MOVE MEMORY 4, saved_dsa, addr_dsa
 #endif
@@ -1269,7 +1285,7 @@ reselected_not_end:
     DMODE_NCR_TO_MEMORY
     MOVE MEMORY 4, addr_scratch, reselected_check + 4
     DMODE_MEMORY_TO_MEMORY
-#if CHIP == 710
+#if (CHIP == 710)
     ; Time to correct DSA following memory move
     MOVE MEMORY 4, saved_dsa, addr_dsa
 #endif
@@ -1279,7 +1295,7 @@ reselected_check:
 
 ;
 ;
-#if CHIP == 710
+#if (CHIP == 710)
 ; We have problems here - the memory move corrupts TEMP and DSA.  This
 ; routine is called from DSA code, and patched from many places.  Scratch
 ; is probably free when it is called.
@@ -1347,7 +1363,7 @@ wait_reselect_failed:
 	INT int_EVENT_RESELECT_FAILED
 #endif
 ; Check selected bit.  
-#if CHIP == 710
+#if (CHIP == 710)
     ; Must work out how to tell if we are selected....
 #else
     MOVE SIST0 & 0x20 TO SFBR
@@ -1361,11 +1377,15 @@ wait_reselect_failed:
     MOVE ISTAT & 0x08 TO SFBR
     JUMP reselected, IF 0x08
 ; FIXME : Something bogus happened, and we shouldn't fail silently.
+#if 0
+    JUMP schedule
+#else
     INT int_debug_panic
+#endif
 
 
 select_failed:
-#if CHIP == 710
+#if (CHIP == 710)
     ; Disable selection timer
     MOVE CTEST7 | 0x10 TO CTEST7
 #endif
@@ -1373,7 +1393,7 @@ select_failed:
   int int_EVENT_SELECT_FAILED
 #endif
 ; Otherwise, mask the selected and reselected bits off SIST0
-#if CHIP ==710
+#if (CHIP ==710)
     ; Let's assume we don't get selected for now
     MOVE SSTAT0 & 0x10 TO SFBR
 #else
@@ -1392,7 +1412,11 @@ select_failed:
     MOVE ISTAT & 0x08 TO SFBR
     JUMP reselected, IF 0x08
 ; FIXME : Something bogus happened, and we shouldn't fail silently.
+#if 0
+    JUMP schedule
+#else
     INT int_debug_panic
+#endif
 
 ;
 ; test_1
@@ -1423,7 +1447,7 @@ test_1:
 ENTRY test_2
 test_2:
     CLEAR TARGET
-#if CHIP == 710
+#if (CHIP == 710)
     ; Enable selection timer
 #ifdef NO_SELECTION_TIMEOUT
     MOVE CTEST7 & 0xff TO CTEST7
@@ -1435,7 +1459,7 @@ test_2:
     JUMP test_2_msgout, WHEN MSG_OUT
 ENTRY test_2_msgout
 test_2_msgout:
-#if CHIP == 710
+#if (CHIP == 710)
     ; Disable selection timer
     MOVE CTEST7 | 0x10 TO CTEST7
 #endif
@@ -1444,13 +1468,13 @@ test_2_msgout:
     MOVE FROM 24, WHEN DATA_IN
     MOVE FROM 32, WHEN STATUS
     MOVE FROM 40, WHEN MSG_IN
-#if CHIP != 710
+#if (CHIP != 710)
     MOVE SCNTL2 & 0x7f TO SCNTL2
 #endif
     CLEAR ACK
     WAIT DISCONNECT
 test_2_fail:
-#if CHIP == 710
+#if (CHIP == 710)
     ; Disable selection timer
     MOVE CTEST7 | 0x10 TO CTEST7
 #endif
@@ -1512,14 +1536,14 @@ eat_datain:
 spew_dataout:
     MOVE 1, NCR53c7xx_zero, WHEN DATA_OUT
 sated:
-#if CHIP != 710
+#if (CHIP != 710)
     MOVE SCNTL2 & 0x7f TO SCNTL2
 #endif
     MOVE 1, NCR53c7xx_msg_abort, WHEN MSG_OUT
     WAIT DISCONNECT
     INT int_norm_aborted
 
-#if CHIP != 710
+#if (CHIP != 710)
 ;
 ; dsa_to_scratch
 ; scratch_to_dsa
@@ -1558,7 +1582,7 @@ scratch_to_dsa:
     RETURN
 #endif
  
-#if CHIP == 710
+#if (CHIP == 710)
 ; Little patched jump, used to overcome problems with TEMP getting
 ; corrupted on memory moves.
 

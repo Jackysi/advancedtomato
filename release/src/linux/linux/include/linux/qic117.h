@@ -20,9 +20,9 @@
  the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
 
  *
- * $Source: /home/cvsroot/wrt54g/src/linux/linux/include/linux/qic117.h,v $
- * $Revision: 1.1.1.2 $
- * $Date: 2003/10/14 08:09:26 $
+ * $Source: /homes/cvs/ftape-stacked/include/linux/qic117.h,v $
+ * $Revision: 1.2 $
+ * $Date: 1997/10/05 19:19:32 $
  *
  *      This file contains QIC-117 spec. related definitions for the
  *      QIC-40/80/3010/3020 floppy-tape driver "ftape" for Linux.

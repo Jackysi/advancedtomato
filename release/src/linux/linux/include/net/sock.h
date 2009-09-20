@@ -38,17 +38,20 @@
 #include <linux/cache.h>
 #include <linux/in.h>		/* struct sockaddr_in */
 
-#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
+#if defined(CONFIG_IPV6) || defined (CONFIG_IPV6_MODULE)
 #include <linux/in6.h>		/* struct sockaddr_in6 */
 #include <linux/ipv6.h>		/* dest_cache, inet6_options */
 #include <linux/icmpv6.h>
 #include <net/if_inet6.h>	/* struct ipv6_mc_socklist */
 #endif
 
-#if defined(CONFIG_INET) || defined(CONFIG_INET_MODULE)
+#if defined(CONFIG_INET) || defined (CONFIG_INET_MODULE)
 #include <linux/icmp.h>
 #endif
 #include <linux/tcp.h>		/* struct tcphdr */
+#if defined(CONFIG_IP_SCTP) || defined (CONFIG_IP_SCTP_MODULE)
+#include <net/sctp/structs.h>	/* struct sctp_opt */
+#endif
 
 #include <linux/netdevice.h>
 #include <linux/skbuff.h>	/* struct sk_buff */
@@ -140,7 +143,7 @@ struct ipx_opt {
 };
 #endif
 
-#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
+#if defined(CONFIG_IPV6) || defined (CONFIG_IPV6_MODULE)
 struct ipv6_pinfo {
 	struct in6_addr 	saddr;
 	struct in6_addr 	rcv_saddr;
@@ -171,9 +174,11 @@ struct ipv6_pinfo {
 	__u8			mc_loop:1,
 	                        recverr:1,
 	                        sndflow:1,
-	                        pmtudisc:2;
+	                        pmtudisc:2,
+				ipv6only:1;
 
 	struct ipv6_mc_socklist	*ipv6_mc_list;
+	struct ipv6_ac_socklist	*ipv6_ac_list;
 	struct ipv6_fl_socklist *ipv6_fl_list;
 	__u32			dst_cookie;
 
@@ -188,6 +193,12 @@ struct raw6_opt {
 	struct icmp6_filter	filter;
 };
 
+#define __ipv6_only_sock(sk)	((sk)->net_pinfo.af_inet6.ipv6only)
+#define ipv6_only_sock(sk)	((sk)->family == PF_INET6 && \
+				 (sk)->net_pinfo.af_inet6.ipv6only)
+#else
+#define __ipv6_only_sock(sk)	0
+#define ipv6_only_sock(sk)	0
 #endif /* IPV6 */
 
 #if defined(CONFIG_INET) || defined(CONFIG_INET_MODULE)
@@ -196,7 +207,7 @@ struct raw_opt {
 };
 #endif
 
-#if defined(CONFIG_INET) || defined(CONFIG_INET_MODULE)
+#if defined(CONFIG_INET) || defined (CONFIG_INET_MODULE)
 struct inet_opt
 {
 	int			ttl;			/* TTL setting */
@@ -216,7 +227,7 @@ struct inet_opt
 };
 #endif
 
-#if defined(CONFIG_PPPOE) || defined(CONFIG_PPPOE_MODULE)
+#if defined(CONFIG_PPPOE) || defined (CONFIG_PPPOE_MODULE)
 struct pppoe_opt
 {
 	struct net_device      *dev;	  /* device associated with socket*/
@@ -245,6 +256,13 @@ struct tcp_sack_block {
 	__u32	end_seq;
 };
 
+enum tcp_congestion_algo {
+ 	TCP_RENO=0,
+ 	TCP_VEGAS,
+ 	TCP_WESTWOOD,
+ 	TCP_BIC,
+};
+ 
 struct tcp_opt {
 	int	tcp_header_len;	/* Bytes of tcp header to send		*/
 
@@ -417,19 +435,57 @@ struct tcp_opt {
 	unsigned int		keepalive_intvl;  /* time interval between keep alive probes */
 	int			linger2;
 
-	unsigned long last_synq_overflow;
+	__u8			adv_cong;    /* Using Vegas, Westwood, or BIC */
+	__u8                    frto_counter; /* Number of new acks after RTO */
+	__u32                   frto_highmark; /* snd_nxt when RTO occurred */
+
+	unsigned long last_synq_overflow; 
+
+/* Receiver side RTT estimation */
+	struct {
+		__u32	rtt;
+		__u32	seq;
+		__u32	time;
+	} rcv_rtt_est;
+
+/* Receiver queue space */
+	struct {
+		int	space;
+		__u32	seq;
+		__u32	time;
+	} rcvq_space;
+
+/* TCP Westwood structure */
+        struct {
+                __u32    bw_ns_est;        /* first bandwidth estimation..not too smoothed 8) */
+                __u32    bw_est;           /* bandwidth estimate */
+                __u32    rtt_win_sx;       /* here starts a new evaluation... */
+                __u32    bk;
+                __u32    snd_una;          /* used for evaluating the number of acked bytes */
+                __u32    cumul_ack;
+                __u32    accounted;
+                __u32    rtt;
+                __u32    rtt_min;          /* minimum observed RTT */
+        } westwood;
 
 /* Vegas variables */
 	struct {
 		__u32	beg_snd_nxt;	/* right edge during last RTT */
 		__u32	beg_snd_una;	/* left edge  during last RTT */
 		__u32	beg_snd_cwnd;	/* saves the size of the cwnd */
-		__u8	do_vegas;	/* do vegas for this connection */
 		__u8	doing_vegas_now;/* if true, do vegas for this RTT */
 		__u16	cntRTT;		/* # of RTTs measured within last RTT */
 		__u32	minRTT;		/* min of RTTs measured within last RTT (in usec) */
 		__u32	baseRTT;	/* the min of all Vegas RTT measurements seen (in usec) */
 	} vegas;
+
+	/* BI TCP Parameters */
+	struct {
+		__u32	cnt;		/* increase cwnd by 1 after this number of ACKs */
+		__u32 	last_max_cwnd;	/* last maximium snd_cwnd */
+		__u32	last_cwnd;	/* the last snd_cwnd */
+		__u32   last_stamp;     /* time when updated last_cwnd */
+	} bictcp;
 };
 
  	
@@ -539,6 +595,9 @@ struct sock {
 	int			sndbuf;		/* Size of send buffer in bytes		*/
 	struct sock		*prev;
 
+	/* Not all are volatile, but some are, so we might as well say they all are.
+	 * XXX Make this a flag word -DaveM
+	 */
 	volatile char		dead,
 				done,
 				urginline,
@@ -576,7 +635,7 @@ struct sock {
 
 	struct proto		*prot;
 
-#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
+#if defined(CONFIG_IPV6) || defined (CONFIG_IPV6_MODULE)
 	union {
 		struct ipv6_pinfo	af_inet6;
 	} net_pinfo;
@@ -584,13 +643,16 @@ struct sock {
 
 	union {
 		struct tcp_opt		af_tcp;
-#if defined(CONFIG_INET) || defined(CONFIG_INET_MODULE)
+#if defined(CONFIG_IP_SCTP) || defined (CONFIG_IP_SCTP_MODULE)
+		struct sctp_opt		af_sctp;
+#endif
+#if defined(CONFIG_INET) || defined (CONFIG_INET_MODULE)
 		struct raw_opt		tp_raw4;
 #endif
-#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
+#if defined(CONFIG_IPV6) || defined (CONFIG_IPV6_MODULE)
 		struct raw6_opt		tp_raw;
 #endif /* CONFIG_IPV6 */
-#if defined(CONFIG_SPX) || defined(CONFIG_SPX_MODULE)
+#if defined(CONFIG_SPX) || defined (CONFIG_SPX_MODULE)
 		struct spx_opt		af_spx;
 #endif /* CONFIG_SPX */
 
@@ -622,7 +684,7 @@ struct sock {
 	union {
 		void *destruct_hook;
 	  	struct unix_opt	af_unix;
-#if defined(CONFIG_INET) || defined(CONFIG_INET_MODULE)
+#if defined(CONFIG_INET) || defined (CONFIG_INET_MODULE)
 		struct inet_opt af_inet;
 #endif
 #if defined(CONFIG_ATALK) || defined(CONFIG_ATALK_MODULE)
@@ -631,10 +693,10 @@ struct sock {
 #if defined(CONFIG_IPX) || defined(CONFIG_IPX_MODULE)
 		struct ipx_opt		af_ipx;
 #endif
-#if defined(CONFIG_DECNET) || defined(CONFIG_DECNET_MODULE)
+#if defined (CONFIG_DECNET) || defined(CONFIG_DECNET_MODULE)
 		struct dn_scp           dn;
 #endif
-#if defined(CONFIG_PACKET) || defined(CONFIG_PACKET_MODULE)
+#if defined (CONFIG_PACKET) || defined(CONFIG_PACKET_MODULE)
 		struct packet_opt	*af_packet;
 #endif
 #if defined(CONFIG_X25) || defined(CONFIG_X25_MODULE)
@@ -901,27 +963,41 @@ extern void sklist_destroy_socket(struct sock **list, struct sock *sk);
 
 /**
  *	sk_filter - run a packet through a socket filter
+ *	@sk: sock associated with &sk_buff
  *	@skb: buffer to filter
- *	@filter: filter to apply
+ *	@needlock: set to 1 if the sock is not locked by caller.
  *
  * Run the filter code and then cut skb->data to correct size returned by
  * sk_run_filter. If pkt_len is 0 we toss packet. If skb->len is smaller
  * than pkt_len we keep whole skb->data. This is the socket level
  * wrapper to sk_run_filter. It returns 0 if the packet should
- * be accepted or 1 if the packet should be tossed.
+ * be accepted or -EPERM if the packet should be tossed.
  */
- 
-static inline int sk_filter(struct sk_buff *skb, struct sk_filter *filter)
+
+static inline int sk_filter(struct sock *sk, struct sk_buff *skb, int needlock)
 {
-	int pkt_len;
+	int err = 0;
 
-        pkt_len = sk_run_filter(skb, filter->insns, filter->len);
-        if(!pkt_len)
-                return 1;	/* Toss Packet */
-        else
-                skb_trim(skb, pkt_len);
+	if (sk->filter) {
+		struct sk_filter *filter;
+		
+		if (needlock)
+			bh_lock_sock(sk);
+		
+		filter = sk->filter;
+		if (filter) {
+			int pkt_len = sk_run_filter(skb, filter->insns,
+						    filter->len);
+			if (!pkt_len)
+				err = -EPERM;
+			else
+				skb_trim(skb, pkt_len);
+		}
 
-	return 0;
+		if (needlock)
+			bh_unlock_sock(sk);
+	}
+	return err;
 }
 
 /**
@@ -946,6 +1022,13 @@ static inline void sk_filter_charge(struct sock *sk, struct sk_filter *fp)
 {
 	atomic_inc(&fp->refcnt);
 	atomic_add(sk_filter_len(fp), &sk->omem_alloc);
+}
+
+#else
+
+static inline int sk_filter(struct sock *sk, struct sk_buff *skb, int needlock)
+{
+	return 0;
 }
 
 #endif /* CONFIG_FILTER */
@@ -1154,36 +1237,40 @@ static inline void skb_set_owner_r(struct sk_buff *skb, struct sock *sk)
 
 static inline int sock_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
 {
+	int err = 0;
+	int skb_len;
+
 	/* Cast skb->rcvbuf to unsigned... It's pointless, but reduces
 	   number of warnings when compiling with -W --ANK
 	 */
-	if (atomic_read(&sk->rmem_alloc) + skb->truesize >= (unsigned)sk->rcvbuf)
-                return -ENOMEM;
-
-#ifdef CONFIG_FILTER
-	if (sk->filter) {
-		int err = 0;
-		struct sk_filter *filter;
-
-		/* It would be deadlock, if sock_queue_rcv_skb is used
-		   with socket lock! We assume that users of this
-		   function are lock free.
-		 */
-		bh_lock_sock(sk);
-		if ((filter = sk->filter) != NULL && sk_filter(skb, filter))
-			err = -EPERM;
-		bh_unlock_sock(sk);
-		if (err)
-			return err;	/* Toss packet */
+	if (atomic_read(&sk->rmem_alloc) + skb->truesize >= (unsigned)sk->rcvbuf) {
+		err = -ENOMEM;
+		goto out;
 	}
-#endif /* CONFIG_FILTER */
+
+	/* It would be deadlock, if sock_queue_rcv_skb is used
+	   with socket lock! We assume that users of this
+	   function are lock free.
+	*/
+	err = sk_filter(sk, skb, 1);
+	if (err)
+		goto out;
 
 	skb->dev = NULL;
 	skb_set_owner_r(skb, sk);
+
+	/* Cache the SKB length before we tack it onto the receive
+	 * queue.  Once it is added it no longer belongs to us and
+	 * may be freed by other threads of control pulling packets
+	 * from the queue.
+	 */
+	skb_len = skb->len;
+
 	skb_queue_tail(&sk->receive_queue, skb);
 	if (!sk->dead)
-		sk->data_ready(sk,skb->len);
-	return 0;
+		sk->data_ready(sk,skb_len);
+out:
+	return err;
 }
 
 static inline int sock_queue_err_skb(struct sock *sk, struct sk_buff *skb)
@@ -1280,7 +1367,11 @@ sock_recv_timestamp(struct msghdr *msg, struct sock *sk, struct sk_buff *skb)
  *	Enable debug/info messages 
  */
 
+#if 0
+#define NETDEBUG(x)	do { } while (0)
+#else
 #define NETDEBUG(x)	do { x; } while (0)
+#endif
 
 /*
  * Macros for sleeping on a socket. Use them like this:

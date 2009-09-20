@@ -1,6 +1,6 @@
 /*
  * arch/ppc/boot/common/misc-common.c
- * 
+ *
  * Misc. bootloader code (almost) all platforms can use
  *
  * Author: Johnnie Peters <jpeters@mvista.com>
@@ -8,27 +8,10 @@
  *
  * Derived from arch/ppc/boot/prep/misc.c
  *
- * Copyright 2000-2001 MontaVista Software Inc.
- *
- * This program is free software; you can redistribute  it and/or modify it
- * under  the terms of  the GNU General  Public License as published by the
- * Free Software Foundation;  either version 2 of the  License, or (at your
- * option) any later version.
- *
- * THIS  SOFTWARE  IS PROVIDED   ``AS  IS'' AND   ANY  EXPRESS OR   IMPLIED
- * WARRANTIES,   INCLUDING, BUT NOT  LIMITED  TO, THE IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.  IN
- * NO  EVENT  SHALL   THE AUTHOR  BE    LIABLE FOR ANY   DIRECT,  INDIRECT,
- * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT
- * NOT LIMITED   TO, PROCUREMENT OF  SUBSTITUTE GOODS  OR SERVICES; LOSS OF
- * USE, DATA,  OR PROFITS; OR  BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
- * ANY THEORY OF LIABILITY, WHETHER IN  CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
- * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *
- * You should have received a copy of the  GNU General Public License along
- * with this program; if not, write  to the Free Software Foundation, Inc.,
- * 675 Mass Ave, Cambridge, MA 02139, USA.
+ * 2000-2001 (c) MontaVista, Software, Inc.  This file is licensed under
+ * the terms of the GNU General Public License version 2.  This program
+ * is licensed "as is" without any warranty of any kind, whether express
+ * or implied.
  */
 
 #include <stdarg.h>	/* for va_ bits */
@@ -91,7 +74,7 @@ void pause(void)
 void exit(void)
 {
 	puts("exit\n");
-	while(1); 
+	while(1);
 }
 
 int tstc(void)
@@ -119,7 +102,7 @@ int getc(void)
 	}
 }
 
-void 
+void
 putc(const char c)
 {
 	int x,y;
@@ -146,7 +129,7 @@ putc(const char c)
 			x--;
 		}
 	} else {
-		vidmem [ ( x + cols * y ) * 2 ] = c; 
+		vidmem [ ( x + cols * y ) * 2 ] = c;
 		if ( ++x >= cols ) {
 			x = 0;
 			if ( ++y >= lines ) {
@@ -187,7 +170,7 @@ void puts(const char *s)
 		    x--;
 		  }
 		} else {
-			vidmem [ ( x + cols * y ) * 2 ] = c; 
+			vidmem [ ( x + cols * y ) * 2 ] = c;
 			if ( ++x >= cols ) {
 				x = 0;
 				if ( ++y >= lines ) {
@@ -216,7 +199,7 @@ void error(char *x)
 void *zalloc(void *x, unsigned items, unsigned size)
 {
 	void *p = avail_ram;
-	
+
 	size *= items;
 	size = (size + 7) & -8;
 	avail_ram += size;
@@ -243,7 +226,7 @@ void gunzip(void *dst, int dstlen, unsigned char *src, int *lenp)
 {
 	z_stream s;
 	int r, i, flags;
-	
+
 	/* skip header */
 	i = 10;
 	flags = src[3];
@@ -265,7 +248,7 @@ void gunzip(void *dst, int dstlen, unsigned char *src, int *lenp)
 		puts("gunzip: ran out of data in header\n");
 		exit();
 	}
-	
+
 	s.zalloc = zalloc;
 	s.zfree = zfree;
 	r = inflateInit2(&s, -MAX_WBITS);

@@ -50,43 +50,30 @@ enum ip_conntrack_status {
 
 #include <linux/netfilter_ipv4/ip_conntrack_tcp.h>
 #include <linux/netfilter_ipv4/ip_conntrack_icmp.h>
-#include <linux/netfilter_ipv4/ip_conntrack_proto_gre.h>
-#include <linux/netfilter_ipv4/ip_conntrack_proto_esp.h>
 
 /* per conntrack: protocol private data */
 union ip_conntrack_proto {
 	/* insert conntrack proto private data here */
-	struct ip_ct_gre gre;
 	struct ip_ct_tcp tcp;
 	struct ip_ct_icmp icmp;
 };
 
 union ip_conntrack_expect_proto {
 	/* insert expect proto private data here */
-	struct ip_ct_gre_expect gre;
 };
 
 /* Add protocol helper include file here */
-#include <linux/netfilter_ipv4/ip_conntrack_h323.h>
-#include <linux/netfilter_ipv4/ip_conntrack_pptp.h>
-#include <linux/netfilter_ipv4/ip_conntrack_sip.h>
-#include <linux/netfilter_ipv4/ip_conntrack_mms.h>
+#include <linux/netfilter_ipv4/ip_conntrack_amanda.h>
+
 #include <linux/netfilter_ipv4/ip_conntrack_ftp.h>
 #include <linux/netfilter_ipv4/ip_conntrack_irc.h>
-#include <linux/netfilter_ipv4/ip_autofw.h>
-#include <linux/netfilter_ipv4/ip_conntrack_rtsp.h>
 
 /* per expectation: application helper private data */
 union ip_conntrack_expect_help {
 	/* insert conntrack helper private data (expect) here */
-	struct ip_ct_h225_expect exp_h225_info;
-	struct ip_ct_pptp_expect exp_pptp_info;
-	struct ip_ct_sip_expect exp_sip_info;
-	struct ip_ct_mms_expect exp_mms_info;
+	struct ip_ct_amanda_expect exp_amanda_info;
 	struct ip_ct_ftp_expect exp_ftp_info;
 	struct ip_ct_irc_expect exp_irc_info;
-	struct ip_autofw_expect exp_autofw_info;
-	struct ip_ct_rtsp_expect exp_rtsp_info;
 
 #ifdef CONFIG_IP_NF_NAT_NEEDED
 	union {
@@ -98,23 +85,16 @@ union ip_conntrack_expect_help {
 /* per conntrack: application helper private data */
 union ip_conntrack_help {
 	/* insert conntrack helper private data (master) here */
-	struct ip_ct_h225_master ct_h225_info;
-	struct ip_ct_pptp_master ct_pptp_info;
-	struct ip_ct_sip_master ct_sip_info;
-	struct ip_ct_mms_master ct_mms_info;
 	struct ip_ct_ftp_master ct_ftp_info;
 	struct ip_ct_irc_master ct_irc_info;
-	struct ip_ct_rtsp_master ct_rtsp_info;
 };
 
 #ifdef CONFIG_IP_NF_NAT_NEEDED
 #include <linux/netfilter_ipv4/ip_nat.h>
-#include <linux/netfilter_ipv4/ip_nat_pptp.h>
 
 /* per conntrack: nat application helper private data */
 union ip_conntrack_nat_help {
 	/* insert nat helper private data here */
-	struct ip_nat_pptp nat_pptp_info;
 };
 #endif
 
@@ -123,7 +103,7 @@ union ip_conntrack_nat_help {
 #include <linux/types.h>
 #include <linux/skbuff.h>
 
-#ifdef CONFIG_NF_DEBUG
+#ifdef CONFIG_NETFILTER_DEBUG
 #define IP_NF_ASSERT(x)							\
 do {									\
 	if (!(x))							\
@@ -176,7 +156,8 @@ struct ip_conntrack_expect
 	union ip_conntrack_expect_help help;
 };
 
-#include <linux/netfilter_ipv4/ip_conntrack_helper.h>
+struct ip_conntrack_helper;
+
 struct ip_conntrack
 {
 	/* Usage count in here is 1 for hash table/destruct timer, 1 per skb,
@@ -226,29 +207,6 @@ struct ip_conntrack
 	} nat;
 #endif /* CONFIG_IP_NF_NAT_NEEDED */
 
-#if defined(CONFIG_IP_NF_CONNTRACK_MARK)
-	unsigned long mark;
-#endif
-
-#if defined(CONFIG_IP_NF_MATCH_LAYER7) || defined(CONFIG_IP_NF_MATCH_LAYER7_MODULE)
-	struct {
-		unsigned int numpackets; /* surely this is kept track of somewhere else, right? I can't find it... */
-		char * app_proto; /* "http", "ftp", etc.  NULL if unclassifed */
-		
-		/* the application layer data so far.  NULL if ->numpackets > numpackets */
-		char * app_data; 
-
-		unsigned int app_data_len;
-	} layer7;
-#endif
-
-#if defined(CONFIG_IP_NF_TARGET_BCOUNT) || defined(CONFIG_IP_NF_TARGET_BCOUNT_MODULE)
-	u_int32_t bcount;
-#endif
-
-#if	defined(CONFIG_IP_NF_TARGET_MACSAVE) || defined(CONFIG_IP_NF_TARGET_MACSAVE_MODULE)
-	unsigned char macsave[6];
-#endif
 };
 
 /* get master conntrack via master expectation */
@@ -271,7 +229,7 @@ extern struct ip_conntrack *
 ip_conntrack_get(struct sk_buff *skb, enum ip_conntrack_info *ctinfo);
 
 /* decrement reference count on a conntrack */
-extern inline void ip_conntrack_put(struct ip_conntrack *ct);
+extern void ip_conntrack_put(struct ip_conntrack *ct);
 
 /* find unconfirmed expectation based on tuple */
 struct ip_conntrack_expect *
@@ -279,8 +237,6 @@ ip_conntrack_expect_find_get(const struct ip_conntrack_tuple *tuple);
 
 /* decrement reference count on an expectation */
 void ip_conntrack_expect_put(struct ip_conntrack_expect *exp);
-
-extern struct module *ip_conntrack_module;
 
 extern int invert_tuplepr(struct ip_conntrack_tuple *inverse,
 			  const struct ip_conntrack_tuple *orig);
@@ -295,12 +251,12 @@ extern void (*ip_conntrack_destroyed)(struct ip_conntrack *conntrack);
 
 /* Returns new sk_buff, or NULL */
 struct sk_buff *
-ip_ct_gather_frags(struct sk_buff *skb);
+ip_ct_gather_frags(struct sk_buff *skb, u_int32_t user);
 
-/* Delete all conntracks which match. */
+/* Iterate over all conntracks: if iter returns true, it's deleted. */
 extern void
-ip_ct_selective_cleanup(int (*kill)(const struct ip_conntrack *i, void *data),
-			void *data);
+ip_ct_iterate_cleanup(int (*iter)(struct ip_conntrack *i, void *data),
+                      void *data);
 
 /* It's confirmed if it is, or has been in the hash table. */
 static inline int is_confirmed(struct ip_conntrack *ct)
@@ -309,9 +265,5 @@ static inline int is_confirmed(struct ip_conntrack *ct)
 }
 
 extern unsigned int ip_conntrack_htable_size;
-
-/* connection tracking time out variables. */
-extern int sysctl_ip_conntrack_tcp_timeouts[10];
-extern int sysctl_ip_conntrack_udp_timeouts[2];
 #endif /* __KERNEL__ */
 #endif /* _IP_CONNTRACK_H */

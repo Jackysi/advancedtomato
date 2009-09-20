@@ -13,56 +13,26 @@
 #include <asm/addrspace.h>
 #include <asm/page.h>
 
+#ifndef _LANGUAGE_ASSEMBLY
+
 #include <linux/linkage.h>
 #include <asm/cachectl.h>
+#include <asm/cacheflush.h>
 #include <asm/fixmap.h>
+#include <asm/types.h>
 
-/* Cache flushing:
- *
- *  - flush_cache_all() flushes entire cache
- *  - flush_cache_mm(mm) flushes the specified mm context's cache lines
- *  - flush_cache_page(mm, vmaddr) flushes a single page
- *  - flush_cache_range(mm, start, end) flushes a range of pages
- *  - flush_page_to_ram(page) write back kernel page to ram
- *  - flush_icache_range(start, end) flush a range of instructions
- *
- *  - flush_cache_sigtramp() flush signal trampoline
- *  - flush_icache_all() flush the entire instruction cache
+/*
+ * This flag is used to indicate that the page pointed to by a pte
+ * is dirty and requires cleaning before returning it to the user.
  */
-extern void (*_flush_cache_all)(void);
-extern void (*___flush_cache_all)(void);
-extern void (*_flush_cache_mm)(struct mm_struct *mm);
-extern void (*_flush_cache_range)(struct mm_struct *mm, unsigned long start,
-	unsigned long end);
-extern void (*_flush_cache_page)(struct vm_area_struct *vma,
-	unsigned long page);
-extern void (*_flush_page_to_ram)(struct page * page);
-extern void (*_flush_icache_range)(unsigned long start, unsigned long end);
-extern void (*_flush_icache_page)(struct vm_area_struct *vma,
-	struct page *page);
-extern void (*_flush_cache_sigtramp)(unsigned long addr);
-extern void (*_flush_icache_all)(void);
+#define PG_dcache_dirty			PG_arch_1
 
-#define flush_dcache_page(page)			do { } while (0)
-
-#define flush_cache_all()		_flush_cache_all()
-#define __flush_cache_all()		___flush_cache_all()
-#define flush_cache_mm(mm)		_flush_cache_mm(mm)
-#define flush_cache_range(mm,start,end)	_flush_cache_range(mm,start,end)
-#define flush_cache_page(vma,page)	_flush_cache_page(vma, page)
-#define flush_page_to_ram(page)		_flush_page_to_ram(page)
-
-#define flush_icache_range(start, end)	_flush_icache_range(start,end)
-#define flush_icache_user_range(vma, page, addr, len) \
-					_flush_icache_page((vma), (page))
-#define flush_icache_page(vma, page) 	_flush_icache_page(vma, page)
-
-#define flush_cache_sigtramp(addr)	_flush_cache_sigtramp(addr)
-#ifdef CONFIG_VTAG_ICACHE
-#define flush_icache_all()		_flush_icache_all()
-#else
-#define flush_icache_all()		do { } while(0)
-#endif
+#define Page_dcache_dirty(page)		\
+	test_bit(PG_dcache_dirty, &(page)->flags)
+#define SetPageDcacheDirty(page)	\
+	set_bit(PG_dcache_dirty, &(page)->flags)
+#define ClearPageDcacheDirty(page)	\
+	clear_bit(PG_dcache_dirty, &(page)->flags)
 
 /*
  * - add_wired_entry() add a fixed TLB entry, and move wired register
@@ -89,11 +59,12 @@ extern int add_temporary_entry(unsigned long entrylo0, unsigned long entrylo1,
  */
 
 /* PMD_SHIFT determines the size of the area a second-level page table can map */
+
 #ifdef CONFIG_64BIT_PHYS_ADDR
-#define PMD_SHIFT	21
-#else
-#define PMD_SHIFT	22
+extern int remap_page_range_high(unsigned long from, phys_t to, unsigned long size, pgprot_t prot);
 #endif
+#endif /* !defined (_LANGUAGE_ASSEMBLY) */
+
 #define PMD_SIZE	(1UL << PMD_SHIFT)
 #define PMD_MASK	(~(PMD_SIZE-1))
 
@@ -101,22 +72,6 @@ extern int add_temporary_entry(unsigned long entrylo0, unsigned long entrylo1,
 #define PGDIR_SHIFT	PMD_SHIFT
 #define PGDIR_SIZE	(1UL << PGDIR_SHIFT)
 #define PGDIR_MASK	(~(PGDIR_SIZE-1))
-
-/*
- * Entries per page directory level: we use two-level, so
- * we don't really have any PMD directory physically.
- */
-#ifdef CONFIG_64BIT_PHYS_ADDR
-#define PTRS_PER_PTE	512
-#define PTRS_PER_PMD	1
-#define PTRS_PER_PGD	2048
-#define PGD_ORDER	1
-#else
-#define PTRS_PER_PTE	1024
-#define PTRS_PER_PMD	1
-#define PTRS_PER_PGD	1024
-#define PGD_ORDER	0
-#endif
 
 #define USER_PTRS_PER_PGD	(0x80000000UL/PGDIR_SIZE)
 #define FIRST_USER_PGD_NR	0
@@ -169,17 +124,13 @@ extern int add_temporary_entry(unsigned long entrylo0, unsigned long entrylo1,
 #define __S110	PAGE_SHARED
 #define __S111	PAGE_SHARED
 
-#ifdef CONFIG_64BIT_PHYS_ADDR
-#define pte_ERROR(e) \
-	printk("%s:%d: bad pte %016Lx.\n", __FILE__, __LINE__, pte_val(e))
+#if defined(CONFIG_64BIT_PHYS_ADDR) && defined(CONFIG_CPU_MIPS32)
+#include <asm/pgtable-64.h>
 #else
-#define pte_ERROR(e) \
-	printk("%s:%d: bad pte %08lx.\n", __FILE__, __LINE__, pte_val(e))
+#include <asm/pgtable-32.h>
 #endif
-#define pmd_ERROR(e) \
-	printk("%s:%d: bad pmd %08lx.\n", __FILE__, __LINE__, pmd_val(e))
-#define pgd_ERROR(e) \
-	printk("%s:%d: bad pgd %08lx.\n", __FILE__, __LINE__, pgd_val(e))
+
+#if !defined (_LANGUAGE_ASSEMBLY)
 
 extern unsigned long empty_zero_page;
 extern unsigned long zero_page_mask;
@@ -205,39 +156,7 @@ static inline void pmd_set(pmd_t * pmdp, pte_t * ptep)
 	pmd_val(*pmdp) = (((unsigned long) ptep) & PAGE_MASK);
 }
 
-static inline int pte_none(pte_t pte)    { return !(pte_val(pte) & ~_PAGE_GLOBAL); }
 static inline int pte_present(pte_t pte) { return pte_val(pte) & _PAGE_PRESENT; }
-
-/* Certain architectures need to do special things when pte's
- * within a page table are directly modified.  Thus, the following
- * hook is made available.
- */
-static inline void set_pte(pte_t *ptep, pte_t pteval)
-{
-	*ptep = pteval;
-#if !defined(CONFIG_CPU_R3000) && !defined(CONFIG_CPU_TX39XX)
-	if (pte_val(pteval) & _PAGE_GLOBAL) {
-		pte_t *buddy = ptep_buddy(ptep);
-		/*
-		 * Make sure the buddy is global too (if it's !none,
-		 * it better already be global)
-		 */
-		if (pte_none(*buddy))
-			pte_val(*buddy) = pte_val(*buddy) | _PAGE_GLOBAL;
-	}
-#endif
-}
-
-static inline void pte_clear(pte_t *ptep)
-{
-#if !defined(CONFIG_CPU_R3000) && !defined(CONFIG_CPU_TX39XX)
-	/* Preserve global status for the pair */
-	if (pte_val(*ptep_buddy(ptep)) & _PAGE_GLOBAL)
-		set_pte(ptep, __pte(_PAGE_GLOBAL));
-	else
-#endif
-		set_pte(ptep, __pte(0));
-}
 
 /*
  * (pmds are folded into pgds so this doesn't get actually called,
@@ -281,137 +200,29 @@ static inline int pgd_present(pgd_t pgd)	{ return 1; }
 static inline void pgd_clear(pgd_t *pgdp)	{ }
 
 /*
- * Permanent address of a page.  Obviously must never be called on a highmem
- * page.
- */
-#ifdef CONFIG_CPU_VR41XX
-#define pte_page(x)             (mem_map+(unsigned long)((pte_val(x) >> (PAGE_SHIFT + 2))))
-#else
-#define pte_page(x)		(mem_map+(unsigned long)((pte_val(x) >> PAGE_SHIFT)))
-#endif
-
-/*
  * The following only work if pte_present() is true.
  * Undefined behaviour if not..
  */
-static inline int pte_read(pte_t pte)	{ return pte_val(pte) & _PAGE_READ; }
-static inline int pte_write(pte_t pte)	{ return pte_val(pte) & _PAGE_WRITE; }
-static inline int pte_dirty(pte_t pte)	{ return pte_val(pte) & _PAGE_MODIFIED; }
-static inline int pte_young(pte_t pte)	{ return pte_val(pte) & _PAGE_ACCESSED; }
 
-static inline pte_t pte_wrprotect(pte_t pte)
-{
-	pte_val(pte) &= ~(_PAGE_WRITE | _PAGE_SILENT_WRITE);
-	return pte;
-}
-
-static inline pte_t pte_rdprotect(pte_t pte)
-{
-	pte_val(pte) &= ~(_PAGE_READ | _PAGE_SILENT_READ);
-	return pte;
-}
-
-static inline pte_t pte_mkclean(pte_t pte)
-{
-	pte_val(pte) &= ~(_PAGE_MODIFIED|_PAGE_SILENT_WRITE);
-	return pte;
-}
-
-static inline pte_t pte_mkold(pte_t pte)
-{
-	pte_val(pte) &= ~(_PAGE_ACCESSED|_PAGE_SILENT_READ);
-	return pte;
-}
-
-static inline pte_t pte_mkwrite(pte_t pte)
-{
-	pte_val(pte) |= _PAGE_WRITE;
-	if (pte_val(pte) & _PAGE_MODIFIED)
-		pte_val(pte) |= _PAGE_SILENT_WRITE;
-	return pte;
-}
-
-static inline pte_t pte_mkread(pte_t pte)
-{
-	pte_val(pte) |= _PAGE_READ;
-	if (pte_val(pte) & _PAGE_ACCESSED)
-		pte_val(pte) |= _PAGE_SILENT_READ;
-	return pte;
-}
-
-static inline pte_t pte_mkdirty(pte_t pte)
-{
-	pte_val(pte) |= _PAGE_MODIFIED;
-	if (pte_val(pte) & _PAGE_WRITE)
-		pte_val(pte) |= _PAGE_SILENT_WRITE;
-	return pte;
-}
+static inline int pte_read(pte_t pte)	{ return (pte).pte_low & _PAGE_READ; }
+static inline int pte_write(pte_t pte)	{ return (pte).pte_low & _PAGE_WRITE; }
+static inline int pte_dirty(pte_t pte)	{ return (pte).pte_low & _PAGE_MODIFIED; }
+static inline int pte_young(pte_t pte)	{ return (pte).pte_low & _PAGE_ACCESSED; }
 
 /*
- * Macro to make mark a page protection value as "uncacheable".  Note
- * that "protection" is really a misnomer here as the protection value
- * contains the memory attribute bits, dirty bits, and various other
- * bits as well.
+ * (pmds are folded into pgds so this doesnt get actually called,
+ * but the define is needed for a generic inline function.)
  */
-#define pgprot_noncached pgprot_noncached
+#define set_pmd(pmdptr, pmdval) (*(pmdptr) = pmdval)
+#define set_pgd(pgdptr, pgdval) (*(pgdptr) = pgdval)
 
-static inline pgprot_t pgprot_noncached(pgprot_t _prot)
-{
-	unsigned long prot = pgprot_val(_prot);
+#define PGD_T_LOG2	ffz(~sizeof(pgd_t))
+#define PMD_T_LOG2	ffz(~sizeof(pmd_t))
+#define PTE_T_LOG2	ffz(~sizeof(pte_t))
 
-	prot = (prot & ~_CACHE_MASK) | _CACHE_UNCACHED;
-
-	return __pgprot(prot);
-}
-
-static inline pte_t pte_mkyoung(pte_t pte)
-{
-	pte_val(pte) |= _PAGE_ACCESSED;
-	if (pte_val(pte) & _PAGE_READ)
-		pte_val(pte) |= _PAGE_SILENT_READ;
-	return pte;
-}
-
-/*
- * Conversion functions: convert a page and protection to a page entry,
- * and a page entry and page directory to the page they refer to.
- */
-
-#ifdef CONFIG_CPU_VR41XX
-#define mk_pte(page, pgprot)                                            \
-({                                                                      \
-        pte_t   __pte;                                                  \
-                                                                        \
-        pte_val(__pte) = ((phys_t)(page - mem_map) << (PAGE_SHIFT + 2)) | \
-                         pgprot_val(pgprot);                            \
-                                                                        \
-        __pte;                                                          \
-})
-#else
-#define mk_pte(page, pgprot)						\
-({									\
-	pte_t   __pte;							\
-									\
-	pte_val(__pte) = ((phys_t)(page - mem_map) << PAGE_SHIFT) | \
-	                 pgprot_val(pgprot);				\
-									\
-	__pte;								\
-})
-#endif
-
-static inline pte_t mk_pte_phys(phys_t physpage, pgprot_t pgprot)
-{
-#ifdef CONFIG_CPU_VR41XX
-        return __pte((physpage << 2) | pgprot_val(pgprot));
-#else
-	return __pte(physpage | pgprot_val(pgprot));
-#endif
-}
-
-static inline pte_t pte_modify(pte_t pte, pgprot_t newprot)
-{
-	return __pte((pte_val(pte) & _PAGE_CHG_MASK) | pgprot_val(newprot));
-}
+#define PTRS_PER_PGD	((PAGE_SIZE << PGD_ORDER) / sizeof(pgd_t))
+#define PTRS_PER_PMD	1
+#define PTRS_PER_PTE	((PAGE_SIZE << PTE_ORDER) / sizeof(pte_t))
 
 #define page_pte(page) page_pte_prot(page, __pgprot(0))
 
@@ -445,11 +256,20 @@ static inline pte_t *pte_offset(pmd_t * dir, unsigned long address)
 
 extern int do_check_pgt_cache(int, int);
 
-extern pgd_t swapper_pg_dir[1024];
+extern pgd_t swapper_pg_dir[PTRS_PER_PGD];
 extern void paging_init(void);
 
-extern void update_mmu_cache(struct vm_area_struct *vma,
-				unsigned long address, pte_t pte);
+extern void __update_tlb(struct vm_area_struct *vma, unsigned long address,
+	pte_t pte);
+extern void __update_cache(struct vm_area_struct *vma, unsigned long address,
+	pte_t pte);
+
+static inline void update_mmu_cache(struct vm_area_struct *vma,
+	unsigned long address, pte_t pte)
+{
+	__update_tlb(vma, address, pte);
+	__update_cache(vma, address, pte);
+}
 
 /* Swap entries must have VALID and GLOBAL bits cleared. */
 #if defined(CONFIG_CPU_R3000) || defined(CONFIG_CPU_TX39XX)
@@ -464,7 +284,7 @@ extern void update_mmu_cache(struct vm_area_struct *vma,
 #define SWP_ENTRY(type,offset)	((swp_entry_t) { ((type) << 1) | ((offset) << 8) })
 #endif
 
-#define pte_to_swp_entry(pte)	((swp_entry_t) { pte_val(pte) })
+#define pte_to_swp_entry(pte)	((swp_entry_t) { (pte).pte_low })
 #define swp_entry_to_pte(x)	((pte_t) { (x).val })
 
 
@@ -474,13 +294,19 @@ extern void update_mmu_cache(struct vm_area_struct *vma,
 
 #include <asm-generic/pgtable.h>
 
+#endif /* !defined (_LANGUAGE_ASSEMBLY) */
+
 /*
  * We provide our own get_unmapped area to cope with the virtual aliasing
  * constraints placed on us by the cache architecture.
  */
 #define HAVE_ARCH_UNMAPPED_AREA
 
+#ifdef CONFIG_64BIT_PHYS_ADDR
+#define io_remap_page_range remap_page_range_high
+#else
 #define io_remap_page_range remap_page_range
+#endif
 
 /*
  * No page table caches to initialise

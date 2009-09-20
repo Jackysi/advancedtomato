@@ -1,4 +1,4 @@
-/* $Id: srmmu.c,v 1.1.1.4 2003/10/14 08:07:49 sparq Exp $
+/* $Id: srmmu.c,v 1.233 2001/11/13 00:49:27 davem Exp $
  * srmmu.c:  SRMMU specific routines for memory management.
  *
  * Copyright (C) 1995 David S. Miller  (davem@caip.rutgers.edu)
@@ -86,7 +86,7 @@ ctxd_t *srmmu_ctx_table_phys;
 ctxd_t *srmmu_context_table;
 
 int viking_mxcc_present;
-spinlock_t srmmu_context_spinlock = SPIN_LOCK_UNLOCKED;
+static spinlock_t srmmu_context_spinlock = SPIN_LOCK_UNLOCKED;
 
 int is_hypersparc;
 
@@ -126,11 +126,14 @@ extern unsigned long fix_kmap_end;
 
 #define SRMMU_NOCACHE_BITMAP_SHIFT (PAGE_SHIFT - 4)
 
+/* The context table is a nocache user with the biggest alignment needs. */
+#define SRMMU_NOCACHE_ALIGN_MAX (sizeof(ctxd_t)*SRMMU_MAX_CONTEXTS)
+
 void *srmmu_nocache_pool;
 void *srmmu_nocache_bitmap;
 int srmmu_nocache_low;
 int srmmu_nocache_used;
-spinlock_t srmmu_nocache_spinlock;
+static spinlock_t srmmu_nocache_spinlock = SPIN_LOCK_UNLOCKED;
 
 /* This makes sense. Honest it does - Anton */
 #define __nocache_pa(VADDR) (((unsigned long)VADDR) - SRMMU_NOCACHE_VADDR + __pa((unsigned long)srmmu_nocache_pool))
@@ -219,6 +222,7 @@ static pte_t srmmu_mk_pte_phys(unsigned long page, pgprot_t pgprot)
 static pte_t srmmu_mk_pte_io(unsigned long page, pgprot_t pgprot, int space)
 { return __pte(((page) >> 4) | (space << 28) | pgprot_val(pgprot)); }
 
+/* XXX should we hyper_flush_whole_icache here - Anton */
 static inline void srmmu_ctxd_set(ctxd_t *ctxp, pgd_t *pgdp)
 { srmmu_set_pte((pte_t *)ctxp, (SRMMU_ET_PTD | (__nocache_pa((unsigned long) pgdp) >> 4))); }
 
@@ -259,6 +263,7 @@ repeat:
 
 	/* we align on physical address */
 	if (align) {
+		BUG_ON(align > SRMMU_NOCACHE_ALIGN_MAX);
 		va_tmp = (SRMMU_NOCACHE_VADDR + (offset << SRMMU_NOCACHE_BITMAP_SHIFT));
 		phys_tmp = (__nocache_pa(va_tmp) + align - 1) & ~(align - 1);
 		va_tmp = (unsigned long)__nocache_va(phys_tmp);
@@ -366,7 +371,8 @@ void srmmu_nocache_init(void)
 	unsigned long paddr, vaddr;
 	unsigned long pteval;
 
-	srmmu_nocache_pool = __alloc_bootmem(srmmu_nocache_size, PAGE_SIZE, 0UL);
+	srmmu_nocache_pool = __alloc_bootmem(srmmu_nocache_size,
+		SRMMU_NOCACHE_ALIGN_MAX, 0UL);
 	memset(srmmu_nocache_pool, 0, srmmu_nocache_size);
 
 	srmmu_nocache_bitmap = __alloc_bootmem(srmmu_nocache_bitmap_size, SMP_CACHE_BYTES, 0UL);
@@ -582,8 +588,36 @@ extern void tsunami_flush_tlb_range(struct mm_struct *mm, unsigned long start, u
 extern void tsunami_flush_tlb_page(struct vm_area_struct *vma, unsigned long page);
 extern void tsunami_setup_blockops(void);
 
+/*
+ * Workaround, until we find what's going on with Swift. When low on memory,
+ * it sometimes loops in fault/handle_mm_fault incl. flush_tlb_page to find
+ * out it is already in page tables/ fault again on the same instruction.
+ * I really don't understand it, have checked it and contexts
+ * are right, flush_tlb_all is done as well, and it faults again...
+ * Strange. -jj
+ *
+ * The following code is a deadwood that may be necessary when
+ * we start to make precise page flushes again. --zaitcev
+ */
 static void swift_update_mmu_cache(struct vm_area_struct * vma, unsigned long address, pte_t pte)
 {
+#if 0
+	static unsigned long last;
+	unsigned int val;
+	/* unsigned int n; */
+
+	if (address == last) {
+		val = srmmu_hwprobe(address);
+		if (val != 0 && pte_val(pte) != val) {
+			printk("swift_update_mmu_cache: "
+			    "addr %lx put %08x probed %08x from %p\n",
+			    address, pte_val(pte), val,
+			    __builtin_return_address(0));
+			srmmu_flush_whole_tlb();
+		}
+	}
+	last = address;
+#endif
 }
 
 /* swift.S */
@@ -601,6 +635,35 @@ extern void swift_flush_tlb_range(struct mm_struct *mm,
 				  unsigned long start, unsigned long end);
 extern void swift_flush_tlb_page(struct vm_area_struct *vma, unsigned long page);
 
+#if 0  /* P3: deadwood to debug precise flushes on Swift. */
+void swift_flush_tlb_page(struct vm_area_struct *vma, unsigned long page)
+{
+	int cctx, ctx1;
+
+	page &= PAGE_MASK;
+	if ((ctx1 = vma->vm_mm->context) != -1) {
+		cctx = srmmu_get_context();
+/* Is context # ever different from current context? P3 */
+		if (cctx != ctx1) {
+			printk("flush ctx %02x curr %02x\n", ctx1, cctx);
+			srmmu_set_context(ctx1);
+			swift_flush_page(page);
+			__asm__ __volatile__("sta %%g0, [%0] %1\n\t" : :
+					"r" (page), "i" (ASI_M_FLUSH_PROBE));
+			srmmu_set_context(cctx);
+		} else {
+			 /* Rm. prot. bits from virt. c. */
+			/* swift_flush_cache_all(); */
+			/* swift_flush_cache_page(vma, page); */
+			swift_flush_page(page);
+
+			__asm__ __volatile__("sta %%g0, [%0] %1\n\t" : :
+				"r" (page), "i" (ASI_M_FLUSH_PROBE));
+			/* same as above: srmmu_flush_tlb_page() */
+		}
+	}
+}
+#endif
 
 /*
  * The following are all MBUS based SRMMU modules, and therefore could
@@ -1293,6 +1356,9 @@ static void __init poke_hypersparc(void)
 
 	srmmu_set_mmureg(mreg);
 
+#if 0 /* XXX I think this is bad news... -DaveM */
+	hyper_clear_all_tags();
+#endif
 
 	put_ross_icr(HYPERSPARC_ICCR_FTD | HYPERSPARC_ICCR_ICE);
 	hyper_flush_whole_icache();
@@ -1459,6 +1525,23 @@ static void __init init_swift(void)
 	case 0x30:
 		srmmu_modtype = Swift_lots_o_bugs;
 		hwbug_bitmask |= (HWBUG_KERN_ACCBROKEN | HWBUG_KERN_CBITBROKEN);
+		/*
+		 * Gee george, I wonder why Sun is so hush hush about
+		 * this hardware bug... really braindamage stuff going
+		 * on here.  However I think we can find a way to avoid
+		 * all of the workaround overhead under Linux.  Basically,
+		 * any page fault can cause kernel pages to become user
+		 * accessible (the mmu gets confused and clears some of
+		 * the ACC bits in kernel ptes).  Aha, sounds pretty
+		 * horrible eh?  But wait, after extensive testing it appears
+		 * that if you use pgd_t level large kernel pte's (like the
+		 * 4MB pages on the Pentium) the bug does not get tripped
+		 * at all.  This avoids almost all of the major overhead.
+		 * Welcome to a world where your vendor tells you to,
+		 * "apply this kernel patch" instead of "sorry for the
+		 * broken hardware, send it back and we'll give you
+		 * properly functioning parts"
+		 */
 		break;
 	case 0x25:
 	case 0x31:
@@ -1494,6 +1577,13 @@ static void __init init_swift(void)
 
 	flush_page_for_dma_global = 0;
 
+	/*
+	 * Are you now convinced that the Swift is one of the
+	 * biggest VLSI abortions of all time?  Bravo Fujitsu!
+	 * Fujitsu, the !#?!%$'d up processor people.  I bet if
+	 * you examined the microcode of the Swift you'd find
+	 * XXX's all over the place.
+	 */
 	poke_srmmu = poke_swift;
 }
 
@@ -1694,6 +1784,11 @@ static void __init poke_viking(void)
 		mxcc_control &= ~(MXCC_CTL_RRC);
 		mxcc_set_creg(mxcc_control);
 
+		/*
+		 * We don't need memory parity checks.
+		 * XXX This is a mess, have to dig out later. ecd.
+		viking_mxcc_turn_off_parity(&mreg, &mxcc_control);
+		 */
 
 		/* We do cache ptables on MXCC. */
 		mreg |= VIKING_TCENABLE;
@@ -1745,6 +1840,13 @@ static void __init init_viking(void)
 		BTFIXUPSET_CALL(pmd_clear, srmmu_pmd_clear, BTFIXUPCALL_NORM);
 		BTFIXUPSET_CALL(pgd_clear, srmmu_pgd_clear, BTFIXUPCALL_NORM);
 
+		/*
+		 * We need this to make sure old viking takes no hits
+		 * on it's cache for dma snoops to workaround the
+		 * "load from non-cacheable memory" interrupt bug.
+		 * This is only necessary because of the new way in
+		 * which we use the IOMMU.
+		 */
 		BTFIXUPSET_CALL(flush_page_for_dma, viking_flush_page, BTFIXUPCALL_NORM);
 
 		flush_page_for_dma_global = 0;
@@ -1962,7 +2064,7 @@ void __init ld_mmu_srmmu(void)
 	BTFIXUPSET_CALL(pmd_page, srmmu_pmd_page, BTFIXUPCALL_NORM);
 	BTFIXUPSET_CALL(pgd_page, srmmu_pgd_page, BTFIXUPCALL_NORM);
 
-	BTFIXUPSET_SETHI(none_mask, 0xF0000000); 
+	BTFIXUPSET_SETHI(none_mask, 0xF0000000); /* XXX P3: is it used? */
 
 	BTFIXUPSET_CALL(pte_present, srmmu_pte_present, BTFIXUPCALL_NORM);
 	BTFIXUPSET_CALL(pte_clear, srmmu_pte_clear, BTFIXUPCALL_SWAPO0G0);

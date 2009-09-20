@@ -11,6 +11,7 @@ USE_STANDARD_AS_RULE := true
 
 O_TARGET := cobalt.o
 
-obj-y	 := irq.o int-handler.o pci.o reset.o setup.o via.o promcon.o
+obj-y	 		:= irq.o int-handler.o reset.o setup.o via.o promcon.o
+obj-$(CONFIG_PCI)	+= pci.o
 
 include $(TOPDIR)/Rules.make

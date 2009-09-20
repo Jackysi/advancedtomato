@@ -2,7 +2,7 @@
 /* Defines for NAND Flash Translation Layer  */
 /* (c) 1999 Machine Vision Holdings, Inc.    */
 /* Author: David Woodhouse <dwmw2@mvhi.com>  */
-/* $Id: nftl.h,v 1.1.1.4 2003/10/14 08:09:27 sparq Exp $ */
+/* $Id: nftl.h,v 1.11 2002/06/18 13:54:24 dwmw2 Exp $ */
 
 #ifndef __MTD_NFTL_H__
 #define __MTD_NFTL_H__
@@ -97,7 +97,7 @@ struct NFTLrecord {
 	__u16 lastEUN;                  /* should be suppressed */
 	__u16 numfreeEUNs;
 	__u16 LastFreeEUN; 		/* To speed up finding a free EUN */
-	__u32 long nr_sects;
+	__u32 nr_sects;
 	int head,sect,cyl;
 	__u16 *EUNtable; 		/* [numvunits]: First EUN for each virtual unit  */
 	__u16 *ReplUnitTable; 		/* [numEUNs]: ReplUnitNumber for each */

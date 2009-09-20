@@ -142,7 +142,7 @@ static inline void bit_reverse_addr(unsigned char addr[6])
 
 int __init macsonic_init(struct net_device* dev)
 {
-	struct sonic_local* lp;
+	struct sonic_local* lp = NULL;
 	int i;
 
 	/* Allocate the entire chunk of memory for the descriptors.
@@ -158,6 +158,7 @@ int __init macsonic_init(struct net_device* dev)
 		desc_top = desc_base + sizeof(struct sonic_local);
 		if ((desc_top & 0xffff) >= (desc_base & 0xffff))
 			break;
+		/* Hmm. try again (FIXME: does this actually work?) */
 		kfree(lp);
 		printk(KERN_DEBUG
 		       "%s: didn't get continguous chunk [%08lx - %08lx], trying again\n",
@@ -172,6 +173,20 @@ int __init macsonic_init(struct net_device* dev)
 
 	dev->priv = lp;
 
+#if 0
+	/* this code is only here as a curiousity...   mainly, where the 
+	   fuck did SONIC_BUS_SCALE come from, and what was it supposed
+	   to do?  the normal allocation works great for 32 bit stuffs..  */
+
+	/* Now set up the pointers to point to the appropriate places */
+	lp->cda = lp->sonic_desc;
+	lp->tda = lp->cda + (SIZEOF_SONIC_CDA * SONIC_BUS_SCALE(lp->dma_bitmode));
+	lp->rda = lp->tda + (SIZEOF_SONIC_TD * SONIC_NUM_TDS
+			     * SONIC_BUS_SCALE(lp->dma_bitmode));
+	lp->rra = lp->rda + (SIZEOF_SONIC_RD * SONIC_NUM_RDS
+			     * SONIC_BUS_SCALE(lp->dma_bitmode));
+
+#endif
 	
 	memset(lp, 0, sizeof(struct sonic_local));
 
@@ -180,9 +195,11 @@ int __init macsonic_init(struct net_device* dev)
 	lp->rra_laddr = (unsigned int)lp->rra;
 	lp->rda_laddr = (unsigned int)lp->rda;
 
+	/* FIXME, maybe we should use skbs */
 	if ((lp->rba = (char *)
 	     kmalloc(SONIC_NUM_RRS * SONIC_RBSIZE, GFP_KERNEL | GFP_DMA)) == NULL) {
 		printk(KERN_ERR "%s: couldn't allocate receive buffers\n", dev->name);
+		kfree(lp);
 		return -ENOMEM;
 	}
 
@@ -199,6 +216,9 @@ int __init macsonic_init(struct net_device* dev)
 		kernel_set_cachemode(lp, ds, IOMAP_NOCACHE_SER);
 	}
 	
+#if 0
+	flush_cache_all();
+#endif
 
 	dev->open = sonic_open;
 	dev->stop = sonic_close;
@@ -559,7 +579,7 @@ int __init mac_nubus_sonic_probe(struct net_device* dev)
 		/* methinks this will always be true but better safe than sorry */
 		if (dev->priv == NULL) {
 			dev->priv = kmalloc(sizeof(struct sonic_local), GFP_KERNEL);
-			if (!dev->priv) 
+			if (!dev->priv) /* FIXME: kfree dev if necessary */
 				return -ENOMEM;
 		}
 	} else {
@@ -616,19 +636,14 @@ int __init mac_nubus_sonic_probe(struct net_device* dev)
 }
 
 #ifdef MODULE
-static char namespace[16] = "";
 static struct net_device dev_macsonic;
 
 MODULE_PARM(sonic_debug, "i");
 MODULE_PARM_DESC(sonic_debug, "macsonic debug level (1-4)");
-MODULE_LICENSE("GPL");
-
-EXPORT_NO_SYMBOLS;
 
 int
 init_module(void)
 {
-        dev_macsonic.name = namespace;
         dev_macsonic.init = macsonic_probe;
 
         if (register_netdev(&dev_macsonic) != 0) {

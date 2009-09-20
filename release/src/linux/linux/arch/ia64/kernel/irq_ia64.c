@@ -60,6 +60,7 @@ ia64_alloc_vector (void)
 	static int next_vector = IA64_FIRST_DEVICE_VECTOR;
 
 	if (next_vector > IA64_LAST_DEVICE_VECTOR)
+		/* XXX could look for sharable vectors instead of panic'ing... */
 		panic("%s: out of interrupt vectors!", __FUNCTION__);
 	return next_vector++;
 }
@@ -147,9 +148,9 @@ ia64_handle_irq (ia64_vector vector, struct pt_regs *regs)
 extern void handle_IPI (int irq, void *dev_id, struct pt_regs *regs);
 
 static struct irqaction ipi_irqaction = {
-	handler:	handle_IPI,
-	flags:		SA_INTERRUPT,
-	name:		"IPI"
+	.handler =	handle_IPI,
+	.flags =	SA_INTERRUPT,
+	.name =		"IPI"
 };
 #endif
 
@@ -177,7 +178,7 @@ init_IRQ (void)
 	register_percpu_irq(IA64_IPI_VECTOR, &ipi_irqaction);
 #endif
 #ifdef CONFIG_PERFMON
-	perfmon_init_percpu();
+	pfm_init_percpu();
 #endif
 	platform_irq_init();
 }

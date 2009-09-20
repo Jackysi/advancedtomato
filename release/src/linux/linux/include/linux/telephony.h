@@ -28,9 +28,9 @@
  * ON AN "AS IS" BASIS, AND QUICKNET TECHNOLOGIES, INC. HAS NO OBLIGATION
  * TO PROVIDE MAINTENANCE, SUPPORT, UPDATES, ENHANCEMENTS, OR MODIFICATIONS.
  *
- * Version:       $Revision: 1.1.1.4 $
+ * Version:       $Revision: 4.2 $
  *
- * $Id: telephony.h,v 1.1.1.4 2003/10/14 08:09:26 sparq Exp $
+ * $Id: telephony.h,v 4.2 2001/08/06 07:09:43 craigs Exp $
  *
  *****************************************************************************/
 

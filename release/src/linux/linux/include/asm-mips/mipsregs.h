@@ -15,6 +15,7 @@
 
 #include <linux/config.h>
 #include <linux/linkage.h>
+#include <asm/hazards.h>
 
 /*
  * The following macros are especially useful for __asm__
@@ -128,7 +129,7 @@
  * E the exception enable
  * S the sticky/flag bit
 */
-#define FPU_CSR_ALL_X 0x0003f000
+#define FPU_CSR_ALL_X   0x0003f000
 #define FPU_CSR_UNI_X   0x00020000
 #define FPU_CSR_INV_X   0x00010000
 #define FPU_CSR_DIV_X   0x00008000
@@ -183,6 +184,20 @@
 #define PM_256M		0x1fffe000
 
 #endif
+
+/*
+ * Default page size for a given kernel configuration
+ */
+#ifdef CONFIG_PAGE_SIZE_4KB
+#define PM_DEFAULT_MASK	PM_4K
+#elif defined(CONFIG_PAGE_SIZE_16KB)
+#define PM_DEFAULT_MASK	PM_16K
+#elif defined(CONFIG_PAGE_SIZE_64KB)
+#define PM_DEFAULT_MASK	PM_64K
+#else
+#error Bad page size configuration!
+#endif
+
 
 /*
  * Values used for computation of new tlb entries
@@ -373,8 +388,9 @@
 #define  CAUSEF_BD		(_ULCAST_(1)   << 31)
 
 /*
- * Bits in the coprozessor 0 config register.
+ * Bits in the coprocessor 0 config register.
  */
+/* Generic bits.  */
 #define CONF_CM_CACHABLE_NO_WA		0
 #define CONF_CM_CACHABLE_WA		1
 #define CONF_CM_UNCACHED		2
@@ -384,91 +400,80 @@
 #define CONF_CM_CACHABLE_CUW		6
 #define CONF_CM_CACHABLE_ACCELERATED	7
 #define CONF_CM_CMASK			7
+#define CONF_BE			(_ULCAST_(1) << 15)
+
+/* Bits common to various processors.  */
 #define CONF_CU			(_ULCAST_(1) <<  3)
 #define CONF_DB			(_ULCAST_(1) <<  4)
 #define CONF_IB			(_ULCAST_(1) <<  5)
-#define CONF_SE			(_ULCAST_(1) << 12)
+#define CONF_DC			(_ULCAST_(7) <<  6)
+#define CONF_IC			(_ULCAST_(7) <<  9)
+#define CONF_EB			(_ULCAST_(1) << 13)
+#define CONF_EM			(_ULCAST_(1) << 14)
+#define CONF_SM			(_ULCAST_(1) << 16)
 #define CONF_SC			(_ULCAST_(1) << 17)
-#define CONF_AC			(_ULCAST_(1) << 23)
-#define CONF_HALT		(_ULCAST_(1) << 25)
+#define CONF_EW			(_ULCAST_(3) << 18)
+#define CONF_EP			(_ULCAST_(15)<< 24)
+#define CONF_EC			(_ULCAST_(7) << 28)
+#define CONF_CM			(_ULCAST_(1) << 31)
 
-/*
- * Bits in the TX49 coprozessor 0 config register.
- */
+/* Bits specific to the R4xx0.  */
+#define R4K_CONF_SW		(_ULCAST_(1) << 20)
+#define R4K_CONF_SS		(_ULCAST_(1) << 21)
+#define R4K_CONF_SB		(_ULCAST_(3) << 22)
+
+/* Bits specific to the R5000.  */
+#define R5K_CONF_SE		(_ULCAST_(1) << 12)
+#define R5K_CONF_SS		(_ULCAST_(3) << 20)
+
+/* Bits specific to the R10000.  */
+#define R10K_CONF_DN		(_ULCAST_(3) <<  3)
+#define R10K_CONF_CT		(_ULCAST_(1) <<  5)
+#define R10K_CONF_PE		(_ULCAST_(1) <<  6)
+#define R10K_CONF_PM		(_ULCAST_(3) <<  7)
+#define R10K_CONF_EC		(_ULCAST_(15)<<  9)
+#define R10K_CONF_SB		(_ULCAST_(1) << 13)
+#define R10K_CONF_SK		(_ULCAST_(1) << 14)
+#define R10K_CONF_SS		(_ULCAST_(7) << 16)
+#define R10K_CONF_SC		(_ULCAST_(7) << 19)
+#define R10K_CONF_DC		(_ULCAST_(7) << 26)
+#define R10K_CONF_IC		(_ULCAST_(7) << 29)
+
+/* Bits specific to the VR41xx.  */
+#define VR41_CONF_CS		(_ULCAST_(1) << 12)
+#define VR41_CONF_M16		(_ULCAST_(1) << 20)
+#define VR41_CONF_AD		(_ULCAST_(1) << 23)
+
+/* Bits specific to the R30xx.  */
+#define R30XX_CONF_FDM		(_ULCAST_(1) << 19)
+#define R30XX_CONF_REV		(_ULCAST_(1) << 22)
+#define R30XX_CONF_AC		(_ULCAST_(1) << 23)
+#define R30XX_CONF_RF		(_ULCAST_(1) << 24)
+#define R30XX_CONF_HALT		(_ULCAST_(1) << 25)
+#define R30XX_CONF_FPINT	(_ULCAST_(7) << 26)
+#define R30XX_CONF_DBR		(_ULCAST_(1) << 29)
+#define R30XX_CONF_SB		(_ULCAST_(1) << 30)
+#define R30XX_CONF_LOCK		(_ULCAST_(1) << 31)
+
+/* Bits specific to the TX49.  */
 #define TX49_CONF_DC		(_ULCAST_(1) << 16)
 #define TX49_CONF_IC		(_ULCAST_(1) << 17)  /* conflict with CONF_SC */
 #define TX49_CONF_HALT		(_ULCAST_(1) << 18)
 #define TX49_CONF_CWFON		(_ULCAST_(1) << 27)
 
-/* mips32/64 definitions for CP0 config register */
-#define	CONF_MT_MASK			0x00000380		/* MMU Type */
-#define	CONF_MT_NONE			0x00000000		/* No mmu */
-#define	CONF_MT_TLB			0x00000080		/* TLB present */
-#define	CONF_MT_BAT			0x00000100		/* Block address translation */
-#define	CONF_MT_FM			0x00000180		/* Fixed map (Like 4Kp/4Km) */
-#define	CONF_AR_MASK			0x00001c00		/* Architecture revision */
-#define	CONF_AT_MASK			0x00006000		/* Architecture type */
-#define	CONF_AT_M32			0x00000000		/* mips32 */
-#define	CONF_AT_M6432			0x00002000		/* mips64/mips32?? */
-#define	CONF_AT_M64			0x00004000		/* mips64 */
-#define	CONF_BE				0x00008000		/* BigEndian */
-#define	CONF_BM				0x00010000		/* Burst Mode */
-#define	CONF_BM_SEQ			0x00000000		/* Sequential */
-#define	CONF_BM_SB			0x00010000		/* SubBlock */
-#define	CONF_MM_MASK			0x00060000		/* Merge Mode */
-#define	CONF_MM_NONE			0x00000000		/* No merging */
-#define	CONF_MM_SYSAD			0x00020000		/* SysAD merging */
-#define	CONF_MM_FULL			0x00040000		/* Full merging */
-#define	CONF_MDU			0x00100000		/* Slow MDU */
-#define	CONF_KU_MASK			0x0e000000		/* Kuseg and useg cacheability (for MT=FM) */
-#define	CONF_K23_MASK			0x70000000		/* Kseg2 and Kseg3 cacheability (for MT=FM) */
-#define	CONF_M				0x80000000		/* config1 register present */
+/* Bits specific to the MIPS32/64 PRA.  */
+#define MIPS_CONF_MT		(_ULCAST_(7) <<  7)
+#define MIPS_CONF_AR		(_ULCAST_(7) << 10)
+#define MIPS_CONF_AT		(_ULCAST_(3) << 13)
+#define MIPS_CONF_M		(_ULCAST_(1) << 31)
 
-/* mips32/64 definitions for CP0 config1 register */
-#define CONF1_FP			0x00000001		/* FPU present */
-#define CONF1_EP			0x00000002		/* EJTAG present */
-#define CONF1_CA			0x00000004		/* Code compression (mips16) implemented */
-#define CONF1_WR			0x00000008		/* Watch registers present */
-#define CONF1_PC			0x00000010		/* Performance counters present */
-#define	CONF1_DA_SHIFT			7			/* Data cache associativity */
-#define CONF1_DA_MASK			0x00000380
-#define CONF1_DA_BASE			1
-#define CONF1_DA_DM			0x00000000		/*	Direct mapped */
-#define CONF1_DA_2W			0x00000080		/*	2-way */
-#define CONF1_DA_3W			0x00000100		/*	3-way */
-#define CONF1_DA_4W			0x00000180		/*	4-way */
-#define CONF1_DL_SHIFT			10			/* Data cache line size */
-#define CONF1_DL_MASK			0x00001c00
-#define CONF1_DL_BASE			2
-#define CONF1_DL_NONE			0x00000000		/*	No data cache present */
-#define CONF1_DL_16			0x00000c00		/*	16 bytes */
-#define CONF1_DS_SHIFT			13			/* Data cache sets/way */
-#define CONF1_DS_MASK			0x0000e000
-#define CONF1_DS_BASE			64
-#define CONF1_DS_64			0x00000000		/*	64 sets */
-#define CONF1_DS_128			0x00002000		/*	128 sets */
-#define CONF1_DS_256			0x00004000		/*	256 sets */
-#define CONF1_IA_SHIFT			16			/* Instruction cache associativity */
-#define CONF1_IA_MASK			0x00070000
-#define CONF1_IA_BASE			1
-#define CONF1_IA_DM			0x00000000		/*	Direct mapped */
-#define CONF1_IA_2W			0x00010000		/*	2-way */
-#define CONF1_IA_3W			0x00020000		/*	3-way */
-#define CONF1_IA_4W			0x00030000		/*	4-way */
-#define CONF1_IL_SHIFT			19			/* Instruction cache line size */
-#define CONF1_IL_MASK			0x00380000
-#define CONF1_IL_BASE			2
-#define CONF1_IL_NONE			0x00000000		/*	No data cache present */
-#define CONF1_IL_16			0x00180000		/*	16 bytes */
-#define CONF1_IS_SHIFT			22			/* Instruction cache sets/way */
-#define CONF1_IS_MASK			0x01c00000
-#define CONF1_IS_BASE			64
-#define CONF1_IS_64			0x00000000		/*	64 sets */
-#define CONF1_IS_128			0x00400000		/*	128 sets */
-#define CONF1_IS_256			0x00800000		/*	256 sets */
-#define CONF1_MS_MASK			0x7e000000		/* Number of tlb entries */
-#define CONF1_MS_SHIFT			25
-
+/*
+ * R10000 performance counter definitions.
+ *
+ * FIXME: The R10000 performance counter opens a nice way to implement CPU
+ *        time accounting with a precission of one cycle.  I don't have
+ *        R10000 silicon but just a manual, so ...
+ */
 
 /*
  * Events counted by counter #0
@@ -624,6 +629,24 @@ do {									\
 		__write_32bit_c0_register(reg, sel, val);		\
 	else								\
 		__write_64bit_c0_register(reg, sel, val);		\
+} while (0)
+
+/*
+ * On RM7000/RM9000 these are uses to access cop0 set 1 registers
+ */
+#define __read_32bit_c0_ctrl_register(source)				\
+({ int __res;								\
+	__asm__ __volatile__(						\
+		"cfc0\t%0, " #source "\n\t"				\
+		: "=r" (__res));					\
+	__res;								\
+})
+
+#define __write_32bit_c0_ctrl_register(register, value)			\
+do {									\
+	__asm__ __volatile__(						\
+		"ctc0\t%z0, " #register "\n\t"				\
+		: : "Jr" ((unsigned int)value));			\
 } while (0)
 
 /*
@@ -783,24 +806,28 @@ do {									\
 #define read_c0_xcontext()	__read_ulong_c0_register($20, 0)
 #define write_c0_xcontext(val)	__write_ulong_c0_register($20, 0, val)
 
-#define read_c0_intcontrol()	__read_32bit_c0_register($20, 1)
-#define write_c0_intcontrol(val) __write_32bit_c0_register($20, 1, val)
+#define read_c0_intcontrol()	__read_32bit_c0_ctrl_register($20)
+#define write_c0_intcontrol(val) __write_32bit_c0_ctrl_register($20, val)
 
 #define read_c0_framemask()	__read_32bit_c0_register($21, 0)
 #define write_c0_framemask(val)	__write_32bit_c0_register($21, 0, val)
 
 #define read_c0_diag()		__read_32bit_c0_register($22, 0)
-#define read_c0_diag1()		__read_32bit_c0_register($22, 1)
-#define read_c0_diag2()		__read_32bit_c0_register($22, 2)
-#define read_c0_diag3()		__read_32bit_c0_register($22, 3)
-#define read_c0_diag4()		__read_32bit_c0_register($22, 4)
-#define read_c0_diag5()		__read_32bit_c0_register($22, 5)
-
 #define write_c0_diag(val)	__write_32bit_c0_register($22, 0, val)
+
+#define read_c0_diag1()		__read_32bit_c0_register($22, 1)
 #define write_c0_diag1(val)	__write_32bit_c0_register($22, 1, val)
+
+#define read_c0_diag2()		__read_32bit_c0_register($22, 2)
 #define write_c0_diag2(val)	__write_32bit_c0_register($22, 2, val)
+
+#define read_c0_diag3()		__read_32bit_c0_register($22, 3)
 #define write_c0_diag3(val)	__write_32bit_c0_register($22, 3, val)
+
+#define read_c0_diag4()		__read_32bit_c0_register($22, 4)
 #define write_c0_diag4(val)	__write_32bit_c0_register($22, 4, val)
+
+#define read_c0_diag5()		__read_32bit_c0_register($22, 5)
 #define write_c0_diag5(val)	__write_32bit_c0_register($22, 5, val)
 
 #define read_c0_debug()		__read_32bit_c0_register($23, 0)
@@ -842,43 +869,53 @@ do {									\
         : "=r" (__res));                                        \
         __res;})
 
-/* TLB operations. */
+/*
+ * TLB operations.
+ */
 static inline void tlb_probe(void)
 {
+	rm9000_tlb_hazard();
 	__asm__ __volatile__(
 		".set noreorder\n\t"
 		"tlbp\n\t"
 		".set reorder");
+	rm9000_tlb_hazard();
 }
 
 static inline void tlb_read(void)
 {
+	rm9000_tlb_hazard();
 	__asm__ __volatile__(
 		".set noreorder\n\t"
 		"tlbr\n\t"
 		".set reorder");
+	rm9000_tlb_hazard();
 }
 
 static inline void tlb_write_indexed(void)
 {
+	rm9000_tlb_hazard();
 	__asm__ __volatile__(
 		".set noreorder\n\t"
 		"tlbwi\n\t"
 		".set reorder");
+	rm9000_tlb_hazard();
 }
 
 static inline void tlb_write_random(void)
 {
+	rm9000_tlb_hazard();
 	__asm__ __volatile__(
 		".set noreorder\n\t"
 		"tlbwr\n\t"
 		".set reorder");
+	rm9000_tlb_hazard();
 }
 
 /*
  * Manipulate bits in a c0 register.
  */
-#define __BUILD_SET_C0(name,register)				\
+#define __BUILD_SET_C0(name)					\
 static inline unsigned int					\
 set_c0_##name(unsigned int set)					\
 {								\
@@ -916,17 +953,10 @@ change_c0_##name(unsigned int change, unsigned int new)		\
 	return res;						\
 }
 
-__BUILD_SET_C0(status,CP0_STATUS)
-__BUILD_SET_C0(cause,CP0_CAUSE)
-__BUILD_SET_C0(config,CP0_CONFIG)
-
-/*
- * Functions to access the performance counter and control registers
- */
-extern asmlinkage unsigned int read_perf_cntr(unsigned int counter);
-extern asmlinkage void write_perf_cntr(unsigned int counter, unsigned int val);
-extern asmlinkage unsigned int read_perf_cntl(unsigned int counter);
-extern asmlinkage void write_perf_cntl(unsigned int counter, unsigned int val);
+__BUILD_SET_C0(status)
+__BUILD_SET_C0(cause)
+__BUILD_SET_C0(config)
+__BUILD_SET_C0(intcontrol)
 
 #endif /* !__ASSEMBLY__ */
 

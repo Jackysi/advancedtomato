@@ -84,7 +84,7 @@ struct linux_component {
 	USHORT 			vers;	/* node version */
 	USHORT 			rev;	/* node revision */
 	ULONG 			key;	/* completely magic */
-	ULONG 			amask;	
+	ULONG 			amask;	/* XXX affinity mask??? */
 	ULONG			cdsize;	/* size of configuration data */
 	ULONG			ilen;	/* length of string identifier */
 	_PULONG			iname;	/* string identifier */
@@ -145,7 +145,7 @@ struct linux_tinfo {
 struct linux_vdirent {
 	ULONG namelen;
 	unsigned char attr;
-	char fname[32]; 
+	char fname[32]; /* XXX imperical, should be a define */
 };
 
 /* Other stuff for files. */
@@ -180,7 +180,7 @@ struct linux_finfo {
 	enum linux_devtypes   dtype;
 	unsigned long         namelen;
 	unsigned char         attr;
-	char                  name[32]; 
+	char                  name[32]; /* XXX imperical, should be define */
 };
 
 /* This describes the vector containing function pointers to the ARC
@@ -192,7 +192,7 @@ struct linux_romvec {
 					   standalone image. */
 	LONG	halt;			/* Halt the machine. */
 	LONG	pdown;			/* Power down the machine. */
-	LONG	restart;		
+	LONG	restart;		/* XXX soft reset??? */
 	LONG	reboot;			/* Reboot the machine. */
 	LONG	imode;			/* Enter PROM interactive mode. */
 	LONG	_unused1;		/* Was ReturnFromMain(). */
@@ -250,8 +250,8 @@ typedef struct _SYSTEM_PARAMETER_BLOCK {
 	USHORT			rev;		/* ARCS firmware revision */
 	_PLONG			rs_block;	/* Restart block. */
 	_PLONG			dbg_block;	/* Debug block. */
-	_PLONG			gevect;		
-	_PLONG			utlbvect;	
+	_PLONG			gevect;		/* XXX General vector??? */
+	_PLONG			utlbvect;	/* XXX UTLB vector??? */
 	ULONG			rveclen;	/* Size of romvec struct. */
 	_PVOID			romvec;		/* Function interface. */
 	ULONG			pveclen;	/* Length of private vector. */
@@ -368,8 +368,8 @@ struct linux_smonblock {
 #if defined(CONFIG_MIPS64) && defined(CONFIG_ARC32)
 
 #define __arc_clobbers							\
-	"$2","$3","$4","$5","$6","$7","$8","$9","$10","$11",		\
-	"$12","$13","$14","$15","$16","$24","25","$31"
+	"$2","$3" /* ... */, "$8","$9","$10","$11",			\
+	"$12","$13","$14","$15","$16","$24","$25","$31"
 
 #define ARC_CALL0(dest)							\
 ({	long __res;							\
@@ -381,7 +381,7 @@ struct linux_smonblock {
 	"move\t%0, $2"							\
 	: "=r" (__res), "=r" (__vec)					\
 	: "1" (__vec)							\
-	: __arc_clobbers);						\
+	: __arc_clobbers, "$4","$5","$6","$7");				\
 	(unsigned long) __res;						\
 })
 
@@ -396,7 +396,7 @@ struct linux_smonblock {
 	"move\t%0, $2"							\
 	: "=r" (__res), "=r" (__vec)					\
 	: "1" (__vec), "r" (__a1)					\
-	: __arc_clobbers);						\
+	: __arc_clobbers, "$5","$6","$7");				\
 	(unsigned long) __res;						\
 })
 
@@ -412,7 +412,7 @@ struct linux_smonblock {
 	"move\t%0, $2"							\
 	: "=r" (__res), "=r" (__vec)					\
 	: "1" (__vec), "r" (__a1), "r" (__a2)				\
-	: __arc_clobbers);						\
+	: __arc_clobbers, "$6","$7");					\
 	__res;								\
 })
 
@@ -429,7 +429,7 @@ struct linux_smonblock {
 	"move\t%0, $2"							\
 	: "=r" (__res), "=r" (__vec)					\
 	: "1" (__vec), "r" (__a1), "r" (__a2), "r" (__a3)		\
-	: __arc_clobbers);						\
+	: __arc_clobbers, "$7");					\
 	__res;								\
 })
 
@@ -462,7 +462,7 @@ struct linux_smonblock {
 	long __vec = (long) romvec->dest;				\
 	__asm__ __volatile__(						\
 	"dsubu\t$29, 32\n\t"						\
-	"sw\t%6, 16($29)\n\t"						\
+	"sw\t%7, 16($29)\n\t"						\
 	"jalr\t%1\n\t"							\
 	"daddu\t$29, 32\n\t"						\
 	"move\t%0, $2"							\
@@ -477,7 +477,7 @@ struct linux_smonblock {
 #endif /* defined(CONFIG_MIPS64) && defined(CONFIG_ARC32) */
 
 #if (defined(CONFIG_MIPS32) && defined(CONFIG_ARC32)) ||		\
-    (defined(CONFIG_MIPS64) && defined(CONFIG_ARC32))
+    (defined(CONFIG_MIPS64) && defined(CONFIG_ARC64))
 
 #define ARC_CALL0(dest)							\
 ({	long __res;							\

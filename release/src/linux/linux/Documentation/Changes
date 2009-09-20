@@ -52,11 +52,13 @@ o  Gnu C                  2.95.3                  # gcc --version
 o  Gnu make               3.77                    # make --version
 o  binutils               2.9.1.0.25              # ld -v
 o  util-linux             2.10o                   # fdformat --version
-o  modutils               2.4.2                   # insmod -V
+o  modutils               2.4.14                   # insmod -V
 o  e2fsprogs              1.25                    # tune2fs
 o  jfsutils               1.0.12                  # fsck.jfs -V
 o  reiserfsprogs          3.6.3                   # reiserfsck -V 2>&1|grep reiserfsprogs
+o  xfsprogs               2.6.0                   # xfs_db -V
 o  pcmcia-cs              3.1.21                  # cardmgr -V
+o  quota-tools            3.09                    # quota -V
 o  PPP                    2.4.0                   # pppd --version
 o  isdn4k-utils           3.1pre1                 # isdnctrl 2>&1|grep version
 			  
@@ -88,6 +90,13 @@ situation. The 2.5 tree is likely to drop egcs-1.1.2 workarounds.
 The Red Hat gcc 2.96 compiler subtree can also be used to build this tree.
 You should ensure you use gcc-2.96-74 or later. gcc-2.96-54 will not build
 the kernel correctly.
+
+gcc 3.3 and 3.4 are both known to work well. gcc 4.0 and 4.1 also work on
+a several architectures (i386, x86_64, ppc, sparc, sparc64, alpha). Other
+archs will not work. Versions 4.2 and onwards are not supported anymore.
+Supporting them would require massive in-depth changes which will add a
+lot of bugs and might break older compilers. If you don't have any gcc
+below 4.2, check Documentation/using-newer-gcc.txt for instructions.
 
 In addition, please pay attention to compiler optimization.  Anything
 greater than -O2 may not be wise.  Similarly, if you choose to use gcc-2.95.x
@@ -157,8 +166,8 @@ Modutils
 Upgrade to recent modutils to fix various outstanding bugs which are
 seen more frequently under 2.4.x, and to enable auto-loading of USB
 modules.  In addition, the layout of modules under
-/lib/modules/`uname -r`/ has been made more sane.  This change also
-requires that you upgrade to a recent modutils.
+/lib/modules/`uname -r`/ has been made more sane, and EXPORT_SYMBOL_GPL 
+also requires that you upgrade to a recent modutils.
 
 Mkinitrd
 --------
@@ -190,12 +199,30 @@ The reiserfsprogs package should be used for reiserfs-3.6.x
 versions of mkreiserfs, resize_reiserfs, debugreiserfs and
 reiserfsck. These utils work on both i386 and alpha platforms.
 
+Xfsprogs
+--------
+
+The latest version of xfsprogs contains mkfs.xfs, xfs_db, and the
+xfs_repair utilities, among others, for the XFS filesystem.  It is
+architecture independent and any version from 2.0.0 onward should
+work correctly with this version of the XFS kernel code (2.6.0 or
+later is recommended, due to some significant improvements).
+
+
 Pcmcia-cs
 ---------
 
 PCMCIA (PC Card) support is now partially implemented in the main
 kernel source.  Pay attention when you recompile your kernel ;-).
 Also, be sure to upgrade to the latest pcmcia-cs release.
+
+Quota-tools
+-----------
+
+Support for 32 bit uid's and gid's is required if you want to use
+the newer version 2 quota format.  Quota-tools version 3.07 and
+newer has this support.  Use the recommended version or newer
+from the table above.
 
 Intel IA32 microcode
 --------------------
@@ -321,11 +348,15 @@ o  <http://prdownloads.sourceforge.net/e2fsprogs/e2fsprogs-1.25.tar.gz>
 
 JFSutils
 ---------
-o  <http://oss.software.ibm.com/jfs/>
+o  <http://jfs.sourceforge.net/>
 
 Reiserfsprogs
 -------------
 o  <http://www.namesys.com/pub/reiserfsprogs/reiserfsprogs-3.6.3.tar.gz>
+
+Xfsprogs
+--------
+o  <ftp://oss.sgi.com/projects/xfs/download/>
 
 LVM toolset
 -----------
@@ -334,6 +365,10 @@ o  <http://www.sistina.com/lvm/>
 Pcmcia-cs
 ---------
 o  <ftp://pcmcia-cs.sourceforge.net/pub/pcmcia-cs/pcmcia-cs-3.1.21.tar.gz>
+
+Quota-tools
+----------
+o  <http://sourceforge.net/projects/linuxquota/>
 
 Jade
 ----

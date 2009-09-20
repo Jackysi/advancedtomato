@@ -144,11 +144,11 @@ static unsigned long h3100_read_egpio( void )
 }
 
 static struct ipaq_model_ops h3100_model_ops __initdata = {
-	model	     : IPAQ_H3100,
-	generic_name : "3100",
-	initialize   : h3100_init_egpio,
-	control      : h3100_control_egpio,
-	read	     : h3100_read_egpio
+	.model		= IPAQ_H3100,
+	.generic_name	= "3100",
+	.initialize	= h3100_init_egpio,
+	.control	= h3100_control_egpio,
+	.read		= h3100_read_egpio
 };
 
 
@@ -223,11 +223,11 @@ static unsigned long h3600_read_egpio( void )
 }
 
 static struct ipaq_model_ops h3600_model_ops __initdata = {
-	model	     : IPAQ_H3600,
-	generic_name : "3600",
-	initialize   : h3600_init_egpio,
-	control      : h3600_control_egpio,
-	read	     : h3600_read_egpio
+	.model		= IPAQ_H3600,
+	.generic_name	= "3600",
+	.initialize	= h3600_init_egpio,
+	.control	= h3600_control_egpio,
+	.read		= h3600_read_egpio
 };
 
 /************************* H3800 *************************/
@@ -331,11 +331,11 @@ static unsigned long h3800_read_egpio( void )
 }
 
 static struct ipaq_model_ops h3800_model_ops __initdata = {
-	model	     : IPAQ_H3800,
-	generic_name : "3800",
-	initialize   : h3800_init_egpio,
-	control      : h3800_control_egpio,
-	read	     : h3800_read_egpio
+	.model		= IPAQ_H3800,
+	.generic_name	= "3800",
+	.initialize	= h3800_init_egpio,
+	.control	= h3800_control_egpio,
+	.read		= h3800_read_egpio
 };
 
 
@@ -394,16 +394,16 @@ static u_int h3600_uart_get_mctrl(struct uart_port *port)
 
 static void h3600_dcd_intr(int irq, void *dev_id, struct pt_regs *regs)
 {
-	struct uart_info *info = dev_id;
+	struct uart_port *port = dev_id;
 	/* Note: should only call this if something has changed */
-	uart_handle_dcd_change(info, !(GPLR & GPIO_H3600_COM_DCD));
+	uart_handle_dcd_change(port, !(GPLR & GPIO_H3600_COM_DCD));
 }
 
 static void h3600_cts_intr(int irq, void *dev_id, struct pt_regs *regs)
 {
-	struct uart_info *info = dev_id;
+	struct uart_port *port = dev_id;
 	/* Note: should only call this if something has changed */
-	uart_handle_cts_change(info, !(GPLR & GPIO_H3600_COM_CTS));
+	uart_handle_cts_change(port, !(GPLR & GPIO_H3600_COM_CTS));
 }
 
 static void h3600_uart_pm(struct uart_port *port, u_int state, u_int oldstate)
@@ -433,7 +433,7 @@ static int h3600_uart_set_wake(struct uart_port *port, u_int enable)
 	return err;
 }
 
-static int h3600_uart_open(struct uart_port *port, struct uart_info *info)
+static int h3600_uart_open(struct uart_port *port)
 {
 	int ret = 0;
 
@@ -447,33 +447,33 @@ static int h3600_uart_open(struct uart_port *port, struct uart_info *info)
 				  GPIO_BOTH_EDGES);
 
 		ret = request_irq(IRQ_GPIO_H3600_COM_DCD, h3600_dcd_intr,
-				  0, "RS232 DCD", info);
+				  0, "RS232 DCD", port);
 		if (ret)
 			return ret;
 
 		ret = request_irq(IRQ_GPIO_H3600_COM_CTS, h3600_cts_intr,
-				  0, "RS232 CTS", info);
+				  0, "RS232 CTS", port);
 		if (ret)
-			free_irq(IRQ_GPIO_H3600_COM_DCD, info);
+			free_irq(IRQ_GPIO_H3600_COM_DCD, port);
 	}
 	return ret;
 }
 
-static void h3600_uart_close(struct uart_port *port, struct uart_info *info)
+static void h3600_uart_close(struct uart_port *port)
 {
 	if (port->mapbase == _Ser3UTCR0) {
-		free_irq(IRQ_GPIO_H3600_COM_DCD, info);
-		free_irq(IRQ_GPIO_H3600_COM_CTS, info);
+		free_irq(IRQ_GPIO_H3600_COM_DCD, port);
+		free_irq(IRQ_GPIO_H3600_COM_CTS, port);
 	}
 }
 
 static struct sa1100_port_fns h3600_port_fns __initdata = {
-	set_mctrl:	h3600_uart_set_mctrl,
-	get_mctrl:	h3600_uart_get_mctrl,
-	pm:		h3600_uart_pm,
-	set_wake:	h3600_uart_set_wake,
-	open:		h3600_uart_open,
-	close:		h3600_uart_close,
+	.set_mctrl	= h3600_uart_set_mctrl,
+	.get_mctrl	= h3600_uart_get_mctrl,
+	.pm		= h3600_uart_pm,
+	.set_wake	= h3600_uart_set_wake,
+	.open		= h3600_uart_open,
+	.close		= h3600_uart_close,
 };
 
 static struct map_desc h3600_io_desc[] __initdata = {

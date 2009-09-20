@@ -92,55 +92,37 @@ static inline unsigned short int csum_fold(unsigned int sum)
  *	By Jorge Cwik <jorge@laser.satlink.net>, adapted for linux by
  *	Arnt Gulbrandsen.
  */
-static inline unsigned short ip_fast_csum(unsigned char *iph,
-					  unsigned int ihl)
+static inline unsigned short ip_fast_csum(unsigned char *iph, unsigned int ihl)
 {
-	unsigned int sum;
-	unsigned long dummy;
+	unsigned int *word = (unsigned int *) iph;
+	unsigned int *stop = word + ihl;
+	unsigned int csum;
+	int carry;
 
-	/*
-	 * This is for 32-bit MIPS processors.
-	 */
-	__asm__ __volatile__(
-	".set\tnoreorder\t\t\t# ip_fast_csum\n\t"
-	".set\tnoat\n\t"
-	"lw\t%0, (%1)\n\t"
-	"subu\t%2, 4\n\t"
-	"#blez\t%2, 2f\n\t"
-	" sll\t%2, 2\n\t"
-	"lw\t%3, 4(%1)\n\t"
-	"addu\t%2, %1\n\t"
-	"addu\t%0, %3\n\t"
-	"sltu\t$1, %0, %3\n\t"
-	"lw\t%3, 8(%1)\n\t"
-	"addu\t%0, $1\n\t"
-	"addu\t%0, %3\n\t"
-	"sltu\t$1, %0, %3\n\t"
-	"lw\t%3, 12(%1)\n\t"
-	"addu\t%0, $1\n\t"
-	"addu\t%0, %3\n\t"
-	"sltu\t$1, %0, %3\n\t"
-	"addu\t%0, $1\n"
+	csum = word[0];
+	csum += word[1];
+	carry = (csum < word[1]);
+	csum += carry;
 
-	"1:\tlw\t%3, 16(%1)\n\t"
-	"addiu\t%1, 4\n\t"
-	"addu\t%0, %3\n\t"
-	"sltu\t$1, %0, %3\n\t"
-	"bne\t%2, %1, 1b\n\t"
-	" addu\t%0, $1\n"
+	csum += word[2];
+	carry = (csum < word[2]);
+	csum += carry;
 
-	"2:\t.set\tat\n\t"
-	".set\treorder"
-	: "=&r" (sum), "=&r" (iph), "=&r" (ihl), "=&r" (dummy)
-	: "1" (iph), "2" (ihl));
+	csum += word[3];
+	carry = (csum < word[3]);
+	csum += carry;
 
-	return csum_fold(sum);
+	word += 4;
+	do {
+		csum += *word;
+		carry = (csum < *word);
+		csum += carry;
+		word++;
+	} while (word != stop);
+
+	return csum_fold(csum);
 }
 
-/*
- * computes the checksum of the TCP/UDP pseudo-header
- * returns a 16-bit checksum, already complemented
- */
 static inline unsigned long csum_tcpudp_nofold(unsigned long saddr,
                                                unsigned long daddr,
                                                unsigned short len,

@@ -1,4 +1,4 @@
-/* $Id: hysdn_if.h,v 1.1.1.4 2003/10/14 08:09:25 sparq Exp $
+/* $Id: hysdn_if.h,v 1.1.8.3 2001/09/23 22:25:05 kai Exp $
  *
  * Linux driver for HYSDN cards
  * ioctl definitions shared by hynetmgr and driver.

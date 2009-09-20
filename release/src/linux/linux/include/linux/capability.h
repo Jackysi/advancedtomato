@@ -21,6 +21,11 @@
    kernel might be somewhat backwards compatible, but don't bet on
    it. */
 
+/* XXX - Note, cap_t, is defined by POSIX to be an "opaque" pointer to
+   a set of three capability sets.  The transposition of 3*the
+   following structure to such a composite is better handled in a user
+   library since the draft standard requires the use of malloc/free
+   etc.. */
  
 #define _LINUX_CAPABILITY_VERSION  0x19980330
 
@@ -93,10 +98,6 @@ typedef __u32 kernel_cap_t;
    cleared on successful return from chown(2) (not implemented). */
 
 #define CAP_FSETID           4
-
-/* Used to decide between falling back on the old suser() or fsuser(). */
-
-#define CAP_FS_MASK          0x1f
 
 /* Overrides the restriction that the real or effective user ID of a
    process sending a signal must match the real or effective user ID
@@ -295,6 +296,16 @@ extern kernel_cap_t cap_bset;
 #define cap_t(x) (x)
 
 #endif
+
+/* Used to decide between falling back on the old suser() or fsuser(). */
+
+#define CAP_FS_MASK	(CAP_TO_MASK(CAP_CHOWN)			\
+			| CAP_TO_MASK(CAP_DAC_OVERRIDE)		\
+			| CAP_TO_MASK(CAP_DAC_READ_SEARCH)	\
+			| CAP_TO_MASK(CAP_FOWNER)		\
+			| CAP_TO_MASK(CAP_FSETID)		\
+			| CAP_TO_MASK(CAP_LINUX_IMMUTABLE)	\
+			| CAP_TO_MASK(CAP_MKNOD))
 
 #define CAP_EMPTY_SET       to_cap_t(0)
 #define CAP_FULL_SET        to_cap_t(~0)

@@ -325,6 +325,10 @@ struct coda_statfs {
 
 #define CIOC_KERNEL_VERSION _IOWR('c', 10, sizeof (int))
 
+#if 0
+#define CODA_KERNEL_VERSION 0 /* don't care about kernel version number */
+#define CODA_KERNEL_VERSION 1 /* The old venus 4.6 compatible interface */
+#endif
 #define CODA_KERNEL_VERSION 2 /* venus_lookup gets an extra parameter */
 
 /*
@@ -763,8 +767,8 @@ union coda_downcalls {
 #define PIOCPARM_MASK 0x0000ffff
 struct ViceIoctl {
         caddr_t in, out;        /* Data to be transferred in, or out */
-        short in_size;          /* Size of input buffer <= 2K */
-        short out_size;         /* Maximum size of output buffer, <= 2K */
+        u_short in_size;        /* Size of input buffer <= 2K */
+        u_short out_size;       /* Maximum size of output buffer, <= 2K */
 };
 
 struct PioctlData {

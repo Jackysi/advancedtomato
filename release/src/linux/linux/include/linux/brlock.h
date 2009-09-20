@@ -18,16 +18,6 @@
  * Registry idea and naming [ crutial! :-) ] by:
  *
  *                 David S. Miller <davem@redhat.com>
- *
- * David has an implementation that doesn't use atomic operations in
- * the read branch via memory ordering tricks - i guess we need to
- * split this up into a per-arch thing? The atomicity issue is a
- * secondary item in profiles, at least on x86 platforms.
- *
- * The atomic op version overhead is indeed a big deal on
- * load-locked/store-conditional cpus (ALPHA/MIPS/PPC) and
- * compare-and-swap cpus (Sparc64).  So we control which
- * implementation to use with a __BRLOCK_USE_ATOMICS define. -DaveM
  */
 
 /* Register bigreader lock indices here. */
@@ -45,17 +35,7 @@ enum brlock_indices {
 #include <linux/cache.h>
 #include <linux/spinlock.h>
 
-#if defined(__i386__) || defined(__ia64__) || defined(__x86_64__)
-#define __BRLOCK_USE_ATOMICS
-#else
-#undef __BRLOCK_USE_ATOMICS
-#endif
-
-#ifdef __BRLOCK_USE_ATOMICS
-typedef rwlock_t	brlock_read_lock_t;
-#else
 typedef unsigned int	brlock_read_lock_t;
-#endif
 
 /*
  * align last allocated index to the next cacheline:
@@ -65,39 +45,14 @@ typedef unsigned int	brlock_read_lock_t;
 
 extern brlock_read_lock_t __brlock_array[NR_CPUS][__BR_IDX_MAX];
 
-#ifndef __BRLOCK_USE_ATOMICS
 struct br_wrlock {
 	spinlock_t lock;
 } __attribute__ ((__aligned__(SMP_CACHE_BYTES)));
 
 extern struct br_wrlock __br_write_locks[__BR_IDX_MAX];
-#endif
 
 extern void __br_lock_usage_bug (void);
 
-#ifdef __BRLOCK_USE_ATOMICS
-
-static inline void br_read_lock (enum brlock_indices idx)
-{
-	/*
-	 * This causes a link-time bug message if an
-	 * invalid index is used:
-	 */
-	if (idx >= __BR_END)
-		__br_lock_usage_bug();
-
-	read_lock(&__brlock_array[smp_processor_id()][idx]);
-}
-
-static inline void br_read_unlock (enum brlock_indices idx)
-{
-	if (idx >= __BR_END)
-		__br_lock_usage_bug();
-
-	read_unlock(&__brlock_array[smp_processor_id()][idx]);
-}
-
-#else /* ! __BRLOCK_USE_ATOMICS */
 static inline void br_read_lock (enum brlock_indices idx)
 {
 	unsigned int *ctr;
@@ -149,7 +104,6 @@ static inline void br_read_unlock (enum brlock_indices idx)
 	wmb();
 	(*ctr)--;
 }
-#endif /* __BRLOCK_USE_ATOMICS */
 
 /* write path not inlined - it's rare and larger */
 

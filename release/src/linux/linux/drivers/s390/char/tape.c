@@ -412,7 +412,7 @@ tape_init_emergency_req (void)
 	}
 }
 
-#ifdef MODULE     // We only cleanup the emergency requests on module unload.
+#ifdef MODULE // We only cleanup the emergency requests on module unload.
 static void
 tape_cleanup_emergency_req (void)
 {
@@ -682,6 +682,38 @@ tape_dump_sense (devstat_t * stat)
 {
 #ifdef TAPE_DEBUG
         int sl;
+#endif
+#if 0
+
+	PRINT_WARN ("------------I/O resulted in unit check:-----------\n");
+	for (sl = 0; sl < 4; sl++) {
+		PRINT_WARN ("Sense:");
+		for (sct = 0; sct < 8; sct++) {
+			PRINT_WARN (" %2d:0x%02X", 8 * sl + sct,
+				    stat->ii.sense.data[8 * sl + sct]);
+		}
+		PRINT_WARN ("\n");
+	}
+	PRINT_INFO ("Sense data: %02X%02X%02X%02X %02X%02X%02X%02X "
+		    " %02X%02X%02X%02X %02X%02X%02X%02X \n",
+		    stat->ii.sense.data[0], stat->ii.sense.data[1],
+		    stat->ii.sense.data[2], stat->ii.sense.data[3],
+		    stat->ii.sense.data[4], stat->ii.sense.data[5],
+		    stat->ii.sense.data[6], stat->ii.sense.data[7],
+		    stat->ii.sense.data[8], stat->ii.sense.data[9],
+		    stat->ii.sense.data[10], stat->ii.sense.data[11],
+		    stat->ii.sense.data[12], stat->ii.sense.data[13],
+		    stat->ii.sense.data[14], stat->ii.sense.data[15]);
+	PRINT_INFO ("Sense data: %02X%02X%02X%02X %02X%02X%02X%02X "
+		    " %02X%02X%02X%02X %02X%02X%02X%02X \n",
+		    stat->ii.sense.data[16], stat->ii.sense.data[17],
+		    stat->ii.sense.data[18], stat->ii.sense.data[19],
+		    stat->ii.sense.data[20], stat->ii.sense.data[21],
+		    stat->ii.sense.data[22], stat->ii.sense.data[23],
+		    stat->ii.sense.data[24], stat->ii.sense.data[25],
+		    stat->ii.sense.data[26], stat->ii.sense.data[27],
+		    stat->ii.sense.data[28], stat->ii.sense.data[29],
+		    stat->ii.sense.data[30], stat->ii.sense.data[31]);
 #endif
 #ifdef TAPE_DEBUG
         debug_text_event (tape_debug_area,3,"SENSE:");

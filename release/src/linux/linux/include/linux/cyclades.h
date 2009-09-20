@@ -1,4 +1,4 @@
-/* $Revision: 1.1.1.2 $$Date: 2003/10/14 08:09:24 $
+/* $Revision: 3.0 $$Date: 1998/11/02 14:20:59 $
  * linux/include/linux/cyclades.h
  *
  * This file was initially written by
@@ -7,12 +7,6 @@
  *
  * This file contains the general definitions for the cyclades.c driver
  *$Log: cyclades.h,v $
- *Revision 1.1.1.2  2003/10/14 08:09:24  sparq
- *Broadcom Release 3.51.8.0 for BCM4712.
- *
- *Revision 1.1.1.1  2003/02/03 22:38:16  mhuang
- *LINUX_2_4 branch snapshot from linux-mips.org CVS
- *
  *Revision 3.1  2000/04/19 18:52:52  ivan
  *converted address fields to unsigned long and added fields for physical
  *addresses on cyclades_card structure;
@@ -520,9 +514,7 @@ struct cyclades_card {
     int nports;		/* Number of ports in the card */
     int bus_index;	/* address shift - 0 for ISA, 1 for PCI */
     int	intr_enabled;	/* FW Interrupt flag - 0 disabled, 1 enabled */
-    struct resource *resource;
-    unsigned long res_start;
-    unsigned long res_len;
+    struct pci_dev *pdev;
 #ifdef __KERNEL__
     spinlock_t card_lock;
 #else

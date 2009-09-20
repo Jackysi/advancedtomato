@@ -292,6 +292,7 @@ D700_detect(Scsi_Host_Template *tpnt)
 				continue;
 			}
 			host->irq = irq;
+			/* FIXME: Read this from SUS */
 			host->this_id = id_array[slot * 2 + i];
 			printk(KERN_NOTICE "NCR D700: SIOP%d, SCSI id is %d\n",
 			       i, host->this_id);

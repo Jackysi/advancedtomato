@@ -2,17 +2,11 @@
 # Network device configuration
 #
 
-source drivers/net/hnd/Config.in
 source drivers/net/arcnet/Config.in
 
 tristate 'Dummy net driver support' CONFIG_DUMMY
 tristate 'Bonding driver support' CONFIG_BONDING
 tristate 'EQL (serial line load balancing) support' CONFIG_EQUALIZER
-if [ "$CONFIG_NETFILTER" = "y" ]; then
-  tristate 'IMQ (intermediate queueing device) support' CONFIG_IMQ
-else
-  comment 'IMQ needs CONFIG_NETFILTER enabled'
-fi
 tristate 'Universal TUN/TAP device driver support' CONFIG_TUN
 if [ "$CONFIG_EXPERIMENTAL" = "y" ]; then
    tristate 'Ethertap network tap (OBSOLETE)' CONFIG_ETHERTAP
@@ -32,9 +26,13 @@ bool 'Ethernet (10 or 100Mbit)' CONFIG_NET_ETHERNET
 if [ "$CONFIG_NET_ETHERNET" = "y" ]; then
    if [ "$CONFIG_ARM" = "y" ]; then  
       dep_bool '  ARM EBSA110 AM79C961A support' CONFIG_ARM_AM79C961A $CONFIG_ARCH_EBSA110
+      tristate '  Cirrus Logic CS8900A support' CONFIG_ARM_CIRRUS
       if [ "$CONFIG_ARCH_ACORN" = "y" ]; then
          source drivers/acorn/net/Config.in
       fi
+   fi
+   if [ "$CONFIG_ARCH_CAMELOT" = "y" ]; then
+	tristate ' Altera Ether00 support' CONFIG_ETHER00
    fi
    if [ "$CONFIG_PPC" = "y" ]; then
       dep_tristate '  MACE (Power Mac ethernet) support' CONFIG_MACE $CONFIG_ALL_PPC
@@ -51,9 +49,9 @@ if [ "$CONFIG_NET_ETHERNET" = "y" ]; then
    fi
    if [ "$CONFIG_ZORRO" = "y" ]; then
       tristate '  Ariadne support' CONFIG_ARIADNE
-      tristate '  Ariadne II and X-Surf support' CONFIG_NE2K_ZORRO
       tristate '  A2065 support' CONFIG_A2065
       tristate '  Hydra support' CONFIG_HYDRA
+      tristate '  Zorro NS8390-based Ethernet support' CONFIG_ZORRO8390
    fi
    if [ "$CONFIG_PARISC" = "y" ]; then
       dep_tristate '  Lasi ethernet' CONFIG_LASI_82596 $CONFIG_GSC_LASI
@@ -61,20 +59,20 @@ if [ "$CONFIG_NET_ETHERNET" = "y" ]; then
    if [ "$CONFIG_MIPS_JAZZ" = "y" ]; then
       tristate '  MIPS JAZZ onboard SONIC Ethernet support' CONFIG_MIPS_JAZZ_SONIC
    fi
+   if [ "$CONFIG_MOMENCO_OCELOT_G" = "y" ]; then
+      bool '  GT-64240 Ethernet support' CONFIG_GALILEO_64240_ETH
+   fi
    if [ "$CONFIG_MIPS_GT96100" = "y" ]; then
       bool '  MIPS GT96100 Ethernet support' CONFIG_MIPS_GT96100ETH
    fi
-   if [ "$CONFIG_CPU_AU1X00" = "y" ]; then
-      bool '  MIPS Au1x00 Ethernet support' CONFIG_MIPS_AU1X00_ENET
-   fi
-   if [ "$CONFIG_SIBYTE_SB1250" = "y" ]; then
-      tristate '  SB1250 Ethernet support' CONFIG_NET_SB1250_MAC
+   if [ "$CONFIG_SOC_AU1X00" = "y" ]; then
+      tristate '  MIPS Au1x00 Ethernet support' CONFIG_MIPS_AU1X00_ENET
+      if [ "$CONFIG_MIPS_AU1X00_ENET" = "y" ]; then
+         bool '   Broadcom 5222 Dual Phy Support' CONFIG_BCM5222_DUAL_PHY
+      fi
    fi
    if [ "$CONFIG_SGI_IP27" = "y" ]; then
       bool '  SGI IOC3 Ethernet' CONFIG_SGI_IOC3_ETH
-   fi
-   if [ "$CONFIG_SGI_IP32" = "y" ]; then
-      tristate '  SGI O2 MACE Fast Ethernet support' CONFIG_SGI_O2MACE_ETH
    fi
    if [ "$CONFIG_IA64_SGI_SN1" = "y" ]; then
       bool '  SGI IOC3 Ethernet' CONFIG_SGI_IOC3_ETH
@@ -105,6 +103,9 @@ if [ "$CONFIG_NET_ETHERNET" = "y" ]; then
       dep_tristate '    3c527 "EtherLink/MC 32" support (EXPERIMENTAL)' CONFIG_ELMC_II $CONFIG_MCA $CONFIG_EXPERIMENTAL
       if [ "$CONFIG_PCI" = "y" -o "$CONFIG_EISA" = "y" ]; then
          tristate '    3c590/3c900 series (592/595/597) "Vortex/Boomerang" support' CONFIG_VORTEX
+      fi
+      if [ "$CONFIG_PCI" = "y" ]; then
+	 tristate '    3cr990 series "Typhoon" support' CONFIG_TYPHOON
       fi
    fi
    dep_tristate '  AMD LANCE and PCnet (AT1500 and NE2100) support' CONFIG_LANCE $CONFIG_ISA
@@ -164,12 +165,14 @@ if [ "$CONFIG_NET_ETHERNET" = "y" ]; then
    fi
    if [ "$CONFIG_NET_PCI" = "y" ]; then
       dep_tristate '    AMD PCnet32 PCI support' CONFIG_PCNET32 $CONFIG_PCI
+      dep_tristate '    AMD 8111 (new PCI lance) support' CONFIG_AMD8111_ETH $CONFIG_PCI
       dep_tristate '    Adaptec Starfire/DuraLAN support' CONFIG_ADAPTEC_STARFIRE $CONFIG_PCI
       if [ "$CONFIG_ISA" = "y" -o "$CONFIG_EISA" = "y" ]; then
 	 dep_tristate '    Ansel Communications EISA 3200 support (EXPERIMENTAL)' CONFIG_AC3200 $CONFIG_EXPERIMENTAL
       fi
 
       dep_tristate '    Apricot Xen-II on board Ethernet' CONFIG_APRICOT $CONFIG_ISA
+      dep_tristate '    Broadcom 4400 ethernet support (EXPERIMENTAL)' CONFIG_B44 $CONFIG_PCI $CONFIG_EXPERIMENTAL
       dep_tristate '    CS89x0 support' CONFIG_CS89x0 $CONFIG_ISA
       dep_tristate '    DECchip Tulip (dc21x4x) PCI support' CONFIG_TULIP $CONFIG_PCI
       if [ "$CONFIG_TULIP" = "y" -o "$CONFIG_TULIP" = "m" ]; then
@@ -182,11 +185,17 @@ if [ "$CONFIG_NET_ETHERNET" = "y" ]; then
       fi
       dep_tristate '    Davicom DM910x/DM980x support' CONFIG_DM9102 $CONFIG_PCI
       dep_tristate '    EtherExpressPro/100 support (eepro100, original Becker driver)' CONFIG_EEPRO100 $CONFIG_PCI
+      if [ "$CONFIG_VISWS" = "y" ]; then
+         define_bool CONFIG_EEPRO100_PIO y
+      else
+         dep_mbool '      Use PIO instead of MMIO' CONFIG_EEPRO100_PIO $CONFIG_EEPRO100
+      fi  
       dep_tristate '    EtherExpressPro/100 support (e100, Alternate Intel driver)' CONFIG_E100 $CONFIG_PCI
       dep_tristate '    Mylex EISA LNE390A/B support (EXPERIMENTAL)' CONFIG_LNE390 $CONFIG_EISA $CONFIG_EXPERIMENTAL
       dep_tristate '    Myson MTD-8xx PCI Ethernet support' CONFIG_FEALNX $CONFIG_PCI
       dep_tristate '    National Semiconductor DP8381x series PCI Ethernet support' CONFIG_NATSEMI $CONFIG_PCI
       dep_tristate '    PCI NE2000 and clones support (see help)' CONFIG_NE2K_PCI $CONFIG_PCI
+      dep_tristate '    nForce Ethernet support (EXPERIMENTAL)' CONFIG_FORCEDETH $CONFIG_PCI $CONFIG_EXPERIMENTAL
       dep_tristate '    Novell/Eagle/Microdyne NE3210 EISA support (EXPERIMENTAL)' CONFIG_NE3210 $CONFIG_EISA $CONFIG_EXPERIMENTAL
       dep_tristate '    Racal-Interlan EISA ES3210 support (EXPERIMENTAL)' CONFIG_ES3210 $CONFIG_EISA $CONFIG_EXPERIMENTAL
       dep_tristate '    RealTek RTL-8139 C+ PCI Fast Ethernet Adapter support (EXPERIMENTAL)' CONFIG_8139CP $CONFIG_PCI $CONFIG_EXPERIMENTAL
@@ -202,7 +211,9 @@ if [ "$CONFIG_NET_ETHERNET" = "y" ]; then
       if [ "$CONFIG_PCI" = "y" -o "$CONFIG_EISA" = "y" ]; then
          tristate '    TI ThunderLAN support' CONFIG_TLAN
       fi
-      dep_tristate '    TOSHIBA TC35815 Ethernet support' CONFIG_TC35815 $CONFIG_PCI
+      if [ "$CONFIG_TOSHIBA_JMR3927" = "y" ]; then
+	 dep_tristate '    TOSHIBA TC35815 Ethernet support' CONFIG_TC35815 $CONFIG_PCI
+      fi
       dep_tristate '    VIA Rhine support' CONFIG_VIA_RHINE $CONFIG_PCI
       dep_mbool '      Use MMIO instead of PIO (EXPERIMENTAL)' CONFIG_VIA_RHINE_MMIO $CONFIG_VIA_RHINE $CONFIG_EXPERIMENTAL
       dep_tristate '    Winbond W89c840 Ethernet support' CONFIG_WINBOND_840 $CONFIG_PCI
@@ -222,7 +233,7 @@ if [ "$CONFIG_NET_ETHERNET" = "y" ]; then
       dep_tristate '    D-Link DE620 pocket adapter support' CONFIG_DE620 $CONFIG_ISA
    fi
    if [ "$CONFIG_SGI_IP22" = "y" ]; then
-      bool '  SGI Seeq ethernet controller support' CONFIG_SGISEEQ
+      tristate '  SGI Seeq ethernet controller support' CONFIG_SGISEEQ
    fi
    if [ "$CONFIG_DECSTATION" = "y" ]; then
       tristate '  DEC LANCE ethernet controller support' CONFIG_DECLANCE
@@ -250,23 +261,51 @@ if [ "$CONFIG_ACENIC" != "n" ]; then
 fi
 dep_tristate 'D-Link DL2000-based Gigabit Ethernet support' CONFIG_DL2K $CONFIG_PCI
 dep_tristate 'Intel(R) PRO/1000 Gigabit Ethernet support' CONFIG_E1000 $CONFIG_PCI
+if [ "$CONFIG_E1000" != "n" ]; then
+   bool '  Use Rx Polling (NAPI)' CONFIG_E1000_NAPI
+fi
 dep_tristate 'MyriCOM Gigabit Ethernet support' CONFIG_MYRI_SBUS $CONFIG_SBUS
 dep_tristate 'National Semiconductor DP83820 support' CONFIG_NS83820 $CONFIG_PCI
 dep_tristate 'Packet Engines Hamachi GNIC-II support' CONFIG_HAMACHI $CONFIG_PCI
 dep_tristate 'Packet Engines Yellowfin Gigabit-NIC support (EXPERIMENTAL)' CONFIG_YELLOWFIN $CONFIG_PCI $CONFIG_EXPERIMENTAL
-dep_tristate 'SysKonnect SK-98xx support' CONFIG_SK98LIN $CONFIG_PCI
+dep_tristate 'Realtek 8169 Gigabit Ethernet support' CONFIG_R8169 $CONFIG_PCI
+if [ "$CONFIG_SIBYTE_SB1xxx_SOC" = "y" ]; then
+   tristate 'SB1250 Ethernet support' CONFIG_NET_SB1250_MAC
+fi
+
+dep_tristate 'Alternate Marvell Yukon Chipset Support (not Yukon2)' CONFIG_SKGE $CONFIG_PCI
+dep_tristate 'Alternate Marvell Yukon 2 Chipset Support' CONFIG_SKY2 $CONFIG_PCI
+
+dep_tristate 'Marvell Yukon Chipset / SysKonnect SK-98xx Support' CONFIG_SK98LIN $CONFIG_PCI
 dep_tristate 'Broadcom Tigon3 support' CONFIG_TIGON3 $CONFIG_PCI
 
+if [ "$CONFIG_MOMENCO_OCELOT_C" = "y" -o "$CONFIG_MOMENCO_JAGUAR_ATX" = "y" ]; then
+   bool '  MV-64340 Ethernet support' CONFIG_MV64340_ETH
+   dep_bool '    MV-64340 Port 0' CONFIG_MV64340_ETH_0 $CONFIG_MV64340_ETH
+   dep_bool '    MV-64340 Port 1' CONFIG_MV64340_ETH_1 $CONFIG_MV64340_ETH
+   dep_bool '    MV-64340 Port 2' CONFIG_MV64340_ETH_2 $CONFIG_MV64340_ETH
+fi
+
+if [ "$CONFIG_PMC_BIG_SUR" = "y" ]; then
+   tristate 'PMC-Sierra Big Sur Fast Ethernet Adapter' CONFIG_BIG_SUR_FE
+fi
+if [ "$CONFIG_PMC_YOSEMITE" = "y" ]; then
+   tristate 'PMC-Sierra TITAN Gigabit Ethernet Support' CONFIG_TITAN_GE
+fi
 endmenu
 
 if [ "$CONFIG_PPC_ISERIES" = "y" ]; then
    dep_tristate 'iSeries Virtual Ethernet driver support' CONFIG_VETH $CONFIG_PPC_ISERIES
 fi
 
+if [ "$CONFIG_4xx" = "y" ]; then
+   source drivers/net/ibm_emac/Config.in
+fi
+
 bool 'FDDI driver support' CONFIG_FDDI
 if [ "$CONFIG_FDDI" = "y" ]; then
-   if [ "$CONFIG_PCI" = "y" -o "$CONFIG_EISA" = "y" ]; then
-      tristate '  Digital DEFEA and DEFPA adapter support' CONFIG_DEFXX
+   if [ "$CONFIG_TC" = "y" -o "$CONFIG_EISA" = "y" -o "$CONFIG_PCI" = "y" ]; then
+      tristate '  Digital DEFTA/DEFEA/DEFPA adapter support' CONFIG_DEFXX
    fi
    dep_tristate '  SysKonnect FDDI PCI support' CONFIG_SKFP $CONFIG_PCI
 fi
@@ -283,6 +322,10 @@ if [ "$CONFIG_EXPERIMENTAL" = "y" ]; then
    fi
 fi
 
+if [ "$CONFIG_PPC_PSERIES" = "y" ]; then
+   dep_tristate 'IBM PowerPC Virtual Ethernet driver support' CONFIG_IBMVETH $CONFIG_PPC_PSERIES
+fi 
+
 dep_tristate 'PLIP (parallel port) support' CONFIG_PLIP $CONFIG_PARPORT
 
 tristate 'PPP (point-to-point protocol) support' CONFIG_PPP
@@ -296,8 +339,8 @@ if [ ! "$CONFIG_PPP" = "n" ]; then
    if [ "$CONFIG_EXPERIMENTAL" = "y" ]; then
       dep_tristate '  PPP over Ethernet (EXPERIMENTAL)' CONFIG_PPPOE $CONFIG_PPP
    fi
-   if [ ! "$CONFIG_ATM" = "n" ]; then
-      dep_tristate '  PPP over ATM (EXPERIMENTAL)' CONFIG_PPPOATM $CONFIG_PPP $CONFIG_EXPERIMENTAL
+   if [ "$CONFIG_ATM" = "y" -o "$CONFIG_ATM" = "m" ]; then
+      dep_tristate '  PPP over ATM (EXPERIMENTAL)' CONFIG_PPPOATM $CONFIG_PPP $CONFIG_ATM
    fi
 fi
 

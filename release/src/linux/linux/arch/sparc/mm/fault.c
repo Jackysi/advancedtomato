@@ -1,4 +1,4 @@
-/* $Id: fault.c,v 1.1.1.4 2003/10/14 08:07:49 sparq Exp $
+/* $Id: fault.c,v 1.122 2001/11/17 07:19:26 davem Exp $
  * fault.c:  Page fault handlers for the Sparc.
  *
  * Copyright (C) 1995 David S. Miller (davem@caip.rutgers.edu)
@@ -139,7 +139,7 @@ static void unhandled_fault(unsigned long address, struct task_struct *tsk,
 {
 	if((unsigned long) address < PAGE_SIZE) {
 		printk(KERN_ALERT "Unable to handle kernel NULL "
-		       "pointer dereference");
+		       "pointer dereference\n");
 	} else {
 		printk(KERN_ALERT "Unable to handle kernel paging request "
 		       "at virtual address %08lx\n", address);
@@ -198,6 +198,25 @@ asmlinkage int lookup_fault(unsigned long pc, unsigned long ret_pc,
 
 	/* Not reached */
 	return 0;
+}
+
+extern unsigned long safe_compute_effective_address(struct pt_regs *,
+						    unsigned int);
+
+static unsigned long compute_si_addr(struct pt_regs *regs, int text_fault)
+{
+	unsigned int insn;
+
+	if (text_fault)
+		return regs->pc;
+
+	if (regs->psr & PSR_PS) {
+		insn = *(unsigned int *) regs->pc;
+	} else {
+		__get_user(insn, (unsigned int *) regs->pc);
+	}
+
+	return safe_compute_effective_address(regs, insn);
 }
 
 asmlinkage void do_sparc_fault(struct pt_regs *regs, int text_fault, int write,
@@ -298,11 +317,15 @@ bad_area:
 bad_area_nosemaphore:
 	/* User mode accesses just cause a SIGSEGV */
 	if(from_user) {
+#if 0
+		printk("Fault whee %s [%d]: segfaults at %08lx pc=%08lx\n",
+		       tsk->comm, tsk->pid, address, regs->pc);
+#endif
 		info.si_signo = SIGSEGV;
 		info.si_errno = 0;
 		/* info.si_code set above to make clear whether
 		   this was a SEGV_MAPERR or SEGV_ACCERR fault.  */
-		info.si_addr = (void *)address;
+		info.si_addr = (void *) compute_si_addr(regs, text_fault);
 		info.si_trapno = 0;
 		force_sig_info (SIGSEGV, &info, tsk);
 		return;
@@ -356,7 +379,7 @@ do_sigbus:
 	info.si_signo = SIGBUS;
 	info.si_errno = 0;
 	info.si_code = BUS_ADRERR;
-	info.si_addr = (void *)address;
+	info.si_addr = (void *) compute_si_addr(regs, text_fault);
 	info.si_trapno = 0;
 	force_sig_info (SIGBUS, &info, tsk);
 	if (!from_user)
@@ -482,6 +505,10 @@ inline void force_user_fault(unsigned long address, int write)
 
 	info.si_code = SEGV_MAPERR;
 
+#if 0
+	printk("wf<pid=%d,wr=%d,addr=%08lx>\n",
+	       tsk->pid, write, address);
+#endif
 	down_read(&mm->mmap_sem);
 	vma = find_vma(mm, address);
 	if(!vma)
@@ -507,11 +534,15 @@ good_area:
 	return;
 bad_area:
 	up_read(&mm->mmap_sem);
+#if 0
+	printk("Window whee %s [%d]: segfaults at %08lx\n",
+	       tsk->comm, tsk->pid, address);
+#endif
 	info.si_signo = SIGSEGV;
 	info.si_errno = 0;
 	/* info.si_code set above to make clear whether
 	   this was a SEGV_MAPERR or SEGV_ACCERR fault.  */
-	info.si_addr = (void *)address;
+	info.si_addr = (void *) address;
 	info.si_trapno = 0;
 	force_sig_info (SIGSEGV, &info, tsk);
 	return;
@@ -521,7 +552,7 @@ do_sigbus:
 	info.si_signo = SIGBUS;
 	info.si_errno = 0;
 	info.si_code = BUS_ADRERR;
-	info.si_addr = (void *)address;
+	info.si_addr = (void *) address;
 	info.si_trapno = 0;
 	force_sig_info (SIGBUS, &info, tsk);
 }

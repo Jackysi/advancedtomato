@@ -12,10 +12,11 @@
 #include <linux/config.h>
 #include <linux/param.h>
 
+#include <asm/compiler.h>
+
 extern unsigned long loops_per_jiffy;
 
-extern __inline__ void
-__delay(unsigned long loops)
+static __inline__ void __delay(unsigned long loops)
 {
 	__asm__ __volatile__ (
 		".set\tnoreorder\n"
@@ -36,7 +37,7 @@ __delay(unsigned long loops)
  * first constant multiplications gets optimized away if the delay is
  * a constant)
  */
-extern __inline__ void __udelay(unsigned long usecs, unsigned long lpj)
+static __inline__ void __udelay(unsigned long usecs, unsigned long lpj)
 {
 	unsigned long lo;
 
@@ -46,9 +47,26 @@ extern __inline__ void __udelay(unsigned long usecs, unsigned long lpj)
 	usecs *= (unsigned long) (((0x8000000000000000ULL / (500000 / HZ)) +
 	                           0x80000000ULL) >> 32);
 	__asm__("multu\t%2,%3"
-		:"=h" (usecs), "=l" (lo)
-		:"r" (usecs),"r" (lpj));
+		: "=h" (usecs), "=l" (lo)
+		: "r" (usecs), "r" (lpj)
+		: GCC_REG_ACCUM);
 	__delay(usecs);
+}
+
+static __inline__ void __ndelay(unsigned long nsecs, unsigned long lpj)
+{
+	unsigned long lo;
+
+	/*
+	 * Excessive precission?  Probably ...
+	 */
+	nsecs *= (unsigned long) (((0x8000000000000000ULL / (500000000 / HZ)) +
+	                           0x80000000ULL) >> 32);
+	__asm__("multu\t%2,%3"
+		: "=h" (nsecs), "=l" (lo)
+		: "r" (nsecs), "r" (lpj)
+		: GCC_REG_ACCUM);
+	__delay(nsecs);
 }
 
 #ifdef CONFIG_SMP
@@ -58,5 +76,6 @@ extern __inline__ void __udelay(unsigned long usecs, unsigned long lpj)
 #endif
 
 #define udelay(usecs) __udelay((usecs),__udelay_val)
+#define ndelay(nsecs) __ndelay((nsecs),__udelay_val)
 
 #endif /* _ASM_DELAY_H */

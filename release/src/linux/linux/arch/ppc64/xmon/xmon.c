@@ -14,6 +14,7 @@
 #include <linux/smp.h>
 #include <linux/mm.h>
 #include <linux/reboot.h>
+#include <linux/delay.h>
 #include <asm/ptrace.h>
 #include <asm/string.h>
 #include <asm/prom.h>
@@ -25,6 +26,7 @@
 #include <asm/naca.h>
 #include <asm/paca.h>
 #include <asm/ppcdebug.h>
+#include <asm/cputable.h>
 #include "nonstdio.h"
 #include "privinst.h"
 
@@ -32,9 +34,11 @@
 #define skipbl	xmon_skipbl
 
 #ifdef CONFIG_SMP
-static unsigned long cpus_in_xmon = 0;
-static unsigned long got_xmon = 0;
+static volatile unsigned long cpus_in_xmon = 0;
+static volatile unsigned long got_xmon = 0;
 static volatile int take_xmon = -1;
+static volatile int leaving_xmon = 0;
+
 #endif /* CONFIG_SMP */
 
 static unsigned long adrs;
@@ -47,11 +51,6 @@ static int termch;
 static u_int bus_error_jmp[100];
 #define setjmp xmon_setjmp
 #define longjmp xmon_longjmp
-
-#define memlist_entry list_entry
-#define memlist_next(x) ((x)->next)
-#define memlist_prev(x) ((x)->prev)
-
 
 /* Max number of stack frames we are willing to produce on a backtrace. */
 #define MAXFRAMECOUNT 50
@@ -119,15 +118,12 @@ static void cacheflush(void);
 static void cpu_cmd(void);
 #endif /* CONFIG_SMP */
 static void csum(void);
+static void bootcmds(void);
 static void mem_translate(void);
 static void mem_check(void);
 static void mem_find_real(void);
 static void mem_find_vsid(void);
-static void mem_check_pagetable_vsids (void);
 
-static void mem_map_check_slab(void);
-static void mem_map_lock_pages(void);
-static void mem_check_dup_rpn (void);
 static void debug_trace(void);
 
 extern int print_insn_big_powerpc(FILE *, unsigned long, unsigned long);
@@ -143,6 +139,14 @@ extern unsigned long _ASR;
 pte_t *find_linux_pte(pgd_t *pgdir, unsigned long va);	/* from htab.c */
 
 #define GETWORD(v)	(((v)[0] << 24) + ((v)[1] << 16) + ((v)[2] << 8) + (v)[3])
+
+#define isxdigit(c)	(('0' <= (c) && (c) <= '9') \
+			 || ('a' <= (c) && (c) <= 'f') \
+			 || ('A' <= (c) && (c) <= 'F'))
+#define isalnum(c)	(('0' <= (c) && (c) <= '9') \
+			 || ('a' <= (c) && (c) <= 'z') \
+			 || ('A' <= (c) && (c) <= 'Z'))
+#define isspace(c)	(c == ' ' || c == '\t' || c == 10 || c == 13 || c == 0)
 
 static char *help_string = "\
 Commands:\n\
@@ -173,13 +177,13 @@ Commands:\n\
   t	print backtrace\n\
   T	Enable/Disable PPCDBG flags\n\
   x	exit monitor\n\
-  z	reboot\n\
-  Z	halt\n\
 ";
 
 static int xmon_trace[NR_CPUS];
 #define SSTEP	1		/* stepping because of 's' command */
 #define BRSTEP	2		/* stepping over breakpoint */
+
+static struct pt_regs *xmon_regs[NR_CPUS];
 
 /*
  * Stuff for reading and writing memory safely
@@ -189,7 +193,7 @@ extern inline void sync(void)
 	asm volatile("sync; isync");
 }
 
-/* (Ref: 64-bit PowerPC ELF ABI Spplement; Ian Lance Taylor, Zembu Labs).
+/* (Ref: 64-bit PowerPC ELF ABI Supplement; Ian Lance Taylor, Zembu Labs).
  A PPC stack frame looks like this:
 
  High Address
@@ -249,12 +253,12 @@ void
 xmon(struct pt_regs *excp)
 {
 	struct pt_regs regs;
-	int cmd;
+	int cmd = 0;
 	unsigned long msr;
 
 	if (excp == NULL) {
 		/* Ok, grab regs as they are now.
-		 This won't do a particularily good job because the
+		 This won't do a particularly good job because the
 		 prologue has already been executed.
 		 ToDo: We could reach back into the callers save
 		 area to do a better job of representing the
@@ -292,7 +296,6 @@ xmon(struct pt_regs *excp)
 			std	29,232(%0)\n\
 			std	30,240(%0)\n\
 			std	31,248(%0)" : : "b" (&regs));
-		printf("xmon called\n");
 		/* Fetch the link reg for this stack frame.
 		 NOTE: the prev printf fills in the lr. */
 		regs.nip = regs.link = ((unsigned long *)(regs.gpr[1]))[2];
@@ -306,115 +309,52 @@ xmon(struct pt_regs *excp)
 
 	msr = get_msr();
 	set_msrd(msr & ~MSR_EE);	/* disable interrupts */
+	xmon_regs[smp_processor_id()] = excp;
 	excprint(excp);
 #ifdef CONFIG_SMP
-	if (test_and_set_bit(smp_processor_id(), &cpus_in_xmon))
+	/* possible race condition here if a CPU is held up and gets
+	 * here while we are exiting */
+	leaving_xmon = 0;
+	if (test_and_set_bit(smp_processor_id(), &cpus_in_xmon)) {
+		/* xmon probably caused an exception itself */
+		printf("We are already in xmon\n");
 		for (;;)
 			;
+	}
 	while (test_and_set_bit(0, &got_xmon)) {
 		if (take_xmon == smp_processor_id()) {
 			take_xmon = -1;
 			break;
 		}
 	}
+	/*
+	 * XXX: breakpoints are removed while any cpu is in xmon
+	 */
 #endif /* CONFIG_SMP */
 	remove_bpts();
 	cmd = cmds(excp);
 	if (cmd == 's') {
 		xmon_trace[smp_processor_id()] = SSTEP;
-		excp->msr |= 0x400;
+		excp->msr |= MSR_SE;
+#ifdef CONFIG_SMP		
+		take_xmon = smp_processor_id();
+#endif		
 	} else if (at_breakpoint(excp->nip)) {
 		xmon_trace[smp_processor_id()] = BRSTEP;
-		excp->msr |= 0x400;
+		excp->msr |= MSR_SE;
 	} else {
 		xmon_trace[smp_processor_id()] = 0;
 		insert_bpts();
 	}
+	xmon_regs[smp_processor_id()] = 0;
 #ifdef CONFIG_SMP
-	clear_bit(0, &got_xmon);
+	leaving_xmon = 1;
+	if (cmd != 's')
+		clear_bit(0, &got_xmon);
 	clear_bit(smp_processor_id(), &cpus_in_xmon);
 #endif /* CONFIG_SMP */
 	set_msrd(msr);		/* restore interrupt enable */
 }
-
-/* Code can call this to get a backtrace and continue. */
-void
-xmon_backtrace(const char *fmt, ...)
-{
-	va_list ap;
-	struct pt_regs regs;
-
-
-	/* Ok, grab regs as they are now.
-	 This won't do a particularily good job because the
-	 prologue has already been executed.
-	 ToDo: We could reach back into the callers save
-	 area to do a better job of representing the
-	 caller's state.
-	 */
-	asm volatile ("std	0,0(%0)\n\
-	    std	1,8(%0)\n\
-	    std	2,16(%0)\n\
-	    std	3,24(%0)\n\
-	    std	4,32(%0)\n\
-	    std	5,40(%0)\n\
-	    std	6,48(%0)\n\
-	    std	7,56(%0)\n\
-	    std	8,64(%0)\n\
-	    std	9,72(%0)\n\
-	    std	10,80(%0)\n\
-	    std	11,88(%0)\n\
-	    std	12,96(%0)\n\
-	    std	13,104(%0)\n\
-	    std	14,112(%0)\n\
-	    std	15,120(%0)\n\
-	    std	16,128(%0)\n\
-	    std	17,136(%0)\n\
-	    std	18,144(%0)\n\
-	    std	19,152(%0)\n\
-	    std	20,160(%0)\n\
-	    std	21,168(%0)\n\
-	    std	22,176(%0)\n\
-	    std	23,184(%0)\n\
-	    std	24,192(%0)\n\
-	    std	25,200(%0)\n\
-	    std	26,208(%0)\n\
-	    std	27,216(%0)\n\
-	    std	28,224(%0)\n\
-	    std	29,232(%0)\n\
-	    std	30,240(%0)\n\
-	    std	31,248(%0)" : : "b" (&regs));
-	/* Fetch the link reg for this stack frame.
-	 NOTE: the prev printf fills in the lr. */
-	regs.nip = regs.link = ((unsigned long *)(regs.gpr[1]))[2];
-	regs.msr = get_msr();
-	regs.ctr = get_ctr();
-	regs.xer = get_xer();
-	regs.ccr = get_cr();
-	regs.trap = 0;
-
-	va_start(ap, fmt);
-	xmon_vfprintf(stdout, fmt, ap);
-	xmon_putc('\n', stdout);
-	va_end(ap);
-	take_input("\n");
-	backtrace(&regs);
-}
-
-/* Call this to poll for ^C during busy operations.
- * Returns true if the user has hit ^C.
- */
-int
-xmon_interrupted(void)
-{
-	int ret = xmon_read_poll();
-	if (ret == 3) {
-		printf("\n^C interrupted.\n");
-		return 1;
-	}
-	return 0;
-}
-
 
 void
 xmon_irq(int irq, void *d, struct pt_regs *regs)
@@ -440,7 +380,7 @@ xmon_bpt(struct pt_regs *regs)
 		remove_bpts();
 		excprint(regs);
 		xmon_trace[smp_processor_id()] = BRSTEP;
-		regs->msr |= 0x400;
+		regs->msr |= MSR_SE;
 	} else {
 		printf("Stopped at breakpoint %x (%lx %s)\n", (bp - bpts)+1, bp->address, bp->funcname);
 		xmon(regs);
@@ -470,7 +410,7 @@ xmon_dabr_match(struct pt_regs *regs)
 		remove_bpts();
 		excprint(regs);
 		xmon_trace[smp_processor_id()] = BRSTEP;
-		regs->msr |= 0x400;
+		regs->msr |= MSR_SE;
 	} else {
 		dabr.instr = regs->nip;
 		xmon(regs);
@@ -486,7 +426,7 @@ xmon_iabr_match(struct pt_regs *regs)
 		remove_bpts();
 		excprint(regs);
 		xmon_trace[smp_processor_id()] = BRSTEP;
-		regs->msr |= 0x400;
+		regs->msr |= MSR_SE;
 	} else {
 		xmon(regs);
 	}
@@ -516,7 +456,7 @@ insert_bpts()
 	int i;
 	struct bpt *bp;
 
-	if (naca->platform != PLATFORM_PSERIES)
+	if (!(systemcfg->platform & PLATFORM_PSERIES))
 		return;
 	bp = bpts;
 	for (i = 0; i < NBPTS; ++i, ++bp) {
@@ -532,7 +472,7 @@ insert_bpts()
 		}
 	}
 
-	if (!__is_processor(PV_POWER4) && !__is_processor(PV_POWER4p)) {
+	if (!(cur_cpu_spec->cpu_features & CPU_FTR_SLB)) {
 		if (dabr.enabled)
 			set_dabr(dabr.address);
 		if (iabr.enabled)
@@ -547,11 +487,13 @@ remove_bpts()
 	struct bpt *bp;
 	unsigned instr;
 
-	if (naca->platform != PLATFORM_PSERIES)
+	if (!(systemcfg->platform & PLATFORM_PSERIES))
 		return;
-	if (!__is_processor(PV_POWER4) && !__is_processor(PV_POWER4p)) {
-		set_dabr(0);
-		set_iabr(0);
+	if (!(cur_cpu_spec->cpu_features & CPU_FTR_SLB)) {
+		if (dabr.enabled)
+			set_dabr(0);
+		if (iabr.enabled)
+			set_iabr(0);
 	}
 
 	bp = bpts;
@@ -574,11 +516,15 @@ static char *last_cmd;
 static int
 cmds(struct pt_regs *excp)
 {
-	int cmd;
+	int cmd = 0;
 
 	last_cmd = NULL;
 	for(;;) {
 #ifdef CONFIG_SMP
+		/* Need to check if we should take any commands on
+		   this CPU. */
+		if (leaving_xmon)
+			return cmd;
 		printf("%d:", smp_processor_id());
 #endif /* CONFIG_SMP */
 		printf("mon> ");
@@ -594,14 +540,6 @@ cmds(struct pt_regs *excp)
 			cmd = inchar();
 		}
 		switch (cmd) {
-		case 'z':
-			printf("Rebooting machine now...");
-			machine_restart(NULL);
-			break;
-		case 'Z':
-			printf("Halting machine now...");
-			machine_halt();
-			break;
 		case 'm':
 			cmd = inchar();
 			switch (cmd) {
@@ -622,26 +560,14 @@ cmds(struct pt_regs *excp)
 			case 'c':
 				mem_check();
 				break;
-			case 'j':
-				mem_map_check_slab();
-				break;
 			case 'f':
 				mem_find_real();
 				break;
 			case 'e':
 				mem_find_vsid();
 				break;
-			case 'r':
-				mem_check_dup_rpn();
-				break;           
 			case 'i':
 				show_mem();
-				break;
-			case 'o':
-				mem_check_pagetable_vsids ();
-				break;
-			case 'q':
-				mem_map_lock_pages() ;
 				break;
 			default:
 				termch = cmd;
@@ -697,6 +623,8 @@ cmds(struct pt_regs *excp)
 			cpu_cmd();
 			break;
 #endif /* CONFIG_SMP */
+		case 'z':
+			bootcmds();
 		case 'T':
 			debug_trace();
 			break;
@@ -713,6 +641,19 @@ cmds(struct pt_regs *excp)
 			break;
 		}
 	}
+}
+
+static void bootcmds(void)
+{
+	int cmd;
+
+	cmd = inchar();
+	if (cmd == 'r')
+		ppc_md.restart(NULL);
+	else if (cmd == 'h')
+		ppc_md.halt();
+	else if (cmd == 'p')
+		ppc_md.power_off();
 }
 
 #ifdef CONFIG_SMP
@@ -736,7 +677,7 @@ static void cpu_cmd(void)
 		printf("cpus stopped:");
 		for (cpu = 0; cpu < NR_CPUS; ++cpu) {
 			if (test_bit(cpu, &cpus_in_xmon)) {
-				printf(" %d", cpu);
+				printf(" %x", cpu);
 				if (cpu == smp_processor_id())
 					printf("*", cpu);
 			}
@@ -846,10 +787,11 @@ bpt_cmds(void)
 	cmd = inchar();
 	switch (cmd) {
 	case 'd':	/* bd - hardware data breakpoint */
-		if (__is_processor(PV_POWER4) || __is_processor(PV_POWER4p)) {
+		if (cur_cpu_spec->cpu_features & CPU_FTR_SLB) {
 			printf("Not implemented on POWER4\n");
 			break;
 		}
+			
 		mode = 7;
 		cmd = inchar();
 		if (cmd == 'r')
@@ -866,7 +808,8 @@ bpt_cmds(void)
 			dabr.address = (dabr.address & ~7) | mode;
 		break;
 	case 'i':	/* bi - hardware instr breakpoint */
-		if (__is_processor(PV_POWER4) || __is_processor(PV_POWER4p)) {
+		if (cur_cpu_spec->cpu_features & CPU_FTR_SLB) {
+			printf("Not implemented on POWER4\n");
 			break;
 		}
 		iabr.address = 0;
@@ -969,7 +912,9 @@ const char *getvecname(unsigned long vec)
 	case 0x100:	ret = "(System Reset)"; break; 
 	case 0x200:	ret = "(Machine Check)"; break; 
 	case 0x300:	ret = "(Data Access)"; break; 
+	case 0x380:	ret = "(Data SLB Access)"; break;
 	case 0x400:	ret = "(Instruction Access)"; break; 
+	case 0x480:	ret = "(Instruction SLB Access)"; break;
 	case 0x500:	ret = "(Hardware Interrupt)"; break; 
 	case 0x600:	ret = "(Alignment)"; break; 
 	case 0x700:	ret = "(Program Check)"; break; 
@@ -1012,6 +957,12 @@ backtrace(struct pt_regs *excp)
 	     sp = stack[0], framecount++) {
 		if (mread(sp, stack, sizeof(stack)) != sizeof(stack))
 			break;
+#if 0
+		if (lr != 0) {
+		    stack[2] = lr;	/* fake out the first saved lr.  It may not be saved yet. */
+		    lr = 0;
+		}
+#endif
 		printf("%.16lx  %.16lx", sp, stack[2]);
 		/* TAI -- for now only the ones cast to unsigned long will match.
 		 * Need to test the rest...
@@ -1020,6 +971,10 @@ backtrace(struct pt_regs *excp)
 		            (funcname = "ret_from_except"))
 		    || (stack[2] == (unsigned long)ret_from_syscall_1 &&
 		            (funcname = "ret_from_syscall_1"))
+#if 0
+		    || stack[2] == (unsigned) &ret_from_syscall_2
+		    || stack[2] == (unsigned) &do_signal_ret
+#endif
 		    ) {
 			printf("  %s\n", funcname);
 			if (mread(sp+112, &regs, sizeof(regs)) != sizeof(regs))
@@ -1107,11 +1062,12 @@ excprint(struct pt_regs *fp)
 	printf("    sp: %lx\n", fp->gpr[1]);
 	printf("   msr: %lx\n", fp->msr);
 
-	if (fp->trap == 0x300 || fp->trap == 0x600) {
+	if (fp->trap == 0x300 || fp->trap == 0x380 || fp->trap == 0x600) {
 		printf("   dar: %lx\n", fp->dar);
 		printf(" dsisr: %lx\n", fp->dsisr);
 	}
 
+	/* XXX: need to copy current or we die.  Why? */
 	c = current;
 	printf("  current = 0x%lx\n", c);
 	printf("  paca    = 0x%lx\n", get_paca());
@@ -1281,7 +1237,6 @@ super_regs()
 	}
 	scannl();
 }
-
 
 #ifndef CONFIG_PPC64BRIDGE
 static void
@@ -1497,7 +1452,18 @@ static char *fault_chars[] = { "--", "**", "##" };
 static void
 handle_fault(struct pt_regs *regs)
 {
-	fault_type = regs->trap == 0x200? 0: regs->trap == 0x300? 1: 2;
+	switch (regs->trap) {
+	case 0x200:
+		fault_type = 0;
+		break;
+	case 0x300:
+	case 0x380:
+		fault_type = 1;
+		break;
+	default:
+		fault_type = 2;
+	}
+
 	longjmp(bus_error_jmp, 1);
 }
 
@@ -1970,6 +1936,16 @@ skipbl()
 	return c;
 }
 
+#define N_PTREGS	44
+static char *regnames[N_PTREGS] = {
+	"r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7",
+	"r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15",
+	"r16", "r17", "r18", "r19", "r20", "r21", "r22", "r23",
+	"r24", "r25", "r26", "r27", "r28", "r29", "r30", "r31",
+	"pc", "msr", "or3", "ctr", "lr", "xer", "ccr", "mq",
+	"trap", "dar", "dsisr", "res"
+};
+
 int
 scanhex(vp)
 unsigned long *vp;
@@ -1978,6 +1954,36 @@ unsigned long *vp;
 	unsigned long v;
 
 	c = skipbl();
+	if (c == '%') {
+		/* parse register name */
+		char regname[8];
+		int i;
+
+		for (i = 0; i < sizeof(regname) - 1; ++i) {
+			c = inchar();
+			if (!isalnum(c)) {
+				termch = c;
+				break;
+			}
+			regname[i] = c;
+		}
+		regname[i] = 0;
+		for (i = 0; i < N_PTREGS; ++i) {
+			if (strcmp(regnames[i], regname) == 0) {
+				unsigned long *rp = (unsigned long *)
+					xmon_regs[smp_processor_id()];
+				if (rp == NULL) {
+					printf("regs not available\n");
+					return 0;
+				}
+				*vp = rp[i];
+				return 1;
+			}
+		}
+		printf("invalid register name '%%%s'\n", regname);
+		return 0;
+	}
+
 	d = hexdigit(c);
 	if( d == EOF ){
 		termch = c;
@@ -2305,6 +2311,7 @@ void mem_check()
 	printf("htab base      : %.16lx\n", htab_data.htab);
 	printf("htab size      : %.16lx\n", htab_size_bytes);
 
+#if 1
 	for(hpte1 = htab_data.htab; hpte1 < (HPTE *)htab_end; hpte1++) {
 		if ( hpte1->dw0.dw0.v != 0 ) {
 			if ( hpte1->dw1.dw1.rpn <= last_rpn ) {
@@ -2326,6 +2333,7 @@ void mem_check()
 			}
 		}
 	}
+#endif
 	printf("\nDone -------------------\n");
 }
 
@@ -2395,249 +2403,6 @@ void mem_find_vsid()
 		}
 	}
 	printf("\nDone -------------------\n");
-}
-
-void mem_map_check_slab()
-{
-	int i, slab_count;
-
-	i = max_mapnr;
-	slab_count = 0;
-	
-	while (i-- > 0)  {
-		if (PageSlab(mem_map+i)){
-			printf(" slab entry - mem_map entry =%p  \n", mem_map+i);
-			slab_count ++;
-		}
-	}
-
-	printf(" count of pages for slab = %d \n", slab_count);
-}
-
-void mem_map_lock_pages()
-{
-	int i, lock_count;
-
-	i = max_mapnr;
-	lock_count = 0;
-	
-	while (i-- > 0)  {
-		if (PageLocked(mem_map+i)){
-			printf(" locked entry - mem_map entry =%p  \n", mem_map+i);
-			lock_count ++;
-		}
-	}
-
-	printf(" count of locked pages = %d \n", lock_count); 
-}
-
-void mem_check_dup_rpn ()
-{
-	unsigned long htab_size_bytes;
-	unsigned long htab_end;
-	unsigned long last_rpn;
-	HPTE *hpte1, *hpte2;
-	int dup_count;
-	struct task_struct *p;
-	unsigned long kernel_vsid_c0,kernel_vsid_c1,kernel_vsid_c2,kernel_vsid_c3;
-	unsigned long kernel_vsid_c4,kernel_vsid_c5,kernel_vsid_d,kernel_vsid_e;
-	unsigned long kernel_vsid_f;
-	unsigned long vsid0,vsid1,vsidB,vsid2;
-
-	htab_size_bytes = htab_data.htab_num_ptegs * 128; // 128B / PTEG
-	htab_end = (unsigned long)htab_data.htab + htab_size_bytes;
-	// last_rpn = (naca->physicalMemorySize-1) >> PAGE_SHIFT;
-	last_rpn = 0xfffff;
-
-	printf("\nHardware Page Table Check\n-------------------\n");
-	printf("htab base      : %.16lx\n", htab_data.htab);
-	printf("htab size      : %.16lx\n", htab_size_bytes);
-
-
-	for(hpte1 = htab_data.htab; hpte1 < (HPTE *)htab_end; hpte1++) {
-		if ( hpte1->dw0.dw0.v != 0 ) {
-			if ( hpte1->dw1.dw1.rpn <= last_rpn ) {
-				dup_count = 0;
-				for(hpte2 = hpte1+1; hpte2 < (HPTE *)htab_end; hpte2++) {
-					if ( hpte2->dw0.dw0.v != 0 ) {
-						if(hpte1->dw1.dw1.rpn == hpte2->dw1.dw1.rpn) {
-							dup_count++;
-						}
-					}
-				}
-				if(dup_count > 5) {
-					printf(" Duplicate rpn: %.13lx \n", (hpte1->dw1.dw1.rpn));
-					printf("    mem map array entry %p count = %d \n",
-					       (mem_map+(hpte1->dw1.dw1.rpn)), (mem_map+(hpte1->dw1.dw1.rpn))->count);
-					for(hpte2 = hpte1+1; hpte2 < (HPTE *)htab_end; hpte2++) {
-						if ( hpte2->dw0.dw0.v != 0 ) {
-							if(hpte1->dw1.dw1.rpn == hpte2->dw1.dw1.rpn) {
-								printf("   hpte2: %16.16lx  *hpte2: %16.16lx %16.16lx\n",
-								       hpte2, hpte2->dw0.dword0, hpte2->dw1.dword1);
-							}
-						}
-					}
-				}
-			} else {
-				printf(" Bogus rpn: %.13lx \n", (hpte1->dw1.dw1.rpn));
-				printf("   hpte: %16.16lx  *hpte: %16.16lx %16.16lx\n",
-				       hpte1, hpte1->dw0.dword0, hpte1->dw1.dword1);
-			}
-		}
-		if (xmon_interrupted())
-			return;
-	}                                                                     
-
-
-
-	// print the kernel vsids
-	kernel_vsid_c0 =  get_kernel_vsid(0xC000000000000000);
-	kernel_vsid_c1 =  get_kernel_vsid(0xC000000010000000);
-	kernel_vsid_c2 =  get_kernel_vsid(0xC000000020000000);
-	kernel_vsid_c3 =  get_kernel_vsid(0xC000000030000000);
-	kernel_vsid_c4 =  get_kernel_vsid(0xC000000040000000);
-	kernel_vsid_c5 =  get_kernel_vsid(0xC000000050000000);
-	kernel_vsid_d  =  get_kernel_vsid(0xD000000000000000);
-	kernel_vsid_e  =  get_kernel_vsid(0xE000000000000000);
-	kernel_vsid_f  =  get_kernel_vsid(0xF000000000000000);
-
-	printf(" kernel vsid -  seg c0  = %lx\n",  kernel_vsid_c0 );
-	printf(" kernel vsid -  seg c1  = %lx\n",  kernel_vsid_c1 );
-	printf(" kernel vsid -  seg c2  = %lx\n",  kernel_vsid_c2 );
-	printf(" kernel vsid -  seg c3  = %lx\n",  kernel_vsid_c3 );
-	printf(" kernel vsid -  seg c4  = %lx\n",  kernel_vsid_c4 );
-	printf(" kernel vsid -  seg c5  = %lx\n",  kernel_vsid_c5 );
-	printf(" kernel vsid -  seg d   = %lx\n",  kernel_vsid_d );
-	printf(" kernel vsid -  seg e   = %lx\n",  kernel_vsid_e );
-	printf(" kernel vsid -  seg f   = %lx\n",  kernel_vsid_f );
-
-
-  // print a list of valid vsids for the tasks
-	read_lock(&tasklist_lock);
-	for_each_task(p)
-		if(p->mm) {
-			struct mm_struct *mm = p->mm; 
-			printf(" task = %p  mm =  %lx  pgd   %lx\n", 
-			       p, mm, mm->pgd);
-			vsid0 = get_vsid( mm->context, 0 );
-			vsid1 = get_vsid( mm->context, 0x10000000 );
-			vsid2 = get_vsid( mm->context, 0x20000000 );
-			vsidB = get_vsid( mm->context, 0xB0000000 );
-			printf("            context = %lx  vsid seg 0  = %lx\n",  mm->context, vsid0 );
-			printf("                           vsid seg 1  = %lx\n",  vsid1 );
-			printf("                           vsid seg 2  = %lx\n",  vsid2 );
-			printf("                           vsid seg 2  = %lx\n",  vsidB );
-	  
-			printf("\n");
-		};
-	read_unlock(&tasklist_lock);
-
-	printf("\nDone -------------------\n");
-}
-
-
-
-void mem_check_pagetable_vsids ()
-{
-	unsigned long htab_size_bytes;
-	unsigned long htab_end;
-	unsigned long last_rpn;
-	struct task_struct *p;
-	unsigned long valid_table_count,invalid_table_count,bogus_rpn_count;
-	int found;
-	unsigned long user_address_table_count,kernel_page_table_count;
-	unsigned long pt_vsid;
-	HPTE *hpte1;
-
-
-	htab_size_bytes = htab_data.htab_num_ptegs * 128; // 128B / PTEG
-	htab_end = (unsigned long)htab_data.htab + htab_size_bytes;
-	// last_rpn = (naca->physicalMemorySize-1) >> PAGE_SHIFT;
-	last_rpn = 0xfffff;
-
-	printf("\nHardware Page Table Check\n-------------------\n");
-	printf("htab base      : %.16lx\n", htab_data.htab);
-	printf("htab size      : %.16lx\n", htab_size_bytes);
-
-	valid_table_count = 0;
-	invalid_table_count = 0;
-	bogus_rpn_count = 0;
-	user_address_table_count = 0;
-	kernel_page_table_count = 0;
-	for(hpte1 = htab_data.htab; hpte1 < (HPTE *)htab_end; hpte1++) {
-		if ( hpte1->dw0.dw0.v != 0 ) {
-			valid_table_count++;
-			if ( hpte1->dw1.dw1.rpn <= last_rpn ) {
-				pt_vsid =  (hpte1->dw0.dw0.avpn) >> 5;
-				if ((pt_vsid == get_kernel_vsid(0xC000000000000000)) |
-				    (pt_vsid == get_kernel_vsid(0xC000000010000000)) |
-				    (pt_vsid == get_kernel_vsid(0xC000000020000000)) |
-				    (pt_vsid == get_kernel_vsid(0xC000000030000000)) |
-				    (pt_vsid == get_kernel_vsid(0xC000000040000000)) |
-				    (pt_vsid == get_kernel_vsid(0xC000000050000000)) |
-				    (pt_vsid == get_kernel_vsid(0xD000000000000000)) |
-				    (pt_vsid == get_kernel_vsid(0xE000000000000000)) |
-				    (pt_vsid == get_kernel_vsid(0xF000000000000000)) ) {
-					kernel_page_table_count ++;
-				} else {
-					read_lock(&tasklist_lock);
-					found = 0;
-					for_each_task(p) {
-						if(p->mm && (found == 0)) {
-							struct mm_struct *mm = p->mm; 
-	     
-							if ((pt_vsid == get_vsid( mm->context, 0 )) |
-							    (pt_vsid == get_vsid( mm->context, 0x10000000 )) |
-							    (pt_vsid == get_vsid( mm->context, 0x20000000 )) |
-							    (pt_vsid == get_vsid( mm->context, 0x30000000 )) |
-							    (pt_vsid == get_vsid( mm->context, 0x40000000 )) |
-							    (pt_vsid == get_vsid( mm->context, 0x50000000 )) |
-							    (pt_vsid == get_vsid( mm->context, 0x60000000 )) |
-							    (pt_vsid == get_vsid( mm->context, 0x70000000 )) |
-							    (pt_vsid == get_vsid( mm->context, 0x80000000 )) |
-							    (pt_vsid == get_vsid( mm->context, 0x90000000 )) |
-							    (pt_vsid == get_vsid( mm->context, 0xA0000000 )) |
-							    (pt_vsid == get_vsid( mm->context, 0xB0000000 ))) {
-								user_address_table_count ++;
-								found = 1;
-							}
-						}
-					}
-					read_unlock(&tasklist_lock);
-					if (found == 0)
-					{
-						printf(" vsid not found vsid = %lx, hpte = %p  \n", 
-						       pt_vsid,hpte1);
-						printf("    rpn in entry = %lx \n", hpte1->dw1.dw1.rpn);
-						printf("    mem map address = %lx  \n", mem_map + (hpte1->dw1.dw1.rpn));
-           
-					} else //  found
-					{
-					}
-
-				}  // good rpn
-       
-			} else {
-				bogus_rpn_count ++;
-			}
-		} else {
-			invalid_table_count++;
-		}
-	}                                                                     
-
-
-	printf(" page table valid counts - valid entries = %lx  invalid entries =  %lx \n",
-	       valid_table_count, invalid_table_count);
-
-	printf("  bogus rpn entries ( probably io) = %lx \n", bogus_rpn_count);
-
- 
-  
-	printf(" page table counts - kernel entries = %lx  user entries =  %lx \n",
-	       kernel_page_table_count, user_address_table_count); 
-
-	printf("\nDone -------------------\n");
-
 }
 
 static void debug_trace(void) {

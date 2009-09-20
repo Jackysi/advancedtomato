@@ -67,6 +67,12 @@
 #define atomic_dec_and_lock(atomic,lock) atomic_dec_and_test(atomic)
 #define ATOMIC_DEC_AND_LOCK
 
+/*
+ * Your basic spinlocks, allowing only a single CPU anywhere
+ *
+ * Some older gcc versions had a nasty bug with empty initializers.
+ * (XXX: could someone please confirm whether egcs 1.1 still has this bug?)
+ */
 #if (__GNUC__ > 2 || __GNUC_MINOR__ > 95)
   typedef struct { } spinlock_t;
   #define SPIN_LOCK_UNLOCKED (spinlock_t) { }
@@ -118,6 +124,19 @@ typedef struct {
 
 #endif	/* DEBUG_SPINLOCKS */
 
+/*
+ * Read-write spinlocks, allowing multiple readers
+ * but only one writer.
+ *
+ * NOTE! it is quite common to have readers in interrupts
+ * but no interrupt writers. For those circumstances we
+ * can "mix" irq-safe locks - any writer needs to get a
+ * irq-safe write-lock, but readers can get non-irqsafe
+ * read-locks.
+ *
+ * Some older gcc versions had a nasty bug with empty initializers.
+ * (XXX: could someone please confirm whether egcs 1.1 still has this bug?)
+ */
 #if (__GNUC__ > 2 || __GNUC_MINOR__ > 91)
   typedef struct { } rwlock_t;
   #define RW_LOCK_UNLOCKED (rwlock_t) { }
@@ -128,7 +147,7 @@ typedef struct {
 
 #define rwlock_init(lock)	do { } while(0)
 #define read_lock(lock)		(void)(lock) /* Not "unused variable". */
-#define read_unlock(lock)	do { } while(0)
+#define read_unlock(lock)	(void)(lock) /* Not "unused variable". */
 #define write_lock(lock)	(void)(lock) /* Not "unused variable". */
 #define write_unlock(lock)	do { } while(0)
 

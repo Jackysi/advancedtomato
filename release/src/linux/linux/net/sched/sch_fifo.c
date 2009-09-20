@@ -80,14 +80,14 @@ bfifo_dequeue(struct Qdisc* sch)
 	return skb;
 }
 
-static int
+static unsigned int 
 fifo_drop(struct Qdisc* sch)
 {
 	struct sk_buff *skb;
 
 	skb = __skb_dequeue_tail(&sch->q);
 	if (skb) {
-		int len = skb->len;
+		unsigned int len = skb->len;
 		sch->stats.backlog -= len;
 		kfree_skb(skb);
 		return len;

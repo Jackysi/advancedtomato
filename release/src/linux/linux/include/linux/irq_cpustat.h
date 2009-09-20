@@ -22,7 +22,7 @@ extern irq_cpustat_t irq_stat[];			/* defined in asm/hardirq.h */
 #ifdef CONFIG_SMP
 #define __IRQ_STAT(cpu, member)	(irq_stat[cpu].member)
 #else
-#define __IRQ_STAT(cpu, member)	((void)(cpu), irq_stat[0].member)
+#define __IRQ_STAT(cpu, member)	(irq_stat[((void)(cpu), 0)].member)
 #endif	
 
   /* arch independent irq_stat fields */

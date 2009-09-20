@@ -16,7 +16,6 @@
 #endif /* !__ASSEMBLY__ */
 
 #include <asm/addrspace.h>
-#include <asm/reg.h>
 #include <asm/sn/kldir.h>
 
 #if defined(CONFIG_SGI_IP27)
@@ -28,7 +27,7 @@
 
 #ifndef __ASSEMBLY__
 
-#if defined(CONFIG_SGI_IO)	  
+#if defined(CONFIG_SGI_IO)	/* FIXME */
 #define PS_UINT_CAST		(__psunsigned_t)
 #define UINT64_CAST		(__uint64_t)
 #else	/* CONFIG_SGI_IO */
@@ -254,6 +253,14 @@
  * for _x.
  */
 
+/*
+ * WARNING:
+ *	When certain Hub chip workaround are defined, it's not sufficient
+ *	to dereference the *_HUB_ADDR() macros.  You should instead use
+ *	HUB_L() and HUB_S() if you must deal with pointers to hub registers.
+ *	Otherwise, the recommended approach is to use *_HUB_L() and *_HUB_S().
+ *	They're always safe.
+ */
 #define LOCAL_HUB_ADDR(_x)	(HUBREG_CAST (IALIAS_BASE + (_x)))
 #define REMOTE_HUB_ADDR(_n, _x)	(HUBREG_CAST (NODE_SWIN_BASE(_n, 1) +	\
 					      0x800000 + (_x)))
@@ -394,6 +401,13 @@
 
 #define FREEMEM_OFFSET(nasid)	KLD_FREEMEM(nasid)->offset
 #define FREEMEM_ADDR(nasid)	SYMMON_STK_END(nasid)
+/*
+ * XXX
+ * Fix this. FREEMEM_ADDR should be aware of if symmon is loaded.
+ * Also, it should take into account what prom thinks to be a safe
+ * address
+	PHYS_TO_K0(NODE_OFFSET(nasid) + FREEMEM_OFFSET(nasid))
+ */
 #define FREEMEM_SIZE(nasid)	KLD_FREEMEM(nasid)->size
 
 #define PI_ERROR_OFFSET(nasid)	KLD_PI_ERROR(nasid)->offset

@@ -56,8 +56,8 @@ struct thread_struct {
 	/*
 	 * The fields below are Linux-specific:
 	 *
-	 * bit 1..5: IEEE_TRAP_ENABLE bits (see fpu.h)
-	 * bit 6..8: UAC bits (see sysinfo.h)
+	 * bit 1..6: IEEE_TRAP_ENABLE bits (see fpu.h)
+	 * bit 7..9: UAC bits (see sysinfo.h)
 	 * bit 17..21: IEEE_STATUS_MASK bits (see fpu.h)
 	 * bit 63: die_if_kernel recursion lock
 	 */
@@ -119,7 +119,7 @@ struct task_struct;
 extern void release_thread(struct task_struct *);
 
 /* Create a kernel thread without removing it from tasklists.  */
-extern long kernel_thread(int (*fn)(void *), void *arg, unsigned long flags);
+extern long arch_kernel_thread(int (*fn)(void *), void *arg, unsigned long flags);
 
 #define copy_segments(tsk, mm)		do { } while (0)
 #define release_segments(mm)		do { } while (0)
@@ -148,7 +148,7 @@ unsigned long get_wchan(struct task_struct *p);
 #define init_task	(init_task_union.task)
 #define init_stack	(init_task_union.stack)
 
-#define cpu_relax()	do { } while (0)
+#define cpu_relax()	barrier()
 
 #define ARCH_HAS_PREFETCH
 #define ARCH_HAS_PREFETCHW

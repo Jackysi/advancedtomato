@@ -1,7 +1,7 @@
 /*
  * TLB support routines.
  *
- * Copyright (C) 1998-2001 Hewlett-Packard Co
+ * Copyright (C) 1998-2001, 2003 Hewlett-Packard Co
  *	David Mosberger-Tang <davidm@hpl.hp.com>
  *
  * 08/02/00 A. Mallick <asit.k.mallick@intel.com>
@@ -16,28 +16,21 @@
 #include <linux/smp.h>
 #include <linux/mm.h>
 
+#include <asm/delay.h>
 #include <asm/mmu_context.h>
 #include <asm/pgalloc.h>
 #include <asm/pal.h>
-#include <asm/delay.h>
 
-#define SUPPORTED_PGBITS (			\
-		1 << _PAGE_SIZE_256M |		\
-		1 << _PAGE_SIZE_64M  |		\
-		1 << _PAGE_SIZE_16M  |		\
-		1 << _PAGE_SIZE_4M   |		\
-		1 << _PAGE_SIZE_1M   |		\
-		1 << _PAGE_SIZE_256K |		\
-		1 << _PAGE_SIZE_64K  |		\
-		1 << _PAGE_SIZE_16K  |		\
-		1 << _PAGE_SIZE_8K   |		\
-		1 << _PAGE_SIZE_4K )
+static struct {
+	unsigned long mask;	/* mask of supported purge page-sizes */
+	unsigned long max_bits;	/* log2() of largest supported purge page-size */
+} purge;
 
 struct ia64_ctx ia64_ctx = {
-	lock:	SPIN_LOCK_UNLOCKED,
-	next:	1,
-	limit:	(1 << 15) - 1,		/* start out with the safe (architected) limit */
-	max_ctx: ~0U
+	.lock =		SPIN_LOCK_UNLOCKED,
+	.next =		1,
+	.limit =	(1 << 15) - 1,		/* start out with the safe (architected) limit */
+	.max_ctx =	~0U
 };
 
 /*
@@ -48,6 +41,7 @@ wrap_mmu_context (struct mm_struct *mm)
 {
 	unsigned long tsk_context, max_ctx = ia64_ctx.max_ctx;
 	struct task_struct *tsk;
+	int i;
 
 	if (ia64_ctx.next > max_ctx)
 		ia64_ctx.next = 300;	/* skip daemons */
@@ -76,7 +70,14 @@ wrap_mmu_context (struct mm_struct *mm)
 			ia64_ctx.limit = tsk_context;
 	}
 	read_unlock(&tasklist_lock);
-	flush_tlb_all();
+	/*
+	 * Can't call flush_tlb_all() here because of race condition with scheduler [EF]
+	 * and because interrupts are disabled during context switch.
+	 */
+	for (i = 0; i < NR_CPUS; ++i)
+		if (cpu_online(i) && (i != smp_processor_id()))
+			cpu_data(i)->need_tlb_flush = 1;
+	local_flush_tlb_all();
 }
 
 void
@@ -100,7 +101,7 @@ ia64_global_tlb_purge (unsigned long start, unsigned long end, unsigned long nbi
 }
 
 void
-__flush_tlb_all (void)
+local_flush_tlb_all (void)
 {
 	unsigned long i, j, flags, count0, count1, stride0, stride1, addr;
 
@@ -141,22 +142,10 @@ flush_tlb_range (struct mm_struct *mm, unsigned long start, unsigned long end)
 	}
 
 	nbits = ia64_fls(size + 0xfff);
-	if (((1UL << nbits) & SUPPORTED_PGBITS) == 0) {
-		if (nbits > _PAGE_SIZE_256M)
-			nbits = _PAGE_SIZE_256M;
-		else
-			/*
-			 * Some page sizes are not implemented in the
-			 * IA-64 arch, so if we get asked to clear an
-			 * unsupported page size, round up to the
-			 * nearest page size.  Note that we depend on
-			 * the fact that if page size N is not
-			 * implemented, 2*N _is_ implemented.
-			 */
-			++nbits;
-		if (((1UL << nbits) & SUPPORTED_PGBITS) == 0)
-			panic("flush_tlb_range: BUG: nbits=%lu\n", nbits);
-	}
+	while (unlikely (((1UL << nbits) & purge.mask) == 0) && (nbits < purge.max_bits))
+		++nbits;
+	if (nbits > purge.max_bits)
+		nbits = purge.max_bits;
 	start &= ~((1UL << nbits) - 1);
 
 # ifdef CONFIG_SMP
@@ -177,6 +166,15 @@ void __init
 ia64_tlb_init (void)
 {
 	ia64_ptce_info_t ptce_info;
+	unsigned long tr_pgbits;
+	long status;
+
+	if ((status = ia64_pal_vm_page_size(&tr_pgbits, &purge.mask)) != 0) {
+		printk(KERN_ERR "PAL_VM_PAGE_SIZE failed with status=%ld;"
+		       "defaulting to architected purge page-sizes.\n", status);
+		purge.mask = 0x115557000;
+	}
+	purge.max_bits = ia64_fls(purge.mask);
 
 	ia64_get_ptce(&ptce_info);
 	local_cpu_data->ptce_base = ptce_info.base;
@@ -185,5 +183,5 @@ ia64_tlb_init (void)
 	local_cpu_data->ptce_stride[0] = ptce_info.stride[0];
 	local_cpu_data->ptce_stride[1] = ptce_info.stride[1];
 
-	__flush_tlb_all();		/* nuke left overs from bootstrapping... */
+	local_flush_tlb_all();		/* nuke left overs from bootstrapping... */
 }

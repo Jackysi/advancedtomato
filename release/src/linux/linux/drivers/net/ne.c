@@ -105,6 +105,9 @@ bad_clone_list[] __initdata = {
     {"PCM-4823", "PCM-4823", {0x00, 0xc0, 0x6c}}, /* Broken Advantech MoBo */
     {"REALTEK", "RTL8019", {0x00, 0x00, 0xe8}}, /* no-name with Realtek chip */
     {"LCS-8834", "LCS-8836", {0x04, 0x04, 0x37}}, /* ShinyNet (SET) */
+#ifdef CONFIG_TOSHIBA_RBTX4927
+    {"TX4927", "TX4927", {0x00, 0x60, 0x0a}}, /* Toshiba w/EEPROM, no probing */
+#endif
     {0,}
 };
 #endif
@@ -239,6 +242,13 @@ static int __init ne_probe1(struct net_device *dev, int ioaddr)
 	int reg0, ret;
 	static unsigned version_printed;
 
+#ifdef CONFIG_TOSHIBA_RBTX4927
+#include <asm/tx4927/toshiba_rbtx4927.h>
+	ioaddr = RBTX4927_RTL_8019_BASE;
+	dev->irq = RBTX4927_RTL_8019_IRQ;
+	wordlength = 1;
+#endif
+
 	if (!request_region(ioaddr, NE_IO_EXTENT, dev->name))
 		return -EBUSY;
 
@@ -342,8 +352,15 @@ static int __init ne_probe1(struct net_device *dev, int ioaddr)
 		start_page = NESM_START_PG;
 		stop_page = NESM_STOP_PG;
 	} else {
+#ifdef CONFIG_TOSHIBA_RBTX4927
+		start_page = NESM_START_PG;
+		stop_page = NESM_STOP_PG;
+		for (i = 0; i < 16; i++)
+			SA_prom[i] = SA_prom[i+i];
+#else
 		start_page = NE1SM_START_PG;
 		stop_page = NE1SM_STOP_PG;
+#endif
 	}
 
 	neX000 = (SA_prom[14] == 0x57  &&  SA_prom[15] == 0x57);

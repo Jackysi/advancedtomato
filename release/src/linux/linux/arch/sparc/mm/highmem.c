@@ -28,14 +28,24 @@ void *kmap_atomic(struct page *page, enum km_type type)
 	idx = type + KM_TYPE_NR * smp_processor_id();
 	vaddr = fix_kmap_begin + idx * PAGE_SIZE;
 
+/* XXX Fix - Anton */
+#if 0
+	__flush_cache_one(vaddr);
+#else
 	flush_cache_all();
+#endif
 
 #if HIGHMEM_DEBUG
 	if (!pte_none(*(kmap_pte + idx)))
 		BUG();
 #endif
 	set_pte(kmap_pte + idx, mk_pte(page, kmap_prot));
+/* XXX Fix - Anton */
+#if 0
+	__flush_tlb_one(vaddr);
+#else
 	flush_tlb_all();
+#endif
 
 	return (void *) vaddr;
 }
@@ -45,13 +55,18 @@ void kunmap_atomic(void *kvaddr, enum km_type type)
 	unsigned long vaddr = (unsigned long) kvaddr;
 	unsigned long idx = type + KM_TYPE_NR * smp_processor_id();
 
-	if (vaddr < fix_kmap_begin) 
+	if (vaddr < fix_kmap_begin) /* FIXME */
 		return;
 
 	if (vaddr != fix_kmap_begin + idx * PAGE_SIZE)
 		BUG();
 
+/* XXX Fix - Anton */
+#if 0
+	__flush_cache_one(vaddr);
+#else
 	flush_cache_all();
+#endif
 
 #ifdef HIGHMEM_DEBUG
 	/*
@@ -59,6 +74,11 @@ void kunmap_atomic(void *kvaddr, enum km_type type)
 	 *  this pte without first remapping it.
 	 */
 	pte_clear(kmap_pte + idx);
+/* XXX Fix - Anton */
+#if 0
+	__flush_tlb_one(vaddr);
+#else
 	flush_tlb_all();
+#endif
 #endif
 }

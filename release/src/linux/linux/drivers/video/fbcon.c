@@ -266,22 +266,22 @@ static void cursor_timer_handler(unsigned long dev_addr)
 int PROC_CONSOLE(const struct fb_info *info)
 {
         int fgc;
-        
-        if (info->display_fg != NULL)
-                fgc = info->display_fg->vc_num;
-        else
-                return -1;
-                
-        if (!current->tty)
-                return fgc;
 
-        if (current->tty->driver.type != TTY_DRIVER_TYPE_CONSOLE)
-                return fgc;
+	if (info->display_fg == NULL)
+		return -1;
 
-        if (MINOR(current->tty->device) < 1)
-                return fgc;
+        if (!current->tty ||
+	    current->tty->driver.type != TTY_DRIVER_TYPE_CONSOLE ||
+	    MINOR(current->tty->device) < 1)
+		fgc = info->display_fg->vc_num;
+	else
+		fgc = MINOR(current->tty->device)-1;
 
-        return MINOR(current->tty->device) - 1;
+	/* Does this virtual console belong to the specified fbdev? */
+	if (fb_display[fgc].fb_info != info)
+		return -1;
+
+	return fgc;
 }
 
 
@@ -660,9 +660,8 @@ static void fbcon_setup(int con, int init, int logo)
     
     if (logo) {
     	/* Need to make room for the logo */
-	int cnt;
-	int step;
-    
+	int cnt, step, erase_char;
+
     	logo_lines = (LOGO_H + fontheight(p) - 1) / fontheight(p);
     	q = (unsigned short *)(conp->vc_origin + conp->vc_size_row * old_rows);
     	step = logo_lines * old_cols;
@@ -692,8 +691,10 @@ static void fbcon_setup(int con, int init, int logo)
     		conp->vc_pos += logo_lines * conp->vc_size_row;
     	    }
     	}
-    	scr_memsetw((unsigned short *)conp->vc_origin,
-		    conp->vc_video_erase_char, 
+	erase_char = conp->vc_video_erase_char;
+	if (! conp->vc_can_do_color)
+	    erase_char &= ~0x400; /* disable underline */
+	scr_memsetw((unsigned short *)conp->vc_origin, erase_char,
 		    conp->vc_size_row * logo_lines);
     }
     
@@ -918,8 +919,9 @@ static void fbcon_cursor(struct vc_data *conp, int mode)
 	return;
 
     cursor_on = 0;
-    if (cursor_drawn)
-        p->dispsw->revc(p, p->cursor_x, real_y(p, p->cursor_y));
+    if (cursor_drawn && p->cursor_x < conp->vc_cols &&
+	p->cursor_y < conp->vc_rows)
+	p->dispsw->revc(p, p->cursor_x, real_y(p, p->cursor_y));
 
     p->cursor_x = conp->vc_x;
     p->cursor_y = y;
@@ -1876,7 +1878,10 @@ static inline int fbcon_set_font(int unit, struct console_font_op *op)
        font length must be multiple of 256, at least. And 256 is multiple
        of 4 */
     k = 0;
-    while (p > new_data) k += *--(u32 *)p;
+    while (p > new_data) {
+	    p = (u8 *)((u32 *)p - 1);
+	    k += *(u32 *) p;
+    }
     FNTSUM(new_data) = k;
     /* Check if the same font is on some other console already */
     for (i = 0; i < MAX_NR_CONSOLES; i++) {
@@ -2097,7 +2102,7 @@ static int fbcon_scrolldelta(struct vc_data *conp, int lines)
 
     offset = p->yscroll-scrollback_current;
     limit = p->vrows;
-    switch (p->scrollmode && __SCROLL_YMASK) {
+    switch (p->scrollmode & __SCROLL_YMASK) {
 	case __SCROLL_YWRAP:
 	    p->var.vmode |= FB_VMODE_YWRAP;
 	    break;

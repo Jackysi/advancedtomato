@@ -154,6 +154,7 @@ void mvme147_sched_init (void (*timer_routine)(int, void *, struct pt_regs *))
 }
 
 /* This is always executed with interrupts disabled.  */
+/* XXX There are race hazards in this code XXX */
 unsigned long mvme147_gettimeoffset (void)
 {
 	volatile unsigned short *cp = (volatile unsigned short *)0xfffe1012;

@@ -1,10 +1,7 @@
-/*
- * BK Id: SCCS/s.ipc.h 1.5 05/17/01 18:14:24 cort
- */
 #ifndef __PPC_IPC_H__
 #define __PPC_IPC_H__
 
-/* 
+/*
  * These are used to wrap system calls on PowerPC.
  *
  * See arch/ppc/kernel/syscalls.c for ugly details..
@@ -17,6 +14,7 @@ struct ipc_kludge {
 #define SEMOP		 1
 #define SEMGET		 2
 #define SEMCTL		 3
+#define SEMTIMEDOP	 4
 #define MSGSND		11
 #define MSGRCV		12
 #define MSGGET		13

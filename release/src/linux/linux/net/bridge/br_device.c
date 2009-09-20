@@ -5,7 +5,7 @@
  *	Authors:
  *	Lennert Buytenhek		<buytenh@gnu.org>
  *
- *	$Id: br_device.c,v 1.1.1.4 2003/10/14 08:09:32 sparq Exp $
+ *	$Id: br_device.c,v 1.5.2.1 2001/12/24 00:59:27 davem Exp $
  *
  *	This program is free software; you can redistribute it and/or
  *	modify it under the terms of the GNU General Public License
@@ -121,25 +121,6 @@ static int br_dev_accept_fastpath(struct net_device *dev, struct dst_entry *dst)
 	return -1;
 }
 
-extern void br_stp_change_bridge_id(struct net_bridge *br, unsigned char *addr);
-
-static int
-br_set_mac_address(struct net_device *dev, void *addr)
-{
-	struct net_bridge *br = dev->priv;
-	struct sockaddr *sa = (struct sockaddr *) addr;
-	
-	write_lock_bh(&br->lock);
-
-	memcpy(br->preferred_id.addr, sa->sa_data, ETH_ALEN);
-
-	br_stp_recalculate_bridge_id(br);
-
-	write_unlock_bh(&br->lock);
-
-	return 0;
-}
-
 void br_dev_setup(struct net_device *dev)
 {
 	memset(dev->dev_addr, 0, ETH_ALEN);
@@ -152,5 +133,5 @@ void br_dev_setup(struct net_device *dev)
 	dev->stop = br_dev_stop;
 	dev->accept_fastpath = br_dev_accept_fastpath;
 	dev->tx_queue_len = 0;
-	dev->set_mac_address = br_set_mac_address;
+	dev->set_mac_address = NULL;
 }

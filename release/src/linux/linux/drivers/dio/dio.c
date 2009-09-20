@@ -36,6 +36,14 @@
 #define CONFIG_DIO_CONSTANTS
 
 #ifdef CONFIG_DIO_CONSTANTS
+/* We associate each numeric ID with an appropriate descriptive string
+ * using a constant array of these structs.
+ * FIXME: we should be able to arrange to throw away most of the strings
+ * using the initdata stuff. Then we wouldn't need to worry about 
+ * carrying them around...
+ * I think we do this by copying them into newly kmalloc()ed memory and 
+ * marking the names[] array as .initdata ?
+ */
 struct dioname
 {
         int id;
@@ -140,6 +148,9 @@ static int __init dio_find_slow(int deviceid)
 	return 0;
 }
 
+/* Aargh: we use 0 for an error return code, but select code 0 exists!
+ * FIXME (trivial, use -1, but requires changes to all the drivers :-< )
+ */
 int dio_find(int deviceid)
 {
 	if (blist) 
@@ -179,6 +190,9 @@ void __init dio_init(void)
                 /* Found a board, allocate it an entry in the list */
                 b = kmalloc(sizeof(struct dioboard), GFP_KERNEL);
                 
+                /* read the ID byte(s) and encode if necessary. Note workaround 
+                 * for broken internal HPIB devices...
+                 */
                 if (!DIO_ISIHPIB(scode))
                         prid = DIO_ID(va);
                 else 

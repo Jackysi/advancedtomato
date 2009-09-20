@@ -1,4 +1,4 @@
-/* $Id: head.h,v 1.1.1.4 2003/10/14 08:09:23 sparq Exp $ */
+/* $Id: head.h,v 1.30.8.1 2002/03/03 10:31:56 davem Exp $ */
 #ifndef _SPARC64_HEAD_H
 #define _SPARC64_HEAD_H
 
@@ -6,19 +6,30 @@
 
 #define KERNBASE	0x400000
 
-#define	PTREGS_OFF	(STACK_BIAS + REGWIN_SZ)
+#define	PTREGS_OFF	(STACK_BIAS + STACKFRAME_SZ)
 
 #define __CHEETAH_ID	0x003e0014
+#define __JALAPENO_ID	0x003e0016
 
 #define CHEETAH_MANUF		0x003e
 #define CHEETAH_IMPL		0x0014
 #define CHEETAH_PLUS_IMPL	0x0015
+#define JALAPENO_IMPL		0x0016
 
 #define BRANCH_IF_CHEETAH_BASE(tmp1,tmp2,label)	\
 	rdpr	%ver, %tmp1;			\
 	sethi	%hi(__CHEETAH_ID), %tmp2;	\
 	srlx	%tmp1, 32, %tmp1;		\
 	or	%tmp2, %lo(__CHEETAH_ID), %tmp2;\
+	cmp	%tmp1, %tmp2;			\
+	be,pn	%icc, label;			\
+	 nop;
+
+#define BRANCH_IF_JALAPENO(tmp1,tmp2,label)	\
+	rdpr	%ver, %tmp1;			\
+	sethi	%hi(__JALAPENO_ID), %tmp2;	\
+	srlx	%tmp1, 32, %tmp1;		\
+	or	%tmp2, %lo(__JALAPENO_ID), %tmp2;\
 	cmp	%tmp1, %tmp2;			\
 	be,pn	%icc, label;			\
 	 nop;

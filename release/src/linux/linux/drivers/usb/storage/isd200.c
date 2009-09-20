@@ -1,6 +1,6 @@
 /* Transport & Protocol Driver for In-System Design, Inc. ISD200 ASIC
  *
- * $Id: isd200.c,v 1.1.1.4 2003/10/14 08:08:52 sparq Exp $
+ * $Id: isd200.c,v 1.14 2002/02/25 00:40:13 mdharm Exp $
  *
  * Current development and maintenance:
  *   (C) 2001-2002 Björn Stenberg (bjorn@haxx.se)
@@ -101,13 +101,6 @@
 #define REG_DEVICE_HEAD      0x40
 #define REG_STATUS           0x80
 #define REG_COMMAND          0x80
-
-/* ATA error definitions not in <linux/hdreg.h> */
-#define ATA_ERROR_MEDIA_CHANGE       0x20
-
-/* ATA command definitions not in <linux/hdreg.h> */
-#define ATA_COMMAND_GET_MEDIA_STATUS        0xDA
-#define ATA_COMMAND_MEDIA_EJECT             0xED
 
 /* ATA drive control definitions */
 #define ATA_DC_DISABLE_INTERRUPTS    0x02
@@ -353,7 +346,7 @@ void isd200_build_sense(struct us_data *us, Scsi_Cmnd *srb)
         struct sense_data *buf = (struct sense_data *) &srb->sense_buffer[0];
         unsigned char error = info->ATARegs[IDE_ERROR_OFFSET];
 
-	if(error & ATA_ERROR_MEDIA_CHANGE) {
+	if(error & MC_ERR) {
 		buf->ErrorCode = 0x70 | SENSE_ERRCODE_VALID;
 		buf->AdditionalSenseLength = 0xb;
 		buf->Flags = UNIT_ATTENTION;
@@ -442,8 +435,8 @@ static int isd200_transfer_partial( struct us_data *us,
                         return ISD200_TRANSPORT_FAILED;
                 }
 
-                /* -ENOENT -- we canceled this transfer */
-                if (result == -ENOENT) {
+                /* -ECONNRESET -- we canceled this transfer */
+                if (result == -ECONNRESET) {
                         US_DEBUGP("isd200_transfer_partial(): transfer aborted\n");
                         return ISD200_TRANSPORT_ABORTED;
                 }
@@ -581,7 +574,7 @@ int isd200_Bulk_transport( struct us_data *us, Scsi_Cmnd *srb,
 				   &partial);
         US_DEBUGP("Bulk command transfer result=%d\n", result);
     
-	if (result == -ENOENT)
+	if (result == -ECONNRESET)
 		return ISD200_TRANSPORT_ABORTED;
 	else if (result == -EPIPE) {
 		/* if we stall, we need to clear it before we go on */
@@ -610,7 +603,7 @@ int isd200_Bulk_transport( struct us_data *us, Scsi_Cmnd *srb,
         US_DEBUGP("Attempting to get CSW...\n");
         result = usb_stor_bulk_msg(us, &bcs, pipe, US_BULK_CS_WRAP_LEN, 
 				   &partial);
-        if (result == -ENOENT)
+        if (result == -ECONNRESET)
                 return ISD200_TRANSPORT_ABORTED;
 
         /* did the attempt to read the CSW fail? */
@@ -624,7 +617,7 @@ int isd200_Bulk_transport( struct us_data *us, Scsi_Cmnd *srb,
                                            US_BULK_CS_WRAP_LEN, &partial);
 
                 /* if the command was aborted, indicate that */
-                if (result == -ENOENT)
+                if (result == -ECONNRESET)
                         return ISD200_TRANSPORT_ABORTED;
         
                 /* if it fails again, we need a reset and return an error*/
@@ -1125,6 +1118,8 @@ static int isd200_try_enum(struct us_data *us, unsigned char master_slave,
 			}
 		}
 		/* check for BUSY_STAT and */
+		/* WRERR_STAT (workaround ATA Zip drive) and */ 
+		/* ERR_STAT (workaround for Archos CD-ROM) */
 		else if (regs[IDE_STATUS_OFFSET] & 
 			 (BUSY_STAT | WRERR_STAT | ERR_STAT )) {
 			US_DEBUGP("   Status indicates it is not ready, try again...\n");
@@ -1470,7 +1465,7 @@ int isd200_scsi_to_ata(Scsi_Cmnd *srb, struct us_data *us,
 			ataCdb->generic.SignatureByte1 = info->ConfigData.ATAMinorCommand;
 			ataCdb->generic.TransferBlockSize = 1;
 			ataCdb->generic.RegisterSelect = REG_COMMAND;
-			ataCdb->write.CommandByte = ATA_COMMAND_GET_MEDIA_STATUS;
+			ataCdb->write.CommandByte = WIN_GETMEDIASTATUS;
 			srb->request_bufflen = 0;
 		} else {
 			US_DEBUGP("   Media Status not supported, just report okay\n");
@@ -1491,7 +1486,7 @@ int isd200_scsi_to_ata(Scsi_Cmnd *srb, struct us_data *us,
 			ataCdb->generic.SignatureByte1 = info->ConfigData.ATAMinorCommand;
 			ataCdb->generic.TransferBlockSize = 1;
 			ataCdb->generic.RegisterSelect = REG_COMMAND;
-			ataCdb->write.CommandByte = ATA_COMMAND_GET_MEDIA_STATUS;
+			ataCdb->write.CommandByte = WIN_GETMEDIASTATUS;
 			srb->request_bufflen = 0;
 		} else {
 			US_DEBUGP("   Media Status not supported, just report okay\n");
@@ -1623,14 +1618,14 @@ int isd200_scsi_to_ata(Scsi_Cmnd *srb, struct us_data *us,
 			ataCdb->generic.SignatureByte1 = info->ConfigData.ATAMinorCommand;
 			ataCdb->generic.TransferBlockSize = 0;
 			ataCdb->generic.RegisterSelect = REG_COMMAND;
-			ataCdb->write.CommandByte = ATA_COMMAND_MEDIA_EJECT;
+			ataCdb->write.CommandByte = WIN_MEDIAEJECT;
 		} else if ((srb->cmnd[4] & 0x3) == 0x1) {
 			US_DEBUGP("   Get Media Status\n");
 			ataCdb->generic.SignatureByte0 = info->ConfigData.ATAMajorCommand;
 			ataCdb->generic.SignatureByte1 = info->ConfigData.ATAMinorCommand;
 			ataCdb->generic.TransferBlockSize = 1;
 			ataCdb->generic.RegisterSelect = REG_COMMAND;
-			ataCdb->write.CommandByte = ATA_COMMAND_GET_MEDIA_STATUS;
+			ataCdb->write.CommandByte = WIN_GETMEDIASTATUS;
 			srb->request_bufflen = 0;
 		} else {
 			US_DEBUGP("   Nothing to do, just report okay\n");

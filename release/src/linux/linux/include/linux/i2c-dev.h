@@ -19,7 +19,7 @@
     Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 */
 
-/* $Id: i2c-dev.h,v 1.1.1.4 2003/10/14 08:09:25 sparq Exp $ */
+/* $Id: i2c-dev.h,v 1.9 2001/08/15 03:04:58 mds Exp $ */
 
 #ifndef I2C_DEV_H
 #define I2C_DEV_H
@@ -33,16 +33,16 @@
 
 /* This is the structure as used in the I2C_SMBUS ioctl call */
 struct i2c_smbus_ioctl_data {
-	char read_write;
+	__u8 read_write;
 	__u8 command;
-	int size;
+	__u32 size;
 	union i2c_smbus_data *data;
 };
 
 /* This is the structure as used in the I2C_RDWR ioctl call */
 struct i2c_rdwr_ioctl_data {
 	struct i2c_msg *msgs;	/* pointers to i2c_msgs */
-	int nmsgs;		/* number of i2c_msgs */
+	__u32 nmsgs;		/* number of i2c_msgs */
 };
 
 #ifndef __KERNEL__

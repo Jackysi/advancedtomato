@@ -73,10 +73,10 @@ typedef __u32 DriverVer_type;
 #define TYPE_MSG				0x01
 
 // Type defs used in the following structs
-#define BYTE __u8
-#define WORD __u16
-#define HWORD __u16
-#define DWORD __u32
+typedef __u8 BYTE;
+typedef __u16 WORD; 
+typedef __u16 HWORD; 
+typedef __u32 DWORD; 
 
 #define CISS_MAX_LUN	16	
 
@@ -169,6 +169,18 @@ typedef struct _IOCTL_Command_struct {
   BYTE			   *buf;
 } IOCTL_Command_struct;
 
+#define MAX_KMALLOC_SIZE 128000
+
+typedef struct _BIG_IOCTL_Command_struct {
+  LUNAddr_struct	   LUN_info;
+  RequestBlock_struct      Request;
+  ErrorInfo_struct  	   error_info; 
+  DWORD			   malloc_size; /* < MAX_KMALLOC_SIZE in cciss.c */
+  DWORD			   buf_size;    /* size in bytes of the buf */
+  				        /* < malloc_size * MAXSGENTRIES */
+  BYTE			   *buf;
+} BIG_IOCTL_Command_struct;
+
 typedef struct _LogvolInfo_struct{
    __u32	LunID;
    int		num_opens;  /* number of opens on the logical volume */
@@ -189,7 +201,38 @@ typedef struct _LogvolInfo_struct{
 #define CCISS_GETDRIVVER   _IOR(CCISS_IOC_MAGIC, 9, DriverVer_type)
 #define CCISS_REVALIDVOLS  _IO(CCISS_IOC_MAGIC, 10) /* obsolete */
 #define CCISS_PASSTHRU	   _IOWR(CCISS_IOC_MAGIC, 11, IOCTL_Command_struct)
+#define CCISS_DEREGDISK	   _IO(CCISS_IOC_MAGIC, 12)
+#define CCISS_REGNEWDISK  _IOW(CCISS_IOC_MAGIC, 13, __u64)
+#define CCISS_REGNEWD	   _IO(CCISS_IOC_MAGIC, 14)
+#define CCISS_RESCANDISK   _IO(CCISS_IOC_MAGIC, 16)
 #define CCISS_GETLUNINFO  _IOR(CCISS_IOC_MAGIC, 17, LogvolInfo_struct)
+#define CCISS_BIG_PASSTHRU _IOWR(CCISS_IOC_MAGIC, 18, BIG_IOCTL_Command_struct)
 
+#ifdef __KERNEL__
+#ifdef __x86_64__
 
+/* 32 bit compatible ioctl structs */ 
+typedef struct _IOCTL32_Command_struct {
+  LUNAddr_struct	   LUN_info;
+  RequestBlock_struct      Request;
+  ErrorInfo_struct  	   error_info; 
+  WORD			   buf_size;  /* size in bytes of the buf */
+  __u32			   buf; /* 32 bit pointer to data buffer */
+} IOCTL32_Command_struct;
+
+typedef struct _BIG_IOCTL32_Command_struct {
+  LUNAddr_struct	   LUN_info;
+  RequestBlock_struct      Request;
+  ErrorInfo_struct  	   error_info; 
+  DWORD			   malloc_size; /* < MAX_KMALLOC_SIZE in cciss.c */
+  DWORD			   buf_size;    /* size in bytes of the buf */
+  				        /* < malloc_size * MAXSGENTRIES */
+  __u32 		buf;	/* 32 bit pointer to data buffer */
+} BIG_IOCTL32_Command_struct;
+
+#define CCISS_PASSTHRU32   _IOWR(CCISS_IOC_MAGIC, 11, IOCTL32_Command_struct)
+#define CCISS_BIG_PASSTHRU32 _IOWR(CCISS_IOC_MAGIC, 18, BIG_IOCTL32_Command_struct)
+
+#endif /* __x86_64__ */
+#endif /* __KERNEL__ */
 #endif  

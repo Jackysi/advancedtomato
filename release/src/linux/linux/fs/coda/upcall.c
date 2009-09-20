@@ -543,6 +543,11 @@ int venus_pioctl(struct super_block *sb, struct ViceFid *fid,
 		goto exit;
         }
 
+        if (data->vi.out_size > VC_MAXDATASIZE) {
+		error = -EINVAL;
+		goto exit;
+	}
+
         inp->coda_ioctl.VFid = *fid;
     
         /* the cmd field was mutated by increasing its size field to
@@ -571,26 +576,30 @@ int venus_pioctl(struct super_block *sb, struct ViceFid *fid,
 		       error, coda_f2s(fid));
 		goto exit; 
 	}
-        
-	/* Copy out the OUT buffer. */
-        if (outp->coda_ioctl.len > data->vi.out_size) {
-                CDEBUG(D_FILE, "return len %d <= request len %d\n",
-                      outp->coda_ioctl.len, 
-                      data->vi.out_size);
-		error = -EINVAL;
-        } else {
-		error = verify_area(VERIFY_WRITE, data->vi.out, 
-                                    data->vi.out_size);
-		if ( error ) goto exit;
 
-		if (copy_to_user(data->vi.out, 
-				 (char *)outp + (long)outp->coda_ioctl.data, 
-				 data->vi.out_size)) {
-			error = -EINVAL;
-			goto exit;
-		}
+	if (outsize < (long)outp->coda_ioctl.data + outp->coda_ioctl.len) {
+                CDEBUG(D_FILE, "reply size %d < reply len %ld\n", outsize,
+		       (long)outp->coda_ioctl.data + outp->coda_ioctl.len);
+		error = -EINVAL;
+		goto exit;
+	}
+
+        if (outp->coda_ioctl.len > data->vi.out_size) {
+                CDEBUG(D_FILE, "return len %d > request len %d\n",
+		       outp->coda_ioctl.len, data->vi.out_size);
+		error = -EINVAL;
+		goto exit;
         }
 
+	/* Copy out the OUT buffer. */
+	error = verify_area(VERIFY_WRITE, data->vi.out, outp->coda_ioctl.len);
+	if ( error ) goto exit;
+
+	if (copy_to_user(data->vi.out, 
+			 (char *)outp + (long)outp->coda_ioctl.data, 
+			 outp->coda_ioctl.len)) {
+	    error = -EINVAL;
+	}
  exit:
 	CODA_FREE(inp, insize);
 	return error;

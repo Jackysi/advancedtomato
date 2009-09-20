@@ -1,4 +1,4 @@
-/* $Id: newport.h,v 1.1.1.4 2003/10/14 08:09:29 sparq Exp $
+/* $Id: newport.h,v 1.5 1999/08/04 06:01:51 ulfc Exp $
  *
  * newport.h: Defines and register layout for NEWPORT graphics
  *            hardware.

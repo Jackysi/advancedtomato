@@ -1,4 +1,4 @@
-/* $Id: zs.h,v 1.1.1.4 2003/10/14 08:08:35 sparq Exp $
+/* $Id: zs.h,v 1.3 1999/09/21 14:38:18 davem Exp $
  * zs.h: Definitions for the Sparc Zilog serial driver.
  *
  * Copyright (C) 1995 David S. Miller (davem@caip.rutgers.edu)

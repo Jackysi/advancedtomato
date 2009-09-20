@@ -13,18 +13,28 @@ CONFIG_EXPERIMENTAL=y
 #
 # Loadable module support
 #
-# CONFIG_MODULES is not set
+CONFIG_MODULES=y
+# CONFIG_MODVERSIONS is not set
+CONFIG_KMOD=y
 
 #
 # Machine selection
 #
 # CONFIG_ACER_PICA_61 is not set
+# CONFIG_MIPS_BOSPORUS is not set
+# CONFIG_MIPS_MIRAGE is not set
 # CONFIG_MIPS_DB1000 is not set
 # CONFIG_MIPS_DB1100 is not set
 # CONFIG_MIPS_DB1500 is not set
+# CONFIG_MIPS_DB1550 is not set
 # CONFIG_MIPS_PB1000 is not set
 # CONFIG_MIPS_PB1100 is not set
 # CONFIG_MIPS_PB1500 is not set
+# CONFIG_MIPS_HYDROGEN3 is not set
+# CONFIG_MIPS_PB1550 is not set
+# CONFIG_MIPS_XXS1500 is not set
+# CONFIG_MIPS_MTX1 is not set
+# CONFIG_COGENT_CSB250 is not set
 # CONFIG_BAGET_MIPS is not set
 # CONFIG_CASIO_E55 is not set
 # CONFIG_MIPS_COBALT is not set
@@ -42,6 +52,11 @@ CONFIG_MIPS_MALTA=y
 # CONFIG_MIPS_SEAD is not set
 # CONFIG_MOMENCO_OCELOT is not set
 # CONFIG_MOMENCO_OCELOT_G is not set
+# CONFIG_MOMENCO_OCELOT_C is not set
+# CONFIG_MOMENCO_JAGUAR_ATX is not set
+# CONFIG_PMC_BIG_SUR is not set
+# CONFIG_PMC_STRETCH is not set
+# CONFIG_PMC_YOSEMITE is not set
 # CONFIG_DDB5074 is not set
 # CONFIG_DDB5476 is not set
 # CONFIG_DDB5477 is not set
@@ -51,10 +66,12 @@ CONFIG_MIPS_MALTA=y
 # CONFIG_NINO is not set
 # CONFIG_SGI_IP22 is not set
 # CONFIG_SGI_IP27 is not set
-# CONFIG_SGI_IP32 is not set
 # CONFIG_SIBYTE_SB1xxx_SOC is not set
 # CONFIG_SNI_RM200_PCI is not set
+# CONFIG_TANBAC_TB0226 is not set
+# CONFIG_TANBAC_TB0229 is not set
 # CONFIG_TOSHIBA_JMR3927 is not set
+# CONFIG_TOSHIBA_RBTX4927 is not set
 # CONFIG_VICTOR_MPC30X is not set
 # CONFIG_ZAO_CAPCELLA is not set
 # CONFIG_HIGHMEM is not set
@@ -63,13 +80,14 @@ CONFIG_RWSEM_GENERIC_SPINLOCK=y
 CONFIG_BOOT_ELF32=y
 CONFIG_HAVE_STD_PC_SERIAL_PORT=y
 CONFIG_I8259=y
+CONFIG_MIPS_BONITO64=y
+CONFIG_MIPS_GT64120=y
+CONFIG_MIPS_MSC=y
 CONFIG_L1_CACHE_SHIFT=5
-CONFIG_NEW_TIME_C=y
 CONFIG_NONCOHERENT_IO=y
 CONFIG_SWAP_IO_SPACE_W=y
 CONFIG_SWAP_IO_SPACE_L=y
 CONFIG_PC_KEYB=y
-CONFIG_PCI=y
 # CONFIG_MIPS_AU1000 is not set
 
 #
@@ -90,7 +108,11 @@ CONFIG_CPU_MIPS32=y
 # CONFIG_CPU_R8000 is not set
 # CONFIG_CPU_R10000 is not set
 # CONFIG_CPU_RM7000 is not set
+# CONFIG_CPU_RM9000 is not set
 # CONFIG_CPU_SB1 is not set
+CONFIG_PAGE_SIZE_4KB=y
+# CONFIG_PAGE_SIZE_16KB is not set
+# CONFIG_PAGE_SIZE_64KB is not set
 CONFIG_CPU_HAS_PREFETCH=y
 # CONFIG_VTAG_ICACHE is not set
 # CONFIG_64BIT_PHYS_ADDR is not set
@@ -104,10 +126,13 @@ CONFIG_CPU_HAS_SYNC=y
 # General setup
 #
 CONFIG_CPU_LITTLE_ENDIAN=y
+# CONFIG_BUILD_ELF64 is not set
 CONFIG_NET=y
+CONFIG_PCI=y
+# CONFIG_PCI_NEW is not set
+# CONFIG_PCI_AUTO is not set
 # CONFIG_PCI_NAMES is not set
 # CONFIG_ISA is not set
-# CONFIG_EISA is not set
 # CONFIG_TC is not set
 # CONFIG_MCA is not set
 # CONFIG_SBUS is not set
@@ -126,7 +151,8 @@ CONFIG_BINFMT_ELF=y
 # CONFIG_MIPS32_N32 is not set
 # CONFIG_BINFMT_ELF32 is not set
 # CONFIG_BINFMT_MISC is not set
-# CONFIG_PM is not set
+# CONFIG_OOM_KILLER is not set
+# CONFIG_CMDLINE_BOOL is not set
 
 #
 # Memory Technology Devices (MTD)
@@ -153,8 +179,10 @@ CONFIG_BLK_DEV_FD=y
 # CONFIG_BLK_CPQ_DA is not set
 # CONFIG_BLK_CPQ_CISS_DA is not set
 # CONFIG_CISS_SCSI_TAPE is not set
+# CONFIG_CISS_MONITOR_THREAD is not set
 # CONFIG_BLK_DEV_DAC960 is not set
 # CONFIG_BLK_DEV_UMEM is not set
+# CONFIG_BLK_DEV_SX8 is not set
 # CONFIG_BLK_DEV_LOOP is not set
 # CONFIG_BLK_DEV_NBD is not set
 CONFIG_BLK_DEV_RAM=y
@@ -186,8 +214,8 @@ CONFIG_INET=y
 # CONFIG_IP_MULTICAST is not set
 # CONFIG_IP_ADVANCED_ROUTER is not set
 CONFIG_IP_PNP=y
-# CONFIG_IP_PNP_DHCP is not set
-# CONFIG_IP_PNP_BOOTP is not set
+CONFIG_IP_PNP_DHCP=y
+CONFIG_IP_PNP_BOOTP=y
 # CONFIG_IP_PNP_RARP is not set
 # CONFIG_NET_IPIP is not set
 # CONFIG_NET_IPGRE is not set
@@ -196,6 +224,11 @@ CONFIG_IP_PNP=y
 # CONFIG_SYN_COOKIES is not set
 # CONFIG_IPV6 is not set
 # CONFIG_KHTTPD is not set
+
+#
+#    SCTP Configuration (EXPERIMENTAL)
+#
+# CONFIG_IP_SCTP is not set
 # CONFIG_ATM is not set
 # CONFIG_VLAN_8021Q is not set
 
@@ -241,7 +274,6 @@ CONFIG_IP_PNP=y
 # ATA/IDE/MFM/RLL support
 #
 # CONFIG_IDE is not set
-# CONFIG_BLK_DEV_IDE_MODES is not set
 # CONFIG_BLK_DEV_HD is not set
 
 #
@@ -278,12 +310,25 @@ CONFIG_SD_EXTRA_DEVS=40
 # CONFIG_SCSI_AHA1740 is not set
 # CONFIG_SCSI_AACRAID is not set
 # CONFIG_SCSI_AIC7XXX is not set
+# CONFIG_SCSI_AIC79XX is not set
 # CONFIG_SCSI_AIC7XXX_OLD is not set
 # CONFIG_SCSI_DPT_I2O is not set
 # CONFIG_SCSI_ADVANSYS is not set
 # CONFIG_SCSI_IN2000 is not set
 # CONFIG_SCSI_AM53C974 is not set
 # CONFIG_SCSI_MEGARAID is not set
+# CONFIG_SCSI_MEGARAID2 is not set
+# CONFIG_SCSI_SATA is not set
+# CONFIG_SCSI_SATA_SVW is not set
+# CONFIG_SCSI_ATA_PIIX is not set
+# CONFIG_SCSI_SATA_NV is not set
+# CONFIG_SCSI_SATA_PROMISE is not set
+# CONFIG_SCSI_SATA_SX4 is not set
+# CONFIG_SCSI_SATA_SIL is not set
+# CONFIG_SCSI_SATA_SIS is not set
+# CONFIG_SCSI_SATA_ULI is not set
+# CONFIG_SCSI_SATA_VIA is not set
+# CONFIG_SCSI_SATA_VITESSE is not set
 # CONFIG_SCSI_BUSLOGIC is not set
 # CONFIG_SCSI_CPQFCTS is not set
 # CONFIG_SCSI_DMX3191D is not set
@@ -314,7 +359,22 @@ CONFIG_SD_EXTRA_DEVS=40
 # CONFIG_SCSI_DC390T is not set
 # CONFIG_SCSI_T128 is not set
 # CONFIG_SCSI_U14_34F is not set
+# CONFIG_SCSI_NSP32 is not set
 # CONFIG_SCSI_DEBUG is not set
+
+#
+# Fusion MPT device support
+#
+# CONFIG_FUSION is not set
+# CONFIG_FUSION_BOOT is not set
+# CONFIG_FUSION_ISENSE is not set
+# CONFIG_FUSION_CTL is not set
+# CONFIG_FUSION_LAN is not set
+
+#
+# IEEE 1394 (FireWire) support (EXPERIMENTAL)
+#
+# CONFIG_IEEE1394 is not set
 
 #
 # I2O device support
@@ -358,19 +418,23 @@ CONFIG_NET_ETHERNET=y
 # CONFIG_NET_ISA is not set
 CONFIG_NET_PCI=y
 CONFIG_PCNET32=y
+# CONFIG_AMD8111_ETH is not set
 # CONFIG_ADAPTEC_STARFIRE is not set
 # CONFIG_APRICOT is not set
+# CONFIG_B44 is not set
 # CONFIG_CS89x0 is not set
 # CONFIG_TULIP is not set
 # CONFIG_DE4X5 is not set
 # CONFIG_DGRS is not set
 # CONFIG_DM9102 is not set
 # CONFIG_EEPRO100 is not set
+# CONFIG_EEPRO100_PIO is not set
 # CONFIG_E100 is not set
 # CONFIG_LNE390 is not set
 # CONFIG_FEALNX is not set
 # CONFIG_NATSEMI is not set
 # CONFIG_NE2K_PCI is not set
+# CONFIG_FORCEDETH is not set
 # CONFIG_NE3210 is not set
 # CONFIG_ES3210 is not set
 # CONFIG_8139CP is not set
@@ -384,7 +448,6 @@ CONFIG_PCNET32=y
 # CONFIG_SUNDANCE is not set
 # CONFIG_SUNDANCE_MMIO is not set
 # CONFIG_TLAN is not set
-# CONFIG_TC35815 is not set
 # CONFIG_VIA_RHINE is not set
 # CONFIG_VIA_RHINE_MMIO is not set
 # CONFIG_WINBOND_840 is not set
@@ -401,6 +464,7 @@ CONFIG_PCNET32=y
 # CONFIG_NS83820 is not set
 # CONFIG_HAMACHI is not set
 # CONFIG_YELLOWFIN is not set
+# CONFIG_R8169 is not set
 # CONFIG_SK98LIN is not set
 # CONFIG_TIGON3 is not set
 # CONFIG_FDDI is not set
@@ -450,6 +514,7 @@ CONFIG_PCNET32=y
 # CONFIG_INPUT_MOUSEDEV is not set
 # CONFIG_INPUT_JOYDEV is not set
 # CONFIG_INPUT_EVDEV is not set
+# CONFIG_INPUT_UINPUT is not set
 
 #
 # Character devices
@@ -459,6 +524,7 @@ CONFIG_SERIAL=y
 CONFIG_SERIAL_CONSOLE=y
 # CONFIG_SERIAL_EXTENDED is not set
 # CONFIG_SERIAL_NONSTANDARD is not set
+# CONFIG_MIPS_HYDROGEN3_BUTTONS is not set
 CONFIG_UNIX98_PTYS=y
 CONFIG_UNIX98_PTY_COUNT=256
 
@@ -486,11 +552,18 @@ CONFIG_UNIX98_PTY_COUNT=256
 # Input core support is needed for joysticks
 #
 # CONFIG_QIC02_TAPE is not set
+# CONFIG_IPMI_HANDLER is not set
+# CONFIG_IPMI_PANIC_EVENT is not set
+# CONFIG_IPMI_DEVICE_INTERFACE is not set
+# CONFIG_IPMI_KCS is not set
+# CONFIG_IPMI_WATCHDOG is not set
 
 #
 # Watchdog Cards
 #
 # CONFIG_WATCHDOG is not set
+# CONFIG_SCx200 is not set
+# CONFIG_SCx200_GPIO is not set
 # CONFIG_AMD_PM768 is not set
 # CONFIG_NVRAM is not set
 CONFIG_RTC=y
@@ -503,12 +576,17 @@ CONFIG_RTC=y
 #
 # CONFIG_FTAPE is not set
 # CONFIG_AGP is not set
+
+#
+# Direct Rendering Manager (XFree86 DRI support)
+#
 # CONFIG_DRM is not set
 
 #
 # File systems
 #
 # CONFIG_QUOTA is not set
+# CONFIG_QFMT_V2 is not set
 CONFIG_AUTOFS_FS=y
 # CONFIG_AUTOFS4_FS is not set
 # CONFIG_REISERFS_FS is not set
@@ -518,6 +596,7 @@ CONFIG_AUTOFS_FS=y
 # CONFIG_ADFS_FS_RW is not set
 # CONFIG_AFFS_FS is not set
 # CONFIG_HFS_FS is not set
+# CONFIG_HFSPLUS_FS is not set
 # CONFIG_BEFS_FS is not set
 # CONFIG_BEFS_DEBUG is not set
 # CONFIG_BFS_FS is not set
@@ -559,6 +638,11 @@ CONFIG_EXT2_FS=y
 # CONFIG_UDF_RW is not set
 # CONFIG_UFS_FS is not set
 # CONFIG_UFS_FS_WRITE is not set
+# CONFIG_XFS_FS is not set
+# CONFIG_XFS_QUOTA is not set
+# CONFIG_XFS_RT is not set
+# CONFIG_XFS_TRACE is not set
+# CONFIG_XFS_DEBUG is not set
 
 #
 # Network File Systems
@@ -566,13 +650,15 @@ CONFIG_EXT2_FS=y
 # CONFIG_CODA_FS is not set
 # CONFIG_INTERMEZZO_FS is not set
 CONFIG_NFS_FS=y
-# CONFIG_NFS_V3 is not set
+CONFIG_NFS_V3=y
+# CONFIG_NFS_DIRECTIO is not set
 CONFIG_ROOT_NFS=y
-# CONFIG_NFSD is not set
-# CONFIG_NFSD_V3 is not set
-# CONFIG_NFSD_TCP is not set
+CONFIG_NFSD=y
+CONFIG_NFSD_V3=y
+CONFIG_NFSD_TCP=y
 CONFIG_SUNRPC=y
 CONFIG_LOCKD=y
+CONFIG_LOCKD_V4=y
 # CONFIG_SMB_FS is not set
 # CONFIG_NCP_FS is not set
 # CONFIG_NCPFS_PACKET_SIGNING is not set
@@ -609,6 +695,11 @@ CONFIG_MSDOS_PARTITION=y
 # CONFIG_USB is not set
 
 #
+# Support for USB gadgets
+#
+# CONFIG_USB_GADGET is not set
+
+#
 # Bluetooth support
 #
 # CONFIG_BLUEZ is not set
@@ -617,12 +708,22 @@ CONFIG_MSDOS_PARTITION=y
 # Kernel hacking
 #
 CONFIG_CROSSCOMPILE=y
-# CONFIG_DEBUG is not set
+# CONFIG_RUNTIME_DEBUG is not set
+# CONFIG_KGDB is not set
+# CONFIG_GDB_CONSOLE is not set
+# CONFIG_DEBUG_INFO is not set
 # CONFIG_MAGIC_SYSRQ is not set
 # CONFIG_MIPS_UNCACHED is not set
+CONFIG_LOG_BUF_SHIFT=0
+
+#
+# Cryptographic options
+#
+# CONFIG_CRYPTO is not set
 
 #
 # Library routines
 #
+# CONFIG_CRC32 is not set
 # CONFIG_ZLIB_INFLATE is not set
 # CONFIG_ZLIB_DEFLATE is not set

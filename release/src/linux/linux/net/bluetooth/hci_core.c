@@ -25,7 +25,7 @@
 /*
  * BlueZ HCI Core.
  *
- * $Id: hci_core.c,v 1.1.1.4 2003/10/14 08:09:32 sparq Exp $
+ * $Id: hci_core.c,v 1.14 2002/08/26 16:57:57 maxk Exp $
  */
 
 #include <linux/config.h>
@@ -218,12 +218,28 @@ static void hci_init_req(struct hci_dev *hdev, unsigned long opt)
 
 	/* Mandatory initialization */
 
+	/* Reset */
+	if (test_bit(HCI_QUIRK_RESET_ON_INIT, &hdev->quirks))
+		hci_send_cmd(hdev, OGF_HOST_CTL, OCF_RESET, 0, NULL);
+
 	/* Read Local Supported Features */
 	hci_send_cmd(hdev, OGF_INFO_PARAM, OCF_READ_LOCAL_FEATURES, 0, NULL);
 
 	/* Read Buffer Size (ACL mtu, max pkt, etc.) */
 	hci_send_cmd(hdev, OGF_INFO_PARAM, OCF_READ_BUFFER_SIZE, 0, NULL);
 
+#if 0
+	/* Host buffer size */
+	{
+		host_buffer_size_cp bs;
+		bs.acl_mtu = __cpu_to_le16(HCI_MAX_ACL_SIZE);
+		bs.sco_mtu = HCI_MAX_SCO_SIZE;
+		bs.acl_max_pkt = __cpu_to_le16(0xffff);
+		bs.sco_max_pkt = __cpu_to_le16(0xffff);
+		hci_send_cmd(hdev, OGF_HOST_CTL, OCF_HOST_BUFFER_SIZE,
+				HOST_BUFFER_SIZE_CP_SIZE, &bs);
+	}
+#endif
 
 	/* Read BD Address */
 	hci_send_cmd(hdev, OGF_INFO_PARAM, OCF_READ_BD_ADDR, 0, NULL);
@@ -383,7 +399,7 @@ int hci_inquiry(unsigned long arg)
 {
 	struct hci_inquiry_req ir;
 	struct hci_dev *hdev;
-	int err = 0, do_inquiry = 0;
+	int err = 0, do_inquiry = 0, max_rsp;
 	long timeo;
 	__u8 *buf, *ptr;
 
@@ -396,6 +412,7 @@ int hci_inquiry(unsigned long arg)
 
 	hci_dev_lock_bh(hdev);
 	if (inquiry_cache_age(hdev) > INQUIRY_CACHE_AGE_MAX || 
+					inquiry_cache_empty(hdev) ||
 					ir.flags & IREQ_CACHE_FLUSH) {
 		inquiry_cache_flush(hdev);
 		do_inquiry = 1;
@@ -406,16 +423,19 @@ int hci_inquiry(unsigned long arg)
 	if (do_inquiry && (err = hci_request(hdev, hci_inq_req, (unsigned long)&ir, timeo)) < 0)
 		goto done;
 
+	/* for unlimited number of responses we will use buffer with 255 entries */
+	max_rsp = (ir.num_rsp == 0) ? 255 : ir.num_rsp;
+
 	/* cache_dump can't sleep. Therefore we allocate temp buffer and then
 	 * copy it to the user space.
 	 */
-	if (!(buf = kmalloc(sizeof(inquiry_info) * ir.num_rsp, GFP_KERNEL))) {
+	if (!(buf = kmalloc(sizeof(inquiry_info) * max_rsp, GFP_KERNEL))) {
 		err = -ENOMEM;
 		goto done;
 	}
 
 	hci_dev_lock_bh(hdev);
-	ir.num_rsp = inquiry_cache_dump(hdev, ir.num_rsp, buf);
+	ir.num_rsp = inquiry_cache_dump(hdev, max_rsp, buf);
 	hci_dev_unlock_bh(hdev);
 
 	BT_DBG("num_rsp %d", ir.num_rsp);
@@ -696,22 +716,20 @@ int hci_get_dev_list(unsigned long arg)
 	struct hci_dev_list_req *dl;
 	struct hci_dev_req *dr;
 	struct list_head *p;
-	int n = 0, size;
+	int n = 0, size, err;
 	__u16 dev_num;
 
 	if (get_user(dev_num, (__u16 *) arg))
 		return -EFAULT;
 
-	if (!dev_num)
+	if (!dev_num || dev_num > (PAGE_SIZE * 2) / sizeof(*dr))
 		return -EINVAL;
-	
-	size = dev_num * sizeof(struct hci_dev_req) + sizeof(__u16);
 
-	if (verify_area(VERIFY_WRITE, (void *) arg, size))
-		return -EFAULT;
+	size = sizeof(*dl) + dev_num * sizeof(*dr);
 
 	if (!(dl = kmalloc(size, GFP_KERNEL)))
 		return -ENOMEM;
+
 	dr = dl->dev_req;
 
 	read_lock_bh(&hdev_list_lock);
@@ -726,12 +744,12 @@ int hci_get_dev_list(unsigned long arg)
 	read_unlock_bh(&hdev_list_lock);
 
 	dl->dev_num = n;
-	size = n * sizeof(struct hci_dev_req) + sizeof(__u16);
+	size = sizeof(*dl) + n * sizeof(*dr);
 
-	copy_to_user((void *) arg, dl, size);
+	err = copy_to_user((void *) arg, dl, size);
 	kfree(dl);
 
-	return 0;
+	return err ? -EFAULT : 0;
 }
 
 int hci_get_dev_info(unsigned long arg)
@@ -852,6 +870,22 @@ int hci_unregister_dev(struct hci_dev *hdev)
 	return 0;
 }
 
+/* Suspend HCI device */
+int hci_suspend_dev(struct hci_dev *hdev)
+{
+	hci_notify(hdev, HCI_DEV_SUSPEND);
+	hci_run_hotplug(hdev->name, "suspend");
+	return 0;
+}
+
+/* Resume HCI device */
+int hci_resume_dev(struct hci_dev *hdev)
+{
+	hci_notify(hdev, HCI_DEV_RESUME);
+	hci_run_hotplug(hdev->name, "resume");
+	return 0;
+}       
+
 /* Receive frame from HCI drivers */
 int hci_recv_frame(struct sk_buff *skb)
 {
@@ -945,37 +979,6 @@ static int hci_send_frame(struct sk_buff *skb)
 	skb_orphan(skb);
 
 	return hdev->send(skb);
-}
-
-/* Send raw HCI frame */
-int hci_send_raw(struct sk_buff *skb)
-{
-	struct hci_dev *hdev = (struct hci_dev *) skb->dev;
-
-	if (!hdev) {
-		kfree_skb(skb);
-		return -ENODEV;
-	}
-
-	BT_DBG("%s type %d len %d", hdev->name, skb->pkt_type, skb->len);
-
-	if (!test_bit(HCI_RAW, &hdev->flags)) {
-		/* Queue frame according it's type */
-		switch (skb->pkt_type) {
-		case HCI_COMMAND_PKT:
-			skb_queue_tail(&hdev->cmd_q, skb);
-			hci_sched_cmd(hdev);
-			return 0;
-
-		case HCI_ACLDATA_PKT:
-		case HCI_SCODATA_PKT:
-			break;
-		}
-	}
-
-	skb_queue_tail(&hdev->raw_q, skb);
-	hci_sched_tx(hdev);
-	return 0;
 }
 
 /* Send HCI command */

@@ -1,7 +1,7 @@
 /* Driver for USB Mass Storage compliant devices
  * Protocol Functions Header File
  *
- * $Id: protocol.h,v 1.1.1.4 2003/10/14 08:08:52 sparq Exp $
+ * $Id: protocol.h,v 1.4 2001/02/13 07:10:03 mdharm Exp $
  *
  * Current development and maintenance by:
  *   (c) 1999, 2000 Matthew Dharm (mdharm-usb@one-eyed-alien.net)
@@ -56,6 +56,8 @@
 #define US_SC_ISD200    0x07            /* ISD200 ATA */
 #define US_SC_MIN	US_SC_RBC
 #define US_SC_MAX	US_SC_ISD200
+
+#define US_SC_DEVICE	0xff		/* Use device's value */
 
 extern void usb_stor_ATAPI_command(Scsi_Cmnd*, struct us_data*);
 extern void usb_stor_qic157_command(Scsi_Cmnd*, struct us_data*);

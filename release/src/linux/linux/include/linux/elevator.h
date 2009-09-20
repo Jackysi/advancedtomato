@@ -80,7 +80,7 @@ static inline int elevator_request_latency(elevator_t * elevator, int rw)
 	return latency;
 }
 
-#define ELV_LINUS_SEEK_COST	16
+#define ELV_LINUS_SEEK_COST	1
 
 #define ELEVATOR_NOOP							\
 ((elevator_t) {								\
@@ -93,8 +93,8 @@ static inline int elevator_request_latency(elevator_t * elevator, int rw)
 
 #define ELEVATOR_LINUS							\
 ((elevator_t) {								\
-	2048,				/* read passovers */		\
-	8192,				/* write passovers */		\
+	128,				/* read passovers */		\
+	512,				/* write passovers */		\
 									\
 	elevator_linus_merge,		/* elevator_merge_fn */		\
 	elevator_linus_merge_req,	/* elevator_merge_req_fn */	\

@@ -39,6 +39,13 @@ extern __inline__ void udelay(unsigned long usecs)
 	__delay(usecs * loops_per_usec);
 }
 
+/* ETRAX 100 is really too slow to sleep for nanosecs. */
+/* Divide with 1024 to avoid a real division that would take >1 us... */
+extern __inline__ void ndelay(unsigned long nsecs)
+{
+	__delay(1 + nsecs * loops_per_usec / 1024);
+}
+
 #endif /* defined(_CRIS_DELAY_H) */
 
 

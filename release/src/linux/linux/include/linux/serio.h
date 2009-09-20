@@ -2,7 +2,7 @@
 #define _SERIO_H
 
 /*
- * $Id: serio.h,v 1.1.1.4 2003/10/14 08:09:26 sparq Exp $
+ * $Id: serio.h,v 1.11 2001/05/29 02:58:50 jsimmons Exp $
  *
  * Copyright (C) 1999 Vojtech Pavlik
  *

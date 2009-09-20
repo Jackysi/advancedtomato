@@ -80,6 +80,5 @@ static inline void setup_timer(void)
 			      r_time.tm_hour, r_time.tm_min, r_time.tm_sec);
 
 	timer_irq.handler = timer_interrupt;
-	timer_irq.flags = SA_INTERRUPT; 
 	setup_arm_irq(IRQ_TIMER, &timer_irq);
 }

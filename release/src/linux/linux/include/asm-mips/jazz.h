@@ -72,7 +72,7 @@
 
 #ifndef __ASSEMBLY__
 
-extern __inline__ void pica_set_led(unsigned int bits)
+static __inline__ void pica_set_led(unsigned int bits)
 {
 	volatile unsigned int *led_register = (unsigned int *) PICA_LED;
 

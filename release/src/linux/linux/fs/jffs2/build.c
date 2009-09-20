@@ -31,7 +31,7 @@
  * provisions above, a recipient may use your version of this file
  * under either the RHEPL or the GPL.
  *
- * $Id: build.c,v 1.1.1.4 2003/10/14 08:09:00 sparq Exp $
+ * $Id: build.c,v 1.16.2.3 2003/04/30 09:43:32 dwmw2 Exp $
  *
  */
 
@@ -43,8 +43,30 @@
 int jffs2_build_inode_pass1(struct jffs2_sb_info *, struct jffs2_inode_cache *);
 int jffs2_build_remove_unlinked_inode(struct jffs2_sb_info *, struct jffs2_inode_cache *);
 
+static inline struct jffs2_inode_cache *
+first_inode_chain(int *i, struct jffs2_sb_info *c)
+{
+	for (; *i < INOCACHE_HASHSIZE; (*i)++) {
+		if (c->inocache_list[*i])
+			return c->inocache_list[*i];
+	}
+	return NULL;
+}
 
-#define for_each_inode(i, c, ic) for (i=0; i<INOCACHE_HASHSIZE; i++) for (ic=c->inocache_list[i]; ic; ic=ic->next) 
+static inline struct jffs2_inode_cache *
+next_inode(int *i, struct jffs2_inode_cache *ic, struct jffs2_sb_info *c)
+{
+	/* More in this chain? */
+	if (ic->next)
+		return ic->next;
+	(*i)++;
+	return first_inode_chain(i, c);
+}
+
+#define for_each_inode(i, c, ic)			\
+	for (i = 0, ic = first_inode_chain(&i, (c));	\
+	     ic;					\
+	     ic = next_inode(&i, ic, (c)))
 
 /* Scan plan:
  - Scan physical nodes. Build map of inodes/dirents. Allocate inocaches as we go

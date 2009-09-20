@@ -7,6 +7,12 @@
 # Prompt user for primary drivers.
 
 dep_tristate '  ALi5455 audio support' CONFIG_SOUND_ALI5455 $CONFIG_SOUND $CONFIG_PCI
+if [ "$CONFIG_SOUND_ALI5455" = "y" -o "$CONFIG_SOUND_ALI5455" = "m" ]; then
+    bool  '   Enable Codec SPDIF OUT ( Pcm Out Share )' CONFIG_SOUND_ALI5455_CODECSPDIFOUT_PCMOUTSHARE
+    bool  '   Enable Codec SPDIF OUT ( Codec Independent DMA )' CONFIG_SOUND_ALI5455_CODECSPDIFOUT_CODECINDEPENDENTDMA
+    bool  '   Enable Controller SPDIF OUT ( Pcm Out Share )' CONFIG_SOUND_ALI5455_CONTROLLERSPDIFOUT_PCMOUTSHARE
+    bool  '   Enable Controller SPDIF OUT ( Controller Independent DMA )' CONFIG_SOUND_ALI5455_CONTROLLERSPDIFOUT_CONTROLLERINDEPENDENTDMA
+fi
 dep_tristate '  BT878 audio dma' CONFIG_SOUND_BT878 $CONFIG_SOUND $CONFIG_PCI
 dep_tristate '  C-Media PCI (CMI8338/8738)' CONFIG_SOUND_CMPCI $CONFIG_SOUND $CONFIG_PCI
 if [ "$CONFIG_SOUND_CMPCI" = "y" -o "$CONFIG_SOUND_CMPCI" = "m" ]; then
@@ -35,7 +41,7 @@ dep_tristate '  Creative SBLive! (EMU10K1)' CONFIG_SOUND_EMU10K1 $CONFIG_SOUND $
 dep_mbool    '    Creative SBLive! MIDI' CONFIG_MIDI_EMU10K1 $CONFIG_SOUND_EMU10K1 $CONFIG_EXPERIMENTAL
 dep_tristate '  Crystal SoundFusion (CS4280/461x)' CONFIG_SOUND_FUSION $CONFIG_SOUND $CONFIG_PCI
 dep_tristate '  Crystal Sound CS4281' CONFIG_SOUND_CS4281 $CONFIG_SOUND $CONFIG_PCI
-if [ "$CONFIG_SIBYTE_SB1250" = "y" -a "$CONFIG_REMOTE_DEBUG" != "y" ]; then
+if [ "$CONFIG_SIBYTE_SWARM" = "y" ]; then
     dep_tristate '  Crystal Sound CS4297a (for Swarm)' CONFIG_SOUND_BCM_CS4297A $CONFIG_SOUND
 fi
 dep_tristate '  Ensoniq AudioPCI (ES1370)' CONFIG_SOUND_ES1370 $CONFIG_SOUND $CONFIG_PCI
@@ -66,8 +72,10 @@ fi
 if [ "$CONFIG_DDB5477" = "y" ]; then
     dep_tristate '  NEC Vrc5477 AC97 sound' CONFIG_SOUND_VRC5477 $CONFIG_SOUND
 fi
-if [ "$CONFIG_CPU_AU1X00" = "y" ]; then
+if [ "$CONFIG_SOC_AU1X00" = "y" -o  "$CONFIG_SOC_AU1500" = "y" ]; then
     dep_tristate '  Au1x00 Sound' CONFIG_SOUND_AU1X00 $CONFIG_SOUND
+    dep_tristate '  Au1550 PSC Sound' CONFIG_SOUND_AU1550_PSC $CONFIG_SOUND
+    dep_tristate '  Au1550 I2S Sound' CONFIG_SOUND_AU1550_I2S $CONFIG_SOUND
 fi
 
 dep_tristate '  Trident 4DWave DX/NX, SiS 7018 or ALi 5451 PCI Audio Core' CONFIG_SOUND_TRIDENT $CONFIG_SOUND $CONFIG_PCI
@@ -133,6 +141,7 @@ if [ "$CONFIG_SOUND_OSS" = "y" -o "$CONFIG_SOUND_OSS" = "m" ]; then
 
    if [ "$CONFIG_EXPERIMENTAL" = "y" ]; then
       dep_tristate '    AD1816(A) based cards (EXPERIMENTAL)' CONFIG_SOUND_AD1816 $CONFIG_SOUND_OSS
+      dep_tristate '    AD1889 based cards (AD1819 codec) (EXPERIMENTAL)' CONFIG_SOUND_AD1889 $CONFIG_SOUND_OSS
    fi
    dep_tristate '    Aztech Sound Galaxy (non-PnP) cards' CONFIG_SOUND_SGALAXY $CONFIG_SOUND_OSS
    dep_tristate '    Adlib Cards' CONFIG_SOUND_ADLIB $CONFIG_SOUND_OSS
@@ -174,6 +183,7 @@ if [ "$CONFIG_SOUND_OSS" = "y" -o "$CONFIG_SOUND_OSS" = "m" ]; then
 
    dep_tristate '    100% Sound Blaster compatibles (SB16/32/64, ESS, Jazz16) support' CONFIG_SOUND_SB $CONFIG_SOUND_OSS
    dep_tristate '    AWE32 synth' CONFIG_SOUND_AWE32_SYNTH $CONFIG_SOUND_OSS
+   dep_tristate '    XpressAudio Sound Blaster emulation' CONFIG_SOUND_KAHLUA $CONFIG_SOUND_SB $CONFIG_SOUND_OSS
    dep_tristate '    Full support for Turtle Beach WaveFront (Tropez Plus, Tropez, Maui) synth/soundcards' CONFIG_SOUND_WAVEFRONT $CONFIG_SOUND_OSS m
    dep_tristate '    Limited support for Turtle Beach Wave Front (Maui, Tropez) synthesizers' CONFIG_SOUND_MAUI $CONFIG_SOUND_OSS
    if [ "$CONFIG_SOUND_MAUI" = "y" ]; then
@@ -223,6 +233,10 @@ if [ "$CONFIG_SOUND_OSS" = "y" -o "$CONFIG_SOUND_OSS" = "m" ]; then
 fi
 
 dep_tristate '  TV card (bt848) mixer support' CONFIG_SOUND_TVMIXER $CONFIG_SOUND $CONFIG_I2C
+
+dep_tristate '  AD1980 front/back switch plugin' CONFIG_SOUND_AD1980 $CONFIG_SOUND 
+
+dep_tristate '  Wolfson Touchscreen/BMON plugin' CONFIG_SOUND_WM97XX $CONFIG_SOUND 
 
 # A cross directory dependence. The sound modules will need gameport.o compiled in,
 # but it resides in the drivers/char/joystick directory. This define_tristate takes

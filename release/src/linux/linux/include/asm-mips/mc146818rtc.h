@@ -50,14 +50,6 @@ rtc_ops->rtc_bcd_mode()
 
 #include <asm/dec/rtc-dec.h>
 
-#elif defined(CONFIG_MIPS_ITE8172) || defined(CONFIG_MIPS_IVR)
-
-#include <asm/it8172/it8172_int.h>
-
-#define RTC_PORT(x)	(0x14014800 + (x))
-#define RTC_IOMAPPED	0
-#define RTC_IRQ		IT8172_RTC_IRQ
-
 #elif defined(CONFIG_MIPS_PB1500) || defined(CONFIG_MIPS_PB1100)
 
 #define RTC_PORT(x)	(0x0c000000 + (x))

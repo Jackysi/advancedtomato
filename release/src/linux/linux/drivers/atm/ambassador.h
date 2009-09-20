@@ -442,6 +442,12 @@ typedef struct {
   struct sk_buff * skb;
 } tx_simple;
 
+#if 0
+typedef union {
+  tx_frag	fragment;
+  tx_frag_end	end_of_list;
+} tx_descr;
+#endif
 
 /* this "points" to the sequence of fragments and trailer */
 

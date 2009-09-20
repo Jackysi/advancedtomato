@@ -1,4 +1,4 @@
-/* $Id: fhc.h,v 1.1.1.4 2003/10/14 08:09:22 sparq Exp $
+/* $Id: fhc.h,v 1.5.2.1 2002/03/01 10:04:01 davem Exp $
  * fhc.h: Structures for central/fhc pseudo driver on Sunfire/Starfire/Wildfire.
  *
  * Copyright (C) 1997, 1999 David S. Miller (davem@redhat.com)

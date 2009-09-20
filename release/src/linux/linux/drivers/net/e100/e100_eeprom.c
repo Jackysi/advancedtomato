@@ -1,7 +1,7 @@
 /*******************************************************************************
 
   
-  Copyright(c) 1999 - 2002 Intel Corporation. All rights reserved.
+  Copyright(c) 1999 - 2004 Intel Corporation. All rights reserved.
   
   This program is free software; you can redistribute it and/or modify it 
   under the terms of the GNU General Public License as published by the Free 
@@ -138,7 +138,7 @@ eeprom_reset_semaphore(struct e100_private *adapter)
 //              is then passed to the read/write functions.
 //
 // Returns:
-//      Size of the eeprom, or zero if an error occured
+//      Size of the eeprom, or zero if an error occurred
 //----------------------------------------------------------------------------------------
 u16
 e100_eeprom_size(struct e100_private *adapter)

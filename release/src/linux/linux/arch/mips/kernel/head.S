@@ -28,20 +28,12 @@
 #include <asm/mipsregs.h>
 #include <asm/stackframe.h>
 
-#ifdef CONFIG_BCM4710
-#undef eret
-#define eret nop; nop; eret
-#endif
-
 		.text
-		j	kernel_entry
-		nop
-
 		/*
 		 * Reserved space for exception handlers.
 		 * Necessary for machines which link their kernels at KSEG0.
 		 */
-		.fill	0x3f4
+		.fill	0x400
 
 		/* The following two symbols are used for kernel profiling. */
 		EXPORT(stext)
@@ -53,7 +45,7 @@
 		LEAF(except_vec2_generic)
 		.set	noreorder
 		.set	noat
-		.set	mips0
+		.set    mips0
 		/*
 		 * This is a very bad place to be.  Our cache error
 		 * detection has triggered.  If we have write-back data
@@ -71,7 +63,7 @@
 		nop
 
 		j	cache_parity_error
-		nop
+		 nop
 		END(except_vec2_generic)
 
 		.set	at
@@ -113,7 +105,7 @@
 		sll	k0, k0, 30	# Check for SDBBP.
 		bgez	k0, ejtag_return
 
-		la	k0, ejtag_debug_buffer
+		 la	k0, ejtag_debug_buffer
 		sw	k1, 0(k0)
 		SAVE_ALL
 		jal	ejtag_exception_handler
@@ -140,23 +132,23 @@ ejtag_return:
 		* unconditional jump to this vector.
 		*/
 		NESTED(except_vec_nmi, 0, sp)
-		j	nmi_handler
+		j       nmi_handler
 		 nop
 		END(except_vec_nmi)
 
 		__FINIT
 
 		NESTED(nmi_handler, PT_SIZE, sp)
-		.set	noat
-		.set	noreorder
-		.set	mips3
+		.set    noat
+		.set    noreorder
+		.set    mips3
 		SAVE_ALL
-		jal	nmi_exception_handler
-		 move	a0, sp
+		jal     nmi_exception_handler
+		 move   a0, sp
 		RESTORE_ALL
 		eret
-		.set	at
-		.set	mips0
+		.set    at
+		.set    mips0
 		END(nmi_handler)
 
 		__INIT
@@ -168,16 +160,7 @@ ejtag_return:
 		.set	noreorder
 
 		/*
-		 * Stack for kernel and init, current variable
-		 */
-		la	$28, init_task_union
-		addiu	t0, $28, KERNEL_STACK_SIZE-32
-		subu	sp, t0, 4*SZREG
-
-		sw	t0, kernelsp
-
-#if	!defined(CONFIG_HWSIM) || defined(CONFIG_HWSIM_ZMEM)
-		/* The firmware/bootloader passes argc/argp/envp
+		 * The firmware/bootloader passes argc/argp/envp
 		 * to us as arguments.  But clear bss first because
 		 * the romvec and other important info is stored there
 		 * by prom_init().
@@ -189,7 +172,14 @@ ejtag_return:
 		addiu	t0, 4
 		bne	t0, t1, 1b
 		 sw	zero, (t0)
-#endif
+
+		/*
+		 * Stack for kernel and init, current variable
+		 */
+		la	$28, init_task_union
+		addiu	t0, $28, KERNEL_STACK_SIZE-32
+		subu	sp, t0, 4*SZREG
+		sw	t0, kernelsp
 
 		jal	init_arch
 		 nop
@@ -203,17 +193,17 @@ ejtag_return:
  * function after setting up the stack and gp registers.
  */
 		LEAF(smp_bootstrap)
-		.set	push
-		.set	noreorder
+		.set push
+		.set noreorder
 		mtc0	zero, CP0_WIRED
 		CLI
 		mfc0	t0, CP0_STATUS
-		li	t1, ~(ST0_CU1|ST0_CU2|ST0_CU3|ST0_KX|ST0_SX)
+		li	t1, ~(ST0_CU1|ST0_CU2|ST0_CU3|ST0_KX|ST0_SX|ST0_UX)
 		and	t0, t1
 		or	t0, (ST0_CU0);
 		jal	start_secondary
-		mtc0	t0, CP0_STATUS
-		.set	pop
+		 mtc0	t0, CP0_STATUS
+		.set pop
 		END(smp_bootstrap)
 #endif
 
@@ -227,7 +217,7 @@ ejtag_return:
 		EXPORT(ejtag_debug_buffer)
 		.fill	4
 
-		.comm	kernelsp, NR_CPUS * 8, 8
+		.comm	kernelsp,    NR_CPUS * 8, 8
 		.comm	pgd_current, NR_CPUS * 8, 8
 
 	.macro	page name, order=0

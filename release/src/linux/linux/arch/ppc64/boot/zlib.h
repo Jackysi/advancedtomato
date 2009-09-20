@@ -72,7 +72,7 @@
 #  endif
 #endif
 
-#ifdef	__MWERKS__     /* Metrowerks CodeWarrior declares fileno() in unix.h */
+#ifdef	__MWERKS__ /* Metrowerks CodeWarrior declares fileno() in unix.h */
 #  include <unix.h>
 #endif
 
@@ -109,7 +109,7 @@
 
                         /* Type declarations */
 
-#ifndef OF     /* function prototypes */
+#ifndef OF /* function prototypes */
 #  ifdef STDC
 #    define OF(args)  args
 #  else

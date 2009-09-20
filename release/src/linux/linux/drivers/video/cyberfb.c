@@ -1,6 +1,6 @@
 /*
 * linux/drivers/video/cyberfb.c -- CyberVision64 frame buffer device
-* $Id: cyberfb.c,v 1.1.1.4 2003/10/14 08:08:53 sparq Exp $
+* $Id: cyberfb.c,v 1.6 1998/09/11 04:54:58 abair Exp $
 *
 *    Copyright (C) 1998 Alan Bair
 *
@@ -33,12 +33,6 @@
 *   - 05 Jan 96: Geert: integration into the current source tree
 *   - 01 Aug 98: Alan: Merge in code from cvision.c and cvision_core.c
 * $Log: cyberfb.c,v $
-* Revision 1.1.1.4  2003/10/14 08:08:53  sparq
-* Broadcom Release 3.51.8.0 for BCM4712.
-*
-* Revision 1.1.1.1  2003/02/03 22:37:58  mhuang
-* LINUX_2_4 branch snapshot from linux-mips.org CVS
-*
 * Revision 1.6  1998/09/11 04:54:58  abair
 * Update for 2.1.120 change in include file location.
 * Clean up for public release.
@@ -116,7 +110,7 @@ static void cv64_dump(void);
 #define wb_64(regs,reg,dat) (*(((volatile unsigned char *)regs) + reg) = dat)
 #define rb_64(regs, reg) (*(((volatile unsigned char *)regs) + reg))
 
-#define ww_64(regs,reg,dat) (*((volatile unsigned short *)(regs + reg) = dat)
+#define ww_64(regs,reg,dat) (*(volatile unsigned short *)(regs + reg) = dat)
 
 struct cyberfb_par {
 	struct fb_var_screeninfo var;
@@ -284,6 +278,9 @@ static void Cyber_BitBLT(u_short curx, u_short cury, u_short destx,
 			 u_short mode);
 static void Cyber_RectFill(u_short x, u_short y, u_short width, u_short height,
 			   u_short mode, u_short color);
+#if 0
+static void Cyber_MoveCursor(u_short x, u_short y);
+#endif
 
 /*
  *   Hardware Specific Routines
@@ -590,6 +587,10 @@ void Cyberfb_blank(int blank, struct fb_info *info)
 	int i;
 
 	DPRINTK("ENTER\n");
+#if 0
+/* Blank by turning gfx off */
+	gfx_on_off (1, regs);
+#else
 	if (blank) {
 		for (i = 0; i < 256; i++) {
 			wb_64(regs, 0x3c8, (unsigned char) i);
@@ -606,6 +607,7 @@ void Cyberfb_blank(int blank, struct fb_info *info)
 			wb_64(regs, 0x3c9, Cyber_colour_table[i][2]);
 		}
 	}
+#endif
 	DPRINTK("EXIT\n");
 }
 
@@ -712,6 +714,29 @@ static void Cyber_RectFill (u_short x, u_short y, u_short width,
 }
 
 
+#if 0
+/**************************************************************
+ * Move cursor to x, y
+ */
+static void Cyber_MoveCursor (u_short x, u_short y)
+{
+	volatile unsigned char *regs = CyberRegs;
+	DPRINTK("ENTER\n");
+	*(regs + S3_CRTC_ADR)  = 0x39;
+	*(regs + S3_CRTC_DATA) = 0xa0;
+
+	*(regs + S3_CRTC_ADR)  = S3_HWGC_ORGX_H;
+	*(regs + S3_CRTC_DATA) = (char)((x & 0x0700) >> 8);
+	*(regs + S3_CRTC_ADR)  = S3_HWGC_ORGX_L;
+	*(regs + S3_CRTC_DATA) = (char)(x & 0x00ff);
+
+	*(regs + S3_CRTC_ADR)  = S3_HWGC_ORGY_H;
+	*(regs + S3_CRTC_DATA) = (char)((y & 0x0700) >> 8);
+	*(regs + S3_CRTC_ADR)  = S3_HWGC_ORGY_L;
+	*(regs + S3_CRTC_DATA) = (char)(y & 0x00ff);
+	DPRINTK("EXIT\n");
+}
+#endif
 
 
 /* -------------------- Generic routines ---------------------------------- */
@@ -1819,6 +1844,9 @@ static void cv64_load_video_mode (struct fb_var_screeninfo *video_mode)
   int xres, hfront, hsync, hback;
   int yres, vfront, vsync, vback;
   int bpp;
+#if 0
+  float freq_f;
+#endif
   long freq;
   /* ---------------- */
 	
@@ -1871,7 +1899,23 @@ static void cv64_load_video_mode (struct fb_var_screeninfo *video_mode)
   }
 
   /* ARB Dropping custom setup method from cvision.c */
+#if 0
+  if (cvision_custom_mode) {
+    HBS = hbs / 8 * hmul;
+    HBE = hbe / 8 * hmul;
+    HSS = hss / 8 * hmul;
+    HSE = hse / 8 * hmul;
+    HT  = ht / 8 * hmul - 5;
+		
+    VBS = vbs - 1;
+    VSS = vss;
+    VSE = vse;
+    VBE = vbe;
+    VT  = vt - 2;
+  } else {
+#else
     {
+#endif
     HBS = hmul * (xres / 8);
     HBE = hmul * ((xres/8) + (hfront/8) + (hsync/8) + (hback/8) - 2);
     HSS = hmul * ((xres/8) + (hfront/8) + 2);
@@ -1907,9 +1951,14 @@ static void cv64_load_video_mode (struct fb_var_screeninfo *video_mode)
   /* cv64_compute_clock accepts arguments in Hz */
   /* pixclock is in ps ... convert to Hz */
 	
+#if 0
+  freq_f = (1.0 / (float) video_mode->pixclock) * 1000000000;
+  freq = ((long) freq_f) * 1000;
+#else
 /* freq = (long) ((long long)1000000000000 / (long long) video_mode->pixclock);
  */
   freq = (1000000000 / video_mode->pixclock) * 1000;
+#endif
 
   mnr = cv64_compute_clock (freq);
   WSeq (regs, SEQ_ID_DCLK_HI, ((mnr & 0xFF00) >> 8));
@@ -1967,8 +2016,13 @@ static void cv64_load_video_mode (struct fb_var_screeninfo *video_mode)
   /* Text cursor */
 	
   if (TEXT) {
+#if 1
     WCrt (regs, CRT_ID_CURSOR_START, (fy & 0x1f) - 2);
     WCrt (regs, CRT_ID_CURSOR_END, (fy & 0x1F) - 1);
+#else
+    WCrt (regs, CRT_ID_CURSOR_START, 0x00);
+    WCrt (regs, CRT_ID_CURSOR_END, fy & 0x1F);
+#endif
     WCrt (regs, CRT_ID_UNDERLINE_LOC, (fy - 1) & 0x1F);
     WCrt (regs, CRT_ID_CURSOR_LOC_HIGH, 0x00);
     WCrt (regs, CRT_ID_CURSOR_LOC_LOW, 0x00);
@@ -2087,7 +2141,7 @@ static void cv64_load_video_mode (struct fb_var_screeninfo *video_mode)
     cr50 |= 0x81;
     break;
 		
-  default:	
+  default:	/* XXX */
     break;
   }
 	

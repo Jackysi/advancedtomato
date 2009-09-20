@@ -172,6 +172,8 @@ ppp_print_buffer (const char *name, const __u8 *buf, int count)
  * frees the memory that ppp_synctty_receive is using.  The best
  * way to fix this is to use a rwlock in the tty struct, but for now
  * we use a single global rwlock for all ttys in ppp line discipline.
+ *
+ * FIXME: Fixed in tty_io nowdays.
  */
 static rwlock_t disc_data_lock = RW_LOCK_UNLOCKED;
 
@@ -277,6 +279,18 @@ ppp_sync_close(struct tty_struct *tty)
 		kfree_skb(ap->tpkt);
 	kfree(ap);
 	MOD_DEC_USE_COUNT;
+}
+
+/*
+ * Called on tty hangup in process context.
+ *
+ * Wait for I/O to driver to complete and unregister PPP channel.
+ * This is already done by the close routine, so just call that.
+ */
+static int ppp_sync_hangup(struct tty_struct *tty)
+{
+	ppp_sync_close(tty);
+	return 0;
 }
 
 /*
@@ -412,6 +426,7 @@ static struct tty_ldisc ppp_sync_ldisc = {
 	write:	ppp_sync_write,
 	ioctl:	ppp_synctty_ioctl,
 	poll:	ppp_sync_poll,
+	hangup: ppp_sync_hangup,
 	receive_room: ppp_sync_room,
 	receive_buf: ppp_sync_receive,
 	write_wakeup: ppp_sync_wakeup,

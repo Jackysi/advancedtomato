@@ -4,6 +4,7 @@
 # for more details.
 #
 # Copyright (C) 1995, 1998, 2001 by Ralf Baechle
+# Copyright (C) 2004  Maciej W. Rozycki
 #
 
 USE_STANDARD_AS_RULE := true
@@ -21,16 +22,23 @@ endif
 # Drop some uninteresting sections in the kernel.
 # This is only relevant for ELF kernels but doesn't hurt a.out
 #
-drop-sections	= .reginfo .mdebug
+drop-sections	= .reginfo .mdebug .comment .note .pdr .options .MIPS.options
 strip-flags	= $(addprefix --remove-section=,$(drop-sections))
 
-all: vmlinux.ecoff addinitrd
+VMLINUX = $(TOPDIR)/vmlinux
 
-vmlinux.ecoff:	$(CONFIGURE) elf2ecoff $(TOPDIR)/vmlinux
-	./elf2ecoff $(TOPDIR)/vmlinux vmlinux.ecoff $(E2EFLAGS)
+all:
+
+boot: vmlinux.ecoff vmlinux.srec addinitrd
+
+vmlinux.ecoff:	$(CONFIGURE) elf2ecoff $(VMLINUX)
+	./elf2ecoff $(VMLINUX) vmlinux.ecoff $(E2EFLAGS)
 
 elf2ecoff: elf2ecoff.c
 	$(HOSTCC) -o $@ $^
+
+vmlinux.srec: $(CONFIGURE) $(VMLINUX)
+	$(OBJCOPY) -S -O srec $(strip-flags) $(VMLINUX) vmlinux.srec
 
 addinitrd: addinitrd.c
 	$(HOSTCC) -o $@ $^
@@ -39,13 +47,10 @@ addinitrd: addinitrd.c
 dep:
 
 clean:
-	rm -f vmlinux.ecoff
-	rm -f zImage zImage.tmp
+	rm -f vmlinux.ecoff vmlinux.srec
 
 mrproper:
-	rm -f vmlinux.ecoff
-	rm -f addinitrd
-	rm -f elf2ecoff
+	rm -f vmlinux.ecoff vmlinux.srec addinitrd elf2ecoff
 
 dummy:
 

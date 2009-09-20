@@ -11,6 +11,8 @@ obj-y				+= csum_partial.o csum_partial_copy.o \
 				   memset.o watch.o strlen_user.o \
 				   strncpy_user.o strnlen_user.o
 
+export-objs			:= rtc-std.o rtc-no.o
+
 ifeq ($(CONFIG_CPU_R3000)$(CONFIG_CPU_TX39XX),y)
   obj-y	+= r3k_dump_tlb.o
 else
@@ -19,8 +21,6 @@ endif
 
 obj-$(CONFIG_BLK_DEV_FD)	+= floppy-no.o floppy-std.o
 obj-$(subst m,y,$(CONFIG_IDE))	+= ide-std.o ide-no.o	# needed for ide module
-obj-$(CONFIG_PC_KEYB)		+= kbd-std.o kbd-no.o
-
-obj-$(CONFIG_MCOUNT) += mcount.o
+obj-$(CONFIG_PC_KEYB)		+= kbd-std.o
 
 include $(TOPDIR)/Rules.make

@@ -430,6 +430,7 @@ static void __init offb_init_fb(const char *name, const char *full_name,
     info->cmap_type = cmap_unknown;
     if (depth == 8)
     {
+    	/* XXX kludge for ati's */
 	if (dp && !strncmp(name, "ATY,Rage128", 11)) {
 		unsigned long regbase = dp->addrs[2].address;
 		info->cmap_adr = ioremap(regbase, 0x1FFF);
@@ -617,6 +618,7 @@ static void __init offb_init_fb(const char *name, const char *full_name,
 	display_info.cmap_adr_address = 0;
 	display_info.cmap_data_address = 0;
 	display_info.disp_reg_address = 0;
+	/* XXX kludge for ati */
 	if (info->cmap_type == cmap_m64) {
 	    unsigned long base = address & 0xff000000UL;
 	    display_info.disp_reg_address = base + 0x7ffc00;

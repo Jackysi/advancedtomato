@@ -56,6 +56,118 @@ int cpus_initialized = 0;
 unsigned long cpu_initialized = 0;
 volatile int __cpu_logical_map[NR_CPUS]; /* logical cpu to cpu address */
 
+unsigned long *pfix_table;
+unsigned int __global_storage_key;
+
+unsigned int get_storage_key(void) { return __global_storage_key; }
+
+unsigned long pfix_get_page_addr(void *addr)
+{
+	if (!MACHINE_HAS_PFIX)
+		return (unsigned long) addr;
+
+	return pfix_table[(unsigned long)virt_to_phys(addr)>>PAGE_SHIFT];
+}
+
+unsigned long pfix_get_addr(void *addr)
+{
+	if (!MACHINE_HAS_PFIX)
+		return (unsigned long) addr;
+
+	return pfix_get_page_addr(addr) + ((unsigned long)addr&(PAGE_SIZE-1));
+}
+
+/*
+ * These functions allow to lock and unlock pages in VM. They need
+ * the absolute address of the page to be locked or unlocked. This will
+ * only work if the diag98 option in the user directory is enabled for
+ * the guest.
+ */
+
+/* if result is 0, addr will become the host absolute address */
+static inline int pfix_lock_page(void *addr)
+{
+        int ret;
+
+        __asm__ __volatile__(
+		"   sske  %1,%2\n"    /* set storage key */
+                "   l     0,0(%1)\n"  /* addr into gpr 0 */
+                "   lhi   2,0\n"      /* function code is 0 */
+                "   diag  2,0,0x98\n" /* result in gpr 1 */
+                "   jnz   0f\n"
+		"   lhi   %0,0\n"     /* if cc=0: return 0 */
+	    	"   st    1,0(%1)\n"  /* gpr1 contains host absol. addr */
+		"   j     1f\n"
+		"0: lr    %0,1\n"     /* gpr1 contains error code */
+		"   sske  %1,2\n"     /* reset storage key */
+		"1:\n"
+                : "=d" (ret), "+d" ((unsigned long)addr) : "d" (__global_storage_key) 
+                : "0", "1", "2", "cc" );
+        return ret;
+}
+
+static inline void pfix_unlock_page(unsigned long addr)
+{
+        __asm__ __volatile__(
+                "   lr    0,%0\n"  /* parameter in gpr 0 */
+                "   lhi   2,4\n"   /* function code is 4 */
+                "   diag  2,0,0x98\n" /* result in gpr 1 */
+		"   sske  %0,%1\n"
+                : : "a" (addr), "d" (0)
+                : "0", "1", "2", "cc" );
+}
+
+static void unpfix_all_pages(void)
+{
+        unsigned long i;
+
+	if (!pfix_table)
+		return;
+
+	for (i=0; i<sizeof(pfix_table); i++) {
+		if (pfix_table[i]) {
+			pfix_unlock_page(i << PAGE_SHIFT);
+		}
+	}
+}
+
+static void pfix_all_pages(unsigned long start_pfn, unsigned long max_pfn)
+{
+        unsigned long i,r;
+	unsigned long size;
+
+	size = ((max_pfn - start_pfn) >> PAGE_SHIFT) * sizeof(long);
+	pfix_table = alloc_bootmem(size);
+	if (!pfix_table)
+		return;
+
+	__global_storage_key = 6 << 4;
+	for (i = 0; i < 16 && memory_chunk[i].size > 0; i++) {
+		unsigned long start;
+
+		for(start = memory_chunk[i].addr; 
+		    (start < memory_chunk[i].addr + memory_chunk[i].size &&
+		     start < max_pfn); start += PAGE_SIZE) {
+			unsigned long index;
+
+			index = start >> PAGE_SHIFT;
+			pfix_table[index] = start;
+			r = pfix_lock_page(&pfix_table[index]);
+			if (r) {
+				pfix_table[index] = 0;
+				unpfix_all_pages();
+				free_bootmem((unsigned long)pfix_table, size);
+				machine_flags &= ~128; /* MACHINE_HAS_PFIX=0 */
+				__global_storage_key = 0;
+				printk(KERN_WARNING "Error enabling PFIX at "
+				       "address 0x%08lx.\n", start);
+				return;
+			}
+		}
+        }
+	printk (KERN_INFO "PFIX enabled.\n");
+}
+
 /*
  * Setup options
  */
@@ -301,11 +413,12 @@ void __init setup_arch(char **cmdline_p)
         unsigned long memory_start, memory_end;
         char c = ' ', cn, *to = command_line, *from = COMMAND_LINE;
 	struct resource *res;
-	unsigned long start_pfn, end_pfn;
+	unsigned long start_pfn, end_pfn, max_pfn=0;
         static unsigned int smptrap=0;
         unsigned long delay = 0;
 	struct _lowcore *lowcore;
 	int i;
+	static int use_pfix;
 
         if (smptrap)
                 return;
@@ -317,6 +430,10 @@ void __init setup_arch(char **cmdline_p)
 	printk((MACHINE_IS_VM) ?
 	       "We are running under VM (31 bit mode)\n" :
 	       "We are running native (31 bit mode)\n");
+	if (MACHINE_IS_VM)
+		printk((MACHINE_HAS_PFIX) ?
+		       "This machine has PFIX support\n" :
+		       "This machine has no PFIX support\n");
 	printk((MACHINE_HAS_IEEE) ?
 	       "This machine has an IEEE fpu\n" :
 	       "This machine has no IEEE fpu\n");
@@ -346,6 +463,9 @@ void __init setup_arch(char **cmdline_p)
         saved_command_line[COMMAND_LINE_SIZE-1] = '\0';
 
         for (;;) {
+                /*
+                 * "mem=XXX[kKmM]" sets memsize 
+                 */
                 if (c == ' ' && strncmp(from, "mem=", 4) == 0) {
                         memory_end = simple_strtoul(from+4, &from, 0);
                         if ( *from == 'K' || *from == 'k' ) {
@@ -356,6 +476,9 @@ void __init setup_arch(char **cmdline_p)
                                 from++;
                         }
                 }
+                /*
+                 * "ipldelay=XXX[sm]" sets ipl delay in seconds or minutes
+                 */
                 if (c == ' ' && strncmp(from, "ipldelay=", 9) == 0) {
                         delay = simple_strtoul(from+9, &from, 0);
 			if (*from == 's' || *from == 'S') {
@@ -368,6 +491,14 @@ void __init setup_arch(char **cmdline_p)
 			/* now wait for the requested amount of time */
 			udelay(delay);
                 }
+		/*
+		 * "use_pfix" specifies whether we want to fix all pages,
+		 * if possible.
+		 */
+		if (c == ' ' && strncmp(from, "use_pfix", 8) == 0) {
+			use_pfix = 1;
+			from += 8;
+		}
                 cn = *(from++);
                 if (!cn)
                         break;
@@ -382,6 +513,10 @@ void __init setup_arch(char **cmdline_p)
                         break;
                 *(to++) = c;
         }
+
+	if (!use_pfix)
+		machine_flags &= ~128; /* MACHINE_HAS_PFIX = 0 */
+
         if (c == ' ' && to > command_line) to--;
         *to = '\0';
         *cmdline_p = command_line;
@@ -417,6 +552,8 @@ void __init setup_arch(char **cmdline_p)
 		if (start_chunk < end_chunk)
 			free_bootmem(start_chunk << PAGE_SHIFT,
 				     (end_chunk - start_chunk) << PAGE_SHIFT);
+		if (start_chunk + memory_chunk[i].size > max_pfn)
+			max_pfn = start_chunk + memory_chunk[i].size;
 	}
 
         /*
@@ -474,6 +611,10 @@ void __init setup_arch(char **cmdline_p)
 	 * Create kernel page tables and switch to virtual addressing.
 	 */
         paging_init();
+
+	if (MACHINE_HAS_PFIX)
+		/* max_pfn may be smaller than memory_end. */
+		pfix_all_pages(start_pfn, max_pfn);
 
 	res = alloc_bootmem_low(sizeof(struct resource));
 	res->start = 0;

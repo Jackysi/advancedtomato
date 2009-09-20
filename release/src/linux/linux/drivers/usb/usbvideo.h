@@ -113,62 +113,61 @@ typedef unsigned long videosize_t;
     mr = LIMIT_RGB(mm_r); \
 }
 
-#define	RING_QUEUE_ADVANCE_INDEX(rq,ind,n) (rq)->ind = ((rq)->ind + (n)) % (rq)->length
+#define	RING_QUEUE_SIZE		(128*1024)	/* Must be a power of 2 */
+#define	RING_QUEUE_ADVANCE_INDEX(rq,ind,n) (rq)->ind = ((rq)->ind + (n)) & ((rq)->length-1)
 #define	RING_QUEUE_DEQUEUE_BYTES(rq,n) RING_QUEUE_ADVANCE_INDEX(rq,ri,n)
-#define	RING_QUEUE_PEEK(rq,ofs) ((rq)->queue[((ofs) + (rq)->ri) % (rq)->length])
+#define	RING_QUEUE_PEEK(rq,ofs) ((rq)->queue[((ofs) + (rq)->ri) & ((rq)->length-1)])
 
-typedef struct {
+struct RingQueue {
 	unsigned char *queue;	/* Data from the Isoc data pump */
 	int length;		/* How many bytes allocated for the queue */
 	int wi;			/* That's where we write */
 	int ri;			/* Read from here until you hit write index */
 	wait_queue_head_t wqh;	/* Processes waiting */
-} RingQueue_t;
+};
 
-typedef enum {
+enum ScanState {
 	ScanState_Scanning,	/* Scanning for header */
 	ScanState_Lines		/* Parsing lines */
-} ScanState_t;
+};
 
 /* Completion states of the data parser */
-typedef enum {
+enum ParseState {
 	scan_Continue,		/* Just parse next item */
 	scan_NextFrame,		/* Frame done, send it to V4L */
 	scan_Out,		/* Not enough data for frame */
 	scan_EndParse		/* End parsing */
-} ParseState_t;
+};
 
-typedef enum {
+enum FrameState {
 	FrameState_Unused,	/* Unused (no MCAPTURE) */
 	FrameState_Ready,	/* Ready to start grabbing */
 	FrameState_Grabbing,	/* In the process of being grabbed into */
 	FrameState_Done,	/* Finished grabbing, but not been synced yet */
 	FrameState_Done_Hold,	/* Are syncing or reading */
 	FrameState_Error,	/* Something bad happened while processing */
-} FrameState_t;
+};
 
 /*
  * Some frames may contain only even or odd lines. This type
  * specifies what type of deinterlacing is required.
  */
-typedef enum {
+enum Deinterlace {
 	Deinterlace_None=0,
 	Deinterlace_FillOddLines,
 	Deinterlace_FillEvenLines
-} Deinterlace_t;
-
-struct usb_device;
+};
 
 #define USBVIDEO_NUMFRAMES	2	/* How many frames we work with */
 #define USBVIDEO_NUMSBUF	2	/* How many URBs linked in a ring */
 
 /* This structure represents one Isoc request - URB and buffer */
-typedef struct {
+struct usbvideo_sbuf {
 	char *data;
 	struct urb *urb;
-} usbvideo_sbuf_t;
+};
 
-typedef struct {
+struct usbvideo_frame {
 	char *data;		/* Frame buffer */
 	unsigned long header;	/* Significant bits from the header */
 
@@ -176,9 +175,9 @@ typedef struct {
 	videosize_t request;	/* That's what the application asked for */
 	unsigned short palette;	/* The desired format */
 
-	FrameState_t frameState;/* State of grabbing */
-	ScanState_t scanstate;	/* State of scanning */
-	Deinterlace_t deinterlace;
+	enum FrameState frameState;/* State of grabbing */
+	enum ScanState scanstate;	/* State of scanning */
+	enum Deinterlace deinterlace;
 	int flags;		/* USBVIDEO_FRAME_FLAG_xxx bit flags */
 
 	int curline;		/* Line of frame we're working on */
@@ -187,10 +186,10 @@ typedef struct {
 	long seqRead_Index;	/* Amount of data that has been already read */
 
 	void *user;		/* Additional data that user may need */
-} usbvideo_frame_t;
+};
 
 /* Statistics that can be overlaid on screen */
-typedef struct {
+struct usbvideo_statistics {
         unsigned long frame_num;	/* Sequential number of the frame */
         unsigned long urb_count;        /* How many URBs we received so far */
         unsigned long urb_length;       /* Length of last URB */
@@ -198,14 +197,14 @@ typedef struct {
         unsigned long header_count;     /* How many frame headers we found */
 	unsigned long iso_skip_count;	/* How many empty ISO packets received */
 	unsigned long iso_err_count;	/* How many bad ISO packets received */
-} usbvideo_statistics_t;
+};
 
-struct s_usbvideo_t;
+struct usbvideo;
 
-typedef struct {
+struct uvd {
 	struct video_device vdev;	/* Must be the first field! */
 	struct usb_device *dev;
-	struct s_usbvideo_t *handle;	/* Points back to the usbvideo_t */
+	struct usbvideo *handle;	/* Points back to the struct usbvideo */
 	void *user_data;		/* Camera-dependent data */
 	int user_size;			/* Size of that camera-dependent data */
 	int debug;			/* Debug level for usbvideo */
@@ -235,58 +234,61 @@ typedef struct {
 	int curframe;
 	int iso_packet_len;	/* Videomode-dependent, saves bus bandwidth */
 
-	RingQueue_t dp;		/* Isoc data pump */
-	usbvideo_frame_t frame[USBVIDEO_NUMFRAMES];
-	usbvideo_sbuf_t sbuf[USBVIDEO_NUMSBUF];
+	struct RingQueue dp;	/* Isoc data pump */
+	struct usbvideo_frame frame[USBVIDEO_NUMFRAMES];
+	struct usbvideo_sbuf sbuf[USBVIDEO_NUMSBUF];
 
 	volatile int remove_pending;	/* If set then about to exit */
 
 	struct video_picture vpic, vpic_old;	/* Picture settings */
 	struct video_capability vcap;		/* Video capabilities */
 	struct video_channel vchan;	/* May be used for tuner support */
-	usbvideo_statistics_t stats;
+	struct usbvideo_statistics stats;
 	struct proc_dir_entry *procfs_vEntry;	/* /proc/video/MYDRIVER/video2 */
 	char videoName[32];		/* Holds name like "video7" */
-} uvd_t;
+};
 
 /*
  * usbvideo callbacks (virtual methods). They are set when usbvideo
  * services are registered. All of these default to NULL, except those
  * that default to usbvideo-provided methods.
  */
-typedef struct {
+struct usbvideo_cb {
 	void *(*probe)(struct usb_device *, unsigned int,const struct usb_device_id *);
-	void (*userFree)(uvd_t *);
+	void (*userFree)(struct uvd *);
 	void (*disconnect)(struct usb_device *, void *);
-	int (*setupOnOpen)(uvd_t *);
-	void (*videoStart)(uvd_t *);
-	void (*videoStop)(uvd_t *);
-	void (*processData)(uvd_t *, usbvideo_frame_t *);
-	void (*postProcess)(uvd_t *, usbvideo_frame_t *);
-	void (*adjustPicture)(uvd_t *);
-	int (*getFPS)(uvd_t *);
-	int (*overlayHook)(uvd_t *, usbvideo_frame_t *);
-	int (*getFrame)(uvd_t *, int);
+	int (*setupOnOpen)(struct uvd *);
+	void (*videoStart)(struct uvd *);
+	void (*videoStop)(struct uvd *);
+	void (*processData)(struct uvd *, struct usbvideo_frame *);
+	void (*postProcess)(struct uvd *, struct usbvideo_frame *);
+	void (*adjustPicture)(struct uvd *);
+	int (*getFPS)(struct uvd *);
+	int (*overlayHook)(struct uvd *, struct usbvideo_frame *);
+	int (*getFrame)(struct uvd *, int);
 	int (*procfs_read)(char *page,char **start,off_t off,int count,int *eof,void *data);
 	int (*procfs_write)(struct file *file,const char *buffer,unsigned long count,void *data);
-} usbvideo_cb_t;
+	int (*startDataPump)(struct uvd *uvd);
+	void (*stopDataPump)(struct uvd *uvd);
+	int (*setVideoMode)(struct uvd *uvd, struct video_window *vw);
+};
 
-struct s_usbvideo_t {
+struct usbvideo {
 	int num_cameras;		/* As allocated */
 	struct usb_driver usbdrv;	/* Interface to the USB stack */
 	char drvName[80];		/* Driver name */
 	struct semaphore lock;		/* Mutex protecting camera structures */
-	usbvideo_cb_t cb;		/* Table of callbacks (virtual methods) */
+	struct usbvideo_cb cb;		/* Table of callbacks (virtual methods) */
 	struct video_device vdt;	/* Video device template */
-	uvd_t *cam;			/* Array of camera structures */
+	struct uvd *cam;			/* Array of camera structures */
 	int uses_procfs;		/* Non-zero if we create /proc entries */
 	struct proc_dir_entry *procfs_dEntry;	/* /proc/video/MYDRIVER */
 	struct module *md_module;	/* Minidriver module */
 };
-typedef struct s_usbvideo_t usbvideo_t;
+
 
 /*
- * This macro retrieves callback address from the uvd_t object.
+ * This macro retrieves callback address from the struct uvd object.
  * No validity checks are done here, so be sure to check the
  * callback beforehand with VALID_CALLBACK.
  */
@@ -302,29 +304,34 @@ typedef struct s_usbvideo_t usbvideo_t;
 #define	VALID_CALLBACK(uvd,cbName) ((((uvd) != NULL) && \
 		((uvd)->handle != NULL)) ? GET_CALLBACK(uvd,cbName) : NULL)
 
-void RingQueue_Initialize(RingQueue_t *rq);
-void RingQueue_Allocate(RingQueue_t *rq, int rqLen);
-int  RingQueue_IsAllocated(const RingQueue_t *rq);
-void RingQueue_Free(RingQueue_t *rq);
-int  RingQueue_Dequeue(RingQueue_t *rq, unsigned char *dst, int len);
-int  RingQueue_Enqueue(RingQueue_t *rq, const unsigned char *cdata, int n);
-int  RingQueue_GetLength(const RingQueue_t *rq);
-void RingQueue_InterruptibleSleepOn(RingQueue_t *rq);
-void RingQueue_WakeUpInterruptible(RingQueue_t *rq);
+int  RingQueue_Dequeue(struct RingQueue *rq, unsigned char *dst, int len);
+int  RingQueue_Enqueue(struct RingQueue *rq, const unsigned char *cdata, int n);
+void RingQueue_WakeUpInterruptible(struct RingQueue *rq);
+void RingQueue_Flush(struct RingQueue *rq);
 
-void usbvideo_CollectRawData(uvd_t *uvd, usbvideo_frame_t *frame);
+static inline int RingQueue_GetLength(const struct RingQueue *rq)
+{
+	return (rq->wi - rq->ri + rq->length) & (rq->length-1);
+}
+
+static inline int RingQueue_GetFreeSpace(const struct RingQueue *rq)
+{
+	return rq->length - RingQueue_GetLength(rq);
+}
+
+void usbvideo_CollectRawData(struct uvd *uvd, struct usbvideo_frame *frame);
 void usbvideo_DrawLine(
-	usbvideo_frame_t *frame,
+	struct usbvideo_frame *frame,
 	int x1, int y1,
 	int x2, int y2,
 	unsigned char cr, unsigned char cg, unsigned char cb);
 void usbvideo_HexDump(const unsigned char *data, int len);
-void usbvideo_OverlayChar(uvd_t *uvd, usbvideo_frame_t *frame, int x, int y, int ch);
-void usbvideo_OverlayString(uvd_t *uvd, usbvideo_frame_t *frame, int x, int y, const char *str);
-void usbvideo_OverlayStats(uvd_t *uvd, usbvideo_frame_t *frame);
-void usbvideo_ReportStatistics(const uvd_t *uvd);
+void usbvideo_OverlayChar(struct uvd *uvd, struct usbvideo_frame *frame, int x, int y, int ch);
+void usbvideo_OverlayString(struct uvd *uvd, struct usbvideo_frame *frame, int x, int y, const char *str);
+void usbvideo_OverlayStats(struct uvd *uvd, struct usbvideo_frame *frame);
+void usbvideo_ReportStatistics(const struct uvd *uvd);
 void usbvideo_SayAndWait(const char *what);
-void usbvideo_TestPattern(uvd_t *uvd, int fullframe, int pmode);
+void usbvideo_TestPattern(struct uvd *uvd, int fullframe, int pmode);
 void usbvideo_VideosizeToString(char *buf, int bufLen, videosize_t vs);
 
 /* Memory allocation routines */
@@ -334,17 +341,18 @@ void *usbvideo_rvmalloc(unsigned long size);
 void usbvideo_rvfree(void *mem, unsigned long size);
 
 int usbvideo_register(
-	usbvideo_t **pCams,
+	struct usbvideo **pCams,
 	const int num_cams,
 	const int num_extra,
 	const char *driverName,
-	const usbvideo_cb_t *cbTable,
-	struct module *md);
-uvd_t *usbvideo_AllocateDevice(usbvideo_t *cams);
-int usbvideo_RegisterVideoDevice(uvd_t *uvd);
-void usbvideo_Deregister(usbvideo_t **uvt);
+	const struct usbvideo_cb *cbTable,
+	struct module *md,
+	const struct usb_device_id *id_table);
+struct uvd *usbvideo_AllocateDevice(struct usbvideo *cams);
+int usbvideo_RegisterVideoDevice(struct uvd *uvd);
+void usbvideo_Deregister(struct usbvideo **uvt);
 void usbvideo_Disconnect(struct usb_device *dev, void *ptr);
-void usbvideo_CameraRelease(uvd_t *uvd);
+void usbvideo_CameraRelease(struct uvd *uvd);
 
 void usbvideo_v4l_close(struct video_device *dev);
 int usbvideo_v4l_initialize(struct video_device *dev);
@@ -356,12 +364,12 @@ long usbvideo_v4l_read(struct video_device *dev, char *buf,
 long usbvideo_v4l_write(struct video_device *dev, const char *buf,
 			unsigned long count, int noblock);
 
-int usbvideo_GetFrame(uvd_t *uvd, int frameNum);
-int usbvideo_NewFrame(uvd_t *uvd, int framenum);
-int usbvideo_StartDataPump(uvd_t *uvd);
-void usbvideo_StopDataPump(uvd_t *uvd);
-void usbvideo_DeinterlaceFrame(uvd_t *uvd, usbvideo_frame_t *frame);
-void usbvideo_SoftwareContrastAdjustment(uvd_t *uvd, usbvideo_frame_t *frame);
+int usbvideo_GetFrame(struct uvd *uvd, int frameNum);
+int usbvideo_NewFrame(struct uvd *uvd, int framenum);
+int usbvideo_StartDataPump(struct uvd *uvd);
+void usbvideo_StopDataPump(struct uvd *uvd);
+void usbvideo_DeinterlaceFrame(struct uvd *uvd, struct usbvideo_frame *frame);
+void usbvideo_SoftwareContrastAdjustment(struct uvd *uvd, struct usbvideo_frame *frame);
 
 /*
  * This code performs bounds checking - use it when working with
@@ -377,7 +385,7 @@ void usbvideo_SoftwareContrastAdjustment(uvd_t *uvd, usbvideo_frame_t *frame);
  * VIDEOSIZE_X(fr->request), total VIDEOSIZE_Y(frame->request) lines.
  */
 static inline void RGB24_PUTPIXEL(
-	usbvideo_frame_t *fr,
+	struct usbvideo_frame *fr,
 	int ix, int iy,
 	unsigned char vr,
 	unsigned char vg,

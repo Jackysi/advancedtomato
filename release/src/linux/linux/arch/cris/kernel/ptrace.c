@@ -8,11 +8,9 @@
  * Authors:   Bjorn Wesen
  *
  * $Log: ptrace.c,v $
- * Revision 1.1.1.2  2003/10/14 08:07:17  sparq
- * Broadcom Release 3.51.8.0 for BCM4712.
- *
- * Revision 1.1.1.1  2003/02/03 22:37:20  mhuang
- * LINUX_2_4 branch snapshot from linux-mips.org CVS
+ * Revision 1.9  2003/10/01 11:34:23  aurer
+ * * Allow PTRACE_PEEKUSR and PTRACE_POKEUSR to access USP.
+ * * Removed nonsensical comment about ptrace behavior.
  *
  * Revision 1.8  2001/11/12 18:26:21  pkj
  * Fixed compiler warnings.
@@ -102,14 +100,6 @@ void ptrace_disable(struct task_struct *child)
        /* Todo - pending singlesteps? */
 }
 
-/* Note that this implementation of ptrace behaves differently from vanilla
- * ptrace.  Contrary to what the man page says, in the PTRACE_PEEKTEXT,
- * PTRACE_PEEKDATA, and PTRACE_PEEKUSER requests the data variable is not
- * ignored.  Instead, the data variable is expected to point at a location
- * (in user space) where the result of the ptrace call is written (instead of
- * being returned).
- */
-
 asmlinkage int sys_ptrace(long request, long pid, long addr, long data)
 {
 	struct task_struct *child;
@@ -169,17 +159,13 @@ asmlinkage int sys_ptrace(long request, long pid, long addr, long data)
 		/* read the word at location addr in the USER area. */
 		case PTRACE_PEEKUSR: {
 			unsigned long tmp;
-			
+
 			ret = -EIO;
-			if ((addr & 3) || addr < 0 || addr >= sizeof(struct user))
+			if ((addr & 3) || addr < 0 || addr > PT_MAX << 2)
 				break;
-			
-			tmp = 0;  /* Default return condition */
-			ret = -EIO;
-			if (addr < sizeof(struct pt_regs)) {
-				tmp = get_reg(child, addr >> 2);
-				ret = put_user(tmp, (unsigned long *)data);
-			}
+
+			tmp = get_reg(child, addr >> 2);
+			ret = put_user(tmp, (unsigned long *)data);
 			break;
 		}
 
@@ -194,23 +180,21 @@ asmlinkage int sys_ptrace(long request, long pid, long addr, long data)
 
 		case PTRACE_POKEUSR: /* write the word at location addr in the USER area */
 			ret = -EIO;
-			if ((addr & 3) || addr < 0 || addr >= sizeof(struct user))
+			if ((addr & 3) || addr < 0 || addr > PT_MAX << 2)
 				break;
 
-			if (addr < sizeof(struct pt_regs)) {
-				addr >>= 2;
+			addr >>= 2;
 
-				if (addr == PT_DCCR) {
+			if (addr == PT_DCCR) {
 				/* don't allow the tracing process to change stuff like
 				 * interrupt enable, kernel/user bit, dma enables etc.
 				 */
-					data &= DCCR_MASK;
-					data |= get_reg(child, PT_DCCR) & ~DCCR_MASK;
-				}
-				if (put_reg(child, addr, data))
-					break;
-				ret = 0;
+				data &= DCCR_MASK;
+				data |= get_reg(child, PT_DCCR) & ~DCCR_MASK;
 			}
+			if (put_reg(child, addr, data))
+				break;
+			ret = 0;
 			break;
 
 		case PTRACE_SYSCALL: /* continue and stop at next (return from) syscall */

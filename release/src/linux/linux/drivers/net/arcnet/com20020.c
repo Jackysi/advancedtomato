@@ -1,6 +1,6 @@
 /*
  * Linux ARCnet driver - COM20020 chipset support
- * 
+ *
  * Written 1997 by David Woodhouse.
  * Written 1994-1999 by Avery Pennarun.
  * Written 1999 by Martin Mares <mj@ucw.cz>.
@@ -98,6 +98,9 @@ int __devinit com20020_check(struct net_device *dev)
 	lp->setup = lp->clockm ? 0 : (lp->clockp << 1);
 	lp->setup2 = (lp->clockm << 4) | 8;
 
+	/* Enable P1Mode for backplane mode */
+	lp->setup = lp->setup | P1MODE;
+
 	SET_SUBADR(SUB_SETUP1);
 	outb(lp->setup, _XREG);
 
@@ -105,7 +108,7 @@ int __devinit com20020_check(struct net_device *dev)
 	{
 		SET_SUBADR(SUB_SETUP2);
 		outb(lp->setup2, _XREG);
-	
+
 		/* must now write the magic "restart operation" command */
 		mdelay(1);
 		outb(0x18, _COMMAND);
@@ -174,7 +177,7 @@ int __devinit com20020_found(struct net_device *dev, int shared)
 	arcdev_setup(dev);
 
 	if (!dev->dev_addr[0])
-		dev->dev_addr[0] = inb(ioaddr + 8);	
+		dev->dev_addr[0] = inb(ioaddr + 8);	/* FIXME: do this some other way! */
 
 	SET_SUBADR(SUB_SETUP1);
 	outb(lp->setup, _XREG);
@@ -183,7 +186,7 @@ int __devinit com20020_found(struct net_device *dev, int shared)
 	{
 		SET_SUBADR(SUB_SETUP2);
 		outb(lp->setup2, _XREG);
-	
+
 		/* must now write the magic "restart operation" command */
 		mdelay(1);
 		outb(0x18, _COMMAND);
@@ -202,7 +205,7 @@ int __devinit com20020_found(struct net_device *dev, int shared)
 		return -ENODEV;
 	}
 	/* reserve the I/O region */
-	if (request_region(ioaddr, ARCNET_TOTAL_SIZE, "arcnet (COM20020)")) {
+	if (!request_region(ioaddr, ARCNET_TOTAL_SIZE, "arcnet (COM20020)")) {
 		free_irq(dev->irq, dev);
 		return -EBUSY;
 	}
@@ -218,7 +221,7 @@ int __devinit com20020_found(struct net_device *dev, int shared)
 		BUGMSG(D_NORMAL, "Using extended timeout value of %d.\n", lp->timeout);
 
 	BUGMSG(D_NORMAL, "Using CKP %d - data rate %s.\n",
-	       lp->setup >> 1, 
+	       lp->setup >> 1,
 	       clockrates[3 - ((lp->setup2 & 0xF0) >> 4) + ((lp->setup & 0x0F) >> 1)]);
 
 	if (!dev->init && register_netdev(dev)) {
@@ -230,9 +233,9 @@ int __devinit com20020_found(struct net_device *dev, int shared)
 }
 
 
-/* 
+/*
  * Do a hardware reset on the card, and set up necessary registers.
- * 
+ *
  * This should be called as little as possible, because it disrupts the
  * token on the network (causes a RECON) and requires a significant delay.
  *
@@ -312,6 +315,13 @@ static void com20020_openclose(struct net_device *dev, bool open)
 }
 
 
+/* Set or clear the multicast filter for this adaptor.
+ * num_addrs == -1    Promiscuous mode, receive all packets
+ * num_addrs == 0       Normal mode, clear multicast list
+ * num_addrs > 0        Multicast mode, receive normal and MC packets, and do
+ *                      best-effort filtering.
+ *      FIXME - do multicast stuff, not just promiscuous.
+ */
 static void com20020_set_mc_list(struct net_device *dev)
 {
 	struct arcnet_local *lp = dev->priv;

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2000  Maciej W. Rozycki
+ * Copyright (C) 2000, 2004  Maciej W. Rozycki
  *
  * This file is subject to the terms and conditions of the GNU General Public
  * License.  See the file "COPYING" in the main directory of this archive
@@ -7,6 +7,8 @@
  */
 #ifndef _ASM_DIV64_H
 #define _ASM_DIV64_H
+
+#include <asm/compiler.h>
 
 /*
  * No traps on overflows for any of these...
@@ -64,7 +66,8 @@
 	if (__high) \
 		__asm__("divu	$0, %z2, %z3" \
 			: "=h" (__upper), "=l" (__high) \
-			: "Jr" (__high), "Jr" (__base)); \
+			: "Jr" (__high), "Jr" (__base) \
+			: GCC_REG_ACCUM); \
 	\
 	__mod = do_div64_32(__low, __upper, __low, __base); \
 	\

@@ -5,10 +5,7 @@ USE_STANDARD_AS_RULE := 1
 
 O_TARGET := lasatkern.o
 obj-y	 := reset.o setup.o prom.o lasat_board.o \
-		crc32.o at93c.o interrupt.o lasatIRQ.o
-
-subdir-$(CONFIG_LASAT_SERVICE) += service
-obj-$(CONFIG_LASAT_SERVICE) += service/service.o
+		at93c.o interrupt.o lasatIRQ.o
 
 obj-$(CONFIG_LASAT_SYSCTL) += sysctl.o
 

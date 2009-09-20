@@ -1,4 +1,4 @@
-/* $Id: pci.c,v 1.1.1.4 2003/10/14 08:07:50 sparq Exp $
+/* $Id: pci.c,v 1.36.2.4 2002/02/10 15:06:48 ecd Exp $
  * pci.c: UltraSparc PCI controller support.
  *
  * Copyright (C) 1997, 1998, 1999 David S. Miller (davem@redhat.com)
@@ -81,6 +81,8 @@ volatile int pci_poke_faulted;
 extern void sabre_init(int, char *);
 extern void psycho_init(int, char *);
 extern void schizo_init(int, char *);
+extern void schizo_plus_init(int, char *);
+extern void tomatillo_init(int, char *);
 
 static struct {
 	char *model_name;
@@ -92,12 +94,16 @@ static struct {
 	{ "SUNW,psycho", psycho_init },
 	{ "pci108e,8000", psycho_init },
 	{ "SUNW,schizo", schizo_init },
-	{ "pci108e,8001", schizo_init }
+	{ "pci108e,8001", schizo_init },
+	{ "SUNW,schizo+", schizo_plus_init },
+	{ "pci108e,8002", schizo_plus_init },
+	{ "SUNW,tomatillo", tomatillo_init },
+	{ "pci108e,a801", tomatillo_init },
 };
 #define PCI_NUM_CONTROLLER_TYPES (sizeof(pci_controller_table) / \
 				  sizeof(pci_controller_table[0]))
 
-static void pci_controller_init(char *model_name, int namelen, int node)
+static int pci_controller_init(char *model_name, int namelen, int node)
 {
 	int i;
 
@@ -106,12 +112,71 @@ static void pci_controller_init(char *model_name, int namelen, int node)
 			     pci_controller_table[i].model_name,
 			     namelen)) {
 			pci_controller_table[i].init(node, model_name);
-			return;
+			return 1;
 		}
 	}
 	printk("PCI: Warning unknown controller, model name [%s]\n",
 	       model_name);
 	printk("PCI: Ignoring controller...\n");
+
+	return 0;
+}
+
+static int pci_is_controller(char *model_name, int namelen, int node)
+{
+	int i;
+
+	for (i = 0; i < PCI_NUM_CONTROLLER_TYPES; i++) {
+		if (!strncmp(model_name,
+			     pci_controller_table[i].model_name,
+			     namelen)) {
+			return 1;
+		}
+	}
+	return 0;
+}
+
+
+static int pci_controller_scan(int (*handler)(char *, int, int))
+{
+	char namebuf[64];
+	int node;
+	int count = 0;
+
+	node = prom_getchild(prom_root_node);
+	while ((node = prom_searchsiblings(node, "pci")) != 0) {
+		int len;
+
+		if ((len = prom_getproperty(node, "model", namebuf, sizeof(namebuf))) > 0 ||
+		    (len = prom_getproperty(node, "compatible", namebuf, sizeof(namebuf))) > 0) {
+			int item_len = 0;
+
+			/* Our value may be a multi-valued string in the
+			 * case of some compatible properties. For sanity,
+			 * only try the first one. */
+
+			while (namebuf[item_len] && len) {
+				len--;
+				item_len++;
+			}
+
+			if (handler(namebuf, item_len, node))
+				count++;
+		}
+
+		node = prom_getsibling(node);
+		if (!node)
+			break;
+	}
+
+	return count;
+}
+
+
+/* Is there some PCI controller in the system?  */
+int pcic_present(void)
+{
+	return pci_controller_scan(pci_is_controller);
 }
 
 /* Find each controller in the system, attach and initialize
@@ -121,28 +186,9 @@ static void pci_controller_init(char *model_name, int namelen, int node)
  */
 static void pci_controller_probe(void)
 {
-	char namebuf[16];
-	int node;
-
 	printk("PCI: Probing for controllers.\n");
-	node = prom_getchild(prom_root_node);
-	while ((node = prom_searchsiblings(node, "pci")) != 0) {
-		int len;
 
-		len = prom_getproperty(node, "model",
-				       namebuf, sizeof(namebuf));
-		if (len > 0)
-			pci_controller_init(namebuf, len, node);
-		else {
-			len = prom_getproperty(node, "compatible",
-					       namebuf, sizeof(namebuf));
-			if (len > 0)
-				pci_controller_init(namebuf, len, node);
-		}
-		node = prom_getsibling(node);
-		if (!node)
-			break;
-	}
+	pci_controller_scan(pci_controller_init);
 }
 
 static void pci_scan_each_controller_bus(void)
@@ -435,6 +481,16 @@ static int __pci_mmap_make_offset_bus(struct pci_dev *pdev, struct vm_area_struc
 	return 0;
 }
 
+/* Adjust vm_pgoff of VMA such that it is the physical page offset corresponding
+ * to the 32-bit pci bus offset for DEV requested by the user.
+ *
+ * Basically, the user finds the base address for his device which he wishes
+ * to mmap.  They read the 32-bit value from the config space base register,
+ * add whatever PAGE_SIZE multiple offset they wish, and feed this into the
+ * offset parameter of mmap on /proc/bus/pci/XXX for that device.
+ *
+ * Returns negative error code on failure, zero on success.
+ */
 static int __pci_mmap_make_offset(struct pci_dev *dev, struct vm_area_struct *vma,
 				  enum pci_mmap_state mmap_state)
 {

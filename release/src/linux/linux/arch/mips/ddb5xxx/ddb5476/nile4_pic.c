@@ -163,7 +163,7 @@ u8 nile4_i8259_iack(void)
 	return irq + I8259_IRQ_BASE;
 }
 
-#if defined(CONFIG_LL_DEBUG)
+#if defined(CONFIG_RUNTIME_DEBUG)
 void nile4_dump_irq_status(void)
 {
 	printk(KERN_DEBUG "

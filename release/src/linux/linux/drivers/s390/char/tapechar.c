@@ -161,6 +161,7 @@ tape_read (struct file *filp, char *data, size_t count, loff_t * ppos)
 	size_t block_size;
 	ccw_req_t *cqr;
 	int rc;
+	loff_t pos = *ppos;
 #ifdef TAPE_DEBUG
         debug_text_event (tape_debug_area,6,"c:read");
 #endif /* TAPE_DEBUG */
@@ -230,7 +231,7 @@ tape_read (struct file *filp, char *data, size_t count, loff_t * ppos)
 	debug_text_event (tape_debug_area,6,"c:rbytes:");
 	debug_int_event (tape_debug_area,6,block_size - ti->devstat.rescnt);
 #endif	/* TAPE_DEBUG */
-	filp->f_pos += block_size - ti->devstat.rescnt;
+	*ppos = pos + (block_size - ti->devstat.rescnt);
 	return block_size - ti->devstat.rescnt;
 }
 
@@ -246,6 +247,8 @@ tape_write (struct file *filp, const char *data, size_t count, loff_t * ppos)
 	ccw_req_t *cqr;
 	int nblocks, i, rc;
 	size_t written = 0;
+	loff_t pos = *ppos;
+
 #ifdef TAPE_DEBUG
 	debug_text_event (tape_debug_area,6,"c:write");
 #endif
@@ -318,15 +321,17 @@ tape_write (struct file *filp, const char *data, size_t count, loff_t * ppos)
 	        debug_text_event (tape_debug_area,6,"c:wbytes:"); 
 		debug_int_event (tape_debug_area,6,block_size - ti->devstat.rescnt);
 #endif
-		filp->f_pos += block_size - ti->devstat.rescnt;
 		written += block_size - ti->devstat.rescnt;
-		if (ti->devstat.rescnt > 0)
+		if (ti->devstat.rescnt > 0) {
+			*ppos = pos + written;
 			return written;
+		}
 	}
 #ifdef TAPE_DEBUG
 	debug_text_event (tape_debug_area,6,"c:wtotal:");
 	debug_int_event (tape_debug_area,6,written);
 #endif
+	*ppos = pos + written;
 	return written;
 }
 

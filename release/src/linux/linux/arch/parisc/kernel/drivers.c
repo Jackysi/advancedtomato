@@ -9,6 +9,7 @@
  * Copyright (c) 1999 The Puffin Group
  * Copyright (c) 2001 Matthew Wilcox for Hewlett Packard
  * Copyright (c) 2001 Helge Deller <deller@gmx.de>
+ * Copyright (c) 2001,2002 Ryan Bradetich 
  * 
  * The file handles registering devices and drivers, then matching them.
  * It's the closest we get to a dating agency.
@@ -23,7 +24,6 @@
 #include <asm/hardware.h>
 #include <asm/io.h>
 #include <asm/pdc.h>
-#include <asm/gsc.h>
 
 /* See comments in include/asm-parisc/pci.h */
 struct pci_dma_ops *hppa_dma_ops;
@@ -416,6 +416,7 @@ alloc_pa_dev(unsigned long hpa, struct hardware_path *mod_path)
 	dev->id.sversion = ((iodc_data[4] & 0x0f) << 16) |
 			(iodc_data[5] << 8) | iodc_data[6];
 	dev->hpa = hpa;
+
 	name = parisc_hardware_description(&dev->id);
 	if (name) {
 		strncpy(dev->name, name, sizeof(dev->name)-1);
@@ -461,34 +462,50 @@ int register_parisc_device(struct parisc_device *dev)
 #define BC_PORT_MASK 0x8
 #define BC_LOWER_PORT 0x8
 
+#define IO_STATUS 	offsetof(struct bc_module, io_status)
+
+
 #define BUS_CONVERTER(dev) \
         ((dev->id.hw_type == HPHW_IOA) || (dev->id.hw_type == HPHW_BCPORT))
 
 #define IS_LOWER_PORT(dev) \
-        ((gsc_readl(&((struct bc_module *)dev->hpa)->io_status) \
-                & BC_PORT_MASK) == BC_LOWER_PORT)
-
-#define READ_IO_IO_LOW(dev) \
-	(dev->id.hw_type == HPHW_IOA ? \
-	        __raw_readl((unsigned long)&((struct bc_module *)dev->hpa)->io_io_low) << 16 : \
-	        __raw_readl((unsigned long)&((struct bc_module *)dev->hpa)->io_io_low))
-
-static void walk_native_bus(unsigned long addr, struct parisc_device *parent);
-void walk_lower_bus(struct parisc_device *dev)
-{
-
-	if(!BUS_CONVERTER(dev) || IS_LOWER_PORT(dev))
-		return;
-
-	walk_native_bus((unsigned long)(signed int)READ_IO_IO_LOW(dev), dev);
-}
+        ((__raw_readl(dev->hpa + IO_STATUS) & BC_PORT_MASK) == BC_LOWER_PORT)
 
 #define MAX_NATIVE_DEVICES 64
 #define NATIVE_DEVICE_OFFSET 0x1000
 
+#define FLEX_MASK 	(unsigned long)0xfffffffffffc0000
+#define IO_IO_LOW	offsetof(struct bc_module, io_io_low)
+#define IO_IO_HIGH	offsetof(struct bc_module, io_io_high)
+#define READ_IO_IO_LOW(dev)  (unsigned long)(signed int)__raw_readl(dev->hpa + IO_IO_LOW)
+#define READ_IO_IO_HIGH(dev) (unsigned long)(signed int)__raw_readl(dev->hpa + IO_IO_HIGH)
+
+static void walk_native_bus(unsigned long io_io_low, unsigned long io_io_high,
+                            struct parisc_device *parent);
+
+void walk_lower_bus(struct parisc_device *dev)
+{
+	unsigned long io_io_low, io_io_high;
+
+	if(!BUS_CONVERTER(dev) || IS_LOWER_PORT(dev))
+		return;
+
+	if(dev->id.hw_type == HPHW_IOA) {
+		io_io_low = (unsigned long)(signed int)(READ_IO_IO_LOW(dev) << 16);
+		io_io_high = io_io_low + MAX_NATIVE_DEVICES * NATIVE_DEVICE_OFFSET;
+	} else {
+		io_io_low = (READ_IO_IO_LOW(dev) + ~FLEX_MASK) & FLEX_MASK;
+		io_io_high = (READ_IO_IO_HIGH(dev)+ ~FLEX_MASK) & FLEX_MASK;
+	}
+
+	walk_native_bus(io_io_low, io_io_high, dev);
+}
+
 /**
  * walk_native_bus -- Probe a bus for devices
- * @addr: Base address of this bus.
+ * @io_io_low: Base address of this bus.
+ * @io_io_high: Last address of this bus.
+ * @parent: The parent bus device.
  * 
  * A native bus (eg Runway or GSC) may have up to 64 devices on it,
  * spaced at intervals of 0x1000 bytes.  PDC may not inform us of these
@@ -496,28 +513,32 @@ void walk_lower_bus(struct parisc_device *dev)
  * devices which are not physically connected (such as extra serial &
  * keyboard ports).  This problem is not yet solved.
  */
-static void walk_native_bus(unsigned long addr, struct parisc_device *parent)
+static void walk_native_bus(unsigned long io_io_low, unsigned long io_io_high,
+                            struct parisc_device *parent)
 {
-	int i;
+	int i, devices_found = 0;
+	unsigned long hpa = io_io_low;
 	struct hardware_path path;
 
 	get_node_path(parent, &path);
-	for (i = 0; i < MAX_NATIVE_DEVICES; i++) {
-		unsigned long hpa = (addr + i * NATIVE_DEVICE_OFFSET);
-		struct parisc_device *dev;
+	do {
+		for(i = 0; i < MAX_NATIVE_DEVICES; i++, hpa += NATIVE_DEVICE_OFFSET) {
+			struct parisc_device *dev;
 
-		/* Was the device already added by Firmware? */
-		dev = find_device_by_addr(hpa);
-		if (!dev) {
-			path.mod = i;
-			dev = alloc_pa_dev(hpa, &path);
-			if (!dev)
-				continue;
+			/* Was the device already added by Firmware? */
+			dev = find_device_by_addr(hpa);
+			if (!dev) {
+				path.mod = i;
+				dev = alloc_pa_dev(hpa, &path);
+				if (!dev)
+					continue;
 
-			register_parisc_device(dev);
+				register_parisc_device(dev);
+				devices_found++;
+			}
+			walk_lower_bus(dev);
 		}
-		walk_lower_bus(dev);
-	}
+	} while(!devices_found && hpa < io_io_high);
 }
 
 #define CENTRAL_BUS_ADDR (unsigned long) 0xfffffffffff80000
@@ -530,7 +551,9 @@ static void walk_native_bus(unsigned long addr, struct parisc_device *parent)
  */
 void walk_central_bus(void)
 {
-	walk_native_bus(CENTRAL_BUS_ADDR, &root);
+	walk_native_bus(CENTRAL_BUS_ADDR,
+			CENTRAL_BUS_ADDR + (MAX_NATIVE_DEVICES * NATIVE_DEVICE_OFFSET),
+			&root);
 }
 
 void fixup_child_irqs(struct parisc_device *parent, int base,

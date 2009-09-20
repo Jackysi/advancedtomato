@@ -88,6 +88,9 @@ typedef struct { unsigned long pgprot; } pgprot_t;
 
 #define virt_to_page(kaddr)	phys_to_page(__pa(kaddr))
 
+#define VM_DATA_DEFAULT_FLAGS	(VM_READ | VM_WRITE | VM_EXEC | \
+				 VM_MAYREAD | VM_MAYWRITE | VM_MAYEXEC)
+
 #ifndef __ASSEMBLY__
 
 /*

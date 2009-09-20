@@ -1,6 +1,3 @@
-/*
- * BK Id: %F% %I% %G% %U% %#%
- */
 #include <linux/config.h>
 #include <linux/module.h>
 #include <linux/threads.h>
@@ -50,6 +47,7 @@
 #include <asm/time.h>
 #include <asm/cputable.h>
 #include <asm/btext.h>
+#include <asm/div64.h>
 
 #ifdef  CONFIG_8xx
 #include <asm/commproc.h>
@@ -58,7 +56,6 @@
 /* Tell string.h we don't want memcpy etc. as cpp defines */
 #define EXPORT_SYMTAB_STROPS
 
-extern void ppc_generic_ide_fix_driveid(struct hd_driveid *id);
 extern void transfer_to_handler(void);
 extern void syscall_trace(void);
 extern void do_IRQ(struct pt_regs *regs);
@@ -131,6 +128,7 @@ EXPORT_SYMBOL(strnlen);
 EXPORT_SYMBOL(strcmp);
 EXPORT_SYMBOL(strncmp);
 EXPORT_SYMBOL(strcasecmp);
+EXPORT_SYMBOL(__div64_32);
 
 /* EXPORT_SYMBOL(csum_partial); already in net/netsyms.c */
 EXPORT_SYMBOL(csum_partial_copy_generic);
@@ -161,16 +159,20 @@ EXPORT_SYMBOL(_insw_ns);
 EXPORT_SYMBOL(_outsw_ns);
 EXPORT_SYMBOL(_insl_ns);
 EXPORT_SYMBOL(_outsl_ns);
-EXPORT_SYMBOL(ioremap);
-EXPORT_SYMBOL(__ioremap);
-EXPORT_SYMBOL(iounmap);
 EXPORT_SYMBOL(iopa);
 EXPORT_SYMBOL(mm_ptov);
+EXPORT_SYMBOL(vmalloc_start);
+EXPORT_SYMBOL(ioremap_bot);
+EXPORT_SYMBOL(ioremap);
+#ifdef CONFIG_PTE_64BIT
+EXPORT_SYMBOL(ioremap64);
+#endif
+EXPORT_SYMBOL(__ioremap);
+EXPORT_SYMBOL(iounmap);
 
 #if defined(CONFIG_BLK_DEV_IDE) || defined(CONFIG_BLK_DEV_IDE_MODULE) \
 	|| defined(CONFIG_USB_STORAGE) || defined(CONFIG_USB_STORAGE_MODULE)
 EXPORT_SYMBOL(ppc_ide_md);
-EXPORT_SYMBOL(ppc_generic_ide_fix_driveid);
 #endif
 
 #ifdef CONFIG_PCI
@@ -179,7 +181,22 @@ EXPORT_SYMBOL_NOVERS(isa_mem_base);
 EXPORT_SYMBOL_NOVERS(pci_dram_offset);
 EXPORT_SYMBOL(pci_alloc_consistent);
 EXPORT_SYMBOL(pci_free_consistent);
+EXPORT_SYMBOL(pci_bus_io_base);
+EXPORT_SYMBOL(pci_bus_io_base_phys);
+EXPORT_SYMBOL(pci_bus_mem_base_phys);
+EXPORT_SYMBOL(pci_bus_to_hose);
+EXPORT_SYMBOL(pci_resource_to_bus);
+EXPORT_SYMBOL(pci_phys_to_bus);
+EXPORT_SYMBOL(pci_bus_to_phys);
 #endif /* CONFIG_PCI */
+
+#ifdef CONFIG_NOT_COHERENT_CACHE
+EXPORT_SYMBOL(consistent_alloc);
+EXPORT_SYMBOL(consistent_free);
+EXPORT_SYMBOL(consistent_sync);
+EXPORT_SYMBOL(consistent_sync_page);
+EXPORT_SYMBOL(flush_dcache_all);
+#endif
 
 EXPORT_SYMBOL(start_thread);
 EXPORT_SYMBOL(kernel_thread);
@@ -256,15 +273,8 @@ EXPORT_SYMBOL(find_all_nodes);
 EXPORT_SYMBOL(get_property);
 EXPORT_SYMBOL(request_OF_resource);
 EXPORT_SYMBOL(release_OF_resource);
-EXPORT_SYMBOL(pci_bus_io_base);
-EXPORT_SYMBOL(pci_bus_io_base_phys);
-EXPORT_SYMBOL(pci_bus_mem_base_phys);
 EXPORT_SYMBOL(pci_device_to_OF_node);
 EXPORT_SYMBOL(pci_device_from_OF_node);
-EXPORT_SYMBOL(pci_bus_to_hose);
-EXPORT_SYMBOL(pci_resource_to_bus);
-EXPORT_SYMBOL(pci_phys_to_bus);
-EXPORT_SYMBOL(pci_bus_to_phys);
 EXPORT_SYMBOL(pmac_newworld);
 EXPORT_SYMBOL(nvram_read_byte);
 EXPORT_SYMBOL(nvram_write_byte);
@@ -294,7 +304,7 @@ EXPORT_SYMBOL_NOVERS(memchr);
 
 EXPORT_SYMBOL(abs);
 
-#ifdef CONFIG_VGA_CONSOLE
+#if defined(CONFIG_VGA_CONSOLE) || defined(CONFIG_FB)
 EXPORT_SYMBOL(screen_info);
 #endif
 
@@ -341,17 +351,34 @@ EXPORT_SYMBOL(debugger_dabr_match);
 EXPORT_SYMBOL(debugger_fault_handler);
 #endif
 
-#ifdef  CONFIG_8xx
+#if defined(CONFIG_8xx) || defined(CONFIG_4xx)
 EXPORT_SYMBOL(__res);
-EXPORT_SYMBOL(request_8xxirq);
+#endif
+#ifdef  CONFIG_8xx
 EXPORT_SYMBOL(cpm_install_handler);
 EXPORT_SYMBOL(cpm_free_handler);
+EXPORT_SYMBOL(m8xx_cpm_hostalloc);
+EXPORT_SYMBOL(m8xx_cpm_dpalloc);
+#ifdef CONFIG_8xx_WDT
+extern int m8xx_wdt_get_timeout(void);
+extern void m8xx_wdt_reset(void);
+EXPORT_SYMBOL(m8xx_wdt_get_timeout);
+EXPORT_SYMBOL(m8xx_wdt_reset);
+#endif
 #endif /* CONFIG_8xx */
+
+/* Those should really be inline */
+EXPORT_SYMBOL(atomic_clear_mask);
+EXPORT_SYMBOL(atomic_set_mask);
 
 EXPORT_SYMBOL(ret_to_user_hook);
 EXPORT_SYMBOL(next_mmu_context);
 EXPORT_SYMBOL(set_context);
 EXPORT_SYMBOL(handle_mm_fault); /* For MOL */
+#ifdef CONFIG_SMP
+extern int *hash_table_lock;
+EXPORT_SYMBOL_NOVERS(hash_table_lock); /* For MOL */
+#endif
 EXPORT_SYMBOL_NOVERS(disarm_decr);
 #ifdef CONFIG_PPC_STD_MMU
 EXPORT_SYMBOL(flush_hash_page); /* For MOL */
@@ -365,4 +392,3 @@ EXPORT_SYMBOL(cur_cpu_spec);
 extern unsigned long agp_special_page;
 EXPORT_SYMBOL_NOVERS(agp_special_page);
 #endif /* defined(CONFIG_ALL_PPC) */
-

@@ -22,7 +22,7 @@
 /* With some changes from Kyösti Mälkki <kmalkki@cc.hut.fi> and even
    Frodo Looijaard <frodol@dds.nl> */
 
-/* $Id: i2c-algo-pcf.h,v 1.1.1.4 2003/10/14 08:09:25 sparq Exp $ */
+/* $Id: i2c-algo-pcf.h,v 1.7 2000/02/27 23:02:45 frodo Exp $ */
 
 #ifndef I2C_ALGO_PCF_H
 #define I2C_ALGO_PCF_H 1
@@ -43,8 +43,6 @@ struct i2c_algo_pcf_data {
 	int mdelay;
 	int timeout;
 };
-
-#define I2C_PCF_ADAP_MAX	16
 
 int i2c_pcf_add_bus(struct i2c_adapter *);
 int i2c_pcf_del_bus(struct i2c_adapter *);

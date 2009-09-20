@@ -53,7 +53,6 @@ anslcd_write( struct file * file, const char * buf,
 				size_t count, loff_t *ppos )
 {
 	const char * p = buf;
-	int i;
 
 #ifdef DEBUG
 	printk(KERN_DEBUG "LCD: write\n");
@@ -61,13 +60,13 @@ anslcd_write( struct file * file, const char * buf,
 
 	if ( verify_area(VERIFY_READ, buf, count) )
 		return -EFAULT;
-	for ( i = *ppos; count > 0; ++i, ++p, --count ) 
-	{
+	while (count--) {
 		char c;
-		__get_user(c, p);
+		if (__get_user(c, p++))
+			return -EFAULT;
 		anslcd_write_byte_data( c );
 	}
-	*ppos = i;
+	*ppos = p - buf;
 	return p - buf;
 }
 
@@ -93,7 +92,7 @@ anslcd_ioctl( struct inode * inode, struct file * file,
 	case ANSLCD_SENDCTRL:
 		temp = (char *) arg;
 		__get_user(ch, temp);
-		for (; ch; temp++) { 
+		for (; ch; temp++) { /* FIXME: This is ugly, but should work, as a \0 byte is not a valid command code */
 			anslcd_write_byte_ctrl ( ch );
 			__get_user(ch, temp);
 		}

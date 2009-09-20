@@ -2,7 +2,7 @@
  * ethtool.h: Defines for Linux ethtool.
  *
  * Copyright (C) 1998 David S. Miller (davem@redhat.com)
- * Copyright 2001 Jeff Garzik <jgarzik@mandrakesoft.com>
+ * Copyright 2001 Jeff Garzik <jgarzik@pobox.com>
  * Portions Copyright 2001 Sun Microsystems (thockin@sun.com)
  * Portions Copyright 2002 Intel (eli.kupermann@intel.com,
  *                                christopher.leech@intel.com,
@@ -97,7 +97,7 @@ struct ethtool_coalesce {
 	u32	rx_max_coalesced_frames;
 
 	/* Same as above two parameters, except that these values
-	 * apply while an IRQ is being services by the host.  Not
+	 * apply while an IRQ is being serviced by the host.  Not
 	 * all cards support this feature and the values are ignored
 	 * in that case.
 	 */
@@ -119,7 +119,7 @@ struct ethtool_coalesce {
 	u32	tx_max_coalesced_frames;
 
 	/* Same as above two parameters, except that these values
-	 * apply while an IRQ is being services by the host.  Not
+	 * apply while an IRQ is being serviced by the host.  Not
 	 * all cards support this feature and the values are ignored
 	 * in that case.
 	 */
@@ -250,25 +250,124 @@ struct ethtool_stats {
 	u64	data[0];
 };
 
+struct net_device;
+
+/* Some generic methods drivers may use in their ethtool_ops */
+u32 ethtool_op_get_link(struct net_device *dev);
+u32 ethtool_op_get_tx_csum(struct net_device *dev);
+int ethtool_op_set_tx_csum(struct net_device *dev, u32 data);
+u32 ethtool_op_get_sg(struct net_device *dev);
+int ethtool_op_set_sg(struct net_device *dev, u32 data);
+
+/**
+ * &ethtool_ops - Alter and report network device settings
+ * get_settings: Get device-specific settings
+ * set_settings: Set device-specific settings
+ * get_drvinfo: Report driver information
+ * get_regs: Get device registers
+ * get_wol: Report whether Wake-on-Lan is enabled
+ * set_wol: Turn Wake-on-Lan on or off
+ * get_msglevel: Report driver message level
+ * set_msglevel: Set driver message level
+ * nway_reset: Restart autonegotiation
+ * get_link: Get link status
+ * get_eeprom: Read data from the device EEPROM
+ * set_eeprom: Write data to the device EEPROM
+ * get_coalesce: Get interrupt coalescing parameters
+ * set_coalesce: Set interrupt coalescing parameters
+ * get_ringparam: Report ring sizes
+ * set_ringparam: Set ring sizes
+ * get_pauseparam: Report pause parameters
+ * set_pauseparam: Set pause paramters
+ * get_rx_csum: Report whether receive checksums are turned on or off
+ * set_rx_csum: Turn receive checksum on or off
+ * get_tx_csum: Report whether transmit checksums are turned on or off
+ * set_tx_csum: Turn transmit checksums on or off
+ * get_sg: Report whether scatter-gather is enabled
+ * set_sg: Turn scatter-gather on or off
+ * self_test: Run specified self-tests
+ * get_strings: Return a set of strings that describe the requested objects 
+ * phys_id: Identify the device
+ * get_stats: Return statistics about the device
+ *
+ * Description:
+ *
+ * get_settings:
+ *	@get_settings is passed an &ethtool_cmd to fill in.  It returns
+ *	an negative errno or zero.
+ *
+ * set_settings:
+ *	@set_settings is passed an &ethtool_cmd and should attempt to set
+ *	all the settings this device supports.  It may return an error value
+ *	if something goes wrong (otherwise 0).
+ *
+ * get_eeprom:
+ *	Should fill in the magic field.  Don't need to check len for zero
+ *	or wraparound.  Fill in the data argument with the eeprom values
+ *	from offset to offset + len.  Update len to the amount read.
+ *	Returns an error or zero.
+ *
+ * set_eeprom:
+ *	Should validate the magic field.  Don't need to check len for zero
+ *	or wraparound.  Update len to the amount written.  Returns an error
+ *	or zero.
+ */
+struct ethtool_ops {
+	int	(*get_settings)(struct net_device *, struct ethtool_cmd *);
+	int	(*set_settings)(struct net_device *, struct ethtool_cmd *);
+	void	(*get_drvinfo)(struct net_device *, struct ethtool_drvinfo *);
+	int	(*get_regs_len)(struct net_device *);
+	void	(*get_regs)(struct net_device *, struct ethtool_regs *, void *);
+	void	(*get_wol)(struct net_device *, struct ethtool_wolinfo *);
+	int	(*set_wol)(struct net_device *, struct ethtool_wolinfo *);
+	u32	(*get_msglevel)(struct net_device *);
+	void	(*set_msglevel)(struct net_device *, u32);
+	int	(*nway_reset)(struct net_device *);
+	u32	(*get_link)(struct net_device *);
+	int	(*get_eeprom_len)(struct net_device *);
+	int	(*get_eeprom)(struct net_device *, struct ethtool_eeprom *, u8 *);
+	int	(*set_eeprom)(struct net_device *, struct ethtool_eeprom *, u8 *);
+	int	(*get_coalesce)(struct net_device *, struct ethtool_coalesce *);
+	int	(*set_coalesce)(struct net_device *, struct ethtool_coalesce *);
+	void	(*get_ringparam)(struct net_device *, struct ethtool_ringparam *);
+	int	(*set_ringparam)(struct net_device *, struct ethtool_ringparam *);
+	void	(*get_pauseparam)(struct net_device *, struct ethtool_pauseparam*);
+	int	(*set_pauseparam)(struct net_device *, struct ethtool_pauseparam*);
+	u32	(*get_rx_csum)(struct net_device *);
+	int	(*set_rx_csum)(struct net_device *, u32);
+	u32	(*get_tx_csum)(struct net_device *);
+	int	(*set_tx_csum)(struct net_device *, u32);
+	u32	(*get_sg)(struct net_device *);
+	int	(*set_sg)(struct net_device *, u32);
+	int	(*self_test_count)(struct net_device *);
+	void	(*self_test)(struct net_device *, struct ethtool_test *, u64 *);
+	void	(*get_strings)(struct net_device *, u32 stringset, u8 *);
+	int	(*phys_id)(struct net_device *, u32);
+	int	(*get_stats_count)(struct net_device *);
+	void	(*get_ethtool_stats)(struct net_device *, struct ethtool_stats *, u64 *);
+	int	(*begin)(struct net_device *);
+	void	(*complete)(struct net_device *);
+};
+
 /* CMDs currently supported */
 #define ETHTOOL_GSET		0x00000001 /* Get settings. */
-#define ETHTOOL_SSET		0x00000002 /* Set settings, privileged. */
+#define ETHTOOL_SSET		0x00000002 /* Set settings. */
 #define ETHTOOL_GDRVINFO	0x00000003 /* Get driver info. */
-#define ETHTOOL_GREGS		0x00000004 /* Get NIC registers, privileged. */
+#define ETHTOOL_GREGS		0x00000004 /* Get NIC registers. */
 #define ETHTOOL_GWOL		0x00000005 /* Get wake-on-lan options. */
-#define ETHTOOL_SWOL		0x00000006 /* Set wake-on-lan options, priv. */
+#define ETHTOOL_SWOL		0x00000006 /* Set wake-on-lan options. */
 #define ETHTOOL_GMSGLVL		0x00000007 /* Get driver message level */
-#define ETHTOOL_SMSGLVL		0x00000008 /* Set driver msg level, priv. */
-#define ETHTOOL_NWAY_RST	0x00000009 /* Restart autonegotiation, priv. */
+#define ETHTOOL_SMSGLVL		0x00000008 /* Set driver msg level. */
+#define ETHTOOL_NWAY_RST	0x00000009 /* Restart autonegotiation. */
 #define ETHTOOL_GLINK		0x0000000a /* Get link status (ethtool_value) */
 #define ETHTOOL_GEEPROM		0x0000000b /* Get EEPROM data */
-#define ETHTOOL_SEEPROM		0x0000000c /* Set EEPROM data, priv. */
+#define ETHTOOL_SEEPROM		0x0000000c /* Set EEPROM data. */
 #define ETHTOOL_GCOALESCE	0x0000000e /* Get coalesce config */
-#define ETHTOOL_SCOALESCE	0x0000000f /* Set coalesce config, priv. */
+#define ETHTOOL_SCOALESCE	0x0000000f /* Set coalesce config. */
 #define ETHTOOL_GRINGPARAM	0x00000010 /* Get ring parameters */
-#define ETHTOOL_SRINGPARAM	0x00000011 /* Set ring parameters, priv. */
+#define ETHTOOL_SRINGPARAM	0x00000011 /* Set ring parameters. */
 #define ETHTOOL_GPAUSEPARAM	0x00000012 /* Get pause parameters */
-#define ETHTOOL_SPAUSEPARAM	0x00000013 /* Set pause parameters, priv. */
+#define ETHTOOL_SPAUSEPARAM	0x00000013 /* Set pause parameters. */
 #define ETHTOOL_GRXCSUM		0x00000014 /* Get RX hw csum enable (ethtool_value) */
 #define ETHTOOL_SRXCSUM		0x00000015 /* Set RX hw csum enable (ethtool_value) */
 #define ETHTOOL_GTXCSUM		0x00000016 /* Get TX hw csum enable (ethtool_value) */
@@ -276,11 +375,13 @@ struct ethtool_stats {
 #define ETHTOOL_GSG		0x00000018 /* Get scatter-gather enable
 					    * (ethtool_value) */
 #define ETHTOOL_SSG		0x00000019 /* Set scatter-gather enable
-					    * (ethtool_value), priv. */
-#define ETHTOOL_TEST		0x0000001a /* execute NIC self-test, priv. */
+					    * (ethtool_value). */
+#define ETHTOOL_TEST		0x0000001a /* execute NIC self-test. */
 #define ETHTOOL_GSTRINGS	0x0000001b /* get specified string set */
 #define ETHTOOL_PHYS_ID		0x0000001c /* identify the NIC */
 #define ETHTOOL_GSTATS		0x0000001d /* get NIC-specific statistics */
+#define ETHTOOL_GTSO		0x0000001e /* Get TSO enable (ethtool_value) */
+#define ETHTOOL_STSO		0x0000001f /* Set TSO enable (ethtool_value) */
 
 /* compatibility with older code */
 #define SPARC_ETH_GSET		ETHTOOL_GSET
@@ -299,6 +400,7 @@ struct ethtool_stats {
 #define SUPPORTED_MII			(1 << 9)
 #define SUPPORTED_FIBRE			(1 << 10)
 #define SUPPORTED_BNC			(1 << 11)
+#define SUPPORTED_10000baseT_Full	(1 << 12)
 
 /* Indicates what features are advertised by the interface. */
 #define ADVERTISED_10baseT_Half		(1 << 0)
@@ -313,6 +415,7 @@ struct ethtool_stats {
 #define ADVERTISED_MII			(1 << 9)
 #define ADVERTISED_FIBRE		(1 << 10)
 #define ADVERTISED_BNC			(1 << 11)
+#define ADVERTISED_10000baseT_Full	(1 << 12)
 
 /* The following are all involved in forcing a particular link
  * mode for the device for setting things.  When getting the
@@ -320,10 +423,11 @@ struct ethtool_stats {
  * it was foced up into this mode or autonegotiated.
  */
 
-/* The forced speed, 10Mb, 100Mb, gigabit. */
+/* The forced speed, 10Mb, 100Mb, gigabit, 10GbE. */
 #define SPEED_10		10
 #define SPEED_100		100
 #define SPEED_1000		1000
+#define SPEED_10000		10000
 
 /* Duplex, half or full. */
 #define DUPLEX_HALF		0x00

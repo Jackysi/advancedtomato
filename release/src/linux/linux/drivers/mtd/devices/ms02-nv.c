@@ -5,6 +5,8 @@
  *      modify it under the terms of the GNU General Public License
  *      as published by the Free Software Foundation; either version
  *      2 of the License, or (at your option) any later version.
+ *
+ *	$Id: ms02-nv.c,v 1.2 2003/01/24 14:05:17 dwmw2 Exp $
  */
 
 #include <linux/init.h>
@@ -296,7 +298,7 @@ static int __init ms02nv_init(void)
 			stride = 2;
 		break;
 	case MACH_DS5000_2X0:
-	case MACH_DS5900:
+	case MACH_DS5000:
 		csr = (volatile u32 *)KN03_MCR_BASE;
 		if (*csr & KN03_MCR_BNK32M)
 			stride = 2;

@@ -95,8 +95,9 @@
 #define FB_ACCEL_SIS_GLAMOUR    36	/* SiS 300/630/540              */
 #define FB_ACCEL_3DLABS_PERMEDIA3 37	/* 3Dlabs Permedia 3		*/
 #define FB_ACCEL_ATI_RADEON	38	/* ATI Radeon family		*/
-#define FB_ACCEL_EPSON_SED1356  39     /* Epson SED1356                */
-
+#define FB_ACCEL_SIS_GLAMOUR_2  40	/* SiS 315, 650, 740		*/
+#define FB_ACCEL_SIS_XABRE	41	/* SiS 330 ("Xabre")		*/
+#define FB_ACCEL_EPSON_SED1356	42	/* Epson SED1356		*/
 
 #define FB_ACCEL_NEOMAGIC_NM2070 90	/* NeoMagic NM2070              */
 #define FB_ACCEL_NEOMAGIC_NM2090 91	/* NeoMagic NM2090              */
@@ -258,7 +259,11 @@ struct fb_vblank {
 
 #ifdef __KERNEL__
 
+#if 1 /* to go away in 2.5.0 */
 extern int GET_FB_IDX(kdev_t rdev);
+#else
+#define GET_FB_IDX(node)	(MINOR(node))
+#endif
 
 #include <linux/fs.h>
 #include <linux/init.h>
@@ -318,6 +323,7 @@ struct fb_info {
    struct fb_cmap cmap;                 /* Current cmap */
    struct fb_ops *fbops;
    char *screen_base;                   /* Virtual address */
+   u32 mapped_vram;			/* ioremap()'ed VRAM */
    struct display *disp;		/* initial display variable */
    struct vc_data *display_fg;		/* Console visible on this display */
    char fontname[40];			/* default font name */
@@ -467,6 +473,10 @@ static inline int fb_find_mode(struct fb_var_screeninfo *var,
 	    		     struct fb_info *info,
 			     const struct fb_videomode *mode,
 			     unsigned int bpp);
+    /*
+     *  FIXME: How to make the compiler optimize vga640x400 away if
+     *         default_mode is non-NULL?
+     */
     static const struct fb_videomode vga640x400 = {
 	/* 640x400 @ 70 Hz, 31.5 kHz hsync */
 	NULL, 70, 640, 400, 39721, 40, 24, 39, 9, 96, 2,
@@ -489,12 +499,15 @@ extern int __init fb_find_mode(struct fb_var_screeninfo *var,
 
 #endif /* __KERNEL__ */
 
+#if 1
 
 #define FBCMD_GET_CURRENTPAR	0xDEAD0005
 #define FBCMD_SET_CURRENTPAR	0xDEAD8005
 
+#endif
 
 
+#if 1 /* Preliminary */
 
    /*
     *    Hardware Cursor
@@ -534,5 +547,6 @@ struct fb_cursorstate {
 #define FB_CURSOR_ON		1
 #define FB_CURSOR_FLASH		2
 
+#endif /* Preliminary */
 
 #endif /* _LINUX_FB_H */

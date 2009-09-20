@@ -32,20 +32,18 @@
 #define PTE_S		sd
 #define PTE_SRL		dsrl
 #define P_MTC0		dmtc0
-#define PTE_SIZE	8
-#define PTEP_INDX_MSK	0xff0
-#define PTE_INDX_MSK	0xff8
-#define PTE_INDX_SHIFT	9
 #else
 #define PTE_L		lw
 #define PTE_S		sw
 #define PTE_SRL		srl
 #define P_MTC0		mtc0
-#define PTE_SIZE	4
-#define PTEP_INDX_MSK	0xff8
-#define PTE_INDX_MSK	0xffc
-#define PTE_INDX_SHIFT	10
 #endif
+
+#define PTE_PAGE_SIZE	(_PAGE_SIZE << _PTE_ORDER)
+#define PTE_PAGE_SHIFT	(_PAGE_SHIFT + _PTE_ORDER)
+#define PTEP_INDX_MSK	((PTE_PAGE_SIZE - 1) & ~(_PTE_T_SIZE << 1 - 1))
+#define PTE_INDX_MSK	((PTE_PAGE_SIZE - 1) & ~(_PTE_T_SIZE - 1))
+#define PTE_INDX_SHIFT	(PTE_PAGE_SHIFT - _PTE_T_LOG2)
 
 /*
  * ABUSE of CPP macros 101.
@@ -72,7 +70,7 @@
 	GET_PGD(pte, ptr)          \
 	mfc0	pte, CP0_BADVADDR; \
 	srl	pte, pte, _PGDIR_SHIFT; \
-	sll	pte, pte, 2; \
+	sll	pte, pte, _PGD_T_LOG2; \
 	addu	ptr, ptr, pte; \
 	mfc0	pte, CP0_BADVADDR; \
 	lw	ptr, (ptr); \
@@ -86,9 +84,9 @@
 	 * TMP as a scratch register.
 	 */
 #define PTE_RELOAD(ptr, tmp) \
-	ori	ptr, ptr, PTE_SIZE; \
-	xori	ptr, ptr, PTE_SIZE; \
-	PTE_L	tmp, PTE_SIZE(ptr); \
+	ori	ptr, ptr, _PTE_T_SIZE; \
+	xori	ptr, ptr, _PTE_T_SIZE; \
+	PTE_L	tmp, _PTE_T_SIZE(ptr); \
 	PTE_L	ptr, 0(ptr); \
 	PTE_SRL	tmp, tmp, 6; \
 	P_MTC0	tmp, CP0_ENTRYLO1; \
@@ -143,13 +141,21 @@
 
 	__INIT
 
-#ifdef CONFIG_64BIT_PHYS_ADDR
-#define GET_PTE_OFF(reg)
-#elif CONFIG_CPU_VR41XX
-#define GET_PTE_OFF(reg)	srl	reg, reg, 3
+/*
+ * Different for VR41xx because it supports 1k as smallest page size
+ */
+#ifdef CONFIG_CPU_VR41XX
+#define BASE_VPN_SHIFT	6
 #else
-#define GET_PTE_OFF(reg)	srl	reg, reg, 1
+#define BASE_VPN_SHIFT	4
 #endif
+
+#if (BASE_VPN_SHIFT- PTE_T_LOG2-1) > 0
+#define GET_PTE_OFF(reg)	srl	reg, reg, BASE_VPN_SHIFT-_PTE_T_LOG2-1
+#else
+#define GET_PTE_OFF(reg)
+#endif
+
 
 /*
  * These handlers much be written in a relocatable manner
@@ -162,14 +168,10 @@
 	.set	noat
 	LEAF(except_vec0_r4000)
 	.set	mips3
-#ifdef CONFIG_BCM4704        
-        nop           
-#endif                              
 	GET_PGD(k0, k1)				# get pgd pointer
 	mfc0	k0, CP0_BADVADDR		# Get faulting address
 	srl	k0, k0, _PGDIR_SHIFT		# get pgd only bits
-
-	sll	k0, k0, 2
+	sll	k0, k0, _PGD_T_LOG2
 	addu	k1, k1, k0			# add in pgd offset
 	mfc0	k0, CP0_CONTEXT			# get context reg
 	lw	k1, (k1)
@@ -177,15 +179,17 @@
 	and	k0, k0, PTEP_INDX_MSK
 	addu	k1, k1, k0			# add in offset
 	PTE_L	k0, 0(k1)			# get even pte
-	PTE_L	k1, PTE_SIZE(k1)		# get odd pte
+	PTE_L	k1, _PTE_T_SIZE(k1)		# get odd pte
 	PTE_SRL	k0, k0, 6			# convert to entrylo0
 	P_MTC0	k0, CP0_ENTRYLO0		# load it
 	PTE_SRL	k1, k1, 6			# convert to entrylo1
 	P_MTC0	k1, CP0_ENTRYLO1		# load it
 	b	1f
+	rm9000_tlb_hazard
 	tlbwr					# write random tlb entry
 1:
 	nop
+	rm9000_tlb_hazard
 	eret					# return from trap
 	END(except_vec0_r4000)
 
@@ -195,7 +199,7 @@
 	GET_PGD(k0, k1)				# get pgd pointer
 	mfc0	k0, CP0_BADVADDR
 	srl	k0, k0, _PGDIR_SHIFT
-	sll	k0, k0, 2			# log2(sizeof(pgd_t)
+	sll	k0, k0, _PGD_T_LOG2
 	addu	k1, k1, k0
 	mfc0	k0, CP0_CONTEXT
 	lw	k1, (k1)
@@ -203,7 +207,7 @@
 	and	k0, k0, PTEP_INDX_MSK
 	addu	k1, k1, k0
 	PTE_L	k0, 0(k1)
-	PTE_L	k1, PTE_SIZE(k1)
+	PTE_L	k1, _PTE_T_SIZE(k1)
 	PTE_SRL	k0, k0, 6
 	P_MTC0	k0, CP0_ENTRYLO0
 	PTE_SRL	k1, k1, 6
@@ -215,6 +219,15 @@
 	END(except_vec0_r4600)
 
 	/* TLB refill, EXL == 0, R52x0 "Nevada" version */
+        /*
+         * This version has a bug workaround for the Nevada.  It seems
+         * as if under certain circumstances the move from cp0_context
+         * might produce a bogus result when the mfc0 instruction and
+         * it's consumer are in a different cacheline or a load instruction,
+         * probably any memory reference, is between them.  This is
+         * potencially slower than the R4000 version, so we use this
+         * special version.
+         */
 	.set	noreorder
 	.set	noat
 	LEAF(except_vec0_nevada)
@@ -222,7 +235,7 @@
 	mfc0	k0, CP0_BADVADDR		# Get faulting address
 	srl	k0, k0, _PGDIR_SHIFT		# get pgd only bits
 	lw	k1, pgd_current			# get pgd pointer
-	sll	k0, k0, 2			# log2(sizeof(pgd_t)
+	sll	k0, k0, _PGD_T_LOG2
 	addu	k1, k1, k0			# add in pgd offset
 	lw	k1, (k1)
 	mfc0	k0, CP0_CONTEXT			# get context reg
@@ -230,7 +243,7 @@
 	and	k0, k0, PTEP_INDX_MSK
 	addu	k1, k1, k0			# add in offset
 	PTE_L	k0, 0(k1)			# get even pte
-	PTE_L	k1, PTE_SIZE(k1)		# get odd pte
+	PTE_L	k1, _PTE_T_SIZE(k1)		# get odd pte
 	PTE_SRL	k0, k0, 6			# convert to entrylo0
 	P_MTC0	k0, CP0_ENTRYLO0		# load it
 	PTE_SRL	k1, k1, 6			# convert to entrylo1
@@ -242,20 +255,19 @@
 	eret					# return from trap
 	END(except_vec0_nevada)
 
-#ifdef BCM1250_M3_WAR
-
 	/* TLB refill, EXL == 0, SB1 with M3 errata handling version */
-	LEAF(except_vec0_sb1_m3)
+	LEAF(except_vec0_sb1)
+#if BCM1250_M3_WAR
 	mfc0	k0, CP0_BADVADDR
 	mfc0	k1, CP0_ENTRYHI
 	xor	k0, k1
-	srl	k0, k0, 13			# PAGE_SHIFT + 1
-	bnez	k0, 2f
-
+	srl	k0, k0, PAGE_SHIFT+1
+	bnez	k0, 1f
+#endif
 	GET_PGD(k0, k1)				# get pgd pointer
 	mfc0	k0, CP0_BADVADDR		# Get faulting address
 	srl	k0, k0, _PGDIR_SHIFT		# get pgd only bits
-	sll	k0, k0, 2
+	sll	k0, k0, _PGD_T_LOG2
 	addu	k1, k1, k0			# add in pgd offset
 	mfc0	k0, CP0_CONTEXT			# get context reg
 	lw	k1, (k1)
@@ -263,17 +275,14 @@
 	and	k0, k0, PTEP_INDX_MSK
 	addu	k1, k1, k0			# add in offset
 	PTE_L	k0, 0(k1)			# get even pte
-	PTE_L	k1, PTE_SIZE(k1)		# get odd pte
+	PTE_L	k1, _PTE_T_SIZE(k1)		# get odd pte
 	PTE_SRL	k0, k0, 6			# convert to entrylo0
 	P_MTC0	k0, CP0_ENTRYLO0		# load it
 	PTE_SRL	k1, k1, 6			# convert to entrylo1
 	P_MTC0	k1, CP0_ENTRYLO1		# load it
-	b	1f
 	tlbwr					# write random tlb entry
-1:	nop
-2:	eret					# return from trap
-	END(except_vec0_sb1_m3)
-#endif /* BCM1250_M3_WAR */
+1:	eret					# return from trap
+	END(except_vec0_sb1)
 
 	/* TLB refill, EXL == 0, R4[40]00/R5000 badvaddr hwbug version */
 	LEAF(except_vec0_r45k_bvahwbug)
@@ -281,7 +290,7 @@
 	GET_PGD(k0, k1)				# get pgd pointer
 	mfc0	k0, CP0_BADVADDR
 	srl	k0, k0, _PGDIR_SHIFT
-	sll	k0, k0, 2			# log2(sizeof(pgd_t)
+	sll	k0, k0, _PGD_T_LOG2
 	addu	k1, k1, k0
 	mfc0	k0, CP0_CONTEXT
 	lw	k1, (k1)
@@ -291,8 +300,8 @@
 	and	k0, k0, PTEP_INDX_MSK
 	addu	k1, k1, k0
 	PTE_L	k0, 0(k1)
-	PTE_L	k1, PTE_SIZE(k1)
-	nop				
+	PTE_L	k1, _PTE_T_SIZE(k1)
+	nop				/* XXX */
 	tlbp
 	PTE_SRL	k0, k0, 6
 	P_MTC0	k0, CP0_ENTRYLO0
@@ -313,7 +322,7 @@
 	GET_PGD(k0, k1)				# get pgd pointer
 	mfc0	k0, CP0_BADVADDR
 	srl	k0, k0, _PGDIR_SHIFT
-	sll	k0, k0, 2			# log2(sizeof(pgd_t)
+	sll	k0, k0, _PGD_T_LOG2
 	addu	k1, k1, k0
 	mfc0	k0, CP0_CONTEXT
 	lw	k1, (k1)
@@ -323,8 +332,8 @@
 	and	k0, k0, PTEP_INDX_MSK
 	addu	k1, k1, k0
 	PTE_L	k0, 0(k1)
-	PTE_L	k1, PTE_SIZE(k1)
-	nop				
+	PTE_L	k1, _PTE_T_SIZE(k1)
+	nop				/* XXX */
 	tlbp
 	PTE_SRL	k0, k0, 6
 	P_MTC0	k0, CP0_ENTRYLO0
@@ -345,7 +354,7 @@
 	GET_PGD(k0, k1)				# get pgd pointer
 	mfc0	k0, CP0_BADVADDR
 	srl	k0, k0, _PGDIR_SHIFT
-	sll	k0, k0, 2			# log2(sizeof(pgd_t)
+	sll	k0, k0, _PGD_T_LOG2
 	addu	k1, k1, k0
 	mfc0	k0, CP0_CONTEXT
 	lw	k1, (k1)
@@ -355,7 +364,7 @@
 	and	k0, k0, PTEP_INDX_MSK
 	addu	k1, k1, k0
 	PTE_L	k0, 0(k1)
-	PTE_L	k1, PTE_SIZE(k1)
+	PTE_L	k1, _PTE_T_SIZE(k1)
 	PTE_SRL	k0, k0, 6
 	P_MTC0	zero, CP0_ENTRYLO0
 	P_MTC0	k0, CP0_ENTRYLO0
@@ -376,7 +385,7 @@
 	GET_PGD(k0, k1)				# get pgd pointer
 	mfc0	k0, CP0_BADVADDR
 	srl	k0, k0, _PGDIR_SHIFT
-	sll	k0, k0, 2			# log2(sizeof(pgd_t)
+	sll	k0, k0, _PGD_T_LOG2
 	addu	k1, k1, k0
 	mfc0	k0, CP0_CONTEXT
 	lw	k1, (k1)
@@ -386,8 +395,8 @@
 	and	k0, k0, PTEP_INDX_MSK
 	addu	k1, k1, k0
 	PTE_L	k0, 0(k1)
-	PTE_L	k1, PTE_SIZE(k1)
-	nop				
+	PTE_L	k1, _PTE_T_SIZE(k1)
+	nop				/* XXX */
 	tlbp
 	PTE_SRL	k0, k0, 6
 	P_MTC0  zero, CP0_ENTRYLO0
@@ -437,8 +446,21 @@
 	.align	5
 	NESTED(handle_tlbl, PT_SIZE, sp)
 	.set	noat
+#if BCM1250_M3_WAR
+	mfc0	k0, CP0_BADVADDR
+	mfc0	k1, CP0_ENTRYHI
+	xor	k0, k1
+	srl	k0, k0, PAGE_SHIFT+1
+	beqz	k0, 1f
+	 nop
+	.set	mips3
+	eret
+	.set	mips0
+1:
+#endif
 invalid_tlbl:
 #ifdef TLB_OPTIMIZE
+	.set	mips3
 	/* Test present bit in entry. */
 	LOAD_PTE(k0, k1)
 	R5K_HAZARD
@@ -446,11 +468,13 @@ invalid_tlbl:
 	PTE_PRESENT(k0, k1, nopage_tlbl)
 	PTE_MAKEVALID(k0, k1)
 	PTE_RELOAD(k1, k0)
+	rm9000_tlb_hazard
 	nop
 	b	1f
 	 tlbwi
 1:
 	nop
+	rm9000_tlb_hazard
 	.set	mips3
 	eret
 	.set	mips0
@@ -472,11 +496,13 @@ nopage_tlbl:
 	PTE_WRITABLE(k0, k1, nopage_tlbs)
 	PTE_MAKEWRITE(k0, k1)
 	PTE_RELOAD(k1, k0)
+	rm9000_tlb_hazard
 	nop
 	b	1f
 	 tlbwi
 1:
 	nop
+	rm9000_tlb_hazard
 	.set	mips3
 	eret
 	.set	mips0
@@ -503,10 +529,12 @@ nopage_tlbs:
 
 	/* Now reload the entry into the tlb. */
 	PTE_RELOAD(k1, k0)
+	rm9000_tlb_hazard
 	nop
 	b	1f
 	 tlbwi
 1:
+	rm9000_tlb_hazard
 	nop
 	.set	mips3
 	eret
@@ -516,4 +544,3 @@ nopage_tlbs:
 nowrite_mod:
 	DO_FAULT(1)
 	END(handle_mod)
-

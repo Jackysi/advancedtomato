@@ -11,6 +11,7 @@
 
 #include <linux/types.h>
 
+/* XXX: This structure was copied from the Alpha; is there an iBCS version?  */
 
 typedef union sigval {
 	int sival_int;

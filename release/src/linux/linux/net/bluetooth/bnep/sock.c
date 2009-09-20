@@ -25,7 +25,7 @@
 */
 
 /*
- * $Id: sock.c,v 1.1.1.4 2003/10/14 08:09:32 sparq Exp $
+ * $Id: sock.c,v 1.3 2002/07/10 22:59:52 maxk Exp $
  */ 
 
 #include <linux/config.h>
@@ -50,41 +50,11 @@
 
 #include "bnep.h"
 
-#ifndef CONFIG_BNEP_DEBUG
+#ifndef CONFIG_BLUEZ_BNEP_DEBUG
 #undef  BT_DBG
 #define BT_DBG( A... )
 #endif
 
-static inline struct socket *socki_lookup(struct inode *inode)
-{
-	return &inode->u.socket_i;
-}
-
-static struct socket *sockfd_lookup(int fd, int *err)
-{
-	struct file *file;
-	struct inode *inode;
-	struct socket *sock;
-
-	if (!(file = fget(fd))) {
-		*err = -EBADF;
-		return NULL;
-	}
-
-	inode = file->f_dentry->d_inode;
-	if (!inode->i_sock || !(sock = socki_lookup(inode))) {
-		*err = -ENOTSOCK;
-		fput(file);
-		return NULL;
-	}
-
-	if (sock->file != file) {
-		printk(KERN_ERR "socki_lookup: socket file changed!\n");
-		sock->file = file;
-	}
-	return sock;
-}
- 
 static int bnep_sock_release(struct socket *sock)
 {
 	struct sock *sk = sock->sk;
@@ -103,17 +73,17 @@ static int bnep_sock_release(struct socket *sock)
 
 static int bnep_sock_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg)
 {
-	struct bnep_conlist_req cl;
-	struct bnep_conadd_req  ca;
-	struct bnep_condel_req  cd;
-	struct bnep_coninfo ci;
+	struct bnep_connlist_req cl;
+	struct bnep_connadd_req  ca;
+	struct bnep_conndel_req  cd;
+	struct bnep_conninfo ci;
 	struct socket *nsock;
 	int err;
 
 	BT_DBG("cmd %x arg %lx", cmd, arg);
 
 	switch (cmd) {
-	case BNEPCONADD:
+	case BNEPCONNADD:
 		if (!capable(CAP_NET_ADMIN))
 			return -EACCES;
 
@@ -124,8 +94,10 @@ static int bnep_sock_ioctl(struct socket *sock, unsigned int cmd, unsigned long 
 		if (!nsock)
 			return err;
 
-		if (nsock->sk->state != BT_CONNECTED)
+		if (nsock->sk->state != BT_CONNECTED) {
+			fput(nsock->file);
 			return -EBADFD;
+		}
 
 		err = bnep_add_connection(&ca, nsock);
 		if (!err) {
@@ -136,7 +108,7 @@ static int bnep_sock_ioctl(struct socket *sock, unsigned int cmd, unsigned long 
 
 		return err;
 	
-	case BNEPCONDEL:
+	case BNEPCONNDEL:
 		if (!capable(CAP_NET_ADMIN))
 			return -EACCES;
 
@@ -145,24 +117,24 @@ static int bnep_sock_ioctl(struct socket *sock, unsigned int cmd, unsigned long 
 	
 		return bnep_del_connection(&cd);
 
-	case BNEPGETCONLIST:
+	case BNEPGETCONNLIST:
 		if (copy_from_user(&cl, (void *) arg, sizeof(cl)))
 			return -EFAULT;
 
 		if (cl.cnum <= 0)
 			return -EINVAL;
 	
-		err = bnep_get_conlist(&cl);
+		err = bnep_get_connlist(&cl);
 		if (!err && copy_to_user((void *) arg, &cl, sizeof(cl)))
 			return -EFAULT;
 
 		return err;
 
-	case BNEPGETCONINFO:
+	case BNEPGETCONNINFO:
 		if (copy_from_user(&ci, (void *) arg, sizeof(ci)))
 			return -EFAULT;
 
-		err = bnep_get_coninfo(&ci);
+		err = bnep_get_conninfo(&ci);
 		if (!err && copy_to_user((void *) arg, &ci, sizeof(ci)))
 			return -EFAULT;
 

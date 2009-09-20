@@ -21,6 +21,9 @@ struct vm_struct {
 
 extern struct vm_struct * get_vm_area (unsigned long size, unsigned long flags);
 extern void vfree(void * addr);
+#define vunmap(addr)	vfree(addr)
+extern void * vmap(struct page **pages, int count,
+		   unsigned long flags, pgprot_t prot);
 extern void * __vmalloc (unsigned long size, int gfp_mask, pgprot_t prot);
 extern long vread(char *buf, char *addr, unsigned long count);
 extern void vmfree_area_pages(unsigned long address, unsigned long size);

@@ -1,6 +1,4 @@
 /*
- *	include/asm-mips/dec/prom.h
- *
  *	DECstation PROM interface.
  *
  *	Copyright (C) 2002  Maciej W. Rozycki
@@ -12,8 +10,8 @@
  *
  *	Based on arch/mips/dec/prom/prom.h by the Anonymous.
  */
-#ifndef __ASM_MIPS_DEC_PROM_H
-#define __ASM_MIPS_DEC_PROM_H
+#ifndef __ASM_DEC_PROM_H
+#define __ASM_DEC_PROM_H
 
 #include <linux/types.h>
 
@@ -166,4 +164,7 @@ extern void prom_meminit(u32);
 extern void prom_identify_arch(u32);
 extern void prom_init_cmdline(s32, s32 *, u32);
 
-#endif /* __ASM_MIPS_DEC_PROM_H */
+extern void register_prom_console(void);
+extern void unregister_prom_console(void);
+
+#endif /* __ASM_DEC_PROM_H */

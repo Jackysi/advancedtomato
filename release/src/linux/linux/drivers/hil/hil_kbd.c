@@ -39,7 +39,7 @@
 #include <linux/init.h>
 #include <linux/slab.h>
 
-#ifdef DEBUG	    /* DEBUG */
+#ifdef DEBUG	/* DEBUG */
 #undef input_report_key
 #define input_report_key(a,b,c) { printk("input_report_key(%p, %d, %d)\n", a, b, !!(c)); input_event(a, EV_KEY, b, !!(c)); }
 #endif
@@ -397,7 +397,12 @@ static void hil_kbd_connect(struct serio *serio, struct serio_dev *dev)
 	}
 	clear_bit(0, kbd->dev.keybit);
 
+#if 1
+	/* XXX: HACK !!!
+	 * remove this call if hp_psaux.c/hp_keyb.c is converted
+	 * to the input layer... */
 	register_ps2_keybfuncs();
+#endif
 	
 	input_register_device(&kbd->dev);
 	printk(KERN_INFO "input%d: %s on hil%d\n",
@@ -426,9 +431,9 @@ static void hil_kbd_connect(struct serio *serio, struct serio_dev *dev)
 
 
 struct serio_dev hil_kbd_serio_dev = {
-	connect:	hil_kbd_connect,
-	disconnect:	hil_kbd_disconnect,
-	interrupt:	hil_kbd_interrupt
+	.connect =	hil_kbd_connect,
+	.disconnect =	hil_kbd_disconnect,
+	.interrupt =	hil_kbd_interrupt
 };
 
 static int __init hil_kbd_init(void)
@@ -441,7 +446,12 @@ static void __exit hil_kbd_exit(void)
 {
 	serio_unregister_device(&hil_kbd_serio_dev);
 
+#if 1
+	/* XXX: HACK !!!
+	 * remove this call if hp_psaux.c/hp_keyb.c is converted
+	 * to the input layer... */
 	unregister_kbd_ops();
+#endif
 }
                         
 module_init(hil_kbd_init);

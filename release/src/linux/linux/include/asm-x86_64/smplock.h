@@ -41,14 +41,34 @@ do { \
  */
 extern __inline__ void lock_kernel(void)
 {
+#if 1
 	if (!++current->lock_depth)
 		spin_lock(&kernel_flag);
+#else
+	__asm__ __volatile__(
+		"incl %1\n\t"
+		"jne 9f"
+		spin_lock_string
+		"\n9:"
+		:"=m" (__dummy_lock(&kernel_flag)),
+		 "=m" (current->lock_depth));
+#endif
 }
 
 extern __inline__ void unlock_kernel(void)
 {
 	if (current->lock_depth < 0)
 		out_of_line_bug();
+#if 1
 	if (--current->lock_depth < 0)
 		spin_unlock(&kernel_flag);
+#else
+	__asm__ __volatile__(
+		"decl %1\n\t"
+		"jns 9f\n\t"
+		spin_unlock_string
+		"\n9:"
+		:"=m" (__dummy_lock(&kernel_flag)),
+		 "=m" (current->lock_depth));
+#endif
 }

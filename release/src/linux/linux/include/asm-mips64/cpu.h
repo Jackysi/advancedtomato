@@ -7,8 +7,6 @@
 #ifndef _ASM_CPU_H
 #define _ASM_CPU_H
 
-#include <asm/cache.h>
-
 /* Assigned Company values for bits 23:16 of the PRId Register
    (CP0 register 15, select 0).  As of the MIPS32 and MIPS64 specs from
    MTI, the PRId register is defined in this (backwards compatible)
@@ -29,6 +27,7 @@
 #define PRID_COMP_BROADCOM     0x020000
 #define PRID_COMP_ALCHEMY      0x030000
 #define PRID_COMP_SIBYTE       0x040000
+#define PRID_COMP_SANDCRAFT    0x050000
 
 /*
  * Assigned values for the product ID register.  In order to detect a
@@ -58,6 +57,7 @@
 #define PRID_IMP_MAGIC		0x2500
 #define PRID_IMP_RM7000		0x2700
 #define PRID_IMP_NEVADA		0x2800		/* RM5260 ??? */
+#define PRID_IMP_RM9000		0x3400
 #define PRID_IMP_R5432		0x5400
 #define PRID_IMP_R5500		0x5500
 #define PRID_IMP_4KC		0x8000
@@ -65,7 +65,8 @@
 #define PRID_IMP_20KC		0x8200
 #define PRID_IMP_4KEC		0x8400
 #define PRID_IMP_4KSC		0x8600
-
+#define PRID_IMP_25KF		0x8800
+#define PRID_IMP_24K		0x9300
 
 #define PRID_IMP_UNKNOWN	0xff00
 
@@ -76,10 +77,18 @@
 #define PRID_IMP_SB1            0x0100
 
 /*
+ * These are the PRID's for when 23:16 == PRID_COMP_SANDCRAFT
+ */
+
+#define PRID_IMP_SR71000        0x0400
+
+/*
  * Definitions for 7:0 on legacy processors
  */
 
 
+#define PRID_REV_TX4927		0x0022
+#define PRID_REV_TX4937		0x0030
 #define PRID_REV_R4400		0x0040
 #define PRID_REV_R3000A		0x0030
 #define PRID_REV_R3000		0x0020
@@ -92,7 +101,7 @@
 #define PRID_REV_VR4121		0x0060
 #define PRID_REV_VR4122		0x0070
 #define PRID_REV_VR4181A	0x0070	/* Same as VR4122 */
-#define PRID_REV_VR4131		0x0080
+#define PRID_REV_VR4130		0x0080
 
 /*
  * FPU implementation/revision register (CP1 control register 0).
@@ -105,55 +114,84 @@
 
 #define FPIR_IMP_NONE		0x0000
 
-#ifndef __ASSEMBLY__
-
-extern void cpu_probe(void);
-extern void cpu_report(void);
-
-/*
- * Capability and feature descriptor structure for MIPS CPU
- */
-struct mips_cpu {
-	unsigned int processor_id;
-	unsigned int fpu_id;
-	unsigned int cputype;
-	int isa_level;
-	int options;
-	int tlbsize;
-	struct cache_desc icache;	/* Primary I-cache */
-	struct cache_desc dcache;	/* Primary D or combined I/D cache */
-	struct cache_desc scache;	/* Secondary cache */
-	struct cache_desc tcache;	/* Tertiary/split secondary cache */
-};
-
-extern struct mips_cpu mips_cpu;
-
-enum cputype {
-	CPU_UNKNOWN,
-	CPU_R2000, CPU_R3000, CPU_R3000A, CPU_R3041, CPU_R3051, CPU_R3052,
-	CPU_R3081, CPU_R3081E, CPU_R4000PC, CPU_R4000SC, CPU_R4000MC,
-	CPU_R4200, CPU_R4400PC, CPU_R4400SC, CPU_R4400MC, CPU_R4600,
-	CPU_R6000, CPU_R6000A, CPU_R8000, CPU_R10000, CPU_R12000, CPU_R4300,
-	CPU_R4650, CPU_R4700, CPU_R5000, CPU_R5000A, CPU_R4640, CPU_NEVADA,
-	CPU_RM7000, CPU_R5432, CPU_4KC, CPU_5KC, CPU_R4310, CPU_SB1,
-	CPU_TX3912, CPU_TX3922, CPU_TX3927, CPU_AU1000, CPU_4KEC, CPU_4KSC,
-	CPU_VR41XX, CPU_R5500, CPU_TX49XX, CPU_TX39XX, CPU_AU1500, CPU_20KC,
-	CPU_VR4111, CPU_VR4121, CPU_VR4122, CPU_VR4131, CPU_VR4181, CPU_VR4181A,
-	CPU_AU1100, CPU_LAST
-};
-
-#endif /* !__ASSEMBLY__ */
+#define CPU_UNKNOWN		 0
+#define CPU_R2000		 1
+#define CPU_R3000		 2
+#define CPU_R3000A		 3
+#define CPU_R3041		 4
+#define CPU_R3051		 5
+#define CPU_R3052		 6
+#define CPU_R3081		 7
+#define CPU_R3081E		 8
+#define CPU_R4000PC		 9
+#define CPU_R4000SC		10
+#define CPU_R4000MC		11
+#define CPU_R4200		12
+#define CPU_R4400PC		13
+#define CPU_R4400SC		14
+#define CPU_R4400MC		15
+#define CPU_R4600		16
+#define CPU_R6000		17
+#define CPU_R6000A		18
+#define CPU_R8000		19
+#define CPU_R10000		20
+#define CPU_R12000		21
+#define CPU_R4300		22
+#define CPU_R4650		23
+#define CPU_R4700		24
+#define CPU_R5000		25
+#define CPU_R5000A		26
+#define CPU_R4640		27
+#define CPU_NEVADA		28
+#define CPU_RM7000		29
+#define CPU_R5432		30
+#define CPU_4KC			31
+#define CPU_5KC			32
+#define CPU_R4310		33
+#define CPU_SB1			34
+#define CPU_TX3912		35
+#define CPU_TX3922		36
+#define CPU_TX3927		37
+#define CPU_AU1000		38
+#define CPU_4KEC		39
+#define CPU_4KSC		40
+#define CPU_VR41XX		41
+#define CPU_R5500		42
+#define CPU_TX49XX		43
+#define CPU_AU1500		44
+#define CPU_20KC		45
+#define CPU_VR4111		46
+#define CPU_VR4121		47
+#define CPU_VR4122		48
+#define CPU_VR4131		49
+#define CPU_VR4181		50
+#define CPU_VR4181A		51
+#define CPU_AU1100		52
+#define CPU_SR71000		53
+#define CPU_RM9000		54
+#define CPU_25KF		55
+#define CPU_VR4133		56
+#define CPU_AU1550		57
+#define CPU_24K			58
+#define CPU_AU1200		59
+#define CPU_LAST		59
 
 /*
  * ISA Level encodings
+ *
  */
 #define MIPS_CPU_ISA_I		0x00000001
 #define MIPS_CPU_ISA_II		0x00000002
-#define MIPS_CPU_ISA_III	0x00000003
-#define MIPS_CPU_ISA_IV		0x00000004
-#define MIPS_CPU_ISA_V		0x00000005
+#define MIPS_CPU_ISA_III	0x00008003
+#define MIPS_CPU_ISA_IV		0x00008004
+#define MIPS_CPU_ISA_V		0x00008005
 #define MIPS_CPU_ISA_M32	0x00000020
-#define MIPS_CPU_ISA_M64	0x00000040
+#define MIPS_CPU_ISA_M64	0x00008040
+
+/*
+ * Bit 15 encodes if an ISA level supports 64-bit operations.
+ */
+#define MIPS_CPU_ISA_64BIT	0x00008000
 
 /*
  * CPU Option encodings
@@ -169,9 +207,13 @@ enum cputype {
 #define MIPS_CPU_MIPS16		0x00000100 /* code compression */
 #define MIPS_CPU_DIVEC		0x00000200 /* dedicated interrupt vector */
 #define MIPS_CPU_VCE		0x00000400 /* virt. coherence conflict possible */
-#define MIPS_CPU_CACHE_CDEX	0x00000800 /* Create_Dirty_Exclusive CACHE op */
-#define MIPS_CPU_MCHECK		0x00001000 /* Machine check exception */
-#define MIPS_CPU_EJTAG		0x00002000 /* EJTAG exception */
+#define MIPS_CPU_CACHE_CDEX_P	0x00000800 /* Create_Dirty_Exclusive CACHE op */
+#define MIPS_CPU_CACHE_CDEX_S	0x00001000 /* ... same for seconary cache ... */
+#define MIPS_CPU_MCHECK		0x00002000 /* Machine check exception */
+#define MIPS_CPU_EJTAG		0x00004000 /* EJTAG exception */
 #define MIPS_CPU_NOFPUEX	0x00000000 /* no FPU exception; never set */
+#define MIPS_CPU_LLSC		0x00010000 /* CPU has ll/sc instructions */
+#define MIPS_CPU_SUBSET_CACHES	0x00020000 /* P-cache subset enforced */
+#define MIPS_CPU_PREFETCH	0x00040000 /* CPU has usable prefetch */
 
 #endif /* _ASM_CPU_H */

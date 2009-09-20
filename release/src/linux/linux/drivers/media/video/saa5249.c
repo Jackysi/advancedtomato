@@ -12,7 +12,7 @@
  *
  *	Copyright (c) 1998 Richard Guenther <richard.guenther@student.uni-tuebingen.de>
  *
- * $Id: saa5249.c,v 1.1.1.4 2003/10/14 08:08:15 sparq Exp $
+ * $Id: saa5249.c,v 1.1 1998/03/30 22:23:23 alan Exp $
  *
  *	Derived From
  *
@@ -460,6 +460,10 @@ static int do_saa5249_ioctl(struct saa5249_device *t, unsigned int cmd, void *ar
 						if (i2c_senddata(t, 8, 0, 0x21, 0, -1) ||
 							i2c_getdata(t, 40, t->vdau[req.pgbuf].pgbuf + VTX_PAGESIZE + 16 * 40))
 							return -EIO;
+						/* Packet 8/30/0...8/30/15
+						 * FIXME: AFAIK, the 5249 does hamming-decoding for some bytes in packet 8/30,
+						 *        so we should undo this here.
+						 */
 						if (i2c_senddata(t, 8, 0, 0x22, 0, -1) ||
 							i2c_getdata(t, 40, t->vdau[req.pgbuf].pgbuf + VTX_PAGESIZE + 23 * 40))
 							return -EIO;

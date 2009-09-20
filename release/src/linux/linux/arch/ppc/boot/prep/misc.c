@@ -1,6 +1,4 @@
 /*
- * BK Id: SCCS/s.misc.c 1.25 01/26/02 12:27:41 trini
- *
  * arch/ppc/boot/prep/misc.c
  *
  * Adapted for PowerPC by Gary Thomas
@@ -20,8 +18,19 @@
 #include <asm/bootinfo.h>
 #include <asm/mmu.h>
 #include <asm/byteorder.h>
+#include "of1275.h"
 #include "nonstdio.h"
 #include "zlib.h"
+
+#ifdef CONFIG_CMDLINE
+#define CMDLINE CONFIG_CMDLINE
+#else
+#define CMDLINE ""
+#endif
+
+#if defined(CONFIG_SERIAL_CONSOLE) || defined(CONFIG_VGA_CONSOLE)
+#define INTERACTIVE_CONSOLE	1
+#endif
 
 /*
  * Please send me load/board info and such data for hardware not
@@ -38,11 +47,6 @@ extern char __image_begin, __image_end;
 extern char __ramdisk_begin, __ramdisk_end;
 extern char _end[];
 
-#ifdef CONFIG_CMDLINE
-#define CMDLINE CONFIG_CMDLINE
-#else
-#define CMDLINE ""
-#endif
 char cmd_preset[] = CMDLINE;
 char cmd_buf[256];
 char *cmd_line = cmd_buf;
@@ -51,14 +55,11 @@ int keyb_present = 1;	/* keyboard controller is present by default */
 RESIDUAL hold_resid_buf;
 RESIDUAL *hold_residual = &hold_resid_buf;
 unsigned long initrd_size = 0;
-unsigned long orig_MSR;
 
 char *zimage_start;
 int zimage_size;
 
-#if defined(CONFIG_SERIAL_CONSOLE)
 unsigned long com_port;
-#endif /* CONFIG_SERIAL_CONSOLE */
 #ifdef CONFIG_VGA_CONSOLE
 char *vidmem = (char *)0xC00B8000;
 int lines = 25, cols = 80;
@@ -66,14 +67,9 @@ int orig_x, orig_y = 24;
 #endif /* CONFIG_VGA_CONSOLE */
 
 extern int CRT_tstc(void);
-extern void of_init(void *handler);
-extern int of_finddevice(const char *device_specifier, int *phandle);
-extern int of_getprop(int phandle, const char *name, void *buf, int buflen,
-		int *size);
 extern int vga_init(unsigned char *ISA_mem);
 extern void gunzip(void *, int, unsigned char *, int *);
 
-extern void _put_MSR(unsigned int val);
 extern unsigned long serial_init(int chan, void *ignored);
 extern void serial_fixups(void);
 
@@ -118,26 +114,48 @@ scroll(void)
 }
 #endif /* CONFIG_VGA_CONSOLE */
 
+static void
+get_of_args(void)
+{
+	int size;
+	phandle chosen;
+	char buf[256];
+
+	/* Get bootargs property of /chosen node */
+	if (!(chosen = finddevice("/chosen")))
+		return;
+
+	if (getprop(chosen, "bootargs", buf, sizeof(buf)) != 4)
+		return;
+
+	if (size > sizeof(cmd_buf))
+		size = sizeof(cmd_buf);
+
+	if (size > 1) /* includes null-terminator */
+		memcpy(cmd_buf, buf, size);
+}
+
 unsigned long
 decompress_kernel(unsigned long load_addr, int num_words, unsigned long cksum,
 		  RESIDUAL *residual, void *OFW_interface)
 {
+#ifdef INTERACTIVE_CONSOLE
 	int timer = 0;
+	char ch;
+#endif
 	extern unsigned long start;
-	char *cp, ch;
-	unsigned long TotalMemory;
-	int dev_handle;
-	int mem_info[2];
-	int res, size;
-	unsigned char board_type;
-	unsigned char base_mod;
+	char *cp;
+	/* Default to 32MiB memory. */
+	unsigned long TotalMemory = 0x02000000;
 	int start_multi = 0;
 	unsigned int pci_viddid, pci_did, tulip_pci_base, tulip_base;
 
+	/* If we have Open Firmware, initialise it immediately */
+	if (OFW_interface)
+		ofinit(OFW_interface);
+
 	serial_fixups();
-#if defined(CONFIG_SERIAL_CONSOLE)
 	com_port = serial_init(0, NULL);
-#endif /* CONFIG_SERIAL_CONSOLE */
 #if defined(CONFIG_VGA_CONSOLE)
 	vga_init((unsigned char *)0xC0000000);
 #endif /* CONFIG_VGA_CONSOLE */
@@ -172,7 +190,8 @@ decompress_kernel(unsigned long load_addr, int num_words, unsigned long cksum,
 		/* Is this Motorola PPCBug? */
 		if ((1 & residual->VitalProductData.FirmwareSupports) &&
 		    (1 == residual->VitalProductData.FirmwareSupplier)) {
-			board_type = inb(0x800) & 0xF0;
+			unsigned char base_mod;
+			unsigned char board_type = inb(0x800) & 0xF0;
 
 			/*
 			 * Reset the onboard 21x4x Ethernet
@@ -215,50 +234,36 @@ decompress_kernel(unsigned long load_addr, int num_words, unsigned long cksum,
 				start_multi = 1;
 		}
 		memcpy(hold_residual,residual,sizeof(RESIDUAL));
+
+		/* Copy the memory info. */
+		if (residual->TotalMemory)
+			TotalMemory = residual->TotalMemory;
 	} else {
 		/* Tell the user we didn't find anything. */
 		puts("No residual data found.\n");
-
-		/* Assume 32M in the absence of more info... */
-		TotalMemory = 0x02000000;
 
 		/*
 		 * This is a 'best guess' check.  We want to make sure
 		 * we don't try this on a PReP box without OF
 		 *     -- Cort
 		 */
-		while (OFW_interface && ((unsigned long)OFW_interface < 0x10000000) )
+		while (OFW_interface)
 		{
-			/* We need to restore the slightly inaccurate
-			 * MSR so that OpenFirmware will behave. -- Tom
-			 */
-			_put_MSR(orig_MSR);
-			of_init(OFW_interface);
+			phandle dev_handle;
+			int mem_info[2];
 
 			/* get handle to memory description */
-			res = of_finddevice("/memory@0",
-					    &dev_handle);
-			if (res)
+			if (!(dev_handle = finddevice("/memory@0")))
 				break;
 
 			/* get the info */
-			res = of_getprop(dev_handle,
-					 "reg",
-					 mem_info,
-					 sizeof(mem_info),
-					 &size);
-			if (res)
+			if (getprop(dev_handle, "reg", mem_info,
+						sizeof(mem_info)) !=8)
 				break;
 
 			TotalMemory = mem_info[1];
 			break;
 		}
-
-		hold_residual->TotalMemory = TotalMemory;
-		residual = hold_residual;
-
-		/* Enforce a sane MSR for booting. */
-		_put_MSR(MSR_IP);
         }
 
 	/* assume the chunk below 8M is free */
@@ -299,11 +304,20 @@ decompress_kernel(unsigned long load_addr, int num_words, unsigned long cksum,
 	if (keyb_present)
 		CRT_tstc();  /* Forces keyboard to be initialized */
 
+	/* If we have OF then try to get args from there */
+	if (OFW_interface)
+		get_of_args();
+
 	puts("\nLinux/PPC load: ");
 	cp = cmd_line;
 	memcpy (cmd_line, cmd_preset, sizeof(cmd_preset));
 	while ( *cp )
 		putc(*cp++);
+#ifdef INTERACTIVE_CONSOLE
+	/*
+	 * If they have a console, allow them to edit the command line.
+	 * Otherwise, don't bother wasting the five seconds.
+	 */
 	while (timer++ < 5*1000) {
 		if (tstc()) {
 			while ((ch = getc()) != '\n' && ch != '\r') {
@@ -328,8 +342,21 @@ decompress_kernel(unsigned long load_addr, int num_words, unsigned long cksum,
 		}
 		udelay(1000);  /* 1 msec */
 	}
+#endif
 	*cp = 0;
 	puts("\nUncompressing Linux...");
+
+	/*
+	 * If we have OF, then we have deferred setting the MSR.
+	 * We must set it now because we are about to overwrite
+	 * the exception table.  The new MSR value will disable
+	 * machine check exceptions and point the exception table
+	 * to the ROM.
+	 */
+	if (OFW_interface) {
+		mtmsr(MSR_IP | MSR_FP);
+		asm volatile("isync");
+	}
 
 	gunzip(0, 0x400000, zimage_start, &zimage_size);
 	puts("done.\n");
@@ -343,12 +370,39 @@ decompress_kernel(unsigned long load_addr, int num_words, unsigned long cksum,
 
 	{
 		struct bi_record *rec;
-		
-		rec = (struct bi_record *)_ALIGN((unsigned long)(zimage_size) +
+		unsigned long initrd_loc;
+		unsigned long rec_loc = _ALIGN((unsigned long)(zimage_size) +
 				(1 << 20) - 1, (1 << 20));
+
+		rec = (struct bi_record *)rec_loc;
+
+		/* We need to make sure that the initrd and bi_recs do not
+		 * overlap. */
+		if ( initrd_size ) {
+			initrd_loc = (unsigned long)(&__ramdisk_begin);
+			/* If the bi_recs are in the middle of the current
+			 * initrd, move the initrd to the next MB
+			 * boundary. */
+			if ((rec_loc > initrd_loc) &&
+					((initrd_loc + initrd_size)
+					 > rec_loc)) {
+				initrd_loc = _ALIGN((unsigned long)(zimage_size)
+						+ (2 << 20) - 1, (2 << 20));
+			 	memmove((void *)initrd_loc, &__ramdisk_begin,
+					 initrd_size);
+		         	puts("initrd moved:  "); puthex(initrd_loc);
+			 	puts(" "); puthex(initrd_loc + initrd_size);
+			 	puts("\n");
+			}
+		}
 
 		rec->tag = BI_FIRST;
 		rec->size = sizeof(struct bi_record);
+		rec = (struct bi_record *)((unsigned long)rec + rec->size);
+
+		rec->tag = BI_MEMSIZE;
+		rec->data[0] = TotalMemory;
+		rec->size = sizeof(struct bi_record) + sizeof(unsigned long);
 		rec = (struct bi_record *)((unsigned long)rec + rec->size);
 
 		rec->tag = BI_BOOTLOADER_ID;
@@ -370,7 +424,7 @@ decompress_kernel(unsigned long load_addr, int num_words, unsigned long cksum,
 
 		if ( initrd_size ) {
 			rec->tag = BI_INITRD;
-			rec->data[0] = (unsigned long)(&__ramdisk_begin);
+			rec->data[0] = initrd_loc;
 			rec->data[1] = initrd_size;
 			rec->size = sizeof(struct bi_record) + 2 *
 				sizeof(unsigned long);

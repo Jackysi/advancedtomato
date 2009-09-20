@@ -20,9 +20,20 @@
  * printk isn't working).  For DEBUGGING ONLY!!!  Do not leave
  * references to these in a production kernel!
  */
-#if defined(CONFIG_ARCH_RPC)
+#if defined(CONFIG_ARCH_RPC) || defined(CONFIG_ARCH_RISCSTATION)
 		.macro	addruart,rx
-		mov	\rx, #0xe0000000
+
+/* note, errors can occur in the head code BEFORE the memory map has been
+ * setup (and therefore the mapping for the IO) so the #if statement allows
+ * the address of the uart to be changed to the physical address instead of
+ * the logical
+ *
+ * (bjd)
+ */
+		mrc	p15, 0, \rx, c1, c0
+		tst	\rx, #1			@ MMU enabled?
+		movne	\rx, #0xe0000000
+		moveq	\rx, #0x03000000
 		orr	\rx, \rx, #0x00010000
 		orr	\rx, \rx, #0x00000fe0
 		.endm
@@ -66,7 +77,7 @@
 		tst	\rd, #0x10
 		beq	1001b
 		.endm
- 	
+
 #elif defined(CONFIG_ARCH_SHARK)
 		.macro	addruart,rx
 		mov	\rx, #0xe0000000
@@ -287,6 +298,30 @@
 		tst	\rd, #1 << 3		@ UARTFLGUBUSY - 1 when busy
 		bne	1001b
 		.endm
+#elif defined(CONFIG_ARCH_AT91RM9200)
+
+		.macro  addruart,rx
+		mrc	p15, 0, \rx, c1, c0
+		tst	\rx, #1				@ MMU enabled?
+		ldreq	\rx, =AT91C_BASE_SYS		@ System peripherals (phys address)
+		ldrne	\rx, =AT91C_VA_BASE_SYS		@ System peripherals (virt address)
+		.endm
+
+		.macro  senduart,rd,rx
+		strb    \rd, [\rx, #DBGU_THR]		@ DBGU_THR
+		.endm
+
+		.macro  waituart,rd,rx
+1001:		ldr     \rd, [\rx, #DBGU_CSR]		@ DBGU_CSR
+		tst	\rd, #AT91C_DBGU_TXRDY		@ DBGU_TXRDY = 1 when ready to transmit
+		beq	1001b
+		.endm
+
+		.macro  busyuart,rd,rx
+1001:		ldr	\rd, [\rx, #DBGU_CSR]		@ DBGU_CSR
+		tst	\rd, #AT91C_DBGU_TXEMPTY	@ DBGU_TXEMPTY = 1 when transmission complete
+		beq	1001b
+		.endm
 
 #elif defined(CONFIG_ARCH_CLPS711X)
 
@@ -321,6 +356,21 @@
 		tst	\rd, #1 << 8		@ CTS
 		bne	1001b
 1002:
+		.endm
+#elif defined(CONFIG_ARCH_OMAHA)
+
+#include <asm/hardware/serial_omaha.h>
+
+		.macro	addruart,rx
+		.endm
+
+		.macro	senduart,rd,rx
+		.endm
+
+		.macro	waituart,rd,rx
+		.endm
+
+		.macro	busyuart,rd,rx
 		.endm
 
 #elif defined(CONFIG_ARCH_ANAKIN)
@@ -365,7 +415,7 @@
 		tst	\rx, #1			@ MMU enabled?
 		ldr	\rx, =EXC_UART00_BASE	@ physical base address
 		orrne	\rx, \rx, #0xff000000	@ virtual base
-		orrne	\rx, \rx, #0x00f00000	
+		orrne	\rx, \rx, #0x00f00000
 		.endm
 
 		.macro	senduart,rd,rx
@@ -384,6 +434,41 @@
 		ands 	\rd, \rd,  #UART_TSR_TX_LEVEL_MSK
 		bne	1001b
 		.endm
+
+#elif defined(CONFIG_ARCH_MX1ADS)
+
+		.macro	addruart,rx
+		mrc	p15, 0, \rx, c1, c0
+		tst	\rx, #1			@ MMU enabled?
+		moveq	\rx, #0x00000000	@ physical
+		movne	\rx, #0xf0000000	@ virtual
+		orr	\rx, \rx, #0x00200000
+		orr	\rx, \rx, #0x00006000	@ UART1 offset
+		.endm
+
+		.macro	senduart,rd,rx
+		str	\rd, [\rx, #0x40]	@ TXDATA
+		.endm
+
+		.macro	waituart,rd,rx
+#if	0
+/* REVISIT: This isn't right. I believe we should be checking CTS here instead
+ * to see if the user has entered <CTRL><S> to pause console output.
+ * gdavis@mvista.com 28apr03
+ */
+1001:		ldr	\rd, [\rx, #0x94]	@ SR1
+		tst	\rd, #1 << 13		@ TRDY
+		bne	1001b			@ wait until TX FIFO ready
+#endif
+		.endm
+
+		.macro	busyuart,rd,rx
+1002:		ldr	\rd, [\rx, #0x98]	@ SR2
+		tst	\rd, #1 << 3		@ TXDC
+		beq	1002b			@ wait until transmit done
+		.endm
+
+
 
 #else
 #error Unknown architecture

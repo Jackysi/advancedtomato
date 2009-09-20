@@ -52,7 +52,7 @@ void local_flush_tlb_all(void)
 
 	local_irq_save(flags);
 	/* Save old context and create impossible VPN2 value */
-	old_ctx = (read_c0_entryhi() & ASID_MASK);
+	old_ctx = read_c0_entryhi();
 	write_c0_entryhi(XKPHYS);
 	write_c0_entrylo0(0);
 	write_c0_entrylo1(0);
@@ -61,7 +61,7 @@ void local_flush_tlb_all(void)
 	entry = read_c0_wired();
 
 	/* Blast 'em all away. */
-	while(entry < mips_cpu.tlbsize) {
+	while(entry < current_cpu_data.tlbsize) {
 	        /* Make sure all entries differ. */
 	        write_c0_entryhi(XKPHYS+entry*0x2000);
 		write_c0_index(entry);
@@ -80,16 +80,10 @@ void local_flush_tlb_mm(struct mm_struct *mm)
 	int cpu = smp_processor_id();
 
 	if (cpu_context(cpu, mm) != 0) {
-		unsigned long flags;
-
 #ifdef DEBUG_TLB
 		printk("[tlbmm<%d>]", mm->context);
 #endif
-		local_irq_save(flags);
-		get_new_mmu_context(mm, cpu);
-		if (mm == current->active_mm)
-			write_c0_entryhi(cpu_asid(cpu, mm));
-		local_irq_restore(flags);
+		drop_mmu_context(mm,cpu);
 	}
 }
 
@@ -109,8 +103,8 @@ void local_flush_tlb_range(struct mm_struct *mm, unsigned long start,
 		local_irq_save(flags);
 		size = (end - start + (PAGE_SIZE - 1)) >> PAGE_SHIFT;
 		size = (size + 1) >> 1;
-		if(size <= mips_cpu.tlbsize/2) {
-			int oldpid = read_c0_entryhi() & ASID_MASK;
+		if (size <= current_cpu_data.tlbsize/2) {
+			int oldpid = read_c0_entryhi();
 			int newpid = cpu_asid(cpu, mm);
 
 			start &= (PAGE_MASK << 1);
@@ -137,9 +131,7 @@ void local_flush_tlb_range(struct mm_struct *mm, unsigned long start,
 			}
 			write_c0_entryhi(oldpid);
 		} else {
-			get_new_mmu_context(mm, cpu);
-			if (mm == current->active_mm)
-				write_c0_entryhi(cpu_asid(cpu, mm));
+			drop_mmu_context(mm, cpu);
 		}
 		local_irq_restore(flags);
 	}
@@ -159,7 +151,7 @@ void local_flush_tlb_page(struct vm_area_struct *vma, unsigned long page)
 		newpid = cpu_asid(cpu, vma->vm_mm);
 		page &= (PAGE_MASK << 1);
 		local_irq_save(flags);
-		oldpid = (read_c0_entryhi() & ASID_MASK);
+		oldpid = read_c0_entryhi();
 		write_c0_entryhi(page | newpid);
 		BARRIER;
 		tlb_probe();
@@ -181,12 +173,42 @@ void local_flush_tlb_page(struct vm_area_struct *vma, unsigned long page)
 }
 
 /*
- * Updates the TLB with the new pte(s).
+ * Remove one kernel space TLB entry.  This entry is assumed to be marked
+ * global so we don't do the ASID thing.
  */
-void mips64_update_mmu_cache(struct vm_area_struct * vma,
-		      unsigned long address, pte_t pte)
+void local_flush_tlb_one(unsigned long page)
 {
 	unsigned long flags;
+	int oldpid, idx;
+
+	page &= (PAGE_MASK << 1);
+	oldpid = read_c0_entryhi();
+
+	local_irq_save(flags);
+	write_c0_entryhi(page);
+	BARRIER;
+	tlb_probe();
+	BARRIER;
+	idx = read_c0_index();
+	write_c0_entrylo0(0);
+	write_c0_entrylo1(0);
+	if (idx >= 0) {
+		/* Make sure all entries differ. */
+		write_c0_entryhi(KSEG0+idx*0x2000);
+		tlb_write_indexed();
+	}
+	BARRIER;
+	write_c0_entryhi(oldpid);
+	local_irq_restore(flags);
+}
+
+/*
+ * Updates the TLB with the new pte(s).
+ */
+void __update_tlb(struct vm_area_struct * vma, unsigned long address, pte_t pte)
+{
+	unsigned long flags;
+	unsigned int asid;
 	pgd_t *pgdp;
 	pmd_t *pmdp;
 	pte_t *ptep;
@@ -203,9 +225,9 @@ void mips64_update_mmu_cache(struct vm_area_struct * vma,
 #ifdef DEBUG_TLB
 	if ((pid != (cpu_asid(smp_processor_id(), vma->vm_mm))) ||
 	   (cpu_context(smp_processor_id(), vma->vm_mm) == 0)) {
-		printk("update_mmu_cache: Wheee, bogus tlbpid mmpid=%d
-			tlbpid=%d\n", (int) (cpu_context(smp_processor_id(),
-			vma->vm_mm) & ASID_MASK), pid);
+		printk("update_mmu_cache: Wheee, bogus tlbpid mmpid=%d"
+		       "tlbpid=%d\n", (int) (cpu_context(smp_processor_id(),
+		       vma->vm_mm) & ASID_MASK), pid);
 	}
 #endif
 
@@ -314,34 +336,31 @@ out:
 
 static void __init probe_tlb(unsigned long config)
 {
-        unsigned long config1;
+	struct cpuinfo_mips *c = &current_cpu_data;
+	unsigned int config1;
 
-        if (!(config & (1 << 31))) {
-	        /*
-		 * Not a MIPS64 complainant CPU.
-		 * Config 1 register not supported, we assume R4k style.
-		 */
-	        mips_cpu.tlbsize = 48;
-	} else {
-	        config1 = read_c0_config1();
-		if (!((config >> 7) & 3))
-		        panic("No MMU present");
-		else
-		        mips_cpu.tlbsize = ((config1 >> 25) & 0x3f) + 1;
-	}
+	/*
+	 * If this isn't a MIPS32 / MIPS64 compliant CPU.  Config 1 register
+	 * is not supported, we assume R4k style.  Cpu probing already figured
+	 * out the number of tlb entries.
+	 */
+	if ((c->processor_id  & 0xff0000) == PRID_COMP_LEGACY)
+		return;
 
-	printk("Number of TLB entries %d.\n", mips_cpu.tlbsize);
+	config1 = read_c0_config1();
+	if (!((config1 >> 7) & 3))
+		panic("No MMU present");
+
+	c->tlbsize = ((config1 >> 25) & 0x3f) + 1;
 }
 
 void __init r4k_tlb_init(void)
 {
 	unsigned long config = read_c0_config();
-
 	probe_tlb(config);
-	_update_mmu_cache = mips64_update_mmu_cache;
-	write_c0_pagemask(PM_4K);
+	write_c0_pagemask(PM_DEFAULT_MASK);
 	write_c0_wired(0);
-	temp_tlb_entry = mips_cpu.tlbsize - 1;
+	temp_tlb_entry = current_cpu_data.tlbsize - 1;
 	local_flush_tlb_all();
 
 	memcpy((void *)(KSEG0 + 0x80), except_vec1_r4k, 0x80);

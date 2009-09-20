@@ -131,6 +131,19 @@ struct ps2esdi_i_struct {
 	unsigned int head, sect, cyl, wpcom, lzone, ctl;
 };
 
+#if 0
+#if 0				/* try both - I don't know which one is better... UB */
+static struct ps2esdi_i_struct ps2esdi_info[MAX_HD] =
+{
+	{4, 48, 1553, 0, 0, 0},
+	{0, 0, 0, 0, 0, 0}};
+#else
+static struct ps2esdi_i_struct ps2esdi_info[MAX_HD] =
+{
+	{64, 32, 161, 0, 0, 0},
+	{0, 0, 0, 0, 0, 0}};
+#endif
+#endif
 static struct ps2esdi_i_struct ps2esdi_info[MAX_HD] =
 {
 	{0, 0, 0, 0, 0, 0},
@@ -260,6 +273,9 @@ void __init ed_setup(char *str, int *ints)
 	ps2esdi_info[hdind].wpcom = 0;
 	ps2esdi_info[hdind].lzone = ints[1];
 	ps2esdi_info[hdind].ctl = (ints[2] > 8 ? 8 : 0);
+#if 0				/* this may be needed for PS2/Mod.80, but it hurts ThinkPad! */
+	ps2esdi_drives = hdind + 1;	/* increment index for the next time */
+#endif
 }				/* ed_setup */
 
 static int ps2esdi_getinfo(char *buf, int slot, void *d)
@@ -451,6 +467,13 @@ static void do_ps2esdi_request(request_queue_t * q)
 	/* since, this routine is called with interrupts cleared - they 
 	   must be before it finishes  */
 
+#if 0
+	printk("%s:got request. device : %d minor : %d command : %d  sector : %ld count : %ld, buffer: %p\n",
+	       DEVICE_NAME,
+	       CURRENT_DEV, MINOR(CURRENT->rq_dev),
+	       CURRENT->cmd, CURRENT->sector,
+	       CURRENT->current_nr_sectors, CURRENT->buffer);
+#endif
 
 	/* standard macro that ensures that requests are really on the
 	   list + sanity checks.                     */
@@ -463,10 +486,20 @@ static void do_ps2esdi_request(request_queue_t * q)
 	else if ((CURRENT_DEV < ps2esdi_drives) &&
 	    (CURRENT->sector + CURRENT->current_nr_sectors <=
 	     ps2esdi[MINOR(CURRENT->rq_dev)].nr_sects)) {
+#if 0
+		printk("%s:got request. device : %d minor : %d command : %d  sector : %ld count : %ld\n",
+		       DEVICE_NAME,
+		       CURRENT_DEV, MINOR(CURRENT->rq_dev),
+		       CURRENT->cmd, CURRENT->sector,
+		       CURRENT->current_nr_sectors);
+#endif
 
 
 		block = CURRENT->sector + ps2esdi[MINOR(CURRENT->rq_dev)].start_sect;
 
+#if 0
+		printk("%s: blocknumber : %d\n", DEVICE_NAME, block);
+#endif
 		count = CURRENT->current_nr_sectors;
 		switch (CURRENT->cmd) {
 		case READ:
@@ -537,6 +570,9 @@ static void ps2esdi_readwrite(int cmd, u_char drive, u_int block, u_int count)
 	cylinder = track / ps2esdi_info[drive].head;
 	sector = block % ps2esdi_info[drive].sect;
 
+#if 0
+	printk("%s: cyl=%d head=%d sect=%d\n", DEVICE_NAME, cylinder, head, sector);
+#endif
 	/* call the routine that actually fills out a command block */
 	ps2esdi_fill_cmd_block
 	    (cmd_blk,
@@ -556,6 +592,9 @@ static void ps2esdi_readwrite(int cmd, u_char drive, u_int block, u_int count)
 	}
 	/* check for failure to put out the command block */ 
 	else {
+#if 0
+		printk("%s: waiting for xfer\n", DEVICE_NAME);
+#endif
 		/* turn disk lights on */
 		LITE_ON;
 	}
@@ -588,6 +627,9 @@ static int ps2esdi_out_cmd_blk(u_short * cmd_blk)
 	for (i = jiffies + ESDI_STAT_TIMEOUT; time_after(i, jiffies) && (inb(ESDI_STATUS) &
 							  STATUS_BUSY););
 
+#if 0
+	printk("%s: i(1)=%d\n", DEVICE_NAME, i);
+#endif
 
 	/* if device is still busy - then just time out */
 	if (inb(ESDI_STATUS) & STATUS_BUSY) {
@@ -597,6 +639,9 @@ static int ps2esdi_out_cmd_blk(u_short * cmd_blk)
 	/* Set up the attention register in the controller */
 	outb(((*cmd_blk) & 0xE0) | 1, ESDI_ATTN);
 
+#if 0
+	printk("%s: sending %d words to controller\n", DEVICE_NAME, (((*cmd_blk) >> 14) + 1) << 1);
+#endif
 
 	/* one by one send each word out */
 	for (i = (((*cmd_blk) >> 14) + 1) << 1; i; i--) {
@@ -605,6 +650,9 @@ static int ps2esdi_out_cmd_blk(u_short * cmd_blk)
 		     time_after(j, jiffies) && (status & STATUS_BUSY) &&
 		   (status & STATUS_CMD_INF); status = inb(ESDI_STATUS));
 		if ((status & (STATUS_BUSY | STATUS_CMD_INF)) == STATUS_BUSY) {
+#if 0
+			printk("%s: sending %04X\n", DEVICE_NAME, *cmd_blk);
+#endif
 			outw(*cmd_blk++, ESDI_CMD_INT);
 		} else {
 			printk("%s: ps2esdi_out_cmd timed out while sending command (status=%02X)\n",
@@ -620,6 +668,9 @@ static int ps2esdi_out_cmd_blk(u_short * cmd_blk)
 static void ps2esdi_prep_dma(char *buffer, u_short length, u_char dma_xmode)
 {
 	unsigned long flags;
+#if 0
+	printk("ps2esdi: b_wait: %p\n", &CURRENT->bh->b_wait);
+#endif
 	flags = claim_dma_lock();
 
 	mca_disable_dma(dma_arb_level);
@@ -690,7 +741,7 @@ static void ps2esdi_geometry_int_handler(u_int int_ret_code)
 	drive_num = int_ret_code >> 5;
 	switch (int_ret_code & 0xf) {
 	case INT_CMD_COMPLETE:
-		for (i = ESDI_TIMEOUT; i & !(inb(ESDI_STATUS) & STATUS_STAT_AVAIL); i--);
+		for (i = ESDI_TIMEOUT; i && !(inb(ESDI_STATUS) & STATUS_STAT_AVAIL); i--);
 		if (!(inb(ESDI_STATUS) & STATUS_STAT_AVAIL)) {
 			printk("%s: timeout reading status word\n", DEVICE_NAME);
 			outb((int_ret_code & 0xe0) | ATT_EOI, ESDI_ATTN);
@@ -825,7 +876,7 @@ static void ps2esdi_normal_interrupt_handler(u_int int_ret_code)
 		break;
 
 	case INT_CMD_COMPLETE:
-		for (i = ESDI_TIMEOUT; i & !(inb(ESDI_STATUS) & STATUS_STAT_AVAIL); i--);
+		for (i = ESDI_TIMEOUT; i && !(inb(ESDI_STATUS) & STATUS_STAT_AVAIL); i--);
 		if (!(inb(ESDI_STATUS) & STATUS_STAT_AVAIL)) {
 			printk("%s: timeout reading status word\n", DEVICE_NAME);
 			outb((int_ret_code & 0xe0) | ATT_EOI, ESDI_ATTN);
@@ -843,6 +894,9 @@ static void ps2esdi_normal_interrupt_handler(u_int int_ret_code)
 			LITE_OFF;
 			outb((int_ret_code & 0xe0) | ATT_EOI, ESDI_ATTN);
 			outb(CTRL_ENABLE_INTR, ESDI_CONTROL);
+#if 0
+			printk("ps2esdi: cmd_complete b_wait: %p\n", &CURRENT->bh->b_wait);
+#endif
 			ending = SUCCES;
 			break;
 		default:

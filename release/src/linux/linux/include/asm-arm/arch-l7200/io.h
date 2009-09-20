@@ -59,6 +59,13 @@ static inline void __arch_putw(unsigned int value, unsigned long a)
 #define outl_t(v,p)		(*(volatile unsigned long *)(p) = (v))
 #define inl_t(p)		(*(volatile unsigned long *)(p))
 
+/*
+ * FIXME - These are to allow for linking. On all the other
+ *         ARM platforms, the entire IO space is contiguous.
+ *         The 7200 has three separate IO spaces. The below
+ *         macros will eventually become more involved. Use
+ *         with caution and don't be surprised by kernel oopses!!!
+ */
 #define inb(p)		 	inb_t(p)
 #define inw(p)	 		inw_t(p)
 #define inl(p)	 		inl_t(p)

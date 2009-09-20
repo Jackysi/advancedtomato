@@ -1,5 +1,5 @@
 /*
- * ciscode.h 1.48 2001/08/24 12:16:12
+ * ciscode.h 1.57 2002/11/03 20:38:14
  *
  * The contents of this file are subject to the Mozilla Public License
  * Version 1.1 (the "License"); you may not use this file except in
@@ -60,6 +60,10 @@
 #define PRODID_INTEL_DUAL_RS232		0x0301
 #define PRODID_INTEL_2PLUS		0x8422
 
+#define MANFID_KME			0x0032
+#define PRODID_KME_KXLC005_A		0x0704
+#define PRODID_KME_KXLC005_B		0x2904
+
 #define MANFID_LINKSYS			0x0143
 #define PRODID_LINKSYS_PCMLM28		0xc0ab
 #define PRODID_LINKSYS_3400		0x3341
@@ -94,6 +98,8 @@
 #define PRODID_OSITECH_JACK_336		0x0007
 #define PRODID_OSITECH_SEVEN		0x0008
 
+#define MANFID_OXSEMI			0x0279
+
 #define MANFID_PIONEER			0x000b
 
 #define MANFID_PSION			0x016c
@@ -103,6 +109,7 @@
 #define PRODID_QUATECH_SPP100		0x0003
 #define PRODID_QUATECH_DUAL_RS232	0x0012
 #define PRODID_QUATECH_DUAL_RS232_D1	0x0007
+#define PRODID_QUATECH_DUAL_RS232_D2	0x0052
 #define PRODID_QUATECH_QUAD_RS232	0x001b
 #define PRODID_QUATECH_DUAL_RS422	0x000e
 #define PRODID_QUATECH_QUAD_RS422	0x0045
@@ -120,8 +127,11 @@
 
 #define MANFID_TDK			0x0105
 #define PRODID_TDK_CF010		0x0900
+#define PRODID_TDK_GN3410		0x4815
 
 #define MANFID_TOSHIBA			0x0098
+
+#define MANFID_UNGERMANN		0x02c0
 
 #define MANFID_XIRCOM			0x0105
 

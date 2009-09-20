@@ -10,6 +10,7 @@ SECTIONS
     _ftext = . ;
     *(.text)
     *(.rodata)
+    *(.rodata.*)
     *(.rodata1)
     /* .gnu.warning sections are handled specially by elf32.em.  */
     *(.gnu.warning)
@@ -49,9 +50,6 @@ SECTIONS
   . = ALIGN(4096);	/* Align double page for init_task_union */
   __init_end = .;
 
-  . = ALIGN(4096);
-  .data.page_aligned : { *(.data.idt) }
-
   . = ALIGN(32);
   .data.cacheline_aligned : { *(.data.cacheline_aligned) }
 
@@ -81,8 +79,8 @@ SECTIONS
    . = ALIGN(4096);
    __rd_start = .;
    *(.initrd)
-   __rd_end = .;
    . = ALIGN(4096);
+   __rd_end = .;
 
     CONSTRUCTORS
   }

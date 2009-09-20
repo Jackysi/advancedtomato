@@ -516,6 +516,11 @@ ZEXTERN int ZEXPORT zlib_deflateReset OF((z_streamp strm));
    stream state was inconsistent (such as zalloc or state being NULL).
 */
 
+static inline unsigned long deflateBound(unsigned long s)
+{
+	return s + ((s + 7) >> 3) + ((s + 63) >> 6) + 11;
+}
+
 ZEXTERN int ZEXPORT zlib_deflateParams OF((z_streamp strm,
 					      int level,
 					      int strategy));

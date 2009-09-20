@@ -1,0 +1,204 @@
+Building older versions of GCC compatible with Linux Kernel 2.4
+===============================================================
+
+
+This document explains how to build an older supported version of the GCC
+compiler from a distribution which only offers incompatible recent versions.
+
+
+Context
+=======
+
+When Linux 2.4.0 was released in early 2001, GCC 2.95.2 was mainstream and
+GCC 2.91.66 was still widely used. The GCC development model was evolving
+and still confused. Since then, GCC has evolved a lot and stabilized. New
+versions are regularly released, and some old features from the early code
+get deprecated then removed.
+
+The kernel heavily relies on GCC's capabilities and behaviour. Some of the
+code in Linux looks strange but is in fact intended to workaround early GCC
+bugs. For these reasons, almost every new major GCC release breaks the kernel
+build process. GCC 3.4 was a real pain to introduce as it required a lot of
+rewriting in sensible areas, and GCC 4 required a lot of work, though this
+work was less complicated thanks to the cleanup efforts invested in GCC 3.4.
+
+Starting with GCC 4.2, the output code randomly fails depending on section
+ordering, which itself depends on the declaration order of functions, module
+parameters and many other things. The nasty part is that the code builds but
+randomly fails at runtime, so it is almost impossible to fix it and ensure
+that everything works, especially in the drivers area where most of the
+problems lie.
+
+As of 2008, GCC 4.3.2 is advertised as the current release and 4.2 the previous
+release. Most distributions have been shipping with 4.2 and 4.3 for some time,
+so building Linux 2.4 on a recent distribution has become a real problem for
+users who still have to support kernel 2.4 on servers, firewalls or any other
+system.
+
+
+Solution : the two-minutes process
+==================================
+
+If it is not possible to adapt the kernel to GCC, let's adapt GCC to the
+kernel. We're lucky, building GCC to build just a kernel is not hard and
+is rather fast. I call that a two-minutes process because building an
+older GCC takes about 1 minute, and the kernel with that GCC also takes
+one minute.
+
+First, you have to select which version of GCC you want to build your kernel
+with. Here are some comments on possible versions :
+
+  - 2.95.3    : very well tested for the kernel, builds kernels very fast,
+                requires a lot of patches and is rather hard to build..
+
+  - 3.0       : very buggy, avoid it.
+
+  - 3.1 & 3.2 : apparently less buggy but rarely used so bugs might have
+                remained unnoticed.
+
+  - 3.3       : used and tested for a long time. A bit slow but easy to build.
+
+  - 3.4       : was recently introduced, received less testing, though seems
+                OK. Builds kernels faster than 3.3, and is easy to build too.
+
+  - 4.0 & 4.1 : received little testing, particularly slow but may produce
+                smaller kernels when compiled with -Os.
+
+Always take the last maintenance version of a compiler (eg: 3.4.6 for 3.4).
+
+For best reliability and less hassle, I tend to recommend GCC 3.3.6. For
+improved build times (about 30% lower) and improved kernel performance, I'd
+recommend 3.4.6. It tends to produce more efficient code on i386, but has
+had a long history of causing annoyances with inline declarations. It seems
+OK though, and I build all my kernels with it. We'll assume 3.4 is used for
+the rest of this document, though what is described will work with 3.3 to
+4.1 unless stated otherwise.
+
+
+Instructions
+============
+
+1) Download gcc sources from the nearest mirror
+-----------------------------------------------
+
+Find a mirror address here : [ http://gcc.gnu.org/mirrors.html ] or download
+from this directory :
+
+   ftp://ftp.gnu.org/pub/gnu/gcc/gcc-3.4.6/
+
+Get gcc-core-3.4.6.tar.bz2. It only contains the C compiler, which is what you
+want.
+
+2) Prepare your build environment
+---------------------------------
+
+Create a temporary directory where you'll extract the sources. Don't build on
+NFS, it may be slow. Use /tmp if you want. You'll need about 150 MB of free
+space. You'll have to extract the sources in that new directory, and create a
+temporary build directory aside it :
+
+   $ mkdir /tmp/gcc-build
+   $ cd /tmp/gcc-build
+   $ tar jxf /tmp/gcc-core-3.4.6.tar.bz2
+   $ mkdir build
+
+3) Configure gcc
+----------------
+
+You don't want your new gcc to conflict with the one already in place. I
+recommend simply prefixing it with "kernel-", and not installing it in
+/usr/bin, but rather /opt/kgcc/bin or anywhere else (/usr/local/bin will be
+used by default). I recommend choosing a place you already have in your PATH
+(such as the default /usr/local/bin), so that you don't have to pass the full
+path to the binary when building.
+
+   $ cd /tmp/gcc-build/build
+   $ ../gcc-3.4.6/configure --disable-locale --disable-shared --disable-nls \
+                            --enable-languages=c \
+                            --prefix=/opt/kgcc --program-prefix=kernel-
+
+If you're using GCC 3.3, you may see strange messages indicating that some
+programs were not found (eg: kernel-objdump). Simply ignore them.
+
+Note that you can set a lot of options, even use it as a cross-compiler. While
+very frequent, such a build will not be covered by this document.
+
+4) Build GCC
+------------
+
+Both GCC 3.3 and 3.4 support parallel building, which reduces build time on SMP
+systems :
+
+   $ make -j 4
+
+If the build fails here because of some options you added above, you'll have to
+remove the build dir and recreate it.
+
+5) Install your new GCC
+-----------------------
+
+The binaries may be a bit big, but you can strip them. Both GCC 3.3 and 3.4
+support a trick on the command line during the installation process, which
+consists in passing the "-s" flag to "install" :
+
+   $ sudo make install INSTALL_PROGRAM='${INSTALL} -s'
+
+It will be installed under the directory referred to by the "prefix" option
+above, or /usr/local/bin if none was specified :
+
+   $ ls -l /opt/kgcc/bin/kernel-gcc
+   -rwxr-xr-x  3 root root 73124 Sep  6 22:45 /opt/kgcc/bin/kernel-gcc
+
+   $ /opt/kgcc/bin/kernel-gcc -v
+   Reading specs from /tmp/gcc-3.4.6-build/tmp-inst/opt/kgcc/bin/...
+   Configured with: ../gcc-3.4.6/configure --disable-shared --disable-...
+   Thread model: posix
+   gcc version 3.4.6
+
+6) Using your new compiler
+--------------------------
+
+The compiler just has to be passed to "make" via the "CC" variable for all
+commands :
+
+  $ make CC=/opt/kgcc/bin/kernel-gcc -j 4 dep bzImage modules
+  $ sudo make CC=/opt/kgcc/bin/kernel-gcc modules_install install
+
+  or more simply, when you have it in your path :
+
+  $ make CC=kernel-gcc -j 4 dep bzImage modules
+  $ sudo make CC=kernel-gcc -j 4 modules_install install
+
+Note: make modules_install needs a 2.4-compatible depmod. If your distro is
+      2.6-based and says it does not find depmod or depmod.old, it means that
+      either modutils or module-init-tools have not been correctly installed.
+      You can still force the path to depmod by passing it in the DEPMOD
+      variable during make modules_install if you know where to find a good
+      one.
+
+
+7) I want to use a really old compiler, but compiling it breaks!
+-----------------------------------------------------------------
+
+Tackle the problem in stages. Compile 3.x.y as above. Then use that to
+compile 2.95.x (CC=/opt/kgcc/bin/kernel-gcc ./configure ...), install,
+use 2.95.x to compile the next compiler in the chain, continue as
+far as you'd like.
+
+Conclusion
+==========
+
+Building an older GCC on to build an older kernel on a newer machine is not
+really hard. It becomes harder when you have to cross-build (eg: you're
+building on a 64-bit machine for a 32-bit one). But for this, I would recommend
+that you check the excellent "crosstool" utility from Dan Kegel. It supports a
+wide variety of compilers, contains a lot of fixes and will do all the hard
+patching and configuration work for any combination you want or need.
+
+
+Suggestions and comments
+========================
+
+If you find mistakes or want to send comments about this document, please mail
+me at <w@1wt.eu>.
+

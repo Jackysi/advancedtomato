@@ -42,6 +42,13 @@
 int presto_walk(const char *name, struct nameidata *nd)
 {
         int err;
+        /* we do not follow symlinks to support symlink operations 
+           correctly. The vfs should always hand us resolved dentries
+           so we should not be required to use LOOKUP_FOLLOW. At the
+           reintegrating end, lento again should be working with the 
+           resolved pathname and not the symlink. SHP
+           XXX: This code implies that direct symlinks do not work. SHP
+        */
         unsigned int flags = LOOKUP_POSITIVE;
 
         ENTRY;
@@ -81,6 +88,7 @@ inline int presto_c2m(struct presto_cache *cache)
 
 }
 
+/* XXX check this out */
 struct presto_file_set *presto_path2fileset(const char *name)
 {
         struct nameidata nd;
@@ -90,6 +98,9 @@ struct presto_file_set *presto_path2fileset(const char *name)
 
         error = presto_walk(name, &nd);
         if (!error) { 
+#if 0
+                error = do_revalidate(nd.dentry);
+#endif
                 if (!error) 
                         fileset = presto_fset(nd.dentry); 
                 path_release(&nd); 
@@ -188,6 +199,104 @@ int lento_complete_closes(char *path)
         return error;
 }       
 
+#if 0
+/* given a path: write a close record and cancel an LML record, finally
+   call truncate LML.  Lento is doing this so it goes in with uid/gid's 
+   root. 
+*/ 
+int lento_cancel_lml(char *path, 
+                     __u64 lml_offset, 
+                     __u64 remote_ino, 
+                     __u32 remote_generation,
+                     __u32 remote_version, 
+                     struct lento_vfs_context *info)
+{
+        struct nameidata nd;
+        struct rec_info rec;
+        struct dentry *dentry;
+        int error;
+        struct presto_file_set *fset;
+        void *handle; 
+        struct presto_version new_ver;
+        ENTRY;
+
+
+        error = presto_walk(path, &nd);
+        if (error) {
+                EXIT;
+                return error;
+        }
+        dentry = nd.dentry;
+
+        error = -ENXIO;
+        if ( !presto_ispresto(dentry->d_inode) ) {
+                EXIT;
+                goto out_cancel_lml;
+        }
+        
+        fset = presto_fset(dentry);
+
+        error=-EINVAL;
+        if (fset==NULL) {
+                CERROR("No fileset!\n");
+                EXIT;
+                goto out_cancel_lml;
+        }
+        
+        /* this only requires a transaction below which is automatic */
+        handle = presto_trans_start(fset, dentry->d_inode, PRESTO_OP_RELEASE); 
+        if ( IS_ERR(handle) ) {
+                error = -ENOMEM; 
+                EXIT; 
+                goto out_cancel_lml; 
+        } 
+        
+        if (info->flags & LENTO_FL_CANCEL_LML) {
+                error = presto_clear_lml_close(fset, lml_offset);
+                if ( error ) {
+                        presto_trans_commit(fset, handle);
+                        EXIT; 
+                        goto out_cancel_lml;
+                }
+        }
+
+
+        if (info->flags & LENTO_FL_WRITE_KML) {
+                struct file file;
+                file.private_data = NULL;
+                file.f_dentry = dentry; 
+                presto_getversion(&new_ver, dentry->d_inode);
+                error = presto_journal_close(&rec, fset, &file, dentry, 
+                                             &new_ver);
+                if ( error ) {
+                        EXIT; 
+                        presto_trans_commit(fset, handle);
+                        goto out_cancel_lml;
+                }
+        }
+
+        if (info->flags & LENTO_FL_WRITE_EXPECT) {
+                error = presto_write_last_rcvd(&rec, fset, info); 
+                if ( error < 0 ) {
+                        EXIT; 
+                        presto_trans_commit(fset, handle);
+                        goto out_cancel_lml;
+                }
+        }
+
+        presto_trans_commit(fset, handle);
+
+        if (info->flags & LENTO_FL_CANCEL_LML) {
+            presto_truncate_lml(fset); 
+        }
+                
+
+ out_cancel_lml:
+        EXIT;
+        path_release(&nd); 
+        return error;
+}       
+#endif 
 
 /* given a dentry, operate on the flags in its dentry.  Used by downcalls */
 int izo_mark_dentry(struct dentry *dentry, int and_flag, int or_flag, 
@@ -235,8 +344,8 @@ int izo_mark_cache(struct dentry *dentry, int and_flag, int or_flag,
                 return -EBADF;
         }
 
-        ((int)cache->cache_flags) &= and_flag;
-        ((int)cache->cache_flags) |= or_flag;
+        cache->cache_flags &= and_flag;
+        cache->cache_flags |= or_flag;
         if (res)
                 *res = (int)cache->cache_flags;
 
@@ -274,8 +383,8 @@ int izo_mark_fset(struct dentry *dentry, int and_flag, int or_flag,
                 make_bad_inode(dentry->d_inode);
                 return -EBADF;
         }
-        ((int)fset->fset_flags) &= and_flag;
-        ((int)fset->fset_flags) |= or_flag;
+        fset->fset_flags &= and_flag;
+        fset->fset_flags |= or_flag;
         if (res)
                 *res = (int)fset->fset_flags;
 
@@ -440,6 +549,7 @@ int presto_get_permit(struct inode * inode)
                 remove_wait_queue(&fset->fset_permit_queue, &wait);
                 /* We've been woken up: do we have the permit? */
                 if (fset->fset_flags & FSET_HASPERMIT)
+                        /* FIXME: Is this the right thing? */
                         rc = -EAGAIN;
         }
 
@@ -524,6 +634,14 @@ void presto_getversion(struct presto_version * presto_version,
 }
 
 
+/* If uuid is non-null, it is the uuid of the peer that's making the revocation
+ * request.  If it is null, this request was made locally, without external
+ * pressure to give up the permit.  This most often occurs when a client
+ * starts up.
+ *
+ * FIXME: this function needs to be refactored slightly once we start handling
+ * multiple clients.
+ */
 int izo_revoke_permit(struct dentry *dentry, __u8 uuid[16])
 {
         struct presto_file_set *fset; 
@@ -574,11 +692,13 @@ int izo_revoke_permit(struct dentry *dentry, __u8 uuid[16])
                 spin_unlock(&fset->fset_permit_lock);
 
                 if (signal_pending(current)) {
+                        /* FIXME: there must be a better thing to return... */
                         remove_wait_queue(&fset->fset_permit_queue, &wait);
                         EXIT;
                         return -ERESTARTSYS;
                 }
 
+                /* FIXME: maybe there should be a timeout here. */
 
                 schedule();
         }

@@ -1,5 +1,4 @@
-/* $Id: old_checksum.c,v 1.1.1.4 2003/10/14 08:07:17 sparq Exp $
- *
+/*
  * INET		An implementation of the TCP/IP protocol suite for the LINUX
  *		operating system.  INET is implemented using the  BSD Socket
  *		interface as the means of communication with the user level.
@@ -24,6 +23,10 @@
 
 #ifdef PROFILE_CHECKSUM
 /* these are just for profiling the checksum code with an oscillioscope.. uh */
+#if 0
+#define BITOFF *((unsigned char *)0xb0000030) = 0xff
+#define BITON *((unsigned char *)0xb0000030) = 0x0
+#endif
 #include <asm/io.h>
 #define CBITON LED_ACTIVE_SET(1)
 #define CBITOFF LED_ACTIVE_SET(0)
@@ -50,6 +53,11 @@ unsigned int csum_partial(const unsigned char * buff, int len, unsigned int sum)
    */
   const unsigned char *endMarker = buff + len;
   const unsigned char *marker = endMarker - (len % 16);
+#if 0
+  if((int)buff & 0x3)
+    printk("unaligned buff %p\n", buff);
+  __delay(900); /* extra delay of 90 us to test performance hit */
+#endif
   BITON;
   while (buff < marker) {
     sum += *((unsigned short *)buff)++;
@@ -72,3 +80,47 @@ unsigned int csum_partial(const unsigned char * buff, int len, unsigned int sum)
   return(sum);
 }
 
+#if 0
+
+/*
+ * copy while checksumming, otherwise like csum_partial
+ */
+
+unsigned int csum_partial_copy(const unsigned char *src, unsigned char *dst, 
+				  int len, unsigned int sum)
+{
+  const unsigned char *endMarker;
+  const unsigned char *marker;
+  printk("csum_partial_copy len %d.\n", len);
+#if 0
+  if((int)src & 0x3)
+    printk("unaligned src %p\n", src);
+  if((int)dst & 0x3)
+    printk("unaligned dst %p\n", dst);
+  __delay(1800); /* extra delay of 90 us to test performance hit */
+#endif
+  endMarker = src + len;
+  marker = endMarker - (len % 16);
+  CBITON;
+  while(src < marker) {
+    sum += (*((unsigned short *)dst)++ = *((unsigned short *)src)++);
+    sum += (*((unsigned short *)dst)++ = *((unsigned short *)src)++);
+    sum += (*((unsigned short *)dst)++ = *((unsigned short *)src)++);
+    sum += (*((unsigned short *)dst)++ = *((unsigned short *)src)++);
+    sum += (*((unsigned short *)dst)++ = *((unsigned short *)src)++);
+    sum += (*((unsigned short *)dst)++ = *((unsigned short *)src)++);
+    sum += (*((unsigned short *)dst)++ = *((unsigned short *)src)++);
+    sum += (*((unsigned short *)dst)++ = *((unsigned short *)src)++);
+  }
+  marker = endMarker - (len % 2);
+  while(src < marker) {
+    sum += (*((unsigned short *)dst)++ = *((unsigned short *)src)++);
+  }
+  if(endMarker - src > 0) {
+    sum += (*dst = *src);                 /* add extra byte seperately */
+  }
+  CBITOFF;
+  return(sum);
+}
+
+#endif

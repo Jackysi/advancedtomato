@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2000, 2001 Broadcom Corporation
+ * Copyright (C) 2000, 2001, 2002, 2003 Broadcom Corporation
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -28,100 +28,152 @@
 #include <asm/sibyte/sb1250_scd.h>
 #include <asm/sibyte/64bit.h>
 
-extern void prom_printf(char *fmt, ...);
-
-/* Setup code likely to be common to all BCM1250 platforms */
-
-static inline const char *soc_type_string(unsigned int soc_type)
-{
-	switch (soc_type) {
-	case K_SYS_SOC_TYPE_BCM1250:
-		return "BCM1250";
-	case K_SYS_SOC_TYPE_BCM1120:
-		return "BCM1120";
-	case K_SYS_SOC_TYPE_BCM1125:
-		return "BCM1125";
-	case K_SYS_SOC_TYPE_BCM1125H:
-		return "BCM1125H";
-	default:
-		return "unknown SOC";
-	}
-}
-
-static inline const char *soc_pass_string(unsigned int soc_type, unsigned int soc_pass)
-{
-	switch (soc_type) {
-	case K_SYS_SOC_TYPE_BCM1250:
-		switch (soc_pass) {
-		case K_SYS_REVISION_BCM1250_PASS1:
-			return "Pass 1";
-		case 11:
-			return "A8/A10";
-		case K_SYS_REVISION_BCM1250_PASS2_2:
-			return "B1";
-		default:
-			if (soc_pass < K_SYS_REVISION_BCM1250_PASS2_2)
-				return "pre-A8";
-			else
-				return "unknown rev";
-		}
-	case K_SYS_SOC_TYPE_BCM1120:
-	case K_SYS_SOC_TYPE_BCM1125:
-	case K_SYS_SOC_TYPE_BCM1125H:
-		switch (soc_pass) {
-		case K_SYS_REVISION_BCM112x_A1:
-			return "A1";
-		case K_SYS_REVISION_BCM112x_A2:
-			return "A2";
-		default:
-			return "unknown rev";
-		}
-	default:
-		return "";
-	}
-}
-
 unsigned int sb1_pass;
 unsigned int soc_pass;
 unsigned int soc_type;
+unsigned int periph_rev;
+unsigned int zbbus_mhz;
+
+static char *soc_str;
+static char *pass_str;
+static unsigned int war_pass;	/* XXXKW don't overload PASS defines? */
+
+static inline int setup_bcm1250(void);
+static inline int setup_bcm112x(void);
+
+/* Setup code likely to be common to all SiByte platforms */
+
+static inline int sys_rev_decode(void)
+{
+	int ret = 0;
+
+	war_pass = soc_pass;
+	switch (soc_type) {
+	case K_SYS_SOC_TYPE_BCM1250:
+	case K_SYS_SOC_TYPE_BCM1250_ALT:
+	case K_SYS_SOC_TYPE_BCM1250_ALT2:
+		soc_str = "BCM1250";
+		ret = setup_bcm1250();
+		break;
+	case K_SYS_SOC_TYPE_BCM1120:
+		soc_str = "BCM1120";
+		ret = setup_bcm112x();
+		break;
+	case K_SYS_SOC_TYPE_BCM1125:
+		soc_str = "BCM1125";
+		ret = setup_bcm112x();
+		break;
+	case K_SYS_SOC_TYPE_BCM1125H:
+		soc_str = "BCM1125H";
+		ret = setup_bcm112x();
+		break;
+	default:
+		prom_printf("Unknown SOC type %x\n", soc_type);
+		ret = 1;
+		break;
+	}
+	return ret;
+}
+
+static inline int setup_bcm1250(void)
+{
+	int ret = 0;
+
+	switch (soc_pass) {
+	case K_SYS_REVISION_BCM1250_PASS1:
+		periph_rev = 1;
+		pass_str = "Pass 1";
+		break;
+	case K_SYS_REVISION_BCM1250_A10:
+		periph_rev = 2;
+		pass_str = "A8/A10";
+		/* XXXKW different war_pass? */
+		war_pass = K_SYS_REVISION_BCM1250_PASS2;
+		break;
+	case K_SYS_REVISION_BCM1250_PASS2_2:
+		periph_rev = 2;
+		pass_str = "B1";
+		break;
+	case K_SYS_REVISION_BCM1250_B2:
+		periph_rev = 2;
+		pass_str = "B2";
+		war_pass = K_SYS_REVISION_BCM1250_PASS2_2;
+		break;
+	case K_SYS_REVISION_BCM1250_PASS3:
+		periph_rev = 3;
+		pass_str = "C0";
+		break;
+	case K_SYS_REVISION_BCM1250_C1:
+		periph_rev = 3;
+		pass_str = "C1";
+		break;
+	default:
+		if (soc_pass < K_SYS_REVISION_BCM1250_PASS2_2) {
+			periph_rev = 2;
+			pass_str = "A0-A6";
+			war_pass = K_SYS_REVISION_BCM1250_PASS2;
+		} else {
+			prom_printf("Unknown BCM1250 rev %x\n", soc_pass);
+			ret = 1;
+		}
+		break;
+	}
+	return ret;
+}
+
+static inline int setup_bcm112x(void)
+{
+	int ret = 0;
+
+	switch (soc_pass) {
+	case 0:
+		/* Early build didn't have revid set */
+		periph_rev = 3;
+		pass_str = "A1";
+		war_pass = K_SYS_REVISION_BCM112x_A1;
+		break;
+	case K_SYS_REVISION_BCM112x_A1:
+		periph_rev = 3;
+		pass_str = "A1";
+		break;
+	case K_SYS_REVISION_BCM112x_A2:
+		periph_rev = 3;
+		pass_str = "A2";
+		break;
+	default:
+		prom_printf("Unknown %s rev %x\n", soc_str, soc_pass);
+		ret = 1;
+	}
+	return ret;
+}
 
 void sb1250_setup(void)
 {
 	uint64_t sys_rev;
+	int plldiv;
 	int bad_config = 0;
-	unsigned int soc_war_pass;
 
+	sb1_pass = read_c0_prid() & 0xff;
 	sys_rev = in64(IO_SPACE_BASE | A_SCD_SYSTEM_REVISION);
 	soc_type = SYS_SOC_TYPE(sys_rev);
 	soc_pass = G_SYS_REVISION(sys_rev);
-	soc_war_pass = soc_pass;
 
-	switch (soc_type) {
-	case K_SYS_SOC_TYPE_BCM1250:
-		/* Combine pass2 variants. */
-		if ((soc_pass > K_SYS_REVISION_BCM1250_PASS1) &&
-		    (soc_pass < K_SYS_REVISION_BCM1250_PASS2_2))
-			soc_war_pass = K_SYS_REVISION_BCM1250_PASS2;
-		break;
-
-	case K_SYS_SOC_TYPE_BCM1120:
-	case K_SYS_SOC_TYPE_BCM1125:
-	case K_SYS_SOC_TYPE_BCM1125H:
-		/* First silicon seems to not have the revid set */
-		if (soc_pass == 0)
-			soc_war_pass = K_SYS_REVISION_BCM112x_A1;
-		break;
+	if (sys_rev_decode()) {
+		prom_printf("Restart after failure to identify SiByte chip\n");
+		machine_restart(NULL);
 	}
-	sb1_pass = read_c0_prid() & 0xff;
 
-	/* XXXKW translate the soc_pass into "customer" terminology */
-	prom_printf("SiByte %s %s (SB1 rev %d)\n",
-		    soc_type_string(soc_type),
-		    soc_pass_string(soc_type, soc_pass),
-		    sb1_pass);
+	plldiv = G_SYS_PLL_DIV(in64(IO_SPACE_BASE | A_SCD_SYSTEM_CFG));
+	zbbus_mhz = ((plldiv >> 1) * 50) + ((plldiv & 1) * 25);
+#ifndef CONFIG_SB1_PASS_1_WORKAROUNDS
+	out64(0, KSEG1 + A_SCD_ZBBUS_CYCLE_COUNT);
+#endif
+
+	prom_printf("Broadcom SiByte %s %s @ %d MHz (SB1 rev %d)\n",
+		    soc_str, pass_str, zbbus_mhz * 2, sb1_pass);
 	prom_printf("Board type: %s\n", get_system_type());
 
-	switch(soc_war_pass) {
+	switch(war_pass) {
 	case K_SYS_REVISION_BCM1250_PASS1:
 #ifndef CONFIG_SB1_PASS_1_WORKAROUNDS
 		prom_printf("@@@@ This is a BCM1250 A0-A2 (Pass 1) board, and the kernel doesn't have the proper workarounds compiled in. @@@@\n");
@@ -130,7 +182,7 @@ void sb1250_setup(void)
 		break;
 	case K_SYS_REVISION_BCM1250_PASS2:
 		/* Pass 2 - easiest as default for now - so many numbers */
-#ifndef CONFIG_SB1_PASS_2_WORKAROUNDS
+#if !defined(CONFIG_SB1_PASS_2_WORKAROUNDS) || !defined(CONFIG_SB1_PASS_2_1_WORKAROUNDS)
 		prom_printf("@@@@ This is a BCM1250 A3-A10 board, and the kernel doesn't have the proper workarounds compiled in. @@@@\n");
 		bad_config = 1;
 #endif
@@ -141,17 +193,14 @@ void sb1250_setup(void)
 		break;
 	case K_SYS_REVISION_BCM1250_PASS2_2:
 #ifndef CONFIG_SB1_PASS_2_WORKAROUNDS
-		prom_printf("@@@@ This is a BCM1250 B1. board, and the kernel doesn't have the proper workarounds compiled in. @@@@\n");
+		prom_printf("@@@@ This is a BCM1250 B1/B2. board, and the kernel doesn't have the proper workarounds compiled in. @@@@\n");
 		bad_config = 1;
 #endif
-		break;
-	case K_SYS_REVISION_BCM112x_A1:
-	case K_SYS_REVISION_BCM112x_A2:
-		/* No workarounds yet */
+#if defined(CONFIG_SB1_PASS_2_1_WORKAROUNDS) || !defined(CONFIG_CPU_HAS_PREFETCH)
+		prom_printf("@@@@ This is a BCM1250 B1/B2, but the kernel is conservatively configured for an 'A' stepping. @@@@\n");
+#endif
 		break;
 	default:
-		prom_printf("@@@ This is an unknown SOC pass. @@@@\n");
-		bad_config = 1;
 		break;
 	}
 	if (bad_config) {

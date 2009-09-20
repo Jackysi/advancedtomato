@@ -1,4 +1,4 @@
-/* $Id: idprom.c,v 1.1.1.4 2003/10/14 08:07:29 sparq Exp $
+/* $Id: idprom.c,v 1.22 1996/11/13 05:09:25 davem Exp $
  * idprom.c: Routines to load the idprom into kernel addresses and
  *           interpret the data contained within.
  *
@@ -31,8 +31,8 @@ struct Sun_Machine_Models Sun_Machines[NUM_SUN_MACHINES] = {
 { "Sun 3/60", (SM_SUN3 | SM_3_60) },
 { "Sun 3/E", (SM_SUN3 | SM_3_E) },
 /* Now, Sun3x's */
-{ "Sun 3/460 Series", (SM_SUN3 | SM_3_460) },
-{ "Sun 3/80", (SM_SUN3 | SM_3_80) },
+{ "Sun 3/460 Series", (SM_SUN3X | SM_3_460) },
+{ "Sun 3/80", (SM_SUN3X | SM_3_80) },
 /* Then, Sun4's */
 //{ "Sun 4/100 Series", (SM_SUN4 | SM_4_110) },
 //{ "Sun 4/200 Series", (SM_SUN4 | SM_4_260) },
@@ -63,6 +63,11 @@ static void __init display_system_type(unsigned char machtype)
 			if (machtype != (SM_SUN4M_OBP | 0x00))
 				printk("TYPE: %s\n", Sun_Machines[i].name);
 			else {
+#if 0
+				prom_getproperty(prom_root_node, "banner-name",
+						 sysname, sizeof(sysname));
+				printk("TYPE: %s\n", sysname);
+#endif				
 			}
 			return;
 		}

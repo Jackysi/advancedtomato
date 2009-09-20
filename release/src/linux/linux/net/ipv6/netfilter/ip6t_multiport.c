@@ -9,7 +9,11 @@
 #include <linux/netfilter_ipv6/ip6t_multiport.h>
 #include <linux/netfilter_ipv6/ip6_tables.h>
 
+#if 0
+#define duprintf(format, args...) printk(format , ## args)
+#else
 #define duprintf(format, args...)
+#endif
 
 /* Returns 1 if the port is matched by the test, 0 otherwise. */
 static inline int
@@ -70,9 +74,12 @@ checkentry(const char *tablename,
 {
 	const struct ip6t_multiport *multiinfo = matchinfo;
 
+	if (matchsize != IP6T_ALIGN(sizeof(struct ip6t_multiport)))
+		return 0;
+
 	/* Must specify proto == TCP/UDP, no unknown flags or bad count */
 	return (ip->proto == IPPROTO_TCP || ip->proto == IPPROTO_UDP)
-		&& !(ip->flags & IP6T_INV_PROTO)
+		&& !(ip->invflags & IP6T_INV_PROTO)
 		&& matchsize == IP6T_ALIGN(sizeof(struct ip6t_multiport))
 		&& (multiinfo->flags == IP6T_MULTIPORT_SOURCE
 		    || multiinfo->flags == IP6T_MULTIPORT_DESTINATION

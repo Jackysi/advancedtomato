@@ -35,6 +35,8 @@
 #ifndef _AU1000_H_
 #define _AU1000_H_
 
+#ifndef _LANGUAGE_ASSEMBLY
+
 #include <linux/delay.h>
 #include <asm/io.h>
 
@@ -86,6 +88,47 @@ static inline u32 au_readl(unsigned long port)
 	return (*(volatile u32 *)port);
 }
 
+/* These next three functions should be a generic part of the MIPS
+ * kernel (with the 'au_' removed from the name) and selected for
+ * processors that support the instructions.
+ * Taken from PPC tree.  -- Dan
+ */
+/* Return the bit position of the most significant 1 bit in a word */
+static __inline__ int __ilog2(unsigned int x)
+{
+	int lz;
+
+	asm volatile (
+		".set\tnoreorder\n\t"
+		".set\tnoat\n\t"
+		".set\tmips32\n\t"
+		"clz\t%0,%1\n\t"
+		".set\tmips0\n\t"
+		".set\tat\n\t"
+		".set\treorder"
+		: "=r" (lz)
+		: "r" (x));
+
+	return 31 - lz;
+}
+
+static __inline__ int au_ffz(unsigned int x)
+{
+	if ((x = ~x) == 0)
+		return 32;
+	return __ilog2(x & -x);
+}
+
+/*
+ * ffs: find first bit set. This is defined the same way as
+ * the libc and compiler builtin ffs routines, therefore
+ * differs in spirit from the above ffz (man ffs).
+ */
+static __inline__ int au_ffs(int x)
+{
+	return __ilog2(x & -x) + 1;
+}
+
 /* arch/mips/au1000/common/clocks.c */
 extern void set_au1x00_speed(unsigned int new_freq);
 extern unsigned int get_au1x00_speed(void);
@@ -93,6 +136,22 @@ extern void set_au1x00_uart_baud_base(unsigned long new_baud_base);
 extern unsigned long get_au1x00_uart_baud_base(void);
 extern void set_au1x00_lcd_clock(void);
 extern unsigned int get_au1x00_lcd_clock(void);
+
+/*
+ * Every board describes its IRQ mapping with this table.
+ */
+typedef struct au1xxx_irqmap {
+	int	im_irq;
+	int	im_type;
+	int	im_request;
+} au1xxx_irq_map_t;
+
+/*
+ * init_IRQ looks for a table with this name.
+ */
+extern au1xxx_irq_map_t au1xxx_irq_map[];
+
+#endif /* !defined (_LANGUAGE_ASSEMBLY) */
 
 #ifdef CONFIG_PM
 /* no CP0 timer irq */
@@ -102,6 +161,7 @@ extern unsigned int get_au1x00_lcd_clock(void);
 #endif
 
 /* SDRAM Controller */
+#if defined(CONFIG_SOC_AU1000) || defined(CONFIG_SOC_AU1500) || defined(CONFIG_SOC_AU1100)
 #define MEM_SDMODE0                0xB4000000
 #define MEM_SDMODE1                0xB4000004
 #define MEM_SDMODE2                0xB4000008
@@ -120,6 +180,7 @@ extern unsigned int get_au1x00_lcd_clock(void);
 
 #define MEM_SDSLEEP                0xB4000030
 #define MEM_SDSMCKE                0xB4000034
+#endif
 
 /* Static Bus Controller */
 #define MEM_STCFG0                 0xB4001000
@@ -137,6 +198,15 @@ extern unsigned int get_au1x00_lcd_clock(void);
 #define MEM_STCFG3                 0xB4001030
 #define MEM_STTIME3                0xB4001034
 #define MEM_STADDR3                0xB4001038
+
+#if defined(CONFIG_SOC_AU1550) || defined(CONFIG_SOC_AU1200)
+#define MEM_STNDCTL                0xB4001100
+#define MEM_STSTAT                 0xB4001104
+
+#define MEM_STNAND_CMD                  (0x0)
+#define MEM_STNAND_ADDR                 (0x4)
+#define MEM_STNAND_DATA                (0x20)
+#endif
 
 /* Interrupt Controller 0 */
 #define IC0_CFG0RD                 0xB0400040
@@ -224,21 +294,14 @@ extern unsigned int get_au1x00_lcd_clock(void);
 #define INTC_INT_HIGH_AND_LOW_LEVEL    0x7
 
 /* Interrupt Numbers */
+/* Au1000 */
+#ifdef CONFIG_SOC_AU1000
 #define AU1000_UART0_INT          0
 #define AU1000_UART1_INT          1 /* au1000 */
 #define AU1000_UART2_INT          2 /* au1000 */
-
-#define AU1000_PCI_INTA           1 /* au1500 */
-#define AU1000_PCI_INTB           2 /* au1500 */
-
 #define AU1000_UART3_INT          3
-
 #define AU1000_SSI0_INT           4 /* au1000 */
 #define AU1000_SSI1_INT           5 /* au1000 */
-
-#define AU1000_PCI_INTC           4 /* au1500 */
-#define AU1000_PCI_INTD           5 /* au1500 */
-
 #define AU1000_DMA_INT_BASE       6
 #define AU1000_TOY_INT            14
 #define AU1000_TOY_MATCH0_INT     15
@@ -256,11 +319,8 @@ extern unsigned int get_au1x00_lcd_clock(void);
 #define AU1000_ACSYNC_INT         27
 #define AU1000_MAC0_DMA_INT       28
 #define AU1000_MAC1_DMA_INT       29
-#define AU1000_ETH0_IRQ           AU1000_MAC0_DMA_INT
-#define AU1000_ETH1_IRQ           AU1000_MAC1_DMA_INT
 #define AU1000_I2S_UO_INT         30 /* au1000 */
 #define AU1000_AC97C_INT          31
-#define AU1000_LAST_INTC0_INT     AU1000_AC97C_INT
 #define AU1000_GPIO_0             32
 #define AU1000_GPIO_1             33
 #define AU1000_GPIO_2             34
@@ -277,8 +337,6 @@ extern unsigned int get_au1x00_lcd_clock(void);
 #define AU1000_GPIO_13            45
 #define AU1000_GPIO_14            46
 #define AU1000_GPIO_15            47
-
-/* Au1000 only */
 #define AU1000_GPIO_16            48
 #define AU1000_GPIO_17            49
 #define AU1000_GPIO_18            50
@@ -296,7 +354,62 @@ extern unsigned int get_au1x00_lcd_clock(void);
 #define AU1000_GPIO_30            62
 #define AU1000_GPIO_31            63
 
-/* Au1500 only */
+#define UART0_ADDR                0xB1100000
+#define UART1_ADDR                0xB1200000
+#define UART2_ADDR                0xB1300000
+#define UART3_ADDR                0xB1400000
+
+#define USB_OHCI_BASE             0x10100000 // phys addr for ioremap
+#define USB_HOST_CONFIG           0xB017fffc
+
+#define AU1000_ETH0_BASE      0xB0500000
+#define AU1000_ETH1_BASE      0xB0510000
+#define AU1000_MAC0_ENABLE       0xB0520000
+#define AU1000_MAC1_ENABLE       0xB0520004
+#define NUM_ETH_INTERFACES 2
+#endif // CONFIG_SOC_AU1000
+
+/* Au1500 */
+#ifdef CONFIG_SOC_AU1500
+#define AU1500_UART0_INT          0
+#define AU1000_PCI_INTA           1 /* au1500 */
+#define AU1000_PCI_INTB           2 /* au1500 */
+#define AU1500_UART3_INT          3
+#define AU1000_PCI_INTC           4 /* au1500 */
+#define AU1000_PCI_INTD           5 /* au1500 */
+#define AU1000_DMA_INT_BASE       6
+#define AU1000_TOY_INT            14
+#define AU1000_TOY_MATCH0_INT     15
+#define AU1000_TOY_MATCH1_INT     16
+#define AU1000_TOY_MATCH2_INT     17
+#define AU1000_RTC_INT            18
+#define AU1000_RTC_MATCH0_INT     19
+#define AU1000_RTC_MATCH1_INT     20
+#define AU1000_RTC_MATCH2_INT     21
+#define AU1500_PCI_ERR_INT        22
+#define AU1000_USB_DEV_REQ_INT    24
+#define AU1000_USB_DEV_SUS_INT    25
+#define AU1000_USB_HOST_INT       26
+#define AU1000_ACSYNC_INT         27
+#define AU1500_MAC0_DMA_INT       28
+#define AU1500_MAC1_DMA_INT       29
+#define AU1000_AC97C_INT          31
+#define AU1000_GPIO_0             32
+#define AU1000_GPIO_1             33
+#define AU1000_GPIO_2             34
+#define AU1000_GPIO_3             35
+#define AU1000_GPIO_4             36
+#define AU1000_GPIO_5             37
+#define AU1000_GPIO_6             38
+#define AU1000_GPIO_7             39
+#define AU1000_GPIO_8             40
+#define AU1000_GPIO_9             41
+#define AU1000_GPIO_10            42
+#define AU1000_GPIO_11            43
+#define AU1000_GPIO_12            44
+#define AU1000_GPIO_13            45
+#define AU1000_GPIO_14            46
+#define AU1000_GPIO_15            47
 #define AU1500_GPIO_200           48
 #define AU1500_GPIO_201           49
 #define AU1500_GPIO_202           50
@@ -314,12 +427,235 @@ extern unsigned int get_au1x00_lcd_clock(void);
 #define AU1500_GPIO_207           62
 #define AU1500_GPIO_208_215       63
 
-#define AU1000_MAX_INTR           63
+#define UART0_ADDR                0xB1100000
+#define UART3_ADDR                0xB1400000
 
-#define AU1100_SD		2
+#define USB_OHCI_BASE             0x10100000 // phys addr for ioremap
+#define USB_HOST_CONFIG           0xB017fffc
+
+#define AU1500_ETH0_BASE	  0xB1500000
+#define AU1500_ETH1_BASE	  0xB1510000
+#define AU1500_MAC0_ENABLE       0xB1520000
+#define AU1500_MAC1_ENABLE       0xB1520004
+#define NUM_ETH_INTERFACES 2
+#endif // CONFIG_SOC_AU1500
+
+/* Au1100 */
+#ifdef CONFIG_SOC_AU1100
+#define AU1100_UART0_INT          0
+#define AU1100_UART1_INT          1
+#define AU1100_SD_INT             2
+#define AU1100_UART3_INT          3
+#define AU1000_SSI0_INT           4
+#define AU1000_SSI1_INT           5
+#define AU1000_DMA_INT_BASE       6
+#define AU1000_TOY_INT            14
+#define AU1000_TOY_MATCH0_INT     15
+#define AU1000_TOY_MATCH1_INT     16
+#define AU1000_TOY_MATCH2_INT     17
+#define AU1000_RTC_INT            18
+#define AU1000_RTC_MATCH0_INT     19
+#define AU1000_RTC_MATCH1_INT     20
+#define AU1000_RTC_MATCH2_INT     21
+#define AU1000_IRDA_TX_INT        22
+#define AU1000_IRDA_RX_INT        23
+#define AU1000_USB_DEV_REQ_INT    24
+#define AU1000_USB_DEV_SUS_INT    25
+#define AU1000_USB_HOST_INT       26
+#define AU1000_ACSYNC_INT         27
+#define AU1100_MAC0_DMA_INT       28
 #define	AU1100_GPIO_208_215	29
-// REDEFINE SECONDARY GPIO BLOCK INTO IC1 CONTROLLER HERE
+#define	AU1100_LCD_INT            30
+#define AU1000_AC97C_INT          31
+#define AU1000_GPIO_0             32
+#define AU1000_GPIO_1             33
+#define AU1000_GPIO_2             34
+#define AU1000_GPIO_3             35
+#define AU1000_GPIO_4             36
+#define AU1000_GPIO_5             37
+#define AU1000_GPIO_6             38
+#define AU1000_GPIO_7             39
+#define AU1000_GPIO_8             40
+#define AU1000_GPIO_9             41
+#define AU1000_GPIO_10            42
+#define AU1000_GPIO_11            43
+#define AU1000_GPIO_12            44
+#define AU1000_GPIO_13            45
+#define AU1000_GPIO_14            46
+#define AU1000_GPIO_15            47
 
+#define UART0_ADDR                0xB1100000
+#define UART1_ADDR                0xB1200000
+#define UART3_ADDR                0xB1400000
+
+#define USB_OHCI_BASE             0x10100000 // phys addr for ioremap
+#define USB_HOST_CONFIG           0xB017fffc
+
+#define AU1100_ETH0_BASE	  0xB0500000
+#define AU1100_MAC0_ENABLE       0xB0520000
+#define NUM_ETH_INTERFACES 1
+#endif // CONFIG_SOC_AU1100
+
+#ifdef CONFIG_SOC_AU1550
+#define AU1550_UART0_INT          0
+#define AU1550_PCI_INTA           1
+#define AU1550_PCI_INTB           2
+#define AU1550_DDMA_INT           3
+#define AU1550_CRYPTO_INT         4
+#define AU1550_PCI_INTC           5
+#define AU1550_PCI_INTD           6
+#define AU1550_PCI_RST_INT        7
+#define AU1550_UART1_INT          8
+#define AU1550_UART3_INT          9
+#define AU1550_PSC0_INT           10
+#define AU1550_PSC1_INT           11
+#define AU1550_PSC2_INT           12
+#define AU1550_PSC3_INT           13
+#define AU1550_TOY_INT			  14
+#define AU1550_TOY_MATCH0_INT     15
+#define AU1550_TOY_MATCH1_INT     16
+#define AU1550_TOY_MATCH2_INT     17
+#define AU1550_RTC_INT            18
+#define AU1550_RTC_MATCH0_INT     19
+#define AU1550_RTC_MATCH1_INT     20
+#define AU1550_RTC_MATCH2_INT     21
+#define AU1550_NAND_INT           23
+#define AU1550_USB_DEV_REQ_INT    24
+#define AU1550_USB_DEV_SUS_INT    25
+#define AU1550_USB_HOST_INT       26
+#define AU1000_USB_DEV_REQ_INT    AU1550_USB_DEV_REQ_INT
+#define AU1000_USB_DEV_SUS_INT    AU1550_USB_DEV_SUS_INT
+#define AU1000_USB_HOST_INT       AU1550_USB_HOST_INT
+#define AU1550_MAC0_DMA_INT       27
+#define AU1550_MAC1_DMA_INT       28
+#define AU1000_GPIO_0             32
+#define AU1000_GPIO_1             33
+#define AU1000_GPIO_2             34
+#define AU1000_GPIO_3             35
+#define AU1000_GPIO_4             36
+#define AU1000_GPIO_5             37
+#define AU1000_GPIO_6             38
+#define AU1000_GPIO_7             39
+#define AU1000_GPIO_8             40
+#define AU1000_GPIO_9             41
+#define AU1000_GPIO_10            42
+#define AU1000_GPIO_11            43
+#define AU1000_GPIO_12            44
+#define AU1000_GPIO_13            45
+#define AU1000_GPIO_14            46
+#define AU1000_GPIO_15            47
+#define AU1550_GPIO_200           48
+#define AU1500_GPIO_201_205       49	// Logical or of GPIO201:205
+#define AU1500_GPIO_16            50
+#define AU1500_GPIO_17            51
+#define AU1500_GPIO_20            52
+#define AU1500_GPIO_21            53
+#define AU1500_GPIO_22            54
+#define AU1500_GPIO_23            55
+#define AU1500_GPIO_24            56
+#define AU1500_GPIO_25            57
+#define AU1500_GPIO_26            58
+#define AU1500_GPIO_27            59
+#define AU1500_GPIO_28            60
+#define AU1500_GPIO_206           61
+#define AU1500_GPIO_207           62
+#define AU1500_GPIO_208_218       63	// Logical or of GPIO208:218
+
+#define UART0_ADDR                0xB1100000
+#define UART1_ADDR                0xB1200000
+#define UART3_ADDR                0xB1400000
+
+#define USB_OHCI_BASE             0x14020000 // phys addr for ioremap
+#define USB_HOST_CONFIG           0xB4027ffc
+
+#define AU1550_ETH0_BASE      0xB0500000
+#define AU1550_ETH1_BASE      0xB0510000
+#define AU1550_MAC0_ENABLE       0xB0520000
+#define AU1550_MAC1_ENABLE       0xB0520004
+#define NUM_ETH_INTERFACES 2
+#endif // CONFIG_SOC_AU1550
+
+#ifdef CONFIG_SOC_AU1200
+#define AU1200_UART0_INT          0
+#define AU1200_SWT_INT            1
+#define AU1200_SD_INT             2
+#define AU1200_DDMA_INT           3
+#define AU1200_MAE_BE_INT         4
+#define AU1200_GPIO_200           5
+#define AU1200_GPIO_201           6
+#define AU1200_GPIO_202           7
+#define AU1200_UART1_INT          8
+#define AU1200_MAE_FE_INT         9
+#define AU1200_PSC0_INT           10
+#define AU1200_PSC1_INT           11
+#define AU1200_AES_INT            12
+#define AU1200_CAMERA_INT         13
+#define AU1200_TOY_INT			  14
+#define AU1200_TOY_MATCH0_INT     15
+#define AU1200_TOY_MATCH1_INT     16
+#define AU1200_TOY_MATCH2_INT     17
+#define AU1200_RTC_INT            18
+#define AU1200_RTC_MATCH0_INT     19
+#define AU1200_RTC_MATCH1_INT     20
+#define AU1200_RTC_MATCH2_INT     21
+#define AU1200_NAND_INT           23
+#define AU1200_GPIO_204           24
+#define AU1200_GPIO_205           25
+#define AU1200_GPIO_206           26
+#define AU1200_GPIO_207           27
+#define AU1200_GPIO_208_215       28 // Logical OR of 208:215
+#define AU1200_USB_INT            29
+#define AU1200_LCD_INT            30
+#define AU1200_MAE_BOTH_INT       31
+#define AU1000_GPIO_0             32
+#define AU1000_GPIO_1             33
+#define AU1000_GPIO_2             34
+#define AU1000_GPIO_3             35
+#define AU1000_GPIO_4             36
+#define AU1000_GPIO_5             37
+#define AU1000_GPIO_6             38
+#define AU1000_GPIO_7             39
+#define AU1000_GPIO_8             40
+#define AU1000_GPIO_9             41
+#define AU1000_GPIO_10            42
+#define AU1000_GPIO_11            43
+#define AU1000_GPIO_12            44
+#define AU1000_GPIO_13            45
+#define AU1000_GPIO_14            46
+#define AU1000_GPIO_15            47
+#define AU1000_GPIO_16            48
+#define AU1000_GPIO_17            49
+#define AU1000_GPIO_18            50
+#define AU1000_GPIO_19            51
+#define AU1000_GPIO_20            52
+#define AU1000_GPIO_21            53
+#define AU1000_GPIO_22            54
+#define AU1000_GPIO_23            55
+#define AU1000_GPIO_24            56
+#define AU1000_GPIO_25            57
+#define AU1000_GPIO_26            58
+#define AU1000_GPIO_27            59
+#define AU1000_GPIO_28            60
+#define AU1000_GPIO_29            61
+#define AU1000_GPIO_30            62
+#define AU1000_GPIO_31            63
+
+#define UART0_ADDR                0xB1100000
+#define UART1_ADDR                0xB1200000
+
+#define USB_OHCI_BASE             0x14020000 // phys addr for ioremap
+#define USB_HOST_CONFIG           0xB4027ffc
+
+// these are here for prototyping on au1550 (do not exist on au1200)
+#define AU1200_ETH0_BASE      0xB0500000
+#define AU1200_ETH1_BASE      0xB0510000
+#define AU1200_MAC0_ENABLE       0xB0520000
+#define AU1200_MAC1_ENABLE       0xB0520004
+#define NUM_ETH_INTERFACES 2
+#endif // CONFIG_SOC_AU1200
+
+#define AU1000_LAST_INTC0_INT     31
+#define AU1000_MAX_INTR           63
 
 
 /* Programmable Counters 0 and 1 */
@@ -393,10 +729,7 @@ extern unsigned int get_au1x00_lcd_clock(void);
   #define I2S_CONTROL_CE        (1<<0)
 
 /* USB Host Controller */
-// We pass USB_OHCI_BASE to ioremap, so it needs to be a physical address
-#define USB_OHCI_BASE             0x10100000
 #define USB_OHCI_LEN              0x00100000
-#define USB_HOST_CONFIG           0xB017fffc
 
 /* USB Device Controller */
 #define USBD_EP0RD                0xB0200000
@@ -441,11 +774,6 @@ extern unsigned int get_au1x00_lcd_clock(void);
   #define USBDEV_CE     (1<<0)
 
 /* Ethernet Controllers  */
-#define AU1000_ETH0_BASE          0xB0500000
-#define AU1000_ETH1_BASE          0xB0510000
-#define AU1500_ETH0_BASE	  0xB1500000
-#define AU1500_ETH1_BASE	  0xB1510000
-#define AU1100_ETH0_BASE	  0xB0500000
 
 /* 4 byte offsets from AU1000_ETH_BASE */
 #define MAC_CONTROL                     0x0
@@ -490,11 +818,6 @@ extern unsigned int get_au1x00_lcd_clock(void);
 #define MAC_VLAN2_TAG                  0x24
 
 /* Ethernet Controller Enable */
-#define AU1000_MAC0_ENABLE       0xB0520000
-#define AU1000_MAC1_ENABLE       0xB0520004
-#define AU1500_MAC0_ENABLE       0xB1520000
-#define AU1500_MAC1_ENABLE       0xB1520004
-#define AU1100_MAC0_ENABLE       0xB0520000
 
   #define MAC_EN_CLOCK_ENABLE         (1<<0)
   #define MAC_EN_RESET0               (1<<1)
@@ -578,11 +901,8 @@ extern unsigned int get_au1x00_lcd_clock(void);
 
 
 /* UARTS 0-3 */
-#define UART_BASE                 0xB1100000
-#define UART0_ADDR                0xB1100000
-#define UART1_ADDR                0xB1200000
-#define UART2_ADDR                0xB1300000
-#define UART3_ADDR                0xB1400000
+#define UART_BASE                 UART0_ADDR
+#define UART_DEBUG_BASE           UART3_ADDR
 
 #define UART_RX		0	/* Receive buffer */
 #define UART_TX		4	/* Transmit buffer */
@@ -828,6 +1148,29 @@ extern unsigned int get_au1x00_lcd_clock(void);
   #define SYS_PF_RD			(1<<2)	/* IRTXD/GPIO19 */
   #define SYS_PF_A97			(1<<1)	/* AC97/SSL1 */
   #define SYS_PF_S0			(1<<0)	/* SSI_0/GPIO[16:18] */
+
+/* Au1100 Only */
+  #define SYS_PF_PC			(1<<18)	/* PCMCIA/GPIO[207:204] */
+  #define SYS_PF_LCD			(1<<17)	/* extern lcd/GPIO[203:200] */
+  #define SYS_PF_CS			(1<<16)	/* EXTCLK0/32khz to gpio2 */
+  #define SYS_PF_EX0			(1<<9)	/* gpio2/clock */
+
+/* Au1550 Only.  Redefines lots of pins */
+  #define SYS_PF_PSC2_MASK		(7 << 17)
+  #define SYS_PF_PSC2_AC97		(0)
+  #define SYS_PF_PSC2_SPI		(0)
+  #define SYS_PF_PSC2_I2S		(1 << 17)
+  #define SYS_PF_PSC2_SMBUS		(3 << 17)
+  #define SYS_PF_PSC2_GPIO		(7 << 17)
+  #define SYS_PF_PSC3_MASK		(7 << 20)
+  #define SYS_PF_PSC3_AC97		(0)
+  #define SYS_PF_PSC3_SPI		(0)
+  #define SYS_PF_PSC3_I2S		(1 << 20)
+  #define SYS_PF_PSC3_SMBUS		(3 << 20)
+  #define SYS_PF_PSC3_GPIO		(7 << 20)
+  #define SYS_PF_PSC1_S1		(1 << 1)
+  #define SYS_PF_MUST_BE_SET		((1 << 5) | (1 << 2))
+
 #define SYS_TRIOUTRD              0xB1900100
 #define SYS_TRIOUTCLR             0xB1900100
 #define SYS_OUTPUTRD              0xB1900108
@@ -836,13 +1179,13 @@ extern unsigned int get_au1x00_lcd_clock(void);
 #define SYS_PINSTATERD            0xB1900110
 #define SYS_PININPUTEN            0xB1900110
 
-/* GPIO2, Au1500 only */
+/* GPIO2, Au1500, Au1550 only */
 #define GPIO2_BASE                0xB1700000
 #define GPIO2_DIR                 (GPIO2_BASE + 0)
-#define GPIO2_DATA_EN             (GPIO2_BASE + 8)
-#define GPIO2_PIN_STATE           (GPIO2_BASE + 0xC)
-#define GPIO2_INT_MASK            (GPIO2_BASE + 0x10)
-#define GPIO2_CONTROL             (GPIO2_BASE + 0x14)
+#define GPIO2_OUTPUT              (GPIO2_BASE + 8)
+#define GPIO2_PINSTATE            (GPIO2_BASE + 0xC)
+#define GPIO2_INTENABLE           (GPIO2_BASE + 0x10)
+#define GPIO2_ENABLE              (GPIO2_BASE + 0x14)
 
 /* Power Management */
 #define SYS_SCRATCH0              0xB1900018
@@ -857,53 +1200,53 @@ extern unsigned int get_au1x00_lcd_clock(void);
 /* Clock Controller */
 #define SYS_FREQCTRL0             0xB1900020
   #define SYS_FC_FRDIV2_BIT         22
-  #define SYS_FC_FRDIV2_MASK        (0xff << FQC2_FRDIV2_BIT)
+  #define SYS_FC_FRDIV2_MASK        (0xff << SYS_FC_FRDIV2_BIT)
   #define SYS_FC_FE2                (1<<21)
   #define SYS_FC_FS2                (1<<20)
   #define SYS_FC_FRDIV1_BIT         12
-  #define SYS_FC_FRDIV1_MASK        (0xff << FQC2_FRDIV1_BIT)
+  #define SYS_FC_FRDIV1_MASK        (0xff << SYS_FC_FRDIV1_BIT)
   #define SYS_FC_FE1                (1<<11)
   #define SYS_FC_FS1                (1<<10)
   #define SYS_FC_FRDIV0_BIT         2
-  #define SYS_FC_FRDIV0_MASK        (0xff << FQC2_FRDIV0_BIT)
+  #define SYS_FC_FRDIV0_MASK        (0xff << SYS_FC_FRDIV0_BIT)
   #define SYS_FC_FE0                (1<<1)
   #define SYS_FC_FS0                (1<<0)
 #define SYS_FREQCTRL1             0xB1900024
   #define SYS_FC_FRDIV5_BIT         22
-  #define SYS_FC_FRDIV5_MASK        (0xff << FQC2_FRDIV5_BIT)
+  #define SYS_FC_FRDIV5_MASK        (0xff << SYS_FC_FRDIV5_BIT)
   #define SYS_FC_FE5                (1<<21)
   #define SYS_FC_FS5                (1<<20)
   #define SYS_FC_FRDIV4_BIT         12
-  #define SYS_FC_FRDIV4_MASK        (0xff << FQC2_FRDIV4_BIT)
+  #define SYS_FC_FRDIV4_MASK        (0xff << SYS_FC_FRDIV4_BIT)
   #define SYS_FC_FE4                (1<<11)
   #define SYS_FC_FS4                (1<<10)
   #define SYS_FC_FRDIV3_BIT         2
-  #define SYS_FC_FRDIV3_MASK        (0xff << FQC2_FRDIV3_BIT)
+  #define SYS_FC_FRDIV3_MASK        (0xff << SYS_FC_FRDIV3_BIT)
   #define SYS_FC_FE3                (1<<1)
   #define SYS_FC_FS3                (1<<0)
 #define SYS_CLKSRC                0xB1900028
   #define SYS_CS_ME1_BIT            27
-  #define SYS_CS_ME1_MASK           (0x7<<CSC_ME1_BIT)
+  #define SYS_CS_ME1_MASK           (0x7<<SYS_CS_ME1_BIT)
   #define SYS_CS_DE1                (1<<26)
   #define SYS_CS_CE1                (1<<25)
   #define SYS_CS_ME0_BIT            22
-  #define SYS_CS_ME0_MASK           (0x7<<CSC_ME0_BIT)
+  #define SYS_CS_ME0_MASK           (0x7<<SYS_CS_ME0_BIT)
   #define SYS_CS_DE0                (1<<21)
   #define SYS_CS_CE0                (1<<20)
   #define SYS_CS_MI2_BIT            17
-  #define SYS_CS_MI2_MASK           (0x7<<CSC_MI2_BIT)
+  #define SYS_CS_MI2_MASK           (0x7<<SYS_CS_MI2_BIT)
   #define SYS_CS_DI2                (1<<16)
   #define SYS_CS_CI2                (1<<15)
   #define SYS_CS_MUH_BIT            12
-  #define SYS_CS_MUH_MASK           (0x7<<CSC_MUH_BIT)
+  #define SYS_CS_MUH_MASK           (0x7<<SYS_CS_MUH_BIT)
   #define SYS_CS_DUH                (1<<11)
   #define SYS_CS_CUH                (1<<10)
   #define SYS_CS_MUD_BIT            7
-  #define SYS_CS_MUD_MASK           (0x7<<CSC_MUD_BIT)
+  #define SYS_CS_MUD_MASK           (0x7<<SYS_CS_MUD_BIT)
   #define SYS_CS_DUD                (1<<6)
   #define SYS_CS_CUD                (1<<5)
   #define SYS_CS_MIR_BIT            2
-  #define SYS_CS_MIR_MASK           (0x7<<CSC_MIR_BIT)
+  #define SYS_CS_MIR_MASK           (0x7<<SYS_CS_MIR_BIT)
   #define SYS_CS_DIR                (1<<1)
   #define SYS_CS_CIR                (1<<0)
 
@@ -948,6 +1291,15 @@ extern unsigned int get_au1x00_lcd_clock(void);
   #define AC97C_RS              (1<<1)
   #define AC97C_CE              (1<<0)
 
+ 
+/* Secure Digital (SD) Controller */
+#define SD0_XMIT_FIFO	0xB0600000
+#define SD0_RECV_FIFO	0xB0600004
+#define SD1_XMIT_FIFO	0xB0680000
+#define SD1_RECV_FIFO	0xB0680004
+
+
+#if defined (CONFIG_SOC_AU1500) || defined(CONFIG_SOC_AU1550)
 /* Au1500 PCI Controller */
 #define Au1500_CFG_BASE           0xB4005000 // virtual, kseg0 addr
 #define Au1500_PCI_CMEM           (Au1500_CFG_BASE + 0)
@@ -981,6 +1333,74 @@ extern unsigned int get_au1x00_lcd_clock(void);
 #define Au1500_PCI_IO_START       0x500000000
 #define Au1500_PCI_IO_END         0x5000FFFFF
 #define Au1500_PCI_MEM_START      0x440000000
-#define Au1500_PCI_MEM_END        0x443FFFFFF
+#define Au1500_PCI_MEM_END        0x44FFFFFFF
 
+#define PCI_IO_START    (Au1500_PCI_IO_START + 0x300)
+#define PCI_IO_END      (Au1500_PCI_IO_END)
+#define PCI_MEM_START   (Au1500_PCI_MEM_START)
+#define PCI_MEM_END     (Au1500_PCI_MEM_END)
+#define PCI_FIRST_DEVFN (0<<3)
+#define PCI_LAST_DEVFN  (19<<3)
+
+#define IOPORT_RESOURCE_START 0x00000000
+#define IOPORT_RESOURCE_END   0xffffffff
+#define IOMEM_RESOURCE_START  0x10000000
+#define IOMEM_RESOURCE_END    0xffffffff
+
+  /*
+   * Borrowed from the PPC arch:
+   * The following macro is used to lookup irqs in a standard table
+   * format for those PPC systems that do not already have PCI
+   * interrupts properly routed.
+   */
+  /* FIXME - double check this from asm-ppc/pci-bridge.h */
+#define PCI_IRQ_TABLE_LOOKUP                            \
+  ({ long _ctl_ = -1;                                 \
+      if (idsel >= min_idsel && idsel <= max_idsel && pin <= irqs_per_slot)    \
+	       _ctl_ = pci_irq_table[idsel - min_idsel][pin-1];               \
+		      _ctl_; })
+
+
+#else /* Au1000 and Au1100 */
+
+/* don't allow any legacy ports probing */
+#define IOPORT_RESOURCE_START 0x10000000;
+#define IOPORT_RESOURCE_END   0xffffffff
+#define IOMEM_RESOURCE_START  0x10000000
+#define IOMEM_RESOURCE_END    0xffffffff
+
+#ifdef CONFIG_MIPS_PB1000
+#define PCI_IO_START      0x10000000
+#define PCI_IO_END        0x1000ffff
+#define PCI_MEM_START     0x18000000
+#define PCI_MEM_END       0x18ffffff
+#define PCI_FIRST_DEVFN   0
+#define PCI_LAST_DEVFN    1
+#else
+/* no PCI bus controller */
+#define PCI_IO_START    0
+#define PCI_IO_END      0
+#define PCI_MEM_START   0
+#define PCI_MEM_END     0 
+#define PCI_FIRST_DEVFN 0
+#define PCI_LAST_DEVFN  0
+#endif
+
+#endif
+
+/* Processor information base on prid.
+ * Copied from PowerPC.
+ */
+struct cpu_spec {
+	/* CPU is matched via (PRID & prid_mask) == prid_value */
+	unsigned int	prid_mask;
+	unsigned int	prid_value;
+
+	char		*cpu_name;
+	unsigned char	cpu_od;		/* Set Config[OD] */
+	unsigned char	cpu_bclk;	/* Enable BCLK switching */
+};
+
+extern struct cpu_spec		cpu_specs[];
+extern struct cpu_spec		*cur_cpu_spec[];
 #endif

@@ -111,9 +111,10 @@ static unsigned long __init cal_r4koff(void)
 
 void __init mips_time_init(void)
 {
-        unsigned int est_freq, flags;
+        unsigned long flags;
+        unsigned int est_freq;
 
-	__save_and_cli(flags);
+	local_irq_save(flags);
 
         /* Start r4k counter. */
         write_c0_count(0);
@@ -133,7 +134,7 @@ void __init mips_time_init(void)
 	printk("CPU frequency %d.%02d MHz\n", est_freq/1000000,
 	       (est_freq%1000000)*100/1000000);
 
-	__restore_flags(flags);
+	local_irq_restore(flags);
 }
 
 void __init mips_timer_setup(struct irqaction *irq)

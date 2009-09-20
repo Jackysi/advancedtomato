@@ -212,6 +212,19 @@ static inline long strnlen_user(const char *s, long n)
 /*
  * These are the work horses of the get/put_user functions
  */
+#if 0
+#define __get_user_check(x,ptr,size)					\
+({									\
+	long __gu_err = -EFAULT, __gu_val = 0;				\
+	const __typeof__(*(ptr)) *__gu_addr = (ptr);			\
+	if (access_ok(VERIFY_READ,__gu_addr,size)) {			\
+		__gu_err = 0;						\
+		__get_user_size(__gu_val,__gu_addr,(size),__gu_err);	\
+	}								\
+	(x) = (__typeof__(*(ptr)))__gu_val;				\
+	__gu_err;							\
+})
+#endif
 
 #define __get_user_nocheck(x,ptr,size)					\
 ({									\

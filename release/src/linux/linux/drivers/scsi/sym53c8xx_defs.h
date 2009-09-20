@@ -343,7 +343,11 @@
 #define SCSI_NCR_SG_TABLESIZE	(SCSI_NCR_MAX_SCATTER)
 #define SCSI_NCR_TIMER_INTERVAL	(HZ)
 
+#if 1 /* defined CONFIG_SCSI_MULTI_LUN */
 #define SCSI_NCR_MAX_LUN	(16)
+#else
+#define SCSI_NCR_MAX_LUN	(1)
+#endif
 
 #ifndef HOSTS_C
 
@@ -407,7 +411,7 @@
 #define	outw_raw	outw
 #define	outl_raw	outl
 
-#if defined(__i386__)	    /* i386 implements full FLAT memory/MMIO model */
+#if defined(__i386__)	/* i386 implements full FLAT memory/MMIO model */
 #define readb_raw(a)	(*(volatile unsigned char *) (a))
 #define readw_raw(a)	(*(volatile unsigned short *) (a))
 #define readl_raw(a)	(*(volatile unsigned int *) (a))

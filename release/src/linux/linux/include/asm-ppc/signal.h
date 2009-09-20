@@ -1,6 +1,3 @@
-/*
- * BK Id: SCCS/s.signal.h 1.5 05/17/01 18:14:25 cort
- */
 #ifndef _ASMPPC_SIGNAL_H
 #define _ASMPPC_SIGNAL_H
 
@@ -94,7 +91,7 @@ typedef struct {
 
 #define SA_RESTORER	0x04000000
 
-/* 
+/*
  * sigaltstack controls
  */
 #define SS_ONSTACK	1
@@ -114,7 +111,7 @@ typedef struct {
 #define SA_PROBE		SA_ONESHOT
 #define SA_SAMPLE_RANDOM	SA_RESTART
 #define SA_SHIRQ		0x04000000
-#endif
+#endif /* __KERNEL__ */
 
 #define SIG_BLOCK          0	/* for blocking signals */
 #define SIG_UNBLOCK        1	/* for unblocking signals */
@@ -153,7 +150,6 @@ typedef struct sigaltstack {
 
 #ifdef __KERNEL__
 #include <asm/sigcontext.h>
-
-#endif
+#endif /* __KERNEL__ */
 
 #endif

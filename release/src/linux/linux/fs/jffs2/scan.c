@@ -31,7 +31,7 @@
  * provisions above, a recipient may use your version of this file
  * under either the RHEPL or the GPL.
  *
- * $Id: scan.c,v 1.1.1.4 2003/10/14 08:09:00 sparq Exp $
+ * $Id: scan.c,v 1.51.2.4 2003/11/02 13:51:18 dwmw2 Exp $
  *
  */
 #include <linux/kernel.h>
@@ -40,7 +40,7 @@
 #include <linux/mtd/mtd.h>
 #include <linux/pagemap.h>
 #include "nodelist.h"
-#include "crc32.h"
+#include <linux/crc32.h>
 
 
 #define DIRTY_SPACE(x) do { typeof(x) _x = (x); \
@@ -455,6 +455,7 @@ static int jffs2_scan_inode_node(struct jffs2_sb_info *c, struct jffs2_erasebloc
 	if(crc != ri.node_crc) {
 		printk(KERN_NOTICE "jffs2_scan_inode_node(): CRC failed on node at 0x%08x: Read 0x%08x, calculated 0x%08x\n",
 		       *ofs, ri.node_crc, crc);
+		/* FIXME: Why do we believe totlen? */
 		DIRTY_SPACE(4);
 		*ofs += 4;
 		return 0;
@@ -630,6 +631,7 @@ static int jffs2_scan_dirent_node(struct jffs2_sb_info *c, struct jffs2_eraseblo
 	if (crc != rd.node_crc) {
 		printk(KERN_NOTICE "jffs2_scan_dirent_node(): Node CRC failed on node at 0x%08x: Read 0x%08x, calculated 0x%08x\n",
 		       *ofs, rd.node_crc, crc);
+		/* FIXME: Why do we believe totlen? */
 		DIRTY_SPACE(4);
 		*ofs += 4;
 		return 0;
@@ -661,6 +663,7 @@ static int jffs2_scan_dirent_node(struct jffs2_sb_info *c, struct jffs2_eraseblo
 		fd->name[rd.nsize]=0;
 		D1(printk(KERN_NOTICE "Name for which CRC failed is (now) '%s', ino #%d\n", fd->name, rd.ino));
 		jffs2_free_full_dirent(fd);
+		/* FIXME: Why do we believe totlen? */
 		DIRTY_SPACE(PAD(rd.totlen));
 		*ofs += PAD(rd.totlen);
 		return 0;

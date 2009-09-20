@@ -1,7 +1,4 @@
 /*
- * BK Id: SCCS/s.main.c 1.16 01/12/02 10:36:33 trini
- */
-/*
  * Copyright (C) Paul Mackerras 1997.
  *
  * This program is free software; you can redistribute it and/or
@@ -10,6 +7,7 @@
  * 2 of the License, or (at your option) any later version.
  */
 #include "nonstdio.h"
+#include "of1275.h"
 #include <asm/processor.h>
 #include <asm/page.h>
 
@@ -18,15 +16,11 @@ extern char __image_begin, __image_end;
 extern char __ramdisk_begin[], __ramdisk_end;
 extern char _start, _end;
 
-extern int getprop(void *, const char *, void *, int);
 extern unsigned int heap_max;
-extern void claim(unsigned int virt, unsigned int size, unsigned int align);
-extern void *finddevice(const char *);
 extern void flush_cache(void *, unsigned long);
 extern void gunzip(void *, int, unsigned char *, int *);
 extern void make_bi_recs(unsigned long addr, char *name, unsigned int mach,
 		unsigned int progend);
-extern void pause(void);
 
 char *avail_ram;
 char *begin_avail, *end_avail;
@@ -46,6 +40,8 @@ char *avail_high;
 
 static char scratch[SCRATCH_SIZE];	/* 1MB of scratch space for gunzip */
 
+typedef void (*kernel_start_t)(int, int, void *, unsigned int, unsigned int);
+
 void
 chrpboot(int a1, int a2, void *prom)
 {
@@ -53,7 +49,7 @@ chrpboot(int a1, int a2, void *prom)
     void *dst;
     unsigned char *im;
     unsigned int initrd_size, initrd_start;
-    
+
     printf("chrpboot starting: loaded at 0x%p\n\r", &_start);
 
     initrd_size = (char *)(&__ramdisk_end) - (char *)(&__ramdisk_begin);
@@ -92,11 +88,11 @@ chrpboot(int a1, int a2, void *prom)
     flush_cache(dst, len);
     make_bi_recs(((unsigned long) dst + len), "chrpboot", _MACH_chrp,
 		    (PROG_START + PROG_SIZE));
-    
+
     sa = (unsigned long)PROG_START;
     printf("start address = 0x%x\n\r", sa);
 
-    (*(void (*)())sa)(a1, a2, prom, initrd_start, initrd_size);
+    (*(kernel_start_t)sa)(a1, a2, prom, initrd_start, initrd_size);
 
     printf("returned?\n\r");
 

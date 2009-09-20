@@ -215,15 +215,6 @@ static atomic_t channel_count = ATOMIC_INIT(0);
 /* Get the PPP protocol number from a skb */
 #define PPP_PROTO(skb)	(((skb)->data[0] << 8) + (skb)->data[1])
 
-/* Add by honor 2003-04-16 */
-#define IP_PROTO(skb)   (skb)->data[11]
-#define SRC_PORT(skb)   (((skb)->data[22] << 8) + (skb)->data[23])
-#define DST_PORT(skb)   (((skb)->data[24] << 8) + (skb)->data[25])
-#define	MARK_LAN2WAN	0x100
-//#define myprintk(fmt, args...)  printk(fmt, ## args)
-#define myprintk(fmt, args...)
-
-
 /* We limit the length of ppp->file.rq to this (arbitrary) value */
 #define PPP_MAX_RQLEN	32
 
@@ -301,7 +292,7 @@ static const int npindex_to_proto[NUM_NP] = {
 	PPP_IPX,
 	PPP_AT,
 };
-
+	
 /* Translates an ethertype into an NP index */
 static inline int ethertype_to_npindex(int ethertype)
 {
@@ -675,8 +666,10 @@ static int ppp_ioctl(struct inode *inode, struct file *file,
 			if (code == 0)
 				break;
 			err = -EFAULT;
-			if (copy_from_user(code, uprog.filter, len))
+			if (copy_from_user(code, uprog.filter, len)) {
+				kfree(code);
 				break;
+			}
 			err = sk_chk_filter(code, uprog.len);
 			if (err) {
 				kfree(code);
@@ -974,11 +967,10 @@ ppp_send_frame(struct ppp *ppp, struct sk_buff *skb)
 		if (ppp->pass_filter.filter
 		    && sk_run_filter(skb, ppp->pass_filter.filter,
 				     ppp->pass_filter.len) == 0) {
-			if (ppp->debug & 1) {
+			if (ppp->debug & 1)
 				printk(KERN_DEBUG "PPP: outbound frame not passed\n");
-				kfree_skb(skb);
-				return;
-			}
+			kfree_skb(skb);
+			return;
 		}
 		/* if this packet passes the active filter, record the time */
 		if (!(ppp->active_filter.filter
@@ -987,56 +979,8 @@ ppp_send_frame(struct ppp *ppp, struct sk_buff *skb)
 			ppp->last_xmit = jiffies;
 		skb_pull(skb, 2);
 #else
-
-#if 1	// zzz
-		switch (IP_PROTO(skb)) {
-		case 6:	// TCP
-			switch (DST_PORT(skb)) {
-			case 139:	// netbios-ssn
-			case 445:	// microsoft-ds
-				break;
-			default:
-				ppp->last_xmit = jiffies;
-				break;
-			}
-			break;
-		case 17:	// UDP
-			switch (DST_PORT(skb)) {
-			case 137:	// netbios-ns
-			case 138:	// netbios-dgm
-				break;
-			default:
-				ppp->last_xmit = jiffies;
-				break;
-			}
-			break;
-		default:
-			ppp->last_xmit = jiffies;
-			break;
-		}
-#else
 		/* for data packets, record the time */
-		 myprintk(KERN_DEBUG "PPP: (%ld) send nfmark=[%lx] proto[%d] port[%d -> %d]\n",
-					jiffies,
-					skb->nfmark,
-					IP_PROTO(skb),
-					IP_PROTO(skb) == 1 ? 0 : SRC_PORT(skb),
-					IP_PROTO(skb) == 1 ? 0 : DST_PORT(skb));
-		 /* Reset idle time, when receive a lan to wan packet (add by honor 2003-04-17) */
-		 if(skb->nfmark == MARK_LAN2WAN ){
-			// Can cause by WINS server or browser \\xxx.xxx.xxx.xxx
-			if(DST_PORT(skb) == 137 || DST_PORT(skb) == 138 || DST_PORT(skb) == 139 || DST_PORT(skb) == 445){
-                                myprintk(KERN_DEBUG "PPP: LAN -> WAM packet, NETBIOS packet, no reset timer\n", DST_PORT(skb));
-                        }
-                        else{
-                                myprintk(KERN_DEBUG "PPP: LAN -> WAM packet, reset timer\n");
-                                ppp->last_xmit = jiffies;
-                        }
-                }
-                else
-                         myprintk(KERN_DEBUG "PPP: No reset timer\n");
-#endif
-
+		ppp->last_xmit = jiffies;
 #endif /* CONFIG_PPP_FILTER */
 	}
 
@@ -1223,6 +1167,7 @@ static int ppp_mp_explode(struct ppp *ppp, struct sk_buff *skb)
 	if (nch == 0)
 		return 0;	/* can't take now, leave it in xmit_pending */
 
+	/* Do protocol field compression (XXX this should be optional) */
 	p = skb->data;
 	len = skb->len;
 	if (*p == 0) {
@@ -1443,6 +1388,7 @@ ppp_receive_frame(struct ppp *ppp, struct sk_buff *skb, struct channel *pch)
 {
 	if (skb->len >= 2) {
 #ifdef CONFIG_PPP_MULTILINK
+		/* XXX do channel-level decompression here */
 		if (PPP_PROTO(skb) == PPP_MP)
 			ppp_receive_mp_frame(ppp, skb, pch);
 		else
@@ -1564,19 +1510,7 @@ ppp_receive_nonmp_frame(struct ppp *ppp, struct sk_buff *skb)
 			ppp->last_recv = jiffies;
 		skb_pull(skb, 2);
 #else
-		/* Don't reset idle timer, if wan receive below packets. (Add by honor 2003-04-16) */
-		//printk(KERN_DEBUG "recv nfmark=[%lx]\n",skb->nfmark);
-		//if(UDP_PORT(skb) == 137){
-                //        printk(KERN_DEBUG "	Skip NETBIOS Name Service packet\n");
-		//}
-                //else if(UDP_PORT(skb) == 138){
-                //        printk(KERN_DEBUG "	Skip NETBIOS Datagram Service packet\n");
-		//}
-                //else if(IP_PROTO(skb) == 2){
-                //        printk(KERN_DEBUG "	Skip IGMP packet\n");
-		//}
-                //else
-			//ppp->last_recv = jiffies;
+		ppp->last_recv = jiffies;
 #endif /* CONFIG_PPP_FILTER */
 
 		if ((ppp->dev->flags & IFF_UP) == 0
@@ -2028,6 +1962,10 @@ ppp_set_compress(struct ppp *ppp, unsigned long arg)
 #endif /* CONFIG_KMOD */
 	if (cp == 0)
 		goto err1;
+	/*
+	 * XXX race: the compressor module could get unloaded between
+	 * here and when we do the comp_alloc or decomp_alloc call below.
+	 */
 
 	err = -ENOBUFS;
 	if (data.transmit) {
@@ -2082,7 +2020,7 @@ ppp_ccp_peek(struct ppp *ppp, struct sk_buff *skb, int inbound)
 	switch (CCP_CODE(dp)) {
 	case CCP_CONFREQ:
 
-		/* A ConfReq starts negotiation of compression
+		/* A ConfReq starts negotiation of compression 
 		 * in one direction of transmission,
 		 * and hence brings it down...but which way?
 		 *
@@ -2092,16 +2030,16 @@ ppp_ccp_peek(struct ppp *ppp, struct sk_buff *skb, int inbound)
 		if(inbound)
 			/* He is proposing what I should send */
 			ppp->xstate &= ~SC_COMP_RUN;
-		else
+		else	
 			/* I am proposing to what he should send */
 			ppp->rstate &= ~SC_DECOMP_RUN;
-
+		
 		break;
-
+		
 	case CCP_TERMREQ:
 	case CCP_TERMACK:
 		/*
-		 * CCP is going down, both directions of transmission
+		 * CCP is going down, both directions of transmission 
 		 */
 		ppp->rstate &= ~SC_DECOMP_RUN;
 		ppp->xstate &= ~SC_COMP_RUN;
@@ -2435,6 +2373,9 @@ static void ppp_destroy_interface(struct ppp *ppp)
 		ppp->active_filter.filter = 0;
 	}
 #endif /* CONFIG_PPP_FILTER */
+
+	if (ppp->xmit_pending)
+		kfree_skb(ppp->xmit_pending);
 
 	kfree(ppp);
 }

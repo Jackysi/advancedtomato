@@ -3,7 +3,7 @@
  *
  * Copyright (C) 1996 Universidade de Lisboa
  * 
- * Written by Pedro Roque Marques (roque@di.fc.ul.pt)
+ * Written by Pedro Roque Marques (pedro_m@yahoo.com)
  *
  * This software may be used and distributed according to the terms of 
  * the GNU General Public License, incorporated herein by reference.
@@ -762,6 +762,7 @@ int pcbit_stat(u_char* buf, int len, int user, int driver, int channel)
 	if (stat_count < 0)
 		stat_count = STATBUF_LEN - stat_st + stat_end;
 
+	/* FIXME: should we sleep and wait for more cookies ? */
 	if (len > stat_count)            
 		len = stat_count;
 

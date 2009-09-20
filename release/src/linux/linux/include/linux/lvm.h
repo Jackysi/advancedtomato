@@ -80,8 +80,8 @@
 #ifndef _LVM_H_INCLUDE
 #define _LVM_H_INCLUDE
 
-#define LVM_RELEASE_NAME "1.0.5+"
-#define LVM_RELEASE_DATE "22/07/2002"
+#define LVM_RELEASE_NAME "1.0.8"
+#define LVM_RELEASE_DATE "17/11/2003"
 
 #define	_LVM_KERNEL_H_VERSION	"LVM "LVM_RELEASE_NAME" ("LVM_RELEASE_DATE")"
 
@@ -94,7 +94,7 @@
 #define	LVM_TOTAL_RESET
 
 #ifdef __KERNEL__
-#undef LVM_HD_NAME /* display nice names in /proc/partitions */
+#undef LVM_HD_NAME		/* display nice names in /proc/partitions */
 
 /* lots of debugging output (see driver source)
    #define DEBUG_LVM_GET_INFO
@@ -118,7 +118,7 @@
    causes problems on some platforms. It's not nice but then
    neither is the alternative. */
 struct list_head {
-        struct list_head *next, *prev;
+	struct list_head *next, *prev;
 };
 #define __KERNEL__
 #include <linux/kdev_t.h>
@@ -135,7 +135,7 @@ struct list_head {
 
 #include <asm/page.h>
 
-#if !defined(LVM_BLK_MAJOR) || !defined(LVM_CHAR_MAJOR)
+#if !defined ( LVM_BLK_MAJOR) || !defined ( LVM_CHAR_MAJOR)
 #error Bad include/linux/major.h - LVM MAJOR undefined
 #endif
 
@@ -258,9 +258,9 @@ struct list_head {
 #define	LVM_PE_T_MAX		( ( 1 << ( sizeof ( uint16_t) * 8)) - 2)
 
 #define	LVM_LV_SIZE_MAX(a)	( ( long long) LVM_PE_T_MAX * (a)->pe_size > ( long long) 1024*1024/SECTOR_SIZE*1024*1024 ? ( long long) 1024*1024/SECTOR_SIZE*1024*1024 : ( long long) LVM_PE_T_MAX * (a)->pe_size)
-#define	LVM_MIN_PE_SIZE		( 8192L / SECTOR_SIZE) /* 8 KB in sectors */
+#define	LVM_MIN_PE_SIZE		( 8192L / SECTOR_SIZE)	/* 8 KB in sectors */
 #define	LVM_MAX_PE_SIZE		( 16L * 1024L * 1024L / SECTOR_SIZE * 1024)	/* 16GB in sectors */
-#define	LVM_DEFAULT_PE_SIZE	( 4096L * 1024 / SECTOR_SIZE)	/* 4 MB in sectors */
+#define	LVM_DEFAULT_PE_SIZE	( 32768L * 1024 / SECTOR_SIZE)	/* 32 MB in sectors */
 #define	LVM_DEFAULT_STRIPE_SIZE	16L	/* 16 KB  */
 #define	LVM_MIN_STRIPE_SIZE	( PAGE_SIZE/SECTOR_SIZE)	/* PAGESIZE in sectors */
 #define	LVM_MAX_STRIPE_SIZE	( 512L * 1024 / SECTOR_SIZE)	/* 512 KB in sectors */
@@ -281,6 +281,12 @@ struct list_head {
 
 #define	UNDEF	-1
 
+/*
+ * ioctls
+ * FIXME: the last parameter to _IO{W,R,WR} is a data type.  The macro will
+ *	  expand this using sizeof(), so putting "1" there is misleading
+ *	  because sizeof(1) = sizeof(int) = sizeof(2) = 4 on a 32-bit machine!
+ */
 /* volume group */
 #define	VG_CREATE_OLD           _IOW ( 0xfe, 0x00, 1)
 #define	VG_REMOVE               _IOW ( 0xfe, 0x01, 1)
@@ -410,9 +416,9 @@ typedef struct lv_COW_table_disk_v1 {
 typedef struct lv_block_exception_v1 {
 	struct list_head hash;
 	uint32_t rsector_org;
-	kdev_t   rdev_org;
+	kdev_t rdev_org;
 	uint32_t rsector_new;
-	kdev_t   rdev_new;
+	kdev_t rdev_new;
 } lv_block_exception_t;
 
 /* disk stored pe information */
@@ -456,7 +462,7 @@ typedef struct pv_v2 {
 	uint pe_stale;		/* for future use */
 	pe_disk_t *pe;		/* HM */
 	struct block_device *bd;
-	char pv_uuid[UUID_LEN+1];
+	char pv_uuid[UUID_LEN + 1];
 
 #ifndef __KERNEL__
 	uint32_t pe_start;	/* in sectors */
@@ -467,7 +473,7 @@ typedef struct pv_v2 {
 /* disk */
 typedef struct pv_disk_v2 {
 	uint8_t id[2];		/* Identifier */
-	uint16_t version;		/* HM lvm version */
+	uint16_t version;	/* HM lvm version */
 	lvm_disk_data_t pv_on_disk;
 	lvm_disk_data_t vg_on_disk;
 	lvm_disk_data_t pv_uuidlist_on_disk;
@@ -480,14 +486,14 @@ typedef struct pv_disk_v2 {
 	uint32_t pv_number;
 	uint32_t pv_status;
 	uint32_t pv_allocatable;
-	uint32_t pv_size;		/* HM */
+	uint32_t pv_size;	/* HM */
 	uint32_t lv_cur;
 	uint32_t pe_size;
 	uint32_t pe_total;
 	uint32_t pe_allocated;
-	
+
 	/* new in struct version 2 */
-	uint32_t pe_start;	        /* in sectors */
+	uint32_t pe_start;	/* in sectors */
 
 } pv_disk_t;
 
@@ -561,8 +567,8 @@ typedef struct lv_v5 {
 	uint32_t lv_snapshot_hash_table_size;
 	uint32_t lv_snapshot_hash_mask;
 	wait_queue_head_t lv_snapshot_wait;
-	int	lv_snapshot_use_rate;
-	struct vg_v3	*vg;
+	int lv_snapshot_use_rate;
+	struct vg_v3 *vg;
 
 	uint lv_allocated_snapshot_le;
 #else
@@ -576,14 +582,14 @@ typedef struct lv_disk_v3 {
 	uint8_t vg_name[NAME_LEN];
 	uint32_t lv_access;
 	uint32_t lv_status;
-	uint32_t lv_open;		/* HM */
-	uint32_t lv_dev;		/* HM */
+	uint32_t lv_open;	/* HM */
+	uint32_t lv_dev;	/* HM */
 	uint32_t lv_number;	/* HM */
 	uint32_t lv_mirror_copies;	/* for future use */
 	uint32_t lv_recovery;	/*       "        */
 	uint32_t lv_schedule;	/*       "        */
 	uint32_t lv_size;
-	uint32_t lv_snapshot_minor;/* minor number of original */
+	uint32_t lv_snapshot_minor;	/* minor number of original */
 	uint16_t lv_chunk_size;	/* chunk size of snapshot */
 	uint16_t dummy;
 	uint32_t lv_allocated_le;
@@ -620,7 +626,7 @@ typedef struct vg_v3 {
 	struct proc_dir_entry *proc;
 	pv_t *pv[ABS_MAX_PV + 1];	/* physical volume struct pointers */
 	lv_t *lv[ABS_MAX_LV + 1];	/* logical  volume struct pointers */
-	char vg_uuid[UUID_LEN+1];	/* volume group UUID */
+	char vg_uuid[UUID_LEN + 1];	/* volume group UUID */
 #ifdef __KERNEL__
 	struct proc_dir_entry *vg_dir_pde;
 	struct proc_dir_entry *lv_subdir_pde;
@@ -634,20 +640,20 @@ typedef struct vg_v3 {
 /* disk */
 typedef struct vg_disk_v2 {
 	uint8_t vg_uuid[UUID_LEN];	/* volume group UUID */
-	uint8_t vg_name_dummy[NAME_LEN-UUID_LEN];	/* rest of v1 VG name */
+	uint8_t vg_name_dummy[NAME_LEN - UUID_LEN];	/* rest of v1 VG name */
 	uint32_t vg_number;	/* volume group number */
 	uint32_t vg_access;	/* read/write */
 	uint32_t vg_status;	/* active or not */
-	uint32_t lv_max;		/* maximum logical volumes */
-	uint32_t lv_cur;		/* current logical volumes */
-	uint32_t lv_open;		/* open    logical volumes */
-	uint32_t pv_max;		/* maximum physical volumes */
-	uint32_t pv_cur;		/* current physical volumes FU */
-	uint32_t pv_act;		/* active physical volumes */
+	uint32_t lv_max;	/* maximum logical volumes */
+	uint32_t lv_cur;	/* current logical volumes */
+	uint32_t lv_open;	/* open    logical volumes */
+	uint32_t pv_max;	/* maximum physical volumes */
+	uint32_t pv_cur;	/* current physical volumes FU */
+	uint32_t pv_act;	/* active physical volumes */
 	uint32_t dummy;
 	uint32_t vgda;		/* volume group descriptor arrays FU */
-	uint32_t pe_size;		/* physical extent size in sectors */
-	uint32_t pe_total;		/* total of physical extents */
+	uint32_t pe_size;	/* physical extent size in sectors */
+	uint32_t pe_total;	/* total of physical extents */
 	uint32_t pe_allocated;	/* allocated physical extents */
 	uint32_t pvg_total;	/* physical volume groups FU */
 } vg_disk_t;
@@ -706,39 +712,44 @@ typedef struct {
 
 /* Request structure LV_SNAPSHOT_USE_RATE */
 typedef struct {
-	int	block;
-	int	rate;
+	int block;
+	int rate;
 } lv_snapshot_use_rate_req_t;
 
 
 
 /* useful inlines */
-static inline ulong round_up(ulong n, ulong size) {
+static inline ulong round_up(ulong n, ulong size)
+{
 	size--;
 	return (n + size) & ~size;
 }
 
-static inline ulong div_up(ulong n, ulong size) {
+static inline ulong div_up(ulong n, ulong size)
+{
 	return round_up(n, size) / size;
 }
 
-static int inline LVM_GET_COW_TABLE_CHUNKS_PER_PE(vg_t *vg, lv_t *lv) {
+/* FIXME: nasty capital letters */
+static int inline LVM_GET_COW_TABLE_CHUNKS_PER_PE(vg_t * vg, lv_t * lv)
+{
 	return vg->pe_size / lv->lv_chunk_size;
 }
 
-static int inline LVM_GET_COW_TABLE_ENTRIES_PER_PE(vg_t *vg, lv_t *lv) {
+static int inline LVM_GET_COW_TABLE_ENTRIES_PER_PE(vg_t * vg, lv_t * lv)
+{
 	ulong chunks = vg->pe_size / lv->lv_chunk_size;
 	ulong entry_size = sizeof(lv_COW_table_disk_t);
 	ulong chunk_size = lv->lv_chunk_size * SECTOR_SIZE;
 	ulong entries = (vg->pe_size * SECTOR_SIZE) /
-		(entry_size + chunk_size);
+	    (entry_size + chunk_size);
 
-	if(chunks < 2)
+	if (chunks < 2)
 		return 0;
 
-	for(; entries; entries--)
-		if((div_up(entries * entry_size, chunk_size) + entries) <=
-		   chunks)
+	for (; entries; entries--)
+		if ((div_up(entries * entry_size, chunk_size) + entries) <=
+		    chunks)
 			break;
 
 	return entries;
@@ -746,4 +757,3 @@ static int inline LVM_GET_COW_TABLE_ENTRIES_PER_PE(vg_t *vg, lv_t *lv) {
 
 
 #endif				/* #ifndef _LVM_H_INCLUDE */
-

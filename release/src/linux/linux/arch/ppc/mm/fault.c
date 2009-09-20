@@ -1,10 +1,7 @@
 /*
- * BK Id: SCCS/s.fault.c 1.15 09/24/01 16:35:10 paulus
- */
-/*
  *  arch/ppc/mm/fault.c
  *
- *  PowerPC version 
+ *  PowerPC version
  *    Copyright (C) 1995-1996 Gary Thomas (gdt@linuxppc.org)
  *
  *  Derived from "arch/i386/mm/fault.c"
@@ -56,6 +53,41 @@ void bad_page_fault(struct pt_regs *, unsigned long, int sig);
 void do_page_fault(struct pt_regs *, unsigned long, unsigned long);
 
 /*
+ * Check whether the instruction at regs->nip is a store using
+ * an update addressing form which will update r1.
+ */
+static int store_updates_sp(struct pt_regs *regs)
+{
+	unsigned int inst;
+
+	if (get_user(inst, (unsigned int *)regs->nip))
+		return 0;
+	/* check for 1 in the rA field */
+	if (((inst >> 16) & 0x1f) != 1)
+		return 0;
+	/* check major opcode */
+	switch (inst >> 26) {
+	case 37:	/* stwu */
+	case 39:	/* stbu */
+	case 45:	/* sthu */
+	case 53:	/* stfsu */
+	case 55:	/* stfdu */
+		return 1;
+	case 31:
+		/* check minor opcode */
+		switch ((inst >> 1) & 0x3ff) {
+		case 183:	/* stwux */
+		case 247:	/* stbux */
+		case 439:	/* sthux */
+		case 695:	/* stfsux */
+		case 759:	/* stfdux */
+			return 1;
+		}
+	}
+	return 0;
+}
+
+/*
  * For 600- and 800-family processors, the error_code parameter is DSISR
  * for a data fault, SRR1 for an instruction fault. For 400-family processors
  * the error_code parameter is ESR for a data fault, 0 for an instruction
@@ -68,7 +100,7 @@ void do_page_fault(struct pt_regs *regs, unsigned long address,
 	struct mm_struct *mm = current->mm;
 	siginfo_t info;
 	int code = SEGV_MAPERR;
-#if defined(CONFIG_4xx)
+#if defined(CONFIG_4xx) || defined (CONFIG_BOOKE)
 	int is_write = error_code & ESR_DST;
 #else
 	int is_write = 0;
@@ -83,14 +115,14 @@ void do_page_fault(struct pt_regs *regs, unsigned long address,
 		error_code &= 0x48200000;
 	else
 		is_write = error_code & 0x02000000;
-#endif /* CONFIG_4xx */
+#endif /* CONFIG_4xx || CONFIG_BOOKE */
 
 #if defined(CONFIG_XMON) || defined(CONFIG_KGDB)
 	if (debugger_fault_handler && regs->trap == 0x300) {
 		debugger_fault_handler(regs);
 		return;
 	}
-#if !defined(CONFIG_4xx)
+#ifndef CONFIG_4xx 
 	if (error_code & 0x00400000) {
 		/* DABR match */
 		if (debugger_dabr_match(regs))
@@ -111,6 +143,40 @@ void do_page_fault(struct pt_regs *regs, unsigned long address,
 		goto good_area;
 	if (!(vma->vm_flags & VM_GROWSDOWN))
 		goto bad_area;
+	if (!is_write)
+                goto bad_area;
+
+	/*
+	 * N.B. The rs6000/xcoff ABI allows programs to access up to
+	 * a few hundred bytes below the stack pointer.
+	 * The kernel signal delivery code writes up to about 1.5kB
+	 * below the stack pointer (r1) before decrementing it.
+	 * The exec code can write slightly over 640kB to the stack
+	 * before setting the user r1.  Thus we allow the stack to
+	 * expand to 1MB without further checks.
+	 */
+	if (address + 0x100000 < vma->vm_end) {
+		/* get user regs even if this fault is in kernel mode */
+		struct pt_regs *uregs = current->thread.regs;
+		if (uregs == NULL)
+			goto bad_area;
+
+		/*
+		 * A user-mode access to an address a long way below
+		 * the stack pointer is only valid if the instruction
+		 * is one which would update the stack pointer to the
+		 * address accessed if the instruction completed,
+		 * i.e. either stwu rs,n(r1) or stwux rs,r1,rb
+		 * (or the byte, halfword, float or double forms).
+		 *
+		 * If we don't check this then any write to the area
+		 * between the last mapped region and the stack will
+		 * expand the stack rather than segfaulting.
+		 */
+		if (address + 2048 < uregs->gpr[1]
+		    && (!user_mode(regs) || !store_updates_sp(regs)))
+			goto bad_area;
+	}
 	if (expand_stack(vma, address))
 		goto bad_area;
 
@@ -131,7 +197,7 @@ good_area:
                 /* Guarded storage error. */
 		goto bad_area;
 #endif /* CONFIG_8xx */
-	
+
 	/* a write */
 	if (is_write) {
 		if (!(vma->vm_flags & VM_WRITE))
@@ -175,7 +241,7 @@ good_area:
 
 bad_area:
 	up_read(&mm->mmap_sem);
-	pte_errors++;	
+	pte_errors++;
 
 	/* User mode accesses cause a SIGSEGV */
 	if (user_mode(regs)) {
@@ -282,7 +348,7 @@ pte_t *va_to_pte(unsigned long address)
 unsigned long va_to_phys(unsigned long address)
 {
 	pte_t *pte;
-	
+
 	pte = va_to_pte(address);
 	if (pte)
 		return(((unsigned long)(pte_val(*pte)) & PAGE_MASK) | (address & ~(PAGE_MASK)));
@@ -305,7 +371,7 @@ print_8xx_pte(struct mm_struct *mm, unsigned long addr)
                         if (pte) {
                                 printk(" (0x%08lx)->(0x%08lx)->0x%08lx\n",
                                         (long)pgd, (long)pte, (long)pte_val(*pte));
-#define pp ((long)pte_val(*pte))				
+#define pp ((long)pte_val(*pte))
 				printk(" RPN: %05lx PP: %lx SPS: %lx SH: %lx "
 				       "CI: %lx v: %lx\n",
 				       pp>>12,    /* rpn */
@@ -315,7 +381,7 @@ print_8xx_pte(struct mm_struct *mm, unsigned long addr)
 				       (pp>>1)&1, /* cache inhibit */
 				       pp&1       /* valid */
 				       );
-#undef pp				
+#undef pp
                         }
                         else {
                                 printk("no pte\n");

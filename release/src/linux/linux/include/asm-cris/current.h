@@ -3,7 +3,7 @@
 
 struct task_struct;
 
-static inline struct task_struct * get_current(void)
+extern inline struct task_struct * get_current(void)
 {
         struct task_struct *current;
         __asm__("and.d $sp,%0; ":"=r" (current) : "0" (~8191UL));

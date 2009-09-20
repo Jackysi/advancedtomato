@@ -74,6 +74,7 @@ static inline void *kmap(struct page *page) { return page_address(page); }
 
 #define bh_kmap(bh)			((bh)->b_data)
 #define bh_kunmap(bh)			do { } while (0)
+#define kmap_nonblock(page)            kmap(page)
 #define bh_kmap_irq(bh, flags)		((bh)->b_data)
 #define bh_kunmap_irq(bh, flags)	do { *(flags) = 0; } while (0)
 
@@ -116,6 +117,17 @@ static inline void copy_user_highpage(struct page *to, struct page *from, unsign
 	vfrom = kmap_atomic(from, KM_USER0);
 	vto = kmap_atomic(to, KM_USER1);
 	copy_user_page(vto, vfrom, vaddr);
+	kunmap_atomic(vfrom, KM_USER0);
+	kunmap_atomic(vto, KM_USER1);
+}
+
+static inline void copy_highpage(struct page *to, struct page *from)
+{
+	char *vfrom, *vto;
+
+	vfrom = kmap_atomic(from, KM_USER0);
+	vto = kmap_atomic(to, KM_USER1);
+	copy_page(vto, vfrom);
 	kunmap_atomic(vfrom, KM_USER0);
 	kunmap_atomic(vto, KM_USER1);
 }

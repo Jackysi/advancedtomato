@@ -97,7 +97,7 @@
 #include <asm/cache.h>
 
 static char version[] __devinitdata =
-	"82596.c $Revision: 1.1.1.2 $\n";
+	"82596.c $Revision: 1.30 $\n";
 
 /* DEBUG flags
  */
@@ -755,6 +755,7 @@ static inline int i596_rx(struct net_device *dev)
 		}
 		else {
 			printk("%s: rbd chain broken!\n", dev->name);
+			/* XXX Now what? */
 			rbd = NULL;
 		}
 		DEB(DEB_RXFRAME, printk("  rfd %p, rfd.rbd %08x, rfd.stat %04x\n",
@@ -800,6 +801,7 @@ static inline int i596_rx(struct net_device *dev)
 				skb = dev_alloc_skb(pkt_len + 2);
 memory_squeeze:
 			if (skb == NULL) {
+				/* XXX tulip.c can defer packets here!! */
 				printk ("%s: i596_rx Memory squeeze, dropping packet.\n", dev->name);
 				lp->stats.rx_dropped++;
 			}
@@ -925,6 +927,7 @@ static inline void i596_reset(struct net_device *dev, struct i596_private *lp)
 
 	netif_stop_queue(dev);
 
+	/* FIXME: this command might cause an lpmc */
 	lp->scb.command = CUC_ABORT | RX_ABORT;
 	CHECK_WBACK(&(lp->scb), sizeof(struct i596_scb));
 	CA(dev);
@@ -980,10 +983,40 @@ static void i596_add_cmd(struct net_device *dev, struct i596_cmd *cmd)
 			return;
 
 		printk("%s: command unit timed out, status resetting.\n", dev->name);
+#if 1
 		i596_reset(dev, lp);
+#endif
 	}
 }
 
+#if 0
+/* this function makes a perfectly adequate probe...  but we have a
+   device list */
+static int i596_test(struct net_device *dev)
+{
+	struct i596_private *lp = (struct i596_private *) dev->priv;
+	volatile int *tint;
+	u32 data;
+
+	tint = (volatile int *)(&(lp->scp));
+	data = virt_to_dma(lp,tint);
+	
+	tint[1] = -1;
+	CHECK_WBACK(tint,PAGE_SIZE);
+
+	MPU_PORT(dev, 1, data);
+
+	for(data = 1000000; data; data--) {
+		CHECK_INV(tint,PAGE_SIZE);
+		if(tint[1] != -1)
+			break;
+
+	}
+
+	printk("i596_test result %d\n", tint[1]);
+
+}
+#endif
 
 
 static int i596_open(struct net_device *dev)
@@ -1051,12 +1084,20 @@ static int i596_start_xmit(struct sk_buff *skb, struct net_device *dev)
 	struct i596_private *lp = (struct i596_private *) dev->priv;
 	struct tx_cmd *tx_cmd;
 	struct i596_tbd *tbd;
-	short length = ETH_ZLEN < skb->len ? skb->len : ETH_ZLEN;
+	short length = skb->len;
 	dev->trans_start = jiffies;
 
 	DEB(DEB_STARTTX,printk("%s: i596_start_xmit(%x,%p) called\n", dev->name,
 				skb->len, skb->data));
 
+	if(length < ETH_ZLEN)
+	{
+		skb = skb_padto(skb, ETH_ZLEN);
+		if(skb == NULL)
+			return 0;
+		length = ETH_ZLEN;
+	}
+	
 	netif_stop_queue(dev);
 
 	tx_cmd = lp->tx_cmds + lp->next_tx_cmd;
@@ -1379,8 +1420,7 @@ static int i596_close(struct net_device *dev)
 	DEB(DEB_INIT,printk("%s: Shutting down ethercard, status was %4.4x.\n",
 		       dev->name, lp->scb.status));
 
-	save_flags(flags);
-	cli();
+	spin_lock_irqsave(&lp->lock, flags);
 
 	wait_cmd(dev,lp,100,"close1 timed out");
 	lp->scb.command = CUC_ABORT | RX_ABORT;
@@ -1389,7 +1429,7 @@ static int i596_close(struct net_device *dev)
 	CA(dev);
 
 	wait_cmd(dev,lp,100,"close2 timed out");
-	restore_flags(flags);
+	spin_unlock_irqrestore(&lp->lock, flags);
 	DEB(DEB_STRUCT,i596_display_data(dev));
 	i596_cleanup_cmd(dev,lp);
 

@@ -13,7 +13,7 @@
     The default values used for PlanB are my mistakes.
 */
 
-/* $Id: saa7196.h,v 1.1.1.4 2003/10/14 08:08:15 sparq Exp $ */
+/* $Id: saa7196.h,v 2.3 2002/04/03 15:57:57 mlan Exp mlan $ */
 
 #ifndef _SAA7196_H_
 #define _SAA7196_H_

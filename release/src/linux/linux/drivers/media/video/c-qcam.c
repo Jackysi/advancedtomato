@@ -190,6 +190,9 @@ static int qc_detect(struct qcam_device *qcam)
 
 	/* The probe routine below is not very reliable.  The IEEE-1284
 	   probe takes precedence. */
+	/* XXX Currently parport provides no way to distinguish between
+	   "the IEEE probe was not done" and "the probe was done, but
+	   no device was found".  Fix this one day. */
 	if (qcam->pport->probe_info[0].class == PARPORT_CLASS_MEDIA
 	    && qcam->pport->probe_info[0].model
 	    && !strcmp(qcam->pdev->port->probe_info[0].model, 
@@ -655,6 +658,14 @@ static int qcam_ioctl(struct video_device *dev, unsigned int cmd, void *arg)
 				qcam->mode = QC_DECIMATION_1;
 			}
 			qcam->mode |= QC_MILLIONS;
+#if 0
+			if(vw.width>=640 && vw.height>=480)
+			{
+				qcam->width = 640;
+				qcam->height = 480;
+				qcam->mode = QC_BILLIONS | QC_DECIMATION_1;
+			}
+#endif
 			/* Ok we figured out what to use from our 
 			   wide choice */
 			down(&qcam->lock);

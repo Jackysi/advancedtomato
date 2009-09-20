@@ -1,5 +1,6 @@
 /*
- * Debug macros for run-time debugging.  Turned on/off with CONFIG_DEBUG option.
+ * Debug macros for run-time debugging.  Turned on/off with 
+ * CONFIG_RUNTIME_DEBUG option.
  *
  * Copyright (C) 2001 MontaVista Software Inc.
  * Author: Jun Sun, jsun@mvista.com or jsun@junsun.net
@@ -17,13 +18,13 @@
 #include <linux/config.h>
 
 /*
- * run-time macros for catching spurious errors.  Eable CONFIG_DEBUG in
+ * run-time macros for catching spurious errors.  Eable CONFIG_RUNTIME_DEBUG in
  * kernel hacking config menu to use them.
  *
  * Use them as run-time debugging aid.  NEVER USE THEM AS ERROR HANDLING CODE!!!
  */
 
-#ifdef CONFIG_DEBUG
+#ifdef CONFIG_RUNTIME_DEBUG
 
 #include <linux/kernel.h>
 

@@ -395,6 +395,12 @@ static int serial_write(struct tty_struct *tty, int from_user,
 		return (0);
 	}
 
+#if 0
+	if (port->writing) {
+		dbg(__FUNCTION__ ": already writing");
+		return 0;
+	}
+#endif
 	
 	max_pkt_sz = port->in_desc->wMaxPacketSize;
 	count = (count > max_pkt_sz) ? max_pkt_sz : count;

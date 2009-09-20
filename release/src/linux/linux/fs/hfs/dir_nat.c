@@ -1,4 +1,26 @@
-
+/*
+ * linux/fs/hfs/dir_nat.c
+ *
+ * Copyright (C) 1995-1997  Paul H. Hargrove
+ * This file may be distributed under the terms of the GNU General Public License.
+ *
+ * This file contains the inode_operations and file_operations
+ * structures for HFS directories.
+ *
+ * Based on the minix file system code, (C) 1991, 1992 by Linus Torvalds
+ *
+ * The source code distributions of Netatalk, versions 1.3.3b2 and
+ * 1.4b2, were used as a specification of the location and format of
+ * files used by Netatalk's afpd.  No code from Netatalk appears in
+ * hfs_fs.  hfs_fs is not a work ``derived'' from Netatalk in the
+ * sense of intellectual property law.
+ *
+ * "XXX" in a comment is a note to myself to consider changing something.
+ *
+ * In function preconditions the term "valid" applied to a pointer to
+ * a structure means that the pointer is non-NULL and the structure it
+ * points to has all fields initialized to consistent values.
+ */
 
 #include "hfs.h"
 #include <linux/hfs_fs_sb.h>

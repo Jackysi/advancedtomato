@@ -10,6 +10,13 @@
 #include <asm/bitops.h>
 #include <asm/atomic.h>
 #include <asm/ptrace.h>
+#include <asm/system.h>
+
+/* For 2.6.x compatibility */
+typedef void irqreturn_t;
+#define IRQ_NONE
+#define IRQ_HANDLED
+#define IRQ_RETVAL(x)
 
 struct irqaction {
 	void (*handler)(int, void *, struct pt_regs *);

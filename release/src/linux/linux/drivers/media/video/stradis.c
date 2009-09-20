@@ -348,6 +348,40 @@ static u32 debiread(struct saa7146 *saa, u32 config, int addr, int count)
 	return result;
 }
 
+#if 0 /* unused */
+/* MUST be a multiple of 8 bytes and 8-byte aligned and < 32768 bytes */
+/* data copied into saa->dmadebi buffer, caller must re-enable interrupts */
+static void ibm_block_dram_read(struct saa7146 *saa, int address, int bytes)
+{
+	int i, j;
+	u32 *buf;
+	buf = (u32 *) saa->dmadebi;
+	if (bytes > 0x7000)
+		bytes = 0x7000;
+	saawrite(0, SAA7146_IER);	/* disable interrupts */
+	for (i=0; i < 10000 &&
+		(debiread(saa, debNormal, IBM_MP2_DRAM_CMD_STAT, 2)
+		& 0x8000); i++)
+		saaread(SAA7146_MC2);
+	if (i == 10000)
+		printk(KERN_ERR "stradis%d: dram_busy never cleared\n",
+			saa->nr);
+	debiwrite(saa, debNormal, IBM_MP2_SRC_ADDR, (address<<16) |
+		(address>>16), 4);
+	debiwrite(saa, debNormal, IBM_MP2_BLOCK_SIZE, bytes, 2);
+	debiwrite(saa, debNormal, IBM_MP2_CMD_STAT, 0x8a10, 2);
+	for (j = 0; j < bytes/4; j++) {
+		for (i = 0; i < 10000 &&
+			(!(debiread(saa, debNormal, IBM_MP2_DRAM_CMD_STAT, 2)
+			& 0x4000)); i++)
+			saaread(SAA7146_MC2);
+		if (i == 10000)
+			printk(KERN_ERR "stradis%d: dram_ready never set\n",
+				saa->nr);
+		buf[j] = debiread(saa, debNormal, IBM_MP2_DRAM_DATA, 4);
+	}
+}
+#endif /* unused */
 
 static void do_irq_send_data(struct saa7146 *saa)
 {
@@ -485,6 +519,15 @@ static void saa7146_irq(int irq, void *dev_id, struct pt_regs *regs)
 				saa->vidinfo.frame_count = 0;
 				saa->vidinfo.h_size = 704;
 				saa->vidinfo.v_size = 480;
+#if 0
+				if (saa->endmarkhead != saa->endmarktail) {
+					saa->audhead = 
+						saa->endmark[saa->endmarkhead];
+					saa->endmarkhead++;
+					if (saa->endmarkhead >= MAX_MARKS)
+						saa->endmarkhead = 0;
+				}
+#endif
 			}
 			if (istat & 0x4000) {	/* Sequence Error Code */
 				if (saa->endmarkhead != saa->endmarktail) {
@@ -968,8 +1011,13 @@ send_fpga_stuff:
 		if (NewCard)
 			set_genlock_offset(saa, 0);
 		debiwrite(saa, debNormal, IBM_MP2_FRNT_ATTEN, 0, 2);
+#if 0
+		/* enable genlock */
+		debiwrite(saa, debNormal, XILINX_CTL0, 0x8000, 2);
+#else
 		/* disable genlock */
 		debiwrite(saa, debNormal, XILINX_CTL0, 0x8080, 2);
+#endif
 	}
 	return failure;
 }
@@ -1064,6 +1112,9 @@ static int initialize_ibmmpeg2(struct video_code *microcode)
 		     0xa55a) {
 			printk(KERN_INFO "stradis%d: %04x != 0xa55a\n",
 				saa->nr, i);
+#if 0
+			return -1;
+#endif
 		}
 		if (!strncmp(microcode->loadwhat, "decoder.vid", 11)) {
 			if (saa->boardcfg[0] > 27)
@@ -1924,6 +1975,8 @@ static int saa_open(struct video_device *dev, int flags)
 {
 	struct saa7146 *saa = (struct saa7146 *) dev;
 
+	/* FIXME: Don't do it this way, use the video_device->fops
+	 * registration for a sane implementation of multiple opens */
 	saa->video_dev.users--;
 	saa->user++;
 	if (saa->user > 1)
@@ -2034,6 +2087,10 @@ static int configure_saa7146(struct pci_dev *dev, int num)
 		iounmap(saa->saa7146_mem);
 		return -1;
 	}
+#if 0
+	/* i2c generic interface is currently BROKEN */
+	i2c_register_bus(&saa->i2c);
+#endif
 	return 0;
 }
 
@@ -2076,6 +2133,12 @@ static int init_saa7146(int i)
 		printk(KERN_ERR "stradis%d: debi kmalloc failed\n", i);
 		return -1;
 	}
+#if 0
+	saa->pagedebi = saa->dmadebi + 32768;	/* top 4k is for mmu */
+	saawrite(virt_to_bus(saa->pagedebi) /*|0x800 */ , SAA7146_DEBI_PAGE);
+	for (i = 0; i < 12; i++)	/* setup mmu page table */
+		saa->pagedebi[i] = virt_to_bus((saa->dmadebi + i * 4096));
+#endif
 	saa->audhead = saa->vidhead = saa->osdhead = 0;
 	saa->audtail = saa->vidtail = saa->osdtail = 0;
 	if (saa->vidbuf == NULL)
@@ -2136,6 +2199,10 @@ static void release_saa(void)
 		saawrite(0, SAA7146_MC2);
 		saawrite(0, SAA7146_IER);
 		saawrite(0xffffffffUL, SAA7146_ISR);
+#if 0
+		/* unregister i2c_bus */
+		i2c_unregister_bus((&saa->i2c));
+#endif
 
 		/* disable PCI bus-mastering */
 		pci_read_config_byte(saa->dev, PCI_COMMAND, &command);

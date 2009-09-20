@@ -1,7 +1,7 @@
 /*
- *  linux/arch/arm/lib/calls.h
+ *  linux/arch/arm/kernel/calls.S
  *
- *  Copyright (C) 1995-1998 Russell King
+ *  Copyright (C) 1995-2003 Russell King
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -10,7 +10,7 @@
  *  This file is included twice in entry-common.S
  */
 #ifndef NR_syscalls
-#define NR_syscalls 256
+#define NR_syscalls 288
 #else
 
 __syscall_start:
@@ -21,13 +21,13 @@ __syscall_start:
 		.long	SYMBOL_NAME(sys_write)
 /* 5 */		.long	SYMBOL_NAME(sys_open)
 		.long	SYMBOL_NAME(sys_close)
-		.long	SYMBOL_NAME(sys_waitpid)
+		.long	SYMBOL_NAME(sys_ni_syscall)		/* was sys_waitpid */
 		.long	SYMBOL_NAME(sys_creat)
 		.long	SYMBOL_NAME(sys_link)
 /* 10 */	.long	SYMBOL_NAME(sys_unlink)
 		.long	SYMBOL_NAME(sys_execve_wrapper)
 		.long	SYMBOL_NAME(sys_chdir)
-		.long	SYMBOL_NAME(sys_time)
+		.long	SYMBOL_NAME(sys_time)			/* used by libc4 */
 		.long	SYMBOL_NAME(sys_mknod)
 /* 15 */	.long	SYMBOL_NAME(sys_chmod)
 		.long	SYMBOL_NAME(sys_lchown16)
@@ -36,15 +36,15 @@ __syscall_start:
 		.long	SYMBOL_NAME(sys_lseek)
 /* 20 */	.long	SYMBOL_NAME(sys_getpid)
 		.long	SYMBOL_NAME(sys_mount)
-		.long	SYMBOL_NAME(sys_oldumount)
+		.long	SYMBOL_NAME(sys_oldumount)		/* used by libc4 */
 		.long	SYMBOL_NAME(sys_setuid16)
 		.long	SYMBOL_NAME(sys_getuid16)
 /* 25 */	.long	SYMBOL_NAME(sys_stime)
 		.long	SYMBOL_NAME(sys_ptrace)
-		.long	SYMBOL_NAME(sys_alarm)
+		.long	SYMBOL_NAME(sys_alarm)			/* used by libc4 */
 		.long	SYMBOL_NAME(sys_ni_syscall)		/* was sys_fstat */
 		.long	SYMBOL_NAME(sys_pause)
-/* 30 */	.long	SYMBOL_NAME(sys_utime)
+/* 30 */	.long	SYMBOL_NAME(sys_utime)			/* used by libc4 */
 		.long	SYMBOL_NAME(sys_ni_syscall)		/* was sys_stty */
 		.long	SYMBOL_NAME(sys_ni_syscall)		/* was sys_getty */
 		.long	SYMBOL_NAME(sys_access)
@@ -62,7 +62,7 @@ __syscall_start:
 /* 45 */	.long	SYMBOL_NAME(sys_brk)
 		.long	SYMBOL_NAME(sys_setgid16)
 		.long	SYMBOL_NAME(sys_getgid16)
-		.long	SYMBOL_NAME(sys_signal)
+		.long	SYMBOL_NAME(sys_ni_syscall)		/* was sys_signal */
 		.long	SYMBOL_NAME(sys_geteuid16)
 /* 50 */	.long	SYMBOL_NAME(sys_getegid16)
 		.long	SYMBOL_NAME(sys_acct)
@@ -82,29 +82,29 @@ __syscall_start:
 /* 65 */	.long	SYMBOL_NAME(sys_getpgrp)
 		.long	SYMBOL_NAME(sys_setsid)
 		.long	SYMBOL_NAME(sys_sigaction)
-		.long	SYMBOL_NAME(sys_sgetmask)
-		.long	SYMBOL_NAME(sys_ssetmask)
+		.long	SYMBOL_NAME(sys_ni_syscall)		/* was sys_sgetmask */
+		.long	SYMBOL_NAME(sys_ni_syscall)		/* was sys_ssetmask */
 /* 70 */	.long	SYMBOL_NAME(sys_setreuid16)
 		.long	SYMBOL_NAME(sys_setregid16)
 		.long	SYMBOL_NAME(sys_sigsuspend_wrapper)
 		.long	SYMBOL_NAME(sys_sigpending)
 		.long	SYMBOL_NAME(sys_sethostname)
 /* 75 */	.long	SYMBOL_NAME(sys_setrlimit)
-		.long	SYMBOL_NAME(sys_old_getrlimit)
+		.long	SYMBOL_NAME(sys_old_getrlimit)		/* used by libc4 */
 		.long	SYMBOL_NAME(sys_getrusage)
 		.long	SYMBOL_NAME(sys_gettimeofday)
 		.long	SYMBOL_NAME(sys_settimeofday)
 /* 80 */	.long	SYMBOL_NAME(sys_getgroups16)
 		.long	SYMBOL_NAME(sys_setgroups16)
-		.long	SYMBOL_NAME(old_select)
+		.long	SYMBOL_NAME(old_select)			/* used by libc4 */
 		.long	SYMBOL_NAME(sys_symlink)
 		.long	SYMBOL_NAME(sys_ni_syscall)		/* was sys_lstat */
 /* 85 */	.long	SYMBOL_NAME(sys_readlink)
 		.long	SYMBOL_NAME(sys_uselib)
 		.long	SYMBOL_NAME(sys_swapon)
 		.long	SYMBOL_NAME(sys_reboot)
-		.long	SYMBOL_NAME(old_readdir)
-/* 90 */	.long	SYMBOL_NAME(old_mmap)
+		.long	SYMBOL_NAME(old_readdir)		/* used by libc4 */
+/* 90 */	.long	SYMBOL_NAME(old_mmap)			/* used by libc4 */
 		.long	SYMBOL_NAME(sys_munmap)
 		.long	SYMBOL_NAME(sys_truncate)
 		.long	SYMBOL_NAME(sys_ftruncate)
@@ -240,23 +240,37 @@ __syscall_start:
 		.long	SYMBOL_NAME(sys_ni_syscall) /* Security */
 		.long	SYMBOL_NAME(sys_gettid)
 /* 225 */	.long	SYMBOL_NAME(sys_readahead)
-		.long	SYMBOL_NAME(sys_ni_syscall) /* sys_setxattr */
-		.long	SYMBOL_NAME(sys_ni_syscall) /* sys_lsetxattr */
-		.long	SYMBOL_NAME(sys_ni_syscall) /* sys_fsetxattr */
-		.long	SYMBOL_NAME(sys_ni_syscall) /* sys_getxattr */
-/* 230 */	.long	SYMBOL_NAME(sys_ni_syscall) /* sys_lgetxattr */
-		.long	SYMBOL_NAME(sys_ni_syscall) /* sys_fgetxattr */
-		.long	SYMBOL_NAME(sys_ni_syscall) /* sys_listxattr */
-		.long	SYMBOL_NAME(sys_ni_syscall) /* sys_llistxattr */
-		.long	SYMBOL_NAME(sys_ni_syscall) /* sys_flistxattr */
-/* 235 */	.long	SYMBOL_NAME(sys_ni_syscall) /* sys_removexattr */
-		.long	SYMBOL_NAME(sys_ni_syscall) /* sys_lremovexattr */
-		.long	SYMBOL_NAME(sys_ni_syscall) /* sys_fremovexattr */
+		.long	SYMBOL_NAME(sys_ni_syscall) /* setxattr */
+		.long	SYMBOL_NAME(sys_ni_syscall) /* lsetxattr */
+		.long	SYMBOL_NAME(sys_ni_syscall) /* fsetxattr */
+		.long	SYMBOL_NAME(sys_ni_syscall) /* getxattr */
+/* 230 */	.long	SYMBOL_NAME(sys_ni_syscall) /* lgetxattr */
+		.long	SYMBOL_NAME(sys_ni_syscall) /* fgetxattr */
+		.long	SYMBOL_NAME(sys_ni_syscall) /* listxattr */
+		.long	SYMBOL_NAME(sys_ni_syscall) /* llistxattr */
+		.long	SYMBOL_NAME(sys_ni_syscall) /* flistxattr */
+/* 235 */	.long	SYMBOL_NAME(sys_ni_syscall) /* removexattr */
+		.long	SYMBOL_NAME(sys_ni_syscall) /* lremovexattr */
+		.long	SYMBOL_NAME(sys_ni_syscall) /* fremovexattr */
 		.long	SYMBOL_NAME(sys_tkill)
-		/*
-		 * Please check 2.5 _before_ adding calls here,
-		 * and copy changes to rmk@arm.linux.org.uk.  Thanks.
-		 */
+		.long	SYMBOL_NAME(sys_ni_syscall) /* sendfile64 */
+/* 240 */	.long	SYMBOL_NAME(sys_ni_syscall) /* futex */
+		.long	SYMBOL_NAME(sys_ni_syscall) /* sched_setaffinity */
+		.long	SYMBOL_NAME(sys_ni_syscall) /* sched_getaffinity */
+		.long	SYMBOL_NAME(sys_ni_syscall) /* io_setup */
+		.long	SYMBOL_NAME(sys_ni_syscall) /* io_destroy */
+/* 245 */	.long	SYMBOL_NAME(sys_ni_syscall) /* io_getevents */
+		.long	SYMBOL_NAME(sys_ni_syscall) /* io_submit */
+		.long	SYMBOL_NAME(sys_ni_syscall) /* io_cancel */
+		.long	SYMBOL_NAME(sys_ni_syscall) /* exit_group */
+		.long	SYMBOL_NAME(sys_ni_syscall) /* lookup_dcookie */
+/* 250 */	.long	SYMBOL_NAME(sys_ni_syscall) /* epoll_create */
+		.long	SYMBOL_NAME(sys_ni_syscall) /* epoll_ctl */
+		.long	SYMBOL_NAME(sys_ni_syscall) /* epoll_wait */
+		.long	SYMBOL_NAME(sys_ni_syscall) /* remap_file_pages */
+		.long	SYMBOL_NAME(sys_ni_syscall) /* set_thread_area */
+/* 255 */	.long	SYMBOL_NAME(sys_ni_syscall) /* get_thread_area */
+		.long	SYMBOL_NAME(sys_ni_syscall) /* set_tid_address */
 __syscall_end:
 
 		.rept	NR_syscalls - (__syscall_end - __syscall_start) / 4

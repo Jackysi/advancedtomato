@@ -33,7 +33,6 @@
 
 #ifdef __KERNEL__
 
-#include <asm/byteorder.h>
 #include <asm/memory.h>
 
 /*
@@ -243,35 +242,30 @@ static __inline__ long cnt_trailing_zeros(unsigned long mask)
 }
 
 
-
 /*
- * ffz = Find First Zero in word. Undefined if no zero exists,
- *    Determines the bit position of the LEAST significant
- *    (rightmost) 0 bit in the specified DOUBLE-WORD.
- *    The returned bit position will be zero-based, starting
- *    from the right side (63 - 0).
- *    the code should check against ~0UL first..
+ * ffz = Find First Zero in word.
+ * Determines the bit position of the least significant (rightmost) 0 bit
+ * in the specified double word. The returned bit position will be zero-based,
+ * starting from the right side (63 - 0).
  */
 static __inline__ unsigned long ffz(unsigned long x)
 {
-	u32  tempRC;
-
-	/* Change all of x's 1s to 0s and 0s to 1s in x.
-	 * And insure at least 1 zero exists in the 8 byte area.
-	 */
+	/* no zero exists anywhere in the 8 byte area. */
 	if ((x = ~x) == 0)
-		/* no zero exists anywhere in the 8 byte area. */
 		return 64;
 
-	/* Calculate the bit position of the least significant '1' bit in x
-	 * (since x has been changed this will actually be the least
-	 * significant '0' bit in the original x).
-	 * Note: (x & -x) gives us a mask that is the LEAST significant
-	 * (RIGHT-most) 1-bit of the value in x.
+	/*
+	 * Calculate the bit position of the least signficant '1' bit in x
+	 * (since x has been changed this will actually be the least signficant
+	 * '0' bit in * the original x).  Note: (x & -x) gives us a mask that
+	 * is the least significant * (RIGHT-most) 1-bit of the value in x.
 	 */
-	tempRC = __ilog2(x & -x);
+	return __ilog2(x & -x);
+}
 
-	return tempRC;
+static __inline__ int __ffs(unsigned long x)
+{
+	return __ilog2(x & -x);
 }
 
 /*
@@ -281,9 +275,15 @@ static __inline__ unsigned long ffz(unsigned long x)
  */
 static __inline__ int ffs(int x)
 {
-	int result = ffz(~x);
-	return x ? result+1 : 0;
+	unsigned long i = (unsigned long)x;
+	return __ilog2(i & -i) + 1;
 }
+
+/*
+ * fls: find last (most-significant) bit set.
+ * Note fls(0) = 0, fls(1) = 1, fls(0x80000000) = 32.
+ */
+#define fls(x) generic_fls(x)
 
 /*
  * hweightN: returns the hamming weight (i.e. the number
@@ -293,139 +293,82 @@ static __inline__ int ffs(int x)
 #define hweight16(x) generic_hweight16(x)
 #define hweight8(x) generic_hweight8(x)
 
-extern unsigned long find_next_zero_bit(void * addr, unsigned long size,
-					unsigned long offset);
-/*
- * The optimizer actually does good code for this case..
- */
-#define find_first_zero_bit(addr, size) find_next_zero_bit((addr), (size), 0)
+extern unsigned long find_next_zero_bit(unsigned long* addr, unsigned long size, unsigned long offset);
+#define find_first_zero_bit(addr, size) \
+	find_next_zero_bit((addr), (size), 0)
 
-/* Bitmap functions for the ext2 filesystem. */
-#define _EXT2_HAVE_ASM_BITOPS_
+extern unsigned long find_next_bit(unsigned long* addr, unsigned long size, unsigned long offset);
+#define find_first_bit(addr, size) \
+	find_next_bit((addr), (size), 0)
 
-static __inline__ int ext2_set_bit(int nr, void* addr)
+extern unsigned long find_next_zero_le_bit(unsigned long *addr, unsigned long size, unsigned long offset);
+#define find_first_zero_le_bit(addr, size) \
+	find_next_zero_le_bit((addr), (size), 0)
+
+static __inline__ int test_le_bit(unsigned long nr, __const__ unsigned long * addr)
 {
-	/* This method needs to take into account the fact that the ext2 file system represents
-	 *  it's bitmaps as "little endian" unsigned integers.
-	 * Note: this method is not atomic, but ext2 does not need it to be.
-	 */
-	int mask;
-	int oldbit;
-	unsigned char* ADDR = (unsigned char*) addr;
-
-	/* Determine the BYTE containing the specified bit
-	 * (nr) - important as if we go to a byte there are no
-	 * little endian concerns.
-	 */
-	ADDR += nr >> 3;
-	mask = 1 << (nr & 0x07);  /* Create a mask to the bit within this byte. */
-	oldbit = *ADDR & mask;  /* Save the bit's previous value. */
-	*ADDR |= mask;  /* Turn the bit on. */
-	return oldbit;  /* Return the bit's previous value. */
-}
-
-static __inline__ int ext2_clear_bit(int nr, void* addr)
-{
-	/* This method needs to take into account the fact that the ext2 file system represents
-	 * | it's bitmaps as "little endian" unsigned integers.
-	 * Note: this method is not atomic, but ext2 does not need it to be.
-	 */
-        int     mask;
-        int oldbit;
-        unsigned char* ADDR = (unsigned char*) addr;
-
-	/* Determine the BYTE containing the specified bit (nr)
-	 *  - important as if we go to a byte there are no little endian concerns.
-	 */
-        ADDR += nr >> 3;
-        mask = 1 << (nr & 0x07);  /* Create a mask to the bit within this byte. */
-        oldbit = *ADDR & mask;  /* Save the bit's previous value. */
-        *ADDR = *ADDR & ~mask;  /* Turn the bit off. */
-        return oldbit;  /* Return the bit's previous value. */
-}
-
-static __inline__ int ext2_test_bit(int nr, __const__ void * addr)
-{
-	/* This method needs to take into account the fact that the ext2 file system represents
-	 * | it's bitmaps as "little endian" unsigned integers.
-	 * Determine the BYTE containing the specified bit (nr),
-	 *   then shift to the right the correct number of bits and return that bit's value.
-	 */
 	__const__ unsigned char	*ADDR = (__const__ unsigned char *) addr;
 	return (ADDR[nr >> 3] >> (nr & 7)) & 1;
 }
 
-/* Returns the bit position of the most significant 1 bit in a WORD. */
-static __inline__ int ext2_ilog2(unsigned int x)
-{
-        int lz;
-
-        asm ("cntlzw %0,%1" : "=r" (lz) : "r" (x));
-        return 31 - lz;
-}
-
-/* ext2_ffz = ext2's Find First Zero.
- *    Determines the bit position of the LEAST significant (rightmost) 0 bit in the specified WORD.
- *    The returned bit position will be zero-based, starting from the right side (31 - 0).
+/*
+ * non-atomic versions
  */
-static __inline__ int ext2_ffz(unsigned int x)
+static __inline__ void __set_le_bit(unsigned long nr, unsigned long *addr)
 {
-	u32  tempRC;
-	/* Change all of x's 1s to 0s and 0s to 1s in x.  And insure at least 1 zero exists in the word. */
-	if ((x = ~x) == 0)
-		/* no zero exists anywhere in the 4 byte area. */
-		return 32;
-	/* Calculate the bit position of the least significant '1' bit in x
-	 * (since x has been changed this will actually be the least
-	 * significant '0' bit in the original x).
-	 * Note: (x & -x) gives us a mask that is the LEAST significant
-	 * (RIGHT-most) 1-bit of the value in x.
-	 */
-	tempRC = ext2_ilog2(x & -x);
-	return tempRC;
+	unsigned char *ADDR = (unsigned char *)addr;
+
+	ADDR += nr >> 3;
+	*ADDR |= 1 << (nr & 0x07);
 }
 
-static __inline__ u32 ext2_find_next_zero_bit(void* addr, u32 size, u32 offset)
+static __inline__ void __clear_le_bit(unsigned long nr, unsigned long *addr)
 {
-	/* This method needs to take into account the fact that the ext2 file system represents
-	 * | it's bitmaps as "little endian" unsigned integers.
-	 */
-        unsigned int *p = ((unsigned int *) addr) + (offset >> 5);
-        unsigned int result = offset & ~31;
-        unsigned int tmp;
+	unsigned char *ADDR = (unsigned char *)addr;
 
-        if (offset >= size)
-                return size;
-        size -= result;
-        offset &= 31;
-        if (offset) {
-                tmp = cpu_to_le32p(p++);
-                tmp |= ~0U >> (32-offset); /* bug or feature ? */
-                if (size < 32)
-                        goto found_first;
-                if (tmp != ~0)
-                        goto found_middle;
-                size -= 32;
-                result += 32;
-        }
-        while (size >= 32) {
-                if ((tmp = cpu_to_le32p(p++)) != ~0)
-                        goto found_middle;
-                result += 32;
-                size -= 32;
-        }
-        if (!size)
-                return result;
-        tmp = cpu_to_le32p(p);
-found_first:
-        tmp |= ~0 << size;
-        if (tmp == ~0)          /* Are any bits zero? */
-                return result + size; /* Nope. */
-found_middle:
-        return result + ext2_ffz(tmp);
+	ADDR += nr >> 3;
+	*ADDR &= ~(1 << (nr & 0x07));
 }
 
-#define ext2_find_first_zero_bit(addr, size) ext2_find_next_zero_bit((addr), (size), 0)
+static __inline__ int __test_and_set_le_bit(unsigned long nr, unsigned long *addr)
+{
+	int mask, retval;
+	unsigned char *ADDR = (unsigned char *)addr;
+
+	ADDR += nr >> 3;
+	mask = 1 << (nr & 0x07);
+	retval = (mask & *ADDR) != 0;
+	*ADDR |= mask;
+	return retval;
+}
+
+static __inline__ int __test_and_clear_le_bit(unsigned long nr, unsigned long *addr)
+{
+	int mask, retval;
+	unsigned char *ADDR = (unsigned char *)addr;
+
+	ADDR += nr >> 3;
+	mask = 1 << (nr & 0x07);
+	retval = (mask & *ADDR) != 0;
+	*ADDR &= ~mask;
+	return retval;
+}
+
+#define ext2_set_bit(nr,addr) \
+	__test_and_set_le_bit((nr),(unsigned long*)addr)
+#define ext2_clear_bit(nr, addr) \
+	__test_and_clear_le_bit((nr),(unsigned long*)addr)
+#define ext2_test_bit(nr, addr)      test_le_bit((nr),(unsigned long*)addr)
+#define ext2_find_first_zero_bit(addr, size) \
+	find_first_zero_le_bit((unsigned long*)addr, size)
+#define ext2_find_next_zero_bit(addr, size, off) \
+	find_next_zero_le_bit((unsigned long*)addr, size, off)
+
+#define minix_test_and_set_bit(nr,addr)		test_and_set_bit(nr,addr)
+#define minix_set_bit(nr,addr)			set_bit(nr,addr)
+#define minix_test_and_clear_bit(nr,addr)	test_and_clear_bit(nr,addr)
+#define minix_test_bit(nr,addr)			test_bit(nr,addr)
+#define minix_find_first_zero_bit(addr,size)	find_first_zero_bit(addr,size)
 
 #endif /* __KERNEL__ */
 #endif /* _PPC64_BITOPS_H */

@@ -50,14 +50,13 @@ SECTIONS
   . = ALIGN(4096);	/* Align double page for init_task_union */
   __init_end = .;
 
-  . = ALIGN(4096);
-  .data.page_aligned : { *(.data.idt) }
-
   . = ALIGN(32);
   .data.cacheline_aligned : { *(.data.cacheline_aligned) }
 
   .fini      : { *(.fini)    } =0
   .reginfo : { *(.reginfo) }
+  .options : { *(.options) }
+  .MIPS.options : { *(.MIPS.options) }
   /* Adjust the address for the data segment.  We want to adjust up to
      the same address within the page on the next page up.  It would
      be more correct to do this:
@@ -82,8 +81,8 @@ SECTIONS
     . = ALIGN(4096);
     __rd_start = .;
     *(.initrd)
-    __rd_end = .;
     . = ALIGN(4096);
+    __rd_end = .;
 
     CONSTRUCTORS
   }

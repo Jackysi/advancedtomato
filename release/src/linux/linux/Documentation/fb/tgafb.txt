@@ -1,4 +1,4 @@
-$Id: tgafb.txt,v 1.1.1.4 2003/10/14 08:07:06 sparq Exp $
+$Id: tgafb.txt,v 1.1.2.2 2000/04/04 06:50:18 mato Exp $
 
 What is tgafb?
 ===============

@@ -1,4 +1,4 @@
-/* $Id: concap.h,v 1.1.1.4 2003/10/14 08:09:24 sparq Exp $
+/* $Id: concap.h,v 1.2.8.1 2001/09/23 22:25:05 kai Exp $
  *
  * Copyright 1997 by Henner Eisen <eis@baty.hanse.de>
  *

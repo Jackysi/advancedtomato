@@ -2,6 +2,7 @@
 #define _LINUX_INIT_H
 
 #include <linux/config.h>
+#include <linux/compiler.h>
 
 /* These macros are used to mark some functions or 
  * initialized data (doesn't apply to uninitialized data)
@@ -51,7 +52,7 @@ typedef void (*exitcall_t)(void);
 extern initcall_t __initcall_start, __initcall_end;
 
 #define __initcall(fn)								\
-	static initcall_t __initcall_##fn __init_call = fn
+	static initcall_t __initcall_##fn __attribute_used__ __init_call = fn
 #define __exitcall(fn)								\
 	static exitcall_t __exitcall_##fn __exit_call = fn
 
@@ -67,7 +68,7 @@ extern struct kernel_param __setup_start, __setup_end;
 
 #define __setup(str, fn)								\
 	static char __setup_str_##fn[] __initdata = str;				\
-	static struct kernel_param __setup_##fn __attribute__((unused)) __initsetup = { __setup_str_##fn, fn }
+	static struct kernel_param __setup_##fn __attribute_used__ __initsetup = { __setup_str_##fn, fn }
 
 #endif /* __ASSEMBLY__ */
 
@@ -76,12 +77,12 @@ extern struct kernel_param __setup_start, __setup_end;
  * or exit time.
  */
 #define __init		__attribute__ ((__section__ (".text.init")))
-#define __exit		__attribute__ ((unused, __section__(".text.exit")))
+#define __exit		__attribute_used__ __attribute__ (( __section__(".text.exit")))
 #define __initdata	__attribute__ ((__section__ (".data.init")))
-#define __exitdata	__attribute__ ((unused, __section__ (".data.exit")))
-#define __initsetup	__attribute__ ((unused,__section__ (".setup.init")))
-#define __init_call	__attribute__ ((unused,__section__ (".initcall.init")))
-#define __exit_call	__attribute__ ((unused,__section__ (".exitcall.exit")))
+#define __exitdata	__attribute_used__ __attribute__ ((__section__ (".data.exit")))
+#define __initsetup	__attribute_used__ __attribute__ ((__section__ (".setup.init")))
+#define __init_call	__attribute_used__ __attribute__ ((__section__ (".initcall.init")))
+#define __exit_call	__attribute_used__ __attribute__ ((__section__ (".exitcall.exit")))
 
 /* For assembly routines */
 #define __INIT		.section	".text.init","ax"

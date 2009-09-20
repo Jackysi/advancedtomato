@@ -1,7 +1,4 @@
 /*
- * BK Id: SCCS/s.ints.c 1.5 05/17/01 18:14:20 cort
- */
-/*
  *  linux/arch/ppc/amiga/ints.c
  *
  *  Linux/m68k general interrupt handling code from arch/m68k/kernel/ints.c
@@ -79,8 +76,8 @@ irq_node_t *new_irq_node(void)
 	return NULL;
 }
 
-int sys_request_irq(unsigned int irq, 
-                    void (*handler)(int, void *, struct pt_regs *), 
+int sys_request_irq(unsigned int irq,
+                    void (*handler)(int, void *, struct pt_regs *),
                     unsigned long flags, const char *devname, void *dev_id)
 {
 	if (irq < IRQ1 || irq > IRQ7) {
@@ -89,6 +86,20 @@ int sys_request_irq(unsigned int irq,
 		return -ENXIO;
 	}
 
+#if 0
+	if (!(irq_list[irq].flags & IRQ_FLG_STD)) {
+		if (irq_list[irq].flags & IRQ_FLG_LOCK) {
+			printk("%s: IRQ %d from %s is not replaceable\n",
+			       __FUNCTION__, irq, irq_list[irq].devname);
+			return -EBUSY;
+		}
+		if (!(flags & IRQ_FLG_REPLACE)) {
+			printk("%s: %s can't replace IRQ %d from %s\n",
+			       __FUNCTION__, devname, irq, irq_list[irq].devname);
+			return -EBUSY;
+		}
+	}
+#endif
 
 	irq_list[irq].handler = handler;
 	irq_list[irq].flags   = flags;

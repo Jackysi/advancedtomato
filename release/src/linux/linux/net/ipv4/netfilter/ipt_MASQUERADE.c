@@ -12,11 +12,16 @@
 #include <linux/netfilter_ipv4/ip_nat_rule.h>
 #include <linux/netfilter_ipv4/ip_tables.h>
 
+#if 0
+#define DEBUGP printk
+#else
 #define DEBUGP(format, args...)
+#endif
 
 /* Lock protects masq region inside conntrack */
 static DECLARE_RWLOCK(masq_lock);
 
+/* FIXME: Multiple targets. --RR */
 static int
 masquerade_check(const char *tablename,
 		 const struct ipt_entry *e,
@@ -27,7 +32,7 @@ masquerade_check(const char *tablename,
 	const struct ip_nat_multi_range *mr = targinfo;
 
 	if (strcmp(tablename, "nat") != 0) {
-		DEBUGP("masquerade_check: bad table `%s'.\n", table);
+		DEBUGP("masquerade_check: bad table `%s'.\n", tablename);
 		return 0;
 	}
 	if (targinfosize != IPT_ALIGN(sizeof(*mr))) {
@@ -68,25 +73,36 @@ masquerade_target(struct sk_buff **pskb,
 
 	IP_NF_ASSERT(hooknum == NF_IP_POST_ROUTING);
 
+	/* FIXME: For the moment, don't do local packets, breaks
+	   testsuite for 2.3.49 --RR */
 	if ((*pskb)->sk)
 		return NF_ACCEPT;
 
 	ct = ip_conntrack_get(*pskb, &ctinfo);
-	IP_NF_ASSERT(ct && (ctinfo == IP_CT_NEW
-				  || ctinfo == IP_CT_RELATED));
+	IP_NF_ASSERT(ct && (ctinfo == IP_CT_NEW || ctinfo == IP_CT_RELATED
+	                    || ctinfo == IP_CT_RELATED + IP_CT_IS_REPLY));
 
 	mr = targinfo;
 
 	key.dst = (*pskb)->nh.iph->daddr;
 	key.src = 0; /* Unknown: that's what we're trying to establish */
 	key.tos = RT_TOS((*pskb)->nh.iph->tos)|RTO_CONN;
-	key.oif = out->ifindex;
+	key.oif = 0;
 #ifdef CONFIG_IP_ROUTE_FWMARK
 	key.fwmark = (*pskb)->nfmark;
 #endif
 	if (ip_route_output_key(&rt, &key) != 0) {
-		/* Shouldn't happen */
-		printk("MASQUERADE: No route: Rusty's brain broke!\n");
+                /* Funky routing can do this. */
+                if (net_ratelimit())
+                        printk("MASQUERADE:"
+                               " No route: Rusty's brain broke!\n");
+                return NF_DROP;
+        }
+        if (rt->u.dst.dev != out) {
+                if (net_ratelimit())
+                        printk("MASQUERADE:"
+                               " Route sent us somewhere else.\n");
+			ip_rt_put(rt);
 		return NF_DROP;
 	}
 
@@ -109,7 +125,7 @@ masquerade_target(struct sk_buff **pskb,
 }
 
 static inline int
-device_cmp(const struct ip_conntrack *i, void *ifindex)
+device_cmp(struct ip_conntrack *i, void *ifindex)
 {
 	int ret;
 
@@ -131,12 +147,13 @@ static int masq_device_event(struct notifier_block *this,
 		   conntracks which were associated with that device,
 		   and forget them. */
 		IP_NF_ASSERT(dev->ifindex != 0);
-
-		ip_ct_selective_cleanup(device_cmp, (void *)(long)dev->ifindex);
+ 
+		ip_ct_iterate_cleanup(device_cmp, (void *)(long)dev->ifindex);
 	}
 
 	return NOTIFY_DONE;
 }
+
 
 static int masq_inet_event(struct notifier_block *this,
 			   unsigned long event,
@@ -150,22 +167,18 @@ static int masq_inet_event(struct notifier_block *this,
 		   and forget them. */
 		IP_NF_ASSERT(dev->ifindex != 0);
 
-		ip_ct_selective_cleanup(device_cmp, (void *)(long)dev->ifindex);
+		ip_ct_iterate_cleanup(device_cmp, (void *)(long)dev->ifindex);
 	}
 
 	return NOTIFY_DONE;
 }
 
 static struct notifier_block masq_dev_notifier = {
-	masq_device_event,
-	NULL,
-	0
+	.notifier_call  = masq_device_event,
 };
 
 static struct notifier_block masq_inet_notifier = {
-	masq_inet_event,
-	NULL,
-	0
+	.notifier_call = masq_inet_event
 };
 
 static struct ipt_target masquerade

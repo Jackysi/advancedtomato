@@ -8,7 +8,11 @@
 #include <linux/netfilter_ipv4/ipt_multiport.h>
 #include <linux/netfilter_ipv4/ip_tables.h>
 
+#if 0
+#define duprintf(format, args...) printk(format , ## args)
+#else
 #define duprintf(format, args...)
+#endif
 
 /* Returns 1 if the port is matched by the test, 0 otherwise. */
 static inline int

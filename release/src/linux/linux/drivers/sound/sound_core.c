@@ -1,4 +1,38 @@
-
+/*
+ *	Sound core handling. Breaks out sound functions to submodules
+ *	
+ *	Author:		Alan Cox <alan.cox@linux.org>
+ *
+ *	Fixes:
+ *
+ *
+ *	This program is free software; you can redistribute it and/or
+ *	modify it under the terms of the GNU General Public License
+ *	as published by the Free Software Foundation; either version
+ *	2 of the License, or (at your option) any later version.
+ *
+ *                         --------------------
+ * 
+ *	Top level handler for the sound subsystem. Various devices can
+ *	plug into this. The fact they dont all go via OSS doesn't mean 
+ *	they don't have to implement the OSS API. There is a lot of logic
+ *	to keeping much of the OSS weight out of the code in a compatibility
+ *	module, but its up to the driver to rember to load it...
+ *
+ *	The code provides a set of functions for registration of devices
+ *	by type. This is done rather than providing a single call so that
+ *	we can hide any future changes in the internals (eg when we go to
+ *	32bit dev_t) from the modules and their interface.
+ *
+ *	Secondly we need to allocate the dsp, dsp16 and audio devices as
+ *	one. Thus we misuse the chains a bit to simplify this.
+ *
+ *	Thirdly to make it more fun and for 2.3.x and above we do all
+ *	of this using fine grained locking.
+ *
+ *	FIXME: we have to resolve modules and fine grained load/unload
+ *	locking at some point in 2.3.x.
+ */
 
 #include <linux/config.h>
 #include <linux/module.h>

@@ -1,128 +1,57 @@
 /*
  * Generic HDLC support routines for Linux
  *
- * Copyright (C) 1999, 2000 Krzysztof Halasa <khc@pm.waw.pl>
+ * Copyright (C) 1999-2003 Krzysztof Halasa <khc@pm.waw.pl>
  *
  * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
+ * under the terms of version 2 of the GNU General Public License
+ * as published by the Free Software Foundation.
  */
 
 #ifndef __HDLC_H
 #define __HDLC_H
 
-/* Ioctls - to be changed */
-#define HDLCGSLOTMAP	(0x89F4) /* E1/T1 slot bitmap */
-#define HDLCGCLOCK	(0x89F5) /* clock sources */
-#define HDLCGCLOCKRATE	(0x89F6) /* clock rate */
-#define HDLCGMODE	(0x89F7) /* internal to hdlc.c - protocol used */
-#define HDLCGLINE	(0x89F8) /* physical interface */
-#define HDLCSSLOTMAP	(0x89F9)
-#define HDLCSCLOCK	(0x89FA)
-#define HDLCSCLOCKRATE	(0x89FB)
-#define HDLCSMODE	(0x89FC) /* internal to hdlc.c - select protocol */
-#define HDLCPVC		(0x89FD) /* internal to hdlc.c - create/delete PVC */
-#define HDLCSLINE	(0x89FE)
-#define HDLCRUN		(0x89FF) /* Download firmware and run board */
+#define GENERIC_HDLC_VERSION 4	/* For synchronization with sethdlc utility */
 
-/* Modes */
-#define MODE_NONE	0x00000000 /* Not initialized */
-#define MODE_DCE	0x00000080 /* DCE */
-#define MODE_HDLC	0x00000100 /* Raw HDLC frames */
-#define MODE_CISCO	0x00000200
-#define MODE_PPP	0x00000400
-#define MODE_FR		0x00000800 /* Any LMI */
-#define MODE_FR_ANSI	0x00000801
-#define MODE_FR_CCITT	0x00000802
-#define MODE_X25	0x00001000
-#define MODE_MASK	0x0000FF00
-#define MODE_SOFT	0x80000000 /* Driver modes, using hardware HDLC */
+#define CLOCK_DEFAULT   0	/* Default setting */
+#define CLOCK_EXT	1	/* External TX and RX clock - DTE */
+#define CLOCK_INT	2	/* Internal TX and RX clock - DCE */
+#define CLOCK_TXINT	3	/* Internal TX and external RX clock */
+#define CLOCK_TXFROMRX	4	/* TX clock derived from external RX clock */
 
-/* Lines */
-#define LINE_DEFAULT	0x00000000
-#define LINE_V35	0x00000001
-#define LINE_RS232	0x00000002
-#define LINE_X21	0x00000003
-#define LINE_T1		0x00000004
-#define LINE_E1		0x00000005
-#define LINE_MASK	0x000000FF
-#define LINE_LOOPBACK	0x80000000 /* On-card loopback */
 
-#define CLOCK_EXT	0	/* External TX and RX clock - DTE */
-#define CLOCK_INT	1	/* Internal TX and RX clock - DCE */
-#define CLOCK_TXINT	2	/* Internal TX and external RX clock */
-#define CLOCK_TXFROMRX	3	/* TX clock derived from external RX clock */
+#define ENCODING_DEFAULT	0 /* Default setting */
+#define ENCODING_NRZ		1
+#define ENCODING_NRZI		2
+#define ENCODING_FM_MARK	3
+#define ENCODING_FM_SPACE	4
+#define ENCODING_MANCHESTER	5
 
+
+#define PARITY_DEFAULT		0 /* Default setting */
+#define PARITY_NONE		1 /* No parity */
+#define PARITY_CRC16_PR0	2 /* CRC16, initial value 0x0000 */
+#define PARITY_CRC16_PR1	3 /* CRC16, initial value 0xFFFF */
+#define PARITY_CRC16_PR0_CCITT	4 /* CRC16, initial 0x0000, ITU-T version */
+#define PARITY_CRC16_PR1_CCITT	5 /* CRC16, initial 0xFFFF, ITU-T version */
+#define PARITY_CRC32_PR0_CCITT	6 /* CRC32, initial value 0x00000000 */
+#define PARITY_CRC32_PR1_CCITT	7 /* CRC32, initial value 0xFFFFFFFF */
+
+#define LMI_DEFAULT		0 /* Default setting */
+#define LMI_NONE		1 /* No LMI, all PVCs are static */
+#define LMI_ANSI		2 /* ANSI Annex D */
+#define LMI_CCITT		3 /* ITU-T Annex A */
 
 #define HDLC_MAX_MTU 1500	/* Ethernet 1500 bytes */
-#define HDLC_MAX_MRU (HDLC_MAX_MTU + 10) /* max 10 bytes for FR */
+#define HDLC_MAX_MRU (HDLC_MAX_MTU + 10 + 14 + 4) /* for ETH+VLAN over FR */
+
 
 #ifdef __KERNEL__
 
 #include <linux/skbuff.h>
 #include <linux/netdevice.h>
 #include <net/syncppp.h>
-
-#define MAXLEN_LMISTAT  20	/* max size of status enquiry frame */
-
-#define LINK_STATE_RELIABLE 0x01
-#define LINK_STATE_REQUEST  0x02 /* full stat sent (DCE) / req pending (DTE) */
-#define LINK_STATE_CHANGED  0x04 /* change in PVCs state, send full report */
-#define LINK_STATE_FULLREP_SENT 0x08 /* full report sent */
-
-#define PVC_STATE_NEW       0x01
-#define PVC_STATE_ACTIVE    0x02
-#define PVC_STATE_FECN	    0x08 /* FECN condition */
-#define PVC_STATE_BECN      0x10 /* BECN condition */
-
-
-#define FR_UI              0x03
-#define FR_PAD             0x00
-
-#define NLPID_IP           0xCC
-#define NLPID_IPV6         0x8E
-#define NLPID_SNAP         0x80
-#define NLPID_PAD          0x00
-#define NLPID_Q933         0x08
-
-
-#define LMI_DLCI                   0 /* LMI DLCI */
-#define LMI_PROTO               0x08
-#define LMI_CALLREF             0x00 /* Call Reference */
-#define LMI_ANSI_LOCKSHIFT      0x95 /* ANSI lockshift */
-#define LMI_REPTYPE                1 /* report type */
-#define LMI_CCITT_REPTYPE       0x51
-#define LMI_ALIVE                  3 /* keep alive */
-#define LMI_CCITT_ALIVE         0x53
-#define LMI_PVCSTAT                7 /* pvc status */
-#define LMI_CCITT_PVCSTAT       0x57
-#define LMI_FULLREP                0 /* full report  */
-#define LMI_INTEGRITY              1 /* link integrity report */
-#define LMI_SINGLE                 2 /* single pvc report */
-#define LMI_STATUS_ENQUIRY      0x75
-#define LMI_STATUS              0x7D /* reply */
-
-#define LMI_REPT_LEN               1 /* report type element length */
-#define LMI_INTEG_LEN              2 /* link integrity element length */
-
-#define LMI_LENGTH                13 /* standard LMI frame length */
-#define LMI_ANSI_LENGTH           14
-
-
-
-typedef struct {
-	unsigned ea1  : 1;
-	unsigned cr   : 1;
-	unsigned dlcih: 6;
-  
-	unsigned ea2  : 1;
-	unsigned de   : 1;
-	unsigned becn : 1;
-	unsigned fecn : 1;
-	unsigned dlcil: 4;
-}__attribute__ ((packed)) fr_hdr;
-
+#include <linux/hdlc/ioctl.h>
 
 
 typedef struct {		/* Used in Cisco and PPP mode */
@@ -146,68 +75,107 @@ typedef struct {
 
 
 typedef struct pvc_device_struct {
-	struct net_device netdev; /* PVC net device - must be first */
-	struct net_device_stats stats;
 	struct hdlc_device_struct *master;
-	struct pvc_device_struct *next;
+	struct net_device *main;
+	struct net_device *ether; /* bridged Ethernet interface */
+	struct pvc_device_struct *next;	/* Sorted in ascending DLCI order */
+	int dlci;
+	int open_count;
 
-	u8 state;
-	u8 newstate;
+	struct {
+		unsigned int new: 1;
+		unsigned int active: 1;
+		unsigned int exist: 1;
+		unsigned int deleted: 1;
+		unsigned int fecn: 1;
+		unsigned int becn: 1;
+	}state;
 }pvc_device;
 
 
 
-typedef struct {
-	u32 last_errors;	/* last errors bit list */
-	int last_poll;		/* ! */
-	u8 T391;		/* ! link integrity verification polling timer */
-	u8 T392;		/* ! polling verification timer */
-	u8 N391;		/* full status polling counter */
-	u8 N392;		/* error threshold */
-	u8 N393;		/* monitored events count */
-	u8 N391cnt;
-
-	u8 state;		/* ! */
-	u32 txseq;		/* ! TX sequence number - Cisco uses 4 bytes */
-	u32 rxseq;		/* ! RX sequence number */
-}fr_lmi;			/* ! means used in Cisco HDLC as well */
-
-
 typedef struct hdlc_device_struct {
-	/* to be initialized by hardware driver: */
+	/* To be initialized by hardware driver */
 	struct net_device netdev; /* master net device - must be first */
 	struct net_device_stats stats;
 
-	struct ppp_device pppdev;
-	struct ppp_device *syncppp_ptr;
+	/* used by HDLC layer to take control over HDLC device from hw driver*/
+	int (*attach)(struct hdlc_device_struct *hdlc,
+		      unsigned short encoding, unsigned short parity);
 
-	/* set_mode may be NULL if HDLC-only board */
-	int (*set_mode)(struct hdlc_device_struct *hdlc, int mode);
+	/* hardware driver must handle this instead of dev->hard_start_xmit */
+	int (*xmit)(struct sk_buff *skb, struct net_device *dev);
+
+
+	/* Things below are for HDLC layer internal use only */
+	int (*ioctl)(struct net_device *dev, struct ifreq *ifr, int cmd);
 	int (*open)(struct hdlc_device_struct *hdlc);
-	void (*close)(struct hdlc_device_struct *hdlc);
-	int (*xmit)(struct hdlc_device_struct *hdlc, struct sk_buff *skb);
-	int (*ioctl)(struct hdlc_device_struct *hdlc, struct ifreq *ifr,
-		     int cmd);
-  
-	/* Only in "hardware" FR modes etc. - may be NULL */
-	int (*create_pvc)(pvc_device *pvc);
-	void (*destroy_pvc)(pvc_device *pvc);
-	int (*open_pvc)(pvc_device *pvc);
-	void (*close_pvc)(pvc_device *pvc);
+	void (*stop)(struct hdlc_device_struct *hdlc);
+	void (*proto_detach)(struct hdlc_device_struct *hdlc);
+	void (*netif_rx)(struct sk_buff *skb);
+	unsigned short (*type_trans)(struct sk_buff *skb,
+				     struct net_device *dev);
+	int proto;		/* IF_PROTO_HDLC/CISCO/FR/etc. */
 
-	/* for hdlc.c internal use only */
-	pvc_device *first_pvc;
-	u16 pvc_count;
-	int mode;
+	union {
+		struct {
+			fr_proto settings;
+			pvc_device *first_pvc;
+			int dce_pvc_count;
 
-	struct timer_list timer;
-	fr_lmi lmi;
+			struct timer_list timer;
+			int last_poll;
+			int reliable;
+			int dce_changed;
+			int request;
+			int fullrep_sent;
+			u32 last_errors; /* last errors bit list */
+			u8 n391cnt;
+			u8 txseq; /* TX sequence number */
+			u8 rxseq; /* RX sequence number */
+		}fr;
+
+		struct {
+			cisco_proto settings;
+
+			struct timer_list timer;
+			int last_poll;
+			int up;
+			u32 txseq; /* TX sequence number */
+			u32 rxseq; /* RX sequence number */
+		}cisco;
+
+		struct {
+			raw_hdlc_proto settings;
+		}raw_hdlc;
+
+		struct {
+			struct ppp_device pppdev;
+			struct ppp_device *syncppp_ptr;
+			int (*old_change_mtu)(struct net_device *dev,
+					      int new_mtu);
+		}ppp;
+	}state;
 }hdlc_device;
 
 
+
+int hdlc_raw_ioctl(hdlc_device *hdlc, struct ifreq *ifr);
+int hdlc_raw_eth_ioctl(hdlc_device *hdlc, struct ifreq *ifr);
+int hdlc_cisco_ioctl(hdlc_device *hdlc, struct ifreq *ifr);
+int hdlc_ppp_ioctl(hdlc_device *hdlc, struct ifreq *ifr);
+int hdlc_fr_ioctl(hdlc_device *hdlc, struct ifreq *ifr);
+int hdlc_x25_ioctl(hdlc_device *hdlc, struct ifreq *ifr);
+
+
+/* Exported from hdlc.o */
+
+/* Called by hardware driver when a user requests HDLC service */
+int hdlc_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd);
+
+/* Must be used by hardware driver on module startup/exit */
 int register_hdlc_device(hdlc_device *hdlc);
 void unregister_hdlc_device(hdlc_device *hdlc);
-void hdlc_netif_rx(hdlc_device *hdlc, struct sk_buff *skb);
 
 
 static __inline__ struct net_device* hdlc_to_dev(hdlc_device *hdlc)
@@ -222,15 +190,9 @@ static __inline__ hdlc_device* dev_to_hdlc(struct net_device *dev)
 }
 
 
-static __inline__ struct net_device* pvc_to_dev(pvc_device *pvc)
-{
-	return &pvc->netdev;
-}
-
-
 static __inline__ pvc_device* dev_to_pvc(struct net_device *dev)
 {
-	return (pvc_device*)dev;
+	return (pvc_device*)dev->priv;
 }
 
 
@@ -240,88 +202,11 @@ static __inline__ const char *hdlc_to_name(hdlc_device *hdlc)
 }
 
 
-static __inline__ const char *pvc_to_name(pvc_device *pvc)
-{
-	return pvc_to_dev(pvc)->name;
-}
-
-
-static __inline__ u16 status_to_dlci(hdlc_device *hdlc, u8 *status, u8 *state)
-{
-	*state &= ~(PVC_STATE_ACTIVE | PVC_STATE_NEW);
-	if (status[2] & 0x08)
-		*state |= PVC_STATE_NEW;
-	else if (status[2] & 0x02)
-		*state |= PVC_STATE_ACTIVE;
-
-	return ((status[0] & 0x3F)<<4) | ((status[1] & 0x78)>>3);
-}
-
-
-static __inline__ void dlci_to_status(hdlc_device *hdlc, u16 dlci, u8 *status,
-				      u8 state)
-{
-	status[0] = (dlci>>4) & 0x3F;
-	status[1] = ((dlci<<3) & 0x78) | 0x80;
-	status[2] = 0x80;
-
-	if (state & PVC_STATE_NEW)
-		status[2] |= 0x08;
-	else if (state & PVC_STATE_ACTIVE)
-		status[2] |= 0x02;
-}
-
-
-
-static __inline__ u16 netdev_dlci(struct net_device *dev)
-{
-	return ntohs(*(u16*)dev->dev_addr);
-}
-
-
-
-static __inline__ u16 q922_to_dlci(u8 *hdr)
-{
-	return ((hdr[0] & 0xFC)<<2) | ((hdr[1] & 0xF0)>>4);
-}
-
-
-
-static __inline__ void dlci_to_q922(u8 *hdr, u16 dlci)
-{
-	hdr[0] = (dlci>>2) & 0xFC;
-	hdr[1] = ((dlci<<4) & 0xF0) | 0x01;
-}
-
-
-
-static __inline__ int mode_is(hdlc_device *hdlc, int mask)
-{
-	return (hdlc->mode & mask) == mask;
-}
-
-
-
-static __inline__ pvc_device* find_pvc(hdlc_device *hdlc, u16 dlci)
-{
-	pvc_device *pvc=hdlc->first_pvc;
-	
-	while (pvc) {
-		if (netdev_dlci(&pvc->netdev) == dlci)
-			return pvc;
-		pvc=pvc->next;
-	}
-
-	return NULL;
-}
-
-
-
 static __inline__ void debug_frame(const struct sk_buff *skb)
 {
 	int i;
 
-	for (i=0; i<skb->len; i++) {
+	for (i=0; i < skb->len; i++) {
 		if (i == 100) {
 			printk("...\n");
 			return;
@@ -331,6 +216,46 @@ static __inline__ void debug_frame(const struct sk_buff *skb)
 	printk("\n");
 }
 
+
+
+/* Must be called by hardware driver when HDLC device is being opened */
+static __inline__ int hdlc_open(hdlc_device *hdlc)
+{
+	if (hdlc->proto == -1)
+		return -ENOSYS;		/* no protocol attached */
+
+	if (hdlc->open)
+		return hdlc->open(hdlc);
+	return 0;
+}
+
+
+/* Must be called by hardware driver when HDLC device is being closed */
+static __inline__ void hdlc_close(hdlc_device *hdlc)
+{
+	if (hdlc->stop)
+		hdlc->stop(hdlc);
+}
+
+
+/* May be used by hardware driver to gain control over HDLC device */
+static __inline__ void hdlc_proto_detach(hdlc_device *hdlc)
+{
+	if (hdlc->proto_detach)
+		hdlc->proto_detach(hdlc);
+	hdlc->proto_detach = NULL;
+}
+
+
+static __inline__ unsigned short hdlc_type_trans(struct sk_buff *skb,
+						 struct net_device *dev)
+{
+	hdlc_device *hdlc = dev_to_hdlc(skb->dev);
+	if (hdlc->type_trans)
+		return hdlc->type_trans(skb, dev);
+	else
+		return __constant_htons(ETH_P_HDLC);
+}
 
 #endif /* __KERNEL */
 #endif /* __HDLC_H */

@@ -24,7 +24,8 @@ obj-y	 += mem.o tty_io.o n_tty.o tty_ioctl.o raw.o pty.o misc.o random.o
 export-objs     :=	busmouse.o console.o keyboard.o sysrq.o \
 			misc.o pty.o random.o selection.o serial.o \
 			sonypi.o tty_io.o tty_ioctl.o generic_serial.o \
-			au1000_gpio.o hp_psaux.o nvram.o
+			au1000_gpio.o vac-serial.o hp_psaux.o nvram.o \
+			scx200.o fetchop.o
 
 mod-subdirs	:=	joystick ftape drm drm-4.0 pcmcia
 
@@ -46,6 +47,10 @@ ifeq ($(ARCH),mips)
   ifneq ($(CONFIG_PC_KEYB),y)
     KEYBD    =
   endif
+  ifeq ($(CONFIG_VR41XX_KIU),y)
+    KEYMAP   =
+    KEYBD    = vr41xx_keyb.o
+  endif
 endif
 
 ifeq ($(ARCH),s390x)
@@ -64,6 +69,20 @@ ifeq ($(ARCH),m68k)
       endif
    endif
    SERIAL   =
+endif
+
+ifeq ($(ARCH),parisc)
+   ifdef CONFIG_GSC_PS2
+      KEYBD   = hp_psaux.o hp_keyb.o
+   else
+      KEYBD   =
+   endif
+   ifdef CONFIG_SERIAL_MUX
+      CONSOLE += mux.o
+   endif
+   ifdef CONFIG_PDC_CONSOLE
+      CONSOLE += pdc_console.o
+   endif
 endif
 
 ifdef CONFIG_Q40
@@ -130,7 +149,7 @@ endif
 
 ifeq ($(CONFIG_BAGET_MIPS),y)
   KEYBD    =
-  SERIAL   =
+  SERIAL   = vac-serial.o
 endif
 
 ifeq ($(CONFIG_NINO),y)
@@ -152,6 +171,7 @@ endif
 
 obj-$(CONFIG_VT) += vt.o vc_screen.o consolemap.o consolemap_deftbl.o $(CONSOLE) selection.o
 obj-$(CONFIG_SERIAL) += $(SERIAL)
+obj-$(CONFIG_PARPORT_SERIAL) += parport_serial.o
 obj-$(CONFIG_SERIAL_HCDP) += hcdp_serial.o
 obj-$(CONFIG_SERIAL_21285) += serial_21285.o
 obj-$(CONFIG_SERIAL_SA1100) += serial_sa1100.o
@@ -197,6 +217,10 @@ obj-$(CONFIG_BVME6000_SCC) += generic_serial.o vme_scc.o
 obj-$(CONFIG_HVC_CONSOLE) += hvc_console.o
 obj-$(CONFIG_SERIAL_TX3912) += generic_serial.o serial_tx3912.o
 obj-$(CONFIG_TXX927_SERIAL) += serial_txx927.o
+obj-$(CONFIG_SERIAL_TXX9) += generic_serial.o serial_txx9.o
+obj-$(CONFIG_IP22_SERIAL) += sgiserial.o
+obj-$(CONFIG_AU1X00_UART) += au1x00-serial.o
+obj-$(CONFIG_SGI_L1_SERIAL) += sn_serial.o
 
 subdir-$(CONFIG_RIO) += rio
 subdir-$(CONFIG_INPUT) += joystick
@@ -204,11 +228,14 @@ subdir-$(CONFIG_INPUT) += joystick
 obj-$(CONFIG_ATIXL_BUSMOUSE) += atixlmouse.o
 obj-$(CONFIG_LOGIBUSMOUSE) += logibusmouse.o
 obj-$(CONFIG_PRINTER) += lp.o
+obj-$(CONFIG_TIPAR) += tipar.o
+obj-$(CONFIG_OBMOUSE) += obmouse.o
 
 ifeq ($(CONFIG_INPUT),y)
 obj-y += joystick/js.o
 endif
 
+obj-$(CONFIG_FETCHOP) += fetchop.o
 obj-$(CONFIG_BUSMOUSE) += busmouse.o
 obj-$(CONFIG_DTLK) += dtlk.o
 obj-$(CONFIG_R3964) += n_r3964.o
@@ -222,22 +249,29 @@ obj-$(CONFIG_ADBMOUSE) += adbmouse.o
 obj-$(CONFIG_PC110_PAD) += pc110pad.o
 obj-$(CONFIG_MK712_MOUSE) += mk712.o
 obj-$(CONFIG_RTC) += rtc.o
+obj-$(CONFIG_GEN_RTC) += genrtc.o
 obj-$(CONFIG_EFI_RTC) += efirtc.o
-obj-$(CONFIG_KERNPROF) += kernprof.o
+obj-$(CONFIG_SGI_DS1286) += ds1286.o
+obj-$(CONFIG_MIPS_RTC) += mips_rtc.o
+obj-$(CONFIG_SGI_IP27_RTC) += ip27-rtc.o
 ifeq ($(CONFIG_PPC),)
   obj-$(CONFIG_NVRAM) += nvram.o
 endif
 obj-$(CONFIG_TOSHIBA) += toshiba.o
 obj-$(CONFIG_I8K) += i8k.o
 obj-$(CONFIG_DS1620) += ds1620.o
+obj-$(CONFIG_DS1742) += ds1742.o
 obj-$(CONFIG_INTEL_RNG) += i810_rng.o
 obj-$(CONFIG_AMD_RNG) += amd768_rng.o
+obj-$(CONFIG_GEODE_RNG) += geode-rng.o
+obj-$(CONFIG_HW_RANDOM) += hw_random.o
 obj-$(CONFIG_AMD_PM768) += amd76x_pm.o
+obj-$(CONFIG_BRIQ_PANEL) += briq_panel.o
 
 obj-$(CONFIG_ITE_GPIO) += ite_gpio.o
 obj-$(CONFIG_AU1X00_GPIO) += au1000_gpio.o
-obj-$(CONFIG_AU1000_USB_TTY) += au1000_usbtty.o
-obj-$(CONFIG_AU1000_USB_RAW) += au1000_usbraw.o
+obj-$(CONFIG_AU1X00_USB_TTY) += au1000_usbtty.o
+obj-$(CONFIG_AU1X00_USB_RAW) += au1000_usbraw.o
 obj-$(CONFIG_COBALT_LCD) += lcd.o
 
 obj-$(CONFIG_QIC02_TAPE) += tpqic02.o
@@ -257,6 +291,8 @@ obj-$(CONFIG_PPDEV) += ppdev.o
 obj-$(CONFIG_DZ) += dz.o
 obj-$(CONFIG_NWBUTTON) += nwbutton.o
 obj-$(CONFIG_NWFLASH) += nwflash.o
+obj-$(CONFIG_SCx200) += scx200.o
+obj-$(CONFIG_SCx200_GPIO) += scx200_gpio.o
 
 # Only one watchdog can succeed. We probe the hardware watchdog
 # drivers first, then the softdog driver.  This means if your hardware
@@ -280,25 +316,26 @@ obj-$(CONFIG_MACHZ_WDT) += machzwd.o
 obj-$(CONFIG_SH_WDT) += shwdt.o
 obj-$(CONFIG_EUROTECH_WDT) += eurotechwdt.o
 obj-$(CONFIG_ALIM7101_WDT) += alim7101_wdt.o
-#obj-$(CONFIG_ALIM1535_WDT) += alim1535d_wdt.o
+obj-$(CONFIG_ALIM1535_WDT) += alim1535d_wdt.o
 obj-$(CONFIG_INDYDOG) += indydog.o
 obj-$(CONFIG_SC1200_WDT) += sc1200wdt.o
+obj-$(CONFIG_SCx200_WDT) += scx200_wdt.o
 obj-$(CONFIG_WAFER_WDT) += wafer5823wdt.o
 obj-$(CONFIG_SOFT_WATCHDOG) += softdog.o
-obj-$(CONFIG_AMD7XX_TCO) += amd7xx_tco.o
 obj-$(CONFIG_INDYDOG) += indydog.o
+obj-$(CONFIG_GEODE_WDT) += geodewdt.o
+obj-$(CONFIG_8xx_WDT) += mpc8xx_wdt.o
+obj-$(CONFIG_WDT_W83627) += wdt83627.o
+obj-$(CONFIG_W83977EF_WDT) += wdt83977.o
 
 subdir-$(CONFIG_MWAVE) += mwave
 ifeq ($(CONFIG_MWAVE),y)
   obj-y += mwave/mwave.o
 endif
 
-ifeq ($(CONFIG_HND_BMIPS3300_PROF),y)
-  obj-y += hndprof/bmips3300_perfcnt.o
-  HNDPROF = y
-endif
-ifeq ($(HNDPROF),y)
-  subdir-y += hndprof
+subdir-$(CONFIG_IPMI_HANDLER) += ipmi
+ifeq ($(CONFIG_IPMI_HANDLER),y)
+  obj-y += ipmi/ipmi.o
 endif
 
 include $(TOPDIR)/Rules.make
@@ -307,11 +344,6 @@ fastdep:
 
 conmakehash: conmakehash.c
 	$(HOSTCC) $(HOSTCFLAGS) -o conmakehash conmakehash.c
-
-ifdef CONFIG_MCOUNT
-kernprof.o: kernprof.c
-	$(CC) $(subst -pg,,$(CFLAGS)) -c $<
-endif
 
 consolemap_deftbl.c: $(FONTMAPFILE) conmakehash
 	./conmakehash $(FONTMAPFILE) > consolemap_deftbl.c

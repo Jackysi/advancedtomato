@@ -1,5 +1,5 @@
 /*
- * $Id: evdev.c,v 1.1.1.4 2003/10/14 08:08:10 sparq Exp $
+ * $Id: evdev.c,v 1.27 2001/05/28 09:06:44 vojtech Exp $
  *
  *  Copyright (c) 1999-2001 Vojtech Pavlik
  *
@@ -222,6 +222,9 @@ static int evdev_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
 	struct evdev *evdev = list->evdev;
 	struct input_dev *dev = evdev->handle.dev;
 	int retval;
+
+	if (!evdev->exist)
+		return -ENODEV;
 
 	switch (cmd) {
 

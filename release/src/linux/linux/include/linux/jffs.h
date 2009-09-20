@@ -10,7 +10,7 @@
  * the Free Software Foundation; either version 2 of the License, or
  * (at your option) any later version.
  *
- * $Id: jffs.h,v 1.1.1.4 2003/10/14 08:09:25 sparq Exp $
+ * $Id: jffs.h,v 1.20 2001/09/18 21:33:37 dwmw2 Exp $
  *
  * Ported to Linux 2.3.x and MTD:
  * Copyright (C) 2000  Alexander Larsson (alex@cendio.se), Cendio Systems AB
@@ -58,6 +58,7 @@
 #define JFFS_PRINT_TREE _IO(JFFS_IOCTL_MAGIC, 91)
 #define JFFS_GET_STATUS _IO(JFFS_IOCTL_MAGIC, 92)
 
+/* XXX: This is something that we should try to get rid of in the future.  */
 #define JFFS_MODIFY_INODE 0x01
 #define JFFS_MODIFY_NAME  0x02
 #define JFFS_MODIFY_DATA  0x04

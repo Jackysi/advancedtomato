@@ -1,9 +1,10 @@
 
 /* Linux driver for Disk-On-Chip devices			*/
 /* Probe routines common to all DoC devices			*/
-/* (c) 1999 Machine Vision Holdings, Inc.			*/
-/* Author: David Woodhouse <dwmw2@infradead.org>		*/
-/* $Id: docprobe.c,v 1.1.1.4 2003/10/14 08:08:17 sparq Exp $	*/
+/* (C) 1999 Machine Vision Holdings, Inc.			*/
+/* (C) 1999-2003 David Woodhouse <dwmw2@infradead.org>		*/
+
+/* $Id: docprobe.c,v 1.33 2003/01/24 14:02:47 dwmw2 Exp $	*/
 
 
 
@@ -67,10 +68,10 @@
 
 static unsigned long doc_config_location = CONFIG_MTD_DOCPROBE_ADDRESS;
 MODULE_PARM(doc_config_location, "l");
-
+MODULE_PARM_DESC(doc_config_location, "Physical memory address at which to probe for DiskOnChip");
 
 static unsigned long __initdata doc_locations[] = {
-#if defined(__alpha__) || defined(__i386__) || defined(__x86_64__)
+#if defined (__alpha__) || defined(__i386__) || defined(__x86_64__)
 #ifdef CONFIG_MTD_DOCPROBE_HIGH
 	0xfffc8000, 0xfffca000, 0xfffcc000, 0xfffce000, 
 	0xfffd0000, 0xfffd2000, 0xfffd4000, 0xfffd6000,
@@ -84,14 +85,14 @@ static unsigned long __initdata doc_locations[] = {
 	0xe0000, 0xe2000, 0xe4000, 0xe6000, 
 	0xe8000, 0xea000, 0xec000, 0xee000,
 #endif /*  CONFIG_MTD_DOCPROBE_HIGH */
-#elif defined(__ppc__)
+#elif defined(__PPC__)
 	0xe4000000,
 #elif defined(CONFIG_MOMENCO_OCELOT)
 	0x2f000000,
-	0xff000000,
-#elif defined(CONFIG_MOMENCO_OCELOT_G)
-	0xff000000,
-#else
+        0xff000000,
+#elif defined(CONFIG_MOMENCO_OCELOT_G) || defined (CONFIG_MOMENCO_OCELOT_C)
+        0xff000000,
+##else
 #warning Unknown architecture for DiskOnChip. No default probe locations defined
 #endif
 	0 };

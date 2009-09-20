@@ -7,11 +7,11 @@
  */
 
 #include <linux/config.h>
-#include <asm/smp.h>
 
 #ifdef CONFIG_SMP
 
 #include <linux/kernel.h>
+#include <asm/smp.h>
 
 /*
  * main cross-CPU interfaces, handles INIT, TLB flush, STOP, etc.

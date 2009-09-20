@@ -1,1 +1,0 @@
-#define CONFIG_HOTPLUG 1

@@ -14,7 +14,6 @@
 #include <linux/init.h>
 #include <linux/sched.h>
 
-#include <asm/param.h>
 #include <asm/uaccess.h>
 
 /*
@@ -285,6 +284,8 @@ printk("SIG dequeue (%s:%d): %d ", current->comm, current->pid,
 		if (!collect_signal(sig, &current->pending, info))
 			sig = 0;
 				
+		/* XXX: Once POSIX.1b timers are in, if si_code == SI_TIMER,
+		   we need to xchg out the timer overrun values.  */
 	}
 	recalc_sigpending(current);
 
@@ -408,8 +409,19 @@ static int ignored_signal(int sig, struct task_struct *t)
 static void handle_stop_signal(int sig, struct task_struct *t)
 {
 	switch (sig) {
-	case SIGKILL: case SIGCONT:
-		/* Wake up the process if stopped.  */
+	case SIGCONT:
+		/* SIGCONT must not wake a task while it's being traced */
+		if ((t->state == TASK_STOPPED) &&
+		    ((t->ptrace & (PT_PTRACED|PT_TRACESYS)) ==
+		     (PT_PTRACED|PT_TRACESYS)))
+			return;
+		/* fall through */
+	case SIGKILL:
+		/* Wake up the process if stopped.
+		 * Note that if the process is being traced, waking it up
+		 * will make it continue before being killed. This may end
+		 * up unexpectedly completing whatever syscall is pending.
+		 */
 		if (t->state == TASK_STOPPED)
 			wake_up_process(t);
 		t->exit_code = 0;
@@ -776,13 +788,15 @@ void do_notify_parent(struct task_struct *tsk, int sig)
 	info.si_pid = tsk->pid;
 	info.si_uid = tsk->uid;
 
-	info.si_utime = hz_to_std(tsk->times.tms_utime);
-	info.si_stime = hz_to_std(tsk->times.tms_stime);
+	/* FIXME: find out whether or not this is supposed to be c*time. */
+	info.si_utime = tsk->times.tms_utime;
+	info.si_stime = tsk->times.tms_stime;
 
 	status = tsk->exit_code & 0x7f;
 	why = SI_KERNEL;	/* shouldn't happen */
 	switch (tsk->state) {
 	case TASK_STOPPED:
+		/* FIXME -- can we deduce CLD_TRAPPED or CLD_CONTINUED? */
 		if (tsk->ptrace & PT_PTRACED)
 			why = CLD_TRAPPED;
 		else
@@ -857,6 +871,7 @@ sys_rt_sigprocmask(int how, sigset_t *set, sigset_t *oset, size_t sigsetsize)
 	int error = -EINVAL;
 	sigset_t old_set, new_set;
 
+	/* XXX: Don't preclude handling different sized sigset_t's.  */
 	if (sigsetsize != sizeof(sigset_t))
 		goto out;
 
@@ -875,16 +890,16 @@ sys_rt_sigprocmask(int how, sigset_t *set, sigset_t *oset, size_t sigsetsize)
 			error = -EINVAL;
 			break;
 		case SIG_BLOCK:
-			sigorsets(&new_set, &old_set, &new_set);
+			sigorsets(&current->blocked, &old_set, &new_set);
 			break;
 		case SIG_UNBLOCK:
-			signandsets(&new_set, &old_set, &new_set);
+			signandsets(&current->blocked, &old_set, &new_set);
 			break;
 		case SIG_SETMASK:
+			current->blocked = new_set;
 			break;
 		}
 
-		current->blocked = new_set;
 		recalc_sigpending(current);
 		spin_unlock_irq(&current->sigmask_lock);
 		if (error)
@@ -941,6 +956,7 @@ sys_rt_sigtimedwait(const sigset_t *uthese, siginfo_t *uinfo,
 	siginfo_t info;
 	long timeout = 0;
 
+	/* XXX: Don't preclude handling different sized sigset_t's.  */
 	if (sigsetsize != sizeof(sigset_t))
 		return -EINVAL;
 
@@ -1251,6 +1267,7 @@ sys_rt_sigaction(int sig, const struct sigaction *act, struct sigaction *oact,
 	struct k_sigaction new_sa, old_sa;
 	int ret = -EINVAL;
 
+	/* XXX: Don't preclude handling different sized sigset_t's.  */
 	if (sigsetsize != sizeof(sigset_t))
 		goto out;
 

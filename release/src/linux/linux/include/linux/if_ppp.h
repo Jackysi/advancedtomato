@@ -1,4 +1,4 @@
-/*	$Id: if_ppp.h,v 1.1.1.4 2003/10/14 08:09:25 sparq Exp $	*/
+/*	$Id: if_ppp.h,v 1.21 2000/03/27 06:03:36 paulus Exp $	*/
 
 /*
  * if_ppp.h - Point-to-Point Protocol definitions.

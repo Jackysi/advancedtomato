@@ -65,7 +65,7 @@ struct thread_struct {
 /*
  * At user->kernel entry, the pt_regs struct is stacked on the top of the kernel-stack.
  * This macro allows us to find those regs for a task.
- * Notice that subsequent pt_regs stackings, like recursive interrupts occuring while
+ * Notice that subsequent pt_regs stackings, like recursive interrupts occurring while
  * we're in the kernel, won't affect this - only the first user->kernel transition
  * registers are reached by this.
  */
@@ -81,7 +81,7 @@ struct thread_struct {
 #define INIT_THREAD  { \
    0, 0, 0x20 }  /* ccr = int enable, nothing else */
 
-extern int kernel_thread(int (*fn)(void *), void * arg, unsigned long flags);
+extern int arch_kernel_thread(int (*fn)(void *), void * arg, unsigned long flags);
 
 /* give the thread a program location
  * set user-mode (The 'U' flag (User mode flag) is CCR/DCCR bit 8) 
@@ -116,13 +116,13 @@ unsigned long get_wchan(struct task_struct *p);
  * Free current thread data structures etc..
  */
 
-static inline void exit_thread(void)
+extern inline void exit_thread(void)
 {
         /* Nothing needs to be done.  */
 }
 
 /* Free all resources held by a thread. */
-static inline void release_thread(struct task_struct *dead_task)
+extern inline void release_thread(struct task_struct *dead_task)
 {
         /* Nothing needs to be done.  */
 }

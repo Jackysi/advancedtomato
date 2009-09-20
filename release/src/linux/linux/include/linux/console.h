@@ -80,7 +80,7 @@ struct console_cmdline
 	char	*options;			/* Options for the driver   */
 };
 #define MAX_CMDLINECONSOLES 8
-extern struct console_cmdline console_list[MAX_CMDLINECONSOLES];
+extern struct console_cmdline console_cmdline[MAX_CMDLINECONSOLES];
 
 /*
  *	The interface for a console, or any other device that
@@ -90,6 +90,7 @@ extern struct console_cmdline console_list[MAX_CMDLINECONSOLES];
 #define CON_PRINTBUFFER	(1)
 #define CON_CONSDEV	(2) /* Last on the command line */
 #define CON_ENABLED	(4)
+#define CON_BOOT	(8) /* Only used for initial boot */
 
 struct console
 {
@@ -112,6 +113,7 @@ extern void acquire_console_sem(void);
 extern void release_console_sem(void);
 extern void console_conditional_schedule(void);
 extern void console_unblank(void);
+extern void disable_console_blank(void);
 
 /* VESA Blanking Levels */
 #define VESA_NO_BLANKING        0

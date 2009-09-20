@@ -2,7 +2,7 @@
 #define _LINUX_JOYSTICK_H
 
 /*
- * $Id: joystick.h,v 1.1.1.4 2003/10/14 08:09:25 sparq Exp $
+ * $Id: joystick.h,v 1.3 2000/11/30 11:07:05 vojtech Exp $
  *
  *  Copyright (C) 1996-2000 Vojtech Pavlik
  *

@@ -70,6 +70,7 @@ struct proc_dir_entry {
 	atomic_t count;		/* use count */
 	int deleted;		/* delete flag */
 	kdev_t	rdev;
+	void *set;
 };
 
 #define PROC_INODE_PROPER(inode) ((inode)->i_ino & ~0xffff)
@@ -79,6 +80,7 @@ struct proc_dir_entry {
 extern struct proc_dir_entry proc_root;
 extern struct proc_dir_entry *proc_root_fs;
 extern struct proc_dir_entry *proc_net;
+extern struct proc_dir_entry *proc_net_stat;
 extern struct proc_dir_entry *proc_bus;
 extern struct proc_dir_entry *proc_root_driver;
 extern struct proc_dir_entry *proc_root_kcore;
@@ -143,6 +145,8 @@ extern struct proc_dir_entry *proc_symlink(const char *,
 extern struct proc_dir_entry *proc_mknod(const char *,mode_t,
 		struct proc_dir_entry *,kdev_t);
 extern struct proc_dir_entry *proc_mkdir(const char *,struct proc_dir_entry *);
+extern struct proc_dir_entry *proc_mkdir_mode(const char *name, mode_t mode,
+			struct proc_dir_entry *parent);
 
 static inline struct proc_dir_entry *create_proc_read_entry(const char *name,
 	mode_t mode, struct proc_dir_entry *base, 
@@ -168,6 +172,16 @@ static inline struct proc_dir_entry *proc_net_create(const char *name,
 	mode_t mode, get_info_t *get_info)
 {
 	return create_proc_info_entry(name,mode,proc_net,get_info);
+}
+
+static inline struct proc_dir_entry *proc_net_fops_create(const char *name,
+	mode_t mode, struct file_operations *fops)
+{
+	struct proc_dir_entry *res = create_proc_entry(name, mode, proc_net);
+
+	if (res)
+		res->proc_fops = fops;
+	return res;
 }
 
 static inline void proc_net_remove(const char *name)
@@ -208,5 +222,10 @@ static inline void proc_tty_unregister_driver(struct tty_driver *driver) {};
 extern struct proc_dir_entry proc_root;
 
 #endif /* CONFIG_PROC_FS */
+
+static inline struct proc_dir_entry *PDE(const struct inode *inode)
+{
+	return (struct proc_dir_entry *)inode->u.generic_ip;
+}
 
 #endif /* _LINUX_PROC_FS_H */

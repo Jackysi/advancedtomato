@@ -14,6 +14,7 @@ obj-y    := dir.o file.o flushd.o inode.o nfs2xdr.o pagelist.o proc.o \
 
 obj-$(CONFIG_ROOT_NFS) += nfsroot.o mount_clnt.o      
 obj-$(CONFIG_NFS_V3) += nfs3proc.o nfs3xdr.o
+obj-$(CONFIG_NFS_DIRECTIO) += direct.o
 
 obj-m   := $(O_TARGET)
 

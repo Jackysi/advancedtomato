@@ -1,5 +1,6 @@
 #ifndef _IP_CONNTRACK_CORE_H
 #define _IP_CONNTRACK_CORE_H
+#include <linux/netfilter.h>
 #include <linux/netfilter_ipv4/lockhelp.h>
 
 /* This header is used to share core functionality between the
@@ -24,9 +25,9 @@ extern struct list_head protocol_list;
 extern struct ip_conntrack *icmp_error_track(struct sk_buff *skb,
 					     enum ip_conntrack_info *ctinfo,
 					     unsigned int hooknum);
-extern int get_tuple(const struct iphdr *iph, size_t len,
-		     struct ip_conntrack_tuple *tuple,
-		     struct ip_conntrack_protocol *protocol);
+extern int ip_ct_get_tuple(const struct iphdr *iph, size_t len,
+                           struct ip_conntrack_tuple *tuple,
+                           struct ip_conntrack_protocol *protocol);
 
 /* Find a connection corresponding to a tuple. */
 struct ip_conntrack_tuple_hash *

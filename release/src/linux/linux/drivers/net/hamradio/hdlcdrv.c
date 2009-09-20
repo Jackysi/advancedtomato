@@ -161,6 +161,17 @@ static inline int check_crc_ccitt(const unsigned char *buf, int cnt)
 
 /*---------------------------------------------------------------------------*/
 
+#if 0
+static int calc_crc_ccitt(const unsigned char *buf, int cnt)
+{
+	unsigned int crc = 0xffff;
+
+	for (; cnt > 0; cnt--)
+		crc = (crc >> 8) ^ crc_ccitt_table[(crc ^ *buf++) & 0xff];
+	crc ^= 0xffff;
+	return (crc & 0xffff);
+}
+#endif
 
 /* ---------------------------------------------------------------------- */
 

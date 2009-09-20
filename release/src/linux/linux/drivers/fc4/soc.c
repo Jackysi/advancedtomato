@@ -40,7 +40,6 @@ static char *version =
 
 #include <asm/openprom.h>
 #include <asm/oplib.h>
-#include <asm/auxio.h>
 #include <asm/pgtable.h>
 #include <asm/irq.h>
 
@@ -85,6 +84,7 @@ static void soc_reset(fc_channel *fc)
 	soc_port *port = (soc_port *)fc;
 	struct soc *s = port->s;
 	
+	/* FIXME */
 	soc_disable(s);
 	s->req[0].seqno = 1;
 	s->req[1].seqno = 1;
@@ -99,6 +99,7 @@ static void soc_reset(fc_channel *fc)
 	s->rsp[0].out = 0;
 	s->rsp[1].out = 0;
 
+	/* FIXME */
 	soc_enable(s);
 }
 

@@ -285,7 +285,7 @@ MODULE_PARM(autoeject, "i");
 MODULE_PARM(lockdoor, "i");
 MODULE_PARM(check_media_type, "i");
 
-#if ERRLOGMASK!=CD_NOTHING
+#if (ERRLOGMASK!=CD_NOTHING)
 #define cdinfo(type, fmt, args...) \
         if ((ERRLOGMASK & type) || debug==1 ) \
             printk(KERN_INFO "cdrom: " fmt, ## args)
@@ -1259,7 +1259,7 @@ static int dvd_read_bca(struct cdrom_device_info *cdi, dvd_struct *s)
 	init_cdrom_command(&cgc, buf, sizeof(buf), CGC_DATA_READ);
 	cgc.cmd[0] = GPCMD_READ_DVD_STRUCTURE;
 	cgc.cmd[7] = s->type;
-	cgc.cmd[9] = cgc.buflen = 0xff;
+	cgc.cmd[9] = cgc.buflen & 0xff;
 
 	if ((ret = cdo->generic_packet(cdi, &cgc)))
 		return ret;
@@ -1882,20 +1882,26 @@ static int cdrom_do_cmd(struct cdrom_device_info *cdi,
 	if (cgc->buflen < 0 || cgc->buflen >= 131072)
 		return -EINVAL;
 
-	if ((ubuf = cgc->buffer)) {
+	usense = cgc->sense;
+	cgc->sense = &sense;
+	if (usense && !access_ok(VERIFY_WRITE, usense, sizeof(*usense))) {
+		return -EFAULT;
+	}
+
+	ubuf = cgc->buffer;
+	if (cgc->data_direction == CGC_DATA_READ ||
+	    cgc->data_direction == CGC_DATA_WRITE) {
 		cgc->buffer = kmalloc(cgc->buflen, GFP_KERNEL);
 		if (cgc->buffer == NULL)
 			return -ENOMEM;
 	}
 
-	usense = cgc->sense;
-	cgc->sense = &sense;
-	if (usense && !access_ok(VERIFY_WRITE, usense, sizeof(*usense)))
-		return -EFAULT;
 
 	if (cgc->data_direction == CGC_DATA_READ) {
-		if (!access_ok(VERIFY_READ, ubuf, cgc->buflen))
+		if (!access_ok(VERIFY_READ, ubuf, cgc->buflen)) {
+			kfree(cgc->buffer);
 			return -EFAULT;
+		}
 	} else if (cgc->data_direction == CGC_DATA_WRITE) {
 		if (copy_from_user(cgc->buffer, ubuf, cgc->buflen)) {
 			kfree(cgc->buffer);
@@ -1907,7 +1913,10 @@ static int cdrom_do_cmd(struct cdrom_device_info *cdi,
 	__copy_to_user(usense, cgc->sense, sizeof(*usense));
 	if (!ret && cgc->data_direction == CGC_DATA_READ)
 		__copy_to_user(ubuf, cgc->buffer, cgc->buflen);
-	kfree(cgc->buffer);
+	if (cgc->data_direction == CGC_DATA_READ ||
+	    cgc->data_direction == CGC_DATA_WRITE) {
+		kfree(cgc->buffer);
+	}
 	return ret;
 }
 
@@ -1946,6 +1955,7 @@ static int mmc_ioctl(struct cdrom_device_info *cdi, unsigned int cmd,
 		}
 		IOCTL_IN(arg, struct cdrom_msf, msf);
 		lba = msf_to_lba(msf.cdmsf_min0,msf.cdmsf_sec0,msf.cdmsf_frame0);
+		/* FIXME: we need upper bound checking, too!! */
 		if (lba < 0)
 			return -EINVAL;
 		cgc.buffer = (char *) kmalloc(blocksize, GFP_KERNEL);
@@ -1960,6 +1970,7 @@ static int mmc_ioctl(struct cdrom_device_info *cdi, unsigned int cmd,
 			 * SCSI-II devices are not required to support
 			 * READ_CD, so let's try switching block size
 			 */
+			/* FIXME: switch back again... */
 			if ((ret = cdrom_switch_blocksize(cdi, blocksize))) {
 				kfree(cgc.buffer);
 				return ret;
@@ -1988,6 +1999,7 @@ static int mmc_ioctl(struct cdrom_device_info *cdi, unsigned int cmd,
 		else
 			return -EINVAL;
 
+		/* FIXME: we need upper bound checking, too!! */
 		if (lba < 0 || ra.nframes <= 0)
 			return -EINVAL;
 
@@ -2586,9 +2598,7 @@ ctl_table cdrom_cdrom_table[] = {
 
 /* Make sure that /proc/sys/dev is there */
 ctl_table cdrom_root_table[] = {
-#ifdef CONFIG_PROC_FS
 	{CTL_DEV, "dev", NULL, 0, 0555, cdrom_cdrom_table},
-#endif /* CONFIG_PROC_FS */
 	{0}
 	};
 static struct ctl_table_header *cdrom_sysctl_header;

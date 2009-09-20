@@ -33,6 +33,7 @@
 #define MD_MAJOR        9
 #define MISC_MAJOR	10
 #define SCSI_CDROM_MAJOR 11
+#define	MUX_MAJOR	11	/* PA-RISC only */
 #define QIC02_TAPE_MAJOR 12
 #define XT_DISK_MAJOR	13
 #define SOUND_MAJOR	14
@@ -137,7 +138,6 @@
 #define JSFD_MAJOR	99
 
 #define PHONE_MAJOR	100
-#define FLASH_MAJOR     101
 
 #define LVM_CHAR_MAJOR	109	/* Logical Volume Manager */
 
@@ -153,8 +153,6 @@
 #define UNIX98_PTY_MASTER_MAJOR	128
 #define UNIX98_PTY_MAJOR_COUNT	8
 #define UNIX98_PTY_SLAVE_MAJOR	(UNIX98_PTY_MASTER_MAJOR+UNIX98_PTY_MAJOR_COUNT)
-
-#define KERNPROF_MAJOR		192
 
 #define VXVM_MAJOR		199	/* VERITAS volume i/o driver    */
 #define VXSPEC_MAJOR		200	/* VERITAS volume config driver */

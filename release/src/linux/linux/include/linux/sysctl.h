@@ -29,6 +29,7 @@
 #include <linux/list.h>
 
 struct file;
+struct completion;
 
 #define CTL_MAXNAME 10
 
@@ -69,7 +70,7 @@ enum
 /* CTL_BUS names: */
 enum
 {
-	BUS_ISA=1		/* ISA */
+	CTL_BUS_ISA=1		/* ISA */
 };
 
 /* CTL_KERN names: */
@@ -124,6 +125,11 @@ enum
 	KERN_CORE_USES_PID=52,		/* int: use core or core.%pid */
 	KERN_TAINTED=53,	/* int: various kernel tainted flags */
 	KERN_CADPID=54,		/* int: PID of the process to notify on CAD */
+ 	KERN_CORE_PATTERN=56,	/* string: pattern for core-files */
+	KERN_PPC_L3CR=57,       /* l3cr register on PPC */
+	KERN_EXCEPTION_TRACE=58, /* boolean: exception trace */
+ 	KERN_CORE_SETUID=59,	/* int: set to allow core dumps of setuid apps */
+	KERN_SPARC_SCONS_PWROFF=64, /* int: serial console power-off halt */
 };
 
 
@@ -143,6 +149,17 @@ enum
 	VM_MAX_MAP_COUNT=11,	/* int: Maximum number of active map areas */
 	VM_MIN_READAHEAD=12,    /* Min file readahead */
 	VM_MAX_READAHEAD=13,    /* Max file readahead */
+	VM_VFS_SCAN_RATIO=14,   /* part of the inactive vfs lists to scan */
+	VM_LRU_BALANCE_RATIO=15,/* balance active and inactive caches */
+	VM_PASSES=16,           /* number of vm passes before failing */
+	VM_PAGEBUF=17,		/* struct: Control pagebuf parameters */
+	VM_GFP_DEBUG=18,        /* debug GFP failures */
+	VM_CACHE_SCAN_RATIO=19, /* part of the inactive cache list to scan */
+	VM_MAPPED_RATIO=20,	/* amount of unfreeable pages that triggers swapout */
+	VM_LAPTOP_MODE=21,	/* kernel in laptop flush mode */
+	VM_BLOCK_DUMP=22,	/* dump fs activity to log */
+	VM_ANON_LRU=23,		/* immediatly insert anon pages in the vm page lru */
+	VM_MMAP_MIN_ADDR=24,	/* prevent mapping of low addresses by mmap() */
 };
 
 
@@ -165,7 +182,8 @@ enum
 	NET_TR=14,
 	NET_DECNET=15,
 	NET_ECONET=16,
-	NET_KHTTPD=17
+	NET_KHTTPD=17,
+	NET_SCTP=18
 };
 
 /* /proc/sys/kernel/random */
@@ -206,7 +224,8 @@ enum
 	NET_CORE_NO_CONG=14,
 	NET_CORE_LO_CONG=15,
 	NET_CORE_MOD_CONG=16,
-	NET_CORE_DEV_WEIGHT=17
+	NET_CORE_DEV_WEIGHT=17,
+	NET_CORE_SOMAXCONN=18,
 };
 
 /* /proc/sys/net/ethernet */
@@ -233,6 +252,7 @@ enum
 	NET_IPV4_NEIGH=17,
 	NET_IPV4_ROUTE=18,
 	NET_IPV4_FIB_HASH=19,
+	NET_IPV4_NETFILTER=20,
 
 	NET_IPV4_TCP_TIMESTAMPS=33,
 	NET_IPV4_TCP_WINDOW_SCALING=34,
@@ -293,10 +313,22 @@ enum
 	NET_IPV4_ICMP_RATELIMIT=89,
 	NET_IPV4_ICMP_RATEMASK=90,
 	NET_TCP_TW_REUSE=91,
-	NET_TCP_VEGAS=92,
-	NET_TCP_VEGAS_ALPHA=93,
-	NET_TCP_VEGAS_BETA=94,
-	NET_TCP_VEGAS_GAMMA=95
+	NET_TCP_FRTO=92,
+	NET_TCP_LOW_LATENCY=93,
+	NET_IPV4_IPFRAG_SECRET_INTERVAL=94,
+	NET_TCP_WESTWOOD=95,
+	NET_IPV4_IGMP_MAX_MSF=96,
+	NET_TCP_NO_METRICS_SAVE=97,
+	NET_TCP_VEGAS=98,
+	NET_TCP_VEGAS_ALPHA=99,
+	NET_TCP_VEGAS_BETA=100,
+	NET_TCP_VEGAS_GAMMA=101,
+ 	NET_TCP_BIC=102,
+ 	NET_TCP_BIC_FAST_CONVERGENCE=103,
+	NET_TCP_BIC_LOW_WINDOW=104,
+	NET_TCP_DEFAULT_WIN_SCALE=105,
+	NET_TCP_MODERATE_RCVBUF=106,
+	NET_TCP_BIC_BETA=108,
 };
 
 enum {
@@ -316,7 +348,8 @@ enum {
 	NET_IPV4_ROUTE_GC_ELASTICITY=14,
 	NET_IPV4_ROUTE_MTU_EXPIRES=15,
 	NET_IPV4_ROUTE_MIN_PMTU=16,
-	NET_IPV4_ROUTE_MIN_ADVMSS=17
+	NET_IPV4_ROUTE_MIN_ADVMSS=17,
+	NET_IPV4_ROUTE_SECRET_INTERVAL=18,
 };
 
 enum
@@ -343,13 +376,38 @@ enum
 	NET_IPV4_CONF_TAG=12,
 	NET_IPV4_CONF_ARPFILTER=13,
 	NET_IPV4_CONF_MEDIUM_ID=14,
+	NET_IPV4_CONF_FORCE_IGMP_VERSION=17,
+	NET_IPV4_CONF_ARP_ANNOUNCE=18,
+	NET_IPV4_CONF_ARP_IGNORE=19,
 };
 
+/* /proc/sys/net/ipv4/netfilter */
+enum
+{
+	NET_IPV4_NF_CONNTRACK_MAX=1,
+	NET_IPV4_NF_CONNTRACK_TCP_TIMEOUT_SYN_SENT=2,
+	NET_IPV4_NF_CONNTRACK_TCP_TIMEOUT_SYN_RECV=3,
+	NET_IPV4_NF_CONNTRACK_TCP_TIMEOUT_ESTABLISHED=4,
+	NET_IPV4_NF_CONNTRACK_TCP_TIMEOUT_FIN_WAIT=5,
+	NET_IPV4_NF_CONNTRACK_TCP_TIMEOUT_CLOSE_WAIT=6,
+	NET_IPV4_NF_CONNTRACK_TCP_TIMEOUT_LAST_ACK=7,
+	NET_IPV4_NF_CONNTRACK_TCP_TIMEOUT_TIME_WAIT=8,
+	NET_IPV4_NF_CONNTRACK_TCP_TIMEOUT_CLOSE=9,
+	NET_IPV4_NF_CONNTRACK_UDP_TIMEOUT=10,
+	NET_IPV4_NF_CONNTRACK_UDP_TIMEOUT_STREAM=11,
+	NET_IPV4_NF_CONNTRACK_ICMP_TIMEOUT=12,
+	NET_IPV4_NF_CONNTRACK_GENERIC_TIMEOUT=13,
+	NET_IPV4_NF_CONNTRACK_BUCKETS=14,
+};
+ 
 /* /proc/sys/net/ipv6 */
 enum {
 	NET_IPV6_CONF=16,
 	NET_IPV6_NEIGH=17,
-	NET_IPV6_ROUTE=18
+	NET_IPV6_ROUTE=18,
+	NET_IPV6_ICMP=19,
+	NET_IPV6_BINDV6ONLY=20,
+	NET_IPV6_MLD_MAX_MSF=25,
 };
 
 enum {
@@ -375,6 +433,11 @@ enum {
 	NET_IPV6_RTR_SOLICITS=8,
 	NET_IPV6_RTR_SOLICIT_INTERVAL=9,
 	NET_IPV6_RTR_SOLICIT_DELAY=10
+};
+
+/* /proc/sys/net/ipv6/icmp */
+enum {
+	NET_IPV6_ICMP_RATELIMIT=1
 };
 
 /* /proc/sys/net/<protocol>/neigh/<dev> */
@@ -491,6 +554,23 @@ enum {
 	NET_DECNET_DEBUG_LEVEL = 255
 };
 
+/* /proc/sys/net/sctp */
+enum {
+	NET_SCTP_RTO_INITIAL = 1,
+	NET_SCTP_RTO_MIN     = 2,
+	NET_SCTP_RTO_MAX     = 3,
+	NET_SCTP_RTO_ALPHA   = 4,
+	NET_SCTP_RTO_BETA    = 5,
+	NET_SCTP_VALID_COOKIE_LIFE       =  6,
+	NET_SCTP_ASSOCIATION_MAX_RETRANS =  7,
+	NET_SCTP_PATH_MAX_RETRANS        =  8,
+	NET_SCTP_MAX_INIT_RETRANSMITS    =  9,
+	NET_SCTP_HB_INTERVAL             = 10,
+	NET_SCTP_PRESERVE_ENABLE         = 11,
+	NET_SCTP_MAX_BURST               = 12,
+	NET_SCTP_ADDIP_ENABLE            = 13,
+	NET_SCTP_PRSCTP_ENABLE           = 14,
+};
 /* /proc/sys/net/khttpd/ */
 enum {
 	NET_KHTTPD_DOCROOT	= 1,
@@ -540,7 +620,7 @@ enum
 	FS_STATINODE=2,
 	FS_MAXINODE=3,	/* int:maximum number of inodes that can be allocated */
 	FS_NRDQUOT=4,	/* int:current number of allocated dquots */
-	FS_MAXDQUOT=5,	/* int:maximum number of dquots that can be allocated */
+	/* was FS_MAXDQUOT */
 	FS_NRFILE=6,	/* int:current number of allocated filedescriptors */
 	FS_MAXFILE=7,	/* int:maximum number of filedescriptors that can be allocated */
 	FS_DENTRY=8,
@@ -551,6 +631,21 @@ enum
 	FS_LEASES=13,	/* int: leases enabled */
 	FS_DIR_NOTIFY=14,	/* int: directory notification enabled */
 	FS_LEASE_TIME=15,	/* int: maximum time to wait for a lease break */
+	FS_DQSTATS=16,	/* dir: disc quota usage statistics and settings */
+	FS_XFS=17,	/* struct: control xfs parameters */
+};
+
+/* /proc/sys/fs/quota/ */
+enum {
+	FS_DQ_LOOKUPS = 1,
+	FS_DQ_DROPS = 2,
+	FS_DQ_READS = 3,
+	FS_DQ_WRITES = 4,
+	FS_DQ_CACHE_HITS = 5,
+	FS_DQ_ALLOCATED = 6,
+	FS_DQ_FREE = 7,
+	FS_DQ_SYNCS = 8,
+	FS_DQ_WARNINGS = 9,
 };
 
 /* CTL_DEBUG names: */
@@ -736,6 +831,8 @@ struct ctl_table_header
 {
 	ctl_table *ctl_table;
 	struct list_head ctl_entry;
+	int used;
+	struct completion *unregistering;
 };
 
 struct ctl_table_header * register_sysctl_table(ctl_table * table, 

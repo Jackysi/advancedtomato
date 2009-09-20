@@ -60,6 +60,10 @@ extern int do_coredump(long signr, struct pt_regs * regs);
 extern void set_binfmt(struct linux_binfmt *new);
 
 
+#if 0
+/* this went away now */
+#define change_ldt(a,b) setup_arg_pages(a,b)
+#endif
 
 #endif /* __KERNEL__ */
 #endif /* _LINUX_BINFMTS_H */

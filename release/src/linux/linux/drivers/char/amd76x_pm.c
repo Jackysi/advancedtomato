@@ -78,6 +78,7 @@
 #include <linux/pci.h>
 #include <linux/delay.h>
 #include <linux/pm.h>
+#include <linux/init.h>
 
 #include "amd76x_pm.h"
 
@@ -473,7 +474,7 @@ activate_amd76x_NTH(int enable, int ratio)
 }
 #endif
 
-
+#ifdef AMD76X_POS
 /*
  * Activate sleep state via its ACPI register (PM1_CNT).
  */
@@ -488,8 +489,6 @@ activate_amd76x_SLP(int type)
 	outw(regshort, amd76x_pm_cfg.slp_reg);
 }
 
-
-#ifdef AMD76X_POS
 /*
  * Wrapper function to activate POS sleep state.
  */
@@ -501,6 +500,16 @@ activate_amd76x_POS(void)
 #endif
 
 
+#if 0
+/*
+ * Idle loop for single processor systems
+ */
+void
+amd76x_up_idle(void)
+{
+	// FIXME: Optionally add non-smp idle loop here
+}
+#endif
 
 
 /*
@@ -566,16 +575,18 @@ amd76x_pm_main(void)
 	int found;
 
 	/* Find northbridge */
-	found = pci_module_init(&amd_nb_driver);
-	if (found < 0) {
+	found = pci_register_driver(&amd_nb_driver);
+	if (found <= 0) {
 		printk(KERN_ERR "amd76x_pm: Could not find northbridge\n");
+		pci_unregister_driver(&amd_nb_driver);
 		return 1;
 	}
 
 	/* Find southbridge */
-	found = pci_module_init(&amd_sb_driver);
-	if (found < 0) {
+	found = pci_register_driver(&amd_sb_driver);
+	if (found <= 0) {
 		printk(KERN_ERR "amd76x_pm: Could not find southbridge\n");
+		pci_unregister_driver(&amd_sb_driver);
 		pci_unregister_driver(&amd_nb_driver);
 		return 1;
 	}
@@ -609,6 +620,8 @@ amd76x_pm_main(void)
 #ifndef AMD76X_NTH
 	if (!amd76x_pm_cfg.curr_idle) {
 		printk(KERN_ERR "amd76x_pm: Idle function not changed\n");
+		pci_unregister_driver(&amd_nb_driver);
+		pci_unregister_driver(&amd_sb_driver);
 		return 1;
 	}
 
@@ -650,6 +663,14 @@ amd76x_pm_cleanup(void)
 	printk(KERN_INFO "amd76x_pm: %lu C3 calls\n", amd76x_pm_cfg.C3_cnt);
 #endif
 
+	/* 
+	 * FIXME: We want to wait until all CPUs have set the new
+	 * idle function, otherwise we will oops. This may not be
+	 * the right way to do it, but seems to work.
+	 *
+	 * - Best answer is going to be to ban unload, but when its debugged
+	 *   --- Alan
+	 */
 	schedule();
 	mdelay(1000);
 #endif

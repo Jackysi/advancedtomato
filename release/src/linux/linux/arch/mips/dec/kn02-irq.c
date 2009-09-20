@@ -4,7 +4,7 @@
  *	DECstation 5000/200 (KN02) Control and Status Register
  *	interrupts.
  *
- *	Copyright (c) 2002  Maciej W. Rozycki
+ *	Copyright (c) 2002, 2003  Maciej W. Rozycki
  *
  *	This program is free software; you can redistribute it and/or
  *	modify it under the terms of the GNU General Public License
@@ -37,7 +37,7 @@ static int kn02_irq_base;
 
 static inline void unmask_kn02_irq(unsigned int irq)
 {
-	volatile u32 *csr = (volatile u32 *)KN02_CSR_ADDR;
+	volatile u32 *csr = (volatile u32 *)KN02_CSR_BASE;
 
 	cached_kn02_csr |= (1 << (irq - kn02_irq_base + 16));
 	*csr = cached_kn02_csr;
@@ -45,7 +45,7 @@ static inline void unmask_kn02_irq(unsigned int irq)
 
 static inline void mask_kn02_irq(unsigned int irq)
 {
-	volatile u32 *csr = (volatile u32 *)KN02_CSR_ADDR;
+	volatile u32 *csr = (volatile u32 *)KN02_CSR_BASE;
 
 	cached_kn02_csr &= ~(1 << (irq - kn02_irq_base + 16));
 	*csr = cached_kn02_csr;
@@ -92,29 +92,29 @@ static void end_kn02_irq(unsigned int irq)
 		enable_kn02_irq(irq);
 }
 
-#define set_kn02_affinity NULL
-
 static struct hw_interrupt_type kn02_irq_type = {
-	"KN02-CSR",
-	startup_kn02_irq,
-	shutdown_kn02_irq,
-	enable_kn02_irq,
-	disable_kn02_irq,
-	ack_kn02_irq,
-	end_kn02_irq,
-	set_kn02_affinity,
+	.typename = "KN02-CSR",
+	.startup = startup_kn02_irq,
+	.shutdown = shutdown_kn02_irq,
+	.enable = enable_kn02_irq,
+	.disable = disable_kn02_irq,
+	.ack = ack_kn02_irq,
+	.end = end_kn02_irq,
 };
 
 
 void __init init_kn02_irqs(int base)
 {
-	volatile u32 *csr = (volatile u32 *)KN02_CSR_ADDR;
+	volatile u32 *csr = (volatile u32 *)KN02_CSR_BASE;
+	unsigned long flags;
 	int i;
 
-	/* Mask interrupts and preset write-only bits. */
-	cached_kn02_csr = (*csr & ~0xff0000) | 0xff;
+	/* Mask interrupts. */
+	spin_lock_irqsave(&kn02_lock, flags);
+	cached_kn02_csr &= ~KN03_CSR_IOINTEN;
 	*csr = cached_kn02_csr;
 	iob();
+	spin_unlock_irqrestore(&kn02_lock, flags);
 
 	for (i = base; i < base + KN02_IRQ_LINES; i++) {
 		irq_desc[i].status = IRQ_DISABLED;

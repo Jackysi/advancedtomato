@@ -65,6 +65,7 @@
 #include "open_pic.h"
 #include "xics.h"
 #include <asm/ppcdebug.h>
+#include <asm/cputable.h>
 
 extern volatile unsigned char *chrp_int_ack_special;
 
@@ -81,18 +82,21 @@ extern void pckbd_leds(unsigned char leds);
 extern void pckbd_init_hw(void);
 extern unsigned char pckbd_sysrq_xlate[128];
 extern void openpic_init_IRQ(void);
+extern void openpic_init_irq_desc(irq_desc_t *);
 extern void init_ras_IRQ(void);
 
 extern void find_and_init_phbs(void);
 extern void pSeries_pcibios_fixup(void);
 extern void iSeries_pcibios_fixup(void);
 
+extern void pSeries_get_boot_time(struct rtc_time *rtc_time);
 extern void pSeries_get_rtc_time(struct rtc_time *rtc_time);
 extern int  pSeries_set_rtc_time(struct rtc_time *rtc_time);
 void pSeries_calibrate_decr(void);
-static void fwnmi_init(void);
+static void machine_check_init(void);
 extern void SystemReset_FWNMI(void), MachineCheck_FWNMI(void);	/* from head.S */
-int fwnmi_active;  /* TRUE if an FWNMI handler is present */
+int fwnmi_active = 0;  /* TRUE if an FWNMI handler is present */
+int check_exception_flag = 0;  /* TRUE if a check-exception handler present */
 
 kdev_t boot_dev;
 unsigned long  virtPython0Facilities = 0;  // python0 facility area (memory mapped io) (64-bit format) VIRTUAL address.
@@ -136,7 +140,6 @@ void __init chrp_request_regions(void) {
 void __init
 chrp_setup_arch(void)
 {
-	extern char cmd_line[];
 	struct device_node *root;
 	unsigned int *opprop;
 	
@@ -155,17 +158,16 @@ chrp_setup_arch(void)
 		ROOT_DEV = MKDEV(RAMDISK_MAJOR, 0);
 	else
 #endif
-	ROOT_DEV = to_kdev_t(0x0802); /* sda2 (sda1 is for the kernel) */
+	ROOT_DEV = to_kdev_t(0x0803); /* sda3 (sda1 is for the kernel or the bootloader) */
 
-	printk("Boot arguments: %s\n", cmd_line);
+	machine_check_init();
 
-	fwnmi_init();
-
+#ifndef CONFIG_PPC_ISERIES
 	/* Find and initialize PCI host bridges */
 	/* iSeries needs to be done much later. */
- 	#ifndef CONFIG_PPC_ISERIES
-		find_and_init_phbs();
- 	#endif
+	eeh_init();
+	find_and_init_phbs();
+#endif
 
 	/* Find the Open PIC if present */
 	root = find_path_device("/");
@@ -200,27 +202,33 @@ chrp_init2(void)
 }
 
 /* Initialize firmware assisted non-maskable interrupts if
- * the firmware supports this feature.
- *
+ * the firmware supports this feature.  If it does not,
+ * look for the check-exception property.
  */
-static void __init fwnmi_init(void)
+static void __init machine_check_init(void)
 {
 	long ret;
+	int check_ex_token;
 	int ibm_nmi_register = rtas_token("ibm,nmi-register");
-	if (ibm_nmi_register == RTAS_UNKNOWN_SERVICE)
-		return;
-	ret = rtas_call(ibm_nmi_register, 2, 1, NULL,
-			__pa((unsigned long)SystemReset_FWNMI),
-			__pa((unsigned long)MachineCheck_FWNMI));
-	if (ret == 0)
-		fwnmi_active = 1;
+
+	if (ibm_nmi_register != RTAS_UNKNOWN_SERVICE) {
+		ret = rtas_call(ibm_nmi_register, 2, 1, NULL,
+				__pa((unsigned long)SystemReset_FWNMI),
+				__pa((unsigned long)MachineCheck_FWNMI));
+		if (ret == 0)
+			fwnmi_active = 1;
+	} else {
+		check_ex_token = rtas_token("check-exception");
+		if (check_ex_token != RTAS_UNKNOWN_SERVICE)
+			check_exception_flag = 1;
+	}
 }
 
 
 /* Early initialization.  Relocation is on but do not reference unbolted pages */
 void __init pSeries_init_early(void)
 {
-#ifdef CONFIG_PPC_PSERIES	    /* This ifdef should go away */
+#ifdef CONFIG_PPC_PSERIES	/* This ifdef should go away */
 	void *comport;
 
 	hpte_init_pSeries();
@@ -245,26 +253,40 @@ void __init
 chrp_init(unsigned long r3, unsigned long r4, unsigned long r5,
 	  unsigned long r6, unsigned long r7)
 {
+#if 0 /* PPPBBB remove this later... -Peter */
+#ifdef CONFIG_BLK_DEV_INITRD
+	/* take care of initrd if we have one */
+	if ( r6 )
+	{
+		initrd_start = __va(r6);
+		initrd_end = __va(r6 + r7);
+	}
+#endif /* CONFIG_BLK_DEV_INITRD */
+#endif
 
-	ppc_md.ppc_machine = naca->platform;
+	ppc_md.ppc_machine = systemcfg->platform;
 
 	ppc_md.setup_arch     = chrp_setup_arch;
 	ppc_md.setup_residual = NULL;
 	ppc_md.get_cpuinfo    = chrp_get_cpuinfo;
 	if(naca->interrupt_controller == IC_OPEN_PIC) {
-		ppc_md.init_IRQ       = openpic_init_IRQ; 
+		ppc_md.init_IRQ       = openpic_init_IRQ;
+		ppc_md.init_irq_desc  = openpic_init_irq_desc;
 		ppc_md.get_irq        = openpic_get_irq;
 	} else {
 		ppc_md.init_IRQ       = xics_init_IRQ;
+		ppc_md.init_irq_desc  = xics_init_irq_desc;
 		ppc_md.get_irq        = xics_get_irq;
 	}
 	ppc_md.init_ras_IRQ = init_ras_IRQ;
 
  	#ifndef CONFIG_PPC_ISERIES
  		ppc_md.pcibios_fixup = pSeries_pcibios_fixup;
+		ppc_md.log_error     = pSeries_log_error;
  	#else 
  		ppc_md.pcibios_fixup = NULL;
  		// ppc_md.pcibios_fixup = iSeries_pcibios_fixup;
+		ppc_md.log_error     = NULL;
  	#endif
 
 
@@ -275,7 +297,7 @@ chrp_init(unsigned long r3, unsigned long r4, unsigned long r5,
 	ppc_md.halt           = rtas_halt;
 
 	ppc_md.time_init      = NULL;
-	ppc_md.get_boot_time  = pSeries_get_rtc_time;
+	ppc_md.get_boot_time  = pSeries_get_boot_time;
 	ppc_md.get_rtc_time   = pSeries_get_rtc_time;
 	ppc_md.set_rtc_time   = pSeries_set_rtc_time;
 	ppc_md.calibrate_decr = pSeries_calibrate_decr;
@@ -294,6 +316,37 @@ chrp_init(unsigned long r3, unsigned long r4, unsigned long r5,
 	SYSRQ_KEY = 0x63;	/* Print Screen */
 #endif
 #endif
+	/* Build up the firmware_features bitmask field
+	 * using contents of device-tree/ibm,hypertas-functions.
+	 * Ultimately this functionality may be moved into prom.c prom_init().
+	 */
+	struct device_node * dn;
+	char * hypertas;
+	unsigned int len;
+	dn = find_path_device("/rtas");
+	cur_cpu_spec->firmware_features=0;
+	hypertas = get_property(dn, "ibm,hypertas-functions", &len);
+	if (hypertas) {
+		while (len > 0) {
+			int i, hypertas_len;
+			/* check value against table of strings */
+			for(i=0; i < FIRMWARE_MAX_FEATURES; i++) {
+				if ((firmware_features_table[i].name) &&
+				    (strcmp(firmware_features_table[i].name,hypertas))==0) {
+					/* we have a match */
+					cur_cpu_spec->firmware_features |=
+						(firmware_features_table[i].val);
+					break;
+				}
+			}
+			hypertas_len = strlen(hypertas);
+			len -= hypertas_len +1;
+			hypertas+= hypertas_len +1;
+		}
+	}
+
+	printk(KERN_INFO "firmware_features = 0x%lx\n",
+	       cur_cpu_spec->firmware_features);
 }
 
 void __chrp
@@ -304,6 +357,8 @@ chrp_progress(char *s, unsigned short hex)
 	char *os;
 	static int display_character, set_indicator;
 	static int max_width;
+	static spinlock_t progress_lock = SPIN_LOCK_UNLOCKED;
+	static int pending_newline = 0;  /* did last write end with unprinted newline? */
 
 	if (!rtas.base)
 		return;
@@ -319,34 +374,79 @@ chrp_progress(char *s, unsigned short hex)
 		display_character = rtas_token("display-character");
 		set_indicator = rtas_token("set-indicator");
 	}
-	if (display_character == RTAS_UNKNOWN_SERVICE) {
-		/* use hex display */
-		if (set_indicator == RTAS_UNKNOWN_SERVICE)
-			return;
-		rtas_call(set_indicator, 3, 1, NULL, 6, 0, hex);
+
+	if(display_character == RTAS_UNKNOWN_SERVICE) {
+		/* use hex display if available */
+		if(set_indicator != RTAS_UNKNOWN_SERVICE)
+			rtas_call(set_indicator, 3, 1, NULL, 6, 0, hex);
 		return;
 	}
 
-	rtas_call(display_character, 1, 1, NULL, '\r');
+	spin_lock(&progress_lock);
 
+	/* Last write ended with newline, but we didn't print it since
+	 * it would just clear the bottom line of output. Print it now
+	 * instead.
+	 *
+	 * If no newline is pending, print a CR to start output at the
+	 * beginning of the line.
+	 */
+	if(pending_newline) {
+		rtas_call(display_character, 1, 1, NULL, '\r');
+		rtas_call(display_character, 1, 1, NULL, '\n');
+		pending_newline = 0;
+	} else
+		rtas_call(display_character, 1, 1, NULL, '\r');
+ 
 	width = max_width;
 	os = s;
-	while ( *os )
-	{
-		if ( (*os == '\n') || (*os == '\r') )
+	while (*os) {
+		if(*os == '\n' || *os == '\r') {
+			/* Blank to end of line. */
+			while(width-- > 0)
+				rtas_call(display_character, 1, 1, NULL, ' ');
+ 
+			/* If newline is the last character, save it
+			 * until next call to avoid bumping up the
+			 * display output.
+			 */
+			if(*os == '\n' && !os[1]) {
+				pending_newline = 1;
+				spin_unlock(&progress_lock);
+				return;
+			}
+ 
+			/* RTAS wants CR-LF, not just LF */
+ 
+			if(*os == '\n') {
+				rtas_call(display_character, 1, 1, NULL, '\r');
+				rtas_call(display_character, 1, 1, NULL, '\n');
+			} else {
+				/* CR might be used to re-draw a line, so we'll
+				 * leave it alone and not add LF.
+				 */
+				rtas_call(display_character, 1, 1, NULL, *os);
+			}
+ 
 			width = max_width;
-		else
+		} else {
 			width--;
-		rtas_call(display_character, 1, 1, NULL, *os++ );
+			rtas_call(display_character, 1, 1, NULL, *os);
+		}
+ 
+		os++;
+ 
 		/* if we overwrite the screen length */
-		if ( width == 0 )
+		if ( width <= 0 )
 			while ( (*os != 0) && (*os != '\n') && (*os != '\r') )
 				os++;
 	}
-
+ 
 	/* Blank to end of line. */
 	while ( width-- > 0 )
 		rtas_call(display_character, 1, 1, NULL, ' ' );
+
+	spin_unlock(&progress_lock);
 }
 
 extern void setup_default_decr(void);

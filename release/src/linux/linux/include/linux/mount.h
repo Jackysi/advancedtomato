@@ -5,7 +5,7 @@
  *
  * Author:  Marco van Wieringen <mvw@planets.elm.net>
  *
- * Version: $Id: mount.h,v 1.1.1.4 2003/10/14 08:09:26 sparq Exp $
+ * Version: $Id: mount.h,v 2.0 1996/11/17 16:48:14 mvw Exp mvw $
  *
  */
 #ifndef _LINUX_MOUNT_H

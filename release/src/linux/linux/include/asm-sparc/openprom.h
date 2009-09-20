@@ -1,4 +1,4 @@
-/* $Id: openprom.h,v 1.1.1.4 2003/10/14 08:09:22 sparq Exp $ */
+/* $Id: openprom.h,v 1.24 2000/06/04 06:23:53 anton Exp $ */
 #ifndef __SPARC_OPENPROM_H
 #define __SPARC_OPENPROM_H
 
@@ -69,7 +69,7 @@ struct linux_arguments_v0 {
 	int boot_dev_unit;
 	int dev_partition;
 	char *kernel_file_name;
-	void *aieee1;           
+	void *aieee1;           /* XXX */
 };
 
 /* V2 and up boot things. */
@@ -168,6 +168,8 @@ struct linux_romvec {
 	 */
 	int (*v3_cpuresume)(unsigned int whichcpu);
 };
+
+extern struct linux_romvec *romvec;
 
 /* Routines for traversing the prom device tree. */
 struct linux_nodeops {

@@ -526,6 +526,7 @@ sim710_soft_reset (struct Scsi_Host *host)
      * script and setting up the synchronous transfer gunk.
      */
 
+    /* XXX Should we reset the scsi bus here? */
 
     NCR_write8(SCNTL1_REG, SCNTL1_RST);		/* Reset the bus */
     udelay(50);
@@ -920,172 +921,6 @@ handle_script_int(struct Scsi_Host * host, Scsi_Cmnd * cmd)
 }
 
 
-/* A quick wrapper for sim710_intr_handle to grab the spin lock */
-
-static void
-do_sim710_intr_handle(int irq, void *dev_id, struct pt_regs *regs)
-{
-    unsigned long flags;
-
-    spin_lock_irqsave(&io_request_lock, flags);
-    sim710_intr_handle(irq, dev_id, regs);
-    spin_unlock_irqrestore(&io_request_lock, flags);
-}
-
-
-/* A "high" level interrupt handler */
-
-static void
-sim710_intr_handle(int irq, void *dev_id, struct pt_regs *regs)
-{
-    struct Scsi_Host * host = (struct Scsi_Host *)dev_id;
-    struct sim710_hostdata *hostdata = (struct sim710_hostdata *)host->hostdata[0];
-    Scsi_Cmnd * cmd;
-    unsigned char istat, dstat;
-    unsigned char sstat0;
-    u32 scratch, dsps, resume_offset = 0;
-
-    istat = NCR_read8(ISTAT_REG);
-    if (!(istat & (ISTAT_SIP|ISTAT_DIP)))
-	return;
-    else {
-	sim710_intrs++;
-	dsps = NCR_read32(DSPS_REG);
-	hostdata->state = STATE_HALTED;
-	sstat0 = dstat = 0;
-	scratch = NCR_read32(SCRATCH_REG);
-	if (istat & ISTAT_SIP) {
-	    sstat0 = NCR_read8(SSTAT0_REG);
-	}
-	if (istat & ISTAT_DIP) {
-	    udelay(10);		/* Some comment somewhere about 10cycles
-				 * between accesses to sstat0 and dstat ??? */
-	    dstat = NCR_read8(DSTAT_REG);
-	}
-	DEB(DEB_INTS, printk("scsi%d: Int %d, istat %02x, sstat0 %02x "
-		"dstat %02x, dsp [%04x], scratch %02x\n",
-	    host->host_no, sim710_intrs, istat, sstat0, dstat,
-	    (u32 *)(bus_to_virt(NCR_read32(DSP_REG))) - hostdata->script,
-	    scratch));
-	if (scratch & 0x100) {
-	    u8 *p = hostdata->msgin_buf;
-
-	    DEB(DEB_INTS, printk("  msgin_buf: %02x %02x %02x %02x\n",
-			p[0], p[1], p[2], p[3]));
-	}
-	if ((dstat & DSTAT_SIR) && dsps == A_int_reselected) {
-	    /* Reselected.  Identify the target from LCRC_REG, and
-	     * update current command.  If we were trying to select
-	     * a device, then that command needs to go back on the
-	     * issue_queue for later.
-	     */
-	    unsigned char lcrc = NCR_read8(LCRC_REG_10);
-	    int id = 0;
-
-	    if (!(lcrc & 0x7f)) {
-		printk("scsi%d: Reselected with LCRC = %02x\n",
-			host->host_no, lcrc);
-		cmd = NULL;
-	    }
-	    else {
-		while (!(lcrc & 1)) {
-		    id++;
-		    lcrc >>= 1;
-		}
-		DEB(DEB_DISC, printk("scsi%d: Reselected by ID %d\n",
-			host->host_no, id));
-		if (hostdata->running) {
-		    /* Clear SIGP */
-		    (void)NCR_read8(CTEST2_REG_700);
-
-		    DEB(DEB_DISC, printk("scsi%d: Select of %d interrupted "
-				"by reselect from %d (%p)\n",
-				host->host_no, hostdata->running->target,
-				id, hostdata->target[id].cur_cmd));
-		    cmd = hostdata->running;
-		    hostdata->target[cmd->target].cur_cmd = NULL;
-		    cmd->SCp.ptr = (unsigned char *) hostdata->issue_queue;
-		    hostdata->issue_queue = cmd;
-		}
-		cmd = hostdata->running = hostdata->target[id].cur_cmd;
-	    }
-	}
-	else
-	    cmd = hostdata->running;
-
-	if (!cmd) {
-	    printk("scsi%d: No active command!\n", host->host_no);
-	    printk("scsi%d: Int %d, istat %02x, sstat0 %02x "
-		"dstat %02x, dsp [%04x], scratch %02x, dsps %08x\n",
-		host->host_no, sim710_intrs, istat, sstat0, dstat,
-		(u32 *)(bus_to_virt(NCR_read32(DSP_REG))) - hostdata->script,
-		NCR_read32(SCRATCH_REG), dsps);
-	    /* resume_offset is zero, which will cause a host reset */
-	}
-	else if (sstat0 & SSTAT0_700_STO) {
-	    DEB(DEB_TOUT, printk("scsi%d: Selection timeout\n", host->host_no));
-	    cmd->result = DID_NO_CONNECT << 16;
-	    SCSI_DONE(cmd);
-	    hostdata->target[cmd->target].cur_cmd = NULL;
-	    resume_offset = Ent_reselect;
-	}
-	else if (sstat0 & (SSTAT0_SGE|SSTAT0_UDC|SSTAT0_RST|SSTAT0_PAR)) {
-	    printk("scsi%d: Serious error, sstat0 = %02x\n", host->host_no,
-			    sstat0);
-	    sim710_errors++;
-	    /* resume_offset is zero, which will cause a host reset */
-	}
-	else if (dstat & (DSTAT_BF|DSTAT_ABRT|DSTAT_SSI|DSTAT_WTD)) {
-	    printk("scsi%d: Serious error, dstat = %02x\n", host->host_no,
-			    dstat);
-	    sim710_errors++;
-	    /* resume_offset is zero, which will cause a host reset */
-	}
-	else if (dstat & DSTAT_SIR)
-	    resume_offset = handle_script_int(host, cmd);
-	else if (sstat0 & SSTAT0_MA)
-	    resume_offset = handle_phase_mismatch(host, cmd);
-	else if (dstat & DSTAT_IID) {
-	    /* This can be due to a quick reselect while doing a WAIT
-	     * DISCONNECT.
-	     */
-	    resume_offset = handle_idd(host, cmd);
-	}
-	else {
-	    sim710_errors++;
-	    printk("scsi%d: Spurious interrupt!\n", host->host_no);
-	    /* resume_offset is zero, which will cause a host reset */
-	}
-    }
-
-    if (resume_offset) {
-	if (resume_offset == Ent_reselect) {
-	    hostdata->running = NULL;
-	    hostdata->state = STATE_IDLE;
-	}
-	else
-	    hostdata->state = STATE_BUSY;
-	DEB(DEB_RESUME, printk("scsi%d: Resuming at script[0x%x]\n",
-		host->host_no, resume_offset/4));
-#ifdef DEBUG_LIMIT_INTS
-	if (sim710_intrs < DEBUG_LIMIT_INTS)
-#endif
-	{
-	    NCR_write32(SCRATCH_REG, 0);
-	    NCR_write32(DSP_REG, virt_to_bus(hostdata->script+resume_offset/4));
-	}
-	if (resume_offset == Ent_reselect)
-	    run_process_issue_queue(hostdata);
-    }
-    else {
-	printk("scsi%d: Failed to handle interrupt.  Failing commands "
-		"and resetting SCSI bus and chip\n", host->host_no);
-	mdelay(1000);		/* Give chance to read screen!! */
-	full_reset(host);
-    }
-}
-
-
 static void
 run_command (struct sim710_hostdata *hostdata, Scsi_Cmnd *cmd)
 {
@@ -1283,6 +1118,172 @@ process_issue_queue (struct sim710_hostdata *hostdata, unsigned long flags)
 }
 
 
+/* A quick wrapper for sim710_intr_handle to grab the spin lock */
+
+static void
+do_sim710_intr_handle(int irq, void *dev_id, struct pt_regs *regs)
+{
+    unsigned long flags;
+
+    spin_lock_irqsave(&io_request_lock, flags);
+    sim710_intr_handle(irq, dev_id, regs);
+    spin_unlock_irqrestore(&io_request_lock, flags);
+}
+
+
+/* A "high" level interrupt handler */
+
+static void
+sim710_intr_handle(int irq, void *dev_id, struct pt_regs *regs)
+{
+    struct Scsi_Host * host = (struct Scsi_Host *)dev_id;
+    struct sim710_hostdata *hostdata = (struct sim710_hostdata *)host->hostdata[0];
+    Scsi_Cmnd * cmd;
+    unsigned char istat, dstat;
+    unsigned char sstat0;
+    u32 scratch, dsps, resume_offset = 0;
+
+    istat = NCR_read8(ISTAT_REG);
+    if (!(istat & (ISTAT_SIP|ISTAT_DIP)))
+	return;
+    else {
+	sim710_intrs++;
+	dsps = NCR_read32(DSPS_REG);
+	hostdata->state = STATE_HALTED;
+	sstat0 = dstat = 0;
+	scratch = NCR_read32(SCRATCH_REG);
+	if (istat & ISTAT_SIP) {
+	    sstat0 = NCR_read8(SSTAT0_REG);
+	}
+	if (istat & ISTAT_DIP) {
+	    udelay(10);		/* Some comment somewhere about 10cycles
+				 * between accesses to sstat0 and dstat ??? */
+	    dstat = NCR_read8(DSTAT_REG);
+	}
+	DEB(DEB_INTS, printk("scsi%d: Int %d, istat %02x, sstat0 %02x "
+		"dstat %02x, dsp [%04x], scratch %02x\n",
+	    host->host_no, sim710_intrs, istat, sstat0, dstat,
+	    (u32 *)(bus_to_virt(NCR_read32(DSP_REG))) - hostdata->script,
+	    scratch));
+	if (scratch & 0x100) {
+	    u8 *p = hostdata->msgin_buf;
+
+	    DEB(DEB_INTS, printk("  msgin_buf: %02x %02x %02x %02x\n",
+			p[0], p[1], p[2], p[3]));
+	}
+	if ((dstat & DSTAT_SIR) && dsps == A_int_reselected) {
+	    /* Reselected.  Identify the target from LCRC_REG, and
+	     * update current command.  If we were trying to select
+	     * a device, then that command needs to go back on the
+	     * issue_queue for later.
+	     */
+	    unsigned char lcrc = NCR_read8(LCRC_REG_10);
+	    int id = 0;
+
+	    if (!(lcrc & 0x7f)) {
+		printk("scsi%d: Reselected with LCRC = %02x\n",
+			host->host_no, lcrc);
+		cmd = NULL;
+	    }
+	    else {
+		while (!(lcrc & 1)) {
+		    id++;
+		    lcrc >>= 1;
+		}
+		DEB(DEB_DISC, printk("scsi%d: Reselected by ID %d\n",
+			host->host_no, id));
+		if (hostdata->running) {
+		    /* Clear SIGP */
+		    (void)NCR_read8(CTEST2_REG_700);
+
+		    DEB(DEB_DISC, printk("scsi%d: Select of %d interrupted "
+				"by reselect from %d (%p)\n",
+				host->host_no, hostdata->running->target,
+				id, hostdata->target[id].cur_cmd));
+		    cmd = hostdata->running;
+		    hostdata->target[cmd->target].cur_cmd = NULL;
+		    cmd->SCp.ptr = (unsigned char *) hostdata->issue_queue;
+		    hostdata->issue_queue = cmd;
+		}
+		cmd = hostdata->running = hostdata->target[id].cur_cmd;
+	    }
+	}
+	else
+	    cmd = hostdata->running;
+
+	if (!cmd) {
+	    printk("scsi%d: No active command!\n", host->host_no);
+	    printk("scsi%d: Int %d, istat %02x, sstat0 %02x "
+		"dstat %02x, dsp [%04x], scratch %02x, dsps %08x\n",
+		host->host_no, sim710_intrs, istat, sstat0, dstat,
+		(u32 *)(bus_to_virt(NCR_read32(DSP_REG))) - hostdata->script,
+		NCR_read32(SCRATCH_REG), dsps);
+	    /* resume_offset is zero, which will cause a host reset */
+	}
+	else if (sstat0 & SSTAT0_700_STO) {
+	    DEB(DEB_TOUT, printk("scsi%d: Selection timeout\n", host->host_no));
+	    cmd->result = DID_NO_CONNECT << 16;
+	    SCSI_DONE(cmd);
+	    hostdata->target[cmd->target].cur_cmd = NULL;
+	    resume_offset = Ent_reselect;
+	}
+	else if (sstat0 & (SSTAT0_SGE|SSTAT0_UDC|SSTAT0_RST|SSTAT0_PAR)) {
+	    printk("scsi%d: Serious error, sstat0 = %02x\n", host->host_no,
+			    sstat0);
+	    sim710_errors++;
+	    /* resume_offset is zero, which will cause a host reset */
+	}
+	else if (dstat & (DSTAT_BF|DSTAT_ABRT|DSTAT_SSI|DSTAT_WTD)) {
+	    printk("scsi%d: Serious error, dstat = %02x\n", host->host_no,
+			    dstat);
+	    sim710_errors++;
+	    /* resume_offset is zero, which will cause a host reset */
+	}
+	else if (dstat & DSTAT_SIR)
+	    resume_offset = handle_script_int(host, cmd);
+	else if (sstat0 & SSTAT0_MA)
+	    resume_offset = handle_phase_mismatch(host, cmd);
+	else if (dstat & DSTAT_IID) {
+	    /* This can be due to a quick reselect while doing a WAIT
+	     * DISCONNECT.
+	     */
+	    resume_offset = handle_idd(host, cmd);
+	}
+	else {
+	    sim710_errors++;
+	    printk("scsi%d: Spurious interrupt!\n", host->host_no);
+	    /* resume_offset is zero, which will cause a host reset */
+	}
+    }
+
+    if (resume_offset) {
+	if (resume_offset == Ent_reselect) {
+	    hostdata->running = NULL;
+	    hostdata->state = STATE_IDLE;
+	}
+	else
+	    hostdata->state = STATE_BUSY;
+	DEB(DEB_RESUME, printk("scsi%d: Resuming at script[0x%x]\n",
+		host->host_no, resume_offset/4));
+#ifdef DEBUG_LIMIT_INTS
+	if (sim710_intrs < DEBUG_LIMIT_INTS)
+#endif
+	{
+	    NCR_write32(SCRATCH_REG, 0);
+	    NCR_write32(DSP_REG, virt_to_bus(hostdata->script+resume_offset/4));
+	}
+	if (resume_offset == Ent_reselect)
+	    run_process_issue_queue(hostdata);
+    }
+    else {
+	printk("scsi%d: Failed to handle interrupt.  Failing commands "
+		"and resetting SCSI bus and chip\n", host->host_no);
+	mdelay(1000);		/* Give chance to read screen!! */
+	full_reset(host);
+    }
+}
+
+
 int
 sim710_queuecommand(Scsi_Cmnd * cmd, void (*done)(Scsi_Cmnd *))
 {
@@ -1476,6 +1477,31 @@ sim710_detect(Scsi_Host_Template * tpnt)
 		 */
 		if (id0 == 0x110e && (id1 == 0x1044 || id1 == 0x1144)) {
 		    bases[no_of_boards] = io_addr;
+#if 0
+		    /* This should detect the IRQ, but I havn't proved it for
+		     * myself.  Leave the old probe code active for now, as
+		     * no-one has reported problems with it.
+		     */
+		    switch (inb(io_addr + 0xc88)) {
+			case (0x00):
+			    irq_vectors[no_of_boards] = 11;
+			    break;
+			case (0x01):
+			    irq_vectors[no_of_boards] = 14;
+			    break;
+			case (0x02):
+			    irq_vectors[no_of_boards] = 15;
+			    break;
+			case (0x03):
+			    irq_vectors[no_of_boards] = 10;
+			    break;
+			case (0x04):
+			    irq_vectors[no_of_boards] = 9;
+			    break;
+			default:
+			    printk("sim710.c: irq nasty\n");
+		    }
+#endif
 		    no_of_boards++;
 		}
 		release_region(io_addr, 64);

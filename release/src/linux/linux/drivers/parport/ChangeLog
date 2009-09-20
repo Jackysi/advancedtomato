@@ -1,3 +1,16 @@
+2004-06-13  Marek Michalkiewicz  <marekm@amelek.gda.pl>
+
+       * parport_serial.c: Move from here to ../char/, must be initialised
+       after serial.c for register_serial to work.
+
+2002-11-29  Tim Waugh  <twaugh@redhat.com>
+
+	* parport_pc.c: Fix ECP hang on Aladdin card.
+
+	2001-10-11  Tim Waugh  <twaugh@redhat.com>
+	* parport_pc.c, parport_serial.c: Support for NetMos cards.
+	Patch originally from Michael Reinelt <reinelt@eunet.at>.
+
 2002-04-25  Tim Waugh  <twaugh@redhat.com>
 
 	* parport_serial.c, parport_pc.c: Move some SIIG cards around.
@@ -278,7 +291,7 @@
 	* parport_pc.c (parport_pc_probe_port): Remove __devinit
 	attribute.  Export unconditionally.
 
-2001-04-14  Jeff Garzik  <jgarzik@mandrakesoft.com>
+2001-04-14  Jeff Garzik  <jgarzik@pobox.com>
 
 	Merged:  2001-03-30  Tim Waugh  <twaugh@redhat.com>
 

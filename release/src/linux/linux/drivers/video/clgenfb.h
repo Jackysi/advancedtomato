@@ -1,7 +1,7 @@
 /*
  * drivers/video/clgenfb.h - Cirrus Logic chipset constants
  *
- * Copyright 1999 Jeff Garzik <jgarzik@mandrakesoft.com>
+ * Copyright 1999 Jeff Garzik <jgarzik@pobox.com>
  *
  * Original clgenfb author:  Frank Neumann
  *
@@ -60,6 +60,7 @@
 #define CL_SEQR1D	0x1d	/* VCLK2 Denominator and Post-Scalar Value */
 #define CL_SEQR1E	0x1e	/* VCLK3 Denominator and Post-Scalar Value */
 #define CL_SEQR1F	0x1f	/* BIOS ROM write enable and MCLK Select */
+#define CL_SEQR2D	0x2d	/* unknown, snagged from XFree86 4.2.0 */
 
 /*** CRT Controller Registers ***/
 #define CL_CRT22	0x22	/* Graphics Data Latches ReadBack */

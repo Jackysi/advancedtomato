@@ -223,8 +223,9 @@ struct dec_serial {
 
 #define	RxINT_DISAB	0	/* Rx Int Disable */
 #define	RxINT_FCERR	0x8	/* Rx Int on First Character Only or Error */
-#define	INT_ALL_Rx	0x10	/* Int on all Rx Characters or error */
-#define	INT_ERR_Rx	0x18	/* Int on error only */
+#define	RxINT_ALL	0x10	/* Int on all Rx Characters or error */
+#define	RxINT_ERR	0x18	/* Int on error only */
+#define	RxINT_MASK	0x18
 
 #define	WT_RDY_RT	0x20	/* Wait/Ready on R/T */
 #define	WT_FN_RDYFN	0x40	/* Wait/FN/Ready FN */

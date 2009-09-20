@@ -61,7 +61,7 @@
  * Sanity check. If this is a new Au1100 based board, search for
  * the PB1100 ifdefs to make sure you modify the code accordingly.
  */
-#if defined(CONFIG_MIPS_PB1100)
+#if defined(CONFIG_MIPS_PB1100) || defined(CONFIG_MIPS_DB1100) || defined(CONFIG_MIPS_HYDROGEN3)
 #else
 error Unknown Au1100 board
 #endif
@@ -212,6 +212,7 @@ static int au1100_decode_var(const struct fb_var_screeninfo *var,
 	memset(par, 0, sizeof(struct au1100fb_par));
 	par->var = *var;
 	
+	/* FIXME */
 	switch (var->bits_per_pixel) {
 		case 8:
 			par->var.bits_per_pixel = 8;
@@ -318,6 +319,12 @@ static int  au1100_blank(int blank_mode, struct fb_info_gen *_info)
 		p_lcd_reg->lcd_control |= LCD_CONTROL_GO;
 		au_writew(au_readw(PB1100_G_CONTROL) | p_lcd->mode_backlight, 
 			PB1100_G_CONTROL);
+#endif
+#ifdef CONFIG_MIPS_HYDROGEN3
+		/*  Turn controller & power supply on,  GPIO213 */
+		au_writel(0x20002000, 0xB1700008);
+		au_writel(0x00040000, 0xB1900108);
+		au_writel(0x01000100, 0xB1700008);
 #endif
 		au_sync();
 		break;
@@ -443,6 +450,7 @@ int au1100_setmode(void)
 {
 	int words;
 
+	/* FIXME Need to accomodate for swivel mode and 12bpp, <8bpp*/
 	switch (p_lcd->mode_control & LCD_CONTROL_SM)
 	{
 		case LCD_CONTROL_SM_0:
@@ -477,6 +485,13 @@ int au1100_setmode(void)
 	au_writew(au_readw(PB1100_G_CONTROL) | p_lcd->mode_backlight, 
 			PB1100_G_CONTROL);
 #endif
+#ifdef CONFIG_MIPS_HYDROGEN3
+	/*  Turn controller & power supply on,  GPIO213 */
+	au_writel(0x20002000, 0xB1700008);
+	au_writel(0x00040000, 0xB1900108);
+	au_writel(0x01000100, 0xB1700008);
+#endif
+
 	p_lcd_reg->lcd_control |= LCD_CONTROL_GO;
 
 	return 0;
@@ -559,6 +574,7 @@ int __init au1100fb_init(void)
 	sys_clksrc |= p_lcd->mode_toyclksrc;
 	au_writel(sys_clksrc, SYS_CLKSRC);
 
+	/* FIXME add check to make sure auxpll is what is expected! */
 	au1100_setmode();
 
 	fb_info.gen.parsize = sizeof(struct au1100fb_par);
@@ -611,7 +627,7 @@ void au1100fb_setup(char *options, int *ints)
 	for(this_opt=strtok(options, ","); this_opt;
 	    this_opt=strtok(NULL, ",")) {
 		if (!strncmp(this_opt, "panel:", 6)) {
-#ifdef CONFIG_MIPS_PB1100
+#if defined(CONFIG_MIPS_PB1100) || defined(CONFIG_MIPS_DB1100)
 			/* Read Pb1100 Switch S10 ? */
 			if (!strncmp(this_opt+6, "s10", 3))
 			{

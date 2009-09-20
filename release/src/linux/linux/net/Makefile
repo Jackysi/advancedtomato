@@ -7,7 +7,7 @@
 
 O_TARGET :=	network.o
 
-mod-subdirs :=	ipv4/netfilter ipv6/netfilter ipx irda bluetooth atm netlink sched core
+mod-subdirs :=	ipv4/netfilter ipv6/netfilter ipx irda bluetooth atm netlink sched core sctp 802
 export-objs :=	netsyms.o
 
 subdir-y :=	core ethernet
@@ -15,10 +15,11 @@ subdir-m :=	ipv4 # hum?
 
 
 subdir-$(CONFIG_NET)		+= 802 sched netlink
+subdir-$(CONFIG_IPV6)		+= ipv6
 subdir-$(CONFIG_INET)		+= ipv4
 subdir-$(CONFIG_NETFILTER)	+= ipv4/netfilter
 subdir-$(CONFIG_UNIX)		+= unix
-subdir-$(CONFIG_IPV6)		+= ipv6
+subdir-$(CONFIG_IP_SCTP)	+= sctp
 
 ifneq ($(CONFIG_IPV6),n)
 ifneq ($(CONFIG_IPV6),)
@@ -46,6 +47,10 @@ subdir-$(CONFIG_DECNET)		+= decnet
 subdir-$(CONFIG_ECONET)		+= econet
 subdir-$(CONFIG_VLAN_8021Q)           += 8021q
 
+ifeq ($(CONFIG_NETFILTER),y)
+  mod-subdirs += ipv4/ipvs
+  subdir-$(CONFIG_IP_VS) += ipv4/ipvs
+endif
 
 obj-y	:= socket.o $(join $(subdir-y), $(patsubst %,/%.o,$(notdir $(subdir-y))))
 ifeq ($(CONFIG_NET),y)

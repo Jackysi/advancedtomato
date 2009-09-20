@@ -3265,6 +3265,9 @@ static int zoran_open(struct video_device *dev, int flags)
 
 			btwrite(IRQ_MASK, ZR36057_ISR);	// Clears interrupts
 			btor(ZR36057_ICR_IntPinEn, ZR36057_ICR);
+			/* FIXME: Don't do it this way, use the
+			 * video_device->fops registration for a sane
+			 * implementation of multiple opens */
 			dev->users--;	/* Allow second open */
 		}
 
@@ -4696,6 +4699,7 @@ static int find_zr36057(void)
 		zr->zr36057_mem = ioremap_nocache(zr->zr36057_adr, 0x1000);
 		if (!zr->zr36057_mem) {
 			printk(KERN_ERR "%s: ioremap failed\n", zr->name);
+			/* XXX handle error */
 		}
 
 		result = request_irq(zr->pci_dev->irq, zoran_irq, SA_SHIRQ | SA_INTERRUPT, zr->name, (void *) zr);

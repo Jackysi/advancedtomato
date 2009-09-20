@@ -81,7 +81,7 @@ static int pvc_proc_write_line(struct file *file, const char *buffer,
         return origcount;
 }
 
-static int pvc_proc_scroll(struct file *file, const char *buffer,            
+static int pvc_proc_write_scroll(struct file *file, const char *buffer,
                            unsigned long count, void *data)
 {
         int origcount = count;
@@ -108,6 +108,20 @@ static int pvc_proc_scroll(struct file *file, const char *buffer,
 
         return origcount;
 }
+
+static int pvc_proc_read_scroll(char *page, char **start,
+                             off_t off, int count,
+                             int *eof, void *data)
+{
+        char *origpage = page;
+
+	down(&pvc_sem);
+        page += sprintf(page, "%d\n", scroll_dir * scroll_interval);
+	up(&pvc_sem);
+
+        return page - origpage; 
+}
+
 
 void pvc_proc_timerfunc(unsigned long data)
 {
@@ -155,7 +169,8 @@ static int __init pvc_proc_init(void)
 	proc_entry = create_proc_entry("scroll", 0644, pvc_display_dir);
 	if (proc_entry == NULL)
 		goto error;
-	proc_entry->write_proc = pvc_proc_scroll;
+	proc_entry->write_proc = pvc_proc_write_scroll;
+	proc_entry->read_proc = pvc_proc_read_scroll;
 
 	init_timer(&timer);
 	timer.function = pvc_proc_timerfunc;

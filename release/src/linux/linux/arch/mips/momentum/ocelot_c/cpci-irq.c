@@ -19,16 +19,14 @@
 
 #include <linux/module.h>
 #include <linux/interrupt.h>
+#include <linux/irq.h>
 #include <linux/kernel.h>
 #include <asm/ptrace.h>
 #include <linux/config.h>
 #include <linux/sched.h>
 #include <linux/kernel_stat.h>
 #include <asm/io.h>
-#include <asm/irq.h>
 #include "ocelot_c_fpga.h"
-
-extern unsigned int do_IRQ(int irq, struct pt_regs *regs);
 
 #define CPCI_IRQ_BASE	8
 

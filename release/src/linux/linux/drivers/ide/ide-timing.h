@@ -2,7 +2,7 @@
 #define _IDE_TIMING_H
 
 /*
- * $Id: ide-timing.h,v 1.1.1.4 2003/10/14 08:08:10 sparq Exp $
+ * $Id: ide-timing.h,v 1.6 2001/12/23 22:47:56 vojtech Exp $
  *
  *  Copyright (c) 1999-2001 Vojtech Pavlik
  */

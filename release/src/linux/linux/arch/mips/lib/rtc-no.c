@@ -9,6 +9,7 @@
  * Copyright (C) 1998, 2001 by Ralf Baechle
  */
 #include <linux/kernel.h>
+#include <linux/module.h>
 #include <linux/mc146818rtc.h>
 
 static unsigned int shouldnt_happen(void)
@@ -28,3 +29,5 @@ struct rtc_ops no_rtc_ops = {
     .rtc_write_data = (void *) &shouldnt_happen,
     .rtc_bcd_mode   = (void *) &shouldnt_happen
 };
+
+EXPORT_SYMBOL(rtc_ops);

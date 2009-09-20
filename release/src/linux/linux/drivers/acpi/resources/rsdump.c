@@ -1,41 +1,59 @@
 /*******************************************************************************
  *
  * Module Name: rsdump - Functions to display the resource structures.
- *              $Revision: 1.1.1.2 $
  *
  ******************************************************************************/
 
 /*
- *  Copyright (C) 2000, 2001 R. Byron Moore
+ * Copyright (C) 2000 - 2004, R. Byron Moore
+ * All rights reserved.
  *
- *  This program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2 of the License, or
- *  (at your option) any later version.
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions, and the following disclaimer,
+ *    without modification.
+ * 2. Redistributions in binary form must reproduce at minimum a disclaimer
+ *    substantially similar to the "NO WARRANTY" disclaimer below
+ *    ("Disclaimer") and any redistribution must be conditioned upon
+ *    including a substantially similar Disclaimer requirement for further
+ *    binary redistribution.
+ * 3. Neither the names of the above-listed copyright holders nor the names
+ *    of any contributors may be used to endorse or promote products derived
+ *    from this software without specific prior written permission.
  *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
+ * Alternatively, this software may be distributed under the terms of the
+ * GNU General Public License ("GPL") version 2 as published by the Free
+ * Software Foundation.
  *
- *  You should have received a copy of the GNU General Public License
- *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * NO WARRANTY
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR
+ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+ * HOLDERS OR CONTRIBUTORS BE LIABLE FOR SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+ * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+ * STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING
+ * IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGES.
  */
 
 
-#include "acpi.h"
-#include "acresrc.h"
+#include <acpi/acpi.h>
+#include <acpi/acresrc.h>
 
 #define _COMPONENT          ACPI_RESOURCES
-	 MODULE_NAME         ("rsdump")
+	 ACPI_MODULE_NAME    ("rsdump")
 
 
-#ifdef ACPI_DEBUG
+#if defined(ACPI_DEBUG_OUTPUT) || defined(ACPI_DEBUGGER)
 
 /*******************************************************************************
  *
- * FUNCTION:    Acpi_rs_dump_irq
+ * FUNCTION:    acpi_rs_dump_irq
  *
  * PARAMETERS:  Data            - pointer to the resource structure to dump.
  *
@@ -47,25 +65,25 @@
 
 void
 acpi_rs_dump_irq (
-	acpi_resource_data      *data)
+	union acpi_resource_data        *data)
 {
-	acpi_resource_irq       *irq_data = (acpi_resource_irq *) data;
-	u8                      index = 0;
+	struct acpi_resource_irq        *irq_data = (struct acpi_resource_irq *) data;
+	u8                              index = 0;
 
 
-	FUNCTION_ENTRY ();
+	ACPI_FUNCTION_ENTRY ();
 
 
 	acpi_os_printf ("IRQ Resource\n");
 
 	acpi_os_printf ("  %s Triggered\n",
-			 LEVEL_SENSITIVE == irq_data->edge_level ? "Level" : "Edge");
+			 ACPI_LEVEL_SENSITIVE == irq_data->edge_level ? "Level" : "Edge");
 
 	acpi_os_printf ("  Active %s\n",
-			 ACTIVE_LOW == irq_data->active_high_low ? "Low" : "High");
+			 ACPI_ACTIVE_LOW == irq_data->active_high_low ? "Low" : "High");
 
 	acpi_os_printf ("  %s\n",
-			 SHARED == irq_data->shared_exclusive ? "Shared" : "Exclusive");
+			 ACPI_SHARED == irq_data->shared_exclusive ? "Shared" : "Exclusive");
 
 	acpi_os_printf ("  %X Interrupts ( ", irq_data->number_of_interrupts);
 
@@ -80,7 +98,7 @@ acpi_rs_dump_irq (
 
 /*******************************************************************************
  *
- * FUNCTION:    Acpi_rs_dump_dma
+ * FUNCTION:    acpi_rs_dump_dma
  *
  * PARAMETERS:  Data            - pointer to the resource structure to dump.
  *
@@ -92,31 +110,31 @@ acpi_rs_dump_irq (
 
 void
 acpi_rs_dump_dma (
-	acpi_resource_data      *data)
+	union acpi_resource_data        *data)
 {
-	acpi_resource_dma       *dma_data = (acpi_resource_dma *) data;
-	u8                      index = 0;
+	struct acpi_resource_dma        *dma_data = (struct acpi_resource_dma *) data;
+	u8                              index = 0;
 
 
-	FUNCTION_ENTRY ();
+	ACPI_FUNCTION_ENTRY ();
 
 
 	acpi_os_printf ("DMA Resource\n");
 
 	switch (dma_data->type) {
-	case COMPATIBILITY:
+	case ACPI_COMPATIBILITY:
 		acpi_os_printf ("  Compatibility mode\n");
 		break;
 
-	case TYPE_A:
+	case ACPI_TYPE_A:
 		acpi_os_printf ("  Type A\n");
 		break;
 
-	case TYPE_B:
+	case ACPI_TYPE_B:
 		acpi_os_printf ("  Type B\n");
 		break;
 
-	case TYPE_F:
+	case ACPI_TYPE_F:
 		acpi_os_printf ("  Type F\n");
 		break;
 
@@ -126,19 +144,19 @@ acpi_rs_dump_dma (
 	}
 
 	acpi_os_printf ("  %sBus Master\n",
-			 BUS_MASTER == dma_data->bus_master ? "" : "Not a ");
+			 ACPI_BUS_MASTER == dma_data->bus_master ? "" : "Not a ");
 
 
 	switch (dma_data->transfer) {
-	case TRANSFER_8:
+	case ACPI_TRANSFER_8:
 		acpi_os_printf ("  8-bit only transfer\n");
 		break;
 
-	case TRANSFER_8_16:
+	case ACPI_TRANSFER_8_16:
 		acpi_os_printf ("  8 and 16-bit transfer\n");
 		break;
 
-	case TRANSFER_16:
+	case ACPI_TRANSFER_16:
 		acpi_os_printf ("  16 bit only transfer\n");
 		break;
 
@@ -160,7 +178,7 @@ acpi_rs_dump_dma (
 
 /*******************************************************************************
  *
- * FUNCTION:    Acpi_rs_dump_start_dependent_functions
+ * FUNCTION:    acpi_rs_dump_start_depend_fns
  *
  * PARAMETERS:  Data            - pointer to the resource structure to dump.
  *
@@ -171,27 +189,27 @@ acpi_rs_dump_dma (
  ******************************************************************************/
 
 void
-acpi_rs_dump_start_dependent_functions (
-	acpi_resource_data          *data)
+acpi_rs_dump_start_depend_fns (
+	union acpi_resource_data        *data)
 {
-	acpi_resource_start_dpf     *sdf_data = (acpi_resource_start_dpf *) data;
+	struct acpi_resource_start_dpf *sdf_data = (struct acpi_resource_start_dpf *) data;
 
 
-	FUNCTION_ENTRY ();
+	ACPI_FUNCTION_ENTRY ();
 
 
 	acpi_os_printf ("Start Dependent Functions Resource\n");
 
 	switch (sdf_data->compatibility_priority) {
-	case GOOD_CONFIGURATION:
+	case ACPI_GOOD_CONFIGURATION:
 		acpi_os_printf ("  Good configuration\n");
 		break;
 
-	case ACCEPTABLE_CONFIGURATION:
+	case ACPI_ACCEPTABLE_CONFIGURATION:
 		acpi_os_printf ("  Acceptable configuration\n");
 		break;
 
-	case SUB_OPTIMAL_CONFIGURATION:
+	case ACPI_SUB_OPTIMAL_CONFIGURATION:
 		acpi_os_printf ("  Sub-optimal configuration\n");
 		break;
 
@@ -201,15 +219,15 @@ acpi_rs_dump_start_dependent_functions (
 	}
 
 	switch(sdf_data->performance_robustness) {
-	case GOOD_CONFIGURATION:
+	case ACPI_GOOD_CONFIGURATION:
 		acpi_os_printf ("  Good configuration\n");
 		break;
 
-	case ACCEPTABLE_CONFIGURATION:
+	case ACPI_ACCEPTABLE_CONFIGURATION:
 		acpi_os_printf ("  Acceptable configuration\n");
 		break;
 
-	case SUB_OPTIMAL_CONFIGURATION:
+	case ACPI_SUB_OPTIMAL_CONFIGURATION:
 		acpi_os_printf ("  Sub-optimal configuration\n");
 		break;
 
@@ -225,7 +243,7 @@ acpi_rs_dump_start_dependent_functions (
 
 /*******************************************************************************
  *
- * FUNCTION:    Acpi_rs_dump_io
+ * FUNCTION:    acpi_rs_dump_io
  *
  * PARAMETERS:  Data            - pointer to the resource structure to dump.
  *
@@ -237,18 +255,18 @@ acpi_rs_dump_start_dependent_functions (
 
 void
 acpi_rs_dump_io (
-	acpi_resource_data      *data)
+	union acpi_resource_data        *data)
 {
-	acpi_resource_io        *io_data = (acpi_resource_io *) data;
+	struct acpi_resource_io         *io_data = (struct acpi_resource_io *) data;
 
 
-	FUNCTION_ENTRY ();
+	ACPI_FUNCTION_ENTRY ();
 
 
 	acpi_os_printf ("Io Resource\n");
 
 	acpi_os_printf ("  %d bit decode\n",
-			 DECODE_16 == io_data->io_decode ? 16 : 10);
+			 ACPI_DECODE_16 == io_data->io_decode ? 16 : 10);
 
 	acpi_os_printf ("  Range minimum base: %08X\n",
 			 io_data->min_base_address);
@@ -268,7 +286,7 @@ acpi_rs_dump_io (
 
 /*******************************************************************************
  *
- * FUNCTION:    Acpi_rs_dump_fixed_io
+ * FUNCTION:    acpi_rs_dump_fixed_io
  *
  * PARAMETERS:  Data            - pointer to the resource structure to dump.
  *
@@ -280,12 +298,12 @@ acpi_rs_dump_io (
 
 void
 acpi_rs_dump_fixed_io (
-	acpi_resource_data      *data)
+	union acpi_resource_data        *data)
 {
-	acpi_resource_fixed_io  *fixed_io_data = (acpi_resource_fixed_io *) data;
+	struct acpi_resource_fixed_io   *fixed_io_data = (struct acpi_resource_fixed_io *) data;
 
 
-	FUNCTION_ENTRY ();
+	ACPI_FUNCTION_ENTRY ();
 
 
 	acpi_os_printf ("Fixed Io Resource\n");
@@ -301,7 +319,7 @@ acpi_rs_dump_fixed_io (
 
 /*******************************************************************************
  *
- * FUNCTION:    Acpi_rs_dump_vendor_specific
+ * FUNCTION:    acpi_rs_dump_vendor_specific
  *
  * PARAMETERS:  Data            - pointer to the resource structure to dump.
  *
@@ -313,13 +331,13 @@ acpi_rs_dump_fixed_io (
 
 void
 acpi_rs_dump_vendor_specific (
-	acpi_resource_data      *data)
+	union acpi_resource_data        *data)
 {
-	acpi_resource_vendor    *vendor_data = (acpi_resource_vendor *) data;
-	u16                     index = 0;
+	struct acpi_resource_vendor     *vendor_data = (struct acpi_resource_vendor *) data;
+	u16                             index = 0;
 
 
-	FUNCTION_ENTRY ();
+	ACPI_FUNCTION_ENTRY ();
 
 
 	acpi_os_printf ("Vendor Specific Resource\n");
@@ -337,7 +355,7 @@ acpi_rs_dump_vendor_specific (
 
 /*******************************************************************************
  *
- * FUNCTION:    Acpi_rs_dump_memory24
+ * FUNCTION:    acpi_rs_dump_memory24
  *
  * PARAMETERS:  Data            - pointer to the resource structure to dump.
  *
@@ -349,18 +367,18 @@ acpi_rs_dump_vendor_specific (
 
 void
 acpi_rs_dump_memory24 (
-	acpi_resource_data      *data)
+	union acpi_resource_data        *data)
 {
-	acpi_resource_mem24     *memory24_data = (acpi_resource_mem24 *) data;
+	struct acpi_resource_mem24      *memory24_data = (struct acpi_resource_mem24 *) data;
 
 
-	FUNCTION_ENTRY ();
+	ACPI_FUNCTION_ENTRY ();
 
 
 	acpi_os_printf ("24-Bit Memory Range Resource\n");
 
 	acpi_os_printf ("  Read%s\n",
-			 READ_WRITE_MEMORY ==
+			 ACPI_READ_WRITE_MEMORY ==
 			 memory24_data->read_write_attribute ?
 			 "/Write" : " only");
 
@@ -382,7 +400,7 @@ acpi_rs_dump_memory24 (
 
 /*******************************************************************************
  *
- * FUNCTION:    Acpi_rs_dump_memory32
+ * FUNCTION:    acpi_rs_dump_memory32
  *
  * PARAMETERS:  Data            - pointer to the resource structure to dump.
  *
@@ -394,18 +412,18 @@ acpi_rs_dump_memory24 (
 
 void
 acpi_rs_dump_memory32 (
-	acpi_resource_data      *data)
+	union acpi_resource_data        *data)
 {
-	acpi_resource_mem32     *memory32_data = (acpi_resource_mem32 *) data;
+	struct acpi_resource_mem32      *memory32_data = (struct acpi_resource_mem32 *) data;
 
 
-	FUNCTION_ENTRY ();
+	ACPI_FUNCTION_ENTRY ();
 
 
 	acpi_os_printf ("32-Bit Memory Range Resource\n");
 
 	acpi_os_printf ("  Read%s\n",
-			 READ_WRITE_MEMORY ==
+			 ACPI_READ_WRITE_MEMORY ==
 			 memory32_data->read_write_attribute ?
 			 "/Write" : " only");
 
@@ -427,7 +445,7 @@ acpi_rs_dump_memory32 (
 
 /*******************************************************************************
  *
- * FUNCTION:    Acpi_rs_dump_fixed_memory32
+ * FUNCTION:    acpi_rs_dump_fixed_memory32
  *
  * PARAMETERS:  Data            - pointer to the resource structure to dump.
  *
@@ -439,18 +457,18 @@ acpi_rs_dump_memory32 (
 
 void
 acpi_rs_dump_fixed_memory32 (
-	acpi_resource_data          *data)
+	union acpi_resource_data            *data)
 {
-	acpi_resource_fixed_mem32   *fixed_memory32_data = (acpi_resource_fixed_mem32 *) data;
+	struct acpi_resource_fixed_mem32    *fixed_memory32_data = (struct acpi_resource_fixed_mem32 *) data;
 
 
-	FUNCTION_ENTRY ();
+	ACPI_FUNCTION_ENTRY ();
 
 
 	acpi_os_printf ("32-Bit Fixed Location Memory Range Resource\n");
 
 	acpi_os_printf ("  Read%s\n",
-			 READ_WRITE_MEMORY ==
+			 ACPI_READ_WRITE_MEMORY ==
 			 fixed_memory32_data->read_write_attribute ?
 			 "/Write" : " Only");
 
@@ -466,7 +484,7 @@ acpi_rs_dump_fixed_memory32 (
 
 /*******************************************************************************
  *
- * FUNCTION:    Acpi_rs_dump_address16
+ * FUNCTION:    acpi_rs_dump_address16
  *
  * PARAMETERS:  Data            - pointer to the resource structure to dump.
  *
@@ -478,39 +496,39 @@ acpi_rs_dump_fixed_memory32 (
 
 void
 acpi_rs_dump_address16 (
-	acpi_resource_data      *data)
+	union acpi_resource_data        *data)
 {
-	acpi_resource_address16 *address16_data = (acpi_resource_address16 *) data;
+	struct acpi_resource_address16 *address16_data = (struct acpi_resource_address16 *) data;
 
 
-	FUNCTION_ENTRY ();
+	ACPI_FUNCTION_ENTRY ();
 
 
 	acpi_os_printf ("16-Bit Address Space Resource\n");
 	acpi_os_printf ("  Resource Type: ");
 
 	switch (address16_data->resource_type) {
-	case MEMORY_RANGE:
+	case ACPI_MEMORY_RANGE:
 
 		acpi_os_printf ("Memory Range\n");
 
 		switch (address16_data->attribute.memory.cache_attribute) {
-		case NON_CACHEABLE_MEMORY:
+		case ACPI_NON_CACHEABLE_MEMORY:
 			acpi_os_printf ("  Type Specific: "
 					  "Noncacheable memory\n");
 			break;
 
-		case CACHABLE_MEMORY:
+		case ACPI_CACHABLE_MEMORY:
 			acpi_os_printf ("  Type Specific: "
 					  "Cacheable memory\n");
 			break;
 
-		case WRITE_COMBINING_MEMORY:
+		case ACPI_WRITE_COMBINING_MEMORY:
 			acpi_os_printf ("  Type Specific: "
 					  "Write-combining memory\n");
 			break;
 
-		case PREFETCHABLE_MEMORY:
+		case ACPI_PREFETCHABLE_MEMORY:
 			acpi_os_printf ("  Type Specific: "
 					  "Prefetchable memory\n");
 			break;
@@ -522,27 +540,27 @@ acpi_rs_dump_address16 (
 		}
 
 		acpi_os_printf ("  Type Specific: Read%s\n",
-			READ_WRITE_MEMORY ==
+			ACPI_READ_WRITE_MEMORY ==
 			address16_data->attribute.memory.read_write_attribute ?
 			"/Write" : " Only");
 		break;
 
-	case IO_RANGE:
+	case ACPI_IO_RANGE:
 
 		acpi_os_printf ("I/O Range\n");
 
 		switch (address16_data->attribute.io.range_attribute) {
-		case NON_ISA_ONLY_RANGES:
+		case ACPI_NON_ISA_ONLY_RANGES:
 			acpi_os_printf ("  Type Specific: "
 					  "Non-ISA Io Addresses\n");
 			break;
 
-		case ISA_ONLY_RANGES:
+		case ACPI_ISA_ONLY_RANGES:
 			acpi_os_printf ("  Type Specific: "
 					  "ISA Io Addresses\n");
 			break;
 
-		case ENTIRE_RANGE:
+		case ACPI_ENTIRE_RANGE:
 			acpi_os_printf ("  Type Specific: "
 					  "ISA and non-ISA Io Addresses\n");
 			break;
@@ -552,9 +570,14 @@ acpi_rs_dump_address16 (
 					  "Invalid range attribute\n");
 			break;
 		}
+
+		acpi_os_printf (" Type Specific: %s Translation\n",
+			ACPI_SPARSE_TRANSLATION ==
+			address16_data->attribute.io.translation_attribute ?
+			"Sparse" : "Dense");
 		break;
 
-	case BUS_NUMBER_RANGE:
+	case ACPI_BUS_NUMBER_RANGE:
 
 		acpi_os_printf ("Bus Number Range\n");
 		break;
@@ -566,19 +589,19 @@ acpi_rs_dump_address16 (
 	}
 
 	acpi_os_printf ("  Resource %s\n",
-			CONSUMER == address16_data->producer_consumer ?
+			ACPI_CONSUMER == address16_data->producer_consumer ?
 			"Consumer" : "Producer");
 
 	acpi_os_printf ("  %s decode\n",
-			 SUB_DECODE == address16_data->decode ?
+			 ACPI_SUB_DECODE == address16_data->decode ?
 			 "Subtractive" : "Positive");
 
 	acpi_os_printf ("  Min address is %s fixed\n",
-			 ADDRESS_FIXED == address16_data->min_address_fixed ?
+			 ACPI_ADDRESS_FIXED == address16_data->min_address_fixed ?
 			 "" : "not");
 
 	acpi_os_printf ("  Max address is %s fixed\n",
-			 ADDRESS_FIXED == address16_data->max_address_fixed ?
+			 ACPI_ADDRESS_FIXED == address16_data->max_address_fixed ?
 			 "" : "not");
 
 	acpi_os_printf ("  Granularity: %08X\n",
@@ -609,7 +632,7 @@ acpi_rs_dump_address16 (
 
 /*******************************************************************************
  *
- * FUNCTION:    Acpi_rs_dump_address32
+ * FUNCTION:    acpi_rs_dump_address32
  *
  * PARAMETERS:  Data            - pointer to the resource structure to dump.
  *
@@ -621,38 +644,38 @@ acpi_rs_dump_address16 (
 
 void
 acpi_rs_dump_address32 (
-	acpi_resource_data      *data)
+	union acpi_resource_data        *data)
 {
-	acpi_resource_address32 *address32_data = (acpi_resource_address32 *) data;
+	struct acpi_resource_address32 *address32_data = (struct acpi_resource_address32 *) data;
 
 
-	FUNCTION_ENTRY ();
+	ACPI_FUNCTION_ENTRY ();
 
 
 	acpi_os_printf ("32-Bit Address Space Resource\n");
 
 	switch (address32_data->resource_type) {
-	case MEMORY_RANGE:
+	case ACPI_MEMORY_RANGE:
 
 		acpi_os_printf ("  Resource Type: Memory Range\n");
 
 		switch (address32_data->attribute.memory.cache_attribute) {
-		case NON_CACHEABLE_MEMORY:
+		case ACPI_NON_CACHEABLE_MEMORY:
 			acpi_os_printf ("  Type Specific: "
 					  "Noncacheable memory\n");
 			break;
 
-		case CACHABLE_MEMORY:
+		case ACPI_CACHABLE_MEMORY:
 			acpi_os_printf ("  Type Specific: "
 					  "Cacheable memory\n");
 			break;
 
-		case WRITE_COMBINING_MEMORY:
+		case ACPI_WRITE_COMBINING_MEMORY:
 			acpi_os_printf ("  Type Specific: "
 					  "Write-combining memory\n");
 			break;
 
-		case PREFETCHABLE_MEMORY:
+		case ACPI_PREFETCHABLE_MEMORY:
 			acpi_os_printf ("  Type Specific: "
 					  "Prefetchable memory\n");
 			break;
@@ -664,39 +687,44 @@ acpi_rs_dump_address32 (
 		}
 
 		acpi_os_printf ("  Type Specific: Read%s\n",
-			READ_WRITE_MEMORY ==
+			ACPI_READ_WRITE_MEMORY ==
 			address32_data->attribute.memory.read_write_attribute ?
 			"/Write" : " Only");
 		break;
 
-	case IO_RANGE:
+	case ACPI_IO_RANGE:
 
 		acpi_os_printf ("  Resource Type: Io Range\n");
 
 		switch (address32_data->attribute.io.range_attribute) {
-			case NON_ISA_ONLY_RANGES:
-				acpi_os_printf ("  Type Specific: "
-						  "Non-ISA Io Addresses\n");
-				break;
+		case ACPI_NON_ISA_ONLY_RANGES:
+			acpi_os_printf ("  Type Specific: "
+					  "Non-ISA Io Addresses\n");
+			break;
 
-			case ISA_ONLY_RANGES:
-				acpi_os_printf ("  Type Specific: "
-						  "ISA Io Addresses\n");
-				break;
+		case ACPI_ISA_ONLY_RANGES:
+			acpi_os_printf ("  Type Specific: "
+					  "ISA Io Addresses\n");
+			break;
 
-			case ENTIRE_RANGE:
-				acpi_os_printf ("  Type Specific: "
-						  "ISA and non-ISA Io Addresses\n");
-				break;
+		case ACPI_ENTIRE_RANGE:
+			acpi_os_printf ("  Type Specific: "
+					  "ISA and non-ISA Io Addresses\n");
+			break;
 
-			default:
-				acpi_os_printf ("  Type Specific: "
-						  "Invalid Range attribute");
-				break;
-			}
+		default:
+			acpi_os_printf ("  Type Specific: "
+					  "Invalid Range attribute");
+			break;
+		}
+
+		acpi_os_printf (" Type Specific: %s Translation\n",
+			ACPI_SPARSE_TRANSLATION ==
+			address32_data->attribute.io.translation_attribute ?
+			"Sparse" : "Dense");
 		break;
 
-	case BUS_NUMBER_RANGE:
+	case ACPI_BUS_NUMBER_RANGE:
 
 		acpi_os_printf ("  Resource Type: Bus Number Range\n");
 		break;
@@ -708,19 +736,19 @@ acpi_rs_dump_address32 (
 	}
 
 	acpi_os_printf ("  Resource %s\n",
-			 CONSUMER == address32_data->producer_consumer ?
+			 ACPI_CONSUMER == address32_data->producer_consumer ?
 			 "Consumer" : "Producer");
 
 	acpi_os_printf ("  %s decode\n",
-			 SUB_DECODE == address32_data->decode ?
+			 ACPI_SUB_DECODE == address32_data->decode ?
 			 "Subtractive" : "Positive");
 
 	acpi_os_printf ("  Min address is %s fixed\n",
-			 ADDRESS_FIXED == address32_data->min_address_fixed ?
+			 ACPI_ADDRESS_FIXED == address32_data->min_address_fixed ?
 			 "" : "not ");
 
 	acpi_os_printf ("  Max address is %s fixed\n",
-			 ADDRESS_FIXED == address32_data->max_address_fixed ?
+			 ACPI_ADDRESS_FIXED == address32_data->max_address_fixed ?
 			 "" : "not ");
 
 	acpi_os_printf ("  Granularity: %08X\n",
@@ -751,7 +779,7 @@ acpi_rs_dump_address32 (
 
 /*******************************************************************************
  *
- * FUNCTION:    Acpi_rs_dump_address64
+ * FUNCTION:    acpi_rs_dump_address64
  *
  * PARAMETERS:  Data            - pointer to the resource structure to dump.
  *
@@ -763,38 +791,38 @@ acpi_rs_dump_address32 (
 
 void
 acpi_rs_dump_address64 (
-	acpi_resource_data      *data)
+	union acpi_resource_data        *data)
 {
-	acpi_resource_address64 *address64_data = (acpi_resource_address64 *) data;
+	struct acpi_resource_address64 *address64_data = (struct acpi_resource_address64 *) data;
 
 
-	FUNCTION_ENTRY ();
+	ACPI_FUNCTION_ENTRY ();
 
 
 	acpi_os_printf ("64-Bit Address Space Resource\n");
 
 	switch (address64_data->resource_type) {
-	case MEMORY_RANGE:
+	case ACPI_MEMORY_RANGE:
 
 		acpi_os_printf ("  Resource Type: Memory Range\n");
 
 		switch (address64_data->attribute.memory.cache_attribute) {
-		case NON_CACHEABLE_MEMORY:
+		case ACPI_NON_CACHEABLE_MEMORY:
 			acpi_os_printf ("  Type Specific: "
 					  "Noncacheable memory\n");
 			break;
 
-		case CACHABLE_MEMORY:
+		case ACPI_CACHABLE_MEMORY:
 			acpi_os_printf ("  Type Specific: "
 					  "Cacheable memory\n");
 			break;
 
-		case WRITE_COMBINING_MEMORY:
+		case ACPI_WRITE_COMBINING_MEMORY:
 			acpi_os_printf ("  Type Specific: "
 					  "Write-combining memory\n");
 			break;
 
-		case PREFETCHABLE_MEMORY:
+		case ACPI_PREFETCHABLE_MEMORY:
 			acpi_os_printf ("  Type Specific: "
 					  "Prefetchable memory\n");
 			break;
@@ -806,39 +834,44 @@ acpi_rs_dump_address64 (
 		}
 
 		acpi_os_printf ("  Type Specific: Read%s\n",
-			READ_WRITE_MEMORY ==
+			ACPI_READ_WRITE_MEMORY ==
 			address64_data->attribute.memory.read_write_attribute ?
 			"/Write" : " Only");
 		break;
 
-	case IO_RANGE:
+	case ACPI_IO_RANGE:
 
 		acpi_os_printf ("  Resource Type: Io Range\n");
 
 		switch (address64_data->attribute.io.range_attribute) {
-			case NON_ISA_ONLY_RANGES:
-				acpi_os_printf ("  Type Specific: "
-						  "Non-ISA Io Addresses\n");
-				break;
+		case ACPI_NON_ISA_ONLY_RANGES:
+			acpi_os_printf ("  Type Specific: "
+					  "Non-ISA Io Addresses\n");
+			break;
 
-			case ISA_ONLY_RANGES:
-				acpi_os_printf ("  Type Specific: "
-						  "ISA Io Addresses\n");
-				break;
+		case ACPI_ISA_ONLY_RANGES:
+			acpi_os_printf ("  Type Specific: "
+					  "ISA Io Addresses\n");
+			break;
 
-			case ENTIRE_RANGE:
-				acpi_os_printf ("  Type Specific: "
-						  "ISA and non-ISA Io Addresses\n");
-				break;
+		case ACPI_ENTIRE_RANGE:
+			acpi_os_printf ("  Type Specific: "
+					  "ISA and non-ISA Io Addresses\n");
+			break;
 
-			default:
-				acpi_os_printf ("  Type Specific: "
-						  "Invalid Range attribute");
-				break;
-			}
+		default:
+			acpi_os_printf ("  Type Specific: "
+					  "Invalid Range attribute");
+			break;
+		}
+
+		acpi_os_printf (" Type Specific: %s Translation\n",
+			ACPI_SPARSE_TRANSLATION ==
+			address64_data->attribute.io.translation_attribute ?
+			"Sparse" : "Dense");
 		break;
 
-	case BUS_NUMBER_RANGE:
+	case ACPI_BUS_NUMBER_RANGE:
 
 		acpi_os_printf ("  Resource Type: Bus Number Range\n");
 		break;
@@ -850,35 +883,35 @@ acpi_rs_dump_address64 (
 	}
 
 	acpi_os_printf ("  Resource %s\n",
-			 CONSUMER == address64_data->producer_consumer ?
+			 ACPI_CONSUMER == address64_data->producer_consumer ?
 			 "Consumer" : "Producer");
 
 	acpi_os_printf ("  %s decode\n",
-			 SUB_DECODE == address64_data->decode ?
+			 ACPI_SUB_DECODE == address64_data->decode ?
 			 "Subtractive" : "Positive");
 
 	acpi_os_printf ("  Min address is %s fixed\n",
-			 ADDRESS_FIXED == address64_data->min_address_fixed ?
+			 ACPI_ADDRESS_FIXED == address64_data->min_address_fixed ?
 			 "" : "not ");
 
 	acpi_os_printf ("  Max address is %s fixed\n",
-			 ADDRESS_FIXED == address64_data->max_address_fixed ?
+			 ACPI_ADDRESS_FIXED == address64_data->max_address_fixed ?
 			 "" : "not ");
 
-	acpi_os_printf ("  Granularity: %16X\n",
-			 address64_data->granularity);
+	acpi_os_printf ("  Granularity: %8.8X%8.8X\n",
+			 ACPI_FORMAT_UINT64 (address64_data->granularity));
 
-	acpi_os_printf ("  Address range min: %16X\n",
-			 address64_data->min_address_range);
+	acpi_os_printf ("  Address range min: %8.8X%8.8X\n",
+			 ACPI_FORMAT_UINT64 (address64_data->min_address_range));
 
-	acpi_os_printf ("  Address range max: %16X\n",
-			 address64_data->max_address_range);
+	acpi_os_printf ("  Address range max: %8.8X%8.8X\n",
+			 ACPI_FORMAT_UINT64 (address64_data->max_address_range));
 
-	acpi_os_printf ("  Address translation offset: %16X\n",
-			 address64_data->address_translation_offset);
+	acpi_os_printf ("  Address translation offset: %8.8X%8.8X\n",
+			 ACPI_FORMAT_UINT64 (address64_data->address_translation_offset));
 
-	acpi_os_printf ("  Address Length: %16X\n",
-			 address64_data->address_length);
+	acpi_os_printf ("  Address Length: %8.8X%8.8X\n",
+			 ACPI_FORMAT_UINT64 (address64_data->address_length));
 
 	if(0xFF != address64_data->resource_source.index) {
 		acpi_os_printf ("  Resource Source Index: %X\n",
@@ -893,7 +926,7 @@ acpi_rs_dump_address64 (
 
 /*******************************************************************************
  *
- * FUNCTION:    Acpi_rs_dump_extended_irq
+ * FUNCTION:    acpi_rs_dump_extended_irq
  *
  * PARAMETERS:  Data            - pointer to the resource structure to dump.
  *
@@ -905,31 +938,31 @@ acpi_rs_dump_address64 (
 
 void
 acpi_rs_dump_extended_irq (
-	acpi_resource_data      *data)
+	union acpi_resource_data        *data)
 {
-	acpi_resource_ext_irq   *ext_irq_data = (acpi_resource_ext_irq *) data;
-	u8                      index = 0;
+	struct acpi_resource_ext_irq    *ext_irq_data = (struct acpi_resource_ext_irq *) data;
+	u8                              index = 0;
 
 
-	FUNCTION_ENTRY ();
+	ACPI_FUNCTION_ENTRY ();
 
 
 	acpi_os_printf ("Extended IRQ Resource\n");
 
 	acpi_os_printf ("  Resource %s\n",
-			 CONSUMER == ext_irq_data->producer_consumer ?
+			 ACPI_CONSUMER == ext_irq_data->producer_consumer ?
 			 "Consumer" : "Producer");
 
 	acpi_os_printf ("  %s\n",
-			 LEVEL_SENSITIVE == ext_irq_data->edge_level ?
+			 ACPI_LEVEL_SENSITIVE == ext_irq_data->edge_level ?
 			 "Level" : "Edge");
 
 	acpi_os_printf ("  Active %s\n",
-			 ACTIVE_LOW == ext_irq_data->active_high_low ?
+			 ACPI_ACTIVE_LOW == ext_irq_data->active_high_low ?
 			 "low" : "high");
 
 	acpi_os_printf ("  %s\n",
-			 SHARED == ext_irq_data->shared_exclusive ?
+			 ACPI_SHARED == ext_irq_data->shared_exclusive ?
 			 "Shared" : "Exclusive");
 
 	acpi_os_printf ("  Interrupts : %X ( ",
@@ -954,7 +987,7 @@ acpi_rs_dump_extended_irq (
 
 /*******************************************************************************
  *
- * FUNCTION:    Acpi_rs_dump_resource_list
+ * FUNCTION:    acpi_rs_dump_resource_list
  *
  * PARAMETERS:  Data            - pointer to the resource structure to dump.
  *
@@ -966,18 +999,18 @@ acpi_rs_dump_extended_irq (
 
 void
 acpi_rs_dump_resource_list (
-	acpi_resource       *resource)
+	struct acpi_resource        *resource)
 {
-	u8                  count = 0;
-	u8                  done = FALSE;
+	u8                          count = 0;
+	u8                          done = FALSE;
 
 
-	FUNCTION_ENTRY ();
+	ACPI_FUNCTION_ENTRY ();
 
 
 	if (acpi_dbg_level & ACPI_LV_RESOURCES && _COMPONENT & acpi_dbg_layer) {
 		while (!done) {
-			acpi_os_printf ("Resource structure %x.\n", count++);
+			acpi_os_printf ("Resource structure %X.\n", count++);
 
 			switch (resource->id) {
 			case ACPI_RSTYPE_IRQ:
@@ -989,12 +1022,12 @@ acpi_rs_dump_resource_list (
 				break;
 
 			case ACPI_RSTYPE_START_DPF:
-				acpi_rs_dump_start_dependent_functions (&resource->data);
+				acpi_rs_dump_start_depend_fns (&resource->data);
 				break;
 
 			case ACPI_RSTYPE_END_DPF:
-				acpi_os_printf ("End_dependent_functions Resource\n");
-				/* Acpi_rs_dump_end_dependent_functions (Resource->Data);*/
+				acpi_os_printf ("end_dependent_functions Resource\n");
+				/* acpi_rs_dump_end_dependent_functions (Resource->Data);*/
 				break;
 
 			case ACPI_RSTYPE_IO:
@@ -1010,8 +1043,8 @@ acpi_rs_dump_resource_list (
 				break;
 
 			case ACPI_RSTYPE_END_TAG:
-				/*Rs_dump_end_tag (Resource->Data);*/
-				acpi_os_printf ("End_tag Resource\n");
+				/*rs_dump_end_tag (Resource->Data);*/
+				acpi_os_printf ("end_tag Resource\n");
 				done = TRUE;
 				break;
 
@@ -1049,7 +1082,7 @@ acpi_rs_dump_resource_list (
 
 			}
 
-			resource = POINTER_ADD (acpi_resource, resource, resource->length);
+			resource = ACPI_PTR_ADD (struct acpi_resource, resource, resource->length);
 		}
 	}
 
@@ -1058,7 +1091,7 @@ acpi_rs_dump_resource_list (
 
 /*******************************************************************************
  *
- * FUNCTION:    Acpi_rs_dump_irq_list
+ * FUNCTION:    acpi_rs_dump_irq_list
  *
  * PARAMETERS:  Data            - pointer to the routing table to dump.
  *
@@ -1070,36 +1103,36 @@ acpi_rs_dump_resource_list (
 
 void
 acpi_rs_dump_irq_list (
-	u8                  *route_table)
+	u8                              *route_table)
 {
-	u8                  *buffer = route_table;
-	u8                  count = 0;
-	u8                  done = FALSE;
-	pci_routing_table   *prt_element;
+	u8                              *buffer = route_table;
+	u8                              count = 0;
+	u8                              done = FALSE;
+	struct acpi_pci_routing_table   *prt_element;
 
 
-	FUNCTION_ENTRY ();
+	ACPI_FUNCTION_ENTRY ();
 
 
 	if (acpi_dbg_level & ACPI_LV_RESOURCES && _COMPONENT & acpi_dbg_layer) {
-		prt_element = (pci_routing_table *) buffer;
+		prt_element = ACPI_CAST_PTR (struct acpi_pci_routing_table, buffer);
 
 		while (!done) {
 			acpi_os_printf ("PCI IRQ Routing Table structure %X.\n", count++);
 
-			acpi_os_printf ("  Address: %X\n",
-					 prt_element->address);
+			acpi_os_printf ("  Address: %8.8X%8.8X\n",
+					 ACPI_FORMAT_UINT64 (prt_element->address));
 
 			acpi_os_printf ("  Pin: %X\n", prt_element->pin);
 
 			acpi_os_printf ("  Source: %s\n", prt_element->source);
 
-			acpi_os_printf ("  Source_index: %X\n",
+			acpi_os_printf ("  source_index: %X\n",
 					 prt_element->source_index);
 
 			buffer += prt_element->length;
 
-			prt_element = (pci_routing_table *) buffer;
+			prt_element = ACPI_CAST_PTR (struct acpi_pci_routing_table, buffer);
 
 			if(0 == prt_element->length) {
 				done = TRUE;

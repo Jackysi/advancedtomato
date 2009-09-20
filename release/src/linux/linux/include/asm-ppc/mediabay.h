@@ -1,7 +1,4 @@
 /*
- * BK Id: SCCS/s.mediabay.h 1.8 12/01/01 20:09:11 benh
- */
-/*
  * mediabay.h: definitions for using the media bay
  * on PowerBook 3400 and similar computers.
  *

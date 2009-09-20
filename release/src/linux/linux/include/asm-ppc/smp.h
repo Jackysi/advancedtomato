@@ -1,6 +1,3 @@
-/*
- * BK Id: SCCS/s.smp.h 1.14 03/28/02 16:54:23 hozer
- */
 /* smp.h: PPC specific SMP stuff.
  *
  * Original was a copy of sparc smp.h.  Now heavily modified

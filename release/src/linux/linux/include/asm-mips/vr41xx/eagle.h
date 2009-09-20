@@ -8,7 +8,7 @@
  * Author: MontaVista Software, Inc.
  *         yyuasa@mvista.com or source@mvista.com
  *
- * Copyright 2001,2002 MontaVista Software Inc.
+ * Copyright 2001-2003 MontaVista Software Inc.
  *
  *  This program is free software; you can redistribute it and/or modify it
  *  under the terms of the GNU General Public License as published by the
@@ -82,19 +82,22 @@
 #define DCD_IRQ				GIU_IRQ(DCD_PIN)
 
 #define SDBINT_IRQ_BASE			88
-#define DEG_IRQ				(SDBINT_IRQ_BASE + 1)
-#define ENUM_IRQ			(SDBINT_IRQ_BASE + 2)
-#define SIO1INT_IRQ			(SDBINT_IRQ_BASE + 3)
-#define SIO2INT_IRQ			(SDBINT_IRQ_BASE + 4)
-#define PARINT_IRQ			(SDBINT_IRQ_BASE + 5)
+#define SDBINT_IRQ(x)			(SDBINT_IRQ_BASE + (x))
+/* RFU */
+#define DEG_IRQ				SDBINT_IRQ(1)
+#define ENUM_IRQ			SDBINT_IRQ(2)
+#define SIO1INT_IRQ			SDBINT_IRQ(3)
+#define SIO2INT_IRQ			SDBINT_IRQ(4)
+#define PARINT_IRQ			SDBINT_IRQ(5)
 #define SDBINT_IRQ_LAST			PARINT_IRQ
 
 #define PCIINT_IRQ_BASE			96
-#define CP_INTA_IRQ			(PCIINT_IRQ_BASE + 0)
-#define CP_INTB_IRQ			(PCIINT_IRQ_BASE + 1)
-#define CP_INTC_IRQ			(PCIINT_IRQ_BASE + 2)
-#define CP_INTD_IRQ			(PCIINT_IRQ_BASE + 3)
-#define LANINTA_IRQ			(PCIINT_IRQ_BASE + 4)
+#define PCIINT_IRQ(x)			(PCIINT_IRQ_BASE + (x))
+#define CP_INTA_IRQ			PCIINT_IRQ(0)
+#define CP_INTB_IRQ			PCIINT_IRQ(1)
+#define CP_INTC_IRQ			PCIINT_IRQ(2)
+#define CP_INTD_IRQ			PCIINT_IRQ(3)
+#define LANINTA_IRQ			PCIINT_IRQ(4)
 #define PCIINT_IRQ_LAST			LANINTA_IRQ
 
 /*

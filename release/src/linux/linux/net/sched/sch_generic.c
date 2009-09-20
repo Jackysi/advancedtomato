@@ -7,7 +7,7 @@
  *		2 of the License, or (at your option) any later version.
  *
  * Authors:	Alexey Kuznetsov, <kuznet@ms2.inr.ac.ru>
- *              Jamal Hadi Salim, <hadi@nortelnetworks.com> 990601
+ *              Jamal Hadi Salim, <hadi@cyberus.ca> 990601
  *              - Ingress support
  */
 
@@ -29,9 +29,7 @@
 #include <linux/skbuff.h>
 #include <linux/rtnetlink.h>
 #include <linux/init.h>
-#if defined(CONFIG_IMQ) || defined(CONFIG_IMQ_MODULE)
-#include <linux/imq.h>
-#endif
+#include <linux/list.h>
 #include <net/sock.h>
 #include <net/pkt_sched.h>
 
@@ -82,10 +80,6 @@ int qdisc_restart(struct net_device *dev)
 	struct Qdisc *q = dev->qdisc;
 	struct sk_buff *skb;
 
-	/* BRCM: bail out if queue is null */
-	if (!q)
-		return 0;
-
 	/* Dequeue packet */
 	if ((skb = q->dequeue(q)) != NULL) {
 		if (spin_trylock(&dev->xmit_lock)) {
@@ -96,11 +90,7 @@ int qdisc_restart(struct net_device *dev)
 			spin_unlock(&dev->queue_lock);
 
 			if (!netif_queue_stopped(dev)) {
-				if (netdev_nit
-#if defined(CONFIG_IMQ) || defined(CONFIG_IMQ_MODULE)
-				    && !(skb->imq_flags & IMQ_F_ENQUEUE)
-#endif
-				    )
+				if (netdev_nit)
 					dev_queue_xmit_nit(skb, dev);
 
 				if (dev->hard_start_xmit(skb, dev) == 0) {
@@ -291,9 +281,11 @@ pfifo_fast_enqueue(struct sk_buff *skb, struct Qdisc* qdisc)
 	list = ((struct sk_buff_head*)qdisc->data) +
 		prio2band[skb->priority&TC_PRIO_MAX];
 
-	if (list->qlen <= qdisc->dev->tx_queue_len) {
+	if (list->qlen < qdisc->dev->tx_queue_len) {
 		__skb_queue_tail(list, skb);
 		qdisc->q.qlen++;
+		qdisc->stats.bytes += skb->len;
+		qdisc->stats.packets++;
 		return 0;
 	}
 	qdisc->stats.drops++;
@@ -342,6 +334,21 @@ pfifo_fast_reset(struct Qdisc* qdisc)
 	qdisc->q.qlen = 0;
 }
 
+static int pfifo_fast_dump(struct Qdisc *qdisc, struct sk_buff *skb)
+{
+	unsigned char	 *b = skb->tail;
+	struct tc_prio_qopt opt;
+
+	opt.bands = 3; 
+	memcpy(&opt.priomap, prio2band, TC_PRIO_MAX+1);
+	RTA_PUT(skb, TCA_OPTIONS, sizeof(opt), &opt);
+	return skb->len;
+
+rtattr_failure:
+	skb_trim(skb, b - skb->data);
+	return -1;
+}
+
 static int pfifo_fast_init(struct Qdisc *qdisc, struct rtattr *opt)
 {
 	int i;
@@ -369,6 +376,10 @@ static struct Qdisc_ops pfifo_fast_ops =
 
 	pfifo_fast_init,
 	pfifo_fast_reset,
+	NULL,
+	NULL,
+	pfifo_fast_dump,
+
 };
 
 struct Qdisc * qdisc_create_dflt(struct net_device *dev, struct Qdisc_ops *ops)
@@ -381,6 +392,7 @@ struct Qdisc * qdisc_create_dflt(struct net_device *dev, struct Qdisc_ops *ops)
 		return NULL;
 	memset(sch, 0, size);
 
+	INIT_LIST_HEAD(&sch->list);
 	skb_queue_head_init(&sch->q);
 	sch->ops = ops;
 	sch->enqueue = ops->enqueue;
@@ -410,33 +422,19 @@ void qdisc_reset(struct Qdisc *qdisc)
 void qdisc_destroy(struct Qdisc *qdisc)
 {
 	struct Qdisc_ops *ops = qdisc->ops;
-	struct net_device *dev;
 
-	if (!atomic_dec_and_test(&qdisc->refcnt))
+	if (qdisc->flags&TCQ_F_BUILTIN ||
+	    !atomic_dec_and_test(&qdisc->refcnt))
 		return;
-
-	dev = qdisc->dev;
-
-#ifdef CONFIG_NET_SCHED
-	if (dev) {
-		struct Qdisc *q, **qp;
-		for (qp = &qdisc->dev->qdisc_list; (q=*qp) != NULL; qp = &q->next) {
-			if (q == qdisc) {
-				*qp = q->next;
-				break;
-			}
-		}
-	}
+	list_del(&qdisc->list);
 #ifdef CONFIG_NET_ESTIMATOR
 	qdisc_kill_estimator(&qdisc->stats);
-#endif
 #endif
 	if (ops->reset)
 		ops->reset(qdisc);
 	if (ops->destroy)
 		ops->destroy(qdisc);
-	if (!(qdisc->flags&TCQ_F_BUILTIN))
-		kfree(qdisc);
+	kfree(qdisc);
 }
 
 
@@ -456,6 +454,10 @@ void dev_activate(struct net_device *dev)
 				printk(KERN_INFO "%s: activation failed\n", dev->name);
 				return;
 			}
+			write_lock(&qdisc_tree_lock);
+			list_add_tail(&qdisc->list, &dev->qdisc_list);
+			write_unlock(&qdisc_tree_lock);
+
 		} else {
 			qdisc =  &noqueue_qdisc;
 		}
@@ -499,7 +501,7 @@ void dev_init_scheduler(struct net_device *dev)
 	dev->qdisc = &noop_qdisc;
 	spin_unlock_bh(&dev->queue_lock);
 	dev->qdisc_sleeping = &noop_qdisc;
-	dev->qdisc_list = NULL;
+	INIT_LIST_HEAD(&dev->qdisc_list);
 	write_unlock(&qdisc_tree_lock);
 
 	dev_watchdog_init(dev);
@@ -521,9 +523,8 @@ void dev_shutdown(struct net_device *dev)
 		qdisc_destroy(qdisc);
         }
 #endif
-	BUG_TRAP(dev->qdisc_list == NULL);
+	BUG_TRAP(list_empty(&dev->qdisc_list));
 	BUG_TRAP(!timer_pending(&dev->watchdog_timer));
-	dev->qdisc_list = NULL;
 	spin_unlock_bh(&dev->queue_lock);
 	write_unlock(&qdisc_tree_lock);
 }

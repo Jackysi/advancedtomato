@@ -19,12 +19,22 @@
 #define MAX_ORDER CONFIG_FORCE_MAX_ZONEORDER
 #endif
 
+#define ZONE_DMA               0
+#define ZONE_NORMAL            1
+#define ZONE_HIGHMEM           2
+#define MAX_NR_ZONES           3
+
 typedef struct free_area_struct {
 	struct list_head	free_list;
 	unsigned long		*map;
 } free_area_t;
 
 struct pglist_data;
+
+typedef struct zone_watermarks_s {
+	unsigned long min, low, high;
+} zone_watermarks_t;
+
 
 /*
  * On machines where it is needed (eg PCs) we divide physical memory
@@ -40,8 +50,27 @@ typedef struct zone_struct {
 	 */
 	spinlock_t		lock;
 	unsigned long		free_pages;
-	unsigned long		pages_min, pages_low, pages_high;
-	int			need_balance;
+	/*
+	 * We don't know if the memory that we're going to allocate will be freeable
+	 * or/and it will be released eventually, so to avoid totally wasting several
+	 * GB of ram we must reserve some of the lower zone memory (otherwise we risk
+	 * to run OOM on the lower zones despite there's tons of freeable ram
+	 * on the higher zones).
+	 */
+	zone_watermarks_t       watermarks[MAX_NR_ZONES];
+
+	/*
+	 * The below fields are protected by different locks (or by
+	 * no lock at all like need_balance), so they're longs to
+	 * provide an atomic granularity against each other on
+	 * all architectures.
+	 */
+	unsigned long           need_balance;
+	/* protected by the pagemap_lru_lock */
+	unsigned long           nr_active_pages, nr_inactive_pages;
+	/* protected by the pagecache_lock */
+	unsigned long           nr_cache_pages;
+
 
 	/*
 	 * free areas of different sizes
@@ -90,12 +119,8 @@ typedef struct zone_struct {
 	 */
 	char			*name;
 	unsigned long		size;
+	unsigned long		realsize;
 } zone_t;
-
-#define ZONE_DMA		0
-#define ZONE_NORMAL		1
-#define ZONE_HIGHMEM		2
-#define MAX_NR_ZONES		3
 
 /*
  * One allocation request operates on a zonelist. A zonelist
@@ -114,6 +139,17 @@ typedef struct zonelist_struct {
 
 #define GFP_ZONEMASK	0x0f
 
+/*
+ * The pg_data_t structure is used in machines with CONFIG_DISCONTIGMEM
+ * (mostly NUMA machines?) to denote a higher-level memory zone than the
+ * zone_struct denotes.
+ *
+ * On NUMA machines, each NUMA node would have a pg_data_t to describe
+ * it's memory layout.
+ *
+ * XXX: we need to move the global memory statistics (active_list, ...)
+ *      into the pg_data_t to properly support NUMA.
+ */
 struct bootmem_data;
 typedef struct pglist_data {
 	zone_t node_zones[MAX_NR_ZONES];
@@ -132,8 +168,8 @@ typedef struct pglist_data {
 extern int numnodes;
 extern pg_data_t *pgdat_list;
 
-#define memclass(pgzone, classzone)	(((pgzone)->zone_pgdat == (classzone)->zone_pgdat) \
-			&& ((pgzone) <= (classzone)))
+#define zone_idx(zone)                 ((zone) - (zone)->zone_pgdat->node_zones)
+#define memclass(pgzone, classzone)    (zone_idx(pgzone) <= zone_idx(classzone))
 
 /*
  * The following two are not meant for general usage. They are here as

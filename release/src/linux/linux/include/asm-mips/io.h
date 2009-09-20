@@ -113,6 +113,11 @@ extern void * __ioremap(phys_t offset, phys_t size, unsigned long flags);
 
 extern void iounmap(void *addr);
 
+/*
+ * XXX We need system specific versions of these to handle EISA address bits
+ * 24-31 on SNI.
+ * XXX more SNI hacks.
+ */
 #define readb(addr)		(*(volatile unsigned char *)(addr))
 #define readw(addr)		__ioswab16((*(volatile unsigned short *)(addr)))
 #define readl(addr)		__ioswab32((*(volatile unsigned int *)(addr)))
@@ -129,6 +134,9 @@ extern void iounmap(void *addr);
 #define __raw_writew(w,addr)	((*(volatile unsigned short *)(addr)) = (w))
 #define __raw_writel(l,addr)	((*(volatile unsigned int *)(addr)) = (l))
 
+/*
+ * TODO: Should use variants that don't do prefetching.
+ */
 #define memset_io(a,b,c)	memset((void *)(a),(b),(c))
 #define memcpy_fromio(a,b,c)	memcpy((a),(void *)(b),(c))
 #define memcpy_toio(a,b,c)	memcpy((void *)(a),(b),(c))
@@ -302,40 +310,40 @@ extern const unsigned long mips_io_port_base;
 #define SLOW_DOWN_IO
 #endif
 
-static inline void outb(u8 val, unsigned long port)
-{
-	*(volatile u8 *)(mips_io_port_base + (port)) = (val);
-}
+#define outb(val,port)							\
+do {									\
+	*(volatile u8 *)(mips_io_port_base + (port)) = (val);		\
+} while(0)
 
-static inline void outw(u16 val, unsigned long port)
-{
-	*(volatile u16 *)(mips_io_port_base + __swizzle_addr_w(port)) =
-		__ioswab16(val);
-}
+#define outw(val,port)							\
+do {									\
+	*(volatile u16 *)(mips_io_port_base + __swizzle_addr_w(port)) =	\
+		__ioswab16(val);					\
+} while(0)
 
-static inline void outl(u32 val, unsigned long port)
-{
-	*(volatile u32 *)(mips_io_port_base + (port)) = __ioswab32(val);
-}
+#define outl(val,port)							\
+do {									\
+	*(volatile u32 *)(mips_io_port_base + (port)) = __ioswab32(val);\
+} while(0)
 
-static inline void outb_p(u8 val, unsigned long port)
-{
-	*(volatile u8 *)(mips_io_port_base + (port)) = (val);
-	SLOW_DOWN_IO;
-}
+#define outb_p(val,port)						\
+do {									\
+	*(volatile u8 *)(mips_io_port_base + (port)) = (val);		\
+	SLOW_DOWN_IO;							\
+} while(0)
 
-static inline void outw_p(u16 val, unsigned long port)
-{
-	*(volatile u16 *)(mips_io_port_base + __swizzle_addr_w(port)) =
-		__ioswab16(val);
-	SLOW_DOWN_IO;
-}
+#define outw_p(val,port)						\
+do {									\
+	*(volatile u16 *)(mips_io_port_base + __swizzle_addr_w(port)) =	\
+		__ioswab16(val);					\
+	SLOW_DOWN_IO;							\
+} while(0)
 
-static inline void outl_p(u32 val, unsigned long port)
-{
-	*(volatile u32 *)(mips_io_port_base + (port)) = __ioswab32(val);
-	SLOW_DOWN_IO;
-}
+#define outl_p(val,port)						\
+do {									\
+	*(volatile u32 *)(mips_io_port_base + (port)) = __ioswab32(val);\
+	SLOW_DOWN_IO;							\
+} while(0)
 
 static inline unsigned char inb(unsigned long port)
 {
@@ -384,60 +392,60 @@ static inline unsigned int inl_p(unsigned long port)
 	return __ioswab32(__val);
 }
 
-static inline void __outsb(unsigned long port, const u8 *addr, unsigned int count)
+static inline void __outsb(unsigned long port, void *addr, unsigned int count)
 {
 	while (count--) {
-		outb(*addr, port);
+		outb(*(u8 *)addr, port);
 		addr++;
 	}
 }
 
-static inline void __insb(unsigned long port, u8 *addr, unsigned int count)
+static inline void __insb(unsigned long port, void *addr, unsigned int count)
 {
 	while (count--) {
-		*addr = inb(port);
+		*(u8 *)addr = inb(port);
 		addr++;
 	}
 }
 
-static inline void __outsw(unsigned long port, const u16 *addr, unsigned int count)
+static inline void __outsw(unsigned long port, void *addr, unsigned int count)
 {
 	while (count--) {
-		outw(*addr, port);
-		addr++;
+		outw(*(u16 *)addr, port);
+		addr += 2;
 	}
 }
 
-static inline void __insw(unsigned long port, u16 *addr, unsigned int count)
+static inline void __insw(unsigned long port, void *addr, unsigned int count)
 {
 	while (count--) {
-		*addr = inw(port);
-		addr++;
+		*(u16 *)addr = inw(port);
+		addr += 2;
 	}
 }
 
-static inline void __outsl(unsigned long port, const u32 *addr, unsigned int count)
+static inline void __outsl(unsigned long port, void *addr, unsigned int count)
 {
 	while (count--) {
-		outl(*addr, port);
-		addr++;
+		outl(*(u32 *)addr, port);
+		addr += 4;
 	}
 }
 
-static inline void __insl(unsigned long port, u32 *addr, unsigned int count)
+static inline void __insl(unsigned long port, void *addr, unsigned int count)
 {
 	while (count--) {
-		*addr = inl(port);
-		addr++;
+		*(u32 *)addr = inl(port);
+		addr += 4;
 	}
 }
 
-#define outsb(port, addr, count) __outsb(port, (u8 *) addr, count)
-#define insb(port, addr, count) __insb(port, (u8 *)addr, count)
-#define outsw(port, addr, count) __outsw(port, (u16 *) addr, count)
-#define insw(port, addr, count) __insw(port, (u16 *) addr, count)
-#define outsl(port, addr, count) __outsl(port, (u32 *) addr, count)
-#define insl(port, addr, count) __insl(port, (u32 *) addr, count)
+#define outsb(port, addr, count) __outsb(port, addr, count)
+#define insb(port, addr, count) __insb(port, addr, count)
+#define outsw(port, addr, count) __outsw(port, addr, count)
+#define insw(port, addr, count) __insw(port, addr, count)
+#define outsl(port, addr, count) __outsl(port, addr, count)
+#define insl(port, addr, count) __insl(port, addr, count)
 
 /*
  * The caches on some architectures aren't dma-coherent and have need to

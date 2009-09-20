@@ -3,11 +3,13 @@
  * License.  See the file "COPYING" in the main directory of this archive
  * for more details.
  *
- * Copyright (C) 1998, 1999 by Ralf Baechle
+ * Copyright (C) 1998, 1999, 2001, 03, 04 Ralf Baechle
+ * Copyright (C) 2000, 2001 Silicon Graphics, Inc.
  */
 #ifndef _ASM_SIGINFO_H
 #define _ASM_SIGINFO_H
 
+#include <linux/config.h>
 #include <linux/types.h>
 
 /* This structure matches IRIX 32/n32 ABIs for binary compatibility. */
@@ -21,12 +23,18 @@ typedef union sigval {
    has Linux extensions.  */
 
 #define SI_MAX_SIZE	128
+#ifdef CONFIG_MIPS32
 #define SI_PAD_SIZE	((SI_MAX_SIZE/sizeof(int)) - 3)
+#endif
+#ifdef CONFIG_MIPS64
+#define SI_PAD_SIZE	((SI_MAX_SIZE/sizeof(int)) - 4)
+#endif
 
 typedef struct siginfo {
 	int si_signo;
 	int si_code;
 	int si_errno;
+	int __pad0[SI_MAX_SIZE / sizeof(int) - SI_PAD_SIZE - 3];
 
 	union {
 		int _pad[SI_PAD_SIZE];
@@ -41,8 +49,8 @@ typedef struct siginfo {
 		struct {
 			pid_t _pid;		/* which child */
 			uid_t _uid;		/* sender's uid */
-			clock_t _utime;
 			int _status;		/* exit code */
+			clock_t _utime;
 			clock_t _stime;
 		} _sigchld;
 
@@ -61,7 +69,7 @@ typedef struct siginfo {
 
 		/* SIGPOLL, SIGXFSZ (To do ...)  */
 		struct {
-			int _band;	/* POLL_IN, POLL_OUT, POLL_MSG */
+			long _band;	/* POLL_IN, POLL_OUT, POLL_MSG */
 			int _fd;
 		} _sigpoll;
 
@@ -209,18 +217,18 @@ typedef struct siginfo {
  * thread manager then catches and does the appropriate nonsense.
  * However, everything is written out here so as to not get lost.
  */
-#define SIGEV_NONE	128	/* other notification: meaningless */
-#define SIGEV_SIGNAL	129	/* notify via signal */
-#define SIGEV_CALLBACK	130	/* ??? */
-#define SIGEV_THREAD	131	/* deliver via thread creation */
+#define SIGEV_SIGNAL	0	/* notify via signal */
+#define SIGEV_NONE	1	/* other notification: meaningless */
+#define SIGEV_THREAD	2	/* deliver via thread creation */
 
 #define SIGEV_MAX_SIZE	64
-#define SIGEV_PAD_SIZE	((SIGEV_MAX_SIZE/sizeof(int)) - 4)
+#define SIGEV_HEAD_SIZE	(sizeof(long) + 2*sizeof(int))
+#define SIGEV_PAD_SIZE	((SIGEV_MAX_SIZE-SIGEV_HEAD_SIZE) / sizeof(int))
 
 typedef struct sigevent {
-	int sigev_notify;
 	sigval_t sigev_value;
 	int sigev_signo;
+	int sigev_notify;
 	union {
 		int _pad[SIGEV_PAD_SIZE];
 

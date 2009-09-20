@@ -336,6 +336,9 @@ void __init setup_arch(char **cmdline_p)
         saved_command_line[COMMAND_LINE_SIZE-1] = '\0';
 
         for (;;) {
+                /*
+                 * "mem=XXX[kKmM]" sets memsize 
+                 */
                 if (c == ' ' && strncmp(from, "mem=", 4) == 0) {
                         memory_end = simple_strtoul(from+4, &from, 0);
                         if ( *from == 'K' || *from == 'k' ) {
@@ -346,6 +349,9 @@ void __init setup_arch(char **cmdline_p)
                                 from++;
                         }
                 }
+                /*
+                 * "ipldelay=XXX[sm]" sets ipl delay in seconds or minutes
+                 */
                 if (c == ' ' && strncmp(from, "ipldelay=", 9) == 0) {
                         delay = simple_strtoul(from+9, &from, 0);
 			if (*from == 's' || *from == 'S') {

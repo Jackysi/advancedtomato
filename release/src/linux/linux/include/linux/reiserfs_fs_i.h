@@ -53,6 +53,13 @@ struct reiserfs_inode_info {
     ** flushed */
     unsigned long i_trans_id ;
     unsigned long i_trans_index ;
+
+    /* direct io needs to make sure the tail is on disk to avoid
+     * buffer alias problems.  This records the transaction last
+     * involved in a direct->indirect conversion for this file
+     */
+    unsigned long i_tail_trans_id;
+    unsigned long i_tail_trans_index;
 };
 
 #endif

@@ -278,6 +278,8 @@ static void fcp_report_map_done(fc_channel *fc, int i, int status)
 			} else {
 				int k;
 				memset(fc->posmap, 0, sizeof(fcp_posmap)+p->len);
+				/* FIXME: This is where SOCAL transfers our AL-PA.
+				   Keep it here till we found out what other cards do... */
 				fc->sid = (p->magic & 0xff);
 				for (i = 0; i < p->len; i++)
 					if (p->alpa[i] == fc->sid)
@@ -441,7 +443,7 @@ static inline void fcp_scsi_receive(fc_channel *fc, int token, int status, fc_hd
 		}
 		break;
 	default:
-		host_status=DID_ERROR; 
+		host_status=DID_ERROR; /* FIXME */
 		FCD(("Wrong FC status %d for token %d\n", status, token))
 		break;
 	}
@@ -856,7 +858,7 @@ int fcp_scsi_queuecommand(Scsi_Cmnd *SCpnt, void (* done)(Scsi_Cmnd *))
 		fcmd->proto = TYPE_SCSI_FCP;
 		if (!fc->scsi_free) {
 			FCD(("FC: !scsi_free, putting cmd on ML queue\n"))
-#if FCP_SCSI_USE_NEW_EH_CODE == 0
+#if (FCP_SCSI_USE_NEW_EH_CODE == 0)
 			printk("fcp_scsi_queue_command: queue full, losing cmd, bad\n");
 #endif
 			return 1;
@@ -1153,3 +1155,5 @@ int fc_do_prli(fc_channel *fc, unsigned char alpa)
 	kfree(p);
 	return status;
 }
+
+MODULE_LICENSE("GPL");

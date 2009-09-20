@@ -89,6 +89,10 @@
 
 
 /* PCI PB1000 specific defines */
+/* The reason these defines are here instead of au1000.h is because
+ * the Au1000 does not have a PCI bus controller so the PCI implementation
+ * on the some of the older Pb1000 boards was very board specific.
+ */
 #define PCI_CONFIG_BASE   0xBA020000 /* the only external slot */
 
 #define SDRAM_DEVID       0xBA010000
@@ -105,11 +109,6 @@
 #define PCI_IO_WRITE      0xBBC00030
 
 #define PCI_BRIDGE_CONFIG 0xBE000018
-
-#define PCI_IO_START      0x10000000
-#define PCI_IO_END        0x1000ffff
-#define PCI_MEM_START     0x18000000
-#define PCI_MEM_END       0x18ffffff
 
 static inline u8 au_pci_io_readb(u32 addr)
 {

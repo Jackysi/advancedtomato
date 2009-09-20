@@ -70,6 +70,9 @@
 
 #define MTRR_VERSION "2.02 (20020716)"
 
+#define MTRR_BEG_BIT 12
+#define MTRR_END_BIT 7
+
 #undef Dprintk
 
 #define Dprintk(...) 
@@ -141,11 +144,14 @@ static void set_mtrr_prepare (struct set_mtrr_context *ctxt)
 	write_cr0(cr0);
 	wbinvd();
 
-	/* Disable MTRRs, and set the default type to uncached */
 	rdmsr(MSR_MTRRdefType, ctxt->deftype_lo, ctxt->deftype_hi);
-	wrmsr(MSR_MTRRdefType, ctxt->deftype_lo & 0xf300UL, ctxt->deftype_hi);
 }
 
+static void set_mtrr_disable(struct set_mtrr_context *ctxt) 
+{ 
+	/* Disable MTRRs, and set the default type to uncached */
+	wrmsr(MSR_MTRRdefType, ctxt->deftype_lo & 0xf300UL, ctxt->deftype_hi);
+} 
 
 /* Restore the processor after a set_mtrr_prepare */
 static void set_mtrr_done (struct set_mtrr_context *ctxt)
@@ -192,8 +198,8 @@ static u64 size_or_mask, size_and_mask;
 
 static void get_mtrr (unsigned int reg, u64 *base, u32 *size, mtrr_type * type)
 {
-	u32 mask_lo, mask_hi, base_lo, base_hi;
-	u64 newsize;
+	u32 mask_lo, mask_hi;
+	u32 base_lo, base_hi;
 
 	rdmsr (MSR_MTRRphysMask(reg), mask_lo, mask_hi);
 	if ((mask_lo & 0x800) == 0) {
@@ -206,15 +212,16 @@ static void get_mtrr (unsigned int reg, u64 *base, u32 *size, mtrr_type * type)
 
 	rdmsr (MSR_MTRRphysBase(reg), base_lo, base_hi);
 
-	/* Work out the shifted address mask. */
-	newsize = (u64) mask_hi << 32 | (mask_lo & ~0x800);
-	newsize = ~newsize+1;
-	*size = (u32) newsize >> PAGE_SHIFT;
-	*base = base_hi << (32 - PAGE_SHIFT) | base_lo >> PAGE_SHIFT;
-	*type = base_lo & 0xff;
+	/* Work out the shifted address mask */
+	mask_lo = size_or_mask | mask_hi << (32 - PAGE_SHIFT) | 
+		  mask_lo >> PAGE_SHIFT; 
+
+	/* This works correctly if size is a power of two, i.e. a
+	   continguous range. */
+	*size = -mask_lo;
+	*base = base_hi << (32 - PAGE_SHIFT) | base_lo >> PAGE_SHIFT; 
+	*type = base_lo & 0xff; 
 }
-
-
 
 /*
  * Set variable MTRR register on the local CPU.
@@ -229,23 +236,21 @@ static void set_mtrr_up (unsigned int reg, u64 base,
 		   u32 size, mtrr_type type, int do_safe)
 {
 	struct set_mtrr_context ctxt;
-	u64 base64;
-	u64 size64;
 
-	if (do_safe)
+	if (do_safe) { 
 		set_mtrr_prepare (&ctxt);
+		set_mtrr_disable (&ctxt); 
+	} 
 
 	if (size == 0) {
 		/* The invalid bit is kept in the mask, so we simply clear the
 		   relevant mask register to disable a range. */
 		wrmsr (MSR_MTRRphysMask(reg), 0, 0);
 	} else {
-		base64 = (base << PAGE_SHIFT) & size_and_mask;
-		wrmsr (MSR_MTRRphysBase(reg), base64 | type, base64 >> 32);
-
-		size64 = ~((size << PAGE_SHIFT) - 1);
-		size64 = size64 & size_and_mask;
-		wrmsr (MSR_MTRRphysMask(reg), (u32) (size64 | 0x800), (u32) (size64 >> 32));
+		wrmsr (MSR_MTRRphysBase(reg), base << PAGE_SHIFT | type, 
+			(base & size_and_mask) >> (32 - PAGE_SHIFT));
+		wrmsr(MSR_MTRRphysMask(reg), -size << PAGE_SHIFT | 0x800,
+			(-size & size_and_mask) >> (32 - PAGE_SHIFT));
 	}
 	if (do_safe)
 		set_mtrr_done (&ctxt);
@@ -420,6 +425,7 @@ static u64 __init set_mtrr_state (struct mtrr_state *state,
 
 
 static atomic_t undone_count;
+static volatile int wait_barrier_mtrr_disable = FALSE;
 static volatile int wait_barrier_execute = FALSE;
 static volatile int wait_barrier_cache_enable = FALSE;
 
@@ -441,8 +447,18 @@ static void ipi_handler (void *info)
 	set_mtrr_prepare (&ctxt);
 	/* Notify master that I've flushed and disabled my cache  */
 	atomic_dec (&undone_count);
-	while (wait_barrier_execute)
+
+	while (wait_barrier_mtrr_disable) {
+		rep_nop();
 		barrier ();
+	}	
+	set_mtrr_disable (&ctxt); 
+	/* wait again for disable confirmation*/
+	atomic_dec (&undone_count);
+	while (wait_barrier_execute) { 
+		rep_nop(); 
+		barrier(); 
+	}	
 
 	/* The master has cleared me to execute  */
 	set_mtrr_up (data->smp_reg, data->smp_base, data->smp_size,
@@ -452,8 +468,10 @@ static void ipi_handler (void *info)
 	atomic_dec (&undone_count);
 
 	/* Wait for master to clear me to enable cache and return  */
-	while (wait_barrier_cache_enable)
+	while (wait_barrier_cache_enable) {
+		rep_nop();
 		barrier ();
+	}	
 	set_mtrr_done (&ctxt);
 }
 
@@ -469,6 +487,7 @@ static void set_mtrr_smp (unsigned int reg, u64 base, u32 size, mtrr_type type)
 	data.smp_type = type;
 	wait_barrier_execute = TRUE;
 	wait_barrier_cache_enable = TRUE;
+	wait_barrier_mtrr_disable = TRUE;
 	atomic_set (&undone_count, smp_num_cpus - 1);
 
 	/*  Start the ball rolling on other CPUs  */
@@ -477,10 +496,21 @@ static void set_mtrr_smp (unsigned int reg, u64 base, u32 size, mtrr_type type)
 
 	/* Flush and disable the local CPU's cache */
 	set_mtrr_prepare (&ctxt);
+	while (atomic_read (&undone_count) > 0) { 
+		rep_nop();
+		barrier(); 
+	}
+
+	/* Set up for completion wait and then release other CPUs to change MTRRs*/
+	atomic_set (&undone_count, smp_num_cpus - 1);
+	wait_barrier_mtrr_disable = FALSE;
+	set_mtrr_disable (&ctxt);
 
 	/*  Wait for all other CPUs to flush and disable their caches  */
-	while (atomic_read (&undone_count) > 0)
+	while (atomic_read (&undone_count) > 0) { 
+		rep_nop ();
 		barrier ();
+	}	
 
 	/* Set up for completion wait and then release other CPUs to change MTRRs */
 	atomic_set (&undone_count, smp_num_cpus - 1);
@@ -488,8 +518,10 @@ static void set_mtrr_smp (unsigned int reg, u64 base, u32 size, mtrr_type type)
 	set_mtrr_up (reg, base, size, type, FALSE);
 
 	/*  Now wait for other CPUs to complete the function  */
-	while (atomic_read (&undone_count) > 0)
+	while (atomic_read (&undone_count) > 0) {
+		rep_nop();
 		barrier ();
+	} 	
 
 	/*  Now all CPUs should have finished the function. Release the barrier to
 	   allow them to re-enable their caches and return from their interrupt,
@@ -613,6 +645,16 @@ int mtrr_add_page (u64 base, u32 size, unsigned int type, char increment)
 		return -EINVAL;
 	}
 
+#if 0 && defined(__x86_64__) && defined(CONFIG_AGP) 
+	{
+	agp_kern_info info; 
+	if (type != MTRR_TYPE_UNCACHABLE && agp_copy_info(&info) >= 0 && 
+	    base<<PAGE_SHIFT >= info.aper_base && 
+            (base<<PAGE_SHIFT)+(size<<PAGE_SHIFT) >= 
+			info.aper_base+info.aper_size*1024*1024)
+		printk(KERN_INFO "%s[%d] setting conflicting mtrr into agp aperture\n",current->comm,current->pid); 
+	}
+#endif
 
 	/*  Check upper bits of base and last are equal and lower bits are 0
 	   for base and 1 for last  */
@@ -639,13 +681,13 @@ int mtrr_add_page (u64 base, u32 size, unsigned int type, char increment)
 		return -ENOSYS;
 	}
 
-	if (base & (size_or_mask>>PAGE_SHIFT)) {
+	if (base & size_or_mask) {
 		printk (KERN_WARNING "mtrr: base(%Lx) exceeds the MTRR width(%Lx)\n",
-				base, (size_or_mask>>PAGE_SHIFT));
+				base, size_or_mask);
 		return -EINVAL;
 	}
 
-	if (size & (size_or_mask>>PAGE_SHIFT)) {
+	if (size & size_or_mask) {
 		printk (KERN_WARNING "mtrr: size exceeds the MTRR width\n");
 		return -EINVAL;
 	}
@@ -909,16 +951,19 @@ static int mtrr_file_del (u64 base, u32 size,
 static ssize_t mtrr_read (struct file *file, char *buf, size_t len,
 		loff_t * ppos)
 {
-	if (*ppos >= ascii_buf_bytes)
+	loff_t n = *ppos;
+	unsigned pos = n;
+
+	if (pos != n || pos >= ascii_buf_bytes)
 		return 0;
 
-	if (*ppos + len > ascii_buf_bytes)
-		len = ascii_buf_bytes - *ppos;
+	if (len > ascii_buf_bytes - pos)
+		len = ascii_buf_bytes - pos;
 
-	if (copy_to_user (buf, ascii_buffer + *ppos, len))
+	if (copy_to_user (buf, ascii_buffer + pos, len))
 		return -EFAULT;
 
-	*ppos += len;
+	*ppos = pos + len;
 	return len;
 }
 
@@ -1226,16 +1271,22 @@ static void __init mtrr_setup (void)
 
 	if (test_bit (X86_FEATURE_MTRR, boot_cpu_data.x86_capability)) {
 		/* Query the width (in bits) of the physical
-		   addressable memory on the Hammer family. */
-		if ((cpuid_eax (0x80000000) >= 0x80000008)) {
+		   addressable memory. This is an AMD specific MSR,
+		   but we assume(hope?) Intel will implement it too
+		   when they extend the width of the Xeon address bus. */
+		if (cpuid_eax (0x80000000) >= 0x80000008) {
 			u32 phys_addr;
 			phys_addr = cpuid_eax (0x80000008) & 0xff;
-			size_or_mask = ~((1L << phys_addr) - 1);
+			size_or_mask = ~((1L << (phys_addr - PAGE_SHIFT)) - 1);
 			/*
 			 * top bits MBZ as its beyond the addressable range.
 			 * bottom bits MBZ as we don't care about lower 12 bits of addr.
 			 */
-			size_and_mask = (~size_or_mask) & 0x000ffffffffff000L;
+			size_and_mask = ~size_or_mask &  0xfff00000;
+		} else {
+			/* 36bit fallback */
+			size_or_mask = 0xff000000;
+			size_and_mask = 0x00f00000;
 		}
 	}
 }
@@ -1262,6 +1313,7 @@ void __init mtrr_init_secondary_cpu (void)
 	   for this CPU while the MTRRs are changed, but changing this requires
 	   more invasive changes to the way the kernel boots  */
 	set_mtrr_prepare (&ctxt);
+	set_mtrr_disable (&ctxt);
 	mask = set_mtrr_state (&smp_mtrr_state, &ctxt);
 	set_mtrr_done (&ctxt);
 

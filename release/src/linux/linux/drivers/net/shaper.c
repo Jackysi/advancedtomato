@@ -89,10 +89,10 @@
 #include <linux/if_shaper.h>
 
 struct shaper_cb { 
+	unsigned long	shapeclock;		/* Time it should go out */
+	unsigned long	shapestamp;		/* Stamp for shaper */ 
 	__u32		shapelatency;		/* Latency on frame */
-	__u32		shapeclock;		/* Time it should go out */
 	__u32		shapelen;		/* Frame length in clocks */
-	__u32		shapestamp;		/* Stamp for shaper    */
 	__u16		shapepend;		/* Pending */
 }; 
 #define SHAPERCB(skb) ((struct shaper_cb *) ((skb)->cb))
@@ -188,7 +188,7 @@ static int shaper_qframe(struct shaper *shaper, struct sk_buff *skb)
  	 
  	SHAPERCB(skb)->shapelen= shaper_clocks(shaper,skb);
  	
-#ifdef SHAPER_COMPLEX     /* and broken.. */
+#ifdef SHAPER_COMPLEX /* and broken.. */
 
  	while(ptr && ptr!=(struct sk_buff *)&shaper->sendq)
  	{
@@ -336,7 +336,7 @@ static void shaper_kick(struct shaper *shaper)
 		 */
 		 
 		if(sh_debug)
-			printk("Clock = %d, jiffies = %ld\n", SHAPERCB(skb)->shapeclock, jiffies);
+			printk("Clock = %ld, jiffies = %ld\n", SHAPERCB(skb)->shapeclock, jiffies);
 		if(time_before_eq(SHAPERCB(skb)->shapeclock - jiffies, SHAPER_BURST))
 		{
 			/*
@@ -466,6 +466,30 @@ static int shaper_rebuild_header(struct sk_buff *skb)
 	return v;
 }
 
+#if 0
+static int shaper_cache(struct neighbour *neigh, struct hh_cache *hh)
+{
+	struct shaper *sh=neigh->dev->priv;
+	struct net_device *tmp;
+	int ret;
+	if(sh_debug)
+		printk("Shaper header cache bind\n");
+	tmp=neigh->dev;
+	neigh->dev=sh->dev;
+	ret=sh->hard_header_cache(neigh,hh);
+	neigh->dev=tmp;
+	return ret;
+}
+
+static void shaper_cache_update(struct hh_cache *hh, struct net_device *dev,
+	unsigned char *haddr)
+{
+	struct shaper *sh=dev->priv;
+	if(sh_debug)
+		printk("Shaper cache update\n");
+	sh->header_cache_update(hh, sh->dev, haddr);
+}
+#endif
 
 #ifdef CONFIG_INET
 
@@ -522,8 +546,28 @@ static int shaper_attach(struct net_device *shdev, struct shaper *sh, struct net
 	else
 		shdev->rebuild_header	= NULL;
 	
+#if 0
+	if(dev->hard_header_cache)
+	{
+		sh->hard_header_cache	= dev->hard_header_cache;
+		shdev->hard_header_cache= shaper_cache;
+	}
+	else
+	{
+		shdev->hard_header_cache= NULL;
+	}
+			
+	if(dev->header_cache_update)
+	{
+		sh->header_cache_update	= dev->header_cache_update;
+		shdev->header_cache_update = shaper_cache_update;
+	}
+	else
+		shdev->header_cache_update= NULL;
+#else
 	shdev->header_cache_update = NULL;
 	shdev->hard_header_cache = NULL;
+#endif
 	shdev->neigh_setup = shaper_neigh_setup_dev;
 	
 	shdev->hard_header_len=dev->hard_header_len;
@@ -613,6 +657,10 @@ static int __init shaper_probe(struct net_device *dev)
 
 	dev->hard_header 	= shaper_header;
 	dev->rebuild_header 	= shaper_rebuild_header;
+#if 0
+	dev->hard_header_cache	= shaper_cache;
+	dev->header_cache_update= shaper_cache_update;
+#endif
 	dev->neigh_setup	= shaper_neigh_setup_dev;
 	dev->do_ioctl		= shaper_ioctl;
 	dev->hard_header_len	= 0;

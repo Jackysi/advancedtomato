@@ -46,17 +46,20 @@ extern pte_t *pkmap_page_table;
 #define PKMAP_NR(virt)  ((virt-PKMAP_BASE) >> PAGE_SHIFT)
 #define PKMAP_ADDR(nr)  (PKMAP_BASE + ((nr) << PAGE_SHIFT))
 
-extern void * kmap_high(struct page *page);
+extern void * kmap_high(struct page *page, int nonblocking);
 extern void kunmap_high(struct page *page);
 
-static inline void *kmap(struct page *page)
+static inline void *__kmap(struct page *page, int nonblocking)
 {
 	if (in_interrupt())
 		out_of_line_bug();
 	if (page < highmem_start_page)
 		return page_address(page);
-	return kmap_high(page);
+	return kmap_high(page, nonblocking);
 }
+
+#define kmap(page)		__kmap(page, 0)
+#define kmap_nonblock(page)	__kmap(page, 1)
 
 static inline void kunmap(struct page *page)
 {
@@ -84,8 +87,7 @@ static inline void *kmap_atomic(struct page *page, enum km_type type)
 	idx = type + KM_TYPE_NR*smp_processor_id();
 	vaddr = __fix_to_virt(FIX_KMAP_BEGIN + idx);
 	set_pte(kmap_pte-idx, mk_pte(page, kmap_prot));
-	//local_flush_tlb_page(NULL, vaddr);
-	local_flush_tlb_all();
+	local_flush_tlb_one(vaddr);
 
 	return (void*) vaddr;
 }

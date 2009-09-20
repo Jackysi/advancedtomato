@@ -11,7 +11,7 @@
  *
  * Copyright (C) 2000 by Michael R. McDonald
  *
- * Copyright 2001,2002 Montavista Software Inc.
+ * Copyright 2001-2003 Montavista Software Inc.
  * Author: Yoichi Yuasa
  *         yyuasa@mvista.com or source@mvista.com
  */
@@ -24,18 +24,20 @@
  * Interrupt Number
  */
 #define VRC4173_IRQ_BASE	72
-#define VRC4173_USB_IRQ		(VRC4173_IRQ_BASE + 0)
-#define VRC4173_PCMCIA2_IRQ	(VRC4173_IRQ_BASE + 1)
-#define VRC4173_PCMCIA1_IRQ	(VRC4173_IRQ_BASE + 2)
-#define VRC4173_PS2CH2_IRQ	(VRC4173_IRQ_BASE + 3)
-#define VRC4173_PS2CH1_IRQ	(VRC4173_IRQ_BASE + 4)
-#define VRC4173_PIU_IRQ		(VRC4173_IRQ_BASE + 5)
-#define VRC4173_AIU_IRQ		(VRC4173_IRQ_BASE + 6)
-#define VRC4173_KIU_IRQ		(VRC4173_IRQ_BASE + 7)
-#define VRC4173_GIU_IRQ		(VRC4173_IRQ_BASE + 8)
-#define VRC4173_AC97_IRQ	(VRC4173_IRQ_BASE + 9)
-#define VRC4173_AC97INT1_IRQ	(VRC4173_IRQ_BASE + 10)
-#define VRC4173_DOZEPIU_IRQ	(VRC4173_IRQ_BASE + 13)
+#define VRC4173_IRQ(x)		(VRC4173_IRQ_BASE + (x))
+#define VRC4173_USB_IRQ		VRC4173_IRQ(0)
+#define VRC4173_PCMCIA2_IRQ	VRC4173_IRQ(1)
+#define VRC4173_PCMCIA1_IRQ	VRC4173_IRQ(2)
+#define VRC4173_PS2CH2_IRQ	VRC4173_IRQ(3)
+#define VRC4173_PS2CH1_IRQ	VRC4173_IRQ(4)
+#define VRC4173_PIU_IRQ		VRC4173_IRQ(5)
+#define VRC4173_AIU_IRQ		VRC4173_IRQ(6)
+#define VRC4173_KIU_IRQ		VRC4173_IRQ(7)
+#define VRC4173_GIU_IRQ		VRC4173_IRQ(8)
+#define VRC4173_AC97_IRQ	VRC4173_IRQ(9)
+#define VRC4173_AC97INT1_IRQ	VRC4173_IRQ(10)
+/* RFU */
+#define VRC4173_DOZEPIU_IRQ	VRC4173_IRQ(13)
 #define VRC4173_IRQ_LAST	VRC4173_DOZEPIU_IRQ
 
 /*
@@ -70,8 +72,23 @@ extern unsigned long vrc4173_io_offset;
 /*
  * Clock Mask Unit
  */
-extern void vrc4173_clock_supply(u16 mask);
-extern void vrc4173_clock_mask(u16 mask);
+enum {
+	VRC4173_PIU_CLOCK,
+	VRC4173_KIU_CLOCK,
+	VRC4173_AIU_CLOCK,
+	VRC4173_PS2_CH1_CLOCK,
+	VRC4173_PS2_CH2_CLOCK,
+	VRC4173_USBU_PCI_CLOCK,
+	VRC4173_CARDU1_PCI_CLOCK,
+	VRC4173_CARDU2_PCI_CLOCK,
+	VRC4173_AC97U_PCI_CLOCK,
+	VRC4173_USBU_48MHz_CLOCK,
+	VRC4173_EXT_48MHz_CLOCK,
+	VRC4173_48MHz_CLOCK,
+};
+
+extern void vrc4173_supply_clock(unsigned int clock);
+extern void vrc4173_mask_clock(unsigned int clock);
 
 /*
  * General-Purpose I/O Unit

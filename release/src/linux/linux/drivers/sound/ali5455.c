@@ -1,5 +1,5 @@
 /*
- *	ALI  ali5455 and friends ICH driver for Linux
+ *	Driver for ALI 5455  Audio PCI soundcard
  *	LEI HU <Lei_Hu@ali.com.tw>
  *
  *  Built from:
@@ -23,10 +23,7 @@
  *	along with this program; if not, write to the Free Software
  *	Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- *
- *	ALi 5455 theory of operation
- *
- *	The chipset provides three DMA channels that talk to an AC97
+ *	The chipset provides five DMA channels that talk to an AC97
  *	CODEC (AC97 is a digital/analog mixer standard). At its simplest
  *	you get 48Khz audio with basic volume and mixer controls. At the
  *	best you get rate adaption in the codec. We set the card up so
@@ -41,6 +38,13 @@
  *	There is no midi support, no synth support. Use timidity. To get
  *	esd working you need to use esd -r 48000 as it won't probe 48KHz
  *	by default. mpg123 can't handle 48Khz only audio so use xmms.
+ *
+ *
+ *	Not everyone uses 48KHz. We know of no way to detect this reliably
+ *	and certainly not to get the right data. If your ali audio sounds
+ *	stupid you may need to investigate other speeds. According to Analog
+ *	they tend to use a 14.318MHz clock which gives you a base rate of
+ *	41194Hz.
  *
  *	If you need to force a specific rate set the clocking= option
  *
@@ -78,31 +82,45 @@
 
 static int strict_clocking = 0;
 static unsigned int clocking = 0;
-static unsigned int codec_pcmout_share_spdif_locked = 0;
-static unsigned int codec_independent_spdif_locked = 0;
+#ifdef CONFIG_SOUND_ALI5455_CODECSPDIFOUT_PCMOUTSHARE
+static unsigned int codec_pcmout_share_spdif_locked = 48000;
+#else
+ static unsigned int codec_pcmout_share_spdif_locked = 0;
+#endif
+#ifdef CONFIG_SOUND_ALI5455_CODECSPDIFOUT_CODECINDEPENDENTDMA
+static unsigned int codec_independent_spdif_locked = 48000;
+#else
+static unsigned int codec_independent_spdif_locked = 0;   
+#endif
+#ifdef CONFIG_SOUND_ALI5455_CONTROLLERSPDIFOUT_PCMOUTSHARE
+static unsigned int controller_pcmout_share_spdif_locked = 48000;
+#else
 static unsigned int controller_pcmout_share_spdif_locked = 0;
+#endif
+#ifdef CONFIG_SOUND_ALI5455_CONTROLLERSPDIFOUT_CONTROLLERINDEPENDENTDMA
+static unsigned int controller_independent_spdif_locked = 48000;
+#else
 static unsigned int controller_independent_spdif_locked = 0;
-static unsigned int globel = 0;
+#endif
 
-#define ADC_RUNNING	1
-#define DAC_RUNNING	2
-#define CODEC_SPDIFOUT_RUNNING 8
-#define CONTROLLER_SPDIFOUT_RUNNING 4
+#define ADC_RUNNING			1
+#define DAC_RUNNING			2
+#define CONTROLLER_SPDIFOUT_RUNNING 	4
+#define CODEC_SPDIFOUT_RUNNING		8
 
-#define SPDIF_ENABLE_OUTPUT	4	/* bits 0,1 are PCM */
+#define ALI5455_FMT_16BIT		1
+#define ALI5455_FMT_STEREO		2
+#define ALI5455_FMT_MASK		3
 
-#define ALI5455_FMT_16BIT	1
-#define ALI5455_FMT_STEREO	2
-#define ALI5455_FMT_MASK	3
+#define SPDIF_ON			0x0004
+#define SURR_ON				0x0010
+#define CENTER_LFE_ON			0x0020
+#define VOL_MUTED			0x8000
 
-#define SPDIF_ON	0x0004
-#define SURR_ON		0x0010
-#define CENTER_LFE_ON	0x0020
-#define VOL_MUTED	0x8000
+#define SPDIF_ENABLE_OUTPUT 		0x00000004
 
-
-#define ALI_SPDIF_OUT_CH_STATUS 0xbf
-/* the 810's array of pointers to data buffers */
+#define ALI_SPDIF_OUT_CH_STATUS		0xbf
+/* the ali5455 's array of pointers to data buffers */
 
 struct sg_item {
 #define BUSADDR_MASK	0xFFFFFFFE
@@ -113,20 +131,21 @@ struct sg_item {
 	u32 control;
 };
 
-/* an instance of the ali channel */
+/* An instance of the ali 5455 channel */
 #define SG_LEN 32
 struct ali_channel {
 	/* these sg guys should probably be allocated
 	   seperately as nocache. Must be 8 byte aligned */
 	struct sg_item sg[SG_LEN];	/* 32*8 */
-	u32 offset;		/* 4 */
-	u32 port;		/* 4 */
+	u32 offset;			/* 4 */
+	u32 port;			/* 4 */
 	u32 used;
 	u32 num;
 };
 
 /*
- * we have 3 seperate dma engines.  pcm in, pcm out, and mic.
+ * we have 5 seperate dma engines.  pcm in, pcm out, mc in, 
+ * codec independant DMA, and controller independant DMA
  * each dma engine has controlling registers.  These goofy
  * names are from the datasheet, but make it easy to write
  * code while leafing through it.
@@ -142,11 +161,11 @@ enum {												\
 	PRE##_CR =	0x##DIG##b		/* Control Register */				\
 }
 
-ENUM_ENGINE(OFF, 0);		/* Offsets */
-ENUM_ENGINE(PI, 4);		/* PCM In */
-ENUM_ENGINE(PO, 5);		/* PCM Out */
-ENUM_ENGINE(MC, 6);		/* Mic In */
-ENUM_ENGINE(CODECSPDIFOUT, 7);	/* CODEC SPDIF OUT  */
+ENUM_ENGINE(OFF, 0);			/* Offsets */
+ENUM_ENGINE(PI, 4);			/* PCM In */
+ENUM_ENGINE(PO, 5);			/* PCM Out */
+ENUM_ENGINE(MC, 6);			/* Mic In */
+ENUM_ENGINE(CODECSPDIFOUT, 7);		/* CODEC SPDIF OUT  */
 ENUM_ENGINE(CONTROLLERSPDIFIN, A);	/* CONTROLLER SPDIF In */
 ENUM_ENGINE(CONTROLLERSPDIFOUT, B);	/* CONTROLLER SPDIF OUT */
 
@@ -171,7 +190,7 @@ enum {
 	ALI_SPDIFICS = 0xfc	/* spdif interface control/status  */
 };
 
-// x-status register(x:pcm in ,pcm out, mic in,)
+/* x-status register(x:pcm in ,pcm out, mic in,codec independent DMA.controller independent DMA) */
 /* interrupts for a dma engine */
 #define DMA_INT_FIFO		(1<<4)	/* fifo under/over flow */
 #define DMA_INT_COMPLETE	(1<<3)	/* buffer read/write complete and ioc set */
@@ -180,8 +199,7 @@ enum {
 #define DMA_INT_DCH		(1)	/* DMA Controller Halted (happens on LVI interrupts) */	//not eqult intel
 #define DMA_INT_MASK (DMA_INT_FIFO|DMA_INT_COMPLETE|DMA_INT_LVI)
 
-/* interrupts for the whole chip */// by interrupt status register finish
-
+/* interrupts for the whole chip */ 
 #define INT_SPDIFOUT   (1<<23)	/* controller spdif out INTERRUPT */
 #define INT_SPDIFIN   (1<<22)
 #define INT_CODECSPDIFOUT   (1<<19)
@@ -193,13 +211,14 @@ enum {
 #define INT_GPIO    (1<<1)
 #define INT_MASK   (INT_SPDIFOUT|INT_CODECSPDIFOUT|INT_MICIN|INT_PCMOUT|INT_PCMIN)
 
-#define DRIVER_VERSION "0.02ac"
+#define DRIVER_VERSION "0.03-ac"
 
 /* magic numbers to protect our data structures */
 #define ALI5455_CARD_MAGIC		0x5072696E	/* "Prin" */
 #define ALI5455_STATE_MAGIC		0x63657373	/* "cess" */
 #define ALI5455_DMA_MASK		0xffffffff	/* DMA buffer mask for pci_alloc_consist */
-#define NR_HW_CH			5	//I think 5 channel
+
+#define NR_HW_CH			5		/* I think 5 channel */
 
 /* maxinum number of AC97 codecs connected, AC97 2.0 defined 4 */
 #define NR_AC97		2
@@ -216,7 +235,7 @@ static char *card_names[] = {
 	"ALI 5455"
 };
 
-static struct pci_device_id ali_pci_tbl[] __initdata = {
+static struct pci_device_id ali_pci_tbl[] __devinitdata = {
 	{PCI_VENDOR_ID_ALI, PCI_DEVICE_ID_ALI_5455,
 	 PCI_ANY_ID, PCI_ANY_ID, 0, 0, ALI5455},
 	{0,}
@@ -267,12 +286,12 @@ struct ali_state {
 		unsigned fragshift;
 
 		/* our buffer acts like a circular ring */
-		unsigned hwptr;	/* where dma last started, updated by update_ptr */
-		unsigned swptr;	/* where driver last clear/filled, updated by read/write */
-		int count;	/* bytes to be consumed or been generated by dma machine */
+		unsigned hwptr;		/* where dma last started, updated by update_ptr */
+		unsigned swptr;		/* where driver last clear/filled, updated by read/write */
+		int count;		/* bytes to be consumed or been generated by dma machine */
 		unsigned total_bytes;	/* total bytes dmaed by hardware */
 
-		unsigned error;	/* number of over/underruns */
+		unsigned error;		/* number of over/underruns */
 		wait_queue_head_t wait;	/* put process on wait queue when no more space in buffer */
 
 		/* redundant, but makes calculations easier */
@@ -306,6 +325,7 @@ struct ali_card {
 	/* The ali has a certain amount of cross channel interaction
 	   so we use a single per card lock */
 	spinlock_t lock;
+	spinlock_t ac97_lock;
 
 	/* PCI device stuff */
 	struct pci_dev *pci_dev;
@@ -398,7 +418,11 @@ static void ali_free_pcm_channel(struct ali_card *card, int channel)
 }
 
 
-//add support  codec spdif out 
+/*
+ *	we use ALC650 which only support  48k sample rate, so we test firstly
+ *	spdifout 's sample rate validity 
+ */
+ 
 static int ali_valid_spdif_rate(struct ac97_codec *codec, int rate)
 {
 	unsigned long id = 0L;
@@ -427,16 +451,13 @@ static int ali_valid_spdif_rate(struct ac97_codec *codec, int rate)
 
 /* ali_set_spdif_output
  * 
- *  Configure the S/PDIF output transmitter. When we turn on
- *  S/PDIF, we turn off the analog output. This may not be
- *  the right thing to do.
+ *  Configure the S/PDIF output transmitter.
  *
  *  Assumptions:
  *     The DSP sample rate must already be set to a supported
  *     S/PDIF rate (32kHz, 44.1kHz, or 48kHz) or we abort.
  */
-static void ali_set_spdif_output(struct ali_state *state, int slots,
-				 int rate)
+static void ali_set_spdif_output(struct ali_state *state, int slots, int rate)
 {
 	int vol;
 	int aud_reg;
@@ -452,8 +473,7 @@ static void ali_set_spdif_output(struct ali_state *state, int slots,
 			/* If the volume wasn't muted before we turned on S/PDIF, unmute it */
 			if (!(state->card->ac97_status & VOL_MUTED)) {
 				aud_reg = ali_ac97_get(codec, AC97_MASTER_VOL_STEREO);
-				ali_ac97_set(codec, AC97_MASTER_VOL_STEREO,
-					     (aud_reg & ~VOL_MUTED));
+				ali_ac97_set(codec, AC97_MASTER_VOL_STEREO, (aud_reg & ~VOL_MUTED));
 			}
 			state->card->ac97_status &= ~(VOL_MUTED | SPDIF_ON);
 			return;
@@ -485,7 +505,7 @@ static void ali_set_spdif_output(struct ali_state *state, int slots,
 		ali_ac97_set(codec, AC97_SPDIF_CONTROL, aud_reg);
 
 		aud_reg = ali_ac97_get(codec, AC97_EXTENDED_STATUS);
-		aud_reg = (aud_reg & AC97_EA_SLOT_MASK) | slots | AC97_EA_SPDIF;
+		aud_reg = (aud_reg & AC97_EA_SLOT_MASK) | slots | AC97_EA_SPDIF; /* ALC650 don't support VRA */
 		ali_ac97_set(codec, AC97_EXTENDED_STATUS, aud_reg);
 
 		aud_reg = ali_ac97_get(codec, AC97_POWER_CONTROL);
@@ -507,8 +527,6 @@ static void ali_set_spdif_output(struct ali_state *state, int slots,
 			aud_reg = ali_ac97_get(codec, 0x6a);
 			ali_ac97_set(codec, 0x6a, (aud_reg & 0xefff));
 		}
-		/* Mute the analog output */
-		/* Should this only mute the PCM volume??? */
 	}
 }
 
@@ -516,13 +534,6 @@ static void ali_set_spdif_output(struct ali_state *state, int slots,
  *
  *  Configure the codec's multi-channel DACs
  *
- *  The logic is backwards. Setting the bit to 1 turns off the DAC. 
- *
- *  What about the ICH? We currently configure it using the
- *  SNDCTL_DSP_CHANNELS ioctl.  If we're turnning on the DAC, 
- *  does that imply that we want the ICH set to support
- *  these channels?
- *  
  *  TODO:
  *    vailidate that the codec really supports these DACs
  *    before turning them on. 
@@ -555,8 +566,7 @@ static void ali_set_dac_channels(struct ali_state *state, int channel)
 }
 
 /* set playback sample rate */
-static unsigned int ali_set_dac_rate(struct ali_state *state,
-				     unsigned int rate)
+static unsigned int ali_set_dac_rate(struct ali_state *state, unsigned int rate)
 {
 	struct dmabuf *dmabuf = &state->dmabuf;
 	u32 new_rate;
@@ -593,8 +603,7 @@ static unsigned int ali_set_dac_rate(struct ali_state *state,
 }
 
 /* set recording sample rate */
-static unsigned int ali_set_adc_rate(struct ali_state *state,
-				     unsigned int rate)
+static unsigned int ali_set_adc_rate(struct ali_state *state, unsigned int rate)
 {
 	struct dmabuf *dmabuf = &state->dmabuf;
 	u32 new_rate;
@@ -631,11 +640,10 @@ static unsigned int ali_set_adc_rate(struct ali_state *state,
 }
 
 /* set codec independent spdifout sample rate */
-static unsigned int ali_set_codecspdifout_rate(struct ali_state *state,
-					       unsigned int rate)
+static unsigned int ali_set_codecspdifout_rate(struct ali_state *state, unsigned int rate)
 {
 	struct dmabuf *dmabuf = &state->dmabuf;
-
+	
 	if (!(state->card->ac97_features & 0x0001)) {
 		dmabuf->rate = clocking;
 		return clocking;
@@ -651,8 +659,7 @@ static unsigned int ali_set_codecspdifout_rate(struct ali_state *state,
 }
 
 /* set  controller independent spdif out function sample rate */
-static void ali_set_spdifout_rate(struct ali_state *state,
-				  unsigned int rate)
+static void ali_set_spdifout_rate(struct ali_state *state, unsigned int rate)
 {
 	unsigned char ch_st_sel;
 	unsigned short status_rate;
@@ -728,7 +735,9 @@ static inline unsigned ali_get_dma_addr(struct ali_state *state, int rec)
 	data = ((civ + 1) * dmabuf->fragsize - (2 * offset)) % dmabuf->dmasize;
 	if (inw(port_picb) == 0)
 		data -= 2048;
-
+	/* It is  hardware  bug  when read port 's PICB ==0 */
+	if ( inw(port_picb) == 0 )
+		data -= 2048;  
 	return data;
 }
 
@@ -744,6 +753,8 @@ static inline void __stop_adc(struct ali_state *state)
 	udelay(1);
 
 	outb(0, card->iobase + PI_CR);
+ 
+	// wait for the card to acknowledge shutdown
 	while (inb(card->iobase + PI_CR) != 0);
 
 	// now clear any latent interrupt bits (like the halt bit)
@@ -770,10 +781,8 @@ static inline void __start_adc(struct ali_state *state)
 		outb((1 << 4) | (1 << 2), state->card->iobase + PI_CR);
 		if (state->card->channel[0].used == 1)
 			outl(1, state->card->iobase + ALI_DMACR);	// DMA CONTROL REGISTRER
-		udelay(100);
 		if (state->card->channel[2].used == 1)
 			outl((1 << 2), state->card->iobase + ALI_DMACR);	//DMA CONTROL REGISTER
-		udelay(100);
 	}
 }
 
@@ -964,7 +973,7 @@ static void dealloc_dmabuf(struct ali_state *state)
 static int prog_dmabuf(struct ali_state *state, unsigned rec)
 {
 	struct dmabuf *dmabuf = &state->dmabuf;
-	struct ali_channel *c = NULL;
+	struct ali_channel *c = NULL ;
 	struct sg_item *sg;
 	unsigned long flags;
 	int ret;
@@ -993,6 +1002,7 @@ static int prog_dmabuf(struct ali_state *state, unsigned rec)
 	if ((ret = alloc_dmabuf(state)))
 		return ret;
 
+	/* FIXME: figure out all this OSS fragment stuff */
 	/* I did, it now does what it should according to the OSS API.  DL */
 	/* We may not have realloced our dmabuf, but the fragment size to
 	 * fragment number ratio may have changed, so go ahead and reprogram
@@ -1246,9 +1256,7 @@ static void ali_update_ptr(struct ali_state *state)
 	}
 }
 
-static inline int ali_get_free_write_space(struct
-					   ali_state
-					   *state)
+static inline int ali_get_free_write_space(struct ali_state *state)
 {
 	struct dmabuf *dmabuf = &state->dmabuf;
 	int free;
@@ -1265,9 +1273,7 @@ static inline int ali_get_free_write_space(struct
 	return (free);
 }
 
-static inline int ali_get_available_read_data(struct
-					      ali_state
-					      *state)
+static inline int ali_get_available_read_data(struct ali_state *state)
 {
 	struct dmabuf *dmabuf = &state->dmabuf;
 	int avail;
@@ -1286,12 +1292,12 @@ static inline int ali_get_available_read_data(struct
 
 static int drain_dac(struct ali_state *state, int signals_allowed)
 {
-
 	DECLARE_WAITQUEUE(wait, current);
 	struct dmabuf *dmabuf = &state->dmabuf;
 	unsigned long flags;
 	unsigned long tmo;
 	int count;
+
 	if (!dmabuf->ready)
 		return 0;
 	if (dmabuf->mapped) {
@@ -1300,11 +1306,11 @@ static int drain_dac(struct ali_state *state, int signals_allowed)
 	}
 	add_wait_queue(&dmabuf->wait, &wait);
 	for (;;) {
-
 		spin_lock_irqsave(&state->card->lock, flags);
 		ali_update_ptr(state);
 		count = dmabuf->count;
 		spin_unlock_irqrestore(&state->card->lock, flags);
+
 		if (count <= 0)
 			break;
 		/* 
@@ -1353,7 +1359,6 @@ static int drain_dac(struct ali_state *state, int signals_allowed)
 
 static int drain_spdifout(struct ali_state *state, int signals_allowed)
 {
-
 	DECLARE_WAITQUEUE(wait, current);
 	struct dmabuf *dmabuf = &state->dmabuf;
 	unsigned long flags;
@@ -1546,7 +1551,6 @@ static void ali_interrupt(int irq, void *dev_id, struct pt_regs *regs)
 {
 	struct ali_card *card = (struct ali_card *) dev_id;
 	u32 status;
-	u16 status2;
 
 	spin_lock(&card->lock);
 	status = inl(card->iobase + ALI_INTERRUPTSR);
@@ -1555,19 +1559,8 @@ static void ali_interrupt(int irq, void *dev_id, struct pt_regs *regs)
 		return;		/* not for us */
 	}
 
-	if (codec_independent_spdif_locked > 0) {
-		if (globel == 0) {
-			globel += 1;
-			status2 = inw(card->iobase + 0x76);
-			outw(status2 | 0x000c, card->iobase + 0x76);
-		} else {
-			if (status & (INT_PCMOUT | INT_PCMIN | INT_MICIN | INT_SPDIFOUT | INT_CODECSPDIFOUT))
-				ali_channel_interrupt(card);
-		}
-	} else {
-		if (status & (INT_PCMOUT | INT_PCMIN | INT_MICIN | INT_SPDIFOUT | INT_CODECSPDIFOUT))
-			ali_channel_interrupt(card);
-	}
+	if (status & (INT_PCMOUT | INT_PCMIN | INT_MICIN | INT_SPDIFOUT | INT_CODECSPDIFOUT))
+		ali_channel_interrupt(card);
 
 	/* clear 'em */
 	outl(status & INT_MASK, card->iobase + ALI_INTERRUPTSR);
@@ -1578,8 +1571,7 @@ static void ali_interrupt(int irq, void *dev_id, struct pt_regs *regs)
    waiting to be copied to the user's buffer.  It is filled by the dma
    machine and drained by this loop. */
 
-static ssize_t ali_read(struct file *file, char *buffer,
-			size_t count, loff_t * ppos)
+static ssize_t ali_read(struct file *file, char *buffer, size_t count, loff_t * ppos)
 {
 	struct ali_state *state = (struct ali_state *) file->private_data;
 	struct ali_card *card = state ? state->card : 0;
@@ -1719,8 +1711,7 @@ done:
 
 /* in this loop, dmabuf.count signifies the amount of data that is waiting to be dma to
    the soundcard.  it is drained by the dma machine and filled by this loop. */
-static ssize_t ali_write(struct file *file,
-			 const char *buffer, size_t count, loff_t * ppos)
+static ssize_t ali_write(struct file *file, const char *buffer, size_t count, loff_t * ppos)
 {
 	struct ali_state *state = (struct ali_state *) file->private_data;
 	struct ali_card *card = state ? state->card : 0;
@@ -1857,6 +1848,7 @@ static ssize_t ali_write(struct file *file,
 			   which results in a (potential) buffer underrun. And worse, there is
 			   NOTHING we can do to prevent it. */
 			   
+			/* FIXME - do timeout handling here !! */
 
 			if (signal_pending(current)) {
 				if (!ret)
@@ -1905,8 +1897,7 @@ ret:
 }
 
 /* No kernel lock - we have our own spinlock */
-static unsigned int ali_poll(struct file *file, struct poll_table_struct
-			     *wait)
+static unsigned int ali_poll(struct file *file, struct poll_table_struct *wait)
 {
 	struct ali_state *state = (struct ali_state *) file->private_data;
 	struct dmabuf *dmabuf = &state->dmabuf;
@@ -2011,8 +2002,7 @@ static int ali_ioctl(struct inode *inode, struct file *file, unsigned int cmd, u
 		}
 		if (c != NULL) {
 			outb(2, state->card->iobase + c->port + OFF_CR);	/* reset DMA machine */
-			outl(virt_to_bus(&c->sg[0]),
-			     state->card->iobase + c->port + OFF_BDBAR);
+			outl(virt_to_bus(&c->sg[0]), state->card->iobase + c->port + OFF_BDBAR);
 			outb(0, state->card->iobase + c->port + OFF_CIV);
 			outb(0, state->card->iobase + c->port + OFF_LVI);
 		}
@@ -2948,6 +2938,7 @@ static u16 ali_ac97_get(struct ac97_codec *dev, u8 reg)
 	char val;
 	unsigned short int data, count, addr1, addr2;
 
+	spin_lock(&card->ac97_lock);
 	while (count1-- && (inl(card->iobase + ALI_CAS) & 0x80000000))
 		udelay(1);
 
@@ -2959,7 +2950,10 @@ static u16 ali_ac97_get(struct ac97_codec *dev, u8 reg)
 			break;
 	}
 	if (count == 0x7f)
+	{
+		spin_unlock(&card->ac97_lock);
 		return -1;
+	}
 	outw(reg, (card->iobase + ALI_CPR) + 2);
 	for (count = 0; count < 0x7f; count++) {
 		val = inb(card->iobase + ALI_CSPSR);
@@ -2969,6 +2963,7 @@ static u16 ali_ac97_get(struct ac97_codec *dev, u8 reg)
 			break;
 		}
 	}
+	spin_unlock(&card->ac97_lock);
 	if (count == 0x7f)
 		return -1;
 	if (addr2 != addr1)
@@ -2982,10 +2977,10 @@ static void ali_ac97_set(struct ac97_codec *dev, u8 reg, u16 data)
 {
 	struct ali_card *card = dev->private_data;
 	int count1 = 100;
-	unsigned long flags;
 	char val;
 	unsigned short int count;
 
+	spin_lock(&card->ac97_lock);
 	while (count1-- && (inl(card->iobase + ALI_CAS) & 0x80000000))
 		udelay(1);
 
@@ -2995,7 +2990,8 @@ static void ali_ac97_set(struct ac97_codec *dev, u8 reg, u16 data)
 			break;
 	}
 	if (count == 0x7f) {
-		printk(KERN_WARNING "ali_ac96_set: AC97 codec register access timed out. \n");
+		printk(KERN_WARNING "ali_ac97_set: AC97 codec register access timed out. \n");
+		spin_unlock(&card->ac97_lock);
 		return;
 	}
 	outw(data, (card->iobase + ALI_CPR));
@@ -3005,10 +3001,9 @@ static void ali_ac97_set(struct ac97_codec *dev, u8 reg, u16 data)
 		if (val & 0x01)
 			break;
 	}
-	if (count == 0x7f) {
-		printk(KERN_WARNING "ali_ac96_set: AC97 codec register access timed out. \n");
-		return;
-	}
+	spin_unlock(&card->ac97_lock);
+	if (count == 0x7f)
+		printk(KERN_WARNING "ali_ac97_set: AC97 codec register access timed out. \n");
 	return;
 }
 
@@ -3154,6 +3149,7 @@ static int ali_ac97_probe_and_powerup(struct ali_card *card, struct ac97_codec *
 		set_current_state(TASK_UNINTERRUPTIBLE);
 		schedule_timeout(HZ / 20);
 	}
+	/* FIXME !! */
 	i++;
 	return i;
 }
@@ -3254,9 +3250,8 @@ static int __init ali_ac97_init(struct ali_card *card)
 			break;
 		}
 
-		if ((codec = kmalloc(sizeof(struct ac97_codec), GFP_KERNEL)) == NULL)
+		if ((codec = ac97_alloc_codec()) == NULL)
 			return -ENOMEM;
-		memset(codec, 0, sizeof(struct ac97_codec));
 		/* initialize some basic codec information, other fields will be filled
 		   in ac97_probe_codec */
 		codec->private_data = card;
@@ -3274,7 +3269,7 @@ static int __init ali_ac97_init(struct ali_card *card)
 		card->ac97_status = 0;
 		/* Don't attempt to get eid until powerup is complete */
 		eid = ali_ac97_get(codec, AC97_EXTENDED_ID);
-		if (eid == 0xFFFFFF) {
+		if (eid == 0xFFFF) {
 			printk(KERN_ERR "ali_audio: no codec attached ?\n");
 			kfree(codec);
 			break;
@@ -3424,6 +3419,7 @@ static int __init ali_probe(struct pci_dev *pci_dev, const struct pci_device_id
 	card->pm_suspended = 0;
 #endif
 	spin_lock_init(&card->lock);
+	spin_lock_init(&card->ac97_lock);
 	devs = card;
 	pci_set_master(pci_dev);
 	printk(KERN_INFO "ali: %s found at IO 0x%04lx, IRQ %d\n",
@@ -3513,7 +3509,7 @@ static void __devexit ali_remove(struct pci_dev *pci_dev)
 		if (card->ac97_codec[i] != NULL) {
 			unregister_sound_mixer(card->ac97_codec[i]->
 					       dev_mixer);
-			kfree(card->ac97_codec[i]);
+			ac97_release_codec(card->ac97_codec[i]);
 			card->ac97_codec[i] = NULL;
 		}
 	unregister_sound_dsp(card->dev_audio);
@@ -3570,7 +3566,7 @@ static int ali_pm_suspend(struct pci_dev *dev, u32 pm_state)
 			}
 		}
 	}
-	pci_save_state(dev, card->pm_save_state);	
+	pci_save_state(dev, card->pm_save_state);	/* XXX do we need this? */
 	pci_disable_device(dev);	/* disable busmastering */
 	pci_set_power_state(dev, 3);	/* Zzz. */
 	return 0;
@@ -3650,12 +3646,17 @@ MODULE_PARM(codec_pcmout_share_spdif_locked, "i");
 MODULE_PARM(codec_independent_spdif_locked, "i");
 MODULE_PARM(controller_pcmout_share_spdif_locked, "i");
 MODULE_PARM(controller_independent_spdif_locked, "i");
+
 #define ALI5455_MODULE_NAME "ali5455"
+
 static struct pci_driver ali_pci_driver = {
-	name:ALI5455_MODULE_NAME, id_table:ali_pci_tbl, probe:ali_probe,
-	    remove:__devexit_p(ali_remove),
+	name:			ALI5455_MODULE_NAME, 
+	id_table:		ali_pci_tbl, 
+	probe:			ali_probe,
+	remove:			__devexit_p(ali_remove),
 #ifdef CONFIG_PM
-	suspend:ali_pm_suspend, resume:ali_pm_resume,
+	suspend:		ali_pm_suspend, 
+	resume:			ali_pm_resume,
 #endif				/* CONFIG_PM */
 };
 

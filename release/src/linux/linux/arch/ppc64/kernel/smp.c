@@ -28,7 +28,7 @@
 #define __KERNEL_SYSCALLS__
 #include <linux/unistd.h>
 #include <linux/init.h>
-/* #include <linux/openpic.h> */
+#include <linux/mm.h>
 #include <linux/spinlock.h>
 #include <linux/cache.h>
 
@@ -52,9 +52,10 @@
 #include <asm/ppcdebug.h>
 #include "open_pic.h"
 #include <asm/machdep.h>
+#include <asm/cputable.h>
 #if defined(CONFIG_DUMP) || defined(CONFIG_DUMP_MODULE)
 int (*dump_ipi_function_ptr)(struct pt_regs *);
-#include <linux/dump.h>
+#include <asm/dump.h>
 #endif
 
 #ifdef CONFIG_KDB
@@ -89,6 +90,9 @@ static unsigned long iSeries_smp_message[NR_CPUS];
 
 void xics_setup_cpu(void);
 void xics_cause_IPI(int cpu);
+
+long h_register_vpa(unsigned long flags, unsigned long proc,
+		    unsigned long vpa);
 
 /*
  * XICS only has a single IPI, so encode the messages per CPU
@@ -224,7 +228,7 @@ void smp_init_iSeries(void)
 	ppc_md.smp_kick_cpu     = smp_iSeries_kick_cpu;
 	ppc_md.smp_setup_cpu    = smp_iSeries_setup_cpu;
 
-	naca->processorCount	= smp_iSeries_numProcs();
+	systemcfg->processorCount	= smp_iSeries_numProcs();
 }
 
 
@@ -255,10 +259,10 @@ smp_openpic_message_pass(int target, int msg, unsigned long data, int wait)
 static int
 smp_chrp_probe(void)
 {
-	if (naca->processorCount > 1)
+	if (systemcfg->processorCount > 1)
 		openpic_request_IPIs();
 
-	return naca->processorCount;
+	return systemcfg->processorCount;
 }
 
 static void
@@ -299,11 +303,11 @@ smp_chrp_setup_cpu(int cpu_nr)
 	static atomic_t ready = ATOMIC_INIT(1);
 	static volatile int frozen = 0;
 
-	if (naca->platform == PLATFORM_PSERIES_LPAR) {
+	if (systemcfg->platform == PLATFORM_PSERIES_LPAR) {
 		/* timebases already synced under the hypervisor. */
 		paca[cpu_nr].next_jiffy_update_tb = tb_last_stamp = get_tb();
 		if (cpu_nr == 0) {
-			naca->tb_orig_stamp = tb_last_stamp;
+			systemcfg->tb_orig_stamp = tb_last_stamp;
 			/* Should update naca->stamp_xsec.
 			 * For now we leave it which means the time can be some
 			 * number of msecs off until someone does a settimeofday()
@@ -330,7 +334,7 @@ smp_chrp_setup_cpu(int cpu_nr)
 			mb();
 			frozen = 0;
 			tb_last_stamp = get_tb();
-			naca->tb_orig_stamp = tb_last_stamp;
+			systemcfg->tb_orig_stamp = tb_last_stamp;
 			smp_tb_synchronized = 1;
 		} else {
 			atomic_inc(&ready);
@@ -371,7 +375,7 @@ smp_xics_message_pass(int target, int msg, unsigned long data, int wait)
 static int
 smp_xics_probe(void)
 {
-	return naca->processorCount;
+	return systemcfg->processorCount;
 }
 
 /* This is called very early */
@@ -434,7 +438,16 @@ void smp_message_recv(int msg, struct pt_regs *regs)
 
 void smp_send_reschedule(int cpu)
 {
+	if ((systemcfg->platform & PLATFORM_LPAR) &&
+	    (paca[cpu].yielded == 1)) {
+#ifdef CONFIG_PPC_ISERIES
+		HvCall_sendLpProd(cpu);
+#else
+		prod_processor(cpu);
+#endif
+	} else {
 	smp_message_pass(cpu, PPC_MSG_RESCHEDULE, 0, 0);
+}
 }
 
 #ifdef CONFIG_XMON
@@ -564,6 +577,7 @@ int smp_call_function (void (*func) (void *info), void *info, int nonatomic,
 	ret = 0;
 
  out:
+	call_data = NULL;
 	HMT_medium();
 	spin_unlock_bh(&call_lock);
 	return ret;
@@ -571,9 +585,20 @@ int smp_call_function (void (*func) (void *info), void *info, int nonatomic,
 
 void smp_call_function_interrupt(void)
 {
-	void (*func) (void *info) = call_data->func;
-	void *info = call_data->info;
-	int wait = call_data->wait;
+	void (*func) (void *info);
+	void *info;
+	int wait;
+
+
+	/* call_data will be NULL if the sender timed out while
+	 * waiting on us to receive the call.
+	 */
+	if (!call_data)
+		return;
+
+	func = call_data->func;
+	info = call_data->info;
+	wait = call_data->wait;
 
 	/*
 	 * Notify initiating CPU that I've grabbed the data and am
@@ -621,7 +646,7 @@ void __init smp_boot_cpus(void)
 		if(i != 0) {
 		        /*
 			 * Processor 0's segment table is statically 
-			 * initialized to real address 0x5000.  The
+			 * initialized to real address STAB0_PHYS_ADDR.  The
 			 * Other processor's tables are created and
 			 * initialized here.
 			 */
@@ -632,6 +657,10 @@ void __init smp_boot_cpus(void)
 		}
 	}
 
+	/*
+	 * XXX very rough, assumes 20 bus cycles to read a cache line,
+	 * timebase increments every 4 bus cycles, 32kB L1 data cache.
+	 */
 	cacheflush_time = 5 * 1024;
 
 	/* Probe arch for CPUs */
@@ -768,6 +797,12 @@ int start_secondary(void *unused)
 	atomic_inc(&init_mm.mm_count);
 	current->active_mm = &init_mm;
 	smp_callin();
+
+	get_paca()->yielded = 0;
+
+	if (cur_cpu_spec->firmware_features & FW_FEATURE_SPLPAR) {
+		vpa_init(cpu);
+	}
 
 	/* Go into the idle loop. */
 	return cpu_idle(NULL);

@@ -24,13 +24,7 @@ if [ "$CONFIG_PARPORT" != "n" ]; then
          bool '    Use FIFO/DMA if available (EXPERIMENTAL)' CONFIG_PARPORT_PC_FIFO
          bool '    SuperIO chipset support (EXPERIMENTAL)' CONFIG_PARPORT_PC_SUPERIO
       fi
-      if [ "$CONFIG_HOTPLUG" = "y" -a "$CONFIG_PCMCIA" != "n" ]; then
-         if [ "$CONFIG_PARPORT_PC" = "y" ]; then
-            dep_tristate '    Support for PCMCIA management for PC-style ports' CONFIG_PARPORT_PC_PCMCIA $CONFIG_PCMCIA
-         else
-            dep_tristate '    Support for PCMCIA management for PC-style ports' CONFIG_PARPORT_PC_PCMCIA $CONFIG_PARPORT_PC
-         fi
-      fi
+      dep_tristate '    Support for PCMCIA management for PC-style ports' CONFIG_PARPORT_PC_PCMCIA $CONFIG_PCMCIA $CONFIG_PARPORT_PC $CONFIG_HOTPLUG
    fi
    if [ "$CONFIG_ARM" = "y" ]; then
       dep_tristate '  Archimedes hardware' CONFIG_PARPORT_ARC $CONFIG_PARPORT
@@ -59,6 +53,12 @@ if [ "$CONFIG_PARPORT" != "n" ]; then
       dep_tristate '  Sparc hardware (EXPERIMENTAL)' CONFIG_PARPORT_SUNBPP $CONFIG_PARPORT
    else
       define_tristate CONFIG_PARPORT_SUNBPP n
+   fi
+
+   if [ "$CONFIG_SGI_IP22" = "y" -a "$CONFIG_EXPERIMENTAL" = "y" ]; then
+      dep_tristate '  SGI Indy/Indigo2 hardware (EXPERIMENTAL)' CONFIG_PARPORT_IP22 $CONFIG_PARPORT
+   else
+      define_tristate CONFIG_PARPORT_IP22 n
    fi
 
    # If exactly one hardware type is selected then parport will optimise away

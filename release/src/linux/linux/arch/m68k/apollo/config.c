@@ -51,7 +51,6 @@ static void dn_heartbeat(int on);
 static void dn_timer_int(int irq,void *, struct pt_regs *);
 static void (*sched_timer_handler)(int, void *, struct pt_regs *)=NULL;
 static void dn_get_model(char *model);
-static int dn_cpuctrl=0xff00;
 static const char *apollo_models[] = {
 	"DN3000 (Otter)",
 	"DN3010 (Otter)",
@@ -184,10 +183,6 @@ void config_apollo(void) {
 	mach_hwclk           = dn_dummy_hwclk; /* */
 	mach_set_clock_mmss  = dn_dummy_set_clock_mmss; /* */
 	mach_process_int     = dn_process_int;
-#ifdef CONFIG_BLK_DEV_FD
-	mach_floppy_init     = dn_dummy_floppy_init;
-	mach_floppy_setup    = dn_dummy_floppy_setup;
-#endif
 	mach_reset	     = dn_dummy_reset;  /* */
 #ifdef CONFIG_DUMMY_CONSOLE
         conswitchp           = &dummy_con;
@@ -227,6 +222,10 @@ void dn_sched_init(void (*timer_routine)(int, void *, struct pt_regs *)) {
 	/* enable IRQ of PIC B */
 	*(volatile unsigned char *)(pica+1)&=(~8);
 
+#if 0
+	printk("*(0x10803) %02x\n",*(volatile unsigned char *)(timer+0x3));
+	printk("*(0x10803) %02x\n",*(volatile unsigned char *)(timer+0x3));
+#endif
 
 	sched_timer_handler=timer_routine;
 	request_irq(0,dn_timer_int,0,NULL,NULL);
@@ -309,6 +308,8 @@ static void dn_get_model(char *model)
 }
 
 #ifdef CONFIG_HEARTBEAT
+static int dn_cpuctrl=0xff00;
+
 static void dn_heartbeat(int on) {
 
 	if(on) { 

@@ -1,4 +1,4 @@
-/* $Id: hysdn_boot.c,v 1.1.1.4 2003/10/14 08:08:13 sparq Exp $
+/* $Id: hysdn_boot.c,v 1.1.4.1 2001/11/20 14:19:37 kai Exp $
  *
  * Linux driver for HYSDN cards
  * specific routines for booting and pof handling
@@ -143,7 +143,7 @@ pof_handle_data(hysdn_card * card, int datlen)
 					     (boot->pof_recid == TAG_CABSDATA) ? "CABSDATA" : "ABSDATA",
 					     datlen, boot->pof_recoffset);
 
-			if ((boot->last_error = card->writebootseq(card, boot->buf.BootBuf, datlen) < 0))
+			if ((boot->last_error = card->writebootseq(card, boot->buf.BootBuf, datlen)) < 0)
 				return (boot->last_error);	/* error writing data */
 
 			if (boot->pof_recoffset + datlen >= boot->pof_reclen)

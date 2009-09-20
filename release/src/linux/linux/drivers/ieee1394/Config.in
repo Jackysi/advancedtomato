@@ -40,6 +40,7 @@ if [ "$CONFIG_PCI" = "y" -a "$CONFIG_EXPERIMENTAL" = "y" ]; then
 	fi
 
 	bool 'Excessive debugging output' CONFIG_IEEE1394_VERBOSEDEBUG
+	bool "OUI Database built-in" CONFIG_IEEE1394_OUI_DB
     fi
     endmenu
 fi

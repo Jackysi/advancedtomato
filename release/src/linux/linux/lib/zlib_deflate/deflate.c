@@ -736,7 +736,7 @@ local uInt longest_match(s, cur_match)
         /* Skip to next match if the match length cannot increase
          * or if the match length is less than 2:
          */
-#if defined(UNALIGNED_OK) && MAX_MATCH == 258
+#if (defined(UNALIGNED_OK) && MAX_MATCH == 258)
         /* This code assumes sizeof(unsigned short) == 2. Do not use
          * UNALIGNED_OK if your compiler uses a different size.
          */

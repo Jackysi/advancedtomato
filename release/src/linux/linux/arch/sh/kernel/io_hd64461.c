@@ -1,5 +1,5 @@
 /*
- *	$Id: io_hd64461.c,v 1.1.1.4 2003/10/14 08:07:47 sparq Exp $
+ *	$Id: io_hd64461.c,v 1.6 2000/11/16 23:28:44 yaegashi Exp $
  *	Copyright (C) 2000 YAEGASHI Takeshi
  *	Typical I/O routines for HD64461 system.
  */

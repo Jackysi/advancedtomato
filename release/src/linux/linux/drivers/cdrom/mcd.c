@@ -1272,6 +1272,7 @@ static int getMcdStatus(int timeout)
 		return -1;
 
 	if ((st & MST_BUSY) == 0 && audioStatus == CDROM_AUDIO_PLAY)
+		/* XXX might be an error? look at q-channel? */
 		audioStatus = CDROM_AUDIO_COMPLETED;
 
 	if (st & MST_DSK_CHG) {

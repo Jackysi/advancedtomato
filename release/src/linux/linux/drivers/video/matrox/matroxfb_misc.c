@@ -2,11 +2,11 @@
  *
  * Hardware accelerated Matrox Millennium I, II, Mystique, G100, G200 and G400
  *
- * (c) 1998,1999,2000,2001 Petr Vandrovec <vandrove@vc.cvut.cz>
+ * (c) 1998-2002 Petr Vandrovec <vandrove@vc.cvut.cz>
  *
  * Portions Copyright (c) 2001 Matrox Graphics Inc.
  *
- * Version: 1.62 2001/11/29
+ * Version: 1.66 2002/10/14
  *
  * MTRR stuff: 1998 Tom Rini <trini@kernel.crashing.org>
  *
@@ -146,6 +146,7 @@ void matroxfb_var2my(struct fb_var_screeninfo* var, struct my_timming* mt) {
 	if (!pixclock) pixclock = 10000;	/* 10ns = 100MHz */
 	mt->pixclock = 1000000000 / pixclock;
 	if (mt->pixclock < 1) mt->pixclock = 1;
+	mt->mnp = -1;
 	mt->dblscan = var->vmode & FB_VMODE_DOUBLE;
 	mt->interlaced = var->vmode & FB_VMODE_INTERLACED;
 	mt->HDisplay = var->xres;
@@ -222,7 +223,7 @@ int matroxfb_PLL_calcclock(const struct matrox_pll_features* pll, unsigned int f
 
 int matroxfb_vgaHWinit(WPMINFO struct my_timming* m, struct display* p) {
 	unsigned int hd, hs, he, hbe, ht;
-	unsigned int vd, vs, ve, vt;
+	unsigned int vd, vs, ve, vt, lc;
 	unsigned int wd;
 	unsigned int divider;
 	int i;
@@ -335,6 +336,7 @@ int matroxfb_vgaHWinit(WPMINFO struct my_timming* m, struct display* p) {
 	vs = m->VSyncStart - 1;
 	ve = m->VSyncEnd - 1;
 	vt = m->VTotal - 2;
+	lc = vd;
 	/* G200 cannot work with (ht & 7) == 6 */
 	if (((ht & 0x07) == 0x06) || ((ht & 0x0F) == 0x04))
 		ht++;
@@ -360,12 +362,14 @@ int matroxfb_vgaHWinit(WPMINFO struct my_timming* m, struct display* p) {
 			  ((hd      & 0x100) >> 7) | /* blanking */
 			  ((hs      & 0x100) >> 6) | /* sync start */
 			   (hbe     & 0x040);	 /* end hor. blanking */
-	if (ACCESS_FBINFO(output.ph) & MATROXFB_OUTPUT_CONN_SECONDARY)
+	/* FIXME: Enable vidrst only on G400, and only if TV-out is used */
+	if (ACCESS_FBINFO(outputs[1]).src == MATROXFB_SRC_CRTC1)
 		hw->CRTCEXT[1] |= 0x88;		/* enable horizontal and vertical vidrst */
 	hw->CRTCEXT[2] =  ((vt & 0xC00) >> 10) |
 			  ((vd & 0x400) >>  8) |	/* disp end */
 			  ((vd & 0xC00) >>  7) |	/* vblanking start */
-			  ((vs & 0xC00) >>  5);
+			  ((vs & 0xC00) >>  5) |
+			  ((lc & 0x400) >>  3);
 	if (text)
 		hw->CRTCEXT[3] = 0x00;
 	else
@@ -385,12 +389,13 @@ int matroxfb_vgaHWinit(WPMINFO struct my_timming* m, struct display* p) {
 		      ((vd & 0x100) >> 7) |
 		      ((vs & 0x100) >> 6) |
 		      ((vd & 0x100) >> 5) |
-		      0x10                |
+		      ((lc & 0x100) >> 4) |
 		      ((vt & 0x200) >> 4) |
 		      ((vd & 0x200) >> 3) |
 		      ((vs & 0x200) >> 2);
 	hw->CRTC[8] = 0x00;
-	hw->CRTC[9] = ((vd & 0x200) >> 4) | 0x40;
+	hw->CRTC[9] = ((vd & 0x200) >> 4) |
+		      ((lc & 0x200) >> 3);
 	if (text)
 		hw->CRTC[9] |= fontheight(p) - 1;
 	if (m->dblscan && !m->interlaced)
@@ -415,7 +420,7 @@ int matroxfb_vgaHWinit(WPMINFO struct my_timming* m, struct display* p) {
 			hw->CRTC[20] = 0x1F;
 	} else
 		hw->CRTC[23] = 0xC3;
-	hw->CRTC[24] = 0xFF;
+	hw->CRTC[24] = lc;
 	return 0;
 };
 
@@ -847,7 +852,7 @@ static int parse_pins4(WPMINFO const struct matrox_bios* bd) {
 					  ( bd->pins[86]        & 0x0000000F);
 	MINFO->values.reg.opt		= ((bd->pins[53] << 15) & 0x00400000) |
 					  ((bd->pins[53] << 22) & 0x10000000) |
-					  ((bd->pins[53] << 10) & 0x00001C00);
+					  ((bd->pins[53] <<  7) & 0x00001C00);
 	MINFO->values.reg.opt3		= get_u32(bd->pins + 67);
 	MINFO->values.pll.system	= (bd->pins[ 65] == 0xFF) ? 200000 			: bd->pins[ 65] * 4000;
 	MINFO->features.pll.ref_freq	= (bd->pins[ 92] & 0x01) ? 14318 : 27000;
@@ -872,7 +877,7 @@ static int parse_pins5(WPMINFO const struct matrox_bios* bd) {
 	mult = bd->pins[4]?8000:6000;
 	
 	MINFO->limits.pixel.vcomax	= (bd->pins[ 38] == 0xFF) ? 600000			: bd->pins[ 38] * mult;
-	MINFO->limits.system.vcomax	= (bd->pins[ 36] == 0xFF) ? MINFO->limits.pixel.vcomax	: bd->pins[ 39] * mult;
+	MINFO->limits.system.vcomax	= (bd->pins[ 36] == 0xFF) ? MINFO->limits.pixel.vcomax	: bd->pins[ 36] * mult;
 	MINFO->limits.video.vcomax	= (bd->pins[ 37] == 0xFF) ? MINFO->limits.system.vcomax	: bd->pins[ 37] * mult;
 	MINFO->limits.pixel.vcomin	= (bd->pins[123] == 0xFF) ? 256000			: bd->pins[123] * mult;
 	MINFO->limits.system.vcomin	= (bd->pins[121] == 0xFF) ? MINFO->limits.pixel.vcomin	: bd->pins[121] * mult;
@@ -992,6 +997,27 @@ void matroxfb_read_pins(WPMINFO2) {
 	parse_bios(vaddr_va(ACCESS_FBINFO(video).vbase), &ACCESS_FBINFO(bios));
 	pci_write_config_dword(pdev, PCI_ROM_ADDRESS, biosbase);
 	pci_write_config_dword(pdev, PCI_OPTION_REG, opt);
+#ifdef CONFIG_X86
+	if (!ACCESS_FBINFO(bios).bios_valid) {
+		unsigned char* b;
+		
+		b = ioremap(0x000C0000, 65536);
+		if (!b) {
+			printk(KERN_INFO "matroxfb: Unable to map legacy BIOS\n");
+		} else {
+			unsigned int ven = readb(b+0x64+0) | (readb(b+0x64+1) << 8);
+			unsigned int dev = readb(b+0x64+2) | (readb(b+0x64+3) << 8);
+			
+			if (ven != pdev->vendor || dev != pdev->device) {
+				printk(KERN_INFO "matroxfb: Legacy BIOS is for %04X:%04X, while this device is %04X:%04X\n",
+					ven, dev, pdev->vendor, pdev->device);
+			} else {
+				parse_bios(b, &ACCESS_FBINFO(bios));
+			}
+			iounmap(b);
+		}
+	}
+#endif
 	matroxfb_set_limits(PMINFO &ACCESS_FBINFO(bios));
 }
 
@@ -1011,6 +1037,6 @@ EXPORT_SYMBOL(matroxfb_vgaHWinit);		/* DAC1064, Ti3026 */
 EXPORT_SYMBOL(matroxfb_vgaHWrestore);		/* DAC1064, Ti3026 */
 EXPORT_SYMBOL(matroxfb_read_pins);
 
-MODULE_AUTHOR("(c) 1999-2001 Petr Vandrovec <vandrove@vc.cvut.cz>");
+MODULE_AUTHOR("(c) 1999-2002 Petr Vandrovec <vandrove@vc.cvut.cz>");
 MODULE_DESCRIPTION("Miscellaneous support for Matrox video cards");
 MODULE_LICENSE("GPL");

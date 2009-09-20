@@ -14,7 +14,6 @@ int sim710_abort(Scsi_Cmnd * SCpnt);
 int sim710_bus_reset(Scsi_Cmnd * SCpnt);
 int sim710_dev_reset(Scsi_Cmnd * SCpnt);
 int sim710_host_reset(Scsi_Cmnd * SCpnt);
-int sim710_biosparam(Disk *, kdev_t, int*);
 #ifdef MODULE
 int sim710_release(struct Scsi_Host *);
 #else
@@ -150,6 +149,7 @@ int sim710_release(struct Scsi_Host *);
 #define SXFER_TP1		0x20
 #define SXFER_TP0		0x10	/* lsb */
 #define SXFER_TP_MASK		0x70
+/* FIXME : SXFER_TP_SHIFT == 5 is right for '8xx chips */
 #define SXFER_TP_SHIFT		5
 #define SXFER_TP_4		0x00	/* Divisors */
 #define SXFER_TP_5		0x10<<1
@@ -268,6 +268,10 @@ int sim710_release(struct Scsi_Host *);
 #define SBCL_SSCF0		0x01	/* wo, -66 only */
 #define SBCL_SSCF_MASK		0x03
 
+/*
+ * XXX note : when reading the DSTAT and STAT registers to clear interrupts,
+ * insure that 10 clocks elapse between the two
+ */
 /* DMA status ro */
 #define DSTAT_REG		(0x0c^bE)
 #define DSTAT_DFE		0x80	/* DMA FIFO empty */

@@ -162,6 +162,18 @@ static int __init lne390_probe1(struct net_device *dev, int ioaddr)
 
 	revision = (eisa_id >> 24) & 0x01;	/* 0 = rev A, 1 rev B */
 	
+#if 0
+/*	Check the Mylex vendor ID as well. Not really required. */
+	if (inb(ioaddr + LNE390_SA_PROM + 0) != LNE390_ADDR0
+		|| inb(ioaddr + LNE390_SA_PROM + 1) != LNE390_ADDR1
+		|| inb(ioaddr + LNE390_SA_PROM + 2) != LNE390_ADDR2 ) {
+		printk("lne390.c: card not found");
+		for(i = 0; i < ETHER_ADDR_LEN; i++)
+			printk(" %02x", inb(ioaddr + LNE390_SA_PROM + i));
+		printk(" (invalid prefix).\n");
+		return -ENODEV;
+	}
+#endif
 	/* Allocate dev->priv and fill in 8390 specific dev fields. */
 	if (ethdev_init(dev)) {
 		printk ("lne390.c: unable to allocate memory for dev->priv!\n");

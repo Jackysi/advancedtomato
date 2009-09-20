@@ -1,9 +1,6 @@
 /*
- * BK Id: SCCS/s.spd8xx.h 1.8 10/27/01 13:39:41 trini
- */
-/*
  * Speech Design SPD8xxTS board specific definitions
- * 
+ *
  * Copyright (c) 2000,2001 Wolfgang Denk (wd@denx.de)
  */
 
@@ -12,7 +9,7 @@
 #define __ASM_SPD8XX_H__
 
 #include <linux/config.h>
- 
+
 #include <asm/ppcboot.h>
 
 #define SPD_IMMR_BASE	0xFFF00000	/* phys. addr of IMMR */

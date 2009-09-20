@@ -1,4 +1,4 @@
-/* $Id: io.h,v 1.1.1.4 2003/10/14 08:09:23 sparq Exp $ */
+/* $Id: io.h,v 1.41.2.1 2001/12/11 22:50:52 davem Exp $ */
 #ifndef __SPARC64_IO_H
 #define __SPARC64_IO_H
 
@@ -413,7 +413,7 @@ out:
  */
 #define ioremap(__offset, __size)	((void *)(__offset))
 #define ioremap_nocache(X,Y)		ioremap((X),(Y))
-#define iounmap(__addr)			do { } while(0)
+#define iounmap(__addr)			do { (void)(__addr); } while(0)
 
 /* Similarly for SBUS. */
 #define sbus_ioremap(__res, __offset, __size, __name) \

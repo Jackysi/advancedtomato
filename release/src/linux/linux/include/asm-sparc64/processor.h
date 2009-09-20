@@ -1,4 +1,4 @@
-/* $Id: processor.h,v 1.1.1.4 2003/10/14 08:09:23 sparq Exp $
+/* $Id: processor.h,v 1.80.2.1 2002/02/02 02:11:52 kanoj Exp $
  * include/asm-sparc64/processor.h
  *
  * Copyright (C) 1996 David S. Miller (davem@caip.rutgers.edu)
@@ -52,7 +52,11 @@
  * is placed as close to the highest address range as possible.
  */
 #define VPTE_BASE_SPITFIRE	(-(VPTE_SIZE/2))
+#if 1
 #define VPTE_BASE_CHEETAH	VPTE_BASE_SPITFIRE
+#else
+#define VPTE_BASE_CHEETAH	0xffe0000000000000
+#endif
 
 #ifndef __ASSEMBLY__
 
@@ -105,6 +109,7 @@ struct thread_struct {
 #define SPARC_FLAG_NEWCHILD     0x08    /* task is just-spawned child process	*/
 #define SPARC_FLAG_PERFCTR	0x10    /* task has performance counters active	*/
 #define SPARC_FLAG_ABI_PENDING	0x20    /* change of SPARC_FLAG_32BIT pending	*/
+#define SPARC_FLAG_SYS_SUCCESS	0x40    /* Force successful syscall return.	*/
 
 #define FAULT_CODE_WRITE	0x01	/* Write access, implies D-TLB		*/
 #define FAULT_CODE_DTLB		0x02	/* Miss happened in D-TLB		*/
@@ -219,7 +224,7 @@ do { \
 	"stx		%%g0, [%0 + %2 + 0x78]\n\t" \
 	"wrpr		%%g0, (1 << 3), %%wstate\n\t" \
 	: \
-	: "r" (regs), "r" (sp - REGWIN_SZ - STACK_BIAS), \
+	: "r" (regs), "r" (sp - sizeof(struct reg_window) - STACK_BIAS), \
 	  "i" ((const unsigned long)(&((struct pt_regs *)0)->u_regs[0]))); \
 } while(0)
 
@@ -259,14 +264,14 @@ do { \
 	"stx		%%g0, [%0 + %2 + 0x78]\n\t" \
 	"wrpr		%%g0, (2 << 3), %%wstate\n\t" \
 	: \
-	: "r" (regs), "r" (sp - REGWIN32_SZ), \
+	: "r" (regs), "r" (sp - sizeof(struct reg_window32)), \
 	  "i" ((const unsigned long)(&((struct pt_regs *)0)->u_regs[0]))); \
 } while(0)
 
 /* Free all resources held by a thread. */
 #define release_thread(tsk)		do { } while(0)
 
-extern pid_t kernel_thread(int (*fn)(void *), void * arg, unsigned long flags);
+extern pid_t arch_kernel_thread(int (*fn)(void *), void * arg, unsigned long flags);
 
 #define copy_segments(tsk, mm)		do { } while (0)
 #define release_segments(mm)		do { } while (0)
@@ -318,7 +323,7 @@ __out:	__ret; \
 #define init_task	(init_task_union.task)
 #define init_stack	(init_task_union.stack)
 
-#define cpu_relax()	udelay(1 + smp_processor_id())
+#define cpu_relax()	do { udelay(1 + smp_processor_id()); barrier(); } while (0)
 
 #endif /* __KERNEL__ */
 

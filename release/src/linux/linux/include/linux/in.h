@@ -19,6 +19,7 @@
 #define _LINUX_IN_H
 
 #include <linux/types.h>
+#include <linux/socket.h>
 
 /* Standard well-defined IP protocols.  */
 enum {
@@ -41,6 +42,7 @@ enum {
   IPPROTO_ESP = 50,            /* Encapsulation Security Payload protocol */
   IPPROTO_AH = 51,             /* Authentication Header protocol       */
   IPPROTO_COMP   = 108,                /* Compression Header protocol */
+  IPPROTO_SCTP   = 132,		/* Stream Control Transport Protocol    */
 
   IPPROTO_RAW	 = 255,		/* Raw IP packets			*/
   IPPROTO_MAX
@@ -81,6 +83,21 @@ struct in_addr {
 #define IP_MULTICAST_LOOP 		34
 #define IP_ADD_MEMBERSHIP		35
 #define IP_DROP_MEMBERSHIP		36
+#define IP_UNBLOCK_SOURCE		37
+#define IP_BLOCK_SOURCE			38
+#define IP_ADD_SOURCE_MEMBERSHIP	39
+#define IP_DROP_SOURCE_MEMBERSHIP	40
+#define IP_MSFILTER			41
+#define MCAST_JOIN_GROUP		42
+#define MCAST_BLOCK_SOURCE		43
+#define MCAST_UNBLOCK_SOURCE		44
+#define MCAST_LEAVE_GROUP		45
+#define MCAST_JOIN_SOURCE_GROUP		46
+#define MCAST_LEAVE_SOURCE_GROUP	47
+#define MCAST_MSFILTER			48
+
+#define MCAST_EXCLUDE	0
+#define MCAST_INCLUDE	1
 
 /* These need to appear somewhere around here */
 #define IP_DEFAULT_MULTICAST_TTL        1
@@ -100,6 +117,50 @@ struct ip_mreqn
 	struct in_addr	imr_address;		/* local IP address of interface */
 	int		imr_ifindex;		/* Interface index */
 };
+
+struct ip_mreq_source {
+	__u32		imr_multiaddr;
+	__u32		imr_interface;
+	__u32		imr_sourceaddr;
+};
+
+struct ip_msfilter {
+	__u32		imsf_multiaddr;
+	__u32		imsf_interface;
+	__u32		imsf_fmode;
+	__u32		imsf_numsrc;
+	__u32		imsf_slist[1];
+};
+
+#define IP_MSFILTER_SIZE(numsrc) \
+	(sizeof(struct ip_msfilter) - sizeof(__u32) \
+	+ (numsrc) * sizeof(__u32))
+
+struct group_req
+{
+	__u32				 gr_interface;	/* interface index */
+	struct __kernel_sockaddr_storage gr_group;	/* group address */
+};
+
+struct group_source_req
+{
+	__u32				 gsr_interface;	/* interface index */
+	struct __kernel_sockaddr_storage gsr_group;	/* group address */
+	struct __kernel_sockaddr_storage gsr_source;	/* source address */
+};
+
+struct group_filter
+{
+	__u32				 gf_interface;	/* interface index */
+	struct __kernel_sockaddr_storage gf_group;	/* multicast address */
+	__u32				 gf_fmode;	/* filter mode */
+	__u32				 gf_numsrc;	/* number of sources */
+	struct __kernel_sockaddr_storage gf_slist[1];	/* interface index */
+};
+
+#define GROUP_FILTER_SIZE(numsrc) \
+	(sizeof(struct group_filter) - sizeof(struct __kernel_sockaddr_storage) \
+	+ (numsrc) * sizeof(struct __kernel_sockaddr_storage))
 
 struct in_pktinfo
 {

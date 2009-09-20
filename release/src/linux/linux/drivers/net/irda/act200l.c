@@ -94,19 +94,19 @@ static struct dongle_reg dongle = {
 	act200l_change_speed,
 };
 
-int __init act200l_init(void)
+static int __init act200l_init(void)
 {
 	return irda_device_register_dongle(&dongle);
 }
 
-void __exit act200l_cleanup(void)
+static void __exit act200l_cleanup(void)
 {
 	irda_device_unregister_dongle(&dongle);
 }
 
 static void act200l_open(dongle_t *self, struct qos_info *qos)
 {
-	IRDA_DEBUG(2, __FUNCTION__ "()\n");
+	IRDA_DEBUG(2, "%s()\n", __FUNCTION__);
 
 	/* Power on the dongle */
 	self->set_dtr_rts(self->dev, TRUE, TRUE);
@@ -120,7 +120,7 @@ static void act200l_open(dongle_t *self, struct qos_info *qos)
 
 static void act200l_close(dongle_t *self)
 {
-	IRDA_DEBUG(2, __FUNCTION__ "()\n");
+	IRDA_DEBUG(2, "%s()\n", __FUNCTION__);
 
 	/* Power off the dongle */
 	self->set_dtr_rts(self->dev, FALSE, FALSE);
@@ -141,7 +141,7 @@ static int act200l_change_speed(struct irda_task *task)
 	__u8 control[3];
 	int ret = 0;
 
-	IRDA_DEBUG(2, __FUNCTION__ "()\n");
+	IRDA_DEBUG(2, "%s()\n", __FUNCTION__);
 
 	self->speed_task = task;
 
@@ -158,7 +158,7 @@ static int act200l_change_speed(struct irda_task *task)
 		}
 		break;
 	case IRDA_TASK_CHILD_WAIT:
-		WARNING(__FUNCTION__ "(), resetting dongle timed out!\n");
+		WARNING("%s(), resetting dongle timed out!\n", __FUNCTION__);
 		ret = -1;
 		break;
 	case IRDA_TASK_CHILD_DONE:
@@ -203,7 +203,7 @@ static int act200l_change_speed(struct irda_task *task)
 		self->speed_task = NULL;
 		break;
 	default:
-		ERROR(__FUNCTION__ "(), unknown state %d\n", task->state);
+		ERROR("%s(), unknown state %d\n", __FUNCTION__, task->state);
 		irda_task_next_state(task, IRDA_TASK_DONE);
 		self->speed_task = NULL;
 		ret = -1;
@@ -233,7 +233,7 @@ static int act200l_reset(struct irda_task *task)
 	};
 	int ret = 0;
 
-	IRDA_DEBUG(2, __FUNCTION__ "()\n");
+	IRDA_DEBUG(2, "%s()\n", __FUNCTION__);
 
 	self->reset_task = task;
 
@@ -269,7 +269,7 @@ static int act200l_reset(struct irda_task *task)
 		self->reset_task = NULL;
 		break;
 	default:
-		ERROR(__FUNCTION__ "(), unknown state %d\n", task->state);
+		ERROR("%s(), unknown state %d\n", __FUNCTION__, task->state);
 		irda_task_next_state(task, IRDA_TASK_DONE);
 		self->reset_task = NULL;
 		ret = -1;

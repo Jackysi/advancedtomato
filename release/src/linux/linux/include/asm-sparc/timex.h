@@ -12,6 +12,7 @@
 	(1000000/CLOCK_TICK_FACTOR) / (CLOCK_TICK_RATE/CLOCK_TICK_FACTOR)) \
 		<< (SHIFT_SCALE-SHIFT_HZ)) / HZ)
 
+/* XXX Maybe do something better at some point... -DaveM */
 typedef unsigned long cycles_t;
 extern cycles_t cacheflush_time;
 #define get_cycles()	(0)

@@ -93,9 +93,6 @@ struct nf_ct_info {
 	struct nf_conntrack *master;
 };
 #endif
-#if defined(CONFIG_IMQ) || defined(CONFIG_IMQ_MODULE)
-struct nf_info;
-#endif
 
 struct sk_buff_head {
 	/* These two members must be first. */
@@ -138,6 +135,10 @@ struct sk_buff {
 	struct sock	*sk;			/* Socket we are owned by 			*/
 	struct timeval	stamp;			/* Time we arrived				*/
 	struct net_device	*dev;		/* Device we arrived on/are leaving by		*/
+	struct net_device	*real_dev;	/* For support of point to point protocols 
+						   (e.g. 802.3ad) over bonding, we must save the
+						   physical device that got the packet before
+						   replacing skb->dev with the virtual device.  */
 
 	/* Transport layer header */
 	union
@@ -181,7 +182,7 @@ struct sk_buff {
 	unsigned int 	len;			/* Length of actual data			*/
  	unsigned int 	data_len;
 	unsigned int	csum;			/* Checksum 					*/
-	unsigned char 	imq_flags,		/* intermediate queueing device	*/
+	unsigned char 	__unused,		/* Dead field, may be reused			*/
 			cloned, 		/* head may be cloned (check refcnt to be sure). */
   			pkt_type,		/* Packet class					*/
   			ip_summed;		/* Driver fed us an IP checksum			*/
@@ -218,13 +219,7 @@ struct sk_buff {
 #ifdef CONFIG_NET_SCHED
        __u32           tc_index;               /* traffic control index */
 #endif
-#if defined(CONFIG_IMQ) || defined(CONFIG_IMQ_MODULE)
-       struct nf_info	*nf_info;
-#endif
 };
-
-#define SK_WMEM_MAX	65535
-#define SK_RMEM_MAX	65535
 
 #ifdef __KERNEL__
 /*
@@ -246,6 +241,7 @@ extern struct sk_buff *		skb_copy_expand(const struct sk_buff *skb,
 						int newheadroom,
 						int newtailroom,
 						int priority);
+extern struct sk_buff *		skb_pad(struct sk_buff *skb, int pad);
 #define dev_kfree_skb(a)	kfree_skb(a)
 extern void	skb_over_panic(struct sk_buff *skb, int len, void *here);
 extern void	skb_under_panic(struct sk_buff *skb, int len, void *here);
@@ -294,15 +290,11 @@ static inline struct sk_buff *skb_get(struct sk_buff *skb)
  
 static inline void kfree_skb(struct sk_buff *skb)
 {
-	if (atomic_read(&skb->users) == 1 || atomic_dec_and_test(&skb->users))
-		__kfree_skb(skb);
-}
-
-/* Use this if you didn't touch the skb state [for fast switching] */
-static inline void kfree_skb_fast(struct sk_buff *skb)
-{
-	if (atomic_read(&skb->users) == 1 || atomic_dec_and_test(&skb->users))
-		kfree_skbmem(skb);	
+	if (likely(atomic_read(&skb->users) == 1))
+		smp_rmb();
+	else if (likely(!atomic_dec_and_test(&skb->users)))
+		return;
+	__kfree_skb(skb);
 }
 
 /**
@@ -713,6 +705,7 @@ static inline void skb_unlink(struct sk_buff *skb)
 	}
 }
 
+/* XXX: more streamlined implementation */
 
 /**
  *	__skb_dequeue_tail - remove from the tail of the queue
@@ -756,7 +749,7 @@ static inline int skb_is_nonlinear(const struct sk_buff *skb)
 	return skb->data_len;
 }
 
-static inline int skb_headlen(const struct sk_buff *skb)
+static inline unsigned int skb_headlen(const struct sk_buff *skb)
 {
 	return skb->len - skb->data_len;
 }
@@ -1087,6 +1080,26 @@ skb_cow(struct sk_buff *skb, unsigned int headroom)
 }
 
 /**
+ *	skb_padto	- pad an skbuff up to a minimal size
+ *	@skb: buffer to pad
+ *	@len: minimal length
+ *
+ *	Pads up a buffer to ensure the trailing bytes exist and are
+ *	blanked. If the buffer already contains sufficient data it
+ *	is untouched. Returns the buffer, which may be a replacement
+ *	for the original, or NULL for out of memory - in which case
+ *	the original buffer is still freed.
+ */
+ 
+static inline struct sk_buff *skb_padto(struct sk_buff *skb, unsigned int len)
+{
+	unsigned int size = skb->len;
+	if(likely(size >= len))
+		return skb;
+	return skb_pad(skb, len-size);
+}
+
+/**
  *	skb_linearize - convert paged skb to linear one
  *	@skb: buffer to linarize
  *	@gfp: allocation mode
@@ -1149,7 +1162,18 @@ nf_conntrack_get(struct nf_ct_info *nfct)
 	if (nfct)
 		atomic_inc(&nfct->master->use);
 }
+static inline void
+nf_reset(struct sk_buff *skb)
+{
+	nf_conntrack_put(skb->nfct);
+	skb->nfct = NULL;
+#ifdef CONFIG_NETFILTER_DEBUG
+	skb->nf_debug = 0;
 #endif
+}
+#else /* CONFIG_NETFILTER */
+static inline void nf_reset(struct sk_buff *skb) {}
+#endif /* CONFIG_NETFILTER */
 
 #endif	/* __KERNEL__ */
 #endif	/* _LINUX_SKBUFF_H */

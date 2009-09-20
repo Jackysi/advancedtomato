@@ -1,10 +1,8 @@
-/*
- * BK Id: SCCS/s.byteorder.h 1.8 10/11/01 13:02:49 trini
- */
 #ifndef _PPC_BYTEORDER_H
 #define _PPC_BYTEORDER_H
 
 #include <asm/types.h>
+#include <linux/compiler.h>
 
 #ifdef __GNUC__
 #ifdef __KERNEL__
@@ -35,17 +33,54 @@ extern __inline__ void st_le32(volatile unsigned *addr, const unsigned val)
 	__asm__ __volatile__ ("stwbrx %1,0,%2" : "=m" (*addr) : "r" (val), "r" (addr));
 }
 
-/* alas, egcs sounds like it has a bug in this code that doesn't use the
-   inline asm correctly, and can cause file corruption. Until I hear that
-   it's fixed, I can live without the extra speed. I hope. */
+extern __inline__ unsigned long long ld_le64(const volatile unsigned long long *addr)
+{
+	unsigned char *taddr = (unsigned char *) addr;
+	unsigned long long val;
+
+	__asm__ __volatile__ ("lwbrx %L0,0,%1" : "=r" (val) : "r" (taddr),   "m" (*addr));
+	__asm__ __volatile__ ("lwbrx  %0,0,%1" : "=r" (val) : "r" (taddr+4), "m" (*addr), "0" (val));
+	return val;
+}
+
+extern __inline__ void st_le64(volatile unsigned long long *addr, const unsigned long long val)
+{
+	unsigned char *taddr = (unsigned char *) addr;
+
+	__asm__ __volatile__ ("stwbrx %L1,0,%2" : "=m" (*addr) : "r" (val), "r" (taddr));
+	__asm__ __volatile__ ("stwbrx  %1,0,%2" : "=m" (*addr) : "r" (val), "r" (taddr+4));
+}
+
+static __inline__ __attribute_const__ __u16 ___arch__swab16(__u16 value)
+{
+	__u16 result;
+
+	__asm__("rlwimi %0,%2,8,16,23" : "=&r" (result) : "0" (value >> 8), "r" (value));
+	return result;
+}
+
+static __inline__ __attribute_const__ __u32 ___arch__swab32(__u32 value)
+{
+	__u32 result;
+
+	__asm__("rlwimi %0,%2,24,16,23" : "=&r" (result) : "0" (value>>24), "r" (value));
+	__asm__("rlwimi %0,%2,8,8,15"   : "=&r" (result) : "0" (result),    "r" (value));
+	__asm__("rlwimi %0,%2,24,0,7"   : "=&r" (result) : "0" (result),    "r" (value));
+
+	return result;
+}
+#define __arch__swab32(x) ___arch__swab32(x)
+#define __arch__swab16(x) ___arch__swab16(x)
 
 /* The same, but returns converted value from the location pointer by addr. */
 #define __arch__swab16p(addr) ld_le16(addr)
 #define __arch__swab32p(addr) ld_le32(addr)
+#define __arch__swab64p(addr) ld_le64(addr)
 
 /* The same, but do the conversion in situ, ie. put the value back to addr. */
 #define __arch__swab16s(addr) st_le16(addr,*addr)
 #define __arch__swab32s(addr) st_le32(addr,*addr)
+#define __arch__swab64s(addr) st_le64(addr,*addr)
 
 #endif /* __KERNEL__ */
 

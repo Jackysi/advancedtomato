@@ -1,6 +1,21 @@
 #ifndef _LINUX_SOCKET_H
 #define _LINUX_SOCKET_H
 
+/*
+ * Desired design of maximum size and alignment (see RFC2553)
+ */
+#define _K_SS_MAXSIZE	128	/* Implementation specific max size */
+#define _K_SS_ALIGNSIZE	(__alignof__ (struct sockaddr *))
+				/* Implementation specific desired alignment */
+
+struct __kernel_sockaddr_storage {
+	unsigned short	ss_family;		/* address family */
+	/* Following field(s) are implementation specific */
+	char		__data[_K_SS_MAXSIZE - sizeof(unsigned short)];
+				/* space to achieve desired size, */
+				/* _SS_MAXSIZE value minus size of ss_family */
+} __attribute__ ((aligned(_K_SS_ALIGNSIZE)));	/* force desired alignment */
+
 #if defined(__KERNEL__) || !defined(__GLIBC__) || (__GLIBC__ < 2)
 
 #include <asm/socket.h>			/* arch-dependent defines	*/
@@ -23,6 +38,8 @@ struct linger {
 	int		l_onoff;	/* Linger active		*/
 	int		l_linger;	/* How long to linger for	*/
 };
+
+#define sockaddr_storage __kernel_sockaddr_storage
 
 /*
  *	As we do 4.4BSD message passing we use a 4.4BSD message passing
@@ -70,6 +87,10 @@ struct cmsghdr {
 				  (struct cmsghdr *)(ctl) : \
 				  (struct cmsghdr *)NULL)
 #define CMSG_FIRSTHDR(msg)	__CMSG_FIRSTHDR((msg)->msg_control, (msg)->msg_controllen)
+#define CMSG_OK(mhdr, cmsg) ((cmsg)->cmsg_len >= sizeof(struct cmsghdr) && \
+			     (cmsg)->cmsg_len <= (unsigned long) \
+			     ((mhdr)->msg_controllen - \
+			      ((char *)(cmsg) - (char *)(mhdr)->msg_control)))
 
 /*
  *	This mess will go away with glibc
@@ -120,7 +141,6 @@ __KINLINE struct cmsghdr * cmsg_nxthdr (struct msghdr *__msg, struct cmsghdr *__
 
 #define	SCM_RIGHTS	0x01		/* rw: access rights (array of int) */
 #define SCM_CREDENTIALS 0x02		/* rw: struct ucred		*/
-#define SCM_CONNECT	0x03		/* rw: struct scm_connect	*/
 
 struct ucred {
 	__u32	pid;
@@ -227,6 +247,7 @@ struct ucred {
 #define SOL_UDP		17
 #define SOL_IPV6	41
 #define SOL_ICMPV6	58
+#define SOL_SCTP	132
 #define SOL_RAW		255
 #define SOL_IPX		256
 #define SOL_AX25	257

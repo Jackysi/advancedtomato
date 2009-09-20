@@ -12,7 +12,11 @@
 #include <asm/io.h>
 #include <asm/segment.h>
 
+#if 0
+# define DBG_DEVS(args)         printk args
+#else
 # define DBG_DEVS(args)
+#endif
 
 #define KB              1024
 #define MB              (1024*KB)
@@ -929,6 +933,18 @@ void SMC37c669_display_device_info(
  *
  *--
  */
+#if 0
+/* $INCLUDE_OPTIONS$ */
+#include    "cp$inc:platform_io.h"
+/* $INCLUDE_OPTIONS_END$ */
+#include    "cp$src:common.h"
+#include    "cp$inc:prototypes.h"
+#include    "cp$src:kernel_def.h"
+#include    "cp$src:msg_def.h"
+#include    "cp$src:smcc669_def.h"
+/* Platform-specific includes */
+#include    "cp$src:platform.h"
+#endif
 
 #ifndef TRUE
 #define TRUE 1
@@ -1051,6 +1067,14 @@ static unsigned int SMC37c669_is_device_enabled(
     unsigned int func 
 );
 
+#if 0
+static unsigned int SMC37c669_get_device_config( 
+    unsigned int func, 
+    int *port, 
+    int *irq, 
+    int *drq 
+);
+#endif
 
 static void SMC37c669_config_mode( 
     unsigned int enable 
@@ -1079,6 +1103,62 @@ static int SMC37c669_xlate_drq(
     unsigned int drq 
 );
 
+#if 0
+/*
+** External Data Declarations
+*/
+
+extern struct LOCK spl_atomic;
+
+/*
+** External Function Prototype Declarations
+*/
+
+/* From kernel_alpha.mar */
+extern spinlock( 
+    struct LOCK *spl 
+);
+
+extern spinunlock( 
+    struct LOCK *spl 
+);
+
+/* From filesys.c */
+int allocinode(
+    char *name, 
+    int can_create, 
+    struct INODE **ipp
+);
+
+extern int null_procedure( void );
+
+int smcc669_init( void );
+int smcc669_open( struct FILE *fp, char *info, char *next, char *mode );
+int smcc669_read( struct FILE *fp, int size, int number, unsigned char *buf );
+int smcc669_write( struct FILE *fp, int size, int number, unsigned char *buf );
+int smcc669_close( struct FILE *fp );
+
+struct DDB smc_ddb = {
+	"smc",			/* how this routine wants to be called	*/
+	smcc669_read,		/* read routine				*/
+	smcc669_write,		/* write routine			*/
+	smcc669_open,		/* open routine				*/
+	smcc669_close,		/* close routine			*/
+	null_procedure,		/* name expansion routine		*/
+	null_procedure,		/* delete routine			*/
+	null_procedure,		/* create routine			*/
+	null_procedure,		/* setmode				*/
+	null_procedure,		/* validation routine			*/
+	0,			/* class specific use			*/
+	1,			/* allows information			*/
+	0,			/* must be stacked			*/
+	0,			/* is a flash update driver		*/
+	0,			/* is a block device			*/
+	0,			/* not seekable				*/
+	0,			/* is an Ethernet device		*/
+	0,			/* is a filesystem driver		*/
+};
+#endif
 
 #define spinlock(x)
 #define spinunlock(x)
@@ -1780,6 +1860,76 @@ static unsigned int __init SMC37c669_is_device_enabled ( unsigned int func )
 }
 
 
+#if 0
+/*
+**++
+**  FUNCTIONAL DESCRIPTION:
+**
+**      This function retrieves the configuration information of a 
+**	device function within the SMC37c699 Super I/O controller.
+**
+**  FORMAL PARAMETERS:
+**
+**      func:
+**          Which device function
+**       
+**      port:
+**          I/O port returned
+**	 
+**      irq:
+**          IRQ returned
+**	 
+**      drq:
+**          DMA channel returned
+**
+**  RETURN VALUE:
+**
+**      Returns TRUE if the device configuration was successfully
+**	retrieved, otherwise, FALSE.
+**
+**  SIDE EFFECTS:
+**
+**      The data pointed to by the port, irq, and drq parameters
+**	my be modified even if the configuration is not successfully
+**	retrieved.
+**
+**  DESIGN:
+**
+**      The device configuration is fetched from the local shadow
+**	copy.  Any unused parameters will be set to -1.  Any
+**	parameter which is not desired can specify the NULL
+**	pointer.
+**
+**--
+*/
+static unsigned int __init SMC37c669_get_device_config (
+    unsigned int func,
+    int *port,
+    int *irq,
+    int *drq )
+{
+    struct DEVICE_CONFIG *cp;
+    unsigned int ret_val = FALSE;
+/*
+** Check for a valid device configuration
+*/
+    if ( ( cp = SMC37c669_get_config( func ) ) != NULL ) {
+    	if ( drq != NULL ) {
+	    *drq = cp->drq;
+	    ret_val = TRUE;
+	}
+	if ( irq != NULL ) {
+	    *irq = cp->irq;
+	    ret_val = TRUE;
+	}
+	if ( port != NULL ) {
+	    *port = cp->port1;
+	    ret_val = TRUE;
+	}
+    }
+    return ret_val;
+}
+#endif
 
 
 /*
@@ -2249,6 +2399,111 @@ static int __init SMC37c669_xlate_drq ( unsigned int drq )
     return translated_drq;
 }
 
+#if 0
+int __init smcc669_init ( void )
+{
+    struct INODE *ip;
+
+    allocinode( smc_ddb.name, 1, &ip );
+    ip->dva = &smc_ddb;
+    ip->attr = ATTR$M_WRITE | ATTR$M_READ;
+    ip->len[0] = 0x30;
+    ip->misc = 0;
+    INODE_UNLOCK( ip );
+
+    return msg_success;
+}
+
+int __init smcc669_open( struct FILE *fp, char *info, char *next, char *mode )
+{
+    struct INODE *ip;
+/*
+** Allow multiple readers but only one writer.  ip->misc keeps track
+** of the number of writers
+*/
+    ip = fp->ip;
+    INODE_LOCK( ip );
+    if ( fp->mode & ATTR$M_WRITE ) {
+	if ( ip->misc ) {
+	    INODE_UNLOCK( ip );
+	    return msg_failure;	    /* too many writers */
+	}
+	ip->misc++;
+    }
+/*
+** Treat the information field as a byte offset
+*/
+    *fp->offset = xtoi( info );
+    INODE_UNLOCK( ip );
+
+    return msg_success;
+}
+
+int __init smcc669_close( struct FILE *fp )
+{
+    struct INODE *ip;
+
+    ip = fp->ip;
+    if ( fp->mode & ATTR$M_WRITE ) {
+	INODE_LOCK( ip );
+	ip->misc--;
+	INODE_UNLOCK( ip );
+    }
+    return msg_success;
+}
+
+int __init smcc669_read( struct FILE *fp, int size, int number, unsigned char *buf )
+{
+    int i;
+    int length;
+    int nbytes;
+    struct INODE *ip;
+
+/*
+** Always access a byte at a time
+*/
+    ip = fp->ip;
+    length = size * number;
+    nbytes = 0;
+
+    SMC37c669_config_mode( TRUE );
+    for ( i = 0; i < length; i++ ) {
+	if ( !inrange( *fp->offset, 0, ip->len[0] ) ) 
+	    break;
+	*buf++ = SMC37c669_read_config( *fp->offset );
+	*fp->offset += 1;
+	nbytes++;
+    }
+    SMC37c669_config_mode( FALSE );
+    return nbytes;
+}
+
+int __init smcc669_write( struct FILE *fp, int size, int number, unsigned char *buf )
+{
+    int i;
+    int length;
+    int nbytes;
+    struct INODE *ip;
+/*
+** Always access a byte at a time
+*/
+    ip = fp->ip;
+    length = size * number;
+    nbytes = 0;
+
+    SMC37c669_config_mode( TRUE );
+    for ( i = 0; i < length; i++ ) {
+	if ( !inrange( *fp->offset, 0, ip->len[0] ) ) 
+	    break;
+	SMC37c669_write_config( *fp->offset, *buf );
+	*fp->offset += 1;
+	buf++;
+	nbytes++;
+    }
+    SMC37c669_config_mode( FALSE );
+    return nbytes;
+}
+#endif
 
 void __init
 SMC37c669_dump_registers(void)

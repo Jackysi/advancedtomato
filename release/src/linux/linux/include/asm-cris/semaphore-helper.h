@@ -1,7 +1,6 @@
-/* $Id: semaphore-helper.h,v 1.1.1.4 2003/10/14 08:09:09 sparq Exp $
- *
+/*
  * SMP- and interrupt-safe semaphores helper functions. Generic versions, no
- * optimizations whatsoever... 
+ * optimizations whatsoever...
  *
  */
 
@@ -19,12 +18,12 @@
 /*
  * These two _must_ execute atomically wrt each other.
  */
-static inline void wake_one_more(struct semaphore * sem)
+extern inline void wake_one_more(struct semaphore * sem)
 {
 	atomic_inc(&sem->waking);
 }
 
-static inline int waking_non_zero(struct semaphore *sem)
+extern inline int waking_non_zero(struct semaphore *sem)
 {
 	unsigned long flags;
 	int ret = 0;
@@ -38,7 +37,7 @@ static inline int waking_non_zero(struct semaphore *sem)
 	return ret;
 }
 
-static inline int waking_non_zero_interruptible(struct semaphore *sem,
+extern inline int waking_non_zero_interruptible(struct semaphore *sem,
 						struct task_struct *tsk)
 {
 	int ret = 0;
@@ -56,7 +55,7 @@ static inline int waking_non_zero_interruptible(struct semaphore *sem,
 	return ret;
 }
 
-static inline int waking_non_zero_trylock(struct semaphore *sem)
+extern inline int waking_non_zero_trylock(struct semaphore *sem)
 {
         int ret = 1;
 	unsigned long flags;
@@ -73,5 +72,3 @@ static inline int waking_non_zero_trylock(struct semaphore *sem)
 }
 
 #endif /* _ASM_SEMAPHORE_HELPER_H */
-
-

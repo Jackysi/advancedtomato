@@ -10,7 +10,7 @@
  *	5 is about right for 28.8 upwards. Below that double for every
  *	halving of speed or so. - ie about 20 for 9600 baud.
  */
-#define SHAPER_LATENCY	(5*HZ)
+#define SHAPER_LATENCY	(5L*HZ)
 #define SHAPER_MAXSLIP	2
 #define SHAPER_BURST	(HZ/50)		/* Good for >128K then */
 
@@ -21,8 +21,8 @@ struct shaper
 	__u32 bitspersec;
 	__u32 shapelatency;
 	__u32 shapeclock;
-	__u32 recovery;		/* Time we can next clock a packet out on
-				   an empty queue */
+	unsigned long recovery;		/* Time we can next clock a packet out on
+					   an empty queue */
         unsigned long locked;
         struct net_device_stats stats;
 	struct net_device *dev;

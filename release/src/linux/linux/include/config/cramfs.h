@@ -1,1 +1,0 @@
-#define CONFIG_CRAMFS 1

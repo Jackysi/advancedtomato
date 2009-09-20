@@ -137,7 +137,7 @@ void xdr_zero_iovec(struct iovec *, int, size_t);
  * XDR buffer helper functions
  */
 extern int xdr_kmap(struct iovec *, struct xdr_buf *, unsigned int);
-extern void xdr_kunmap(struct xdr_buf *, unsigned int);
+extern void xdr_kunmap(struct xdr_buf *, unsigned int, int);
 extern void xdr_shift_buf(struct xdr_buf *, size_t);
 
 /*

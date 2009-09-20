@@ -158,7 +158,7 @@ void filter_setup_journal_ops(struct filter_fs *ops, char *cache_type)
 
         if ( strlen(cache_type) == strlen("ext3") &&
              memcmp(cache_type, "ext3", strlen("ext3")) == 0 ) {
-#if defined(CONFIG_EXT3_FS) || defined(CONFIG_EXT3_FS_MODULE)
+#if defined(CONFIG_EXT3_FS) || defined (CONFIG_EXT3_FS_MODULE)
                 ops->o_trops = &presto_ext3_journal_ops;
 #else
                 ops->o_trops = NULL;
@@ -178,19 +178,29 @@ void filter_setup_journal_ops(struct filter_fs *ops, char *cache_type)
 
         if ( strlen(cache_type) == strlen("reiserfs") &&
              memcmp(cache_type, "reiserfs", strlen("reiserfs")) == 0 ) {
+#if 0
+		/* #if defined(CONFIG_REISERFS_FS) || defined(CONFIG_REISERFS_FS_MODULE) */
+                ops->o_trops = &presto_reiserfs_journal_ops;
+#else
                 ops->o_trops = NULL;
+#endif
                 FDEBUG(D_SUPER, "ops at %p\n", ops);
         }
 
         if ( strlen(cache_type) == strlen("xfs") &&
              memcmp(cache_type, "xfs", strlen("xfs")) == 0 ) {
+#if 0
+/*#if defined(CONFIG_XFS_FS) || defined (CONFIG_XFS_FS_MODULE) */
+                ops->o_trops = &presto_xfs_journal_ops;
+#else
                 ops->o_trops = NULL;
+#endif
                 FDEBUG(D_SUPER, "ops at %p\n", ops);
         }
 
         if ( strlen(cache_type) == strlen("obdfs") &&
              memcmp(cache_type, "obdfs", strlen("obdfs")) == 0 ) {
-#if defined(CONFIG_OBDFS_FS) || defined(CONFIG_OBDFS_FS_MODULE)
+#if defined(CONFIG_OBDFS_FS) || defined (CONFIG_OBDFS_FS_MODULE)
                 ops->o_trops = presto_obdfs_journal_ops;
 #else
                 ops->o_trops = NULL;
@@ -244,8 +254,8 @@ struct filter_fs *filter_get_filter_fs(const char *cache_type)
         if (ops == NULL) {
                 CERROR("prepare to die: unrecognized cache type for Filter\n");
         }
-        return ops;
         FEXIT;
+        return ops;
 }
 
 
@@ -345,6 +355,11 @@ void filter_setup_dir_ops(struct filter_fs *cache, struct inode *inode, struct i
                 cache_filter_iops->permission = filter_iops->permission;
         if (cache_iops->getattr)
                 cache_filter_iops->getattr = filter_iops->getattr;
+        /* Some filesystems do not use a setattr method of their own
+           instead relying on inode_setattr/write_inode. We still need to
+           journal these so we make setattr an unconditional operation. 
+           XXX: we should probably check for write_inode. SHP
+        */
         /*if (cache_iops->setattr)*/
                 cache_filter_iops->setattr = filter_iops->setattr;
 #ifdef CONFIG_FS_EXT_ATTR
@@ -401,6 +416,7 @@ void filter_setup_file_ops(struct filter_fs *cache, struct inode *inode, struct 
                 pr_iops->setattr = filter_iops->setattr;
         if (cache_iops->getattr)
                 pr_iops->getattr = filter_iops->getattr;
+        /* XXX Should this be conditional rmr ? */
         pr_iops->permission = filter_iops->permission;
 #ifdef CONFIG_FS_EXT_ATTR
     	/* For now we assume that posix acls are handled through extended
@@ -421,6 +437,7 @@ void filter_setup_file_ops(struct filter_fs *cache, struct inode *inode, struct 
         FEXIT;
 }
 
+/* XXX in 2.3 there are "fast" and "slow" symlink ops for ext2 XXX */
 void filter_setup_symlink_ops(struct filter_fs *cache, struct inode *inode, struct inode_operations *filter_iops, struct file_operations *filter_fops)
 {
         struct inode_operations *pr_iops;

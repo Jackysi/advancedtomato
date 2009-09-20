@@ -166,6 +166,24 @@ void __init handle_chipset(void)
 
 static void zoran_set_geo(struct zoran* ztv, struct vidinfo* i);
 
+#if 0 /* unused */
+static
+void zoran_dump(struct zoran *ztv)
+{
+	char	str[256];
+	char	*p=str; /* shut up, gcc! */
+	int	i;
+
+	for (i=0; i<0x60; i+=4) {
+		if ((i % 16) == 0) {
+			if (i) printk("%s\n",str);
+			p = str;
+			p+= sprintf(str, KERN_DEBUG "       %04x: ",i);
+		}
+		p += sprintf(p, "%08x ",zrread(i));
+	}
+}
+#endif /* unused */
 
 static
 void reap_states(struct zoran* ztv)
@@ -1682,12 +1700,12 @@ long vbi_read(struct video_device* dev, char* buf, unsigned long count, int nonb
 			for (x=0; optr+1<eptr && x<-done->w; x++)
 			{
 				unsigned char a = iptr[x*2];
-				*optr++ = a;
-				*optr++ = a;
+				__put_user(a, optr++);
+				__put_user(a, optr++);
 			}
 			/* and clear the rest of the line */
 			for (x*=2; optr<eptr && x<done->bpl; x++)
-				*optr++ = 0;
+				__put_user(0, optr++);
 			/* next line */
 			iptr += done->bpl;
 		}
@@ -1704,10 +1722,10 @@ long vbi_read(struct video_device* dev, char* buf, unsigned long count, int nonb
 		{
 			/* copy to doubled data to userland */
 			for (x=0; optr<eptr && x<-done->w; x++)
-				*optr++ = iptr[x*2];
+				__put_user(iptr[x*2], optr++);
 			/* and clear the rest of the line */
 			for (;optr<eptr && x<done->bpl; x++)
-				*optr++ = 0;
+				__put_user(0, optr++);
 			/* next line */
 			iptr += done->bpl;
 		}
@@ -1716,7 +1734,7 @@ long vbi_read(struct video_device* dev, char* buf, unsigned long count, int nonb
 	/* API compliance:
 	 * place the framenumber (half fieldnr) in the last long
 	 */
-	((ulong*)eptr)[-1] = done->fieldnr/2;
+	__put_user(done->fieldnr/2, ((ulong*)eptr)-1);
 	}
 
 	/* keep the engine running */

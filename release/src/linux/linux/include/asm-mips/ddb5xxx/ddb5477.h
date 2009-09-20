@@ -329,7 +329,7 @@ extern void ll_vrc5477_irq_disable(int vrc5477_irq);
  * debug routines
  */
 #ifndef __ASSEMBLY__
-#if defined(CONFIG_DEBUG)
+#if defined(CONFIG_RUNTIME_DEBUG)
 extern void vrc5477_show_pdar_regs(void);
 extern void vrc5477_show_pci_regs(void);
 extern void vrc5477_show_bar_regs(void);

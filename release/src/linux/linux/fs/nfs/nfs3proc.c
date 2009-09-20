@@ -300,11 +300,16 @@ nfs3_proc_unlink_setup(struct rpc_message *msg, struct dentry *dir, struct qstr 
 {
 	struct nfs3_diropargs	*arg;
 	struct nfs_fattr	*res;
+	struct unlinkxdr {
+		struct nfs3_diropargs arg;
+		struct nfs_fattr res;
+	} *ptr;
 
-	arg = (struct nfs3_diropargs *)kmalloc(sizeof(*arg)+sizeof(*res), GFP_KERNEL);
-	if (!arg)
+	ptr = (struct unlinkxdr *)kmalloc(sizeof(*ptr), GFP_KERNEL);
+	if (!ptr)
 		return -ENOMEM;
-	res = (struct nfs_fattr*)(arg + 1);
+	arg = &ptr->arg;
+	res = &ptr->res;
 	arg->fh = NFS_FH(dir->d_inode);
 	arg->name = name->name;
 	arg->len = name->len;
@@ -428,8 +433,6 @@ nfs3_proc_rmdir(struct inode *dir, struct qstr *name)
  * The decode function itself doesn't perform any decoding, it just makes
  * sure the reply is syntactically correct.
  *
- * Also note that this implementation handles both plain readdir and
- * readdirplus.
  */
 static int
 nfs3_proc_readdir(struct inode *dir, struct rpc_cred *cred,
@@ -443,11 +446,7 @@ nfs3_proc_readdir(struct inode *dir, struct rpc_cred *cred,
 	struct rpc_message	msg = { NFS3PROC_READDIR, &arg, &res, cred };
 	int			status;
 
-	if (plus)
-		msg.rpc_proc = NFS3PROC_READDIRPLUS;
-
-	dprintk("NFS call  readdir%s %d\n",
-			plus? "plus" : "", (unsigned int) cookie);
+	dprintk("NFS call  readdir %d\n", (unsigned int) cookie);
 
 	dir_attr.valid = 0;
 	status = rpc_call_sync(NFS_CLIENT(dir), &msg, 0);

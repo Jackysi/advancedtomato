@@ -1,7 +1,4 @@
 /*
- * BK Id: %F% %I% %G% %U% %#%
- */
-/*
  *  linux/include/asm-ppc/keyboard.h
  *
  *  Created 3 Nov 1996 by Geert Uytterhoeven
@@ -43,7 +40,7 @@ static inline int kbd_setkeycode(unsigned int scancode, unsigned int keycode)
 	else
 		return 0;
 }
-  
+
 static inline int kbd_getkeycode(unsigned int scancode)
 {
 	if ( ppc_md.kbd_getkeycode )
@@ -51,7 +48,7 @@ static inline int kbd_getkeycode(unsigned int scancode)
 	else
 		return 0;
 }
-  
+
 static inline int kbd_translate(unsigned char keycode, unsigned char *keycodep,
 				char raw_mode)
 {
@@ -60,7 +57,7 @@ static inline int kbd_translate(unsigned char keycode, unsigned char *keycodep,
 	else
 		return 0;
 }
-  
+
 static inline int kbd_unexpected_up(unsigned char keycode)
 {
 	if ( ppc_md.kbd_unexpected_up )
@@ -68,7 +65,7 @@ static inline int kbd_unexpected_up(unsigned char keycode)
 	else
 		return 0;
 }
-  
+
 static inline void kbd_leds(unsigned char leds)
 {
 	if ( ppc_md.kbd_leds )
@@ -104,7 +101,7 @@ extern unsigned long SYSRQ_KEY;
 /*
  * Machine specific bits for the PS/2 driver
  */
-#ifndef AUX_IRQ	
+#ifndef AUX_IRQ
 #define AUX_IRQ 12
 #endif
 

@@ -21,7 +21,7 @@
    This is access code for flashes using ARM's flash partitioning 
    standards.
 
-   $Id: integrator-flash.c,v 1.1.1.4 2003/10/14 08:08:17 sparq Exp $
+   $Id: integrator-flash.c,v 1.7 2001/11/01 20:55:47 rmk Exp $
 
 ======================================================================*/
 

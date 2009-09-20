@@ -31,7 +31,7 @@
 
 /* This is the shift that is applied to the UAC bits as stored in the 
    per-thread flags.  */
-#define UAC_SHIFT			6
+#define UAC_SHIFT			7
 
 #endif
 

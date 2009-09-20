@@ -1,4 +1,4 @@
-/* $Id: irq_imask.c,v 1.1.1.4 2003/10/14 08:07:47 sparq Exp $
+/* $Id: irq_imask.c,v 1.13 2001/07/12 08:13:56 gniibe Exp $
  *
  * linux/arch/sh/kernel/irq_imask.c
  *

@@ -1,5 +1,3 @@
-/* $Id: etraxi2c.h,v 1.1.1.4 2003/10/14 08:09:09 sparq Exp $ */
-
 #ifndef _LINUX_ETRAXI2C_H
 #define _LINUX_ETRAXI2C_H
 

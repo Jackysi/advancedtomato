@@ -29,34 +29,6 @@
 
 #include <linux/blk.h>
 
-#ifdef PARANOIA
-extern int requests_in;
-extern int requests_out;
-#endif
-
-static void
-nbd_end_request(struct request *req)
-{
-	struct buffer_head *bh;
-	unsigned nsect;
-	unsigned long flags;
-	int uptodate = (req->errors == 0) ? 1 : 0;
-
-#ifdef PARANOIA
-	requests_out++;
-#endif
-	spin_lock_irqsave(&io_request_lock, flags);
-	while((bh = req->bh) != NULL) {
-		nsect = bh->b_size >> 9;
-		blk_finished_io(nsect);
-		req->bh = bh->b_reqnext;
-		bh->b_reqnext = NULL;
-		bh->b_end_io(bh, uptodate);
-	}
-	blkdev_release_request(req);
-	spin_unlock_irqrestore(&io_request_lock, flags);
-}
-
 #define MAX_NBD 128
 
 struct nbd_device {
@@ -67,7 +39,7 @@ struct nbd_device {
 #define NBD_WRITE_NOCHK 0x0002
 	struct socket * sock;
 	struct file * file; 		/* If == NULL, device is not ready, yet	*/
-	int magic;			
+	int magic;			/* FIXME: not if debugging is off	*/
 	spinlock_t queue_lock;
 	struct list_head queue_head;	/* Requests are added here...			*/
 	struct semaphore tx_lock;

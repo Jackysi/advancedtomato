@@ -1,4 +1,4 @@
-/* $Id: c4.c,v 1.1.1.4 2003/10/14 08:08:11 sparq Exp $
+/* $Id: c4.c,v 1.1.4.1 2001/11/20 14:19:34 kai Exp $
  * 
  * Module for AVM C4 & C2 card.
  * 
@@ -22,6 +22,7 @@
 #include <linux/kernelcapi.h>
 #include <linux/init.h>
 #include <asm/io.h>
+#include <asm/processor.h>
 #include <asm/uaccess.h>
 #include <linux/netdevice.h>
 #include "capicmd.h"
@@ -29,7 +30,7 @@
 #include "capilli.h"
 #include "avmcard.h"
 
-static char *revision = "$Revision: 1.1.1.4 $";
+static char *revision = "$Revision: 1.1.4.1 $";
 
 #undef CONFIG_C4_DEBUG
 #undef CONFIG_C4_POLLDEBUG
@@ -151,6 +152,7 @@ static inline int wait_for_doorbell(avmcard *card, unsigned long t)
 	while (c4inmeml(card->mbase+DOORBELL) != 0xffffffff) {
 		if (!time_before(jiffies, stop))
 			return -1;
+		cpu_relax();
 	}
 	return 0;
 }
@@ -305,6 +307,7 @@ static void c4_reset(avmcard *card)
 		if (!time_before(jiffies, stop))
 			return;
 		c4outmeml(card->mbase+DOORBELL, DBELL_ADDR);
+		cpu_relax();
 	}
 
 	c4_poke(card, DC21285_ARMCSR_BASE + CHAN_1_CONTROL, 0);
@@ -328,6 +331,7 @@ static int c4_detect(avmcard *card)
 		if (!time_before(jiffies, stop))
 			return 2;
 		c4outmeml(card->mbase+DOORBELL, DBELL_ADDR);
+		cpu_relax();
 	}
 
 	c4_poke(card, DC21285_ARMCSR_BASE + CHAN_1_CONTROL, 0);

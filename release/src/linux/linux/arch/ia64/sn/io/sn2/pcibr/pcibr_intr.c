@@ -4,11 +4,10 @@
  * License.  See the file "COPYING" in the main directory of this archive
  * for more details.
  *
- * Copyright (C) 2001 Silicon Graphics, Inc. All rights reserved.
+ * Copyright (C) 2001-2003 Silicon Graphics, Inc. All rights reserved.
  */
 
 #include <linux/types.h>
-#include <linux/config.h>
 #include <linux/slab.h>
 #include <linux/module.h>
 #include <asm/sn/sgi.h>
@@ -28,29 +27,35 @@
 #include <asm/sn/prio.h>
 #include <asm/sn/xtalk/xbow.h>
 #include <asm/sn/ioc3.h>
-#include <asm/sn/eeprom.h>
 #include <asm/sn/io.h>
 #include <asm/sn/sn_private.h>
 
 #ifdef __ia64
-#define rmallocmap atemapalloc
-#define rmfreemap atemapfree
-#define rmfree atefree
-#define rmalloc atealloc
+inline int
+compare_and_swap_ptr(void **location, void *old_ptr, void *new_ptr)
+{
+	/* FIXME - compare_and_swap_ptr NOT ATOMIC */
+	if (*location == old_ptr) {
+		*location = new_ptr;
+		return(1);
+	}
+	else
+		return(0);
+}
 #endif
 
-unsigned		pcibr_intr_bits(pciio_info_t info, pciio_intr_line_t lines);
-pcibr_intr_t            pcibr_intr_alloc(devfs_handle_t, device_desc_t, pciio_intr_line_t, devfs_handle_t);
+unsigned		pcibr_intr_bits(pciio_info_t info, pciio_intr_line_t lines, int nslots);
+pcibr_intr_t            pcibr_intr_alloc(vertex_hdl_t, device_desc_t, pciio_intr_line_t, vertex_hdl_t);
 void                    pcibr_intr_free(pcibr_intr_t);
 void              pcibr_setpciint(xtalk_intr_t);
-int                     pcibr_intr_connect(pcibr_intr_t);
+int                     pcibr_intr_connect(pcibr_intr_t, intr_func_t, intr_arg_t);
 void                    pcibr_intr_disconnect(pcibr_intr_t);
 
-devfs_handle_t            pcibr_intr_cpu_get(pcibr_intr_t);
+vertex_hdl_t            pcibr_intr_cpu_get(pcibr_intr_t);
 void                    pcibr_xintr_preset(void *, int, xwidgetnum_t, iopaddr_t, xtalk_intr_vector_t);
 void                    pcibr_intr_func(intr_arg_t);
 
-extern pcibr_info_t      pcibr_info_get(devfs_handle_t);
+extern pcibr_info_t      pcibr_info_get(vertex_hdl_t);
 
 /* =====================================================================
  *    INTERRUPT MANAGEMENT
@@ -58,9 +63,9 @@ extern pcibr_info_t      pcibr_info_get(devfs_handle_t);
 
 unsigned
 pcibr_intr_bits(pciio_info_t info,
-		pciio_intr_line_t lines)
+		pciio_intr_line_t lines, int nslots)
 {
-    pciio_slot_t            slot = pciio_info_slot_get(info);
+    pciio_slot_t            slot = PCIBR_INFO_SLOT_GET_INT(info);
     unsigned		    bbits = 0;
 
     /*
@@ -79,7 +84,7 @@ pcibr_intr_bits(pciio_info_t info,
      *      7       7 3 7 3
      */
 
-    if (slot < 8) {
+    if (slot < nslots) {
 	if (lines & (PCIIO_INTR_LINE_A| PCIIO_INTR_LINE_C))
 	    bbits |= 1 << slot;
 	if (lines & (PCIIO_INTR_LINE_B| PCIIO_INTR_LINE_D))
@@ -98,7 +103,7 @@ pcibr_wrap_get(pcibr_intr_cbuf_t cbuf)
     pcibr_intr_wrap_t	wrap;
 
 	if (cbuf->ib_in == cbuf->ib_out)
-	    PRINT_PANIC( "pcibr intr circular buffer empty, cbuf=0x%p, ib_in=ib_out=%d\n",
+	    panic( "pcibr intr circular buffer empty, cbuf=0x%p, ib_in=ib_out=%d\n",
 		(void *)cbuf, cbuf->ib_out);
 
 	wrap = cbuf->ib_cbuf[cbuf->ib_out++];
@@ -113,24 +118,119 @@ void
 pcibr_wrap_put(pcibr_intr_wrap_t wrap, pcibr_intr_cbuf_t cbuf)
 {
 	int	in;
-	int	s;
 
 	/*
 	 * Multiple CPUs could be executing this code simultaneously
 	 * if a handler has registered multiple interrupt lines and
 	 * the interrupts are directed to different CPUs.
 	 */
-	s = mutex_spinlock(&cbuf->ib_lock);
+	spin_lock(&cbuf->ib_lock);
 	in = (cbuf->ib_in + 1) % IBUFSIZE;
 	if (in == cbuf->ib_out) 
-	    PRINT_PANIC( "pcibr intr circular buffer full, cbuf=0x%p, ib_in=%d\n",
+	    panic( "pcibr intr circular buffer full, cbuf=0x%p, ib_in=%d\n",
 		(void *)cbuf, cbuf->ib_in);
 
 	cbuf->ib_cbuf[cbuf->ib_in] = wrap;
 	cbuf->ib_in = in;
-	mutex_spinunlock(&cbuf->ib_lock, s);
+	spin_unlock(&cbuf->ib_lock);
 	return;
 }
+
+/*
+ *	On SN systems there is a race condition between a PIO read response
+ *	and DMA's.  In rare cases, the read response may beat the DMA, causing
+ *	the driver to think that data in memory is complete and meaningful.
+ *	This code eliminates that race.
+ *	This routine is called by the PIO read routines after doing the read.
+ *	This routine then forces a fake interrupt on another line, which
+ *	is logically associated with the slot that the PIO is addressed to.
+ *	(see sn_dma_flush_init() )
+ *	It then spins while watching the memory location that the interrupt
+ *	is targetted to.  When the interrupt response arrives, we are sure
+ *	that the DMA has landed in memory and it is safe for the driver
+ *	to proceed.
+ */
+
+extern struct sn_flush_nasid_entry flush_nasid_list[MAX_NASIDS];
+
+void
+sn_dma_flush(unsigned long addr) {
+	nasid_t nasid;
+	int wid_num;
+	volatile struct sn_flush_device_list *p;
+	int i,j;
+	int bwin;
+	unsigned long flags;
+
+	nasid = NASID_GET(addr);
+	wid_num = SWIN_WIDGETNUM(addr);
+	bwin = BWIN_WINDOWNUM(addr);
+
+	if (flush_nasid_list[nasid].widget_p == NULL) return;
+	if (bwin > 0) {
+		bwin--;
+		switch (bwin) {
+			case 0:
+				wid_num = ((flush_nasid_list[nasid].iio_itte1) >> 8) & 0xf;
+				break;
+			case 1:
+				wid_num = ((flush_nasid_list[nasid].iio_itte2) >> 8) & 0xf;
+				break;
+			case 2: 
+				wid_num = ((flush_nasid_list[nasid].iio_itte3) >> 8) & 0xf;
+				break;
+			case 3: 
+				wid_num = ((flush_nasid_list[nasid].iio_itte4) >> 8) & 0xf;
+				break;
+			case 4: 
+				wid_num = ((flush_nasid_list[nasid].iio_itte5) >> 8) & 0xf;
+				break;
+			case 5: 
+				wid_num = ((flush_nasid_list[nasid].iio_itte6) >> 8) & 0xf;
+				break;
+			case 6: 
+				wid_num = ((flush_nasid_list[nasid].iio_itte7) >> 8) & 0xf;
+				break;
+		}
+	}
+	if (flush_nasid_list[nasid].widget_p == NULL) return;
+	if (flush_nasid_list[nasid].widget_p[wid_num] == NULL) return;
+	p = &flush_nasid_list[nasid].widget_p[wid_num][0];
+
+	// find a matching BAR
+
+	for (i=0; i<DEV_PER_WIDGET;i++) {
+		for (j=0; j<PCI_ROM_RESOURCE;j++) {
+			if (p->bar_list[j].start == 0) break;
+			if (addr >= p->bar_list[j].start && addr <= p->bar_list[j].end) break;
+		}
+		if (j < PCI_ROM_RESOURCE && p->bar_list[j].start != 0) break;
+		p++;
+	}
+
+	// if no matching BAR, return without doing anything.
+
+	if (i == DEV_PER_WIDGET) return;
+
+	spin_lock_irqsave(&p->flush_lock, flags);
+
+	p->flush_addr = 0;
+
+	// force an interrupt.
+
+	*(bridgereg_t *)(p->force_int_addr) = 1;
+
+	// wait for the interrupt to come back.
+
+	while (p->flush_addr != 0x10f);
+
+	// okay, everything is synched up.
+	spin_unlock_irqrestore(&p->flush_lock, flags);
+
+	return;
+}
+
+EXPORT_SYMBOL(sn_dma_flush);
 
 /*
  *	There are end cases where a deadlock can occur if interrupt 
@@ -165,49 +265,44 @@ pcibr_wrap_put(pcibr_intr_wrap_t wrap, pcibr_intr_cbuf_t cbuf)
  *	to check if a specific Bridge b_int_status bit is set, and if so,
  *	cause the setting of the corresponding interrupt bit.
  *
- *	On a XBridge (IP35), we do this by writing the appropriate Bridge Force 
+ *	On a XBridge (SN1) and PIC (SN2), we do this by writing the appropriate Bridge Force 
  *	Interrupt register.
  */
 void
-pcibr_force_interrupt(pcibr_intr_wrap_t wrap)
+pcibr_force_interrupt(pcibr_intr_t intr)
 {
 	unsigned	bit;
-	pcibr_soft_t    pcibr_soft = wrap->iw_soft;
+	unsigned	bits;
+	pcibr_soft_t    pcibr_soft = intr->bi_soft;
 	bridge_t       *bridge = pcibr_soft->bs_base;
-	cpuid_t cpuvertex_to_cpuid(devfs_handle_t vhdl);
 
-	bit = wrap->iw_intr;
+	bits = intr->bi_ibits;
+	for (bit = 0; bit < 8; bit++) {
+		if (bits & (1 << bit)) {
 
-	if (pcibr_soft->bs_xbridge) {
-	    bridge->b_force_pin[bit].intr = 1;
-	} else if ((1 << bit) & *wrap->iw_stat) {
-	    cpuid_t	    cpu;
-	    unsigned        intr_bit;
-	    xtalk_intr_t    xtalk_intr =
-				pcibr_soft->bs_intr[bit].bsi_xtalk_intr;
+			PCIBR_DEBUG((PCIBR_DEBUG_INTR, pcibr_soft->bs_vhdl,
+		    		"pcibr_force_interrupt: bit=0x%x\n", bit));
 
-	    intr_bit = (short) xtalk_intr_vector_get(xtalk_intr);
-	    cpu = cpuvertex_to_cpuid(xtalk_intr_cpu_get(xtalk_intr));
-#if defined(CONFIG_IA64_SGI_SN1)
-	    REMOTE_CPU_SEND_INTR(cpu, intr_bit);
-#endif
+			if (IS_XBRIDGE_OR_PIC_SOFT(pcibr_soft)) {
+	    			bridge->b_force_pin[bit].intr = 1;
+			}
+		}
 	}
 }
 
 /*ARGSUSED */
 pcibr_intr_t
-pcibr_intr_alloc(devfs_handle_t pconn_vhdl,
+pcibr_intr_alloc(vertex_hdl_t pconn_vhdl,
 		 device_desc_t dev_desc,
 		 pciio_intr_line_t lines,
-		 devfs_handle_t owner_dev)
+		 vertex_hdl_t owner_dev)
 {
     pcibr_info_t            pcibr_info = pcibr_info_get(pconn_vhdl);
-    pciio_slot_t            pciio_slot = pcibr_info->f_slot;
+    pciio_slot_t            pciio_slot = PCIBR_INFO_SLOT_GET_INT(pcibr_info);
     pcibr_soft_t            pcibr_soft = (pcibr_soft_t) pcibr_info->f_mfast;
-    devfs_handle_t            xconn_vhdl = pcibr_soft->bs_conn;
+    vertex_hdl_t            xconn_vhdl = pcibr_soft->bs_conn;
     bridge_t               *bridge = pcibr_soft->bs_base;
     int                     is_threaded = 0;
-    int                     thread_swlevel;
 
     xtalk_intr_t           *xtalk_intr_p;
     pcibr_intr_t           *pcibr_intr_p;
@@ -222,41 +317,32 @@ pcibr_intr_alloc(devfs_handle_t pconn_vhdl,
     pcibr_intr_list_t       intr_list;
     bridgereg_t             int_dev;
 
-#if DEBUG && INTR_DEBUG
-    printk("%v: pcibr_intr_alloc\n"
-	    "%v:%s%s%s%s%s\n",
-	    owner_dev, pconn_vhdl,
-	    !(lines & 15) ? " No INTs?" : "",
-	    lines & 1 ? " INTA" : "",
-	    lines & 2 ? " INTB" : "",
-	    lines & 4 ? " INTC" : "",
-	    lines & 8 ? " INTD" : "");
-#endif
+
+    PCIBR_DEBUG_ALWAYS((PCIBR_DEBUG_INTR_ALLOC, pconn_vhdl,
+    		"pcibr_intr_alloc: %s%s%s%s%s\n",
+		!(lines & 15) ? " No INTs?" : "",
+		lines & 1 ? " INTA" : "",
+		lines & 2 ? " INTB" : "",
+		lines & 4 ? " INTC" : "",
+		lines & 8 ? " INTD" : ""));
 
     NEW(pcibr_intr);
     if (!pcibr_intr)
 	return NULL;
 
-    if (dev_desc) {
-	cpuid_t intr_target_from_desc(device_desc_t, int);
-    } else {
-	extern int default_intr_pri;
-
-	is_threaded = 1; /* PCI interrupts are threaded, by default */
-	thread_swlevel = default_intr_pri;
-    }
-
     pcibr_intr->bi_dev = pconn_vhdl;
     pcibr_intr->bi_lines = lines;
     pcibr_intr->bi_soft = pcibr_soft;
     pcibr_intr->bi_ibits = 0;		/* bits will be added below */
+    pcibr_intr->bi_func = 0;            /* unset until connect */
+    pcibr_intr->bi_arg = 0;             /* unset until connect */
     pcibr_intr->bi_flags = is_threaded ? 0 : PCIIO_INTR_NOTHREAD;
     pcibr_intr->bi_mustruncpu = CPU_NONE;
     pcibr_intr->bi_ibuf.ib_in = 0;
     pcibr_intr->bi_ibuf.ib_out = 0;
-    mutex_spinlock_init(&pcibr_intr->bi_ibuf.ib_lock);
-
-    pcibr_int_bits = pcibr_soft->bs_intr_bits((pciio_info_t)pcibr_info, lines);
+    spin_lock_init(&pcibr_intr->bi_ibuf.ib_lock);
+    pcibr_int_bits = pcibr_soft->bs_intr_bits((pciio_info_t)pcibr_info, lines, 
+		PCIBR_NUM_SLOTS(pcibr_soft));
 
 
     /*
@@ -265,9 +351,8 @@ pcibr_intr_alloc(devfs_handle_t pconn_vhdl,
      * to, and make sure there are xtalk resources
      * allocated for it.
      */
-#if DEBUG && INTR_DEBUG
-    printk("pcibr_int_bits: 0x%X\n", pcibr_int_bits);
-#endif 
+    PCIBR_DEBUG_ALWAYS((PCIBR_DEBUG_INTR_ALLOC, pconn_vhdl,
+		"pcibr_intr_alloc: pcibr_int_bits: 0x%x\n", pcibr_int_bits));
     for (pcibr_int_bit = 0; pcibr_int_bit < 8; pcibr_int_bit ++) {
 	if (pcibr_int_bits & (1 << pcibr_int_bit)) {
 	    xtalk_intr_p = &pcibr_soft->bs_intr[pcibr_int_bit].bsi_xtalk_intr;
@@ -282,10 +367,9 @@ pcibr_intr_alloc(devfs_handle_t pconn_vhdl,
 		 *    ordering problems with DMA, completion interrupts, and error
 		 *    interrupts. (Use of xconn_vhdl forces this.)
 		 *
-		 * 2) On IP35, addressing constraints on IP35 and Bridge force
+		 * 2) On SN1, addressing constraints on SN1 and Bridge force
 		 *    us to use a single PI number for all interrupts from a
-		 *    single Bridge. (IP35-specific code forces this, and we
-		 *    verify in pcibr_setwidint.)
+		 *    single Bridge. (SN1-specific code forces this).
 		 */
 
 		/*
@@ -298,9 +382,9 @@ pcibr_intr_alloc(devfs_handle_t pconn_vhdl,
 		 */
 		xtalk_intr = xtalk_intr_alloc_nothd(xconn_vhdl, dev_desc, 
 			owner_dev);
-#if DEBUG && INTR_DEBUG
-		printk("%v: xtalk_intr=0x%X\n", xconn_vhdl, xtalk_intr);
-#endif
+
+		PCIBR_DEBUG_ALWAYS((PCIBR_DEBUG_INTR_ALLOC, pconn_vhdl,
+			    "pcibr_intr_alloc: xtalk_intr=0x%x\n", xtalk_intr));
 
 		/* both an assert and a runtime check on this:
 		 * we need to check in non-DEBUG kernels, and
@@ -338,10 +422,9 @@ pcibr_intr_alloc(devfs_handle_t pconn_vhdl,
 		    int_dev |= pciio_slot << BRIDGE_INT_DEV_SHFT(pcibr_int_bit);
 		    bridge->b_int_device = int_dev;	/* XXXMP */
 
-#if DEBUG && INTR_DEBUG
-		    printk("%v: bridge intr bit %d clears my wrb\n",
-			    pconn_vhdl, pcibr_int_bit);
-#endif
+		    PCIBR_DEBUG_ALWAYS((PCIBR_DEBUG_INTR_ALLOC, pconn_vhdl,
+		    		"bridge intr bit %d clears my wrb\n",
+				pcibr_int_bit));
 		} else {
 		    /* someone else got one allocated first;
 		     * free the one we just created, and
@@ -373,25 +456,17 @@ pcibr_intr_alloc(devfs_handle_t pconn_vhdl,
 	    intr_entry->il_wrbf = &(bridge->b_wr_req_buf[pciio_slot].reg);
 	    intr_list_p = 
 		&pcibr_soft->bs_intr[pcibr_int_bit].bsi_pcibr_intr_wrap.iw_list;
-#if DEBUG && INTR_DEBUG
-#if defined(SUPPORT_PRINTING_V_FORMAT)
-	    printk("0x%x: Bridge bit %d wrap=0x%x\n",
-		pconn_vhdl, pcibr_int_bit,
-		pcibr_soft->bs_intr[pcibr_int_bit].bsi_pcibr_intr_wrap);
-#else
-	    printk("%v: Bridge bit %d wrap=0x%x\n",
-		pconn_vhdl, pcibr_int_bit,
-		pcibr_soft->bs_intr[pcibr_int_bit].bsi_pcibr_intr_wrap);
-#endif
-#endif
+
+	    PCIBR_DEBUG_ALWAYS((PCIBR_DEBUG_INTR_ALLOC, pconn_vhdl,
+			"Bridge bit 0x%x wrap=0x%x\n", pcibr_int_bit,
+			pcibr_soft->bs_intr[pcibr_int_bit].bsi_pcibr_intr_wrap));
 
 	    if (compare_and_swap_ptr((void **) intr_list_p, NULL, intr_entry)) {
 		/* we are the first interrupt on this bridge bit.
 		 */
-#if DEBUG && INTR_DEBUG
-		printk("%v INT 0x%x (bridge bit %d) allocated [FIRST]\n",
-			pconn_vhdl, pcibr_int_bits, pcibr_int_bit);
-#endif
+		PCIBR_DEBUG_ALWAYS((PCIBR_DEBUG_INTR_ALLOC, pconn_vhdl,
+			    "INT 0x%x (bridge bit %d) allocated [FIRST]\n",
+			    pcibr_int_bits, pcibr_int_bit));
 		continue;
 	    }
 	    intr_list = *intr_list_p;
@@ -402,10 +477,9 @@ pcibr_intr_alloc(devfs_handle_t pconn_vhdl,
 		 * don't need our intr_entry.
 		 */
 		DEL(intr_entry);
-#if DEBUG && INTR_DEBUG
-		printk("%v INT 0x%x (bridge bit %d) replaces erased first\n",
-			pconn_vhdl, pcibr_int_bits, pcibr_int_bit);
-#endif
+		PCIBR_DEBUG_ALWAYS((PCIBR_DEBUG_INTR_ALLOC, pconn_vhdl,
+			    "INT 0x%x (bridge bit %d) replaces erased first\n",
+			    pcibr_int_bits, pcibr_int_bit));
 		continue;
 	    }
 	    intr_list_p = &intr_list->il_next;
@@ -413,10 +487,9 @@ pcibr_intr_alloc(devfs_handle_t pconn_vhdl,
 		/* we are the new second interrupt on this bit.
 		 */
 		pcibr_soft->bs_intr[pcibr_int_bit].bsi_pcibr_intr_wrap.iw_shared = 1;
-#if DEBUG && INTR_DEBUG
-		printk("%v INT 0x%x (bridge bit %d) is new SECOND\n",
-			pconn_vhdl, pcibr_int_bits, pcibr_int_bit);
-#endif
+		PCIBR_DEBUG_ALWAYS((PCIBR_DEBUG_INTR_ALLOC, pconn_vhdl,
+			    "INT 0x%x (bridge bit %d) is new SECOND\n",
+			    pcibr_int_bits, pcibr_int_bit));
 		continue;
 	    }
 	    while (1) {
@@ -427,20 +500,19 @@ pcibr_intr_alloc(devfs_handle_t pconn_vhdl,
 		     * don't need our intr_entry.
 		     */
 		    DEL(intr_entry);
-#if DEBUG && INTR_DEBUG
-		    printk("%v INT 0x%x (bridge bit %d) replaces erased Nth\n",
-			    pconn_vhdl, pcibr_int_bits, pcibr_int_bit);
-#endif
+
+		    PCIBR_DEBUG_ALWAYS((PCIBR_DEBUG_INTR_ALLOC, pconn_vhdl,
+				"INT 0x%x (bridge bit %d) replaces erase Nth\n",
+				pcibr_int_bits, pcibr_int_bit));
 		    break;
 		}
 		intr_list_p = &intr_list->il_next;
 		if (compare_and_swap_ptr((void **) intr_list_p, NULL, intr_entry)) {
 		    /* entry appended to share list
 		     */
-#if DEBUG && INTR_DEBUG
-		    printk("%v INT 0x%x (bridge bit %d) is new Nth\n",
-			    pconn_vhdl, pcibr_int_bits, pcibr_int_bit);
-#endif
+		    PCIBR_DEBUG_ALWAYS((PCIBR_DEBUG_INTR_ALLOC, pconn_vhdl,
+				"INT 0x%x (bridge bit %d) is new Nth\n",
+				pcibr_int_bits, pcibr_int_bit));
 		    break;
 		}
 		/* step to next record in chain
@@ -479,10 +551,11 @@ pcibr_intr_free(pcibr_intr_t pcibr_intr)
 		if (compare_and_swap_ptr((void **) &intr_list->il_intr, 
 					 pcibr_intr, 
 					 NULL)) {
-#if DEBUG && INTR_DEBUG
-		    printk("%s: cleared a handler from bit %d\n",
-			    pcibr_soft->bs_name, pcibr_int_bit);
-#endif
+
+		    PCIBR_DEBUG_ALWAYS((PCIBR_DEBUG_INTR_ALLOC, 
+				pcibr_intr->bi_dev,
+		    		"pcibr_intr_free: cleared hdlr from bit 0x%x\n",
+				pcibr_int_bit));
 		}
 	    /* If this interrupt line is not being shared between multiple
 	     * devices release the xtalk interrupt resources.
@@ -515,34 +588,42 @@ pcibr_intr_free(pcibr_intr_t pcibr_intr)
 void
 pcibr_setpciint(xtalk_intr_t xtalk_intr)
 {
-    iopaddr_t               addr = xtalk_intr_addr_get(xtalk_intr);
-    xtalk_intr_vector_t     vect = xtalk_intr_vector_get(xtalk_intr);
-    bridgereg_t            *int_addr = (bridgereg_t *)
-    xtalk_intr_sfarg_get(xtalk_intr);
+    iopaddr_t		 addr;
+    xtalk_intr_vector_t	 vect;
+    vertex_hdl_t	 vhdl;
+    bridge_t		*bridge;
+    picreg_t	*int_addr;
 
-    *int_addr = ((BRIDGE_INT_ADDR_HOST & (addr >> 30)) |
-		 (BRIDGE_INT_ADDR_FLD & vect));
+    addr = xtalk_intr_addr_get(xtalk_intr);
+    vect = xtalk_intr_vector_get(xtalk_intr);
+    vhdl = xtalk_intr_dev_get(xtalk_intr);
+    bridge = (bridge_t *)xtalk_piotrans_addr(vhdl, 0, 0, sizeof(bridge_t), 0);
+
+    int_addr = (picreg_t *)xtalk_intr_sfarg_get(xtalk_intr);
+    *int_addr = ((PIC_INT_ADDR_FLD & ((uint64_t)vect << 48)) |
+		     (PIC_INT_ADDR_HOST & addr));
 }
 
 /*ARGSUSED */
 int
-pcibr_intr_connect(pcibr_intr_t pcibr_intr)
+pcibr_intr_connect(pcibr_intr_t pcibr_intr, intr_func_t intr_func, intr_arg_t intr_arg)
 {
     pcibr_soft_t            pcibr_soft = pcibr_intr->bi_soft;
     bridge_t               *bridge = pcibr_soft->bs_base;
     unsigned                pcibr_int_bits = pcibr_intr->bi_ibits;
     unsigned                pcibr_int_bit;
-    bridgereg_t             b_int_enable;
+    uint64_t		    int_enable;
     unsigned long           s;
 
     if (pcibr_intr == NULL)
 	return -1;
 
-#if DEBUG && INTR_DEBUG
-    printk("%v: pcibr_intr_connect\n",
-	    pcibr_intr->bi_dev);
-#endif
+    PCIBR_DEBUG_ALWAYS((PCIBR_DEBUG_INTR_ALLOC, pcibr_intr->bi_dev,
+		"pcibr_intr_connect: intr_func=0x%x\n",
+		pcibr_intr));
 
+    pcibr_intr->bi_func = intr_func;
+    pcibr_intr->bi_arg = intr_arg;
     *((volatile unsigned *)&pcibr_intr->bi_flags) |= PCIIO_INTR_CONNECTED;
 
     /*
@@ -553,9 +634,12 @@ pcibr_intr_connect(pcibr_intr_t pcibr_intr)
      */
     for (pcibr_int_bit = 0; pcibr_int_bit < 8; pcibr_int_bit++)
 	if (pcibr_int_bits & (1 << pcibr_int_bit)) {
+            pcibr_intr_wrap_t       intr_wrap;
 	    xtalk_intr_t            xtalk_intr;
+            void                   *int_addr;
 
 	    xtalk_intr = pcibr_soft->bs_intr[pcibr_int_bit].bsi_xtalk_intr;
+	    intr_wrap = &pcibr_soft->bs_intr[pcibr_int_bit].bsi_pcibr_intr_wrap;
 
 	    /*
 	     * If this interrupt line is being shared and the connect has
@@ -569,21 +653,42 @@ pcibr_intr_connect(pcibr_intr_t pcibr_intr)
 	     * Use the pcibr wrapper function to handle all Bridge interrupts
 	     * regardless of whether the interrupt line is shared or not.
 	     */
-	    xtalk_intr_connect(xtalk_intr, (xtalk_intr_setfunc_t) pcibr_setpciint,
-			       (void *)&(bridge->b_int_addr[pcibr_int_bit].addr));
+	    if (IS_PIC_SOFT(pcibr_soft)) 
+		int_addr = (void *)&(bridge->p_int_addr_64[pcibr_int_bit]);
+	    else
+		int_addr = (void *)&(bridge->b_int_addr[pcibr_int_bit].addr);
+
+	    xtalk_intr_connect(xtalk_intr, pcibr_intr_func, (intr_arg_t) intr_wrap,
+					(xtalk_intr_setfunc_t) pcibr_setpciint,
+			       			(void *)int_addr);
+
 	    pcibr_soft->bs_intr[pcibr_int_bit].bsi_pcibr_intr_wrap.iw_connected = 1;
 
-#if DEBUG && INTR_DEBUG
-	    printk("%v bridge bit %d wrapper connected\n",
-		    pcibr_intr->bi_dev, pcibr_int_bit);
-#endif
+	    PCIBR_DEBUG_ALWAYS((PCIBR_DEBUG_INTR_ALLOC, pcibr_intr->bi_dev,
+			"pcibr_setpciint: int_addr=0x%x, *int_addr=0x%x, "
+			"pcibr_int_bit=0x%x\n", int_addr,
+			 *(picreg_t *)int_addr,
+			pcibr_int_bit));
 	}
-    s = pcibr_lock(pcibr_soft);
-    b_int_enable = bridge->b_int_enable;
-    b_int_enable |= pcibr_int_bits;
-    bridge->b_int_enable = b_int_enable;
-    bridge->b_wid_tflush;		/* wait until Bridge PIO complete */
-    pcibr_unlock(pcibr_soft, s);
+
+	/* PIC WAR. PV# 854697
+	 * On PIC we must write 64-bit MMRs with 64-bit stores
+	 */
+	s = pcibr_lock(pcibr_soft);
+	if (IS_PIC_SOFT(pcibr_soft) &&
+			PCIBR_WAR_ENABLED(PV854697, pcibr_soft)) {
+	    int_enable = bridge->p_int_enable_64;
+	    int_enable |= pcibr_int_bits;
+	    bridge->p_int_enable_64 = int_enable;
+	} else {
+	    bridgereg_t int_enable;
+
+	    int_enable = bridge->b_int_enable;
+	    int_enable |= pcibr_int_bits;
+	    bridge->b_int_enable = int_enable;
+	}
+	bridge->b_wid_tflush;	/* wait until Bridge PIO complete */
+	pcibr_unlock(pcibr_soft, s);
 
     return 0;
 }
@@ -596,13 +701,15 @@ pcibr_intr_disconnect(pcibr_intr_t pcibr_intr)
     bridge_t               *bridge = pcibr_soft->bs_base;
     unsigned                pcibr_int_bits = pcibr_intr->bi_ibits;
     unsigned                pcibr_int_bit;
-    bridgereg_t             b_int_enable;
+    pcibr_intr_wrap_t       intr_wrap;
+    uint64_t                int_enable;
     unsigned long           s;
 
     /* Stop calling the function. Now.
      */
     *((volatile unsigned *)&pcibr_intr->bi_flags) &= ~PCIIO_INTR_CONNECTED;
-
+    pcibr_intr->bi_func = 0;
+    pcibr_intr->bi_arg = 0;
     /*
      * For each PCI interrupt line requested, figure
      * out which Bridge PCI Interrupt Line it maps
@@ -619,15 +726,30 @@ pcibr_intr_disconnect(pcibr_intr_t pcibr_intr)
     if (!pcibr_int_bits)
 	return;
 
+    /* PIC WAR. PV# 854697
+     * On PIC we must write 64-bit MMRs with 64-bit stores
+     */
     s = pcibr_lock(pcibr_soft);
-    b_int_enable = bridge->b_int_enable;
-    b_int_enable &= ~pcibr_int_bits;
-    bridge->b_int_enable = b_int_enable;
+    if (IS_PIC_SOFT(pcibr_soft) && PCIBR_WAR_ENABLED(PV854697, pcibr_soft)) {
+	int_enable = bridge->p_int_enable_64;
+	int_enable &= ~pcibr_int_bits;
+	bridge->p_int_enable_64 = int_enable;
+    } else {
+	int_enable = (uint64_t)bridge->b_int_enable;
+	int_enable &= ~pcibr_int_bits;
+	bridge->b_int_enable = (bridgereg_t)int_enable;
+    }
     bridge->b_wid_tflush;		/* wait until Bridge PIO complete */
     pcibr_unlock(pcibr_soft, s);
 
+    PCIBR_DEBUG_ALWAYS((PCIBR_DEBUG_INTR_ALLOC, pcibr_intr->bi_dev,
+		"pcibr_intr_disconnect: disabled int_bits=0x%x\n", 
+		pcibr_int_bits));
+
     for (pcibr_int_bit = 0; pcibr_int_bit < 8; pcibr_int_bit++)
 	if (pcibr_int_bits & (1 << pcibr_int_bit)) {
+            void                   *int_addr;
+
 	    /* if the interrupt line is now shared,
 	     * do not disconnect it.
 	     */
@@ -637,10 +759,9 @@ pcibr_intr_disconnect(pcibr_intr_t pcibr_intr)
 	    xtalk_intr_disconnect(pcibr_soft->bs_intr[pcibr_int_bit].bsi_xtalk_intr);
 	    pcibr_soft->bs_intr[pcibr_int_bit].bsi_pcibr_intr_wrap.iw_connected = 0;
 
-#if DEBUG && INTR_DEBUG
-	    printk("%s: xtalk disconnect done for Bridge bit %d\n",
-		pcibr_soft->bs_name, pcibr_int_bit);
-#endif
+	    PCIBR_DEBUG_ALWAYS((PCIBR_DEBUG_INTR_ALLOC, pcibr_intr->bi_dev,
+			"pcibr_intr_disconnect: disconnect int_bits=0x%x\n",
+			pcibr_int_bits));
 
 	    /* if we are sharing the interrupt line,
 	     * connect us up; this closes the hole
@@ -650,14 +771,27 @@ pcibr_intr_disconnect(pcibr_intr_t pcibr_intr)
 	    if (!pcibr_soft->bs_intr[pcibr_int_bit].bsi_pcibr_intr_wrap.iw_shared)
 		continue;
 
+	    intr_wrap = &pcibr_soft->bs_intr[pcibr_int_bit].bsi_pcibr_intr_wrap;
+            if (!pcibr_soft->bs_intr[pcibr_int_bit].bsi_pcibr_intr_wrap.iw_shared)
+                continue;
+
+            if (IS_PIC_SOFT(pcibr_soft))
+                int_addr = (void *)&(bridge->p_int_addr_64[pcibr_int_bit]);
+            else
+                int_addr = (void *)&(bridge->b_int_addr[pcibr_int_bit].addr);
+
 	    xtalk_intr_connect(pcibr_soft->bs_intr[pcibr_int_bit].bsi_xtalk_intr,
+				pcibr_intr_func, (intr_arg_t) intr_wrap,
 			       (xtalk_intr_setfunc_t)pcibr_setpciint,
-			       (void *) &(bridge->b_int_addr[pcibr_int_bit].addr));
+			       (void *)(long)pcibr_int_bit);
+	    PCIBR_DEBUG_ALWAYS((PCIBR_DEBUG_INTR_ALLOC, pcibr_intr->bi_dev,
+			"pcibr_intr_disconnect: now-sharing int_bits=0x%x\n",
+			pcibr_int_bit));
 	}
 }
 
 /*ARGSUSED */
-devfs_handle_t
+vertex_hdl_t
 pcibr_intr_cpu_get(pcibr_intr_t pcibr_intr)
 {
     pcibr_soft_t            pcibr_soft = pcibr_intr->bi_soft;
@@ -722,13 +856,14 @@ pcibr_setwidint(xtalk_intr_t intr)
 		printk(KERN_WARNING  "NEW=0x%x/0x%x  OLD=0x%x/0x%x\n",
 			NEW_b_wid_int_upper, NEW_b_wid_int_lower,
 			OLD_b_wid_int_upper, OLD_b_wid_int_lower);
-		PRINT_PANIC("PCI Bridge interrupt targetting error\n");
+		panic("PCI Bridge interrupt targetting error\n");
 	}
     }
 
     bridge->b_wid_int_upper = NEW_b_wid_int_upper;
     bridge->b_wid_int_lower = NEW_b_wid_int_lower;
     bridge->b_int_host_err = vect;
+
 }
 
 /*
@@ -752,6 +887,9 @@ pcibr_xintr_preset(void *which_widget,
 				   XTALK_ADDR_TO_UPPER(addr));
 	bridge->b_wid_int_lower = XTALK_ADDR_TO_LOWER(addr);
 	bridge->b_int_host_err = vect;
+printk("pcibr_xintr_preset: b_wid_int_upper 0x%lx b_wid_int_lower 0x%lx b_int_host_err 0x%x\n",
+	( (0x000F0000 & (targ << 16)) | XTALK_ADDR_TO_UPPER(addr)),
+	XTALK_ADDR_TO_LOWER(addr), vect);
 
 	/* turn on all interrupts except
 	 * the PCI interrupt requests,
@@ -785,7 +923,7 @@ pcibr_xintr_preset(void *which_widget,
  *
  * This is the pcibr interrupt "wrapper" function that is called,
  * in interrupt context, to initiate the interrupt handler(s) registered
- * (via pcibr_intr_alloc/connect) for the occuring interrupt. Non-threaded 
+ * (via pcibr_intr_alloc/connect) for the occurring interrupt. Non-threaded 
  * handlers will be called directly, and threaded handlers will have their 
  * thread woken up.
  */
@@ -794,12 +932,37 @@ pcibr_intr_func(intr_arg_t arg)
 {
     pcibr_intr_wrap_t       wrap = (pcibr_intr_wrap_t) arg;
     reg_p                   wrbf;
+    intr_func_t             func;
     pcibr_intr_t            intr;
     pcibr_intr_list_t       list;
     int                     clearit;
     int			    do_nonthreaded = 1;
     int			    is_threaded = 0;
     int			    x = 0;
+    pcibr_soft_t            pcibr_soft = wrap->iw_soft;
+    bridge_t               *bridge = pcibr_soft->bs_base;
+    uint64_t		    p_enable = pcibr_soft->bs_int_enable;
+    int			    bit = wrap->iw_ibit;
+
+	/*
+	 * PIC WAR.  PV#855272
+	 * Early attempt at a workaround for the runaway
+	 * interrupt problem.   Briefly disable the enable bit for
+	 * this device.
+	 */
+	if (IS_PIC_SOFT(pcibr_soft) &&
+			PCIBR_WAR_ENABLED(PV855272, pcibr_soft)) {
+		unsigned s;
+
+		/* disable-enable interrupts for this bridge pin */
+
+		p_enable &= ~(1 << bit);
+	        s = pcibr_lock(pcibr_soft);
+		bridge->p_int_enable_64 = p_enable;
+		p_enable |= (1 << bit);
+		bridge->p_int_enable_64 = p_enable;
+	        pcibr_unlock(pcibr_soft, s);
+	}
 
 	/*
 	 * If any handler is still running from a previous interrupt
@@ -821,35 +984,31 @@ pcibr_intr_func(intr_arg_t arg)
 	clearit = 1;
 	while (do_nonthreaded) {
 	    for (list = wrap->iw_list; list != NULL; list = list->il_next) {
-		if ((intr = list->il_intr) &&
-		    (intr->bi_flags & PCIIO_INTR_CONNECTED)) {
+		if ((intr = list->il_intr) && (intr->bi_flags & PCIIO_INTR_CONNECTED)) {
 
-		/*
-		 * This device may have initiated write
-		 * requests since the bridge last saw
-		 * an edge on this interrupt input; flushing
-		 * the buffer prior to invoking the handler
-		 * should help but may not be sufficient if we 
-		 * get more requests after the flush, followed
-		 * by the card deciding it wants service, before
-		 * the interrupt handler checks to see if things need
-		 * to be done.
-		 *
-		 * There is a similar race condition if
-		 * an interrupt handler loops around and
-		 * notices further service is required.
-		 * Perhaps we need to have an explicit
-		 * call that interrupt handlers need to
-		 * do between noticing that DMA to memory
-		 * has completed, but before observing the
-		 * contents of memory?
-		 */
+		    /*
+		     * This device may have initiated write
+		     * requests since the bridge last saw
+		     * an edge on this interrupt input; flushing
+		     * the buffer prior to invoking the handler
+		     * should help but may not be sufficient if we 
+		     * get more requests after the flush, followed
+		     * by the card deciding it wants service, before
+		     * the interrupt handler checks to see if things need
+		     * to be done.
+		     *
+		     * There is a similar race condition if
+		     * an interrupt handler loops around and
+		     * notices further service is required.
+		     * Perhaps we need to have an explicit
+		     * call that interrupt handlers need to
+		     * do between noticing that DMA to memory
+		     * has completed, but before observing the
+		     * contents of memory?
+		     */
 
-			if ((do_nonthreaded) && (!is_threaded)) {
-			/* Non-threaded. 
-			 * Call the interrupt handler at interrupt level
-			 */
-
+		    if ((do_nonthreaded) && (!is_threaded)) {
+			/* Non-threaded -  Call the interrupt handler at interrupt level */
 			/* Only need to flush write buffers if sharing */
 
 			if ((wrap->iw_shared) && (wrbf = list->il_wrbf)) {
@@ -864,21 +1023,23 @@ pcibr_intr_func(intr_arg_t arg)
 				    (void *)list->il_intr->bi_dev, (long) wrbf);
 #endif
 			}
+			func = intr->bi_func;
+			if ( func )
+				func(intr->bi_arg);
 		    }
-
 		    clearit = 0;
 		}
 	    }
+	    do_nonthreaded = 0;
 
-		do_nonthreaded = 0;
-		/*
-		 * If the non-threaded handler was the last to complete,
-		 * (i.e., no threaded handlers still running) force an
-		 * interrupt to avoid a potential deadlock situation.
-		 */
-		if (wrap->iw_hdlrcnt == 0) {
-			pcibr_force_interrupt(wrap);
-		}
+	    /*
+	     * If the non-threaded handler was the last to complete,
+	     * (i.e., no threaded handlers still running) force an
+	     * interrupt to avoid a potential deadlock situation.
+	     */
+	    if (wrap->iw_hdlrcnt == 0) {
+		pcibr_force_interrupt((pcibr_intr_t) wrap);
+	    }
 	}
 
 	/* If there were no handlers,
@@ -892,14 +1053,24 @@ pcibr_intr_func(intr_arg_t arg)
 	if (clearit) {
 	    pcibr_soft_t            pcibr_soft = wrap->iw_soft;
 	    bridge_t               *bridge = pcibr_soft->bs_base;
-	    bridgereg_t             b_int_enable;
-	    bridgereg_t		    mask = 1 << wrap->iw_intr;
+	    bridgereg_t             int_enable;
+	    bridgereg_t		    mask = 1 << wrap->iw_ibit;
 	    unsigned long           s;
 
+	    /* PIC BRINUGP WAR (PV# 854697):
+	     * On PIC we must write 64-bit MMRs with 64-bit stores
+	     */
 	    s = pcibr_lock(pcibr_soft);
-	    b_int_enable = bridge->b_int_enable;
-	    b_int_enable &= ~mask;
-	    bridge->b_int_enable = b_int_enable;
+	    if (IS_PIC_SOFT(pcibr_soft) &&
+				PCIBR_WAR_ENABLED(PV854697, pcibr_soft)) {
+		int_enable = bridge->p_int_enable_64;
+		int_enable &= ~mask;
+		bridge->p_int_enable_64 = int_enable;
+	    } else {
+		int_enable = (uint64_t)bridge->b_int_enable;
+		int_enable &= ~mask;
+		bridge->b_int_enable = (bridgereg_t)int_enable;
+	    }
 	    bridge->b_wid_tflush;	/* wait until Bridge PIO complete */
 	    pcibr_unlock(pcibr_soft, s);
 	    return;

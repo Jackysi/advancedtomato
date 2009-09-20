@@ -85,9 +85,10 @@ extern int nr_swap_pages;
 
 extern unsigned int nr_free_pages(void);
 extern unsigned int nr_free_buffer_pages(void);
+extern unsigned int freeable_lowmem(void);
 extern int nr_active_pages;
 extern int nr_inactive_pages;
-extern atomic_t page_cache_size;
+extern unsigned long page_cache_size;
 extern atomic_t buffermem_pages;
 
 extern spinlock_cacheline_t pagecache_lock_cacheline;
@@ -115,6 +116,7 @@ extern void swap_setup(void);
 extern wait_queue_head_t kswapd_wait;
 extern int FASTCALL(try_to_free_pages_zone(zone_t *, unsigned int));
 extern int FASTCALL(try_to_free_pages(unsigned int));
+extern int vm_vfs_scan_ratio, vm_cache_scan_ratio, vm_lru_balance_ratio, vm_passes, vm_gfp_debug, vm_mapped_ratio, vm_anon_lru;
 
 /* linux/mm/page_io.c */
 extern void rw_swap_page(int, struct page *);
@@ -147,7 +149,6 @@ extern swp_entry_t get_swap_page(void);
 extern void get_swaphandle_info(swp_entry_t, unsigned long *, kdev_t *, 
 					struct inode **);
 extern int swap_duplicate(swp_entry_t);
-extern int swap_count(struct page *);
 extern int valid_swaphandles(swp_entry_t, unsigned long *);
 extern void swap_free(swp_entry_t);
 extern void free_swap_and_cache(swp_entry_t);
@@ -176,33 +177,45 @@ do {						\
 		BUG();				\
 } while (0)
 
+extern void delta_nr_active_pages(struct page *page, long delta);
+#define inc_nr_active_pages(page) delta_nr_active_pages(page, 1)
+#define dec_nr_active_pages(page) delta_nr_active_pages(page, -1)
+
+extern void delta_nr_inactive_pages(struct page *page, long delta);
+#define inc_nr_inactive_pages(page) delta_nr_inactive_pages(page, 1)
+#define dec_nr_inactive_pages(page) delta_nr_inactive_pages(page, -1)
+
 #define add_page_to_active_list(page)		\
 do {						\
 	DEBUG_LRU_PAGE(page);			\
 	SetPageActive(page);			\
 	list_add(&(page)->lru, &active_list);	\
-	nr_active_pages++;			\
+	inc_nr_active_pages(page);		\
 } while (0)
 
 #define add_page_to_inactive_list(page)		\
 do {						\
 	DEBUG_LRU_PAGE(page);			\
 	list_add(&(page)->lru, &inactive_list);	\
-	nr_inactive_pages++;			\
+	inc_nr_inactive_pages(page);		\
 } while (0)
 
 #define del_page_from_active_list(page)		\
 do {						\
 	list_del(&(page)->lru);			\
 	ClearPageActive(page);			\
-	nr_active_pages--;			\
+	dec_nr_active_pages(page);		\
 } while (0)
 
 #define del_page_from_inactive_list(page)	\
 do {						\
 	list_del(&(page)->lru);			\
-	nr_inactive_pages--;			\
+	dec_nr_inactive_pages(page);		\
 } while (0)
+
+extern void delta_nr_cache_pages(struct page *page, long delta);
+#define inc_nr_cache_pages(page) delta_nr_cache_pages(page, 1)
+#define dec_nr_cache_pages(page) delta_nr_cache_pages(page, -1)
 
 extern spinlock_t swaplock;
 
@@ -211,7 +224,7 @@ extern spinlock_t swaplock;
 #define swap_device_lock(p)	spin_lock(&p->sdev_lock)
 #define swap_device_unlock(p)	spin_unlock(&p->sdev_lock)
 
-extern void shmem_unuse(swp_entry_t entry, struct page *page);
+extern int shmem_unuse(swp_entry_t entry, struct page *page);
 
 #endif /* __KERNEL__*/
 

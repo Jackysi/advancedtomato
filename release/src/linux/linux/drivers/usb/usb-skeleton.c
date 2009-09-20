@@ -1,7 +1,7 @@
 /*
  * USB Skeleton driver - 0.7
  *
- * Copyright (c) 2001 Greg Kroah-Hartman (greg@kroah.com)
+ * Copyright (C) 2001 Greg Kroah-Hartman (greg@kroah.com)
  *
  *	This program is free software; you can redistribute it and/or
  *	modify it under the terms of the GNU General Public License as
@@ -87,7 +87,7 @@ MODULE_DEVICE_TABLE (usb, skel_table);
 
 
 /* Get a minor range for your devices from the usb maintainer */
-#define USB_SKEL_MINOR_BASE	200	
+#define USB_SKEL_MINOR_BASE	192	
 
 /* we can have up to this number of device plugged in at once */
 #define MAX_DEVICES		16

@@ -38,10 +38,27 @@
 #if defined(__linux__)
 #include <linux/config.h>
 #include <asm/ioctl.h>		/* For _IO* macros */
-#define DRM_IOCTL_NR(n)	     _IOC_NR(n)
-#elif defined(__FreeBSD__)
+#define DRM_IOCTL_NR(n)		_IOC_NR(n)
+#define DRM_IOC_VOID		_IOC_NONE
+#define DRM_IOC_READ		_IOC_READ
+#define DRM_IOC_WRITE		_IOC_WRITE
+#define DRM_IOC_READWRITE	_IOC_READ|_IOC_WRITE
+#define DRM_IOC(dir, group, nr, size) _IOC(dir, group, nr, size)
+#elif defined(__FreeBSD__) || defined(__NetBSD__)
+#if defined(__FreeBSD__) && defined(XFree86Server)
+/* Prevent name collision when including sys/ioccom.h */
+#undef ioctl
 #include <sys/ioccom.h>
-#define DRM_IOCTL_NR(n)	     ((n) & 0xff)
+#define ioctl(a,b,c)		xf86ioctl(a,b,c)
+#else
+#include <sys/ioccom.h>
+#endif /* __FreeBSD__ && xf86ioctl */
+#define DRM_IOCTL_NR(n)		((n) & 0xff)
+#define DRM_IOC_VOID		IOC_VOID
+#define DRM_IOC_READ		IOC_OUT
+#define DRM_IOC_WRITE		IOC_IN
+#define DRM_IOC_READWRITE	IOC_INOUT
+#define DRM_IOC(dir, group, nr, size) _IOC(dir, group, nr, size)
 #endif
 
 #define XFREE86_VERSION(major,minor,patch,snap) \
@@ -84,6 +101,10 @@ typedef unsigned int  drm_magic_t;
 /* Warning: If you change this structure, make sure you change
  * XF86DRIClipRectRec in the server as well */
 
+/* KW: Actually it's illegal to change either for
+ * backwards-compatibility reasons.
+ */
+
 typedef struct drm_clip_rect {
 	unsigned short	x1;
 	unsigned short	y1;
@@ -106,6 +127,8 @@ typedef struct drm_tex_region {
 #include "radeon_drm.h"
 #include "sis_drm.h"
 #include "i830_drm.h"
+#include "savage_drm.h"
+#include "via_drm.h"
 
 typedef struct drm_version {
 	int    version_major;	  /* Major version			    */
@@ -332,6 +355,32 @@ typedef struct drm_irq_busid {
 	int funcnum;
 } drm_irq_busid_t;
 
+typedef enum {
+    _DRM_VBLANK_ABSOLUTE = 0x0,		/* Wait for specific vblank sequence number */
+    _DRM_VBLANK_RELATIVE = 0x1,		/* Wait for given number of vblanks */
+    _DRM_VBLANK_SIGNAL   = 0x40000000	/* Send signal instead of blocking */
+} drm_vblank_seq_type_t;
+
+#define _DRM_VBLANK_FLAGS_MASK _DRM_VBLANK_SIGNAL
+
+struct drm_wait_vblank_request {
+	drm_vblank_seq_type_t type;
+	unsigned int sequence;
+	unsigned long signal;
+};
+
+struct drm_wait_vblank_reply {
+	drm_vblank_seq_type_t type;
+	unsigned int sequence;
+	long tval_sec;
+	long tval_usec;
+};
+
+typedef union drm_wait_vblank {
+	struct drm_wait_vblank_request request;
+	struct drm_wait_vblank_reply reply;
+} drm_wait_vblank_t;
+
 typedef struct drm_agp_mode {
 	unsigned long mode;
 } drm_agp_mode_t;
@@ -371,10 +420,9 @@ typedef struct drm_scatter_gather {
 
 #define DRM_IOCTL_BASE			'd'
 #define DRM_IO(nr)			_IO(DRM_IOCTL_BASE,nr)
-#define DRM_IOR(nr,size)		_IOR(DRM_IOCTL_BASE,nr,size)
-#define DRM_IOW(nr,size)		_IOW(DRM_IOCTL_BASE,nr,size)
-#define DRM_IOWR(nr,size)		_IOWR(DRM_IOCTL_BASE,nr,size)
-
+#define DRM_IOR(nr,type)		_IOR(DRM_IOCTL_BASE,nr,type)
+#define DRM_IOW(nr,type)		_IOW(DRM_IOCTL_BASE,nr,type)
+#define DRM_IOWR(nr,type)		_IOWR(DRM_IOCTL_BASE,nr,type)
 
 #define DRM_IOCTL_VERSION		DRM_IOWR(0x00, drm_version_t)
 #define DRM_IOCTL_GET_UNIQUE		DRM_IOWR(0x01, drm_unique_t)
@@ -427,86 +475,10 @@ typedef struct drm_scatter_gather {
 #define DRM_IOCTL_SG_ALLOC		DRM_IOW( 0x38, drm_scatter_gather_t)
 #define DRM_IOCTL_SG_FREE		DRM_IOW( 0x39, drm_scatter_gather_t)
 
-/* MGA specific ioctls */
-#define DRM_IOCTL_MGA_INIT		DRM_IOW( 0x40, drm_mga_init_t)
-#define DRM_IOCTL_MGA_FLUSH		DRM_IOW( 0x41, drm_lock_t)
-#define DRM_IOCTL_MGA_RESET		DRM_IO(  0x42)
-#define DRM_IOCTL_MGA_SWAP		DRM_IO(  0x43)
-#define DRM_IOCTL_MGA_CLEAR		DRM_IOW( 0x44, drm_mga_clear_t)
-#define DRM_IOCTL_MGA_VERTEX		DRM_IOW( 0x45, drm_mga_vertex_t)
-#define DRM_IOCTL_MGA_INDICES		DRM_IOW( 0x46, drm_mga_indices_t)
-#define DRM_IOCTL_MGA_ILOAD		DRM_IOW( 0x47, drm_mga_iload_t)
-#define DRM_IOCTL_MGA_BLIT		DRM_IOW( 0x48, drm_mga_blit_t)
+#define DRM_IOCTL_WAIT_VBLANK		DRM_IOWR(0x3a, drm_wait_vblank_t)
 
-/* i810 specific ioctls */
-#define DRM_IOCTL_I810_INIT		DRM_IOW( 0x40, drm_i810_init_t)
-#define DRM_IOCTL_I810_VERTEX		DRM_IOW( 0x41, drm_i810_vertex_t)
-#define DRM_IOCTL_I810_CLEAR		DRM_IOW( 0x42, drm_i810_clear_t)
-#define DRM_IOCTL_I810_FLUSH		DRM_IO(  0x43)
-#define DRM_IOCTL_I810_GETAGE		DRM_IO(  0x44)
-#define DRM_IOCTL_I810_GETBUF		DRM_IOWR(0x45, drm_i810_dma_t)
-#define DRM_IOCTL_I810_SWAP		DRM_IO(  0x46)
-#define DRM_IOCTL_I810_COPY		DRM_IOW( 0x47, drm_i810_copy_t)
-#define DRM_IOCTL_I810_DOCOPY		DRM_IO(  0x48)
-#define DRM_IOCTL_I810_OV0INFO		DRM_IOR( 0x49, drm_i810_overlay_t)
-#define DRM_IOCTL_I810_FSTATUS		DRM_IO ( 0x4a)
-#define DRM_IOCTL_I810_OV0FLIP		DRM_IO ( 0x4b)
-#define DRM_IOCTL_I810_MC		DRM_IOW( 0x4c, drm_i810_mc_t)
-#define DRM_IOCTL_I810_RSTATUS		DRM_IO ( 0x4d )
-
-
-/* Rage 128 specific ioctls */
-#define DRM_IOCTL_R128_INIT		DRM_IOW( 0x40, drm_r128_init_t)
-#define DRM_IOCTL_R128_CCE_START	DRM_IO(  0x41)
-#define DRM_IOCTL_R128_CCE_STOP		DRM_IOW( 0x42, drm_r128_cce_stop_t)
-#define DRM_IOCTL_R128_CCE_RESET	DRM_IO(  0x43)
-#define DRM_IOCTL_R128_CCE_IDLE		DRM_IO(  0x44)
-#define DRM_IOCTL_R128_RESET		DRM_IO(  0x46)
-#define DRM_IOCTL_R128_SWAP		DRM_IO(  0x47)
-#define DRM_IOCTL_R128_CLEAR		DRM_IOW( 0x48, drm_r128_clear_t)
-#define DRM_IOCTL_R128_VERTEX		DRM_IOW( 0x49, drm_r128_vertex_t)
-#define DRM_IOCTL_R128_INDICES		DRM_IOW( 0x4a, drm_r128_indices_t)
-#define DRM_IOCTL_R128_BLIT		DRM_IOW( 0x4b, drm_r128_blit_t)
-#define DRM_IOCTL_R128_DEPTH		DRM_IOW( 0x4c, drm_r128_depth_t)
-#define DRM_IOCTL_R128_STIPPLE		DRM_IOW( 0x4d, drm_r128_stipple_t)
-#define DRM_IOCTL_R128_INDIRECT		DRM_IOWR(0x4f, drm_r128_indirect_t)
-#define DRM_IOCTL_R128_FULLSCREEN	DRM_IOW( 0x50, drm_r128_fullscreen_t)
-
-/* Radeon specific ioctls */
-#define DRM_IOCTL_RADEON_CP_INIT	DRM_IOW( 0x40, drm_radeon_init_t)
-#define DRM_IOCTL_RADEON_CP_START	DRM_IO(  0x41)
-#define DRM_IOCTL_RADEON_CP_STOP	DRM_IOW( 0x42, drm_radeon_cp_stop_t)
-#define DRM_IOCTL_RADEON_CP_RESET	DRM_IO(  0x43)
-#define DRM_IOCTL_RADEON_CP_IDLE	DRM_IO(  0x44)
-#define DRM_IOCTL_RADEON_RESET		DRM_IO(  0x45)
-#define DRM_IOCTL_RADEON_FULLSCREEN	DRM_IOW( 0x46, drm_radeon_fullscreen_t)
-#define DRM_IOCTL_RADEON_SWAP		DRM_IO(  0x47)
-#define DRM_IOCTL_RADEON_CLEAR		DRM_IOW( 0x48, drm_radeon_clear_t)
-#define DRM_IOCTL_RADEON_VERTEX		DRM_IOW( 0x49, drm_radeon_vertex_t)
-#define DRM_IOCTL_RADEON_INDICES	DRM_IOW( 0x4a, drm_radeon_indices_t)
-#define DRM_IOCTL_RADEON_STIPPLE	DRM_IOW( 0x4c, drm_radeon_stipple_t)
-#define DRM_IOCTL_RADEON_INDIRECT	DRM_IOWR(0x4d, drm_radeon_indirect_t)
-#define DRM_IOCTL_RADEON_TEXTURE	DRM_IOWR(0x4e, drm_radeon_texture_t)
-
-/* SiS specific ioctls */
-#define SIS_IOCTL_FB_ALLOC		DRM_IOWR(0x44, drm_sis_mem_t)
-#define SIS_IOCTL_FB_FREE		DRM_IOW( 0x45, drm_sis_mem_t)
-#define SIS_IOCTL_AGP_INIT		DRM_IOWR(0x53, drm_sis_agp_t)
-#define SIS_IOCTL_AGP_ALLOC		DRM_IOWR(0x54, drm_sis_mem_t)
-#define SIS_IOCTL_AGP_FREE		DRM_IOW( 0x55, drm_sis_mem_t)
-#define SIS_IOCTL_FLIP			DRM_IOW( 0x48, drm_sis_flip_t)
-#define SIS_IOCTL_FLIP_INIT		DRM_IO(  0x49)
-#define SIS_IOCTL_FLIP_FINAL		DRM_IO(  0x50)
-
-/* I830 specific ioctls */
-#define DRM_IOCTL_I830_INIT		DRM_IOW( 0x40, drm_i830_init_t)
-#define DRM_IOCTL_I830_VERTEX		DRM_IOW( 0x41, drm_i830_vertex_t)
-#define DRM_IOCTL_I830_CLEAR		DRM_IOW( 0x42, drm_i830_clear_t)
-#define DRM_IOCTL_I830_FLUSH		DRM_IO ( 0x43)
-#define DRM_IOCTL_I830_GETAGE		DRM_IO ( 0x44)
-#define DRM_IOCTL_I830_GETBUF		DRM_IOWR(0x45, drm_i830_dma_t)
-#define DRM_IOCTL_I830_SWAP		DRM_IO ( 0x46)
-#define DRM_IOCTL_I830_COPY		DRM_IOW( 0x47, drm_i830_copy_t)
-#define DRM_IOCTL_I830_DOCOPY		DRM_IO ( 0x48)
+/* Device specfic ioctls should only be in their respective headers
+ * The device specific ioctl range is 0x40 to 0x79.                  */
+#define DRM_COMMAND_BASE                0x40
 
 #endif

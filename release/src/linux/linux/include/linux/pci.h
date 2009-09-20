@@ -1,5 +1,5 @@
 /*
- *	$Id: pci.h,v 1.1.1.4 2003/10/14 08:09:26 sparq Exp $
+ *	$Id: pci.h,v 1.87 1998/10/11 15:13:12 mj Exp $
  *
  *	PCI defines and function prototypes
  *	Copyright 1994, Drew Eckhardt
@@ -34,6 +34,7 @@
 #define  PCI_COMMAND_WAIT 	0x80	/* Enable address/data stepping */
 #define  PCI_COMMAND_SERR	0x100	/* Enable SERR */
 #define  PCI_COMMAND_FAST_BACK	0x200	/* Enable back-to-back writes */
+#define  PCI_COMMAND_INTX_DISABLE 0x400 /* INTx Emulation Disable */
 
 #define PCI_STATUS		0x06	/* 16 bits */
 #define  PCI_STATUS_CAP_LIST	0x10	/* Support Capability List */
@@ -65,9 +66,9 @@
 #define  PCI_HEADER_TYPE_CARDBUS 2
 
 #define PCI_BIST		0x0f	/* 8 bits */
-#define PCI_BIST_CODE_MASK	0x0f	/* Return result */
-#define PCI_BIST_START		0x40	/* 1 to start BIST, 2 secs or less */
-#define PCI_BIST_CAPABLE	0x80	/* 1 if BIST capable */
+#define  PCI_BIST_CODE_MASK	0x0f	/* Return result */
+#define  PCI_BIST_START		0x40	/* 1 to start BIST, 2 secs or less */
+#define  PCI_BIST_CAPABLE	0x80	/* 1 if BIST capable */
 
 /*
  * Base addresses specify locations in memory or I/O space.
@@ -195,6 +196,9 @@
 #define  PCI_CAP_ID_SLOTID	0x04	/* Slot Identification */
 #define  PCI_CAP_ID_MSI		0x05	/* Message Signalled Interrupts */
 #define  PCI_CAP_ID_CHSWP	0x06	/* CompactPCI HotSwap */
+#define  PCI_CAP_ID_PCIX	0x07	/* PCI-X */
+#define  PCI_CAP_ID_SHPC	0x0C    /* PCI Standard Hot-Plug Controller */	
+#define  PCI_CAP_ID_EXP		0x10    /* PCI-EXPRESS */	
 #define PCI_CAP_LIST_NEXT	1	/* Next capability in the list */
 #define PCI_CAP_FLAGS		2	/* Capability defined flags (16 bits) */
 #define PCI_CAP_SIZEOF		4
@@ -270,6 +274,37 @@
 #define PCI_MSI_ADDRESS_HI	8	/* Upper 32 bits (if PCI_MSI_FLAGS_64BIT set) */
 #define PCI_MSI_DATA_32		8	/* 16 bits of data for 32-bit devices */
 #define PCI_MSI_DATA_64		12	/* 16 bits of data for 64-bit devices */
+
+/* CompactPCI Hotswap Register */
+
+#define PCI_CHSWP_CSR		2	/* Control and Status Register */
+#define  PCI_CHSWP_DHA		0x01	/* Device Hiding Arm */
+#define  PCI_CHSWP_EIM		0x02	/* ENUM# Signal Mask */
+#define  PCI_CHSWP_PIE		0x04	/* Pending Insert or Extract */
+#define  PCI_CHSWP_LOO		0x08	/* LED On / Off */
+#define  PCI_CHSWP_PI		0x30	/* Programming Interface */
+#define  PCI_CHSWP_EXT		0x40	/* ENUM# status - extraction */
+#define  PCI_CHSWP_INS		0x80	/* ENUM# status - insertion */
+
+/* PCI-X registers */
+
+#define PCI_X_CMD		2	/* Modes & Features */
+#define  PCI_X_CMD_DPERR_E	0x0001	/* Data Parity Error Recovery Enable */
+#define  PCI_X_CMD_ERO		0x0002	/* Enable Relaxed Ordering */
+#define  PCI_X_CMD_MAX_READ	0x000c	/* Max Memory Read Byte Count */
+#define  PCI_X_CMD_MAX_SPLIT	0x0070	/* Max Outstanding Split Transactions */
+#define PCI_X_DEVFN		4	/* A copy of devfn. */
+#define PCI_X_BUSNR		5	/* Bus segment number */
+#define PCI_X_STATUS		6	/* PCI-X capabilities */
+#define  PCI_X_STATUS_64BIT	0x0001	/* 64-bit device */
+#define  PCI_X_STATUS_133MHZ	0x0002	/* 133 MHz capable */
+#define  PCI_X_STATUS_SPL_DISC	0x0004	/* Split Completion Discarded */
+#define  PCI_X_STATUS_UNX_SPL	0x0008	/* Unexpected Split Completion */
+#define  PCI_X_STATUS_COMPLEX	0x0010	/* Device Complexity */
+#define  PCI_X_STATUS_MAX_READ	0x0060	/* Designed Maximum Memory Read Count */
+#define  PCI_X_STATUS_MAX_SPLIT	0x0380	/* Design Max Outstanding Split Trans */
+#define  PCI_X_STATUS_MAX_CUM	0x1c00	/* Designed Max Cumulative Read Size */
+#define  PCI_X_STATUS_SPL_ERR	0x2000	/* Rcvd Split Completion Error Msg */
 
 /* Include the ID list */
 
@@ -488,6 +523,32 @@ struct pci_driver {
 	int  (*enable_wake) (struct pci_dev *dev, u32 state, int enable);   /* Enable wake event */
 };
 
+/**
+ * PCI_DEVICE - macro used to describe a specific pci device
+ * @vend: the 16 bit PCI Vendor ID
+ * @dev: the 16 bit PCI Device ID
+ *
+ * This macro is used to create a struct pci_device_id that matches a
+ * specific device.  The subvendor and subdevice fields will be set to
+ * PCI_ANY_ID.
+ */
+#define PCI_DEVICE(vend,dev) \
+	.vendor = (vend), .device = (dev), \
+	.subvendor = PCI_ANY_ID, .subdevice = PCI_ANY_ID
+
+/**
+ * PCI_DEVICE_CLASS - macro used to describe a specific pci device class
+ * @dev_class: the class, subclass, prog-if triple for this device
+ * @dev_class_mask: the class mask for this device
+ *
+ * This macro is used to create a struct pci_device_id that matches a
+ * specific PCI class.  The vendor, device, subvendor, and subdevice 
+ * fields will be set to PCI_ANY_ID.
+ */
+#define PCI_DEVICE_CLASS(dev_class,dev_class_mask) \
+	.class = (dev_class), .class_mask = (dev_class_mask), \
+	.vendor = PCI_ANY_ID, .device = PCI_ANY_ID, \
+	.subvendor = PCI_ANY_ID, .subdevice = PCI_ANY_ID
 
 /* these external functions are only available when PCI support is enabled */
 #ifdef CONFIG_PCI
@@ -534,6 +595,7 @@ void pci_init(void);
 int pci_bus_exists(const struct list_head *list, int nr);
 struct pci_bus *pci_scan_bus(int bus, struct pci_ops *ops, void *sysdata);
 struct pci_bus *pci_alloc_primary_bus(int bus);
+struct pci_dev *pci_scan_device(struct pci_dev *temp);
 struct pci_dev *pci_scan_slot(struct pci_dev *temp);
 int pci_proc_attach_device(struct pci_dev *dev);
 int pci_proc_detach_device(struct pci_dev *dev);
@@ -570,7 +632,6 @@ void pci_set_master(struct pci_dev *dev);
 #define HAVE_PCI_SET_MWI
 int pci_set_mwi(struct pci_dev *dev);
 void pci_clear_mwi(struct pci_dev *dev);
-int pdev_set_mwi(struct pci_dev *dev);
 int pci_set_dma_mask(struct pci_dev *dev, u64 mask);
 int pci_dac_set_dma_mask(struct pci_dev *dev, u64 mask);
 int pci_assign_resource(struct pci_dev *dev, int i);
@@ -741,6 +802,11 @@ static inline void pci_set_drvdata (struct pci_dev *pdev, void *data)
 	pdev->driver_data = data;
 }
 
+static inline char *pci_name(struct pci_dev *pdev)
+{
+	return pdev->slot_name;
+}
+
 /*
  *  The world is not perfect and supplies us with broken PCI devices.
  *  For at least a part of these bugs we need a work-around, so both
@@ -767,6 +833,7 @@ extern int pci_pci_problems;
 #define PCIPCI_NATOMA		4
 #define PCIPCI_VIAETBF		8
 #define PCIPCI_VSFX		16
+#define PCIPCI_ALIMAGIK		32
 
 #endif /* __KERNEL__ */
 #endif /* LINUX_PCI_H */

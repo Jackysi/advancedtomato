@@ -1,7 +1,7 @@
 /* 
  * Direct MTD block device access
  *
- * $Id: mtdblock.c,v 1.1.1.4 2003/10/14 08:08:16 sparq Exp $
+ * $Id: mtdblock.c,v 1.51 2001/11/20 11:42:33 dwmw2 Exp $
  *
  * 02-nov-2000	Nicolas Pitre		Added read-modify-write with cache
  */
@@ -311,6 +311,7 @@ static int mtdblock_open(struct inode *inode, struct file *file)
 	if (mtdblks[dev]) {
 		mtdblks[dev]->count++;
 		spin_unlock(&mtdblks_lock);
+		put_mtd_device(mtd);
 		return 0;
 	}
 	
@@ -432,7 +433,7 @@ static void handle_mtdblock_request(void)
 		res = 0;
 
 		if (MINOR(req->rq_dev) >= MAX_MTD_DEVICES)
-			panic(__FUNCTION__": minor out of bound");
+			panic("%s: minor out of bounds", __FUNCTION__);
 
 		if ((req->sector + req->current_nr_sectors) > (mtdblk->mtd->size >> 9))
 			goto end_req;
@@ -483,20 +484,14 @@ int mtdblock_thread(void *dummy)
 	struct task_struct *tsk = current;
 	DECLARE_WAITQUEUE(wait, tsk);
 
-	tsk->session = 1;
-	tsk->pgrp = 1;
 	/* we might get involved when memory gets low, so use PF_MEMALLOC */
 	tsk->flags |= PF_MEMALLOC;
 	strcpy(tsk->comm, "mtdblockd");
-	tsk->tty = NULL;
 	spin_lock_irq(&tsk->sigmask_lock);
 	sigfillset(&tsk->blocked);
 	recalc_sigpending(tsk);
 	spin_unlock_irq(&tsk->sigmask_lock);
-	exit_mm(tsk);
-	exit_files(tsk);
-	exit_sighand(tsk);
-	exit_fs(tsk);
+	daemonize();
 
 	while (!leaving) {
 		add_wait_queue(&thr_wq, &wait);

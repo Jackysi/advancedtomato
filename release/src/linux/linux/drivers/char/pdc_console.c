@@ -398,6 +398,25 @@ static void
 pdc_set_termios(struct tty_struct *tty, struct termios *old_termios)
 {
 
+#if 0				/* XXX CP, has to be checked, if there is stuff to do */
+	struct async_struct *info = (struct async_struct *) tty->driver_data;
+	unsigned long flags;
+	unsigned int cflag = tty->termios->c_cflag;
+
+	if ((cflag == old_termios->c_cflag)
+	    && (RELEVANT_IFLAG(tty->termios->c_iflag)
+		== RELEVANT_IFLAG(old_termios->c_iflag)))
+		return;
+#if 0
+	change_speed(info, old_termios);
+#endif
+	/* Handle turning off CRTSCTS */
+	if ((old_termios->c_cflag & CRTSCTS) &&
+	    !(tty->termios->c_cflag & CRTSCTS)) {
+		tty->hw_stopped = 0;
+		pdc_start(tty);
+	}
+#endif
 }
 
 /*
@@ -440,11 +459,11 @@ pdc_close(struct tty_struct *tty, struct file *filp)
 	 * line status register.
 	 */
 
+	/* XXX CP: make mask for receive !!! */
 
 	if (tty->driver.flush_buffer)
 		tty->driver.flush_buffer(tty);
-	if (tty->ldisc.flush_buffer)
-		tty->ldisc.flush_buffer(tty);
+	tty_ldisc_flush(tty);
 	tty->closing = 0;
 	info->event = 0;
 	info->tty = 0;
@@ -605,7 +624,7 @@ pdc_drv_init(void)
 #else
 	pdc_drv_driver.name = "ttyB";
 #endif
-	pdc_drv_driver.major = PDCCONS_MAJOR;
+	pdc_drv_driver.major = MUX_MAJOR;
 	pdc_drv_driver.minor_start = 0;
 	pdc_drv_driver.num = NR_PORTS;
 	pdc_drv_driver.type = TTY_DRIVER_TYPE_SERIAL;

@@ -62,12 +62,6 @@
 /***
  *
  * $Log: ltpc.c,v $
- * Revision 1.1.1.2  2003/10/14 08:08:24  sparq
- * Broadcom Release 3.51.8.0 for BCM4712.
- *
- * Revision 1.1.1.1  2003/02/03 22:37:47  mhuang
- * LINUX_2_4 branch snapshot from linux-mips.org CVS
- *
  * Revision 1.1.2.1  2000/03/01 05:35:07  jgarzik
  * at and tr cleanup
  *
@@ -505,6 +499,9 @@ static void idle(struct net_device *dev)
 {
 	unsigned long flags;
 	int state;
+	/* FIXME This is initialized to shut the warning up, but I need to
+	 * think this through again.
+	 */
 	struct xmitQel *q=0;
 	int oops;
 	int i;
@@ -1019,6 +1016,7 @@ static int __init ltpc_probe_dma(int base)
 
 	/* set up request */
 
+	/* FIXME -- do timings better! */
 
 	ltdmabuf[0] = LT_READMEM;
 	ltdmabuf[1] = 1;  /* mailbox */

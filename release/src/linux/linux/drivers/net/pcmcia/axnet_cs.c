@@ -99,6 +99,8 @@ static int axnet_event(event_t event, int priority,
 static int axnet_open(struct net_device *dev);
 static int axnet_close(struct net_device *dev);
 static int axnet_ioctl(struct net_device *dev, struct ifreq *rq, int cmd);
+static struct ethtool_ops netdev_ethtool_ops;
+
 static void ei_irq_wrapper(int irq, void *dev_id, struct pt_regs *regs);
 static void ei_watchdog(u_long arg);
 static void axnet_reset_8390(struct net_device *dev);
@@ -221,6 +223,7 @@ static dev_link_t *axnet_attach(void)
     dev->open = &axnet_open;
     dev->stop = &axnet_close;
     dev->do_ioctl = &axnet_ioctl;
+    SET_ETHTOOL_OPS(dev, &netdev_ethtool_ops);
 
     /* Register with Card Services */
     link->next = dev_list;
@@ -822,25 +825,15 @@ reschedule:
     add_timer(&info->watchdog);
 }
 
-static int netdev_ethtool_ioctl(struct net_device *dev, void *useraddr)
+static void netdev_get_drvinfo(struct net_device *dev,
+			       struct ethtool_drvinfo *info)
 {
-	u32 ethcmd;
-		
-	if (copy_from_user(&ethcmd, useraddr, sizeof(ethcmd)))
-		return -EFAULT;
-	
-	switch (ethcmd) {
-	case ETHTOOL_GDRVINFO: {
-		struct ethtool_drvinfo info = {ETHTOOL_GDRVINFO};
-		strncpy(info.driver, "axnet_cs", sizeof(info.driver)-1);
-		if (copy_to_user(useraddr, &info, sizeof(info)))
-			return -EFAULT;
-		return 0;
-	}
-	}
-	
-	return -EOPNOTSUPP;
+	strcpy(info->driver, "axnet_cs");
 }
+
+static struct ethtool_ops netdev_ethtool_ops = {
+	.get_drvinfo		= netdev_get_drvinfo,
+};
 
 /*====================================================================*/
 
@@ -850,13 +843,14 @@ static int axnet_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
     u16 *data = (u16 *)&rq->ifr_data;
     ioaddr_t mii_addr = dev->base_addr + AXNET_MII_EEP;
     switch (cmd) {
-    case SIOCETHTOOL:
-        return netdev_ethtool_ioctl(dev, (void *) rq->ifr_data);
+    case SIOCGMIIPHY:
     case SIOCDEVPRIVATE:
 	data[0] = info->phy_id;
+    case SIOCGMIIREG:		/* Read MII PHY register. */
     case SIOCDEVPRIVATE+1:
 	data[3] = mdio_read(mii_addr, data[0], data[1] & 0x1f);
 	return 0;
+    case SIOCSMIIREG:		/* Write MII PHY register. */
     case SIOCDEVPRIVATE+2:
 	if (!capable(CAP_NET_ADMIN))
 	    return -EPERM;
@@ -1216,7 +1210,8 @@ static int ei_start_xmit(struct sk_buff *skb, struct net_device *dev)
 	struct ei_device *ei_local = (struct ei_device *) dev->priv;
 	int length, send_length, output_page;
 	unsigned long flags;
-
+	u8 packet[ETH_ZLEN];
+	
 	netif_stop_queue(dev);
 
 	length = skb->len;
@@ -1241,7 +1236,7 @@ static int ei_start_xmit(struct sk_buff *skb, struct net_device *dev)
 	ei_local->irqlock = 1;
 
 	send_length = ETH_ZLEN < length ? length : ETH_ZLEN;
-    
+	
 	/*
 	 * We have two Tx slots available for use. Find the first free
 	 * slot, and then perform some sanity checks. With two Tx bufs,
@@ -1286,7 +1281,15 @@ static int ei_start_xmit(struct sk_buff *skb, struct net_device *dev)
 	 * trigger the send later, upon receiving a Tx done interrupt.
 	 */
 
-	ei_block_output(dev, length, skb->data, output_page);
+	if(length == skb->len)
+		ei_block_output(dev, length, skb->data, output_page);
+	else
+	{
+		memset(packet, 0, ETH_ZLEN);
+		memcpy(packet, skb->data, skb->len);
+		ei_block_output(dev, length, packet, output_page);
+	}
+	
 	if (! ei_local->txing) 
 	{
 		ei_local->txing = 1;
@@ -1360,12 +1363,14 @@ static void ax_interrupt(int irq, void *dev_id, struct pt_regs * regs)
 
 	if (ei_local->irqlock) 
 	{
+#if 1 /* This might just be an interrupt for a PCI device sharing this line */
 		/* The "irqlock" check is only for testing. */
 		printk(ei_local->irqlock
 			   ? "%s: Interrupted while interrupts are masked! isr=%#2x imr=%#2x.\n"
 			   : "%s: Reentering the interrupt handler! isr=%#2x imr=%#2x.\n",
 			   dev->name, inb_p(e8390_base + EN0_ISR),
 			   inb_p(e8390_base + EN0_IMR));
+#endif
 		spin_unlock(&ei_local->page_lock);
 		return;
 	}

@@ -42,8 +42,13 @@
 /* GCC actually has a syntax for defining aliases, but is under some
    delusion that you shouldn't be able to declare it extern somewhere
    else beforehand.  Fine.  We'll do it ourselves.  */
+#if 0
+#define ALIAS_MV(system) \
+  struct sh_machine_vector sh_mv __attribute__((alias("mv_"#system)));
+#else
 #define ALIAS_MV(system) \
   asm(".global sh_mv\nsh_mv = mv_"#system );
+#endif
 #endif /* GENERIC */
 
 #endif /* __SH_MACHVEC_INIT_H */

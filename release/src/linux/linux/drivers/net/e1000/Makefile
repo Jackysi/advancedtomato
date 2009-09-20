@@ -1,7 +1,7 @@
 ################################################################################
 #
 # 
-# Copyright(c) 1999 - 2002 Intel Corporation. All rights reserved.
+# Copyright(c) 1999 - 2003 Intel Corporation. All rights reserved.
 # 
 # This program is free software; you can redistribute it and/or modify it 
 # under the terms of the GNU General Public License as published by the Free 
@@ -32,8 +32,7 @@
 
 O_TARGET := e1000.o
 
-obj-y	:= e1000_main.o e1000_hw.o e1000_ethtool.o e1000_param.o \
-	   e1000_proc.o
+obj-y	:= e1000_main.o e1000_hw.o e1000_ethtool.o e1000_param.o kcompat.o
 obj-m	:= $(O_TARGET)
 
 include $(TOPDIR)/Rules.make

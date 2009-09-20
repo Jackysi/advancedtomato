@@ -1,12 +1,12 @@
 /*
  * ACPI PCI Hot Plug Controller Driver
  *
- * Copyright (c) 1995,2001 Compaq Computer Corporation
- * Copyright (c) 2001 Greg Kroah-Hartman (greg@kroah.com)
- * Copyright (c) 2001 IBM Corp.
- * Copyright (c) 2002 Hiroshi Aono (h-aono@ap.jp.nec.com)
- * Copyright (c) 2002 Takayoshi Kochi (t-kouchi@cq.jp.nec.com)
- * Copyright (c) 2002 NEC Corporation
+ * Copyright (C) 1995,2001 Compaq Computer Corporation
+ * Copyright (C) 2001 Greg Kroah-Hartman (greg@kroah.com)
+ * Copyright (C) 2001 IBM Corp.
+ * Copyright (C) 2002 Hiroshi Aono (h-aono@ap.jp.nec.com)
+ * Copyright (C) 2002,2003 Takayoshi Kochi (t-kochi@bq.jp.nec.com)
+ * Copyright (C) 2002,2003 NEC Corporation
  *
  * All rights reserved.
  *
@@ -26,88 +26,31 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * Send feedback to <gregkh@us.ibm.com>,
- *		    <h-aono@ap.jp.nec.com>,
- *		    <t-kouchi@cq.jp.nec.com>
+ *		    <t-kochi@bq.jp.nec.com>
  *
  */
 
 #ifndef _ACPIPHP_H
 #define _ACPIPHP_H
 
-#include "include/acpi.h"
+#include <linux/acpi.h>
 #include "pci_hotplug.h"
 
-#if ACPI_CA_VERSION < 0x20020201
-/* until we get a new version of the ACPI driver for both ia32 and ia64 ... */
-#define acpi_util_eval_error(h,p,s)
-
-static acpi_status
-acpi_evaluate_integer (
-	acpi_handle		handle,
-	acpi_string		pathname,
-	acpi_object_list	*arguments,
-	unsigned long		*data)
-{
-	acpi_status		status = AE_OK;
-	acpi_object		element;
-	acpi_buffer		buffer = {sizeof(acpi_object), &element};
-
-	if (!data)
-		return AE_BAD_PARAMETER;
-
-	status = acpi_evaluate_object(handle, pathname, arguments, &buffer);
-	if (ACPI_FAILURE(status)) {
-		acpi_util_eval_error(handle, pathname, status);
-		return status;
-	}
-
-	if (element.type != ACPI_TYPE_INTEGER) {
-		acpi_util_eval_error(handle, pathname, AE_BAD_DATA);
-		return AE_BAD_DATA;
-	}
-
-	*data = element.integer.value;
-
-	return AE_OK;
-}
-#else  /* ACPI_CA_VERSION < 0x20020201 */
-#include "acpi_bus.h"
-#endif
-
-/* compatibility stuff for ACPI CA */
-#ifndef ACPI_MEMORY_RANGE
-#define ACPI_MEMORY_RANGE MEMORY_RANGE
-#endif
-
-#ifndef ACPI_IO_RANGE
-#define ACPI_IO_RANGE IO_RANGE
-#endif
-
-#ifndef ACPI_BUS_NUMBER_RANGE
-#define ACPI_BUS_NUMBER_RANGE BUS_NUMBER_RANGE
-#endif
-
-#ifndef ACPI_PREFETCHABLE_MEMORY
-#define ACPI_PREFETCHABLE_MEMORY PREFETCHABLE_MEMORY
-#endif
-
-#ifndef ACPI_PRODUCER
-#define ACPI_PRODUCER PRODUCER
-#endif
+#include <acpi/acpi_bus.h>
 
 #define dbg(format, arg...)					\
 	do {							\
-		if (debug)					\
-			printk (KERN_DEBUG "%s: " format "\n",	\
+		if (acpiphp_debug)				\
+			printk(KERN_DEBUG "%s: " format,	\
 				MY_NAME , ## arg); 		\
 	} while (0)
-#define err(format, arg...) printk (KERN_ERR "%s: " format "\n", MY_NAME , ## arg)
-#define info(format, arg...) printk (KERN_INFO "%s: " format "\n", MY_NAME , ## arg)
-#define warn(format, arg...) printk (KERN_WARNING "%s: " format "\n", MY_NAME , ## arg)
+#define err(format, arg...) printk(KERN_ERR "%s: " format, MY_NAME , ## arg)
+#define info(format, arg...) printk(KERN_INFO "%s: " format, MY_NAME , ## arg)
+#define warn(format, arg...) printk(KERN_WARNING "%s: " format, MY_NAME , ## arg)
 
 #define SLOT_MAGIC	0x67267322
 /* name size which is used for entries in pcihpfs */
-#define SLOT_NAME_SIZE	16		/* ACPIxxxx */
+#define SLOT_NAME_SIZE	16		/* {_SUN} */
 
 struct acpiphp_bridge;
 struct acpiphp_slot;
@@ -122,8 +65,6 @@ struct slot {
 	struct hotplug_slot	*hotplug_slot;
 	struct list_head	slot_list;
 
-	/* if there are multiple corresponding ACPI slot objects,
-	   this points to one of them */
 	struct acpiphp_slot	*acpi_slot;
 };
 
@@ -175,8 +116,6 @@ struct acpiphp_bridge {
 	/* PCI-to-PCI bridge device */
 	struct pci_dev *pci_dev;
 
-	struct pci_ops *pci_ops;
-
 	/* ACPI 2.0 _HPP parameters */
 	struct hpp_param hpp;
 
@@ -200,7 +139,6 @@ struct acpiphp_slot {
 	struct acpiphp_bridge *bridge;	/* parent */
 	struct list_head funcs;		/* one slot may have different
 					   objects (i.e. for each function) */
-	struct acpiphp_func *func;	/* functions */
 	struct semaphore crit_sect;
 
 	u32		id;		/* slot id (serial #) for hotplug core */
@@ -213,7 +151,7 @@ struct acpiphp_slot {
 
 
 /**
- * struct acpiphp_func - PCI slot information
+ * struct acpiphp_func - PCI function information
  *
  * PCI function information for each object in ACPI namespace
  * typically 8 objects per slot (i.e. for each PCI function)
@@ -264,7 +202,7 @@ struct acpiphp_func {
 
 #define SLOT_POWEREDON		(0x00000001)
 #define SLOT_ENABLED		(0x00000002)
-#define SLOT_MULTIFUNCTION	(x000000004)
+#define SLOT_MULTIFUNCTION	(0x00000004)
 
 /* function flags */
 
@@ -274,12 +212,6 @@ struct acpiphp_func {
 #define FUNC_HAS_PS1		(0x00000020)
 #define FUNC_HAS_PS2		(0x00000040)
 #define FUNC_HAS_PS3		(0x00000080)
-
-/* not yet */
-#define SLOT_SUPPORT_66MHZ	(0x00010000)
-#define SLOT_SUPPORT_100MHZ	(0x00020000)
-#define SLOT_SUPPORT_133MHZ	(0x00040000)
-#define SLOT_SUPPORT_PCIX	(0x00080000)
 
 /* function prototypes */
 
@@ -298,6 +230,7 @@ extern u8 acpiphp_get_power_status (struct acpiphp_slot *slot);
 extern u8 acpiphp_get_attention_status (struct acpiphp_slot *slot);
 extern u8 acpiphp_get_latch_status (struct acpiphp_slot *slot);
 extern u8 acpiphp_get_adapter_status (struct acpiphp_slot *slot);
+extern u32 acpiphp_get_address (struct acpiphp_slot *slot);
 
 /* acpiphp_pci.c */
 extern struct pci_dev *acpiphp_allocate_pcidev (struct pci_bus *pbus, int dev, int fn);
@@ -318,5 +251,8 @@ extern void acpiphp_move_resource (struct pci_resource **from, struct pci_resour
 extern void acpiphp_free_resource (struct pci_resource **res);
 extern void acpiphp_dump_resource (struct acpiphp_bridge *bridge); /* debug */
 extern void acpiphp_dump_func_resource (struct acpiphp_func *func); /* debug */
+
+/* variables */
+extern int acpiphp_debug;
 
 #endif /* _ACPIPHP_H */

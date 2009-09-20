@@ -3,7 +3,7 @@
  *	
  *		Alan Cox, <alan@redhat.com>
  *
- *	Version: $Id: icmp.c,v 1.1.1.4 2003/10/14 08:09:33 sparq Exp $
+ *	Version: $Id: icmp.c,v 1.82.2.1 2001/12/13 08:59:27 davem Exp $
  *
  *	This program is free software; you can redistribute it and/or
  *	modify it under the terms of the GNU General Public License
@@ -178,54 +178,32 @@ struct icmp_control
 static struct icmp_control icmp_pointers[NR_ICMP_TYPES+1];
 
 /*
- *	The ICMP socket. This is the most convenient way to flow control
+ *	The ICMP socket(s). This is the most convenient way to flow control
  *	our ICMP output as well as maintain a clean interface throughout
  *	all layers. All Socketless IP sends will soon be gone.
  */
 	
-struct inode icmp_inode;
-struct socket *icmp_socket = &icmp_inode.u.socket_i;
+static struct inode __icmp_inode[NR_CPUS];
+#define icmp_socket (&__icmp_inode[smp_processor_id()].u.socket_i)
+#define icmp_socket_cpu(X) (&__icmp_inode[(X)].u.socket_i)
 
-/* ICMPv4 socket is only a bit non-reenterable (unlike ICMPv6,
-   which is strongly non-reenterable). A bit later it will be made
-   reenterable and the lock may be removed then.
- */
-
-static int icmp_xmit_holder = -1;
-
-static int icmp_xmit_lock_bh(void)
+static int icmp_xmit_lock(void)
 {
-	if (!spin_trylock(&icmp_socket->sk->lock.slock)) {
-		if (icmp_xmit_holder == smp_processor_id())
-			return -EAGAIN;
-		spin_lock(&icmp_socket->sk->lock.slock);
+	local_bh_disable();
+	if (unlikely(!spin_trylock(&icmp_socket->sk->lock.slock))) {
+		/* This can happen if the output path signals a
+		 * dst_link_failure() for an outgoing ICMP packet.
+		 */
+		local_bh_enable();
+		return 1;
 	}
-	icmp_xmit_holder = smp_processor_id();
 	return 0;
 }
 
-static __inline__ int icmp_xmit_lock(void)
+static void icmp_xmit_unlock(void)
 {
-	int ret;
-	local_bh_disable();
-	ret = icmp_xmit_lock_bh();
-	if (ret)
-		local_bh_enable();
-	return ret;
+	spin_unlock_bh(&icmp_socket->sk->lock.slock);
 }
-
-static void icmp_xmit_unlock_bh(void)
-{
-	icmp_xmit_holder = -1;
-	spin_unlock(&icmp_socket->sk->lock.slock);
-}
-
-static __inline__ void icmp_xmit_unlock(void)
-{
-	icmp_xmit_unlock_bh();
-	local_bh_enable();
-}
-
 
 /*
  *	Send an ICMP frame.
@@ -303,11 +281,15 @@ static void icmp_out_count(int type)
  *	Checksum each fragment, and on the first include the headers and final checksum.
  */
  
-static int icmp_glue_bits(const void *p, char *to, unsigned int offset, unsigned int fraglen)
+static int icmp_glue_bits(const void *p, char *to, unsigned int offset,
+                          unsigned int fraglen, struct sk_buff *skb)
 {
 	struct icmp_bxm *icmp_param = (struct icmp_bxm *)p;
 	struct icmphdr *icmph;
 	unsigned int csum;
+
+	if (icmp_pointers[icmp_param->data.icmph.type].error)
+		nf_ct_attach(skb, icmp_param->skb);
 
 	if (offset) {
 		icmp_param->csum=skb_copy_and_csum_bits(icmp_param->skb,
@@ -348,7 +330,7 @@ static void icmp_reply(struct icmp_bxm *icmp_param, struct sk_buff *skb)
 	if (ip_options_echo(&icmp_param->replyopts, skb))
 		return;
 
-	if (icmp_xmit_lock_bh())
+	if (icmp_xmit_lock())
 		return;
 
 	icmp_param->data.icmph.checksum=0;
@@ -374,7 +356,7 @@ static void icmp_reply(struct icmp_bxm *icmp_param, struct sk_buff *skb)
 	}
 	ip_rt_put(rt);
 out:
-	icmp_xmit_unlock_bh();
+	icmp_xmit_unlock();
 }
 
 
@@ -625,8 +607,11 @@ static void icmp_unreach(struct sk_buff *skb)
 		if (inet_addr_type(iph->daddr) == RTN_BROADCAST)
 		{
 			if (net_ratelimit())
-				printk(KERN_WARNING "%u.%u.%u.%u sent an invalid ICMP error to a broadcast.\n",
-			       	NIPQUAD(skb->nh.iph->saddr));
+				printk(KERN_WARNING "%u.%u.%u.%u sent an invalid ICMP type %u, code %u error to a broadcast: %u.%u.%u.%u on %s\n",
+					NIPQUAD(skb->nh.iph->saddr),
+					icmph->type, icmph->code,
+					NIPQUAD(iph->daddr),
+					skb->dev->name);
 			goto out;
 		}
 	}
@@ -826,6 +811,10 @@ static void icmp_timestamp(struct sk_buff *skb)
 
 static void icmp_address(struct sk_buff *skb)
 {
+#if 0
+	if (net_ratelimit())
+		printk(KERN_DEBUG "a guy asks for address mask. Who is it?\n");
+#endif		
 }
 
 /*
@@ -981,29 +970,38 @@ static struct icmp_control icmp_pointers[NR_ICMP_TYPES+1] = {
 
 void __init icmp_init(struct net_proto_family *ops)
 {
-	int err;
+	int err, i;
 
-	icmp_inode.i_mode = S_IFSOCK;
-	icmp_inode.i_sock = 1;
-	icmp_inode.i_uid = 0;
-	icmp_inode.i_gid = 0;
-	init_waitqueue_head(&icmp_inode.i_wait);
-	init_waitqueue_head(&icmp_inode.u.socket_i.wait);
+	for (i = 0; i < NR_CPUS; i++) {
+		__icmp_inode[i].i_mode = S_IFSOCK;
+		__icmp_inode[i].i_sock = 1;
+		__icmp_inode[i].i_uid = 0;
+		__icmp_inode[i].i_gid = 0;
+		init_waitqueue_head(&__icmp_inode[i].i_wait);
+		init_waitqueue_head(&__icmp_inode[i].u.socket_i.wait);
 
-	icmp_socket->inode = &icmp_inode;
-	icmp_socket->state = SS_UNCONNECTED;
-	icmp_socket->type=SOCK_RAW;
+		icmp_socket_cpu(i)->inode = &__icmp_inode[i];
+		icmp_socket_cpu(i)->state = SS_UNCONNECTED;
+		icmp_socket_cpu(i)->type = SOCK_RAW;
 
-	if ((err=ops->create(icmp_socket, IPPROTO_ICMP))<0)
-		panic("Failed to create the ICMP control socket.\n");
-	icmp_socket->sk->allocation=GFP_ATOMIC;
-	icmp_socket->sk->sndbuf = SK_WMEM_MAX*2;
-	icmp_socket->sk->protinfo.af_inet.ttl = MAXTTL;
-	icmp_socket->sk->protinfo.af_inet.pmtudisc = IP_PMTUDISC_DONT;
+		if ((err=ops->create(icmp_socket_cpu(i), IPPROTO_ICMP)) < 0)
+			panic("Failed to create the ICMP control socket.\n");
 
-	/* Unhash it so that IP input processing does not even
-	 * see it, we do not wish this socket to see incoming
-	 * packets.
-	 */
-	icmp_socket->sk->prot->unhash(icmp_socket->sk);
+		icmp_socket_cpu(i)->sk->allocation=GFP_ATOMIC;
+
+		/* Enough space for 2 64K ICMP packets, including
+		 * sk_buff struct overhead.
+		 */
+		icmp_socket_cpu(i)->sk->sndbuf =
+			(2 * ((64 * 1024) + sizeof(struct sk_buff)));
+
+		icmp_socket_cpu(i)->sk->protinfo.af_inet.ttl = MAXTTL;
+		icmp_socket_cpu(i)->sk->protinfo.af_inet.pmtudisc = IP_PMTUDISC_DONT;
+
+		/* Unhash it so that IP input processing does not even
+		 * see it, we do not wish this socket to see incoming
+		 * packets.
+		 */
+		icmp_socket_cpu(i)->sk->prot->unhash(icmp_socket_cpu(i)->sk);
+	}
 }

@@ -26,7 +26,7 @@ extern struct task_struct *child_reaper;
 
 int getrusage(struct task_struct *, int, struct rusage *);
 
-void release_task(struct task_struct * p)
+static void release_task(struct task_struct * p)
 {
 	if (p != current) {
 #ifdef CONFIG_SMP
@@ -369,10 +369,9 @@ static void exit_notify(void)
 	 *	
 	 */
 	
-	if(current->exit_signal != SIGCHLD &&
+	if (current->exit_signal && current->exit_signal != SIGCHLD &&
 	    ( current->parent_exec_id != t->self_exec_id  ||
-	      current->self_exec_id != current->parent_exec_id) 
-	    && !capable(CAP_KILL))
+	      current->self_exec_id != current->parent_exec_id))
 		current->exit_signal = SIGCHLD;
 
 

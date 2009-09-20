@@ -32,12 +32,13 @@
 #include <linux/sched.h>
 #include <linux/ioport.h>
 #include <linux/console.h>
-#include <linux/mc146818rtc.h>
 #include <linux/serial_reg.h>
 
 #include <asm/cpu.h>
 #include <asm/bootinfo.h>
 #include <asm/irq.h>
+#include <asm/time.h>
+#include <asm/io.h>
 #include <asm/mipsregs.h>
 #include <asm/reboot.h>
 #include <asm/traps.h>
@@ -47,12 +48,6 @@
 #include <asm/keyboard.h>
 #endif
 
-#if defined(CONFIG_SERIAL_CONSOLE) || defined(CONFIG_PROM_CONSOLE)
-extern void console_setup(char *, int *);
-char serial_console[20];
-#endif
-
-extern struct rtc_ops it8172_rtc_ops;
 extern struct resource ioport_resource;
 #ifdef CONFIG_BLK_DEV_IDE
 extern struct ide_ops std_ide_ops;
@@ -72,11 +67,8 @@ extern void it8172_power_off(void);
 
 extern void (*board_time_init)(void);
 extern void (*board_timer_setup)(struct irqaction *irq);
-extern unsigned long (*rtc_get_time)(void);
-extern int (*rtc_set_time)(unsigned long);
 extern void it8172_time_init(void);
 extern void it8172_timer_setup(struct irqaction *irq);
-extern unsigned long it8172_rtc_get_time(void);
 
 #ifdef CONFIG_IT8172_REVC
 struct {
@@ -115,9 +107,6 @@ struct {
 #endif
 
 
-void __init bus_error_init(void) { /* nothing */ }
-
-
 void __init it8172_init_ram_resource(unsigned long memsize)
 {
 	it8172_resources.ram.end = memsize;
@@ -138,12 +127,9 @@ void __init it8172_setup(void)
 #endif
 
 	clear_c0_status(ST0_FR);
-	rtc_ops = &it8172_rtc_ops;
 
 	board_time_init = it8172_time_init;
 	board_timer_setup = it8172_timer_setup;
-	rtc_get_time = it8172_rtc_get_time;
-	//rtc_set_time = it8172_rtc_set_time;
 
 	_machine_restart = it8172_restart;
 	_machine_halt = it8172_halt;

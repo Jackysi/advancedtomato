@@ -15,6 +15,8 @@ extern struct proto tcpv6_prot;
 
 struct flowi;
 
+extern void				ipv6_frag_init(void);
+
 extern void				rawv6_init(void);
 extern void				udpv6_init(void);
 extern void				tcpv6_init(void);

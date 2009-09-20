@@ -26,6 +26,10 @@
 #include <linux/version.h>
 #include "8253xctl.h"
 #include "Reg9050.h"
+#if 0 				/* only during debugging */
+#undef DEBUGPRINT
+#define DEBUGPRINT(arg) printk arg
+#endif
 
 void dump_ati_adapter_registers(unsigned int *addr, int len)
 {

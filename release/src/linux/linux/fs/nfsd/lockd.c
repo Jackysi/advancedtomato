@@ -69,6 +69,10 @@ struct nlmsvc_binding		nfsd_nlm_ops = {
 	exp_nlmdetach,		/* lockd shutdown notification */
 };
 
+/*
+ * When removing an NFS client entry, notify lockd that it is gone.
+ * FIXME: We should do the same when unexporting an NFS volume.
+ */
 void
 nfsd_lockd_unexport(struct svc_client *clnt)
 {

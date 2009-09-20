@@ -21,7 +21,7 @@
  * [07-SEP-99] Bugfixes 
  */
 
-#define DEBUG_DZ 1
+#undef DEBUG_DZ
 
 #include <linux/config.h>
 #include <linux/version.h>
@@ -212,6 +212,12 @@ static inline void receive_chars(struct dz_serial *info_in)
 
 		ch = UCHAR(status);	/* grab the char */
 
+#if 0
+		if (info->is_console) {
+			if (ch == 0)
+				return;	/* it's a break ... */
+		}
+#endif
 
 		tty = info->tty;	/* now tty points to the proper dev */
 		icount = &info->icount;
@@ -248,13 +254,19 @@ static inline void receive_chars(struct dz_serial *info_in)
 
 			if (tmp & DZ_PERR) {
 				*tty->flip.flag_buf_ptr = TTY_PARITY;
+#ifdef DEBUG_DZ
 				debug_console("PERR\n", 5);
+#endif
 			} else if (tmp & DZ_FERR) {
 				*tty->flip.flag_buf_ptr = TTY_FRAME;
+#ifdef DEBUG_DZ
 				debug_console("FERR\n", 5);
+#endif
 			}
 			if (tmp & DZ_OERR) {
+#ifdef DEBUG_DZ
 				debug_console("OERR\n", 5);
+#endif
 				if (tty->flip.count < TTY_FLIPBUF_SIZE) {
 					tty->flip.count++;
 					tty->flip.flag_buf_ptr++;
@@ -390,9 +402,7 @@ static void do_softint(void *private_data)
 		return;
 
 	if (test_and_clear_bit(DZ_EVENT_WRITE_WAKEUP, &info->event)) {
-		if ((tty->flags & (1 << TTY_DO_WRITE_WAKEUP)) && tty->ldisc.write_wakeup)
-			(tty->ldisc.write_wakeup) (tty);
-		wake_up_interruptible(&tty->write_wait);
+		tty_wakeup(tty);
 	}
 }
 
@@ -792,10 +802,7 @@ static void dz_flush_buffer(struct tty_struct *tty)
 	info->xmit_cnt = info->xmit_head = info->xmit_tail = 0;
 	sti();
 
-	wake_up_interruptible(&tty->write_wait);
-
-	if ((tty->flags & (1 << TTY_DO_WRITE_WAKEUP)) && tty->ldisc.write_wakeup)
-		(tty->ldisc.write_wakeup) (tty);
+	tty_wakeup(tty);
 }
 
 /*
@@ -1094,16 +1101,15 @@ static void dz_close(struct tty_struct *tty, struct file *filp)
 
 	if (tty->driver.flush_buffer)
 		tty->driver.flush_buffer(tty);
-	if (tty->ldisc.flush_buffer)
-		tty->ldisc.flush_buffer(tty);
+	tty_ldisc_flush(tty);
 	tty->closing = 0;
 	info->event = 0;
 	info->tty = 0;
 
-	if (tty->ldisc.num != ldiscs[N_TTY].num) {
+	if (tty->ldisc.num != N_TTY) {
 		if (tty->ldisc.close)
 			(tty->ldisc.close) (tty);
-		tty->ldisc = ldiscs[N_TTY];
+		tty->ldisc = *(tty_ldisc_get(N_TTY));
 		tty->termios->c_line = N_TTY;
 		if (tty->ldisc.open)
 			(tty->ldisc.open) (tty);
@@ -1293,7 +1299,7 @@ static void show_serial_version(void)
 
 int __init dz_init(void)
 {
-	int i, tmp;
+	int i;
 	long flags;
 	struct dz_serial *info;
 
@@ -1407,7 +1413,7 @@ int __init dz_init(void)
 	/* reset the chip */
 #ifndef CONFIG_SERIAL_DEC_CONSOLE
 	dz_out(info, DZ_CSR, DZ_CLR);
-	while ((tmp = dz_in(info, DZ_CSR)) & DZ_CLR);
+	while (dz_in(info, DZ_CSR) & DZ_CLR);
 	iob();
 
 	/* enable scanning */

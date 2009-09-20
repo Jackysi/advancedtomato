@@ -55,7 +55,7 @@
 #include        "osd_util.h"
 
 #ifndef NO_PACK
-#if defined(_DPT_AIX)
+#if defined (_DPT_AIX)
 #pragma options align=packed
 #else
 #pragma pack(1)
@@ -404,9 +404,9 @@
 
   /* Restore default structure packing */
 #ifndef NO_UNPACK
-#if defined(_DPT_AIX)
+#if defined (_DPT_AIX)
 #pragma options align=reset
-#elif defined(UNPACK_FOUR)
+#elif defined (UNPACK_FOUR)
 #pragma pack(4)
 #else
 #pragma pack()

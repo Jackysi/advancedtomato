@@ -500,7 +500,7 @@ static int __devinit dfx_init_one(struct pci_dev *pdev, const struct pci_device_
 
 static int __init dfx_eisa_init(void)
 {
-	int rc = -NODEV;
+	int rc = -ENODEV;
 	int i;			/* used in for loops */
 	u16 port;		/* temporary I/O (port) address */
 	u32 slot_id;		/* EISA hardware (slot) ID read from adapter */
@@ -702,6 +702,13 @@ static void __devinit dfx_bus_config_check(DFX_board_t *bp)
 		{
 		dfx_port_read_long(bp, PI_ESIC_K_SLOT_ID, &slot_id);
 
+		/*
+		 * First check if revision 2 EISA controller.  Rev. 1 cards used
+		 * PDQ revision B, so no workaround needed in this case.  Rev. 3
+		 * cards used PDQ revision E, so no workaround needed in this
+		 * case, either.  Only Rev. 2 cards used either Rev. D or E
+		 * chips, so we must verify the chip revision on Rev. 2 cards.
+		 */
 
 		if (slot_id == DEFEA_PROD_ID_2)
 			{
@@ -717,6 +724,11 @@ static void __devinit dfx_bus_config_check(DFX_board_t *bp)
 											&host_data);
 			if ((status != DFX_K_SUCCESS) || (host_data == 2))
 				{
+				/*
+				 * Either we couldn't determine the PDQ revision, or
+				 * we determined that it is at revision D.  In either case,
+				 * we need to implement the workaround.
+				 */
 
 				/* Ensure that the burst size is set to 8 longwords or less */
 
@@ -804,6 +816,14 @@ static int __devinit dfx_driver_init(struct net_device *dev)
 	bp->burst_size			= PI_PDATA_B_DMA_BURST_SIZE_DEF;
 	bp->rcv_bufs_to_post	= RCV_BUFS_DEF;
 
+	/*
+	 * Ensure that HW configuration is OK
+	 *
+	 * Note: Depending on the hardware revision, we may need to modify
+	 *       some of the configurable parameters to workaround hardware
+	 *       limitations.  We'll perform this configuration check AFTER
+	 *       setting the parameters to their default values.
+	 */
 
 	dfx_bus_config_check(bp);
 
@@ -1789,16 +1809,18 @@ static struct net_device_stats *dfx_ctl_get_stats(struct net_device *dev)
 
 	/* Fill the bp->stats structure with driver-maintained counters */
 
-	bp->stats.rx_packets			= bp->rcv_total_frames;
-	bp->stats.tx_packets			= bp->xmt_total_frames;
-	bp->stats.rx_bytes			= bp->rcv_total_bytes;
-	bp->stats.tx_bytes			= bp->xmt_total_bytes;
-	bp->stats.rx_errors				= (u32)(bp->rcv_crc_errors + bp->rcv_frame_status_errors + bp->rcv_length_errors);
-	bp->stats.tx_errors				= bp->xmt_length_errors;
-	bp->stats.rx_dropped			= bp->rcv_discards;
-	bp->stats.tx_dropped			= bp->xmt_discards;
-	bp->stats.multicast				= bp->rcv_multicast_frames;
-	bp->stats.transmit_collision	= 0;	/* always zero (0) for FDDI */
+	bp->stats.gen.rx_packets = bp->rcv_total_frames;
+	bp->stats.gen.tx_packets = bp->xmt_total_frames;
+	bp->stats.gen.rx_bytes   = bp->rcv_total_bytes;
+	bp->stats.gen.tx_bytes   = bp->xmt_total_bytes;
+	bp->stats.gen.rx_errors  = bp->rcv_crc_errors +
+				   bp->rcv_frame_status_errors +
+				   bp->rcv_length_errors;
+	bp->stats.gen.tx_errors  = bp->xmt_length_errors;
+	bp->stats.gen.rx_dropped = bp->rcv_discards;
+	bp->stats.gen.tx_dropped = bp->xmt_discards;
+	bp->stats.gen.multicast  = bp->rcv_multicast_frames;
+	bp->stats.gen.collisions = 0;		/* always zero (0) for FDDI */
 
 	/* Get FDDI SMT MIB objects */
 

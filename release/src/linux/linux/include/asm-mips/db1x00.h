@@ -27,23 +27,45 @@
 #ifndef __ASM_DB1X00_H
 #define __ASM_DB1X00_H
 
+#ifdef CONFIG_MIPS_DB1550
+#define BCSR_KSEG1_ADDR 0xAF000000
+#define NAND_PHYS_ADDR   0x20000000
+#define DBDMA_AC97_TX_CHAN DSCR_CMD0_PSC1_TX
+#define DBDMA_AC97_RX_CHAN DSCR_CMD0_PSC1_RX
+#define SPI_PSC_BASE        PSC0_BASE_ADDR
+#define AC97_PSC_BASE       PSC1_BASE_ADDR
+#define SMBUS_PSC_BASE      PSC2_BASE_ADDR
+#define I2S_PSC_BASE        PSC3_BASE_ADDR
+
+#else
+#define BCSR_KSEG1_ADDR 0xAE000000
+#endif
 
 /*
  * Overlay data structure of the Db1x00 board registers.
- * Registers located at physical 1E0000xx, KSEG1 0xAE0000xx
+ * Registers located at physical 0E0000xx, KSEG1 0xAE0000xx
  */
 typedef volatile struct
 {
-	/*00*/	unsigned long whoami;
-	/*04*/	unsigned long status;
-	/*08*/	unsigned long switches;
-	/*0C*/	unsigned long resets;
-	/*10*/	unsigned long pcmcia;
-	/*14*/	unsigned long specific;
-	/*18*/	unsigned long leds;
-	/*1C*/	unsigned long swreset;
+	/*00*/	unsigned short whoami;
+			unsigned short reserved0;
+	/*04*/	unsigned short status;
+			unsigned short reserved1;
+	/*08*/	unsigned short switches;
+			unsigned short reserved2;
+	/*0C*/	unsigned short resets;
+			unsigned short reserved3;
+	/*10*/	unsigned short pcmcia;
+			unsigned short reserved4;
+	/*14*/	unsigned short specific;
+			unsigned short reserved5;
+	/*18*/	unsigned short leds;
+			unsigned short reserved6;
+	/*1C*/	unsigned short swreset;
+			unsigned short reserved7;
 
 } BCSR;
+
 
 /*
  * Register/mask bit definitions for the BCSRs
@@ -75,6 +97,12 @@ typedef volatile struct
 #define BCSR_RESETS_PHY0		0x0001
 #define BCSR_RESETS_PHY1		0x0002
 #define BCSR_RESETS_DC			0x0004
+#define BCSR_RESETS_FIR_SEL		0x2000
+#define BCSR_RESETS_IRDA_MODE_MASK	0xC000
+#define BCSR_RESETS_IRDA_MODE_FULL	0x0000
+#define BCSR_RESETS_IRDA_MODE_OFF	0x4000
+#define BCSR_RESETS_IRDA_MODE_2_3	0x8000
+#define BCSR_RESETS_IRDA_MODE_1_3	0xC000
 
 #define BCSR_PCMCIA_PC0VPP		0x0003
 #define BCSR_PCMCIA_PC0VCC		0x000C
@@ -86,9 +114,13 @@ typedef volatile struct
 #define BCSR_PCMCIA_PC1RST		0x8000
 
 #define BCSR_BOARD_PCIM66EN		0x0001
+#define BCSR_BOARD_SD0_PWR		0x0040
+#define BCSR_BOARD_SD1_PWR		0x0080
 #define BCSR_BOARD_PCIM33		0x0100
 #define BCSR_BOARD_GPIO200RST		0x0400
 #define BCSR_BOARD_PCICFG		0x1000
+#define BCSR_BOARD_SD0_WP		0x4000
+#define BCSR_BOARD_SD1_WP		0x8000
 
 #define BCSR_LEDS_DECIMALS		0x0003
 #define BCSR_LEDS_LED0			0x0100
@@ -106,4 +138,57 @@ typedef volatile struct
 #define SET_VCC_VPP(VCC, VPP, SLOT)\
 	((((VCC)<<2) | ((VPP)<<0)) << ((SLOT)*8))
 
+/* MTD CONFIG OPTIONS */
+#if defined(CONFIG_MTD_DB1X00_BOOT) && defined(CONFIG_MTD_DB1X00_USER)
+#define DB1X00_BOTH_BANKS
+#elif defined(CONFIG_MTD_DB1X00_BOOT) && !defined(CONFIG_MTD_DB1X00_USER)
+#define DB1X00_BOOT_ONLY
+#elif !defined(CONFIG_MTD_DB1X00_BOOT) && defined(CONFIG_MTD_DB1X00_USER)
+#define DB1X00_USER_ONLY
+#endif
+
+/* SD controller macros */
+/*
+ * Detect card.
+ */
+#define mmc_card_inserted(_n_, _res_) \
+	do { \
+		BCSR * const bcsr = (BCSR *)0xAE000000; \
+		unsigned long mmc_wp, board_specific; \
+		if ((_n_)) { \
+			mmc_wp = BCSR_BOARD_SD1_WP; \
+		} else { \
+			mmc_wp = BCSR_BOARD_SD0_WP; \
+		} \
+		board_specific = au_readl((unsigned long)(&bcsr->specific)); \
+		if (!(board_specific & mmc_wp)) {/* low means card present */ \
+			*(int *)(_res_) = 1; \
+		} else { \
+			*(int *)(_res_) = 0; \
+		} \
+	} while (0)
+
+/*
+ * Apply power to card slot(s).
+ */
+#define mmc_power_on(_n_) \
+	do { \
+		BCSR * const bcsr = (BCSR *)0xAE000000; \
+		unsigned long mmc_pwr, mmc_wp, board_specific; \
+		if ((_n_)) { \
+			mmc_pwr = BCSR_BOARD_SD1_PWR; \
+			mmc_wp = BCSR_BOARD_SD1_WP; \
+		} else { \
+			mmc_pwr = BCSR_BOARD_SD0_PWR; \
+			mmc_wp = BCSR_BOARD_SD0_WP; \
+		} \
+		board_specific = au_readl((unsigned long)(&bcsr->specific)); \
+		if (!(board_specific & mmc_wp)) {/* low means card present */ \
+			board_specific |= mmc_pwr; \
+			au_writel(board_specific, (int)(&bcsr->specific)); \
+			au_sync(); \
+		} \
+	} while (0)
+
 #endif /* __ASM_DB1X00_H */
+

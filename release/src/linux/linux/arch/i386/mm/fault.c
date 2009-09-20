@@ -71,7 +71,7 @@ good_area:
 		if (!vma || vma->vm_start != start)
 			goto bad_area;
 		if (!(vma->vm_flags & VM_WRITE))
-			goto bad_area;;
+			goto bad_area;
 	}
 	return 1;
 
@@ -270,7 +270,8 @@ bad_area:
 	/* User mode accesses just cause a SIGSEGV */
 	if (error_code & 4) {
 		tsk->thread.cr2 = address;
-		tsk->thread.error_code = error_code;
+		/* Kernel addresses are always protection faults */
+		tsk->thread.error_code = error_code | (address >= TASK_SIZE);
 		tsk->thread.trap_no = 14;
 		info.si_signo = SIGSEGV;
 		info.si_errno = 0;
@@ -280,6 +281,9 @@ bad_area:
 		return;
 	}
 
+	/*
+	 * Pentium F0 0F C7 C8 bug workaround.
+	 */
 	if (boot_cpu_data.f00f_bug) {
 		unsigned long nr;
 		

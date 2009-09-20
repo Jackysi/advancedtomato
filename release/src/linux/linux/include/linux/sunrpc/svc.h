@@ -112,6 +112,8 @@ struct svc_rqst {
 				rq_secure  : 1,	/* secure port */
 				rq_auth    : 1;	/* check client */
 
+	__u32			rq_daddr;	/* dest addr of request - reply from here */
+
 	void *			rq_argp;	/* decoded arguments */
 	void *			rq_resp;	/* xdr'd results */
 

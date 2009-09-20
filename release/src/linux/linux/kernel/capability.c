@@ -83,6 +83,7 @@ static void cap_set_pg(int pgrp,
 {
      struct task_struct *target;
 
+     /* FIXME: do we need to have a write lock here..? */
      read_lock(&tasklist_lock);
      for_each_task(target) {
              if (target->pgrp != pgrp)
@@ -102,6 +103,7 @@ static void cap_set_all(kernel_cap_t *effective,
 {
      struct task_struct *target;
 
+     /* FIXME: do we need to have a write lock here..? */
      read_lock(&tasklist_lock);
      /* ALL means everyone other than self or 'init' */
      for_each_task(target) {
@@ -198,6 +200,7 @@ asmlinkage long sys_capset(cap_user_header_t header, const cap_user_data_t data)
                      cap_set_pg(-pid, &effective, &inheritable, &permitted);
              goto spin_out;
      } else {
+             /* FIXME: do we need to have a write lock here..? */
              target->cap_effective   = effective;
              target->cap_inheritable = inheritable;
              target->cap_permitted   = permitted;

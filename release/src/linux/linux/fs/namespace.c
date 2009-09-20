@@ -24,12 +24,11 @@
 struct vfsmount *do_kern_mount(const char *type, int flags, char *name, void *data);
 int do_remount_sb(struct super_block *sb, int flags, void * data);
 void kill_super(struct super_block *sb);
+extern int __init init_rootfs(void);
 
 static struct list_head *mount_hashtable;
 static int hash_mask, hash_bits;
 static kmem_cache_t *mnt_cache; 
-
-extern void init_rootfs(void);
 
 static inline unsigned long hash(struct vfsmount *mnt, struct dentry *dentry)
 {
@@ -111,7 +110,7 @@ static void attach_mnt(struct vfsmount *mnt, struct nameidata *nd)
 	mnt->mnt_parent = mntget(nd->mnt);
 	mnt->mnt_mountpoint = dget(nd->dentry);
 	list_add(&mnt->mnt_hash, mount_hashtable+hash(nd->mnt, nd->dentry));
-	list_add(&mnt->mnt_child, &nd->mnt->mnt_mounts);
+	list_add_tail(&mnt->mnt_child, &nd->mnt->mnt_mounts);
 	nd->dentry->d_mounted++;
 }
 
@@ -216,6 +215,10 @@ static int show_vfsmnt(struct seq_file *m, void *v)
 	if (!path_buf)
 		return -ENOMEM;
 	path = d_path(mnt->mnt_root, mnt, path_buf, PAGE_SIZE);
+	if (IS_ERR(path)) {
+		free_page((unsigned long) path_buf);
+		return PTR_ERR(path);
+	}
 
 	mangle(m, mnt->mnt_devname ? mnt->mnt_devname : "none");
 	seq_putc(m, ' ');
@@ -712,6 +715,9 @@ long do_mount(char * dev_name, char * dir_name, char *type_page,
 	if (dev_name && !memchr(dev_name, 0, PAGE_SIZE))
 		return -EINVAL;
 
+	if (data_page)
+		((char *)data_page)[PAGE_SIZE - 1] = 0;
+
 	/* Separate the per-mountpoint flags */
 	if (flags & MS_NOSUID)
 		mnt_flags |= MNT_NOSUID;
@@ -760,7 +766,7 @@ int copy_namespace(int flags, struct task_struct *tsk)
 		return -EPERM;
 	}
 
-	new_ns = kmalloc(sizeof(struct namespace *), GFP_KERNEL);
+	new_ns = kmalloc(sizeof(struct namespace), GFP_KERNEL);
 	if (!new_ns)
 		goto out;
 
@@ -1023,15 +1029,10 @@ void __init mnt_init(unsigned long mempages)
 	if (!mnt_cache)
 		panic("Cannot create vfsmount cache");
 
-	mempages >>= (16 - PAGE_SHIFT);
-	mempages *= sizeof(struct list_head);
-	for (order = 0; ((1UL << order) << PAGE_SHIFT) < mempages; order++)
-		;
-
-	do {
-		mount_hashtable = (struct list_head *)
-			__get_free_pages(GFP_ATOMIC, order);
-	} while (mount_hashtable == NULL && --order >= 0);
+	/* using single pointer list heads would save half of the hash table. */
+	order = 0; 
+	mount_hashtable = (struct list_head *)
+		__get_free_pages(GFP_ATOMIC, order);
 
 	if (!mount_hashtable)
 		panic("Failed to allocate mount hash table\n");
@@ -1055,8 +1056,9 @@ void __init mnt_init(unsigned long mempages)
 	nr_hash = 1UL << hash_bits;
 	hash_mask = nr_hash-1;
 
-	printk("Mount-cache hash table entries: %d (order: %ld, %ld bytes)\n",
-			nr_hash, order, (PAGE_SIZE << order));
+	printk(KERN_INFO "Mount cache hash table entries: %d"
+		" (order: %ld, %ld bytes)\n",
+		nr_hash, order, (PAGE_SIZE << order));
 
 	/* And initialize the newly allocated array */
 	d = mount_hashtable;

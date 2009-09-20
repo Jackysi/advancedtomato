@@ -1,4 +1,4 @@
-/* $Id: e100lpslavenet.c,v 1.1.1.4 2003/10/14 08:07:17 sparq Exp $
+/* $Id: e100lpslavenet.c,v 1.5 2002/04/22 11:47:24 johana Exp $
  *
  * e100lpslavenet.c: A network driver for the ETRAX 100LX slave controller.
  *
@@ -7,12 +7,6 @@
  * The outline of this driver comes from skeleton.c.
  *
  * $Log: e100lpslavenet.c,v $
- * Revision 1.1.1.4  2003/10/14 08:07:17  sparq
- * Broadcom Release 3.51.8.0 for BCM4712.
- *
- * Revision 1.1.1.1  2003/02/03 22:37:20  mhuang
- * LINUX_2_4 branch snapshot from linux-mips.org CVS
- *
  * Revision 1.5  2002/04/22 11:47:24  johana
  * Fix according to 2.4.19-pre7. time_after/time_before and
  * missing end of comment.
@@ -457,6 +451,35 @@ e100_open(struct net_device *dev)
 		return -EAGAIN;
 	}
 
+#if 0
+        /* We are not allocating DMA since DMA4 is reserved for 'cascading'
+         * and will always fail with the current dma.c
+         */
+        
+	/*
+	 * Always allocate the DMA channels after the IRQ,
+	 * and clean up on failure.
+	 */
+
+	if(request_dma(PAR0_RX_DMA_NBR, cardname)) {
+          printk("Failed to allocate PAR0_RX_DMA_NBR\n");
+		goto grace_exit;
+	}
+
+	if(request_dma(PAR1_TX_DMA_NBR, cardname)) {
+          printk("Failed to allocate PAR1_TX_DMA_NBR\n");
+	grace_exit:
+		/* this will cause some 'trying to free free irq' but what the heck... */
+
+		free_dma(PAR1_TX_DMA_NBR);
+                free_dma(PAR0_RX_DMA_NBR);
+                free_irq(PAR0_ECP_IRQ_NBR, (void *)dev);
+                free_irq(DMA4_TX_IRQ_NBR, (void *)dev);
+		free_irq(DMA3_RX_IRQ_NBR, (void *)dev);
+		
+		return -EAGAIN;
+	}
+#endif
         
 #ifdef ETHDEBUG
         printk("Par port IRQ and DMA allocated\n");
@@ -882,6 +905,9 @@ e100_hardware_send_packet(unsigned long hostcmd, char *buf, int length)
 	/* Configure the tx dma descriptor. Desc 0 is already configured.*/
 
         TxDescList[1].sw_len = length;
+	/* bug workaround - etrax100 needs d_wait on the descriptor _before_
+	 * a descriptor containing an ECP command
+	 */
 	TxDescList[1].ctrl = d_wait;
 	TxDescList[1].buf = virt_to_phys(buf);
 	TxDescList[1].next = virt_to_phys(&TxDescList[2]);
@@ -939,6 +965,15 @@ boot_slave(unsigned char *code)
 
 	*R_DMA_CH4_CLR_INTR = IO_STATE(R_DMA_CH4_CLR_INTR, clr_descr, do);
 
+#if 0
+        /* manual transfer of boot code - requires dma turned off */
+        for (i=0; i<ETRAX_PAR_BOOT_LENGTH; i++)
+        {
+          printk("  sending byte: %u value: %x\n",i,code[i]);
+          while (((*R_PAR1_STATUS)&0x02) == 0); /* Wait while tr_rdy is busy*/
+          *R_PAR1_CTRL_DATA = code[i];
+        }
+#endif
 
 #ifdef ETHDEBUG
 	printk("  done\n");

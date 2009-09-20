@@ -6,6 +6,9 @@
  * Copyright (C) 1999 by Ralf Baechle
  * Copyright (C) 1999, 2000 Silicon Graphics, Inc.
  */
+#ifndef _ASM_SERIAL_H
+#define _ASM_SERIAL_H
+
 #include <linux/config.h>
 #include <asm/jazz.h>
 
@@ -19,6 +22,8 @@
 #define BASE_BAUD ( 1843200 / 16 )
 
 #ifndef CONFIG_OLIVETTI_M700
+   /* Some Jazz machines seem to have an 8MHz crystal clock but I don't know
+      exactly which ones ... XXX */
 #define JAZZ_BASE_BAUD ( 8000000 / 16 ) /* ( 3072000 / 16) */
 #else
 /* but the M700 isn't such a strange beast */
@@ -105,8 +110,8 @@
 /*
  * Both Galileo boards have the same UART mappings.
  */
-#if defined(CONFIG_MIPS_EV96100) || defined(CONFIG_MIPS_EV64120)
-#include <asm/galileo-boards/ev96100.h>
+#if defined (CONFIG_MIPS_EV96100) || defined (CONFIG_MIPS_EV64120)
+#include <asm/gt64120/gt64120.h>
 #include <asm/galileo-boards/ev96100int.h>
 #define EV96100_SERIAL_PORT_DEFNS                                  \
     { .baud_base = EV96100_BASE_BAUD, .irq = EV96100INT_UART_0, \
@@ -155,6 +160,7 @@
 
 #ifdef CONFIG_AU1X00_UART
 #include <asm/au1000.h>
+#ifdef CONFIG_SOC_AU1000
 #define AU1000_SERIAL_PORT_DEFNS                              \
     { .baud_base = 0, .port = UART0_ADDR, .irq = AU1000_UART0_INT,  \
       .flags = STD_COM_FLAGS, .type = 1 },                        \
@@ -164,6 +170,44 @@
       .flags = STD_COM_FLAGS, .type = 1 },    \
     { .baud_base = 0, .port = UART3_ADDR, .irq = AU1000_UART3_INT,  \
       .flags = STD_COM_FLAGS, .type = 1 },
+#endif
+
+#ifdef CONFIG_SOC_AU1500
+#define AU1000_SERIAL_PORT_DEFNS                              \
+    { .baud_base = 0, .port = UART0_ADDR, .irq = AU1500_UART0_INT,  \
+      .flags = STD_COM_FLAGS, .type = 1 },                        \
+    { .baud_base = 0, .port = UART3_ADDR, .irq = AU1500_UART3_INT,  \
+      .flags = STD_COM_FLAGS, .type = 1 },
+#endif
+
+#ifdef CONFIG_SOC_AU1100
+#define AU1000_SERIAL_PORT_DEFNS                              \
+    { .baud_base = 0, .port = UART0_ADDR, .irq = AU1100_UART0_INT,  \
+      .flags = STD_COM_FLAGS, .type = 1 },                        \
+    { .baud_base = 0, .port = UART1_ADDR, .irq = AU1100_UART1_INT,  \
+      .flags = STD_COM_FLAGS, .type = 1 },     \
+    { .baud_base = 0, .port = UART3_ADDR, .irq = AU1100_UART3_INT,  \
+      .flags = STD_COM_FLAGS, .type = 1 },
+#endif
+
+#ifdef CONFIG_SOC_AU1550
+#define AU1000_SERIAL_PORT_DEFNS                              \
+    { .baud_base = 0, .port = UART0_ADDR, .irq = AU1550_UART0_INT,  \
+      .flags = STD_COM_FLAGS, .type = 1 },                        \
+    { .baud_base = 0, .port = UART1_ADDR, .irq = AU1550_UART1_INT,  \
+      .flags = STD_COM_FLAGS, .type = 1 },     \
+    { .baud_base = 0, .port = UART3_ADDR, .irq = AU1550_UART3_INT,  \
+      .flags = STD_COM_FLAGS, .type = 1 },
+#endif
+
+#ifdef CONFIG_SOC_AU1200
+#define AU1000_SERIAL_PORT_DEFNS                              \
+    { .baud_base = 0, .port = UART0_ADDR, .irq = AU1200_UART0_INT,  \
+      .flags = STD_COM_FLAGS, .type = 1 },                        \
+    { .baud_base = 0, .port = UART1_ADDR, .irq = AU1200_UART1_INT,  \
+      .flags = STD_COM_FLAGS, .type = 1 },
+#endif
+
 #else
 #define AU1000_SERIAL_PORT_DEFNS
 #endif
@@ -177,13 +221,6 @@
       .flags = UART1_FLAGS, .type = 1 },
 #else
 #define TXX927_SERIAL_PORT_DEFNS
-#endif
-
-#ifdef CONFIG_BCM947XX
-/* reserve 4 ports to be configured at runtime */
-#define BCM947XX_SERIAL_PORT_DEFNS { 0, }, { 0, }, { 0, }, { 0, },
-#else
-#define BCM947XX_SERIAL_PORT_DEFNS
 #endif
 
 #ifdef CONFIG_HAVE_STD_PC_SERIAL_PORT
@@ -274,8 +311,8 @@
 #define OCELOT_SERIAL1_BASE	0xe0001020
 
 #define _OCELOT_SERIAL_INIT(int, base)					\
-	{ .baud_base = OCELOT_BASE_BAUD, .irq = int, .flags = STD_COM_FLAGS,	\
-	  .iomem_base = (u8 *) base, .iomem_reg_shift = 2,			\
+	{ .baud_base = OCELOT_BASE_BAUD, .irq = int, .flags = STD_COM_FLAGS, \
+	  .iomem_base = (u8 *) base, .iomem_reg_shift = 2,		\
 	  .io_type = SERIAL_IO_MEM }
 #define MOMENCO_OCELOT_SERIAL_PORT_DEFNS				\
 	_OCELOT_SERIAL_INIT(OCELOT_SERIAL1_IRQ, OCELOT_SERIAL1_BASE)
@@ -288,11 +325,15 @@
 #define OCELOT_G_BASE_BAUD ( 20000000 / 16 )
 
 #define OCELOT_G_SERIAL1_IRQ	4
+#if 0
+#define OCELOT_G_SERIAL1_BASE	0xe0001020
+#else
 #define OCELOT_G_SERIAL1_BASE	0xfd000020
+#endif
 
 #define _OCELOT_G_SERIAL_INIT(int, base)				\
 	{ .baud_base = OCELOT_G_BASE_BAUD, .irq = int, .flags = STD_COM_FLAGS,\
-	  .iomem_base = (u8 *) base, .iomem_reg_shift = 2,			\
+	  .iomem_base = (u8 *) base, .iomem_reg_shift = 2,		\
 	  .io_type = SERIAL_IO_MEM }
 #define MOMENCO_OCELOT_G_SERIAL_PORT_DEFNS				\
 	_OCELOT_G_SERIAL_INIT(OCELOT_G_SERIAL1_IRQ, OCELOT_G_SERIAL1_BASE)
@@ -300,33 +341,151 @@
 #define MOMENCO_OCELOT_G_SERIAL_PORT_DEFNS
 #endif
 
+#ifdef CONFIG_MOMENCO_OCELOT_C
+/* Ordinary NS16552 duart with a 20MHz crystal.  */
+#define OCELOT_C_BASE_BAUD ( 20000000 / 16 )
+
+#define OCELOT_C_SERIAL1_IRQ	80
+#define OCELOT_C_SERIAL1_BASE	0xfd000020
+
+#define OCELOT_C_SERIAL2_IRQ	81
+#define OCELOT_C_SERIAL2_BASE	0xfd000000
+
+#define _OCELOT_C_SERIAL_INIT(int, base)				 \
+	{ baud_base: OCELOT_C_BASE_BAUD, irq: int, flags: STD_COM_FLAGS,\
+	  iomem_base: (u8 *) base, iomem_reg_shift: 2,			 \
+	  io_type: SERIAL_IO_MEM }
+#define MOMENCO_OCELOT_C_SERIAL_PORT_DEFNS				\
+	_OCELOT_C_SERIAL_INIT(OCELOT_C_SERIAL1_IRQ, OCELOT_C_SERIAL1_BASE), \
+	_OCELOT_C_SERIAL_INIT(OCELOT_C_SERIAL2_IRQ, OCELOT_C_SERIAL2_BASE)
+#else
+#define MOMENCO_OCELOT_C_SERIAL_PORT_DEFNS
+#endif
+
+#ifdef CONFIG_PMC_STRETCH
+/* 16550 Compatible. FIXME: Need to get the defines below */
+
+#define PMC_STRETCH_BASE_BAUD 		( 1843200 / 16 )
+#define	PMC_STRETCH_IRQ			0
+#define	PMC_STRETCH_BASE_ADDRESS	0xbd110000
+
+#define	_PMC_STRETCH_SERIAL_INIT(int, base)				\
+	{ baud_base: PMC_STRETCH_BASE_BAUD, irq: int,			\
+	  flags: STD_COM_FLAGS,	iomem_base: (u8 *) base,		\
+	  iomem_reg_shift: 2, io_type: SERIAL_IO_MEM }
+
+#define	PMC_STRETCH_SERIAL_PORT_DEFNS						\
+	_PMC_STRETCH_SERIAL_INIT(PMC_STRETCH_IRQ, PMC_STRETCH_BASE_ADDRESS)
+#else
+#define	PMC_STRETCH_SERIAL_PORT_DEFNS
+#endif		
+
+#ifdef CONFIG_MOMENCO_JAGUAR_ATX
+/* Ordinary NS16552 duart with a 20MHz crystal.  */
+#define JAGUAR_ATX_BASE_BAUD ( 20000000 / 16 )
+
+#define JAGUAR_ATX_SERIAL1_IRQ	7
+#define JAGUAR_ATX_SERIAL1_BASE	0xfffffffffd000020
+
+#define _JAGUAR_ATX_SERIAL_INIT(int, base)				\
+	{ baud_base: JAGUAR_ATX_BASE_BAUD, irq: int,			\
+	  flags: (ASYNC_BOOT_AUTOCONF | ASYNC_SKIP_TEST),		\
+	  iomem_base: (u8 *) base, iomem_reg_shift: 2,			\
+	  io_type: SERIAL_IO_MEM }
+#define MOMENCO_JAGUAR_ATX_SERIAL_PORT_DEFNS				\
+	_JAGUAR_ATX_SERIAL_INIT(JAGUAR_ATX_SERIAL1_IRQ, JAGUAR_ATX_SERIAL1_BASE)
+#else
+#define MOMENCO_JAGUAR_ATX_SERIAL_PORT_DEFNS
+#endif
+
+#ifdef CONFIG_TITAN_SERIAL
+/* 16552 20 MHz crystal */
+#define TITAN_SERIAL_BASE_BAUD	( 20000000 / 16 )
+#define	TITAN_SERIAL_IRQ	XXX
+#define	TITAN_SERIAL_BASE	0xffffffff
+
+#define	_TITAN_SERIAL_INIT(int, base)					\
+	{ baud_base: TITAN_SERIAL_BASE_BAUD, irq: int,			\
+	  flags: STD_COM_FLAGS,	iomem_base: (u8 *) base,		\
+	  iomem_reg_shift: 2, io_type: SERIAL_IO_MEM			\
+	}
+
+#define TITAN_SERIAL_PORT_DEFNS						\
+	_TITAN_SERIAL_INIT(TITAN_SERIAL_IRQ, TITAN_SERIAL_BASE)
+#else
+#define TITAN_SERIAL_PORT_DEFNS
+#endif
+
+#ifdef CONFIG_SGI_IP27
+
+/*
+ * Note about serial ports and consoles:
+ * For console output, everyone uses the IOC3 UARTA (offset 0x178)
+ * connected to the master node (look in ip27_setup_console() and
+ * ip27prom_console_write()).
+ *
+ * For serial (/dev/ttyS0 etc), we can not have hardcoded serial port
+ * addresses on a partitioned machine. Since we currently use the ioc3
+ * serial ports, we use dynamic serial port discovery that the serial.c
+ * driver uses for pci/pnp ports (there is an entry for the SGI ioc3
+ * boards in pci_boards[]). Unfortunately, UARTA's pio address is greater
+ * than UARTB's, although UARTA on o200s has traditionally been known as
+ * port 0. So, we just use one serial port from each ioc3 (since the
+ * serial driver adds addresses to get to higher ports).
+ *
+ * The first one to do a register_console becomes the preferred console
+ * (if there is no kernel command line console= directive). /dev/console
+ * (ie 5, 1) is then "aliased" into the device number returned by the
+ * "device" routine referred to in this console structure
+ * (ip27prom_console_dev).
+ *
+ * Also look in ip27-pci.c:pci_fixuop_ioc3() for some comments on working
+ * around ioc3 oddities in this respect.
+ *
+ * The IOC3 serials use a 22MHz clock rate with an additional divider by 3.
+ * (IOC3_BAUD = (22000000 / (3*16)))
+ *
+ * At the moment this is only a skeleton definition as we register all serials
+ * at runtime.
+ */
+
+#define IP27_SERIAL_PORT_DEFNS
+#else
+#define IP27_SERIAL_PORT_DEFNS
+#endif /* CONFIG_SGI_IP27 */
+
 #ifdef CONFIG_DDB5477
 #include <asm/ddb5xxx/ddb5477.h>
-#define DDB5477_SERIAL_PORT_DEFNS                                       \
-        { .baud_base = BASE_BAUD, .irq = VRC5477_IRQ_UART0, 		\
-	  .flags = STD_COM_FLAGS, .iomem_base = (u8*)0xbfa04200, 	\
+#define DDB5477_SERIAL_PORT_DEFNS					 \
+	{  .baud_base = BASE_BAUD, .irq = VRC5477_IRQ_UART0,		\
+	  .flags = STD_COM_FLAGS, .iomem_base = (u8*)0xbfa04200,	\
 	  .iomem_reg_shift = 3, .io_type = SERIAL_IO_MEM},		\
-        { .baud_base = BASE_BAUD, .irq = VRC5477_IRQ_UART1, 		\
-	  .flags = STD_COM_FLAGS, .iomem_base = (u8*)0xbfa04240, 	\
+	{  .baud_base = BASE_BAUD, .irq = VRC5477_IRQ_UART1,		\
+	  .flags = STD_COM_FLAGS, .iomem_base = (u8*)0xbfa04240,	\
 	  .iomem_reg_shift = 3, .io_type = SERIAL_IO_MEM},
 #else
 #define DDB5477_SERIAL_PORT_DEFNS
 #endif
 
 #define SERIAL_PORT_DFNS			\
-	BCM947XX_SERIAL_PORT_DEFNS           	\
-	IVR_SERIAL_PORT_DEFNS           	\
-	ITE_SERIAL_PORT_DEFNS           	\
 	ATLAS_SERIAL_PORT_DEFNS			\
-	SEAD_SERIAL_PORT_DEFNS			\
+	AU1000_SERIAL_PORT_DEFNS		\
 	COBALT_SERIAL_PORT_DEFNS		\
+	DDB5477_SERIAL_PORT_DEFNS		\
 	EV96100_SERIAL_PORT_DEFNS		\
-	JAZZ_SERIAL_PORT_DEFNS			\
-	STD_SERIAL_PORT_DEFNS			\
 	EXTRA_SERIAL_PORT_DEFNS			\
 	HUB6_SERIAL_PORT_DFNS			\
+	ITE_SERIAL_PORT_DEFNS           	\
+	IVR_SERIAL_PORT_DEFNS           	\
+	JAZZ_SERIAL_PORT_DEFNS			\
 	MOMENCO_OCELOT_SERIAL_PORT_DEFNS	\
 	MOMENCO_OCELOT_G_SERIAL_PORT_DEFNS	\
-	AU1000_SERIAL_PORT_DEFNS		\
-        TXX927_SERIAL_PORT_DEFNS        	\
-	DDB5477_SERIAL_PORT_DEFNS
+	MOMENCO_OCELOT_C_SERIAL_PORT_DEFNS	\
+	MOMENCO_JAGUAR_ATX_SERIAL_PORT_DEFNS	\
+	PMC_STRETCH_SERIAL_PORT_DEFNS		\
+	SEAD_SERIAL_PORT_DEFNS			\
+	STD_SERIAL_PORT_DEFNS			\
+	TITAN_SERIAL_PORT_DEFNS			\
+	TXX927_SERIAL_PORT_DEFNS
+
+#endif /* _ASM_SERIAL_H */

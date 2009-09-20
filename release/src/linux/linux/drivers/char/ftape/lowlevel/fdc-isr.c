@@ -17,9 +17,9 @@
  the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
 
  *
- * $Source: /home/cvsroot/wrt54g/src/linux/linux/drivers/char/ftape/lowlevel/fdc-isr.c,v $
- * $Revision: 1.1.1.2 $
- * $Date: 2003/10/14 08:08:06 $
+ * $Source: /homes/cvs/ftape-stacked/ftape/lowlevel/fdc-isr.c,v $
+ * $Revision: 1.9 $
+ * $Date: 1997/10/17 23:01:53 $
  *
  *      This file contains the interrupt service routine and
  *      associated code for the QIC-40/80/3010/3020 floppy-tape driver
@@ -305,6 +305,17 @@ static void determine_verify_progress(buffer_struct *buff,
 		switch (cause) {
 		case overrun_error:
 			break;
+#if 0
+		case no_data_error:
+			buff->retry = FT_SOFT_RETRIES;
+			if (buff->hard_error_map    &&
+			    buff->sector_offset > 1 &&
+			    (buff->hard_error_map & 
+			     (1 << (buff->sector_offset-2)))) {
+				buff->retry --;
+			}
+			break;
+#endif
 		default:
 			buff->retry = FT_SOFT_RETRIES;
 			break;
@@ -916,7 +927,9 @@ static void handle_fdc_busy(buffer_struct *buff)
 			retry += (buff->soft_error_map != 0 ||
 				  buff->hard_error_map != 0);
 			determine_progress(buff, cause, in[5]); 
+#if 1 || defined(TESTING)
 			if (cause == overrun_error) retry ++;
+#endif
 			if (retry) {
 				skip = find_resume_point(buff);
 			} else {

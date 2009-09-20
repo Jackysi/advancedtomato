@@ -28,7 +28,7 @@
 #define __ASM_PB1100_H
 
 #define PB1100_IDENT          0xAE000000
-#define PB1100_BOARD_STATUS   0xAE000004
+#define BOARD_STATUS_REG      0xAE000004
   #define PB1100_ROM_SEL         (1<<15)
   #define PB1100_ROM_SIZ         (1<<14)
   #define PB1100_SWAP_BOOT       (1<<13)
@@ -52,15 +52,15 @@
   #define PB1100_IRDA_OT         (3<<14) /* 1/3 power */
   #define PB1100_IRDA_FIR        (1<<13)
 
-#define PB1100_MEM_PCMCIA     0xAE000010
+#define PCMCIA_BOARD_REG     0xAE000010
   #define PB1100_SD_WP1_RO       (1<<15) /* read only */
   #define PB1100_SD_WP0_RO       (1<<14) /* read only */
   #define PB1100_SD_PWR1         (1<<11) /* applies power to SD1 */
   #define PB1100_SD_PWR0         (1<<10) /* applies power to SD0 */
   #define PB1100_SEL_SD_CONN1     (1<<9)
   #define PB1100_SEL_SD_CONN0     (1<<8)
-  #define PB1100_PC_DEASSERT_RST  (1<<7)
-  #define PB1100_PC_DRV_EN        (1<<4)
+  #define PC_DEASSERT_RST         (1<<7)
+  #define PC_DRV_EN               (1<<4)
 
 #define PB1100_G_CONTROL      0xAE000014 /* graphics control */
 

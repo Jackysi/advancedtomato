@@ -6,6 +6,7 @@
 #include <linux/ctype.h>
 #include <linux/blk.h>
 #include <linux/fd.h>
+#include <linux/delay.h>
 #include <linux/tty.h>
 #include <linux/init.h>
 
@@ -15,10 +16,9 @@
 #include <linux/minix_fs.h>
 #include <linux/ext2_fs.h>
 #include <linux/romfs_fs.h>
-#include <linux/squashfs_fs.h>
 #include <linux/cramfs_fs.h>
 
-#undef BUILD_CRAMDISK
+#define BUILD_CRAMDISK
 
 extern int get_filesystem_list(char * buf);
 
@@ -89,7 +89,7 @@ static struct dev_name_struct {
 	const char *name;
 	const int num;
 } root_dev_names[] __initdata = {
-	{ "nfs",     0x00ff },
+	{ "nfs",     MKDEV(NFS_MAJOR, NFS_MINOR) },
 	{ "hda",     0x0300 },
 	{ "hdb",     0x0340 },
 	{ "loop",    0x0700 },
@@ -166,7 +166,6 @@ static struct dev_name_struct {
 	{ "dasdg", (DASD_MAJOR << MINORBITS) + (6 << 2) },
 	{ "dasdh", (DASD_MAJOR << MINORBITS) + (7 << 2) },
 #endif
-#if defined(CONFIG_BLK_CPQ_DA) || defined(CONFIG_BLK_CPQ_DA_MODULE)
 	{ "ida/c0d0p",0x4800 },
 	{ "ida/c0d1p",0x4810 },
 	{ "ida/c0d2p",0x4820 },
@@ -190,8 +189,6 @@ static struct dev_name_struct {
 	{ "ida/c5d0p",0x4D00 },
 	{ "ida/c6d0p",0x4E00 },
 	{ "ida/c7d0p",0x4F00 }, 
-#endif
-#if defined(CONFIG_BLK_CPQ_CISS_DA) || defined(CONFIG_BLK_CPQ_CISS_DA_MODULE)
 	{ "cciss/c0d0p",0x6800 },
 	{ "cciss/c0d1p",0x6810 },
 	{ "cciss/c0d2p",0x6820 },
@@ -215,7 +212,6 @@ static struct dev_name_struct {
 	{ "cciss/c5d0p",0x6D00 },
 	{ "cciss/c6d0p",0x6E00 },
 	{ "cciss/c7d0p",0x6F00 },
-#endif
 	{ "ataraid/d0p",0x7200 },
 	{ "ataraid/d1p",0x7210 },
 	{ "ataraid/d2p",0x7220 },
@@ -232,6 +228,24 @@ static struct dev_name_struct {
 	{ "ataraid/d13p",0x72D0 },
 	{ "ataraid/d14p",0x72E0 },
 	{ "ataraid/d15p",0x72F0 },
+        { "rd/c0d0p",0x3000 },
+        { "rd/c0d0p1",0x3001 },
+        { "rd/c0d0p2",0x3002 },
+        { "rd/c0d0p3",0x3003 },
+        { "rd/c0d0p4",0x3004 },
+        { "rd/c0d0p5",0x3005 },
+        { "rd/c0d0p6",0x3006 },
+        { "rd/c0d0p7",0x3007 },
+        { "rd/c0d0p8",0x3008 },
+        { "rd/c0d1p",0x3008 },
+        { "rd/c0d1p1",0x3009 },
+        { "rd/c0d1p2",0x300a },
+        { "rd/c0d1p3",0x300b },
+        { "rd/c0d1p4",0x300c },
+        { "rd/c0d1p5",0x300d },
+        { "rd/c0d1p6",0x300e },
+        { "rd/c0d1p7",0x300f },
+        { "rd/c0d1p8",0x3010 },
 	{ "nftla", 0x5d00 },
 	{ "nftlb", 0x5d10 },
 	{ "nftlc", 0x5d20 },
@@ -240,16 +254,8 @@ static struct dev_name_struct {
 	{ "ftlb", 0x2c08 },
 	{ "ftlc", 0x2c10 },
 	{ "ftld", 0x2c18 },
-#if defined(CONFIG_MTD_BLOCK) || defined(CONFIG_MTD_BLOCK_RO)
 	{ "mtdblock", 0x1f00 },
-        { "mtdblock0",0x1f00 },
-        { "mtdblock1",0x1f01 },
-        { "mtdblock2",0x1f02 },
-        { "mtdblock3",0x1f03 },
-#endif
-#ifdef CONFIG_BLK_DEV_DUMMY
-	{ "dummy",0x2000 },
-#endif
+	{ "nb", 0x2b00 },
 	{ NULL, 0 }
 };
 
@@ -310,8 +316,16 @@ static int __init fs_names_setup(char *str)
 	return 1;
 }
 
+static unsigned int __initdata root_delay;
+static int __init root_delay_setup(char *str)
+{
+	root_delay = simple_strtoul(str, NULL, 0);
+	return 1;
+}
+
 __setup("rootflags=", root_data_setup);
 __setup("rootfstype=", fs_names_setup);
+__setup("rootdelay=", root_delay_setup);
 
 static void __init get_fs_names(char *page)
 {
@@ -355,6 +369,7 @@ retry:
 				flags |= MS_RDONLY;
 				goto retry;
 			case -EINVAL:
+		        case -EBUSY:
 				continue;
 		}
 	        /*
@@ -470,8 +485,8 @@ static int __init crd_load(int in_fd, int out_fd);
  * 	minix
  * 	ext2
  *	romfs
+ *	cramfs
  * 	gzip
- *	squashfs
  */
 static int __init 
 identify_ramdisk_image(int fd, int start_block)
@@ -480,7 +495,6 @@ identify_ramdisk_image(int fd, int start_block)
 	struct minix_super_block *minixsb;
 	struct ext2_super_block *ext2sb;
 	struct romfs_super_block *romfsb;
-	struct squashfs_super_block *squashfsb;
 	struct cramfs_super *cramfsb;
 	int nblocks = -1;
 	unsigned char *buf;
@@ -492,7 +506,6 @@ identify_ramdisk_image(int fd, int start_block)
 	minixsb = (struct minix_super_block *) buf;
 	ext2sb = (struct ext2_super_block *) buf;
 	romfsb = (struct romfs_super_block *) buf;
-	squashfsb = (struct squashfs_super_block *) buf;
 	cramfsb = (struct cramfs_super *) buf;
 	memset(buf, 0xe5, size);
 
@@ -513,13 +526,6 @@ identify_ramdisk_image(int fd, int start_block)
 		goto done;
 	}
 
-#ifdef CONFIG_BLK_DEV_INITRD
-	/*
-	 * Fallback if size cannot be determined by superblock
-	 */
-	nblocks = (initrd_end-initrd_start+BLOCK_SIZE-1)>>BLOCK_SIZE_BITS;
-#endif
-
 	/* romfs is at block zero too */
 	if (romfsb->word0 == ROMSB_WORD0 &&
 	    romfsb->word1 == ROMSB_WORD1) {
@@ -530,22 +536,11 @@ identify_ramdisk_image(int fd, int start_block)
 		goto done;
 	}
 
-	/* so is cramfs */
 	if (cramfsb->magic == CRAMFS_MAGIC) {
 		printk(KERN_NOTICE
-			"RAMDISK: cramfs filesystem found at block %d\n",
-			start_block);
-		if (cramfsb->flags & CRAMFS_FLAG_FSID_VERSION_2)
-			nblocks = (cramfsb->size+BLOCK_SIZE-1)>>BLOCK_SIZE_BITS;
-		goto done;
-	}
-
-	/* squashfs is at block zero too */
-	if (squashfsb->s_magic == SQUASHFS_MAGIC) {
-		printk(KERN_NOTICE
-			"RAMDISK: squashfs filesystem found at block %d\n",
-			start_block);
-		nblocks = (squashfsb->bytes_used+BLOCK_SIZE-1)>>BLOCK_SIZE_BITS;
+		       "RAMDISK: cramfs filesystem found at block %d\n",
+		       start_block);
+		nblocks = (cramfsb->size + BLOCK_SIZE - 1) >> BLOCK_SIZE_BITS;
 		goto done;
 	}
 
@@ -577,7 +572,6 @@ identify_ramdisk_image(int fd, int start_block)
 	printk(KERN_NOTICE
 	       "RAMDISK: Couldn't find valid RAM disk image starting at %d.\n",
 	       start_block);
-	nblocks = -1;
 	
 done:
 	lseek(fd, start_block * BLOCK_SIZE, 0);
@@ -636,7 +630,7 @@ static int __init rd_load_image(char *from)
 		rd_blocks >>= 1;
 
 	if (nblocks > rd_blocks) {
-		printk("RAMDISK: image too big! (%d/%d blocks)\n",
+		printk("RAMDISK: image too big! (%d/%lu blocks)\n",
 		       nblocks, rd_blocks);
 		goto done;
 	}
@@ -663,11 +657,11 @@ static int __init rd_load_image(char *from)
 		goto done;
 	}
 
-	printk(KERN_NOTICE "RAMDISK: Loading %d blocks [%d disk%s] into ram disk... ", 
+	printk(KERN_NOTICE "RAMDISK: Loading %d blocks [%ld disk%s] into ram disk... ", 
 		nblocks, ((nblocks-1)/devblocks)+1, nblocks>devblocks ? "s" : "");
 	for (i=0; i < nblocks; i++) {
 		if (i && (i % devblocks == 0)) {
-			printk("done disk #%d.\n", i/devblocks);
+			printk("done disk #%ld.\n", i/devblocks);
 			rotate = 0;
 			if (close(in_fd)) {
 				printk("Error closing the disk.\n");
@@ -679,7 +673,7 @@ static int __init rd_load_image(char *from)
 				printk("Error opening disk.\n");
 				goto noclose_input;
 			}
-			printk("Loading disk #%d... ", i/devblocks+1);
+			printk("Loading disk #%ld... ", i/devblocks+1);
 		}
 		read(in_fd, buf, BLOCK_SIZE);
 		write(out_fd, buf, BLOCK_SIZE);
@@ -775,7 +769,8 @@ static void __init devfs_make_root(char *name)
 static void __init mount_root(void)
 {
 #ifdef CONFIG_ROOT_NFS
-	if (MAJOR(ROOT_DEV) == UNNAMED_MAJOR) {
+       if (MAJOR(ROOT_DEV) == NFS_MAJOR
+           && MINOR(ROOT_DEV) == NFS_MINOR) {
 		if (mount_nfs_root()) {
 			sys_chdir("/root");
 			ROOT_DEV = current->fs->pwdmnt->mnt_sb->s_dev;
@@ -798,17 +793,6 @@ static void __init mount_root(void)
 			}
 		} else
 			change_floppy("root floppy");
-	}
-#endif
-#if defined(CONFIG_MTD_BLOCK) || defined(CONFIG_MTD_BLOCK_RO)
-	if (MAJOR(ROOT_DEV) == 31) {
-		/* rd_doload is for a ramload setup */
-		if (rd_doload) {
-			if (rd_load_disk(0)) {
-				ROOT_DEV = MKDEV(RAMDISK_MAJOR, 0);
-				create_dev("/dev/root", ROOT_DEV, NULL);
-			}
-		}
 	}
 #endif
 	mount_block_root("/dev/root", root_mountflags);
@@ -867,6 +851,8 @@ static void __init handle_initrd(void)
 	sys_fchdir(root_fd);
 	sys_chroot(".");
 	sys_umount("/old/dev", 0);
+	close(old_fd);
+	close(root_fd);
 
 	if (real_root_dev == ram0) {
 		sys_chdir("/old");
@@ -911,7 +897,15 @@ static int __init initrd_load(void)
  */
 void prepare_namespace(void)
 {
-	int is_floppy = MAJOR(ROOT_DEV) == FLOPPY_MAJOR;
+	int is_floppy;
+
+	if (root_delay) {
+		printk(KERN_INFO "Waiting %dsec before mounting root device...\n",
+		       root_delay);
+		ssleep(root_delay);
+	}
+
+	is_floppy = MAJOR(ROOT_DEV) == FLOPPY_MAJOR;
 #ifdef CONFIG_ALL_PPC
 	extern void arch_discover_root(void);
 	arch_discover_root();
@@ -944,6 +938,8 @@ out:
 	sys_chroot(".");
 	mount_devfs_fs ();
 }
+
+#ifdef CONFIG_BLK_DEV_RAM
 
 #if defined(BUILD_CRAMDISK) && defined(CONFIG_BLK_DEV_RAM)
 
@@ -1091,3 +1087,4 @@ static int __init crd_load(int in_fd, int out_fd)
 }
 
 #endif  /* BUILD_CRAMDISK && CONFIG_BLK_DEV_RAM */
+#endif  /* CONFIG_BLK_DEV_RAM */

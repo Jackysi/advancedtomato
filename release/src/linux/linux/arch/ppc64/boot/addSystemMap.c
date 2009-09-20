@@ -146,10 +146,8 @@ int main(int argc, char **argv)
   /* Process the Sysmap file to determine the true end of the kernel */
 	sysmapPages = sysmapLen / 4096;
 	printf("System map pages to copy = %ld\n", sysmapPages);
-	for (i=0; i<sysmapPages; ++i)
-	{
-		get4k(sysmap, inbuf);
-	}
+	/* read the whole file line by line, expect that it doesnt fail */
+	while ( fgets(inbuf, 4096, sysmap) )  ;
 	/* search for _end in the last page of the system map */
 	ptr_end = strstr(inbuf, " _end");
 	if (!ptr_end)
@@ -202,7 +200,7 @@ int main(int argc, char **argv)
 			printf("Storing embedded_sysmap_start at 0x3c\n");
 			p = (unsigned long *)(inbuf + 0x3c);
 
-#if BYTE_ORDER == __BIG_ENDIAN
+#if (BYTE_ORDER == __BIG_ENDIAN)
 			*p = sysmapStartOffs;
 #else
 			*p = bswap_32(sysmapStartOffs);
@@ -211,7 +209,7 @@ int main(int argc, char **argv)
 			printf("Storing embedded_sysmap_end at 0x44\n");
 			p = (unsigned long *)(inbuf + 0x44);
 
-#if BYTE_ORDER == __BIG_ENDIAN
+#if (BYTE_ORDER == __BIG_ENDIAN)
 			*p = sysmapStartOffs + sysmapFileLen;
 #else
 			*p = bswap_32(sysmapStartOffs + sysmapFileLen);

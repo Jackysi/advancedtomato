@@ -44,7 +44,7 @@
 extern struct pci_dev * iSeries_vio_dev;
 
 /*
- * This is the structure layout for the Machine Facilites LPAR event
+ * This is the structure layout for the Machine Facilities LPAR event
  * flows.
  */
 struct VspCmdData;
@@ -402,7 +402,8 @@ static int dmaAndSignalCEMsg( char * ceMsg, void * token, void * dmaData, unsign
  */
 static int shutdown( void )
 {
-	int rc = kill_proc(1,SIGINT,1);
+	extern int cad_pid; /* from kernel/sys.c */
+	int rc = kill_proc(cad_pid,SIGINT,1);
 
 	if ( rc )
 	{

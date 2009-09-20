@@ -19,9 +19,9 @@
  the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
 
  *
- * $Source: /home/cvsroot/wrt54g/src/linux/linux/include/linux/zftape.h,v $
- * $Revision: 1.1.1.2 $
- * $Date: 2003/10/14 08:09:27 $
+ * $Source: /homes/cvs/ftape-stacked/include/linux/zftape.h,v $
+ * $Revision: 1.12 $
+ * $Date: 1997/10/21 11:02:37 $
  *
  *      Special ioctl and other global info for the zftape VFS
  *      interface for the QIC-40/80/3010/3020 floppy-tape driver for

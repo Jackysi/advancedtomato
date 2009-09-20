@@ -80,7 +80,7 @@ if( !( cond ) ) 								\
 		  __FILE__ ":%i:%s: " format "\n",		\
 		  in_interrupt() ? -1 : current -> pid, __LINE__ , __FUNCTION__ , ##args )
 
-#if defined(CONFIG_REISERFS_CHECK)
+#if defined( CONFIG_REISERFS_CHECK )
 #define RFALSE( cond, format, args... ) RASSERT( !( cond ), format, ##args )
 #else
 #define RFALSE( cond, format, args... ) do {;} while( 0 )
@@ -99,6 +99,135 @@ if( !( cond ) ) 								\
  * Structure of super block on disk, a version of which in RAM is often accessed as s->u.reiserfs_sb.s_rs
  * the version in RAM is part of a larger structure containing fields never written to disk.
  */
+#define UNSET_HASH 0 // read_super will guess about, what hash names
+                     // in directories were sorted with
+#define TEA_HASH  1
+#define YURA_HASH 2
+#define R5_HASH   3
+#define DEFAULT_HASH R5_HASH
+
+
+struct journal_params {
+    __u32 jp_journal_1st_block;	      /* where does journal start from on its
+				       * device */
+    __u32 jp_journal_dev;	      /* journal device st_rdev */
+    __u32 jp_journal_size;	      /* size of the journal */
+    __u32 jp_journal_trans_max;	      /* max number of blocks in a transaction. */
+    __u32 jp_journal_magic; 	      /* random value made on fs creation (this
+				       * was sb_journal_block_count) */
+    __u32 jp_journal_max_batch;	      /* max number of blocks to batch into a
+				       * trans */
+    __u32 jp_journal_max_commit_age;  /* in seconds, how old can an async
+				       * commit be */
+    __u32 jp_journal_max_trans_age;   /* in seconds, how old can a transaction
+				       * be */
+};
+
+/* this is the super from 3.5.X, where X >= 10 */
+struct reiserfs_super_block_v1
+{
+    __u32 s_block_count;	   /* blocks count         */
+    __u32 s_free_blocks;           /* free blocks count    */
+    __u32 s_root_block;            /* root block number    */
+    struct journal_params s_journal;
+    __u16 s_blocksize;             /* block size */
+    __u16 s_oid_maxsize;	   /* max size of object id array, see
+				    * get_objectid() commentary  */
+    __u16 s_oid_cursize;	   /* current size of object id array */
+    __u16 s_umount_state;          /* this is set to 1 when filesystem was
+				    * umounted, to 2 - when not */    
+    char s_magic[10];              /* reiserfs magic string indicates that
+				    * file system is reiserfs:
+				    * "ReIsErFs" or "ReIsEr2Fs" or "ReIsEr3Fs" */
+    __u16 s_fs_state;	           /* it is set to used by fsck to mark which
+				    * phase of rebuilding is done */
+    __u32 s_hash_function_code;    /* indicate, what hash function is being use
+				    * to sort names in a directory*/
+    __u16 s_tree_height;           /* height of disk tree */
+    __u16 s_bmap_nr;               /* amount of bitmap blocks needed to address
+				    * each block of file system */
+    __u16 s_version;               /* this field is only reliable on filesystem
+				    * with non-standard journal */
+    __u16 s_reserved_for_journal;  /* size in blocks of journal area on main
+				    * device, we need to keep after
+				    * making fs with non-standard journal */	
+} __attribute__ ((__packed__));
+
+#define SB_SIZE_V1 (sizeof(struct reiserfs_super_block_v1))
+
+/* this is the on disk super block */
+struct reiserfs_super_block
+{
+    struct reiserfs_super_block_v1 s_v1;
+    __u32 s_inode_generation;
+    __u32 s_flags;                  /* Right now used only by inode-attributes, if enabled */
+    unsigned char s_uuid[16];       /* filesystem unique identifier */
+    unsigned char s_label[16];      /* filesystem volume label */
+    char s_unused[88] ;             /* zero filled by mkreiserfs and
+				     * reiserfs_convert_objectid_map_v1()
+				     * so any additions must be updated
+				     * there as well. */
+}  __attribute__ ((__packed__));
+
+#define SB_SIZE (sizeof(struct reiserfs_super_block))
+
+#define REISERFS_VERSION_1 0
+#define REISERFS_VERSION_2 2
+
+
+// on-disk super block fields converted to cpu form
+#define SB_DISK_SUPER_BLOCK(s) ((s)->u.reiserfs_sb.s_rs)
+#define SB_V1_DISK_SUPER_BLOCK(s) (&(SB_DISK_SUPER_BLOCK(s)->s_v1))
+#define SB_BLOCKSIZE(s) \
+        le32_to_cpu ((SB_V1_DISK_SUPER_BLOCK(s)->s_blocksize))
+#define SB_BLOCK_COUNT(s) \
+        le32_to_cpu ((SB_V1_DISK_SUPER_BLOCK(s)->s_block_count))
+#define SB_FREE_BLOCKS(s) \
+        le32_to_cpu ((SB_V1_DISK_SUPER_BLOCK(s)->s_free_blocks))
+#define SB_REISERFS_MAGIC(s) \
+        (SB_V1_DISK_SUPER_BLOCK(s)->s_magic)
+#define SB_ROOT_BLOCK(s) \
+        le32_to_cpu ((SB_V1_DISK_SUPER_BLOCK(s)->s_root_block))
+#define SB_TREE_HEIGHT(s) \
+        le16_to_cpu ((SB_V1_DISK_SUPER_BLOCK(s)->s_tree_height))
+#define SB_REISERFS_STATE(s) \
+        le16_to_cpu ((SB_V1_DISK_SUPER_BLOCK(s)->s_umount_state))
+#define SB_VERSION(s) le16_to_cpu ((SB_V1_DISK_SUPER_BLOCK(s)->s_version))
+#define SB_BMAP_NR(s) le16_to_cpu ((SB_V1_DISK_SUPER_BLOCK(s)->s_bmap_nr))
+
+#define PUT_SB_BLOCK_COUNT(s, val) \
+   do { SB_V1_DISK_SUPER_BLOCK(s)->s_block_count = cpu_to_le32(val); } while (0)
+#define PUT_SB_FREE_BLOCKS(s, val) \
+   do { SB_V1_DISK_SUPER_BLOCK(s)->s_free_blocks = cpu_to_le32(val); } while (0)
+#define PUT_SB_ROOT_BLOCK(s, val) \
+   do { SB_V1_DISK_SUPER_BLOCK(s)->s_root_block = cpu_to_le32(val); } while (0)
+#define PUT_SB_TREE_HEIGHT(s, val) \
+   do { SB_V1_DISK_SUPER_BLOCK(s)->s_tree_height = cpu_to_le16(val); } while (0)
+#define PUT_SB_REISERFS_STATE(s, val) \
+   do { SB_V1_DISK_SUPER_BLOCK(s)->s_umount_state = cpu_to_le16(val); } while (0) 
+#define PUT_SB_VERSION(s, val) \
+   do { SB_V1_DISK_SUPER_BLOCK(s)->s_version = cpu_to_le16(val); } while (0)
+#define PUT_SB_BMAP_NR(s, val) \
+   do { SB_V1_DISK_SUPER_BLOCK(s)->s_bmap_nr = cpu_to_le16 (val); } while (0)
+
+
+#define SB_ONDISK_JP(s) (&SB_V1_DISK_SUPER_BLOCK(s)->s_journal)
+#define SB_ONDISK_JOURNAL_SIZE(s) \
+         le32_to_cpu ((SB_ONDISK_JP(s)->jp_journal_size))
+#define SB_ONDISK_JOURNAL_1st_BLOCK(s) \
+         le32_to_cpu ((SB_ONDISK_JP(s)->jp_journal_1st_block))
+#define SB_ONDISK_JOURNAL_DEVICE(s) \
+         le32_to_cpu ((SB_ONDISK_JP(s)->jp_journal_dev))
+#define SB_ONDISK_RESERVED_FOR_JOURNAL(s) \
+         le32_to_cpu ((SB_V1_DISK_SUPER_BLOCK(s)->s_reserved_for_journal))
+
+#define is_block_in_log_or_reserved_area(s, block) \
+         block >= SB_JOURNAL_1st_RESERVED_BLOCK(s) \
+         && block < SB_JOURNAL_1st_RESERVED_BLOCK(s) +  \
+         ((!is_reiserfs_jr(SB_DISK_SUPER_BLOCK(s)) ? \
+         SB_ONDISK_JOURNAL_SIZE(s) + 1 : SB_ONDISK_RESERVED_FOR_JOURNAL(s))) 
+
+
 
 				/* used by gcc */
 #define REISERFS_SUPER_MAGIC 0x52654973
@@ -106,17 +235,17 @@ if( !( cond ) ) 								\
                                    look at the superblock, etc. */
 #define REISERFS_SUPER_MAGIC_STRING "ReIsErFs"
 #define REISER2FS_SUPER_MAGIC_STRING "ReIsEr2Fs"
+#define REISER2FS_JR_SUPER_MAGIC_STRING "ReIsEr3Fs"
 
-extern char reiserfs_super_magic_string[];
-extern char reiser2fs_super_magic_string[];
+extern const char reiserfs_3_5_magic_string[];
+extern const char reiserfs_3_6_magic_string[];
+extern const char reiserfs_jr_magic_string[];
 
-static inline int is_reiserfs_magic_string (const struct reiserfs_super_block * rs)
-{
-    return (!strncmp (rs->s_magic, reiserfs_super_magic_string, 
-		      strlen ( reiserfs_super_magic_string)) ||
-	    !strncmp (rs->s_magic, reiser2fs_super_magic_string, 
-		      strlen ( reiser2fs_super_magic_string)));
-}
+int is_reiserfs_3_5 (struct reiserfs_super_block * rs);
+int is_reiserfs_3_6 (struct reiserfs_super_block * rs);
+int is_reiserfs_jr (struct reiserfs_super_block * rs);
+
+
 
 /* ReiserFS leaves the first 64k unused, so that partition labels have
    enough space.  If someone wants to write a fancy bootloader that
@@ -125,6 +254,7 @@ static inline int is_reiserfs_magic_string (const struct reiserfs_super_block * 
    platform, or code will break.  -Hans */
 #define REISERFS_DISK_OFFSET_IN_BYTES (64 * 1024)
 #define REISERFS_FIRST_BLOCK unused_define
+#define REISERFS_JOURNAL_OFFSET_IN_BYTES REISERFS_DISK_OFFSET_IN_BYTES
 
 /* the spot for the super in versions 3.5 - 3.5.10 (inclusive) */
 #define REISERFS_OLD_DISK_OFFSET_IN_BYTES (8 * 1024)
@@ -212,7 +342,7 @@ struct unfm_nodeinfo {
 
 
 /*
- * values for s_state field
+ * values for s_umount_state field
  */
 #define REISERFS_VALID_FS    1
 #define REISERFS_ERROR_FS    2
@@ -419,7 +549,7 @@ struct item_head
 #define V1_DIRENTRY_UNIQUENESS 500
 #define V1_ANY_UNIQUENESS 555 // FIXME: comment is required
 
-extern void reiserfs_warning (const char * fmt, ...);
+extern void reiserfs_warning (struct super_block *, const char * fmt, ...);
 /* __attribute__( ( format ( printf, 1, 2 ) ) ); */
 
 //
@@ -434,7 +564,7 @@ static inline int uniqueness2type (__u32 uniqueness)
     case V1_DIRECT_UNIQUENESS: return TYPE_DIRECT;
     case V1_DIRENTRY_UNIQUENESS: return TYPE_DIRENTRY;
     default:
-	    reiserfs_warning( "vs-500: unknown uniqueness %d\n", uniqueness);
+	    reiserfs_warning(NULL, "vs-500: unknown uniqueness %d\n", uniqueness);
 	case V1_ANY_UNIQUENESS:
 	    return TYPE_ANY;
     }
@@ -449,7 +579,7 @@ static inline __u32 type2uniqueness (int type)
     case TYPE_DIRECT: return V1_DIRECT_UNIQUENESS;
     case TYPE_DIRENTRY: return V1_DIRENTRY_UNIQUENESS;
     default:
-	    reiserfs_warning( "vs-501: unknown type %d\n", type);
+	    reiserfs_warning(NULL, "vs-501: unknown type %d\n", type);
 	case TYPE_ANY:
 	    return V1_ANY_UNIQUENESS;
     }
@@ -657,7 +787,7 @@ struct block_head {
 
 
 /* Get right delimiting key. -- little endian */
-#define B_PRIGHT_DELIM_KEY(p_s_bh)   (&(blk_right_delim_key(B_BLK_HEAD(p_s_bh))
+#define B_PRIGHT_DELIM_KEY(p_s_bh)   (&(blk_right_delim_key(B_BLK_HEAD(p_s_bh))))
 
 /* Does the buffer contain a disk leaf. */
 #define B_IS_ITEMS_LEVEL(p_s_bh)     (B_LEVEL(p_s_bh) == DISK_LEAF_NODE_LEVEL)
@@ -737,6 +867,7 @@ struct stat_data_v1
 /* we want common flags to have the same values as in ext2,
    so chattr(1) will work without problems */
 #define REISERFS_IMMUTABLE_FL EXT2_IMMUTABLE_FL
+#define REISERFS_APPEND_FL    EXT2_APPEND_FL
 #define REISERFS_SYNC_FL      EXT2_SYNC_FL
 #define REISERFS_NOATIME_FL   EXT2_NOATIME_FL
 #define REISERFS_NODUMP_FL    EXT2_NODUMP_FL
@@ -747,7 +878,7 @@ struct stat_data_v1
    Note, that is inheritable: mark directory with this and
    all new files inside will not have tails. 
 
-   Teodore Tso allocated EXT2_NODUMP_FL (0x00008000) for this. Change
+   Teodore Tso allocated EXT2_NOTAIL_FL (0x00008000) for this. Change
    numeric constant to ext2 macro when available. */
 #define REISERFS_NOTAIL_FL    (0x00008000) /* EXT2_NOTAIL_FL */
 
@@ -1158,6 +1289,7 @@ struct path var = {ILLEGAL_PATH_ELEMENT_OFFSET, }
 
 /* Size of pointer to the unformatted node. */
 #define UNFM_P_SIZE (sizeof(unp_t))
+#define UNFM_P_SHIFT 2
 
 // in in-core inode key is stored on le form
 #define INODE_PKEY(inode) ((struct key *)((inode)->u.reiserfs_i.i_key))
@@ -1518,6 +1650,7 @@ struct reiserfs_journal_header {
   __u32 j_last_flush_trans_id ;		/* id of last fully flushed transaction */
   __u32 j_first_unflushed_offset ;      /* offset in the log of where to start replay after a crash */
   __u32 j_mount_id ;
+  /* 12 */ struct journal_params jh_journal;
 } ;
 
 extern task_queue reiserfs_commit_thread_tq ;
@@ -1525,7 +1658,10 @@ extern wait_queue_head_t reiserfs_commit_thread_wait ;
 
 /* biggest tunable defines are right here */
 #define JOURNAL_BLOCK_COUNT 8192 /* number of blocks in the journal */
-#define JOURNAL_MAX_BATCH   900 /* max blocks to batch into one transaction, don't make this any bigger than 900 */
+#define JOURNAL_TRANS_MAX_DEFAULT 1024   /* biggest possible single transaction, don't change for now (8/3/99) */
+#define JOURNAL_TRANS_MIN_DEFAULT 256
+#define JOURNAL_MAX_BATCH_DEFAULT   900 /* max blocks to batch into one transaction, don't make this any bigger than 900 */
+#define JOURNAL_MIN_RATIO 2
 #define JOURNAL_MAX_COMMIT_AGE 30 
 #define JOURNAL_MAX_TRANS_AGE 30
 #define JOURNAL_PER_BALANCE_CNT (3 * (MAX_HEIGHT-2) + 9)
@@ -1558,14 +1694,19 @@ extern wait_queue_head_t reiserfs_commit_thread_wait ;
 #define JOURNAL_BUFFER(j,n) ((j)->j_ap_blocks[((j)->j_start + (n)) % JOURNAL_BLOCK_COUNT])
 
 void reiserfs_commit_for_inode(struct inode *) ;
+void reiserfs_commit_for_tail(struct inode *) ;
 void reiserfs_update_inode_transaction(struct inode *) ;
+void reiserfs_update_tail_transaction(struct inode *) ;
 void reiserfs_wait_on_write_block(struct super_block *s) ;
 void reiserfs_block_writes(struct reiserfs_transaction_handle *th) ;
 void reiserfs_allow_writes(struct super_block *s) ;
 void reiserfs_check_lock_depth(char *caller) ;
 void reiserfs_prepare_for_journal(struct super_block *, struct buffer_head *bh, int wait) ;
 void reiserfs_restore_prepared_buffer(struct super_block *, struct buffer_head *bh) ;
-int journal_init(struct super_block *) ;
+struct buffer_head  * journal_bread (struct super_block *s, int block);
+struct buffer_head  * journal_getblk (struct super_block *s, int block);
+struct buffer_head  * journal_get_hash_table (struct super_block *s, int block);
+int journal_init(struct super_block *, const char * j_dev_name, int old_format) ;
 int journal_release(struct reiserfs_transaction_handle*, struct super_block *) ;
 int journal_release_error(struct reiserfs_transaction_handle*, struct super_block *) ;
 int journal_end(struct reiserfs_transaction_handle *, struct super_block *, unsigned long) ;
@@ -1630,25 +1771,25 @@ int reiserfs_convert_objectid_map_v1(struct super_block *) ;
 /* stree.c */
 int B_IS_IN_TREE(const struct buffer_head *);
 extern inline void copy_short_key (void * to, const void * from);
-extern inline void copy_item_head(struct item_head * p_v_to, 
+extern void copy_item_head(struct item_head * p_v_to,
 								  const struct item_head * p_v_from);
 
 // first key is in cpu form, second - le
-extern inline int comp_keys (const struct key * le_key, 
+extern int comp_keys (const struct key * le_key,
 			     const struct cpu_key * cpu_key);
-extern inline int  comp_short_keys (const struct key * le_key, 
+extern int  comp_short_keys (const struct key * le_key,
 				    const struct cpu_key * cpu_key);
-extern inline void le_key2cpu_key (struct cpu_key * to, const struct key * from);
+extern void le_key2cpu_key (struct cpu_key * to, const struct key * from);
 
 // both are cpu keys
-extern inline int comp_cpu_keys (const struct cpu_key *, const struct cpu_key *);
-extern inline int comp_short_cpu_keys (const struct cpu_key *, 
+extern  int comp_cpu_keys (const struct cpu_key *, const struct cpu_key *);
+extern int comp_short_cpu_keys (const struct cpu_key *,
 				       const struct cpu_key *);
-extern inline void cpu_key2cpu_key (struct cpu_key *, const struct cpu_key *);
+extern void cpu_key2cpu_key (struct cpu_key *, const struct cpu_key *);
 
 // both are in le form
-extern inline int comp_le_keys (const struct key *, const struct key *);
-extern inline int comp_short_le_keys (const struct key *, const struct key *);
+extern int comp_le_keys (const struct key *, const struct key *);
+extern int comp_short_le_keys (const struct key *, const struct key *);
 
 //
 // get key version from on disk key - kludge
@@ -1683,7 +1824,7 @@ int search_by_key (struct super_block *, const struct cpu_key *,
 int search_for_position_by_key (struct super_block * p_s_sb, 
 								const struct cpu_key * p_s_cpu_key, 
 								struct path * p_s_search_path);
-extern inline void decrement_bcount (struct buffer_head * p_s_bh);
+extern void decrement_bcount (struct buffer_head * p_s_bh);
 void decrement_counters_in_path (struct path * p_s_search_path);
 void pathrelse (struct path * p_s_search_path);
 int reiserfs_check_path(struct path *p) ;
@@ -1748,11 +1889,12 @@ void make_le_item_head (struct item_head * ih, const struct cpu_key * key,
 struct inode * reiserfs_iget (struct super_block * s, 
 			      const struct cpu_key * key);
 
-
-struct inode * reiserfs_new_inode (struct reiserfs_transaction_handle *th, 
-				   struct inode * dir, int mode, 
-				   const char * symname, int item_len,
-				   struct dentry *dentry, struct inode *inode, int * err);
+int reiserfs_new_inode (struct reiserfs_transaction_handle *th,
+                               struct inode * dir, int mode,
+                               const char * symname,
+                               int i_size,
+                               struct dentry *dentry,
+                               struct inode *inode);
 int reiserfs_sync_inode (struct reiserfs_transaction_handle *th, struct inode * inode);
 void reiserfs_update_sd (struct reiserfs_transaction_handle *th, struct inode * inode);
 
@@ -1760,13 +1902,13 @@ void sd_attrs_to_i_attrs( __u16 sd_attrs, struct inode *inode );
 void i_attrs_to_sd_attrs( struct inode *inode, __u16 *sd_attrs );
 
 /* namei.c */
-inline void set_de_name_and_namelen (struct reiserfs_dir_entry * de);
+void set_de_name_and_namelen (struct reiserfs_dir_entry * de);
 int search_by_entry_key (struct super_block * sb, const struct cpu_key * key, 
 			 struct path * path, 
 			 struct reiserfs_dir_entry * de);
 /* procfs.c */
 
-#if defined(CONFIG_PROC_FS) && defined(CONFIG_REISERFS_PROC_INFO)
+#if defined( CONFIG_PROC_FS ) && defined( CONFIG_REISERFS_PROC_INFO )
 #define REISERFS_PROC_INFO
 #else
 #undef REISERFS_PROC_INFO
@@ -1801,7 +1943,7 @@ int reiserfs_oidmap_in_proc( char *buffer, char **start, off_t offset,
 int reiserfs_journal_in_proc( char *buffer, char **start, off_t offset,
 							  int count, int *eof, void *data );
 
-#if defined(REISERFS_PROC_INFO)
+#if defined( REISERFS_PROC_INFO )
 
 #define PROC_EXP( e )   e
 
@@ -1908,7 +2050,7 @@ int balance_internal (struct tree_balance * , int, int, struct item_head * ,
                       struct buffer_head **);
 
 /* do_balance.c */
-inline void do_balance_mark_leaf_dirty (struct tree_balance * tb, 
+void do_balance_mark_leaf_dirty (struct tree_balance * tb,
 					struct buffer_head * bh, int flag);
 #define do_balance_mark_internal_dirty do_balance_mark_leaf_dirty
 #define do_balance_mark_sb_dirty do_balance_mark_leaf_dirty
@@ -2014,9 +2156,6 @@ __u32 keyed_hash (const signed char *msg, int len);
 __u32 yura_hash (const signed char *msg, int len);
 __u32 r5_hash (const signed char *msg, int len);
 
-/* version.c */
-const char *reiserfs_get_version_string(void) CONSTF;
-
 /* the ext2 bit routines adjust for big or little endian as
 ** appropriate for the arch, so in our laziness we use them rather
 ** than using the bit routines they call more directly.  These
@@ -2035,12 +2174,6 @@ const char *reiserfs_get_version_string(void) CONSTF;
    absolutely safe */
 #define SPARE_SPACE 500
 
-static inline unsigned long reiserfs_get_journal_block(const struct super_block *s) {
-    return le32_to_cpu(SB_DISK_SUPER_BLOCK(s)->s_journal_block) ;
-}
-static inline unsigned long reiserfs_get_journal_orig_size(const struct super_block *s) {
-    return le32_to_cpu(SB_DISK_SUPER_BLOCK(s)->s_orig_journal_size) ;
-}
 
 /* prototypes from ioctl.c */
 int reiserfs_ioctl (struct inode * inode, struct file * filp, 

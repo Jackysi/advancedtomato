@@ -148,7 +148,7 @@ struct hfs_nat_hdr {
 	hfs_word_t	entries;
 	hfs_byte_t	descrs[12*5];
 	hfs_byte_t	real_name[255];	/* id=3 */
-	hfs_byte_t	comment[200];	
+	hfs_byte_t	comment[200];	/* id=4 XXX: not yet implemented */
 	hfs_byte_t	old_info[16];	/* id=7 */
 	hfs_u8		finderinfo[32]; /* id=9 */
 };
@@ -163,7 +163,7 @@ struct hfs_dbl_hdr {
 	hfs_word_t	entries;
 	hfs_byte_t	descrs[12*HFS_HDR_MAX];
 	hfs_byte_t	real_name[255];	/* id=3 */
-	hfs_byte_t	comment[200];	
+	hfs_byte_t	comment[200];	/* id=4 XXX: not yet implemented */
 	hfs_u32		create_time;	/* \	          */
 	hfs_u32		modify_time;	/*  | id=8 (or 7) */
 	hfs_u32		backup_time;	/*  |	          */
@@ -302,6 +302,7 @@ extern void hfs_sngl_ifill(struct inode *, ino_t, const int);
 
 /* super.c */
 extern struct super_block *hfs_read_super(struct super_block *,void *,int);
+extern int hfs_remount(struct super_block *, int *, char *);
 
 /* trans.c */
 extern void hfs_colon2mac(struct hfs_name *, const char *, int);

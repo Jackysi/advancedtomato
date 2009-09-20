@@ -1,4 +1,4 @@
-/* $Id: bootstr.c,v 1.1.1.4 2003/10/14 08:07:51 sparq Exp $
+/* $Id: bootstr.c,v 1.6 1999/08/31 06:55:01 davem Exp $
  * bootstr.c:  Boot string/argument acquisition from the PROM.
  *
  * Copyright(C) 1995 David S. Miller (davem@caip.rutgers.edu)
@@ -15,16 +15,22 @@
  */
 
 #define BARG_LEN  256
-int bootstr_len = BARG_LEN;
-static int bootstr_valid = 0;
-static char bootstr_buf[BARG_LEN] = { 0 };
+struct {
+	int bootstr_len;
+	int bootstr_valid;
+	char bootstr_buf[BARG_LEN];
+} bootstr_info = {
+	.bootstr_len = BARG_LEN,
+};
 
 char * __init
 prom_getbootargs(void)
 {
 	/* This check saves us from a panic when bootfd patches args. */
-	if (bootstr_valid) return bootstr_buf;
-	prom_getstring(prom_chosen_node, "bootargs", bootstr_buf, BARG_LEN);
-	bootstr_valid = 1;
-	return bootstr_buf;
+	if (bootstr_info.bootstr_valid)
+		return bootstr_info.bootstr_buf;
+	prom_getstring(prom_chosen_node, "bootargs",
+		       bootstr_info.bootstr_buf, BARG_LEN);
+	bootstr_info.bootstr_valid = 1;
+	return bootstr_info.bootstr_buf;
 }

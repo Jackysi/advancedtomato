@@ -22,7 +22,7 @@
 #include <linux/smp_lock.h>
 #include <linux/init.h>
 #include <asm/uaccess.h>
-#include <asm/sgi/sgimc.h>
+#include <asm/sgi/mc.h>
 
 static unsigned long indydog_alive;
 static int expect_close = 0;
@@ -38,13 +38,12 @@ MODULE_PARM_DESC(nowayout, "Watchdog cannot be stopped once started (default=CON
 
 static inline void indydog_ping(void)
 {
-	mcmisc_regs->watchdogt = 0;
+	sgimc->watchdogt = 0;
 }
 
 /*
  *	Allow only one person to hold it open
  */
-
 static int indydog_open(struct inode *inode, struct file *file)
 {
 	u32 mc_ctrl0;
@@ -56,37 +55,29 @@ static int indydog_open(struct inode *inode, struct file *file)
 		MOD_INC_USE_COUNT;
 	}
 
-	/*
-	 *	Activate timer
-	 */
-	mc_ctrl0 = mcmisc_regs->cpuctrl0 | SGIMC_CCTRL0_WDOG;
-	mcmisc_regs->cpuctrl0 = mc_ctrl0;
+	/* Activate timer */
+	mc_ctrl0 = sgimc->cpuctrl0 | SGIMC_CCTRL0_WDOG;
+	sgimc->cpuctrl0 = mc_ctrl0;
 	indydog_ping();
 			
 	indydog_alive = 1;
-	printk("Started watchdog timer.\n");
+	printk(KERN_INFO "Started watchdog timer.\n");
 	
 	return 0;
 }
 
 static int indydog_release(struct inode *inode, struct file *file)
 {
-	/*
-	 *	Shut off the timer.
-	 *	Lock it in if it's a module and we set nowayout.
-	 */
+	/* Shut off the timer.
+	 * Lock it in if it's a module and we set nowayout. */
 	lock_kernel();
-	if (expect_close)
-	{
-		u32 mc_ctrl0 = mcmisc_regs->cpuctrl0;
+	if (expect_close) {
+		u32 mc_ctrl0 = sgimc->cpuctrl0;
 		mc_ctrl0 &= ~SGIMC_CCTRL0_WDOG;
-		mcmisc_regs->cpuctrl0 = mc_ctrl0;
-		printk("Stopped watchdog timer.\n");
-	}
-	else
-	{
+		sgimc->cpuctrl0 = mc_ctrl0;
+		printk(KERN_INFO "Stopped watchdog timer.\n");
+	} else
 		printk(KERN_CRIT "WDT device closed unexpectedly.  WDT will not stop!\n");
-	}
 	clear_bit(0, &indydog_alive);
 	unlock_kernel();
 

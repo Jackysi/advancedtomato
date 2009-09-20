@@ -250,6 +250,14 @@ static int __init detect_c930(void)
 	if ((mad_read(MC0_PORT+13) & 0x80) == 0)
 		return 1;
 	
+#if 0	
+	/* Force off PnP mode. This is not recommended because
+	 * the PnP bios will not recognize the chip on the next
+	 * warm boot and may assignd different resources to other
+	 * PnP/PCI cards.
+	 */
+	mad_write(MC0_PORT+17, 0x04);
+#endif
 	return 1;
 }
 
@@ -359,6 +367,8 @@ static int __init init_c930(struct address_info *hw_config)
 {
 	unsigned char cfg = 0;
 
+	cfg |= (0x0f & mad16_conf);
+
 	if(c931_detected)
 	{
 		/* Bit 0 has reversd meaning. Bits 1 and 2 sese
@@ -396,7 +406,10 @@ static int __init init_c930(struct address_info *hw_config)
 	   and the C931. */
 	cfg = c931_detected ? 0x04 : 0x00;
 
-	mad_write(MC4_PORT, 0x52|cfg);
+	if(mad16_cdsel & 0x20)
+		mad_write(MC4_PORT, 0x62|cfg);  /* opl4 */
+	else
+		mad_write(MC4_PORT, 0x52|cfg);  /* opl3 */
 
 	mad_write(MC5_PORT, 0x3C);	/* Init it into mode2 */
 	mad_write(MC6_PORT, 0x02);	/* Enable WSS, Disable MPU and SB */
@@ -553,10 +566,10 @@ static int __init probe_mad16(struct address_info *hw_config)
 	 */
 
 	tmp &= ~0x0f;
+	tmp |= (mad16_conf & 0x0f);   /* CD-ROM and joystick bits */
 	mad_write(MC1_PORT, tmp);
 
-	tmp = mad_read(MC2_PORT);
-
+	tmp = mad16_cdsel;
 	mad_write(MC2_PORT, tmp);
 	mad_write(MC3_PORT, 0xf0);	/* Disable SB */
 
@@ -1043,6 +1056,12 @@ static void __exit cleanup_mad16(void)
 {
 	if (found_mpu)
 		unload_mad16_mpu(&cfg_mpu);
+	if (gameport.io) {
+		/* the gameport was initialized so we must free it up */
+		gameport_unregister_port(&gameport);
+		gameport.io = 0;
+		release_region(0x201, 1);
+	}
 	unload_mad16(&cfg);
 }
 

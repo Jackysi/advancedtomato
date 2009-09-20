@@ -266,9 +266,10 @@ void kbd_leds(unsigned char leds)
 	struct dec_serial* info = lk201kbd_info;
 	unsigned char l = 0;
 
-	if (!info)		
+	if (!info)		/* FIXME */
 		return;
 
+	/* FIXME -- Only Hold and Lock LEDs for now. --macro */
 	if (leds & LED_SCR)
 		l |= LK_LED_HOLD;
 	if (leds & LED_CAP)
@@ -315,7 +316,7 @@ static void lk201_kbd_rx_char(unsigned char ch, unsigned char stat)
 	static int prev_scancode;
 	unsigned char c = scancodeRemap[ch];
 
-	if (stat && stat != 4) {
+	if (stat && stat != TTY_OVERRUN) {
 		printk(KERN_ERR "lk201: keyboard receive error: 0x%02x\n",
 		       stat);
 		return;

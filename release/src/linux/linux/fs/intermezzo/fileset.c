@@ -60,6 +60,7 @@ struct presto_file_set *presto_fset(struct dentry *de)
         struct dentry *fsde;
         ENTRY;
         if ( !de->d_inode ) {
+                /* FIXME: is this ok to be NULL? */
                 CDEBUG(D_INODE,"presto_fset: warning %*s has NULL inode.\n",
                 de->d_name.len, de->d_name.name);
         }
@@ -158,7 +159,7 @@ static struct file *_izo_fset_open(char *fsetname, char *name, int flags, int mo
                 CDEBUG(D_INODE, "Error %d\n", error);
         }
 
-        PRESTO_FREE(path, strlen(path));
+        PRESTO_FREE(path, strlen(path)+1);
 
         EXIT;
         return f;
@@ -203,6 +204,13 @@ int presto_set_fsetroot(struct dentry *ioctl_dentry, char *fsetname,
         if (fset && (fset->fset_dentry == dentry) ) { 
                 CERROR("Fsetroot already set (inode %ld)\n",
                        dentry->d_inode->i_ino);
+                /* XXX: ignore because clear_fsetroot is broken  */
+#if 0
+                dput(dentry);
+                EXIT;
+                error = -EEXIST;
+                goto out;
+#endif
         }
 
         cache = presto_get_cache(dentry->d_inode);
@@ -251,6 +259,7 @@ int presto_set_fsetroot(struct dentry *ioctl_dentry, char *fsetname,
                 error = -ENOMEM;
                 goto out_free;
         }
+		
         presto_d2d(dentry)->dd_fset = fset;
         list_add(&fset->fset_list, &cache->cache_fset_list);
 
@@ -335,6 +344,7 @@ static int izo_cleanup_fset(struct presto_file_set *fset)
         dput(fset->fset_dentry);
         mntput(fset->fset_mnt);
 
+		izo_rep_cache_clean(fset);
         PRESTO_FREE(fset->fset_name, strlen(fset->fset_name) + 1);
         PRESTO_FREE(fset->fset_reint_buf, 64 * 1024);
         PRESTO_FREE(fset, sizeof(*fset));
@@ -412,6 +422,7 @@ static void izo_setup_ctxt(struct dentry *root, struct vfsmount *mnt,
         new.fsuid = 0;
         new.fsgid = 0;
         new.fs = get_fs(); 
+        /* XXX where can we get the groups from? */
         new.ngroups = 0;
 
         push_ctxt(save, &new); 
@@ -502,6 +513,9 @@ int presto_set_fsetroot_from_ioc(struct dentry *root, char *fsetname,
         return rc;
 }
 
+/* XXX: this function should detect if fsetname is already in use for
+   the cache under root
+*/ 
 int izo_prepare_fileset(struct dentry *root, char *fsetname) 
 {
         int err;
@@ -547,6 +561,7 @@ int izo_prepare_fileset(struct dentry *root, char *fsetname)
         err = izo_simple_mkdir(dotizo, fsetname, 0755);
         CDEBUG(D_CACHE, "mkdir err %d\n", err); 
 
+        /* XXX find the dentry of the root of the fileset (root for now) */ 
         fsetdir = lookup_one_len(fsetname, dotizo, strlen(fsetname));
         if (IS_ERR(fsetdir)) { 
                 EXIT;
@@ -555,6 +570,7 @@ int izo_prepare_fileset(struct dentry *root, char *fsetname)
 
         err = izo_simple_symlink(fsetdir, "ROOT", "../.."); 
 
+        /* XXX read flags from flags file */ 
         err =  presto_set_fsetroot(root, fsetname, 0); 
         CDEBUG(D_CACHE, "set_fsetroot err %d\n", err); 
 

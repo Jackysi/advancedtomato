@@ -1,13 +1,16 @@
 /* -*- linux-c -*- */
 
 /* 
- * Driver for USB Scanners (linux-2.4.18)
+ * Driver for USB Scanners (linux-2.4)
  *
  * Copyright (C) 1999, 2000, 2001, 2002 David E. Nelson
+ * Copyright (C) 2002, 2003 Henning Meier-Geinitz
  *
  * Portions may be copyright Brad Keryan and Michael Gee.
  *
- * Brian Beattie <beattie@beattie-home.net>
+ * Previously maintained by Brian Beattie
+ *
+ * Current maintainer: Henning Meier-Geinitz <henning@meier-geinitz.de>
  * 
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -311,12 +314,86 @@
  *    - Changed maintainership from David E. Nelson to Brian
  *      Beattie <beattie@beattie-home.net>.
  *
+ * 0.4.9  12/19/2002
+ *    - Added vendor/product ids for Nikon, Mustek, Plustek, Genius, Epson,
+ *      Canon, Umax, Hewlett-Packard, Benq, Agfa, Minolta scanners.
+ *      Thanks to Dieter Faulbaum <faulbaum@mail.bessy.de>, Stian Jordet
+ *      <liste@jordet.nu>, "Yann E. MORIN" <yann.morin.1998@anciens.enib.fr>,
+ *      "Jaeger, Gerhard" <gerhard@gjaeger.de>, Ira Childress 
+ *      <ichildress@mn.rr.com>, Till Kamppeter <till.kamppeter@gmx.net>,
+ *      Ed Hamrick <EdHamrick@aol.com>, Oliver Schwartz
+ *      <Oliver.Schwartz@gmx.de> and everyone else who sent ids.
+ *    - Some Benq, Genius and Plustek ids are identified now.
+ *    - Don't clutter syslog with "Unable to access minor data" messages.
+ *    - Accept scanners with only one bulk (in) endpoint (thanks to Sergey
+ *      Vlasov <vsu@mivlgu.murom.ru>).
+ *    - Accept devices with more than one interface. Only use interfaces that
+ *      look like belonging to scanners.
+ *    - Use altsetting[0], not altsetting[ifnum].
+ *    - Add locking to ioctl_scanner(). Thanks to Oliver Neukum
+ *      <oliver@neukum.name>.
+ *
+ * 0.4.10  01/07/2003
+ *    - Added vendor/product ids for Artec, Canon, Compaq, Epson, HP, Microtek 
+ *      and Visioneer scanners. Thanks to William Lam <wklam@triad.rr.com>,
+ *      Till Kamppeter <till.kamppeter@gmx.net> and others for all the ids.
+ *    - Cleaned up list of vendor/product ids.
+ *    - Print ids and device number when a device was detected.
+ *    - Don't print errors when the device is busy.
+ *    - Added vendor/product ids for Visioneer scanners.
+ *    - Print information about user-supplied ids only once at startup instead
+ *      of everytime any USB device is plugged in.
+ *    - Removed PV8630 ioctls. Use the standard ioctls instead.
+ *    - Made endpoint detection more generic. Basically, only one bulk-in 
+ *      endpoint is required, everything else is optional.
+ *    - Move the scanner ioctls to usb_scanner_ioctl.h to allow access by archs
+ *      that need it (by Greg KH).
+ *    - New maintainer: Henning Meier-Geinitz.
+ *    - Print ids and device number when a device was detected.
+ *    - Don't print errors when the device is busy.
+ *      
+ * 0.4.11  2003-02-25
+ *    - Added vendor/product ids for Artec, Avision, Brother, Canon, Compaq,
+ *      Fujitsu, Hewlett-Packard, Lexmark, LG Electronics, Medion, Microtek,
+ *      Primax, Prolink,  Plustek, SYSCAN, Trust and UMAX scanners.
+ *
+ * 0.4.12  2003-04-16
+ *    - Fixed endpoint detection. The endpoints were numbered from 1 to n but
+ *      that assumption is not correct in all cases.
+ *
+ *
+ * 0.4.13  2003-06-14
+ *    - Added vendor/product ids for Genius, Hewlett-Packard, Microtek, 
+ *      Mustek, Pacific Image Electronics, Plustek, and Visioneer scanners.
+ *      Fixed names of some other scanners.
+ *
+ * 0.4.14  2003-07-15
+ *    - Added vendor/product ids for Avision, Canon, HP, Microtek and Relisys
+ *      scanners.
+ *    - When checking if all minors are used don't read beyond p_scn_table
+ *      (Sergey Vlasov).
+ *    - Kfree the scn structure only after disconnect AND close have occured and
+ *      check for scn->present.  This avoids crashing when someone writes (reads) to 
+ *      the device while it's already disconnected but still open. Patch from
+ *      Sergey Vlasov.
+ *    - Clean up irq urb when not enough memory is available (Sergey Vlasov).
+ *
+ * 0.4.15  2003-10-03
+ *    - Added vendor/product ids for Canon, HP, Microtek, Mustek, Siemens, UMAX, and
+ *      Visioneer scanners.
+ *    - Added test for USB_CLASS_CDC_DATA which is used by some fingerprint scanners
+ *    - Use static declarations for usb_scanner_init/usb_scanner_exit 
+ *      (Daniele Bellucci).
+ *
+ * 0.4.16  2003-11-04
+ *    - Added vendor/product ids for Epson, Genius, Microtek, Plustek, Reflecta, and
+ *      Visioneer scanners. Removed ids for HP PSC devices as these are supported by
+ *      the hpoj userspace driver.
+ *
  * TODO
- *    - Remove the 2/3 endpoint limitation
  *    - Performance
  *    - Select/poll methods
  *    - More testing
- *    - Proper registry/assignment for LM9830 ioctl's
  *    - More general usage ioctl's
  *
  *
@@ -334,7 +411,7 @@
  *    - All the developers that are working on USB SANE backends or other
  *      applications to use USB scanners.
  *    - Thanks to Greg KH <greg@kroah.com> for setting up Brian Beattie
- *      to be the new USB Scanner maintainer.
+ *      and Henning Meier-Geinitz to be the new USB Scanner maintainer.
  *
  *  Performance:
  *
@@ -343,11 +420,21 @@
  *      24 Bit Color ~ 70 secs - 3.6 Mbit/sec
  *       8 Bit Gray ~ 17 secs - 4.2 Mbit/sec */
 
+/*
+ * For documentation, see Documentation/usb/scanner.txt.
+ * Website: http://www.meier-geinitz.de/kernel/
+ * Please contact the maintainer if your scanner is not detected by this
+ * driver automatically.
+ */
+
+
 /* 
  * Scanner definitions, macros, module info, 
  * debug/ioctl/data_dump enable, and other constants.
  */ 
 #include "scanner.h"
+
+static void purge_scanner(struct scn_usb_data *scn);
 
 static void
 irq_scanner(struct urb *urb)
@@ -384,8 +471,6 @@ open_scanner(struct inode * inode, struct file * file)
 
 	int err=0;
 
-	MOD_INC_USE_COUNT;
-
 	down(&scn_mutex);
 
 	scn_minor = USB_SCN_MINOR(inode);
@@ -394,8 +479,7 @@ open_scanner(struct inode * inode, struct file * file)
 
 	if (!p_scn_table[scn_minor]) {
 		up(&scn_mutex);
-		MOD_DEC_USE_COUNT;
-		err("open_scanner(%d): Unable to access minor data", scn_minor);
+		dbg("open_scanner(%d): Unable to access minor data", scn_minor);
 		return -ENODEV;
 	}
 
@@ -403,7 +487,7 @@ open_scanner(struct inode * inode, struct file * file)
 
 	dev = scn->scn_dev;
 
-	down(&(scn->sem));	/* Now protect the scn_usb_data structure */ 
+	down(&(scn->sem));	/* Now protect the scn_usb_data structure */
 
 	up(&scn_mutex); /* Now handled by the above */
 
@@ -420,7 +504,7 @@ open_scanner(struct inode * inode, struct file * file)
 	}
 
 	if (scn->isopen) {
-		err("open_scanner(%d): Scanner device is already open", scn_minor);
+		dbg("open_scanner(%d): Scanner device is already open", scn_minor);
 		err = -EBUSY;
 		goto out_error;
 	}
@@ -436,40 +520,27 @@ out_error:
 
 	up(&(scn->sem)); /* Wake up any possible contending processes */
 
-	if (err)
-		MOD_DEC_USE_COUNT;
-
 	return err;
 }
 
 static int
 close_scanner(struct inode * inode, struct file * file)
 {
-	struct scn_usb_data *scn;
+	struct scn_usb_data *scn = file->private_data;
 
-	kdev_t scn_minor;
-
-	scn_minor = USB_SCN_MINOR (inode);
-
-	dbg("close_scanner: scn_minor:%d", scn_minor);
-
-	if (!p_scn_table[scn_minor]) {
-		err("close_scanner(%d): invalid scn_minor", scn_minor);
-		return -ENODEV;
-	}
-
-	down(&scn_mutex);
-
-	scn = p_scn_table[scn_minor];
 	down(&(scn->sem));
 	scn->isopen = 0;
 
 	file->private_data = NULL;
 
-	up(&scn_mutex);
-	up(&(scn->sem));
+	if (!scn->present) {
+		/* The device was unplugged while open - need to clean up */
+		up(&(scn->sem));
+		purge_scanner(scn);
+		return 0;
+	}
 
-	MOD_DEC_USE_COUNT;
+	up(&(scn->sem));
 
 	return 0;
 }
@@ -495,6 +566,18 @@ write_scanner(struct file * file, const char * buffer,
 	scn = file->private_data;
 
 	down(&(scn->sem));
+
+	if (!scn->present) {
+		/* The device was unplugged while open */
+		up(&(scn->sem));
+		return -ENODEV;
+	}
+
+	if (!scn->bulk_out_ep) {
+		/* This scanner does not have a bulk-out endpoint */
+		up(&(scn->sem));
+		return -EINVAL;
+	}
 
 	scn_minor = scn->scn_minor;
 
@@ -584,6 +667,12 @@ read_scanner(struct file * file, char * buffer,
 
 	down(&(scn->sem));
 
+	if (!scn->present) {
+		/* The device was unplugged while open */
+		up(&(scn->sem));
+		return -ENODEV;
+	}
+
 	scn_minor = scn->scn_minor;
 
 	ibuf = scn->ibuf;
@@ -636,7 +725,7 @@ read_scanner(struct file * file, char * buffer,
 				goto data_recvd;
 			}
 		}
-		
+
 		if (result == -EPIPE) { /* No hope */
 			if(usb_clear_halt(dev, scn->bulk_in_ep)) {
 				err("read_scanner(%d): Failure to clear endpoint halt condition (%Zd).", scn_minor, ret);
@@ -684,81 +773,29 @@ static int
 ioctl_scanner(struct inode *inode, struct file *file,
 	      unsigned int cmd, unsigned long arg)
 {
+	struct scn_usb_data *scn;
 	struct usb_device *dev;
+	int retval = -ENOTTY;
 
-	kdev_t scn_minor;
+	scn = file->private_data;
+	down(&(scn->sem));
 
-	scn_minor = USB_SCN_MINOR(inode);
-
-	if (!p_scn_table[scn_minor]) {
-		err("ioctl_scanner(%d): invalid scn_minor", scn_minor);
+	if (!scn->present) {
+		/* The device was unplugged while open */
+		up(&(scn->sem));
 		return -ENODEV;
 	}
 
-	dev = p_scn_table[scn_minor]->scn_dev;
+	dev = scn->scn_dev;
 
 	switch (cmd)
 	{
 	case SCANNER_IOCTL_VENDOR :
-		return (put_user(dev->descriptor.idVendor, (unsigned int *) arg));
+		retval = (put_user(dev->descriptor.idVendor, (unsigned int *) arg));
+		break;
 	case SCANNER_IOCTL_PRODUCT :
-		return (put_user(dev->descriptor.idProduct, (unsigned int *) arg));
-#ifdef PV8630
-	case PV8630_IOCTL_INREQUEST :
-	{
-		int result;
-
-		struct {
-			__u8  data;
-			__u8  request;
-			__u16 value;
-			__u16 index;
-		} args;
-
-		if (copy_from_user(&args, (void *)arg, sizeof(args)))
-			return -EFAULT;
-
-		result = usb_control_msg(dev, usb_rcvctrlpipe(dev, 0),
-					 args.request, USB_TYPE_VENDOR|
-					 USB_RECIP_DEVICE|USB_DIR_IN,
-					 args.value, args.index, &args.data,
-					 1, HZ*5);
-
-		dbg("ioctl_scanner(%d): inreq: args.data:%x args.value:%x args.index:%x args.request:%x\n", scn_minor, args.data, args.value, args.index, args.request);
-
-		if (copy_to_user((void *)arg, &args, sizeof(args)))
-			return -EFAULT;
-
-		dbg("ioctl_scanner(%d): inreq: result:%d\n", scn_minor, result);
-
-		return result;
-	}
-	case PV8630_IOCTL_OUTREQUEST :
-	{
-		int result;
-
-		struct {
-			__u8  request;
-			__u16 value;
-			__u16 index;
-		} args;
-
-		if (copy_from_user(&args, (void *)arg, sizeof(args)))
-			return -EFAULT;
-
-		dbg("ioctl_scanner(%d): outreq: args.value:%x args.index:%x args.request:%x\n", scn_minor, args.value, args.index, args.request);
-
-		result = usb_control_msg(dev, usb_sndctrlpipe(dev, 0),
-					 args.request, USB_TYPE_VENDOR|
-					 USB_RECIP_DEVICE|USB_DIR_OUT,
-					 args.value, args.index, NULL,
-					 0, HZ*5);
-
-		dbg("ioctl_scanner(%d): outreq: result:%d\n", scn_minor, result);
-
-		return result;
-	}
-#endif /* PV8630 */
+		retval = (put_user(dev->descriptor.idProduct, (unsigned int *) arg));
+		break;
  	case SCANNER_IOCTL_CTRLMSG:
  	{
  		struct ctrlmsg_ioctl {
@@ -767,19 +804,26 @@ ioctl_scanner(struct inode *inode, struct file *file,
  		} cmsg;
  		int pipe, nb, ret;
  		unsigned char buf[64];
- 
- 		if (copy_from_user(&cmsg, (void *)arg, sizeof(cmsg)))
- 			return -EFAULT;
+		retval = 0;
+
+ 		if (copy_from_user(&cmsg, (void *)arg, sizeof(cmsg))) {
+ 			retval = -EFAULT;
+			break;
+		}
 
  		nb = cmsg.req.wLength;
 
- 		if (nb > sizeof(buf))
- 			return -EINVAL;
+ 		if (nb > sizeof(buf)) {
+ 			retval = -EINVAL;
+			break;
+		}
 
  		if ((cmsg.req.bRequestType & 0x80) == 0) {
  			pipe = usb_sndctrlpipe(dev, 0);
- 			if (nb > 0 && copy_from_user(buf, cmsg.data, nb))
- 				return -EFAULT;
+ 			if (nb > 0 && copy_from_user(buf, cmsg.data, nb)) {
+ 				retval = -EFAULT;
+				break;
+			}
  		} else {
  			pipe = usb_rcvctrlpipe(dev, 0);
 		}
@@ -791,23 +835,26 @@ ioctl_scanner(struct inode *inode, struct file *file,
  				      buf, nb, HZ);
 
  		if (ret < 0) {
- 			err("ioctl_scanner(%d): control_msg returned %d\n", scn_minor, ret);
- 			return -EIO;
+ 			err("ioctl_scanner: control_msg returned %d\n", ret);
+ 			retval = -EIO;
+			break;
  		}
 
  		if (nb > 0 && (cmsg.req.bRequestType & 0x80) && copy_to_user(cmsg.data, buf, nb))
- 			return -EFAULT;
+ 			retval = -EFAULT;
 
- 		return 0;
+ 		break;
  	}
 	default:
-		return -ENOTTY;
+		break;
 	}
-	return 0;
+	up(&(scn->sem));
+	return retval;
 }
 
 static struct
 file_operations usb_scanner_fops = {
+	owner:		THIS_MODULE,
 	read:		read_scanner,
 	write:		write_scanner,
 	ioctl:		ioctl_scanner,
@@ -831,10 +878,6 @@ probe_scanner(struct usb_device *dev, unsigned int ifnum,
 	char valid_device = 0;
 	char have_bulk_in, have_bulk_out, have_intr;
 	char name[10];
-
-	if (vendor != -1 && product != -1) {
-		info("probe_scanner: User specified USB scanner -- Vendor:Product - %x:%x", vendor, product);
-	}
 
 	dbg("probe_scanner: USB dev address:%p", dev);
 	dbg("probe_scanner: ifnum:%u", ifnum);
@@ -886,43 +929,59 @@ probe_scanner(struct usb_device *dev, unsigned int ifnum,
 		return NULL;
 	}
 
-	if (dev->config[0].bNumInterfaces != 1) {
-		info("probe_scanner: Only one device interface is supported.");
+	interface = dev->config[0].interface[ifnum].altsetting;
+
+	if (interface[0].bInterfaceClass != USB_CLASS_VENDOR_SPEC &&
+	    interface[0].bInterfaceClass != USB_CLASS_PER_INTERFACE &&
+	    interface[0].bInterfaceClass != USB_CLASS_CDC_DATA &&
+	    interface[0].bInterfaceClass != SCN_CLASS_SCANJET) {
+		dbg("probe_scanner: This interface doesn't look like a scanner (class=0x%x).", interface[0].bInterfaceClass);
 		return NULL;
 	}
 
-	interface = dev->config[0].interface[ifnum].altsetting;
-	endpoint = interface[ifnum].endpoint;
+	endpoint = interface[0].endpoint;
 
+/*
+ * Start checking for bulk and interrupt endpoints. We are only using the first
+ * one of each type of endpoint. If we have an interrupt endpoint go ahead and
+ * setup the handler. FIXME: This is a future enhancement...
+ */
 
 	dbg("probe_scanner: Number of Endpoints:%d", (int) interface->bNumEndpoints);
-
-	if ((interface->bNumEndpoints != 2) && (interface->bNumEndpoints != 3)) {
-		info("probe_scanner: Only two or three endpoints supported.");
-		return NULL;
-	}
 
 	ep_cnt = have_bulk_in = have_bulk_out = have_intr = 0;
 
 	while (ep_cnt < interface->bNumEndpoints) {
 
-		if (!have_bulk_in && IS_EP_BULK_IN(endpoint[ep_cnt])) {
+		if (IS_EP_BULK_IN(endpoint[ep_cnt])) {
 			ep_cnt++;
-			have_bulk_in = ep_cnt;
+			if (have_bulk_in) {
+				info ("probe_scanner: ignoring additional bulk_in_ep:%d", ep_cnt);
+				continue;
+			}
+			have_bulk_in = endpoint[ep_cnt - 1].bEndpointAddress & USB_ENDPOINT_NUMBER_MASK;
 			dbg("probe_scanner: bulk_in_ep:%d", have_bulk_in);
 			continue;
 		}
 
-		if (!have_bulk_out && IS_EP_BULK_OUT(endpoint[ep_cnt])) {
+		if (IS_EP_BULK_OUT(endpoint[ep_cnt])) {
 			ep_cnt++;
-			have_bulk_out = ep_cnt;
+			if (have_bulk_out) {
+				info ("probe_scanner: ignoring additional bulk_out_ep:%d", ep_cnt);
+				continue;
+			}
+			have_bulk_out = endpoint[ep_cnt - 1].bEndpointAddress & USB_ENDPOINT_NUMBER_MASK;
 			dbg("probe_scanner: bulk_out_ep:%d", have_bulk_out);
 			continue;
 		}
 
-		if (!have_intr && IS_EP_INTR(endpoint[ep_cnt])) {
+		if (IS_EP_INTR(endpoint[ep_cnt])) {
 			ep_cnt++;
-			have_intr = ep_cnt;
+			if (have_intr) {
+				info ("probe_scanner: ignoring additional intr_ep:%d", ep_cnt);
+				continue;
+			}
+			have_intr = endpoint[ep_cnt - 1].bEndpointAddress & USB_ENDPOINT_NUMBER_MASK;
 			dbg("probe_scanner: intr_ep:%d", have_intr);
 			continue;
 		}
@@ -935,22 +994,8 @@ probe_scanner(struct usb_device *dev, unsigned int ifnum,
  * Perform a quick check to make sure that everything worked as it
  * should have.
  */
-
-	switch(interface->bNumEndpoints) {
-	case 2:
-		if (!have_bulk_in || !have_bulk_out) {
-			info("probe_scanner: Two bulk endpoints required.");
-			return NULL;
-		}
-		break;
-	case 3:
-		if (!have_bulk_in || !have_bulk_out || !have_intr) {
-			info("probe_scanner: Two bulk endpoints and one interrupt endpoint required.");
-			return NULL;
-		}
-		break;
-	default:
-		info("probe_scanner: Endpoint determination failed --  consult Documentation/usb/scanner.txt");
+	if (!have_bulk_in) {
+		err("probe_scanner: One bulk-in endpoint required.");
 		return NULL;
 	}
 
@@ -969,7 +1014,7 @@ probe_scanner(struct usb_device *dev, unsigned int ifnum,
 	}
 
 /* Check to make sure that the last slot isn't already taken */
-	if (p_scn_table[scn_minor]) {
+	if (scn_minor >= SCN_MAX_MNR) {
 		err("probe_scanner: No more minor devices remaining.");
 		up(&scn_mutex);
 		return NULL;
@@ -1009,6 +1054,8 @@ probe_scanner(struct usb_device *dev, unsigned int ifnum,
 /* Ok, now initialize all the relevant values */
 	if (!(scn->obuf = (char *)kmalloc(OBUF_SIZE, GFP_KERNEL))) {
 		err("probe_scanner(%d): Not enough memory for the output buffer.", scn_minor);
+		if (have_intr)
+			usb_unlink_urb(&scn->scn_irq);
 		kfree(scn);
 		up(&scn_mutex);
 		return NULL;
@@ -1017,6 +1064,8 @@ probe_scanner(struct usb_device *dev, unsigned int ifnum,
 
 	if (!(scn->ibuf = (char *)kmalloc(IBUF_SIZE, GFP_KERNEL))) {
 		err("probe_scanner(%d): Not enough memory for the input buffer.", scn_minor);
+		if (have_intr)
+			usb_unlink_urb(&scn->scn_irq);
 		kfree(scn->obuf);
 		kfree(scn);
 		up(&scn_mutex);
@@ -1031,7 +1080,6 @@ probe_scanner(struct usb_device *dev, unsigned int ifnum,
 		break;
 	case 0x055f:		/* Mustek */
 	case 0x0400:		/* Another Mustek */
-	case 0x0ff5:		/* And yet another Mustek */
 		scn->rd_nak_timeout = HZ * 1;
 	default:
 		scn->rd_nak_timeout = RD_NAK_TIMEOUT;
@@ -1062,11 +1110,21 @@ probe_scanner(struct usb_device *dev, unsigned int ifnum,
 	if (scn->devfs == NULL)
 		dbg("scanner%d: device node registration failed", scn_minor);
 
+	info ("USB scanner device (0x%04x/0x%04x) now attached to %s",
+	      dev->descriptor.idVendor, dev->descriptor.idProduct, name);
 	p_scn_table[scn_minor] = scn;
 
 	up(&scn_mutex);
 
 	return scn;
+}
+
+static void
+purge_scanner(struct scn_usb_data *scn)
+{
+	kfree(scn->ibuf);
+	kfree(scn->obuf);
+	kfree(scn);
 }
 
 static void
@@ -1084,15 +1142,22 @@ disconnect_scanner(struct usb_device *dev, void *ptr)
         usb_driver_release_interface(&scanner_driver,
                 &scn->scn_dev->actconfig->interface[scn->ifnum]);
 
-	kfree(scn->ibuf);
-	kfree(scn->obuf);
-
 	dbg("disconnect_scanner: De-allocating minor:%d", scn->scn_minor);
 	devfs_unregister(scn->devfs);
 	p_scn_table[scn->scn_minor] = NULL;
+
+	if (scn->isopen) {
+		/* The device is still open - cleanup must be delayed */
+		scn->present = 0;
+		up(&(scn->sem));
+		up(&scn_mutex);
+		return;
+	}
+
 	up (&(scn->sem));
-	kfree (scn);
 	up (&scn_mutex);
+
+	purge_scanner(scn);
 }
 
 static struct
@@ -1107,19 +1172,21 @@ usb_driver scanner_driver = {
 				 we match a user defined vendor/product ID. */
 };
 
-void __exit
+static void __exit
 usb_scanner_exit(void)
 {
 	usb_deregister(&scanner_driver);
 }
 
-int __init
+static int __init
 usb_scanner_init (void)
 {
         if (usb_register(&scanner_driver) < 0)
                 return -1;
 
 	info(DRIVER_VERSION ":" DRIVER_DESC);
+	if (vendor != -1 && product != -1)
+		info("probe_scanner: User specified USB scanner -- Vendor:Product - %x:%x", vendor, product);
 	return 0;
 }
 

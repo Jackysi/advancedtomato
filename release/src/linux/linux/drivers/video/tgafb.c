@@ -3,7 +3,7 @@
  *
  *	Copyright (C) 1999,2000 Martin Lucina, Tom Zerucha
  *  
- *  $Id: tgafb.c,v 1.1.1.4 2003/10/14 08:08:55 sparq Exp $
+ *  $Id: tgafb.c,v 1.12.2.3 2000/04/04 06:44:56 mato Exp $
  *
  *  This driver is partly based on the original TGA framebuffer device, which 
  *  was partly based on the original TGA console driver, which are
@@ -112,6 +112,13 @@ static unsigned int base_addr_presets[4] = {
 };
 
 
+    /*
+     *  Predefined video modes
+     *  This is a subset of the standard VESA modes, recalculated from XFree86.
+     *
+     *  XXX Should we store these in terms of the encoded par structs? Even better,
+     *      fbcon should provide a general mechanism for doing something like this.
+     */
 
 static struct {
     const char *name;
@@ -279,9 +286,11 @@ int tgafb_setup(char*);
 #endif
 
 static void tgafb_set_pll(int f);
+#if 1
 static int tgafb_set_cmap(struct fb_cmap *cmap, int kspc, int con,
 			  struct fb_info *info);
 static void tgafb_update_palette(void);
+#endif
 
 
     /*
@@ -345,7 +354,11 @@ static int tgafb_decode_var(const struct fb_var_screeninfo *var, void *fb_par,
 	var->yres_virtual != var->yres ||
 	var->nonstd || (1000000000/var->pixclock) > TGA_PLL_MAX_FREQ ||
 	(var->vmode & FB_VMODE_MASK) != FB_VMODE_NONINTERLACED
+#if 0	/* fbmon not done.  uncomment for 2.5.x -brad */
+	|| !fbmon_valid_timings(var->pixclock, var->htotal, var->vtotal, info))
+#else
 	)
+#endif
 	return -EINVAL;
 
     /* encode video timings */
@@ -455,6 +468,15 @@ static void tgafb_set_par(const void *fb_par, struct fb_info_gen *info)
     int i, j;
     struct tgafb_par *par = (struct tgafb_par *)fb_par;
 
+#if 0
+    /* XXX this will break console switching with X11, maybe I need to test KD_GRAPHICS? */
+    /* if current_par is valid, check to see if we need to change anything */
+    if (current_par_valid) {
+	if (!memcmp(par, &current_par, sizeof current_par)) {
+	    return;
+	}
+    }
+#endif
     current_par = *par;
     current_par_valid = 1;
 
@@ -711,6 +733,11 @@ static int tgafb_setcolreg(u_int regno, u_int red, u_int green, u_int blue,
     return 0;
 }
 
+#if 1
+    /*
+     *	FIXME: since I don't know how to set a single arbitrary color register
+     *  on 24-plane cards, all color palette registers have to be updated
+     */
 
 static int tgafb_set_cmap(struct fb_cmap *cmap, int kspc, int con,
 			  struct fb_info *info)
@@ -723,8 +750,10 @@ static int tgafb_set_cmap(struct fb_cmap *cmap, int kspc, int con,
     }
     if (con == currcon) {		/* current console? */
 	err = fb_set_cmap(cmap, kspc, tgafb_setcolreg, info);
+#if 1
 	if (fb_info.tga_type != TGA_TYPE_8PLANE)
 		tgafb_update_palette();
+#endif
 	return err;
     } else
 	fb_copy_cmap(cmap, &fb_display[con].cmap, kspc ? 0 : 1);
@@ -744,6 +773,7 @@ static void tgafb_update_palette(void)
 	 TGA_WRITE_REG(palette[i].blue|(BT463_PALETTE<<10), TGA_RAMDAC_REG);
     }
 }
+#endif
 
 
 static int tgafb_blank(int blank, struct fb_info_gen *info)

@@ -77,7 +77,7 @@ static void flush_all_zero_pkmaps(void)
 	flush_tlb_all();
 }
 
-static inline unsigned long map_new_virtual(struct page *page)
+static inline unsigned long map_new_virtual(struct page *page, int nonblocking)
 {
 	unsigned long vaddr;
 	int count;
@@ -95,6 +95,9 @@ start:
 			break;	/* Found a usable entry */
 		if (--count)
 			continue;
+
+		if (nonblocking)
+			return 0;
 
 		/*
 		 * Sleep for somebody else to unmap their entries
@@ -126,7 +129,7 @@ start:
 	return vaddr;
 }
 
-void *kmap_high(struct page *page)
+void fastcall *kmap_high(struct page *page, int nonblocking)
 {
 	unsigned long vaddr;
 
@@ -138,16 +141,20 @@ void *kmap_high(struct page *page)
 	 */
 	spin_lock(&kmap_lock);
 	vaddr = (unsigned long) page->virtual;
-	if (!vaddr)
-		vaddr = map_new_virtual(page);
+	if (!vaddr) {
+		vaddr = map_new_virtual(page, nonblocking);
+		if (!vaddr)
+			goto out;
+	}
 	pkmap_count[PKMAP_NR(vaddr)]++;
 	if (pkmap_count[PKMAP_NR(vaddr)] < 2)
 		BUG();
+ out:
 	spin_unlock(&kmap_lock);
 	return (void*) vaddr;
 }
 
-void kunmap_high(struct page *page)
+void fastcall kunmap_high(struct page *page)
 {
 	unsigned long vaddr;
 	unsigned long nr;

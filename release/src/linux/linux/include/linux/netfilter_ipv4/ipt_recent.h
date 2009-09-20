@@ -25,4 +25,3 @@ struct ipt_recent_info {
 };
 
 #endif /*_IPT_RECENT_H*/
-

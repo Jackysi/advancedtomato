@@ -62,12 +62,6 @@
  *        Robert Schwebel <robert@schwebel.de>,
  *        Juergen Beisert <jbeisert@eurodsn.de>,
  *        Theodore Ts'o <tytso@mit.edu>
- *
- * 10/00: Added suport for MIPS Atlas board.
- * 11/00: Hooks for serial kernel debug port support added.
- *        Kevin D. Kissell, kevink@mips.com and Carsten Langgaard,
- *        carstenl@mips.com
- *        Copyright (C) 2000 MIPS Technologies, Inc.  All rights reserved.
  */
 
 static char *serial_version = "5.05c";
@@ -110,6 +104,14 @@ static char *serial_revdate = "2001-07-08";
 #define CONFIG_SERIAL_NOPAUSE_IO
 #define SERIAL_DO_RESTART
 
+#if 0
+/* These defines are normally controlled by the autoconf.h */
+#define CONFIG_SERIAL_MANY_PORTS
+#define CONFIG_SERIAL_SHARE_IRQ
+#define CONFIG_SERIAL_DETECT_IRQ
+#define CONFIG_SERIAL_MULTIPORT
+#define CONFIG_HUB6
+#endif
 
 #ifdef CONFIG_PCI
 #define ENABLE_SERIAL_PCI
@@ -225,7 +227,7 @@ static char *serial_revdate = "2001-07-08";
  * All of the compatibilty code so we can compile serial.c against
  * older kernels is hidden in serial_compat.h
  */
-#if defined(LOCAL_HEADERS) || (LINUX_VERSION_CODE < 0x020317)     /* 2.3.23 */
+#if defined(LOCAL_HEADERS) || (LINUX_VERSION_CODE < 0x020317) /* 2.3.23 */
 #include "serial_compat.h"
 #endif
 
@@ -411,22 +413,6 @@ static inline int serial_paranoia_check(struct async_struct *info,
 	return 0;
 }
 
-#if defined(CONFIG_MIPS_ATLAS) || defined(CONFIG_MIPS_SEAD)
-
-#include <asm/mips-boards/atlas.h>
-
-static _INLINE_ unsigned int serial_in(struct async_struct *info, int offset)
-{
-        return (*(volatile unsigned int *)(mips_io_port_base + ATLAS_UART_REGS_BASE + offset*8) & 0xff);
-}
-
-static _INLINE_ void serial_out(struct async_struct *info, int offset, int value)
-{
-        *(volatile unsigned int *)(mips_io_port_base + ATLAS_UART_REGS_BASE + offset*8) = value;
-}
-
-#else
-
 static _INLINE_ unsigned int serial_in(struct async_struct *info, int offset)
 {
 	switch (info->io_type) {
@@ -436,10 +422,6 @@ static _INLINE_ unsigned int serial_in(struct async_struct *info, int offset)
 		return inb(info->port+1);
 #endif
 	case SERIAL_IO_MEM:
-#ifdef CONFIG_BCM4310
-		readb((unsigned long) info->iomem_base +
-		      (UART_SCR<<info->iomem_reg_shift));
-#endif
 		return readb((unsigned long) info->iomem_base +
 			     (offset<<info->iomem_reg_shift));
 	default:
@@ -460,16 +442,11 @@ static _INLINE_ void serial_out(struct async_struct *info, int offset,
 	case SERIAL_IO_MEM:
 		writeb(value, (unsigned long) info->iomem_base +
 			      (offset<<info->iomem_reg_shift));
-#ifdef CONFIG_BCM4704
-		*((volatile unsigned int *) KSEG1ADDR(0x18000000));
-#endif
 		break;
 	default:
 		outb(value, info->port+offset);
 	}
 }
-#endif
-
 
 /*
  * We used to support using pause I/O for certain machines.  We
@@ -596,8 +573,19 @@ static _INLINE_ void receive_chars(struct async_struct *info,
 	do {
 		if (tty->flip.count >= TTY_FLIPBUF_SIZE) {
 			tty->flip.tqueue.routine((void *) tty);
-			if (tty->flip.count >= TTY_FLIPBUF_SIZE)
+			if (tty->flip.count >= TTY_FLIPBUF_SIZE) {
+				/* no room in flip buffer, discard rx FIFO contents to clear IRQ
+				 * *FIXME* Hardware with auto flow control
+				 * would benefit from leaving the data in the FIFO and
+				 * disabling the rx IRQ until space becomes available.
+				 */
+				do {
+					serial_inp(info, UART_RX);
+					icount->overrun++;
+					*status = serial_inp(info, UART_LSR);
+				} while ((*status & UART_LSR_DR) && (max_count-- > 0));
 				return;		// if TTY_DONT_FLIP is set
+			}
 		}
 		ch = serial_inp(info, UART_RX);
 		*tty->flip.char_buf_ptr = ch;
@@ -694,7 +682,7 @@ static _INLINE_ void receive_chars(struct async_struct *info,
 #endif
 		*status = serial_inp(info, UART_LSR);
 	} while ((*status & UART_LSR_DR) && (max_count-- > 0));
-#if (LINUX_VERSION_CODE > 131394)     /* 2.1.66 */
+#if (LINUX_VERSION_CODE > 131394) /* 2.1.66 */
 	tty_flip_buffer_push(tty);
 #else
 	queue_task_irq_off(&tty->flip.tqueue, &tq_timer);
@@ -865,16 +853,24 @@ static void rs_interrupt(int irq, void *dev_id, struct pt_regs * regs)
 		if (status & UART_LSR_DR)
 			receive_chars(info, &status, regs);
 		check_modem_status(info);
+#ifdef CONFIG_MELAN
 		if ((status & UART_LSR_THRE) ||
 			/* for buggy ELAN processors */
 			((iir & UART_IIR_ID) == UART_IIR_THRI))
 			transmit_chars(info, 0);
+#else
+		if (status & UART_LSR_THRE)
+			transmit_chars(info, 0);
+#endif
 
 	next:
 		info = info->next_port;
 		if (!info) {
 			info = IRQ_ports[irq];
 			if (pass_counter++ > RS_ISR_PASS_LIMIT) {
+#if 0
+				printk("rs loop break\n");
+#endif
 				break; 	/* Prevent infinite loops */
 			}
 			continue;
@@ -929,12 +925,17 @@ static void rs_interrupt_single(int irq, void *dev_id, struct pt_regs * regs)
 		if (status & UART_LSR_DR)
 			receive_chars(info, &status, regs);
 		check_modem_status(info);
+#ifdef CONFIG_MELAN
 		if ((status & UART_LSR_THRE) ||
 		    /* For buggy ELAN processors */
 		    ((iir & UART_IIR_ID) == UART_IIR_THRI))
 			transmit_chars(info, 0);
+#else
+		if (status & UART_LSR_THRE)
+			transmit_chars(info, 0);
+#endif
 		if (pass_counter++ > RS_ISR_PASS_LIMIT) {
-#if SERIAL_DEBUG_INTR
+#ifdef SERIAL_DEBUG_INTR
 			printk("rs_single loop break.\n");
 #endif
 			break;
@@ -1067,17 +1068,15 @@ static void do_serial_bh(void)
 static void do_softint(void *private_)
 {
 	struct async_struct	*info = (struct async_struct *) private_;
-	struct tty_struct	*tty;
-	
+	struct tty_struct       *tty;
+
 	tty = info->tty;
 	if (!tty)
 		return;
 
 	if (test_and_clear_bit(RS_EVENT_WRITE_WAKEUP, &info->event)) {
-		if ((tty->flags & (1 << TTY_DO_WRITE_WAKEUP)) &&
-		    tty->ldisc.write_wakeup)
-			(tty->ldisc.write_wakeup)(tty);
-		wake_up_interruptible(&tty->write_wait);
+		tty_wakeup(tty);
+		
 #ifdef SERIAL_HAVE_POLL_WAIT
 		wake_up_interruptible(&tty->poll_wait);
 #endif
@@ -1452,7 +1451,7 @@ static int startup(struct async_struct * info)
 	/*
 	 * Set up the tty->alt_speed kludge
 	 */
-#if (LINUX_VERSION_CODE >= 131394)     /* Linux 2.1.66 */
+#if (LINUX_VERSION_CODE >= 131394) /* Linux 2.1.66 */
 	if (info->tty) {
 		if ((info->flags & ASYNC_SPD_MASK) == ASYNC_SPD_HI)
 			info->tty->alt_speed = 57600;
@@ -1601,7 +1600,7 @@ static void shutdown(struct async_struct * info)
 	restore_flags(flags);
 }
 
-#if (LINUX_VERSION_CODE < 131394)     /* Linux 2.1.66 */
+#if (LINUX_VERSION_CODE < 131394) /* Linux 2.1.66 */
 static int baud_table[] = {
 	0, 50, 75, 110, 134, 150, 200, 300,
 	600, 1200, 1800, 2400, 4800, 9600, 19200,
@@ -1705,7 +1704,7 @@ static void change_speed(struct async_struct *info,
 			/* Special case since 134 is really 134.5 */
 			quot = (2*baud_base / 269);
 		else if (baud)
-			quot = (baud_base + (baud / 2)) / baud;
+			quot = baud_base / baud;
 	}
 	/* If the quotient is zero refuse the change */
 	if (!quot && old_termios) {
@@ -1722,12 +1721,12 @@ static void change_speed(struct async_struct *info,
 				/* Special case since 134 is really 134.5 */
 				quot = (2*baud_base / 269);
 			else if (baud)
-				quot = (baud_base + (baud / 2)) / baud;
+				quot = baud_base / baud;
 		}
 	}
 	/* As a last resort, if the quotient is zero, default to 9600 bps */
 	if (!quot)
-		quot = (baud_base + 4800) / 9600;
+		quot = baud_base / 9600;
 	/*
 	 * Work around a bug in the Oxford Semiconductor 952 rev B
 	 * chip which causes it to seriously miscalculate baud rates
@@ -1828,13 +1827,18 @@ static void change_speed(struct async_struct *info,
 
 static void rs_put_char(struct tty_struct *tty, unsigned char ch)
 {
-	struct async_struct *info = (struct async_struct *)tty->driver_data;
+	struct async_struct *info;
 	unsigned long flags;
 
+	if (!tty)
+		return;
+	
+	info =  (struct async_struct *)tty->driver_data;
+	
 	if (serial_paranoia_check(info, tty->device, "rs_put_char"))
 		return;
 
-	if (!tty || !info->xmit.buf)
+	if (!info->xmit.buf)
 		return;
 
 	save_flags(flags); cli();
@@ -1874,13 +1878,18 @@ static int rs_write(struct tty_struct * tty, int from_user,
 		    const unsigned char *buf, int count)
 {
 	int	c, ret = 0;
-	struct async_struct *info = (struct async_struct *)tty->driver_data;
+	struct async_struct *info;
 	unsigned long flags;
 				
+	if (!tty)
+		return 0;
+
+	info = (struct async_struct *)tty->driver_data;
+	
 	if (serial_paranoia_check(info, tty->device, "rs_write"))
 		return 0;
 
-	if (!tty || !info->xmit.buf || !tmp_buf)
+	if (!info->xmit.buf || !tmp_buf)
 		return 0;
 
 	save_flags(flags);
@@ -1975,13 +1984,10 @@ static void rs_flush_buffer(struct tty_struct *tty)
 	save_flags(flags); cli();
 	info->xmit.head = info->xmit.tail = 0;
 	restore_flags(flags);
-	wake_up_interruptible(&tty->write_wait);
 #ifdef SERIAL_HAVE_POLL_WAIT
 	wake_up_interruptible(&tty->poll_wait);
 #endif
-	if ((tty->flags & (1 << TTY_DO_WRITE_WAKEUP)) &&
-	    tty->ldisc.write_wakeup)
-		(tty->ldisc.write_wakeup)(tty);
+	tty_wakeup(tty);
 }
 
 /*
@@ -2225,7 +2231,7 @@ check_and_exit:
 		if (((old_state.flags & ASYNC_SPD_MASK) !=
 		     (state->flags & ASYNC_SPD_MASK)) ||
 		    (old_state.custom_divisor != state->custom_divisor)) {
-#if (LINUX_VERSION_CODE >= 131394)     /* Linux 2.1.66 */
+#if (LINUX_VERSION_CODE >= 131394) /* Linux 2.1.66 */
 			if ((state->flags & ASYNC_SPD_MASK) == ASYNC_SPD_HI)
 				info->tty->alt_speed = 57600;
 			if ((state->flags & ASYNC_SPD_MASK) == ASYNC_SPD_VHI)
@@ -2402,7 +2408,7 @@ static int do_autoconfig(struct async_struct * info)
 /*
  * rs_break() --- routine which turns the break handling on or off
  */
-#if (LINUX_VERSION_CODE < 131394)     /* Linux 2.1.66 */
+#if (LINUX_VERSION_CODE < 131394) /* Linux 2.1.66 */
 static void send_break(	struct async_struct * info, int duration)
 {
 	if (!CONFIGURED_SERIAL_PORT(info))
@@ -2559,7 +2565,7 @@ static int rs_ioctl(struct tty_struct *tty, struct file * file,
 	struct async_icount cprev, cnow;	/* kernel counter temps */
 	struct serial_icounter_struct icount;
 	unsigned long flags;
-#if (LINUX_VERSION_CODE < 131394)     /* Linux 2.1.66 */
+#if (LINUX_VERSION_CODE < 131394) /* Linux 2.1.66 */
 	int retval, tmp;
 #endif
 	
@@ -2574,7 +2580,7 @@ static int rs_ioctl(struct tty_struct *tty, struct file * file,
 	}
 	
 	switch (cmd) {
-#if (LINUX_VERSION_CODE < 131394)     /* Linux 2.1.66 */
+#if (LINUX_VERSION_CODE < 131394) /* Linux 2.1.66 */
 		case TCSBRK:	/* SVID version: non-zero arg --> no break */
 			retval = tty_check_change(tty);
 			if (retval)
@@ -2760,6 +2766,17 @@ static void rs_set_termios(struct tty_struct *tty, struct termios *old_termios)
 		rs_start(tty);
 	}
 
+#if 0
+	/*
+	 * No need to wake up processes in open wait, since they
+	 * sample the CLOCAL flag once, and don't recheck it.
+	 * XXX  It's not clear whether the current behavior is correct
+	 * or not.  Hence, this may change.....
+	 */
+	if (!(old_termios->c_cflag & CLOCAL) &&
+	    (tty->termios->c_cflag & CLOCAL))
+		wake_up_interruptible(&info->open_wait);
+#endif
 }
 
 /*
@@ -2833,8 +2850,8 @@ static void rs_close(struct tty_struct *tty, struct file * filp)
 	 * the line discipline to only process XON/XOFF characters.
 	 */
 	tty->closing = 1;
-	if (info->closing_wait != ASYNC_CLOSING_WAIT_NONE)
-		tty_wait_until_sent(tty, info->closing_wait);
+	if (state->closing_wait != ASYNC_CLOSING_WAIT_NONE)
+		tty_wait_until_sent(tty, state->closing_wait);
 	/*
 	 * At this point we stop accepting input.  To do this, we
 	 * disable the receive line status interrupts, and tell the
@@ -2855,8 +2872,7 @@ static void rs_close(struct tty_struct *tty, struct file * filp)
 	shutdown(info);
 	if (tty->driver.flush_buffer)
 		tty->driver.flush_buffer(tty);
-	if (tty->ldisc.flush_buffer)
-		tty->ldisc.flush_buffer(tty);
+	tty_ldisc_flush(tty);
 	tty->closing = 0;
 	info->event = 0;
 	info->tty = 0;
@@ -3745,7 +3761,14 @@ static void autoconfig(struct serial_state * state)
 		/* Check for Startech UART's */
 		serial_outp(info, UART_LCR, UART_LCR_DLAB);
 		if (serial_in(info, UART_EFR) == 0) {
+			serial_outp(info, UART_EFR, 0xA8);
+			if (serial_in(info, UART_EFR) == 0) {
+				/* We are a NS16552D/Motorola
+				 * 8xxx DUART, stop. */
+				goto out;
+			}
 			state->type = PORT_16650;
+			serial_outp(info, UART_EFR, 0);
 		} else {
 			serial_outp(info, UART_LCR, 0xBF);
 			if (serial_in(info, UART_EFR) == 0)
@@ -3794,6 +3817,7 @@ static void autoconfig(struct serial_state * state)
 		}
 	}
 #endif
+out:
 	serial_outp(info, UART_LCR, save_lcr);
 	if (state->type == PORT_16450) {
 		scratch = serial_in(info, UART_SCR);
@@ -4190,7 +4214,7 @@ pci_inteli960ni_fn(struct pci_dev *dev,
    
 #ifdef SERIAL_DEBUG_PCI
 	printk(KERN_DEBUG " Subsystem ID %lx (intel 960)\n",
-	       (unsigned long) board->subdevice);
+	       (unsigned long) dev->subsystem_device);
 #endif
 	/* is firmware started? */
 	pci_read_config_dword(dev, 0x44, (void*) &oldval); 
@@ -4357,6 +4381,10 @@ enum pci_board_num_t {
 #ifdef CONFIG_DDB5074
 	pbn_nec_nile4,
 #endif
+
+	pbn_dci_pccom4,
+	pbn_dci_pccom8,
+
 	pbn_xircom_combo,
 
 	pbn_siig10x_0,
@@ -4450,6 +4478,10 @@ static struct pci_board pci_boards[] __devinitdata = {
 	{ SPCI_FL_BASE0, 1, 520833,			   /* pbn_nec_nile4 */
 		64, 3, NULL, 0x300 },
 #endif
+
+	{SPCI_FL_BASE3, 4, 115200, 8},			   /* pbn_dci_pccom4 */
+	{SPCI_FL_BASE3, 8, 115200, 8},			   /* pbn_dci_pccom8 */
+
 	{ SPCI_FL_BASE0, 1, 115200,			  /* pbn_xircom_combo */
 		0, 0, pci_xircom_fn },
 
@@ -4910,6 +4942,12 @@ static struct pci_device_id serial_pci_tbl[] __devinitdata = {
 		pbn_nec_nile4 },
 #endif
 
+	{	PCI_VENDOR_ID_DCI, PCI_DEVICE_ID_DCI_PCCOM4,
+		PCI_ANY_ID, PCI_ANY_ID, 0, 0,
+		pbn_dci_pccom4 },
+	{	PCI_VENDOR_ID_DCI, PCI_DEVICE_ID_DCI_PCCOM8,
+		PCI_ANY_ID, PCI_ANY_ID, 0, 0,
+		pbn_dci_pccom8 },
 
        { PCI_ANY_ID, PCI_ANY_ID, PCI_ANY_ID, PCI_ANY_ID,
 	 PCI_CLASS_COMMUNICATION_SERIAL << 8, 0xffff00, },
@@ -5452,7 +5490,7 @@ static int __init rs_init(void)
 	serial_driver.stop = rs_stop;
 	serial_driver.start = rs_start;
 	serial_driver.hangup = rs_hangup;
-#if (LINUX_VERSION_CODE >= 131394)     /* Linux 2.1.66 */
+#if (LINUX_VERSION_CODE >= 131394) /* Linux 2.1.66 */
 	serial_driver.break_ctl = rs_break;
 #endif
 #if (LINUX_VERSION_CODE >= 131343)
@@ -5944,13 +5982,6 @@ static int __init serial_console_setup(struct console *co, char *options)
 	 *	Divisor, bytesize and parity
 	 */
 	state = rs_table + co->index;
-	/*
-	* Safe guard: state structure must have been initialized
-	*/
-	if (state->iomem_base == NULL) {
-		printk("!unable to setup serial console!\n");
-		return -1;
-	}
 	if (doflow)
 		state->flags |= ASYNC_CONS_FLOW;
 	info = &async_sercons;
@@ -5964,7 +5995,7 @@ static int __init serial_console_setup(struct console *co, char *options)
 	info->io_type = state->io_type;
 	info->iomem_base = state->iomem_base;
 	info->iomem_reg_shift = state->iomem_reg_shift;
-	quot = (state->baud_base + (baud / 2)) / baud;
+	quot = state->baud_base / baud;
 	cval = cflag & (CSIZE | CSTOPB);
 #if defined(__powerpc__) || defined(__alpha__)
 	cval >>= 8;

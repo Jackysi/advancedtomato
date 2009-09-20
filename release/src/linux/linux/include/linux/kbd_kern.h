@@ -13,6 +13,15 @@ extern char func_buf[];
 extern char *funcbufptr;
 extern int funcbufsize, funcbufleft;
 
+/*
+ * kbd->xxx contains the VC-local things (flag settings etc..)
+ *
+ * Note: externally visible are LED_SCR, LED_NUM, LED_CAP defined in kd.h
+ *       The code in KDGETLED / KDSETLED depends on the internal and
+ *       external order being the same.
+ *
+ * Note: lockstate is used as index in the array key_map.
+ */
 struct kbd_struct {
 
 	unsigned char lockstate;
@@ -63,6 +72,7 @@ extern void setledstate(struct kbd_struct *kbd, unsigned int led);
 extern int do_poke_blanked_console;
 
 extern void (*kbd_ledfunc)(unsigned int led);
+extern void kbd_refresh_leds(void);
 
 extern void set_console(int nr);
 extern void schedule_console_callback(void);

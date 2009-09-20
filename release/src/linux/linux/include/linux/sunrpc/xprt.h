@@ -44,6 +44,19 @@
 #define RPC_MAX_UDP_TIMEOUT	(60*HZ)
 #define RPC_MAX_TCP_TIMEOUT	(600*HZ)
 
+/*
+ *  * Wait duration for an RPC TCP connection to be established.  Solaris
+ *   * NFS over TCP uses 60 seconds, for example, which is in line with how
+ *    * long a server takes to reboot.
+ *     */
+#define RPC_CONNECT_TIMEOUT	(60*HZ)
+
+/*
+ *  * Delay an arbitrary number of seconds before attempting to reconnect
+ *   * after an error.
+ *    */
+#define RPC_REESTABLISH_TIMEOUT	(15*HZ)
+
 /* RPC call and reply header size as number of 32bit words (verifier
  * size computed separately)
  */
@@ -57,8 +70,7 @@ struct rpc_timeout {
 	unsigned long		to_current,		/* current timeout */
 				to_initval,		/* initial timeout */
 				to_maxval,		/* max timeout */
-				to_increment,		/* if !exponential */
-				to_resrvval;		/* reserve timeout */
+				to_increment;		/* if !exponential */
 	short			to_retries;		/* max # of retries */
 	unsigned char		to_exponential;
 };
@@ -86,6 +98,10 @@ struct rpc_rqst {
 
 	struct list_head	rq_list;
 
+	struct xdr_buf		rq_private_buf;		/* The receive buffer
+							 * used in the softirq.
+							 */
+
 	/*
 	 * For authentication (e.g. auth_des)
 	 */
@@ -99,7 +115,7 @@ struct rpc_rqst {
 
 	long			rq_xtime;	/* when transmitted */
 	int			rq_ntimeo;
-	int			rq_nresend;
+	int			rq_ntrans;
 };
 #define rq_svec			rq_snd_buf.head
 #define rq_slen			rq_snd_buf.len
@@ -134,6 +150,7 @@ struct rpc_xprt {
 	unsigned long		sockstate;	/* Socket state */
 	unsigned char		shutdown   : 1,	/* being shut down */
 				nocong	   : 1,	/* no congestion control */
+				resvport   : 1, /* use a reserved port */
 				stream     : 1;	/* TCP */
 
 	/*
@@ -173,18 +190,18 @@ void			xprt_default_timeout(struct rpc_timeout *, int);
 void			xprt_set_timeout(struct rpc_timeout *, unsigned int,
 					unsigned long);
 
-int			xprt_reserve(struct rpc_task *);
+void			xprt_reserve(struct rpc_task *);
 void			xprt_transmit(struct rpc_task *);
 void			xprt_receive(struct rpc_task *);
 int			xprt_adjust_timeout(struct rpc_timeout *);
 void			xprt_release(struct rpc_task *);
-void			xprt_reconnect(struct rpc_task *);
+void			xprt_connect(struct rpc_task *);
 int			xprt_clear_backlog(struct rpc_xprt *);
 void			xprt_sock_setbufsize(struct rpc_xprt *);
 
 #define XPRT_CONNECT	0
 
-#define xprt_connected(xp)		(!(xp)->stream || test_bit(XPRT_CONNECT, &(xp)->sockstate))
+#define xprt_connected(xp)		(test_bit(XPRT_CONNECT, &(xp)->sockstate))
 #define xprt_set_connected(xp)		(set_bit(XPRT_CONNECT, &(xp)->sockstate))
 #define xprt_test_and_set_connected(xp)	(test_and_set_bit(XPRT_CONNECT, &(xp)->sockstate))
 #define xprt_clear_connected(xp)	(clear_bit(XPRT_CONNECT, &(xp)->sockstate))

@@ -11,6 +11,7 @@
  */
 #include <linux/config.h>
 #include <linux/init.h>
+#include <linux/irq.h>
 #include <linux/sched.h>
 #include <linux/interrupt.h>
 #include <asm/io.h>
@@ -18,8 +19,6 @@
 #include <asm/tx3912.h>
 
 #define ALLINTS (IE_IRQ0 | IE_IRQ1 | IE_IRQ2 | IE_IRQ3 | IE_IRQ4 | IE_IRQ5)
-
-extern asmlinkage void do_IRQ(int irq, struct pt_regs *regs);
 
 static void enable_irq6(unsigned int irq)
 {
@@ -208,6 +207,11 @@ void __init nino_irq_setup(void)
 	outl(0xffffffff, TX3912_INT4_CLEAR);
 	outl(0xffffffff, TX3912_INT5_CLEAR);
 
+	/*
+	 * Disable all PR31700 interrupts. We let the various
+	 * device drivers in the system register themselves
+	 * and set the proper hardware bits.
+	 */
 	outl(0x00000000, TX3912_INT1_ENABLE);
 	outl(0x00000000, TX3912_INT2_ENABLE);
 	outl(0x00000000, TX3912_INT3_ENABLE);
@@ -246,7 +250,7 @@ void (*irq_setup)(void);
 
 void __init init_IRQ(void)
 {
-#ifdef CONFIG_REMOTE_DEBUG
+#ifdef CONFIG_KGDB
 	extern void breakpoint(void);
 	extern void set_debug_traps(void);
 

@@ -48,10 +48,9 @@ affs_put_super(struct super_block *sb)
 		mark_buffer_dirty(AFFS_SB->s_root_bh);
 	}
 
-	affs_brelse(AFFS_SB->s_bmap_bh);
 	if (AFFS_SB->s_prefix)
 		kfree(AFFS_SB->s_prefix);
-	kfree(AFFS_SB->s_bitmap);
+	affs_free_bitmap(sb);
 	affs_brelse(AFFS_SB->s_root_bh);
 
 	return;
@@ -131,7 +130,7 @@ parse_options(char *options, uid_t *uid, gid_t *gid, int *mode, int *reserved, s
 					printk("AFFS: Argument for set[ug]id option missing\n");
 					return 0;
 				} else {
-					(f ? *uid : *gid) = simple_strtoul(value,&value,0);
+					*(f ? uid : gid) = simple_strtoul(value,&value,0);
 					if (*value) {
 						printk("AFFS: Bad set[ug]id argument\n");
 						return 0;
@@ -235,6 +234,7 @@ affs_read_super(struct super_block *sb, void *data, int silent)
 	gid_t			 gid;
 	int			 reserved;
 	unsigned long		 mount_flags;
+	int			 tmp_flags;	/* fix remount prototype... */
 
 	pr_debug("AFFS: read_super(%s)\n",data ? (const char *)data : "no options");
 
@@ -349,7 +349,6 @@ got_root:
 		printk(KERN_NOTICE "AFFS: Dircache FS - mounting %s read only\n",
 			kdevname(dev));
 		sb->s_flags |= MS_RDONLY;
-		AFFS_SB->s_flags |= SF_READONLY;
 	}
 	switch (chksum) {
 		case MUFS_FS:
@@ -405,8 +404,10 @@ got_root:
 	AFFS_SB->s_root_bh = root_bh;
 	/* N.B. after this point s_root_bh must be released */
 
-	if (affs_init_bitmap(sb))
+	tmp_flags = sb->s_flags;
+	if (affs_init_bitmap(sb, &tmp_flags))
 		goto out_error;
+	sb->s_flags = tmp_flags;
 
 	/* set up enough so that it can read an inode */
 
@@ -445,14 +446,14 @@ affs_remount(struct super_block *sb, int *flags, char *data)
 	int			 reserved;
 	int			 root_block;
 	unsigned long		 mount_flags;
-	unsigned long		 read_only = AFFS_SB->s_flags & SF_READONLY;
+	int			 res = 0;
 
 	pr_debug("AFFS: remount(flags=0x%x,opts=\"%s\")\n",*flags,data);
 
 	if (!parse_options(data,&uid,&gid,&mode,&reserved,&root_block,
 	    &blocksize,&AFFS_SB->s_prefix,AFFS_SB->s_volume,&mount_flags))
 		return -EINVAL;
-	AFFS_SB->s_flags = mount_flags | read_only;
+	AFFS_SB->s_flags = mount_flags;
 	AFFS_SB->s_mode  = mode;
 	AFFS_SB->s_uid   = uid;
 	AFFS_SB->s_gid   = gid;
@@ -463,14 +464,11 @@ affs_remount(struct super_block *sb, int *flags, char *data)
 		sb->s_dirt = 1;
 		while (sb->s_dirt)
 			affs_write_super(sb);
-		sb->s_flags |= MS_RDONLY;
-	} else if (!(AFFS_SB->s_flags & SF_READONLY)) {
-		sb->s_flags &= ~MS_RDONLY;
-	} else {
-		affs_warning(sb,"remount","Cannot remount fs read/write because of errors");
-		return -EINVAL;
-	}
-	return 0;
+		affs_free_bitmap(sb);
+	} else
+		res = affs_init_bitmap(sb, flags);
+
+	return res;
 }
 
 static int

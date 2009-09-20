@@ -163,14 +163,14 @@ int __compute_return_epc(struct pt_regs *regs)
 	 * And now the FPA/cp1 branch instructions.
 	 */
 	case cop1_op:
-		if (!(mips_cpu.options & MIPS_CPU_FPU))
+		if (!cpu_has_fpu)
 			fcr31 = current->thread.fpu.soft.sr;
 		else
 			asm volatile("cfc1\t%0,$31" : "=r" (fcr31));
 		bit = (insn.i_format.rt >> 2);
 		bit += (bit != 0);
 		bit += 23;
-		switch (insn.i_format.rt & 3) {
+		switch (insn.i_format.rt) {
 		case 0:	/* bc1f */
 		case 2:	/* bc1fl */
 			if (~fcr31 & (1 << bit))

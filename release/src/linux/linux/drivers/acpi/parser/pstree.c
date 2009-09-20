@@ -1,40 +1,58 @@
 /******************************************************************************
  *
  * Module Name: pstree - Parser op tree manipulation/traversal/search
- *              $Revision: 1.1.1.2 $
  *
  *****************************************************************************/
 
 /*
- *  Copyright (C) 2000, 2001 R. Byron Moore
+ * Copyright (C) 2000 - 2004, R. Byron Moore
+ * All rights reserved.
  *
- *  This program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2 of the License, or
- *  (at your option) any later version.
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions, and the following disclaimer,
+ *    without modification.
+ * 2. Redistributions in binary form must reproduce at minimum a disclaimer
+ *    substantially similar to the "NO WARRANTY" disclaimer below
+ *    ("Disclaimer") and any redistribution must be conditioned upon
+ *    including a substantially similar Disclaimer requirement for further
+ *    binary redistribution.
+ * 3. Neither the names of the above-listed copyright holders nor the names
+ *    of any contributors may be used to endorse or promote products derived
+ *    from this software without specific prior written permission.
  *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
+ * Alternatively, this software may be distributed under the terms of the
+ * GNU General Public License ("GPL") version 2 as published by the Free
+ * Software Foundation.
  *
- *  You should have received a copy of the GNU General Public License
- *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * NO WARRANTY
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR
+ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+ * HOLDERS OR CONTRIBUTORS BE LIABLE FOR SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+ * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+ * STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING
+ * IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGES.
  */
 
 
-#include "acpi.h"
-#include "acparser.h"
-#include "amlcode.h"
+#include <acpi/acpi.h>
+#include <acpi/acparser.h>
+#include <acpi/amlcode.h>
 
 #define _COMPONENT          ACPI_PARSER
-	 MODULE_NAME         ("pstree")
+	 ACPI_MODULE_NAME    ("pstree")
 
 
 /*******************************************************************************
  *
- * FUNCTION:    Acpi_ps_get_arg
+ * FUNCTION:    acpi_ps_get_arg
  *
  * PARAMETERS:  Op              - Get an argument for this op
  *              Argn            - Nth argument to get
@@ -45,21 +63,21 @@
  *
  ******************************************************************************/
 
-acpi_parse_object *
+union acpi_parse_object *
 acpi_ps_get_arg (
-	acpi_parse_object       *op,
-	u32                     argn)
+	union acpi_parse_object         *op,
+	u32                             argn)
 {
-	acpi_parse_object       *arg = NULL;
-	const acpi_opcode_info  *op_info;
+	union acpi_parse_object         *arg = NULL;
+	const struct acpi_opcode_info   *op_info;
 
 
-	FUNCTION_ENTRY ();
+	ACPI_FUNCTION_ENTRY ();
 
 
 	/* Get the info structure for this opcode */
 
-	op_info = acpi_ps_get_opcode_info (op->opcode);
+	op_info = acpi_ps_get_opcode_info (op->common.aml_opcode);
 	if (op_info->class == AML_CLASS_UNKNOWN) {
 		/* Invalid opcode or ASCII character */
 
@@ -76,10 +94,10 @@ acpi_ps_get_arg (
 
 	/* Get the requested argument object */
 
-	arg = op->value.arg;
+	arg = op->common.value.arg;
 	while (arg && argn) {
 		argn--;
-		arg = arg->next;
+		arg = arg->common.next;
 	}
 
 	return (arg);
@@ -88,7 +106,7 @@ acpi_ps_get_arg (
 
 /*******************************************************************************
  *
- * FUNCTION:    Acpi_ps_append_arg
+ * FUNCTION:    acpi_ps_append_arg
  *
  * PARAMETERS:  Op              - Append an argument to this Op.
  *              Arg             - Argument Op to append
@@ -101,14 +119,14 @@ acpi_ps_get_arg (
 
 void
 acpi_ps_append_arg (
-	acpi_parse_object       *op,
-	acpi_parse_object       *arg)
+	union acpi_parse_object         *op,
+	union acpi_parse_object         *arg)
 {
-	acpi_parse_object       *prev_arg;
-	const acpi_opcode_info  *op_info;
+	union acpi_parse_object         *prev_arg;
+	const struct acpi_opcode_info   *op_info;
 
 
-	FUNCTION_ENTRY ();
+	ACPI_FUNCTION_ENTRY ();
 
 
 	if (!op) {
@@ -117,11 +135,12 @@ acpi_ps_append_arg (
 
 	/* Get the info structure for this opcode */
 
-	op_info = acpi_ps_get_opcode_info (op->opcode);
+	op_info = acpi_ps_get_opcode_info (op->common.aml_opcode);
 	if (op_info->class == AML_CLASS_UNKNOWN) {
 		/* Invalid opcode */
 
-		REPORT_ERROR (("Ps_append_arg: Invalid AML Opcode: 0x%2.2X\n", op->opcode));
+		ACPI_REPORT_ERROR (("ps_append_arg: Invalid AML Opcode: 0x%2.2X\n",
+			op->common.aml_opcode));
 		return;
 	}
 
@@ -136,35 +155,35 @@ acpi_ps_append_arg (
 
 	/* Append the argument to the linked argument list */
 
-	if (op->value.arg) {
+	if (op->common.value.arg) {
 		/* Append to existing argument list */
 
-		prev_arg = op->value.arg;
-		while (prev_arg->next) {
-			prev_arg = prev_arg->next;
+		prev_arg = op->common.value.arg;
+		while (prev_arg->common.next) {
+			prev_arg = prev_arg->common.next;
 		}
-		prev_arg->next = arg;
+		prev_arg->common.next = arg;
 	}
 
 	else {
 		/* No argument list, this will be the first argument */
 
-		op->value.arg = arg;
+		op->common.value.arg = arg;
 	}
 
 
 	/* Set the parent in this arg and any args linked after it */
 
 	while (arg) {
-		arg->parent = op;
-		arg = arg->next;
+		arg->common.parent = op;
+		arg = arg->common.next;
 	}
 }
 
 
 /*******************************************************************************
  *
- * FUNCTION:    Acpi_ps_get_child
+ * FUNCTION:    acpi_ps_get_child
  *
  * PARAMETERS:  Op              - Get the child of this Op
  *
@@ -174,17 +193,17 @@ acpi_ps_append_arg (
  *
  ******************************************************************************/
 
-acpi_parse_object *
+union acpi_parse_object *
 acpi_ps_get_child (
-	acpi_parse_object       *op)
+	union acpi_parse_object         *op)
 {
-	acpi_parse_object       *child = NULL;
+	union acpi_parse_object         *child = NULL;
 
 
-	FUNCTION_ENTRY ();
+	ACPI_FUNCTION_ENTRY ();
 
 
-	switch (op->opcode) {
+	switch (op->common.aml_opcode) {
 	case AML_SCOPE_OP:
 	case AML_ELSE_OP:
 	case AML_DEVICE_OP:
@@ -219,6 +238,10 @@ acpi_ps_get_child (
 		child = acpi_ps_get_arg (op, 3);
 		break;
 
+
+	default:
+		/* All others have no children */
+		break;
 	}
 
 	return (child);
@@ -227,7 +250,7 @@ acpi_ps_get_child (
 
 /*******************************************************************************
  *
- * FUNCTION:    Acpi_ps_get_depth_next
+ * FUNCTION:    acpi_ps_get_depth_next
  *
  * PARAMETERS:  Origin          - Root of subtree to search
  *              Op              - Last (previous) Op that was found
@@ -239,17 +262,17 @@ acpi_ps_get_child (
  *
  ******************************************************************************/
 
-acpi_parse_object *
+union acpi_parse_object *
 acpi_ps_get_depth_next (
-	acpi_parse_object       *origin,
-	acpi_parse_object       *op)
+	union acpi_parse_object         *origin,
+	union acpi_parse_object         *op)
 {
-	acpi_parse_object       *next = NULL;
-	acpi_parse_object       *parent;
-	acpi_parse_object       *arg;
+	union acpi_parse_object         *next = NULL;
+	union acpi_parse_object         *parent;
+	union acpi_parse_object         *arg;
 
 
-	FUNCTION_ENTRY ();
+	ACPI_FUNCTION_ENTRY ();
 
 
 	if (!op) {
@@ -265,19 +288,19 @@ acpi_ps_get_depth_next (
 
 	/* look for a sibling */
 
-	next = op->next;
+	next = op->common.next;
 	if (next) {
 		return (next);
 	}
 
 	/* look for a sibling of parent */
 
-	parent = op->parent;
+	parent = op->common.parent;
 
 	while (parent) {
 		arg = acpi_ps_get_arg (parent, 0);
 		while (arg && (arg != origin) && (arg != op)) {
-			arg = arg->next;
+			arg = arg->common.next;
 		}
 
 		if (arg == origin) {
@@ -286,13 +309,14 @@ acpi_ps_get_depth_next (
 			return (NULL);
 		}
 
-		if (parent->next) {
+		if (parent->common.next) {
 			/* found sibling of parent */
-			return (parent->next);
+
+			return (parent->common.next);
 		}
 
 		op = parent;
-		parent = parent->parent;
+		parent = parent->common.parent;
 	}
 
 	return (next);

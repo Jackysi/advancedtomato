@@ -1,5 +1,5 @@
 /*
- *  $Id: ipconfig.c,v 1.1.1.4 2003/10/14 08:09:33 sparq Exp $
+ *  $Id: ipconfig.c,v 1.43.2.1 2001/12/13 10:39:53 davem Exp $
  *
  *  Automatic Configuration of IP -- use DHCP, BOOTP, RARP, or
  *  user-supplied information to configure own IP address and routes.
@@ -124,14 +124,14 @@ int ic_proto_enabled __initdata = 0
 
 int ic_host_name_set __initdata = 0;		/* Host name set by us? */
 
-u32 ic_myaddr __initdata = INADDR_NONE;		/* My IP address */
-u32 ic_netmask __initdata = INADDR_NONE;	/* Netmask for local subnet */
-u32 ic_gateway __initdata = INADDR_NONE;	/* Gateway IP address */
+u32 ic_myaddr = INADDR_NONE;		/* My IP address */
+u32 ic_netmask = INADDR_NONE;	/* Netmask for local subnet */
+u32 ic_gateway = INADDR_NONE;	/* Gateway IP address */
 
-u32 ic_servaddr __initdata = INADDR_NONE;	/* Boot server IP address */
+u32 ic_servaddr = INADDR_NONE;	/* Boot server IP address */
 
-u32 root_server_addr __initdata = INADDR_NONE;	/* Address of NFS server */
-u8 root_server_path[256] __initdata = { 0, };	/* Path to mount as root */
+u32 root_server_addr = INADDR_NONE;	/* Address of NFS server */
+u8 root_server_path[256] = { 0, };	/* Path to mount as root */
 
 /* Persistent data: */
 
@@ -689,6 +689,8 @@ static void __init ic_bootp_send_if(struct ic_device *d, unsigned long jiffies_d
 		b->htype = dev->type;
 	else if (dev->type == ARPHRD_IEEE802_TR) /* fix for token ring */
 		b->htype = ARPHRD_IEEE802;
+	else if (dev->type == ARPHRD_FDDI)
+		b->htype = ARPHRD_ETHER;
 	else {
 		printk("Unknown ARP type 0x%04x for device %s\n", dev->type, dev->name);
 		b->htype = dev->type; /* can cause undefined behavior */
@@ -899,6 +901,9 @@ static int __init ic_bootp_recv(struct sk_buff *skb, struct net_device *dev, str
 				break;
 
 			case DHCPACK:
+				if (memcmp(dev->dev_addr, b->hw_addr, dev->addr_len) != 0)
+					goto drop;
+
 				/* Yeah! */
 				break;
 
@@ -928,8 +933,7 @@ static int __init ic_bootp_recv(struct sk_buff *skb, struct net_device *dev, str
 	/* We have a winner! */
 	ic_dev = dev;
 	ic_myaddr = b->your_ip;
-	if (ic_servaddr == INADDR_NONE)
-		ic_servaddr = b->server_ip;
+	ic_servaddr = b->server_ip;
 	if (ic_gateway == INADDR_NONE && b->relay_ip)
 		ic_gateway = b->relay_ip;
 	if (ic_nameservers[0] == INADDR_NONE)
@@ -1030,8 +1034,8 @@ static int __init ic_dynamic(void)
 
 		jiff = jiffies + (d->next ? CONF_INTER_TIMEOUT : timeout);
 		while (time_before(jiffies, jiff) && !ic_got_reply) {
-			barrier();
-			cpu_relax();
+			__set_current_state(TASK_UNINTERRUPTIBLE);
+			schedule_timeout(1);
 		}
 #ifdef IPCONFIG_DHCP
 		/* DHCP isn't done until we get a DHCPACK. */
@@ -1115,6 +1119,10 @@ static int pnp_get_info(char *buffer, char **start,
 				       "nameserver %u.%u.%u.%u\n",
 				       NIPQUAD(ic_nameservers[i]));
 	}
+	if (ic_servaddr != INADDR_NONE)
+		len += sprintf(buffer + len,
+			       "bootserver %u.%u.%u.%u\n",
+			       NIPQUAD(ic_servaddr));
 
 	if (offset > len)
 		offset = len;
@@ -1154,7 +1162,7 @@ u32 __init root_nfs_parse_addr(char *name)
 		if (*cp == ':')
 			*cp++ = '\0';
 		addr = in_aton(name);
-		strcpy(name, cp);
+		memmove(name, cp, strlen(cp) + 1);
 	} else
 		addr = INADDR_NONE;
 
@@ -1231,7 +1239,7 @@ static int __init ip_auto_config(void)
 			 * 				-- Chip
 			 */
 #ifdef CONFIG_ROOT_NFS
-			if (ROOT_DEV == MKDEV(UNNAMED_MAJOR, 255)) {
+			if (ROOT_DEV == MKDEV(NFS_MAJOR, NFS_MINOR)) {
 				printk(KERN_ERR 
 					"IP-Config: Retrying forever (NFS root)...\n");
 				goto try_try_again;

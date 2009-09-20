@@ -5,7 +5,7 @@
  * BRIEF MODULE DESCRIPTION
  *	Include file for Victor MP-C303/304.
  *
- * Copyright 2002 Yoichi Yuasa
+ * Copyright 2002,2003 Yoichi Yuasa
  *                yuasa@hh.iij4u.or.jp
  *
  *  This program is free software; you can redistribute it and/or modify it
@@ -51,21 +51,15 @@
 #define IO_MEM2_RESOURCE_END		(VR41XX_PCI_MEM2_BASE + VR41XX_PCI_MEM2_SIZE)
 
 /*
+ * General-Purpose I/O Pin Number
+ */
+#define VRC4173_PIN			1
+#define MQ200_PIN			4
+
+/*
  * Interrupt Number
  */
-#define VRC4173_CASCADE_IRQ		GIU_IRQ(1)
-#define MQ200_IRQ			GIU_IRQ(4)
-
-#ifdef CONFIG_VRC4173
-
-#define VRC4173_IRQ_BASE		72
-#define USB_IRQ				(VRC4173_IRQ_BASE + 0)
-#define PCMCIA2_IRQ			(VRC4173_IRQ_BASE + 1)
-#define PCMCIA1_IRQ			(VRC4173_IRQ_BASE + 2)
-#define PIU_IRQ				(VRC4173_IRQ_BASE + 5)
-#define KIU_IRQ				(VRC4173_IRQ_BASE + 7)
-#define AC97_IRQ			(VRC4173_IRQ_BASE + 9)
-
-#endif	/* CONFIG_VRC4173 */
+#define VRC4173_CASCADE_IRQ		GIU_IRQ(VRC4173_PIN)
+#define MQ200_IRQ			GIU_IRQ(MQ200_PIN)
 
 #endif /* __VICTOR_MPC30X_H */

@@ -30,10 +30,13 @@ if [ "$CONFIG_USB_SERIAL" != "n" ]; then
       bool '    USB Keyspan USA-19W Firmware' CONFIG_USB_SERIAL_KEYSPAN_USA19W
       bool '    USB Keyspan USA-19QW Firmware' CONFIG_USB_SERIAL_KEYSPAN_USA19QW
       bool '    USB Keyspan USA-19QI Firmware' CONFIG_USB_SERIAL_KEYSPAN_USA19QI
+      bool '    USB Keyspan MPR Firmware' CONFIG_USB_SERIAL_KEYSPAN_MPR
       bool '    USB Keyspan USA-49W Firmware' CONFIG_USB_SERIAL_KEYSPAN_USA49W
+      bool '    USB Keyspan USA-49WLC Firmware' CONFIG_USB_SERIAL_KEYSPAN_USA49WLC
    fi
    dep_tristate '  USB MCT Single Port Serial Driver' CONFIG_USB_SERIAL_MCT_U232 $CONFIG_USB_SERIAL
    dep_tristate '  USB KL5KUSB105 (Palmconnect) Driver' CONFIG_USB_SERIAL_KLSI $CONFIG_USB_SERIAL
+   dep_tristate '  USB KOBIL chipcard reader (EXPERIMENTAL)' CONFIG_USB_SERIAL_KOBIL_SCT $CONFIG_USB_SERIAL $CONFIG_EXPERIMENTAL
    dep_tristate '  USB Prolific 2303 Single Port Serial Driver' CONFIG_USB_SERIAL_PL2303 $CONFIG_USB_SERIAL
    dep_tristate '  USB REINER SCT cyberJack pinpad/e-com chipcard reader (EXPERIMENTAL)' CONFIG_USB_SERIAL_CYBERJACK $CONFIG_USB_SERIAL $CONFIG_EXPERIMENTAL
    dep_tristate '  USB Xircom / Entregra Single Port Serial Driver (EXPERIMENTAL)' CONFIG_USB_SERIAL_XIRCOM $CONFIG_USB_SERIAL $CONFIG_EXPERIMENTAL

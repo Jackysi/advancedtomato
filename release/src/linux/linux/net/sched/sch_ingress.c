@@ -14,11 +14,12 @@
 #include <linux/netdevice.h>
 #include <linux/rtnetlink.h>
 #include <linux/netfilter_ipv4.h>
+#include <linux/netfilter_ipv6.h>
 #include <linux/netfilter.h>
+#include <linux/smp.h>
 #include <net/pkt_sched.h>
 #include <asm/byteorder.h>
 #include <asm/uaccess.h>
-#include <asm/smp.h>
 #include <linux/kmod.h>
 #include <linux/stat.h>
 #include <linux/interrupt.h>
@@ -27,13 +28,17 @@
 
 #undef DEBUG_INGRESS
 
-#ifdef DEBUG_INGRESS      /* control */
+#ifdef DEBUG_INGRESS  /* control */
 #define DPRINTK(format,args...) printk(KERN_DEBUG format,##args)
 #else
 #define DPRINTK(format,args...)
 #endif
 
+#if 0  /* data */
+#define D2PRINTK(format,args...) printk(KERN_DEBUG format,##args)
+#else
 #define D2PRINTK(format,args...)
+#endif
 
 
 #define PRIV(sch) ((struct ingress_qdisc_data *) (sch)->data)
@@ -186,7 +191,7 @@ static int ingress_requeue(struct sk_buff *skb,struct Qdisc *sch)
 	return 0;
 }
 
-static int ingress_drop(struct Qdisc *sch)
+static unsigned int ingress_drop(struct Qdisc *sch)
 {
 #ifdef DEBUG_INGRESS
 	struct ingress_qdisc_data *p = PRIV(sch);
@@ -237,6 +242,15 @@ static struct nf_hook_ops ing_ops =
 	NF_IP_PRI_FILTER + 1
 };
 
+static struct nf_hook_ops ing6_ops =
+{
+	{ NULL, NULL},
+	ing_hook,
+	PF_INET6,
+	NF_IP6_PRE_ROUTING,
+	NF_IP6_PRI_FILTER + 1
+};
+
 int ingress_init(struct Qdisc *sch,struct rtattr *opt)
 {
 	struct ingress_qdisc_data *p = PRIV(sch);
@@ -245,12 +259,16 @@ int ingress_init(struct Qdisc *sch,struct rtattr *opt)
 		if (nf_register_hook(&ing_ops) < 0) {
 			printk("ingress qdisc registration error \n");
 			goto error;
-			}
+		}
 		nf_registered++;
+		if (nf_register_hook(&ing6_ops) < 0) {
+			printk("IPv6 ingress qdisc registration error, " \
+			    "disabling IPv6 support.\n");
+		} else
+			nf_registered++;
 	}
 
 	DPRINTK("ingress_init(sch %p,[qdisc %p],opt %p)\n",sch,p,opt);
-	p->filter_list = NULL;
 	p->q = &noop_qdisc;
 	MOD_INC_USE_COUNT;
 	return 0;
@@ -266,6 +284,12 @@ static void ingress_reset(struct Qdisc *sch)
 	DPRINTK("ingress_reset(sch %p,[qdisc %p])\n", sch, p);
 
 /*
+#if 0
+*/
+/* for future use */
+	qdisc_reset(p->q);
+/*
+#endif
 */
 }
 
@@ -283,9 +307,13 @@ static void ingress_destroy(struct Qdisc *sch)
 	while (p->filter_list) {
 		tp = p->filter_list;
 		p->filter_list = tp->next;
-		tp->ops->destroy(tp);
+		tcf_destroy(tp);
 	}
-
+#if 0
+/* for future use */
+	qdisc_destroy(p->q);
+#endif
+ 
 	MOD_DEC_USE_COUNT;
 
 }
@@ -361,8 +389,11 @@ int init_module(void)
 void cleanup_module(void) 
 {
 	unregister_qdisc(&ingress_qdisc_ops);
-	if (nf_registered)
+	if (nf_registered) {
 		nf_unregister_hook(&ing_ops);
+		if (nf_registered > 1)
+			nf_unregister_hook(&ing6_ops);
+	}
 }
 #endif
 MODULE_LICENSE("GPL");

@@ -390,6 +390,9 @@ bionet_probe(struct net_device *dev){
 	 */
 
 	for (i = 0; i < ETH_ALEN; i++) {
+#if 0
+		dev->broadcast[i] = 0xff;
+#endif
 		dev->dev_addr[i]  = station_addr[i];
 	}
 	ether_setup(dev);

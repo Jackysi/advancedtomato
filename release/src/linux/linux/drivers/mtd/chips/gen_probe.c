@@ -2,7 +2,7 @@
  * Routines common to all CFI-type probes.
  * (C) 2001, 2001 Red Hat, Inc.
  * GPL'd
- * $Id: gen_probe.c,v 1.1.1.4 2003/10/14 08:08:17 sparq Exp $
+ * $Id: gen_probe.c,v 1.9 2002/09/05 05:15:32 acurtis Exp $
  */
 
 #include <linux/kernel.h>
@@ -38,7 +38,7 @@ struct mtd_info *mtd_do_chip_probe(struct map_info *map, struct chip_probe *cp)
 	if (mtd)
 		return mtd;
 
-	printk(KERN_WARNING"cfi_probe: No supported Vendor Command Set found\n");
+	printk(KERN_WARNING"gen_probe: No supported Vendor Command Set found\n");
 	
 	kfree(cfi->cfiq);
 	kfree(cfi);
@@ -106,6 +106,12 @@ struct cfi_private *genprobe_ident_chips(struct map_info *map, struct chip_probe
 	 * Now probe for other chips, checking sensibly for aliases while
 	 * we're at it. The new_chip probe above should have let the first
 	 * chip in read mode.
+	 *
+	 * NOTE: Here, we're checking if there is room for another chip
+	 *       the same size within the mapping. Therefore, 
+	 *       base + chipsize <= map->size is the correct thing to do, 
+	 *       because, base + chipsize would be the  _first_ byte of the
+	 *       next chip, not the one we're currently pondering.
 	 */
 
 	for (base = (1<<cfi.chipshift); base + (1<<cfi.chipshift) <= map->size;
@@ -224,6 +230,41 @@ static int genprobe_new_chip(struct map_info *map, struct chip_probe *cp,
 		break;
 #endif /* CFIDEV_BUSWIDTH_4 */
 
+#ifdef CFIDEV_BUSWIDTH_8
+	case CFIDEV_BUSWIDTH_8:
+#if defined(CFIDEV_INTERLEAVE_2) && defined(SOMEONE_ACTUALLY_MAKES_THESE)
+                cfi->interleave = CFIDEV_INTERLEAVE_2;
+
+                cfi->device_type = CFI_DEVICETYPE_X32;
+		if (cp->probe_chip(map, 0, NULL, cfi))
+			return 1;
+#endif /* CFIDEV_INTERLEAVE_2 */
+#ifdef CFIDEV_INTERLEAVE_4
+		cfi->interleave = CFIDEV_INTERLEAVE_4;
+
+#ifdef SOMEONE_ACTUALLY_MAKES_THESE
+		cfi->device_type = CFI_DEVICETYPE_X32;
+		if (cp->probe_chip(map, 0, NULL, cfi))
+			return 1;
+#endif
+		cfi->device_type = CFI_DEVICETYPE_X16;
+		if (cp->probe_chip(map, 0, NULL, cfi))
+			return 1;
+#endif /* CFIDEV_INTERLEAVE_4 */
+#ifdef CFIDEV_INTERLEAVE_8
+		cfi->interleave = CFIDEV_INTERLEAVE_8;
+
+		cfi->device_type = CFI_DEVICETYPE_X16;
+		if (cp->probe_chip(map, 0, NULL, cfi))
+			return 1;
+
+		cfi->device_type = CFI_DEVICETYPE_X8;
+		if (cp->probe_chip(map, 0, NULL, cfi))
+			return 1;
+#endif /* CFIDEV_INTERLEAVE_8 */
+		break;
+#endif /* CFIDEV_BUSWIDTH_8 */
+
 	default:
 		printk(KERN_WARNING "genprobe_new_chip called with unsupported buswidth %d\n", map->buswidth);
 		return 0;
@@ -236,6 +277,7 @@ typedef struct mtd_info *cfi_cmdset_fn_t(struct map_info *, int);
 
 extern cfi_cmdset_fn_t cfi_cmdset_0001;
 extern cfi_cmdset_fn_t cfi_cmdset_0002;
+extern cfi_cmdset_fn_t cfi_cmdset_0020;
 
 static inline struct mtd_info *cfi_cmdset_unknown(struct map_info *map, 
 						  int primary)
@@ -287,12 +329,11 @@ static struct mtd_info *check_cmd_set(struct map_info *map, int primary)
 #endif
 #ifdef CONFIG_MTD_CFI_AMDSTD
 	case 0x0002:
-	case 0x0006:	/* for Winbond W19L320SBT9C */
 		return cfi_cmdset_0002(map, primary);
 #endif
-#ifdef CONFIG_MTD_CFI_SSTSTD
-	case 0x0701:
-		return cfi_cmdset_0701(map, primary);
+#ifdef CONFIG_MTD_CFI_STAA
+        case 0x0020:
+		return cfi_cmdset_0020(map, primary);
 #endif
 	}
 

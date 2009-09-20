@@ -104,8 +104,7 @@ struct ipt_counters
 
 /* Values for "flag" field in struct ipt_ip (general ip structure). */
 #define IPT_F_FRAG		0x01	/* Set if rule is a fragment rule */
-#define IPT_F_GOTO		0x02	/* Set if jump is a goto */
-#define IPT_F_MASK		0x03	/* All possible flag bits mask. */
+#define IPT_F_MASK		0x01	/* All possible flag bits mask. */
 
 /* Values for "inv" field in struct ipt_ip. */
 #define IPT_INV_VIA_IN		0x01	/* Invert the sense of IN IFACE. */
@@ -403,6 +402,11 @@ struct ipt_target
 	/* Set this to THIS_MODULE if you are a module, otherwise NULL */
 	struct module *me;
 };
+
+extern struct ipt_target *
+ipt_find_target_lock(const char *name, int *error, struct semaphore *mutex);
+extern struct arpt_target *
+arpt_find_target_lock(const char *name, int *error, struct semaphore *mutex);
 
 extern int ipt_register_target(struct ipt_target *target);
 extern void ipt_unregister_target(struct ipt_target *target);

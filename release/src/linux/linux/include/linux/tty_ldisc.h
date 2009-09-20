@@ -95,6 +95,13 @@
  * 	that line discpline should try to send more characters to the
  * 	low-level driver for transmission.  If the line discpline does
  * 	not have any more data to send, it can just return.
+ *
+ * int (*hangup)(struct tty_struct *)
+ *
+ *	Called on a hangup. Tells the discipline that it should
+ *	cease I/O to the tty driver. Can sleep. The driver should
+ *	seek to perform this action quickly but should wait until
+ *	any pending driver I/O is completed.
  */
 
 #include <linux/fs.h>
@@ -121,6 +128,7 @@ struct tty_ldisc {
 	void	(*set_termios)(struct tty_struct *tty, struct termios * old);
 	unsigned int (*poll)(struct tty_struct *, struct file *,
 			     struct poll_table_struct *);
+	int     (*hangup)(struct tty_struct *tty);
 	
 	/*
 	 * The following routines are called from below.
@@ -129,6 +137,7 @@ struct tty_ldisc {
 			       char *fp, int count);
 	int	(*receive_room)(struct tty_struct *);
 	void	(*write_wakeup)(struct tty_struct *);
+	int	refcount;
 };
 
 #define TTY_LDISC_MAGIC	0x5403

@@ -6,6 +6,9 @@
  * Version:	@(#)6pack.c	0.3.0	04/07/98
  *
  * Authors:	Andreas Könsgen <ajk@iehk.rwth-aachen.de>
+ * Changes for SuSE Kernel 2.4.21-99 (stolen from 2.6.0-test8)
+ * to avoid the "resyncing TNC" messages: 
+ *		Tim Fischer <tim.fischer@onlinehome.de>
  *
  * Quite a lot of stuff "stolen" by Jörg Reuter from slip.c, written by
  *
@@ -67,11 +70,11 @@
 #define SIXP_DAMA_OFF		0
 
 /* default level 2 parameters */
-#define SIXP_TXDELAY			25	/* in 10 ms */
+#define SIXP_TXDELAY			(HZ/4)	/* in 1 s */
 #define SIXP_PERSIST			50	/* in 256ths */
-#define SIXP_SLOTTIME			10	/* in 10 ms */
-#define SIXP_INIT_RESYNC_TIMEOUT	150	/* in 10 ms */
-#define SIXP_RESYNC_TIMEOUT		500	/* in 10 ms */
+#define SIXP_SLOTTIME			(HZ/10)	/* in 1 s */
+#define SIXP_INIT_RESYNC_TIMEOUT	(3*HZ/2) /* in 1 s */
+#define SIXP_RESYNC_TIMEOUT		5*HZ	/* in 1 s */
 
 /* 6pack configuration. */
 #define SIXP_NRUNIT			31      /* MAX number of 6pack channels */
@@ -568,8 +571,7 @@ static int sixpack_open(struct tty_struct *tty)
 	if (tty->driver.flush_buffer)
 		tty->driver.flush_buffer(tty);
 
-	if (tty->ldisc.flush_buffer)
-		tty->ldisc.flush_buffer(tty);
+	tty_ldisc_flush(tty);
 
 	/* Restore default settings */
 	sp->dev->type = ARPHRD_AX25;
@@ -916,7 +918,7 @@ static void decode_prio_command(unsigned char cmd, struct sixpack *sp)
 					printk(KERN_DEBUG "6pack: protocol violation\n");
 				else
 					sp->status = 0;
-				cmd &= !SIXP_RX_DCD_MASK;
+				cmd &= ~SIXP_RX_DCD_MASK;
 		}
 		sp->status = cmd & SIXP_PRIO_DATA_MASK;
 	}

@@ -32,10 +32,6 @@ extern void nec_osprey_power_off(void);
 extern void vr4181_init_serial(void);
 extern void vr4181_init_time(void);
 
-void __init bus_error_init(void)
-{
-}
-
 void __init nec_osprey_setup(void)
 {
 	set_io_port_base(VR4181_PORT_BASE);

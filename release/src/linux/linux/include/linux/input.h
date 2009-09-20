@@ -2,7 +2,7 @@
 #define _INPUT_H
 
 /*
- * $Id: input.h,v 1.1.1.4 2003/10/14 08:09:25 sparq Exp $
+ * $Id: input.h,v 1.34 2001/05/28 09:06:44 vojtech Exp $
  *
  *  Copyright (c) 1999-2000 Vojtech Pavlik
  *
@@ -426,6 +426,7 @@ struct input_event {
  */
 
 #define MSC_SERIAL		0x00
+#define MSC_PULSELED		0x01
 #define MSC_MAX			0x07
 
 /*
@@ -471,7 +472,8 @@ struct input_event {
 #define BUS_PCI			0x01
 #define BUS_ISAPNP		0x02
 #define BUS_USB			0x03
-#define BUS_HIL                 0x04
+#define BUS_HIL			0x04
+#define BUS_BLUETOOTH		0x05
 
 #define BUS_ISA			0x10
 #define BUS_I8042		0x11

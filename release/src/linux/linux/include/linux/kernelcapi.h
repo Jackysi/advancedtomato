@@ -1,4 +1,4 @@
-/* $Id: kernelcapi.h,v 1.1.1.4 2003/10/14 08:09:25 sparq Exp $
+/* $Id: kernelcapi.h,v 1.1.4.2 2002/01/28 18:25:10 kai Exp $
  * 
  * Kernel CAPI 2.0 Interface for Linux
  * 

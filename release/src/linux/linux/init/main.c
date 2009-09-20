@@ -26,6 +26,7 @@
 #include <linux/hdreg.h>
 #include <linux/iobuf.h>
 #include <linux/bootmem.h>
+#include <linux/file.h>
 #include <linux/tty.h>
 
 #include <asm/io.h>
@@ -34,6 +35,10 @@
 #if defined(CONFIG_ARCH_S390)
 #include <asm/s390mach.h>
 #include <asm/ccwcache.h>
+#endif
+
+#ifdef CONFIG_ACPI
+#include <linux/acpi.h>
 #endif
 
 #ifdef CONFIG_PCI
@@ -79,6 +84,7 @@ extern int irda_device_init(void);
 #error Sorry, your GCC is too old. It builds incorrect kernels.
 #endif
 
+extern char _stext, _etext;
 extern char *linux_banner;
 
 static int init(void *);
@@ -95,6 +101,11 @@ extern void signals_init(void);
 extern int init_pcmcia_ds(void);
 
 extern void free_initmem(void);
+#ifdef  CONFIG_ACPI_BUS
+extern void acpi_early_init(void);
+#else
+static inline void acpi_early_init(void) { }
+#endif
 
 #ifdef CONFIG_TC
 extern void tc_init(void);
@@ -122,6 +133,15 @@ char *execute_command;
 static char * argv_init[MAX_INIT_ARGS+2] = { "init", NULL, };
 char * envp_init[MAX_INIT_ENVS+2] = { "HOME=/", "TERM=linux", NULL, };
 
+static int __init profile_setup(char *str)
+{
+    int par;
+    if (get_option(&str,&par)) prof_shift = par;
+	return 1;
+}
+
+__setup("profile=", profile_setup);
+
 static int __init checksetup(char *line)
 {
 	struct kernel_param *p;
@@ -137,10 +157,6 @@ static int __init checksetup(char *line)
 	} while (p < &__setup_end);
 	return 0;
 }
-
-#if defined(CONFIG_BCM947XX) && defined(CONFIG_HWSIM)
-#include <asm/time.h>
-#endif
 
 /* this should be approx 2 Bo*oMips to start (note initial shift), and will
    still work even if initially too large, it will just take slightly longer */
@@ -159,11 +175,6 @@ void __init calibrate_delay(void)
 	loops_per_jiffy = (1<<12);
 
 	printk("Calibrating delay loop... ");
-
-#if defined(CONFIG_BCM947XX) && defined(CONFIG_HWSIM)
-	loops_per_jiffy = 10 * (mips_counter_frequency / 1000);
-#else
-
 	while (loops_per_jiffy <<= 1) {
 		/* wait for "start of" clock tick */
 		ticks = jiffies;
@@ -177,8 +188,8 @@ void __init calibrate_delay(void)
 			break;
 	}
 
-	/* Do a binary approximation to get loops_per_jiffy set to equal one clock
-	   (up to lps_precision bits) */
+/* Do a binary approximation to get loops_per_jiffy set to equal one clock
+   (up to lps_precision bits) */
 	loops_per_jiffy >>= 1;
 	loopbit = loops_per_jiffy;
 	while ( lps_precision-- && (loopbit >>= 1) ) {
@@ -190,9 +201,8 @@ void __init calibrate_delay(void)
 		if (jiffies != ticks)	/* longer than 1 tick */
 			loops_per_jiffy &= ~loopbit;
 	}
-#endif
 
-	/* Round the value and print it */	
+/* Round the value and print it */	
 	printk("%lu.%02lu BogoMIPS\n",
 		loops_per_jiffy/(500000/HZ),
 		(loops_per_jiffy/(5000/HZ)) % 100);
@@ -286,6 +296,7 @@ static void __init parse_options(char *line)
 
 
 extern void setup_arch(char **);
+extern void cpu_idle(void);
 
 unsigned long wait_init_idle;
 
@@ -372,6 +383,16 @@ asmlinkage void __init start_kernel(void)
 #ifdef CONFIG_MODULES
 	init_modules();
 #endif
+	if (prof_shift) {
+		unsigned int size;
+		/* only text is profiled */
+		prof_len = (unsigned long) &_etext - (unsigned long) &_stext;
+		prof_len >>= prof_shift;
+		
+		size = prof_len * sizeof(unsigned int) + PAGE_SIZE-1;
+		prof_buffer = (unsigned int *) alloc_bootmem(size);
+	}
+
 	kmem_cache_init();
 	sti();
 	calibrate_delay();
@@ -409,10 +430,8 @@ asmlinkage void __init start_kernel(void)
 #ifdef CONFIG_PROC_FS
 	proc_root_init();
 #endif
-#if defined(CONFIG_SYSVIPC)
-	ipc_init();
-#endif
 	check_bugs();
+	acpi_early_init(); /* before LAPIC and SMP init */
 	printk("POSIX conformance testing by UNIFIX\n");
 
 	/* 
@@ -421,6 +440,9 @@ asmlinkage void __init start_kernel(void)
 	 *	make syscalls (and thus be locked).
 	 */
 	smp_init();
+#if defined(CONFIG_SYSVIPC)
+	ipc_init();
+#endif
 	rest_init();
 }
 
@@ -460,7 +482,7 @@ static void __init do_basic_setup(void)
 	 */
 	child_reaper = current;
 
-#if defined(CONFIG_MTRR)	    /* Do this after SMP initialization */
+#if defined(CONFIG_MTRR)	/* Do this after SMP initialization */
 /*
  * We should probably create some architecture-dependent "fixup after
  * everything is up" style function where this would belong better
@@ -480,7 +502,9 @@ static void __init do_basic_setup(void)
 #if defined(CONFIG_ARCH_S390)
 	s390_init_machine_check();
 #endif
-
+#ifdef CONFIG_ACPI_INTERPRETER
+	acpi_init();
+#endif
 #ifdef CONFIG_PCI
 	pci_init();
 #endif
@@ -527,16 +551,21 @@ static void __init do_basic_setup(void)
 #endif
 }
 
+static void run_init_process(char *init_filename)
+{
+	argv_init[0] = init_filename;
+	execve(init_filename, argv_init, envp_init);
+}
+
 extern void prepare_namespace(void);
 
 static int init(void * unused)
 {
+	struct files_struct *files;
 	lock_kernel();
 	do_basic_setup();
 
-#ifndef CONFIG_NOROOT
 	prepare_namespace();
-#endif
 
 	/*
 	 * Ok, we have completed the initial bootup, and
@@ -545,14 +574,17 @@ static int init(void * unused)
 	 */
 	free_initmem();
 	unlock_kernel();
-
-#ifdef CONFIG_NOROOT
-	for (;;) {
-		DECLARE_WAIT_QUEUE_HEAD(wait);
-		sleep_on(&wait);
-	}
-#endif
-
+	
+	/*
+	 * Right now we are a thread sharing with a ton of kernel
+	 * stuff. We don't want to end up in user space in that state
+	 */
+	 
+	files = current->files;
+	if(unshare_files())
+		panic("unshare");
+	put_files_struct(files);
+	
 	if (open("/dev/console", O_RDWR, 0) < 0)
 		printk("Warning: unable to open an initial console.\n");
 
@@ -567,10 +599,12 @@ static int init(void * unused)
 	 */
 
 	if (execute_command)
-		execve(execute_command,argv_init,envp_init);
-	execve("/sbin/init",argv_init,envp_init);
-	execve("/etc/init",argv_init,envp_init);
-	execve("/bin/init",argv_init,envp_init);
-	execve("/bin/sh",argv_init,envp_init);
+		run_init_process(execute_command);
+
+	run_init_process("/sbin/init");
+	run_init_process("/etc/init");
+	run_init_process("/bin/init");
+	run_init_process("/bin/sh");
+
 	panic("No init found.  Try passing init= option to kernel.");
 }

@@ -29,6 +29,11 @@ ddb_calc_pdar(u32 phys, u32 size, int width,
         u32 widthbits;
 
         switch (size) {
+#if 0                           /* We don't support 4 GB yet */
+        case 0x100000000:       /* 4 GB */
+                maskbits = 4;
+                break;
+#endif
         case 0x80000000:        /* 2 GB */
                 maskbits = 5;
                 break;

@@ -193,6 +193,8 @@
 
 // IT8172 RTC
 #define IT_RTC_BASE				0x14800
+#define IT_RTC_CENTURY				0x14808
+
 #define IT_RTC_RIR0				0x00
 #define IT_RTC_RTR0				0x01
 #define IT_RTC_RIR1				0x02

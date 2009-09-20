@@ -1,16 +1,10 @@
 #ifndef _AHA1542_H
 
-/* $Id: aha1542.h,v 1.1.1.4 2003/10/14 08:08:37 sparq Exp $
+/* $Id: aha1542.h,v 1.1 1992/07/24 06:27:38 root Exp root $
  *
  * Header file for the adaptec 1542 driver for Linux
  *
  * $Log: aha1542.h,v $
- * Revision 1.1.1.4  2003/10/14 08:08:37  sparq
- * Broadcom Release 3.51.8.0 for BCM4712.
- *
- * Revision 1.1.1.1  2003/02/03 22:37:52  mhuang
- * LINUX_2_4 branch snapshot from linux-mips.org CVS
- *
  * Revision 1.1  1992/07/24  06:27:38  root
  * Initial revision
  *

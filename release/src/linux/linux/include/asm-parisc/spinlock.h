@@ -1,30 +1,9 @@
 #ifndef __ASM_SPINLOCK_H
 #define __ASM_SPINLOCK_H
 
-#include <asm/system.h>
-
-/* Note that PA-RISC has to use `1' to mean unlocked and `0' to mean locked
- * since it only has load-and-zero.
- */
-
-#undef SPIN_LOCK_UNLOCKED
-#define SPIN_LOCK_UNLOCKED (spinlock_t) { 1 }
-
-#define spin_lock_init(x)	do { (x)->lock = 1; } while(0)
-
-#define spin_is_locked(x) ((x)->lock == 0)
-
-#define spin_unlock_wait(x)	do { barrier(); } while(((volatile spinlock_t *)(x))->lock == 0)
-
-#define spin_lock(x) do { \
-	while (__ldcw (&(x)->lock) == 0) \
-		while (((x)->lock) == 0) ; } while (0)
-
-	
-#define spin_unlock(x) \
-	do { (x)->lock = 1; } while(0)
-
-#define spin_trylock(x) (__ldcw(&(x)->lock) != 0)
+#include <asm/spinlock_t.h>		/* get spinlock primitives */
+#include <asm/psw.h>			/* local_* primitives need PSW_I */
+#include <asm/system_irqsave.h>		/* get local_* primitives */
 
 /*
  * Read-write spinlocks, allowing multiple readers

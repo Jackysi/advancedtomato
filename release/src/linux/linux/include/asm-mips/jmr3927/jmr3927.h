@@ -144,6 +144,10 @@
 
 #ifndef __ASSEMBLY__
 
+#if 0
+#define jmr3927_ioc_reg_out(d, a)	((*(volatile unsigned short *)(a)) = (d) << 8)
+#define jmr3927_ioc_reg_in(a)		(((*(volatile unsigned short *)(a)) >> 8) & 0xff)
+#else
 #if defined(__BIG_ENDIAN)
 #define jmr3927_ioc_reg_out(d, a)	((*(volatile unsigned char *)(a)) = (d))
 #define jmr3927_ioc_reg_in(a)		(*(volatile unsigned char *)(a))
@@ -153,10 +157,11 @@
 #else
 #error "No Endian"
 #endif
+#endif
 #define jmr3927_isac_reg_out(d, a)	((*(volatile unsigned char *)(a)) = (d))
 #define jmr3927_isac_reg_in(a)		(*(volatile unsigned char *)(a))
 
-extern inline int jmr3927_have_isac(void)
+static inline int jmr3927_have_isac(void)
 {
 	unsigned char idt;
 	unsigned long flags;
@@ -262,6 +267,10 @@ extern inline int jmr3927_have_isac(void)
 #define JMR3927_IRQ_ISAC_IRQ10	(JMR3927_IRQ_ISAC + JMR3927_ISAC_INTB_IRQ10)
 #define JMR3927_IRQ_ISAC_ISAER	(JMR3927_IRQ_ISAC + JMR3927_ISAC_INTB_ISAER)
 
+#if 0	/* auto detect */
+/* RTL8019AS 10M Ether (JMI-3927IO2:JPW2:1-2 Short) */
+#define JMR3927_IRQ_ETHER1	JMR3927_IRQ_IRC_INT0
+#endif
 /* IOC (PCI, MODEM) */
 #define JMR3927_IRQ_IOCINT	JMR3927_IRQ_IRC_INT1
 /* ISAC (ISA, PCMCIA, KEYBOARD, MOUSE) */

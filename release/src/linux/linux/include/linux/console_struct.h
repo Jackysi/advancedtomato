@@ -9,6 +9,9 @@
  * to achieve effects such as fast scrolling by changing the origin.
  */
 
+#ifndef _LINUX_CONSOLE_STRUCT_H_
+#define _LINUX_CONSOLE_STRUCT_H_
+
 #define NPAR 16
 
 struct vc_data {
@@ -107,3 +110,5 @@ extern struct vc vc_cons [MAX_NR_CONSOLES];
 #define CUR_DEFAULT CUR_UNDERLINE
 
 #define CON_IS_VISIBLE(conp) (*conp->vc_display_fg == conp)
+
+#endif /* _LINUX_CONSOLE_STRUCT_H_ */

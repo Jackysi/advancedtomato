@@ -30,8 +30,10 @@
 #define PMU_SET_INTR_MASK	0x70	/* set PMU interrupt mask */
 #define PMU_INT_ACK		0x78	/* read interrupt bits */
 #define PMU_SHUTDOWN		0x7e	/* turn power off */
+#define PMU_CPU_SPEED		0x7d	/* control CPU speed on some models */
 #define PMU_SLEEP		0x7f	/* put CPU to sleep */
 #define PMU_POWER_EVENTS	0x8f	/* Send power-event commands to PMU */
+#define PMU_I2C_CMD		0x9a	/* I2C operations */
 #define PMU_RESET		0xd0	/* reset CPU */
 #define PMU_GET_BRIGHTBUTTON	0xd9	/* report brightness up/down pos */
 #define PMU_GET_COVER		0xdc	/* report cover open/closed */
@@ -67,6 +69,20 @@
 /* Bits in the environement message (either obtained via PMU_GET_COVER,
  * or via PMU_INT_ENVIRONMENT on core99 */
 #define PMU_ENV_LID_CLOSED	0x01	/* The lid is closed */
+
+/* I2C related definitions */
+#define PMU_I2C_MODE_SIMPLE	0
+#define PMU_I2C_MODE_STDSUB	1
+#define PMU_I2C_MODE_COMBINED	2
+
+#define PMU_I2C_BUS_STATUS	0
+#define PMU_I2C_BUS_SYSCLK	1
+#define PMU_I2C_BUS_POWER	2
+
+#define PMU_I2C_STATUS_OK	0
+#define PMU_I2C_STATUS_DATAREAD	1
+#define PMU_I2C_STATUS_BUSY	0xfe
+
 
 /* Kind of PMU (model) */
 enum {
@@ -142,6 +158,12 @@ extern void pmu_shutdown(void);
 extern int pmu_present(void);
 extern int pmu_get_model(void);
 
+extern int pmu_i2c_combined_read(int bus, int addr, int subaddr,  u8* data, int len);
+extern int pmu_i2c_stdsub_write(int bus, int addr, int subaddr,  u8* data, int len);
+extern int pmu_i2c_simple_read(int bus, int addr,  u8* data, int len);
+extern int pmu_i2c_simple_write(int bus, int addr,  u8* data, int len);
+
+
 #ifdef CONFIG_PMAC_PBOOK
 /*
  * Stuff for putting the powerbook to sleep and waking it again.
@@ -192,6 +214,10 @@ int pmu_unregister_sleep_notifier(struct pmu_sleep_notifier* notifier);
 /* values for pmu_battery_info.flags */
 #define PMU_BATT_PRESENT	0x00000001
 #define PMU_BATT_CHARGING	0x00000002
+#define PMU_BATT_TYPE_MASK	0x000000f0
+#define PMU_BATT_TYPE_SMART	0x00000010 /* Smart battery */
+#define PMU_BATT_TYPE_HOOPER	0x00000020 /* 3400/3500 */
+#define PMU_BATT_TYPE_COMET	0x00000030 /* 2400 */
 
 struct pmu_battery_info
 {

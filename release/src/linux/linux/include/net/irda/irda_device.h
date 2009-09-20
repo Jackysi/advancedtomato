@@ -201,6 +201,21 @@ extern const char *infrared_mode[];
                  )							    \
 )
 
+#if 0
+extern inline __u16 irda_get_mtt(struct sk_buff *skb)
+{
+	__u16 mtt;
+
+	if (((struct irda_skb_cb *)(skb->cb))->magic != LAP_MAGIC)
+		mtt = 10000;
+	else
+		mtt = ((struct irda_skb_cb *)(skb->cb))->mtt;
+
+	ASSERT(mtt <= 10000, return 10000;);
+	
+	return mtt;
+}
+#endif
 
 /*
  * Function irda_get_next_speed (skb)
@@ -214,6 +229,19 @@ extern const char *infrared_mode[];
                   ((struct irda_skb_cb *)(skb->cb))->next_speed : -1 	\
 )
 
+#if 0
+extern inline __u32 irda_get_next_speed(struct sk_buff *skb)
+{
+	__u32 speed;
+
+	if (((struct irda_skb_cb *)(skb->cb))->magic != LAP_MAGIC)
+		speed = -1;
+	else
+		speed = ((struct irda_skb_cb *)(skb->cb))->next_speed;
+
+	return speed;
+}
+#endif
 
 /*
  * Function irda_get_next_xbofs (skb)

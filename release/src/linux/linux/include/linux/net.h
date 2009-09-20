@@ -139,7 +139,9 @@ extern int   	sock_sendmsg(struct socket *, struct msghdr *m, int len);
 extern int	sock_recvmsg(struct socket *, struct msghdr *m, int len, int flags);
 extern int	sock_readv_writev(int type, struct inode * inode, struct file * file,
 				  const struct iovec * iov, long count, long size);
+extern struct socket *sockfd_lookup(int fd, int *err);
 
+extern int	sock_map_fd(struct socket *sock);
 extern int	net_ratelimit(void);
 extern unsigned long net_random(void);
 extern void net_srandom(unsigned long);

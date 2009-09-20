@@ -65,6 +65,9 @@ struct isdn_ppp_comp_data {
 
 #include <linux/config.h>
 
+#ifdef CONFIG_IPPP_FILTER
+#include <linux/filter.h>
+#endif
 
 #define DECOMP_ERR_NOMEM	(-10)
 
@@ -222,6 +225,10 @@ struct ippp_struct {
 #ifdef CONFIG_ISDN_PPP_VJ
   unsigned char *cbuf;
   struct slcompress *slcomp;
+#endif
+#ifdef CONFIG_IPPP_FILTER
+  struct sock_fprog pass_filter;	/* filter for packets to pass */
+  struct sock_fprog active_filter;	/* filter for pkts to reset idle */
 #endif
   unsigned long debug;
   struct isdn_ppp_compressor *compressor,*decompressor;

@@ -30,5 +30,53 @@ struct matroxioc_output_mode {
 /* which outputs exist on this framebuffer */
 #define MATROXFB_GET_ALL_OUTPUTS	_IOR('n',0xFB,sizeof(__u32))
 
+struct matroxfb_queryctrl {
+  __u32 id;			/* ID for control */
+  char name[32];		/* A suggested label for this control */
+  int minimum;			/* Minimum value */
+  int maximum;			/* Maximum value */
+  unsigned int step;            /* The increment between values of an integer
+				   control that are distinct on the hardware */
+  int default_value;		/* Driver default value */
+  __u32 type;			/* Control type. */
+  __u32 flags;			/* Control flags */
+  __u32 category;               /* Control category code, useful for 
+				   separating controls by function */
+  char group[32];               /* A suggested label string for the 
+				   control group */
+  __u32 reserved[2];
+};
+
+enum matroxfb_ctrl_type {
+  MATROXFB_CTRL_TYPE_INTEGER=0,	/* An integer-valued control */
+  MATROXFB_CTRL_TYPE_BOOLEAN,	/* A boolean-valued control */
+  MATROXFB_CTRL_TYPE_MENU,	/* The control has a menu of choices */
+  MATROXFB_CTRL_TYPE_BUTTON /* A button which performs an action when clicked */
+};
+
+enum matroxfb_ctrl_id {
+  MATROXFB_CID_BRIGHTNESS=0x00980900,
+  MATROXFB_CID_CONTRAST,
+  MATROXFB_CID_SATURATION,
+  MATROXFB_CID_HUE,
+  MATROXFB_CID_GAMMA	 =0x00980910,
+  MATROXFB_CID_TESTOUT	 =0x08000000,
+  MATROXFB_CID_DEFLICKER,
+  MATROXFB_CID_LAST
+};
+  
+
+#define MATROXFB_TVOQUERYCTRL	_IOWR('V',36,struct matroxfb_queryctrl)
+   
+struct matroxfb_control {
+  __u32 id;			/* A driver-defined ID */
+  int value;			/* The current value, or new value */
+};
+
+#define MATROXFB_G_TVOCTRL	_IOWR('V',27,struct matroxfb_control)
+#define MATROXFB_S_TVOCTRL	_IOW ('V',28,struct matroxfb_control)
+
+#define FBIO_WAITFORVSYNC	_IOW('F', 0x20, u_int32_t)
+
 #endif
 

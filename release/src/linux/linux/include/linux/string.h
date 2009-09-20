@@ -7,6 +7,7 @@
 
 #include <linux/types.h>	/* for size_t */
 #include <linux/stddef.h>	/* for NULL */
+#include <linux/compiler.h>	/* for inline ((always_inline)) */
 
 #ifdef __cplusplus
 extern "C" {

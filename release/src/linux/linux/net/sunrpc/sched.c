@@ -169,10 +169,8 @@ void rpc_add_timer(struct rpc_task *task, rpc_action timer)
 static inline void
 rpc_delete_timer(struct rpc_task *task)
 {
-	if (timer_pending(&task->tk_timer)) {
-		dprintk("RPC: %4d deleting timer\n", task->tk_pid);
-		del_timer_sync(&task->tk_timer);
-	}
+	dprintk("RPC: %4d deleting timer\n", task->tk_pid);
+	del_timer_sync(&task->tk_timer);
 }
 
 /*
@@ -939,6 +937,10 @@ rpc_run_child(struct rpc_task *task, struct rpc_task *child, rpc_action func)
 	spin_unlock_bh(&rpc_queue_lock);
 }
 
+/*
+ * Kill all tasks for the given client.
+ * XXX: kill their descendants as well?
+ */
 void
 rpc_killall_tasks(struct rpc_clnt *clnt)
 {

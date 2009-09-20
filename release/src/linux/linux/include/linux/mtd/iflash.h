@@ -1,4 +1,4 @@
-/* $Id: iflash.h,v 1.1.1.4 2003/10/14 08:09:27 sparq Exp $ */
+/* $Id: iflash.h,v 1.2 2000/11/13 18:01:54 dwmw2 Exp $ */
 
 #ifndef __MTD_IFLASH_H__
 #define __MTD_IFLASH_H__

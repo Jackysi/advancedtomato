@@ -6,12 +6,12 @@
  *
  * Module         : sk_g16.c
  *
- * Version        : $Revision: 1.1.1.4 $
+ * Version        : $Revision: 1.1 $
  *
  * Author         : Patrick J.D. Weichmann
  *
  * Date Created   : 94/05/26
- * Last Updated   : $Date: 2003/10/14 08:08:23 $
+ * Last Updated   : $Date: 1994/06/30 16:25:15 $
  *
  * Description    : Schneider & Koch G16 Ethernet Device Driver for
  *                  Linux Kernel >= 1.1.22
@@ -23,7 +23,7 @@
  *
 -*/
 
-static const char rcsid[] = "$Id: sk_g16.c,v 1.1.1.4 2003/10/14 08:08:23 sparq Exp $";
+static const char rcsid[] = "$Id: sk_g16.c,v 1.1 1994/06/30 16:25:15 root Exp $";
 
 /*
  * The Schneider & Koch (SK) G16 Network device driver is based
@@ -1256,6 +1256,7 @@ static int SK_send_packet(struct sk_buff *skb, struct net_device *dev)
 {
     struct priv *p = (struct priv *) dev->priv;
     struct tmd *tmdp;
+    static char pad[64];
 
     PRINTK2(("## %s: SK_send_packet() called, CSR0 %#04x.\n", 
 	    SK_NAME, SK_read_reg(CSR0)));
@@ -1280,6 +1281,8 @@ static int SK_send_packet(struct sk_buff *skb, struct net_device *dev)
 	/* Copy data into dual ported ram */
 
 	memcpy_toio((tmdp->u.buffer & 0x00ffffff), skb->data, skb->len);
+	if(len != skb->len)
+		memcpy_toio((tmdp->u.buffer & 0x00ffffff) + sb->len, pad, len-skb->len);
 
 	writew(-len, &tmdp->blen);            /* set length to transmit */
 

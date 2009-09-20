@@ -201,21 +201,11 @@
 		lw	$3,  PT_R3(sp);                  \
 		lw	$2,  PT_R2(sp)
 
-#ifdef CONFIG_BCM4710
-#define RESTORE_SP_AND_RET                               \
-		lw	sp,  PT_R29(sp);                 \
-		.set	mips3;				 \
-		nop;					 \
-		nop;					 \
-		eret;					 \
-		.set	mips0
-#else
 #define RESTORE_SP_AND_RET                               \
 		lw	sp,  PT_R29(sp);                 \
 		.set	mips3;				 \
 		eret;					 \
 		.set	mips0
-#endif
 
 #endif
 

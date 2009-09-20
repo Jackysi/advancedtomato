@@ -111,7 +111,7 @@ restart:
 /*
  * This function must run with irq disabled!
  */
-inline void cpu_raise_softirq(unsigned int cpu, unsigned int nr)
+inline fastcall void cpu_raise_softirq(unsigned int cpu, unsigned int nr)
 {
 	__cpu_raise_softirq(cpu, nr);
 
@@ -128,7 +128,7 @@ inline void cpu_raise_softirq(unsigned int cpu, unsigned int nr)
 		wakeup_softirqd(cpu);
 }
 
-void raise_softirq(unsigned int nr)
+void fastcall raise_softirq(unsigned int nr)
 {
 	unsigned long flags;
 
@@ -149,7 +149,7 @@ void open_softirq(int nr, void (*action)(struct softirq_action*), void *data)
 struct tasklet_head tasklet_vec[NR_CPUS] __cacheline_aligned;
 struct tasklet_head tasklet_hi_vec[NR_CPUS] __cacheline_aligned;
 
-void __tasklet_schedule(struct tasklet_struct *t)
+void fastcall __tasklet_schedule(struct tasklet_struct *t)
 {
 	int cpu = smp_processor_id();
 	unsigned long flags;
@@ -161,7 +161,7 @@ void __tasklet_schedule(struct tasklet_struct *t)
 	local_irq_restore(flags);
 }
 
-void __tasklet_hi_schedule(struct tasklet_struct *t)
+void fastcall __tasklet_hi_schedule(struct tasklet_struct *t)
 {
 	int cpu = smp_processor_id();
 	unsigned long flags;

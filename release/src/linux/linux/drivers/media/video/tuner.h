@@ -64,9 +64,8 @@
 #define TUNER_LG_PAL_NEW_TAPC   37
 #define TUNER_PHILIPS_FM1216ME_MK3  38
 #define TUNER_LG_NTSC_NEW_TAPC   39
-
-
-
+#define TUNER_HITACHI_NTSC       40
+#define TUNER_PHILIPS_PAL_MK     41
 
 #define NOTUNER 0
 #define PAL     1	/* PAL_BG */
@@ -83,10 +82,13 @@
 #define SHARP   6
 #define Samsung 7
 #define Microtune 8
+#define HITACHI 9
 
 #define TUNER_SET_TYPE               _IOW('t',1,int)    /* set tuner type */
 #define TUNER_SET_TVFREQ             _IOW('t',2,int)    /* set tv freq */
-#define TUNER_SET_RADIOFREQ          _IOW('t',3,int)    /* set radio freq */
-#define TUNER_SET_MODE               _IOW('t',4,int)    /* set tuner mode */
+#if 0 /* obsolete */
+# define TUNER_SET_RADIOFREQ         _IOW('t',3,int)    /* set radio freq */
+# define TUNER_SET_MODE              _IOW('t',4,int)    /* set tuner mode */
+#endif
 
 #endif

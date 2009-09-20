@@ -52,7 +52,11 @@ static int led_diskio = 1;
 static int led_lanrxtx = 1;
 static char lcd_text[32];
 
+#if 0
+#define DPRINTK(x)	printk x
+#else
 #define DPRINTK(x)
+#endif
 
 
 #define CALC_ADD(val, comp, add) \
@@ -348,7 +352,8 @@ static void led_LCD_driver(unsigned char leds)
 static unsigned long led_net_rx_counter, led_net_tx_counter;
 
 static void led_get_net_stats(int addvalue)
-{
+{ 
+#ifdef CONFIG_NET
 	static unsigned long rx_total_last, tx_total_last;
 	unsigned long rx_total, tx_total;
 	struct net_device *dev;
@@ -379,6 +384,7 @@ static void led_get_net_stats(int addvalue)
         
 	rx_total_last += rx_total;
         tx_total_last += tx_total;
+#endif
 }
 
 

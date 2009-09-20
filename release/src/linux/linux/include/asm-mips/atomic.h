@@ -55,7 +55,7 @@ typedef struct { volatile int counter; } atomic_t;
  * Atomically adds @i to @v.  Note that the guaranteed useful range
  * of an atomic_t is only 24 bits.
  */
-extern __inline__ void atomic_add(int i, atomic_t * v)
+static __inline__ void atomic_add(int i, atomic_t * v)
 {
 	unsigned long flags;
 
@@ -72,7 +72,7 @@ extern __inline__ void atomic_add(int i, atomic_t * v)
  * Atomically subtracts @i from @v.  Note that the guaranteed
  * useful range of an atomic_t is only 24 bits.
  */
-extern __inline__ void atomic_sub(int i, atomic_t * v)
+static __inline__ void atomic_sub(int i, atomic_t * v)
 {
 	unsigned long flags;
 
@@ -81,7 +81,7 @@ extern __inline__ void atomic_sub(int i, atomic_t * v)
 	local_irq_restore(flags);
 }
 
-extern __inline__ int atomic_add_return(int i, atomic_t * v)
+static __inline__ int atomic_add_return(int i, atomic_t * v)
 {
 	unsigned long flags;
 	int temp;
@@ -95,7 +95,7 @@ extern __inline__ int atomic_add_return(int i, atomic_t * v)
 	return temp;
 }
 
-extern __inline__ int atomic_sub_return(int i, atomic_t * v)
+static __inline__ int atomic_sub_return(int i, atomic_t * v)
 {
 	unsigned long flags;
 	int temp;
@@ -124,7 +124,7 @@ extern __inline__ int atomic_sub_return(int i, atomic_t * v)
  * Atomically adds @i to @v.  Note that the guaranteed useful range
  * of an atomic_t is only 24 bits.
  */
-extern __inline__ void atomic_add(int i, atomic_t * v)
+static __inline__ void atomic_add(int i, atomic_t * v)
 {
 	unsigned long temp;
 
@@ -145,7 +145,7 @@ extern __inline__ void atomic_add(int i, atomic_t * v)
  * Atomically subtracts @i from @v.  Note that the guaranteed
  * useful range of an atomic_t is only 24 bits.
  */
-extern __inline__ void atomic_sub(int i, atomic_t * v)
+static __inline__ void atomic_sub(int i, atomic_t * v)
 {
 	unsigned long temp;
 
@@ -161,7 +161,7 @@ extern __inline__ void atomic_sub(int i, atomic_t * v)
 /*
  * Same as above, but return the result value
  */
-extern __inline__ int atomic_add_return(int i, atomic_t * v)
+static __inline__ int atomic_add_return(int i, atomic_t * v)
 {
 	unsigned long temp, result;
 
@@ -182,7 +182,7 @@ extern __inline__ int atomic_add_return(int i, atomic_t * v)
 	return result;
 }
 
-extern __inline__ int atomic_sub_return(int i, atomic_t * v)
+static __inline__ int atomic_sub_return(int i, atomic_t * v)
 {
 	unsigned long temp, result;
 

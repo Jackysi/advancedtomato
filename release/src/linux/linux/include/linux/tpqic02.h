@@ -1,4 +1,4 @@
-/* $Id: tpqic02.h,v 1.1.1.4 2003/10/14 08:09:27 sparq Exp $
+/* $Id: tpqic02.h,v 1.5 1996/12/14 23:01:38 root Exp root $
  *
  * Include file for QIC-02 driver for Linux.
  *
@@ -131,7 +131,7 @@
 #define TP_HAVE_RAS1	1
 #define TP_HAVE_RAS2	1
 
-#elif QIC02_TAPE_DRIVE == MT_ISARCHIVESC499	  /* Archive SC-499 QIC-36 controller */
+#elif QIC02_TAPE_DRIVE == MT_ISARCHIVESC499	/* Archive SC-499 QIC-36 controller */
 #define TP_HAVE_DENS	1	/* can do set density (QIC-11 / QIC-24) */
 #define TP_HAVE_BSF	0
 #define TP_HAVE_FSR	1	/* can skip one block forwards */

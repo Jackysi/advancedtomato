@@ -1,4 +1,4 @@
-/* $Id: flash.c,v 1.1.1.4 2003/10/14 08:08:35 sparq Exp $
+/* $Id: flash.c,v 1.24 2001/10/08 22:19:51 davem Exp $
  * flash.c: Allow mmap access to the OBP Flash, for OBP updates.
  *
  * Copyright (C) 1997  Eddie C. Dost  (ecd@skynet.be)
@@ -105,9 +105,15 @@ static ssize_t
 flash_read(struct file * file, char * buf,
 	   size_t count, loff_t *ppos)
 {
-	unsigned long p = file->f_pos;
+	loff_t p = *ppos;
 	int i;
 	
+	if (p > flash.read_size)
+		return 0;
+
+	if (p < 0)
+		return -EINVAL;
+
 	if (count > flash.read_size - p)
 		count = flash.read_size - p;
 
@@ -118,7 +124,7 @@ flash_read(struct file * file, char * buf,
 		buf++;
 	}
 
-	file->f_pos += count;
+	*ppos = p + count;
 	return count;
 }
 
@@ -161,10 +167,13 @@ static int __init flash_init(void)
 {
 	struct sbus_bus *sbus;
 	struct sbus_dev *sdev = 0;
+#ifdef CONFIG_PCI
 	struct linux_ebus *ebus;
 	struct linux_ebus_device *edev = 0;
 	struct linux_prom_registers regs[2];
-	int len, err, nregs;
+	int len, nregs;
+#endif
+	int err;
 
 	for_all_sbusdev(sdev, sbus) {
 		if (!strcmp(sdev->prom_name, "flashprom")) {

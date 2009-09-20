@@ -1,24 +1,22 @@
 /*
- * SMP- and interrupt-safe semaphores..
- *
  * This file is subject to the terms and conditions of the GNU General Public
  * License.  See the file "COPYING" in the main directory of this archive
  * for more details.
  *
- * (C) Copyright 1996  Linus Torvalds
- * (C) Copyright 1998, 99, 2000, 01  Ralf Baechle
- * (C) Copyright 1999, 2000  Silicon Graphics, Inc.
- * Copyright (C) 2000, 01 MIPS Technologies, Inc.  All rights reserved.
+ * Copyright (C) 1996  Linus Torvalds
+ * Copyright (C) 1998, 99, 2000, 01  Ralf Baechle
+ * Copyright (C) 1999, 2000, 01  Silicon Graphics, Inc.
+ * Copyright (C) 2000, 01 MIPS Technologies, Inc.
  */
 #ifndef _ASM_SEMAPHORE_H
 #define _ASM_SEMAPHORE_H
 
-#include <asm/system.h>
-#include <asm/atomic.h>
+#include <linux/compiler.h>
+#include <linux/config.h>
 #include <linux/spinlock.h>
 #include <linux/wait.h>
-#include <linux/config.h>
 #include <linux/rwsem.h>
+#include <asm/atomic.h>
 
 struct semaphore {
 #ifdef __MIPSEB__
@@ -35,29 +33,24 @@ struct semaphore {
 } __attribute__((aligned(8)));
 
 #if WAITQUEUE_DEBUG
-# define __SEM_DEBUG_INIT(name) \
-		, (long)&(name).__magic
+# define __SEM_DEBUG_INIT(name) , .__magic = (long)&(name).__magic
 #else
 # define __SEM_DEBUG_INIT(name)
 #endif
 
-#ifdef __MIPSEB__
-#define __SEMAPHORE_INITIALIZER(name,count) \
-{ ATOMIC_INIT(count), ATOMIC_INIT(0), __WAIT_QUEUE_HEAD_INITIALIZER((name).wait) \
-	__SEM_DEBUG_INIT(name) }
-#else
-#define __SEMAPHORE_INITIALIZER(name,count) \
-{ ATOMIC_INIT(0), ATOMIC_INIT(count), __WAIT_QUEUE_HEAD_INITIALIZER((name).wait) \
-	__SEM_DEBUG_INIT(name) }
-#endif
+#define __SEMAPHORE_INITIALIZER(name,_count) {				\
+	.count	= ATOMIC_INIT(_count),					\
+	.waking	= ATOMIC_INIT(0),					\
+	.wait	= __WAIT_QUEUE_HEAD_INITIALIZER((name).wait)		\
+	__SEM_DEBUG_INIT(name)						\
+}
 
-#define __MUTEX_INITIALIZER(name) \
-	__SEMAPHORE_INITIALIZER(name,1)
+#define __MUTEX_INITIALIZER(name) __SEMAPHORE_INITIALIZER(name, 1)
 
 #define __DECLARE_SEMAPHORE_GENERIC(name,count) \
-	struct semaphore name = __SEMAPHORE_INITIALIZER(name,count)
+	struct semaphore name = __SEMAPHORE_INITIALIZER(name, count)
 
-#define DECLARE_MUTEX(name) __DECLARE_SEMAPHORE_GENERIC(name,1)
+#define DECLARE_MUTEX(name) __DECLARE_SEMAPHORE_GENERIC(name, 1)
 #define DECLARE_MUTEX_LOCKED(name) __DECLARE_SEMAPHORE_GENERIC(name,0)
 
 static inline void sema_init (struct semaphore *sem, int val)
@@ -80,18 +73,28 @@ static inline void init_MUTEX_LOCKED (struct semaphore *sem)
 	sema_init(sem, 0);
 }
 
-asmlinkage void __down(struct semaphore * sem);
-asmlinkage int  __down_interruptible(struct semaphore * sem);
-asmlinkage int __down_trylock(struct semaphore * sem);
-asmlinkage void __up(struct semaphore * sem);
+#ifndef CONFIG_CPU_HAS_LLDSCD
+/*
+ * On machines without lld/scd we need a spinlock to make the manipulation of
+ * sem->count and sem->waking atomic.
+ */
+extern spinlock_t semaphore_lock;
+#endif
+
+extern void __down_failed(struct semaphore * sem);
+extern int  __down_failed_interruptible(struct semaphore * sem);
+extern void __up_wakeup(struct semaphore * sem);
 
 static inline void down(struct semaphore * sem)
 {
+	int count;
+
 #if WAITQUEUE_DEBUG
 	CHECK_MAGIC(sem->__magic);
 #endif
-	if (atomic_dec_return(&sem->count) < 0)
-		__down(sem);
+	count = atomic_dec_return(&sem->count);
+	if (unlikely(count < 0))
+		__down_failed(sem);
 }
 
 /*
@@ -100,38 +103,25 @@ static inline void down(struct semaphore * sem)
  */
 static inline int down_interruptible(struct semaphore * sem)
 {
-	int ret = 0;
+	int count;
 
 #if WAITQUEUE_DEBUG
 	CHECK_MAGIC(sem->__magic);
 #endif
-	if (atomic_dec_return(&sem->count) < 0)
-		ret = __down_interruptible(sem);
-	return ret;
+	count = atomic_dec_return(&sem->count);
+	if (unlikely(count < 0))
+		return __down_failed_interruptible(sem);
+
+	return 0;
 }
 
-#ifndef CONFIG_CPU_HAS_LLDSCD
-
-/*
- * Non-blockingly attempt to down() a semaphore.
- * Returns zero if we acquired it
- */
-static inline int down_trylock(struct semaphore * sem)
-{
-	int ret = 0;
-	if (atomic_dec_return(&sem->count) < 0)
-		ret = __down_trylock(sem);
-	return ret;
-}
-
-#else
+#ifdef CONFIG_CPU_HAS_LLDSCD
 
 /*
  * down_trylock returns 0 on success, 1 if we failed to get the lock.
  *
  * We must manipulate count and waking simultaneously and atomically.
- * Here, we do this by using lld/scd on the pair of 32-bit words.  This
- * won't work on MIPS32 platforms, however, and must be rewritten.
+ * Here, we do this by using lld/scd on the pair of 32-bit words.
  *
  * Pseudocode:
  *
@@ -157,21 +147,22 @@ static inline int down_trylock(struct semaphore * sem)
 #endif
 
 	__asm__ __volatile__(
-	".set\tmips3\t\t\t# down_trylock\n"
-	"0:\tlld\t%1, %4\n\t"
-	"dli\t%3, 0x0000000100000000\n\t"
-	"dsubu\t%1, %3\n\t"
-	"li\t%0, 0\n\t"
-	"bgez\t%1, 2f\n\t"
-	"sll\t%2, %1, 0\n\t"
-	"blez\t%2, 1f\n\t"
-	"daddiu\t%1, %1, -1\n\t"
-	"b\t2f\n\t"
-	"1:\tdaddu\t%1, %1, %3\n"
-	"li\t%0, 1\n"
-	"2:\tscd\t%1, %4\n\t"
-	"beqz\t%1, 0b\n\t"
-	".set	mips0"
+	"	.set	mips3			# down_trylock		\n"
+	"0:	lld	%1, %4						\n"
+	"	dli	%3, 0x0000000100000000	# count -= 1		\n"
+	"	dsubu	%1, %3						\n"
+	"	li	%0, 0			# ret = 0		\n"
+	"	bgez	%1, 2f			# if count >= 0		\n"
+	"	sll	%2, %1, 0		# extract waking	\n"
+	"	blez	%2, 1f			# if waking < 0 -> 1f	\n"
+	"	daddiu	%1, %1, -1		# waking -= 1		\n"
+	"	b	2f						\n"
+	"1:	daddu	%1, %1, %3		# count += 1		\n"
+	"	li	%0, 1			# ret = 1		\n"
+	"2:	scd	%1, %4						\n"
+	"	beqz	%1, 0b						\n"
+	"	sync							\n"
+	"	.set	mips0						\n"
 	: "=&r"(ret), "=&r"(tmp), "=&r"(tmp2), "=&r"(sub)
 	: "m"(*sem)
 	: "memory");
@@ -179,7 +170,80 @@ static inline int down_trylock(struct semaphore * sem)
 	return ret;
 }
 
-#endif /* CONFIG_CPU_HAS_LLDSCD */
+/*
+ * Note! This is subtle. We jump to wake people up only if
+ * the semaphore was negative (== somebody was waiting on it).
+ */
+static inline void up(struct semaphore * sem)
+{
+	unsigned long tmp, tmp2;
+	int count;
+
+#if WAITQUEUE_DEBUG
+	CHECK_MAGIC(sem->__magic);
+#endif
+	/*
+	 * We must manipulate count and waking simultaneously and atomically.
+	 * Otherwise we have races between up and __down_failed_interruptible
+	 * waking up on a signal.
+	 */
+
+	__asm__ __volatile__(
+	"	.set	mips3					\n"
+	"	sync			# up			\n"
+	"1:	lld	%1, %3					\n"
+	"	dsra32	%0, %1, 0	# extract count to %0	\n"
+	"	daddiu	%0, 1		# count += 1		\n"
+	"	slti	%2, %0, 1	# %3 = (%0 <= 0)	\n"
+	"	daddu	%1, %2		# waking += %3		\n"
+	"	dsll32 %1, %1, 0	# zero-extend %1	\n"
+	"	dsrl32 %1, %1, 0				\n"
+	"	dsll32	%2, %0, 0	# Reassemble union	\n"
+	"	or	%1, %2		# from count and waking	\n"
+	"	scd	%1, %3					\n"
+	"	beqz	%1, 1b					\n"
+	"	.set	mips0					\n"
+	: "=&r"(count), "=&r"(tmp), "=&r"(tmp2), "+m"(*sem)
+	:
+	: "memory");
+
+	if (unlikely(count <= 0))
+		__up_wakeup(sem);
+}
+
+#else
+
+/*
+ * Non-blockingly attempt to down() a semaphore.
+ * Returns zero if we acquired it
+ */
+static inline int down_trylock(struct semaphore * sem)
+{
+	unsigned long flags;
+	int count, waking;
+	int ret = 0;
+
+#if WAITQUEUE_DEBUG
+	CHECK_MAGIC(sem->__magic);
+#endif
+
+	spin_lock_irqsave(&semaphore_lock, flags);
+	count = atomic_read(&sem->count) - 1;
+	atomic_set(&sem->count, count);
+	if (unlikely(count < 0)) {
+		waking = atomic_read(&sem->waking);
+		if (waking <= 0) {
+			atomic_set(&sem->count, count + 1);
+			ret = 1;
+		} else {
+			atomic_set(&sem->waking, waking - 1);
+			ret = 0;
+		}
+	}
+	spin_unlock_irqrestore(&semaphore_lock, flags);
+
+	return ret;
+}
 
 /*
  * Note! This is subtle. We jump to wake people up only if
@@ -187,12 +251,32 @@ static inline int down_trylock(struct semaphore * sem)
  */
 static inline void up(struct semaphore * sem)
 {
+	unsigned long flags;
+	int count, waking;
+
 #if WAITQUEUE_DEBUG
 	CHECK_MAGIC(sem->__magic);
 #endif
-	if (atomic_inc_return(&sem->count) <= 0)
-		__up(sem);
+	/*
+	 * We must manipulate count and waking simultaneously and atomically.
+	 * Otherwise we have races between up and __down_failed_interruptible
+	 * waking up on a signal.
+	 */
+
+	spin_lock_irqsave(&semaphore_lock, flags);
+	count = atomic_read(&sem->count) + 1;
+	waking = atomic_read(&sem->waking);
+	if (count <= 0)
+		waking++;
+	atomic_set(&sem->count, count);
+	atomic_set(&sem->waking, waking);
+	spin_unlock_irqrestore(&semaphore_lock, flags);
+
+	if (unlikely(count <= 0))
+		__up_wakeup(sem);
 }
+
+#endif /* CONFIG_CPU_HAS_LLDSCD */
 
 static inline int sem_getcount(struct semaphore *sem)
 {

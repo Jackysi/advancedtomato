@@ -5,7 +5,7 @@
  *
  *		Implementation of the Transmission Control Protocol(TCP).
  *
- * Version:	$Id: tcp_output.c,v 1.1.1.4 2003/10/14 08:09:33 sparq Exp $
+ * Version:	$Id: tcp_output.c,v 1.144 2001/11/06 22:21:08 davem Exp $
  *
  * Authors:	Ross Biro, <bir7@leland.Stanford.Edu>
  *		Fred N. van Kempen, <waltje@uWalt.NL.Mugnet.ORG>
@@ -142,6 +142,10 @@ static __inline__ void tcp_event_ack_sent(struct sock *sk)
 	tcp_clear_xmit_timer(sk, TCP_TIME_DACK);
 }
 
+/* from 2.6's ALIGN, used in tcp_select_window() */
+#define ALIGN_WIN(x,a)		__ALIGN_MASK(x,(typeof(x))(a)-1)
+#define __ALIGN_MASK(x,mask)	(((x)+(mask))&~(mask))
+
 /* Chose a new window to advertise, update state in tcp_opt for the
  * socket, and return result with RFC1323 scaling applied.  The return
  * value can be stuffed directly into th->window for an outgoing
@@ -162,7 +166,7 @@ static __inline__ u16 tcp_select_window(struct sock *sk)
 		 *
 		 * Relax Will Robinson.
 		 */
-		new_win = cur_win;
+		new_win = ALIGN_WIN(cur_win, 1 << tp->rcv_wscale);
 	}
 	tp->rcv_wnd = new_win;
 	tp->rcv_wup = tp->rcv_nxt;
@@ -226,7 +230,7 @@ int tcp_transmit_skb(struct sock *sk, struct sk_buff *skb)
 			tcp_header_size += (TCPOLEN_SACK_BASE_ALIGNED +
 					    (tp->eff_sacks * TCPOLEN_SACK_PERBLOCK));
 		}
-
+		
 		/*
 		 * If the connection is idle and we are restarting,
 		 * then we don't want to do any Vegas calculations
@@ -291,7 +295,7 @@ int tcp_transmit_skb(struct sock *sk, struct sk_buff *skb)
 
 		TCP_INC_STATS(TcpOutSegs);
 
-		err = tp->af_specific->queue_xmit(skb);
+		err = tp->af_specific->queue_xmit(skb, 0);
 		if (err <= 0)
 			return err;
 
@@ -698,6 +702,9 @@ u32 __tcp_select_window(struct sock *sk)
 	window = tp->rcv_wnd;
 	if (window <= free_space - mss || window > free_space)
 		window = (free_space/mss)*mss;
+	else if (mss == full_space &&
+	         free_space > window + full_space/2)
+		window = free_space;
 
 	return window;
 }
@@ -734,13 +741,13 @@ static void tcp_retrans_try_collapse(struct sock *sk, struct sk_buff *skb, int m
 		/* Ok.  We will be able to collapse the packet. */
 		__skb_unlink(next_skb, next_skb->list);
 
+		memcpy(skb_put(skb, next_skb_size), next_skb->data, next_skb_size);
+
 		if (next_skb->ip_summed == CHECKSUM_HW)
 			skb->ip_summed = CHECKSUM_HW;
 
-		if (skb->ip_summed != CHECKSUM_HW) {
-			memcpy(skb_put(skb, next_skb_size), next_skb->data, next_skb_size);
+		if (skb->ip_summed != CHECKSUM_HW)
 			skb->csum = csum_block_add(skb->csum, next_skb->csum, skb_size);
-		}
 
 		/* Update sequence range on original skb. */
 		TCP_SKB_CB(skb)->end_seq = TCP_SKB_CB(next_skb)->end_seq;
@@ -1197,7 +1204,7 @@ static inline void tcp_connect_init(struct sock *sk)
 		tp->window_clamp = dst->window;
 	tp->advmss = dst->advmss;
 	tcp_initialize_rcv_mss(sk);
-	tcp_vegas_init(tp);
+	tcp_ca_init(tp);
 
 	tcp_select_initial_window(tcp_full_space(sk),
 				  tp->advmss - (tp->ts_recent_stamp ? tp->tcp_header_len - sizeof(struct tcphdr) : 0),
@@ -1248,7 +1255,7 @@ int tcp_connect(struct sock *sk)
 	TCP_SKB_CB(buff)->end_seq = tp->write_seq;
 	tp->snd_nxt = tp->write_seq;
 	tp->pushed_seq = tp->write_seq;
-	tcp_vegas_init(tp);
+	tcp_ca_init(tp);
 
 	/* Send it off. */
 	TCP_SKB_CB(buff)->when = tcp_time_stamp;
@@ -1449,7 +1456,8 @@ void tcp_send_probe0(struct sock *sk)
 	}
 
 	if (err <= 0) {
-		tp->backoff++;
+		if (tp->backoff < sysctl_tcp_retries2)
+			tp->backoff++;
 		tp->probes_out++;
 		tcp_reset_xmit_timer (sk, TCP_TIME_PROBE0, 
 				      min(tp->rto << tp->backoff, TCP_RTO_MAX));

@@ -1,6 +1,21 @@
 IBM ServeRAID driver Change Log
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+        7.00.xx  - Linux 2.6 Kernel Changes
+             
+        6.11.07  - Make Logical Drive Info structure safe for DMA     
+                 - Get VersionInfo buffer off the stack !             
+        
+        6.10.24  - Remove 1G Addressing Limitations                   
+        
+        6.00.00  - Add 6x Adapters and Battery Flash 
+        
+        5.30.00  - use __devexit_p()
+	
+        5.10.15  - remove unused code (sem, macros, etc.)                         
+
+        5.10.12  - use pci_dma interfaces, update for 2.5 kernel changes  
+	      
         5.00.01  - Sarasota ( 5i ) adapters must always be scanned first  
                  - Get rid on IOCTL_NEW_COMMAND code  
                  - Add Extended DCDB Commands for Tape Support in 5I                  

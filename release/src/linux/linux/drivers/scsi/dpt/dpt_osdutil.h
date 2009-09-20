@@ -103,37 +103,37 @@
 /* OS dependent defines */
 /*--------------------- */
 
-#if defined(_DPT_MSDOS) || defined(_DPT_WIN_3X)
+#if defined (_DPT_MSDOS) || defined (_DPT_WIN_3X)
    #define      _DPT_16_BIT
 #else
    #define      _DPT_32_BIT
 #endif
 
-#if defined(_DPT_SCO) || defined(_DPT_UNIXWARE) || defined(_DPT_SOLARIS) || defined(_DPT_AIX) || defined(SNI_MIPS) || defined(_DPT_BSDI) || defined(_DPT_FREE_BSD) || defined(_DPT_LINUX)
+#if defined (_DPT_SCO) || defined (_DPT_UNIXWARE) || defined (_DPT_SOLARIS) || defined (_DPT_AIX) || defined (SNI_MIPS) || defined (_DPT_BSDI) || defined (_DPT_FREE_BSD) || defined(_DPT_LINUX)
    #define      _DPT_UNIX
 #endif
 
-#if defined(_DPT_WIN_3x) || defined(_DPT_WIN_4X) || defined(_DPT_WIN_NT) \
+#if defined (_DPT_WIN_3x) || defined (_DPT_WIN_4X) || defined (_DPT_WIN_NT) \
 	    || defined (_DPT_OS2)
    #define      _DPT_DLL_SUPPORT
 #endif
 
-#if !defined(_DPT_MSDOS) && !defined(_DPT_WIN_3X) && !defined(_DPT_NETWARE)
+#if !defined (_DPT_MSDOS) && !defined (_DPT_WIN_3X) && !defined (_DPT_NETWARE)
    #define      _DPT_PREEMPTIVE
 #endif
 
-#if !defined(_DPT_MSDOS) && !defined(_DPT_WIN_3X)
+#if !defined (_DPT_MSDOS) && !defined (_DPT_WIN_3X)
    #define      _DPT_MULTI_THREADED
 #endif
 
-#if !defined(_DPT_MSDOS)
+#if !defined (_DPT_MSDOS)
    #define      _DPT_MULTI_TASKING
 #endif
 
   /* These exist for platforms that   */
   /* chunk when accessing mis-aligned */
   /* data                             */
-#if defined(SNI_MIPS) || defined(_DPT_SOLARIS)
+#if defined (SNI_MIPS) || defined (_DPT_SOLARIS)
    #if defined (_DPT_BIG_ENDIAN)
 	#if !defined (_DPT_STRICT_ALIGN)
             #define _DPT_STRICT_ALIGN
@@ -160,7 +160,7 @@
 /* maintenance in the long run.                                      */
 /*                                                                   */
 /*-------------------------------------------------------------------*/
-#if !defined(DPTSQO)
+#if !defined (DPTSQO)
    #if defined (_DPT_SOLARIS)
       #define DPTSQO
       #define DPTSQC
@@ -175,7 +175,7 @@
 /* OS dependent typedefs */
 /*---------------------- */
 
-#if defined(_DPT_MSDOS) || defined(_DPT_SCO)
+#if defined (_DPT_MSDOS) || defined (_DPT_SCO)
    #define BYTE unsigned char
    #define WORD unsigned short
 #endif
@@ -194,7 +194,7 @@
    } access_U;
 #endif
 
-#if !defined(NULL)
+#if !defined (NULL)
    #define      NULL    0
 #endif
 
@@ -210,12 +210,12 @@
 /*------------------------ */
 
   /* Reverses the byte ordering of a 2 byte variable */
-#if !defined(osdSwap2)
+#if (!defined(osdSwap2))
  uSHORT       osdSwap2(DPT_UNALIGNED uSHORT *);
 #endif  // !osdSwap2
 
   /* Reverses the byte ordering of a 4 byte variable and shifts left 8 bits */
-#if !defined(osdSwap3)
+#if (!defined(osdSwap3))
  uLONG        osdSwap3(DPT_UNALIGNED uLONG *);
 #endif  // !osdSwap3
 
@@ -260,7 +260,7 @@
  *-------------------------------------*/
 uLONG	netSwap4(uLONG val);
 
-#if defined(_DPT_BIG_ENDIAN)
+#if defined (_DPT_BIG_ENDIAN)
 
 // for big-endian we need to swap
 

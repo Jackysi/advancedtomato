@@ -71,7 +71,7 @@
 */
 
 
-static struct net_device *alloc_netdev(int sizeof_priv, const char *mask,
+struct net_device *alloc_netdev(int sizeof_priv, const char *mask,
 				       void (*setup)(struct net_device *))
 {
 	struct net_device *dev;
@@ -97,6 +97,7 @@ static struct net_device *alloc_netdev(int sizeof_priv, const char *mask,
 
 	return dev;
 }
+EXPORT_SYMBOL(alloc_netdev);
 
 static struct net_device *init_alloc_dev(int sizeof_priv)
 {
@@ -419,7 +420,7 @@ void ether_setup(struct net_device *dev)
 	dev->hard_header_len 	= ETH_HLEN;
 	dev->mtu		= 1500; /* eth_mtu */
 	dev->addr_len		= ETH_ALEN;
-	dev->tx_queue_len	= 100;	/* Ethernet wants good queues */	
+	dev->tx_queue_len	= 1000;	/* Ethernet wants good queues */	
 	
 	memset(dev->broadcast,0xFF, ETH_ALEN);
 

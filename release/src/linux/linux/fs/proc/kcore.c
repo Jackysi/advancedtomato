@@ -27,11 +27,14 @@ static int open_kcore(struct inode * inode, struct file * filp)
 	return capable(CAP_SYS_RAWIO) ? 0 : -EPERM;
 }
 
+static loff_t lseek_kcore(struct file * file, loff_t offset, int origin);
+
 static ssize_t read_kcore(struct file *, char *, size_t, loff_t *);
 
 struct file_operations proc_kcore_operations = {
 	read:		read_kcore,
 	open:		open_kcore,
+	llseek:		lseek_kcore,
 };
 
 #ifdef CONFIG_KCORE_AOUT
@@ -42,7 +45,7 @@ static ssize_t read_kcore(struct file *file, char *buf, size_t count, loff_t *pp
 	ssize_t count1;
 	char * pnt;
 	struct user dump;
-#if defined(__i386__) || defined(__mc68000__) || defined(__x86_64__)
+#if defined (__i386__) || defined (__mc68000__) || defined(__x86_64__)
 #	define FIRST_MAPPED	PAGE_SIZE	/* we don't have page 0 mapped on x86.. */
 #else
 #	define FIRST_MAPPED	0
@@ -51,7 +54,7 @@ static ssize_t read_kcore(struct file *file, char *buf, size_t count, loff_t *pp
 	memset(&dump, 0, sizeof(struct user));
 	dump.magic = CMAGIC;
 	dump.u_dsize = (virt_to_phys(high_memory) >> PAGE_SHIFT);
-#if defined(__i386__) || defined(__x86_64__)
+#if defined (__i386__) || defined(__x86_64__)
 	dump.start_code = PAGE_OFFSET;
 #endif
 #ifdef __alpha__
@@ -93,8 +96,9 @@ static ssize_t read_kcore(struct file *file, char *buf, size_t count, loff_t *pp
 		if (copy_to_user(buf, (void *) (PAGE_OFFSET+p-PAGE_SIZE), count))
 			return -EFAULT;
 		read += count;
+		p += count;
 	}
-	*ppos += read;
+	*ppos = p;
 	return read;
 }
 #else /* CONFIG_KCORE_AOUT */
@@ -112,9 +116,9 @@ struct memelfnote
 
 extern char saved_command_line[];
 
-static size_t get_kcore_size(int *num_vma, size_t *elf_buflen)
+static unsigned long get_kcore_size(int *num_vma, size_t *elf_buflen)
 {
-	size_t try, size;
+	unsigned long try, size;
 	struct vm_struct *m;
 
 	*num_vma = 0;
@@ -125,14 +129,17 @@ static size_t get_kcore_size(int *num_vma, size_t *elf_buflen)
 	}
 
 	for (m=vmlist; m; m=m->next) {
-		try = (size_t)m->addr + m->size;
+		try = (unsigned long)m->addr + m->size;
 		if (try > size)
 			size = try;
 		*num_vma = *num_vma + 1;
 	}
 	*elf_buflen =	sizeof(struct elfhdr) + 
 			(*num_vma + 2)*sizeof(struct elf_phdr) + 
-			3 * sizeof(struct memelfnote);
+			3 * (sizeof(struct elf_note) + 4) +
+			sizeof(struct elf_prstatus) +
+			sizeof(struct elf_prpsinfo) +
+			sizeof(struct task_struct);
 	*elf_buflen = PAGE_ALIGN(*elf_buflen);
 	return (size - PAGE_OFFSET + *elf_buflen);
 }
@@ -170,6 +177,7 @@ static char *storenote(struct memelfnote *men, char *bufp)
 	DUMP_WRITE(&en, sizeof(en));
 	DUMP_WRITE(men->name, en.n_namesz);
 
+	/* XXX - cast from long long to long to avoid need for libgcc.a */
 	bufp = (char*) roundup((unsigned long)bufp,4);
 	DUMP_WRITE(men->data, men->datasz);
 	bufp = (char*) roundup((unsigned long)bufp,4);
@@ -274,7 +282,7 @@ static void elf_kcore_store_hdr(char *bufp, int num_vma, int dataoff)
 
 	memset(&prstatus, 0, sizeof(struct elf_prstatus));
 
-	nhdr->p_filesz	= notesize(&notes[0]);
+	nhdr->p_filesz += notesize(&notes[0]);
 	bufp = storenote(&notes[0], bufp);
 
 	/* set up the process info */
@@ -291,7 +299,7 @@ static void elf_kcore_store_hdr(char *bufp, int num_vma, int dataoff)
 	strcpy(prpsinfo.pr_fname, "vmlinux");
 	strncpy(prpsinfo.pr_psargs, saved_command_line, ELF_PRARGSZ);
 
-	nhdr->p_filesz	= notesize(&notes[1]);
+	nhdr->p_filesz += notesize(&notes[1]);
 	bufp = storenote(&notes[1], bufp);
 
 	/* set up the task structure */
@@ -300,7 +308,7 @@ static void elf_kcore_store_hdr(char *bufp, int num_vma, int dataoff)
 	notes[2].datasz	= sizeof(struct task_struct);
 	notes[2].data	= current;
 
-	nhdr->p_filesz	= notesize(&notes[2]);
+	nhdr->p_filesz += notesize(&notes[2]);
 	bufp = storenote(&notes[2], bufp);
 
 } /* end elf_kcore_store_hdr() */
@@ -312,14 +320,14 @@ static void elf_kcore_store_hdr(char *bufp, int num_vma, int dataoff)
 static ssize_t read_kcore(struct file *file, char *buffer, size_t buflen, loff_t *fpos)
 {
 	ssize_t acc = 0;
-	size_t size, tsz;
+	unsigned long size, tsz;
 	size_t elf_buflen;
 	int num_vma;
 	unsigned long start;
 
 	read_lock(&vmlist_lock);
 	proc_root_kcore->size = size = get_kcore_size(&num_vma, &elf_buflen);
-	if (buflen == 0 || *fpos >= size) {
+	if (buflen == 0 || (unsigned long long)*fpos >= size) {
 		read_unlock(&vmlist_lock);
 		return 0;
 	}
@@ -360,7 +368,7 @@ static ssize_t read_kcore(struct file *file, char *buffer, size_t buflen, loff_t
 		read_unlock(&vmlist_lock);
 
 	/* where page 0 not mapped, write zeros into buffer */
-#if defined(__i386__) || defined(__mc68000__) || defined(__x86_64__)
+#if defined (__i386__) || defined (__mc68000__) || defined(__x86_64__)
 	if (*fpos < PAGE_SIZE + elf_buflen) {
 		/* work out how much to clear */
 		tsz = PAGE_SIZE + elf_buflen - *fpos;
@@ -389,9 +397,16 @@ static ssize_t read_kcore(struct file *file, char *buffer, size_t buflen, loff_t
 	start = PAGE_OFFSET + (*fpos - elf_buflen);
 	if ((tsz = (PAGE_SIZE - (start & ~PAGE_MASK))) > buflen)
 		tsz = buflen;
-		
 	while (buflen) {
-		if ((start >= VMALLOC_START) && (start < VMALLOC_END)) {
+		int err; 
+	
+		if ((start > PAGE_OFFSET) && (start < (unsigned long)high_memory)) {
+			if (kern_addr_valid(start)) {
+				err = copy_to_user(buffer, (char *)start, tsz);
+			} else {
+				err = clear_user(buffer, tsz);
+			}
+		} else {
 			char * elf_buf;
 			struct vm_struct *m;
 			unsigned long curstart = start;
@@ -431,24 +446,11 @@ static ssize_t read_kcore(struct file *file, char *buffer, size_t buflen, loff_t
 					(char *)vmstart, vmsize);
 			}
 			read_unlock(&vmlist_lock);
-			if (copy_to_user(buffer, elf_buf, tsz)) {
+			err = copy_to_user(buffer, elf_buf, tsz); 
 				kfree(elf_buf);
-				return -EFAULT;
 			}
-			kfree(elf_buf);
-		} else if ((start > PAGE_OFFSET) && (start < 
-						(unsigned long)high_memory)) {
-			if (kern_addr_valid(start)) {
-				if (copy_to_user(buffer, (char *)start, tsz))
+		if (err)
 					return -EFAULT;
-			} else {
-				if (clear_user(buffer, tsz))
-					return -EFAULT;
-			}
-		} else {
-			if (clear_user(buffer, tsz))
-				return -EFAULT;
-		}
 		buflen -= tsz;
 		*fpos += tsz;
 		buffer += tsz;
@@ -460,3 +462,17 @@ static ssize_t read_kcore(struct file *file, char *buffer, size_t buflen, loff_t
 	return acc;
 }
 #endif /* CONFIG_KCORE_AOUT */
+
+static loff_t lseek_kcore(struct file * file, loff_t offset, int origin)
+{
+	switch (origin) {
+		case 2:
+			offset += file->f_dentry->d_inode->i_size;
+			break;
+		case 1:
+			offset += file->f_pos;
+	}
+	/* RED-PEN user can fake an error here by setting offset to >=-4095 && <0  */
+	file->f_pos = offset;
+	return offset;
+}

@@ -216,6 +216,8 @@ static inline int presto_do_rcvd(struct lento_vfs_context *info,
 }
 
 
+/* XXX fixme: this should not fail, all these dentries are in memory
+   when _we_ call this */
 int presto_settime(struct presto_file_set *fset, 
                    struct dentry *newobj,
                    struct dentry *parent,
@@ -1003,6 +1005,7 @@ int presto_do_unlink(struct presto_file_set *fset, struct dentry *dir,
         }
 
         if (linkno > 1) { 
+                /* FIXME: Combine this with the next call? */
                 error = presto_settime(fset, NULL, NULL, dentry,
                                        info, ATTR_CTIME);
                 dput(dentry); 
@@ -1157,6 +1160,7 @@ int presto_do_symlink(struct presto_file_set *fset, struct dentry *dir,
                 filter_setup_dentry_ops(cache->cache_filter, dentry->d_op, 
                                         &presto_dentry_ops);
                 dentry->d_op = filter_c2udops(cache->cache_filter);
+                /* XXX ? Cache state ? if Lento creates a symlink */
                 if ( ISLENTO(presto_c2m(cache)) ) {
                         presto_set(dentry, PRESTO_ATTR);
                 } else {
@@ -1243,7 +1247,7 @@ int lento_symlink(const char *oldname, const char *newname,
                 goto exit_lock;
         }
         error = presto_do_symlink(fset, nd.dentry,
-                                  dentry, oldname, info);
+                                  dentry, from, info);
         path_release(&nd);
         EXIT;
  exit_lock:
@@ -1793,6 +1797,9 @@ int do_rename(struct presto_file_set *fset,
                 goto exit;
         }
 
+        /* XXX make a distinction between cross file set
+         * and intra file set renames here
+         */
         presto_debug_fail_blkdev(fset, KML_OPCODE_RENAME | 0x10);
         if ( presto_do_kml(info, old_dentry) )
                 error = presto_journal_rename(&rec, fset, old_dentry,
@@ -2124,6 +2131,7 @@ static struct file *presto_filp_dopen(struct dentry *dentry, int flags)
         f->f_reada = 0;
         f->f_op = NULL;
         if (inode->i_op)
+                /* XXX should we set to presto ops, or leave at cache ops? */
                 f->f_op = inode->i_fop;
         if (f->f_op && f->f_op->open) {
                 error = f->f_op->open(inode, f);
@@ -2186,6 +2194,7 @@ again:  /* look the named file or a parent directory so we can get the cache */
         if ( error && error != -ENOENT ) {
                 EXIT;
                 unlock_kernel();
+                putname(tmp);
                 return error;
         } 
         if (error == -ENOENT)
@@ -2217,10 +2226,22 @@ again:  /* look the named file or a parent directory so we can get the cache */
                 goto exit;
         }
 
+        /* XXX start of code that might be replaced by something like:
+         * if (flags & (O_WRONLY | O_RDWR)) {
+         *      error = get_write_access(dentry->d_inode);
+         *      if (error) {
+         *              EXIT;
+         *              goto cleanup_dput;
+         *      }
+         * }
+         * fd = open_dentry(dentry, flags);
+         *
+         * including the presto_filp_dopen() function (check dget counts!)
+         */
         fd = get_unused_fd();
         if (fd < 0) {
                 EXIT;
-                goto cleanup_dput;
+                goto exit;
         }
 
         {
@@ -2230,10 +2251,9 @@ again:  /* look the named file or a parent directory so we can get the cache */
                 if (IS_ERR(f)) {
                         put_unused_fd(fd);
                         fd = error;
-                        EXIT;
-                        goto cleanup_dput;
+                } else {
+                        fd_install(fd, f);
                 }
-                fd_install(fd, f);
         }
         /* end of code that might be replaced by open_dentry */
 
@@ -2243,10 +2263,6 @@ exit:
         path_release(&nd);
         putname(tmp);
         return fd;
-
-cleanup_dput:
-        putname(&nd);
-        goto exit;
 }
 
 #ifdef CONFIG_FS_EXT_ATTR
@@ -2265,6 +2281,18 @@ int presto_setmode(struct presto_file_set *fset, struct dentry *dentry,
         struct inode *inode = dentry->d_inode;
 
         ENTRY;
+        /* The extended attributes for this inode were modified. 
+         * At this point we can not be sure if any of the ACL 
+         * information for this inode was updated. So we will 
+         * force VFS to reread the acls. Note that we do this 
+         * only when called from the SETEXTATTR ioctl, which is why we
+         * do this while setting the mode of the file. Also note
+         * that mark_inode_dirty is not be needed for i_*acl only
+         * to force i_mode info to disk, and should be removed once
+         * we use notify_change to update the mode.
+         * XXX: is mode setting really needed? Just setting acl's should
+         * be enough! VFS should change the i_mode as needed? SHP
+         */
         if (inode->i_acl && 
             inode->i_acl != POSIX_ACL_NOT_CACHED) 
             posix_acl_release(inode->i_acl);
@@ -2278,6 +2306,33 @@ int presto_setmode(struct presto_file_set *fset, struct dentry *dentry,
         mark_inode_dirty(inode);
         return 0;
 
+#if 0
+        /* XXX: The following code is the preferred way to set mode, 
+         * however, I need to carefully go through possible recursion
+         * paths back into presto. See comments in presto_do_setattr.
+         */
+        {    
+        int error=0; 
+        struct super_operations *sops;
+        struct iattr iattr;
+
+        iattr.ia_mode = mode;
+        iattr.ia_valid = ATTR_MODE|ATTR_FORCE;
+
+        error = -EPERM;
+        sops = filter_c2csops(fset->fset_cache->cache_filter); 
+        if (!sops &&
+            !sops->notify_change) {
+                EXIT;
+                return error;
+        }
+
+        error = sops->notify_change(dentry, &iattr);
+
+        EXIT;
+        return error;
+        }
+#endif
 }
 #endif
 
@@ -2357,6 +2412,7 @@ int presto_do_set_ext_attr(struct presto_file_set *fset,
 
 #ifdef CONFIG_FS_POSIX_ACL
         /* Reset mode if specified*/
+        /* XXX: when we do native acl support, move this code out! */
         if (mode != NULL) {
                 error = presto_setmode(fset, dentry, *mode);
                 if (error) { 

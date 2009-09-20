@@ -225,6 +225,10 @@ static void poll_finished(void)
     {
       int down = (poll.data[1] & 1) == 0;
       unsigned char scode = poll.data[1] >> 1;
+#if 0
+      if (down)
+	printk("[%02x]", scode);
+#endif
       handle_scancode(scode, down);
     }
     break;

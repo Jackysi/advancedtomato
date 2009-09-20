@@ -29,21 +29,24 @@ if [ "$CONFIG_INET" = "y" ]; then
    if [ "$CONFIG_EXPERIMENTAL" = "y" ]; then
       source net/khttpd/Config.in
    fi
+   if [ "$CONFIG_EXPERIMENTAL" = "y" ]; then
+      source net/sctp/Config.in
+   fi
 fi
 if [ "$CONFIG_EXPERIMENTAL" = "y" ]; then
-   bool 'Asynchronous Transfer Mode (ATM) (EXPERIMENTAL)' CONFIG_ATM
-   if [ "$CONFIG_ATM" = "y" ]; then
+   tristate 'Asynchronous Transfer Mode (ATM) (EXPERIMENTAL)' CONFIG_ATM
+   if [ "$CONFIG_ATM" = "y" -o "$CONFIG_ATM" = "m" ]; then
       if [ "$CONFIG_INET" = "y" ]; then
-	 bool '  Classical IP over ATM' CONFIG_ATM_CLIP
-	 if [ "$CONFIG_ATM_CLIP" = "y" ]; then
+	 dep_tristate '  Classical IP over ATM' CONFIG_ATM_CLIP $CONFIG_ATM
+	 if [ "$CONFIG_ATM_CLIP" != "n" ]; then
 	    bool '    Do NOT send ICMP if no neighbour' CONFIG_ATM_CLIP_NO_ICMP
 	 fi
       fi
-      tristate '  LAN Emulation (LANE) support' CONFIG_ATM_LANE
+      dep_tristate '  LAN Emulation (LANE) support' CONFIG_ATM_LANE $CONFIG_ATM
       if [ "$CONFIG_INET" = "y" -a "$CONFIG_ATM_LANE" != "n" ]; then
 	 tristate '    Multi-Protocol Over ATM (MPOA) support' CONFIG_ATM_MPOA
       fi
-      tristate '  RFC1483/2684 Bridged protocols' CONFIG_ATM_BR2684
+      dep_tristate '  RFC1483/2684 Bridged protocols' CONFIG_ATM_BR2684 $CONFIG_ATM
       if [ "$CONFIG_ATM_BR2684" != "n" ]; then
             bool '    Per-VC IP filter kludge' CONFIG_ATM_BR2684_IPFILTER
       fi
@@ -58,16 +61,15 @@ if [ "$CONFIG_IPX" != "n" ]; then
 fi
 
 tristate 'Appletalk protocol support' CONFIG_ATALK
-source drivers/net/appletalk/Config.in
+if [ "$CONFIG_ATALK" != "n" ]; then
+   source drivers/net/appletalk/Config.in
+fi
 
 tristate 'DECnet Support' CONFIG_DECNET
 if [ "$CONFIG_DECNET" != "n" ]; then
    source net/decnet/Config.in
 fi
 dep_tristate '802.1d Ethernet Bridging' CONFIG_BRIDGE $CONFIG_INET
-if [ "$CONFIG_BRIDGE" != "n" -a "$CONFIG_NETFILTER" != "n" ]; then
-   source net/bridge/netfilter/Config.in
-fi
 if [ "$CONFIG_EXPERIMENTAL" = "y" ]; then
    tristate 'CCITT X.25 Packet Layer (EXPERIMENTAL)' CONFIG_X25
    tristate 'LAPB Data Link Driver (EXPERIMENTAL)' CONFIG_LAPB
@@ -99,7 +101,7 @@ endmenu
 
 mainmenu_option next_comment
 comment 'Network testing'
-tristate 'Packet Generator (USE WITH CAUTION)' CONFIG_NET_PKTGEN
+dep_tristate 'Packet Generator (USE WITH CAUTION)' CONFIG_NET_PKTGEN $CONFIG_PROC_FS
 endmenu
 
 endmenu

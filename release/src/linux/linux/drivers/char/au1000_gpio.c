@@ -86,7 +86,7 @@ u32 get_au1000_avail_gpio_mask(void)
 
 #ifdef CONFIG_USB_OHCI
 	avail_mask &= ~((1<<4) | (1<<11));
-#ifndef CONFIG_AU1000_USB_DEVICE
+#ifndef CONFIG_AU1X00_USB_DEVICE
 	avail_mask &= ~((1<<5) | (1<<13));
 #endif
 #endif

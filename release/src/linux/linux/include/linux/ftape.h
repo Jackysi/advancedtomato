@@ -20,9 +20,9 @@
  the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
 
  *
- * $Source: /home/cvsroot/wrt54g/src/linux/linux/include/linux/ftape.h,v $
- * $Revision: 1.1.1.2 $
- * $Date: 2003/10/14 08:09:25 $
+ * $Source: /homes/cvs/ftape-stacked/include/linux/ftape.h,v $
+ * $Revision: 1.17.6.4 $
+ * $Date: 1997/11/25 01:52:54 $
  *
  *      This file contains global definitions, typedefs and macro's
  *      for the QIC-40/80/3010/3020 floppy-tape driver for Linux.
@@ -143,7 +143,7 @@ typedef union {
 
 /* Insert default settings
  */
-#if CONFIG_FT_PROBE_FC10
+#if CONFIG_FT_PROBE_FC10 == 1
 # if CONFIG_FT_FDC_BASE == 0
 #  undef  CONFIG_FT_FDC_BASE
 #  define CONFIG_FT_FDC_BASE 0x180
@@ -156,7 +156,7 @@ typedef union {
 #  undef  CONFIG_FT_FDC_DMA
 #  define CONFIG_FT_FDC_DMA 3
 # endif
-#elif CONFIG_FT_MACH2 == 1      /* CONFIG_FT_PROBE_FC10 == 1 */
+#elif CONFIG_FT_MACH2 == 1    /* CONFIG_FT_PROBE_FC10 == 1 */
 # if CONFIG_FT_FDC_BASE == 0
 #  undef  CONFIG_FT_FDC_BASE
 #  define CONFIG_FT_FDC_BASE 0x1E0
@@ -169,7 +169,7 @@ typedef union {
 #  undef  CONFIG_FT_FDC_DMA
 #  define CONFIG_FT_FDC_DMA 2
 # endif
-#elif CONFIG_FT_ALT_FDC == 1    /* CONFIG_FT_MACH2 */
+#elif CONFIG_FT_ALT_FDC == 1  /* CONFIG_FT_MACH2 */
 # if CONFIG_FT_FDC_BASE == 0
 #  undef  CONFIG_FT_FDC_BASE
 #  define CONFIG_FT_FDC_BASE 0x370

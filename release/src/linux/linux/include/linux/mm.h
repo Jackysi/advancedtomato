@@ -70,7 +70,7 @@ struct vm_area_struct {
 	unsigned long vm_pgoff;		/* Offset (within vm_file) in PAGE_SIZE
 					   units, *not* PAGE_CACHE_SIZE */
 	struct file * vm_file;		/* File we map to (can be NULL). */
-	unsigned long vm_raend;		
+	unsigned long vm_raend;		/* XXX: put full readahead info here. */
 	void * vm_private_data;		/* was vm_pte (shared mem) */
 };
 
@@ -104,7 +104,9 @@ struct vm_area_struct {
 #define VM_DONTEXPAND	0x00040000	/* Cannot expand with mremap() */
 #define VM_RESERVED	0x00080000	/* Don't unmap it from swap_out */
 
+#ifndef VM_STACK_FLAGS
 #define VM_STACK_FLAGS	0x00000177
+#endif
 
 #define VM_READHINTMASK			(VM_SEQ_READ | VM_RAND_READ)
 #define VM_ClearReadHint(v)		(v)->vm_flags &= ~VM_READHINTMASK
@@ -115,6 +117,7 @@ struct vm_area_struct {
 /* read ahead limits */
 extern int vm_min_readahead;
 extern int vm_max_readahead;
+extern unsigned long mmap_min_addr;
 
 /*
  * mapping from the currently active vm_flags protection bits (the
@@ -196,6 +199,11 @@ typedef struct page {
 #define put_page_testzero(p) 	atomic_dec_and_test(&(p)->count)
 #define page_count(p)		atomic_read(&(p)->count)
 #define set_page_count(p,v) 	atomic_set(&(p)->count, v)
+
+static inline struct page *nth_page(struct page *page, int n)
+{
+	return page + n;
+}
 
 /*
  * Various page->flags bits:
@@ -297,11 +305,18 @@ typedef struct page {
 #define PG_arch_1		13
 #define PG_reserved		14
 #define PG_launder		15	/* written out by VM pressure.. */
+#define PG_fs_1			16	/* Filesystem specific */
+
+#ifndef arch_set_page_uptodate
+#define arch_set_page_uptodate(page)
+#endif
 
 /* Make it prettier to test the above... */
 #define UnlockPage(page)	unlock_page(page)
 #define Page_Uptodate(page)	test_bit(PG_uptodate, &(page)->flags)
+#ifndef SetPageUptodate
 #define SetPageUptodate(page)	set_bit(PG_uptodate, &(page)->flags)
+#endif
 #define ClearPageUptodate(page)	clear_bit(PG_uptodate, &(page)->flags)
 #define PageDirty(page)		test_bit(PG_dirty, &(page)->flags)
 #define SetPageDirty(page)	set_bit(PG_dirty, &(page)->flags)
@@ -311,9 +326,11 @@ typedef struct page {
 #define TryLockPage(page)	test_and_set_bit(PG_locked, &(page)->flags)
 #define PageChecked(page)	test_bit(PG_checked, &(page)->flags)
 #define SetPageChecked(page)	set_bit(PG_checked, &(page)->flags)
+#define ClearPageChecked(page)	clear_bit(PG_checked, &(page)->flags)
 #define PageLaunder(page)	test_bit(PG_launder, &(page)->flags)
 #define SetPageLaunder(page)	set_bit(PG_launder, &(page)->flags)
 #define ClearPageLaunder(page)	clear_bit(PG_launder, &(page)->flags)
+#define ClearPageArch1(page)	clear_bit(PG_arch_1, &(page)->flags)
 
 /*
  * The zone field is never updated after free_area_init_core()
@@ -524,15 +541,15 @@ static inline int is_page_cache_freeable(struct page * page)
 	return page_count(page) - !!page->buffers == 1;
 }
 
-extern int can_share_swap_page(struct page *);
-extern int remove_exclusive_swap_page(struct page *);
+extern int FASTCALL(can_share_swap_page(struct page *));
+extern int FASTCALL(remove_exclusive_swap_page(struct page *));
 
 extern void __free_pte(pte_t);
 
 /* mmap.c */
 extern void lock_vma_mappings(struct vm_area_struct *);
 extern void unlock_vma_mappings(struct vm_area_struct *);
-extern void insert_vm_struct(struct mm_struct *, struct vm_area_struct *);
+extern int insert_vm_struct(struct mm_struct *, struct vm_area_struct *);
 extern void __insert_vm_struct(struct mm_struct *, struct vm_area_struct *);
 extern void build_mmap_rb(struct mm_struct *);
 extern void exit_mmap(struct mm_struct *);
@@ -631,18 +648,38 @@ static inline int expand_stack(struct vm_area_struct * vma, unsigned long addres
 	unsigned long grow;
 
 	/*
-	 * vma->vm_start/vm_end cannot change under us because the caller is required
-	 * to hold the mmap_sem in write mode. We need to get the spinlock only
-	 * before relocating the vma range ourself.
+	 * vma->vm_start/vm_end cannot change under us because the caller
+	 * is required to hold the mmap_sem in read mode.  We need the
+	 * page_table_lock lock to serialize against concurrent expand_stacks.
 	 */
 	address &= PAGE_MASK;
+
+	/* ensure a non-privileged process is not trying to mmap lower pages */
+	if (address < mmap_min_addr && !capable(CAP_SYS_RAWIO))
+		return -EPERM;
+
  	spin_lock(&vma->vm_mm->page_table_lock);
+
+	/* already expanded while we were spinning? */
+	if (vma->vm_start <= address) {
+		spin_unlock(&vma->vm_mm->page_table_lock);
+		return 0;
+	}
+
 	grow = (vma->vm_start - address) >> PAGE_SHIFT;
 	if (vma->vm_end - address > current->rlim[RLIMIT_STACK].rlim_cur ||
 	    ((vma->vm_mm->total_vm + grow) << PAGE_SHIFT) > current->rlim[RLIMIT_AS].rlim_cur) {
 		spin_unlock(&vma->vm_mm->page_table_lock);
 		return -ENOMEM;
 	}
+
+	if ((vma->vm_flags & VM_LOCKED) &&
+      	    ((vma->vm_mm->locked_vm + grow) << PAGE_SHIFT) > current->rlim[RLIMIT_MEMLOCK].rlim_cur) {
+		spin_unlock(&vma->vm_mm->page_table_lock);
+		return -ENOMEM;
+	}
+
+
 	vma->vm_start = address;
 	vma->vm_pgoff -= grow;
 	vma->vm_mm->total_vm += grow;

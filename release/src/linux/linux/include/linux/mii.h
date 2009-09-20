@@ -103,6 +103,19 @@
 #define NWAYTEST_LOOPBACK       0x0100  /* Enable loopback for N-way   */
 #define NWAYTEST_RESV2          0xfe00  /* Unused...                   */
 
+/* This structure is used in all SIOCxMIIxxx ioctl calls */
+struct mii_ioctl_data {
+	__u16		phy_id;
+	__u16		reg_num;
+	__u16		val_in;
+	__u16		val_out;
+};
+
+#ifdef __KERNEL__
+
+#include <linux/if.h>
+
+struct ethtool_cmd;
 
 struct mii_if_info {
 	int phy_id;
@@ -118,9 +131,6 @@ struct mii_if_info {
 	void (*mdio_write) (struct net_device *dev, int phy_id, int location, int val);
 };
 
-struct ethtool_cmd;
-struct mii_ioctl_data;
-
 extern int mii_link_ok (struct mii_if_info *mii);
 extern int mii_nway_restart (struct mii_if_info *mii);
 extern int mii_ethtool_gset(struct mii_if_info *mii, struct ethtool_cmd *ecmd);
@@ -134,14 +144,10 @@ extern int generic_mii_ioctl(struct mii_if_info *mii_if,
 			     unsigned int *duplex_changed);
 
 
-
-/* This structure is used in all SIOCxMIIxxx ioctl calls */
-struct mii_ioctl_data {
-	u16		phy_id;
-	u16		reg_num;
-	u16		val_in;
-	u16		val_out;
-};
+static inline struct mii_ioctl_data *if_mii(struct ifreq *rq)
+{
+	return (struct mii_ioctl_data *) &rq->ifr_ifru;
+}
 
 
 /**
@@ -195,5 +201,5 @@ static inline unsigned int mii_duplex (unsigned int duplex_lock,
 	return 0;
 }
 
-
+#endif /* __KERNEL__ */
 #endif /* __LINUX_MII_H__ */

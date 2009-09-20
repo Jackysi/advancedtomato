@@ -3,7 +3,7 @@
  *
  *	DECstation 5000/1xx (3min or KN02-BA) definitions.
  *
- *	Copyright (C) 2002  Maciej W. Rozycki
+ *	Copyright (C) 2002, 2003  Maciej W. Rozycki
  *
  *	This program is free software; you can redistribute it and/or
  *	modify it under the terms of the GNU General Public License
@@ -14,12 +14,6 @@
 #define __ASM_MIPS_DEC_KN02BA_H
 
 #include <asm/dec/kn02xa.h>		/* For common definitions. */
-
-/*
- * Some port addresses...
- */
-#define KN02BA_IOASIC_BASE	KN02XA_IOASIC_BASE	/* I/O ASIC */
-#define KN02BA_RTC_BASE		KN02XA_RTC_BASE		/* RTC */
 
 /*
  * CPU interrupt bits.
@@ -36,7 +30,7 @@
 #define KN02BA_IO_INR_RES_15	15	/* unused */
 #define KN02BA_IO_INR_NVRAM	14	/* (*) NVRAM clear jumper */
 #define KN02BA_IO_INR_RES_13	13	/* unused */
-#define KN02BA_IO_INR_MEMORY	12	/* memory, I/O bus write errors */
+#define KN02BA_IO_INR_BUS	12	/* memory, I/O bus read/write errors */
 #define KN02BA_IO_INR_RES_11	11	/* unused */
 #define KN02BA_IO_INR_NRMOD	10	/* (*) NRMOD manufacturing jumper */
 #define KN02BA_IO_INR_ASC	9	/* ASC (NCR53C94) SCSI */
@@ -46,8 +40,28 @@
 #define KN02BA_IO_INR_RTC	5	/* DS1287 RTC */
 #define KN02BA_IO_INR_PSU	4	/* power supply unit warning */
 #define KN02BA_IO_INR_RES_3	3	/* unused */
-#define KN02BA_IO_INR_ASC_DATA	2	/* SCSI data ready (discouraged?) */
-#define KN02BA_IO_INR_PBNC	1	/* HALT button debouncer */
-#define KN02BA_IO_INR_PBNO	0	/* ~HALT button debouncer */
+#define KN02BA_IO_INR_ASC_DATA	2	/* SCSI data ready (for PIO) */
+#define KN02BA_IO_INR_PBNC	1	/* ~HALT button debouncer */
+#define KN02BA_IO_INR_PBNO	0	/* HALT button debouncer */
+
+
+/*
+ * Memory Error Register bits.
+ */
+#define KN02BA_MER_RES_27	(1<<27)		/* unused */
+
+/*
+ * Memory Size Register bits.
+ */
+#define KN02BA_MSR_RES_17	(0x3ff<<17)	/* unused */
+
+/*
+ * I/O ASIC System Support Register bits.
+ */
+#define KN02BA_IO_SSR_TXDIS1	(1<<14)		/* SCC1 transmit disable */
+#define KN02BA_IO_SSR_TXDIS0	(1<<13)		/* SCC0 transmit disable */
+#define KN02BA_IO_SSR_RES_12	(1<<12)		/* unused */
+
+#define KN02BA_IO_SSR_LEDS	(0xff<<0)	/* ~diagnostic LEDs */
 
 #endif /* __ASM_MIPS_DEC_KN02BA_H */

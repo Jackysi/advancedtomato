@@ -239,7 +239,7 @@ void __init init_IRQ(void)
 	setup_irq(VR4181_IRQ_RTCL1, &reserved);
 	setup_irq(VR4181_IRQ_RTCL2, &reserved);
 
-#ifdef CONFIG_REMOTE_DEBUG
+#ifdef CONFIG_KGDB
 	printk("Setting debug traps - please connect the remote debugger.\n");
 
 	set_debug_traps();

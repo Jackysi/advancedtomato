@@ -392,7 +392,7 @@ sys_call_table:
         .long  SYSCALL(sys_oldumount,sys32_oldumount_wrapper)
         .long  SYSCALL(sys_ni_syscall,sys32_setuid16_wrapper)   /* old setuid16 syscall*/
         .long  SYSCALL(sys_ni_syscall,sys32_getuid16)   /* old getuid16 syscall*/
-        .long  SYSCALL(sys_ni_syscall,sys_ni_syscall) /* 25 old stime syscall */
+        .long  SYSCALL(sys_ni_syscall,sys32_stime_wrapper) /* 25 old stime syscall */
         .long  SYSCALL(sys_ptrace,sys32_ptrace_wrapper)
         .long  SYSCALL(sys_alarm,sys32_alarm_wrapper)
         .long  SYSCALL(sys_ni_syscall,sys_ni_syscall) /* old fstat syscall */
@@ -489,7 +489,7 @@ sys_call_table:
         .long  SYSCALL(sys_sigreturn_glue,sys32_sigreturn_glue)
         .long  SYSCALL(sys_clone_glue,sys_clone_glue) /* 120 */
         .long  SYSCALL(sys_setdomainname,sys32_setdomainname_wrapper)
-        .long  SYSCALL(sys_newuname,sys32_newuname_wrapper)
+        .long  SYSCALL(s390x_newuname,sys32_newuname_wrapper)
         .long  SYSCALL(sys_ni_syscall,sys_ni_syscall) /* modify_ldt for i386 */
         .long  SYSCALL(sys_adjtimex,sys32_adjtimex_wrapper)
         .long  SYSCALL(sys_mprotect,sys32_mprotect_wrapper) /* 125 */
@@ -503,7 +503,7 @@ sys_call_table:
         .long  SYSCALL(sys_fchdir,sys32_fchdir_wrapper)
         .long  SYSCALL(sys_bdflush,sys32_bdflush_wrapper)
         .long  SYSCALL(sys_sysfs,sys32_sysfs_wrapper)           /* 135 */
-        .long  SYSCALL(sys_personality,sys32_personality_wrapper)
+        .long  SYSCALL(s390x_personality,sys32_personality_wrapper)
         .long  SYSCALL(sys_ni_syscall,sys_ni_syscall) /* for afs_syscall */
         .long  SYSCALL(sys_ni_syscall,sys32_setfsuid16_wrapper) /* old setfsuid16 syscall */
         .long  SYSCALL(sys_ni_syscall,sys32_setfsgid16_wrapper) /* old setfsgid16 syscall */
@@ -516,7 +516,7 @@ sys_call_table:
         .long  SYSCALL(sys_writev,sys32_writev_wrapper)
         .long  SYSCALL(sys_getsid,sys32_getsid_wrapper)
         .long  SYSCALL(sys_fdatasync,sys32_fdatasync_wrapper)
-        .long  SYSCALL(sys_sysctl,sys_ni_syscall)
+        .long  SYSCALL(sys_sysctl,sys32_sysctl_wrapper)
         .long  SYSCALL(sys_mlock,sys32_mlock_wrapper)           /* 150 */
         .long  SYSCALL(sys_munlock,sys32_munlock_wrapper)
         .long  SYSCALL(sys_mlockall,sys32_mlockall_wrapper)
@@ -558,7 +558,7 @@ sys_call_table:
         .long  SYSCALL(sys_ni_syscall,sys_ni_syscall) /* streams1 */
         .long  SYSCALL(sys_ni_syscall,sys_ni_syscall) /* streams2 */
         .long  SYSCALL(sys_vfork_glue,sys_vfork_glue) /* 190 */
-        .long  SYSCALL(sys_getrlimit,sys32_old_getrlimit_wrapper)
+        .long  SYSCALL(sys_getrlimit,sys32_getrlimit_wrapper)
 	.long  SYSCALL(sys_mmap2,sys32_mmap2_wrapper)
 	.long  SYSCALL(sys_ni_syscall,sys32_truncate64_wrapper)
         .long  SYSCALL(sys_ni_syscall,sys32_ftruncate64_wrapper)
@@ -589,7 +589,7 @@ sys_call_table:
         .long  SYSCALL(sys_madvise,sys32_madvise_wrapper)
 	.long  SYSCALL(sys_getdents64,sys32_getdents64_wrapper)/* 220 */
 	.long  SYSCALL(sys_ni_syscall,sys32_fcntl64_wrapper)
-	.long  SYSCALL(sys_ni_syscall,sys_ni_syscall)
+	.long  SYSCALL(sys_readahead,sys32_readahead)
 	.long  SYSCALL(sys_ni_syscall,sys_ni_syscall)
 	.long  SYSCALL(sys_ni_syscall,sys_ni_syscall) /* 224 - reserved for setxattr  */
 	.long  SYSCALL(sys_ni_syscall,sys_ni_syscall) /* 225 - reserved for lsetxattr */
@@ -615,16 +615,30 @@ sys_call_table:
 
         .globl  pgm_check_handler
 pgm_check_handler:
+/*
+ * First we need to check for a special case:
+ * Single stepping an instruction that disables the PER event mask will
+ * cause a PER event AFTER the mask has been set. Example: SVC or LPSW.
+ * For a single stepped SVC the program check handler gets control after
+ * the SVC new PSW has been loaded. But we want to execute the SVC first and
+ * then handle the PER event. Therefore we update the SVC old PSW to point
+ * to the pgm_check_handler and branch to the SVC handler after we checked
+ * if we have to load the kernel stack register.
+ * For every other possible cause for PER event without the PER mask set
+ * we just ignore the PER event (FIXME: is there anything we have to do
+ * for LPSW?).
+ */
         tm      __LC_PGM_INT_CODE+1,0x80 # check whether we got a per exception
         jnz     pgm_per                  # got per exception -> special case
 	SAVE_ALL __LC_PGM_OLD_PSW,1
-	llgh    %r8,__LC_PGM_INT_CODE
+	lgf     %r3,__LC_PGM_ILC	 # load program interruption code
+	lghi	%r8,0x7f
+	ngr	%r8,%r3
         sll     %r8,3
 	GET_CURRENT
         larl    %r1,pgm_check_table
         lg      %r1,0(%r8,%r1)		 # load address of handler routine
         la      %r2,SP_PTREGS(%r15)	 # address of register-save area
-	lgf     %r3,__LC_PGM_ILC	 # load program interruption code
 	larl	%r14,sysc_return
         br      %r1			 # branch to interrupt-handler
 
@@ -708,7 +722,12 @@ pgm_tracesys:
         .globl io_int_handler
 io_int_handler:
         SAVE_ALL __LC_IO_OLD_PSW,0
+	mc 0, 0
         GET_CURRENT                    # load pointer to task_struct to R9
+	stck	__LC_INT_CLOCK
+	clc	__LC_INT_CLOCK(8),__LC_JIFFY_TIMER
+	jhe	io_handle_tick
+io_call_handler:
         la      %r2,SP_PTREGS(%r15)    # address of register-save area
 	llgh    %r3,__LC_SUBCHANNEL_NR # load subchannel number
         llgf    %r4,__LC_IO_INT_PARM   # load interuption parm
@@ -766,14 +785,27 @@ io_signal_return:
 	larl    %r14,io_leave
         jg      do_signal           # return point is io_leave
 
+#
+# account tick
+#
+io_handle_tick:
+	la	%r2,SP_PTREGS(%r15)    # address of register-save area
+	larl	%r14,io_call_handler
+	jg	account_ticks
+
 /*
  * External interrupt handler routine
  */
         .globl  ext_int_handler
 ext_int_handler:
         SAVE_ALL __LC_EXT_OLD_PSW,0
+	mc 0, 0
         GET_CURRENT                    # load pointer to task_struct to R9
 	llgh	%r6,__LC_EXT_INT_CODE  # get interruption code
+	stck	__LC_INT_CLOCK
+	clc	__LC_INT_CLOCK(8),__LC_JIFFY_TIMER
+	jhe	ext_handle_tick
+ext_call_handler:
 	lgr	%r1,%r6		       # calculate index = code & 0xff
 	nill	%r1,0xff
 	sll	%r1,3
@@ -785,6 +817,8 @@ ext_int_loop:
 	ch	%r6,16(%r7)	       # compare external interrupt code
 	jne	ext_int_next
 	lg	%r1,8(%r7)	       # get handler address
+	ltgr	%r1,%r1
+	jz	ext_int_next
 	la	%r2,SP_PTREGS(%r15)    # address of register-save area
 	lgr	%r3,%r6		       # interruption code
 	basr	%r14,%r1	       # call handler
@@ -794,12 +828,21 @@ ext_int_next:
 	jnz	ext_int_loop
 	j	io_return
 
+#
+# account tick
+#
+ext_handle_tick:
+	la	%r2,SP_PTREGS(%r15)    # address of register-save area
+	larl	%r14,ext_call_handler
+	jg	account_ticks
+
 /*
  * Machine check handler routines
  */
         .globl mcck_int_handler
 mcck_int_handler:
         SAVE_ALL __LC_MCK_OLD_PSW,0
+	mc 0, 0
 	brasl   %r14,s390_do_machine_check
 mcck_return:
         RESTORE_ALL 0

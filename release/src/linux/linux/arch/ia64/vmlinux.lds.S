@@ -7,12 +7,18 @@
 OUTPUT_FORMAT("elf64-ia64-little")
 OUTPUT_ARCH(ia64)
 ENTRY(phys_start)
+PHDRS {
+  code   PT_LOAD;
+  data   PT_LOAD;
+}
 SECTIONS
 {
   /* Sections to be discarded */
   /DISCARD/ : {
 	*(.text.exit)
 	*(.data.exit)
+	*(*.text.exit)
+	*(*.data.exit)
 	*(.exitcall.exit)
 	*(.IA_64.unwind.text.exit)
 	*(.IA_64.unwind_info.text.exit)
@@ -21,10 +27,12 @@ SECTIONS
   v = PAGE_OFFSET;	/* this symbol is here to make debugging easier... */
   phys_start = _start - PAGE_OFFSET;
 
+  code : { } :code
   . = KERNEL_START;
 
   _text = .;
   _stext = .;
+
   .text : AT(ADDR(.text) - PAGE_OFFSET)
     {
 	*(.text.ivt)
@@ -45,38 +53,48 @@ SECTIONS
 
   /* Exception table */
   . = ALIGN(16);
-  __start___ex_table = .;
   __ex_table : AT(ADDR(__ex_table) - PAGE_OFFSET)
-	{ *(__ex_table) }
-  __stop___ex_table = .;
+	{
+	  __start___ex_table = .;
+	  *(__ex_table)
+	  __stop___ex_table = .;
+	}
 
 #if defined(CONFIG_IA64_GENERIC)
   /* Machine Vector */
   . = ALIGN(16);
-  machvec_start = .;
   .machvec : AT(ADDR(.machvec) - PAGE_OFFSET)
-	{ *(.machvec) }
-  machvec_end = .;
+	{
+	  machvec_start = .;
+	  *(.machvec)
+	  machvec_end = .;
+	}
 #endif
 
-  __start___ksymtab = .;	/* Kernel symbol table */
   __ksymtab : AT(ADDR(__ksymtab) - PAGE_OFFSET)
-	{ *(__ksymtab) }
-  __stop___ksymtab = .;
+	{
+	  __start___ksymtab = .;	/* Kernel symbol table */
+	  *(__ksymtab)
+	  __stop___ksymtab = .;
+	}
 
-  __start___kallsyms = .;	/* All kernel symbols for debugging */
   __kallsyms : AT(ADDR(__kallsyms) - PAGE_OFFSET)
-	{ *(__kallsyms) }
-  __stop___kallsyms = .;
+	{
+	  __start___kallsyms = .;	/* All kernel symbols for debugging */
+	  *(__kallsyms)
+	  __stop___kallsyms = .;
+	}
 
   /* Unwind info & table: */
   . = ALIGN(8);
   .IA_64.unwind_info : AT(ADDR(.IA_64.unwind_info) - PAGE_OFFSET)
 	{ *(.IA_64.unwind_info*) }
-  ia64_unw_start = .;
   .IA_64.unwind : AT(ADDR(.IA_64.unwind) - PAGE_OFFSET)
-	{ *(.IA_64.unwind*) }
-  ia64_unw_end = .;
+	{
+	  ia64_unw_start = .;
+	  *(.IA_64.unwind*)
+	  ia64_unw_end = .;
+	}
 
   .rodata : AT(ADDR(.rodata) - PAGE_OFFSET)
 	{ *(.rodata) *(.rodata.*) }
@@ -95,14 +113,18 @@ SECTIONS
   .data.init : AT(ADDR(.data.init) - PAGE_OFFSET)
 	{ *(.data.init) }
    . = ALIGN(16);
-  __setup_start = .;
   .setup.init : AT(ADDR(.setup.init) - PAGE_OFFSET)
-        { *(.setup.init) }
-  __setup_end = .;
-  __initcall_start = .;
+        {
+	  __setup_start = .;
+	  *(.setup.init)
+	  __setup_end = .;
+	}
   .initcall.init : AT(ADDR(.initcall.init) - PAGE_OFFSET)
-        { *(.initcall.init) }
-  __initcall_end = .;
+        {
+	  __initcall_start = .;
+	  *(.initcall.init)
+	  __initcall_end = .;
+	}
   . = ALIGN(PAGE_SIZE);
   __init_end = .;
 
@@ -125,6 +147,7 @@ SECTIONS
   .kstrtab : AT(ADDR(.kstrtab) - PAGE_OFFSET)
 	{ *(.kstrtab) }
 
+  data : { } :data
   .data : AT(ADDR(.data) - PAGE_OFFSET)
 	{ *(.data) *(.gnu.linkonce.d*) CONSTRUCTORS }
 
@@ -148,6 +171,7 @@ SECTIONS
   . = ALIGN(64 / 8);
   _end = .;
 
+  code : { } :code
   /* Stabs debugging sections.  */
   .stab 0 : { *(.stab) }
   .stabstr 0 : { *(.stabstr) }

@@ -6,17 +6,11 @@
  * Copyright (C) 1994 - 1999 by Ralf Baechle
  * Copyright (C) 1996 by Paul M. Antoine
  * Copyright (C) 1994 - 1999 by Ralf Baechle
- *
- * Changed set_except_vector declaration to allow return of previous
- * vector address value - necessary for "borrowing" vectors.
- *
  * Kevin D. Kissell, kevink@mips.org and Carsten Langgaard, carstenl@mips.com
  * Copyright (C) 2000 MIPS Technologies, Inc.
  */
 #ifndef _ASM_SYSTEM_H
 #define _ASM_SYSTEM_H
-
-#ifdef __KERNEL__
 
 #include <linux/config.h>
 #include <asm/sgidefs.h>
@@ -38,7 +32,7 @@ __asm__ (
 	".set\tpop\n\t"
 	".endm");
 
-extern __inline__ void
+static __inline__ void
 __sti(void)
 {
 	__asm__ __volatile__(
@@ -70,7 +64,7 @@ __asm__ (
 	".set\tpop\n\t"
 	".endm");
 
-extern __inline__ void
+static __inline__ void
 __cli(void)
 {
 	__asm__ __volatile__(
@@ -116,6 +110,25 @@ __asm__ __volatile__(							\
 	: /* no inputs */						\
 	: "memory")
 
+__asm__ (
+	".macro\t__save_and_sti result\n\t"
+	".set\tpush\n\t"
+	".set\treorder\n\t"
+	".set\tnoat\n\t"
+	"mfc0\t\\result, $12\n\t"
+	"ori\t$1, \\result, 1\n\t"
+	".set\tnoreorder\n\t"
+	"mtc0\t$1, $12\n\t"
+	".set\tpop\n\t"
+	".endm");
+
+#define __save_and_sti(x)						\
+__asm__ __volatile__(							\
+	"__save_and_sti\t%0"						\
+	: "=r" (x)							\
+	: /* no inputs */						\
+	: "memory")
+
 __asm__(".macro\t__restore_flags flags\n\t"
 	".set\tnoreorder\n\t"
 	".set\tnoat\n\t"
@@ -154,6 +167,7 @@ extern void __global_restore_flags(unsigned long);
 #  define save_flags(x) do { x = __global_save_flags(); } while (0)
 #  define restore_flags(x) __global_restore_flags(x)
 #  define save_and_cli(x) do { save_flags(x); cli(); } while(0)
+#  define save_and_sti(x) do { save_flags(x); sti(); } while(0)
 
 #else /* Single processor */
 
@@ -162,11 +176,13 @@ extern void __global_restore_flags(unsigned long);
 #  define save_flags(x) __save_flags(x)
 #  define save_and_cli(x) __save_and_cli(x)
 #  define restore_flags(x) __restore_flags(x)
+#  define save_and_sti(x) __save_and_sti(x)
 
 #endif /* SMP */
 
 /* For spinlocks etc */
 #define local_irq_save(x)	__save_and_cli(x)
+#define local_irq_set(x)	__save_and_sti(x)
 #define local_irq_restore(x)	__restore_flags(x)
 #define local_irq_disable()	__cli()
 #define local_irq_enable()	__sti()
@@ -212,8 +228,8 @@ extern void __global_restore_flags(unsigned long);
 
 #define wmb()		fast_wmb()
 #define rmb()		fast_rmb()
-#define mb()		wbflush();
-#define iob()		wbflush();
+#define mb()		wbflush()
+#define iob()		wbflush()
 
 #else /* !CONFIG_CPU_HAS_WB */
 
@@ -240,13 +256,11 @@ do { var = value; mb(); } while (0)
 #define set_wmb(var, value) \
 do { var = value; wmb(); } while (0)
 
-#ifndef __ASSEMBLY__
 /*
  * switch_to(n) should switch tasks to task nr n, first
  * checking that n isn't the current task, in which case it does nothing.
  */
 extern asmlinkage void *resume(void *last, void *next);
-#endif /* !__ASSEMBLY__ */
 
 #define prepare_to_switch()	do { } while(0)
 
@@ -257,7 +271,11 @@ do { \
 	(last) = resume(prev, next); \
 } while(0)
 
-extern __inline__ unsigned long xchg_u32(volatile int * m, unsigned long val)
+/*
+ * For 32 and 64 bit operands we can take advantage of ll and sc.
+ * FIXME: This doesn't work for R3000 machines.
+ */
+static __inline__ unsigned long xchg_u32(volatile int * m, unsigned long val)
 {
 #ifdef CONFIG_CPU_HAS_LLSC
 	unsigned long dummy;
@@ -303,6 +321,7 @@ __xchg(unsigned long x, volatile void * ptr, int size)
 }
 
 extern void *set_except_vector(int n, void *addr);
+extern void per_cpu_trap_init(void);
 
 extern void __die(const char *, struct pt_regs *, const char *file,
 	const char *func, unsigned long line) __attribute__((noreturn));
@@ -313,7 +332,5 @@ extern void __die_if_kernel(const char *, struct pt_regs *, const char *file,
 	__die(msg, regs, __FILE__ ":", __FUNCTION__, __LINE__)
 #define die_if_kernel(msg, regs)					\
 	__die_if_kernel(msg, regs, __FILE__ ":", __FUNCTION__, __LINE__)
-
-#endif /* __KERNEL__ */
 
 #endif /* _ASM_SYSTEM_H */

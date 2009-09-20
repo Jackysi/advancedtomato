@@ -122,6 +122,7 @@ sys_rt_sigsuspend(sigset_t *unewset, size_t sigsetsize, long r12, long r13,
 {
 	sigset_t saveset, newset;
 
+	/* XXX: Don't preclude handling different sized sigset_t's.  */
 	if (sigsetsize != sizeof(sigset_t))
 		return -EINVAL;
 
@@ -516,7 +517,7 @@ give_sigsegv:
  * OK, we're invoking a handler
  */	
 
-static inline void
+extern inline void
 handle_signal(int canrestart, unsigned long sig, struct k_sigaction *ka,
 	      siginfo_t *info, sigset_t *oldset, struct pt_regs * regs)
 {
@@ -527,7 +528,7 @@ handle_signal(int canrestart, unsigned long sig, struct k_sigaction *ka,
 			case -ERESTARTNOHAND:
 				/* ERESTARTNOHAND means that the syscall should only be
 				   restarted if there was no handler for the signal, and since
-				   we only get here if there is a handler, we dont restart */
+				   we only get here if there is a handler, we don't restart */
 				regs->r10 = -EINTR;
 				break;
 

@@ -19,14 +19,12 @@ extern unsigned int pcibios_assign_all_busses(void);
 #else
 #define pcibios_assign_all_busses()	0
 #endif
+#define pcibios_scan_all_fns()		0
 
 #define PCIBIOS_MIN_IO		0x1000
 #define PCIBIOS_MIN_MEM		0x10000000
 
-static inline void pcibios_set_master(struct pci_dev *dev)
-{
-	/* No special bus mastering setup handling */
-}
+extern void pcibios_set_master(struct pci_dev *dev);
 
 static inline void pcibios_penalize_isa_irq(int irq)
 {
@@ -117,7 +115,12 @@ static inline void pci_unmap_single(struct pci_dev *hwdev, dma_addr_t dma_addr,
 	if (direction == PCI_DMA_NONE)
 		out_of_line_bug();
 
-	/* Nothing to do */
+	if (direction != PCI_DMA_TODEVICE) {
+		unsigned long addr;
+
+		addr = baddr_to_bus(hwdev->bus, dma_addr) + PAGE_OFFSET;
+		dma_cache_wback_inv(addr, size);
+	}
 }
 
 /*
@@ -198,8 +201,9 @@ static inline int pci_map_sg(struct pci_dev *hwdev, struct scatterlist *sg,
 		} else {
 			sg->dma_address = page_to_bus(sg->page) +
 			                  sg->offset;
-			dma_cache_wback_inv((unsigned long)page_address(sg->page) + sg->offset,
-					    sg->length);
+			dma_cache_wback_inv((unsigned long)
+				(page_address(sg->page) + sg->offset),
+				sg->length);
 		}
 	}
 
@@ -343,7 +347,7 @@ static inline void pci_dac_dma_sync_single(struct pci_dev *pdev,
 /*
  * Return the index of the PCI controller for device.
  */
-#define pci_controller_num(pdev)	(0)
+#define pci_controller_num(pdev)	({ (void)(pdev); 0; })
 
 /*
  * These macros should be used after a pci_map_sg call has been done

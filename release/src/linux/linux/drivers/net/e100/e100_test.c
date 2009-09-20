@@ -1,7 +1,7 @@
 /*******************************************************************************
 
   
-  Copyright(c) 1999 - 2002 Intel Corporation. All rights reserved.
+  Copyright(c) 1999 - 2004 Intel Corporation. All rights reserved.
   
   This program is free software; you can redistribute it and/or modify it 
   under the terms of the GNU General Public License as published by the Free 
@@ -25,11 +25,11 @@
   Intel Corporation, 5200 N.E. Elam Young Parkway, Hillsboro, OR 97124-6497
 *******************************************************************************/
 
-#include "e100.h"
+#include "e100_phy.h"
 #include "e100_config.h"
 
 extern u16 e100_eeprom_read(struct e100_private *, u16);
-extern int e100_wait_exec_cmplx(struct e100_private *, u32,u8);
+extern int e100_wait_exec_cmplx(struct e100_private *, u32,u8, u8);
 extern void e100_phy_reset(struct e100_private *bdp);
 extern void e100_phy_autoneg(struct e100_private *bdp);
 extern void e100_phy_set_loopback(struct e100_private *bdp);
@@ -46,6 +46,7 @@ static u8 e100_diag_loopback_alloc(struct e100_private *);
 static void e100_diag_loopback_cu_ru_exec(struct e100_private *);
 static u8 e100_diag_check_pkt(u8 *);
 static void e100_diag_loopback_free(struct e100_private *);
+static int e100_cable_diag(struct e100_private *bdp);
 
 #define LB_PACKET_SIZE 1500
 
@@ -60,52 +61,52 @@ u32
 e100_run_diag(struct net_device *dev, u64 *test_info, u32 flags)
 {
 	struct e100_private* bdp = dev->priv;
-	u8 test_result = true;
+	u8 test_result = 0;
 
-	e100_isolate_driver(bdp);
-
+	if (!e100_get_link_state(bdp)) {
+		test_result = ETH_TEST_FL_FAILED;
+		test_info[test_link] = true;
+	}
+	if (!e100_diag_eeprom(dev)) {
+		test_result = ETH_TEST_FL_FAILED;
+		test_info[test_eeprom] = true;
+	}
 	if (flags & ETH_TEST_FL_OFFLINE) {
 		u8 fail_mask;
-		
-		fail_mask = e100_diag_selftest(dev);
-		if (fail_mask) {
-			test_result = false;
-			if (fail_mask & REGISTER_TEST_FAIL)
-				test_info [E100_REG_TEST_FAIL] = true;
-			if (fail_mask & ROM_TEST_FAIL)
-				test_info [E100_ROM_TEST_FAIL] = true;
-			if (fail_mask & SELF_TEST_FAIL)
-				test_info [E100_MAC_TEST_FAIL] = true;
-			if (fail_mask & TEST_TIMEOUT)
-				test_info [E100_CHIP_TIMEOUT] = true;
+		if (netif_running(dev)) {
+			spin_lock_bh(&dev->xmit_lock);
+			e100_close(dev);
+			spin_unlock_bh(&dev->xmit_lock);
+		}
+		if (e100_diag_selftest(dev)) {
+			test_result = ETH_TEST_FL_FAILED;
+			test_info[test_self_test] = true;
 		}
 
 		fail_mask = e100_diag_loopback(dev);
 		if (fail_mask) {
-			test_result = false;
+			test_result = ETH_TEST_FL_FAILED;
 			if (fail_mask & PHY_LOOPBACK)
-				test_info [E100_LPBK_PHY_FAIL] = true;
+				test_info[test_loopback_phy] = true;
 			if (fail_mask & MAC_LOOPBACK)
-				test_info [E100_LPBK_MAC_FAIL] = true;
+				test_info[test_loopback_mac] = true;
+		}
+
+		test_info[cable_diag] = e100_cable_diag(bdp);
+		/* Need hw init regardless of netif_running */
+		e100_hw_init(bdp);
+		if (netif_running(dev)) {
+			e100_open(dev);
 		}
 	}
-
-	if (!e100_diag_eeprom(dev)) {
-		test_result = false;
-		test_info [E100_EEPROM_TEST_FAIL] = true;
+	else {
+		test_info[test_self_test] = false;
+		test_info[test_loopback_phy] = false;
+		test_info[test_loopback_mac] = false;
+		test_info[cable_diag] = false;
 	}
 
-	/* fully recover only if the device is open*/
-	if (netif_running(dev))  {
-		e100_deisolate_driver(bdp, true, false);
-	} else {
-    		e100_deisolate_driver(bdp, false, false);
-	}
-	/*Let card recover from the test*/
-	set_current_state(TASK_UNINTERRUPTIBLE);
-	schedule_timeout(HZ * 2);
-
-	return flags | (test_result ? 0 : ETH_TEST_FL_FAILED);
+	return flags | test_result;
 }
 
 /**
@@ -131,8 +132,6 @@ e100_diag_selftest(struct net_device *dev)
             		retval = TEST_TIMEOUT;
 		}
 	}
-
-	e100_hw_reset_recover(bdp,PORT_SOFTWARE_RESET);
 
 	return retval;
 }
@@ -170,13 +169,19 @@ e100_diag_loopback (struct net_device *dev)
 {
 	u8 rc = 0;
 
+	printk(KERN_DEBUG "%s: PHY loopback test starts\n", dev->name);
+	e100_hw_init(dev->priv);
 	if (!e100_diag_one_loopback(dev, PHY_LOOPBACK)) {
 		rc |= PHY_LOOPBACK;
 	}
+	printk(KERN_DEBUG "%s: PHY loopback test ends\n", dev->name);
 
+	printk(KERN_DEBUG "%s: MAC loopback test starts\n", dev->name);
+	e100_hw_init(dev->priv);
 	if (!e100_diag_one_loopback(dev, MAC_LOOPBACK)) {
 		rc |= MAC_LOOPBACK;
 	}
+	printk(KERN_DEBUG "%s: MAC loopback test ends\n", dev->name);
 
 	return rc;
 }
@@ -242,6 +247,9 @@ e100_diag_config_loopback(struct e100_private* bdp,
 		 *dynamic_tbd = e100_config_dynamic_tbd(bdp,*dynamic_tbd);
 
 	if (set_loopback) {
+		/* ICH PHY loopback is broken */
+		if (bdp->flags & IS_ICH && loopback_mode == PHY_LOOPBACK)
+			loopback_mode = MAC_LOOPBACK;
 		/* Configure loopback on MAC */
 		e100_config_loopback_mode(bdp,loopback_mode);
 	} else {
@@ -254,15 +262,10 @@ e100_diag_config_loopback(struct e100_private* bdp,
 		if (set_loopback)
                         /* Set PHY loopback mode */
                         e100_phy_set_loopback(bdp);
-                else {	/* Back to normal speed and duplex */
-                	if (bdp->params.e100_speed_duplex == E100_AUTONEG)
-				/* Reset PHY and do autoneg */
-                        	e100_phy_autoneg(bdp);
-			else    
-				/* Reset PHY and force speed and duplex */
-				e100_force_speed_duplex(bdp);
-		}
-                /* Wait for PHY state change */
+		else
+			/* Reset PHY loopback mode */
+			e100_phy_reset(bdp);	
+		/* Wait for PHY state change */
 		set_current_state(TASK_UNINTERRUPTIBLE);
                 schedule_timeout(HZ);
 	} else { /* For MAC loopback wait 500 msec to take effect */
@@ -345,12 +348,8 @@ static void
 e100_diag_loopback_cu_ru_exec(struct e100_private *bdp)
 {
 	/*load CU & RU base */ 
-	if (!e100_wait_exec_cmplx(bdp, 0, SCB_CUC_LOAD_BASE))
-		printk("e100: SCB_CUC_LOAD_BASE failed\n");
-	if(!e100_wait_exec_cmplx(bdp, 0, SCB_RUC_LOAD_BASE))
-		printk("e100: SCB_RUC_LOAD_BASE failed!\n");
-	if(!e100_wait_exec_cmplx(bdp, bdp->loopback.dma_handle, SCB_RUC_START))
-		printk("e100: SCB_RUC_START failed!\n");
+	if(!e100_wait_exec_cmplx(bdp, bdp->loopback.dma_handle, SCB_RUC_START, 0))
+		printk(KERN_ERR "e100: SCB_RUC_START failed!\n");
 
 	bdp->next_cu_cmd = START_WAIT;
 	e100_start_cu(bdp, bdp->loopback.tcb);
@@ -428,5 +427,74 @@ e100_diag_loopback_free (struct e100_private *bdp)
 
         pci_free_consistent(bdp->pdev, sizeof(rfd_t), bdp->loopback.rfd,
 			    bdp->loopback.dma_handle);
+}
+
+static int
+e100_cable_diag(struct e100_private *bdp)
+{	
+	int saved_open_circut = 0xffff;
+	int saved_short_circut = 0xffff;
+	int saved_distance = 0xffff;
+	int saved_same = 0;
+	int cable_status = E100_CABLE_UNKNOWN;
+	int i;
+	
+	/* If we have link, */	
+	if (e100_get_link_state(bdp))
+		return E100_CABLE_OK;
+	
+	if (bdp->rev_id < D102_REV_ID)
+		return E100_CABLE_UNKNOWN;
+
+	/* Disable MDI/MDI-X auto switching */
+        e100_mdi_write(bdp, MII_NCONFIG, bdp->phy_addr,
+		MDI_MDIX_RESET_ALL_MASK);
+	/* Set to 100 Full as required by cable test */
+	e100_mdi_write(bdp, MII_BMCR, bdp->phy_addr,
+		BMCR_SPEED100 | BMCR_FULLDPLX);
+
+	/* Test up to 100 times */
+	for (i = 0; i < 100; i++) {
+		u16 ctrl_reg;
+		int distance, open_circut, short_circut, near_end;
+
+		/* Enable and execute cable test */
+		e100_mdi_write(bdp, HWI_CONTROL_REG, bdp->phy_addr,
+			(HWI_TEST_ENABLE | HWI_TEST_EXECUTE));
+		/* Wait for cable test finished */
+		set_current_state(TASK_UNINTERRUPTIBLE);
+		schedule_timeout(HZ/100 + 1);
+		/* Read results */
+		e100_mdi_read(bdp, HWI_CONTROL_REG, bdp->phy_addr, &ctrl_reg);
+		distance = ctrl_reg & HWI_TEST_DISTANCE;
+		open_circut = ctrl_reg & HWI_TEST_HIGHZ_PROBLEM;
+		short_circut = ctrl_reg & HWI_TEST_LOWZ_PROBLEM;
+
+		if ((distance == saved_distance) &&
+	    	    (open_circut == saved_open_circut) &&
+	    	    (short_circut == saved_short_circut)) 
+			saved_same++;
+		else {
+			saved_same = 0;
+			saved_distance = distance;
+			saved_open_circut = open_circut;
+			saved_short_circut = short_circut;
+		}
+		/* If results are the same 3 times */
+		if (saved_same == 3) {
+			near_end = ((distance * HWI_REGISTER_GRANULARITY) <
+			       HWI_NEAR_END_BOUNDARY);
+			if (open_circut)
+				cable_status = (near_end) ? 
+					E100_CABLE_OPEN_NEAR : E100_CABLE_OPEN_FAR;
+			if (short_circut)
+				cable_status = (near_end) ?
+					E100_CABLE_SHORT_NEAR : E100_CABLE_SHORT_FAR;
+			break;
+		}
+	}
+	/* Reset cable test */
+        e100_mdi_write(bdp, HWI_CONTROL_REG, bdp->phy_addr,					       HWI_RESET_ALL_MASK);
+	return cable_status;
 }
 

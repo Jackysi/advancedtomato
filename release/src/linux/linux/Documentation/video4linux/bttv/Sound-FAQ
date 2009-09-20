@@ -15,18 +15,18 @@ log, telling which card type is used.  Like this one:
 
 	bttv0: model: BT848(Hauppauge old) [autodetected]
 
-You should verify this is correct.  If it is'nt, you have to pass the
+You should verify this is correct.  If it isn't, you have to pass the
 correct board type as insmod argument, "insmod bttv card=2" for
 example.  The file CARDLIST has a list of valid arguments for card.
-If your card is'nt listed there, you might check the source code for
-new entries which are not listed yet.  If there is'nt one for your
+If your card isn't listed there, you might check the source code for
+new entries which are not listed yet.  If there isn't one for your
 card, you can check if one of the existing entries does work for you
 (just trial and error...).
 
 Some boards have an extra processor for sound to do stereo decoding
 and other nice features.  The msp34xx chips are used by Hauppauge for
 example.  If your board has one, you might have to load a helper
-module like msp3400.o to make sound work.  If there is'nt one for the
+module like msp3400.o to make sound work.  If there isn't one for the
 chip used on your board:  Bad luck.  Start writing a new one.  Well,
 you might want to check the video4linux mailing list archive first...
 
@@ -79,10 +79,11 @@ mux.
 What you have to do is figure out the correct values for gpiomask and
 the audiomux array.  If you have Windows and the drivers four your
 card installed, you might to check out if you can read these registers
-values used by the windows driver.  A tool to do this is available from
-ftp://telepresence.dmem.strath.ac.uk/pub/bt848/winutil, but it does'nt
-work with bt878 boards according to some reports I received.  Another
-one is available from http://www.kki.net.pl/~borgx/bTV.html.
+values used by the windows driver.  A tool to do this is available
+from ftp://telepresence.dmem.strath.ac.uk/pub/bt848/winutil, but it
+does'nt work with bt878 boards according to some reports I received.
+Another one with bt878 suport is available from
+http://btwincap.sourceforge.net/Files/btspy2.00.zip
 
 You might also dig around in the *.ini files of the Windows applications.
 You can have a look at the board to see which of the gpio pins are
@@ -120,7 +121,7 @@ know what the other elements in the tvcards array are good for:
 video_inputs    - # of video inputs the card has
 audio_inputs    - historical cruft, not used any more.
 tuner           - which input is the tuner
-svhs            - which input is svhs (all others are labled composite)
+svhs            - which input is svhs (all others are labeled composite)
 muxsel          - video mux, input->registervalue mapping
 pll             - same as pll= insmod option
 tuner_type      - same as tuner= insmod option

@@ -1,11 +1,8 @@
 /*
- * BK Id: %F% %I% %G% %U% %#%
- */
-/*
  * This file contains the routines for initializing the MMU
  * on the 4xx series of chips.
  *  -- paulus
- * 
+ *
  *  Derived from arch/ppc/mm/init.c:
  *    Copyright (C) 1995-1996 Gary Thomas (gdt@linuxppc.org)
  *
@@ -54,11 +51,6 @@
 #include <asm/machdep.h>
 #include <asm/setup.h>
 
-/* Used by the 4xx TLB replacement exception handler.
- * Just needed it declared someplace (and initialized to zero).
- */
-unsigned int tlb_4xx_index;
-
 /*
  * MMU_init_hw does the chip-specific initialization of the MMU hardware.
  */
@@ -92,7 +84,14 @@ void __init MMU_init_hw(void)
 	 * Cache instruction and data space where the exception
 	 * vectors and the kernel live in real-mode.
 	 */
+	/*
+	 * Once the following code is enhanced to not assume that it should
+	 * just enable caching on the first 512MB, we need to make sure that
+	 * we either are given the cache in a known state or handle correctly
+	 * the cache being enabled previously.  Currently this will clear
+	 * without flushing. -- Tom
+	 */
 
-        mtspr(SPRN_DCCR, 0x80000000);	/* 128 MB of data space at 0x0. */
-        mtspr(SPRN_ICCR, 0x80000000);	/* 128 MB of instr. space at 0x0. */
+        mtspr(SPRN_DCCR, 0xF0000000);	/* 512 MB of data space at 0x0. */
+        mtspr(SPRN_ICCR, 0xF0000000);	/* 512 MB of instr. space at 0x0. */
 }

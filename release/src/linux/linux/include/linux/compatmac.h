@@ -48,13 +48,13 @@
 
 #include <linux/version.h>
 
-#if LINUX_VERSION_CODE < 0x020100        /* Less than 2.1.0 */
+#if LINUX_VERSION_CODE < 0x020100    /* Less than 2.1.0 */
 #define TWO_ZERO
 #else
-#if LINUX_VERSION_CODE < 0x020200       /* less than 2.2.x */
+#if LINUX_VERSION_CODE < 0x020200   /* less than 2.2.x */
 #warning "Please use a 2.2.x kernel. "
 #else
-#if LINUX_VERSION_CODE < 0x020300       /* less than 2.3.x */
+#if LINUX_VERSION_CODE < 0x020300   /* less than 2.3.x */
 #define TWO_TWO
 #else
 #define TWO_THREE

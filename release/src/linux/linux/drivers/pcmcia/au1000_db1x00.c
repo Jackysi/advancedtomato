@@ -56,7 +56,7 @@
 
 #include <asm/db1x00.h>
 
-static BCSR * const bcsr = (BCSR *)0xAE000000;
+static BCSR * const bcsr = (BCSR *)BCSR_KSEG1_ADDR;
 
 static int db1x00_pcmcia_init(struct pcmcia_init *init)
 {
@@ -143,11 +143,16 @@ static int db1x00_pcmcia_get_irq_info(struct pcmcia_irq_info *info)
 {
 	if(info->sock > PCMCIA_MAX_SOCK) return -1;
 
-	if(info->sock == 0) {
-		info->irq = AU1000_GPIO_2;
-	}
+	if(info->sock == 0)
+#ifdef CONFIG_MIPS_DB1550
+		info->irq = AU1000_GPIO_3;
 	else 
 		info->irq = AU1000_GPIO_5;
+#else
+		info->irq = AU1000_GPIO_2;
+	else 
+		info->irq = AU1000_GPIO_5;
+#endif
 
 	return 0;
 }
@@ -260,7 +265,7 @@ db1x00_pcmcia_configure_socket(const struct pcmcia_configure *configure)
 	return 0;
 }
 
-struct pcmcia_low_level db1x00_pcmcia_ops = { 
+struct pcmcia_low_level au1x00_pcmcia_ops = { 
 	db1x00_pcmcia_init,
 	db1x00_pcmcia_shutdown,
 	db1x00_pcmcia_socket_state,

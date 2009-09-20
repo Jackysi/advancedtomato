@@ -120,7 +120,7 @@ ufs_get_de_namlen(struct super_block *sb, struct ufs_dir_entry *de)
 	if ((sb->u.ufs_sb.s_flags & UFS_DE_MASK) == UFS_DE_OLD)
 		return fs16_to_cpu(sb, de->d_u.d_namlen);
 	else
-		return de->d_u.d_44.d_namlen; 
+		return de->d_u.d_44.d_namlen; /* XXX this seems wrong */
 }
 
 static inline void
@@ -129,7 +129,7 @@ ufs_set_de_namlen(struct super_block *sb, struct ufs_dir_entry *de, u16 value)
 	if ((sb->u.ufs_sb.s_flags & UFS_DE_MASK) == UFS_DE_OLD)
 		de->d_u.d_namlen = cpu_to_fs16(sb, value);
 	else
-		de->d_u.d_44.d_namlen = value; 
+		de->d_u.d_44.d_namlen = value; /* XXX this seems wrong */
 }
 
 static inline void
@@ -273,7 +273,7 @@ extern void _ubh_memcpyubh_(struct ufs_sb_private_info *, struct ufs_buffer_head
 
 #define ubh_get_addr16(ubh,begin) \
 	(((u16*)((ubh)->bh[(begin) >> (uspi->s_fshift-1)]->b_data)) + \
-	((begin) & (uspi->fsize>>1) - 1)))
+	((begin) & ((uspi->fsize>>1) - 1)))
 
 #define ubh_get_addr32(ubh,begin) \
 	(((u32*)((ubh)->bh[(begin) >> (uspi->s_fshift-2)]->b_data)) + \

@@ -32,7 +32,7 @@ unsigned int csum_partial_copy_nocheck(const char *src, char *dst,
  *	Fold a partial checksum into a word
  */
 
-static inline unsigned int csum_fold(unsigned int sum)
+extern inline unsigned int csum_fold(unsigned int sum)
 {
 	/* the while loop is unnecessary really, it's always enough with two
 	   iterations */
@@ -50,7 +50,7 @@ static inline unsigned int csum_fold(unsigned int sum)
  * to split all of those into 16-bit components, then add.
  */
 
-static inline unsigned int
+extern inline unsigned int
 csum_tcpudp_nofold(unsigned long saddr, unsigned long daddr, unsigned short len,
 		   unsigned short proto, unsigned int sum)
 {
@@ -78,7 +78,7 @@ extern unsigned int csum_partial_copy_from_user(const char *src, char *dst,
  *
  */
 
-static inline unsigned short ip_fast_csum(unsigned char * iph,
+extern inline unsigned short ip_fast_csum(unsigned char * iph,
 					  unsigned int ihl)
 {
 	return csum_fold(csum_partial(iph, ihl * 4, 0));
@@ -89,7 +89,7 @@ static inline unsigned short ip_fast_csum(unsigned char * iph,
  * returns a 16-bit checksum, already complemented
  */
 
-static inline unsigned short int csum_tcpudp_magic(unsigned long saddr,
+extern inline unsigned short int csum_tcpudp_magic(unsigned long saddr,
 						   unsigned long daddr,
 						   unsigned short len,
 						   unsigned short proto,
@@ -103,7 +103,7 @@ static inline unsigned short int csum_tcpudp_magic(unsigned long saddr,
  * in icmp.c
  */
 
-static inline unsigned short ip_compute_csum(unsigned char * buff, int len) {
+extern inline unsigned short ip_compute_csum(unsigned char * buff, int len) {
 	return csum_fold (csum_partial(buff, len, 0));
 }
 

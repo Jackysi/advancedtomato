@@ -1538,6 +1538,15 @@ len_error:
 	/* parameter value in frame is too short */
 	return(SMT_RDF_LENGTH) ;
 
+#if	0
+no_author_error:
+	/* parameter not setable, because the SBA is not active
+	 * Please note: we give the return code 'not authorizeed
+	 *  because SBA denied is not a valid return code in the
+	 * PMF protocol.
+	 */
+	return(SMT_RDF_AUTHOR) ;
+#endif
 }
 
 static const struct s_p_tab *smt_get_ptab(para)

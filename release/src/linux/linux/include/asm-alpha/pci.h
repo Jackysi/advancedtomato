@@ -6,6 +6,7 @@
 #include <linux/spinlock.h>
 #include <asm/scatterlist.h>
 #include <asm/machvec.h>
+#include <asm/io.h>
 
 /*
  * The following structure is used to manage multiple PCI busses.
@@ -42,12 +43,15 @@ struct pci_controller {
 
 	struct pci_iommu_arena *sg_pci;
 	struct pci_iommu_arena *sg_isa;
+
+	void *sysdata;
 };
 
 /* Override the logic in pci_scan_bus for skipping already-configured
    bus numbers.  */
 
 #define pcibios_assign_all_busses()	1
+#define pcibios_scan_all_fns()		0
 
 #define PCIBIOS_MIN_IO		alpha_mv.min_io_address
 #define PCIBIOS_MIN_MEM		alpha_mv.min_mem_address

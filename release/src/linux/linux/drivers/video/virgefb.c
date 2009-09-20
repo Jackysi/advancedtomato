@@ -125,6 +125,13 @@ static inline void mb_inline(void) { mb(); }	/* for use in comma expressions */
 
 /* SetPortVal - only used for interrupt enable (not yet implemented) */
 
+#if 0
+#define SetPortVal(x) \
+	mb(); \
+	(*(volatile u16 *)((u8 *)(vcode_switch_base + 0x0c)) = \
+	(u16)x); \
+	mb();
+#endif
 
 /* IO access */
 
@@ -407,12 +414,21 @@ static struct {
 	    0, FB_VMODE_NONINTERLACED
 	    }
     }, {
+#if 0
+	"1024x768-16", { 	/* Cybervision 16 bpp */
+	    1024, 768, 1024, 768, 0, 0, 16, 0,
+	    {11, 5, 0}, {5, 6, 0}, {0, 5, 0}, {0, 0, 0},
+	    0, 0, -1, -1, FB_ACCELF_TEXT, 20833, 272, 168, 39, 2, 72, 1,
+	    0, FB_VMODE_NONINTERLACED
+	    }
+#else
          "1024x768-16", {
              1024, 768, 1024, 768, 0, 0, 16, 0,
              {11, 5, 0}, {5, 6, 0}, {0, 5, 0}, {0, 0, 0},
              0, 0, -1, -1, FB_ACCELF_TEXT, 12500, 184, 40, 40, 2, 96, 1,
              FB_SYNC_COMP_HIGH_ACT|FB_SYNC_VERT_HIGH_ACT, FB_VMODE_NONINTERLACED
          }
+#endif
     }, {
 	"1152x886-16", { 	/* Cybervision 16 bpp */
 	    1152, 886, 1152, 886, 0, 0, 16, 0,
@@ -808,6 +824,13 @@ static int Cyber_init(void)
 	wb_mmio(GREG_FEATURE_CONTROL_W, 0x00);
 
 	wcrt(CRT_ID_EXT_MISC_CNTL, 0x00);	/* b2 = 0 to allow VDAC mmio access */
+#if 0
+	/* write strap options ... ? */
+	wcrt(CRT_ID_CONFIG_1, 0x08);
+	wcrt(CRT_ID_CONFIG_2, 0xff);		/* 0x0x2 bit needs to be set ?? */
+	wcrt(CRT_ID_CONFIG_3, 0x0f);
+	wcrt(CRT_ID_CONFIG_4, 0x1a);
+#endif
 	wcrt(CRT_ID_EXT_MISC_CNTL_1, 0x82);	 /* PCI DE and software reset S3D engine */
 	/* EXT_MISC_CNTL_1, CR66 bit 0 should be the same as bit 0 MR_ADVANCED_FUNCTION_CONTROL - check */
 	wl_mmio(MR_ADVANCED_FUNCTION_CONTROL, 0x00000011); /* enhanced mode, linear addressing */
@@ -1315,6 +1338,13 @@ static void virgefb_RectFill(u_short x, u_short y, u_short width, u_short height
  * Move cursor to x, y
  */
 
+#if 0
+static void virgefb_move_cursor(u_short x, u_short y)
+{
+	DPRINTK("Yuck .... MoveCursor on a 3D\n");
+	return 0;
+}
+#endif
 
 /* -------------------- Interfaces to hardware functions -------------------- */
 
@@ -1786,7 +1816,7 @@ int __init virgefb_init(void)
 		printk(KERN_INFO "CV3D detected running in Z3 mode\n");
 	}
 
-#if defined(VIRGEFBDEBUG)
+#if defined (VIRGEFBDEBUG)
 	DPRINTK("board_addr     : 0x%8.8lx\n",board_addr);
 	DPRINTK("board_size     : 0x%8.8lx\n",board_size);
 	DPRINTK("mmio_regs_phy  : 0x%8.8lx\n",mmio_regs_phys);
@@ -2093,7 +2123,54 @@ static int cv3d_has_4mb(void)
 {
 	/* cyberfb version didn't work, neither does this (not reliably)
 	forced to return 4MB */
+#if 0
+	volatile unsigned long *t0, *t2;
+#endif
 	DPRINTK("ENTER\n");
+#if 0
+	/* write patterns in memory and test if they can be read */
+	t0 = (volatile unsigned long *)v_ram;
+	t2 = (volatile unsigned long *)(v_ram + 0x00200000);
+	*t0 = 0x87654321;
+	*t2 = 0x12345678;
+
+	if (*t0 != 0x87654321) {
+		/* read of first location failed */
+		DPRINTK("EXIT - 0MB !\n");
+		return 0;
+	}
+
+	if (*t2 == 0x87654321) {
+		/* should read 0x12345678 if 4MB */
+		DPRINTK("EXIT - 2MB(a) \n");
+		return 0;
+	}
+
+	if (*t2 != 0x12345678) {
+		/* upper 2MB read back match failed */
+		DPRINTK("EXIT - 2MB(b)\n");
+		return 0;
+	}
+
+	/* may have 4MB */
+
+	*t2 = 0xAAAAAAAA;
+
+	if(*t2 != 0xAAAAAAAA) {
+		/* upper 2MB read back match failed */
+		DPRINTK("EXIT - 2MB(c)\n");
+		return 0;
+	}
+
+	*t2 = 0x55555555;
+
+	if(*t2 != 0x55555555) {
+		/* upper 2MB read back match failed */
+		DPRINTK("EXIT - 2MB(d)\n");
+		return 0;
+	}
+
+#endif
 	DPRINTK("EXIT - 4MB\n");
 	return 1;
 }
@@ -2392,7 +2469,7 @@ static inline void gfx_on_off(int toggle)
 	DPRINTK("EXIT\n");
 }
 
-#if defined(VIRGEFBDUMP)
+#if defined (VIRGEFBDUMP)
 
 /*
  * Dump board registers

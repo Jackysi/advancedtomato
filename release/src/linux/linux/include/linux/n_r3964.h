@@ -12,13 +12,7 @@
  * Author:
  * L. Haag
  *
- * $Log: n_r3964.h,v $
- * Revision 1.1.1.2  2003/10/14 08:09:26  sparq
- * Broadcom Release 3.51.8.0 for BCM4712.
- *
- * Revision 1.1.1.1  2003/02/03 22:38:17  mhuang
- * LINUX_2_4 branch snapshot from linux-mips.org CVS
- *
+ * $Log: r3964.h,v $
  * Revision 1.1.1.1  1998/10/13 16:43:14  dwmw2
  * This'll screw the version control
  *

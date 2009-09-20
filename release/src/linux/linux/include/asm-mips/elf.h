@@ -64,7 +64,7 @@ typedef elf_fpreg_t elf_fpregset_t[ELF_NFPREG];
 #define ELF_ARCH	EM_MIPS
 
 #define USE_ELF_CORE_DUMP
-#define ELF_EXEC_PAGESIZE	4096
+#define ELF_EXEC_PAGESIZE	PAGE_SIZE
 
 #define ELF_CORE_COPY_REGS(_dest,_regs)				\
 	memcpy((char *) &_dest, (char *) _regs,			\
@@ -89,7 +89,7 @@ typedef elf_fpreg_t elf_fpregset_t[ELF_NFPREG];
  * See comments in asm-alpha/elf.h, this is the same thing
  * on the MIPS.
  */
-#define ELF_PLAT_INIT(_r)	do { \
+#define ELF_PLAT_INIT(_r, load_addr)	do { \
 	_r->regs[1] = _r->regs[2] = _r->regs[3] = _r->regs[4] = 0;	\
 	_r->regs[5] = _r->regs[6] = _r->regs[7] = _r->regs[8] = 0;	\
 	_r->regs[9] = _r->regs[10] = _r->regs[11] = _r->regs[12] = 0;	\

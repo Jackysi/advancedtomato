@@ -3,7 +3,7 @@
  * License.  See the file "COPYING" in the main directory of this archive
  * for more details.
  *
- * Copyright (C) 2000-2001 Silicon Graphics, Inc.  All rights reserved
+ * Copyright (C) 2000-2003 Silicon Graphics, Inc.  All Rights Reserved.
  *
  * This implemenation of synchronization variables is heavily based on
  * one done by Steve Lord <lord@sgi.com>
@@ -49,6 +49,8 @@
 #endif /* DEBUG */
 
 
+/* XXX FIXME hack hack hack.  Our mips64 tree is from before the
+   switch to WQ_FLAG_EXCLUSIVE, and our ia64 tree is from after it. */
 #ifdef TASK_EXCLUSIVE
   #undef EXCLUSIVE_IN_QUEUE
 #else
@@ -76,6 +78,8 @@ static void spin_unlock_wrapper(spinlock_t *s) {
 	spin_unlock(s);
 }
 
+/* XXX Perhaps sv_wait() should do the switch() each time and avoid
+   the extra indirection and the need for the _wrapper functions? */
 
 static inline void sv_set_mon_type(sv_t *sv, int type) {
 	switch (type) {
@@ -99,6 +103,21 @@ static inline void sv_set_mon_type(sv_t *sv, int type) {
 			BUG();
 		}
 		break;
+#if 0 
+	/*
+	 * If needed, and will need to think about interrupts.  This
+	 * may be needed, for example, if someone wants to use sv's
+	 * with something like dev_base; writers need to hold two
+	 * locks. 
+	 */
+	case SV_MON_CUSTOM: 
+		{
+		struct sv_mon_custom *c = lock;
+		sv->sv_mon_unlock_func = c->sv_mon_unlock_func;
+		sv->sv_mon_lock        = c->sv_mon_lock;
+		break;
+		}
+#endif
 		
 	default:
 		printk(KERN_ERR "sv_set_mon_type: unknown type %d (0x%x)! "
@@ -228,7 +247,7 @@ signed long sv_wait(sv_t *sv, int sv_wait_flags, unsigned long timeout)
 	else
 		schedule();
 
-	if(current->state != TASK_RUNNING)  {
+	if(current->state != TASK_RUNNING) /* XXX Is this possible? */ {
 		printk(KERN_ERR "sv_wait: state not TASK_RUNNING after "
 		       "schedule().\n");
 		set_current_state(TASK_RUNNING);
@@ -242,6 +261,8 @@ signed long sv_wait(sv_t *sv, int sv_wait_flags, unsigned long timeout)
 	   - woken by timeout expiring
 	*/
 
+	/* XXX This isn't really accurate; we may have been woken
+           before the signal anyway.... */
 	if(signal_pending(current))
 		return timeout ? -ret : -1;
 	return timeout ? ret : 1;
@@ -294,6 +315,9 @@ void sv_destroy(sv_t *sv)
 		BUG();
 	}
 
+	/* XXX Check that the waitqueue is empty? 
+	       Mark the sv destroyed?
+	*/
 }
 
 

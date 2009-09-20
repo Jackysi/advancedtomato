@@ -5,7 +5,7 @@
  * BRIEF MODULE DESCRIPTION
  *	Include file for ZAO Networks Capcella.
  *
- * Copyright 2002 Yoichi Yuasa
+ * Copyright 2002,2003 Yoichi Yuasa
  *                yuasa@hh.iij4u.or.jp
  *
  *  This program is free software; you can redistribute it and/or modify it
@@ -49,13 +49,21 @@
 #define IO_MEM2_RESOURCE_END		(VR41XX_PCI_MEM2_BASE + VR41XX_PCI_MEM2_SIZE)
 
 /*
+ * General-Purpose I/O Pin Number
+ */
+#define PC104PLUS_INTA_PIN		2
+#define PC104PLUS_INTB_PIN		3
+#define PC104PLUS_INTC_PIN		4
+#define PC104PLUS_INTD_PIN		5
+
+/*
  * Interrupt Number
  */
-#define RTL8139_1_IRQ			GIU_IRQ(4)
-#define RTL8139_2_IRQ			GIU_IRQ(5)
-#define PC104PLUS_INTA_IRQ		GIU_IRQ(2)
-#define PC104PLUS_INTB_IRQ		GIU_IRQ(3)
-#define PC104PLUS_INTC_IRQ		GIU_IRQ(4)
-#define PC104PLUS_INTD_IRQ		GIU_IRQ(5)
+#define RTL8139_1_IRQ			GIU_IRQ(PC104PLUS_INTC_PIN)
+#define RTL8139_2_IRQ			GIU_IRQ(PC104PLUS_INTD_PIN)
+#define PC104PLUS_INTA_IRQ		GIU_IRQ(PC104PLUS_INTA_PIN)
+#define PC104PLUS_INTB_IRQ		GIU_IRQ(PC104PLUS_INTB_PIN)
+#define PC104PLUS_INTC_IRQ		GIU_IRQ(PC104PLUS_INTC_PIN)
+#define PC104PLUS_INTD_IRQ		GIU_IRQ(PC104PLUS_INTD_PIN)
 
 #endif /* __ZAO_CAPCELLA_H */

@@ -3,9 +3,6 @@
 
 /* ---------------------------------------------------------------------- */
 
-#define MIN(a,b) (((a)>(b))?(b):(a))
-#define MAX(a,b) (((a)>(b))?(a):(b))
-
 /* v4l device was opened in Radio mode */
 #define AUDC_SET_RADIO        _IO('m',2)
 /* select from TV,radio,extern,MUTE */
@@ -30,5 +27,7 @@
  * make sense in v4l context only.  So I think that's acceptable...
  */
 
+/* misc stuff to pass around config info to i2c chips */
+#define AUDC_CONFIG_PINNACLE  _IOW('m',32,int)
 
 #endif /* AUDIOCHIP_H */

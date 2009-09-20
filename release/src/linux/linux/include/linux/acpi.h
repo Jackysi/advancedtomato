@@ -1,180 +1,445 @@
 /*
- *  acpi.h - ACPI driver interface
+ * acpi.h - ACPI Interface
  *
- *  Copyright (C) 1999 Andrew Henroid
+ * Copyright (C) 2001 Paul Diefenbaugh <paul.s.diefenbaugh@intel.com>
  *
- *  This program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2 of the License, or
- *  (at your option) any later version.
+ * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
  *
- *  You should have received a copy of the GNU General Public License
- *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *
+ * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  */
 
 #ifndef _LINUX_ACPI_H
 #define _LINUX_ACPI_H
 
-#include <linux/types.h>
-#include <linux/ioctl.h>
-#ifdef __KERNEL__
-#include <linux/sched.h>
-#include <linux/wait.h>
-#endif /* __KERNEL__ */
+#ifndef _LINUX
+#define _LINUX
+#endif
 
-/*
- * Device states
- */
-typedef enum {
-	ACPI_D0, /* fully-on */
-	ACPI_D1, /* partial-on */
-	ACPI_D2, /* partial-on */
-	ACPI_D3, /* fully-off */
-} acpi_dstate_t;
+#include <linux/list.h>
 
-typedef enum {
-	ACPI_S0, /* working state */
-	ACPI_S1, /* power-on suspend */
-	ACPI_S2, /* suspend to ram, with devices */
-	ACPI_S3, /* suspend to ram */
-	ACPI_S4, /* suspend to disk */
-	ACPI_S5, /* soft-off */
-} acpi_sstate_t;
+#include <acpi/acpi.h>
+#include <acpi/acpi_bus.h>
+#include <acpi/acpi_drivers.h>
+#include <asm/acpi.h>
 
-/* RSDP location */
-#define ACPI_BIOS_ROM_BASE (0x0e0000)
-#define ACPI_BIOS_ROM_END  (0x100000)
 
-/* Table signatures */
-#define ACPI_RSDP1_SIG 0x20445352 /* 'RSD ' */
-#define ACPI_RSDP2_SIG 0x20525450 /* 'PTR ' */
-#define ACPI_RSDT_SIG  0x54445352 /* 'RSDT' */
-#define ACPI_FADT_SIG  0x50434146 /* 'FACP' */
-#define ACPI_DSDT_SIG  0x54445344 /* 'DSDT' */
-#define ACPI_FACS_SIG  0x53434146 /* 'FACS' */
+#ifdef CONFIG_ACPI_BOOT
 
-#define ACPI_SIG_LEN		4
-#define ACPI_FADT_SIGNATURE	"FACP"
-
-/* PM1_STS/EN flags */
-#define ACPI_TMR    0x0001
-#define ACPI_BM	    0x0010
-#define ACPI_GBL    0x0020
-#define ACPI_PWRBTN 0x0100
-#define ACPI_SLPBTN 0x0200
-#define ACPI_RTC    0x0400
-#define ACPI_WAK    0x8000
-
-/* PM1_CNT flags */
-#define ACPI_SCI_EN   0x0001
-#define ACPI_BM_RLD   0x0002
-#define ACPI_GBL_RLS  0x0004
-#define ACPI_SLP_TYP0 0x0400
-#define ACPI_SLP_TYP1 0x0800
-#define ACPI_SLP_TYP2 0x1000
-#define ACPI_SLP_EN   0x2000
-
-#define ACPI_SLP_TYP_MASK  0x1c00
-#define ACPI_SLP_TYP_SHIFT 10
-
-/* PM_TMR masks */
-#define ACPI_TMR_VAL_EXT 0x00000100
-#define ACPI_TMR_MASK	 0x00ffffff
-#define ACPI_TMR_HZ	 3579545 /* 3.58 MHz */
-#define ACPI_TMR_KHZ	 (ACPI_TMR_HZ / 1000)
-
-#define ACPI_MICROSEC_TO_TMR_TICKS(val) \
-  (((val) * (ACPI_TMR_KHZ)) / 1000)
-
-/* PM2_CNT flags */
-#define ACPI_ARB_DIS 0x01
-
-/* FADT flags */
-#define ACPI_WBINVD	  0x00000001
-#define ACPI_WBINVD_FLUSH 0x00000002
-#define ACPI_PROC_C1	  0x00000004
-#define ACPI_P_LVL2_UP	  0x00000008
-#define ACPI_PWR_BUTTON	  0x00000010
-#define ACPI_SLP_BUTTON	  0x00000020
-#define ACPI_FIX_RTC	  0x00000040
-#define ACPI_RTC_64	  0x00000080
-#define ACPI_TMR_VAL_EXT  0x00000100
-#define ACPI_DCK_CAP	  0x00000200
-
-/* FADT BOOT_ARCH flags */
-#define FADT_BOOT_ARCH_LEGACY_DEVICES	0x0001
-#define FADT_BOOT_ARCH_KBD_CONTROLLER	0x0002
-
-/* FACS flags */
-#define ACPI_S4BIOS	  0x00000001
-
-/* processor block offsets */
-#define ACPI_P_CNT	  0x00000000
-#define ACPI_P_LVL2	  0x00000004
-#define ACPI_P_LVL3	  0x00000005
-
-/* C-state latencies (microseconds) */
-#define ACPI_MAX_P_LVL2_LAT 100
-#define ACPI_MAX_P_LVL3_LAT 1000
-#define ACPI_INFINITE_LAT   (~0UL)
-
-/*
- * Sysctl declarations
- */
-
-enum
-{
-	CTL_ACPI = 10
+enum acpi_irq_model_id {
+	ACPI_IRQ_MODEL_PIC = 0,
+	ACPI_IRQ_MODEL_IOAPIC,
+	ACPI_IRQ_MODEL_IOSAPIC,
+	ACPI_IRQ_MODEL_COUNT
 };
 
-enum
-{
-	ACPI_FADT = 1,
+extern enum acpi_irq_model_id	acpi_irq_model;
+
+
+/* Root System Description Pointer (RSDP) */
+
+struct acpi_table_rsdp {
+	char			signature[8];
+	u8			checksum;
+	char			oem_id[6];
+	u8			revision;
+	u32			rsdt_address;
+} __attribute__ ((packed));
+
+struct acpi20_table_rsdp {
+	char			signature[8];
+	u8			checksum;
+	char			oem_id[6];
+	u8			revision;
+	u32			rsdt_address;
+	u32			length;
+	u64			xsdt_address;
+	u8			ext_checksum;
+	u8			reserved[3];
+} __attribute__ ((packed));
+
+typedef struct {
+	u8			type;
+	u8			length;
+} __attribute__ ((packed)) acpi_table_entry_header;
+
+/* Root System Description Table (RSDT) */
+
+struct acpi_table_rsdt {
+	struct acpi_table_header header;
+	u32			entry[1];
+} __attribute__ ((packed));
+
+/* Extended System Description Table (XSDT) */
+
+struct acpi_table_xsdt {
+	struct acpi_table_header header;
+	u64			entry[1];
+} __attribute__ ((packed));
+
+/* Fixed ACPI Description Table (FADT) */
+
+struct acpi_table_fadt {
+	struct acpi_table_header header;
+	u32 facs_addr;
+	u32 dsdt_addr;
+	/* ... */
+} __attribute__ ((packed));
+
+/* Multiple APIC Description Table (MADT) */
+
+struct acpi_table_madt {
+	struct acpi_table_header header;
+	u32			lapic_address;
+	struct {
+		u32			pcat_compat:1;
+		u32			reserved:31;
+	}			flags;
+} __attribute__ ((packed));
+
+enum acpi_madt_entry_id {
+	ACPI_MADT_LAPIC = 0,
+	ACPI_MADT_IOAPIC,
+	ACPI_MADT_INT_SRC_OVR,
+	ACPI_MADT_NMI_SRC,
+	ACPI_MADT_LAPIC_NMI,
+	ACPI_MADT_LAPIC_ADDR_OVR,
+	ACPI_MADT_IOSAPIC,
+	ACPI_MADT_LSAPIC,
+	ACPI_MADT_PLAT_INT_SRC,
+	ACPI_MADT_ENTRY_COUNT
+};
+
+typedef struct {
+	u16			polarity:2;
+	u16			trigger:2;
+	u16			reserved:12;
+} __attribute__ ((packed)) acpi_interrupt_flags;
+
+struct acpi_table_lapic {
+	acpi_table_entry_header	header;
+	u8			acpi_id;
+	u8			id;
+	struct {
+		u32			enabled:1;
+		u32			reserved:31;
+	}			flags;
+} __attribute__ ((packed));
+
+struct acpi_table_ioapic {
+	acpi_table_entry_header	header;
+	u8			id;
+	u8			reserved;
+	u32			address;
+	u32			global_irq_base;
+} __attribute__ ((packed));
+
+struct acpi_table_int_src_ovr {
+	acpi_table_entry_header	header;
+	u8			bus;
+	u8			bus_irq;
+	u32			global_irq;
+	acpi_interrupt_flags	flags;
+} __attribute__ ((packed));
+
+struct acpi_table_nmi_src {
+	acpi_table_entry_header	header;
+	acpi_interrupt_flags	flags;
+	u32			global_irq;
+} __attribute__ ((packed));
+
+struct acpi_table_lapic_nmi {
+	acpi_table_entry_header	header;
+	u8			acpi_id;
+	acpi_interrupt_flags	flags;
+	u8			lint;
+} __attribute__ ((packed));
+
+struct acpi_table_lapic_addr_ovr {
+	acpi_table_entry_header	header;
+	u8			reserved[2];
+	u64			address;
+} __attribute__ ((packed));
+
+struct acpi_table_iosapic {
+	acpi_table_entry_header	header;
+	u8			id;
+	u8			reserved;
+	u32			global_irq_base;
+	u64			address;
+} __attribute__ ((packed));
+
+struct acpi_table_lsapic {
+	acpi_table_entry_header	header;
+	u8			acpi_id;
+	u8			id;
+	u8			eid;
+	u8			reserved[3];
+	struct {
+		u32			enabled:1;
+		u32			reserved:31;
+	}			flags;
+} __attribute__ ((packed));
+
+struct acpi_table_plat_int_src {
+	acpi_table_entry_header	header;
+	acpi_interrupt_flags	flags;
+	u8			type;	/* See acpi_interrupt_type */
+	u8			id;
+	u8			eid;
+	u8			iosapic_vector;
+	u32			global_irq;
+	u32			reserved;
+} __attribute__ ((packed));
+
+enum acpi_interrupt_id {
+	ACPI_INTERRUPT_PMI	= 1,
+	ACPI_INTERRUPT_INIT,
+	ACPI_INTERRUPT_CPEI,
+	ACPI_INTERRUPT_COUNT
+};
+
+#define	ACPI_SPACE_MEM		0
+
+struct acpi_gen_regaddr {
+	u8  space_id;
+	u8  bit_width;
+	u8  bit_offset;
+	u8  resv;
+	u32 addrl;
+	u32 addrh;
+} __attribute__ ((packed));
+
+struct acpi_table_hpet {
+	struct acpi_table_header header;
+	u32 id;
+	struct acpi_gen_regaddr addr;
+	u8 number;
+	u16 min_tick;
+	u8 page_protect;
+} __attribute__ ((packed));
+
+/*
+ * System Resource Affinity Table (SRAT)
+ *   see http://www.microsoft.com/hwdev/design/srat.htm
+ */
+
+struct acpi_table_srat {
+	struct acpi_table_header header;
+	u32			table_revision;
+	u64			reserved;
+} __attribute__ ((packed));
+
+enum acpi_srat_entry_id {
+	ACPI_SRAT_PROCESSOR_AFFINITY = 0,
+	ACPI_SRAT_MEMORY_AFFINITY,
+	ACPI_SRAT_ENTRY_COUNT
+};
+
+struct acpi_table_processor_affinity {
+	acpi_table_entry_header	header;
+	u8			proximity_domain;
+	u8			apic_id;
+	struct {
+		u32			enabled:1;
+		u32			reserved:31;
+	}			flags;
+	u8			lsapic_eid;
+	u8			reserved[7];
+} __attribute__ ((packed));
+
+struct acpi_table_memory_affinity {
+	acpi_table_entry_header	header;
+	u8			proximity_domain;
+	u8			reserved1[5];
+	u32			base_addr_lo;
+	u32			base_addr_hi;
+	u32			length_lo;
+	u32			length_hi;
+	u32			memory_type;	/* See acpi_address_range_id */
+	struct {
+		u32			enabled:1;
+		u32			hot_pluggable:1;
+		u32			reserved:30;
+	}			flags;
+	u64			reserved2;
+} __attribute__ ((packed));
+
+enum acpi_address_range_id {
+	ACPI_ADDRESS_RANGE_MEMORY = 1,
+	ACPI_ADDRESS_RANGE_RESERVED = 2,
+	ACPI_ADDRESS_RANGE_ACPI = 3,
+	ACPI_ADDRESS_RANGE_NVS	= 4,
+	ACPI_ADDRESS_RANGE_COUNT
+};
+
+/*
+ * System Locality Information Table (SLIT)
+ *   see http://devresource.hp.com/devresource/docs/techpapers/ia64/slit.pdf
+ */
+
+struct acpi_table_slit {
+	struct acpi_table_header header;
+	u64			localities;
+	u8			entry[1];	/* real size = localities^2 */
+} __attribute__ ((packed));
+
+/* Smart Battery Description Table (SBST) */
+
+struct acpi_table_sbst {
+	struct acpi_table_header header;
+	u32			warning;	/* Warn user */
+	u32			low;		/* Critical sleep */
+	u32			critical;	/* Critical shutdown */
+} __attribute__ ((packed));
+
+/* Embedded Controller Boot Resources Table (ECDT) */
+
+struct acpi_table_ecdt {
+	struct acpi_table_header	header;
+	struct acpi_generic_address	ec_control;
+	struct acpi_generic_address	ec_data;
+	u32				uid;
+	u8				gpe_bit;
+	char				ec_id[0];
+} __attribute__ ((packed));
+
+/* Table Handlers */
+
+/* PCI MMCONFIG */
+struct acpi_table_mcfg {
+	struct acpi_table_header	header;
+	u8				reserved[8];
+	u32				base_address;
+	u32				base_reserved;
+} __attribute__ ((packed));
+
+enum acpi_table_id {
+	ACPI_TABLE_UNKNOWN = 0,
+	ACPI_APIC,
+	ACPI_BOOT,
+	ACPI_DBGP,
 	ACPI_DSDT,
-	ACPI_PM1_ENABLE,
-	ACPI_GPE_ENABLE,
-	ACPI_GPE_LEVEL,
-	ACPI_EVENT,
-	ACPI_P_BLK,
-	ACPI_ENTER_LVL2_LAT,
-	ACPI_ENTER_LVL3_LAT,
-	ACPI_P_LVL2_LAT,
-	ACPI_P_LVL3_LAT,
-	ACPI_C1_TIME,
-	ACPI_C2_TIME,
-	ACPI_C3_TIME,
-	ACPI_C1_COUNT,
-	ACPI_C2_COUNT,
-	ACPI_C3_COUNT,
-	ACPI_S0_SLP_TYP,
-	ACPI_S1_SLP_TYP,
-	ACPI_S5_SLP_TYP,
-	ACPI_SLEEP,
+	ACPI_ECDT,
+	ACPI_ETDT,
+	ACPI_FADT,
 	ACPI_FACS,
-	ACPI_XSDT,
-	ACPI_PMTIMER,
-	ACPI_BATT,
+	ACPI_OEMX,
+	ACPI_PSDT,
+	ACPI_SBST,
+	ACPI_SLIT,
+	ACPI_SPCR,
+	ACPI_SRAT,
+	ACPI_SSDT,
+	ACPI_SPMI,
+	ACPI_HPET,
+	ACPI_MCFG,
+	ACPI_TABLE_COUNT
 };
 
-#define ACPI_SLP_TYP_DISABLED	(~0UL)
+typedef int (*acpi_table_handler) (unsigned long phys_addr, unsigned long size);
 
-#ifdef __KERNEL__
+extern acpi_table_handler acpi_table_ops[ACPI_TABLE_COUNT];
 
-/* routines for saving/restoring kernel state */
-FASTCALL(extern unsigned long acpi_save_state_mem(unsigned long return_point));
-FASTCALL(extern int acpi_save_state_disk(unsigned long return_point));
-extern void acpi_restore_state(void);
+typedef int (*acpi_madt_entry_handler) (acpi_table_entry_header *header);
 
-extern unsigned long acpi_wakeup_address;
+char * __acpi_map_table (unsigned long phys_addr, unsigned long size);
+unsigned long acpi_find_rsdp (void);
+int acpi_boot_init (void);
+int acpi_numa_init (void);
 
-#endif /* __KERNEL__ */
+int acpi_table_init (void);
+int acpi_table_parse (enum acpi_table_id id, acpi_table_handler handler);
+int acpi_get_table_header_early (enum acpi_table_id id, struct acpi_table_header **header);
+int acpi_table_parse_madt (enum acpi_madt_entry_id id, acpi_madt_entry_handler handler);
+int acpi_table_parse_srat (enum acpi_srat_entry_id id, acpi_madt_entry_handler handler);
+void acpi_table_print (struct acpi_table_header *header, unsigned long phys_addr);
+void acpi_table_print_madt_entry (acpi_table_entry_header *madt);
+void acpi_table_print_srat_entry (acpi_table_entry_header *srat);
 
-int acpi_init(void);
+/* the following four functions are architecture-dependent */
+void acpi_numa_slit_init (struct acpi_table_slit *slit);
+void acpi_numa_processor_affinity_init (struct acpi_table_processor_affinity *pa);
+void acpi_numa_memory_affinity_init (struct acpi_table_memory_affinity *ma);
+void acpi_numa_arch_fixup(void);
 
-#endif /* _LINUX_ACPI_H */
+#else /*!CONFIG_ACPI_BOOT*/
+
+static inline int acpi_boot_init(void)
+{
+	return 0;
+}
+
+#endif /*!CONFIG_ACPI_BOOT*/
+
+
+#ifdef CONFIG_ACPI_PCI
+
+struct acpi_prt_entry {
+	struct list_head	node;
+	struct acpi_pci_id	id;
+	u8			pin;
+	struct {
+		acpi_handle		handle;
+		u32			index;
+	}			link;
+	u32			irq;
+};
+
+struct acpi_prt_list {
+	int			count;
+	struct list_head	entries;
+};
+
+extern struct acpi_prt_list	acpi_prt;
+
+struct pci_dev;
+
+int acpi_pci_irq_enable (struct pci_dev *dev);
+int acpi_pci_irq_init (void);
+
+struct acpi_pci_driver {
+	struct acpi_pci_driver *next;
+	int (*add)(acpi_handle handle);
+	void (*remove)(acpi_handle handle);
+};
+
+int acpi_pci_register_driver(struct acpi_pci_driver *driver);
+void acpi_pci_unregister_driver(struct acpi_pci_driver *driver);
+
+#endif /*CONFIG_ACPI_PCI*/
+
+#ifdef CONFIG_ACPI_EC
+
+int ec_read(u8 addr, u8 *val);
+int ec_write(u8 addr, u8 val);
+
+#endif /*CONFIG_ACPI_EC*/
+
+#ifdef CONFIG_ACPI_INTERPRETER
+
+int acpi_blacklisted(void);
+
+#else /*!CONFIG_ACPI_INTERPRETER*/
+
+static inline int acpi_blacklisted(void)
+{
+	return 0;
+}
+
+#endif /*!CONFIG_ACPI_INTERPRETER*/
+
+#endif /*_LINUX_ACPI_H*/

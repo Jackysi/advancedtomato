@@ -29,7 +29,7 @@
 #define _far
 #endif
 
-#ifndef MEM_MAPPED_IO     // "normal" IO
+#ifndef MEM_MAPPED_IO // "normal" IO
 #define inp(p)  inb(p)
 #define inpw(p)	inw(p)
 #define inpd(p) inl(p)

@@ -14,6 +14,21 @@
 #include <asm/regdef.h>
 #include <asm/stackframe.h>
 
+	/*
+	 * Here is the table of interrupts for the Philips Nino
+	 * which uses the Philips PR31700/Toshiba TMPR3912 core.
+	 *
+	 *   MIPS IRQ             Description
+	 *   --------	--------------------------------
+	 *       0	SW0 interrupt (unused)
+	 *       1	SW1 interrupt (unused)
+	 *       2
+	 *       3
+	 *       4	PR31700 low priority interrupts
+	 *       5
+	 *       6	PR31700 high priority interrupts
+	 *       7
+	 */
 
 	.text
 	.set	noreorder

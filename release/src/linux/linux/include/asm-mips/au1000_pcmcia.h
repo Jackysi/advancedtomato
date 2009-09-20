@@ -44,7 +44,7 @@
 #define AU1X_SOCK1_IO        0xF08000000
 #define AU1X_SOCK1_PHYS_ATTR 0xF48000000
 #define AU1X_SOCK1_PHYS_MEM  0xF88000000
-#elif defined(CONFIG_MIPS_DB1000) || defined(CONFIG_MIPS_DB1100) || defined(CONFIG_MIPS_DB1500)
+#elif defined(CONFIG_MIPS_DB1000) || defined(CONFIG_MIPS_DB1100) || defined(CONFIG_MIPS_DB1500) || defined(CONFIG_MIPS_PB1550) || defined(CONFIG_MIPS_DB1550)
 #define AU1X_SOCK1_IO        0xF04000000
 #define AU1X_SOCK1_PHYS_ATTR 0xF44000000
 #define AU1X_SOCK1_PHYS_MEM  0xF84000000
@@ -100,12 +100,5 @@ struct pcmcia_low_level {
 	int (*configure_socket)(const struct pcmcia_configure *);
 };
 
-#if defined(CONFIG_MIPS_PB1000) || defined(CONFIG_MIPS_PB1100) || defined(CONFIG_MIPS_PB1500)
-extern struct pcmcia_low_level pb1x00_pcmcia_ops;
-#elif defined(CONFIG_MIPS_DB1000) || defined(CONFIG_MIPS_DB1100) || defined(CONFIG_MIPS_DB1500)
-extern struct pcmcia_low_level db1x00_pcmcia_ops;
-#else
-error unknown Au1000 board
-#endif
-
+extern struct pcmcia_low_level au1x00_pcmcia_ops;
 #endif /* __ASM_AU1000_PCMCIA_H */

@@ -29,12 +29,15 @@
 */
 static int opDEC_testing = 0;
 static int opDEC_fix = 0;
+static int opDEC_checked = 0;
 static unsigned long opDEC_test_pc = 0;
 
 static void
 opDEC_check(void)
 {
 	unsigned long test_pc;
+
+	if (opDEC_checked) return;
 
 	lock_kernel();
 	opDEC_testing = 1;
@@ -48,6 +51,7 @@ opDEC_check(void)
 		: );
 
 	opDEC_testing = 0;
+	opDEC_checked = 1;
 	unlock_kernel();
 }
 
@@ -80,8 +84,17 @@ dik_show_regs(struct pt_regs *regs, unsigned long *r9_15)
 	printk("t11= %016lx  pv = %016lx  at = %016lx\n",
 	       regs->r25, regs->r27, regs->r28);
 	printk("gp = %016lx  sp = %p\n", regs->gp, regs+1);
+#if 0
+__halt();
+#endif
 }
 
+#if 0
+static char * ireg_name[] = {"v0", "t0", "t1", "t2", "t3", "t4", "t5", "t6",
+			   "t7", "s0", "s1", "s2", "s3", "s4", "s5", "s6",
+			   "a0", "a1", "a2", "a3", "a4", "a5", "t8", "t9",
+			   "t10", "t11", "ra", "pv", "at", "gp", "sp", "zero"};
+#endif
 
 static void
 dik_show_code(unsigned int *pc)
@@ -214,6 +227,10 @@ do_entArith(unsigned long summary, unsigned long write_mask,
 		}
 	}
 
+#if 0
+	printk("%s: arithmetic trap at %016lx: %02lx %016lx\n",
+		current->comm, regs.pc, summary, write_mask);
+#endif
 	die_if_kernel("Arithmetic fault", &regs, 0, 0);
 	send_sig(SIGFPE, current, 1);
 }
@@ -985,6 +1002,9 @@ alpha_ni_syscall(unsigned long a0, unsigned long a1, unsigned long a2,
 {
 	/* We only get here for OSF system calls, minus #112;
 	   the rest go to sys_ni_syscall.  */
+#if 0
+	printk("<sc %ld(%lx,%lx,%lx)>", regs.r0, a0, a1, a2);
+#endif
 	return -ENOSYS;
 }
 

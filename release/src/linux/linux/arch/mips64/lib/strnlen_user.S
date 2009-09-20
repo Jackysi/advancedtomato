@@ -20,23 +20,29 @@
 /*
  * Return the size of a string (including the ending 0)
  *
- * Return 0 for error, len on string but at max a1 otherwise
+ * Return 0 for error, len of string but at max a1 otherwise
+ *
+ * Note: for performance reasons we deliberately accept that a user may
+ *       make strlen_user and strnlen_user access the first few KSEG0
+ *       bytes.  There's nothing secret there ...
  */
 LEAF(__strnlen_user_asm)
-	ld	v0, THREAD_CURDS($28)	# pointer ok?
-	and	v0, a0
-	bnez	v0, fault
+	LONG_L		v0, THREAD_CURDS($28)	# pointer ok?
+	and		v0, a0
+	bnez		v0, fault
 
 FEXPORT(__strnlen_user_nocheck_asm)
-	move	v0, a0
-	daddu	a1, a0			# stop pointer
-1:	beq	v0, a1, 1f		# limit reached?
-	EX(lb, ta0, (v0), fault)
-	daddiu	v0, 1
-	bnez	ta0, 1b
-1:	dsubu	v0, a0
-	jr	ra
+	move		v0, a0
+	PTR_ADDU	a1, a0			# stop pointer
+	.set		noreorder
+1:	beq		v0, a1, 1f		# limit reached?
+	 PTR_ADDIU	v0, 1
+	.set		reorder
+	EX(lb, t0, -1(v0), fault)
+	bnez		t0, 1b
+1:	PTR_SUBU	v0, a0
+	jr		ra
 	END(__strnlen_user_asm)
 
-fault:	move	v0, zero
-	jr	ra
+fault:	move		v0, zero
+	jr		ra

@@ -1,7 +1,4 @@
 /*
- * BK Id: SCCS/s.pmac_nvram.c 1.17 12/01/01 20:09:06 benh
- */
-/*
  * Miscellaneous procedures for dealing with the PowerMac hardware.
  */
 #include <linux/config.h>
@@ -62,7 +59,15 @@ static int nvram_mult, is_core_99;
 static int core99_bank = 0;
 static int nvram_partitions[3];
 
+/* FIXME: kmalloc fails to allocate the image now that I had to move it
+ *        before time_init(). For now, I allocate a static buffer here
+ *        but it's a waste of space on all but core99 machines
+ */
+#if 0
+static char* nvram_image;
+#else
 static char nvram_image[NVRAM_SIZE] __pmacdata;
+#endif
 
 extern int pmac_newworld;
 
@@ -97,7 +102,7 @@ core99_calc_adler(u8 *buffer)
 	}
 	low  %= 65521UL;
 	high %= 65521UL;
-  
+
 	return (high << 16) | low;
 }
 
@@ -109,7 +114,7 @@ core99_check(u8* datas)
 	if (hdr99->hdr.signature != CORE99_SIGNATURE) {
 #ifdef DEBUG
 		printk("Invalid signature\n");
-#endif		
+#endif
 		return 0;
 	}
 	if (hdr99->hdr.cksum != chrp_checksum(&hdr99->hdr)) {
@@ -131,9 +136,9 @@ static int __pmac
 core99_erase_bank(int bank)
 {
 	int stat, i;
-	
+
 	u8* base = (u8 *)nvram_data + core99_bank*NVRAM_SIZE;
-	
+
 	out_8(base, CORE99_FLASH_CMD_ERASE_SETUP);
 	out_8(base, CORE99_FLASH_CMD_ERASE_CONFIRM);
 	do { stat = in_8(base); }
@@ -155,9 +160,9 @@ static int __pmac
 core99_write_bank(int bank, u8* datas)
 {
 	int i, stat = 0;
-	
+
 	u8* base = (u8 *)nvram_data + core99_bank*NVRAM_SIZE;
-	
+
 	for (i=0; i<NVRAM_SIZE; i++) {
 		out_8(base+i, CORE99_FLASH_CMD_WRITE_SETUP);
 		out_8(base+i, datas[i]);
@@ -176,7 +181,7 @@ core99_write_bank(int bank, u8* datas)
 			printk("nvram: flash write failed !\n");
 			return -ENXIO;
 		}
-	return 0;	
+	return 0;
 }
 
 static void __init
@@ -191,7 +196,7 @@ lookup_partitions(void)
 		nvram_partitions[pmac_nvram_XPRAM] = -1;
 		nvram_partitions[pmac_nvram_NR] = -1;
 		hdr = (struct chrp_header *)buffer;
-	
+
 		offset = 0;
 		buffer[16] = 0;
 		do {
@@ -209,12 +214,12 @@ lookup_partitions(void)
 		nvram_partitions[pmac_nvram_OF] = 0x1800;
 		nvram_partitions[pmac_nvram_XPRAM] = 0x1300;
 		nvram_partitions[pmac_nvram_NR] = 0x1400;
-	}	
+	}
 #ifdef DEBUG
 	printk("nvram: OF partition at 0x%x\n", nvram_partitions[pmac_nvram_OF]);
 	printk("nvram: XP partition at 0x%x\n", nvram_partitions[pmac_nvram_XPRAM]);
 	printk("nvram: NR partition at 0x%x\n", nvram_partitions[pmac_nvram_NR]);
-#endif	
+#endif
 }
 
 void __init
@@ -234,11 +239,18 @@ pmac_nvram_init(void)
 	if (is_core_99) {
 		int i;
 		u32 gen_bank0, gen_bank1;
-		
+
 		if (nvram_naddrs < 1) {
 			printk(KERN_ERR "nvram: no address\n");
 			return;
 		}
+#if 0
+		nvram_image = kmalloc(NVRAM_SIZE, GFP_KERNEL);
+		if (!nvram_image) {
+			printk(KERN_ERR "nvram: can't allocate image\n");
+			return;
+		}
+#endif
 		nvram_data = ioremap(dp->addrs[0].address, NVRAM_SIZE*2);
 #ifdef DEBUG
 		printk("nvram: Checking bank 0...\n");
@@ -275,7 +287,7 @@ void __pmac
 pmac_nvram_update(void)
 {
 	struct core99_header* hdr99;
-	
+
 	if (!is_core_99 || !nvram_data || !nvram_image)
 		return;
 	if (!memcmp(nvram_image, (u8*)nvram_data + core99_bank*NVRAM_SIZE,
@@ -368,10 +380,10 @@ u8 __pmac
 pmac_xpram_read(int xpaddr)
 {
 	int offset = nvram_partitions[pmac_nvram_XPRAM];
-	
+
 	if (offset < 0)
 		return 0;
-		
+
 	return nvram_read_byte(xpaddr + offset);
 }
 
@@ -379,9 +391,9 @@ void __pmac
 pmac_xpram_write(int xpaddr, u8 data)
 {
 	int offset = nvram_partitions[pmac_nvram_XPRAM];
-	
+
 	if (offset < 0)
 		return;
-		
+
 	nvram_write_byte(xpaddr + offset, data);
 }
