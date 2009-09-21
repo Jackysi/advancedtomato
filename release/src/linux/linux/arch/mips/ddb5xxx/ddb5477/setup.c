@@ -43,7 +43,7 @@
 #include "lcd44780.h"
 
 
-// #define	USE_CPU_COUNTER_TIMER	/* whether we use cpu counter */
+#define	USE_CPU_COUNTER_TIMER	/* whether we use cpu counter */
 
 #define	SP_TIMER_BASE			DDB_SPT1CTRL_L
 #define	SP_TIMER_IRQ			VRC5477_IRQ_SPT1
@@ -86,38 +86,36 @@ static unsigned int __init detect_bus_frequency(unsigned long rtc_base)
 	unsigned char c;
 	unsigned int t1, t2;
 	unsigned i;
-	unsigned preset_freq[]={
-		0,        83330000, 100000000, 124000000,133300000, 0xffffffff};
 
 	ddb_out32(SP_TIMER_BASE, 0xffffffff);
 	ddb_out32(SP_TIMER_BASE+4, 0x1);
 	ddb_out32(SP_TIMER_BASE+8, 0xffffffff);
-	c= *(volatile unsigned char*)rtc_base;
-	for(i=0; (i<100000000) && (c == *(volatile unsigned char*)rtc_base); i++);
 
+	/* check if rtc is running */
+	c= *(volatile unsigned char*)rtc_base;
+	for(i=0; (c == *(volatile unsigned char*)rtc_base) && (i<100000000); i++);
 	if (c == *(volatile unsigned char*)rtc_base) {
 		printk("Failed to detect bus frequency.  Use default 83.3MHz.\n");
 		return 83333000;
 	}
 
-	/* we are now at the turn of 1/100th second */
-	t1 = ddb_in32(SP_TIMER_BASE+8);
-
 	c= *(volatile unsigned char*)rtc_base;
 	while (c == *(volatile unsigned char*)rtc_base);
+	/* we are now at the turn of 1/100th second, if no error. */
+	t1 = ddb_in32(SP_TIMER_BASE+8);
 
-	/* we are now at the turn of another 1/100th second */
-	t2 = ddb_in32(SP_TIMER_BASE+8);
+	for (i=0; i< 10; i++) {
+		c= *(volatile unsigned char*)rtc_base;
+		while (c == *(volatile unsigned char*)rtc_base);
+		/* we are now at the turn of another 1/100th second */
+		t2 = ddb_in32(SP_TIMER_BASE+8);
+	}
+
 	ddb_out32(SP_TIMER_BASE+4, 0x0);	/* disable it again */
-	freq = (t1 - t2)*100;
 
-	/* find the nearest preset freq */
-	for (i=0; freq > preset_freq[i+1]; i++);
-	if ((freq - preset_freq[i]) >= (preset_freq[i+1]-freq))
-		i++;
-
-	printk("DDB bus frequency detection : %d -> %d\n", freq, preset_freq[i]);
-	return preset_freq[i];
+	freq = (t1 - t2)*10;
+	printk("DDB bus frequency detection : %u \n", freq);
+	return freq;
 }
 
 extern void rtc_ds1386_init(unsigned long base);
@@ -140,11 +138,11 @@ static void __init ddb_time_init(void)
 		bus_frequency = detect_bus_frequency(rtc_base);
 	}
 
-	/* mips_counter_frequency is 1/2 of the cpu core freq */
+	/* mips_hpt_frequency is 1/2 of the cpu core freq */
 	i =  (read_c0_config() >> 28 ) & 7;
-	if ((mips_cpu.cputype == CPU_R5432) && (i == 3))
+	if ((current_cpu_data.cputype == CPU_R5432) && (i == 3))
 		i = 4;
-	mips_counter_frequency = bus_frequency*(i+4)/4;
+	mips_hpt_frequency = bus_frequency*(i+4)/4;
 }
 
 extern int setup_irq(unsigned int irq, struct irqaction *irqaction);
@@ -156,10 +154,6 @@ static void __init ddb_timer_setup(struct irqaction *irq)
         /* we are using the cpu counter for timer interrupts */
 	setup_irq(CPU_IRQ_BASE + 7, irq);
 
-        /* to generate the first timer interrupt */
-        count = read_c0_count();
-        write_c0_compare(count + 1000);
-
 #else
 
 	/* if we use Special purpose timer 1 */
@@ -169,8 +163,6 @@ static void __init ddb_timer_setup(struct irqaction *irq)
 
 #endif
 }
-
-void __init bus_error_init(void) { /* nothing */ }
 
 static void ddb5477_board_init(void);
 extern void ddb5477_irq_setup(void);

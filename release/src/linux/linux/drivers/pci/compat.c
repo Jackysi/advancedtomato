@@ -1,5 +1,5 @@
 /*
- *	$Id: compat.c,v 1.1.1.4 2003/10/14 08:08:31 sparq Exp $
+ *	$Id: compat.c,v 1.1 1998/02/16 10:35:50 mj Exp $
  *
  *	PCI Bus Services -- Function For Backward Compatibility
  *

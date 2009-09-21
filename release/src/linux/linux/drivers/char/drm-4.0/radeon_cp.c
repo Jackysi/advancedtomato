@@ -300,12 +300,12 @@ static u32 radeon_cp_microcode[][2] = {
 };
 
 
-#define DO_IOREMAP(_m) (_m)->handle = drm_ioremap((_m)->offset, (_m)->size)
+#define DO_IOREMAP(_m, _d) (_m)->handle = drm_ioremap((_m)->offset, (_m)->size, (_d))
 
-#define DO_IOREMAPFREE(_m)						\
+#define DO_IOREMAPFREE(_m, _d)						\
 	do {								\
 		if ((_m)->handle && (_m)->size)				\
-			drm_ioremapfree((_m)->handle, (_m)->size);	\
+			drm_ioremapfree((_m)->handle, (_m)->size, (_d));\
 	} while (0)
 
 #define DO_FIND_MAP(_m, _o)						\
@@ -439,6 +439,12 @@ static void radeon_cp_load_microcode( drm_radeon_private_t *dev_priv )
  */
 static void radeon_do_cp_flush( drm_radeon_private_t *dev_priv )
 {
+#if 0
+	u32 tmp;
+
+	tmp = RADEON_READ( RADEON_CP_RB_WPTR ) | (1 << 31);
+	RADEON_WRITE( RADEON_CP_RB_WPTR, tmp );
+#endif
 }
 
 /* Wait for the CP to go idle.
@@ -517,6 +523,7 @@ static int radeon_do_engine_reset( drm_device_t *dev )
 	clock_cntl_index = RADEON_READ( RADEON_CLOCK_CNTL_INDEX );
 	mclk_cntl = RADEON_READ_PLL( dev, RADEON_MCLK_CNTL );
 
+	/* FIXME: remove magic number here and in radeon ddx driver!!! */
 	RADEON_WRITE_PLL( RADEON_MCLK_CNTL, mclk_cntl | 0x003f00000 );
 
 	rbbm_soft_reset = RADEON_READ( RADEON_RBBM_SOFT_RESET );
@@ -725,6 +732,9 @@ static int radeon_do_init_cp( drm_device_t *dev, drm_radeon_init_t *init )
 					 RADEON_ROUND_MODE_TRUNC |
 					 RADEON_ROUND_PREC_8TH_PIX);
 
+	/* FIXME: We want multiple shared areas, including one shared
+	 * only by the X Server and kernel module.
+	 */
 	for ( i = 0 ; i < dev->map_count ; i++ ) {
 		if ( dev->maplist[i]->type == _DRM_SHM ) {
 			dev_priv->sarea = dev->maplist[i];
@@ -747,9 +757,14 @@ static int radeon_do_init_cp( drm_device_t *dev, drm_radeon_init_t *init )
 		(drm_radeon_sarea_t *)((u8 *)dev_priv->sarea->handle +
 				       init->sarea_priv_offset);
 
-	DO_IOREMAP( dev_priv->cp_ring );
-	DO_IOREMAP( dev_priv->ring_rptr );
-	DO_IOREMAP( dev_priv->buffers );
+	DO_IOREMAP( dev_priv->cp_ring, dev );
+	DO_IOREMAP( dev_priv->ring_rptr, dev );
+	DO_IOREMAP( dev_priv->buffers, dev );
+#if 0
+	if ( !dev_priv->is_pci ) {
+		DO_IOREMAP( dev_priv->agp_textures, dev );
+	}
+#endif
 
 	dev_priv->agp_size = init->agp_size;
 	dev_priv->agp_vm_start = RADEON_READ( RADEON_CONFIG_APER_SIZE );
@@ -769,6 +784,17 @@ static int radeon_do_init_cp( drm_device_t *dev, drm_radeon_init_t *init )
 	dev_priv->ring.tail_mask =
 		(dev_priv->ring.size / sizeof(u32)) - 1;
 
+#if 0
+	/* Initialize the scratch register pointer.  This will cause
+	 * the scratch register values to be written out to memory
+	 * whenever they are updated.
+	 * FIXME: This doesn't quite work yet, so we're disabling it
+	 * for the release.
+	 */
+	RADEON_WRITE( RADEON_SCRATCH_ADDR, (dev_priv->ring_rptr->offset +
+					    RADEON_SCRATCH_REG_OFFSET) );
+	RADEON_WRITE( RADEON_SCRATCH_UMSK, 0x7 );
+#endif
 
 	dev_priv->scratch = ((__volatile__ u32 *)
 			     dev_priv->ring_rptr->handle +
@@ -802,9 +828,14 @@ static int radeon_do_cleanup_cp( drm_device_t *dev )
 	if ( dev->dev_private ) {
 		drm_radeon_private_t *dev_priv = dev->dev_private;
 
-		DO_IOREMAPFREE( dev_priv->cp_ring );
-		DO_IOREMAPFREE( dev_priv->ring_rptr );
-		DO_IOREMAPFREE( dev_priv->buffers );
+		DO_IOREMAPFREE( dev_priv->cp_ring, dev );
+		DO_IOREMAPFREE( dev_priv->ring_rptr, dev );
+		DO_IOREMAPFREE( dev_priv->buffers, dev );
+#if 0
+		if ( !dev_priv->is_pci ) {
+			DO_IOREMAPFREE( dev_priv->agp_textures, dev );
+		}
+#endif
 
 		drm_free( dev->dev_private, sizeof(drm_radeon_private_t),
 			  DRM_MEM_DRIVER );
@@ -1044,6 +1075,53 @@ int radeon_fullscreen( struct inode *inode, struct file *filp,
 #define RADEON_BUFFER_USED	0xffffffff
 #define RADEON_BUFFER_FREE	0
 
+#if 0
+static int radeon_freelist_init( drm_device_t *dev )
+{
+	drm_device_dma_t *dma = dev->dma;
+	drm_radeon_private_t *dev_priv = dev->dev_private;
+	drm_buf_t *buf;
+	drm_radeon_buf_priv_t *buf_priv;
+	drm_radeon_freelist_t *entry;
+	int i;
+
+	dev_priv->head = drm_alloc( sizeof(drm_radeon_freelist_t),
+				    DRM_MEM_DRIVER );
+	if ( dev_priv->head == NULL )
+		return -ENOMEM;
+
+	memset( dev_priv->head, 0, sizeof(drm_radeon_freelist_t) );
+	dev_priv->head->age = RADEON_BUFFER_USED;
+
+	for ( i = 0 ; i < dma->buf_count ; i++ ) {
+		buf = dma->buflist[i];
+		buf_priv = buf->dev_private;
+
+		entry = drm_alloc( sizeof(drm_radeon_freelist_t),
+				   DRM_MEM_DRIVER );
+		if ( !entry ) return -ENOMEM;
+
+		entry->age = RADEON_BUFFER_FREE;
+		entry->buf = buf;
+		entry->prev = dev_priv->head;
+		entry->next = dev_priv->head->next;
+		if ( !entry->next )
+			dev_priv->tail = entry;
+
+		buf_priv->discard = 0;
+		buf_priv->dispatched = 0;
+		buf_priv->list_entry = entry;
+
+		dev_priv->head->next = entry;
+
+		if ( dev_priv->head->next )
+			dev_priv->head->next->prev = entry;
+	}
+
+	return 0;
+
+}
+#endif
 
 drm_buf_t *radeon_freelist_get( drm_device_t *dev )
 {
@@ -1056,6 +1134,7 @@ drm_buf_t *radeon_freelist_get( drm_device_t *dev )
 	int start;
 #endif
 
+	/* FIXME: Optimize -- use freelist code */
 
 	for ( i = 0 ; i < dma->buf_count ; i++ ) {
 		buf = dma->buflist[i];
@@ -1075,7 +1154,12 @@ drm_buf_t *radeon_freelist_get( drm_device_t *dev )
 	start = dev_priv->last_buf;
 #endif
 	for ( t = 0 ; t < dev_priv->usec_timeout ; t++ ) {
+#if 0
+		/* FIXME: Disable this for now */
+		u32 done_age = dev_priv->scratch[RADEON_LAST_DISPATCH];
+#else
 		u32 done_age = RADEON_READ( RADEON_LAST_DISPATCH_REG );
+#endif
 #if ROTATE_BUFS
 		for ( i = start ; i < dma->buf_count ; i++ ) {
 #else
@@ -1144,6 +1228,7 @@ int radeon_wait_ring( drm_radeon_private_t *dev_priv, int n )
 		udelay( 1 );
 	}
 
+	/* FIXME: This return value is ignored in the BEGIN_RING macro! */
 	DRM_ERROR( "failed!\n" );
 	return -EBUSY;
 }

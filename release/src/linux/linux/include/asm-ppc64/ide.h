@@ -22,11 +22,6 @@
 #define MAX_HWIFS	4
 #endif
 
-#define ide__sti()	__sti()
-
-void ppc64_ide_fix_driveid(struct hd_driveid *id);
-#define ide_fix_driveid(id)	ppc64_ide_fix_driveid((id))
-
 static __inline__ int ide_default_irq(ide_ioreg_t base) { return 0; }
 static __inline__ ide_ioreg_t ide_default_io_base(int index) { return 0; }
 
@@ -53,29 +48,10 @@ static __inline__ void ide_init_default_hwifs(void)
 {
 }
 
-typedef union {
-	unsigned all			: 8;	/* all of the bits together */
-	struct {
-		unsigned head		: 4;	/* always zeros here */
-		unsigned unit		: 1;	/* drive select number, 0 or 1 */
-		unsigned bit5		: 1;	/* always 1 */
-		unsigned lba		: 1;	/* using LBA instead of CHS */
-		unsigned bit7		: 1;	/* always 1 */
-	} b;
-	} select_t;
-
-#define ide_request_irq(irq,hand,flg,dev,id)	request_irq((irq),(hand),(flg),(dev),(id))
-#define ide_free_irq(irq,dev_id)		free_irq((irq), (dev_id))
-#define ide_check_region(from,extent)		check_region((from), (extent))
-#define ide_request_region(from,extent,name)	request_region((from), (extent), (name))
-#define ide_release_region(from,extent)		release_region((from), (extent))
-
-/*
- * The following are not needed for the non-m68k ports
- */
-#define ide_ack_intr(hwif)		(1)
-#define ide_release_lock(lock)		do {} while (0)
-#define ide_get_lock(lock, hdlr, data)	do {} while (0)
+#define __ide_mm_insw(p, a, c)  _insw_ns((volatile u16 *)(p), (a), (c))
+#define __ide_mm_insl(p, a, c)  _insl_ns((volatile u32 *)(p), (a), (c))
+#define __ide_mm_outsw(p, a, c) _outsw_ns((volatile u16 *)(p), (a), (c))
+#define __ide_mm_outsl(p, a, c) _outsl_ns((volatile u32 *)(p), (a), (c))
 
 #endif /* __KERNEL__ */
 

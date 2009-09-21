@@ -123,7 +123,7 @@ int DRM(addmap)( struct inode *inode, struct file *filp,
 					      MTRR_TYPE_WRCOMB, 1 );
 		}
 #endif
-		map->handle = DRM(ioremap)( map->offset, map->size );
+		map->handle = DRM(ioremap)( map->offset, map->size, dev );
 		break;
 
 	case _DRM_SHM:
@@ -136,6 +136,7 @@ int DRM(addmap)( struct inode *inode, struct file *filp,
 		}
 		map->offset = (unsigned long)map->handle;
 		if ( map->flags & _DRM_CONTAINS_LOCK ) {
+			dev->sigdata.lock =
 			dev->lock.hw_lock = map->handle; /* Pointer to lock */
 		}
 		break;
@@ -244,7 +245,7 @@ int DRM(rmmap)(struct inode *inode, struct file *filp,
 				DRM_DEBUG("mtrr_del = %d\n", retcode);
 			}
 #endif
-			DRM(ioremapfree)(map->handle, map->size);
+			DRM(ioremapfree)(map->handle, map->size, dev);
 			break;
 		case _DRM_SHM:
 			vfree(map->handle);

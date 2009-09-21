@@ -59,6 +59,7 @@ static __inline__ void set_dec(int val)
 	if (lpaca->xLpPaca.xSharedProc) {
 		lpaca->xLpPaca.xVirtualDecr = val;
 		cur_dec = get_dec();
+		lpaca->xLpPaca.xSavedDecr = cur_dec;
 		if (cur_dec > val)
 			HvCall_setVirtualDecr();
 	} else

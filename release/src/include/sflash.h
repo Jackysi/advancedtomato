@@ -1,7 +1,7 @@
 /*
  * Broadcom SiliconBackplane chipcommon serial flash interface
  *
- * Copyright 2005, Broadcom Corporation      
+ * Copyright 2006, Broadcom Corporation
  * All Rights Reserved.      
  *       
  * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY      
@@ -9,7 +9,7 @@
  * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS      
  * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.      
  *
- * $Id: sflash.h,v 1.1.1.7 2005/03/07 07:31:12 kanki Exp $
+ * $Id: sflash.h,v 1.1.1.8 2006/02/27 03:43:16 honor Exp $
  */
 
 #ifndef _sflash_h_

@@ -1,6 +1,6 @@
 /*======================================================================
 
-  $Id: doc1000.c,v 1.1.1.4 2003/10/14 08:08:17 sparq Exp $
+  $Id: doc1000.c,v 1.17 2003/01/24 13:33:20 dwmw2 Exp $
 
 ======================================================================*/
 
@@ -20,8 +20,6 @@
 #include <linux/ioctl.h>
 #include <asm/io.h>
 #include <asm/system.h>
-#include <asm/segment.h>
-#include <stdarg.h>
 #include <linux/delay.h>
 #include <linux/init.h>
 
@@ -137,6 +135,119 @@ int flashcard_erase (struct mtd_info *mtd, struct erase_info *instr)
 	*tmp = instr;
 	flashcard_periodic((u_long)mtd);
 	return 0;
+}
+
+static inline int suspend_erase(volatile u_char *addr)
+{
+	__u16 status;
+	u_long i = 0;
+	
+	writew(IF_ERASE_SUSPEND, addr);
+	writew(IF_READ_CSR, addr);
+	
+	do {
+		status = readw(addr);
+		if ((status & CSR_WR_READY) == CSR_WR_READY)
+			return 0;
+		i++;
+	} while(i < max_tries);
+
+	printk(KERN_NOTICE "flashcard: suspend_erase timed out, status 0x%x\n", status);
+	return -EIO;
+
+}
+
+static inline void resume_erase(volatile u_char *addr)
+{
+	__u16 status;
+	
+	writew(IF_READ_CSR, addr);
+	status = readw(addr);
+	
+	/* Only give resume signal if the erase is really suspended */
+	if (status & CSR_ERA_SUSPEND)
+		writew(IF_CONFIRM, addr);
+}
+
+static inline int byte_write (volatile u_char *addr, u_char byte)
+{
+	register u_char status;
+	register u_short i = 0;
+
+	do {
+		status = readb(addr);
+		if (status & CSR_WR_READY)
+		{
+			writeb(IF_WRITE & 0xff, addr);
+			writeb(byte, addr);
+			return 0;
+		}
+		i++;
+	} while(i < max_tries);
+
+		
+	printk(KERN_NOTICE "flashcard: byte_write timed out, status 0x%x\n",status);
+	return -EIO;
+}
+
+static inline int word_write (volatile u_char *addr, __u16 word)
+{
+	register u_short status;
+	register u_short i = 0;
+	
+	do {
+		status = readw(addr);
+		if ((status & CSR_WR_READY) == CSR_WR_READY)
+		{
+			writew(IF_WRITE, addr);
+			writew(word, addr);
+			return 0;
+		}
+		i++;
+	} while(i < max_tries);
+		
+	printk(KERN_NOTICE "flashcard: word_write timed out at %p, status 0x%x\n", addr, status);
+	return -EIO;
+}
+
+static inline void reset_block(volatile u_char *addr)
+{
+	u_short i;
+	__u16 status;
+
+	writew(IF_CLEAR_CSR, addr);
+
+	for (i = 0; i < 100; i++) {
+		writew(IF_READ_CSR, addr);
+		status = readw(addr);
+		if (status != 0xffff) break;
+		udelay(1000);
+	}
+
+	writew(IF_READ_CSR, addr);
+}
+
+static inline int check_write(volatile u_char *addr)
+{
+	u_short status, i = 0;
+	
+	writew(IF_READ_CSR, addr);
+	
+	do {
+		status = readw(addr);
+		if (status & (CSR_WR_ERR | CSR_VPP_LOW))
+		{
+			printk(KERN_NOTICE "flashcard: write failure at %p, status 0x%x\n", addr, status);
+			reset_block(addr);
+			return -EIO;
+		}
+		if ((status & CSR_WR_READY) == CSR_WR_READY)
+			return 0;
+		i++;
+	} while (i < max_tries);
+
+	printk(KERN_NOTICE "flashcard: write timed out at %p, status 0x%x\n", addr, status);
+	return -EIO;
 }
 
 
@@ -283,47 +394,6 @@ int flashcard_write (struct mtd_info *mtd, loff_t to, size_t len, size_t *retlen
 
 /*====================================================================*/
 
-static inline int byte_write (volatile u_char *addr, u_char byte)
-{
-	register u_char status;
-	register u_short i = 0;
-
-	do {
-		status = readb(addr);
-		if (status & CSR_WR_READY)
-		{
-			writeb(IF_WRITE & 0xff, addr);
-			writeb(byte, addr);
-			return 0;
-		}
-		i++;
-	} while(i < max_tries);
-
-		
-	printk(KERN_NOTICE "flashcard: byte_write timed out, status 0x%x\n",status);
-	return -EIO;
-}
-
-static inline int word_write (volatile u_char *addr, __u16 word)
-{
-	register u_short status;
-	register u_short i = 0;
-	
-	do {
-		status = readw(addr);
-		if ((status & CSR_WR_READY) == CSR_WR_READY)
-		{
-			writew(IF_WRITE, addr);
-			writew(word, addr);
-			return 0;
-		}
-		i++;
-	} while(i < max_tries);
-		
-	printk(KERN_NOTICE "flashcard: word_write timed out at %p, status 0x%x\n", addr, status);
-	return -EIO;
-}
-
 static inline void block_erase (volatile u_char *addr)
 {
 	writew(IF_BLOCK_ERASE, addr);
@@ -351,79 +421,6 @@ static inline int check_erase(volatile u_char *addr)
 	
 	return 0;
 }
-
-static inline int suspend_erase(volatile u_char *addr)
-{
-	__u16 status;
-	u_long i = 0;
-	
-	writew(IF_ERASE_SUSPEND, addr);
-	writew(IF_READ_CSR, addr);
-	
-	do {
-		status = readw(addr);
-		if ((status & CSR_WR_READY) == CSR_WR_READY)
-			return 0;
-		i++;
-	} while(i < max_tries);
-
-	printk(KERN_NOTICE "flashcard: suspend_erase timed out, status 0x%x\n", status);
-	return -EIO;
-
-}
-
-static inline void resume_erase(volatile u_char *addr)
-{
-	__u16 status;
-	
-	writew(IF_READ_CSR, addr);
-	status = readw(addr);
-	
-	/* Only give resume signal if the erase is really suspended */
-	if (status & CSR_ERA_SUSPEND)
-		writew(IF_CONFIRM, addr);
-}
-
-static inline void reset_block(volatile u_char *addr)
-{
-	u_short i;
-	__u16 status;
-
-	writew(IF_CLEAR_CSR, addr);
-
-	for (i = 0; i < 100; i++) {
-		writew(IF_READ_CSR, addr);
-		status = readw(addr);
-		if (status != 0xffff) break;
-		udelay(1000);
-	}
-
-	writew(IF_READ_CSR, addr);
-}
-
-static inline int check_write(volatile u_char *addr)
-{
-	u_short status, i = 0;
-	
-	writew(IF_READ_CSR, addr);
-	
-	do {
-		status = readw(addr);
-		if (status & (CSR_WR_ERR | CSR_VPP_LOW))
-		{
-			printk(KERN_NOTICE "flashcard: write failure at %p, status 0x%x\n", addr, status);
-			reset_block(addr);
-			return -EIO;
-		}
-		if ((status & CSR_WR_READY) == CSR_WR_READY)
-			return 0;
-		i++;
-	} while (i < max_tries);
-
-	printk(KERN_NOTICE "flashcard: write timed out at %p, status 0x%x\n", addr, status);
-	return -EIO;
-}
-
 
 /*====================================================================*/
 

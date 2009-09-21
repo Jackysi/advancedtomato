@@ -1240,6 +1240,7 @@ process_script_interrupt(__u32 dsps, __u32 dsp, Scsi_Cmnd *SCp,
 		       host->host_no, reselection_id, lun, dsp, dsp - hostdata->pScript, hostdata->state, hostdata->command_slot_count);
 
 		{
+			/* FIXME: DEBUGGING CODE */
 			__u32 SG = (__u32)bS_to_cpu(hostdata->script[A_SGScriptStartAddress_used[0]]);
 			int i;
 
@@ -1734,6 +1735,20 @@ NCR_700_intr(int irq, void *dev_id, struct pt_regs *regs)
 		 * then get reselected before we process the
 		 * disconnection */
 		if(sstat0 & SELECTED) {
+			/* FIXME: It currently takes at least FOUR
+			 * interrupts to complete a command that
+			 * disconnects: one for the disconnect, one
+			 * for the reselection, one to get the
+			 * reselection data and one to complete the
+			 * command.  If we guess the reselected
+			 * command here and prepare it, we only need
+			 * to get a reselection data interrupt if we
+			 * guessed wrongly.  Since the interrupt
+			 * overhead is much greater than the command
+			 * setup, this would be an efficient
+			 * optimisation particularly as we probably
+			 * only have one outstanding command on a
+			 * target most of the time */
 
 			resume_offset = process_selection(host, dsp);
 
@@ -1782,6 +1797,8 @@ NCR_700_intr(int irq, void *dev_id, struct pt_regs *regs)
 	spin_unlock_irqrestore(&io_request_lock, flags);
 }
 
+/* FIXME: Need to put some proc information in and plumb it
+ * into the scsi proc system */
 STATIC int
 NCR_700_proc_directory_info(char *proc_buf, char **startp,
 			 off_t offset, int bytes_available,
@@ -1800,6 +1817,7 @@ NCR_700_proc_directory_info(char *proc_buf, char **startp,
 		return 0;
 
 	if(write) {
+		/* FIXME: Clear internal statistics here */
 		return 0;
 	}
 	hostdata = (struct NCR_700_Host_Parameters *)host->hostdata[0];
@@ -2059,6 +2077,16 @@ NCR_700_abort(Scsi_Cmnd * SCp)
 		/* no outstanding command to abort */
 		return SUCCESS;
 	if(SCp->cmnd[0] == TEST_UNIT_READY) {
+		/* FIXME: This is because of a problem in the new
+		 * error handler.  When it is in error recovery, it
+		 * will send a TUR to a device it thinks may still be
+		 * showing a problem.  If the TUR isn't responded to,
+		 * it will abort it and mark the device off line.
+		 * Unfortunately, it does no other error recovery, so
+		 * this would leave us with an outstanding command
+		 * occupying a slot.  Rather than allow this to
+		 * happen, we issue a bus reset to force all
+		 * outstanding commands to terminate here. */
 		NCR_700_internal_bus_reset(SCp->host);
 		/* still drop through and return failed */
 	}

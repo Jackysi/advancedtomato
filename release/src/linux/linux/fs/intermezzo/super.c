@@ -23,8 +23,8 @@
  *  presto's super.c
  */
 
-static char rcsid[] __attribute ((unused)) = "$Id: super.c,v 1.1.1.4 2003/10/14 08:08:59 sparq Exp $";
-#define INTERMEZZO_VERSION "$Revision: 1.1.1.4 $"
+static char rcsid[] __attribute ((unused)) = "$Id: super.c,v 1.42 2003/09/30 15:51:52 sunsetyang Exp $";
+#define INTERMEZZO_VERSION "$Revision: 1.42 $"
 
 #include <stdarg.h>
 
@@ -172,6 +172,7 @@ static int presto_set_channel(struct presto_cache *cache, char *channel)
                 minor = izo_psdev_get_free_channel();
         } else {
                 minor = simple_strtoul(channel, NULL, 0); 
+				PRESTO_FREE(channel, strlen(channel) + 1);
         }
         if (minor < 0 || minor >= MAX_CHANNEL) { 
                 CERROR("all channels in use or channel too large %d\n", 
@@ -286,6 +287,9 @@ struct super_block * presto_read_super(struct super_block * sb,
         /* we now know the dev of the cache: hash the cache */
         presto_cache_add(cache, sb->s_dev);
         err = izo_prepare_fileset(sb->s_root, fileset); 
+
+        if (fileset)
+                PRESTO_FREE(fileset, strlen(fileset) + 1);
 
         filter_setup_journal_ops(cache->cache_filter, cache->cache_type); 
 

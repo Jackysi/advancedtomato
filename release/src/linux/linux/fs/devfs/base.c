@@ -3312,7 +3312,7 @@ static ssize_t devfsd_read (struct file *file, char *buf, size_t len,
 {
     int done = FALSE;
     int ival;
-    loff_t pos, devname_offset, tlen, rpos;
+    loff_t pos, devname_offset, tlen, rpos, old_pos;
     devfs_handle_t de;
     struct devfsd_buf_entry *entry;
     struct fs_info *fs_info = file->f_dentry->d_inode->i_sb->u.generic_sbp;
@@ -3363,8 +3363,8 @@ static ssize_t devfsd_read (struct file *file, char *buf, size_t len,
     info->namelen = DEVFS_PATHLEN - pos - 1;
     if (info->mode == 0) info->mode = de->mode;
     devname_offset = info->devname - (char *) info;
-    rpos = *ppos;
-    if (rpos < devname_offset)
+    old_pos = rpos = *ppos;
+    if (rpos >= 0 && rpos < devname_offset)
     {
 	/*  Copy parts of the header  */
 	tlen = devname_offset - rpos;
@@ -3390,7 +3390,7 @@ static ssize_t devfsd_read (struct file *file, char *buf, size_t len,
 	}
 	rpos += tlen;
     }
-    tlen = rpos - *ppos;
+    tlen = rpos - old_pos;
     if (done)
     {
 	devfs_handle_t parent;
@@ -3504,16 +3504,17 @@ static ssize_t stat_read (struct file *file, char *buf, size_t len,
 			  loff_t *ppos)
 {
     ssize_t num;
+    loff_t n = *ppos;
     char txt[80];
 
     num = sprintf (txt, "Number of entries: %u  number of bytes: %u\n",
 		   stat_num_entries, stat_num_bytes) + 1;
     /*  Can't seek (pread) on this device  */
     if (ppos != &file->f_pos) return -ESPIPE;
-    if (*ppos >= num) return 0;
-    if (*ppos + len > num) len = num - *ppos;
-    if ( copy_to_user (buf, txt + *ppos, len) ) return -EFAULT;
-    *ppos += len;
+    if (n != (unsigned)n || n >= num) return 0;
+    if (len > num - n) len = num - n;
+    if ( copy_to_user (buf, txt + n, len) ) return -EFAULT;
+    *ppos = n + len;
     return len;
 }   /*  End Function stat_read  */
 #endif
@@ -3549,7 +3550,7 @@ void __init mount_devfs_fs (void)
     int err;
 
     if ( !(boot_options & OPTION_MOUNT) ) return;
-    err = do_mount ("none", "/dev", "devfs", 0, "");
+    err = do_mount ("none", "/dev", "devfs", 0, NULL);
     if (err == 0) printk (KERN_INFO "Mounted devfs on /dev\n");
     else PRINTK ("(): unable to mount devfs, err: %d\n", err);
 }   /*  End Function mount_devfs_fs  */

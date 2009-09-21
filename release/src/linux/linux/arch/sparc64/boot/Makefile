@@ -1,4 +1,4 @@
-# $Id: Makefile,v 1.1.1.4 2003/10/14 08:07:49 sparq Exp $
+# $Id: Makefile,v 1.4 1997/12/15 20:08:56 ecd Exp $
 # Makefile for the Sparc64 boot stuff.
 #
 # Copyright (C) 1995 David S. Miller (davem@caip.rutgers.edu)
@@ -19,5 +19,10 @@ tftpboot.img: piggyback $(TOPDIR)/vmlinux $(ROOT_IMG)
 piggyback: piggyback.c
 	$(HOSTCC) $(HOSTCFLAGS) -o piggyback piggyback.c
 
+image: $(TOPDIR)/vmlinux
+	$(STRIP) -R .comment -R .note -K sun4u_init -K _end -K _start $(TOPDIR)/vmlinux -o $@
+
 dep:
 
+clean:
+	rm -f tftpboot.img piggyback image

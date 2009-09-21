@@ -17,9 +17,9 @@
  the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
 
  *
- * $Source: /home/cvsroot/wrt54g/src/linux/linux/drivers/char/ftape/lowlevel/fdc-io.c,v $
- * $Revision: 1.1.1.2 $
- * $Date: 2003/10/14 08:08:06 $
+ * $Source: /homes/cvs/ftape-stacked/ftape/lowlevel/fdc-io.c,v $
+ * $Revision: 1.7.4.2 $
+ * $Date: 1997/11/16 14:48:17 $
  *
  *      This file contains the low-level floppy disk interface code
  *      for the QIC-40/80/3010/3020 floppy-tape driver "ftape" for
@@ -895,7 +895,14 @@ static int handle_perpend(int segment_id)
 	 */
 	if (ft_qic_std == QIC_TAPE_QIC3020 &&
 	    ((segment_id / ft_segments_per_track) & 1) == 0) {
+/*  FIXME: some i82077 seem to support perpendicular mode as
+ *  well. 
+ */
+#if 0
+		if (fdc.type < i82077AA) {}
+#else
 		if (fdc.type < i82077 && ft_data_rate < 1000) {
+#endif
 			/*  fdc does not support perpendicular mode: complain 
 			 */
 			TRACE_ABORT(-EIO, ft_t_err,

@@ -500,7 +500,7 @@ static int __init mwave_init(void)
 {
 	int i;
 	int retval = 0;
-	unsigned int resultMiscRegister;
+	int resultMiscRegister;
 	pMWAVE_DEVICE_DATA pDrvData = &mwave_s_mdd;
 
 	memset(&mwave_s_mdd, 0, sizeof(MWAVE_DEVICE_DATA));

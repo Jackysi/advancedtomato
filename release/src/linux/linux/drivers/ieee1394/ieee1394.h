@@ -15,6 +15,7 @@
 #define TCODE_CYCLE_START        0x8
 #define TCODE_LOCK_REQUEST       0x9
 #define TCODE_ISO_DATA           0xa
+#define TCODE_STREAM_DATA        0xa
 #define TCODE_LOCK_RESPONSE      0xb
 
 #define RCODE_COMPLETE           0x0
@@ -45,12 +46,18 @@
 #define ACKX_TIMEOUT             (-4)
 
 
-#define SPEED_100                0x0
-#define SPEED_200                0x1
-#define SPEED_400                0x2
+#define IEEE1394_SPEED_100		0x00
+#define IEEE1394_SPEED_200		0x01
+#define IEEE1394_SPEED_400		0x02
+#define IEEE1394_SPEED_800		0x03
+#define IEEE1394_SPEED_1600		0x04
+#define IEEE1394_SPEED_3200		0x05
+/* The current highest tested speed supported by the subsystem */
+#define IEEE1394_SPEED_MAX		IEEE1394_SPEED_800
 
 /* Maps speed values above to a string representation */
 extern const char *hpsb_speedto_str[];
+
 
 #define SELFID_PWRCL_NO_POWER    0x0
 #define SELFID_PWRCL_PROVIDE_15W 0x1
@@ -112,7 +119,7 @@ struct ext_selfid {
         u32 more_packets:1;
 } __attribute__((packed));
 
-#elif defined __LITTLE_ENDIAN_BITFIELD   /* __BIG_ENDIAN_BITFIELD */
+#elif defined __LITTLE_ENDIAN_BITFIELD /* __BIG_ENDIAN_BITFIELD */
 
 /*
  * Note: these mean to be bit fields of a big endian SelfID as seen on a little

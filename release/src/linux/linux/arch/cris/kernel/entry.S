@@ -1,4 +1,4 @@
-/* $Id: entry.S,v 1.1.1.4 2003/10/14 08:07:17 sparq Exp $
+/* $Id: entry.S,v 1.42 2003/07/07 09:00:50 johana Exp $
  *
  *  linux/arch/cris/entry.S
  *
@@ -7,11 +7,14 @@
  *  Authors:	Bjorn Wesen (bjornw@axis.com)
  *
  *  $Log: entry.S,v $
- *  Revision 1.1.1.4  2003/10/14 08:07:17  sparq
- *  Broadcom Release 3.51.8.0 for BCM4712.
+ *  Revision 1.42  2003/07/07 09:00:50  johana
+ *  Added CONFIG_ETRAX_DEBUG_INTERRUPT support.
  *
- *  Revision 1.1.1.1  2003/02/03 22:37:20  mhuang
- *  LINUX_2_4 branch snapshot from linux-mips.org CVS
+ *  Revision 1.41  2003/06/17 13:57:50  starvik
+ *  Merge of Linux 2.4.21
+ *
+ *  Revision 1.40  2002/12/02 08:11:41  starvik
+ *  Merge of Linux 2.4.20
  *
  *  Revision 1.39  2002/04/24 00:46:45  bjornw
  *  Added sys_tkill
@@ -361,6 +364,12 @@ _ret_with_reschedule:
 	
 _Rexit:
 	;; this epilogue MUST match the prologues in multiple_interrupt, irq.h and ptregs.h
+#ifdef CONFIG_ETRAX_DEBUG_INTERRUPT
+	move.d $pc,$r10
+	move $ccr,$r11
+	move.d	[$sp + LDCCR], $r12; regs->dccr	
+	jsr log_int
+#endif
 	pop	$r10		; frametype
 	bne	_RBFexit	; was not CRIS_FRAME_NORMAL, handle otherwise
 	addq	4, $sp		; skip orig_r10, in delayslot
@@ -452,6 +461,22 @@ resume:
 	push	$srp		         ; we keep the old/new PC on the stack 
 	add.d	$r12, $r10		 ; r10 = current tasks tss
 	move	$dccr, [$r10+LTHREAD_DCCR] ; save irq enable state
+#ifdef CONFIG_ETRAX_DEBUG_INTERRUPT
+	push $r9
+	push $r10
+	push $r11
+	push $r12
+	push $r13
+	move.d $pc,$r10
+	move $ccr,$r11
+	clear.d $r12
+	jsr log_int
+	pop $r13
+	pop $r12
+	pop $r11
+	pop $r10
+	pop $r9
+#endif
 	di
 
 	move	$usp, [$r10+LTHREAD_USP] ; save user-mode stackpointer
@@ -507,9 +532,31 @@ mmu_bus_fault:
 	nop
 		
 	;; special handlers for breakpoint and NMI
+#if 0			
 hwbreakpoint:
 	push	$dccr
 	di
+	push	$r10
+	push	$r11
+	push	$r12
+	push	$r13
+	clearf	b
+	move	$brp,$r11
+	move.d	[hw_bp_msg],$r10
+	jsr	printk
+	setf	b
+	pop	$r13
+	pop	$r12
+	pop	$r11
+	pop	$r10
+	pop	$dccr
+	retb
+	nop
+#else
+hwbreakpoint:
+	push	$dccr
+	di
+#if 1
 	push	$r10
 	push	$r11
 	move.d	[hw_bp_trig_ptr],$r10
@@ -522,9 +569,11 @@ hwbreakpoint:
 	move.d	$r10,[hw_bp_trig_ptr]
 1:	pop	$r11
 	pop	$r10
+#endif
 	pop	$dccr
 	retb
 	nop
+#endif
 	
 IRQ1_interrupt:
 
@@ -718,12 +767,12 @@ hw_bp_trig_ptr:
  * the grosser the code, at least with the gcc version in cris-dist-1.13.
  */
 
-/* int kernel_thread(int (*fn)(void *), void * arg, unsigned long flags) */
+/* int arch_kernel_thread(int (*fn)(void *), void * arg, unsigned long flags) */
 /*                   r10                r11         r12  */
 
 	.text
-	.global kernel_thread
-kernel_thread:
+	.global arch_kernel_thread
+arch_kernel_thread:
 
 	/* Save ARG for later.  */
 	move.d $r11, $r13
@@ -998,7 +1047,33 @@ sys_call_table:
         .long SYMBOL_NAME(sys_ni_syscall)       /* Reserved for Security */
         .long SYMBOL_NAME(sys_gettid)
         .long SYMBOL_NAME(sys_readahead)        /* 225 */
-	.long SYMBOL_NAME(sys_tkill)
+	.long SYMBOL_NAME(sys_setxattr)
+	.long SYMBOL_NAME(sys_lsetxattr)
+	.long SYMBOL_NAME(sys_fsetxattr)
+	.long SYMBOL_NAME(sys_getxattr)
+	.long SYMBOL_NAME(sys_lgetxattr)	/* 230 */
+	.long SYMBOL_NAME(sys_fgetxattr)
+	.long SYMBOL_NAME(sys_listxattr)
+	.long SYMBOL_NAME(sys_llistxattr)
+	.long SYMBOL_NAME(sys_flistxattr)
+	.long SYMBOL_NAME(sys_removexattr)	/* 235 */
+	.long SYMBOL_NAME(sys_lremovexattr)
+	.long SYMBOL_NAME(sys_fremovexattr)
+ 	.long SYMBOL_NAME(sys_tkill)
+	.long SYMBOL_NAME(sys_ni_syscall)	/* reserved for sendfile64 */
+	.long SYMBOL_NAME(sys_ni_syscall)	/* 240 reserved for futex */
+	.long SYMBOL_NAME(sys_ni_syscall)	/* reserved for sched_setaffinity */
+	.long SYMBOL_NAME(sys_ni_syscall)	/* reserved for sched_getaffinity */
+	.long SYMBOL_NAME(sys_ni_syscall)	/* sys_set_thread_area */
+	.long SYMBOL_NAME(sys_ni_syscall)	/* sys_get_thread_area */
+	.long SYMBOL_NAME(sys_ni_syscall)	/* 245 sys_io_setup */
+	.long SYMBOL_NAME(sys_ni_syscall)	/* sys_io_destroy */
+	.long SYMBOL_NAME(sys_ni_syscall)	/* sys_io_getevents */
+	.long SYMBOL_NAME(sys_ni_syscall)	/* sys_io_submit */
+	.long SYMBOL_NAME(sys_ni_syscall)	/* sys_io_cancel */
+	.long SYMBOL_NAME(sys_ni_syscall)	/* 250 sys_alloc_hugepages */
+	.long SYMBOL_NAME(sys_ni_syscall)	/* sys_free_hugepages */
+	.long SYMBOL_NAME(sys_ni_syscall)	/* sys_exit_group */
 	
         /*
          * NOTE!! This doesn't have to be exact - we just have

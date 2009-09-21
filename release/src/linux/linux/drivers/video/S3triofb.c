@@ -17,8 +17,7 @@
  */
 
 /*
-	Bugs : + OF dependencies should be removed.
-               + This driver should be merged with the CyberVision driver. The
+	Bugs : + This driver should be merged with the CyberVision driver. The
                  CyberVision is a Zorro III implementation of the S3Trio64 chip.
 
 */
@@ -37,9 +36,6 @@
 #include <linux/fb.h>
 #include <linux/init.h>
 #include <linux/selection.h>
-#include <asm/io.h>
-#include <asm/prom.h>
-#include <asm/pci-bridge.h>
 #include <linux/pci.h>
 #ifdef CONFIG_FB_COMPAT_XPMAC
 #include <asm/vc_ioctl.h>
@@ -60,7 +56,9 @@
 
 #define IO_OUT16VAL(v, r)       (((v) << 8) | (r))
 
+
 static int currcon = 0;
+static int disabled;
 static struct display disp;
 static struct fb_info fb_info;
 static struct { u_char red, green, blue, pad; } palette[256];
@@ -68,14 +66,20 @@ static char s3trio_name[16] = "S3Trio ";
 static char *s3trio_base;
 
 static struct fb_fix_screeninfo fb_fix;
-static struct fb_var_screeninfo fb_var = { 0, };
-
+static struct fb_var_screeninfo S3triofb_default_var = {
+	640, 480, 640, 480, 0, 0, 8, 0,
+	{0, 8, 0}, {0, 8, 0}, {0, 8, 0}, {0, 0, 0},
+	0, 0, -1, FB_ACCELF_TEXT, 39722, 40, 24, 32, 11, 96, 2,
+	FB_SYNC_COMP_HIGH_ACT|FB_SYNC_VERT_HIGH_ACT,
+	FB_VMODE_NONINTERLACED
+};
+static struct fb_var_screeninfo fb_var = { 0,};
 
     /*
      *  Interface used by the world
      */
 
-static void __init s3triofb_of_init(struct device_node *dp);
+static void __init s3triofb_pci_init(struct pci_dev *dp);
 static int s3trio_get_fix(struct fb_fix_screeninfo *fix, int con,
 			  struct fb_info *info);
 static int s3trio_get_var(struct fb_var_screeninfo *var, int con,
@@ -98,6 +102,9 @@ int s3triofb_init(void);
 static int s3triofbcon_switch(int con, struct fb_info *info);
 static int s3triofbcon_updatevar(int con, struct fb_info *info);
 static void s3triofbcon_blank(int blank, struct fb_info *info);
+#if 0
+static int s3triofbcon_setcmap(struct fb_cmap *cmap, int con);
+#endif
 
     /*
      *  Text console acceleration
@@ -256,15 +263,42 @@ static int s3trio_set_cmap(struct fb_cmap *cmap, int kspc, int con,
     return 0;
 }
 
+int __init s3triofb_setup(char *options) {
+	char *this_opt;
+
+	if (!options || !*options)
+		return 0;
+
+	while ((this_opt = strsep(&options, ",")) != NULL) {
+		if (!*this_opt)
+			continue;
+
+		if (!strcmp(this_opt, "disabled"))
+			disabled = 1;
+	}
+	return 0;
+}
 
 int __init s3triofb_init(void)
 {
-	struct device_node *dp;
+	struct pci_dev *dp = NULL;
 
-	dp = find_devices("S3Trio");
-	if (dp != 0)
-	    s3triofb_of_init(dp);
-	return 0;
+	if (disabled)
+		return -ENXIO;
+
+	dp = pci_find_device(PCI_VENDOR_ID_S3, PCI_DEVICE_ID_S3_TRIO, dp);
+	if ((dp != 0) && ((dp->class >> 16) == PCI_BASE_CLASS_DISPLAY)) {
+		s3triofb_pci_init(dp);
+		return 0;
+	} else
+		return -ENODEV;
+}
+
+static void __exit s3triofb_exit(void)
+{
+    unregister_framebuffer(&fb_info);
+    iounmap(s3trio_base);
+    /* XXX unshare VGA regions */
 }
 
 void __init s3trio_resetaccel(void){
@@ -310,107 +344,69 @@ void __init s3trio_resetaccel(void){
 	outw( MF_PIX_CONTROL | MFA_SRC_FOREGR_MIX,  0xbee8);
 }
 
-int __init s3trio_init(struct device_node *dp){
+int __init s3trio_init(struct pci_dev *dp)
+{
+	/* unlock s3 */
+	outb(0x01, 0x3C3);
+	outb(inb(0x03CC) | 1, 0x3c2);
+	outw(IO_OUT16VAL(0x48, 0x38),0x03D4);
+	outw(IO_OUT16VAL(0xA0, 0x39),0x03D4);
+	outb(0x33,0x3d4);
+	outw(IO_OUT16VAL((inb(0x3d5) & ~(0x2 | 0x10 |  0x40)) |
+			  0x20, 0x33), 0x3d4);
 
-    u_char bus, dev;
-    unsigned int t32;
-    unsigned short cmd;
+	outw(IO_OUT16VAL(0x6, 0x8), 0x3c4);
+	printk("S3trio: unlocked s3\n");
 
-	pci_device_loc(dp,&bus,&dev);
-                pcibios_read_config_dword(bus, dev, PCI_VENDOR_ID, &t32);
-                if(t32 == (PCI_DEVICE_ID_S3_TRIO << 16) + PCI_VENDOR_ID_S3) {
-                        pcibios_read_config_dword(bus, dev, PCI_BASE_ADDRESS_0, &t32);
-                        pcibios_read_config_dword(bus, dev, PCI_BASE_ADDRESS_1, &t32);
-			pcibios_read_config_word(bus, dev, PCI_COMMAND,&cmd);
+	/* switch to MMIO only mode */
+	outb(0x58, 0x3d4);
+	outw(IO_OUT16VAL(inb(0x3d5) | 3 | 0x10, 0x58), 0x3d4);
+	outw(IO_OUT16VAL(8, 0x53), 0x3d4);
+	printk("S3trio: switched to mmio only mode\n");
 
-			pcibios_write_config_word(bus, dev, PCI_COMMAND, PCI_COMMAND_IO | PCI_COMMAND_MEMORY);
-
-			pcibios_write_config_dword(bus, dev, PCI_BASE_ADDRESS_0,0xffffffff);
-                        pcibios_read_config_dword(bus, dev, PCI_BASE_ADDRESS_0, &t32);
-
-/* This is a gross hack as OF only maps enough memory for the framebuffer and
-   we want to use MMIO too. We should find out which chunk of address space
-   we can use here */
-			pcibios_write_config_dword(bus,dev,PCI_BASE_ADDRESS_0,0xc6000000);
-
-			/* unlock s3 */
-
-			outb(0x01, 0x3C3);
-
-			outb(inb(0x03CC) | 1, 0x3c2);
-
-			outw(IO_OUT16VAL(0x48, 0x38),0x03D4);
-			outw(IO_OUT16VAL(0xA0, 0x39),0x03D4);
-			outb(0x33,0x3d4);
-			outw(IO_OUT16VAL((inb(0x3d5) & ~(0x2 | 0x10 |  0x40)) |
-					  0x20, 0x33), 0x3d4);
-
-			outw(IO_OUT16VAL(0x6, 0x8), 0x3c4);
-
-			/* switch to MMIO only mode */
-
-			outb(0x58, 0x3d4);
-			outw(IO_OUT16VAL(inb(0x3d5) | 3 | 0x10, 0x58), 0x3d4);
-			outw(IO_OUT16VAL(8, 0x53), 0x3d4);
-
-			/* switch off I/O accesses */
-
-			return 1;
-                }
-
-	return 0;
+	return 1;
 }
 
 
     /*
      *  Initialisation
-     *  We heavily rely on OF for the moment. This needs fixing.
      */
 
-static void __init s3triofb_of_init(struct device_node *dp)
+static void __init s3triofb_pci_init(struct pci_dev *dp)
 {
-    int i, *pp, len;
+    int i;
     unsigned long address, size;
     u_long *CursorBase;
+    u16 cmd;
 
-    strncat(s3trio_name, dp->name, sizeof(s3trio_name));
-    s3trio_name[sizeof(s3trio_name)-1] = '\0';
     strcpy(fb_fix.id, s3trio_name);
 
-    if((pp = (int *)get_property(dp, "vendor-id", &len)) != NULL
-	&& *pp!=PCI_VENDOR_ID_S3) {
-	printk("%s: can't find S3 Trio board\n", dp->full_name);
-	return;
-    }
-
-    if((pp = (int *)get_property(dp, "device-id", &len)) != NULL
-	&& *pp!=PCI_DEVICE_ID_S3_TRIO) {
-	printk("%s: can't find S3 Trio board\n", dp->full_name);
-	return;
-    }
-
-    if ((pp = (int *)get_property(dp, "depth", &len)) != NULL
-	&& len == sizeof(int) && *pp != 8) {
-	printk("%s: can't use depth = %d\n", dp->full_name, *pp);
-	return;
-    }
-    if ((pp = (int *)get_property(dp, "width", &len)) != NULL
-	&& len == sizeof(int))
-	fb_var.xres = fb_var.xres_virtual = *pp;
-    if ((pp = (int *)get_property(dp, "height", &len)) != NULL
-	&& len == sizeof(int))
-	fb_var.yres = fb_var.yres_virtual = *pp;
-    if ((pp = (int *)get_property(dp, "linebytes", &len)) != NULL
-	&& len == sizeof(int))
-	fb_fix.line_length = *pp;
-    else
-	fb_fix.line_length = fb_var.xres_virtual;
+    fb_var = S3triofb_default_var;
+    fb_fix.line_length = fb_var.xres_virtual;
     fb_fix.smem_len = fb_fix.line_length*fb_var.yres;
 
-    address = 0xc6000000;
-    size = 64*1024*1024;
-    if (!request_mem_region(address, size, "S3triofb"))
+    /* This driver cannot cope if the firmware has not initialised the
+     * device.  So, if the device isn't enabled we simply return
+     */
+    pci_read_config_word(dp, PCI_COMMAND, &cmd);
+    if (!(cmd & PCI_COMMAND_MEMORY)) {
+	    printk(KERN_NOTICE "S3trio: card was not initialised by firmware\n");
+	    return;
+    }
+
+    /* Enable it anyway */
+    if (pci_enable_device(dp)) {
+	    printk(KERN_ERR "S3trio: failed to enable PCI device\n");
+	    return;
+    }
+
+    /* There is only one memory region and it covers the mmio and fb areas */
+    address = pci_resource_start(dp, 0);
+    size    = pci_resource_len(dp, 0); /* size = 64*1024*1024; */
+    if (!request_mem_region(address, size, "S3triofb")) {
+	printk("S3trio: failed to allocate memory region\n");
 	return;
+    }
 
     s3trio_init(dp);
     s3trio_base = ioremap(address, size);
@@ -498,6 +494,9 @@ static void __init s3triofb_of_init(struct device_node *dp)
     s3trio_setcolreg(254, 0, 0, 0, 0, NULL /* not used */);
     memset((char *)s3trio_base, 0, 640*480);
 
+#if 0
+    Trio_RectFill(0, 0, 90, 90, 7, 1);
+#endif
 
     fb_fix.visual = FB_VISUAL_PSEUDOCOLOR ;
     fb_var.xoffset = fb_var.yoffset = 0;
@@ -542,16 +541,22 @@ static void __init s3triofb_of_init(struct device_node *dp)
 #endif
     disp.scrollmode = fb_var.accel_flags & FB_ACCELF_TEXT ? 0 : SCROLL_YREDRAW;
 
-    strcpy(fb_info.modename, "Trio64 ");
-    strncat(fb_info.modename, dp->full_name, sizeof(fb_info.modename));
+    strcpy(fb_info.modename, "Trio64");
     fb_info.node = -1;
     fb_info.fbops = &s3trio_ops;
+#if 0
+    fb_info.fbvar_num = 1;
+    fb_info.fbvar = &fb_var;
+#endif
     fb_info.disp = &disp;
     fb_info.fontname[0] = '\0';
     fb_info.changevar = NULL;
     fb_info.switch_con = &s3triofbcon_switch;
     fb_info.updatevar = &s3triofbcon_updatevar;
     fb_info.blank = &s3triofbcon_blank;
+#if 0
+    fb_info.setcmap = &s3triofbcon_setcmap;
+#endif
 
 #ifdef CONFIG_FB_COMPAT_XPMAC
     if (!console_fb_info) {
@@ -574,7 +579,7 @@ static void __init s3triofb_of_init(struct device_node *dp)
 	return;
 
     printk("fb%d: S3 Trio frame buffer device on %s\n",
-	   GET_FB_IDX(fb_info.node), dp->full_name);
+	   GET_FB_IDX(fb_info.node), dp->name);
 }
 
 
@@ -617,6 +622,12 @@ static void s3triofbcon_blank(int blank, struct fb_info *info)
      *  Set the colormap
      */
 
+#if 0
+static int s3triofbcon_setcmap(struct fb_cmap *cmap, int con)
+{
+    return(s3trio_set_cmap(cmap, 1, con, &fb_info));
+}
+#endif
 
 
     /*
@@ -836,4 +847,8 @@ static struct display_switch fbcon_trio8 = {
 };
 #endif
 
+#ifdef MODULE
+module_init(s3triofb_init);
 MODULE_LICENSE("GPL");
+#endif
+module_exit(s3triofb_exit);

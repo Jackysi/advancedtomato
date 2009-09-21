@@ -55,10 +55,6 @@ struct module kernel_module =
 
 struct module *module_list = &kernel_module;
 
-#if defined(CONFIG_KERNPROF)
-struct module *static_module_list = &kernel_module;
-#endif /* CONFIG_KERNPROF */
-
 #endif	/* defined(CONFIG_MODULES) || defined(CONFIG_KALLSYMS) */
 
 /* inter_module functions are always available, even when the kernel is
@@ -235,7 +231,7 @@ void inter_module_put(const char *im_name)
 }
 
 
-#if defined(CONFIG_MODULES)	    /* The rest of the source */
+#if defined(CONFIG_MODULES)	/* The rest of the source */
 
 static long get_mod_name(const char *user_name, char **buf);
 static void put_mod_name(char *buf);
@@ -307,7 +303,7 @@ sys_create_module(const char *name_user, size_t size)
 		error = namelen;
 		goto err0;
 	}
-	if (size < sizeof(struct module)+namelen) {
+	if (size < sizeof(struct module)+namelen+1) {
 		error = -EINVAL;
 		goto err1;
 	}
@@ -349,10 +345,10 @@ err0:
 asmlinkage long
 sys_init_module(const char *name_user, struct module *mod_user)
 {
-	struct module mod_tmp, *mod;
+	struct module mod_tmp, *mod, *mod2 = NULL;
 	char *name, *n_name, *name_tmp = NULL;
 	long namelen, n_namelen, i, error;
-	unsigned long mod_user_size;
+	unsigned long mod_user_size, flags;
 	struct module_ref *dep;
 
 	if (!capable(CAP_SYS_MODULE))
@@ -391,11 +387,23 @@ sys_init_module(const char *name_user, struct module *mod_user)
 	}
 	strcpy(name_tmp, mod->name);
 
-	error = copy_from_user(mod, mod_user, mod_user_size);
+	/* Copying mod_user directly over mod breaks the module_list chain and
+	 * races against search_exception_table.  copy_from_user may sleep so it
+	 * cannot be under modlist_lock, do the copy in two stages.
+	 */
+	if (!(mod2 = vmalloc(mod_user_size))) {
+		error = -ENOMEM;
+		goto err2;
+	}
+	error = copy_from_user(mod2, mod_user, mod_user_size);
 	if (error) {
 		error = -EFAULT;
 		goto err2;
 	}
+	spin_lock_irqsave(&modlist_lock, flags);
+	memcpy(mod, mod2, mod_user_size);
+	mod->next = mod_tmp.next;
+	spin_unlock_irqrestore(&modlist_lock, flags);
 
 	/* Sanity check the size of the module.  */
 	error = -EINVAL;
@@ -486,10 +494,10 @@ sys_init_module(const char *name_user, struct module *mod_user)
 		error = n_namelen;
 		goto err2;
 	}
-	if (namelen != n_namelen || strcmp(n_name, mod_tmp.name) != 0) {
+	if (namelen != n_namelen || strcmp(n_name, name_tmp) != 0) {
 		printk(KERN_ERR "init_module: changed module name to "
 				"`%s' from `%s'\n",
-		       n_name, mod_tmp.name);
+		       n_name, name_tmp);
 		goto err3;
 	}
 
@@ -509,7 +517,6 @@ sys_init_module(const char *name_user, struct module *mod_user)
 	   to make the I and D caches consistent.  */
 	flush_icache_range((unsigned long)mod, (unsigned long)mod + mod->size);
 
-	mod->next = mod_tmp.next;
 	mod->refs = NULL;
 
 	/* Sanity check the module's dependents */
@@ -575,6 +582,8 @@ err2:
 err1:
 	put_mod_name(name);
 err0:
+	if (mod2)
+		vfree(mod2);
 	unlock_kernel();
 	kfree(name_tmp);
 	return error;
@@ -717,10 +726,12 @@ qm_deps(struct module *mod, char *buf, size_t bufsize, size_t *ret)
 	if (mod == &kernel_module)
 		return -EINVAL;
 	if (!MOD_CAN_QUERY(mod))
+	{
 		if (put_user(0, ret))
 			return -EFAULT;
 		else
 			return 0;
+	}
 
 	space = 0;
 	for (i = 0; i < mod->ndeps; ++i) {
@@ -761,10 +772,12 @@ qm_refs(struct module *mod, char *buf, size_t bufsize, size_t *ret)
 	if (mod == &kernel_module)
 		return -EINVAL;
 	if (!MOD_CAN_QUERY(mod))
+	{
 		if (put_user(0, ret))
 			return -EFAULT;
 		else
 			return 0;
+	}
 
 	space = 0;
 	for (nrefs = 0, ref = mod->refs; ref ; ++nrefs, ref = ref->next_ref) {
@@ -805,10 +818,12 @@ qm_symbols(struct module *mod, char *buf, size_t bufsize, size_t *ret)
 	unsigned long *vals;
 
 	if (!MOD_CAN_QUERY(mod))
+	{
 		if (put_user(0, ret))
 			return -EFAULT;
 		else
 			return 0;
+	}
 
 	space = mod->nsyms * 2*sizeof(void *);
 

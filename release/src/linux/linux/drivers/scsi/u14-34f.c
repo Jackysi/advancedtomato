@@ -1488,7 +1488,7 @@ int u14_34f_biosparam(Disk *disk, kdev_t dev, int *dkinfo) {
       dkinfo[2] = size / (dkinfo[0] * dkinfo[1]);
       }
 
-#if defined(DEBUG_GEOMETRY)
+#if defined (DEBUG_GEOMETRY)
    printk ("%s: biosparam, head=%d, sec=%d, cyl=%d.\n", driver_name,
            dkinfo[0], dkinfo[1], dkinfo[2]);
 #endif

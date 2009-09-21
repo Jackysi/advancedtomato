@@ -29,6 +29,7 @@
 #include <asm/pci/bridge.h>
 #include <asm/paccess.h>
 #include <asm/sn/sn0/ip27.h>
+#include <asm/traps.h>
 
 /* Check against user dumbness.  */
 #ifdef CONFIG_VT
@@ -42,6 +43,8 @@
 #define DBG(x...)
 #endif
 
+extern void ip27_be_init(void) __init;
+
 /*
  * get_nasid() returns the physical node id number of the caller.
  */
@@ -52,6 +55,7 @@ get_nasid(void)
 	                 >> NSRI_NODEID_SHFT);
 }
 
+/* Extracted from the IOC3 meta driver.  FIXME.  */
 static inline void ioc3_sio_init(void)
 {
 	struct ioc3 *ioc3;
@@ -311,5 +315,7 @@ void __init ip27_setup(void)
 	per_cpu_init();
 
 	set_io_port_base(IO_BASE);
+
+	board_be_init = ip27_be_init;
 	board_time_init = ip27_time_init;
 }

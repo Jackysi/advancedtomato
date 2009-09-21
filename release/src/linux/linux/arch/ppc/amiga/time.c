@@ -1,6 +1,3 @@
-/*
- * BK Id: %F% %I% %G% %U% %#%
- */
 #include <linux/config.h> /* CONFIG_HEARTBEAT */
 #include <linux/errno.h>
 #include <linux/sched.h>

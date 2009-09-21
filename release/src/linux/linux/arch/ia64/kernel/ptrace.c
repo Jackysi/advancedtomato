@@ -1,7 +1,7 @@
 /*
  * Kernel support for the ptrace() and syscall tracing interfaces.
  *
- * Copyright (C) 1999-2002 Hewlett-Packard Co
+ * Copyright (C) 1999-2003 Hewlett-Packard Co
  *	David Mosberger-Tang <davidm@hpl.hp.com>
  *
  * Derived from the x86 and Alpha versions.  Most of the code in here
@@ -10,6 +10,7 @@
 #include <linux/config.h>
 #include <linux/kernel.h>
 #include <linux/sched.h>
+#include <linux/slab.h>
 #include <linux/mm.h>
 #include <linux/errno.h>
 #include <linux/ptrace.h>
@@ -24,8 +25,10 @@
 #include <asm/uaccess.h>
 #include <asm/unwind.h>
 #ifdef CONFIG_PERFMON
-# include <asm/perfmon.h>
+#include <asm/perfmon.h>
 #endif
+
+#define offsetof(type,field)    ((unsigned long) &((type *) 0)->field)
 
 /*
  * Bits in the PSR that we allow ptrace() to change:
@@ -60,12 +63,25 @@ ia64_get_scratch_nat_bits (struct pt_regs *pt, unsigned long scratch_unat)
 	({										\
 		unsigned long bit = ia64_unat_pos(&pt->r##first);			\
 		unsigned long mask = ((1UL << (last - first + 1)) - 1) << first;	\
-		(ia64_rotl(unat, first) >> bit) & mask;					\
+		unsigned long dist;							\
+		if (bit < first)							\
+			dist = 64 + bit - first;					\
+		else									\
+			dist = bit - first;						\
+		ia64_rotr(unat, dist) & mask;						\
 	})
 	unsigned long val;
 
-	val  = GET_BITS( 1,  3, scratch_unat);
-	val |= GET_BITS(12, 15, scratch_unat);
+	/*
+	 * Registers that are stored consecutively in struct pt_regs can be handled in
+	 * parallel.  If the register order in struct_pt_regs changes, this code MUST be
+	 * updated.
+	 */
+	val  = GET_BITS( 1,  1, scratch_unat);
+	val |= GET_BITS( 2,  3, scratch_unat);
+	val |= GET_BITS(12, 13, scratch_unat);
+	val |= GET_BITS(14, 14, scratch_unat);
+	val |= GET_BITS(15, 15, scratch_unat);
 	val |= GET_BITS( 8, 11, scratch_unat);
 	val |= GET_BITS(16, 31, scratch_unat);
 	return val;
@@ -81,16 +97,29 @@ ia64_get_scratch_nat_bits (struct pt_regs *pt, unsigned long scratch_unat)
 unsigned long
 ia64_put_scratch_nat_bits (struct pt_regs *pt, unsigned long nat)
 {
+#	define PUT_BITS(first, last, nat)						\
+	({										\
+		unsigned long bit = ia64_unat_pos(&pt->r##first);			\
+		unsigned long mask = ((1UL << (last - first + 1)) - 1) << first;	\
+		long dist;								\
+		if (bit < first)							\
+			dist = 64 + bit - first;					\
+		else									\
+			dist = bit - first;						\
+		ia64_rotl(nat & mask, dist);						\
+	})
 	unsigned long scratch_unat;
 
-#	define PUT_BITS(first, last, nat)					\
-	({									\
-		unsigned long bit = ia64_unat_pos(&pt->r##first);		\
-		unsigned long mask = ((1UL << (last - first + 1)) - 1) << bit;	\
-		(ia64_rotr(nat, first) << bit) & mask;				\
-	})
-	scratch_unat  = PUT_BITS( 1,  3, nat);
-	scratch_unat |= PUT_BITS(12, 15, nat);
+	/*
+	 * Registers that are stored consecutively in struct pt_regs can be handled in
+	 * parallel.  If the register order in struct_pt_regs changes, this code MUST be
+	 * updated.
+	 */
+	scratch_unat  = PUT_BITS( 1,  1, nat);
+	scratch_unat |= PUT_BITS( 2,  3, nat);
+	scratch_unat |= PUT_BITS(12, 13, nat);
+	scratch_unat |= PUT_BITS(14, 14, nat);
+	scratch_unat |= PUT_BITS(15, 15, nat);
 	scratch_unat |= PUT_BITS( 8, 11, nat);
 	scratch_unat |= PUT_BITS(16, 31, nat);
 
@@ -197,20 +226,27 @@ ia64_decrement_ip (struct pt_regs *regs)
  *   rnat0/rnat1 gets its value from sw->ar_rnat.
  */
 static unsigned long
-get_rnat (struct pt_regs *pt, struct switch_stack *sw,
-	  unsigned long *krbs, unsigned long *urnat_addr)
+get_rnat (struct task_struct *task, struct switch_stack *sw,
+	  unsigned long *krbs, unsigned long *urnat_addr, unsigned long *urbs_end)
 {
-	unsigned long rnat0 = 0, rnat1 = 0, urnat = 0, *slot0_kaddr, kmask = ~0UL;
+	unsigned long rnat0 = 0, rnat1 = 0, urnat = 0, *slot0_kaddr, umask = 0, mask, m;
 	unsigned long *kbsp, *ubspstore, *rnat0_kaddr, *rnat1_kaddr, shift;
-	long num_regs;
+	long num_regs, nbits;
+	struct pt_regs *pt;
 
+	pt = ia64_task_regs(task);
 	kbsp = (unsigned long *) sw->ar_bspstore;
 	ubspstore = (unsigned long *) pt->ar_bspstore;
+
+	if (urbs_end < urnat_addr)
+		nbits = ia64_rse_num_regs(urnat_addr - 63, urbs_end);
+	else
+		nbits = 63;
+	mask = (1UL << nbits) - 1;
 	/*
-	 * First, figure out which bit number slot 0 in user-land maps
-	 * to in the kernel rnat.  Do this by figuring out how many
-	 * register slots we're beyond the user's backingstore and
-	 * then computing the equivalent address in kernel space.
+	 * First, figure out which bit number slot 0 in user-land maps to in the kernel
+	 * rnat.  Do this by figuring out how many register slots we're beyond the user's
+	 * backingstore and then computing the equivalent address in kernel space.
 	 */
 	num_regs = ia64_rse_num_regs(ubspstore, urnat_addr + 1);
 	slot0_kaddr = ia64_rse_skip_regs(krbs, num_regs);
@@ -220,20 +256,26 @@ get_rnat (struct pt_regs *pt, struct switch_stack *sw,
 
 	if (ubspstore + 63 > urnat_addr) {
 		/* some bits need to be merged in from pt->ar_rnat */
-		kmask = ~((1UL << ia64_rse_slot_num(ubspstore)) - 1);
-		urnat = (pt->ar_rnat & ~kmask);
+		umask = ((1UL << ia64_rse_slot_num(ubspstore)) - 1) & mask;
+		urnat = (pt->ar_rnat & umask);
+		mask &= ~umask;
+		if (!mask)
+			return urnat;
 	}
-	if (rnat0_kaddr >= kbsp) {
+
+	m = mask << shift;
+	if (rnat0_kaddr >= kbsp)
 		rnat0 = sw->ar_rnat;
-	} else if (rnat0_kaddr > krbs) {
+	else if (rnat0_kaddr > krbs)
 		rnat0 = *rnat0_kaddr;
-	}
-	if (rnat1_kaddr >= kbsp) {
+	urnat |= (rnat0 & m) >> shift;
+
+	m = mask >> (63 - shift);
+	if (rnat1_kaddr >= kbsp)
 		rnat1 = sw->ar_rnat;
-	} else if (rnat1_kaddr > krbs) {
+	else if (rnat1_kaddr > krbs)
 		rnat1 = *rnat1_kaddr;
-	}
-	urnat |= ((rnat1 << (63 - shift)) | (rnat0 >> shift)) & kmask;
+	urnat |= (rnat1 & m) << (63 - shift);
 	return urnat;
 }
 
@@ -241,22 +283,49 @@ get_rnat (struct pt_regs *pt, struct switch_stack *sw,
  * The reverse of get_rnat.
  */
 static void
-put_rnat (struct pt_regs *pt, struct switch_stack *sw,
-	  unsigned long *krbs, unsigned long *urnat_addr, unsigned long urnat)
+put_rnat (struct task_struct *task, struct switch_stack *sw,
+	  unsigned long *krbs, unsigned long *urnat_addr, unsigned long urnat,
+	  unsigned long *urbs_end)
 {
-	unsigned long rnat0 = 0, rnat1 = 0, rnat = 0, *slot0_kaddr, kmask = ~0UL, mask;
+	unsigned long rnat0 = 0, rnat1 = 0, *slot0_kaddr, umask = 0, mask, m;
 	unsigned long *kbsp, *ubspstore, *rnat0_kaddr, *rnat1_kaddr, shift;
-	long num_regs;
+	long num_regs, nbits;
+	struct pt_regs *pt;
+	unsigned long cfm, *urbs_kargs;
+	struct unw_frame_info info;
 
+	pt = ia64_task_regs(task);
 	kbsp = (unsigned long *) sw->ar_bspstore;
 	ubspstore = (unsigned long *) pt->ar_bspstore;
+
+	urbs_kargs = urbs_end;
+	if ((long)pt->cr_ifs >= 0) {
+		/*
+		 * If entered via syscall, don't allow user to set rnat bits
+		 * for syscall args.
+		 */
+		unw_init_from_blocked_task(&info,task);
+		if (unw_unwind_to_user(&info) == 0) {
+			unw_get_cfm(&info,&cfm);
+			urbs_kargs = ia64_rse_skip_regs(urbs_end,-(cfm & 0x7f));
+		}
+	}
+
+	if (urbs_kargs >= urnat_addr)
+		nbits = 63;
+	else {
+		if ((urnat_addr - 63) >= urbs_kargs)
+			return;
+		nbits = ia64_rse_num_regs(urnat_addr - 63, urbs_kargs);
+	}
+	mask = (1UL << nbits) - 1;
+
 	/*
-	 * First, figure out which bit number slot 0 in user-land maps
-	 * to in the kernel rnat.  Do this by figuring out how many
-	 * register slots we're beyond the user's backingstore and
-	 * then computing the equivalent address in kernel space.
+	 * First, figure out which bit number slot 0 in user-land maps to in the kernel
+	 * rnat.  Do this by figuring out how many register slots we're beyond the user's
+	 * backingstore and then computing the equivalent address in kernel space.
 	 */
-	num_regs = (long) ia64_rse_num_regs(ubspstore, urnat_addr + 1);
+	num_regs = ia64_rse_num_regs(ubspstore, urnat_addr + 1);
 	slot0_kaddr = ia64_rse_skip_regs(krbs, num_regs);
 	shift = ia64_rse_slot_num(slot0_kaddr);
 	rnat1_kaddr = ia64_rse_rnat_addr(slot0_kaddr);
@@ -264,28 +333,29 @@ put_rnat (struct pt_regs *pt, struct switch_stack *sw,
 
 	if (ubspstore + 63 > urnat_addr) {
 		/* some bits need to be place in pt->ar_rnat: */
-		kmask = ~((1UL << ia64_rse_slot_num(ubspstore)) - 1);
-		pt->ar_rnat = (pt->ar_rnat & kmask) | (rnat & ~kmask);
+		umask = ((1UL << ia64_rse_slot_num(ubspstore)) - 1) & mask;
+		pt->ar_rnat = (pt->ar_rnat & ~umask) | (urnat & umask);
+		mask &= ~umask;
+		if (!mask)
+			return;
 	}
 	/*
 	 * Note: Section 11.1 of the EAS guarantees that bit 63 of an
 	 * rnat slot is ignored. so we don't have to clear it here.
 	 */
 	rnat0 = (urnat << shift);
-	mask = ~0UL << shift;
-	if (rnat0_kaddr >= kbsp) {
-		sw->ar_rnat = (sw->ar_rnat & ~mask) | (rnat0 & mask);
-	} else if (rnat0_kaddr > krbs) {
-		*rnat0_kaddr = ((*rnat0_kaddr & ~mask) | (rnat0 & mask));
-	}
+	m = mask << shift;
+	if (rnat0_kaddr >= kbsp)
+		sw->ar_rnat = (sw->ar_rnat & ~m) | (rnat0 & m);
+	else if (rnat0_kaddr > krbs)
+		*rnat0_kaddr = ((*rnat0_kaddr & ~m) | (rnat0 & m));
 
 	rnat1 = (urnat >> (63 - shift));
-	mask = ~0UL >> (63 - shift);
-	if (rnat1_kaddr >= kbsp) {
-		sw->ar_rnat = (sw->ar_rnat & ~mask) | (rnat1 & mask);
-	} else if (rnat1_kaddr > krbs) {
-		*rnat1_kaddr = ((*rnat1_kaddr & ~mask) | (rnat1 & mask));
-	}
+	m = mask >> (63 - shift);
+	if (rnat1_kaddr >= kbsp)
+		sw->ar_rnat = (sw->ar_rnat & ~m) | (rnat1 & m);
+	else if (rnat1_kaddr > krbs)
+		*rnat1_kaddr = ((*rnat1_kaddr & ~m) | (rnat1 & m));
 }
 
 /*
@@ -318,7 +388,7 @@ ia64_peek (struct task_struct *child, struct switch_stack *child_stack, unsigned
 		 * read the corresponding bits in the kernel RBS.
 		 */
 		rnat_addr = ia64_rse_rnat_addr(laddr);
-		ret = get_rnat(child_regs, child_stack, krbs, rnat_addr);
+		ret = get_rnat(child, child_stack, krbs, rnat_addr, urbs_end);
 
 		if (laddr == rnat_addr) {
 			/* return NaT collection word itself */
@@ -369,7 +439,7 @@ ia64_poke (struct task_struct *child, struct switch_stack *child_stack, unsigned
 		 * => write the corresponding bits in the kernel RBS.
 		 */
 		if (ia64_rse_is_rnat_slot(laddr))
-			put_rnat(child_regs, child_stack, krbs, laddr, val);
+			put_rnat(child, child_stack, krbs, laddr, val, urbs_end);
 		else {
 			if (laddr < urbs_end) {
 				regnum = ia64_rse_num_regs(bspstore, laddr);
@@ -459,6 +529,60 @@ user_flushrs (struct task_struct *task, struct pt_regs *pt)
 	pt->loadrs = 0;
 }
 
+static inline void
+sync_user_rbs_one_thread (struct task_struct *p, int make_writable)
+{
+	struct switch_stack *sw;
+	unsigned long urbs_end;
+	struct pt_regs *pt;
+
+	sw = (struct switch_stack *) (p->thread.ksp + 16);
+	pt = ia64_task_regs(p);
+	urbs_end = ia64_get_user_rbs_end(p, pt, NULL);
+	ia64_sync_user_rbs(p, sw, pt->ar_bspstore, urbs_end);
+	if (make_writable)
+		user_flushrs(p, pt);
+}
+
+struct task_list {
+	struct task_list *next;
+	struct task_struct *task;
+};
+
+#ifdef CONFIG_SMP
+
+static inline void
+collect_task (struct task_list **listp, struct task_struct *p, int make_writable)
+{
+	struct task_list *e;
+
+	e = kmalloc(sizeof(*e), GFP_KERNEL);
+	if (!e)
+		/* oops, can't collect more: finish at least what we collected so far... */
+		return;
+
+	get_task_struct(p);
+	e->task = p;
+	e->next = *listp;
+	*listp = e;
+}
+
+static inline struct task_list *
+finish_task (struct task_list *list, int make_writable)
+{
+	struct task_list *next = list->next;
+
+	sync_user_rbs_one_thread(list->task, make_writable);
+	free_task_struct(list->task);
+	kfree(list);
+	return next;
+}
+
+#else
+# define collect_task(list, p, make_writable)	sync_user_rbs_one_thread(p, make_writable)
+# define finish_task(list, make_writable)	(NULL)
+#endif
+
 /*
  * Synchronize the RSE backing store of CHILD and all tasks that share the address space
  * with it.  CHILD_URBS_END is the address of the end of the register backing store of
@@ -472,7 +596,6 @@ static void
 threads_sync_user_rbs (struct task_struct *child, unsigned long child_urbs_end, int make_writable)
 {
 	struct switch_stack *sw;
-	unsigned long urbs_end;
 	struct task_struct *p;
 	struct mm_struct *mm;
 	struct pt_regs *pt;
@@ -492,20 +615,27 @@ threads_sync_user_rbs (struct task_struct *child, unsigned long child_urbs_end, 
 		if (make_writable)
 			user_flushrs(child, pt);
 	} else {
+		/*
+		 * Note: we can't call ia64_sync_user_rbs() while holding the
+		 * tasklist_lock because that may cause a dead-lock: ia64_sync_user_rbs()
+		 * may indirectly call tlb_flush_all(), which triggers an IPI.
+		 * Furthermore, tasklist_lock is acquired by fork() with interrupts
+		 * disabled, so with the right timing, the IPI never completes, hence
+		 * tasklist_lock never gets released, hence fork() never completes...
+		 */
+		struct task_list *list = NULL;
+
 		read_lock(&tasklist_lock);
 		{
 			for_each_task(p) {
-				if (p->mm == mm && p->state != TASK_RUNNING) {
-					sw = (struct switch_stack *) (p->thread.ksp + 16);
-					pt = ia64_task_regs(p);
-					urbs_end = ia64_get_user_rbs_end(p, pt, NULL);
-					ia64_sync_user_rbs(p, sw, pt->ar_bspstore, urbs_end);
-					if (make_writable)
-						user_flushrs(p, pt);
-				}
+				if (p->mm == mm && p->state != TASK_RUNNING)
+					collect_task(&list, p, make_writable);
 			}
 		}
 		read_unlock(&tasklist_lock);
+
+		while (list)
+			list = finish_task(list, make_writable);
 	}
 	child->thread.flags |= IA64_THREAD_KRBS_SYNCED;	/* set the flag in the child thread only */
 }
@@ -517,16 +647,11 @@ inline void
 ia64_flush_fph (struct task_struct *task)
 {
 	struct ia64_psr *psr = ia64_psr(ia64_task_regs(task));
-#ifdef CONFIG_SMP
-	struct task_struct *fpu_owner = current;
-#else
-	struct task_struct *fpu_owner = ia64_get_fpu_owner();
-#endif
 
-	if (task == fpu_owner && psr->mfh) {
+	if (ia64_is_local_fpu_owner(task) && psr->mfh) {
 		psr->mfh = 0;
-		ia64_save_fpu(&task->thread.fph[0]);
 		task->thread.flags |= IA64_THREAD_FPH_VALID;
+		ia64_save_fpu(&task->thread.fph[0]);
 	}
 }
 
@@ -548,10 +673,7 @@ ia64_sync_fph (struct task_struct *task)
 		task->thread.flags |= IA64_THREAD_FPH_VALID;
 		memset(&task->thread.fph, 0, sizeof(task->thread.fph));
 	}
-#ifndef CONFIG_SMP
-	if (ia64_get_fpu_owner() == task)
-		ia64_set_fpu_owner(0);
-#endif
+	ia64_drop_fpu(task);
 	psr->dfh = 1;
 }
 
@@ -596,9 +718,12 @@ access_uarea (struct task_struct *child, unsigned long addr, unsigned long *data
 		else
 			ia64_flush_fph(child);
 		ptr = (unsigned long *) ((unsigned long) &child->thread.fph + addr);
-	} else if (addr >= PT_F10 && addr < PT_F15 + 16) {
+	} else if ((addr >= PT_F10) && (addr < PT_F11 + 16)) {
+		/* scratch registers untouched by kernel (saved in pt_regs) */
+		ptr = (unsigned long *) ((long) pt + offsetof(struct pt_regs, f10) + addr - PT_F10);
+	} else if (addr >= PT_F12 && addr < PT_F15 + 16) {
 		/* scratch registers untouched by kernel (saved in switch_stack) */
-		ptr = (unsigned long *) ((long) sw + addr - PT_NAT_BITS);
+		ptr = (unsigned long *) ((long) sw + (addr - PT_NAT_BITS - 32));
 	} else if (addr < PT_AR_LC + 8) {
 		/* preserved state: */
 		unsigned long nat_bits, scratch_unat, dummy = 0;
@@ -640,7 +765,9 @@ access_uarea (struct task_struct *child, unsigned long addr, unsigned long *data
 		      case PT_R4: case PT_R5: case PT_R6: case PT_R7:
 			if (write_access) {
 				/* read NaT bit first: */
-				ret = unw_get_gr(&info, (addr - PT_R4)/8 + 4, data, &nat);
+				unsigned long dummy;
+
+				ret = unw_get_gr(&info, (addr - PT_R4)/8 + 4, &dummy, &nat);
 				if (ret < 0)
 					return ret;
 			}
@@ -732,22 +859,69 @@ access_uarea (struct task_struct *child, unsigned long addr, unsigned long *data
 			else
 				return ia64_peek(child, sw, urbs_end, rnat_addr, data);
 
-				   case PT_R1:  case PT_R2:  case PT_R3:
+		      case PT_R1:
+			ptr = (unsigned long *) ((long) pt + offsetof(struct pt_regs, r1));
+			break;
+		       
+		       case PT_R2:  case PT_R3:
+			ptr = (unsigned long *) ((long) pt + offsetof(struct pt_regs, r2) + addr - PT_R2);
+			break;
 		      case PT_R8:  case PT_R9:  case PT_R10: case PT_R11:
-		      case PT_R12: case PT_R13: case PT_R14: case PT_R15:
+			ptr = (unsigned long *) ((long) pt + offsetof(struct pt_regs, r8)+  addr - PT_R8);
+			break;
+		      case PT_R12: case PT_R13: 
+			ptr = (unsigned long *) ((long) pt + offsetof(struct pt_regs, r12)+  addr - PT_R12);
+			break;
+		      case PT_R14: 
+			ptr = (unsigned long *) ((long) pt + offsetof(struct pt_regs, r14));
+			break;
+		      case PT_R15:
+			ptr = (unsigned long *) ((long) pt + offsetof(struct pt_regs, r15));
+			break;
 		      case PT_R16: case PT_R17: case PT_R18: case PT_R19:
 		      case PT_R20: case PT_R21: case PT_R22: case PT_R23:
 		      case PT_R24: case PT_R25: case PT_R26: case PT_R27:
 		      case PT_R28: case PT_R29: case PT_R30: case PT_R31:
-		      case PT_B0:  case PT_B6:  case PT_B7:
+			ptr = (unsigned long *) ((long) pt + offsetof(struct pt_regs, r16) + addr - PT_R16);
+			break;
+		      case PT_B0:
+			ptr = (unsigned long *) ((long) pt + offsetof(struct pt_regs, b0));
+			break;
+		      case PT_B6:
+			ptr = (unsigned long *) ((long) pt + offsetof(struct pt_regs, b6));
+			break;
+		      case PT_B7:
+			ptr = (unsigned long *) ((long) pt + offsetof(struct pt_regs, b7));
+			break;
 		      case PT_F6:  case PT_F6+8: case PT_F7: case PT_F7+8:
 		      case PT_F8:  case PT_F8+8: case PT_F9: case PT_F9+8:
-		      case PT_AR_BSPSTORE:
-		      case PT_AR_RSC: case PT_AR_UNAT: case PT_AR_PFS:
-		      case PT_AR_CCV: case PT_AR_FPSR: case PT_CR_IIP: case PT_PR:
-			/* scratch register */
-			ptr = (unsigned long *) ((long) pt + addr - PT_CR_IPSR);
+			ptr = (unsigned long *) ((long) pt + offsetof(struct pt_regs, f6) + addr - PT_F6);
 			break;
+		      case PT_AR_BSPSTORE:
+			ptr = (unsigned long *) ((long) pt + offsetof(struct pt_regs, ar_bspstore));
+			break;
+		      case PT_AR_RSC: 
+			ptr = (unsigned long *) ((long) pt + offsetof(struct pt_regs, ar_rsc));
+			break;
+		      case PT_AR_UNAT: 
+			ptr = (unsigned long *) ((long) pt + offsetof(struct pt_regs, ar_unat));
+			break;
+		      case PT_AR_PFS:
+			ptr = (unsigned long *) ((long) pt + offsetof(struct pt_regs, ar_pfs));
+			break;
+		      case PT_AR_CCV: 
+			ptr = (unsigned long *) ((long) pt + offsetof(struct pt_regs, ar_ccv));
+			break;
+		      case PT_AR_FPSR: 
+			ptr = (unsigned long *) ((long) pt + offsetof(struct pt_regs, ar_fpsr));
+			break;
+		      case PT_CR_IIP: 
+			ptr = (unsigned long *) ((long) pt + offsetof(struct pt_regs, cr_iip));
+			break;
+		      case PT_PR:
+			ptr = (unsigned long *) ((long) pt + offsetof(struct pt_regs, pr));
+			break;
+			/* scratch register */
 
 		      default:
 			/* disallow accessing anything else... */
@@ -755,6 +929,8 @@ access_uarea (struct task_struct *child, unsigned long addr, unsigned long *data
 				addr);
 			return -1;
 		}
+	} else if (addr <= PT_AR_SSD) {
+		ptr = (unsigned long *) ((long) pt + offsetof(struct pt_regs, ar_csd) + addr - PT_AR_CSD);
 	} else {
 		/* access debug registers */
 
@@ -785,8 +961,7 @@ access_uarea (struct task_struct *child, unsigned long addr, unsigned long *data
 		 * IA64_THREAD_DBG_VALID. The registers are restored by the PMU context
 		 * switch code.
 		 */
-		if (pfm_use_debug_registers(child))
-			return -1;
+		if (pfm_use_debug_registers(child)) return -1;
 #endif
 
 		if (!(child->thread.flags & IA64_THREAD_DBG_VALID)) {
@@ -862,7 +1037,8 @@ ptrace_getregs (struct task_struct *child, struct pt_all_user_regs *ppr)
 
 	/* gr1-gr3 */
 
-	retval |= __copy_to_user(&ppr->gr[1], &pt->r1, sizeof(long) * 3);
+	retval |= __copy_to_user(&ppr->gr[1], &pt->r1, sizeof(long));
+	retval |= __copy_to_user(&ppr->gr[2], &pt->r2, sizeof(long) *2);
 
 	/* gr4-gr7 */
 
@@ -876,7 +1052,9 @@ ptrace_getregs (struct task_struct *child, struct pt_all_user_regs *ppr)
 
 	/* gr12-gr15 */
 
-	retval |= __copy_to_user(&ppr->gr[12], &pt->r12, sizeof(long) * 4);
+	retval |= __copy_to_user(&ppr->gr[12], &pt->r12, sizeof(long) * 2);
+	retval |= __copy_to_user(&ppr->gr[14], &pt->r14, sizeof(long));
+	retval |= __copy_to_user(&ppr->gr[15], &pt->r15, sizeof(long));
 
 	/* gr16-gr31 */
 
@@ -904,13 +1082,13 @@ ptrace_getregs (struct task_struct *child, struct pt_all_user_regs *ppr)
 		retval |= access_fr(&info, i, 1, (unsigned long *) &ppr->fr[i] + 1, 0);
 	}
 
-	/* fr6-fr9 */
+	/* fr6-fr11 */
 
-	retval |= __copy_to_user(&ppr->fr[6], &pt->f6, sizeof(struct ia64_fpreg) * 4);
+	retval |= __copy_to_user(&ppr->fr[6], &pt->f6, sizeof(struct ia64_fpreg) * 6);
 
-	/* fp scratch regs(10-15) */
+	/* fp scratch regs(12-15) */
 
-	retval |= __copy_to_user(&ppr->fr[10], &sw->f10, sizeof(struct ia64_fpreg) * 6);
+	retval |= __copy_to_user(&ppr->fr[12], &sw->f12, sizeof(struct ia64_fpreg) * 4);
 
 	/* fr16-fr31 */
 
@@ -987,7 +1165,8 @@ ptrace_setregs (struct task_struct *child, struct pt_all_user_regs *ppr)
 
 	/* gr1-gr3 */
 
-	retval |= __copy_from_user(&pt->r1, &ppr->gr[1], sizeof(long) * 3);
+	retval |= __copy_from_user(&pt->r1, &ppr->gr[1], sizeof(long));
+	retval |= __copy_from_user(&pt->r2, &ppr->gr[2], sizeof(long) * 2);
 
 	/* gr4-gr7 */
 
@@ -1005,7 +1184,9 @@ ptrace_setregs (struct task_struct *child, struct pt_all_user_regs *ppr)
 
 	/* gr12-gr15 */
 
-	retval |= __copy_from_user(&pt->r12, &ppr->gr[12], sizeof(long) * 4);
+	retval |= __copy_from_user(&pt->r12, &ppr->gr[12], sizeof(long) * 2);
+	retval |= __copy_from_user(&pt->r14, &ppr->gr[14], sizeof(long));
+	retval |= __copy_from_user(&pt->r15, &ppr->gr[15], sizeof(long));
 
 	/* gr16-gr31 */
 
@@ -1033,13 +1214,13 @@ ptrace_setregs (struct task_struct *child, struct pt_all_user_regs *ppr)
 		retval |= access_fr(&info, i, 1, (unsigned long *) &ppr->fr[i] + 1, 1);
 	}
 
-	/* fr6-fr9 */
+	/* fr6-fr11 */
 
-	retval |= __copy_from_user(&pt->f6, &ppr->fr[6], sizeof(ppr->fr[6]) * 4);
+	retval |= __copy_from_user(&pt->f6, &ppr->fr[6], sizeof(ppr->fr[6]) * 6);
 
-	/* fp scratch regs(10-15) */
+	/* fp scratch regs(12-15) */
 
-	retval |= __copy_from_user(&sw->f10, &ppr->fr[10], sizeof(ppr->fr[10]) * 6);
+	retval |= __copy_from_user(&sw->f12, &ppr->fr[12], sizeof(ppr->fr[12]) * 4);
 
 	/* fr16-fr31 */
 
@@ -1283,10 +1464,11 @@ syscall_trace (void)
 	set_current_state(TASK_STOPPED);
 	notify_parent(current, SIGCHLD);
 	schedule();
+
 	/*
-	 * This isn't the same as continuing with a signal, but it
-	 * will do for normal use.  strace only continues with a
-	 * signal if the stopping signal is not SIGTRAP.  -brl
+	 * This isn't the same as continuing with a signal, but it will do for normal use.
+	 * strace only continues with a signal if the stopping signal is not SIGTRAP.
+	 * -brl
 	 */
 	if (current->exit_code) {
 		send_sig(current->exit_code, current, 1);

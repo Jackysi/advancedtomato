@@ -1,6 +1,6 @@
 /* cm206.c. A linux-driver for the cm206 cdrom player with cm260 adapter card.
    Copyright (c) 1995--1997 David A. van Leeuwen.
-   $Id: cm206.c,v 1.1.1.4 2003/10/14 08:07:59 sparq Exp $
+   $Id: cm206.c,v 1.5 1997/12/26 11:02:51 david Exp $
    
      This program is free software; you can redistribute it and/or modify
      it under the terms of the GNU General Public License as published by
@@ -176,7 +176,7 @@ History:
  * - Philips/LMS cm260 product specification
  *
  * David van Leeuwen, david@tm.tno.nl.  */
-#define REVISION "$Revision: 1.1.1.4 $"
+#define REVISION "$Revision: 1.5 $"
 
 #include <linux/module.h>
 
@@ -239,7 +239,7 @@ MODULE_LICENSE("GPL");
 #define BLOCKS_ISO (ISO_SECTOR_SIZE/LINUX_BLOCK_SIZE)	/* 4 */
 #define CD_SYNC_HEAD 16		/* CD_SYNC + CD_HEAD */
 
-#ifdef STATISTICS		    /* keep track of errors in counters */
+#ifdef STATISTICS		/* keep track of errors in counters */
 #define stats(i) { ++cd->stats[st_ ## i]; \
 		     cd->last_stat[st_ ## i] = cd->stat_counter++; \
 		 }

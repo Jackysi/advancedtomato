@@ -133,6 +133,13 @@ plx90x0_init(struct arm_sysdata *sysdata)
 	/* Have a sniff around and see which PLX device is present. */
 	unsigned long id = __raw_readl(base + 0xf0);
 	
+#if 0
+	/* This check was a good idea, but can fail.  The PLX9060 puts no
+	   default value in these registers unless NB# is asserted (which it
+	   isn't on these cards).  */
+	if ((id & 0xffff) != PCI_VENDOR_ID_PLX)
+		return;		/* Nothing found */
+#endif
 
 	/* Found one - now work out what it is. */
 	switch (id >> 16) {

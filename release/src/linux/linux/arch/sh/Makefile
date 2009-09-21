@@ -1,4 +1,4 @@
-# $Id: Makefile,v 1.1.1.4 2003/10/14 08:07:47 sparq Exp $
+# $Id: Makefile,v 1.1.1.1.2.5 2003/10/23 22:08:56 yoshii Exp $
 #
 # This file is subject to the terms and conditions of the GNU General Public
 # License.  See the file "COPYING" in the main directory of this archive
@@ -22,6 +22,18 @@ CFLAGS		+= -mb
 AFLAGS		+= -mb
 # LINKFLAGS	+= -EB
 LDFLAGS		:= -EB
+endif
+
+ifdef CONFIG_SH_DSP
+AFLAGS += -Wa,-dsp
+endif
+
+ifdef CONFIG_SH_KGDB
+CFLAGS :=$(CFLAGS:-fomit-frame-pointer=) -g
+AFLAGS += -g
+ifdef CONFIG_KGDB_MORE
+CFLAGS += $(shell echo $(CONFIG_KGDB_OPTIONS) | sed -e 's/"//g')
+endif
 endif
 
 LD	=$(CROSS_COMPILE)ld $(LDFLAGS)
@@ -79,7 +91,7 @@ arch/sh/vmlinux.lds: arch/sh/vmlinux.lds.S FORCE
 FORCE: ;
 
 zImage: vmlinux
-	@$(MAKEBOOT) zImage
+	@$(MAKEBOOT) $@
 
 compressed: zImage
 

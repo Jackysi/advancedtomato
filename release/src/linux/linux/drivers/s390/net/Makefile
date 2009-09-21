@@ -12,6 +12,9 @@ ctc-objs := ctcmain.o ctctty.o
 obj-$(CONFIG_IUCV) += iucv.o fsm.o
 obj-$(CONFIG_CTC) += ctc.o fsm.o
 obj-$(CONFIG_IUCV) += netiucv.o
+obj-$(CONFIG_C7000) += c7000.o
+obj-$(CONFIG_QETH) += qeth.o
+export-objs += qeth.o
 
 include $(TOPDIR)/Rules.make
 

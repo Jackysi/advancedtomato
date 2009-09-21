@@ -6,7 +6,7 @@ How to use the Linux packet generator module.
 3. Edit script to set preferred device and destination IP address.
 3a.  Create more scripts for different interfaces.  Up to thirty-two
      pktgen processes can be configured and run at once by using the
-     32 /proc/net/pg* files.
+     32 /proc/net/pktgen/pg* files.
 4. Run in shell: ". ipg"
 5. After this two commands are defined:
    A. "pg" to start generator and to get results.
@@ -52,7 +52,7 @@ How to use the Linux packet generator module.
 
 modprobe pktgen
 
-PGDEV=/proc/net/pg/pg0
+PGDEV=/proc/net/pktgen/pg0
 
 function pgset() {
     local result

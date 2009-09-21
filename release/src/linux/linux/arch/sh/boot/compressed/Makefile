@@ -18,9 +18,9 @@ ZLDFLAGS = -e startup -T $(TOPDIR)/arch/sh/vmlinux.lds
 #
 # ZIMAGE_OFFSET is the load offset of the compression loader
 #
-ZIMAGE_OFFSET = $(shell printf "0x%8x" $$[0x80000000+0x$(CONFIG_MEMORY_START)+0x200000+0x10000])
+ZIMAGE_OFFSET = $(shell printf "0x%8x" $$[0x80000000+0x$(CONFIG_MEMORY_START)+0x$(CONFIG_BOOT_LINK_OFFSET)])
 
-ZLINKFLAGS = -Ttext $(ZIMAGE_OFFSET) $(ZLDFLAGS)
+ZLINKFLAGS  = -Ttext $(ZIMAGE_OFFSET)  $(ZLDFLAGS)
 
 all: vmlinux
 

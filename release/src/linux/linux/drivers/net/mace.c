@@ -1,8 +1,12 @@
 /*
  * Network device driver for the MACE ethernet controller on
  * Apple Powermacs.  Assumes it's under a DBDMA controller.
+ * 
+ * MACE is beleived to be an AMD 79C940
  *
  * Copyright (C) 1996 Paul Mackerras.
+ * 
+ * TODO: Use a spinlock for smp safety (backport 2.5 version ?)
  */
 
 #include <linux/config.h>
@@ -16,6 +20,8 @@
 #include <linux/timer.h>
 #include <linux/init.h>
 #include <linux/crc32.h>
+#include <linux/ethtool.h>
+#include <asm/uaccess.h>
 #include <asm/prom.h>
 #include <asm/dbdma.h>
 #include <asm/io.h>
@@ -32,6 +38,7 @@ static int port_aaui = -1;
 #define RX_BUFLEN		(ETH_FRAME_LEN + 8)
 #define TX_TIMEOUT		HZ	/* 1 second */
 
+/* Chip rev needs workaround on HW & multicast addr change */
 #define BROKEN_ADDRCHG_REV	0x0941
 
 /* Bits in transmit DMA status */
@@ -81,7 +88,10 @@ static int mace_close(struct net_device *dev);
 static int mace_xmit_start(struct sk_buff *skb, struct net_device *dev);
 static struct net_device_stats *mace_stats(struct net_device *dev);
 static void mace_set_multicast(struct net_device *dev);
+static int mace_do_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd);
+static int mace_ethtool_ioctl(struct net_device *dev, void *useraddr);
 static void mace_reset(struct net_device *dev);
+static void mace_restart(struct net_device *dev);
 static int mace_set_address(struct net_device *dev, void *addr);
 static void mace_interrupt(int irq, void *dev_id, struct pt_regs *regs);
 static void mace_txdma_intr(int irq, void *dev_id, struct pt_regs *regs);
@@ -225,6 +235,7 @@ static void __init mace_probe1(struct device_node *mace)
 	dev->get_stats = mace_stats;
 	dev->set_multicast_list = mace_set_multicast;
 	dev->set_mac_address = mace_set_address;
+	dev->do_ioctl = mace_do_ioctl;
 
 	ether_setup(dev);
 
@@ -361,6 +372,90 @@ static int mace_set_address(struct net_device *dev, void *addr)
     return 0;
 }
 
+static int mace_do_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
+{
+        switch(cmd) {
+        case SIOCETHTOOL:
+                return mace_ethtool_ioctl(dev, (void *) ifr->ifr_data);
+
+        case SIOCGMIIPHY:               /* Get address of MII PHY in use. */
+        case SIOCDEVPRIVATE:            /* for binary compat, remove in 2.5 */
+        case SIOCGMIIREG:               /* Read MII PHY register. */
+        case SIOCDEVPRIVATE+1:          /* for binary compat, remove in 2.5 */
+        case SIOCSMIIREG:               /* Write MII PHY register. */
+        case SIOCDEVPRIVATE+2:          /* for binary compat, remove in 2.5 */
+        default:
+                return -EOPNOTSUPP;
+        }
+}
+
+static int mace_ethtool_ioctl(struct net_device *dev, void *useraddr)
+{
+	struct mace_data *mp = (struct mace_data *) dev->priv;
+	u32 ethcmd;
+
+	if (get_user(ethcmd, (u32 *)useraddr))
+		return -EFAULT;
+
+	switch (ethcmd) {
+	case ETHTOOL_GDRVINFO: {
+		struct ethtool_drvinfo info = { .cmd = ETHTOOL_GDRVINFO };
+		struct mace_data *mp = dev->priv;
+		strcpy (info.driver, "mace");
+		info.version[0] = '\0';
+		snprintf(info.fw_version, 31, "chip revision %d.%d", mp->chipid >> 8, mp->chipid & 0xff);
+		if (copy_to_user (useraddr, &info, sizeof (info)))
+			return -EFAULT;
+		return 0;
+	}
+	case ETHTOOL_GSET: {
+		struct ethtool_cmd cmd = { .cmd = ETHTOOL_GSET };
+
+		cmd.supported = SUPPORTED_10baseT_Half |
+				SUPPORTED_AUI |
+				SUPPORTED_MII;
+		cmd.advertising = SUPPORTED_10baseT_Half;
+		cmd.port = mp->port_aaui ? PORT_AUI : PORT_MII;
+		cmd.speed = SPEED_10;
+		if (copy_to_user(useraddr, &cmd, sizeof(cmd)))
+			return -EFAULT;
+		return 0;
+	}
+	case ETHTOOL_SSET: {
+		struct ethtool_cmd cmd;
+
+		if (copy_from_user(&cmd, useraddr, sizeof(cmd)))
+			return -EFAULT;
+
+		if (cmd.autoneg != AUTONEG_DISABLE)
+			return -EINVAL;
+		if (cmd.speed != SPEED_10)
+			return -EINVAL;
+		if ((cmd.port == PORT_AUI) != mp->port_aaui) {
+			int aaui = (cmd.port == PORT_AUI);
+			unsigned long flags;
+
+			printk("%s: switching port to: %s\n",
+				dev->name, aaui ? "AAUI" : "MII");
+			mp->port_aaui = aaui;
+    			save_flags(flags);
+			cli();
+			mace_restart(dev);
+			restore_flags(flags);
+		}
+		return 0;
+	}
+	case ETHTOOL_NWAY_RST:
+	case ETHTOOL_GLINK:
+	case ETHTOOL_GMSGLVL:
+	case ETHTOOL_SMSGLVL:
+	default:
+		break;
+	}
+
+	return -EOPNOTSUPP;
+}
+
 static int mace_open(struct net_device *dev)
 {
     struct mace_data *mp = (struct mace_data *) dev->priv;
@@ -472,10 +567,7 @@ static int mace_close(struct net_device *dev)
 static inline void mace_set_timeout(struct net_device *dev)
 {
     struct mace_data *mp = (struct mace_data *) dev->priv;
-    unsigned long flags;
 
-    save_flags(flags);
-    cli();
     if (mp->timeout_active)
 	del_timer(&mp->tx_timeout);
     mp->tx_timeout.expires = jiffies + TX_TIMEOUT;
@@ -483,7 +575,6 @@ static inline void mace_set_timeout(struct net_device *dev)
     mp->tx_timeout.data = (unsigned long) dev;
     add_timer(&mp->tx_timeout);
     mp->timeout_active = 1;
-    restore_flags(flags);
 }
 
 static int mace_xmit_start(struct sk_buff *skb, struct net_device *dev)
@@ -576,6 +667,12 @@ static void mace_set_multicast(struct net_device *dev)
 		dmi = dmi->next;
 	    }
 	}
+#if 0
+	printk("Multicast filter :");
+	for (i = 0; i < 8; i++)
+	    printk("%02x ", multicast_filter[i]);
+	printk("\n");
+#endif
 
 	if (mp->chipid == BROKEN_ADDRCHG_REV)
 	    out_8(&mb->iac, LOGADDR);
@@ -674,6 +771,10 @@ static void mace_interrupt(int irq, void *dev_id, struct pt_regs *regs)
 	    printk(KERN_ERR "mace: xmtfs not valid! (fs=%x xc=%d ds=%x)\n",
 		   fs, xcount, dstat);
 	    mace_reset(dev);
+		/*
+		 * XXX mace likes to hang the machine after a xmtfs error.
+		 * This is hard to reproduce, reseting *may* help
+		 */
 	}
 	cp = mp->tx_cmds + NCMDS_TX * i;
 	stat = ld_le16(&cp->xfer_status);
@@ -723,6 +824,10 @@ static void mace_interrupt(int irq, void *dev_id, struct pt_regs *regs)
 	--mp->tx_active;
 	if (++i >= N_TX_RING)
 	    i = 0;
+#if 0
+	mace_last_fs = fs;
+	mace_last_xcount = xcount;
+#endif
     }
 
     if (i != mp->tx_empty) {
@@ -748,31 +853,17 @@ static void mace_interrupt(int irq, void *dev_id, struct pt_regs *regs)
     }
 }
 
-static void mace_tx_timeout(unsigned long data)
+static void mace_restart(struct net_device *dev)
 {
-    struct net_device *dev = (struct net_device *) data;
     struct mace_data *mp = (struct mace_data *) dev->priv;
     volatile struct mace *mb = mp->mace;
     volatile struct dbdma_regs *td = mp->tx_dma;
     volatile struct dbdma_regs *rd = mp->rx_dma;
     volatile struct dbdma_cmd *cp;
-    unsigned long flags;
     int i;
-
-    save_flags(flags);
-    cli();
-    mp->timeout_active = 0;
-    if (mp->tx_active == 0 && !mp->tx_bad_runt)
-	goto out;
-
-    /* update various counters */
-    mace_handle_misc_intrs(mp, in_8(&mb->ir));
-
-    cp = mp->tx_cmds + NCMDS_TX * mp->tx_empty;
 
     /* turn off both tx and rx and reset the chip */
     out_8(&mb->maccc, 0);
-    printk(KERN_ERR "mace: transmit timeout - resetting\n");
     dbdma_reset(td);
     mace_reset(dev);
 
@@ -810,7 +901,29 @@ static void mace_tx_timeout(unsigned long data)
     /* turn it back on */
     out_8(&mb->imr, RCVINT);
     out_8(&mb->maccc, mp->maccc);
+}
 
+static void mace_tx_timeout(unsigned long data)
+{
+    struct net_device *dev = (struct net_device *) data;
+    struct mace_data *mp = (struct mace_data *) dev->priv;
+    volatile struct mace *mb = mp->mace;
+    unsigned long flags;
+
+    save_flags(flags);
+    cli();
+    mp->timeout_active = 0;
+    if (mp->tx_active == 0 && !mp->tx_bad_runt)
+	goto out;
+
+    /* update various counters */
+    mace_handle_misc_intrs(mp, in_8(&mb->ir));
+
+    printk(KERN_ERR "mace: transmit timeout - resetting\n");
+
+    /* Kick chip */
+    mace_restart(dev);
+    
 out:
     restore_flags(flags);
 }
@@ -913,6 +1026,13 @@ static void mace_rxdma_intr(int irq, void *dev_id, struct pt_regs *regs)
 	st_le32(&cp->phy_addr, virt_to_bus(data));
 	out_le16(&cp->xfer_status, 0);
 	out_le16(&cp->command, INPUT_LAST + INTR_ALWAYS);
+#if 0
+	if ((ld_le32(&rd->status) & ACTIVE) != 0) {
+	    out_le32(&rd->control, (PAUSE << 16) | PAUSE);
+	    while ((in_le32(&rd->status) & ACTIVE) != 0)
+		;
+	}
+#endif
 	i = next;
     }
     if (i != mp->rx_fill) {

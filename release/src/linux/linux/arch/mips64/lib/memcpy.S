@@ -266,7 +266,7 @@ less_than_4units:
 	beq	rem, len, copy_bytes
 	 nop
 1:
-EXC(	LOAD	 t0, 0(src),		l_exc)
+EXC(	LOAD	t0, 0(src),		l_exc)
 	ADD	src, src, NBYTES
 	SUB	len, len, NBYTES
 EXC(	STORE	t0, 0(dst),		s_exc_p1u)
@@ -340,10 +340,10 @@ EXC(	LDFIRST	t2, FIRST(2)(src),	l_exc_copy)
 EXC(	LDFIRST	t3, FIRST(3)(src),	l_exc_copy)
 EXC(	LDREST	t2, REST(2)(src),	l_exc_copy)
 EXC(	LDREST	t3, REST(3)(src),	l_exc_copy)
-	PREF(	0, 9*32(src) )	   	# 0 is PREF_LOAD  (not streamed)
+	PREF(	0, 9*32(src) )		# 0 is PREF_LOAD  (not streamed)
 	ADD	src, src, 4*NBYTES
 #ifdef CONFIG_CPU_SB1
-	nop			   	# improves slotting
+	nop				# improves slotting
 #endif
 EXC(	STORE	t0, UNIT(0)(dst),	s_exc_p4u)
 EXC(	STORE	t1, UNIT(1)(dst),	s_exc_p3u)
@@ -357,8 +357,9 @@ cleanup_src_unaligned:
 	beqz	len, done
 	 and	rem, len, NBYTES-1  # rem = len % NBYTES
 	beq	rem, len, copy_bytes
+	 nop
 1:
-EXC(	 LDFIRST t0, FIRST(0)(src),	l_exc)
+EXC(	LDFIRST t0, FIRST(0)(src),	l_exc)
 EXC(	LDREST	t0, REST(0)(src),	l_exc_copy)
 	ADD	src, src, NBYTES
 	SUB	len, len, NBYTES

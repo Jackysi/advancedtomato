@@ -1,5 +1,5 @@
 /*
- * $Id: usbkbd.c,v 1.1.1.4 2003/10/14 08:08:51 sparq Exp $
+ * $Id: usbkbd.c,v 1.20 2001/04/26 08:34:49 vojtech Exp $
  *
  *  Copyright (c) 1999-2001 Vojtech Pavlik
  *
@@ -272,7 +272,7 @@ static struct usb_device_id usb_kbd_id_table [] = {
 MODULE_DEVICE_TABLE (usb, usb_kbd_id_table);
 
 static struct usb_driver usb_kbd_driver = {
-	name:		"keyboard",
+	name:		"usbkbd",
 	probe:		usb_kbd_probe,
 	disconnect:	usb_kbd_disconnect,
 	id_table:	usb_kbd_id_table,

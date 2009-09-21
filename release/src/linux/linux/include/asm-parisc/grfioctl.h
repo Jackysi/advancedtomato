@@ -56,7 +56,7 @@
 
 /* structure for ioctl(GCDESCRIBE) */
 
-#define gaddr_t unsigned long	
+#define gaddr_t unsigned long	/* FIXME: PA2.0 (64bit) portable ? */
 
 struct	grf_fbinfo {
 	unsigned int	id;		/* upper 32 bits of graphics id */

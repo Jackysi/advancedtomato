@@ -99,6 +99,7 @@
 #include <linux/slab.h>
 #include <linux/smp_lock.h>
 #include <linux/init.h>
+#include <linux/crc32.h>
 #include <asm/system.h>
 #include <asm/byteorder.h>
 #include "check.h"
@@ -138,73 +139,6 @@ force_gpt_fn(char *str)
 }
 __setup("gpt", force_gpt_fn);
 
-
-/*
- * There are multiple 16-bit CRC polynomials in common use, but this is
- * *the* standard CRC-32 polynomial, first popularized by Ethernet.
- * x^32+x^26+x^23+x^22+x^16+x^12+x^11+x^10+x^8+x^7+x^5+x^4+x^2+x^1+x^0
- */
-#define CRCPOLY_LE 0xedb88320
-/* How many bits at a time to use.  Requires a table of 4<<CRC_xx_BITS bytes. */
-/* For less performance-sensitive, use 4 */
-#define CRC_LE_BITS 8
-static u32 *crc32table_le;
-
-/**
- * crc32init_le() - allocate and initialize LE table data
- *
- * crc is the crc of the byte i; other entries are filled in based on the
- * fact that crctable[i^j] = crctable[i] ^ crctable[j].
- *
- */
-static int __init crc32init_le(void)
-{
-	unsigned i, j;
-	u32 crc = 1;
-
-	crc32table_le =
-	    kmalloc((1 << CRC_LE_BITS) * sizeof(u32), GFP_KERNEL);
-	if (!crc32table_le)
-		return 1;
-	crc32table_le[0] = 0;
-
-	for (i = 1 << (CRC_LE_BITS - 1); i; i >>= 1) {
-		crc = (crc >> 1) ^ ((crc & 1) ? CRCPOLY_LE : 0);
-		for (j = 0; j < 1 << CRC_LE_BITS; j += 2 * i)
-			crc32table_le[i + j] = crc ^ crc32table_le[j];
-	}
-	return 0;
-}
-
-/**
- * crc32cleanup_le(): free LE table data
- */
-static void __exit crc32cleanup_le(void)
-{
-	if (crc32table_le) kfree(crc32table_le);
-	crc32table_le = NULL;
-}
-
-__initcall(crc32init_le);
-__exitcall(crc32cleanup_le);
-
-/**
- * crc32_le() - Calculate bitwise little-endian Ethernet AUTODIN II CRC32
- * @crc - seed value for computation.  ~0 for Ethernet, sometimes 0 for
- *        other uses, or the previous crc32 value if computing incrementally.
- * @p   - pointer to buffer over which CRC is run
- * @len - length of buffer @p
- * 
- */
-static u32 crc32_le(u32 crc, unsigned char const *p, size_t len)
-{
-	while (len--) {
-		crc = (crc >> 8) ^ crc32table_le[(crc ^ *p++) & 255];
-	}
-	return crc;
-}
-
-
 /**
  * efi_crc32() - EFI version of crc32 function
  * @buf: buffer to calculate crc32 of
@@ -220,7 +154,7 @@ static u32 crc32_le(u32 crc, unsigned char const *p, size_t len)
 static inline u32
 efi_crc32(const void *buf, unsigned long len)
 {
-	return (crc32_le(~0L, buf, len) ^ ~0L);
+	return (crc32(~0L, buf, len) ^ ~0L);
 }
 
 /**

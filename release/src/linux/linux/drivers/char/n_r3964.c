@@ -13,12 +13,6 @@
  * L. Haag
  *
  * $Log: n_r3964.c,v $
- * Revision 1.1.1.2  2003/10/14 08:08:02  sparq
- * Broadcom Release 3.51.8.0 for BCM4712.
- *
- * Revision 1.1.1.1  2003/02/03 22:37:38  mhuang
- * LINUX_2_4 branch snapshot from linux-mips.org CVS
- *
  * Revision 1.8  2000/03/23 14:14:54  dwmw2
  * Fix race in sleeping in r3964_read()
  *
@@ -164,7 +158,8 @@ static struct tty_ldisc tty_ldisc_N_R3964 = {
         r3964_write,           /* write */
         r3964_ioctl,           /* ioctl */
         r3964_set_termios,     /* set_termios */
-        r3964_poll,            /* poll */            
+        r3964_poll,            /* poll */
+        NULL,                  /* hangup */
         r3964_receive_buf,     /* receive_buf */
         r3964_receive_room,    /* receive_room */
         0                      /* write_wakeup */
@@ -223,7 +218,7 @@ static int __init r3964_init(void)
 {
    int status;
    
-   printk ("r3964: Philips r3964 Driver $Revision: 1.1.1.2 $\n");
+   printk ("r3964: Philips r3964 Driver $Revision: 1.8 $\n");
 
    /*
     * Register the tty line discipline
@@ -1370,7 +1365,7 @@ static ssize_t r3964_write(struct tty_struct * tty, struct file * file,
       pHeader->owner = pClient;
    }
 
-   copy_from_user (pHeader->data, data, count); /* We already verified this */
+   __copy_from_user(pHeader->data, data, count); /* We already verified this */
 
    if(pInfo->flags & R3964_DEBUG)
    {

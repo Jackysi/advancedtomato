@@ -852,6 +852,7 @@ ext2_find_next_zero_bit(void *vaddr, unsigned size, unsigned offset)
 }
 
 /* Bitmap functions for the minix filesystem.  */
+/* FIXME !!! */
 #define minix_test_and_set_bit(nr,addr) test_and_set_bit(nr,addr)
 #define minix_set_bit(nr,addr) set_bit(nr,addr)
 #define minix_test_and_clear_bit(nr,addr) test_and_clear_bit(nr,addr)

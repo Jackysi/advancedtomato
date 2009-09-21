@@ -803,6 +803,9 @@ int bluecard_close(bluecard_info_t *info)
 	unsigned int iobase = info->link.io.BasePort1;
 	struct hci_dev *hdev = &(info->hdev);
 
+	if (info->link.state & DEV_CONFIG_PENDING)
+		return -ENODEV;
+
 	bluecard_hci_close(hdev);
 
 	clear_bit(CARD_READY, &(info->hw_state));

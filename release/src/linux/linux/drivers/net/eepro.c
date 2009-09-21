@@ -765,6 +765,9 @@ static int __init eepro_probe1(struct net_device *dev, short ioaddr)
 	   the EEPROM */
 	station_addr[0] = read_eeprom(ioaddr, 2, dev);
 
+	/* FIXME - find another way to know that we've found
+	 * an Etherexpress 10
+	 */
 	if (station_addr[0] == 0x0000 ||
 	    station_addr[0] == 0xffff) {
 		lp->eepro = LAN595FX_10ISA;
@@ -1125,17 +1128,24 @@ static int eepro_send_packet(struct sk_buff *skb, struct net_device *dev)
 	struct eepro_local *lp = (struct eepro_local *)dev->priv;
 	unsigned long flags;
 	int ioaddr = dev->base_addr;
+	short length = skb->len;
 
 	if (net_debug > 5)
 		printk(KERN_DEBUG  "%s: entering eepro_send_packet routine.\n", dev->name);
 
+	if(length < ETH_ZLEN)
+	{
+		skb = skb_padto(skb, ETH_ZLEN);
+		if(skb == NULL)
+			return 0;
+		length = ETH_ZLEN;
+	}
 	netif_stop_queue (dev);
 
 	eepro_dis_int(ioaddr);
 	spin_lock_irqsave(&lp->lock, flags);
 
 	{
-		short length = ETH_ZLEN < skb->len ? skb->len : ETH_ZLEN;
 		unsigned char *buf = skb->data;
 
 		if (hardware_send_packet(dev, buf, length))
@@ -1706,7 +1716,7 @@ static int autodetect;
 static int n_eepro;
 /* For linux 2.1.xx */
 
-MODULE_AUTHOR("Pascal Dupuis <dupuis@lei.ucl.ac.be> for the 2.1 stuff (locking,...)");
+MODULE_AUTHOR("Pascal Dupuis, and aris@cathedrallabs.org");
 MODULE_DESCRIPTION("Intel i82595 ISA EtherExpressPro10/10+ driver");
 MODULE_LICENSE("GPL");
 

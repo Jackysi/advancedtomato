@@ -57,7 +57,7 @@ extern uaccess_t uaccess_user, uaccess_kernel;
 	uaccess_t	*uaccess;		/* User access functions*/
 
 #define EXTRA_THREAD_STRUCT_INIT		\
-	uaccess:	&uaccess_kernel,
+	.uaccess	= &uaccess_kernel,
 
 #define start_thread(regs,pc,sp)					\
 ({									\
@@ -71,8 +71,8 @@ extern uaccess_t uaccess_user, uaccess_kernel;
 	regs->ARM_r0 = stack[0];	/* r0 (argc) */			\
 })
 
-#define KSTK_EIP(tsk)	(((unsigned long *)(4096+(unsigned long)(tsk)))[1022])
-#define KSTK_ESP(tsk)	(((unsigned long *)(4096+(unsigned long)(tsk)))[1020])
+#define KSTK_EIP(tsk)	(((unsigned long *)(4096+(unsigned long)(tsk)))[1020])
+#define KSTK_ESP(tsk)	(((unsigned long *)(4096+(unsigned long)(tsk)))[1018])
 
 /* Allocation and freeing of basic task resources. */
 /*

@@ -8,9 +8,7 @@
 
 #ifdef CONFIG_X86_LOCAL_APIC
 
-#ifndef CONFIG_MCOUNT
 #define APIC_DEBUG 0
-#endif
 
 #if APIC_DEBUG
 #define Dprintk(x...) printk(x)
@@ -78,11 +76,8 @@ extern void setup_local_APIC (void);
 extern void init_apic_mappings (void);
 extern void smp_local_timer_interrupt (struct pt_regs * regs);
 extern void setup_APIC_clocks (void);
-extern void setup_APIC_perfctr(void);
-extern int setup_profiling_timer(unsigned int);
-extern int prof_multiplier[];
 extern void setup_apic_nmi_watchdog (void);
-extern inline void nmi_watchdog_tick (struct pt_regs * regs);
+extern void nmi_watchdog_tick (struct pt_regs * regs);
 extern int APIC_init_uniprocessor (void);
 extern void disable_APIC_timer(void);
 extern void enable_APIC_timer(void);

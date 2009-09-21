@@ -534,6 +534,27 @@ static void i2o_lan_handle_event(struct net_device *dev, u32 *msg)
 			printk("%s: Event Acknowledge timeout.\n", dev->name);
 		break;
 
+#if 0
+	case I2O_EVT_IND_EVT_MASK_MODIFIED:
+		printk("Event mask modified, 0x%08x.\n", evt->data[0]);
+		break;
+
+	case I2O_EVT_IND_GENERAL_WARNING:
+		printk("General warning 0x%04x.\n", evt->data[0]);
+		break;
+
+	case I2O_EVT_IND_CONFIGURATION_FLAG:
+		printk("Configuration requested.\n");
+		break;
+
+	case I2O_EVT_IND_CAPABILITY_CHANGE:
+		printk("Capability change 0x%04x.\n", evt->data[0]);
+		break;
+
+	case I2O_EVT_IND_DEVICE_STATE:
+		printk("Device state changed 0x%08x.\n", evt->data[0]);
+		break;
+#endif
 	case I2O_LAN_EVT_LINK_DOWN:
 		netif_carrier_off(dev); 
 		printk("Link to the physical device is lost.\n");
@@ -1022,13 +1043,13 @@ static struct net_device_stats *i2o_lan_get_stats(struct net_device *dev)
 		printk(KERN_INFO "%s: Unable to query LAN_HISTORICAL_STATS.\n", dev->name);
 	else {
 		dprintk(KERN_DEBUG "%s: LAN_HISTORICAL_STATS queried.\n", dev->name);
-		priv->stats.tx_packets = val64[0];
-		priv->stats.tx_bytes   = val64[1];
-		priv->stats.rx_packets = val64[2];
-		priv->stats.rx_bytes   = val64[3];
-		priv->stats.tx_errors  = val64[4];
-		priv->stats.rx_errors  = val64[5];
-		priv->stats.rx_dropped = val64[6];
+		priv->stats.gen.tx_packets = val64[0];
+		priv->stats.gen.tx_bytes   = val64[1];
+		priv->stats.gen.rx_packets = val64[2];
+		priv->stats.gen.rx_bytes   = val64[3];
+		priv->stats.gen.tx_errors  = val64[4];
+		priv->stats.gen.rx_errors  = val64[5];
+		priv->stats.gen.rx_dropped = val64[6];
 	}
 
 	if (i2o_query_scalar(iop, i2o_dev->lct_data.tid, 0x0180, -1,
@@ -1041,9 +1062,9 @@ static struct net_device_stats *i2o_lan_get_stats(struct net_device *dev)
 			printk(KERN_INFO "%s: Unable to query LAN_OPTIONAL_RX_HISTORICAL_STATS.\n", dev->name);
 		else {
 			dprintk(KERN_DEBUG "%s: LAN_OPTIONAL_RX_HISTORICAL_STATS queried.\n", dev->name);
-			priv->stats.multicast	     = val64[4];
-			priv->stats.rx_length_errors = val64[10];
-			priv->stats.rx_crc_errors    = val64[0];
+			priv->stats.gen.multicast        = val64[4];
+			priv->stats.gen.rx_length_errors = val64[10];
+			priv->stats.gen.rx_crc_errors    = val64[0];
 		}
 	}
 
@@ -1054,9 +1075,9 @@ static struct net_device_stats *i2o_lan_get_stats(struct net_device *dev)
 			printk(KERN_INFO "%s: Unable to query LAN_802_3_HISTORICAL_STATS.\n", dev->name);
 		else {
 			dprintk(KERN_DEBUG "%s: LAN_802_3_HISTORICAL_STATS queried.\n", dev->name);
-	 		priv->stats.transmit_collision = val64[1] + val64[2];
-			priv->stats.rx_frame_errors    = val64[0];
-			priv->stats.tx_carrier_errors  = val64[6];
+	 		priv->stats.gen.collisions        = val64[1] + val64[2];
+			priv->stats.gen.rx_frame_errors   = val64[0];
+			priv->stats.gen.tx_carrier_errors = val64[6];
 		}
 
 		if (i2o_query_scalar(iop, i2o_dev->lct_data.tid, 0x0280, -1,
@@ -1070,9 +1091,11 @@ static struct net_device_stats *i2o_lan_get_stats(struct net_device *dev)
 			else {
 				dprintk(KERN_DEBUG "%s: LAN_OPTIONAL_802_3_HISTORICAL_STATS queried.\n", dev->name);
 				if (supported_stats & 0x1)
-					priv->stats.rx_over_errors = val64[0];
+					priv->stats.gen.rx_over_errors =
+								val64[0];
 				if (supported_stats & 0x4)
-					priv->stats.tx_heartbeat_errors = val64[2];
+					priv->stats.gen.tx_heartbeat_errors =
+								val64[2];
 			}
 		}
 	}
@@ -1093,6 +1116,7 @@ static struct net_device_stats *i2o_lan_get_stats(struct net_device *dev)
 			stats->A_C_errors		= val64[2];
 			stats->abort_delimiters		= val64[3];
 			stats->lost_frames		= val64[1];
+			/* stats->recv_congest_count	= ?;  FIXME ??*/
 			stats->frame_copied_errors	= val64[5];
 			stats->frequency_errors		= val64[6];
 			stats->token_errors		= val64[9];
@@ -1318,6 +1342,10 @@ struct net_device *i2o_lan_register_device(struct i2o_device *i2o_dev)
 		if (dev == NULL)
 			return NULL;
 		type_trans = NULL;
+/* FIXME: Move fc_type_trans() from drivers/net/fc/iph5526.c to net/802/fc.c
+ * and export it in include/linux/fcdevice.h
+ *		type_trans = fc_type_trans;
+ */
 		unregister_dev = (void *)unregister_fcdev;
 		break;
 #endif

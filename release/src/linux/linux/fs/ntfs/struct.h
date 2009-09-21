@@ -56,4 +56,14 @@ typedef struct ntfs_io{
 	unsigned long size;
 } ntfs_io;
 
+#if 0
+typedef struct {
+	ntfs_volume *vol;
+	ntfs_inode *ino;
+	int type;
+	char *name;
+	int mftno;
+	int start_vcn;
+} ntfs_attrlist_item;
+#endif
 

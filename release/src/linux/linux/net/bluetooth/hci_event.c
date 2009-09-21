@@ -25,7 +25,7 @@
 /*
  * HCI Events.
  *
- * $Id: hci_event.c,v 1.1.1.4 2003/10/14 08:09:32 sparq Exp $
+ * $Id: hci_event.c,v 1.4 2002/07/27 18:14:38 maxk Exp $
  */
 
 #include <linux/config.h>
@@ -62,9 +62,22 @@
 /* Command Complete OGF LINK_CTL  */
 static void hci_cc_link_ctl(struct hci_dev *hdev, __u16 ocf, struct sk_buff *skb)
 {
+	__u8 status;
+
 	BT_DBG("%s ocf 0x%x", hdev->name, ocf);
 
 	switch (ocf) {
+	case OCF_INQUIRY_CANCEL:
+		status = *((__u8 *) skb->data);
+
+		if (status) {
+			BT_DBG("%s Inquiry cancel error: status 0x%x", hdev->name, status);
+		} else {
+			clear_bit(HCI_INQUIRY, &hdev->flags);
+			hci_req_complete(hdev, status);
+		}
+		break;
+
 	default:
 		BT_DBG("%s Command complete: ogf LINK_CTL ocf %x", hdev->name, ocf);
 		break;
@@ -307,7 +320,7 @@ static inline void hci_cs_create_conn(struct hci_dev *hdev, __u8 status)
 			status, batostr(&cc->bdaddr), conn);
 
 	if (status) {
-		if (conn) {
+		if (conn && conn->state == BT_CONNECT) {
 			conn->state = BT_CLOSED;
 			hci_proto_connect_cfm(conn, status);
 			hci_conn_del(conn);
@@ -436,6 +449,29 @@ static inline void hci_inquiry_result_evt(struct hci_dev *hdev, struct sk_buff *
 	hci_dev_lock(hdev);
 	for (; num_rsp; num_rsp--)
 		inquiry_cache_update(hdev, info++);
+	hci_dev_unlock(hdev);
+}
+
+/* Inquiry Result With RSSI */
+static inline void hci_inquiry_result_with_rssi_evt(struct hci_dev *hdev, struct sk_buff *skb)
+{
+	inquiry_info_with_rssi *info = (inquiry_info_with_rssi *) (skb->data + 1);
+	int num_rsp = *((__u8 *) skb->data);
+
+	BT_DBG("%s num_rsp %d", hdev->name, num_rsp);
+
+	hci_dev_lock(hdev);
+	for (; num_rsp; num_rsp--) {
+		inquiry_info tmp;
+		bacpy(&tmp.bdaddr, &info->bdaddr);
+		tmp.pscan_rep_mode    = info->pscan_rep_mode;
+		tmp.pscan_period_mode = info->pscan_period_mode;
+		tmp.pscan_mode        = 0x00;
+		memcpy(tmp.dev_class, &info->dev_class, 3);
+		tmp.clock_offset      = info->clock_offset;
+		info++;
+		inquiry_cache_update(hdev, &tmp);
+	}
 	hci_dev_unlock(hdev);
 }
 
@@ -733,6 +769,10 @@ void hci_event_packet(struct hci_dev *hdev, struct sk_buff *skb)
 
 	case EVT_INQUIRY_RESULT:
 		hci_inquiry_result_evt(hdev, skb);
+		break;
+
+	case EVT_INQUIRY_RESULT_WITH_RSSI:
+		hci_inquiry_result_with_rssi_evt(hdev, skb);
 		break;
 
 	case EVT_CONN_REQUEST:

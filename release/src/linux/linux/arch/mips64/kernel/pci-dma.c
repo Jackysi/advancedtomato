@@ -21,6 +21,7 @@ void *pci_alloc_consistent(struct pci_dev *hwdev, size_t size,
 {
 	void *ret;
 	int gfp = GFP_ATOMIC;
+	struct pci_bus *bus = NULL;
 
 #ifdef CONFIG_ISA
 	if (hwdev == NULL || hwdev->dma_mask != 0xffffffff)
@@ -30,7 +31,9 @@ void *pci_alloc_consistent(struct pci_dev *hwdev, size_t size,
 
 	if (ret != NULL) {
 		memset(ret, 0, size);
-		*dma_handle = bus_to_baddr(hwdev->bus, __pa(ret));
+		if (hwdev)
+			bus = hwdev->bus;
+		*dma_handle = bus_to_baddr(bus, __pa(ret));
 #ifdef CONFIG_NONCOHERENT_IO
 		dma_cache_wback_inv((unsigned long) ret, size);
 		ret = UNCAC_ADDR(ret);

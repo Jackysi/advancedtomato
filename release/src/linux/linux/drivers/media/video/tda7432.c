@@ -51,6 +51,11 @@
 #include "bttv.h"
 #include "audiochip.h"
 #include "id.h"
+#include "i2c-compat.h"
+
+#ifndef VIDEO_AUDIO_BALANCE
+# define VIDEO_AUDIO_BALANCE 32
+#endif
 
 MODULE_AUTHOR("Eric Sandeen <eric_sandeen@bigfoot.com>");
 MODULE_DESCRIPTION("bttv driver for the tda7432 audio processor chip");
@@ -68,19 +73,10 @@ static int debug = 0;	 /* insmod parameter */
 /* Address to scan (I2C address of this chip) */
 static unsigned short normal_i2c[] = {
 	I2C_TDA7432 >> 1,
-	I2C_CLIENT_END};
-static unsigned short normal_i2c_range[] = {I2C_CLIENT_END};
-static unsigned short probe[2]        = { I2C_CLIENT_END, I2C_CLIENT_END };
-static unsigned short probe_range[2]  = { I2C_CLIENT_END, I2C_CLIENT_END };
-static unsigned short ignore[2]       = { I2C_CLIENT_END, I2C_CLIENT_END };
-static unsigned short ignore_range[2] = { I2C_CLIENT_END, I2C_CLIENT_END };
-static unsigned short force[2]        = { I2C_CLIENT_END, I2C_CLIENT_END };
-static struct i2c_client_address_data addr_data = {
-	normal_i2c, normal_i2c_range, 
-	probe, probe_range, 
-	ignore, ignore_range, 
-	force
+	I2C_CLIENT_END,
 };
+static unsigned short normal_i2c_range[] = { I2C_CLIENT_END, I2C_CLIENT_END };
+I2C_CLIENT_INSMOD;
 
 /* Structure of address and subaddresses for the tda7432 */
 
@@ -249,10 +245,23 @@ static int tda7432_write(struct i2c_client *client, int subaddr, int val)
 }
 
 /* I don't think we ever actually _read_ the chip... */
+#if 0
+static int tda7432_read(struct i2c_client *client)
+{
+	unsigned char buffer;
+	d2printk("tda7432: In tda7432_read\n");
+	if (1 != i2c_master_recv(client,&buffer,1)) {
+		printk(KERN_WARNING "tda7432: I/O error, trying (read)\n");
+		return -1;
+	}
+	dprintk("tda7432: Read 0x%02x\n", buffer); 
+	return buffer;
+}
+#endif
 
 static int tda7432_set(struct i2c_client *client)
 {
-	struct tda7432 *t = client->data;
+	struct tda7432 *t = i2c_get_clientdata(client);
 	unsigned char buf[16];
 	d2printk("tda7432: In tda7432_set\n");
 	
@@ -279,7 +288,7 @@ static int tda7432_set(struct i2c_client *client)
 
 static void do_tda7432_init(struct i2c_client *client)
 {
-	struct tda7432 *t = client->data;
+	struct tda7432 *t = i2c_get_clientdata(client);
 	d2printk("tda7432: In tda7432_init\n");
 
 	t->input  = TDA7432_STEREO_IN |  /* Main (stereo) input   */
@@ -320,11 +329,10 @@ static int tda7432_attach(struct i2c_adapter *adap, int addr,
         memcpy(client,&client_template,sizeof(struct i2c_client));
         client->adapter = adap;
         client->addr = addr;
-	client->data = t;
+	i2c_set_clientdata(client, t);
 	
 	do_tda7432_init(client);
 	MOD_INC_USE_COUNT;
-	strcpy(client->name,"TDA7432");
 	printk(KERN_INFO "tda7432: init\n");
 
 	i2c_attach_client(client);
@@ -333,14 +341,19 @@ static int tda7432_attach(struct i2c_adapter *adap, int addr,
 
 static int tda7432_probe(struct i2c_adapter *adap)
 {
+#ifdef I2C_ADAP_CLASS_TV_ANALOG
+	if (adap->class & I2C_ADAP_CLASS_TV_ANALOG)
+		return i2c_probe(adap, &addr_data, tda7432_attach);
+#else
 	if (adap->id == (I2C_ALGO_BIT | I2C_HW_B_BT848))
 		return i2c_probe(adap, &addr_data, tda7432_attach);
+#endif
 	return 0;
 }
 
 static int tda7432_detach(struct i2c_client *client)
 {
-	struct tda7432 *t  = client->data;
+	struct tda7432 *t  = i2c_get_clientdata(client);
 
 	do_tda7432_init(client);
 	i2c_detach_client(client);
@@ -353,7 +366,7 @@ static int tda7432_detach(struct i2c_client *client)
 static int tda7432_command(struct i2c_client *client,
 			   unsigned int cmd, void *arg)
 {
-	struct tda7432 *t = client->data;
+	struct tda7432 *t = i2c_get_clientdata(client);
 	d2printk("tda7432: In tda7432_command\n");
 
 	switch (cmd) {
@@ -382,10 +395,10 @@ static int tda7432_command(struct i2c_client *client,
 		 * Max (0dB) is 0x20 (829)
 		 * (Mask out bit 7 of vol - it's for the loudness setting)
 		 */
-		if(!maxvol){  /* max +20db */
+		if (!maxvol){  /* max +20db */
 			va->volume = ( 0x6f - (t->volume & 0x7F) ) * 630;
-		} else {     /* max 0db   */
-			va->volume = (int )(( 0x6f - (t->volume & 0x7F) ) * 829.557);
+		} else {       /* max 0db   */
+			va->volume = ( 0x6f - (t->volume & 0x7F) ) * 829;
 		}
 		
 		/* Balance depends on L,R attenuation
@@ -423,11 +436,10 @@ static int tda7432_command(struct i2c_client *client,
 		dprintk("tda7432: VIDEOCSAUDIO\n");
 
 		if(va->flags & VIDEO_AUDIO_VOLUME){
-				
 			if(!maxvol){ /* max +20db */
-				t->volume = 0x6f - ( (va->volume)/630 );
+				t->volume = 0x6f - ((va->volume)/630);
 			} else {    /* max 0db   */
-				t->volume = 0x6f - ((int) (va->volume)/829.557 );
+				t->volume = 0x6f - ((va->volume)/829);
 			}
 		
 		if (loudness)		/* Turn on the loudness bit */
@@ -507,35 +519,28 @@ static int tda7432_command(struct i2c_client *client,
 	return 0;
 }
 
-
 static struct i2c_driver driver = {
-        "i2c tda7432 driver",
-	I2C_DRIVERID_TDA7432,
-        I2C_DF_NOTIFY,
-	tda7432_probe,
-        tda7432_detach,
-        tda7432_command,
+        .name            = "i2c tda7432 driver",
+	.id              = I2C_DRIVERID_TDA7432,
+        .flags           = I2C_DF_NOTIFY,
+	.attach_adapter  = tda7432_probe,
+        .detach_client   = tda7432_detach,
+        .command         = tda7432_command,
 };
 
 static struct i2c_client client_template =
 {
-        "(unset)",		/* name */
-        -1,
-        0,
-        0,
-        NULL,
-        &driver
+	I2C_DEVNAME("tda7432"),
+        .id         = -1,
+	.driver     = &driver, 
 };
 
 static int tda7432_init(void)
 {
-
-	if ( (loudness < 0) || (loudness > 15) )
-	{
+	if ( (loudness < 0) || (loudness > 15) ) {
 		printk(KERN_ERR "tda7432: loudness parameter must be between 0 and 15\n");
 		return -EINVAL;
 	}
-
 	i2c_add_driver(&driver);
 	return 0;
 }

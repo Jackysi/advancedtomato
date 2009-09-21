@@ -18,7 +18,7 @@
 #ifndef _I2O_H
 #define _I2O_H
 
-#ifdef __KERNEL__     /* This file to be included by kernel only */
+#ifdef __KERNEL__ /* This file to be included by kernel only */
 
 #include <linux/i2o-dev.h>
 
@@ -597,6 +597,7 @@ extern int i2o_delete_controller(struct i2o_controller *);
 #define I2OVER15	0x0001
 #define I2OVER20	0x0002
 
+/* Default is 1.5, FIXME: Need support for both 1.5 and 2.0 */
 #define I2OVERSION	I2OVER15
 
 #define SGL_OFFSET_0    I2OVERSION

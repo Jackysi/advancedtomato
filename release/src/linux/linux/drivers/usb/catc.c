@@ -42,6 +42,7 @@
 #include <linux/skbuff.h>
 #include <linux/spinlock.h>
 #include <linux/ethtool.h>
+#include <linux/crc32.h>
 #include <asm/bitops.h>
 #include <asm/uaccess.h>
 
@@ -61,6 +62,8 @@
 MODULE_AUTHOR(DRIVER_AUTHOR);
 MODULE_DESCRIPTION(DRIVER_DESC);
 MODULE_LICENSE("GPL");
+
+static const char driver_name[] = "catc";
 
 /*
  * Some defines.
@@ -596,20 +599,9 @@ static struct net_device_stats *catc_get_stats(struct net_device *netdev)
  * Receive modes. Broadcast, Multicast, Promisc.
  */
 
-static inline u32 ether_crc_le(int cnt, unsigned char *addr)
-{
-	unsigned int crc = 0xffffffff;
-	u8 byte, idx, bit;
-	
-        for (idx = 0; idx < cnt; idx++)
-                for (byte = *addr++, bit = 0; bit < 8; bit++, byte >>= 1)
-                        crc = (crc >> 1) ^ (((crc ^ byte) & 1) ? 0xedb88320U : 0);
-	return crc;
-}
-
 static void catc_multicast(unsigned char *addr, u8 *multicast)
 {
-	unsigned int crc = ether_crc_le(6, addr);
+	u32 crc = ether_crc_le(6, addr);
 	multicast[(crc >> 3) & 0x3f] |= 1 << (crc & 7);
 }
 
@@ -674,7 +666,7 @@ static int netdev_ethtool_ioctl(struct net_device *dev, void *useraddr)
         /* get driver info */
         case ETHTOOL_GDRVINFO: {
                 struct ethtool_drvinfo info = {ETHTOOL_GDRVINFO};
-                strncpy(info.driver, SHORT_DRIVER_DESC, ETHTOOL_BUSINFO_LEN);
+                strncpy(info.driver, driver_name, ETHTOOL_BUSINFO_LEN);
                 strncpy(info.version, DRIVER_VERSION, ETHTOOL_BUSINFO_LEN);
 		sprintf(tmp, "usb%d:%d", catc->usbdev->bus->busnum, catc->usbdev->devnum);
                 strncpy(info.bus_info, tmp,ETHTOOL_BUSINFO_LEN);
@@ -937,7 +929,7 @@ static struct usb_device_id catc_id_table [] = {
 MODULE_DEVICE_TABLE(usb, catc_id_table);
 
 static struct usb_driver catc_driver = {
-	name:		"catc",
+	name:		driver_name,
 	probe:		catc_probe,
 	disconnect:	catc_disconnect,
 	id_table:	catc_id_table,

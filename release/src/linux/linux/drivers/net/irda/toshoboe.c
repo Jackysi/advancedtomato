@@ -30,7 +30,7 @@
 /* an olivetti notebook which doesn't have FIR, a toshiba libretto, and */
 /* an hp printer, this works fine at 4MBPS with my HP printer */
 
-static char *rcsid = "$Id: toshoboe.c,v 1.1.1.4 2003/10/14 08:08:26 sparq Exp $";
+static char *rcsid = "$Id: toshoboe.c,v 1.91 1999/06/29 14:21:06 root Exp $";
 
 /* Define this to have only one frame in the XMIT or RECV queue */
 /* Toshiba's drivers do this, but it disables back to back tansfers */
@@ -104,7 +104,7 @@ toshoboe_stopchip (struct toshoboe_cb *self)
   outb_p (0xff, OBOE_TFP0);
   outb_p (0x0f, OBOE_REG_1B);
   outb_p (0xff, OBOE_REG_1A);
-  outb_p (0x00, OBOE_ISR);      
+  outb_p (0x00, OBOE_ISR);      /*FIXME: should i do this to disbale ints */
   outb_p (0x80, OBOE_RST);
   outb_p (0xe, OBOE_LOCK);
 
@@ -330,6 +330,7 @@ toshoboe_hard_xmit (struct sk_buff *skb, struct net_device *dev)
 
   self->txpending++;
 
+  /*FIXME: ask about busy,media_busy stuff, for the moment */
   /*busy means can't queue any more */
 #ifndef ONETASK
   if (self->txpending != TX_SLOTS)
@@ -448,6 +449,7 @@ toshoboe_interrupt (int irq, void *dev_id, struct pt_regs *regs)
     }
   if (irqstat & 0x8)
     {
+      /*FIXME: I think this is a TX or RX error of some sort */
 
       self->stats.tx_errors++;
       self->stats.rx_errors++;
@@ -478,6 +480,7 @@ toshoboe_initptrs (struct toshoboe_cb *self)
   save_flags (flags);
   cli ();
 
+  /*FIXME: need to test this carefully to check which one */
   /*of the two possible startup logics the chip uses */
   /*although it won't make any difference if no-one xmits durining init */
   /*and none what soever if using ONETASK */
@@ -485,6 +488,14 @@ toshoboe_initptrs (struct toshoboe_cb *self)
   self->rxs = inb_p (OBOE_RCVT);
   self->txs = inb_p (OBOE_XMTT) - OBOE_XMTT_OFFSET;
 
+#if 0
+  self->rxs = 0;
+  self->txs = 0;
+#endif
+#if 0
+  self->rxs = RX_SLOTS - 1;
+  self->txs = 0;
+#endif
 
 
   self->txpending = 0;
@@ -750,7 +761,7 @@ toshoboe_probe (struct pci_dev *pci_dev, const struct pci_device_id *pdid)
 #endif
 
 
-  self->qos.min_turn_time.bits = 0xff;  
+  self->qos.min_turn_time.bits = 0xff;  /*FIXME: what does this do? */
 
   irda_qos_bits_to_value (&self->qos);
 
@@ -832,6 +843,7 @@ toshoboe_probe (struct pci_dev *pci_dev, const struct pci_device_id *pdid)
   rtnl_unlock();
   if (err) {
 	  ERROR("%s(), register_netdev() failed!\n", __FUNCTION__);
+	  /* XXX there is not freeing for dev? */
           goto freebufs;
   }
   pci_set_drvdata(pci_dev,self);
@@ -876,6 +888,7 @@ toshoboe_suspend (struct pci_dev *pci_dev, u32 crap)
   if (!self->open)
     return 0;
 
+/*FIXME: can't sleep here wait one second */
 
   while ((i--) && (self->txpending))
     udelay (100);

@@ -1,4 +1,4 @@
-/* $Id: dmy.c,v 1.1.1.4 2003/10/14 08:08:34 sparq Exp $
+/* $Id: dmy.c,v 1.10 2001/10/08 22:19:50 davem Exp $
  * drivers/sbus/audio/dummy.c
  *
  * Copyright 1998 Derrick J Brashear (shadow@andrew.cmu.edu)

@@ -371,6 +371,109 @@ Warning TMPALIAS_MAP_START changed. If > 2 Gb, code in pacache.S is bogus
  *          %r23 physical page (shifted for tlb insert) of "from" translation
  */
 
+#if 0
+
+	/*
+	 * We can't do this since copy_user_page is used to bring in
+	 * file data that might have instructions. Since the data would
+	 * then need to be flushed out so the i-fetch can see it, it
+	 * makes more sense to just copy through the kernel translation
+	 * and flush it.
+	 *
+	 * I'm still keeping this around because it may be possible to
+	 * use it if more information is passed into copy_user_page().
+	 * Have to do some measurements to see if it is worthwhile to
+	 * lobby for such a change.
+	 */
+
+	.export copy_user_page_asm,code
+
+copy_user_page_asm:
+	.proc
+	.callinfo NO_CALLS
+	.entry
+
+	ldil    L%(__PAGE_OFFSET),%r1
+	sub     %r26,%r1,%r26
+	sub     %r25,%r1,%r23  /* move physical addr into non shadowed reg */
+
+	ldil    L%(TMPALIAS_MAP_START),%r28
+#ifdef __LP64__
+	extrd,u %r26,56,32,%r26 /* convert phys addr to tlb insert format */
+	extrd,u %r23,56,32,%r23 /* convert phys addr to tlb insert format */
+	depd    %r24,63,22,%r28 /* Form aliased virtual address 'to' */
+	depdi   0,63,12,%r28    /* Clear any offset bits */
+	copy    %r28,%r29
+	depdi   1,41,1,%r29     /* Form aliased virtual address 'from' */
+#else
+	extrw,u %r26,24,25,%r26 /* convert phys addr to tlb insert format */
+	extrw,u %r23,24,25,%r23 /* convert phys addr to tlb insert format */
+	depw    %r24,31,22,%r28 /* Form aliased virtual address 'to' */
+	depwi   0,31,12,%r28    /* Clear any offset bits */
+	copy    %r28,%r29
+	depwi   1,9,1,%r29      /* Form aliased virtual address 'from' */
+#endif
+
+	/* Purge any old translations */
+
+	pdtlb   0(%r28)
+	pdtlb   0(%r29)
+
+	ldi 64,%r1
+
+	/*
+	 * This loop is optimized for PCXL/PCXL2 ldw/ldw and stw/stw
+	 * bundles (very restricted rules for bundling). It probably
+	 * does OK on PCXU and better, but we could do better with
+	 * ldd/std instructions. Note that until (if) we start saving
+	 * the full 64 bit register values on interrupt, we can't
+	 * use ldd/std on a 32 bit kernel.
+	 */
+
+
+1:
+	ldw 0(%r29),%r19
+	ldw 4(%r29),%r20
+	ldw 8(%r29),%r21
+	ldw 12(%r29),%r22
+	stw %r19,0(%r28)
+	stw %r20,4(%r28)
+	stw %r21,8(%r28)
+	stw %r22,12(%r28)
+	ldw 16(%r29),%r19
+	ldw 20(%r29),%r20
+	ldw 24(%r29),%r21
+	ldw 28(%r29),%r22
+	stw %r19,16(%r28)
+	stw %r20,20(%r28)
+	stw %r21,24(%r28)
+	stw %r22,28(%r28)
+	ldw 32(%r29),%r19
+	ldw 36(%r29),%r20
+	ldw 40(%r29),%r21
+	ldw 44(%r29),%r22
+	stw %r19,32(%r28)
+	stw %r20,36(%r28)
+	stw %r21,40(%r28)
+	stw %r22,44(%r28)
+	ldw 48(%r29),%r19
+	ldw 52(%r29),%r20
+	ldw 56(%r29),%r21
+	ldw 60(%r29),%r22
+	stw %r19,48(%r28)
+	stw %r20,52(%r28)
+	stw %r21,56(%r28)
+	stw %r22,60(%r28)
+	ldo 64(%r28),%r28
+	ADDIB>  -1,%r1,1b
+	ldo 64(%r29),%r29
+
+	bv      %r0(%r2)
+	nop
+	.exit
+
+	.procend
+#endif
 
 	.export clear_user_page_asm,code
 
@@ -511,6 +614,71 @@ purge_kernel_dcache_page:
 
 	.procend
 
+#if 0
+	/* Currently not used, but it still is a possible alternate
+	 * solution.
+	 */
+
+	.export flush_alias_page
+
+flush_alias_page:
+	.proc
+	.callinfo NO_CALLS
+	.entry
+
+	tophys_r1 %r26
+
+	ldil    L%(TMPALIAS_MAP_START),%r28
+#ifdef __LP64__
+	extrd,u %r26,56,32,%r26 /* convert phys addr to tlb insert format */
+	depd    %r25,63,22,%r28 /* Form aliased virtual address 'to' */
+	depdi   0,63,12,%r28    /* Clear any offset bits */
+#else
+	extrw,u %r26,24,25,%r26 /* convert phys addr to tlb insert format */
+	depw    %r25,31,22,%r28 /* Form aliased virtual address 'to' */
+	depwi   0,31,12,%r28    /* Clear any offset bits */
+#endif
+
+	/* Purge any old translation */
+
+	pdtlb   0(%r28)
+
+	ldil    L%dcache_stride,%r1
+	ldw     R%dcache_stride(%r1),%r23
+
+#ifdef __LP64__
+	depdi,z 1,63-PAGE_SHIFT,1,%r29
+#else
+	depwi,z 1,31-PAGE_SHIFT,1,%r29
+#endif
+	add      %r28,%r29,%r29
+	sub      %r29,%r23,%r29
+
+1:      fdc,m   %r23(%r28)
+	fdc,m   %r23(%r28)
+	fdc,m   %r23(%r28)
+	fdc,m   %r23(%r28)
+	fdc,m   %r23(%r28)
+	fdc,m   %r23(%r28)
+	fdc,m   %r23(%r28)
+	fdc,m   %r23(%r28)
+	fdc,m   %r23(%r28)
+	fdc,m   %r23(%r28)
+	fdc,m   %r23(%r28)
+	fdc,m   %r23(%r28)
+	fdc,m   %r23(%r28)
+	fdc,m   %r23(%r28)
+	fdc,m   %r23(%r28)
+	CMPB<<  %r28,%r29,1b
+	fdc,m   %r23(%r28)
+
+	sync
+	bv      %r0(%r2)
+	nop
+	.exit
+
+	.procend
+#endif
 
 	.export flush_user_dcache_range_asm
 

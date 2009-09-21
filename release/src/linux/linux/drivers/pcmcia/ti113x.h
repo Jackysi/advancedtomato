@@ -134,6 +134,10 @@
 /* ExCA IO offset registers */
 #define TI113X_IO_OFFSET(map)		(0x36+((map)<<1))
 
+/* EnE test register */
+#define ENE_TEST_C9			0xc9	/* 8bit */
+#define ENE_TEST_C9_TLTENABLE		0x02
+
 #ifdef CONFIG_CARDBUS
 
 /*
@@ -155,6 +159,17 @@ static int ti_open(pci_socket_t *socket)
 	new = reg & ~I365_INTR_ENA;
 	if (new != reg)
 		exca_writeb(socket, I365_INTCTL, new);
+
+	/*
+	 * for EnE bridges only: clear testbit TLTEnable. this makes the
+	 * RME Hammerfall DSP sound card working.
+	 */
+	if (socket->dev->vendor == PCI_VENDOR_ID_ENE) {
+		u8 test_c9 = config_readb(socket, ENE_TEST_C9);
+		test_c9 &= ~ENE_TEST_C9_TLTENABLE;
+		config_writeb(socket, ENE_TEST_C9, test_c9);
+	}
+
 	return 0;
 }
 
@@ -167,6 +182,32 @@ static int ti_intctl(pci_socket_t *socket)
 		new |= I365_INTR_ENA;
 	if (new != reg)
 		exca_writeb(socket, I365_INTCTL, new);
+
+	/*
+	 * If ISA interrupts don't work, then fall back to routing card
+	 * interrupts to the PCI interrupt of the socket.
+	 *
+	 * Tweaking this when we are using serial PCI IRQs causes hangs
+	 *   --rmk
+	 */
+	if (!socket->cap.irq_mask) {
+		u8 irqmux, devctl;
+
+		devctl = config_readb(socket, TI113X_DEVICE_CONTROL);
+		if ((devctl & TI113X_DCR_IMODE_MASK) != TI12XX_DCR_IMODE_ALL_SERIAL) {
+			printk (KERN_INFO "ti113x: Routing card interrupts to PCI\n");
+
+			devctl &= ~TI113X_DCR_IMODE_MASK;
+
+			irqmux = config_readl(socket, TI122X_IRQMUX);
+			irqmux = (irqmux & ~0x0f) | 0x02; /* route INTA */
+			irqmux = (irqmux & ~0xf0) | 0x20; /* route INTB */
+
+			config_writel(socket, TI122X_IRQMUX, irqmux);
+			config_writeb(socket, TI113X_DEVICE_CONTROL, devctl);
+		}
+	}
+
 	return 0;
 }
 
@@ -189,6 +230,14 @@ static void ti_zoom_video(pci_socket_t *socket, int onoff)
 	config_writeb(socket, TI113X_CARD_CONTROL, reg);
 }
 
+/*
+ *	The 145x series can also use this. They have an additional
+ *	ZV autodetect mode we don't use but don't actually need.
+ *	FIXME: manual says its in func0 and func1 but disagrees with
+ *	itself about this - do we need to force func0, if so we need
+ *	to know a lot more about socket pairings in pci_socket than we
+ *	do now.. uggh.
+ */
  
 static void ti1250_zoom_video(pci_socket_t *socket, int onoff)
 {	

@@ -1,10 +1,11 @@
 /*
- * linux/arch/i386/mm/extable.c
+ * linux/arch/x86_64/mm/extable.c
  */
 
 #include <linux/config.h>
 #include <linux/module.h>
 #include <linux/spinlock.h>
+#include <linux/init.h>
 #include <asm/uaccess.h>
 
 extern const struct exception_table_entry __start___ex_table[];
@@ -38,6 +39,10 @@ search_exception_table(unsigned long addr)
 {
 	unsigned long ret = 0;
 	unsigned long flags;
+
+	/* Workaround for an Opteron issue */
+	if ((addr >> 32) == 0) 
+		addr |= 0xffffffffUL << 32; 
 
 #ifndef CONFIG_MODULES
 	/* There is only the kernel to search.  */

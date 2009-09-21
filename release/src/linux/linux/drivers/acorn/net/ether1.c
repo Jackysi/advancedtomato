@@ -647,6 +647,11 @@ ether1_open (struct net_device *dev)
 {
 	struct ether1_priv *priv = (struct ether1_priv *)dev->priv;
 
+	if (!is_valid_ether_addr(dev->dev_addr)) {
+		printk("%s: invalid ethernet MAC address\n", dev->name);
+		return -EINVAL;
+	}
+
 	if (request_irq(dev->irq, ether1_interrupt, 0, "ether1", dev))
 		return -EAGAIN;
 
@@ -684,7 +689,6 @@ static int
 ether1_sendpacket (struct sk_buff *skb, struct net_device *dev)
 {
 	struct ether1_priv *priv = (struct ether1_priv *)dev->priv;
-	int len = (ETH_ZLEN < skb->len) ? skb->len : ETH_ZLEN;
 	int tmp, tst, nopaddr, txaddr, tbdaddr, dataddr;
 	unsigned long flags;
 	tx_t tx;
@@ -702,19 +706,25 @@ ether1_sendpacket (struct sk_buff *skb, struct net_device *dev)
 			priv->restart = 0;
 	}
 
+	if (skb->len < ETH_ZLEN) {
+		skb = skb_padto(skb, ETH_ZLEN);
+		if (!skb)
+			goto out;
+	}
+
 	/*
 	 * insert packet followed by a nop
 	 */
 	txaddr = ether1_txalloc (dev, TX_SIZE);
 	tbdaddr = ether1_txalloc (dev, TBD_SIZE);
-	dataddr = ether1_txalloc (dev, len);
+	dataddr = ether1_txalloc (dev, skb->len);
 	nopaddr = ether1_txalloc (dev, NOP_SIZE);
 
 	tx.tx_status = 0;
 	tx.tx_command = CMD_TX | CMD_INTR;
 	tx.tx_link = nopaddr;
 	tx.tx_tbdoffset = tbdaddr;
-	tbd.tbd_opts = TBD_EOL | len;
+	tbd.tbd_opts = TBD_EOL | skb->len;
 	tbd.tbd_link = I82586_NULL;
 	tbd.tbd_bufl = dataddr;
 	tbd.tbd_bufh = 0;
@@ -725,7 +735,7 @@ ether1_sendpacket (struct sk_buff *skb, struct net_device *dev)
 	save_flags_cli(flags);
 	ether1_writebuffer (dev, &tx, txaddr, TX_SIZE);
 	ether1_writebuffer (dev, &tbd, tbdaddr, TBD_SIZE);
-	ether1_writebuffer (dev, skb->data, dataddr, len);
+	ether1_writebuffer (dev, skb->data, dataddr, skb->len);
 	ether1_writebuffer (dev, &nop, nopaddr, NOP_SIZE);
 	tmp = priv->tx_link;
 	priv->tx_link = nopaddr;
@@ -747,6 +757,7 @@ ether1_sendpacket (struct sk_buff *skb, struct net_device *dev)
 	if (tst == -1)
 		netif_stop_queue(dev);
 
+ out:
 	return 0;
 }
 
@@ -971,6 +982,23 @@ ether1_getstats (struct net_device *dev)
 	return &priv->stats;
 }
 
+static int
+ether1_set_mac_address(struct net_device *dev, void *p)
+{
+	struct sockaddr *addr = p;
+
+	if (netif_running(dev))
+		return -EBUSY;
+
+	memcpy(dev->dev_addr, addr->sa_data, dev->addr_len);
+
+	/*
+	 * We'll set the MAC address on the chip when we open it.
+	 */
+
+	return 0;
+}
+
 /*
  * Set or clear the multicast filter for this adaptor.
  * num_addrs == -1	Promiscuous mode, receive all packets.
@@ -1038,6 +1066,7 @@ static struct net_device * __init ether1_init_one(struct expansion_card *ec)
 	dev->hard_start_xmit    = ether1_sendpacket;
 	dev->get_stats		= ether1_getstats;
 	dev->set_multicast_list = ether1_setmulticastlist;
+	dev->set_mac_address	= ether1_set_mac_address;
 	dev->tx_timeout		= ether1_timeout;
 	dev->watchdog_timeo	= 5 * HZ / 100;
 	return 0;

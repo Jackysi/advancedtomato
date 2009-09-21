@@ -99,11 +99,11 @@
  *   interrupts.  Ie, for a board at the default 0x388 base port,
  *   boot: linux pas16=0x388,255
  *
- *   IRQ_NONE (255) should be specified for no interrupt,
+ *   SCSI_IRQ_NONE (255) should be specified for no interrupt,
  *   IRQ_AUTO (254) to autoprobe for an IRQ line if overridden
  *   on the command line.
  *
- *   (IRQ_AUTO == 254, IRQ_NONE == 255 in NCR5380.h)
+ *   (IRQ_AUTO == 254, SCSI_IRQ_NONE == 255 in NCR5380.h)
  */
 
 #include <linux/module.h>
@@ -404,13 +404,13 @@ int __init pas16_detect(Scsi_Host_Template * tpnt)
 		else
 			instance->irq = NCR5380_probe_irq(instance, PAS16_IRQS);
 
-		if (instance->irq != IRQ_NONE)
+		if (instance->irq != SCSI_IRQ_NONE)
 			if (request_irq(instance->irq, do_pas16_intr, SA_INTERRUPT, "pas16", NULL)) {
 				printk(KERN_WARNING "scsi%d : IRQ%d not free, interrupts disabled\n", instance->host_no, instance->irq);
-				instance->irq = IRQ_NONE;
+				instance->irq = SCSI_IRQ_NONE;
 			}
 
-		if (instance->irq == IRQ_NONE) {
+		if (instance->irq == SCSI_IRQ_NONE) {
 			printk(KERN_INFO "scsi%d : interrupts not enabled. for better interactive performance,\n", instance->host_no);
 			printk(KERN_INFO "scsi%d : please jumper the board for a free IRQ.\n", instance->host_no);
 			/* Disable 5380 interrupts, leave drive params the same */
@@ -420,7 +420,7 @@ int __init pas16_detect(Scsi_Host_Template * tpnt)
 
 		printk(KERN_INFO "scsi%d : at 0x%04x", instance->host_no, (int)
 		       instance->io_port);
-		if (instance->irq == IRQ_NONE)
+		if (instance->irq == SCSI_IRQ_NONE)
 			printk(" interrupts disabled");
 		else
 			printk(" irq %d", instance->irq);

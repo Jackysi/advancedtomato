@@ -21,6 +21,7 @@
  */
 int ptrace_check_attach(struct task_struct *child, int kill)
 {
+
 	if (!(child->ptrace & PT_PTRACED))
 		return -ESRCH;
 
@@ -57,7 +58,7 @@ int ptrace_attach(struct task_struct *task)
 	task_lock(task);
 	if (task->pid <= 1)
 		goto bad;
-	if (task == current)
+	if (task->tgid == current->tgid)
 		goto bad;
 	if (!task->mm)
 		goto bad;
@@ -70,7 +71,7 @@ int ptrace_attach(struct task_struct *task)
  	    (current->gid != task->gid)) && !capable(CAP_SYS_PTRACE))
 		goto bad;
 	rmb();
-	if (!task->mm->dumpable && !capable(CAP_SYS_PTRACE))
+	if (!is_dumpable(task) && !capable(CAP_SYS_PTRACE))
 		goto bad;
 	/* the same process cannot be attached many times */
 	if (task->ptrace & PT_PTRACED)
@@ -165,6 +166,7 @@ int access_process_vm(struct task_struct *tsk, unsigned long addr, void *buf, in
 			memcpy(maddr + offset, buf, bytes);
 			flush_page_to_ram(page);
 			flush_icache_user_range(vma, page, addr, len);
+			set_page_dirty(page);
 		} else {
 			memcpy(buf, maddr + offset, bytes);
 			flush_page_to_ram(page);

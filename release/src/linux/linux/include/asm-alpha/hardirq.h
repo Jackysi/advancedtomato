@@ -31,7 +31,7 @@ typedef struct {
 #ifndef CONFIG_SMP
 
 extern unsigned long __irq_attempt[];
-#define irq_attempt(cpu, irq)  ((void)(cpu), __irq_attempt[irq])
+#define irq_attempt(cpu, irq)  (__irq_attempt[irq])
 
 #define hardirq_trylock(cpu)	(local_irq_count(cpu) == 0)
 #define hardirq_endlock(cpu)	((void) 0)

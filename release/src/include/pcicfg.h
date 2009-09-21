@@ -1,7 +1,7 @@
 /*
  * pcicfg.h: PCI configuration  constants and structures.
  *
- * Copyright 2005, Broadcom Corporation
+ * Copyright 2004, Broadcom Corporation
  * All Rights Reserved.
  * 
  * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
@@ -9,11 +9,11 @@
  * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
  * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
  *
- * $Id: pcicfg.h,v 1.1.1.8 2005/03/07 07:31:12 kanki Exp $
+ * $Id$
  */
 
-#ifndef	_h_pci_
-#define	_h_pci_
+#ifndef	_h_pcicfg_
+#define	_h_pcicfg_
 
 /* The following inside ifndef's so we don't collide with NTDDK.H */
 #ifndef PCI_MAX_BUS
@@ -39,7 +39,7 @@
 #define	PCICFG_BUS_SHIFT	16	/* Bus shift */
 #define	PCICFG_SLOT_SHIFT	11	/* Slot shift */
 #define	PCICFG_FUN_SHIFT	8	/* Function shift */
-#define	PCICFG_OFF_SHIFT	0	/* Bus shift */
+#define	PCICFG_OFF_SHIFT	0	/* Register shift */
 
 #define	PCICFG_BUS_MASK		0xff	/* Bus mask */
 #define	PCICFG_SLOT_MASK	0x1f	/* Slot mask */
@@ -57,6 +57,28 @@
 #define	PCI_CONFIG_FUN(a)	(((a) >> PCICFG_FUN_SHIFT) & PCICFG_FUN_MASK)
 #define	PCI_CONFIG_OFF(a)	(((a) >> PCICFG_OFF_SHIFT) & PCICFG_OFF_MASK)
 
+/* PCIE Config space accessing MACROS */
+
+#define	PCIECFG_BUS_SHIFT	24	/* Bus shift */
+#define	PCIECFG_SLOT_SHIFT	19	/* Slot/Device shift */
+#define	PCIECFG_FUN_SHIFT	16	/* Function shift */
+#define	PCIECFG_OFF_SHIFT	0	/* Register shift */
+
+#define	PCIECFG_BUS_MASK	0xff	/* Bus mask */
+#define	PCIECFG_SLOT_MASK	0x1f	/* Slot/Device mask */
+#define	PCIECFG_FUN_MASK	7	/* Function mask */
+#define	PCIECFG_OFF_MASK	0x3ff	/* Register mask */
+
+#define	PCIE_CONFIG_ADDR(b, s, f, o)					\
+		((((b) & PCIECFG_BUS_MASK) << PCIECFG_BUS_SHIFT)		\
+		 | (((s) & PCIECFG_SLOT_MASK) << PCIECFG_SLOT_SHIFT)	\
+		 | (((f) & PCIECFG_FUN_MASK) << PCIECFG_FUN_SHIFT)	\
+		 | (((o) & PCIECFG_OFF_MASK) << PCIECFG_OFF_SHIFT))
+
+#define	PCIE_CONFIG_BUS(a)	(((a) >> PCIECFG_BUS_SHIFT) & PCIECFG_BUS_MASK)
+#define	PCIE_CONFIG_SLOT(a)	(((a) >> PCIECFG_SLOT_SHIFT) & PCIECFG_SLOT_MASK)
+#define	PCIE_CONFIG_FUN(a)	(((a) >> PCIECFG_FUN_SHIFT) & PCIECFG_FUN_MASK)
+#define	PCIE_CONFIG_OFF(a)	(((a) >> PCIECFG_OFF_SHIFT) & PCIECFG_OFF_MASK)
 
 /* The actual config space */
 
@@ -65,6 +87,19 @@
 #define	PCI_ROM_BAR		8
 
 #define	PCR_RSVDA_MAX		2
+
+/* Bits in PCI bars' flags */
+
+#define	PCIBAR_FLAGS		0xf
+#define	PCIBAR_IO		0x1
+#define	PCIBAR_MEM1M		0x2
+#define	PCIBAR_MEM64		0x4
+#define	PCIBAR_PREFETCH		0x8
+#define	PCIBAR_MEM32_MASK	0xFFFFFF80
+
+/* pci config status reg has a bit to indicate that capability ptr is present */
+
+#define PCI_CAPPTR_PRESENT	0x0010
 
 typedef struct _pci_config_regs {
     unsigned short	vendor;
@@ -121,10 +156,27 @@ typedef struct _pci_config_regs {
 #define	PCI_CFG_SVID		0x2c
 #define	PCI_CFG_SSID		0x2e
 #define	PCI_CFG_ROMBAR		0x30
+#define PCI_CFG_CAPPTR		0x34
 #define	PCI_CFG_INT		0x3c
 #define	PCI_CFG_PIN		0x3d
 #define	PCI_CFG_MINGNT		0x3e
 #define	PCI_CFG_MAXLAT		0x3f
+
+#ifdef __NetBSD__
+#undef	PCI_CLASS_DISPLAY
+#undef	PCI_CLASS_MEMORY
+#undef	PCI_CLASS_BRIDGE
+#undef	PCI_CLASS_INPUT
+#undef	PCI_CLASS_DOCK
+#endif	/* __NetBSD__ */
+
+#ifdef EFI
+#undef PCI_CLASS_BRIDGE
+#undef PCI_CLASS_OLD
+#undef PCI_CLASS_DISPLAY
+#undef PCI_CLASS_SERIAL
+#undef PCI_CLASS_SATELLITE
+#endif /* EFI */
 
 /* Classes and subclasses */
 
@@ -146,7 +198,7 @@ typedef enum {
     PCI_CLASS_SATELLITE,
     PCI_CLASS_CRYPT,
     PCI_CLASS_DSP,
-    PCI_CLASS_MAX
+	PCI_CLASS_XOR = 0xfe
 } pci_classes;
 
 typedef enum {
@@ -252,7 +304,7 @@ typedef enum {
 } pci_serial_subclasses;
 
 typedef enum {
-    PCI_INTELLIGENT_I2O,
+	PCI_INTELLIGENT_I2O
 } pci_intelligent_subclasses;
 
 typedef enum {
@@ -273,6 +325,11 @@ typedef enum {
     PCI_DSP_DPIO,
     PCI_DSP_OTHER = 0x80
 } pci_dsp_subclasses;
+
+typedef enum {
+	PCI_XOR_QDMA,
+	PCI_XOR_OTHER = 0x80
+} pci_xor_subclasses;
 
 /* Header types */
 typedef enum {
@@ -329,7 +386,75 @@ typedef struct _ppb_config_regs {
     unsigned char	dev_dep[192];
 } ppb_config_regs;
 
-/* Eveything below is BRCM HND proprietary */
+
+/* PCI CAPABILITY DEFINES */
+#define PCI_CAP_POWERMGMTCAP_ID		0x01
+#define PCI_CAP_MSICAP_ID		0x05
+#define PCI_CAP_PCIECAP_ID		0x10
+
+/* Data structure to define the Message Signalled Interrupt facility 
+ * Valid for PCI and PCIE configurations
+ */
+typedef struct _pciconfig_cap_msi {
+	unsigned char capID;
+	unsigned char nextptr;
+	unsigned short msgctrl;
+	unsigned int msgaddr;
+} pciconfig_cap_msi;
+
+/* Data structure to define the Power managment facility
+ * Valid for PCI and PCIE configurations
+ */
+typedef struct _pciconfig_cap_pwrmgmt {
+	unsigned char capID;
+	unsigned char nextptr;
+	unsigned short pme_cap;
+	unsigned short pme_sts_ctrl;
+	unsigned char pme_bridge_ext;
+	unsigned char data;
+} pciconfig_cap_pwrmgmt;
+
+#define PME_CAP_PM_STATES (0x1f << 27)	/* Bits 31:27 states that can generate PME */
+#define PME_CSR_OFFSET	    0x4		/* 4-bytes offset */
+#define PME_CSR_PME_EN	  (1 << 8)	/* Bit 8 Enable generating of PME */
+#define PME_CSR_PME_STAT  (1 << 15)	/* Bit 15 PME got asserted */
+
+/* Data structure to define the PCIE capability */
+typedef struct _pciconfig_cap_pcie {
+	unsigned char capID;
+	unsigned char nextptr;
+	unsigned short pcie_cap;
+	unsigned int dev_cap;
+	unsigned short dev_ctrl;
+	unsigned short dev_status;
+	unsigned int link_cap;
+	unsigned short link_ctrl;
+	unsigned short link_status;
+} pciconfig_cap_pcie;
+
+/* PCIE Enhanced CAPABILITY DEFINES */
+#define PCIE_EXTCFG_OFFSET	0x100
+#define PCIE_ADVERRREP_CAPID	0x0001
+#define PCIE_VC_CAPID		0x0002
+#define PCIE_DEVSNUM_CAPID	0x0003
+#define PCIE_PWRBUDGET_CAPID	0x0004
+
+/* Header to define the PCIE specific capabilities in the extended config space */
+typedef struct _pcie_enhanced_caphdr {
+	unsigned short capID;
+	unsigned short cap_ver : 4;
+	unsigned short next_ptr : 12;
+} pcie_enhanced_caphdr;
+
+
+/* Everything below is BRCM HND proprietary */
+
+
+/* Brcm PCI configuration registers */
+#define cap_list	rsvd_a[0]
+#define bar0_window	dev_dep[0x80 - 0x40]
+#define bar1_window	dev_dep[0x84 - 0x40]
+#define sprom_control	dev_dep[0x88 - 0x40]
 
 #define	PCI_BAR0_WIN		0x80	/* backplane addres space accessed by BAR0 */
 #define	PCI_BAR1_WIN		0x84	/* backplane addres space accessed by BAR1 */
@@ -339,13 +464,24 @@ typedef struct _ppb_config_regs {
 #define	PCI_INT_MASK		0x94	/* mask of PCI and other cores interrupts */
 #define PCI_TO_SB_MB		0x98	/* signal backplane interrupts */
 #define PCI_BACKPLANE_ADDR	0xA0	/* address an arbitrary location on the system backplane */
-#define PCI_BACKPLANE_DATA	0xA4	/* data at the location specified by above address register */
+#define PCI_BACKPLANE_DATA	0xA4	/* data at the location specified by above address */
 #define	PCI_GPIO_IN		0xb0	/* pci config space gpio input (>=rev3) */
 #define	PCI_GPIO_OUT		0xb4	/* pci config space gpio output (>=rev3) */
 #define	PCI_GPIO_OUTEN		0xb8	/* pci config space gpio output enable (>=rev3) */
 
+#define	PCI_BAR0_SHADOW_OFFSET	(2 * 1024)	/* bar0 + 2K accesses sprom shadow (in pci core) */
 #define	PCI_BAR0_SPROM_OFFSET	(4 * 1024)	/* bar0 + 4K accesses external sprom */
 #define	PCI_BAR0_PCIREGS_OFFSET	(6 * 1024)	/* bar0 + 6K accesses pci core registers */
+#define	PCI_BAR0_PCISBR_OFFSET	(4 * 1024)	/* pci core SB registers are at the end of the
+						 * 8KB window, so their address is the "regular"
+						 * address plus 4K
+						 */
+#define PCI_BAR0_WINSZ		(16 * 1024)	/* bar0 window size Match with corerev 13 */
+
+/* On pci corerev >= 13 and all pcie, the bar0 is now 16KB and it maps: */
+#define	PCI_16KB0_PCIREGS_OFFSET (8 * 1024)	/* bar0 + 8K accesses pci/pcie core registers */
+#define	PCI_16KB0_CCREGS_OFFSET	(12 * 1024)	/* bar0 + 12K accesses chipc core registers */
+#define PCI_16KBB0_WINSZ	(16 * 1024)	/* bar0 window size */
 
 /* PCI_INT_STATUS */
 #define	PCI_SBIM_STATUS_SERR	0x4	/* backplane SBErr interrupt status */
@@ -356,9 +492,12 @@ typedef struct _ppb_config_regs {
 #define	PCI_SBIM_MASK_SERR	0x4	/* backplane SBErr interrupt mask */
 
 /* PCI_SPROM_CONTROL */
-#define	SPROM_BLANK		0x04  	/* indicating a blank sprom */
-#define SPROM_WRITEEN		0x10	/* sprom write enable */
+#define SPROM_SZ_MSK		0x02	/* SPROM Size Mask */
+#define SPROM_LOCKED		0x08	/* SPROM Locked */
+#define	SPROM_BLANK		0x04	/* indicating a blank SPROM */
+#define SPROM_WRITEEN		0x10	/* SPROM write enable */
 #define SPROM_BOOTROM_WE	0x20	/* external bootrom write enable */
+#define SPROM_OTPIN_USE		0x80	/* device OTP In use */
 
 #define	SPROM_SIZE		256	/* sprom size in 16-bit */
 #define SPROM_CRC_RANGE		64	/* crc cover range in 16-bit */
@@ -366,4 +505,4 @@ typedef struct _ppb_config_regs {
 /* PCI_CFG_CMD_STAT */
 #define PCI_CFG_CMD_STAT_TA	0x08000000	/* target abort status */
 
-#endif
+#endif	/* _h_pcicfg_ */

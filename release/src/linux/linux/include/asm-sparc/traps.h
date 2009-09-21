@@ -1,4 +1,4 @@
-/* $Id: traps.h,v 1.1.1.4 2003/10/14 08:09:22 sparq Exp $
+/* $Id: traps.h,v 1.9 1998/03/09 14:04:53 jj Exp $
  * traps.h:  Format of entries for the Sparc trap table.
  *
  * Copyright (C) 1995 David S. Miller (davem@caip.rutgers.edu)

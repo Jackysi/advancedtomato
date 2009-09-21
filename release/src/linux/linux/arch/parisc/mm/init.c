@@ -21,6 +21,7 @@
 
 #include <asm/pgalloc.h>
 #include <asm/tlb.h>
+#include <asm/pdc_chassis.h>
 
 mmu_gather_t mmu_gathers[NR_CPUS];
 
@@ -194,8 +195,10 @@ static void __init setup_bootmem(void)
 
 #endif /* __LP64__ */
 
+#if 1
 	/* KLUGE! this really belongs in kernel/resource.c! */
 	iomem_resource.end = ~0UL;
+#endif
 
 	sysram_resource_count = npmem_ranges;
 	for (i = 0; i < sysram_resource_count; i++) {
@@ -368,10 +371,17 @@ static void __init setup_bootmem(void)
 
 void free_initmem(void)
 {
+	/* FIXME: */
+#if 0
+	printk(KERN_INFO "NOT FREEING INITMEM (%dk)\n",
+			(&__init_end - &__init_begin) >> 10);
+	return;
+#endif
 	unsigned long addr;
 	
 	printk(KERN_INFO "Freeing unused kernel memory: ");
 
+#if 1
 	/* Attempt to catch anyone trying to execute code here
 	 * by filling the page with BRK insns.
 	 * 
@@ -389,6 +399,7 @@ void free_initmem(void)
 	asm volatile("sync" : : );
 
 	local_irq_enable();
+#endif
 	
 	addr = (unsigned long)(&__init_begin);
 	for (; addr < (unsigned long)(&__init_end); addr += PAGE_SIZE) {
@@ -399,6 +410,9 @@ void free_initmem(void)
 	}
 
 	printk("%luk freed\n", (unsigned long)(&__init_end - &__init_begin) >> 10);
+
+	/* set up a new led state on systems shipped LED State panel */
+	pdc_chassis_send_status(PDC_CHASSIS_DIRECT_BCOMPLETE);
 }
 
 /*
@@ -564,13 +578,8 @@ static void __init map_pages(unsigned long start_vaddr, unsigned long start_padd
 			for (tmp2 = start_pte; tmp2 < PTRS_PER_PTE; tmp2++,pg_table++) {
 				pte_t pte;
 
-#if !defined(CONFIG_KWDB) && !defined(CONFIG_STI_CONSOLE)
+#if !defined(CONFIG_STI_CONSOLE)
 #warning STI console should explicitly allocate executable pages but does not
-/* KWDB needs to write kernel text when setting break points.
-**
-** The right thing to do seems like KWDB modify only the pte which
-** has a break point on it...otherwise we might mask worse bugs.
-*/
 				/*
 				 * Map the fault vector writable so we can
 				 * write the HPMC checksum.
@@ -643,6 +652,8 @@ static void __init pagetable_init(void)
 static void __init gateway_init(void)
 {
 	unsigned long linux_gateway_page_addr;
+	/* FIXME: This is 'const' in order to trick the compiler
+	   into not treating it as DP-relative data. */
 	extern void * const linux_gateway_page;
 
 	linux_gateway_page_addr = LINUX_GATEWAY_ADDR & PAGE_MASK;
@@ -668,6 +679,8 @@ map_hpux_gateway_page(struct task_struct *tsk, struct mm_struct *mm)
 	unsigned long start_pte;
 	unsigned long address;
 	unsigned long hpux_gw_page_addr;
+	/* FIXME: This is 'const' in order to trick the compiler
+	   into not treating it as DP-relative data. */
 	extern void * const hpux_gateway_page;
 
 	hpux_gw_page_addr = HPUX_GATEWAY_ADDR & PAGE_MASK;
@@ -952,7 +965,7 @@ void flush_tlb_all(void)
 	spin_lock(&sid_lock);
 	if (dirty_space_ids > RECYCLE_THRESHOLD) {
 	    if (recycle_inuse) {
-		BUG();  
+		BUG();  /* FIXME: Use a semaphore/wait queue here */
 	    }
 	    get_dirty_sids(&recycle_ndirty,recycle_dirty_array);
 	    recycle_inuse++;
@@ -981,6 +994,16 @@ void flush_tlb_all(void)
 #ifdef CONFIG_BLK_DEV_INITRD
 void free_initrd_mem(unsigned long start, unsigned long end)
 {
+#if 0
+	if (start < end)
+		printk(KERN_INFO "Freeing initrd memory: %ldk freed\n", (end - start) >> 10);
+	for (; start < end; start += PAGE_SIZE) {
+		ClearPageReserved(virt_to_page(start));
+		set_page_count(virt_to_page(start), 1);
+		free_page(start);
+		num_physpages++;
+	}
+#endif
 }
 #endif
 

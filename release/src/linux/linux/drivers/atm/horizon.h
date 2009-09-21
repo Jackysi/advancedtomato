@@ -398,6 +398,10 @@ typedef struct {
   u16                 channel;
   u16                 tx_xbr_bits;
   u16                 tx_pcr_bits;
+#if 0
+  u16                 tx_scr_bits;
+  u16                 tx_bucket_bits;
+#endif
   hrz_aal             aal;
 } hrz_vcc;
 

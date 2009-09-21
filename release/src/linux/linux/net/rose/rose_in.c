@@ -159,7 +159,7 @@ static int rose_state3_machine(struct sock *sk, struct sk_buff *skb, int framety
 			}
 			break;
 
-		case ROSE_DATA:	
+		case ROSE_DATA:	/* XXX */
 			sk->protinfo.rose->condition &= ~ROSE_COND_PEER_RX_BUSY;
 			if (!rose_validate_nr(sk, nr)) {
 				rose_write_internal(sk, ROSE_RESET_REQUEST);

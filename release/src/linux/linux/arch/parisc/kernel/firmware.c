@@ -1,4 +1,4 @@
-/* arch/parisc/kernel/pdc.c  - safe pdc access routines
+/* arch/parisc/kernel/firmware.c  - safe pdc access routines
  *
  * Copyright 1999 SuSE GmbH Nuernberg (Philipp Rumpf, prumpf@tux.org)
  * portions Copyright 1999 The Puffin Group, (Alex deVries, David Kennedy)
@@ -74,7 +74,7 @@ static long real64_call(unsigned long function, ...);
 #endif
 static long real32_call(unsigned long function, ...);
 
-#if defined(__LP64__) && !defined(CONFIG_PDC_NARROW)
+#if defined(__LP64__) && ! defined(CONFIG_PDC_NARROW)
 #define MEM_PDC (unsigned long)(PAGE0->mem_pdc_hi) << 32 | PAGE0->mem_pdc
 #   define mem_pdc_call(args...) real64_call(MEM_PDC, args)
 #else
@@ -174,6 +174,45 @@ int __init pdc_chassis_info(struct pdc_chassis_info *chassis_info, void *led_inf
         spin_unlock_irq(&pdc_lock);
 
         return retval;
+}
+
+/**
+ * pdc_pat_chassis_send_log - Sends a PDC PAT CHASSIS log message.
+ * @retval: -1 on error, 0 on success. Other value are PDC errors
+ *
+ * Must be correctly formatted or expect system crash
+ */
+#ifdef __LP64__
+int pdc_pat_chassis_send_log(unsigned long state, unsigned long data)
+{
+	if (!is_pdc_pat())
+		return -1;
+		
+	int retval = 0;
+	
+	spin_lock_irq(&pdc_lock);
+	retval = mem_pdc_call(PDC_PAT_CHASSIS_LOG, PDC_PAT_CHASSIS_WRITE_LOG, __pa(&state), __pa(&data));
+	spin_unlock_irq(&pdc_lock);
+	
+	return retval;
+}
+#endif
+
+/**
+ * pdc_chassis_disp - Updates display
+ * @retval: -1 on error, 0 on success
+ *
+ * Works on old PDC only (E class, others?)
+ */
+int pdc_chassis_disp(unsigned long disp)
+{
+	int retval = 0;
+
+	spin_lock_irq(&pdc_lock);
+	retval = mem_pdc_call(PDC_CHASSIS, PDC_CHASSIS_DISP, disp);
+	spin_unlock_irq(&pdc_lock);
+
+	return retval;
 }
 
 /**
@@ -470,6 +509,7 @@ int pdc_lan_station_id(char *lan_addr, unsigned long hpa)
 	retval = mem_pdc_call(PDC_LAN_STATION_ID, PDC_LAN_STATION_ID_READ,
 			__pa(pdc_result), hpa);
 	if (retval < 0) {
+		/* FIXME: else read MAC from NVRAM */
 		memset(lan_addr, 0, PDC_LAN_STATION_ID_SIZE);
 	} else {
 		memcpy(lan_addr, pdc_result, PDC_LAN_STATION_ID_SIZE);
@@ -506,11 +546,10 @@ int pdc_get_initiator( struct hardware_path *hwpath, unsigned char *scsi_id,
 
 /* BCJ-XXXX series boxes. E.G. "9000/785/C3000" */
 #define IS_SPROCKETS() (strlen(boot_cpu_data.pdc.sys_model_name) == 14 && \
-	strncmp(boot_cpu_data.pdc.sys_model_name, "9000/785", 9) == 0)
+	strncmp(boot_cpu_data.pdc.sys_model_name, "9000/785", 8) == 0)
 
 	retval = mem_pdc_call(PDC_INITIATOR, PDC_GET_INITIATOR, 
 			      __pa(pdc_result), __pa(hwpath));
-
 
 	if (retval >= PDC_OK) {
 		*scsi_id = (unsigned char) pdc_result[0];
@@ -533,10 +572,12 @@ int pdc_get_initiator( struct hardware_path *hwpath, unsigned char *scsi_id,
 		** pdc_result[3]	PDC suggested SCSI rate
 		*/
 
+		/*
+		** XXX REVISIT: Doesn't look like PAT PDC does the same.
+		** Problem is A500 also exports 50-pin SE SCSI port.
+		*/
 		if (IS_SPROCKETS()) {
 			/*
-			** Revisit: PAT PDC do the same thing?
-			** A500 also exports 50-pin SE SCSI.
 			**	0 == 8-bit
 			**	1 == 16-bit
 			*/
@@ -656,6 +697,10 @@ int pdc_mem_mem_table(struct pdc_memory_table_raddr *r_addr,
 }
 #endif /* __LP64__ */
 
+/* FIXME: Is this pdc used?  I could not find type reference to ftc_bitmap
+ * so I guessed at unsigned long.  Someone who knows what this does, can fix
+ * it later. :)
+ */
 int pdc_do_firm_test_reset(unsigned long ftc_bitmap)
 {
         int retval;
@@ -753,6 +798,7 @@ void pdc_suspend_usb(void)
  */
 void pdc_iodc_putc(unsigned char c)
 {
+        /* XXX Should we spinlock posx usage */
         static int posx;        /* for simple TAB-Simulation... */
         static int __attribute__((aligned(8)))   iodc_retbuf[32];
         static char __attribute__((aligned(64))) iodc_dbuf[4096];

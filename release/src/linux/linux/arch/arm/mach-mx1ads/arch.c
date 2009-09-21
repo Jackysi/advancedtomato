@@ -54,3 +54,6 @@ MACHINE_START(MX1ADS, "Motorola MX1ADS")
 	INITIRQ(mx1ads_init_irq)
 MACHINE_END
 
+#if 0
+
+#endif

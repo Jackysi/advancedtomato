@@ -1,4 +1,4 @@
-/* $Id: sunqe.c,v 1.1.1.4 2003/10/14 08:08:23 sparq Exp $
+/* $Id: sunqe.c,v 1.52.2.1 2001/12/21 00:52:47 davem Exp $
  * sunqe.c: Sparc QuadEthernet 10baseT SBUS card driver.
  *          Once again I am out to prove that every ethernet
  *          controller out there can be most efficiently programmed
@@ -929,7 +929,6 @@ qec_free_devs:
 							     sizeof(struct sunqe_buffers),
 							     qe->buffers,
 							     qe->buffers_dvma);
-				kfree(qe_devs[i]->priv);
 			}
 			kfree(qe_devs[i]);
 		}

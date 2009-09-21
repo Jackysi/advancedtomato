@@ -2,7 +2,7 @@
  * PAL & SAL emulation.
  *
  * Copyright (C) 1998-2001 Hewlett-Packard Co
- * Copyright (C) 1998-2001 David Mosberger-Tang <davidm@hpl.hp.com>
+ *	David Mosberger-Tang <davidm@hpl.hp.com>
  *
  * For the HP simulator, this file gets include in boot/bootloader.c.
  * For SoftSDV, this file gets included in sys_softsdv.c.
@@ -19,10 +19,14 @@
 #include <asm/sal.h>
 
 #define MB	(1024*1024UL)
-#define GB	(1024*MB)
-#define TB	(1024*GB)
 
-#define NUM_MEM_DESCS	4
+#define SIMPLE_MEMMAP	1
+
+#if SIMPLE_MEMMAP
+# define NUM_MEM_DESCS	4
+#else
+# define NUM_MEM_DESCS	16
+#endif
 
 static char fw_mem[(  sizeof(struct ia64_boot_param)
 		    + sizeof(efi_system_table_t)
@@ -381,6 +385,17 @@ sys_fw_init (const char *args, int arglen)
 	struct ia64_boot_param *bp;
 	unsigned char checksum = 0;
 	char *cp, *cmd_line;
+	int i = 0;
+#	define MAKE_MD(typ, attr, start, end)		\
+	do {						\
+		md = efi_memmap + i++;			\
+		md->type = typ;				\
+		md->pad = 0;				\
+		md->phys_addr = start;			\
+		md->virt_addr = 0;			\
+		md->num_pages = (end - start) >> 12;	\
+		md->attribute = attr;			\
+	} while (0)
 
 	memset(fw_mem, 0, sizeof(fw_mem));
 
@@ -466,41 +481,30 @@ sys_fw_init (const char *args, int arglen)
 
 	sal_systab->checksum = -checksum;
 
+#if SIMPLE_MEMMAP
 	/* simulate free memory at physical address zero */
-	md = &efi_memmap[0];
-	md->type = EFI_BOOT_SERVICES_DATA;
-	md->pad = 0;
-	md->phys_addr = 0*MB;
-	md->virt_addr = 0;
-	md->num_pages = (1*MB) >> 12;	/* 1MB (in 4KB pages) */
-	md->attribute = EFI_MEMORY_WB | EFI_MEMORY_WC | EFI_MEMORY_UC;
-
-	/* fill in a memory descriptor: */
-	md = &efi_memmap[1];
-	md->type = EFI_CONVENTIONAL_MEMORY;
-	md->pad = 0;
-	md->phys_addr = 2*MB;
-	md->virt_addr = 0;
-	md->num_pages = (128*MB) >> 12;	/* 128MB (in 4KB pages) */
-	md->attribute = EFI_MEMORY_WB;
-
-	/* descriptor for firmware emulator: */
-	md = &efi_memmap[2];
-	md->type = EFI_PAL_CODE;
-	md->pad = 0;
-	md->phys_addr = 1*MB;
-	md->virt_addr = 1*MB;
-	md->num_pages = (1*MB) >> 12;	/* 1MB (in 4KB pages) */
-	md->attribute = EFI_MEMORY_WB | EFI_MEMORY_WC | EFI_MEMORY_UC;
-
-	/* descriptor for high memory (>4TB): */
-	md = &efi_memmap[3];
-	md->type = EFI_CONVENTIONAL_MEMORY;
-	md->pad = 0;
-	md->phys_addr = 4*TB;
-	md->virt_addr = 0;
-	md->num_pages = (64*MB) >> 12;	/* 64MB (in 4KB pages) */
-	md->attribute = EFI_MEMORY_WB;
+	MAKE_MD(EFI_BOOT_SERVICES_DATA,		EFI_MEMORY_WB,    0*MB,    1*MB);
+	MAKE_MD(EFI_PAL_CODE,			EFI_MEMORY_WB,    1*MB,    2*MB);
+	MAKE_MD(EFI_CONVENTIONAL_MEMORY,	EFI_MEMORY_WB,    2*MB,  130*MB);
+	MAKE_MD(EFI_CONVENTIONAL_MEMORY,	EFI_MEMORY_WB, 4096*MB, 4128*MB);
+#else
+	MAKE_MD( 4,		   0x9, 0x0000000000000000, 0x0000000000001000);
+	MAKE_MD( 7,		   0x9, 0x0000000000001000, 0x000000000008a000);
+	MAKE_MD( 4,		   0x9, 0x000000000008a000, 0x00000000000a0000);
+	MAKE_MD( 5, 0x8000000000000009, 0x00000000000c0000, 0x0000000000100000);
+	MAKE_MD( 7,		   0x9, 0x0000000000100000, 0x0000000004400000);
+	MAKE_MD( 2,		   0x9, 0x0000000004400000, 0x0000000004be5000);
+	MAKE_MD( 7,		   0x9, 0x0000000004be5000, 0x000000007f77e000);
+	MAKE_MD( 6, 0x8000000000000009, 0x000000007f77e000, 0x000000007fb94000);
+	MAKE_MD( 6, 0x8000000000000009, 0x000000007fb94000, 0x000000007fb95000);
+	MAKE_MD( 6, 0x8000000000000009, 0x000000007fb95000, 0x000000007fc00000);
+	MAKE_MD(13, 0x8000000000000009, 0x000000007fc00000, 0x000000007fc3a000);
+	MAKE_MD( 7,		   0x9, 0x000000007fc3a000, 0x000000007fea0000);
+	MAKE_MD( 5, 0x8000000000000009, 0x000000007fea0000, 0x000000007fea8000);
+	MAKE_MD( 7,		   0x9, 0x000000007fea8000, 0x000000007feab000);
+	MAKE_MD( 5, 0x8000000000000009, 0x000000007feab000, 0x000000007ffff000);
+	MAKE_MD( 7,		   0x9, 0x00000000ff400000, 0x0000000104000000);
+#endif
 
 	bp->efi_systab = __pa(&fw_mem);
 	bp->efi_memmap = __pa(efi_memmap);

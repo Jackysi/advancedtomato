@@ -1,4 +1,4 @@
-/* $Id: message.c,v 1.1.1.4 2003/10/14 08:08:14 sparq Exp $
+/* $Id: message.c,v 1.1.4.1 2001/11/20 14:19:37 kai Exp $
  *
  * functions for sending and receiving control messages
  *

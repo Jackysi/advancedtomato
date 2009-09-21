@@ -130,16 +130,24 @@ busdev_enable_irq(void *irq_dev, int irq)
 	gsc_writel(imr, addr);
 //	gsc_writel(~0L, addr);
 
+/* FIXME: read IPR to make sure the IRQ isn't already pending.
+**   If so, we need to read IRR and manually call do_irq_mask().
+**   This code should be shared with busdev_unmask_irq().
+*/
 }
 
 static void
 busdev_mask_irq(void *irq_dev, int irq)
 {
+/* FIXME: Clear the IMR bit in busdev for that IRQ */
 }
 
 static void
 busdev_unmask_irq(void *irq_dev, int irq)
 {
+/* FIXME: Read IPR. Set the IMR bit in busdev for that IRQ.
+   call do_irq_mask() if IPR is non-zero
+*/
 }
 
 struct irq_region_ops busdev_irq_ops = {
@@ -168,6 +176,14 @@ int gsc_common_irqsetup(struct parisc_device *parent, struct busdevice *busdev)
 		res->flags = IORESOURCE_MEM; 	/* do not mark it busy ! */
 	}
 
+#if 0
+	printk(KERN_WARNING "%s IRQ %d EIM 0x%x", busdev->name,
+			busdev->parent_irq, busdev->eim);
+	if (gsc_readl(busdev->hpa + OFFSET_IMR))
+		printk("  IMR is non-zero! (0x%x)",
+				gsc_readl(busdev->hpa + OFFSET_IMR));
+	printk("\n");
+#endif
 
 	return 0;
 }

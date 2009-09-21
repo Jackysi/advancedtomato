@@ -92,6 +92,17 @@ int macio_init(void)
 	if (adbs == 0)
 		return -ENXIO;
 
+#if 0
+	{ int i;
+
+	printk("macio_adb_init: node = %p, addrs =", adbs->node);
+	for (i = 0; i < adbs->n_addrs; ++i)
+		printk(" %x(%x)", adbs->addrs[i].address, adbs->addrs[i].size);
+	printk(", intrs =");
+	for (i = 0; i < adbs->n_intrs; ++i)
+		printk(" %x", adbs->intrs[i].line);
+	printk("\n"); }
+#endif
 	
 	adb = (volatile struct adb_regs *)
 		ioremap(adbs->addrs->address, sizeof(struct adb_regs));
@@ -207,7 +218,6 @@ static void macio_adb_interrupt(int irq, void *arg, struct pt_regs *regs)
 				out_8(&adb->ctrl.r, DTB + CRE);
 			} else {
 				out_8(&adb->ctrl.r, DTB);
-				req->complete = 1;
 				current_req = req->next;
 				complete = 1;
 				if (current_req)
@@ -227,7 +237,6 @@ static void macio_adb_interrupt(int irq, void *arg, struct pt_regs *regs)
 				for (i = 0; i < req->reply_len; ++i)
 					req->reply[i] = in_8(&adb->data[i].r);
 			}
-			req->complete = 1;
 			current_req = req->next;
 			complete = 1;
 			if (current_req)
@@ -244,8 +253,16 @@ static void macio_adb_interrupt(int irq, void *arg, struct pt_regs *regs)
 		out_8(&adb->intr.r, 0);
 	}
 	spin_unlock(&macio_lock);
-	if (complete && req && req->done)
-		(*req->done)(req);
+	if (complete && req) {
+	    void (*done)(struct adb_request *) = req->done;
+	    mb();
+	    req->complete = 1;
+	    /* Here, we assume that if the request has a done member, the
+    	     * struct request will survive to setting req->complete to 1
+	     */
+	    if (done)
+		(*done)(req);
+	}
 	if (ibuf_len)
 		adb_input(ibuf, ibuf_len, regs, autopoll);
 }

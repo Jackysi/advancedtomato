@@ -1,5 +1,5 @@
 /* -*- linux-c -*- */
-/* $Id: 8253xutl.c,v 1.1.1.4 2003/10/14 08:08:30 sparq Exp $
+/* $Id: 8253xutl.c,v 1.3 2002/02/10 22:17:26 martillo Exp $
  * 8253xutl.c: SYNC TTY Driver for the SIEMENS SAB8253X DUSCC.
  *
  * Implementation, modifications and extensions
@@ -167,7 +167,7 @@ void sab8253x_start_txS(struct sab_port *port)
 				{		/* called by network driver */
 					++(port->Counters.transmitpacket);
 				}
-#ifdef FREEININTERRUPT		    /* treat this routine as if taking place in interrupt */
+#ifdef FREEININTERRUPT		/* treat this routine as if taking place in interrupt */
 				if(port->sabnext2.transmit->HostVaddr)
 				{
 					skb_unlink(port->sabnext2.transmit->HostVaddr);
@@ -771,6 +771,11 @@ void sab8253x_init_lineS(struct sab_port *port)
 	 * Wait for any commands or immediate characters
 	 */
 	sab8253x_cec_wait(port);
+#if 0
+	sab8253x_tec_wait(port);	/* I have to think about this one
+					 * should I assume the line was
+					 * previously in async mode*/
+#endif
 	
 	/*
 	 * Clear the FIFO buffers.
@@ -1407,11 +1412,6 @@ void sab8253x_flush_buffer(struct tty_struct *tty)
 	WRITEB(port,cmdr,SAB82532_CMDR_XRES);
 	restore_flags(flags);
 	
-	wake_up_interruptible(&tty->write_wait); /* wake up tty driver */
-	if ((tty->flags & (1 << TTY_DO_WRITE_WAKEUP)) &&
-	    tty->ldisc.write_wakeup)
-	{
-		(*tty->ldisc.write_wakeup)(tty);
-	}
+	tty_wakeup(tty);
 }
 

@@ -16,7 +16,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
  *
- * $Id: sc520cdp.c,v 1.1.1.4 2003/10/14 08:08:17 sparq Exp $
+ * $Id: sc520cdp.c,v 1.11 2002/03/08 16:34:35 rkaiser Exp $
  *
  *
  * The SC520CDP is an evaluation board for the Elan SC520 processor available

@@ -25,19 +25,16 @@
 
 extern int exception_trace;
 
-/*
- * The _current_ task is using the FPU for the first time
- * so initialize it and set the mxcsr to its default
- * value at reset if we support XMM instructions and then
- * remeber the current task has used the FPU.
- */
-void init_fpu(void)
+void init_fpu(struct task_struct *child)
 {
-	struct task_struct *me = current;
-	memset(&me->thread.i387.fxsave, 0, sizeof(struct i387_fxsave_struct));
-	me->thread.i387.fxsave.cwd = 0x37f;
-	me->thread.i387.fxsave.mxcsr = 0x1f80;
-	me->used_math = 1;
+	if (child->used_math) { 
+		unlazy_fpu(child);
+		return;
+	}
+	memset(&child->thread.i387.fxsave, 0, sizeof(struct i387_fxsave_struct));
+	child->thread.i387.fxsave.cwd = 0x37f;
+	child->thread.i387.fxsave.mxcsr = 0x1f80;
+	child->used_math = 1;
 }
 
 /*
@@ -81,7 +78,7 @@ int save_i387(struct _fpstate *buf)
 
 int get_fpregs(struct user_i387_struct *buf, struct task_struct *tsk)
 {
-	empty_fpu(tsk);
+	init_fpu(tsk);
 	return __copy_to_user((void *)buf, &tsk->thread.i387.fxsave,
 			       sizeof(struct user_i387_struct)) ? -EFAULT : 0;
 }

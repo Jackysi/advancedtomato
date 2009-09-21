@@ -1,5 +1,5 @@
 /*
- * $Id: iq80310.c,v 1.1.1.4 2003/10/14 08:08:17 sparq Exp $
+ * $Id: iq80310.c,v 1.9 2002/01/01 22:45:02 rmk Exp $
  *
  * Mapping for the Intel XScale IQ80310 evaluation board
  *

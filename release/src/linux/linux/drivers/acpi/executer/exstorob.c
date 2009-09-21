@@ -2,48 +2,61 @@
 /******************************************************************************
  *
  * Module Name: exstorob - AML Interpreter object store support, store to object
- *              $Revision: 1.1.1.2 $
  *
  *****************************************************************************/
 
 /*
- *  Copyright (C) 2000, 2001 R. Byron Moore
+ * Copyright (C) 2000 - 2004, R. Byron Moore
+ * All rights reserved.
  *
- *  This program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2 of the License, or
- *  (at your option) any later version.
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions, and the following disclaimer,
+ *    without modification.
+ * 2. Redistributions in binary form must reproduce at minimum a disclaimer
+ *    substantially similar to the "NO WARRANTY" disclaimer below
+ *    ("Disclaimer") and any redistribution must be conditioned upon
+ *    including a substantially similar Disclaimer requirement for further
+ *    binary redistribution.
+ * 3. Neither the names of the above-listed copyright holders nor the names
+ *    of any contributors may be used to endorse or promote products derived
+ *    from this software without specific prior written permission.
  *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
+ * Alternatively, this software may be distributed under the terms of the
+ * GNU General Public License ("GPL") version 2 as published by the Free
+ * Software Foundation.
  *
- *  You should have received a copy of the GNU General Public License
- *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * NO WARRANTY
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR
+ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+ * HOLDERS OR CONTRIBUTORS BE LIABLE FOR SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+ * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+ * STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING
+ * IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGES.
  */
 
 
-#include "acpi.h"
-#include "acparser.h"
-#include "acdispat.h"
-#include "acinterp.h"
-#include "amlcode.h"
-#include "acnamesp.h"
-#include "actables.h"
+#include <acpi/acpi.h>
+#include <acpi/acinterp.h>
 
 
 #define _COMPONENT          ACPI_EXECUTER
-	 MODULE_NAME         ("exstorob")
+	 ACPI_MODULE_NAME    ("exstorob")
 
 
 /*******************************************************************************
  *
- * FUNCTION:    Acpi_ex_copy_buffer_to_buffer
+ * FUNCTION:    acpi_ex_store_buffer_to_buffer
  *
- * PARAMETERS:  Source_desc         - Source object to copy
- *              Target_desc         - Destination object of the copy
+ * PARAMETERS:  source_desc         - Source object to copy
+ *              target_desc         - Destination object of the copy
  *
  * RETURN:      Status
  *
@@ -52,33 +65,35 @@
  ******************************************************************************/
 
 acpi_status
-acpi_ex_copy_buffer_to_buffer (
-	acpi_operand_object     *source_desc,
-	acpi_operand_object     *target_desc)
+acpi_ex_store_buffer_to_buffer (
+	union acpi_operand_object       *source_desc,
+	union acpi_operand_object       *target_desc)
 {
-	u32                     length;
-	u8                      *buffer;
+	u32                             length;
+	u8                              *buffer;
 
 
-	PROC_NAME ("Ex_copy_buffer_to_buffer");
+	ACPI_FUNCTION_TRACE_PTR ("ex_store_buffer_to_buffer", source_desc);
 
 
 	/*
-	 * We know that Source_desc is a buffer by now
+	 * We know that source_desc is a buffer by now
 	 */
 	buffer = (u8 *) source_desc->buffer.pointer;
 	length = source_desc->buffer.length;
 
 	/*
-	 * If target is a buffer of length zero, allocate a new
-	 * buffer of the proper length
+	 * If target is a buffer of length zero or is a static buffer,
+	 * allocate a new buffer of the proper length
 	 */
-	if (target_desc->buffer.length == 0) {
+	if ((target_desc->buffer.length == 0) ||
+		(target_desc->common.flags & AOPOBJ_STATIC_POINTER)) {
 		target_desc->buffer.pointer = ACPI_MEM_ALLOCATE (length);
 		if (!target_desc->buffer.pointer) {
-			return (AE_NO_MEMORY);
+			return_ACPI_STATUS (AE_NO_MEMORY);
 		}
 
+		target_desc->common.flags &= ~AOPOBJ_STATIC_POINTER;
 		target_desc->buffer.length = length;
 	}
 
@@ -89,31 +104,33 @@ acpi_ex_copy_buffer_to_buffer (
 	if (length <= target_desc->buffer.length) {
 		/* Clear existing buffer and copy in the new one */
 
-		MEMSET (target_desc->buffer.pointer, 0, target_desc->buffer.length);
-		MEMCPY (target_desc->buffer.pointer, buffer, length);
+		ACPI_MEMSET (target_desc->buffer.pointer, 0, target_desc->buffer.length);
+		ACPI_MEMCPY (target_desc->buffer.pointer, buffer, length);
 	}
-
 	else {
 		/*
 		 * Truncate the source, copy only what will fit
 		 */
-		MEMCPY (target_desc->buffer.pointer, buffer, target_desc->buffer.length);
+		ACPI_MEMCPY (target_desc->buffer.pointer, buffer, target_desc->buffer.length);
 
 		ACPI_DEBUG_PRINT ((ACPI_DB_INFO,
 			"Truncating src buffer from %X to %X\n",
 			length, target_desc->buffer.length));
 	}
 
-	return (AE_OK);
+	/* Copy flags */
+
+	target_desc->buffer.flags = source_desc->buffer.flags;
+	return_ACPI_STATUS (AE_OK);
 }
 
 
 /*******************************************************************************
  *
- * FUNCTION:    Acpi_ex_copy_string_to_string
+ * FUNCTION:    acpi_ex_store_string_to_string
  *
- * PARAMETERS:  Source_desc         - Source object to copy
- *              Target_desc         - Destination object of the copy
+ * PARAMETERS:  source_desc         - Source object to copy
+ *              target_desc         - Destination object of the copy
  *
  * RETURN:      Status
  *
@@ -122,36 +139,39 @@ acpi_ex_copy_buffer_to_buffer (
  ******************************************************************************/
 
 acpi_status
-acpi_ex_copy_string_to_string (
-	acpi_operand_object     *source_desc,
-	acpi_operand_object     *target_desc)
+acpi_ex_store_string_to_string (
+	union acpi_operand_object       *source_desc,
+	union acpi_operand_object       *target_desc)
 {
-	u32                     length;
-	u8                      *buffer;
+	u32                             length;
+	u8                              *buffer;
 
 
-	FUNCTION_ENTRY ();
+	ACPI_FUNCTION_TRACE_PTR ("ex_store_string_to_string", source_desc);
 
 
 	/*
-	 * We know that Source_desc is a string by now.
+	 * We know that source_desc is a string by now.
 	 */
 	buffer = (u8 *) source_desc->string.pointer;
 	length = source_desc->string.length;
 
 	/*
-	 * Setting a string value replaces the old string
+	 * Replace existing string value if it will fit and the string
+	 * pointer is not a static pointer (part of an ACPI table)
 	 */
-	if (length < target_desc->string.length) {
-		/* Clear old string and copy in the new one */
-
-		MEMSET (target_desc->string.pointer, 0, target_desc->string.length);
-		MEMCPY (target_desc->string.pointer, buffer, length);
+	if ((length < target_desc->string.length) &&
+	   (!(target_desc->common.flags & AOPOBJ_STATIC_POINTER))) {
+		/*
+		 * String will fit in existing non-static buffer.
+		 * Clear old string and copy in the new one
+		 */
+		ACPI_MEMSET (target_desc->string.pointer, 0, (acpi_size) target_desc->string.length + 1);
+		ACPI_MEMCPY (target_desc->string.pointer, buffer, length);
 	}
-
 	else {
 		/*
-		 * Free the current buffer, then allocate a buffer
+		 * Free the current buffer, then allocate a new buffer
 		 * large enough to hold the value
 		 */
 		if (target_desc->string.pointer &&
@@ -162,16 +182,19 @@ acpi_ex_copy_string_to_string (
 			ACPI_MEM_FREE (target_desc->string.pointer);
 		}
 
-		target_desc->string.pointer = ACPI_MEM_ALLOCATE (length + 1);
+		target_desc->string.pointer = ACPI_MEM_CALLOCATE ((acpi_size) length + 1);
 		if (!target_desc->string.pointer) {
-			return (AE_NO_MEMORY);
+			return_ACPI_STATUS (AE_NO_MEMORY);
 		}
 
-		target_desc->string.length = length;
-		MEMCPY (target_desc->string.pointer, buffer, length);
+		target_desc->common.flags &= ~AOPOBJ_STATIC_POINTER;
+		ACPI_MEMCPY (target_desc->string.pointer, buffer, length);
 	}
 
-	return (AE_OK);
+	/* Set the new target length */
+
+	target_desc->string.length = length;
+	return_ACPI_STATUS (AE_OK);
 }
 
 

@@ -1,4 +1,4 @@
-/* $Id: cs4231.c,v 1.1.1.4 2003/10/14 08:08:34 sparq Exp $
+/* $Id: cs4231.c,v 1.47 2001/10/08 22:19:50 davem Exp $
  * drivers/sbus/audio/cs4231.c
  *
  * Copyright 1996, 1997, 1998, 1999 Derrick J Brashear (shadow@andrew.cmu.edu)
@@ -1617,6 +1617,10 @@ static void cs4231_stop_output(struct sparcaudio_driver *drv)
                 cs4231_chip->output_next_dma_handle = 0;
                 cs4231_chip->output_next_dma_size = 0;
         }
+#if 0 /* Not safe without shutting off the DMA controller as well. -DaveM */
+        /* Else subsequent speed setting changes are ignored by the chip. */
+        cs4231_disable_play(drv);
+#endif
 }
 
 #ifdef EB4231_SUPPORT

@@ -10,7 +10,7 @@
 #include <asm/msr.h>
 #include <asm/vsyscall.h>
 
-#define CLOCK_TICK_RATE (hpet.address ? hpet.hz : 1193182L)
+#define CLOCK_TICK_RATE (vxtime_hz)
 #define FINETUNE	((((((long)LATCH * HZ - CLOCK_TICK_RATE) << SHIFT_HZ) * \
 			1000000 / CLOCK_TICK_RATE) << (SHIFT_SCALE - SHIFT_HZ)) / HZ)
 
@@ -61,6 +61,8 @@ extern unsigned int cpu_khz;
 #define HPET_T0_SETVAL		0x040
 #define HPET_T0_32BIT		0x100
 
-extern struct hpet_data hpet;
+extern struct vxtime_data vxtime;
+extern unsigned long vxtime_hz;
+extern unsigned long hpet_address;
 
 #endif

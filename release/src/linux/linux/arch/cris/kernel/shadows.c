@@ -1,6 +1,5 @@
-/* $Id: shadows.c,v 1.1.1.4 2003/10/14 08:07:17 sparq Exp $
- * 
- * Various shadow registers. Defines for these are in include/asm-etrax100/io.h
+/*
+ * Various shadow registers. Defines for these are in include/asm-cris/io.h
  */
 
 /* Shadows for internal Etrax-registers */

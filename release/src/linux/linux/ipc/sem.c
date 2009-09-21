@@ -62,6 +62,7 @@
 #include <linux/spinlock.h>
 #include <linux/init.h>
 #include <linux/proc_fs.h>
+#include <linux/time.h>
 #include <asm/uaccess.h>
 #include "util.h"
 
@@ -251,39 +252,38 @@ static int try_atomic_semop (struct sem_array * sma, struct sembuf * sops,
 	for (sop = sops; sop < sops + nsops; sop++) {
 		curr = sma->sem_base + sop->sem_num;
 		sem_op = sop->sem_op;
-
-		if (!sem_op && curr->semval)
+		result = curr->semval;
+  
+		if (!sem_op && result)
 			goto would_block;
 
-		curr->sempid = (curr->sempid << 16) | pid;
-		curr->semval += sem_op;
-		if (sop->sem_flg & SEM_UNDO)
-		{
+		result += sem_op;
+		if (result < 0)
+			goto would_block;
+		if (result > SEMVMX)
+			goto out_of_range;
+		if (sop->sem_flg & SEM_UNDO) {
 			int undo = un->semadj[sop->sem_num] - sem_op;
 			/*
 	 		 *	Exceeding the undo range is an error.
 			 */
 			if (undo < (-SEMAEM - 1) || undo > SEMAEM)
-			{
-				/* Don't undo the undo */
-				sop->sem_flg &= ~SEM_UNDO;
 				goto out_of_range;
-			}
-			un->semadj[sop->sem_num] = undo;
 		}
-		if (curr->semval < 0)
-			goto would_block;
-		if (curr->semval > SEMVMX)
-			goto out_of_range;
+		curr->semval = result;
 	}
 
-	if (do_undo)
-	{
-		sop--;
+	if (do_undo) {
 		result = 0;
 		goto undo;
 	}
-
+	sop--;
+	while (sop >= sops) {
+		sma->sem_base[sop->sem_num].sempid = pid;
+		if (sop->sem_flg & SEM_UNDO)
+			un->semadj[sop->sem_num] -= sop->sem_op;
+		sop--;
+	}
 	sma->sem_otime = CURRENT_TIME;
 	return 0;
 
@@ -298,13 +298,9 @@ would_block:
 		result = 1;
 
 undo:
+	sop--;
 	while (sop >= sops) {
-		curr = sma->sem_base + sop->sem_num;
-		curr->semval -= sop->sem_op;
-		curr->sempid >>= 16;
-
-		if (sop->sem_flg & SEM_UNDO)
-			un->semadj[sop->sem_num] += sop->sem_op;
+		sma->sem_base[sop->sem_num].semval -= sop->sem_op;
 		sop--;
 	}
 
@@ -624,7 +620,7 @@ static int semctl_main(int semid, int semnum, int cmd, int version, union semun 
 		err = curr->semval;
 		goto out_unlock;
 	case GETPID:
-		err = curr->sempid & 0xffff;
+		err = curr->sempid;
 		goto out_unlock;
 	case GETNCNT:
 		err = count_semncnt(sma,semnum);
@@ -839,6 +835,12 @@ static int alloc_undo(struct sem_array *sma, struct sem_undo** unp, int semid, i
 
 asmlinkage long sys_semop (int semid, struct sembuf *tsops, unsigned nsops)
 {
+	return sys_semtimedop(semid, tsops, nsops, NULL);
+}
+
+asmlinkage long sys_semtimedop (int semid, struct sembuf *tsops,
+			unsigned nsops, const struct timespec *timeout)
+{
 	int error = -EINVAL;
 	struct sem_array *sma;
 	struct sembuf fast_sops[SEMOPM_FAST];
@@ -846,6 +848,7 @@ asmlinkage long sys_semop (int semid, struct sembuf *tsops, unsigned nsops)
 	struct sem_undo *un;
 	int undos = 0, decrease = 0, alter = 0;
 	struct sem_queue queue;
+	unsigned long jiffies_left = 0;
 
 	if (nsops < 1 || semid < 0)
 		return -EINVAL;
@@ -859,6 +862,19 @@ asmlinkage long sys_semop (int semid, struct sembuf *tsops, unsigned nsops)
 	if (copy_from_user (sops, tsops, nsops * sizeof(*tsops))) {
 		error=-EFAULT;
 		goto out_free;
+	}
+	if (timeout) {
+		struct timespec _timeout;
+		if (copy_from_user(&_timeout, timeout, sizeof(*timeout))) {
+			error = -EFAULT;
+			goto out_free;
+		}
+		if (_timeout.tv_sec < 0 || _timeout.tv_nsec < 0 ||
+		    _timeout.tv_nsec >= 1000000000L) {
+			error = -EINVAL;
+			goto out_free;
+		}
+		jiffies_left = timespec_to_jiffies(&_timeout);
 	}
 	sma = sem_lock(semid);
 	error=-EINVAL;
@@ -932,7 +948,10 @@ asmlinkage long sys_semop (int semid, struct sembuf *tsops, unsigned nsops)
 		current->state = TASK_INTERRUPTIBLE;
 		sem_unlock(semid);
 
-		schedule();
+		if (timeout)
+			jiffies_left = schedule_timeout(jiffies_left);
+		else
+			schedule();
 
 		tmp = sem_lock(semid);
 		if(tmp==NULL) {
@@ -957,6 +976,8 @@ asmlinkage long sys_semop (int semid, struct sembuf *tsops, unsigned nsops)
 				break;
 		} else {
 			error = queue.status;
+			if (error == -EINTR && timeout && jiffies_left == 0)
+				error = -EAGAIN;
 			if (queue.prev) /* got Interrupt */
 				break;
 			/* Everything done by update_queue */

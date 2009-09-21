@@ -11,7 +11,7 @@ ifndef Version
 endif
 
 MKLASATIMG = mklasatimg
-MKLASATIMG_ARCH = mq2,mqpro
+MKLASATIMG_ARCH = mq2,mqpro,sp100,sp200
 ifdef CONFIG_LASAT_SERVICE
 MKLASATIMG_FLAG = -s
 else
@@ -24,12 +24,13 @@ KERNEL_ENTRY = $(shell $(NM) $(KERNEL_IMAGE) | grep kernel_entry | cut -f1 -d\ )
 
 LDSCRIPT= -Tromscript.normal
 
-AFLAGS_head.o = -D_kernel_start=0x$(KERNEL_START) \
+HEAD_DEFINES = -D_kernel_start=0x$(KERNEL_START) \
 		-D_kernel_entry=0x$(KERNEL_ENTRY) \
 		-D VERSION="\"$(Version)\"" \
 		-D TIMESTAMP=$(shell date +%s) 
 
-head.o: $(KERNEL_IMAGE)
+head.o: head.S $(KERNEL_IMAGE)
+	$(CC) -fno-pic $(HEAD_DEFINES) -I$(TOPDIR)/include -c -o $@ $<
 
 OBJECTS= head.o kImage.o
 
@@ -44,7 +45,7 @@ rom:	$(OBJECTS)
 	$(LD) $(LDFLAGS) $(LDSCRIPT) -o rom $(OBJECTS) 
 
 %.o: %.gz
-	$(LD) -r -o $@ -b binary $<
+	$(LD) $(LDFLAGS) -r -o $@ -b binary $<
 
 %.gz: %.bin
 	gzip -cf -9 $< > $@

@@ -1,14 +1,15 @@
 /*
  * Broadcom SiliconBackplane hardware register definitions.
  *
- * Copyright 2005, Broadcom Corporation      
+ * Copyright 2006, Broadcom Corporation
  * All Rights Reserved.      
  *       
  * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY      
  * KIND, EXPRESS OR IMPLIED, BY STATUTE, COMMUNICATION OR OTHERWISE. BROADCOM      
  * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS      
  * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.      
- * $Id: sbconfig.h,v 1.1.1.9 2005/03/07 07:31:12 kanki Exp $
+ *
+ * $Id: sbconfig.h,v 1.1.1.11 2006/02/27 03:43:16 honor Exp $
  */
 
 #ifndef	_SBCONFIG_H
@@ -27,6 +28,7 @@
  */
 #define SB_SDRAM_BASE		0x00000000	/* Physical SDRAM */
 #define SB_PCI_MEM		0x08000000	/* Host Mode sb2pcitranslation0 (64 MB) */
+#define SB_PCI_MEM_SZ		(64 * 1024 * 1024)
 #define SB_PCI_CFG		0x0c000000	/* Host Mode sb2pcitranslation1 (64 MB) */
 #define	SB_SDRAM_SWAPPED	0x10000000	/* Byteswapped Physical SDRAM */
 #define SB_ENUM_BASE    	0x18000000	/* Enumeration space base */
@@ -34,15 +36,23 @@
 
 #define	SB_FLASH2		0x1c000000	/* Flash Region 2 (region 1 shadowed here) */
 #define	SB_FLASH2_SZ		0x02000000	/* Size of Flash Region 2 */
-
-#define	SB_EXTIF_BASE		0x1f000000	/* External Interface region base address */
-#define	SB_FLASH1		0x1fc00000	/* Flash Region 1 */
-#define	SB_FLASH1_SZ		0x00400000	/* Size of Flash Region 1 */
+#define	SB_ARMCM3_ROM		0x1e000000	/* ARM Cortex-M3 ROM */
+#define	SB_FLASH1		0x1fc00000	/* MIPS Flash Region 1 */
+#define	SB_FLASH1_SZ		0x00400000	/* MIPS Size of Flash Region 1 */
+#define	SB_ARM7S_ROM		0x20000000	/* ARM7TDMI-S ROM */
+#define	SB_ARMCM3_SRAM2		0x60000000	/* ARM Cortex-M3 SRAM Region 2 */
+#define	SB_ARM7S_SRAM2		0x80000000	/* ARM7TDMI-S SRAM Region 2 */
+#define	SB_ARM_FLASH1		0xffff0000	/* ARM Flash Region 1 */
+#define	SB_ARM_FLASH1_SZ	0x00010000	/* ARM Size of Flash Region 1 */
 
 #define SB_PCI_DMA		0x40000000	/* Client Mode sb2pcitranslation2 (1 GB) */
 #define SB_PCI_DMA_SZ		0x40000000	/* Client Mode sb2pcitranslation2 size in bytes */
-#define	SB_EUART		(SB_EXTIF_BASE + 0x00800000)
-#define	SB_LED			(SB_EXTIF_BASE + 0x00900000)
+#define SB_PCIE_DMA_L32		0x00000000	/* PCIE Client Mode sb2pcitranslation2
+						 * (2 ZettaBytes), low 32 bits
+						 */
+#define SB_PCIE_DMA_H32		0x80000000	/* PCIE Client Mode sb2pcitranslation2
+						 * (2 ZettaBytes), high 32 bits
+						 */
 
 /* enumeration space related defs */
 #define SB_CORE_SIZE    	0x1000		/* each core gets 4Kbytes for registers */
@@ -79,6 +89,16 @@
 #define	SBFLAGST		0xe8
 #define SBIDLOW			0xf8
 #define SBIDHIGH		0xfc
+
+/* All the previous registers are above SBCONFIGOFF, but with Sonics 2.3, we have
+ * a few registers *below* that line. I think it would be very confusing to try
+ * and change the value of SBCONFIGOFF, so I'm definig them as absolute offsets here,
+ */
+
+#define SBIMERRLOGA		0xea8
+#define SBIMERRLOG		0xeb0
+#define SBTMPORTCONNID0		0xed8
+#define SBTMPORTLOCK0		0xef8
 
 #ifndef _LANGUAGE_ASSEMBLY
 
@@ -158,7 +178,8 @@ typedef volatile struct _sbconfig {
 
 /* sbtmstatelow */
 #define	SBTML_RESET		0x1		/* reset */
-#define	SBTML_REJ		0x2		/* reject */
+#define	SBTML_REJ_MASK		0x6		/* reject */
+#define	SBTML_REJ_SHIFT		1
 #define	SBTML_CLK		0x10000		/* clock enable */
 #define	SBTML_FGC		0x20000		/* force gated clocks on */
 #define	SBTML_FL_MASK		0x3ffc0000	/* core-specific flags */
@@ -170,7 +191,8 @@ typedef volatile struct _sbconfig {
 #define	SBTMH_INT		0x2		/* interrupt */
 #define	SBTMH_BUSY		0x4		/* busy */
 #define	SBTMH_TO		0x00000020	/* timeout (sonics >= 2.3) */
-#define	SBTMH_FL_MASK		0x1fff0000	/* core-specific flags */
+#define	SBTMH_FL_MASK		0x0fff0000	/* core-specific flags */
+#define SBTMH_DMA64		0x10000000      /* supports DMA with 64-bit addresses */
 #define	SBTMH_GCR		0x20000000	/* gated clock request */
 #define	SBTMH_BISTF		0x40000000	/* bist failed */
 #define	SBTMH_BISTD		0x80000000	/* bist done */
@@ -262,10 +284,16 @@ typedef volatile struct _sbconfig {
 #define	SBIDL_IP_SHIFT		24
 #define	SBIDL_RV_MASK		0xf0000000	/* sonics backplane revision code */
 #define	SBIDL_RV_SHIFT		28
+#define	SBIDL_RV_2_2		0x00000000	/* version 2.2 or earlier */
+#define	SBIDL_RV_2_3		0x10000000	/* version 2.3 */
 
 /* sbidhigh */
-#define	SBIDH_RC_MASK		0xf		/* revision code*/
-#define	SBIDH_CC_MASK		0xfff0		/* core code */
+#define	SBIDH_RC_MASK		0x000f		/* revision code */
+#define	SBIDH_RCE_MASK		0x7000		/* revision code extension field */
+#define	SBIDH_RCE_SHIFT		8
+#define	SBCOREREV(sbidh) \
+	((((sbidh) & SBIDH_RCE_MASK) >> SBIDH_RCE_SHIFT) | ((sbidh) & SBIDH_RC_MASK))
+#define	SBIDH_CC_MASK		0x8ff0		/* core code */
 #define	SBIDH_CC_SHIFT		4
 #define	SBIDH_VC_MASK		0xffff0000	/* vendor code */
 #define	SBIDH_VC_SHIFT		16
@@ -276,6 +304,7 @@ typedef volatile struct _sbconfig {
 #define	SB_VEND_BCM		0x4243		/* Broadcom's SB vendor code */
 
 /* core codes */
+#define	SB_NODEV		0x700		/* Invalid coreid */
 #define	SB_CC			0x800		/* chipcommon core */
 #define	SB_ILINE20		0x801		/* iline20 core */
 #define	SB_SDRAM		0x803		/* sdram core */
@@ -302,6 +331,36 @@ typedef volatile struct _sbconfig {
 #define	SB_ATA100		0x81d		/* parallel ATA core */
 #define	SB_SATAXOR		0x81e		/* serial ATA & XOR DMA core */
 #define	SB_GIGETH		0x81f		/* gigabit ethernet core */
+#define	SB_PCIE			0x820		/* pci express core */
+#define	SB_MIMO			0x821		/* MIMO phy core */
+#define	SB_SRAMC		0x822		/* SRAM controller core */
+#define	SB_MINIMAC		0x823		/* MINI MAC/phy core */
+#define	SB_ARM11		0x824		/* ARM 1176 core */
+#define	SB_ARM7S		0x825		/* ARM7tdmi-s core */
+#define SB_SDIOD		0x829		/* SDIO device core */
+#define SB_ARMCM3		0x82a		/* ARM Cortex M3 core */
+#define SB_OCP			0x830		/* OCP2OCP bridge core */
+#define SB_SC			0x831		/* shared common core */
+#define SB_AHB			0x832		/* OCP2AHB bridge core */
+
+#define	SB_CC_IDX		0		/* chipc, when present, is always core 0 */
+
+/* Not an enumeration space register, but common to all cores to
+ * communicate w/PMU regarding Silicon Backplane clocking.
+ */
+#define SB_CLK_CTL_ST		0x1e0		/* clock control and status */
+
+/* clk_ctl_st register */
+#define	CCS_FORCEALP		0x00000001	/* force ALP request */
+#define	CCS_FORCEHT		0x00000002	/* force HT request */
+#define	CCS_FORCEILP		0x00000004	/* force ILP request */
+#define	CCS_ALPAREQ		0x00000008	/* ALP Avail Request */
+#define	CCS_HTAREQ		0x00000010	/* HT Avail Request */
+#define	CCS_FORCEHWREQOFF	0x00000020	/* Force HW Clock Request Off */
+#define	CCS_ALPAVAIL		0x00010000	/* ALP is available */
+#define	CCS_HTAVAIL		0x00020000	/* HT is available */
+#define	CCS0_HTAVAIL		0x00010000	/* HT avail in chipc and pcmcia on 4328a0 */
+#define	CCS0_ALPAVAIL		0x00020000	/* ALP avail in chipc and pcmcia on 4328a0 */
 
 /* Not really related to Silicon Backplane, but a couple of software
  * conventions for the use the flash space:
@@ -315,11 +374,11 @@ typedef volatile struct _sbconfig {
 #define	BISZ_MAGIC		0x4249535a	/* Marked with this value: 'BISZ' */
 #define	BISZ_MAGIC_IDX		0		/* Word 0: magic */
 #define	BISZ_TXTST_IDX		1		/*	1: text start */
-#define	BISZ_TXTEND_IDX		2		/*	2: text start */
-#define	BISZ_DATAST_IDX		3		/*	3: text start */
-#define	BISZ_DATAEND_IDX	4		/*	4: text start */
-#define	BISZ_BSSST_IDX		5		/*	5: text start */
-#define	BISZ_BSSEND_IDX		6		/*	6: text start */
+#define	BISZ_TXTEND_IDX		2		/*	2: text end */
+#define	BISZ_DATAST_IDX		3		/*	3: data start */
+#define	BISZ_DATAEND_IDX	4		/*	4: data end */
+#define	BISZ_BSSST_IDX		5		/*	5: bss start */
+#define	BISZ_BSSEND_IDX		6		/*	6: bss end */
 #define BISZ_SIZE		7		/* descriptor size in 32-bit intergers */
 
 #endif	/* _SBCONFIG_H */

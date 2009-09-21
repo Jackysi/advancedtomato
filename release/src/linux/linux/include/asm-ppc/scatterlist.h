@@ -1,6 +1,3 @@
-/*
- * BK Id: SCCS/s.scatterlist.h 1.9 10/15/01 22:51:33 paulus
- */
 #ifdef __KERNEL__
 #ifndef _PPC_SCATTERLIST_H
 #define _PPC_SCATTERLIST_H
@@ -12,9 +9,12 @@ struct scatterlist {
 				 * or NULL for highmem page */
 	struct page * page;	/* Location for highmem page, if any */
 	unsigned int offset;	/* for highmem, page offset */
+	unsigned int length;	/* length at address or page+offset */
 
-	dma_addr_t dma_address;	/* phys/bus dma address		 */
-	unsigned int length;	/* length			 */
+	dma_addr_t dma_address;	/* phys/bus dma address	*/
+	unsigned int dma_length; /* number of bytes mapped at dma_address */
+	/* Note that if we coalesce multiple scatterlist elements,
+	   dma_length can be different from length */
 };
 
 /*
@@ -25,7 +25,7 @@ struct scatterlist {
  * is 0.
  */
 #define sg_dma_address(sg)      ((sg)->dma_address)
-#define sg_dma_len(sg)          ((sg)->length)
+#define sg_dma_len(sg)          ((sg)->dma_length)
 
 #endif /* !(_PPC_SCATTERLIST_H) */
 #endif /* __KERNEL__ */

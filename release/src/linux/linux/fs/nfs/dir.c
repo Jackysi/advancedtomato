@@ -545,6 +545,11 @@ static int nfs_dentry_delete(struct dentry *dentry)
 		/* Unhash it, so that ->d_iput() would be called */
 		return 1;
 	}
+	if (!(dentry->d_sb->s_flags & MS_ACTIVE)) {
+		/* Unhash it, so that ancestors of killed async unlink
+		 * files will be cleaned up during umount */
+		return 1;
+	}
 	return 0;
 
 }
@@ -710,6 +715,15 @@ static int nfs_mkdir(struct inode *dir, struct dentry *dentry, int mode)
 	attr.ia_valid = ATTR_MODE;
 	attr.ia_mode = mode | S_IFDIR;
 
+#if 0
+	/*
+	 * Always drop the dentry, we can't always depend on
+	 * the fattr returned by the server (AIX seems to be
+	 * broken). We're better off doing another lookup than
+	 * depending on potentially bogus information.
+	 */
+	d_drop(dentry);
+#endif
 	nfs_zap_caches(dir);
 	error = NFS_PROTO(dir)->mkdir(dir, &dentry->d_name, &attr, &fhandle,
 					&fattr);
@@ -846,7 +860,10 @@ static int nfs_safe_remove(struct dentry *dentry)
 	if (inode)
 		NFS_CACHEINV(inode);
 	error = NFS_PROTO(dir)->remove(dir, &dentry->d_name);
-	if (error < 0)
+
+	/* if server returned ENOENT, assume that the dentry is already gone
+	 * and update the cache accordingly */
+	if (error < 0 && (error != -ENOENT))
 		goto out;
 	if (inode)
 		inode->i_nlink--;
@@ -955,6 +972,30 @@ nfs_link(struct dentry *old_dentry, struct inode *dir, struct dentry *dentry)
 	return error;
 }
 
+/*
+ * RENAME
+ * FIXME: Some nfsds, like the Linux user space nfsd, may generate a
+ * different file handle for the same inode after a rename (e.g. when
+ * moving to a different directory). A fail-safe method to do so would
+ * be to look up old_dir/old_name, create a link to new_dir/new_name and
+ * rename the old file using the sillyrename stuff. This way, the original
+ * file in old_dir will go away when the last process iput()s the inode.
+ *
+ * FIXED.
+ * 
+ * It actually works quite well. One needs to have the possibility for
+ * at least one ".nfs..." file in each directory the file ever gets
+ * moved or linked to which happens automagically with the new
+ * implementation that only depends on the dcache stuff instead of
+ * using the inode layer
+ *
+ * Unfortunately, things are a little more complicated than indicated
+ * above. For a cross-directory move, we want to make sure we can get
+ * rid of the old inode after the operation.  This means there must be
+ * no pending writes (if it's a file), and the use count must be 1.
+ * If these conditions are met, we can drop the dentries before doing
+ * the rename.
+ */
 static int nfs_rename(struct inode *old_dir, struct dentry *old_dentry,
 		      struct inode *new_dir, struct dentry *new_dentry)
 {
@@ -1032,6 +1073,7 @@ go_ahead:
 
 	nfs_zap_caches(new_dir);
 	nfs_zap_caches(old_dir);
+	NFS_CACHEINV(old_inode);
 	error = NFS_PROTO(old_dir)->rename(old_dir, &old_dentry->d_name,
 					   new_dir, &new_dentry->d_name);
 out:

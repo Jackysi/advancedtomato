@@ -7,6 +7,7 @@
  */
 #include <linux/config.h>
 #include <linux/init.h>
+#include <linux/irq.h>
 #include <linux/errno.h>
 #include <linux/signal.h>
 #include <linux/sched.h>
@@ -25,7 +26,6 @@
 #include <asm/io.h>
 #include <asm/mipsregs.h>
 #include <asm/system.h>
-#include <asm/irq.h>
 
 #include <asm/ptrace.h>
 #include <asm/processor.h>
@@ -68,7 +68,6 @@ unsigned char num_bridges;	/* number of bridges in the system */
  */
 
 extern asmlinkage void ip27_irq(void);
-extern void do_IRQ(int irq, struct pt_regs *regs);
 
 extern int irq_to_bus[], irq_to_slot[], bus_to_cpu[];
 int intr_connect_level(int cpu, int bit);
@@ -115,7 +114,7 @@ static inline int find_level(cpuid_t *cpunum, int irq)
 		j = LEAST_LEVEL + 3;	/* resched & crosscall entries taken */
 		while (++j < PERNODE_LEVELS)
 			if (node_level_to_irq[nodenum][j] == irq) {
-				*cpunum = 0;	
+				*cpunum = 0;	/* XXX Fixme */
 				return(j);
 			}
 	}
@@ -212,6 +211,11 @@ static unsigned int startup_bridge_irq(unsigned int irq)
 	/* more stuff in int_enable reg */
 	bridge->b_int_enable |= 0x7ffffe00;
 
+	/*
+	 * XXX This only works if b_int_device is initialized to 0!
+	 * We program the bridge to have a 1:1 mapping between devices
+	 * (slots) and intr pins.
+	 */
 	device = bridge->b_int_device;
 	device |= (pin << (pin*3));
 	bridge->b_int_device = device;
@@ -388,7 +392,7 @@ void core_send_ipi(int destid, unsigned int action)
 {
 	int irq;
 
-#if CPUS_PER_NODE == 2
+#if (CPUS_PER_NODE == 2)
 	switch (action) {
 		case SMP_RESCHEDULE_YOURSELF:
 			irq = CPU_RESCHED_A_IRQ;
@@ -420,7 +424,7 @@ extern void smp_call_function_interrupt(void);
 void install_cpuintr(int cpu)
 {
 #ifdef CONFIG_SMP
-#if CPUS_PER_NODE == 2
+#if (CPUS_PER_NODE == 2)
 	static int done = 0;
 
 	/*
@@ -474,4 +478,9 @@ void install_cpuintr(int cpu)
 
 void install_tlbintr(int cpu)
 {
+#if 0
+	int intr_bit = N_INTPEND_BITS + TLB_INTR_A + cputoslice(cpu);
+
+	intr_connect_level(cpu, intr_bit);
+#endif
 }

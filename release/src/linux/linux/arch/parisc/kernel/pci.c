@@ -1,4 +1,4 @@
-/* $Id: pci.c,v 1.1.1.4 2003/10/14 08:07:38 sparq Exp $
+/* $Id: pci.c,v 1.6 2000/01/29 00:12:05 grundler Exp $
  *
  * This file is subject to the terms and conditions of the GNU General Public
  * License.  See the file "COPYING" in the main directory of this archive
@@ -244,6 +244,11 @@ pcibios_update_resource(
 
 	pci_write_config_dword(dev, where, barval);
 
+/* XXX FIXME - Elroy does support 64-bit (dual cycle) addressing.
+** But at least one device (Symbios 53c896) which has 64-bit BAR
+** doesn't actually work right with dual cycle addresses.
+** So ignore the whole mess for now.
+*/
 
 	if ((res->flags & (PCI_BASE_ADDRESS_SPACE
 			   | PCI_BASE_ADDRESS_MEM_TYPE_MASK))
@@ -301,13 +306,13 @@ pcibios_init_bus(struct pci_bus *bus)
 		   (32) for primary and secondary buses. */
 		pci_write_config_byte(dev, PCI_SEC_LATENCY_TIMER, 32);
 
-		/* Read bridge control */
+		/* Read bridge control - force SERR/PERR on */
 		pci_read_config_word(dev, PCI_BRIDGE_CONTROL, &bus->bridge_ctl);
+		bus->bridge_ctl |= PCI_BRIDGE_CTL_PARITY | PCI_BRIDGE_CTL_SERR;
+		pci_write_config_word(dev, PCI_BRIDGE_CONTROL, bus->bridge_ctl);
 	}
 
-	/* Set FBB bit for now. Disable ISA IO forwarding. Enable PERR/SERR */
-	bus->bridge_ctl |= PCI_BRIDGE_CTL_FAST_BACK | 
-			   PCI_BRIDGE_CTL_PARITY | PCI_BRIDGE_CTL_SERR;
+	bus->bridge_ctl |= PCI_BRIDGE_CTL_PARITY | PCI_BRIDGE_CTL_SERR;
 }
 
 
@@ -385,7 +390,7 @@ void pcibios_fixup_pbus_ranges(
 */
 void __devinit
 pcibios_align_resource(void *data, struct resource *res,
-		       unsigned long size, unsigned long alignment)
+			unsigned long size, unsigned long alignment)
 {
 	unsigned long mask, align;
 
@@ -402,7 +407,7 @@ pcibios_align_resource(void *data, struct resource *res,
 	align = (res->flags & IORESOURCE_IO) ? PCIBIOS_MIN_IO : PCIBIOS_MIN_MEM;
 
 	/* Align to largest of MIN or input size */
-	mask = MAX(size, align) - 1;
+	mask = MAX(alignment, align) - 1;
 	res->start += mask;
 	res->start &= ~mask;
 
@@ -415,7 +420,7 @@ pcibios_align_resource(void *data, struct resource *res,
 
 
 int __devinit
-pcibios_enable_device(struct pci_dev *dev)
+pcibios_enable_device(struct pci_dev *dev, int mask)
 {
 	u16 cmd;
 	int idx;
@@ -433,6 +438,11 @@ pcibios_enable_device(struct pci_dev *dev)
 	*/
         for (idx=0; idx<DEVICE_COUNT_RESOURCE; idx++) {
 		struct resource *r = &dev->resource[idx];
+
+                /* only setup requested resources */
+		if (!(mask & (1<<idx)))
+			continue;
+
 		if (r->flags & IORESOURCE_IO)
 			cmd |= PCI_COMMAND_IO;
 		if (r->flags & IORESOURCE_MEM)
@@ -449,9 +459,11 @@ pcibios_enable_device(struct pci_dev *dev)
 	*/
 	cmd |= (PCI_COMMAND_SERR | PCI_COMMAND_PARITY);
 
+#if 0
 	/* If bridge/bus controller has FBB enabled, child must too. */
 	if (dev->bus->bridge_ctl & PCI_BRIDGE_CTL_FAST_BACK)
 		cmd |= PCI_COMMAND_FAST_BACK;
+#endif
 
 	DBGC("PCIBIOS: Enabling device %s cmd 0x%04x\n", dev->slot_name, cmd);
 	pci_write_config_word(dev, PCI_COMMAND, cmd);
@@ -463,6 +475,27 @@ pcibios_setup_host_bridge(struct pci_bus *bus)
 {
 	ASSERT(pci_bios != NULL);
 
+#if 0
+	if (pci_bios)
+	{
+		if (pci_bios->setup_host_bridge) {
+			(*pci_bios->setup_host_bridge)(bus);
+		}
+	}
+#endif
+}
+
+static void __devinit
+pcibios_enable_ppb(struct pci_bus *bus)
+{
+	struct list_head *list;
+
+	/* find a leaf of the PCI bus tree. */
+        list_for_each(list, &bus->children)
+		pcibios_enable_ppb(pci_bus_b(list));
+
+	if (bus->self && (bus->self->class >> 8) == PCI_CLASS_BRIDGE_PCI)
+		pdev_enable_device(bus->self);
 }
 
 
@@ -473,16 +506,13 @@ void __devinit
 pcibios_assign_unassigned_resources(struct pci_bus *bus)
 {
 	/* from drivers/pci/setup-bus.c */
-	extern void pbus_assign_resources(struct pci_bus *bus, struct pbus_set_ranges_data *ranges);
+	extern void pbus_size_bridges(struct pci_bus *bus);
+	extern void pbus_assign_resources(struct pci_bus *bus);
 
-	struct pbus_set_ranges_data ranges;
+	pbus_size_bridges(bus);
+	pbus_assign_resources(bus);
 
-	ranges.io_end = ranges.io_start
-				= bus->resource[0]->start + PCIBIOS_MIN_IO;
-	ranges.mem_end = ranges.mem_start
-				= bus->resource[1]->start + PCIBIOS_MIN_MEM;
-	ranges.found_vga = 0;
-	pbus_assign_resources(bus, &ranges);
+	pcibios_enable_ppb(bus);
 }
 
 /*

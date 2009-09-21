@@ -20,7 +20,7 @@
 #include <asm/hp-lj/asic.h>
 #include "utils.h"
 
-#ifdef CONFIG_REMOTE_DEBUG
+#ifdef CONFIG_KGDB
 int remote_debug = 0;
 #endif
 
@@ -144,7 +144,7 @@ void __init hp_setup(void)
 
    board_timer_setup = hp_time_init;
 
-#ifdef CONFIG_REMOTE_DEBUG
+#ifdef CONFIG_KGDB
    {
       extern char CommandLine[];
       remote_debug = (strstr(CommandLine, "kgdb") != NULL);

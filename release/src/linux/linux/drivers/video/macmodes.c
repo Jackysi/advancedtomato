@@ -104,6 +104,34 @@ static const struct fb_videomode mac_modedb[] = {
 	FB_SYNC_HOR_HIGH_ACT|FB_SYNC_VERT_HIGH_ACT, FB_VMODE_NONINTERLACED
     }
 
+#if 0
+    /* Anyone who has timings for these? */
+    {
+	/* VMODE_512_384_60I: 512x384, 60Hz, Interlaced (NTSC) */
+	"mac1", 60, 512, 384, pixclock, left, right, upper, lower, hslen, vslen,
+	sync, FB_VMODE_INTERLACED
+    }, {
+	/* VMODE_512_384_60: 512x384, 60Hz, Non-Interlaced */
+    	"mac2", 60, 512, 384, pixclock, left, right, upper, lower, hslen, vslen,
+	sync, FB_VMODE_NONINTERLACED
+    }, {
+	/* VMODE_640_480_50I: 640x480, 50Hz, Interlaced (PAL) */
+	"mac3", 50, 640, 480, pixclock, left, right, upper, lower, hslen, vslen,
+	sync, FB_VMODE_INTERLACED
+    }, {
+	/* VMODE_640_480_60I: 640x480, 60Hz, Interlaced (NTSC) */
+	"mac4", 60, 640, 480, pixclock, left, right, upper, lower, hslen, vslen,
+	sync, FB_VMODE_INTERLACED
+    }, {
+	/* VMODE_640_870_75P: 640x870, 75Hz (portrait), Non-Interlaced */
+	"mac7", 75, 640, 870, pixclock, left, right, upper, lower, hslen, vslen,
+	sync, FB_VMODE_NONINTERLACED
+    }, {
+	/* VMODE_768_576_50I: 768x576, 50Hz (PAL full frame), Interlaced */
+	"mac8", 50, 768, 576, pixclock, left, right, upper, lower, hslen, vslen,
+	sync, FB_VMODE_INTERLACED
+    },
+#endif
 };
 
 

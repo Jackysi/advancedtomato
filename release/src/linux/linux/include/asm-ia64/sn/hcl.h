@@ -1,22 +1,26 @@
-/* $Id: hcl.h,v 1.1.1.4 2003/10/14 08:09:11 sparq Exp $
+/* $Id$
  *
  * This file is subject to the terms and conditions of the GNU General Public
  * License.  See the file "COPYING" in the main directory of this archive
  * for more details.
  *
- * Copyright (C) 1992 - 1997, 2000-2001 Silicon Graphics, Inc. All rights reserved.
+ * Copyright (C) 1992-1997,2000-2003 Silicon Graphics, Inc. All rights reserved.
  */
 #ifndef _ASM_IA64_SN_HCL_H
 #define _ASM_IA64_SN_HCL_H
 
 #include <asm/sn/sgi.h>
-#include <asm/sn/invent.h>
-#include <linux/devfs_fs_kernel.h>
 
-extern devfs_handle_t hcl_handle; /* HCL driver */
-extern devfs_handle_t hwgraph_root;
-extern devfs_handle_t linux_busnum;
+extern vertex_hdl_t hwgraph_root;
+extern vertex_hdl_t linux_busnum;
 
+void hwgraph_debug(char *, char *, int, vertex_hdl_t, vertex_hdl_t, char *, ...);
+
+#if 1
+#define HWGRAPH_DEBUG(args) hwgraph_debug args ;
+#else   
+#define HWGRAPH_DEBUG(args)
+#endif  
 
 typedef long            labelcl_info_place_t;
 typedef long            arbitrary_info_t;
@@ -58,58 +62,57 @@ struct invplace_s;
 /*
  * External declarations of EXPORTED SYMBOLS in hcl.c
  */
-extern devfs_handle_t hwgraph_register(devfs_handle_t, const char *,
+extern int hwgraph_generate_path(vertex_hdl_t, char *, int);
+extern vertex_hdl_t hwgraph_register(vertex_hdl_t, const char *,
 	unsigned int, unsigned int, unsigned int, unsigned int,
 	umode_t, uid_t, gid_t, struct file_operations *, void *);
 
-extern int hwgraph_mk_symlink(devfs_handle_t, const char *, unsigned int,
-	unsigned int, const char *, unsigned int, devfs_handle_t *, void *);
+extern int hwgraph_mk_symlink(vertex_hdl_t, const char *, unsigned int,
+	unsigned int, const char *, unsigned int, vertex_hdl_t *, void *);
 
-extern int hwgraph_vertex_destroy(devfs_handle_t);
+extern int hwgraph_vertex_destroy(vertex_hdl_t);
 
-extern int hwgraph_edge_add(devfs_handle_t, devfs_handle_t, char *);
-extern int hwgraph_edge_get(devfs_handle_t, char *, devfs_handle_t *);
+extern int hwgraph_edge_add(vertex_hdl_t, vertex_hdl_t, char *);
+extern int hwgraph_edge_get(vertex_hdl_t, char *, vertex_hdl_t *);
 
-extern arbitrary_info_t hwgraph_fastinfo_get(devfs_handle_t);
-extern void hwgraph_fastinfo_set(devfs_handle_t, arbitrary_info_t );
-extern devfs_handle_t hwgraph_mk_dir(devfs_handle_t, const char *, unsigned int, void *);
+extern arbitrary_info_t hwgraph_fastinfo_get(vertex_hdl_t);
+extern void hwgraph_fastinfo_set(vertex_hdl_t, arbitrary_info_t );
+extern vertex_hdl_t hwgraph_mk_dir(vertex_hdl_t, const char *, unsigned int, void *);
 
-extern int hwgraph_connectpt_set(devfs_handle_t, devfs_handle_t);
-extern devfs_handle_t hwgraph_connectpt_get(devfs_handle_t);
-extern int hwgraph_edge_get_next(devfs_handle_t, char *, devfs_handle_t *, uint *);
-extern graph_error_t hwgraph_edge_remove(devfs_handle_t, char *, devfs_handle_t *);
+extern int hwgraph_connectpt_set(vertex_hdl_t, vertex_hdl_t);
+extern vertex_hdl_t hwgraph_connectpt_get(vertex_hdl_t);
+extern int hwgraph_edge_get_next(vertex_hdl_t, char *, vertex_hdl_t *, uint *);
+extern graph_error_t hwgraph_edge_remove(vertex_hdl_t, char *, vertex_hdl_t *);
 
-extern graph_error_t hwgraph_traverse(devfs_handle_t, char *, devfs_handle_t *);
+extern graph_error_t hwgraph_traverse(vertex_hdl_t, char *, vertex_hdl_t *);
 
-extern int hwgraph_vertex_get_next(devfs_handle_t *, devfs_handle_t *);
-extern int hwgraph_inventory_get_next(devfs_handle_t, invplace_t *, 
+extern int hwgraph_vertex_get_next(vertex_hdl_t *, vertex_hdl_t *);
+extern int hwgraph_inventory_get_next(vertex_hdl_t, invplace_t *, 
 				      inventory_t **);
-extern int hwgraph_inventory_add(devfs_handle_t, int, int, major_t, minor_t, int);
-extern int hwgraph_inventory_remove(devfs_handle_t, int, int, major_t, minor_t, int);
-extern int hwgraph_controller_num_get(devfs_handle_t);
-extern void hwgraph_controller_num_set(devfs_handle_t, int);
-extern int hwgraph_path_ad(devfs_handle_t, char *, devfs_handle_t *);
-extern devfs_handle_t hwgraph_path_to_vertex(char *);
-extern devfs_handle_t hwgraph_path_to_dev(char *);
-extern devfs_handle_t hwgraph_block_device_get(devfs_handle_t);
-extern devfs_handle_t hwgraph_char_device_get(devfs_handle_t);
-extern graph_error_t hwgraph_char_device_add(devfs_handle_t, char *, char *, devfs_handle_t *);
-extern int hwgraph_path_add(devfs_handle_t, char *, devfs_handle_t *);
-extern int hwgraph_info_add_LBL(devfs_handle_t, char *, arbitrary_info_t);
-extern int hwgraph_info_get_LBL(devfs_handle_t, char *, arbitrary_info_t *);
-extern int hwgraph_info_replace_LBL(devfs_handle_t, char *, arbitrary_info_t,
+extern int hwgraph_inventory_add(vertex_hdl_t, int, int, major_t, minor_t, int);
+extern int hwgraph_inventory_remove(vertex_hdl_t, int, int, major_t, minor_t, int);
+extern int hwgraph_controller_num_get(vertex_hdl_t);
+extern void hwgraph_controller_num_set(vertex_hdl_t, int);
+extern int hwgraph_path_ad(vertex_hdl_t, char *, vertex_hdl_t *);
+extern vertex_hdl_t hwgraph_path_to_vertex(char *);
+extern vertex_hdl_t hwgraph_path_to_dev(char *);
+extern vertex_hdl_t hwgraph_block_device_get(vertex_hdl_t);
+extern vertex_hdl_t hwgraph_char_device_get(vertex_hdl_t);
+extern graph_error_t hwgraph_char_device_add(vertex_hdl_t, char *, char *, vertex_hdl_t *);
+extern int hwgraph_path_add(vertex_hdl_t, char *, vertex_hdl_t *);
+extern int hwgraph_info_add_LBL(vertex_hdl_t, char *, arbitrary_info_t);
+extern int hwgraph_info_get_LBL(vertex_hdl_t, char *, arbitrary_info_t *);
+extern int hwgraph_info_replace_LBL(vertex_hdl_t, char *, arbitrary_info_t,
 				    arbitrary_info_t *);
-extern int hwgraph_info_get_exported_LBL(devfs_handle_t, char *, int *, arbitrary_info_t *);
-extern int hwgraph_info_get_next_LBL(devfs_handle_t, char *, arbitrary_info_t *,
+extern int hwgraph_info_get_exported_LBL(vertex_hdl_t, char *, int *, arbitrary_info_t *);
+extern int hwgraph_info_get_next_LBL(vertex_hdl_t, char *, arbitrary_info_t *,
                                 labelcl_info_place_t *);
-
-extern int hwgraph_path_lookup(devfs_handle_t, char *, devfs_handle_t *, char **);
-extern int hwgraph_info_export_LBL(devfs_handle_t, char *, int);
-extern int hwgraph_info_unexport_LBL(devfs_handle_t, char *);
-extern int hwgraph_info_remove_LBL(devfs_handle_t, char *, arbitrary_info_t *);
-extern char * vertex_to_name(devfs_handle_t, char *, uint);
-extern graph_error_t hwgraph_vertex_unref(devfs_handle_t);
-
+extern int hwgraph_path_lookup(vertex_hdl_t, char *, vertex_hdl_t *, char **);
+extern int hwgraph_info_export_LBL(vertex_hdl_t, char *, int);
+extern int hwgraph_info_unexport_LBL(vertex_hdl_t, char *);
+extern int hwgraph_info_remove_LBL(vertex_hdl_t, char *, arbitrary_info_t *);
+extern char * vertex_to_name(vertex_hdl_t, char *, uint);
+extern graph_error_t hwgraph_vertex_unref(vertex_hdl_t);
 
 
 #endif /* _ASM_IA64_SN_HCL_H */

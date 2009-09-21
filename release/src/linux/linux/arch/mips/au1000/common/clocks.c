@@ -95,4 +95,5 @@ unsigned int get_au1x00_lcd_clock(void)
 	return lcd_clock;
 }
 
+EXPORT_SYMBOL(get_au1x00_speed);
 EXPORT_SYMBOL(get_au1x00_lcd_clock);

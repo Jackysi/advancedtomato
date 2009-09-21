@@ -4,7 +4,7 @@
  * (c) 1999 Machine Vision Holdings, Inc.
  * (c) 1999, 2000 David Woodhouse <dwmw2@infradead.org>
  *
- * $Id: doc2001.c,v 1.1.1.4 2003/10/14 08:08:17 sparq Exp $
+ * $Id: doc2001.c,v 1.38 2002/12/10 15:05:42 gleixner Exp $
  */
 
 #include <linux/kernel.h>
@@ -22,7 +22,6 @@
 
 #include <linux/mtd/mtd.h>
 #include <linux/mtd/nand.h>
-#include <linux/mtd/nand_ids.h>
 #include <linux/mtd/doc2000.h>
 
 /* #define ECC_DEBUG */
@@ -38,9 +37,9 @@ static int doc_read(struct mtd_info *mtd, loff_t from, size_t len,
 static int doc_write(struct mtd_info *mtd, loff_t to, size_t len,
 		     size_t *retlen, const u_char *buf);
 static int doc_read_ecc(struct mtd_info *mtd, loff_t from, size_t len,
-			size_t *retlen, u_char *buf, u_char *eccbuf);
+			size_t *retlen, u_char *buf, u_char *eccbuf, int oobsel);
 static int doc_write_ecc(struct mtd_info *mtd, loff_t to, size_t len,
-			 size_t *retlen, const u_char *buf, u_char *eccbuf);
+			 size_t *retlen, const u_char *buf, u_char *eccbuf, int oobsel);
 static int doc_read_oob(struct mtd_info *mtd, loff_t ofs, size_t len,
 			size_t *retlen, u_char *buf);
 static int doc_write_oob(struct mtd_info *mtd, loff_t ofs, size_t len,
@@ -182,9 +181,11 @@ static int DoC_SelectFloor(unsigned long docptr, int floor)
 /* DoC_IdentChip: Identify a given NAND chip given {floor,chip} */
 static int DoC_IdentChip(struct DiskOnChip *doc, int floor, int chip)
 {
-	int mfr, id, i;
+	int mfr, id, i, j;
 	volatile char dummy;
 
+	/* Page in the required floor/chip
+	   FIXME: is this supported by Millennium ?? */
 	DoC_SelectFloor(doc->virtadr, floor);
 	DoC_SelectChip(doc->virtadr, chip);
 
@@ -212,12 +213,17 @@ static int DoC_IdentChip(struct DiskOnChip *doc, int floor, int chip)
 	if (mfr == 0xff || mfr == 0)
 		return 0;
 
+	/* FIXME: to deal with multi-flash on multi-Millennium case more carefully */
 	for (i = 0; nand_flash_ids[i].name != NULL; i++) {
-		if (mfr == nand_flash_ids[i].manufacture_id &&
-		    id == nand_flash_ids[i].model_id) {
+		if ( id == nand_flash_ids[i].id) {
+			/* Try to identify manufacturer */
+			for (j = 0; nand_manuf_ids[j].id != 0x0; j++) {
+				if (nand_manuf_ids[j].id == mfr)
+					break;
+			}	
 			printk(KERN_INFO "Flash chip found: Manufacturer ID: %2.2X, "
-			       "Chip ID: %2.2X (%s)\n",
-			       mfr, id, nand_flash_ids[i].name);
+			       "Chip ID: %2.2X (%s:%s)\n",
+			       mfr, id, nand_manuf_ids[j].name, nand_flash_ids[i].name);
 			doc->mfr = mfr;
 			doc->id = id;
 			doc->chipshift = nand_flash_ids[i].chipshift;
@@ -355,6 +361,7 @@ static void DoCMil_init(struct mtd_info *mtd)
 	mtd->flags = MTD_CAP_NANDFLASH;
 	mtd->size = 0;
 
+	/* FIXME: erase size is not always 8kB */
 	mtd->erasesize = 0x2000;
 
 	mtd->oobblock = 512;
@@ -395,11 +402,11 @@ static int doc_read (struct mtd_info *mtd, loff_t from, size_t len,
 		     size_t *retlen, u_char *buf)
 {
 	/* Just a special case of doc_read_ecc */
-	return doc_read_ecc(mtd, from, len, retlen, buf, NULL);
+	return doc_read_ecc(mtd, from, len, retlen, buf, NULL, 0);
 }
 
 static int doc_read_ecc (struct mtd_info *mtd, loff_t from, size_t len,
-			 size_t *retlen, u_char *buf, u_char *eccbuf)
+			 size_t *retlen, u_char *buf, u_char *eccbuf, int oobsel)
 {
 	int i, ret;
 	volatile char dummy;
@@ -521,11 +528,11 @@ static int doc_write (struct mtd_info *mtd, loff_t to, size_t len,
 		      size_t *retlen, const u_char *buf)
 {
 	char eccbuf[6];
-	return doc_write_ecc(mtd, to, len, retlen, buf, eccbuf);
+	return doc_write_ecc(mtd, to, len, retlen, buf, eccbuf, 0);
 }
 
 static int doc_write_ecc (struct mtd_info *mtd, loff_t to, size_t len,
-			  size_t *retlen, const u_char *buf, u_char *eccbuf)
+			  size_t *retlen, const u_char *buf, u_char *eccbuf, int oobsel)
 {
 	int i,ret = 0;
 	volatile char dummy;
@@ -537,9 +544,15 @@ static int doc_write_ecc (struct mtd_info *mtd, loff_t to, size_t len,
 	if (to >= this->totlen)
 		return -EINVAL;
 
+#if 0
+	/* Don't allow a single write to cross a 512-byte block boundary */
+	if (to + len > ( (to | 0x1ff) + 1)) 
+		len = ((to | 0x1ff) + 1) - to;
+#else
 	/* Don't allow writes which aren't exactly one block */
 	if (to & 0x1ff || len != 0x200)
 		return -EINVAL;
+#endif
 
 	/* Find the chip which is to be used and select it */
 	if (this->curfloor != mychip->floor) {
@@ -611,6 +624,9 @@ static int doc_write_ecc (struct mtd_info *mtd, loff_t to, size_t len,
 		memcpy_toio(docptr + DoC_Mil_CDSN_IO, eccbuf, 6);
 #endif
 
+		/* write the block status BLOCK_USED (0x5555) at the end of ECC data
+		   FIXME: this is only a hack for programming the IPL area for LinuxBIOS
+		   and should be replace with proper codes in user space utilities */ 
 		WriteDOC(0x55, docptr, Mil_CDSN_IO);
 		WriteDOC(0x55, docptr, Mil_CDSN_IO + 1);
 
@@ -635,6 +651,8 @@ static int doc_write_ecc (struct mtd_info *mtd, loff_t to, size_t len,
 	DoC_Delay(docptr, 2);
 	if (ReadDOC(docptr, Mil_CDSN_IO) & 1) {
 		printk("Error programming flash\n");
+		/* Error in programming
+		   FIXME: implement Bad Block Replacement (in nftl.c ??) */
 		*retlen = 0;
 		ret = -EIO;
 	}
@@ -758,6 +776,7 @@ static int doc_write_oob(struct mtd_info *mtd, loff_t ofs, size_t len,
 	DoC_Delay(docptr, 2);
 	if (ReadDOC(docptr, Mil_CDSN_IO) & 1) {
 		printk("Error programming oob data\n");
+		/* FIXME: implement Bad Block Replacement (in nftl.c ??) */
 		*retlen = 0;
 		ret = -EIO;
 	}
@@ -804,11 +823,17 @@ int doc_erase (struct mtd_info *mtd, struct erase_info *instr)
 
 	instr->state = MTD_ERASING;
 
+	/* Read the status of the flash device through CDSN IO register
+	   see Software Requirement 11.4 item 5.
+	   FIXME: it seems that we are not wait long enough, some blocks are not
+	   erased fully */
 	DoC_Command(docptr, NAND_CMD_STATUS, CDSN_CTRL_WP);
 	dummy = ReadDOC(docptr, ReadPipeInit);
 	DoC_Delay(docptr, 2);
 	if (ReadDOC(docptr, Mil_CDSN_IO) & 1) {
 		printk("Error Erasing at 0x%x\n", ofs);
+		/* There was an error
+		   FIXME: implement Bad Block Replacement (in nftl.c ??) */
 		instr->state = MTD_ERASE_FAILED;
 	} else
 		instr->state = MTD_ERASE_DONE;

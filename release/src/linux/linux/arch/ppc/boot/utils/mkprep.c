@@ -1,7 +1,4 @@
 /*
- * BK Id: SCCS/s.mkprep.c 1.7 05/18/01 06:20:29 patch
- */
-/*
  * Makes a prep bootable image which can be dd'd onto
  * a disk device to make a bootdisk.  Will take
  * as input a elf executable, strip off the header
@@ -15,12 +12,14 @@
  *                  -- Cort
  *
  * Modified for x86 hosted builds by Matt Porter <porter@neta.com>
+ * Modified for Sparc hosted builds by Peter Wahl <PeterWahl@web.de>
  */
 
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -99,14 +98,14 @@ int main(int argc, char *argv[])
   }
 
   /* needs to handle args more elegantly -- but this is a small/simple program */
-  
+
   /* check for -pbp */
   if ( !strcmp( argv[argptr], "-pbp" ) )
   {
     prep = 1;
     argptr++;
   }
-  
+
   /* check for -asm */
   if ( !strcmp( argv[argptr], "-asm" ) )
   {
@@ -133,7 +132,7 @@ int main(int argc, char *argv[])
   /* skip elf header in input file */
   /*if ( !prep )*/
   lseek(in_fd, elfhdr_size, SEEK_SET);
-  
+
   /* write prep partition if necessary */
   if ( prep )
 	  write_prep_partition( in_fd, out_fd );
@@ -143,26 +142,26 @@ int main(int argc, char *argv[])
 	  write_asm_data( in_fd, out_fd );
   else
 	  copy_image(in_fd, out_fd);
-  
+
   return 0;
 }
 
 void write_prep_partition(int in, int out)
 {
   unsigned char block[512];
-  partition_entry_t *pe = (partition_entry_t *)&block[0x1BE];
+  partition_entry_t pe;
   dword_t *entry  = (dword_t *)&block[0];
   dword_t *length = (dword_t *)&block[sizeof(long)];
   struct stat info;
-  
+
   if (fstat(in, &info) < 0)
   {
     fprintf(stderr,"info failed\n");
     exit(-1);
   }
-  
+
   bzero( block, sizeof block );
- 
+
   /* set entry point and boot image size skipping over elf header */
 #ifdef __i386__
   *entry = 0x400/*+65536*/;
@@ -175,13 +174,13 @@ void write_prep_partition(int in, int out)
   /* sets magic number for msdos partition (used by linux) */
   block[510] = 0x55;
   block[511] = 0xAA;
-  
+
   /*
    * Build a "PReP" partition table entry in the boot record
    *  - "PReP" may only look at the system_indicator
    */
-  pe->boot_indicator   = BootActive;
-  pe->system_indicator = SystemPrep;
+  pe.boot_indicator   = BootActive;
+  pe.system_indicator = SystemPrep;
   /*
    * The first block of the diskette is used by this "boot record" which
    * actually contains the partition table. (The first block of the
@@ -189,12 +188,12 @@ void write_prep_partition(int in, int out)
    * one partition on the diskette and it shall contain the rest of the
    * diskette.
    */
-  pe->starting_head     = 0;	/* zero-based			     */
-  pe->starting_sector   = 2;	/* one-based			     */
-  pe->starting_cylinder = 0;	/* zero-based			     */
-  pe->ending_head       = 1;	/* assumes two heads		     */
-  pe->ending_sector     = 18;	/* assumes 18 sectors/track	     */
-  pe->ending_cylinder   = 79;	/* assumes 80 cylinders/diskette     */
+  pe.starting_head     = 0;	/* zero-based			     */
+  pe.starting_sector   = 2;	/* one-based			     */
+  pe.starting_cylinder = 0;	/* zero-based			     */
+  pe.ending_head       = 1;	/* assumes two heads		     */
+  pe.ending_sector     = 18;	/* assumes 18 sectors/track	     */
+  pe.ending_cylinder   = 79;	/* assumes 80 cylinders/diskette     */
 
   /*
    * The "PReP" software ignores the above fields and just looks at
@@ -203,22 +202,28 @@ void write_prep_partition(int in, int out)
    *     (2 tracks/cylinder)(18 sectors/tracks)(80 cylinders/diskette)
    *   - unlike the above sector numbers, the beginning sector is zero-based!
    */
-  /* This has to be 0 on the PowerStack? */   
-#ifdef __i386__
-  pe->beginning_sector  = 0;
+#if 0
+  pe.beginning_sector  = cpu_to_le32(1);
 #else
-  pe->beginning_sector  = cpu_to_le32(0);
+  /* This has to be 0 on the PowerStack? */
+#ifdef __i386__
+  pe.beginning_sector  = 0;
+#else
+  pe.beginning_sector  = cpu_to_le32(0);
 #endif /* __i386__ */
+#endif
 
 #ifdef __i386__
-  pe->number_of_sectors = 2*18*80-1;
+  pe.number_of_sectors = 2*18*80-1;
 #else
-  pe->number_of_sectors = cpu_to_le32(2*18*80-1);
+  pe.number_of_sectors = cpu_to_le32(2*18*80-1);
 #endif /* __i386__ */
+
+  memcpy(&block[0x1BE],&pe,sizeof(pe));
 
   write( out, block, sizeof(block) );
   write( out, entry, sizeof(*entry) );
-  write( out, length, sizeof(*length) );  
+  write( out, length, sizeof(*length) );
   /* set file position to 2nd sector where image will be written */
   lseek( out, 0x400, SEEK_SET );
 }
@@ -244,7 +249,7 @@ write_asm_data( int in, int out )
   unsigned char *lp;
   unsigned char buf[SIZE];
   unsigned char str[256];
-  
+
   write( out, "\t.data\n\t.globl input_data\ninput_data:\n",
 	 strlen( "\t.data\n\t.globl input_data\ninput_data:\n" ) );
   pos = 0;

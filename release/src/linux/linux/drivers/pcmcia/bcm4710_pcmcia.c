@@ -1,7 +1,7 @@
 /*
  * BCM4710 specific pcmcia routines.
  *
- * Copyright 2005, Broadcom Corporation
+ * Copyright 2004, Broadcom Corporation
  * All Rights Reserved.
  * 
  * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
@@ -9,7 +9,7 @@
  * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
  * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
  *
- * $Id: bcm4710_pcmcia.c,v 1.1.1.9 2005/03/07 07:30:49 kanki Exp $
+ * $Id$
  */
 #include <linux/module.h>
 #include <linux/init.h>

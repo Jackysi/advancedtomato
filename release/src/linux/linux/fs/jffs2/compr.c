@@ -31,7 +31,7 @@
  * provisions above, a recipient may use your version of this file
  * under either the RHEPL or the GPL.
  *
- * $Id: compr.c,v 1.1.1.4 2003/10/14 08:09:00 sparq Exp $
+ * $Id: compr.c,v 1.17 2001/09/23 09:56:46 dwmw2 Exp $
  *
  */
 
@@ -77,11 +77,31 @@ unsigned char jffs2_compress(unsigned char *data_in, unsigned char *cpage_out,
 	if (!ret) {
 		return JFFS2_COMPR_ZLIB;
 	}
+#if 0 /* Disabled 23/9/1. With zlib it hardly ever gets a look in */
+	ret = dynrubin_compress(data_in, cpage_out, datalen, cdatalen);
+	if (!ret) {
+		return JFFS2_COMPR_DYNRUBIN;
+	}
+#endif
+#if 0 /* Disabled 26/2/1. Obsoleted by dynrubin */
+	ret = rubinmips_compress(data_in, cpage_out, datalen, cdatalen);
+	if (!ret) {
+		return JFFS2_COMPR_RUBINMIPS;
+	}
+#endif
 	/* rtime does manage to recompress already-compressed data */
 	ret = rtime_compress(data_in, cpage_out, datalen, cdatalen);
 	if (!ret) {
 		return JFFS2_COMPR_RTIME;
 	}
+#if 0
+	/* We don't need to copy. Let the caller special-case the COMPR_NONE case. */
+	/* If we get here, no compression is going to work */
+	/* But we might want to use the fragmentation part -- Arjan */
+	memcpy(cpage_out,data_in,min(*datalen,*cdatalen));
+	if (*datalen > *cdatalen)
+		*datalen = *cdatalen;
+#endif		
 	return JFFS2_COMPR_NONE; /* We failed to compress */
 
 }
@@ -109,10 +129,18 @@ int jffs2_decompress(unsigned char comprtype, unsigned char *cdata_in,
 		break;
 
 	case JFFS2_COMPR_RUBINMIPS:
+#if 0 /* Disabled 23/9/1 */
+		rubinmips_decompress(cdata_in, data_out, cdatalen, datalen);
+#else
 		printk(KERN_WARNING "JFFS2: Rubinmips compression encountered but support not compiled in!\n");
+#endif
 		break;
 	case JFFS2_COMPR_DYNRUBIN:
+#if 1 /* Phase this one out */
 		dynrubin_decompress(cdata_in, data_out, cdatalen, datalen);
+#else
+		printk(KERN_WARNING "JFFS2: Dynrubin compression encountered but support not compiled in!\n");
+#endif
 		break;
 
 	default:

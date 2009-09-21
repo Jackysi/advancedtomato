@@ -35,6 +35,41 @@
 #include <linux/pci.h>
 #include <asm/naca.h>
 #include <asm/hvcall.h>
+long poll_pending(void)
+{
+	unsigned long dummy;
+	return plpar_hcall(H_POLL_PENDING, 0, 0, 0, 0,
+			   &dummy, &dummy, &dummy);
+}
+
+long prod_processor(void)
+{
+	plpar_hcall_norets(H_PROD);
+	return(0);
+}
+
+long cede_processor(void)
+{
+	plpar_hcall_norets(H_CEDE);
+	return(0);
+}
+
+long register_vpa(unsigned long flags, unsigned long proc, unsigned long vpa)
+{
+	plpar_hcall_norets(H_REGISTER_VPA, flags, proc, vpa);
+	return(0);
+}
+
+void vpa_init(int cpu)
+{
+	unsigned long flags;
+
+	/* Register the Virtual Processor Area (VPA) */
+	printk(KERN_INFO "register_vpa: cpu 0x%x\n", cpu);
+	flags = 1UL << (63 - 18);
+	paca[cpu].xLpPaca.xSLBCount = 64; /* SLB restore highwater mark */
+	register_vpa(flags, cpu, __pa((unsigned long)&(paca[cpu].xLpPaca)));
+}
 
 long plpar_tce_get(unsigned long liobn,
 		   unsigned long ioba,
@@ -276,7 +311,6 @@ static unsigned char udbg_getcLP(void)
 
 
 
-/* Code for hvc_console.  Should move it back eventually. */
 
 int hvc_get_chars(int index, char *buf, int count)
 {
@@ -319,23 +353,113 @@ int hvc_put_chars(int index, const char *buf, int count)
 	return -1;
 }
 
+/* return the number of client vterms present */
+/* XXX this requires an interface change to handle multiple discontiguous
+ * vterms */
 int hvc_count(int *start_termno)
 {
 	u32 *termno;
-	struct device_node *dn;
+	struct device_node *rtas;
+	struct device_node *vtys;
 
-	if ((dn = find_path_device("/rtas")) != NULL) {
-		if ((termno = (u32 *)get_property(dn, "ibm,termno", 0)) != NULL) {
+	/* consider only the first vty node.
+	 * we should _always_ be able to find one. however, it may not be compatible
+	 * with hvterm1, in which case hvc_console can't use it. */
+	vtys = find_devices("vty");
+	if (vtys && device_is_compatible(vtys, "hvterm1")) {
+		termno = (u32 *)get_property(vtys, "reg", 0);
+		if (start_termno && termno)
+			*start_termno = *termno;
+		return 1; /* we can't support >1 with this interface */
+	}
+
+	/* no vty nodes; use the /rtas/ibm,termno property */
+	printk(KERN_ERR "%s: couldn't find a 'vty' node\n", __FUNCTION__);
+	if ((rtas = find_path_device("/rtas")) != NULL) {
+		if ((termno = (u32 *)get_property(rtas, "ibm,termno", 0)) != NULL) {
 			if (start_termno)
 				*start_termno = termno[0];
 			return termno[1];
 		}
 	}
+
+	/* couldn't find any vterms */
 	return 0;
 }
 
 #ifndef CONFIG_PPC_ISERIES
 void pSeries_lpar_mm_init(void);
+
+/* returns 0 if couldn't find or use /chosen/stdout as console */
+static int find_udbg_vterm(void)
+{
+	struct device_node *stdout_node;
+	u32 *termno;
+	char *name;
+	int found = 0;
+
+	/* find the boot console from /chosen/stdout */
+	if (!of_stdout_device) {
+		printk(KERN_WARNING "couldn't get path from /chosen/stdout!\n");
+		return found;
+	}
+	stdout_node = find_path_device(of_stdout_device);
+	if (!stdout_node) {
+		printk(KERN_WARNING "couldn't find node from /chosen/stdout\n");
+		return found;
+	}
+
+	/* now we have the stdout node; figure out what type of device it is. */
+	name = (char *)get_property(stdout_node, "name", 0);
+	if (!name) {
+		printk(KERN_WARNING "stdout node missing 'name' property!\n");
+		return found;
+	}
+
+	if (strncmp(name, "vty", 3) == 0) {
+		char *compatible;
+		compatible = (char *)get_property(stdout_node, "compatible", 0);
+		if (compatible && (strncmp(compatible, "hvterm1", 7) == 0)) {
+			termno = (u32 *)get_property(stdout_node, "reg", 0);
+			if (termno) {
+				vtermno = termno[0];
+				ppc_md.udbg_putc = udbg_putcLP;
+				ppc_md.udbg_getc = udbg_getcLP;
+				ppc_md.udbg_getc_poll = udbg_getc_pollLP;
+				found = 1;
+			}
+		} else {
+			/* XXX implement udbg_putcLP_vtty for hvterm-protocol1 case */
+			printk(KERN_WARNING "%s doesn't speak hvterm1; "
+				"can't print udbg messages\n", of_stdout_device);
+		}
+	} else if (strncmp(name, "rtas", 4)) {
+		/* according to firmware, this should never happen. to be removed */
+		printk(KERN_ERR "ATTENTION: /chosen/stdout should be /vdevice/vty@0!\n"
+			"Please report this to linuxppc64-dev@lists.linuxppc.org\n");
+
+		/* "ibm,termno" property is a pair of numbers. The first is the
+		 * starting termno (the one we use) and the second is the number
+		 * of terminals. */
+		termno = (u32 *)get_property(stdout_node, "ibm,termno", 0);
+		if (termno) {
+			vtermno = termno[0];
+			ppc_md.udbg_putc = udbg_putcLP;
+			ppc_md.udbg_getc = udbg_getcLP;
+			ppc_md.udbg_getc_poll = udbg_getc_pollLP;
+			found = 1;
+		}
+	} else if (strncmp(name, "serial", 6)) {
+		/* XXX fix ISA serial console */
+		printk(KERN_WARNING "serial stdout on LPAR ('%s')! "
+			"can't print udbg messages\n", of_stdout_device);
+	} else {
+		printk(KERN_WARNING "don't know how to print to stdout '%s'\n",
+			of_stdout_device);
+	}
+
+	return found;
+}
 
 /* This is called early in setup.c.
  * Use it to setup page table ppc_md stuff as well as udbg.
@@ -353,23 +477,12 @@ void pSeriesLP_init_early(void)
 	pSeries_pcibios_init_early();
 
 	/* The keyboard is not useful in the LPAR environment.
-	 * Leave all the interfaces NULL.
+	 * Leave all ppc_md keyboard interfaces NULL.
 	 */
 
-	/* lookup the first virtual terminal number in case we don't have a com port.
-	 * Zero is probably correct in case someone calls udbg before the init.
-	 * The property is a pair of numbers.  The first is the starting termno (the
-	 * one we use) and the second is the number of terminals.
-	 */
-	u32 *termno;
-	struct device_node *np = find_path_device("/rtas");
-	if (np) {
-		termno = (u32 *)get_property(np, "ibm,termno", 0);
-		if (termno)
-			vtermno = termno[0];
+	if (0 == find_udbg_vterm()) {
+		printk(KERN_WARNING
+				"can't use stdout; can't print early debug messages.\n");
 	}
-	ppc_md.udbg_putc = udbg_putcLP;
-	ppc_md.udbg_getc = udbg_getcLP;
-	ppc_md.udbg_getc_poll = udbg_getc_pollLP;
 }
 #endif

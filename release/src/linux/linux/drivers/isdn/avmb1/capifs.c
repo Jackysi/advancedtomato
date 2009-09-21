@@ -1,4 +1,4 @@
-/* $Id: capifs.c,v 1.1.1.4 2003/10/14 08:08:11 sparq Exp $
+/* $Id: capifs.c,v 1.1.4.1 2001/11/20 14:19:34 kai Exp $
  * 
  * Copyright 2000 by Carsten Paeth <calle@calle.de>
  *
@@ -32,7 +32,7 @@ MODULE_DESCRIPTION("CAPI4Linux: /dev/capi/ filesystem");
 MODULE_AUTHOR("Carsten Paeth");
 MODULE_LICENSE("GPL");
 
-static char *revision = "$Revision: 1.1.1.4 $";
+static char *revision = "$Revision: 1.1.4.1 $";
 
 struct capifs_ncci {
 	struct inode *inode;

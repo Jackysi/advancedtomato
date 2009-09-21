@@ -24,7 +24,11 @@
 #include <video/fbcon.h>
 #include <video/fbcon-hga.h>
 
+#if 0
+#define DPRINTK(args...) printk(KERN_DEBUG __FILE__": " ##args)
+#else
 #define DPRINTK(args...)
+#endif
 
 #define HGA_ROWADDR(row) ((row%4)*8192 + (row>>2)*90)
 
@@ -51,6 +55,13 @@ void fbcon_hga_bmove(struct display *p, int sy, int sx, int dy, int dx,
 	u8 *src, *dest;
 	u_int rows, y1, y2;
 	
+#if 0
+	if (sx == 0 && dx == 0 && width == p->next_line) {
+		src = p->screen_base+sy*fontheight(p)*width;
+		dest = p->screen_base+dy*fontheight(p)*width;
+		fb_memmove(dest, src, height*fontheight(p)*width);
+	} else 
+#endif
 	if (dy <= sy) {
 		y1 = sy*fontheight(p);
 		y2 = dy*fontheight(p);
@@ -84,6 +95,15 @@ void fbcon_hga_clear(struct vc_data *conp, struct display *p, int sy, int sx,
 	DPRINTK("fbcon_hga_clear: sx:%d, sy:%d, height:%d, width:%d\n", sx, sy, height, width);
 	
 	y = sy*fontheight(p);
+#if 0
+	if (sx == 0 && width == p->next_line) {
+		if (inverse) {
+			fb_memset255(dest, height*fontheight(p)*width);
+		} else {
+			fb_memclear(dest, height*fontheight(p)*width);
+		}
+	} else
+#endif	    
 	for (rows = height*fontheight(p); rows--; y++) {
 		dest = rowaddr(p, y)+sx;
 		if (inverse) {

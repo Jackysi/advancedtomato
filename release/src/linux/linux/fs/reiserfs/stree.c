@@ -166,7 +166,7 @@ inline int comp_cpu_keys (const struct cpu_key * key1,
     if (cpu_key_k_offset (key1) > cpu_key_k_offset (key2))
 	return 1;
 
-    reiserfs_warning ("comp_cpu_keys: type are compared for %K and %K\n",
+    reiserfs_warning (NULL, "comp_cpu_keys: type are compared for %K and %K\n",
 		      key1, key2);
 
     if (cpu_key_k_type (key1) < cpu_key_k_type (key2))
@@ -506,14 +506,14 @@ static int is_leaf (char * buf, int blocksize, struct buffer_head * bh)
     nr = blkh_nr_item(blkh);
     if (nr < 1 || nr > ((blocksize - BLKH_SIZE) / (IH_SIZE + MIN_ITEM_LEN))) {
 	/* item number is too big or too small */
-	reiserfs_warning ("is_leaf: nr_item seems wrong: %z\n", bh);
+	reiserfs_warning (NULL, "is_leaf: nr_item seems wrong: %z\n", bh);
 	return 0;
     }
     ih = (struct item_head *)(buf + BLKH_SIZE) + nr - 1;
     used_space = BLKH_SIZE + IH_SIZE * nr + (blocksize - ih_location (ih));
     if (used_space != blocksize - blkh_free_space(blkh)) {
 	/* free space does not match to calculated amount of use space */
-	reiserfs_warning ("is_leaf: free space seems wrong: %z\n", bh);
+	reiserfs_warning (NULL, "is_leaf: free space seems wrong: %z\n", bh);
 	return 0;
     }
 
@@ -525,19 +525,19 @@ static int is_leaf (char * buf, int blocksize, struct buffer_head * bh)
     prev_location = blocksize;
     for (i = 0; i < nr; i ++, ih ++) {
 	if ( le_ih_k_type(ih) == TYPE_ANY) {
-	    reiserfs_warning ("is_leaf: wrong item type for item %h\n",ih);
+	    reiserfs_warning (NULL, "is_leaf: wrong item type for item %h\n",ih);
 	    return 0;
 	}
 	if (ih_location (ih) >= blocksize || ih_location (ih) < IH_SIZE * nr) {
-	    reiserfs_warning ("is_leaf: item location seems wrong: %h\n", ih);
+	    reiserfs_warning (NULL, "is_leaf: item location seems wrong: %h\n", ih);
 	    return 0;
 	}
 	if (ih_item_len (ih) < 1 || ih_item_len (ih) > MAX_ITEM_LEN (blocksize)) {
-	    reiserfs_warning ("is_leaf: item length seems wrong: %h\n", ih);
+	    reiserfs_warning (NULL, "is_leaf: item length seems wrong: %h\n", ih);
 	    return 0;
 	}
 	if (prev_location - ih_location (ih) != ih_item_len (ih)) {
-	    reiserfs_warning ("is_leaf: item location seems wrong (second one): %h\n", ih);
+	    reiserfs_warning (NULL, "is_leaf: item location seems wrong (second one): %h\n", ih);
 	    return 0;
 	}
 	prev_location = ih_location (ih);
@@ -566,13 +566,13 @@ static int is_internal (char * buf, int blocksize, struct buffer_head * bh)
     nr = blkh_nr_item(blkh);
     if (nr > (blocksize - BLKH_SIZE - DC_SIZE) / (KEY_SIZE + DC_SIZE)) {
 	/* for internal which is not root we might check min number of keys */
-	reiserfs_warning ("is_internal: number of key seems wrong: %z\n", bh);
+	reiserfs_warning (NULL, "is_internal: number of key seems wrong: %z\n", bh);
 	return 0;
     }
 
     used_space = BLKH_SIZE + KEY_SIZE * nr + DC_SIZE * (nr + 1);
     if (used_space != blocksize - blkh_free_space(blkh)) {
-	reiserfs_warning ("is_internal: free space seems wrong: %z\n", bh);
+	reiserfs_warning (NULL, "is_internal: free space seems wrong: %z\n", bh);
 	return 0;
     }
 
@@ -682,7 +682,7 @@ int search_by_key (struct super_block * p_s_sb,
 
 #ifdef CONFIG_REISERFS_CHECK
 	if ( !(++n_repeat_counter % 50000) )
-	    reiserfs_warning ("PAP-5100: search_by_key: %s:"
+	    reiserfs_warning (p_s_sb, "PAP-5100: search_by_key: %s:"
 			      "there were %d iterations of while loop "
 			      "looking for key %K\n",
 			      current->comm, n_repeat_counter, p_s_key);
@@ -747,7 +747,7 @@ int search_by_key (struct super_block * p_s_sb,
 	// make sure, that the node contents look like a node of
 	// certain level
 	if (!is_tree_node (p_s_bh, expected_level)) {
-	    reiserfs_warning ("vs-5150: search_by_key: "
+	    reiserfs_warning (p_s_sb, "vs-5150: search_by_key: "
 			      "invalid format found in block %ld. Fsck?\n", 
 			      p_s_bh->b_blocknr);
 	    pathrelse (p_s_search_path);
@@ -1125,6 +1125,21 @@ static char  prepare_for_delete_or_cut(
 		journal_mark_dirty (th, p_s_sb, p_s_bh);
 		inode->i_blocks -= p_s_sb->s_blocksize / 512;
 		reiserfs_free_block(th, tmp);
+		/* In case of big fragmentation it is possible that each block
+		   freed will cause dirtying of one more bitmap and then we will
+		   quickly overflow our transaction space. This is a
+		   counter-measure against that scenario */
+		if (journal_transaction_should_end(th, th->t_blocks_allocated)) {
+		    int orig_len_alloc = th->t_blocks_allocated ;
+		    pathrelse(p_s_path) ;
+
+		    journal_end(th, p_s_sb, orig_len_alloc) ;
+		    journal_begin(th, p_s_sb, orig_len_alloc) ;
+		    reiserfs_update_inode_transaction(inode) ;
+		    need_research = 1;
+		    break;
+		}
+
 		if ( item_moved (&s_ih, p_s_path) )  {
 			need_research = 1;
 			break ;
@@ -1253,7 +1268,7 @@ int reiserfs_delete_item (struct reiserfs_transaction_handle *th,
 	if (n_ret_value == IO_ERROR)
 	    break;
 	if (n_ret_value == FILE_NOT_FOUND) {
-	    reiserfs_warning ("vs-5340: reiserfs_delete_item: "
+	    reiserfs_warning (p_s_sb, "vs-5340: reiserfs_delete_item: "
 			      "no items of the file %K found\n", p_s_item_key);
 	    break;
 	}
@@ -1339,7 +1354,7 @@ void reiserfs_delete_solid_item (struct reiserfs_transaction_handle *th,
     while (1) {
 	retval = search_item (th->t_super, &cpu_key, &path);
 	if (retval == IO_ERROR) {
-	    reiserfs_warning ("vs-5350: reiserfs_delete_solid_item: "
+	    reiserfs_warning (th->t_super, "vs-5350: reiserfs_delete_solid_item: "
 			      "i/o failure occurred trying to delete %K\n", &cpu_key);
 	    break;
 	}
@@ -1348,7 +1363,7 @@ void reiserfs_delete_solid_item (struct reiserfs_transaction_handle *th,
 	    // No need for a warning, if there is just no free space to insert '..' item into the newly-created subdir
 	    if ( !( (unsigned long long) GET_HASH_VALUE (le_key_k_offset (le_key_version (key), key)) == 0 && \
 		 GET_GENERATION_NUMBER (le_key_k_offset (le_key_version (key), key)) == 1 ) )
-		reiserfs_warning ("vs-5355: reiserfs_delete_solid_item: %k not found", key);
+		reiserfs_warning (th->t_super, "vs-5355: reiserfs_delete_solid_item: %k not found\n", key);
 	    break;
 	}
 	if (!tb_init) {
@@ -1369,7 +1384,7 @@ void reiserfs_delete_solid_item (struct reiserfs_transaction_handle *th,
 	}
 
 	// IO_ERROR, NO_DISK_SPACE, etc
-	reiserfs_warning ("vs-5360: reiserfs_delete_solid_item: "
+	reiserfs_warning (th->t_super, "vs-5360: reiserfs_delete_solid_item: "
 			  "could not delete %K due to fix_nodes failure\n", &cpu_key);
 	unfix_nodes (&tb);
 	break;
@@ -1386,7 +1401,7 @@ void reiserfs_delete_object (struct reiserfs_transaction_handle *th, struct inod
     /* for directory this deletes item containing "." and ".." */
     reiserfs_do_truncate (th, inode, NULL, 0/*no timestamp updates*/);
     
-#if defined(USE_INODE_GENERATION_COUNTER)
+#if defined( USE_INODE_GENERATION_COUNTER )
     if( !old_format_only ( th -> t_super ) )
       {
        __u32 *inode_generation;
@@ -1464,7 +1479,7 @@ static void indirect_to_direct_roll_back (struct reiserfs_transaction_handle *th
 	tail_len -= removed;
 	set_cpu_key_k_offset (&tail_key, cpu_key_k_offset (&tail_key) - removed);
     }
-    printk ("indirect_to_direct_roll_back: indirect_to_direct conversion has been rolled back due to lack of disk space\n");
+    reiserfs_warning (inode->i_sb, "indirect_to_direct_roll_back: indirect_to_direct conversion has been rolled back due to lack of disk space\n");
     //mark_file_without_tail (inode);
     mark_inode_dirty (inode);
 }
@@ -1554,7 +1569,7 @@ int reiserfs_cut_from_item (struct reiserfs_transaction_handle *th,
 	if (n_ret_value == POSITION_FOUND)
 	    continue;
 
-	reiserfs_warning ("PAP-5610: reiserfs_cut_from_item: item %K not found\n", p_s_item_key);
+	reiserfs_warning (p_s_sb, "PAP-5610: reiserfs_cut_from_item: item %K not found\n", p_s_item_key);
 	unfix_nodes (&s_cut_balance);
 	return (n_ret_value == IO_ERROR) ? -EIO : -ENOENT;
     } /* while */
@@ -1567,7 +1582,7 @@ int reiserfs_cut_from_item (struct reiserfs_transaction_handle *th,
 	    indirect_to_direct_roll_back (th, p_s_inode, p_s_path);
 	}
 	if (n_ret_value == NO_DISK_SPACE)
-	    reiserfs_warning ("NO_DISK_SPACE");
+	    reiserfs_warning (p_s_sb, "NO_DISK_SPACE\n");
 	unfix_nodes (&s_cut_balance);
 	return -EIO;
     }
@@ -1635,7 +1650,7 @@ int reiserfs_cut_from_item (struct reiserfs_transaction_handle *th,
 static void truncate_directory (struct reiserfs_transaction_handle *th, struct inode * inode)
 {
     if (inode->i_nlink)
-	reiserfs_warning ("vs-5655: truncate_directory: link count != 0\n");
+	reiserfs_warning (th->t_super, "vs-5655: truncate_directory: link count != 0\n");
 
     set_le_key_k_offset (KEY_FORMAT_3_5, INODE_PKEY (inode), DOT_OFFSET);
     set_le_key_k_type (KEY_FORMAT_3_5, INODE_PKEY (inode), TYPE_DIRENTRY);
@@ -1684,13 +1699,13 @@ void reiserfs_do_truncate (struct reiserfs_transaction_handle *th,
 
     retval = search_for_position_by_key(p_s_inode->i_sb, &s_item_key, &s_search_path);
     if (retval == IO_ERROR) {
-	reiserfs_warning ("vs-5657: reiserfs_do_truncate: "
+	reiserfs_warning (p_s_inode->i_sb, "vs-5657: reiserfs_do_truncate: "
 			  "i/o failure occurred trying to truncate %K\n", &s_item_key);
 	return;
     }
     if (retval == POSITION_FOUND || retval == FILE_NOT_FOUND) {
 	pathrelse (&s_search_path);
-	reiserfs_warning ("PAP-5660: reiserfs_do_truncate: "
+	reiserfs_warning (p_s_inode->i_sb, "PAP-5660: reiserfs_do_truncate: "
 			  "wrong result %d of search for %K\n", retval, &s_item_key);
 	return;
     }
@@ -1722,7 +1737,7 @@ void reiserfs_do_truncate (struct reiserfs_transaction_handle *th,
 	/* Cut or delete file item. */
 	n_deleted = reiserfs_cut_from_item(th, &s_search_path, &s_item_key, p_s_inode,  page, n_new_file_size);
 	if (n_deleted < 0) {
-	    reiserfs_warning ("vs-5665: reiserfs_truncate_file: cut_from_item failed");
+	    reiserfs_warning (th->t_super, "vs-5665: reiserfs_truncate_file: cut_from_item failed\n");
 	    reiserfs_check_path(&s_search_path) ;
 	    return;
 	}
@@ -1827,7 +1842,7 @@ int reiserfs_paste_into_item (struct reiserfs_transaction_handle *th,
 	    goto error_out ;
 	}
 	if (retval == POSITION_FOUND) {
-	    reiserfs_warning ("PAP-5710: reiserfs_paste_into_item: entry or pasted byte (%K) exists\n", p_s_key);
+	    reiserfs_warning (th->t_super, "PAP-5710: reiserfs_paste_into_item: entry or pasted byte (%K) exists\n", p_s_key);
 	    retval = -EEXIST ;
 	    goto error_out ;
 	}
@@ -1881,7 +1896,7 @@ int reiserfs_insert_item(struct reiserfs_transaction_handle *th,
 	    goto error_out ;
 	}
 	if (retval == ITEM_FOUND) {
-	    reiserfs_warning ("PAP-5760: reiserfs_insert_item: "
+	    reiserfs_warning (th->t_super, "PAP-5760: reiserfs_insert_item: "
 			      "key %K already exists in the tree\n", key);
 	    retval = -EEXIST ;
 	    goto error_out; 

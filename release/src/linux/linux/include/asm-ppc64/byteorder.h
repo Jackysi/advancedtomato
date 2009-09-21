@@ -38,6 +38,40 @@ static __inline__ void st_le32(volatile __u32 *addr, const __u32 val)
 	__asm__ __volatile__ ("stwbrx %1,0,%2" : "=m" (*addr) : "r" (val), "r" (addr));
 }
 
+#if 0
+static __inline__ __const__ __u16 ___arch__swab16(__u16 value)
+{
+	__u16 result;
+
+	__asm__("rlwimi %0,%1,8,16,23"
+	    : "=r" (result)
+	    : "r" (value), "0" (value >> 8));
+	return result;
+}
+
+static __inline__ __const__ __u32 ___arch__swab32(__u32 value)
+{
+	__u32 result;
+
+	__asm__("rlwimi %0,%1,24,16,23\n\t"
+	    "rlwimi %0,%1,8,8,15\n\t"
+	    "rlwimi %0,%1,24,0,7"
+	    : "=r" (result)
+	    : "r" (value), "0" (value >> 24));
+	return result;
+}
+
+static __inline__ __const__ __u64 ___arch__swab64(__u64 value)
+{
+	__u64 result;
+#error implement me
+}
+
+#define __arch__swab16(x) ___arch__swab16(x)
+#define __arch__swab32(x) ___arch__swab32(x)
+#define __arch__swab64(x) ___arch__swab64(x)
+
+#endif
 
 /* The same, but returns converted value from the location pointer by addr. */
 #define __arch__swab16p(addr) ld_le16(addr)

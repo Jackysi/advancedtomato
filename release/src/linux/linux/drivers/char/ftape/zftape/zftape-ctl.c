@@ -16,9 +16,9 @@
  the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
 
  *
- * $Source: /home/cvsroot/wrt54g/src/linux/linux/drivers/char/ftape/zftape/zftape-ctl.c,v $
- * $Revision: 1.1.1.2 $
- * $Date: 2003/10/14 08:08:06 $
+ * $Source: /homes/cvs/ftape-stacked/ftape/zftape/zftape-ctl.c,v $
+ * $Revision: 1.2.6.2 $
+ * $Date: 1997/11/14 18:07:33 $
  *
  *      This file contains the non-read/write zftape functions
  *      for the QIC-40/80/3010/3020 floppy-tape driver for Linux.

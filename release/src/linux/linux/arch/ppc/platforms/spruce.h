@@ -1,33 +1,16 @@
 /*
  * include/asm-ppc/platforms/spruce.h
- * 
+ *
  * Definitions for IBM Spruce reference board support
  *
  * Authors: Matt Porter and Johnnie Peters
  *          mporter@mvista.com
  *          jpeters@mvista.com
  *
- * Copyright 2001 MontaVista Software Inc.
- *
- * This program is free software; you can redistribute  it and/or modify it
- * under  the terms of  the GNU General Public License as published by the
- * Free Software Foundation;  either version 2 of the  License, or (at your
- * option) any later version.
- *
- * THIS  SOFTWARE  IS PROVIDED   ``AS  IS'' AND   ANY  EXPRESS OR   IMPLIED
- * WARRANTIES,   INCLUDING, BUT NOT  LIMITED  TO, THE IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.  IN
- * NO  EVENT  SHALL   THE AUTHOR  BE    LIABLE FOR ANY   DIRECT,  INDIRECT,
- * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT
- * NOT LIMITED   TO, PROCUREMENT OF  SUBSTITUTE GOODS  OR SERVICES; LOSS OF
- * USE, DATA,  OR PROFITS; OR  BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
- * ANY THEORY OF LIABILITY, WHETHER IN  CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
- * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *
- * You should have received a copy of the  GNU General Public License along
- * with this program; if not, write  to the Free Software Foundation, Inc.,
- * 675 Mass Ave, Cambridge, MA 02139, USA.
+ * 2001 (c) MontaVista, Software, Inc.  This file is licensed under
+ * the terms of the GNU General Public License version 2.  This program
+ * is licensed "as is" without any warranty of any kind, whether express
+ * or implied.
  */
 
 #ifdef __KERNEL__
@@ -68,7 +51,7 @@ unsigned char spruce_read_keyb_status(void);
 
 /*
  * Serial port defines
- */ 
+ */
 #define SPRUCE_FPGA_REG_A	0xff820000
 #define SPRUCE_UARTCLK_33M	0x02
 #define SPRUCE_UARTCLK_IS_33M(reg)	(reg & SPRUCE_UARTCLK_33M)
@@ -87,7 +70,7 @@ unsigned char spruce_read_keyb_status(void);
 
 #define STD_UART_OP(num)					\
 	{ 0, BASE_BAUD, 0, UART##num##_INT,			\
-		(ASYNC_BOOT_AUTOCONF | ASYNC_SKIP_TEST),	\
+		ASYNC_BOOT_AUTOCONF,				\
 		iomem_base: UART##num##_IO_BASE,		\
 		io_type: SERIAL_IO_MEM},
 

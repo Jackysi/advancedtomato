@@ -91,7 +91,7 @@
 #define VM86_REGS_SIZE2 (sizeof(struct kernel_vm86_regs) - VM86_REGS_SIZE1)
 
 struct pt_regs * FASTCALL(save_v86_state(struct kernel_vm86_regs * regs));
-struct pt_regs * save_v86_state(struct kernel_vm86_regs * regs)
+struct pt_regs * fastcall save_v86_state(struct kernel_vm86_regs * regs)
 {
 	struct tss_struct *tss;
 	struct pt_regs *ret;
@@ -362,6 +362,9 @@ static inline unsigned long get_vflags(struct kernel_vm86_regs * regs)
 
 	if (VEFLAGS & VIF_MASK)
 		flags |= IF_MASK;
+	else
+		flags &= ~IF_MASK;
+	flags |= IOPL_MASK;
 	return flags | (VEFLAGS & current->thread.v86mask);
 }
 
@@ -646,6 +649,16 @@ void handle_vm86_fault(struct kernel_vm86_regs * regs, long error_code)
 	return;
 
 simulate_sigsegv:
+	/* FIXME: After a long discussion with Stas we finally
+	 *        agreed, that this is wrong. Here we should
+	 *        really send a SIGSEGV to the user program.
+	 *        But how do we create the correct context? We
+	 *        are inside a general protection fault handler
+	 *        and has just returned from a page fault handler.
+	 *        The correct context for the signal handler
+	 *        should be a mixture of the two, but how do we
+	 *        get the information? [KD]
+	 */
 	return_to_32bit(regs, VM86_UNKNOWN);
 }
 

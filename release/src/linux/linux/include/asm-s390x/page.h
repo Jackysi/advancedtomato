@@ -129,6 +129,10 @@ static inline unsigned long __pgd_val(pgd_t *pgdp)
 #define VM_DATA_DEFAULT_FLAGS	(VM_READ | VM_WRITE | VM_EXEC | \
 				 VM_MAYREAD | VM_MAYWRITE | VM_MAYEXEC)
 
+#define get_storage_key() 0
+#define pfix_get_page_addr(addr) (unsigned long)addr
+#define pfix_get_addr(addr) (unsigned long)addr
+
 #endif                                 /* __KERNEL__                       */
 
 #endif                                 /* _S390_PAGE_H                     */

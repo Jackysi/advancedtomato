@@ -108,6 +108,16 @@ static void z8530_rx_done(struct z8530_channel *c);
 static void z8530_tx_done(struct z8530_channel *c);
 
 
+/**
+ *	read_zsreg - Read a register from a Z85230 
+ *	@c: Z8530 channel to read from (2 per chip)
+ *	@reg: Register to read
+ *	FIXME: Use a spinlock.
+ *	
+ *	Most of the Z8530 registers are indexed off the control registers.
+ *	A read is done by writing to the control register and reading the
+ *	register back.  The caller must hold the lock
+ */
  
 static inline u8 read_zsreg(struct z8530_channel *c, u8 reg)
 {
@@ -1372,6 +1382,16 @@ int z8530_shutdown(struct z8530_dev *dev)
 
 EXPORT_SYMBOL(z8530_shutdown);
 
+/**
+ *	z8530_channel_load - Load channel data
+ *	@c: Z8530 channel to configure
+ *	@rtable: table of register, value pairs
+ *	FIXME: ioctl to allow user uploaded tables
+ *
+ *	Load a Z8530 channel up from the system data. We use +16 to 
+ *	indicate the "prime" registers. The value 255 terminates the
+ *	table.
+ */
 
 int z8530_channel_load(struct z8530_channel *c, u8 *rtable)
 {
@@ -1431,7 +1451,6 @@ static void z8530_tx_begin(struct z8530_channel *c)
 	c->tx_next_skb=NULL;
 	c->tx_ptr=c->tx_next_ptr;
 	
-	netif_wake_queue(c->netdevice);
 	if(c->tx_skb==NULL)
 	{
 		/* Idle on */
@@ -1458,6 +1477,12 @@ static void z8530_tx_begin(struct z8530_channel *c)
 		
 		if(c->dma_tx)
 		{
+			/*
+			 *	FIXME. DMA is broken for the original 8530,
+			 *	on the older parts we need to set a flag and
+			 *	wait for a further TX interrupt to fire this
+			 *	stage off	
+			 */
 			 
 			flags=claim_dma_lock();
 			disable_dma(c->txdma);
@@ -1487,7 +1512,6 @@ static void z8530_tx_begin(struct z8530_channel *c)
 			/* ABUNDER off */
 			write_zsreg(c, R10, c->regs[10]);
 			write_zsctrl(c, RES_Tx_CRC);
-//???			write_zsctrl(c, RES_EOM_L);
 	
 			while(c->txcount && (read_zsreg(c,R0)&Tx_BUF_EMP))
 			{		
@@ -1497,6 +1521,10 @@ static void z8530_tx_begin(struct z8530_channel *c)
 
 		}
 	}
+	/*
+	 *	Since we emptied tx_skb we can ask for more
+	 */
+	netif_wake_queue(c->netdevice);
 }
 
 /**
@@ -1514,7 +1542,6 @@ static void z8530_tx_done(struct z8530_channel *c)
 {
 	struct sk_buff *skb;
 
-	netif_wake_queue(c->netdevice);
 	/* Actually this can happen.*/
 	if(c->tx_skb==NULL)
 		return;
@@ -1769,7 +1796,6 @@ int z8530_queue_xmit(struct z8530_channel *c, struct sk_buff *skb)
 	z8530_tx_begin(c);
 	spin_unlock_irqrestore(c->lock, flags);
 	
-	netif_wake_queue(c->netdevice);
 	return 0;
 }
 

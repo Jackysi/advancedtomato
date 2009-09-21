@@ -65,7 +65,7 @@
 			(_x) : \
 			(_x) - (HUB_WIDGET_ID_MIN-1)) << 3) )
 
-#if defined(CONFIG_SGI_IP27)
+#if defined (CONFIG_SGI_IP27)
 #include <asm/sn/sn0/hubio.h>
 #endif
 

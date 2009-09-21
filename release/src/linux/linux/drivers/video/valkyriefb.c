@@ -294,9 +294,19 @@ static int valkyriefb_switch(int con, struct fb_info *fb)
 		fb_get_cmap(&fb_display[currcon].cmap, 1, valkyriefb_getcolreg,
 			    fb);
 	currcon = con;
+#if 1
 	valkyrie_var_to_par(&fb_display[currcon].var, &par, fb);
 	valkyrie_set_par(&par, info);
 	do_install_cmap(con, fb);
+#else
+	/* I see no reason not to do this.  Minus info->changevar(). */
+	/* DOH.  This makes valkyrie_set_var compare, you guessed it, */
+	/* fb_display[con].var (first param), and fb_display[con].var! */
+	/* Perhaps I just fixed that... */
+	switching = 1;
+	valkyrie_set_var(&fb_display[con].var, con, info);
+	switching = 0;
+#endif
 	return 0;
 }
 
@@ -741,7 +751,11 @@ static void valkyrie_par_to_fix(struct fb_par_valkyrie *par,
 	struct fb_info_valkyrie *p)
 {
 	fix->smem_start = p->frame_buffer_phys + 0x1000;
+#if 1
 	fix->smem_len = valkyrie_vram_reqd(par->vmode, par->cmode);
+#else
+	fix->smem_len = p->total_vram;
+#endif
 	fix->visual = (par->cmode == CMODE_8) ?
 		FB_VISUAL_PSEUDOCOLOR : FB_VISUAL_DIRECTCOLOR;
 	fix->line_length = par->vxres << par->cmode;
@@ -840,6 +854,7 @@ int __init valkyriefb_setup(char *options)
 			    break;
 			}
 		}
+		/* XXX - remove these options once blanking has been tested */
 		else if (!strncmp(this_opt, "noblank", 7)) {
 			can_soft_blank = 0;
 		}

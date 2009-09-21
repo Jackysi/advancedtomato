@@ -4,7 +4,7 @@
  * 
  * This software is distributed under GNU GPL v2, 1991
  * 
- * ipt_ECN.c,v 1.4 2002/08/05 19:36:51 laforge Exp
+ * ipt_ECN.c,v 1.7 2003/12/15 15:18:06 laforge Exp 
 */
 
 #include <linux/module.h>
@@ -59,8 +59,8 @@ set_ect_tcp(struct sk_buff **pskb, struct iphdr *iph,
 	    const struct ipt_ECN_info *einfo)
 {
 
-	struct tcphdr *tcph = (void *) iph + iph->ihl * 4;
-	u_int16_t *tcpflags = (u_int16_t *)tcph + 6;
+	struct tcphdr *tcph;
+	u_int16_t *tcpflags;
 	u_int16_t diffs[2];
 
 	/* raw socket (tcpdump) may have clone of incoming
@@ -71,8 +71,11 @@ set_ect_tcp(struct sk_buff **pskb, struct iphdr *iph,
 			return NF_DROP;
 		kfree_skb(*pskb);
 		*pskb = nskb;
-		iph = (*pskb)->nh.iph;
 	}
+
+	iph = (*pskb)->nh.iph;
+	tcph = (void *) iph + iph->ihl * 4;
+	tcpflags = (u_int16_t *)tcph + 6;
 
 	diffs[0] = *tcpflags;
 

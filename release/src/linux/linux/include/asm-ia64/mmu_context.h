@@ -2,8 +2,8 @@
 #define _ASM_IA64_MMU_CONTEXT_H
 
 /*
- * Copyright (C) 1998-2001 Hewlett-Packard Co
- * Copyright (C) 1998-2001 David Mosberger-Tang <davidm@hpl.hp.com>
+ * Copyright (C) 1998-2002 Hewlett-Packard Co
+ *	David Mosberger-Tang <davidm@hpl.hp.com>
  */
 
 /*
@@ -13,8 +13,6 @@
  * consider the region number when performing a TLB lookup, we need to assign a unique
  * region id to each region in a process.  We use the least significant three bits in a
  * region id for this purpose.
- *
- * Copyright (C) 1998-2001 David Mosberger-Tang <davidm@hpl.hp.com>
  */
 
 #define IA64_REGION_ID_KERNEL	0 /* the kernel's region id (tlb.c depends on this being 0) */
@@ -44,26 +42,50 @@ enter_lazy_tlb (struct mm_struct *mm, struct task_struct *tsk, unsigned cpu)
 {
 }
 
+/*
+ * When the context counter wraps around all TLBs need to be flushed because an old
+ * context number might have been reused. This is signalled by the ia64_need_tlb_flush
+ * per-CPU variable, which is checked in the routine below. Called by activate_mm().
+ * <efocht@ess.nec.de>
+ */
 static inline void
-get_new_mmu_context (struct mm_struct *mm)
+delayed_tlb_flush (void)
 {
-	spin_lock(&ia64_ctx.lock);
-	{
-		if (ia64_ctx.next >= ia64_ctx.limit)
-			wrap_mmu_context(mm);
-		mm->context = ia64_ctx.next++;
-	}
-	spin_unlock(&ia64_ctx.lock);
+	extern void local_flush_tlb_all (void);
 
+	if (unlikely(local_cpu_data->need_tlb_flush)) {
+		local_flush_tlb_all();
+		local_cpu_data->need_tlb_flush = 0;
+	}
 }
 
-static inline void
+static inline mm_context_t
 get_mmu_context (struct mm_struct *mm)
 {
-	if (mm->context == 0)
-		get_new_mmu_context(mm);
+	unsigned long flags;
+	mm_context_t context = mm->context;
+
+	if (context)
+		return context;
+
+	spin_lock_irqsave(&ia64_ctx.lock, flags);
+	{
+		/* re-check, now that we've got the lock: */
+		context = mm->context;
+		if (context == 0) {
+			if (ia64_ctx.next >= ia64_ctx.limit)
+				wrap_mmu_context(mm);
+			mm->context = context = ia64_ctx.next++;
+		}
+	}
+	spin_unlock_irqrestore(&ia64_ctx.lock, flags);
+	return context;
 }
 
+/*
+ * Initialize context number to some sane value.  MM is guaranteed to be a brand-new
+ * address-space, so no TLB flushing is needed, ever.
+ */
 static inline int
 init_new_context (struct task_struct *p, struct mm_struct *mm)
 {
@@ -78,13 +100,13 @@ destroy_context (struct mm_struct *mm)
 }
 
 static inline void
-reload_context (struct mm_struct *mm)
+reload_context (mm_context_t context)
 {
 	unsigned long rid;
 	unsigned long rid_incr = 0;
 	unsigned long rr0, rr1, rr2, rr3, rr4;
 
-	rid = mm->context << 3;	/* make space for encoding the region number */
+	rid = context << 3;	/* make space for encoding the region number */
 	rid_incr = 1 << 8;
 
 	/* encode the region id, preferred page size, and VHPT enable bit: */
@@ -93,6 +115,10 @@ reload_context (struct mm_struct *mm)
 	rr2 = rr0 + 2*rid_incr;
 	rr3 = rr0 + 3*rid_incr;
 	rr4 = rr0 + 4*rid_incr;
+#ifdef  CONFIG_HUGETLB_PAGE
+	rr4 = (rr4 & (~(0xfcUL))) | (HPAGE_SHIFT << 2);
+#endif
+
 	ia64_set_rr(0x0000000000000000, rr0);
 	ia64_set_rr(0x2000000000000000, rr1);
 	ia64_set_rr(0x4000000000000000, rr2);
@@ -103,19 +129,32 @@ reload_context (struct mm_struct *mm)
 	ia64_insn_group_barrier();
 }
 
+static inline void
+activate_context (struct mm_struct *mm)
+{
+	mm_context_t context;
+
+	do {
+		context = get_mmu_context(mm);
+		reload_context(context);
+		/* in the unlikely event of a TLB-flush by another thread, redo the load: */
+	} while (unlikely(context != mm->context));
+}
+
 /*
  * Switch from address space PREV to address space NEXT.
  */
 static inline void
 activate_mm (struct mm_struct *prev, struct mm_struct *next)
 {
+	delayed_tlb_flush();
+
 	/*
-	 * We may get interrupts here, but that's OK because interrupt
-	 * handlers cannot touch user-space.
+	 * We may get interrupts here, but that's OK because interrupt handlers cannot
+	 * touch user-space.
 	 */
 	ia64_set_kr(IA64_KR_PT_BASE, __pa(next->pgd));
-	get_mmu_context(next);
-	reload_context(next);
+	activate_context(next);
 }
 
 #define switch_mm(prev_mm,next_mm,next_task,cpu)	activate_mm(prev_mm, next_mm)

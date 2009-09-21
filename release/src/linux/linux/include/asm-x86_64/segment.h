@@ -9,7 +9,6 @@
 /* 
  * we cannot use the same code segment descriptor for user and kernel
  * even not in the long flat model, because of different DPL /kkeil 
- * The segment offset needs to contain a RPL. Grr. -AK
  * GDT layout to get 64bit syscall right (sysret hardcodes gdt offsets) 
  */
 
@@ -17,5 +16,6 @@
 #define __USER_DS     0x2b   /* 5*8+3 */ 
 #define __USER_CS     0x33   /* 6*8+3 */ 
 #define __USER32_DS	__USER_DS 
+#define __KERNEL_COMPAT32_CS 0x08
 
 #endif

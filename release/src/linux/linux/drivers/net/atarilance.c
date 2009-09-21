@@ -628,10 +628,14 @@ static unsigned long __init lance_probe1( struct net_device *dev,
 	dev->set_multicast_list = &set_multicast_list;
 	dev->set_mac_address = &lance_set_mac_address;
 
+	/* XXX MSch */
 	dev->tx_timeout = lance_tx_timeout;
 	dev->watchdog_timeo = TX_TIMEOUT;
 			
 
+#if 0
+	dev->start = 0;
+#endif
 
 	memset( &lp->stats, 0, sizeof(lp->stats) );
 
@@ -761,6 +765,7 @@ static void lance_tx_timeout (struct net_device *dev)
 							  MEM->tx_head[i].misc ));
 		}
 #endif 	 
+	/* XXX MSch: maybe purge/reinit ring here */
 	/* lance_restart, essentially */
 	lance_init_ring(dev);
 	REGA( CSR0 ) = CSR0_INEA | CSR0_INIT | CSR0_STRT;
@@ -781,6 +786,22 @@ static int lance_start_xmit( struct sk_buff *skb, struct net_device *dev )
 	DPRINTK( 2, ( "%s: lance_start_xmit() called, csr0 %4.4x.\n",
 				  dev->name, DREG ));
 
+
+	/* The old LANCE chips doesn't automatically pad buffers to min. size. */
+	len = skb->len;
+	if(len < ETH_ZLEN)
+		len = ETH_ZLEN;
+	/* PAM-Card has a bug: Can only send packets with even number of bytes! */
+	else if (lp->cardtype == PAM_CARD && (len & 1))
+		++len;
+		
+	if(len > skb->len)
+	{
+		skb = skb_padto(skb, len);
+		if(skb == NULL)
+			return 0;
+	}
+		
 	netif_stop_queue (dev);
 
 	/* Fill in a Tx ring entry */
@@ -810,11 +831,6 @@ static int lance_start_xmit( struct sk_buff *skb, struct net_device *dev )
 	 * last.
 	 */
 
-	/* The old LANCE chips doesn't automatically pad buffers to min. size. */
-	len = (ETH_ZLEN < skb->len) ? skb->len : ETH_ZLEN;
-	/* PAM-Card has a bug: Can only send packets with even number of bytes! */
-	if (lp->cardtype == PAM_CARD && (len & 1))
-		++len;
 
 	head->length = -len;
 	head->misc = 0;
@@ -908,6 +924,7 @@ static void lance_interrupt( int irq, void *dev_id, struct pt_regs *fp)
 					lp->stats.tx_packets++;
 				}
 
+				/* XXX MSch: free skb?? */
 				dirty_tx++;
 			}
 

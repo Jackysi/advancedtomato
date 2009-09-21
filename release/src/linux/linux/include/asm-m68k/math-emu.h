@@ -243,7 +243,13 @@ extern unsigned int fp_debugprint;
 
 	movem.l	%d0/%d1/%a0/%a1,-(%sp)
 	.if	\bit+1
+#if 0
+	moveq	#\bit,%d0
+	andw	#7,%d0
+	btst	%d0,fp_debugprint+((31-\bit)/8)
+#else
 	btst	#\bit,fp_debugprint+((31-\bit)/8)
+#endif
 	jeq	.Lpskip\@
 	.endif
 	movestack	\nr,\arg1,\arg2,\arg3,\arg4,\arg5
@@ -259,7 +265,25 @@ extern unsigned int fp_debugprint;
 #ifdef FPU_EMU_DEBUG
 	movem.l	%d0/%a0,-(%sp)
 	lea	\fp,%a0
+#if 0
+	moveq	#'+',%d0
+	tst.w	(%a0)
+	jeq	.Lx1\@
+	moveq	#'-',%d0
+.Lx1\@:	printf	\bit," %c",1,%d0
+	move.l	(4,%a0),%d0
+	bclr	#31,%d0
+	jne	.Lx2\@
+	printf	\bit,"0."
+	jra	.Lx3\@
+.Lx2\@:	printf	\bit,"1."
+.Lx3\@:	printf	\bit,"%08x%08x",2,%d0,%a0@(8)
+	move.w	(2,%a0),%d0
+	ext.l	%d0
+	printf	\bit,"E%04x",1,%d0
+#else
 	printf	\bit," %08x%08x%08x",3,%a0@,%a0@(4),%a0@(8)
+#endif
 	movem.l	(%sp)+,%d0/%a0
 #endif
 .endm

@@ -3,7 +3,7 @@
  *
  *  This source is covered by the GNU GPL, the same as all kernel sources.
  *
- *  Version:	$Id: inetpeer.c,v 1.1.1.4 2003/10/14 08:09:33 sparq Exp $
+ *  Version:	$Id: inetpeer.c,v 1.7 2001/09/20 21:22:50 davem Exp $
  *
  *  Authors:	Andrey V. Savochkin <saw@msu.ru>
  */
@@ -445,9 +445,12 @@ static void peer_check_expire(unsigned long dummy)
 	/* Trigger the timer after inet_peer_gc_mintime .. inet_peer_gc_maxtime
 	 * interval depending on the total number of entries (more entries,
 	 * less interval). */
-	peer_periodic_timer.expires = jiffies
-		+ inet_peer_gc_maxtime
-		- (inet_peer_gc_maxtime - inet_peer_gc_mintime) / HZ *
-			peer_total / inet_peer_threshold * HZ;
+	if (peer_total >= inet_peer_threshold)
+		peer_periodic_timer.expires = jiffies + inet_peer_gc_mintime;
+	else
+		peer_periodic_timer.expires = jiffies
+			+ inet_peer_gc_maxtime
+			- (inet_peer_gc_maxtime - inet_peer_gc_mintime) / HZ *
+				peer_total / inet_peer_threshold * HZ;
 	add_timer(&peer_periodic_timer);
 }

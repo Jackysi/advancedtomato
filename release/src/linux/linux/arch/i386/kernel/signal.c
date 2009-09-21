@@ -96,6 +96,7 @@ sys_rt_sigsuspend(sigset_t *unewset, size_t sigsetsize)
 	struct pt_regs * regs = (struct pt_regs *) &unewset;
 	sigset_t saveset, newset;
 
+	/* XXX: Don't preclude handling different sized sigset_t's.  */
 	if (sigsetsize != sizeof(sigset_t))
 		return -EINVAL;
 
@@ -580,7 +581,7 @@ handle_signal(unsigned long sig, struct k_sigaction *ka,
  * want to handle. Thus you cannot kill init even with a SIGKILL even by
  * mistake.
  */
-int do_signal(struct pt_regs *regs, sigset_t *oldset)
+int fastcall do_signal(struct pt_regs *regs, sigset_t *oldset)
 {
 	siginfo_t info;
 	struct k_sigaction *ka;

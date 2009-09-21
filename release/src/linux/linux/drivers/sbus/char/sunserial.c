@@ -1,4 +1,4 @@
-/* $Id: sunserial.c,v 1.1.1.4 2003/10/14 08:08:35 sparq Exp $
+/* $Id: sunserial.c,v 1.79.2.2 2002/01/05 01:12:31 davem Exp $
  * serial.c: Serial port driver infrastructure for the Sparc.
  *
  * Copyright (C) 1997  Eddie C. Dost  (ecd@skynet.be)
@@ -272,6 +272,7 @@ sunserial_console_termios(struct console *con)
 		if (!strcmp(buf, "false"))
 			carrier = 1;
 
+		/* XXX: this is unused below. */
 	}
 
 	if (prom_node_has_property(nd, cd_prop)) {
@@ -280,6 +281,7 @@ sunserial_console_termios(struct console *con)
 		if (!strcmp(buf, "false"))
 			rtsdtr = 0;
 
+		/* XXX: this is unused below. */
 	}
 
 no_options:
@@ -294,6 +296,7 @@ no_options:
 	s = strchr(s, ',');
 	stop = simple_strtoul(++s, 0, 0);
 	s = strchr(s, ',');
+	/* XXX handshake is not handled here. */
 
 	switch (baud) {
 		case 150: cflag |= B150; break;

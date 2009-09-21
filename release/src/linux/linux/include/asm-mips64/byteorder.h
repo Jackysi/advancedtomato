@@ -18,9 +18,9 @@
 
 #endif /* __GNUC__ */
 
-#if defined(__MIPSEB__)
+#if defined (__MIPSEB__)
 #  include <linux/byteorder/big_endian.h>
-#elif defined(__MIPSEL__)
+#elif defined (__MIPSEL__)
 #  include <linux/byteorder/little_endian.h>
 #else
 #  error "MIPS, but neither __MIPSEB__, nor __MIPSEL__???"

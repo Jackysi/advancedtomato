@@ -502,11 +502,8 @@ static void isicom_bottomhalf(void * data)
 	
 	if (!tty)
 		return;
-	
-	if ((tty->flags & (1 << TTY_DO_WRITE_WAKEUP)) &&
-	    tty->ldisc.write_wakeup)
-		(tty->ldisc.write_wakeup)(tty);
-	wake_up_interruptible(&tty->write_wait);
+
+	tty_wakeup(tty);	
 } 		
  		
 /* main interrupt handler routine */ 		
@@ -1199,8 +1196,8 @@ static void isicom_close(struct tty_struct * tty, struct file * filp)
 	isicom_shutdown_port(port);
 	if (tty->driver.flush_buffer)
 		tty->driver.flush_buffer(tty);
-	if (tty->ldisc.flush_buffer)
-		tty->ldisc.flush_buffer(tty);
+	
+	tty_ldisc_flush(tty);
 	tty->closing = 0;
 	port->tty = 0;
 	if (port->blocked_open) {
@@ -1226,9 +1223,15 @@ static void isicom_close(struct tty_struct * tty, struct file * filp)
 static int isicom_write(struct tty_struct * tty, int from_user,
 			const unsigned char * buf, int count)
 {
-	struct isi_port * port = (struct isi_port *) tty->driver_data;
+	struct isi_port * port;
 	unsigned long flags;
 	int cnt, total = 0;
+
+	if (!tty)
+		return 0;
+	
+	port = (struct isi_port *) tty->driver_data;
+	
 #ifdef ISICOM_DEBUG
 	printk(KERN_DEBUG "ISICOM: isicom_write for port%d: %d bytes.\n",
 			port->channel+1, count);
@@ -1236,7 +1239,7 @@ static int isicom_write(struct tty_struct * tty, int from_user,
 	if (isicom_paranoia_check(port, tty->device, "isicom_write"))
 		return 0;
 	
-	if (!tty || !port->xmit_buf || !tmp_buf)
+	if (!port->xmit_buf || !tmp_buf)
 		return 0;
 	if (from_user)
 		down(&tmp_buf_sem); /* acquire xclusive access to tmp_buf */
@@ -1284,13 +1287,18 @@ static int isicom_write(struct tty_struct * tty, int from_user,
 /* put_char et all */
 static void isicom_put_char(struct tty_struct * tty, unsigned char ch)
 {
-	struct isi_port * port = (struct isi_port *) tty->driver_data;
+	struct isi_port * port;
 	unsigned long flags;
+
+	if (!tty)
+		return;
+
+	port = (struct isi_port *) tty->driver_data;
 	
 	if (isicom_paranoia_check(port, tty->device, "isicom_put_char"))
 		return;
 	
-	if (!tty || !port->xmit_buf)
+	if (!port->xmit_buf)
 		return;
 #ifdef ISICOM_DEBUG
 	printk(KERN_DEBUG "ISICOM: put_char, port %d, char %c.\n", port->channel+1, ch);
@@ -1639,7 +1647,7 @@ static void do_isicom_hangup(void * data)
 	
 	tty = port->tty;
 	if (tty)
-		tty_hangup(tty);	
+		tty_hangup(tty);	/* FIXME: module removal race here - AKPM */
 	MOD_DEC_USE_COUNT;
 }
 
@@ -1670,10 +1678,7 @@ static void isicom_flush_buffer(struct tty_struct * tty)
 	port->xmit_cnt = port->xmit_head = port->xmit_tail = 0;
 	restore_flags(flags);
 	
-	wake_up_interruptible(&tty->write_wait);
-	if ((tty->flags & (1 << TTY_DO_WRITE_WAKEUP)) &&
-	    tty->ldisc.write_wakeup)
-		(tty->ldisc.write_wakeup)(tty);
+	tty_wakeup(tty);
 }
 
 
@@ -2016,7 +2021,7 @@ int init_module(void)
 	retval=misc_register(&isiloader_device);
 	if (retval<0) {
 		printk(KERN_ERR "ISICOM: Unable to register firmware loader driver.\n");
-		return -EIO;
+		return retval;
 	}
 	
 	if (!isicom_init()) {

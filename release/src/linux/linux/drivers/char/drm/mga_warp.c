@@ -27,8 +27,11 @@
  *    Gareth Hughes <gareth@valinux.com>
  */
 
+
 #include "mga.h"
 #include "drmP.h"
+#include "drm.h"
+#include "mga_drm.h"
 #include "mga_drv.h"
 #include "mga_ucode.h"
 
@@ -177,6 +180,8 @@ int mga_warp_init( drm_mga_private_t *dev_priv )
 {
 	u32 wmisc;
 
+	/* FIXME: Get rid of these damned magic numbers...
+	 */
 	switch ( dev_priv->chipset ) {
 	case MGA_CARD_TYPE_G400:
 		MGA_WRITE( MGA_WIADDR2, MGA_WMODE_SUSPEND );

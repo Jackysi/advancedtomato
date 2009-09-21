@@ -1,7 +1,4 @@
 /*
- * BK Id: %F% %I% %G% %U% %#%
- */
-/*
  * linux/arch/m68k/amiga/amiints.c -- Amiga Linux interrupt handling code
  *
  * This file is subject to the terms and conditions of the GNU General Public

@@ -1,4 +1,4 @@
-/* $Id: io_se.c,v 1.1.1.4 2003/10/14 08:07:47 sparq Exp $
+/* $Id: io_se.c,v 1.1.1.1.2.1 2002/02/26 11:42:29 gniibe Exp $
  *
  * linux/arch/sh/kernel/io_se.c
  *
@@ -22,6 +22,7 @@ int sh_pcic_io_dummy;
 
 static inline void delay(void)
 {
+	ctrl_inw(0xa0000000);
 	ctrl_inw(0xa0000000);
 }
 
@@ -234,6 +235,10 @@ sh_isa_mmap(__u32 start, __u32 length, __u32 offset)
 
 	idx = start >> 12;
 	sh_isa_memmap[idx] = 0xb8000000 + (offset &~ 0xfff);
+#if 0
+	printk("sh_isa_mmap: start %x len %x offset %x (idx %x paddr %x)\n",
+	       start, length, offset, idx, sh_isa_memmap[idx]);
+#endif
 	return 0;
 }
 

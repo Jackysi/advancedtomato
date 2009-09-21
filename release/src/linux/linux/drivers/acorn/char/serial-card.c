@@ -27,106 +27,110 @@
  */
 #include <linux/module.h>
 #include <linux/types.h>
-#include <linux/serial.h>
+#include <linux/tty.h>
+#include <linux/serial_core.h>
 #include <linux/errno.h>
+#include <linux/ioport.h>
+#include <linux/slab.h>
 #include <linux/init.h>
 
+#include <asm/io.h>
 #include <asm/ecard.h>
 #include <asm/string.h>
 
-#ifndef NUM_SERIALS
-#define NUM_SERIALS	MY_NUMPORTS * MAX_ECARDS
-#endif
+struct serial_card_info {
+	unsigned int	num_ports;
+	int		ports[MAX_PORTS];
+};
 
-#ifdef MODULE
-static int __serial_ports[NUM_SERIALS];
-static int __serial_pcount;
-static int __serial_addr[NUM_SERIALS];
-static struct expansion_card *expcard[MAX_ECARDS];
-#define ADD_ECARD(ec,card) expcard[(card)] = (ec)
-#define ADD_PORT(port,addr)					\
-	do {							\
-		__serial_ports[__serial_pcount] = (port);	\
-		__serial_addr[__serial_pcount] = (addr);	\
-		__serial_pcount += 1;				\
-	} while (0)
-#else
-#define ADD_ECARD(ec,card)
-#define ADD_PORT(port,addr)
-#endif
-
-static const card_ids serial_cids[] = { MY_CARD_LIST, { 0xffff, 0xffff } };
-
-static inline int serial_register_onedev (unsigned long port, int irq)
+static inline int
+serial_register_onedev(unsigned long baddr, void *vaddr, int irq, unsigned int baud_base)
 {
-    struct serial_struct req;
+	struct serial_struct req;
 
-    memset(&req, 0, sizeof(req));
-    req.baud_base = MY_BAUD_BASE;
-    req.irq = irq;
-    req.port = port;
-    req.flags = 0;
+	memset(&req, 0, sizeof(req));
+	req.irq 		= irq;
+	req.flags		= UPF_AUTOPROBE | UPF_RESOURCES |
+				  UPF_SHARE_IRQ;
+	req.baud_base		= baud_base;
+	req.io_type		= UPIO_MEM;
+	req.iomem_base		= vaddr;
+	req.iomem_reg_shift	= 2;
+	req.iomap_base		= baddr;
 
-    return register_serial(&req);
+	return register_serial(&req);
 }
 
-static int __init INIT (void)
+static int __devinit
+serial_card_probe(struct expansion_card *ec, const struct ecard_id *id)
 {
-    int card = 0;
+	struct serial_card_info *info;
+	struct serial_card_type *type = id->data;
+	unsigned long bus_addr;
+	unsigned char *virt_addr;
+	unsigned int port;
 
-    ecard_startfind ();
+	info = kmalloc(sizeof(struct serial_card_info), GFP_KERNEL);
+	if (!info)
+		return -ENOMEM;
 
-    do {
-	struct expansion_card *ec;
-	unsigned long cardaddr;
-	int port;
+	memset(info, 0, sizeof(struct serial_card_info));
+	info->num_ports = type->num_ports;
 
-	ec = ecard_find (0, serial_cids);
-	if (!ec)
-	    break;
+	ecard_set_drvdata(ec, info);
 
-	cardaddr = MY_BASE_ADDRESS(ec);
-
-	for (port = 0; port < MY_NUMPORTS; port ++) {
-	    unsigned long address;
-	    int line;
-
-	    address = MY_PORT_ADDRESS(port, cardaddr);
-
-	    line = serial_register_onedev (address, ec->irq);
-	    if (line < 0)
-		break;
-	    ADD_PORT(line, address);
+	bus_addr = ec->resource[type->type].start;
+	virt_addr = ioremap(bus_addr, ec->resource[type->type].end - bus_addr + 1);
+	if (!virt_addr) {
+		kfree(info);
+		return -ENOMEM;
 	}
 
-	if (port) {
-	    ecard_claim (ec);
-	    ADD_ECARD(ec, card);
-	} else
-	    break;
-    } while (++card < MAX_ECARDS);
-    return card ? 0 : -ENODEV;
+	for (port = 0; port < info->num_ports; port ++) {
+		unsigned long baddr = bus_addr + type->offset[port];
+		unsigned char *vaddr = virt_addr + type->offset[port];
+
+		info->ports[port] = serial_register_onedev(baddr, vaddr,
+						ec->irq, type->baud_base);
+	}
+
+	return 0;
 }
 
-static void __exit EXIT (void)
+static void __devexit serial_card_remove(struct expansion_card *ec)
 {
-#ifdef MODULE
-    int i;
+	struct serial_card_info *info = ecard_get_drvdata(ec);
+	int i;
 
-    for (i = 0; i < __serial_pcount; i++) {
-	unregister_serial(__serial_ports[i]);
-	release_region(__serial_addr[i], 8);
-    }
+	ecard_set_drvdata(ec, NULL);
 
-    for (i = 0; i < MAX_ECARDS; i++)
-	if (expcard[i])
-	    ecard_release (expcard[i]);
-#endif
+	for (i = 0; i < info->num_ports; i++)
+		if (info->ports[i] > 0)
+			unregister_serial(info->ports[i]);
+
+	kfree(info);
+}
+
+static struct ecard_driver serial_card_driver = {
+	.probe		= serial_card_probe,
+	.remove 	= __devexit_p(serial_card_remove),
+	.id_table	= serial_cids,
+};
+
+static int __init serial_card_init(void)
+{
+	return ecard_register_driver(&serial_card_driver);
+}
+
+static void __exit serial_card_exit(void)
+{
+	ecard_remove_driver(&serial_card_driver);
 }
 
 EXPORT_NO_SYMBOLS;
 
+MODULE_AUTHOR("Russell King");
 MODULE_LICENSE("GPL");
 
-module_init(INIT);
-module_exit(EXIT);
+module_init(serial_card_init);
+module_exit(serial_card_exit);

@@ -12,9 +12,10 @@ O_TARGET := dec.o
 
 all: dec.o
 
-export-objs := rtc-dec.o setup.o wbflush.o
-obj-y	 := int-handler.o ioasic-irq.o kn02-irq.o reset.o rtc-dec.o setup.o \
-	time.o
+export-objs	:= rtc-dec.o setup.o wbflush.o
+
+obj-y		:= ecc-berr.o int-handler.o ioasic-irq.o kn02-irq.o reset.o \
+		   rtc-dec.o setup.o time.o
 
 obj-$(CONFIG_PROM_CONSOLE)	+= promcon.o
 obj-$(CONFIG_CPU_HAS_WB)	+= wbflush.o

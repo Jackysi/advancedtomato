@@ -9,4 +9,4 @@ vmlinux.gz: $(TOPDIR)/vmlinux
 	gzip -vf9 vmlinux
 
 clean:
-	rm -f sImage vmapus vmlinux* miboot* zImage* zvmlinux*
+	rm -f sImage vmapus vmlinux* miboot* zImage* zvmlinux* uImage

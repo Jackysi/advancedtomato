@@ -1,4 +1,4 @@
-/* $Id: tpam_main.c,v 1.1.1.4 2003/10/14 08:08:14 sparq Exp $
+/* $Id: tpam_main.c,v 1.1.2.2 2001/12/09 18:45:14 kai Exp $
  *
  * Turbo PAM ISDN driver for Linux. (Kernel Driver - main routines)
  *

@@ -256,7 +256,6 @@ static int bfs_add_entry(struct inode * dir, const char * name, int namelen, int
 	struct buffer_head * bh;
 	struct bfs_dirent * de;
 	int block, sblock, eblock, off;
-	kdev_t dev;
 	int i;
 
 	dprintf("name=%s, namelen=%d\n", name, namelen);
@@ -266,7 +265,6 @@ static int bfs_add_entry(struct inode * dir, const char * name, int namelen, int
 	if (namelen > BFS_NAMELEN)
 		return -ENAMETOOLONG;
 
-	dev = dir->i_dev;
 	sblock = dir->iu_sblock;
 	eblock = dir->iu_eblock;
 	for (block=sblock; block<=eblock; block++) {
@@ -308,11 +306,9 @@ static struct buffer_head * bfs_find_entry(struct inode * dir,
 {
 	unsigned long block, offset;
 	struct buffer_head * bh;
-	struct bfs_sb_info * info;
 	struct bfs_dirent * de;
 
 	*res_dir = NULL;
-	info = &dir->i_sb->u.bfs_sb;
 	if (namelen > BFS_NAMELEN)
 		return NULL;
 	bh = NULL;

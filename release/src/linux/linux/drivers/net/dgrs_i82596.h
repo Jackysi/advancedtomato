@@ -1,7 +1,7 @@
 /*
  *	i82596 ethernet controller bits and structures (little endian)
  *
- *	$Id: dgrs_i82596.h,v 1.1.1.4 2003/10/14 08:08:20 sparq Exp $
+ *	$Id: i82596.h,v 1.8 1996/09/03 11:19:03 rick Exp $
  */
 
 /************************************************************************/
@@ -76,7 +76,13 @@ typedef volatile struct
 
 	/* Application defined data follows structure... */
 
+#if 0	/* We don't use these intel defined ones */
+		uchar			addr[6];
+		ushort			len;
+		uchar			data[1];
+#else
 		ulong		dstchan;/* Used by multi-NIC mode */
+#endif
 } I596_TFD;
 
 #define	I596_TFD_NOCRC	0x0010	/* cmd: No CRC insertion */

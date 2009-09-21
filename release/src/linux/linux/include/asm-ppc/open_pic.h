@@ -1,15 +1,12 @@
 /*
- * BK Id: %F% %I% %G% %U% %#%
- */
-/*
- *  arch/ppc/kernel/open_pic.h -- OpenPIC Interrupt Handling
+ *  include/asm-ppc/open_pic.h -- OpenPIC Interrupt Handling
  *
  *  Copyright (C) 1997 Geert Uytterhoeven
  *
  *  This file is subject to the terms and conditions of the GNU General Public
  *  License.  See the file COPYING in the main directory of this archive
  *  for more details.
- *  
+ *
  */
 
 #ifndef _PPC_KERNEL_OPEN_PIC_H
@@ -42,7 +39,10 @@ extern void* OpenPIC_Addr;
 
 /* Exported functions */
 extern void openpic_set_sources(int first_irq, int num_irqs, void *isr);
-extern void openpic_init(int, int, unsigned char *, int);
+extern void openpic_init(int linux_irq_offset);
+extern void openpic_init_nmi_irq(u_int irq);
+extern void openpic_hookup_cascade(u_int irq, char *name,
+				   int (*cascade_fn)(struct pt_regs *));
 extern u_int openpic_irq(void);
 extern void openpic_eoi(void);
 extern void openpic_request_IPIs(void);
@@ -56,9 +56,9 @@ extern void smp_openpic_message_pass(int target, int msg, unsigned long data,
 
 extern inline int openpic_to_irq(int irq)
 {
-	/* IRQ 0 usually means 'disabled'.. don't mess with it 
-	 * exceptions to this (sandpoint maybe?) 
-	 * shouldn't use openpic_to_irq 
+	/* IRQ 0 usually means 'disabled'.. don't mess with it
+	 * exceptions to this (sandpoint maybe?)
+	 * shouldn't use openpic_to_irq
 	 */
 	if (irq != 0){
 		return irq += NUM_8259_INTERRUPTS;

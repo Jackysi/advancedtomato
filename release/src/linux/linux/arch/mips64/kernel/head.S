@@ -91,6 +91,21 @@ EXPORT(_stext)
 	__INIT
 
 NESTED(kernel_entry, 16, sp)			# kernel entry point
+	.set	push
+	/*
+	 * For the moment disable interrupts, mark the kernel mode and
+	 * set ST0_KX so that the CPU does not spit fire when using
+	 * 64-bit addresses.  A full initialization of the CPU's status
+	 * register is done later in per_cpu_trap_init().
+	 */
+	mfc0	t0, CP0_STATUS
+	or	t0, ST0_CU0|ST0_KX|0x1f
+	xor	t0, 0x1f
+	mtc0	t0, CP0_STATUS
+
+	.set	noreorder
+	sll	zero,3				# ehb
+	.set	reorder
 
 	ori	sp, 0xf				# align stack on 16 byte.
 	xori	sp, 0xf
@@ -103,13 +118,8 @@ NESTED(kernel_entry, 16, sp)			# kernel entry point
 
 	ARC64_TWIDDLE_PC
 
-	CLI					# disable interrupts
-
-	PTR_LA	$28, init_task_union		# init current pointer
-	daddiu	sp, $28, KERNEL_STACK_SIZE-32
-	set_saved_sp	sp, t0
-
-	/* The firmware/bootloader passes argc/argp/envp
+	/*
+	 * The firmware/bootloader passes argc/argp/envp
 	 * to us as arguments.  But clear bss first because
 	 * the romvec and other important info is stored there
 	 * by prom_init().
@@ -122,9 +132,13 @@ NESTED(kernel_entry, 16, sp)			# kernel entry point
 	sd	zero, (t0)
 	bne	t0, t1, 1b
 
+	PTR_LA	$28, init_task_union		# init current pointer
+	daddiu	sp, $28, KERNEL_STACK_SIZE-32
+	set_saved_sp	sp, t0, t1
 	dsubu	sp, 4*SZREG			# init stack pointer
 
 	j	init_arch
+	.set	pop
 	END(kernel_entry)
 
 #ifdef CONFIG_SMP
@@ -133,9 +147,26 @@ NESTED(kernel_entry, 16, sp)			# kernel entry point
  * function after setting up the stack and gp registers.
  */
 NESTED(smp_bootstrap, 16, sp)
+	.set	push
+	/*
+	 * For the moment disable interrupts and bootstrap exception
+	 * vectors, mark the kernel mode and set ST0_KX so that the CPU
+	 * does not spit fire when using 64-bit addresses.  A full
+	 * initialization of the CPU's status register is done later in
+	 * per_cpu_trap_init().
+	 */
+	mfc0	t0, CP0_STATUS
+	or	t0, ST0_CU0|ST0_BEV|ST0_KX|0x1f
+	xor	t0, ST0_BEV|0x1f
+	mtc0	t0, CP0_STATUS
+
+	.set	noreorder
+	sll	zero,3				# ehb
+	.set	reorder
+
 #ifdef CONFIG_SGI_IP27
 	GET_NASID_ASM	t1
-	li	t0, KLDIR_OFFSET + (KLI_KERN_VARS * KLDIR_ENT_SIZE) + \
+	dli	t0, KLDIR_OFFSET + (KLI_KERN_VARS * KLDIR_ENT_SIZE) + \
 		    KLDIR_OFF_POINTER + K0BASE
 	dsll	t1, NASID_SHFT
 	or	t0, t0, t1
@@ -146,21 +177,8 @@ NESTED(smp_bootstrap, 16, sp)
 	ARC64_TWIDDLE_PC
 #endif /* CONFIG_SGI_IP27 */
 
-	CLI
-
-	/*
-	 * For the moment set ST0_KU so the CPU will not spit fire when
-	 * executing 64-bit instructions.  The full initialization of the
-	 * CPU's status register is done later in per_cpu_trap_init().
-	 */
-        mfc0	t0, CP0_STATUS
-        or	t0, ST0_KX
-	mtc0	t0, CP0_STATUS
-
-	set_saved_sp	sp, t0
-
 	jal	start_secondary			# XXX: IP27: cboot
-
+	.set	pop
 	END(smp_bootstrap)
 #endif /* CONFIG_SMP */
 
@@ -178,9 +196,9 @@ NESTED(smp_bootstrap, 16, sp)
 	.data
 	.align	12
 
-	page	swapper_pg_dir, 1
-	page	invalid_pte_table, 0
-	page	invalid_pmd_table, 1
+	page	swapper_pg_dir, _PGD_ORDER
+	page	invalid_pmd_table, _PMD_ORDER
+	page	invalid_pte_table, _PTE_ORDER
 	page	kptbl, _PGD_ORDER
 	.globl	ekptbl
 	page	kpmdtbl, 0

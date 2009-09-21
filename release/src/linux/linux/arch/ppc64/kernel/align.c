@@ -21,6 +21,7 @@
 #include <asm/uaccess.h>
 #include <asm/system.h>
 #include <asm/cache.h>
+#include <asm/cputable.h>
 
 struct aligninfo {
 	unsigned char len;
@@ -238,7 +239,7 @@ fix_alignment(struct pt_regs *regs)
 	dsisr = regs->dsisr;
 
 	/* Power4 doesn't set DSISR for an alignment interrupt */
-	if (__is_processor(PV_POWER4) || __is_processor(PV_POWER4p))
+	if (cur_cpu_spec->cpu_features & CPU_FTR_NODSISRALIGN)
 		dsisr = make_dsisr( *((unsigned *)regs->nip) );
 
 	/* extract the operation and registers from the dsisr */
@@ -306,6 +307,7 @@ fix_alignment(struct pt_regs *regs)
 				/* Doing stfs, have to convert to single */
 				enable_kernel_fp();
 				cvt_df(&current->thread.fpr[reg], (float *)&data.v[4], &current->thread.fpscr);
+				disable_kernel_fp();
 			}
 			else
 				data.dd = current->thread.fpr[reg];
@@ -339,6 +341,7 @@ fix_alignment(struct pt_regs *regs)
 				/* Doing lfs, have to convert to double */
 				enable_kernel_fp();
 				cvt_fd((float *)&data.v[4], &current->thread.fpr[reg], &current->thread.fpscr);
+				disable_kernel_fp();
 			}
 			else
 				current->thread.fpr[reg] = data.dd;

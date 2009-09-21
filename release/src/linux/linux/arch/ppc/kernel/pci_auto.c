@@ -1,16 +1,14 @@
 /*
  * arch/ppc/kernel/pci_auto.c
- * 
+ *
  * PCI autoconfiguration library
  *
  * Author: Matt Porter <mporter@mvista.com>
  *
- * Copyright 2001 MontaVista Software Inc.
- *
- * This program is free software; you can redistribute  it and/or modify it
- * under  the terms of  the GNU General Public License as published by the
- * Free Software Foundation;  either version 2 of the  License, or (at your
- * option) any later version.
+ * 2001 (c) MontaVista, Software, Inc.  This file is licensed under
+ * the terms of the GNU General Public License version 2.  This program
+ * is licensed "as is" without any warranty of any kind, whether express
+ * or implied.
  */
 
 /*
@@ -82,7 +80,7 @@ void __init pciauto_setup_bars(struct pci_controller *hose,
 			PCI_BASE_ADDRESS_MEM_TYPE_64)
 				found_mem64 = 1;
 
-			addr_mask = PCI_BASE_ADDRESS_MEM_MASK;		
+			addr_mask = PCI_BASE_ADDRESS_MEM_MASK;
 			upper_limit = &pciauto_upper_memspc;
 			DBG("PCI Autoconfig: BAR 0x%x, Mem ", bar);
 		}
@@ -106,7 +104,7 @@ void __init pciauto_setup_bars(struct pci_controller *hose,
 		 * If we are a 64-bit decoder then increment to the
 		 * upper 32 bits of the bar and force it to locate
 		 * in the lower 4GB of memory.
-		 */ 
+		 */
 		if (found_mem64) {
 			bar += 4;
 			early_write_config_dword(hose,
@@ -245,7 +243,7 @@ void __init pciauto_postscan_setup_bridge(struct pci_controller *hose,
 			pci_devfn,
 			PCI_IO_BASE_UPPER16,
 			pciauto_upper_iospc >> 16);
-	
+
 	/* Enable memory and I/O accesses, enable bus master */
 	early_read_config_dword(hose,
 			current_bus,
@@ -331,9 +329,9 @@ void __init pciauto_postscan_setup_cardbus_bridge(struct pci_controller *hose,
 	/*
 	 * Reserve an additional 4MB for mem space and 16KB for
 	 * I/O space.  This should cover any additional space
-	 * requirement of unusual CardBus devices with 
+	 * requirement of unusual CardBus devices with
 	 * additional bridges that can consume more address space.
-	 * 
+	 *
 	 * Although pcmcia-cs currently will reprogram bridge
 	 * windows, the goal is to add an option to leave them
 	 * alone and use the bridge window ranges as the regions
@@ -361,7 +359,7 @@ void __init pciauto_postscan_setup_cardbus_bridge(struct pci_controller *hose,
 			pci_devfn,
 			0x2c,
 			pciauto_upper_iospc);
-	
+
 	/* Enable memory and I/O accesses, enable bus master */
 	early_read_config_dword(hose,
 			current_bus,

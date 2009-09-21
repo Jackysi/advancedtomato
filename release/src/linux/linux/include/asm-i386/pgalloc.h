@@ -18,7 +18,7 @@
  * Allocate and free page tables.
  */
 
-#if defined(CONFIG_X86_PAE)
+#if defined (CONFIG_X86_PAE)
 /*
  * We can't include <linux/slab.h> here, thus these uglinesses.
  */
@@ -224,7 +224,7 @@ struct tlb_state
 {
 	struct mm_struct *active_mm;
 	int state;
-};
+} ____cacheline_aligned;
 extern struct tlb_state cpu_tlbstate[NR_CPUS];
 
 #endif /* CONFIG_SMP */

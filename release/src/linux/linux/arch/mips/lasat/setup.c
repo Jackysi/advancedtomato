@@ -7,6 +7,8 @@
  * Thomas Horsten <thh@lasat.com>
  * Copyright (C) 2000 LASAT Networks A/S.
  *
+ * Brian Murphy <brian@murphy.dk>
+ *
  * ########################################################################
  *
  *  This program is free software; you can distribute it and/or modify it
@@ -40,7 +42,6 @@
 #include <asm/irq.h>
 #include <asm/lasat/lasat.h>
 
-#include <asm/lasat/lasat_mtd.h>
 #include <linux/serial.h>
 #include <asm/serial.h>
 #include <asm/lasat/serial.h>
@@ -54,6 +55,8 @@
 #include <asm/lasat/ds1603.h>
 #include <asm/lasat/picvue.h>
 #include <asm/lasat/eeprom.h>
+
+#include "prom.h"
 
 int lasat_command_line = 0;
 void lasatint_init(void);
@@ -69,8 +72,6 @@ extern void lasat_reboot_setup(void);
 extern void pcisetup(void);
 extern void edhac_init(void *, void *, void *);
 extern void addrflt_init(void);
-
-void __init bus_error_init(void) { /* nothing */ }
 
 struct lasat_misc lasat_misc_info[N_MACHTYPES] = {
 	{(void *)KSEG1ADDR(0x1c840000), (void *)KSEG1ADDR(0x1c800000), 2},
@@ -98,27 +99,34 @@ static struct pvc_defs pvc_defs[N_MACHTYPES] = {
 	{ (void *)PVC_REG_200, PVC_DATA_SHIFT_200, PVC_DATA_M_200,
 		PVC_E_200, PVC_RW_200, PVC_RS_200 }
 };
+#endif
 
-
-static int lasat_panic_event(struct notifier_block *this,
+static int lasat_panic_display(struct notifier_block *this,
 			     unsigned long event, void *ptr)
 {
+#ifdef CONFIG_PICVUE
 	unsigned char *string = ptr;
 	if (string == NULL)
 		string = "Kernel Panic";
-	pvc_write_string(string, 0, 0);
-	if (strlen(string) > PVC_VISIBLE_CHARS)
-		pvc_write_string(&string[PVC_VISIBLE_CHARS], 0, 1);
+	pvc_dump_string(string);
+#endif
 	return NOTIFY_DONE;
 }
 
-static struct notifier_block lasat_panic_block = {
-	lasat_panic_event,
-	NULL,
-	INT_MAX /* try to do it first */
-};
-#endif
+static int lasat_panic_prom_monitor(struct notifier_block *this,
+			     unsigned long event, void *ptr)
+{
+	prom_monitor();
+	return NOTIFY_DONE;
+}
 
+static struct notifier_block lasat_panic_block[] = 
+{
+	{ lasat_panic_display, NULL, INT_MAX },
+	{ lasat_panic_prom_monitor, NULL, INT_MIN }
+};
+
+#ifdef CONFIG_BLK_DEV_IDE
 static int lasat_ide_default_irq(ide_ioreg_t base) {
 	return 0;
 }
@@ -126,10 +134,11 @@ static int lasat_ide_default_irq(ide_ioreg_t base) {
 static ide_ioreg_t lasat_ide_default_io_base(int index) {
 	return 0;
 }
+#endif
 
 static void lasat_time_init(void)
 {
-	mips_counter_frequency = lasat_board_info.li_cpu_hz / 2;
+	mips_hpt_frequency = lasat_board_info.li_cpu_hz / 2;
 }
 
 static void lasat_timer_setup(struct irqaction *irq)
@@ -137,7 +146,7 @@ static void lasat_timer_setup(struct irqaction *irq)
 
 	write_c0_compare(
 		read_c0_count() + 
-		mips_counter_frequency / HZ);
+		mips_hpt_frequency / HZ);
 	change_c0_status(ST0_IM, IE_IRQ0 | IE_IRQ5);
 }
 
@@ -176,13 +185,15 @@ void __init serial_init(void)
 
 void __init lasat_setup(void)
 {
+	int i;
 	lasat_misc  = &lasat_misc_info[mips_machtype];
 #ifdef CONFIG_PICVUE
 	picvue = &pvc_defs[mips_machtype];
-	/* Set up panic notifier */
-
-	notifier_chain_register(&panic_notifier_list, &lasat_panic_block);
 #endif
+
+	/* Set up panic notifier */
+	for (i = 0; i < sizeof(lasat_panic_block) / sizeof(struct notifier_block); i++)
+		notifier_chain_register(&panic_notifier_list, &lasat_panic_block[i]);
 
 #ifdef CONFIG_BLK_DEV_IDE
 	ide_ops = &std_ide_ops;
@@ -205,76 +216,8 @@ void __init lasat_setup(void)
 
 	/* Switch from prom exception handler to normal mode */
 	change_c0_status(ST0_BEV,0);
+
+	prom_printf("Lasat specific initialization complete\n");
 }
 
-#ifdef CONFIG_LASAT_SERVICE
-/*
- * Called by init() (just before starting user space init program)
- */
-static int __init lasat_init(void)
-{
-	/* This is where we call service mode */
-	lasat_service();
-	for (;;) {}	/* We should never get here */
 
-	return 0;
-}
-
-__initcall(lasat_init);
-#endif
-
-unsigned long lasat_flash_partition_start(int partno)
-{
-	unsigned long dst;
-
-	switch (partno) {
-	case LASAT_MTD_BOOTLOADER:
-		dst = lasat_board_info.li_flash_service_base;
-		break;
-	case LASAT_MTD_SERVICE:
-		dst = lasat_board_info.li_flash_service_base + BOOTLOADER_SIZE;
-		break;
-	case LASAT_MTD_NORMAL:
-		dst = lasat_board_info.li_flash_normal_base;
-		break;
-	case LASAT_MTD_FS:
-		dst = lasat_board_info.li_flash_fs_base;
-		break;
-	case LASAT_MTD_CONFIG:
-		dst = lasat_board_info.li_flash_cfg_base;
-		break;
-	default:
-		dst = 0;
-		break;
-	}
-
-	return dst;
-}
-
-unsigned long lasat_flash_partition_size(int partno)
-{
-	unsigned long size;
-
-	switch (partno) {
-	case LASAT_MTD_BOOTLOADER:
-		size = BOOTLOADER_SIZE;
-		break;
-	case LASAT_MTD_SERVICE:
-		size = lasat_board_info.li_flash_service_size - BOOTLOADER_SIZE;
-		break;
-	case LASAT_MTD_NORMAL:
-		size = lasat_board_info.li_flash_normal_size;
-		break;
-	case LASAT_MTD_FS:
-		size = lasat_board_info.li_flash_fs_size;
-		break;
-	case LASAT_MTD_CONFIG:
-		size = lasat_board_info.li_flash_cfg_size;
-		break;
-	default:
-		size = 0;
-		break;
-	}
-
-	return size;
-}

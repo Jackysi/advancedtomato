@@ -32,5 +32,9 @@
 
 #define EP7211_PHYS_BASE	(0x80000000)
 
+/*
+ * XXX miket@bluemug.com: need to introduce EP7211 registers (those not
+ * present in 7212) here.
+ */
 
 #endif /* __ASM_HARDWARE_EP7211_H */

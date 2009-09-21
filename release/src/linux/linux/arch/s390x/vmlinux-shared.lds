@@ -2,7 +2,7 @@
  * Written by Martin Schwidefsky (schwidefsky@de.ibm.com)
  */
 OUTPUT_FORMAT("elf64-s390", "elf64-s390", "elf64-s390")
-OUTPUT_ARCH(s390)
+OUTPUT_ARCH(s390:64-bit)
 ENTRY(_start)
 SECTIONS
 {

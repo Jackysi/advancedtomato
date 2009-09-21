@@ -1,5 +1,5 @@
 /*
- * $Id: mtdcore.c,v 1.1.1.4 2003/10/14 08:08:17 sparq Exp $
+ * $Id: mtdcore.c,v 1.34 2003/01/24 23:32:25 dwmw2 Exp $
  *
  * Core registration and callback routines for MTD
  * drivers and users.
@@ -17,7 +17,6 @@
 #include <linux/major.h>
 #include <linux/fs.h>
 #include <linux/ioctl.h>
-#include <stdarg.h>
 #include <linux/mtd/compatmac.h>
 #ifdef CONFIG_PROC_FS
 #include <linux/proc_fs.h>
@@ -203,11 +202,74 @@ struct mtd_info *__get_mtd_device(struct mtd_info *mtd, int num)
 	return ret;
 }
 
+
+/* default_mtd_writev - default mtd writev method for MTD devices that
+ *			dont implement their own
+ */
+
+int default_mtd_writev(struct mtd_info *mtd, const struct iovec *vecs,
+		       unsigned long count, loff_t to, size_t *retlen)
+{
+	unsigned long i;
+	size_t totlen = 0, thislen;
+	int ret = 0;
+
+	if(!mtd->write) {
+		ret = -EROFS;
+	} else {
+		for (i=0; i<count; i++) {
+			if (!vecs[i].iov_len)
+				continue;
+			ret = mtd->write(mtd, to, vecs[i].iov_len, &thislen, vecs[i].iov_base);
+			totlen += thislen;
+			if (ret || thislen != vecs[i].iov_len)
+				break;
+			to += vecs[i].iov_len;
+		}
+	}
+	if (retlen)
+		*retlen = totlen;
+	return ret;
+}
+
+
+/* default_mtd_readv - default mtd readv method for MTD devices that dont
+ *		       implement their own
+ */
+
+int default_mtd_readv(struct mtd_info *mtd, struct iovec *vecs,
+		      unsigned long count, loff_t from, size_t *retlen)
+{
+	unsigned long i;
+	size_t totlen = 0, thislen;
+	int ret = 0;
+
+	if(!mtd->read) {
+		ret = -EIO;
+	} else {
+		for (i=0; i<count; i++) {
+			if (!vecs[i].iov_len)
+				continue;
+			ret = mtd->read(mtd, from, vecs[i].iov_len, &thislen, vecs[i].iov_base);
+			totlen += thislen;
+			if (ret || thislen != vecs[i].iov_len)
+				break;
+			from += vecs[i].iov_len;
+		}
+	}
+	if (retlen)
+		*retlen = totlen;
+	return ret;
+}
+
+
 EXPORT_SYMBOL(add_mtd_device);
 EXPORT_SYMBOL(del_mtd_device);
 EXPORT_SYMBOL(__get_mtd_device);
 EXPORT_SYMBOL(register_mtd_user);
 EXPORT_SYMBOL(unregister_mtd_user);
+EXPORT_SYMBOL(default_mtd_writev);
+EXPORT_SYMBOL(default_mtd_readv);
 
 /*====================================================================*/
 /* Power management code */

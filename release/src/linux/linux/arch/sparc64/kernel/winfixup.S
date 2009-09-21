@@ -1,4 +1,4 @@
-/* $Id: winfixup.S,v 1.1.1.4 2003/10/14 08:07:50 sparq Exp $
+/* $Id: winfixup.S,v 1.29 2000/03/26 09:13:48 davem Exp $
  *
  * winfixup.S: Handle cases where user stack pointer is found to be bogus.
  *
@@ -81,7 +81,7 @@ fill_fixup:
 	 * since we must preserve %l5 and %l6, see comment above.
 	 */
 	call		do_sparc64_fault
-	 add		%sp, STACK_BIAS + REGWIN_SZ, %o0
+	 add		%sp, PTREGS_OFF, %o0
 	ba,pt		%xcc, rtrap
 	 nop						! yes, nop is correct
 
@@ -159,7 +159,7 @@ window_scheisse_from_user_common:
 	ba,pt		%xcc, etrap
 	 rd		%pc, %g7
 	call		do_sparc64_fault
-	 add		%sp, STACK_BIAS + REGWIN_SZ, %o0
+	 add		%sp, PTREGS_OFF, %o0
 	ba,a,pt		%xcc, rtrap_clr_l6
 
 	.globl		winfix_mna, fill_fixup_mna, spill_fixup_mna
@@ -199,7 +199,7 @@ fill_fixup_mna:
 	mov		%o7, %g6			! Get current back.
 	sllx		%g4, 32, %g4			! Finish it.
 	call		mem_address_unaligned
-	 add		%sp, STACK_BIAS + REGWIN_SZ, %o0
+	 add		%sp, PTREGS_OFF, %o0
 
 	b,pt		%xcc, rtrap
 	 nop						! yes, the nop is correct
@@ -260,7 +260,7 @@ window_mna_from_user_common:
 	mov		%l4, %o2
 	mov		%l5, %o1
 	call		mem_address_unaligned
-	 add		%sp, STACK_BIAS + REGWIN_SZ, %o0
+	 add		%sp, PTREGS_OFF, %o0
 	ba,pt		%xcc, rtrap
 	 clr		%l6
 	
@@ -296,7 +296,7 @@ fill_fixup_dax:
 	flush		%g6				! Flush instruction buffers
 	rdpr		%pstate, %l1			! Prepare to change globals.
 	mov		%g4, %o1			! Setup args for
-	mov		%g5, %o2			! final call to data_access_exception.
+	mov		%g5, %o2			! final call to spitfire_data_access_exception.
 	andn		%l1, PSTATE_MM, %l1		! We want to be in RMO
 
 	mov		%g6, %o7			! Stash away current.
@@ -305,8 +305,8 @@ fill_fixup_dax:
 	sethi		%uhi(PAGE_OFFSET), %g4		! Set page_offset global reg.
 	mov		%o7, %g6			! Get current back.
 	sllx		%g4, 32, %g4			! Finish it.
-	call		data_access_exception
-	 add		%sp, STACK_BIAS + REGWIN_SZ, %o0
+	call		spitfire_data_access_exception
+	 add		%sp, PTREGS_OFF, %o0
 
 	b,pt		%xcc, rtrap
 	 nop						! yes, the nop is correct
@@ -366,8 +366,8 @@ window_dax_from_user_common:
 109:	 or		%g7, %lo(109b), %g7
 	mov		%l4, %o1
 	mov		%l5, %o2
-	call		data_access_exception
-	 add		%sp, STACK_BIAS + REGWIN_SZ, %o0
+	call		spitfire_data_access_exception
+	 add		%sp, PTREGS_OFF, %o0
 	ba,pt		%xcc, rtrap
 	 clr		%l6
 	

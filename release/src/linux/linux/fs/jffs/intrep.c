@@ -10,7 +10,7 @@
  * the Free Software Foundation; either version 2 of the License, or
  * (at your option) any later version.
  *
- * $Id: intrep.c,v 1.1.1.4 2003/10/14 08:09:00 sparq Exp $
+ * $Id: intrep.c,v 1.102 2001/09/23 23:28:36 dwmw2 Exp $
  *
  * Ported to Linux 2.3.x and MTD:
  * Copyright (C) 2000  Alexander Larsson (alex@cendio.se), Cendio Systems AB
@@ -310,6 +310,7 @@ flash_erase_region(struct mtd_info *mtd, loff_t start,
 	erase->len = size;
 	erase->priv = (u_long)&wait_q;
 
+	/* FIXME: Use TASK_INTERRUPTIBLE and deal with being interrupted */
 	set_current_state(TASK_UNINTERRUPTIBLE);
 	add_wait_queue(&wait_q, &wait);
 
@@ -1909,7 +1910,7 @@ retry:
 	}
 
 	if ((err = flash_safe_writev(fmc->mtd, node_iovec, iovec_cnt,
-				    pos) < 0)) {
+				    pos)) < 0) {
 		jffs_fmfree_partly(fmc, fm, 0);
 		jffs_fm_write_unlock(fmc);
 		printk(KERN_ERR "JFFS: jffs_write_node: Failed to write, "
@@ -2183,6 +2184,7 @@ jffs_delete_data(struct jffs_file *f, struct jffs_node *node)
 	}
 
 	if (n->data_offset > offset) {
+		/* XXX: Not implemented yet.  */
 		printk(KERN_WARNING "JFFS: An unexpected situation "
 		       "occurred in jffs_delete_data.\n");
 	}
@@ -2894,6 +2896,7 @@ jffs_garbage_collect_next(struct jffs_control *c)
 	  printk (KERN_ERR "JFFS: jffs_garbage_collect_next: "
                   "No file to garbage collect! "
 		  "(ino = 0x%08x)\n", node->ino);
+          /* FIXME: Free the offending node and recover. */
           err = -1;
           goto jffs_garbage_collect_next_end;
 	}
@@ -3136,9 +3139,49 @@ jffs_try_to_erase(struct jffs_control *c)
 		printk(KERN_ERR "JFFS: Erase of flash failed. "
 		       "offset = %u, erase_size = %ld\n",
 		       offset, erase_size);
+		/* XXX: Here we should allocate this area as dirty
+		   with jffs_fmalloced or something similar.  Now
+		   we just report the error.  */
 		return err;
 	}
 
+#if 0
+	/* Check if the erased sectors really got erased.  */
+	{
+		__u32 pos;
+		__u32 end;
+
+		pos = (__u32)flash_get_direct_pointer(c->sb->s_dev, offset);
+		end = pos + erase_size;
+
+		D2(printk("JFFS: Checking erased sector(s)...\n"));
+
+		flash_safe_acquire(fmc->mtd);
+
+		for (; pos < end; pos += 4) {
+			if (*(__u32 *)pos != JFFS_EMPTY_BITMASK) {
+				printk("JFFS: Erase failed! pos = 0x%lx\n",
+				       (long)pos);
+				jffs_hexdump(fmc->mtd, pos,
+					     jffs_min(256, end - pos));
+				err = -1;
+				break;
+			}
+		}
+
+		flash_safe_release(fmc->mtd);
+
+		if (!err) {
+			D2(printk("JFFS: Erase succeeded.\n"));
+		}
+		else {
+			/* XXX: Here we should allocate the memory
+			   with jffs_fmalloced() in order to prevent
+			   JFFS from using this area accidentally.  */
+			return err;
+		}
+	}
+#endif
 
 	/* Update the flash memory data structures.  */
 	jffs_sync_erase(fmc, erase_size);
@@ -3250,11 +3293,17 @@ static inline int thread_should_wake (struct jffs_control *c)
 		D2(printk(KERN_NOTICE "thread_should_wake(): Not waking. Insufficient dirty space\n"));
 		return 0;
 	}
+#if 1
 	/* If there is too much RAM used by the various structures, GC */
 	if (jffs_get_node_inuse() > (c->fmc->used_size/c->fmc->max_chunk_size * 5 + jffs_get_file_count() * 2 + 50)) {
+		/* FIXME: Provide proof that this test can be satisfied. We
+		   don't want a filesystem doing endless GC just because this
+		   condition cannot ever be false.
+		*/
 		D2(printk(KERN_NOTICE "thread_should_wake(): Waking due to number of nodes\n"));
 		return 1;
 	}
+#endif
 	/* If there are fewer free bytes than the threshold, GC */
 	if (c->fmc->free_size < c->gc_minfree_threshold) {
 		D2(printk(KERN_NOTICE "thread_should_wake(): Waking due to insufficent free space\n"));
@@ -3265,6 +3314,7 @@ static inline int thread_should_wake (struct jffs_control *c)
 		D2(printk(KERN_NOTICE "thread_should_wake(): Waking due to excessive dirty space\n"));
 		return 1;
 	}	
+	/* FIXME: What about the "There are many versions of a node" condition? */
 
 	return 0;
 }

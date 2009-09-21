@@ -158,7 +158,6 @@ extern char empty_zero_page[PAGE_SIZE];
 
 /* Bits in the page table entry */
 #define _PAGE_PRESENT   0x001          /* Software                         */
-#define _PAGE_MKCLEAN   0x002          /* Software                         */
 #define _PAGE_ISCLEAN   0x004          /* Software                         */
 #define _PAGE_RO        0x200          /* HW read-only                     */
 #define _PAGE_INVALID   0x400          /* HW invalid                       */
@@ -227,15 +226,6 @@ extern char empty_zero_page[PAGE_SIZE];
  */
 extern inline void set_pte(pte_t *pteptr, pte_t pteval)
 {
-	if ((pte_val(pteval) & (_PAGE_MKCLEAN|_PAGE_INVALID))
-	    == _PAGE_MKCLEAN) 
-	{
-		pte_val(pteval) &= ~_PAGE_MKCLEAN;
-               
-		asm volatile ("sske %0,%1" 
-				: : "d" (0), "a" (pte_val(pteval)));
-	}
-
 	*pteptr = pteval;
 }
 
@@ -391,7 +381,7 @@ extern inline pte_t pte_wrprotect(pte_t pte)
 
 extern inline pte_t pte_mkwrite(pte_t pte)
 {
-	pte_val(pte) &= ~_PAGE_RO;
+	pte_val(pte) &= ~(_PAGE_RO | _PAGE_ISCLEAN);
 	return pte;
 }
 
@@ -410,7 +400,7 @@ extern inline pte_t pte_mkdirty(pte_t pte)
 	 * sske instruction is slow. It is faster to let the
 	 * next instruction set the dirty bit.
 	 */
-	pte_val(pte) &= ~(_PAGE_MKCLEAN | _PAGE_ISCLEAN);
+	pte_val(pte) &= ~_PAGE_ISCLEAN;
 	return pte;
 }
 
@@ -491,14 +481,16 @@ extern inline pte_t mk_pte_phys(unsigned long physpage, pgprot_t pgprot)
 	pgprot_t __pgprot = (pgprot);					  \
 	unsigned long __physpage = __pa((__page-mem_map) << PAGE_SHIFT);  \
 	pte_t __pte = mk_pte_phys(__physpage, __pgprot);                  \
- 	                                                                  \
-	if (!(pgprot_val(__pgprot) & _PAGE_ISCLEAN)) {			  \
-		int __users = !!__page->buffers + !!__page->mapping;      \
-		if (__users + page_count(__page) == 1)                    \
-			pte_val(__pte) |= _PAGE_MKCLEAN;                  \
-	}								  \
 	__pte;                                                            \
 })
+
+#define SetPageUptodate(_page) \
+	do {								  \
+		struct page *__page = (_page);				  \
+		if (!test_and_set_bit(PG_uptodate, &__page->flags))	  \
+			asm volatile ("sske %0,%1" : : "d" (0),		  \
+			      "a" (__pa((__page-mem_map) << PAGE_SHIFT)));\
+	} while (0)
 
 #define pte_page(x) (mem_map+(unsigned long)((pte_val(x) >> PAGE_SHIFT)))
 

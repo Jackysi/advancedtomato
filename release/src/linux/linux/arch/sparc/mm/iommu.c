@@ -1,4 +1,4 @@
-/* $Id: iommu.c,v 1.1.1.4 2003/10/14 08:07:49 sparq Exp $
+/* $Id: iommu.c,v 1.21 2001/02/13 01:16:43 davem Exp $
  * iommu.c:  IOMMU specific routines for memory management.
  *
  * Copyright (C) 1995 David S. Miller  (davem@caip.rutgers.edu)
@@ -188,7 +188,7 @@ static void iommu_get_scsi_sgl_pflush(struct scatterlist *sg, int sz, struct sbu
 {
 	unsigned long page, oldpage = 0;
 
-	while(sz >= 0) {
+	while(sz != 0) {
 		sz--;
 		page = ((unsigned long) sg[sz].address) & PAGE_MASK;
 		if (oldpage == page)

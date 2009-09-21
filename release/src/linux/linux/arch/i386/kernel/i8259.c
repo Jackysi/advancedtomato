@@ -12,6 +12,7 @@
 #include <linux/init.h>
 #include <linux/kernel_stat.h>
 
+#include <asm/acpi.h>
 #include <asm/atomic.h>
 #include <asm/system.h>
 #include <asm/io.h>
@@ -95,13 +96,6 @@ BUILD_SMP_INTERRUPT(call_function_interrupt,CALL_FUNCTION_VECTOR)
 BUILD_SMP_TIMER_INTERRUPT(apic_timer_interrupt,LOCAL_TIMER_VECTOR)
 BUILD_SMP_INTERRUPT(error_interrupt,ERROR_APIC_VECTOR)
 BUILD_SMP_INTERRUPT(spurious_interrupt,SPURIOUS_APIC_VECTOR)
-
-#if defined(CONFIG_KERNPROF)
-/*
- * We use the performance-monitoring counter overflow interrupt for profiling
- */
-BUILD_SMP_TIMER_INTERRUPT(apic_perfctr_overflow_interrupt, PERFCTR_OVFL_VECTOR)
-#endif
 #endif
 
 #define IRQ(x,y) \
@@ -494,11 +488,6 @@ void __init init_IRQ(void)
 	/* IPI vectors for APIC spurious and error interrupts */
 	set_intr_gate(SPURIOUS_APIC_VECTOR, spurious_interrupt);
 	set_intr_gate(ERROR_APIC_VECTOR, error_interrupt);
-
-#if defined(CONFIG_KERNPROF)
-	/* self generated IPI for performance counter overflow */
-	set_intr_gate(PERFCTR_OVFL_VECTOR, apic_perfctr_overflow_interrupt);
-#endif
 #endif
 
 	/*
@@ -510,7 +499,8 @@ void __init init_IRQ(void)
 	outb(LATCH >> 8 , 0x40);	/* MSB */
 
 #ifndef CONFIG_VISWS
-	setup_irq(2, &irq2);
+	if (!acpi_ioapic)
+		setup_irq(2, &irq2);
 #endif
 
 	/*

@@ -599,8 +599,6 @@ err_unmap:
 u32 *
 nfs3_decode_dirent(u32 *p, struct nfs_entry *entry, int plus)
 {
-	struct nfs_entry old = *entry;
-
 	if (!*p++) {
 		if (!*p)
 			return ERR_PTR(-EAGAIN);
@@ -616,20 +614,12 @@ nfs3_decode_dirent(u32 *p, struct nfs_entry *entry, int plus)
 	p = xdr_decode_hyper(p, &entry->cookie);
 
 	if (plus) {
-		p = xdr_decode_post_op_attr(p, &entry->fattr);
+		struct nfs_fattr fattr;
+		p = xdr_decode_post_op_attr(p, &fattr);
 		/* In fact, a post_op_fh3: */
 		if (*p++) {
-			p = xdr_decode_fhandle(p, &entry->fh);
-			/* Ugh -- server reply was truncated */
-			if (p == NULL) {
-				dprintk("NFS: FH truncated\n");
-				*entry = old;
-				return ERR_PTR(-EAGAIN);
-			}
-		} else {
-			/* If we don't get a file handle, the attrs
-			 * aren't worth a lot. */
-			entry->fattr.valid = 0;
+			struct nfs_fh fh;
+			p = xdr_decode_fhandle(p, &fh);
 		}
 	}
 
@@ -769,8 +759,11 @@ nfs3_xdr_readlinkres(struct rpc_rqst *req, u32 *p, struct nfs_fattr *fattr)
 	strlen = (u32*)kmap(rcvbuf->pages[0]);
 	/* Convert length of symlink */
 	len = ntohl(*strlen);
-	if (len > rcvbuf->page_len)
-		len = rcvbuf->page_len;
+	if (len >= rcvbuf->page_len - sizeof(u32)) {
+		dprintk("NFS: server returned giant symlink!\n");
+		kunmap(rcvbuf->pages[0]);
+		return -ENAMETOOLONG;
+        }
 	*strlen = len;
 	/* NULL terminate the string we got */
 	string = (char *)(strlen + 1);

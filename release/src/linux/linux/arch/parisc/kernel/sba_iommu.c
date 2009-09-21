@@ -1,4 +1,22 @@
-
+/*
+**  System Bus Adapter (SBA) I/O MMU manager
+**
+**	(c) Copyright 2000 Grant Grundler
+**	(c) Copyright 2000 Hewlett-Packard Company
+**
+**	Portions (c) 1999 Dave S. Miller (from sparc64 I/O MMU code)
+**
+**	This program is free software; you can redistribute it and/or modify
+**	it under the terms of the GNU General Public License as published by
+**      the Free Software Foundation; either version 2 of the License, or
+**      (at your option) any later version.
+**
+**
+** This module initializes the IOC (I/O Controller) found on B1000/C3000/
+** J5000/J7000/N-class/L-class machines and their successors.
+**
+** FIXME: add DMA hint support programming in both sba and lba modules.
+*/
 
 #include <linux/config.h>
 #include <linux/types.h>
@@ -18,7 +36,7 @@
 #include <asm/dma.h>		/* for DMA_CHUNK_SIZE */
 
 #include <asm/hardware.h>	/* for register_parisc_driver() stuff */
-#include <asm/gsc.h>		
+#include <asm/gsc.h>		/* FIXME: for gsc_read/gsc_write */
 
 #include <linux/proc_fs.h>
 #include <asm/runway.h>		/* for proc_runway_root */
@@ -245,6 +263,7 @@ static unsigned long sba_mem_ratio = 8;
 /* global count of IOMMUs in the system */
 static unsigned int global_ioc_cnt = 0;
 
+/* PA8700 (Piranha 2.2) bug workaround */
 static unsigned long piranha_bad_128k = 0;
 
 /* Looks nice and keeps the compiler happy */
@@ -437,6 +456,7 @@ sba_dump_sg( struct ioc *ioc, struct scatterlist *startsg, int nents)
 #define SBA_IOVA(ioc,iovp,offset,hint_reg) ((iovp) | (offset) | ((hint_reg)<<(ioc->hint_shift_pdir)))
 #define SBA_IOVP(ioc,iova) ((iova) & ioc->hint_mask_pdir)
 
+/* FIXME : review these macros to verify correctness and usage */
 #define PDIR_INDEX(iovp)   ((iovp)>>IOVP_SHIFT)
 #define MKIOVP(dma_hint,pide)  (dma_addr_t)((long)(dma_hint) | ((long)(pide) << IOVP_SHIFT))
 #define MKIOVA(iovp,offset) (dma_addr_t)((long)iovp | (long)offset)
@@ -792,10 +812,8 @@ sba_dma_supported( struct pci_dev *dev, u64 mask)
 		return(0);
 	}
 
-	dev->dma_mask = mask;	/* save it */
-
 	/* only support 32-bit PCI devices - no DAC support (yet) */
-	return((int) (mask == 0xffffffff));
+	return((int) (mask == 0xffffffffUL));
 }
 
 
@@ -937,6 +955,14 @@ sba_unmap_single(struct pci_dev *dev, dma_addr_t iova, size_t size, int directio
 #endif /* DELAYED_RESOURCE_CNT == 0 */
 	spin_unlock_irqrestore(&ioc->res_lock, flags);
 
+	/* XXX REVISIT for 2.5 Linux - need syncdma for zero-copy support.
+	** For Astro based systems this isn't a big deal WRT performance.
+	** As long as 2.4 kernels copyin/copyout data from/to userspace,
+	** we don't need the syncdma. The issue here is I/O MMU cachelines
+	** are *not* coherent in all cases.  May be hwrev dependent.
+	** Need to investigate more.
+	asm volatile("syncdma");	
+	*/
 }
 
 
@@ -1030,7 +1056,7 @@ sba_fill_pdir(
 			printk(KERN_DEBUG " %2d : %08lx/%05x %p/%05x\n",
 				nents,
 				(unsigned long) sg_dma_address(startsg), cnt,
-				sg_virt_address(startsg), startsg->length
+				sg_virt_addr(startsg), startsg->length
 		);
 #else
 		DBG_RUN_SG(" %d : %08lx/%05x %p/%05x\n",
@@ -1393,6 +1419,20 @@ static struct pci_dma_ops sba_ops = {
 static void
 sba_get_pat_resources(struct sba_device *sba_dev)
 {
+#if 0
+/*
+** TODO/REVISIT/FIXME: support for directed ranges requires calls to
+**      PAT PDC to program the SBA/LBA directed range registers...this
+**      burden may fall on the LBA code since it directly supports the
+**      PCI subsystem. It's not clear yet. - ggg
+*/
+PAT_MOD(mod)->mod_info.mod_pages   = PAT_GET_MOD_PAGES(temp);
+	FIXME : ???
+PAT_MOD(mod)->mod_info.dvi         = PAT_GET_DVI(temp);
+	Tells where the dvi bits are located in the address.
+PAT_MOD(mod)->mod_info.ioc         = PAT_GET_IOC(temp);
+	FIXME : ???
+#endif
 }
 
 
@@ -1558,6 +1598,7 @@ sba_ioc_init(struct parisc_device *sba, struct ioc *ioc, int ioc_num)
 		__FUNCTION__, ioc->ioc_hpa, (int) (physmem>>20),
 		iova_space_size>>20, iov_order + PAGE_SHIFT, pdir_size);
 
+	/* FIXME : DMA HINTs not used */
 	ioc->hint_shift_pdir = iov_order + PAGE_SHIFT;
 	ioc->hint_mask_pdir = ~(0x3 << (iov_order + PAGE_SHIFT));
 
@@ -1584,6 +1625,11 @@ sba_ioc_init(struct parisc_device *sba, struct ioc *ioc, int ioc_num)
 	DBG_INIT("%s() IOV base 0x%lx mask 0x%0lx\n",
 		__FUNCTION__, ioc->ibase, ioc->imask);
 
+	/*
+	** FIXME: Hint registers are programmed with default hint
+	** values during boot, so hints should be sane even if we
+	** can't reprogram them the way drivers want.
+	*/
 
 	/*
 	** setup Elroy IBASE/IMASK registers as well.
@@ -1614,6 +1660,16 @@ sba_ioc_init(struct parisc_device *sba, struct ioc *ioc, int ioc_num)
 
 
 
+/**************************************************************************
+**
+**   SBA initialization code (HW and SW)
+**
+**   o identify SBA chip itself
+**   o initialize SBA chip modes (HardFail)
+**   o initialize SBA chip modes (HardFail)
+**   o FIXME: initialize DMA hints for reasonable defaults
+**
+**************************************************************************/
 
 static void
 sba_hw_init(struct sba_device *sba_dev)
@@ -1769,7 +1825,7 @@ sba_common_init(struct sba_device *sba_dev)
 static int sba_proc_info(char *buf, char **start, off_t offset, int len)
 {
 	struct sba_device *sba_dev = sba_list;
-	struct ioc *ioc = &sba_dev->ioc[0];	
+	struct ioc *ioc = &sba_dev->ioc[0];	/* FIXME: Multi-IOC support! */
 	int total_pages = (int) (ioc->res_size << 3); /* 8 bits per byte */
 	unsigned long i = 0, avg = 0, min, max;
 
@@ -1822,6 +1878,27 @@ static int sba_proc_info(char *buf, char **start, off_t offset, int len)
 	return strlen(buf);
 }
 
+#if 0
+/* XXX too much output - exceeds 4k limit and needs to be re-written */
+static int
+sba_resource_map(char *buf, char **start, off_t offset, int len)
+{
+	struct sba_device *sba_dev = sba_list;
+	struct ioc *ioc = &sba_dev->ioc[0];	/* FIXME: Mutli-IOC suppoer! */
+	unsigned int *res_ptr = (unsigned int *)ioc->res_map;
+	int i;
+
+	buf[0] = '\0';
+	for(i = 0; i < (ioc->res_size / sizeof(unsigned int)); ++i, ++res_ptr) {
+		if ((i & 7) == 0)
+		    strcat(buf,"\n   ");
+		sprintf(buf, "%s %08x", buf, *res_ptr);
+	}
+	strcat(buf, "\n");
+
+	return strlen(buf);
+}
+#endif /* 0 */
 #endif /* CONFIG_PROC_FS */
 
 static struct parisc_device_id sba_tbl[] = {
@@ -1936,6 +2013,9 @@ sba_driver_callback(struct parisc_device *dev)
 	} else {
 		create_proc_info_entry("Reo", 0, proc_runway_root, sba_proc_info);
 	}
+#if 0
+	create_proc_info_entry("bitmap", 0, proc_runway_root, sba_resource_map);
+#endif
 #endif
 	return 0;
 }

@@ -27,6 +27,7 @@
 #include <asm/pgalloc.h>
 #include <asm/uaccess.h>
 #include <asm/mmu_context.h>
+#include <asm/processor.h>
 
 /* The idle threads do not count.. */
 int nr_threads;
@@ -38,7 +39,7 @@ int last_pid;
 
 struct task_struct *pidhash[PIDHASH_SZ];
 
-void add_wait_queue(wait_queue_head_t *q, wait_queue_t * wait)
+void fastcall add_wait_queue(wait_queue_head_t *q, wait_queue_t * wait)
 {
 	unsigned long flags;
 
@@ -48,7 +49,7 @@ void add_wait_queue(wait_queue_head_t *q, wait_queue_t * wait)
 	wq_write_unlock_irqrestore(&q->lock, flags);
 }
 
-void add_wait_queue_exclusive(wait_queue_head_t *q, wait_queue_t * wait)
+void fastcall add_wait_queue_exclusive(wait_queue_head_t *q, wait_queue_t * wait)
 {
 	unsigned long flags;
 
@@ -58,7 +59,7 @@ void add_wait_queue_exclusive(wait_queue_head_t *q, wait_queue_t * wait)
 	wq_write_unlock_irqrestore(&q->lock, flags);
 }
 
-void remove_wait_queue(wait_queue_head_t *q, wait_queue_t * wait)
+void fastcall remove_wait_queue(wait_queue_head_t *q, wait_queue_t * wait)
 {
 	unsigned long flags;
 
@@ -113,8 +114,10 @@ inside:
 						last_pid = 300;
 					next_safe = PID_MAX;
 				}
-				if(unlikely(last_pid == beginpid))
+				if(unlikely(last_pid == beginpid)) {
+					next_safe = 0;
 					goto nomorepids;
+				}
 				goto repeat;
 			}
 			if(p->pid > last_pid && next_safe > p->pid)
@@ -261,10 +264,11 @@ struct mm_struct * mm_alloc(void)
  * is dropped: either by a lazy thread or by
  * mmput. Free the page directory and the mm.
  */
-inline void __mmdrop(struct mm_struct *mm)
+void fastcall __mmdrop(struct mm_struct *mm)
 {
 	BUG_ON(mm == &init_mm);
 	pgd_free(mm->pgd);
+	check_pgt_cache();
 	destroy_context(mm);
 	free_mm(mm);
 }
@@ -447,6 +451,11 @@ static int copy_files(unsigned long clone_flags, struct task_struct * tsk)
 		goto out;
 	}
 
+	/*
+	 * Note: we may be using current for both targets (See exec.c)
+	 * This works because we cache current->files (old) as oldf. Don't
+	 * break this.
+	 */
 	tsk->files = NULL;
 	error = -ENOMEM;
 	newf = kmem_cache_alloc(files_cachep, SLAB_KERNEL);
@@ -504,8 +513,17 @@ static int copy_files(unsigned long clone_flags, struct task_struct * tsk)
 
 	for (i = open_files; i != 0; i--) {
 		struct file *f = *old_fds++;
-		if (f)
+		if (f) {
 			get_file(f);
+		} else {
+			/*
+			 * The fd may be claimed in the fd bitmap but not yet
+			 * instantiated in the files array if a sibling thread
+			 * is partway through open().  So make sure that this
+			 * fd is available to the new process.
+			 */
+                        FD_CLR(open_files - i, newf->open_fds);
+		}
 		*new_fds++ = f;
 	}
 	read_unlock(&oldf->file_lock);
@@ -536,6 +554,33 @@ out_release:
 	goto out;
 }
 
+/*
+ *	Helper to unshare the files of the current task. 
+ *	We don't want to expose copy_files internals to 
+ *	the exec layer of the kernel.
+ */
+
+int unshare_files(void)
+{
+	struct files_struct *files  = current->files;
+	int rc;
+	
+	if(!files)
+		BUG();
+		
+	/* This can race but the race causes us to copy when we don't
+	   need to and drop the copy */
+	if(atomic_read(&files->count) == 1)
+	{
+		atomic_inc(&files->count);
+		return 0;
+	}
+	rc = copy_files(0, current);
+	if(rc)
+		current->files = files;
+	return rc;
+}		
+
 static inline int copy_sighand(unsigned long clone_flags, struct task_struct * tsk)
 {
 	struct signal_struct *sig;
@@ -563,6 +608,31 @@ static inline void copy_flags(unsigned long clone_flags, struct task_struct *p)
 	if (!(clone_flags & CLONE_PTRACE))
 		p->ptrace = 0;
 	p->flags = new_flags;
+}
+
+long kernel_thread(int (*fn)(void *), void * arg, unsigned long flags)
+{
+	struct task_struct *task = current;
+	unsigned old_task_dumpable;
+	long ret;
+
+	/* lock out any potential ptracer */
+	task_lock(task);
+	if (task->ptrace) {
+		task_unlock(task);
+		return -EPERM;
+	}
+
+	old_task_dumpable = task->task_dumpable;
+	task->task_dumpable = 0;
+	task_unlock(task);
+
+	ret = arch_kernel_thread(fn, arg, flags);
+
+	/* never reached in child process, only in parent */
+	current->task_dumpable = old_task_dumpable;
+
+	return ret;
 }
 
 /*
@@ -610,6 +680,7 @@ int do_fork(unsigned long clone_flags, unsigned long stack_start,
 	 * than the amount of processes root is running. -- Rik
 	 */
 	if (atomic_read(&p->user->processes) >= p->rlim[RLIMIT_NPROC].rlim_cur
+		      && p->user != &root_user
 	              && !capable(CAP_SYS_ADMIN) && !capable(CAP_SYS_RESOURCE))
 		goto bad_fork_free;
 
@@ -688,18 +759,14 @@ int do_fork(unsigned long clone_flags, unsigned long stack_start,
 		goto bad_fork_cleanup_fs;
 	if (copy_mm(clone_flags, p))
 		goto bad_fork_cleanup_sighand;
-	if (copy_namespace(clone_flags, p))
+	retval = copy_namespace(clone_flags, p);
+	if (retval)
 		goto bad_fork_cleanup_mm;
 	retval = copy_thread(0, clone_flags, stack_start, stack_size, p, regs);
 	if (retval)
 		goto bad_fork_cleanup_namespace;
 	p->semundo = NULL;
 	
-	/* Our parent execution domain becomes current domain
-	   These must match for thread signalling to apply */
-	   
-	p->parent_exec_id = p->self_exec_id;
-
 	/* ok, now we should be set up.. */
 	p->swappable = 1;
 	p->exit_signal = clone_flags & CSIGNAL;
@@ -734,6 +801,7 @@ int do_fork(unsigned long clone_flags, unsigned long stack_start,
 	p->p_pptr = current->p_pptr;
 	if (!(clone_flags & CLONE_PARENT)) {
 		p->p_opptr = current;
+		p->parent_exec_id = p->self_exec_id;
 		if (!(p->ptrace & PT_PTRACED))
 			p->p_pptr = current;
 	}
@@ -763,6 +831,8 @@ bad_fork_cleanup_namespace:
 	exit_namespace(p);
 bad_fork_cleanup_mm:
 	exit_mm(p);
+	if (p->active_mm)
+		mmdrop(p->active_mm);
 bad_fork_cleanup_sighand:
 	exit_sighand(p);
 bad_fork_cleanup_fs:

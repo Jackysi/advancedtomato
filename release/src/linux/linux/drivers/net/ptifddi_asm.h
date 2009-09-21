@@ -1,4 +1,4 @@
-/* $Id: ptifddi_asm.h,v 1.1.1.4 2003/10/14 08:08:22 sparq Exp $ */
+/* $Id: ptifddi_asm.h,v 1.3 1997/04/16 10:27:28 jj Exp $ */
 #ifndef _PTIFDDI_ASM_H
 #define _PTIFDDI_ASM_H
 

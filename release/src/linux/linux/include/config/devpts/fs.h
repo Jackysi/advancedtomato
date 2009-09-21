@@ -1,1 +1,0 @@
-#undef  CONFIG_DEVPTS_FS

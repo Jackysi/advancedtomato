@@ -1,1 +1,0 @@
-#undef  CONFIG_MTD_CFI_LE_BYTE_SWAP

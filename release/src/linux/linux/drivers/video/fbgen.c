@@ -330,7 +330,11 @@ void fbgen_set_disp(int con, struct fb_info_gen *info)
     else
 	display->can_soft_blank = 0;
     fbhw->set_disp(&par, display, info);
+#if 0 /* FIXME: generic inverse is not supported yet */
+    display->inverse = (fix.visual == FB_VISUAL_MONO01 ? !inverse : inverse);
+#else
     display->inverse = fix.visual == FB_VISUAL_MONO01;
+#endif
 }
 
 

@@ -373,6 +373,7 @@ int emu10k1_mpuin_irqhandler(struct emu10k1_card *card)
 
 /*****************************************************************************/
 
+/* FIXME: This should be a macro */
 int sblive_miStateInit(struct emu10k1_mpuin *card_mpuin)
 {
 	card_mpuin->status = 0;	/* For MIDI running status */
@@ -386,6 +387,7 @@ int sblive_miStateInit(struct emu10k1_mpuin *card_mpuin)
 	return 0;
 }
 
+/* FIXME: This should be a macro */
 int sblive_miStateEntry(struct emu10k1_mpuin *card_mpuin, u8 data)
 {
 	return midistatefn[card_mpuin->curstate].Fn(card_mpuin, data);

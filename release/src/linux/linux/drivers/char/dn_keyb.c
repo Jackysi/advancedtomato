@@ -43,6 +43,15 @@ static int msedev;
 
 static unsigned int kbd_mode=APOLLO_KBD_MODE_KEYB;
 
+#if 0
+static void debug_keyb_timer_handler(unsigned long ignored);
+static u_char debug_buf1[4096],debug_buf2[4096],*debug_buf=&debug_buf1[0];
+static u_char *shadow_buf=&debug_buf2[0];
+static short debug_buf_count=0;
+static int debug_buf_overrun=0,debug_timer_running=0;
+static unsigned long debug_buffer_updated=0;
+static struct timer_list debug_keyb_timer = { function: debug_keyb_timer_handler };
+#endif
 
 static u_short dnplain_map[NR_KEYS] __initdata = {
 /*         ins     del     del     F1      F2      F3      F4  
@@ -257,6 +266,33 @@ static u_short dnctrl_alt_map[NR_KEYS] __initdata = {
    0xf200, 0xf200, 0xf200, 0xf200, 0xf200, 0xf200, 0xf200, 0xf200
 };
 
+#if 0
+static void debug_keyb_timer_handler(unsigned long ignored) {
+
+	unsigned long flags;
+	u_char *swap;
+	short length,i;
+
+	if (time_after(jiffies, debug_buffer_updated + 100)) {
+		save_flags(flags);
+		cli();
+		length=debug_buf_count;		
+		swap=debug_buf;	
+		debug_buf=shadow_buf;
+		shadow_buf=swap;
+		debug_buf_count=0;
+		debug_timer_running=0;
+		restore_flags(flags);
+		for(i=1;length;length--,i++)	
+			printk("%02x%c",*(swap++), (i % 25) ? ' ' : '\n');
+		printk("\n");
+	}
+	else {
+		debug_keyb_timer.expires=jiffies+10;
+		add_timer(&debug_keyb_timer);
+	}
+}
+#endif
 
 static void dn_keyb_process_key_event(unsigned char scancode) {
 
@@ -333,6 +369,19 @@ static void dn_keyb_int(int irq, void *dummy, struct pt_regs *fp) {
 		scn2681_ints=sio01.isr_imr & 3;
 		if(scn2681_ints & 2) {
 			data=sio01.rhra_thra;
+#if 0
+			if(debug_buf_count<4096) {
+				debug_buf[debug_buf_count++]=data;
+				debug_buffer_updated=jiffies;	
+				if(!debug_timer_running) {
+					debug_keyb_timer.expires=jiffies+10;
+					add_timer(&debug_keyb_timer);
+					debug_timer_running=1;
+				}
+			}
+			else
+				debug_buf_overrun=1;
+#endif
 			if(sio01.sra_csra & 0x10) {
 				printk("whaa overrun !\n");
 				continue;

@@ -17,9 +17,9 @@
  the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
 
  *
- * $Source: /home/cvsroot/wrt54g/src/linux/linux/drivers/char/ftape/lowlevel/ftape-write.c,v $
- * $Revision: 1.1.1.2 $
- * $Date: 2003/10/14 08:08:06 $
+ * $Source: /homes/cvs/ftape-stacked/ftape/lowlevel/ftape-write.c,v $
+ * $Revision: 1.3.4.1 $
+ * $Date: 1997/11/14 18:07:04 $
  *
  *      This file contains the writing code
  *      for the QIC-117 floppy-tape driver for Linux.

@@ -1,7 +1,7 @@
 /*
 	drivers/net/tulip/media.c
 
-	Maintained by Jeff Garzik <jgarzik@mandrakesoft.com>
+	Maintained by Jeff Garzik <jgarzik@pobox.com>
 	Copyright 2000,2001  The Linux Kernel Team
 	Written/copyright 1994-2001 by Donald Becker.
 
@@ -18,6 +18,7 @@
 #include <linux/mii.h>
 #include <linux/init.h>
 #include <linux/delay.h>
+#include <linux/pci.h>
 #include "tulip.h"
 
 
@@ -300,7 +301,7 @@ void tulip_select_media(struct net_device *dev, int startup)
 		case 5: case 6: {
 			u16 setup[5];
 
-			new_csr6 = 0; 
+			new_csr6 = 0; /* FIXME */
 
 			for (i = 0; i < 5; i++)
 				setup[i] = get_u16(&p[i*2 + 1]);

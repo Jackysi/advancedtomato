@@ -140,6 +140,12 @@ void __init mem_init(void)
 	totalram_pages = free_all_bootmem();
 
 	for (tmp = PAGE_OFFSET ; tmp < (unsigned long)high_memory; tmp += PAGE_SIZE) {
+#if 0
+#ifndef CONFIG_SUN3
+		if (virt_to_phys ((void *)tmp) >= mach_max_dma_address)
+			clear_bit(PG_DMA, &virt_to_page(tmp)->flags);
+#endif
+#endif
 		if (PageReserved(virt_to_page(tmp))) {
 			if (tmp >= (unsigned long)&_text
 			    && tmp < (unsigned long)&_etext)
@@ -151,6 +157,14 @@ void __init mem_init(void)
 				datapages++;
 			continue;
 		}
+#if 0
+		set_page_count(virt_to_page(tmp), 1);
+#ifdef CONFIG_BLK_DEV_INITRD
+		if (!initrd_start ||
+		    (tmp < (initrd_start & PAGE_MASK) || tmp >= initrd_end))
+#endif
+			free_page(tmp);
+#endif
 	}
 	
 #ifndef CONFIG_SUN3

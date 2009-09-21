@@ -1,4 +1,3 @@
-# BK Id: SCCS/s.Makefile 1.30 01/26/02 12:27:41 trini
 #
 # arch/ppc/boot/Makefile
 #
@@ -19,15 +18,16 @@ USE_STANDARD_AS_RULE		:= true
 
 TFTPIMAGE			= /tftpboot/zImage.prep
 ifeq ($(CONFIG_SMP),y)
-TFTPIMAGE			= $(TFTPBOOT).smp
+TFTPIMAGE			:= $(TFTPIMAGE).smp
 endif
 
 LD_ARGS				= -T ../ld.script -Ttext 0x00800000 -Bstatic
-obj-y				:= head.o ../simple/legacy.o misc.o of1275.o \
+obj-y				:= head.o ../simple/legacy.o misc.o \
 					../common/util.o ../common/string.o \
-					../common/misc-common.o
+					../common/misc-common.o \
+					../common/serial_stub.o
 OBJCOPY_ARGS			= -O elf32-powerpc
-LIBS 				= ../lib/zlib.a
+LIBS 				= ../lib/zlib.a ../of1275/of1275.a
 
 obj-$(CONFIG_SERIAL_CONSOLE)	+= ../common/ns16550.o
 obj-$(CONFIG_VGA_CONSOLE)	+= vreset.o kbd.o
@@ -39,10 +39,6 @@ OFFSET				:= ../utils/offset
 
 # Extra include search dirs
 CFLAGS_kbd.o			+= -I$(TOPDIR)/drivers/char
-AFLAGS_head.o			+= -I$(TOPDIR)/arch/$(ARCH)/kernel
-AFLAGS_../common/util.o			+= -I$(TOPDIR)/arch/$(ARCH)/kernel
-AFLAGS_../common/relocate.o	+= -I$(TOPDIR)/arch/$(ARCH)/kernel
-AFLAGS_../simple/legacy.o	+= -I$(TOPDIR)/arch/$(ARCH)/kernel
 
 all: zImage
 

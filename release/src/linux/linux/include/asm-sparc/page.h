@@ -1,4 +1,4 @@
-/* $Id: page.h,v 1.1.1.4 2003/10/14 08:09:22 sparq Exp $
+/* $Id: page.h,v 1.55 2000/10/30 21:01:41 davem Exp $
  * page.h:  Various defines and such for MMU operations on the Sparc for
  *          the Linux kernel.
  *
@@ -32,9 +32,23 @@
 
 #ifndef __ASSEMBLY__
 
+/*
+ * XXX I am hitting compiler bugs with __builtin_trap. This has
+ * hit me before and rusty was blaming his netfilter bugs on
+ * this so lets disable it. - Anton
+ */
+#if 0
+/* We need the mb()'s so we don't trigger a compiler bug - Anton */
+#define BUG() do { \
+	mb(); \
+	__builtin_trap(); \
+	mb(); \
+} while(0)
+#else
 #define BUG() do { \
 	printk("kernel BUG at %s:%d!\n", __FILE__, __LINE__); *(int *)0=0; \
 } while (0)
+#endif
 
 #define PAGE_BUG(page)	BUG()
 

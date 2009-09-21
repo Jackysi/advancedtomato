@@ -45,6 +45,11 @@ asmlinkage int sys_ptrace(long request, long pid, long addr, long data)
 	int ret;
 
 	lock_kernel();
+#if 0
+	printk("ptrace(r=%d,pid=%d,addr=%08lx,data=%08lx)\n",
+	       (int) request, (int) pid, (unsigned long) addr,
+	       (unsigned long) data);
+#endif
 	if (request == PTRACE_TRACEME) {
 		/* are we already being traced? */
 		if (current->ptrace & PT_PTRACED) {
@@ -67,7 +72,7 @@ asmlinkage int sys_ptrace(long request, long pid, long addr, long data)
 
 	ret = -EPERM;
 	if (pid == 1)		/* you may not mess with init */
-		goto out;
+		goto out_tsk;
 
 	if (request == PTRACE_ATTACH) {
 		ret = ptrace_attach(child);
@@ -89,8 +94,7 @@ asmlinkage int sys_ptrace(long request, long pid, long addr, long data)
 		if (copied != sizeof(tmp))
 			break;
 		ret = put_user(tmp,(unsigned long *) data);
-
-		goto out;
+		break;
 		}
 
 	/* Read the word at location addr in the USER area.  */
@@ -138,17 +142,16 @@ asmlinkage int sys_ptrace(long request, long pid, long addr, long data)
 			tmp = regs->lo;
 			break;
 		case FPC_CSR:
-			if (!(mips_cpu.options & MIPS_CPU_FPU))
+			if (!cpu_has_fpu)
 				tmp = child->thread.fpu.soft.sr;
 			else
 				tmp = child->thread.fpu.hard.control;
 			break;
 		case FPC_EIR: {	/* implementation / version register */
-			unsigned int flags;
+			unsigned long flags;
 
-			if (!(mips_cpu.options & MIPS_CPU_FPU)) {
+			if (!cpu_has_fpu)
 				break;
-			}
 
 			__save_flags(flags);
 			__enable_fpu();
@@ -159,10 +162,10 @@ asmlinkage int sys_ptrace(long request, long pid, long addr, long data)
 		default:
 			tmp = 0;
 			ret = -EIO;
-			goto out;
+			goto out_tsk;
 		}
 		ret = put_user(tmp, (unsigned long *) data);
-		goto out;
+		break;
 		}
 
 	case PTRACE_POKETEXT: /* write the word at location addr. */
@@ -172,7 +175,7 @@ asmlinkage int sys_ptrace(long request, long pid, long addr, long data)
 		    == sizeof(data))
 			break;
 		ret = -EIO;
-		goto out;
+		break;
 
 	case PTRACE_POKEUSR: {
 		struct pt_regs *regs;
@@ -217,7 +220,7 @@ asmlinkage int sys_ptrace(long request, long pid, long addr, long data)
 			regs->lo = data;
 			break;
 		case FPC_CSR:
-			if (!(mips_cpu.options & MIPS_CPU_FPU))
+			if (!cpu_has_fpu)
 				child->thread.fpu.soft.sr = data;
 			else
 				child->thread.fpu.hard.control = data;
@@ -272,7 +275,7 @@ asmlinkage int sys_ptrace(long request, long pid, long addr, long data)
 
 	default:
 		ret = -EIO;
-		goto out;
+		break;
 	}
 out_tsk:
 	free_task_struct(child);

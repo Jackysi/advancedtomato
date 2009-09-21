@@ -11,32 +11,12 @@
 #define _ASM_STACKFRAME_H
 
 #include <linux/config.h>
+#include <linux/threads.h>
 
 #include <asm/asm.h>
 #include <asm/offset.h>
 #include <asm/processor.h>
 #include <asm/addrspace.h>
-
-#ifndef __ASSEMBLY__
-
-#define __str2(x) #x
-#define __str(x) __str2(x)
-
-#define save_static(frame)                               \
-	__asm__ __volatile__(                            \
-		"sd\t$16,"__str(PT_R16)"(%0)\n\t"        \
-		"sd\t$17,"__str(PT_R17)"(%0)\n\t"        \
-		"sd\t$18,"__str(PT_R18)"(%0)\n\t"        \
-		"sd\t$19,"__str(PT_R19)"(%0)\n\t"        \
-		"sd\t$20,"__str(PT_R20)"(%0)\n\t"        \
-		"sd\t$21,"__str(PT_R21)"(%0)\n\t"        \
-		"sd\t$22,"__str(PT_R22)"(%0)\n\t"        \
-		"sd\t$23,"__str(PT_R23)"(%0)\n\t"        \
-		"sd\t$30,"__str(PT_R30)"(%0)\n\t"        \
-		: /* No outputs */                       \
-		: "r" (frame))
-
-#endif /* !__ASSEMBLY__ */
 
 #ifdef __ASSEMBLY__
 
@@ -49,8 +29,6 @@
 
 		.macro	SAVE_TEMP
 		mfhi	v1
-		sd	$8, PT_R8(sp)
-		sd	$9, PT_R9(sp)
 		sd	v1, PT_HI(sp)
 		mflo	v1
 		sd	$10, PT_R10(sp)
@@ -76,33 +54,23 @@
 		.endm
 
 #ifdef CONFIG_SMP
-		.macro	get_saved_sp	/* R10000 variation */
-#ifdef CONFIG_CPU_SB1
-		dmfc0	k1, CP0_WATCHLO
-#else
-		mfc0	k0, CP0_WATCHLO
-		mfc0	k1, CP0_WATCHHI
-		dsll32	k0, k0, 0	/* Get rid of sign extension */
-		dsrl32	k0, k0, 0	/* Get rid of sign extension */
-		dsll32	k1, k1, 0
-		or	k1, k1, k0
-		li	k0, K0BASE
-		or	k1, k1, k0
-#endif
+		.macro	get_saved_sp	/* SMP variation */
+		dmfc0	k1, CP0_CONTEXT
+		dsra	k1, 23
+		lui	k0, %hi(pgd_current)
+		daddiu	k0, %lo(pgd_current)
+		dsubu	k1, k0
+		lui	k0, %hi(kernelsp)
+		daddu	k1, k0
+		ld	k1, %lo(kernelsp)(k1)
 		.endm
 
-		.macro	set_saved_sp	stackp temp
-#ifdef CONFIG_CPU_SB1
-		dmtc0	\stackp, CP0_WATCHLO
-#else
-		mtc0	\stackp, CP0_WATCHLO
-		dsrl32	\temp, \stackp, 0
-		mtc0	\temp, CP0_WATCHHI
-#endif
-		.endm
-
-		.macro	declare_saved_sp
-		# empty, stackpointer stored in a register
+		.macro	set_saved_sp	stackp temp temp2
+		lw	\temp, TASK_PROCESSOR(gp)
+		dsll	\temp, 3
+		lui	\temp2, %hi(kernelsp)
+		daddu	\temp, \temp2
+		sd	\stackp, %lo(kernelsp)(\temp)
 		.endm
 #else
 		.macro	get_saved_sp	/* Uniprocessor variation */
@@ -110,14 +78,13 @@
 		ld	k1, %lo(kernelsp)(k1)
 		.endm
 
-		.macro	set_saved_sp	stackp temp
+		.macro	set_saved_sp	stackp temp temp2
 		sd	\stackp, kernelsp
 		.endm
-
-		.macro	declare_saved_sp
-		.comm	kernelsp, 8, 8			# current stackpointer
-		.endm
 #endif
+		.macro	declare_saved_sp
+		.comm	kernelsp, NR_CPUS * 8, 8
+		.endm
 
 		.macro	SAVE_SOME
 		.set	push
@@ -145,6 +112,8 @@
 		sd	$6, PT_R6(sp)
 		dmfc0	v1, CP0_EPC
 		sd	$7, PT_R7(sp)
+		sd	$8, PT_R8(sp)
+		sd	$9, PT_R9(sp)
 		sd	v1, PT_EPC(sp)
 		sd	$25, PT_R25(sp)
 		sd	$28, PT_R28(sp)
@@ -174,8 +143,6 @@
 
 		.macro	RESTORE_TEMP
 		ld	$24, PT_LO(sp)
-		ld	$8, PT_R8(sp)
-		ld	$9, PT_R9(sp)
 		mtlo	$24
 		ld	$24, PT_HI(sp)
 		ld	$10, PT_R10(sp)
@@ -220,6 +187,8 @@
 		ld	$31, PT_R31(sp)
 		ld	$28, PT_R28(sp)
 		ld	$25, PT_R25(sp)
+		ld	$9,  PT_R9(sp)
+		ld	$8,  PT_R8(sp)
 		ld	$7,  PT_R7(sp)
 		ld	$6,  PT_R6(sp)
 		ld	$5,  PT_R5(sp)

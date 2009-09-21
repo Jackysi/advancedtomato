@@ -28,7 +28,7 @@ static __inline void apic_write(unsigned long reg, unsigned int v)
 
 static __inline void apic_write_atomic(unsigned long reg, unsigned int v)
 {
-	xchg((volatile unsigned int *)(APIC_BASE+reg), v);
+	(void) xchg((volatile unsigned int *)(APIC_BASE+reg), v);
 }
 
 static __inline unsigned int apic_read(unsigned long reg)
@@ -78,7 +78,7 @@ extern void init_apic_mappings (void);
 extern void smp_local_timer_interrupt (struct pt_regs * regs);
 extern void setup_APIC_clocks (void);
 extern void setup_apic_nmi_watchdog (void);
-extern inline void nmi_watchdog_tick (struct pt_regs * regs);
+extern void nmi_watchdog_tick (struct pt_regs * regs, unsigned reason);
 extern int APIC_init_uniprocessor (void);
 extern void disable_APIC_timer(void);
 extern void enable_APIC_timer(void);

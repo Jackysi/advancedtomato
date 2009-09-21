@@ -1,11 +1,10 @@
-/* $Id: xbow.h,v 1.1.1.4 2003/10/14 08:09:14 sparq Exp $
+/* $Id$
  *
  * This file is subject to the terms and conditions of the GNU General Public
  * License.  See the file "COPYING" in the main directory of this archive
  * for more details.
  *
- * Copyright (C) 1992 - 1997, 2000-2001 Silicon Graphics, Inc.
- * Copyright (C) 2000 by Colin Ngam
+ * Copyright (C) 1992-1997,2000-2003 Silicon Graphics, Inc. All Rights Reserved.
  */
 #ifndef _ASM_SN_SN_XTALK_XBOW_H
 #define _ASM_SN_SN_XTALK_XBOW_H
@@ -14,6 +13,7 @@
  * xbow.h - header file for crossbow chip and xbow section of xbridge
  */
 
+#include <linux/config.h>
 #include <asm/sn/xtalk/xtalk.h>
 #include <asm/sn/xtalk/xwidget.h>
 #include <asm/sn/xtalk/xswitch.h>
@@ -41,6 +41,13 @@
 #define BASE_XBOW_PORT	XBOW_PORT_8	/* Lowest external port */
 #define MAX_PORT_NUM	0x10	/* maximum port number + 1 */
 #define XBOW_WIDGET_ID	0	/* xbow is itself widget 0 */
+
+#define XBOW_HUBLINK_LOW  0xa
+#define XBOW_HUBLINK_HIGH 0xb
+
+#define XBOW_PEER_LINK(link) (link == XBOW_HUBLINK_LOW) ? \
+                                XBOW_HUBLINK_HIGH : XBOW_HUBLINK_LOW
+
 
 #define	XBOW_CREDIT	4
 
@@ -384,6 +391,7 @@ typedef struct xbow_cfg_s {
 #define XXBOW_WIDGET_PART_NUM	0xd000		/* Xbridge */
 #define	XBOW_WIDGET_MFGR_NUM	0x0
 #define	XXBOW_WIDGET_MFGR_NUM	0x0
+#define PXBOW_WIDGET_PART_NUM   0xd100          /* PIC */
 
 #define	XBOW_REV_1_0		0x1	/* xbow rev 1.0 is "1" */
 #define	XBOW_REV_1_1		0x2	/* xbow rev 1.1 is "2" */
@@ -397,9 +405,17 @@ typedef struct xbow_cfg_s {
 /* XBOW_WID_ARB_RELOAD */
 #define	XBOW_WID_ARB_RELOAD_INT	0x3f	/* GBR reload interval */
 
+#define IS_XBRIDGE_XBOW(wid) \
+        (XWIDGET_PART_NUM(wid) == XXBOW_WIDGET_PART_NUM && \
+                        XWIDGET_MFG_NUM(wid) == XXBOW_WIDGET_MFGR_NUM)
 
-#define nasid_has_xbridge(nasid)	\
-	(XWIDGET_PART_NUM(XWIDGET_ID_READ(nasid, 0)) == XXBOW_WIDGET_PART_NUM)
+#define IS_PIC_XBOW(wid) \
+        (XWIDGET_PART_NUM(wid) == PXBOW_WIDGET_PART_NUM && \
+                        XWIDGET_MFG_NUM(wid) == XXBOW_WIDGET_MFGR_NUM)
+
+#define XBOW_WAR_ENABLED(pv, widid) ((1 << XWIDGET_REV_NUM(widid)) & pv)
+#define PV854827 (~0)     /* PIC: fake widget 0xf presence bit. permanent */
+#define PV863579 (1 << 1) /* PIC: PIO to PIC register */
 
 
 #ifndef __ASSEMBLY__

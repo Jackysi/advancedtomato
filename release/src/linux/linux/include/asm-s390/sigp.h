@@ -106,7 +106,7 @@ signal_processor_p(__u32 parameter,__u16 cpu_addr,sigp_order_code order_code)
  * Signal processor with parameter and return status
  */
 extern __inline__ sigp_ccode
-signal_processor_ps(__u32 *statusptr, __u32 parameter,
+signal_processor_ps(unsigned long *statusptr, __u32 parameter,
 		    __u16 cpu_addr, sigp_order_code order_code)
 {
 	sigp_ccode ccode;

@@ -1,7 +1,4 @@
 /*
- * BK Id: SCCS/s.setjmp.c 1.5 05/17/01 18:14:23 cort
- */
-/*
  * Copyright (C) 1996 Paul Mackerras.
  *
  * NB this file must be compiled with -O2.
@@ -15,6 +12,7 @@ xmon_setjmp(long *buf)
 	 "mfcr 0; stw 0,12(%0);"
 	 "stmw 13,16(%0)"
 	 : : "r" (buf));
+    /* XXX should save fp regs as well */
     return 0;
 }
 

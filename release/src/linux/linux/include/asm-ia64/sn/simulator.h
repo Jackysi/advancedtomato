@@ -5,7 +5,7 @@
  * This file is subject to the terms and conditions of the GNU General Public
  * License.  See the file "COPYING" in the main directory of this archive
  * for more details.
- * Copyright (C) 2000-2001 Silicon Graphics, Inc. All rights reserved.
+ * Copyright (C) 2000-2003 Silicon Graphics, Inc. All rights reserved.
  */
 
 #include <linux/config.h>
@@ -16,11 +16,13 @@
 #define IS_RUNNING_ON_SIMULATOR() ({long sn; asm("mov %0=cpuid[%1]" : "=r"(sn) : "r"(2)); sn == SNMAGIC;})
 
 #define SIMULATOR_SLEEP()	asm("nop.i 0x8beef")
+#define SIMULATOR_PAUSE()	asm("nop.i 0x9beef")
 
 #else
 
 #define IS_RUNNING_ON_SIMULATOR()	(0)
 #define SIMULATOR_SLEEP()
+#define SIMULATOR_PAUSE()
 
 #endif
 

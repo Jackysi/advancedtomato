@@ -53,7 +53,7 @@ fastdep:
 
 modules:
 
-modules-install:
+modules_install:
 
 depend:
 	$(CC) -M *.S > .depend

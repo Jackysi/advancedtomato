@@ -1,4 +1,13 @@
-
+/*
+ * linux/net/sunrpc/pmap.c
+ *
+ * Portmapper client.
+ *
+ * FIXME: In a secure environment, we may want to use an authentication
+ * flavor other than AUTH_NULL.
+ *
+ * Copyright (C) 1996, Olaf Kirch <okir@monad.swb.de>
+ */
 
 #include <linux/config.h>
 #include <linux/types.h>

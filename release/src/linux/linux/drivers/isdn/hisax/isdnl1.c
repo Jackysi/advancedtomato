@@ -1,4 +1,4 @@
-/* $Id: isdnl1.c,v 1.1.1.4 2003/10/14 08:08:12 sparq Exp $
+/* $Id: isdnl1.c,v 1.1.4.1 2001/11/20 14:19:36 kai Exp $
  *
  * common low level stuff for Siemens Chipsetbased isdn cards
  *
@@ -18,7 +18,7 @@
  *
  */
 
-const char *l1_revision = "$Revision: 1.1.1.4 $";
+const char *l1_revision = "$Revision: 1.1.4.1 $";
 
 #define __NO_VERSION__
 #include <linux/init.h>
@@ -210,7 +210,7 @@ DChannel_proc_rcv(struct IsdnCardState *cs)
 		if (test_bit(FLG_L1_ACTTIMER, &stptr->l1.Flags))
 			FsmEvent(&stptr->l1.l1m, EV_TIMER_ACT, NULL);	
 	while ((skb = skb_dequeue(&cs->rq))) {
-#ifdef L2FRAME_DEBUG		    /* psa */
+#ifdef L2FRAME_DEBUG		/* psa */
 		if (cs->debug & L1_DEB_LAPD)
 			Logl2Frame(cs, skb, "PH_DATA", 1);
 #endif
@@ -354,7 +354,7 @@ init_bcstate(struct IsdnCardState *cs,
 	bcs->Flag = 0;
 }
 
-#ifdef L2FRAME_DEBUG		    /* psa */
+#ifdef L2FRAME_DEBUG		/* psa */
 
 char *
 l2cmd(u_char cmd)

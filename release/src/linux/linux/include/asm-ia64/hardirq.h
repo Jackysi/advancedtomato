@@ -25,8 +25,8 @@
 
 #define local_softirq_pending()		(local_cpu_data->softirq_pending)
 #define local_ksoftirqd_task()		(local_cpu_data->ksoftirqd)
-#define really_local_irq_count()	(local_cpu_data->irq_stat.f.irq_count)	
-#define really_local_bh_count()		(local_cpu_data->irq_stat.f.bh_count)	
+#define really_local_irq_count()	(local_cpu_data->irq_stat.f.irq_count)	/* XXX fix me */
+#define really_local_bh_count()		(local_cpu_data->irq_stat.f.bh_count)	/* XXX fix me */
 #define local_syscall_count()		/* unused on IA-64 */
 #define local_nmi_count()		0
 

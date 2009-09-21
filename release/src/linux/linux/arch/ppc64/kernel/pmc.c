@@ -73,7 +73,7 @@ struct vm_struct *btmlist = NULL;
 struct mm_struct btmalloc_mm = {pgd             : bolted_dir,
                                 page_table_lock : SPIN_LOCK_UNLOCKED};
 
-extern spinlock_t hash_table_lock;
+extern spinlock_t hash_table_lock[];
 
 char *
 ppc64_pmc_stab(int file)
@@ -164,6 +164,10 @@ ppc64_pmc_hw(int file)
 			     "MMCR0  0x%lx\n", mfspr(MMCR0)); 
 		n += sprintf(pmc_hw_text.buffer + n, 
 			     "MMCR1  0x%lx\n", mfspr(MMCR1)); 
+#if 0
+		n += sprintf(pmc_hw_text.buffer + n,    
+			     "MMCRA  0x%lx\n", mfspr(MMCRA)); 
+#endif
 
 		n += sprintf(pmc_hw_text.buffer + n,    
 			     "PMC1   0x%lx\n", mfspr(PMC1)); 
@@ -201,21 +205,20 @@ ppc64_pmc_hw(int file)
  *            the segment table.
  *
  * Input : unsigned long size: bytes of storage to allocate.
- * Return: void * : pointer to the kernal address of the buffer.
+ * Return: void * : pointer to the kernel address of the buffer.
  */
 void* btmalloc (unsigned long size) {
 	pgd_t *pgdp;
 	pmd_t *pmdp;
 	pte_t *ptep, pte;
-	unsigned long ea_base, ea, hpteflags;
+	unsigned long ea_base, ea, hpteflags, lock_slot;
 	struct vm_struct *area;
-	unsigned long pa, pg_count, page, vsid, slot, va, arpn, vpn;
+	unsigned long pa, pg_count, page, vsid, slot, va, rpn, vpn;
   
 	size = PAGE_ALIGN(size);
 	if (!size || (size >> PAGE_SHIFT) > num_physpages) return NULL;
 
 	spin_lock(&btmalloc_mm.page_table_lock);
-	spin_lock(&hash_table_lock);
 
 	/* Get a virtual address region in the bolted space */
 	area = get_btm_area(size, 0);
@@ -232,10 +235,12 @@ void* btmalloc (unsigned long size) {
 		pa = get_free_page(GFP_KERNEL) - PAGE_OFFSET; 
 		ea = ea_base + (page * PAGE_SIZE);
 		vsid = get_kernel_vsid(ea);
-		va = ( vsid << 28 ) | ( pa & 0xfffffff );
+		va = ( vsid << 28 ) | ( ea & 0xfffffff );
 		vpn = va >> PAGE_SHIFT;
-		arpn = ((unsigned long)__v2a(ea)) >> PAGE_SHIFT;
+		lock_slot = get_lock_slot(vpn); 
+		rpn = pa >> PAGE_SHIFT;
 
+		spin_lock(&hash_table_lock[lock_slot]);
 		/* Get a pointer to the linux page table entry for this page
 		 * allocating pmd or pte pages along the way as needed.  Note
 		 * that the pmd & pte pages are not themselfs bolted.
@@ -253,13 +258,16 @@ void* btmalloc (unsigned long size) {
 		pte_val(pte) &= ~_PAGE_HPTEFLAGS;
 		pte_val(pte) |= _PAGE_HASHPTE;
 
-		slot = ppc_md.hpte_insert(vpn, arpn, hpteflags, 1, 0);  
+		slot = ppc_md.hpte_insert(vpn, rpn, hpteflags, 1, 0);  
 
 		pte_val(pte) |= ((slot<<12) & 
 				 (_PAGE_GROUP_IX | _PAGE_SECONDARY));
+
+		*ptep = pte;
+
+		spin_unlock(&hash_table_lock[lock_slot]);
 	}
 
-	spin_unlock(&hash_table_lock);
 	spin_unlock(&btmalloc_mm.page_table_lock);
 	return (void*)ea_base;
 }

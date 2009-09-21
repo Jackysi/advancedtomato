@@ -24,7 +24,6 @@ static inline void
 setup_timer(void)
 {
 	timer_irq.handler = anakin_timer_interrupt;
-	timer_irq.flags = SA_INTERRUPT;
 	setup_arm_irq(IRQ_TICK, &timer_irq);
 }
 

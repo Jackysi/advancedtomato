@@ -1,4 +1,58 @@
- 
+/*
+ *  linux/drivers/block/loop.c
+ *
+ *  Written by Theodore Ts'o, 3/29/93
+ * 
+ * Copyright 1993 by Theodore Ts'o.  Redistribution of this file is
+ * permitted under the GNU General Public License.
+ *
+ * DES encryption plus some minor changes by Werner Almesberger, 30-MAY-1993
+ * more DES encryption plus IDEA encryption by Nicholas J. Leon, June 20, 1996
+ *
+ * Modularized and updated for 1.1.16 kernel - Mitch Dsouza 28th May 1994
+ * Adapted for 1.3.59 kernel - Andries Brouwer, 1 Feb 1996
+ *
+ * Fixed do_loop_request() re-entrancy - Vincent.Renardias@waw.com Mar 20, 1997
+ *
+ * Added devfs support - Richard Gooch <rgooch@atnf.csiro.au> 16-Jan-1998
+ *
+ * Handle sparse backing files correctly - Kenn Humborg, Jun 28, 1998
+ *
+ * Loadable modules and other fixes by AK, 1998
+ *
+ * Make real block number available to downstream transfer functions, enables
+ * CBC (and relatives) mode encryption requiring unique IVs per data block. 
+ * Reed H. Petty, rhp@draper.net
+ *
+ * Maximum number of loop devices now dynamic via max_loop module parameter.
+ * Russell Kroll <rkroll@exploits.org> 19990701
+ * 
+ * Maximum number of loop devices when compiled-in now selectable by passing
+ * max_loop=<1-255> to the kernel on boot.
+ * Erik I. Bolsø, <eriki@himolde.no>, Oct 31, 1999
+ *
+ * Completely rewrite request handling to be make_request_fn style and
+ * non blocking, pushing work to a helper thread. Lots of fixes from
+ * Al Viro too.
+ * Jens Axboe <axboe@suse.de>, Nov 2000
+ *
+ * Support up to 256 loop devices
+ * Heinz Mauelshagen <mge@sistina.com>, Feb 2002
+ *
+ * Still To Fix:
+ * - Advisory locking is ignored here. 
+ * - Should use an own CAP_* category instead of CAP_SYS_ADMIN 
+ *
+ * WARNING/FIXME:
+ * - The block number as IV passing to low level transfer functions is broken:
+ *   it passes the underlying device's block number instead of the
+ *   offset. This makes it change for a given block when the file is 
+ *   moved/restored/copied and also doesn't work over NFS. 
+ * AV, Feb 12, 2000: we pass the logical block number now. It fixes the
+ *   problem above. Encryption modules that used to rely on the old scheme
+ *   should just call ->i_mapping->bmap() to calculate the physical block
+ *   number.
+ */ 
 
 #include <linux/config.h>
 #include <linux/module.h>
@@ -145,9 +199,9 @@ static int lo_send(struct loop_device *lo, struct buffer_head *bh, int bsize,
 		page = grab_cache_page(mapping, index);
 		if (!page)
 			goto fail;
+		kaddr = kmap(page);
 		if (aops->prepare_write(file, page, offset, offset+size))
 			goto unlock;
-		kaddr = page_address(page);
 		flush_dcache_page(page);
 		transfer_result = lo_do_transfer(lo, WRITE, kaddr + offset, data, size, IV);
 		if (transfer_result) {
@@ -162,6 +216,7 @@ static int lo_send(struct loop_device *lo, struct buffer_head *bh, int bsize,
 			goto unlock;
 		if (transfer_result)
 			goto unlock;
+		kunmap(page);
 		data += size;
 		len -= size;
 		offset = 0;
@@ -174,6 +229,7 @@ static int lo_send(struct loop_device *lo, struct buffer_head *bh, int bsize,
 	return 0;
 
 unlock:
+	kunmap(page);
 	UnlockPage(page);
 	page_cache_release(page);
 fail:
@@ -364,6 +420,7 @@ static struct buffer_head *loop_get_buffer(struct loop_device *lo,
 			break;
 
 		run_task_queue(&tq_disk);
+		set_current_state(TASK_INTERRUPTIBLE);
 		schedule_timeout(HZ);
 	} while (1);
 	memset(bh, 0, sizeof(*bh));
@@ -383,6 +440,7 @@ static struct buffer_head *loop_get_buffer(struct loop_device *lo,
 			break;
 
 		run_task_queue(&tq_disk);
+		set_current_state(TASK_INTERRUPTIBLE);
 		schedule_timeout(HZ);
 	} while (1);
 
@@ -509,6 +567,7 @@ static int loop_thread(void *data)
 
 	daemonize();
 	exit_files(current);
+	reparent_to_init();
 
 	sprintf(current->comm, "loop%d", lo->lo_number);
 
@@ -516,9 +575,6 @@ static int loop_thread(void *data)
 	sigfillset(&current->blocked);
 	flush_signals(current);
 	spin_unlock_irq(&current->sigmask_lock);
-
-	current->policy = SCHED_OTHER;
-	current->nice = -20;
 
 	spin_lock_irq(&lo->lo_lock);
 	lo->lo_state = Lo_bound;
@@ -591,7 +647,7 @@ static int loop_set_fd(struct loop_device *lo, struct file *lo_file, kdev_t dev,
 		lo_device = inode->i_rdev;
 		if (lo_device == dev) {
 			error = -EBUSY;
-			goto out;
+			goto out_putf;
 		}
 	} else if (S_ISREG(inode->i_mode)) {
 		struct address_space_operations *aops = inode->i_mapping->a_ops;
@@ -626,7 +682,7 @@ static int loop_set_fd(struct loop_device *lo, struct file *lo_file, kdev_t dev,
 	lo->ioctl = NULL;
 	figure_loop_size(lo);
 	lo->old_gfp_mask = inode->i_mapping->gfp_mask;
-	inode->i_mapping->gfp_mask = GFP_NOIO;
+	inode->i_mapping->gfp_mask &= ~(__GFP_IO|__GFP_FS);
 
 	bs = 0;
 	if (blksize_size[MAJOR(lo_device)])
@@ -637,12 +693,23 @@ static int loop_set_fd(struct loop_device *lo, struct file *lo_file, kdev_t dev,
 	set_blocksize(dev, bs);
 
 	lo->lo_bh = lo->lo_bhtail = NULL;
-	kernel_thread(loop_thread, lo, CLONE_FS | CLONE_FILES | CLONE_SIGHAND);
-	down(&lo->lo_sem);
+	error = kernel_thread(loop_thread, lo,
+	    CLONE_FS | CLONE_FILES | CLONE_SIGHAND);
+	if (error < 0)
+		goto out_clr;
+	down(&lo->lo_sem); /* wait for the thread to start */
 
 	fput(file);
 	return 0;
 
+ out_clr:
+	lo->lo_backing_file = NULL;
+	lo->lo_device = 0;
+	lo->lo_flags = 0;
+	loop_sizes[lo->lo_number] = 0;
+	inode->i_mapping->gfp_mask = lo->old_gfp_mask;
+	lo->lo_state = Lo_unbound;
+	fput(file); /* yes, have to do it twice */
  out_putf:
 	fput(file);
  out:
@@ -837,6 +904,7 @@ static int lo_ioctl(struct inode * inode, struct file * file,
 		break;
 	case BLKBSZGET:
 	case BLKBSZSET:
+	case BLKSSZGET:
 		err = blk_ioctl(inode->i_rdev, cmd, arg);
 		break;
 	default:
@@ -917,7 +985,7 @@ MODULE_LICENSE("GPL");
 
 int loop_register_transfer(struct loop_func_table *funcs)
 {
-	if ((unsigned)funcs->number > MAX_LO_CRYPT || xfer_funcs[funcs->number])
+	if ((unsigned)funcs->number >= MAX_LO_CRYPT || xfer_funcs[funcs->number])
 		return -EINVAL;
 	xfer_funcs[funcs->number] = funcs;
 	return 0; 
@@ -960,11 +1028,6 @@ int __init loop_init(void)
 		return -EIO;
 	}
 
-	devfs_handle = devfs_mk_dir(NULL, "loop", NULL);
-	devfs_register_series(devfs_handle, "%u", max_loop, DEVFS_FL_DEFAULT,
-			      MAJOR_NR, 0,
-			      S_IFBLK | S_IRUSR | S_IWUSR | S_IRGRP,
-			      &lo_fops, NULL);
 
 	loop_dev = kmalloc(max_loop * sizeof(struct loop_device), GFP_KERNEL);
 	if (!loop_dev)
@@ -997,13 +1060,21 @@ int __init loop_init(void)
 	for (i = 0; i < max_loop; i++)
 		register_disk(NULL, MKDEV(MAJOR_NR, i), 1, &lo_fops, 0);
 
+	devfs_handle = devfs_mk_dir(NULL, "loop", NULL);
+	devfs_register_series(devfs_handle, "%u", max_loop, DEVFS_FL_DEFAULT,
+			      MAJOR_NR, 0,
+			      S_IFBLK | S_IRUSR | S_IWUSR | S_IRGRP,
+			      &lo_fops, NULL);
+
 	printk(KERN_INFO "loop: loaded (max %d devices)\n", max_loop);
 	return 0;
 
-out_sizes:
-	kfree(loop_dev);
 out_blksizes:
 	kfree(loop_sizes);
+out_sizes:
+	kfree(loop_dev);
+	if (devfs_unregister_blkdev(MAJOR_NR, "loop"))
+		printk(KERN_WARNING "loop: cannot unregister blkdev\n");
 	printk(KERN_ERR "loop: ran out of memory\n");
 	return -ENOMEM;
 }
@@ -1013,7 +1084,6 @@ void loop_exit(void)
 	devfs_unregister(devfs_handle);
 	if (devfs_unregister_blkdev(MAJOR_NR, "loop"))
 		printk(KERN_WARNING "loop: cannot unregister blkdev\n");
-
 	kfree(loop_dev);
 	kfree(loop_sizes);
 	kfree(loop_blksizes);

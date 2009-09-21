@@ -44,8 +44,8 @@ static u8 __init ftv_swizzle(struct pci_dev *dev, u8 *pin)
 
 /* ftv host-specific stuff */
 struct hw_pci ftv_pci __initdata = {
-	init:		plx90x0_init,
-	swizzle:	ftv_swizzle,
-	map_irq:	ftv_map_irq,
+	.init		= plx90x0_init,
+	.swizzle	= ftv_swizzle,
+	.map_irq	= ftv_map_irq,
 };
 

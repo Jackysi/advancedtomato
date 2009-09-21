@@ -1,4 +1,4 @@
-/* $Id: eicon_mod.c,v 1.1.1.4 2003/10/14 08:08:12 sparq Exp $
+/* $Id: eicon_mod.c,v 1.1.4.1 2001/11/20 14:19:35 kai Exp $
  *
  * ISDN lowlevel-module for Eicon active cards.
  * 
@@ -44,7 +44,7 @@
 static eicon_card *cards = (eicon_card *) NULL;   /* glob. var , contains
                                                      start of card-list   */
 
-static char *eicon_revision = "$Revision: 1.1.1.4 $";
+static char *eicon_revision = "$Revision: 1.1.4.1 $";
 
 extern char *eicon_pci_revision;
 extern char *eicon_isa_revision;
@@ -886,7 +886,7 @@ eicon_alloccard(int Type, int membase, int irq, char *id, int card_id)
 		card->type = Type;
 		switch (Type) {
 #ifdef CONFIG_ISDN_DRV_EICON_ISA
-#if CONFIG_MCA     /* only needed for MCA */
+#if CONFIG_MCA /* only needed for MCA */
                         case EICON_CTYPE_S:
                         case EICON_CTYPE_SX:
                         case EICON_CTYPE_SCOM:

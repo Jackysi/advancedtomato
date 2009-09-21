@@ -815,10 +815,12 @@ out_success:
 		schedule();
 		current->state = TASK_RUNNING;
 
+		/* This introduces a race so we must always take
+		   the slow path
 		msg = (struct msg_msg*) msr_d.r_msg;
 		if(!IS_ERR(msg)) 
 			goto out_success;
-
+		*/
 		t = msg_lock(msqid);
 		if(t==NULL)
 			msqid=-1;

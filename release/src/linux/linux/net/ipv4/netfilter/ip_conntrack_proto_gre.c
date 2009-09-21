@@ -59,9 +59,7 @@ MODULE_DESCRIPTION("netfilter connection tracking protocol helper for GRE");
 		                       ": " format, ## args)
 #define DUMP_TUPLE_GRE(x) printk("%u.%u.%u.%u:0x%x -> %u.%u.%u.%u:0x%x:%u:0x%x\n", \
 			NIPQUAD((x)->src.ip), ntohl((x)->src.u.gre.key), \
-			NIPQUAD((x)->dst.ip), ntohl((x)->dst.u.gre.key), \
-			(x)->dst.u.gre.version, \
-			ntohs((x)->dst.u.gre.protocol))
+			NIPQUAD((x)->dst.ip), ntohl((x)->dst.u.gre.key))
 #else
 #define DEBUGP(x, args...)
 #define DUMP_TUPLE_GRE(x)
@@ -168,9 +166,6 @@ void ip_ct_gre_keymap_destroy(struct ip_conntrack_expect *exp)
 static int gre_invert_tuple(struct ip_conntrack_tuple *tuple,
 			    const struct ip_conntrack_tuple *orig)
 {
-	tuple->dst.u.gre.protocol = orig->dst.u.gre.protocol;
-	tuple->dst.u.gre.version = orig->dst.u.gre.version;
-
 	tuple->dst.u.gre.key = orig->src.u.gre.key;
 	tuple->src.u.gre.key = orig->dst.u.gre.key;
 
@@ -187,32 +182,20 @@ static int gre_pkt_to_tuple(const void *datah, size_t datalen,
 
 	/* core guarantees 8 protocol bytes, no need for size check */
 
-	tuple->dst.u.gre.version = grehdr->version; 
-	tuple->dst.u.gre.protocol = grehdr->protocol;
-
-	switch (grehdr->version) {
-		case GRE_VERSION_1701:
-			if (!grehdr->key) {
-				DEBUGP("Can't track GRE without key\n");
-				return 0;
-			}
-			tuple->dst.u.gre.key = *(gre_key(grehdr));
-			break;
-
-		case GRE_VERSION_PPTP:
-			if (ntohs(grehdr->protocol) != GRE_PROTOCOL_PPTP) {
-				DEBUGP("GRE_VERSION_PPTP but unknown proto\n");
-				return 0;
-			}
-			tuple->dst.u.gre.key = htonl(ntohs(pgrehdr->call_id));
-			break;
-
-		default:
-			printk(KERN_WARNING "unknown GRE version %hu\n",
-				tuple->dst.u.gre.version);
-			return 0;
+	/* first only delinearize old RFC1701 GRE header */
+	if (grehdr->version != GRE_VERSION_PPTP) {
+		/* try to behave like "ip_conntrack_proto_generic" */
+		tuple->src.u.all = 0;
+		tuple->dst.u.all = 0;
+		return 1;
 	}
 
+	if (ntohs(grehdr->protocol) != GRE_PROTOCOL_PPTP) {
+		DEBUGP("GRE_VERSION_PPTP but unknown proto\n");
+		return 0;
+	}
+
+	tuple->dst.u.gre.key = htonl(ntohs(pgrehdr->call_id));
 	srckey = gre_keymap_lookup(tuple);
 
 #if 0
@@ -228,9 +211,7 @@ static int gre_pkt_to_tuple(const void *datah, size_t datalen,
 static unsigned int gre_print_tuple(char *buffer,
 				    const struct ip_conntrack_tuple *tuple)
 {
-	return sprintf(buffer, "version=%d protocol=0x%04x srckey=0x%x dstkey=0x%x ", 
-			tuple->dst.u.gre.version,
-			ntohs(tuple->dst.u.gre.protocol),
+	return sprintf(buffer, "srckey=0x%x dstkey=0x%x ", 
 			ntohl(tuple->src.u.gre.key),
 			ntohl(tuple->dst.u.gre.key));
 }
@@ -247,16 +228,16 @@ static unsigned int gre_print_conntrack(char *buffer,
 /* Returns verdict for packet, and may modify conntrack */
 static int gre_packet(struct ip_conntrack *ct,
 		      struct iphdr *iph, size_t len,
-		      enum ip_conntrack_info conntrackinfo)
+		      enum ip_conntrack_info ctinfo)
 {
 	/* If we've seen traffic both ways, this is a GRE connection.
 	 * Extend timeout. */
 	if (ct->status & IPS_SEEN_REPLY) {
-		ip_ct_refresh(ct, ct->proto.gre.stream_timeout);
+		ip_ct_refresh_acct(ct, ctinfo, iph, ct->proto.gre.stream_timeout);
 		/* Also, more likely to be important, and not a probe. */
 		set_bit(IPS_ASSURED_BIT, &ct->status);
 	} else
-		ip_ct_refresh(ct, ct->proto.gre.timeout);
+		ip_ct_refresh_acct(ct, ctinfo, iph, ct->proto.gre.timeout);
 	
 	return NF_ACCEPT;
 }

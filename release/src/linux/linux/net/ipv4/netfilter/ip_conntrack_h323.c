@@ -29,13 +29,8 @@ MODULE_LICENSE("GPL");
 DECLARE_LOCK(ip_h323_lock);
 struct module *ip_conntrack_h323 = THIS_MODULE;
 
-#if 0
-#define DEBUGP printk
-#else
 #define DEBUGP(format, args...)
-#endif
 
-/* FIXME: This should be in userspace.  Later. */
 static int h245_help(const struct iphdr *iph, size_t len,
 		     struct ip_conntrack *ct,
 		     enum ip_conntrack_info ctinfo)
@@ -75,7 +70,6 @@ static int h245_help(const struct iphdr *iph, size_t len,
 	}
 
 	/* Checksum invalid?  Ignore. */
-	/* FIXME: Source route IP option packets --RR */
 	if (tcp_v4_check(tcph, tcplen, iph->saddr, iph->daddr,
 			      csum_partial((char *)tcph, tcplen, 0))) {
 		DEBUGP("ct_h245_help: bad csum: %p %u %u.%u.%u.%u %u.%u.%u.%u\n",
@@ -88,9 +82,9 @@ static int h245_help(const struct iphdr *iph, size_t len,
 	/* bytes: 0123   45
 	          ipadrr port */
 	for (i = 0; data < (data_limit - 5); data++, i++) {
-		data_ip = *((u_int32_t *)data);
+		memcpy(&data_ip, data, sizeof(u_int32_t));
 		if (data_ip == iph->saddr) {
-			data_port = *((u_int16_t *)(data + 4));
+			memcpy(&data_port, data + 4, sizeof(u_int16_t));
 			memset(&expect, 0, sizeof(expect));
 			/* update the H.225 info */
 			DEBUGP("ct_h245_help: new RTCP/RTP requested %u.%u.%u.%u:->%u.%u.%u.%u:%u\n",
@@ -103,27 +97,16 @@ static int h245_help(const struct iphdr *iph, size_t len,
 			exp_info->offset = i;
 
 			exp->seq = ntohl(tcph->seq) + i;
-
-			// 43011 (09?): checkme
-			if (1) {
-				unsigned int chksum;
-
-				*((u_int32_t *)data) = ct->tuplehash[!dir].tuple.dst.ip;   //!!! Netmeeting fix
-				chksum = csum_partial((char *)tcph + tcph->doff*4, datalen, 0);				
-				tcph->check = 0;
-				tcph->check = tcp_v4_check(tcph, tcplen, iph->saddr, iph->daddr,
-				csum_partial((char *)tcph, tcph->doff*4, chksum));
-			}
-  
+		    
 			exp->tuple = ((struct ip_conntrack_tuple)
 				{ { ct->tuplehash[!dir].tuple.src.ip,
 				    { 0 } },
 				  { data_ip,
-				    { .tcp = { data_port } },
+				    { data_port },
 				    IPPROTO_UDP }});
 			exp->mask = ((struct ip_conntrack_tuple)
 				{ { 0xFFFFFFFF, { 0 } },
-				  { 0xFFFFFFFF, { .tcp = { 0xFFFF } }, 0xFFFF }});
+				  { 0xFFFFFFFF, { 0xFFFF }, 0xFFFF }});
 	
 			exp->expectfn = NULL;
 			
@@ -163,7 +146,6 @@ static int h225_expect(struct ip_conntrack *ct)
 	return NF_ACCEPT;	/* unused */
 }
 
-/* FIXME: This should be in userspace.  Later. */
 static int h225_help(const struct iphdr *iph, size_t len,
 		     struct ip_conntrack *ct,
 		     enum ip_conntrack_info ctinfo)
@@ -203,7 +185,6 @@ static int h225_help(const struct iphdr *iph, size_t len,
 	}
 
 	/* Checksum invalid?  Ignore. */
-	/* FIXME: Source route IP option packets --RR */
 	if (tcp_v4_check(tcph, tcplen, iph->saddr, iph->daddr,
 			      csum_partial((char *)tcph, tcplen, 0))) {
 		DEBUGP("ct_h225_help: bad csum: %p %u %u.%u.%u.%u %u.%u.%u.%u\n",
@@ -216,9 +197,9 @@ static int h225_help(const struct iphdr *iph, size_t len,
 	/* bytes: 0123   45
 	          ipadrr port */
 	for (i = 0; data < (data_limit - 5); data++, i++) {
-		data_ip = *((u_int32_t *)data);
+		memcpy(&data_ip, data, sizeof(u_int32_t));
 		if (data_ip == iph->saddr) {
-			data_port = *((u_int16_t *)(data + 4));
+			memcpy(&data_port, data + 4, sizeof(u_int16_t));
 			if (data_port == tcph->source) {
 				/* Signal address */
 				DEBUGP("ct_h225_help: sourceCallSignalAddress from %u.%u.%u.%u\n",
@@ -248,11 +229,11 @@ static int h225_help(const struct iphdr *iph, size_t len,
 					{ { ct->tuplehash[!dir].tuple.src.ip,
 					    { 0 } },
 					  { data_ip,
-					    { .tcp = { data_port } },
+					    { data_port },
 					    IPPROTO_TCP }});
 				exp->mask = ((struct ip_conntrack_tuple)
 					{ { 0xFFFFFFFF, { 0 } },
-					  { 0xFFFFFFFF, { .tcp = { 0xFFFF } }, 0xFFFF }});
+					  { 0xFFFFFFFF, { 0xFFFF }, 0xFFFF }});
 	
 				exp->expectfn = h225_expect;
 				
@@ -267,7 +248,7 @@ static int h225_help(const struct iphdr *iph, size_t len,
                 	}  
 #ifdef CONFIG_IP_NF_NAT_NEEDED
 		} else if (data_ip == iph->daddr) {
-			data_port = *((u_int16_t *)(data + 4));
+			memcpy(&data_port, data + 4, sizeof(u_int16_t));
 			if (data_port == tcph->dest) {
 				/* Signal address */
 				DEBUGP("ct_h225_help: destCallSignalAddress %u.%u.%u.%u\n",
@@ -313,7 +294,9 @@ static void __exit fini(void)
 	ip_conntrack_helper_unregister(&h225);
 }
 
+#ifdef CONFIG_IP_NF_NAT_NEEDED
 EXPORT_SYMBOL(ip_h323_lock);
+#endif
 
 module_init(init);
 module_exit(fini);

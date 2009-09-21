@@ -43,7 +43,11 @@
 #include <asm/delay.h>
 #include <asm/eisa_bus.h>
 
+#if 0
+#define EISA_DBG(msg, arg... ) printk(KERN_DEBUG "eisa: " msg , ## arg )
+#else
 #define EISA_DBG(msg, arg... )  
+#endif
 
 #define SNAKES_EEPROM_BASE_ADDR 0xF0810400
 #define MIRAGE_EEPROM_BASE_ADDR 0xF00C0400

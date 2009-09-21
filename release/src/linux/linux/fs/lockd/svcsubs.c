@@ -39,6 +39,15 @@ static inline unsigned int file_hash(struct nfs_fh *f)
 	return tmp & (FILE_NRHASH - 1);
 }
 
+/*
+ * Lookup file info. If it doesn't exist, create a file info struct
+ * and open a (VFS) file for the given inode.
+ *
+ * FIXME:
+ * Note that we open the file O_RDONLY even when creating write locks.
+ * This is not quite right, but for now, we assume the client performs
+ * the proper R/W checking.
+ */
 u32
 nlm_lookup_file(struct svc_rqst *rqstp, struct nlm_file **result,
 					struct nfs_fh *f)

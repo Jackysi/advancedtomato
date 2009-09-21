@@ -1,1 +1,0 @@
-#define CONFIG_IP_NF_CT_PROTO_GRE 1

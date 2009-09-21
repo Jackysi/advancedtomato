@@ -8,7 +8,7 @@
 #include <linux/random.h>
 #include <linux/sched.h>
 #include <linux/reiserfs_fs.h>
-
+#include <linux/reiserfs_fs_sb.h>
 
 // find where objectid map starts
 #define objectid_map(s,rs) (old_format_only (s) ? \
@@ -63,7 +63,7 @@ __u32 reiserfs_get_unused_objectid (struct reiserfs_transaction_handle *th)
                                 /* comment needed -Hans */
     unused_objectid = le32_to_cpu (map[1]);
     if (unused_objectid == U32_MAX) {
-	printk ("REISERFS: get_objectid: no more object ids\n");
+	reiserfs_warning (s, "REISERFS: get_objectid: no more object ids\n");
 	reiserfs_restore_prepared_buffer(s, SB_BUFFER_WITH_SB(s)) ;
 	return 0;
     }
@@ -146,7 +146,7 @@ void reiserfs_release_objectid (struct reiserfs_transaction_handle *th,
 	    }
 
             /* JDM comparing two little-endian values for equality -- safe */
-	if (rs->s_oid_cursize == rs->s_oid_maxsize) {
+	if (sb_oid_cursize(rs) == sb_oid_maxsize(rs)) {
 		/* objectid map must be expanded, but there is no space */
 		PROC_INFO_INC( s, leaked_oid );
 		return;
@@ -163,16 +163,16 @@ void reiserfs_release_objectid (struct reiserfs_transaction_handle *th,
 	i += 2;
     }
 
-    reiserfs_warning ("vs-15011: reiserfs_release_objectid: tried to free free object id (%lu)\n", 
+    reiserfs_warning (s, "vs-15011: reiserfs_release_objectid: tried to free free object id (%lu)\n", 
 		      ( long unsigned ) objectid_to_release);
 }
 
 
 int reiserfs_convert_objectid_map_v1(struct super_block *s) {
     struct reiserfs_super_block *disk_sb = SB_DISK_SUPER_BLOCK (s);
-    int cur_size = le16_to_cpu(disk_sb->s_oid_cursize) ;
+    int cur_size = sb_oid_cursize(disk_sb);
     int new_size = (s->s_blocksize - SB_SIZE) / sizeof(__u32) / 2 * 2 ;
-    int old_max = le16_to_cpu(disk_sb->s_oid_maxsize) ;
+    int old_max = sb_oid_maxsize(disk_sb);
     struct reiserfs_super_block_v1 *disk_sb_v1 ;
     __u32 *objectid_map, *new_objectid_map ;
     int i ;
@@ -186,7 +186,7 @@ int reiserfs_convert_objectid_map_v1(struct super_block *s) {
 	** map 
 	*/
 	objectid_map[new_size - 1] = objectid_map[cur_size - 1] ;
-	disk_sb->s_oid_cursize = cpu_to_le16(new_size) ;
+	set_sb_oid_cursize(disk_sb,new_size) ;
     }
     /* move the smaller objectid map past the end of the new super */
     for (i = new_size - 1 ; i >= 0 ; i--) {
@@ -195,7 +195,7 @@ int reiserfs_convert_objectid_map_v1(struct super_block *s) {
 
 
     /* set the max size so we don't overflow later */
-    disk_sb->s_oid_maxsize = cpu_to_le16(new_size) ;
+    set_sb_oid_maxsize(disk_sb,new_size) ;
 
     /* Zero out label and generate random UUID */
     memset(disk_sb->s_label, 0, sizeof(disk_sb->s_label)) ;

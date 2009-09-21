@@ -2,8 +2,594 @@
 #define	Z_WAKE
 #undef	Z_EXT_CHARS_IN_BUFFER
 static char rcsid[] =
-"$Revision: 1.1.1.2 $$Date: 2003/10/14 08:08:00 $";
+"$Revision: 2.3.2.8 $$Date: 2000/07/06 18:14:16 $";
 
+/*
+ *  linux/drivers/char/cyclades.c
+ *
+ * This file contains the driver for the Cyclades async multiport
+ * serial boards.
+ *
+ * Initially written by Randolph Bentson <bentson@grieg.seaslug.org>.
+ * Modified and maintained by Marcio Saito <marcio@cyclades.com>.
+ * Currently maintained by Ivan Passos <ivan@cyclades.com>.
+ *
+ * For Technical support and installation problems, please send e-mail
+ * to support@cyclades.com.
+ *
+ * Much of the design and some of the code came from serial.c
+ * which was copyright (C) 1991, 1992  Linus Torvalds.  It was
+ * extensively rewritten by Theodore Ts'o, 8/16/92 -- 9/14/92,
+ * and then fixed as suggested by Michael K. Johnson 12/12/92.
+ *
+ * This version supports shared IRQ's (only for PCI boards).
+ *
+ * $Log: cyclades.c,v $
+ * Revision 2.3.2.8   2000/07/06 18:14:16 ivan
+ * Fixed the PCI detection function to work properly on Alpha systems.
+ * Implemented support for TIOCSERGETLSR ioctl.
+ * Implemented full support for non-standard baud rates.
+ *
+ * Revision 2.3.2.7   2000/06/01 18:26:34 ivan
+ * Request PLX I/O region, although driver doesn't use it, to avoid
+ * problems with other drivers accessing it.
+ * Removed count for on-board buffer characters in cy_chars_in_buffer
+ * (Cyclades-Z only).
+ *
+ * Revision 2.3.2.6   2000/05/05 13:56:05 ivan
+ * Driver now reports physical instead of virtual memory addresses.
+ * Masks were added to some Cyclades-Z read accesses.
+ * Implemented workaround for PLX9050 bug that would cause a system lockup
+ * in certain systems, depending on the MMIO addresses allocated to the
+ * board.
+ * Changed the Tx interrupt programming in the CD1400 chips to boost up
+ * performance (Cyclom-Y only).
+ * Code is now compliant with the new module interface (module_[init|exit]).
+ * Make use of the PCI helper functions to access PCI resources.
+ * Did some code "housekeeping".
+ *
+ * Revision 2.3.2.5   2000/01/19 14:35:33 ivan
+ * Fixed bug in cy_set_termios on CRTSCTS flag turnoff.
+ *
+ * Revision 2.3.2.4   2000/01/17 09:19:40 ivan
+ * Fixed SMP locking in Cyclom-Y interrupt handler.
+ *
+ * Revision 2.3.2.3   1999/12/28 12:11:39 ivan
+ * Added a new cyclades_card field called nports to allow the driver to
+ * know the exact number of ports found by the Z firmware after its load;
+ * RX buffer contention prevention logic on interrupt op mode revisited
+ * (Cyclades-Z only);
+ * Revisited printk's for Z debug;
+ * Driver now makes sure that the constant SERIAL_XMIT_SIZE is defined;
+ *
+ * Revision 2.3.2.2   1999/10/01 11:27:43 ivan
+ * Fixed bug in cyz_poll that would make all ports but port 0 
+ * unable to transmit/receive data (Cyclades-Z only);
+ * Implemented logic to prevent the RX buffer from being stuck with data
+ * due to a driver / firmware race condition in interrupt op mode
+ * (Cyclades-Z only);
+ * Fixed bug in block_til_ready logic that would lead to a system crash;
+ * Revisited cy_close spinlock usage;
+ *
+ * Revision 2.3.2.1   1999/09/28 11:01:22 ivan
+ * Revisited CONFIG_PCI conditional compilation for PCI board support;
+ * Implemented TIOCGICOUNT and TIOCMIWAIT ioctl support;
+ * _Major_ cleanup on the Cyclades-Z interrupt support code / logic;
+ * Removed CTS handling from the driver -- this is now completely handled
+ * by the firmware (Cyclades-Z only);
+ * Flush RX on-board buffers on a port open (Cyclades-Z only);
+ * Fixed handling of ASYNC_SPD_* TTY flags;
+ * Module unload now unmaps all memory area allocated by ioremap;
+ *
+ * Revision 2.3.1.1   1999/07/15 16:45:53 ivan
+ * Removed CY_PROC conditional compilation;
+ * Implemented SMP-awareness for the driver;
+ * Implemented a new ISA IRQ autoprobe that uses the irq_probe_[on|off] 
+ * functions;
+ * The driver now accepts memory addresses (maddr=0xMMMMM) and IRQs
+ * (irq=NN) as parameters (only for ISA boards);
+ * Fixed bug in set_line_char that would prevent the Cyclades-Z 
+ * ports from being configured at speeds above 115.2Kbps;
+ * Fixed bug in cy_set_termios that would prevent XON/XOFF flow control
+ * switching from working properly;
+ * The driver now only prints IRQ info for the Cyclades-Z if it's 
+ * configured to work in interrupt mode;
+ *
+ * Revision 2.2.2.3   1999/06/28 11:13:29 ivan
+ * Added support for interrupt mode operation for the Z cards;
+ * Removed the driver inactivity control for the Z;
+ * Added a missing MOD_DEC_USE_COUNT in the cy_open function for when 
+ * the Z firmware is not loaded yet;
+ * Replaced the "manual" Z Tx flush buffer by a call to a FW command of 
+ * same functionality;
+ * Implemented workaround for IRQ setting loss on the PCI configuration 
+ * registers after a PCI bridge EEPROM reload (affects PLX9060 only);
+ *
+ * Revision 2.2.2.2  1999/05/14 17:18:15 ivan
+ * /proc entry location changed to /proc/tty/driver/cyclades;
+ * Added support to shared IRQ's (only for PCI boards);
+ * Added support for Cobalt Qube2 systems;
+ * IRQ [de]allocation scheme revisited;
+ * BREAK implementation changed in order to make use of the 'break_ctl'
+ * TTY facility;
+ * Fixed typo in TTY structure field 'driver_name';
+ * Included a PCI bridge reset and EEPROM reload in the board 
+ * initialization code (for both Y and Z series).
+ *
+ * Revision 2.2.2.1  1999/04/08 16:17:43 ivan
+ * Fixed a bug in cy_wait_until_sent that was preventing the port to be 
+ * closed properly after a SIGINT;
+ * Module usage counter scheme revisited;
+ * Added support to the upcoming Y PCI boards (i.e., support to additional
+ * PCI Device ID's).
+ * 
+ * Revision 2.2.1.10 1999/01/20 16:14:29 ivan
+ * Removed all unnecessary page-alignement operations in ioremap calls
+ * (ioremap is currently safe for these operations).
+ *
+ * Revision 2.2.1.9  1998/12/30 18:18:30 ivan
+ * Changed access to PLX PCI bridge registers from I/O to MMIO, in 
+ * order to make PLX9050-based boards work with certain motherboards.
+ *
+ * Revision 2.2.1.8  1998/11/13 12:46:20 ivan
+ * cy_close function now resets (correctly) the tty->closing flag;
+ * JIFFIES_DIFF macro fixed.
+ *
+ * Revision 2.2.1.7  1998/09/03 12:07:28 ivan
+ * Fixed bug in cy_close function, which was not informing HW of
+ * which port should have the reception disabled before doing so;
+ * fixed Cyclom-8YoP hardware detection bug.
+ *
+ * Revision 2.2.1.6  1998/08/20 17:15:39 ivan
+ * Fixed bug in cy_close function, which causes malfunction
+ * of one of the first 4 ports when a higher port is closed
+ * (Cyclom-Y only).
+ *
+ * Revision 2.2.1.5  1998/08/10 18:10:28 ivan
+ * Fixed Cyclom-4Yo hardware detection bug.
+ *
+ * Revision 2.2.1.4  1998/08/04 11:02:50 ivan
+ * /proc/cyclades implementation with great collaboration of 
+ * Marc Lewis <marc@blarg.net>;
+ * cyy_interrupt was changed to avoid occurence of kernel oopses
+ * during PPP operation.
+ *
+ * Revision 2.2.1.3  1998/06/01 12:09:10 ivan
+ * General code review in order to comply with 2.1 kernel standards;
+ * data loss prevention for slow devices revisited (cy_wait_until_sent
+ * was created);
+ * removed conditional compilation for new/old PCI structure support 
+ * (now the driver only supports the new PCI structure).
+ *
+ * Revision 2.2.1.1  1998/03/19 16:43:12 ivan
+ * added conditional compilation for new/old PCI structure support;
+ * removed kernel series (2.0.x / 2.1.x) conditional compilation.
+ *
+ * Revision 2.1.1.3  1998/03/16 18:01:12 ivan
+ * cleaned up the data loss fix;
+ * fixed XON/XOFF handling once more (Cyclades-Z);
+ * general review of the driver routines;
+ * introduction of a mechanism to prevent data loss with slow 
+ * printers, by forcing a delay before closing the port.
+ *
+ * Revision 2.1.1.2  1998/02/17 16:50:00 ivan
+ * fixed detection/handling of new CD1400 in Ye boards;
+ * fixed XON/XOFF handling (Cyclades-Z);
+ * fixed data loss caused by a premature port close;
+ * introduction of a flag that holds the CD1400 version ID per port
+ * (used by the CYGETCD1400VER new ioctl).
+ *
+ * Revision 2.1.1.1  1997/12/03 17:31:19 ivan
+ * Code review for the module cleanup routine;
+ * fixed RTS and DTR status report for new CD1400's in get_modem_info;
+ * includes anonymous changes regarding signal_pending.
+ * 
+ * Revision 2.1  1997/11/01 17:42:41 ivan
+ * Changes in the driver to support Alpha systems (except 8Zo V_1);
+ * BREAK fix for the Cyclades-Z boards;
+ * driver inactivity control by FW implemented;
+ * introduction of flag that allows driver to take advantage of 
+ * a special CD1400 feature related to HW flow control;
+ * added support for the CD1400  rev. J (Cyclom-Y boards);
+ * introduction of ioctls to:
+ *  - control the rtsdtr_inv flag (Cyclom-Y);
+ *  - control the rflow flag (Cyclom-Y);
+ *  - adjust the polling interval (Cyclades-Z);
+ *
+ * Revision 1.36.4.33  1997/06/27 19:00:00  ivan
+ * Fixes related to kernel version conditional 
+ * compilation.
+ *  
+ * Revision 1.36.4.32  1997/06/14 19:30:00  ivan
+ * Compatibility issues between kernels 2.0.x and 
+ * 2.1.x (mainly related to clear_bit function).
+ *  
+ * Revision 1.36.4.31  1997/06/03 15:30:00  ivan
+ * Changes to define the memory window according to the 
+ * board type.
+ *  
+ * Revision 1.36.4.30  1997/05/16 15:30:00  daniel
+ * Changes to support new cycladesZ boards.
+ *
+ * Revision 1.36.4.29  1997/05/12 11:30:00  daniel
+ * Merge of Bentson's and Daniel's version 1.36.4.28.
+ * Corrects bug in cy_detect_pci: check if there are more
+ * ports than the number of static structs allocated.
+ * Warning message during initialization if this driver is
+ * used with the new generation of cycladesZ boards.  Those
+ * will be supported only in next release of the driver.
+ * Corrects bug in cy_detect_pci and cy_detect_isa that
+ * returned wrong number of VALID boards, when a cyclomY
+ * was found with no serial modules connected.
+ * Changes to use current (2.1.x) kernel subroutine names
+ * and created macros for compilation with 2.0.x kernel,
+ * instead of the other way around.
+ *
+ * Revision 1.36.4.28  1997/05/?? ??:00:00  bentson
+ * Change queue_task_irq_off to queue_task_irq.
+ * The inline function queue_task_irq_off (tqueue.h)
+ * was removed from latest releases of 2.1.x kernel.
+ * Use of macro __init to mark the initialization
+ * routines, so memory can be reused.
+ * Also incorporate implementation of critical region
+ * in function cleanup_module() created by anonymous
+ * linuxer.
+ *
+ * Revision 1.36.4.28  1997/04/25 16:00:00  daniel
+ * Change to support new firmware that solves DCD problem:
+ * application could fail to receive SIGHUP signal when DCD
+ * varying too fast.
+ *
+ * Revision 1.36.4.27  1997/03/26 10:30:00  daniel
+ * Changed for support linux versions 2.1.X.
+ * Backward compatible with linux versions 2.0.X.
+ * Corrected illegal use of filler field in
+ * CH_CTRL struct.
+ * Deleted some debug messages.
+ *
+ * Revision 1.36.4.26  1997/02/27 12:00:00  daniel
+ * Included check for NULL tty pointer in cyz_poll.
+ *
+ * Revision 1.36.4.25  1997/02/26 16:28:30  bentson
+ * Bill Foster at Blarg! Online services noticed that
+ * some of the switch elements of -Z modem control
+ * lacked a closing "break;"
+ *
+ * Revision 1.36.4.24  1997/02/24 11:00:00  daniel
+ * Changed low water threshold for buffer xmit_buf
+ *
+ * Revision 1.36.4.23  1996/12/02 21:50:16  bentson
+ * Marcio provided fix to modem status fetch for -Z
+ *
+ * Revision 1.36.4.22  1996/10/28 22:41:17  bentson
+ * improve mapping of -Z control page (thanks to Steve
+ * Price <stevep@fa.tdktca.com> for help on this)
+ *
+ * Revision 1.36.4.21  1996/09/10 17:00:10  bentson
+ * shift from CPU-bound to memcopy in cyz_polling operation
+ *
+ * Revision 1.36.4.20  1996/09/09 18:30:32  Bentson
+ * Added support to set and report higher speeds.
+ *
+ * Revision 1.36.4.19c  1996/08/09 10:00:00  Marcio Saito
+ * Some fixes in the HW flow control for the BETA release.
+ * Don't try to register the IRQ.
+ *
+ * Revision 1.36.4.19  1996/08/08 16:23:18  Bentson
+ * make sure "cyc" appears in all kernel messages; all soft interrupts
+ * handled by same routine; recognize out-of-band reception; comment
+ * out some diagnostic messages; leave RTS/CTS flow control to hardware;
+ * fix race condition in -Z buffer management; only -Y needs to explictly
+ * flush chars; tidy up some startup messages;
+ *
+ * Revision 1.36.4.18  1996/07/25 18:57:31  bentson
+ * shift MOD_INC_USE_COUNT location to match
+ * serial.c; purge some diagnostic messages;
+ *
+ * Revision 1.36.4.17  1996/07/25 18:01:08  bentson
+ * enable modem status messages and fetch & process them; note
+ * time of last activity type for each port; set_line_char now
+ * supports more than line 0 and treats 0 baud correctly;
+ * get_modem_info senses rs_status;
+ *
+ * Revision 1.36.4.16  1996/07/20 08:43:15  bentson
+ * barely works--now's time to turn on
+ * more features 'til it breaks
+ *
+ * Revision 1.36.4.15  1996/07/19 22:30:06  bentson
+ * check more -Z board status; shorten boot message
+ *
+ * Revision 1.36.4.14  1996/07/19 22:20:37  bentson
+ * fix reference to ch_ctrl in startup; verify return
+ * values from cyz_issue_cmd and cyz_update_channel;
+ * more stuff to get modem control correct;
+ *
+ * Revision 1.36.4.13  1996/07/11 19:53:33  bentson
+ * more -Z stuff folded in; re-order changes to put -Z stuff
+ * after -Y stuff (to make changes clearer)
+ *
+ * Revision 1.36.4.12  1996/07/11 15:40:55  bentson
+ * Add code to poll Cyclades-Z.  Add code to get & set RS-232 control.
+ * Add code to send break.  Clear firmware ID word at startup (so
+ * that other code won't talk to inactive board).
+ *
+ * Revision 1.36.4.11  1996/07/09 05:28:29  bentson
+ * add code for -Z in set_line_char
+ *
+ * Revision 1.36.4.10  1996/07/08 19:28:37  bentson
+ * fold more -Z stuff (or in some cases, error messages)
+ * into driver; add text to "don't know what to do" messages.
+ *
+ * Revision 1.36.4.9  1996/07/08 18:38:38  bentson
+ * moved compile-time flags near top of file; cosmetic changes
+ * to narrow text (to allow 2-up printing); changed many declarations
+ * to "static" to limit external symbols; shuffled code order to
+ * coalesce -Y and -Z specific code, also to put internal functions
+ * in order of tty_driver structure; added code to recognize -Z
+ * ports (and for moment, do nothing or report error); add cy_startup
+ * to parse boot command line for extra base addresses for ISA probes;
+ *
+ * Revision 1.36.4.8  1996/06/25 17:40:19  bentson
+ * reorder some code, fix types of some vars (int vs. long),
+ * add cy_setup to support user declared ISA addresses
+ *
+ * Revision 1.36.4.7  1996/06/21 23:06:18  bentson
+ * dump ioctl based firmware load (it's now a user level
+ * program); ensure uninitialzed ports cannot be used
+ *
+ * Revision 1.36.4.6  1996/06/20 23:17:19  bentson
+ * rename vars and restructure some code
+ *
+ * Revision 1.36.4.5  1996/06/14 15:09:44  bentson
+ * get right status back after boot load
+ *
+ * Revision 1.36.4.4  1996/06/13 19:51:44  bentson
+ * successfully loads firmware
+ *
+ * Revision 1.36.4.3  1996/06/13 06:08:33  bentson
+ * add more of the code for the boot/load ioctls
+ *
+ * Revision 1.36.4.2  1996/06/11 21:00:51  bentson
+ * start to add Z functionality--starting with ioctl
+ * for loading firmware
+ *
+ * Revision 1.36.4.1  1996/06/10 18:03:02  bentson
+ * added code to recognize Z/PCI card at initialization; report
+ * presence, but card is not initialized (because firmware needs
+ * to be loaded)
+ *
+ * Revision 1.36.3.8  1996/06/07 16:29:00  bentson
+ * starting minor number at zero; added missing verify_area
+ * as noted by Heiko Eissfeldt <heiko@colossus.escape.de>
+ *
+ * Revision 1.36.3.7  1996/04/19 21:06:18  bentson
+ * remove unneeded boot message & fix CLOCAL hardware flow
+ * control (Miquel van Smoorenburg <miquels@Q.cistron.nl>);
+ * remove unused diagnostic statements; minor 0 is first;
+ *
+ * Revision 1.36.3.6  1996/03/13 13:21:17  marcio
+ * The kernel function vremap (available only in later 1.3.xx kernels)
+ * allows the access to memory addresses above the RAM. This revision
+ * of the driver supports PCI boards below 1Mb (device id 0x100) and
+ * above 1Mb (device id 0x101).
+ *
+ * Revision 1.36.3.5  1996/03/07 15:20:17  bentson
+ * Some global changes to interrupt handling spilled into
+ * this driver--mostly unused arguments in system function
+ * calls.  Also added change by Marcio Saito which should
+ * reduce lost interrupts at startup by fast processors.
+ *
+ * Revision 1.36.3.4  1995/11/13  20:45:10  bentson
+ * Changes by Corey Minyard <minyard@wf-rch.cirr.com> distributed
+ * in 1.3.41 kernel to remove a possible race condition, extend
+ * some error messages, and let the driver run as a loadable module
+ * Change by Alan Wendt <alan@ez0.ezlink.com> to remove a
+ * possible race condition.
+ * Change by Marcio Saito <marcio@cyclades.com> to fix PCI addressing.
+ *
+ * Revision 1.36.3.3  1995/11/13  19:44:48  bentson
+ * Changes by Linus Torvalds in 1.3.33 kernel distribution
+ * required due to reordering of driver initialization.
+ * Drivers are now initialized *after* memory management.
+ *
+ * Revision 1.36.3.2  1995/09/08  22:07:14  bentson
+ * remove printk from ISR; fix typo
+ *
+ * Revision 1.36.3.1  1995/09/01  12:00:42  marcio
+ * Minor fixes in the PCI board support. PCI function calls in
+ * conditional compilation (CONFIG_PCI). Thanks to Jim Duncan
+ * <duncan@okay.com>. "bad serial count" message removed.
+ *
+ * Revision 1.36.3  1995/08/22  09:19:42  marcio
+ * Cyclom-Y/PCI support added. Changes in the cy_init routine and
+ * board initialization. Changes in the boot messages. The driver
+ * supports up to 4 boards and 64 ports by default.
+ *
+ * Revision 1.36.1.4  1995/03/29  06:14:14  bentson
+ * disambiguate between Cyclom-16Y and Cyclom-32Ye;
+ *
+ * Revision 1.36.1.3  1995/03/23  22:15:35  bentson
+ * add missing break in modem control block in ioctl switch statement
+ * (discovered by Michael Edward Chastain <mec@jobe.shell.portal.com>);
+ *
+ * Revision 1.36.1.2  1995/03/22  19:16:22  bentson
+ * make sure CTS flow control is set as soon as possible (thanks
+ * to note from David Lambert <lambert@chesapeake.rps.slb.com>);
+ *
+ * Revision 1.36.1.1  1995/03/13  15:44:43  bentson
+ * initialize defaults for receive threshold and stale data timeout;
+ * cosmetic changes;
+ *
+ * Revision 1.36  1995/03/10  23:33:53  bentson
+ * added support of chips 4-7 in 32 port Cyclom-Ye;
+ * fix cy_interrupt pointer dereference problem
+ * (Joe Portman <baron@aa.net>);
+ * give better error response if open is attempted on non-existent port
+ * (Zachariah Vaum <jchryslr@netcom.com>);
+ * correct command timeout (Kenneth Lerman <lerman@@seltd.newnet.com>);
+ * conditional compilation for -16Y on systems with fast, noisy bus;
+ * comment out diagnostic print function;
+ * cleaned up table of base addresses;
+ * set receiver time-out period register to correct value,
+ * set receive threshold to better default values,
+ * set chip timer to more accurate 200 Hz ticking,
+ * add code to monitor and modify receive parameters
+ * (Rik Faith <faith@cs.unc.edu> Nick Simicich
+ * <njs@scifi.emi.net>);
+ *
+ * Revision 1.35  1994/12/16  13:54:18  steffen
+ * additional patch by Marcio Saito for board detection
+ * Accidently left out in 1.34
+ *
+ * Revision 1.34  1994/12/10  12:37:12  steffen
+ * This is the corrected version as suggested by Marcio Saito
+ *
+ * Revision 1.33  1994/12/01  22:41:18  bentson
+ * add hooks to support more high speeds directly; add tytso
+ * patch regarding CLOCAL wakeups
+ *
+ * Revision 1.32  1994/11/23  19:50:04  bentson
+ * allow direct kernel control of higher signalling rates;
+ * look for cards at additional locations
+ *
+ * Revision 1.31  1994/11/16  04:33:28  bentson
+ * ANOTHER fix from Corey Minyard, minyard@wf-rch.cirr.com--
+ * a problem in chars_in_buffer has been resolved by some
+ * small changes;  this should yield smoother output
+ *
+ * Revision 1.30  1994/11/16  04:28:05  bentson
+ * Fix from Corey Minyard, Internet: minyard@metronet.com,
+ * UUCP: minyard@wf-rch.cirr.com, WORK: minyardbnr.ca, to
+ * cy_hangup that appears to clear up much (all?) of the
+ * DTR glitches; also he's added/cleaned-up diagnostic messages
+ *
+ * Revision 1.29  1994/11/16  04:16:07  bentson
+ * add change proposed by Ralph Sims, ralphs@halcyon.com, to
+ * operate higher speeds in same way as other serial ports;
+ * add more serial ports (for up to two 16-port muxes).
+ *
+ * Revision 1.28  1994/11/04  00:13:16  root
+ * turn off diagnostic messages
+ *
+ * Revision 1.27  1994/11/03  23:46:37  root
+ * bunch of changes to bring driver into greater conformance
+ * with the serial.c driver (looking for missed fixes)
+ *
+ * Revision 1.26  1994/11/03  22:40:36  root
+ * automatic interrupt probing fixed.
+ *
+ * Revision 1.25  1994/11/03  20:17:02  root
+ * start to implement auto-irq
+ *
+ * Revision 1.24  1994/11/03  18:01:55  root
+ * still working on modem signals--trying not to drop DTR
+ * during the getty/login processes
+ *
+ * Revision 1.23  1994/11/03  17:51:36  root
+ * extend baud rate support; set receive threshold as function
+ * of baud rate; fix some problems with RTS/CTS;
+ *
+ * Revision 1.22  1994/11/02  18:05:35  root
+ * changed arguments to udelay to type long to get
+ * delays to be of correct duration
+ *
+ * Revision 1.21  1994/11/02  17:37:30  root
+ * employ udelay (after calibrating loops_per_second earlier
+ * in init/main.c) instead of using home-grown delay routines
+ *
+ * Revision 1.20  1994/11/02  03:11:38  root
+ * cy_chars_in_buffer forces a return value of 0 to let
+ * login work (don't know why it does); some functions
+ * that were returning EFAULT, now executes the code;
+ * more work on deciding when to disable xmit interrupts;
+ *
+ * Revision 1.19  1994/11/01  20:10:14  root
+ * define routine to start transmission interrupts (by enabling
+ * transmit interrupts); directly enable/disable modem interrupts;
+ *
+ * Revision 1.18  1994/11/01  18:40:45  bentson
+ * Don't always enable transmit interrupts in startup; interrupt on
+ * TxMpty instead of TxRdy to help characters get out before shutdown;
+ * restructure xmit interrupt to check for chars first and quit if
+ * none are ready to go; modem status (MXVRx) is upright, _not_ inverted
+ * (to my view);
+ *
+ * Revision 1.17  1994/10/30  04:39:45  bentson
+ * rename serial_driver and callout_driver to cy_serial_driver and
+ * cy_callout_driver to avoid linkage interference; initialize
+ * info->type to PORT_CIRRUS; ruggedize paranoia test; elide ->port
+ * from cyclades_port structure; add paranoia check to cy_close;
+ *
+ * Revision 1.16  1994/10/30  01:14:33  bentson
+ * change major numbers; add some _early_ return statements;
+ *
+ * Revision 1.15  1994/10/29  06:43:15  bentson
+ * final tidying up for clean compile;  enable some error reporting
+ *
+ * Revision 1.14  1994/10/28  20:30:22  Bentson
+ * lots of changes to drag the driver towards the new tty_io
+ * structures and operation.  not expected to work, but may
+ * compile cleanly.
+ *
+ * Revision 1.13  1994/07/21  23:08:57  Bentson
+ * add some diagnostic cruft; support 24 lines (for testing
+ * both -8Y and -16Y cards; be more thorough in servicing all
+ * chips during interrupt; add "volatile" a few places to
+ * circumvent compiler optimizations; fix base & offset
+ * computations in block_til_ready (was causing chip 0 to
+ * stop operation)
+ *
+ * Revision 1.12  1994/07/19  16:42:11  Bentson
+ * add some hackery for kernel version 1.1.8; expand
+ * error messages; refine timing for delay loops and
+ * declare loop params volatile
+ *
+ * Revision 1.11  1994/06/11  21:53:10  bentson
+ * get use of save_car right in transmit interrupt service
+ *
+ * Revision 1.10.1.1  1994/06/11  21:31:18  bentson
+ * add some diagnostic printing; try to fix save_car stuff
+ *
+ * Revision 1.10  1994/06/11  20:36:08  bentson
+ * clean up compiler warnings
+ *
+ * Revision 1.9  1994/06/11  19:42:46  bentson
+ * added a bunch of code to support modem signalling
+ *
+ * Revision 1.8  1994/06/11  17:57:07  bentson
+ * recognize break & parity error
+ *
+ * Revision 1.7  1994/06/05  05:51:34  bentson
+ * Reorder baud table to be monotonic; add cli to CP; discard
+ * incoming characters and status if the line isn't open; start to
+ * fold code into cy_throttle; start to port get_serial_info,
+ * set_serial_info, get_modem_info, set_modem_info, and send_break
+ * from serial.c; expand cy_ioctl; relocate and expand config_setup;
+ * get flow control characters from tty struct; invalidate ports w/o
+ * hardware;
+ *
+ * Revision 1.6  1994/05/31  18:42:21  bentson
+ * add a loop-breaker in the interrupt service routine;
+ * note when port is initialized so that it can be shut
+ * down under the right conditions; receive works without
+ * any obvious errors
+ *
+ * Revision 1.5  1994/05/30  00:55:02  bentson
+ * transmit works without obvious errors
+ *
+ * Revision 1.4  1994/05/27  18:46:27  bentson
+ * incorporated more code from lib_y.c; can now print short
+ * strings under interrupt control to port zero; seems to
+ * select ports/channels/lines correctly
+ *
+ * Revision 1.3  1994/05/25  22:12:44  bentson
+ * shifting from multi-port on a card to proper multiplexor
+ * data structures;  added skeletons of most routines
+ *
+ * Revision 1.2  1994/05/19  13:21:43  bentson
+ * start to crib from other sources
+ *
+ */
 
 /* If you need to install more boards than NR_CARDS, change the constant
    in the definition below. No other change is necessary to support up to
@@ -36,7 +622,11 @@ static char rcsid[] =
 #undef	CY_ENABLE_MONITORING
 #undef	CY_PCI_DEBUG
 
+#if 0
+#define PAUSE __asm__("nop");
+#else
 #define PAUSE ;
+#endif
 
 /*
  * Include section 
@@ -410,11 +1000,7 @@ do_softint(void *private_)
 	wake_up_interruptible(&info->delta_msr_wait);
     }
     if (test_and_clear_bit(Cy_EVENT_WRITE_WAKEUP, &info->event)) {
-        if((tty->flags & (1<< TTY_DO_WRITE_WAKEUP))
-        && tty->ldisc.write_wakeup){
-            (tty->ldisc.write_wakeup)(tty);
-        }
-        wake_up_interruptible(&tty->write_wait);
+	tty_wakeup(tty);
     }
 #ifdef Z_WAKE
     if (test_and_clear_bit(Cy_EVENT_SHUTDOWN_WAKEUP, &info->event)) {
@@ -2328,8 +2914,7 @@ cy_close(struct tty_struct *tty, struct file *filp)
     shutdown(info);
     if (tty->driver.flush_buffer)
         tty->driver.flush_buffer(tty);
-    if (tty->ldisc.flush_buffer)
-        tty->ldisc.flush_buffer(tty);
+    tty_ldisc_flush(tty);
     CY_LOCK(info, flags);
 
     tty->closing = 0;
@@ -2375,10 +2960,15 @@ static int
 cy_write(struct tty_struct * tty, int from_user,
            const unsigned char *buf, int count)
 {
-  struct cyclades_port *info = (struct cyclades_port *)tty->driver_data;
+  struct cyclades_port *info;
   unsigned long flags;
   int c, ret = 0;
 
+    if (!tty)
+	return 0;
+
+    info = (struct cyclades_port *)tty->driver_data;
+  
 #ifdef CY_DEBUG_IO
     printk("cyc:cy_write ttyC%d\n", info->line); /* */
 #endif
@@ -2387,7 +2977,7 @@ cy_write(struct tty_struct * tty, int from_user,
         return 0;
     }
         
-    if (!tty || !info->xmit_buf || !tmp_buf){
+    if (!info->xmit_buf || !tmp_buf){
         return 0;
     }
 
@@ -2462,9 +3052,14 @@ cy_write(struct tty_struct * tty, int from_user,
 static void
 cy_put_char(struct tty_struct *tty, unsigned char ch)
 {
-  struct cyclades_port *info = (struct cyclades_port *)tty->driver_data;
+  struct cyclades_port *info;
   unsigned long flags;
 
+    if (!tty)
+        return;
+
+    info = (struct cyclades_port *)tty->driver_data;
+  
 #ifdef CY_DEBUG_IO
     printk("cyc:cy_put_char ttyC%d\n", info->line);
 #endif
@@ -2472,7 +3067,7 @@ cy_put_char(struct tty_struct *tty, unsigned char ch)
     if (serial_paranoia_check(info, tty->device, "cy_put_char"))
         return;
 
-    if (!tty || !info->xmit_buf)
+    if (!info->xmit_buf)
         return;
 
     CY_LOCK(info, flags);
@@ -3856,6 +4451,17 @@ cy_set_termios(struct tty_struct *tty, struct termios * old_termios)
             tty->hw_stopped = 0;
             cy_start(tty);
     }
+#if 0
+    /*
+     * No need to wake up processes in open wait, since they
+     * sample the CLOCAL flag once, and don't recheck it.
+     * XXX  It's not clear whether the current behavior is correct
+     * or not.  Hence, this may change.....
+     */
+    if (!(old_termios->c_cflag & CLOCAL) &&
+        (tty->termios->c_cflag & CLOCAL))
+            wake_up_interruptible(&info->open_wait);
+#endif
 
     return;
 } /* cy_set_termios */
@@ -4088,10 +4694,7 @@ cy_flush_buffer(struct tty_struct *tty)
 	}
 	CY_UNLOCK(info, flags);
     }
-    wake_up_interruptible(&tty->write_wait);
-    if ((tty->flags & (1 << TTY_DO_WRITE_WAKEUP))
-	&& tty->ldisc.write_wakeup)
-	    (tty->ldisc.write_wakeup)(tty);
+    tty_wakeup(tty);
 } /* cy_flush_buffer */
 
 
@@ -4356,7 +4959,7 @@ cy_detect_pci(void)
   struct pci_dev	*pdev = NULL;
   unsigned char		cyy_rev_id;
   unsigned char         cy_pci_irq = 0;
-  uclong		cy_pci_phys0, cy_pci_phys1, cy_pci_phys2;
+  uclong		cy_pci_phys0, cy_pci_phys2;
   uclong		cy_pci_addr0, cy_pci_addr2;
   unsigned short        i,j,cy_pci_nchan, plx_ver;
   unsigned short        device_id,dev_index = 0;
@@ -4364,8 +4967,7 @@ cy_detect_pci(void)
   uclong		Ze_addr0[NR_CARDS], Ze_addr2[NR_CARDS], ZeIndex = 0;
   uclong		Ze_phys0[NR_CARDS], Ze_phys2[NR_CARDS];
   unsigned char         Ze_irq[NR_CARDS];
-  struct resource *resource;
-  unsigned long res_start, res_len;
+  struct pci_dev	*Ze_pdev[NR_CARDS];
 
         for (i = 0; i < NR_CARDS; i++) {
                 /* look for a Cyclades card by vendor and device id */
@@ -4387,7 +4989,6 @@ cy_detect_pci(void)
                 /* read PCI configuration area */
 		cy_pci_irq = pdev->irq;
 		cy_pci_phys0 = pci_resource_start(pdev, 0);
-		cy_pci_phys1 = pci_resource_start(pdev, 1);
 		cy_pci_phys2 = pci_resource_start(pdev, 2);
 		pci_read_config_byte(pdev, PCI_REVISION_ID, &cyy_rev_id);
 
@@ -4413,14 +5014,11 @@ cy_detect_pci(void)
 		/* Although we don't use this I/O region, we should
 		   request it from the kernel anyway, to avoid problems
 		   with other drivers accessing it. */
-		resource = request_region(cy_pci_phys1, CyPCI_Yctl, "Cyclom-Y");
-		if (resource == NULL) {
-		    printk(KERN_ERR "cyclades: failed to allocate IO "
-				    "resource at 0x%lx\n", cy_pci_phys1);
+		if (pci_request_regions(pdev, "Cyclom-Y") != 0) {
+		    printk(KERN_ERR "cyclades: failed to reserve PCI "
+				    "resources\n");
 		    continue;
 		}
-		res_start = cy_pci_phys1;
-		res_len = CyPCI_Yctl;
 
 #if defined(__alpha__)
                 if (device_id  == PCI_DEVICE_ID_CYCLOM_Y_Lo) { /* below 1M? */
@@ -4491,10 +5089,7 @@ cy_detect_pci(void)
                 cy_card[j].bus_index = 1;
                 cy_card[j].first_line = cy_next_channel;
                 cy_card[j].num_chips = cy_pci_nchan/4;
-		cy_card[j].resource = resource;
-		cy_card[j].res_start = res_start;
-		cy_card[j].res_len = res_len;
-		resource = NULL;	/* For next card */
+		cy_card[j].pdev = pdev;
 
                 /* enable interrupts in the PCI interface */
 		plx_ver = cy_readb(cy_pci_addr2 + CyPLX_VER) & 0x0f;
@@ -4574,16 +5169,13 @@ cy_detect_pci(void)
 		/* Although we don't use this I/O region, we should
 		   request it from the kernel anyway, to avoid problems
 		   with other drivers accessing it. */
-		resource = request_region(cy_pci_phys1, CyPCI_Zctl, 
-					  "Cyclades-Z");
-		if (resource == NULL) {
-		    printk(KERN_ERR "cyclades: failed to allocate IO "
-				    "resource at 0x%lx\n", cy_pci_phys1);
-		    continue;
-		}
-		res_start = cy_pci_phys1;
-		res_len = CyPCI_Zctl;
 
+		if (pci_request_regions(pdev, "Cyclades-Z") != 0) {
+			printk(KERN_ERR "cyclades: failed to reserve PCI "
+				    "resources\n");
+  			continue;
+  		}
+  
 		if (mailbox == ZE_V1) {
 		    cy_pci_addr2 = (ulong)ioremap(cy_pci_phys2, CyPCI_Ze_win);
 		    if (ZeIndex == NR_CARDS) {
@@ -4597,6 +5189,7 @@ cy_detect_pci(void)
 			Ze_addr0[ZeIndex] = cy_pci_addr0;
 			Ze_addr2[ZeIndex] = cy_pci_addr2;
 			Ze_irq[ZeIndex] = cy_pci_irq;
+			Ze_pdev[ZeIndex] = pdev;
 			ZeIndex++;
 		    }
 		    i--;
@@ -4681,10 +5274,7 @@ cy_detect_pci(void)
                 cy_card[j].bus_index = 1;
                 cy_card[j].first_line = cy_next_channel;
                 cy_card[j].num_chips = -1;
-		cy_card[j].resource = resource;
-		cy_card[j].res_start = res_start;
-		cy_card[j].res_len = res_len;
-		resource = NULL;	/* For next card */
+		cy_card[j].pdev = pdev;
 
                 /* print message */
 #ifdef CONFIG_CYZ_INTR
@@ -4712,12 +5302,14 @@ cy_detect_pci(void)
 	    cy_pci_addr0 = Ze_addr0[0];
 	    cy_pci_addr2 = Ze_addr2[0];
 	    cy_pci_irq = Ze_irq[0];
+	    pdev = Ze_pdev[0];
 	    for (j = 0 ; j < ZeIndex-1 ; j++) {
 		Ze_phys0[j] = Ze_phys0[j+1];
 		Ze_phys2[j] = Ze_phys2[j+1];
 		Ze_addr0[j] = Ze_addr0[j+1];
 		Ze_addr2[j] = Ze_addr2[j+1];
 		Ze_irq[j] = Ze_irq[j+1];
+		Ze_pdev[j] = Ze_pdev[j+1];
 	    }
 	    ZeIndex--;
 		mailbox = (uclong)cy_readl(&((struct RUNTIME_9060 *) 
@@ -4775,6 +5367,7 @@ cy_detect_pci(void)
                 cy_card[j].bus_index = 1;
                 cy_card[j].first_line = cy_next_channel;
                 cy_card[j].num_chips = -1;
+		cy_card[j].pdev = pdev;
 
                 /* print message */
 #ifdef CONFIG_CYZ_INTR
@@ -5211,10 +5804,8 @@ cy_cleanup_module(void)
 #endif /* CONFIG_CYZ_INTR */
 	    )
 		free_irq(cy_card[i].irq, &cy_card[i]);
-	    if (cy_card[i].resource) {
-		cy_card[i].resource = NULL;
-		release_region(cy_card[i].res_start, cy_card[i].res_len);
-	    }
+	    if (cy_card[i].pdev)
+	    	pci_release_regions(cy_card[i].pdev);
         }
     }
     if (tmp_buf) {

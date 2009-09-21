@@ -64,8 +64,8 @@ static int read_inode_bitmap (struct super_block * sb,
 	if (!bh) {
 		ext3_error (sb, "read_inode_bitmap",
 			    "Cannot read inode bitmap - "
-			    "block_group = %lu, inode_bitmap = %lu",
-			    block_group, (unsigned long) gdp->bg_inode_bitmap);
+			    "block_group = %lu, inode_bitmap = %u",
+			    block_group, gdp->bg_inode_bitmap);
 		retval = -EIO;
 	}
 	/*
@@ -500,8 +500,7 @@ repeat:
 #endif
 	inode->u.ext3_i.i_block_group = i;
 	
-	if (inode->u.ext3_i.i_flags & EXT3_SYNC_FL)
-		inode->i_flags |= S_SYNC;
+	ext3_set_inode_flags(inode);
 	if (IS_SYNC(inode))
 		handle->h_sync = 1;
 	insert_inode_hash(inode);
@@ -531,19 +530,19 @@ out:
 }
 
 /* Verify that we are loading a valid orphan from disk */
-struct inode *ext3_orphan_get (struct super_block * sb, ino_t ino)
+struct inode *ext3_orphan_get(struct super_block *sb, unsigned long ino)
 {
-	ino_t max_ino = le32_to_cpu(EXT3_SB(sb)->s_es->s_inodes_count);
+	unsigned long max_ino = le32_to_cpu(EXT3_SB(sb)->s_es->s_inodes_count);
 	unsigned long block_group;
 	int bit;
 	int bitmap_nr;
 	struct buffer_head *bh;
 	struct inode *inode = NULL;
-	
+
 	/* Error cases - e2fsck has already cleaned up for us */
 	if (ino > max_ino) {
 		ext3_warning(sb, __FUNCTION__,
-			     "bad orphan ino %ld!  e2fsck was run?\n", ino);
+			     "bad orphan ino %lu!  e2fsck was run?\n", ino);
 		return NULL;
 	}
 
@@ -552,7 +551,7 @@ struct inode *ext3_orphan_get (struct super_block * sb, ino_t ino)
 	if ((bitmap_nr = load_inode_bitmap(sb, block_group)) < 0 ||
 	    !(bh = EXT3_SB(sb)->s_inode_bitmap[bitmap_nr])) {
 		ext3_warning(sb, __FUNCTION__,
-			     "inode bitmap error for orphan %ld\n", ino);
+			     "inode bitmap error for orphan %lu\n", ino);
 		return NULL;
 	}
 
@@ -563,16 +562,16 @@ struct inode *ext3_orphan_get (struct super_block * sb, ino_t ino)
 	if (!ext3_test_bit(bit, bh->b_data) || !(inode = iget(sb, ino)) ||
 	    is_bad_inode(inode) || NEXT_ORPHAN(inode) > max_ino) {
 		ext3_warning(sb, __FUNCTION__,
-			     "bad orphan inode %ld!  e2fsck was run?\n", ino);
+			     "bad orphan inode %lu!  e2fsck was run?\n", ino);
 		printk(KERN_NOTICE "ext3_test_bit(bit=%d, block=%ld) = %d\n",
 		       bit, bh->b_blocknr, ext3_test_bit(bit, bh->b_data));
 		printk(KERN_NOTICE "inode=%p\n", inode);
 		if (inode) {
 			printk(KERN_NOTICE "is_bad_inode(inode)=%d\n",
 			       is_bad_inode(inode));
-			printk(KERN_NOTICE "NEXT_ORPHAN(inode)=%d\n",
+			printk(KERN_NOTICE "NEXT_ORPHAN(inode)=%u\n",
 			       NEXT_ORPHAN(inode));
-			printk(KERN_NOTICE "max_ino=%ld\n", max_ino);
+			printk(KERN_NOTICE "max_ino=%lu\n", max_ino);
 		}
 		/* Avoid freeing blocks if we got a bad deleted inode */
 		if (inode && inode->i_nlink == 0)

@@ -390,26 +390,26 @@ static int v3_write_config_dword(struct pci_dev *dev, int where, u32 val)
 }
 
 static struct pci_ops pci_v3_ops = {
-	read_byte:	v3_read_config_byte,
-	read_word:	v3_read_config_word,
-	read_dword:	v3_read_config_dword,
-	write_byte:	v3_write_config_byte,
-	write_word:	v3_write_config_word,
-	write_dword:	v3_write_config_dword,
+	.read_byte	= v3_read_config_byte,
+	.read_word	= v3_read_config_word,
+	.read_dword	= v3_read_config_dword,
+	.write_byte	= v3_write_config_byte,
+	.write_word	= v3_write_config_word,
+	.write_dword	= v3_write_config_dword,
 };
 
 static struct resource non_mem = {
-	name:	"PCI non-prefetchable",
-	start:	0x40000000 + PCI_BUS_NONMEM_START,
-	end:	0x40000000 + PCI_BUS_NONMEM_START + PCI_BUS_NONMEM_SIZE - 1,
-	flags:	IORESOURCE_MEM,
+	.name	= "PCI non-prefetchable",
+	.start	= 0x40000000 + PCI_BUS_NONMEM_START,
+	.end	= 0x40000000 + PCI_BUS_NONMEM_START + PCI_BUS_NONMEM_SIZE - 1,
+	.flags	= IORESOURCE_MEM,
 };
 
 static struct resource pre_mem = {
-	name:	"PCI prefetchable",
-	start:	0x40000000 + PCI_BUS_PREMEM_START,
-	end:	0x40000000 + PCI_BUS_PREMEM_START + PCI_BUS_PREMEM_SIZE - 1,
-	flags:	IORESOURCE_MEM | IORESOURCE_PREFETCH,
+	.name	= "PCI prefetchable",
+	.start	= 0x40000000 + PCI_BUS_PREMEM_START,
+	.end	= 0x40000000 + PCI_BUS_PREMEM_START + PCI_BUS_PREMEM_SIZE - 1,
+	.flags	= IORESOURCE_MEM | IORESOURCE_PREFETCH,
 };
 
 int __init pci_v3_setup_resources(struct resource **resource)
@@ -451,6 +451,15 @@ static int v3_fault(unsigned long addr, struct pt_regs *regs)
 {
 	unsigned long pc = instruction_pointer(regs);
 	unsigned long instr = *(unsigned long *)pc;
+#if 0
+	char buf[128];
+
+	sprintf(buf, "V3 fault: address=0x%08lx, pc=0x%08lx [%08lx] LBFADDR=%08x LBFCODE=%02x ISTAT=%02x\n",
+		addr, pc, instr, __raw_readl(SC_LBFADDR), __raw_readl(SC_LBFCODE) & 255,
+		v3_readb(V3_LB_ISTAT));
+	printk(KERN_DEBUG "%s", buf);
+	printascii(buf);
+#endif
 
 	v3_writeb(V3_LB_ISTAT, 0);
 	__raw_writel(3, SC_PCI);
@@ -617,4 +626,10 @@ void __init pci_v3_init(void *sysdata)
 	v3_writeb(V3_LB_ISTAT, ~0x40);
 	v3_writeb(V3_LB_IMASK, 0x68);
 
+#if 0
+	ret = request_irq(IRQ_LBUSTIMEOUT, lb_timeout, 0, "bus timeout", NULL);
+	if (ret)
+		printk(KERN_ERR "PCI: unable to grab local bus timeout ".
+		       "interrupt: %d\n", ret);
+#endif
 }

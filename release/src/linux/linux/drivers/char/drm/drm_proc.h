@@ -147,10 +147,10 @@ static int DRM(name_info)(char *buf, char **start, off_t offset, int request,
 	*eof   = 0;
 
 	if (dev->unique) {
-		DRM_PROC_PRINT("%s 0x%x %s\n",
-			       dev->name, dev->device, dev->unique);
+		DRM_PROC_PRINT("%s 0x%lx %s\n",
+			       dev->name, (long)dev->device, dev->unique);
 	} else {
-		DRM_PROC_PRINT("%s 0x%x\n", dev->name, dev->device);
+		DRM_PROC_PRINT("%s 0x%lx\n", dev->name, (long)dev->device);
 	}
 
 	if (len > request + offset) return request;
@@ -444,6 +444,28 @@ static int DRM(_vma_info)(char *buf, char **start, off_t offset, int request,
 			       pgprot & _PAGE_GLOBAL   ? 'g' : 'l' );
 #endif
 		DRM_PROC_PRINT("\n");
+#if 0
+		for (i = vma->vm_start; i < vma->vm_end; i += PAGE_SIZE) {
+			pgd = pgd_offset(vma->vm_mm, i);
+			pmd = pmd_offset(pgd, i);
+			pte = pte_offset(pmd, i);
+			if (pte_present(*pte)) {
+				address = __pa(pte_page(*pte))
+					+ (i & (PAGE_SIZE-1));
+				DRM_PROC_PRINT("      0x%08lx -> 0x%08lx"
+					       " %c%c%c%c%c\n",
+					       i,
+					       address,
+					       pte_read(*pte)  ? 'r' : '-',
+					       pte_write(*pte) ? 'w' : '-',
+					       pte_exec(*pte)  ? 'x' : '-',
+					       pte_dirty(*pte) ? 'd' : '-',
+					       pte_young(*pte) ? 'a' : '-' );
+			} else {
+				DRM_PROC_PRINT("      0x%08lx\n", i);
+			}
+		}
+#endif
 	}
 
 	if (len > request + offset) return request;
@@ -501,6 +523,30 @@ static int DRM(_histo_info)(char *buf, char **start, off_t offset, int request,
 		       atomic_read(&dev->counts[_DRM_STAT_UNLOCKS]));
 
 	if (dma) {
+#if 0
+		DRM_PROC_PRINT("\ndma statistics:\n");
+		DRM_PROC_PRINT("prio	 %10u\n",
+			       atomic_read(&dma->total_prio));
+		DRM_PROC_PRINT("bytes	 %10u\n",
+			       atomic_read(&dma->total_bytes));
+		DRM_PROC_PRINT("dmas	 %10u\n",
+			       atomic_read(&dma->total_dmas));
+		DRM_PROC_PRINT("missed:\n");
+		DRM_PROC_PRINT("  dma	 %10u\n",
+			       atomic_read(&dma->total_missed_dma));
+		DRM_PROC_PRINT("  lock	 %10u\n",
+			       atomic_read(&dma->total_missed_lock));
+		DRM_PROC_PRINT("  free	 %10u\n",
+			       atomic_read(&dma->total_missed_free));
+		DRM_PROC_PRINT("  sched	 %10u\n",
+			       atomic_read(&dma->total_missed_sched));
+		DRM_PROC_PRINT("tried	 %10u\n",
+			       atomic_read(&dma->total_tried));
+		DRM_PROC_PRINT("hit	 %10u\n",
+			       atomic_read(&dma->total_hit));
+		DRM_PROC_PRINT("lost	 %10u\n",
+			       atomic_read(&dma->total_lost));
+#endif
 
 		buffer = dma->next_buffer;
 		if (buffer) {

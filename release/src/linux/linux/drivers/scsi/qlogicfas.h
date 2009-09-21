@@ -2,6 +2,7 @@
 #define _QLOGICFAS_H
 
 int qlogicfas_detect(Scsi_Host_Template * );
+int qlogicfas_release(struct Scsi_Host *);
 const char * qlogicfas_info(struct Scsi_Host *);
 int qlogicfas_command(Scsi_Cmnd *);
 int qlogicfas_queuecommand(Scsi_Cmnd *, void (* done)(Scsi_Cmnd *));
@@ -21,6 +22,7 @@ int qlogicfas_biosparam(Disk *, kdev_t, int[]);
 
 #define QLOGICFAS {		\
 	detect:         qlogicfas_detect,	\
+        release:        qlogicfas_release,      \
 	info:           qlogicfas_info,		\
 	command:        qlogicfas_command, 	\
 	queuecommand:   qlogicfas_queuecommand,	\

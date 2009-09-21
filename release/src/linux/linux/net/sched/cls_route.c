@@ -35,6 +35,13 @@
 #include <net/sock.h>
 #include <net/pkt_sched.h>
 
+/*
+   1. For now we assume that route tags < 256.
+      It allows to use direct table lookups, instead of hash tables.
+   2. For now we assume that "from TAG" and "fromdev DEV" statements
+      are mutually  exclusive.
+   3. "to TAG from ANY" has higher priority, than "to ANY from XXX"
+ */
 
 struct route4_fastmap
 {
@@ -534,7 +541,7 @@ static void route4_walk(struct tcf_proto *tp, struct tcf_walker *arg)
 					}
 					if (arg->fn(tp, (unsigned long)f, arg) < 0) {
 						arg->stop = 1;
-						break;
+						return;
 					}
 					arg->count++;
 				}

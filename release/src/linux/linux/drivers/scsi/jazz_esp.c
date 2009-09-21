@@ -122,6 +122,9 @@ int jazz_esp_detect(Scsi_Host_Template *tpnt)
 	request_irq(JAZZ_SCSI_IRQ, esp_intr, SA_INTERRUPT, "JAZZ SCSI",
 	            NULL);
 
+	/*
+	 * FIXME, look if the scsi id is available from NVRAM
+	 */
 	esp->scsi_id = 7;
 		
 	/* Check for differential SCSI-bus */
@@ -255,12 +258,18 @@ static void dma_advance_sg (Scsi_Cmnd *sp)
     sp->SCp.ptr = (char *)((unsigned long)sp->SCp.buffer->dvma_address);
 }
 
-#define JAZZ_HDC_LED   0xe000d100 
+#define JAZZ_HDC_LED   0xe000d100 /* FIXME, find correct address */
 
 static void dma_led_off(struct NCR_ESP *esp)
 {
+#if 0    
+    *(unsigned char *)JAZZ_HDC_LED = 0;
+#endif    
 }
 
 static void dma_led_on(struct NCR_ESP *esp)
 {    
+#if 0    
+    *(unsigned char *)JAZZ_HDC_LED = 1;
+#endif    
 }

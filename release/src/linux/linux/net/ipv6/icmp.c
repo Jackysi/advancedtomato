@@ -3,9 +3,9 @@
  *	Linux INET6 implementation
  *
  *	Authors:
- *	Pedro Roque		<roque@di.fc.ul.pt>
+ *	Pedro Roque		<pedro_m@yahoo.com>
  *
- *	$Id: icmp.c,v 1.1.1.4 2003/10/14 08:09:34 sparq Exp $
+ *	$Id: icmp.c,v 1.37 2001/09/18 22:29:10 davem Exp $
  *
  *	Based on net/ipv4/icmp.c
  *
@@ -25,9 +25,9 @@
  *					add more length checks and other fixes.
  *	yoshfuji		:	ensure to sent parameter problem for
  *					fragments.
+ *	YOSHIFUJI Hideaki @USAGI:	added sysctl for icmp rate limit.
  */
 
-#define __NO_VERSION__
 #include <linux/module.h>
 #include <linux/errno.h>
 #include <linux/types.h>
@@ -39,6 +39,10 @@
 #include <linux/net.h>
 #include <linux/skbuff.h>
 #include <linux/init.h>
+
+#ifdef CONFIG_SYSCTL
+#include <linux/sysctl.h>
+#endif
 
 #include <linux/inet.h>
 #include <linux/netdevice.h>
@@ -63,10 +67,12 @@
 struct icmpv6_mib icmpv6_statistics[NR_CPUS*2];
 
 /*
- *	ICMP socket for flow control.
+ *	ICMP socket(s) for flow control.
  */
 
-struct socket *icmpv6_socket;
+static struct socket *__icmpv6_socket[NR_CPUS];
+#define icmpv6_socket	__icmpv6_socket[smp_processor_id()]
+#define icmpv6_socket_cpu(X) __icmpv6_socket[(X)]
 
 int icmpv6_rcv(struct sk_buff *skb);
 
@@ -91,42 +97,24 @@ struct icmpv6_msg {
 };
 
 
-static int icmpv6_xmit_holder = -1;
-
-static int icmpv6_xmit_lock_bh(void)
+static int icmpv6_xmit_lock(void)
 {
-	if (!spin_trylock(&icmpv6_socket->sk->lock.slock)) {
-		if (icmpv6_xmit_holder == smp_processor_id())
-			return -EAGAIN;
-		spin_lock(&icmpv6_socket->sk->lock.slock);
+	local_bh_disable();
+	if (unlikely(!spin_trylock(&icmpv6_socket->sk->lock.slock))) {
+		/* This can happen if the output path (f.e. SIT or
+		 * ip6ip6 tunnel) signals dst_link_failure() for an
+		 * outgoing ICMP6 packet.
+		 */
+		local_bh_enable();
+		return 1;
 	}
-	icmpv6_xmit_holder = smp_processor_id();
 	return 0;
 }
 
-static __inline__ int icmpv6_xmit_lock(void)
+static void icmpv6_xmit_unlock(void)
 {
-	int ret;
-	local_bh_disable();
-	ret = icmpv6_xmit_lock_bh();
-	if (ret)
-		local_bh_enable();
-	return ret;
+	spin_unlock_bh(&icmpv6_socket->sk->lock.slock);
 }
-
-static void icmpv6_xmit_unlock_bh(void)
-{
-	icmpv6_xmit_holder = -1;
-	spin_unlock(&icmpv6_socket->sk->lock.slock);
-}
-
-static __inline__ void icmpv6_xmit_unlock(void)
-{
-	icmpv6_xmit_unlock_bh();
-	local_bh_enable();
-}
-
-
 
 /*
  *	getfrag callback
@@ -223,6 +211,11 @@ static inline int icmpv6_xrlim_allow(struct sock *sk, int type,
 	if (type == ICMPV6_PKT_TOOBIG)
 		return 1;
 
+	/* 
+	 * Look up the output route.
+	 * XXX: perhaps the expire for routing entries cloned by
+	 * this lookup should be more aggressive (not longer than timeout).
+	 */
 	dst = ip6_route_output(sk, fl);
 	if (dst->error) {
 		IP6_INC_STATS(Ip6OutNoRoutes);
@@ -390,7 +383,8 @@ static void icmpv6_echo_reply(struct sk_buff *skb)
 
 	saddr = &skb->nh.ipv6h->daddr;
 
-	if (ipv6_addr_type(saddr) & IPV6_ADDR_MULTICAST)
+	if (ipv6_addr_type(saddr) & IPV6_ADDR_MULTICAST ||
+	    ipv6_chk_acast_addr(0, saddr)) 
 		saddr = NULL;
 
 	msg.icmph.icmp6_type = ICMPV6_ECHO_REPLY;
@@ -413,7 +407,7 @@ static void icmpv6_echo_reply(struct sk_buff *skb)
 	fl.uli_u.icmpt.type = ICMPV6_ECHO_REPLY;
 	fl.uli_u.icmpt.code = 0;
 
-	if (icmpv6_xmit_lock_bh())
+	if (icmpv6_xmit_lock())
 		return;
 
 	ip6_build_xmit(sk, icmpv6_getfrag, &msg, &fl, msg.len, NULL, -1,
@@ -421,7 +415,7 @@ static void icmpv6_echo_reply(struct sk_buff *skb)
 	ICMP6_INC_STATS_BH(Icmp6OutEchoReplies);
 	ICMP6_INC_STATS_BH(Icmp6OutMsgs);
 
-	icmpv6_xmit_unlock_bh();
+	icmpv6_xmit_unlock();
 }
 
 static void icmpv6_notify(struct sk_buff *skb, int type, int code, u32 info)
@@ -601,6 +595,7 @@ int icmpv6_rcv(struct sk_buff *skb)
 		break;
 
 	case ICMPV6_MGM_REDUCTION:
+	case ICMPV6_MLD2_REPORT:
 		break;
 
 	default:
@@ -630,41 +625,59 @@ discard_it:
 int __init icmpv6_init(struct net_proto_family *ops)
 {
 	struct sock *sk;
-	int err;
+	int err, i, j;
 
-	icmpv6_socket = sock_alloc();
-	if (icmpv6_socket == NULL) {
-		printk(KERN_ERR
-		       "Failed to create the ICMP6 control socket.\n");
-		return -1;
+	for (i = 0; i < NR_CPUS; i++) {
+		icmpv6_socket_cpu(i) = sock_alloc();
+		if (icmpv6_socket_cpu(i) == NULL) {
+			printk(KERN_ERR
+			       "Failed to create the ICMP6 control socket.\n");
+			err = -1;
+			goto fail;
+		}
+		icmpv6_socket_cpu(i)->inode->i_uid = 0;
+		icmpv6_socket_cpu(i)->inode->i_gid = 0;
+		icmpv6_socket_cpu(i)->type = SOCK_RAW;
+
+		if ((err = ops->create(icmpv6_socket_cpu(i), IPPROTO_ICMPV6)) < 0) {
+			printk(KERN_ERR
+			       "Failed to initialize the ICMP6 control socket "
+			       "(err %d).\n",
+			       err);
+			goto fail;
+		}
+
+		sk = icmpv6_socket_cpu(i)->sk;
+		sk->allocation = GFP_ATOMIC;
+
+		/* Enough space for 2 64K ICMP packets, including
+		 * sk_buff struct overhead.
+		 */
+		sk->sndbuf =
+			(2 * ((64 * 1024) + sizeof(struct sk_buff)));
+
+		sk->prot->unhash(sk);
 	}
-	icmpv6_socket->inode->i_uid = 0;
-	icmpv6_socket->inode->i_gid = 0;
-	icmpv6_socket->type = SOCK_RAW;
-
-	if ((err = ops->create(icmpv6_socket, IPPROTO_ICMPV6)) < 0) {
-		printk(KERN_ERR
-		       "Failed to initialize the ICMP6 control socket (err %d).\n",
-		       err);
-		sock_release(icmpv6_socket);
-		icmpv6_socket = NULL; /* for safety */
-		return err;
-	}
-
-	sk = icmpv6_socket->sk;
-	sk->allocation = GFP_ATOMIC;
-	sk->sndbuf = SK_WMEM_MAX*2;
-	sk->prot->unhash(sk);
 
 	inet6_add_protocol(&icmpv6_protocol);
 
 	return 0;
+fail:
+	for (j = 0; j < i; j++) {
+		sock_release(icmpv6_socket_cpu(j));
+		icmpv6_socket_cpu(j) = NULL;
+	}
+	return err;
 }
 
 void icmpv6_cleanup(void)
 {
-	sock_release(icmpv6_socket);
-	icmpv6_socket = NULL; /* For safety. */
+	int i;
+
+	for (i = 0; i < NR_CPUS; i++) {
+		sock_release(icmpv6_socket_cpu(i));
+		icmpv6_socket_cpu(i) = NULL;
+	}
 	inet6_del_protocol(&icmpv6_protocol);
 }
 
@@ -710,3 +723,12 @@ int icmpv6_err_convert(int type, int code, int *err)
 
 	return fatal;
 }
+
+#ifdef CONFIG_SYSCTL
+ctl_table ipv6_icmp_table[] = {
+	{NET_IPV6_ICMP_RATELIMIT, "ratelimit",
+	&sysctl_icmpv6_time, sizeof(int), 0644, NULL, &proc_dointvec},
+	{0},
+};
+#endif
+

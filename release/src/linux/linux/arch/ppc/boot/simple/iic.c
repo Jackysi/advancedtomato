@@ -1,7 +1,3 @@
-/*
- * BK Id: %F% %I% %G% %U% %#%
- */
-
 /* Minimal support functions to read configuration from IIC EEPROMS
  * on MPC8xx boards.  Originally written for RPGC RPX-Lite.
  * Dan Malek (dmalek@jlc.net).
@@ -159,10 +155,25 @@ iic_read(uint devaddr, u_char *buf, uint offset, uint count)
 
 	/* Wait for IIC transfer.
 	*/
+#if 0
+	while ((i2c->i2c_i2cer & 3) == 0);
+
+	if (tbdf->cbd_sc & BD_SC_READY)
+		printf("IIC ra complete but tbuf ready\n");
+#else
 	temp = 10000000;
 	while ((tbdf->cbd_sc & BD_SC_READY) && (temp != 0))
 		temp--;
-	
+#if 0
+	/* We can't do this...there is no serial port yet!
+	*/
+	if (temp == 0) {
+		printf("Timeout reading EEPROM\n");
+		return;
+	}
+#endif
+#endif
+
 	/* Chip errata, clear enable.
 	*/
 	i2c->i2c_i2mod = 0;
@@ -186,10 +197,17 @@ iic_read(uint devaddr, u_char *buf, uint offset, uint count)
 
 	/* Wait for IIC transfer.
 	*/
+#if 0
+	while ((i2c->i2c_i2cer & 1) == 0);
+
+	if (rbdf->cbd_sc & BD_SC_EMPTY)
+		printf("IIC read complete but rbuf empty\n");
+#else
 	temp = 10000000;
 	while ((tbdf->cbd_sc & BD_SC_READY) && (temp != 0))
 		temp--;
-	
+#endif
+
 	/* Chip errata, clear enable.
 	*/
 	i2c->i2c_i2mod = 0;

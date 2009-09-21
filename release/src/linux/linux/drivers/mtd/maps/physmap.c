@@ -1,5 +1,5 @@
 /*
- * $Id: physmap.c,v 1.1.1.4 2003/10/14 08:08:17 sparq Exp $
+ * $Id: physmap.c,v 1.21 2002/09/05 05:12:54 acurtis Exp $
  *
  * Normal mappings of chips in physical memory
  */
@@ -12,6 +12,9 @@
 #include <linux/mtd/map.h>
 #include <linux/config.h>
 
+#ifdef CONFIG_MTD_PARTITIONS
+#include <linux/mtd/partitions.h>
+#endif
 
 #define WINDOW_ADDR CONFIG_MTD_PHYSMAP_START
 #define WINDOW_SIZE CONFIG_MTD_PHYSMAP_LEN
@@ -76,8 +79,47 @@ struct map_info physmap_map = {
 	copy_to: physmap_copy_to
 };
 
+#ifdef CONFIG_MTD_PARTITIONS
+#ifdef CONFIG_MTD_CMDLINE_PARTS
+static struct mtd_partition *mtd_parts = 0;
+static int                   mtd_parts_nb = 0;
+#else
+static struct mtd_partition physmap_partitions[] = {
+/* Put your own partition definitions here */
+#if 0
+	{
+		name:		"bootROM",
+		size:		0x80000,
+		offset:		0,
+		mask_flags:	MTD_WRITEABLE,  /* force read-only */
+	}, {
+		name:		"zImage",
+		size:		0x100000,
+		offset:		MTDPART_OFS_APPEND,
+		mask_flags:	MTD_WRITEABLE,  /* force read-only */
+	}, {
+		name:		"ramdisk.gz",
+		size:		0x300000,
+		offset:		MTDPART_OFS_APPEND,
+		mask_flags:	MTD_WRITEABLE,  /* force read-only */
+	}, {
+		name:		"User FS",
+		size:		MTDPART_SIZ_FULL,
+		offset:		MTDPART_OFS_APPEND,
+	}
+#endif
+};
+
+#define NUM_PARTITIONS	(sizeof(physmap_partitions)/sizeof(struct mtd_partition))
+
+#endif
+#endif
+
 int __init init_physmap(void)
 {
+	static const char *rom_probe_types[] = { "cfi_probe", "jedec_probe", "map_rom", 0 };
+	const char **type;
+
        	printk(KERN_NOTICE "physmap flash device: %x at %x\n", WINDOW_SIZE, WINDOW_ADDR);
 	physmap_map.map_priv_1 = (unsigned long)ioremap(WINDOW_ADDR, WINDOW_SIZE);
 
@@ -85,11 +127,36 @@ int __init init_physmap(void)
 		printk("Failed to ioremap\n");
 		return -EIO;
 	}
-	mymtd = do_map_probe("cfi_probe", &physmap_map);
+	
+	mymtd = 0;
+	type = rom_probe_types;
+	for(; !mymtd && *type; type++) {
+		mymtd = do_map_probe(*type, &physmap_map);
+	}
 	if (mymtd) {
 		mymtd->module = THIS_MODULE;
 
 		add_mtd_device(mymtd);
+#ifdef CONFIG_MTD_PARTITIONS
+#ifdef CONFIG_MTD_CMDLINE_PARTS
+		mtd_parts_nb = parse_cmdline_partitions(mymtd, &mtd_parts, 
+							"phys");
+		if (mtd_parts_nb > 0)
+		{
+			printk(KERN_NOTICE 
+			       "Using command line partition definition\n");
+			add_mtd_partitions (mymtd, mtd_parts, mtd_parts_nb);
+		}
+#else
+		if (NUM_PARTITIONS != 0) 
+		{
+			printk(KERN_NOTICE 
+			       "Using physmap partition definition\n");
+			add_mtd_partitions (mymtd, physmap_partitions, NUM_PARTITIONS);
+		}
+
+#endif
+#endif
 		return 0;
 	}
 

@@ -78,6 +78,7 @@ extern rwlock_t ip_ra_lock;
 extern void		ip_mc_dropsocket(struct sock *);
 extern void		ip_mc_dropdevice(struct net_device *dev);
 extern int		ip_mc_procinfo(char *, char **, off_t, int);
+extern int		ip_mcf_procinfo(char *, char **, off_t, int);
 
 /*
  *	Functions provided by ip.c
@@ -95,13 +96,14 @@ extern int		ip_mc_output(struct sk_buff *skb);
 extern int		ip_fragment(struct sk_buff *skb, int (*out)(struct sk_buff*));
 extern int		ip_do_nat(struct sk_buff *skb);
 extern void		ip_send_check(struct iphdr *ip);
-extern int		ip_queue_xmit(struct sk_buff *skb);
+extern int		ip_queue_xmit(struct sk_buff *skb, int ipfragok);
 extern void		ip_init(void);
 extern int		ip_build_xmit(struct sock *sk,
 				      int getfrag (const void *,
 						   char *,
 						   unsigned int,
-						   unsigned int),
+						   unsigned int,
+						   struct sk_buff *),
 				      const void *frag,
 				      unsigned length,
 				      struct ipcm_cookie *ipc,
@@ -136,7 +138,7 @@ struct ip_reply_arg {
 void ip_send_reply(struct sock *sk, struct sk_buff *skb, struct ip_reply_arg *arg,
 		   unsigned int len); 
 
-extern __inline__ int ip_finish_output(struct sk_buff *skb);
+extern int ip_finish_output(struct sk_buff *skb);
 
 struct ipv4_config
 {
@@ -225,8 +227,19 @@ extern int	ip_call_ra_chain(struct sk_buff *skb);
 /*
  *	Functions provided by ip_fragment.o
  */
- 
-struct sk_buff *ip_defrag(struct sk_buff *skb);
+
+enum ip_defrag_users
+{
+	IP_DEFRAG_LOCAL_DELIVER,
+	IP_DEFRAG_CALL_RA_CHAIN,
+	IP_DEFRAG_CONNTRACK_IN,
+	IP_DEFRAG_CONNTRACK_OUT,
+	IP_DEFRAG_NAT_OUT,
+	IP_DEFRAG_VS_OUT,
+	IP_DEFRAG_VS_FWD
+};
+
+struct sk_buff *ip_defrag(struct sk_buff *skb, u32 user);
 extern int ip_frag_nqueues;
 extern atomic_t ip_frag_mem;
 

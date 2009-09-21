@@ -13,7 +13,7 @@
 #include <linux/kmod.h>
 #include <linux/nfsd/interface.h>
 
-#if !defined(CONFIG_NFSD)
+#if ! defined(CONFIG_NFSD)
 struct nfsd_linkage *nfsd_linkage;
 
 long

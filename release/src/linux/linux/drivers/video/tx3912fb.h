@@ -1,4 +1,14 @@
-
+/*
+ *  drivers/video/tx3912fb.h
+ *
+ *  Copyright (C) 2001 Steven Hill (sjhill@realitydiluted.com)
+ *
+ * This file is subject to the terms and conditions of the GNU General Public
+ * License. See the file COPYING in the main directory of this archive for
+ * more details.
+ *
+ *  Includes for TMPR3912/05 and PR31700 LCD controller registers
+ */
 #include <linux/config.h>
 
 /*

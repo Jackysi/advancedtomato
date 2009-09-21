@@ -161,6 +161,17 @@ static inline int check_crc_ccitt(const unsigned char *buf, int cnt)
 
 /*---------------------------------------------------------------------------*/
 
+#if 0
+static int calc_crc_ccitt(const unsigned char *buf, int cnt)
+{
+	unsigned int crc = 0xffff;
+
+	for (; cnt > 0; cnt--)
+		crc = (crc >> 8) ^ crc_ccitt_table[(crc ^ *buf++) & 0xff];
+	crc ^= 0xffff;
+	return (crc & 0xffff);
+}
+#endif
 
 /* ---------------------------------------------------------------------- */
 
@@ -575,6 +586,8 @@ static int hdlcdrv_close(struct net_device *dev)
 	if (hdlcdrv_paranoia_check(dev, "hdlcdrv_close"))
 		return -EINVAL;
 	s = (struct hdlcdrv_state *)dev->priv;
+
+	netif_stop_queue(dev);
 
 	if (s->ops && s->ops->close)
 		i = s->ops->close(dev);

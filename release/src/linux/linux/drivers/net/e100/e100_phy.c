@@ -1,7 +1,7 @@
 /*******************************************************************************
 
   
-  Copyright(c) 1999 - 2002 Intel Corporation. All rights reserved.
+  Copyright(c) 1999 - 2004 Intel Corporation. All rights reserved.
   
   This program is free software; you can redistribute it and/or modify it 
   under the terms of the GNU General Public License as published by the Free 
@@ -132,7 +132,7 @@ e100_mdi_read(struct e100_private *bdp, u32 reg_addr, u32 phy_addr, u16 *data)
 	}
 }
 
-static unsigned char __devinit
+static unsigned char
 e100_phy_valid(struct e100_private *bdp, unsigned int phy_address)
 {
 	u16 ctrl_reg, stat_reg;
@@ -150,7 +150,7 @@ e100_phy_valid(struct e100_private *bdp, unsigned int phy_address)
 	return true;
 }
 
-static void __devinit
+static void
 e100_phy_address_detect(struct e100_private *bdp)
 {
 	unsigned int addr;
@@ -180,7 +180,7 @@ e100_phy_address_detect(struct e100_private *bdp)
 	}
 }
 
-static void __devinit
+static void
 e100_phy_id_detect(struct e100_private *bdp)
 {
 	u16 low_id_reg, high_id_reg;
@@ -204,7 +204,7 @@ e100_phy_id_detect(struct e100_private *bdp)
 		      ((unsigned int) high_id_reg << 16));
 }
 
-static void __devinit
+static void
 e100_phy_isolate(struct e100_private *bdp)
 {
 	unsigned int phy_address;
@@ -227,7 +227,7 @@ e100_phy_isolate(struct e100_private *bdp)
 	}
 }
 
-static unsigned char __devinit
+static unsigned char
 e100_phy_specific_setup(struct e100_private *bdp)
 {
 	u16 misc_reg;
@@ -380,7 +380,7 @@ e100_phy_fix_squelch(struct e100_private *bdp)
  * Returns:
  *	NOTHING
  */
-static void __devinit
+static void
 e100_fix_polarity(struct e100_private *bdp)
 {
 	u16 status;
@@ -392,6 +392,10 @@ e100_fix_polarity(struct e100_private *bdp)
 	    (bdp->PhyId != PHY_82562EM))
 		return;
 
+	/* If the user wants auto-polarity disabled, do only that and nothing *
+	 * else. * e100_autopolarity == 0 means disable --- we do just the
+	 * disabling * e100_autopolarity == 1 means enable  --- we do nothing at
+	 * all * e100_autopolarity >= 2 means we do the workaround code. */
 	/* Change for 82558 enhancement */
 	switch (E100_AUTOPOLARITY) {
 	case 0:
@@ -624,15 +628,12 @@ e100_force_speed_duplex(struct e100_private *bdp)
 	u16 control;
 	unsigned long expires;
 
-	e100_phy_reset(bdp);
-
 	bdp->flags |= DF_SPEED_FORCED;
 
 	e100_mdi_read(bdp, MII_BMCR, bdp->phy_addr, &control);
 	control &= ~BMCR_ANENABLE;
 	control &= ~BMCR_LOOPBACK;
 
-	/* Check e100.c values */
 	switch (bdp->params.e100_speed_duplex) {
 	case E100_SPEED_10_HALF:
 		control &= ~BMCR_SPEED100;
@@ -676,6 +677,41 @@ e100_force_speed_duplex(struct e100_private *bdp)
 		}
 
 	} while (true);
+}
+
+void
+e100_force_speed_duplex_to_phy(struct e100_private *bdp)
+{
+	u16 control;
+
+	e100_mdi_read(bdp, MII_BMCR, bdp->phy_addr, &control);
+	control &= ~BMCR_ANENABLE;
+	control &= ~BMCR_LOOPBACK;
+
+	switch (bdp->params.e100_speed_duplex) {
+	case E100_SPEED_10_HALF:
+		control &= ~BMCR_SPEED100;
+		control &= ~BMCR_FULLDPLX;
+		break;
+
+	case E100_SPEED_10_FULL:
+		control &= ~BMCR_SPEED100;
+		control |= BMCR_FULLDPLX;
+		break;
+
+	case E100_SPEED_100_HALF:
+		control |= BMCR_SPEED100;
+		control &= ~BMCR_FULLDPLX;
+		break;
+
+	case E100_SPEED_100_FULL:
+		control |= BMCR_SPEED100;
+		control |= BMCR_FULLDPLX;
+		break;
+	}
+
+	/* Send speed/duplex command to PHY layer. */
+	e100_mdi_write(bdp, MII_BMCR, bdp->phy_addr, control);
 }
 
 /* 
@@ -874,11 +910,16 @@ e100_phy_reset(struct e100_private *bdp)
 	u16 ctrl_reg;
 	ctrl_reg = BMCR_RESET;
 	e100_mdi_write(bdp, MII_BMCR, bdp->phy_addr, ctrl_reg);
+	/* ieee 802.3 : The reset process shall be completed       */
+	/* within 0.5 seconds from the settting of PHY reset bit.  */
+	set_current_state(TASK_UNINTERRUPTIBLE);
+	schedule_timeout(HZ / 2);
 }
 
-unsigned char __devinit
+unsigned char
 e100_phy_init(struct e100_private *bdp)
 {
+	e100_phy_reset(bdp);
 	e100_phy_address_detect(bdp);
 	e100_phy_isolate(bdp);
 	e100_phy_id_detect(bdp);

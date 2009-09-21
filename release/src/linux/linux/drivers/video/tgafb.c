@@ -3,7 +3,7 @@
  *
  *	Copyright (C) 1999,2000 Martin Lucina, Tom Zerucha
  *  
- *  $Id: tgafb.c,v 1.1.1.4 2003/10/14 08:08:55 sparq Exp $
+ *  $Id: tgafb.c,v 1.12.2.3 2000/04/04 06:44:56 mato Exp $
  *
  *  This driver is partly based on the original TGA framebuffer device, which 
  *  was partly based on the original TGA console driver, which are
@@ -45,6 +45,15 @@
 #include <linux/console.h>
 #include <asm/io.h>
 
+#ifdef CONFIG_TC
+#include <asm/dec/tc.h>
+#else
+static int search_tc_card(const char *) { return -1; }
+static void claim_tc_card(int) { }
+static void release_tc_card(int) { }
+static unsigned long get_tc_base_addr(int) { return 0; }
+#endif
+
 #include <video/fbcon.h>
 #include <video/fbcon-cfb8.h>
 #include <video/fbcon-cfb32.h>
@@ -84,10 +93,10 @@ static unsigned int fb_offset_presets[4] = {
 };
 
 static unsigned int deep_presets[4] = {
-  0x00014000,
-  0x0001440d,
+  0x00004000,
+  0x0000440d,
   0xffffffff,
-  0x0001441d
+  0x0000441d
 };
 
 static unsigned int rasterop_presets[4] = {
@@ -112,6 +121,13 @@ static unsigned int base_addr_presets[4] = {
 };
 
 
+    /*
+     *  Predefined video modes
+     *  This is a subset of the standard VESA modes, recalculated from XFree86.
+     *
+     *  XXX Should we store these in terms of the encoded par structs? Even better,
+     *      fbcon should provide a general mechanism for doing something like this.
+     */
 
 static struct {
     const char *name;
@@ -122,6 +138,13 @@ static struct {
 	{0, 8, 0}, {0, 8, 0}, {0, 8, 0}, {0, 0, 0},
 	0, 0, -1, -1, FB_ACCELF_TEXT, 39722, 40, 24, 32, 11, 96, 2,
 	0,
+	FB_VMODE_NONINTERLACED
+    }},
+    { "1280x1024-72", {			/* mode #0 of PMAGD boards */
+	1280, 1024, 1280, 1024, 0, 0, 0, 0,
+	{0, 8, 0}, {0, 8, 0}, {0, 8, 0}, {0, 0, 0},
+	0, 0, -1, -1, FB_ACCELF_TEXT, 7692, 232, 32, 34, 3, 160, 3,
+	FB_SYNC_ON_GREEN,
 	FB_VMODE_NONINTERLACED
     }},
     { "800x600-56", {
@@ -279,9 +302,11 @@ int tgafb_setup(char*);
 #endif
 
 static void tgafb_set_pll(int f);
+#if 1
 static int tgafb_set_cmap(struct fb_cmap *cmap, int kspc, int con,
 			  struct fb_info *info);
 static void tgafb_update_palette(void);
+#endif
 
 
     /*
@@ -345,7 +370,11 @@ static int tgafb_decode_var(const struct fb_var_screeninfo *var, void *fb_par,
 	var->yres_virtual != var->yres ||
 	var->nonstd || (1000000000/var->pixclock) > TGA_PLL_MAX_FREQ ||
 	(var->vmode & FB_VMODE_MASK) != FB_VMODE_NONINTERLACED
+#if 0	/* fbmon not done.  uncomment for 2.5.x -brad */
+	|| !fbmon_valid_timings(var->pixclock, var->htotal, var->vtotal, info))
+#else
 	)
+#endif
 	return -EINVAL;
 
     /* encode video timings */
@@ -455,6 +484,15 @@ static void tgafb_set_par(const void *fb_par, struct fb_info_gen *info)
     int i, j;
     struct tgafb_par *par = (struct tgafb_par *)fb_par;
 
+#if 0
+    /* XXX this will break console switching with X11, maybe I need to test KD_GRAPHICS? */
+    /* if current_par is valid, check to see if we need to change anything */
+    if (current_par_valid) {
+	if (!memcmp(par, &current_par, sizeof current_par)) {
+	    return;
+	}
+    }
+#endif
     current_par = *par;
     current_par_valid = 1;
 
@@ -466,7 +504,8 @@ static void tgafb_set_par(const void *fb_par, struct fb_info_gen *info)
       continue;
 
     mb();
-    TGA_WRITE_REG(deep_presets[fb_info.tga_type], TGA_DEEP_REG);
+    TGA_WRITE_REG(deep_presets[fb_info.tga_type] |
+		  (par->sync_on_green ? 0x0 : 0x00010000), TGA_DEEP_REG);
     while (TGA_READ_REG(TGA_CMD_STAT_REG) & 1) /* wait for not busy */
 	continue;
     mb();
@@ -526,7 +565,7 @@ static void tgafb_set_par(const void *fb_par, struct fb_info_gen *info)
 	BT463_WRITE(BT463_REG_ACC, BT463_CMD_REG_0, 0x40);
 	BT463_WRITE(BT463_REG_ACC, BT463_CMD_REG_1, 0x08);
 	BT463_WRITE(BT463_REG_ACC, BT463_CMD_REG_2, 
-		(par->sync_on_green ? 0x80 : 0x40));
+		(par->sync_on_green ? 0xc0 : 0x40));
 
 	BT463_WRITE(BT463_REG_ACC, BT463_READ_MASK_0, 0xff);
 	BT463_WRITE(BT463_REG_ACC, BT463_READ_MASK_1, 0xff);
@@ -711,6 +750,11 @@ static int tgafb_setcolreg(u_int regno, u_int red, u_int green, u_int blue,
     return 0;
 }
 
+#if 1
+    /*
+     *	FIXME: since I don't know how to set a single arbitrary color register
+     *  on 24-plane cards, all color palette registers have to be updated
+     */
 
 static int tgafb_set_cmap(struct fb_cmap *cmap, int kspc, int con,
 			  struct fb_info *info)
@@ -723,8 +767,10 @@ static int tgafb_set_cmap(struct fb_cmap *cmap, int kspc, int con,
     }
     if (con == currcon) {		/* current console? */
 	err = fb_set_cmap(cmap, kspc, tgafb_setcolreg, info);
+#if 1
 	if (fb_info.tga_type != TGA_TYPE_8PLANE)
 		tgafb_update_palette();
+#endif
 	return err;
     } else
 	fb_copy_cmap(cmap, &fb_display[con].cmap, kspc ? 0 : 1);
@@ -744,6 +790,7 @@ static void tgafb_update_palette(void)
 	 TGA_WRITE_REG(palette[i].blue|(BT463_PALETTE<<10), TGA_RAMDAC_REG);
     }
 }
+#endif
 
 
 static int tgafb_blank(int blank, struct fb_info_gen *info)
@@ -891,19 +938,34 @@ int __init tgafb_setup(char *options) {
 int __init tgafb_init(void)
 {
     struct pci_dev *pdev;
+    int slot;
 
     pdev = pci_find_device(PCI_VENDOR_ID_DEC, PCI_DEVICE_ID_DEC_TGA, NULL);
     if (!pdev)
+	slot = search_tc_card("PMAGD");
+    if (!pdev && slot < 0)
 	return -ENXIO;
 
     /* divine board type */
 
-    fb_info.tga_mem_base = (unsigned long)ioremap(pdev->resource[0].start, 0);
-    fb_info.tga_type = (readl(fb_info.tga_mem_base) >> 12) & 0x0f;
-    fb_info.tga_regs_base = fb_info.tga_mem_base + TGA_REGS_OFFSET;
-    fb_info.tga_fb_base = (fb_info.tga_mem_base
+    if (pdev) {
+	fb_info.tga_mem_base = (unsigned long)ioremap(pdev->resource[0].start,
+						      0);
+	fb_info.tga_type = (readl(fb_info.tga_mem_base) >> 12) & 0x0f;
+	fb_info.tga_regs_base = fb_info.tga_mem_base + TGA_REGS_OFFSET;
+	fb_info.tga_fb_base = (fb_info.tga_mem_base
 			   + fb_offset_presets[fb_info.tga_type]);
-    pci_read_config_byte(pdev, PCI_REVISION_ID, &fb_info.tga_chip_rev);
+	pci_read_config_byte(pdev, PCI_REVISION_ID, &fb_info.tga_chip_rev);
+
+    } else {
+	claim_tc_card(slot);
+	fb_info.tga_mem_base = get_tc_base_addr(slot);
+	fb_info.tga_type = (readl(fb_info.tga_mem_base) >> 12) & 0x0f;	/* ? */
+	fb_info.tga_regs_base = fb_info.tga_mem_base + TGA_REGS_OFFSET;
+	fb_info.tga_fb_base = (fb_info.tga_mem_base
+			   + fb_offset_presets[fb_info.tga_type]);
+	fb_info.tga_chip_rev = TGA_READ_REG(TGA_START_REG) & 0xff;
+    }
 
     /* setup framebuffer */
 
@@ -920,40 +982,62 @@ int __init tgafb_init(void)
     fb_info.gen.fbhw = &tgafb_hwswitch;
     fb_info.gen.fbhw->detect();
 
-    printk (KERN_INFO "tgafb: DC21030 [TGA] detected, rev=0x%02x\n", fb_info.tga_chip_rev);
-    printk (KERN_INFO "tgafb: at PCI bus %d, device %d, function %d\n", 
-	    pdev->bus->number, PCI_SLOT(pdev->devfn), PCI_FUNC(pdev->devfn));
+    if (pdev) {
+	printk (KERN_INFO "tgafb: DC21030 [TGA] detected, rev=0x%02x\n",
+		fb_info.tga_chip_rev);
+	printk (KERN_INFO "tgafb: at PCI bus %d, device %d, function %d\n", 
+		pdev->bus->number,
+		PCI_SLOT(pdev->devfn), PCI_FUNC(pdev->devfn));
+    } else {
+	printk (KERN_INFO "tgafb: SFB+ detected, rev=0x%02x\n",
+		fb_info.tga_chip_rev);
+    }
 	    
     switch (fb_info.tga_type) 
     { 
 	case TGA_TYPE_8PLANE:
-	    strcpy (fb_info.gen.info.modename,"Digital ZLXp-E1"); 
+	    if (pdev)
+		strcpy (fb_info.gen.info.modename,"Digital ZLXp-E1"); 
+	    else
+		strcpy (fb_info.gen.info.modename,"Digital ZLX-E1"); 
 	    break;
 
 	case TGA_TYPE_24PLANE:
-	    strcpy (fb_info.gen.info.modename,"Digital ZLXp-E2"); 
+	    if (pdev)
+		strcpy (fb_info.gen.info.modename,"Digital ZLXp-E2"); 
+	    else
+		strcpy (fb_info.gen.info.modename,"Digital ZLX-E2"); 
 	    break;
 
 	case TGA_TYPE_24PLUSZ:
-	    strcpy (fb_info.gen.info.modename,"Digital ZLXp-E3"); 
+	    if (pdev)
+		strcpy (fb_info.gen.info.modename,"Digital ZLXp-E3"); 
+	    else
+		strcpy (fb_info.gen.info.modename,"Digital ZLX-E3"); 
 	    break;
     }
 
     /* This should give a reasonable default video mode */
 
     if (!default_var_valid) {
-	default_var = tgafb_predefined[0].var;
+	if (pdev)
+	    default_var = tgafb_predefined[0].var;
+	else
+	    default_var = tgafb_predefined[1].var;
     }
     fbgen_get_var(&disp.var, -1, &fb_info.gen.info);
     disp.var.activate = FB_ACTIVATE_NOW;
     fbgen_do_set_var(&disp.var, 1, &fb_info.gen);
     fbgen_set_disp(-1, &fb_info.gen);
     fbgen_install_cmap(0, &fb_info.gen);
-    if (register_framebuffer(&fb_info.gen.info) < 0)
+    if (register_framebuffer(&fb_info.gen.info) < 0) {
+	if (slot >= 0)
+	    release_tc_card(slot);
 	return -EINVAL;
-    printk(KERN_INFO "fb%d: %s frame buffer device at 0x%lx\n", 
+    }
+    printk(KERN_INFO "fb%d: %s frame buffer device at 0x%llx\n", 
 	    GET_FB_IDX(fb_info.gen.info.node), fb_info.gen.info.modename, 
-	    pdev->resource[0].start);
+	    fb_info.tga_mem_base);
     return 0;
 }
 

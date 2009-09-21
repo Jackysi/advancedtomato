@@ -37,6 +37,25 @@ static struct super_operations qnx4_sops;
 int qnx4_sync_inode(struct inode *inode)
 {
 	int err = 0;
+# if 0
+	struct buffer_head *bh;
+
+   	bh = qnx4_update_inode(inode);
+	if (bh && buffer_dirty(bh))
+	{
+		ll_rw_block(WRITE, 1, &bh);
+		wait_on_buffer(bh);
+		if (buffer_req(bh) && !buffer_uptodate(bh))
+		{
+			printk ("IO error syncing qnx4 inode [%s:%08lx]\n",
+				kdevname(inode->i_dev), inode->i_ino);
+			err = -1;
+		}
+	        brelse (bh);
+	} else if (!bh) {
+		err = -1;
+	}
+# endif
 
 	return err;
 }
@@ -149,6 +168,19 @@ struct buffer_head *qnx4_getblk(struct inode *inode, int nr,
 	if (!create) {
 		return NULL;
 	}
+#if 0
+	tmp = qnx4_new_block(inode->i_sb);
+	if (!tmp) {
+		return NULL;
+	}
+	result = sb_getblk(inode->i_sb, tmp);
+	if (tst) {
+		qnx4_free_block(inode->i_sb, tmp);
+		brelse(result);
+		goto repeat;
+	}
+	tst = tmp;
+#endif
 	inode->i_ctime = CURRENT_TIME;
 	mark_inode_dirty(inode);
 	return result;

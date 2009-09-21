@@ -4,14 +4,15 @@
  * for more details.
  *
  * Copyright (C) 1994 Waldorf GMBH
- * Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000 Ralf Baechle
- * Modified further for R[236]000 compatibility by Paul M. Antoine
+ * Copyright (C) 1995, 1996, 1997, 1998, 1999, 2001, 2002, 2003 Ralf Baechle
+ * Copyright (C) 1996 Paul M. Antoine
  * Copyright (C) 1999, 2000 Silicon Graphics, Inc.
  */
 #ifndef _ASM_PROCESSOR_H
 #define _ASM_PROCESSOR_H
 
 #include <linux/config.h>
+#include <linux/cache.h>
 
 /*
  * Return current * instruction pointer ("program counter").
@@ -30,7 +31,10 @@
 })
 
 #ifndef __ASSEMBLY__
+#include <linux/smp.h>
+
 #include <asm/cachectl.h>
+#include <asm/cpu.h>
 #include <asm/mipsregs.h>
 #include <asm/reg.h>
 #include <asm/system.h>
@@ -40,13 +44,32 @@
 #include <asm/sn/intr_public.h>
 #endif
 
+/*
+ * Descriptor for a cache
+ */
+struct cache_desc {
+	unsigned short linesz;	/* Size of line in bytes */
+	unsigned short ways;	/* Number of ways */
+	unsigned short sets;	/* Number of lines per set */
+	unsigned int waysize;	/* Bytes per way */
+	unsigned int waybit;	/* Bits to select in a cache set */
+	unsigned int flags;	/* Flags describing cache properties */
+};
+
+/*
+ * Flag definitions
+ */
+#define MIPS_CACHE_NOT_PRESENT	0x00000001
+#define MIPS_CACHE_VTAG		0x00000002	/* Virtually tagged cache */
+#define MIPS_CACHE_ALIASES	0x00000004	/* Cache could have aliases */
+#define MIPS_CACHE_IC_F_DC	0x00000008	/* Ic can refill from D-cache */
+
 struct cpuinfo_mips {
 	unsigned long udelay_val;
 	unsigned long *pgd_quick;
 	unsigned long *pmd_quick;
 	unsigned long *pte_quick;
 	unsigned long pgtable_cache_sz;
-	unsigned long last_asn;
 	unsigned long asid_cache;
 #if defined(CONFIG_SGI_IP27)
 	cpuid_t		p_cpuid;	/* PROM assigned cpuid */
@@ -55,18 +78,83 @@ struct cpuinfo_mips {
 	unsigned char	p_slice;	/* Physical position on node board */
 	hub_intmasks_t	p_intmasks;	/* SN0 per-CPU interrupt masks */
 #endif
-} __attribute__((aligned(128)));
+#if 0
+	unsigned long loops_per_sec;
+	unsigned long pgtable_cache_sz;
+	unsigned long ipi_count;
+	unsigned long irq_attempt[NR_IRQS];
+	unsigned long smp_local_irq_count;
+	unsigned long prof_multiplier;
+	unsigned long prof_counter;
+#endif
 
+	/*
+	 * Capability and feature descriptor structure for MIPS CPU
+	 */
+	unsigned long options;
+	unsigned long ases;
+	unsigned int processor_id;
+	unsigned int fpu_id;
+	unsigned int cputype;
+	int isa_level;
+	int tlbsize;
+	struct cache_desc icache;	/* Primary I-cache */
+	struct cache_desc dcache;	/* Primary D or combined I/D cache */
+	struct cache_desc scache;	/* Secondary cache */
+	struct cache_desc tcache;	/* Tertiary/split secondary cache */
+} __attribute__((aligned(SMP_CACHE_BYTES)));
+
+/*
+ * Assumption: Options of CPU 0 are a superset of all processors.
+ * This is true for all known MIPS systems.
+ */
+#define cpu_has_tlb		(cpu_data[0].options & MIPS_CPU_TLB)
+#define cpu_has_4kex		(cpu_data[0].options & MIPS_CPU_4KEX)
+#define cpu_has_4ktlb		(cpu_data[0].options & MIPS_CPU_4KTLB)
+#define cpu_has_fpu		(cpu_data[0].options & MIPS_CPU_FPU)
+#define cpu_has_32fpr		(cpu_data[0].options & MIPS_CPU_32FPR)
+#define cpu_has_counter		(cpu_data[0].options & MIPS_CPU_COUNTER)
+#define cpu_has_watch		(cpu_data[0].options & MIPS_CPU_WATCH)
+#define cpu_has_divec		(cpu_data[0].options & MIPS_CPU_DIVEC)
+#define cpu_has_vce		(cpu_data[0].options & MIPS_CPU_VCE)
+#define cpu_has_cache_cdex_p	(cpu_data[0].options & MIPS_CPU_CACHE_CDEX_P)
+#define cpu_has_cache_cdex_s	(cpu_data[0].options & MIPS_CPU_CACHE_CDEX_S)
+#define cpu_has_prefetch	(cpu_data[0].options & MIPS_CPU_PREFETCH)
+#define cpu_has_mcheck		(cpu_data[0].options & MIPS_CPU_MCHECK)
+#define cpu_has_ejtag		(cpu_data[0].options & MIPS_CPU_EJTAG)
+#define cpu_has_nofpuex		(cpu_data[0].options & MIPS_CPU_NOFPUEX)
+#define cpu_has_llsc		(cpu_data[0].options & MIPS_CPU_LLSC)
+#define cpu_has_mips16		(cpu_data[0].ases & MIPS_ASE_MIPS16)
+#define cpu_has_mdmx		(cpu_data[0].ases & MIPS_ASE_MDMX)
+#define cpu_has_mips3d		(cpu_data[0].ases & MIPS_ASE_MIPS3D)
+#define cpu_has_smartmips	(cpu_data[0].ases & MIPS_ASE_SMARTMIPS)
+#define cpu_has_dsp		(cpu_data[0].ases & MIPS_ASE_DSP)
+#define cpu_has_mipsmt		(cpu_data[0].ases & MIPS_ASE_MIPSMT)
+#define cpu_has_vtag_icache	(cpu_data[0].icache.flags & MIPS_CACHE_VTAG)
+#define cpu_has_dc_aliases	(cpu_data[0].dcache.flags & MIPS_CACHE_ALIASES)
+#define cpu_has_ic_fills_f_dc	(cpu_data[0].dcache.flags & MIPS_CACHE_IC_F_DC)
+#define cpu_has_64bits		1
+#define cpu_has_64bit_zero_reg	1
+#define cpu_has_64bit_gp_regs	1
+#define cpu_has_64bit_addresses	1
+#define cpu_has_subset_pcaches	(cpu_data[0].options & MIPS_CPU_SUBSET_CACHES)
+
+#define cpu_dcache_line_size()	current_cpu_data.dcache.linesz
+#define cpu_icache_line_size()	current_cpu_data.icache.linesz
+#define cpu_scache_line_size()	current_cpu_data.scache.linesz
+
+extern struct cpuinfo_mips cpu_data[];
+#define current_cpu_data cpu_data[smp_processor_id()]
+
+extern void cpu_probe(void);
+extern void cpu_report(void);
+
+/*
+ * System setup and hardware flags..
+ */
 extern void (*cpu_wait)(void);
 
 extern unsigned int vced_count, vcei_count;
-extern struct cpuinfo_mips cpu_data[];
-
-#ifdef CONFIG_SMP
-#define current_cpu_data cpu_data[smp_processor_id()]
-#else
-#define current_cpu_data cpu_data[0]
-#endif
 
 /*
  * Bus types (default is ISA, but people can check others with these..)
@@ -81,12 +169,6 @@ extern int EISA_bus;
 #define MCA_bus__is_a_macro /* for versions in ksyms.c */
 
 /*
- * MIPS has no problems with write protection
- */
-#define wp_works_ok 1
-#define wp_works_ok__is_a_macro /* for versions in ksyms.c */
-
-/*
  * User space process size: 1TB. This is hardcoded into a few places,
  * so don't change it unless you know what you are doing.  TASK_SIZE
  * is limited to 1TB by the R4000 architecture; R10000 and better can
@@ -98,7 +180,7 @@ extern int EISA_bus;
 /* This decides where the kernel will search for a free chunk of vm
  * space during mmap's.
  */
-#define TASK_UNMAPPED_BASE	((current->thread.mflags & MF_32BIT) ? \
+#define TASK_UNMAPPED_BASE	((current->thread.mflags & MF_32BIT_ADDR) ? \
 	(TASK_SIZE32 / 3) : (TASK_SIZE / 3))
 
 /*
@@ -125,7 +207,6 @@ struct mips_fpu_soft_struct {
 	unsigned int	sr;
 };
 
-
 union mips_fpu_union {
         struct mips_fpu_hard_struct hard;
         struct mips_fpu_soft_struct soft;
@@ -143,10 +224,10 @@ typedef struct {
  * If you change thread_struct remember to change the #defines below too!
  */
 struct thread_struct {
-        /* Saved main processor registers. */
-        unsigned long reg16;
+	/* Saved main processor registers. */
+	unsigned long reg16;
 	unsigned long reg17, reg18, reg19, reg20, reg21, reg22, reg23;
-        unsigned long reg29, reg30, reg31;
+	unsigned long reg29, reg30, reg31;
 
 	/* Saved cp0 stuff. */
 	unsigned long cp0_status;
@@ -159,14 +240,20 @@ struct thread_struct {
 	unsigned long cp0_baduaddr;	/* Last kernel fault accessing USEG */
 	unsigned long error_code;
 	unsigned long trap_no;
-#define MF_FIXADE 1			/* Fix address errors in software */
-#define MF_LOGADE 2			/* Log address errors to syslog */
-#define MF_32BIT  4			/* Process is in 32-bit compat mode */
+#define MF_FIXADE	1		/* Fix address errors in software */
+#define MF_LOGADE	2		/* Log address errors to syslog */
+#define MF_32BIT_REGS	4		/* also implies 16/32 fprs */
+#define MF_32BIT_ADDR	8		/* 32-bit address space (o32/n32) */
 	unsigned long mflags;
 	mm_segment_t current_ds;
 	unsigned long irix_trampoline;  /* Wheee... */
 	unsigned long irix_oldctx;
 };
+
+#define MF_ABI_MASK	(MF_32BIT_REGS | MF_32BIT_ADDR)
+#define MF_O32		(MF_32BIT_REGS | MF_32BIT_ADDR)
+#define MF_N32		MF_32BIT_ADDR
+#define MF_N64		0
 
 #endif /* !__ASSEMBLY__ */
 
@@ -196,19 +283,24 @@ struct thread_struct {
 
 #ifdef __KERNEL__
 
-#define KERNEL_STACK_SIZE 0x4000
+#define KERNEL_STACK_SIZE	0x4000
 
 #ifndef __ASSEMBLY__
 
 /* Free all resources held by a thread. */
 #define release_thread(thread) do { } while(0)
 
-extern int kernel_thread(int (*fn)(void *), void * arg, unsigned long flags);
+extern int arch_kernel_thread(int (*fn)(void *), void * arg, unsigned long flags);
 
 /* Copy and release all segment info associated with a VM */
 #define copy_segments(p, mm) do { } while(0)
 #define release_segments(mm) do { } while(0)
 
+struct mips_frame_info {
+	int frame_offset;
+	int pc_offset;
+};
+extern struct mips_frame_info schedule_frame;
 /*
  * Return saved PC of a blocked thread.
  */
@@ -220,7 +312,9 @@ static inline unsigned long thread_saved_pc(struct thread_struct *t)
 	if (t->reg31 == (unsigned long) ret_from_sys_call)
 		return t->reg31;
 
-	return ((unsigned long*)t->reg29)[11];
+	if (schedule_frame.pc_offset < 0)
+		return 0;
+	return ((unsigned long *)t->reg29)[schedule_frame.pc_offset];
 }
 
 #define user_mode(regs)	(((regs)->cp0_status & ST0_KSU) == KSU_USER)
@@ -243,16 +337,18 @@ unsigned long get_wchan(struct task_struct *p);
 /*
  * NOTE! The task struct and the stack go together
  */
-#define THREAD_SIZE (2*PAGE_SIZE)
+#define THREAD_ORDER		(PAGE_SHIFT >= 14 ? 0 : 2)
+#define THREAD_SIZE		(PAGE_SIZE << THREAD_ORDER)
+#define THREAD_MASK		(THREAD_SIZE - 1UL)
 #define alloc_task_struct() \
-	((struct task_struct *) __get_free_pages(GFP_KERNEL, 2))
-#define free_task_struct(p)	free_pages((unsigned long)(p), 2)
+	((struct task_struct *) __get_free_pages(GFP_KERNEL, THREAD_ORDER))
+#define free_task_struct(p)	free_pages((unsigned long)(p), THREAD_ORDER)
 #define get_task_struct(tsk)	atomic_inc(&virt_to_page(tsk)->count)
 
 #define init_task	(init_task_union.task)
 #define init_stack	(init_task_union.stack)
 
-#define cpu_relax()	do { } while (0)
+#define cpu_relax()	barrier()
 
 #endif /* !__ASSEMBLY__ */
 #endif /* __KERNEL__ */
@@ -265,9 +361,9 @@ unsigned long get_wchan(struct task_struct *p);
  * aborts compilation on some CPUs.  It's simply not possible to unwind
  * some CPU's stackframes.
  *
- * In gcc 2.8 and newer  __builtin_return_address works only for non-leaf
- * functions.  We avoid the overhead of a function call by forcing the
- * compiler to save the return address register on the stack.
+ * __builtin_return_address works only for non-leaf functions.  We avoid the
+ * overhead of a function call by forcing the compiler to save the return
+ * address register on the stack.
  */
 #define return_address() ({__asm__ __volatile__("":::"$31");__builtin_return_address(0);})
 

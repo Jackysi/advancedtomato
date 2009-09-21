@@ -10,6 +10,8 @@
 #include <linux/tty.h>
 #include <linux/ioport.h>
 #include <linux/serial_core.h>
+#include <linux/list.h>
+#include <linux/timer.h>
 
 #include <asm/hardware.h>
 #include <asm/irq.h>
@@ -54,9 +56,9 @@ static void neponset_IRQ_demux( int irq, void *dev_id, struct pt_regs *regs )
 }
 
 static struct irqaction neponset_irq = {
-	name:		"Neponset",
-	handler:	neponset_IRQ_demux,
-	flags:		SA_INTERRUPT
+	.name		= "Neponset",
+	.handler	= neponset_IRQ_demux,
+	.flags		= SA_INTERRUPT
 };
 
 static void __init neponset_init_irq(void)
@@ -110,6 +112,7 @@ static int __init neponset_init(void)
 	 * Neponset has SA1111 connected to CS4.  We know that after
 	 * reset the chip will be configured for variable latency IO.
 	 */
+	/* FIXME: setup MSC2 */
 
 	/*
 	 * Probe for a SA1111.
@@ -213,8 +216,8 @@ static u_int neponset_get_mctrl(struct uart_port *port)
 }
 
 static struct sa1100_port_fns neponset_port_fns __initdata = {
-	set_mctrl:	neponset_set_mctrl,
-	get_mctrl:	neponset_get_mctrl,
+	.set_mctrl	= neponset_set_mctrl,
+	.get_mctrl	= neponset_get_mctrl,
 };
 
 void __init neponset_map_io(void)

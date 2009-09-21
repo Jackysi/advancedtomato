@@ -28,9 +28,6 @@
 /* 
  * x86-64 changes / gcc fixes from Andi Kleen. 
  * Copyright 2002 Andi Kleen, SuSE Labs.
- *
- * This hasn't been optimized for the hammer yet, but there are likely
- * no advantages to be gotten from x86-64 here anyways.
  */
 
 typedef struct { unsigned long a,b; } __attribute__((aligned(16))) xmm_store_t;
@@ -62,10 +59,10 @@ typedef struct { unsigned long a,b; } __attribute__((aligned(16))) xmm_store_t;
 		: "memory")
 
 #define OFFS(x)		"16*("#x")"
-#define PF_OFFS(x)	"256+16*("#x")"
+#define PF_OFFS(x)	"320+16*("#x")"
 #define	PF0(x)		"	prefetchnta "PF_OFFS(x)"(%[p1])		;\n"
 #define LD(x,y)		"       movaps   "OFFS(x)"(%[p1]), %%xmm"#y"	;\n"
-#define ST(x,y)		"       movaps %%xmm"#y",   "OFFS(x)"(%[p1])	;\n"
+#define ST(x,y)		"       movntdq %%xmm"#y",   "OFFS(x)"(%[p1])	;\n"
 #define PF1(x)		"	prefetchnta "PF_OFFS(x)"(%[p2])		;\n"
 #define PF2(x)		"	prefetchnta "PF_OFFS(x)"(%[p3])		;\n"
 #define PF3(x)		"	prefetchnta "PF_OFFS(x)"(%[p4])		;\n"
@@ -77,11 +74,10 @@ typedef struct { unsigned long a,b; } __attribute__((aligned(16))) xmm_store_t;
 #define XO4(x,y)	"       xorps   "OFFS(x)"(%[p5]), %%xmm"#y"	;\n"
 #define XO5(x,y)	"       xorps   "OFFS(x)"(%[p6]), %%xmm"#y"	;\n"
 
-
 static void
 xor_sse_2(unsigned long bytes, unsigned long *p1, unsigned long *p2)
 {
-        unsigned int lines = bytes >> 8;
+        unsigned int lines = bytes >> 7;
 	unsigned long cr0;
 	xmm_store_t xmm_save[4];
 
@@ -93,37 +89,33 @@ xor_sse_2(unsigned long bytes, unsigned long *p1, unsigned long *p2)
 		LD(i,0)					\
 			LD(i+1,1)			\
 		PF1(i)					\
-				PF1(i+2)		\
 				LD(i+2,2)		\
 					LD(i+3,3)	\
 		PF0(i+4)				\
-				PF0(i+6)		\
 		XO1(i,0)				\
 			XO1(i+1,1)			\
-				XO1(i+2,2)		\
-					XO1(i+3,3)	\
 		ST(i,0)					\
 			ST(i+1,1)			\
+				XO1(i+2,2)		\
+					XO1(i+3,3)	\
 				ST(i+2,2)		\
 					ST(i+3,3)	\
 
 
 		PF0(0)
-				PF0(2)
 
-	" .align 32			;\n"
+	" .p2align 4			;\n"
         " 1:                            ;\n"
 
 		BLOCK(0)
 		BLOCK(4)
-		BLOCK(8)
-		BLOCK(12)
 
-        "       addq %[inc], %[p1]           ;\n"
-        "       addq %[inc], %[p2]           ;\n"
-		"		decl %[cnt] ; jnz 1b"
+	"       decl %[cnt]\n"
+        "       leaq 128(%[p1]),%[p1]\n"
+        "       leaq 128(%[p2]),%[p2]\n"
+	"       jnz 1b\n"
 	: [p1] "+r" (p1), [p2] "+r" (p2), [cnt] "+r" (lines)
-	: [inc] "r" (256UL) 
+	:
         : "memory");
 
 	XMMS_RESTORE;
@@ -133,7 +125,7 @@ static void
 xor_sse_3(unsigned long bytes, unsigned long *p1, unsigned long *p2,
 	  unsigned long *p3)
 {
-	unsigned int lines = bytes >> 8;
+	unsigned int lines = bytes >> 7;
 	xmm_store_t xmm_save[4];
 	unsigned long cr0;
 
@@ -143,47 +135,42 @@ xor_sse_3(unsigned long bytes, unsigned long *p1, unsigned long *p2,
 #undef BLOCK
 #define BLOCK(i) \
 		PF1(i)					\
-				PF1(i+2)		\
 		LD(i,0)					\
 			LD(i+1,1)			\
+		XO1(i,0)				\
+			XO1(i+1,1)			\
 				LD(i+2,2)		\
 					LD(i+3,3)	\
 		PF2(i)					\
-				PF2(i+2)		\
 		PF0(i+4)				\
-				PF0(i+6)		\
-		XO1(i,0)				\
-			XO1(i+1,1)			\
 				XO1(i+2,2)		\
 					XO1(i+3,3)	\
 		XO2(i,0)				\
 			XO2(i+1,1)			\
-				XO2(i+2,2)		\
-					XO2(i+3,3)	\
 		ST(i,0)					\
 			ST(i+1,1)			\
+				XO2(i+2,2)		\
+					XO2(i+3,3)	\
 				ST(i+2,2)		\
 					ST(i+3,3)	\
 
 
 		PF0(0)
-				PF0(2)
 
-	" .align 32			;\n"
+	" .p2align 4			;\n"
         " 1:                            ;\n"
 
 		BLOCK(0)
 		BLOCK(4)
-		BLOCK(8)
-		BLOCK(12)
 
-        "       addq %[inc], %[p1]           ;\n"
-        "       addq %[inc], %[p2]          ;\n"
-        "       addq %[inc], %[p3]           ;\n"
-		"		decl %[cnt] ; jnz 1b"
+	"	decl %[cnt]\n"	
+        "       leaq 128(%[p1]),%[p1]\n" 
+        "       leaq 128(%[p2]),%[p2]\n" 
+        "       leaq 128(%[p3]),%[p3]\n" 
+	"       jnz  1b"
 	: [cnt] "+r" (lines),
 	  [p1] "+r" (p1), [p2] "+r" (p2), [p3] "+r" (p3)
-	: [inc] "r" (256UL)
+	:
 	: "memory"); 
 	XMMS_RESTORE;
 }
@@ -192,7 +179,7 @@ static void
 xor_sse_4(unsigned long bytes, unsigned long *p1, unsigned long *p2,
 	  unsigned long *p3, unsigned long *p4)
 {
-	unsigned int lines = bytes >> 8;
+	unsigned int lines = bytes >> 7;
 	xmm_store_t xmm_save[4]; 
 	unsigned long cr0;
 
@@ -202,54 +189,48 @@ xor_sse_4(unsigned long bytes, unsigned long *p1, unsigned long *p2,
 #undef BLOCK
 #define BLOCK(i) \
 		PF1(i)					\
-				PF1(i+2)		\
 		LD(i,0)					\
 			LD(i+1,1)			\
+		XO1(i,0)				\
+			XO1(i+1,1)			\
 				LD(i+2,2)		\
 					LD(i+3,3)	\
 		PF2(i)					\
-				PF2(i+2)		\
-		XO1(i,0)				\
-			XO1(i+1,1)			\
 				XO1(i+2,2)		\
 					XO1(i+3,3)	\
 		PF3(i)					\
-				PF3(i+2)		\
 		PF0(i+4)				\
-				PF0(i+6)		\
 		XO2(i,0)				\
 			XO2(i+1,1)			\
 				XO2(i+2,2)		\
 					XO2(i+3,3)	\
 		XO3(i,0)				\
 			XO3(i+1,1)			\
-				XO3(i+2,2)		\
-					XO3(i+3,3)	\
 		ST(i,0)					\
 			ST(i+1,1)			\
+				XO3(i+2,2)		\
+					XO3(i+3,3)	\
 				ST(i+2,2)		\
 					ST(i+3,3)	\
 
 
 		PF0(0)
-				PF0(2)
 
 	" .align 32			;\n"
         " 1:                            ;\n"
 
 		BLOCK(0)
 		BLOCK(4)
-		BLOCK(8)
-		BLOCK(12)
 
-        "       addq %[inc], %[p1]           ;\n"
-        "       addq %[inc], %[p2]           ;\n"
-        "       addq %[inc], %[p3]           ;\n"
-        "       addq %[inc], %[p4]           ;\n"
-	"	decl %[cnt] ; jnz 1b"
-	: [cnt] "+c" (lines),
+	"       decl %[cnt]\n"	
+        "       leaq 128(%[p1]),%[p1]\n" 
+        "       leaq 128(%[p2]),%[p2]\n" 
+        "       leaq 128(%[p3]),%[p3]\n" 
+        "       leaq 128(%[p4]),%[p4]\n" 
+	"       jnz  1b"	
+	: [cnt] "+r" (lines),
 	  [p1] "+r" (p1), [p2] "+r" (p2), [p3] "+r" (p3), [p4] "+r" (p4)
-	: [inc] "r" (256UL)
+	: 
         : "memory" );
 
 	XMMS_RESTORE;
@@ -259,7 +240,7 @@ static void
 xor_sse_5(unsigned long bytes, unsigned long *p1, unsigned long *p2,
 	  unsigned long *p3, unsigned long *p4, unsigned long *p5)
 {
-        unsigned int lines = bytes >> 8;
+        unsigned int lines = bytes >> 7;
 	xmm_store_t xmm_save[4];
 	unsigned long cr0;
 
@@ -269,82 +250,305 @@ xor_sse_5(unsigned long bytes, unsigned long *p1, unsigned long *p2,
 #undef BLOCK
 #define BLOCK(i) \
 		PF1(i)					\
-				PF1(i+2)		\
 		LD(i,0)					\
 			LD(i+1,1)			\
+		XO1(i,0)				\
+			XO1(i+1,1)			\
 				LD(i+2,2)		\
 					LD(i+3,3)	\
 		PF2(i)					\
-				PF2(i+2)		\
-		XO1(i,0)				\
-			XO1(i+1,1)			\
 				XO1(i+2,2)		\
 					XO1(i+3,3)	\
 		PF3(i)					\
-				PF3(i+2)		\
 		XO2(i,0)				\
 			XO2(i+1,1)			\
 				XO2(i+2,2)		\
 					XO2(i+3,3)	\
 		PF4(i)					\
-				PF4(i+2)		\
 		PF0(i+4)				\
-				PF0(i+6)		\
 		XO3(i,0)				\
 			XO3(i+1,1)			\
 				XO3(i+2,2)		\
 					XO3(i+3,3)	\
 		XO4(i,0)				\
 			XO4(i+1,1)			\
-				XO4(i+2,2)		\
-					XO4(i+3,3)	\
 		ST(i,0)					\
 			ST(i+1,1)			\
+				XO4(i+2,2)		\
+					XO4(i+3,3)	\
 				ST(i+2,2)		\
 					ST(i+3,3)	\
 
 
 		PF0(0)
-				PF0(2)
 
-	" .align 32			;\n"
+	" .p2align 4			;\n"
         " 1:                            ;\n"
 
 		BLOCK(0)
 		BLOCK(4)
-		BLOCK(8)
-		BLOCK(12)
 
-        "       addq %[inc], %[p1]           ;\n"
-        "       addq %[inc], %[p2]           ;\n"
-        "       addq %[inc], %[p3]           ;\n"
-        "       addq %[inc], %[p4]           ;\n"
-        "       addq %[inc], %[p5]           ;\n"
-	"	decl %[cnt] ; jnz 1b"
-	: [cnt] "+c" (lines),
+	"       decl %[cnt]\n"	
+        "       leaq 128(%[p1]),%[p1]\n" 
+        "       leaq 128(%[p2]),%[p2]\n" 
+        "       leaq 128(%[p3]),%[p3]\n" 
+        "       leaq 128(%[p4]),%[p4]\n" 
+        "       leaq 128(%[p5]),%[p5]\n" 
+	"       jnz  1b"	
+	: [cnt] "+r" (lines),
   	  [p1] "+r" (p1), [p2] "+r" (p2), [p3] "+r" (p3), [p4] "+r" (p4), 
 	  [p5] "+r" (p5)
-	: [inc] "r" (256UL)
+	: 
 	: "memory");
 
 	XMMS_RESTORE;
 }
 
+#if __GNUC__ > 3 || (__GNUC__ == 3 && __GNUC__MINOR__ >= 3)
+#define STORE_NTI(x,mem) __builtin_ia32_movnti(&(mem), (x))
+#else
+#define STORE_NTI(x,mem)  asm("movnti %1,%0" : "=m" (mem) : "r" (x)) 
+#endif
+
+
+static void
+xor_64regs_stream_2(unsigned long bytes, unsigned long *p1, unsigned long *p2)
+{
+	long lines = bytes / (sizeof (long)) / 8;
+
+	do {
+		register long d0, d1, d2, d3, d4, d5, d6, d7;
+		d0 = p1[0];	/* Pull the stuff into registers	*/
+		d1 = p1[1];	/*  ... in bursts, if possible.		*/
+		d2 = p1[2];
+		d3 = p1[3];
+		d4 = p1[4];
+		d5 = p1[5];
+		d6 = p1[6];
+		d7 = p1[7];
+		__builtin_prefetch(p1 + 5*64, 0, 0);
+		d0 ^= p2[0];
+		d1 ^= p2[1];
+		d2 ^= p2[2];
+		d3 ^= p2[3];
+		d4 ^= p2[4];
+		d5 ^= p2[5];
+		d6 ^= p2[6];
+		d7 ^= p2[7];
+		__builtin_prefetch(p2 + 5*64, 0, 0);
+		STORE_NTI(d0, p1[0]);
+		STORE_NTI(d1, p1[1]);
+		STORE_NTI(d2, p1[2]);
+		STORE_NTI(d3, p1[3]);
+		STORE_NTI(d4, p1[4]);
+		STORE_NTI(d5, p1[5]);
+		STORE_NTI(d6, p1[6]);
+		STORE_NTI(d7, p1[7]);
+		p1 += 8;
+		p2 += 8;
+	} while (--lines > 0);
+}
+
+static void
+xor_64regs_stream_3(unsigned long bytes, unsigned long *p1, unsigned long *p2,
+	    unsigned long *p3)
+{
+	long lines = bytes / (sizeof (long)) / 8;
+
+	do {
+		register long d0, d1, d2, d3, d4, d5, d6, d7;
+		d0 = p1[0];	/* Pull the stuff into registers	*/
+		d1 = p1[1];	/*  ... in bursts, if possible.		*/
+		d2 = p1[2];
+		d3 = p1[3];
+		d4 = p1[4];
+		d5 = p1[5];
+		d6 = p1[6];
+		d7 = p1[7];
+		__builtin_prefetch(p1 + 5*64, 0, 0);
+		d0 ^= p2[0];
+		d1 ^= p2[1];
+		d2 ^= p2[2];
+		d3 ^= p2[3];
+		d4 ^= p2[4];
+		d5 ^= p2[5];
+		d6 ^= p2[6];
+		d7 ^= p2[7];
+		__builtin_prefetch(p2 + 5*64, 0, 0);
+		d0 ^= p3[0];
+		d1 ^= p3[1];
+		d2 ^= p3[2];
+		d3 ^= p3[3];
+		d4 ^= p3[4];
+		d5 ^= p3[5];
+		d6 ^= p3[6];
+		d7 ^= p3[7];
+		__builtin_prefetch(p3 + 5*64, 0, 0);
+		STORE_NTI(d0, p1[0]);
+		STORE_NTI(d1, p1[1]);
+		STORE_NTI(d2, p1[2]);
+		STORE_NTI(d3, p1[3]);
+		STORE_NTI(d4, p1[4]);
+		STORE_NTI(d5, p1[5]);
+		STORE_NTI(d6, p1[6]);
+		STORE_NTI(d7, p1[7]);
+		p1 += 8;
+		p2 += 8;
+		p3 += 8;
+	} while (--lines > 0);
+}
+
+static void
+xor_64regs_stream_4(unsigned long bytes, unsigned long *p1, unsigned long *p2,
+	    unsigned long *p3, unsigned long *p4)
+{
+	long lines = bytes / (sizeof (long)) / 8;
+
+	do {
+		register long d0, d1, d2, d3, d4, d5, d6, d7;
+		d0 = p1[0];	/* Pull the stuff into registers	*/
+		d1 = p1[1];	/*  ... in bursts, if possible.		*/
+		d2 = p1[2];
+		d3 = p1[3];
+		d4 = p1[4];
+		d5 = p1[5];
+		d6 = p1[6];
+		d7 = p1[7];
+		__builtin_prefetch(p1 + 5*64, 0, 0);
+		d0 ^= p2[0];
+		d1 ^= p2[1];
+		d2 ^= p2[2];
+		d3 ^= p2[3];
+		d4 ^= p2[4];
+		d5 ^= p2[5];
+		d6 ^= p2[6];
+		d7 ^= p2[7];
+		__builtin_prefetch(p2 + 5*64, 0, 0);
+		d0 ^= p3[0];
+		d1 ^= p3[1];
+		d2 ^= p3[2];
+		d3 ^= p3[3];
+		d4 ^= p3[4];
+		d5 ^= p3[5];
+		d6 ^= p3[6];
+		d7 ^= p3[7];
+		__builtin_prefetch(p3 + 5*64, 0, 0);
+		d0 ^= p4[0];
+		d1 ^= p4[1];
+		d2 ^= p4[2];
+		d3 ^= p4[3];
+		d4 ^= p4[4];
+		d5 ^= p4[5];
+		d6 ^= p4[6];
+		d7 ^= p4[7];
+		__builtin_prefetch(p4 + 5*64, 0, 0);
+		STORE_NTI(d0, p1[0]);
+		STORE_NTI(d1, p1[1]);
+		STORE_NTI(d2, p1[2]);
+		STORE_NTI(d3, p1[3]);
+		STORE_NTI(d4, p1[4]);
+		STORE_NTI(d5, p1[5]);
+		STORE_NTI(d6, p1[6]);
+		STORE_NTI(d7, p1[7]);
+		p1 += 8;
+		p2 += 8;
+		p3 += 8;
+		p4 += 8;
+	} while (--lines > 0);
+}
+
+static void
+xor_64regs_stream_5(unsigned long bytes, unsigned long *p1, unsigned long *p2,
+	    unsigned long *p3, unsigned long *p4, unsigned long *p5)
+{
+	long lines = bytes / (sizeof (long)) / 8;
+
+	do {
+		register long d0, d1, d2, d3, d4, d5, d6, d7;
+		d0 = p1[0];	/* Pull the stuff into registers	*/
+		d1 = p1[1];	/*  ... in bursts, if possible.		*/
+		d2 = p1[2];
+		d3 = p1[3];
+		d4 = p1[4];
+		d5 = p1[5];
+		d6 = p1[6];
+		d7 = p1[7];
+		__builtin_prefetch(p1 + 5*64, 0, 0);
+		d0 ^= p2[0];
+		d1 ^= p2[1];
+		d2 ^= p2[2];
+		d3 ^= p2[3];
+		d4 ^= p2[4];
+		d5 ^= p2[5];
+		d6 ^= p2[6];
+		d7 ^= p2[7];
+		__builtin_prefetch(p2 + 5*64, 0, 0);
+		d0 ^= p3[0];
+		d1 ^= p3[1];
+		d2 ^= p3[2];
+		d3 ^= p3[3];
+		d4 ^= p3[4];
+		d5 ^= p3[5];
+		d6 ^= p3[6];
+		d7 ^= p3[7];
+		__builtin_prefetch(p3 + 5*64, 0, 0);
+		d0 ^= p4[0];
+		d1 ^= p4[1];
+		d2 ^= p4[2];
+		d3 ^= p4[3];
+		d4 ^= p4[4];
+		d5 ^= p4[5];
+		d6 ^= p4[6];
+		d7 ^= p4[7];
+		__builtin_prefetch(p4 + 5*64, 0, 0);
+		d0 ^= p5[0];
+		d1 ^= p5[1];
+		d2 ^= p5[2];
+		d3 ^= p5[3];
+		d4 ^= p5[4];
+		d5 ^= p5[5];
+		d6 ^= p5[6];
+		d7 ^= p5[7];
+		__builtin_prefetch(p5 + 5*64, 0, 0);
+		STORE_NTI(d0, p1[0]);
+		STORE_NTI(d1, p1[1]);
+		STORE_NTI(d2, p1[2]);
+		STORE_NTI(d3, p1[3]);
+		STORE_NTI(d4, p1[4]);
+		STORE_NTI(d5, p1[5]);
+		STORE_NTI(d6, p1[6]);
+		STORE_NTI(d7, p1[7]);
+		p1 += 8;
+		p2 += 8;
+		p3 += 8;
+		p4 += 8;
+		p5 += 8;
+	} while (--lines > 0);
+}
+
+
 static struct xor_block_template xor_block_sse = {
-        name: "generic_sse",
+        name: "128byte sse streaming",
         do_2: xor_sse_2,
         do_3: xor_sse_3,
         do_4: xor_sse_4,
         do_5: xor_sse_5,
 };
 
+static struct xor_block_template xor_block_64regs_stream = {
+	name: "64byte int streaming",
+	do_2: xor_64regs_stream_2,
+	do_3: xor_64regs_stream_3,
+	do_4: xor_64regs_stream_4,
+	do_5: xor_64regs_stream_5,
+};
+
+/* AK: the speed test is useless: it only tests cache hot */
 #undef XOR_TRY_TEMPLATES
 #define XOR_TRY_TEMPLATES				\
 	do {						\
 		xor_speed(&xor_block_sse);	\
+		xor_speed(&xor_block_64regs_stream);	\
 	} while (0)
 
-/* We force the use of the SSE xor block because it can write around L2.
-   We may also be able to load into the L1 only depending on how the cpu
-   deals with a load to a line that is being prefetched.  */
-#define XOR_SELECT_TEMPLATE(FASTEST) (&xor_block_sse)
+#define XOR_SELECT_TEMPLATE(FASTEST) (FASTEST)

@@ -264,6 +264,7 @@ drm_agp_head_t *drm_agp_init(void)
 #if LINUX_VERSION_CODE >= 0x020400
 		case INTEL_I840:	head->chipset = "Intel i840";    break;
 #endif
+		case INTEL_460GX:	head->chipset = "Intel 460GX";	 break;
 
 		case VIA_GENERIC:	head->chipset = "VIA";           break;
 		case VIA_VP3:		head->chipset = "VIA VP3";       break;
@@ -274,6 +275,12 @@ drm_agp_head_t *drm_agp_init(void)
 		case VIA_APOLLO_KX133:	head->chipset = "VIA Apollo KX133"; 
 			break;
 		case VIA_APOLLO_KT133:	head->chipset = "VIA Apollo KT133"; 
+			break;
+		case VIA_APOLLO_KM266:	head->chipset = "VIA Apollo KM266 / KL266";
+			break;
+		case VIA_APOLLO_KT400:  head->chipset = "VIA Apollo KT400";
+			break;
+		case VIA_APOLLO_P4X400:	head->chipset = "VIA Apollo P4X400";
 			break;
 #endif
 
@@ -294,6 +301,7 @@ drm_agp_head_t *drm_agp_init(void)
 			break;
 		case SVWRKS_HE: 	head->chipset = "Serverworks HE"; break;
 		case SVWRKS_LE: 	head->chipset = "Serverworks LE"; break;
+		case HP_ZX1:		head->chipset = "HP ZX1";	break;
 
 		default:		head->chipset = "Unknown";       break;
 		}

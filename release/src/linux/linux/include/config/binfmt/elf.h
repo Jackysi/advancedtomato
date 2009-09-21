@@ -1,1 +1,0 @@
-#define CONFIG_BINFMT_ELF 1

@@ -69,7 +69,7 @@
 #define HOST_RESET_SETTLE_TIME  10*HZ
 
 
-static const char RCSid[] = "$Header: /home/cvsroot/wrt54g/src/linux/linux/drivers/scsi/scsi_error.c,v 1.1.1.2 2003/10/14 08:08:41 sparq Exp $";
+static const char RCSid[] = "$Header: /mnt/ide/home/eric/CVSROOT/linux/drivers/scsi/scsi_error.c,v 1.10 1997/12/08 04:50:35 eric Exp $";
 
 STATIC int scsi_check_sense(Scsi_Cmnd * SCpnt);
 STATIC int scsi_request_sense(Scsi_Cmnd *);
@@ -110,25 +110,13 @@ void scsi_add_timer(Scsi_Cmnd * SCset,
 		    int timeout,
 		    void (*complete) (Scsi_Cmnd *))
 {
-
-	/*
-	 * If the clock was already running for this command, then
-	 * first delete the timer.  The timer handling code gets rather
-	 * confused if we don't do this.
-	 */
-	if (SCset->eh_timeout.function != NULL) {
-		del_timer(&SCset->eh_timeout);
-	}
 	SCset->eh_timeout.data = (unsigned long) SCset;
-	SCset->eh_timeout.expires = jiffies + timeout;
 	SCset->eh_timeout.function = (void (*)(unsigned long)) complete;
+	mod_timer(&SCset->eh_timeout, jiffies + timeout);
 
 	SCset->done_late = 0;
 
 	SCSI_LOG_ERROR_RECOVERY(5, printk("Adding timer for command %p at %d (%p)\n", SCset, timeout, complete));
-
-	add_timer(&SCset->eh_timeout);
-
 }
 
 /*
@@ -180,6 +168,20 @@ void scsi_times_out(Scsi_Cmnd * SCpnt)
 	 * reposessing the command.  
 	 */
 #ifdef ERIC_neverdef
+	/*
+	 * FIXME(eric)
+	 * Allow the host adapter to push a queue ordering tag
+	 * out to the bus to force the command in question to complete.
+	 * If the host wants to do this, then we just restart the timer
+	 * for the command.  Before we really do this, some real thought
+	 * as to the optimum way to handle this should be done.  We *do*
+	 * need to force ordering every so often to ensure that all requests
+	 * do eventually complete, but I am not sure if this is the best way
+	 * to actually go about it.
+	 *
+	 * Better yet, force a sync here, but don't block since we are in an
+	 * interrupt.
+	 */
 	if (SCpnt->host->hostt->eh_ordered_queue_tag) {
 		if ((*SCpnt->host->hostt->eh_ordered_queue_tag) (SCpnt)) {
 			scsi_add_timer(SCpnt, SCpnt->internal_timeout,
@@ -187,6 +189,11 @@ void scsi_times_out(Scsi_Cmnd * SCpnt)
 			return;
 		}
 	}
+	/*
+	 * FIXME(eric) - add a second special interface to handle this
+	 * case.  Ideally that interface can also be used to request
+	 * a queu
+	 */
 	if (SCpnt->host->can_queue) {
 		SCpnt->host->hostt->queuecommand(SCpnt, NULL);
 	}
@@ -403,6 +410,7 @@ STATIC int scsi_request_sense(Scsi_Cmnd * SCpnt)
 	{REQUEST_SENSE, 0, 0, 0, 255, 0};
 	unsigned char scsi_result0[256], *scsi_result = NULL;
 	int saved_result;
+	int saved_resid;
 
 	ASSERT_LOCK(&io_request_lock, 0);
 
@@ -429,6 +437,7 @@ STATIC int scsi_request_sense(Scsi_Cmnd * SCpnt)
 	memset((void *) scsi_result, 0, 256);
 
 	saved_result = SCpnt->result;
+	saved_resid = SCpnt->resid;
 	SCpnt->request_buffer = scsi_result;
 	SCpnt->request_bufflen = 256;
 	SCpnt->use_sg = 0;
@@ -454,6 +463,7 @@ STATIC int scsi_request_sense(Scsi_Cmnd * SCpnt)
 	memcpy((void *) SCpnt->cmnd, (void *) SCpnt->data_cmnd,
 	       sizeof(SCpnt->data_cmnd));
 	SCpnt->result = saved_result;
+	SCpnt->resid = saved_resid;
 	SCpnt->request_buffer = SCpnt->buffer;
 	SCpnt->request_bufflen = SCpnt->bufflen;
 	SCpnt->use_sg = SCpnt->old_use_sg;
@@ -477,6 +487,7 @@ STATIC int scsi_test_unit_ready(Scsi_Cmnd * SCpnt)
 {
 	static unsigned char tur_command[6] =
 	{TEST_UNIT_READY, 0, 0, 0, 0, 0};
+	int saved_resid;
 
 	memcpy((void *) SCpnt->cmnd, (void *) tur_command,
 	       sizeof(tur_command));
@@ -490,6 +501,7 @@ STATIC int scsi_test_unit_ready(Scsi_Cmnd * SCpnt)
 	 */
 	memset((void *) SCpnt->sense_buffer, 0, sizeof(SCpnt->sense_buffer));
 
+	saved_resid = SCpnt->resid;
 	SCpnt->request_buffer = NULL;
 	SCpnt->request_bufflen = 0;
 	SCpnt->use_sg = 0;
@@ -505,6 +517,7 @@ STATIC int scsi_test_unit_ready(Scsi_Cmnd * SCpnt)
 	 */
 	memcpy((void *) SCpnt->cmnd, (void *) SCpnt->data_cmnd,
 	       sizeof(SCpnt->data_cmnd));
+	SCpnt->resid = saved_resid;
 	SCpnt->request_buffer = SCpnt->buffer;
 	SCpnt->request_bufflen = SCpnt->bufflen;
 	SCpnt->use_sg = SCpnt->old_use_sg;
@@ -605,6 +618,16 @@ STATIC void scsi_send_eh_cmnd(Scsi_Cmnd * SCpnt, int timeout)
 		if (SCpnt->eh_state == SCSI_STATE_TIMEOUT) {
                         SCpnt->owner = SCSI_OWNER_LOWLEVEL;
 
+			/*
+			 * As far as the low level driver is
+			 * concerned, this command is still active, so
+			 * we must give the low level driver a chance
+			 * to abort it. (DB) 
+			 *
+			 * FIXME(eric) - we are not tracking whether we could
+			 * abort a timed out command or not.  Not sure how
+			 * we should treat them differently anyways.
+			 */
 			spin_lock_irqsave(&io_request_lock, flags);
 			if (SCpnt->host->hostt->eh_abort_handler)
 				SCpnt->host->hostt->eh_abort_handler(SCpnt);
@@ -647,7 +670,10 @@ STATIC void scsi_send_eh_cmnd(Scsi_Cmnd * SCpnt, int timeout)
 			SCpnt->eh_state = SUCCESS;
 			break;
 		case NEEDS_RETRY:
-			goto retry;
+			if ((++SCpnt->retries) < SCpnt->allowed)
+				goto retry;
+			SCpnt->eh_state = SUCCESS;
+			break;
 		case FAILED:
 		default:
 			SCpnt->eh_state = FAILED;
@@ -1022,6 +1048,9 @@ int scsi_decide_disposition(Scsi_Cmnd * SCpnt)
 	case CONDITION_GOOD:
 	case INTERMEDIATE_GOOD:
 	case INTERMEDIATE_C_GOOD:
+		/*
+		 * Who knows?  FIXME(eric)
+		 */
 		return SUCCESS;
 	case BUSY:
 		goto maybe_retry;
@@ -1111,6 +1140,9 @@ STATIC int scsi_eh_completed_normally(Scsi_Cmnd * SCpnt)
 	case CONDITION_GOOD:
 	case INTERMEDIATE_GOOD:
 	case INTERMEDIATE_C_GOOD:
+		/*
+		 * Who knows?  FIXME(eric)
+		 */
 		return SUCCESS;
 	case BUSY:
 	case QUEUE_FULL:
@@ -1306,13 +1338,41 @@ STATIC int scsi_unjam_host(struct Scsi_Host *host)
 			 */
 			SCSI_LOG_ERROR_RECOVERY(1, printk("Error handler prematurely woken - commands still active (%p %x %d)\n", SCpnt, SCpnt->state, SCpnt->target));
 
+/*
+ *        panic("SCSI Error handler woken too early\n");
+ *
+ * This is no longer a problem, since now the code cares only about
+ * SCSI_STATE_TIMEOUT and SCSI_STATE_FAILED.
+ * Other states are useful only to release active commands when devices are
+ * set offline. If (host->host_active == host->host_busy) we can safely assume
+ * that there are no commands in state other then TIMEOUT od FAILED. (DB)
+ *
+ * FIXME:
+ * It is not easy to release correctly commands according to their state when 
+ * devices are set offline, when the state is neither TIMEOUT nor FAILED.
+ * When a device is set offline, we can have some command with
+ * rq_status=RQ_SCSY_BUSY, owner=SCSI_STATE_HIGHLEVEL, 
+ * state=SCSI_STATE_INITIALIZING and the driver module cannot be released.
+ * (DB, 17 May 1998)
+ */
 		}
 	}
 
+	/*
+	 * Next, see if we need to request sense information.  if so,
+	 * then get it now, so we have a better idea of what to do.
+	 * FIXME(eric) this has the unfortunate side effect that if a host
+	 * adapter does not automatically request sense information, that we end
+	 * up shutting it down before we request it.  All hosts should be doing this
+	 * anyways, so for now all I have to say is tough noogies if you end up in here.
+	 * On second thought, this is probably a good idea.  We *really* want to give
+	 * authors an incentive to automatically request this.
+	 */
 	SCSI_LOG_ERROR_RECOVERY(3, printk("scsi_unjam_host: Checking to see if we need to request sense\n"));
 
 	for (SDpnt = host->host_queue; SDpnt; SDpnt = SDpnt->next) {
 		for (SCpnt = SDpnt->device_queue; SCpnt; SCpnt = SCpnt->next) {
+		      recheck_sense_valid:
 			if (SCpnt->state != SCSI_STATE_FAILED || scsi_sense_valid(SCpnt)) {
 				continue;
 			}
@@ -1349,7 +1409,8 @@ STATIC int scsi_unjam_host(struct Scsi_Host *host)
 			SCpnt->state = NEEDS_RETRY;
 			rtn = scsi_eh_retry_command(SCpnt);
 			if (rtn != SUCCESS) {
-				continue;
+				SCpnt->state = SCSI_STATE_FAILED;
+				goto recheck_sense_valid;
 			}
 			/*
 			 * We eventually hand this one back to the top level.
@@ -1456,6 +1517,14 @@ STATIC int scsi_unjam_host(struct Scsi_Host *host)
 		if (SCloop == NULL) {
 			continue;
 		}
+		/*
+		 * OK, we have a device that is having problems.  Try and send
+		 * a bus device reset to it.
+		 *
+		 * FIXME(eric) - make sure we handle the case where multiple
+		 * commands to the same device have failed. They all must
+		 * get properly restarted.
+		 */
 		rtn = scsi_try_bus_device_reset(SCloop, RESET_TIMEOUT);
 
 		if (rtn == SUCCESS) {
@@ -1511,6 +1580,19 @@ STATIC int scsi_unjam_host(struct Scsi_Host *host)
 						continue;
 					}
 					if (SDloop->soft_reset && SCloop->state == SCSI_STATE_TIMEOUT) {
+						/* 
+						 * If this device uses the soft reset option, and this
+						 * is one of the devices acting up, then our only
+						 * option is to wait a bit, since the command is
+						 * supposedly still running.  
+						 *
+						 * FIXME(eric) - right now we will just end up falling
+						 * through to the 'take device offline' case.
+						 *
+						 * FIXME(eric) - It is possible that the command completed
+						 * *after* the error recovery procedure started, and if this
+						 * is the case, we are worrying about nothing here.
+						 */
 
 						scsi_sleep(1 * HZ);
 						goto next_device;
@@ -1544,6 +1626,11 @@ STATIC int scsi_unjam_host(struct Scsi_Host *host)
 								scsi_eh_finish_command(&SCdone, SCloop);
 							}
 						}
+						/*
+						 * If the bus reset worked, but we are still unable to
+						 * talk to the device, take it offline.
+						 * FIXME(eric) - is this really the correct thing to do?
+						 */
 						if (rtn != SUCCESS) {
 							printk(KERN_INFO "scsi: device set offline - not ready or command retry failed after bus reset: host %d channel %d id %d lun %d\n", SDloop->host->host_no, SDloop->channel, SDloop->id, SDloop->lun);
 
@@ -1561,6 +1648,22 @@ STATIC int scsi_unjam_host(struct Scsi_Host *host)
 		ourrtn = TRUE;
 		goto leave;
 	}
+	/*
+	 * If we ended up here, we have serious problems.  The only thing left
+	 * to try is a full host reset - perhaps the firmware on the device
+	 * crashed, or something like that.
+	 *
+	 * It is assumed that a succesful host reset will cause *all* information
+	 * about the command to be flushed from both the host adapter *and* the
+	 * device.
+	 *
+	 * FIXME(eric) - it isn't clear that devices that implement the soft reset
+	 * option can ever be cleared except via cycling the power.  The problem is
+	 * that sending the host reset command will cause the host to forget
+	 * about the pending command, but the device won't forget.  For now, we
+	 * skip the host reset option if any of the failed devices are configured
+	 * to use the soft reset option.
+	 */
 	for (SDpnt = host->host_queue; SDpnt; SDpnt = SDpnt->next) {
 	      next_device2:
 		for (SCpnt = SDpnt->device_queue; SCpnt; SCpnt = SCpnt->next) {
@@ -1569,6 +1672,15 @@ STATIC int scsi_unjam_host(struct Scsi_Host *host)
 				continue;
 			}
 			if (SDpnt->soft_reset && SCpnt->state == SCSI_STATE_TIMEOUT) {
+				/* 
+				 * If this device uses the soft reset option, and this
+				 * is one of the devices acting up, then our only
+				 * option is to wait a bit, since the command is
+				 * supposedly still running.  
+				 *
+				 * FIXME(eric) - right now we will just end up falling
+				 * through to the 'take device offline' case.
+				 */
 				SCSI_LOG_ERROR_RECOVERY(3,
 							printk("scsi_unjam_host: Unable to try hard host reset\n"));
 
@@ -1582,8 +1694,20 @@ STATIC int scsi_unjam_host(struct Scsi_Host *host)
 			}
 			SCSI_LOG_ERROR_RECOVERY(3, printk("scsi_unjam_host: Try hard host reset\n"));
 
+			/*
+			 * FIXME(eric) - we need to obtain a valid SCpnt to perform this call.
+			 */
 			rtn = scsi_try_host_reset(SCpnt);
 			if (rtn == SUCCESS) {
+				/*
+				 * FIXME(eric) we assume that all commands are flushed from the
+				 * controller.  We should get a DID_RESET for all of the commands
+				 * that were pending.  We should ignore these so that we can
+				 * guarantee that we are in a consistent state.
+				 *
+				 * I believe this to be the case right now, but this needs to be
+				 * tested.
+				 */
 				for (SDloop = host->host_queue; SDloop; SDloop = SDloop->next) {
 					for (SCloop = SDloop->device_queue; SCloop; SCloop = SCloop->next) {
 						if (SCloop->state != SCSI_STATE_FAILED

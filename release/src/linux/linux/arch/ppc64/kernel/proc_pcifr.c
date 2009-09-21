@@ -198,10 +198,18 @@ static int build_PciDev_Buffer(int BufferSize)
 
 			/* look for the net devices out */
 			for (dev = dev_base; dev != NULL; dev = dev->next) 	{
-				if (dev->base_addr == PciDev->resource[0].start ) {
-					BufLen += sprintf(ProcBuffer+BufLen, "     - Net device: %s\n", dev->name);
+				int j;
+                               
+				if (!dev->base_addr) /* virtual device, no base address */
 					break;
-				} /* if */
+				
+				for (j=0;j<6;j++) { /* PCI has 6 base addresses */
+					if (dev->base_addr == PciDev->resource[j].start ) {
+						BufLen += sprintf(ProcBuffer+BufLen, "     - Net device: %s\n", dev->name);
+						break;
+					} /* if */
+				}
+				if (j!=6) break; /* found one */
 			} /* for */
 		} /* if(PCI_SLOT(PciDev->devfn) != 0)  */
 	}

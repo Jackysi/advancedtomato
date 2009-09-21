@@ -1,1 +1,0 @@
-#undef  CONFIG_MD_MULTIPATH

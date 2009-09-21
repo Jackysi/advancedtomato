@@ -70,7 +70,7 @@ izo_rep_hash(struct list_head *cache, char *uuid)
         return &cache[(RCACHE_MASK & uuid[1])];
 }
 
-static void
+void
 izo_rep_cache_clean(struct presto_file_set *fset)
 {
 	int i;
@@ -80,28 +80,25 @@ izo_rep_cache_clean(struct presto_file_set *fset)
         if (fset->fset_clients == NULL)
 		return;
         for (i = 0; i < RCACHE_SIZE; i++) {
-		tmp = bucket = &fset->fset_clients[i];
 
-		tmp = tmp->next;
-                while (tmp != bucket) {
-			struct izo_offset_rec *offrec;
-			tmp = tmp->next;
-			list_del(tmp);
-			offrec = list_entry(tmp, struct izo_offset_rec,
-					    or_list);
-			PRESTO_FREE(offrec, sizeof(struct izo_offset_rec));
+				list_for_each_safe(tmp,bucket,&fset->fset_clients[i])
+				{
+						struct izo_offset_rec *offrec;
+						list_del(tmp);
+						offrec = list_entry(tmp, struct izo_offset_rec,or_list);
+						PRESTO_FREE(offrec, sizeof(struct izo_offset_rec)); 
+				}
 		}
-	}
+		PRESTO_FREE(fset->fset_clients,sizeof(struct list_head) * RCACHE_SIZE);
 }
 
 struct izo_offset_rec *
 izo_rep_cache_find(struct presto_file_set *fset, char *uuid)
 {
-	struct list_head *buck = izo_rep_hash(fset->fset_clients, uuid);
-	struct list_head *tmp = buck;
+	struct list_head *tmp, *buck = izo_rep_hash(fset->fset_clients, uuid);
         struct izo_offset_rec *rec = NULL;
 
-        while ( (tmp = tmp->next) != buck ) {
+	list_for_each(tmp, buck) {
 		rec = list_entry(tmp, struct izo_offset_rec, or_list);
                 if ( memcmp(rec->or_uuid, uuid, sizeof(rec->or_uuid)) == 0 )
 			return rec;
@@ -163,6 +160,12 @@ izo_rep_cache_init(struct presto_file_set *fset)
 	return 0;
 }
 
+/*
+ * Return local last_rcvd record for the client. Update or create 
+ * if necessary.
+ *
+ * XXX: After this call, any -EINVAL from izo_rcvd_get is a real error.
+ */
 int
 izo_repstatus(struct presto_file_set *fset,  __u64 client_kmlsize, 
               struct izo_rcvd_rec *lr_client, struct izo_rcvd_rec *lr_server)

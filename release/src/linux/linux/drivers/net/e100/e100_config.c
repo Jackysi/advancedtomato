@@ -1,7 +1,7 @@
 /*******************************************************************************
 
   
-  Copyright(c) 1999 - 2002 Intel Corporation. All rights reserved.
+  Copyright(c) 1999 - 2004 Intel Corporation. All rights reserved.
   
   This program is free software; you can redistribute it and/or modify it 
   under the terms of the GNU General Public License as published by the Free 
@@ -60,7 +60,7 @@ static const u8 def_config[] = {
  * All other init functions will only set values that are
  * different from the 82557 default.
  */
-static void __devinit
+void
 e100_config_init_82557(struct e100_private *bdp)
 {
 	/* initialize config block */
@@ -104,7 +104,7 @@ e100_config_init_82557(struct e100_private *bdp)
 	e100_config_mulcast_enbl(bdp, false);
 }
 
-static void __devinit
+static void
 e100_config_init_82558(struct e100_private *bdp)
 {
 	/* MWI enable. This should be turned on only if the adapter is a 82558/9
@@ -136,7 +136,7 @@ e100_config_init_82558(struct e100_private *bdp)
 	e100_config_long_rx(bdp, true);
 }
 
-static void __devinit
+static void
 e100_config_init_82550(struct e100_private *bdp)
 {
 	/* The D102 chip allows for 32 config bytes.  This value is
@@ -149,7 +149,7 @@ e100_config_init_82550(struct e100_private *bdp)
 	 * 32 from the RFD base address, instead of at offset 16. */
 	bdp->config[7] |= CB_CFIG_EXTENDED_RFD;
 
-	/* put the chip into D102 receive mode.  This is neccessary
+	/* put the chip into D102 receive mode.  This is necessary
 	 * for any parsing and offloading features. */
 	bdp->config[22] = CB_CFIG_RECEIVE_GAMLA_MODE;
 
@@ -160,7 +160,7 @@ e100_config_init_82550(struct e100_private *bdp)
 }
 
 /* Initialize the adapter's configure block */
-void __devinit
+void
 e100_config_init(struct e100_private *bdp)
 {
 	e100_config_init_82557(bdp);
@@ -494,8 +494,7 @@ e100_config_long_rx(struct e100_private *bdp, unsigned char enable)
  * e100_config_wol
  * @bdp: atapter's private data struct
  *
- * This sets configuration options for Wake On LAN functionality (WOL) in the
- * config record. WOL options are retrieved from wolinfo_wolopts in @bdp
+ * This sets configuration options for PHY and Magic Packet WoL 
  */
 void
 e100_config_wol(struct e100_private *bdp)
@@ -504,14 +503,40 @@ e100_config_wol(struct e100_private *bdp)
 
 	if (bdp->wolopts & WAKE_PHY) {
 		bdp->config[9] |= CB_LINK_STATUS_WOL;
-		E100_CONFIG(bdp, 9);
+	}
+	else {
+		/* Disable PHY WoL */
+		bdp->config[9] &= ~CB_LINK_STATUS_WOL;
 	}
 
-	if (!(bdp->wolopts & WAKE_MAGIC)) {
+	if (bdp->wolopts & WAKE_MAGIC) {
+		bdp->config[19] &= ~CB_DISABLE_MAGPAK_WAKE;
+	}
+	else {
+		/* Disable Magic Packet WoL */
 		bdp->config[19] |= CB_DISABLE_MAGPAK_WAKE;
-		E100_CONFIG(bdp, 19);
 	}
 
+	E100_CONFIG(bdp, 19);
+	spin_unlock_bh(&(bdp->config_lock));
+}
+
+void
+e100_config_vlan_drop(struct e100_private *bdp, unsigned char enable)
+{
+	spin_lock_bh(&(bdp->config_lock));
+	if (enable) {
+		if (!(bdp->config[22] & CB_CFIG_VLAN_DROP_ENABLE)) {
+			bdp->config[22] |= CB_CFIG_VLAN_DROP_ENABLE;
+			E100_CONFIG(bdp, 22);
+		}
+
+	} else {
+		if ((bdp->config[22] & CB_CFIG_VLAN_DROP_ENABLE)) {
+			bdp->config[22] &= ~CB_CFIG_VLAN_DROP_ENABLE;
+			E100_CONFIG(bdp, 22);
+		}
+	}
 	spin_unlock_bh(&(bdp->config_lock));
 }
 

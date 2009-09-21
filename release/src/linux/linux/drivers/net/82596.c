@@ -64,7 +64,7 @@
 #include <asm/pgalloc.h>
 
 static char version[] __initdata =
-	"82596.c $Revision: 1.1.1.2 $\n";
+	"82596.c $Revision: 1.5 $\n";
 
 /* DEBUG flags
  */
@@ -649,7 +649,7 @@ static int init_i596_mem(struct net_device *dev)
 
 	/* change the scp address */
 
-	MPU_PORT(dev, PORT_ALTSCP, (void *)virt_to_bus(&lp->scp));
+	MPU_PORT(dev, PORT_ALTSCP, (void *)virt_to_bus((void *)&lp->scp));
 
 #elif defined(ENABLE_APRICOT)
 
@@ -680,8 +680,8 @@ static int init_i596_mem(struct net_device *dev)
 		lp->scp.sysbus = 0x00440000;
 #endif
 
-	lp->scp.iscp = WSWAPiscp(virt_to_bus(&(lp->iscp)));
-	lp->iscp.scb = WSWAPscb(virt_to_bus(&(lp->scb)));
+	lp->scp.iscp = WSWAPiscp(virt_to_bus((void *)&lp->iscp));
+	lp->iscp.scb = WSWAPscb(virt_to_bus((void *)&lp->scb));
 	lp->iscp.stat = ISCP_BUSY;
 	lp->cmd_backlog = 0;
 
@@ -784,6 +784,7 @@ static inline int i596_rx(struct net_device *dev)
 			rbd = lp->rbd_head;
 		else {
 			printk(KERN_CRIT "%s: rbd chain broken!\n", dev->name);
+			/* XXX Now what? */
 			rbd = I596_NULL;
 		}
 		DEB(DEB_RXFRAME, printk(KERN_DEBUG "  rfd %p, rfd.rbd %p, rfd.stat %04x\n",
@@ -826,6 +827,7 @@ static inline int i596_rx(struct net_device *dev)
 				skb = dev_alloc_skb(pkt_len + 2);
 memory_squeeze:
 			if (skb == NULL) {
+				/* XXX tulip.c can defer packets here!! */
 				printk(KERN_WARNING "%s: i596_rx Memory squeeze, dropping packet.\n", dev->name);
 				lp->stats.rx_dropped++;
 			}
@@ -1064,12 +1066,19 @@ static int i596_start_xmit(struct sk_buff *skb, struct net_device *dev)
 	struct i596_private *lp = (struct i596_private *) dev->priv;
 	struct tx_cmd *tx_cmd;
 	struct i596_tbd *tbd;
-	short length = ETH_ZLEN < skb->len ? skb->len : ETH_ZLEN;
+	short length = skb->len;
 	dev->trans_start = jiffies;
 
 	DEB(DEB_STARTTX,printk(KERN_DEBUG "%s: i596_start_xmit(%x,%x) called\n", dev->name,
 				skb->len, (unsigned int)skb->data));
 
+	if(skb->len < ETH_ZLEN)
+	{
+		skb = skb_padto(skb, ETH_ZLEN);
+		if(skb == NULL)
+			return 0;
+		length = ETH_ZLEN;
+	}
 	netif_stop_queue(dev);
 
 	tx_cmd = lp->tx_cmds + lp->next_tx_cmd;
@@ -1556,6 +1565,9 @@ void cleanup_module(void)
 {
 	unregister_netdev(&dev_82596);
 #ifdef __mc68000__
+	/* XXX This assumes default cache mode to be IOMAP_FULL_CACHING,
+	 * XXX which may be invalid (CONFIG_060_WRITETHROUGH)
+	 */
 
 	kernel_set_cachemode((void *)(dev_82596.mem_start), 4096,
 			IOMAP_FULL_CACHING);

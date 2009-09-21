@@ -73,6 +73,17 @@ struct _fpreg_ia32 {
        unsigned short exponent;
 };
 
+struct _fpxreg_ia32 {
+        unsigned short significand[4];
+        unsigned short exponent;
+        unsigned short padding[3];
+};
+
+struct _xmmreg_ia32 {
+        unsigned int element[4];
+};
+
+
 struct _fpstate_ia32 {
        unsigned int    cw,
 		       sw,
@@ -82,7 +93,16 @@ struct _fpstate_ia32 {
 		       dataoff,
 		       datasel;
        struct _fpreg_ia32      _st[8];
-       unsigned int    status;
+       unsigned short  status;
+       unsigned short  magic;          /* 0xffff = regular FPU data only */
+
+       /* FXSR FPU environment */
+       unsigned int         _fxsr_env[6];   /* FXSR FPU env is ignored */
+       unsigned int         mxcsr;
+       unsigned int         reserved;
+       struct _fpxreg_ia32  _fxsr_st[8];    /* FXSR FPU reg data is ignored */
+       struct _xmmreg_ia32  _xmm[8];
+       unsigned int         padding[56];
 };
 
 struct sigcontext_ia32 {
@@ -108,6 +128,45 @@ struct sigcontext_ia32 {
        unsigned int fpstate;		/* really (struct _fpstate_ia32 *) */
        unsigned int oldmask;
        unsigned int cr2;
+};
+
+/* user.h */
+/*
+ * IA32 (Pentium III/4) FXSR, SSE support
+ *
+ * Provide support for the GDB 5.0+ PTRACE_{GET|SET}FPXREGS requests for
+ * interacting with the FXSR-format floating point environment.  Floating
+ * point data can be accessed in the regular format in the usual manner,
+ * and both the standard and SIMD floating point data can be accessed via
+ * the new ptrace requests.  In either case, changes to the FPU environment
+ * will be reflected in the task's state as expected.
+ */
+struct ia32_user_i387_struct {
+	int	cwd;
+	int	swd;
+	int	twd;
+	int	fip;
+	int	fcs;
+	int	foo;
+	int	fos;
+	/* 8*10 bytes for each FP-reg = 80 bytes */
+	struct _fpreg_ia32 	st_space[8];
+};
+
+struct ia32_user_fxsr_struct {
+	unsigned short	cwd;
+	unsigned short	swd;
+	unsigned short	twd;
+	unsigned short	fop;
+	int	fip;
+	int	fcs;
+	int	foo;
+	int	fos;
+	int	mxcsr;
+	int	reserved;
+	int	st_space[32];	/* 8*16 bytes for each FP-reg = 128 bytes */
+	int	xmm_space[32];	/* 8*16 bytes for each XMM-reg = 128 bytes */
+	int	padding[56];
 };
 
 /* signal.h */
@@ -318,7 +377,6 @@ struct old_linux32_dirent {
 #define IA32_TSS_OFFSET		(IA32_PAGE_OFFSET + PAGE_SIZE)
 #define IA32_LDT_OFFSET		(IA32_PAGE_OFFSET + 2*PAGE_SIZE)
 
-#define USE_ELF_CORE_DUMP
 #define ELF_EXEC_PAGESIZE	IA32_PAGE_SIZE
 
 /*
@@ -331,24 +389,10 @@ struct old_linux32_dirent {
 #define ELF_ET_DYN_BASE		(IA32_PAGE_OFFSET/3 + 0x1000000)
 
 void ia64_elf32_init(struct pt_regs *regs);
-#define ELF_PLAT_INIT(_r)	ia64_elf32_init(_r)
+#define ELF_PLAT_INIT(_r, load_addr)	ia64_elf32_init(_r)
 
 #define elf_addr_t	u32
 #define elf_caddr_t	u32
-
-/* ELF register definitions.  This is needed for core dump support.  */
-
-#define ELF_NGREG	128			
-#define ELF_NFPREG	128			
-
-typedef unsigned long elf_greg_t;
-typedef elf_greg_t elf_gregset_t[ELF_NGREG];
-
-typedef struct {
-	unsigned long w0;
-	unsigned long w1;
-} elf_fpreg_t;
-typedef elf_fpreg_t elf_fpregset_t[ELF_NFPREG];
 
 /* This macro yields a bitmask that programs can use to figure out
    what instruction set this CPU supports.  */
@@ -443,6 +487,8 @@ typedef elf_fpreg_t elf_fpregset_t[ELF_NFPREG];
 #define IA32_PTRACE_SETREGS	13
 #define IA32_PTRACE_GETFPREGS	14
 #define IA32_PTRACE_SETFPREGS	15
+#define IA32_PTRACE_GETFPXREGS	18
+#define IA32_PTRACE_SETFPXREGS	19
 
 #define ia32_start_thread(regs,new_ip,new_sp) do {				\
 	set_fs(USER_DS);							\
@@ -484,6 +530,35 @@ extern int ia32_exception (struct pt_regs *regs, unsigned long isr);
 extern int ia32_intercept (struct pt_regs *regs, unsigned long isr);
 extern unsigned long ia32_do_mmap (struct file *, unsigned long, unsigned long, int, int, loff_t);
 extern void ia32_load_segment_descriptors (struct task_struct *task);
+
+#define ia32f2ia64f(dst,src) \
+	do { \
+	register double f6 asm ("f6"); \
+	asm volatile ("ldfe f6=[%2];; stf.spill [%1]=f6" : "=f"(f6): "r"(dst), "r"(src) : "memory"); \
+	} while(0)
+
+#define ia64f2ia32f(dst,src) \
+	do { \
+	register double f6 asm ("f6"); \
+	asm volatile ("ldf.fill f6=[%2];; stfe [%1]=f6" : "=f"(f6): "r"(dst),  "r"(src) : "memory"); \
+	} while(0)
+
+struct user_regs_struct32 {
+	__u32 ebx, ecx, edx, esi, edi, ebp, eax;
+	unsigned short ds, __ds, es, __es;
+	unsigned short fs, __fs, gs, __gs;
+	__u32 orig_eax, eip;
+	unsigned short cs, __cs;
+	__u32 eflags, esp;
+	unsigned short ss, __ss;
+};
+
+/* Prototypes for use in elfcore32.h */
+int save_ia32_fpstate (struct task_struct *tsk, 
+                       struct ia32_user_i387_struct *save);
+
+int save_ia32_fpxstate (struct task_struct *tsk, 
+			struct ia32_user_fxsr_struct *save);
 
 #endif /* !CONFIG_IA32_SUPPORT */
 

@@ -83,21 +83,22 @@ int elevator_linus_merge(request_queue_t *q, struct request **req,
 	struct list_head *entry = &q->queue_head;
 	unsigned int count = bh->b_size >> 9, ret = ELEVATOR_NO_MERGE;
 	struct request *__rq;
+	int backmerge_only = 0;
 
-	while ((entry = entry->prev) != head) {
+	while (!backmerge_only && (entry = entry->prev) != head) {
 		__rq = blkdev_entry_to_request(entry);
 
 		/*
 		 * we can't insert beyond a zero sequence point
 		 */
 		if (__rq->elevator_sequence <= 0)
-			break;
+			backmerge_only = 1;
 
 		if (__rq->waiting)
 			continue;
 		if (__rq->rq_dev != bh->b_rdev)
 			continue;
-		if (!*req && bh_rq_in_between(bh, __rq, &q->queue_head))
+		if (!*req && bh_rq_in_between(bh, __rq, &q->queue_head) && !backmerge_only)
 			*req = __rq;
 		if (__rq->cmd != rw)
 			continue;
@@ -107,7 +108,7 @@ int elevator_linus_merge(request_queue_t *q, struct request **req,
 			ret = ELEVATOR_BACK_MERGE;
 			*req = __rq;
 			break;
-		} else if (__rq->sector - count == bh->b_rsector) {
+		} else if (__rq->sector - count == bh->b_rsector && !backmerge_only) {
 			ret = ELEVATOR_FRONT_MERGE;
 			__rq->elevator_sequence--;
 			*req = __rq;

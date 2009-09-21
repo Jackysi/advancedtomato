@@ -30,13 +30,8 @@ MODULE_LICENSE("GPL");
 DECLARE_LOCK_EXTERN(ip_h323_lock);
 struct module *ip_nat_h323 = THIS_MODULE;
 
-#if 0
-#define DEBUGP printk
-#else
 #define DEBUGP(format, args...)
-#endif
 
-/* FIXME: Time out? --RR */
 
 static unsigned int 
 h225_nat_expected(struct sk_buff **pskb,
@@ -148,12 +143,13 @@ static int h323_signal_address_fixup(struct ip_conntrack *ct,
 {
 	struct iphdr *iph = (*pskb)->nh.iph;
 	struct tcphdr *tcph = (void *)iph + iph->ihl*4;
-	char *data = (char *) tcph + tcph->doff * 4;
+	unsigned char *data;
 	u_int32_t tcplen = (*pskb)->len - iph->ihl*4;
 	u_int32_t datalen = tcplen - tcph->doff*4;
 	struct ip_ct_h225_master *info = &ct->help.ct_h225_info; 
 	u_int32_t newip;
 	u_int16_t port;
+	u_int8_t buffer[6];
 	int i;
 
 	MUST_BE_LOCKED(&ip_h323_lock);
@@ -164,7 +160,7 @@ static int h323_signal_address_fixup(struct ip_conntrack *ct,
 		between(info->seq[IP_CT_DIR_REPLY], ntohl(tcph->seq), ntohl(tcph->seq) + datalen)
 			? "yes" : "no");
 	if (!(between(info->seq[IP_CT_DIR_ORIGINAL], ntohl(tcph->seq), ntohl(tcph->seq) + datalen)
-		|| between(info->seq[IP_CT_DIR_REPLY], ntohl(tcph->seq), ntohl(tcph->seq) + datalen)))
+	      || between(info->seq[IP_CT_DIR_REPLY], ntohl(tcph->seq), ntohl(tcph->seq) + datalen)))
 		return 1;
 
 	DEBUGP("h323_signal_address_fixup: offsets %u + 6  and %u + 6 in %u\n", 
@@ -205,31 +201,25 @@ static int h323_signal_address_fixup(struct ip_conntrack *ct,
 			port = ct->tuplehash[!info->dir].tuple.src.u.tcp.port;
 		}
 
+		data = (char *) tcph + tcph->doff * 4 + info->offset[i];
+
 		DEBUGP("h323_signal_address_fixup: orig %s IP:port %u.%u.%u.%u:%u\n", 
 			i == IP_CT_DIR_ORIGINAL ? "source" : "dest  ", 
-			NIPQUAD(*((u_int32_t *)(data + info->offset[i]))), 
-			ntohs(*((u_int16_t *)(data + info->offset[i] + 4))));
+		        data[0], data[1], data[2], data[3],
+		        (data[4] << 8 | data[5]));
 
 		/* Modify the packet */
-		*(u_int32_t *)(data + info->offset[i]) = newip;
-		*(u_int16_t *)(data + info->offset[i] + 4) = port;
-	
+		memcpy(buffer, &newip, 4);
+		memcpy(buffer + 4, &port, 2);
+		if (!ip_nat_mangle_tcp_packet(pskb, ct, ctinfo, info->offset[i],
+					      6, buffer, 6))
+			return 0;
+
 		DEBUGP("h323_signal_address_fixup:  new %s IP:port %u.%u.%u.%u:%u\n", 
 			i == IP_CT_DIR_ORIGINAL ? "source" : "dest  ", 
-			NIPQUAD(*((u_int32_t *)(data + info->offset[i]))), 
-			ntohs(*((u_int16_t *)(data + info->offset[i] + 4))));
+		        data[0], data[1], data[2], data[3],
+		        (data[4] << 8 | data[5]));
 	}
-
-	/* fix checksum information */
-
-	(*pskb)->csum = csum_partial((char *)tcph + tcph->doff*4,
-				     datalen, 0);
-
-	tcph->check = 0;
-	tcph->check = tcp_v4_check(tcph, tcplen, iph->saddr, iph->daddr,
-				   csum_partial((char *)tcph, tcph->doff*4,
-					   (*pskb)->csum));
-	ip_send_check(iph);
 
 	return 1;
 }
@@ -242,10 +232,11 @@ static int h323_data_fixup(struct ip_ct_h225_expect *info,
 {
 	u_int32_t newip;
 	u_int16_t port;
+	u_int8_t buffer[6];
 	struct ip_conntrack_tuple newtuple;
 	struct iphdr *iph = (*pskb)->nh.iph;
 	struct tcphdr *tcph = (void *)iph + iph->ihl*4;
-	char *data = (char *) tcph + tcph->doff * 4;
+	unsigned char *data;
 	u_int32_t tcplen = (*pskb)->len - iph->ihl*4;
 	struct ip_ct_h225_master *master_info = &ct->help.ct_h225_info;
 	int is_h225;
@@ -258,7 +249,7 @@ static int h323_data_fixup(struct ip_ct_h225_expect *info,
 	if (!between(expect->seq + 6, ntohl(tcph->seq),
 		    ntohl(tcph->seq) + tcplen - tcph->doff * 4)) {
 		/* Partial retransmisison. It's a cracker being funky. */
-#if 1	// also caused by bad id?
+#if 1	// also caused by bad id? -- zzz
 		if (net_ratelimit()) {
 			printk("H.323_NAT: partial packet %u/6 in %u/%u\n",
 			     expect->seq,
@@ -312,29 +303,22 @@ static int h323_data_fixup(struct ip_ct_h225_expect *info,
 
 	port = htons(port);
 
+	data = (char *) tcph + tcph->doff * 4 + info->offset;
+
 	DEBUGP("h323_data_fixup: orig IP:port %u.%u.%u.%u:%u\n", 
-		NIPQUAD(*((u_int32_t *)(data + info->offset))), 
-		ntohs(*((u_int16_t *)(data + info->offset + 4))));
+	        data[0], data[1], data[2], data[3],
+	        (data[4] << 8 | data[5]));
 
 	/* Modify the packet */
-	*(u_int32_t *)(data + info->offset) = newip;
-	*(u_int16_t *)(data + info->offset + 4) = port;
+	memcpy(buffer, &newip, 4);
+	memcpy(buffer + 4, &port, 2);
+	if (!ip_nat_mangle_tcp_packet(pskb, ct, ctinfo, info->offset,
+				      6, buffer, 6))
+		return 0;
 	
 	DEBUGP("h323_data_fixup: new IP:port %u.%u.%u.%u:%u\n", 
-		NIPQUAD(*((u_int32_t *)(data + info->offset))), 
-		ntohs(*((u_int16_t *)(data + info->offset + 4))));
-
-	/* fix checksum information  */
-	/* FIXME: usually repeated multiple times in the case of H.245! */
-
-	(*pskb)->csum = csum_partial((char *)tcph + tcph->doff*4,
-				     tcplen - tcph->doff*4, 0);
-
-	tcph->check = 0;
-	tcph->check = tcp_v4_check(tcph, tcplen, iph->saddr, iph->daddr,
-				   csum_partial((char *)tcph, tcph->doff*4,
-					   (*pskb)->csum));
-	ip_send_check(iph);
+	        data[0], data[1], data[2], data[3],
+	        (data[4] << 8 | data[5]));
 
 	return 1;
 }

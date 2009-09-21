@@ -45,6 +45,7 @@ NESTED(ip27_irq, PT_SIZE, sp)
 	j	ret_from_irq
 
 1:
+#if 1
 	mfc0	a1, CP0_STATUS
 	srl	a1, a1, 8
 	andi	a1, 0xff
@@ -57,6 +58,7 @@ NESTED(ip27_irq, PT_SIZE, sp)
 	PRINT("Spurious interrupt, c0_status = %02x, c0_cause = %02x, pending %02x.\n")
 	ld	a1, PT_EPC(sp)
 0:	b	0b
+#endif
 
 	j	ret_from_irq
 	END(ip27_irq)

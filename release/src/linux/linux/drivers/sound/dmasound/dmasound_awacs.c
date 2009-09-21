@@ -47,6 +47,12 @@
  *	          bumped the version number for that reason
 */
 
+/* GENERAL FIXME/TODO: check that the assumptions about what is written to
+   mac-io is valid for DACA & Tumbler.
+
+   This driver is in bad need of a rewrite. The dbdma code has to be split,
+   some proper device-tree parsing code has to be written, etc...
+*/
 
 #include <linux/types.h>
 #include <linux/module.h>
@@ -136,6 +142,10 @@ static void *awacs_rx_cmd_space;
 static volatile struct dbdma_cmd *awacs_rx_cmds;
 static int number_of_rx_cmd_buffers = 0;
 
+/*
+ * Cached values of AWACS registers (we can't read them).
+ * Except on the burgundy (and screamer). XXX
+ */
 
 int awacs_reg[8];
 int awacs_reg1_save;
@@ -303,6 +313,10 @@ extern int tumbler_leave_sleep(void);
 
 #define UNLOCK()	up(&dmasound_sem);
 
+/* We use different versions that the ones provided in dmasound.h
+ * 
+ * FIXME: Use different names ;)
+ */
 #undef IOCTL_IN
 #undef IOCTL_OUT
 
@@ -618,6 +632,7 @@ if (burgundy_frame_rates > 1)
 #endif
 	awacs_rate_index = 0 ;
 	awacs_reg[1] = (awacs_reg[1] & ~MASK_SAMPLERATE) ;
+	/* XXX disable error interrupt on burgundy for now */
 	out_le32(&awacs->control, MASK_IEPC | 0 | 0x11 | MASK_IEE);
 	return 44100 ;
 }
@@ -801,6 +816,7 @@ static void __PMacPlay(void)
 		out_le32(&awacs_txdma->control, (RUN|PAUSE|FLUSH|WAKE) << 16);
 		while ( (in_le32(&awacs_txdma->status) & RUN) && count--)
 			udelay(1);
+		/* FIXME: check that this is OK for other chip sets */
 		out_le32(&awacs->control,
 			 (in_le32(&awacs->control) & ~0x1f00)
 			 | (awacs_rate_index << 8));
@@ -1115,6 +1131,7 @@ static void awacs_nosound(unsigned long xx)
 		out_le32(&awacs_txdma->control, (RUN|PAUSE|FLUSH|WAKE) << 16);
 		while ((in_le32(&awacs_txdma->status) & RUN) && count--)
 			udelay(1);
+		/* FIXME: check this is OK for DACA, Tumbler */
 		out_le32(&awacs->control,
 			 (in_le32(&awacs->control) & ~0x1f00)
 			 | (awacs_rate_index << 8));
@@ -1162,9 +1179,15 @@ static void awacs_mksound(unsigned int hz, unsigned int ticks)
 		srate = awacs_freqs[beep_speed];
 	}
 	if (hz <= srate / BEEP_BUFLEN || hz > srate / 2) {
+#if 1
 		/* this is a hack for broken X server code */
 		hz = 750;
 		ticks = 12;
+#else
+		/* cancel beep currently playing */
+		awacs_nosound(0);
+		return;
+#endif
 	}
 	save_flags(flags); cli();
 	del_timer(&beep_timer);
@@ -1210,6 +1233,7 @@ static void awacs_mksound(unsigned int hz, unsigned int ticks)
 		out_le32(&awacs_txdma->control, (RUN|WAKE|FLUSH|PAUSE) << 16);
 		while ((in_le32(&awacs_txdma->status) & RUN) && count--)
 			udelay(1); /* timeout > 2 samples at lowest rate*/
+		/* FIXME: check this is OK on DACA, Tumbler */
 		out_le32(&awacs->control,
 			 (in_le32(&awacs->control) & ~0x1f00)
 			 | (beep_speed << 8));
@@ -1249,6 +1273,7 @@ load_awacs(void)
 /*
  * Save state when going to sleep, restore it afterwards.
  */
+/* FIXME: sort out disabling/re-enabling of read stuff as well */
 static int awacs_sleep_notify(struct pmu_sleep_notifier *self, int when)
 {
 	switch (when) {
@@ -1341,6 +1366,7 @@ static int awacs_sleep_notify(struct pmu_sleep_notifier *self, int when)
  		 	| (awacs_rate_index << 8) | 0x11
  			 | (awacs_revision < AWACS_DACA ? MASK_IEE: 0));
  		if (macio_base && is_pbook_g3) {
+			/* FIXME: should restore the setup we had...*/
 			out_8(macio_base + 0x37, 3);
  		} else if (is_pbook_3X00) {
 			in_8(latch_base + 0x190);
@@ -2906,6 +2932,7 @@ printk("dmasound_pmac: Awacs/Screamer Codec Mfct: %d Rev %d\n", mfg, rev);
 	awacs_reg[0] = MASK_MUX_CD;
 	awacs_reg[1] = MASK_LOOPTHRU;
 
+	/* FIXME: Only machines with external SRS module need MASK_PAROUT */
 	if (has_perch || sound_device_id == 0x5
 	    || /*sound_device_id == 0x8 ||*/ sound_device_id == 0xb)
 		awacs_reg[1] |= MASK_PAROUT0 | MASK_PAROUT1;

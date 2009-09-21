@@ -5,27 +5,27 @@
 #include <linux/list.h>
 
 typedef struct USB_IN_Desc {
-	__u16 sw_len;
-	__u16 command;
-	unsigned long next;
-	unsigned long buf;
-	__u16 hw_len;
-	__u16 status;
+	volatile __u16 sw_len;
+	volatile __u16 command;
+	volatile unsigned long next;
+	volatile unsigned long buf;
+        volatile __u16 hw_len;
+	volatile __u16 status;
 } USB_IN_Desc_t;
 
 typedef struct USB_SB_Desc {
-	__u16 sw_len;
-	__u16 command;
-	unsigned long next;
-	unsigned long buf;
+	volatile __u16 sw_len;
+	volatile __u16 command;
+	volatile unsigned long next;
+	volatile unsigned long buf;
 	__u32 dummy;
 } USB_SB_Desc_t;
 
 typedef struct USB_EP_Desc {
-	__u16 hw_len;
-	__u16 command;
-	unsigned long sub;
-	unsigned long nep;
+	volatile __u16 hw_len;
+	volatile __u16 command;
+	volatile unsigned long sub;
+	volatile unsigned long next;
 	__u32 dummy;
 } USB_EP_Desc_t;
 
@@ -37,10 +37,10 @@ struct virt_root_hub {
 	int interval;
 	int numports;
 	struct timer_list rh_int_timer;
-	__u16 wPortChange_1;
-	__u16 wPortChange_2;
-	__u16 prev_wPortStatus_1;
-	__u16 prev_wPortStatus_2;
+	volatile __u16 wPortChange_1;
+	volatile __u16 wPortChange_2;
+	volatile __u16 prev_wPortStatus_1;
+	volatile __u16 prev_wPortStatus_2;
 };
 
 struct etrax_usb_intr_traffic {
@@ -55,37 +55,77 @@ typedef struct etrax_usb_hc {
 	struct etrax_usb_intr_traffic intr;
 } etrax_hc_t;
 
-typedef enum {idle, eot, nodata}  etrax_usb_rx_state_t;
+typedef enum {
+        STARTED,
+        NOT_STARTED,
+        UNLINK
+} etrax_usb_urb_state_t;
+
+
 
 typedef struct etrax_usb_urb_priv {
+        /* The first_sb field is used for freeing all SB descriptors belonging
+           to an urb. The corresponding ep descriptor's sub pointer cannot be
+           used for this since the DMA advances the sub pointer as it processes
+           the sb list. */
 	USB_SB_Desc_t *first_sb;
+	/* The last_sb field referes to the last SB descriptor that belongs to
+           this urb. This is important to know so we can free the SB descriptors
+	   that ranges between first_sb and last_sb. */	
+	USB_SB_Desc_t *last_sb;
+
+        /* The rx_offset field is used in ctrl and bulk traffic to keep track
+           of the offset in the urb's transfer_buffer where incoming data should be
+           copied to. */
 	__u32 rx_offset;
-	etrax_usb_rx_state_t rx_state;
-	__u8 eot;
-	struct list_head ep_in_list;
+
+	/* Counter used in isochronous transfers to keep track of the
+	   number of packets received/transmitted.  */
+        __u32 isoc_packet_counter;	
+        
+        /* This field is used to pass information about the urb's current state between
+           the various interrupt handlers (thus marked volatile). */
+	volatile etrax_usb_urb_state_t urb_state;
+
+	/* Connection between the submitted urb and ETRAX epid number */
+	__u8 epid;
+
+        /* The rx_data_list field is used for periodic traffic, to hold 
+           received data for later processing in the the complete_urb functions,
+           where the data us copied to the urb's transfer_buffer. Basically, we
+           use this intermediate storage because we don't know when it's safe to
+           reuse the transfer_buffer (FIXME?). */
+	struct list_head rx_data_list;
 } etrax_urb_priv_t;
 
-
-struct usb_reg_context
+/* This struct is for passing data from the top half to the bottom half. */
+typedef struct usb_interrupt_registers
 {
 	etrax_hc_t *hc;
 	__u32 r_usb_epid_attn;
 	__u8 r_usb_status;
-	__u32 r_usb_rh_port_status_1;
-	__u32 r_usb_rh_port_status_2;
+	__u16 r_usb_rh_port_status_1;
+	__u16 r_usb_rh_port_status_2;
 	__u32 r_usb_irq_mask_read;
+        __u32 r_usb_fm_number;
 	struct tq_struct usb_bh;
-};
+} usb_interrupt_registers_t;
 
-struct in_chunk
+/* This struct holds data we get from the rx descriptors for DMA channel 9
+   for periodic traffic (intr and isoc). */
+typedef struct rx_data
 {
 	void *data;
 	int length;
-	char epid;
 	struct list_head list;
-};
+} rx_data_t;
 
-  
+typedef struct urb_entry
+{
+        urb_t *urb;
+	struct list_head list;
+} urb_entry_t;
+
 /* --------------------------------------------------------------------------- 
    Virtual Root HUB 
    ------------------------------------------------------------------------- */

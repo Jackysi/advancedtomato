@@ -403,7 +403,7 @@ read_rio(struct file *file, char *buffer, size_t count, loff_t * ppos)
 
 		if (partial) {
 			count = this_read = partial;
-		} else if (result == USB_ST_TIMEOUT || result == 15) {	
+		} else if (result == USB_ST_TIMEOUT || result == 15) {	/* FIXME: 15 ??? */
 			if (!maxretry--) {
 				up(&(rio->lock));
 				err("read_rio: maxretry timeout");

@@ -619,28 +619,11 @@ static void pcxe_close(struct tty_struct * tty, struct file * filp)
 	
 		if(tty->driver.flush_buffer)
 			tty->driver.flush_buffer(tty);
-		if(tty->ldisc.flush_buffer)
-			tty->ldisc.flush_buffer(tty);
+		tty_ldisc_flush(tty);
 		shutdown(info);
 		tty->closing = 0;
 		info->event = 0;
 		info->tty = NULL;
-#ifndef MODULE
-/* ldiscs[] is not available in a MODULE
-** worth noting that while I'm not sure what this hunk of code is supposed
-** to do, it is not present in the serial.c driver.  Hmmm.  If you know,
-** please send me a note.  brian@ilinx.com
-** Don't know either what this is supposed to do christoph@lameter.com.
-*/
-		if(tty->ldisc.num != ldiscs[N_TTY].num) {
-			if(tty->ldisc.close)
-				(tty->ldisc.close)(tty);
-			tty->ldisc = ldiscs[N_TTY];
-			tty->termios->c_line = N_TTY;
-			if(tty->ldisc.open)
-				(tty->ldisc.open)(tty);
-		}
-#endif
 		if(info->blocked_open) {
 			if(info->close_delay) {
 				current->state = TASK_INTERRUPTIBLE;
@@ -883,9 +866,7 @@ static void pcxe_flush_buffer(struct tty_struct *tty)
 	memoff(ch);
 	restore_flags(flags);
 
-	wake_up_interruptible(&tty->write_wait);
-	if((tty->flags & (1 << TTY_DO_WRITE_WAKEUP)) && tty->ldisc.write_wakeup)
-		(tty->ldisc.write_wakeup)(tty);
+	tty_wakeup(tty);
 }
 
 static void pcxe_flush_chars(struct tty_struct *tty)
@@ -1165,6 +1146,7 @@ int __init pcxe_init(void)
 		printk("PC/Xx: No cards configured, driver not active.\n");
 		return -EIO;
 	}
+#if 1
 	if (debug)
 	    for (i = 0; i < numcards; i++) {
 		    printk("Card %d:status=%d, port=0x%x, membase=0x%lx, memsize=0x%lx, altpin=%d, numports=%d, first_minor=%d\n",
@@ -1177,6 +1159,7 @@ int __init pcxe_init(void)
 			    boards[i].numports,
 			    boards[i].first_minor);
 	    }
+#endif
 
 	for (i=0;i<numcards;i++)
 		nbdevs += boards[i].numports;
@@ -1781,16 +1764,17 @@ static void doevent(int crd)
 				tty->flip.count++;
 				*tty->flip.flag_buf_ptr++ = TTY_BREAK;
 				*tty->flip.char_buf_ptr++ = 0;
+#if 0
+				if (ch->asyncflags & ASYNC_SAK)
+					do_SAK(tty);
+#endif
 				tty_schedule_flip(tty); 
 			}
 
 			if (event & LOWTX_IND) {
 				if (ch->statusflags & LOWWAIT) {
 					ch->statusflags &= ~LOWWAIT;
-					if ((tty->flags & (1 << TTY_DO_WRITE_WAKEUP)) &&
-						tty->ldisc.write_wakeup)
-						(tty->ldisc.write_wakeup)(tty);
-					wake_up_interruptible(&tty->write_wait);
+					tty_wakeup(tty);
 				}
 			}
 
@@ -1798,10 +1782,7 @@ static void doevent(int crd)
 				ch->statusflags &= ~TXBUSY;
 				if (ch->statusflags & EMPTYWAIT) {
 					ch->statusflags &= ~EMPTYWAIT;
-					if ((tty->flags & (1 << TTY_DO_WRITE_WAKEUP)) &&
-						tty->ldisc.write_wakeup)
-						(tty->ldisc.write_wakeup)(tty);
-					wake_up_interruptible(&tty->write_wait);
+					tty_wakeup(tty);
 				}
 			}
 		}
@@ -2248,8 +2229,7 @@ static int pcxe_ioctl(struct tty_struct *tty, struct file * file,
 				tty_wait_until_sent(tty, 0);
 			}
 			else {
-				if(tty->ldisc.flush_buffer)
-					tty->ldisc.flush_buffer(tty);
+				tty_ldisc_flush(tty);
 			}
 
 			/* Fall Thru */

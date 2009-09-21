@@ -1,5 +1,5 @@
 /*
-  $Id: fore200e_mkfirm.c,v 1.1.1.4 2003/10/14 08:07:57 sparq Exp $
+  $Id: fore200e_mkfirm.c,v 1.1 2000/02/21 16:04:32 davem Exp $
 
   mkfirm.c: generates a C readable file from a binary firmware image
 
@@ -123,6 +123,7 @@ int main(int argc, char** argv)
     if (inkernel)
 	fprintf(outfile, "#include <linux/init.h>\n\n" );
     
+    /* XXX force 32 bit alignment? */
     fprintf(outfile, "const unsigned char%s %s_data[] = {\n", 
 	    inkernel ? " __initdata" : "", basename );
     

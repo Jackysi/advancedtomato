@@ -1361,6 +1361,8 @@ read_data_block(char *buffer,
 	res_reg[0] = 0;
 	res_reg[1] = 0;
 	*res_size = 0;
+	/* Make sure that bytesleft doesn't exceed the buffer size */
+	if (nblocks > 4) nblocks = 4;
 	bytesleft = nblocks * 512;
 	offset = 0;
 
@@ -1384,9 +1386,9 @@ read_data_block(char *buffer,
 			       readahead_buffer + (2048 -
 						   readahead_dataleft),
 			       readahead_dataleft);
-			readahead_dataleft = 0;
 			bytesleft -= readahead_dataleft;
 			offset += readahead_dataleft;
+			readahead_dataleft = 0;
 		} else {
 			/* The readahead will fill the whole buffer, get the data
 			   and return. */
@@ -1629,6 +1631,14 @@ static void do_cdu31a_request(request_queue_t * q)
 			 * If the block address is invalid or the request goes beyond the end of
 			 * the media, return an error.
 			 */
+#if 0
+			if ((block / 4) < sony_toc.start_track_lba) {
+				printk
+				    ("CDU31A: Request before beginning of media\n");
+				end_request(0);
+				goto cdu31a_request_startover;
+			}
+#endif
 			if ((block / 4) >= sony_toc.lead_out_start_lba) {
 				printk
 				    ("CDU31A: Request past end of media\n");
@@ -1723,10 +1733,15 @@ static void do_cdu31a_request(request_queue_t * q)
 
       end_do_cdu31a_request:
 	spin_lock_irq(&io_request_lock);
+#if 0
+	/* After finished, cancel any pending operations. */
+	abort_read();
+#else
 	/* Start a timer to time out after a while to disable
 	   the read. */
 	cdu31a_abort_timer.expires = jiffies + 2 * HZ;	/* Wait 2 seconds */
 	add_timer(&cdu31a_abort_timer);
+#endif
 
 	has_cd_task = NULL;
 	sony_inuse = 0;
@@ -1806,7 +1821,9 @@ static void sony_get_toc(void)
 /* This seems to slow things down enough to make it work.  This
  * appears to be a problem in do_sony_cd_cmd.  This printk seems 
  * to address the symptoms...  -Erik */
+#if 1
 			printk("cdu31a: Trying session %d\n", session);
+#endif
 			parms[0] = session;
 			do_sony_cd_cmd(SONY_READ_TOC_SPEC_CMD,
 				       parms, 1, res_reg, &res_size);
@@ -2353,6 +2370,12 @@ static int sony_get_subchnl_info(struct cdrom_subchnl *schi)
 	case CDROM_AUDIO_COMPLETED:
 		break;
 
+#if 0
+	case CDROM_AUDIO_NO_STATUS:
+		schi->cdsc_audiostatus = sony_audio_status;
+		return 0;
+		break;
+#endif
 	case CDROM_AUDIO_INVALID:
 	case CDROM_AUDIO_ERROR:
 	default:
@@ -3238,6 +3261,13 @@ get_drive_configuration(unsigned short base_io,
 			sony_sleep();
 		}
 
+#if 0
+		/* If attention is never seen probably not a CDU31a present */
+		if (!is_attention()) {
+			res_reg[0] = 0x20;
+			return;
+		}
+#endif
 
 		/*
 		 * Get the drive configuration.

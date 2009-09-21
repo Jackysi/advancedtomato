@@ -1,4 +1,20 @@
-
+/*
+ * linux/fs/hfs/inode.c
+ *
+ * Copyright (C) 1995-1997  Paul H. Hargrove
+ * This file may be distributed under the terms of the GNU General Public License.
+ *
+ * This file contains inode-related functions which do not depend on
+ * which scheme is being used to represent forks.
+ *
+ * Based on the minix file system code, (C) 1991, 1992 by Linus Torvalds
+ *
+ * "XXX" in a comment is a note to myself to consider changing something.
+ *
+ * In function preconditions the term "valid" applied to a pointer to
+ * a structure means that the pointer is non-NULL and the structure it
+ * points to has all fields initialized to consistent values.
+ */
 
 #include "hfs.h"
 #include <linux/hfs_fs_sb.h>
@@ -29,7 +45,17 @@ static void init_file_inode(struct inode *inode, hfs_u8 fork)
 	}
 
 	if (fork == HFS_FK_DATA) {
+#if 0 /* XXX: disable crlf translations for now */
+		hfs_u32 type = hfs_get_nl(entry->info.file.finfo.fdType);
+
+		HFS_I(inode)->convert =
+			((HFS_SB(inode->i_sb)->s_conv == 't') ||
+			 ((HFS_SB(inode->i_sb)->s_conv == 'a') &&
+			  ((type == htonl(0x54455854)) ||   /* "TEXT" */
+			   (type == htonl(0x7474726f)))));  /* "ttro" */
+#else
 		HFS_I(inode)->convert = 0;
+#endif
 		fk = &entry->u.file.data_fork;
 	} else {
 		fk = &entry->u.file.rsrc_fork;
@@ -222,6 +248,40 @@ struct address_space_operations hfs_aops = {
 	bmap: hfs_bmap
 };
 
+/*
+ * __hfs_iget()
+ *
+ * Given the MDB for a HFS filesystem, a 'key' and an 'entry' in
+ * the catalog B-tree and the 'type' of the desired file return the
+ * inode for that file/directory or NULL.  Note that 'type' indicates
+ * whether we want the actual file or directory, or the corresponding
+ * metadata (AppleDouble header file or CAP metadata file).
+ *
+ * In an ideal world we could call iget() and would not need this
+ * function.  However, since there is no way to even know the inode
+ * number until we've found the file/directory in the catalog B-tree
+ * that simply won't happen.
+ *
+ * The main idea here is to look in the catalog B-tree to get the
+ * vital info about the file or directory (including the file id which
+ * becomes the inode number) and then to call iget() and return the
+ * inode if it is complete.  If it is not then we use the catalog
+ * entry to fill in the missing info, by calling the appropriate
+ * 'fillin' function.  Note that these fillin functions are
+ * essentially hfs_*_read_inode() functions, but since there is no way
+ * to pass the catalog entry through iget() to such a read_inode()
+ * function, we have to call them after iget() returns an incomplete
+ * inode to us.	 This is pretty much the same problem faced in the NFS
+ * code, and pretty much the same solution. The SMB filesystem deals
+ * with this in a different way: by using the address of the
+ * kmalloc()'d space which holds the data as the inode number.
+ *
+ * XXX: Both this function and NFS's corresponding nfs_fhget() would
+ * benefit from a way to pass an additional (void *) through iget() to
+ * the VFS read_inode() function.
+ *
+ * this will hfs_cat_put() the entry if it fails.
+ */
 struct inode *hfs_iget(struct hfs_cat_entry *entry, ino_t type,
 		       struct dentry *dentry)
 {

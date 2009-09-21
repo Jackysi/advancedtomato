@@ -53,6 +53,9 @@
 #ifndef SYM_GLUE_H
 #define SYM_GLUE_H
 
+#if 0
+#define SYM_CONF_DMA_ADDRESSING_MODE 2
+#endif
 
 #define LinuxVersionCode(v, p, s) (((v)<<16)+((p)<<8)+(s))
 #include <linux/version.h>
@@ -210,7 +213,7 @@ typedef Scsi_Cmnd *cam_scsiio_p;/* SCSI I/O */
 
 #else	/* little endian */
 
-#if defined(__i386__)	    /* i386 implements full FLAT memory/MMIO model */
+#if defined(__i386__)	/* i386 implements full FLAT memory/MMIO model */
 #define	inw_raw		inw
 #define	inl_raw		inl
 #define	outw_raw	outw

@@ -265,7 +265,7 @@ static int lan_saa9730_allocate_buffers(struct lan_saa9730_private *lp)
 	lp->NextRcvPacketIndex = 0;
 	lp->NextRcvToUseIsA = 1;
 
-	/* Set current buffer index & next availble packet index */
+	/* Set current buffer index & next available packet index */
 	lp->NextTxmPacketIndex = 0;
 	lp->NextTxmBufferIndex = 0;
 	lp->PendingTxmPacketIndex = 0;
@@ -520,7 +520,7 @@ static int lan_saa9730_start(struct lan_saa9730_private *lp)
 	lp->NextRcvPacketIndex = 0;
 	lp->NextRcvToUseIsA = 1;
 
-	/* Set current buffer index & next availble packet index */
+	/* Set current buffer index & next available packet index */
 	lp->NextTxmPacketIndex = 0;
 	lp->NextTxmBufferIndex = 0;
 	lp->PendingTxmPacketIndex = 0;

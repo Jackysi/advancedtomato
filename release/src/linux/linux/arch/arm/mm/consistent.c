@@ -30,14 +30,20 @@
  * now, we expressly forbid it, especially as some of the stuff we do
  * here is not interrupt context safe.
  *
+ * We should allow this function to be called from interrupt context.
+ * However, we call ioremap, which needs to fiddle around with various
+ * things (like the vmlist_lock, and allocating page tables).  These
+ * things aren't interrupt safe (yet).
+ *
  * Note that this does *not* zero the allocated area!
  */
 void *consistent_alloc(int gfp, size_t size, dma_addr_t *dma_handle)
 {
 	struct page *page, *end, *free;
 	unsigned long order;
-	void *ret, *virt;
+	void *ret;
 
+	/* FIXME */
 	if (in_interrupt())
 		BUG();
 
@@ -48,15 +54,23 @@ void *consistent_alloc(int gfp, size_t size, dma_addr_t *dma_handle)
 	if (!page)
 		goto no_page;
 
-	/*
-	 * We could do with a page_to_phys and page_to_bus here.
-	 */
-	virt = page_address(page);
-	*dma_handle = virt_to_bus(virt);
-	ret = __ioremap(virt_to_phys(virt), size, 0);
+	*dma_handle = page_to_bus(page);
+	ret = __ioremap(page_to_pfn(page) << PAGE_SHIFT, size, 0);
 	if (!ret)
 		goto no_remap;
 
+#if 0 /* ioremap_does_flush_cache_all */
+	{
+		void *virt = page_address(page);
+
+		/*
+		 * we need to ensure that there are no cachelines in use, or
+		 * worse dirty in this area.  Really, we don't need to do
+		 * this since __ioremap does a flush_cache_all() anyway. --rmk
+		 */
+		invalidate_dcache_range(virt, virt + size);
+	}
+#endif
 
 	/*
 	 * free wasted pages.  We skip the first page since we know
@@ -64,7 +78,6 @@ void *consistent_alloc(int gfp, size_t size, dma_addr_t *dma_handle)
 	 * We also mark the pages in use as reserved so that
 	 * remap_page_range works.
 	 */
-	page = virt_to_page(virt);
 	free = page + (size >> PAGE_SHIFT);
 	end  = page + (1 << order);
 
@@ -85,18 +98,15 @@ no_page:
 
 void *pci_alloc_consistent(struct pci_dev *hwdev, size_t size, dma_addr_t *handle)
 {
-	void *__ret;
-	int __gfp = GFP_KERNEL;
+	int gfp = GFP_KERNEL;
 
-#ifdef CONFIG_PCI
-	if ((hwdev) == NULL ||
+#if defined(CONFIG_PCI) || defined(CONFIG_SA1111)
+	if ((hwdev) == NULL || dev_is_sa1111(hwdev) ||
 	    (hwdev)->dma_mask != 0xffffffff)
 #endif
-		__gfp |= GFP_DMA;
+		gfp |= GFP_DMA;
 
-	__ret = consistent_alloc(__gfp, (size),
-				 (handle));
-	return __ret;
+	return consistent_alloc(gfp, size, handle);
 }
 
 /*
@@ -106,19 +116,16 @@ void *pci_alloc_consistent(struct pci_dev *hwdev, size_t size, dma_addr_t *handl
 void consistent_free(void *vaddr, size_t size, dma_addr_t handle)
 {
 	struct page *page, *end;
-	void *virt;
 
 	if (in_interrupt())
 		BUG();
-
-	virt = bus_to_virt(handle);
 
 	/*
 	 * More messing around with the MM internals.  This is
 	 * sick, but then so is remap_page_range().
 	 */
 	size = PAGE_ALIGN(size);
-	page = virt_to_page(virt);
+	page = virt_to_page(bus_to_virt(handle));
 	end = page + (size >> PAGE_SHIFT);
 
 	for (; page < end; page++)

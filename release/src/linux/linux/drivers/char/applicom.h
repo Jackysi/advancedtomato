@@ -1,4 +1,4 @@
-/* $Id: applicom.h,v 1.1.1.4 2003/10/14 08:08:00 sparq Exp $ */
+/* $Id: applicom.h,v 1.2 1999/08/28 15:09:49 dwmw2 Exp $ */
 
 
 #ifndef __LINUX_APPLICOM_H__

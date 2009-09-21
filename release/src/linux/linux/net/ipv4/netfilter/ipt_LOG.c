@@ -3,23 +3,36 @@
  */
 #include <linux/module.h>
 #include <linux/skbuff.h>
-#include <linux/ip.h>
 #include <linux/spinlock.h>
+#include <linux/ip.h>
 #include <net/icmp.h>
 #include <net/udp.h>
 #include <net/tcp.h>
-#include <linux/netfilter_ipv4/ip_tables.h>
-
-struct in_device;
 #include <net/route.h>
+
+#include <linux/netfilter_ipv4/ip_tables.h>
 #include <linux/netfilter_ipv4/ipt_LOG.h>
 
+#if 0
+#define DEBUGP printk
+#else
 #define DEBUGP(format, args...)
+#endif
+
+/* FIXME: move to ip.h like in 2.5 */
+struct ahhdr {
+	__u8    nexthdr;
+	__u8    hdrlen;
+	__u16   reserved;
+	__u32   spi;
+	__u32   seq_no;
+};
 
 struct esphdr {
 	__u32   spi;
-}; 
-        
+	__u32   seq_no;
+};
+
 /* Use lock to serialize, so printks don't overlap */
 static spinlock_t log_lock = SPIN_LOCK_UNLOCKED;
 
@@ -54,7 +67,8 @@ static void dump_packet(const struct ipt_log_info *info,
 		printk("FRAG:%u ", ntohs(iph->frag_off) & IP_OFFSET);
 
 	if ((info->logflags & IPT_LOG_IPOPT)
-	    && iph->ihl * 4 != sizeof(struct iphdr)) {
+	    && iph->ihl * 4 > sizeof(struct iphdr)
+	    && iph->ihl * 4 <= len) {
 		unsigned int i;
 
 		/* Max length: 127 "OPT (" 15*4*2chars ") " */
@@ -112,7 +126,8 @@ static void dump_packet(const struct ipt_log_info *info,
 		printk("URGP=%u ", ntohs(tcph->urg_ptr));
 
 		if ((info->logflags & IPT_LOG_TCPOPT)
-		    && tcph->doff * 4 != sizeof(struct tcphdr)) {
+		    && tcph->doff * 4 > sizeof(struct tcphdr)
+		    && tcph->doff * 4 <= datalen) {
 			unsigned int i;
 
 			/* Max length: 127 "OPT (" 15*4*2chars ") " */
@@ -226,13 +241,30 @@ static void dump_packet(const struct ipt_log_info *info,
 		break;
 	}
 	/* Max Length */
-	case IPPROTO_AH:
+	case IPPROTO_AH: {
+		struct ahhdr *ah = protoh;
+
+		/* Max length: 9 "PROTO=AH " */
+		printk("PROTO=AH ");
+
+		if (ntohs(iph->frag_off) & IP_OFFSET)
+			break;
+
+		/* Max length: 25 "INCOMPLETE [65535 bytes] " */
+		if (datalen < sizeof (*ah)) {
+			printk("INCOMPLETE [%u bytes] ", datalen);
+			break;
+		}
+
+		/* Length: 15 "SPI=0xF1234567 " */
+		printk("SPI=0x%x ", ntohl(ah->spi) );
+		break;
+	}
 	case IPPROTO_ESP: {
 		struct esphdr *esph = protoh;
-		int esp= (iph->protocol==IPPROTO_ESP);
 
 		/* Max length: 10 "PROTO=ESP " */
-		printk("PROTO=%s ",esp? "ESP" : "AH");
+		printk("PROTO=ESP ");
 
 		if (ntohs(iph->frag_off) & IP_OFFSET)
 			break;

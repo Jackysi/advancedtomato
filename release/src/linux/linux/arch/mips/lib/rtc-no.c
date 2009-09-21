@@ -6,7 +6,7 @@
  * Stub RTC routines to keep Linux from crashing on machine which don't
  * have a RTC chip.
  *
- * Copyright (C) 1998, 2001 by Ralf Baechle
+ * Copyright (C) 1998, 2001, 2005 by Ralf Baechle
  */
 #include <linux/kernel.h>
 #include <linux/mc146818rtc.h>

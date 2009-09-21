@@ -257,7 +257,7 @@ int cyx_init (cycx_t *card, wandev_conf_t *conf)
 	}
 
         if (conf->interface == WANOPT_RS232)
-	        cfg.flags = 0;      
+	        cfg.flags = 0;      /* FIXME just reset the 2nd bit */
 
 	if (conf->u.x25.hi_pvc) {
 		card->u.x.hi_pvc = min_t(unsigned int, conf->u.x25.hi_pvc, 4095);
@@ -1055,6 +1055,11 @@ static int x25_configure (cycx_t *card, TX25Config *conf)
 	memset (&x25_cmd_conf, 0, sizeof(x25_cmd_conf));
 	x25_cmd_conf.nlinks = 2;
 	x25_cmd_conf.conf[0] = *conf;
+	/* FIXME: we need to find a way in the wanrouter framework
+		  to configure the second link, for now lets use it
+		  with the same config from the first link, fixing
+		  the interface type to RS232, the speed in 38400 and
+		  the clock to external */
 	x25_cmd_conf.conf[1] = *conf;
 	x25_cmd_conf.conf[1].link = 1;
 	x25_cmd_conf.conf[1].speed = 5; /* 38400 */

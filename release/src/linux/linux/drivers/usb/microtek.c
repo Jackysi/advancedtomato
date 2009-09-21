@@ -424,7 +424,7 @@ static int mts_scsi_host_reset (Scsi_Cmnd *srb)
 	MTS_DEBUG_GOT_HERE();
 	mts_debug_dump(desc);
 
-	usb_reset_device(desc->usb_dev); 
+	usb_reset_device(desc->usb_dev); /*FIXME: untested on new reset code */
 	spin_lock_irq(&io_request_lock);
 	return 0;  /* RANT why here 0 and not SUCCESS */
 }
@@ -448,6 +448,7 @@ static int mts_scsi_detect (struct SHT * sht)
 	/* set up the name of our subdirectory under /proc/scsi/ */
 	sprintf(local_name, "microtek-%d", desc->host_number);
 	sht->proc_name = kmalloc (strlen(local_name) + 1, GFP_KERNEL);
+	/* FIXME: where is this freed ? */
 
 	if (!sht->proc_name) {
 		MTS_ERROR( "unable to allocate memory for proc interface!!\n" );
@@ -468,6 +469,7 @@ static int mts_scsi_detect (struct SHT * sht)
 		return 0;
 	}
 	desc->host->hostdata[0] = (unsigned long)desc;
+/* FIXME: what if sizeof(void*) != sizeof(unsigned long)? */
 	spin_lock_irq(&io_request_lock);
 	return 1;
 }
@@ -985,7 +987,7 @@ static void * mts_usb_probe (struct usb_device *dev, unsigned int interface,
 	/* Initialize the host template based on the default one */
 	memcpy(&(new_desc->ctempl), &mts_scsi_host_template, sizeof(mts_scsi_host_template));
 	/* HACK from usb-storage - this is needed for scsi detection */
-	(struct mts_desc *)new_desc->ctempl.proc_dir = new_desc; 
+	new_desc->ctempl.proc_dir = (void *)new_desc; /* FIXME */
 
 	MTS_DEBUG("registering SCSI module\n");
 
@@ -997,11 +999,13 @@ static void * mts_usb_probe (struct usb_device *dev, unsigned int interface,
 		MTS_ERROR( "error %d from scsi_register_module! Help!\n",
 			   (int)result );
 
+		/* FIXME: need more cleanup? */
 		kfree( new_desc );
 		return NULL;
 	}
 	MTS_DEBUG_GOT_HERE();
 
+	/* FIXME: the bomb is armed, must the host be registered under lock ? */
 	/* join the list - lock it */
 	down(&mts_list_semaphore);
 

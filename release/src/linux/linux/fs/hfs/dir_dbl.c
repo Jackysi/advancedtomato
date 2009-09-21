@@ -1,4 +1,20 @@
-
+/*
+ * linux/fs/hfs/dir_dbl.c
+ *
+ * Copyright (C) 1995-1997  Paul H. Hargrove
+ * This file may be distributed under the terms of the GNU General Public License.
+ *
+ * This file contains the inode_operations and file_operations
+ * structures for HFS directories.
+ *
+ * Based on the minix file system code, (C) 1991, 1992 by Linus Torvalds
+ *
+ * "XXX" in a comment is a note to myself to consider changing something.
+ *
+ * In function preconditions the term "valid" applied to a pointer to
+ * a structure means that the pointer is non-NULL and the structure it
+ * points to has all fields initialized to consistent values.
+ */
 
 #include "hfs.h"
 #include <linux/hfs_fs_sb.h>
@@ -133,6 +149,29 @@ done:
 	return NULL;
 }
 
+/*
+ * dbl_readdir()
+ *
+ * This is the readdir() entry in the file_operations structure for
+ * HFS directories in the AppleDouble scheme.  The purpose is to
+ * enumerate the entries in a directory, given the inode of the
+ * directory and a (struct file *), the 'f_pos' field of which
+ * indicates the location in the directory.  The (struct file *) is
+ * updated so that the next call with the same 'dir' and 'filp'
+ * arguments will produce the next directory entry.  The entries are
+ * returned in 'dirent', which is "filled-in" by calling filldir().
+ * This allows the same readdir() function be used for different
+ * formats.  We try to read in as many entries as we can before
+ * filldir() refuses to take any more.
+ *
+ * XXX: In the future it may be a good idea to consider not generating
+ * metadata files for covered directories since the data doesn't
+ * correspond to the mounted directory.	 However this requires an
+ * iget() for every directory which could be considered an excessive
+ * amount of overhead.	Since the inode for a mount point is always
+ * in-core this is another argument for a call to get an inode if it
+ * is in-core or NULL if it is not.
+ */
 static int dbl_readdir(struct file * filp,
 		       void * dirent, filldir_t filldir)
 {
@@ -299,6 +338,18 @@ static int dbl_rmdir(struct inode * parent, struct dentry *dentry)
 	return error;
 }
 
+/*
+ * dbl_rename()
+ *
+ * This is the rename() entry in the inode_operations structure for
+ * AppleDouble directories.  The purpose is to rename an existing
+ * file or directory, given the inode for the current directory and
+ * the name (and its length) of the existing file/directory and the
+ * inode for the new directory and the name (and its length) of the
+ * new file/directory.
+ * 
+ * XXX: how do we handle must_be_dir?
+ */
 static int dbl_rename(struct inode *old_dir, struct dentry *old_dentry,
 		      struct inode *new_dir, struct dentry *new_dentry)
 {

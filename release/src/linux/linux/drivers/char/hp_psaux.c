@@ -98,6 +98,7 @@ static inline u8 read_status(unsigned long hpa)
         return gsc_readb(hpa+LASI_STATUS);
 }
 
+/* XXX should this grab the spinlock? */
 
 static int write_output(u8 val, unsigned long hpa)
 {
@@ -114,6 +115,7 @@ static int write_output(u8 val, unsigned long hpa)
 	return 1;
 }
 
+/* XXX should this grab the spinlock? */
 
 static u8 wait_input(unsigned long hpa)
 {
@@ -168,6 +170,32 @@ static void lasikbd_leds(unsigned char leds)
 		printk("lasikbd_leds: timeout\n");
 }
 
+#if 0
+/* this might become useful again at some point.  not now  -prumpf */
+int lasi_ps2_test(void *hpa)
+{
+	u8 control,c;
+	int i, ret = 0;
+
+	control = read_control(hpa);
+	write_control(control | LASI_CTRL_LPBXR | LASI_CTRL_ENBL, hpa);
+
+	for (i=0; i<256; i++) {
+		write_output(i, hpa);
+
+		while (!(read_status(hpa) & LASI_STAT_RBNE))
+		    /* just wait */;
+		    
+		c = read_input(hpa);
+		if (c != i)
+			ret--;
+	}
+
+	write_control(control, hpa);
+
+	return ret;
+}
+#endif 
 
 static int init_keyb(unsigned long hpa)
 {
@@ -426,6 +454,10 @@ static u8 handle_lasikbd_event(unsigned long hpa)
 	      
 		scancode = read_input(hpa);
 
+	        /* XXX don't know if this is a valid fix, but filtering
+	         * 0xfa avoids 'unknown scancode' errors on, eg, capslock
+	         * on some keyboards.
+	         */
 	      	      
 		if (scancode == AUX_REPLY_ACK) 
 			cmd_status=0;
@@ -478,12 +510,17 @@ static struct kbd_ops gsc_ps2_kbd_ops = {
 
 
 
+#if 1
+/* XXX: HACK !!!
+ * remove this function and the call in hil_kbd.c 
+ * if hp_psaux.c/hp_keyb.c is converted to the input layer... */
 int register_ps2_keybfuncs(void)
 {
 	gsc_ps2_kbd_ops.leds = NULL;
 	register_kbd_ops(&gsc_ps2_kbd_ops);
 }
 EXPORT_SYMBOL(register_ps2_keybfuncs);
+#endif
 
 
 static int __init

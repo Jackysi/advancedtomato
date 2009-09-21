@@ -1,6 +1,6 @@
 /*
- *    Disk Array driver for Compaq SA53xx Controllers, SCSI Tape module
- *    Copyright 2001 Compaq Computer Corporation
+ *    Disk Array driver for HP SA 5xxx and 6xxx Controllers, SCSI Tape module
+ *    Copyright 2001, 2002 Hewlett-Packard Development Company, L.P.
  *
  *    This program is free software; you can redistribute it and/or modify
  *    it under the terms of the GNU General Public License as published by
@@ -16,7 +16,7 @@
  *    along with this program; if not, write to the Free Software
  *    Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- *    Questions/Comments/Bugfixes to arrays@compaq.com
+ *    Questions/Comments/Bugfixes to Cciss-discuss@lists.sourceforge.net
  *
  */
 #ifdef CONFIG_CISS_SCSI_TAPE
@@ -89,7 +89,7 @@ struct cciss_scsi_dev_t {
 };
 
 struct cciss_scsi_hba_t {
-	char *name;
+	char name[32];
 	int ndevices;
 #define CCISS_MAX_SCSI_DEVS_PER_HBA 16
 	struct cciss_scsi_dev_t dev[CCISS_MAX_SCSI_DEVS_PER_HBA];

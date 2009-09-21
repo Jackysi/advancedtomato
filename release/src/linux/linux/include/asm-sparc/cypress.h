@@ -1,4 +1,4 @@
-/* $Id: cypress.h,v 1.1.1.4 2003/10/14 08:09:22 sparq Exp $
+/* $Id: cypress.h,v 1.6 1996/08/29 09:48:09 davem Exp $
  * cypress.h: Cypress module specific definitions and defines.
  *
  * Copyright (C) 1995 David S. Miller (davem@caip.rutgers.edu)
@@ -72,5 +72,8 @@ extern __inline__ void cypress_flush_context(void)
 			     "i" (ASI_M_FLUSH_CTX));
 }
 
+/* XXX Displacement flushes for buggy chips and initial testing
+ * XXX go here.
+ */
 
 #endif /* !(_SPARC_CYPRESS_H) */

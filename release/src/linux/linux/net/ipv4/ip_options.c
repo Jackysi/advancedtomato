@@ -5,7 +5,7 @@
  *
  *		The options processing module for ip.c
  *
- * Version:	$Id: ip_options.c,v 1.1.1.4 2003/10/14 08:09:33 sparq Exp $
+ * Version:	$Id: ip_options.c,v 1.21 2001/09/01 00:31:50 davem Exp $
  *
  * Authors:	A.N.Kuznetsov
  *		
@@ -514,6 +514,8 @@ int ip_options_get(struct ip_options **optp, unsigned char *data, int optlen, in
 		kfree(opt);
 		return -EINVAL;
 	}
+	if (*optp)
+		kfree(*optp);
 	*optp = opt;
 	return 0;
 }

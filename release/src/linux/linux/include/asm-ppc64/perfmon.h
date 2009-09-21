@@ -29,17 +29,23 @@ struct perfmon_base_struct {
 	u64 trace_buffer;
 	u64 trace_length;
 	u64 trace_end;
+	u64 timeslice_buffer;
+	u64 timeslice_length;
 	u64 state;
 };
 
 struct pmc_header {
-	int type;
-	int pid;
+	int subcmd;
+	union {
+		int type;
+		int pid;	/* PID to trace */
+		int slice; 	/* Timeslice ID */
+	} vdata;
 	int resv[30];
 };
 
 struct pmc_struct {
-        int pmc[11];
+        unsigned long pmc[11];
 };
 
 struct pmc_info_struct {
@@ -59,29 +65,51 @@ struct perfmon_struct {
 };
 
 enum {
-	PMC_OP_ALLOC         = 1,
-	PMC_OP_FREE          = 2,
-	PMC_OP_CLEAR         = 4,
-	PMC_OP_DUMP          = 5,
-	PMC_OP_DUMP_HARDWARE = 6,
-	PMC_OP_DECR_PROFILE  = 20,
-	PMC_OP_PMC_PROFILE   = 21,
-	PMC_OP_SET           = 30,
-	PMC_OP_SET_USER      = 31,
-	PMC_OP_END           = 30
+	PMC_CMD_BUFFER       = 1,
+	PMC_CMD_DUMP         = 2,
+	PMC_CMD_DECR_PROFILE = 3,
+	PMC_CMD_PROFILE      = 4,
+	PMC_CMD_TRACE        = 5,
+	PMC_CMD_TIMESLICE    = 6
 };
 
+enum {
+	PMC_SUBCMD_BUFFER_ALLOC         = 1,
+	PMC_SUBCMD_BUFFER_FREE          = 2,
+	PMC_SUBCMD_BUFFER_CLEAR         = 3 
+};
+
+enum {
+	PMC_SUBCMD_DUMP_COUNTERS        = 1,
+	PMC_SUBCMD_DUMP_HARDWARE        = 2
+};
+
+enum {
+	PMC_SUBCMD_PROFILE_CYCLE        = 1,
+};
+
+enum {
+	PMC_SUBCMD_TIMESLICE_ENABLE     = 1,
+	PMC_SUBCMD_TIMESLICE_DISABLE    = 2,
+	PMC_SUBCMD_TIMESLICE_SET        = 3
+};
 
 #define	PMC_TRACE_CMD 0xFF
 
-enum {
-	PMC_TYPE_DERC_PROFILE  = 1,
-	PMC_TYPE_CYCLE         = 2,
-	PMC_TYPE_PROFILE       = 3,
-	PMC_TYPE_DCACHE        = 4,
-	PMC_TYPE_L2_MISS       = 5,
-	PMC_TYPE_LWARCX        = 6,
-	PMC_TYPE_END           = 6
+/*
+ * The following types are not used by the kernel; they are put into the
+ * trace as flag records for the user space tools to interpret.
+ */
+enum  {
+	PMC_TYPE_DERC_PROFILE   = 1,
+	PMC_TYPE_CYCLE          = 2,
+	PMC_TYPE_PROFILE        = 3,
+	PMC_TYPE_DCACHE         = 4,
+	PMC_TYPE_L2_MISS        = 5,
+	PMC_TYPE_LWARCX         = 6,
+	PMC_TYPE_TIMESLICE      = 7,
+        PMC_TYPE_TIMESLICE_DUMP = 8,
+	PMC_TYPE_END            = 8
 };
 #endif
 
@@ -91,4 +119,5 @@ enum {
 #define	PMC_STATE_PROFILE_KERN    0x11
 #define	PMC_STATE_TRACE_KERN      0x20
 #define	PMC_STATE_TRACE_USER      0x21
+#define	PMC_STATE_TIMESLICE       0x40
 

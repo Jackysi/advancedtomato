@@ -52,10 +52,10 @@
 #ifdef CONFIG_MIPS_PB1000
 #include <asm/pb1000.h>
 #define PCMCIA_IRQ AU1000_GPIO_15
-#elif defined(CONFIG_MIPS_PB1500)
+#elif defined (CONFIG_MIPS_PB1500)
 #include <asm/pb1500.h>
-#define PCMCIA_IRQ AU1000_GPIO_11   
-#elif defined(CONFIG_MIPS_PB1100)
+#define PCMCIA_IRQ AU1500_GPIO_203
+#elif defined (CONFIG_MIPS_PB1100)
 #include <asm/pb1100.h>
 #define PCMCIA_IRQ AU1000_GPIO_11
 #endif
@@ -78,12 +78,12 @@ static int pb1x00_pcmcia_init(struct pcmcia_init *init)
 	  
 	return PCMCIA_NUM_SOCKS;
 
-#else 
+#else /* fixme -- take care of the Pb1500 at some point */
 
 	u16 pcr;
-	pcr = au_readw(PB1100_MEM_PCMCIA) & ~0xf; /* turn off power */
-	pcr &= ~(PB1100_PC_DEASSERT_RST | PB1100_PC_DRV_EN);
-	au_writew(pcr, PB1100_MEM_PCMCIA);
+	pcr = au_readw(PCMCIA_BOARD_REG) & ~0xf; /* turn off power */
+	pcr &= ~(PC_DEASSERT_RST | PC_DRV_EN);
+	au_writew(pcr, PCMCIA_BOARD_REG);
 	au_sync_delay(500);
 	return PCMCIA_NUM_SOCKS;
 #endif
@@ -101,9 +101,9 @@ static int pb1x00_pcmcia_shutdown(void)
 	return 0;
 #else
 	u16 pcr;
-	pcr = au_readw(PB1100_MEM_PCMCIA) & ~0xf; /* turn off power */
-	pcr &= ~(PB1100_PC_DEASSERT_RST | PB1100_PC_DRV_EN);
-	au_writew(pcr, PB1100_MEM_PCMCIA);
+	pcr = au_readw(PCMCIA_BOARD_REG) & ~0xf; /* turn off power */
+	pcr &= ~(PC_DEASSERT_RST | PC_DRV_EN);
+	au_writew(pcr, PCMCIA_BOARD_REG);
 	au_sync_delay(2);
 	return 0;
 #endif
@@ -122,8 +122,12 @@ pb1x00_pcmcia_socket_state(unsigned sock, struct pcmcia_state *state)
 	vs0 = (vs0 >> 4) & 0x3;
 	vs1 = (vs1 >> 12) & 0x3;
 #else
-	vs0 = (au_readw(PB1100_BOARD_STATUS) >> 4) & 0x3;
+	vs0 = (au_readw(BOARD_STATUS_REG) >> 4) & 0x3;
+#ifdef CONFIG_MIPS_PB1500
+	inserted0 = !((au_readl(GPIO2_PINSTATE) >> 1) & 0x1); /* gpio 201 */
+#else /* Pb1100 */
 	inserted0 = !((au_readl(SYS_PINSTATERD) >> 9) & 0x1); /* gpio 9 */
+#endif
 	inserted1 = 0;
 #endif
 
@@ -324,7 +328,7 @@ pb1x00_pcmcia_configure_socket(const struct pcmcia_configure *configure)
 
 #else
 
-	pcr = au_readw(PB1100_MEM_PCMCIA) & ~0xf;
+	pcr = au_readw(PCMCIA_BOARD_REG) & ~0xf;
 
 	DEBUG(KERN_INFO "Vcc %dV Vpp %dV, pcr %x, reset %d\n", 
 			configure->vcc, configure->vpp, pcr, configure->reset);
@@ -383,27 +387,28 @@ pb1x00_pcmcia_configure_socket(const struct pcmcia_configure *configure)
 			break;
 	}
 
-	au_writew(pcr, PB1100_MEM_PCMCIA);
+	au_writew(pcr, PCMCIA_BOARD_REG);
 	au_sync_delay(300);
 
 	if (!configure->reset) {
-		pcr |= PB1100_PC_DRV_EN;
-		au_writew(pcr, PB1100_MEM_PCMCIA);
+		pcr |= PC_DRV_EN;
+		au_writew(pcr, PCMCIA_BOARD_REG);
 		au_sync_delay(100);
-		pcr |= PB1100_PC_DEASSERT_RST;
-		au_writew(pcr, PB1100_MEM_PCMCIA);
+		pcr |= PC_DEASSERT_RST;
+		au_writew(pcr, PCMCIA_BOARD_REG);
 		au_sync_delay(100);
 	}
 	else {
-		pcr &= ~(PB1100_PC_DEASSERT_RST | PB1100_PC_DRV_EN);
-		au_writew(pcr, PB1100_MEM_PCMCIA);
+		pcr &= ~(PC_DEASSERT_RST | PC_DRV_EN);
+		au_writew(pcr, PCMCIA_BOARD_REG);
 		au_sync_delay(100);
 	}
 #endif
 	return 0;
 }
 
-struct pcmcia_low_level pb1x00_pcmcia_ops = { 
+
+struct pcmcia_low_level au1x00_pcmcia_ops = { 
 	pb1x00_pcmcia_init,
 	pb1x00_pcmcia_shutdown,
 	pb1x00_pcmcia_socket_state,

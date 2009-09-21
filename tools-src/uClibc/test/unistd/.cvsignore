@@ -1,8 +1,0 @@
-fork
-fork_glibc
-vfork
-vfork_glibc
-getopt
-getopt_long
-getcwd
-preadwrite

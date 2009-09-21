@@ -156,6 +156,12 @@ wf_mpu_input_scanner (int devno, int synthdev, unsigned char midic)
 			break;
 		
 		case 0xfd:
+			/* XXX do something useful with this. If there is
+			   an external MIDI timer (e.g. a hardware sequencer,
+			   a useful timer can be derived ...
+		   
+			   For now, no timer support.
+			*/
 			break;
 		
 		case 0xfe:
@@ -272,18 +278,22 @@ wf_mpu_input_scanner (int devno, int synthdev, unsigned char midic)
 		case 0xf8:
 			/* midi clock */
 			mi->m_state = MST_INIT;
+			/* XXX need ext MIDI timer support */
 			break;
 	    
 		case 0xfA:
 			mi->m_state = MST_INIT;
+			/* XXX need ext MIDI timer support */
 			break;
 	    
 		case 0xFB:
 			mi->m_state = MST_INIT;
+			/* XXX need ext MIDI timer support */
 			break;
 	    
 		case 0xFC:
 			mi->m_state = MST_INIT;
+			/* XXX need ext MIDI timer support */
 			break;
 	    
 		case 0xFE:
@@ -309,6 +319,7 @@ wf_mpu_input_scanner (int devno, int synthdev, unsigned char midic)
 		if (midic == 0xf7) {
 			mi->m_state = MST_INIT;
 		} else {
+			/* XXX fix me */
 		}
 		break;
 
@@ -318,6 +329,7 @@ wf_mpu_input_scanner (int devno, int synthdev, unsigned char midic)
 		if (mi->m_ptr == 2) {
 			mi->m_state = MST_INIT;
 			mi->m_ptr = 0;
+			/* XXX need ext MIDI timer support */
 		}
 		break;
 
@@ -360,7 +372,7 @@ wf_mpuintr (int irq, void *dev_id, struct pt_regs *dummy)
 		input_dev = physical_dev;
 	}
 
-	n = 50; 
+	n = 50; /* XXX why ? */
 
 	do {
 		unsigned char c = read_data ();
@@ -469,6 +481,7 @@ wf_mpu_out (int dev, unsigned char midi_byte)
 			return (0);
 		}
 
+		/* XXX fix me */
       
 		for (timeout = 30000; timeout > 0 && !output_ready ();
 		     timeout--);
@@ -494,6 +507,7 @@ wf_mpu_out (int dev, unsigned char midi_byte)
 	 * (After reset). Normally it takes just about 10 loops.
 	 */
 
+	/* XXX fix me */
 
 	for (timeout = 30000; timeout > 0 && !output_ready (); timeout--);
 
@@ -655,7 +669,7 @@ static struct synth_operations wf_mpu_synth_proto =
 	owner:		THIS_MODULE,
 	id:		"WaveFront (ICS2115)",
 	info:		NULL,  /* info field, filled in during configuration */
-	midi_dev:	0,     
+	midi_dev:	0,     /* MIDI dev XXX should this be -1 ? */
 	synth_type:	SYNTH_TYPE_MIDI,
 	synth_subtype:	SAMPLE_TYPE_WAVEFRONT,
 	open:		wf_mpu_synth_open,
@@ -847,6 +861,7 @@ start_uart_mode (void)
 	save_flags (flags);
 	cli ();
 
+	/* XXX fix me */
 
 	for (i = 0; i < 30000 && !output_ready (); i++);
 

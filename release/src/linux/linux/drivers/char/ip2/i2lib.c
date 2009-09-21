@@ -58,7 +58,84 @@
 //      - 10/09/98 DMC Revised Linux version.
 //------------------------------------------------------------------------------
 
-/
+//************
+//* Includes *
+//************
+
+#include <linux/sched.h>
+#include "i2lib.h"
+
+
+//***********************
+//* Function Prototypes *
+//***********************
+static void i2QueueNeeds(i2eBordStrPtr, i2ChanStrPtr, int);
+static i2ChanStrPtr i2DeQueueNeeds(i2eBordStrPtr, int );
+static void i2StripFifo(i2eBordStrPtr);
+static void i2StuffFifoBypass(i2eBordStrPtr);
+static void i2StuffFifoFlow(i2eBordStrPtr);
+static void i2StuffFifoInline(i2eBordStrPtr);
+static int i2RetryFlushOutput(i2ChanStrPtr);
+
+// Not a documented part of the library routines (careful...) but the Diagnostic
+// i2diag.c finds them useful to help the throughput in certain limited
+// single-threaded operations.
+static void iiSendPendingMail(i2eBordStrPtr);
+static void serviceOutgoingFifo(i2eBordStrPtr);
+
+// Functions defined in ip2.c as part of interrupt handling
+static void do_input(i2ChanStrPtr);
+static void do_status(i2ChanStrPtr);
+
+//***************
+//* Debug  Data *
+//***************
+#ifdef DEBUG_FIFO
+
+unsigned char DBGBuf[0x4000];
+unsigned short I = 0;
+
+static void
+WriteDBGBuf(char *s, unsigned char *src, unsigned short n ) 
+{
+	char *p = src;
+
+	// XXX: We need a spin lock here if we ever use this again
+
+	while (*s) {	// copy label
+		DBGBuf[I] = *s++;
+		I = I++ & 0x3fff;
+	}
+	while (n--) {	// copy data
+		DBGBuf[I] = *p++;
+		I = I++ & 0x3fff;
+	}
+}
+
+static void
+fatality(i2eBordStrPtr pB )
+{
+	int i;
+
+	for (i=0;i<sizeof(DBGBuf);i++) {
+		if ((i%16) == 0)
+			printk("\n%4x:",i);
+		printk("%02x ",DBGBuf[i]);
+	}
+	printk("\n");
+	for (i=0;i<sizeof(DBGBuf);i++) {
+		if ((i%16) == 0)
+			printk("\n%4x:",i);
+		if (DBGBuf[i] >= ' ' && DBGBuf[i] <= '~') {
+			printk(" %c ",DBGBuf[i]);
+		} else {
+			printk(" . ");
+		}
+	}
+	printk("\n");
+	printk("Last index %x\n",I);
+}
+#endif /* DEBUG_FIFO */
 
 //********
 //* Code *
@@ -97,8 +174,12 @@ iiSendPendingMail(i2eBordStrPtr pB)
 			pB->i2eWaitingForEmptyFifo |=
 				(pB->i2eOutMailWaiting & MB_OUT_STUFFED);
 			pB->i2eOutMailWaiting = 0;
+			if( pB->SendPendingRetry ) {
+				printk( KERN_DEBUG "IP2: iiSendPendingMail: busy board pickup on %d\n", pB->SendPendingRetry );
+			}
 			pB->SendPendingRetry = 0;
 		} else {
+#ifdef	IP2_USE_TIMER_WAIT
 /*		The only time we hit this area is when "iiTrySendMail" has
 		failed.  That only occurs when the outbound mailbox is
 		still busy with the last message.  We take a short breather
@@ -115,6 +196,11 @@ iiSendPendingMail(i2eBordStrPtr pB)
 				add_timer( &(pB->SendPendingTimer) );
 			} else {
 				printk( KERN_ERR "IP2: iiSendPendingMail unable to queue outbound mail\n" );
+			}
+#endif
+			pB->SendPendingRetry++;
+			if( 0 == ( pB->SendPendingRetry % 8 ) ) {
+				printk( KERN_ERR "IP2: iiSendPendingMail: board busy, retry %d\n", pB->SendPendingRetry );
 			}
 		}
 	}
@@ -892,6 +978,30 @@ i2InputFlush(i2ChanStrPtr pCh)
 // returns -1. Otherwise, returns the number of bytes stripped. Otherwise,
 // returns the number of bytes available in the buffer.
 //******************************************************************************
+#if 0
+static int
+i2InputAvailable(i2ChanStrPtr pCh)
+{
+	int count;
+
+	// Ensure channel structure seems real
+	if ( !i2Validate ( pCh ) ) return -1;
+
+
+	// initialize some accelerators and private copies
+	READ_LOCK_IRQSAVE(&pCh->Ibuf_spinlock,flags);
+	count = pCh->Ibuf_stuff - pCh->Ibuf_strip;
+	READ_UNLOCK_IRQRESTORE(&pCh->Ibuf_spinlock,flags);
+
+	// Adjust for buffer wrap
+	if (count < 0)
+	{
+		count += IBUF_SIZE;
+	}
+
+	return count;
+}
+#endif 
 
 //******************************************************************************
 // Function:   i2Output(pCh, pSource, count)
@@ -1152,7 +1262,7 @@ i2RetryFlushOutput(i2ChanStrPtr pCh)
 
 	}
 	if ( old_flags & STOPFL_FLAG ) {
-		if ( 1 == i2QueueCommands(PTYPE_INLINE, pCh, 0, 1, CMD_STOPFL) > 0 ) {
+		if ( 1 == i2QueueCommands(PTYPE_INLINE, pCh, 0, 1, CMD_STOPFL)) {
 			old_flags = 0;	// Success - clear flags
 		}
 
@@ -1228,8 +1338,9 @@ i2DrainOutput(i2ChanStrPtr pCh, int timeout)
 	remove_wait_queue(&(pCh->pBookmarkWait), &wait);
 
 	// if expires == 0 then timer poped, then do not need to del_timer
+	// jiffy wrap per Tim Schmielau (tim@physik3.uni-rostock.de)
 	if ((timeout > 0) && pCh->BookmarkTimer.expires && 
-	                     time_before(jiffies, pCh->BookmarkTimer.expires)) {
+			time_before(jiffies, pCh->BookmarkTimer.expires)) {
 		del_timer( &(pCh->BookmarkTimer) );
 		pCh->BookmarkTimer.expires = 0;
 
@@ -1284,15 +1395,9 @@ ip2_owake( PTTY tp)
 	ip2trace (CHANN, ITRC_SICMD, 10, 2, tp->flags,
 			(1 << TTY_DO_WRITE_WAKEUP) );
 
-	wake_up_interruptible ( &tp->write_wait );
-	if ( ( tp->flags & (1 << TTY_DO_WRITE_WAKEUP) ) 
-	  && tp->ldisc.write_wakeup )
-	{
-		(tp->ldisc.write_wakeup) ( tp );
+	tty_wakeup(tp);
+	ip2trace (CHANN, ITRC_SICMD, 11, 0 );
 
-		ip2trace (CHANN, ITRC_SICMD, 11, 0 );
-
-	}
 }
 
 static inline void

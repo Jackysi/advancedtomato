@@ -22,7 +22,7 @@
  * BEGIN_DESC
  *
  *  File:
- *	@(#)	pa/spmath/fcnvff.c		$Revision: 1.1.1.2 $
+ *	@(#)	pa/spmath/fcnvff.c		$Revision: $
  *
  *  Purpose:
  *	Single Floating-point to Double Floating-point

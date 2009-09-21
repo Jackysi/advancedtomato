@@ -16,7 +16,7 @@
 *
 *******************************************************************************/
 
-#ifndef I2OS_H        /* To prevent multiple includes */
+#ifndef I2OS_H    /* To prevent multiple includes */
 #define I2OS_H 1
 
 #define VERSION(ver,rel,seq) (((ver)<<16) | ((rel)<<8) | (seq))

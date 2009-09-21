@@ -4,11 +4,11 @@
  *  Copyright (C) 2000 Steven J. Hill (sjhill@cotw.com)
  *                     Toshiba America Electronics Components, Inc.
  *
- * $Id: nand_ecc.c,v 1.1.1.4 2003/10/14 08:08:18 sparq Exp $
+ * $Id: nand_ecc.c,v 1.8 2002/09/16 09:19:53 dwmw2 Exp $
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public License
+ * version 2.1 as published by the Free Software Foundation.
  *
  * This file contains an ECC algorithm from Toshiba that detects and
  * corrects 1 bit errors in a 256 byte block of data.

@@ -7,7 +7,7 @@
  * Original driver (sg.c):
  *        Copyright (C) 1992 Lawrence Foard
  * Version 2 and 3 extensions to driver:
- *        Copyright (C) 1998 - 2002 Douglas Gilbert
+ *        Copyright (C) 1998 - 2003 Douglas Gilbert
  *
  *  Modified  19-JAN-1998  Richard Gooch <rgooch@atnf.csiro.au>  Devfs support
  *
@@ -19,9 +19,9 @@
  */
 #include <linux/config.h>
 #ifdef CONFIG_PROC_FS
- static char * sg_version_str = "Version: 3.1.24 (20020505)";
+ static char * sg_version_str = "Version: 3.1.25 (20030529)";
 #endif
- static int sg_version_num = 30124; /* 2 digits for each component */
+ static int sg_version_num = 30125; /* 2 digits for each component */
 /*
  *  D. P. Gilbert (dgilbert@interlog.com, dougg@triode.net.au), notes:
  *      - scsi logging is available via SCSI_LOG_TIMEOUT macros. First
@@ -378,7 +378,7 @@ static ssize_t sg_read(struct file * filp, char * buf,
     SCSI_LOG_TIMEOUT(3, printk("sg_read: dev=%d, count=%d\n",
                                MINOR(sdp->i_rdev), (int)count));
     if (ppos != &filp->f_pos)
-        ; 
+        ; /* FIXME: Hmm.  Seek to the right place, or fail?  */
     if ((k = verify_area(VERIFY_WRITE, buf, count)))
         return k;
     if (sfp->force_packid && (count >= SZ_SG_HEADER)) {
@@ -528,7 +528,7 @@ static ssize_t sg_write(struct file * filp, const char * buf,
            scsi_block_when_processing_errors(sdp->device)))
         return -ENXIO;
     if (ppos != &filp->f_pos)
-        ; 
+        ; /* FIXME: Hmm.  Seek to the right place, or fail?  */
 
     if ((k = verify_area(VERIFY_READ, buf, count)))
         return k;  /* protects following copy_from_user()s + get_user()s */
@@ -742,6 +742,16 @@ static int sg_common_write(Sg_fd * sfp, Sg_request * srp,
     return 0;
 }
 
+static inline unsigned sg_jif_to_ms(int jifs)
+{
+    if (jifs <= 0)
+	return 0U;
+    else {
+	unsigned int j = (unsigned int)jifs;
+	return (j < (UINT_MAX / 1000)) ? ((j * 1000) / HZ) : ((j / HZ) * 1000);
+    }
+}
+
 static int sg_ioctl(struct inode * inode, struct file * filp,
                     unsigned int cmd_in, unsigned long arg)
 {
@@ -871,6 +881,8 @@ static int sg_ioctl(struct inode * inode, struct file * filp,
     case SG_SET_RESERVED_SIZE:
         result = get_user(val, (int *)arg);
         if (result) return result;
+        if (val < 0)
+            return -EINVAL;
         if (val != sfp->reserve.bufflen) {
             if (sg_res_in_use(sfp) || sfp->mmap_called)
                 return -EBUSY;
@@ -1180,7 +1192,7 @@ static int sg_mmap(struct file * filp, struct vm_area_struct *vma)
     	sg_rb_correct4mmap(rsv_schp, 1);  /* do only once per fd lifetime */
 	sfp->mmap_called = 1;
     }
-    vma->vm_flags |= (VM_RESERVED | VM_IO);
+    vma->vm_flags |= VM_RESERVED;
     vma->vm_private_data = sfp;
     vma->vm_ops = &sg_mmap_vm_ops;
     return 0;
@@ -1241,7 +1253,6 @@ static void sg_cmd_done_bh(Scsi_Cmnd * SCpnt)
     SRpnt->sr_request.rq_dev = MKDEV(0, 0);  /* "sg" _disowns_ request blk */
 
     srp->my_cmdp = NULL;
-    srp->done = 1;
     read_unlock(&sg_dev_arr_lock);
 
     SCSI_LOG_TIMEOUT(4, printk("sg...bh: dev=%d, pack_id=%d, res=0x%x\n",
@@ -1304,8 +1315,9 @@ static void sg_cmd_done_bh(Scsi_Cmnd * SCpnt)
     }
     if (sfp && srp) {
 	/* Now wake up any sg_read() that is waiting for this packet. */
-	wake_up_interruptible(&sfp->read_wait);
 	kill_fasync(&sfp->async_qp, SIGPOLL, POLL_IN);
+	srp->done = 1;
+	wake_up_interruptible(&sfp->read_wait);
     }
 }
 
@@ -1638,6 +1650,24 @@ static int sg_build_sgat(Sg_scatter_hold * schp, const Sg_fd * sfp,
     return mx_sc_elems; /* number of scat_gath elements allocated */
 }
 
+static inline int sg_alloc_kiovec(int nr, struct kiobuf **bufp, int *szp)
+{
+#if SG_NEW_KIOVEC
+    return alloc_kiovec_sz(nr, bufp, szp);
+#else
+    return alloc_kiovec(nr, bufp);
+#endif
+}
+
+static inline void sg_free_kiovec(int nr, struct kiobuf **bufp, int *szp)
+{
+#if SG_NEW_KIOVEC
+    free_kiovec_sz(nr, bufp, szp);
+#else
+    free_kiovec(nr, bufp);
+#endif
+}
+
 static void sg_unmap_and(Sg_scatter_hold * schp, int free_also)
 {
 #ifdef SG_ALLOW_DIO_CODE
@@ -1884,11 +1914,7 @@ static int sg_write_xfer(Sg_request * srp)
 	    res = sg_u_iovec(hp, iovec_count, j, 1, &usglen, &up);
 	    if (res) return res;
 
-	    for (; k < schp->k_use_sg; ++k, ++sclp) {
-		ksglen = (int)sclp->length;
-		p = sclp->address;
-		if (NULL == p)
-		    break;
+	    for ( ; p; ++sclp, ksglen = (int)sclp->length, p = sclp->address) {
 		ok = (SG_USER_MEM != mem_src_arr[k]);
 		if (usglen <= 0)
 		    break;
@@ -1911,6 +1937,9 @@ static int sg_write_xfer(Sg_request * srp)
 		    up += ksglen;
 		    usglen -= ksglen;
 		}
+                ++k;
+                if (k >= schp->k_use_sg)
+                    return 0;
             }
         }
     }
@@ -2040,11 +2069,7 @@ static int sg_read_xfer(Sg_request * srp)
 	    res = sg_u_iovec(hp, iovec_count, j, 0, &usglen, &up);
 	    if (res) return res;
 
-	    for (; k < schp->k_use_sg; ++k, ++sclp) {
-		ksglen = (int)sclp->length;
-		p = sclp->address;
-		if (NULL == p)
-		    break;
+	    for ( ; p; ++sclp, ksglen = (int)sclp->length, p = sclp->address) {
 		ok = (SG_USER_MEM != mem_src_arr[k]);
 		if (usglen <= 0)
 		    break;
@@ -2067,6 +2092,9 @@ static int sg_read_xfer(Sg_request * srp)
 		    up += ksglen;
 		    usglen -= ksglen;
 		}
+                ++k;
+                if (k >= schp->k_use_sg)
+                    return 0;
 	    }
 	}
     }
@@ -2568,15 +2596,6 @@ static char * sg_malloc(const Sg_fd * sfp, int size, int * retSzp,
     return resp;
 }
 
-static inline int sg_alloc_kiovec(int nr, struct kiobuf **bufp, int *szp)
-{
-#if SG_NEW_KIOVEC
-    return alloc_kiovec_sz(nr, bufp, szp);
-#else
-    return alloc_kiovec(nr, bufp);
-#endif
-}
-
 static void sg_low_free(char * buff, int size, int mem_src)
 {
     if (! buff) return;
@@ -2620,15 +2639,6 @@ static void sg_free(char * buff, int size, int mem_src)
         sg_low_free(buff, size, mem_src);
 }
 
-static inline void sg_free_kiovec(int nr, struct kiobuf **bufp, int *szp)
-{
-#if SG_NEW_KIOVEC
-    free_kiovec_sz(nr, bufp, szp);
-#else
-    free_kiovec(nr, bufp);
-#endif
-}
-
 static int sg_ms_to_jif(unsigned int msecs)
 {
     if ((UINT_MAX / 2U) < msecs)
@@ -2636,16 +2646,6 @@ static int sg_ms_to_jif(unsigned int msecs)
     else
 	return ((int)msecs < (INT_MAX / 1000)) ? (((int)msecs * HZ) / 1000)
 					       : (((int)msecs / 1000) * HZ);
-}
-
-static inline unsigned sg_jif_to_ms(int jifs)
-{
-    if (jifs <= 0)
-	return 0U;
-    else {
-	unsigned int j = (unsigned int)jifs;
-	return (j < (UINT_MAX / 1000)) ? ((j * 1000) / HZ) : ((j / HZ) * 1000);
-    }
 }
 
 static unsigned char allow_ops[] = {TEST_UNIT_READY, REQUEST_SENSE,
