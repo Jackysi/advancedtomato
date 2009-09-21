@@ -1,4 +1,4 @@
-/* $Id: iptcrdr.c,v 1.29 2009/04/13 16:37:19 nanard Exp $ */
+/* $Id: iptcrdr.c,v 1.30 2009/09/21 09:42:34 nanard Exp $ */
 /* MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
  * (c) 2006-2008 Thomas Bernard
@@ -415,11 +415,21 @@ delete_redirect_and_filter_rules(unsigned short eport, int proto)
 		if(h)
 		{
 			r = delete_rule_and_commit(index, h, miniupnpd_nat_chain, "delete_redirect_rule");
+#ifdef IPTABLES_143
+			iptc_free(h);
+#else
+			iptc_free(&h);
+#endif
 		}
 		h = iptc_init("filter");
 		if(h && (r == 0))
 		{
 			r = delete_rule_and_commit(index, h, miniupnpd_forward_chain, "delete_filter_rule");
+#ifdef IPTABLES_143
+			iptc_free(h);
+#else
+			iptc_free(&h);
+#endif
 		}
 	}
 	del_redirect_desc(eport, proto);
@@ -509,6 +519,11 @@ iptc_init_verify_and_append(const char * table, const char * miniupnpd_chain, st
 	{
 		syslog(LOG_ERR, "%s : iptc_is_chain() error : %s\n",
 		       logcaller, iptc_strerror(errno));
+#ifdef IPTABLES_143
+		iptc_free(h);
+#else
+		iptc_free(&h);
+#endif
 		return -1;
 	}
 #ifdef IPTABLES_143
@@ -519,6 +534,11 @@ iptc_init_verify_and_append(const char * table, const char * miniupnpd_chain, st
 	{
 		syslog(LOG_ERR, "%s : iptc_append_entry() error : %s\n",
 		       logcaller, iptc_strerror(errno));
+#ifdef IPTABLES_143
+		iptc_free(h);
+#else
+		iptc_free(&h);
+#endif
 		return -1;
 	}
 #ifdef IPTABLES_143
@@ -529,8 +549,18 @@ iptc_init_verify_and_append(const char * table, const char * miniupnpd_chain, st
 	{
 		syslog(LOG_ERR, "%s : iptc_commit() error : %s\n",
 		       logcaller, iptc_strerror(errno));
+#ifdef IPTABLES_143
+		iptc_free(h);
+#else
+		iptc_free(&h);
+#endif
 		return -1;
 	}
+#ifdef IPTABLES_143
+	iptc_free(h);
+#else
+	iptc_free(&h);
+#endif
 	return 0;
 }
 

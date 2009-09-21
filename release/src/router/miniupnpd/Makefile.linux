@@ -1,4 +1,4 @@
-# $Id: Makefile.linux,v 1.46 2009/04/25 23:16:38 nanard Exp $
+# $Id: Makefile.linux,v 1.47 2009/09/14 14:59:58 nanard Exp $
 # MiniUPnP project
 # http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
 # Author : Thomas Bernard
@@ -73,7 +73,7 @@ clean:
 	$(RM) $(ALLOBJS)
 	$(RM) $(EXECUTABLES)
 	$(RM) testupnpdescgen.o testgetifstats.o
-	$(RM) testupnppermissions.o
+	$(RM) testupnppermissions.o testgetifaddr.o
 	$(RM) miniupnpdctl.o
 
 install:	miniupnpd genuuid
