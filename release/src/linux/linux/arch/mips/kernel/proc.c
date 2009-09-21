@@ -129,7 +129,7 @@ static int show_cpuinfo(struct seq_file *m, void *v)
 
 	seq_printf(m, "unaligned_instructions\t: %u\n", unaligned_instructions);
 
-#if defined(CONFIG_BCM4710) || defined(CONFIG_BCM4310)
+#if defined(CONFIG_BCM4710) || defined(CONFIG_BCM4310) || defined(CONFIG_BCM4704)
 	seq_printf(m, "dcache hits\t\t: %u\n",
 		   read_perf_cntr(0));
 	seq_printf(m, "dcache misses\t\t: %u\n",

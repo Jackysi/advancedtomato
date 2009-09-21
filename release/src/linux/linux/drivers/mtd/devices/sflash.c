@@ -1,7 +1,7 @@
 /*
  * Broadcom SiliconBackplane chipcommon serial flash interface
  *
- * Copyright 2005, Broadcom Corporation      
+ * Copyright 2006, Broadcom Corporation      
  * All Rights Reserved.      
  *       
  * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY      
@@ -9,7 +9,7 @@
  * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS      
  * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.      
  *
- * $Id: sflash.c,v 1.1.1.8 2005/03/07 07:30:47 kanki Exp $
+ * $Id$
  */
 
 #include <linux/config.h>
@@ -21,14 +21,15 @@
 #include <linux/mtd/partitions.h>
 #include <linux/errno.h>
 #include <linux/pci.h>
+#include <linux/delay.h>
 #include <asm/io.h>
 
 #include <typedefs.h>
-#include <bcmdevs.h>
-#include <bcmutils.h>
 #include <osl.h>
 #include <bcmutils.h>
+#include <bcmdevs.h>
 #include <bcmnvram.h>
+#include <sbutils.h>
 #include <sbconfig.h>
 #include <sbchipc.h>
 #include <sflash.h>
@@ -38,6 +39,7 @@ extern struct mtd_partition * init_mtd_partitions(struct mtd_info *mtd, size_t s
 #endif
 
 struct sflash_mtd {
+	sb_t *sbh;
 	chipcregs_t *cc;
 	struct semaphore lock;
 	struct mtd_info mtd;
@@ -54,7 +56,7 @@ sflash_mtd_poll(struct sflash_mtd *sflash, unsigned int offset, int timeout)
 	int ret = 0;
 
 	for (;;) {
-		if (!sflash_poll(sflash->cc, offset)) {
+		if (!sflash_poll(sflash->sbh, sflash->cc, offset)) {
 			ret = 0;
 			break;
 		}
@@ -89,7 +91,7 @@ sflash_mtd_read(struct mtd_info *mtd, loff_t from, size_t len, size_t *retlen, u
 
 	*retlen = 0;
 	while (len) {
-		if ((bytes = sflash_read(sflash->cc, (uint) from, len, buf)) < 0) {
+		if ((bytes = sflash_read(sflash->sbh, sflash->cc, (uint) from, len, buf)) < 0) {
 			ret = bytes;
 			break;
 		}
@@ -120,7 +122,7 @@ sflash_mtd_write(struct mtd_info *mtd, loff_t to, size_t len, size_t *retlen, co
 
 	*retlen = 0;
 	while (len) {
-		if ((bytes = sflash_write(sflash->cc, (uint) to, len, buf)) < 0) {
+		if ((bytes = sflash_write(sflash->sbh, sflash->cc, (uint) to, len, buf)) < 0) {
 			ret = bytes;
 			break;
 		}
@@ -160,7 +162,7 @@ sflash_mtd_erase(struct mtd_info *mtd, struct erase_info *erase)
 		for (j = 0; j < mtd->eraseregions[i].numblocks; j++) {
 			if (addr == mtd->eraseregions[i].offset + mtd->eraseregions[i].erasesize * j &&
 			    len >= mtd->eraseregions[i].erasesize) {
-				if ((ret = sflash_erase(sflash->cc, addr)) < 0)
+				if ((ret = sflash_erase(sflash->sbh, sflash->cc, addr)) < 0)
 					break;
 				if ((ret = sflash_mtd_poll(sflash, addr, 10 * HZ)))
 					break;
@@ -211,6 +213,13 @@ sflash_mtd_init(void)
 	memset(&sflash, 0, sizeof(struct sflash_mtd));
 	init_MUTEX(&sflash.lock);
 
+	/* attach to the backplane */
+	if (!(sflash.sbh = sb_kattach(SB_OSH))) {
+		printk(KERN_ERR "sflash: error attaching to backplane\n");
+		ret = -EIO;
+		goto fail;
+	}
+
 	/* Map registers and flash base */
 	if (!(sflash.cc = ioremap_nocache(pci_resource_start(pdev, 0),
 					  pci_resource_len(pdev, 0)))) {
@@ -220,9 +229,7 @@ sflash_mtd_init(void)
 	}
 
 	/* Initialize serial flash access */
-	info = sflash_init(sflash.cc);
-
-	if (!info) {
+	if (!(info = sflash_init(sflash.sbh, sflash.cc))) {
 		printk(KERN_ERR "sflash: found no supported devices\n");
 		ret = -ENODEV;
 		goto fail;
@@ -265,6 +272,8 @@ sflash_mtd_init(void)
  fail:
 	if (sflash.cc)
 		iounmap((void *) sflash.cc);
+	if (sflash.sbh)
+		sb_detach(sflash.sbh);
 	return ret;
 }
 
@@ -277,6 +286,7 @@ sflash_mtd_exit(void)
 	del_mtd_device(&sflash.mtd);
 #endif
 	iounmap((void *) sflash.cc);
+	sb_detach(sflash.sbh);
 }
 
 module_init(sflash_mtd_init);

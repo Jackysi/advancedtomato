@@ -235,6 +235,13 @@ struct mm_struct {
 
 	/* Architecture-specific MM context */
 	mm_context_t context;
+
+#ifdef CONFIG_HND_BMIPS3300_PROF
+        /* Profiling info */
+        unsigned int rev;                       /* timestamp {gen,rev} */
+        unsigned short id;                      /* unique id (see fork.c) */
+        unsigned char needs_scan;               /* sent maps to pdriver? */
+#endif	/* CONFIG_HND_BMIPS3300_PROF */
 };
 
 extern int mmlist_nr;

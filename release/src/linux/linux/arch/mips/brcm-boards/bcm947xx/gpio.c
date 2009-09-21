@@ -1,7 +1,7 @@
 /*
  * GPIO char driver
  *
- * Copyright 2005, Broadcom Corporation
+ * Copyright 2006, Broadcom Corporation
  * All Rights Reserved.
  * 
  * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
@@ -9,7 +9,7 @@
  * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
  * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
  *
- * $Id: gpio.c,v 1.1.1.8 2005/03/07 07:30:37 kanki Exp $
+ * $Id$
  */
 
 #include <linux/module.h>
@@ -23,7 +23,7 @@
 #include <sbutils.h>
 #include <bcmdevs.h>
 
-static void *gpio_sbh;
+static sb_t *gpio_sbh;
 static int gpio_major;
 static devfs_handle_t gpio_dir;
 static struct {
@@ -63,13 +63,13 @@ gpio_read(struct file *file, char *buf, size_t count, loff_t *ppos)
 		val = sb_gpioin(gpio_sbh);
 		break;
 	case 1:
-		val = sb_gpioout(gpio_sbh, 0, 0);
+		val = sb_gpioout(gpio_sbh, 0, 0, GPIO_DRV_PRIORITY);
 		break;
 	case 2:
-		val = sb_gpioouten(gpio_sbh, 0, 0);
+		val = sb_gpioouten(gpio_sbh, 0, 0, GPIO_DRV_PRIORITY);
 		break;
 	case 3:
-		val = sb_gpiocontrol(gpio_sbh, 0, 0);
+		val = sb_gpiocontrol(gpio_sbh, 0, 0, GPIO_DRV_PRIORITY);
 		break;
 	default:
 		return -ENODEV;
@@ -93,13 +93,13 @@ gpio_write(struct file *file, const char *buf, size_t count, loff_t *ppos)
 	case 0:
 		return -EACCES;
 	case 1:
-		sb_gpioout(gpio_sbh, ~0, val);
+		sb_gpioout(gpio_sbh, ~0, val, GPIO_DRV_PRIORITY);
 		break;
 	case 2:
-		sb_gpioouten(gpio_sbh, ~0, val);
+		sb_gpioouten(gpio_sbh, ~0, val, GPIO_DRV_PRIORITY);
 		break;
 	case 3:
-		sb_gpiocontrol(gpio_sbh, ~0, val);
+		sb_gpiocontrol(gpio_sbh, ~0, val, GPIO_DRV_PRIORITY);
 		break;
 	default:
 		return -ENODEV;
@@ -121,7 +121,7 @@ gpio_init(void)
 {
 	int i;
 
-	if (!(gpio_sbh = sb_kattach()))
+	if (!(gpio_sbh = sb_kattach(SB_OSH)))
 		return -ENODEV;
 
 	sb_gpiosetcore(gpio_sbh);
