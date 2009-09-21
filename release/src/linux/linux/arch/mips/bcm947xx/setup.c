@@ -281,16 +281,16 @@ static struct mtd_partition bcm947xx_parts[] = {
 	{ name: "pmon",	  offset: 0, size: 0, mask_flags: MTD_WRITEABLE, },
 	{ name: "linux", offset: 0, size: 0, },
 	{ name: "rootfs", offset: 0, size: 0, mask_flags: MTD_WRITEABLE, },
-	{ name: "nvram", offset: 0, size: 0, },
 	{ name: "jffs2", offset: 0, size: 0, },
+	{ name: "nvram", offset: 0, size: 0, },
 	{ name: NULL, },
 };
 
 #define PART_BOOT	0
 #define PART_LINUX	1
 #define PART_ROOTFS	2
-#define PART_NVRAM	3
-#define PART_JFFS2	4
+#define PART_JFFS2	3
+#define PART_NVRAM	4
 
 struct mtd_partition * __init
 init_mtd_partitions(struct mtd_info *mtd, size_t size)
@@ -417,8 +417,12 @@ init_mtd_partitions(struct mtd_info *mtd, size_t size)
 		}
 	}
 	bcm947xx_parts[PART_JFFS2].offset = bcm947xx_parts[PART_NVRAM].offset - bcm947xx_parts[PART_JFFS2].size;
-	if (bcm947xx_parts[PART_JFFS2].size == 0) {
+	if (bcm947xx_parts[PART_JFFS2].size <= 0) {
 		bcm947xx_parts[PART_JFFS2].name = NULL;
+		bcm947xx_parts[PART_JFFS2].size = 0;
+	}
+	else {
+		bcm947xx_parts[PART_ROOTFS].size = bcm947xx_parts[PART_JFFS2].offset - bcm947xx_parts[PART_ROOTFS].offset;
 	}
 	
 	return bcm947xx_parts;
