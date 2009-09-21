@@ -283,7 +283,7 @@ int llc_resend_ipdu(llcptr lp, unsigned char ack_nr, unsigned char type, char p)
 		if(tmp!=NULL)
 		{
 			tmp->dev = lp->dev;
-			dev_queue_xmit(skb);
+			dev_queue_xmit(tmp);
 		}
 		resend_count++;
 		skb = skb->next;
@@ -338,6 +338,9 @@ int llc_free_acknowledged_skbs(llcptr lp, unsigned char pdu_ack)
 		 *	Locate skb with N(S) == ack 
 		 */
 
+		/*
+		 *	BUG: FIXME - use skb->h.*
+		 */
 		fr = (frameptr) (pp->data + lp->dev->hard_header_len);
 		ns_save = fr->i_hdr.ns;
 

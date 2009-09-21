@@ -6,7 +6,7 @@
  * Instead the northbridge registers are read directly. 
  * 
  * Copyright 2002 Andi Kleen, SuSE Labs.
- * $Id: k8topology.c,v 1.1.1.4 2003/10/14 08:07:52 sparq Exp $
+ * $Id: k8topology.c,v 1.12 2004/01/29 00:51:01 ak Exp $
  */
 #include <linux/kernel.h>
 #include <linux/init.h>
@@ -20,10 +20,12 @@
 #include <asm/e820.h>
 #include <asm/pci-direct.h>
 
+#define Dprintk(x...)
+
 int memnode_shift;
 u8  memnodemap[NODEMAPSIZE];
 
-static int find_northbridge(void)
+static __init int find_northbridge(void)
 {
 	int num; 
 
@@ -53,7 +55,7 @@ struct node {
 #define for_all_nodes(n) \
 	for (n=0; n<MAXNODE;n++) if (nodes[n].start!=nodes[n].end)
 
-static int compute_hash_shift(struct node *nodes, int numnodes, u64 maxmem)
+static __init int compute_hash_shift(struct node *nodes, int numnodes, u64 maxmem)
 {
 	int i; 
 	int shift = 24;
@@ -66,7 +68,8 @@ static int compute_hash_shift(struct node *nodes, int numnodes, u64 maxmem)
 			for (addr = nodes[i].start; 
 			     addr < nodes[i].end; 
 			     addr += (1UL << shift)) {
-				if (memnodemap[addr >> shift] != 0xff) { 
+				if (memnodemap[addr >> shift] != 0xff && 
+				    memnodemap[addr >> shift] != i) { 
 					printk("node %d shift %d addr %Lx conflict %d\n", 
 					       i, shift, addr, memnodemap[addr>>shift]);
 					goto next; 
@@ -97,7 +100,7 @@ int __init k8_scan_nodes(unsigned long start, unsigned long end)
 
 	printk(KERN_INFO "Scanning NUMA topology in Northbridge %d\n", nb); 
 
-	numnodes = (read_pci_config(0, nb, 0, 0x60 ) >> 4) & 3; 
+	numnodes = (read_pci_config(0, nb, 0, 0x60 ) >> 4) & 7; 
 
 	memset(&nodes,0,sizeof(nodes)); 
 	prevbase = 0;
@@ -108,7 +111,10 @@ int __init k8_scan_nodes(unsigned long start, unsigned long end)
 		base = read_pci_config(0, nb, 1, 0x40 + i*8);
 		limit = read_pci_config(0, nb, 1, 0x44 + i*8);
 
-		nodeid = limit & 3; 
+		nodeid = limit & 7; 
+		if ((base & 3) == 0) { 
+			continue;
+		} 
 		if (!limit) { 
 			printk(KERN_INFO "Skipping node entry %d (base %lx)\n", i,			       base);
 			continue;
@@ -127,13 +133,12 @@ int __init k8_scan_nodes(unsigned long start, unsigned long end)
 
 		limit >>= 16; 
 		limit <<= 24; 
+		limit |= (1<<24)-1;
 
 		if (limit > end_pfn << PAGE_SHIFT) 
 			limit = end_pfn << PAGE_SHIFT; 
-		if (limit <= base) { 
-			printk(KERN_INFO "Node %d beyond memory map\n", nodeid);
+		if (limit <= base)
 			continue; 
-		} 
 			
 		base >>= 16;
 		base <<= 24; 
@@ -145,7 +150,7 @@ int __init k8_scan_nodes(unsigned long start, unsigned long end)
 		if (limit == base) 
 			continue; 
 		if (limit < base) { 
-			printk(KERN_INFO"Node %d bogus settings %lx-%lx. Ignored.\n",
+			Dprintk(KERN_INFO"Node %d bogus settings %lx-%lx. Ignored.\n",
 			       nodeid, base, limit); 			       
 			continue; 
 		} 
@@ -176,9 +181,26 @@ int __init k8_scan_nodes(unsigned long start, unsigned long end)
 	} 
 	printk(KERN_INFO "Using node hash shift of %d\n", memnode_shift); 
 
-	for_all_nodes(i) { 
+	for (i = 0; i < MAXNODE; i++) { 
+		if (nodes[i].start != nodes[i].end)
 		setup_node_bootmem(i, nodes[i].start, nodes[i].end); 
 	} 
+
+	/* There are unfortunately some poorly designed mainboards around
+	   that only connect memory to a single CPU. This breaks the 1:1 cpu->node
+	   mapping. To avoid this fill in the mapping for all possible
+	   CPUs, as the number of CPUs is not known yet. 
+	   We round robin the existing nodes. */
+	int rr = 0;
+	for (i = 0; i < MAXNODE; i++) {
+		if (nodes[i].start != nodes[i].end)
+			continue;		
+		if ((nodes_present >> rr) == 0) 
+			rr = 0; 
+		rr += ffz(~nodes_present >> rr); 
+		PLAT_NODE_DATA(i) = PLAT_NODE_DATA(rr); 
+		rr++; 
+	}
 
 	return 0;
 } 

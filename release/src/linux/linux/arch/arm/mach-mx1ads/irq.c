@@ -19,6 +19,8 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 #include <linux/init.h>
+#include <linux/list.h>
+#include <linux/timer.h>
 
 #include <asm/hardware.h>
 #include <asm/irq.h>
@@ -26,6 +28,15 @@
 
 #include <asm/mach/irq.h>
 
+/*
+ *
+ * We simply use the ENABLE DISABLE registers inside of the MX1
+ * to turn on/off specific interrupts.  FIXME- We should
+ * also add support for the accelerated interrupt controller
+ * by putting offets to irq jump code in the appropriate
+ * places.
+ *
+ */
 
 #define INTENNUM_OFF              0x8
 #define INTDISNUM_OFF             0xC

@@ -1,5 +1,5 @@
 static const char version[] =
-	"de600.c: $Revision: 1.1.1.2 $,  Bjorn Ekwall (bj0rn@blox.se)\n";
+	"de600.c: $Revision: 1.40 $,  Bjorn Ekwall (bj0rn@blox.se)\n";
 /*
  *	de600.c
  *
@@ -403,6 +403,7 @@ de600_start_xmit(struct sk_buff *skb, struct net_device *dev)
 	int	len;
 	int	tickssofar;
 	byte	*buffer = skb->data;
+	int	i;
 
 	if (free_tx_pages <= 0) {	/* Do timeouts, to avoid hangs. */
 		tickssofar = jiffies - dev->trans_start;
@@ -447,8 +448,10 @@ de600_start_xmit(struct sk_buff *skb, struct net_device *dev)
 #endif
 
 	de600_setup_address(transmit_from, RW_ADDR);
-	for ( ; len > 0; --len, ++buffer)
+	for (i = 0;  i < skb->len ; ++i, ++buffer)
 		de600_put_byte(*buffer);
+	for (; i < len; ++i)
+		de600_put_byte(0);
 
 	if (free_tx_pages-- == TX_PAGES) { /* No transmission going on */
 		dev->trans_start = jiffies;
@@ -683,6 +686,12 @@ de600_probe(struct net_device *dev)
 		return -ENODEV;
 	}
 
+#if 0 /* Not yet */
+	if (check_region(DE600_IO, 3)) {
+		printk(", port 0x%x busy\n", DE600_IO);
+		return -EBUSY;
+	}
+#endif
 	request_region(DE600_IO, 3, "de600");
 
 	printk(", Ethernet Address: %02X", dev->dev_addr[0]);

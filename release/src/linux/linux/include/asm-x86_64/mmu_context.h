@@ -60,9 +60,11 @@ static inline void switch_mm(struct mm_struct *prev, struct mm_struct *next,
 			out_of_line_bug();
 		if(!test_and_set_bit(cpu, &next->cpu_vm_mask)) {
 			/* We were in lazy tlb mode and leave_mm disabled 
-			 * tlb flush IPI delivery. We must flush our tlb.
+			 * tlb flush IPI delivery. We must reload the page 
+			 * table.
 			 */
-			local_flush_tlb();
+			*read_pda(level4_pgt) = __pa(next->pgd) | _PAGE_TABLE;
+			__flush_tlb();
 		}
 		if (!test_and_set_bit(cpu, &next->context.cpuvalid))
 			load_LDT(next);

@@ -17,77 +17,83 @@
  * General Public License for more details.
  * Written by Don Zimmerman
 */
+
 #ifndef CPQFCTSSTRUCTS_H
 #define CPQFCTSSTRUCTS_H
 
-#include <linux/timer.h>  // timer declaration in our host data
-#include <linux/tqueue.h> // task queue sched
+#include <linux/timer.h>	// timer declaration in our host data
+#include <linux/tqueue.h>	// task queue sched
 #include <asm/atomic.h>
 #include "cpqfcTSioctl.h"
 
+/* FIXME - this is crap */
 #define DbgDelay(secs) { int wait_time; printk( " DbgDelay %ds ", secs); \
                          for( wait_time=jiffies + (secs*HZ); \
 		         time_before(jiffies, wait_time) ;) ; }
 
 #define CPQFCTS_DRIVER_VER(maj,min,submin) ((maj<<16)|(min<<8)|(submin))
-// don't forget to also change MODULE_DESCRIPTION in cpqfcTSinit.c
+/* don't forget to also change MODULE_DESCRIPTION in cpqfcTSinit.c */
 #define VER_MAJOR 2
 #define VER_MINOR 1
-#define VER_SUBMINOR 1
+#define VER_SUBMINOR 2
 
-// Macros for kernel (esp. SMP) tracing using a PCI analyzer
-// (e.g. x86).
+/*
+ *	Macros for kernel (esp. SMP) tracing using a PCI analyzer
+ *	(e.g. x86).
+ */
+ 
 //#define PCI_KERNEL_TRACE
 #ifdef PCI_KERNEL_TRACE
-#define PCI_TRACE(x) inl( fcChip->Registers.IOBaseL +x);
-#define PCI_TRACEO(x,y) outl( x, (fcChip->Registers.IOBaseL +y));
+#define PCI_TRACE(x)		inl( fcChip->Registers.IOBaseL +x);
+#define PCI_TRACEO(x,y) 	outl( x, (fcChip->Registers.IOBaseL +y));
 #else
 
-#define PCI_TRACE(x) 
+#define PCI_TRACE(x)
 #define PCI_TRACEO(x,y)
 #endif
 
-			 
-//#define DEBUG_CMND 1   // debug output for Linux Scsi CDBs
-//#define DUMMYCMND_DBG 1
+
+//#define DEBUG_CMND		1   // debug output for Linux Scsi CDBs
+//#define DUMMYCMND_DBG		1
 
 //#define DEBUG_CPQFCTS 1
 //#undef DEBUG_CPQFCTS 
 #ifdef DEBUG_CPQFCTS
-#define ENTER(x)	printk("cpqfcts : entering %s()\n", x);
-#define LEAVE(x)	printk("cpqfcts : leaving %s()\n", x);
-#define DEBUG(x)	x
+#define ENTER(x)		printk("cpqfcts : entering %s()\n", x);
+#define LEAVE(x)		printk("cpqfcts : leaving %s()\n", x);
+#define DEBUG(x)		x
 #else
 #define ENTER(x)
 #define LEAVE(x)
 #define DEBUG(x)
 #endif				/* DEBUG_CPQFCTS */
 
-//#define DEBUG_CPQFCTS_PCI 1
+//#define DEBUG_CPQFCTS_PCI	1
 //#undef DEBUG_CPQFCTS_PCI
 #if DEBUG_CPQFCTS_PCI
-#define DEBUG_PCI(x)	x
+#define DEBUG_PCI(x)		x
 #else
 #define DEBUG_PCI(x)
 #endif				/* DEBUG_CPQFCTS_PCI */
 
-#define STACHLITE66_TS12  "Compaq FibreChannel HBA Tachyon TS HPFC-5166A/1.2"
-#define STACHLITE66_TS13  "Compaq FibreChannel HBA Tachyon TS HPFC-5166A/1.3"
-#define STACHLITE_UNKNOWN "Compaq FibreChannel HBA Tachyon Chip/Board Ver??"
-#define SAGILENT_XL2_21   "Agilent FC HBA, Tachyon XL2 HPFC-5200B/2.1"
+#define STACHLITE66_TS12	"Compaq FibreChannel HBA Tachyon TS HPFC-5166A/1.2"
+#define STACHLITE66_TS13	"Compaq FibreChannel HBA Tachyon TS HPFC-5166A/1.3"
+#define STACHLITE_UNKNOWN	"Compaq FibreChannel HBA Tachyon Chip/Board Ver??"
+#define SAGILENT_XL2_21		"Agilent FC HBA, Tachyon XL2 HPFC-5200B/2.1"
 
 // PDA is Peripheral Device Address, VSA is Volume Set Addressing
 // Linux SCSI parameters
-#define CPQFCTS_MAX_TARGET_ID 64
+#define CPQFCTS_MAX_TARGET_ID	64
 
 // Note, changing CPQFCTS_MAX_LUN to less than 32 (e.g, 8) will result in
 // strange behavior if a box with more than, e.g. 8, is on the loop.
-#define CPQFCTS_MAX_LUN 32    // The RA-4x00 supports 32 (Linux SCSI supports 8)
-#define CPQFCTS_MAX_CHANNEL 0 // One FC port on cpqfcTS HBA
+#define CPQFCTS_MAX_LUN		32	// The RA-4x00 supports 32 (Linux SCSI supports 8)
+#define CPQFCTS_MAX_CHANNEL 	0	// One FC port on cpqfcTS HBA
 
-#define CPQFCTS_CMD_PER_LUN 15 // power of 2 -1, must be >0 
-#define CPQFCTS_REQ_QUEUE_LEN (TACH_SEST_LEN/2) // must be < TACH_SEST_LEN
+#define CPQFCTS_CMD_PER_LUN	15	// power of 2 -1, must be >0
+#define CPQFCTS_REQ_QUEUE_LEN	(TACH_SEST_LEN/2)	// must be < TACH_SEST_LEN
 
+/* FIMXME - these are crpa too */
 #define LinuxVersionCode(v, p, s) (((v)<<16)+((p)<<8)+(s))
 #ifndef DECLARE_MUTEX_LOCKED
 #define DECLARE_MUTEX_LOCKED(sem) struct semaphore sem = MUTEX_LOCKED
@@ -95,205 +101,193 @@
 
 #define DEV_NAME "cpqfcTS"
 
-struct SupportedPCIcards
-{
-  __u16 vendor_id;
-  __u16 device_id;
+struct SupportedPCIcards {
+	__u16 vendor_id;
+	__u16 device_id;
 };
-			 
-// nn:nn denotes bit field
-                            // TachyonHeader struct def.
-                            // the fields shared with ODB
-                            // need to have same value
 
-
-
-
-#ifndef BYTE
-//typedef UCHAR BYTE;
-typedef __u8 BYTE;
-#endif
-#ifndef UCHAR
-typedef __u8 UCHAR;
-#endif
-#ifndef LONG
-typedef __s32 LONG;
-#endif
-#ifndef ULONG
-typedef __u32 ULONG;
-#endif
-#ifndef PVOID
-typedef void * PVOID;
-#endif
-#ifndef USHORT
-typedef __u16 USHORT;
-#endif
-#ifndef BOOLEAN
-typedef __u8 BOOLEAN;
-#endif
-
-
-// macro for FC-PH reject codes
-// payload format for LS_RJT (FC payloads are big endian):
-//     byte  0         1         2         3  (MSB)
-// DWORD 0   01        00        00        00
-// DWORD 1   resvd     code      expl.     vendor
-
+/*
+ *	nn:nn denotes bit field
+ *	TachyonHeader struct def.
+ *	the fields shared with ODB
+ *	need to have same value
+ */
+ 
+/*
+ * macro for FC-PH reject codes
+ * payload format for LS_RJT (FC payloads are big endian):
+ *     byte  0         1         2         3  (MSB)
+ * DWORD 0   01        00        00        00
+ * DWORD 1   resvd     code      expl.     vendor
+ */
 #define LS_RJT_REASON( code, expl) (( code<<8) | (expl <<16))
-
 
 #define TachLiteSTATUS 0x12
 
-// Fibre Channel EXCHANGE status codes for Tachyon chips/ driver software
-// 32-bit ERROR word defines
-#define INVALID_ARGS 0x1
-#define LNKDWN_OSLS  0x2
-#define LNKDWN_LASER 0x4
-#define OUTQUE_FULL  0x8
-#define DRIVERQ_FULL 0x10
-#define SEST_FULL    0x20
-#define BAD_ALPA     0x40
-#define OVERFLOW     0x80  // inbound CM
-#define COUNT_ERROR     0x100  // inbound CM
-#define LINKFAIL_RX     0x200  // inbound CM
-#define ABORTSEQ_NOTIFY 0x400  // outbound CM
-#define LINKFAIL_TX     0x800  // outbound CM
-#define HOSTPROG_ERR     0x1000  // outbound CM
-#define FRAME_TO         0x2000  // outbound CM
-#define INV_ENTRY        0x4000  // outbound CM
-#define SESTPROG_ERR     0x8000  // outbound CM
-#define OUTBOUND_TIMEOUT 0x10000L // timeout waiting for Tachyon outbound CM
-#define INITIATOR_ABORT  0x20000L // initiator exchange timeout or O/S ABORT
-#define MEMPOOL_FAIL     0x40000L // O/S memory pool allocation failed
-#define FC2_TIMEOUT      0x80000L // driver timeout for lost frames
-#define TARGET_ABORT     0x100000L // ABTS received from FC port
-#define EXCHANGE_QUEUED  0x200000L // e.g. Link State was LDn on fcStart
-#define PORTID_CHANGED   0x400000L // fc Port address changed
-#define DEVICE_REMOVED   0x800000L // fc Port address changed
-// Several error scenarios result in SEST Exchange frames 
-// unexpectedly arriving in the SFQ
-#define SFQ_FRAME        0x1000000L // SFQ frames from open Exchange
+/*
+ *	Fibre Channel EXCHANGE status codes for Tachyon chips/ driver software
+ *	32-bit ERROR word defines
+ */
+#define INVALID_ARGS 		0x1
+#define LNKDWN_OSLS  		0x2
+#define LNKDWN_LASER 		0x4
+#define OUTQUE_FULL  		0x8
+#define DRIVERQ_FULL 		0x10
+#define SEST_FULL    		0x20
+#define BAD_ALPA     		0x40
+#define OVERFLOW     		0x80		// inbound CM
+#define COUNT_ERROR     	0x100		// inbound CM
+#define LINKFAIL_RX     	0x200		// inbound CM
+#define ABORTSEQ_NOTIFY 	0x400		// outbound CM
+#define LINKFAIL_TX     	0x800		// outbound CM
+#define HOSTPROG_ERR     	0x1000		// outbound CM
+#define FRAME_TO         	0x2000		// outbound CM
+#define INV_ENTRY        	0x4000		// outbound CM
+#define SESTPROG_ERR     	0x8000		// outbound CM
+#define OUTBOUND_TIMEOUT 	0x10000L	// timeout waiting for Tachyon outbound CM
+#define INITIATOR_ABORT  	0x20000L	// initiator exchange timeout or O/S ABORT
+#define MEMPOOL_FAIL     	0x40000L	// O/S memory pool allocation failed
+#define FC2_TIMEOUT      	0x80000L	// driver timeout for lost frames
+#define TARGET_ABORT     	0x100000L	// ABTS received from FC port
+#define EXCHANGE_QUEUED  	0x200000L	// e.g. Link State was LDn on fcStart
+#define PORTID_CHANGED   	0x400000L	// fc Port address changed
+#define DEVICE_REMOVED   	0x800000L	// fc Port address changed
+/*
+ *	Several error scenarios result in SEST Exchange frames 
+ *	unexpectedly arriving in the SFQ
+ */
+#define SFQ_FRAME		0x1000000L	// SFQ frames from open Exchange
 
-// Maximum number of Host Bus Adapters (HBA) / controllers supported
-// only important for mem allocation dimensions - increase as necessary
-
+/*
+ *	Maximum number of Host Bus Adapters (HBA) / controllers supported
+ *	only important for mem allocation dimensions - increase as necessary
+ */
+ 
 #define MAX_ADAPTERS 8
-#define MAX_RX_PAYLOAD 1024  // hardware dependent max frame payload
-// Tach header struc defines
-#define SOFi3 0x7
-#define SOFf  0x8
-#define SOFn3 0xB
-#define EOFn  0x5
-#define EOFt  0x6
+#define MAX_RX_PAYLOAD 1024			// hardware dependent max frame payload
+
+/*
+ *	Tach header struct defines
+ */
+
+#define SOFi3			0x7
+#define SOFf			0x8
+#define SOFn3			0xB
+#define EOFn			0x5
+#define EOFt			0x6
 
 // FCP R_CTL defines
-#define FCP_CMND 0x6
-#define FCP_XFER_RDY 0x5
-#define FCP_RSP 0x7
-#define FCP_RESPONSE 0x777 // (arbitrary #)
-#define NEED_FCP_RSP 0x77  // (arbitrary #)
-#define FCP_DATA 0x1
+#define FCP_CMND		0x6
+#define FCP_XFER_RDY		0x5
+#define FCP_RSP			0x7
+#define FCP_RESPONSE		0x777		// (arbitrary #)
+#define NEED_FCP_RSP		0x77		// (arbitrary #)
+#define FCP_DATA		0x1
 
-#define RESET_TACH 0x100 // Reset Tachyon/TachLite
-#define SCSI_IWE 0x2000  // initiator write entry (for SEST)
-#define SCSI_IRE 0x3000  // initiator read entry (for SEST)
-#define SCSI_TRE 0x400  // target read entry (for SEST)
-#define SCSI_TWE 0x500  // target write entry (for SEST)
-#define TOGGLE_LASER 0x800
-#define LIP 0x900
-#define CLEAR_FCPORTS 99 // (arbitrary #) free mem for Logged in ports
-#define FMINIT 0x707     // (arbitrary) for Frame Manager Init command
+#define RESET_TACH 		0x100		// Reset Tachyon/TachLite
+#define SCSI_IWE 		0x2000		// initiator write entry (for SEST)
+#define SCSI_IRE 		0x3000		// initiator read entry (for SEST)
+#define SCSI_TRE 		0x400		// target read entry (for SEST)
+#define SCSI_TWE 		0x500		// target write entry (for SEST)
+#define TOGGLE_LASER 		0x800
+#define LIP			0x900
+#define CLEAR_FCPORTS		99		// (arbitrary #) free mem for Logged in ports
+#define FMINIT			0x707		// (arbitrary) for Frame Manager Init command
 
-// BLS == Basic Link Service
-// ELS == Extended Link Service
-#define BLS_NOP 4
-#define BLS_ABTS 0x10   // FC-PH Basic Link Service Abort Sequence
-#define BLS_ABTS_ACC 0x100  // FC-PH Basic Link Service Abort Sequence Accept
-#define BLS_ABTS_RJT 0x101  // FC-PH Basic Link Service Abort Sequence Reject
-#define ELS_PLOGI 0x03  // FC-PH Port Login (arbitrary assign)
-#define ELS_SCR   0x70  // (arb assign) State Change Registration (Fabric)
-#define FCS_NSR   0x72  // (arb assign) Name Service Request (Fabric)
-#define ELS_FLOGI 0x44  // (arb assign) Fabric Login
-#define ELS_FDISC 0x41  // (arb assign) Fabric Discovery (Login)
-#define ELS_PDISC 0x50  // FC-PH2 Port Discovery
-#define ELS_ABTX  0x06  // FC-PH Abort Exchange 
-#define ELS_LOGO 0x05   // FC-PH Port Logout
-#define ELS_PRLI 0x20   // FCP-SCSI Process Login
-#define ELS_PRLO 0x21   // FCP-SCSI Process Logout
-#define ELS_LOGO_ACC 0x07   // {FC-PH} Port Logout Accept
-#define ELS_PLOGI_ACC 0x08  // {FC-PH} Port Login Accept
-#define ELS_ACC 0x18        // {FC-PH} (generic) ACCept
-#define ELS_PRLI_ACC 0x22  // {FCP-SCSI} Process Login Accept
-#define ELS_RJT 0x1000000
-#define SCSI_REPORT_LUNS 0x0A0
-#define REPORT_LUNS 0xA0 // SCSI-3 command op-code
-#define FCP_TARGET_RESET 0x200
+/*
+ *	BLS == Basic Link Service
+ *	ELS == Extended Link Service
+ */
+ 
+#define BLS_NOP 		4
+#define BLS_ABTS		0x10		// FC-PH Basic Link Service Abort Sequence
+#define BLS_ABTS_ACC		0x100		// FC-PH Basic Link Service Abort Sequence Accept
+#define BLS_ABTS_RJT		0x101		// FC-PH Basic Link Service Abort Sequence Reject
+#define ELS_PLOGI		0x03		// FC-PH Port Login (arbitrary assign)
+#define ELS_SCR			0x70		// (arb assign) State Change Registration (Fabric)
+#define FCS_NSR			0x72		// (arb assign) Name Service Request (Fabric)
+#define ELS_FLOGI		0x44		// (arb assign) Fabric Login
+#define ELS_FDISC		0x41		// (arb assign) Fabric Discovery (Login)
+#define ELS_PDISC		0x50		// FC-PH2 Port Discovery
+#define ELS_ABTX		0x06		// FC-PH Abort Exchange
+#define ELS_LOGO		0x05		// FC-PH Port Logout
+#define ELS_PRLI		0x20		// FCP-SCSI Process Login
+#define ELS_PRLO		0x21		// FCP-SCSI Process Logout
+#define ELS_LOGO_ACC		0x07		// {FC-PH} Port Logout Accept
+#define ELS_PLOGI_ACC		0x08		// {FC-PH} Port Login Accept
+#define ELS_ACC			0x18		// {FC-PH} (generic) ACCept
+#define ELS_PRLI_ACC		0x22		// {FCP-SCSI} Process Login Accept
+#define ELS_RJT			0x1000000
+#define SCSI_REPORT_LUNS	0x0A0
+#define FCP_TARGET_RESET	0x200
 
-#define ELS_LILP_FRAME 0x00000711 // 1st payload word of LILP frame
+#define ELS_LILP_FRAME		0x00000711	// 1st payload word of LILP frame
 
-#define SFQ_UNASSISTED_FCP  1  // ICM, DWord3, "Type" unassisted FCP
-#define SFQ_UNKNOWN         0x31 // (arbitrary) ICM, DWord3, "Type" unknown
+#define SFQ_UNASSISTED_FCP	1		// ICM, DWord3, "Type" unassisted FCP
+#define SFQ_UNKNOWN      	0x31		// (arbitrary) ICM, DWord3, "Type" unknown
 
-// these "LINK" bits refer to loop or non-loop
-#define LINKACTIVE 0x2    // fcLinkQ type - LINK UP Tachyon FM 'Lup' bit set
-#define LINKDOWN 0xf2     // fcLinkQ type - LINK DOWN Tachyon FM 'Ldn' bit set
+/*
+ * These "LINK" bits refer to loop or non-loop
+ */
+#define LINKACTIVE		0x2		// fcLinkQ type - LINK UP Tachyon FM 'Lup' bit set
+#define LINKDOWN		0xf2		// fcLinkQ type - LINK DOWN Tachyon FM 'Ldn' bit set
 
 //#define VOLUME_SET_ADDRESSING 1 // "channel" or "bus" 1
 
-typedef struct      // 32 bytes hdr ONLY (e.g. FCP_DATA buffer for SEST)
+typedef struct			// 32 bytes hdr ONLY (e.g. FCP_DATA buffer for SEST)
 {
-  ULONG reserved;   // dword 0 (don't use)
-  ULONG sof_eof;
-  ULONG d_id;       // dword 2 - 31:24 R_CTL, 23:0 D_ID
-  ULONG s_id;       // dword 3 - 31:24 CS_CTL, 23:0 S_ID
-  ULONG f_ctl;      // dword 4 - 31:24 Type,  23:0 F_CTL
-  ULONG seq_cnt;    // dword 5 - 31:24 SEQ_ID, 23:16 DF_CTL, 15:0 SEQ_CNT
-  ULONG ox_rx_id;   // dword 6 - 31:16 OX_ID,  15:0 RX_ID
-  ULONG ro;         // dword 7 - relative offset
+	__u32 reserved;		// dword 0 (don't use)
+	__u32 sof_eof;
+	__u32 d_id;		// dword 2 - 31:24 R_CTL, 23:0 D_ID
+	__u32 s_id;		// dword 3 - 31:24 CS_CTL, 23:0 S_ID
+	__u32 f_ctl;		// dword 4 - 31:24 Type,  23:0 F_CTL
+	__u32 seq_cnt;		// dword 5 - 31:24 SEQ_ID, 23:16 DF_CTL, 15:0 SEQ_CNT
+	__u32 ox_rx_id;		// dword 6 - 31:16 OX_ID,  15:0 RX_ID
+	__u32 ro;		// dword 7 - relative offset
 } TachFCHDR;
 
-                    // NOTE!! the following struct MUST be 64 bytes.
-typedef struct      // 32 bytes hdr + 32 bytes payload
+				// NOTE!! the following struct MUST be 64 bytes.
+typedef struct			// 32 bytes hdr + 32 bytes payload
 {
-  ULONG reserved;   // dword 0 (don't use - must clear to 0)
-  ULONG sof_eof;    // dword 1 - 31:24 SOF:EOF, UAM,CLS, LCr, TFV, TimeStamp
-  ULONG d_id;       // dword 2 - 31:24 R_CTL, 23:0 D_ID
-  ULONG s_id;       // dword 3 - 31:24 CS_CTL, 23:0 S_ID
-  ULONG f_ctl;      // dword 4 - 31:24 Type,  23:0 F_CTL
-  ULONG seq_cnt;    // dword 5 - 31:24 SEQ_ID, 23:16 DF_CTL, 15:0 SEQ_CNT
-  ULONG ox_rx_id;   // dword 6 - 31:16 OX_ID,  15:0 RX_ID
-  ULONG ro;  // dword 7 - relative offset
+	__u32 reserved;		// dword 0 (don't use - must clear to 0)
+	__u32 sof_eof;		// dword 1 - 31:24 SOF:EOF, UAM,CLS, LCr, TFV, TimeStamp
+	__u32 d_id;		// dword 2 - 31:24 R_CTL, 23:0 D_ID
+	__u32 s_id;		// dword 3 - 31:24 CS_CTL, 23:0 S_ID
+	__u32 f_ctl;		// dword 4 - 31:24 Type,  23:0 F_CTL
+	__u32 seq_cnt;		// dword 5 - 31:24 SEQ_ID, 23:16 DF_CTL, 15:0 SEQ_CNT
+	__u32 ox_rx_id;		// dword 6 - 31:16 OX_ID,  15:0 RX_ID
+	__u32 ro;		// dword 7 - relative offset
 //---------
-  __u32 pl[8];              // dwords 8-15 frame data payload
+	__u32 pl[8];		// dwords 8-15 frame data payload
 } TachFCHDR_CMND;
 
 
-typedef struct      // 32 bytes hdr + 120 bytes payload
+typedef struct			// 32 bytes hdr + 120 bytes payload
 {
-  ULONG reserved;   // dword 0 (don't use - must clear to 0)
-  ULONG sof_eof;    // dword 1 - 31:24 SOF:EOF, UAM,CLS, LCr, TFV, TimeStamp
-  ULONG d_id;       // dword 2 - 31:24 R_CTL, 23:0 D_ID
-  ULONG s_id;       // dword 3 - 31:24 CS_CTL, 23:0 S_ID
-  ULONG f_ctl;      // dword 4 - 31:24 Type,  23:0 F_CTL
-  ULONG seq_cnt;    // dword 5 - 31:24 SEQ_ID, 23:16 DF_CTL, 15:0 SEQ_CNT
-  ULONG ox_rx_id;   // dword 6 - 31:16 OX_ID,  15:0 RX_ID
-  ULONG ro;  // dword 7 - relative offset
+	__u32 reserved;		// dword 0 (don't use - must clear to 0)
+	__u32 sof_eof;		// dword 1 - 31:24 SOF:EOF, UAM,CLS, LCr, TFV, TimeStamp
+	__u32 d_id;		// dword 2 - 31:24 R_CTL, 23:0 D_ID
+	__u32 s_id;		// dword 3 - 31:24 CS_CTL, 23:0 S_ID
+	__u32 f_ctl;		// dword 4 - 31:24 Type,  23:0 F_CTL
+	__u32 seq_cnt;		// dword 5 - 31:24 SEQ_ID, 23:16 DF_CTL, 15:0 SEQ_CNT
+	__u32 ox_rx_id;		// dword 6 - 31:16 OX_ID,  15:0 RX_ID
+	__u32 ro;		// dword 7 - relative offset
 //---------
-  __u32 pl[30];              // largest necessary payload (for LOGIN cmnds)
+	__u32 pl[30];		// largest necessary payload (for LOGIN cmnds)
 } TachFCHDR_GCMND;
 
-typedef struct      // 32 bytes hdr + 64 bytes payload
+typedef struct			// 32 bytes hdr + 64 bytes payload
 {
-  ULONG reserved;   // dword 0 (don't use)
-  ULONG sof_eof;
-  ULONG d_id;       // dword 2 - 31:24 R_CTL, 23:0 D_ID
-  ULONG s_id;       // dword 3 - 31:24 CS_CTL, 23:0 S_ID
-  ULONG f_ctl;      // dword 4 - 31:24 Type,  23:0 F_CTL
-  ULONG seq_cnt;    // dword 5 - 31:24 SEQ_ID, 23:16 DF_CTL, 15:0 SEQ_CNT
-  ULONG ox_rx_id;   // dword 6 - 31:16 OX_ID,  15:0 RX_ID
-  ULONG ro;  // dword 7 - relative offset
+	__u32 reserved;		// dword 0 (don't use)
+	__u32 sof_eof;
+	__u32 d_id;		// dword 2 - 31:24 R_CTL, 23:0 D_ID
+	__u32 s_id;		// dword 3 - 31:24 CS_CTL, 23:0 S_ID
+	__u32 f_ctl;		// dword 4 - 31:24 Type,  23:0 F_CTL
+	__u32 seq_cnt;		// dword 5 - 31:24 SEQ_ID, 23:16 DF_CTL, 15:0 SEQ_CNT
+	__u32 ox_rx_id;		// dword 6 - 31:16 OX_ID,  15:0 RX_ID
+	__u32 ro;		// dword 7 - relative offset
 //---------
-  __u32 pl[18]; // payload for FCP-RSP (response buffer) RA-4x00 is 72bytes
+	__u32 pl[18];		// payload for FCP-RSP (response buffer) RA-4x00 is 72bytes
 } TachFCHDR_RSP;
 
 
@@ -302,11 +296,11 @@ typedef struct      // 32 bytes hdr + 64 bytes payload
 
 
 // Inbound Message Queue structures...
-typedef struct              // each entry 8 words (32 bytes)
+typedef struct			// each entry 8 words (32 bytes)
 {
-  ULONG type;               // IMQ completion message types
-  ULONG word[7];            // remainder of structure
-                            // interpreted by IMQ type
+	__u32 type;		// IMQ completion message types
+	__u32 word[7];		// remainder of structure
+				// interpreted by IMQ type
 } TachyonIMQE;
 
 
@@ -314,114 +308,114 @@ typedef struct              // each entry 8 words (32 bytes)
 // ERQ       - Exchange Request Queue (for outbound commands)
 // SFQ       - Single Frame Queue (for incoming frames)
 
-                            // Define Tachyon Outbound Command Que
-                            // (Since many Tachyon registers are Read
-                            // only, maintain copies for debugging)
-                            // most Tach ques need power-of-2 sizes,
-                            // where registers are loaded with po2 -1
-#define TACH_SEST_LEN 512   // TachLite SEST
+				// Define Tachyon Outbound Command Que
+				// (Since many Tachyon registers are Read
+				// only, maintain copies for debugging)
+				// most Tach ques need power-of-2 sizes,
+				// where registers are loaded with po2 -1
+#define TACH_SEST_LEN 512	// TachLite SEST
 
-#define ELS_EXCHANGES 64    // e.g. PLOGI, RSCN, ...
+#define ELS_EXCHANGES 64	// e.g. PLOGI, RSCN, ...
 // define the total number of outstanding (simultaneous) exchanges
-#define TACH_MAX_XID (TACH_SEST_LEN + ELS_EXCHANGES)  // ELS exchanges
+#define TACH_MAX_XID (TACH_SEST_LEN + ELS_EXCHANGES)	// ELS exchanges
 
-#define ERQ_LEN 128         // power of 2, max 4096
+#define ERQ_LEN 128		// power of 2, max 4096
 
 // Inbound Message Queue structures...
-#define IMQ_LEN 512              // minimum 4 entries [(power of 2) - 1]
-typedef struct                   // 8 words - 32 bytes
+#define IMQ_LEN 512		// minimum 4 entries [(power of 2) - 1]
+typedef struct			// 8 words - 32 bytes
 {
-  TachyonIMQE QEntry[IMQ_LEN];
-  ULONG producerIndex;   // IMQ Producer Index register
-                                 // @32 byte align
-  ULONG consumerIndex;   // Consumer Index register (in Tachyon)
-  ULONG length;          // Length register
-  ULONG base;
-} TachyonIMQ;                    // @ 32 * IMQ_LEN align
+	TachyonIMQE QEntry[IMQ_LEN];
+	__u32 producerIndex;	// IMQ Producer Index register
+	// @32 byte align
+	__u32 consumerIndex;	// Consumer Index register (in Tachyon)
+	__u32 length;		// Length register
+	__u32 base;
+} TachyonIMQ;			// @ 32 * IMQ_LEN align
 
 
 
-typedef struct           // inbound completion message
+typedef struct			// inbound completion message
 {
-  ULONG Type;
-  ULONG Index;
-  ULONG TransferLength;
+	__u32 Type;
+	__u32 Index;
+	__u32 TransferLength;
 } TachyonInbCM;
 
 
 
 // arbitrary numeric tags for TL structures
-#define TL_FCHS 1  // TachLite Fibre Channel Header Structure
-#define TL_IWE 2  // initiator write entry (for SEST)
-#define TL_TWE 3  // target write entry (for SEST)
-#define TL_IRE 4  // initiator read entry (for SEST)
-#define TL_TRE 5  // target read entry (for SEST)
-#define TL_IRB 6  // I/O request block
+#define TL_FCHS 1		// TachLite Fibre Channel Header Structure
+#define TL_IWE 2		// initiator write entry (for SEST)
+#define TL_TWE 3		// target write entry (for SEST)
+#define TL_IRE 4		// initiator read entry (for SEST)
+#define TL_TRE 5		// target read entry (for SEST)
+#define TL_IRB 6		// I/O request block
 
-                                // for INCOMING frames
-#define SFQ_LEN 32              // minimum 32 entries, max 4096
+				// for INCOMING frames
+#define SFQ_LEN 32		// minimum 32 entries, max 4096
 
-typedef struct                  // Single Frame Que
+typedef struct			// Single Frame Que
 {
-  TachFCHDR_CMND QEntry[SFQ_LEN]; // must be 64 bytes!!
-  ULONG producerIndex;   // IMQ Producer Index register
-                                 // @32 byte align
-  ULONG consumerIndex;   // Consumer Index register (in Tachyon)
-  ULONG length;          // Length register
-  ULONG base;
+	TachFCHDR_CMND QEntry[SFQ_LEN];	// must be 64 bytes!!
+	__u32 producerIndex;	// IMQ Producer Index register
+	// @32 byte align
+	__u32 consumerIndex;	// Consumer Index register (in Tachyon)
+	__u32 length;		// Length register
+	__u32 base;
 } TachLiteSFQ;
 
 
-typedef struct                 // I/O Request Block flags
+typedef struct			// I/O Request Block flags
 {
-  UCHAR  BRD : 1;
-  UCHAR      : 1; // reserved
-  UCHAR  SFA : 1;
-  UCHAR  DNC : 1;
-  UCHAR  DIN : 1;
-  UCHAR  DCM : 1;
-  UCHAR  CTS : 1;
-  UCHAR  SBV : 1;  // IRB entry valid - IRB'B' only
+	__u8 BRD:1;
+	 __u8:1;		// reserved
+	__u8 SFA:1;
+	__u8 DNC:1;
+	__u8 DIN:1;
+	__u8 DCM:1;
+	__u8 CTS:1;
+	__u8 SBV:1;		// IRB entry valid - IRB'B' only
 } IRBflags;
 
-typedef struct                  // I/O Request Block
-{                          // Request 'A'
-  ULONG Req_A_SFS_Len;     // total frame len (hdr + payload), min 32
-  ULONG Req_A_SFS_Addr;    // 32-bit pointer to FCHS struct (to be sent)
-  ULONG Req_A_SFS_D_ID;    // 24-bit FC destination (i.e. 8 bit al_pa)
-  ULONG Req_A_Trans_ID;    // X_ID (OX_ID or RX_ID) and/or Index in SEST
-                           // Request 'B'
-  ULONG Req_B_SFS_Len;     // total frame len (hdr + payload), min 32
-  ULONG Req_B_SFS_Addr;    // 32-bit pointer to FCHS struct (to be sent)
-  ULONG Req_B_SFS_D_ID;    // 24-bit FC destination (i.e. 8 bit al_pa)
-  ULONG Req_B_Trans_ID;    // X_ID (OX_ID or RX_ID) and/or Index in SEST
+typedef struct			// I/O Request Block
+{				// Request 'A'
+	__u32 Req_A_SFS_Len;	// total frame len (hdr + payload), min 32
+	__u32 Req_A_SFS_Addr;	// 32-bit pointer to FCHS struct (to be sent)
+	__u32 Req_A_SFS_D_ID;	// 24-bit FC destination (i.e. 8 bit al_pa)
+	__u32 Req_A_Trans_ID;	// X_ID (OX_ID or RX_ID) and/or Index in SEST
+	// Request 'B'
+	__u32 Req_B_SFS_Len;	// total frame len (hdr + payload), min 32
+	__u32 Req_B_SFS_Addr;	// 32-bit pointer to FCHS struct (to be sent)
+	__u32 Req_B_SFS_D_ID;	// 24-bit FC destination (i.e. 8 bit al_pa)
+	__u32 Req_B_Trans_ID;	// X_ID (OX_ID or RX_ID) and/or Index in SEST
 } TachLiteIRB;
 
 
-typedef struct           // TachLite placeholder for IRBs
-{                        // aligned @sizeof(ERQ) for TachLite
-                         // MAX commands is sum of SEST len and ERQ
-                         // we know that each SEST entry requires an
-                         // IRB (ERQ) entry; in addition, we provide
-                         // ERQ_LEN
-  TachLiteIRB QEntry[ERQ_LEN]; // Base register; entries 32 bytes ea.
-  ULONG consumerIndex;   // Consumer Index register
-  ULONG producerIndex;   // ERQ Producer Index register
-  ULONG length;          // Length register
-  ULONG base;            // copy of base ptr for debug
-                         // struct is sized for largest expected cmnd (LOGIN)
+typedef struct			// TachLite placeholder for IRBs
+{				// aligned @sizeof(ERQ) for TachLite
+	// MAX commands is sum of SEST len and ERQ
+	// we know that each SEST entry requires an
+	// IRB (ERQ) entry; in addition, we provide
+	// ERQ_LEN
+	TachLiteIRB QEntry[ERQ_LEN];	// Base register; entries 32 bytes ea.
+	__u32 consumerIndex;	// Consumer Index register
+	__u32 producerIndex;	// ERQ Producer Index register
+	__u32 length;		// Length register
+	__u32 base;		// copy of base ptr for debug
+	// struct is sized for largest expected cmnd (LOGIN)
 } TachLiteERQ;
 
 // for now, just 32 bit DMA, eventually 40something, with code changes
 #define CPQFCTS_DMA_MASK ((unsigned long) (0x00000000FFFFFFFF))
 
-#define TL_MAX_SG_ELEM_LEN 0x7ffff  // Max buffer length a single S/G entry
-				// may represent (a hardware limitation).  The
-				// only reason to ever change this is if you
-				// want to exercise very-hard-to-reach code in
-				// cpqfcTSworker.c:build_SEST_sglist().
+#define TL_MAX_SG_ELEM_LEN 0x7ffff	// Max buffer length a single S/G entry
+					// may represent (a hardware limitation).  The
+					// only reason to ever change this is if you
+					// want to exercise very-hard-to-reach code in
+					// cpqfcTSworker.c:build_SEST_sglist().
 
-#define TL_DANGER_SGPAGES 7  // arbitrary high water mark for # of S/G pages
+#define TL_DANGER_SGPAGES 7	// arbitrary high water mark for # of S/G pages
 				// we must exceed to elicit a warning indicative
 				// of EXTREMELY large data transfers or 
 				// EXTREME memory fragmentation.
@@ -429,236 +423,230 @@ typedef struct           // TachLite placeholder for IRBs
 				// Never seen this is real life, only in 
 				// testing with tricked up driver.)
 
-#define TL_EXT_SG_PAGE_COUNT 256  // Number of Extended Scatter/Gather a/l PAIRS
-                                  // Tachyon register (IOBaseU 0x68)
-                                  // power-of-2 value ONLY!  4 min, 256 max
+#define TL_EXT_SG_PAGE_COUNT 256	// Number of Extended Scatter/Gather a/l PAIRS
+					// Tachyon register (IOBaseU 0x68)
+					// power-of-2 value ONLY!  4 min, 256 max
 
-                          // byte len is #Pairs * 2 ULONG/Pair * 4 bytes/ULONG
+			  // byte len is #Pairs * 2 __u32/Pair * 4 bytes/__u32
 #define TL_EXT_SG_PAGE_BYTELEN (TL_EXT_SG_PAGE_COUNT *2 *4)
 
 
 
 // SEST entry types: IWE, IRE, TWE, TRE
-typedef struct 
-{
-  ULONG Hdr_Len;
-  ULONG Hdr_Addr;
-  ULONG RSP_Len;
-  ULONG RSP_Addr;
-  ULONG Buff_Off;
+typedef struct {
+	__u32 Hdr_Len;
+	__u32 Hdr_Addr;
+	__u32 RSP_Len;
+	__u32 RSP_Addr;
+	__u32 Buff_Off;
 #define USES_EXTENDED_SGLIST(this_sest, x_ID) \
 	(!((this_sest)->u[ x_ID ].IWE.Buff_Off & 0x80000000))
-  ULONG Link;
-  ULONG RX_ID;
-  ULONG Data_Len;
-  ULONG Exp_RO;
-  ULONG Exp_Byte_Cnt;
-   // --- extended/local Gather Len/Address pairs
-  ULONG GLen1;
-  ULONG GAddr1;
-  ULONG GLen2;
-  ULONG GAddr2;
-  ULONG GLen3;
-  ULONG GAddr3;
+	__u32 Link;
+	__u32 RX_ID;
+	__u32 Data_Len;
+	__u32 Exp_RO;
+	__u32 Exp_Byte_Cnt;
+	// --- extended/local Gather Len/Address pairs
+	__u32 GLen1;
+	__u32 GAddr1;
+	__u32 GLen2;
+	__u32 GAddr2;
+	__u32 GLen3;
+	__u32 GAddr3;
 } TachLiteIWE;
 
 
-typedef struct 
-{
-  ULONG Seq_Accum;
-  ULONG reserved;       // must clear to 0
-  ULONG RSP_Len;
-  ULONG RSP_Addr;
-  ULONG Buff_Off;
-  ULONG Buff_Index;           // ULONG 5
-  ULONG Exp_RO;
-  ULONG Byte_Count;
-  ULONG reserved_;      // ULONG 8
-  ULONG Exp_Byte_Cnt;
-   // --- extended/local Scatter Len/Address pairs
-  ULONG SLen1;
-  ULONG SAddr1;
-  ULONG SLen2;
-  ULONG SAddr2;
-  ULONG SLen3;
-  ULONG SAddr3;
+typedef struct {
+	__u32 Seq_Accum;
+	__u32 reserved;		// must clear to 0
+	__u32 RSP_Len;
+	__u32 RSP_Addr;
+	__u32 Buff_Off;
+	__u32 Buff_Index;	// __u32 5
+	__u32 Exp_RO;
+	__u32 Byte_Count;
+	__u32 reserved_;	// __u32 8
+	__u32 Exp_Byte_Cnt;
+	// --- extended/local Scatter Len/Address pairs
+	__u32 SLen1;
+	__u32 SAddr1;
+	__u32 SLen2;
+	__u32 SAddr2;
+	__u32 SLen3;
+	__u32 SAddr3;
 } TachLiteIRE;
 
 
-typedef struct          // Target Write Entry
+typedef struct			// Target Write Entry
 {
-  ULONG Seq_Accum;      // dword 0
-  ULONG reserved;       // dword 1  must clear to 0
-  ULONG Remote_Node_ID;
-  ULONG reserved1;      // dword 3  must clear to 0
-  ULONG Buff_Off;
-  ULONG Buff_Index;     // ULONG 5
-  ULONG Exp_RO;
-  ULONG Byte_Count;
-  ULONG reserved_;      // ULONG 8
-  ULONG Exp_Byte_Cnt;
-   // --- extended/local Scatter Len/Address pairs
-  ULONG SLen1;
-  ULONG SAddr1;
-  ULONG SLen2;
-  ULONG SAddr2;
-  ULONG SLen3;
-  ULONG SAddr3;
+	__u32 Seq_Accum;	// dword 0
+	__u32 reserved;		// dword 1  must clear to 0
+	__u32 Remote_Node_ID;
+	__u32 reserved1;	// dword 3  must clear to 0
+	__u32 Buff_Off;
+	__u32 Buff_Index;	// __u32 5
+	__u32 Exp_RO;
+	__u32 Byte_Count;
+	__u32 reserved_;	// __u32 8
+	__u32 Exp_Byte_Cnt;
+	// --- extended/local Scatter Len/Address pairs
+	__u32 SLen1;
+	__u32 SAddr1;
+	__u32 SLen2;
+	__u32 SAddr2;
+	__u32 SLen3;
+	__u32 SAddr3;
 } TachLiteTWE;
 
-typedef struct      
-{
-  ULONG Hdr_Len;
-  ULONG Hdr_Addr;
-  ULONG RSP_Len;        // DWord 2
-  ULONG RSP_Addr;
-  ULONG Buff_Off;
-  ULONG Buff_Index;     // DWord 5
-  ULONG reserved;
-  ULONG Data_Len;
-  ULONG reserved_;
-  ULONG reserved__;
-   // --- extended/local Gather Len/Address pairs
-  ULONG GLen1;          // DWord A
-  ULONG GAddr1;
-  ULONG GLen2;
-  ULONG GAddr2;
-  ULONG GLen3;
-  ULONG GAddr3;
+typedef struct {
+	__u32 Hdr_Len;
+	__u32 Hdr_Addr;
+	__u32 RSP_Len;		// DWord 2
+	__u32 RSP_Addr;
+	__u32 Buff_Off;
+	__u32 Buff_Index;	// DWord 5
+	__u32 reserved;
+	__u32 Data_Len;
+	__u32 reserved_;
+	__u32 reserved__;
+	// --- extended/local Gather Len/Address pairs
+	__u32 GLen1;		// DWord A
+	__u32 GAddr1;
+	__u32 GLen2;
+	__u32 GAddr2;
+	__u32 GLen3;
+	__u32 GAddr3;
 } TachLiteTRE;
 
 typedef struct ext_sg_page_ptr_t *PSGPAGES;
-typedef struct ext_sg_page_ptr_t 
-{
-  unsigned char page[TL_EXT_SG_PAGE_BYTELEN * 2]; // 2x for alignment
-  dma_addr_t busaddr; 	// need the bus addresses and
-  unsigned int maplen;  // lengths for later pci unmapping.
-  PSGPAGES next;
-} SGPAGES; // linked list of S/G pairs, by Exchange
+typedef struct ext_sg_page_ptr_t {
+	unsigned char page[TL_EXT_SG_PAGE_BYTELEN * 2];	// 2x for alignment
+	dma_addr_t busaddr;	// need the bus addresses and
+	unsigned int maplen;	// lengths for later pci unmapping.
+	PSGPAGES next;
+} SGPAGES;			// linked list of S/G pairs, by Exchange
 
-typedef struct                  // SCSI Exchange State Table
+typedef struct			// SCSI Exchange State Table
 {
-  union                         // Entry can be IWE, IRE, TWE, TRE
-  {                             // 64 bytes per entry
-    TachLiteIWE IWE;
-    TachLiteIRE IRE;
-    TachLiteTWE TWE;
-    TachLiteTRE TRE;
-  } u[TACH_SEST_LEN];
+	union			// Entry can be IWE, IRE, TWE, TRE
+	{			// 64 bytes per entry
+		TachLiteIWE IWE;
+		TachLiteIRE IRE;
+		TachLiteTWE TWE;
+		TachLiteTRE TRE;
+	} u[TACH_SEST_LEN];
 
-  TachFCHDR DataHDR[TACH_SEST_LEN]; // for SEST FCP_DATA frame hdr (no pl)
-  TachFCHDR_RSP RspHDR[TACH_SEST_LEN]; // space for SEST FCP_RSP frame
-  PSGPAGES sgPages[TACH_SEST_LEN]; // head of linked list of Pool-allocations
-  ULONG length;          // Length register
-  ULONG base;            // copy of base ptr for debug
+	TachFCHDR DataHDR[TACH_SEST_LEN];	// for SEST FCP_DATA frame hdr (no pl)
+	TachFCHDR_RSP RspHDR[TACH_SEST_LEN];	// space for SEST FCP_RSP frame
+	PSGPAGES sgPages[TACH_SEST_LEN];	// head of linked list of Pool-allocations
+	__u32 length;		// Length register
+	__u32 base;		// copy of base ptr for debug
 } TachSEST;
 
 
 
-typedef struct                  // each register has it's own address
-                                // and value (used for write-only regs)
+typedef struct			// each register has it's own address
+				// and value (used for write-only regs)
 {
-  void* address;
-  volatile ULONG value;
+	void *address;
+	volatile __u32 value;
 } FCREGISTER;
 
-typedef struct         // Host copy - TachLite Registers
+typedef struct			// Host copy - TachLite Registers
 {
-  ULONG IOBaseL, IOBaseU;  // I/O port lower and upper TL register addresses
-  ULONG MemBase;           // memory mapped register addresses
-  void* ReMapMemBase;      // O/S VM reference for MemBase
-  ULONG wwn_hi;            // WWN is set once at startup
-  ULONG wwn_lo;
-  ULONG my_al_pa;          // al_pa received after LIP()
-  ULONG ROMCTR;            // flags for on-board RAM/ROM
-  ULONG RAMBase;           // on-board RAM (i.e. some Tachlites)
-  ULONG SROMBase;          // on-board EEPROM (some Tachlites)
-  ULONG PCIMCTR;           // PCI Master Control Reg (has bus width)
+	__u32 IOBaseL, IOBaseU;	// I/O port lower and upper TL register addresses
+	__u32 MemBase;		// memory mapped register addresses
+	void *ReMapMemBase;	// O/S VM reference for MemBase
+	__u32 wwn_hi;		// WWN is set once at startup
+	__u32 wwn_lo;
+	__u32 my_al_pa;		// al_pa received after LIP()
+	__u32 ROMCTR;		// flags for on-board RAM/ROM
+	__u32 RAMBase;		// on-board RAM (i.e. some Tachlites)
+	__u32 SROMBase;		// on-board EEPROM (some Tachlites)
+	__u32 PCIMCTR;		// PCI Master Control Reg (has bus width)
 
-  FCREGISTER INTEN;        // copy of interrupt enable mask
-  FCREGISTER INTPEND;      // interrupt pending
-  FCREGISTER INTSTAT;      // interrupt status
-  FCREGISTER SFQconsumerIndex; 
-  FCREGISTER ERQproducerIndex; 
-  FCREGISTER TYconfig;   // TachYon (chip level)
-  FCREGISTER TYcontrol;
-  FCREGISTER TYstatus;
-  FCREGISTER FMconfig;   // Frame Manager (FC loop level)
-  FCREGISTER FMcontrol;
-  FCREGISTER FMstatus;
-  FCREGISTER FMLinkStatus1;
-  FCREGISTER FMLinkStatus2;
-  FCREGISTER FMBB_CreditZero;
-  FCREGISTER status;
-  FCREGISTER ed_tov;     // error detect time-out value
-  FCREGISTER rcv_al_pa;  // received arb. loop physical address
-  FCREGISTER primitive;  // e.g. LIP(), OPN(), ...
+	FCREGISTER INTEN;	// copy of interrupt enable mask
+	FCREGISTER INTPEND;	// interrupt pending
+	FCREGISTER INTSTAT;	// interrupt status
+	FCREGISTER SFQconsumerIndex;
+	FCREGISTER ERQproducerIndex;
+	FCREGISTER TYconfig;	// TachYon (chip level)
+	FCREGISTER TYcontrol;
+	FCREGISTER TYstatus;
+	FCREGISTER FMconfig;	// Frame Manager (FC loop level)
+	FCREGISTER FMcontrol;
+	FCREGISTER FMstatus;
+	FCREGISTER FMLinkStatus1;
+	FCREGISTER FMLinkStatus2;
+	FCREGISTER FMBB_CreditZero;
+	FCREGISTER status;
+	FCREGISTER ed_tov;	// error detect time-out value
+	FCREGISTER rcv_al_pa;	// received arb. loop physical address
+	FCREGISTER primitive;	// e.g. LIP(), OPN(), ...
 } TL_REGISTERS;
 
 
 
-typedef struct 
-{
-  ULONG ok;
-  ULONG invalidArgs;
-  ULONG linkDown;
-  ULONG linkUp;
-  ULONG outQueFull;
-  ULONG SESTFull;
-  ULONG hpe;    // host programming err (from Tach)
-  ULONG FC4aborted; // aborts from Application or upper driver layer
-  ULONG FC2aborted; // aborts from our driver's timeouts
-  ULONG timeouts;   // our driver timeout (on individual exchanges)
-  ULONG logouts;    // explicit - sent LOGO; implicit - device removed
-  ULONG retries;
-  ULONG linkFailTX;
-  ULONG linkFailRX;
-  ULONG CntErrors;  // byte count expected != count received (typ. SEST)
-  ULONG e_stores;   // elastic store errs
-  ULONG resets;     // hard or soft controller resets
-  ULONG FMinits;    // TACH Frame Manager Init (e.g. LIPs)
-  ULONG lnkQueFull;  // too many LOGIN, loop commands
-  ULONG ScsiQueFull; // too many FCP-SCSI inbound frames
-  ULONG LossofSignal;   // FM link status 1 regs
-  ULONG BadRXChar;   // FM link status 1 regs
-  ULONG LossofSync;   // FM link status 1 regs
-  ULONG Rx_EOFa;   // FM link status 2 regs (received EOFa)
-  ULONG Dis_Frm;   // FM link status 2 regs (discarded frames)
-  ULONG Bad_CRC;   // FM link status 2 regs
-  ULONG BB0_Timer; //  FM BB_Credit Zero Timer Reg
-  ULONG loopBreaks; // infinite loop exits
-  ULONG lastBB0timer;  // static accum. buffer needed by Tachlite
+typedef struct {
+	__u32 ok;
+	__u32 invalidArgs;
+	__u32 linkDown;
+	__u32 linkUp;
+	__u32 outQueFull;
+	__u32 SESTFull;
+	__u32 hpe;		// host programming err (from Tach)
+	__u32 FC4aborted;	// aborts from Application or upper driver layer
+	__u32 FC2aborted;	// aborts from our driver's timeouts
+	__u32 timeouts;		// our driver timeout (on individual exchanges)
+	__u32 logouts;		// explicit - sent LOGO; implicit - device removed
+	__u32 retries;
+	__u32 linkFailTX;
+	__u32 linkFailRX;
+	__u32 CntErrors;	// byte count expected != count received (typ. SEST)
+	__u32 e_stores;		// elastic store errs
+	__u32 resets;		// hard or soft controller resets
+	__u32 FMinits;		// TACH Frame Manager Init (e.g. LIPs)
+	__u32 lnkQueFull;	// too many LOGIN, loop commands
+	__u32 ScsiQueFull;	// too many FCP-SCSI inbound frames
+	__u32 LossofSignal;	// FM link status 1 regs
+	__u32 BadRXChar;	// FM link status 1 regs
+	__u32 LossofSync;	// FM link status 1 regs
+	__u32 Rx_EOFa;		// FM link status 2 regs (received EOFa)
+	__u32 Dis_Frm;		// FM link status 2 regs (discarded frames)
+	__u32 Bad_CRC;		// FM link status 2 regs
+	__u32 BB0_Timer;	//  FM BB_Credit Zero Timer Reg
+	__u32 loopBreaks;	// infinite loop exits
+	__u32 lastBB0timer;	// static accum. buffer needed by Tachlite
 } FCSTATS;
 
 
-typedef struct               // Config Options
-{                            // LS Bit first
-  USHORT        : 1;           // bit0:
-  USHORT  flogi : 1;           // bit1: We sent FLOGI - wait for Fabric logins
-  USHORT  fabric: 1;           // bit2: Tachyon detected Fabric (FM stat LG)
-  USHORT  LILPin: 1;           // bit3: We can use an FC-AL LILP frame
-  USHORT  target: 1;           // bit4: this Port has SCSI target capability
-  USHORT  initiator:    1;     // bit5: this Port has SCSI initiator capability
-  USHORT  extLoopback:  1;     // bit6: loopback at GBIC
-  USHORT  intLoopback:  1;     // bit7: loopback in HP silicon
-  USHORT        : 1;           // bit8:
-  USHORT        : 1;           // bit9:
-  USHORT        : 1;           // bit10:
-  USHORT        : 1;           // bit11:
-  USHORT        : 1;           // bit12:
-  USHORT        : 1;           // bit13:
-  USHORT        : 1;           // bit14:
-  USHORT        : 1;           // bit15:
+typedef struct			// Config Options
+{				// LS Bit first
+	__u16:1;		// bit0:
+	__u16 flogi:1;		// bit1: We sent FLOGI - wait for Fabric logins
+	__u16 fabric:1;	// bit2: Tachyon detected Fabric (FM stat LG)
+	__u16 LILPin:1;	// bit3: We can use an FC-AL LILP frame
+	__u16 target:1;	// bit4: this Port has SCSI target capability
+	__u16 initiator:1;	// bit5: this Port has SCSI initiator capability
+	__u16 extLoopback:1;	// bit6: loopback at GBIC
+	__u16 intLoopback:1;	// bit7: loopback in HP silicon
+	 __u16:1;		// bit8:
+	 __u16:1;		// bit9:
+	 __u16:1;		// bit10:
+	 __u16:1;		// bit11:
+	 __u16:1;		// bit12:
+	 __u16:1;		// bit13:
+	 __u16:1;		// bit14:
+	 __u16:1;		// bit15:
 } FC_OPTIONS;
 
 
 
-typedef struct dyn_mem_pair
-{
-  void *BaseAllocated;  // address as allocated from O/S;
-  unsigned long AlignedAddress; // aligned address (used by Tachyon DMA)
-  dma_addr_t dma_handle;
-  size_t size;
+typedef struct dyn_mem_pair {
+	void *BaseAllocated;	// address as allocated from O/S;
+	unsigned long AlignedAddress;	// aligned address (used by Tachyon DMA)
+	dma_addr_t dma_handle;
+	size_t size;
 } ALIGNED_MEM;
 
 
@@ -675,66 +663,63 @@ typedef struct dyn_mem_pair
 #define IMPLICIT_LOGOUT 1
 #define EXPLICIT_LOGOUT 2
 
-typedef struct 
-{
-  UCHAR channel; // SCSI "bus"
-  UCHAR target;
-  UCHAR InqDeviceType;  // byte 0 from SCSI Inquiry response
-  UCHAR VolumeSetAddressing;  // FCP-SCSI LUN coding (40h for VSA)
-  UCHAR LunMasking;     // True if selective presentation supported
-  UCHAR lun[CPQFCTS_MAX_LUN];
+typedef struct {
+	__u8 channel;		// SCSI "bus"
+	__u8 target;
+	__u8 InqDeviceType;	// byte 0 from SCSI Inquiry response
+	__u8 VolumeSetAddressing;	// FCP-SCSI LUN coding (40h for VSA)
+	__u8 LunMasking;	// True if selective presentation supported
+	__u8 lun[CPQFCTS_MAX_LUN];
 } SCSI_NEXUS;
 
 
-typedef struct        
-{
-  union 
-  {
-    UCHAR ucWWN[8];  // a FC 64-bit World Wide Name/ PortID of target
-                     // addressing of single target on single loop...
-    u64 liWWN;
-  } u;
+typedef struct {
+	union {
+		__u8 ucWWN[8];	// a FC 64-bit World Wide Name/ PortID of target
+		// addressing of single target on single loop...
+		u64 liWWN;
+	} u;
 
-  ULONG port_id;     // a FC 24-bit address of port (lower 8 bits = al_pa)
+	__u32 port_id;		// a FC 24-bit address of port (lower 8 bits = al_pa)
 
-  Scsi_Cmnd ScsiCmnd;   // command buffer for Report Luns
-#define REPORT_LUNS_PL 256  
-  UCHAR ReportLunsPayload[REPORT_LUNS_PL];
-  
-  SCSI_NEXUS ScsiNexus; // LUNs per FC device
+	Scsi_Cmnd ScsiCmnd;	// command buffer for Report Luns
+#define REPORT_LUNS_PL 256
+	__u8 ReportLunsPayload[REPORT_LUNS_PL];
 
-  ULONG LOGO_counter; // might try several times before logging out for good
-  ULONG LOGO_timer;   // after LIP, ports expecting PDISC must time-out and
-                      // LOGOut if successful PDISC not completed in 2 secs
+	SCSI_NEXUS ScsiNexus;	// LUNs per FC device
 
-  ULONG concurrent_seq;  // must be 1 or greater
-  ULONG rx_data_size;    // e.g. 128, 256, 1024, 2048 per FC-PH spec
-  ULONG BB_credit;
-  ULONG EE_credit;
+	__u32 LOGO_counter;	// might try several times before logging out for good
+	__u32 LOGO_timer;	// after LIP, ports expecting PDISC must time-out and
+	// LOGOut if successful PDISC not completed in 2 secs
 
-  ULONG fcp_info;        // from PRLI (i.e. INITIATOR/ TARGET flags)
-                         // flags for login process
-  BOOLEAN Originator;    // Login sequence Originated (if false, we
-                         // responded to another port's login sequence)
-  BOOLEAN plogi;         // PLOGI frame ACCepted (originated or responded)
-  BOOLEAN pdisc;         // PDISC frame was ORIGINATED (self-login logic)
-  BOOLEAN prli;          // PRLI frame ACCepted (originated or responded)
-  BOOLEAN flogi;         // FLOGI frame ACCepted (originated or responded)
-  BOOLEAN logo;          // port permanently logged out (invalid login param)
-  BOOLEAN flogiReq;      // Fabric login required (set in LIP process)
-  UCHAR highest_ver;
-  UCHAR lowest_ver;
+	__u32 concurrent_seq;	// must be 1 or greater
+	__u32 rx_data_size;	// e.g. 128, 256, 1024, 2048 per FC-PH spec
+	__u32 BB_credit;
+	__u32 EE_credit;
 
-  
-  // when the "target" (actually FC Port) is waiting for login
-  // (e.g. after Link reset), set the device_blocked bit;
-  // after Port completes login, un-block target.
-  UCHAR device_blocked; // see Scsi_Device struct
+	__u32 fcp_info;		// from PRLI (i.e. INITIATOR/ TARGET flags)
+	// flags for login process
+	__u8 Originator;	// Login sequence Originated (if false, we
+	// responded to another port's login sequence)
+	__u8 plogi;		// PLOGI frame ACCepted (originated or responded)
+	__u8 pdisc;		// PDISC frame was ORIGINATED (self-login logic)
+	__u8 prli;		// PRLI frame ACCepted (originated or responded)
+	__u8 flogi;		// FLOGI frame ACCepted (originated or responded)
+	__u8 logo;		// port permanently logged out (invalid login param)
+	__u8 flogiReq;	// Fabric login required (set in LIP process)
+	__u8 highest_ver;
+	__u8 lowest_ver;
 
-                    // define singly-linked list of logged-in ports
-                    // once a port_id is identified, it is remembered,
-                    // even if the port is removed indefinitely
-  PVOID pNextPort;  // actually, type PFC_LOGGEDIN_PORT; void for Compiler
+
+	// when the "target" (actually FC Port) is waiting for login
+	// (e.g. after Link reset), set the device_blocked bit;
+	// after Port completes login, un-block target.
+	__u8 device_blocked;	// see Scsi_Device struct
+
+	// define singly-linked list of logged-in ports
+	// once a port_id is identified, it is remembered,
+	// even if the port is removed indefinitely
+	void * pNextPort;	// actually, type PFC_LOGGEDIN_PORT; void for Compiler
 
 } FC_LOGGEDIN_PORT, *PFC_LOGGEDIN_PORT;
 
@@ -742,16 +727,15 @@ typedef struct
 
 // This serves as the ESB (Exchange Status Block),
 // and has timeout counter; used for ABORTs
-typedef struct                
-{                                  // FC-1 X_IDs
-  ULONG type;            // ELS_PLOGI, SCSI_IWE, ... (0 if free)
-  PFC_LOGGEDIN_PORT pLoggedInPort; // FC device on other end of Exchange
-  Scsi_Cmnd *Cmnd;       // Linux SCSI command packet includes S/G list
-  ULONG timeOut;         // units of ??, DEC by driver, Abort when 0
-  ULONG reTries;         // need one or more retries?
-  ULONG status;          // flags indicating errors (0 if none)
-  TachLiteIRB IRB;       // I/O Request Block, gets copied to ERQ
-  TachFCHDR_GCMND fchs;  // location of IRB's Req_A_SFS_Addr
+typedef struct {		// FC-1 X_IDs
+	__u32 type;		// ELS_PLOGI, SCSI_IWE, ... (0 if free)
+	PFC_LOGGEDIN_PORT pLoggedInPort;	// FC device on other end of Exchange
+	Scsi_Cmnd *Cmnd;	// Linux SCSI command packet includes S/G list
+	__u32 timeOut;		// units of ??, DEC by driver, Abort when 0
+	__u32 reTries;		// need one or more retries?
+	__u32 status;		// flags indicating errors (0 if none)
+	TachLiteIRB IRB;	// I/O Request Block, gets copied to ERQ
+	TachFCHDR_GCMND fchs;	// location of IRB's Req_A_SFS_Addr
 } FC_EXCHANGE, *PFC_EXCHANGE;
 
 // Unfortunately, Linux limits our kmalloc() allocations to 128k.
@@ -761,9 +745,9 @@ typedef struct
 // (In other words, this cumbersome indirection is necessary
 // because of kernel memory allocation constraints!)
 
-typedef struct // we will allocate this dynamically
+typedef struct			// we will allocate this dynamically
 {
-  FC_EXCHANGE fcExchange[ TACH_MAX_XID ];
+	FC_EXCHANGE fcExchange[TACH_MAX_XID];
 } FC_EXCHANGES;
 
 
@@ -776,95 +760,89 @@ typedef struct // we will allocate this dynamically
 
 
 
-typedef struct
-{
-  char Name[64]; // name of controller ("HP Tachlite TL Rev2.0, 33MHz, 64bit bus")
-  //PVOID  pAdapterDevExt; // back pointer to device object/extension
-  ULONG ChipType;        // local numeric key for Tachyon Type / Rev.
-  ULONG status;              // our Driver - logical status
-  
-  TL_REGISTERS Registers;    // reg addresses & host memory copies
-                             // FC-4 mapping of 'transaction' to X_IDs
-  UCHAR LILPmap[32*4];       // Loop Position Map of ALPAs (late FC-AL only)
-  FC_OPTIONS Options;        // e.g. Target, Initiator, loopback...
-  UCHAR highest_FCPH_ver;    // FC-PH version limits
-  UCHAR lowest_FCPH_ver;     // FC-PH version limits
+typedef struct {
+	char Name[64];		// name of controller ("HP Tachlite TL Rev2.0, 33MHz, 64bit bus")
+	//void *  pAdapterDevExt; // back pointer to device object/extension
+	__u32 ChipType;		// local numeric key for Tachyon Type / Rev.
+	__u32 status;		// our Driver - logical status
 
-  FC_EXCHANGES *Exchanges;  
-  ULONG fcLsExchangeLRU;       // Least Recently Used counter (Link Service)
-  ULONG fcSestExchangeLRU;       // Least Recently Used counter (FCP-SCSI)
-  FC_LOGGEDIN_PORT fcPorts;  // linked list of every FC port ever seen
-  FCSTATS fcStats;           // FC comm err counters
+	TL_REGISTERS Registers;	// reg addresses & host memory copies
+	// FC-4 mapping of 'transaction' to X_IDs
+	__u8 LILPmap[32 * 4];	// Loop Position Map of ALPAs (late FC-AL only)
+	FC_OPTIONS Options;	// e.g. Target, Initiator, loopback...
+	__u8 highest_FCPH_ver;	// FC-PH version limits
+	__u8 lowest_FCPH_ver;	// FC-PH version limits
 
-                             // Host memory QUEUE pointers
-  TachLiteERQ *ERQ;          // Exchange Request Que 
-  TachyonIMQ *IMQ;           // Inbound Message Que 
-  TachLiteSFQ *SFQ;          // Single Frame Queue
-  TachSEST *SEST;            // SCSI Exchange State Table
+	FC_EXCHANGES *Exchanges;
+	__u32 fcLsExchangeLRU;	// Least Recently Used counter (Link Service)
+	__u32 fcSestExchangeLRU;	// Least Recently Used counter (FCP-SCSI)
+	FC_LOGGEDIN_PORT fcPorts;	// linked list of every FC port ever seen
+	FCSTATS fcStats;	// FC comm err counters
 
-  dma_addr_t exch_dma_handle;
+	// Host memory QUEUE pointers
+	TachLiteERQ *ERQ;	// Exchange Request Que 
+	TachyonIMQ *IMQ;	// Inbound Message Que 
+	TachLiteSFQ *SFQ;	// Single Frame Queue
+	TachSEST *SEST;		// SCSI Exchange State Table
 
-  // these function pointers are for "generic" functions, which are
-  // replaced with Host Bus Adapter types at
-  // runtime.
-  int (*CreateTachyonQues)( void* , int);
-  int (*DestroyTachyonQues)( void* , int);
-  int (*LaserControl)(void*, int );   // e.g. On/Off
-  int (*ResetTachyon)(void*, int );
-  void (*FreezeTachyon)(void*, int );
-  void (*UnFreezeTachyon)(void*, int );
-  int (*InitializeTachyon)(void*, int, int );
-  int (*InitializeFrameManager)(void*, int );
-  int (*ProcessIMQEntry)(void*);
-  int (*ReadWriteWWN)(void*, int ReadWrite);
-  int (*ReadWriteNVRAM)(void*, void*, int ReadWrite);
+	dma_addr_t exch_dma_handle;
+
+	// these function pointers are for "generic" functions, which are
+	// replaced with Host Bus Adapter types at
+	// runtime.
+	int (*CreateTachyonQues) (void *, int);
+	int (*DestroyTachyonQues) (void *, int);
+	int (*LaserControl) (void *, int);	// e.g. On/Off
+	int (*ResetTachyon) (void *, int);
+	void (*FreezeTachyon) (void *, int);
+	void (*UnFreezeTachyon) (void *, int);
+	int (*InitializeTachyon) (void *, int, int);
+	int (*InitializeFrameManager) (void *, int);
+	int (*ProcessIMQEntry) (void *);
+	int (*ReadWriteWWN) (void *, int ReadWrite);
+	int (*ReadWriteNVRAM) (void *, void *, int ReadWrite);
 
 } TACHYON, *PTACHYON;
 
 
 void cpqfcTSClearLinkStatusCounters(TACHYON * fcChip);
 
-int CpqTsCreateTachLiteQues( void* pHBA, int opcode);
-int CpqTsDestroyTachLiteQues( void* , int);
-int CpqTsInitializeTachLite( void *pHBA, int opcode1, int opcode2);
+int CpqTsCreateTachLiteQues(void *pHBA, int opcode);
+int CpqTsDestroyTachLiteQues(void *, int);
+int CpqTsInitializeTachLite(void *pHBA, int opcode1, int opcode2);
 
-int CpqTsProcessIMQEntry(void* pHBA);
+int CpqTsProcessIMQEntry(void *pHBA);
 int CpqTsResetTachLite(void *pHBA, int type);
 void CpqTsFreezeTachlite(void *pHBA, int type);
 void CpqTsUnFreezeTachlite(void *pHBA, int type);
 int CpqTsInitializeFrameManager(void *pHBA, int);
-int CpqTsLaserControl( void* addrBase, int opcode );
-int CpqTsReadWriteWWN(void*, int ReadWrite);
-int CpqTsReadWriteNVRAM(void*, void* data, int ReadWrite);
+int CpqTsLaserControl(void *addrBase, int opcode);
+int CpqTsReadWriteWWN(void *, int ReadWrite);
+int CpqTsReadWriteNVRAM(void *, void *data, int ReadWrite);
 
-void cpqfcTS_WorkTask( struct Scsi_Host *HostAdapter);
-void cpqfcTSWorkerThread( void *host);
+void cpqfcTS_WorkTask(struct Scsi_Host *HostAdapter);
+void cpqfcTSWorkerThread(void *host);
 
-int cpqfcTS_GetNVRAM_data( UCHAR *wwnbuf, UCHAR *buf );
-ULONG cpqfcTS_ReadNVRAM( void* GPIOin, void* GPIOout , USHORT count,
-	UCHAR *buf );
+int cpqfcTS_GetNVRAM_data(__u8 * wwnbuf, __u8 * buf);
+__u32 cpqfcTS_ReadNVRAM(void *GPIOin, void *GPIOout, __u16 count, __u8 * buf);
 
-BOOLEAN tl_write_i2c_nvram( void* GPIOin, void* GPIOout,
-  USHORT startOffset,  // e.g. 0x2f for WWN start
-  USHORT count,
-  UCHAR *buf );
+__u8 tl_write_i2c_nvram(void *GPIOin, void *GPIOout, __u16 startOffset,	// e.g. 0x2f for WWN start
+			   __u16 count, __u8 * buf);
 
 
 // define misc functions 
-int cpqfcTSGetLPSM( PTACHYON fcChip, char cErrorString[]);
-int cpqfcTSDecodeGBICtype( PTACHYON fcChip, char cErrorString[]);
-void* fcMemManager( struct pci_dev *pdev,
-		ALIGNED_MEM *dyn_mem_pair, ULONG n_alloc, ULONG ab,
-                   ULONG ulAlignedAddress, dma_addr_t *dma_handle);
+int cpqfcTSGetLPSM(PTACHYON fcChip, char cErrorString[]);
+int cpqfcTSDecodeGBICtype(PTACHYON fcChip, char cErrorString[]);
+void *fcMemManager(struct pci_dev *pdev, ALIGNED_MEM * dyn_mem_pair, __u32 n_alloc, __u32 ab, __u32 ulAlignedAddress, dma_addr_t * dma_handle);
 
-void BigEndianSwap(  UCHAR *source, UCHAR *dest,  USHORT cnt);
+void BigEndianSwap(__u8 * source, __u8 * dest, __u16 cnt);
 
-//ULONG virt_to_phys( PVOID virtaddr );
-                  
+//__u32 virt_to_phys( void * virtaddr );
+
 
 // Linux interrupt handler
-void cpqfcTS_intr_handler( int irq,void *dev_id,struct pt_regs *regs);
-void cpqfcTSheartbeat( unsigned long ptr );
+void cpqfcTS_intr_handler(int irq, void *dev_id, struct pt_regs *regs);
+void cpqfcTSheartbeat(unsigned long ptr);
 
 
 
@@ -872,19 +850,17 @@ void cpqfcTSheartbeat( unsigned long ptr );
 // need 4 bytes for x_ID, and a Scsi_Cmnd (~284 bytes)
 //#define LINKQ_ITEM_SIZE ((4+sizeof(Scsi_Cmnd)+3)/4)
 #define LINKQ_ITEM_SIZE (3*16)
-typedef struct
-{
-  ULONG Type;              // e.g. LINKUP, SFQENTRY, PDISC, BLS_ABTS, ...
-  ULONG ulBuff[ LINKQ_ITEM_SIZE ];
+typedef struct {
+	__u32 Type;		// e.g. LINKUP, SFQENTRY, PDISC, BLS_ABTS, ...
+	__u32 ulBuff[LINKQ_ITEM_SIZE];
 } LINKQ_ITEM;
 
 #define FC_LINKQ_DEPTH TACH_MAX_XID
-typedef struct
-{
-  ULONG producer;
-  ULONG consumer;  // when producer equals consumer, Q empty
+typedef struct {
+	__u32 producer;
+	__u32 consumer;		// when producer equals consumer, Q empty
 
-  LINKQ_ITEM Qitem[ FC_LINKQ_DEPTH ];
+	LINKQ_ITEM Qitem[FC_LINKQ_DEPTH];
 
 } FC_LINK_QUE, *PFC_LINK_QUE;
 
@@ -893,18 +869,16 @@ typedef struct
      // User thread processes
 #define FC_SCSIQ_DEPTH 32
 
-typedef struct
-{
-  int Type;              // e.g. SCSI
-  ULONG ulBuff[ 3*16 ];
+typedef struct {
+	int Type;		// e.g. SCSI
+	__u32 ulBuff[3 * 16];
 } SCSIQ_ITEM;
 
-typedef struct
-{
-  ULONG producer;
-  ULONG consumer;  // when producer equals consumer, Q empty
+typedef struct {
+	__u32 producer;
+	__u32 consumer;		// when producer equals consumer, Q empty
 
-  SCSIQ_ITEM Qitem[ FC_SCSIQ_DEPTH ];
+	SCSIQ_ITEM Qitem[FC_SCSIQ_DEPTH];
 
 } FC_SCSI_QUE, *PFC_SCSI_QUE;
 
@@ -912,44 +886,43 @@ typedef struct
 
 
 
-#define DYNAMIC_ALLOCATIONS 4  // Tachyon aligned allocations: ERQ,IMQ,SFQ,SEST
+#define DYNAMIC_ALLOCATIONS 4	// Tachyon aligned allocations: ERQ,IMQ,SFQ,SEST
 
 // Linux space allocated per HBA (chip state, etc.)
-typedef struct 
-{
-  struct Scsi_Host *HostAdapter; // back pointer to Linux Scsi struct
+typedef struct {
+	struct Scsi_Host *HostAdapter;	// back pointer to Linux Scsi struct
 
-  TACHYON fcChip;    // All Tachyon registers, Queues, functions
-  ALIGNED_MEM dynamic_mem[DYNAMIC_ALLOCATIONS];
+	TACHYON fcChip;		// All Tachyon registers, Queues, functions
+	ALIGNED_MEM dynamic_mem[DYNAMIC_ALLOCATIONS];
 
-  struct pci_dev *PciDev;
-  dma_addr_t fcLQ_dma_handle;
+	struct pci_dev *PciDev;
+	dma_addr_t fcLQ_dma_handle;
 
-  Scsi_Cmnd *LinkDnCmnd[CPQFCTS_REQ_QUEUE_LEN]; // collects Cmnds during LDn
-                                                // (for Acceptable targets)
-  Scsi_Cmnd *BoardLockCmnd[CPQFCTS_REQ_QUEUE_LEN]; // SEST was full
-  
-  Scsi_Cmnd *BadTargetCmnd[CPQFCTS_MAX_TARGET_ID]; // missing targets
+	Scsi_Cmnd *LinkDnCmnd[CPQFCTS_REQ_QUEUE_LEN];	// collects Cmnds during LDn
+	// (for Acceptable targets)
+	Scsi_Cmnd *BoardLockCmnd[CPQFCTS_REQ_QUEUE_LEN];	// SEST was full
 
-  u_char HBAnum;     // 0-based host number
+	Scsi_Cmnd *BadTargetCmnd[CPQFCTS_MAX_TARGET_ID];	// missing targets
+
+	u_char HBAnum;		// 0-based host number
 
 
-  struct timer_list cpqfcTStimer; // FC utility timer for implicit
-                                  // logouts, FC protocol timeouts, etc.
-  int fcStatsTime;  // Statistics delta reporting time
+	struct timer_list cpqfcTStimer;	// FC utility timer for implicit
+	// logouts, FC protocol timeouts, etc.
+	int fcStatsTime;	// Statistics delta reporting time
 
-  struct task_struct *worker_thread; // our kernel thread
-  int PortDiscDone;    // set by SendLogins(), cleared by LDn
-  
-  struct semaphore *TachFrozen;
-  struct semaphore *TYOBcomplete;    // handshake for Tach outbound frames
-  struct semaphore *fcQueReady;      // FibreChannel work for our kernel thread
-  struct semaphore *notify_wt;       // synchronizes kernel thread kill
-  struct semaphore *BoardLock;
-  
-  PFC_LINK_QUE fcLQ;             // the WorkerThread operates on this
+	struct task_struct *worker_thread;	// our kernel thread
+	int PortDiscDone;	// set by SendLogins(), cleared by LDn
 
-  spinlock_t hba_spinlock;           // held/released by WorkerThread
+	struct semaphore *TachFrozen;
+	struct semaphore *TYOBcomplete;	// handshake for Tach outbound frames
+	struct semaphore *fcQueReady;	// FibreChannel work for our kernel thread
+	struct semaphore *notify_wt;	// synchronizes kernel thread kill
+	struct semaphore *BoardLock;
+
+	PFC_LINK_QUE fcLQ;	// the WorkerThread operates on this
+
+	spinlock_t hba_spinlock;	// held/released by WorkerThread
 
 } CPQFCHBA;
 
@@ -958,69 +931,40 @@ typedef struct
 
 
 
-void cpqfcTSImplicitLogout( CPQFCHBA* cpqfcHBAdata,
-		PFC_LOGGEDIN_PORT pFcPort);
+void cpqfcTSImplicitLogout(CPQFCHBA * cpqfcHBAdata, PFC_LOGGEDIN_PORT pFcPort);
 
 
-void cpqfcTSTerminateExchange( CPQFCHBA*, SCSI_NEXUS *target, int );
+void cpqfcTSTerminateExchange(CPQFCHBA *, SCSI_NEXUS * target, int);
 
-PFC_LOGGEDIN_PORT fcPortLoggedIn( 
-   CPQFCHBA *cpqfcHBAdata, 
-   TachFCHDR_GCMND* fchs, 
-   BOOLEAN, 
-   BOOLEAN);
-void fcProcessLoggedIn( 
-   CPQFCHBA *cpqfcHBAdata, TachFCHDR_GCMND* fchs);
+PFC_LOGGEDIN_PORT fcPortLoggedIn(CPQFCHBA * cpqfcHBAdata, TachFCHDR_GCMND * fchs, __u8, __u8);
+void fcProcessLoggedIn(CPQFCHBA * cpqfcHBAdata, TachFCHDR_GCMND * fchs);
 
 
-ULONG cpqfcTSBuildExchange( 
-  CPQFCHBA *cpqfcHBAdata,
-  ULONG type, // e.g. PLOGI
-  TachFCHDR_GCMND* InFCHS,  // incoming FCHS
-  void *Data,               // the CDB, scatter/gather, etc.  
-  LONG *ExchangeID );       // allocated exchange ID
+__u32 cpqfcTSBuildExchange(CPQFCHBA * cpqfcHBAdata, __u32 type,	// e.g. PLOGI
+			   TachFCHDR_GCMND * InFCHS,	// incoming FCHS
+			   void *Data,	// the CDB, scatter/gather, etc.  
+			   __s32 * ExchangeID);	// allocated exchange ID
 
-ULONG cpqfcTSStartExchange( 
-  CPQFCHBA *cpqfcHBAdata,
-  LONG ExchangeID );
+__u32 cpqfcTSStartExchange(CPQFCHBA * cpqfcHBAdata, __s32 ExchangeID);
 
-void cpqfcTSCompleteExchange( 
-       struct pci_dev *pcidev,
-       PTACHYON fcChip, 
-       ULONG exchange_ID);
+void cpqfcTSCompleteExchange(struct pci_dev *pcidev, PTACHYON fcChip, __u32 exchange_ID);
 
 
-PFC_LOGGEDIN_PORT  fcFindLoggedInPort( 
-  PTACHYON fcChip, 
-  Scsi_Cmnd *Cmnd,  // (We want the channel/target/lun Nexus from Cmnd)
-  ULONG port_id,  // search linked list for al_pa, or
-  UCHAR wwn[8],    // search linked list for WWN, or...
-  PFC_LOGGEDIN_PORT *pLastLoggedInPort
-);
+PFC_LOGGEDIN_PORT fcFindLoggedInPort(PTACHYON fcChip, Scsi_Cmnd * Cmnd,	// (We want the channel/target/lun Nexus from Cmnd)
+				     __u32 port_id,	// search linked list for al_pa, or
+				     __u8 wwn[8],	// search linked list for WWN, or...
+				     PFC_LOGGEDIN_PORT * pLastLoggedInPort);
 
-void cpqfcTSPutLinkQue( 
-  CPQFCHBA *cpqfcHBAdata, 
-  int Type, 
-  void *QueContent);
+void cpqfcTSPutLinkQue(CPQFCHBA * cpqfcHBAdata, int Type, void *QueContent);
 
-void fcPutScsiQue( 
-  CPQFCHBA *cpqfcHBAdata, 
-  int Type, 
-  void *QueContent);
+void fcPutScsiQue(CPQFCHBA * cpqfcHBAdata, int Type, void *QueContent);
 
-void fcLinkQReset(
-   CPQFCHBA *);
-void fcScsiQReset(
-   CPQFCHBA *);
-void fcSestReset(
-   CPQFCHBA *);
+void fcLinkQReset(CPQFCHBA *);
+void fcScsiQReset(CPQFCHBA *);
+void fcSestReset(CPQFCHBA *);
 
-void cpqfc_pci_unmap(struct pci_dev *pcidev, 
-	Scsi_Cmnd *cmd, 
-	PTACHYON fcChip, 
-	ULONG x_ID);
+void cpqfc_pci_unmap(struct pci_dev *pcidev, Scsi_Cmnd * cmd, PTACHYON fcChip, __u32 x_ID);
 
-extern const UCHAR valid_al_pa[];
 extern const int number_of_al_pa;
 
 #define FCP_RESID_UNDER   0x80000
@@ -1036,37 +980,35 @@ extern const int number_of_al_pa;
 #define FCP_TASKFUNCTION_FAIL      0x5000000
 
 // FCP-SCSI response status struct
-typedef struct  // see "TachFCHDR_RSP" definition - 64 bytes
+typedef struct			// see "TachFCHDR_RSP" definition - 64 bytes
 {
-  __u32 reserved;
-  __u32 reserved1;
-  __u32 fcp_status;    // field validity and SCSI status
-  __u32 fcp_resid;
-  __u32 fcp_sns_len;   // length of FCP_SNS_INFO field
-  __u32 fcp_rsp_len;   // length of FCP_RSP_INFO field (expect 8)
-  __u32 fcp_rsp_info;  // 4 bytes of FCP protocol response information
-  __u32 fcp_rsp_info2; // (4 more bytes, since most implementations use 8)
-  __u8  fcp_sns_info[36]; // bytes for SCSI sense (ASC, ASCQ)
+	__u32 reserved;
+	__u32 reserved1;
+	__u32 fcp_status;	// field validity and SCSI status
+	__u32 fcp_resid;
+	__u32 fcp_sns_len;	// length of FCP_SNS_INFO field
+	__u32 fcp_rsp_len;	// length of FCP_RSP_INFO field (expect 8)
+	__u32 fcp_rsp_info;	// 4 bytes of FCP protocol response information
+	__u32 fcp_rsp_info2;	// (4 more bytes, since most implementations use 8)
+	__u8 fcp_sns_info[36];	// bytes for SCSI sense (ASC, ASCQ)
 
 } FCP_STATUS_RESPONSE, *PFCP_STATUS_RESPONSE;
 
 
 // Fabric State Change Registration
-typedef struct scrpl
-{
-  __u32 command;
-  __u32 function;
+typedef struct scrpl {
+	__u32 command;
+	__u32 function;
 } SCR_PL;
 
 // Fabric Name Service Request
-typedef struct nsrpl
-{
-  __u32 CT_Rev;  // (& IN_ID)   WORD 0
-  __u32 FCS_Type;            // WORD 1
-  __u32 Command_code;        // WORD 2
-  __u32 reason_code;         // WORD 3
-  __u32 FCP;                 // WORD 4 (lower byte)
-  
+typedef struct nsrpl {
+	__u32 CT_Rev;		// (& IN_ID)   WORD 0
+	__u32 FCS_Type;		// WORD 1
+	__u32 Command_code;	// WORD 2
+	__u32 reason_code;	// WORD 3
+	__u32 FCP;		// WORD 4 (lower byte)
+
 } NSR_PL;
 
 
@@ -1089,12 +1031,12 @@ typedef struct nsrpl
 					// PDISC after a LIP.
 #define E_D_TOV			2	// Minimum Time to wait for Sequence
 					// Completion.
-#define R_A_TOV			0	// Minimum Time for Target to wait 
+#define R_A_TOV			0	// Minimum Time for Target to wait
 					// before reclaiming resources.
 //
-//	R_CTL Field
+//      R_CTL Field
 //
-//	Routing Bits (31-28)
+//      Routing Bits (31-28)
 //
 #define FC4_DEVICE_DATA		0x00000000
 #define EXT_LINK_DATA		0x20000000
@@ -1105,7 +1047,7 @@ typedef struct nsrpl
 #define ROUTING_MASK		0xF0000000
 
 //
-//	Information Bits (27-24)
+//      Information Bits (27-24)
 //
 #define UNCAT_INFORMATION	0x00000000
 #define SOLICITED_DATA		0x01000000
@@ -1117,20 +1059,20 @@ typedef struct nsrpl
 #define COMMAND_STATUS		0x07000000
 #define INFO_MASK		0x0F000000
 //
-//	(Link Control Codes)
+//      (Link Control Codes)
 //
 #define ACK_1			0x00000000
 #define ACK_0_OR_N		0x01000000
-#define P_RJT			0x02000000 
-#define F_RJT			0x03000000 
+#define P_RJT			0x02000000
+#define F_RJT			0x03000000
 #define P_BSY			0x04000000
 #define FABRIC_BUSY_TO_DF	0x05000000	// Fabric Busy to Data Frame
 #define FABRIC_BUSY_TO_LC	0x06000000	// Fabric Busy to Link Ctl Frame
 #define LINK_CREDIT_RESET	0x07000000
 //
-//	(Link Service Command Codes)
+//      (Link Service Command Codes)
 //
-//#define LS_RJT			0x01000000	// LS Reject
+//#define LS_RJT                        0x01000000      // LS Reject
 
 #define LS_ACC			0x02000000	// LS Accept
 #define LS_PLOGI		0x03000000	// N_PORT Login
@@ -1156,11 +1098,11 @@ typedef struct nsrpl
 #define LS_FDISC		0x51000000	// Fabric Discovery
 #define LS_ADISC		0x52000000	// Discover Address
 #define LS_RNC			0x53000000	// Report Node Capability
-#define LS_SCR                  0x62000000      // State Change Registration
-#define LS_MASK			0xFF000000	
+#define LS_SCR                  0x62000000	// State Change Registration
+#define LS_MASK			0xFF000000
 
 //
-// 	TYPE Bit Masks
+//      TYPE Bit Masks
 //
 #define BASIC_LINK_SERVICE	0x00000000
 #define EXT_LINK_SERVICE	0x01000000
@@ -1186,35 +1128,35 @@ typedef struct nsrpl
 #define TYPE_MASK		0xFF000000
 
 typedef struct {
-	UCHAR seq_id_valid;
-	UCHAR seq_id;
-	USHORT reserved;  // 2 bytes reserved
-	ULONG ox_rx_id;
-	USHORT low_seq_cnt;
-	USHORT high_seq_cnt;
+	__u8 seq_id_valid;
+	__u8 seq_id;
+	__u16 reserved;	// 2 bytes reserved
+	__u32 ox_rx_id;
+	__u16 low_seq_cnt;
+	__u16 high_seq_cnt;
 } BA_ACC_PAYLOAD;
 
 typedef struct {
-	UCHAR reserved;
-	UCHAR reason_code;
-	UCHAR reason_explain;
-	UCHAR vendor_unique;
+	__u8 reserved;
+	__u8 reason_code;
+	__u8 reason_explain;
+	__u8 vendor_unique;
 } BA_RJT_PAYLOAD;
 
 
 typedef struct {
-	ULONG 	command_code;
-	ULONG 	sid;
-	USHORT	ox_id;
-	USHORT	rx_id;
+	__u32 command_code;
+	__u32 sid;
+	__u16 ox_id;
+	__u16 rx_id;
 } RRQ_MESSAGE;
 
 typedef struct {
-	ULONG command_code;
-	UCHAR vendor;
-	UCHAR explain;
-	UCHAR reason;
-	UCHAR reserved;
+	__u32 command_code;
+	__u8 vendor;
+	__u8 explain;
+	__u8 reason;
+	__u8 reserved;
 } REJECT_MESSAGE;
 
 
@@ -1244,9 +1186,9 @@ typedef struct {
 
 #define X_ID_INTERLOCK		0x2000
 
-#define ERROR_POLICY		0x1800		// Error Policy Supported
-#define ERROR_DISCARD		0x00		// Only Discard Supported
-#define ERROR_DISC_PROCESS	0x02		// Discard and process supported
+#define ERROR_POLICY		0x1800	// Error Policy Supported
+#define ERROR_DISCARD		0x00	// Only Discard Supported
+#define ERROR_DISC_PROCESS	0x02	// Discard and process supported
 
 #define NODE_ID			0x01
 #define IEEE_EXT		0x20
@@ -1255,88 +1197,87 @@ typedef struct {
 // Categories Supported Per Sequence
 //
 #define	CATEGORIES_PER_SEQUENCE	0x300
-#define ONE_CATEGORY_SEQUENCE	0x00		// 1 Category per Sequence
-#define TWO_CATEGORY_SEQUENCE	0x01		// 2 Categories per Sequence
-#define MANY_CATEGORY_SEQUENCE	0x03		// > 2 Categories/Sequence
+#define ONE_CATEGORY_SEQUENCE	0x00	// 1 Category per Sequence
+#define TWO_CATEGORY_SEQUENCE	0x01	// 2 Categories per Sequence
+#define MANY_CATEGORY_SEQUENCE	0x03	// > 2 Categories/Sequence
 
 typedef struct {
 
-	USHORT initiator_control;
-	USHORT service_options;
+	__u16 initiator_control;
+	__u16 service_options;
 
-	USHORT rx_data_size;
-	USHORT recipient_control;
+	__u16 rx_data_size;
+	__u16 recipient_control;
 
-	USHORT ee_credit;
-	USHORT concurrent_sequences;
+	__u16 ee_credit;
+	__u16 concurrent_sequences;
 
-	USHORT reserved;
-	USHORT open_sequences;
+	__u16 reserved;
+	__u16 open_sequences;
 
 } CLASS_PARAMETERS;
 
 typedef struct {
-	ULONG	login_cmd;
+	__u32 login_cmd;
 	//
 	// Common Service Parameters
 	//
 	struct {
 
-		USHORT bb_credit;
-		UCHAR lowest_ver;
-		UCHAR highest_ver;
+		__u16 bb_credit;
+		__u8 lowest_ver;
+		__u8 highest_ver;
 
-		USHORT bb_rx_size;
-		USHORT common_features;
+		__u16 bb_rx_size;
+		__u16 common_features;
 
-		USHORT rel_offset;
-		USHORT concurrent_seq;
+		__u16 rel_offset;
+		__u16 concurrent_seq;
 
 
-		ULONG e_d_tov;
+		__u32 e_d_tov;
 	} cmn_services;
 
 	//
 	// Port Name
 	//
-	UCHAR port_name[8];
+	__u8 port_name[8];
 
 	//
 	// Node/Fabric Name
 	//
-	UCHAR node_name[8];
+	__u8 node_name[8];
 
 	//
 	// Class 1, 2 and 3 Service Parameters
 	//
-	CLASS_PARAMETERS	class1;
-	CLASS_PARAMETERS	class2;
-	CLASS_PARAMETERS	class3;
+	CLASS_PARAMETERS class1;
+	CLASS_PARAMETERS class2;
+	CLASS_PARAMETERS class3;
 
-	ULONG reserved[4];
+	__u32 reserved[4];
 
 	//
 	// Vendor Version Level
 	//
-	UCHAR		vendor_id[2];
-	UCHAR		vendor_version[6];
-	ULONG		buffer_size;
-	USHORT		rxid_start;
-	USHORT		total_rxids;
+	__u8 vendor_id[2];
+	__u8 vendor_version[6];
+	__u32 buffer_size;
+	__u16 rxid_start;
+	__u16 total_rxids;
 } LOGIN_PAYLOAD;
 
 
-typedef struct
-{
-  ULONG cmd;  // 4 bytes
-  UCHAR n_port_identifier[3];
-  UCHAR reserved;
-  UCHAR port_name[8];
+typedef struct {
+	__u32 cmd;		// 4 bytes
+	__u8 n_port_identifier[3];
+	__u8 reserved;
+	__u8 port_name[8];
 } LOGOUT_PAYLOAD;
 
 
 //
-//	PRLI Request Service Parameter Defines
+//      PRLI Request Service Parameter Defines
 //
 #define PRLI_ACC			0x01
 #define PRLI_REQ			0x02
@@ -1361,54 +1302,54 @@ typedef struct
 #define NO_MULTI_PAGE		0x700
 
 typedef struct {
-	USHORT	payload_length;
-	UCHAR	page_length;
-	UCHAR	cmd;
+	__u16 payload_length;
+	__u8 page_length;
+	__u8 cmd;
 
 
-	ULONG	valid;
+	__u32 valid;
 
-	ULONG	orig_process_associator;
+	__u32 orig_process_associator;
 
-	ULONG	resp_process_associator;
-	
-	ULONG	fcp_info;
+	__u32 resp_process_associator;
+
+	__u32 fcp_info;
 } PRLI_REQUEST;
 
 typedef struct {
 
-	USHORT	payload_length;
-	UCHAR	page_length;
-	UCHAR	cmd;
+	__u16 payload_length;
+	__u8 page_length;
+	__u8 cmd;
 
-	ULONG	valid;
-	ULONG	orig_process_associator;
+	__u32 valid;
+	__u32 orig_process_associator;
 
-	ULONG	resp_process_associator;
-	ULONG	reserved;
+	__u32 resp_process_associator;
+	__u32 reserved;
 } PRLO_REQUEST;
 
 typedef struct {
-	ULONG	cmd;
+	__u32 cmd;
 
-	ULONG	hard_address;
-	
-	UCHAR	port_name[8];
+	__u32 hard_address;
 
-	UCHAR	node_name[8];
+	__u8 port_name[8];
 
-	ULONG	s_id;
+	__u8 node_name[8];
+
+	__u32 s_id;
 } ADISC_PAYLOAD;
 
 struct ext_sg_entry_t {
 	__u32 len:18;		/* buffer length, bits 0-17 */
 	__u32 uba:13;		/* upper bus address bits 18-31 */
 	__u32 lba;		/* lower bus address bits 0-31 */
-}; 
+};
 
 // J. McCarty's LINK.H
 //
-//	LS_RJT Reason Codes
+//      LS_RJT Reason Codes
 //
 
 #define INVALID_COMMAND_CODE	0x01
@@ -1420,7 +1361,7 @@ struct ext_sg_entry_t {
 #define LS_VENDOR_UNIQUE	0xFF
 
 //
-// 	LS_RJT Reason Codes Explanations
+//      LS_RJT Reason Codes Explanations
 //
 #define NO_REASON		0x00
 #define OPTIONS_ERROR		0x01
@@ -1439,38 +1380,38 @@ struct ext_sg_entry_t {
 #define CMD_IN_PROCESS		0x19
 #define INVALID_IDENTIFIER	0x1F	// Invalid N_PORT Identifier
 #define INVALID_SEQ_ID		0x21
-#define ABT_INVALID_XCHNG	0x23 	// Attempt to Abort an invalid Exchange
-#define ABT_INACTIVE_XCHNG	0x25 	// Attempt to Abort an inactive Exchange
+#define ABT_INVALID_XCHNG	0x23	// Attempt to Abort an invalid Exchange
+#define ABT_INACTIVE_XCHNG	0x25	// Attempt to Abort an inactive Exchange
 #define NEED_REC_QUAL		0x27	// Recovery Qualifier required
 #define NO_LOGIN_RESOURCES	0x29	// No resources to support login
 #define NO_DATA			0x2A	// Unable to supply requested data
 #define	REQUEST_NOT_SUPPORTED	0x2C	// Request Not Supported
 
 //
-//	Link Control Codes
+//      Link Control Codes
 //
 
 //
-//	P_BSY Action Codes
+//      P_BSY Action Codes
 //
 #define SEQUENCE_TERMINATED	0x01000000
 #define SEQUENCE_ACTIVE		0x02000000
 
 //
-//	P_BSY Reason Codes
+//      P_BSY Reason Codes
 //
 #define PHYS_NPORT_BUSY		0x010000
 #define NPORT_RESOURCE_BUSY	0x020000
 
 //
-// 	P_RJT, F_RJT Action Codes
+//      P_RJT, F_RJT Action Codes
 //
 
 #define RETRYABLE_ERROR		0x01000000
 #define NON_RETRYABLE_ERROR	0x02000000
 
 //
-// 	P_RJT, F_RJT Reason Codes
+//      P_RJT, F_RJT Reason Codes
 //
 #define INVALID_D_ID		0x010000
 #define INVALID_S_ID		0x020000
@@ -1500,7 +1441,7 @@ struct ext_sg_entry_t {
 #define P_VENDOR_UNIQUE		0xFF0000
 
 //
-// 	BA_RJT Reason Codes
+//      BA_RJT Reason Codes
 //
 #define BA_INVALID_COMMAND	0x00010000
 #define BA_LOGICAL_ERROR	0x00030000
@@ -1509,7 +1450,7 @@ struct ext_sg_entry_t {
 #define BA_UNABLE_TO_PERFORM	0x00090000
 
 //
-// 	BA_RJT Reason Explanation Codes
+//      BA_RJT Reason Explanation Codes
 //
 #define BA_NO_REASON		0x00000000
 #define BA_INVALID_OX_RX	0x00000300
@@ -1517,5 +1458,4 @@ struct ext_sg_entry_t {
 
 
 
-#endif /* CPQFCTSSTRUCTS_H	*/
-
+#endif				/* CPQFCTSSTRUCTS_H      */

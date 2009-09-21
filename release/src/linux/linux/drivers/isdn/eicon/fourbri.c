@@ -337,7 +337,8 @@ static int diva_server_4bri_load(card_t *card, dia_load_t *load)
 static int diva_server_4bri_start(card_t *card, byte *channels)
 {
 	byte *ctl;
-	byte *shared, i;
+	byte *shared;
+	int i;
 	int adapter_num;
 
 	DPRINTF(("divas: start Diva Server 4BRI"));

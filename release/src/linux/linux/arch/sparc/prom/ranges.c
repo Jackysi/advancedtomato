@@ -1,4 +1,4 @@
-/* $Id: ranges.c,v 1.1.1.4 2003/10/14 08:07:49 sparq Exp $
+/* $Id: ranges.c,v 1.14.2.1 2001/12/19 00:16:21 davem Exp $
  * ranges.c: Handle ranges in newer proms for obio/sbus.
  *
  * Copyright (C) 1995 David S. Miller (davem@caip.rutgers.edu)
@@ -34,7 +34,7 @@ prom_adjust_regs(struct linux_prom_registers *regp, int nregs,
 	}
 }
 
-static void
+void
 prom_adjust_ranges(struct linux_prom_ranges *ranges1, int nranges1,
 		   struct linux_prom_ranges *ranges2, int nranges2)
 {

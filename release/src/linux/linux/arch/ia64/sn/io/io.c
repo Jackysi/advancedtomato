@@ -1,12 +1,13 @@
-/* $Id: io.c,v 1.1.1.4 2003/10/14 08:07:22 sparq Exp $
+/* $Id: io.c,v 1.2 2001/06/26 14:02:43 pfg Exp $
  *
  * This file is subject to the terms and conditions of the GNU General Public
  * License.  See the file "COPYING" in the main directory of this archive
  * for more details.
  *
- * Copyright (C) 1992-1997, 2000-2002 Silicon Graphics, Inc.  All Rights Reserved.
+ * Copyright (C) 1992-1997, 2000-2003 Silicon Graphics, Inc.  All Rights Reserved.
  */
 
+#include <linux/config.h>
 #include <linux/types.h>
 #include <linux/slab.h>
 #include <asm/sn/types.h>
@@ -28,37 +29,11 @@
 #include <asm/sn/sn_cpuid.h>
 
 extern xtalk_provider_t hub_provider;
-extern void hub_intr_init(devfs_handle_t hubv);
+extern void hub_intr_init(vertex_hdl_t hubv);
 
+static int force_fire_and_forget = 1;
+static int ignore_conveyor_override;
 
-/*      
- * hub_device_desc_update               
- *      Update the passed in device descriptor with the actual the
- *      target cpu number and interrupt priority level.
- *      NOTE : These might be the same as the ones passed in thru
- *      the descriptor.
- */     
-void
-hub_device_desc_update(device_desc_t    dev_desc,
-                       ilvl_t           intr_swlevel, 
-                       cpuid_t          cpu)
-{       
-}
-
-
-/*
- * Perform any initializations needed to support hub-based I/O.
- * Called once during startup.
- */
-void
-hubio_init(void)
-{
-#ifdef	LATER
-	/* This isn't needed unless we port the entire sio driver ... */
-        extern void early_brl1_port_init( void );
-	early_brl1_port_init();
-#endif
-}
 
 /* 
  * Implementation of hub iobus operations.
@@ -77,8 +52,8 @@ hubio_init(void)
 /*
  * Setup pio structures needed for a particular hub.
  */
-void
-hub_pio_init(devfs_handle_t hubv)
+static void
+hub_pio_init(vertex_hdl_t hubv)
 {
 	xwidgetnum_t widget;
 	hubinfo_t hubinfo;
@@ -111,7 +86,7 @@ hub_pio_init(devfs_handle_t hubv)
 	}
 	hub_set_piomode(nasid, HUB_PIO_CONVEYOR);
 
-	mutex_spinlock_init(&hubinfo->h_bwlock);
+	spin_lock_init(&hubinfo->h_bwlock);
 /*
  * If this lock can be acquired from interrupts or bh's, add SV_INTS or SV_BHS,
  * respectively, to the flags here.
@@ -133,7 +108,7 @@ hub_pio_init(devfs_handle_t hubv)
  */
 /* ARGSUSED */
 hub_piomap_t
-hub_piomap_alloc(devfs_handle_t dev,	/* set up mapping for this device */
+hub_piomap_alloc(vertex_hdl_t dev,	/* set up mapping for this device */
 		device_desc_t dev_desc,	/* device descriptor */
 		iopaddr_t xtalk_addr,	/* map for this xtalk_addr range */
 		size_t byte_count,
@@ -142,13 +117,16 @@ hub_piomap_alloc(devfs_handle_t dev,	/* set up mapping for this device */
 {
 	xwidget_info_t widget_info = xwidget_info_get(dev);
 	xwidgetnum_t widget = xwidget_info_id_get(widget_info);
-	devfs_handle_t hubv = xwidget_info_master_get(widget_info);
+	vertex_hdl_t hubv = xwidget_info_master_get(widget_info);
 	hubinfo_t hubinfo;
 	hub_piomap_t bw_piomap;
 	int bigwin, free_bw_index;
 	nasid_t nasid;
 	volatile hubreg_t junk;
-	unsigned long s;
+	caddr_t kvaddr;
+#ifdef PIOMAP_UNC_ACC_SPACE
+	uint64_t addr;
+#endif
 
 	/* sanity check */
 	if (byte_count_max > byte_count)
@@ -159,8 +137,19 @@ hub_piomap_alloc(devfs_handle_t dev,	/* set up mapping for this device */
 	/* If xtalk_addr range is mapped by a small window, we don't have 
 	 * to do much 
 	 */
-	if (xtalk_addr + byte_count <= SWIN_SIZE)
-		return(hubinfo_swin_piomap_get(hubinfo, (int)widget));
+	if (xtalk_addr + byte_count <= SWIN_SIZE) {
+		hub_piomap_t piomap;
+
+		piomap = hubinfo_swin_piomap_get(hubinfo, (int)widget);
+#ifdef PIOMAP_UNC_ACC_SPACE
+		if (flags & PIOMAP_UNC_ACC) {
+			addr = (uint64_t)piomap->hpio_xtalk_info.xp_kvaddr;
+			addr |= PIOMAP_UNC_ACC_SPACE;
+			piomap->hpio_xtalk_info.xp_kvaddr = (caddr_t)addr;
+		}
+#endif
+		return piomap;
+	}
 
 	/* We need to use a big window mapping.  */
 
@@ -181,7 +170,7 @@ hub_piomap_alloc(devfs_handle_t dev,	/* set up mapping for this device */
 	 */
 tryagain:
 	free_bw_index = -1;
-	s = mutex_spinlock(&hubinfo->h_bwlock);
+	spin_lock(&hubinfo->h_bwlock);
 	for (bigwin=0; bigwin < HUB_NUM_BIG_WINDOW; bigwin++) {
 		bw_piomap = hubinfo_bwin_piomap_get(hubinfo, bigwin);
 
@@ -201,7 +190,7 @@ tryagain:
 		if ( xtalk_addr == bw_piomap->hpio_xtalk_info.xp_xtalk_addr &&
 		     widget == bw_piomap->hpio_xtalk_info.xp_target) {
 			bw_piomap->hpio_holdcnt++;
-			mutex_spinunlock(&hubinfo->h_bwlock, s);
+			spin_unlock(&hubinfo->h_bwlock);
 			return(bw_piomap);
 		}
 	}
@@ -257,7 +246,15 @@ tryagain:
 	bw_piomap->hpio_xtalk_info.xp_dev = dev;
 	bw_piomap->hpio_xtalk_info.xp_target = widget;
 	bw_piomap->hpio_xtalk_info.xp_xtalk_addr = xtalk_addr;
-	bw_piomap->hpio_xtalk_info.xp_kvaddr = (caddr_t)NODE_BWIN_BASE(nasid, free_bw_index);
+	kvaddr = (caddr_t)NODE_BWIN_BASE(nasid, free_bw_index);
+#ifdef PIOMAP_UNC_ACC_SPACE
+	if (flags & PIOMAP_UNC_ACC) {
+		addr = (uint64_t)kvaddr;
+		addr |= PIOMAP_UNC_ACC_SPACE;
+		kvaddr = (caddr_t)addr;
+	}
+#endif
+	bw_piomap->hpio_xtalk_info.xp_kvaddr = kvaddr;
 	bw_piomap->hpio_holdcnt++;
 	bw_piomap->hpio_bigwin_num = free_bw_index;
 
@@ -267,7 +264,7 @@ tryagain:
 		bw_piomap->hpio_flags |= HUB_PIOMAP_IS_VALID;
 
 done:
-	mutex_spinunlock(&hubinfo->h_bwlock, s);
+	spin_unlock(&hubinfo->h_bwlock);
 	return(bw_piomap);
 }
 
@@ -284,10 +281,9 @@ done:
 void
 hub_piomap_free(hub_piomap_t hub_piomap)
 {
-	devfs_handle_t hubv;
+	vertex_hdl_t hubv;
 	hubinfo_t hubinfo;
 	nasid_t nasid;
-	unsigned long s;
 
 	/* 
 	 * Small windows are permanently mapped to corresponding widgets,
@@ -303,7 +299,7 @@ hub_piomap_free(hub_piomap_t hub_piomap)
 	hubinfo_get(hubv, &hubinfo);
 	nasid = hubinfo->h_nasid;
 
-	s = mutex_spinlock(&hubinfo->h_bwlock);
+	spin_lock(&hubinfo->h_bwlock);
 
 	/*
 	 * If this is the last hold on this mapping, free it.
@@ -321,7 +317,7 @@ hub_piomap_free(hub_piomap_t hub_piomap)
 		(void)sv_signal(&hubinfo->h_bwwait);
 	}
 
-	mutex_spinunlock(&hubinfo->h_bwlock, s);
+	spin_unlock(&hubinfo->h_bwlock);
 }
 
 /*
@@ -367,7 +363,7 @@ hub_piomap_done(hub_piomap_t hub_piomap)	/* done with these mapping resources */
  */
 /* ARGSUSED */
 caddr_t
-hub_piotrans_addr(	devfs_handle_t dev,	/* translate to this device */
+hub_piotrans_addr(	vertex_hdl_t dev,	/* translate to this device */
 			device_desc_t dev_desc,	/* device descriptor */
 			iopaddr_t xtalk_addr,	/* Crosstalk address */
 			size_t byte_count,	/* map this many bytes */
@@ -375,15 +371,25 @@ hub_piotrans_addr(	devfs_handle_t dev,	/* translate to this device */
 {
 	xwidget_info_t widget_info = xwidget_info_get(dev);
 	xwidgetnum_t widget = xwidget_info_id_get(widget_info);
-	devfs_handle_t hubv = xwidget_info_master_get(widget_info);
+	vertex_hdl_t hubv = xwidget_info_master_get(widget_info);
 	hub_piomap_t hub_piomap;
 	hubinfo_t hubinfo;
+	caddr_t addr;
 
 	hubinfo_get(hubv, &hubinfo);
 
 	if (xtalk_addr + byte_count <= SWIN_SIZE) {
 		hub_piomap = hubinfo_swin_piomap_get(hubinfo, (int)widget);
-		return(hub_piomap_addr(hub_piomap, xtalk_addr, byte_count));
+		addr = hub_piomap_addr(hub_piomap, xtalk_addr, byte_count);
+#ifdef PIOMAP_UNC_ACC_SPACE
+		if (flags & PIOMAP_UNC_ACC) {
+			uint64_t iaddr;
+			iaddr = (uint64_t)addr;
+			iaddr |= PIOMAP_UNC_ACC_SPACE;
+			addr = (caddr_t)iaddr;
+		}
+#endif
+		return(addr);
 	} else
 		return(0);
 }
@@ -391,19 +397,6 @@ hub_piotrans_addr(	devfs_handle_t dev,	/* translate to this device */
 
 /* DMA MANAGEMENT */
 /* Mapping from crosstalk space to system physical space */
-
-/* 
- * There's not really very much to do here, since crosstalk maps
- * directly to system physical space.  It's quite possible that this
- * DMA layer will be bypassed in performance kernels.
- */
-
-
-/* ARGSUSED */
-void
-hub_dma_init(devfs_handle_t hubv)
-{
-}
 
 
 /*
@@ -415,7 +408,7 @@ hub_dma_init(devfs_handle_t hubv)
  */
 /* ARGSUSED */
 hub_dmamap_t
-hub_dmamap_alloc(	devfs_handle_t dev,	/* set up mappings for this device */
+hub_dmamap_alloc(	vertex_hdl_t dev,	/* set up mappings for this device */
 			device_desc_t dev_desc,	/* device descriptor */
 			size_t byte_count_max, 	/* max size of a mapping */
 			unsigned flags)		/* defined in dma.h */
@@ -423,7 +416,7 @@ hub_dmamap_alloc(	devfs_handle_t dev,	/* set up mappings for this device */
 	hub_dmamap_t dmamap;
 	xwidget_info_t widget_info = xwidget_info_get(dev);
 	xwidgetnum_t widget = xwidget_info_id_get(widget_info);
-	devfs_handle_t hubv = xwidget_info_master_get(widget_info);
+	vertex_hdl_t hubv = xwidget_info_master_get(widget_info);
 
 	dmamap = kmalloc(sizeof(struct hub_dmamap_s), GFP_ATOMIC);
 	dmamap->hdma_xtalk_info.xd_dev = dev;
@@ -445,7 +438,7 @@ void
 hub_dmamap_free(hub_dmamap_t hub_dmamap)
 {
 	hub_dmamap->hdma_flags &= ~HUB_DMAMAP_IS_VALID;
-	kern_free(hub_dmamap);
+	kfree(hub_dmamap);
 }
 
 /*
@@ -459,26 +452,23 @@ hub_dmamap_addr(	hub_dmamap_t dmamap,	/* use these mapping resources */
 			paddr_t paddr,		/* map for this address */
 			size_t byte_count)	/* map this many bytes */
 {
-	devfs_handle_t vhdl;
+	vertex_hdl_t vhdl;
 
 	ASSERT(dmamap->hdma_flags & HUB_DMAMAP_IS_VALID);
 
 	if (dmamap->hdma_flags & HUB_DMAMAP_USED) {
 	    /* If the map is FIXED, re-use is OK. */
 	    if (!(dmamap->hdma_flags & HUB_DMAMAP_IS_FIXED)) {
+		char name[MAXDEVNAME];
 		vhdl = dmamap->hdma_xtalk_info.xd_dev;
-#if defined(SUPPORT_PRINTING_V_FORMAT)
-		printk(KERN_WARNING  "%v: hub_dmamap_addr re-uses dmamap.\n",vhdl);
-#else
-		printk(KERN_WARNING  "%p: hub_dmamap_addr re-uses dmamap.\n", (void *)vhdl);
-#endif
+		printk(KERN_WARNING  "%s: hub_dmamap_addr re-uses dmamap.\n", vertex_to_name(vhdl, name, MAXDEVNAME));
 	    }
 	} else {
 		dmamap->hdma_flags |= HUB_DMAMAP_USED;
 	}
 
 	/* There isn't actually any DMA mapping hardware on the hub. */
-	return(paddr);
+        return( (PHYS_TO_DMA(paddr)) );
 }
 
 /*
@@ -492,19 +482,16 @@ hub_dmamap_list(hub_dmamap_t hub_dmamap,	/* use these mapping resources */
 		alenlist_t palenlist,		/* map this area of memory */
 		unsigned flags)
 {
-	devfs_handle_t vhdl;
+	vertex_hdl_t vhdl;
 
 	ASSERT(hub_dmamap->hdma_flags & HUB_DMAMAP_IS_VALID);
 
 	if (hub_dmamap->hdma_flags & HUB_DMAMAP_USED) {
 	    /* If the map is FIXED, re-use is OK. */
 	    if (!(hub_dmamap->hdma_flags & HUB_DMAMAP_IS_FIXED)) {
+		char name[MAXDEVNAME];
 		vhdl = hub_dmamap->hdma_xtalk_info.xd_dev;
-#if defined(SUPPORT_PRINTING_V_FORMAT)
-		printk(KERN_WARNING  "%v: hub_dmamap_list re-uses dmamap\n",vhdl);
-#else
-		printk(KERN_WARNING  "%p: hub_dmamap_list re-uses dmamap\n", (void *)vhdl);
-#endif
+		printk(KERN_WARNING  "%s: hub_dmamap_list re-uses dmamap\n", vertex_to_name(vhdl, name, MAXDEVNAME));
 	    }
 	} else {
 		hub_dmamap->hdma_flags |= HUB_DMAMAP_USED;
@@ -521,19 +508,16 @@ hub_dmamap_list(hub_dmamap_t hub_dmamap,	/* use these mapping resources */
 void
 hub_dmamap_done(hub_dmamap_t hub_dmamap)	/* done with these mapping resources */
 {
-	devfs_handle_t vhdl;
+	vertex_hdl_t vhdl;
 
 	if (hub_dmamap->hdma_flags & HUB_DMAMAP_USED) {
 		hub_dmamap->hdma_flags &= ~HUB_DMAMAP_USED;
 	} else {
 	    /* If the map is FIXED, re-done is OK. */
 	    if (!(hub_dmamap->hdma_flags & HUB_DMAMAP_IS_FIXED)) {
+		char name[MAXDEVNAME];
 		vhdl = hub_dmamap->hdma_xtalk_info.xd_dev;
-#if defined(SUPPORT_PRINTING_V_FORMAT)
-		printk(KERN_WARNING  "%v: hub_dmamap_done already done with dmamap\n",vhdl);
-#else
-		printk(KERN_WARNING  "%p: hub_dmamap_done already done with dmamap\n", (void *)vhdl);
-#endif
+		printk(KERN_WARNING  "%s: hub_dmamap_done already done with dmamap\n", vertex_to_name(vhdl, name, MAXDEVNAME));
 	    }
 	}
 }
@@ -543,14 +527,13 @@ hub_dmamap_done(hub_dmamap_t hub_dmamap)	/* done with these mapping resources */
  */
 /* ARGSUSED */
 iopaddr_t
-hub_dmatrans_addr(	devfs_handle_t dev,	/* translate for this device */
+hub_dmatrans_addr(	vertex_hdl_t dev,	/* translate for this device */
 			device_desc_t dev_desc,	/* device descriptor */
 			paddr_t paddr,		/* system physical address */
 			size_t byte_count,	/* length */
 			unsigned flags)		/* defined in dma.h */
 {
-	/* no translation needed */
-	return(paddr);
+	return( (PHYS_TO_DMA(paddr)) );
 }
 
 /*
@@ -560,11 +543,12 @@ hub_dmatrans_addr(	devfs_handle_t dev,	/* translate for this device */
  */
 /* ARGSUSED */
 alenlist_t
-hub_dmatrans_list(	devfs_handle_t dev,	/* translate for this device */
+hub_dmatrans_list(	vertex_hdl_t dev,	/* translate for this device */
 			device_desc_t dev_desc,	/* device descriptor */
 			alenlist_t palenlist,	/* system address/length list */
 			unsigned flags)		/* defined in dma.h */
 {
+	BUG();
 	/* no translation needed */
 	return(palenlist);
 }
@@ -573,23 +557,38 @@ hub_dmatrans_list(	devfs_handle_t dev,	/* translate for this device */
 void
 hub_dmamap_drain(	hub_dmamap_t map)
 {
+    /* XXX- flush caches, if cache coherency WAR is needed */
 }
 
 /*ARGSUSED*/
 void
-hub_dmaaddr_drain(	devfs_handle_t vhdl,
+hub_dmaaddr_drain(	vertex_hdl_t vhdl,
 			paddr_t addr,
 			size_t bytes)
 {
+    /* XXX- flush caches, if cache coherency WAR is needed */
 }
 
 /*ARGSUSED*/
 void
-hub_dmalist_drain(	devfs_handle_t vhdl,
+hub_dmalist_drain(	vertex_hdl_t vhdl,
 			alenlist_t list)
 {
+    /* XXX- flush caches, if cache coherency WAR is needed */
 }
 
+
+int
+hub_dma_enabled(vertex_hdl_t xconn_vhdl)
+{
+	return(0);
+}
+
+int
+hub_error_devenable(vertex_hdl_t xconn_vhdl, int devnum, int error_code)
+{
+	return(0);
+}
 
 
 /* CONFIGURATION MANAGEMENT */
@@ -598,13 +597,9 @@ hub_dmalist_drain(	devfs_handle_t vhdl,
  * Perform initializations that allow this hub to start crosstalk support.
  */
 void
-hub_provider_startup(devfs_handle_t hubv)
+hub_provider_startup(vertex_hdl_t hubv)
 {
-	extern void hub_dma_init(devfs_handle_t hubv);
-	extern void hub_pio_init(devfs_handle_t hubv);
-
 	hub_pio_init(hubv);
-	hub_dma_init(hubv);
 	hub_intr_init(hubv);
 }
 
@@ -612,14 +607,14 @@ hub_provider_startup(devfs_handle_t hubv)
  * Shutdown crosstalk support from a hub.
  */
 void
-hub_provider_shutdown(devfs_handle_t hub)
+hub_provider_shutdown(vertex_hdl_t hub)
 {
 	/* TBD */
 	xtalk_provider_unregister(hub);
 }
 
 /*
- * Check that an address is in teh real small window widget 0 space
+ * Check that an address is in the real small window widget 0 space
  * or else in the big window we're using to emulate small window 0
  * in the kernel.
  */
@@ -644,6 +639,7 @@ hub_check_window_equiv(void *addra, void *addrb)
 	if (hub_check_is_widget0(addra) && hub_check_is_widget0(addrb))
 		return 1;
 
+	/* XXX - Assume this is really a small window address */
 	if (WIDGETID_GET((__psunsigned_t)addra) ==
 	    WIDGETID_GET((__psunsigned_t)addrb))
 		return 1;
@@ -653,41 +649,9 @@ hub_check_window_equiv(void *addra, void *addrb)
 
 
 /*
- * Determine whether two PCI addresses actually refer to the same device.
- * This only works if both addresses are in small windows.  It's used to
- * determine whether prom addresses refer to particular PCI devices.
- */
-int
-hub_check_pci_equiv(void *addra, void *addrb)
-{
-	nasid_t nasida, nasidb;
-
-	if (!hub_check_window_equiv(addra, addrb))
-		return 0;
-
-	/* If the offsets aren't the same, forget it. */
-	if (SWIN_WIDGETADDR((__psunsigned_t)addra) !=
-	    (SWIN_WIDGETADDR((__psunsigned_t)addrb)))
-		return 0;
-
-	/* Now, check the nasids */
-	nasida = NASID_GET(addra);
-	nasidb = NASID_GET(addrb);
-
-	ASSERT(NASID_TO_COMPACT_NODEID(nasida) != INVALID_NASID);
-	ASSERT(NASID_TO_COMPACT_NODEID(nasidb) != INVALID_NASID);
-
-	/*
-	 * Either the NASIDs must be the same or they must be crossbow
-	 * partners (on the same crossbow).
-	 */
-	return (check_nasid_equiv(nasida, nasidb));
-}
-
-/*
  * hub_setup_prb(nasid, prbnum, credits, conveyor)
  *
- * 	Put a PRB into fire-and-forget mode if conveyor isn't set.  Otehrwise,
+ * 	Put a PRB into fire-and-forget mode if conveyor isn't set.  Otherwise,
  * 	put it into conveyor belt mode with the specified number of credits.
  */
 void
@@ -695,14 +659,10 @@ hub_setup_prb(nasid_t nasid, int prbnum, int credits, int conveyor)
 {
 	iprb_t prb;
 	int prb_offset;
-#ifdef LATER
-	extern int force_fire_and_forget;
-	extern volatile int ignore_conveyor_override;
 
 	if (force_fire_and_forget && !ignore_conveyor_override)
 	    if (conveyor == HUB_PIO_CONVEYOR)
 		conveyor = HUB_PIO_FIRE_N_FORGET;
-#endif
 
 	/*
 	 * Get the current register value.
@@ -733,6 +693,23 @@ hub_setup_prb(nasid_t nasid, int prbnum, int credits, int conveyor)
 	REMOTE_HUB_S(nasid, prb_offset, prb.iprb_regval);
 }
 
+/*
+ * hub_set_piomode()
+ *
+ * 	Put the hub into either "PIO conveyor belt" mode or "fire-and-forget"
+ * 	mode.  To do this, we have to make absolutely sure that no PIOs
+ *	are in progress so we turn off access to all widgets for the duration
+ *	of the function.
+ * 
+ * XXX - This code should really check what kind of widget we're talking
+ * to.  Bridges can only handle three requests, but XG will do more.
+ * How many can crossbow handle to widget 0?  We're assuming 1.
+ *
+ * XXX - There is a bug in the crossbow that link reset PIOs do not
+ * return write responses.  The easiest solution to this problem is to
+ * leave widget 0 (xbow) in fire-and-forget mode at all times.  This
+ * only affects pio's to xbow registers, which should be rare.
+ */
 void
 hub_set_piomode(nasid_t nasid, int conveyor)
 {
@@ -740,13 +717,8 @@ hub_set_piomode(nasid_t nasid, int conveyor)
 	int direct_connect;
 	hubii_wcr_t ii_wcr;
 	int prbnum;
-	int cons_lock = 0;
 
 	ASSERT(NASID_TO_COMPACT_NODEID(nasid) != INVALID_CNODEID);
-	if (nasid == get_console_nasid()) {
-		PUTBUF_LOCK(s);	
-		cons_lock = 1;
-	}
 
 	ii_iowa = REMOTE_HUB_L(nasid, IIO_OUTWIDGET_ACCESS);
 	REMOTE_HUB_S(nasid, IIO_OUTWIDGET_ACCESS, 0);
@@ -767,14 +739,15 @@ hub_set_piomode(nasid_t nasid, int conveyor)
 	}
 
 	for (prbnum = HUB_WIDGET_ID_MIN; prbnum <= HUB_WIDGET_ID_MAX; prbnum++) {
+		/*
+		 * XXX - Here's where we should take the widget type into
+		 * when account assigning credits.
+		 */
 		/* Always set the PRBs in fire-and-forget mode */
 		hub_setup_prb(nasid, prbnum, 3, conveyor);
 	}
 
 	REMOTE_HUB_S(nasid, IIO_OUTWIDGET_ACCESS, ii_iowa);
-
-	if (cons_lock)
-	    PUTBUF_UNLOCK(s);
 }
 /* Interface to allow special drivers to set hub specific
  * device flags.
@@ -801,90 +774,6 @@ hub_widget_flags_set(nasid_t		nasid,
 	}
 
 	return 1;
-}
-/* Interface to allow special drivers to set hub specific
- * device flags.
- * Return 0 on failure , 1 on success
- */
-int
-hub_device_flags_set(devfs_handle_t	widget_vhdl,
-		     hub_widget_flags_t	flags)
-{
-	xwidget_info_t		widget_info = xwidget_info_get(widget_vhdl);
-	xwidgetnum_t		widget_num  = xwidget_info_id_get(widget_info);
-	devfs_handle_t		hub_vhdl    = xwidget_info_master_get(widget_info);
-	hubinfo_t		hub_info = 0;
-	nasid_t			nasid;
-	unsigned long		s;
-	int			rv;
-
-	/* Use the nasid from the hub info hanging off the hub vertex
-	 * and widget number from the widget vertex
-	 */
-	hubinfo_get(hub_vhdl, &hub_info);
-	/* Being over cautious by grabbing a lock */
-	s 	= mutex_spinlock(&hub_info->h_bwlock);
-	nasid 	= hub_info->h_nasid;
-	rv 	= hub_widget_flags_set(nasid,widget_num,flags);
-	mutex_spinunlock(&hub_info->h_bwlock, s);
-
-	return rv;
-}
-
-/*
- * hub_device_inquiry
- *	Find out the xtalk widget related information stored in this 
- *	hub's II.
- */
-void
-hub_device_inquiry(devfs_handle_t	xbus_vhdl, xwidgetnum_t widget)
-{
-	devfs_handle_t	xconn, hub_vhdl;
-	char		widget_name[8];
-	hubreg_t	ii_iidem,ii_iiwa, ii_iowa;
-	hubinfo_t	hubinfo;
-	nasid_t		nasid;
-	int		d;
-
-	sprintf(widget_name, "%d", widget);
-	if (hwgraph_traverse(xbus_vhdl, widget_name, &xconn)
-	    != GRAPH_SUCCESS)
-		return;
-
-	hub_vhdl = device_master_get(xconn);
-	if (hub_vhdl == GRAPH_VERTEX_NONE)
-		return;
-
-	hubinfo_get(hub_vhdl, &hubinfo);
-	if (!hubinfo)
-		return;
-	
-	nasid = hubinfo->h_nasid;
-
-	ii_iidem	= REMOTE_HUB_L(nasid, IIO_IIDEM);
-	ii_iiwa 	= REMOTE_HUB_L(nasid, IIO_IIWA);
-	ii_iowa 	= REMOTE_HUB_L(nasid, IIO_IOWA);
-
-#if defined(SUPPORT_PRINTING_V_FORMAT)
-	printk("Inquiry Info for %v\n", xconn);
-#else
-	printk("Inquiry Info for %p\n", (void *)xconn);
-#endif
-
-	printk("\tDevices shutdown [ ");
-
-	for (d = 0 ; d <= 7 ; d++)
-		if (!(ii_iidem & (IIO_IIDEM_WIDGETDEV_MASK(widget,d))))
-			printk(" %d", d);
-
-	printk("]\n");
-
-	printk("\tInbound access ? %s\n",
-		ii_iiwa & IIO_IIWA_WIDGET(widget) ? "yes" : "no");
-
-	printk("\tOutbound access ? %s\n",
-		ii_iowa & IIO_IOWA_WIDGET(widget) ? "yes" : "no");
-
 }
 
 /*
@@ -915,9 +804,84 @@ xtalk_provider_t hub_provider = {
 	(xtalk_intr_free_f *)		hub_intr_free,
 	(xtalk_intr_connect_f *)	hub_intr_connect,
 	(xtalk_intr_disconnect_f *)	hub_intr_disconnect,
-	(xtalk_intr_cpu_get_f *)	hub_intr_cpu_get,
-
 	(xtalk_provider_startup_f *)	hub_provider_startup,
 	(xtalk_provider_shutdown_f *)	hub_provider_shutdown,
 };
+
+/*
+ * per_ice_init
+ *
+ *      This code is executed once for each Ice chip.
+ */
+void
+per_ice_init(cnodeid_t cnode)
+{
+
+        /* Initialize error interrupts for this ice. */
+	printk("per_ice_init: We need to init ice here ....!\n");
+        /* ice_error_init(cnode); */
+
+}
+/*
+ * per_hub_init
+ *
+ *	This code is executed once for each Hub chip.
+ */
+void
+per_hub_init(cnodeid_t cnode)
+{
+	nasid_t		nasid;
+	nodepda_t	*npdap;
+	ii_icmr_u_t	ii_icmr;
+	ii_ibcr_u_t	ii_ibcr;
+	ii_ilcsr_u_t	ii_ilcsr;
+
+	nasid = COMPACT_TO_NASID_NODEID(cnode);
+
+	ASSERT(nasid != INVALID_NASID);
+	ASSERT(NASID_TO_COMPACT_NODEID(nasid) == cnode);
+
+	npdap = NODEPDA(cnode);
+
+	/* Disable the request and reply errors. */
+	REMOTE_HUB_S(nasid, IIO_IWEIM, 0xC000);
+
+	/*
+	 * Set the total number of CRBs that can be used.
+	 */
+	ii_icmr.ii_icmr_regval= 0x0;
+	ii_icmr.ii_icmr_fld_s.i_c_cnt = 0xf;
+	if (enable_shub_wars_1_1() ) {
+		// Set bit one of ICMR to prevent II from sending interrupt for II bug.
+		ii_icmr.ii_icmr_regval |= 0x1;
+	}
+	REMOTE_HUB_S(nasid, IIO_ICMR, ii_icmr.ii_icmr_regval);
+
+	/*
+	 * Set the number of CRBs that both of the BTEs combined
+	 * can use minus 1.
+	 */
+	ii_ibcr.ii_ibcr_regval= 0x0;
+	ii_ilcsr.ii_ilcsr_regval = REMOTE_HUB_L(nasid, IIO_LLP_CSR);
+	if (ii_ilcsr.ii_ilcsr_fld_s.i_llp_stat & LNK_STAT_WORKING) {
+	    ii_ibcr.ii_ibcr_fld_s.i_count = 0x8;
+	} else {
+	    /*
+	     * if the LLP is down, there is no attached I/O, so
+	    * give BTE all the CRBs.
+	    */
+	    ii_ibcr.ii_ibcr_fld_s.i_count = 0x14;
+	}
+	REMOTE_HUB_S(nasid, IIO_IBCR, ii_ibcr.ii_ibcr_regval);
+
+	/*
+	 * Set CRB timeout to be 10ms.
+	 */
+	REMOTE_HUB_S(nasid, IIO_ICTP, 0xffffff );
+	REMOTE_HUB_S(nasid, IIO_ICTO, 0xff);
+
+	/* Initialize error interrupts for this hub. */
+	hub_error_init(cnode);
+}
+
 

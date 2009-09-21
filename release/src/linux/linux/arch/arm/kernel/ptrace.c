@@ -9,6 +9,7 @@
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
  */
+#include <linux/config.h>
 #include <linux/kernel.h>
 #include <linux/sched.h>
 #include <linux/mm.h>
@@ -16,6 +17,7 @@
 #include <linux/smp_lock.h>
 #include <linux/ptrace.h>
 #include <linux/user.h>
+#include <linux/bitops.h>
 
 #include <asm/uaccess.h>
 #include <asm/pgtable.h>
@@ -33,18 +35,24 @@
 /*
  * Breakpoint SWI instruction: SWI &9F0001
  */
-#define BREAKINST	0xef9f0001
+#define BREAKINST_ARM	0xef9f0001
+/* fill this in later */
+#define BREAKINST_THUMB	0xdf00
 
 /*
  * Get the address of the live pt_regs for the specified task.
  * These are saved onto the top kernel stack when the process
  * is not running.
+ *
+ * Note: if a user thread is execve'd from kernel space, the
+ * kernel stack will not be empty on entry to the kernel, so
+ * ptracing these tasks will fail.
  */
 static inline struct pt_regs *
 get_user_regs(struct task_struct *task)
 {
 	return (struct pt_regs *)
-		((unsigned long)task + 8192 - sizeof(struct pt_regs));
+		((unsigned long)task + 8192 - 8 - sizeof(struct pt_regs));
 }
 
 /*
@@ -53,7 +61,7 @@ get_user_regs(struct task_struct *task)
  * this routine assumes that all the privileged stacks are in our
  * data space.
  */
-static inline long get_stack_long(struct task_struct *task, int offset)
+static inline long get_user_reg(struct task_struct *task, int offset)
 {
 	return get_user_regs(task)->uregs[offset];
 }
@@ -65,14 +73,14 @@ static inline long get_stack_long(struct task_struct *task, int offset)
  * data space.
  */
 static inline int
-put_stack_long(struct task_struct *task, int offset, long data)
+put_user_reg(struct task_struct *task, int offset, long data)
 {
 	struct pt_regs newregs, *regs = get_user_regs(task);
 	int ret = -EINVAL;
 
 	newregs = *regs;
 	newregs.uregs[offset] = data;
-	
+
 	if (valid_user_regs(&newregs)) {
 		regs->uregs[offset] = data;
 		ret = 0;
@@ -82,23 +90,32 @@ put_stack_long(struct task_struct *task, int offset, long data)
 }
 
 static inline int
-read_tsk_long(struct task_struct *child, unsigned long addr, unsigned long *res)
+read_u32(struct task_struct *task, unsigned long addr, u32 *res)
 {
-	int copied;
+	int ret;
 
-	copied = access_process_vm(child, addr, res, sizeof(*res), 0);
+	ret = access_process_vm(task, addr, res, sizeof(*res), 0);
 
-	return copied != sizeof(*res) ? -EIO : 0;
+	return ret == sizeof(*res) ? 0 : -EIO;
 }
 
 static inline int
-write_tsk_long(struct task_struct *child, unsigned long addr, unsigned long val)
+read_instr(struct task_struct *task, unsigned long addr, u32 *res)
 {
-	int copied;
+	int ret;
 
-	copied = access_process_vm(child, addr, &val, sizeof(val), 1);
-
-	return copied != sizeof(val) ? -EIO : 0;
+	if (addr & 1) {
+		u16 val;
+		ret = access_process_vm(task, addr & ~1, &val, sizeof(val), 0);
+		ret = ret == sizeof(val) ? 0 : -EIO;
+		*res = val;
+	} else {
+		u32 val;
+		ret = access_process_vm(task, addr & ~3, &val, sizeof(val), 0);
+		ret = ret == sizeof(val) ? 0 : -EIO;
+		*res = val;
+	}
+	return ret;
 }
 
 /*
@@ -110,7 +127,7 @@ ptrace_getrn(struct task_struct *child, unsigned long insn)
 	unsigned int reg = (insn >> 16) & 15;
 	unsigned long val;
 
-	val = get_stack_long(child, reg);
+	val = get_user_reg(child, reg);
 	if (reg == 15)
 		val = pc_pointer(val + 8);
 
@@ -132,10 +149,10 @@ ptrace_getaluop2(struct task_struct *child, unsigned long insn)
 		shift = (insn >> 8) & 15;
 		type = 3;
 	} else {
-		val = get_stack_long (child, insn & 15);
+		val = get_user_reg (child, insn & 15);
 
 		if (insn & (1 << 4))
-			shift = (int)get_stack_long (child, (insn >> 8) & 15);
+			shift = (int)get_user_reg (child, (insn >> 8) & 15);
 		else
 			shift = (insn >> 7) & 31;
 
@@ -165,7 +182,7 @@ ptrace_getldrop2(struct task_struct *child, unsigned long insn)
 	int shift;
 	int type;
 
-	val = get_stack_long(child, insn & 15);
+	val = get_user_reg(child, insn & 15);
 	shift = (insn >> 7) & 31;
 	type = (insn >> 5) & 3;
 
@@ -182,10 +199,24 @@ ptrace_getldrop2(struct task_struct *child, unsigned long insn)
 	return val;
 }
 
+#define OP_MASK	0x01e00000
+#define OP_AND	0x00000000
+#define OP_EOR	0x00200000
+#define OP_SUB	0x00400000
+#define OP_RSB	0x00600000
+#define OP_ADD	0x00800000
+#define OP_ADC	0x00a00000
+#define OP_SBC	0x00c00000
+#define OP_RSC	0x00e00000
+#define OP_ORR	0x01800000
+#define OP_MOV	0x01a00000
+#define OP_BIC	0x01c00000
+#define OP_MVN	0x01e00000
+
 static unsigned long
 get_branch_address(struct task_struct *child, unsigned long pc, unsigned long insn)
 {
-	unsigned long alt = 0;
+	u32 alt = 0;
 
 	switch (insn & 0x0e000000) {
 	case 0x00000000:
@@ -200,21 +231,21 @@ get_branch_address(struct task_struct *child, unsigned long pc, unsigned long in
 
 		aluop1 = ptrace_getrn(child, insn);
 		aluop2 = ptrace_getaluop2(child, insn);
-		ccbit  = get_stack_long(child, REG_PSR) & CC_C_BIT ? 1 : 0;
+		ccbit  = get_user_reg(child, REG_PSR) & CC_C_BIT ? 1 : 0;
 
-		switch (insn & 0x01e00000) {
-		case 0x00000000: alt = aluop1 & aluop2;		break;
-		case 0x00200000: alt = aluop1 ^ aluop2;		break;
-		case 0x00400000: alt = aluop1 - aluop2;		break;
-		case 0x00600000: alt = aluop2 - aluop1;		break;
-		case 0x00800000: alt = aluop1 + aluop2;		break;
-		case 0x00a00000: alt = aluop1 + aluop2 + ccbit;	break;
-		case 0x00c00000: alt = aluop1 - aluop2 + ccbit;	break;
-		case 0x00e00000: alt = aluop2 - aluop1 + ccbit;	break;
-		case 0x01800000: alt = aluop1 | aluop2;		break;
-		case 0x01a00000: alt = aluop2;			break;
-		case 0x01c00000: alt = aluop1 & ~aluop2;	break;
-		case 0x01e00000: alt = ~aluop2;			break;
+		switch (insn & OP_MASK) {
+		case OP_AND: alt = aluop1 & aluop2;		break;
+		case OP_EOR: alt = aluop1 ^ aluop2;		break;
+		case OP_SUB: alt = aluop1 - aluop2;		break;
+		case OP_RSB: alt = aluop2 - aluop1;		break;
+		case OP_ADD: alt = aluop1 + aluop2;		break;
+		case OP_ADC: alt = aluop1 + aluop2 + ccbit;	break;
+		case OP_SBC: alt = aluop1 - aluop2 + ccbit;	break;
+		case OP_RSC: alt = aluop2 - aluop1 + ccbit;	break;
+		case OP_ORR: alt = aluop1 | aluop2;		break;
+		case OP_MOV: alt = aluop2;			break;
+		case OP_BIC: alt = aluop1 & ~aluop2;		break;
+		case OP_MVN: alt = ~aluop2;			break;
 		}
 		break;
 	}
@@ -241,7 +272,7 @@ get_branch_address(struct task_struct *child, unsigned long pc, unsigned long in
 				else
 					base -= aluop2;
 			}
-			if (read_tsk_long(child, base, &alt) == 0)
+			if (read_u32(child, base, &alt) == 0)
 				alt = pc_pointer(alt);
 		}
 		break;
@@ -255,13 +286,7 @@ get_branch_address(struct task_struct *child, unsigned long pc, unsigned long in
 			unsigned int nr_regs;
 
 			if (insn & (1 << 23)) {
-				nr_regs = insn & 65535;
-
-				nr_regs = (nr_regs & 0x5555) + ((nr_regs & 0xaaaa) >> 1);
-				nr_regs = (nr_regs & 0x3333) + ((nr_regs & 0xcccc) >> 2);
-				nr_regs = (nr_regs & 0x0707) + ((nr_regs & 0x7070) >> 4);
-				nr_regs = (nr_regs & 0x000f) + ((nr_regs & 0x0f00) >> 8);
-				nr_regs <<= 2;
+				nr_regs = hweight16(insn & 65535) << 2;
 
 				if (!(insn & (1 << 24)))
 					nr_regs -= 4;
@@ -274,8 +299,8 @@ get_branch_address(struct task_struct *child, unsigned long pc, unsigned long in
 
 			base = ptrace_getrn(child, insn);
 
-			if (read_tsk_long(child, base + nr_regs, &alt) == 0)
-				alt = pc_pointer (alt);
+			if (read_u32(child, base + nr_regs, &alt) == 0)
+				alt = pc_pointer(alt);
 			break;
 		}
 		break;
@@ -304,36 +329,82 @@ get_branch_address(struct task_struct *child, unsigned long pc, unsigned long in
 }
 
 static int
-add_breakpoint(struct task_struct *child, struct debug_info *dbg, unsigned long addr)
+swap_insn(struct task_struct *task, unsigned long addr,
+	  void *old_insn, void *new_insn, int size)
+{
+	int ret;
+
+	ret = access_process_vm(task, addr, old_insn, size, 0);
+	if (ret == size)
+		ret = access_process_vm(task, addr, new_insn, size, 1);
+	return ret;
+}
+
+static void
+add_breakpoint(struct task_struct *task, struct debug_info *dbg, unsigned long addr)
 {
 	int nr = dbg->nsaved;
-	int res = -EINVAL;
 
 	if (nr < 2) {
-		res = read_tsk_long(child, addr, &dbg->bp[nr].insn);
-		if (res == 0)
-			res = write_tsk_long(child, addr, BREAKINST);
+		u32 new_insn = BREAKINST_ARM;
+		int res;
 
-		if (res == 0) {
+		res = swap_insn(task, addr, &dbg->bp[nr].insn, &new_insn, 4);
+
+		if (res == 4) {
 			dbg->bp[nr].address = addr;
 			dbg->nsaved += 1;
 		}
 	} else
 		printk(KERN_ERR "ptrace: too many breakpoints\n");
-
-	return res;
 }
 
-int ptrace_set_bpt(struct task_struct *child)
+/*
+ * Clear one breakpoint in the user program.  We copy what the hardware
+ * does and use bit 0 of the address to indicate whether this is a Thumb
+ * breakpoint or an ARM breakpoint.
+ */
+static void clear_breakpoint(struct task_struct *task, struct debug_entry *bp)
+{
+	unsigned long addr = bp->address;
+	union debug_insn old_insn;
+	int ret;
+
+	if (addr & 1) {
+		ret = swap_insn(task, addr & ~1, &old_insn.thumb,
+				&bp->insn.thumb, 2);
+
+		if (ret != 2 || old_insn.thumb != BREAKINST_THUMB)
+			printk(KERN_ERR "%s:%d: corrupted Thumb breakpoint at "
+				"0x%08lx (0x%04x)\n", task->comm, task->pid,
+				addr, old_insn.thumb);
+	} else {
+		ret = swap_insn(task, addr & ~3, &old_insn.thumb,
+				&bp->insn.thumb, 4);
+
+		if (ret != 4 || old_insn.arm != BREAKINST_ARM)
+			printk(KERN_ERR "%s:%d: corrupted ARM breakpoint at "
+				"0x%08lx (0x%08x)\n", task->comm, task->pid,
+				addr, old_insn.arm);
+	}
+}
+
+void ptrace_set_bpt(struct task_struct *child)
 {
 	struct pt_regs *regs;
-	unsigned long pc, insn;
+	unsigned long pc;
+	u32 insn;
 	int res;
 
 	regs = get_user_regs(child);
 	pc = instruction_pointer(regs);
 
-	res = read_tsk_long(child, pc, &insn);
+	if (thumb_mode(regs)) {
+		printk(KERN_WARNING "ptrace: can't handle thumb mode\n");
+		return;
+	}
+
+	res = read_instr(child, pc, &insn);
 	if (!res) {
 		struct debug_info *dbg = &child->thread.debug;
 		unsigned long alt;
@@ -342,7 +413,7 @@ int ptrace_set_bpt(struct task_struct *child)
 
 		alt = get_branch_address(child, pc, insn);
 		if (alt)
-			res = add_breakpoint(child, dbg, alt);
+			add_breakpoint(child, dbg, alt);
 
 		/*
 		 * Note that we ignore the result of setting the above
@@ -354,10 +425,8 @@ int ptrace_set_bpt(struct task_struct *child)
 		 * loose control of the thread during single stepping.
 		 */
 		if (!alt || predicate(insn) != PREDICATE_ALWAYS)
-			res = add_breakpoint(child, dbg, pc + 4);
+			add_breakpoint(child, dbg, pc + 4);
 	}
-
-	return res;
 }
 
 /*
@@ -366,24 +435,17 @@ int ptrace_set_bpt(struct task_struct *child)
  */
 void __ptrace_cancel_bpt(struct task_struct *child)
 {
-	struct debug_info *dbg = &child->thread.debug;
-	int i, nsaved = dbg->nsaved;
+	int i, nsaved = child->thread.debug.nsaved;
 
-	dbg->nsaved = 0;
+	child->thread.debug.nsaved = 0;
 
 	if (nsaved > 2) {
 		printk("ptrace_cancel_bpt: bogus nsaved: %d!\n", nsaved);
 		nsaved = 2;
 	}
 
-	for (i = 0; i < nsaved; i++) {
-		unsigned long tmp;
-
-		read_tsk_long(child, dbg->bp[i].address, &tmp);
-		write_tsk_long(child, dbg->bp[i].address, dbg->bp[i].insn);
-		if (tmp != BREAKINST)
-			printk(KERN_ERR "ptrace_cancel_bpt: weirdness\n");
-	}
+	for (i = 0; i < nsaved; i++)
+		clear_breakpoint(child, &child->thread.debug.bp[i]);
 }
 
 /*
@@ -394,6 +456,114 @@ void __ptrace_cancel_bpt(struct task_struct *child)
 void ptrace_disable(struct task_struct *child)
 {
 	__ptrace_cancel_bpt(child);
+}
+
+/*
+ * Handle hitting a breakpoint.  regs points at the instruction.
+ */
+void ptrace_break(struct task_struct *tsk, struct pt_regs *regs)
+{
+	siginfo_t info;
+
+	/*
+	 * The PC is pointing at the next instruction.  Fix this.
+	 */
+	regs->ARM_pc -= thumb_mode(regs) ? 2 : 4;
+
+	__ptrace_cancel_bpt(tsk);
+
+	info.si_signo = SIGTRAP;
+	info.si_errno = 0;
+	info.si_code  = TRAP_BRKPT;
+	info.si_addr  = (void *)instruction_pointer(regs);
+
+	force_sig_info(SIGTRAP, &info, tsk);
+}
+
+/*
+ * Read the word at offset "off" into the "struct user".  We
+ * actually access the pt_regs stored on the kernel stack.
+ */
+static int ptrace_read_user(struct task_struct *tsk, unsigned long off,
+			    unsigned long *ret)
+{
+	unsigned long tmp;
+
+	if (off & 3 || off >= sizeof(struct user))
+		return -EIO;
+
+	tmp = 0;
+	if (off < sizeof(struct pt_regs))
+		tmp = get_user_reg(tsk, off >> 2);
+
+	return put_user(tmp, ret);
+}
+
+/*
+ * Write the word at offset "off" into "struct user".  We
+ * actually access the pt_regs stored on the kernel stack.
+ */
+static int ptrace_write_user(struct task_struct *tsk, unsigned long off,
+			     unsigned long val)
+{
+	if (off & 3 || off >= sizeof(struct user))
+		return -EIO;
+
+	if (off >= sizeof(struct pt_regs))
+		return 0;
+
+	return put_user_reg(tsk, off >> 2, val);
+}
+
+/*
+ * Get all user integer registers.
+ */
+static int ptrace_getregs(struct task_struct *tsk, void *uregs)
+{
+	struct pt_regs *regs = get_user_regs(tsk);
+
+	return copy_to_user(uregs, regs, sizeof(struct pt_regs)) ? -EFAULT : 0;
+}
+
+/*
+ * Set all user integer registers.
+ */
+static int ptrace_setregs(struct task_struct *tsk, void *uregs)
+{
+	struct pt_regs newregs;
+	int ret;
+
+	ret = -EFAULT;
+	if (copy_from_user(&newregs, uregs, sizeof(struct pt_regs)) == 0) {
+		struct pt_regs *regs = get_user_regs(tsk);
+
+		ret = -EINVAL;
+		if (valid_user_regs(&newregs)) {
+			*regs = newregs;
+			ret = 0;
+		}
+	}
+
+	return ret;
+}
+
+/*
+ * Get the child FPU state.
+ */
+static int ptrace_getfpregs(struct task_struct *tsk, void *ufp)
+{
+	return copy_to_user(ufp, &tsk->thread.fpstate,
+			    sizeof(struct user_fp)) ? -EFAULT : 0;
+}
+
+/*
+ * Set the child FPU state.
+ */
+static int ptrace_setfpregs(struct task_struct *tsk, void *ufp)
+{
+	tsk->used_math = 1;
+	return copy_from_user(&tsk->thread.fpstate, ufp,
+			      sizeof(struct user_fp)) ? -EFAULT : 0;
 }
 
 static int do_ptrace(int request, struct task_struct *child, long addr, long data)
@@ -407,23 +577,16 @@ static int do_ptrace(int request, struct task_struct *child, long addr, long dat
 		 */
 		case PTRACE_PEEKTEXT:
 		case PTRACE_PEEKDATA:
-			ret = read_tsk_long(child, addr, &tmp);
-			if (!ret)
+			ret = access_process_vm(child, addr, &tmp,
+						sizeof(unsigned long), 0);
+			if (ret == sizeof(unsigned long))
 				ret = put_user(tmp, (unsigned long *) data);
+			else
+				ret = -EIO;
 			break;
 
-		/*
-		 * read the word at location "addr" in the user registers.
-		 */
 		case PTRACE_PEEKUSR:
-			ret = -EIO;
-			if ((addr & 3) || addr < 0 || addr >= sizeof(struct user))
-				break;
-
-			tmp = 0;  /* Default return condition */
-			if (addr < sizeof(struct pt_regs))
-				tmp = get_stack_long(child, (int)addr >> 2);
-			ret = put_user(tmp, (unsigned long *)data);
+			ret = ptrace_read_user(child, addr, (unsigned long *)data);
 			break;
 
 		/*
@@ -431,19 +594,16 @@ static int do_ptrace(int request, struct task_struct *child, long addr, long dat
 		 */
 		case PTRACE_POKETEXT:
 		case PTRACE_POKEDATA:
-			ret = write_tsk_long(child, addr, data);
+			ret = access_process_vm(child, addr, &data,
+						sizeof(unsigned long), 1);
+			if (ret == sizeof(unsigned long))
+				ret = 0;
+			else
+				ret = -EIO;
 			break;
 
-		/*
-		 * write the word at location addr in the user registers.
-		 */
 		case PTRACE_POKEUSR:
-			ret = -EIO;
-			if ((addr & 3) || addr < 0 || addr >= sizeof(struct user))
-				break;
-
-			if (addr < sizeof(struct pt_regs))
-				ret = put_stack_long(child, (int)addr >> 2, data);
+			ret = ptrace_write_user(child, addr, data);
 			break;
 
 		/*
@@ -471,14 +631,12 @@ static int do_ptrace(int request, struct task_struct *child, long addr, long dat
 		 * exit.
 		 */
 		case PTRACE_KILL:
-			/* already dead */
-			ret = 0;
-			if (child->state == TASK_ZOMBIE)
-				break;
-			child->exit_code = SIGKILL;
 			/* make sure single-step breakpoint is gone. */
 			__ptrace_cancel_bpt(child);
-			wake_up_process(child);
+			if (child->state != TASK_ZOMBIE) {
+				child->exit_code = SIGKILL;
+				wake_up_process(child);
+			}
 			ret = 0;
 			break;
 
@@ -497,71 +655,32 @@ static int do_ptrace(int request, struct task_struct *child, long addr, long dat
 			ret = 0;
 			break;
 
-		/*
-		 * detach a process that was attached.
-		 */
 		case PTRACE_DETACH:
 			ret = ptrace_detach(child, data);
 			break;
 
-		/*
-		 * Get all gp regs from the child.
-		 */
-		case PTRACE_GETREGS: {
-			struct pt_regs *regs = get_user_regs(child);
-
-			ret = 0;
-			if (copy_to_user((void *)data, regs,
-					 sizeof(struct pt_regs)))
-				ret = -EFAULT;
-
+		case PTRACE_GETREGS:
+			ret = ptrace_getregs(child, (void *)data);
 			break;
-		}
 
-		/*
-		 * Set all gp regs in the child.
-		 */
-		case PTRACE_SETREGS: {
-			struct pt_regs newregs;
-
-			ret = -EFAULT;
-			if (copy_from_user(&newregs, (void *)data,
-					   sizeof(struct pt_regs)) == 0) {
-				struct pt_regs *regs = get_user_regs(child);
-
-				ret = -EINVAL;
-				if (valid_user_regs(&newregs)) {
-					*regs = newregs;
-					ret = 0;
-				}
-			}
+		case PTRACE_SETREGS:
+			ret = ptrace_setregs(child, (void *)data);
 			break;
-		}
 
-		/*
-		 * Get the child FPU state.
-		 */
 		case PTRACE_GETFPREGS:
-			ret = -EIO;
-			if (!access_ok(VERIFY_WRITE, (void *)data, sizeof(struct user_fp)))
-				break;
-
-			/* we should check child->used_math here */
-			ret = __copy_to_user((void *)data, &child->thread.fpstate,
-					     sizeof(struct user_fp)) ? -EFAULT : 0;
+			ret = ptrace_getfpregs(child, (void *)data);
 			break;
 		
-		/*
-		 * Set the child FPU state.
-		 */
 		case PTRACE_SETFPREGS:
-			ret = -EIO;
-			if (!access_ok(VERIFY_READ, (void *)data, sizeof(struct user_fp)))
-				break;
+			ret = ptrace_setfpregs(child, (void *)data);
+			break;
 
-			child->used_math = 1;
-			ret = __copy_from_user(&child->thread.fpstate, (void *)data,
-					   sizeof(struct user_fp)) ? -EFAULT : 0;
+		case PTRACE_SETOPTIONS:
+			if (data & PTRACE_O_TRACESYSGOOD)
+				child->ptrace |= PT_TRACESYSGOOD;
+			else
+				child->ptrace &= ~PT_TRACESYSGOOD;
+			ret = 0;
 			break;
 
 		default:

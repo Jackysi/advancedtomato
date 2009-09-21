@@ -167,6 +167,17 @@ nlmsvc_proc_lock(struct svc_rqst *rqstp, struct nlm_args *argp,
 	if ((resp->status = nlmsvc_retrieve_args(rqstp, argp, &host, &file)))
 		return rpc_success;
 
+#if 0
+	/* If supplied state doesn't match current state, we assume it's
+	 * an old request that time-warped somehow. Any error return would
+	 * do in this case because it's irrelevant anyway.
+	 *
+	 * NB: We don't retrieve the remote host's state yet.
+	 */
+	if (host->h_nsmstate && host->h_nsmstate != argp->state) {
+		resp->status = nlm_lck_denied_nolocks;
+	} else
+#endif
 
 	/* Now try to lock the file */
 	resp->status = cast_status(nlmsvc_lock(rqstp, file, &argp->lock,
@@ -466,15 +477,29 @@ nlmsvc_proc_sm_notify(struct svc_rqst *rqstp, struct nlm_reboot *argp,
 	if (nlmsvc_ops != NULL) {
 		struct svc_client	*clnt;
 		saddr.sin_addr.s_addr = argp->addr;
-		nlmsvc_ops->exp_readlock();
 		if ((clnt = nlmsvc_ops->exp_getclient(&saddr)) != NULL 
 		 && (host = nlm_lookup_host(clnt, &saddr, 0, 0)) != NULL) {
 			nlmsvc_free_host_resources(host);
 		}
 		nlm_release_host(host);
-		nlmsvc_ops->exp_unlock();
 	}
 
+	return rpc_success;
+}
+
+/*
+ * client sent a GRANTED_RES, let's remove the associated block
+ */
+static int
+nlmsvc_proc_granted_res(struct svc_rqst *rqstp, struct nlm_res  *argp,
+                                                void            *resp)
+{
+	if (!nlmsvc_ops)
+		return rpc_success;
+
+	dprintk("lockd: GRANTED_RES   called\n");
+
+	nlmsvc_grant_reply(rqstp, &argp->cookie, argp->status);
 	return rpc_success;
 }
 
@@ -541,7 +566,6 @@ nlmsvc_callback_exit(struct rpc_task *task)
 #define nlmsvc_proc_lock_res	nlmsvc_proc_null
 #define nlmsvc_proc_cancel_res	nlmsvc_proc_null
 #define nlmsvc_proc_unlock_res	nlmsvc_proc_null
-#define nlmsvc_proc_granted_res	nlmsvc_proc_null
 
 struct nlm_void			{ int dummy; };
 
@@ -578,7 +602,7 @@ struct svc_procedure		nlmsvc_procedures[] = {
   PROC(lock_res,	lockres,	norep,		res,	void, 1),
   PROC(cancel_res,	cancelres,	norep,		res,	void, 1),
   PROC(unlock_res,	unlockres,	norep,		res,	void, 1),
-  PROC(granted_res,	grantedres,	norep,		res,	void, 1),
+  PROC(granted_res,	res,		norep,		res,	void, 1),
   /* statd callback */
   PROC(sm_notify,	reboot,		void,		reboot,	void, 1),
   PROC(none,		void,		void,		void,	void, 1),

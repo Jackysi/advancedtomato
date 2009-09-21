@@ -1,4 +1,4 @@
-/* $Id: mostek.h,v 1.1.1.4 2003/10/14 08:09:22 sparq Exp $
+/* $Id: mostek.h,v 1.13 2001/01/11 15:07:09 davem Exp $
  * mostek.h:  Describes the various Mostek time of day clock registers.
  *
  * Copyright (C) 1995 David S. Miller (davem@caip.rutgers.edu)
@@ -127,7 +127,6 @@ struct mostek48t08 {
 	char offset[6*1024];         /* Magic things may be here, who knows? */
 	struct mostek48t02 regs;     /* Here is what we are interested in.   */
 };
-extern struct mostek48t08 *mstk48t08_regs;
 
 extern enum sparc_clock_type sp_clock_typ;
 

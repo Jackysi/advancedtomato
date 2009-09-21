@@ -2,11 +2,11 @@
  *
  * Hardware accelerated Matrox Millennium I, II, Mystique, G100, G200, G400 and G450.
  *
- * (c) 1998-2001 Petr Vandrovec <vandrove@vc.cvut.cz>
+ * (c) 1998-2002 Petr Vandrovec <vandrove@vc.cvut.cz>
  *
  * Portions Copyright (c) 2001 Matrox Graphics Inc.
  *
- * Version: 1.62 2001/11/29
+ * Version: 1.64 2002/06/10
  *
  * See matroxfb_base.c for contributors.
  *
@@ -161,37 +161,20 @@ static void DAC1064_calcclock(CPMINFO unsigned int freq, unsigned int fmax, unsi
 	unsigned int p;
 
 	DBG("DAC1064_calcclock")
+	
+	/* only for devices older than G450 */
 
 	fvco = PLL_calcclock(PMINFO freq, fmax, in, feed, &p);
 	
-	if (ACCESS_FBINFO(devflags.g450dac)) {
-		if (fvco <= 300000)		/* 276-324 */
-			;
-		else if (fvco <= 400000)	/* 378-438 */
-			p |= 0x08;
-		else if (fvco <= 550000)	/* 540-567 */
-			p |= 0x10;
-		else if (fvco <= 690000)	/* 675-695 */
-			p |= 0x18;
-		else if (fvco <= 800000)	/* 776-803 */
-			p |= 0x20;
-		else if (fvco <= 891000)	/* 891-891 */
-			p |= 0x28;
-		else if (fvco <= 940000)	/* 931-945 */
-			p |= 0x30;
-		else				/* <959 */
-			p |= 0x38;
-	} else {
-		p = (1 << p) - 1;
-		if (fvco <= 100000)
-			;
-		else if (fvco <= 140000)
-			p |= 0x08;
-		else if (fvco <= 180000)
-			p |= 0x10;
-		else
-			p |= 0x18;
-	}
+	p = (1 << p) - 1;
+	if (fvco <= 100000)
+		;
+	else if (fvco <= 140000)
+		p |= 0x08;
+	else if (fvco <= 180000)
+		p |= 0x10;
+	else
+		p |= 0x18;
 	*post = p;
 }
 
@@ -293,31 +276,169 @@ static void DAC1064_setmclk(WPMINFO int oscinfo, unsigned long fmem) {
 	hw->MXoptionReg = mx;
 }
 
+#ifdef CONFIG_FB_MATROX_G450
+static void g450_set_plls(WPMINFO2) {
+	u_int32_t c2_ctl;
+	unsigned int pxc;
+	struct matrox_hw_state* hw = &ACCESS_FBINFO(hw);
+	int pixelmnp;
+	int videomnp;
+	
+	c2_ctl = hw->crtc2.ctl & ~0x4007;	/* Clear PLL + enable for CRTC2 */
+	c2_ctl |= 0x0001;			/* Enable CRTC2 */
+	hw->DACreg[POS1064_XPWRCTRL] &= ~0x02;	/* Stop VIDEO PLL */
+	pixelmnp = ACCESS_FBINFO(crtc1).mnp;
+	videomnp = ACCESS_FBINFO(crtc2).mnp;
+	if (videomnp < 0) {
+		c2_ctl &= ~0x0001;			/* Disable CRTC2 */
+		hw->DACreg[POS1064_XPWRCTRL] &= ~0x10;	/* Powerdown CRTC2 */
+	} else if (ACCESS_FBINFO(crtc2).pixclock == ACCESS_FBINFO(features).pll.ref_freq) {
+		c2_ctl |=  0x4002;	/* Use reference directly */
+	} else if (videomnp == pixelmnp) {
+		c2_ctl |=  0x0004;	/* Use pixel PLL */
+	} else {
+		if (0 == ((videomnp ^ pixelmnp) & 0xFFFFFF00)) {
+			/* PIXEL and VIDEO PLL must not use same frequency. We modify N
+			   of PIXEL PLL in such case because of VIDEO PLL may be source
+			   of TVO clocks, and chroma subcarrier is derived from its
+			   pixel clocks */
+			pixelmnp += 0x000100;
+		}
+		c2_ctl |=  0x0006;	/* Use video PLL */
+		hw->DACreg[POS1064_XPWRCTRL] |= 0x02;
+		
+		outDAC1064(PMINFO M1064_XPWRCTRL, hw->DACreg[POS1064_XPWRCTRL]);
+		matroxfb_g450_setpll_cond(PMINFO videomnp, M_VIDEO_PLL);
+	}
+
+	hw->DACreg[POS1064_XPIXCLKCTRL] &= ~M1064_XPIXCLKCTRL_PLL_UP;
+	if (pixelmnp >= 0) {
+		hw->DACreg[POS1064_XPIXCLKCTRL] |= M1064_XPIXCLKCTRL_PLL_UP;
+		
+		outDAC1064(PMINFO M1064_XPIXCLKCTRL, hw->DACreg[POS1064_XPIXCLKCTRL]);
+		matroxfb_g450_setpll_cond(PMINFO pixelmnp, M_PIXEL_PLL_C);
+	}
+	if (c2_ctl != hw->crtc2.ctl) {
+		hw->crtc2.ctl = c2_ctl;
+		mga_outl(0x3C10, c2_ctl);
+	}
+
+	pxc = ACCESS_FBINFO(crtc1).pixclock;
+	if (pxc == 0 || ACCESS_FBINFO(outputs[2]).src == MATROXFB_SRC_CRTC2) {
+		pxc = ACCESS_FBINFO(crtc2).pixclock;
+	}
+	if (ACCESS_FBINFO(chip) == MGA_G550) {
+		if (pxc < 45000) {
+			hw->DACreg[POS1064_XPANMODE] = 0x00;	/* 0-50 */
+		} else if (pxc < 55000) {
+			hw->DACreg[POS1064_XPANMODE] = 0x08;	/* 34-62 */
+		} else if (pxc < 70000) {
+			hw->DACreg[POS1064_XPANMODE] = 0x10;	/* 42-78 */
+		} else if (pxc < 85000) {
+			hw->DACreg[POS1064_XPANMODE] = 0x18;	/* 62-92 */
+		} else if (pxc < 100000) {
+			hw->DACreg[POS1064_XPANMODE] = 0x20;	/* 74-108 */
+		} else if (pxc < 115000) {
+			hw->DACreg[POS1064_XPANMODE] = 0x28;	/* 94-122 */
+		} else if (pxc < 125000) {
+			hw->DACreg[POS1064_XPANMODE] = 0x30;	/* 108-132 */
+		} else {
+			hw->DACreg[POS1064_XPANMODE] = 0x38;	/* 120-168 */
+		}
+	} else {
+		/* G450 */
+		if (pxc < 45000) {
+			hw->DACreg[POS1064_XPANMODE] = 0x00;	/* 0-54 */
+		} else if (pxc < 65000) {
+			hw->DACreg[POS1064_XPANMODE] = 0x08;	/* 38-70 */
+		} else if (pxc < 85000) {
+			hw->DACreg[POS1064_XPANMODE] = 0x10;	/* 56-96 */
+		} else if (pxc < 105000) {
+			hw->DACreg[POS1064_XPANMODE] = 0x18;	/* 80-114 */
+		} else if (pxc < 135000) {
+			hw->DACreg[POS1064_XPANMODE] = 0x20;	/* 102-144 */
+		} else if (pxc < 160000) {
+			hw->DACreg[POS1064_XPANMODE] = 0x28;	/* 132-166 */
+		} else if (pxc < 175000) {
+			hw->DACreg[POS1064_XPANMODE] = 0x30;	/* 154-182 */
+		} else {
+			hw->DACreg[POS1064_XPANMODE] = 0x38;	/* 170-204 */
+		}
+	}
+}
+#endif
+
 void DAC1064_global_init(WPMINFO2) {
 	struct matrox_hw_state* hw = &ACCESS_FBINFO(hw);
 
 	hw->DACreg[POS1064_XMISCCTRL] &= M1064_XMISCCTRL_DAC_WIDTHMASK;
 	hw->DACreg[POS1064_XMISCCTRL] |= M1064_XMISCCTRL_LUT_EN;
 	hw->DACreg[POS1064_XPIXCLKCTRL] = M1064_XPIXCLKCTRL_PLL_UP | M1064_XPIXCLKCTRL_EN | M1064_XPIXCLKCTRL_SRC_PLL;
-	hw->DACreg[POS1064_XOUTPUTCONN] = 0x01;	/* output #1 enabled */
-	if (ACCESS_FBINFO(output.ph) & MATROXFB_OUTPUT_CONN_SECONDARY) {
-		if (ACCESS_FBINFO(devflags.g450dac)) {
-			hw->DACreg[POS1064_XPIXCLKCTRL] = M1064_XPIXCLKCTRL_PLL_UP | M1064_XPIXCLKCTRL_EN | M1064_XPIXCLKCTRL_SRC_PLL2;
-			hw->DACreg[POS1064_XOUTPUTCONN] = 0x05;	/* output #1 enabled; CRTC1 connected to output #2 */
-		} else {
+#ifdef CONFIG_FB_MATROX_G450
+	if (ACCESS_FBINFO(devflags.g450dac)) {
+		hw->DACreg[POS1064_XPWRCTRL] = 0x1F;	/* powerup everything */
+		hw->DACreg[POS1064_XOUTPUTCONN] = 0x00;	/* disable outputs */
+		hw->DACreg[POS1064_XMISCCTRL] |= M1064_XMISCCTRL_DAC_EN;
+		switch (ACCESS_FBINFO(outputs[0]).src) {
+			case MATROXFB_SRC_CRTC1:
+			case MATROXFB_SRC_CRTC2:
+				hw->DACreg[POS1064_XOUTPUTCONN] |= 0x01;	/* enable output; CRTC1/2 selection is in CRTC2 ctl */
+				break;
+			case MATROXFB_SRC_NONE:
+				hw->DACreg[POS1064_XMISCCTRL] &= ~M1064_XMISCCTRL_DAC_EN;
+				break;
+		}
+		switch (ACCESS_FBINFO(outputs[1]).src) {
+			case MATROXFB_SRC_CRTC1:
+				hw->DACreg[POS1064_XOUTPUTCONN] |= 0x04;
+				break;
+			case MATROXFB_SRC_CRTC2:
+				if (ACCESS_FBINFO(outputs[1]).mode == MATROXFB_OUTPUT_MODE_MONITOR) {
+					hw->DACreg[POS1064_XOUTPUTCONN] |= 0x08;
+				} else {
+					hw->DACreg[POS1064_XOUTPUTCONN] |= 0x0C;
+				}
+				break;
+			case MATROXFB_SRC_NONE:
+				hw->DACreg[POS1064_XPWRCTRL] &= ~0x01;		/* Poweroff DAC2 */
+				break;
+		}
+		switch (ACCESS_FBINFO(outputs[2]).src) {
+			case MATROXFB_SRC_CRTC1:
+				hw->DACreg[POS1064_XOUTPUTCONN] |= 0x20;
+				break;
+			case MATROXFB_SRC_CRTC2:
+				hw->DACreg[POS1064_XOUTPUTCONN] |= 0x40;
+				break;
+			case MATROXFB_SRC_NONE:
+#if 0
+				/* HELP! If we boot without DFP connected to DVI, we can
+				   poweroff TMDS. But if we boot with DFP connected,
+				   TMDS generated clocks are used instead of ALL pixclocks
+				   available... If someone knows which register
+				   handles it, please reveal this secret to me... */			
+				hw->DACreg[POS1064_XPWRCTRL] &= ~0x04;		/* Poweroff TMDS */
+#endif				
+				break;
+		}
+		/* Now set timming related variables... */
+		g450_set_plls(PMINFO2);
+	} else
+#endif
+	{
+		if (ACCESS_FBINFO(outputs[1]).src == MATROXFB_SRC_CRTC1) {
 			hw->DACreg[POS1064_XPIXCLKCTRL] = M1064_XPIXCLKCTRL_PLL_UP | M1064_XPIXCLKCTRL_EN | M1064_XPIXCLKCTRL_SRC_EXT;
 			hw->DACreg[POS1064_XMISCCTRL] |= GX00_XMISCCTRL_MFC_MAFC | G400_XMISCCTRL_VDO_MAFC12;
-		}
-	} else if (ACCESS_FBINFO(output.sh) & MATROXFB_OUTPUT_CONN_SECONDARY) {
-		hw->DACreg[POS1064_XMISCCTRL] |= GX00_XMISCCTRL_MFC_MAFC | G400_XMISCCTRL_VDO_C2_MAFC12;
-		hw->DACreg[POS1064_XOUTPUTCONN] = 0x09; /* output #1 enabled; CRTC2 connected to output #2 */
-	} else if (ACCESS_FBINFO(output.ph) & MATROXFB_OUTPUT_CONN_DFP)
-		hw->DACreg[POS1064_XMISCCTRL] |= GX00_XMISCCTRL_MFC_PANELLINK | G400_XMISCCTRL_VDO_MAFC12;
-	else
-		hw->DACreg[POS1064_XMISCCTRL] |= GX00_XMISCCTRL_MFC_DIS;
+		} else if (ACCESS_FBINFO(outputs[1]).src == MATROXFB_SRC_CRTC2) {
+			hw->DACreg[POS1064_XMISCCTRL] |= GX00_XMISCCTRL_MFC_MAFC | G400_XMISCCTRL_VDO_C2_MAFC12;
+		} else if (ACCESS_FBINFO(outputs[2]).src == MATROXFB_SRC_CRTC1)
+			hw->DACreg[POS1064_XMISCCTRL] |= GX00_XMISCCTRL_MFC_PANELLINK | G400_XMISCCTRL_VDO_MAFC12;
+		else
+			hw->DACreg[POS1064_XMISCCTRL] |= GX00_XMISCCTRL_MFC_DIS;
 
-	if ((ACCESS_FBINFO(output.ph) | ACCESS_FBINFO(output.sh)) & MATROXFB_OUTPUT_CONN_PRIMARY)
-		hw->DACreg[POS1064_XMISCCTRL] |= M1064_XMISCCTRL_DAC_EN;
+		if (ACCESS_FBINFO(outputs[0]).src != MATROXFB_SRC_NONE)
+			hw->DACreg[POS1064_XMISCCTRL] |= M1064_XMISCCTRL_DAC_EN;
+	}
 }
 
 void DAC1064_global_restore(WPMINFO2) {
@@ -329,8 +450,9 @@ void DAC1064_global_restore(WPMINFO2) {
 		outDAC1064(PMINFO 0x20, 0x04);
 		outDAC1064(PMINFO 0x1F, ACCESS_FBINFO(devflags.dfp_type));
 		if (ACCESS_FBINFO(devflags.g450dac)) {
-			outDAC1064(PMINFO M1064_XSYNCCTRL, 0xCC);	/* only matrox know... */
-			outDAC1064(PMINFO M1064_XPWRCTRL, 0x1F);	/* powerup everything */
+			outDAC1064(PMINFO M1064_XSYNCCTRL, 0xCC);
+			outDAC1064(PMINFO M1064_XPWRCTRL, hw->DACreg[POS1064_XPWRCTRL]);
+			outDAC1064(PMINFO M1064_XPANMODE, hw->DACreg[POS1064_XPANMODE]);
 			outDAC1064(PMINFO M1064_XOUTPUTCONN, hw->DACreg[POS1064_XOUTPUTCONN]);
 		}
 	}
@@ -368,13 +490,13 @@ static int DAC1064_init_1(WPMINFO struct my_timming* m, struct display *p) {
 			return 1;	/* unsupported depth */
 		}
 	}
-
-	DAC1064_global_init(PMINFO2);
 	hw->DACreg[POS1064_XVREFCTRL] = ACCESS_FBINFO(features.DAC1064.xvrefctrl);
 	hw->DACreg[POS1064_XGENCTRL] &= ~M1064_XGENCTRL_SYNC_ON_GREEN_MASK;
 	hw->DACreg[POS1064_XGENCTRL] |= (m->sync & FB_SYNC_ON_GREEN)?M1064_XGENCTRL_SYNC_ON_GREEN:M1064_XGENCTRL_NO_SYNC_ON_GREEN;
 	hw->DACreg[POS1064_XCURADDL] = ACCESS_FBINFO(features.DAC1064.cursorimage) >> 10;
 	hw->DACreg[POS1064_XCURADDH] = ACCESS_FBINFO(features.DAC1064.cursorimage) >> 18;
+
+	DAC1064_global_init(PMINFO2);
 	return 0;
 }
 
@@ -471,13 +593,8 @@ static void DAC1064_restore_2(WPMINFO struct display* p) {
 #endif
 }
 
-static int m1064_compute(void* outdev, struct my_timming* m) {
-#define minfo ((struct matrox_fb_info*)outdev)
-#ifdef CONFIG_FB_MATROX_G450
-	if (ACCESS_FBINFO(devflags.g450dac)) {
-		matroxfb_g450_setclk(PMINFO m->pixclock, M_PIXEL_PLL_C);
-	} else 
-#endif
+static int m1064_compute(void* out, struct my_timming* m) {
+#define minfo ((struct matrox_fb_info*)out)
 	{
 		int i;
 		int tmout;
@@ -504,38 +621,31 @@ static int m1064_compute(void* outdev, struct my_timming* m) {
 	return 0;
 }
 
-static int m1064_program(void* outdev) {
-	/* nothing, hardware is set in m1064_compute */
-	return 0;
-}
-
-static int m1064_start(void* outdev) {
-	/* nothing */
-	return 0;
-}
-
-static void m1064_incuse(void* outdev) {
-	/* nothing yet; MODULE_INC_USE in future... */
-}
-
-static void m1064_decuse(void* outdev) {
-	/* nothing yet; MODULE_DEC_USE in future... */
-}
-
-static int m1064_setmode(void* outdev, u_int32_t mode) {
-	if (mode != MATROXFB_OUTPUT_MODE_MONITOR)
-		return -EINVAL;
-	return 0;
-}
-
 static struct matrox_altout m1064 = {
-	m1064_compute,
-	m1064_program,
-	m1064_start,
-	m1064_incuse,
-	m1064_decuse,
-	m1064_setmode
+	.owner   = THIS_MODULE,
+	.name	 = "Primary output",
+	.compute = m1064_compute,
 };
+
+#ifdef CONFIG_FB_MATROX_G450
+static int g450_compute(void* out, struct my_timming* m) {
+#define minfo ((struct matrox_fb_info*)out)
+	if (m->mnp < 0) {
+		m->mnp = matroxfb_g450_setclk(PMINFO m->pixclock, (m->crtc == MATROXFB_SRC_CRTC1) ? M_PIXEL_PLL_C : M_VIDEO_PLL);
+		if (m->mnp >= 0) {
+			m->pixclock = g450_mnp2f(PMINFO m->mnp);
+		}
+	}
+#undef minfo
+	return 0;
+}
+
+static struct matrox_altout g450out = {
+	.owner   = THIS_MODULE,
+	.name	 = "Primary output",
+	.compute = g450_compute,
+};
+#endif
 
 #endif /* NEED_DAC1064 */
 
@@ -607,6 +717,9 @@ static void MGA1064_ramdac_init(WPMINFO2) {
 /* BIOS environ */
 static int x7AF4 = 0x10;	/* flags, maybe 0x10 = SDRAM, 0x00 = SGRAM??? */
 				/* G100 wants 0x10, G200 SGRAM does not care... */
+#if 0
+static int def50 = 0;	/* reg50, & 0x0F, & 0x3000 (only 0x0000, 0x1000, 0x2000 (0x3000 disallowed and treated as 0) */
+#endif
 
 static void MGAG100_progPixClock(CPMINFO int flags, int m, int n, int p) {
 	int reg;
@@ -677,7 +790,10 @@ static int MGA1064_preinit(WPMINFO2) {
 	ACCESS_FBINFO(features.accel.has_cacheflush) = 1;
 	ACCESS_FBINFO(cursor.timer.function) = matroxfb_DAC1064_flashcursor;
 
-	ACCESS_FBINFO(primout) = &m1064;
+	ACCESS_FBINFO(outputs[0]).output = &m1064;
+	ACCESS_FBINFO(outputs[0]).src = MATROXFB_SRC_CRTC1;
+	ACCESS_FBINFO(outputs[0]).data = MINFO;
+	ACCESS_FBINFO(outputs[0]).mode = MATROXFB_OUTPUT_MODE_MONITOR;
 
 	if (ACCESS_FBINFO(devflags.noinit))
 		return 0;	/* do not modify settings */
@@ -712,6 +828,7 @@ static void MGA1064_reset(WPMINFO2) {
 #endif
 
 #ifdef CONFIG_FB_MATROX_G100
+#ifdef CONFIG_FB_MATROX_G450
 static void g450_mclk_init(WPMINFO2) {
 	/* switch all clocks to PCI source */
 	pci_write_config_dword(ACCESS_FBINFO(pcidev), PCI_OPTION_REG, ACCESS_FBINFO(hw).MXoptionReg | 4);
@@ -723,8 +840,13 @@ static void g450_mclk_init(WPMINFO2) {
 	    ((ACCESS_FBINFO(values).reg.opt3 & 0x300000) == 0x300000)) {
 		matroxfb_g450_setclk(PMINFO ACCESS_FBINFO(values.pll.video), M_VIDEO_PLL);
 	} else {
-		/* slow down video clocks... */
-		matroxfb_g450_setclk(PMINFO 0, M_VIDEO_PLL);
+		unsigned long flags;
+		unsigned int pwr;
+		
+		matroxfb_DAC_lock_irqsave(flags);
+		pwr = inDAC1064(PMINFO M1064_XPWRCTRL) & ~0x02;
+		outDAC1064(PMINFO M1064_XPWRCTRL, pwr);
+		matroxfb_DAC_unlock_irqrestore(flags);
 	}
 	matroxfb_g450_setclk(PMINFO ACCESS_FBINFO(values.pll.system), M_SYSTEM_PLL);
 	
@@ -824,6 +946,10 @@ static void g450_preinit(WPMINFO2) {
 	
 	return;
 }
+#else
+static inline void g450_preinit(WPMINFO2) {
+}
+#endif
 
 static int MGAG100_preinit(WPMINFO2) {
 	static const int vxres_g100[] = {  512,        640, 768,  800,  832,  960,
@@ -832,6 +958,9 @@ static int MGAG100_preinit(WPMINFO2) {
 	struct matrox_hw_state* hw = &ACCESS_FBINFO(hw);
 
         u_int32_t reg50;
+#if 0
+	u_int32_t q;
+#endif
 
 	DBG("MGAG100_preinit")
 
@@ -858,7 +987,17 @@ static int MGAG100_preinit(WPMINFO2) {
 	ACCESS_FBINFO(capable.plnwt) = ACCESS_FBINFO(devflags.accelerator) == FB_ACCEL_MATROX_MGAG100
 			? ACCESS_FBINFO(devflags.sgram) : 1;
 
-	ACCESS_FBINFO(primout) = &m1064;
+#ifdef CONFIG_FB_MATROX_G450
+	if (ACCESS_FBINFO(devflags.g450dac)) {
+		ACCESS_FBINFO(outputs[0]).output = &g450out;
+	} else
+#endif
+	{
+		ACCESS_FBINFO(outputs[0]).output = &m1064;
+	}
+	ACCESS_FBINFO(outputs[0]).src = MATROXFB_SRC_CRTC1;
+	ACCESS_FBINFO(outputs[0]).data = MINFO;
+	ACCESS_FBINFO(outputs[0]).mode = MATROXFB_OUTPUT_MODE_MONITOR;
 
 	if (ACCESS_FBINFO(devflags.g450dac)) {
 		/* we must do this always, BIOS does not do it for us
@@ -889,8 +1028,7 @@ static int MGAG100_preinit(WPMINFO2) {
 
 		hw->MXoptionReg |= 0x1080;
 		pci_write_config_dword(ACCESS_FBINFO(pcidev), PCI_OPTION_REG, hw->MXoptionReg);
-		mga_outl(M_CTLWTST, 0x00000300);
-		/* mga_outl(M_CTLWTST, 0x03258A31); */
+		mga_outl(M_CTLWTST, ACCESS_FBINFO(values).reg.mctlwtst);
 		udelay(100);
 		mga_outb(0x1C05, 0x00);
 		mga_outb(0x1C05, 0x80);
@@ -909,6 +1047,11 @@ static int MGAG100_preinit(WPMINFO2) {
 		mga_writeb(ACCESS_FBINFO(video.vbase), 0x0000, 0xAA);
 		mga_writeb(ACCESS_FBINFO(video.vbase), 0x0800, 0x55);
 		mga_writeb(ACCESS_FBINFO(video.vbase), 0x4000, 0x55);
+#if 0
+		if (mga_readb(ACCESS_FBINFO(video.vbase), 0x0000) != 0xAA) {
+			hw->MXoptionReg &= ~0x1000;
+		}
+#endif
 		hw->MXoptionReg |= 0x00078020;
 	} else if (ACCESS_FBINFO(devflags.accelerator) == FB_ACCEL_MATROX_MGAG200) {
 		pci_read_config_dword(ACCESS_FBINFO(pcidev), PCI_OPTION2_REG, &reg50);
@@ -936,17 +1079,18 @@ static int MGAG100_preinit(WPMINFO2) {
 		pci_write_config_dword(ACCESS_FBINFO(pcidev), PCI_OPTION2_REG, reg50);
 
 		if (ACCESS_FBINFO(devflags.memtype) == -1)
-			ACCESS_FBINFO(devflags.memtype) = 0;
-		hw->MXoptionReg |= (ACCESS_FBINFO(devflags.memtype) & 7) << 10;
+			hw->MXoptionReg |= ACCESS_FBINFO(values).reg.opt & 0x1C00;
+		else
+			hw->MXoptionReg |= (ACCESS_FBINFO(devflags.memtype) & 7) << 10;
 		if (ACCESS_FBINFO(devflags.sgram))
 			hw->MXoptionReg |= 0x4000;
-		mga_outl(M_CTLWTST, 0x042450A1);
-		mga_outl(M_MEMRDBK, 0x00000108);
+		mga_outl(M_CTLWTST, ACCESS_FBINFO(values).reg.mctlwtst);
+		mga_outl(M_MEMRDBK, ACCESS_FBINFO(values).reg.memrdbk);
 		udelay(200);
 		mga_outl(M_MACCESS, 0x00000000);
 		mga_outl(M_MACCESS, 0x00008000);
 		udelay(100);
-		mga_outl(M_MEMRDBK, 0x00000108);
+		mga_outl(M_MEMRDBK, ACCESS_FBINFO(values).reg.memrdbk);
 		hw->MXoptionReg |= 0x00040020;
 	}
 	pci_write_config_dword(ACCESS_FBINFO(pcidev), PCI_OPTION_REG, hw->MXoptionReg);
@@ -979,7 +1123,7 @@ static void MGAG100_reset(WPMINFO2) {
 #endif
 		if (!ACCESS_FBINFO(devflags.noinit)) {
 			if (x7AF4 & 8) {
-				hw->MXoptionReg |= 0x40;	
+				hw->MXoptionReg |= 0x40;	/* FIXME... */
 				pci_write_config_dword(ACCESS_FBINFO(pcidev), PCI_OPTION_REG, hw->MXoptionReg);
 			}
 			mga_setr(M_EXTVGA_INDEX, 0x06, 0x50);
@@ -1033,6 +1177,7 @@ static void MGA1064_restore(WPMINFO struct display* p) {
 
 	DAC1064_restore_1(PMINFO2);
 	matroxfb_vgaHWrestore(PMINFO2);
+	ACCESS_FBINFO(crtc1.panpos) = -1;
 	for (i = 0; i < 6; i++)
 		mga_setr(M_EXTVGA_INDEX, i, hw->CRTCEXT[i]);
 	DAC1064_restore_2(PMINFO p);
@@ -1059,6 +1204,7 @@ static void MGAG100_restore(WPMINFO struct display* p) {
 	if (ACCESS_FBINFO(devflags.support32MB))
 		mga_setr(M_EXTVGA_INDEX, 8, hw->CRTCEXT[8]);
 #endif
+	ACCESS_FBINFO(crtc1.panpos) = -1;
 	for (i = 0; i < 6; i++)
 		mga_setr(M_EXTVGA_INDEX, i, hw->CRTCEXT[i]);
 	DAC1064_restore_2(PMINFO p);

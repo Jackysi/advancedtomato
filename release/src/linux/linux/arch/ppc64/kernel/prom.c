@@ -15,7 +15,13 @@
  *      2 of the License, or (at your option) any later version.
  */
 
+#if 0
+#define DEBUG_YABOOT
+#endif
 
+#if 0
+#define DEBUG_PROM
+#endif
 
 #include <stdarg.h>
 #include <linux/config.h>
@@ -126,13 +132,16 @@ struct pci_intr_map {
 
 typedef unsigned long interpret_func(struct device_node *, unsigned long,
 				     int, int);
+#if 0
+static interpret_func interpret_pci_props;
+#endif
 static unsigned long interpret_pci_props(struct device_node *, unsigned long,
 					 int, int);
 
 static interpret_func interpret_isa_props;
 static interpret_func interpret_root_props;
 
-#ifndef FB_MAX			    /* avoid pulling in all of the fb stuff */
+#ifndef FB_MAX			/* avoid pulling in all of the fb stuff */
 #define FB_MAX	8
 #endif
 
@@ -159,7 +168,6 @@ char *of_stdout_device = 0;
 
 extern struct rtas_t rtas;
 extern unsigned long klimit;
-extern unsigned long embedded_sysmap_end;
 extern struct lmb lmb;
 #ifdef CONFIG_MSCHUNKS
 extern struct msChunks msChunks;
@@ -171,12 +179,9 @@ struct _of_tce_table of_tce_table[MAX_PHB + 1] = {{0, 0, 0}};
 char *bootpath = 0;
 char *bootdevice = 0;
 
-struct device_node *allnodes = 0;
+#define MAX_CPU_THREADS 2
 
-#define UNDEFINED_IRQ 0xffff
-unsigned short real_irq_to_virt_map[NR_HW_IRQS];
-unsigned short virt_irq_to_real_map[NR_IRQS];
-int last_virt_irq = 2;	/* index of last virt_irq.  Skip through IPI */
+struct device_node *allnodes = 0;
 
 static unsigned long call_prom(const char *service, int nargs, int nret, ...);
 static void prom_exit(void);
@@ -333,6 +338,7 @@ prom_initialize_naca(unsigned long mem)
         unsigned long offset = reloc_offset();
 	struct prom_t *_prom = PTRRELOC(&prom);
         struct naca_struct *_naca = RELOC(naca);
+        struct systemcfg *_systemcfg = RELOC(systemcfg);
 
 	/* NOTE: _naca->debug_switch is already initialized. */
 #ifdef DEBUG_PROM
@@ -363,35 +369,25 @@ prom_initialize_naca(unsigned long mem)
 					  RELOC("d-cache-line-size"),
 					  &lsize, sizeof(lsize));
 
-				call_prom(RELOC("getprop"), 4, 1, node,
-					  RELOC("d-cache-sets"),
-					  &sets, sizeof(sets));
-
-				_naca->dCacheL1Size         = size;
-				_naca->dCacheL1LineSize     = lsize;
-				_naca->dCacheL1LogLineSize  = __ilog2(lsize);
+				_systemcfg->dCacheL1Size = size;
+				_systemcfg->dCacheL1LineSize = lsize;
+				_naca->dCacheL1LogLineSize = __ilog2(lsize);
 				_naca->dCacheL1LinesPerPage = PAGE_SIZE/lsize;
-				_naca->dCacheL1Assoc = size / lsize / sets;
 
 				call_prom(RELOC("getprop"), 4, 1, node,
-					  RELOC("i-cache-line-size"),
+					  RELOC("i-cache-size"),
 					  &size, sizeof(size));
 
 				call_prom(RELOC("getprop"), 4, 1, node,
 					  RELOC("i-cache-line-size"),
 					  &lsize, sizeof(lsize));
 
-				call_prom(RELOC("getprop"), 4, 1, node,
-					  RELOC("i-cache-sets"),
-					  &sets, sizeof(sets));
-
-				_naca->iCacheL1Size         = size;
-				_naca->iCacheL1LineSize     = lsize;
-				_naca->iCacheL1LogLineSize  = __ilog2(lsize);
+				_systemcfg->iCacheL1Size = size;
+				_systemcfg->iCacheL1LineSize = lsize;
+				_naca->iCacheL1LogLineSize = __ilog2(lsize);
 				_naca->iCacheL1LinesPerPage = PAGE_SIZE/lsize;
-				_naca->iCacheL1Assoc = size / lsize / sets;
 
-				if (_naca->platform == PLATFORM_PSERIES_LPAR) {
+				if (_systemcfg->platform == PLATFORM_PSERIES_LPAR) {
 					u32 pft_size[2];
 					call_prom(RELOC("getprop"), 4, 1, node, 
 						  RELOC("ibm,pft-size"),
@@ -461,17 +457,17 @@ prom_initialize_naca(unsigned long mem)
 	}
 
 	/* We gotta have at least 1 cpu... */
-        if ( (_naca->processorCount = num_cpus) < 1 )
+        if ( (_systemcfg->processorCount = num_cpus) < 1 )
                 PROM_BUG();
 
-	_naca->physicalMemorySize = lmb_phys_mem_size();
+	_systemcfg->physicalMemorySize = lmb_phys_mem_size();
 
-	if (_naca->platform == PLATFORM_PSERIES) {
+	if (_systemcfg->platform == PLATFORM_PSERIES) {
 		unsigned long rnd_mem_size, pteg_count;
 
 		/* round mem_size up to next power of 2 */
-		rnd_mem_size = 1UL << __ilog2(_naca->physicalMemorySize);
-		if (rnd_mem_size < _naca->physicalMemorySize)
+		rnd_mem_size = 1UL << __ilog2(_systemcfg->physicalMemorySize);
+		if (rnd_mem_size < _systemcfg->physicalMemorySize)
 			rnd_mem_size <<= 1;
 
 		/* # pages / 2 */
@@ -492,58 +488,43 @@ prom_initialize_naca(unsigned long mem)
 	 */
 	_naca->slb_size = 64;
 
-	/* Add an eye catcher and the naca layout version number */
-	strcpy(_naca->eye_catcher, RELOC("PPC64"));
-	_naca->version     = 1;
-	_naca->processor   = _get_PVR() >> 16;
+	/* Add an eye catcher and the systemcfg layout version number */
+	strcpy(_systemcfg->eye_catcher, RELOC("SYSTEMCFG:PPC64"));
+	_systemcfg->version.major = SYSTEMCFG_MAJOR;
+	_systemcfg->version.minor = SYSTEMCFG_MINOR;
+	_systemcfg->processor = _get_PVR();
 
 #ifdef DEBUG_PROM
-        prom_print(RELOC("naca->processorCount       = 0x"));
-        prom_print_hex(_naca->processorCount);
+        prom_print(RELOC("systemcfg->processorCount       = 0x"));
+        prom_print_hex(_systemcfg->processorCount);
         prom_print_nl();
 
-        prom_print(RELOC("naca->physicalMemorySize   = 0x"));
-        prom_print_hex(_naca->physicalMemorySize);
+        prom_print(RELOC("systemcfg->physicalMemorySize   = 0x"));
+        prom_print_hex(_systemcfg->physicalMemorySize);
         prom_print_nl();
 
-        prom_print(RELOC("naca->pftSize              = 0x"));
+        prom_print(RELOC("naca->pftSize                   = 0x"));
         prom_print_hex(_naca->pftSize);
         prom_print_nl();
 
-        prom_print(RELOC("naca->dCacheL1LineSize     = 0x"));
-        prom_print_hex(_naca->dCacheL1LineSize);
+        prom_print(RELOC("systemcfg->dCacheL1LineSize     = 0x"));
+        prom_print_hex(_systemcfg->dCacheL1LineSize);
         prom_print_nl();
 
-        prom_print(RELOC("naca->dCacheL1LogLineSize  = 0x"));
-        prom_print_hex(_naca->dCacheL1LogLineSize);
+        prom_print(RELOC("systemcfg->iCacheL1LineSize     = 0x"));
+        prom_print_hex(_systemcfg->iCacheL1LineSize);
         prom_print_nl();
 
-        prom_print(RELOC("naca->dCacheL1LinesPerPage = 0x"));
-        prom_print_hex(_naca->dCacheL1LinesPerPage);
-        prom_print_nl();
-
-        prom_print(RELOC("naca->iCacheL1LineSize     = 0x"));
-        prom_print_hex(_naca->iCacheL1LineSize);
-        prom_print_nl();
-
-        prom_print(RELOC("naca->iCacheL1LogLineSize  = 0x"));
-        prom_print_hex(_naca->iCacheL1LogLineSize);
-        prom_print_nl();
-
-        prom_print(RELOC("naca->iCacheL1LinesPerPage = 0x"));
-        prom_print_hex(_naca->iCacheL1LinesPerPage);
-        prom_print_nl();
-
-        prom_print(RELOC("naca->serialPortAddr       = 0x"));
+        prom_print(RELOC("naca->serialPortAddr            = 0x"));
         prom_print_hex(_naca->serialPortAddr);
         prom_print_nl();
 
-        prom_print(RELOC("naca->interrupt_controller = 0x"));
+        prom_print(RELOC("naca->interrupt_controller      = 0x"));
         prom_print_hex(_naca->interrupt_controller);
         prom_print_nl();
 
-        prom_print(RELOC("naca->platform             = 0x"));
-        prom_print_hex(_naca->platform);
+        prom_print(RELOC("systemcfg->platform             = 0x"));
+        prom_print_hex(_systemcfg->platform);
         prom_print_nl();
 
 	prom_print(RELOC("prom_initialize_naca: end...\n"));
@@ -566,11 +547,16 @@ prom_initialize_lmb(unsigned long mem)
 
 #ifdef CONFIG_MSCHUNKS
 	unsigned long max_addr = 0;
+#if 1
 	/* Fix me: 630 3G-4G IO hack here... -Peter (PPPBBB) */
 	unsigned long io_base = 3UL<<30;
 	unsigned long io_size = 1UL<<30;
 	unsigned long have_630 = 1;	/* assume we have a 630 */
 
+#else
+	unsigned long io_base = <real io base here>;
+	unsigned long io_size = <real io size here>;
+#endif
 #endif /* CONFIG_MSCHUNKS */
 
 	lmb_init();
@@ -642,6 +628,7 @@ prom_instantiate_rtas(void)
 	struct prom_t *_prom = PTRRELOC(&prom);
 	struct rtas_t *_rtas = PTRRELOC(&rtas);
 	struct naca_struct *_naca = RELOC(naca);
+	struct systemcfg *_systemcfg = RELOC(systemcfg);
 	ihandle prom_rtas;
         u32 getprop_rval;
 
@@ -658,7 +645,7 @@ prom_instantiate_rtas(void)
 				  RELOC("ibm,hypertas-functions"), 
 				  hypertas_funcs, 
 				  sizeof(hypertas_funcs))) > 0) {
-			_naca->platform = PLATFORM_PSERIES_LPAR;
+			_systemcfg->platform = PLATFORM_PSERIES_LPAR;
 		}
 
 		call_prom(RELOC("getprop"), 
@@ -675,7 +662,7 @@ prom_instantiate_rtas(void)
 			 * of physical memory (or within the RMO region) because RTAS
 			 * runs in 32-bit mode and relocate off.
 			 */
-			if ( _naca->platform == PLATFORM_PSERIES_LPAR ) {
+			if ( _systemcfg->platform == PLATFORM_PSERIES_LPAR ) {
 				struct lmb *_lmb  = PTRRELOC(&lmb);
 				rtas_region = min(_lmb->rmo_size, RTAS_INSTANTIATE_MAX);
 			}
@@ -950,7 +937,7 @@ prom_initialize_tce_table(void)
 		 * By doing this, we avoid the pitfalls of trying to DMA to
 		 * MMIO space and the DMA alias hole.
 		 */
-		minsize = 4UL << 20;
+		minsize = 8UL << 20;
 
 		/* Align to the greater of the align or size */
 		align = (minalign < minsize) ? minsize : minalign;
@@ -1063,6 +1050,9 @@ prom_hold_cpus(unsigned long mem)
 	unsigned long offset = reloc_offset();
 	char type[64], *path;
 	int cpuid = 0;
+	unsigned int interrupt_server[MAX_CPU_THREADS];
+	unsigned int cpu_threads, hw_cpu_num;
+	int propsize;
 	extern void __secondary_hold(void);
         extern unsigned long __secondary_hold_spinloop;
         extern unsigned long __secondary_hold_acknowledge;
@@ -1070,11 +1060,12 @@ prom_hold_cpus(unsigned long mem)
         unsigned long *acknowledge  = __v2a(&__secondary_hold_acknowledge);
         unsigned long secondary_hold = (unsigned long)__v2a(*PTRRELOC((unsigned long *)__secondary_hold));
         struct naca_struct *_naca = RELOC(naca);
+        struct systemcfg *_systemcfg = RELOC(systemcfg);
 	struct paca_struct *_xPaca = PTRRELOC(&paca[0]);
 	struct prom_t *_prom = PTRRELOC(&prom);
 
 	/* Initially, we must have one active CPU. */
-	_naca->processorCount = 1;
+	_systemcfg->processorCount = 1;
 
 #ifdef DEBUG_PROM
 	prom_print(RELOC("prom_hold_cpus: start...\n"));
@@ -1125,17 +1116,11 @@ prom_hold_cpus(unsigned long mem)
 		call_prom(RELOC("getprop"), 4, 1, node, RELOC("reg"),
 			  &reg, sizeof(reg));
 
-		/* Only need to start secondary procs, not ourself. */
-		if ( reg == _prom->cpu )
-			continue;
-
 		path = (char *) mem;
 		memset(path, 0, 256);
 		if ((long) call_prom(RELOC("package-to-path"), 3, 1,
 				     node, path, 255) < 0)
 			continue;
-
-		cpuid++;
 
 #ifdef DEBUG_PROM
 		prom_print_nl();
@@ -1148,56 +1133,80 @@ prom_hold_cpus(unsigned long mem)
 #endif
 		_xPaca[cpuid].xHwProcNum = reg;
 
-		prom_print(RELOC("starting cpu "));
-		prom_print(path);
-
 		/* Init the acknowledge var which will be reset by
 		 * the secondary cpu when it awakens from its OF
 		 * spinloop.
 		 */
 		*acknowledge = (unsigned long)-1;
 
-#ifdef DEBUG_PROM
-		prom_print(RELOC("    3) spinloop       = 0x"));
-		prom_print_hex(spinloop);
-		prom_print_nl();
-		prom_print(RELOC("    3) *spinloop      = 0x"));
-		prom_print_hex(*spinloop);
-		prom_print_nl();
-		prom_print(RELOC("    3) acknowledge    = 0x"));
-		prom_print_hex(acknowledge);
-		prom_print_nl();
-		prom_print(RELOC("    3) *acknowledge   = 0x"));
-		prom_print_hex(*acknowledge);
-		prom_print_nl();
-		prom_print(RELOC("    3) secondary_hold = 0x"));
-		prom_print_hex(secondary_hold);
-		prom_print_nl();
-		prom_print(RELOC("    3) cpuid = 0x"));
-		prom_print_hex(cpuid);
-		prom_print_nl();
-#endif
-		call_prom(RELOC("start-cpu"), 3, 0, node, secondary_hold, cpuid);
-		prom_print(RELOC("..."));
-		for ( i = 0 ; (i < 100000000) && 
-			      (*acknowledge == ((unsigned long)-1)); i++ ) ;
-#ifdef DEBUG_PROM
-		{
-			unsigned long *p = 0x0;
-			prom_print(RELOC("    4) 0x0 = 0x"));
-			prom_print_hex(*p);
-			prom_print_nl();
-		}
-#endif
-		if (*acknowledge == cpuid) {
-			prom_print(RELOC("ok\n"));
-			/* Set the number of active processors. */
-			_naca->processorCount++;
+		propsize = call_prom(RELOC("getprop"), 4, 1, node,
+				     RELOC("ibm,ppc-interrupt-server#s"),
+				     &interrupt_server,
+				     sizeof(interrupt_server));
+		if (propsize < 0) {
+			/* no property.  old hardware has no SMT */
+			cpu_threads = 1;
+			interrupt_server[0] = reg; /* fake it with phys id */
 		} else {
-			prom_print(RELOC("failed: "));
-			prom_print_hex(*acknowledge);
+			/* We have a threaded processor */
+			cpu_threads = propsize / sizeof(u32);
+			if (cpu_threads > MAX_CPU_THREADS) {
+				prom_print(RELOC("SMT: too many threads!\nSMT: found "));
+				prom_print_hex(cpu_threads);
+				prom_print(RELOC(", max is "));
+				prom_print_hex(MAX_CPU_THREADS);
+				prom_print_nl();
+				cpu_threads = 1; /* ToDo: panic? */
+			}
+		}
+
+		hw_cpu_num = interrupt_server[0];
+		if (hw_cpu_num != _prom->cpu) {
+			/* Primary Thread of non-boot cpu */
+			prom_print_hex(cpuid);
+			prom_print(RELOC(" : starting cpu "));
+			prom_print(path);
+			prom_print(RELOC(" ... "));
+			call_prom(RELOC("start-cpu"), 3, 0, node,
+				  secondary_hold, cpuid);
+
+			for(i = 0; (i < 100000000) &&
+			  (*acknowledge == ((unsigned long)-1)); i++ );
+
+			if (*acknowledge == cpuid) {
+				prom_print(RELOC("ok\n"));
+				/* Set the number of active processors. */
+				_systemcfg->processorCount++;
+				_xPaca[cpuid].active = 1;
+				_xPaca[cpuid].available = 1;
+			} else {
+				prom_print(RELOC("failed: "));
+				prom_print_hex(*acknowledge);
+				prom_print_nl();
+				/* prom_panic(RELOC("cpu failed to start")); */
+			}
+		} else {
+			prom_print_hex(cpuid);
+			prom_print(RELOC(" : booting  cpu "));
+			prom_print(path);
 			prom_print_nl();
 		}
+
+		/* Init paca for secondary threads.   They start later. */
+		for (i=1; i < cpu_threads; i++) {
+			cpuid++;
+			_xPaca[cpuid].xHwProcNum = interrupt_server[i];
+			prom_print_hex(interrupt_server[i]);
+			prom_print(RELOC(" : preparing thread ... "));
+			if (_naca->smt_state) {
+				_xPaca[cpuid].available = 1;
+				prom_print(RELOC("available"));
+			} else {
+				prom_print(RELOC("not available"));
+			}
+			prom_print_nl();
+		}
+		cpuid++;
 	}
 #ifdef CONFIG_HMT
 	/* Only enable HMT on processors that provide support. */
@@ -1206,8 +1215,8 @@ prom_hold_cpus(unsigned long mem)
 	    __is_processor(PV_SSTAR)) {
 		prom_print(RELOC("    starting secondary threads\n"));
 
-		for (i=0; i < _naca->processorCount ;i++) {
-			unsigned long threadid = _naca->processorCount*2-1-i;
+		for (i=0; i < _systemcfg->processorCount ;i++) {
+			unsigned long threadid = _systemcfg->processorCount*2-1-i;
 			
 			if (i == 0) {
 				unsigned long pir = _get_PIR();
@@ -1233,7 +1242,7 @@ prom_hold_cpus(unsigned long mem)
 #endif
 			_xPaca[threadid].xHwProcNum = _xPaca[i].xHwProcNum+1;
 		}
-		_naca->processorCount *= 2;
+		_systemcfg->processorCount *= 2;
 	} else {
 		prom_print(RELOC("Processor is not HMT capable\n"));
 	}
@@ -1244,10 +1253,108 @@ prom_hold_cpus(unsigned long mem)
 #endif
 }
 
+static void
+smt_setup(void)
+{
+	char *p, *q;
+	char my_smt_enabled = SMT_DYNAMIC;
+	unsigned long my_smt_snooze_delay;
+	ihandle prom_options = NULL;
+	char option[9];
+	unsigned long offset = reloc_offset();
+	struct naca_struct *_naca = RELOC(naca);
+	char found = 0;
+
+	if (strstr(RELOC(cmd_line), RELOC("smt-enabled="))) {
+		for (q = RELOC(cmd_line); (p = strstr(q, RELOC("smt-enabled="))) != 0; ) {
+			q = p + 12;
+			if (p > RELOC(cmd_line) && p[-1] != ' ')
+				continue;
+			found = 1;
+			if (q[0] == 'o' && q[1] == 'f' &&
+			    q[2] == 'f' && (q[3] == ' ' || q[3] == '\0')) {
+				my_smt_enabled = SMT_OFF;
+			} else if (q[0]=='o' && q[1] == 'n' &&
+				   (q[2] == ' ' || q[2] == '\0')) {
+				my_smt_enabled = SMT_ON;
+			} else {
+				my_smt_enabled = SMT_DYNAMIC;
+			}
+		}
+	}
+	if (!found) {
+		prom_options = (ihandle)call_prom(RELOC("finddevice"), 1, 1, RELOC("/options"));
+		if (prom_options != (ihandle) -1) {
+			call_prom(RELOC("getprop"),
+				4, 1, prom_options,
+				RELOC("ibm,smt-enabled"),
+				option, sizeof(option));
+			if (option[0] != 0) {
+				found = 1;
+				if (!strcmp(option, "off"))
+					my_smt_enabled = SMT_OFF;
+				else if (!strcmp(option, "on"))
+					my_smt_enabled = SMT_ON;
+				else
+					my_smt_enabled = SMT_DYNAMIC;
+			}
+		}
+	}
+
+	if (!found )
+		my_smt_enabled = SMT_DYNAMIC; /* default to on */
+
+	found = 0;
+	if (my_smt_enabled) {
+		if (strstr(RELOC(cmd_line), RELOC("smt-snooze-delay="))) {
+			for (q = RELOC(cmd_line); (p = strstr(q, RELOC("smt-snooze-delay="))) != 0; ) {
+				q = p + 17;
+				if (p > RELOC(cmd_line) && p[-1] != ' ')
+					continue;
+				found = 1;
+				/* Don't use simple_strtoul() because _ctype & others aren't RELOC'd */
+				my_smt_snooze_delay = 0;
+				while (*q >= '0' && *q <= '9') {
+					my_smt_snooze_delay = my_smt_snooze_delay * 10 + *q - '0';
+					q++;
+				}
+			}
+		}
+
+		if (!found) {
+			prom_options = (ihandle)call_prom(RELOC("finddevice"), 1, 1, RELOC("/options"));
+			if (prom_options != (ihandle) -1) {
+				call_prom(RELOC("getprop"),
+					4, 1, prom_options,
+					RELOC("ibm,smt-snooze-delay"),
+					option, sizeof(option));
+				if (option[0] != 0) {
+					found = 1;
+					/* Don't use simple_strtoul() because _ctype & others aren't RELOC'd */
+					my_smt_snooze_delay = 0;
+					q = option;
+					while (*q >= '0' && *q <= '9') {
+						my_smt_snooze_delay = my_smt_snooze_delay * 10 + *q - '0';
+						q++;
+					}
+				}
+			}
+		}
+
+		if (!found) {
+			my_smt_snooze_delay = 30000; /* default value */
+		}
+	} else {
+		my_smt_snooze_delay = 0; /* default value */
+	}
+	_naca->smt_snooze_delay = my_smt_snooze_delay;
+	_naca->smt_state = my_smt_enabled;
+}
+
 #ifdef CONFIG_PPCDBG
 extern char *trace_names[];	/* defined in udbg.c -- need a better interface */
 
-static void parse_ppcdbg_optionlist(const char *cmd,
+void parse_ppcdbg_optionlist(const char *cmd,
 				    const char *cmdend)
 {
 	unsigned long offset = reloc_offset();
@@ -1367,16 +1474,13 @@ prom_init(unsigned long r3, unsigned long r4, unsigned long pp,
 	char *p, *d;
  	unsigned long phys;
         u32 getprop_rval;
-        struct naca_struct   *_naca = RELOC(naca);
+        struct systemcfg *_systemcfg = RELOC(systemcfg);
 	struct paca_struct *_xPaca = PTRRELOC(&paca[0]);
 	struct prom_t *_prom = PTRRELOC(&prom);
 	char *_cmd_line = PTRRELOC(&cmd_line[0]);
 
 	/* Default machine type. */
-	_naca->platform = PLATFORM_PSERIES;
-	/* Reset klimit to take into account the embedded system map */
-	if (RELOC(embedded_sysmap_end))
-		RELOC(klimit) = __va(PAGE_ALIGN(RELOC(embedded_sysmap_end)));
+	_systemcfg->platform = PLATFORM_PSERIES;
 
 	/* Get a handle to the prom entry point before anything else */
 	_prom->entry = pp;
@@ -1461,6 +1565,8 @@ prom_init(unsigned long r3, unsigned long r4, unsigned long pp,
 			    sizeof(cmd_line)-1);
 	if (sz > 0)
 		_cmd_line[sz] = '\0';
+        if (sz <=1 )
+                strcpy(_cmd_line,RELOC(CONFIG_CMDLINE));
 
 	prom_parse_cmd_line(_cmd_line);
 
@@ -1530,19 +1636,20 @@ prom_init(unsigned long r3, unsigned long r4, unsigned long pp,
 
 	mem = prom_bi_rec_reserve(mem);
 
+	mem = check_display(mem);
+
 	prom_instantiate_rtas();
         
         /* Initialize some system info into the Naca early... */
         mem = prom_initialize_naca(mem);
 
+	smt_setup();
+
         /* If we are on an SMP machine, then we *MUST* do the
          * following, regardless of whether we have an SMP
          * kernel or not.
          */
-        if ( _naca->processorCount > 1 )
-	        prom_hold_cpus(mem);
-
-	mem = check_display(mem);
+	prom_hold_cpus(mem);
 
 #ifdef DEBUG_PROM
 	prom_print(RELOC("copying OF device tree...\n"));
@@ -1553,7 +1660,7 @@ prom_init(unsigned long r3, unsigned long r4, unsigned long pp,
 
 	lmb_reserve(0, __pa(RELOC(klimit)));
 
-	if (_naca->platform == PLATFORM_PSERIES)
+	if (_systemcfg->platform == PLATFORM_PSERIES)
 		prom_initialize_tce_table();
 
  	if ((long) call_prom(RELOC("getprop"), 4, 1,
@@ -1566,7 +1673,7 @@ prom_init(unsigned long r3, unsigned long r4, unsigned long pp,
 	}
 
 	/* We assume the phys. address size is 3 cells */
-	RELOC(prom_mmu) = (ihandle)(unsigned long)getprop_rval;
+	prom_mmu = (ihandle)(unsigned long)getprop_rval;
 
 	if ((long)call_prom(RELOC("call-method"), 4, 4,
 				RELOC("translate"),
@@ -1702,46 +1809,6 @@ check_display(unsigned long mem)
 	return DOUBLEWORD_ALIGN(mem);
 }
 
-void
-virt_irq_init(void)
-{
-	int i;
-	for (i = 0; i < NR_IRQS; i++)
-		virt_irq_to_real_map[i] = UNDEFINED_IRQ;
-	for (i = 0; i < NR_HW_IRQS; i++)
-		real_irq_to_virt_map[i] = UNDEFINED_IRQ;
-}
-
-/* Create a mapping for a real_irq if it doesn't already exist.
- * Return the virtual irq as a convenience.
- */
-unsigned long
-virt_irq_create_mapping(unsigned long real_irq)
-{
-	unsigned long virq;
-	if (naca->interrupt_controller == IC_OPEN_PIC)
-		return real_irq;	/* no mapping for openpic (for now) */
-	virq = real_irq_to_virt(real_irq);
-	if (virq == UNDEFINED_IRQ) {
-		/* Assign a virtual IRQ number */
-		if (real_irq < NR_IRQS && virt_irq_to_real(real_irq) == UNDEFINED_IRQ) {
-			/* A 1-1 mapping will work. */
-			virq = real_irq;
-		} else {
-			while (last_virt_irq < NR_IRQS &&
-			       virt_irq_to_real(++last_virt_irq) != UNDEFINED_IRQ)
-				/* skip irq's in use */;
-			if (last_virt_irq >= NR_IRQS)
-				panic("Too many IRQs are required on this system.  NR_IRQS=%d\n", NR_IRQS);
-			virq = last_virt_irq;
-		}
-		virt_irq_to_real_map[virq] = real_irq;
-		real_irq_to_virt_map[real_irq] = virq;
-	}
-	return virq;
-}
-
-
 static int __init
 prom_next_node(phandle *nodep)
 {
@@ -1838,6 +1905,23 @@ inspect_node(phandle node, struct device_node *dad,
 		*prev_propp = PTRUNRELOC(pp);
 		prev_propp = &pp->next;
 	}
+
+	/* Add a "linux_phandle" value */
+	if (np->node != NULL) {
+		u32 ibm_phandle = 0;
+		int len;
+
+		/* First see if "ibm,phandle" exists and use its value */
+		len = (int) call_prom(RELOC("getprop"), 4, 1, node,
+				      RELOC("ibm,phandle"),
+				      &ibm_phandle, sizeof(ibm_phandle));
+		if (len < 0) {
+			np->linux_phandle = np->node;
+		} else {
+			np->linux_phandle = ibm_phandle;
+		}
+	}
+
 	*prev_propp = 0;
 
 	/* get the node's full name */
@@ -1870,8 +1954,6 @@ void __init
 finish_device_tree(void)
 {
 	unsigned long mem = klimit;
-
-	virt_irq_init();
 
 	mem = finish_node(allnodes, mem, NULL, 0, 0);
 	dev_tree_size = mem - (unsigned long) allnodes;
@@ -1977,7 +2059,7 @@ finish_node_interrupts(struct device_node *np, unsigned long mem_start)
 		np->n_intrs = ipsize / isize;
 		mem_start += np->n_intrs * sizeof(struct interrupt_info);
 		for (i = 0; i < np->n_intrs; ++i) {
-		    np->intrs[i].line = openpic_to_irq(virt_irq_create_mapping(*interrupts++));
+		    np->intrs[i].line = irq_offset_up(*interrupts++);
 		    np->intrs[i].sense = 1;
 		    if (isize > 1)
 		        np->intrs[i].sense = *interrupts++;
@@ -2339,7 +2421,7 @@ find_phandle(phandle ph)
 	struct device_node *np;
 
 	for (np = allnodes; np != 0; np = np->allnext)
-		if (np->node == ph)
+		if (np->linux_phandle == ph)
 			return np;
 	return NULL;
 }
@@ -2376,10 +2458,61 @@ prom_add_property(struct device_node* np, struct property* prop)
 	*next = prop;
 }
 
+#if 0
+void __openfirmware
+print_properties(struct device_node *np)
+{
+	struct property *pp;
+	char *cp;
+	int i, n;
+
+	for (pp = np->properties; pp != 0; pp = pp->next) {
+		printk(KERN_INFO "%s", pp->name);
+		for (i = strlen(pp->name); i < 16; ++i)
+			printk(" ");
+		cp = (char *) pp->value;
+		for (i = pp->length; i > 0; --i, ++cp)
+			if ((i > 1 && (*cp < 0x20 || *cp > 0x7e))
+			    || (i == 1 && *cp != 0))
+				break;
+		if (i == 0 && pp->length > 1) {
+			/* looks like a string */
+			printk(" %s\n", (char *) pp->value);
+		} else {
+			/* dump it in hex */
+			n = pp->length;
+			if (n > 64)
+				n = 64;
+			if (pp->length % 4 == 0) {
+				unsigned int *p = (unsigned int *) pp->value;
+
+				n /= 4;
+				for (i = 0; i < n; ++i) {
+					if (i != 0 && (i % 4) == 0)
+						printk("\n                ");
+					printk(" %08x", *p++);
+				}
+			} else {
+				unsigned char *bp = pp->value;
+
+				for (i = 0; i < n; ++i) {
+					if (i != 0 && (i % 16) == 0)
+						printk("\n                ");
+					printk(" %02x", *bp++);
+				}
+			}
+			printk("\n");
+			if (pp->length > 64)
+				printk("                 ... (length = %d)\n",
+				       pp->length);
+		}
+	}
+}
+#endif
 
 
 void __init
-abort()
+abort(void)
 {
 #ifdef CONFIG_XMON
 	xmon(NULL);

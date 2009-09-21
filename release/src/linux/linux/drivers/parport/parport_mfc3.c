@@ -99,7 +99,7 @@ static unsigned char control_pc_to_mfc3(unsigned char control)
 {
 	unsigned char ret = 32|64;
 
-	if (control & PARPORT_CONTROL_SELECT) 
+	if (control & PARPORT_CONTROL_SELECT) /* XXX: What is SELECP? */
 		ret &= ~32; /* /SELECT_IN */
 	if (control & PARPORT_CONTROL_INIT) /* INITP */
 		ret |= 128;
@@ -146,6 +146,24 @@ DPRINTK(KERN_DEBUG "frob_control mask %02x, value %02x\n",mask,val);
 	return old;
 }
 
+#if 0 /* currently unused */
+static unsigned char status_pc_to_mfc3(unsigned char status)
+{
+	unsigned char ret = 1;
+
+	if (status & PARPORT_STATUS_BUSY) /* Busy */
+		ret &= ~1;
+	if (status & PARPORT_STATUS_ACK) /* Ack */
+		ret |= 8;
+	if (status & PARPORT_STATUS_PAPEROUT) /* PaperOut */
+		ret |= 2;
+	if (status & PARPORT_STATUS_SELECT) /* select */
+		ret |= 4;
+	if (status & PARPORT_STATUS_ERROR) /* error */
+		ret |= 16;
+	return ret;
+}
+#endif
 
 static unsigned char status_mfc3_to_pc(unsigned char status)
 {
@@ -165,6 +183,13 @@ static unsigned char status_mfc3_to_pc(unsigned char status)
 	return ret;
 }
 
+#if 0 /* currently unused */
+static void mfc3_write_status( struct parport *p, unsigned char status)
+{
+DPRINTK(KERN_DEBUG "write_status %02x\n",status);
+	pia(p)->ppra = (pia(p)->ppra & 0xe0) | status_pc_to_mfc3(status);
+}
+#endif
 
 static unsigned char mfc3_read_status(struct parport *p)
 {
@@ -175,6 +200,13 @@ DPRINTK(KERN_DEBUG "read_status %02x\n", status);
 	return status;
 }
 
+#if 0 /* currently unused */
+static void mfc3_change_mode( struct parport *p, int m)
+{
+	/* XXX: This port only has one mode, and I am
+	not sure about the corresponding PC-style mode*/
+}
+#endif
 
 static int use_cnt = 0;
 
@@ -336,6 +368,7 @@ int __init parport_mfc3_init(void)
 
 		this_port[pias++] = p;
 		printk(KERN_INFO "%s: Multiface III port using irq\n", p->name);
+		/* XXX: set operating mode */
 		parport_proc_register(p);
 
 		p->private_data = (void *)piabase;

@@ -1,5 +1,5 @@
 /*
- * $Id: ns558.c,v 1.1.1.4 2003/10/14 08:08:07 sparq Exp $
+ * $Id: ns558.c,v 1.29 2001/04/24 07:48:56 vojtech Exp $
  *
  *  Copyright (c) 1999-2001 Vojtech Pavlik
  *  Copyright (c) 1999 Brian Gerst

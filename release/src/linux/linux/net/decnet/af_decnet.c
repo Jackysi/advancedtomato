@@ -545,6 +545,10 @@ no_sock:
 	return NULL;
 }
 
+/*
+ * Keepalive timer.
+ * FIXME: Should respond to SO_KEEPALIVE etc.
+ */
 static void dn_keepalive(struct sock *sk)
 {
 	struct dn_scp *scp = DN_SK(sk);
@@ -1110,6 +1114,9 @@ static int dn_accept(struct socket *sock, struct socket *newsock, int flags)
 		sizeof(struct optdata_dn));
 
 	lock_sock(newsk);
+	/*
+	 * FIXME: This can fail if we've run out of local ports....
+	 */
 	dn_hash_sock(newsk);
 
 	dn_send_conn_ack(newsk);
@@ -1173,7 +1180,7 @@ static int dn_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg)
 	struct sock *sk = sock->sk;
 	struct dn_scp *scp = DN_SK(sk);
 	int err = -EOPNOTSUPP;
-	unsigned long amount = 0;
+	long amount = 0;
 	struct sk_buff *skb;
 	int val;
 

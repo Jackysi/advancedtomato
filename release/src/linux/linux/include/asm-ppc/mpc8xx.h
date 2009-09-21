@@ -1,7 +1,3 @@
-/*
- * BK Id: %F% %I% %G% %U% %#%
- */
-
 /* This is the single file included by all MPC8xx build options.
  * Since there are many different boards and no standard configuration,
  * we have a unique include file for each.  Rather than change every
@@ -36,6 +32,10 @@
 #include <platforms/rpxclassic.h>
 #endif
 
+#ifdef CONFIG_DBOX2
+#include <platforms/dbox2.h>
+#endif
+
 #if defined(CONFIG_TQM8xxL)
 #include <platforms/tqm8xx.h>
 #endif
@@ -49,14 +49,32 @@
 #endif
 
 
-/* Currently, all 8xx boards that support a processor to PCI/ISA bridge
- * use the same memory map.
- */
-#if !defined(_IO_BASE)      /* defined in board specific header */
+/* The PCI_ISA_IO_ADDR, PCI_ISA_MEM_ADDR, and PCI_DRAM_OFFSET macros
+ * must be defined in the board-specific header file for targets that
+ * need them.  Default values are defined here for targets that don't need
+ * them.
+  */
+#if defined(CONFIG_PCI)
+#if !defined(_IO_BASE)
+#define	_IO_BASE PCI_ISA_IO_ADDR
+#endif
+#if !defined(_ISA_MEM_BASE)
+#define	_ISA_MEM_BASE PCI_ISA_MEM_ADDR
+#endif
+#if !defined(PCI_DRAM_OFFSET)
+#define PCI_DRAM_OFFSET 0
+#endif
+#else	/* if defined(CONFIG_PCI) */
+#if !defined(_IO_BASE)
 #define _IO_BASE        0
 #endif
+#if !defined(_ISA_MEM_BASE)
 #define _ISA_MEM_BASE   0
+#endif
+#if !defined(PCI_DRAM_OFFSET)
 #define PCI_DRAM_OFFSET 0
+#endif
+#endif	/* if defined(CONFIG_PCI) */
 
 #ifndef __ASSEMBLY__
 extern unsigned long isa_io_base;
@@ -68,12 +86,8 @@ extern unsigned long pci_dram_offset;
  */
 extern unsigned char __res[];
 
-struct pt_regs;
-extern int request_8xxirq(unsigned int irq,
-		       void (*handler)(int, void *, struct pt_regs *),
-		       unsigned long flags, 
-		       const char *device,
-		       void *dev_id);
+#define request_8xxirq request_irq
+
 #endif /* !__ASSEMBLY__ */
 #endif /* CONFIG_8xx */
 #endif /* __CONFIG_8xx_DEFS */

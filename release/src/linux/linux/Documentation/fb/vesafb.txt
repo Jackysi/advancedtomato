@@ -139,13 +139,17 @@ ywrap	Same as ypan, but assumes your gfx board can wrap-around
 redraw	scroll by redrawing the affected part of the screen, this
 	is the safe (and slow) default.
 
-
 vgapal	Use the standard vga registers for palette changes.
 	This is the default.
 pmipal	Use the protected mode interface for palette changes.
 
 mtrr	setup memory type range registers for the vesafb framebuffer.
 
+vram:n  remap 'n' MiB of video RAM. If 0 or not specified, remap memory
+        according to video mode. (2.5.66 patch/idea by Antonino Daplas
+	reversed to give override possibility (allocate more fb memory
+	than the kernel would) to 2.4 by tmb@iki.fi)
+  
 
 Have fun!
 

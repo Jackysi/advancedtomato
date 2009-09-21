@@ -1,7 +1,3 @@
-/*
- * BK Id: SCCS/s.head.S 1.13 01/11/02 10:46:07 trini
- */
-
 #include <asm/ppc_asm.h>
 #include <asm/processor.h>
 #include <asm/cache.h>
@@ -38,14 +34,29 @@ start_:
 	isync
 
 	mr	r11,r3		/* Save pointer to residual/board data */
-	mr      r25,r5		/* Save OFW pointer */
 
-	/* Save the original MSR value */
-	mfmsr	r26
+/*
+ * Save the OF pointer to r25, but only if the entry point is in a sane
+ * location; if not we store 0.  If there is no entry point, or it is
+ * invalid, we establish the default MSR value immediately.  Otherwise,
+ * we defer doing that, to allow OF functions to be called, until we
+ * begin uncompressing the kernel.
+ */
+	lis	r3,0x0fff		/* r3 = 0x0fffffff */
+	ori	r3,r3,0xffff
 
-	/* Establish default MSR value */
-	li	r3,MSR_IP|MSR_FP
-	mtmsr	r3
+	subc	r3,r3,r5		/* r3 = (r5 <= r3) ? ~0 : 0 */
+	subfe	r3,r3,r3
+	nand	r3,r3,r3
+  
+	and.	r5,r5,r3		/* r5 will be cleared if (r5 > r3) */
+	bne+	haveOF
+
+	li	r3,MSR_IP|MSR_FP	/* Not OF: set MSR immediately */
+  	mtmsr	r3
+	isync
+haveOF:
+	mr	r25,r5
 
 	/* compute the size of the whole image in words. */
 	lis	r4,start@h
@@ -114,17 +125,12 @@ start_ldr:
 	li	r2,0x000F		/* Mask pointer to 16-byte boundary */
 	andc	r1,r1,r2
 
-	/* Store the original MSR into 'orig_MSR' */
-	lis	r3,orig_MSR@h
-	ori	r3,r3,orig_MSR@l
-	stw	r26,0(r3)
-
 /* Run loader */
 	mr	r3,r8			/* Load point */
 	mr	r4,r7			/* Program length */
 	mr	r5,r6			/* Checksum */
 	mr	r6,r11			/* Residual data */
-	mr      r7,r25                  /* OFW interfaces */
+	mr      r7,r25                  /* Validated OFW interface */
 	bl	decompress_kernel
 
 	/*

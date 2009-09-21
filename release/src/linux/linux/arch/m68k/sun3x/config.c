@@ -17,12 +17,14 @@
 #include <asm/sun3xprom.h>
 #include <asm/sun3ints.h>
 #include <asm/setup.h>
+#include <asm/oplib.h>
 
 #include "time.h"
 
 volatile char *clock_va;
 extern volatile unsigned char *sun3_intreg;
 
+extern void sun3_get_model(char *model);
 
 int __init sun3x_keyb_init(void)
 {
@@ -44,10 +46,16 @@ void sun3_leds(unsigned int i)
 
 }
 
-/* should probably detect types of these eventually. */
-static void sun3x_get_model(char *model)
+static int sun3x_get_hardware_list(char *buffer)
 {
-	sprintf(model, "Sun3x");
+
+	int len = 0;
+
+	len += sprintf(buffer + len, "PROM Revision:\t%s\n",
+		       romvec->pv_monid);
+
+	return len;
+
 }
 
 /*
@@ -81,11 +89,28 @@ void __init config_sun3x(void)
 
 	mach_gettod          = sun3x_gettod;
 	mach_hwclk           = sun3x_hwclk;
-	mach_get_model       = sun3x_get_model;
+	mach_get_model       = sun3_get_model;
+	mach_get_hardware_list = sun3x_get_hardware_list;
 
 	sun3_intreg = (unsigned char *)SUN3X_INTREG;
 
 	/* only the serial console is known to work anyway... */
+#if 0    
+	switch (*(unsigned char *)SUN3X_EEPROM_CONS) {
+	case 0x10:
+		serial_console = 1;
+		conswitchp = NULL;
+		break;
+	case 0x11:
+		serial_console = 2;
+		conswitchp = NULL;
+		break;
+	default:
+		serial_console = 0;
+		conswitchp = &dummy_con;
+		break;
+	}
+#endif
 
 }
 

@@ -24,8 +24,6 @@
 #include <linux/config.h>
 #include <linux/module.h>
 
-#define __KERNEL_SYSCALLS__
-
 #include <linux/kernel.h>
 #include <linux/kmod.h>
 #include <linux/init.h>
@@ -47,6 +45,8 @@
 #include <asm/system.h>
 #include <asm/bitops.h>
 #include <asm/io.h>
+
+#include <linux/firmware.h>
 
 #include <pcmcia/version.h>
 #include <pcmcia/cs_types.h>
@@ -485,78 +485,101 @@ static int bt3c_hci_ioctl(struct hci_dev *hdev, unsigned int cmd, unsigned long 
 
 
 
-/* ======================== User mode firmware loader ======================== */
+/* ======================== Card services HCI interaction ======================== */
 
 
-#define FW_LOADER  "/sbin/bluefw"
-static int errno;
-
-
-static int bt3c_fw_loader_exec(void *dev)
+static int bt3c_load_firmware(bt3c_info_t *info, unsigned char *firmware, int count)
 {
-	char *argv[] = { FW_LOADER, "pccard", dev, NULL };
-	char *envp[] = { "HOME=/", "TERM=linux", "PATH=/sbin:/usr/sbin:/bin:/usr/bin", NULL };
-	int err;
+	char *ptr = (char *) firmware;
+	char b[9];
+	unsigned int iobase, size, addr, fcs, tmp;
+	int i, err = 0;
 
-	err = exec_usermodehelper(FW_LOADER, argv, envp);
-	if (err)
-		printk(KERN_WARNING "bt3c_cs: Failed to exec \"%s pccard %s\".\n", FW_LOADER, (char *)dev);
+	iobase = info->link.io.BasePort1;
+
+	/* Reset */
+
+	bt3c_io_write(iobase, 0x8040, 0x0404);
+	bt3c_io_write(iobase, 0x8040, 0x0400);
+
+	udelay(1);
+
+	bt3c_io_write(iobase, 0x8040, 0x0404);
+
+	udelay(17);
+
+	/* Load */
+
+	while (count) {
+		if (ptr[0] != 'S') {
+			printk(KERN_WARNING "bt3c_cs: Bad address in firmware.\n");
+			err = -EFAULT;
+			goto error;
+		}
+
+		memset(b, 0, sizeof(b));
+		memcpy(b, ptr + 2, 2);
+		size = simple_strtol(b, NULL, 16);
+
+		memset(b, 0, sizeof(b));
+		memcpy(b, ptr + 4, 8);
+		addr = simple_strtol(b, NULL, 16);
+
+		memset(b, 0, sizeof(b));
+		memcpy(b, ptr + (size * 2) + 2, 2);
+		fcs = simple_strtol(b, NULL, 16);
+
+		memset(b, 0, sizeof(b));
+		for (tmp = 0, i = 0; i < size; i++) {
+			memcpy(b, ptr + (i * 2) + 2, 2);
+			tmp += simple_strtol(b, NULL, 16);
+		}
+
+		if (((tmp + fcs) & 0xff) != 0xff) {
+			printk(KERN_WARNING "bt3c_cs: Checksum error in firmware.\n");
+			err = -EILSEQ;
+			goto error;
+		}
+
+		if (ptr[1] == '3') {
+			bt3c_address(iobase, addr);
+
+			memset(b, 0, sizeof(b));
+			for (i = 0; i < (size - 4) / 2; i++) {
+				memcpy(b, ptr + (i * 4) + 12, 4);
+				tmp = simple_strtol(b, NULL, 16);
+				bt3c_put(iobase, tmp);
+			}
+		}
+
+		ptr   += (size * 2) + 6;
+		count -= (size * 2) + 6;
+	}
+
+	udelay(17);
+
+	/* Boot */
+
+	bt3c_address(iobase, 0x3000);
+	outb(inb(iobase + CONTROL) | 0x40, iobase + CONTROL);
+
+error:
+	udelay(17);
+
+	/* Clear */
+
+	bt3c_io_write(iobase, 0x7006, 0x0000);
+	bt3c_io_write(iobase, 0x7005, 0x0000);
+	bt3c_io_write(iobase, 0x7001, 0x0000);
 
 	return err;
 }
 
 
-static int bt3c_firmware_load(bt3c_info_t *info)
-{
-	sigset_t tmpsig;
-	char dev[16];
-	pid_t pid;
-	int result;
-
-	/* Check if root fs is mounted */
-	if (!current->fs->root) {
-		printk(KERN_WARNING "bt3c_cs: Root filesystem is not mounted.\n");
-		return -EPERM;
-	}
-
-	sprintf(dev, "%04x", info->link.io.BasePort1);
-
-	pid = kernel_thread(bt3c_fw_loader_exec, (void *)dev, 0);
-	if (pid < 0) {
-		printk(KERN_WARNING "bt3c_cs: Forking of kernel thread failed (errno=%d).\n", -pid);
-		return pid;
-	}
-
-	/* Block signals, everything but SIGKILL/SIGSTOP */
-	spin_lock_irq(&current->sigmask_lock);
-	tmpsig = current->blocked;
-	siginitsetinv(&current->blocked, sigmask(SIGKILL) | sigmask(SIGSTOP));
-	recalc_sigpending(current);
-	spin_unlock_irq(&current->sigmask_lock);
-
-	result = waitpid(pid, NULL, __WCLONE);
-
-	/* Allow signals again */
-	spin_lock_irq(&current->sigmask_lock);
-	current->blocked = tmpsig;
-	recalc_sigpending(current);
-	spin_unlock_irq(&current->sigmask_lock);
-
-	if (result != pid) {
-		printk(KERN_WARNING "bt3c_cs: Waiting for pid %d failed (errno=%d).\n", pid, -result);
-		return -result;
-	}
-
-	return 0;
-}
-
-
-
-/* ======================== Card services HCI interaction ======================== */
-
-
 int bt3c_open(bt3c_info_t *info)
 {
+	const struct firmware *firmware;
+	char device[16];
 	struct hci_dev *hdev;
 	int err;
 
@@ -570,8 +593,22 @@ int bt3c_open(bt3c_info_t *info)
 
 	/* Load firmware */
 
-	if ((err = bt3c_firmware_load(info)) < 0)
+	snprintf(device, sizeof(device), "bt3c%4.4x", info->link.io.BasePort1);
+
+	err = request_firmware(&firmware, "BT3CPCC.bin", device);
+	if (err < 0) {
+		printk(KERN_WARNING "bt3c_cs: Firmware request failed.\n");
 		return err;
+	}
+
+	err = bt3c_load_firmware(info, firmware->data, firmware->size);
+
+	release_firmware(firmware);
+
+	if (err < 0) {
+		printk(KERN_WARNING "bt3c_cs: Firmware loading failed.\n");
+		return err;
+	}
 
 	/* Timeout before it is safe to send the first HCI packet */
 
@@ -605,6 +642,9 @@ int bt3c_open(bt3c_info_t *info)
 int bt3c_close(bt3c_info_t *info)
 {
 	struct hci_dev *hdev = &(info->hdev);
+
+	if (info->link.state & DEV_CONFIG_PENDING)
+		return -ENODEV;
 
 	bt3c_hci_close(hdev);
 

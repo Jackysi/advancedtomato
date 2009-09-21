@@ -4,7 +4,7 @@
  * License.  See the file "COPYING" in the main directory of this archive
  * for more details.
  *
- * Copyright (c) 2001 Silicon Graphics, Inc.  All rights reserved.
+ * Copyright (c) 2001-2003 Silicon Graphics, Inc.  All rights reserved.
  */
 
 
@@ -2720,7 +2720,7 @@
 #define SH_NI0_LLP_ERR_RETRY_COUNT_MASK          0x0000000000ff0000
 
 /*   SH_NI0_LLP_ERR_RETRY_TIMEOUT                                       */
-/*   Description:  Indicates a retry timeout has occured                */
+/*   Description:  Indicates a retry timeout has occurred               */
 #define SH_NI0_LLP_ERR_RETRY_TIMEOUT_SHFT        24
 #define SH_NI0_LLP_ERR_RETRY_TIMEOUT_MASK        0x0000000001000000
 
@@ -3017,7 +3017,7 @@
 #define SH_NI1_LLP_ERR_RETRY_COUNT_MASK          0x0000000000ff0000
 
 /*   SH_NI1_LLP_ERR_RETRY_TIMEOUT                                       */
-/*   Description:  Indicates a retry timeout has occured                */
+/*   Description:  Indicates a retry timeout has occurred               */
 #define SH_NI1_LLP_ERR_RETRY_TIMEOUT_SHFT        24
 #define SH_NI1_LLP_ERR_RETRY_TIMEOUT_MASK        0x0000000001000000
 
@@ -25746,14 +25746,14 @@
 /*                           Real-time Clock                            */
 /* ==================================================================== */
 
-#define SH_RTC                                   0x00000001101c0000
-#define SH_RTC_MASK                              0x007fffffffffffff
+#define SH_RTC                                   0x00000001101c0000UL
+#define SH_RTC_MASK                              0x007fffffffffffffUL
 #define SH_RTC_INIT                              0x0000000000000000
 
 /*   SH_RTC_REAL_TIME_CLOCK                                             */
 /*   Description:  Real-time Clock                                      */
 #define SH_RTC_REAL_TIME_CLOCK_SHFT              0
-#define SH_RTC_REAL_TIME_CLOCK_MASK              0x007fffffffffffff
+#define SH_RTC_REAL_TIME_CLOCK_MASK              0x007fffffffffffffUL
 
 /* ==================================================================== */
 /*                        Register "SH_SCRATCH0"                        */
@@ -26034,7 +26034,7 @@
 #define SH_PIO_WRITE_STATUS_0_INIT               0x8000000000000000
 
 /*   SH_PIO_WRITE_STATUS_0_MULTI_WRITE_ERROR                            */
-/*   Description:  More than one PIO write error occured                */
+/*   Description:  More than one PIO write error occurred               */
 #define SH_PIO_WRITE_STATUS_0_MULTI_WRITE_ERROR_SHFT 0
 #define SH_PIO_WRITE_STATUS_0_MULTI_WRITE_ERROR_MASK 0x0000000000000001
 
@@ -26073,7 +26073,7 @@
 #define SH_PIO_WRITE_STATUS_1_INIT               0x8000000000000000
 
 /*   SH_PIO_WRITE_STATUS_1_MULTI_WRITE_ERROR                            */
-/*   Description:  More than one PIO write error occured                */
+/*   Description:  More than one PIO write error occurred               */
 #define SH_PIO_WRITE_STATUS_1_MULTI_WRITE_ERROR_SHFT 0
 #define SH_PIO_WRITE_STATUS_1_MULTI_WRITE_ERROR_MASK 0x0000000000000001
 

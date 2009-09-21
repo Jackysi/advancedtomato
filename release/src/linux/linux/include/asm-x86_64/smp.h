@@ -36,12 +36,16 @@ extern unsigned long phys_cpu_present_map;
 extern unsigned long cpu_online_map;
 extern volatile unsigned long smp_invalidate_needed;
 extern int pic_mode;
+extern int smp_num_siblings;
+extern int cpu_sibling_map[];
+
 extern void smp_flush_tlb(void);
 extern void smp_message_irq(int cpl, void *dev_id, struct pt_regs *regs);
 extern void smp_send_reschedule(int cpu);
 extern void smp_invalidate_rcv(void);		/* Process an NMI */
 extern void (*mtrr_hook) (void);
 extern void zap_low_mappings (void);
+extern void smp_stop_cpu(void);
 
 /*
  * On x86 all CPUs are mapped 1:1 to the APIC space.
@@ -85,8 +89,11 @@ extern void smp_store_cpu_info(int id);		/* Store per CPU info (like the initial
 extern __inline int hard_smp_processor_id(void)
 {
 	/* we don't want to mark this access volatile - bad code generation */
-	return GET_APIC_ID(*(unsigned long *)(APIC_BASE+APIC_ID));
+	return GET_APIC_ID(*(unsigned *)(APIC_BASE+APIC_ID));
 }
+
+extern int apic_disabled;
+#define safe_smp_processor_id() (apic_disabled ? 0 : x86_apicid_to_cpu[hard_smp_processor_id()])
 
 #endif /* !ASSEMBLY */
 
@@ -112,5 +119,6 @@ extern __inline int hard_smp_processor_id(void)
 
 #ifndef CONFIG_SMP
 #define stack_smp_processor_id() 0
+#define safe_smp_processor_id() 0
 #endif
 #endif

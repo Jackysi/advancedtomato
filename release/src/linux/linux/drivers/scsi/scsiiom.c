@@ -4,7 +4,7 @@
  *	Description: Device Driver for Tekram DC-390 (T) PCI SCSI      *
  *		     Bus Master Host Adapter			       *
  ***********************************************************************/
-/* $Id: scsiiom.c,v 1.1.1.4 2003/10/14 08:08:42 sparq Exp $ */
+/* $Id: scsiiom.c,v 2.55.2.17 2000/12/20 00:39:37 garloff Exp $ */
 
 static void __inline__
 dc390_freetag (PDCB pDCB, PSRB pSRB)
@@ -210,6 +210,24 @@ dc390_dma_intr (PACB pACB)
   return dstate;
 };
 #endif
+
+static void __inline__
+dc390_InvalidCmd( PACB pACB )
+{
+    if( pACB->pActiveDCB->pActiveSRB->SRBState & (SRB_START_+SRB_MSGOUT) )
+	DC390_write8 (ScsiCmd, CLEAR_FIFO_CMD);
+}
+
+#define DC390_ENABLE_MSGOUT DC390_write8 (ScsiCmd, SET_ATN_CMD)
+
+/* abort command */
+static void __inline__
+dc390_EnableMsgOut_Abort ( PACB pACB, PSRB pSRB )
+{
+    pSRB->MsgOutBuf[0] = ABORT; 
+    pSRB->MsgCnt = 1; DC390_ENABLE_MSGOUT;
+    pSRB->pSRBDCB->DCBFlag &= ~ABORT_DEV_;
+}
 
 void __inline__
 DC390_Interrupt( int irq, void *dev_id, struct pt_regs *regs)
@@ -569,8 +587,6 @@ dc390_printMsg (UCHAR *MsgBuf, UCHAR len)
 };
 #endif
 
-#define DC390_ENABLE_MSGOUT DC390_write8 (ScsiCmd, SET_ATN_CMD)
-
 /* reject_msg */
 static void __inline__
 dc390_MsgIn_reject (PACB pACB, PSRB pSRB)
@@ -578,15 +594,6 @@ dc390_MsgIn_reject (PACB pACB, PSRB pSRB)
   pSRB->MsgOutBuf[0] = MESSAGE_REJECT;
   pSRB->MsgCnt = 1; DC390_ENABLE_MSGOUT;
   DEBUG0 (printk (KERN_INFO "DC390: Reject message\n");)
-}
-
-/* abort command */
-static void __inline__
-dc390_EnableMsgOut_Abort ( PACB pACB, PSRB pSRB )
-{
-    pSRB->MsgOutBuf[0] = ABORT; 
-    pSRB->MsgCnt = 1; DC390_ENABLE_MSGOUT;
-    pSRB->pSRBDCB->DCBFlag &= ~ABORT_DEV_;
 }
 
 static PSRB
@@ -1355,6 +1362,47 @@ dc390_add_dev (PACB pACB, PDCB pDCB, PSCSI_INQDATA ptr)
 };
 
 
+static void __inline__
+dc390_RequestSense( PACB pACB, PDCB pDCB, PSRB pSRB )
+{
+    PSCSICMD  pcmd;
+
+    REMOVABLEDEBUG(printk (KERN_INFO "DC390: RequestSense (Cmd %02x, Id %02x, LUN %02x)\n",\
+	    pSRB->pcmd->cmnd[0], pDCB->TargetID, pDCB->TargetLUN);)
+
+    pSRB->SRBFlag |= AUTO_REQSENSE;
+    //pSRB->Segment0[0] = (UINT) pSRB->CmdBlock[0];
+    //pSRB->Segment0[1] = (UINT) pSRB->CmdBlock[4];
+    //pSRB->Segment1[0] = ((UINT)(pSRB->pcmd->cmd_len) << 8) + pSRB->SGcount;
+    //pSRB->Segment1[1] = pSRB->TotalXferredLen;
+    pSRB->SavedSGCount = pSRB->SGcount;
+    pSRB->SavedTotXLen = pSRB->TotalXferredLen;
+    pSRB->AdaptStatus = 0;
+    pSRB->TargetStatus = 0; /* CHECK_CONDITION<<1; */
+
+    pcmd = pSRB->pcmd;
+
+    pSRB->Segmentx.address = (PUCHAR) &(pcmd->sense_buffer);
+    pSRB->Segmentx.length = sizeof(pcmd->sense_buffer);
+    pSRB->pSegmentList = &pSRB->Segmentx;
+    pSRB->SGcount = 1;
+    pSRB->SGIndex = 0;
+
+    //pSRB->CmdBlock[0] = REQUEST_SENSE;
+    //pSRB->CmdBlock[1] = pDCB->TargetLUN << 5;
+    //(USHORT) pSRB->CmdBlock[2] = 0;
+    //(USHORT) pSRB->CmdBlock[4] = sizeof(pcmd->sense_buffer);
+    //pSRB->ScsiCmdLen = 6;
+
+    pSRB->TotalXferredLen = 0;
+    pSRB->SGToBeXferLen = 0;
+    if( dc390_StartSCSI( pACB, pDCB, pSRB ) ) {
+	dc390_Going_to_Waiting ( pDCB, pSRB );
+	dc390_waiting_timer (pACB, HZ/5);
+    }
+}
+
+
 void
 dc390_SRBdone( PACB pACB, PDCB pDCB, PSRB pSRB )
 {
@@ -1736,55 +1784,5 @@ dc390_ScsiRstDetect( PACB pACB )
 	dc390_Waiting_process( pACB );
     }
     return;
-}
-
-
-static void __inline__
-dc390_RequestSense( PACB pACB, PDCB pDCB, PSRB pSRB )
-{
-    PSCSICMD  pcmd;
-
-    REMOVABLEDEBUG(printk (KERN_INFO "DC390: RequestSense (Cmd %02x, Id %02x, LUN %02x)\n",\
-	    pSRB->pcmd->cmnd[0], pDCB->TargetID, pDCB->TargetLUN);)
-
-    pSRB->SRBFlag |= AUTO_REQSENSE;
-    //pSRB->Segment0[0] = (UINT) pSRB->CmdBlock[0];
-    //pSRB->Segment0[1] = (UINT) pSRB->CmdBlock[4];
-    //pSRB->Segment1[0] = ((UINT)(pSRB->pcmd->cmd_len) << 8) + pSRB->SGcount;
-    //pSRB->Segment1[1] = pSRB->TotalXferredLen;
-    pSRB->SavedSGCount = pSRB->SGcount;
-    pSRB->SavedTotXLen = pSRB->TotalXferredLen;
-    pSRB->AdaptStatus = 0;
-    pSRB->TargetStatus = 0; /* CHECK_CONDITION<<1; */
-
-    pcmd = pSRB->pcmd;
-
-    pSRB->Segmentx.address = (PUCHAR) &(pcmd->sense_buffer);
-    pSRB->Segmentx.length = sizeof(pcmd->sense_buffer);
-    pSRB->pSegmentList = &pSRB->Segmentx;
-    pSRB->SGcount = 1;
-    pSRB->SGIndex = 0;
-
-    //pSRB->CmdBlock[0] = REQUEST_SENSE;
-    //pSRB->CmdBlock[1] = pDCB->TargetLUN << 5;
-    //(USHORT) pSRB->CmdBlock[2] = 0;
-    //(USHORT) pSRB->CmdBlock[4] = sizeof(pcmd->sense_buffer);
-    //pSRB->ScsiCmdLen = 6;
-
-    pSRB->TotalXferredLen = 0;
-    pSRB->SGToBeXferLen = 0;
-    if( dc390_StartSCSI( pACB, pDCB, pSRB ) ) {
-	dc390_Going_to_Waiting ( pDCB, pSRB );
-	dc390_waiting_timer (pACB, HZ/5);
-    }
-}
-
-
-
-static void __inline__
-dc390_InvalidCmd( PACB pACB )
-{
-    if( pACB->pActiveDCB->pActiveSRB->SRBState & (SRB_START_+SRB_MSGOUT) )
-	DC390_write8 (ScsiCmd, CLEAR_FIFO_CMD);
 }
 

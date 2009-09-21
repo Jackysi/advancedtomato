@@ -1,4 +1,4 @@
-/* $Id: user.h,v 1.1.1.4 2003/10/14 08:09:23 sparq Exp $
+/* $Id: user.h,v 1.1 1996/12/26 14:22:44 davem Exp $
  * asm-sparc64/user.h: Core file definitions for the Sparc.
  *
  * Keep in sync with reg.h.  Actually, we could get rid of this
@@ -50,7 +50,7 @@ struct user {
 	unsigned int  sigcode;   /* Special sigcontext subcode, if any */
 };
 
-#define NBPG                   PAGE_SIZE 
+#define NBPG                   PAGE_SIZE /* XXX 4096 maybe? */
 #define UPAGES                 1
 #define HOST_TEXT_START_ADDR   (u.start_code)
 #define HOST_DATA_START_ADDR   (u.start_data)

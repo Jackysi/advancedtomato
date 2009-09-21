@@ -36,6 +36,7 @@
 #include <asm/io.h>
 #include <asm/gsc.h>
 #include <asm/processor.h>
+#include <asm/pdc_chassis.h>
 
 int hlt_counter;
 
@@ -118,6 +119,9 @@ void machine_restart(char *cmd)
 	/* "Normal" system reset */
 	pdc_do_reset();
 
+	/* set up a new led state on systems shipped with a LED State panel */
+	pdc_chassis_send_status(PDC_CHASSIS_DIRECT_SHUTDOWN);
+	
 	/* Nope...box should reset with just CMD_RESET now */
 	gsc_writel(CMD_RESET, COMMAND_GLOBAL);
 
@@ -150,6 +154,8 @@ void machine_power_off(void)
 	 * following call will immediately power off. */
 	pdc_soft_power_button(0);
 
+	pdc_chassis_send_status(PDC_CHASSIS_DIRECT_SHUTDOWN);
+	
 	/* It seems we have no way to power the system off via
 	 * software. The user has to press the button himself. */
 
@@ -163,9 +169,13 @@ void machine_power_off(void)
  */
 
 extern pid_t __kernel_thread(int (*fn)(void *), void *arg, unsigned long flags);
-pid_t kernel_thread(int (*fn)(void *), void *arg, unsigned long flags)
+pid_t arch_kernel_thread(int (*fn)(void *), void *arg, unsigned long flags)
 {
 
+	/*
+	 * FIXME: Once we are sure we don't need any debug here,
+	 *	  kernel_thread can become a #define.
+	 */
 
 	return __kernel_thread(fn, arg, flags);
 }

@@ -1,4 +1,4 @@
-/* $Id: ebus.c,v 1.1.1.4 2003/10/14 08:07:49 sparq Exp $
+/* $Id: ebus.c,v 1.64.2.1 2002/03/12 18:46:14 davem Exp $
  * ebus.c: PCI to EBus bridge device.
  *
  * Copyright (C) 1997  Eddie C. Dost  (ecd@skynet.be)
@@ -177,7 +177,8 @@ void __init fill_ebus_child(int node, struct linux_prom_registers *preg,
 
 static int __init child_regs_nonstandard(struct linux_ebus_device *dev)
 {
-	if (!strcmp(dev->prom_name, "i2c"))
+	if (!strcmp(dev->prom_name, "i2c") ||
+	    !strcmp(dev->prom_name, "SUNW,lombus"))
 		return 1;
 	return 0;
 }
@@ -208,6 +209,7 @@ void __init fill_ebus_device(int node, struct linux_ebus_device *dev)
 	dev->num_addrs = len / sizeof(struct linux_prom_registers);
 
 	for (i = 0; i < dev->num_addrs; i++) {
+		/* XXX Learn how to interpret ebus ranges... -DaveM */
 		if (regs[i].which_io >= 0x10)
 			n = (regs[i].which_io - 0x10) >> 2;
 		else

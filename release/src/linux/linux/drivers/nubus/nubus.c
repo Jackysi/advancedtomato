@@ -353,6 +353,10 @@ nubus_find_rsrc(struct nubus_dir* dir, unsigned char rsrc_type,
    looking at, and print out lots and lots of information from the
    resource blocks. */
 
+/* FIXME: A lot of this stuff will eventually be useful after
+   initializaton, for intelligently probing Ethernet and video chips,
+   among other things.  The rest of it should go in the /proc code.
+   For now, we just use it to give verbose boot logs. */
 
 static int __init nubus_show_display_resource(struct nubus_dev* dev,
 					      const struct nubus_dirent* ent)
@@ -544,6 +548,7 @@ static int __init nubus_get_vidnames(struct nubus_board* board,
 {
 	struct nubus_dir    dir;
 	struct nubus_dirent ent;
+	/* FIXME: obviously we want to put this in a header file soon */
 	struct vidmode {
 		u32 size;
 		/* Don't know what this is yet */
@@ -754,6 +759,16 @@ static void __init nubus_find_rom_dir(struct nubus_board* board)
 	if (console_loglevel >= 10)
 		printk(KERN_DEBUG "nubus_get_rom_dir: entry %02x %06x\n", ent.type, ent.data);
 
+	/* FIXME: the first one is *not* always the right one.  We
+	   suspect this has something to do with the ROM revision.
+	   "The HORROR ROM" (LC-series) uses 0x7e, while "The HORROR
+	   Continues" (Q630) uses 0x7b.  The DAFB Macs evidently use
+	   something else.  Please run "Slots" on your Mac (see
+	   include/linux/nubus.h for where to get this program) and
+	   tell us where the 'SiDirPtr' for Slot 0 is.  If you feel
+	   brave, you should also use MacsBug to walk down the ROM
+	   directories like this function does and try to find the
+	   path to that address... */
 	if (nubus_readdir(&dir, &ent) == -1)
 		goto badrom;
 	if (console_loglevel >= 10)

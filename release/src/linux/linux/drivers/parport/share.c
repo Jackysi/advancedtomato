@@ -1,4 +1,4 @@
-/* $Id: share.c,v 1.1.1.4 2003/10/14 08:08:31 sparq Exp $
+/* $Id: parport_share.c,v 1.15 1998/01/11 12:06:17 philip Exp $
  * Parallel-port resource manager code.
  * 
  * Authors: David Campbell <campbell@tirian.che.curtin.edu.au>
@@ -110,6 +110,8 @@ static void attach_driver_chain(struct parport *port)
 	 * get given an attach twice if they registered just before
 	 * this function gets called. */
 
+	/* Hmm, this could be fixed with a generation number..
+	 * FIXME */
 
 	attach = kmalloc (sizeof (void(*)(struct parport *)) * count,
 			  GFP_KERNEL);
@@ -936,6 +938,7 @@ int parport_claim(struct pardevice *dev)
 #ifdef CONFIG_PARPORT_1284
 	/* If it's a mux port, select it. */
 	if (dev->port->muxport >= 0) {
+		/* FIXME */
 		port->muxsel = dev->port->muxport;
 	}
 
@@ -1061,6 +1064,7 @@ void parport_release(struct pardevice *dev)
 #ifdef CONFIG_PARPORT_1284
 	/* If this is on a mux port, deselect it. */
 	if (dev->port->muxport >= 0) {
+		/* FIXME */
 		port->muxsel = -1;
 	}
 

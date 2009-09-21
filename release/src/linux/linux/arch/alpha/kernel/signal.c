@@ -150,6 +150,7 @@ sys_rt_sigaction(int sig, const struct sigaction *act, struct sigaction *oact,
 	struct k_sigaction new_ka, old_ka;
 	int ret;
 
+	/* XXX: Don't preclude handling different sized sigset_t's.  */
 	if (sigsetsize != sizeof(sigset_t))
 		return -EINVAL;
 
@@ -198,6 +199,7 @@ do_rt_sigsuspend(sigset_t *uset, size_t sigsetsize,
 {
 	sigset_t oldset, set;
 
+	/* XXX: Don't preclude handling different sized sigset_t's.  */
 	if (sigsetsize != sizeof(sigset_t))
 		return -EINVAL;
 	if (copy_from_user(&set, uset, sizeof(set)))

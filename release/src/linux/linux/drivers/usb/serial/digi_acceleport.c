@@ -230,7 +230,7 @@
 *  - Following Documentation/DocBook/kernel-locking.pdf no spin locks
 *    are held when calling copy_to/from_user or printk.
 *    
-*  $Id: digi_acceleport.c,v 1.1.1.4 2003/10/14 08:08:51 sparq Exp $
+*  $Id: digi_acceleport.c,v 1.80.1.2 2000/11/02 05:45:08 root Exp $
 */
 
 #include <linux/config.h>
@@ -614,14 +614,7 @@ static void digi_wakeup_write( struct usb_serial_port *port )
 	wake_up_interruptible( &port->write_wait );
 
 	/* wake up line discipline */
-	if( (tty->flags & (1 << TTY_DO_WRITE_WAKEUP))
-	&& tty->ldisc.write_wakeup )
-		(tty->ldisc.write_wakeup)(tty);
-
-	/* wake up other tty processes */
-	wake_up_interruptible( &tty->write_wait );
-	/* For 2.2.16 backport -- wake_up_interruptible( &tty->poll_wait ); */
-
+	tty_wakeup(tty);
 }
 
 
@@ -1557,8 +1550,7 @@ dbg( "digi_close: TOP: port=%d, open_count=%d", priv->dp_port_num, port->open_co
 	/* flush driver and line discipline buffers */
 	if( tty->driver.flush_buffer )
 		tty->driver.flush_buffer( tty );
-	if( tty->ldisc.flush_buffer )
-		tty->ldisc.flush_buffer( tty );
+	tty_ldisc_flush(tty);
 
 	if (port->serial->dev) {
 		/* wait for transmit idle */

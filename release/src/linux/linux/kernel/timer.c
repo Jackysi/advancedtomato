@@ -67,6 +67,10 @@ extern int do_setitimer(int, struct itimerval *, struct itimerval *);
 
 unsigned long volatile jiffies;
 
+unsigned int * prof_buffer;
+unsigned long prof_len;
+unsigned long prof_shift;
+
 /*
  * Event timer code
  */

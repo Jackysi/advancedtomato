@@ -22,37 +22,30 @@
 #include <asm/irq.h>
 #include <asm/reboot.h>
 #include <asm/ds1286.h>
-#include <asm/sgialib.h>
-#include <asm/sgi/sgimc.h>
-#include <asm/sgi/sgihpc.h>
-#include <asm/sgi/sgint23.h>
+#include <asm/floppy.h>
 #include <asm/time.h>
 #include <asm/gdb-stub.h>
 #include <asm/io.h>
 #include <asm/traps.h>
+#include <asm/sgialib.h>
+#include <asm/sgi/mc.h>
+#include <asm/sgi/hpc3.h>
+#include <asm/sgi/ip22.h>
 
-#ifdef CONFIG_REMOTE_DEBUG
+#ifdef CONFIG_KGDB
 extern void rs_kgdb_hook(int);
 extern void breakpoint(void);
 static int remote_debug = 0;
 #endif
 
-#if defined(CONFIG_SERIAL_CONSOLE) || defined(CONFIG_ARC_CONSOLE)
-extern void console_setup(char *);
+#ifdef CONFIG_EISA
+extern struct fd_ops std_fd_ops;
 #endif
-
-extern void sgitime_init(void);
-
-extern struct hpc3_miscregs *hpc3mregs;
-extern struct rtc_ops indy_rtc_ops;
-extern void indy_reboot_setup(void);
-extern void sgi_volume_set(unsigned char);
-
-#define sgi_kh ((struct hpc_keyb *) &(hpc3mregs->kbdmouse0))
-
-#define KBD_STAT_IBF		0x02	/* Keyboard input buffer full */
+extern struct rtc_ops ip22_rtc_ops;
 
 unsigned long sgi_gfxaddr;
+
+#define KBD_STAT_IBF		0x02	/* Keyboard input buffer full */
 
 static void sgi_request_region(void)
 {
@@ -61,14 +54,6 @@ static void sgi_request_region(void)
 
 static int sgi_request_irq(void (*handler)(int, void *, struct pt_regs *))
 {
-	/* Dirty hack, this get's called as a callback from the keyboard
-	 * driver.  We piggyback the initialization of the front panel
-	 * button handling on it even though they're technically not
-	 * related with the keyboard driver in any way.  Doing it from
-	 * ip22_setup wouldn't work since kmalloc isn't initialized yet.
-	 */
-	indy_reboot_setup();
-
 	return request_irq(SGI_KEYBD_IRQ, handler, 0, "keyboard", NULL);
 }
 
@@ -85,54 +70,61 @@ static void sgi_aux_free_irq(void)
 
 static unsigned char sgi_read_input(void)
 {
-	return sgi_kh->data;
+	return sgioc->kbdmouse.data;
 }
 
 static void sgi_write_output(unsigned char val)
 {
-	int status;
+	unsigned char status;
 
 	do {
-		status = sgi_kh->command;
+		status = sgioc->kbdmouse.command;
 	} while (status & KBD_STAT_IBF);
-	sgi_kh->data = val;
+	sgioc->kbdmouse.data = val;
 }
 
 static void sgi_write_command(unsigned char val)
 {
-	int status;
+	unsigned char status;
 
 	do {
-		status = sgi_kh->command;
+		status = sgioc->kbdmouse.command;
 	} while (status & KBD_STAT_IBF);
-	sgi_kh->command = val;
+	sgioc->kbdmouse.command = val;
 }
 
 static unsigned char sgi_read_status(void)
 {
-	return sgi_kh->command;
+	return sgioc->kbdmouse.command;
 }
 
-struct kbd_ops sgi_kbd_ops = {
-	sgi_request_region,
-	sgi_request_irq,
+struct kbd_ops ip22_kbd_ops = {
+	.kbd_request_region	= sgi_request_region,
+	.kbd_request_irq	= sgi_request_irq,
 
-	sgi_aux_request_irq,
-	sgi_aux_free_irq,
+	.aux_request_irq	= sgi_aux_request_irq,
+	.aux_free_irq		= sgi_aux_free_irq,
 
-	sgi_read_input,
-	sgi_write_output,
-	sgi_write_command,
-	sgi_read_status
+	.kbd_read_input		= sgi_read_input,
+	.kbd_write_output	= sgi_write_output,
+	.kbd_write_command	= sgi_write_command,
+	.kbd_read_status	= sgi_read_status,
 };
+
+extern void ip22_be_init(void) __init;
+extern void ip22_time_init(void) __init;
 
 void __init ip22_setup(void)
 {
-	char *ctype;
-#ifdef CONFIG_REMOTE_DEBUG
+	struct console_cmdline *c;
+	char *con;
+#ifdef CONFIG_KGDB
 	char *kgdb_ttyd;
 #endif
-	sgitime_init();
+
+	board_be_init = ip22_be_init;
+	ip22_time_init();
+
 	/* Init the INDY HPC I/O controller.  Need to call this before
 	 * fucking with the memory controller because it needs to know the
 	 * boardID and whether this is a Guiness or a FullHouse machine.
@@ -146,63 +138,64 @@ void __init ip22_setup(void)
 	/* Now enable boardcaches, if any. */
 	indy_sc_init();
 #endif
-	conswitchp = NULL;
 
-	/* Set the IO space to some sane value */
-	set_io_port_base (KSEG1ADDR (0x00080000));
+	/* Set EISA IO port base for Indigo2
+	 * ioremap cannot fail */
+	set_io_port_base((unsigned long)ioremap(0x00080000,
+						0x1fffffff - 0x00080000));
 
+	/* Nothing registered console before us, so simply use first entry */
+	c = &console_cmdline[0];
 	/* ARCS console environment variable is set to "g?" for
 	 * graphics console, it is set to "d" for the first serial
 	 * line and "d2" for the second serial line.
 	 */
-	ctype = ArcGetEnvironmentVariable("console");
-	if (ctype && *ctype == 'd') {
-#ifdef CONFIG_SERIAL_CONSOLE
-		if(*(ctype + 1) == '2')
-			console_setup("ttyS1");
-		else
-			console_setup("ttyS0");
-#endif
-	}
-#ifdef CONFIG_ARC_CONSOLE
-	else if (!ctype || *ctype != 'g') {
-		/* Use ARC if we don't want serial ('d') or
-		 * Newport ('g'). */
+	con = ArcGetEnvironmentVariable("console");
+	if (con && *con == 'd') {
+		static char options[8];
+		char *baud = ArcGetEnvironmentVariable("dbaud");
+		strcpy(c->name, "ttyS");
+		c->index = *(con + 1) == '2' ? 1 : 0;
+		if (baud) {
+			strcpy(options, baud);
+			c->options = options;
+		}
+	} else if (!con || *con != 'g') {
+		/* Use ARC if we don't want serial ('d') or Newport ('g'). */
 		prom_flags |= PROM_FLAG_USE_AS_CONSOLE;
-		console_setup("arc");
+		strcpy(c->name, "arc");
 	}
-#endif
 
-#ifdef CONFIG_REMOTE_DEBUG
+#ifdef CONFIG_KGDB
 	kgdb_ttyd = prom_getcmdline();
 	if ((kgdb_ttyd = strstr(kgdb_ttyd, "kgdb=ttyd")) != NULL) {
 		int line;
 		kgdb_ttyd += strlen("kgdb=ttyd");
 		if (*kgdb_ttyd != '1' && *kgdb_ttyd != '2')
-			printk("KGDB: Uknown serial line /dev/ttyd%c, "
-			       "falling back to /dev/ttyd1\n", *kgdb_ttyd);
+			printk(KERN_INFO "KGDB: Uknown serial line /dev/ttyd%c"
+			       ", falling back to /dev/ttyd1\n", *kgdb_ttyd);
 		line = *kgdb_ttyd == '2' ? 0 : 1;
-		printk("KGDB: Using serial line /dev/ttyd%d for session\n",
-		       line ? 1 : 2);
+		printk(KERN_INFO "KGDB: Using serial line /dev/ttyd%d for "
+		       "session\n", line ? 1 : 2);
 		rs_kgdb_hook(line);
 
-		printk("KGDB: Using serial line /dev/ttyd%d for session, "
-			    "please connect your debugger\n", line ? 1 : 2);
+		printk(KERN_INFO "KGDB: Using serial line /dev/ttyd%d for "
+		       "session, please connect your debugger\n", line ? 1:2);
 
 		remote_debug = 1;
 		/* Breakpoints and stuff are in sgi_irq_setup() */
 	}
 #endif
 
-	sgi_volume_set(simple_strtoul(ArcGetEnvironmentVariable("volume"), NULL, 10));
-
 #ifdef CONFIG_VT
+	conswitchp = &dummy_con;
 #ifdef CONFIG_SGI_NEWPORT_CONSOLE
-	if (ctype && *ctype == 'g'){
-		unsigned long *gfxinfo;
-		long (*__vec)(void) = (void *) *(long *)((PROMBLOCK)->pvector + 0x20);
+	if (con && *con == 'g'){
+		ULONG *gfxinfo;
+		ULONG * (*__vec)(void) = (void *) (long)
+			*((_PULONG *)(long)((PROMBLOCK)->pvector + 0x20));
 
-		gfxinfo = (unsigned long *)__vec();
+		gfxinfo = __vec();
 		sgi_gfxaddr = ((gfxinfo[1] >= 0xa0000000
 			       && gfxinfo[1] <= 0xc0000000)
 			       ? gfxinfo[1] - 0xa0000000 : 0);
@@ -212,28 +205,30 @@ void __init ip22_setup(void)
 			conswitchp = &newport_con;
 
 			screen_info = (struct screen_info) {
-				0, 0,		/* orig-x, orig-y */
-				0,		/* unused */
-				0,		/* orig_video_page */
-				0,		/* orig_video_mode */
-				160,		/* orig_video_cols */
-				0, 0, 0,	/* unused, ega_bx, unused */
-				64,		/* orig_video_lines */
-				0,		/* orig_video_isVGA */
-				16		/* orig_video_points */
+				.orig_x			= 0,
+				.orig_y 		= 0,
+				.orig_video_page	= 0,
+				.orig_video_mode	= 0,
+				.orig_video_cols	= 160,
+				.orig_video_ega_bx	= 0,
+				.orig_video_lines	= 64,
+				.orig_video_isVGA	= 0,
+				.orig_video_points	= 16,
 			};
 		}
 	}
 #endif
-#ifdef CONFIG_DUMMY_CONSOLE
-	/* Either if newport console wasn't used or failed to initialize. */
-	if(conswitchp != &newport_con)
-		conswitchp = &dummy_con;
-#endif
 #endif
 
-	rtc_ops = &indy_rtc_ops;
-	kbd_ops = &sgi_kbd_ops;
+/*
+ * Warning: this is broken, means it has to be known at kernel compile time
+ * if a floppy module might ever be loaded
+ */
+#if defined(CONFIG_EISA) && defined(CONFIG_BLK_DEV_FD)
+	fd_ops = &std_fd_ops;
+#endif
+	rtc_ops = &ip22_rtc_ops;
+	kbd_ops = &ip22_kbd_ops;
 #ifdef CONFIG_PSMOUSE
 	aux_device_present = 0xaa;
 #endif

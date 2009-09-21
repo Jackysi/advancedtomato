@@ -1,7 +1,4 @@
 /*
- * BK Id: SCCS/s.oak.h 1.12 10/11/01 13:05:07 trini
- */
-/*
  *
  *    Copyright (c) 1999 Grant Erickson <grant@lcse.umn.edu>
  *

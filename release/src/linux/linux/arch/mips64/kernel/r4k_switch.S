@@ -87,7 +87,7 @@
 	cpu_restore_nonscratch $28
 
 	daddiu	a1, $28, KERNEL_STACK_SIZE-32
-	set_saved_sp	a1 t0
+	set_saved_sp	a1, t0, t1
 
 	mfc0	t1, CP0_STATUS		/* Do we really need this? */
 	li	a3, 0xff00

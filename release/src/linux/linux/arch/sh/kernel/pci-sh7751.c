@@ -38,8 +38,6 @@ struct pci_ops *pci_root_ops;
  * Direct access to PCI hardware...
  */
 
-#ifdef CONFIG_PCI_DIRECT
-
 
 #define CONFIG_CMD(dev, where) (0x80000000 | (dev->bus->number << 16) | (dev->devfn << 8) | (where & ~3))
 
@@ -202,8 +200,10 @@ struct pci_ops * __init pci_check_direct(void)
 	unsigned int tmp, id;
 
 	/* check for SH7751 hardware */
-	id = (SH7751_DEVICE_ID << 16) | SH7751_VENDOR_ID;
-	if(inl(SH7751_PCIREG_BASE+SH7751_PCICONF0) != id) {
+	id = inl(SH7751_PCIREG_BASE + SH7751_PCICONF0);
+
+	if ((id != ((SH7751_DEVICE_ID << 16) | SH7751_VENDOR_ID)) &&
+	    (id != ((SH7751R_DEVICE_ID << 16) | SH7751_VENDOR_ID))) {
 		PCIDBG(2,"PCI: This is not an SH7751\n");
 		return NULL;
 	}
@@ -226,20 +226,6 @@ struct pci_ops * __init pci_check_direct(void)
 	return NULL;
 }
 
-#endif
-
-/*
- * BIOS32 and PCI BIOS handling.
- * 
- * The BIOS version of the pci functions is not yet implemented but it is left
- * in for completeness.  Currently an error will be generated at compile time. 
- */
- 
-#ifdef CONFIG_PCI_BIOS
-
-#error PCI BIOS is not yet supported on SH7751
-
-#endif /* CONFIG_PCI_BIOS */
 
 /***************************************************************************************/
 
@@ -342,16 +328,9 @@ void __init pcibios_init(void)
 	struct pci_ops *dir = NULL;
 
 	PCIDBG(1,"PCI: Starting intialization.\n");
-#ifdef CONFIG_PCI_BIOS
-	if ((pci_probe & PCI_PROBE_BIOS) && ((bios = pci_find_bios()))) {
-		pci_probe |= PCI_BIOS_SORT;
-		pci_bios_present = 1;
-	}
-#endif
-#ifdef CONFIG_PCI_DIRECT
+
 	if (pci_probe & PCI_PROBE_CONF1 )
 		dir = pci_check_direct();
-#endif
 	if (dir) {
 		pci_root_ops = dir;
 	    if(!pcibios_init_platform())
@@ -372,11 +351,6 @@ void __init pcibios_init(void)
 	pci_fixup_irqs(pcibios_swizzle, pcibios_lookup_irq);
 	pcibios_fixup_peer_bridges();
 	pcibios_resource_survey();
-
-#ifdef CONFIG_PCI_BIOS
-	if ((pci_probe & PCI_BIOS_SORT) && !(pci_probe & PCI_NO_SORT))
-		pcibios_sort();
-#endif
 }
 
 char * __init pcibios_setup(char *str)
@@ -384,29 +358,10 @@ char * __init pcibios_setup(char *str)
 	if (!strcmp(str, "off")) {
 		pci_probe = 0;
 		return NULL;
-	}
-#ifdef CONFIG_PCI_BIOS
-	else if (!strcmp(str, "bios")) {
-		pci_probe = PCI_PROBE_BIOS;
-		return NULL;
-	} else if (!strcmp(str, "nobios")) {
-		pci_probe &= ~PCI_PROBE_BIOS;
-		return NULL;
-	} else if (!strcmp(str, "nosort")) {
-		pci_probe |= PCI_NO_SORT;
-		return NULL;
-	} else if (!strcmp(str, "biosirq")) {
-		pci_probe |= PCI_BIOS_IRQ_SCAN;
-		return NULL;
-	}
-#endif
-#ifdef CONFIG_PCI_DIRECT
-	else if (!strcmp(str, "conf1")) {
+	} else if (!strcmp(str, "conf1")) {
 		pci_probe = PCI_PROBE_CONF1 | PCI_NO_CHECKS;
 		return NULL;
-	}
-#endif
-	else if (!strcmp(str, "rom")) {
+	} else if (!strcmp(str, "rom")) {
 		pci_probe |= PCI_ASSIGN_ROMS;
 		return NULL;
 	} else if (!strncmp(str, "lastbus=", 8)) {

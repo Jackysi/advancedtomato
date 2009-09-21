@@ -114,7 +114,7 @@ LIBRARIES =  $(noinst_LIBRARIES)
 
 CPPFLAGS = @CPPFLAGS@
 LDFLAGS = @LDFLAGS@
-LIBS = @LIBS@
+LIBS = @LIBS@ -lzebra -L../lib
 librip_a_LIBADD = 
 librip_a_OBJECTS =  ripd.o rip_zebra.o rip_interface.o rip_debug.o \
 rip_snmp.o rip_routemap.o rip_peer.o rip_offset.o
@@ -213,7 +213,7 @@ uninstall-sbinPROGRAMS:
 
 ripd: $(ripd_OBJECTS) $(ripd_DEPENDENCIES)
 	@rm -f ripd
-	$(LINK) $(ripd_LDFLAGS) $(ripd_OBJECTS) $(ripd_LDADD) $(LIBS)
+	$(LINK) $(ripd_LDFLAGS) $(ripd_OBJECTS) $(LIBS)
 
 uninstall-sysconfDATA:
 	@$(NORMAL_UNINSTALL)

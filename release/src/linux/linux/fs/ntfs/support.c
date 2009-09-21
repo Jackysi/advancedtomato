@@ -144,6 +144,11 @@ int ntfs_read_mft_record(ntfs_volume *vol, int mftno, char *buf)
 	}
 	ntfs_debug(DEBUG_OTHER, "read_mft_record: finished read 0x%x\n", mftno);
 	if (!ntfs_check_mft_record(vol, buf)) {
+		/* FIXME: This is incomplete behaviour. We might be able to
+		 * recover at this stage. ntfs_check_mft_record() is too
+		 * conservative at aborting it's operations. It is OK for
+		 * now as we just can't handle some on disk structures
+		 * this way. (AIA) */
 		printk(KERN_WARNING "NTFS: Invalid MFT record for 0x%x\n", mftno);
 		return -EIO;
 	}
@@ -229,12 +234,13 @@ int ntfs_dupuni2map(ntfs_volume *vol, ntfs_u16 *in, int in_len, char **out,
 		return -ENOMEM;
 	*out_len = in_len;
 	for (i = o = 0; i < in_len; i++) {
+		/* FIXME: Byte order? */
 		wchar_t uni = in[i];
 		if ((chl = nls->uni2char(uni, charbuf,
 				NLS_MAX_CHARSET_SIZE)) > 0) {
 			/* Adjust result buffer. */
 			if (chl > 1) {
-				buf = ntfs_malloc(*out_len + chl - 1);
+				buf = ntfs_malloc(*out_len + chl);
 				if (!buf) {
 					i = -ENOMEM;
 					goto err_ret;
@@ -291,6 +297,7 @@ int ntfs_dupmap2uni(ntfs_volume *vol, char* in, int in_len, ntfs_u16 **out,
 		}
 		*out_len -= charlen - 1;
 		i += charlen - 1;
+		/* FIXME: Byte order? */
 		result[o] = uni;
 		if (!result[o]) {
 			i = -EILSEQ;

@@ -230,6 +230,7 @@ static struct console ambauart_cons;
 static void ambauart_change_speed(struct amba_info *info, struct termios *old_termios);
 static void ambauart_wait_until_sent(struct tty_struct *tty, int timeout);
 
+#if 1 //def CONFIG_SERIAL_INTEGRATOR
 static void amba_set_mctrl_null(struct amba_port *port, u_int mctrl)
 {
 }
@@ -250,6 +251,7 @@ static struct amba_port amba_ports[SERIAL_AMBA_NR] = {
 		set_mctrl:	amba_set_mctrl_null,
 	}
 };
+#endif
 
 static struct amba_state amba_state[SERIAL_AMBA_NR];
 
@@ -479,7 +481,7 @@ static void ambauart_modem_status(struct amba_info *info)
 		icount->dcd++;
 #ifdef CONFIG_HARD_PPS
 		if ((info->flags & ASYNC_HARDPPS_CD) &&
-		    (status & AMBA_UARTFR_DCD)
+		    (status & AMBA_UARTFR_DCD))
 			hardpps();
 #endif
 		if (info->flags & ASYNC_CHECK_CD) {
@@ -532,6 +534,9 @@ static void ambauart_int(int irq, void *dev_id, struct pt_regs *regs)
 
 	status = UART_GET_INT_STATUS(info->port);
 	do {
+		/*
+		 * FIXME: what about clearing the interrupts?
+		 */
 
 		if (status & (AMBA_UARTIIR_RTIS | AMBA_UARTIIR_RIS))
 #ifdef SUPPORT_SYSRQ
@@ -564,10 +569,7 @@ static void ambauart_tasklet_action(unsigned long data)
 	if (!tty || !test_and_clear_bit(EVT_WRITE_WAKEUP, &info->event))
 		return;
 
-	if ((tty->flags & (1 << TTY_DO_WRITE_WAKEUP)) &&
-	    tty->ldisc.write_wakeup)
-		(tty->ldisc.write_wakeup)(tty);
-	wake_up_interruptible(&tty->write_wait);
+	tty_wakeup(tty);
 }
 
 static int ambauart_startup(struct amba_info *info)
@@ -953,10 +955,7 @@ static void ambauart_flush_buffer(struct tty_struct *tty)
 	save_flags(flags); cli();
 	info->xmit.head = info->xmit.tail = 0;
 	restore_flags(flags);
-	wake_up_interruptible(&tty->write_wait);
-	if ((tty->flags & (1 << TTY_DO_WRITE_WAKEUP)) &&
-	    tty->ldisc.write_wakeup)
-		(tty->ldisc.write_wakeup)(tty);
+	tty_wakeup(tty);
 }
 
 /*
@@ -1363,6 +1362,17 @@ static void ambauart_set_termios(struct tty_struct *tty, struct termios *old_ter
 		ambauart_start(tty);
 	}
 
+#if 0
+	/*
+	 * No need to wake up processes in open wait, since they
+	 * sample the CLOCAL flag once, and don't recheck it.
+	 * XXX  It's not clear whether the current behavior is correct
+	 * or not.  Hence, this may change.....
+	 */
+	if (!(old_termios->c_cflag & CLOCAL) &&
+	    (tty->termios->c_cflag & CLOCAL))
+		wake_up_interruptible(&info->open_wait);
+#endif
 }
 
 static void ambauart_close(struct tty_struct *tty, struct file *filp)
@@ -1443,8 +1453,7 @@ static void ambauart_close(struct tty_struct *tty, struct file *filp)
 	ambauart_shutdown(info);
 	if (tty->driver.flush_buffer)
 		tty->driver.flush_buffer(tty);
-	if (tty->ldisc.flush_buffer)
-		tty->ldisc.flush_buffer(tty);
+	tty_ldisc_flush(tty);
 	tty->closing = 0;
 	info->event = 0;
 	info->tty = NULL;
@@ -1827,6 +1836,12 @@ __initcall(ambauart_init);
 #ifdef CONFIG_SERIAL_AMBA_CONSOLE
 /************** console driver *****************/
 
+/*
+ * This code is currently never used; console->read is never called.
+ * Therefore, although we have an implementation, we don't use it.
+ * FIXME: the "const char *s" should be fixed to "char *s" some day.
+ * (when the definition in include/linux/console.h is also fixed)
+ */
 #ifdef used_and_not_const_char_pointer
 static int ambauart_console_read(struct console *co, const char *s, u_int count)
 {

@@ -50,14 +50,20 @@
 #include <asm/kdebug.h>
 #include <asm/timex.h>
 #include <asm/proto.h>
+#include <asm/acpi.h>
 
 /* Setup configured maximum number of CPUs to activate */
-static int max_cpus = -1;
+unsigned int max_cpus = NR_CPUS;
 
 static int cpu_mask = -1; 
 
 /* Total count of live CPUs */
 int smp_num_cpus = 1;
+
+/* Number of siblings per CPU package */
+int smp_num_siblings = 1;
+int __initdata phys_proc_id[NR_CPUS]; /* Package ID of each logical CPU */
+int cpu_sibling_map[NR_CPUS] __cacheline_aligned;
 
 /* Bitmask of currently online CPUs */
 unsigned long cpu_online_map;
@@ -76,15 +82,13 @@ struct cpuinfo_x86 cpu_data[NR_CPUS] __cacheline_aligned;
 /* Set when the idlers are all forked */
 int smp_threads_ready;
 
+extern void time_init_smp(void);
+
 /*
  * Setup routine for controlling SMP activation
  *
  * Command-line option of "nosmp" or "maxcpus=0" will disable SMP
  * activation entirely (the MPS table probe still happens, though).
- *
- * Command-line option of "maxcpus=<NUM>", where <NUM> is an integer
- * greater than 0, limits the maximum number of CPUs activated in
- * SMP mode to <NUM>.
  */
 
 static int __init nosmp(char *str)
@@ -94,15 +98,6 @@ static int __init nosmp(char *str)
 }
 
 __setup("nosmp", nosmp);
-
-static int __init maxcpus(char *str)
-{
-	get_option(&str, &max_cpus);
-	return 1;
-}
-
-__setup("maxcpus=", maxcpus);
-
 
 static int __init cpumask(char *str)
 {
@@ -236,12 +231,16 @@ static void __init synchronize_tsc_bp (void)
 		 */
 		atomic_inc(&tsc_count_start);
 
+		sync_core();
 		rdtscll(tsc_values[smp_processor_id()]);
+
 		/*
 		 * We clear the TSC in the last loop:
 		 */
-		if (i == NR_LOOPS-1)
+
+		if (i == NR_LOOPS-1) {
 			write_tsc(0, 0);
+		}
 
 		/*
 		 * Wait for all APs to leave the synchronization point:
@@ -302,6 +301,7 @@ static void __init synchronize_tsc_ap (void)
 		atomic_inc(&tsc_count_start);
 		while (atomic_read(&tsc_count_start) != smp_num_cpus) mb();
 
+		sync_core();
 		rdtscll(tsc_values[smp_processor_id()]);
 		if (i == NR_LOOPS-1)
 			write_tsc(0, 0);
@@ -402,8 +402,6 @@ void __init smp_callin(void)
 	 * Save our processor parameters
 	 */
  	smp_store_cpu_info(cpuid);
-
-	notify_die(DIE_CPUINIT, "cpuinit", NULL, 0);
 
 	/*
 	 * Allow the master to continue.
@@ -772,7 +770,7 @@ cycles_t cacheflush_time;
 static __init void smp_tune_scheduling (void)
 {
 	unsigned long cachesize;       /* kB   */
-	unsigned long bandwidth = 350; /* MB/s */
+	unsigned long bandwidth = 2000; /* MB/s */
 	/*
 	 * Rough estimation for SMP scheduling, this is the number of
 	 * cycles it takes for a fully memory-limited process to flush
@@ -800,6 +798,8 @@ static __init void smp_tune_scheduling (void)
 
 		cacheflush_time = (cpu_khz>>10) * (cachesize<<10) / bandwidth;
 	}
+
+	cacheflush_time *= 10;  /* Add an NUMA factor */
 
 	printk("per-CPU timeslice cutoff: %ld.%02ld usecs.\n",
 		(long)cacheflush_time/(cpu_khz/1000),
@@ -856,7 +856,7 @@ void __init smp_boot_cpus(void)
 	 * If we couldnt find an SMP configuration at boot time,
 	 * get out of here now!
 	 */
-	if (!smp_found_config) {
+	if (!smp_found_config && !acpi_lapic) {
 		printk(KERN_NOTICE "SMP motherboard not detected.\n");
 		io_apic_irqs = 0;
 		cpu_online_map = phys_cpu_present_map = 1;
@@ -888,6 +888,7 @@ void __init smp_boot_cpus(void)
 		io_apic_irqs = 0;
 		cpu_online_map = phys_cpu_present_map = 1;
 		smp_num_cpus = 1;
+		apic_disabled = 1;
 		goto smp_done;
 	}
 
@@ -899,7 +900,6 @@ void __init smp_boot_cpus(void)
 	if (!max_cpus) {
 		smp_found_config = 0;
 		printk(KERN_INFO "SMP mode deactivated, forcing use of dummy APIC emulation.\n");
-		io_apic_irqs = 0;
 		cpu_online_map = phys_cpu_present_map = 1;
 		smp_num_cpus = 1;
 		goto smp_done;
@@ -927,8 +927,6 @@ void __init smp_boot_cpus(void)
 		if (!(phys_cpu_present_map & (1 << apicid)))
 			continue;
 		if (((1<<apicid) & cpu_mask) == 0) 
-			continue;
-		if ((max_cpus >= 0) && (max_cpus <= cpucount+1))
 			continue;
 
 		cpu = do_boot_cpu(apicid);
@@ -966,9 +964,7 @@ void __init smp_boot_cpus(void)
 	 */
 
 	Dprintk("Before bogomips.\n");
-	if (!cpucount) {
-		printk(KERN_ERR "Only one processor found.\n");
-	} else {
+	{
 		unsigned long bogosum = 0;
 		for (cpu = 0; cpu < NR_CPUS; cpu++)
 			if (cpu_online_map & (1<<cpu))
@@ -984,11 +980,41 @@ void __init smp_boot_cpus(void)
 	Dprintk("Boot done.\n");
 
 	/*
+	 * If Hyper-Threading is avaialble, construct cpu_sibling_map[], so
+	 * that we can tell the sibling CPU efficiently.
+	 */
+	if (test_bit(X86_FEATURE_HT, boot_cpu_data.x86_capability)
+	    && smp_num_siblings > 1) {
+		for (cpu = 0; cpu < NR_CPUS; cpu++)
+			cpu_sibling_map[cpu] = NO_PROC_ID;
+		
+		for (cpu = 0; cpu < smp_num_cpus; cpu++) {
+			int 	i;
+			
+			for (i = 0; i < smp_num_cpus; i++) {
+				if (i == cpu)
+					continue;
+				if (phys_proc_id[cpu] == phys_proc_id[i]) {
+					cpu_sibling_map[cpu] = i;
+					printk("cpu_sibling_map[%d] = %d\n", cpu, cpu_sibling_map[cpu]);
+					break;
+				}
+			}
+			if (cpu_sibling_map[cpu] == NO_PROC_ID) {
+				smp_num_siblings = 1;
+				printk(KERN_WARNING "WARNING: No sibling found for CPU %d.\n", cpu);
+			}
+		}
+	}
+	     
+	/*
 	 * Here we can be sure that there is an IO-APIC in the system. Let's
 	 * go and set it up:
 	 */
 	if (!skip_ioapic_setup && nr_ioapics)
 		setup_IO_APIC();
+	else
+		nr_ioapics = 0;
 
 	/*
 	 * Set up all local APIC timers in the system:
@@ -1001,6 +1027,10 @@ void __init smp_boot_cpus(void)
 	if (cpu_has_tsc && cpucount)
 		synchronize_tsc_bp();
 
+	if (nmi_watchdog != 0) 
+		check_nmi_watchdog(); 
+
 smp_done:
 	zap_low_mappings();
+	time_init_smp();
 }

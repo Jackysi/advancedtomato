@@ -76,6 +76,11 @@ int pci_get_irq(struct pci_dev *dev, int pin)
 	} else {
 		/* PCI Backplane */
 		irq = (irq + 3 + PCI_SLOT(dev->devfn)) % 4;
+#if 0	/* ??? */
+		for (bus = dev->bus; bus->parent != NULL; bus = bus->parent) {
+			irq = (irq + 3 + PCI_SLOT(bus->self->devfn)) % 4;
+		}
+#endif
 	}
 	irq++;	/* 1-4 */
 

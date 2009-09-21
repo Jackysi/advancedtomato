@@ -1,4 +1,4 @@
-/* $Id: esp.h,v 1.1.1.4 2003/10/14 08:08:38 sparq Exp $
+/* $Id: esp.h,v 1.28 2000/03/30 01:33:17 davem Exp $
  * esp.h:  Defines and structures for the Sparc ESP (Enhanced SCSI
  *         Processor) driver under Linux.
  *
@@ -126,7 +126,7 @@ struct esp {
 		struct scatterlist	*saved_buffer;
 		int			saved_this_residual;
 		int			saved_buffers_residual;
-	} data_pointers[16] ;
+	} data_pointers[16] /*XXX [MAX_TAGS_PER_TARGET]*/;
 
 	/* Clock periods, frequencies, synchronization, etc. */
 	unsigned int		cfreq;		/* Clock frequency in HZ */

@@ -1,4 +1,4 @@
-/* $Id: eicon_idi.h,v 1.1.1.4 2003/10/14 08:08:12 sparq Exp $
+/* $Id: eicon_idi.h,v 1.1.4.1 2001/11/20 14:19:35 kai Exp $
  *
  * ISDN lowlevel-module for the Eicon active cards.
  * IDI-Interface
@@ -58,35 +58,35 @@ typedef struct {
 
 typedef struct { 
   __u16 next            __attribute__ ((packed));
-  __u8  Req             __attribute__ ((packed));
-  __u8  ReqId           __attribute__ ((packed));
-  __u8  ReqCh           __attribute__ ((packed));
-  __u8  Reserved1       __attribute__ ((packed));
+  __u8  Req;
+  __u8  ReqId;
+  __u8  ReqCh;
+  __u8  Reserved1;
   __u16 Reference       __attribute__ ((packed));
-  __u8  Reserved[8]     __attribute__ ((packed));
+  __u8  Reserved[8];
   eicon_PBUFFER XBuffer; 
 } eicon_REQ;
 
 typedef struct {
   __u16 next            __attribute__ ((packed));
-  __u8  Rc              __attribute__ ((packed));
-  __u8  RcId            __attribute__ ((packed));
-  __u8  RcCh            __attribute__ ((packed));
-  __u8  Reserved1       __attribute__ ((packed));
+  __u8  Rc;
+  __u8  RcId;
+  __u8  RcCh;
+  __u8  Reserved1;
   __u16 Reference       __attribute__ ((packed));
-  __u8  Reserved2[8]    __attribute__ ((packed));
+  __u8  Reserved2[8];
 } eicon_RC;
 
 typedef struct {
   __u16 next            __attribute__ ((packed));
-  __u8  Ind             __attribute__ ((packed));
-  __u8  IndId           __attribute__ ((packed));
-  __u8  IndCh           __attribute__ ((packed));
-  __u8  MInd            __attribute__ ((packed));
+  __u8  Ind;
+  __u8  IndId;
+  __u8  IndCh;
+  __u8  MInd;
   __u16 MLength         __attribute__ ((packed));
   __u16 Reference       __attribute__ ((packed));
-  __u8  RNR             __attribute__ ((packed));
-  __u8  Reserved        __attribute__ ((packed));
+  __u8  RNR;
+  __u8  Reserved;
   __u32 Ack             __attribute__ ((packed));
   eicon_PBUFFER RBuffer;
 } eicon_IND;

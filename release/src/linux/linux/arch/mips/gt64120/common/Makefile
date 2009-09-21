@@ -8,8 +8,9 @@
 
 USE_STANDARD_AS_RULE := true
 
-O_TARGET:= gt64120.o
+O_TARGET := gt64120.o
 
-obj-y	 := gt_irq.o pci.o
+obj-y	 		+= time.o
+obj-$(CONFIG_PCI)	+= pci.o
 
 include $(TOPDIR)/Rules.make

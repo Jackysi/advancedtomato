@@ -8,7 +8,6 @@
  * option) any later version.
  *
  */
-
 #ifndef _ASM_FPU_H
 #define _ASM_FPU_H
 
@@ -17,13 +16,18 @@
 
 #include <asm/mipsregs.h>
 #include <asm/cpu.h>
+#include <asm/bitops.h>
 #include <asm/processor.h>
 #include <asm/current.h>
 
 struct sigcontext;
+struct sigcontext32;
 
 extern asmlinkage int (*save_fp_context)(struct sigcontext *sc);
 extern asmlinkage int (*restore_fp_context)(struct sigcontext *sc);
+
+extern asmlinkage int (*save_fp_context32)(struct sigcontext32 *sc);
+extern asmlinkage int (*restore_fp_context32)(struct sigcontext32 *sc);
 
 extern void fpu_emulator_init_fpu(void);
 extern void _init_fpu(void);
@@ -62,37 +66,36 @@ do {									\
 
 #define enable_fpu()							\
 do {									\
-	if (mips_cpu.options & MIPS_CPU_FPU)				\
+	if (cpu_has_fpu)						\
 		__enable_fpu();						\
 } while (0)
 
 #define disable_fpu()							\
 do {									\
-	if (mips_cpu.options & MIPS_CPU_FPU)				\
+	if (cpu_has_fpu)						\
 		__disable_fpu();					\
 } while (0)
 
 
-#define clear_fpu_owner() do {current->flags &= ~PF_USEDFPU; } while(0)
+#define clear_fpu_owner() do { current->flags &= ~PF_USEDFPU; } while(0)
 
 static inline int is_fpu_owner(void)
 {
-	return (mips_cpu.options & MIPS_CPU_FPU) && 
-		((current->flags & PF_USEDFPU) != 0); 
+	return cpu_has_fpu && ((current->flags & PF_USEDFPU) != 0); 
 }
 
 static inline void own_fpu(void)
 {
-	if(mips_cpu.options & MIPS_CPU_FPU) {
+	if (cpu_has_fpu) {
 		__enable_fpu();
 		KSTK_STATUS(current) |= ST0_CU1;
 		current->flags |= PF_USEDFPU;
 	}
 }
 
-static inline void loose_fpu(void)
+static inline void lose_fpu(void)
 {
-	if (mips_cpu.options & MIPS_CPU_FPU) {
+	if (cpu_has_fpu) {
 		KSTK_STATUS(current) &= ~ST0_CU1;
 		current->flags &= ~PF_USEDFPU;
 		__disable_fpu();
@@ -101,7 +104,7 @@ static inline void loose_fpu(void)
 
 static inline void init_fpu(void)
 {
-	if (mips_cpu.options & MIPS_CPU_FPU) {
+	if (cpu_has_fpu) {
 		_init_fpu();
 	} else {
 		fpu_emulator_init_fpu();
@@ -110,19 +113,19 @@ static inline void init_fpu(void)
 
 static inline void save_fp(struct task_struct *tsk)
 {
-	if (mips_cpu.options & MIPS_CPU_FPU) 
+	if (cpu_has_fpu)
 		_save_fp(tsk);
 }
 
 static inline void restore_fp(struct task_struct *tsk)
 {
-	if (mips_cpu.options & MIPS_CPU_FPU) 
+	if (cpu_has_fpu)
 		_restore_fp(tsk);
 }
 
 static inline unsigned long *get_fpu_regs(struct task_struct *tsk)
 {
-	if(mips_cpu.options & MIPS_CPU_FPU) {
+	if (cpu_has_fpu) {
 		if ((tsk == current) && is_fpu_owner()) 
 			_save_fp(current);
 		return (unsigned long *)&tsk->thread.fpu.hard.fp_regs[0];
@@ -132,4 +135,3 @@ static inline unsigned long *get_fpu_regs(struct task_struct *tsk)
 }
 
 #endif /* _ASM_FPU_H */
-

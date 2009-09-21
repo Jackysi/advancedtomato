@@ -14,6 +14,7 @@
 //		   3. Move stack ptr 16 bytes to conform to C calling convention
 //
 #include <linux/config.h>
+#include <linux/threads.h>
 
 #include <asm/asmmacro.h>
 #include <asm/pgtable.h>
@@ -22,20 +23,15 @@
 #include <asm/mca.h>
 
 /*
- * When we get an machine check, the kernel stack pointer is no longer
+ * When we get a machine check, the kernel stack pointer is no longer
  * valid, so we need to set a new stack pointer.
  */
 #define	MINSTATE_PHYS	/* Make sure stack access is physical for MINSTATE */
 
 /*
- * Needed for ia64_sal call
- */
-#define SAL_GET_STATE_INFO      0x01000001
-
-/*
  * Needed for return context to SAL
  */
-#define IA64_MCA_SAME_CONTEXT	0x0
+#define IA64_MCA_SAME_CONTEXT	0
 #define IA64_MCA_COLD_BOOT	-2
 
 #include "minstate.h"
@@ -57,7 +53,9 @@
 	st8	[_tmp]=r9,0x08;;			\
 	st8	[_tmp]=r10,0x08;;			\
 	st8	[_tmp]=r11,0x08;;			\
-	st8	[_tmp]=r12,0x08
+	st8	[_tmp]=r12,0x08;;			\
+	st8	[_tmp]=r17,0x08;;			\
+	st8	[_tmp]=r18,0x08
 
 /*
  * OS_MCA_TO_SAL_HANDOFF_STATE (SAL 3.0 spec)
@@ -70,21 +68,36 @@
  *	returns ptr to SAL rtn save loc in _tmp
  */
 #define OS_MCA_TO_SAL_HANDOFF_STATE_RESTORE(_tmp)	\
-(p6)	movl	_tmp=ia64_sal_to_os_handoff_state;;	\
-(p7)	movl	_tmp=ia64_os_to_sal_handoff_state;;	\
+	movl	_tmp=ia64_os_to_sal_handoff_state;;	\
 	DATA_VA_TO_PA(_tmp);;				\
-(p6)	movl	r8=IA64_MCA_COLD_BOOT;			\
-(p6)	movl	r10=IA64_MCA_SAME_CONTEXT;		\
-(p6)	add     _tmp=0x18,_tmp;;			\
-(p6)	ld8	r9=[_tmp],0x10;				\
-(p6)	movl	r22=ia64_mca_min_state_save_info;;	\
-(p7)	ld8	r8=[_tmp],0x08;;			\
-(p7)	ld8	r9=[_tmp],0x08;;			\
-(p7)	ld8     r10=[_tmp],0x08;;			\
-(p7)	ld8     r22=[_tmp],0x08;;			\
-	DATA_VA_TO_PA(r22)
+	ld8	r8=[_tmp],0x08;;			\
+	ld8	r9=[_tmp],0x08;;			\
+	ld8	r10=[_tmp],0x08;;			\
+	ld8	r22=[_tmp],0x08;;
 	// now _tmp is pointing to SAL rtn save location
 
+/*
+ * COLD_BOOT_HANDOFF_STATE() sets ia64_mca_os_to_sal_state
+ *	imots_os_status=IA64_MCA_COLD_BOOT
+ *	imots_sal_gp=SAL GP
+ *	imots_context=IA64_MCA_SAME_CONTEXT
+ *	imots_new_min_state=Min state save area pointer
+ *	imots_sal_check_ra=Return address to location within SAL_CHECK
+ *
+ */
+#define COLD_BOOT_HANDOFF_STATE(sal_to_os_handoff,os_to_sal_handoff,tmp)\
+	movl	tmp=IA64_MCA_COLD_BOOT;					\
+	movl	sal_to_os_handoff=__pa(ia64_sal_to_os_handoff_state);	\
+	movl	os_to_sal_handoff=__pa(ia64_os_to_sal_handoff_state);;	\
+	st8	[os_to_sal_handoff]=tmp,8;;				\
+	ld8	tmp=[sal_to_os_handoff],48;;				\
+	st8	[os_to_sal_handoff]=tmp,8;;				\
+	movl	tmp=IA64_MCA_SAME_CONTEXT;;				\
+	st8	[os_to_sal_handoff]=tmp,8;;				\
+	ld8	tmp=[sal_to_os_handoff],-8;;				\
+	st8     [os_to_sal_handoff]=tmp,8;;				\
+	ld8	tmp=[sal_to_os_handoff];;				\
+	st8     [os_to_sal_handoff]=tmp;;
 
 	.global ia64_os_mca_dispatch
 	.global ia64_os_mca_dispatch_end
@@ -95,21 +108,20 @@
 	.global	ia64_mca_stackframe
 	.global	ia64_mca_bspstore
 	.global ia64_init_stack
-	.global ia64_mca_sal_data_area
-	.global ia64_tlb_functional
-	.global ia64_mca_min_state_save_info
 
 	.text
 	.align 16
 
 ia64_os_mca_dispatch:
 
-#if defined(MCA_TEST)
-	// Pretend that we are in interrupt context
-	mov		r2=psr
-	dep		r2=0, r2, PSR_IC, 2;
-	mov		psr.l = r2
-#endif	/* #if defined(MCA_TEST) */
+	// Serialize all MCA processing
+	movl	r2=ia64_mca_serialize
+	mov	r3=1;;
+	DATA_VA_TO_PA(r2);;
+ia64_os_mca_spin:
+	xchg8	r4=[r2],r3;;
+	cmp.ne	p6,p0=r4,r0
+(p6)	br ia64_os_mca_spin
 
 	// Save the SAL to OS MCA handoff state as defined
 	// by SAL SPEC 3.0
@@ -126,6 +138,182 @@ begin_os_mca_dump:
 
 ia64_os_mca_done_dump:
 
+	movl r16=__pa(ia64_sal_to_os_handoff_state)+56
+	;;
+	ld8 r18=[r16]		// Get processor state parameter on existing PALE_CHECK.
+	;;
+	tbit.nz p6,p7=r18,60
+(p7)	br.spnt done_tlb_purge_and_reload
+
+	// The following code purges TC and TR entries. Then reload all TC entries.
+	// Purge percpu data TC entries.
+begin_tlb_purge_and_reload:
+	mov r16=cr.lid
+	movl r17=__pa(ia64_mca_tlb_list) // Physical address of ia64_mca_tlb_list 
+	mov r19=0
+	mov r20=NR_CPUS
+	;;
+1:	cmp.eq p6,p7=r19,r20
+(p6)	br.spnt.few err
+	ld8 r18=[r17],IA64_MCA_TLB_INFO_SIZE
+	;;
+	add r19=1,r19
+	cmp.eq p6,p7=r18,r16
+(p7)	br.sptk.few 1b
+	;;
+	adds r17=-IA64_MCA_TLB_INFO_SIZE,r17
+	;;
+	mov r23=r17		// save current ia64_mca_percpu_info addr pointer.
+	adds r17=16,r17
+	;;
+	ld8 r18=[r17],8		// r18=ptce_base
+  	;;
+	ld4 r19=[r17],4		// r19=ptce_count[0]
+	;;
+	ld4 r20=[r17],4		// r20=ptce_count[1]
+	;;
+	ld4 r21=[r17],4		// r21=ptce_stride[0]
+	mov r24=0
+	;;
+	ld4 r22=[r17],4		// r22=ptce_stride[1]
+	adds r20=-1,r20
+	;;
+2:
+	cmp.ltu p6,p7=r24,r19
+(p7)	br.cond.dpnt.few 4f
+	mov ar.lc=r20
+3:
+	ptc.e r18
+	;;
+	add r18=r22,r18
+	br.cloop.sptk.few 3b
+	;;
+	add r18=r21,r18
+	add r24=1,r24
+	;;
+	br.sptk.few 2b
+4:
+	srlz.i 			// srlz.i implies srlz.d
+	;;
+
+        // Now purge addresses formerly mapped by TR registers
+	// 1. Purge ITR&DTR for kernel.
+	movl r16=KERNEL_START
+	mov r18=KERNEL_TR_PAGE_SHIFT<<2
+	;;
+	ptr.i r16, r18
+	ptr.d r16, r18
+	;;
+	srlz.i
+	;;
+	srlz.d
+	;;
+	// 2. Purge DTR for PERCPU data.
+	movl r16=PERCPU_ADDR
+	mov r18=PAGE_SHIFT<<2
+	;;
+	ptr.d r16,r18
+	;;
+	srlz.d
+	;;
+	// 3. Purge ITR for PAL code.
+	adds r17=48,r23
+	;;
+	ld8 r16=[r17]
+	mov r18=IA64_GRANULE_SHIFT<<2
+	;;
+	ptr.i r16,r18
+	;;
+	srlz.i
+	;;
+	// 4. Purge DTR for stack.
+	mov r16=IA64_KR(CURRENT_STACK)
+	;;
+	shl r16=r16,IA64_GRANULE_SHIFT
+	movl r19=PAGE_OFFSET
+	;;
+	add r16=r19,r16
+	mov r18=IA64_GRANULE_SHIFT<<2
+	;;
+	ptr.d r16,r18
+	;;
+	srlz.i
+	;;
+	// Finally reload the TR registers.
+	// 1. Reload DTR/ITR registers for kernel.
+	mov r18=KERNEL_TR_PAGE_SHIFT<<2
+	movl r17=KERNEL_START
+	;;
+	mov cr.itir=r18
+	mov cr.ifa=r17
+        mov r16=IA64_TR_KERNEL
+        movl r18=((1 << KERNEL_TR_PAGE_SHIFT) | PAGE_KERNEL)
+	;;
+        itr.i itr[r16]=r18
+	;;
+        itr.d dtr[r16]=r18
+        ;;
+	srlz.i
+	srlz.d
+	;;
+	// 2. Reload DTR register for PERCPU data.
+	adds r17=8,r23
+	movl r16=PERCPU_ADDR		// vaddr
+	movl r18=PAGE_SHIFT<<2
+	;;
+	mov cr.itir=r18
+	mov cr.ifa=r16
+	;;
+	ld8 r18=[r17]			// pte
+	mov r16=IA64_TR_PERCPU_DATA;
+	;;
+	itr.d dtr[r16]=r18
+	;;
+	srlz.d
+	;;
+	// 3. Reload ITR for PAL code.
+	adds r17=40,r23
+	;;
+	ld8 r18=[r17],8			// pte
+	;;
+	ld8 r16=[r17]			// vaddr
+	mov r19=IA64_GRANULE_SHIFT<<2
+	;;
+	mov cr.itir=r19
+	mov cr.ifa=r16
+	mov r20=IA64_TR_PALCODE
+	;;
+	itr.i itr[r20]=r18
+	;;
+	srlz.i
+	;;
+	// 4. Reload DTR for stack.
+	mov r16=IA64_KR(CURRENT_STACK)
+	;;
+	shl r16=r16,IA64_GRANULE_SHIFT
+	movl r19=PAGE_OFFSET
+	;;
+	add r18=r19,r16
+	movl r20=PAGE_KERNEL
+	;;
+	add r16=r20,r16
+	mov r19=IA64_GRANULE_SHIFT<<2
+	;;
+	mov cr.itir=r19
+	mov cr.ifa=r18
+	mov r20=IA64_TR_CURRENT_STACK
+	;;
+	itr.d dtr[r20]=r16
+	;;
+	srlz.d
+	;;
+	br.sptk.many done_tlb_purge_and_reload
+err:
+	COLD_BOOT_HANDOFF_STATE(r20,r21,r22)
+	br.sptk.many ia64_os_mca_done_restore
+
+done_tlb_purge_and_reload:
+
 	// Setup new stack frame for OS_MCA handling
 	movl	r2=ia64_mca_bspstore;;	// local bspstore area location in r2
 	DATA_VA_TO_PA(r2);;
@@ -139,17 +327,11 @@ ia64_os_mca_done_dump:
 					// (C calling convention)
 	DATA_VA_TO_PA(r12);;
 
-	// Check to see if the MCA resulted from a TLB error
-begin_tlb_error_check:
-        br      ia64_os_mca_tlb_error_check;;
-
-done_tlb_error_check:
-
-        // If TLB is functional, enter virtual mode from physical mode
+        // Enter virtual mode from physical mode
 	VIRTUAL_MODE_ENTER(r2, r3, ia64_os_mca_virtual_begin, r4)
 ia64_os_mca_virtual_begin:
 
-	// call our handler
+	// Call virtual mode handler
 	movl		r2=ia64_mca_ucmc_handler;;
 	mov		b6=r2;;
 	br.call.sptk.many    b0=b6;;
@@ -157,13 +339,6 @@ ia64_os_mca_virtual_begin:
 	// Revert back to physical mode before going back to SAL
 	PHYSICAL_MODE_ENTER(r2, r3, ia64_os_mca_virtual_end, r4)
 ia64_os_mca_virtual_end:
-
-#if defined(MCA_TEST)
-	// Pretend that we are in interrupt context
-	mov	r2=psr;;
-	dep	r2=0, r2, PSR_IC, 2;;
-	mov	psr.l = r2;;
-#endif	/* #if defined(MCA_TEST) */
 
 	// restore the original stack frame here
 	movl    r2=ia64_mca_stackframe	// restore stack frame from memory at r2
@@ -180,14 +355,16 @@ begin_os_mca_restore:
 	br	ia64_os_mca_proc_state_restore;;
 
 ia64_os_mca_done_restore:
-	movl	r3=ia64_tlb_functional;;
-	DATA_VA_TO_PA(r3);;
-	ld8	r3=[r3];;
-	cmp.eq	p6,p7=r0,r3;;
 	OS_MCA_TO_SAL_HANDOFF_STATE_RESTORE(r2);;
 	// branch back to SALE_CHECK
 	ld8		r3=[r2];;
 	mov		b0=r3;;		// SAL_CHECK return address
+
+	// release lock
+	movl		r3=ia64_mca_serialize;;
+	DATA_VA_TO_PA(r3);;
+	st8.rel		[r3]=r0
+
 	br		b0
 	;;
 ia64_os_mca_dispatch_end:
@@ -265,15 +442,15 @@ cSaveCRs:
 	add		r4=8,r2                  // duplicate r2 in r4
 	add		r6=2*8,r2                // duplicate r2 in r4
 
-	mov		r3=cr0                      // cr.dcr
-	mov		r5=cr1                      // cr.itm
-	mov		r7=cr2;;                    // cr.iva
+	mov		r3=cr.dcr
+	mov		r5=cr.itm
+	mov		r7=cr.iva;;
 
 	st8		[r2]=r3,8*8
 	st8		[r4]=r5,3*8
 	st8		[r6]=r7,3*8;;            // 48 byte rements
 
-	mov		r3=cr8;;                    // cr.pta
+	mov		r3=cr.pta;;
 	st8		[r2]=r3,8*8;;            // 64 byte rements
 
 // if PSR.ic=0, reading interruption registers causes an illegal operation fault
@@ -286,23 +463,23 @@ begin_skip_intr_regs:
 	add		r4=8,r2                  // duplicate r2 in r4
 	add		r6=2*8,r2                // duplicate r2 in r6
 
-	mov		r3=cr16                     // cr.ipsr
-	mov		r5=cr17                     // cr.isr
-        mov     r7=r0;;                     // cr.ida => cr18 (reserved)
+	mov		r3=cr.ipsr
+	mov		r5=cr.isr
+	mov		r7=r0;;
 	st8		[r2]=r3,3*8
 	st8		[r4]=r5,3*8
 	st8		[r6]=r7,3*8;;
 
-	mov		r3=cr19                     // cr.iip
-	mov		r5=cr20                     // cr.idtr
-	mov		r7=cr21;;                   // cr.iitr
+	mov		r3=cr.iip
+	mov		r5=cr.ifa
+	mov		r7=cr.itir;;
 	st8		[r2]=r3,3*8
 	st8		[r4]=r5,3*8
 	st8		[r6]=r7,3*8;;
 
-	mov		r3=cr22                     // cr.iipa
-	mov		r5=cr23                     // cr.ifs
-	mov		r7=cr24;;                   // cr.iim
+	mov		r3=cr.iipa
+	mov		r5=cr.ifs
+	mov		r7=cr.iim;;
 	st8		[r2]=r3,3*8
 	st8		[r4]=r5,3*8
 	st8		[r6]=r7,3*8;;
@@ -311,104 +488,101 @@ begin_skip_intr_regs:
 	st8		[r2]=r3,160;;               // 160 byte rement
 
 SkipIntrRegs:
-	st8		[r2]=r0,168                 // another 168 byte .
+	st8		[r2]=r0,152;;               // another 152 byte .
 
-	mov		r3=cr66;;                   // cr.lid
-	st8		[r2]=r3,40                  // 40 byte rement
+	add		r4=8,r2                     // duplicate r2 in r4
+	add		r6=2*8,r2                   // duplicate r2 in r6
 
-	mov		r3=cr71;;                   // cr.ivr
-	st8		[r2]=r3,8
+	mov		r3=cr.lid
+//	mov		r5=cr.ivr                     // cr.ivr, don't read it
+	mov		r7=cr.tpr;;
+	st8		[r2]=r3,3*8
+	st8		[r4]=r5,3*8
+	st8		[r6]=r7,3*8;;
 
-	mov		r3=cr72;;                   // cr.tpr
-	st8		[r2]=r3,24                  // 24 byte increment
+	mov		r3=r0                       // cr.eoi => cr67
+	mov		r5=r0                       // cr.irr0 => cr68
+	mov		r7=r0;;                     // cr.irr1 => cr69
+	st8		[r2]=r3,3*8
+	st8		[r4]=r5,3*8
+	st8		[r6]=r7,3*8;;
 
-	mov		r3=r0;;                     // cr.eoi => cr75
-	st8		[r2]=r3,168                 // 168 byte inc.
+	mov		r3=r0                       // cr.irr2 => cr70
+	mov		r5=r0                       // cr.irr3 => cr71
+	mov		r7=cr.itv;;
+	st8		[r2]=r3,3*8
+	st8		[r4]=r5,3*8
+	st8		[r6]=r7,3*8;;
 
-	mov		r3=r0;;                     // cr.irr0 => cr96
-	st8		[r2]=r3,16               // 16 byte inc.
+	mov		r3=cr.pmv
+	mov		r5=cr.cmcv;;
+	st8		[r2]=r3,7*8
+	st8		[r4]=r5,7*8;;
 
-	mov		r3=r0;;                     // cr.irr1 => cr98
-	st8		[r2]=r3,16               // 16 byte inc.
+	mov		r3=r0                       // cr.lrr0 => cr80
+	mov		r5=r0;;                     // cr.lrr1 => cr81
+	st8		[r2]=r3,23*8
+	st8		[r4]=r5,23*8;;
 
-	mov		r3=r0;;                     // cr.irr2 => cr100
-	st8		[r2]=r3,16               // 16 byte inc
-
-	mov		r3=r0;;                     // cr.irr3 => cr100
-	st8		[r2]=r3,16               // 16b inc.
-
-	mov		r3=r0;;                     // cr.itv => cr114
-	st8		[r2]=r3,16               // 16 byte inc.
-
-	mov		r3=r0;;                     // cr.pmv => cr116
-	st8		[r2]=r3,8
-
-	mov		r3=r0;;                     // cr.lrr0 => cr117
-	st8		[r2]=r3,8
-
-	mov		r3=r0;;                     // cr.lrr1 => cr118
-	st8		[r2]=r3,8
-
-	mov		r3=r0;;                     // cr.cmcv => cr119
-	st8		[r2]=r3,8*10;;
+	adds		r2=25*8,r2;;
 
 cSaveARs:
 // save ARs
 	add		r4=8,r2                  // duplicate r2 in r4
 	add		r6=2*8,r2                // duplicate r2 in r6
 
-	mov		r3=ar0                      // ar.kro
-	mov		r5=ar1                      // ar.kr1
-	mov		r7=ar2;;                    // ar.kr2
+	mov		r3=ar.k0
+	mov		r5=ar.k1
+	mov		r7=ar.k2;;
 	st8		[r2]=r3,3*8
 	st8		[r4]=r5,3*8
 	st8		[r6]=r7,3*8;;
 
-	mov		r3=ar3                      // ar.kr3
-	mov		r5=ar4                      // ar.kr4
-	mov		r7=ar5;;                    // ar.kr5
+	mov		r3=ar.k3
+	mov		r5=ar.k4
+	mov		r7=ar.k5;;
 	st8		[r2]=r3,3*8
 	st8		[r4]=r5,3*8
 	st8		[r6]=r7,3*8;;
 
-	mov		r3=ar6                      // ar.kr6
-	mov		r5=ar7                      // ar.kr7
+	mov		r3=ar.k6
+	mov		r5=ar.k7
 	mov		r7=r0;;                     // ar.kr8
 	st8		[r2]=r3,10*8
 	st8		[r4]=r5,10*8
 	st8		[r6]=r7,10*8;;           // rement by 72 bytes
 
-	mov		r3=ar16                     // ar.rsc
-	mov		ar16=r0			    // put RSE in enforced lazy mode
-	mov		r5=ar17                     // ar.bsp
+	mov		r3=ar.rsc
+	mov		ar.rsc=r0			    // put RSE in enforced lazy mode
+	mov		r5=ar.bsp
 	;;
-	mov		r7=ar18;;                   // ar.bspstore
+	mov		r7=ar.bspstore;;
 	st8		[r2]=r3,3*8
 	st8		[r4]=r5,3*8
 	st8		[r6]=r7,3*8;;
 
-	mov		r3=ar19;;                   // ar.rnat
+	mov		r3=ar.rnat;;
 	st8		[r2]=r3,8*13             // increment by 13x8 bytes
 
-	mov		r3=ar32;;                   // ar.ccv
+	mov		r3=ar.ccv;;
 	st8		[r2]=r3,8*4
 
-	mov		r3=ar36;;                   // ar.unat
+	mov		r3=ar.unat;;
 	st8		[r2]=r3,8*4
 
-	mov		r3=ar40;;                   // ar.fpsr
+	mov		r3=ar.fpsr;;
 	st8		[r2]=r3,8*4
 
-	mov		r3=ar44;;                   // ar.itc
+	mov		r3=ar.itc;;
 	st8		[r2]=r3,160                 // 160
 
-	mov		r3=ar64;;                   // ar.pfs
+	mov		r3=ar.pfs;;
 	st8		[r2]=r3,8
 
-	mov		r3=ar65;;                   // ar.lc
+	mov		r3=ar.lc;;
 	st8		[r2]=r3,8
 
-	mov		r3=ar66;;                   // ar.ec
+	mov		r3=ar.ec;;
 	st8		[r2]=r3
 	add		r2=8*62,r2               //padding
 
@@ -417,7 +591,8 @@ cSaveARs:
 	movl		r4=0x00;;
 
 cStRR:
-	mov		r3=rr[r4];;
+	dep.z		r5=r4,61,3;;
+	mov		r3=rr[r5];;
 	st8		[r2]=r3,8
 	add		r4=1,r4
 	br.cloop.sptk.few	cStRR
@@ -501,12 +676,12 @@ restore_CRs:
 	ld8		r3=[r2],8*8
 	ld8		r5=[r4],3*8
 	ld8		r7=[r6],3*8;;            // 48 byte increments
-	mov		cr0=r3                      // cr.dcr
-	mov		cr1=r5                      // cr.itm
-	mov		cr2=r7;;                    // cr.iva
+	mov		cr.dcr=r3
+	mov		cr.itm=r5
+	mov		cr.iva=r7;;
 
 	ld8		r3=[r2],8*8;;            // 64 byte increments
-//      mov		cr8=r3                      // cr.pta
+//      mov		cr.pta=r3
 
 
 // if PSR.ic=1, reading interruption registers causes an illegal operation fault
@@ -523,64 +698,66 @@ begin_rskip_intr_regs:
 	ld8		r3=[r2],3*8
 	ld8		r5=[r4],3*8
 	ld8		r7=[r6],3*8;;
-	mov		cr16=r3                     // cr.ipsr
-	mov		cr17=r5                     // cr.isr is read only
-//      mov     cr18=r7;;                   // cr.ida (reserved - don't restore)
+	mov		cr.ipsr=r3
+//	mov		cr.isr=r5                   // cr.isr is read only
 
 	ld8		r3=[r2],3*8
 	ld8		r5=[r4],3*8
 	ld8		r7=[r6],3*8;;
-	mov		cr19=r3                     // cr.iip
-	mov		cr20=r5                     // cr.idtr
-	mov		cr21=r7;;                   // cr.iitr
+	mov		cr.iip=r3
+	mov		cr.ifa=r5
+	mov		cr.itir=r7;;
 
 	ld8		r3=[r2],3*8
 	ld8		r5=[r4],3*8
 	ld8		r7=[r6],3*8;;
-	mov		cr22=r3                     // cr.iipa
-	mov		cr23=r5                     // cr.ifs
-	mov		cr24=r7                     // cr.iim
+	mov		cr.iipa=r3
+	mov		cr.ifs=r5
+	mov		cr.iim=r7
 
 	ld8		r3=[r2],160;;               // 160 byte increment
-	mov		cr25=r3                     // cr.iha
+	mov		cr.iha=r3
 
 rSkipIntrRegs:
-	ld8		r3=[r2],168;;               // another 168 byte inc.
+	ld8		r3=[r2],152;;               // another 152 byte inc.
 
-	ld8		r3=[r2],40;;                // 40 byte increment
-	mov		cr66=r3                     // cr.lid
+	add		r4=8,r2                     // duplicate r2 in r4
+	add		r6=2*8,r2;;                 // duplicate r2 in r6
 
-	ld8		r3=[r2],8;;
-//      mov		cr71=r3                     // cr.ivr is read only
-	ld8		r3=[r2],24;;                // 24 byte increment
-	mov		cr72=r3                     // cr.tpr
+	ld8		r3=[r2],8*3
+	ld8		r5=[r4],8*3
+	ld8		r7=[r6],8*3;;
+	mov		cr.lid=r3
+//	mov		cr.ivr=r5                   // cr.ivr is read only
+	mov		cr.tpr=r7;;
 
-	ld8		r3=[r2],168;;               // 168 byte inc.
-//      mov		cr75=r3                     // cr.eoi
+	ld8		r3=[r2],8*3
+	ld8		r5=[r4],8*3
+	ld8		r7=[r6],8*3;;
+//	mov		cr.eoi=r3
+//	mov		cr.irr0=r5                  // cr.irr0 is read only
+//	mov		cr.irr1=r7;;                // cr.irr1 is read only
 
-	ld8		r3=[r2],16;;             // 16 byte inc.
-//      mov		cr96=r3                     // cr.irr0 is read only
+	ld8		r3=[r2],8*3
+	ld8		r5=[r4],8*3
+	ld8		r7=[r6],8*3;;
+//	mov		cr.irr2=r3                  // cr.irr2 is read only
+//	mov		cr.irr3=r5                  // cr.irr3 is read only
+	mov		cr.itv=r7;;
 
-	ld8		r3=[r2],16;;             // 16 byte inc.
-//      mov		cr98=r3                     // cr.irr1 is read only
+	ld8		r3=[r2],8*7
+	ld8		r5=[r4],8*7;;
+	mov		cr.pmv=r3
+	mov		cr.cmcv=r5;;
 
-	ld8		r3=[r2],16;;             // 16 byte inc
-//      mov		cr100=r3                    // cr.irr2 is read only
+	ld8		r3=[r2],8*23
+	ld8		r5=[r4],8*23;;
+	adds		r2=8*23,r2
+	adds		r4=8*23,r4;;
+//	mov		cr.lrr0=r3
+//	mov		cr.lrr1=r5
 
-	ld8		r3=[r2],16;;             // 16b inc.
-//      mov		cr102=r3                    // cr.irr3 is read only
-
-	ld8		r3=[r2],16;;             // 16 byte inc.
-//      mov		cr114=r3                    // cr.itv
-
-	ld8		r3=[r2],8;;
-//      mov		cr116=r3                    // cr.pmv
-	ld8		r3=[r2],8;;
-//      mov		cr117=r3                    // cr.lrr0
-	ld8		r3=[r2],8;;
-//      mov		cr118=r3                    // cr.lrr1
-	ld8		r3=[r2],8*10;;
-//      mov		cr119=r3                    // cr.cmcv
+	adds		r2=8*2,r2;;
 
 restore_ARs:
 	add		r4=8,r2                  // duplicate r2 in r4
@@ -589,67 +766,67 @@ restore_ARs:
 	ld8		r3=[r2],3*8
 	ld8		r5=[r4],3*8
 	ld8		r7=[r6],3*8;;
-	mov		ar0=r3                      // ar.kro
-	mov		ar1=r5                      // ar.kr1
-	mov		ar2=r7;;                    // ar.kr2
+	mov		ar.k0=r3
+	mov		ar.k1=r5
+	mov		ar.k2=r7;;
 
 	ld8		r3=[r2],3*8
 	ld8		r5=[r4],3*8
 	ld8		r7=[r6],3*8;;
-	mov		ar3=r3                      // ar.kr3
-	mov		ar4=r5                      // ar.kr4
-	mov		ar5=r7;;                    // ar.kr5
+	mov		ar.k3=r3
+	mov		ar.k4=r5
+	mov		ar.k5=r7;;
 
 	ld8		r3=[r2],10*8
 	ld8		r5=[r4],10*8
 	ld8		r7=[r6],10*8;;
-	mov		ar6=r3                      // ar.kr6
-	mov		ar7=r5                      // ar.kr7
-//      mov		ar8=r6                      // ar.kr8
+	mov		ar.k6=r3
+	mov		ar.k7=r5
 	;;
 
 	ld8		r3=[r2],3*8
 	ld8		r5=[r4],3*8
 	ld8		r7=[r6],3*8;;
-//      mov		ar16=r3                     // ar.rsc
-//      mov		ar17=r5                     // ar.bsp is read only
-	mov		ar16=r0			    // make sure that RSE is in enforced lazy mode
+//	mov		ar.rsc=r3
+//	mov		ar.bsp=r5                   // ar.bsp is read only
+	mov		ar.rsc=r0			    // make sure that RSE is in enforced lazy mode
 	;;
-	mov		ar18=r7;;                   // ar.bspstore
+	mov		ar.bspstore=r7;;
 
 	ld8		r9=[r2],8*13;;
-	mov		ar19=r9                     // ar.rnat
+	mov		ar.rnat=r9
 
-	mov		ar16=r3			    // ar.rsc
+	mov		ar.rsc=r3
 	ld8		r3=[r2],8*4;;
-	mov		ar32=r3                     // ar.ccv
-
-	ld8		r3=[r2],8*4;;
-	mov		ar36=r3                     // ar.unat
+	mov		ar.ccv=r3
 
 	ld8		r3=[r2],8*4;;
-	mov		ar40=r3                     // ar.fpsr
+	mov		ar.unat=r3
+
+	ld8		r3=[r2],8*4;;
+	mov		ar.fpsr=r3
 
 	ld8		r3=[r2],160;;               // 160
-//      mov		ar44=r3                     // ar.itc
+//      mov		ar.itc=r3
 
 	ld8		r3=[r2],8;;
-	mov		ar64=r3                     // ar.pfs
+	mov		ar.pfs=r3
 
 	ld8		r3=[r2],8;;
-	mov		ar65=r3                     // ar.lc
+	mov		ar.lc=r3
 
 	ld8		r3=[r2];;
-	mov		ar66=r3                     // ar.ec
+	mov		ar.ec=r3
 	add		r2=8*62,r2;;             // padding
 
 restore_RRs:
 	mov		r5=ar.lc
 	mov		ar.lc=0x08-1
-	movl		r4=0x00
+	movl		r4=0x00;;
 cStRRr:
+	dep.z		r7=r4,61,3
 	ld8		r3=[r2],8;;
-//      mov		rr[r4]=r3                   // what are its access previledges?
+	mov		rr[r7]=r3                   // what are its access previledges?
 	add		r4=1,r4
 	br.cloop.sptk.few	cStRRr
 	;;
@@ -657,79 +834,6 @@ cStRRr:
 	;;
 end_os_mca_restore:
 	br	ia64_os_mca_done_restore;;
-
-//EndStub//////////////////////////////////////////////////////////////////////
-
-//++
-// Name:
-//	ia64_os_mca_tlb_error_check()
-//
-// Stub Description:
-//
-//	This stub checks to see if the MCA resulted from a TLB error
-//
-//--
-
-ia64_os_mca_tlb_error_check:
-
-	// Retrieve sal data structure for uncorrected MCA
-
-	// Make the ia64_sal_get_state_info() call
-	movl	r4=ia64_mca_sal_data_area;;
-	movl	r7=ia64_sal;;
-	mov	r6=r1			// save gp
-	DATA_VA_TO_PA(r4)		// convert to physical address
-	DATA_VA_TO_PA(r7);;		// convert to physical address
-	ld8	r7=[r7]			// get addr of pdesc from ia64_sal
-	movl	r3=SAL_GET_STATE_INFO;;
-	DATA_VA_TO_PA(r7);;		// convert to physical address
-	ld8	r8=[r7],8;;		// get pdesc function pointer
-	dep	r8=0,r8,61,3;;		// convert SAL VA to PA
-	ld8	r1=[r7];;		// set new (ia64_sal) gp
-	dep	r1=0,r1,61,3;;		// convert SAL VA to PA
-	mov	b6=r8
-
-	alloc	r5=ar.pfs,8,0,8,0;;	// allocate stack frame for SAL call
-	mov	out0=r3			// which SAL proc to call
-	mov	out1=r0			// error type == MCA
-	mov	out2=r0			// null arg
-	mov	out3=r4			// data copy area
-	mov	out4=r0			// null arg
-	mov	out5=r0			// null arg
-	mov	out6=r0			// null arg
-	mov	out7=r0;;		// null arg
-
-	br.call.sptk.few	b0=b6;;
-
-	mov	r1=r6			// restore gp
-	mov	ar.pfs=r5;;		// restore ar.pfs
-
-	movl	r6=ia64_tlb_functional;;
-	DATA_VA_TO_PA(r6)		// needed later
-
-	cmp.eq	p6,p7=r0,r8;;		// check SAL call return address
-(p7)	st8	[r6]=r0			// clear tlb_functional flag
-(p7)    br	tlb_failure		// error; return to SAL
-
-	// examine processor error log for type of error
-	add	r4=40+24,r4;;		// parse past record header (length=40)
-					// and section header (length=24)
-	ld4	r4=[r4]			// get valid field of processor log
-	mov	r5=0xf00;;
-	and	r5=r4,r5;;		// read bits 8-11 of valid field
-					// to determine if we have a TLB error
-	movl	r3=0x1
-	cmp.eq	p6,p7=r0,r5;;
-	// if no TLB failure, set tlb_functional flag
-(p6)	st8	[r6]=r3
-	// else clear flag
-(p7)	st8	[r6]=r0
-
-	// if no TLB failure, continue with normal virtual mode logging
-(p6)    br	done_tlb_error_check
-	// else no point in entering virtual mode for logging
-tlb_failure:
-	br      ia64_os_mca_virtual_end
 
 //EndStub//////////////////////////////////////////////////////////////////////
 
@@ -766,8 +870,6 @@ GLOBAL_ENTRY(ia64_monarch_init_handler)
 	// stash the information the SAL passed to os
 	SAL_TO_OS_MCA_HANDOFF_STATE_SAVE(r2)
 	;;
-
-// now we want to save information so we can dump registers
 	SAVE_MIN_WITH_COVER
 	;;
 	mov r8=cr.ifa
@@ -798,10 +900,12 @@ IVirtual_Switch:
 	//
 	// Let's call the C handler to get the rest of the state info
 	//
-	alloc r14=ar.pfs,0,0,1,0		// now it's safe (must be first in insn group!)
-	;;					//
+	alloc r14=ar.pfs,0,0,2,0		// now it's safe (must be first in insn group!)
+	;;
 	adds out0=16,sp				// out0 = pointer to pt_regs
 	;;
+	DO_SAVE_SWITCH_STACK
+	adds out1=16,sp				// out0 = pointer to switch_stack
 
 	br.call.sptk.many rp=ia64_init_handler
 .ret1:

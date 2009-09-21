@@ -67,6 +67,7 @@ EXPORT_SYMBOL(__global_restore_flags);
 
 #include <linux/smp.h>
 EXPORT_SYMBOL(smp_num_cpus);
+EXPORT_SYMBOL(smp_call_function);
 #endif /* CONFIG_SMP */
 
 #include <asm/atomic.h>
@@ -127,7 +128,13 @@ EXPORT_SYMBOL(outsl);
 #include <asm/cache.h>
 EXPORT_SYMBOL(flush_kernel_dcache_range_asm);
 EXPORT_SYMBOL(flush_kernel_dcache_page);
-EXPORT_SYMBOL(flush_all_caches);
+
+/* asm/pgalloc.h doesn't include all it's dependencies */
+extern void __flush_dcache_page(struct page *page);
+EXPORT_SYMBOL(__flush_dcache_page);
+
+extern void flush_cache_all_local(void);
+EXPORT_SYMBOL(flush_cache_all_local);
 
 #include <asm/unistd.h>
 extern long sys_open(const char *, int, int);
@@ -150,6 +157,8 @@ EXPORT_SYMBOL(csum_partial_copy);
 
 #include <asm/pdc.h>
 EXPORT_SYMBOL(pdc_add_valid);
+EXPORT_SYMBOL(pdc_tod_read);
+EXPORT_SYMBOL(pdc_tod_set);
 EXPORT_SYMBOL(pdc_lan_station_id);
 EXPORT_SYMBOL(pdc_get_initiator);
 
@@ -232,3 +241,11 @@ extern void $$dyncall(void);
 EXPORT_SYMBOL_NOVERS($$dyncall);
 #endif
 
+#ifdef CONFIG_SMP
+#ifdef CONFIG_DEBUG_SPINLOCK
+#include <asm/spinlock.h>
+EXPORT_SYMBOL(spin_lock);
+EXPORT_SYMBOL(spin_unlock);
+EXPORT_SYMBOL(spin_trylock);
+#endif
+#endif

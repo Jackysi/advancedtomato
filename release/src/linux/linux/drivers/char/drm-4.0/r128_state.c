@@ -620,11 +620,20 @@ static void r128_cce_dispatch_vertex( drm_device_t *dev,
 
 		buf->pending = 1;
 		buf->used = 0;
+		/* FIXME: Check dispatched field */
 		buf_priv->dispatched = 0;
 	}
 
 	dev_priv->sarea_priv->last_dispatch++;
 
+#if 0
+	if ( dev_priv->submit_age == R128_MAX_VB_AGE ) {
+		ret = r128_do_cce_idle( dev_priv );
+		if ( ret < 0 ) return ret;
+		dev_priv->submit_age = 0;
+		r128_freelist_reset( dev );
+	}
+#endif
 
 	sarea_priv->dirty &= ~R128_UPLOAD_CLIPRECTS;
 	sarea_priv->nbox = 0;
@@ -686,11 +695,20 @@ static void r128_cce_dispatch_indirect( drm_device_t *dev,
 
 		buf->pending = 1;
 		buf->used = 0;
+		/* FIXME: Check dispatched field */
 		buf_priv->dispatched = 0;
 	}
 
 	dev_priv->sarea_priv->last_dispatch++;
 
+#if 0
+	if ( dev_priv->submit_age == R128_MAX_VB_AGE ) {
+		ret = r128_do_cce_idle( dev_priv );
+		if ( ret < 0 ) return ret;
+		dev_priv->submit_age = 0;
+		r128_freelist_reset( dev );
+	}
+#endif
 }
 
 static void r128_cce_dispatch_indices( drm_device_t *dev,
@@ -765,11 +783,20 @@ static void r128_cce_dispatch_indices( drm_device_t *dev,
 		ADVANCE_RING();
 
 		buf->pending = 1;
+		/* FIXME: Check dispatched field */
 		buf_priv->dispatched = 0;
 	}
 
 	dev_priv->sarea_priv->last_dispatch++;
 
+#if 0
+	if ( dev_priv->submit_age == R128_MAX_VB_AGE ) {
+		ret = r128_do_cce_idle( dev_priv );
+		if ( ret < 0 ) return ret;
+		dev_priv->submit_age = 0;
+		r128_freelist_reset( dev );
+	}
+#endif
 
 	sarea_priv->dirty &= ~R128_UPLOAD_CLIPRECTS;
 	sarea_priv->nbox = 0;
@@ -877,6 +904,12 @@ static int r128_cce_dispatch_blit( drm_device_t *dev,
 }
 
 
+/* ================================================================
+ * Tiled depth buffer management
+ *
+ * FIXME: These should all set the destination write mask for when we
+ * have hardware stencil support.
+ */
 
 static int r128_cce_dispatch_write_span( drm_device_t *dev,
 					 drm_r128_depth_t *depth )
@@ -905,6 +938,9 @@ static int r128_cce_dispatch_write_span( drm_device_t *dev,
 	}
 
 	count = depth->n;
+
+	if (count > 4096 || count <= 0)
+		return -EMSGSIZE;
 	if ( copy_from_user( &x, depth->x, sizeof(x) ) ) {
 		return -EFAULT;
 	}
@@ -1014,6 +1050,9 @@ static int r128_cce_dispatch_write_pixels( drm_device_t *dev,
 	}
 
 	count = depth->n;
+
+	if (count > 4096 || count <= 0)
+		return -EMSGSIZE;
 
 	x = kmalloc( count * sizeof(*x), 0 );
 	if ( x == NULL ) {
@@ -1145,6 +1184,10 @@ static int r128_cce_dispatch_read_span( drm_device_t *dev,
 	}
 
 	count = depth->n;
+	
+	if (count > 4096 || count <= 0)
+		return -EMSGSIZE;
+
 	if ( copy_from_user( &x, depth->x, sizeof(x) ) ) {
 		return -EFAULT;
 	}
@@ -1202,6 +1245,8 @@ static int r128_cce_dispatch_read_pixels( drm_device_t *dev,
 	}
 
 	count = depth->n;
+	if (count > 4096 || count <= 0)
+		return -EMSGSIZE;
 	if ( count > dev_priv->depth_pitch ) {
 		count = dev_priv->depth_pitch;
 	}

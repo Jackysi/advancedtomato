@@ -91,6 +91,14 @@
  *        command reordering to some reasonnable value.
  *        (set for Linux)
  */
+#if 0
+#define SYM_OPT_NO_BUS_MEMORY_MAPPING
+#define SYM_OPT_HANDLE_DIR_UNKNOWN
+#define SYM_OPT_HANDLE_DEVICE_QUEUEING
+#define SYM_OPT_BUS_DMA_ABSTRACTION
+#define SYM_OPT_SNIFF_INQUIRY
+#define SYM_OPT_LIMIT_COMMAND_REORDERING
+#endif
 
 /*
  *  Active debugging tags and verbosity.
@@ -329,8 +337,12 @@ struct sym_nvram {
 #define CCB_HASH_SHIFT		8
 #define CCB_HASH_SIZE		(1UL << CCB_HASH_SHIFT)
 #define CCB_HASH_MASK		(CCB_HASH_SIZE-1)
+#if 1
 #define CCB_HASH_CODE(dsa)	\
 	(((dsa) >> (_LGRU16_(sizeof(struct sym_ccb)))) & CCB_HASH_MASK)
+#else
+#define CCB_HASH_CODE(dsa)	(((dsa) >> 9) & CCB_HASH_MASK)
+#endif
 
 #if	SYM_CONF_DMA_ADDRESSING_MODE == 2
 /*

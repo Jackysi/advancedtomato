@@ -132,7 +132,7 @@ struct fb_info_control {
 };
 
 /* control register access macro */
-#define CNTRL_REG(INFO,REG) (&(((INFO)->control_regs-> ## REG).r))
+#define CNTRL_REG(INFO,REG) (&(((INFO)->control_regs->REG).r))
 
 
 /******************** Prototypes for exported functions ********************/
@@ -908,7 +908,7 @@ static int __init control_of_init(struct device_node *dp)
 	}
 	p->control_regs = ioremap(p->control_regs_phys, p->control_regs_size);
 
-	p->cmap_regs_phys = 0xf301b000;	 
+	p->cmap_regs_phys = 0xf301b000;	 /* XXX not in prom? */
 	if (!request_mem_region(p->cmap_regs_phys, 0x1000, "controlfb cmap")) {
 		p->cmap_regs_phys = 0;
 		goto error_out;

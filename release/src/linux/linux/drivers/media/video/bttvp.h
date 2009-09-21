@@ -25,7 +25,8 @@
 #ifndef _BTTVP_H_
 #define _BTTVP_H_
 
-#define BTTV_VERSION_CODE KERNEL_VERSION(0,7,96)
+#include <linux/version.h>
+#define BTTV_VERSION_CODE KERNEL_VERSION(0,7,108)
 
 #include <linux/types.h>
 #include <linux/wait.h>
@@ -35,6 +36,8 @@
 #include "bt848.h"
 #include "bttv.h"
 #include "audiochip.h"
+#include "tuner.h"
+#include "i2c-compat.h"
 
 #ifdef __KERNEL__
 
@@ -42,7 +45,7 @@
 /* bttv-driver.c                                              */
 
 /* insmod options / kernel args */
-extern int no_overlay;
+extern unsigned int no_overlay;
 extern unsigned int bttv_verbose;
 extern unsigned int bttv_debug;
 extern unsigned int bttv_gpio;
@@ -50,17 +53,13 @@ extern void bttv_gpio_tracking(struct bttv *btv, char *comment);
 extern int init_bttv_i2c(struct bttv *btv);
 extern int pvr_boot(struct bttv *btv);
 
-#define dprintk		if (bttv_debug) printk
+#define dprintk		if (bttv_debug)   printk
+#define vprintk		if (bttv_verbose) printk
 
-/* Anybody who uses more than four? */
-#define BTTV_MAX 4
-extern int bttv_num;			/* number of Bt848s in use */
-extern struct bttv bttvs[BTTV_MAX];
+#define BTTV_MAX 16
+extern unsigned int bttv_num;			/* number of Bt848s in use */
 
-
-#ifndef O_NONCAP  
-#define O_NONCAP	O_TRUNC
-#endif
+#define UNSET -1U
 
 #ifdef VIDEODAT_HACK
 # define VBI_MAXLINES   19
@@ -120,18 +119,18 @@ struct bttv {
 
 	spinlock_t s_lock;
         struct semaphore lock;
-	int user;
-	int capuser;
+	unsigned int user;
 
 	/* i2c */
 	struct i2c_adapter         i2c_adap;
 	struct i2c_algo_bit_data   i2c_algo;
 	struct i2c_client          i2c_client;
 	int                        i2c_state, i2c_rc;
-	struct i2c_client         *i2c_clients[I2C_CLIENTS_MAX];
 
-        int tuner_type;
-        int channel;
+        unsigned int tuner_type;
+        unsigned int pinnacle_id;
+        unsigned int channel;
+	unsigned int svhs;
         
         unsigned int nr;
 	unsigned short id;
@@ -146,11 +145,12 @@ struct bttv {
 	struct bttv_window win;
 	int fb_color_ctl;
 	int type;            /* card type  */
-	int cardid;
+	unsigned int cardid;
 	int audio;           /* audio mode */
 	int audio_chip;      /* set to one of the chips supported by bttv.c */
 	int radio;
 	int has_radio;
+	int has_remote;
 
 	/* miro/pinnacle + Aimslab VHX
 	   philips matchbox (tea5757 radio tuner) support */
@@ -161,6 +161,11 @@ struct bttv {
 	int mbox_most;
 	int mbox_mask;
 
+	/* ISA stuff (Terratec Active Radio Upgrade) */
+	int mbox_ior;
+	int mbox_iow;
+	int mbox_csel;
+
 	u32 *risc_jmp;
 	u32 *vbi_odd;
 	u32 *vbi_even;
@@ -168,7 +173,7 @@ struct bttv {
 	u32 bus_vbi_odd;
         wait_queue_head_t vbiq;
 	wait_queue_head_t capq;
-	int vbip;
+	unsigned int vbip;
 
 	u32 *risc_scr_odd;
 	u32 *risc_scr_even;
@@ -197,6 +202,8 @@ struct bttv {
 	int shutdown;
         void (*audio_hook)(struct bttv *btv, struct video_audio *v, int set);
 };
+
+extern struct bttv bttvs[BTTV_MAX];
 #endif
 
 #define btwrite(dat,adr)    writel((dat), (char *) (btv->bt848_mem+(adr)))

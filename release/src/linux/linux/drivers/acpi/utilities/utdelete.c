@@ -1,42 +1,59 @@
 /*******************************************************************************
  *
  * Module Name: utdelete - object deletion and reference count utilities
- *              $Revision: 1.1.1.2 $
  *
  ******************************************************************************/
 
 /*
- *  Copyright (C) 2000, 2001 R. Byron Moore
+ * Copyright (C) 2000 - 2004, R. Byron Moore
+ * All rights reserved.
  *
- *  This program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2 of the License, or
- *  (at your option) any later version.
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions, and the following disclaimer,
+ *    without modification.
+ * 2. Redistributions in binary form must reproduce at minimum a disclaimer
+ *    substantially similar to the "NO WARRANTY" disclaimer below
+ *    ("Disclaimer") and any redistribution must be conditioned upon
+ *    including a substantially similar Disclaimer requirement for further
+ *    binary redistribution.
+ * 3. Neither the names of the above-listed copyright holders nor the names
+ *    of any contributors may be used to endorse or promote products derived
+ *    from this software without specific prior written permission.
  *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
+ * Alternatively, this software may be distributed under the terms of the
+ * GNU General Public License ("GPL") version 2 as published by the Free
+ * Software Foundation.
  *
- *  You should have received a copy of the GNU General Public License
- *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * NO WARRANTY
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR
+ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+ * HOLDERS OR CONTRIBUTORS BE LIABLE FOR SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+ * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+ * STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING
+ * IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGES.
  */
 
 
-#include "acpi.h"
-#include "acinterp.h"
-#include "acnamesp.h"
-#include "actables.h"
-#include "acparser.h"
+#include <acpi/acpi.h>
+#include <acpi/acinterp.h>
+#include <acpi/acnamesp.h>
+#include <acpi/acevents.h>
 
 #define _COMPONENT          ACPI_UTILITIES
-	 MODULE_NAME         ("utdelete")
+	 ACPI_MODULE_NAME    ("utdelete")
 
 
 /*******************************************************************************
  *
- * FUNCTION:    Acpi_ut_delete_internal_obj
+ * FUNCTION:    acpi_ut_delete_internal_obj
  *
  * PARAMETERS:  *Object        - Pointer to the list to be deleted
  *
@@ -49,13 +66,15 @@
 
 void
 acpi_ut_delete_internal_obj (
-	acpi_operand_object     *object)
+	union acpi_operand_object       *object)
 {
-	void                    *obj_pointer = NULL;
-	acpi_operand_object     *handler_desc;
+	void                            *obj_pointer = NULL;
+	union acpi_operand_object       *handler_desc;
+	union acpi_operand_object       *second_desc;
+	union acpi_operand_object       *next_desc;
 
 
-	FUNCTION_TRACE_PTR ("Ut_delete_internal_obj", object);
+	ACPI_FUNCTION_TRACE_PTR ("ut_delete_internal_obj", object);
 
 
 	if (!object) {
@@ -66,16 +85,17 @@ acpi_ut_delete_internal_obj (
 	 * Must delete or free any pointers within the object that are not
 	 * actual ACPI objects (for example, a raw buffer pointer).
 	 */
-	switch (object->common.type) {
-
+	switch (ACPI_GET_OBJECT_TYPE (object)) {
 	case ACPI_TYPE_STRING:
 
-		ACPI_DEBUG_PRINT ((ACPI_DB_INFO, "**** String %p, ptr %p\n",
+		ACPI_DEBUG_PRINT ((ACPI_DB_ALLOCATIONS, "**** String %p, ptr %p\n",
 			object, object->string.pointer));
 
 		/* Free the actual string buffer */
 
 		if (!(object->common.flags & AOPOBJ_STATIC_POINTER)) {
+			/* But only if it is NOT a pointer into an ACPI table */
+
 			obj_pointer = object->string.pointer;
 		}
 		break;
@@ -83,18 +103,22 @@ acpi_ut_delete_internal_obj (
 
 	case ACPI_TYPE_BUFFER:
 
-		ACPI_DEBUG_PRINT ((ACPI_DB_INFO, "**** Buffer %p, ptr %p\n",
+		ACPI_DEBUG_PRINT ((ACPI_DB_ALLOCATIONS, "**** Buffer %p, ptr %p\n",
 			object, object->buffer.pointer));
 
 		/* Free the actual buffer */
 
-		obj_pointer = object->buffer.pointer;
+		if (!(object->common.flags & AOPOBJ_STATIC_POINTER)) {
+			/* But only if it is NOT a pointer into an ACPI table */
+
+			obj_pointer = object->buffer.pointer;
+		}
 		break;
 
 
 	case ACPI_TYPE_PACKAGE:
 
-		ACPI_DEBUG_PRINT ((ACPI_DB_INFO, " **** Package of count %X\n",
+		ACPI_DEBUG_PRINT ((ACPI_DB_ALLOCATIONS, " **** Package of count %X\n",
 			object->package.count));
 
 		/*
@@ -108,124 +132,137 @@ acpi_ut_delete_internal_obj (
 		break;
 
 
+	case ACPI_TYPE_DEVICE:
+
+		if (object->device.gpe_block) {
+			(void) acpi_ev_delete_gpe_block (object->device.gpe_block);
+		}
+
+		/* Walk the handler list for this device */
+
+		handler_desc = object->device.handler;
+		while (handler_desc) {
+			next_desc = handler_desc->address_space.next;
+			acpi_ut_remove_reference (handler_desc);
+			handler_desc = next_desc;
+		}
+		break;
+
+
 	case ACPI_TYPE_MUTEX:
 
-		ACPI_DEBUG_PRINT ((ACPI_DB_INFO, "***** Mutex %p, Semaphore %p\n",
+		ACPI_DEBUG_PRINT ((ACPI_DB_ALLOCATIONS, "***** Mutex %p, Semaphore %p\n",
 			object, object->mutex.semaphore));
 
 		acpi_ex_unlink_mutex (object);
-		acpi_os_delete_semaphore (object->mutex.semaphore);
+		(void) acpi_os_delete_semaphore (object->mutex.semaphore);
 		break;
 
 
 	case ACPI_TYPE_EVENT:
 
-		ACPI_DEBUG_PRINT ((ACPI_DB_INFO, "***** Event %p, Semaphore %p\n",
+		ACPI_DEBUG_PRINT ((ACPI_DB_ALLOCATIONS, "***** Event %p, Semaphore %p\n",
 			object, object->event.semaphore));
 
-		acpi_os_delete_semaphore (object->event.semaphore);
+		(void) acpi_os_delete_semaphore (object->event.semaphore);
 		object->event.semaphore = NULL;
 		break;
 
 
 	case ACPI_TYPE_METHOD:
 
-		ACPI_DEBUG_PRINT ((ACPI_DB_INFO, "***** Method %p\n", object));
+		ACPI_DEBUG_PRINT ((ACPI_DB_ALLOCATIONS, "***** Method %p\n", object));
 
 		/* Delete the method semaphore if it exists */
 
 		if (object->method.semaphore) {
-			acpi_os_delete_semaphore (object->method.semaphore);
+			(void) acpi_os_delete_semaphore (object->method.semaphore);
 			object->method.semaphore = NULL;
 		}
-
 		break;
 
 
 	case ACPI_TYPE_REGION:
 
-		ACPI_DEBUG_PRINT ((ACPI_DB_INFO, "***** Region %p\n", object));
+		ACPI_DEBUG_PRINT ((ACPI_DB_ALLOCATIONS, "***** Region %p\n", object));
 
-		if (object->region.extra) {
+		second_desc = acpi_ns_get_secondary_object (object);
+		if (second_desc) {
 			/*
-			 * Free the Region_context if and only if the handler is one of the
+			 * Free the region_context if and only if the handler is one of the
 			 * default handlers -- and therefore, we created the context object
 			 * locally, it was not created by an external caller.
 			 */
-			handler_desc = object->region.addr_handler;
-			if ((handler_desc) &&
-				(handler_desc->addr_handler.hflags == ADDR_HANDLER_DEFAULT_INSTALLED)) {
-				obj_pointer = object->region.extra->extra.region_context;
+			handler_desc = object->region.handler;
+			if (handler_desc) {
+				if (handler_desc->address_space.hflags & ACPI_ADDR_HANDLER_DEFAULT_INSTALLED) {
+					obj_pointer = second_desc->extra.region_context;
+				}
+
+				acpi_ut_remove_reference (handler_desc);
 			}
 
 			/* Now we can free the Extra object */
 
-			acpi_ut_delete_object_desc (object->region.extra);
+			acpi_ut_delete_object_desc (second_desc);
 		}
 		break;
 
 
 	case ACPI_TYPE_BUFFER_FIELD:
 
-		ACPI_DEBUG_PRINT ((ACPI_DB_INFO, "***** Buffer Field %p\n", object));
+		ACPI_DEBUG_PRINT ((ACPI_DB_ALLOCATIONS, "***** Buffer Field %p\n", object));
 
-		if (object->buffer_field.extra) {
-			acpi_ut_delete_object_desc (object->buffer_field.extra);
+		second_desc = acpi_ns_get_secondary_object (object);
+		if (second_desc) {
+			acpi_ut_delete_object_desc (second_desc);
 		}
 		break;
+
 
 	default:
 		break;
 	}
 
+	/* Free any allocated memory (pointer within the object) found above */
 
-	/*
-	 * Delete any allocated memory found above
-	 */
 	if (obj_pointer) {
-		ACPI_DEBUG_PRINT ((ACPI_DB_INFO, "Deleting Obj Ptr %p \n", obj_pointer));
+		ACPI_DEBUG_PRINT ((ACPI_DB_ALLOCATIONS, "Deleting Object Subptr %p\n",
+				obj_pointer));
 		ACPI_MEM_FREE (obj_pointer);
 	}
 
-	/* Only delete the object if it was dynamically allocated */
+	/* Now the object can be safely deleted */
 
-	if (object->common.flags & AOPOBJ_STATIC_ALLOCATION) {
-		ACPI_DEBUG_PRINT ((ACPI_DB_INFO, "Object %p [%s] static allocation, no delete\n",
-			object, acpi_ut_get_type_name (object->common.type)));
-	}
+	ACPI_DEBUG_PRINT ((ACPI_DB_ALLOCATIONS, "Deleting Object %p [%s]\n",
+			object, acpi_ut_get_object_type_name (object)));
 
-	if (!(object->common.flags & AOPOBJ_STATIC_ALLOCATION)) {
-		ACPI_DEBUG_PRINT ((ACPI_DB_INFO, "Deleting object %p [%s]\n",
-			object, acpi_ut_get_type_name (object->common.type)));
-
-		acpi_ut_delete_object_desc (object);
-	}
-
+	acpi_ut_delete_object_desc (object);
 	return_VOID;
 }
 
 
 /*******************************************************************************
  *
- * FUNCTION:    Acpi_ut_delete_internal_object_list
+ * FUNCTION:    acpi_ut_delete_internal_object_list
  *
- * PARAMETERS:  *Obj_list       - Pointer to the list to be deleted
+ * PARAMETERS:  *obj_list       - Pointer to the list to be deleted
  *
- * RETURN:      Status          - the status of the call
+ * RETURN:      None
  *
  * DESCRIPTION: This function deletes an internal object list, including both
  *              simple objects and package objects
  *
  ******************************************************************************/
 
-acpi_status
+void
 acpi_ut_delete_internal_object_list (
-	acpi_operand_object     **obj_list)
+	union acpi_operand_object       **obj_list)
 {
-	acpi_operand_object     **internal_obj;
+	union acpi_operand_object       **internal_obj;
 
 
-	FUNCTION_TRACE ("Ut_delete_internal_object_list");
+	ACPI_FUNCTION_TRACE ("ut_delete_internal_object_list");
 
 
 	/* Walk the null-terminated internal list */
@@ -237,14 +274,13 @@ acpi_ut_delete_internal_object_list (
 	/* Free the combined parameter pointer list and object array */
 
 	ACPI_MEM_FREE (obj_list);
-
-	return_ACPI_STATUS (AE_OK);
+	return_VOID;
 }
 
 
 /*******************************************************************************
  *
- * FUNCTION:    Acpi_ut_update_ref_count
+ * FUNCTION:    acpi_ut_update_ref_count
  *
  * PARAMETERS:  *Object         - Object whose ref count is to be updated
  *              Action          - What to do
@@ -257,25 +293,25 @@ acpi_ut_delete_internal_object_list (
 
 static void
 acpi_ut_update_ref_count (
-	acpi_operand_object     *object,
-	u32                     action)
+	union acpi_operand_object       *object,
+	u32                             action)
 {
-	u16                     count;
-	u16                     new_count;
+	u16                             count;
+	u16                             new_count;
 
 
-	PROC_NAME ("Ut_update_ref_count");
+	ACPI_FUNCTION_NAME ("ut_update_ref_count");
+
 
 	if (!object) {
 		return;
 	}
 
-
 	count = object->common.reference_count;
 	new_count = count;
 
 	/*
-	 * Reference count action (increment, decrement, or force delete)
+	 * Perform the reference count action (increment, decrement, or force delete)
 	 */
 	switch (action) {
 
@@ -284,7 +320,7 @@ acpi_ut_update_ref_count (
 		new_count++;
 		object->common.reference_count = new_count;
 
-		ACPI_DEBUG_PRINT ((ACPI_DB_INFO, "Obj %p Refs=%X, [Incremented]\n",
+		ACPI_DEBUG_PRINT ((ACPI_DB_ALLOCATIONS, "Obj %p Refs=%X, [Incremented]\n",
 			object, new_count));
 		break;
 
@@ -292,21 +328,20 @@ acpi_ut_update_ref_count (
 	case REF_DECREMENT:
 
 		if (count < 1) {
-			ACPI_DEBUG_PRINT ((ACPI_DB_INFO, "Obj %p Refs=%X, can't decrement! (Set to 0)\n",
+			ACPI_DEBUG_PRINT ((ACPI_DB_ALLOCATIONS, "Obj %p Refs=%X, can't decrement! (Set to 0)\n",
 				object, new_count));
 
 			new_count = 0;
 		}
-
 		else {
 			new_count--;
 
-			ACPI_DEBUG_PRINT ((ACPI_DB_INFO, "Obj %p Refs=%X, [Decremented]\n",
+			ACPI_DEBUG_PRINT ((ACPI_DB_ALLOCATIONS, "Obj %p Refs=%X, [Decremented]\n",
 				object, new_count));
 		}
 
-		if (object->common.type == ACPI_TYPE_METHOD) {
-			ACPI_DEBUG_PRINT ((ACPI_DB_INFO, "Method Obj %p Refs=%X, [Decremented]\n",
+		if (ACPI_GET_OBJECT_TYPE (object) == ACPI_TYPE_METHOD) {
+			ACPI_DEBUG_PRINT ((ACPI_DB_ALLOCATIONS, "Method Obj %p Refs=%X, [Decremented]\n",
 				object, new_count));
 		}
 
@@ -320,7 +355,7 @@ acpi_ut_update_ref_count (
 
 	case REF_FORCE_DELETE:
 
-		ACPI_DEBUG_PRINT ((ACPI_DB_INFO, "Obj %p Refs=%X, Force delete! (Set to 0)\n",
+		ACPI_DEBUG_PRINT ((ACPI_DB_ALLOCATIONS, "Obj %p Refs=%X, Force delete! (Set to 0)\n",
 			object, count));
 
 		new_count = 0;
@@ -335,12 +370,11 @@ acpi_ut_update_ref_count (
 		break;
 	}
 
-
 	/*
 	 * Sanity check the reference count, for debug purposes only.
 	 * (A deleted object will have a huge reference count)
 	 */
-	if (count > MAX_REFERENCE_COUNT) {
+	if (count > ACPI_MAX_REFERENCE_COUNT) {
 
 		ACPI_DEBUG_PRINT ((ACPI_DB_WARN,
 			"**** Warning **** Large Reference Count (%X) in object %p\n\n",
@@ -353,7 +387,7 @@ acpi_ut_update_ref_count (
 
 /*******************************************************************************
  *
- * FUNCTION:    Acpi_ut_update_object_reference
+ * FUNCTION:    acpi_ut_update_object_reference
  *
  * PARAMETERS:  *Object             - Increment ref count for this object
  *                                    and all sub-objects
@@ -375,18 +409,16 @@ acpi_ut_update_ref_count (
 
 acpi_status
 acpi_ut_update_object_reference (
-	acpi_operand_object     *object,
-	u16                     action)
+	union acpi_operand_object       *object,
+	u16                             action)
 {
-	acpi_status             status;
-	u32                     i;
-	acpi_operand_object     *next;
-	acpi_operand_object     *new;
-	acpi_generic_state       *state_list = NULL;
-	acpi_generic_state       *state;
+	acpi_status                     status;
+	u32                             i;
+	union acpi_generic_state         *state_list = NULL;
+	union acpi_generic_state         *state;
+	union acpi_operand_object        *tmp;
 
-
-	FUNCTION_TRACE_PTR ("Ut_update_object_reference", object);
+	ACPI_FUNCTION_TRACE_PTR ("ut_update_object_reference", object);
 
 
 	/* Ignore a null object ptr */
@@ -395,15 +427,12 @@ acpi_ut_update_object_reference (
 		return_ACPI_STATUS (AE_OK);
 	}
 
+	/* Make sure that this isn't a namespace handle */
 
-	/*
-	 * Make sure that this isn't a namespace handle or an AML pointer
-	 */
-	if (VALID_DESCRIPTOR_TYPE (object, ACPI_DESC_TYPE_NAMED)) {
-		ACPI_DEBUG_PRINT ((ACPI_DB_INFO, "Object %p is NS handle\n", object));
+	if (ACPI_GET_DESCRIPTOR_TYPE (object) == ACPI_DESC_TYPE_NAMED) {
+		ACPI_DEBUG_PRINT ((ACPI_DB_ALLOCATIONS, "Object %p is NS handle\n", object));
 		return_ACPI_STATUS (AE_OK);
 	}
-
 
 	state = acpi_ut_create_update_state (object, action);
 
@@ -416,32 +445,19 @@ acpi_ut_update_object_reference (
 		 * All sub-objects must have their reference count incremented also.
 		 * Different object types have different subobjects.
 		 */
-		switch (object->common.type) {
-
+		switch (ACPI_GET_OBJECT_TYPE (object)) {
 		case ACPI_TYPE_DEVICE:
 
-			status = acpi_ut_create_update_state_and_push (object->device.addr_handler,
-					   action, &state_list);
-			if (ACPI_FAILURE (status)) {
-				return_ACPI_STATUS (status);
-			}
+			tmp = object->device.system_notify;
+			if (tmp && (tmp->common.reference_count <= 1) && action == REF_DECREMENT)
+				object->device.system_notify = NULL;
+			acpi_ut_update_ref_count (tmp, action);
 
-			acpi_ut_update_ref_count (object->device.sys_handler, action);
-			acpi_ut_update_ref_count (object->device.drv_handler, action);
-			break;
+			tmp = object->device.device_notify;
+			if (tmp && (tmp->common.reference_count <= 1) && action == REF_DECREMENT)
+				object->device.device_notify = NULL;
+			acpi_ut_update_ref_count (tmp, action);
 
-
-		case INTERNAL_TYPE_ADDRESS_HANDLER:
-
-			/* Must walk list of address handlers */
-
-			next = object->addr_handler.next;
-			while (next) {
-				new = next->addr_handler.next;
-				acpi_ut_update_ref_count (next, action);
-
-				next = new;
-			}
 			break;
 
 
@@ -460,8 +476,12 @@ acpi_ut_update_object_reference (
 				status = acpi_ut_create_update_state_and_push (
 						 object->package.elements[i], action, &state_list);
 				if (ACPI_FAILURE (status)) {
-					return_ACPI_STATUS (status);
+					goto error_exit;
 				}
+
+				tmp = object->package.elements[i];
+				if (tmp && (tmp->common.reference_count <= 1)  && action == REF_DECREMENT)
+					object->package.elements[i] = NULL;
 			}
 			break;
 
@@ -470,62 +490,85 @@ acpi_ut_update_object_reference (
 
 			status = acpi_ut_create_update_state_and_push (
 					 object->buffer_field.buffer_obj, action, &state_list);
-
 			if (ACPI_FAILURE (status)) {
-				return_ACPI_STATUS (status);
+				goto error_exit;
 			}
+
+			tmp = object->buffer_field.buffer_obj;
+			if ( tmp && (tmp->common.reference_count <= 1)  && action == REF_DECREMENT)
+				object->buffer_field.buffer_obj = NULL;
 			break;
 
 
-		case INTERNAL_TYPE_REGION_FIELD:
+		case ACPI_TYPE_LOCAL_REGION_FIELD:
 
 			status = acpi_ut_create_update_state_and_push (
 					 object->field.region_obj, action, &state_list);
 			if (ACPI_FAILURE (status)) {
-				return_ACPI_STATUS (status);
+				goto error_exit;
 			}
+
+			tmp = object->field.region_obj;
+			if ( tmp && (tmp->common.reference_count <= 1)  && action == REF_DECREMENT)
+				object->field.region_obj = NULL;
 		   break;
 
 
-		case INTERNAL_TYPE_BANK_FIELD:
+		case ACPI_TYPE_LOCAL_BANK_FIELD:
 
 			status = acpi_ut_create_update_state_and_push (
-					 object->bank_field.bank_register_obj, action, &state_list);
+					 object->bank_field.bank_obj, action, &state_list);
 			if (ACPI_FAILURE (status)) {
-				return_ACPI_STATUS (status);
+				goto error_exit;
 			}
+
+			tmp = object->bank_field.bank_obj;
+			if ( tmp && (tmp->common.reference_count <= 1)  && action == REF_DECREMENT)
+				object->bank_field.bank_obj = NULL;
 
 			status = acpi_ut_create_update_state_and_push (
 					 object->bank_field.region_obj, action, &state_list);
 			if (ACPI_FAILURE (status)) {
-				return_ACPI_STATUS (status);
+				goto error_exit;
 			}
+
+			tmp = object->bank_field.region_obj;
+			if ( tmp && (tmp->common.reference_count <= 1)  && action == REF_DECREMENT)
+				object->bank_field.region_obj = NULL;
 			break;
 
 
-		case INTERNAL_TYPE_INDEX_FIELD:
+		case ACPI_TYPE_LOCAL_INDEX_FIELD:
 
 			status = acpi_ut_create_update_state_and_push (
 					 object->index_field.index_obj, action, &state_list);
 			if (ACPI_FAILURE (status)) {
-				return_ACPI_STATUS (status);
+				goto error_exit;
 			}
+
+			tmp = object->index_field.index_obj;
+			if ( tmp && (tmp->common.reference_count <= 1)  && action == REF_DECREMENT)
+				object->index_field.index_obj = NULL;
 
 			status = acpi_ut_create_update_state_and_push (
 					 object->index_field.data_obj, action, &state_list);
 			if (ACPI_FAILURE (status)) {
-				return_ACPI_STATUS (status);
+				goto error_exit;
 			}
+
+			tmp = object->index_field.data_obj;
+			if ( tmp && (tmp->common.reference_count <= 1)  && action == REF_DECREMENT)
+				object->index_field.data_obj = NULL;
 			break;
 
 
 		case ACPI_TYPE_REGION:
-		case INTERNAL_TYPE_REFERENCE:
+		case ACPI_TYPE_LOCAL_REFERENCE:
+		default:
 
 			/* No subobjects */
 			break;
 		}
-
 
 		/*
 		 * Now we can update the count in the main object.  This can only
@@ -534,20 +577,26 @@ acpi_ut_update_object_reference (
 		 */
 		acpi_ut_update_ref_count (object, action);
 
-
 		/* Move on to the next object to be updated */
 
 		state = acpi_ut_pop_generic_state (&state_list);
 	}
 
-
 	return_ACPI_STATUS (AE_OK);
+
+
+error_exit:
+
+	ACPI_REPORT_ERROR (("Could not update object reference count, %s\n",
+		acpi_format_exception (status)));
+
+	return_ACPI_STATUS (status);
 }
 
 
 /*******************************************************************************
  *
- * FUNCTION:    Acpi_ut_add_reference
+ * FUNCTION:    acpi_ut_add_reference
  *
  * PARAMETERS:  *Object        - Object whose reference count is to be
  *                                  incremented
@@ -560,31 +609,28 @@ acpi_ut_update_object_reference (
 
 void
 acpi_ut_add_reference (
-	acpi_operand_object     *object)
+	union acpi_operand_object       *object)
 {
 
-	FUNCTION_TRACE_PTR ("Ut_add_reference", object);
+	ACPI_FUNCTION_TRACE_PTR ("ut_add_reference", object);
 
 
-	/*
-	 * Ensure that we have a valid object
-	 */
+	/* Ensure that we have a valid object */
+
 	if (!acpi_ut_valid_internal_object (object)) {
 		return_VOID;
 	}
 
-	/*
-	 * We have a valid ACPI internal object, now increment the reference count
-	 */
-	acpi_ut_update_object_reference (object, REF_INCREMENT);
+	/* Increment the reference count */
 
+	(void) acpi_ut_update_object_reference (object, REF_INCREMENT);
 	return_VOID;
 }
 
 
 /*******************************************************************************
  *
- * FUNCTION:    Acpi_ut_remove_reference
+ * FUNCTION:    acpi_ut_remove_reference
  *
  * PARAMETERS:  *Object        - Object whose ref count will be decremented
  *
@@ -596,10 +642,11 @@ acpi_ut_add_reference (
 
 void
 acpi_ut_remove_reference (
-	acpi_operand_object     *object)
+	union acpi_operand_object       *object)
 {
 
-	FUNCTION_TRACE_PTR ("Ut_remove_reference", object);
+	ACPI_FUNCTION_TRACE_PTR ("ut_remove_reference", object);
+
 
 	/*
 	 * Allow a NULL pointer to be passed in, just ignore it.  This saves
@@ -607,18 +654,17 @@ acpi_ut_remove_reference (
 	 *
 	 */
 	if (!object ||
-		(VALID_DESCRIPTOR_TYPE (object, ACPI_DESC_TYPE_NAMED))) {
+		(ACPI_GET_DESCRIPTOR_TYPE (object) == ACPI_DESC_TYPE_NAMED)) {
 		return_VOID;
 	}
 
-	/*
-	 * Ensure that we have a valid object
-	 */
+	/* Ensure that we have a valid object */
+
 	if (!acpi_ut_valid_internal_object (object)) {
 		return_VOID;
 	}
 
-	ACPI_DEBUG_PRINT ((ACPI_DB_INFO, "Obj %p Refs=%X\n",
+	ACPI_DEBUG_PRINT ((ACPI_DB_ALLOCATIONS, "Obj %p Refs=%X\n",
 			object, object->common.reference_count));
 
 	/*
@@ -626,7 +672,7 @@ acpi_ut_remove_reference (
 	 * if the reference count becomes 0.  (Must also decrement the ref count
 	 * of all subobjects!)
 	 */
-	acpi_ut_update_object_reference (object, REF_DECREMENT);
+	(void) acpi_ut_update_object_reference (object, REF_DECREMENT);
 	return_VOID;
 }
 

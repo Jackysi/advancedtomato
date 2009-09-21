@@ -254,6 +254,7 @@ static int __init init_gus(void)
 
 #ifdef CONFIG_SOUND_GUS16
 	if (probe_gus_db16(&cfg) && gus16) {
+		/* FIXME: This can't work, can it ? -- Christoph */
 		attach_gus_db16(&cfg);
 		db16 = 1;
 	}	

@@ -1,53 +1,91 @@
 /*
- * BK Id: SCCS/s.walnut_setup.h 1.5 05/17/01 18:14:22 cort
- */
-/*
  *
- *    Copyright (c) 1999-2000 Grant Erickson <grant@lcse.umn.edu>
+ *    Copyright (c) 1999 Grant Erickson <grant@lcse.umn.edu>
  *
- *    Module name: walnut_setup.c
+ *    Copyright 2000 MontaVista Software Inc.
+ *	PPC405 modifications
+ * 	Author: MontaVista Software, Inc.
+ *         	frank_rowand@mvista.com or source@mvista.com
+ * 	   	debbie_chu@mvista.com
+ *
+ *    Module name: ppc405.h
  *
  *    Description:
- *      Architecture- / platform-specific boot-time initialization code for
- *      the IBM PowerPC 405GP "Walnut" evaluation board. Adapted from original
- *      code by Gary Thomas, Cort Dougan <cort@cs.nmt.edu>, and Dan Malek
- *      <dan@netx4.com>.
+ *      Macros, definitions, and data structures specific to the IBM PowerPC
+ *      based boards.
  *
+ *      This includes:
+ *
+ *         405GP "Walnut" evaluation board
+ *
+ * Please read the COPYING file for all license details.
  */
 
-#ifndef	__WALNUT_SETUP_H__
-#define	__WALNUT_SETUP_H__
+#ifdef __KERNEL__
+#ifndef __ASM_WALNUT_H__
+#define __ASM_WALNUT_H__
 
-#include <asm/ptrace.h>
-#include <asm/board.h>
+/* We have a 405GP core */
+#include <platforms/ibm405gp.h>
+
+#ifndef __ASSEMBLY__
+/*
+ * Data structure defining board information maintained by the boot
+ * ROM on IBM's "Walnut" evaluation board. An effort has been made to
+ * keep the field names consistent with the 8xx 'bd_t' board info
+ * structures.
+ */
+
+typedef struct board_info {
+	unsigned char	 bi_s_version[4];	/* Version of this structure */
+	unsigned char	 bi_r_version[30];	/* Version of the IBM ROM */
+	unsigned int	 bi_memsize;		/* DRAM installed, in bytes */
+	unsigned char	 bi_enetaddr[6];	/* Local Ethernet MAC address */
+	unsigned char	 bi_pci_enetaddr[6];	/* PCI Ethernet MAC address */
+	unsigned int	 bi_intfreq;		/* Processor speed, in Hz */
+	unsigned int	 bi_busfreq;		/* PLB Bus speed, in Hz */
+	unsigned int	 bi_pci_busfreq;	/* PCI Bus speed, in Hz */
+	unsigned int	 bi_opbfreq;		/* OPB Bus speed, in Hz */
+	int		 bi_iic_fast[1];	/* Use fast i2c mode */
+} bd_t;
+
+/* Some 4xx parts use a different timebase frequency from the internal clock.
+*/
+#define bi_tbfreq bi_intfreq
 
 
-#ifdef __cplusplus
-extern "C" {
+/* Memory map for the IBM "Walnut" 405GP evaluation board.
+ * Generic 4xx plus RTC.
+ */
+
+extern void *walnut_rtc_base;
+#define WALNUT_RTC_PADDR	((uint)0xf0000000)
+#define WALNUT_RTC_VADDR	WALNUT_RTC_PADDR
+#define WALNUT_RTC_SIZE		((uint)8*1024)
+
+/* ps2 keyboard and mouse */
+#define KEYBOARD_IRQ		25
+#define AUX_IRQ			26
+
+#ifdef CONFIG_PPC405GP_INTERNAL_CLOCK
+#define BASE_BAUD		201600
+#else
+#define BASE_BAUD		691200
 #endif
 
-extern unsigned char	 __res[sizeof(bd_t)];
-
-extern void		 walnut_init(unsigned long r3,
-				  unsigned long ird_start,
-				  unsigned long ird_end,
-				  unsigned long cline_start,
-				  unsigned long cline_end);
-extern void		 walnut_setup_arch(void);
-extern int		 walnut_setup_residual(char *buffer);
-extern void		 walnut_init_IRQ(void);
-extern int		 walnut_get_irq(struct pt_regs *regs);
-extern void		 walnut_restart(char *cmd);
-extern void		 walnut_power_off(void);
-extern void		 walnut_halt(void);
-extern void		 walnut_time_init(void);
-extern int		 walnut_set_rtc_time(unsigned long now);
-extern unsigned long	 walnut_get_rtc_time(void);
-extern void		 walnut_calibrate_decr(void);
+#define WALNUT_PS2_BASE		0xF0100000
+#define WALNUT_FPGA_BASE	0xF0300000
 
 
-#ifdef __cplusplus
-}
-#endif
+extern void *kb_cs;
+extern void *kb_data;
+#define kbd_read_input()	readb(kb_data)
+#define kbd_read_status()	readb(kb_cs)
+#define kbd_write_output(val)	writeb(val, kb_data)
+#define kbd_write_command(val)	writeb(val, kb_cs)
 
-#endif /* __WALNUT_SETUP_H__ */
+#define PPC4xx_MACHINE_NAME	"IBM Walnut"
+
+#endif /* !__ASSEMBLY__ */
+#endif /* __ASM_WALNUT_H__ */
+#endif /* __KERNEL__ */

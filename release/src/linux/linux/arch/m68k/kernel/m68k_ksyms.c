@@ -12,12 +12,15 @@
 #include <asm/setup.h>
 #include <asm/machdep.h>
 #include <asm/pgalloc.h>
+#include <asm/pgtable.h>
 #include <asm/irq.h>
 #include <asm/io.h>
 #include <asm/semaphore.h>
 #include <asm/checksum.h>
 #include <asm/hardirq.h>
 #include <asm/softirq.h>
+#include <asm/rtc.h>
+#include <asm/hwtest.h>
 
 asmlinkage long long __ashldi3 (long long, int);
 asmlinkage long long __ashrdi3 (long long, int);
@@ -26,7 +29,7 @@ asmlinkage long long __muldi3 (long long, long long);
 extern char m68k_debug_device[];
 
 extern void dump_thread(struct pt_regs *, struct user *);
-extern int dump_fpu(elf_fpregset_t *);
+extern int dump_fpu (struct pt_regs *regs, struct user_m68kfp_struct *fpu);
 
 /* platform dependent support */
 
@@ -43,12 +46,18 @@ EXPORT_SYMBOL(mm_vtop);
 EXPORT_SYMBOL(mm_ptov);
 EXPORT_SYMBOL(mm_end_of_chunk);
 #endif /* !CONFIG_SINGLE_MEMORY_CHUNK */
-EXPORT_SYMBOL(mm_vtop_fallback);
 EXPORT_SYMBOL(__ioremap);
 EXPORT_SYMBOL(iounmap);
 EXPORT_SYMBOL(kernel_set_cachemode);
+#ifndef mm_cachebits
+EXPORT_SYMBOL(mm_cachebits);
+#endif
 #endif /* !CONFIG_SUN3 */
 EXPORT_SYMBOL(m68k_debug_device);
+EXPORT_SYMBOL(mach_hwclk);
+EXPORT_SYMBOL(mach_get_ss);
+EXPORT_SYMBOL(mach_get_rtc_pll);
+EXPORT_SYMBOL(mach_set_rtc_pll);
 EXPORT_SYMBOL(dump_fpu);
 EXPORT_SYMBOL(dump_thread);
 EXPORT_SYMBOL(strnlen);
@@ -61,6 +70,8 @@ EXPORT_SYMBOL(kernel_thread);
 #ifdef CONFIG_VME
 EXPORT_SYMBOL(vme_brdtype);
 #endif
+EXPORT_SYMBOL(hwreg_present);
+EXPORT_SYMBOL(hwreg_write);
 
 /* Networking helper routines. */
 EXPORT_SYMBOL(csum_partial_copy);

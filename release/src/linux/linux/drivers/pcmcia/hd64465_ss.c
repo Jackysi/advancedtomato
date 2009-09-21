@@ -1,5 +1,5 @@
 /*
- * $Id: hd64465_ss.c,v 1.1.1.4 2003/10/14 08:08:32 sparq Exp $
+ * $Id$
  *
  * Device driver for the PCMCIA controller module of the
  * Hitachi HD64465 handheld companion chip.
@@ -717,6 +717,10 @@ static int hs_set_mem_map(unsigned int sock, struct pccard_mem_map *mem)
 	int map = mem->map;
 	unsigned long paddr, size;
 
+#if 0
+    	DPRINTK("hs_set_mem_map(sock=%d, map=%d, flags=0x%x, sys_start=0x%08lx, sys_end=0x%08lx, card_start=0x%08x)\n",
+	    sock, map, mem->flags, mem->sys_start, mem->sys_stop, mem->card_start);
+#endif
 
 	if (map >= MAX_WIN)
 	    return -EINVAL;

@@ -1135,7 +1135,8 @@ match:
 
 		if ((wiinst = (struct wiinst *) kmalloc(sizeof(struct wiinst), GFP_KERNEL)) == NULL) {
 			ERROR();
-			return -ENODEV;
+			kfree(wave_dev);
+			return -ENOMEM;
 		}
 
 		wiinst->recsrc = card->wavein.recsrc;
@@ -1161,6 +1162,8 @@ match:
 			wiinst->format.channels = hweight32(wiinst->fxwc);
 			break;
 		default:
+			kfree(wave_dev);
+			kfree(wiinst);
 			BUG();
 			break;
 		}
@@ -1293,6 +1296,7 @@ static int emu10k1_audio_release(struct inode *inode, struct file *file)
 	return 0;
 }
 
+/* FIXME sort out poll() + mmap() */
 static unsigned int emu10k1_audio_poll(struct file *file, struct poll_table_struct *wait)
 {
 	struct emu10k1_wavedevice *wave_dev = (struct emu10k1_wavedevice *) file->private_data;

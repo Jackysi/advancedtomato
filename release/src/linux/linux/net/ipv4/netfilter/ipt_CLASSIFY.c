@@ -46,7 +46,7 @@ checkentry(const char *tablename,
 		       IPT_ALIGN(sizeof(struct ipt_classify_target_info)));
 		return 0;
 	}
-	
+
 	if (hook_mask & ~(1 << NF_IP_POST_ROUTING)) {
 		printk(KERN_ERR "CLASSIFY: only valid in POST_ROUTING.\n");
 		return 0;

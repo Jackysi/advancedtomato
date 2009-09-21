@@ -1,4 +1,4 @@
-/* $Id: pcikbd.c,v 1.1.1.4 2003/10/14 08:08:35 sparq Exp $
+/* $Id: pcikbd.c,v 1.61 2001/08/18 09:40:46 davem Exp $
  * pcikbd.c: Ultra/AX PC keyboard support.
  *
  * Copyright (C) 1997  Eddie C. Dost  (ecd@skynet.be)
@@ -831,6 +831,12 @@ found:
 	}
 ebus_done:
 
+	/*
+	 * XXX: my 3.1.3 PROM does not give me the beeper node for the audio
+	 *      auxio register, though I know it is there... (ecd)
+	 *
+	 * JavaStations appear not to have beeper. --zaitcev
+	 */
 	if (!edev)
 		pcibeep_iobase = (pcikbd_iobase & ~(0xffffff)) | 0x722000;
 	else

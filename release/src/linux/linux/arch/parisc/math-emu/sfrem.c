@@ -22,7 +22,7 @@
  * BEGIN_DESC
  *
  *  File:
- *	@(#)	pa/spmath/sfrem.c		$Revision: 1.1.1.2 $
+ *	@(#)	pa/spmath/sfrem.c		$Revision: $
  *
  *  Purpose:
  *	Single Precision Floating-point Remainder

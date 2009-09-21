@@ -12,8 +12,13 @@
 #include <linux/netfilter_ipv4.h>
 #include <linux/netfilter_ipv4/ip_nat_rule.h>
 
+#if 0
+#define DEBUGP printk
+#else
 #define DEBUGP(format, args...)
+#endif
 
+/* FIXME: Take multiple ranges --RR */
 static int
 redirect_check(const char *tablename,
 	       const struct ipt_entry *e,
@@ -74,7 +79,7 @@ redirect_target(struct sk_buff **pskb,
 
 		/* Device might not have an associated in_device. */
 		indev = (struct in_device *)(*pskb)->dev->ip_ptr;
-		if (indev == NULL)
+		if (indev == NULL || indev->ifa_list == NULL)
 			return NF_DROP;
 
 		/* Grab first address on interface. */

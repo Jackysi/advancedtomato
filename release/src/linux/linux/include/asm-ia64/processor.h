@@ -19,6 +19,7 @@
 #include <asm/ptrace.h>
 #include <asm/kregs.h>
 #include <asm/types.h>
+#include <asm/ustack.h>
 
 #define IA64_NUM_DBG_REGS	8
 /*
@@ -87,6 +88,9 @@
 #include <asm/rse.h>
 #include <asm/unwind.h>
 #include <asm/atomic.h>
+#ifdef CONFIG_NUMA
+#include <asm/nodedata.h>
+#endif
 
 /* like above but expressed as bitfields for more efficient access: */
 struct ia64_psr {
@@ -157,6 +161,7 @@ struct cpuinfo_ia64 {
 	__u8 family;
 	__u8 archrev;
 	char vendor[16];
+	__u8 need_tlb_flush;
 	__u64 itc_freq;		/* frequency of ITC counter */
 	__u64 proc_freq;	/* frequency of processor */
 	__u64 cyc_per_usec;	/* itc_freq/1000000 */
@@ -167,16 +172,16 @@ struct cpuinfo_ia64 {
 	__u32 ptce_count[2];
 	__u32 ptce_stride[2];
 	struct task_struct *ksoftirqd;	/* kernel softirq daemon for this CPU */
+	void *mmu_gathers;
+# ifdef CONFIG_PERFMON
+	unsigned long pfm_syst_info;
+# endif
 #ifdef CONFIG_SMP
 	int processor;
 	__u64 loops_per_jiffy;
 	__u64 ipi_count;
 	__u64 prof_counter;
 	__u64 prof_multiplier;
-# ifdef CONFIG_PERFMON
-	__u32 pfm_syst_wide;
-	__u32 pfm_dcr_pp;
-# endif
 	union {
 		/*
 		 *  This is written to by *other* CPUs,
@@ -187,8 +192,8 @@ struct cpuinfo_ia64 {
 	} ipi;
 #endif
 #ifdef CONFIG_NUMA
-	void *node_directory;
-	int numa_node_id;
+	struct ia64_node_data *node_data;
+	int nodeid;
 	struct cpuinfo_ia64 *cpu_data[NR_CPUS];
 #endif
 	/* Platform specific word.  MUST BE LAST IN STRUCT */
@@ -213,9 +218,9 @@ struct cpuinfo_ia64 {
  */
 #ifdef CONFIG_NUMA
 # define cpu_data(cpu)		local_cpu_data->cpu_data[cpu]
-# define numa_node_id()		(local_cpu_data->numa_node_id)
+# define numa_node_id()		(local_cpu_data->nodeid)
 #else
-  extern struct cpuinfo_ia64 _cpu_data[NR_CPUS];
+  extern struct cpuinfo_ia64	_cpu_data[NR_CPUS];
 # define cpu_data(cpu)		(&_cpu_data[cpu])
 #endif
 
@@ -257,6 +262,7 @@ struct thread_struct {
 	unsigned long flags;		/* various flags */
 	__u64 map_base;			/* base address for get_unmapped_area() */
 	__u64 task_size;		/* limit for task size */
+	__u64 rbs_bot;			/* the base address for the RBS */
 	struct siginfo *siginfo;	/* current siginfo struct for ptrace() */
 
 #ifdef CONFIG_IA32_SUPPORT
@@ -265,11 +271,9 @@ struct thread_struct {
 	__u64 fcr;			/* IA32 floating pt control reg */
 	__u64 fir;			/* IA32 fp except. instr. reg */
 	__u64 fdr;			/* IA32 fp except. data reg */
-	__u64 csd;			/* IA32 code selector descriptor */
-	__u64 ssd;			/* IA32 stack selector descriptor */
 	__u64 old_k1;			/* old value of ar.k1 */
 	__u64 old_iob;			/* old IOBase value */
-# define INIT_THREAD_IA32	0, 0, 0x17800000037fULL, 0, 0, 0, 0, 0, 0,
+# define INIT_THREAD_IA32	0, 0, 0x17800000037fULL, 0, 0, 0, 0, 
 #else
 # define INIT_THREAD_IA32
 #endif /* CONFIG_IA32_SUPPORT */
@@ -296,22 +300,24 @@ struct thread_struct {
 	0,				/* flags */	\
 	DEFAULT_MAP_BASE,		/* map_base */	\
 	DEFAULT_TASK_SIZE,		/* task_size */	\
+	DEFAULT_USER_STACK_SIZE,	/* rbs_bot */	\
 	0,				/* siginfo */	\
 	INIT_THREAD_IA32				\
 	INIT_THREAD_PM					\
 	{0, },				/* dbr */	\
 	{0, },				/* ibr */	\
-	{{{{0}}}, }			/* fph */	\
+	{{{{0}}}, },			/* fph */	\
+	-1				/* last_fph_cpu*/	\
 }
 
 #define start_thread(regs,new_ip,new_sp) do {							\
 	set_fs(USER_DS);									\
-	regs->cr_ipsr = ((regs->cr_ipsr | (IA64_PSR_BITS_TO_SET | IA64_PSR_CPL | IA64_PSR_SP))	\
+	regs->cr_ipsr = ((regs->cr_ipsr | (IA64_PSR_BITS_TO_SET | IA64_PSR_CPL))		\
 			 & ~(IA64_PSR_BITS_TO_CLEAR | IA64_PSR_RI | IA64_PSR_IS));		\
 	regs->cr_iip = new_ip;									\
 	regs->ar_rsc = 0xf;		/* eager mode, privilege level 3 */			\
 	regs->ar_rnat = 0;									\
-	regs->ar_bspstore = IA64_RBS_BOT;							\
+	regs->ar_bspstore = current->thread.rbs_bot;						\
 	regs->ar_fpsr = FPSR_DEFAULT;								\
 	regs->loadrs = 0;									\
 	regs->r8 = current->mm->dumpable;	/* set "don't zap registers" flag */		\
@@ -323,7 +329,10 @@ struct thread_struct {
 		 */										\
 		regs->ar_pfs = 0;								\
 		regs->pr = 0;									\
-												\
+		/*										\
+		 * XXX fix me: everything below can go away once we stop preserving scratch	\
+		 * regs on a system call.							\
+		 */										\
 		regs->b6 = 0;									\
 		regs->r1 = 0; regs->r2 = 0; regs->r3 = 0;					\
 		regs->r13 = 0; regs->r14 = 0; regs->r15 = 0;					\
@@ -333,11 +342,15 @@ struct thread_struct {
 		regs->r24 = 0; regs->r25 = 0; regs->r26 = 0; regs->r27 = 0;			\
 		regs->r28 = 0; regs->r29 = 0; regs->r30 = 0; regs->r31 = 0;			\
 		regs->ar_ccv = 0;								\
+		regs->ar_csd = 0;                                                               \
+		regs->ar_ssd = 0;                                                               \
 		regs->b0 = 0; regs->b7 = 0;							\
 		regs->f6.u.bits[0] = 0; regs->f6.u.bits[1] = 0;					\
 		regs->f7.u.bits[0] = 0; regs->f7.u.bits[1] = 0;					\
 		regs->f8.u.bits[0] = 0; regs->f8.u.bits[1] = 0;					\
 		regs->f9.u.bits[0] = 0; regs->f9.u.bits[1] = 0;					\
+		regs->f10.u.bits[0] = 0; regs->f10.u.bits[1] = 0;				\
+		regs->f11.u.bits[0] = 0; regs->f11.u.bits[1] = 0;				\
 	}											\
 } while (0)
 
@@ -370,7 +383,7 @@ struct task_struct;
  * do_basic_setup() and the timing is such that free_initmem() has
  * been called already.
  */
-extern int kernel_thread (int (*fn)(void *), void *arg, unsigned long flags);
+extern int arch_kernel_thread (int (*fn)(void *), void *arg, unsigned long flags);
 
 /* Copy and release all segment info associated with a VM */
 #define copy_segments(tsk, mm)			do { } while (0)
@@ -392,7 +405,7 @@ extern unsigned long get_wchan (struct task_struct *p);
 static inline unsigned long
 ia64_get_kr (unsigned long regnum)
 {
-	unsigned long r;
+	unsigned long r = 0;
 
 	switch (regnum) {
 	      case 0: asm volatile ("mov %0=ar.k0" : "=r"(r)); break;
@@ -421,18 +434,23 @@ ia64_set_kr (unsigned long regnum, unsigned long r)
 	      case 7: asm volatile ("mov ar.k7=%0" :: "r"(r)); break;
 	}
 }
+/* Return TRUE if task T owns the fph partition of the CPU we're running on. */
+#define ia64_is_local_fpu_owner(t)								\
+({												\
+	struct task_struct *__ia64_islfo_task = (t);						\
+	(__ia64_islfo_task->thread.last_fph_cpu == smp_processor_id()				\
+	 && __ia64_islfo_task == (struct task_struct *) ia64_get_kr(IA64_KR_FPU_OWNER));	\
+})
 
-static inline struct task_struct *
-ia64_get_fpu_owner (void)
-{
-	return (struct task_struct *) ia64_get_kr(IA64_KR_FPU_OWNER);
-}
+/* Mark task T as owning the fph partition of the CPU we're running on. */
+#define ia64_set_local_fpu_owner(t) do {						\
+	struct task_struct *__ia64_slfo_task = (t);					\
+	__ia64_slfo_task->thread.last_fph_cpu = smp_processor_id();			\
+	ia64_set_kr(IA64_KR_FPU_OWNER, (unsigned long) __ia64_slfo_task);		\
+} while (0)
 
-static inline void
-ia64_set_fpu_owner (struct task_struct *t)
-{
-	ia64_set_kr(IA64_KR_FPU_OWNER, (unsigned long) t);
-}
+/* Mark the fph partition of task T as being invalid on all CPUs.  */
+#define ia64_drop_fpu(t)	((t)->thread.last_fph_cpu = -1)
 
 extern void __ia64_init_fpu (void);
 extern void __ia64_save_fpu (struct ia64_fpreg *fph);
@@ -646,8 +664,17 @@ ia64_set_lrr0 (unsigned long val)
 	asm volatile ("mov cr.lrr0=%0;; srlz.d" :: "r"(val) : "memory");
 }
 
-#define cpu_relax()	do { } while (0)
+#ifdef GAS_HAS_HINT_INSN
+static inline void
+ia64_hint_pause (void)
+{
+	asm volatile ("hint @pause" ::: "memory");
+}
 
+#define cpu_relax()	ia64_hint_pause()
+#else
+#define cpu_relax()	barrier()
+#endif
 
 static inline void
 ia64_set_lrr1 (unsigned long val)
@@ -724,6 +751,7 @@ thread_saved_pc (struct thread_struct *t)
 	struct unw_frame_info info;
 	unsigned long ip;
 
+	/* XXX ouch: Linus, please pass the task pointer to thread_saved_pc() instead! */
 	struct task_struct *p = (void *) ((unsigned long) t - IA64_TASK_THREAD_OFFSET);
 
 	unw_init_from_blocked_task(&info, p);
@@ -749,18 +777,12 @@ thread_saved_pc (struct thread_struct *t)
 #define init_task	(init_task_union.task)
 #define init_stack	(init_task_union.stack)
 
-/*
- * Set the correctable machine check vector register
- */
 static inline void
 ia64_set_cmcv (__u64 val)
 {
 	asm volatile ("mov cr.cmcv=%0" :: "r"(val) : "memory");
 }
 
-/*
- * Read the correctable machine check vector register
- */
 static inline __u64
 ia64_get_cmcv (void)
 {
@@ -905,23 +927,13 @@ ia64_get_dbr (__u64 regnum)
 	return retval;
 }
 
-#ifdef SMART_COMPILER
-# define ia64_rotr(w,n)				\
-  ({						\
-	__u64 _w = (w), _n = (n);		\
-						\
-	(_w >> _n) | (_w << (64 - _n));		\
-  })
-#else
-# define ia64_rotr(w,n)							\
-  ({									\
-	__u64 result;							\
-	asm ("shrp %0=%1,%1,%2" : "=r"(result) : "r"(w), "i"(n));	\
-	result;								\
-  })
-#endif
+static inline __u64
+ia64_rotr (__u64 w, __u64 n)
+{
+	return (w >> n) | (w << (64 - n));
+}
 
-#define ia64_rotl(w,n)	ia64_rotr((w),(64)-(n))
+#define ia64_rotl(w,n)	ia64_rotr((w), (64) - (n))
 
 static inline __u64
 ia64_thash (__u64 addr)
@@ -937,6 +949,18 @@ ia64_tpa (__u64 addr)
 	__u64 result;
 	asm ("tpa %0=%1" : "=r"(result) : "r"(addr));
 	return result;
+}
+
+/*
+ * Take a mapped kernel address and return the equivalent address
+ * in the region 7 identity mapped virtual area.
+ */
+static inline void *
+ia64_imva (void *addr)
+{
+	void *result;
+	asm ("tpa %0=%1" : "=r"(result) : "r"(addr));
+	return __va(result);
 }
 
 #define ARCH_HAS_PREFETCH

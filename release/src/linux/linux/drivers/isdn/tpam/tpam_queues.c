@@ -1,4 +1,4 @@
-/* $Id: tpam_queues.c,v 1.1.1.4 2003/10/14 08:08:14 sparq Exp $
+/* $Id: tpam_queues.c,v 1.1.2.1 2001/11/20 14:19:37 kai Exp $
  *
  * Turbo PAM ISDN driver for Linux. (Kernel Driver)
  *
@@ -146,6 +146,7 @@ void tpam_irq(int irq, void *dev_id, struct pt_regs *regs) {
 		do {
 			hpic = readl(card->bar0 + TPAM_HPIC_REGISTER);
 			if (waiting_too_long++ > 0xfffffff) {
+				kfree_skb(skb); 
 				spin_unlock(&card->lock);
 				printk(KERN_ERR "TurboPAM(tpam_irq): "
 						"waiting too long...\n");

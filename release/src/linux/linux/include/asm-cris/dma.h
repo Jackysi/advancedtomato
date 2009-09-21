@@ -1,4 +1,4 @@
-/* $Id: dma.h,v 1.1.1.4 2003/10/14 08:09:09 sparq Exp $
+/*
  * linux/include/asm/dma.h: Defines for using and allocating dma channels.
  */
 

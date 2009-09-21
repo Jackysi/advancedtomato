@@ -6,14 +6,15 @@
  */
 #include <linux/config.h>
 #include <linux/init.h>
+#include <linux/irq.h>
 #include <linux/signal.h>
 #include <linux/sched.h>
 #include <linux/types.h>
 #include <linux/interrupt.h>
 #include <linux/ioport.h>
 
+#include <asm/i8259.h>
 #include <asm/io.h>
-#include <asm/irq.h>
 #include <asm/irq_cpu.h>
 #include <asm/ptrace.h>
 #include <asm/nile4.h>
@@ -21,14 +22,7 @@
 #include <asm/ddb5xxx/ddb5074.h>
 
 
-extern void __init i8259_init(void);
-extern void init_i8259_irqs (void);
-extern void i8259_disable_irq(unsigned int irq_nr);
-extern void i8259_enable_irq(unsigned int irq_nr);
-
 extern asmlinkage void ddbIRQ(void);
-extern asmlinkage void i8259_do_irq(int irq, struct pt_regs *regs);
-extern asmlinkage void do_IRQ(int irq, struct pt_regs *regs);
 
 static struct irqaction irq_cascade = { no_action, 0, 0, "cascade", NULL, NULL };
 
@@ -105,6 +99,12 @@ void ddb_local0_irqdispatch(struct pt_regs *regs)
 	mask = nile4_get_irq_stat(0);
 
 	/* Handle the timer interrupt first */
+#if 0
+	if (mask & (1 << NILE4_INT_GPT)) {
+		do_IRQ(nile4_to_irq(NILE4_INT_GPT), regs);
+		mask &= ~(1 << NILE4_INT_GPT);
+	}
+#endif
 	for (nile4_irq = 0; mask; nile4_irq++, mask >>= 1)
 		if (mask & 1) {
 			if (nile4_irq == NILE4_INT_INTE) {
@@ -136,7 +136,7 @@ void ddb_8254timer_irq(void)
 
 void __init ddb_irq_setup(void)
 {
-#ifdef CONFIG_REMOTE_DEBUG
+#ifdef CONFIG_KGDB
 	if (remote_debug)
 		set_debug_traps();
 	breakpoint();		/* you may move this line to whereever you want :-) */

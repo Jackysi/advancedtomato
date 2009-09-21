@@ -113,7 +113,7 @@ fp_fadd(struct fp_ext *dest, struct fp_ext *src)
 	return dest;
 }
 
-/* fp_fsub: Implementes the kernel of the FSUB, FSSUB, and FDSUB
+/* fp_fsub: Implements the kernel of the FSUB, FSSUB, and FDSUB
    instructions.
 
    Remember that the arguments are in assembler-syntax order! */
@@ -589,6 +589,7 @@ modrem_kernel(struct fp_ext *dest, struct fp_ext *src, int mode)
 	if (IS_ZERO(dest) || IS_INF(src))
 		return dest;
 
+	/* FIXME: there is almost certainly a smarter way to do this */
 	fp_copy_ext(&tmp, dest);
 	fp_fdiv(&tmp, src);		/* NOTE: src might be modified */
 	fp_roundint(&tmp, mode);

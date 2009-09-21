@@ -70,13 +70,18 @@ unsigned sysctl_min_tx_turn_time = 10;
  * 1.2, chapt 5.3.2.1, p41). But, this number includes the LAP header
  * (2 bytes), and CRC (32 bits at 4 Mb/s). So, for the I field (LAP
  * payload), that's only 2042 bytes. Oups !
- * I've had trouble trouble transmitting 2048 bytes frames with USB
- * dongles and nsc-ircc at 4 Mb/s, so adjust to 2042... I don't know
- * if this bug applies only for 2048 bytes frames or all negociated
- * frame sizes, but all hardware seem to support "2048 bytes" frames.
- * You can use the sysctl to play with this value anyway.
+ * My nsc-ircc hardware has troubles receiving 2048 bytes frames at 4 Mb/s,
+ * so adjust to 2042... I don't know if this bug applies only for 2048
+ * bytes frames or all negociated frame sizes, but you can use the sysctl
+ * to play with this value anyway.
  * Jean II */
 unsigned sysctl_max_tx_data_size = 2042;
+/*
+ * Maximum transmit window, i.e. number of LAP frames between turn-around.
+ * This allow to override what the peer told us. Some peers are buggy and
+ * don't always support what they tell us.
+ * Jean II */
+unsigned sysctl_max_tx_window = 7;
 
 static int irlap_param_baud_rate(void *instance, irda_param_t *param, int get);
 static int irlap_param_link_disconnect(void *instance, irda_param_t *parm, 
@@ -92,7 +97,7 @@ static int irlap_param_min_turn_time(void *instance, irda_param_t *param,
 				     int get);
 
 __u32 min_turn_times[]  = { 10000, 5000, 1000, 500, 100, 50, 10, 0 }; /* us */
-__u32 baud_rates[]      = { 2400, 9600, 19200, 38400, 57600, 115200, 576000, 
+static __u32 baud_rates[] = { 2400, 9600, 19200, 38400, 57600, 115200, 576000,
 			    1152000, 4000000, 16000000 };           /* bps */
 __u32 data_sizes[]      = { 64, 128, 256, 512, 1024, 2048 };        /* bytes */
 __u32 add_bofs[]        = { 48, 24, 12, 5, 3, 2, 1, 0 };            /* bytes */
@@ -184,7 +189,19 @@ int msb_index (__u16 word)
 {
 	__u16 msb = 0x8000;
 	int index = 15;   /* Current MSB */
-	
+
+	/* Check for buggy peers.
+	 * Note : there is a small probability that it could be us, but I
+	 * would expect driver authors to catch that pretty early and be
+	 * able to check precisely what's going on. If a end user sees this,
+	 * it's very likely the peer. - Jean II */
+	if (word == 0) {
+		WARNING("%s(), Detected buggy peer, adjust null PV to 0x1!\n",
+			 __FUNCTION__);
+		/* The only safe choice (we don't know the array size) */
+		word = 0x1;
+	}
+
 	while (msb) {
 		if (word & msb)
 			break;   /* Found it! */
@@ -331,13 +348,17 @@ void irlap_adjust_qos_settings(struct qos_info *qos)
 	__u32 line_capacity;
 	int index;
 
-	IRDA_DEBUG(2, __FUNCTION__ "()\n");
+	IRDA_DEBUG(2, "%s()\n", __FUNCTION__);
 
 	/*
 	 * Make sure the mintt is sensible.
+	 * Main culprit : Ericsson T39. - Jean II
 	 */
 	if (sysctl_min_tx_turn_time > qos->min_turn_time.value) {
 		int i;
+
+		WARNING("%s(), Detected buggy peer, adjust mtt to %dus!\n",
+			 __FUNCTION__, sysctl_min_tx_turn_time);
 
 		/* We don't really need bits, but easier this way */
 		i = value_highest_bit(sysctl_min_tx_turn_time, min_turn_times,
@@ -353,8 +374,7 @@ void irlap_adjust_qos_settings(struct qos_info *qos)
 	if ((qos->baud_rate.value < 115200) && 
 	    (qos->max_turn_time.value < 500))
 	{
-		IRDA_DEBUG(0, __FUNCTION__ 
-			   "(), adjusting max turn time from %d to 500 ms\n",
+		IRDA_DEBUG(0, "%s(), adjusting max turn time from %d to 500 ms\n", __FUNCTION__,
 			   qos->max_turn_time.value);
 		qos->max_turn_time.value = 500;
 	}
@@ -370,8 +390,7 @@ void irlap_adjust_qos_settings(struct qos_info *qos)
 #ifdef CONFIG_IRDA_DYNAMIC_WINDOW
 	while ((qos->data_size.value > line_capacity) && (index > 0)) {
 		qos->data_size.value = data_sizes[index--];
-		IRDA_DEBUG(2, __FUNCTION__ 
-			   "(), reducing data size to %d\n",
+		IRDA_DEBUG(2, "%s(), reducing data size to %d\n", __FUNCTION__,
 			   qos->data_size.value);
 	}
 #else /* Use method described in section 6.6.11 of IrLAP */
@@ -381,16 +400,14 @@ void irlap_adjust_qos_settings(struct qos_info *qos)
 		/* Must be able to send at least one frame */
 		if (qos->window_size.value > 1) {
 			qos->window_size.value--;
-			IRDA_DEBUG(2, __FUNCTION__ 
-				   "(), reducing window size to %d\n",
+			IRDA_DEBUG(2, "%s(), reducing window size to %d\n", __FUNCTION__,
 				   qos->window_size.value);
 		} else if (index > 1) {
 			qos->data_size.value = data_sizes[index--];
-			IRDA_DEBUG(2, __FUNCTION__ 
-				   "(), reducing data size to %d\n",
+			IRDA_DEBUG(2, "%s(), reducing data size to %d\n", __FUNCTION__,
 				   qos->data_size.value);
 		} else {
-			WARNING(__FUNCTION__ "(), nothing more we can do!\n");
+			WARNING("%s(), nothing more we can do!\n", __FUNCTION__);
 		}
 	}
 #endif /* CONFIG_IRDA_DYNAMIC_WINDOW */
@@ -400,6 +417,11 @@ void irlap_adjust_qos_settings(struct qos_info *qos)
 	if (qos->data_size.value > sysctl_max_tx_data_size)
 		/* Allow non discrete adjustement to avoid loosing capacity */
 		qos->data_size.value = sysctl_max_tx_data_size;
+	/*
+	 * Override Tx window if user request it. - Jean II
+	 */
+	if (qos->window_size.value > sysctl_max_tx_window)
+		qos->window_size.value = sysctl_max_tx_window;
 }
 
 /*
@@ -519,7 +541,7 @@ static int irlap_param_baud_rate(void *instance, irda_param_t *param, int get)
 
 	if (get) {
 		param->pv.i = self->qos_rx.baud_rate.bits;
-		IRDA_DEBUG(2, __FUNCTION__ "(), baud rate = 0x%02x\n", 
+		IRDA_DEBUG(2, "%s(), baud rate = 0x%02x\n", __FUNCTION__,
 			   param->pv.i);		
 	} else {
 		/* 
@@ -692,7 +714,7 @@ __u32 irlap_max_line_capacity(__u32 speed, __u32 max_turn_time)
 	__u32 line_capacity;
 	int i,j;
 
-	IRDA_DEBUG(2, __FUNCTION__ "(), speed=%d, max_turn_time=%d\n",
+	IRDA_DEBUG(2, "%s(), speed=%d, max_turn_time=%d\n", __FUNCTION__,
 		   speed, max_turn_time);
 
 	i = value_index(speed, baud_rates, 10);
@@ -703,7 +725,7 @@ __u32 irlap_max_line_capacity(__u32 speed, __u32 max_turn_time)
 
 	line_capacity = max_line_capacities[i][j];
 
-	IRDA_DEBUG(2, __FUNCTION__ "(), line capacity=%d bytes\n", 
+	IRDA_DEBUG(2, "%s(), line capacity=%d bytes\n", __FUNCTION__,
 		   line_capacity);
 	
 	return line_capacity;
@@ -717,7 +739,7 @@ __u32 irlap_requested_line_capacity(struct qos_info *qos)
 		irlap_min_turn_time_in_bytes(qos->baud_rate.value, 
 					     qos->min_turn_time.value);
 	
-	IRDA_DEBUG(2, __FUNCTION__ "(), requested line capacity=%d\n",
+	IRDA_DEBUG(2, "%s(), requested line capacity=%d\n", __FUNCTION__,
 		   line_capacity);
 	
 	return line_capacity;			       		  

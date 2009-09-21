@@ -30,76 +30,55 @@ ipchains-objs		:= $(ip_nf_compat-objs) ipchains_core.o
 
 # connection tracking
 obj-$(CONFIG_IP_NF_CONNTRACK) += ip_conntrack.o
- 
-# H.323 support
-obj-$(CONFIG_IP_NF_H323) += ip_conntrack_h323.o
-ifdef CONFIG_IP_NF_H323
-	export-objs += ip_conntrack_h323.o
+
+# connection tracking helpers
+obj-$(CONFIG_IP_NF_AMANDA) += ip_conntrack_amanda.o
+ifdef CONFIG_IP_NF_AMANDA
+	export-objs += ip_conntrack_amanda.o
 endif
-obj-$(CONFIG_IP_NF_NAT_H323) += ip_nat_h323.o
-
-
-# connection tracking protocol helpers
+obj-$(CONFIG_IP_NF_TFTP) += ip_conntrack_tftp.o
+obj-$(CONFIG_IP_NF_FTP) += ip_conntrack_ftp.o
+ifdef CONFIG_IP_NF_FTP
+	export-objs += ip_conntrack_ftp.o
+endif
+obj-$(CONFIG_IP_NF_IRC) += ip_conntrack_irc.o
+ifdef CONFIG_IP_NF_IRC
+	export-objs += ip_conntrack_irc.o
+endif
 obj-$(CONFIG_IP_NF_CT_PROTO_GRE) += ip_conntrack_proto_gre.o
 ifdef CONFIG_IP_NF_CT_PROTO_GRE
 	export-objs += ip_conntrack_proto_gre.o
-endif
-
-# NAT protocol helpers
-obj-$(CONFIG_IP_NF_NAT_PROTO_GRE) += ip_nat_proto_gre.o
-
-# connection tracking protocol helpers
-obj-$(CONFIG_IP_NF_CT_PROTO_ESP) += ip_conntrack_proto_esp.o
-ifdef CONFIG_IP_NF_CT_PROTO_ESP
-	export-objs += ip_conntrack_proto_esp.o
-endif
- 
-# NAT protocol helpers
-obj-$(CONFIG_IP_NF_NAT_PROTO_ESP) += ip_nat_proto_esp.o
-
-# connection tracking helpers
-obj-$(CONFIG_IP_NF_QUAKE3) += ip_conntrack_quake3.o
-ifdef CONFIG_IP_NF_NAT_QUAKE3
-    export-objs += ip_conntrack_quake3.o
-endif
-obj-$(CONFIG_IP_NF_MMS) += ip_conntrack_mms.o
-ifdef CONFIG_IP_NF_NAT_MMS
-	export-objs += ip_conntrack_mms.o
 endif
 obj-$(CONFIG_IP_NF_PPTP) += ip_conntrack_pptp.o
 ifdef CONFIG_IP_NF_NAT_PPTP
 	export-objs += ip_conntrack_pptp.o
 endif
-obj-$(CONFIG_IP_NF_SIP) += ip_conntrack_sip.o
-ifdef CONFIG_IP_NF_NAT_SIP
-	export-objs += ip_conntrack_sip.o
+obj-$(CONFIG_IP_NF_H323) += ip_conntrack_h323.o
+ifdef CONFIG_IP_NF_NAT_H323
+       export-objs += ip_conntrack_h323.o
 endif
-obj-$(CONFIG_IP_NF_TFTP) += ip_conntrack_tftp.o
-obj-$(CONFIG_IP_NF_FTP) += ip_conntrack_ftp.o
-ifdef CONFIG_IP_NF_NAT_FTP
-	export-objs += ip_conntrack_ftp.o
-endif
-obj-$(CONFIG_IP_NF_IRC) += ip_conntrack_irc.o
-ifdef CONFIG_IP_NF_NAT_IRC
-	export-objs += ip_conntrack_irc.o
-endif
-
-# rtsp protocol support
 obj-$(CONFIG_IP_NF_RTSP) += ip_conntrack_rtsp.o
 ifdef CONFIG_IP_NF_NAT_RTSP
-	export-objs += ip_conntrack_rtsp.o
+       export-objs += ip_conntrack_rtsp.o
 endif
-obj-$(CONFIG_IP_NF_NAT_RTSP) += ip_nat_rtsp.o
+obj-$(CONFIG_IP_NF_MMS) += ip_conntrack_mms.o
+ifdef CONFIG_IP_NF_NAT_MMS
+       export-objs += ip_conntrack_mms.o
+endif
+
+
 
 # NAT helpers 
-obj-$(CONFIG_IP_NF_NAT_CUSEEME) += ip_nat_cuseeme.o
-obj-$(CONFIG_IP_NF_NAT_PPTP) += ip_nat_pptp.o
-obj-$(CONFIG_IP_NF_NAT_SIP) += ip_nat_sip.o
+obj-$(CONFIG_IP_NF_NAT_AMANDA) += ip_nat_amanda.o
 obj-$(CONFIG_IP_NF_NAT_TFTP) += ip_nat_tftp.o
 obj-$(CONFIG_IP_NF_NAT_FTP) += ip_nat_ftp.o
 obj-$(CONFIG_IP_NF_NAT_IRC) += ip_nat_irc.o
-obj-$(CONFIG_IP_NF_NAT_QUAKE3) += ip_nat_quake3.o
+obj-$(CONFIG_IP_NF_NAT_PROTO_GRE) += ip_nat_proto_gre.o
+obj-$(CONFIG_IP_NF_NAT_PPTP) += ip_nat_pptp.o
+obj-$(CONFIG_IP_NF_NAT_H323) += ip_nat_h323.o
+obj-$(CONFIG_IP_NF_NAT_RTSP) += ip_nat_rtsp.o
 obj-$(CONFIG_IP_NF_NAT_MMS) += ip_nat_mms.o
+obj-$(CONFIG_IP_NF_NAT_STARCRAFT) += ip_nat_starcraft.o
 
 # generic IP tables 
 obj-$(CONFIG_IP_NF_IPTABLES) += ip_tables.o
@@ -112,37 +91,49 @@ obj-$(CONFIG_IP_NF_NAT) += iptable_nat.o
 # matches
 obj-$(CONFIG_IP_NF_MATCH_HELPER) += ipt_helper.o
 obj-$(CONFIG_IP_NF_MATCH_LIMIT) += ipt_limit.o
-obj-$(CONFIG_IP_NF_MATCH_IPP2P) += ipt_ipp2p.o
-obj-$(CONFIG_IP_NF_MATCH_GEOIP) += ipt_geoip.o
-obj-$(CONFIG_IP_NF_MATCH_QUOTA) += ipt_quota.o
 obj-$(CONFIG_IP_NF_MATCH_IPRANGE) += ipt_iprange.o
+obj-$(CONFIG_IP_NF_MATCH_QUOTA) += ipt_quota.o
 obj-$(CONFIG_IP_NF_MATCH_MARK) += ipt_mark.o
-obj-$(CONFIG_IP_NF_POOL) += ipt_pool.o ip_pool.o
 obj-$(CONFIG_IP_NF_MATCH_MAC) += ipt_mac.o
+obj-$(CONFIG_IP_NF_MATCH_IPP2P) += ipt_ipp2p.o
+
 obj-$(CONFIG_IP_NF_MATCH_PKTTYPE) += ipt_pkttype.o
 obj-$(CONFIG_IP_NF_MATCH_MULTIPORT) += ipt_multiport.o
-obj-$(CONFIG_IP_NF_MATCH_MPORT) += ipt_mport.o
 obj-$(CONFIG_IP_NF_MATCH_OWNER) += ipt_owner.o
 obj-$(CONFIG_IP_NF_MATCH_TOS) += ipt_tos.o
-obj-$(CONFIG_IP_NF_MATCH_RECENT) += ipt_recent.o
-obj-$(CONFIG_IP_NF_MATCH_ACCOUNT) += ipt_account.o
-obj-$(CONFIG_IP_NF_MATCH_CONDITION) += ipt_condition.o
 obj-$(CONFIG_IP_NF_MATCH_TIME) += ipt_time.o
+obj-$(CONFIG_IP_NF_MATCH_CONDITION) += ipt_condition.o
+
+obj-$(CONFIG_IP_NF_MATCH_RECENT) += ipt_recent.o
+
+obj-$(CONFIG_IP_NF_MATCH_ACCOUNT) += ipt_account.o
+obj-$(CONFIG_IP_NF_POOL) += ipt_pool.o ip_pool.o
+
+obj-$(CONFIG_IP_NF_MATCH_NTH) += ipt_nth.o
+obj-$(CONFIG_IP_NF_MATCH_PSD) += ipt_psd.o
+obj-$(CONFIG_IP_NF_MATCH_RANDOM) += ipt_random.o
+
 obj-$(CONFIG_IP_NF_MATCH_ECN) += ipt_ecn.o
 obj-$(CONFIG_IP_NF_MATCH_DSCP) += ipt_dscp.o
 obj-$(CONFIG_IP_NF_MATCH_AH_ESP) += ipt_ah.o ipt_esp.o
+
 obj-$(CONFIG_IP_NF_MATCH_LENGTH) += ipt_length.o
-obj-$(CONFIG_IP_NF_MATCH_U32) += ipt_u32.o
+
 obj-$(CONFIG_IP_NF_MATCH_TTL) += ipt_ttl.o
 obj-$(CONFIG_IP_NF_MATCH_STATE) += ipt_state.o
 obj-$(CONFIG_IP_NF_MATCH_CONNLIMIT) += ipt_connlimit.o
 obj-$(CONFIG_IP_NF_MATCH_CONNMARK) += ipt_connmark.o
+obj-$(CONFIG_IP_NF_MATCH_CONNBYTES) += ipt_connbytes.o
 obj-$(CONFIG_IP_NF_MATCH_CONNTRACK) += ipt_conntrack.o
 obj-$(CONFIG_IP_NF_MATCH_UNCLEAN) += ipt_unclean.o
 obj-$(CONFIG_IP_NF_MATCH_STRING) += ipt_string.o
-obj-$(CONFIG_IP_NF_MATCH_WEBSTR) += ipt_webstr.o
 obj-$(CONFIG_IP_NF_MATCH_TCPMSS) += ipt_tcpmss.o
 obj-$(CONFIG_IP_NF_MATCH_LAYER7) += ipt_layer7.o
+obj-$(CONFIG_IP_NF_MATCH_WEBSTR) += ipt_webstr.o
+
+obj-$(CONFIG_IP_NF_MATCH_GEOIP) += ipt_geoip.o
+obj-$(CONFIG_IP_NF_MATCH_MPORT) += ipt_mport.o
+obj-$(CONFIG_IP_NF_MATCH_U32) += ipt_u32.o
 obj-$(CONFIG_IP_NF_MATCH_WEB) += ipt_web.o
 obj-$(CONFIG_IP_NF_MATCH_MACSAVE) += ipt_macsave.o
 obj-$(CONFIG_IP_NF_MATCH_EXP) += ipt_exp.o
@@ -150,8 +141,9 @@ obj-$(CONFIG_IP_NF_MATCH_BCOUNT) += ipt_bcount.o
 
 # targets
 obj-$(CONFIG_IP_NF_TARGET_REJECT) += ipt_REJECT.o
-obj-$(CONFIG_IP_NF_TARGET_MIRROR) += ipt_MIRROR.o
 obj-$(CONFIG_IP_NF_TARGET_CLASSIFY) += ipt_CLASSIFY.o
+obj-$(CONFIG_IP_NF_TARGET_MIRROR) += ipt_MIRROR.o
+obj-$(CONFIG_IP_NF_TARGET_TARPIT) += ipt_TARPIT.o
 obj-$(CONFIG_IP_NF_TARGET_TOS) += ipt_TOS.o
 obj-$(CONFIG_IP_NF_TARGET_ECN) += ipt_ECN.o
 obj-$(CONFIG_IP_NF_TARGET_DSCP) += ipt_DSCP.o
@@ -160,6 +152,7 @@ obj-$(CONFIG_IP_NF_TARGET_IMQ) += ipt_IMQ.o
 obj-$(CONFIG_IP_NF_TARGET_MASQUERADE) += ipt_MASQUERADE.o
 obj-$(CONFIG_IP_NF_TARGET_REDIRECT) += ipt_REDIRECT.o
 obj-$(CONFIG_IP_NF_TARGET_ROUTE) += ipt_ROUTE.o
+obj-$(CONFIG_IP_NF_TARGET_NETMAP) += ipt_NETMAP.o
 obj-$(CONFIG_IP_NF_NAT_SNMP_BASIC) += ip_nat_snmp_basic.o
 obj-$(CONFIG_IP_NF_TARGET_LOG) += ipt_LOG.o
 obj-$(CONFIG_IP_NF_TARGET_CONNMARK) += ipt_CONNMARK.o
@@ -173,6 +166,7 @@ obj-$(CONFIG_IP_NF_TARGET_BCOUNT) += ipt_BCOUNT.o
 
 # generic ARP tables
 obj-$(CONFIG_IP_NF_ARPTABLES) += arp_tables.o
+obj-$(CONFIG_IP_NF_ARP_MANGLE) += arpt_mangle.o
 
 # just filtering instance of ARP tables for now
 obj-$(CONFIG_IP_NF_ARPFILTER) += arptable_filter.o
@@ -182,6 +176,27 @@ obj-$(CONFIG_IP_NF_COMPAT_IPCHAINS) += ipchains.o
 obj-$(CONFIG_IP_NF_COMPAT_IPFWADM) += ipfwadm.o
 
 obj-$(CONFIG_IP_NF_QUEUE) += ip_queue.o
+
+# ipset
+obj-$(CONFIG_IP_NF_SET) += ip_set.o
+obj-$(CONFIG_IP_NF_SET_IPMAP) += ip_set_ipmap.o
+obj-$(CONFIG_IP_NF_SET_PORTMAP) += ip_set_portmap.o
+obj-$(CONFIG_IP_NF_SET_MACIPMAP) += ip_set_macipmap.o
+obj-$(CONFIG_IP_NF_SET_IPHASH) += ip_set_iphash.o
+obj-$(CONFIG_IP_NF_SET_NETHASH) += ip_set_nethash.o
+obj-$(CONFIG_IP_NF_SET_IPPORTHASH) += ip_set_ipporthash.o
+obj-$(CONFIG_IP_NF_SET_IPPORTIPHASH) += ip_set_ipportiphash.o
+obj-$(CONFIG_IP_NF_SET_IPPORTNETHASH) += ip_set_ipportnethash.o
+obj-$(CONFIG_IP_NF_SET_IPTREE) += ip_set_iptree.o
+obj-$(CONFIG_IP_NF_SET_IPTREEMAP) += ip_set_iptreemap.o
+obj-$(CONFIG_IP_NF_SET_SETLIST) += ip_set_setlist.o
+
+# match and target
+obj-$(CONFIG_IP_NF_MATCH_SET) += ipt_set.o
+obj-$(CONFIG_IP_NF_TARGET_SET) += ipt_SET.o
+ifdef CONFIG_IP_NF_SET
+	export-objs += ip_set.o
+endif
 
 obj-$(CONFIG_IP_NF_TOMATOCT) += tomato_ct.o
 

@@ -56,9 +56,9 @@
  *	Feature Map 2 is the active low inputs not supported on your card.
  */
  
-#ifdef CONFIG_WDT_501		    /* Full board */
+#ifdef CONFIG_WDT_501		/* Full board */
 
-#ifdef CONFIG_WDT501_FAN	    /* Full board, Fan has no tachometer */
+#ifdef CONFIG_WDT501_FAN	/* Full board, Fan has no tachometer */
 #define FEATUREMAP1		0
 #define WDT_OPTION_MASK		(WDIOF_OVERHEAT|WDIOF_POWERUNDER|WDIOF_POWEROVER|WDIOF_EXTERN1|WDIOF_EXTERN2|WDIOF_FANFAULT)
 #else
@@ -73,7 +73,7 @@
 #define CONFIG_WDT_500
 #endif
 
-#ifdef CONFIG_WDT_500		    /* Minimal board */
+#ifdef CONFIG_WDT_500		/* Minimal board */
 #define FEATUREMAP1		(WDC_SR_TGOOD|WDC_SR_FANGOOD)
 #define FEATUREMAP2		(WDC_SR_PSUOVER|WDC_SR_PSUUNDR)
 #define WDT_OPTION_MASK		(WDIOF_OVERHEAT)

@@ -120,6 +120,8 @@ svc_sock_enqueue(struct svc_sock *svsk)
 	if (!(svsk->sk_flags &
 	      ( (1<<SK_CONN)|(1<<SK_DATA)|(1<<SK_CLOSE)) ))
 		return;
+	if (test_bit(SK_DEAD, &svsk->sk_flags))
+		return;
 
 	spin_lock_bh(&serv->sv_lock);
 
@@ -315,6 +317,9 @@ svc_sendto(struct svc_rqst *rqstp, struct iovec *iov, int nr)
 	struct svc_sock	*svsk = rqstp->rq_sock;
 	struct socket	*sock = svsk->sk_sock;
 	struct msghdr	msg;
+	char 		buffer[CMSG_SPACE(sizeof(struct in_pktinfo))];
+	struct cmsghdr *cmh = (struct cmsghdr *)buffer;
+	struct in_pktinfo *pki = (struct in_pktinfo *)CMSG_DATA(cmh);
 	int		i, buflen, len;
 
 	for (i = buflen = 0; i < nr; i++)
@@ -324,8 +329,18 @@ svc_sendto(struct svc_rqst *rqstp, struct iovec *iov, int nr)
 	msg.msg_namelen = sizeof(rqstp->rq_addr);
 	msg.msg_iov     = iov;
 	msg.msg_iovlen  = nr;
-	msg.msg_control = NULL;
-	msg.msg_controllen = 0;
+	if (rqstp->rq_prot == IPPROTO_UDP) {
+		msg.msg_control = cmh;
+		msg.msg_controllen = sizeof(buffer);
+		cmh->cmsg_len = CMSG_LEN(sizeof(*pki));
+		cmh->cmsg_level = SOL_IP;
+		cmh->cmsg_type = IP_PKTINFO;
+		pki->ipi_ifindex = 0;
+		pki->ipi_spec_dst.s_addr = rqstp->rq_daddr;
+	} else {
+		msg.msg_control = NULL;
+		msg.msg_controllen = 0;
+	}
 
 	/* This was MSG_DONTWAIT, but I now want it to wait.
 	 * The only thing that it would wait for is memory and
@@ -389,6 +404,10 @@ svc_recvfrom(struct svc_rqst *rqstp, struct iovec *iov, int nr, int buflen)
 	len = sock_recvmsg(sock, &msg, buflen, MSG_DONTWAIT);
 	set_fs(oldfs);
 
+	/* sock_recvmsg doesn't fill in the name/namelen, so we must..
+	 * possibly we should cache this in the svc_sock structure
+	 * at accept time. FIXME
+	 */
 	alen = sizeof(rqstp->rq_addr);
 	sock->ops->getname(sock, (struct sockaddr *)&rqstp->rq_addr, &alen, 1);
 
@@ -404,6 +423,14 @@ svc_recvfrom(struct svc_rqst *rqstp, struct iovec *iov, int nr, int buflen)
 static inline void
 svc_sock_setbufsize(struct socket *sock, unsigned int snd, unsigned int rcv)
 {
+#if 0
+	mm_segment_t	oldfs;
+	oldfs = get_fs(); set_fs(KERNEL_DS);
+	sock_setsockopt(sock, SOL_SOCKET, SO_SNDBUF,
+			(char*)&snd, sizeof(snd));
+	sock_setsockopt(sock, SOL_SOCKET, SO_RCVBUF,
+			(char*)&rcv, sizeof(rcv));
+#else
 	/* sock_setsockopt limits use to sysctl_?mem_max,
 	 * which isn't acceptable.  Until that is made conditional
 	 * on not having CAP_SYS_RESOURCE or similar, we go direct...
@@ -414,6 +441,7 @@ svc_sock_setbufsize(struct socket *sock, unsigned int snd, unsigned int rcv)
 	sock->sk->rcvbuf = rcv * 2;
 	sock->sk->userlocks |= SOCK_SNDBUF_LOCK|SOCK_RCVBUF_LOCK;
 	release_sock(sock->sk);
+#endif
 }
 /*
  * INET callback when data has been received on the socket.
@@ -448,11 +476,8 @@ svc_write_space(struct sock *sk)
 		svc_sock_enqueue(svsk);
 	}
 
-	if (sk->sleep && waitqueue_active(sk->sleep)) {
-		printk(KERN_WARNING "RPC svc_write_space: some sleeping on %p\n",
-		       svsk);
+	if (sk->sleep && waitqueue_active(sk->sleep))
 		wake_up_interruptible(sk->sleep);
-	}
 }
 
 /*
@@ -519,6 +544,7 @@ svc_udp_recvfrom(struct svc_rqst *rqstp)
 	rqstp->rq_addr.sin_family = AF_INET;
 	rqstp->rq_addr.sin_port = skb->h.uh->source;
 	rqstp->rq_addr.sin_addr.s_addr = skb->nh.iph->saddr;
+	rqstp->rq_daddr = skb->nh.iph->daddr;
 
 	if (serv->sv_stats)
 		serv->sv_stats->netudpcnt++;
@@ -585,8 +611,17 @@ svc_tcp_listen_data_ready(struct sock *sk, int count_unused)
 	dprintk("svc: socket %p TCP (listen) state change %d\n",
 			sk, sk->state);
 
-	if  (sk->state != TCP_ESTABLISHED) {
-		/* Aborted connection, SYN_RECV or whatever... */
+	if  (sk->state != TCP_LISTEN) {
+		/*
+		 * This callback may called twice when a new connection
+		 * is established as a child socket inherits everything
+		 * from a parent LISTEN socket.
+		 * 1) data_ready method of the parent socket will be called
+		 *    when one of child sockets become ESTABLISHED.
+		 * 2) data_ready method of the child socket may be called
+		 *    when it receives data before the socket is accepted.
+		 * In case of 2, we should ignore it silently.
+		 */
 		goto out;
 	}
 	if (!(svsk = (struct svc_sock *) sk->user_data)) {
@@ -772,7 +807,7 @@ svc_tcp_recvfrom(struct svc_rqst *rqstp)
 		return 0;
 	}
 
-	if (test_bit(SK_CONN, &svsk->sk_flags)) {
+	if (svsk->sk_sk->state == TCP_LISTEN) {
 		svc_tcp_accept(svsk);
 		svc_sock_received(svsk);
 		return 0;
@@ -806,11 +841,20 @@ svc_tcp_recvfrom(struct svc_rqst *rqstp)
 		if ((len = svc_recvfrom(rqstp, &iov, 1, want)) < 0)
 			goto error;
 		svsk->sk_tcplen += len;
-		if (len < want)
-			return 0;
+		if (len < want) {
+			dprintk("svc: short recvfrom while reading record length (%d of %ld)\n",
+			        len, want);
+			svc_sock_received(svsk);
+			return -EAGAIN; /* record header not complete */
+		}
 
 		svsk->sk_reclen = ntohl(svsk->sk_reclen);
 		if (!(svsk->sk_reclen & 0x80000000)) {
+			/* FIXME: technically, a record can be fragmented,
+			 *  and non-terminal fragments will not have the top
+			 *  bit set in the fragment length header.
+			 *  But apparently no known nfs clients send fragmented
+			 *  records. */
 			printk(KERN_NOTICE "RPC: bad TCP reclen 0x%08lx (non-terminal)\n",
 			       (unsigned long) svsk->sk_reclen);
 			goto err_delete;
@@ -902,6 +946,9 @@ svc_tcp_sendto(struct svc_rqst *rqstp)
 	bufp->iov[0].iov_len  = bufp->len << 2;
 	bufp->base[0] = htonl(0x80000000|((bufp->len << 2) - 4));
 
+	if (test_bit(SK_DEAD, &rqstp->rq_sock->sk_flags))
+		return -ENOTCONN;
+
 	sent = svc_sendto(rqstp, bufp->iov, bufp->nriov);
 	if (sent != bufp->len<<2) {
 		printk(KERN_NOTICE "rpc-srv/tcp: %s: sent only %d bytes of %d - shutting down socket\n",
@@ -917,6 +964,7 @@ static int
 svc_tcp_init(struct svc_sock *svsk)
 {
 	struct sock	*sk = svsk->sk_sk;
+	struct tcp_opt  *tp = &(sk->tp_pinfo.af_tcp);
 
 	svsk->sk_recvfrom = svc_tcp_recvfrom;
 	svsk->sk_sendto = svc_tcp_sendto;
@@ -933,6 +981,8 @@ svc_tcp_init(struct svc_sock *svsk)
 		svsk->sk_reclen = 0;
 		svsk->sk_tcplen = 0;
 
+		tp->nonagle = 1;        /* disable Nagle's algorithm */
+
 		/* initialise setting must have enough space to
 		 * receive and respond to one request.  
 		 * svc_tcp_recvfrom will re-adjust if necessary
@@ -942,6 +992,8 @@ svc_tcp_init(struct svc_sock *svsk)
 				    3 * svsk->sk_server->sv_bufsz);
 
 		set_bit(SK_CHNGBUF, &svsk->sk_flags);
+		if (sk->state != TCP_ESTABLISHED) 
+			set_bit(SK_CLOSE, &svsk->sk_flags);
 	}
 
 	return 0;
@@ -1121,6 +1173,10 @@ svc_send(struct svc_rqst *rqstp)
 	return len;
 }
 
+/*
+ * Initialize socket for RPC use and create svc_sock struct
+ * XXX: May want to setsockopt SO_SNDBUF and SO_RCVBUF.
+ */
 static struct svc_sock *
 svc_setup_socket(struct svc_serv *serv, struct socket *sock,
 					int *errp, int pmap_register)
@@ -1207,7 +1263,8 @@ svc_create_socket(struct svc_serv *serv, int protocol, struct sockaddr_in *sin)
 		return error;
 
 	if (sin != NULL) {
-		sock->sk->reuse = 1; /* allow address reuse */
+		if (type == SOCK_STREAM)
+			sock->sk->reuse = 1; /* allow address reuse */
 		error = sock->ops->bind(sock, (struct sockaddr *) sin,
 						sizeof(*sin));
 		if (error < 0)
@@ -1239,6 +1296,9 @@ svc_delete_socket(struct svc_sock *svsk)
 
 	dprintk("svc: svc_delete_socket(%p)\n", svsk);
 
+	if (test_and_set_bit(SK_DEAD, &svsk->sk_flags))
+		return ;
+
 	serv = svsk->sk_server;
 	sk = svsk->sk_sk;
 
@@ -1254,8 +1314,6 @@ svc_delete_socket(struct svc_sock *svsk)
 	if (test_bit(SK_QUED, &svsk->sk_flags))
 		list_del(&svsk->sk_ready);
 
-
-	set_bit(SK_DEAD, &svsk->sk_flags);
 
 	if (!svsk->sk_inuse) {
 		spin_unlock_bh(&serv->sv_lock);

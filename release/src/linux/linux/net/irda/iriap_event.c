@@ -251,22 +251,25 @@ static void state_s_call(struct iriap_cb *self, IRIAP_EVENT event,
 static void state_s_make_call(struct iriap_cb *self, IRIAP_EVENT event, 
 			      struct sk_buff *skb) 
 {
+	struct sk_buff *tx_skb;
+
 	ASSERT(self != NULL, return;);
 
 	switch (event) {
 	case IAP_CALL_REQUEST:
-		skb = self->skb;
+		tx_skb = self->skb;
 		self->skb = NULL;
 		
-		irlmp_data_request(self->lsap, skb);
+		irlmp_data_request(self->lsap, tx_skb);
 		iriap_next_call_state(self, S_OUTSTANDING);
 		break;
 	default:
 		IRDA_DEBUG(0, "%s(), Unknown event %d\n", __FUNCTION__, event);
-		if (skb)
-			dev_kfree_skb(skb);
 		break;
 	}
+	/* Cleanup time ! */
+	if (skb)
+		dev_kfree_skb(skb);
 }
 
 /*

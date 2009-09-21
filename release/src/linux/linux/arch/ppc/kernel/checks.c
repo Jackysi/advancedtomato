@@ -1,6 +1,3 @@
-/*
- * BK Id: SCCS/s.checks.c 1.6 05/17/01 18:14:21 cort
- */
 #include <linux/errno.h>
 #include <linux/sched.h>
 #include <linux/kernel.h>
@@ -26,6 +23,16 @@
 int main(void)
 {
 	int ret = 0;
+#if 0
+	if ( sizeof(struct thread_struct) % 16 )
+	{
+		printf("Thread struct is not modulo 16 bytes: "
+			"%d bytes total, %d bytes off\n",
+			sizeof(struct thread_struct),
+			sizeof(struct thread_struct)%16);
+		ret = -1;
+	}
+#endif
 
 	if ( sizeof(struct pt_regs) % 16 )
 	{
@@ -34,7 +41,7 @@ int main(void)
 			sizeof(struct pt_regs),
 			sizeof(struct pt_regs)%16);
 		ret = -1;
-		
+
 	}
 
 	printf("Task size        : %d bytes\n"

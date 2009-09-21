@@ -10,6 +10,8 @@
  */
 
 #include <linux/config.h>
+#include <linux/seq_file.h>
+#include <linux/irq.h>
 
 struct pt_regs;
 struct pci_bus;	
@@ -62,6 +64,7 @@ struct machdep_calls {
 	unsigned int	(*irq_cannonicalize)(unsigned int irq);
 	void		(*init_IRQ)(void);
 	void		(*init_ras_IRQ)(void);
+	void		(*init_irq_desc)(irq_desc_t *desc);
 	int		(*get_irq)(struct pt_regs *);
 	
 	/* A general init function, called by ppc_init in init/main.c.
@@ -131,6 +134,9 @@ struct machdep_calls {
 	void* (*pci_dev_mem_base)(unsigned char bus, unsigned char devfn);
 	int (*pci_dev_root_bridge)(unsigned char bus, unsigned char devfn);
 
+	/* Interface for platform error logging */
+	void (*log_error)(char *buf, unsigned int err_type, int fatal);
+
 	/* this is for modules, since _machine can be a define -- Cort */
 	int ppc_machine;
 };
@@ -156,6 +162,11 @@ void ppc64_attention_msg(unsigned int src, const char *msg);
 /* Print a dump progress message. */
 void ppc64_dump_msg(unsigned int src, const char *msg);
 
+static inline void log_error(char *buf, unsigned int err_type, int fatal)
+{
+	if (ppc_md.log_error)
+		ppc_md.log_error(buf, err_type, fatal);
+}
 
 #endif /* _PPC_MACHDEP_H */
 #endif /* __KERNEL__ */

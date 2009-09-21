@@ -46,8 +46,6 @@ typedef struct drm_mga_primary_buffer {
 	u32 last_wrap;
 
 	u32 high_mark;
-
-	spinlock_t list_lock;
 } drm_mga_primary_buffer_t;
 
 typedef struct drm_mga_freelist {
@@ -257,7 +255,7 @@ do {									\
 #define BEGIN_DMA_WRAP()						\
 do {									\
 	if ( MGA_VERBOSE ) {						\
-		DRM_INFO( "BEGIN_DMA() in %s\n", __FUNCTION__ );	\
+		DRM_INFO( "BEGIN_DMA() in %s\n", __FUNCTION__ );		\
 		DRM_INFO( "   space=0x%x\n", dev_priv->prim.space );	\
 	}								\
 	prim = dev_priv->prim.start;					\
@@ -276,7 +274,7 @@ do {									\
 #define FLUSH_DMA()							\
 do {									\
 	if ( 0 ) {							\
-		DRM_INFO( "%s:\n" , __FUNCTION__);			\
+		DRM_INFO( "%s:\n", __FUNCTION__ );				\
 		DRM_INFO( "   tail=0x%06x head=0x%06lx\n",		\
 			  dev_priv->prim.tail,				\
 			  MGA_READ( MGA_PRIMADDRESS ) -			\

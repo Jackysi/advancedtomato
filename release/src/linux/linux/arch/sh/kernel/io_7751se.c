@@ -20,6 +20,23 @@
 #include <linux/pci.h>
 #include <asm/pci-sh7751.h>
 
+#if 0
+/******************************************************************
+ * Variables from io_se.c, related to PCMCIA (not PCI); we're not
+ * compiling them in, and have removed references from functions
+ * which follow.  [Many checked for IO ports in the range bounded
+ * by sh_pcic_io_start/stop, and used sh_pcic_io_wbase as offset.
+ * As start/stop are uninitialized, only port 0x0 would match?]
+ * When used, remember to adjust names to avoid clash with io_se?
+ *****************************************************************/
+/* SH pcmcia io window base, start and end.  */
+int sh_pcic_io_wbase = 0xb8400000;
+int sh_pcic_io_start;
+int sh_pcic_io_stop;
+int sh_pcic_io_type;
+int sh_pcic_io_dummy;
+/*************************************************************/
+#endif
 
 /*
  * The 7751 Solution Engine uses the built-in PCI controller (PCIC)
@@ -49,10 +66,28 @@ port2adr(unsigned int port)
 {
 	if (port >= 0x2000)
 		return (volatile __u16 *) (PA_MRSHPC + (port - 0x2000));
+#if 0
+	else
+		return (volatile __u16 *) (PA_SUPERIO + (port << 1));
+#endif
 	maybebadio(name,(unsigned long)port);
 	return (volatile __u16*)port;
 }
 
+#if 0
+/* The 7751 Solution Engine seems to have everything hooked */
+/* up pretty normally (nothing on high-bytes only...) so this */
+/* shouldn't be needed */
+static inline int
+shifted_port(unsigned long port)
+{
+	/* For IDE registers, value is not shifted */
+	if ((0x1f0 <= port && port < 0x1f8) || port == 0x3f6)
+		return 0;
+	else
+		return 1;
+}
+#endif
 
 /* In case someone configures the kernel w/o PCI support: in that */
 /* scenario, don't ever bother to check for PCI-window addresses */
@@ -62,7 +97,7 @@ port2adr(unsigned int port)
 #define CHECK_SH7751_PCIIO(port) \
   ((port >= PCIBIOS_MIN_IO) && (port < (PCIBIOS_MIN_IO + SH7751_PCI_IO_SIZE)))
 #else
-#define CHECK_SH_7751_PCIIO(port) (0)
+#define CHECK_SH7751_PCIIO(port) (0)
 #endif
 
 /*
@@ -241,6 +276,22 @@ void sh7751se_writel(unsigned int b, unsigned long addr)
 /* ISA page descriptor.  */
 static __u32 sh_isa_memmap[256];
 
+#if 0
+static int
+sh_isa_mmap(__u32 start, __u32 length, __u32 offset)
+{
+	int idx;
+
+	if (start >= 0x100000 || (start & 0xfff) || (length != 0x1000))
+		return -1;
+
+	idx = start >> 12;
+	sh_isa_memmap[idx] = 0xb8000000 + (offset &~ 0xfff);
+	printk("sh_isa_mmap: start %x len %x offset %x (idx %x paddr %x)\n",
+	       start, length, offset, idx, sh_isa_memmap[idx]);
+	return 0;
+}
+#endif
 
 unsigned long
 sh7751se_isa_port2addr(unsigned long offset)

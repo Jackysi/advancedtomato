@@ -1,15 +1,18 @@
-/* $Id: fasttimer.c,v 1.1.1.4 2003/10/14 08:07:17 sparq Exp $
+/* $Id: fasttimer.c,v 1.7 2003/04/01 14:12:07 starvik Exp $
  * linux/arch/cris/kernel/fasttimer.c
  *
  * Fast timers for ETRAX100/ETRAX100LX
  * This may be useful in other OS than Linux so use 2 space indentation...
  *
  * $Log: fasttimer.c,v $
- * Revision 1.1.1.4  2003/10/14 08:07:17  sparq
- * Broadcom Release 3.51.8.0 for BCM4712.
+ * Revision 1.7  2003/04/01 14:12:07  starvik
+ * Added loglevel for lots of printks
  *
- * Revision 1.1.1.1  2003/02/03 22:37:20  mhuang
- * LINUX_2_4 branch snapshot from linux-mips.org CVS
+ * Revision 1.6  2003/02/10 17:05:44  pkj
+ * Made fast_timer_pending() public.
+ *
+ * Revision 1.5  2002/10/15 06:21:39  starvik
+ * Added call to init_waitqueue_head
  *
  * Revision 1.4  2002/05/28 17:47:59  johana
  * Added del_fast_timer()
@@ -66,7 +69,7 @@
  * Revision 1.1  2000/10/26 15:49:16  johana
  * Added fasttimer, highresolution timers.
  *
- * Copyright (C) 2000,2001 2002 Axis Communications AB, Lund, Sweden
+ * Copyright (C) 2000,2001,2002,2003 Axis Communications AB, Lund, Sweden
  */
 
 #include <linux/errno.h>
@@ -121,7 +124,7 @@ static int fast_timers_deleted = 0;
 static int fast_timer_is_init = 0;
 static int fast_timer_ints = 0;
 
-static struct fast_timer *fast_timer_list = NULL;
+struct fast_timer *fast_timer_list = NULL;
 
 #ifdef DEBUG_LOG_INCLUDED
 #define DEBUG_LOG_MAX 128
@@ -232,6 +235,7 @@ void __INLINE__ start_timer1(unsigned long delay_us)
   /* t = 1/freq = 1/19200 = 53us
    * T=div*t,  div = T/t = delay_us*freq/1000000
    */
+#if 1 /* Adaptive timer settings */
   while (delay_us < upper_limit && freq_index < MAX_USABLE_TIMER_FREQ)
   {
     freq_index++;
@@ -241,6 +245,9 @@ void __INLINE__ start_timer1(unsigned long delay_us)
   {
     freq_index--;
   }
+#else
+  freq_index = 6;
+#endif
   div = delay_us * timer_freq_100[freq_index]/10000;
   if (div < 2)
   {
@@ -312,7 +319,8 @@ void start_one_shot_timer(struct fast_timer *t,
     {
       if (tmp == t)
       {
-        printk("timer name: %s data: 0x%08lX already in list!\n", name, data);
+        printk(KERN_WARNING
+	       "timer name: %s data: 0x%08lX already in list!\n", name, data);
         sanity_failed++;
         return;
       }
@@ -377,11 +385,6 @@ void start_one_shot_timer(struct fast_timer *t,
 
   restore_flags(flags);
 } /* start_one_shot_timer */
-
-static inline int fast_timer_pending (const struct fast_timer * t)
-{
-  return (t->next != NULL) || (t->prev != NULL) || (t == fast_timer_list);
-}
 
 static inline int detach_fast_timer (struct fast_timer *t)
 {
@@ -553,6 +556,8 @@ void schedule_usleep(unsigned long us)
   struct fast_timer t;
 #ifdef DECLARE_WAITQUEUE
   wait_queue_head_t sleep_wait;
+  init_waitqueue_head(&sleep_wait);
+  {
   DECLARE_WAITQUEUE(wait, current);
 #else
   struct wait_queue *sleep_wait = NULL;
@@ -568,6 +573,9 @@ void schedule_usleep(unsigned long us)
   set_current_state(TASK_RUNNING);
   remove_wait_queue(&sleep_wait, &wait);
   D1(printk("done schedule_usleep(%d)\n", us));
+#ifdef DECLARE_WAITQUEUE
+  }
+#endif  
 }
 
 #ifdef CONFIG_PROC_FS
@@ -673,12 +681,14 @@ static int proc_fasttimer_read(char *buf, char **start, off_t offset, int len
     {
       int cur = (fast_timers_started - i - 1) % NUM_TIMER_STATS;
 
+#if 1 //ndef FAST_TIMER_LOG
       used += sprintf(bigbuf + used, "div: %i freq: %i delay: %i"
                       "\n",
                       timer_div_settings[cur],
                       timer_freq_settings[cur],
                       timer_delay_settings[cur]
                       );
+#endif
 #ifdef FAST_TIMER_LOG
       t = &timer_started_log[cur];
       used += sprintf(bigbuf + used, "%-14s s: %6lu.%06lu e: %6lu.%06lu "
@@ -762,7 +772,7 @@ static int proc_fasttimer_read(char *buf, char **start, off_t offset, int len
       cli();
       if (t->next != nextt)
       {
-        printk("timer removed!\n");
+        printk(KERN_WARNING "timer removed!\n");
       }
       t = nextt;
     }
@@ -939,9 +949,19 @@ void fast_timer_init(void)
   /* For some reason, request_irq() hangs when called froom time_init() */
   if (!fast_timer_is_init)
   {
+#if 0 && defined(FAST_TIMER_TEST)
+    int i;
+#endif
 
-    printk("fast_timer_init()\n");
+    printk(KERN_INFO "fast_timer_init()\n");
 
+#if 0 && defined(FAST_TIMER_TEST)
+    for (i = 0; i <= TIMER0_DIV; i++)
+    {
+      /* We must be careful not to get overflow... */
+      printk("%3i %6u\n", i, timer0_value_us[i]);
+    }
+#endif
 #ifdef CONFIG_PROC_FS
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,2,0)
    if ((fasttimer_proc_entry = create_proc_entry( "fasttimer", 0, 0 )))
@@ -953,7 +973,7 @@ void fast_timer_init(void)
     if(request_irq(TIMER1_IRQ_NBR, timer1_handler, SA_SHIRQ,
                    "fast timer int", NULL))
     {
-      printk("err: timer1 irq\n");
+      printk(KERN_CRIT "err: timer1 irq\n");
     }
     fast_timer_is_init = 1;
 #ifdef FAST_TIMER_TEST

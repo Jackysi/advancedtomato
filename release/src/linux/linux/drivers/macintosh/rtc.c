@@ -64,6 +64,7 @@ static int rtc_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
 	case RTC_RD_TIME:
 		if (ppc_md.get_rtc_time)
 		{
+			memset(&rtc_tm, 0, sizeof(struct rtc_time));
 			get_rtc_time(&rtc_tm);
 
 			if (copy_to_user((struct rtc_time*)arg, &rtc_tm, sizeof(struct rtc_time)))

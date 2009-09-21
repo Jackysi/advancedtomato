@@ -24,7 +24,6 @@
 #include <linux/init.h>
 #include <linux/kernel.h>
 #include <linux/sched.h>
-#include <linux/i2c.h>
 
 #include <asm/hardware.h>
 #include <asm/irq.h>

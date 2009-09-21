@@ -112,6 +112,8 @@
 
 const struct consw *conswitchp;
 
+static void __console_callback(void);
+
 /* A bitmap for codes <32. A bit of 1 indicates that the code
  * corresponding to that bit number invokes some special action
  * (such as cursor movement) and should not be displayed as a
@@ -242,9 +244,16 @@ static inline void scrolldelta(int lines)
 	schedule_console_callback();
 }
 
+extern int machine_paniced; 
+
 void schedule_console_callback(void)
 {
-	schedule_task(&console_callback_tq);
+	/* Don't care about locking after panic - but I want to switch the console
+	   NOW */ 
+	if (machine_paniced)
+		__console_callback(); 
+	else
+		schedule_task(&console_callback_tq);
 }
 
 static void scrup(int currcons, unsigned int t, unsigned int b, int nr)
@@ -696,6 +705,9 @@ int vc_allocate(unsigned int currcons)	/* return 0 on success */
 	return 0;
 }
 
+#define VC_RESIZE_MAXCOL (32767)
+#define VC_RESIZE_MAXROW (32767)
+
 /*
  * Change # of rows and columns (0 means unchanged/the size of fg_console)
  * [this is to be used together with some user program
@@ -707,6 +719,9 @@ int vc_resize(unsigned int lines, unsigned int cols,
 	unsigned int cc, ll, ss, sr, todo = 0;
 	unsigned int currcons = fg_console, i;
 	unsigned short *newscreens[MAX_NR_CONSOLES];
+
+	if (cols > VC_RESIZE_MAXCOL || lines > VC_RESIZE_MAXROW)
+		return -EINVAL;
 
 	cc = (cols ? cols : video_num_columns);
 	ll = (lines ? lines : video_num_lines);
@@ -1204,6 +1219,11 @@ static void set_mode(int currcons, int on_off)
 				break;
 			case 3:	/* 80/132 mode switch unimplemented */
 				deccolm = on_off;
+#if 0
+				(void) vc_resize(video_num_lines, deccolm ? 132 : 80);
+				/* this alone does not suffice; some user mode
+				   utility has to change the hardware regs */
+#endif
 				break;
 			case 5:			/* Inverted screen on/off */
 				if (decscnm != on_off) {
@@ -2034,10 +2054,15 @@ out:
  * with other console code and prevention of re-entrancy is
  * ensured with console_sem.
  */
-static void console_callback(void *ignored)
+static void console_callback(void *unused) 
 {
 	acquire_console_sem();
+	__console_callback(); 
+	release_console_sem();	
+} 
 
+static void __console_callback(void)
+{
 	if (want_console >= 0) {
 		if (want_console != fg_console && vc_cons_allocated(want_console)) {
 			hide_cursor(fg_console);
@@ -2059,8 +2084,6 @@ static void console_callback(void *ignored)
 			sw->con_scrolldelta(vc_cons[currcons].d, scrollback_delta);
 		scrollback_delta = 0;
 	}
-
-	release_console_sem();
 }
 
 void set_console(int nr)
@@ -2758,6 +2781,12 @@ void unblank_screen(void)
 static void blank_screen(unsigned long dummy)
 {
 	timer_do_blank_screen(0, 1);
+}
+
+void disable_console_blank(void)
+{
+	del_timer_sync(&console_timer);
+	blankinterval = 0;
 }
 
 void poke_blanked_console(void)

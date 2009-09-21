@@ -246,6 +246,10 @@ static int ariadne_open(struct net_device *dev)
 	       (version & 0x0ffff000)>>12);
 	return -EAGAIN;
     }
+#if 0
+    printk("ariadne_open: Am79C960 (PCnet-ISA) Revision %ld\n",
+	   (version & 0xf0000000)>>28);
+#endif
 
     ariadne_init_ring(dev);
 
@@ -342,6 +346,10 @@ static void ariadne_init_ring(struct net_device *dev)
 	t->TMD3 = 0;
 	priv->tx_ring[i] = &lancedata->tx_ring[i];
 	priv->tx_buff[i] = lancedata->tx_buff[i];
+#if 0
+	printk("TX Entry %2d at %p, Buf at %p\n", i, &lancedata->tx_ring[i],
+	       lancedata->tx_buff[i]);
+#endif
     }
 
     /* Set up RX Ring */
@@ -354,6 +362,10 @@ static void ariadne_init_ring(struct net_device *dev)
 	r->RMD3 = 0x0000;
 	priv->rx_ring[i] = &lancedata->rx_ring[i];
 	priv->rx_buff[i] = lancedata->rx_buff[i];
+#if 0
+	printk("RX Entry %2d at %p, Buf at %p\n", i, &lancedata->rx_ring[i],
+	       lancedata->rx_buff[i]);
+#endif
     }
 }
 
@@ -421,6 +433,46 @@ static void ariadne_interrupt(int irq, void *data, struct pt_regs *fp)
 	/* Acknowledge all of the current interrupt sources ASAP. */
 	lance->RDP = csr0 & ~(INEA|TDMD|STOP|STRT|INIT);
 
+#if 0
+	if (ariadne_debug > 5) {
+	    printk("%s: interrupt  csr0=%#2.2x new csr=%#2.2x.", dev->name,
+		   csr0, lance->RDP);
+	    printk("[");
+	    if (csr0 & INTR)
+		printk(" INTR");
+	    if (csr0 & INEA)
+		printk(" INEA");
+	    if (csr0 & RXON)
+		printk(" RXON");
+	    if (csr0 & TXON)
+		printk(" TXON");
+	    if (csr0 & TDMD)
+		printk(" TDMD");
+	    if (csr0 & STOP)
+		printk(" STOP");
+	    if (csr0 & STRT)
+		printk(" STRT");
+	    if (csr0 & INIT)
+		printk(" INIT");
+	    if (csr0 & ERR)
+		printk(" ERR");
+	    if (csr0 & BABL)
+		printk(" BABL");
+	    if (csr0 & CERR)
+		printk(" CERR");
+	    if (csr0 & MISS)
+		printk(" MISS");
+	    if (csr0 & MERR)
+		printk(" MERR");
+	    if (csr0 & RINT)
+		printk(" RINT");
+	    if (csr0 & TINT)
+		printk(" TINT");
+	    if (csr0 & IDON)
+		printk(" IDON");
+	    printk(" ]\n");
+	}
+#endif
 
 	if (csr0 & RINT)	/* Rx interrupt */
 	    ariadne_rx(dev);
@@ -499,6 +551,11 @@ static void ariadne_interrupt(int irq, void *data, struct pt_regs *fp)
     lance->RAP = CSR0;		/* PCnet-ISA Controller Status */
     lance->RDP = INEA|BABL|CERR|MISS|MERR|IDON;
 
+#if 0
+    if (ariadne_debug > 4)
+	printk("%s: exiting interrupt, csr%d=%#4.4x.\n", dev->name, lance->RAP,
+	       lance->RDP);
+#endif
     return;
 }
 
@@ -520,10 +577,45 @@ static int ariadne_start_xmit(struct sk_buff *skb, struct net_device *dev)
     volatile struct Am79C960 *lance = (struct Am79C960*)dev->base_addr;
     int entry;
     unsigned long flags;
+    int len = skb->len;
 
+#if 0
+    if (ariadne_debug > 3) {
+	lance->RAP = CSR0;	/* PCnet-ISA Controller Status */
+	printk("%s: ariadne_start_xmit() called, csr0 %4.4x.\n", dev->name,
+	       lance->RDP);
+	lance->RDP = 0x0000;
+    }
+#endif
+
+    /* FIXME: is the 79C960 new enough to do its own padding right ? */
+    if(skb->len < ETH_ZLEN)
+    {
+    	skb = skb_padto(skb, ETH_ZLEN);
+    	if(skb == NULL)
+    	    return 0;
+    	len = ETH_ZLEN;
+    }
 
     /* Fill in a Tx ring entry */
 
+#if 0
+    printk("TX pkt type 0x%04x from ", ((u_short *)skb->data)[6]);
+    {
+	int i;
+	u_char *ptr = &((u_char *)skb->data)[6];
+	for (i = 0; i < 6; i++)
+	    printk("%02x", ptr[i]);
+    }
+    printk(" to ");
+    {
+	int i;
+	u_char *ptr = (u_char *)skb->data;
+	for (i = 0; i < 6; i++)
+	    printk("%02x", ptr[i]);
+    }
+    printk(" data 0x%08x len %d\n", (int)skb->data, (int)skb->len);
+#endif
 
     save_flags(flags);
     cli();
@@ -535,9 +627,26 @@ static int ariadne_start_xmit(struct sk_buff *skb, struct net_device *dev)
 
     priv->tx_ring[entry]->TMD2 = swapw((u_short)-skb->len);
     priv->tx_ring[entry]->TMD3 = 0x0000;
-    memcpyw(priv->tx_buff[entry], (u_short *)skb->data,
-	    skb->len <= ETH_ZLEN ? ETH_ZLEN : skb->len);
+    memcpyw(priv->tx_buff[entry], (u_short *)skb->data, len);
 
+#if 0
+    {
+	int i, len;
+
+	len = skb->len > 64 ? 64 : skb->len;
+	len >>= 1;
+	for (i = 0; i < len; i += 8) {
+	    int j;
+	    printk("%04x:", i);
+	    for (j = 0; (j < 8) && ((i+j) < len); j++) {
+		if (!(j & 1))
+		    printk(" ");
+		printk("%04x", priv->tx_buff[entry][i+j]);
+	    }
+	    printk("\n");
+	}
+    }
+#endif
 
     priv->tx_ring[entry]->TMD1 = (priv->tx_ring[entry]->TMD1&0xff00)|TF_OWN|TF_STP|TF_ENP;
 
@@ -546,6 +655,10 @@ static int ariadne_start_xmit(struct sk_buff *skb, struct net_device *dev)
     priv->cur_tx++;
     if ((priv->cur_tx >= TX_RING_SIZE) && (priv->dirty_tx >= TX_RING_SIZE)) {
 
+#if 0
+	printk("*** Subtracting TX_RING_SIZE from cur_tx (%d) and dirty_tx (%d)\n",
+	       priv->cur_tx, priv->dirty_tx);
+#endif
 
 	priv->cur_tx -= TX_RING_SIZE;
 	priv->dirty_tx -= TX_RING_SIZE;
@@ -620,6 +733,23 @@ static int ariadne_rx(struct net_device *dev)
 	    skb_put(skb,pkt_len);	/* Make room */
 	    eth_copy_and_sum(skb, (char *)priv->rx_buff[entry], pkt_len,0);
 	    skb->protocol=eth_type_trans(skb,dev);
+#if 0
+	    printk("RX pkt type 0x%04x from ", ((u_short *)skb->data)[6]);
+	    {
+		int i;
+		u_char *ptr = &((u_char *)skb->data)[6];
+		for (i = 0; i < 6; i++)
+		    printk("%02x", ptr[i]);
+	    }
+	    printk(" to ");
+	    {
+		int i;
+		u_char *ptr = (u_char *)skb->data;
+		for (i = 0; i < 6; i++)
+		    printk("%02x", ptr[i]);
+	    }
+	    printk(" data 0x%08x len %d\n", (int)skb->data, (int)skb->len);
+#endif
 
 	    netif_rx(skb);
 	    dev->last_rx = jiffies;

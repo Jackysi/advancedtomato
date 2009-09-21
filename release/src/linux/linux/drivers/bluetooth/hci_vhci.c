@@ -25,7 +25,7 @@
 /*
  * BlueZ HCI virtual device driver.
  *
- * $Id: hci_vhci.c,v 1.1.1.4 2003/10/14 08:07:59 sparq Exp $ 
+ * $Id: hci_vhci.c,v 1.3 2002/04/17 17:37:20 maxk Exp $ 
  */
 #define VERSION "1.1"
 

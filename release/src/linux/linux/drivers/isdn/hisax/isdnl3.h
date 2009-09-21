@@ -1,4 +1,4 @@
-/* $Id: isdnl3.h,v 1.1.1.4 2003/10/14 08:08:12 sparq Exp $
+/* $Id: isdnl3.h,v 1.1.4.1 2001/11/20 14:19:36 kai Exp $
  *
  * This software may be used and distributed according to the terms
  * of the GNU General Public License, incorporated herein by reference.

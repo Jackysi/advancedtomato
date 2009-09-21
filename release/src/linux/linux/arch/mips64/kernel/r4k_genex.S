@@ -17,6 +17,7 @@
 #include <asm/stackframe.h>
 #include <asm/exception.h>
 #include <asm/cacheops.h>
+#include <asm/war.h>
 
 	BUILD_HANDLER adel ade ade silent		/* #4  */
 	BUILD_HANDLER ades ade ade silent		/* #5  */
@@ -102,7 +103,7 @@ END(except_vec3_r4000)
 	.set	push
 	.set	noat
 NESTED(except_vec3_generic, 0, sp)
-#if defined(R5432_CP0_INTERRUPT_WAR)
+#if R5432_CP0_INTERRUPT_WAR
 	mfc0    k0, CP0_INDEX
 #endif
 	mfc0	k1, CP0_CAUSE

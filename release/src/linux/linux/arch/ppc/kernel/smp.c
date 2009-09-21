@@ -1,7 +1,4 @@
 /*
- * BK Id: SCCS/s.smp.c 1.40 03/28/02 16:54:23 hozer
- */
-/*
  * Smp support for ppc.
  *
  * Written by Cort Dougan (cort@cs.nmt.edu) borrowing a great
@@ -66,8 +63,11 @@ int start_secondary(void *);
 extern int cpu_idle(void *unused);
 void smp_call_function_interrupt(void);
 
+/* Low level assembly function used to backup CPU 0 state */
+extern void __save_cpu_setup(void);
+
 /* Since OpenPIC has only 4 IPIs, we use slightly different message numbers.
- * 
+ *
  * Make sure this matches openpic_request_IPIs in open_pic.c, or what shows up
  * in /proc/interrupts will be wrong!!! --Troy */
 #define PPC_MSG_CALL_FUNCTION	0
@@ -75,7 +75,7 @@ void smp_call_function_interrupt(void);
 #define PPC_MSG_INVALIDATE_TLB	2
 #define PPC_MSG_XMON_BREAK	3
 
-static inline void 
+static inline void
 smp_message_pass(int target, int msg, unsigned long data, int wait)
 {
 	if (smp_ops){
@@ -84,7 +84,7 @@ smp_message_pass(int target, int msg, unsigned long data, int wait)
 	}
 }
 
-/* 
+/*
  * Common functions
  */
 void smp_local_timer_interrupt(struct pt_regs * regs)
@@ -100,12 +100,12 @@ void smp_local_timer_interrupt(struct pt_regs * regs)
 void smp_message_recv(int msg, struct pt_regs *regs)
 {
 	atomic_inc(&ipi_recv);
-	
+
 	switch( msg ) {
 	case PPC_MSG_CALL_FUNCTION:
 		smp_call_function_interrupt();
 		break;
-	case PPC_MSG_RESCHEDULE: 
+	case PPC_MSG_RESCHEDULE:
 		current->need_resched = 1;
 		break;
 	case PPC_MSG_INVALIDATE_TLB:
@@ -301,6 +301,10 @@ void __init smp_boot_cpus(void)
 		prof_multiplier[i] = 1;
 	}
 
+	/*
+	 * XXX very rough, assumes 20 bus cycles to read a cache line,
+	 * timebase increments every 4 bus cycles, 32kB L1 data cache.
+	 */
 	cacheflush_time = 5 * 1024;
 
 	smp_ops = ppc_md.smp_ops;
@@ -326,6 +330,9 @@ void __init smp_boot_cpus(void)
 	/* Probe arch for CPUs */
 	cpu_nr = smp_ops->probe();
 
+	/* Backup CPU 0 state */
+	__save_cpu_setup();
+
 	/*
 	 * only check for cpus we know exist.  We keep the callin map
 	 * with cpus at the bottom -- Cort
@@ -335,7 +342,7 @@ void __init smp_boot_cpus(void)
 	for (i = 1; i < cpu_nr; i++) {
 		int c;
 		struct pt_regs regs;
-		
+
 		/* create a process for the processor */
 		/* only regs.msr is actually used, and 0 is OK for it */
 		memset(&regs, 0, sizeof(struct pt_regs));
@@ -361,15 +368,15 @@ void __init smp_boot_cpus(void)
 
 		/* wake up cpus */
 		smp_ops->kick_cpu(i);
-		
+
 		/*
 		 * wait to see if the cpu made a callin (is actually up).
 		 * use this value that I found through experimentation.
 		 * -- Cort
 		 */
-		for ( c = 1000; c && !cpu_callin_map[i] ; c-- )
+		for ( c = 10000; c && !cpu_callin_map[i] ; c-- )
 			udelay(100);
-		
+
 		if ( cpu_callin_map[i] )
 		{
 			char buf[32];
@@ -387,7 +394,7 @@ void __init smp_boot_cpus(void)
 
 	/* Setup CPU 0 last (important) */
 	smp_ops->setup_cpu(0);
-	
+
 	if (smp_num_cpus < 2)
 		smp_tb_synchronized = 1;
 }
@@ -490,7 +497,7 @@ void __init smp_commence(void)
 	 */
 	if (!smp_tb_synchronized && smp_num_cpus == 2) {
 		unsigned long flags;
-		__save_and_cli(flags);	
+		__save_and_cli(flags);
 		smp_software_tb_sync(0);
 		__restore_flags(flags);
 	}
@@ -499,22 +506,14 @@ void __init smp_commence(void)
 void __init smp_callin(void)
 {
 	int cpu = current->processor;
-	
+
         smp_store_cpu_info(cpu);
+	smp_ops->setup_cpu(cpu);
 	set_dec(tb_ticks_per_jiffy);
+	cpu_online_map |= 1UL << cpu;
+	mb();
 	cpu_callin_map[cpu] = 1;
 
-	smp_ops->setup_cpu(cpu);
-
-	/*
-	 * This cpu is now "online".  Only set them online
-	 * before they enter the loop below since write access
-	 * to the below variable is _not_ guaranteed to be
-	 * atomic.
-	 *   -- Cort <cort@fsmlabs.com>
-	 */
-	cpu_online_map |= 1UL << smp_processor_id();
-	
 	while(!smp_commenced)
 		barrier();
 

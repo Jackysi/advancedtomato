@@ -1671,11 +1671,9 @@ do_readv_writev32(int type, struct file *file, const struct iovec32 *vector,
 		i--;
 	}
 
-	inode = file->f_dentry->d_inode;
 	/* VERIFY_WRITE actually means a read, as we write to user space */
-	retval = locks_verify_area((type == VERIFY_WRITE
-				    ? FLOCK_VERIFY_READ : FLOCK_VERIFY_WRITE),
-				   inode, file, file->f_pos, tot_len);
+	retval = rw_verify_area((type == VERIFY_WRITE ? READ : WRITE),
+				   file, &file->f_pos, tot_len);
 	if (retval) {
 		if (iov != iovstack)
 			kfree(iov);
@@ -1770,6 +1768,7 @@ bad_file:
 
 /********** Borrowed from sparc64 -- hardly reviewed, not tested *****/
 #include <net/scm.h>
+/* XXX This really belongs in some header file... -DaveM */
 #define MAX_SOCK_ADDR	128		/* 108 for Unix domain - 
 					   16 for IP, 16 for IPX,
 					   24 for IPv6,
@@ -1777,6 +1776,7 @@ bad_file:
 
 extern struct socket *sockfd_lookup(int fd, int *err);
 
+/* XXX This as well... */
 extern __inline__ void sockfd_put(struct socket *sock)
 {
 	fput(sock->file);
@@ -1812,6 +1812,11 @@ struct cmsghdr32 {
 				    (struct cmsghdr32 *)(ctl) : \
 				    (struct cmsghdr32 *)NULL)
 #define CMSG32_FIRSTHDR(msg)	__CMSG32_FIRSTHDR((msg)->msg_control, (msg)->msg_controllen)
+#define CMSG32_OK(ucmlen, ucmsg, mhdr) \
+	((ucmlen) >= sizeof(struct cmsghdr32) && \
+	 (ucmlen) <= (unsigned long) \
+	 ((mhdr)->msg_controllen - \
+	  ((char *)(ucmsg) - (char *)(mhdr)->msg_control)))
 
 __inline__ struct cmsghdr32 *__cmsg32_nxthdr(void *__ctl, __kernel_size_t __size,
 					      struct cmsghdr32 *__cmsg, int __cmsg_len)
@@ -1929,24 +1934,22 @@ static int cmsghdr_from_user32_to_kern(struct msghdr *kmsg,
 	struct cmsghdr *kcmsg, *kcmsg_base;
 	__kernel_size_t32 ucmlen;
 	__kernel_size_t kcmlen, tmp;
+	int err = -EFAULT;
 
 	kcmlen = 0;
 	kcmsg_base = kcmsg = (struct cmsghdr *)stackbuf;
 	ucmsg = CMSG32_FIRSTHDR(kmsg);
 	while(ucmsg != NULL) {
-		if(get_user(ucmlen, &ucmsg->cmsg_len))
+		if (get_user(ucmlen, &ucmsg->cmsg_len))
 			return -EFAULT;
 
 		/* Catch bogons. */
-		if(CMSG32_ALIGN(ucmlen) <
-		   CMSG32_ALIGN(sizeof(struct cmsghdr32)))
-			return -EINVAL;
-		if((unsigned long)(((char *)ucmsg - (char *)kmsg->msg_control)
-				   + ucmlen) > kmsg->msg_controllen)
+		if (!CMSG32_OK(ucmlen, ucmsg, kmsg))
 			return -EINVAL;
 
 		tmp = ((ucmlen - CMSG32_ALIGN(sizeof(*ucmsg))) +
 		       CMSG_ALIGN(sizeof(struct cmsghdr)));
+		tmp = CMSG_ALIGN(tmp);
 		kcmlen += tmp;
 		ucmsg = CMSG32_NXTHDR(kmsg, ucmsg, ucmlen);
 	}
@@ -1967,21 +1970,23 @@ static int cmsghdr_from_user32_to_kern(struct msghdr *kmsg,
 	memset(kcmsg, 0, kcmlen);
 	ucmsg = CMSG32_FIRSTHDR(kmsg);
 	while(ucmsg != NULL) {
-		__get_user(ucmlen, &ucmsg->cmsg_len);
+		if (__get_user(ucmlen, &ucmsg->cmsg_len))
+			goto Efault;
 		tmp = ((ucmlen - CMSG32_ALIGN(sizeof(*ucmsg))) +
 		       CMSG_ALIGN(sizeof(struct cmsghdr)));
+		if ((char *)kcmsg_base + kcmlen - (char *)kcmsg < CMSG_ALIGN(tmp))
+			goto Einval;
 		kcmsg->cmsg_len = tmp;
-		__get_user(kcmsg->cmsg_level, &ucmsg->cmsg_level);
-		__get_user(kcmsg->cmsg_type, &ucmsg->cmsg_type);
-
-		/* Copy over the data. */
-		if(copy_from_user(CMSG_DATA(kcmsg),
-				  CMSG32_DATA(ucmsg),
-				  (ucmlen - CMSG32_ALIGN(sizeof(*ucmsg)))))
-			goto out_free_efault;
+		tmp = CMSG_ALIGN(tmp);
+		if (__get_user(kcmsg->cmsg_level, &ucmsg->cmsg_level) ||
+		    __get_user(kcmsg->cmsg_type, &ucmsg->cmsg_type) ||
+		    copy_from_user(CMSG_DATA(kcmsg),
+				   CMSG32_DATA(ucmsg),
+				   (ucmlen - CMSG32_ALIGN(sizeof(*ucmsg)))))
+			goto Efault;
 
 		/* Advance. */
-		kcmsg = (struct cmsghdr *)((char *)kcmsg + CMSG_ALIGN(tmp));
+		kcmsg = (struct cmsghdr *)((char *)kcmsg + tmp);
 		ucmsg = CMSG32_NXTHDR(kmsg, ucmsg, ucmlen);
 	}
 
@@ -1990,10 +1995,12 @@ static int cmsghdr_from_user32_to_kern(struct msghdr *kmsg,
 	kmsg->msg_controllen = kcmlen;
 	return 0;
 
-out_free_efault:
-	if(kcmsg_base != (struct cmsghdr *)stackbuf)
+Einval:
+	err = -EINVAL;
+Efault:
+	if (kcmsg_base != (struct cmsghdr *)stackbuf)
 		kfree(kcmsg_base);
-	return -EFAULT;
+	return err;
 }
 
 static void put_cmsg32(struct msghdr *kmsg, int level, int type,
@@ -2105,7 +2112,8 @@ static void scm_detach_fds32(struct msghdr *kmsg, struct scm_cookie *scm)
  *		IPV6_RTHDR	ipv6 routing exthdr	32-bit clean
  *		IPV6_AUTHHDR	ipv6 auth exthdr	32-bit clean
  */
-static void cmsg32_recvmsg_fixup(struct msghdr *kmsg, unsigned long orig_cmsg_uptr)
+static void cmsg32_recvmsg_fixup(struct msghdr *kmsg,
+		unsigned long orig_cmsg_uptr, __kernel_size_t orig_cmsg_len)
 {
 	unsigned char *workbuf, *wp;
 	unsigned long bufsz, space_avail;
@@ -2136,6 +2144,9 @@ static void cmsg32_recvmsg_fixup(struct msghdr *kmsg, unsigned long orig_cmsg_up
 		__get_user(kcmsg32->cmsg_type, &ucmsg->cmsg_type);
 
 		clen64 = kcmsg32->cmsg_len;
+		if ((clen64 < CMSG_ALIGN(sizeof(*ucmsg))) ||
+				(clen64 > (orig_cmsg_len + wp - workbuf)))
+			break;
 		copy_from_user(CMSG32_DATA(kcmsg32), CMSG_DATA(ucmsg),
 			       clen64 - CMSG_ALIGN(sizeof(*ucmsg)));
 		clen32 = ((clen64 - CMSG_ALIGN(sizeof(*ucmsg))) +
@@ -2221,6 +2232,7 @@ asmlinkage int sys32_recvmsg(int fd, struct msghdr32 *user_msg, unsigned int use
 	struct sockaddr *uaddr;
 	int *uaddr_len;
 	unsigned long cmsg_ptr;
+	__kernel_size_t cmsg_len;
 	int err, total_len, len = 0;
 
 	if(msghdr_from_user32_to_kern(&kern_msg, user_msg))
@@ -2236,6 +2248,7 @@ asmlinkage int sys32_recvmsg(int fd, struct msghdr32 *user_msg, unsigned int use
 	total_len = err;
 
 	cmsg_ptr = (unsigned long) kern_msg.msg_control;
+	cmsg_len = kern_msg.msg_controllen;
 	kern_msg.msg_flags = 0;
 
 	sock = sockfd_lookup(fd, &err);
@@ -2261,7 +2274,8 @@ asmlinkage int sys32_recvmsg(int fd, struct msghdr32 *user_msg, unsigned int use
 				 * to fix it up before we tack on more stuff.
 				 */
 				if((unsigned long) kern_msg.msg_control != cmsg_ptr)
-					cmsg32_recvmsg_fixup(&kern_msg, cmsg_ptr);
+					cmsg32_recvmsg_fixup(&kern_msg,
+							cmsg_ptr, cmsg_len);
 
 				/* Wheee... */
 				if(sock->passcred)
@@ -2369,6 +2383,7 @@ static int do_set_icmpv6_filter(int fd, int level, int optname,
 
 static int do_ipv4_set_replace(int fd, int level, int optname,
 				char *optval, int optlen)
+#if 1
 /* Fields happen to be padded such that this works.
 ** Don't need to change iptables.h:struct ipt_replace
 */
@@ -2392,6 +2407,79 @@ static int do_ipv4_set_replace(int fd, int level, int optname,
 
 	return ret;
 }
+#else
+/* This version tries to "do it right". ie allocate kernel buffers for
+** everything and copy data in/out. Way too complicated.
+** NOT TESTED for correctness!
+*/
+{
+	struct ipt_replace  *kern_repl;
+	struct ipt_counters *kern_counters;
+	unsigned int user_counters;
+	mm_segment_t old_fs;
+	int ret = 0;
+
+	kern_repl = (struct ipt_replace *) kmalloc(optlen+8, GFP_KERNEL);
+	if (!kern_repl)
+		return -ENOMEM;
+
+	if (copy_from_user(kern_repl, optval, optlen)) {
+		ret = -EFAULT;
+		goto err02;
+	}
+
+	/* 32-bit ptr is in the MSB's */
+	user_counters = (unsigned int) (((unsigned long) kern_repl->counters) >> 32);
+	/*
+	** We are going to set_fs() to kernel space - and thus need
+	** "relocate" the counters buffer to the kernel space.
+	*/
+	kern_counters = (struct ipt_counters *) kmalloc(kern_repl->num_counters * sizeof(struct ipt_counters), GFP_KERNEL);
+	if (!user_counters) {
+		ret = -ENOMEM;
+		goto err02;
+	}
+
+	if (copy_from_user(kern_counters, (char *) user_counters, optlen)) {
+		ret = -EFAULT;
+		goto err01;
+	}
+
+	/* We can update the kernel ptr now that we have the data. */
+	kern_repl->counters = kern_counters;
+
+	old_fs = get_fs();
+	set_fs(KERNEL_DS);
+
+	ret = sys_setsockopt(fd, level, optname, (char *) optval, optlen);
+
+	set_fs(old_fs);
+
+	/* Copy counters back out to user space */
+	if (copy_to_user((char *) user_counters, kern_counters,
+			kern_repl->num_counters * sizeof(struct ipt_counters)))
+	{
+		ret = -EFAULT;
+		goto err01;
+	}
+
+	/* restore counters so userspace can consume it */
+	kern_repl->counters = NULL;
+	(unsigned int) kern_repl->counters = user_counters;
+
+	/* Copy repl back out to user space */
+	if (copy_to_user(optval, kern_repl, optlen))
+	{
+		ret = -EFAULT;
+	}
+
+err01:
+	kfree(kern_counters);
+err02:
+	kfree(kern_repl);
+	return ret;
+}
+#endif
 
 
 asmlinkage int sys32_setsockopt(int fd, int level, int optname,
@@ -2410,10 +2498,15 @@ asmlinkage int sys32_setsockopt(int fd, int level, int optname,
 		return do_ipv4_set_replace(fd, level, optname, optval, optlen);
 
 	if (level == IPPROTO_IPV6 && optname == IP6T_SO_SET_REPLACE)
+#if 0
+		/* FIXME: I don't (yet) use IPV6. -ggg */
+		return do_ipv6_set_replace(fd, level, optname, optval, optlen);
+#else
 	{
 		BUG();
 		return -ENXIO;
 	}
+#endif
 
 	return sys_setsockopt(fd, level, optname, optval, optlen);
 }
@@ -2678,20 +2771,9 @@ asmlinkage long sys32_ftruncate64(unsigned int fd, unsigned int high, unsigned i
 
 asmlinkage long sys32_fcntl64(unsigned int fd, unsigned int cmd, unsigned long arg)
 {
-	switch (cmd) {
-		case F_GETLK64:
-			cmd = F_GETLK;
-			break;
-		case F_SETLK64:
-			cmd = F_SETLK;
-			break;
-		case F_SETLKW64:
-			cmd = F_SETLKW;
-			break;
-		default:
-			break;
-	}
-	return sys_fcntl(fd, cmd, arg);
+	if (cmd >= F_GETLK64 && cmd <= F_SETLKW64)
+		return sys_fcntl(fd, cmd + F_GETLK - F_GETLK64, arg);
+	return sys32_fcntl(fd, cmd, arg);
 }
 
 asmlinkage int sys32_pread(int fd, void *buf, size_t count, unsigned int high, unsigned int low)

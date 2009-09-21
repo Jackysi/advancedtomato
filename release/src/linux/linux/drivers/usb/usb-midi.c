@@ -370,7 +370,7 @@ static void usb_bulk_read(struct urb *urb)
 {
 	struct midi_in_endpoint *ep = (struct midi_in_endpoint *)(urb->context);
 	unsigned char *data = urb->transfer_buffer;
-	int i, l, wake;
+	int i, j, wake;
 	unsigned long int flags;
 
 	if ( !ep->urbSubmitted ) {
@@ -381,14 +381,14 @@ static void usb_bulk_read(struct urb *urb)
 		wake = 0;
 		spin_lock_irqsave( &ep->lock, flags );
 
-		for(l = 0; l < urb->actual_length; l += 4) {
-			int cin = (data[l]>>0)&0xf;
-			int cab = (data[l]>>4)&0xf;
+		for(j = 0; j < urb->actual_length; j += 4) {
+			int cin = (data[j]>>0)&0xf;
+			int cab = (data[j]>>4)&0xf;
 			struct usb_mididev *cable = ep->cables[cab];
 			if ( cable ) {
 				int len = cin_to_len[cin]; /** length of MIDI data **/
 				for (i = 0; i < len; i++) {
-					cable->min.buf[cable->min.bufWrPtr] = data[1+i];
+					cable->min.buf[cable->min.bufWrPtr] = data[1+i+j];
 					cable->min.bufWrPtr = (cable->min.bufWrPtr+1)%MIDI_IN_BUFSIZ;
 					if (cable->min.bufRemains < MIDI_IN_BUFSIZ)
 						cable->min.bufRemains += 1;
@@ -824,6 +824,9 @@ static int usb_midi_open(struct inode *inode, struct file *file)
 	int flags;
 	int succeed = 0;
 
+#if 0
+	printk(KERN_INFO "usb-midi: Open minor= %d.\n", minor);
+#endif
 
 	for(;;) {
 		down(&open_sem);
@@ -921,6 +924,9 @@ static int usb_midi_open(struct inode *inode, struct file *file)
 		return -EBUSY;
 	}
 
+#if 0
+	printk(KERN_INFO "usb-midi: Open Succeeded. minor= %d.\n", minor);
+#endif
 
 	/** Side-effect: module cannot be removed until USE_COUNT is 0. **/
 #ifndef MOD_INC_EACH_PROBE
@@ -944,6 +950,9 @@ static int usb_midi_release(struct inode *inode, struct file *file)
 	struct usb_mididev *m = (struct usb_mididev *)file->private_data;
 	struct usb_midi_state *s = (struct usb_midi_state *)m->midi;
 
+#if 0
+	printk(KERN_INFO "usb-midi: Close.\n");
+#endif
 
 	down(&open_sem);
 

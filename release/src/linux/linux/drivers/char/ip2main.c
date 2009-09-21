@@ -19,6 +19,26 @@
 //
 // Done:
 //
+// 1.2.18	/\/\|=mhw=|\/\/
+// Fixed jiffies math in ii2DelayTimer...
+//	How long has THIS been broken?  Delay was basically a noop...
+// Dumped some groady tracing code that hasn't been used (or tested) in
+//	years and was only a source of warning messages.
+//
+// 1.2.17	/\/\|=mhw=|\/\/
+// PCI fixes submitted by Bjorn Helgaas
+//	Added calls to Add pci_enable_device()/pci_disable_device() per
+//	submitted patches.  My thanks to Bjorn Helgaas <bjorn.helgaas@hp.com>.
+//
+// 1.2.16	/\/\|=mhw=|\/\/
+// Yet another shot at the busy board timing window (use the poll timer).
+// 	Because of this, the poll timer is always enabled...
+// Cleaned up some comments on immediate interrupt mode (ppp code elsewhere
+// 	has been fixed and the new busy board logic won't throw a hairball).
+//
+// 1.2.15	dmc
+// Fixed jiffy wrap, PCI card may now be set to poll.
+//
 // 1.2.14	/\/\|=mhw=|\/\/
 // Added bounds checking to ip2_ipl_ioctl to avoid potential terroristic acts.
 // Changed the definition of ip2trace to be more consistant with kernel style
@@ -227,7 +247,7 @@ int ip2_read_proc(char *, char **, off_t, int, int *, void * );
 
 /* String constants to identify ourselves */
 static char *pcName    = "Computone IntelliPort Plus multiport driver";
-static char *pcVersion = "1.2.14";
+static char *pcVersion = "1.2.18";
 
 /* String constants for port names */
 static char *pcDriver_name   = "ip2";
@@ -282,8 +302,8 @@ static void ip2_interrupt_bh(i2eBordStrPtr pB);
 static void ip2_interrupt(int irq, void *dev_id, struct pt_regs * regs);
 static void ip2_poll(unsigned long arg);
 static inline void service_all_boards(void);
-static inline void do_input(i2ChanStrPtr pCh);
-static inline void do_status(i2ChanStrPtr pCh);
+static void do_input(i2ChanStrPtr pCh);
+static void do_status(i2ChanStrPtr pCh);
 
 static void ip2_wait_until_sent(PTTY,int);
 
@@ -437,7 +457,7 @@ clear_requested_irq( char irq )
 	}
 	return 0;
 }
-#endif
+#endif /* MODULE */
 
 static int __init
 have_requested_irq( char irq )
@@ -545,6 +565,12 @@ cleanup_module(void)
 	// free memory
 	for (i = 0; i < IP2_MAX_BOARDS; i++) {
 		void *pB;
+#ifdef CONFIG_PCI
+		if (ip2config.type[i] == PCI && ip2config.pci_dev[i]) {
+			pci_disable_device(ip2config.pci_dev[i]);
+			ip2config.pci_dev[i] = NULL;
+		}
+#endif
 		if ((pB = i2BoardPtrTable[i]) != 0 ) {
 			kfree ( pB );
 			i2BoardPtrTable[i] = NULL;
@@ -604,17 +630,12 @@ ip2_loadmain(int *iop, int *irqp, unsigned char *firmware, int firmsize)
 		if (iop) {
 			ip2config.addr[i] = iop[i];
 			if (irqp) {
-				if( irqp[i] >= 0 ) {
-					ip2config.irq[i] = irqp[i];
-				} else {
-					ip2config.irq[i] = 0;
-				}
+				ip2config.irq[i] = irqp[i];
 	// This is a little bit of a hack.  If poll_only=1 on command
 	// line back in ip2.c OR all IRQs on all specified boards are
 	// explicitly set to 0, then drop to poll only mode and override
 	// PCI or EISA interrupts.  This superceeds the old hack of
 	// triggering if all interrupts were zero (like da default).
-	// Still a hack but less prone to random acts of terrorism.
 	//
 	// What we really should do, now that the IRQ default is set
 	// to -1, is to use 0 as a hard coded, do not probe.
@@ -674,7 +695,7 @@ ip2_loadmain(int *iop, int *irqp, unsigned char *firmware, int firmsize)
 			break;
 		case PCI:
 #ifdef CONFIG_PCI
-#if (LINUX_VERSION_CODE < 0x020163)     /* 2.1.99 */
+#if (LINUX_VERSION_CODE < 0x020163) /* 2.1.99 */
 			if (pcibios_present()) {
 				unsigned char pci_bus, pci_devfn;
 				int Pci_index = 0;
@@ -700,17 +721,12 @@ ip2_loadmain(int *iop, int *irqp, unsigned char *firmware, int firmsize)
 					} else {
 						printk( KERN_ERR "IP2: PCI I/O address error\n");
 					}
-					pcibios_read_config_byte(pci_bus, pci_devfn,
+					if (ip2config.irq[i] != 0) {
+						pcibios_read_config_byte(pci_bus, pci_devfn,
 								  PCI_INTERRUPT_LINE, &pci_irq);
 
-//		If the PCI BIOS assigned it, lets try and use it.  If we
-//		can't acquire it or it screws up, deal with it then.
-
-//					if (!is_valid_irq(pci_irq)) {
-//						printk( KERN_ERR "IP2: Bad PCI BIOS IRQ(%d)\n",pci_irq);
-//						pci_irq = 0;
-//					}
-					ip2config.irq[i] = pci_irq;
+						ip2config.irq[i] = pci_irq;
+					}
 				} else {	// ann error
 					ip2config.addr[i] = 0;
 					if (status == PCIBIOS_DEVICE_NOT_FOUND) {
@@ -727,9 +743,15 @@ ip2_loadmain(int *iop, int *irqp, unsigned char *firmware, int firmsize)
 							  PCI_DEVICE_ID_COMPUTONE_IP2EX, pci_dev_i);
 				if (pci_dev_i != NULL) {
 					unsigned int addr;
-					unsigned char pci_irq;
+
+					if (pci_enable_device(pci_dev_i)) {
+						printk( KERN_ERR "IP2: can't enable PCI device at %s\n",
+						pci_name(pci_dev_i));
+						break;
+					}
 
 					ip2config.type[i] = PCI;
+					ip2config.pci_dev[i] = pci_dev_i;
 					status =
 					pci_read_config_dword(pci_dev_i, PCI_BASE_ADDRESS_1, &addr);
 					if ( addr & 1 ) {
@@ -737,18 +759,8 @@ ip2_loadmain(int *iop, int *irqp, unsigned char *firmware, int firmsize)
 					} else {
 						printk( KERN_ERR "IP2: PCI I/O address error\n");
 					}
-					status =
-					pci_read_config_byte(pci_dev_i, PCI_INTERRUPT_LINE, &pci_irq);
-
-//		If the PCI BIOS assigned it, lets try and use it.  If we
-//		can't acquire it or it screws up, deal with it then.
-
-//					if (!is_valid_irq(pci_irq)) {
-//						printk( KERN_ERR "IP2: Bad PCI BIOS IRQ(%d)\n",pci_irq);
-//						pci_irq = 0;
-//					}
-					ip2config.irq[i] = pci_irq;
-				} else {	// ann error
+					ip2config.irq[i] = pci_dev_i->irq;
+				} else {	// an error
 					ip2config.addr[i] = 0;
 					if (status == PCIBIOS_DEVICE_NOT_FOUND) {
 						printk( KERN_ERR "IP2: PCI board %d not found\n", i );
@@ -964,6 +976,14 @@ retry:
 				/* Initialise the interrupt handler bottom half (aka slih). */
 			}
 		}
+
+		if (!TimerOn) {
+//			Kick the timer on for stuck board safeties...
+			PollTimer.expires = POLL_TIMEOUT;
+			add_timer ( &PollTimer );
+			TimerOn = 1;
+		}
+
 		for( i = 0; i < IP2_MAX_BOARDS; ++i ) {
 			if ( i2BoardPtrTable[i] ) {
 				set_irq( i, ip2config.irq[i] ); /* set and enable board interrupt */
@@ -988,7 +1008,7 @@ retry:
 static void __init
 ip2_init_board( int boardnum )
 {
-	int i,rc;
+	int i;
 	int nports = 0, nboxes = 0;
 	i2ChanStrPtr pCh;
 	i2eBordStrPtr pB = i2BoardPtrTable[boardnum];
@@ -1375,8 +1395,10 @@ ip2_interrupt(int irq, void *dev_id, struct pt_regs * regs)
 
 //		Only process those boards which match our IRQ.
 //			IRQ = 0 for polled boards, we won't poll "IRQ" boards
+//		Add an additional "check" if the irq is zero for boards
+//		which are "stuck"
 
-		if ( pB && (pB->i2eUsingIrq == irq) ) {
+		if ( pB && ( pB->i2eUsingIrq == irq || ( 0 == irq && 0 != pB->SendPendingRetry ) ) ) {
 #ifdef USE_IQI
 
 		    if (NO_MAIL_HERE != ( pB->i2eStartMail = iiGetMail(pB))) {
@@ -1391,9 +1413,8 @@ ip2_interrupt(int irq, void *dev_id, struct pt_regs * regs)
 			mark_bh(IMMEDIATE_BH);
 		    }
 #else
-//		We are using immediate servicing here.  This sucks and can
-//		cause all sorts of havoc with ppp and others.  The failsafe
-//		check on iiSendPendingMail could also throw a hairball.
+//		We are using immediate servicing here.  Suboptimal
+//			to say the least...
 			i2ServiceBoard( pB );
 #endif /* USE_IQI */
 		}
@@ -1417,6 +1438,9 @@ ip2_interrupt(int irq, void *dev_id, struct pt_regs * regs)
 static void
 ip2_poll(unsigned long arg)
 {
+	int i;
+	i2eBordStrPtr  pB;
+
 	ip2trace (ITRC_NO_PORT, ITRC_INTR, 100, 0 );
 
 	TimerOn = 0; // it's the truth but not checked in service
@@ -1424,7 +1448,15 @@ ip2_poll(unsigned long arg)
 	// Just polled boards, IRQ = 0 will hit all non-interrupt boards.
 	// It will NOT poll boards handled by hard interrupts.
 	// The issue of queued BH interrups is handled in ip2_interrupt().
-	ip2_interrupt(0, NULL, NULL);
+
+	for( i = 0; i < i2nBoards; ++i ) {
+		pB = i2BoardPtrTable[i];
+	// Service the board if the irq indicates a polled board
+	// OR if the SendPendingRetry indicates a retry state in the board
+		if ( pB && ( 0 == pB->i2eUsingIrq || 0 != pB->SendPendingRetry ) ) {
+			i2ServiceBoard( pB );
+		}
+	}
 
 	PollTimer.expires = POLL_TIMEOUT;
 	add_timer( &PollTimer );
@@ -1433,7 +1465,7 @@ ip2_poll(unsigned long arg)
 	ip2trace (ITRC_NO_PORT, ITRC_INTR, ITRC_RETURN, 0 );
 }
 
-static inline void 
+static void 
 do_input( i2ChanStrPtr pCh )
 {
 	unsigned long flags;
@@ -1462,13 +1494,12 @@ isig(int sig, struct tty_struct *tty, int flush)
 	if (tty->pgrp > 0)
 		kill_pg(tty->pgrp, sig, 1);
 	if (flush || !L_NOFLSH(tty)) {
-		if ( tty->ldisc.flush_buffer )  
-			tty->ldisc.flush_buffer(tty);
+		tty_ldisc_flush(tty);
 		i2InputFlush( tty->driver_data );
 	}
 }
 
-static inline void
+static void
 do_status( i2ChanStrPtr pCh )
 {
 	int status;
@@ -1853,8 +1884,7 @@ ip2_close( PTTY tty, struct file *pFile )
 
 	if ( tty->driver.flush_buffer ) 
 		tty->driver.flush_buffer(tty);
-	if ( tty->ldisc.flush_buffer )  
-		tty->ldisc.flush_buffer(tty);
+	tty_ldisc_flush(tty);
 	tty->closing = 0;
 	
 	pCh->pTTY = NULL;
@@ -2360,6 +2390,12 @@ ip2_ioctl ( PTTY tty, struct file *pFile, UINT cmd, ULONG arg )
 
 		ip2trace (CHANN, ITRC_IOCTL, 8, 1, rc );
 
+/*
+	FIXME - the following code is causing a NULL pointer dereference in
+	2.3.51 in an interrupt handler.  It's suppose to prompt the board
+	to return the DSS signal status immediately.  Why doesn't it do
+	the same thing in 2.2.14?
+*/
 
 /*	This thing is still busted in the 1.2.12 driver on 2.4.x
 	and even hoses the serial console so the oops can be trapped.
@@ -3192,7 +3228,16 @@ ip2_ipl_ioctl ( struct inode *pInode, struct file *pFile, UINT cmd, ULONG arg )
 	case 2:	    // Ping device
 		rc = -EINVAL;
 		break;
+
+#ifdef IP2_TRACE_DEVICE
 	case 3:	    // Trace device
+/*
+	This may have been useful at one time during early development
+	but has not been used for years and is just a source of excess
+	baggage and unused code and warnings.  The client programs that
+	understood this returned "blob" don't even currently compile...
+	Disabled until needed in the future.  /\/\|=mhw=|\/\/  12/22/2004
+*/
 		if ( cmd == 1 ) {
 			PUT_USER(rc, iiSendPendingMail, pIndex++ );
 			PUT_USER(rc, i2InitChannels, pIndex++ );
@@ -3253,6 +3298,7 @@ ip2_ipl_ioctl ( struct inode *pInode, struct file *pFile, UINT cmd, ULONG arg )
 		}
 
 		break;
+#endif
 
 	default:
 		rc = -ENODEV;

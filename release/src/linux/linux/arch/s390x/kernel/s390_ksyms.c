@@ -9,10 +9,12 @@
 #include <linux/mm.h>
 #include <linux/smp.h>
 #include <asm/checksum.h>
+#include <asm/cpcmd.h>
 #include <asm/delay.h>
 #include <asm/pgalloc.h>
 #include <asm/setup.h>
 #include <asm/softirq.h>
+#include <asm/ioctl32.h>
 #if CONFIG_IP_MULTICAST
 #include <net/arp.h>
 #endif
@@ -26,6 +28,7 @@ EXPORT_SYMBOL_NOVERS(_zb_findmap);
 EXPORT_SYMBOL_NOVERS(__copy_from_user_asm);
 EXPORT_SYMBOL_NOVERS(__copy_to_user_asm);
 EXPORT_SYMBOL_NOVERS(__clear_user_asm);
+EXPORT_SYMBOL(diag10);
 
 /*
  * semaphore ops
@@ -62,6 +65,15 @@ EXPORT_SYMBOL(dump_fpu);
 EXPORT_SYMBOL(overflowuid);
 EXPORT_SYMBOL(overflowgid);
 
+#ifdef CONFIG_S390_SUPPORT
+/*
+ * Dynamically add/remove 31 bit ioctl conversion functions.
+ */
+EXPORT_SYMBOL(register_ioctl32_conversion);
+EXPORT_SYMBOL(unregister_ioctl32_conversion);
+EXPORT_SYMBOL(sys_ioctl);
+#endif
+
 /*
  * misc.
  */
@@ -71,3 +83,8 @@ EXPORT_SYMBOL(kernel_thread);
 EXPORT_SYMBOL(console_mode);
 EXPORT_SYMBOL(console_device);
 EXPORT_SYMBOL_NOVERS(do_call_softirq);
+EXPORT_SYMBOL(sys_wait4);
+EXPORT_SYMBOL(smp_call_function_on);
+EXPORT_SYMBOL(show_trace);
+EXPORT_SYMBOL(cpcmd);
+

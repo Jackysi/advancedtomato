@@ -219,15 +219,15 @@ enum {
 #define L1_EVENT_COUNT (EV_TIMER3 + 1)
 
 #define ERR(format, arg...) \
-printk(KERN_ERR __FILE__ ": " __FUNCTION__ ": " format "\n" , ## arg)
+printk(KERN_ERR "%s:%s: " format "\n" , __FILE__,  __FUNCTION__ , ## arg)
 
 #define WARN(format, arg...) \
-printk(KERN_WARNING __FILE__ ": " __FUNCTION__ ": " format "\n" , ## arg)
+printk(KERN_WARNING "%s:%s: " format "\n" , __FILE__,  __FUNCTION__ , ## arg)
 
 #define INFO(format, arg...) \
-printk(KERN_INFO __FILE__ ": " __FUNCTION__ ": " format "\n" , ## arg)
+printk(KERN_INFO "%s:%s: " format "\n" , __FILE__,  __FUNCTION__ , ## arg)
 
-#include "st5481_hdlc.h"
+#include "isdnhdlc.h"
 #include "fsm.h"
 #include "hisax_if.h"
 #include <linux/skbuff.h>
@@ -236,7 +236,7 @@ printk(KERN_INFO __FILE__ ": " __FUNCTION__ ": " format "\n" , ## arg)
  * FIFO handling
  */
 
-/* Generic FIFO structure */ 
+/* Generic FIFO structure */
 struct fifo {
 	u_char r,w,count,size;
 	spinlock_t lock;
@@ -270,7 +270,7 @@ static inline int fifo_add(struct fifo *fifo)
 		index = -1;
 	} else {
 		// Return index where to get the next data to add to the FIFO
-		index = fifo->w++ & (fifo->size-1); 
+		index = fifo->w++ & (fifo->size-1);
 		fifo->count++;
 	}
 	spin_unlock_irqrestore(&fifo->lock, flags);
@@ -289,13 +289,13 @@ static inline int fifo_remove(struct fifo *fifo)
 		return -1;
 	}
 
-	spin_lock_irqsave(&fifo->lock, flags);		
+	spin_lock_irqsave(&fifo->lock, flags);
 	if (!fifo->count) {
 		// FIFO empty
 		index = -1;
 	} else {
 		// Return index where to get the next data from the FIFO
-		index = fifo->r++ & (fifo->size-1); 
+		index = fifo->r++ & (fifo->size-1);
 		fifo->count--;
 	}
 	spin_unlock_irqrestore(&fifo->lock, flags);
@@ -336,7 +336,7 @@ struct st5481_intr {
 };
 
 struct st5481_d_out {
-	struct hdlc_vars hdlc_state;
+	struct isdnhdlc_vars hdlc_state;
 	struct urb *urb[2]; /* double buffering */
 	unsigned long busy;
 	struct sk_buff *tx_skb;
@@ -344,7 +344,7 @@ struct st5481_d_out {
 };
 
 struct st5481_b_out {
-	struct hdlc_vars hdlc_state;
+	struct isdnhdlc_vars hdlc_state;
 	struct urb *urb[2]; /* double buffering */
 	u_char flow_event;
 	u_long busy;
@@ -352,7 +352,7 @@ struct st5481_b_out {
 };
 
 struct st5481_in {
-	struct hdlc_vars hdlc_state;
+	struct isdnhdlc_vars hdlc_state;
 	struct urb *urb[2]; /* double buffering */
 	int mode;
 	int bufsize;

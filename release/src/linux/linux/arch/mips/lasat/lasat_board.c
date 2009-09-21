@@ -23,20 +23,23 @@
  *
  * Routines specific to the LASAT boards
  */
+#include <linux/types.h>
+#include <linux/crc32.h>
 #include <asm/lasat/lasat.h>
 #include <linux/kernel.h>
 #include <linux/string.h>
 #include <linux/ctype.h>
 #include <asm/bootinfo.h>
-#include <asm/lasat/lasat_mtd.h>
 #include <asm/addrspace.h>
 #include "at93c.h"
 /* New model description table */
 #include "lasat_models.h"
+
+#define EEPROM_CRC(data, len) (~0 ^ crc32(~0, data, len))
+
 struct lasat_info lasat_board_info;
 
-extern unsigned long crc32(unsigned long, unsigned char *, int);
-
+void update_bcastaddr(void);
 
 int EEPROMRead(unsigned int pos, unsigned char *data, int len)
 {
@@ -57,81 +60,39 @@ int EEPROMWrite(unsigned int pos, unsigned char *data, int len)
 	return 0;
 }
 
-static int upgrade_eeprom_info(struct lasat_eeprom_struct * ser_data)
+static void init_flash_sizes(void)
 {
-	struct lasat_eeprom_struct_pre7 old;
+	int i;
+	unsigned long *lb = lasat_board_info.li_flashpart_base;
+	unsigned long *ls = lasat_board_info.li_flashpart_size;
 
-	memcpy(&old, ser_data, sizeof(struct lasat_eeprom_struct_pre7));
+	ls[LASAT_MTD_BOOTLOADER] = 0x40000;
+	ls[LASAT_MTD_SERVICE] = 0xC0000;
+	ls[LASAT_MTD_NORMAL] = 0x100000;
 
-	switch (ser_data->version) {
-	case 1:
-	case 2:
-	case 3:
-		/* These have old serial numbers that we can't convert. */
-		return -1;
+	if (mips_machtype == MACH_LASAT_100) {
+		lasat_board_info.li_flash_base = 0x1e000000;
+		
+		lb[LASAT_MTD_BOOTLOADER] = 0x1e400000;
 
-	case 4:
-		/* This used flags for obscure purposes. */
-		old.version = 5;
+		if (lasat_board_info.li_flash_size > 0x200000) {
+			ls[LASAT_MTD_CONFIG] = 0x100000;
+			ls[LASAT_MTD_FS] = 0x500000;
+		}
+	} else {
+		lasat_board_info.li_flash_base = 0x10000000;
 
-	case 5:
-		/* Writecount didn't exist. */
-		old.writecount = 1;
-		old.version = 6;
-
-	case 6:
-		/* The length of the part numbers have changed. */
-		/* So the print_serial, prod_partno, etc have moved. */
-		/* Also, now the dash is part of the part number (in
-		 * accordance with our philosophy that the part numbers
-		 * are to be considered "random data"). */
-
-		memset(ser_data, 0, 128);
-
-		ser_data->cfg[0] = 0;
-		ser_data->cfg[1] = 0;
-		ser_data->cfg[2] = 0;
-
-		memcpy(ser_data->hwaddr, old.hwaddr0, 6);
-
-		memcpy(ser_data->print_partno, old.print_partno, 6);
-		ser_data->print_partno[6] = '-';
-		memcpy(ser_data->print_partno+7, old.print_partno+6, 3);
-
-		memcpy(ser_data->print_serial, old.print_serial, 14);
-
-		memcpy(ser_data->prod_partno, old.prod_partno, 6);
-		ser_data->prod_partno[6] = '-';
-		memcpy(ser_data->prod_partno+7, old.prod_partno+6, 3);
-
-		memcpy(ser_data->prod_serial, old.prod_serial, 14);
-
-		memcpy(ser_data->passwd_hash, old.passwd_hash, 16);
-
-		ser_data->vendid = old.vendor;
-		ser_data->ts_ref = old.ts_ref;
-		ser_data->ts_signoff = old.ts_signoff;
-		ser_data->serviceflag = old.writecount;
-
-		ser_data->ipaddr = old.ipaddr;
-		ser_data->netmask = old.netmask;
-
-		/* make up something */
-		ser_data->cfg[0] = 0x01132001;
-		ser_data->cfg[1] = 0x00010061;
-
-		ser_data->prid = ((ser_data->cfg[0] >> 4) & 0x0f);
-		ser_data->version = 7;
-
-
-	case 7:
-		/* Up to date */
-		return 0;
-
-	default:
-		/* What, an unknown version? */
-		return -1;
+		if (lasat_board_info.li_flash_size < 0x1000000) {
+			lb[LASAT_MTD_BOOTLOADER] = 0x10000000;
+			ls[LASAT_MTD_CONFIG] = 0x100000;
+			if (lasat_board_info.li_flash_size >= 0x400000) {
+				ls[LASAT_MTD_FS] = lasat_board_info.li_flash_size - 0x300000;
+			}
+		}
 	}
+
+	for (i = 1; i < LASAT_MTD_LAST; i++)
+		lb[i] = lb[i-1] + ls[i-1];
 }
 
 int lasat_init_board_info(void)
@@ -139,66 +100,37 @@ int lasat_init_board_info(void)
 	int c;
 	unsigned long crc;
 	unsigned long cfg0, cfg1;
-	const vendor_info_t    *pvi;
 	const product_info_t   *ppi;
 	int i_n_base_models = N_BASE_MODELS;
 	const char * const * i_txt_base_models = txt_base_models;
-	int i_n_vendors = N_VENDORS;
-	vendor_info_t const *i_vendor_info_table = vendor_info_table;
 	int i_n_prids = N_PRIDS;
 
 	memset(&lasat_board_info, 0, sizeof(lasat_board_info));
 
-	/* Assume EEPROM struct is LASAT_EEPROM_VERSION */
-	lasat_board_info.li_eeprom_upgrade_version = 1;
-	
 	/* First read the EEPROM info */
 	EEPROMRead(0, (unsigned char *)&lasat_board_info.li_eeprom_info, 
 		   sizeof(struct lasat_eeprom_struct));
 
 	/* Check the CRC */
-	crc = crc32(0x0, (unsigned char *)(&lasat_board_info.li_eeprom_info),
+	crc = EEPROM_CRC((unsigned char *)(&lasat_board_info.li_eeprom_info),
 		    sizeof(struct lasat_eeprom_struct) - 4);
 
 	if (crc != lasat_board_info.li_eeprom_info.crc32) {
-		return -1;
+		prom_printf("WARNING...\nWARNING...\nEEPROM CRC does not match calculated, attempting to soldier on...\n");
 	}
 
 	if (lasat_board_info.li_eeprom_info.version != LASAT_EEPROM_VERSION)
 	{
-		if (0 > upgrade_eeprom_info(&(lasat_board_info.li_eeprom_info))) {
-			printk("Upgrading EEPROM information from version %d to version %d failed!\n", 
-			       (unsigned int)lasat_board_info.li_eeprom_info.version,
-			       LASAT_EEPROM_VERSION);
-			return -1;
-		}
-		lasat_write_eeprom_info();
-
-		/* OK, the EEPROM struct is not LASAT_EEPROM_VERSION */
-		lasat_board_info.li_eeprom_upgrade_version = 0;
+		prom_printf("WARNING...\nWARNING...\nEEPROM version %d, wanted version %d, attempting to soldier on...\n",
+		       (unsigned int)lasat_board_info.li_eeprom_info.version,
+		       LASAT_EEPROM_VERSION);
 	}
-
-	/*
-	 * Part and serial no.
-	 */
-	memcpy(lasat_board_info.li_partno,
-	       lasat_board_info.li_eeprom_info.prod_partno, 12);
-	lasat_board_info.li_partno[12] = '\0';
-
-	memcpy(lasat_board_info.li_serial,
-	       lasat_board_info.li_eeprom_info.prod_serial,
-	       14);
-	lasat_board_info.li_serial[14] = '\0';
-
-	/*
-	 * If configuration field is present, use that
-	 */
 
 	cfg0 = lasat_board_info.li_eeprom_info.cfg[0];
 	cfg1 = lasat_board_info.li_eeprom_info.cfg[1];
 
 	if ( LASAT_W0_DSCTYPE(cfg0) != 1) {
-		return -1;
+		prom_printf("WARNING...\nWARNING...\nInvalid configuration read from EEPROM, attempting to soldier on...");
 	}
 	/* We have a valid configuration */
 
@@ -282,35 +214,6 @@ int lasat_init_board_info(void)
 		break;
 	}
 
-	switch (LASAT_W1_EDHAC(cfg1)) {
-	case 0x0:
-		lasat_board_info.li_edhac = 0;
-		lasat_board_info.li_eadi  = 0;
-		break;
-	case 0x1:
-		lasat_board_info.li_edhac = 0;
-		lasat_board_info.li_eadi  = 1;
-		break;
-	case 0x2:
-		lasat_board_info.li_edhac = 1;
-		lasat_board_info.li_eadi  = 1;
-		break;
-	case 0x3:
-		lasat_board_info.li_edhac = 2;
-		lasat_board_info.li_eadi  = 1;
-		break;
-	}
-	/* The 200 board always has EADI */
-	if (LASAT_W0_CPUTYPE(cfg0) == 1) {
-		lasat_board_info.li_eadi = 1;
-	}
-
-	lasat_board_info.li_hifn = LASAT_W1_HIFN(cfg1);
-	lasat_board_info.li_isdn = LASAT_W1_ISDN(cfg1);
-	lasat_board_info.li_ide  = LASAT_W1_IDE(cfg1);
-	lasat_board_info.li_hdlc = LASAT_W1_HDLC(cfg1);
-	lasat_board_info.li_usversion = LASAT_W1_USVERSION(cfg1);
-
 	/* Flash size */
 	switch (LASAT_W1_FLASHSIZE(cfg1)) {
 	case 0:
@@ -330,73 +233,25 @@ int lasat_init_board_info(void)
 		break;
 	}
 
-	/* Flash base addresses */
-	if (mips_machtype == MACH_LASAT_100) {
-		lasat_board_info.li_flash_base = KSEG1ADDR(0x1e000000);
-		lasat_board_info.li_flash_service_base = KSEG1ADDR(0x1e400000);
-		lasat_board_info.li_flash_service_size = 0x100000;
-		lasat_board_info.li_flash_normal_base = KSEG1ADDR(0x1e500000);
-		lasat_board_info.li_flash_normal_size = 0x100000;
-		if (lasat_board_info.li_flash_size > 0x200000) {
-			lasat_board_info.li_flash_cfg_base = KSEG1ADDR(0x1e600000);
-			lasat_board_info.li_flash_cfg_size = 0x100000;
-			lasat_board_info.li_flash_fs_base = KSEG1ADDR(0x1e700000);
-			lasat_board_info.li_flash_fs_size = 0x500000;
-		}
-	} else {
-		lasat_board_info.li_flash_base = KSEG1ADDR(0x10000000);
-		if (lasat_board_info.li_flash_size < 0x1000000) {
-			lasat_board_info.li_flash_service_base = KSEG1ADDR(0x10000000);
-			lasat_board_info.li_flash_service_size = 0x100000;
-			lasat_board_info.li_flash_cfg_base = KSEG1ADDR(0x10200000);
-			lasat_board_info.li_flash_cfg_size = 0x100000;
-			lasat_board_info.li_flash_normal_base = KSEG1ADDR(0x10100000);
-			lasat_board_info.li_flash_normal_size = 0x100000;
-			if (lasat_board_info.li_flash_size >= 0x400000) {
-				lasat_board_info.li_flash_fs_base = KSEG1ADDR(0x10300000);
-				lasat_board_info.li_flash_fs_size = 
-					lasat_board_info.li_flash_size - 0x300000;
-			}
-		} else {
-			lasat_board_info.li_flash_service_base = KSEG1ADDR(0x10400000);
-			lasat_board_info.li_flash_service_size = 0x100000;
-			lasat_board_info.li_flash_cfg_base = KSEG1ADDR(0x10000000);
-			lasat_board_info.li_flash_cfg_size = 0x200000;
-			lasat_board_info.li_flash_normal_base = KSEG1ADDR(0x10200000);
-			lasat_board_info.li_flash_normal_size = 0x100000;
-			lasat_board_info.li_flash_fs_base = KSEG1ADDR(0x10500000);
-			lasat_board_info.li_flash_fs_size = 0xa00000;
-		}
-	}
+	init_flash_sizes();
 
 	lasat_board_info.li_bmid = LASAT_W0_BMID(cfg0);
 	lasat_board_info.li_prid = lasat_board_info.li_eeprom_info.prid;
 	if (lasat_board_info.li_prid == 0xffff || lasat_board_info.li_prid == 0)
 		lasat_board_info.li_prid = lasat_board_info.li_bmid;
-	lasat_board_info.li_vendid = lasat_board_info.li_eeprom_info.vendid;
 
 	/* Base model stuff */
 	if (lasat_board_info.li_bmid > i_n_base_models)
 		lasat_board_info.li_bmid = i_n_base_models;
 	strcpy(lasat_board_info.li_bmstr, i_txt_base_models[lasat_board_info.li_bmid]);
 
-	/* Vendor stuff */
-	if (lasat_board_info.li_vendid >= i_n_vendors)
-		lasat_board_info.li_vendid = 0;
-	pvi = &i_vendor_info_table[lasat_board_info.li_vendid];
-	strcpy(lasat_board_info.li_vendstr, pvi->vi_name);
-
 	/* Product ID dependent values */
 	c = lasat_board_info.li_prid;
 	if (c >= i_n_prids) {
 		strcpy(lasat_board_info.li_namestr, "Unknown Model");
 		strcpy(lasat_board_info.li_typestr, "Unknown Type");
-		lasat_board_info.li_vpn_kbps = 0;
-		lasat_board_info.li_vpn_tunnels = 0;
-		lasat_board_info.li_vpn_clients = 0;
 	} else {
-		/* Product ID names (also depending on vendor ID) */
-		ppi = &pvi->vi_product_info[c];
+		ppi = &vendor_info_table[0].vi_product_info[c];
 		strcpy(lasat_board_info.li_namestr, ppi->pi_name);
 		if (ppi->pi_type)
 			strcpy(lasat_board_info.li_typestr, ppi->pi_type);
@@ -404,7 +259,9 @@ int lasat_init_board_info(void)
 			sprintf(lasat_board_info.li_typestr, "%d",10*c);
 	}
 
-	lasat_board_info.li_debugaccess = lasat_board_info.li_eeprom_info.debugaccess;
+#if defined(CONFIG_INET) && defined(CONFIG_SYSCTL)
+	update_bcastaddr();
+#endif
 
 	return 0;
 }
@@ -414,7 +271,7 @@ void lasat_write_eeprom_info(void)
 	unsigned long crc;
 
 	/* Generate the CRC */
-	crc = crc32(0x0, (unsigned char *)(&lasat_board_info.li_eeprom_info),
+	crc = EEPROM_CRC((unsigned char *)(&lasat_board_info.li_eeprom_info),
 		    sizeof(struct lasat_eeprom_struct) - 4);
 	lasat_board_info.li_eeprom_info.crc32 = crc;
 
@@ -423,19 +280,3 @@ void lasat_write_eeprom_info(void)
 		    sizeof(struct lasat_eeprom_struct));
 }
 
-char *get_firmware_version(void)
-{
-	char *fw;
-	fw = (unsigned char *)(lasat_board_info.li_flash_normal_base);
-
-	if ( (((unsigned long *)fw)[0] != 0xfedeabba) ||
-			(((unsigned long *)fw)[1] != 0x00bedead))
-		return "NONE";
-
-	fw += 0x50;
-	if ((*fw == 0) || (strlen(fw) > 175)) {
-		return "UNKNOWN";
-	}
-
-	return fw;
-}

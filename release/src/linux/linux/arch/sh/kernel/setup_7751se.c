@@ -21,6 +21,58 @@
 /*
  * Configure the Super I/O chip
  */
+#if 0
+/* Leftover code from regular Solution Engine, for reference. */
+/* The SH7751 Solution Engine has a different SuperIO. */
+static void __init smsc_config(int index, int data)
+{
+	outb_p(index, INDEX_PORT);
+	outb_p(data, DATA_PORT);
+}
+
+static void __init init_smsc(void)
+{
+	outb_p(CONFIG_ENTER, CONFIG_PORT);
+	outb_p(CONFIG_ENTER, CONFIG_PORT);
+
+	/* FDC */
+	smsc_config(CURRENT_LDN_INDEX, LDN_FDC);
+	smsc_config(ACTIVATE_INDEX, 0x01);
+	smsc_config(IRQ_SELECT_INDEX, 6); /* IRQ6 */
+
+	/* IDE1 */
+	smsc_config(CURRENT_LDN_INDEX, LDN_IDE1);
+	smsc_config(ACTIVATE_INDEX, 0x01);
+	smsc_config(IRQ_SELECT_INDEX, 14); /* IRQ14 */
+
+	/* AUXIO (GPIO): to use IDE1 */
+	smsc_config(CURRENT_LDN_INDEX, LDN_AUXIO);
+	smsc_config(GPIO46_INDEX, 0x00); /* nIOROP */
+	smsc_config(GPIO47_INDEX, 0x00); /* nIOWOP */
+
+	/* COM1 */
+	smsc_config(CURRENT_LDN_INDEX, LDN_COM1);
+	smsc_config(ACTIVATE_INDEX, 0x01);
+	smsc_config(IO_BASE_HI_INDEX, 0x03);
+	smsc_config(IO_BASE_LO_INDEX, 0xf8);
+	smsc_config(IRQ_SELECT_INDEX, 4); /* IRQ4 */
+
+	/* COM2 */
+	smsc_config(CURRENT_LDN_INDEX, LDN_COM2);
+	smsc_config(ACTIVATE_INDEX, 0x01);
+	smsc_config(IO_BASE_HI_INDEX, 0x02);
+	smsc_config(IO_BASE_LO_INDEX, 0xf8);
+	smsc_config(IRQ_SELECT_INDEX, 3); /* IRQ3 */
+
+	/* RTC */
+	smsc_config(CURRENT_LDN_INDEX, LDN_RTC);
+	smsc_config(ACTIVATE_INDEX, 0x01);
+	smsc_config(IRQ_SELECT_INDEX, 8); /* IRQ8 */
+
+	/* XXX: PARPORT, KBD, and MOUSE will come here... */
+	outb_p(CONFIG_EXIT, CONFIG_PORT);
+}
+#endif
 
 /*
  * Initialize IRQ setting
@@ -80,4 +132,5 @@ void __init init_7751se_IRQ(void)
 void __init setup_7751se(void)
 {
 	/* Call init_smsc() replacement to set up SuperIO. */
+	/* XXX: RTC setting comes here */
 }

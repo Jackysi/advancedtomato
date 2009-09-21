@@ -700,8 +700,9 @@
 #define __NR_acl_set            (__NR_Linux + 205)
 #define __NR_gettid             (__NR_Linux + 206)
 #define __NR_readahead          (__NR_Linux + 207)
+#define __NR_tkill              (__NR_Linux + 208)
 
-#define __NR_Linux_syscalls     207
+#define __NR_Linux_syscalls     208
 
 #define HPUX_GATEWAY_ADDR       0xC0000004
 #define LINUX_GATEWAY_ADDR      0x100

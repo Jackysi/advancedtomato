@@ -1,4 +1,4 @@
-/* $Id: ioctls.h,v 1.1.1.4 2003/10/14 08:09:23 sparq Exp $ */
+/* $Id: ioctls.h,v 1.7 1998/02/23 02:49:41 davem Exp $ */
 #ifndef _ASM_SPARC64_IOCTLS_H
 #define _ASM_SPARC64_IOCTLS_H
 
@@ -87,6 +87,7 @@
 #define FIONBIO		_IOW('f', 126, int)
 #define FIONREAD	_IOR('f', 127, int)
 #define TIOCINQ		FIONREAD
+#define FIOQSIZE	_IOR('f', 128, loff_t)
 
 /* SCARY Rutgers local SunOS kernel hackery, perhaps I will support it
  * someday.  This is completely bogus, I know...

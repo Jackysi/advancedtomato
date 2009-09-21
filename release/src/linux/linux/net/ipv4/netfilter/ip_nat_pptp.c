@@ -286,8 +286,12 @@ pptp_inbound_pkt(struct sk_buff **pskb,
 		} else {
 			DEBUGP("can't change expect\n");
 		}
-		ip_ct_gre_keymap_change(oldexp->proto.gre.keymap_orig, &t);
-		ip_ct_gre_keymap_change(oldexp->proto.gre.keymap_reply, &inv_t);
+		if (oldexp->proto.gre.keymap_orig)
+			ip_ct_gre_keymap_change(oldexp->proto.gre.keymap_orig, 
+						&t);
+		if (oldexp->proto.gre.keymap_reply)
+			ip_ct_gre_keymap_change(oldexp->proto.gre.keymap_reply, 
+						&inv_t);
 		break;
 	case PPTP_IN_CALL_CONNECT:
 		pcid = &pptpReq.iccon->peersCallID;
@@ -319,6 +323,9 @@ pptp_inbound_pkt(struct sk_buff **pskb,
 		break;
 	case PPTP_CALL_DISCONNECT_NOTIFY:
 		pcid = &pptpReq.disc->callID;
+		break;
+	case PPTP_SET_LINK_INFO:
+		pcid = &pptpReq.setlink->peersCallID;
 		break;
 
 	default:

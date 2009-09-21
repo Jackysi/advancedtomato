@@ -1,5 +1,5 @@
 /*
- * kgdb debug routines for swarm board.
+ * kgdb debug routines for SiByte boards.
  *
  * Copyright (C) 2001 MontaVista Software Inc.
  * Author: Jun Sun, jsun@mvista.com or jsun@junsun.net
@@ -35,12 +35,10 @@
 static int duart_initialized = 0;	/* 0: need to be init'ed by kgdb */
 
 /* -------------------- END OF CONFIG --------------------- */
+extern int kgdb_port;
 
-
-#define	duart_out(reg, val)	out64(val, KSEG1 + A_DUART_CHANREG(1,reg))
-#define duart_in(reg)		in64(KSEG1 + A_DUART_CHANREG(1,reg))
-
-extern void set_async_breakpoint(unsigned int epc);
+#define	duart_out(reg, val)	csr_out32(val, KSEG1 + A_DUART_CHANREG(kgdb_port,reg))
+#define duart_in(reg)		csr_in32(KSEG1 + A_DUART_CHANREG(kgdb_port,reg))
 
 void putDebugChar(unsigned char c);
 unsigned char getDebugChar(void);

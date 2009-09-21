@@ -1,4 +1,4 @@
-/* $Id: cgfourteenfb.c,v 1.1.1.4 2003/10/14 08:08:53 sparq Exp $
+/* $Id: cgfourteenfb.c,v 1.11 2001/09/19 00:04:33 davem Exp $
  * cgfourteenfb.c: CGfourteen frame buffer driver
  *
  * Copyright (C) 1996,1998 Jakub Jelinek (jj@ultra.linux.cz)
@@ -310,7 +310,7 @@ static int cg14_ioctl (struct fb_info_sbusfb *fb, unsigned int cmd, unsigned lon
 		    __put_user(fb->type.fb_height, &mdii->mdi_height) ||
 		    __put_user(fb->type.fb_width, &mdii->mdi_width) ||
 		    __put_user(fb->s.cg14.mode, &mdii->mdi_mode) ||
-		    __put_user(72, &mdii->mdi_pixfreq) || 
+		    __put_user(72, &mdii->mdi_pixfreq) || /* FIXME */
 		    __put_user(fb->s.cg14.ramsize, &mdii->mdi_size))
 			return -EFAULT;
 		break;

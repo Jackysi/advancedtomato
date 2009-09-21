@@ -146,6 +146,16 @@ static int __init ac_probe1(int ioaddr, struct net_device *dev)
 	for(i = 0; i < 6; i++)
 		printk(" %02x", dev->dev_addr[i] = inb(ioaddr + AC_SA_PROM + i));
 
+#if 0
+	/* Check the vendor ID/prefix. Redundant after checking the EISA ID */
+	if (inb(ioaddr + AC_SA_PROM + 0) != AC_ADDR0
+		|| inb(ioaddr + AC_SA_PROM + 1) != AC_ADDR1
+		|| inb(ioaddr + AC_SA_PROM + 2) != AC_ADDR2 ) {
+		printk(", not found (invalid prefix).\n");
+		retval = -ENODEV;
+		goto out;
+	}
+#endif
 
 	/* Allocate dev->priv and fill in 8390 specific dev fields. */
 	if (ethdev_init(dev)) {

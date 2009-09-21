@@ -36,12 +36,12 @@ struct usb_hcd {	/* usb_bus.hcpriv points to this */
 	struct usb_bus		*bus;		/* hcd is-a bus */
 	struct list_head	hcd_list;
 
-	const char		*bus_name;
 	const char		*product_desc;
 	const char		*description;	/* "ehci-hcd" etc */
 
 	struct timer_list	rh_timer;	/* drives root hub */
 	struct list_head	dev_list;	/* devices on this bus */
+	struct tq_struct	work;
 
 	/*
 	 * hardware info/state
@@ -104,7 +104,7 @@ struct hc_driver {
 	const char	*description;	/* "ehci-hcd" etc */
 
 	/* irq handler */
-	void	(*irq) (struct usb_hcd *hcd);
+	void	(*irq) (struct usb_hcd *hcd, struct pt_regs *regs);
 
 	int	flags;
 #define	HCD_MEMORY	0x0001		/* HC regs use memory (else I/O) */
@@ -149,7 +149,8 @@ struct hc_driver {
 				char *buf, u16 wLength);
 };
 
-extern void usb_hcd_giveback_urb (struct usb_hcd *hcd, struct urb *urb);
+extern void usb_hcd_giveback_urb (struct usb_hcd *hcd, struct urb *urb,
+		struct pt_regs *regs);
 
 #ifdef CONFIG_PCI
 
@@ -283,3 +284,5 @@ static inline void
 usb_hub_tt_clear_buffer (struct usb_device *dev, int pipe)
 	{ }
 
+#define URB_ZERO_PACKET	USB_ZERO_PACKET
+#define URB_ISO_ASAP	USB_ISO_ASAP

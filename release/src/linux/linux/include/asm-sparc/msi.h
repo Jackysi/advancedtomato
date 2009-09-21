@@ -1,4 +1,4 @@
-/* $Id: msi.h,v 1.1.1.4 2003/10/14 08:09:22 sparq Exp $
+/* $Id: msi.h,v 1.3 1996/08/29 09:48:25 davem Exp $
  * msi.h:  Defines specific to the MBus - Sbus - Interface.
  *
  * Copyright (C) 1996 David S. Miller (davem@caip.rutgers.edu)

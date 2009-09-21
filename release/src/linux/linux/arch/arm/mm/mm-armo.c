@@ -104,6 +104,7 @@ pgd_t *get_pgd_slow(struct mm_struct *mm)
 no_pte:
 	spin_unlock(&mm->page_table_lock);
 	pmd_free(new_pmd);
+	check_pgt_cache();
 	free_pgd_slow(new_pgd);
 	return NULL;
 

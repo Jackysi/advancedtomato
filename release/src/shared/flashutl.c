@@ -1,7 +1,7 @@
 /*
  * flashutl.c - Flash Read/write/Erase routines
  *
- * Copyright 2005, Broadcom Corporation      
+ * Copyright 2004, Broadcom Corporation      
  * All Rights Reserved.      
  *       
  * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY      
@@ -9,121 +9,135 @@
  * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS      
  * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.      
  *
- * $Id: flashutl.c,v 1.8 2005/03/07 08:35:32 kanki Exp $
+ * $Id$
  */
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-
 #include <typedefs.h>
+#include <osl.h>
 
 #define DECLARE_FLASHES
+#include <bcmutils.h>
 #include <sbutils.h>
 #include <sbconfig.h>
 #include <flash.h>
 #include <sflash.h>
 #include <flashutl.h>
 #include <bcmnvram.h>
-#include <bcmutils.h>
-#include <osl.h>
 
 #define DPRINT(x) 
 
-#define ERR2	0x30
-#define DONE	0x80
-#define WBUFSIZE 32
+#define ERR2	0x30 /* Mask for err UNUSED */
+#define DONE	0x80 /* Mask for done */
+#define WBUFSIZE 32  /* Write Buffer size */
 #define FLASH_TRIES 4000000 /* retry count */
 #define CMD_ADDR ((unsigned long)0xFFFFFFFF)
 
 /* 'which' param for block() */
-#define BLOCK_BASE	0
-#define BLOCK_LIM	1
+#define BLOCK_BASE	0  /* Base of block */
+#define BLOCK_LIM	1  /* Limit of block */
 
 #define FLASH_ADDR(off) ((unsigned long)flashutl_base + (off))
 
-static chipcregs_t *cc;
+/* Local vars */
+static sb_t *sbh = NULL;
+static chipcregs_t *cc = NULL;
 
 /* Global vars */
-char*		flashutl_base	= NULL;
-flash_desc_t*	flashutl_desc	= NULL;
-flash_cmds_t*	flashutl_cmd	= NULL;
+uint8		*flashutl_base	= NULL;
+flash_desc_t	*flashutl_desc	= NULL;
+flash_cmds_t	*flashutl_cmd	= NULL;
+uint8 flashutl_wsz = sizeof(uint16);
 
 static void		scmd(uint16 cmd, unsigned long off);
 static void		cmd(uint16 cmd, unsigned long off);
 static void		flash_reset(void);
 static int		flash_poll(unsigned long off, uint16 data);
 static unsigned long	block(unsigned long addr, int which);
-static int	flash_erase(void);
 static int	flash_eraseblk(unsigned long off);
-static int	flash_write(unsigned long off, uint16 *src, uint nbytes);
-static unsigned long	flash_block_base(unsigned long off);
-static unsigned long	flash_block_lim(unsigned long off);
-static chipcregs_t *cc;
+static int	flash_write(unsigned long off, uint8 *src, uint nbytes);
+static uint16 INLINE flash_readword(unsigned long addr);
+static void INLINE flash_writeword(unsigned long addr, uint16 data);
+
+int sysFlashErase(uint off, unsigned int numbytes);
 
 /* Read the flash ID and set the globals */
 int
 sysFlashInit(char *flash_str)
 {
+	osl_t *osh;
 	uint32 fltype = PFLASH;
 	uint16 flash_vendid = 0;
 	uint16 flash_devid = 0;
-	uint16* flash = (uint16*)0xbfc00000;
 	int idx;
 	struct sflash *sflash;
-	void *sbh;
 
 	/*
 	 * Check for serial flash.
 	 */
-	sbh = sb_kattach();
+	sbh = sb_kattach(SB_OSH);
 	ASSERT(sbh);
-	cc = (chipcregs_t *) sb_setcore(sbh, SB_CC, 0);
 
+	osh = sb_osh(sbh);
+
+	flashutl_base = (uint8*)OSL_UNCACHED(SB_FLASH1);
+	flashutl_wsz = sizeof(uint16);
+	cc = (chipcregs_t *)sb_setcore(sbh, SB_CC, 0);
 	if (cc) {
-		flash = (uint16*)0xbc000000;
-		fltype = R_REG(&cc->capabilities) & CAP_FLASH_MASK;
+		flashutl_base = (uint8*)OSL_UNCACHED(SB_FLASH2);
+		flashutl_wsz = (R_REG(osh, &cc->flash_config) & CC_CFG_DS) ?
+		        sizeof(uint16) : sizeof(uint8);
 		/* Select SFLASH ? */
+		fltype = R_REG(osh, &cc->capabilities) & CC_CAP_FLASH_MASK;
 		if (fltype == SFLASH_ST || fltype == SFLASH_AT) {
-			sflash = sflash_init(cc);
+			sflash = sflash_init(sbh, cc);
 			flashutl_cmd = &sflash_cmd_t;
 			flashutl_desc = &sflash_desc;
 			flashutl_desc->size = sflash->size;
 			if (flash_str) 
 				sprintf(flash_str, "SFLASH %d kB", sflash->size/1024);
-			return(0);
+			return (0);
 		}
 	}
 
-	flashutl_base = (uint8*)flash;
+	ASSERT(flashutl_wsz == sizeof(uint8) || flashutl_wsz == sizeof(uint16));
 
 	/* 
 	 * Parallel flash support
 	 *  Some flashes have different unlock addresses, try each it turn
 	 */
-	idx = sizeof(flash_cmds)/sizeof(flash_cmds_t) - 2;
-	flashutl_cmd = &flash_cmds[idx--];
-	while((fltype == PFLASH) && flashutl_cmd->type) {
+	for (idx = 0;
+	     fltype == PFLASH && idx < ARRAYSIZE(flash_cmds);
+	     idx ++) {
+		flashutl_cmd = &flash_cmds[idx];
+		if (flashutl_cmd->type == OLD)
+			continue;
 
 		if (flashutl_cmd->read_id)
 			cmd(flashutl_cmd->read_id, CMD_ADDR);
 
 #ifdef MIPSEB
-		flash_vendid = *(flash + 1);
-		flash_devid = *flash;	
+		flash_vendid = flash_readword(FLASH_ADDR(2));
+		flash_devid = flash_readword(FLASH_ADDR(0));
 #else
-		flash_vendid = *flash;
-		flash_devid = *(flash + 1);
-#endif
+		flash_vendid = flash_readword(FLASH_ADDR(0));
+		flash_devid = flash_readword(FLASH_ADDR(2));
+#endif /* MIPSEB */
 
-		/* Funky AMD */
+		/* Funky AMD, uses 3 byte device ID so use first byte (4th addr) to
+		 * identify it is a 3-byte ID and use the next two bytes (5th & 6th addr)
+		 * to form a word for unique identification of format xxyy, where
+		 * xx = 5th addr and yy = 6th addr
+		 */
 		if ((flash_vendid == 1) && (flash_devid == 0x227e)) {
 			/* Get real devid */
+			uint16 flash_devid_5th;
 #ifdef MIPSEB
-			flash_devid = *(flash+0xe);	
+			flash_devid_5th = flash_readword(FLASH_ADDR(0x1e)) << 8;
+			flash_devid = (flash_readword(FLASH_ADDR(0x1c)) & 0xff) | flash_devid_5th;
 #else
-			flash_devid = *(flash+0xf);
-#endif
+			flash_devid_5th = flash_readword(FLASH_ADDR(0x1c)) << 8;
+			flash_devid = (flash_readword(FLASH_ADDR(0x1e)) & 0xff) | flash_devid_5th;
+#endif /* MIPSEB */
 		}
 
 		flashutl_desc = flashes;
@@ -134,8 +148,6 @@ sysFlashInit(char *flash_str)
 		}
 		if (flashutl_desc->mfgid != 0)
 			break;
-
-		flashutl_cmd = &flash_cmds[idx--];
 	}
 
 	if (flashutl_desc->mfgid == 0) {
@@ -168,21 +180,6 @@ sysFlashInit(char *flash_str)
 }
 
 static int
-flash_erase()
-{
-	unsigned long size = flashutl_desc->size;
-	unsigned long addr;
-	int err = 0;
-	
-	for (addr = 0; addr < size; addr = block(addr, BLOCK_LIM)) {
-		err = flash_eraseblk(addr);
-		if (err) break;
-	}
-	
-	return err;
-}
-
-static int
 flash_eraseblk(unsigned long addr)
 {
 	unsigned long a;
@@ -194,7 +191,7 @@ flash_eraseblk(unsigned long addr)
 	
 	a = block(a, BLOCK_BASE);
 
-	/* Ensure blocks are unlocked (for intel chips)*/ 
+	/* Ensure blocks are unlocked (for intel chips) */
 	if (flashutl_cmd->type == BSC) {
 		scmd((unsigned char)INTEL_UNLOCK1, a);
 		scmd((unsigned char)INTEL_UNLOCK2, a);
@@ -207,6 +204,9 @@ flash_eraseblk(unsigned long addr)
 	if (flashutl_cmd->confirm)
 		scmd(flashutl_cmd->confirm, a);
 
+	if (flashutl_wsz == sizeof(uint8))
+		st = flash_poll(a, 0xff);
+	else
 	st = flash_poll(a, 0xffff);
 	
 	flash_reset();
@@ -217,36 +217,29 @@ flash_eraseblk(unsigned long addr)
 		return st;
 	}
 
-	DPRINT(("Erase of block 0x%08lx-0x%08lx done", a, block((unsigned long)addr, BLOCK_LIM)));
+	DPRINT(("Erase of block 0x%08lx-0x%08lx done\n", a, block((unsigned long)addr, BLOCK_LIM)));
 
 	return 0;
 }
 
 static int
-flash_write(unsigned long off, uint16 *src, uint nbytes)
+flash_write(unsigned long off, uint8 *src, uint nbytes)
 {
-	uint16* dest;
+	uint8 *dest;
 	uint16 st, data;
 	uint i, len;
-        uint cnts=0,k=0;
 
 	ASSERT(flashutl_desc != NULL);
 
 	if (off >= flashutl_desc->size)
 		return 1;
 
-	dest = (uint16*)FLASH_ADDR(off);
+	ASSERT(!(off & (flashutl_wsz - 1)));
+
+	dest = (uint8*)FLASH_ADDR(off);
 	st = 0;
 
 	while (nbytes) {
-                if((nbytes % 40000)==0)
-                {
-                    Cled(k);
-                //    OSL_DELAY(10);
-		    for(cnts=0;cnts<10000;cnts++);
-                    if(k==1)k=0;else k=1;
-                }
-		
 		if ((flashutl_desc->type == SCS) &&
 		    flashutl_cmd->write_buf &&
 		    ((off & (WBUFSIZE - 1)) == 0)) {
@@ -260,11 +253,12 @@ flash_write(unsigned long off, uint16 *src, uint nbytes)
 
 #ifndef MIPSEB
 			/* write (length - 1) */
-			cmd((len / 2) - 1, off);
+			cmd(len / sizeof(uint16) - 1, off);
 
 			/* write data */
-			for (i = 0; i < len; i += 2, dest++, src++)
-				*dest = *src;
+			for (i = 0; i < len; i += sizeof(uint16),
+			             dest += sizeof(uint16), src += sizeof(uint16))
+				*(uint16 *)dest = *(uint16 *)src;
 #else
 			/* 
 			 * BCM4710 endianness is word consistent but
@@ -277,14 +271,16 @@ flash_write(unsigned long off, uint16 *src, uint nbytes)
 			 */
 
 			/* write (padded length - 1) */
-			cmd((ROUNDUP(len, 4) / 2) - 1, off);
+			cmd((ROUNDUP(len, sizeof(uint32)) / sizeof(uint16)) - 1, off);
 
 			/* write data (plus pad if necessary) */
-			for (i = 0; i < ROUNDUP(len, 4); i += 4, dest += 2, src += 2) {
-				*(dest + 1) = ((i + 2) < len) ? *(src + 1) : 0xffff;
-				*dest = *src;
+			for (i = 0; i < ROUNDUP(len, sizeof(uint32)); i += sizeof(uint32),
+			             dest += sizeof(uint32), src += sizeof(uint32)) {
+				*((uint16 *)dest + 1) = ((i + sizeof(uint16)) < len) ?
+				        *((uint16 *)src + 1) : 0xffff;
+				*(uint16 *)dest = *(uint16 *)src;
 			}
-#endif
+#endif /* MIPSEB */
 
 			/* write confirm */
 			if (flashutl_cmd->confirm)
@@ -298,13 +294,16 @@ flash_write(unsigned long off, uint16 *src, uint nbytes)
 				cmd(flashutl_cmd->write_word, CMD_ADDR);
 
 			/* write data */
-			len = MIN(nbytes, 2);
-			data = *src++;
-			*dest++ = data;
+			data = flash_readword((unsigned long)src);
+			flash_writeword((unsigned long)dest, data);
 
 			/* poll for done */
 			if ((st = flash_poll(off, data)))
 				break;
+
+			len = MIN(nbytes, flashutl_wsz);
+			dest += len;
+			src += len;
 		}
 
 		nbytes -= len;
@@ -316,27 +315,31 @@ flash_write(unsigned long off, uint16 *src, uint nbytes)
 	return st;
 }
 
-static unsigned long
-flash_block_base(unsigned long off)
+static uint16 INLINE
+flash_readword(unsigned long addr)
 {
-	return block(off, BLOCK_BASE);
+	if (flashutl_wsz == sizeof(uint8))
+		return *(uint8*)addr;
+	else
+		return *(uint16*)addr;
 }
 
-static unsigned long
-flash_block_lim(unsigned long off)
+static void INLINE
+flash_writeword(unsigned long addr, uint16 data)
 {
-	return block(off, BLOCK_LIM);
+	if (flashutl_wsz == sizeof(uint8))
+		*(uint8*)addr = (uint8)data;
+	else
+		*(uint16*)addr = data;
 }
 
 /* Writes a single command to the flash. */
 static void
 scmd(uint16 cmd, unsigned long off)
 {
-	ASSERT(flashutl_base != NULL);
-	
 	/*  cmd |= cmd << 8; */
 
-	*(uint16*)(flashutl_base + off) = cmd;
+	flash_writeword(FLASH_ADDR(off), cmd);
 }
 
 /* Writes a command to flash, performing an unlock if needed. */
@@ -344,40 +347,48 @@ static void
 cmd(uint16 cmd, unsigned long off)
 {
 	int i;
-	unlock_cmd_t *ul=NULL;
-	unsigned long cmd_off;
+	unlock_cmd_t *ul = NULL;
 
 	ASSERT(flashutl_cmd != NULL);
 
 	switch (flashutl_cmd->type) {
 	case AMD:
 		ul = &unlock_cmd_amd;
-		cmd_off = AMD_CMD;
 		break;
 	case SST:
 		ul = &unlock_cmd_sst;
-		cmd_off = SST_CMD;
 		break;
 	default:
-		cmd_off = 0;
 		break;
 	}
 	
 	if (flashutl_cmd->need_unlock) {
+		ASSERT(ul);
 		for (i = 0; i < UNLOCK_CMD_WORDS; i++)
-			*(uint16*)(flashutl_base + ul->addr[i]) = ul->cmd[i];
+			flash_writeword(FLASH_ADDR(ul->addr[i]), ul->cmd[i]);
 	}
 	
 	/* cmd |= cmd << 8; */
 
-	if (off == CMD_ADDR) 
-		off = cmd_off;
+	if (off == CMD_ADDR) {
+		switch (flashutl_cmd->type) {
+		case AMD:
+			off = AMD_CMD;
+			break;
+		case SST:
+			off = SST_CMD;
+			break;
+		default:
+			off = 0;
+			break;
+		}
+	}
 
 #ifdef MIPSEB
 	off ^= 2;
-#endif
+#endif /* MIPSEB */
 	
-	*(uint16*)(flashutl_base + off) = cmd;
+	flash_writeword(FLASH_ADDR(off), cmd);
 }
 
 static void
@@ -394,7 +405,7 @@ flash_reset()
 static int
 flash_poll(unsigned long off, uint16 data)
 {
-	volatile uint16* addr;
+	unsigned long addr;
 	int cnt = FLASH_TRIES;
 	uint16 st;
 
@@ -402,18 +413,18 @@ flash_poll(unsigned long off, uint16 data)
 
 	if (flashutl_desc->type == AMD || flashutl_desc->type == SST) {
 		/* AMD style poll checkes the address being written */
-		addr = (volatile uint16*)FLASH_ADDR(off);
-		while ((st = *addr) != data && cnt != 0)
+		addr = FLASH_ADDR(off);
+		while ((st = flash_readword(addr)) != data && cnt != 0)
 			cnt--;
 		if (cnt == 0) {
-			DPRINT(("flash_poll: timeout, read 0x%x, expected 0x%x\n", st, data));
+			DPRINT(("flash_poll: timeout, off %lx, read 0x%x, expected 0x%x\n",
+			        off, st, data));
 			return -1;
 		}
 	} else {
 		/* INTEL style poll is at second word of the block being written */
-		addr = (volatile uint16*)FLASH_ADDR(block(off, BLOCK_BASE));
-		addr++;
-		while (((st = *addr) & DONE) == 0 && cnt != 0)
+		addr = FLASH_ADDR(block(off, BLOCK_BASE)+sizeof(uint16));
+		while (((st = flash_readword(addr)) & DONE) == 0 && cnt != 0)
 			cnt--;
 		if (cnt == 0) {
 			DPRINT(("flash_poll: timeout, error status = 0x%x\n", st));
@@ -462,7 +473,6 @@ block(unsigned long addr, int which)
 		}
 	}
 
-	ASSERT(1);
 	return 0;
 }
 
@@ -473,25 +483,37 @@ nvWrite(unsigned short *data, unsigned int len)
 	sysFlashWrite(off, (uchar*)data, len);
 }
 
+void
+nvWriteChars(unsigned char *data, unsigned int len)
+{
+	uint off = flashutl_desc->size - NVRAM_SPACE;
+	int err;
+
+	if (flashutl_cmd->type == SFLASH)
+		err = sflash_commit(sbh, cc, off, len, data);
+	else /* PFLASH */
+		err = flash_write(off, data, len);
+
+	if (err)
+		DPRINT(("nvWriteChars failed\n"));
+	else
+		DPRINT(("nvWriteChars succeeded\n"));
+}
+
 int
 sysFlashErase(uint off, unsigned int numbytes)
 {
 	unsigned long end = off + numbytes;
 	int err = 0;
-	int k=0,i=1;
 	
 	if (flashutl_cmd->type == SFLASH) {
-		err = sflash_commit(cc, off, numbytes, NULL);
+		err = sflash_commit(sbh, cc, off, numbytes, NULL);
 	} else {
-		ASSERT(!(off & 1));
 		while (off < end) {
-               		Cled(i);
-            		//delayUs(10);
-	        	if(i)i=0;else i=1;
 			err = flash_eraseblk(off);
 			if (err)
 				break;
-			off = flash_block_lim(off);
+			off = block(off, BLOCK_LIM);
 		}
 	}
 
@@ -508,15 +530,14 @@ sysFlashWrite(uint off, uchar *src, uint numbytes)
 {
 	int err;
 	
-	DPRINT(("Writing 0x%x bytes to flash off @0x%x ...\n", (unsigned int)numbytes, off));
+	DPRINT(("Writing 0x%x bytes to flash @0x%x ...\n", (unsigned int)numbytes, off));
 
 	if (flashutl_cmd->type == SFLASH)
-		err = sflash_commit(cc, off, numbytes, src);
+		err = sflash_commit(sbh, cc, off, numbytes, src);
 	else {
-		ASSERT(!(off & 1));
 		if (!sysFlashErase(off, numbytes)) 
 			return 0;
-		err = flash_write(off, (uint16*)src, numbytes);
+		err = flash_write(off, src, numbytes);
 	}
 
 	if (err) 
@@ -530,30 +551,28 @@ sysFlashWrite(uint off, uchar *src, uint numbytes)
 int 
 sysFlashRead(uint off, uchar *buf, uint numbytes)
 {
-	uint read, total_read=0;
-	uint16 *src, *dst;
+	uint read, total_read = 0;
 
 	if (flashutl_cmd->type == SFLASH) {
 		while (numbytes) {
-			read = sflash_read(cc, off, numbytes, buf);
+			read = sflash_read(sbh, cc, off, numbytes, buf);
 			numbytes -= read;
 			buf += read;
 			off += read;
 			total_read += read;
 		}
 	} else {
-		ASSERT(!(off & 1));
-		ASSERT(!(numbytes & 1));
+		ASSERT(!(off & (flashutl_wsz - 1)));
+		ASSERT(!(numbytes & (flashutl_wsz - 1)));
 		
-		src = (uint16*)(flashutl_base + off);
-		dst = (uint16*)buf;
-		
-		while(numbytes) {
-			*dst++ = *src++;
-			numbytes-=2;
-			total_read+=2;
+		while (numbytes) {
+			flash_writeword((unsigned long)buf, flash_readword(FLASH_ADDR(off)));
+			numbytes -= flashutl_wsz;
+			buf += flashutl_wsz;
+			off += flashutl_wsz;
+			total_read += flashutl_wsz;
 		}
 	}
 
-	return(total_read);
+	return (total_read);
 }

@@ -305,6 +305,7 @@ struct dentry *nfsd_findparent(struct dentry *child)
 			if (pdentry) {
 				igrab(tdentry->d_inode);
 				pdentry->d_flags |= DCACHE_NFSD_DISCONNECTED;
+				pdentry->d_op = child->d_op;
 			}
 		}
 		if (pdentry == NULL)
@@ -620,6 +621,13 @@ fh_verify(struct svc_rqst *rqstp, struct svc_fh *fhp, int type, int access)
 			switch (fh->fh_fileid_type) {
 			case 0:
 				dentry = dget(exp->ex_dentry);
+				/* need to revalidate the inode */
+				inode = dentry->d_inode;
+				if (inode->i_op && inode->i_op->revalidate)
+					if (inode->i_op->revalidate(dentry)) {
+						dput(dentry);
+						dentry = ERR_PTR(-ESTALE);
+					}
 				break;
 			default:
 				dentry = find_fh_dentry(exp->ex_dentry->d_inode->i_sb,
@@ -671,11 +679,16 @@ fh_verify(struct svc_rqst *rqstp, struct svc_fh *fhp, int type, int access)
 
 	/* Type can be negative to e.g. exclude directories from linking */
 	if (type > 0 && (inode->i_mode & S_IFMT) != type) {
-		error = (type == S_IFDIR)? nfserr_notdir : nfserr_isdir;
+		if (type == S_IFDIR)
+			error = nfserr_notdir;
+		else if ((inode->i_mode & S_IFMT) == S_IFDIR)
+			error = nfserr_isdir;
+		else
+			error = nfserr_inval;
 		goto out;
 	}
 	if (type < 0 && (inode->i_mode & S_IFMT) == -type) {
-		error = (type == -S_IFDIR)? nfserr_notdir : nfserr_isdir;
+		error = (type == -S_IFDIR)? nfserr_isdir : nfserr_notdir;
 		goto out;
 	}
 
@@ -685,33 +698,23 @@ fh_verify(struct svc_rqst *rqstp, struct svc_fh *fhp, int type, int access)
 	error = 0;
 
 	if (!(exp->ex_flags & NFSEXP_NOSUBTREECHECK)) {
-		if (exp->ex_dentry != dentry) {
-			struct dentry *tdentry = dentry;
+		struct dentry *tdentry = dentry;
 
-			do {
-				tdentry = tdentry->d_parent;
-				if (exp->ex_dentry == tdentry)
-					break;
-				/* executable only by root and we can't be root */
-				if (current->fsuid
-				    && (exp->ex_flags & NFSEXP_ROOTSQUASH)
-				    && !(tdentry->d_inode->i_uid
-					 && (tdentry->d_inode->i_mode & S_IXUSR))
-				    && !(tdentry->d_inode->i_gid
-					 && (tdentry->d_inode->i_mode & S_IXGRP))
-				    && !(tdentry->d_inode->i_mode & S_IXOTH)
-					) {
-					error = nfserr_stale;
-					dprintk("fh_verify: no root_squashed access.\n");
-				}
-			} while ((tdentry != tdentry->d_parent));
-			if (exp->ex_dentry != tdentry) {
-				error = nfserr_stale;
-				printk("nfsd Security: %s/%s bad export.\n",
-				       dentry->d_parent->d_name.name,
-				       dentry->d_name.name);
-				goto out;
-			}
+		while (tdentry != exp->ex_dentry && !IS_ROOT(tdentry)) {
+			struct dentry *parent = tdentry->d_parent;
+
+			/* make sure parents give x permission to user */
+			error = permission(parent->d_inode, MAY_EXEC);
+			if (error)
+				break;
+			tdentry = parent;
+		}
+		if (exp->ex_dentry != tdentry) {
+			error = nfserr_stale;
+			printk("fh_verify: no root_squashed access at %s/%s.\n",
+			       dentry->d_parent->d_name.name,
+			       dentry->d_name.name);
+			goto out;
 		}
 	}
 

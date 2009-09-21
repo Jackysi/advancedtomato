@@ -26,7 +26,7 @@
  *
  * Authors:
  *    Jeff Hartmann <jhartmann@valinux.com>
- *    Keith Whitwell <keithw@valinux.com>
+ *    Keith Whitwell <keith@tungstengraphics.com>
  *
  * Rewritten by:
  *    Gareth Hughes <gareth@valinux.com>
@@ -89,6 +89,10 @@
 #define MGA_UPLOAD_2D		0x40
 #define MGA_WAIT_AGE		0x80 /* handled client-side */
 #define MGA_UPLOAD_CLIPRECTS	0x100 /* handled client-side */
+#if 0
+#define MGA_DMA_FLUSH		0x200 /* set when someone gets the lock
+					 quiescent */
+#endif
 
 /* 32 buffers of 64k each, total 2 meg.
  */
@@ -221,6 +225,20 @@ typedef struct _drm_mga_sarea {
 /* WARNING: If you change any of these defines, make sure to change the
  * defines in the Xserver file (xf86drmMga.h)
  */
+
+/* MGA specific ioctls
+ * The device specific ioctl range is 0x40 to 0x79.
+ */
+#define DRM_IOCTL_MGA_INIT		DRM_IOW( 0x40, drm_mga_init_t)
+#define DRM_IOCTL_MGA_FLUSH		DRM_IOW( 0x41, drm_lock_t)
+#define DRM_IOCTL_MGA_RESET		DRM_IO(  0x42)
+#define DRM_IOCTL_MGA_SWAP		DRM_IO(  0x43)
+#define DRM_IOCTL_MGA_CLEAR		DRM_IOW( 0x44, drm_mga_clear_t)
+#define DRM_IOCTL_MGA_VERTEX		DRM_IOW( 0x45, drm_mga_vertex_t)
+#define DRM_IOCTL_MGA_INDICES		DRM_IOW( 0x46, drm_mga_indices_t)
+#define DRM_IOCTL_MGA_ILOAD		DRM_IOW( 0x47, drm_mga_iload_t)
+#define DRM_IOCTL_MGA_BLIT		DRM_IOW( 0x48, drm_mga_blit_t)
+
 typedef struct _drm_mga_warp_index {
    	int installed;
    	unsigned long phys_addr;

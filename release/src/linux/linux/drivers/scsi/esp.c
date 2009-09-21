@@ -1,4 +1,4 @@
-/* $Id: esp.c,v 1.1.1.4 2003/10/14 08:08:38 sparq Exp $
+/* $Id: esp.c,v 1.99 2001/02/13 01:17:01 davem Exp $
  * esp.c:  EnhancedScsiProcessor Sun SCSI driver code.
  *
  * Copyright (C) 1995, 1998 David S. Miller (davem@caip.rutgers.edu)
@@ -1802,7 +1802,7 @@ after_nego_msg_built:
 		tmp |= DMA_ENABLE;
 		sbus_writel(tmp, esp->dregs + DMA_CSR);
 		if (esp->dma->revision == dvmaesc1) {
-			if (i) 
+			if (i) /* Workaround ESC gate array SBUS rerun bug. */
 				sbus_writel(PAGE_SIZE, esp->dregs + DMA_COUNT);
 		}
 		sbus_writel(esp->esp_command_dvma, esp->dregs + DMA_ADDR);
@@ -1828,7 +1828,7 @@ int esp_queue(Scsi_Cmnd *SCpnt, void (*done)(Scsi_Cmnd *))
 
 	esp = (struct esp *) SCpnt->host->hostdata;
 	esp_get_dmabufs(esp, SCpnt);
-	esp_save_pointers(esp, SCpnt); 
+	esp_save_pointers(esp, SCpnt); /* FIXME for tag queueing */
 
 	SCpnt->SCp.Status           = CHECK_CONDITION;
 	SCpnt->SCp.Message          = 0xff;
@@ -2368,6 +2368,10 @@ static int dma_can_transfer(struct esp *esp, Scsi_Cmnd *sp)
 	(((__esp)->erev == fashme) ? 0 : \
 	 sbus_readb(((__esp)->eregs) + ESP_FFLAGS) & ESP_FF_ONOTZERO)
 
+/* XXX speculative nops unnecessary when continuing amidst a data phase
+ * XXX even on esp100!!!  another case of flooding the bus with I/O reg
+ * XXX writes...
+ */
 #define esp_maybe_nop(__esp) \
 	if ((__esp)->erev == esp100) \
 		esp_cmd((__esp), ESP_CMD_NULL)
@@ -2652,6 +2656,17 @@ static int esp_do_data_finale(struct esp *esp)
 		return esp_do_phase_determine(esp);
 	}	
 
+	/* Check for partial transfers and other horrible events.
+	 * Note, here we read the real fifo flags register even
+	 * on HME broken adapters because we skip the HME fifo
+	 * workaround code in esp_handle() if we are doing data
+	 * phase things.  We don't want to fuck directly with
+	 * the fifo like that, especially if doing synchronous
+	 * transfers!  Also, will need to double the count on
+	 * HME if we are doing wide transfers, as the HME fifo
+	 * will move and count 16-bit quantities during wide data.
+	 * SMCC _and_ Qlogic can both bite me.
+	 */
 	fifocnt = (sbus_readb(esp->eregs + ESP_FFLAGS) & ESP_FF_FBYTES);
 	if (esp->erev != fashme)
 		ecount = esp_getcount(esp->eregs, 0);
@@ -2670,6 +2685,21 @@ static int esp_do_data_finale(struct esp *esp)
 		if (SCptr->SCp.phase == in_dataout)
 			bytes_sent -= fifocnt;
 
+		/* I have an IBM disk which exhibits the following
+		 * behavior during writes to it.  It disconnects in
+		 * the middle of a partial transfer, the current sglist
+		 * buffer is 1024 bytes, the disk stops data transfer
+		 * at 512 bytes.
+		 *
+		 * However the FAS366 reports that 32 more bytes were
+		 * transferred than really were.  This is precisely
+		 * the size of a fully loaded FIFO in wide scsi mode.
+		 * The FIFO state recorded indicates that it is empty.
+		 *
+		 * I have no idea if this is a bug in the FAS366 chip
+		 * or a bug in the firmware on this IBM disk.  In any
+		 * event the following seems to be a good workaround.  -DaveM
+		 */
 		if (bytes_sent != esp->current_transfer_size &&
 		    SCptr->SCp.phase == in_dataout) {
 			int mask = (64 - 1);
@@ -3247,10 +3277,38 @@ static int esp_select_complete(struct esp *esp)
 		default:
 
 		case ESP_STEP_ASEL:
+			/* Arbitration won, target selected, but
+			 * we are in some phase which is not command
+			 * phase nor is it message out phase.
+			 *
+			 * XXX We've confused the target, obviously.
+			 * XXX So clear it's state, but we also end
+			 * XXX up clearing everyone elses.  That isn't
+			 * XXX so nice.  I'd like to just reset this
+			 * XXX target, but if I cannot even get it's
+			 * XXX attention and finish selection to talk
+			 * XXX to it, there is not much more I can do.
+			 * XXX If we have a loaded bus we're going to
+			 * XXX spend the next second or so renegotiating
+			 * XXX for synchronous transfers.
+			 */
 			ESPLOG(("esp%d: STEP_ASEL for tgt %d\n",
 				esp->esp_id, SCptr->target));
 
 		case ESP_STEP_SID:
+			/* Arbitration won, target selected, went
+			 * to message out phase, sent one message
+			 * byte, then we stopped.  ATN is asserted
+			 * on the SCSI bus and the target is still
+			 * there hanging on.  This is a legal
+			 * sequence step if we gave the ESP a select
+			 * and stop command.
+			 *
+			 * XXX See above, I could set the borken flag
+			 * XXX in the device struct and retry the
+			 * XXX command.  But would that help for
+			 * XXX tagged capable targets?
+			 */
 
 		case ESP_STEP_NCMD:
 			/* Arbitration won, target selected, maybe
@@ -3265,6 +3323,24 @@ static int esp_select_complete(struct esp *esp)
 			break;
 
 		case ESP_STEP_PPC:
+			/* No, not the powerPC pinhead.  Arbitration
+			 * won, all message bytes sent if we went to
+			 * message out phase, went to command phase
+			 * but only part of the command was sent.
+			 *
+			 * XXX I've seen this, but usually in conjunction
+			 * XXX with a gross error which appears to have
+			 * XXX occurred between the time I told the
+			 * XXX ESP to arbitrate and when I got the
+			 * XXX interrupt.  Could I have misloaded the
+			 * XXX command bytes into the fifo?  Actually,
+			 * XXX I most likely missed a phase, and therefore
+			 * XXX went into never never land and didn't even
+			 * XXX know it.  That was the old driver though.
+			 * XXX What is even more peculiar is that the ESP
+			 * XXX showed the proper function complete and
+			 * XXX bus service bits in the interrupt register.
+			 */
 
 		case ESP_STEP_FINI4:
 		case ESP_STEP_FINI5:
@@ -3294,6 +3370,25 @@ static int esp_select_complete(struct esp *esp)
 			if (cmd_bytes_sent < 0)
 				cmd_bytes_sent = 0;
 			if (cmd_bytes_sent != SCptr->cmd_len) {
+				/* Crapola, mark it as a slowcmd
+				 * so that we have some chance of
+				 * keeping the command alive with
+				 * good luck.
+				 *
+				 * XXX Actually, if we didn't send it all
+				 * XXX this means either we didn't set things
+				 * XXX up properly (driver bug) or the target
+				 * XXX or the ESP detected parity on one of
+				 * XXX the command bytes.  This makes much
+				 * XXX more sense, and therefore this code
+				 * XXX should be changed to send out a
+				 * XXX parity error message or if the status
+				 * XXX register shows no parity error then
+				 * XXX just expect the target to bring the
+				 * XXX bus into message in phase so that it
+				 * XXX can send us the parity error message.
+				 * XXX SCSI sucks...
+				 */
 				esp->esp_slowcmd = 1;
 				esp->esp_scmdp = &(SCptr->cmnd[cmd_bytes_sent]);
 				esp->esp_scmdleft = (SCptr->cmd_len - cmd_bytes_sent);
@@ -3331,6 +3426,16 @@ static int esp_select_complete(struct esp *esp)
 			SDptr->sync_min_period = 0;
 			SDptr->sync = 1; /* so we don't negotiate again */
 
+			/* Run the command again, this time though we
+			 * won't try to negotiate for synchronous transfers.
+			 *
+			 * XXX I'd like to do something like send an
+			 * XXX INITIATOR_ERROR or ABORT message to the
+			 * XXX target to tell it, "Sorry I confused you,
+			 * XXX please come back and I will be nicer next
+			 * XXX time".  But that requires having the target
+			 * XXX on the bus, and it has dropped BSY on us.
+			 */
 			esp->current_SC = NULL;
 			esp_advance_phase(SCptr, not_issued);
 			prepend_SC(&esp->issue_SC, SCptr);
@@ -3937,6 +4042,10 @@ static int esp_do_msgout(struct esp *esp)
 static int esp_do_msgoutdone(struct esp *esp)
 {
 	if (esp->msgout_len > 1) {
+		/* XXX HME/FAS ATN deassert workaround required,
+		 * XXX no DMA flushing, only possible ESP_CMD_FLUSH
+		 * XXX to kill the fifo.
+		 */
 		if (esp->erev != fashme) {
 			u32 tmp;
 
@@ -4259,4 +4368,4 @@ static Scsi_Host_Template driver_template = SCSI_SPARC_ESP;
 
 #include "scsi_module.c"
 
-EXPORT_NO_SYMBOLS;
+MODULE_LICENSE("GPL");

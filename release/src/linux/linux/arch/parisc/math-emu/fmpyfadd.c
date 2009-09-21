@@ -22,7 +22,7 @@
  * BEGIN_DESC
  *
  *  File:
- *	@(#)	pa/spmath/fmpyfadd.c		$Revision: 1.1.1.2 $
+ *	@(#)	pa/spmath/fmpyfadd.c		$Revision: $
  *
  *  Purpose:
  *	Double Floating-point Multiply Fused Add

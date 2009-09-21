@@ -24,6 +24,7 @@
  * inode.c
  */
 
+#define SQUASHFS_LZMA
 #include <linux/types.h>
 #include <linux/squashfs_fs.h>
 #include <linux/module.h>
@@ -40,13 +41,8 @@
 #include <linux/vmalloc.h>
 #include <asm/uaccess.h>
 #include <asm/semaphore.h>
-#include <linux/autoconf.h>
 
 #include "squashfs.h"
-
-#ifdef CONFIG_LZMA_FS_INFLATE
-  #define SQUASHFS_LZMA
-#endif
 
 #ifdef SQUASHFS_LZMA
 #include "LzmaDecode.h"

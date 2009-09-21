@@ -70,6 +70,7 @@ use_init_fs_context(void)
 	pwd = dget(init_fs->pwd);
 	read_unlock(&init_fs->lock);
 
+	/* FIXME - unsafe ->fs access */
 	our_fs = current->fs;
 	our_fs->umask = init_fs->umask;
 	set_fs_root(our_fs, rootmnt, root);
@@ -118,19 +119,16 @@ int exec_usermodehelper(char *program_path, char *argv[], char *envp[])
 		if (curtask->files->fd[i]) close(i);
 	}
 
-	/* Drop the "current user" thing */
-	{
-		struct user_struct *user = curtask->user;
-		curtask->user = INIT_USER;
-		atomic_inc(&INIT_USER->__count);
-		atomic_inc(&INIT_USER->processes);
-		atomic_dec(&user->processes);
-		free_uid(user);
-	}
+	switch_uid(INIT_USER);
 
 	/* Give kmod all effective privileges.. */
-	curtask->euid = curtask->fsuid = 0;
-	curtask->egid = curtask->fsgid = 0;
+	curtask->euid = curtask->uid = curtask->suid = curtask->fsuid = 0;
+	curtask->egid = curtask->gid = curtask->sgid = curtask->fsgid = 0;
+
+	memcpy(&curtask->rlim, &init_task.rlim, sizeof(struct rlimit)*RLIM_NLIMITS);
+
+	curtask->ngroups = 0;
+
 	cap_set_full(curtask->cap_effective);
 
 	/* Allow execve args to be in kernel space. */

@@ -33,6 +33,7 @@ CONFIG_PPC_STD_MMU=y
 # CONFIG_ALL_PPC is not set
 # CONFIG_APUS is not set
 # CONFIG_SPRUCE is not set
+# CONFIG_LOPEC is not set
 # CONFIG_PAL4 is not set
 CONFIG_GEMINI=y
 # CONFIG_SMP is not set
@@ -59,6 +60,7 @@ CONFIG_KCORE_ELF=y
 CONFIG_BINFMT_ELF=y
 CONFIG_KERNEL_ELF=y
 # CONFIG_BINFMT_MISC is not set
+# CONFIG_OOM_KILLER is not set
 CONFIG_PCI_NAMES=y
 # CONFIG_HOTPLUG is not set
 # CONFIG_PCMCIA is not set
@@ -67,6 +69,7 @@ CONFIG_PCI_NAMES=y
 # Parallel port support
 #
 # CONFIG_PARPORT is not set
+# CONFIG_GEN_RTC is not set
 # CONFIG_PPC_RTC is not set
 # CONFIG_CMDLINE_BOOL is not set
 
@@ -180,7 +183,6 @@ CONFIG_INET=y
 # ATA/IDE/MFM/RLL support
 #
 # CONFIG_IDE is not set
-# CONFIG_BLK_DEV_IDE_MODES is not set
 # CONFIG_BLK_DEV_HD is not set
 
 #
@@ -219,6 +221,7 @@ CONFIG_SCSI_CONSTANTS=y
 # CONFIG_SCSI_AHA1740 is not set
 # CONFIG_SCSI_AACRAID is not set
 # CONFIG_SCSI_AIC7XXX is not set
+# CONFIG_SCSI_AIC79XX is not set
 # CONFIG_SCSI_AIC7XXX_OLD is not set
 # CONFIG_SCSI_DPT_I2O is not set
 # CONFIG_SCSI_ADVANSYS is not set
@@ -257,6 +260,7 @@ CONFIG_SCSI_SYM53C8XX_MAX_TAGS=64
 # CONFIG_SCSI_DC390T is not set
 # CONFIG_SCSI_T128 is not set
 # CONFIG_SCSI_U14_34F is not set
+# CONFIG_SCSI_NSP32 is not set
 # CONFIG_SCSI_DEBUG is not set
 
 #
@@ -310,6 +314,7 @@ CONFIG_NET_ETHERNET=y
 # CONFIG_NS83820 is not set
 # CONFIG_HAMACHI is not set
 # CONFIG_YELLOWFIN is not set
+# CONFIG_R8169 is not set
 # CONFIG_SK98LIN is not set
 # CONFIG_TIGON3 is not set
 # CONFIG_FDDI is not set
@@ -415,11 +420,18 @@ CONFIG_UNIX98_PTY_COUNT=256
 # Input core support is needed for joysticks
 #
 # CONFIG_QIC02_TAPE is not set
+# CONFIG_IPMI_HANDLER is not set
+# CONFIG_IPMI_PANIC_EVENT is not set
+# CONFIG_IPMI_DEVICE_INTERFACE is not set
+# CONFIG_IPMI_KCS is not set
+# CONFIG_IPMI_WATCHDOG is not set
 
 #
 # Watchdog Cards
 #
 # CONFIG_WATCHDOG is not set
+# CONFIG_SCx200_GPIO is not set
+# CONFIG_AMD_PM768 is not set
 # CONFIG_NVRAM is not set
 # CONFIG_RTC is not set
 # CONFIG_DTLK is not set

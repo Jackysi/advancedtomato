@@ -134,9 +134,12 @@ void nfs_clear_request(struct nfs_page *req)
 		req->wb_cred = NULL;
 	}
 	if (req->wb_page) {
+		atomic_dec(&NFS_REQUESTLIST(req->wb_inode)->nr_requests);
+#ifdef NFS_PARANOIA
+		BUG_ON(atomic_read(&NFS_REQUESTLIST(req->wb_inode)->nr_requests) < 0);
+#endif
 		page_cache_release(req->wb_page);
 		req->wb_page = NULL;
-		atomic_dec(&NFS_REQUESTLIST(req->wb_inode)->nr_requests);
 	}
 }
 
@@ -159,14 +162,9 @@ nfs_release_request(struct nfs_page *req)
 	spin_unlock(&nfs_wreq_lock);
 
 #ifdef NFS_PARANOIA
-	if (!list_empty(&req->wb_list))
-		BUG();
-	if (!list_empty(&req->wb_hash))
-		BUG();
-	if (NFS_WBACK_BUSY(req))
-		BUG();
-	if (atomic_read(&NFS_REQUESTLIST(req->wb_inode)->nr_requests) < 0)
-		BUG();
+	BUG_ON(!list_empty(&req->wb_list));
+	BUG_ON(!list_empty(&req->wb_hash));
+	BUG_ON(NFS_WBACK_BUSY(req));
 #endif
 
 	/* Release struct file or cached credential */
@@ -366,7 +364,6 @@ nfs_scan_lru_timeout(struct list_head *head, struct list_head *dst, int nmax)
  * nfs_scan_list - Scan a list for matching requests
  * @head: One of the NFS inode request lists
  * @dst: Destination list
- * @file: if set, ensure we match requests from this file
  * @idx_start: lower bound of page->index to scan
  * @npages: idx_start + npages sets the upper bound to scan.
  *
@@ -378,7 +375,6 @@ nfs_scan_lru_timeout(struct list_head *head, struct list_head *dst, int nmax)
  */
 int
 nfs_scan_list(struct list_head *head, struct list_head *dst,
-	      struct file *file,
 	      unsigned long idx_start, unsigned int npages)
 {
 	struct list_head	*pos, *tmp;
@@ -396,9 +392,6 @@ nfs_scan_list(struct list_head *head, struct list_head *dst,
 		unsigned long pg_idx;
 
 		req = nfs_list_entry(pos);
-
-		if (file && req->wb_file != file)
-			continue;
 
 		pg_idx = page_index(req->wb_page);
 		if (pg_idx < idx_start)

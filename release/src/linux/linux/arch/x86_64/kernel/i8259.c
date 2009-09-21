@@ -13,6 +13,7 @@
 #include <linux/init.h>
 #include <linux/kernel_stat.h>
 
+#include <asm/acpi.h>
 #include <asm/atomic.h>
 #include <asm/system.h>
 #include <asm/io.h>
@@ -39,8 +40,6 @@
  * operations that are needed to keep the AT (or SMP IOAPIC)
  * interrupt-controller happy.
  */
-
-BUILD_COMMON_IRQ()
 
 #define BI(x,y) \
 	BUILD_IRQ(x##y)
@@ -76,24 +75,6 @@ BUILD_16_IRQS(0xc) BUILD_16_IRQS(0xd)
 
 #undef BUILD_16_IRQS
 #undef BI
-
-
-/*
- * The following vectors are part of the Linux architecture, there
- * is no hardware IRQ pin equivalent for them, they are triggered
- * through the ICC by us (IPIs)
- */
-#ifdef CONFIG_SMP
-BUILD_SMP_INTERRUPT(reschedule_interrupt,RESCHEDULE_VECTOR);
-BUILD_SMP_INTERRUPT(invalidate_interrupt,INVALIDATE_TLB_VECTOR);
-BUILD_SMP_INTERRUPT(call_function_interrupt,CALL_FUNCTION_VECTOR);
-#endif
-
-#ifdef CONFIG_X86_LOCAL_APIC
-BUILD_SMP_INTERRUPT(apic_timer_interrupt,LOCAL_TIMER_VECTOR);
-BUILD_SMP_INTERRUPT(error_interrupt,ERROR_APIC_VECTOR);
-BUILD_SMP_INTERRUPT(spurious_interrupt,SPURIOUS_APIC_VECTOR);
-#endif
 
 #define IRQ(x,y) \
 	IRQ##x##y##_interrupt
@@ -424,7 +405,7 @@ void __init init_IRQ(void)
 	 */
 	for (i = 0; i < NR_IRQS; i++) {
 		int vector = FIRST_EXTERNAL_VECTOR + i;
-		if (vector != IA32_SYSCALL_VECTOR && vector != KDBENTER_VECTOR) {
+		if (vector != IA32_SYSCALL_VECTOR) {
 			set_intr_gate(vector, interrupt[i]);
 		}
 	}
@@ -459,6 +440,7 @@ void __init init_IRQ(void)
 #endif
 
 #ifndef CONFIG_VISWS
-	setup_irq(2, &irq2);
+	if (!acpi_ioapic)
+		setup_irq(2, &irq2);
 #endif
 }

@@ -79,7 +79,8 @@ typedef struct _ether_dev_t {
 	struct urb		rx_urb, tx_urb, intr_urb, ctrl_urb;
 	unsigned char		rx_buff[CDC_ETHER_MAX_MTU] __attribute__((aligned(L1_CACHE_BYTES)));
 	unsigned char		tx_buff[CDC_ETHER_MAX_MTU] __attribute__((aligned(L1_CACHE_BYTES)));
-	unsigned char		intr_buff[8] __attribute__((aligned(L1_CACHE_BYTES))) ;
+	unsigned char		intr_buff[16]
+				__attribute__((aligned(L1_CACHE_BYTES))) ;
 } ether_dev_t;
 
 /* These definitions used in the Ethernet Packet Filtering requests */

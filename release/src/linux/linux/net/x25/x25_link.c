@@ -219,7 +219,7 @@ void x25_transmit_clear_request(struct x25_neigh *neigh, unsigned int lci, unsig
 
 	dptr = skb_put(skb, X25_STD_MIN_LEN + 2);
 
-	*dptr++ = ((lci >> 8) & 0x0F) | (neigh->extended) ? X25_GFI_EXTSEQ : X25_GFI_STDSEQ;
+	*dptr++ = ((lci >> 8) & 0x0F) | (neigh->extended ? X25_GFI_EXTSEQ : X25_GFI_STDSEQ);
 	*dptr++ = ((lci >> 0) & 0xFF);
 	*dptr++ = X25_CLEAR_REQUEST;
 	*dptr++ = cause;

@@ -1,4 +1,20 @@
-
+/*
+ * linux/fs/hfs/file.c
+ *
+ * Copyright (C) 1995, 1996  Paul H. Hargrove
+ * This file may be distributed under the terms of the GNU General Public License.
+ *
+ * This file contains the file-related functions which are independent of
+ * which scheme is being used to represent forks.
+ *
+ * Based on the minix file system code, (C) 1991, 1992 by Linus Torvalds
+ *
+ * "XXX" in a comment is a note to myself to consider changing something.
+ *
+ * In function preconditions the term "valid" applied to a pointer to
+ * a structure means that the pointer is non-NULL and the structure it
+ * points to has all fields initialized to consistent values.
+ */
 
 #include "hfs.h"
 #include <linux/hfs_fs_sb.h>
@@ -134,7 +150,7 @@ static hfs_rwret_t hfs_file_read(struct file * filp, char * buf,
 		return -EINVAL;
 	}
 	pos = *ppos;
-	if (pos >= HFS_FORK_MAX) {
+	if (pos < 0 || pos >= HFS_FORK_MAX) {
 		return 0;
 	}
 	size = inode->i_size;
@@ -151,7 +167,7 @@ static hfs_rwret_t hfs_file_read(struct file * filp, char * buf,
 	}
 	if ((read = hfs_do_read(inode, HFS_I(inode)->fork, pos,
 				buf, left, filp->f_reada != 0)) > 0) {
-	        *ppos += read;
+	        *ppos = pos + read;
 		filp->f_reada = 1;
 	}
 
@@ -181,7 +197,7 @@ static hfs_rwret_t hfs_file_write(struct file * filp, const char * buf,
 
 	pos = (filp->f_flags & O_APPEND) ? inode->i_size : *ppos;
 
-	if (pos >= HFS_FORK_MAX) {
+	if (pos < 0 || pos >= HFS_FORK_MAX) {
 		return 0;
 	}
 	if (count > HFS_FORK_MAX) {
@@ -191,8 +207,8 @@ static hfs_rwret_t hfs_file_write(struct file * filp, const char * buf,
 	        pos += written;
 
 	*ppos = pos;
-	if (*ppos > inode->i_size) {
-	        inode->i_size = *ppos;
+	if (pos > inode->i_size) {
+	        inode->i_size = pos;
 		mark_inode_dirty(inode);
 	}
 

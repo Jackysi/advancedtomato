@@ -1,4 +1,4 @@
-/* $Id: misc.c,v 1.1.1.4 2003/10/14 08:07:49 sparq Exp $
+/* $Id: misc.c,v 1.18 2000/08/26 02:38:03 anton Exp $
  * misc.c:  Miscellaneous prom functions that don't belong
  *          anywhere else.
  *
@@ -74,7 +74,7 @@ prom_cmdline(void)
 	spin_unlock_irqrestore(&prom_lock, flags);
 	install_linux_ticker();
 #ifdef CONFIG_SUN_AUXIO
-	TURN_ON_LED;
+	set_auxio(AUXIO_LED, 0);
 #endif
 #ifdef CONFIG_SUN_CONSOLE
 	if(!serial_console && prom_palette)

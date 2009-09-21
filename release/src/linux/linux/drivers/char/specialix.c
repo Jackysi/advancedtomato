@@ -99,10 +99,10 @@
 /* * This section can be removed when 2.0 becomes outdated....  * */
 /* ************************************************************** */
 
-#if LINUX_VERSION_CODE < 131328        /* Less than 2.1.0 */
+#if LINUX_VERSION_CODE < 131328    /* Less than 2.1.0 */
 #define TWO_ZERO
 #else
-#if LINUX_VERSION_CODE < 131371       /* less than 2.1.43 */
+#if LINUX_VERSION_CODE < 131371   /* less than 2.1.43 */
 /* This has not been extensively tested yet. Sorry. */
 #warning "You're on your own between 2.1.0 and 2.1.43.... "
 #warning "Please use a recent kernel."
@@ -461,6 +461,10 @@ void missed_irq (unsigned long data)
 static int sx_probe(struct specialix_board *bp)
 {
 	unsigned char val1, val2;
+#if 0
+	int irqs = 0;
+	int retries;
+#endif
 	int rev;
 	int chip;
 
@@ -503,6 +507,47 @@ static int sx_probe(struct specialix_board *bp)
 	}
 
 
+#if 0
+	/* It's time to find IRQ for this board */
+	for (retries = 0; retries < 5 && irqs <= 0; retries++) {
+		irqs = probe_irq_on();
+		sx_init_CD186x(bp);	       		/* Reset CD186x chip       */
+		sx_out(bp, CD186x_CAR, 2);               /* Select port 2          */
+		sx_wait_CCR(bp);
+		sx_out(bp, CD186x_CCR, CCR_TXEN);        /* Enable transmitter     */
+		sx_out(bp, CD186x_IER, IER_TXRDY);       /* Enable tx empty intr   */
+		sx_long_delay(HZ/20);	       		
+		irqs = probe_irq_off(irqs);
+
+#if SPECIALIX_DEBUG > 2
+		printk (KERN_DEBUG "SRSR = %02x, ",  sx_in(bp, CD186x_SRSR));
+		printk (           "TRAR = %02x, ",  sx_in(bp, CD186x_TRAR));
+		printk (           "GIVR = %02x, ",  sx_in(bp, CD186x_GIVR));
+		printk (           "GICR = %02x, ",  sx_in(bp, CD186x_GICR));
+		printk (           "\n");
+#endif
+		/* Reset CD186x again      */
+		if (!sx_init_CD186x(bp)) {
+			/* Hmmm. This is dead code anyway. */
+		}
+#if SPECIALIX_DEBUG > 2
+		printk (KERN_DEBUG "val1 = %02x, val2 = %02x, val3 = %02x.\n", 
+		        val1, val2, val3); 
+#endif
+	
+	}
+	
+#if 0
+	if (irqs <= 0) {
+		printk(KERN_ERR "sx%d: Can't find IRQ for specialix IO8+ board at 0x%03x.\n",
+		       board_No(bp), bp->base);
+		return 1;
+	}
+#endif
+	printk (KERN_INFO "Started with irq=%d, but now have irq=%d.\n", bp->irq, irqs);
+	if (irqs > 0)
+		bp->irq = irqs;
+#endif
 	/* Reset CD186x again  */
 	if (!sx_init_CD186x(bp)) {
 		return -EIO;
@@ -1130,6 +1175,7 @@ static void sx_change_speed(struct specialix_board *bp, struct specialix_port *p
 		port->COR2 |= COR2_CTSAE; 
 #endif
 	}
+	/* Enable Software Flow Control. FIXME: I'm not sure about this */
 	/* Some people reported that it works, but I still doubt it */
 	if (I_IXON(tty)) {
 		port->COR2 |= COR2_TXIBE;
@@ -1533,8 +1579,7 @@ static void sx_close(struct tty_struct * tty, struct file * filp)
 	sx_shutdown_port(bp, port);
 	if (tty->driver.flush_buffer)
 		tty->driver.flush_buffer(tty);
-	if (tty->ldisc.flush_buffer)
-		tty->ldisc.flush_buffer(tty);
+	tty_ldisc_flush(tty);
 	tty->closing = 0;
 	port->event = 0;
 	port->tty = 0;
@@ -1555,17 +1600,22 @@ static void sx_close(struct tty_struct * tty, struct file * filp)
 static int sx_write(struct tty_struct * tty, int from_user, 
                     const unsigned char *buf, int count)
 {
-	struct specialix_port *port = (struct specialix_port *)tty->driver_data;
+	struct specialix_port *port;
 	struct specialix_board *bp;
 	int c, total = 0;
 	unsigned long flags;
+
+	if (!tty)
+		return 0;
+
+	port = (struct specialix_port *)tty->driver_data;
 				
 	if (sx_paranoia_check(port, tty->device, "sx_write"))
 		return 0;
 	
 	bp = port_Board(port);
 
-	if (!tty || !port->xmit_buf || !tmp_buf)
+	if (!port->xmit_buf || !tmp_buf)
 		return 0;
 
 	save_flags(flags);
@@ -1631,13 +1681,18 @@ static int sx_write(struct tty_struct * tty, int from_user,
 
 static void sx_put_char(struct tty_struct * tty, unsigned char ch)
 {
-	struct specialix_port *port = (struct specialix_port *)tty->driver_data;
+	struct specialix_port *port;
 	unsigned long flags;
+
+	if (!tty)
+		return;
+
+	port = (struct specialix_port *)tty->driver_data;
 
 	if (sx_paranoia_check(port, tty->device, "sx_put_char"))
 		return;
 
-	if (!tty || !port->xmit_buf)
+	if (!port->xmit_buf)
 		return;
 
 	save_flags(flags); cli();
@@ -1712,10 +1767,7 @@ static void sx_flush_buffer(struct tty_struct *tty)
 	port->xmit_cnt = port->xmit_head = port->xmit_tail = 0;
 	restore_flags(flags);
 	
-	wake_up_interruptible(&tty->write_wait);
-	if ((tty->flags & (1 << TTY_DO_WRITE_WAKEUP)) &&
-	    tty->ldisc.write_wakeup)
-		(tty->ldisc.write_wakeup)(tty);
+	tty_wakeup(tty);
 }
 
 
@@ -1856,6 +1908,16 @@ static inline int sx_set_serial_info(struct specialix_port * port,
 	if (copy_from_user(&tmp, newinfo, sizeof(tmp)))
 		return -EFAULT;
 	
+#if 0	
+	if ((tmp.irq != bp->irq) ||
+	    (tmp.port != bp->base) ||
+	    (tmp.type != PORT_CIRRUS) ||
+	    (tmp.baud_base != (SX_OSCFREQ + CD186x_TPC/2) / CD186x_TPC) ||
+	    (tmp.custom_divisor != 0) ||
+	    (tmp.xmit_fifo_size != CD186x_NFIFO) ||
+	    (tmp.flags & ~SPECIALIX_LEGAL_FLAGS))
+		return -EINVAL;
+#endif	
 
 	change_speed = ((port->flags & ASYNC_SPD_MASK) !=
 			(tmp.flags & ASYNC_SPD_MASK));
@@ -2093,7 +2155,7 @@ static void do_sx_hangup(void *private_)
 	
 	tty = port->tty;
 	if (tty)
-		tty_hangup(tty);	
+		tty_hangup(tty);	/* FIXME: module removal race here */
 	MOD_DEC_USE_COUNT;
 }
 
@@ -2155,12 +2217,8 @@ static void do_softint(void *private_)
 	if(!(tty = port->tty)) 
 		return;
 
-	if (test_and_clear_bit(RS_EVENT_WRITE_WAKEUP, &port->event)) {
-		if ((tty->flags & (1 << TTY_DO_WRITE_WAKEUP)) &&
-		    tty->ldisc.write_wakeup)
-			(tty->ldisc.write_wakeup)(tty);
-		wake_up_interruptible(&tty->write_wait);
-	}
+	if (test_and_clear_bit(RS_EVENT_WRITE_WAKEUP, &port->event)) 
+		tty_wakeup(tty);
 }
 
 

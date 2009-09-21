@@ -29,6 +29,9 @@
  *
  * Changelog:
  *
+ *  10 Dec 2002 - Matt Domsch <Matt_Domsch@dell.com>
+ *   fix locking per Peter Chubb's findings
+ * 
  *  25 Mar 2002 - Matt Domsch <Matt_Domsch@dell.com>
  *   move uuid_unparse() to include/asm-ia64/efi.h:efi_guid_unparse()
  *
@@ -73,7 +76,7 @@ MODULE_AUTHOR("Matt Domsch <Matt_Domsch@Dell.com>");
 MODULE_DESCRIPTION("/proc interface to EFI Variables");
 MODULE_LICENSE("GPL");
 
-#define EFIVARS_VERSION "0.05 2002-Mar-26"
+#define EFIVARS_VERSION "0.06 2002-Dec-10"
 
 static int
 efivar_read(char *page, char **start, off_t off,
@@ -106,9 +109,17 @@ typedef struct _efivar_entry_t {
 	struct list_head        list;
 } efivar_entry_t;
 
+/*
+  efivars_lock protects two things:
+  1) efivar_list - adds, removals, reads, writes
+  2) efi.[gs]et_variable() calls.
+  It must not be held when creating proc entries or calling kmalloc.
+  efi.get_next_variable() is only called from efivars_init(),
+  which is protected by the BKL, so that path is safe.
+*/
 static spinlock_t efivars_lock = SPIN_LOCK_UNLOCKED;
 static LIST_HEAD(efivar_list);
-static struct proc_dir_entry *efi_vars_dir = NULL;
+static struct proc_dir_entry *efi_vars_dir;
 
 #define efivar_entry(n) list_entry(n, efivar_entry_t, list)
 
@@ -127,8 +138,7 @@ utf8_strlen(efi_char16_t *data, unsigned long maxlength)
 static inline unsigned long
 utf8_strsize(efi_char16_t *data, unsigned long maxlength)
 {
-	return utf8_strlen(data, maxlength/sizeof(efi_char16_t)) *
-		sizeof(efi_char16_t);
+	return utf8_strlen(data, maxlength/sizeof(efi_char16_t)) * sizeof(efi_char16_t);
 }
 
 
@@ -150,6 +160,7 @@ proc_calc_metrics(char *page, char **start, off_t off,
  *    variable_name_size = number of bytes required to hold
  *                         variable_name (not counting the NULL
  *                         character at the end.
+ *    efivars_lock is not held on entry or exit.
  * Returns 1 on failure, 0 on success
  */
 static int
@@ -157,13 +168,13 @@ efivar_create_proc_entry(unsigned long variable_name_size,
 			 efi_char16_t *variable_name,
 			 efi_guid_t *vendor_guid)
 {
+	int i, short_name_size = variable_name_size / sizeof(efi_char16_t) + 38;
+	char *short_name;
+	efivar_entry_t *new_efivar;
 
-	int i, short_name_size = variable_name_size /
-		sizeof(efi_char16_t) + 38;
-	char *short_name = kmalloc(short_name_size+1,
-				   GFP_KERNEL);
-	efivar_entry_t *new_efivar = kmalloc(sizeof(efivar_entry_t),
-					     GFP_KERNEL);
+	short_name = kmalloc(short_name_size+1, GFP_KERNEL);
+	new_efivar = kmalloc(sizeof(efivar_entry_t), GFP_KERNEL);
+
 	if (!short_name || !new_efivar)  {
 		if (short_name)        kfree(short_name);
 		if (new_efivar)        kfree(new_efivar);
@@ -178,7 +189,7 @@ efivar_create_proc_entry(unsigned long variable_name_size,
 
 	/* Convert Unicode to normal chars (assume top bits are 0),
 	   ala UTF-8 */
-	for (i=0; i<variable_name_size / sizeof(efi_char16_t); i++) {
+	for (i=0; i< (int) (variable_name_size / sizeof(efi_char16_t)); i++) {
 		short_name[i] = variable_name[i] & 0xFF;
 	}
 
@@ -188,19 +199,18 @@ efivar_create_proc_entry(unsigned long variable_name_size,
 	*(short_name + strlen(short_name)) = '-';
 	efi_guid_unparse(vendor_guid, short_name + strlen(short_name));
 
-
 	/* Create the entry in proc */
 	new_efivar->entry = create_proc_entry(short_name, 0600, efi_vars_dir);
 	kfree(short_name); short_name = NULL;
 	if (!new_efivar->entry) return 1;
 
-
 	new_efivar->entry->data = new_efivar;
 	new_efivar->entry->read_proc = efivar_read;
 	new_efivar->entry->write_proc = efivar_write;
 
+	spin_lock(&efivars_lock);
 	list_add(&new_efivar->list, &efivar_list);
-
+	spin_unlock(&efivars_lock);
 
 	return 0;
 }
@@ -278,7 +288,7 @@ efivar_write(struct file *file, const char *buffer,
 	}
 	if (copy_from_user(var_data, buffer, size)) {
 		MOD_DEC_USE_COUNT;
-                kfree(var_data);
+		kfree(var_data);
 		return -EFAULT;
 	}
 
@@ -326,6 +336,8 @@ efivar_write(struct file *file, const char *buffer,
 		kfree(efivar);
 	}
 
+	spin_unlock(&efivars_lock);
+
 	/* If this is a new variable, set up the proc entry for it. */
 	if (!found) {
 		efivar_create_proc_entry(utf8_strsize(var_data->VariableName,
@@ -336,36 +348,97 @@ efivar_write(struct file *file, const char *buffer,
 
 	kfree(var_data);
 	MOD_DEC_USE_COUNT;
-	spin_unlock(&efivars_lock);
 	return size;
 }
 
+/*
+ * The EFI system table contains pointers to the SAL system table,
+ * HCDP, ACPI, SMBIOS, etc, that may be useful to applications.
+ */
+static ssize_t
+efi_systab_read(struct file *file, char *buffer, size_t count, loff_t *ppos)
+{
+	void *data;
+	u8 *proc_buffer;
+	ssize_t size, length;
+	int ret;
+	const int max_nr_entries = 7; 	/* num ptrs to tables we could expose */
+	const int max_line_len = 80;
+	loff_t pos = *ppos;
 
+	if (!efi.systab)
+		return 0;
+
+	proc_buffer = kmalloc(max_nr_entries * max_line_len, GFP_KERNEL);
+	if (!proc_buffer)
+		return -ENOMEM;
+
+	length = 0;
+	if (efi.mps)
+		length += sprintf(proc_buffer + length, "MPS=0x%lx\n", __pa(efi.mps));
+	if (efi.acpi20)
+		length += sprintf(proc_buffer + length, "ACPI20=0x%lx\n", __pa(efi.acpi20));
+	if (efi.acpi)
+		length += sprintf(proc_buffer + length, "ACPI=0x%lx\n", __pa(efi.acpi));
+	if (efi.smbios)
+		length += sprintf(proc_buffer + length, "SMBIOS=0x%lx\n", __pa(efi.smbios));
+	if (efi.sal_systab)
+		length += sprintf(proc_buffer + length, "SAL=0x%lx\n", __pa(efi.sal_systab));
+	if (efi.hcdp)
+		length += sprintf(proc_buffer + length, "HCDP=0x%lx\n", __pa(efi.hcdp));
+	if (efi.boot_info)
+		length += sprintf(proc_buffer + length, "BOOTINFO=0x%lx\n", __pa(efi.boot_info));
+
+	if (pos != (unsigned) pos || pos >= length) {
+		ret = 0;
+		goto out;
+	}
+
+	data = proc_buffer + pos;
+	size = length - pos;
+	if (size > count)
+		size = count;
+	if (copy_to_user(buffer, data, size)) {
+		ret = -EFAULT;
+		goto out;
+	}
+
+	*ppos = pos + size;
+	ret = size;
+
+out:
+	kfree(proc_buffer);
+	return ret;
+}
+
+static struct proc_dir_entry *efi_systab_entry;
+static struct file_operations efi_systab_fops = {
+	.read = efi_systab_read,
+};
 
 static int __init
 efivars_init(void)
 {
-
 	efi_status_t status;
 	efi_guid_t vendor_guid;
 	efi_char16_t *variable_name = kmalloc(1024, GFP_KERNEL);
 	unsigned long variable_name_size = 1024;
 
-	spin_lock(&efivars_lock);
-
 	printk(KERN_INFO "EFI Variables Facility v%s\n", EFIVARS_VERSION);
 
-        /* Since efi.c happens before procfs is available,
-           we create the directory here if it doesn't
-           already exist.  There's probably a better way
-           to do this.
-        */
-        if (!efi_dir)
-                efi_dir = proc_mkdir("efi", NULL);
+	/* Since efi.c happens before procfs is available,
+	   we create the directory here if it doesn't
+	   already exist.  There's probably a better way
+	   to do this.
+	*/
+	if (!efi_dir)
+		efi_dir = proc_mkdir("efi", NULL);
+
+	efi_systab_entry = create_proc_entry("systab", S_IRUSR | S_IRGRP, efi_dir);
+	if (efi_systab_entry)
+		efi_systab_entry->proc_fops = &efi_systab_fops;
 
 	efi_vars_dir = proc_mkdir("vars", efi_dir);
-
-
 
 	/* Per EFI spec, the maximum storage allocated for both
 	   the variable name and variable data is 1024 bytes.
@@ -398,7 +471,6 @@ efivars_init(void)
 	} while (status != EFI_NOT_FOUND);
 
 	kfree(variable_name);
-	spin_unlock(&efivars_lock);
 	return 0;
 }
 
@@ -409,16 +481,17 @@ efivars_exit(void)
 	efivar_entry_t *efivar;
 
 	spin_lock(&efivars_lock);
-
+	if (efi_systab_entry)
+		remove_proc_entry(efi_systab_entry->name, efi_dir);
 	list_for_each_safe(pos, n, &efivar_list) {
 		efivar = efivar_entry(pos);
 		remove_proc_entry(efivar->entry->name, efi_vars_dir);
 		list_del(&efivar->list);
 		kfree(efivar);
 	}
-	remove_proc_entry(efi_vars_dir->name, efi_dir);
 	spin_unlock(&efivars_lock);
 
+	remove_proc_entry(efi_vars_dir->name, efi_dir);
 }
 
 module_init(efivars_init);

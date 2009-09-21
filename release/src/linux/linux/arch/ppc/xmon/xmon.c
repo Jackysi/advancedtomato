@@ -1,7 +1,4 @@
 /*
- * BK Id: SCCS/s.xmon.c 1.18 12/01/01 20:09:07 benh
- */
-/*
  * Routines providing a simple monitor for use on the PowerMac.
  *
  * Copyright (C) 1996 Paul Mackerras.
@@ -14,6 +11,12 @@
 #include <asm/string.h>
 #include <asm/prom.h>
 #include <asm/bitops.h>
+#include <asm/bootx.h>
+#ifdef CONFIG_PMAC_BACKLIGHT
+#include <asm/backlight.h>
+#endif
+#include <asm/mmu.h>
+
 #include "nonstdio.h"
 #include "privinst.h"
 
@@ -24,6 +27,7 @@
 static unsigned long cpus_in_xmon = 0;
 static unsigned long got_xmon = 0;
 static volatile int take_xmon = -1;
+static int xmon_owner = -1;
 #endif /* CONFIG_SMP */
 
 static unsigned adrs;
@@ -189,17 +193,31 @@ xmon(struct pt_regs *excp)
 	xmon_enter();
 	excprint(excp);
 #ifdef CONFIG_SMP
-	if (test_and_set_bit(smp_processor_id(), &cpus_in_xmon))
-		for (;;)
-			;
-	while (test_and_set_bit(0, &got_xmon)) {
-		if (take_xmon == smp_processor_id()) {
-			take_xmon = -1;
-			break;
+	set_bit(smp_processor_id(), &cpus_in_xmon);
+	if (smp_processor_id() != xmon_owner) {
+		while (test_and_set_bit(0, &got_xmon)) {
+			if (take_xmon == smp_processor_id()) {
+				take_xmon = -1;
+				break;
+			}
 		}
+		xmon_owner = smp_processor_id();
 	}
+	/*
+	 * XXX: breakpoints are removed while any cpu is in xmon
+	 */
 #endif /* CONFIG_SMP */
 	remove_bpts();
+#ifdef CONFIG_PMAC_BACKLIGHT
+	if( setjmp(bus_error_jmp) == 0 ) {
+		debugger_fault_handler = handle_fault;
+		sync();
+		set_backlight_enable(1);
+		set_backlight_level(BACKLIGHT_MAX);
+		sync();
+	}
+	debugger_fault_handler = 0;
+#endif	/* CONFIG_PMAC_BACKLIGHT */
 	cmd = cmds(excp);
 	if (cmd == 's') {
 		xmon_trace[smp_processor_id()] = SSTEP;
@@ -215,6 +233,7 @@ xmon(struct pt_regs *excp)
 	xmon_regs[smp_processor_id()] = 0;
 #ifdef CONFIG_SMP
 	clear_bit(0, &got_xmon);
+	xmon_owner = -1;
 	clear_bit(smp_processor_id(), &cpus_in_xmon);
 #endif /* CONFIG_SMP */
 	set_msr(msr);		/* restore interrupt enable */
@@ -500,11 +519,13 @@ static void cpu_cmd(void)
 	}
 	/* try to switch to cpu specified */
 	take_xmon = cpu;
+	xmon_owner = -1;
 	timeout = 10000000;
 	while (take_xmon >= 0) {
 		if (--timeout == 0) {
 			/* yes there's a race here */
 			take_xmon = -1;
+			xmon_owner = smp_processor_id();
 			printf("cpu %u didn't take control\n", cpu);
 			return;
 		}
@@ -513,6 +534,7 @@ static void cpu_cmd(void)
 	while (test_and_set_bit(0, &got_xmon)) {
 		if (take_xmon == smp_processor_id()) {
 			take_xmon = -1;
+			xmon_owner = smp_processor_id();
 			break;
 		}
 	}
@@ -694,7 +716,7 @@ backtrace(struct pt_regs *excp)
 	extern char do_signal_ret, ret_from_except;
 
 	printf("backtrace:\n");
-	
+
 	if (excp != NULL)
 		sp = excp->gpr[1];
 	else
@@ -890,16 +912,50 @@ super_regs()
 	scannl();
 }
 
+#if 0
+static void
+openforth()
+{
+    int c;
+    char *p;
+    char cmd[1024];
+    int args[5];
+    extern int (*prom_entry)(int *);
+
+    p = cmd;
+    c = skipbl();
+    while (c != '\n') {
+	*p++ = c;
+	c = inchar();
+    }
+    *p = 0;
+    args[0] = (int) "interpret";
+    args[1] = 1;
+    args[2] = 1;
+    args[3] = (int) cmd;
+    (*prom_entry)(args);
+    printf("\n");
+    if (args[4] != 0)
+	printf("error %x\n", args[4]);
+}
+#endif
+
+#ifndef CONFIG_PPC_STD_MMU
+static void
+dump_hash_table()
+{
+	printf("This CPU doesn't have a hash table.\n");
+}
+#else
 
 #ifndef CONFIG_PPC64BRIDGE
 static void
 dump_hash_table_seg(unsigned seg, unsigned start, unsigned end)
 {
-	extern void *Hash;
-	extern unsigned long Hash_size;
-	unsigned *htab = Hash;
-	unsigned hsize = Hash_size;
-	unsigned v, hmask, va, last_va;
+	void *htab = Hash;
+	unsigned long hsize = Hash_size;
+	unsigned long hmask;
+	unsigned v, va, last_va;
 	int found, last_found, i;
 	unsigned *hg, w1, last_w2, last_va0;
 
@@ -954,11 +1010,10 @@ dump_hash_table_seg(unsigned seg, unsigned start, unsigned end)
 static void
 dump_hash_table_seg(unsigned seg, unsigned start, unsigned end)
 {
-	extern void *Hash;
-	extern unsigned long Hash_size;
-	unsigned *htab = Hash;
-	unsigned hsize = Hash_size;
-	unsigned v, hmask, va, last_va;
+	void *htab = Hash;
+	unsigned long hsize = Hash_size;
+	unsigned long hmask;
+	unsigned v, va, last_va;
 	int found, last_found, i;
 	unsigned *hg, w1, last_w2, last_va0;
 
@@ -1020,6 +1075,8 @@ dump_hash_table()
 	int seg;
 	unsigned seg_start, seg_end;
 
+	if (Hash == NULL)
+		return;
 	hash_ctx = 0;
 	hash_start = 0;
 	hash_end = 0xfffff000;
@@ -1037,6 +1094,7 @@ dump_hash_table()
 		seg_start = seg_end + 0x1000;
 	}
 }
+#endif /* CONFIG_PPC_STD_MMU */
 
 /*
  * Stuff for reading and writing memory safely
@@ -1118,7 +1176,7 @@ void
 byterev(unsigned char *val, int size)
 {
 	int t;
-	
+
 	switch (size) {
 	case 2:
 		SWAP(val[0], val[1], t);
@@ -1729,7 +1787,7 @@ pretty_print_addr(unsigned long addr)
 {
 	char *sym;
 	unsigned long saddr;
-	
+
 	printf("%08x", addr);
 	sym = xmon_find_symbol(addr, &saddr);
 	if (sym)
@@ -1749,7 +1807,7 @@ xmon_find_symbol(unsigned long addr, unsigned long* saddr)
 	extern unsigned long sysmap_size;
 	if ( !sysmap || !sysmap_size )
 		return NULL;
-	
+
 	prev = 0;
 	psym = NULL;
 	p = sysmap;
@@ -1794,7 +1852,7 @@ xmon_symbol_to_addr(char* symbol)
 	char *match;
 	int goodness = 0;
 	int result = 0;
-	
+
 	extern char *sysmap;
 	extern unsigned long sysmap_size;
 	if ( !sysmap || !sysmap_size )
@@ -1825,7 +1883,7 @@ xmon_symbol_to_addr(char* symbol)
 				}
 				cur++;
 			}
-		}	
+		}
 		if (goodness) {
 			p = match;
 			while(p > sysmap && *p != 10)
@@ -1837,4 +1895,4 @@ xmon_symbol_to_addr(char* symbol)
 	}
 	debugger_fault_handler = 0;
 	return result;
-}		
+}

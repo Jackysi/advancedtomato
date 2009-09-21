@@ -219,3 +219,41 @@ void __init setup_serial_hcdp(void *tablep)
 	printk("Leaving setup_serial_hcdp()\n");
 #endif
 }
+
+#ifdef CONFIG_IA64_EARLY_PRINTK_UART
+unsigned long hcdp_early_uart(void)
+{
+	efi_system_table_t *systab;
+	efi_config_table_t *config_tables;
+	hcdp_t *hcdp = 0;
+	hcdp_dev_t *dev;
+	int i;
+
+	systab = (efi_system_table_t *) ia64_boot_param->efi_systab;
+	if (!systab)
+		return 0;
+	systab = __va(systab);
+
+	config_tables = (efi_config_table_t *) systab->tables;
+	if (!config_tables)
+		return 0;
+	config_tables = __va(config_tables);
+
+	for (i = 0; i < systab->nr_tables; i++) {
+		if (efi_guidcmp(config_tables[i].guid, HCDP_TABLE_GUID) == 0) {
+			hcdp = (hcdp_t *) config_tables[i].table;
+			break;
+		}
+	}
+	if (!hcdp)
+		return 0;
+	hcdp = __va(hcdp);
+
+	for (i = 0, dev = hcdp->hcdp_dev; i < hcdp->num_entries; i++, dev++) {
+		if (dev->type == HCDP_DEV_CONSOLE)
+			return (u64) dev->base_addr.addrhi << 32
+				| dev->base_addr.addrlo;
+	}
+	return 0;
+}
+#endif

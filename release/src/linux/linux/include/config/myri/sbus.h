@@ -1,1 +1,0 @@
-#undef  CONFIG_MYRI_SBUS

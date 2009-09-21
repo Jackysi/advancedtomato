@@ -1,9 +1,0 @@
-libc {
-  GLIBC_2.0 {
-    # functions with required interface outside normal name space
-    __open_catalog;
-
-    # c*
-    catclose; catgets; catopen;
-  }
-}

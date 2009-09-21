@@ -1,7 +1,7 @@
 #
 # Makefile for Broadcom Home Networking Division (HND) shared driver code
 #
-# Copyright 2005, Broadcom Corporation
+# Copyright 2006, Broadcom Corporation
 # All Rights Reserved.
 # 
 # THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
@@ -9,25 +9,42 @@
 # SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
 # FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
 #
-# $Id: Makefile,v 1.1.1.9 2005/03/07 07:30:48 kanki Exp $
+# $Id$
 #
 
 O_TARGET	:= hnd.o
 
 WLSHARED        := wlconfig_lx_shared
 WLCFGDIR        := $(SRCBASE)/wl/config
+
+ifneq ($(wildcard $(WLCFGDIR)),)
 include         $(WLCFGDIR)/$(WLSHARED)
 include         $(WLCFGDIR)/wl.mk
+endif
 
 HND_OBJS	:= $(WLFILES:.c=.o)
+
+EXTRA_CFLAGS += $(WLFLAGS)
 
 ifneq ($(CONFIG_BCM947XX),y)
 HND_OBJS	+= nvramstubs.o
 endif
 
+ifeq ($(CONFIG_ET_47XX),y)
+HND_OBJS	+= bcmrobo.o
+else
+ifeq ($(CONFIG_BCM57XX),y)
+HND_OBJS	+= bcmrobo.o
+endif
+endif
+
 ifdef CONFIG_USB_RNDIS
 EXTRA_CFLAGS += -DCONFIG_USBRNDIS_RETAIL
 endif                                  
+
+ifeq ($(BCMDBG_MEM),1)
+EXTRA_CFLAGS += -DBCMDBG_MEM
+endif
 
 export-objs	:= shared_ksyms.o
 obj-y		:= shared_ksyms.o $(HND_OBJS)
@@ -39,6 +56,11 @@ include $(TOPDIR)/Rules.make
 
 ifeq ($(wildcard $(SRCBASE)/shared/bcmutils.c),)
 bcmutils.o: $(SRCBASE)/shared/linux/bcmutils.o
+	cp $< $@
+endif
+
+ifeq ($(wildcard $(SRCBASE)/shared/bcmrobo.c),)
+bcmutils.o: $(SRCBASE)/shared/linux/bcmrobo.o
 	cp $< $@
 endif
 
@@ -69,6 +91,11 @@ endif
 
 ifeq ($(wildcard $(SRCBASE)/shared/bcmwpa.c),)
 bcmwpa.o: $(SRCBASE)/shared/linux/bcmwpa.o
+	cp $< $@
+endif
+
+ifeq ($(wildcard $(SRCBASE)/shared/bcmotp.c),)
+bcmotp.o: $(SRCBASE)/shared/linux/bcmotp.o
 	cp $< $@
 endif
 

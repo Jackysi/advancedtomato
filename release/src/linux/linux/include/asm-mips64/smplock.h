@@ -3,8 +3,8 @@
  *
  * Default SMP lock implementation
  */
-#ifndef _ASM_SMPLOCK_H
-#define _ASM_SMPLOCK_H
+#ifndef __ASM_SMPLOCK_H
+#define __ASM_SMPLOCK_H
 
 #include <linux/sched.h>
 #include <linux/interrupt.h>
@@ -53,4 +53,4 @@ static __inline__ void unlock_kernel(void)
 		spin_unlock(&kernel_flag);
 }
 
-#endif /* _ASM_SMPLOCK_H */
+#endif /* __ASM_SMPLOCK_H */

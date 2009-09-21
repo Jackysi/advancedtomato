@@ -258,7 +258,7 @@ static int gamma_takedown(drm_device_t *dev)
 					DRM_DEBUG("mtrr_del = %d\n", retcode);
 				}
 #endif
-				drm_ioremapfree(map->handle, map->size);
+				drm_ioremapfree(map->handle, map->size, dev);
 				break;
 			case _DRM_SHM:
 				drm_free_pages((unsigned long)map->handle,

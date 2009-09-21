@@ -1,4 +1,4 @@
-/* $Id: process.c,v 1.1.1.4 2003/10/14 08:07:17 sparq Exp $
+/* $Id: process.c,v 1.24 2003/03/06 14:19:32 pkj Exp $
  * 
  *  linux/arch/cris/kernel/process.c
  *
@@ -8,11 +8,12 @@
  *  Authors:   Bjorn Wesen (bjornw@axis.com)
  *
  *  $Log: process.c,v $
- *  Revision 1.1.1.4  2003/10/14 08:07:17  sparq
- *  Broadcom Release 3.51.8.0 for BCM4712.
+ *  Revision 1.24  2003/03/06 14:19:32  pkj
+ *  Use a cpu_idle() function identical to the one used by i386.
  *
- *  Revision 1.1.1.1  2003/02/03 22:37:20  mhuang
- *  LINUX_2_4 branch snapshot from linux-mips.org CVS
+ *  Revision 1.23  2002/10/14 18:29:27  johana
+ *  Call etrax_gpio_wake_up_check() from cpu_idle() to reduce gpio latency
+ *  from ~15 ms to ~6 ms.
  *
  *  Revision 1.22  2001/11/13 09:40:43  orjanf
  *  Added dump_fpu (needed for core dumps).
@@ -116,7 +117,17 @@ union task_union init_task_union
  * region by enable_hlt/disable_hlt.
  */
 
-static int hlt_counter=0;
+static int hlt_counter;
+
+/*
+ * Powermanagement idle function, if any..
+ */
+void (*pm_idle)(void);
+
+/*
+ * Power off function, if any
+ */
+void (*pm_power_off)(void);
 
 void disable_hlt(void)
 {
@@ -127,12 +138,42 @@ void enable_hlt(void)
 {
 	hlt_counter--;
 }
- 
-int cpu_idle(void *unused)
+
+/*
+ * We use this if we don't have any better
+ * idle routine..
+ */
+static void default_idle(void)
 {
+#ifdef CONFIG_ETRAX_GPIO
+	extern void etrax_gpio_wake_up_check(void); /* drivers/gpio.c */
+
+	/* This can reduce latency from 15 ms to 6 ms */
+	etrax_gpio_wake_up_check(); /* drivers/gpio.c */
+#endif
+}
+
+/*
+ * The idle thread. There's no useful work to be
+ * done, so just try to conserve power and have a
+ * low exit latency (ie sit in a loop waiting for
+ * somebody to say that they'd like to reschedule)
+ */
+void cpu_idle(void)
+{
+	/* endless idle loop with no priority at all */
+	init_idle();
+	current->nice = 20;
+	current->counter = -100;
+
 	while(1) {
-		current->counter = -100;
+		void (*idle)(void) = pm_idle;
+		if (!idle)
+			idle = default_idle;
+		while (!current->need_resched)
+			idle();
 		schedule();
+		check_pgt_cache();
 	}
 }
 
@@ -186,6 +227,8 @@ void machine_halt(void)
 
 void machine_power_off(void)
 {
+	if (pm_power_off)
+		pm_power_off();
 }
 
 /*
@@ -257,6 +300,27 @@ int copy_thread(int nr, unsigned long clone_flags, unsigned long usp,
  */
 void dump_thread(struct pt_regs * regs, struct user * dump)
 {
+#if 0
+	int i;
+
+	/* changed the size calculations - should hopefully work better. lbt */
+	dump->magic = CMAGIC;
+	dump->start_code = 0;
+	dump->start_stack = regs->esp & ~(PAGE_SIZE - 1);
+	dump->u_tsize = ((unsigned long) current->mm->end_code) >> PAGE_SHIFT;
+	dump->u_dsize = ((unsigned long) (current->mm->brk + (PAGE_SIZE-1))) >> PAGE_SHIFT;
+	dump->u_dsize -= dump->u_tsize;
+	dump->u_ssize = 0;
+	for (i = 0; i < 8; i++)
+		dump->u_debugreg[i] = current->debugreg[i];  
+
+	if (dump->start_stack < TASK_SIZE)
+		dump->u_ssize = ((unsigned long) (TASK_SIZE - dump->start_stack)) >> PAGE_SHIFT;
+
+	dump->regs = *regs;
+
+	dump->u_fpvalid = dump_fpu (regs, &dump->i387);
+#endif 
 }
 
 /* Fill in the fpu structure for a core dump. */
@@ -338,6 +402,29 @@ extern void scheduling_functions_end_here(void);
 
 unsigned long get_wchan(struct task_struct *p)
 {
+#if 0
+	/* YURGH. TODO. */
+
+        unsigned long ebp, esp, eip;
+        unsigned long stack_page;
+        int count = 0;
+        if (!p || p == current || p->state == TASK_RUNNING)
+                return 0;
+        stack_page = (unsigned long)p;
+        esp = p->thread.esp;
+        if (!stack_page || esp < stack_page || esp > 8188+stack_page)
+                return 0;
+        /* include/asm-i386/system.h:switch_to() pushes ebp last. */
+        ebp = *(unsigned long *) esp;
+        do {
+                if (ebp < stack_page || ebp > 8184+stack_page)
+                        return 0;
+                eip = *(unsigned long *) (ebp+4);
+                if (eip < first_sched || eip >= last_sched)
+                        return eip;
+                ebp = *(unsigned long *) ebp;
+        } while (count++ < 16);
+#endif
         return 0;
 }
 #undef last_sched

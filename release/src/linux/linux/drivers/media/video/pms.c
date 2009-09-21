@@ -622,7 +622,7 @@ static void pms_vcrinput(short input)
 }
 
 
-static int pms_capture(struct pms_device *dev, char *buf, int rgb555, int count)
+static int pms_capture(struct pms_device *dev, char *buf, int rgb555, unsigned long count)
 {
 	int y;
 	int dw = 2*dev->width;

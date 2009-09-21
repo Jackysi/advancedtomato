@@ -49,8 +49,9 @@ td3	.req	lr
 		/* we are now half-word aligned */
 
 .less8_wordlp:
-#ifdef __ARM_ARCH_4__
-		ldrh	td0, [buf], #2
+#if __LINUX_ARM_ARCH__ >= 4
+		ldrh	td0, [buf]
+		add	buf, buf, #2
 		sub	len, len, #2
 #else
 		ldrb	td0, [buf], #1
@@ -79,8 +80,9 @@ td3	.req	lr
 		adcnes	sum, sum, td0, lsl #8	@ update checksum
 
 		tst	buf, #2			@ 32-bit aligned?
-#ifdef __ARM_ARCH_4__
-		ldrneh	td0, [buf], #2		@ make 32-bit aligned
+#if __LINUX_ARM_ARCH__ >= 4
+		ldrneh	td0, [buf]		@ make 32-bit aligned
+		add	buf, buf, #2
 		subne	len, len, #2
 #else
 		ldrneb	td0, [buf], #1

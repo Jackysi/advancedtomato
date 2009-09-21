@@ -124,7 +124,6 @@ typedef unsigned long sigset_t;
  */
 #define SA_PROBE		0x80000000
 #define SA_SAMPLE_RANDOM	0x10000000
-#define SA_IRQNOMASK		0x08000000
 #define SA_SHIRQ		0x04000000
 #endif
 

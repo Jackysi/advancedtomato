@@ -877,7 +877,7 @@ static int wssfdx_sethw(struct net_device *dev, struct sm_state *sm, char *mode)
 				if (sm->mode_rx->demodulator_s16) {
 					sm->dma.i16bit = 1;
 					sm->dma.ifragsz <<= 1;
-#ifdef __BIG_ENDIAN        /* big endian 16bit only works on crystal cards... */
+#ifdef __BIG_ENDIAN    /* big endian 16bit only works on crystal cards... */
 					SCSTATE->fmt[0] |= 0xc0;
 #else /* __BIG_ENDIAN */
 					SCSTATE->fmt[0] |= 0x40;
@@ -887,7 +887,7 @@ static int wssfdx_sethw(struct net_device *dev, struct sm_state *sm, char *mode)
 				if (sm->mode_tx->modulator_s16) {
 					sm->dma.o16bit = 1;
 					sm->dma.ofragsz <<= 1;
-#ifdef __BIG_ENDIAN        /* big endian 16bit only works on crystal cards... */
+#ifdef __BIG_ENDIAN    /* big endian 16bit only works on crystal cards... */
 					SCSTATE->fmt[1] |= 0xc0;
 #else /* __BIG_ENDIAN */
 					SCSTATE->fmt[1] |= 0x40;

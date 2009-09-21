@@ -110,6 +110,7 @@ romfs_read_super(struct super_block *s, void *data, int silent)
 
 	bh = sb_bread(s, 0);
 	if (!bh) {
+		/* XXX merge with other printk? */
                 printk ("romfs: unable to read superblock\n");
 		goto outnobh;
 	}
@@ -263,7 +264,7 @@ romfs_readdir(struct file *filp, void *dirent, filldir_t filldir)
 	unsigned long offset, maxoff;
 	int j, ino, nextfh;
 	int stored = 0;
-	char fsname[ROMFS_MAXFN];	
+	char fsname[ROMFS_MAXFN];	/* XXX dynamic? */
 
 	maxoff = i->i_sb->u.romfs_sb.s_maxsize;
 
@@ -314,7 +315,7 @@ romfs_lookup(struct inode *dir, struct dentry *dentry)
 	unsigned long offset, maxoff;
 	int fslen, res;
 	struct inode *inode;
-	char fsname[ROMFS_MAXFN];	
+	char fsname[ROMFS_MAXFN];	/* XXX dynamic? */
 	struct romfs_inode ri;
 	const char *name;		/* got from dentry */
 	int len;
@@ -349,6 +350,7 @@ romfs_lookup(struct inode *dir, struct dentry *dentry)
 					break;
 			}
 		} else if (fslen >= ROMFH_SIZE) {
+			/* both are longer; XXX optimize max size */
 			fslen = romfs_strnlen(dir, offset+ROMFH_SIZE, sizeof(fsname)-1);
 			if (len == fslen) {
 				romfs_copyfrom(dir, fsname, offset+ROMFH_SIZE, len+1);
@@ -467,6 +469,7 @@ romfs_read_inode(struct inode *i)
 			printk("romfs: read error for inode 0x%x\n", ino);
 			return;
 		}
+		/* XXX: do romfs_checksum here too (with name) */
 
 		nextfh = ntohl(ri.next);
 		if ((nextfh & ROMFH_TYPE) != ROMFH_HRD)

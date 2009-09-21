@@ -1,6 +1,6 @@
 /*
- *   Copyright (c) International Business Machines Corp., 2000-2002
- *   Portions Copyright (c) Christoph Hellwig, 2001-2002
+ *   Copyright (C) International Business Machines Corp., 2000-2002
+ *   Portions Copyright (C) Christoph Hellwig, 2001-2002
  *
  *   This program is free software;  you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -30,8 +30,7 @@ typedef struct {
 
 extern signed char UniUpperTable[512];
 extern UNICASERANGE UniUpperRange[];
-extern int get_UCSname(struct component_name *, struct dentry *,
-		       struct nls_table *);
+extern int get_UCSname(struct component_name *, struct dentry *);
 extern int jfs_strfromUCS_le(char *, const wchar_t *, int, struct nls_table *);
 
 #define free_UCSname(COMP) kfree((COMP)->name)

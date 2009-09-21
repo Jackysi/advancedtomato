@@ -106,8 +106,13 @@ struct	PortReq
 struct  StreamInfo
 {
 	uint	SysPort;
+#if 0
+	queue_t RQueue;
+	queue_t WQueue;
+#else
 	int RQueue;
 	int WQueue;
+#endif
 };
 
 struct	HostReq

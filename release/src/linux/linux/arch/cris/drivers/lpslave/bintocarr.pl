@@ -1,5 +1,5 @@
 #!/usr/bin/perl -w
-# $Id: bintocarr.pl,v 1.1.1.4 2003/10/14 08:07:17 sparq Exp $
+
 # Copy of mkjulbin.pl made by Olof
 # convert a binary stdin to a C-file containing a char array of the input
 # first argument is the symbol name
@@ -27,4 +27,3 @@ print "\n};\n";
 $lensymb = ("_" . ($symbol . "_length"));
 
 print "__asm__(\"\\t.globl $lensymb\\n$lensymb = $bcount\\n\");\n";
-  

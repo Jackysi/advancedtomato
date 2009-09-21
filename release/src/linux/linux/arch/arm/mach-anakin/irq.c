@@ -15,6 +15,8 @@
 #include <linux/sched.h>
 #include <linux/interrupt.h>
 #include <linux/init.h>
+#include <linux/list.h>
+#include <linux/timer.h>
 
 #include <asm/irq.h>
 #include <asm/mach/irq.h>
@@ -49,9 +51,9 @@ anakin_interrupt(int irq, void *dev_id, struct pt_regs *regs)
 }
 
 static struct irqaction anakin_irq = {
-	name:		"Anakin IRQ",
-	handler:	anakin_interrupt,
-	flags:		SA_INTERRUPT
+	.name		= "Anakin IRQ",
+	.handler	= anakin_interrupt,
+	.flags		= SA_INTERRUPT,
 };
  
 void __init

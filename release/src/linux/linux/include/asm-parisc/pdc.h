@@ -476,7 +476,7 @@ extern int pdc_type;
 #define PDC_TYPE_SYSTEM_MAP	 1 /* 32-bit, but supports PDC_SYSTEM_MAP */
 #define PDC_TYPE_SNAKE		 2 /* Doesn't support SYSTEM_MAP */
 
-#define is_pdc_pat()    (pdc_type == PDC_TYPE_PAT)
+#define is_pdc_pat()	(pdc_type == PDC_TYPE_PAT)
 
 struct pdc_chassis_info {       /* for PDC_CHASSIS_INFO */
 	unsigned long actcnt;   /* actual number of bytes returned */
@@ -576,6 +576,27 @@ struct pdc_cache_info {		/* main-PDC_CACHE-structure (caches & TLB's) */
 	unsigned long	dt_loop;
 };
 
+#if 0
+/* If you start using the next struct, you'll have to adjust it to
+ * work with 64-bit firmware I think -PB
+ */
+struct pdc_iodc {     /* PDC_IODC */
+	unsigned char   hversion_model;
+	unsigned char 	hversion;
+	unsigned char 	spa;
+	unsigned char 	type;
+	unsigned int	sversion_rev:4;
+	unsigned int	sversion_model:19;
+	unsigned int	sversion_opt:8;
+	unsigned char	rev;
+	unsigned char	dep;
+	unsigned char	features;
+	unsigned char	pad1;
+	unsigned int	checksum:16;
+	unsigned int	length:16;
+	unsigned int    pad[15];
+} __attribute__((aligned(8))) ;
+#endif
 
 #ifndef CONFIG_PA20
 /* no BLTBs in pa2.0 processors */
@@ -669,6 +690,7 @@ struct pdc_pat_pd_addr_map_entry {
 	unsigned long cell_map;
 };
 
+/* FIXME: mod[508] should really be a union of the various mod components */
 struct pdc_pat_cell_mod_maddr_block {	/* PDC_PAT_CELL_MODULE */
 	unsigned long cba;              /* function 0 configuration space address */
 	unsigned long mod_info;         /* module information */
@@ -776,6 +798,14 @@ struct pz_device {
 #define	CL_DISPL	9	/* half-duplex console (display) */
 #define	CL_FC		10	/* FiberChannel access media */
 
+#if 0
+/* FIXME: DEVCLASS_* duplicates CL_* (above).  Delete DEVCLASS_*? */
+#define DEVCLASS_RANDOM		1
+#define DEVCLASS_SEQU		2
+#define DEVCLASS_DUPLEX		7
+#define DEVCLASS_KEYBD		8
+#define DEVCLASS_DISP		9
+#endif
 
 /* IODC ENTRY_INIT() */
 #define ENTRY_INIT_SRCH_FRST	2
@@ -787,10 +817,13 @@ struct pz_device {
 
 /* IODC ENTRY_IO() */
 #define ENTRY_IO_BOOTIN		0
+#define ENTRY_IO_BOOTOUT	1
 #define ENTRY_IO_CIN		2
 #define ENTRY_IO_COUT		3
 #define ENTRY_IO_CLOSE		4
 #define ENTRY_IO_GETMSG		9
+#define ENTRY_IO_BBLOCK_IN	16
+#define ENTRY_IO_BBLOCK_OUT	17
 
 /* IODC ENTRY_SPA() */
 
@@ -882,6 +915,7 @@ void setup_pdc(void);		/* in inventory.c */
 
 int pdc_add_valid(unsigned long address);
 int pdc_chassis_info(struct pdc_chassis_info *chassis_info, void *led_info, unsigned long len);
+int pdc_chassis_disp(unsigned long disp);
 int pdc_coproc_cfg(struct pdc_coproc_cfg *pdc_coproc_info);
 int pdc_iodc_read(unsigned long *actcnt, unsigned long hpa, unsigned int index,
 		  void *iodc_data, unsigned int iodc_data_size);
@@ -928,6 +962,8 @@ int pdc_sti_call(unsigned long func, unsigned long flags,
                  unsigned long glob_cfg);
 
 #ifdef __LP64__
+int pdc_pat_chassis_send_log(unsigned long status, unsigned long data);
+
 int pdc_pat_cell_get_number(struct pdc_pat_cell_num *cell_info);
 int pdc_pat_cell_module(unsigned long *actcnt, unsigned long ploc, unsigned long mod,
 			unsigned long view_type, void *mem_addr);
@@ -964,7 +1000,7 @@ int pdc_pat_pd_get_addr_map(unsigned long *actual_len, void *mem_addr,
 #define PAT_GET_ENTITY(value)	(((value) >> 56) & 0xffUL)
 #define PAT_GET_DVI(value)	(((value) >> 48) & 0xffUL)
 #define PAT_GET_IOC(value)	(((value) >> 40) & 0xffUL)
-#define PAT_GET_MOD_PAGES(value)(((value) & 0xffffffUL)
+#define PAT_GET_MOD_PAGES(value) ((value) & 0xffffffUL)
 
 #else /* !__LP64__ */
 /* No PAT support for 32-bit kernels...sorry */

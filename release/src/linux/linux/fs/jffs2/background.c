@@ -31,7 +31,7 @@
  * provisions above, a recipient may use your version of this file
  * under either the RHEPL or the GPL.
  *
- * $Id: background.c,v 1.1.1.4 2003/10/14 08:09:00 sparq Exp $
+ * $Id: background.c,v 1.16 2001/10/08 09:22:38 dwmw2 Exp $
  *
  */
 
@@ -106,6 +106,7 @@ static int jffs2_garbage_collect_thread(void *_c)
 
         sprintf(current->comm, "jffs2_gcd_mtd%d", c->mtd->index);
 
+	/* FIXME in the 2.2 backport */
 	current->nice = 10;
 
 	for (;;) {

@@ -55,6 +55,10 @@ int llc_mac_data_indicate(llcptr lp, struct sk_buff *skb)
 
 	lp->inc_skb=NULL;
 	
+	/*
+	 *	Truncate buffer to true 802.3 length
+	 *	[FIXME: move to 802.2 demux]
+	 */
 
 	ll = *(skb->data -2) * 256 + *(skb->data -1);
 	skb_trim( skb, ll );

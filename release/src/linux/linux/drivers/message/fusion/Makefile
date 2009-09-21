@@ -9,7 +9,7 @@
 # parent makefile.
 #
 # Note 3! If you want to turn on various debug defines for an extended period of
-# time but don't want them lingering around in the Makefile when you pass it on 
+# time but don't want them lingering around in the Makefile when you pass it on
 # to someone else, use the MPT_CFLAGS env variable (thanks Steve). -nromer
 
 #=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-{ LSI_LOGIC
@@ -28,6 +28,7 @@ EXTRA_CFLAGS += -I. ${MPT_CFLAGS}
 #EXTRA_CFLAGS += -DMPT_DEBUG
 #EXTRA_CFLAGS += -DMPT_DEBUG_MSG_FRAME
 #EXTRA_CFLAGS += -DMPT_DEBUG_SG
+#EXTRA_CFLAGS += -DMPTSCSIH_DBG_TIMEOUT
 #
 # driver/module specifics...
 #
@@ -36,7 +37,8 @@ EXTRA_CFLAGS += -I. ${MPT_CFLAGS}
 #CFLAGS_mptbase.o += -DMPT_DEBUG_IRQ
 #
 #  For mptscsih:
-#CFLAGS_mptscsih.o += -DMPT_DEBUG_SCANDV
+#CFLAGS_mptscsih.o += -DMPT_DEBUG_DV
+#CFLAGS_mptscsih.o += -DMPT_DEBUG_DV_TINY
 #CFLAGS_mptscsih.o += -DMPT_DEBUG_RESET
 #CFLAGS_mptscsih.o += -DMPT_DEBUG_NEH
 #

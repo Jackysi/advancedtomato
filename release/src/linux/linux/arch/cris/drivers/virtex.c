@@ -7,7 +7,7 @@
 *!
 *!              The FPGA can be programmed by copying the bit-file to /dev/fpga.
 *!
-*!                cp fpga.bit > /dev/fpga
+*!                cat fpga.bit > /dev/fpga
 *!
 *!                Kernel log should look like:
 *!                  69900 bytes written
@@ -31,11 +31,8 @@
 *!  
 *! Jul 19 2002  Stefan Lundberg    Initial version.
 *! $Log: virtex.c,v $
-*! Revision 1.1.1.4  2003/10/14 08:07:17  sparq
-*! Broadcom Release 3.51.8.0 for BCM4712.
-*!
-*! Revision 1.1.1.1  2003/02/03 22:37:20  mhuang
-*! LINUX_2_4 branch snapshot from linux-mips.org CVS
+*! Revision 1.2  2003/02/24 07:50:30  fredriko
+*! Bugfixes and cleanups.
 *!
 *! Revision 1.1  2002/06/25 09:58:58  stefanl
 *! New FPGA driver for Platoon
@@ -46,7 +43,7 @@
 *! (C) Copyright 2002 Axis Communications AB, LUND, SWEDEN
 *!
 *!***************************************************************************/
-/* $Id: virtex.c,v 1.1.1.4 2003/10/14 08:07:17 sparq Exp $ */
+/* $Id: virtex.c,v 1.2 2003/02/24 07:50:30 fredriko Exp $ */
 /****************** INCLUDE FILES SECTION ***********************************/
 
 #include <linux/module.h>
@@ -133,13 +130,19 @@ static volatile unsigned char sync_ff_count;
 
 void start_virtex_program(void)
 {
+  volatile unsigned int i=0;
   unsigned short reg_data=0;
 
   printk("Start writing to FPGA\n");
-  reg_data = SET_CS_BIT(reg_data); // FPGA unselected
+  reg_data = SET_CS_BIT(reg_data); // FPGA unselected, PROGRAM bit not set
+  WRITE_FPGA_PROG_REG(reg_data);
 
+  for(i=0;i<10;i++) { } // at least 300 ns loop
+  
   reg_data = SET_PROGRAM_BIT(reg_data);
   WRITE_FPGA_PROG_REG(reg_data);
+
+  for(i=0;i<10;i++) { } // at least 300 ns loop
 
   while(!READ_INIT); // Wait for init
   
@@ -310,6 +313,7 @@ static ssize_t virtex_write(struct file * file, const char * buf,
   }
   if(copy_from_user(ptr, buf, count)) {
     printk("copy_from_user failed\n");
+    kfree(ptr);
     return -EFAULT;
   }
   
@@ -345,7 +349,7 @@ virtex_ioctl(struct inode *inode, struct file *file,
   switch (_IOC_NR(cmd)) {
     case VIRTEX_FPGA_WRITEREG:
       /* write to an FPGA register */
-      VIRTEX_DEBUG(printk("virtex wr %d %d\n", 
+      VIRTEX_DEBUG(printk("virtex wr 0x%x = 0x%x\n", 
                VIRTEX_FPGA_ARGREG(arg),
                VIRTEX_FPGA_ARGVALUE(arg)));
       
@@ -353,12 +357,12 @@ virtex_ioctl(struct inode *inode, struct file *file,
                              VIRTEX_FPGA_ARGVALUE(arg));
     case VIRTEX_FPGA_READREG:
     {
-      unsigned char val;
+      unsigned short val;
       /* read from an FPGA register */
-      VIRTEX_DEBUG(printk("virtex rd %d ", 
+      VIRTEX_DEBUG(printk("virtex rd 0x%x ", 
               VIRTEX_FPGA_ARGREG(arg)));
       val = virtex_readreg(VIRTEX_FPGA_ARGREG(arg));
-      VIRTEX_DEBUG(printk("= %d\n", val));
+      VIRTEX_DEBUG(printk("= 0x%x\n", val));
       return val;
     }					    
     default:

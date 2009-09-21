@@ -1,3 +1,0 @@
-lib/*
-usr/*-linux-uclibc/lib/*.so.*
-usr/*-linux-uclibc/lib/*-*.so

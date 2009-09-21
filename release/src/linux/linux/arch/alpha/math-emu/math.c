@@ -255,11 +255,11 @@ alpha_fp_emul (unsigned long pc)
 			goto done_d;
 
 		case FOP_FNC_CVTxS:
-			FP_FROM_INT_S(SR, ((long)vb), 64, long);
+			FP_FROM_INT_S(SR, (*(long*)&vb), 64, long);
 			goto pack_s;
 
 		case FOP_FNC_CVTxT:
-			FP_FROM_INT_D(DR, ((long)vb), 64, long);
+			FP_FROM_INT_D(DR, (*(long*)&vb), 64, long);
 			goto pack_d;
 		}
 		goto bad_insn;

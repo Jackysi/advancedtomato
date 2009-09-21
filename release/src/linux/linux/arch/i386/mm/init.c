@@ -356,7 +356,7 @@ void __init paging_init(void)
 
 #if CONFIG_X86_PAE
 	/*
-	 * We will bail out later - printk doesnt work right now so
+	 * We will bail out later - printk doesn't work right now so
 	 * the user would just see a hanging kernel.
 	 */
 	if (cpu_has_pae)
@@ -381,7 +381,7 @@ void __init paging_init(void)
  * This function cannot be __init, since exceptions don't work in that
  * section.
  */
-static int do_test_wp_bit(unsigned long vaddr);
+static int __attribute__((noinline)) do_test_wp_bit(unsigned long vaddr);
 
 void __init test_wp_bit(void)
 {
@@ -426,6 +426,11 @@ static inline int page_is_ram (unsigned long pagenr)
 
 		if (e820.map[i].type != E820_RAM)	/* not usable memory */
 			continue;
+		/*
+		 *	!!!FIXME!!! Some BIOSen report areas as RAM that
+		 *	are not. Notably the 640->1Mb area. We need a sanity
+		 *	check here.
+		 */
 		addr = (e820.map[i].addr+PAGE_SIZE-1) >> PAGE_SHIFT;
 		end = (e820.map[i].addr+e820.map[i].size) >> PAGE_SHIFT;
 		if  ((pagenr >= addr) && (pagenr < end))
@@ -505,7 +510,15 @@ void __init mem_init(void)
 
 	if (!mem_map)
 		BUG();
-	
+#ifdef CONFIG_HIGHMEM
+	/* check that fixmap and pkmap do not overlap */
+	if (PKMAP_BASE+LAST_PKMAP*PAGE_SIZE >= FIXADDR_START) {
+		printk(KERN_ERR "fixmap and kmap areas overlap - this will crash\n");
+		printk(KERN_ERR "pkstart: %lxh pkend: %lxh fixstart %lxh\n",
+				PKMAP_BASE, PKMAP_BASE+LAST_PKMAP*PAGE_SIZE, FIXADDR_START);
+		BUG();
+	}
+#endif
 	set_max_mapnr_init();
 
 	high_memory = (void *) __va(max_low_pfn * PAGE_SIZE);
@@ -548,8 +561,8 @@ void __init mem_init(void)
 
 }
 
-/* Put this after the callers, so that it cannot be inlined */
-static int do_test_wp_bit(unsigned long vaddr)
+/* This function must not be inlined */
+static int __attribute__((noinline)) do_test_wp_bit(unsigned long vaddr)
 {
 	char tmp_reg;
 	int flag;

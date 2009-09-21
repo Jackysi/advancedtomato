@@ -1,4 +1,4 @@
-/*	$Id: aurora.c,v 1.1.1.4 2003/10/14 08:08:34 sparq Exp $
+/*	$Id: aurora.c,v 1.18.2.1 2002/02/04 22:37:43 davem Exp $
  *	linux/drivers/sbus/char/aurora.c -- Aurora multiport driver
  *
  *	Copyright (c) 1999 by Oliver Aldulea (oli at bv dot ro)
@@ -161,6 +161,7 @@ static inline void aurora_wait_CCR(struct aurora_reg128 * r)
 #ifdef AURORA_DEBUG
 printk("aurora_wait_CCR\n");
 #endif
+	/* FIXME: need something more descriptive than 100000 :) */
 	for (delay = 100000; delay; delay--) 
 		if (!sbus_readb(&r->r[CD180_CCR]))
 			return;
@@ -485,8 +486,10 @@ static void aurora_receive_exc(struct Aurora_board const * bp, int chip)
 	status = sbus_readb(&bp->r[chip]->r[CD180_RCSR]);
 	if (status & RCSR_OE)  {
 		port->overrun++;
+#if 1
 		printk("aurora%d: port %d: Overrun. Total %ld overruns.\n",
 		       board_No(bp), port_No(port), port->overrun);
+#endif		
 	}
 	status &= port->mark_mask;
 #else	
@@ -785,8 +788,98 @@ static void aurora_interrupt(int irq, void * dev_id, struct pt_regs * regs)
 		}
 	}
 /* I guess this faster code can be used with CD1865, using AUROPRI and GLOBPRI. */
+#if 0
+	while ((loop++ < 48)&&(status=bp->r[0]->r[CD180_SRSR]&SRSR_ANYINT)){
+#ifdef AURORA_INT_DEBUG
+		printk("SRSR: %02x\n",status);
+#endif
+		ack = sbus_readb(&bp->r3->r[0]);
+#ifdef AURORA_INT_DEBUG
+		printk("ACK: %02x\n",ack);
+#endif
+		if ((ack>>5)==board_No(bp)) {
+			if ((chip=((ack>>3)&3)-1) < AURORA_NCD180) {
+				ack&=GSVR_ITMASK;
+				if (ack==GSVR_IT_RGD) {
+					aurora_receive(bp,chip);
+					sbus_writeb(0,
+						    &bp->r[chip]->r[CD180_EOSRR]);
+				} else if (ack==GSVR_IT_REXC) {
+					aurora_receive_exc(bp,chip);
+					sbus_writeb(0,
+						    &bp->r[chip]->r[CD180_EOSRR]);
+				} else if (ack==GSVR_IT_TX) {
+					aurora_transmit(bp,chip);
+					sbus_writeb(0,
+						    &bp->r[chip]->r[CD180_EOSRR]);
+				} else if (ack==GSVR_IT_MDM) {
+					aurora_check_modem(bp,chip);
+					sbus_writeb(0,
+						    &bp->r[chip]->r[CD180_EOSRR]);
+				}
+			}
+		}
+	}
+#endif
 
 /* This is the old handling routine, used in riscom8 for only one CD180. I keep it here for reference. */
+#if 0
+	for(chip=0;chip<AURORA_NCD180;chip++){
+		chip_id=(board_No(bp)<<5)|((chip+1)<<3);
+		loop=0;
+		while ((loop++ < 1) &&
+		       ((status = sbus_readb(&bp->r[chip]->r[CD180_SRSR])) &
+			(SRSR_TEXT | SRSR_MEXT | SRSR_REXT))) {
+
+			if (status & SRSR_REXT) {
+				ack = sbus_readb(&bp->r3->r[bp->ACK_RINT]);
+				if (ack == (chip_id | GSVR_IT_RGD)) {
+#ifdef AURORA_INTMSG
+					printk("RX ACK\n");
+#endif
+					aurora_receive(bp,chip);
+				} else if (ack == (chip_id | GSVR_IT_REXC)) {
+#ifdef AURORA_INTMSG
+					printk("RXC ACK\n");
+#endif
+					aurora_receive_exc(bp,chip);
+				} else {
+#ifdef AURORA_INTNORM
+					printk("aurora%d-%d: Bad receive ack 0x%02x.\n",
+					       board_No(bp), chip, ack);
+#endif
+				}
+			} else if (status & SRSR_TEXT) {
+				ack = sbus_readb(&bp->r3->r[bp->ACK_TINT]);
+				if (ack == (chip_id | GSVR_IT_TX)){
+#ifdef AURORA_INTMSG
+					printk("TX ACK\n");
+#endif
+					aurora_transmit(bp,chip);
+				} else {
+#ifdef AURORA_INTNORM
+					printk("aurora%d-%d: Bad transmit ack 0x%02x.\n",
+					       board_No(bp), chip, ack);
+#endif
+				}
+			} else  if (status & SRSR_MEXT)  {
+				ack = sbus_readb(&bp->r3->r[bp->ACK_MINT]);
+				if (ack == (chip_id | GSVR_IT_MDM)){
+#ifdef AURORA_INTMSG
+					printk("MDM ACK\n");
+#endif
+					aurora_check_modem(bp,chip);
+				} else {
+#ifdef AURORA_INTNORM
+					printk("aurora%d-%d: Bad modem ack 0x%02x.\n",
+					       board_No(bp), chip, ack);
+#endif
+				}
+			}
+			sbus_writeb(0, &bp->r[chip]->r[CD180_EOSRR]);
+		}
+	}
+#endif
 }
 
 #ifdef AURORA_INT_DEBUG
@@ -1038,6 +1131,7 @@ static void aurora_change_speed(struct Aurora_board *bp, struct Aurora_port *por
 			mcor1 |= AURORA_RXTH;
 		}
 	}
+	/* Enable Software Flow Control. FIXME: I'm not sure about this */
 	/* Some people reported that it works, but I still doubt */
 	if (I_IXON(tty))  {
 		port->COR2 |= COR2_TXIBE;
@@ -1479,8 +1573,7 @@ static void aurora_close(struct tty_struct * tty, struct file * filp)
 	aurora_shutdown_port(bp, port);
 	if (tty->driver.flush_buffer)
 		tty->driver.flush_buffer(tty);
-	if (tty->ldisc.flush_buffer)
-		tty->ldisc.flush_buffer(tty);
+	tty_ldisc_flush(tty);
 	tty->closing = 0;
 	port->event = 0;
 	port->tty = 0;
@@ -1691,11 +1784,8 @@ static void aurora_flush_buffer(struct tty_struct *tty)
 	save_flags(flags); cli();
 	port->xmit_cnt = port->xmit_head = port->xmit_tail = 0;
 	restore_flags(flags);
-	
-	wake_up_interruptible(&tty->write_wait);
-	if ((tty->flags & (1 << TTY_DO_WRITE_WAKEUP)) &&
-	    tty->ldisc.write_wakeup)
-		(tty->ldisc.write_wakeup)(tty);
+
+	tty_wakeup(tty);	
 #ifdef AURORA_DEBUG
 	printk("aurora_flush_buffer: end\n");
 #endif
@@ -1834,6 +1924,16 @@ static int aurora_set_serial_info(struct Aurora_port * port,
 #endif
 	if (copy_from_user(&tmp, newinfo, sizeof(tmp)))
 		return -EFAULT;
+#if 0	
+	if ((tmp.irq != bp->irq) ||
+	    (tmp.port != bp->base) ||
+	    (tmp.type != PORT_CIRRUS) ||
+	    (tmp.baud_base != (bp->oscfreq + CD180_TPC/2) / CD180_TPC) ||
+	    (tmp.custom_divisor != 0) ||
+	    (tmp.xmit_fifo_size != CD180_NFIFO) ||
+	    (tmp.flags & ~AURORA_LEGAL_FLAGS))
+		return -EINVAL;
+#endif	
 	
 	change_speed = ((port->flags & ASYNC_SPD_MASK) !=
 			(tmp.flags & ASYNC_SPD_MASK));
@@ -2103,7 +2203,7 @@ static void do_aurora_hangup(void *private_)
 #endif
 	tty = port->tty;
 	if (tty != NULL) {
-		tty_hangup(tty);	
+		tty_hangup(tty);	/* FIXME: module removal race - AKPM */
 #ifdef AURORA_DEBUG
 		printk("do_aurora_hangup: end\n");
 #endif
@@ -2182,10 +2282,7 @@ static void do_softint(void *private_)
 		return;
 
 	if (test_and_clear_bit(RS_EVENT_WRITE_WAKEUP, &port->event)) {
-		if ((tty->flags & (1 << TTY_DO_WRITE_WAKEUP)) &&
-		    tty->ldisc.write_wakeup)
-			(tty->ldisc.write_wakeup)(tty);
-		wake_up_interruptible(&tty->write_wait);
+		tty_wakeup(tty);
 	}
 #ifdef AURORA_DEBUG
 	printk("do_softint: end\n");

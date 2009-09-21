@@ -3,7 +3,12 @@
  *
  *  Copyright (C) 2000 Steven J. Hill (sjhill@cotw.com)
  *
- * $Id: spia.c,v 1.1.1.4 2003/10/14 08:08:18 sparq Exp $
+ *
+ *	10-29-2001 TG	change to support hardwarespecific access
+ *			to controllines	(due to change in nand.c)
+ *			page_cache added
+ *
+ * $Id: spia.c,v 1.16 2002/03/05 13:50:47 dwmw2 Exp $
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -75,6 +80,25 @@ const static struct mtd_partition partition_info[] = {
 };
 #define NUM_PARTITIONS 2
 
+
+/* 
+ *	hardware specific access to control-lines
+*/
+void spia_hwcontrol(int cmd){
+
+    switch(cmd){
+
+	case NAND_CTL_SETCLE: (*(volatile unsigned char *) (spia_io_base + spia_pedr)) |=  0x01; break;
+	case NAND_CTL_CLRCLE: (*(volatile unsigned char *) (spia_io_base + spia_pedr)) &= ~0x01; break;
+
+	case NAND_CTL_SETALE: (*(volatile unsigned char *) (spia_io_base + spia_pedr)) |=  0x02; break;
+	case NAND_CTL_CLRALE: (*(volatile unsigned char *) (spia_io_base + spia_pedr)) &= ~0x02; break;
+
+	case NAND_CTL_SETNCE: (*(volatile unsigned char *) (spia_io_base + spia_pedr)) &= ~0x04; break;
+	case NAND_CTL_CLRNCE: (*(volatile unsigned char *) (spia_io_base + spia_pedr)) |=  0x04; break;
+    }
+}
+
 /*
  * Main initialization routine
  */
@@ -107,11 +131,12 @@ int __init spia_init (void)
 	(*(volatile unsigned char *) (spia_io_base + spia_peddr)) = 0x07;
 
 	/* Set address of NAND IO lines */
-	this->IO_ADDR = spia_fio_base;
-	this->CTRL_ADDR = spia_io_base + spia_pedr;
-	this->CLE = 0x01;
-	this->ALE = 0x02;
-	this->NCE = 0x04;
+	this->IO_ADDR_R = spia_fio_base;
+	this->IO_ADDR_W = spia_fio_base;
+	/* Set address of hardware control function */
+	this->hwcontrol = spia_hwcontrol;
+	/* 15 us command delay time */
+	this->chip_delay = 15;		
 
 	/* Scan to find existence of the device */
 	if (nand_scan (spia_mtd)) {
@@ -126,6 +151,16 @@ int __init spia_init (void)
 		kfree (spia_mtd);
 		return -ENOMEM;
 	}
+
+	/* Allocate memory for internal data buffer */
+	this->data_cache = kmalloc (sizeof(u_char) * (spia_mtd->oobblock + spia_mtd->oobsize), GFP_KERNEL);
+	if (!this->data_cache) {
+		printk ("Unable to allocate NAND data cache for SPIA.\n");
+		kfree (this->data_buf);
+		kfree (spia_mtd);
+		return = -ENOMEM;
+	}
+	this->cache_page = -1;
 
 	/* Register the partitions */
 	add_mtd_partitions(spia_mtd, partition_info, NUM_PARTITIONS);
@@ -148,6 +183,7 @@ static void __exit spia_cleanup (void)
 
 	/* Free internal data buffer */
 	kfree (this->data_buf);
+	kfree (this->page_cache);
 
 	/* Free the MTD device structure */
 	kfree (spia_mtd);

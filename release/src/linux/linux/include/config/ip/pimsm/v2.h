@@ -1,1 +1,0 @@
-#undef  CONFIG_IP_PIMSM_V2

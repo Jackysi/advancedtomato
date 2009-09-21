@@ -87,7 +87,7 @@ int drm_addmap(struct inode *inode, struct file *filp, unsigned int cmd,
 					     MTRR_TYPE_WRCOMB, 1);
 		}
 #endif
-		map->handle = drm_ioremap(map->offset, map->size);
+		map->handle = drm_ioremap(map->offset, map->size, dev);
 		break;
 			
 

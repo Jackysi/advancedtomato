@@ -1,4 +1,14 @@
-
+/*
+ *  drivers/char/serial_tx3912.c
+ *
+ *  Copyright (C) 2001 Steven J. Hill (sjhill@realitydiluted.com)
+ * 
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *  
+ *  Serial driver for TMPR3912/05 and PR31700 processors
+ */
 #include <linux/init.h>
 #include <linux/config.h>
 #include <linux/tty.h>
@@ -117,12 +127,9 @@ static inline void transmit_char_pio(struct rs_port *port)
 	}
 	
         if (port->gs.xmit_cnt <= port->gs.wakeup_chars) {
-                if ((port->gs.tty->flags & (1 << TTY_DO_WRITE_WAKEUP)) &&
-                    port->gs.tty->ldisc.write_wakeup)
-                        (port->gs.tty->ldisc.write_wakeup)(port->gs.tty);
+		tty_wakeup(port->gs.tty);
                 rs_dprintk(TX3912_UART_DEBUG_TRANSMIT, "Waking up.... ldisc (%d)....\n",
                             port->gs.wakeup_chars); 
-                wake_up_interruptible(&port->gs.tty->write_wait);
        	}	
 }
 

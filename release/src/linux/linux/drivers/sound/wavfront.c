@@ -56,7 +56,7 @@
  * aspects of configuring a WaveFront soundcard, particularly the
  * effects processor.
  *
- * $Id: wavfront.c,v 1.1.1.4 2003/10/14 08:08:47 sparq Exp $
+ * $Id: wavfront.c,v 0.7 1998/09/09 15:47:36 pbd Exp $
  *
  * This program is distributed under the GNU GENERAL PUBLIC LICENSE (GPL)
  * Version 2 (June 1991). See the "COPYING" file distributed with this software
@@ -169,6 +169,7 @@ int debug_default;      /* you can set this to control debugging
 			      wavefront.h
 			   */
 
+/* XXX this needs to be made firmware and hardware version dependent */
 
 char *ospath = "/etc/sound/wavefront.os"; /* where to find a processed
 					     version of the WaveFront OS
@@ -951,12 +952,18 @@ wavefront_send_program (wavefront_patch_info *header)
 
 	dev.prog_status[header->number] = WF_SLOT_USED;
 
+	/* XXX need to zero existing SLOT_USED bit for program_status[i]
+	   where `i' is the program that's being (potentially) overwritten.
+	*/
     
 	for (i = 0; i < WF_NUM_LAYERS; i++) {
 		if (header->hdr.pr.layer[i].mute) {
 			dev.patch_status[header->hdr.pr.layer[i].patch_number] |=
 				WF_SLOT_USED;
 
+			/* XXX need to mark SLOT_USED for sample used by
+			   patch_number, but this means we have to load it. Ick.
+			*/
 		}
 	}
 
@@ -1033,6 +1040,28 @@ wavefront_send_sample (wavefront_patch_info *header,
 
 	if (header->size) {
 
+		/* XXX its a debatable point whether or not RDONLY semantics
+		   on the ROM samples should cover just the sample data or
+		   the sample header. For now, it only covers the sample data,
+		   so anyone is free at all times to rewrite sample headers.
+
+		   My reason for this is that we have the sample headers
+		   available in the WFB file for General MIDI, and so these
+		   can always be reset if needed. The sample data, however,
+		   cannot be recovered without a complete reset and firmware
+		   reload of the ICS2115, which is a very expensive operation.
+
+		   So, doing things this way allows us to honor the notion of
+		   "RESETSAMPLES" reasonably cheaply. Note however, that this
+		   is done purely at user level: there is no WFB parser in
+		   this driver, and so a complete reset (back to General MIDI,
+		   or theoretically some other configuration) is the
+		   responsibility of the user level library. 
+
+		   To try to do this in the kernel would be a little
+		   crazy: we'd need 158K of kernel space just to hold
+		   a copy of the patch/program/sample header data.
+		*/
 
 		if (dev.rom_samples_rdonly) {
 			if (dev.sample_status[header->number] & WF_SLOT_ROM) {
@@ -1464,6 +1493,8 @@ log2_2048(int n)
 
 	/* Returns 2048*log2(n) */
 
+	/* FIXME: this is like doing integer math
+	   on quantum particles (RuN) */
 
 	i=0;
 	while(n>=32*256) {
@@ -1553,7 +1584,7 @@ wavefront_load_gus_patch (int devno, int format, const char *addr,
 
 	/* Program for this patch */
 
-	progp->layer[0].patch_number= pat.number; 
+	progp->layer[0].patch_number= pat.number; /* XXX is this right ? */
 	progp->layer[0].mute=1;
 	progp->layer[0].pan_or_mod=1;
 	progp->layer[0].pan=7;
@@ -1875,6 +1906,7 @@ wavefront_synth_control (int cmd, wavefront_control *wc)
 static int 
 wavefront_open (struct inode *inode, struct file *file)
 {
+	/* XXX fix me */
 	dev.opened = file->f_flags;
 	return 0;
 }
@@ -2298,6 +2330,21 @@ static int __init wavefront_hw_reset (void)
 
 	dev.interrupts_on = 1;
 	
+	/* Note: data port is now the data port, not the h/w initialization
+	   port.
+
+	   At this point, only "HW VERSION" or "DOWNLOAD OS" commands
+	   will work. So, issue one of them, and wait for TX
+	   interrupt. This can take a *long* time after a cold boot,
+	   while the ISC ROM does its RAM test. The SDK says up to 4
+	   seconds - with 12MB of RAM on a Tropez+, it takes a lot
+	   longer than that (~16secs). Note that the card understands
+	   the difference between a warm and a cold boot, so
+	   subsequent ISC2115 reboots (say, caused by module
+	   reloading) will get through this much faster.
+
+	   XXX Interesting question: why is no RX interrupt received first ?
+	*/
 
 	wavefront_should_cause_interrupt(WFC_HARDWARE_VERSION, 
 					 dev.data_port, ramcheck_time*HZ);
@@ -2380,7 +2427,7 @@ static int __init detect_wavefront (int irq, int io_base)
 	dev.debug = debug_default;
 	dev.interrupts_on = 0;
 	dev.irq_cnt = 0;
-	dev.rom_samples_rdonly = 1; 
+	dev.rom_samples_rdonly = 1; /* XXX default lock on ROM sample slots */
 
 	if (wavefront_cmd (WFC_FIRMWARE_VERSION, rbuf, wbuf) == 0) {
 
@@ -2437,10 +2484,10 @@ static int __init detect_wavefront (int irq, int io_base)
 #include <linux/fs.h>
 #include <linux/mm.h>
 #include <linux/slab.h>
-#include <linux/unistd.h>
+static int my_errno;
+#define errno my_errno
+#include <asm/unistd.h>
 #include <asm/uaccess.h>
-
-static int errno; 
 
 static int
 wavefront_download_firmware (char *path)
@@ -2557,6 +2604,7 @@ static int __init wavefront_config_midi (void)
 	if (wavefront_cmd (WFC_MISYNTH_ON, rbuf, wbuf)) {
 		printk (KERN_WARNING LOGNAME
 			"cannot enable MIDI-IN to synth routing.\n");
+		/* XXX error ? */
 	}
 
 
@@ -2716,6 +2764,7 @@ static int __init wavefront_init (int atboot)
 	if (dev.israw) {
 		samples_are_from_rom = 1;
 	} else {
+		/* XXX is this always true ? */
 		samples_are_from_rom = 0;
 	}
 
@@ -2984,6 +3033,7 @@ static int __init wffx_init (void)
 	int j;
 
 	/* Set all bits for all channels on the MOD unit to zero */
+	/* XXX But why do this twice ? */
 
 	for (j = 0; j < 2; j++) {
 		for (i = 0x10; i <= 0xff; i++) {
@@ -3446,6 +3496,7 @@ static int __init init_wavfront (void)
 		"Copyright (C) by Hannu Solvainen, "
 		"Paul Barton-Davis 1993-1998.\n");
 
+	/* XXX t'would be lovely to ask the CS4232 for these values, eh ? */
 
 	if (io == -1 || irq == -1) {
 		printk (KERN_INFO LOGNAME "irq and io options must be set.\n");

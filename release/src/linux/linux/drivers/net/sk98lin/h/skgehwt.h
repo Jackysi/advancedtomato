@@ -1,62 +1,22 @@
 /******************************************************************************
  *
  * Name:	skhwt.h
- * Project:	Genesis, PCI Gigabit Ethernet Adapter
- * Version:	$Revision: 1.1.1.2 $
- * Date:	$Date: 2003/10/14 08:08:27 $
+ * Project:	Gigabit Ethernet Adapters, Event Scheduler Module
  * Purpose:	Defines for the hardware timer functions
  *
  ******************************************************************************/
 
 /******************************************************************************
  *
- *	(C)Copyright 1989-1998 SysKonnect,
- *	a business unit of Schneider & Koch & Co. Datensysteme GmbH.
- *	All Rights Reserved
+ *	(C)Copyright 1998-2002 SysKonnect GmbH.
+ *	(C)Copyright 2002-2003 Marvell.
  *
- *	THIS IS UNPUBLISHED PROPRIETARY SOURCE CODE OF SYSKONNECT
- *	The copyright notice above does not evidence any
- *	actual or intended publication of such source code.
+ *	This program is free software; you can redistribute it and/or modify
+ *	it under the terms of the GNU General Public License as published by
+ *	the Free Software Foundation; either version 2 of the License, or
+ *	(at your option) any later version.
  *
- *	This Module contains Proprietary Information of SysKonnect
- *	and should be treated as Confidential.
- *
- *	The information in this file is provided for the exclusive use of
- *	the licensees of SysKonnect.
- *	Such users have the right to use, modify, and incorporate this code
- *	into products for purposes authorized by the license agreement
- *	provided they include this notice and the associated copyright notice
- *	with any such product.
  *	The information in this file is provided "AS IS" without warranty.
- *
- ******************************************************************************/
-
-/******************************************************************************
- *
- * History:
- *
- *	$Log: skgehwt.h,v $
- *	Revision 1.1.1.2  2003/10/14 08:08:27  sparq
- *	Broadcom Release 3.51.8.0 for BCM4712.
- *	
- *	Revision 1.1.1.1  2003/02/03 22:37:48  mhuang
- *	LINUX_2_4 branch snapshot from linux-mips.org CVS
- *	
- *	Revision 1.4  1998/08/19 09:50:58  gklug
- *	fix: remove struct keyword from c-code (see CCC) add typedefs
- *	
- *	Revision 1.3  1998/08/14 07:09:29  gklug
- *	fix: chg pAc -> pAC
- *	
- *	Revision 1.2  1998/08/07 12:54:21  gklug
- *	fix: first compiled version
- *	
- *	Revision 1.1  1998/08/07 09:32:58  gklug
- *	first version
- *	
- *	
- *	
- *	
  *
  ******************************************************************************/
 
@@ -73,14 +33,14 @@
  * - use in Adapters context name pAC->Hwt
  */
 typedef	struct s_Hwt {
-	SK_U32		TStart ;	/* HWT start */
-	SK_U32		TStop ;		/* HWT stop */
-	int		TActive ;	/* HWT: flag : active/inactive */
+	SK_U32		TStart;	/* HWT start */
+	SK_U32		TStop;	/* HWT stop */
+	int		TActive;	/* HWT: flag : active/inactive */
 } SK_HWT;
 
 extern void SkHwtInit(SK_AC *pAC, SK_IOC Ioc);
 extern void SkHwtStart(SK_AC *pAC, SK_IOC Ioc, SK_U32 Time);
 extern void SkHwtStop(SK_AC *pAC, SK_IOC Ioc);
-extern SK_U32 SkHwtRead(SK_AC *pAC,SK_IOC Ioc);
+extern SK_U32 SkHwtRead(SK_AC *pAC, SK_IOC Ioc);
 extern void SkHwtIsr(SK_AC *pAC, SK_IOC Ioc);
 #endif	/* _SKGEHWT_H_ */

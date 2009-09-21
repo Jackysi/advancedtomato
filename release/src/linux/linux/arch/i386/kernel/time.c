@@ -42,9 +42,6 @@
 #include <linux/delay.h>
 #include <linux/init.h>
 #include <linux/smp.h>
-#ifdef CONFIG_KERNPROF
-#include <linux/kernprof.h>
-#endif
 
 #include <asm/io.h>
 #include <asm/smp.h>
@@ -61,6 +58,12 @@
 
 #include <asm/fixmap.h>
 #include <asm/cobalt.h>
+
+/*
+ * for x86_do_profile()
+ */
+#include <linux/irq.h>
+
 
 unsigned long cpu_khz;	/* Detected as we calibrate the TSC */
 
@@ -253,11 +256,185 @@ static unsigned long do_slow_gettimeoffset(void)
 
 static unsigned long (*do_gettimeoffset)(void) = do_slow_gettimeoffset;
 
+
+/* IBM Summit (EXA) Cyclone Timer code*/
+#ifdef CONFIG_X86_SUMMIT
+
+#define CYCLONE_CBAR_ADDR 0xFEB00CD0
+#define CYCLONE_PMCC_OFFSET 0x51A0
+#define CYCLONE_MPMC_OFFSET 0x51D0
+#define CYCLONE_MPCS_OFFSET 0x51A8
+#define CYCLONE_TIMER_FREQ 100000000
+
+int use_cyclone = 0;
+int __init cyclone_setup(char *str) 
+{
+	use_cyclone = 1;
+	return 1;
+}
+
+static u32* volatile cyclone_timer;	/* Cyclone MPMC0 register */
+static u32 last_cyclone_timer;
+
+static inline void mark_timeoffset_cyclone(void)
+{
+	int count;
+	unsigned long lost;
+	unsigned long delta = last_cyclone_timer;
+	spin_lock(&i8253_lock);
+	/* quickly read the cyclone timer */
+	if(cyclone_timer)
+		last_cyclone_timer = cyclone_timer[0];
+
+	/* calculate delay_at_last_interrupt */
+	outb_p(0x00, 0x43);     /* latch the count ASAP */
+
+	count = inb_p(0x40);    /* read the latched count */
+	count |= inb(0x40) << 8;
+	spin_unlock(&i8253_lock);
+
+	/*lost tick compensation*/
+	delta = last_cyclone_timer - delta;	
+	delta /= (CYCLONE_TIMER_FREQ/1000000);
+	delta += delay_at_last_interrupt;
+	lost = delta/(1000000/HZ);
+	if (lost >= 2)
+		jiffies += lost-1;
+               
+	count = ((LATCH-1) - count) * TICK_SIZE;
+	delay_at_last_interrupt = (count + LATCH/2) / LATCH;
+}
+
+static unsigned long do_gettimeoffset_cyclone(void)
+{
+	u32 offset;
+
+	if(!cyclone_timer)
+		return delay_at_last_interrupt;
+
+	/* Read the cyclone timer */
+	offset = cyclone_timer[0];
+
+	/* .. relative to previous jiffy */
+	offset = offset - last_cyclone_timer;
+
+	/* convert cyclone ticks to microseconds */	
+	/* XXX slow, can we speed this up? */
+	offset = offset/(CYCLONE_TIMER_FREQ/1000000);
+
+	/* our adjusted time offset in microseconds */
+	return delay_at_last_interrupt + offset;
+}
+
+static void __init init_cyclone_clock(void)
+{
+	u32* reg;	
+	u32 base;		/* saved cyclone base address */
+	u32 pageaddr;	/* page that contains cyclone_timer register */
+	u32 offset;		/* offset from pageaddr to cyclone_timer register */
+	int i;
+	
+	printk(KERN_INFO "Summit chipset: Starting Cyclone Counter.\n");
+
+	/* find base address */
+	pageaddr = (CYCLONE_CBAR_ADDR)&PAGE_MASK;
+	offset = (CYCLONE_CBAR_ADDR)&(~PAGE_MASK);
+	set_fixmap_nocache(FIX_CYCLONE_TIMER, pageaddr);
+	reg = (u32*)(fix_to_virt(FIX_CYCLONE_TIMER) + offset);
+	if(!reg){
+		printk(KERN_ERR "Summit chipset: Could not find valid CBAR register.\n");
+		use_cyclone = 0;
+		return;
+	}
+	base = *reg;	
+	if(!base){
+		printk(KERN_ERR "Summit chipset: Could not find valid CBAR value.\n");
+		use_cyclone = 0;
+		return;
+	}
+	
+	/* setup PMCC */
+	pageaddr = (base + CYCLONE_PMCC_OFFSET)&PAGE_MASK;
+	offset = (base + CYCLONE_PMCC_OFFSET)&(~PAGE_MASK);
+	set_fixmap_nocache(FIX_CYCLONE_TIMER, pageaddr);
+	reg = (u32*)(fix_to_virt(FIX_CYCLONE_TIMER) + offset);
+	if(!reg){
+		printk(KERN_ERR "Summit chipset: Could not find valid PMCC register.\n");
+		use_cyclone = 0;
+		return;
+	}
+	reg[0] = 0x00000001;
+
+	/* setup MPCS */
+	pageaddr = (base + CYCLONE_MPCS_OFFSET)&PAGE_MASK;
+	offset = (base + CYCLONE_MPCS_OFFSET)&(~PAGE_MASK);
+	set_fixmap_nocache(FIX_CYCLONE_TIMER, pageaddr);
+	reg = (u32*)(fix_to_virt(FIX_CYCLONE_TIMER) + offset);
+	if(!reg){
+		printk(KERN_ERR "Summit chipset: Could not find valid MPCS register.\n");
+		use_cyclone = 0;
+		return;
+	}
+	reg[0] = 0x00000001;
+
+	/* map in cyclone_timer */
+	pageaddr = (base + CYCLONE_MPMC_OFFSET)&PAGE_MASK;
+	offset = (base + CYCLONE_MPMC_OFFSET)&(~PAGE_MASK);
+	set_fixmap_nocache(FIX_CYCLONE_TIMER, pageaddr);
+	cyclone_timer = (u32*)(fix_to_virt(FIX_CYCLONE_TIMER) + offset);
+	if(!cyclone_timer){
+		printk(KERN_ERR "Summit chipset: Could not find valid MPMC register.\n");
+		use_cyclone = 0;
+		return;
+	}
+
+	/*quick test to make sure its ticking*/
+	for(i=0; i<3; i++){
+		u32 old = cyclone_timer[0];
+		int stall = 100;
+		while(stall--) barrier();
+		if(cyclone_timer[0] == old){
+			printk(KERN_ERR "Summit chipset: Counter not counting! DISABLED\n");
+			cyclone_timer = 0;
+			use_cyclone = 0;
+			return;
+		}
+	}
+	/* Everything looks good, so set do_gettimeoffset */
+	do_gettimeoffset = do_gettimeoffset_cyclone;	
+}
+void __cyclone_delay(unsigned long loops)
+{
+	unsigned long bclock, now;
+	if(!cyclone_timer)
+		return;
+	bclock = cyclone_timer[0];
+	do {
+		rep_nop();
+		now = cyclone_timer[0];
+	} while ((now-bclock) < loops);
+}
+#endif /* CONFIG_X86_SUMMIT */
+
 #else
 
 #define do_gettimeoffset()	do_fast_gettimeoffset()
 
 #endif
+
+/* No-cyclone stubs */
+#ifndef CONFIG_X86_SUMMIT
+int __init cyclone_setup(char *str) 
+{
+	printk(KERN_ERR "cyclone: Kernel not compiled with CONFIG_X86_SUMMIT, cannot use the cyclone-timer.\n");
+	return 1;
+}
+
+const int use_cyclone = 0;
+static void mark_timeoffset_cyclone(void) {}
+static void init_cyclone_clock(void) {}
+void __cyclone_delay(unsigned long loops) {}
+#endif /* CONFIG_X86_SUMMIT */
 
 /*
  * This version of gettimeofday has microsecond resolution
@@ -419,10 +596,8 @@ static inline void do_timer_interrupt(int irq, void *dev_id, struct pt_regs *reg
  * system, in that case we have to call the local interrupt handler.
  */
 #ifndef CONFIG_X86_LOCAL_APIC
-#if defined(CONFIG_KERNPROF)
-	if (prof_timer_hook)
-		prof_timer_hook(regs);
-#endif
+	if (!user_mode(regs))
+		x86_do_profile(regs->eip);
 #else
 	if (!using_apic_timer)
 		smp_local_timer_interrupt(regs);
@@ -480,8 +655,9 @@ static void timer_interrupt(int irq, void *dev_id, struct pt_regs *regs)
 	 */
 	write_lock(&xtime_lock);
 
-	if (use_tsc)
-	{
+	if(use_cyclone)
+		mark_timeoffset_cyclone();
+	else if (use_tsc) {
 		/*
 		 * It is important that these two operations happen almost at
 		 * the same time. We do the RDTSC stuff first, since it's
@@ -503,12 +679,34 @@ static void timer_interrupt(int irq, void *dev_id, struct pt_regs *regs)
 
 		count = inb_p(0x40);    /* read the latched count */
 		count |= inb(0x40) << 8;
+
+		/* Any unpaired read will cause the above to swap MSB/LSB
+		   forever.  Try to detect this and reset the counter. 
+		   
+		   This happens very occasionally with buggy SMM bios
+		   code at least */
+		   
+		if (count > LATCH) {
+			printk(KERN_WARNING 
+			       "i8253 count too high! resetting..\n");
+			outb_p(0x34, 0x43);
+			outb_p(LATCH & 0xff, 0x40);
+			outb(LATCH >> 8, 0x40);
+			count = LATCH - 1;
+		}
+
 		spin_unlock(&i8253_lock);
+
+		/* Some i8253 clones hold the LATCH value visible
+		   momentarily as they flip back to zero */
+		if (count == LATCH) {
+			count--;
+		}
 
 		count = ((LATCH-1) - count) * TICK_SIZE;
 		delay_at_last_interrupt = (count + LATCH/2) / LATCH;
 	}
- 
+
 	do_timer_interrupt(irq, NULL, regs);
 
 	write_unlock(&xtime_lock);
@@ -669,21 +867,30 @@ void __init time_init(void)
  	 */
  
  	dodgy_tsc();
- 	
+
+ 	if(use_cyclone)
+		init_cyclone_clock();
+		
 	if (cpu_has_tsc) {
 		unsigned long tsc_quotient = calibrate_tsc();
 		if (tsc_quotient) {
 			fast_gettimeoffset_quotient = tsc_quotient;
-			use_tsc = 1;
-			/*
-			 *	We could be more selective here I suspect
-			 *	and just enable this for the next intel chips ?
+			/* XXX: This is messy
+			 * However, we want to allow for the cyclone timer 
+			 * to work w/ or w/o the TSCs being avaliable
+			 *      -johnstul@us.ibm.com
 			 */
-			x86_udelay_tsc = 1;
+			if(!use_cyclone){
+				/*
+				 *	We could be more selective here I suspect
+				 *	and just enable this for the next intel chips ?
+			 	 */
+				use_tsc = 1;
+				x86_udelay_tsc = 1;
 #ifndef do_gettimeoffset
-			do_gettimeoffset = do_fast_gettimeoffset;
+				do_gettimeoffset = do_fast_gettimeoffset;
 #endif
-
+			}
 			/* report CPU clock rate in Hz.
 			 * The formula is (10^6 * 2^32) / (2^32 * 1 / (clocks/us)) =
 			 * clock/second. Our precision is about 100 ppm.
@@ -697,6 +904,7 @@ void __init time_init(void)
 			}
 		}
 	}
+
 
 #ifdef CONFIG_VISWS
 	printk("Starting Cobalt Timer system clock\n");

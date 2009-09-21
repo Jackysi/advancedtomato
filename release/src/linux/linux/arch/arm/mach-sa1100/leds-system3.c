@@ -5,19 +5,13 @@
  *
  * Original (leds-footbridge.c) by Russell King
  *
- * $Id: leds-system3.c,v 1.1.1.4 2003/10/14 08:07:15 sparq Exp $
+ * $Id: leds-system3.c,v 1.1.6.1 2001/12/04 15:19:26 seletz Exp $
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
  *
  * $Log: leds-system3.c,v $
- * Revision 1.1.1.4  2003/10/14 08:07:15  sparq
- * Broadcom Release 3.51.8.0 for BCM4712.
- *
- * Revision 1.1.1.1  2003/02/03 22:37:19  mhuang
- * LINUX_2_4 branch snapshot from linux-mips.org CVS
- *
  * Revision 1.1.6.1  2001/12/04 15:19:26  seletz
  * - merged from linux_2_4_13_ac5_rmk2
  *

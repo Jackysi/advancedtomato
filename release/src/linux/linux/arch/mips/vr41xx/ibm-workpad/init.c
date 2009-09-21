@@ -27,10 +27,6 @@ const char *get_system_type(void)
 	return "IBM WorkPad z50";
 }
 
-void __init bus_error_init(void)
-{
-}
-
 void __init prom_init(int argc, char **argv, unsigned long magic, int *prom_vec)
 {
 	int i;

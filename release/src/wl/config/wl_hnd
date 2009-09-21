@@ -1,6 +1,6 @@
 # Broadcom 802.11abg Networking Device Driver Configuration file
 #
-# Copyright 2005, Broadcom Corporation
+# Copyright 2007, Broadcom Corporation
 # All Rights Reserved.
 # 
 # THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
@@ -9,10 +9,10 @@
 # FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
 # wl driver config shared hnd files
 #
-# $Id: wl_hnd,v 1.1.1.1.14.1 2005/04/22 11:56:52 kanki Exp $
+# $Id: wl_hnd,v 1.1.1.1 2008/07/21 09:20:39 james26_jang Exp $
 
 HNDDMA=1
 BCMUTILS=1
 SBUTILS=1
 BCMSROM=1
-
+BCMDMA64=1

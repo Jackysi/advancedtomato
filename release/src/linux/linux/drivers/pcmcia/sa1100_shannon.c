@@ -63,7 +63,7 @@ static int shannon_pcmcia_socket_state(struct pcmcia_state_array *state_array)
 	state_array->state[0].wrprot = 0; /* Not available on Shannon. */
 	state_array->state[0].bvd1 = 1; 
 	state_array->state[0].bvd2 = 1; 
-	state_array->state[0].vs_3v  = 1; 
+	state_array->state[0].vs_3v  = 1; /* FIXME Can only apply 3.3V on Shannon. */
 	state_array->state[0].vs_Xv  = 0;
 
 	state_array->state[1].detect = (levels & SHANNON_GPIO_EJECT_1) ? 0 : 1;
@@ -71,7 +71,7 @@ static int shannon_pcmcia_socket_state(struct pcmcia_state_array *state_array)
 	state_array->state[1].wrprot = 0; /* Not available on Shannon. */
 	state_array->state[1].bvd1 = 1; 
 	state_array->state[1].bvd2 = 1; 
-	state_array->state[1].vs_3v  = 1; 
+	state_array->state[1].vs_3v  = 1; /* FIXME Can only apply 3.3V on Shannon. */
 	state_array->state[1].vs_Xv  = 0;
 
 	return 1;

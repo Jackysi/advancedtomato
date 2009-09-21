@@ -1,4 +1,4 @@
-/* $Id: sungem.c,v 1.1.1.4 2003/10/14 08:08:23 sparq Exp $
+/* $Id: sungem.c,v 1.44.2.22 2002/03/13 01:18:12 davem Exp $
  * sungem.c: Sun GEM ethernet driver.
  *
  * Copyright (C) 2000, 2001, 2002 David S. Miller (davem@redhat.com)
@@ -118,6 +118,8 @@ static struct pci_device_id gem_pci_tbl[] __devinitdata = {
 	{ PCI_VENDOR_ID_APPLE, PCI_DEVICE_ID_APPLE_UNI_N_GMAC,
 	  PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0UL },
 	{ PCI_VENDOR_ID_APPLE, PCI_DEVICE_ID_APPLE_UNI_N_GMACP,
+	  PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0UL },
+	{ PCI_VENDOR_ID_APPLE, PCI_DEVICE_ID_APPLE_UNI_N_GMAC2,
 	  PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0UL },
 	{0, }
 };
@@ -651,6 +653,7 @@ static __inline__ void gem_post_rxds(struct gem *gp, int limit)
 	cluster_start = curr = (gp->rx_new & ~(4 - 1));
 	count = 0;
 	kick = -1;
+	wmb();
 	while (curr != limit) {
 		curr = NEXT_RX(curr);
 		if (++count == 4) {
@@ -667,13 +670,16 @@ static __inline__ void gem_post_rxds(struct gem *gp, int limit)
 			count = 0;
 		}
 	}
-	if (kick >= 0)
+	if (kick >= 0) {
+		mb();
 		writel(kick, gp->regs + RXDMA_KICK);
+	}
 }
 
 static void gem_rx(struct gem *gp)
 {
 	int entry, drops;
+	u32 done;
 
 	if (netif_msg_intr(gp))
 		printk(KERN_DEBUG "%s: rx interrupt, done: %d, rx_new: %d\n",
@@ -681,6 +687,7 @@ static void gem_rx(struct gem *gp)
 
 	entry = gp->rx_new;
 	drops = 0;
+	done = readl(gp->regs + RXDMA_DONE);
 	for (;;) {
 		struct gem_rxd *rxd = &gp->init_block->rxd[entry];
 		struct sk_buff *skb;
@@ -690,6 +697,19 @@ static void gem_rx(struct gem *gp)
 
 		if ((status & RXDCTRL_OWN) != 0)
 			break;
+
+		/* When writing back RX descriptor, GEM writes status
+		 * then buffer address, possibly in seperate transactions.
+		 * If we don't wait for the chip to write both, we could
+		 * post a new buffer to this descriptor then have GEM spam
+		 * on the buffer address.  We sync on the RX completion
+		 * register to prevent this from happening.
+		 */
+		if (entry == done) {
+			done = readl(gp->regs + RXDMA_DONE);
+			if (entry == done)
+				break;
+		}
 
 		skb = gp->rx_skbs[entry];
 
@@ -877,6 +897,7 @@ static int gem_start_xmit(struct sk_buff *skb, struct net_device *dev)
 		if (gem_intme(entry))
 			ctrl |= TXDCTRL_INTME;
 		txd->buffer = cpu_to_le64(mapping);
+		wmb();
 		txd->control_word = cpu_to_le64(ctrl);
 		entry = NEXT_TX(entry);
 	} else {
@@ -916,6 +937,7 @@ static int gem_start_xmit(struct sk_buff *skb, struct net_device *dev)
 			
 			txd = &gp->init_block->txd[entry];
 			txd->buffer = cpu_to_le64(mapping);
+			wmb();
 			txd->control_word = cpu_to_le64(this_ctrl | len);
 
 			if (gem_intme(entry))
@@ -925,6 +947,7 @@ static int gem_start_xmit(struct sk_buff *skb, struct net_device *dev)
 		}
 		txd = &gp->init_block->txd[first_entry];
 		txd->buffer = cpu_to_le64(first_mapping);
+		wmb();
 		txd->control_word =
 			cpu_to_le64(ctrl | TXDCTRL_SOF | intme | first_len);
 	}
@@ -936,6 +959,7 @@ static int gem_start_xmit(struct sk_buff *skb, struct net_device *dev)
 	if (netif_msg_tx_queued(gp))
 		printk(KERN_DEBUG "%s: tx queued, slot %d, skblen %d\n",
 		       dev->name, entry, skb->len);
+	mb();
 	writel(gp->tx_new, gp->regs + TXDMA_KICK);
 	spin_unlock_irq(&gp->lock);
 
@@ -946,7 +970,11 @@ static int gem_start_xmit(struct sk_buff *skb, struct net_device *dev)
 
 /* Jumbo-grams don't seem to work :-( */
 #define GEM_MIN_MTU	68
+#if 1
 #define GEM_MAX_MTU	1500
+#else
+#define GEM_MAX_MTU	9000
+#endif
 
 static int gem_change_mtu(struct net_device *dev, int new_mtu)
 {
@@ -1426,6 +1454,7 @@ static void gem_clean_rings(struct gem *gp)
 			gp->rx_skbs[i] = NULL;
 		}
 		rxd->status_word = 0;
+		wmb();
 		rxd->buffer = 0;
 	}
 
@@ -1487,6 +1516,7 @@ static void gem_init_rings(struct gem *gp)
 					RX_BUF_ALLOC_SIZE(gp),
 					PCI_DMA_FROMDEVICE);
 		rxd->buffer = cpu_to_le64(dma_addr);
+		wmb();
 		rxd->status_word = cpu_to_le64(RXDCTRL_FRESH(gp));
 		skb_reserve(skb, RX_OFFSET);
 	}
@@ -1495,8 +1525,10 @@ static void gem_init_rings(struct gem *gp)
 		struct gem_txd *txd = &gb->txd[i];
 
 		txd->control_word = 0;
+		wmb();
 		txd->buffer = 0;
 	}
+	wmb();
 }
 
 /* Must be invoked under gp->lock. */
@@ -2208,7 +2240,15 @@ static void gem_stop_phy(struct gem *gp)
 		writel(MAC_RXRST_CMD, gp->regs + MAC_RXRST);
 		if (gp->phy_mod == phymod_bcm5400 || gp->phy_mod == phymod_bcm5401 ||
 		    gp->phy_mod == phymod_bcm5411) {
+#if 0 /* Commented out in Darwin... someone has those dawn docs ? */
+			phy_write(gp, MII_BMCR, BMCR_PDOWN);
+#endif
 		} else if (gp->phy_mod == phymod_bcm5201 || gp->phy_mod == phymod_bcm5221) {
+#if 0 /* Commented out in Darwin... someone has those dawn docs ? */
+			u16 val = phy_read(gp, MII_BCM5201_AUXMODE2)
+			phy_write(gp, MII_BCM5201_AUXMODE2,
+				  val & ~MII_BCM5201_AUXMODE2_LOWPOWER);
+#endif				
 			phy_write(gp, MII_BCM5201_MULTIPHY, MII_BCM5201_MULTIPHY_SUPERISOLATE);
 		} else if (gp->phy_mod == phymod_m1011)
 			phy_write(gp, MII_BMCR, BMCR_PDOWN);
@@ -2318,17 +2358,14 @@ static int gem_open(struct net_device *dev)
 		gp->hw_running = 1;
 	}
 
-	spin_lock_irq(&gp->lock);
-
 	/* We can now request the interrupt as we know it's masked
 	 * on the controller
 	 */
 	if (request_irq(gp->pdev->irq, gem_interrupt,
 			SA_SHIRQ, dev->name, (void *)dev)) {
-		spin_unlock_irq(&gp->lock);
-
 		printk(KERN_ERR "%s: failed to request irq !\n", gp->dev->name);
 
+		spin_lock_irq(&gp->lock);
 #ifdef CONFIG_ALL_PPC
 		if (!hw_was_up && gp->pdev->vendor == PCI_VENDOR_ID_APPLE)
 			gem_apple_powerdown(gp);
@@ -2337,9 +2374,12 @@ static int gem_open(struct net_device *dev)
 		gp->pm_timer.expires = jiffies + 10*HZ;
 		add_timer(&gp->pm_timer);
 		up(&gp->pm_sem);
+		spin_unlock_irq(&gp->lock);
 
 		return -EAGAIN;
 	}
+
+       	spin_lock_irq(&gp->lock);
 
 	/* Allocate & setup ring buffers */
 	gem_init_rings(gp);
@@ -2573,9 +2613,10 @@ static int gem_ethtool_ioctl(struct net_device *dev, void *ep_user)
 				(SUPPORTED_1000baseT_Half |
 				 SUPPORTED_1000baseT_Full);
 
+		/* XXX hardcoded stuff for now */
 		ecmd.port = PORT_MII;
 		ecmd.transceiver = XCVR_EXTERNAL;
-		ecmd.phy_address = 0; 
+		ecmd.phy_address = 0; /* XXX fixed PHYAD */
 
 		/* Record PHY settings if HW is on. */
 		spin_lock_irq(&gp->lock);
@@ -2603,9 +2644,6 @@ static int gem_ethtool_ioctl(struct net_device *dev, void *ep_user)
 		return 0;
 
 	case ETHTOOL_SSET:
-		if (!capable(CAP_NET_ADMIN))
-			return -EPERM;
-
 		/* Verify the settings we care about. */
 		if (ecmd.autoneg != AUTONEG_ENABLE &&
 		    ecmd.autoneg != AUTONEG_DISABLE)
@@ -2670,6 +2708,40 @@ static int gem_ethtool_ioctl(struct net_device *dev, void *ep_user)
 		return 0;
 	}
 
+#if 0
+	case ETHTOOL_GREGS: {
+		struct ethtool_regs regs;
+		u32 *regbuf;
+		int r = 0;
+
+		if (copy_from_user(&regs, useraddr, sizeof(regs)))
+			return -EFAULT;
+		
+		if (regs.len > SUNGEM_NREGS) {
+			regs.len = SUNGEM_NREGS;
+		}
+		regs.version = 0;
+		if (copy_to_user(useraddr, &regs, sizeof(regs)))
+			return -EFAULT;
+
+		if (!gp->hw_running)
+			return -ENODEV;
+		useraddr += offsetof(struct ethtool_regs, data);
+
+		/* Use kmalloc to avoid bloating the stack */
+		regbuf = kmalloc(4 * SUNGEM_NREGS, GFP_KERNEL);
+		if (!regbuf)
+			return -ENOMEM;
+		spin_lock_irq(&np->lock);
+		gem_get_regs(gp, regbuf);
+		spin_unlock_irq(&np->lock);
+
+		if (copy_to_user(useraddr, regbuf, regs.len*sizeof(u32)))
+			r = -EFAULT;
+		kfree(regbuf);
+		return r;
+	}
+#endif	
 	};
 
 	return -EOPNOTSUPP;
@@ -2850,7 +2922,7 @@ static int __devinit gem_init_one(struct pci_dev *pdev,
 	 */
 	if (pdev->vendor == PCI_VENDOR_ID_SUN &&
 	    pdev->device == PCI_DEVICE_ID_SUN_GEM &&
-	    !pci_set_dma_mask(pdev, (u64) 0xffffffffffffffff)) {
+	    !pci_set_dma_mask(pdev, (u64) 0xffffffffffffffffULL)) {
 		pci_using_dac = 1;
 	} else {
 		err = pci_set_dma_mask(pdev, (u64) 0xffffffff);

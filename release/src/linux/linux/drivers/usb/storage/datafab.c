@@ -1,6 +1,6 @@
 /* Driver for Datafab USB Compact Flash reader
  *
- * $Id: datafab.c,v 1.1.1.4 2003/10/14 08:08:52 sparq Exp $
+ * $Id: datafab.c,v 1.7 2002/02/25 00:40:13 mdharm Exp $
  *
  * datafab driver v0.1:
  *
@@ -121,8 +121,8 @@ static int datafab_raw_bulk(int direction,
 			return US_BULK_TRANSFER_FAILED;
 		}
 
-		// -ENOENT -- we canceled this transfer
-		if (result == -ENOENT) {
+		// -ECONNRESET -- we canceled this transfer
+		if (result == -ECONNRESET) {
 			US_DEBUGP("datafab_raw_bulk:  transfer aborted\n");
 			return US_BULK_TRANSFER_ABORTED;
 		}
@@ -695,20 +695,24 @@ int datafab_transport(Scsi_Cmnd * srb, struct us_data *us)
 	}
 
 	if (srb->cmnd[0] == READ_CAPACITY) {
+		unsigned int max_sector;
+
 		info->ssize = 0x200;  // hard coded 512 byte sectors as per ATA spec
 		rc = datafab_id_device(us, info);
 		if (rc != USB_STOR_TRANSPORT_GOOD)
 			return rc;
 
-		US_DEBUGP("datafab_transport:  READ_CAPACITY:  %ld sectors, %ld bytes per sector\n",
+		US_DEBUGP("datafab_transport:  READ_CAPACITY:  "
+			  "%ld sectors, %ld bytes per sector\n",
 			  info->sectors, info->ssize);
 
 		// build the reply
 		//
-		ptr[0] = (info->sectors >> 24) & 0xFF;
-		ptr[1] = (info->sectors >> 16) & 0xFF;
-		ptr[2] = (info->sectors >> 8) & 0xFF;
-		ptr[3] = (info->sectors) & 0xFF;
+		max_sector = info->sectors - 1;
+		ptr[0] = (max_sector >> 24) & 0xFF;
+		ptr[1] = (max_sector >> 16) & 0xFF;
+		ptr[2] = (max_sector >> 8) & 0xFF;
+		ptr[3] = (max_sector) & 0xFF;
 
 		ptr[4] = (info->ssize >> 24) & 0xFF;
 		ptr[5] = (info->ssize >> 16) & 0xFF;

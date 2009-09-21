@@ -151,6 +151,7 @@ struct cardinfo {
 	spinlock_t 	lock;
 	int		check_batteries;
 
+	int		flags;
 };
 
 static struct cardinfo cards[MM_MAXCARDS];
@@ -575,9 +576,12 @@ HW_TRACE(0x30);
         }
 
 	/* clear COMPLETION interrupts */
-	writel(cpu_to_le32(DMASCR_DMA_COMPLETE|DMASCR_CHAIN_COMPLETE),
-	       card->csr_remap+ DMA_STATUS_CTRL);
-
+	if (card->flags & UM_FLAG_NO_BYTE_STATUS)
+		writel(cpu_to_le32(DMASCR_DMA_COMPLETE|DMASCR_CHAIN_COMPLETE),
+		       card->csr_remap+ DMA_STATUS_CTRL);
+	else
+		writeb((DMASCR_DMA_COMPLETE|DMASCR_CHAIN_COMPLETE) >> 16,
+		       card->csr_remap+ DMA_STATUS_CTRL + 2);
 	
 	/* log errors and clear interrupt status */
 	if (dma_status & DMASCR_ANY_ERR) {
@@ -741,15 +745,16 @@ static void check_all_batteries(unsigned long ptr)
 {
 	int i;
 
-	for (i = 0; i < num_cards; i++) {
-		struct cardinfo *card = &cards[i];
-		spin_lock_bh(&card->lock);
-		if (card->Active >= 0)
-			card->check_batteries = 1;
-		else
-			check_batteries(card);
-		spin_unlock_bh(&card->lock);
-	}
+	for (i = 0; i < num_cards; i++) 
+		if (!(cards[i].flags & UM_FLAG_NO_BATT)) {
+			struct cardinfo *card = &cards[i];
+			spin_lock_bh(&card->lock);
+			if (card->Active >= 0)
+				card->check_batteries = 1;
+			else
+				check_batteries(card);
+			spin_unlock_bh(&card->lock);
+		}
 
 	init_battery_timer();
 }
@@ -1069,6 +1074,7 @@ static int __devinit mm_pci_probe(struct pci_dev *dev, const struct pci_device_i
 	unsigned char	mem_present;
 	unsigned char	batt_status;
 	unsigned int	saved_bar, data;
+	int		magic_number;
 
 	if (pci_enable_device(dev) < 0)
 		return -ENODEV;
@@ -1133,12 +1139,32 @@ static int __devinit mm_pci_probe(struct pci_dev *dev, const struct pci_device_i
 	printk(KERN_INFO "MM%d: MEM area not remapped (CONFIG_MM_MAP_MEMORY not set)\n",
 	       card->card_number);
 #endif
-	if (readb(card->csr_remap + MEMCTRLSTATUS_MAGIC) != MM_MAGIC_VALUE) {
+	switch(card->dev->device) {
+	case 0x5415:
+		card->flags |= UM_FLAG_NO_BYTE_STATUS | UM_FLAG_NO_BATTREG;
+		magic_number = 0x59;
+		break;
+
+	case 0x5425:
+		magic_number = 0x5C;
+		break;
+
+	case 0x6155:
+		card->flags |= UM_FLAG_NO_BYTE_STATUS | UM_FLAG_NO_BATTREG | UM_FLAG_NO_BATT;
+		magic_number = 0x99;
+		break;
+
+	default:
+		magic_number = 0x100;
+		break;
+	}
+
+	if (readb(card->csr_remap + MEMCTRLSTATUS_MAGIC) != magic_number) {
 		printk(KERN_ERR "MM%d: Magic number invalid\n", card->card_number);
 		ret = -ENOMEM;
-
 		goto failed_magic;
 	}
+
 	card->mm_pages[0].desc = pci_alloc_consistent(card->dev,
 						      PAGE_SIZE*2,
 						      &card->mm_pages[0].page_dma);
@@ -1196,14 +1222,19 @@ static int __devinit mm_pci_probe(struct pci_dev *dev, const struct pci_device_i
 	card->battery[1].good = !(batt_status & BATTERY_2_FAILURE);
 	card->battery[0].last_change = card->battery[1].last_change = jiffies;
 
-	printk(KERN_INFO "MM%d: Size %d KB, Battery 1 %s (%s), Battery 2 %s (%s)\n",
-	       card->card_number, card->mm_size,
-	       (batt_status & BATTERY_1_DISABLED ? "Disabled" : "Enabled"),
-	       card->battery[0].good ? "OK" : "FAILURE",
-	       (batt_status & BATTERY_2_DISABLED ? "Disabled" : "Enabled"),
-	       card->battery[1].good ? "OK" : "FAILURE");
+	if (card->flags & UM_FLAG_NO_BATT) 
+		printk(KERN_INFO "MM%d: Size %d KB\n",
+		       card->card_number, card->mm_size);
+	else {
+		printk(KERN_INFO "MM%d: Size %d KB, Battery 1 %s (%s), Battery 2 %s (%s)\n",
+		       card->card_number, card->mm_size,
+		       (batt_status & BATTERY_1_DISABLED ? "Disabled" : "Enabled"),
+		       card->battery[0].good ? "OK" : "FAILURE",
+		       (batt_status & BATTERY_2_DISABLED ? "Disabled" : "Enabled"),
+		       card->battery[1].good ? "OK" : "FAILURE");
 
-	set_fault_to_battery_status(card);
+		set_fault_to_battery_status(card);
+	}
 
 	pci_read_config_dword(dev, PCI_BASE_ADDRESS_1, &saved_bar);
 	data = 0xffffffff;
@@ -1230,7 +1261,7 @@ static int __devinit mm_pci_probe(struct pci_dev *dev, const struct pci_device_i
 
         spin_lock_init(&card->lock);
 
-	dev->driver_data = card;
+	pci_set_drvdata(dev, card);
 
 	if (pci_write_cmd != 0x0F) 	/* If not Memory Write & Invalidate */
 		pci_write_cmd = 0x07;	/* then Memory Write command */
@@ -1276,7 +1307,7 @@ static int __devinit mm_pci_probe(struct pci_dev *dev, const struct pci_device_i
 	release_mem_region(card->mem_base, card->mem_len);
  failed_req_mem:
 #endif
-	iounmap((void *) card->csr_base);
+	iounmap((void *) card->csr_remap);
  failed_remap_csr:
 	release_mem_region(card->csr_base, card->csr_len);
  failed_req_csr:
@@ -1290,7 +1321,7 @@ static int __devinit mm_pci_probe(struct pci_dev *dev, const struct pci_device_i
 */
 static void mm_pci_remove(struct pci_dev *dev)
 {
-	struct cardinfo *card = dev->driver_data;
+	struct cardinfo *card = pci_get_drvdata(dev);
 
 	tasklet_kill(&card->tasklet);
 	iounmap(card->csr_remap);
@@ -1314,6 +1345,19 @@ static void mm_pci_remove(struct pci_dev *dev)
 static const struct pci_device_id __devinitdata mm_pci_ids[] = { {
 	vendor:		PCI_VENDOR_ID_MICRO_MEMORY,
 	device:		PCI_DEVICE_ID_MICRO_MEMORY_5415CN,
+	}, {
+	vendor:		PCI_VENDOR_ID_MICRO_MEMORY,
+	device:		PCI_DEVICE_ID_MICRO_MEMORY_5425CN,
+	}, {
+	.vendor =	PCI_VENDOR_ID_MICRO_MEMORY,
+	.device =	PCI_DEVICE_ID_MICRO_MEMORY_6155,
+	}, {
+	.vendor	=	0x8086,
+	.device	=	0xB555,
+	.subvendor=	0x1332,
+	.subdevice=	0x5460,
+	.class	=	0x050000,
+	.class_mask=	0,
 	}, { /* end: all zeroes */ }
 };
 

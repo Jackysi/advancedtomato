@@ -2,7 +2,7 @@
  * amd766rom.c
  *
  * Normal mappings of chips in physical memory
- * $Id: amd766rom.c,v 1.1.1.4 2003/10/14 08:08:17 sparq Exp $
+ * $Id: amd766rom.c,v 1.1 2002/01/10 22:59:13 eric Exp $
  */
 
 #include <linux/module.h>
@@ -132,6 +132,7 @@ static int __devinit amd766rom_init_one (struct pci_dev *pdev,
 	pci_read_config_byte(pdev, 0x40, &byte);
 	pci_write_config_byte(pdev, 0x40, byte | 1);
 
+	/* FIXME handle registers 0x80 - 0x8C the bios region locks */
 
 	printk(KERN_NOTICE "amd766rom window : %x at %x\n", 
 		window->size, window->start);
@@ -207,6 +208,14 @@ static struct pci_device_id amd766rom_pci_tbl[] __devinitdata = {
 
 MODULE_DEVICE_TABLE(pci, amd766rom_pci_tbl);
 
+#if 0
+static struct pci_driver amd766rom_driver = {
+	name:	  "amd766rom",
+	id_table: amd766rom_pci_tbl,
+	probe:    amd766rom_init_one,
+	remove:   amd766rom_remove_one,
+};
+#endif
 
 int __init init_amd766rom(void)
 {
@@ -217,6 +226,9 @@ int __init init_amd766rom(void)
 		return amd766rom_init_one(pdev, &amd766rom_pci_tbl[0]);
 	}
 	return -ENXIO;
+#if 0
+	return pci_module_init(&amd766rom_driver);
+#endif
 }
 
 static void __exit cleanup_amd766rom(void)

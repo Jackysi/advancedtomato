@@ -251,6 +251,21 @@ oktagon_notify_reboot(struct notifier_block *this, unsigned long code, void *x)
 #ifdef USE_BOTTOM_HALF
 
 
+/*
+ * The bsc Oktagon controller has no real DMA, so we have to do the 'DMA
+ * transfer' in the interrupt (Yikes!) or use a bottom half to not to clutter
+ * IRQ's for longer-than-good.
+ *
+ * FIXME
+ * BIG PROBLEM: 'len' is usually the buffer length, not the expected length
+ * of the data. So DMA may finish prematurely, further reads lead to
+ * 'machine check' on APUS systems (don't know about m68k systems, AmigaOS
+ * deliberately ignores the bus faults) and a normal copy-loop can't
+ * be exited prematurely just at the right moment by the dma_invalidate IRQ.
+ * So do it the hard way, write an own copier in assembler and
+ * catch the exception.
+ *                                     -- Carsten
+ */
  
  
 static void dma_commit(void *opaque)
@@ -304,6 +319,18 @@ static void dma_commit(void *opaque)
     /* to make esp->shift work */
     esp=current_esp;
 
+#if 0
+    len2 = (esp_read(current_esp->eregs->esp_tclow) & 0xff) |
+           ((esp_read(current_esp->eregs->esp_tcmed) & 0xff) << 8);
+
+    /*
+     * Uh uh. If you see this, len and transfer count registers were out of
+     * sync. That means really serious trouble.
+     */
+
+    if(len2)
+      printk("Eeeek!! Transfer count still %ld!\n",len2);
+#endif
 
     /*
      * Normally we just need to exit and wait for the interrupt to come.
@@ -521,7 +548,7 @@ static void dma_invalidate(struct NCR_ESP *esp)
 
 void dma_mmu_get_scsi_one(struct NCR_ESP *esp, Scsi_Cmnd *sp)
 {
-        sp->SCp.have_data_in = (int) sp->SCp.ptr =
+        sp->SCp.ptr =
                 sp->request_buffer;
 }
 

@@ -1,4 +1,4 @@
-$Id: aztcd,v 1.1.1.4 2003/10/14 08:07:06 sparq Exp $
+$Id: README.aztcd,v 2.60 1997/11/29 09:51:25 root Exp root $
           Readme-File /usr/src/Documentation/cdrom/aztcd
            			for 
 	     AZTECH CD-ROM CDA268-01A, ORCHID CD-3110,
@@ -731,7 +731,7 @@ int main(void)
                            { printf("Drive error or invalid address\n");
                            }
                           break;
-#ifdef AZT_PRIVATE_IOCTLS     /*not supported by every CDROM driver*/
+#ifdef AZT_PRIVATE_IOCTLS /*not supported by every CDROM driver*/
               case 'd':   cmd=CDROMREADCOOKED;
                           printf("Address (min:sec:frame)  ");
                           scanf("%d:%d:%d",&arg1,&arg2,&arg3);

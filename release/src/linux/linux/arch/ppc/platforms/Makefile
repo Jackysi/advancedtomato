@@ -1,5 +1,3 @@
-# BK Id: SCCS/s.Makefile 1.57 09/24/01 07:45:31 trini
-#
 #
 # Makefile for the linux kernel.
 #
@@ -28,8 +26,18 @@ CFLAGS_pal4_pci.o	+= -I$(TOPDIR)/arch/ppc/kernel
 
 O_TARGET := platform.o
 
-export-objs			:= prep_setup.o
+export-objs			:= prep_setup.o ibm440gp.o ibm440gx.o
 
+obj-$(CONFIG_405GP)		+= ibm405gp.o
+obj-$(CONFIG_440GP)		+= ibm440gp.o
+obj-$(CONFIG_440GX)		+= ibm440gx.o
+
+obj-$(CONFIG_CPCI405)		+= cpci405.o
+obj-$(CONFIG_EP405)		+= ep405.o
+obj-$(CONFIG_REDWOOD_5)		+= redwood5.o ibmstb4.o
+obj-$(CONFIG_REDWOOD_6)		+= redwood6.o ibmstbx25.o
+obj-$(CONFIG_EBONY)		+= ebony.o
+obj-$(CONFIG_OCOTEA)		+= ocotea.o
 obj-$(CONFIG_WALNUT)		+= walnut.o
 
 obj-$(CONFIG_APUS)		+= apus_setup.o
@@ -43,10 +51,13 @@ obj-$(CONFIG_ALL_PPC)		+= pmac_pic.o pmac_setup.o pmac_time.o \
 					prep_time.o prep_setup.o pmac_sleep.o \
 					pmac_nvram.o
 obj-$(CONFIG_PMAC_BACKLIGHT)	+= pmac_backlight.o
-obj-$(CONFIG_PPC_RTAS)		+= error_log.o proc_rtas.o
 obj-$(CONFIG_PREP_RESIDUAL)	+= residual.o
 obj-$(CONFIG_GEMINI)		+= gemini_pci.o gemini_setup.o gemini_prom.o
+obj-$(CONFIG_LOPEC)		+= lopec_setup.o lopec_pci.o
 obj-$(CONFIG_PAL4)		+= pal4_setup.o pal4_pci.o cpc700_pic.o
+obj-$(CONFIG_PPLUS)		+= pplus_pci.o pplus_setup.o
+obj-$(CONFIG_PRPMC750)		+= prpmc750.o
+obj-$(CONFIG_SANDPOINT)		+= sandpoint.o
 obj-$(CONFIG_SPRUCE)		+= spruce_setup.o spruce_pci.o cpc700_pic.o
 
 ifeq ($(CONFIG_SMP),y)

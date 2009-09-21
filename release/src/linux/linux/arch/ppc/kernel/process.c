@@ -1,7 +1,4 @@
 /*
- * BK Id: SCCS/s.process.c 1.34 11/23/01 16:38:29 paulus
- */
-/*
  *  linux/arch/ppc/kernel/process.c
  *
  *  Derived from "arch/i386/kernel/process.c"
@@ -10,7 +7,7 @@
  *  Updated and modified by Cort Dougan (cort@cs.nmt.edu) and
  *  Paul Mackerras (paulus@cs.anu.edu.au)
  *
- *  PowerPC version 
+ *  PowerPC version
  *    Copyright (C) 1995-1996 Gary Thomas (gdt@linuxppc.org)
  *
  *  This program is free software; you can redistribute it and/or
@@ -34,6 +31,7 @@
 #include <linux/user.h>
 #include <linux/elf.h>
 #include <linux/init.h>
+#include <linux/prctl.h>
 
 #include <asm/pgtable.h>
 #include <asm/uaccess.h>
@@ -82,10 +80,18 @@ int check_stack(struct task_struct *tsk)
 	unsigned long tsk_top = task_top(tsk);
 	int ret = 0;
 
+#if 0
+	/* check thread magic */
+	if ( tsk->thread.magic != THREAD_MAGIC )
+	{
+		ret |= 1;
+		printk("thread.magic bad: %08x\n", tsk->thread.magic);
+	}
+#endif
 
 	if ( !tsk )
 		printk("check_stack(): tsk bad tsk %p\n",tsk);
-	
+
 	/* check if stored ksp is bad */
 	if ( (tsk->thread.ksp > stack_top) || (tsk->thread.ksp < tsk_top) )
 	{
@@ -95,7 +101,7 @@ int check_stack(struct task_struct *tsk)
 		       tsk_top, tsk->thread.ksp, stack_top);
 		ret |= 2;
 	}
-	
+
 	/* check if stack ptr RIGHT NOW is bad */
 	if ( (tsk == current) && ((_get_SP() > stack_top ) || (_get_SP() < tsk_top)) )
 	{
@@ -106,6 +112,22 @@ int check_stack(struct task_struct *tsk)
 		ret |= 4;
 	}
 
+#if 0
+	/* check amount of free stack */
+	for ( i = (unsigned long *)task_top(tsk) ; i < kernel_stack_top(tsk) ; i++ )
+	{
+		if ( !i )
+			printk("check_stack(): i = %p\n", i);
+		if ( *i != 0 )
+		{
+			/* only notify if it's less than 900 bytes */
+			if ( (i - (unsigned long *)task_top(tsk))  < 900 )
+				printk("%d bytes free on stack\n",
+				       i - task_top(tsk));
+			break;
+		}
+	}
+#endif
 
 	if (ret)
 	{
@@ -125,7 +147,7 @@ dump_altivec(struct pt_regs *regs, elf_vrregset_t *vrregs)
 	return 1;
 }
 
-void 
+void
 enable_kernel_altivec(void)
 {
 #ifdef CONFIG_SMP
@@ -167,7 +189,7 @@ _switch_to(struct task_struct *prev, struct task_struct *new,
 {
 	struct thread_struct *new_thread, *old_thread;
 	unsigned long s;
-	
+
 	__save_flags(s);
 	__cli();
 #if CHECK_STACK
@@ -179,7 +201,7 @@ _switch_to(struct task_struct *prev, struct task_struct *new,
 	/* avoid complexity of lazy save/restore of fpu
 	 * by just saving it every time we switch out if
 	 * this task used the fpu during the last quantum.
-	 * 
+	 *
 	 * If it tries to use the fpu again, it'll trap and
 	 * reload its fp regs.  So we don't have to do a restore
 	 * every switch, just a save.
@@ -187,7 +209,7 @@ _switch_to(struct task_struct *prev, struct task_struct *new,
 	 */
 	if ( prev->thread.regs && (prev->thread.regs->msr & MSR_FP) )
 		giveup_fpu(prev);
-#ifdef CONFIG_ALTIVEC	
+#ifdef CONFIG_ALTIVEC
 	/*
 	 * If the previous thread used altivec in the last quantum
 	 * (thus changing altivec regs) then save them.
@@ -201,7 +223,7 @@ _switch_to(struct task_struct *prev, struct task_struct *new,
 	 */
 	if ((prev->thread.regs && (prev->thread.regs->msr & MSR_VEC)))
 		giveup_altivec(prev);
-#endif /* CONFIG_ALTIVEC */	
+#endif /* CONFIG_ALTIVEC */
 #endif /* CONFIG_SMP */
 
 	current_set[smp_processor_id()] = new;
@@ -228,27 +250,40 @@ void show_regs(struct pt_regs * regs)
 	       regs->msr & MSR_FP ? 1 : 0,regs->msr&MSR_ME ? 1 : 0,
 	       regs->msr&MSR_IR ? 1 : 0,
 	       regs->msr&MSR_DR ? 1 : 0);
+#ifdef CONFIG_4xx
+	/*
+	 * TRAP 0x800 is the hijacked FPU unavailable exception vector
+	 * on 40x used to implement the heavyweight data access
+	 * functionality.  It is an emulated value (like all trap
+	 * vectors) on 440.
+	 */
+	if (regs->trap == 0x300 || regs->trap == 0x600 || regs->trap == 0x800)
+		printk("DEAR: %08lX, ESR: %08lX\n", regs->dar, regs->dsisr);
+#else
 	if (regs->trap == 0x300 || regs->trap == 0x600)
 		printk("DAR: %08lX, DSISR: %08lX\n", regs->dar, regs->dsisr);
+#endif
 	printk("TASK = %p[%d] '%s' ",
 	       current, current->pid, current->comm);
 	printk("Last syscall: %ld ", current->thread.last_syscall);
 	printk("\nlast math %p last altivec %p", last_task_used_math,
 	       last_task_used_altivec);
 
-#ifdef CONFIG_4xx
+#if defined(CONFIG_4xx) && defined(DCRN_PLB0_BEAR)
 	printk("\nPLB0: bear= 0x%8.8x acr=   0x%8.8x besr=  0x%8.8x\n",
-	    mfdcr(DCRN_POB0_BEAR), mfdcr(DCRN_PLB0_ACR),
+	    mfdcr(DCRN_PLB0_BEAR), mfdcr(DCRN_PLB0_ACR),
 	    mfdcr(DCRN_PLB0_BESR));
+#endif
+#if defined(CONFIG_4xx) && defined(DCRN_POB0_BEAR)
 	printk("PLB0 to OPB: bear= 0x%8.8x besr0= 0x%8.8x besr1= 0x%8.8x\n",
-	    mfdcr(DCRN_PLB0_BEAR), mfdcr(DCRN_POB0_BESR0),
+	    mfdcr(DCRN_POB0_BEAR), mfdcr(DCRN_POB0_BESR0),
 	    mfdcr(DCRN_POB0_BESR1));
 #endif
-	
+
 #ifdef CONFIG_SMP
 	printk(" CPU: %d", current->processor);
 #endif /* CONFIG_SMP */
-	
+
 	printk("\n");
 	for (i = 0;  i < 32;  i++)
 	{
@@ -376,13 +411,54 @@ void start_thread(struct pt_regs *regs, unsigned long nip, unsigned long sp)
 		last_task_used_math = 0;
 	if (last_task_used_altivec == current)
 		last_task_used_altivec = 0;
+	memset(current->thread.fpr, 0, sizeof(current->thread.fpr));
 	current->thread.fpscr = 0;
+#ifdef CONFIG_ALTIVEC
+	memset(current->thread.vr, 0, sizeof(current->thread.vr));
+	memset(&current->thread.vscr, 0, sizeof(current->thread.vscr));
+	current->thread.vrsave = 0;
+	current->thread.used_vr = 0;
+#endif /* CONFIG_ALTIVEC */
+}
+
+/*
+ * Support for the PR_GET/SET_FPEXC prctl() calls.
+ */
+static inline unsigned int __unpack_fe01(unsigned int msr_bits)
+{
+	return ((msr_bits & MSR_FE0) >> 10) | ((msr_bits & MSR_FE1) >> 8);
+}
+
+static inline unsigned int __pack_fe01(unsigned int fpmode)
+{
+	return ((fpmode << 10) & MSR_FE0) | ((fpmode << 8) & MSR_FE1);
+}
+
+int set_fpexc_mode(struct task_struct *tsk, unsigned int val)
+{
+	struct pt_regs *regs = tsk->thread.regs;
+
+	if (val > PR_FP_EXC_PRECISE)
+		return -EINVAL;
+	tsk->thread.fpexc_mode = __pack_fe01(val);
+	if (regs != NULL && (regs->msr & MSR_FP) != 0)
+		regs->msr = (regs->msr & ~(MSR_FE0|MSR_FE1))
+			| tsk->thread.fpexc_mode;
+	return 0;
+}
+
+int get_fpexc_mode(struct task_struct *tsk, unsigned long adr)
+{
+	unsigned int val;
+
+	val = __unpack_fe01(tsk->thread.fpexc_mode);
+	return put_user(val, (unsigned int *) adr);
 }
 
 int sys_clone(int p1, int p2, int p3, int p4, int p5, int p6,
 	      struct pt_regs *regs)
 {
-	return do_fork(p1, regs->gpr[1], regs, 0);
+	return do_fork(p1, p2, regs, 0);
 }
 
 int sys_fork(int p1, int p2, int p3, int p4, int p5, int p6,
@@ -413,7 +489,7 @@ int sys_execve(unsigned long a0, unsigned long a1, unsigned long a2,
 #ifdef CONFIG_ALTIVEC
 	if (regs->msr & MSR_VEC)
 		giveup_altivec(current);
-#endif /* CONFIG_ALTIVEC */ 
+#endif /* CONFIG_ALTIVEC */
 	error = do_execve(filename, (char **) a1, (char **) a2, regs);
 	if (error == 0)
 		current->ptrace &= ~PT_DTRACE;
@@ -428,6 +504,8 @@ print_backtrace(unsigned long *sp)
 	int cnt = 0;
 	unsigned long i;
 
+	if (sp == NULL)
+		asm("mr %0,1" : "=r" (sp));
 	printk("Call backtrace: ");
 	while (sp) {
 		if (__get_user( i, &sp[1] ))
@@ -463,6 +541,95 @@ void show_trace_task(struct task_struct *tsk)
 		printk("\n");
 }
 
+#if 0
+/*
+ * Low level print for debugging - Cort
+ */
+int __init ll_printk(const char *fmt, ...)
+{
+        va_list args;
+	char buf[256];
+        int i;
+
+        va_start(args, fmt);
+        i=vsprintf(buf,fmt,args);
+	ll_puts(buf);
+        va_end(args);
+        return i;
+}
+
+int lines = 24, cols = 80;
+int orig_x = 0, orig_y = 0;
+
+void puthex(unsigned long val)
+{
+	unsigned char buf[10];
+	int i;
+	for (i = 7;  i >= 0;  i--)
+	{
+		buf[i] = "0123456789ABCDEF"[val & 0x0F];
+		val >>= 4;
+	}
+	buf[8] = '\0';
+	prom_print(buf);
+}
+
+void __init ll_puts(const char *s)
+{
+	int x,y;
+	char *vidmem = (char *)/*(_ISA_MEM_BASE + 0xB8000) */0xD00B8000;
+	char c;
+	extern int mem_init_done;
+
+	if ( mem_init_done ) /* assume this means we can printk */
+	{
+		printk(s);
+		return;
+	}
+
+#if 0
+	if ( have_of )
+	{
+		prom_print(s);
+		return;
+	}
+#endif
+
+	/*
+	 * can't ll_puts on chrp without openfirmware yet.
+	 * vidmem just needs to be setup for it.
+	 * -- Cort
+	 */
+	if ( _machine != _MACH_prep )
+		return;
+	x = orig_x;
+	y = orig_y;
+
+	while ( ( c = *s++ ) != '\0' ) {
+		if ( c == '\n' ) {
+			x = 0;
+			if ( ++y >= lines ) {
+				/*scroll();*/
+				/*y--;*/
+				y = 0;
+			}
+		} else {
+			vidmem [ ( x + cols * y ) * 2 ] = c;
+			if ( ++x >= cols ) {
+				x = 0;
+				if ( ++y >= lines ) {
+					/*scroll();*/
+					/*y--;*/
+					y = 0;
+				}
+			}
+		}
+	}
+
+	orig_x = x;
+	orig_y = y;
+}
+#endif
 
 /*
  * These bracket the sleeping functions..

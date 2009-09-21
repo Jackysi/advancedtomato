@@ -483,6 +483,9 @@ main(int argc, char *argv[])
  * ask for track number (not implemented here)
  */
 track=1;
+#if 0 /* just read a little piece (4 seconds) */
+entry[track+1].cdte_addr.lba=entry[track].cdte_addr.lba+300;
+#endif
 /*
  * read track into file
  */
@@ -885,7 +888,7 @@ main(int argc, char *argv[])
 			rc=ioctl(drive,BLKRASET,i);
 			if (rc<0) printf("BLKRASET: rc=%d.\n",rc);
 			break;
-#ifdef AZT_PRIVATE_IOCTLS     /*not supported by every CDROM driver*/
+#ifdef AZT_PRIVATE_IOCTLS /*not supported by every CDROM driver*/
 		case 'd':
 			printf("Address (min:sec:frm)  ");
 			scanf("%d:%d:%d",&i1,&i2,&i3);
@@ -1029,8 +1032,14 @@ main(int argc, char *argv[])
 			break;
 #ifdef SBP_PRIVATE_IOCTLS
 		case 'Y': /* set the driver's message level */
+#if 0 /* not implemented yet */
+			printf("enter switch name (f.e. DBG_CMD): ");
+			scanf("%s",&dbg_switch);
+			j=get_dbg_num(dbg_switch);
+#else
 			printf("enter DDIOCSDBG switch number: ");
 			scanf("%d",&j);
+#endif
 			printf("enter 0 for \"off\", 1 for \"on\": ");
 			scanf("%d",&i);
 			if (i==0) j|=0x80;

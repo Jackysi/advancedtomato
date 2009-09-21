@@ -1,7 +1,4 @@
 /*
- * BK Id: %F% %I% %G% %U% %#%
- */
-/*
  *
  *    Copyright (c) 1999-2000 Grant Erickson <grant@lcse.umn.edu>
  *
@@ -133,6 +130,7 @@ platform_init(unsigned long r3, unsigned long r4, unsigned long r5,
 void __init
 oak_setup_arch(void)
 {
+	/* XXX - Implement me */
 }
 
 /*
@@ -225,6 +223,7 @@ oak_halt(void)
 long __init
 oak_time_init(void)
 {
+	/* XXX - Implement me */
 	return 0;
 }
 
@@ -234,6 +233,7 @@ oak_time_init(void)
 int __init
 oak_set_rtc_time(unsigned long time)
 {
+	/* XXX - Implement me */
 
 	return (0);
 }
@@ -244,6 +244,7 @@ oak_set_rtc_time(unsigned long time)
 unsigned long __init
 oak_get_rtc_time(void)
 {
+	/* XXX - Implement me */
 
 	return (0);
 }

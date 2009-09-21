@@ -1,10 +1,7 @@
 /*
- * BK Id: %F% %I% %G% %U% %#%
- */
-/*
  * Declarations of procedures and variables shared between files
  * in arch/ppc/mm/.
- * 
+ *
  *  Derived from arch/ppc/mm/init.c:
  *    Copyright (C) 1995-1996 Gary Thomas (gdt@linuxppc.org)
  *
@@ -24,28 +21,24 @@
  */
 
 #include <asm/pgtable.h>
+#include <asm/mmu.h>
 
 extern void mapin_ram(void);
 extern void bat_mapin_ram(unsigned long bat2, unsigned long bat3);
 extern void adjust_total_lowmem(void);
-extern int map_page(unsigned long va, unsigned long pa, int flags);
+extern int map_page(unsigned long va, phys_addr_t pa, int flags);
 extern void setbat(int index, unsigned long virt, unsigned long phys,
 		   unsigned int size, int flags);
 extern void reserve_phys_mem(unsigned long start, unsigned long size);
 
 extern int __map_without_bats;
-extern void *end_of_DRAM;
 extern unsigned long ioremap_base;
 extern unsigned long ioremap_bot;
 extern unsigned int rtas_data, rtas_size;
 
 extern unsigned long total_memory;
 extern unsigned long total_lowmem;
-extern unsigned long ram_phys_base;
 extern int mem_init_done;
-
-extern PTE *Hash, *Hash_end;
-extern unsigned long Hash_size, Hash_mask;
 
 /* ...and now those things that may be slightly different between processor
  * architectures.  -- Dan

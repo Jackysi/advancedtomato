@@ -187,9 +187,9 @@ extern void bt_iounmap(void *addr, unsigned long size);
 #define __raw_writew writew
 #define __raw_writel writel
 
-#define memset_io(a,b,c)	memset(__io_virt(a),(b),(c))
-#define memcpy_fromio(a,b,c)	memcpy((a),__io_virt(b),(c))
-#define memcpy_toio(a,b,c)	memcpy(__io_virt(a),(b),(c))
+#define memset_io(a,b,c)	__memset(__io_virt(a),(b),(c))
+#define memcpy_fromio(a,b,c)	__memcpy((a),__io_virt(b),(c))
+#define memcpy_toio(a,b,c)	__memcpy(__io_virt(a),(b),(c))
 
 /*
  * ISA space is 'always mapped' on a typical x86 system, no need to
@@ -333,7 +333,7 @@ static inline void out##s(unsigned x value, unsigned short port) {
 #define __OUT2(s,s1,s2) \
 __asm__ __volatile__ ("out" #s " %" s1 "0,%" s2 "1"
 
-#if defined(CONFIG_MULTIQUAD) && !defined(STANDALONE)
+#if defined (CONFIG_MULTIQUAD) && !defined(STANDALONE)
 #define __OUTQ(s,ss,x)    /* Do the equivalent of the portio op on quads */ \
 static inline void out##ss(unsigned x value, unsigned short port) { \
 	if (xquad_portio) \

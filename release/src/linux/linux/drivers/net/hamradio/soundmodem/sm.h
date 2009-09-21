@@ -151,7 +151,6 @@ struct hardware_info {
 /* --------------------------------------------------------------------- */
 
 extern const char sm_drvname[];
-extern const char sm_drvinfo[];
 
 /* --------------------------------------------------------------------- */
 /*
@@ -228,6 +227,39 @@ static inline void diag_add_constellation(struct sm_state *sm, int vali, int val
  * ===================== utility functions ===============================
  */
 
+#if 0
+static inline unsigned int hweight32(unsigned int w)
+	__attribute__ ((unused));
+static inline unsigned int hweight16(unsigned short w)
+	__attribute__ ((unused));
+static inline unsigned int hweight8(unsigned char w)
+        __attribute__ ((unused));
+
+static inline unsigned int hweight32(unsigned int w)
+{
+        unsigned int res = (w & 0x55555555) + ((w >> 1) & 0x55555555);
+        res = (res & 0x33333333) + ((res >> 2) & 0x33333333);
+        res = (res & 0x0F0F0F0F) + ((res >> 4) & 0x0F0F0F0F);
+        res = (res & 0x00FF00FF) + ((res >> 8) & 0x00FF00FF);
+        return (res & 0x0000FFFF) + ((res >> 16) & 0x0000FFFF);
+}
+
+static inline unsigned int hweight16(unsigned short w)
+{
+        unsigned short res = (w & 0x5555) + ((w >> 1) & 0x5555);
+        res = (res & 0x3333) + ((res >> 2) & 0x3333);
+        res = (res & 0x0F0F) + ((res >> 4) & 0x0F0F);
+        return (res & 0x00FF) + ((res >> 8) & 0x00FF);
+}
+
+static inline unsigned int hweight8(unsigned char w)
+{
+        unsigned short res = (w & 0x55) + ((w >> 1) & 0x55);
+        res = (res & 0x33) + ((res >> 2) & 0x33);
+        return (res & 0x0F) + ((res >> 4) & 0x0F);
+}
+
+#endif
 
 static inline unsigned int gcd(unsigned int x, unsigned int y)
 	__attribute__ ((unused));
@@ -320,7 +352,6 @@ extern const struct hardware_info sm_hw_wssfdx;
 
 extern const struct modem_tx_info *sm_modem_tx_table[];
 extern const struct modem_rx_info *sm_modem_rx_table[];
-extern const struct hardware_info *sm_hardware_table[];
 
 /* --------------------------------------------------------------------- */
 

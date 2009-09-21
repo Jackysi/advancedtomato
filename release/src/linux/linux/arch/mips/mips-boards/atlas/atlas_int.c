@@ -40,9 +40,12 @@ struct atlas_ictrl_regs *atlas_hw0_icregs
 	= (struct atlas_ictrl_regs *)ATLAS_ICTRL_REGS_BASE;
 
 extern asmlinkage void mipsIRQ(void);
-extern void do_IRQ(int irq, struct pt_regs *regs);
 
+#if 0
+#define DEBUG_INT(x...) printk(x)
+#else
 #define DEBUG_INT(x...)
+#endif
 
 void disable_atlas_irq(unsigned int irq_nr)
 {
@@ -126,7 +129,7 @@ void atlas_hw0_irqdispatch(struct pt_regs *regs)
 	return;
 }
 
-#ifdef CONFIG_REMOTE_DEBUG
+#ifdef CONFIG_KGDB
 extern void breakpoint(void);
 extern int remote_debug;
 #endif
@@ -151,7 +154,7 @@ void __init init_IRQ(void)
 		irq_desc[i].handler	= &atlas_irq_type;
 	}
 
-#ifdef CONFIG_REMOTE_DEBUG
+#ifdef CONFIG_KGDB
 	if (remote_debug) {
 		set_debug_traps();
 		breakpoint();

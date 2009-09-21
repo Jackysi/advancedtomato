@@ -282,7 +282,7 @@ static struct stripe_head *get_active_stripe(raid5_conf_t *conf, unsigned long s
 				}
 
 				if (conf->buffer_size != size) {
-					printk("raid5: switching cache buffer size, %d --> %d\n", oldsize, size);
+					PRINTK("raid5: switching cache buffer size, %d --> %d\n", oldsize, size);
 					shrink_stripe_cache(conf);
 					if (size==0) BUG();
 					conf->buffer_size = size;
@@ -608,6 +608,46 @@ static unsigned long raid5_compute_sector(unsigned long r_sector, unsigned int r
 	return new_sector;
 }
 
+#if 0
+static unsigned long compute_blocknr(struct stripe_head *sh, int i)
+{
+	raid5_conf_t *conf = sh->raid_conf;
+	int raid_disks = conf->raid_disks, data_disks = raid_disks - 1;
+	unsigned long new_sector = sh->sector, check;
+	int sectors_per_chunk = conf->chunk_size >> 9;
+	unsigned long stripe = new_sector / sectors_per_chunk;
+	int chunk_offset = new_sector % sectors_per_chunk;
+	int chunk_number, dummy1, dummy2, dd_idx = i;
+	unsigned long r_sector, blocknr;
+
+	switch (conf->algorithm) {
+		case ALGORITHM_LEFT_ASYMMETRIC:
+		case ALGORITHM_RIGHT_ASYMMETRIC:
+			if (i > sh->pd_idx)
+				i--;
+			break;
+		case ALGORITHM_LEFT_SYMMETRIC:
+		case ALGORITHM_RIGHT_SYMMETRIC:
+			if (i < sh->pd_idx)
+				i += raid_disks;
+			i -= (sh->pd_idx + 1);
+			break;
+		default:
+			printk ("raid5: unsupported algorithm %d\n", conf->algorithm);
+	}
+
+	chunk_number = stripe * data_disks + i;
+	r_sector = chunk_number * sectors_per_chunk + chunk_offset;
+	blocknr = r_sector / (sh->size >> 9);
+
+	check = raid5_compute_sector (r_sector, raid_disks, data_disks, &dummy1, &dummy2, conf);
+	if (check != sh->sector || dummy1 != dd_idx || dummy2 != sh->pd_idx) {
+		printk("compute_blocknr: map not correct\n");
+		return 0;
+	}
+	return blocknr;
+}
+#endif
 
 #define check_xor() 	do { 					\
 			   if (count == MAX_XOR_BLOCKS) {	\
@@ -842,7 +882,7 @@ static void handle_stripe(struct stripe_head *sh)
 	/* check if the array has lost two devices and, if so, some requests might
 	 * need to be failed
 	 */
-	if (failed > 1 && to_read+to_write) {
+	if (failed > 1 && to_read+to_write+written) {
 		for (i=disks; i--; ) {
 			/* fail all writes first */
 			if (sh->bh_write[i]) to_write--;
@@ -851,6 +891,14 @@ static void handle_stripe(struct stripe_head *sh)
 				bh->b_reqnext = return_fail;
 				return_fail = bh;
 			}
+			/* and fail all 'written' */
+			if (sh->bh_written[i]) written--;
+			while ((bh = sh->bh_written[i])) {
+				sh->bh_written[i] = bh->b_reqnext;
+				bh->b_reqnext = return_fail;
+				return_fail = bh;
+			}
+
 			/* fail any reads if this device is non-operational */
 			if (!conf->disks[i].operational) {
 				spin_lock_irq(&conf->device_lock);
@@ -902,7 +950,7 @@ static void handle_stripe(struct stripe_head *sh)
 	/* Now we might consider reading some blocks, either to check/generate
 	 * parity, or to satisfy requests
 	 */
-	if (to_read || (syncing && (uptodate+failed < disks))) {
+	if (to_read || (syncing && (uptodate < disks))) {
 		for (i=disks; i--;) {
 			bh = sh->bh_cache[i];
 			if (!buffer_locked(bh) && !buffer_uptodate(bh) &&
@@ -1455,6 +1503,14 @@ static int raid5_run (mddev_t *mddev)
 	conf->algorithm = sb->layout;
 	conf->max_nr_stripes = NR_STRIPES;
 
+#if 0
+	for (i = 0; i < conf->raid_disks; i++) {
+		if (!conf->disks[i].used_slot) {
+			MD_BUG();
+			goto abort;
+		}
+	}
+#endif
 	if (!conf->chunk_size || conf->chunk_size % 4) {
 		printk(KERN_ERR "raid5: invalid chunk size %d for md%d\n", conf->chunk_size, mdidx(mddev));
 		goto abort;
@@ -1633,23 +1689,23 @@ static void printall (raid5_conf_t *conf)
 }
 #endif
 
-static int raid5_status (char *page, mddev_t *mddev)
+static void raid5_status (struct seq_file *seq, mddev_t *mddev)
 {
 	raid5_conf_t *conf = (raid5_conf_t *) mddev->private;
 	mdp_super_t *sb = mddev->sb;
-	int sz = 0, i;
+	int i;
 
-	sz += sprintf (page+sz, " level %d, %dk chunk, algorithm %d", sb->level, sb->chunk_size >> 10, sb->layout);
-	sz += sprintf (page+sz, " [%d/%d] [", conf->raid_disks, conf->working_disks);
+	seq_printf (seq, " level %d, %dk chunk, algorithm %d", sb->level, sb->chunk_size >> 10, sb->layout);
+	seq_printf (seq, " [%d/%d] [", conf->raid_disks, conf->working_disks);
 	for (i = 0; i < conf->raid_disks; i++)
-		sz += sprintf (page+sz, "%s", conf->disks[i].operational ? "U" : "_");
-	sz += sprintf (page+sz, "]");
+		seq_printf (seq, "%s", conf->disks[i].operational ? "U" : "_");
+	seq_printf (seq, "]");
 #if RAID5_DEBUG
 #define D(x) \
-	sz += sprintf (page+sz, "<"#x":%d>", atomic_read(&conf->x))
+	seq_printf (seq, "<"#x":%d>", atomic_read(&conf->x))
 	printall(conf);
 #endif
-	return sz;
+
 }
 
 static void print_raid5_conf (raid5_conf_t *conf)

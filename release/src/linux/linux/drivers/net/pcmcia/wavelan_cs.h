@@ -465,7 +465,7 @@
 #define MULTICAST_AVOID		/* Avoid extra multicast (I'm sceptical) */
 #undef SET_MAC_ADDRESS		/* Experimental */
 
-#ifdef WIRELESS_EXT	    /* If wireless extension exist in the kernel */
+#ifdef WIRELESS_EXT	/* If wireless extension exist in the kernel */
 /* Warning : these stuff will slow down the driver... */
 #define WIRELESS_SPY		/* Enable spying addresses */
 #undef HISTOGRAM		/* Enable histogram of sig level... */
@@ -489,7 +489,7 @@
 #undef DEBUG_RX_INFO		/* Header of the transmitted packet */
 #undef DEBUG_RX_FAIL		/* Normal failure conditions */
 #define DEBUG_RX_ERROR		/* Unexpected conditions */
-#undef DEBUG_PACKET_DUMP	32	/* Dump packet on the screen */
+#undef DEBUG_PACKET_DUMP	/* Dump packet on the screen */
 #undef DEBUG_IOCTL_TRACE	/* Misc call by Linux */
 #undef DEBUG_IOCTL_INFO		/* Various debug info */
 #define DEBUG_IOCTL_ERROR	/* What's going wrong */
@@ -533,7 +533,7 @@ static const char *version = "wavelan_cs.c : v23 (SMP + wireless extensions) 20/
 #define SIOCGIPHISTO	SIOCIWFIRSTPRIV + 7	/* Get histogram values */
 
 /*************************** WaveLAN Roaming  **************************/
-#ifdef WAVELAN_ROAMING		    /* Conditional compile, see above in options */
+#ifdef WAVELAN_ROAMING		/* Conditional compile, see above in options */
 
 #define WAVELAN_ROAMING_DEBUG	 0	/* 1 = Trace of handover decisions */
 					/* 2 = Info on each beacon rcvd... */
@@ -819,7 +819,7 @@ MODULE_PARM(irq_mask, "i");
 MODULE_PARM(irq_list, "1-4i");
 MODULE_PARM(mem_speed, "i");
 
-#ifdef WAVELAN_ROAMING		    /* Conditional compile, see above in options */
+#ifdef WAVELAN_ROAMING		/* Conditional compile, see above in options */
 /* Enable roaming mode ? No ! Please keep this to 0 */
 static int	do_roaming = 0;
 MODULE_PARM(do_roaming, "i");

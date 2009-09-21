@@ -186,6 +186,50 @@ static void 	tms380tr_write_tpl_status(TPL *tpl, unsigned int Status);
 
 
 
+#if 0 /* TMS380TR_DEBUG > 0 */
+static int madgemc_sifprobe(struct net_device *dev)
+{
+        unsigned char old, chk1, chk2;
+	
+	old = SIFREADB(SIFADR);  /* Get the old SIFADR value */
+
+        chk1 = 0;       /* Begin with check value 0 */
+        do {
+		madgemc_setregpage(dev, 0);
+                /* Write new SIFADR value */
+		SIFWRITEB(chk1, SIFADR);
+		chk2 = SIFREADB(SIFADR);
+		if (chk2 != chk1)
+			return -1;
+		
+		madgemc_setregpage(dev, 1);
+                /* Read, invert and write */
+		chk2 = SIFREADB(SIFADD);
+		if (chk2 != chk1)
+			return -1;
+
+		madgemc_setregpage(dev, 0);
+                chk2 ^= 0x0FE;
+		SIFWRITEB(chk2, SIFADR);
+
+                /* Read, invert and compare */
+		madgemc_setregpage(dev, 1);
+		chk2 = SIFREADB(SIFADD);
+		madgemc_setregpage(dev, 0);
+                chk2 ^= 0x0FE;
+
+                if(chk1 != chk2)
+                        return (-1);    /* No adapter */
+                chk1 -= 2;
+        } while(chk1 != 0);     /* Repeat 128 times (all byte values) */
+
+	madgemc_setregpage(dev, 0); /* sanity */
+        /* Restore the SIFADR value */
+	SIFWRITEB(old, SIFADR);
+
+        return (0);
+}
+#endif
 
 /* Dummy function */
 static int __init tms380tr_init_card(struct net_device *dev)
@@ -825,6 +869,11 @@ static void tms380tr_reset_interrupt(struct net_device *dev)
 	struct net_local *tp = (struct net_local *)dev->priv;
 	SSB *ssb = &tp->ssb;
 
+	/*
+	 * [Workaround for "Data Late"]
+	 * Set all fields of the SSB to well-defined values so we can
+	 * check if the adapter has written the SSB.
+	 */
 
 	ssb->STS	= (unsigned short) -1;
 	ssb->Parm[0] 	= (unsigned short) -1;
@@ -1131,6 +1180,10 @@ int tms380tr_close(struct net_device *dev)
 	}
 	
 	SIFWRITEW(0xFF00, SIFCMD);
+#if 0
+	if(dev->dma > 0) /* what the? */
+		SIFWRITEB(0xff, POSREG);
+#endif
 	tms380tr_cancel_tx_queue(tp);
 
 	return (0);
@@ -1205,7 +1258,17 @@ static void tms380tr_set_multicast_list(struct net_device *dev)
  */
 void tms380tr_wait(unsigned long time)
 {
+#if 0
+	long tmp;
+	
+	tmp = jiffies + time/(1000000/HZ);
+	do {
+  		current->state 		= TASK_INTERRUPTIBLE;
+		tmp = schedule_timeout(tmp);
+	} while(time_after(tmp, jiffies));
+#else
 	udelay(time);
+#endif
 	return;
 }
 
@@ -2073,6 +2136,9 @@ static void tms380tr_rcv_status_irq(struct net_device *dev)
 		SaveHead = tp->RplHead;
 		tp->RplHead = rpl->NextRPLPtr;
 
+		/* Get the frame size (Byte swap for Intel).
+		 * Do this early (see workaround comment below)
+		 */
 		Length = be16_to_cpu((unsigned short)rpl->FrameSize);
 
 		/* Check if the Frame_Start, Frame_End and
@@ -2083,6 +2149,12 @@ static void tms380tr_rcv_status_irq(struct net_device *dev)
 		{
 			ReceiveDataPtr = rpl->MData;
 
+			/* Workaround for delayed write of FrameSize on ISA
+			 * (FrameSize is false but valid-bit is reset)
+			 * Frame size is set to zero when the RPL is freed.
+			 * Length2 is there because there have also been
+			 * cases where the FrameSize was partially written
+			 */
 			Length2 = be16_to_cpu((unsigned short)rpl->FrameSize);
 
 			if(Length == 0 || Length != Length2)

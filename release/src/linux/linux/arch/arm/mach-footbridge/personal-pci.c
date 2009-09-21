@@ -38,9 +38,9 @@ static int __init personal_server_map_irq(struct pci_dev *dev, u8 slot, u8 pin)
 }
 
 struct hw_pci personal_server_pci __initdata = {
-	setup_resources:	dc21285_setup_resources,
-	init:			dc21285_init,
-	mem_offset:		DC21285_PCI_MEM,
-	swizzle:		no_swizzle,
-	map_irq:		personal_server_map_irq,
+	.setup_resources	= dc21285_setup_resources,
+	.init			= dc21285_init,
+	.mem_offset		= DC21285_PCI_MEM,
+	.swizzle		= no_swizzle,
+	.map_irq		= personal_server_map_irq,
 };

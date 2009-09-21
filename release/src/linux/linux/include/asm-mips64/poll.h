@@ -21,6 +21,7 @@
 #define POLLWRNORM	POLLOUT
 #define POLLWRBAND	0x0100
 
+/* XXX This one seems to be more-or-less nonstandard.  */
 #define POLLMSG		0x0400
 
 struct pollfd {

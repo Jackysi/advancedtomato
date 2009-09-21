@@ -1,4 +1,4 @@
-/* $Id: pgalloc.h,v 1.1.1.4 2003/10/14 08:09:23 sparq Exp $ */
+/* $Id: pgalloc.h,v 1.29 2001/10/20 12:38:51 davem Exp $ */
 #ifndef _SPARC64_PGALLOC_H
 #define _SPARC64_PGALLOC_H
 
@@ -109,6 +109,11 @@ extern __inline__ void flush_tlb_pgtables(struct mm_struct *mm, unsigned long st
 		/* Nobody should call us with start below VM hole and end above.
 		   See if it is really true.  */
 		BUG();
+#if 0
+	/* Currently free_pgtables guarantees this.  */
+	s &= PMD_MASK;
+	e = (e + PMD_SIZE - 1) & PMD_MASK;
+#endif
 	vpte_base = (tlb_type == spitfire ?
 		     VPTE_BASE_SPITFIRE :
 		     VPTE_BASE_CHEETAH);
@@ -142,11 +147,11 @@ extern __inline__ void free_pgd_fast(pgd_t *pgd)
 	struct page *page = virt_to_page(pgd);
 
 	if (!page->pprev_hash) {
-		(unsigned long *)page->next_hash = pgd_quicklist;
+		page->next_hash = (struct page *)pgd_quicklist;
 		pgd_quicklist = (unsigned long *)page;
 	}
-	(unsigned long)page->pprev_hash |=
-		(((unsigned long)pgd & (PAGE_SIZE / 2)) ? 2 : 1);
+	page->pprev_hash = (struct page **)(((unsigned long)page->pprev_hash) |
+	    (((unsigned long)pgd & (PAGE_SIZE / 2)) ? 2 : 1));
 	pgd_cache_size++;
 }
 
@@ -164,7 +169,7 @@ extern __inline__ pgd_t *get_pgd_fast(void)
 			off = PAGE_SIZE / 2;
 			mask &= ~2;
 		}
-		(unsigned long)ret->pprev_hash = mask;
+		ret->pprev_hash = (struct page **)mask;
 		if (!mask)
 			pgd_quicklist = (unsigned long *)ret->next_hash;
                 ret = (struct page *)(__page_address(ret) + off);
@@ -175,8 +180,8 @@ extern __inline__ pgd_t *get_pgd_fast(void)
 		if (page) {
 			ret = (struct page *)page_address(page);
 			clear_page(ret);
-			(unsigned long)page->pprev_hash = 2;
-			(unsigned long *)page->next_hash = pgd_quicklist;
+			page->pprev_hash = (struct page **) 2UL;
+			page->next_hash = (struct page *) pgd_quicklist;
 			pgd_quicklist = (unsigned long *)page;
 			pgd_cache_size++;
 		}
@@ -216,7 +221,7 @@ extern __inline__ void free_pgd_slow(pgd_t *pgd)
 
 #endif /* CONFIG_SMP */
 
-#if (L1DCACHE_SIZE > PAGE_SIZE)			    /* is there D$ aliasing problem */
+#if (L1DCACHE_SIZE > PAGE_SIZE)			/* is there D$ aliasing problem */
 #define VPTE_COLOR(address)		(((address) >> (PAGE_SHIFT + 10)) & 1UL)
 #define DCACHE_COLOR(address)		(((address) >> PAGE_SHIFT) & 1UL)
 #else

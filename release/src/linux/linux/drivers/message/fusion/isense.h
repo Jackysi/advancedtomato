@@ -70,6 +70,17 @@ typedef struct ASCQ_Table
     char  *Description;
 } ASCQ_Table_t;
 
+#if 0
+/*
+ *  SCSI Opcodes table.
+ */
+typedef struct SCSI_OPS_Table
+{
+    u8     OpCode;
+    char  *DevTypes;
+    char  *ScsiCmndStr;
+} SCSI_OPS_Table_t;
+#endif
 
 /*=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=*/
 /*

@@ -121,10 +121,15 @@ affs_read_inode(struct inode *inode)
 		inode->i_fop = &affs_dir_operations;
 		break;
 	case ST_LINKDIR:
+#if 0
+		affs_warning(sb, "read_inode", "inode is LINKDIR");
+		goto bad_inode;
+#else
 		inode->i_mode |= S_IFDIR;
 		inode->i_op = NULL;
 		inode->i_fop = NULL;
 		break;
+#endif
 	case ST_LINKFILE:
 		affs_warning(sb, "read_inode", "inode is LINKFILE");
 		goto bad_inode;

@@ -252,6 +252,9 @@ static int klsi_105_startup (struct usb_serial *serial)
 	struct klsi_105_private *priv;
 	int i;
 
+	/* check if we support the product id (see keyspan.c)
+	 * FIXME
+	 */
 
 	/* allocate the private data structure */
 	for (i=0; i<serial->num_ports; i++) {
@@ -321,6 +324,12 @@ static void klsi_105_shutdown (struct usb_serial *serial)
 
 			for (j = 0; j < NUM_URBS; j++) {
 				if (write_urbs[j]) {
+					/* FIXME - uncomment the following
+					 * usb_unlink_urb call when the host
+					 * controllers get fixed to set
+					 * urb->dev = NULL after the urb is
+					 * finished.  Otherwise this call
+					 * oopses. */
 					/* usb_unlink_urb(write_urbs[j]); */
 					if (write_urbs[j]->transfer_buffer)
 						    kfree(write_urbs[j]->transfer_buffer);
@@ -351,6 +360,13 @@ static int  klsi_105_open (struct usb_serial_port *port, struct file *filp)
 	 * the data through
 	 * port->tty->low_latency = 1; */
 
+	/* Do a defined restart:
+	 * Set up sane default baud rate and send the 'READ_ON'
+	 * vendor command. 
+	 * FIXME: set modem line control (how?)
+	 * Then read the modem line control and store values in
+	 * priv->line_state.
+	 */
 	priv->cfg.pktlen   = 5;
 	priv->cfg.baudrate = kl5kusb105a_sio_b9600;
 	priv->cfg.databits = kl5kusb105a_dtb_8;
@@ -441,6 +457,7 @@ static void klsi_105_close (struct usb_serial_port *port, struct file *filp)
 	usb_unlink_urb (port->write_urb);
 	usb_unlink_urb (port->read_urb);
 	/* unlink our write pool */
+	/* FIXME */
 	/* wgg - do I need this? I think so. */
 	usb_unlink_urb (port->interrupt_in_urb);
 	info("kl5kusb105 port stats: %ld bytes in, %ld bytes out", priv->bytes_in, priv->bytes_out);
@@ -649,6 +666,12 @@ static void klsi_105_read_bulk_callback (struct urb *urb)
 		int bytes_sent = ((__u8 *) data)[0] +
 				 ((unsigned int) ((__u8 *) data)[1] << 8);
 		tty = port->tty;
+		/* we should immediately resubmit the URB, before attempting
+		 * to pass the data on to the tty layer. But that needs locking
+		 * against re-entry an then mixed-up data because of
+		 * intermixed tty_flip_buffer_push()s
+		 * FIXME
+		 */ 
 		usb_serial_debug_data (__FILE__, __FUNCTION__,
 				       urb->actual_length, data);
 
@@ -704,6 +727,14 @@ static void klsi_105_set_termios (struct usb_serial_port *port,
 	        /* reassert DTR and (maybe) RTS on transition from B0 */
 		if( (old_cflag & CBAUD) == B0 ) {
 			dbg("%s: baud was B0", __FUNCTION__);
+#if 0
+			priv->control_state |= TIOCM_DTR;
+			/* don't set RTS if using hardware flow control */
+			if (!(old_cflag & CRTSCTS)) {
+				priv->control_state |= TIOCM_RTS;
+			}
+			mct_u232_set_modem_ctrl(serial, priv->control_state);
+#endif
 		}
 		
 		switch(cflag & CBAUD) {
@@ -739,6 +770,10 @@ static void klsi_105_set_termios (struct usb_serial_port *port,
 			 * disable and read enable messages?
 			 */
 			;
+#if 0
+			priv->control_state &= ~(TIOCM_DTR | TIOCM_RTS);
+        		mct_u232_set_modem_ctrl(serial, priv->control_state);
+#endif
 		}
 	}
 
@@ -770,6 +805,22 @@ static void klsi_105_set_termios (struct usb_serial_port *port,
 	if ((cflag & (PARENB|PARODD)) != (old_cflag & (PARENB|PARODD))
 	    || (cflag & CSTOPB) != (old_cflag & CSTOPB) ) {
 		
+#if 0
+		priv->last_lcr = 0;
+
+		/* set the parity */
+		if (cflag & PARENB)
+			priv->last_lcr |= (cflag & PARODD) ?
+				MCT_U232_PARITY_ODD : MCT_U232_PARITY_EVEN;
+		else
+			priv->last_lcr |= MCT_U232_PARITY_NONE;
+
+		/* set the number of stop bits */
+		priv->last_lcr |= (cflag & CSTOPB) ?
+			MCT_U232_STOP_BITS_2 : MCT_U232_STOP_BITS_1;
+
+		mct_u232_set_line_ctrl(serial, priv->last_lcr);
+#endif
 		;
 	}
 	
@@ -782,6 +833,13 @@ static void klsi_105_set_termios (struct usb_serial_port *port,
 	    ||  (cflag & CRTSCTS) != (old_cflag & CRTSCTS) ) {
 		
 		/* Drop DTR/RTS if no flow control otherwise assert */
+#if 0
+		if ((iflag & IXOFF) || (iflag & IXON) || (cflag & CRTSCTS) )
+			priv->control_state |= TIOCM_DTR | TIOCM_RTS;
+		else
+			priv->control_state &= ~(TIOCM_DTR | TIOCM_RTS);
+		mct_u232_set_modem_ctrl(serial, priv->control_state);
+#endif
 		;
 	}
 
@@ -790,6 +848,21 @@ static void klsi_105_set_termios (struct usb_serial_port *port,
 } /* klsi_105_set_termios */
 
 
+#if 0
+static void mct_u232_break_ctl( struct usb_serial_port *port, int break_state )
+{
+	struct usb_serial *serial = port->serial;
+	struct mct_u232_private *priv = (struct mct_u232_private *)port->private;
+	unsigned char lcr = priv->last_lcr;
+
+	dbg("%sstate=%d", __FUNCTION__, break_state);
+
+	if (break_state)
+		lcr |= MCT_U232_SET_BREAK;
+
+	mct_u232_set_line_ctrl(serial, lcr);
+} /* mct_u232_break_ctl */
+#endif
 
 static int klsi_105_ioctl (struct usb_serial_port *port, struct file * file,
 			   unsigned int cmd, unsigned long arg)
@@ -961,5 +1034,9 @@ MODULE_LICENSE("GPL");
 
 MODULE_PARM(debug, "i");
 MODULE_PARM_DESC(debug, "enable extensive debugging messages");
+/* FIXME: implement
+MODULE_PARM(num_urbs, "i");
+MODULE_PARM_DESC(num_urbs, "number of URBs to use in write pool");
+*/
 
 /* vim: set sts=8 ts=8 sw=8: */

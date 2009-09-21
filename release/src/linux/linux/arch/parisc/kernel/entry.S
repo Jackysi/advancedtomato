@@ -261,6 +261,9 @@
 	mfctl	%isr,spc
 	b	itlb_miss_11
 	mfctl 	%ior,va
+	/* FIXME: If user causes a naitlb miss, the priv level may not be in
+	 * lower bits of va, where the itlb miss handler is expecting them
+	 */
 
 	.align		32
 	.endm
@@ -285,6 +288,9 @@
 	b	itlb_miss_20
 #endif
 	mfctl 	%ior,va
+	/* FIXME: If user causes a naitlb miss, the priv level may not be in
+	 * lower bits of va, where the itlb miss handler is expecting them
+	 */
 
 	.align		32
 	.endm
@@ -417,7 +423,11 @@ fault_vector_20:
 	def		13
 	def		14
 	dtlb_20		15
+#if 0
+	naitlb_20	16
+#else
 	def             16
+#endif
 	nadtlb_20	17
 	def		18
 	def		19
@@ -461,7 +471,11 @@ fault_vector_11:
 	def		13
 	def		14
 	dtlb_11		15
+#if 0
+	naitlb_11	16
+#else
 	def             16
+#endif
 	nadtlb_11	17
 	def		18
 	def		19
@@ -611,6 +625,22 @@ _switch_to_ret:
 	bv	%r0(%r2)
 	copy	%r26, %r28
 
+	/*
+	 * Common rfi return path for interruptions, kernel execve, and
+	 * sys_rt_sigreturn (sometimes).  The sys_rt_sigreturn syscall will
+	 * return via this path if the signal was received when the process
+	 * was running; if the process was blocked on a syscall then the
+	 * normal syscall_exit path is used.  All syscalls for traced
+	 * proceses exit via intr_restore.
+	 *
+	 * XXX If any syscalls that change a processes space id ever exit
+	 * this way, then we will need to copy %sr3 in to PT_SR[3..7], and
+	 * adjust IASQ[0..1].
+	 *
+	 * Note that the following code uses a "relied upon translation".
+	 * See the parisc ACD for details. The ssm is necessary due to a
+	 * PCXT bug.
+	 */
 
 	.align 4096
 
@@ -729,32 +759,30 @@ intr_restore:
 
 	.import do_softirq,code
 intr_do_softirq:
-	bl      do_softirq,%r2
 #ifdef __LP64__
 	ldo	-16(%r30),%r29		/* Reference param save area */
-#else
-	nop
 #endif
-	b       intr_check_resched
-	nop
+	ldil	L%intr_check_resched, %r2
+	b	do_softirq
+	ldo	R%intr_check_resched(%r2), %r2
 
 	.import schedule,code
 intr_do_resched:
 	/* Only do reschedule if we are returning to user space */
 	LDREG   PT_IASQ0(%r16), %r20
-	CMPIB= 0,%r20,intr_restore /* backward */
+	CMPIB= 0,%r20,intr_check_sig /* backward */
 	nop
 	LDREG   PT_IASQ1(%r16), %r20
-	CMPIB= 0,%r20,intr_restore /* backward */
+	CMPIB= 0,%r20,intr_check_sig /* backward */
 	nop
 
 #ifdef __LP64__
 	ldo	-16(%r30),%r29		/* Reference param save area */
 #endif
 
-	ldil	L%intr_return, %r2
+	ldil	L%intr_check_sig, %r2
 	b	schedule
-	ldo	R%intr_return(%r2), %r2	/* return to intr_return, not here */
+	ldo	R%intr_check_sig(%r2), %r2
 
 
 	.import do_signal,code
@@ -769,15 +797,14 @@ intr_do_signal:
 
 	copy	%r0, %r24			/* unsigned long in_syscall */
 	copy	%r16, %r25			/* struct pt_regs *regs */
-	ssm     PSW_SM_I, %r0
+	copy	%r0, %r26			/* sigset_t *oldset = NULL */
 #ifdef __LP64__
 	ldo	-16(%r30),%r29			/* Reference param save area */
 #endif
-	bl	do_signal,%r2
-	copy	%r0, %r26			/* sigset_t *oldset = NULL */
+	ldil	L%intr_restore, %r2
+	b	do_signal
+	ldo	R%intr_restore(%r2), %r2
 
-	b	intr_restore
-	nop
 
 	/*
 	 * External interrupts.
@@ -789,6 +816,19 @@ intr_extint:
 	b,n 3f
 
 1:
+#if 0  /* Interrupt Stack support not working yet! */
+	mfctl	%cr31,%r1
+	copy	%r30,%r17
+	/* FIXME! depi below has hardcoded idea of interrupt stack size (32k)*/
+#ifdef __LP64__
+	depdi	0,63,15,%r17
+#else
+	depi	0,31,15,%r17
+#endif
+	CMPB=,n	%r1,%r17,2f
+	get_stack_use_cr31
+	b,n 3f
+#endif
 2:
 	get_stack_use_r30
 
@@ -809,7 +849,7 @@ intr_extint:
 	ldo	-16(%r30),%r29	/* Reference param save area */
 #endif
 	b	do_cpu_irq_mask
-	ldo	R%intr_return(%r2), %r2	/* return to intr_return, not here */
+	ldo	R%intr_return(%r2), %r2
 
 
 
@@ -833,6 +873,13 @@ intr_save:
 
 	/* If this trap is a itlb miss, skip saving/adjusting isr/ior */
 
+	/*
+	 * FIXME: 1) Use a #define for the hardwired "6" below (and in
+	 *           traps.c.
+	 *        2) Once we start executing code above 4 Gb, we need
+	 *           to adjust iasq/iaoq here in the same way we
+	 *           adjust isr/ior below.
+	 */
 
 	CMPIB=,n        6,%r26,skip_save_ior
 
@@ -849,6 +896,11 @@ intr_save:
 	extrd,u,*<>     %r8,PSW_W_BIT,1,%r0
 	depdi           0,1,2,%r17
 
+	/*
+	 * FIXME: This code has hardwired assumptions about the split
+	 *        between space bits and offset bits. This will change
+	 *        when we allow alternate page sizes.
+	 */
 
 	/* adjust isr/ior. */
 
@@ -870,19 +922,16 @@ skip_save_ior:
 	loadgp
 
 	copy		%r29, %r25	/* arg1 is pt_regs */
-#ifdef CONFIG_KWDB
-	copy		%r29, %r3	/* KWDB - update frame pointer (gr3) */
-#endif
 
 #ifdef __LP64__
 	ldo		-16(%r30),%r29	/* Reference param save area */
 #endif
 
-	ldil		L%intr_return, %r2
+	ldil		L%intr_check_sig, %r2
 	copy		%r25, %r16	/* save pt_regs */
 
 	b		handle_interruption
-	ldo		R%intr_return(%r2), %r2	/* return to intr_return */
+	ldo		R%intr_check_sig(%r2), %r2
 
 
 	/*
@@ -1264,9 +1313,9 @@ dtlb_miss_20:
 
 	/* Get rid of prot bits and convert to page addr for idtlbt */
 
-	extrd,s         pte,35,4,t0
+	extrd,s         pte,35,4,t1
 	depdi		0,63,12,pte	/* clear lower 12 bits */
-        addi,=          1,t0,0 
+        addi,=          1,t1,0 
         extrd,u,*tr     pte,56,25,pte 
 	extrd,s		pte,56,25,pte	/* bit 31:8 >> 8  */ 
 	idtlbt          pte,prot
@@ -1334,9 +1383,9 @@ nadtlb_miss_20:
 
 	/* Get rid of prot bits and convert to page addr for idtlbt */
 
-        extrd,s         pte,35,4,t0
+        extrd,s         pte,35,4,t1
         depdi           0,63,12,pte     /* clear lower 12 bits */
-        addi,=          1,t0,0
+        addi,=          1,t1,0
         extrd,u,*tr     pte,56,25,pte
         extrd,s         pte,56,25,pte   /* bit 31:8 >> 8  */
         idtlbt          pte,prot
@@ -1587,9 +1636,9 @@ itlb_miss_common_20:
 
 	/* Get rid of prot bits and convert to page addr for iitlbt */
 
-        extrd,s         pte,35,4,t0 
+        extrd,s         pte,35,4,t1 
         depdi           0,63,12,pte     /* clear lower 12 bits */
-        addi,=          1,t0,0
+        addi,=          1,t1,0
         extrd,u,*tr     pte,56,25,pte 
         extrd,s         pte,56,25,pte   /* bit 31:8 >> 8  */
 	iitlbt          pte,prot
@@ -1805,9 +1854,9 @@ dbit_nolock_20:
 	extrd,u,*= 	pte,_PAGE_GATEWAY_BIT+32,1,r0
 	depdi		0,11,2,prot	/* If Gateway, Set PL2 to 0 */
 
-        extrd,s         pte,35,4,t0 
+        extrd,s         pte,35,4,t1 
         depdi           0,63,12,pte     /* clear lower 12 bits */
-        addi,=          1,t0,0
+        addi,=          1,t1,0
         extrd,u,*tr     pte,56,25,pte 
         extrd,s         pte,56,25,pte   /* bit 31:8 >> 8  */
         idtlbt          pte,prot
@@ -1859,6 +1908,14 @@ dtlb_fault:
 	   %r31		   syscall return pointer
 	 */
 
+	/* Floating point registers (FIXME: what do we do with these?)
+
+	   %fr0  - %fr3	   status/exception, not preserved
+	   %fr4  - %fr7	   arguments
+	   %fr8	 - %fr11   not preserved by C code
+	   %fr12 - %fr21   preserved by C code
+	   %fr22 - %fr31   not preserved by C code
+	 */
 
 	.macro	reg_save regs
 	STREG	%r3, PT_GR3(\regs)
@@ -2054,6 +2111,7 @@ sys_rt_sigreturn_wrapper:
 	ldo	-FRAME_SIZE(%r30), %r30
 	LDREG	-RP_OFFSET(%r30), %r2
 
+	/* FIXME: I think we need to restore a few more things here. */
 	ldo	TASK_REGS-TASK_SZ_ALGN-FRAME_SIZE(%r30),%r1	    /* get pt regs */
 	reg_restore %r1
 
@@ -2270,6 +2328,7 @@ psw_setup:
 	STREG   %r25,TASK_PT_IASQ0(%r1)
 	STREG   %r25,TASK_PT_IASQ1(%r1)
 
+	/* XXX W bit??? */
 	/* Now if old D bit is clear, it means we didn't save all registers
 	 * on syscall entry, so do that now.  This only happens on TRACEME
 	 * calls, or if someone attached to us while we were on a syscall.
@@ -2293,9 +2352,9 @@ pt_regs_ok:
 	STREG	%r2,TASK_PT_IAOQ0(%r1)
 	ldo	4(%r2),%r2
 	STREG	%r2,TASK_PT_IAOQ1(%r1)
-	copy	%r25,%r16
+
 	b	intr_restore
-	nop
+	copy	%r25,%r16
 
 	.import do_softirq,code
 syscall_do_softirq:
@@ -2317,6 +2376,10 @@ syscall_do_resched:
 
 	.import do_signal,code
 syscall_do_signal:
+	/* Save callee-save registers (for sigcontext).
+	   FIXME: After this point the process structure should be
+	   consistent with all the relevant state of the process
+	   before the syscall.  We need to verify this. */
 	ldo	TASK_REGS(%r1), %r25		/* struct pt_regs *regs */
 	reg_save %r25
 

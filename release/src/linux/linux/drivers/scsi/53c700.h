@@ -109,8 +109,11 @@ struct NCR_700_SG_List {
 static inline void
 NCR_700_set_SXFER(Scsi_Device *SDp, __u8 sxfer)
 {
-	((unsigned long)SDp->hostdata) &= 0xffffff00;
-	((unsigned long)SDp->hostdata) |= sxfer & 0xff;
+	long l = (long)SDp->hostdata;
+
+	l &= 0xffffff00;
+	l |= sxfer & 0xff;
+	SDp->hostdata = (void *)l;
 }
 static inline __u8 NCR_700_get_SXFER(Scsi_Device *SDp)
 {
@@ -119,8 +122,11 @@ static inline __u8 NCR_700_get_SXFER(Scsi_Device *SDp)
 static inline void
 NCR_700_set_depth(Scsi_Device *SDp, __u8 depth)
 {
-	((unsigned long)SDp->hostdata) &= 0xffff00ff;
-	((unsigned long)SDp->hostdata) |= (0xff00 & (depth << 8));
+	long l = (long)SDp->hostdata;
+
+	l &= 0xffff00ff;
+	l |= 0xff00 & (depth << 8);
+	SDp->hostdata = (void *)l;
 }
 static inline __u8
 NCR_700_get_depth(Scsi_Device *SDp)
@@ -140,12 +146,12 @@ NCR_700_is_flag_clear(Scsi_Device *SDp, __u32 flag)
 static inline void
 NCR_700_set_flag(Scsi_Device *SDp, __u32 flag)
 {
-	((unsigned long)SDp->hostdata) |= (flag & 0xffff0000);
+	SDp->hostdata = (void *)((long)SDp->hostdata | (flag & 0xffff0000));
 }
 static inline void
 NCR_700_clear_flag(Scsi_Device *SDp, __u32 flag)
 {
-	((unsigned long)SDp->hostdata) &= ~(flag & 0xffff0000);
+	SDp->hostdata = (void *)((long)SDp->hostdata & ~(flag & 0xffff0000));
 }
 
 /* These represent the Nexus hashing functions.  A Nexus in SCSI terms
@@ -506,9 +512,11 @@ NCR_700_readl(struct Scsi_Host *host, __u32 reg)
 	__u32 value = __raw_readl(host->base + reg);
 	const struct NCR_700_Host_Parameters *hostdata __attribute__((unused))
 		= (struct NCR_700_Host_Parameters *)host->hostdata[0];
+#if 1
 	/* sanity check the register */
 	if((reg & 0x3) != 0)
 		BUG();
+#endif
 
 	return bS_to_cpu(value);
 }
@@ -528,9 +536,11 @@ NCR_700_writel(__u32 value, struct Scsi_Host *host, __u32 reg)
 	const struct NCR_700_Host_Parameters *hostdata __attribute__((unused))
 		= (struct NCR_700_Host_Parameters *)host->hostdata[0];
 
+#if 1
 	/* sanity check the register */
 	if((reg & 0x3) != 0)
 		BUG();
+#endif
 
 	__raw_writel(bS_to_host(value), host->base + reg);
 }
@@ -551,9 +561,11 @@ NCR_700_readl(struct Scsi_Host *host, __u32 reg)
 	const struct NCR_700_Host_Parameters *hostdata __attribute__((unused))
 		= (struct NCR_700_Host_Parameters *)host->hostdata[0];
 
+#if 1
 	/* sanity check the register */
 	if((reg & 0x3) != 0)
 		BUG();
+#endif
 
 	return bS_to_cpu(value);
 }
@@ -573,9 +585,11 @@ NCR_700_writel(__u32 value, struct Scsi_Host *host, __u32 reg)
 	const struct NCR_700_Host_Parameters *hostdata __attribute__((unused))
 		= (struct NCR_700_Host_Parameters *)host->hostdata[0];
 
+#if 1
 	/* sanity check the register */
 	if((reg & 0x3) != 0)
 		BUG();
+#endif
 
 	outl(bS_to_host(value), host->base + reg);
 }

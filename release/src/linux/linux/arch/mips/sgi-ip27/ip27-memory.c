@@ -15,6 +15,7 @@
 #include <linux/mm.h>
 #include <linux/bootmem.h>
 #include <linux/swap.h>
+#include <linux/module.h>
 
 #include <asm/page.h>
 #include <asm/bootinfo.h>
@@ -40,12 +41,16 @@ static pfn_t numpages;
 plat_pg_data_t *plat_node_data[MAX_COMPACT_NODES];
 bootmem_data_t plat_node_bdata[MAX_COMPACT_NODES];
 
+EXPORT_SYMBOL(plat_node_data);
+
 int numa_debug(void)
 {
 	printk("NUMA debug\n");
 	*(int *)0 = 0;
 	return(0);
 }
+
+EXPORT_SYMBOL(numa_debug);
 
 /*
  * Return the number of pages of memory provided by the given slot

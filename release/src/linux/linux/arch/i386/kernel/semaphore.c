@@ -15,7 +15,6 @@
 #include <linux/config.h>
 #include <linux/sched.h>
 #include <asm/semaphore.h>
-#include <asm/kernprof.h>
 
 /*
  * Semaphores are implemented using a two-way counter:
@@ -183,7 +182,6 @@ asm(
 ".align 4\n"
 ".globl __down_failed\n"
 "__down_failed:\n\t"
-	MCOUNT_STEXT_LOCK"\n\t"
 #if defined(CONFIG_FRAME_POINTER)
 	"pushl %ebp\n\t"
 	"movl  %esp,%ebp\n\t"
@@ -207,7 +205,6 @@ asm(
 ".align 4\n"
 ".globl __down_failed_interruptible\n"
 "__down_failed_interruptible:\n\t"
-	MCOUNT_STEXT_LOCK"\n\t"
 #if defined(CONFIG_FRAME_POINTER)
 	"pushl %ebp\n\t"
 	"movl  %esp,%ebp\n\t"
@@ -229,7 +226,6 @@ asm(
 ".align 4\n"
 ".globl __down_failed_trylock\n"
 "__down_failed_trylock:\n\t"
-	MCOUNT_STEXT_LOCK"\n\t"
 #if defined(CONFIG_FRAME_POINTER)
 	"pushl %ebp\n\t"
 	"movl  %esp,%ebp\n\t"
@@ -251,7 +247,6 @@ asm(
 ".align 4\n"
 ".globl __up_wakeup\n"
 "__up_wakeup:\n\t"
-	MCOUNT_STEXT_LOCK"\n\t"
 	"pushl %eax\n\t"
 	"pushl %edx\n\t"
 	"pushl %ecx\n\t"

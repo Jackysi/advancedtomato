@@ -1,4 +1,4 @@
-/* $Id: misc.c,v 1.1.1.4 2003/10/14 08:07:51 sparq Exp $
+/* $Id: misc.c,v 1.33 2001/09/18 22:29:06 davem Exp $
  * misc.c: Miscelaneous syscall emulation for Solaris
  *
  * Copyright (C) 1997,1998 Jakub Jelinek (jj@sunsite.mff.cuni.cz)
@@ -370,6 +370,7 @@ asmlinkage int solaris_sysconf(int id)
 			else
 				return s.freeram >>= PAGE_SHIFT;
 		}
+	/* XXX support these as well -jj */
 	case SOLARIS_CONFIG_AIO_LISTIO_MAX:	return -EINVAL;
 	case SOLARIS_CONFIG_AIO_MAX:		return -EINVAL;
 	case SOLARIS_CONFIG_AIO_PRIO_DELTA_MAX:	return -EINVAL;

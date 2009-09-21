@@ -5,7 +5,7 @@
  *	Authors:
  *	Lennert Buytenhek		<buytenh@gnu.org>
  *
- *	$Id: br_stp.c,v 1.1.1.4 2003/10/14 08:09:32 sparq Exp $
+ *	$Id: br_stp.c,v 1.4 2000/06/19 10:13:35 davem Exp $
  *
  *	This program is free software; you can redistribute it and/or
  *	modify it under the terms of the GNU General Public License
@@ -20,7 +20,10 @@
 #include "br_private.h"
 #include "br_private_stp.h"
 
-
+/* since time values in bpdu are in jiffies and then scaled (1/256)
+ * before sending, make sure that is at least one.
+ */
+#define MESSAGE_AGE_INCR	((HZ < 256) ? 1 : (HZ/256))
 
 /* called under ioctl_lock or bridge lock */
 int br_is_root_bridge(struct net_bridge *br)
@@ -137,8 +140,8 @@ void br_become_root_bridge(struct net_bridge *br)
 	br->forward_delay = br->bridge_forward_delay;
 	br_topology_change_detection(br);
 	br_timer_clear(&br->tcn_timer);
-	br_config_bpdu_generation(br);
-	br_timer_set(&br->hello_timer, jiffies);
+
+	br_timer_set(&br->hello_timer, jiffies + br->hello_time);
 }
 
 /* called under bridge lock */
@@ -160,24 +163,26 @@ void br_transmit_config(struct net_bridge_port *p)
 	bpdu.root_path_cost = br->root_path_cost;
 	bpdu.bridge_id = br->bridge_id;
 	bpdu.port_id = p->port_id;
-	bpdu.message_age = 0;
-	if (!br_is_root_bridge(br)) {
+	if (br_is_root_bridge(br)) 
+		bpdu.message_age = 0;
+	else {
 		struct net_bridge_port *root;
-		unsigned long age;
 
 		root = br_get_port(br, br->root_port);
-		age = br_timer_get_residue(&root->message_age_timer) + 1;
-		bpdu.message_age = age;
+		bpdu.message_age =  br_timer_get_residue(&root->message_age_timer)
+			+ MESSAGE_AGE_INCR;
 	}
 	bpdu.max_age = br->max_age;
 	bpdu.hello_time = br->hello_time;
 	bpdu.forward_delay = br->forward_delay;
 
-	br_send_config_bpdu(p, &bpdu);
+	if (bpdu.message_age < br->max_age) {
+		br_send_config_bpdu(p, &bpdu);
 
-	p->topology_change_ack = 0;
-	p->config_pending = 0;
-	br_timer_set(&p->hold_timer, jiffies);
+		p->topology_change_ack = 0;
+		p->config_pending = 0;
+		br_timer_set(&p->hold_timer, jiffies);
+	}
 }
 
 /* called under bridge lock */
@@ -188,7 +193,8 @@ static void br_record_config_information(struct net_bridge_port *p, struct br_co
 	p->designated_bridge = bpdu->bridge_id;
 	p->designated_port = bpdu->port_id;
 
-	br_timer_set(&p->message_age_timer, jiffies - bpdu->message_age);
+	br_timer_set(&p->message_age_timer, jiffies + 
+		     (p->br->max_age - bpdu->message_age));
 }
 
 /* called under bridge lock */

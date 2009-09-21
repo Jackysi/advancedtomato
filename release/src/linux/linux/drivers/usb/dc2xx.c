@@ -354,6 +354,10 @@ static int camera_release (struct inode *inode, struct file *file)
 	return 0;
 }
 
+	/* XXX should define some ioctls to expose camera type
+	 * to applications ... what USB exposes should suffice.
+	 * apps should be able to see the camera type.
+	 */
 static /* const */ struct file_operations usb_camera_fops = {
 	    /* Uses GCC initializer extension; simpler to maintain */
 	owner:		THIS_MODULE,

@@ -51,7 +51,7 @@
 #define _CACHE_CACHABLE_NONCOHERENT 0
 
 #else
-#define _PAGE_R4KBUG                (1<<5)  
+#define _PAGE_R4KBUG                (1<<5)  /* workaround for r4k bug  */
 #define _PAGE_GLOBAL                (1<<6)
 #define _PAGE_VALID                 (1<<7)
 #define _PAGE_SILENT_READ           (1<<7)  /* synonym                 */

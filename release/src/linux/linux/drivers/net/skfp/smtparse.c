@@ -160,6 +160,9 @@ char _far *value ;
 	}
 	if (!v)
 		return(-1) ;
+#if	0
+	printf("=>%s<==>%s<=\n",pt->pt_name,valbuf) ;
+#endif
 	/*
 	 * set value in MIB
 	 */
@@ -433,3 +436,40 @@ int scale ;
 	return(x) ;
 }
 
+#if 0
+struct	s_smc	SMC ;
+main()
+{
+	char	*p ;
+	char	*v ;
+	char	buf[100] ;
+	int	toggle = 0 ;
+
+	while (gets(buf)) {
+		p = buf ;
+		while (*p && ((*p == ' ') || (*p == '\t')))
+			p++ ;
+
+		while (*p && ((*p != ' ') && (*p != '\t')))
+			p++ ;
+
+		v = p ;
+		while (*v && ((*v == ' ') || (*v == '\t')))
+			v++ ;
+		if ((*v >= '0') && (*v <= '9')) {
+			toggle = !toggle ;
+			if (toggle) {
+				u_long	l ;
+				l = atol(v) ;
+				smt_parse_arg(&SMC,buf,0,(char _far *)&l) ;
+			}
+			else
+				smt_parse_arg(&SMC,buf,1,(char _far *)p) ;
+		}
+		else {
+			smt_parse_arg(&SMC,buf,1,(char _far *)p) ;
+		}
+	}
+	exit(0) ;
+}
+#endif

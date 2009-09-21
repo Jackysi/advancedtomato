@@ -49,6 +49,7 @@ static void sysv_write_super(struct super_block *sb)
 static void sysv_put_super(struct super_block *sb)
 {
 	if (!(sb->s_flags & MS_RDONLY)) {
+		/* XXX ext2 also updates the state here */
 		mark_buffer_dirty(sb->sv_bh1);
 		if (sb->sv_bh1 != sb->sv_bh2)
 			mark_buffer_dirty(sb->sv_bh2);

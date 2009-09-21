@@ -5,7 +5,9 @@
 #include <linux/in.h>
 #include <linux/udp.h>
 #include <linux/netfilter_ipv4/ip_conntrack_protocol.h>
-#include <linux/netfilter_ipv4/ip_conntrack_udp.h>
+
+unsigned long ip_ct_udp_timeout = 30*HZ;
+unsigned long ip_ct_udp_timeout_stream = 180*HZ;
 
 static int udp_pkt_to_tuple(const void *datah, size_t datalen,
 			    struct ip_conntrack_tuple *tuple)
@@ -45,18 +47,16 @@ static unsigned int udp_print_conntrack(char *buffer,
 /* Returns verdict for packet, and may modify conntracktype */
 static int udp_packet(struct ip_conntrack *conntrack,
 		      struct iphdr *iph, size_t len,
-		      enum ip_conntrack_info conntrackinfo)
+		      enum ip_conntrack_info ctinfo)
 {
 	/* If we've seen traffic both ways, this is some kind of UDP
 	   stream.  Extend timeout. */
 	if (test_bit(IPS_SEEN_REPLY_BIT, &conntrack->status)) {
-		ip_ct_refresh(conntrack, 
-			sysctl_ip_conntrack_udp_timeouts[UDP_STREAM_TIMEOUT]);
+		ip_ct_refresh_acct(conntrack,ctinfo,iph,ip_ct_udp_timeout_stream);
 		/* Also, more likely to be important, and not a probe */
 		set_bit(IPS_ASSURED_BIT, &conntrack->status);
 	} else
-		ip_ct_refresh(conntrack, 
-			sysctl_ip_conntrack_udp_timeouts[UDP_TIMEOUT]);
+		ip_ct_refresh_acct(conntrack,ctinfo,iph, ip_ct_udp_timeout);
 
 	return NF_ACCEPT;
 }

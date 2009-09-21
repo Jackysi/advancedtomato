@@ -40,7 +40,24 @@
 static inline u32
 ram2log(void * addr)
 {
+#if 1
 	return (unsigned long) addr;
+#else	
+	u32 a = (unsigned long) addr;
+	u32 r;
+
+#if 1 
+	r  =   a & 0xff000000;		/* fixed part */
+	r += ((a & 0x000000ff) << 5);
+	r += ((a & 0x00ffff00) << 3);
+#else
+	r  =   a & 0xff000000;		/* fixed part */
+	r += ((a & 0x000000ff) << 5);
+	r += ((a & 0x0007ff00) << 5);
+#endif
+
+	return r;
+#endif
 }
 
 /* All those functions need better names. */
@@ -52,7 +69,7 @@ memcpy_fromhp_tohp(void *dest, void *src, int count)
 	unsigned long s = ram2log(src);
 
 	count += 3;
-	count &= ~3; 
+	count &= ~3; /* XXX */
 
 	while(count) {
 		count --;
@@ -115,6 +132,9 @@ fbcon_sti_bmove(struct display *p, int sy, int sx,
 		int dy, int dx,
 		int height, int width)
 {
+#if 0 /* Unfortunately, still broken */
+	sti_bmove(default_sti /* FIXME */, sy, sx, dy, dx, height, width);
+#else
 	u8 *src, *dest;
 	u_int rows;
 
@@ -139,6 +159,7 @@ fbcon_sti_bmove(struct display *p, int sy, int sx,
 			dest -= p->next_line;
 		}
 	}
+#endif
 }
 
 static void
@@ -263,6 +284,7 @@ fbcon_sti_clear_margins(struct vc_data *conp,
 	int inverse = conp ? attr_reverse(p,conp->vc_video_erase_char) : 0;
 
 
+	/* XXX Need to handle right margin? */
 
 	height = p->var.yres - conp->vc_rows * fontheight(p);
 	if (!height)

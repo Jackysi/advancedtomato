@@ -130,7 +130,7 @@
  *
  * mmu_engage
  * ----------
- *	Thanks to a small helping routine enabling the mmu got quiet simple
+ *	Thanks to a small helping routine enabling the mmu got quite simple
  * and there is only one way left. mmu_engage makes a complete a new mapping
  * that only includes the absolute necessary to be able to jump to the final
  * postion and to restore the original mapping.
@@ -190,7 +190,7 @@
  *
  * options
  * -------
- *	There are many options availble in a build of this file.  I've
+ *	There are many options available in a build of this file.  I've
  * taken the time to describe them here to save you the time of searching
  * for them and trying to understand what they mean.
  *
@@ -683,6 +683,7 @@ Lstart1:
 	lea	%pc@(SYMBOL_NAME(m68k_cputype)),%a1
 	movel	%a0@,%a1@
 #else /* CONFIG_HP300 */
+	/* FIXME HP300 doesn't use bootinfo yet */
 	movel	#MACH_HP300,%d4
 	lea	%pc@(SYMBOL_NAME(m68k_machtype)),%a0
 	movel	%d4,%a0@
@@ -729,6 +730,26 @@ Lstart1:
 	movel	%a0@,%a1@
 #endif /* MAC_SERIAL_DEBUG */
 
+#if 0
+	/*
+	 * Clear the screen
+	 */
+	lea	%pc@(L(mac_videobase)),%a0
+	movel	%a0@,%a1
+	lea	%pc@(L(mac_dimensions)),%a0
+	movel	%a0@,%d1
+	swap	%d1		/* #rows is high bytes */
+	andl	#0xFFFF,%d1	/* rows */
+	subl	#10,%d1
+	lea	%pc@(L(mac_rowbytes)),%a0
+loopy2:
+	movel	%a0@,%d0
+	subql	#1,%d0
+loopx2:
+	moveb	#0x55, %a1@+
+	dbra	%d0,loopx2
+	dbra	%d1,loopy2
+#endif
 
 L(test_notmac):
 #endif /* CONFIG_MAC */
@@ -1181,7 +1202,7 @@ L(not6000):
  *
  * Map the kernel (that's already done),
  * Map the I/O (on most machines that's the
- * 0x5000.0000 ... 0x5200.0000 range,
+ * 0x5000.0000 ... 0x5300.0000 range,
  * Map the video frame buffer using as few pages
  * as absolutely (this requirement mostly stems from
  * the fact that when the frame buffer is at
@@ -1225,10 +1246,11 @@ L(mmu_init_mac):
 	andl	L(mac_videobase),%d0
 
 	mmu_map		#VIDEOMEMBASE,%d0,#VIDEOMEMSIZE,%d3
-	mmu_map_eq	#0x40800000,#0x02000000,%d3	/* rom ? */
-	mmu_map_eq	#0x50000000,#0x02000000,%d3
-	mmu_map_eq	#0x60000000,#0x00400000,%d3
-	mmu_map_eq	#0x9c000000,#0x00400000,%d3
+	/* The ROM starts at 4000 0000		    	*/
+	mmu_map_eq	#0x40000000,#0x02000000,%d3
+	/* IO devices                               	*/
+	mmu_map_eq	#0x50000000,#0x03000000,%d3
+	/* NuBus slot space				*/
 	mmu_map_tt	#1,#0xf8000000,#0x08000000,%d3
 
 	jbra	L(mmu_init_done)
@@ -1440,6 +1462,9 @@ L(mmu_fixup_done):
 	andl	L(mac_videobase),%d0
 	addl	#VIDEOMEMBASE,%d0
 	movel	%d0,L(mac_videobase)
+#ifdef MAC_SERIAL_DEBUG
+	orl	#0x50000000,L(mac_sccbase)
+#endif		
 1:
 #endif
 
@@ -1667,6 +1692,70 @@ mmu_040_print:
 	puts	"rp:"
 	putn	%a5
 	putc	'\n'
+#if 0
+	/*
+	 * The following #if/#endif block is a tight algorithm for dumping the 040
+	 * MMU Map in gory detail.  It really isn't that practical unless the
+	 * MMU Map algorithm appears to go awry and you need to debug it at the
+	 * entry per entry level.
+	 */
+	movel	#ROOT_TABLE_SIZE,%d5
+#if 0
+	movel	%a5@+,%d7		| Burn an entry to skip the kernel mappings,
+	subql	#1,%d5			| they (might) work
+#endif
+1:	tstl	%d5
+	jbeq	mmu_print_done
+	subq	#1,%d5
+	movel	%a5@+,%d7
+	btst	#1,%d7
+	jbeq	1b
+
+2:	putn	%d7
+	andil	#0xFFFFFE00,%d7
+	movel	%d7,%a4
+	movel	#PTR_TABLE_SIZE,%d4
+	putc	' '
+3:	tstl	%d4
+	jbeq	11f
+	subq	#1,%d4
+	movel	%a4@+,%d7
+	btst	#1,%d7
+	jbeq	3b
+
+4:	putn	%d7
+	andil	#0xFFFFFF00,%d7
+	movel	%d7,%a3
+	movel	#PAGE_TABLE_SIZE,%d3
+5:	movel	#8,%d2
+6:	tstl	%d3
+	jbeq	31f
+	subq	#1,%d3
+	movel	%a3@+,%d6
+	btst	#0,%d6
+	jbeq	6b
+7:	tstl	%d2
+	jbeq	8f
+	subq	#1,%d2
+	putc	' '
+	jbra	91f
+8:	putc	'\n'
+	movel	#8+1+8+1+1,%d2
+9:	putc	' '
+	dbra	%d2,9b
+	movel	#7,%d2
+91:	putn	%d6
+	jbra	6b
+
+31:	putc	'\n'
+	movel	#8+1,%d2
+32:	putc	' '
+	dbra	%d2,32b
+	jbra	3b
+
+11:	putc	'\n'
+	jbra	1b
+#endif /* MMU 040 Dumping code that's gory and detailed */
 
 	lea	%pc@(SYMBOL_NAME(kernel_pg_dir)),%a5
 	movel	%a5,%a0			/* a0 has the address of the root table ptr */
@@ -2483,6 +2572,11 @@ func_return	mmu_engage
 
 func_start	mmu_get_root_table_entry,%d0/%a1
 
+#if 0
+	dputs	"mmu_get_root_table_entry:"
+	dputn	ARG1
+	dputs	" ="
+#endif
 
 	movel	%pc@(L(kernel_pgdir_ptr)),%a0
 	tstl	%a0
@@ -2535,6 +2629,10 @@ func_start	mmu_get_root_table_entry,%d0/%a1
 	movel	ARG1,%d0
 	lea	%a0@(%d0*4),%a0
 
+#if 0
+	dputn	%a0
+	dputc	'\n'
+#endif
 
 func_return	mmu_get_root_table_entry
 
@@ -2542,6 +2640,12 @@ func_return	mmu_get_root_table_entry
 
 func_start	mmu_get_ptr_table_entry,%d0/%a1
 
+#if 0
+	dputs	"mmu_get_ptr_table_entry:"
+	dputn	ARG1
+	dputn	ARG2
+	dputs	" ="
+#endif
 
 	movel	ARG1,%a0
 	movel	%a0@,%d0
@@ -2586,12 +2690,22 @@ func_start	mmu_get_ptr_table_entry,%d0/%a1
 	movel	ARG2,%d0
 	lea	%a0@(%d0*4),%a0
 
+#if 0
+	dputn	%a0
+	dputc	'\n'
+#endif
 
 func_return	mmu_get_ptr_table_entry
 
 
 func_start	mmu_get_page_table_entry,%d0/%a1
 
+#if 0
+	dputs	"mmu_get_page_table_entry:"
+	dputn	ARG1
+	dputn	ARG2
+	dputs	" ="
+#endif
 
 	movel	ARG1,%a0
 	movel	%a0@,%d0
@@ -2630,6 +2744,10 @@ func_start	mmu_get_page_table_entry,%d0/%a1
 	movel	ARG2,%d0
 	lea	%a0@(%d0*4),%a0
 
+#if 0
+	dputn	%a0
+	dputc	'\n'
+#endif
 
 func_return	mmu_get_page_table_entry
 
@@ -2856,7 +2974,7 @@ func_start	serial_init,%d0/%d1/%a0/%a1
 
 #ifdef MAC_USE_SCC_B
 	/* Initialize channel B */
-#ifndef MAC_USE_SCC_A	    /* Load mac_sccbase only if needed */
+#ifndef MAC_USE_SCC_A	/* Load mac_sccbase only if needed */
 	movel	%pc@(L(mac_sccbase)),%a0
 #endif	/* MAC_USE_SCC_A */
 	lea	%pc@(L(scc_initable_mac)),%a1
@@ -2934,10 +3052,6 @@ func_start	serial_putc,%d0/%d1/%a0/%a1
 #ifdef CONFIG_MAC
 	is_not_mac(5f)
 
-#ifdef CONSOLE
-	console_putc	%d0
-#endif /* CONSOLE */
-
 #ifdef MAC_SERIAL_DEBUG
 
 #ifdef MAC_USE_SCC_A
@@ -2948,7 +3062,7 @@ func_start	serial_putc,%d0/%d1/%a0/%a1
 #endif	/* MAC_USE_SCC_A */
 
 #ifdef MAC_USE_SCC_B
-#ifndef MAC_USE_SCC_A	    /* Load mac_sccbase only if needed */
+#ifndef MAC_USE_SCC_A	/* Load mac_sccbase only if needed */
 	movel	%pc@(L(mac_sccbase)),%a1
 #endif	/* MAC_USE_SCC_A */
 4:	btst	#2,%a1@(mac_scc_cha_b_ctrl_offset)
@@ -3167,14 +3281,18 @@ func_return	putn
  */
 ENTRY(mac_serial_print)
 	moveml	%d0/%a0,%sp@-
+#if 1
 	move	%sr,%sp@-
 	ori	#0x0700,%sr
+#endif
 	movel	%sp@(10),%a0		/* fetch parameter */
 	jra	2f
 1:	serial_putc	%d0
 2:	moveb	%a0@+,%d0
 	jne	1b
+#if 1
 	move	%sp@+,%sr
+#endif
 	moveml	%sp@+,%d0/%a0
 	rts
 #endif /* CONFIG_MAC */
@@ -3328,6 +3446,10 @@ L(console_put_stats):
 	putn	%pc@(L(cputype))
 	putc	'\n'
 
+#ifdef MAC_SERIAL_DEBUG
+	putn	%pc@(L(mac_sccbase))
+	putc	'\n'
+#endif	
 #  if defined(MMU_PRINT)
 	jbsr	mmu_print_machine_cpu_types
 #  endif /* MMU_PRINT */
@@ -3504,7 +3626,7 @@ console_not_home:
 	movel	%a0@(Lconsole_struct_num_columns),%d1
 	cmpl	%d1,%d0
 	jcs	1f
-	putc	'\n'	/* recursion is OK! */
+	console_putc	#'\n'	/* recursion is OK! */
 1:
 	movel	%a0@(Lconsole_struct_cur_row),%d1
 
@@ -3685,6 +3807,38 @@ console_plot_pixel_exit:
 	rts
 #endif /* CONSOLE */
 
+#if 0
+/*
+ * This is some old code lying around.  I don't believe
+ * it's used or important anymore.  My guess is it contributed
+ * to getting to this point, but it's done for now.
+ * It was still in the 2.1.77 head.S, so it's still here.
+ * (And still not used!)
+ */
+L(showtest):
+	moveml	%a0/%d7,%sp@-
+	puts	"A="
+	putn	%a1
+
+	.long	0xf0119f15		| ptestr	#5,%a1@,#7,%a0
+
+	puts	"DA="
+	putn	%a0
+
+	puts	"D="
+	putn	%a0@
+
+	puts	"S="
+	lea	%pc@(L(mmu)),%a0
+	.long	0xf0106200		| pmove		%psr,%a0@
+	clrl	%d7
+	movew	%a0@,%d7
+	putn	%d7
+
+	putc	'\n'
+	moveml	%sp@+,%a0/%d7
+	rts
+#endif	/* 0 */
 
 __INITDATA
 	.align	4
@@ -3743,12 +3897,12 @@ L(kernel_pgdir_ptr):
 L(temp_mmap_mem):
 	.long	0
 
-#if defined(CONFIG_MVME147)
+#if defined (CONFIG_MVME147)
 M147_SCC_CTRL_A = 0xfffe3002
 M147_SCC_DATA_A = 0xfffe3003
 #endif
 
-#if defined(CONFIG_MVME16x)
+#if defined (CONFIG_MVME16x)
 M162_SCC_CTRL_A = 0xfff45005
 M167_CYCAR = 0xfff450ee
 M167_CYIER = 0xfff45011
@@ -3759,7 +3913,7 @@ M167_PCSCCTICR = 0xfff4201e
 M167_PCTPIACKR = 0xfff42025
 #endif
 
-#if defined(CONFIG_BVME6000)
+#if defined (CONFIG_BVME6000)
 BVME_SCC_CTRL_A	= 0xffb0000b
 BVME_SCC_DATA_A	= 0xffb0000f
 #endif
@@ -3781,7 +3935,7 @@ L(mac_sccbase):
 #endif /* MAC_SERIAL_DEBUG */
 #endif
 
-#if defined(CONFIG_APOLLO)
+#if defined (CONFIG_APOLLO)
 LSRB0        = 0x10412
 LTHRB0       = 0x10416
 LCPUCTRL     = 0x10100

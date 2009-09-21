@@ -1,4 +1,4 @@
-/* $Id: isdn_audio.h,v 1.1.1.4 2003/10/14 08:08:10 sparq Exp $
+/* $Id: isdn_audio.h,v 1.1.4.1 2001/11/20 14:19:34 kai Exp $
  *
  * Linux ISDN subsystem, audio conversion and compression (linklevel).
  *
@@ -20,6 +20,7 @@ typedef struct adpcm_state {
 
 typedef struct dtmf_state {
 	char last;
+	char llast;
 	int idx;
 	int buf[DTMF_NPOINTS];
 } dtmf_state;

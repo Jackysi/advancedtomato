@@ -165,65 +165,33 @@ static int awc_pcmcia_close(struct net_device *dev)
 	return ret;
 }
 
-static int netdev_ethtool_ioctl (struct net_device *dev, void *useraddr)
+static void netdev_get_drvinfo(struct net_device *dev,
+			       struct ethtool_drvinfo *info)
 {
-	u32 ethcmd;
-
-	/* dev_ioctl() in ../../net/core/dev.c has already checked
-	   capable(CAP_NET_ADMIN), so don't bother with that here.  */
-
-	if (get_user(ethcmd, (u32 *)useraddr))
-		return -EFAULT;
-
-	switch (ethcmd) {
-
-	case ETHTOOL_GDRVINFO: {
-		struct ethtool_drvinfo info = { ETHTOOL_GDRVINFO };
-		strcpy (info.driver, DRV_NAME);
-		strcpy (info.version, DRV_VERSION);
-		sprintf(info.bus_info, "PCMCIA 0x%lx", dev->base_addr);
-		if (copy_to_user (useraddr, &info, sizeof (info)))
-			return -EFAULT;
-		return 0;
-	}
+	strcpy(info->driver, DRV_NAME);
+	strcpy(info->version, DRV_VERSION);
+	sprintf(info->bus_info, "PCMCIA 0x%lx", dev->base_addr);
+}
 
 #ifdef PCMCIA_DEBUG
-	/* get message-level */
-	case ETHTOOL_GMSGLVL: {
-		struct ethtool_value edata = {ETHTOOL_GMSGLVL};
-		edata.data = pc_debug;
-		if (copy_to_user(useraddr, &edata, sizeof(edata)))
-			return -EFAULT;
-		return 0;
-	}
-	/* set message-level */
-	case ETHTOOL_SMSGLVL: {
-		struct ethtool_value edata;
-		if (copy_from_user(&edata, useraddr, sizeof(edata)))
-			return -EFAULT;
-		pc_debug = edata.data;
-		return 0;
-	}
-#endif
-
-	default:
-		break;
-	}
-
-	return -EOPNOTSUPP;
-}
-
-static int awc_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
+static u32 netdev_get_msglevel(struct net_device *dev)
 {
-	switch (cmd) {
-	case SIOCETHTOOL:
-		return netdev_ethtool_ioctl(dev, (void *) rq->ifr_data);
-
-	default:
-		return -EOPNOTSUPP;
-	}
-	return 0;
+	return pc_debug;
 }
+
+static void netdev_set_msglevel(struct net_device *dev, u32 level)
+{
+	pc_debug = level;
+}
+#endif /* PCMCIA_DEBUG */
+
+static struct ethtool_ops netdev_ethtool_ops = {
+	.get_drvinfo		= netdev_get_drvinfo,
+#ifdef PCMCIA_DEBUG
+	.get_msglevel		= netdev_get_msglevel,
+	.set_msglevel		= netdev_set_msglevel,
+#endif /* PCMCIA_DEBUG */
+};
 
 /*
 	awc_attach() creates an "instance" of the driver, allocating
@@ -282,7 +250,7 @@ static dev_link_t *awc_attach(void)
 	};
 	memset(dev,0,sizeof(struct net_device));
 	dev->priv = kmalloc(sizeof(struct awc_private), GFP_KERNEL);
-	if (!dev->priv ) {printk(KERN_CRIT "out of mem on dev priv alloc \n"); return NULL;};
+	if (!dev->priv ) {printk(KERN_CRIT "out of mem on dev priv alloc \n"); kfree(dev); return NULL;};
 	memset(dev->priv,0,sizeof(struct awc_private));
 	
 //	link->dev->minor = dev->minor;
@@ -296,7 +264,7 @@ static dev_link_t *awc_attach(void)
 //	dev->set_config = 		&awc_config_misiganes,aga mitte awc_config;
 	dev->get_stats = 		&awc_get_stats;
 //	dev->set_multicast_list = 	&awc_set_multicast_list;
-	dev->do_ioctl =			&awc_ioctl;
+	SET_ETHTOOL_OPS(dev, &netdev_ethtool_ops);
 	
 	strcpy(dev->name, ((struct awc_private *)dev->priv)->node.dev_name);
 

@@ -1,6 +1,4 @@
 /*
- * BK Id: %F% %I% %G% %U% %#%
- *
  * Originally adapted by Gary Thomas.  Much additional work by
  * Cort Dougan <cort@fsmlabs.com>.  On top of that still more work by
  * Dan Malek <dmalek@jlc.net>.
@@ -18,6 +16,7 @@
 #include <linux/types.h>
 #include <linux/elf.h>
 #include <asm/bootinfo.h>
+#include <asm/ibm4xx.h>
 #include <asm/mmu.h>
 #include <asm/mpc8xx.h>
 #include <asm/mpc8260.h>
@@ -27,6 +26,10 @@
 
 #include "nonstdio.h"
 #include "zlib.h"
+
+#if defined(CONFIG_SERIAL_CONSOLE) || defined(CONFIG_VGA_CONSOLE)
+#define INTERACTIVE_CONSOLE	1
+#endif
 
 /* The linker tells us where the image is. */
 extern char __image_begin, __image_end;
@@ -76,20 +79,31 @@ extern void flush_instruction_cache(void);
 extern void gunzip(void *, int, unsigned char *, int *);
 extern void embed_config(bd_t **bp);
 
-unsigned long
-decompress_kernel(unsigned long load_addr, int num_words, unsigned long cksum, bd_t *bp)
+/* Weak function for boards which don't need to build the
+ * board info struct because they are using PPCBoot/U-Boot.
+ */
+void __attribute__ ((weak))
+embed_config(bd_t **bdp)
 {
-	char *cp, ch;
-	int timer = 0, zimage_size;
+}
+
+unsigned long
+load_kernel(unsigned long load_addr, int num_words, unsigned long cksum,
+		bd_t *bp)
+{
+#ifdef INTERACTIVE_CONSOLE
+	int timer = 0;
+	char ch;
+#endif
+	char *cp;
+	int zimage_size;
 	unsigned long initrd_size;
 
 	/* First, capture the embedded board information.  Then
 	 * initialize the serial console port.
 	 */
 	embed_config(&bp);
-#ifdef CONFIG_SERIAL_CONSOLE
 	com_port = serial_init(0, bp);
-#endif
 
 	/* copy board data */
 	if (bp)
@@ -172,7 +186,7 @@ decompress_kernel(unsigned long load_addr, int num_words, unsigned long cksum, b
 #endif
 	while ( *cp )
 		putc(*cp++);
-#if defined(CONFIG_SERIAL_CONSOLE) || defined(CONFIG_VGA_CONSOLE)
+#ifdef INTERACTIVE_CONSOLE
 	/*
 	 * If they have a console, allow them to edit the command line.
 	 * Otherwise, don't bother wasting the five seconds.
@@ -209,9 +223,30 @@ decompress_kernel(unsigned long load_addr, int num_words, unsigned long cksum, b
 	puts("done.\n");
 	{
 		struct bi_record *rec;
+		unsigned long initrd_loc;
+		unsigned long rec_loc = _ALIGN((unsigned long)(zimage_size) +
+				(1 << 20) - 1, (1 << 20));
+		rec = (struct bi_record *)rec_loc;
 
-		rec = (struct bi_record *)_ALIGN((unsigned long)zimage_size +
-				(1 << 20) - 1,(1 << 20));
+		/* We need to make sure that the initrd and bi_recs do not
+		 * overlap. */
+		if ( initrd_size ) {
+			initrd_loc = (unsigned long)(&__ramdisk_begin);
+			/* If the bi_recs are in the middle of the current
+			 * initrd, move the initrd to the next MB
+			 * boundary. */
+			if ((rec_loc > initrd_loc) &&
+					((initrd_loc + initrd_size)
+					 > rec_loc)) {
+				initrd_loc = _ALIGN((unsigned long)(zimage_size)
+						+ (2 << 20) - 1, (2 << 20));
+			 	memmove((void *)initrd_loc, &__ramdisk_begin,
+					 initrd_size);
+		         	puts("initrd moved:  "); puthex(initrd_loc);
+			 	puts(" "); puthex(initrd_loc + initrd_size);
+			 	puts("\n");
+			}
+		}
 
 		rec->tag = BI_FIRST;
 		rec->size = sizeof(struct bi_record);
@@ -224,7 +259,7 @@ decompress_kernel(unsigned long load_addr, int num_words, unsigned long cksum, b
 
 		if ( initrd_size ) {
 			rec->tag = BI_INITRD;
-			rec->data[0] = (unsigned long)(&__ramdisk_begin);
+			rec->data[0] = initrd_loc;
 			rec->data[1] = initrd_size;
 			rec->size = sizeof(struct bi_record) + 2 *
 				sizeof(unsigned long);

@@ -3,7 +3,7 @@
  * related connection to a port in the reply direction will be
  * expected. This connection may be mapped to a different port.
  *
- * Copyright 2005, Broadcom Corporation
+ * Copyright 2004, Broadcom Corporation
  * All Rights Reserved.
  * 
  * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
@@ -11,7 +11,7 @@
  * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
  * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
  *
- * $Id: ip_autofw.c,v 1.1.1.7 2005/03/07 07:31:10 kanki Exp $
+ * $Id$
  */
 
 #include <linux/config.h>

@@ -97,9 +97,9 @@
 
 #define MID_PERFORMANCE
 
-#if   defined(LOW_PERFORMANCE)
+#if   defined( LOW_PERFORMANCE )
  static int isa0=7,isa1=7,csr80=0x0c10;
-#elif defined(MID_PERFORMANCE)
+#elif defined( MID_PERFORMANCE )
  static int isa0=5,isa1=5,csr80=0x2810;
 #else	/* high performance */
  static int isa0=4,isa1=4,csr80=0x0017;
@@ -120,11 +120,21 @@
 /*
  * buffer configuration
  */
+#if 1
 #define RMDNUM 16
 #define RMDNUMMASK 0x80000000
+#else
+#define RMDNUM 8
+#define RMDNUMMASK 0x60000000 /* log2(RMDNUM)<<29 */
+#endif
 
+#if 0
+#define TMDNUM 1
+#define TMDNUMMASK 0x00000000
+#else
 #define TMDNUM 4
 #define TMDNUMMASK 0x40000000 /* log2(TMDNUM)<<29 */
+#endif
 
 /* slightly oversized */
 #define R_BUF_SIZE 1544
@@ -151,9 +161,21 @@
 #define INIT_RING_BEFORE_START	0x1
 #define FULL_RESET_ON_ERROR	0x2
 
+#if 0
+#define writereg(val,reg) {outw(reg,PORT+L_ADDRREG);inw(PORT+L_ADDRREG); \
+                           outw(val,PORT+L_DATAREG);inw(PORT+L_DATAREG);}
+#define readreg(reg) (outw(reg,PORT+L_ADDRREG),inw(PORT+L_ADDRREG),\
+                       inw(PORT+L_DATAREG))
+#if 0
+#define writedatareg(val) {outw(val,PORT+L_DATAREG);inw(PORT+L_DATAREG);}
+#else
+#define writedatareg(val) {  writereg(val,CSR0); }
+#endif
+#else
 #define writereg(val,reg) {outw(reg,PORT+L_ADDRREG);outw(val,PORT+L_DATAREG);}
 #define readreg(reg) (outw(reg,PORT+L_ADDRREG),inw(PORT+L_DATAREG))
 #define writedatareg(val) { writereg(val,CSR0); }
+#endif
 
 static unsigned char ni_vendor[] = { 0x02,0x07,0x01 };
 
@@ -797,7 +819,11 @@ static void ni65_interrupt(int irq, void * dev_id, struct pt_regs * regs)
 	while(--bcnt) {
 		csr0 = inw(PORT+L_DATAREG);
 
+#if 0
+		writedatareg( (csr0 & CSR0_CLRALL) ); /* ack interrupts, disable int. */
+#else
 		writedatareg( (csr0 & CSR0_CLRALL) | CSR0_INEA ); /* ack interrupts, interrupts enabled */
+#endif
 
 		if(!(csr0 & (CSR0_ERR | CSR0_RINT | CSR0_TINT)))
 			break;
@@ -903,6 +929,10 @@ static void ni65_xmit_intr(struct net_device *dev,int csr0)
 
 		if(tmdstat & XMIT_ERR)
 		{
+#if 0
+			if(tmdp->status2 & XMIT_TDRMASK && debuglevel > 3)
+				printk(KERN_ERR "%s: tdr-problems (e.g. no resistor)\n",dev->name);
+#endif
 		 /* checking some errors */
 			if(tmdp->status2 & XMIT_RTRY)
 				p->stats.tx_aborted_errors++;
@@ -1083,6 +1113,8 @@ static int ni65_send_packet(struct sk_buff *skb, struct net_device *dev)
 
 			memcpy((char *) p->tmdbounce[p->tmdbouncenum] ,(char *)skb->data,
 							 (skb->len > T_BUF_SIZE) ? T_BUF_SIZE : skb->len);
+			if(len > skb->len)
+				memset((char *)p->tmdbounce[p->tmdbouncenum]+skb->len, 0, len-skb->len);
 			dev_kfree_skb (skb);
 
 			save_flags(flags);
@@ -1126,6 +1158,16 @@ static int ni65_send_packet(struct sk_buff *skb, struct net_device *dev)
 static struct net_device_stats *ni65_get_stats(struct net_device *dev)
 {
 
+#if 0
+	int i;
+	struct priv *p = (struct priv *) dev->priv;
+	for(i=0;i<RMDNUM;i++)
+	{
+		struct rmd *rmdp = p->rmdhead + ((p->rmdnum + i) & (RMDNUM-1));
+		printk("%02x ",rmdp->u.s.status);
+	}
+	printk("\n");
+#endif
 
 	return &((struct priv *) dev->priv)->stats;
 }

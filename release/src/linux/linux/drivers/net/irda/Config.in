@@ -28,6 +28,7 @@ comment 'FIR device drivers'
 dep_tristate 'IrDA USB dongles (Experimental)' CONFIG_USB_IRDA $CONFIG_IRDA $CONFIG_USB $CONFIG_EXPERIMENTAL
 dep_tristate 'NSC PC87108/PC87338' CONFIG_NSC_FIR  $CONFIG_IRDA
 dep_tristate 'Winbond W83977AF (IR)' CONFIG_WINBOND_FIR $CONFIG_IRDA
+dep_tristate 'Toshiba Type-O IR Port (old driver)' CONFIG_TOSHIBA_OLD $CONFIG_IRDA
 dep_tristate 'Toshiba Type-O IR Port' CONFIG_TOSHIBA_FIR $CONFIG_IRDA
 if [ "$CONFIG_MIPS" = "y" ]; then
    dep_tristate 'Alchemy Au1000 SIR/FIR' CONFIG_AU1000_FIR $CONFIG_IRDA
@@ -36,6 +37,8 @@ if [ "$CONFIG_EXPERIMENTAL" != "n" ]; then
 dep_tristate 'SMC IrCC (Experimental)' CONFIG_SMC_IRCC_FIR $CONFIG_IRDA
 dep_tristate 'ALi M5123 FIR (Experimental)' CONFIG_ALI_FIR $CONFIG_IRDA
 dep_tristate 'VLSI 82C147 SIR/MIR/FIR (Experimental)' CONFIG_VLSI_FIR $CONFIG_IRDA
+dep_tristate 'VIA IrCC (Experimental)' CONFIG_VIA_IRCC_FIR $CONFIG_IRDA
+dep_tristate 'SigmaTel STIr4200 bridge (Experimental)' CONFIG_SIGMATEL_FIR $CONFIG_IRDA
 fi
 if [ "$CONFIG_ARCH_SA1100" = "y" ]; then
    dep_tristate 'SA1100 Internal IR' CONFIG_SA1100_FIR $CONFIG_IRDA

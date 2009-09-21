@@ -1,7 +1,7 @@
 /*
  * drivers/video/clgenfb.c - driver for Cirrus Logic chipsets
  *
- * Copyright 1999-2001 Jeff Garzik <jgarzik@mandrakesoft.com>
+ * Copyright 1999-2001 Jeff Garzik <jgarzik@pobox.com>
  *
  * Contributors (thanks, all!)
  *
@@ -14,6 +14,9 @@
  *
  *	Lars Hecking:
  *	Amiga updates and testing.
+ *
+ *	Cliff Matthews <ctm@ardi.com>:
+ *	16bpp fix for CL-GD7548 (uses info from XFree86 4.2.0 source)
  *
  * Original clgenfb author:  Frank Neumann
  *
@@ -272,7 +275,7 @@ static const struct clgen_board_info_rec {
  * order in which we do it */
 static const struct {
 	clgen_board_t btype;
-	const char *nameOverride; 
+	const char *nameOverride; /* XXX unused... for now */
 	unsigned short device;
 } clgen_pci_probe_list[] __initdata = {
 	{ BT_ALPINE, NULL, PCI_DEVICE_ID_CIRRUS_5436 },
@@ -403,6 +406,9 @@ struct clgenfb_info {
 
 #ifdef CONFIG_PCI
 	struct pci_dev *pdev;
+#define IS_7548(x) ((x)->pdev->device == PCI_DEVICE_ID_CIRRUS_7548)
+#else
+#define IS_7548(x) (FALSE)
 #endif
 };
 
@@ -612,6 +618,11 @@ static void WSFR2 (struct clgenfb_info *fb_info, unsigned char val);
 static void WClut (struct clgenfb_info *fb_info, unsigned char regnum, unsigned char red,
 		   unsigned char green,
 		   unsigned char blue);
+#if 0
+static void RClut (struct clgenfb_info *fb_info, unsigned char regnum, unsigned char *red,
+		   unsigned char *green,
+		   unsigned char *blue);
+#endif
 static void clgen_WaitBLT (caddr_t regbase);
 static void clgen_BitBLT (caddr_t regbase, u_short curx, u_short cury,
 			  u_short destx, u_short desty,
@@ -706,6 +717,7 @@ static int clgen_encode_fix (struct fb_fix_screeninfo *fix, const void *par,
 	fix->ywrapstep = 0;
 	fix->line_length = _par->line_length;
 
+	/* FIXME: map region at 0xB8000 if available, fill in here */
 	fix->mmio_start = 0;
 	fix->mmio_len = 0;
 	fix->accel = FB_ACCEL_NONE;
@@ -859,7 +871,9 @@ static int clgen_decode_var (const struct fb_var_screeninfo *var, void *par,
 		printk ("clgen: virtual resolution set to maximum of %dx%d\n",
 			_par->var.xres_virtual, _par->var.yres_virtual);
 	} else if (_par->var.xres_virtual == -1) {
+		/* FIXME: maximize X virtual resolution only */
 	} else if (_par->var.yres_virtual == -1) {
+		/* FIXME: maximize Y virtual resolution only */
 	}
 	if (_par->var.xoffset < 0)
 		_par->var.xoffset = 0;
@@ -962,7 +976,10 @@ static int clgen_decode_var (const struct fb_var_screeninfo *var, void *par,
 
 	DPRINTK ("desired pixclock: %ld kHz\n", freq);
 
-	maxclock = clgen_board_info[fb_info->btype].maxclock;
+	if (IS_7548(fb_info))
+		maxclock = 80100;
+	else
+		maxclock = clgen_board_info[fb_info->btype].maxclock;
 	_par->multiplexing = 0;
 
 	/* If the frequency is greater than we can support, we might be able
@@ -980,6 +997,17 @@ static int clgen_decode_var (const struct fb_var_screeninfo *var, void *par,
 			return -EINVAL;
 		}
 	}
+#if 0
+	/* TODO: If we have a 1MB 5434, we need to put ourselves in a mode where
+	 * the VCLK is double the pixel clock. */
+	switch (var->bits_per_pixel) {
+	case 16:
+	case 32:
+		if (_par->HorizRes <= 800)
+			freq /= 2;	/* Xbh has this type of clock for 32-bit */
+		break;
+	}
+#endif
 
 	bestclock (freq, &_par->freq, &_par->nom, &_par->den, &_par->div,
 		   maxclock);
@@ -1459,10 +1487,17 @@ static void clgen_set_par (const void *par, struct fb_info_gen *info)
 
 		case BT_ALPINE:
 			DPRINTK (" (for GD543x)\n");
-			if (_par->HorizRes >= 1024)
-				vga_wseq (fb_info->regs, CL_SEQR7, 0xa7);
-			else
-				vga_wseq (fb_info->regs, CL_SEQR7, 0xa3);
+			if (IS_7548(fb_info)) {
+				vga_wseq (fb_info->regs, CL_SEQR7, 
+					  (vga_rseq (fb_info->regs, CL_SEQR7) & 0xE0)
+					  | 0x17);
+				WHDR (fb_info, 0xC1);
+			} else {
+				if (_par->HorizRes >= 1024)
+					vga_wseq (fb_info->regs, CL_SEQR7, 0xa7);
+				else
+					vga_wseq (fb_info->regs, CL_SEQR7, 0xa3);
+			}	
 			clgen_set_mclk (fb_info, _par->mclk, _par->divMCLK);
 			break;
 
@@ -1488,6 +1523,7 @@ static void clgen_set_par (const void *par, struct fb_info_gen *info)
 #ifdef CONFIG_PCI
 		WHDR (fb_info, 0xc0);	/* Copy Xbh */
 #elif defined(CONFIG_ZORRO)
+		/* FIXME: CONFIG_PCI and CONFIG_ZORRO may be defined both */
 		WHDR (fb_info, 0xa0);	/* hidden dac reg: nothing special */
 #endif
 		vga_wseq (fb_info->regs, VGA_SEQ_MEMORY_MODE, 0x0a);	/* memory mode: chain4, ext. memory */
@@ -1572,6 +1608,11 @@ static void clgen_set_par (const void *par, struct fb_info_gen *info)
 	else {
 		printk (KERN_ERR "clgen: What's this?? requested color depth == %d.\n",
 			_par->var.bits_per_pixel);
+	}
+
+	if (IS_7548(fb_info)) {
+		vga_wseq (fb_info->regs, CL_SEQR2D, 
+			vga_rseq (fb_info->regs, CL_SEQR2D) | 0xC0);
 	}
 
 	vga_wcrt (fb_info->regs, VGA_CRTC_OFFSET, offset & 0xff);
@@ -2095,8 +2136,8 @@ static void __init init_vgachip (struct clgenfb_info *fb_info)
 
 static void switch_monitor (struct clgenfb_info *fb_info, int on)
 {
-#ifdef CONFIG_ZORRO     /* only works on Zorro boards */
-	static int IsOn = 0;	
+#ifdef CONFIG_ZORRO /* only works on Zorro boards */
+	static int IsOn = 0;	/* XXX not ok for multiple boards */
 
 	DPRINTK ("ENTER\n");
 
@@ -2487,6 +2528,9 @@ static void __exit clgen_pci_unmap (struct clgenfb_info *info)
 	iounmap (info->fbmem);
 	release_mem_region(info->fbmem_phys, info->size);
 
+#if 0 /* if system didn't claim this region, we would... */
+	release_mem_region(0xA0000, 65535);
+#endif
 
 	if (release_io_ports)
 		release_region(0x3C0, 32);
@@ -2503,7 +2547,7 @@ static int __init clgen_pci_setup (struct clgenfb_info *info,
 
 	pdev = clgen_pci_dev_get (btype);
 	if (!pdev) {
-		printk (KERN_ERR " Couldn't find PCI device\n");
+		printk (KERN_INFO "clgenfb: couldn't find Cirrus Logic PCI device\n");
 		DPRINTK ("EXIT, returning 1\n");
 		return 1;
 	}
@@ -2532,7 +2576,7 @@ static int __init clgen_pci_setup (struct clgenfb_info *info,
 		/* PReP dies if we ioremap the IO registers, but it works w/out... */
 		info->regs = (char *) info->fbregs_phys;
 	} else
-		info->regs = 0;		
+		info->regs = 0;		/* FIXME: this forces VGA.  alternatives? */
 
 	if (*btype == BT_GD5480) {
 		board_size = 32 * MB_;
@@ -2545,6 +2589,14 @@ static int __init clgen_pci_setup (struct clgenfb_info *info,
 		       board_addr);
 		return -1;
 	}
+#if 0 /* if the system didn't claim this region, we would... */
+	if (!request_mem_region(0xA0000, 65535, "clgenfb")) {
+		printk(KERN_ERR "clgen: cannot reserve region 0x%lx, abort\n",
+		       0xA0000L);
+		release_mem_region(board_addr, board_size);
+		return -1;
+	}
+#endif
 	if (request_region(0x3C0, 32, "clgenfb"))
 		release_io_ports = 1;
 
@@ -2694,7 +2746,7 @@ int __init clgenfb_init(void)
 
 	printk (KERN_INFO "clgen: Driver for Cirrus Logic based graphic boards, v" CLGEN_VERSION "\n");
 
-	fb_info = &boards[0];	
+	fb_info = &boards[0];	/* FIXME support multiple boards ... */
 
 #ifdef CONFIG_PCI
 	if (clgen_pci_setup (fb_info, &btype)) { /* Also does OF setup */
@@ -2703,6 +2755,7 @@ int __init clgenfb_init(void)
 	}
 
 #elif defined(CONFIG_ZORRO)
+	/* FIXME: CONFIG_PCI and CONFIG_ZORRO may both be defined */
 	if (clgen_zorro_setup (fb_info, &btype)) {
 		DPRINTK ("EXIT, returning -ENXIO\n");
 		return -ENXIO;
@@ -2852,7 +2905,7 @@ int __init clgenfb_setup(char *options) {
      *  Modularization
      */
 
-MODULE_AUTHOR("Copyright 1999,2000 Jeff Garzik <jgarzik@mandrakesoft.com>");
+MODULE_AUTHOR("Copyright 1999,2000 Jeff Garzik <jgarzik@pobox.com>");
 MODULE_DESCRIPTION("Accelerated FBDev driver for Cirrus Logic chips");
 MODULE_LICENSE("GPL");
 
@@ -2860,7 +2913,7 @@ static void __exit clgenfb_exit (void)
 {
 	DPRINTK ("ENTER\n");
 
-	clgenfb_cleanup (&boards[0]);	
+	clgenfb_cleanup (&boards[0]);	/* FIXME: support multiple boards */
 
 	DPRINTK ("EXIT\n");
 }
@@ -3026,6 +3079,29 @@ static void WClut (struct clgenfb_info *fb_info, unsigned char regnum, unsigned 
 }
 
 
+#if 0
+/*** RClut - read CLUT entry (range 0..63) ***/
+static void RClut (struct clgenfb_info *fb_info, unsigned char regnum, unsigned char *red,
+	    unsigned char *green, unsigned char *blue)
+{
+	unsigned int data = VGA_PEL_D;
+
+	vga_w (fb_info->regs, VGA_PEL_IR, regnum);
+
+	if (fb_info->btype == BT_PICASSO || fb_info->btype == BT_PICASSO4 ||
+	    fb_info->btype == BT_ALPINE || fb_info->btype == BT_GD5480) {
+		if (fb_info->btype == BT_PICASSO)
+			data += 0xfff;
+		*red = vga_r (fb_info->regs, data);
+		*green = vga_r (fb_info->regs, data);
+		*blue = vga_r (fb_info->regs, data);
+	} else {
+		*blue = vga_r (fb_info->regs, data);
+		*green = vga_r (fb_info->regs, data);
+		*red = vga_r (fb_info->regs, data);
+	}
+}
+#endif
 
 
 /*******************************************************************
@@ -3034,6 +3110,7 @@ static void WClut (struct clgenfb_info *fb_info, unsigned char regnum, unsigned 
 	Wait for the BitBLT engine to complete a possible earlier job
 *********************************************************************/
 
+/* FIXME: use interrupts instead */
 static inline void clgen_WaitBLT (caddr_t regbase)
 {
 	/* now busy-wait until we're done */

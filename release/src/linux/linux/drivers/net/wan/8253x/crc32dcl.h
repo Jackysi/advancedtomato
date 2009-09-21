@@ -29,7 +29,6 @@
 /****************************************************/
 
 extern void	fn_init_crc_table(void);
-extern unsigned int	fn_calc_memory_chunk_crc32(void *p, unsigned int n_bytes, unsigned int crc);
 extern unsigned int	fn_calc_memory_crc32(void *p, unsigned int n_bytes);
 extern unsigned int	fn_check_memory_crc32(void *p, unsigned int n_bytes, unsigned int crc);
 

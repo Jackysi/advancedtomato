@@ -35,7 +35,7 @@
 #define k_poly		    ((unsigned int)(0xedb88320))
 #define k_crc_table_size    (256)
 
-#if defined(AMD29K)
+#if defined (AMD29K)
 pragma Code ("rkernel");
 pragma Off(cross_jump);
 #endif

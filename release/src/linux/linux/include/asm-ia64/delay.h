@@ -82,4 +82,14 @@ udelay (unsigned long usecs)
 		/* skip */;
 }
 
+static __inline__ void
+ndelay (unsigned long nsecs)
+{
+	unsigned long start = ia64_get_itc();
+	unsigned long cycles = nsecs*local_cpu_data->cyc_per_usec/1000;
+
+	while (ia64_get_itc() - start < cycles)
+		/* skip */;
+}
+
 #endif /* _ASM_IA64_DELAY_H */

@@ -31,7 +31,7 @@
  * provisions above, a recipient may use your version of this file
  * under either the RHEPL or the GPL.
  *
- * $Id: nodelist.c,v 1.1.1.4 2003/10/14 08:09:00 sparq Exp $
+ * $Id: nodelist.c,v 1.30.2.6 2003/02/24 21:49:33 dwmw2 Exp $
  *
  */
 
@@ -114,6 +114,7 @@ int jffs2_get_inode_nodes(struct jffs2_sb_info *c, ino_t ino, struct jffs2_inode
 	for (ref = f->inocache->nodes; ref && ref->next_in_ino; ref = ref->next_in_ino) {
 		/* Work out whether it's a data node or a dirent node */
 		if (ref->flash_offset & 1) {
+			/* FIXME: On NAND flash we may need to read these */
 			D1(printk(KERN_DEBUG "node at 0x%08x is obsoleted. Ignoring.\n", ref->flash_offset &~3));
 			continue;
 		}
@@ -265,7 +266,7 @@ int jffs2_get_inode_nodes(struct jffs2_sb_info *c, ino_t ino, struct jffs2_inode
 	return err;
 }
 
-struct jffs2_inode_cache *jffs2_get_ino_cache(struct jffs2_sb_info *c, int ino)
+struct jffs2_inode_cache *jffs2_get_ino_cache(struct jffs2_sb_info *c, uint32_t ino)
 {
 	struct jffs2_inode_cache *ret;
 

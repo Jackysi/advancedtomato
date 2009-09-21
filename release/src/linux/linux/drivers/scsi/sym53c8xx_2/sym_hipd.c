@@ -58,6 +58,9 @@
 #include "sym_glue.h"
 #endif
 
+#if 0
+#define SYM_DEBUG_GENERIC_SUPPORT
+#endif
 
 /*
  *  Needed function prototypes.
@@ -218,7 +221,7 @@ static void sym_chip_reset (hcb_p np)
  */
 static void sym_soft_reset (hcb_p np)
 {
-	u_char istat;
+	u_char istat = 0;
 	int i;
 
 	if (!(np->features & FE_ISTAT1) || !(INB (nc_istat1) & SCRUN))
@@ -231,7 +234,7 @@ static void sym_soft_reset (hcb_p np)
 			INW (nc_sist);
 		}
 		else if (istat & DIP) {
-			if (INB (nc_dstat) & ABRT);
+			if (INB (nc_dstat) & ABRT)
 				break;
 		}
 		UDELAY(5);
@@ -516,7 +519,11 @@ static int sym_getpciclock (hcb_p np)
 	 *  For now, we only need to know about the actual 
 	 *  PCI BUS clock frequency for C1010-66 chips.
 	 */
+#if 1
 	if (np->features & FE_66MHZ) {
+#else
+	if (1) {
+#endif
 		OUTB (nc_stest1, SCLK);	/* Use the PCI clock as SCSI clock */
 		f = (int) sym_getfreq (np);
 		OUTB (nc_stest1, 0);
@@ -570,6 +577,7 @@ sym_getsync(hcb_p np, u_char dt, u_char sfac, u_char *divp, u_char *fakp)
 	 *  to 5 Mega-transfers per second and may result in
 	 *  using higher clock divisors.
 	 */
+#if 1
 	if ((np->features & (FE_C10|FE_U3EN)) == FE_C10) {
 		/*
 		 *  Look for the lowest clock divisor that allows an 
@@ -590,6 +598,7 @@ sym_getsync(hcb_p np, u_char dt, u_char sfac, u_char *divp, u_char *fakp)
 		*fakp = fak;
 		return ret;
 	}
+#endif
 
 	/*
 	 *  Look for the greatest clock divisor that allows an 
@@ -895,7 +904,11 @@ static int sym_prepare_setting(hcb_p np, struct sym_nvram *nvram)
 		np->rv_dmode	|= BOF;		/* Burst Opcode Fetch */
 	if (np->features & FE_ERMP)
 		np->rv_dmode	|= ERMP;	/* Enable Read Multiple */
+#if 1
 	if ((np->features & FE_PFEN) && !np->ram_ba)
+#else
+	if (np->features & FE_PFEN)
+#endif
 		np->rv_dcntl	|= PFEN;	/* Prefetch Enable */
 	if (np->features & FE_CLSE)
 		np->rv_dcntl	|= CLSE;	/* Cache Line Size Enable */
@@ -1089,7 +1102,11 @@ static int sym_regtest (hcb_p np)
 	data = 0xffffffff;
 	OUTL_OFF(offsetof(struct sym_reg, nc_dstat), data);
 	data = INL_OFF(offsetof(struct sym_reg, nc_dstat));
+#if 1
 	if (data == 0xffffffff) {
+#else
+	if ((data & 0xe2f0fffd) != 0x02000080) {
+#endif
 		printf ("CACHE TEST FAILED: reg dstat-sstat2 readback %x.\n",
 			(unsigned) data);
 		return (0x10);
@@ -1142,6 +1159,7 @@ restart_test:
 	 *  Check for fatal DMA errors.
 	 */
 	dstat = INB (nc_dstat);
+#if 1	/* Band aiding for broken hardwares that fail PCI parity */
 	if ((dstat & MDPE) && (np->rv_ctest4 & MPEE)) {
 		printf ("%s: PCI DATA PARITY ERROR DETECTED - "
 			"DISABLING MASTER DATA PARITY CHECKING.\n",
@@ -1149,6 +1167,7 @@ restart_test:
 		np->rv_ctest4 &= ~MPEE;
 		goto restart_test;
 	}
+#endif
 	if (dstat & (MDPE|BF|IID)) {
 		printf ("CACHE TEST FAILED: DMA error (dstat=0x%02x).", dstat);
 		return (0x80);
@@ -1956,6 +1975,10 @@ static void sym_settrans(hcb_p np, int target, u_char dt, u_char ofs,
 	wval = tp->head.wval;
 	uval = tp->head.uval;
 
+#if 0
+	printf("XXXX sval=%x wval=%x uval=%x (%x)\n", 
+		sval, wval, uval, np->rv_scntl3);
+#endif
 	/*
 	 *  Set the offset.
 	 */
@@ -2319,7 +2342,11 @@ static void sym_int_par (hcb_p np, u_short sist)
 		}
 	}
 	else if (phase == 7)	/* We definitely cannot handle parity errors */
+#if 1				/* in message-in phase due to the relection  */
 		goto reset_all; /* path and various message anticipations.   */
+#else
+		OUTL_DSP (SCRIPTA_BA (np, clrack));
+#endif
 	else
 		OUTL_DSP (SCRIPTA_BA (np, dispatch));
 	return;
@@ -2639,6 +2666,11 @@ unexpected_phase:
 	case 2:	/* COMMAND phase */
 		nxtdsp = SCRIPTA_BA (np, dispatch);
 		break;
+#if 0
+	case 3:	/* STATUS  phase */
+		nxtdsp = SCRIPTA_BA (np, dispatch);
+		break;
+#endif
 	case 6:	/* MSG OUT phase */
 		/*
 		 *  If the device may want to use untagged when we want 
@@ -2661,6 +2693,11 @@ unexpected_phase:
 			nxtdsp = SCRIPTB_BA (np, nego_bad_phase);
 		}
 		break;
+#if 0
+	case 7:	/* MSG IN  phase */
+		nxtdsp = SCRIPTA_BA (np, clrack);
+		break;
+#endif
 	}
 
 	if (nxtdsp) {
@@ -2763,6 +2800,10 @@ void sym_interrupt (hcb_p np)
 	if (!(istat & (SIP|DIP)))
 		return;
 
+#if 0	/* We should never get this one */
+	if (istat & CABRT)
+		OUTB (nc_istat, CABRT);
+#endif
 
 	/*
 	 *  PAR and MA interrupts may occur at the same time,
@@ -3207,6 +3248,9 @@ int sym_clear_tasks(hcb_p np, int cam_status, int target, int lun, int task)
 		if (sym_get_cam_status(ccb) != CAM_CMD_TIMEOUT)
 			sym_set_cam_status(ccb, cam_status);
 		++i;
+#if 0
+printf("XXXX TASK @%p CLEARED\n", cp);
+#endif
 	}
 	return i;
 }
@@ -4347,11 +4391,15 @@ static void sym_nego_default(hcb_p np, tcb_p tp, ccb_p cp)
 {
 	switch (cp->nego_status) {
 	case NS_PPR:
+#if 0
+		sym_setpprot (np, cp->target, 0, 0, 0, 0, 0, 0);
+#else
 		tp->tinfo.goal.options = 0;
 		if (tp->tinfo.goal.period < np->minsync)
 			tp->tinfo.goal.period = np->minsync;
 		if (tp->tinfo.goal.offset > np->maxoffs)
 			tp->tinfo.goal.offset = np->maxoffs;
+#endif
 		break;
 	case NS_SYNC:
 		sym_setsync (np, cp->target, 0, 0, 0, 0);
@@ -4593,7 +4641,10 @@ static void sym_int_sir (hcb_p np)
 		case M_IGN_RESIDUE:
 			if (DEBUG_FLAGS & DEBUG_POINTER)
 				sym_print_msg(cp,"ign wide residue", np->msgin);
-			sym_modify_dp(np, tp, cp, -1);
+			if (cp->host_flags & HF_SENSE)
+				OUTL_DSP (SCRIPTA_BA (np, clrack));
+			else
+				sym_modify_dp(np, tp, cp, -1);
 			return;
 		case M_REJECT:
 			if (INB (HS_PRT) == HS_NEGOTIATE)
@@ -5017,6 +5068,15 @@ static ccb_p sym_ccb_from_dsa(hcb_p np, u32 dsa)
  */
 static void sym_init_tcb (hcb_p np, u_char tn)
 {
+#if 0	/*  Hmmm... this checking looks paranoid. */
+	/*
+	 *  Check some alignments required by the chip.
+	 */	
+	assert (((offsetof(struct sym_reg, nc_sxfer) ^
+		offsetof(struct sym_tcb, head.sval)) &3) == 0);
+	assert (((offsetof(struct sym_reg, nc_scntl3) ^
+		offsetof(struct sym_tcb, head.wval)) &3) == 0);
+#endif
 }
 
 /*
@@ -5780,6 +5840,9 @@ int sym_hcb_attach(hcb_p np, struct sym_fw *fw)
 		if (np->features & FE_RAM8K) {
 			np->ram_ws = 8192;
 			np->scriptb_ba = np->scripta_ba + 4096;
+#if 0	/* May get useful for 64 BIT PCI addressing */
+			np->scr_ram_seg = cpu_to_scr(np->scripta_ba >> 32);
+#endif
 		}
 		else
 			np->ram_ws = 4096;

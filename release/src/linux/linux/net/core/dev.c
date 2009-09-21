@@ -108,7 +108,6 @@
 extern int plip_init(void);
 #endif
 
-#include <cy_conf.h>
 
 /* This define, if set, will randomly drop a packet when congestion
  * is more than moderate.  It helps fairness in the multi-interface
@@ -542,6 +541,50 @@ struct net_device *dev_getbyhwaddr(unsigned short type, char *ha)
 	for (dev = dev_base; dev != NULL; dev = dev->next) {
 		if (dev->type == type &&
 		    memcmp(dev->dev_addr, ha, dev->addr_len) == 0)
+			return dev;
+	}
+	return NULL;
+}
+
+/**
+ *	dev_get_by_flags - find any device with given flags
+ *	@if_flags: IFF_* values
+ *	@mask: bitmask of bits in if_flags to check
+ *
+ *	Search for any interface with the given flags. Returns NULL if a device
+ *	is not found or a pointer to the device. The device returned has 
+ *	had a reference added and the pointer is safe until the user calls
+ *	dev_put to indicate they have finished with it.
+ */
+
+struct net_device * dev_get_by_flags(unsigned short if_flags, unsigned short mask)
+{
+	struct net_device *dev;
+
+	read_lock(&dev_base_lock);
+	dev = __dev_get_by_flags(if_flags, mask);
+	if (dev)
+		dev_hold(dev);
+	read_unlock(&dev_base_lock);
+	return dev;
+}
+
+/**
+ *	__dev_get_by_flags - find any device with given flags
+ *	@if_flags: IFF_* values
+ *	@mask: bitmask of bits in if_flags to check
+ *
+ *	Search for any interface with the given flags. Returns NULL if a device
+ *	is not found or a pointer to the device. The caller must hold either
+ *	the RTNL semaphore or @dev_base_lock.
+ */
+
+struct net_device *__dev_get_by_flags(unsigned short if_flags, unsigned short mask)
+{
+	struct net_device *dev;
+
+	for (dev = dev_base; dev != NULL; dev = dev->next) {
+		if (((dev->flags ^ if_flags) & mask) == 0)
 			return dev;
 	}
 	return NULL;
@@ -1247,18 +1290,18 @@ int netif_rx(struct sk_buff *skb)
 
 	netdev_rx_stat[this_cpu].total++;
 
-#if defined(CONFIG_BCM4710) && defined(CONFIG_BRIDGE) 
+#ifdef CONFIG_BRIDGE
 	/* Optimisation for framebursting (allow interleaving of pkts by
-		immediately processing the rx pkt instead of Qing the pkt and deferring
-		the processing). Only optimise for bridging and guard against non
-		TASKLET based netif_rx calls.
-		*/
-	if (!in_irq() && skb->dev->br_port != NULL && br_handle_frame_hook != NULL){
+	 * immediately processing the rx pkt instead of Qing the pkt and deferring
+	 * the processing). Only optimise for bridging and guard against non
+	 * TASKLET based netif_rx calls.
+	 */
+	if (!in_irq() && (skb->dev->br_port != NULL) && br_handle_frame_hook != NULL) {
 		local_irq_restore(flags);
-		return(netif_receive_skb(skb));
+		return netif_receive_skb(skb);
 	}
-#endif	  
-
+#endif		
+	
 	if (queue->input_pkt_queue.qlen <= netdev_max_backlog) {
 		if (queue->input_pkt_queue.qlen) {
 			if (queue->throttle)
@@ -1342,8 +1385,10 @@ static __inline__ void skb_bond(struct sk_buff *skb)
 {
 	struct net_device *dev = skb->dev;
 
-	if (dev->master)
+	if (dev->master) {
+		skb->real_dev = skb->dev;
 		skb->dev = dev->master;
+	}
 }
 
 static void net_tx_action(struct softirq_action *h)
@@ -1430,7 +1475,7 @@ int netif_receive_skb(struct sk_buff *skb)
 {
 	struct packet_type *ptype, *pt_prev;
 	int ret = NET_RX_DROP;
-	unsigned short type = skb->protocol;
+	unsigned short type;
 
 	if (skb->stamp.tv_sec == 0)
 		do_gettimeofday(&skb->stamp);
@@ -1469,12 +1514,13 @@ int netif_receive_skb(struct sk_buff *skb)
 #endif /* CONFIG_NET_DIVERT */
 			
 #if defined(CONFIG_BRIDGE) || defined(CONFIG_BRIDGE_MODULE)
-	if (skb->dev->br_port != NULL &&
-	    br_handle_frame_hook != NULL) {
+	if (skb->dev->br_port != NULL && br_handle_frame_hook != NULL &&
+	    skb->pkt_type != PACKET_LOOPBACK) {
 		return handle_bridge(skb, pt_prev);
 	}
 #endif
 
+	type = skb->protocol;
 	for (ptype=ptype_base[ntohs(type)&15];ptype;ptype=ptype->next) {
 		if (ptype->type == type &&
 		    (!ptype->dev || ptype->dev == skb->dev)) {
@@ -1507,10 +1553,10 @@ int netif_receive_skb(struct sk_buff *skb)
 	return ret;
 }
 
-static int process_backlog(struct net_device *blog_dev, int *budget)
+static int process_backlog(struct net_device *backlog_dev, int *budget)
 {
 	int work = 0;
-	int quota = min(blog_dev->quota, *budget);
+	int quota = min(backlog_dev->quota, *budget);
 	int this_cpu = smp_processor_id();
 	struct softnet_data *queue = &softnet_data[this_cpu];
 	unsigned long start_time = jiffies;
@@ -1538,8 +1584,8 @@ static int process_backlog(struct net_device *blog_dev, int *budget)
 
 #ifdef CONFIG_NET_HW_FLOWCONTROL
 		if (queue->throttle && queue->input_pkt_queue.qlen < no_cong_thresh ) {
+			queue->throttle = 0;
 			if (atomic_dec_and_test(&netdev_dropping)) {
-				queue->throttle = 0;
 				netdev_wakeup();
 				break;
 			}
@@ -1547,16 +1593,17 @@ static int process_backlog(struct net_device *blog_dev, int *budget)
 #endif
 	}
 
-	blog_dev->quota -= work;
+	backlog_dev->quota -= work;
 	*budget -= work;
 	return -1;
 
 job_done:
-	blog_dev->quota -= work;
+	backlog_dev->quota -= work;
 	*budget -= work;
 
-	list_del(&blog_dev->poll_list);
-	clear_bit(__LINK_STATE_RX_SCHED, &blog_dev->state);
+	list_del(&backlog_dev->poll_list);
+	smp_mb__before_clear_bit();
+	netif_poll_enable(backlog_dev);
 
 	if (queue->throttle) {
 		queue->throttle = 0;
@@ -1832,7 +1879,11 @@ static int dev_proc_stats(char *buffer, char **start, off_t offset,
 			       netdev_rx_stat[i].fastroute_success,
 			       netdev_rx_stat[i].fastroute_defer,
 			       netdev_rx_stat[i].fastroute_deferred_out,
+#if 0
+			       netdev_rx_stat[i].fastroute_latency_reduction
+#else
 			       netdev_rx_stat[i].cpu_collision
+#endif
 			       );
 	}
 
@@ -2015,7 +2066,6 @@ static int dev_ifsioc(struct ifreq *ifr, unsigned int cmd)
 {
 	struct net_device *dev;
 	int err;
-	struct net_device_stats *stats;
 
 	if ((dev = __dev_get_by_name(ifr->ifr_name)) == NULL)
 		return -ENODEV;
@@ -2130,16 +2180,6 @@ static int dev_ifsioc(struct ifreq *ifr, unsigned int cmd)
 			ifr->ifr_ifindex = dev->ifindex;
 			return 0;
 
-#ifdef PERFORMANCE_SUPPORT			
-		case SIOCGIFSTATS:
-			if (!dev->get_stats || !(stats = dev->get_stats(dev)))
-				return -ENODEV;
-			if (copy_to_user(ifr->ifr_data, stats, 
-			    sizeof(struct net_device_stats)))
-				return -EFAULT;
-			return 0;
-#endif
-			
 		case SIOCGIFTXQLEN:
 			ifr->ifr_qlen = dev->tx_queue_len;
 			return 0;
@@ -2153,10 +2193,26 @@ static int dev_ifsioc(struct ifreq *ifr, unsigned int cmd)
 		case SIOCSIFNAME:
 			if (dev->flags&IFF_UP)
 				return -EBUSY;
-			if (__dev_get_by_name(ifr->ifr_newname))
-				return -EEXIST;
-			memcpy(dev->name, ifr->ifr_newname, IFNAMSIZ);
-			dev->name[IFNAMSIZ-1] = 0;
+			/* Check if name contains a wildcard */
+			if (strchr(ifr->ifr_newname, '%')) {
+				char format[IFNAMSIZ + 1];
+				int ret;
+				memcpy(format, ifr->ifr_newname, IFNAMSIZ);
+				format[IFNAMSIZ-1] = 0;
+				/* Find a free name based on format.
+				 * dev_alloc_name() replaces "%d" with at max
+				 * 2 digits, so no name overflow. - Jean II */
+				ret = dev_alloc_name(dev, format);
+				if (ret < 0)
+					return ret;
+				/* Copy the new name back to caller. */
+				strncpy(ifr->ifr_newname, dev->name, IFNAMSIZ);
+			} else {
+				if (__dev_get_by_name(ifr->ifr_newname))
+					return -EEXIST;
+				memcpy(dev->name, ifr->ifr_newname, IFNAMSIZ);
+				dev->name[IFNAMSIZ-1] = 0;
+			}
 			notifier_call_chain(&netdev_chain, NETDEV_CHANGENAME, dev);
 			return 0;
 
@@ -2173,10 +2229,11 @@ static int dev_ifsioc(struct ifreq *ifr, unsigned int cmd)
 			    cmd == SIOCBONDSLAVEINFOQUERY ||
 			    cmd == SIOCBONDINFOQUERY ||
 			    cmd == SIOCBONDCHANGEACTIVE ||
-			    cmd == SIOCETHTOOL ||
 			    cmd == SIOCGMIIPHY ||
 			    cmd == SIOCGMIIREG ||
-			    cmd == SIOCSMIIREG) {
+			    cmd == SIOCSMIIREG ||
+			    cmd == SIOCETHTOOL ||
+			    cmd == SIOCWANDEV) {
 				if (dev->do_ioctl) {
 					if (!netif_device_present(dev))
 						return -ENODEV;
@@ -2268,6 +2325,22 @@ int dev_ioctl(unsigned int cmd, void *arg)
 			}
 			return ret;
 
+#ifndef CONFIG_BCM4710
+		case SIOCETHTOOL:
+			dev_load(ifr.ifr_name);
+			rtnl_lock();
+			ret = dev_ethtool(&ifr);
+			rtnl_unlock();
+			if (!ret) {
+				if (colon)
+					*colon = ':';
+				if (copy_to_user(arg, &ifr,
+						 sizeof(struct ifreq)))
+					ret = -EFAULT;
+			}
+			return ret;
+#endif
+
 		/*
 		 *	These ioctl calls:
 		 *	- require superuser power.
@@ -2275,7 +2348,7 @@ int dev_ioctl(unsigned int cmd, void *arg)
 		 *	- return a value
 		 */
 		 
-		case SIOCETHTOOL:
+		case SIOCSIFNAME:
 		case SIOCGMIIPHY:
 		case SIOCGMIIREG:
 			if (!capable(CAP_NET_ADMIN))
@@ -2311,7 +2384,6 @@ int dev_ioctl(unsigned int cmd, void *arg)
 		case SIOCDELMULTI:
 		case SIOCSIFHWBROADCAST:
 		case SIOCSIFTXQLEN:
-		case SIOCSIFNAME:
 		case SIOCSMIIREG:
 		case SIOCBONDENSLAVE:
 		case SIOCBONDRELEASE:
@@ -2342,8 +2414,10 @@ int dev_ioctl(unsigned int cmd, void *arg)
 		 */	
 		 
 		default:
-			if (cmd >= SIOCDEVPRIVATE &&
-			    cmd <= SIOCDEVPRIVATE + 15) {
+			if (cmd == SIOCWANDEV ||
+			    (cmd == SIOCETHTOOL) ||
+			    (cmd >= SIOCDEVPRIVATE &&
+			     cmd <= SIOCDEVPRIVATE + 15)) {
 				dev_load(ifr.ifr_name);
 				dev_probe_lock();
 				rtnl_lock();
@@ -2369,7 +2443,7 @@ int dev_ioctl(unsigned int cmd, void *arg)
 				/* Follow me in net/core/wireless.c */
 				ret = wireless_process_ioctl(&ifr, cmd);
 				rtnl_unlock();
-				if (!ret && IW_IS_GET(cmd) &&
+				if (IW_IS_GET(cmd) &&
 				    copy_to_user(arg, &ifr, sizeof(struct ifreq)))
 					return -EFAULT;
 				return ret;
@@ -2467,6 +2541,17 @@ int register_netdevice(struct net_device *dev)
 			return -EEXIST;
 		}
 	}
+	
+	/* Fix illegal SG+CSUM combinations. */
+	if ((dev->features & NETIF_F_SG) &&
+	    !(dev->features & (NETIF_F_IP_CSUM |
+			       NETIF_F_NO_CSUM |
+			       NETIF_F_HW_CSUM))) {
+		printk("%s: Dropping NETIF_F_SG since no checksum feature.\n",
+		       dev->name);
+		dev->features &= ~NETIF_F_SG;
+	}
+
 	/*
 	 *	nil rebuild_header routine,
 	 *	that should be never called and used as just bug trap.

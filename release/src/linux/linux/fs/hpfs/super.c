@@ -461,6 +461,7 @@ struct super_block *hpfs_read_super(struct super_block *s, void *options,
 	s->s_hpfs_was_error = 0;
 	s->s_hpfs_cp_table = NULL;
 	s->s_hpfs_c_bitmap = -1;
+	s->s_hpfs_max_fwd_alloc = 0xffffff;
 	
 	/* Load bitmap directory */
 	if (!(s->s_hpfs_bmp_dir = hpfs_load_bitmap_directory(s, superblock->bitmaps)))

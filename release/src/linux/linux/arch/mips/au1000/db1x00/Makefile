@@ -10,15 +10,18 @@
 # unless it's something special (ie not a .c file).
 #
 
-.S.s:
-	$(CPP) $(CFLAGS) $< -o $*.s
-.S.o:
-	$(CC) $(CFLAGS) -c $< -o $*.o
+USE_STANDARD_AS_RULE := true
 
 O_TARGET := db1x00.o
 
-obj-y := init.o setup.o
+obj-y := init.o board_setup.o irqmap.o
+obj-$(CONFIG_WM97XX_COMODULE) += mirage_ts.o
 
-obj-$(CONFIG_PCI) += pci_fixup.o pci_ops.o
+ifdef CONFIG_MIPS_DB1100
+ifdef CONFIG_MMC
+obj-y += mmc_support.o
+export-objs += mmc_support.o
+endif
+endif
 
 include $(TOPDIR)/Rules.make

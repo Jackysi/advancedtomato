@@ -17,9 +17,9 @@
  USA.
 
  *
- * $Source: /home/cvsroot/wrt54g/src/linux/linux/drivers/char/ftape/zftape/zftape-vtbl.c,v $
- * $Revision: 1.1.1.2 $
- * $Date: 2003/10/14 08:08:07 $
+ * $Source: /homes/cvs/ftape-stacked/ftape/zftape/zftape-vtbl.c,v $
+ * $Revision: 1.7.6.1 $
+ * $Date: 1997/11/24 13:48:31 $
  *
  *      This file defines a volume table as defined in various QIC
  *      standards.
@@ -412,6 +412,19 @@ int zft_extract_volume_headers(__u8 *buffer)
 		DUMP_VOLINFO(ft_t_noise, &entry[VTBL_DESC], zft_last_vtbl);
 		entry +=VTBL_SIZE;
 	}
+#if 0
+/*
+ *  undefine to test end of tape handling
+ */
+	zft_new_vtbl_entry();
+	zft_last_vtbl->start_seg = zft_eom_vtbl->start_seg;
+	zft_last_vtbl->end_seg   = ft_last_data_segment - 10;
+	zft_last_vtbl->blk_sz          = zft_blk_sz;
+	zft_last_vtbl->zft_volume      = 1;
+	zft_last_vtbl->qic113          = zft_qic113;
+	zft_last_vtbl->size = (zft_calc_tape_pos(zft_last_vtbl->end_seg+1)
+			       - zft_calc_tape_pos(zft_last_vtbl->start_seg));
+#endif
 	TRACE_EXIT 0;
 }
 

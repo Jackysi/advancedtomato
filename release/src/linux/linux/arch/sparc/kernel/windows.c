@@ -46,6 +46,15 @@ static inline void shift_window_buffer(int first_win, int last_win, struct threa
 	}
 }
 
+/* Place as many of the user's current register windows 
+ * on the stack that we can.  Even if the %sp is unaligned
+ * we still copy the window there, the only case that we don't
+ * succeed is if the %sp points to a bum mapping altogether.
+ * setup_frame() and do_sigreturn() use this before shifting
+ * the user stack around.  Future instruction and hardware
+ * bug workaround routines will need this functionality as
+ * well.
+ */
 void synchronize_user_stack(void)
 {
 	struct thread_struct *tp;
@@ -70,6 +79,30 @@ void synchronize_user_stack(void)
 	}
 }
 
+#if 0
+/* An optimization. */
+static inline void copy_aligned_window(void *dest, const void *src)
+{
+	__asm__ __volatile__("ldd [%1], %%g2\n\t"
+			     "ldd [%1 + 0x8], %%g4\n\t"
+			     "std %%g2, [%0]\n\t"
+			     "std %%g4, [%0 + 0x8]\n\t"
+			     "ldd [%1 + 0x10], %%g2\n\t"
+			     "ldd [%1 + 0x18], %%g4\n\t"
+			     "std %%g2, [%0 + 0x10]\n\t"
+			     "std %%g4, [%0 + 0x18]\n\t"
+			     "ldd [%1 + 0x20], %%g2\n\t"
+			     "ldd [%1 + 0x28], %%g4\n\t"
+			     "std %%g2, [%0 + 0x20]\n\t"
+			     "std %%g4, [%0 + 0x28]\n\t"
+			     "ldd [%1 + 0x30], %%g2\n\t"
+			     "ldd [%1 + 0x38], %%g4\n\t"
+			     "std %%g2, [%0 + 0x30]\n\t"
+			     "std %%g4, [%0 + 0x38]\n\t" : :
+			     "r" (dest), "r" (src) :
+			     "g2", "g3", "g4", "g5");
+}
+#endif
 
 /* Try to push the windows in a threads window buffer to the
  * user stack.  Unaligned %sp's are not allowed here.
@@ -87,7 +120,7 @@ void try_to_clear_window_buffer(struct pt_regs *regs, int who)
 		unsigned long sp = tp->rwbuf_stkptrs[window];
 
 		if((sp & 7) ||
-		   copy_to_user((char *) sp, &tp->reg_window[window], REGWIN_SZ))
+		   copy_to_user((char *) sp, &tp->reg_window[window], sizeof(struct reg_window)))
 			do_exit(SIGILL);
 	}
 	tp->w_saved = 0;

@@ -373,6 +373,8 @@ static int valkyrie_setpalette (unsigned int regno, unsigned int red,
 static int dafb_setpalette (unsigned int regno, unsigned int red,
 			    unsigned int green, unsigned int blue)
 {
+	/* FIXME: really, really need to use ioremap() here,
+           phys_to_virt() doesn't work anymore */
 	static int lastreg = -1;
 	unsigned long flags;
 	
@@ -563,6 +565,17 @@ static int jet_setpalette(unsigned int regno, unsigned int red,
 	return 0;
 }
 
+/*
+ * Civic framebuffer -- Quadra AV built-in video.  A chip
+ * called Sebastian holds the actual color palettes, and
+ * apparently, there are two different banks of 512K RAM 
+ * which can act as separate framebuffers for doing video
+ * input and viewing the screen at the same time!  The 840AV
+ * Can add another 1MB RAM to give the two framebuffers 
+ * 1MB RAM apiece.
+ *
+ * FIXME: this doesn't seem to work anymore.
+ */
 static int civic_setpalette (unsigned int regno, unsigned int red,
 			     unsigned int green, unsigned int blue)
 {
@@ -588,6 +601,20 @@ static int civic_setpalette (unsigned int regno, unsigned int red,
 	 * Wait for VBL interrupt here;
 	 * They're usually not enabled from Penguin, so we won't check
 	 */
+#if 0
+	{
+#define CIVIC_VBL_OFFSET	0x120
+		volatile unsigned long *vbl = nubus_readl(civic_cmap_regs->vbl_addr + CIVIC_VBL_OFFSET);
+		/* do interrupt setup stuff here? */
+		*vbl = 0L; nop();	/* clear */
+		*vbl = 1L; nop();	/* set */
+		while (*vbl != 0L)	/* wait for next vbl */
+		{
+			usleep(10);	/* needed? */
+		}
+		/* do interrupt shutdown stuff here? */
+	}
+#endif
 
 	/*
 	 * Grab a status word and do some checking;
@@ -597,6 +624,13 @@ static int civic_setpalette (unsigned int regno, unsigned int red,
 
 	if ((clut_status & 0x0008) == 0)
 	{
+#if 0
+		if ((clut_status & 0x000D) != 0)
+		{
+			nubus_writeb(0x00, &civic_cmap_regs->lut); nop();
+			nubus_writeb(0x00, &civic_cmap_regs->lut); nop();
+		}
+#endif
 
 		nubus_writeb(  red, &civic_cmap_regs->lut); nop();
 		nubus_writeb(green, &civic_cmap_regs->lut); nop();
@@ -805,7 +839,7 @@ static struct fb_ops macfb_ops = {
 	fb_set_cmap:	macfb_set_cmap,
 };
 
-void __init macfb_setup(char *options, int *ints)
+void __init macfb_setup(char *options)
 {
 	char *this_opt;
 	
@@ -901,6 +935,8 @@ void __init macfb_init(void)
 
 	switch (video_bpp) {
 	case 1:
+		/* XXX: I think this will catch any program that tries
+		   to do FBIO_PUTCMAP when the visual is monochrome */
 		video_cmap_len = 0;
 		video_visual = FB_VISUAL_MONO01;
 		break;
@@ -931,6 +967,8 @@ void __init macfb_init(void)
 		break;
 	case 24:
 	case 32:
+		/* XXX: have to test these... can any 68k Macs
+		   actually do this on internal video? */
 		macfb_defined.red.offset = 16;
 		macfb_defined.red.length = 8;
 		macfb_defined.green.offset = 8;
@@ -991,6 +1029,8 @@ void __init macfb_init(void)
 	}
 
 	/* If it's not a NuBus card, it must be internal video */
+	/* FIXME: this function is getting way too big.  (this driver
+           is too...) */
 	if (!video_is_nubus)
 		switch( mac_bi_data.id )
 		{

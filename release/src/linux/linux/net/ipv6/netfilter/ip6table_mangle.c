@@ -12,7 +12,11 @@
 			    (1 << NF_IP6_LOCAL_OUT) | \
 			    (1 << NF_IP6_POST_ROUTING))
 
+#if 0
+#define DEBUGP(x, args...)	printk(KERN_DEBUG x, ## args)
+#else
 #define DEBUGP(x, args...)
+#endif
 
 /* Standard entry. */
 struct ip6t_standard
@@ -136,6 +140,15 @@ ip6t_local_hook(unsigned int hook,
 	u_int8_t hop_limit;
 	u_int32_t flowlabel;
 
+#if 0
+	/* root is playing with raw sockets. */
+	if ((*pskb)->len < sizeof(struct iphdr)
+	    || (*pskb)->nh.iph->ihl * 4 < sizeof(struct iphdr)) {
+		if (net_ratelimit())
+			printk("ip6t_hook: happy cracking.\n");
+		return NF_ACCEPT;
+	}
+#endif
 
 	/* save source/dest address, nfmark, hoplimit, flowlabel, priority,  */
 	memcpy(&saddr, &(*pskb)->nh.ipv6h->saddr, sizeof(saddr));
@@ -144,7 +157,7 @@ ip6t_local_hook(unsigned int hook,
 	hop_limit = (*pskb)->nh.ipv6h->hop_limit;
 
 	/* flowlabel and prio (includes version, which shouldn't change either */
-	flowlabel = (u_int32_t) (*pskb)->nh.ipv6h;
+	flowlabel = *((u_int32_t *) (*pskb)->nh.ipv6h);
 
 	ret = ip6t_do_table(pskb, hook, in, out, &packet_mangler, NULL);
 

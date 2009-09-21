@@ -1,7 +1,4 @@
 /*
- * BK Id: %F% %I% %G% %U% %#%
- */
-/*
  *  arch/ppc/platforms/setup.c
  *
  *  Copyright (C) 1995  Linus Torvalds
@@ -56,6 +53,11 @@
 #include <asm/i8259.h>
 #include <asm/open_pic.h>
 
+#ifdef CONFIG_SERIAL
+#include <linux/serial.h>
+#include <linux/serialP.h>
+#endif
+
 unsigned long chrp_get_rtc_time(void);
 int chrp_set_rtc_time(unsigned long nowtime);
 void chrp_calibrate_decr(void);
@@ -81,13 +83,11 @@ extern int of_show_percpuinfo(struct seq_file *, int);
 
 extern kdev_t boot_dev;
 
-extern PTE *Hash, *Hash_end;
-extern unsigned long Hash_size, Hash_mask;
-extern int probingmem;
 extern unsigned long loops_per_jiffy;
-static int max_width;
-static int is_briq;
-unsigned int* briq_SPOR; /* To be replaced by RTAS when available */
+
+static int max_width __chrpdata;
+int chrp_is_briq __chrpdata;
+unsigned int* briq_SPOR __chrpdata; /* To be replaced by RTAS when available */
 
 #ifdef CONFIG_SMP
 extern struct smp_ops_t chrp_smp_ops;
@@ -121,7 +121,7 @@ chrp_show_cpuinfo(struct seq_file *m)
 	seq_printf(m, "machine\t\t: CHRP %s\n", model);
 
 	/* longtrail (goldengate) stuff */
-	if (!strncmp(model, "IBM,LongTrail", 13)) {
+	if (model && !strncmp(model, "IBM,LongTrail", 13)) {
 		/* VLSI VAS96011/12 `Golden Gate 2' */
 		/* Memory banks */
 		sdramen = (in_le32((unsigned *)(gg2_pci_config_base+
@@ -210,14 +210,20 @@ static void __init sio_fixup_irq(const char *name, u8 device, u8 level,
 static void __init sio_init(void)
 {
 	struct device_node *root;
+	const char *model;
 
-	if ((root = find_path_device("/")) &&
-	    !strncmp(get_property(root, "model", NULL), "IBM,LongTrail", 13)) {
+	root = find_path_device("/");
+	if (!root)
+		return;
+
+	model = get_property(root, "model", NULL);
+	if (model && !strncmp(model, "IBM,LongTrail", 13)) {
 		/* logical device 0 (KBC/Keyboard) */
 		sio_fixup_irq("keyboard", 0, 1, 2);
 		/* select logical device 1 (KBC/Mouse) */
 		sio_fixup_irq("mouse", 1, 12, 2);
 	}
+
 }
 
 
@@ -232,7 +238,7 @@ chrp_setup_arch(void)
 #ifdef CONFIG_BLK_DEV_INITRD
 	/* this is fine for chrp */
 	initrd_below_start_ok = 1;
-	
+
 	if (initrd_start)
 		ROOT_DEV = MKDEV(RAMDISK_MAJOR, 0);
 	else
@@ -277,16 +283,16 @@ chrp_setup_arch(void)
 		if (p && (rate = *(unsigned long *)p->value) > 0) {
 			/*
 			 * The value is the number of times per minute.
-			 * For now assign the full workload here to cpu 0.  
+			 * For now assign the full workload here to cpu 0.
 			 *
 			 * We now split the rate and spread the heartbeats
 			 * when we kick secondary cpus so we can spread
-			 * the calls evenly.   
+			 * the calls evenly.
 			 */
 			ppc_md.heartbeat = chrp_event_scan;
-			
+
 			count = (60*HZ) / rate;
-			if (!count)        
+			if (!count)        /* XXX insane */
 				count = 1;
 
 			heartbeat_reset(0) = count;
@@ -305,10 +311,11 @@ chrp_event_scan(void)
 {
 	unsigned char log[1024];
 	unsigned long ret = 0;
+	/* XXX: we should loop until the hardware says no more error logs -- Cort */
 	call_rtas( "event-scan", 4, 1, &ret, 0xffffffff, 0,
 		   __pa(log), 1024 );
 }
-	
+
 void __chrp
 chrp_restart(char *cmd)
 {
@@ -410,8 +417,6 @@ static void __init
 chrp_init_irq_openpic(unsigned long intack)
 {
 	int i;
-	unsigned char* chrp_int_ack_special = 0;
-	int nmi_irq = -1;
 	unsigned char init_senses[NR_IRQS - NUM_8259_INTERRUPTS];
 
 	chrp_find_openpic();
@@ -420,19 +425,21 @@ chrp_init_irq_openpic(unsigned long intack)
 	OpenPIC_InitSenses = init_senses;
 	OpenPIC_NumInitSenses = NR_IRQS - NUM_8259_INTERRUPTS;
 
-	if (intack)
-		chrp_int_ack_special = (unsigned char *) ioremap(intack, 1);
-	openpic_init(1, NUM_8259_INTERRUPTS, chrp_int_ack_special, nmi_irq);
+	openpic_init(NUM_8259_INTERRUPTS);
+	/* We have a cascade on OpenPIC IRQ 0, Linux IRQ 16 */
+	openpic_hookup_cascade(NUM_8259_INTERRUPTS, "82c59 cascade",
+			       i8259_irq);
+
 	for (i = 0; i < NUM_8259_INTERRUPTS; i++)
 		irq_desc[i].handler = &i8259_pic;
-	i8259_init(0);
+	i8259_init(intack);
 }
 
 static void __init
 chrp_init_irq_8259(unsigned long intack)
 {
 	int i;
-	
+
 	ppc_md.get_irq = i8259_irq;
 	for (i = 0; i < NUM_8259_INTERRUPTS; i++)
 		irq_desc[i].handler = &i8259_pic;
@@ -444,7 +451,7 @@ void __init chrp_init_IRQ(void)
 	struct device_node *np;
 	unsigned long intack = 0;
 	struct device_node *main_irq_ctrler = NULL;
-#if defined(CONFIG_VT) && defined(CONFIG_ADB_KEYBOARD) && defined(XMON)	
+#if defined(CONFIG_VT) && defined(CONFIG_ADB_KEYBOARD) && defined(XMON)
 	struct device_node *kbd;
 #endif
 
@@ -490,16 +497,16 @@ void __init chrp_init_IRQ(void)
 void __init
 chrp_init2(void)
 {
- 
-	if (is_briq)
+
+	if (chrp_is_briq)
 		briq_SPOR = (unsigned int *)ioremap(0xff0000e8, 4);
-#ifdef CONFIG_NVRAM  
+#ifdef CONFIG_NVRAM
 /* Fix me: currently, a lot of pmac_nvram routines are marked __pmac, and
  * blindly calling pmac_nvram_init() on chrp cause bad results.
  * Among others, it cracks on briQ.
  * Please implement a CHRP specific version. --BenH
  */
-	if (!is_briq)
+	if (!chrp_is_briq)
 		pmac_nvram_init();
 #endif
 	/* This is to be replaced by RTAS when available */
@@ -531,46 +538,6 @@ chrp_init2(void)
 #endif /* CONFIG_VT && (CONFIG_ADB_KEYBOARD || CONFIG_INPUT) */
 }
 
-#if defined(CONFIG_BLK_DEV_IDE) || defined(CONFIG_BLK_DEV_IDE_MODULE)
-/*
- * IDE stuff.
- */
-
-static int __chrp
-chrp_ide_check_region(ide_ioreg_t from, unsigned int extent)
-{
-        return check_region(from, extent);
-}
-
-static void __chrp
-chrp_ide_request_region(ide_ioreg_t from,
-			unsigned int extent,
-			const char *name)
-{
-        request_region(from, extent, name);
-}
-
-static void __chrp
-chrp_ide_release_region(ide_ioreg_t from,
-			unsigned int extent)
-{
-        release_region(from, extent);
-}
-
-static void __chrp
-chrp_ide_init_hwif_ports(hw_regs_t *hw, ide_ioreg_t data_port, ide_ioreg_t ctrl_port, int *irq)
-{
-	ide_ioreg_t reg = data_port;
-	int i;
-
-	for (i = IDE_DATA_OFFSET; i <= IDE_STATUS_OFFSET; i++) {
-		hw->io_ports[i] = reg;
-		reg += 1;
-	}
-	hw->io_ports[IDE_CONTROL_OFFSET] = ctrl_port;
-}
-#endif
-
 void __init
 chrp_init(unsigned long r3, unsigned long r4, unsigned long r5,
 	  unsigned long r6, unsigned long r7)
@@ -594,7 +561,15 @@ chrp_init(unsigned long r3, unsigned long r4, unsigned long r5,
 
 	/* Check if it's a briq */
 	machine = get_property(root, "model", NULL);
-	is_briq = machine && strncmp(machine, "TotalImpact,BRIQ-1", 18) == 0;
+	chrp_is_briq = machine && strncmp(machine, "TotalImpact,BRIQ-1", 18) == 0;
+#ifdef CONFIG_SERIAL
+	if (chrp_is_briq) {
+		/* briQ has a different serial clock */
+		extern struct serial_state rs_table[];
+		rs_table[0].baud_base = (7372800 / 16);
+		rs_table[1].baud_base = (7372800 / 16);
+	}
+#endif /* CONFIG_SERIAL */
 
 	ppc_md.setup_arch     = chrp_setup_arch;
 	ppc_md.show_percpuinfo = of_show_percpuinfo;
@@ -605,7 +580,7 @@ chrp_init(unsigned long r3, unsigned long r4, unsigned long r5,
 
 	ppc_md.init           = chrp_init2;
 
-	ppc_md.restart        = is_briq ? briq_restart : chrp_restart;
+	ppc_md.restart        = chrp_is_briq ? briq_restart : chrp_restart;
 	ppc_md.power_off      = chrp_power_off;
 	ppc_md.halt           = chrp_halt;
 
@@ -622,8 +597,10 @@ chrp_init(unsigned long r3, unsigned long r4, unsigned long r5,
 	ppc_md.kbd_getkeycode    = pckbd_getkeycode;
 	ppc_md.kbd_translate     = pckbd_translate;
 	ppc_md.kbd_unexpected_up = pckbd_unexpected_up;
-	ppc_md.kbd_leds          = pckbd_leds;
-	ppc_md.kbd_init_hw       = pckbd_init_hw;
+	if (!chrp_is_briq) {
+		ppc_md.kbd_leds          = pckbd_leds;
+		ppc_md.kbd_init_hw       = pckbd_init_hw;
+	}
 #ifdef CONFIG_MAGIC_SYSRQ
 	ppc_md.ppc_kbd_sysrq_xlate	 = pckbd_sysrq_xlate;
 	SYSRQ_KEY = 0x54;
@@ -656,15 +633,11 @@ chrp_init(unsigned long r3, unsigned long r4, unsigned long r5,
 #endif /* CONFIG_SMP */
 
 #if defined(CONFIG_BLK_DEV_IDE) || defined(CONFIG_BLK_DEV_IDE_MODULE)
-        ppc_ide_md.ide_check_region = chrp_ide_check_region;
-        ppc_ide_md.ide_request_region = chrp_ide_request_region;
-        ppc_ide_md.ide_release_region = chrp_ide_release_region;
-        ppc_ide_md.ide_init_hwif = chrp_ide_init_hwif_ports;
 #endif
 
 	/*
 	 * Print the banner, then scroll down so boot progress
-	 * can be printed.  -- Cort 
+	 * can be printed.  -- Cort
 	 */
 	if ( ppc_md.progress ) ppc_md.progress("Linux/PPC "UTS_RELEASE"\n", 0x0);
 }

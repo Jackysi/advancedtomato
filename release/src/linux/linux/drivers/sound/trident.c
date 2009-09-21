@@ -223,7 +223,7 @@
 #define TRIDENT_STATE_MAGIC	0x63657373 /* "cess" */
 
 #define TRIDENT_DMA_MASK	0x3fffffff /* DMA buffer mask for pci_alloc_consist */
-#define ALI_DMA_MASK		0xffffffff /* ALI Tridents lack the 30-bit limitation */
+#define ALI_DMA_MASK		0x7fffffff /* ALI Tridents have 31-bit DMA. Wow. */
 
 #define NR_HW_CH		32
 
@@ -1238,6 +1238,7 @@ static int alloc_main_dmabuf(struct trident_state *state)
 	int order;
 	int ret = -ENOMEM; 
 
+	/* alloc as big a chunk as we can, FIXME: is this necessary ?? */
 	for (order = DMABUF_DEFAULTORDER; order >= DMABUF_MINORDER; order--) {
 		if (!(ret = alloc_dmabuf(dmabuf, state->card->pci_dev, order)))
 			return 0; 
@@ -1315,6 +1316,7 @@ static int prog_dmabuf(struct trident_state *state, unsigned rec)
 				}
 			}
 		}
+		/* FIXME: figure out all this OSS fragment stuff */
 		bytepersec = dmabuf->rate << sample_shift[dmabuf->fmt];
 		bufsize = PAGE_SIZE << dmabuf->buforder;
 		if (dmabuf->ossfragshift) {
@@ -1581,6 +1583,7 @@ static void trident_address_interrupt(struct trident_card *card)
 	unsigned int channel; 
 	
 	/* Update the pointers for all channels we are running. */
+	/* FIXME: should read interrupt status only once */
 	for (i = 0; i < NR_HW_CH; i++) {
 		channel = 63 - i; 
 		if (trident_check_channel_interrupt(card, channel)) {
@@ -2148,6 +2151,7 @@ static int trident_ioctl(struct inode *inode, struct file *file, unsigned int cm
 		break;
 		
 	case SNDCTL_DSP_RESET:
+		/* FIXME: spin_lock ? */
 		if (file->f_mode & FMODE_WRITE) {
 			stop_dac(state);
 			synchronize_irq();
@@ -2678,6 +2682,8 @@ static int trident_open(struct inode *inode, struct file *file)
 	}
 
 	if (file->f_mode & FMODE_READ) {
+		/* FIXME: Trident 4d can only record in signed 16-bits stereo, 48kHz sample,
+		   to be dealed with in trident_set_adc_rate() ?? */
 		dmabuf->fmt &= ~TRIDENT_FMT_MASK;
 		if ((minor & 0x0f) == SND_DEV_DSP16)
 			dmabuf->fmt |= TRIDENT_FMT_16BIT;
@@ -2925,7 +2931,6 @@ static int acquirecodecaccess(struct trident_card *card)
 		block = 1;
 		goto unlock;
 	}
-	printk(KERN_ERR "accesscodecsemaphore: fail\n");
 	return 0;
 }
 
@@ -2950,8 +2955,6 @@ static int waitforstimertick(struct trident_card *card)
 			break;
 		udelay(50);
 	}
-
-	printk(KERN_NOTICE "waitforstimertick :BIT_CLK is dead\n");
 	return 0;
 }
 
@@ -2963,6 +2966,7 @@ static u16 ali_ac97_get(struct trident_card *card, int secondary, u8 reg)
         unsigned long aud_reg;
 	u32 data;
         u16 wcontrol;
+        unsigned long flags;
 
 	if(!card)
 		BUG();
@@ -2975,6 +2979,8 @@ static u16 ali_ac97_get(struct trident_card *card, int secondary, u8 reg)
 	if (secondary)
 		mask |= ALI_AC97_SECONDARY;
     
+    	spin_lock_irqsave(&card->lock, flags);
+    	
 	if (!acquirecodecaccess(card))
 		printk(KERN_ERR "access codec fail\n");
 	
@@ -2986,7 +2992,7 @@ static u16 ali_ac97_get(struct trident_card *card, int secondary, u8 reg)
 	data = (mask | (reg & AC97_REG_ADDR));
 	
 	if(!waitforstimertick(card)) {
-		printk(KERN_ERR "BIT_CLOCK is dead\n");
+		printk(KERN_ERR "ali_ac97_read: BIT_CLOCK is dead\n");
 		goto releasecodec;
 	}
 	
@@ -3008,12 +3014,15 @@ static u16 ali_ac97_get(struct trident_card *card, int secondary, u8 reg)
 	}
 	
 	data = inl(TRID_REG(card, address));
+
+	spin_unlock_irqrestore(&card->lock, flags); 
 	
 	return ((u16) (data >> 16));
 
  releasecodec: 
 	releasecodecaccess(card);
-	printk(KERN_ERR "ali: AC97 CODEC read timed out.\n");
+	spin_unlock_irqrestore(&card->lock, flags);
+	printk(KERN_ERR "ali_ac97_read: AC97 CODEC read timed out.\n");
 	return 0;
 }
 
@@ -3025,6 +3034,7 @@ static void ali_ac97_set(struct trident_card *card, int secondary, u8 reg, u16 v
 	unsigned int ncount;
 	u32 data;
         u16 wcontrol;
+        unsigned long flags;
 	
 	data = ((u32) val) << 16;
 	
@@ -3038,8 +3048,9 @@ static void ali_ac97_set(struct trident_card *card, int secondary, u8 reg, u16 v
 	if (card->revision == ALI_5451_V02)
 		mask |= ALI_AC97_WRITE_MIXER_REGISTER;
 		
+	spin_lock_irqsave(&card->lock, flags);
         if (!acquirecodecaccess(card))      
-		printk(KERN_ERR "access codec fail\n");
+		printk(KERN_ERR "ali_ac97_write: access codec fail\n");
 			
 	wcontrol = inw(TRID_REG(card, ALI_AC97_WRITE));
 	wcontrol &= 0xff00;
@@ -3054,7 +3065,7 @@ static void ali_ac97_set(struct trident_card *card, int secondary, u8 reg, u16 v
         ncount = 10;
 	while(1) {
 		wcontrol = inw(TRID_REG(card, ALI_AC97_WRITE));
-		if(!wcontrol & 0x8000)
+		if(!(wcontrol & 0x8000))
 			break;
 		if(ncount <= 0)
 			break;
@@ -3067,6 +3078,7 @@ static void ali_ac97_set(struct trident_card *card, int secondary, u8 reg, u16 v
 	
  releasecodec:
 	releasecodecaccess(card);
+	spin_unlock_irqrestore(&card->lock, flags);
 	return;
 }
 
@@ -3095,6 +3107,9 @@ static u16 ali_ac97_read(struct ac97_codec *codec, u8 reg)
 	if(!card->mixer_regs_ready)
 		return ali_ac97_get(card, codec->id, reg);
 
+	/*
+	 *	FIXME: need to stop this caching some registers
+	 */
 	if(codec->id)
 		id = 1;
 	else
@@ -3362,15 +3377,17 @@ static int ali_close_multi_channels(void)
         pci_dev = pci_find_device(PCI_VENDOR_ID_AL,PCI_DEVICE_ID_AL_M1533, pci_dev);
         if (pci_dev == NULL)
                 return -1;
-	temp = 0x80;
-	pci_write_config_byte(pci_dev, 0x59, ~temp);
+	pci_read_config_byte(pci_dev, 0x59, &temp);
+	temp &= ~0x80;
+	pci_write_config_byte(pci_dev, 0x59, temp);
 	
 	pci_dev = pci_find_device(PCI_VENDOR_ID_AL, PCI_DEVICE_ID_AL_M7101, pci_dev);
 	if (pci_dev == NULL)
                 return -1;
 
-	temp = 0x20;
-	pci_write_config_byte(pci_dev, 0xB8, ~temp);
+	pci_read_config_byte(pci_dev, 0xB8, &temp);
+	temp &= ~0x20;
+	pci_write_config_byte(pci_dev, 0xB8, temp);
 
 	return 0;
 }
@@ -3384,13 +3401,15 @@ static int ali_setup_multi_channels(struct trident_card *card, int chan_nums)
 	pci_dev = pci_find_device(PCI_VENDOR_ID_AL, PCI_DEVICE_ID_AL_M1533, pci_dev);
 	if (pci_dev == NULL)
                 return -1;
-	temp = 0x80;
+	pci_read_config_byte(pci_dev, 0x59, &temp);
+	temp |= 0x80;
 	pci_write_config_byte(pci_dev, 0x59, temp);
 	
 	pci_dev = pci_find_device(PCI_VENDOR_ID_AL, PCI_DEVICE_ID_AL_M7101, pci_dev);
  	if (pci_dev == NULL)
                 return -1;
-	temp = 0x20;
+	pci_read_config_byte(pci_dev, (int)0xB8, &temp);
+	temp |= 0x20;
 	pci_write_config_byte(pci_dev, (int)0xB8,(u8) temp);
 	if (chan_nums == 6) {
 		dwValue = inl(TRID_REG(card, ALI_SCTRL)) | 0x000f0000;
@@ -3930,8 +3949,9 @@ static int ali_reset_5451(struct trident_card *card)
 		wReg = ali_ac97_get(card, 0, AC97_POWER_CONTROL);
 		if((wReg & 0x000f) == 0x000f)
 			return 0;
-		udelay(500);
+		udelay(5000);
 	}
+	/* This is non fatal if you have a non PM capable codec.. */
 	return 0;
 }
 
@@ -4004,9 +4024,8 @@ static int __init trident_ac97_init(struct trident_card *card)
 	}
 
 	for (num_ac97 = 0; num_ac97 < NR_AC97; num_ac97++) {
-		if ((codec = kmalloc(sizeof(struct ac97_codec), GFP_KERNEL)) == NULL)
+		if ((codec = ac97_alloc_codec()) == NULL)
 			return -ENOMEM;
-		memset(codec, 0, sizeof(struct ac97_codec));
 
 		/* initialize some basic codec information, other fields will be filled
 		   in ac97_probe_codec */
@@ -4027,7 +4046,7 @@ static int __init trident_ac97_init(struct trident_card *card)
 
 		if ((codec->dev_mixer = register_sound_mixer(&trident_mixer_fops, -1)) < 0) {
 			printk(KERN_ERR "trident: couldn't register mixer!\n");
-			kfree(codec);
+			ac97_release_codec(codec);
 			break;
 		}
 
@@ -4195,7 +4214,7 @@ static int __init trident_probe(struct pci_dev *pci_dev, const struct pci_device
 		for (i = 0; i < NR_AC97; i++) {
 			if (card->ac97_codec[i] != NULL) {
 				unregister_sound_mixer(card->ac97_codec[i]->dev_mixer);
-				kfree (card->ac97_codec[i]);
+				ac97_release_codec(card->ac97_codec[i]);
 			}
 		}
 		goto out_unregister_sound_dsp;
@@ -4293,7 +4312,7 @@ static void __devexit trident_remove(struct pci_dev *pci_dev)
 	for (i = 0; i < NR_AC97; i++)
 		if (card->ac97_codec[i] != NULL) {
 			unregister_sound_mixer(card->ac97_codec[i]->dev_mixer);
-			kfree (card->ac97_codec[i]);
+			ac97_release_codec(card->ac97_codec[i]);
 		}
 	unregister_sound_dsp(card->dev_audio);
 	

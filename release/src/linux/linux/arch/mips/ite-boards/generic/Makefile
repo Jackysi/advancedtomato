@@ -16,10 +16,10 @@ all: it8172.o
 
 O_TARGET := it8172.o
 
-obj-y := it8172_rtc.o it8172_setup.o irq.o int-handler.o pmon_prom.o time.o lpc.o puts.o reset.o
+obj-y := it8172_setup.o irq.o int-handler.o pmon_prom.o time.o lpc.o puts.o reset.o
 
 obj-$(CONFIG_PCI) += it8172_pci.o
 obj-$(CONFIG_IT8172_CIR) += it8172_cir.o
-obj-$(CONFIG_REMOTE_DEBUG) += dbg_io.o
+obj-$(CONFIG_KGDB) += dbg_io.o
 
 include $(TOPDIR)/Rules.make

@@ -1,4 +1,4 @@
-/*  $Id: smpprim.h,v 1.1.1.4 2003/10/14 08:09:22 sparq Exp $
+/*  $Id: smpprim.h,v 1.5 1996/08/29 09:48:49 davem Exp $
  *  smpprim.h:  SMP locking primitives on the Sparc
  *
  *  God knows we won't be actually using this code for some time

@@ -445,7 +445,7 @@ static void fee_read(unsigned long ioaddr,	/* I/O port of the card */
 	}
 }
 
-#ifdef WIRELESS_EXT		    /* if the wireless extension exists in the kernel */
+#ifdef WIRELESS_EXT		/* if the wireless extension exists in the kernel */
 
 /*------------------------------------------------------------------*/
 /*
@@ -461,8 +461,8 @@ static void fee_write(unsigned long ioaddr,	/* I/O port of the card */
 {				/* number of registers */
 	b += n;			/* Position at the end of the area. */
 
-#ifdef EEPROM_IS_PROTECTED	    /* disabled */
-#ifdef DOESNT_SEEM_TO_WORK	    /* disabled */
+#ifdef EEPROM_IS_PROTECTED	/* disabled */
+#ifdef DOESNT_SEEM_TO_WORK	/* disabled */
 	/* Ask to read the protected register */
 	mmc_out(ioaddr, mmwoff(0, mmw_fee_ctrl), MMW_FEE_CTRL_PRREAD);
 
@@ -483,7 +483,7 @@ static void fee_write(unsigned long ioaddr,	/* I/O port of the card */
 	/* Unprotect area. */
 	mmc_out(ioaddr, mmwoff(0, mmw_fee_addr), o + n);
 	mmc_out(ioaddr, mmwoff(0, mmw_fee_ctrl), MMW_FEE_CTRL_PRWRITE);
-#ifdef DOESNT_SEEM_TO_WORK	    /* disabled */
+#ifdef DOESNT_SEEM_TO_WORK	/* disabled */
 	/* or use: */
 	mmc_out(ioaddr, mmwoff(0, mmw_fee_ctrl), MMW_FEE_CTRL_PRCLEAR);
 #endif				/* DOESNT_SEEM_TO_WORK */
@@ -521,7 +521,7 @@ static void fee_write(unsigned long ioaddr,	/* I/O port of the card */
 
 	fee_wait(ioaddr, 10, 100);
 
-#ifdef EEPROM_IS_PROTECTED	    /* disabled */
+#ifdef EEPROM_IS_PROTECTED	/* disabled */
 	/* Reprotect EEPROM. */
 	mmc_out(ioaddr, mmwoff(0, mmw_fee_addr), 0x00);
 	mmc_out(ioaddr, mmwoff(0, mmw_fee_ctrl), MMW_FEE_CTRL_PRWRITE);
@@ -988,7 +988,7 @@ static void wv_mmc_show(device * dev)
 	mmc_read(ioaddr, 0, (u8 *) & m, sizeof(m));
 	mmc_out(ioaddr, mmwoff(0, mmw_freeze), 0);
 
-#ifdef WIRELESS_EXT		    /* if wireless extension exists in the kernel */
+#ifdef WIRELESS_EXT		/* if wireless extension exists in the kernel */
 	/* Don't forget to update statistics */
 	lp->wstats.discard.nwid +=
 	    (m.mmr_wrong_nwid_h << 8) | m.mmr_wrong_nwid_l;
@@ -1514,7 +1514,7 @@ static int wavelan_set_mac_address(device * dev, void *addr)
 }
 #endif				/* SET_MAC_ADDRESS */
 
-#ifdef WIRELESS_EXT		    /* if wireless extensions exist in the kernel */
+#ifdef WIRELESS_EXT		/* if wireless extensions exist in the kernel */
 
 /*------------------------------------------------------------------*/
 /*
@@ -2297,7 +2297,7 @@ static int wavelan_ioctl(struct net_device *dev,	/* device on which the ioctl is
 			wv_splx(lp, &flags);
 			if (copy_to_user(wrq->u.data.pointer,
 					 lp->his_sum,
-					 sizeof(long) * lp->his_number);
+					 sizeof(long) * lp->his_number));
 				ret = -EFAULT;
 			wv_splhi(lp, &flags);
 
@@ -2824,6 +2824,13 @@ static int wavelan_packet_xmit(struct sk_buff *skb, device * dev)
 	printk(KERN_DEBUG "%s: ->wavelan_packet_xmit(0x%X)\n", dev->name,
 	       (unsigned) skb);
 #endif
+
+	if(skb->len < ETH_ZLEN)
+	{
+		skb = skb_padto(skb, ETH_ZLEN);
+		if(skb == NULL)
+			return 0;
+	}
 
 	/*
 	 * Block a timer-based transmit from overlapping.
@@ -4071,7 +4078,7 @@ static int __init wavelan_config(device * dev)
 	dev->set_mac_address = &wavelan_set_mac_address;
 #endif				/* SET_MAC_ADDRESS */
 
-#ifdef WIRELESS_EXT		    /* if wireless extension exists in the kernel */
+#ifdef WIRELESS_EXT		/* if wireless extension exists in the kernel */
 	dev->do_ioctl = wavelan_ioctl;
 	dev->get_wireless_stats = wavelan_get_wireless_stats;
 #endif

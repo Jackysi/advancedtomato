@@ -2,7 +2,7 @@
  *
  * Alchemy Semi Au1000 pcmcia driver
  *
- * Copyright 2001 MontaVista Software Inc.
+ * Copyright 2001-2003 MontaVista Software Inc.
  * Author: MontaVista Software, Inc.
  *         	ppopov@mvista.com or source@mvista.com
  *
@@ -70,7 +70,12 @@ MODULE_DESCRIPTION("Linux PCMCIA Card Services: Au1x00 Socket Controller");
  * callback value associated with the socket:
  */
 static struct au1000_pcmcia_socket *pcmcia_socket;
-static int socket_count;
+
+/* Some boards like to support CF cards as IDE root devices, so they
+ * grab pcmcia sockets directly.
+ */
+int socket_count;
+u32 *pcmcia_base_vaddrs[2];
 
 
 /* Returned by the low-level PCMCIA interface: */
@@ -134,6 +139,8 @@ static struct pccard_operations au1000_pcmcia_operations = {
 
 static spinlock_t pcmcia_lock = SPIN_LOCK_UNLOCKED;
 
+extern const unsigned long mips_io_port_base;
+
 static int __init au1000_pcmcia_driver_init(void)
 {
 	servinfo_t info;
@@ -155,14 +162,7 @@ static int __init au1000_pcmcia_driver_init(void)
 		return -1;
 	}
 
-#if defined(CONFIG_MIPS_PB1000) || defined(CONFIG_MIPS_PB1100) || defined(CONFIG_MIPS_PB1500)
-	pcmcia_low_level=&pb1x00_pcmcia_ops;
-#elif defined(CONFIG_MIPS_DB1000) || defined(CONFIG_MIPS_DB1100) || defined(CONFIG_MIPS_DB1500)
-	pcmcia_low_level=&db1x00_pcmcia_ops;
-#else
-#error Unsupported AU1000 board.
-#endif
-
+	pcmcia_low_level=&au1x00_pcmcia_ops;
 	pcmcia_init.handler=au1000_pcmcia_interrupt;
 	if((socket_count=pcmcia_low_level->init(&pcmcia_init))<0) {
 		printk(KERN_ERR "Unable to initialize PCMCIA service.\n");
@@ -195,22 +195,32 @@ static int __init au1000_pcmcia_driver_init(void)
 		pcmcia_socket[i].k_state=state;
 		pcmcia_socket[i].cs_state.csc_mask=SS_DETECT;
 		
+		/*
+		 * PCMCIA drivers use the inb/outb macros to access the
+		 * IO registers. Since mips_io_port_base is added to the
+		 * access address, we need to subtract it here.
+		 */
 		if (i == 0) {
-			pcmcia_socket[i].virt_io = 
-				(u32)ioremap((ioaddr_t)AU1X_SOCK0_IO, 0x1000);
+			pcmcia_socket[i].virt_io =
+				(u32)ioremap((ioaddr_t)AU1X_SOCK0_IO, 0x1000) -
+				mips_io_port_base;
 			pcmcia_socket[i].phys_attr = 
 				(ioaddr_t)AU1X_SOCK0_PHYS_ATTR;
 			pcmcia_socket[i].phys_mem = 
 				(ioaddr_t)AU1X_SOCK0_PHYS_MEM;
 		}
+#ifdef AU1X_SOCK1_IO /* revisit */
 		else  {
 			pcmcia_socket[i].virt_io = 
-				(u32)ioremap((ioaddr_t)AU1X_SOCK1_IO, 0x1000);
+				(u32)ioremap((ioaddr_t)AU1X_SOCK1_IO, 0x1000) -
+				mips_io_port_base;
 			pcmcia_socket[i].phys_attr = 
 				(ioaddr_t)AU1X_SOCK1_PHYS_ATTR;
 			pcmcia_socket[i].phys_mem = 
 				(ioaddr_t)AU1X_SOCK1_PHYS_MEM;
 		}
+#endif
+		pcmcia_base_vaddrs[i] = (u32 *)pcmcia_socket[i].virt_io;
 	}
 
 	/* Only advertise as many sockets as we can detect: */
@@ -241,7 +251,8 @@ static void __exit au1000_pcmcia_driver_shutdown(void)
 	flush_scheduled_tasks();
 	for(i=0; i < socket_count; i++) {
 		if (pcmcia_socket[i].virt_io) 
-			iounmap((void *)pcmcia_socket[i].virt_io);
+			iounmap((void *)pcmcia_socket[i].virt_io + 
+					mips_io_port_base);
 	}
 	DEBUG(1, "au1000: shutdown complete\n");
 }
@@ -593,7 +604,6 @@ au1000_pcmcia_set_mem_map(unsigned int sock, struct pccard_mem_map *map)
 	}
 
 	spin_lock_irqsave(&pcmcia_lock, flags);
-	start=map->sys_start;
 
 	if(map->sys_stop==0)
 		map->sys_stop=MAP_SIZE-1;
@@ -607,7 +617,7 @@ au1000_pcmcia_set_mem_map(unsigned int sock, struct pccard_mem_map *map)
 			map->card_start;
 	}
 
-	map->sys_stop=map->sys_start+(map->sys_stop-start);
+	map->sys_stop=map->sys_start+MAP_SIZE;
 	pcmcia_socket[sock].mem_map[map->map]=*map;
 	spin_unlock_irqrestore(&pcmcia_lock, flags);
 	DEBUG(3, "set_mem_map %d start %x stop %x card_start %x\n", 

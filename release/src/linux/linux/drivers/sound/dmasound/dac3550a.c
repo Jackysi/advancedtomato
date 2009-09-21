@@ -155,6 +155,14 @@ daca_attach_adapter(struct i2c_adapter *adapter)
 static int
 daca_init_client(struct i2c_client * new_client)
 {
+	/* 
+	 * Probe is not working with the current i2c-keywest
+	 * driver. We try to use addr 0x4d on each adapters
+	 * instead, by setting the format register.
+	 * 
+	 * FIXME: I'm sure that can be obtained from the
+	 * device-tree. --BenH.
+	 */
   
 	/* Write the global config reg - invert right power amp,
 	 * DAC on, use 5-volt mode

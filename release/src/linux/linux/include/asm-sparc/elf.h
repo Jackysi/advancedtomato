@@ -1,4 +1,4 @@
-/* $Id: elf.h,v 1.1.1.4 2003/10/14 08:09:22 sparq Exp $ */
+/* $Id: elf.h,v 1.22 2000/07/12 01:27:08 davem Exp $ */
 #ifndef __ASMSPARC_ELF_H
 #define __ASMSPARC_ELF_H
 
@@ -40,7 +40,7 @@ do {	unsigned long *dest = &(__elf_regs[0]);		\
 	dest[33] = src->pc;				\
 	dest[34] = src->npc;				\
 	dest[35] = src->y;				\
-	dest[36] = dest[37] = 0; 		\
+	dest[36] = dest[37] = 0; /* XXX */		\
 } while(0);
 
 typedef struct {
@@ -81,12 +81,15 @@ typedef struct {
    the loader.  We need to make sure that it is out of the way of the program
    that it will "exec", and that there is sufficient room for the brk.  */
 
-#define ELF_ET_DYN_BASE         (0x08000000)
+#define ELF_ET_DYN_BASE         (TASK_UNMAPPED_BASE)
 
 /* This yields a mask that user programs can use to figure out what
    instruction set this cpu supports.  This can NOT be done in userspace
    on Sparc.  */
 
+/* Sun4c has none of the capabilities, most sun4m's have them all.
+ * XXX This is gross, set some global variable at boot time. -DaveM
+ */
 #define ELF_HWCAP	((ARCH_SUN4C_SUN4) ? 0 : \
 			 (HWCAP_SPARC_FLUSH | HWCAP_SPARC_STBAR | \
 			  HWCAP_SPARC_SWAP | \

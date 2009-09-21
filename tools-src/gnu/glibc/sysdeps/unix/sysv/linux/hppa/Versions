@@ -1,6 +1,0 @@
-libc {
-  GLIBC_2.2 {
-    # New rlimit interface
-    getrlimit; setrlimit; getrlimit64; setrlimit64;
-  }
-}

@@ -34,10 +34,10 @@ volatile unsigned long irq_err_count;
  */
 
 static int irq_to_pil_map[BAGET_IRQ_NR] = {
-	7YYDELETEMEYY,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1, /* 0x00 - 0x0f */
-	-1,-1,-1,-1, 3,-1,-1,-1, 2, 2, 2,-1, 3,-1,-1,3YYDELETEMEYY, /* 0x10 - 0x1f */
+	7/*fixme: dma_err -1*/,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1, /* 0x00 - 0x0f */
+	-1,-1,-1,-1, 3,-1,-1,-1, 2, 2, 2,-1, 3,-1,-1,3/*fixme: lance*/, /* 0x10 - 0x1f */
         -1,-1,-1,-1,-1,-1, 5,-1,-1,-1,-1,-1, 7,-1,-1,-1, /* 0x20 - 0x2f */
-	-1, 3, 2YYDELETEMEYY, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3  /* 0x30 - 0x3f */
+	-1, 3, 2/*fixme systimer:3*/, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3  /* 0x30 - 0x3f */
 };
 
 static inline int irq_to_pil(int irq_nr)

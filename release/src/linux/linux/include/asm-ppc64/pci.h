@@ -25,6 +25,12 @@ extern int pcibios_assign_all_busses(void);
 #define PCIBIOS_MIN_IO		0x1000
 #define PCIBIOS_MIN_MEM		0x10000000
 
+/*
+ * ppc64 can have multifunction devices that do not respond to function 0.
+ * In this case we must scan all functions.
+ */
+#define pcibios_scan_all_fns()     1
+
 static inline void pcibios_set_master(struct pci_dev *dev)
 {
 	/* No special bus mastering setup handling */

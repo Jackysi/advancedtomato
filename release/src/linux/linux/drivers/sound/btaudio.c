@@ -767,6 +767,11 @@ static int btaudio_dsp_ioctl(struct inode *inode, struct file *file,
 			return -EFAULT;
 		return 0;
 	}
+#if 0 /* TODO */
+        case SNDCTL_DSP_GETTRIGGER:
+        case SNDCTL_DSP_SETTRIGGER:
+        case SNDCTL_DSP_SETFRAGMENT:
+#endif
 	default:
 		return -EINVAL;
 	}

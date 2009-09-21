@@ -19,7 +19,11 @@
  * file system statistics 
  */
 
+#if 1
 #define dprintk printk   /* debug */
+#else
+#define dprintk(format,args...)
+#endif
 
 #define STAT_FILE_NAME "mpc"     /* Our statistic file's name */
 
@@ -98,13 +102,14 @@ static ssize_t proc_mpc_read(struct file *file, char *buff,
 			     size_t count, loff_t *pos){
         unsigned long page = 0;
 	unsigned char *temp;
-        ssize_t length  = 0;
+        int length = 0;
 	int i = 0;
 	struct mpoa_client *mpc = mpcs;
 	in_cache_entry *in_entry;
 	eg_cache_entry *eg_entry;
 	struct timeval now;
 	unsigned char ip_string[16];
+	loff_t n = *pos;
 	if(count == 0)
 	        return 0;
 	page = get_free_page(GFP_KERNEL);
@@ -146,14 +151,14 @@ static ssize_t proc_mpc_read(struct file *file, char *buff,
 		mpc = mpc->next;
 	}
 
-	if (*pos >= length) length = 0;
+	if (n != (unsigned)n || n >= length) length = 0;
 	else {
-	  if ((count + *pos) > length) count = length - *pos;
+	  if (count > length - n) count = length - n;
 	  if (copy_to_user(buff, (char *)page , count)) {
  		  free_page(page);
 		  return -EFAULT;
           }
-	  *pos += count;
+	  *pos = n + count;
 	}
 
  	free_page(page);

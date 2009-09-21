@@ -110,6 +110,7 @@ static int context_thread(void *startup)
 			spin_unlock_irq(&curtask->sigmask_lock);
 		}
 	}
+	return 0;
 }
 
 /**

@@ -1,4 +1,4 @@
-/*  $Id: signal.c,v 1.1.1.4 2003/10/14 08:07:48 sparq Exp $
+/*  $Id: signal.c,v 1.108 2001/01/24 21:05:12 davem Exp $
  *  linux/arch/sparc/kernel/signal.c
  *
  *  Copyright (C) 1991, 1992  Linus Torvalds
@@ -181,6 +181,7 @@ asmlinkage void do_rt_sigsuspend(sigset_t *uset, size_t sigsetsize,
 {
 	sigset_t oldset, set;
 
+	/* XXX: Don't preclude handling different sized sigset_t's.  */
 	if (sigsetsize != sizeof(sigset_t)) {
 		regs->psr |= PSR_C;
 		regs->u_regs[UREG_I0] = EINVAL;
@@ -466,7 +467,7 @@ setup_frame(struct sigaction *sa, struct pt_regs *regs, int signr, sigset_t *old
 	synchronize_user_stack();
 	sframep = (struct signal_sframe *)get_sigframe(sa, regs, SF_ALIGNEDSZ);
 	if (invalid_frame_pointer (sframep, sizeof(*sframep))){
-#ifdef DEBUG_SIGNALS     /* fills up the console logs during crashme runs, yuck... */
+#ifdef DEBUG_SIGNALS /* fills up the console logs during crashme runs, yuck... */
 		printk("%s [%d]: User has trashed signal stack\n",
 		       current->comm, current->pid);
 		printk("Sigstack ptr %p handler at pc<%08lx> for sig<%d>\n",
@@ -791,7 +792,7 @@ setup_svr4_frame(struct sigaction *sa, unsigned long pc, unsigned long npc,
 	int window = 0, err;
 
 	synchronize_user_stack();
-	sfp = (svr4_signal_frame_t *) get_sigframe(sa, regs, SVR4_SF_ALIGNED + REGWIN_SZ);
+	sfp = (svr4_signal_frame_t *) get_sigframe(sa, regs, SVR4_SF_ALIGNED + sizeof(struct reg_window));
 
 	if (invalid_frame_pointer (sfp, sizeof (*sfp))){
 #ifdef DEBUG_SIGNALS
@@ -810,6 +811,10 @@ setup_svr4_frame(struct sigaction *sa, unsigned long pc, unsigned long npc,
 	mc = &uc->mcontext;
 	gr = &mc->greg;
 	
+	/* FIXME: where am I supposed to put this?
+	 * sc->sigc_onstack = old_status;
+	 * anyways, it does not look like it is used for anything at all.
+	 */
 	setv.sigbits[0] = oldset->sig[0];
 	setv.sigbits[1] = oldset->sig[1];
 	if (_NSIG_WORDS >= 4) {
@@ -967,6 +972,9 @@ asmlinkage int svr4_setcontext (svr4_ucontext_t *c, struct pt_regs *regs)
 	int err;
 	stack_t st;
 	
+	/* Fixme: restore windows, or is this already taken care of in
+	 * svr4_setup_frame when sync_user_windows is done?
+	 */
 	flush_user_windows();
 	
 	if (tp->w_saved)
@@ -1123,6 +1131,8 @@ static inline void read_maps (void)
 			line = d_path(map->vm_file->f_dentry,
 				      map->vm_file->f_vfsmnt,
 				      buffer, PAGE_SIZE);
+			if (IS_ERR(line))
+				break;
 		}
 		printk(MAPS_LINE_FORMAT, map->vm_start, map->vm_end, str, map->vm_pgoff << PAGE_SHIFT,
 			      kdevname(dev), ino);
@@ -1147,6 +1157,10 @@ asmlinkage int do_signal(sigset_t *oldset, struct pt_regs * regs,
 	struct k_sigaction *ka;
 	siginfo_t info;
 
+	/*
+	 * XXX Disable svr4 signal handling until solaris emulation works.
+	 * It is buggy - Anton
+	 */
 #define SVR4_SIGNAL_BROKEN 1
 #ifdef SVR4_SIGNAL_BROKEN
 	int svr4_signal = 0;
@@ -1229,7 +1243,7 @@ asmlinkage int do_signal(sigset_t *oldset, struct pt_regs * regs,
 			if (current->pid == 1)
 				continue;
 			switch (signr) {
-			case SIGCONT: case SIGCHLD: case SIGWINCH:
+			case SIGCONT: case SIGCHLD: case SIGWINCH: case SIGURG:
 				continue;
 
 			case SIGTSTP: case SIGTTIN: case SIGTTOU:
@@ -1322,7 +1336,7 @@ do_sys_sigstack(struct sigstack *ssptr, struct sigstack *ossptr, unsigned long s
 	if (ssptr) {
 		void *ss_sp;
 
-		if (get_user((long)ss_sp, &ssptr->the_stack))
+		if (get_user(ss_sp, &ssptr->the_stack))
 			goto out;
 		/* If the current stack was set with sigaltstack, don't
 		   swap stacks while we are on it.  */

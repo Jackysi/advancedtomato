@@ -807,7 +807,7 @@ static struct fb_videomode ami_modedb[] __initdata = {
 	FB_SYNC_BROADCAST, FB_VMODE_NONINTERLACED | FB_VMODE_YWRAP
     }, {
 	/* 640x400, 15 kHz, 60 Hz interlaced (NTSC) */
-	"ntsc-lace", 60, 640, TAG_HIRES, 106, 86, 88, 33, 76, 4,
+	"ntsc-lace", 60, 640, 400, TAG_HIRES, 106, 86, 88, 33, 76, 4,
 	FB_SYNC_BROADCAST, FB_VMODE_INTERLACED | FB_VMODE_YWRAP
     }, {
 	/* 640x256, 15 kHz, 50 Hz (PAL) */
@@ -889,6 +889,23 @@ static struct fb_videomode ami_modedb[] __initdata = {
 	FB_SYNC_VERT_HIGH_ACT | FB_SYNC_COMP_HIGH_ACT, FB_VMODE_NONINTERLACED | FB_VMODE_YWRAP
     },
 
+#if 0
+
+    /*
+     *  A2024 video modes
+     *  These modes don't work yet because there's no A2024 driver.
+     */
+
+    {
+	/* 1024x800, 10 Hz */
+	"a2024-10", 10, 1024, 800, TAG_HIRES, 0, 0, 0, 0, 0, 0,
+	0, FB_VMODE_NONINTERLACED | FB_VMODE_YWRAP
+    }, {
+	/* 1024x800, 15 Hz */
+	"a2024-15", 15, 1024, 800, TAG_HIRES, 0, 0, 0, 0, 0, 0,
+	0, FB_VMODE_NONINTERLACED | FB_VMODE_YWRAP
+    }
+#endif
 };
 
 #define NUM_TOTAL_MODES  ARRAY_SIZE(ami_modedb)
@@ -1588,19 +1605,6 @@ int __init amifb_init(void)
 		return -ENXIO;
 
 	/*
-	 * TODO: where should we put this? The DMI Resolver doesn't have a
-	 *	 frame buffer accessible by the CPU
-	 */
-
-#ifdef CONFIG_GSP_RESOLVER
-	if (amifb_resolver){
-		custom.dmacon = DMAF_MASTER | DMAF_RASTER | DMAF_COPPER |
-				DMAF_BLITTER | DMAF_SPRITE;
-		return 0;
-	}
-#endif
-
-	/*
 	 * We request all registers starting from bplpt[0]
 	 */
 	if (!request_mem_region(CUSTOM_PHYSADDR+0xe0, 0x120,
@@ -1768,7 +1772,7 @@ default_chipset:
 
 	ami_init_copper();
 
-	if (request_irq(IRQ_AMIGA_VERTB, amifb_interrupt, 0,
+	if (request_irq(IRQ_AMIGA_COPPER, amifb_interrupt, 0,
 	                "fb vertb handler", &currentpar)) {
 		err = -EBUSY;
 		goto amifb_error;
@@ -2343,6 +2347,13 @@ static int ami_decode_var(struct fb_var_screeninfo *var,
 	par->crsr.spot_x = par->crsr.spot_y = 0;
 	par->crsr.height = par->crsr.width = 0;
 
+#if 0	/* fbmon not done.  uncomment for 2.5.x -brad */
+	if (!fbmon_valid_timings(pixclock[clk_shift], htotal, vtotal,
+				 &fb_info)) {
+		DPRINTK("mode doesn't fit for monitor\n");
+		return -EINVAL;
+	}
+#endif
 
 	return 0;
 }
@@ -2724,6 +2735,7 @@ static void ami_init_display(void)
 	amiga_audio_min_period = div16(par->htotal);
 
 	is_lace = par->bplcon0 & BPC0_LACE ? 1 : 0;
+#if 1
 	if (is_lace) {
 		if (custom.vposr & 0x8000)
 			custom.cop2lc = (u_short *)ZTWO_PADDR(copdisplay.list[currentcop][1]);
@@ -2733,6 +2745,10 @@ static void ami_init_display(void)
 		custom.vposw = custom.vposr | 0x8000;
 		custom.cop2lc = (u_short *)ZTWO_PADDR(copdisplay.list[currentcop][1]);
 	}
+#else
+	custom.vposw = custom.vposr | 0x8000;
+	custom.cop2lc = (u_short *)ZTWO_PADDR(copdisplay.list[currentcop][1]);
+#endif
 }
 
 	/*
@@ -3176,6 +3192,16 @@ static void ami_build_copper(void)
 			                    par->diwstop_h, par->diwstop_v+1), diwhigh);
 			(cops++)->l = CMOVE(diwhigh2hw(par->diwstrt_h, par->diwstrt_v,
 			                    par->diwstop_h, par->diwstop_v), diwhigh);
+#if 0
+			if (par->beamcon0 & BMC0_VARBEAMEN) {
+				(copl++)->l = CMOVE(vtotal2hw(par->vtotal), vtotal);
+				(copl++)->l = CMOVE(vbstrt2hw(par->vbstrt+1), vbstrt);
+				(copl++)->l = CMOVE(vbstop2hw(par->vbstop+1), vbstop);
+				(cops++)->l = CMOVE(vtotal2hw(par->vtotal), vtotal);
+				(cops++)->l = CMOVE(vbstrt2hw(par->vbstrt), vbstrt);
+				(cops++)->l = CMOVE(vbstop2hw(par->vbstop), vbstop);
+			}
+#endif
 		}
 		p = ZTWO_PADDR(copdisplay.list[currentcop][0]);
 		(copl++)->l = CMOVE(highw(p), cop2lc);
@@ -3190,6 +3216,13 @@ static void ami_build_copper(void)
 		if (!IS_OCS) {
 			(copl++)->l = CMOVE(diwhigh2hw(par->diwstrt_h, par->diwstrt_v,
 			                    par->diwstop_h, par->diwstop_v), diwhigh);
+#if 0
+			if (par->beamcon0 & BMC0_VARBEAMEN) {
+				(copl++)->l = CMOVE(vtotal2hw(par->vtotal), vtotal);
+				(copl++)->l = CMOVE(vbstrt2hw(par->vbstrt), vbstrt);
+				(copl++)->l = CMOVE(vbstop2hw(par->vbstop), vbstop);
+			}
+#endif
 		}
 	}
 	copdisplay.rebuild[1] = copl;

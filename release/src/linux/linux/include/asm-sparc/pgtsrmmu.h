@@ -1,4 +1,4 @@
-/* $Id: pgtsrmmu.h,v 1.1.1.4 2003/10/14 08:09:22 sparq Exp $
+/* $Id: pgtsrmmu.h,v 1.31 2000/07/16 21:48:52 anton Exp $
  * pgtsrmmu.h:  SRMMU page table defines and code.
  *
  * Copyright (C) 1995 David S. Miller (davem@caip.rutgers.edu)
@@ -8,6 +8,9 @@
 #define _SPARC_PGTSRMMU_H
 
 #include <asm/page.h>
+
+/* Number of contexts is implementation-dependent; 64k is the most we support */
+#define SRMMU_MAX_CONTEXTS    65536
 
 /* PMD_SHIFT determines the size of the area a second-level page table can map */
 #define SRMMU_PMD_SHIFT         18
@@ -60,6 +63,11 @@
 
 #define SRMMU_CHG_MASK    (0xffffff00 | SRMMU_REF | SRMMU_DIRTY)
 
+/* Some day I will implement true fine grained access bits for
+ * user pages because the SRMMU gives us the capabilities to
+ * enforce all the protection levels that vma's can have.
+ * XXX But for now...
+ */
 #define SRMMU_PAGE_NONE    __pgprot(SRMMU_VALID | SRMMU_CACHE | \
 				    SRMMU_PRIV | SRMMU_REF)
 #define SRMMU_PAGE_SHARED  __pgprot(SRMMU_VALID | SRMMU_CACHE | \

@@ -125,7 +125,12 @@ static int xd_sizes[XD_MAXDRIVES << 6], xd_access[XD_MAXDRIVES];
 static int xd_blocksizes[XD_MAXDRIVES << 6];
 static int xd_maxsect[XD_MAXDRIVES << 6];
 
-extern struct block_device_operations xd_fops;
+static struct block_device_operations xd_fops = {
+	owner:		THIS_MODULE,
+	open:		xd_open,
+	release:	xd_release,
+	ioctl:		xd_ioctl,
+};
 
 static struct gendisk xd_gendisk = {
 	major:		MAJOR_NR,
@@ -136,13 +141,6 @@ static struct gendisk xd_gendisk = {
 	sizes:		xd_sizes,
 	real_devices:	(void *)xd_info,
 	fops:		&xd_fops,
-};
-
-static struct block_device_operations xd_fops = {
-	owner:		THIS_MODULE,
-	open:		xd_open,
-	release:	xd_release,
-	ioctl:		xd_ioctl,
 };
 
 static DECLARE_WAIT_QUEUE_HEAD(xd_wait_int);
@@ -754,6 +752,11 @@ static void __init xd_dtc5150cx_init_drive (u8 drive)
 			xd_info[drive].heads = (u8)(geometry_table[n][1]);			/* heads */
 			xd_info[drive].cylinders = geometry_table[n][0];	/* cylinders */
 			xd_info[drive].sectors = 17;				/* sectors */
+#if 0
+			xd_info[drive].rwrite = geometry_table[n][2];	/* reduced write */
+			xd_info[drive].precomp = geometry_table[n][3]		/* write precomp */
+			xd_info[drive].ecc = 0x0B;				/* ecc length */
+#endif /* 0 */
 		}
 		else {
 			printk(KERN_WARNING "xd%c: undetermined drive geometry\n",'a'+drive);
@@ -775,6 +778,11 @@ static void __init xd_dtc_init_drive (u8 drive)
 		xd_info[drive].sectors = 17;				/* sectors */
 		if (xd_geo[3*drive])
 			xd_manual_geo_set(drive);
+#if 0
+		xd_info[drive].rwrite = ((u16 *) (buf + 1))[0x05];	/* reduced write */
+		xd_info[drive].precomp = ((u16 *) (buf + 1))[0x06];	/* write precomp */
+		xd_info[drive].ecc = buf[0x0F];				/* ecc length */
+#endif /* 0 */
 		xd_info[drive].control = 0;				/* control byte */
 
 		xd_setparam(CMD_DTCSETPARAM,drive,xd_info[drive].heads,xd_info[drive].cylinders,((u16 *) (buf + 1))[0x05],((u16 *) (buf + 1))[0x06],buf[0x0F]);
@@ -841,6 +849,11 @@ static void __init xd_wd_init_drive (u8 drive)
 		xd_info[drive].sectors = 17;					/* sectors */
 		if (xd_geo[3*drive])
 			xd_manual_geo_set(drive);
+#if 0
+		xd_info[drive].rwrite = ((u16 *) (buf))[0xD8];		/* reduced write */
+		xd_info[drive].wprecomp = ((u16 *) (buf))[0xDA];		/* write precomp */
+		xd_info[drive].ecc = buf[0x1B4];				/* ecc length */
+#endif /* 0 */
 		xd_info[drive].control = buf[0x1B5];				/* control byte */
 		use_jumper_geo = !(xd_info[drive].heads) || !(xd_info[drive].cylinders);
 		if (xd_geo[3*drive]) {
@@ -852,6 +865,11 @@ static void __init xd_wd_init_drive (u8 drive)
 			xd_info[drive].cylinders = geometry_table[n][0];
 			xd_info[drive].heads = (u8)(geometry_table[n][1]);
 			xd_info[drive].control = rll ? 7 : 5;
+#if 0
+			xd_info[drive].rwrite = geometry_table[n][2];
+			xd_info[drive].wprecomp = geometry_table[n][3];
+			xd_info[drive].ecc = 0x0B;
+#endif /* 0 */
 		}
 		if (!wd_1002) {
 			if (use_jumper_geo)
@@ -868,6 +886,12 @@ static void __init xd_wd_init_drive (u8 drive)
 			if ((xd_info[drive].cylinders *= 26,
 			     xd_info[drive].cylinders /= 17) > 1023)
 				xd_info[drive].cylinders = 1023;  /* 1024 ? */
+#if 0
+			xd_info[drive].rwrite *= 26; 
+			xd_info[drive].rwrite /= 17;
+			xd_info[drive].wprecomp *= 26
+			xd_info[drive].wprecomp /= 17;
+#endif /* 0 */
 		}
 	}
 	else
@@ -996,6 +1020,11 @@ static void __init xd_xebec_init_drive (u8 drive)
 		xd_info[drive].heads = (u8)(geometry_table[n][1]);			/* heads */
 		xd_info[drive].cylinders = geometry_table[n][0];	/* cylinders */
 		xd_info[drive].sectors = 17;				/* sectors */
+#if 0
+		xd_info[drive].rwrite = geometry_table[n][2];	/* reduced write */
+		xd_info[drive].precomp = geometry_table[n][3]		/* write precomp */
+		xd_info[drive].ecc = 0x0B;				/* ecc length */
+#endif /* 0 */
 	}
 	xd_info[drive].control = geometry_table[n][4];			/* control byte */
 	xd_setparam(CMD_XBSETPARAM,drive,xd_info[drive].heads,xd_info[drive].cylinders,geometry_table[n][2],geometry_table[n][3],0x0B);

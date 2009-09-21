@@ -15,7 +15,11 @@ MODULE_LICENSE("GPL");
 #endif
 
 struct ahhdr {
+	__u8    nexthdr;
+	__u8    hdrlen;
+	__u16   reserved;
 	__u32   spi;
+	__u32   seq_no;
 };
 
 /* Returns 1 if the spi is matched by the range, 0 otherwise */

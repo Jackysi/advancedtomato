@@ -507,6 +507,18 @@ int wanmcs_reset(SAB_BOARD* bptr) /* note the board is the host card not the
 {
 	int		 counter;
 	
+#if 0				/* from the ASE driver */
+	/*
+	 * Program the AMCC to deactivate the write FIFO.
+	 */
+	
+	ASE_PUT32(cboard->b_bridgehandle,
+		  (aseuint32_t *) (cboard->b_bridge + AMCC_PTCR),
+		  ((aseuint32_t) (AMCC_PTMODE | AMCC_WRFIFODIS) << 24) |
+		  ((aseuint32_t) (AMCC_PTMODE | AMCC_WRFIFODIS) << 16) |
+		  ((aseuint32_t) (AMCC_PTMODE | AMCC_WRFIFODIS) << 8) |
+		  (aseuint32_t) (AMCC_PTMODE | AMCC_WRFIFODIS));
+#endif		/* 0 */
 	
 	/*
 	 * First thing: do a reset of the local bus on the MIC 

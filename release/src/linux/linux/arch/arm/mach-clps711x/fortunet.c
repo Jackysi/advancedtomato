@@ -31,6 +31,10 @@
 #include <asm/setup.h>
 #include <asm/mach-types.h>
 
+#include <asm/pgtable.h>
+#include <asm/page.h>
+#include <asm/mach/map.h>
+
 #include <asm/mach/arch.h>
 #include <asm/mach/amba_kmi.h>
 
@@ -48,9 +52,11 @@ typedef struct tag_IMAGE_PARAMS
 	int	extra_param_type;
 	int	extra_param_ptr;
 	int	command_line;
+	int	extra_ram_start;
+	int	extra_ram_size;
 } IMAGE_PARAMS;
 
-#define IMAGE_PARAMS_PHYS	0xC01F0000
+#define IMAGE_PARAMS_PHYS	0xC0200000
 
 static void __init
 fortunet_fixup(struct machine_desc *desc, struct param_struct *params,
@@ -67,14 +73,23 @@ fortunet_fixup(struct machine_desc *desc, struct param_struct *params,
 	}
 #endif
 	memmap.bank[0].size = ip->ram_size;
+	memmap.bank[0].node = PHYS_TO_NID(0xC0000000);
+	if(ip->extra_ram_size)
+	{
+		memmap.bank[1].start = ip->extra_ram_start;
+		memmap.bank[1].size = ip->extra_ram_size;
+		memmap.bank[1].node = PHYS_TO_NID(ip->extra_ram_start);
+		mi->nr_banks=2;
+	}
 	memmap.end = ip->ram_size+0xC0000000;
 	*mi = memmap;
 }
 
 MACHINE_START(FORTUNET, "ARM-FortuNet")
 	MAINTAINER("FortuNet Inc.")
-        BOOT_MEM(0xc0000000, 0x80000000, 0xf0000000)
+        BOOT_MEM(0xc0000000, 0x80000000, 0xff000000)
 	BOOT_PARAMS(0x00000000)
+	VIDEO(0xC0000000,0xC00020000)
 	FIXUP(fortunet_fixup)
 	MAPIO(clps711x_map_io)
 	INITIRQ(clps711x_init_irq)

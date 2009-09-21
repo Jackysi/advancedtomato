@@ -319,6 +319,7 @@ void set_debug_traps(void)
  */
 extern void fltr_set_mem_err(void)
 {
+  /* FIXME: Needs to be written... */
 }
 
 
@@ -431,6 +432,10 @@ void gdb_stub_handle_exception(gdb_pt_regs *regs,int sigval)
 			ptr = mem2hex((char *)&regs->fp_regs, ptr,sizeof(s390_fp_regs));
 			break;
 	  
+		/*
+		 * set the value of the CPU registers - return OK
+		 * FIXME: Needs to be written
+		 */
 		case 'G':
 			ptr=input_buffer;
 			hex2mem (ptr, (char *)regs,sizeof(s390_regs_common), FALSE);
@@ -509,6 +514,9 @@ void gdb_stub_handle_exception(gdb_pt_regs *regs,int sigval)
 			break;		/* do nothing */
 
 
+		/*
+		 * Reset the whole machine (FIXME: system dependent)
+		 */
 		case 'r':
 			break;
 

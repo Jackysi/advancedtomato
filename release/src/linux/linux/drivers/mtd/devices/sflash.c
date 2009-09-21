@@ -1,7 +1,7 @@
 /*
  * Broadcom SiliconBackplane chipcommon serial flash interface
  *
- * Copyright 2005, Broadcom Corporation      
+ * Copyright 2004, Broadcom Corporation      
  * All Rights Reserved.      
  *       
  * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY      
@@ -9,7 +9,7 @@
  * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS      
  * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.      
  *
- * $Id: sflash.c,v 1.1.1.8 2005/03/07 07:30:47 kanki Exp $
+ * $Id$
  */
 
 #include <linux/config.h>
@@ -21,6 +21,7 @@
 #include <linux/mtd/partitions.h>
 #include <linux/errno.h>
 #include <linux/pci.h>
+#include <linux/delay.h>
 #include <asm/io.h>
 
 #include <typedefs.h>

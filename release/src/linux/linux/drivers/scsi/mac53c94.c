@@ -153,6 +153,16 @@ mac53c94_queue(Scsi_Cmnd *cmd, void (*done)(Scsi_Cmnd *))
 	unsigned long flags;
 	struct fsc_state *state;
 
+#if 0
+	if (data_goes_out(cmd)) {
+		int i;
+		printk(KERN_DEBUG "mac53c94_queue %p: command is", cmd);
+		for (i = 0; i < cmd->cmd_len; ++i)
+			printk(" %.2x", cmd->cmnd[i]);
+		printk("\n" KERN_DEBUG "use_sg=%d request_bufflen=%d request_buffer=%p\n",
+		       cmd->use_sg, cmd->request_bufflen, cmd->request_buffer);
+	}
+#endif
 
 	cmd->scsi_done = done;
 	cmd->host_scribble = NULL;
@@ -270,6 +280,7 @@ mac53c94_start(struct fsc_state *state)
 		eieio();
 	}
 
+	/* do select without ATN XXX */
 	regs->command = CMD_SELECT;
 	state->phase = selecting;
 
@@ -305,6 +316,10 @@ mac53c94_interrupt(int irq, void *dev_id, struct pt_regs *ptregs)
 	stat = regs->status;
 	intr = regs->interrupt;
 
+#if 0
+	printk(KERN_DEBUG "mac53c94_intr, intr=%x stat=%x seq=%x phase=%d\n",
+	       intr, stat, seq, state->phase);
+#endif
 
 	if (intr & INTR_RESET) {
 		/* SCSI bus was reset */
@@ -321,6 +336,11 @@ mac53c94_interrupt(int irq, void *dev_id, struct pt_regs *ptregs)
 		return;
 	}
 	if (stat & STAT_ERROR) {
+#if 0
+		/* XXX these seem to be harmless? */
+		printk("53c94: bad error, intr=%x stat=%x seq=%x phase=%d\n",
+		       intr, stat, seq, state->phase);
+#endif
 		++mac53c94_errors;
 		regs->command = CMD_NOP + CMD_DMA_MODE;
 		eieio();

@@ -1,9 +1,9 @@
 /*
  * Compaq Hot Plug Controller Driver
  *
- * Copyright (c) 1995,2001 Compaq Computer Corporation
- * Copyright (c) 2001 Greg Kroah-Hartman (greg@kroah.com)
- * Copyright (c) 2001 IBM Corp.
+ * Copyright (C) 1995,2001 Compaq Computer Corporation
+ * Copyright (C) 2001 Greg Kroah-Hartman (greg@kroah.com)
+ * Copyright (C) 2001 IBM Corp.
  *
  * All rights reserved.
  *
@@ -160,7 +160,7 @@ static int check_for_compaq_ROM (void *rom_start)
 	    (temp6 == 'Q')) {
 		result = 1;
 	}
-	dbg (__FUNCTION__" - returned %d\n", result);
+	dbg ("%s - returned %d\n",__FUNCTION__, result);
 	return result;
 }
 

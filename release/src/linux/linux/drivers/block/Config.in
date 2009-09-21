@@ -4,10 +4,6 @@
 mainmenu_option next_comment
 comment 'Block devices'
 
-tristate 'M-Systems DiskOnChip Block Device support' CONFIG_BLK_DEV_MSYS
-
-tristate 'No-root support' CONFIG_NOROOT
-
 tristate 'Normal floppy disk support' CONFIG_BLK_DEV_FD
 if [ "$CONFIG_AMIGA" = "y" ]; then
    tristate 'Amiga floppy support' CONFIG_AMIGA_FLOPPY
@@ -40,8 +36,10 @@ fi
 dep_tristate 'Compaq SMART2 support' CONFIG_BLK_CPQ_DA $CONFIG_PCI
 dep_tristate 'Compaq Smart Array 5xxx support' CONFIG_BLK_CPQ_CISS_DA $CONFIG_PCI 
 dep_mbool '       SCSI tape drive support for Smart Array 5xxx' CONFIG_CISS_SCSI_TAPE $CONFIG_BLK_CPQ_CISS_DA $CONFIG_SCSI
+dep_mbool '       Enable monitor thread' CONFIG_CISS_MONITOR_THREAD $CONFIG_BLK_CPQ_CISS_DA
 dep_tristate 'Mylex DAC960/DAC1100 PCI RAID Controller support' CONFIG_BLK_DEV_DAC960 $CONFIG_PCI
 dep_tristate 'Micro Memory MM5415 Battery Backed RAM support (EXPERIMENTAL)' CONFIG_BLK_DEV_UMEM $CONFIG_PCI $CONFIG_EXPERIMENTAL
+dep_tristate 'Promise SATA SX8 support' CONFIG_BLK_DEV_SX8 $CONFIG_PCI
 
 tristate 'Loopback device support' CONFIG_BLK_DEV_LOOP
 dep_tristate 'Network block device support' CONFIG_BLK_DEV_NBD $CONFIG_NET

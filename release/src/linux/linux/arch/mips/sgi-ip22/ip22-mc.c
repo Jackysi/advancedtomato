@@ -1,79 +1,116 @@
 /*
- * ip22-mc.c: Routines for manipulating the INDY memory controller.
+ * ip22-mc.c: Routines for manipulating SGI Memory Controller.
  *
  * Copyright (C) 1996 David S. Miller (dm@engr.sgi.com)
  * Copyright (C) 1999 Andrew R. Baker (andrewb@uab.edu) - Indigo2 changes
+ * Copyright (C) 2003 Ladislav Michl  (ladis@linux-mips.org)
  */
 
 #include <linux/init.h>
 #include <linux/kernel.h>
 
-#include <asm/addrspace.h>
-#include <asm/ptrace.h>
+#include <asm/io.h>
+#include <asm/bootinfo.h>
 #include <asm/sgialib.h>
-#include <asm/sgi/sgimc.h>
-#include <asm/sgi/sgihpc.h>
+#include <asm/sgi/mc.h>
+#include <asm/sgi/hpc3.h>
+#include <asm/sgi/ip22.h>
 
-/* #define DEBUG_SGIMC */
+struct sgimc_regs *sgimc;
 
-#ifdef DEBUG_SGIMC
-extern void prom_printf(char *fmt, ...);
-#endif
-
-struct sgimc_misc_ctrl *mcmisc_regs;
-struct sgimc_dma_ctrl *dmactrlregs;
-u32 *rpsscounter;
-
-#ifdef DEBUG_SGIMC
-static inline char *mconfig_string(unsigned long val)
+static inline unsigned long get_bank_addr(unsigned int memconfig)
 {
-	switch(val & SGIMC_MCONFIG_RMASK) {
-	case SGIMC_MCONFIG_FOURMB:
-		return "4MB";
-
-	case SGIMC_MCONFIG_EIGHTMB:
-		return "8MB";
-
-	case SGIMC_MCONFIG_SXTEENMB:
-		return "16MB";
-
-	case SGIMC_MCONFIG_TTWOMB:
-		return "32MB";
-
-	case SGIMC_MCONFIG_SFOURMB:
-		return "64MB";
-
-	case SGIMC_MCONFIG_OTEIGHTMB:
-		return "128MB";
-
-	default:
-		return "wheee, unknown";
-	}
+	return ((memconfig & SGIMC_MCONFIG_BASEADDR) <<
+		((sgimc->systemid & SGIMC_SYSID_MASKREV) >= 5 ? 24 : 22));
 }
-#endif
+
+static inline unsigned long get_bank_size(unsigned int memconfig)
+{
+	return ((memconfig & SGIMC_MCONFIG_RMASK) + 0x0100) <<
+		((sgimc->systemid & SGIMC_SYSID_MASKREV) >= 5 ? 16 : 14);
+}
+
+static inline unsigned int get_bank_config(int bank)
+{
+	unsigned int res = bank > 1 ? sgimc->mconfig1 : sgimc->mconfig0;
+	return bank % 2 ? res & 0xffff : res >> 16;
+}
+
+struct mem {
+	unsigned long addr;
+	unsigned long size;
+};
+
+/*
+ * Detect installed memory, do some sanity checks and notify kernel about it
+ */
+static void probe_memory(void)
+{
+	int i, j, found, cnt = 0;
+	struct mem bank[4];
+	struct mem space[2] = {{SGIMC_SEG0_BADDR, 0}, {SGIMC_SEG1_BADDR, 0}};
+
+	printk(KERN_INFO "MC: Probing memory configuration:\n");
+	for (i = 0; i < ARRAY_SIZE(bank); i++) {
+		unsigned int tmp = get_bank_config(i);
+		if (!(tmp & SGIMC_MCONFIG_BVALID))
+			continue;
+
+		bank[cnt].size = get_bank_size(tmp);
+		bank[cnt].addr = get_bank_addr(tmp);
+		printk(KERN_INFO " bank%d: %3ldM @ %08lx\n",
+			i, bank[cnt].size / 1024 / 1024, bank[cnt].addr);
+		cnt++;
+	}
+
+	/* And you thought bubble sort is dead algorithm... */
+	do {
+		unsigned long addr, size;
+
+		found = 0;
+		for (i = 1; i < cnt; i++)
+			if (bank[i-1].addr > bank[i].addr) {
+				addr = bank[i].addr;
+				size = bank[i].size;
+				bank[i].addr = bank[i-1].addr;
+				bank[i].size = bank[i-1].size;
+				bank[i-1].addr = addr;
+				bank[i-1].size = size;
+				found = 1;
+			}
+	} while (found);
+
+	/* Figure out how are memory banks mapped into spaces */
+	for (i = 0; i < cnt; i++) {
+		found = 0;
+		for (j = 0; j < ARRAY_SIZE(space) && !found; j++)
+			if (space[j].addr + space[j].size == bank[i].addr) {
+				space[j].size += bank[i].size;
+				found = 1;
+			}
+		/* There is either hole or overlapping memory */
+		if (!found)
+			printk(KERN_CRIT "MC: Memory configuration mismatch "
+					 "(%08lx), expect Bus Error soon\n",
+					 bank[i].addr);
+	}
+
+	for (i = 0; i < ARRAY_SIZE(space); i++)
+		if (space[i].size)
+			add_memory_region(space[i].addr, space[i].size,
+					  BOOT_MEM_RAM);
+}
 
 void __init sgimc_init(void)
 {
-	unsigned long tmpreg;
+	u32 tmp;
 
-	mcmisc_regs = (struct sgimc_misc_ctrl *)(KSEG1+0x1fa00000);
-	rpsscounter = (unsigned int *)(KSEG1+0x1fa01004);
-	dmactrlregs = (struct sgimc_dma_ctrl *)(KSEG1+0x1fa02000);
+	/* ioremap can't fail */
+	sgimc = (struct sgimc_regs *)
+		ioremap(SGIMC_BASE, sizeof(struct sgimc_regs));
 
 	printk(KERN_INFO "MC: SGI memory controller Revision %d\n",
-	       (int) mcmisc_regs->systemid & SGIMC_SYSID_MASKREV);
-
-
-#ifdef DEBUG_SGIMC
-	prom_printf("sgimc_init: memconfig0<%s> mconfig1<%s>\n",
-		    mconfig_string(mcmisc_regs->mconfig0),
-		    mconfig_string(mcmisc_regs->mconfig1));
-
-	prom_printf("mcdump: cpuctrl0<%08lx> cpuctrl1<%08lx>\n",
-		    mcmisc_regs->cpuctrl0, mcmisc_regs->cpuctrl1);
-	prom_printf("mcdump: divider<%08lx>, gioparm<%04x>\n",
-		    mcmisc_regs->divider, mcmisc_regs->gioparm);
-#endif
+	       (int) sgimc->systemid & SGIMC_SYSID_MASKREV);
 
 	/* Place the MC into a known state.  This must be done before
 	 * interrupts are first enabled etc.
@@ -83,32 +120,32 @@ void __init sgimc_init(void)
 	 *         still running (which might be the case after a
 	 *         soft reboot).
 	 */
-	tmpreg = mcmisc_regs->cpuctrl0;
-	tmpreg &= ~SGIMC_CCTRL0_WDOG;
-	mcmisc_regs->cpuctrl0 = tmpreg;
+	tmp = sgimc->cpuctrl0;
+	tmp &= ~SGIMC_CCTRL0_WDOG;
+	sgimc->cpuctrl0 = tmp;
 
 	/* Step 1: The CPU/GIO error status registers will not latch
 	 *         up a new error status until the register has been
 	 *         cleared by the cpu.  These status registers are
 	 *         cleared by writing any value to them.
 	 */
-	mcmisc_regs->cstat = mcmisc_regs->gstat = 0;
+	sgimc->cstat = sgimc->gstat = 0;
 
 	/* Step 2: Enable all parity checking in cpu control register
 	 *         zero.
 	 */
-	tmpreg = mcmisc_regs->cpuctrl0;
-	tmpreg |= (SGIMC_CCTRL0_EPERRGIO | SGIMC_CCTRL0_EPERRMEM |
-		   SGIMC_CCTRL0_R4KNOCHKPARR);
-	mcmisc_regs->cpuctrl0 = tmpreg;
+	tmp = sgimc->cpuctrl0;
+	tmp |= (SGIMC_CCTRL0_EPERRGIO | SGIMC_CCTRL0_EPERRMEM |
+		SGIMC_CCTRL0_R4KNOCHKPARR);
+	sgimc->cpuctrl0 = tmp;
 
 	/* Step 3: Setup the MC write buffer depth, this is controlled
 	 *         in cpu control register 1 in the lower 4 bits.
 	 */
-	tmpreg = mcmisc_regs->cpuctrl1;
-	tmpreg &= ~0xf;
-	tmpreg |= 0xd;
-	mcmisc_regs->cpuctrl1 = tmpreg;
+	tmp = sgimc->cpuctrl1;
+	tmp &= ~0xf;
+	tmp |= 0xd;
+	sgimc->cpuctrl1 = tmp;
 
 	/* Step 4: Initialize the RPSS divider register to run as fast
 	 *         as it can correctly operate.  The register is laid
@@ -124,38 +161,42 @@ void __init sgimc_init(void)
 	 *         registers value increases at each 'tick'. Thus,
 	 *         for IP22 we get INCREMENT=1, DIVIDER=1 == 0x101
 	 */
-	mcmisc_regs->divider = 0x101;
+	sgimc->divider = 0x101;
 
 	/* Step 5: Initialize GIO64 arbitrator configuration register.
 	 *
-	 * NOTE: If you dork with startup code the HPC init code in
-	 *       sgihpc_init() must run before us because of how we
-	 *       need to know Guiness vs. FullHouse and the board
-	 *       revision on this machine.  You have been warned.
+	 * NOTE: HPC init code in sgihpc_init() must run before us because
+	 *       we need to know Guiness vs. FullHouse and the board
+	 *       revision on this machine. You have been warned.
 	 */
 
 	/* First the basic invariants across all GIO64 implementations. */
-	tmpreg = SGIMC_GIOPARM_HPC64;    /* All 1st HPC's interface at 64bits. */
-	tmpreg |= SGIMC_GIOPARM_ONEBUS;  /* Only one physical GIO bus exists. */
+	tmp = SGIMC_GIOPAR_HPC64;	/* All 1st HPC's interface at 64bits */
+	tmp |= SGIMC_GIOPAR_ONEBUS;	/* Only one physical GIO bus exists */
 
-	if(sgi_guiness) {
-		/* Guiness specific settings. */
-		tmpreg |= SGIMC_GIOPARM_EISA64;     /* MC talks to EISA at 64bits */
-		tmpreg |= SGIMC_GIOPARM_MASTEREISA; /* EISA bus can act as master */
-	} else {
+	if (ip22_is_fullhouse()) {
 		/* Fullhouse specific settings. */
-		if(sgi_boardid < 2) {
-			tmpreg |= SGIMC_GIOPARM_HPC264; /* 2nd HPC at 64bits */
-			tmpreg |= SGIMC_GIOPARM_PLINEEXP0; /* exp0 pipelines */
-			tmpreg |= SGIMC_GIOPARM_MASTEREXP1;/* exp1 masters */
-			tmpreg |= SGIMC_GIOPARM_RTIMEEXP0; /* exp0 is realtime */
+		if (SGIOC_SYSID_BOARDREV(sgioc->sysid) < 2) {
+			tmp |= SGIMC_GIOPAR_HPC264;	/* 2nd HPC at 64bits */
+			tmp |= SGIMC_GIOPAR_PLINEEXP0;	/* exp0 pipelines */
+			tmp |= SGIMC_GIOPAR_MASTEREXP1;	/* exp1 masters */
+			tmp |= SGIMC_GIOPAR_RTIMEEXP0;	/* exp0 is realtime */
 		} else {
-			tmpreg |= SGIMC_GIOPARM_HPC264; /* 2nd HPC 64bits */
-			tmpreg |= SGIMC_GIOPARM_PLINEEXP0; /* exp[01] pipelined */
-			tmpreg |= SGIMC_GIOPARM_PLINEEXP1;
-			tmpreg |= SGIMC_GIOPARM_MASTEREISA;/* EISA masters */
-			tmpreg |= SGIMC_GIOPARM_GFX64; 	/* GFX at 64 bits */
+			tmp |= SGIMC_GIOPAR_HPC264;	/* 2nd HPC 64bits */
+			tmp |= SGIMC_GIOPAR_PLINEEXP0;	/* exp[01] pipelined */
+			tmp |= SGIMC_GIOPAR_PLINEEXP1;
+			tmp |= SGIMC_GIOPAR_MASTEREISA;	/* EISA masters */
+			tmp |= SGIMC_GIOPAR_GFX64;	/* GFX at 64 bits */
 		}
+	} else {
+		/* Guiness specific settings. */
+		tmp |= SGIMC_GIOPAR_EISA64;	/* MC talks to EISA at 64bits */
+		tmp |= SGIMC_GIOPAR_MASTEREISA;	/* EISA bus can act as master */
 	}
-	mcmisc_regs->gioparm = tmpreg; /* poof */
+	sgimc->giopar = tmp;	/* poof */
+
+	probe_memory();
 }
+
+void __init prom_meminit(void) {}
+void __init prom_free_prom_memory (void) {}

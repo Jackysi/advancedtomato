@@ -31,7 +31,7 @@
 "	blmi	" SYMBOL_NAME_STR(fail)		\
 	:					\
 	: "r" (ptr)				\
-	: "ip", "lr", "cc");			\
+	: "ip", "lr", "cc", "memory");		\
 	})
 
 #define __down_op_ret(ptr,fail)			\
@@ -54,7 +54,7 @@
 "	mov	%0, ip"				\
 	: "=&r" (result)			\
 	: "r" (ptr)				\
-	: "ip", "lr", "cc");			\
+	: "ip", "lr", "cc", "memory");		\
 	result;					\
 	})
 
@@ -75,7 +75,7 @@
 "	blmi	" SYMBOL_NAME_STR(wake)		\
 	:					\
 	: "r" (ptr)				\
-	: "ip", "lr", "cc");			\
+	: "ip", "lr", "cc", "memory");		\
 	})
 
 /*
@@ -107,7 +107,7 @@
 "	blne	" SYMBOL_NAME_STR(fail)		\
 	:					\
 	: "r" (ptr), "I" (RW_LOCK_BIAS)		\
-	: "ip", "lr", "cc");			\
+	: "ip", "lr", "cc", "memory");		\
 	})
 
 /* Increments by RW_LOCK_BIAS, wakes if value >= 0 */
@@ -130,7 +130,7 @@
 "	blcs	" SYMBOL_NAME_STR(wake)		\
 	:					\
 	: "r" (ptr), "I" (RW_LOCK_BIAS)		\
-	: "ip", "lr", "cc");			\
+	: "ip", "lr", "cc", "memory");		\
 	})
 
 #define __down_op_read(ptr,fail)		\
@@ -155,7 +155,7 @@
 "	bleq	" SYMBOL_NAME_STR(wake)		\
 	:					\
 	: "r" (ptr), "I" (1)			\
-	: "ip", "lr", "cc");			\
+	: "ip", "lr", "cc", "memory");		\
 	})
 
 #endif

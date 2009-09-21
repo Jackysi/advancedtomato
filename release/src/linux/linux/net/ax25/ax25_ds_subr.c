@@ -130,6 +130,13 @@ void ax25_ds_establish_data_link(ax25_cb *ax25)
 	ax25_start_t3timer(ax25);
 }
 
+/*
+ *	:::FIXME:::
+ *	This is a kludge. Not all drivers recognize kiss commands. 
+ *	We need a driver level  request to switch duplex mode, that does 
+ *	either SCC changing, PI config or KISS as required. Currently
+ *	this request isn't reliable.
+ */
 static void ax25_kiss_cmd(ax25_dev *ax25_dev, unsigned char cmd, unsigned char param)
 {
 	struct sk_buff *skb;

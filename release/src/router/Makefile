@@ -26,6 +26,7 @@ SEP=echo "\033[41;1m   $@   \033[0m"
 obj-y += nvram
 obj-y += shared
 obj-y += prebuilt
+obj-y += igmpproxy
 obj-y += iptables
 obj-y += rc
 obj-y += iproute2
@@ -42,6 +43,12 @@ obj-y += ppp
 obj-y += ttcp
 obj-y += ntpc
 obj-y += rstats
+
+# !!TB - updated Broadcom Wireless driver
+obj-y += et
+obj-y += libbcmcrypto
+obj-y += wlconf
+
 obj-y += mssl
 obj-y += mdu
 
@@ -96,8 +103,8 @@ kmod: dummy
 	$(MAKE) -C $(LINUXDIR) modules
 
 testfind:
-	cd $(TARGETDIR)/lib/modules/2.4.20 && find -name "*.o" -exec mv -i {} . \; || true
-	cd $(TARGETDIR)/lib/modules/2.4.20 && find -type d -delete || true
+	cd $(TARGETDIR)/lib/modules/* && find -name "*.o" -exec mv -i {} . \; || true
+	cd $(TARGETDIR)/lib/modules/* && find -type d -delete || true
 
 install package: $(obj-install) $(LINUXDIR)/.config
 	@$(SEP)
@@ -109,18 +116,18 @@ install package: $(obj-install) $(LINUXDIR)/.config
 	$(MAKE) -C $(LINUXDIR) modules_install DEPMOD=/bin/true INSTALL_MOD_PATH=$(TARGETDIR)
 	find $(TARGETDIR)/lib/modules -name *.o -exec mipsel-linux-strip --strip-unneeded {} \;
 
-	-cd $(TARGETDIR)/lib/modules/2.4.20/kernel/drivers/net && mv diag/* . && rm -rf diag
+	-cd $(TARGETDIR)/lib/modules/*/kernel/drivers/net && mv diag/* . && rm -rf diag
 
 # nice and clean
-	-cd $(TARGETDIR)/lib/modules/2.4.20/kernel/drivers/net && mv et.4702/* . && rm -rf et.4702 || true
-	cd $(TARGETDIR)/lib/modules/2.4.20/kernel/drivers/net && mv et/* . && rm -rf et
-	cd $(TARGETDIR)/lib/modules/2.4.20/kernel/drivers/net && mv wl/* . && rm -rf wl
-	cd $(TARGETDIR)/lib/modules/2.4.20/kernel/fs && mv cifs/* . && rm -rf cifs
-	cd $(TARGETDIR)/lib/modules/2.4.20/kernel/fs && mv jffs2/* . && rm -rf jffs2 || true
-	cd $(TARGETDIR)/lib/modules/2.4.20/kernel/fs && mv jffs/* . && rm -rf jffs || true
-	cd $(TARGETDIR)/lib/modules/2.4.20/kernel/lib && mv zlib_inflate/* . && rm -rf zlib_inflate || true
-	cd $(TARGETDIR)/lib/modules/2.4.20/kernel/lib && mv zlib_deflate/* . && rm -rf zlib_deflate || true
-	rm -rf $(TARGETDIR)/lib/modules/2.4.20/pcmcia
+	-cd $(TARGETDIR)/lib/modules/*/kernel/drivers/net && mv et.4702/* . && rm -rf et.4702 || true
+	cd $(TARGETDIR)/lib/modules/*/kernel/drivers/net && mv et/* . && rm -rf et
+	cd $(TARGETDIR)/lib/modules/*/kernel/drivers/net && mv wl/* . && rm -rf wl
+	cd $(TARGETDIR)/lib/modules/*/kernel/fs && mv cifs/* . && rm -rf cifs
+	cd $(TARGETDIR)/lib/modules/*/kernel/fs && mv jffs2/* . && rm -rf jffs2 || true
+	cd $(TARGETDIR)/lib/modules/*/kernel/fs && mv jffs/* . && rm -rf jffs || true
+	cd $(TARGETDIR)/lib/modules/*/kernel/lib && mv zlib_inflate/* . && rm -rf zlib_inflate || true
+	cd $(TARGETDIR)/lib/modules/*/kernel/lib && mv zlib_deflate/* . && rm -rf zlib_deflate || true
+	rm -rf $(TARGETDIR)/lib/modules/*/pcmcia
 
 # misc
 	for dir in $(wildcard $(patsubst %,$(INSTALLDIR)/%,$(obj-y))) ; do \
@@ -128,29 +135,32 @@ install package: $(obj-install) $(LINUXDIR)/.config
 	done
 
 ifneq ($(TCONFIG_JFFS2),y)
-	rm -f $(TARGETDIR)/lib/modules/2.4.20/kernel/fs/jffs2.o || true
-	rm -f $(TARGETDIR)/lib/modules/2.4.20/kernel/fs/jffs.o || true
-	rm -rf $(TARGETDIR)/lib/modules/2.4.20/kernel/lib/zlib_* || true
+	rm -f $(TARGETDIR)/lib/modules/*/kernel/fs/jffs2.o || true
+	rm -f $(TARGETDIR)/lib/modules/*/kernel/fs/jffs.o || true
+	rm -rf $(TARGETDIR)/lib/modules/*/kernel/lib/zlib_* || true
 endif
 
 ifneq ($(TCONFIG_CIFS),y)
-	rm -f $(TARGETDIR)/lib/modules/2.4.20/kernel/fs/cifs.o
+	rm -f $(TARGETDIR)/lib/modules/*/kernel/fs/cifs.o
 endif
 
 ifneq ($(TCONFIG_L7),y)
-	rm -f $(TARGETDIR)/lib/modules/2.4.20/kernel/net/ipv4/netfilter/ipt_layer7.o
+	rm -f $(TARGETDIR)/lib/modules/*/kernel/net/ipv4/netfilter/ipt_layer7.o
 	rm -f $(TARGETDIR)/usr/lib/iptables/libipt_layer7.so
 endif
 
 # separated extra stuff
 	@rm -rf $(PLATFORMDIR)/extras
 	@mkdir $(PLATFORMDIR)/extras
-	@mv $(TARGETDIR)/lib/modules/2.4.20/kernel/net/ipv4/ip_gre.o $(PLATFORMDIR)/extras/
-	@mv $(TARGETDIR)/lib/modules/2.4.20/kernel/drivers/net/tun.o $(PLATFORMDIR)/extras/
+	@mv $(TARGETDIR)/lib/modules/*/kernel/net/ipv4/ip_gre.o $(PLATFORMDIR)/extras/
+	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/net/tun.o $(PLATFORMDIR)/extras/
 
 # uClibc
 	install $(LIBDIR)/ld-uClibc.so.0 $(TARGETDIR)/lib/
 	install $(LIBDIR)/libcrypt.so.0 $(TARGETDIR)/lib/
+	install $(LIBDIR)/libpthread.so.0 $(TARGETDIR)/lib/
+	install $(LIBDIR)/libgcc_s.so.1 $(TARGETDIR)/lib/
+	$(STRIP) $(TARGETDIR)/lib/libgcc_s.so.1
 	install $(LIBDIR)/libc.so.0 $(TARGETDIR)/lib/
 	install $(LIBDIR)/libdl.so.0 $(TARGETDIR)/lib/
 	install $(LIBDIR)/libm.so.0 $(TARGETDIR)/lib/
@@ -162,10 +172,11 @@ endif
 	@cd $(TARGETDIR) && $(TOP)/others/rootprep.sh
 
 	@echo ---
-	busybox/examples/depmod-t.pl -k $(LINUXDIR)/vmlinux -b $(TARGETDIR)/lib/modules/2.4.20/
+	busybox/examples/depmod-t.pl -k $(LINUXDIR)/vmlinux -b $(TARGETDIR)/lib/modules/*/
+	@mv $(TARGETDIR)/lib/modules/*/modules.dep $(TARGETDIR)/lib/modules/
 	@echo ---
 
-	@rm -f $(TARGETDIR)/lib/modules/2.4.20/build
+	@rm -f $(TARGETDIR)/lib/modules/*/build
 
 	@../btools/libfoo.pl
 	@chmod 0555 $(TARGETDIR)/lib/*.so*
@@ -177,8 +188,8 @@ ifeq ($(TCONFIG_L7PAT),y)
 	cp layer7/squished/*.pat $(TARGETDIR)/rom/etc/l7-protocols
 endif
 
-	@$(MAKE) -C $(SRCBASE)/linux/linux/scripts/squashfs mksquashfs-lzma
-	@$(SRCBASE)/linux/linux/scripts/squashfs/mksquashfs-lzma $(TARGETDIR) $(PLATFORMDIR)/target.image
+	@$(MAKE) -C $(LINUXDIR)/scripts/squashfs mksquashfs-lzma
+	@$(LINUXDIR)/scripts/squashfs/mksquashfs-lzma $(TARGETDIR) $(PLATFORMDIR)/target.image
 
 #	Package kernel and filesystem
 #	if grep -q "CONFIG_EMBEDDED_RAMDISK=y" $(LINUXDIR)/.config ; then \
@@ -374,6 +385,8 @@ miniupnpd-install:
 
 nvram: shared
 
+prebuilt: shared
+
 vlan:
 	@$(SEP)
 	@$(MAKE) -C vlan CROSS=$(CROSS_COMPILE) STRIPTOOL=$(STRIP)
@@ -405,6 +418,10 @@ pppd-install:
 
 zebra:
 	@$(SEP)
+	cd zebra && rm -f config.cache && CC=$(CC) AR=$(AR) RANLIB=$(RANLIB) CFLAGS="-g -Os -Wall" $(CONFIGURE) \
+		--host=mipsel-linux --prefix=/usr/local/zebra \
+		--enable-netlink --disable-ipv6 --disable-ripngd --disable-ospfd --disable-doc \
+		--disable-ospf6d --disable-bgpd --disable-bgpd-announce
 	@$(MAKE) -C zebra CC=$(CC) AR=$(AR) RANLIB=$(RANLIB)
 
 zebra-install:
@@ -479,6 +496,22 @@ dropbear-clean:
 dropbear/config.h:
 	cd dropbear && CFLAGS="-O2 -Wall" ac_cv_func_logout=no ac_cv_func_logwtmp=no ./configure --host=mipsel-linux --disable-zlib --enable-syslog --disable-lastlog --disable-utmp --disable-utmpx --disable-wtmp --disable-wtmpx --disable-pututline --disable-pututxline --disable-loginfunc --disable-largefile
 	make -C dropbear clean
+
+igmpproxy/src/Makefile: igmpproxy/src/Makefile.in
+	cd igmpproxy && CFLAGS="-O2 -Wall" \
+	$(CONFIGURE) --prefix=/usr
+
+igmpproxy: igmpproxy/src/Makefile
+	@$(SEP)
+	@$(MAKE) -C igmpproxy/src
+
+igmpproxy-install:
+	install -D igmpproxy/src/igmpproxy $(INSTALLDIR)/igmpproxy/usr/sbin/igmpproxy
+	$(STRIP) $(INSTALLDIR)/igmpproxy/usr/sbin/igmpproxy
+
+igmpproxy-clean:
+	$(MAKE) -C igmpproxy/src clean
+	rm -f igmpproxy/src/Makefile
 
 
 ebtables: dummy

@@ -96,7 +96,7 @@ static void error(char *m);
 static void gzip_mark(void **);
 static void gzip_release(void **);
  
-static void puts(const char *);
+static void putstr(const char *);
   
 extern int end;
 static long free_mem_ptr = (long)&end;
@@ -157,7 +157,7 @@ static void scroll(void)
 		vidmem[i] = ' ';
 }
 
-static void puts(const char *s)
+static void putstr(const char *s)
 {
 	int x,y,pos;
 	char c;
@@ -275,11 +275,11 @@ static void flush_window(void)
 
 static void error(char *x)
 {
-	puts("\n\n");
-	puts(x);
-	puts("\n\n -- System halted");
+	putstr("\n\n");
+	putstr(x);
+	putstr("\n\n -- System halted");
 
-	while(1);	/* Halt */
+	while(1);
 }
 
 void setup_normal_output_buffer(void)
@@ -332,76 +332,6 @@ void close_output_buffer_if_we_run_high(struct moveparams *mv)
 	}
 }
 
-void check_cpu(void)
-{
-	int res = 0;
-	asm volatile( " \n\
-	movl $3,%%edx		# at least 386 \n\
-	pushfl			# push EFLAGS \n\
-	popl %%eax		# get EFLAGS \n\
-	movl %%eax,%%ecx		# save original EFLAGS \n\
-	xorl $0x40000,%%eax	# flip AC bit in EFLAGS \n\
-	pushl %%eax		# copy to EFLAGS \n\
-	popfl			# set EFLAGS \n\
-	pushfl			# get new EFLAGS \n\
-	popl %%eax		# put it in eax \n\
-	xorl %%ecx,%%eax		# change in flags \n\
-	andl $0x40000,%%eax	# check if AC bit changed \n\
-	je 1f \n\
-\n\
-	movl $4,%%edx		# at least 486 \n\
-	movl %%ecx,%%eax \n\
-	xorl $0x200000,%%eax	# check ID flag \n\
-	pushl %%eax \n\
-	popfl			# if we are on a straight 486DX, SX, or \n\
-	pushfl			# 487SX we can't change it \n\
-	popl %%eax \n\
-	xorl %%ecx,%%eax \n\
-	pushl %%ecx		# restore original EFLAGS \n\
-	popfl \n\
-	andl $0x200000,%%eax \n\
-	je 1f \n\
-\n\
-	/* get vendor info */ \n\
-#	xorl %%eax,%%eax			# call CPUID with 0 -> return vendor ID \n\
-#	cpuid \n\
-#	movl $5, %%edx \n\
-#	cmpl $0x41757468,%%ebx		# check thats amd \n\
-#	jne 1f \n\
-\n\
-	mov $0x80000000,%%eax		# Is extended cpuid supported?\n\
-	cpuid\n\
-	test $0x80000000,%%eax\n\
-	movl $5, %%edx \n\
-	jz 1f\n\
-\n\
-	movl $0x80000001,%%eax \n\
-	cpuid \n\
-	andl $0x20000000,%%edx \n\
-	movl $6, %%edx \n\
-	jz 1f \n\
-\n\
-	movl $7, %%edx \n\
-1:" : "=d" (res) : : "eax", "ebx", "ecx" );
-
-	switch (res) {
-	case 3: puts( "386" );
-		break;
-	case 4: puts( "486" );
-		break;
-	case 5: puts( "no extended cpuid" );
-		break;
-	case 6: puts( "non-64bit 586+" );
-		break;
-	case 7: puts( "64bit" );
-		break;
-	default:puts( "internal error" );
-		break;
-	}
-	if (res !=7)
-		error( "Sorry, your CPU is not capable of running 64-bit kernel." );
-}
-
 int decompress_kernel(struct moveparams *mv, void *rmode)
 {
 	real_mode = rmode;
@@ -421,11 +351,9 @@ int decompress_kernel(struct moveparams *mv, void *rmode)
 	else setup_output_buffer_if_we_run_high(mv);
 
 	makecrc();
-	puts("Checking CPU type...");
-	check_cpu();
-	puts(".\nDecompressing Linux...");
+	putstr(".\nDecompressing Linux...");
 	gunzip();
-	puts("done.\nBooting the kernel.\n");
+	putstr("done.\nBooting the kernel.\n");
 	if (high_loaded) close_output_buffer_if_we_run_high(mv);
 	return high_loaded;
 }

@@ -1,6 +1,8 @@
 #ifndef _X86_64_PAGE_H
 #define _X86_64_PAGE_H
 
+#include <linux/stringify.h>
+
 /* PAGE_SHIFT determines the page size */
 #define PAGE_SHIFT	12
 #ifdef __ASSEMBLY__
@@ -23,6 +25,8 @@
 
 /* Changing the next two defines should be enough to increase the kernel stack */
 /* We still hope 8K is enough, but ... */
+/* Currently it is actually ~6k. This would change when task_struct moves into
+   an own slab. */
 #define THREAD_ORDER    1
 #define THREAD_SIZE    (2*PAGE_SIZE)
 
@@ -45,7 +49,7 @@ typedef struct { unsigned long pte; } pte_t;
 typedef struct { unsigned long pmd; } pmd_t;
 typedef struct { unsigned long pgd; } pgd_t;
 typedef struct { unsigned long pml4; } pml4_t;
-#define PTE_MASK	PAGE_MASK
+#define PTE_MASK	PHYSICAL_PAGE_MASK
 
 typedef struct { unsigned long pgprot; } pgprot_t;
 
@@ -58,9 +62,13 @@ typedef struct { unsigned long pgprot; } pgprot_t;
 #define __pte(x) ((pte_t) { (x) } )
 #define __pmd(x) ((pmd_t) { (x) } )
 #define __pgd(x) ((pgd_t) { (x) } )
-#define __level4(x) ((level4_t) { (x) } )
+#define __pml4(x) ((pml4_t) { (x) } )
 #define __pgprot(x)	((pgprot_t) { (x) } )
  
+extern unsigned long vm_stack_flags, vm_stack_flags32;
+extern unsigned long vm_data_default_flags, vm_data_default_flags32;
+extern unsigned long vm_force_exec32;
+
 #endif /* !__ASSEMBLY__ */
 
 /* to align the pointer to the (next) page boundary */
@@ -74,8 +82,6 @@ typedef struct { unsigned long pgprot; } pgprot_t;
 #ifndef __ASSEMBLY__
 
 #include <linux/config.h>
-#include <linux/stringify.h>
-
 
 /*
  * Tell the user there is some problem.  The exception handler decodes this frame.
@@ -85,9 +91,9 @@ struct bug_frame {
        char *filename;    /* should use 32bit offset instead, but the assembler doesn't like it */ 
        unsigned short line; 
 } __attribute__((packed)); 
-#define BUG() asm volatile("ud2 ; .quad %c1 ; .short %c0" :: "i"(__LINE__), \
+#define BUG() asm volatile("ud2 ; .quad %P1 ; .short %P0" :: "i"(__LINE__), \
 		"i" (__stringify(KBUILD_BASENAME)))
-#define HEADER_BUG() asm volatile("ud2 ; .quad %c1 ; .short %c0" :: "i"(__LINE__), \
+#define HEADER_BUG() asm volatile("ud2 ; .quad %P1 ; .short %P0" :: "i"(__LINE__), \
 		"i" (__stringify(__FILE__)))
 #define PAGE_BUG(page) BUG()
 
@@ -134,9 +140,15 @@ extern __inline__ int get_order(unsigned long size)
 
 #define phys_to_pfn(phys)	((phys) >> PAGE_SHIFT)
 
-
-#define VM_DATA_DEFAULT_FLAGS	(VM_READ | VM_WRITE | VM_EXEC | \
+#define __VM_DATA_DEFAULT_FLAGS	(VM_READ | VM_WRITE | VM_EXEC | \
 				 VM_MAYREAD | VM_MAYWRITE | VM_MAYEXEC)
+#define __VM_STACK_FLAGS 	(VM_GROWSDOWN | VM_READ | VM_WRITE | VM_EXEC | \
+				 VM_MAYREAD | VM_MAYWRITE | VM_MAYEXEC)
+
+#define VM_DATA_DEFAULT_FLAGS \
+	((current->thread.flags & THREAD_IA32) ? vm_data_default_flags32 : \
+	  vm_data_default_flags) 
+#define VM_STACK_FLAGS	vm_stack_flags
 
 #endif /* __KERNEL__ */
 

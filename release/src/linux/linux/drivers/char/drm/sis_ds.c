@@ -49,16 +49,19 @@ set_t *setInit(void)
   set_t *set;
 
   set = (set_t *)MALLOC(sizeof(set_t));
-  if (set) {
+  if(set)
+  {
     for(i = 0; i < SET_SIZE; i++){
       set->list[i].free_next = i+1;    
       set->list[i].alloc_next = -1;
-    }    
+    }
+    
     set->list[SET_SIZE-1].free_next = -1;
     set->free = 0;
     set->alloc = -1;
     set->trace = -1;
   }
+  
   return set;
 }
 
@@ -215,6 +218,8 @@ memHeap_t *mmInit(int ofs,
       return 0;
 }
 
+/* Kludgey workaround for existing i810 server.  Remove soon.
+ */
 memHeap_t *mmAddRange( memHeap_t *heap,
 		       int ofs,
 		       int size )

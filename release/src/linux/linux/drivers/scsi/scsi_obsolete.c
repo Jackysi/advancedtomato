@@ -71,7 +71,7 @@
 #undef USE_STATIC_SCSI_MEMORY
 
 /*
-   static const char RCSid[] = "$Header: /home/cvsroot/wrt54g/src/linux/linux/drivers/scsi/scsi_obsolete.c,v 1.1.1.2 2003/10/14 08:08:41 sparq Exp $";
+   static const char RCSid[] = "$Header: /mnt/ide/home/eric/CVSROOT/linux/drivers/scsi/scsi_obsolete.c,v 1.1 1997/05/18 23:27:21 eric Exp $";
  */
 
 
@@ -386,6 +386,9 @@ void scsi_old_done(Scsi_Cmnd * SCpnt)
 			/* Failed to obtain sense information */
 		{
 			SCpnt->flags &= ~WAS_SENSE;
+#if 0				/* This cannot possibly be correct. */
+			SCpnt->internal_timeout &= ~SENSE_TIMEOUT;
+#endif
 
 			if (!(SCpnt->flags & WAS_RESET)) {
 				printk("scsi%d : channel %d target %d lun %d request sense"
@@ -410,6 +413,9 @@ void scsi_old_done(Scsi_Cmnd * SCpnt)
 						       "parsing sense information.\n");
 #endif
 						SCpnt->flags &= ~WAS_SENSE;
+#if 0				/* This cannot possibly be correct. */
+						SCpnt->internal_timeout &= ~SENSE_TIMEOUT;
+#endif
 
 						switch (checked = check_sense(SCpnt)) {
 						case SUGGEST_SENSE:
@@ -859,6 +865,52 @@ static int scsi_reset(Scsi_Cmnd * SCpnt, unsigned int reset_flags)
 	printk("SCSI bus is being reset for host %d channel %d.\n",
 	       host->host_no, SCpnt->channel);
 
+#if 0
+	/*
+	 * First of all, we need to make a recommendation to the low-level
+	 * driver as to whether a BUS_DEVICE_RESET should be performed,
+	 * or whether we should do a full BUS_RESET.  There is no simple
+	 * algorithm here - we basically use a series of heuristics
+	 * to determine what we should do.
+	 */
+	SCpnt->host->suggest_bus_reset = FALSE;
+
+	/*
+	 * First see if all of the active devices on the bus have
+	 * been jammed up so that we are attempting resets.  If so,
+	 * then suggest a bus reset.  Forcing a bus reset could
+	 * result in some race conditions, but no more than
+	 * you would usually get with timeouts.  We will cross
+	 * that bridge when we come to it.
+	 *
+	 * This is actually a pretty bad idea, since a sequence of
+	 * commands will often timeout together and this will cause a
+	 * Bus Device Reset followed immediately by a SCSI Bus Reset.
+	 * If all of the active devices really are jammed up, the
+	 * Bus Device Reset will quickly timeout and scsi_times_out
+	 * will follow up with a SCSI Bus Reset anyway.
+	 */
+	SCpnt1 = host->host_queue;
+	while (SCpnt1) {
+		if (SCpnt1->request.rq_status != RQ_INACTIVE
+		    && (SCpnt1->flags & (WAS_RESET | IS_RESETTING)) == 0)
+			break;
+		SCpnt1 = SCpnt1->next;
+	}
+	if (SCpnt1 == NULL) {
+		reset_flags |= SCSI_RESET_SUGGEST_BUS_RESET;
+	}
+	/*
+	 * If the code that called us is suggesting a hard reset, then
+	 * definitely request it.  This usually occurs because a
+	 * BUS_DEVICE_RESET times out.
+	 *
+	 * Passing reset_flags along takes care of this automatically.
+	 */
+	if (reset_flags & SCSI_RESET_SUGGEST_BUS_RESET) {
+		SCpnt->host->suggest_bus_reset = TRUE;
+	}
+#endif
 
 	while (1) {
 
@@ -886,6 +938,11 @@ static int scsi_reset(Scsi_Cmnd * SCpnt, unsigned int reset_flags)
 					SCpnt1 = SDpnt->device_queue;
 					while (SCpnt1) {
 						if (SCpnt1->request.rq_status != RQ_INACTIVE) {
+#if 0
+							if (!(SCpnt1->flags & IS_RESETTING) &&
+							    !(SCpnt1->internal_timeout & IN_ABORT))
+								scsi_abort(SCpnt1, DID_RESET);
+#endif
 							SCpnt1->flags |= (WAS_RESET | IS_RESETTING);
 						}
 						SCpnt1 = SCpnt1->next;

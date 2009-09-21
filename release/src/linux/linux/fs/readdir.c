@@ -69,6 +69,7 @@ loff_t dcache_dir_lseek(struct file *file, loff_t offset, int origin)
 			loff_t n = file->f_pos - 2;
 
 			spin_lock(&dcache_lock);
+			list_del(&cursor->d_child);
 			p = file->f_dentry->d_subdirs.next;
 			while (n && p != &file->f_dentry->d_subdirs) {
 				struct dentry *next;
@@ -77,7 +78,6 @@ loff_t dcache_dir_lseek(struct file *file, loff_t offset, int origin)
 					n--;
 				p = p->next;
 			}
-			list_del(&cursor->d_child);
 			list_add_tail(&cursor->d_child, p);
 			spin_unlock(&dcache_lock);
 		}
@@ -146,6 +146,7 @@ int dcache_readdir(struct file * filp, void * dirent, filldir_t filldir)
 			}
 			spin_unlock(&dcache_lock);
 	}
+	UPDATE_ATIME(dentry->d_inode);
 	return 0;
 }
 
@@ -263,7 +264,7 @@ static int filldir(void * __buf, const char * name, int namlen, loff_t offset,
 	put_user(reclen, &dirent->d_reclen);
 	copy_to_user(dirent->d_name, name, namlen);
 	put_user(0, dirent->d_name + namlen);
-	((char *) dirent) += reclen;
+	dirent = (void *)dirent + reclen;
 	buf->current_dir = dirent;
 	buf->count -= reclen;
 	return 0;
@@ -346,7 +347,7 @@ static int filldir64(void * __buf, const char * name, int namlen, loff_t offset,
 	copy_to_user(dirent, &d, NAME_OFFSET(&d));
 	copy_to_user(dirent->d_name, name, namlen);
 	put_user(0, dirent->d_name + namlen);
-	((char *) dirent) += reclen;
+	dirent = (void *)dirent + reclen;
 	buf->current_dir = dirent;
 	buf->count -= reclen;
 	return 0;

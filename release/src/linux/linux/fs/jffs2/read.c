@@ -31,7 +31,7 @@
  * provisions above, a recipient may use your version of this file
  * under either the RHEPL or the GPL.
  *
- * $Id: read.c,v 1.1.1.4 2003/10/14 08:09:00 sparq Exp $
+ * $Id: read.c,v 1.13.2.2 2003/11/02 13:51:18 dwmw2 Exp $
  *
  */
 
@@ -40,7 +40,7 @@
 #include <linux/jffs2.h>
 #include <linux/mtd/mtd.h>
 #include "nodelist.h"
-#include "crc32.h"
+#include <linux/crc32.h>
 
 int jffs2_read_dnode(struct jffs2_sb_info *c, struct jffs2_full_dnode *fd, unsigned char *buf, int ofs, int len)
 {
