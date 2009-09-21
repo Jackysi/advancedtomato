@@ -632,6 +632,7 @@ static int sgivwfb_set_var(struct fb_var_screeninfo *var, int con,
     var->yoffset = display->var.yoffset;
   }
 
+  /* XXX FIXME - forcing var's */
   var->xoffset = 0;
   var->yoffset = 0;
 
@@ -657,6 +658,7 @@ static int sgivwfb_set_var(struct fb_var_screeninfo *var, int con,
   if (min_mode == DBE_VT_SIZE)
     return -EINVAL;             /* Resolution to high */
 
+  /* XXX FIXME - should try to pick best refresh rate */
   /* for now, pick closest dot-clock within 3MHz*/
 #error "Floating point not allowed in kernel"  
   req_dot = (int)((1.0e3/1.0e6) / (1.0e-12 * (float)var->pixclock));

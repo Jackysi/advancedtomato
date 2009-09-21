@@ -168,16 +168,22 @@ typedef struct _HPTE {
 #define PP_RWRW 2	/* Supervisor read/write, User read/write */
 #define PP_RXRX 3	/* Supervisor read,       User read */
 
-
 typedef struct {
 	HPTE *		htab;
 	unsigned long	htab_num_ptegs;
 	unsigned long	htab_hash_mask;
 	unsigned long	next_round_robin;
 	unsigned long   last_kernel_address;
+	unsigned long   htab_lock_shift;
 } HTAB;
 
 extern HTAB htab_data;
+
+#include <linux/cache.h>
+#include <linux/spinlock.h>
+typedef struct {
+	spinlock_t lock;
+} ____cacheline_aligned hash_table_lock_t;
 
 void invalidate_hpte( unsigned long slot );
 long select_hpte_slot( unsigned long vpn );
@@ -185,6 +191,7 @@ void create_valid_hpte( unsigned long slot, unsigned long vpn,
 			unsigned long prpn, unsigned hash,
 			void * ptep, unsigned hpteflags,
 			unsigned bolted );
+unsigned long get_lock_slot(unsigned long vpn);
 
 #define PD_SHIFT (10+12)		/* Page directory */
 #define PD_MASK  0x02FF
@@ -227,11 +234,17 @@ static inline void _tlbie(unsigned long va, int large)
 		asm volatile("clrldi	%0,%0,16\n\
 			      tlbie	%0,0" : : "r"(va) : "memory");
 	}
-
 	asm volatile("eieio; tlbsync; ptesync": : :"memory");
 }
  
 #endif /* __ASSEMBLY__ */
+
+/*
+ * Location of cpu0's segment table
+ */
+#define STAB0_PAGE	0x9
+#define STAB0_PHYS_ADDR	(STAB0_PAGE<<PAGE_SHIFT)
+#define STAB0_VIRT_ADDR	(KERNELBASE+STAB0_PHYS_ADDR)
 
 /* Block size masks */
 #define BL_128K	0x000

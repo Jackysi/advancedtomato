@@ -34,13 +34,8 @@ head.o: head.S
 
 comma	:= ,
 
-ifdef CONFIG_MCOUNT
-misc.o: misc.c
-	$(CC) $(subst -pg,,$(CFLAGS)) -DKBUILD_BASENAME=$(subst $(comma),_,$(subst -,_,$(*F))) -c misc.c
-else
 misc.o: misc.c
 	$(CC) $(CFLAGS) -DKBUILD_BASENAME=$(subst $(comma),_,$(subst -,_,$(*F))) -c misc.c
-endif
 
 piggy.o:	$(SYSTEM)
 	tmppiggy=_tmp_$$$$piggy; \

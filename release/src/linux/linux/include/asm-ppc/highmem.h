@@ -1,7 +1,4 @@
 /*
- * BK Id: SCCS/s.highmem.h 1.10 06/28/01 15:50:17 paulus
- */
-/*
  * highmem.h: virtual kernel memory mappings for high memory
  *
  * PowerPC version, stolen from the i386 version.
@@ -13,7 +10,7 @@
  *		      Gerhard.Wichert@pdb.siemens.de
  *
  *
- * Redesigned the x86 32-bit VM architecture to deal with 
+ * Redesigned the x86 32-bit VM architecture to deal with
  * up to 16 Terrabyte physical memory. With current x86 CPUs
  * we now support up to 64 Gigabytes physical RAM.
  *
@@ -44,24 +41,27 @@ extern void kmap_init(void) __init;
  * easily, subsequent pte tables have to be allocated in one physical
  * chunk of RAM.
  */
-#define PKMAP_BASE (0xfe000000UL)
-#define LAST_PKMAP 1024
+#define PKMAP_BASE	CONFIG_HIGHMEM_START
+#define LAST_PKMAP	PTRS_PER_PTE
 #define LAST_PKMAP_MASK (LAST_PKMAP-1)
 #define PKMAP_NR(virt)  ((virt-PKMAP_BASE) >> PAGE_SHIFT)
 #define PKMAP_ADDR(nr)  (PKMAP_BASE + ((nr) << PAGE_SHIFT))
 
-#define KMAP_FIX_BEGIN	(0xfe400000UL)
+#define KMAP_FIX_BEGIN	(PKMAP_BASE + 0x00400000UL)
 
-extern void *kmap_high(struct page *page);
+extern void *kmap_high(struct page *page, int nonblock);
 extern void kunmap_high(struct page *page);
 
-static inline void *kmap(struct page *page)
+#define kmap(page)		__kmap(page, 0)
+#define kmap_nonblock(page)	__kmap(page, 1)
+
+static inline void *__kmap(struct page *page, int nonblock)
 {
 	if (in_interrupt())
 		BUG();
 	if (page < highmem_start_page)
 		return page_address(page);
-	return kmap_high(page);
+	return kmap_high(page, nonblock);
 }
 
 static inline void kunmap(struct page *page)
@@ -102,7 +102,7 @@ static inline void *kmap_atomic(struct page *page, enum km_type type)
 static inline void kunmap_atomic(void *kvaddr, enum km_type type)
 {
 #if HIGHMEM_DEBUG
-	unsigned long vaddr = (unsigned long) kvaddr;
+	unsigned long vaddr = (unsigned long) kvaddr & PAGE_MASK;
 	unsigned int idx = type + KM_TYPE_NR*smp_processor_id();
 
 	if (vaddr < KMAP_FIX_BEGIN) // FIXME

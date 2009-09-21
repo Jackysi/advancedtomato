@@ -67,7 +67,7 @@ void pppox_unbind_sock(struct sock *sk)
 {
 	/* Clear connection to ppp device, if attached. */
 
-	if (sk->state & (PPPOX_BOUND|PPPOX_ZOMBIE)) {
+	if (sk->state & (PPPOX_BOUND | PPPOX_CONNECTED | PPPOX_ZOMBIE)) {
 		ppp_unregister_channel(&sk->protinfo.pppox->chan);
 		sk->state = PPPOX_DEAD;
 	}
@@ -121,10 +121,17 @@ static int pppox_create(struct socket *sock, int protocol)
 	int err = 0;
 
 	if (protocol < 0 || protocol > PX_MAX_PROTO)
-	    return -EPROTOTYPE;
+		return -EPROTOTYPE;
 
+#ifdef CONFIG_KMOD
+	if (proto[protocol] == NULL) {
+		char buffer[32];
+		sprintf(buffer, "pppox-proto-%d", protocol);
+		request_module(buffer);
+	}
+#endif
 	if (proto[protocol] == NULL)
-	    return -EPROTONOSUPPORT;
+		return -EPROTONOSUPPORT;
 
 	err = (*proto[protocol]->create)(sock);
 

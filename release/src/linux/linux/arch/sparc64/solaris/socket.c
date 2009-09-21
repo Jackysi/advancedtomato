@@ -1,4 +1,4 @@
-/* $Id: socket.c,v 1.1.1.4 2003/10/14 08:07:51 sparq Exp $
+/* $Id: socket.c,v 1.5 2001/02/13 01:16:44 davem Exp $
  * socket.c: Socket syscall emulation for Solaris 2.6+
  *
  * Copyright (C) 1998 Jakub Jelinek (jj@ultra.linux.cz)
@@ -242,11 +242,13 @@ asmlinkage int solaris_getsockname(int fd, struct sockaddr *addr, int *addrlen)
 	return sys_getsockname(fd, addr, addrlen);
 }
 
+/* XXX This really belongs in some header file... -DaveM */
 #define MAX_SOCK_ADDR	128		/* 108 for Unix domain - 
 					   16 for IP, 16 for IPX,
 					   24 for IPv6,
 					   about 80 for AX.25 */
 
+/* XXX These as well... */
 extern __inline__ struct socket *socki_lookup(struct inode *inode)
 {
 	return &inode->u.socket_i;
@@ -408,8 +410,10 @@ asmlinkage int solaris_sendmsg(int fd, struct sol_nmsghdr *user_msg, unsigned us
 		unsigned long *kcmsg;
 		__kernel_size_t32 cmlen;
 
-		if(kern_msg.msg_controllen > sizeof(ctl) &&
-		   kern_msg.msg_controllen <= 256) {
+		if (kern_msg.msg_controllen <= sizeof(__kernel_size_t32))
+			return -EINVAL;
+
+		if(kern_msg.msg_controllen > sizeof(ctl)) {
 			err = -ENOBUFS;
 			ctl_buf = kmalloc(kern_msg.msg_controllen, GFP_KERNEL);
 			if(!ctl_buf)
@@ -491,6 +495,7 @@ asmlinkage int solaris_recvmsg(int fd, struct sol_nmsghdr *user_msg, unsigned in
 	if(err >= 0) {
 		err = __put_user(linux_to_solaris_msgflags(kern_msg.msg_flags), &user_msg->msg_flags);
 		if(!err) {
+			/* XXX Convert cmsg back into userspace 32-bit format... */
 			err = __put_user((unsigned long)kern_msg.msg_control - cmsg_ptr,
 					 &user_msg->msg_controllen);
 		}

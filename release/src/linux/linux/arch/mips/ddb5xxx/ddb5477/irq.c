@@ -13,9 +13,11 @@
 #include <linux/config.h>
 #include <linux/init.h>
 #include <linux/interrupt.h>
+#include <linux/irq.h>
 #include <linux/types.h>
 #include <linux/ptrace.h>
 
+#include <asm/i8259.h>
 #include <asm/system.h>
 #include <asm/mipsregs.h>
 #include <asm/debug.h>
@@ -71,7 +73,6 @@ set_pci_int_attr(u32 pci, u32 intn, u32 active, u32 trigger)
 	ddb_out32(pci, reg_value);
 }
 
-extern void init_i8259_irqs (void);
 extern void vrc5477_irq_init(u32 base);
 extern void mips_cpu_irq_init(u32 base);
 extern asmlinkage void ddb5477_handle_int(void);
@@ -164,8 +165,6 @@ u8 i8259_interrupt_ack(void)
 asmlinkage void
 vrc5477_irq_dispatch(struct pt_regs *regs)
 {
-	extern unsigned int do_IRQ(int irq, struct pt_regs *regs);
-
 	u32 intStatus;
 	u32 bitmask;
 	u32 i;
@@ -176,7 +175,7 @@ vrc5477_irq_dispatch(struct pt_regs *regs)
 	db_assert(ddb_in32(DDB_NMISTAT) == 0);
 
 	if (ddb_in32(DDB_INT1STAT) != 0) {
-#if defined(CONFIG_DEBUG)
+#if defined(CONFIG_RUNTIME_DEBUG)
 		vrc5477_show_int_regs();
 #endif
 		panic("error interrupt has happened.");

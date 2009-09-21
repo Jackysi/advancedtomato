@@ -15,7 +15,12 @@
 #include <linux/string.h>
 #include <linux/nls.h>
 
-#include "befs_fs.h"
+#include "befs.h"
+#include "btree.h"
+#include "inode.h"
+#include "datastream.h"
+#include "super.h"
+#include "io.h"
 #include "endian.h"
 
 EXPORT_NO_SYMBOLS;
@@ -35,42 +40,48 @@ static void befs_read_inode(struct inode *ino);
 static void befs_clear_inode(struct inode *ino);
 static int befs_init_inodecache(void);
 static void befs_destroy_inodecache(void);
+
 static int befs_readlink(struct dentry *, char *, int);
 static int befs_follow_link(struct dentry *, struct nameidata *nd);
+
 static int befs_utf2nls(struct super_block *sb, const char *in, int in_len,
 			char **out, int *out_len);
 static int befs_nls2utf(struct super_block *sb, const char *in, int in_len,
 			char **out, int *out_len);
+
 static void befs_put_super(struct super_block *);
 static struct super_block *befs_read_super(struct super_block *, void *, int);
 static int befs_remount(struct super_block *, int *, char *);
 static int befs_statfs(struct super_block *, struct statfs *);
 static int parse_options(char *, befs_mount_options *);
 
+/* slab cache for befs_inode_info objects */
+static kmem_cache_t *befs_inode_cachep;
+
 static const struct super_operations befs_sops = {
 	read_inode:befs_read_inode,	/* initialize & read inode */
 	clear_inode:befs_clear_inode,	/* uninit inode */
 	put_super:befs_put_super,	/* uninit super */
 	statfs:befs_statfs,	/* statfs */
-	remount_fs:befs_remount	/* remount_fs */
+	remount_fs:befs_remount,
 };
 
-/* slab cache for befs_inode_info objects */
-static kmem_cache_t *befs_inode_cachep;
-
 struct file_operations befs_dir_operations = {
-	read:generic_read_dir,	/* read */
-	readdir:befs_readdir,	/* readdir */
+	read:generic_read_dir,
+	readdir:befs_readdir,
 };
 
 struct inode_operations befs_dir_inode_operations = {
-	lookup:befs_lookup,	/* lookup */
+	lookup:befs_lookup,
 };
 
 struct file_operations befs_file_operations = {
 	llseek:default_llseek,
-	read:generic_file_read,	/* read */
-	mmap:generic_file_mmap,	/* mmap */
+	read:generic_file_read,
+	mmap:generic_file_mmap,
+};
+
+struct inode_operations befs_file_inode_operations = {
 };
 
 struct address_space_operations befs_aops = {
@@ -80,8 +91,8 @@ struct address_space_operations befs_aops = {
 };
 
 static struct inode_operations befs_symlink_inode_operations = {
-	readlink:befs_readlink,	/* readlink */
-	follow_link:befs_follow_link	/* follow_link */
+	readlink:befs_readlink,
+	follow_link:befs_follow_link,
 };
 
 /* 
@@ -353,12 +364,7 @@ befs_read_inode(struct inode *inode)
 	    (time_t) (fs64_to_cpu(sb, raw_inode->last_modified_time) >> 16);
 	inode->i_ctime = inode->i_mtime;
 	inode->i_atime = inode->i_mtime;
-
-/* Bloody hell, Linus. Why add this in a stable series? */
-#if LINUX_VERSION_CODE > KERNEL_VERSION(2,4,9)
 	inode->i_blkbits = befs_sb->block_shift;
-#endif
-
 	inode->i_blksize = befs_sb->block_size;
 
 	befs_ino->i_inode_num = fsrun_to_cpu(sb, raw_inode->inode_num);
@@ -387,6 +393,7 @@ befs_read_inode(struct inode *inode)
 
 	if (S_ISREG(inode->i_mode)) {
 		inode->i_fop = &befs_file_operations;
+		inode->i_op = &befs_file_inode_operations;
 	} else if (S_ISDIR(inode->i_mode)) {
 		inode->i_op = &befs_dir_inode_operations;
 		inode->i_fop = &befs_dir_operations;
@@ -539,7 +546,7 @@ befs_utf2nls(struct super_block *sb, const char *in,
 	wchar_t uni;
 	int unilen, utflen;
 	char *result;
-	int maxlen = in_len; /* The utf8->nls conversion cant make more chars */
+	int maxlen = in_len;	/* The utf8->nls conversion cant make more chars */
 
 	befs_debug(sb, "---> utf2nls()");
 
@@ -570,11 +577,11 @@ befs_utf2nls(struct super_block *sb, const char *in,
 		}
 	}
 	result[o] = '\0';
+	*out_len = o;
 
 	befs_debug(sb, "<--- utf2nls()");
 
 	return o;
-	*out_len = o;
 
       conv_err:
 	befs_error(sb, "Name using charecter set %s contains a charecter that "
@@ -660,6 +667,8 @@ befs_nls2utf(struct super_block *sb, const char *in,
 	kfree(result);
 	return -EILSEQ;
 }
+
+/****Superblock****/
 
 static int
 parse_options(char *options, befs_mount_options * opts)

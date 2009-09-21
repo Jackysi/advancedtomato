@@ -54,26 +54,7 @@ check_bugs(void)
 
 asmlinkage int sys_ioperm(unsigned long from, unsigned long num, int on)
 {
-	printk(KERN_ERR "sys_ioperm()\n");
 	return -EIO;
-}
-
-int sys_iopl(int a1, int a2, int a3, int a4)
-{
-	printk(KERN_ERR "sys_iopl(%x, %x, %x, %x)!\n", a1, a2, a3, a4);
-	return (-ENOSYS);
-}
-
-int sys_vm86(int a1, int a2, int a3, int a4)
-{
-	printk(KERN_ERR "sys_vm86(%x, %x, %x, %x)!\n", a1, a2, a3, a4);
-	return (-ENOSYS);
-}
-
-int sys_modify_ldt(int a1, int a2, int a3, int a4)
-{
-	printk(KERN_ERR "sys_modify_ldt(%x, %x, %x, %x)!\n", a1, a2, a3, a4);
-	return (-ENOSYS);
 }
 
 /*
@@ -91,7 +72,7 @@ sys_ipc (uint call, int first, int second, long third, void *ptr, long fifth)
 	version = call >> 16; /* hack for backward compatibility */
 	call &= 0xffff;
 
-	ret = -EINVAL;
+	ret = -ENOSYS;
 	switch (call) {
 	case SEMOP:
 		ret = sys_semop (first, (struct sembuf *)ptr, second);
@@ -125,7 +106,7 @@ sys_ipc (uint call, int first, int second, long third, void *ptr, long fifth)
 						(struct ipc_kludge *) ptr,
 						sizeof (tmp))))
 				break;
-			ret = sys_msgrcv (first, (struct msgbuf *)(unsigned long)tmp.msgp,
+			ret = sys_msgrcv (first, (struct msgbuf *)tmp.msgp,
 						second, tmp.msgtyp, third);
 			break;
 		}

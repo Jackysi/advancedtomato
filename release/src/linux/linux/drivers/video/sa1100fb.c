@@ -237,10 +237,30 @@ sa1100fb_check_shadow(struct sa1100fb_lcd_reg *new_regs,
 	}
 	if (machine_is_freebird()) {
 		DPRINTK("Configuring  Freebird LCD\n");
+#if 1
 		shadow.lccr0 = 0x00000038;
 		shadow.lccr1 = 0x010108e0;
 		shadow.lccr2 = 0x0000053f;
 		shadow.lccr3 = 0x00000c20;
+#else
+		shadow.lccr0 =
+		    LCCR0_LEN + LCCR0_Color + LCCR0_Sngl +
+		    LCCR0_LDM + LCCR0_BAM + LCCR0_ERM + LCCR0_Pas +
+		    LCCR0_LtlEnd + LCCR0_DMADel(0);
+		/* Check ,Chester */
+		shadow.lccr1 =
+		    LCCR1_DisWdth(var->xres) + LCCR1_HorSnchWdth(5) +
+		    LCCR1_BegLnDel(61) + LCCR1_EndLnDel(9);
+		/* Check ,Chester */
+		shadow.lccr2 =
+		    LCCR2_DisHght(var->yres) + LCCR2_VrtSnchWdth(1) +
+		    LCCR2_BegFrmDel(3) + LCCR2_EndFrmDel(0);
+		/* Check ,Chester */
+		shadow.lccr3 =
+		    LCCR3_OutEnH + LCCR3_PixFlEdg + LCCR3_VrtSnchH +
+		    LCCR3_HorSnchH + LCCR3_ACBsCntOff +
+		    LCCR3_ACBsDiv(2) + LCCR3_PixClkDiv(pcd);
+#endif
 	}
 	if (machine_is_brutus()) {
 		DPRINTK("Configuring  Brutus LCD\n");
@@ -562,6 +582,14 @@ static struct sa1100fb_mach_info cerf_info __initdata = {
 
 };
 
+#if 0
+static struct sa1100fb_rgb cerf_rgb_16 = {
+	red:	{ offset: 8,	length: 4, },
+	green:	{ offset: 4,	length: 4, },
+	blue:	{ offset: 0,	length: 4, },
+	transp:	{ offset: 0,	length: 0, },
+};
+#endif
 #endif
 
 #ifdef CONFIG_SA1100_FREEBIRD
@@ -618,6 +646,10 @@ static struct sa1100fb_mach_info huw_webpanel_info __initdata = {
 	lccr0:		LCCR0_Color | LCCR0_Dual | LCCR0_Pas,
 	lccr3:		LCCR3_OutEnH | LCCR3_PixRsEdg | LCCR3_ACBsDiv(2) | 8,
 #error FIXME
+	/*
+	 * FIXME: please get rid of the '| 8' in preference to an
+	 * LCCR3_PixClkDiv() version. --rmk
+	 */
 };
 #endif
 
@@ -701,6 +733,10 @@ static struct sa1100fb_mach_info omnimeter_info __initdata = {
 	lccr3:		LCCR3_OutEnH | LCCR3_PixRsEdg | LCCR3_ACBsDiv(255) |
 			LCCR3_PixClkDiv(44),
 #error FIXME: fix pixclock, ACBsDiv
+	/*
+	 * FIXME: I think ACBsDiv is wrong above - should it be 512 (disabled)?
+	 *   - rmk
+	 */
 };
 #endif
 
@@ -721,7 +757,7 @@ static struct sa1100fb_mach_info pangolin_info __initdata = {
 #endif
 
 #ifdef CONFIG_SA1100_STORK
-#if STORK_TFT			    /* ie the NEC TFT */
+#if STORK_TFT			/* ie the NEC TFT */
 /*
  * pixclock is ps per clock. say 72Hz, 800x600 clocks => (1/72)/(800*600)
  * = 28935 and a bit
@@ -1129,11 +1165,19 @@ static inline void sa1100fb_set_truecolor(u_int is_true_color)
 	DPRINTK("true_color = %d\n", is_true_color);
 
 	if (machine_is_assabet()) {
+#if 1
 		// phase 4 or newer Assabet's
 		if (is_true_color)
 			ASSABET_BCR_set(ASSABET_BCR_LCD_12RGB);
 		else
 			ASSABET_BCR_clear(ASSABET_BCR_LCD_12RGB);
+#else
+		// older Assabet's
+		if (is_true_color)
+			ASSABET_BCR_clear(ASSABET_BCR_LCD_12RGB);
+		else
+			ASSABET_BCR_set(ASSABET_BCR_LCD_12RGB);
+#endif
 	}
 }
 
@@ -1655,6 +1699,11 @@ static int sa1100fb_activate_var(struct fb_var_screeninfo *var, struct sa1100fb_
  *	-- rmk
  */
 
+/*
+ * FIXME: move LCD power stuff into sa1100fb_power_up_lcd()
+ * Also, I'm expecting that the backlight stuff should
+ * be handled differently.
+ */
 static void sa1100fb_backlight_on(struct sa1100fb_info *fbi)
 {
 	DPRINTK("backlight on\n");
@@ -1686,6 +1735,11 @@ static void sa1100fb_backlight_on(struct sa1100fb_info *fbi)
 #endif
 }
 
+/*
+ * FIXME: move LCD power stuf into sa1100fb_power_down_lcd()
+ * Also, I'm expecting that the backlight stuff should
+ * be handled differently.
+ */
 static void sa1100fb_backlight_off(struct sa1100fb_info *fbi)
 {
 	DPRINTK("backlight off\n");
@@ -1803,6 +1857,31 @@ static void sa1100fb_setup_gpio(struct sa1100fb_info *fbi)
 		mask |= GPIO_GPIO15;
 #ifdef CONFIG_SA1100_CERF
 #warning Read Me Now!
+#endif
+#if 0 /* if this causes you problems, mail <rmk@arm.linux.org.uk> please. */
+      /*
+       * This was enabled for the 72_A version only, which is a _color_
+       * _dual_ LCD.  Now look at the generic test above, and calculate
+       * the mask value for a colour dual display...
+       *
+       * I therefore conclude that the code below is redundant, and will
+       * be killed at the start of November 2001.
+       */
+		/* FIXME: why is this? The Cerf's display doesn't seem
+		 * to be dual scan or active. I just leave it here,
+		 * but in my opinion this is definitively wrong.
+		 *  -- Erik <J.A.K.Mouw@its.tudelft.nl>
+		 */
+
+		/* REPLY: Umm.. Well to be honest, the 5.7" LCD which
+		 * this was used for does not use these pins, but
+		 * apparently all hell breaks loose if they are not
+		 * set on the Cerf, so we decided to leave them in ;)
+		 *  -- Daniel Chemko <dchemko@intrinsyc.com>
+		 */
+		/* color {dual/single} passive */
+		mask |= GPIO_LDD15 | GPIO_LDD14 | GPIO_LDD13 | GPIO_LDD12 |
+			GPIO_LDD11 | GPIO_LDD10 | GPIO_LDD9  | GPIO_LDD8;
 #endif
 	}
 
@@ -2284,6 +2363,42 @@ failed:
 
 int __init sa1100fb_setup(char *options)
 {
+#if 0
+	char *this_opt;
+
+	if (!options || !*options)
+		return 0;
+
+	while ((this_opt = strsep(&options, ",")) != NULL) {
+
+		if (!strncmp(this_opt, "bpp:", 4))
+			current_par.max_bpp =
+			    simple_strtoul(this_opt + 4, NULL, 0);
+
+		if (!strncmp(this_opt, "lccr0:", 6))
+			lcd_shadow.lccr0 =
+			    simple_strtoul(this_opt + 6, NULL, 0);
+		if (!strncmp(this_opt, "lccr1:", 6)) {
+			lcd_shadow.lccr1 =
+			    simple_strtoul(this_opt + 6, NULL, 0);
+			current_par.max_xres =
+			    (lcd_shadow.lccr1 & 0x3ff) + 16;
+		}
+		if (!strncmp(this_opt, "lccr2:", 6)) {
+			lcd_shadow.lccr2 =
+			    simple_strtoul(this_opt + 6, NULL, 0);
+			current_par.max_yres =
+			    (lcd_shadow.
+			     lccr0 & LCCR0_SDS) ? ((lcd_shadow.
+						    lccr2 & 0x3ff) +
+						   1) *
+			    2 : ((lcd_shadow.lccr2 & 0x3ff) + 1);
+		}
+		if (!strncmp(this_opt, "lccr3:", 6))
+			lcd_shadow.lccr3 =
+			    simple_strtoul(this_opt + 6, NULL, 0);
+	}
+#endif
 	return 0;
 }
 

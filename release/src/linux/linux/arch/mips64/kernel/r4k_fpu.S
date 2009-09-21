@@ -32,11 +32,8 @@
 	.set	noreorder
 	/* Save floating point context */
 LEAF(_save_fp_context)
-	mfc0	t1, CP0_STATUS
-	sll	t2, t1,5
+	cfc1	t1, fcr31
 
-	bgez	t2, 1f
-	 cfc1	t1, fcr31
 	/* Store the 16 odd double precision registers */
 	EX	sdc1 $f1, SC_FPREGS+8(a0)
 	EX	sdc1 $f3, SC_FPREGS+24(a0)
@@ -56,7 +53,6 @@ LEAF(_save_fp_context)
 	EX	sdc1 $f31, SC_FPREGS+248(a0)
 
 	/* Store the 16 even double precision registers */
-1:
 	EX	sdc1 $f0, SC_FPREGS+0(a0)
 	EX	sdc1 $f2, SC_FPREGS+16(a0)
 	EX	sdc1 $f4, SC_FPREGS+32(a0)
@@ -81,24 +77,42 @@ LEAF(_save_fp_context)
 	 li	v0, 0					# success
 	END(_save_fp_context)
 
+	/* Save 32-bit process floating point context */
+LEAF(_save_fp_context32)
+	cfc1	t1, fcr31
+
+	EX	sdc1 $f0, SC32_FPREGS+0(a0)
+	EX	sdc1 $f2, SC32_FPREGS+16(a0)
+	EX	sdc1 $f4, SC32_FPREGS+32(a0)
+	EX	sdc1 $f6, SC32_FPREGS+48(a0)
+	EX	sdc1 $f8, SC32_FPREGS+64(a0)
+	EX	sdc1 $f10, SC32_FPREGS+80(a0)
+	EX	sdc1 $f12, SC32_FPREGS+96(a0)
+	EX	sdc1 $f14, SC32_FPREGS+112(a0)
+	EX	sdc1 $f16, SC32_FPREGS+128(a0)
+	EX	sdc1 $f18, SC32_FPREGS+144(a0)
+	EX	sdc1 $f20, SC32_FPREGS+160(a0)
+	EX	sdc1 $f22, SC32_FPREGS+176(a0)
+	EX	sdc1 $f24, SC32_FPREGS+192(a0)
+	EX	sdc1 $f26, SC32_FPREGS+208(a0)
+	EX	sdc1 $f28, SC32_FPREGS+224(a0)
+	EX	sdc1 $f30, SC32_FPREGS+240(a0)
+	EX	sw t1, SC32_FPC_CSR(a0)
+	cfc1	t0, $0				# implementation/version
+	EX	sw t0, SC32_FPC_EIR(a0)
+
+	jr	ra
+	 li	v0, 0					# success
+	END(_save_fp_context32)
+
 /*
  * Restore FPU state:
  *  - fp gp registers
  *  - cp1 status/control register
- *
- * We base the decision which registers to restore from the signal stack
- * frame on the current content of c0_status, not on the content of the
- * stack frame which might have been changed by the user.
  */
 LEAF(_restore_fp_context)
-	mfc0	t1, CP0_STATUS
-	sll	t0, t1,5
-	bgez	t0, 1f
-	 EX	lw t0, SC_FPC_CSR(a0)
-
-	/* Restore the 16 odd double precision registers only
-	 * when enabled in the cp0 status register.
-	 */
+	/* Restore an o32/64 sigcontext. */
+	EX	lw t0, SC_FPC_CSR(a0)
 	EX	ldc1 $f1, SC_FPREGS+8(a0)
 	EX	ldc1 $f3, SC_FPREGS+24(a0)
 	EX	ldc1 $f5, SC_FPREGS+40(a0)
@@ -116,11 +130,7 @@ LEAF(_restore_fp_context)
 	EX	ldc1 $f29, SC_FPREGS+232(a0)
 	EX	ldc1 $f31, SC_FPREGS+248(a0)
 
-	/*
-	 * Restore the 16 even double precision registers
-	 * when cp1 was enabled in the cp0 status register.
-	 */
-1:	EX	ldc1 $f0, SC_FPREGS+0(a0)
+	EX	ldc1 $f0, SC_FPREGS+0(a0)
 	EX	ldc1 $f2, SC_FPREGS+16(a0)
 	EX	ldc1 $f4, SC_FPREGS+32(a0)
 	EX	ldc1 $f6, SC_FPREGS+48(a0)
@@ -140,6 +150,30 @@ LEAF(_restore_fp_context)
 	jr	ra
 	 li	v0, 0					# success
 	END(_restore_fp_context)
+
+LEAF(_restore_fp_context32)
+	/* Restore an o32 sigcontext.  */
+	EX	lw t0, SC32_FPC_CSR(a0)
+	EX	ldc1 $f0, SC32_FPREGS+0(a0)
+	EX	ldc1 $f2, SC32_FPREGS+16(a0)
+	EX	ldc1 $f4, SC32_FPREGS+32(a0)
+	EX	ldc1 $f6, SC32_FPREGS+48(a0)
+	EX	ldc1 $f8, SC32_FPREGS+64(a0)
+	EX	ldc1 $f10, SC32_FPREGS+80(a0)
+	EX	ldc1 $f12, SC32_FPREGS+96(a0)
+	EX	ldc1 $f14, SC32_FPREGS+112(a0)
+	EX	ldc1 $f16, SC32_FPREGS+128(a0)
+	EX	ldc1 $f18, SC32_FPREGS+144(a0)
+	EX	ldc1 $f20, SC32_FPREGS+160(a0)
+	EX	ldc1 $f22, SC32_FPREGS+176(a0)
+	EX	ldc1 $f24, SC32_FPREGS+192(a0)
+	EX	ldc1 $f26, SC32_FPREGS+208(a0)
+	EX	ldc1 $f28, SC32_FPREGS+224(a0)
+	EX	ldc1 $f30, SC32_FPREGS+240(a0)
+	ctc1	t0, fcr31
+	jr	ra
+	 li	v0, 0					# success
+	END(_restore_fp_context32)
 
 	.type	fault@function
 	.ent	fault

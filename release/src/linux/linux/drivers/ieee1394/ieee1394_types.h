@@ -7,70 +7,61 @@
 #include <linux/version.h>
 #include <linux/list.h>
 #include <linux/init.h>
+#include <linux/spinlock.h>
+#include <asm/semaphore.h>
 #include <asm/byteorder.h>
 
 
-/* The great kdev_t changeover in 2.5.x */
-#include <linux/kdev_t.h>
-#ifndef minor
-#define minor(dev) MINOR(dev)
+#ifndef BITS_TO_LONGS	/* < 2.4.21-pre6 */
+#define BITS_TO_LONGS(bits) \
+	(((bits)+BITS_PER_LONG-1)/BITS_PER_LONG)
+#define DECLARE_BITMAP(name,bits) \
+	unsigned long name[BITS_TO_LONGS(bits)]
+#define CLEAR_BITMAP(name,bits) \
+	memset(name, 0, BITS_TO_LONGS(bits)*sizeof(unsigned long))
 #endif
 
-#ifndef __devexit_p
-#define __devexit_p(x) x
-#endif
 
-/* This showed up around this time */
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,4,12)
+/* Transaction Label handling */
+struct hpsb_tlabel_pool {
+	DECLARE_BITMAP(pool, 64);
+	spinlock_t lock;
+	u8 next;
+	u32 allocations;
+	struct semaphore count;
+};
 
-# ifndef MODULE_LICENSE
-# define MODULE_LICENSE(x)
-# endif
+#define HPSB_TPOOL_INIT(_tp)			\
+do {						\
+	CLEAR_BITMAP((_tp)->pool, 64);		\
+	spin_lock_init(&(_tp)->lock);		\
+	(_tp)->next = 0;			\
+	(_tp)->allocations = 0;			\
+	sema_init(&(_tp)->count, 63);		\
+} while (0)
 
-# ifndef min
-# define min(x,y) ({ \
-	const typeof(x) _x = (x);       \
-	const typeof(y) _y = (y);       \
-	(void) (&_x == &_y);            \
-	_x < _y ? _x : _y; })
-# endif
-
-#endif /* Linux version < 2.4.12 */
-
-#include <linux/spinlock.h>
-
-#ifndef list_for_each_safe
-#define list_for_each_safe(pos, n, head) \
-	for (pos = (head)->next, n = pos->next; pos != (head); \
-		pos = n, n = pos->next)
-
-#endif
-
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,5,5)
-#define pte_offset_kernel pte_offset
-#endif
-
-#ifndef MIN
-#define MIN(a,b) ((a) < (b) ? (a) : (b))
-#endif
-
-#ifndef MAX
-#define MAX(a,b) ((a) > (b) ? (a) : (b))
-#endif
 
 typedef u32 quadlet_t;
 typedef u64 octlet_t;
 typedef u16 nodeid_t;
 
+typedef u8  byte_t;
+typedef u64 nodeaddr_t;
+typedef u16 arm_length_t;
+
 #define BUS_MASK  0xffc0
+#define BUS_SHIFT 6
 #define NODE_MASK 0x003f
 #define LOCAL_BUS 0xffc0
 #define ALL_NODES 0x003f
 
+#define NODEID_TO_BUS(nodeid)	((nodeid & BUS_MASK) >> BUS_SHIFT)
+#define NODEID_TO_NODE(nodeid)	(nodeid & NODE_MASK)
+
 /* Can be used to consistently print a node/bus ID. */
-#define NODE_BUS_FMT    "%02d:%04d"
-#define NODE_BUS_ARGS(nodeid) \
-	(nodeid & NODE_MASK), ((nodeid & BUS_MASK) >> 6)
+#define NODE_BUS_FMT		"%d-%02d:%04d"
+#define NODE_BUS_ARGS(__host, __nodeid)	\
+	__host->id, NODEID_TO_NODE(__nodeid), NODEID_TO_BUS(__nodeid)
 
 #define HPSB_PRINT(level, fmt, args...) printk(level "ieee1394: " fmt "\n" , ## args)
 
@@ -79,6 +70,12 @@ typedef u16 nodeid_t;
 #define HPSB_NOTICE(fmt, args...) HPSB_PRINT(KERN_NOTICE, fmt , ## args)
 #define HPSB_WARN(fmt, args...) HPSB_PRINT(KERN_WARNING, fmt , ## args)
 #define HPSB_ERR(fmt, args...) HPSB_PRINT(KERN_ERR, fmt , ## args)
+
+#ifdef CONFIG_IEEE1394_VERBOSEDEBUG
+#define HPSB_VERBOSE(fmt, args...) HPSB_PRINT(KERN_DEBUG, fmt , ## args)
+#else
+#define HPSB_VERBOSE(fmt, args...)
+#endif
 
 #define HPSB_PANIC(fmt, args...) panic("ieee1394: " fmt "\n" , ## args)
 

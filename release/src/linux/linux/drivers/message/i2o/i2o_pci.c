@@ -390,4 +390,3 @@ MODULE_PARM(dpt, "i");
 MODULE_PARM_DESC(dpt, "Set this if you want to drive DPT cards normally handled by dpt_i2o");
 module_init(i2o_pci_core_attach);
 module_exit(i2o_pci_core_detach);
- 

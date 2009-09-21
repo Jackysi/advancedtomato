@@ -1,9 +1,9 @@
-/* $Id: checksumcopy.S,v 1.1.1.4 2003/10/14 08:07:17 sparq Exp $
+/*
  * A fast checksum+copy routine using movem
- * Copyright (c) 1998, 2001 Axis Communications AB
+ * Copyright (c) 1998-2003 Axis Communications AB
  *
  * Authors:	Bjorn Wesen
- * 
+ *
  * csum_partial_copy_nocheck(const char *src, char *dst,
  *		             int len, unsigned int sum)
  */

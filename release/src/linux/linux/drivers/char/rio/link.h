@@ -164,7 +164,7 @@ struct LPB {
                Channel_ptr   lrt_fail_chan ;     /* Lrt's failure channel */
                Channel_ptr   ltt_fail_chan ;     /* Ltt's failure channel */
 
-#if defined(HOST) || defined(INKERNEL)
+#if defined (HOST) || defined (INKERNEL)
  /* RUP structure for HOST to driver communications */
                struct RUP           rup ;              
 #endif

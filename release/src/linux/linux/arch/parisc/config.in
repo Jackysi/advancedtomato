@@ -45,6 +45,10 @@ mainmenu_option next_comment
 comment 'General options'
 
 bool 'Symmetric multi-processing support' CONFIG_SMP
+if [ "$CONFIG_SMP" = "y" ]; then
+   int  'Maximum number of CPUs (2-32)' CONFIG_NR_CPUS 32
+fi
+
 bool 'Chassis LCD and LED support' CONFIG_CHASSIS_LCD_LED
 
 bool 'Kernel Debugger support' CONFIG_KWDB
@@ -84,7 +88,7 @@ bool 'System V IPC' CONFIG_SYSVIPC
 bool 'BSD Process Accounting' CONFIG_BSD_PROCESS_ACCT
 bool 'Sysctl support' CONFIG_SYSCTL
 define_bool CONFIG_KCORE_ELF y
-tristate 'Kernel support for ELF binaries' CONFIG_BINFMT_ELF
+bool 'Kernel support for ELF binaries' CONFIG_BINFMT_ELF
 tristate 'Kernel support for SOM binaries' CONFIG_BINFMT_SOM
 tristate 'Kernel support for MISC binaries' CONFIG_BINFMT_MISC
 
@@ -112,7 +116,6 @@ if [ "$CONFIG_SUPERIO" = "y" ]; then
     if [ "$CONFIG_IDE" != "n" ]; then
       source drivers/ide/Config.in
     else
-      define_bool CONFIG_BLK_DEV_IDE_MODES n
       define_bool CONFIG_BLK_DEV_HD n
     fi
     endmenu
@@ -136,7 +139,7 @@ if [ "$CONFIG_NET" = "y" ]; then
 
    if [ "$CONFIG_NETDEVICES" = "y" ]; then
       source drivers/net/Config.in
-      if [ "$CONFIG_ATM" = "y" ]; then
+      if [ "$CONFIG_ATM" = "y" -o "$CONFIG_ATM" = "m" ]; then
          source drivers/atm/Config.in
       fi
    fi
@@ -194,6 +197,10 @@ comment 'Kernel hacking'
 
 #bool 'Debug kmalloc/kfree' CONFIG_DEBUG_MALLOC
 bool 'Magic SysRq key' CONFIG_MAGIC_SYSRQ
+
+int 'Kernel messages buffer length shift (0 = default)' CONFIG_LOG_BUF_SHIFT 0
+
 endmenu
 
+source crypto/Config.in
 source lib/Config.in

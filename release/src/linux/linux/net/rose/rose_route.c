@@ -655,6 +655,9 @@ int rose_rt_ioctl(unsigned int cmd, void *arg)
 			if (rose_route.mask > 10) /* Mask can't be more than 10 digits */
 				return -EINVAL;
 
+			if(rose_route.ndigis > 8) /* No more than 8 digipeats */
+				return -EINVAL;
+
 			err = rose_add_node(&rose_route, dev);
 			dev_put(dev);
 			return err;
@@ -772,6 +775,10 @@ int rose_route_frame(struct sk_buff *skb, ax25_cb *ax25)
 	unsigned long flags;
 	int len;
 
+#if 0
+	if (call_in_firewall(PF_ROSE, skb->dev, skb->data, NULL, &skb) != FW_ACCEPT)
+		return 0;
+#endif
 
 	frametype = skb->data[2];
 	lci = ((skb->data[0] << 8) & 0xF00) + ((skb->data[1] << 0) & 0x0FF);
@@ -891,7 +898,7 @@ int rose_route_frame(struct sk_buff *skb, ax25_cb *ax25)
 	 *	1. The frame isn't for us,
 	 *	2. It isn't "owned" by any existing route.
 	 */
-	if (frametype != ROSE_CALL_REQUEST)	
+	if (frametype != ROSE_CALL_REQUEST)	/* XXX */
 		return 0;
 
 	len  = (((skb->data[3] >> 4) & 0x0F) + 1) / 2;

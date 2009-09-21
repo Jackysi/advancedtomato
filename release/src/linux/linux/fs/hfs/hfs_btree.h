@@ -1,4 +1,14 @@
-
+/*
+ * linux/fs/hfs/hfs_btree.h
+ *
+ * Copyright (C) 1995-1997  Paul H. Hargrove
+ * This file may be distributed under the terms of the GNU General Public License.
+ *
+ * This file contains the declarations of the private B-tree
+ * structures and functions.
+ *
+ * "XXX" in a comment is a note to myself to consider changing something.
+ */
 
 #ifndef _HFS_BTREE_H
 #define _HFS_BTREE_H

@@ -62,6 +62,12 @@
  * - Maybe make an ALSA interface, that is, create a file_ops
  *   implementation that recognizes ALSA ioctls and uses defaults for
  *   things that can't be controlled through ALSA (iso channel).
+ *
+ *   Changes:
+ *
+ * - Audit copy_from_user in amdtp_write.
+ *                           Daniele Bellucci <bellucda@tiscali.it>
+ *
  */
 
 #include <linux/module.h>
@@ -228,7 +234,7 @@ struct stream {
 	/* The cycle_count and cycle_offset fields are used for the
 	 * synchronization timestamps (syt) in the cip header.  They
 	 * are incremented by at least a cycle every time we put a
-	 * time stamp in a packet.  As we dont time stamp all
+	 * time stamp in a packet.  As we don't time stamp all
 	 * packages, cycle_count isn't updated in every cycle, and
 	 * sometimes it's incremented by 2.  Thus, we have
 	 * cycle_count2, which is simply incremented by one with each
@@ -263,14 +269,15 @@ struct amdtp_host {
 	struct hpsb_host *host;
 	struct ti_ohci *ohci;
 	struct list_head stream_list;
+	devfs_handle_t devfs;
 	spinlock_t stream_list_lock;
-	struct list_head link;
 };
 
-static struct hpsb_highlevel *amdtp_highlevel;
-static LIST_HEAD(host_list);
-static spinlock_t host_list_lock = SPIN_LOCK_UNLOCKED;
+static devfs_handle_t devfs_handle;
 
+static struct hpsb_highlevel amdtp_highlevel;
+
+/* FIXME: This doesn't belong here... */
 
 #define OHCI1394_CONTEXT_CYCLE_MATCH 0x80000000
 #define OHCI1394_CONTEXT_RUN         0x00008000
@@ -344,7 +351,7 @@ static void stream_start_dma(struct stream *s, struct packet_list *pl)
 {
 	u32 syt_cycle, cycle_count, start_cycle;
 
-	cycle_count = reg_read(s->host->host->hostdata,
+	cycle_count = reg_read(s->host->ohci,
 			       OHCI1394_IsochronousCycleTimer) >> 12;
 	syt_cycle = (pl->last_cycle_count - PACKET_LIST_SIZE + 1) & 0x0f;
 
@@ -597,6 +604,8 @@ static struct buffer *buffer_alloc(int size)
 	struct buffer *b;
 
 	b = kmalloc(sizeof *b + size, SLAB_KERNEL);
+	if (b == NULL)
+		return NULL;
 	b->head = 0;
 	b->tail = 0;
 	b->length = 0;
@@ -687,7 +696,7 @@ static u32 get_header_bits(struct stream *s, int sub_frame, u32 sample)
 		return get_iec958_header_bits(s, sub_frame, sample);
 		
 	case AMDTP_FORMAT_RAW:
-		return 0x40000000;
+		return 0x40;
 
 	default:
 		return 0;
@@ -729,7 +738,7 @@ static void fill_packet(struct stream *s, struct packet *packet, int nevents)
 
 	/* Fill IEEE1394 headers */
 	packet->db->header_desc.header[0] =
-		(SPEED_100 << 16) | (0x01 << 14) | 
+		(IEEE1394_SPEED_100 << 16) | (0x01 << 14) | 
 		(s->iso_channel << 8) | (TCODE_ISO_DATA << 4);
 	packet->db->header_desc.header[1] = size << 16;
 	
@@ -745,7 +754,7 @@ static void fill_packet(struct stream *s, struct packet *packet, int nevents)
 
 		/* This next addition should be modulo 8000 (0x1f40),
 		 * but we only use the lower 4 bits of cycle_count, so
-		 * we dont need the modulo. */
+		 * we don't need the modulo. */
 		atomic_add(s->cycle_offset.integer / 3072, &s->cycle_count);
 		s->cycle_offset.integer %= 3072;
 	}
@@ -833,7 +842,8 @@ static int stream_alloc_packet_lists(struct stream *s)
 
 	max_packet_size = max_nevents * s->dimension * 4 + 8;
 	s->packet_pool = pci_pool_create("packet pool", s->host->ohci->dev,
-					 max_packet_size, 0, 0, SLAB_KERNEL);
+					 max_packet_size, 0, 0 ,SLAB_KERNEL);
+
 	if (s->packet_pool == NULL)
 		return -1;
 
@@ -1020,6 +1030,7 @@ struct stream *stream_alloc(struct amdtp_host *host)
 	s->descriptor_pool = pci_pool_create("descriptor pool", host->ohci->dev,
 					     sizeof(struct descriptor_block),
 					     16, 0, SLAB_KERNEL);
+
 	if (s->descriptor_pool == NULL) {
 		kfree(s->input);
 		kfree(s);
@@ -1106,8 +1117,9 @@ static ssize_t amdtp_write(struct file *file, const char *buffer, size_t count,
 	 */
 
 	for (i = 0; i < count; i += length) {
-		p = buffer_put_bytes(s->input, count, &length);
-		copy_from_user(p, buffer + i, length);
+		p = buffer_put_bytes(s->input, count - i, &length);
+		if (copy_from_user(p, buffer + i, length))
+			return -EFAULT;
 		if (s->input->length < s->input->size)
 			continue;
 		
@@ -1162,14 +1174,9 @@ static unsigned int amdtp_poll(struct file *file, poll_table *pt)
 static int amdtp_open(struct inode *inode, struct file *file)
 {
 	struct amdtp_host *host;
+	int i = ieee1394_file_to_instance(file);
 
-	spin_lock(&host_list_lock);
-	if (!list_empty(&host_list))
-		host = list_entry(host_list.next, struct amdtp_host, link);
-	else
-		host = NULL;
-	spin_unlock(&host_list_lock);
-
+	host = hpsb_get_hostinfo_bykey(&amdtp_highlevel, i);
 	if (host == NULL)
 		return -ENODEV;
 
@@ -1204,44 +1211,49 @@ static struct file_operations amdtp_fops =
 static void amdtp_add_host(struct hpsb_host *host)
 {
 	struct amdtp_host *ah;
+	int minor;
+	char name[16];
 
 	if (strcmp(host->driver->name, OHCI1394_DRIVER_NAME) != 0)
 		return;
 
-	ah = kmalloc(sizeof *ah, SLAB_KERNEL);
+	ah = hpsb_create_hostinfo(&amdtp_highlevel, host, sizeof(*ah));
+	if (!ah) {
+		HPSB_ERR("amdtp: Unable able to alloc hostinfo");
+		return;
+	}
+
 	ah->host = host;
 	ah->ohci = host->hostdata;
+
+	hpsb_set_hostinfo_key(&amdtp_highlevel, host, ah->ohci->id);
+
+	minor = IEEE1394_MINOR_BLOCK_AMDTP * 16 + ah->ohci->id;
+
+	sprintf(name, "%d", ah->ohci->id);
+
 	INIT_LIST_HEAD(&ah->stream_list);
 	spin_lock_init(&ah->stream_list_lock);
 
-	spin_lock_irq(&host_list_lock);
-	list_add_tail(&ah->link, &host_list);
-	spin_unlock_irq(&host_list_lock);
+	ah->devfs = devfs_register(devfs_handle, name,
+				   DEVFS_FL_AUTO_OWNER,
+				   IEEE1394_MAJOR, minor,
+				   S_IFCHR | S_IRUSR | S_IWUSR,
+				   &amdtp_fops, NULL);
 }
 
 static void amdtp_remove_host(struct hpsb_host *host)
 {
-	struct list_head *lh;
-	struct amdtp_host *ah;
+	struct amdtp_host *ah = hpsb_get_hostinfo(&amdtp_highlevel, host);
 
-	spin_lock_irq(&host_list_lock);
-	list_for_each(lh, &host_list) {
-		if (list_entry(lh, struct amdtp_host, link)->host == host) {
-			list_del(lh);
-			break;
-		}
-	}
-	spin_unlock_irq(&host_list_lock);
-	
-	if (lh != &host_list) {
-		ah = list_entry(lh, struct amdtp_host, link);
-		kfree(ah);
-	}
-	else
-		HPSB_ERR("remove_host: bogus ohci host: %p", host);
+	if (ah)
+		devfs_unregister(ah->devfs);
+
+	return;
 }
 
-static struct hpsb_highlevel_ops amdtp_highlevel_ops = {
+static struct hpsb_highlevel amdtp_highlevel = {
+	.name =		"amdtp",
 	.add_host =	amdtp_add_host,
 	.remove_host =	amdtp_remove_host,
 };
@@ -1262,13 +1274,9 @@ static int __init amdtp_init_module (void)
  		return -EIO;
  	}
 
-	amdtp_highlevel = hpsb_register_highlevel ("amdtp",
-						   &amdtp_highlevel_ops);
-	if (amdtp_highlevel == NULL) {
-		HPSB_ERR("amdtp: unable to register highlevel ops");
-		ieee1394_unregister_chardev(IEEE1394_MINOR_BLOCK_AMDTP);
-		return -EIO;
-	}
+	devfs_handle = devfs_mk_dir(NULL, "amdtp", NULL);
+
+	hpsb_register_highlevel(&amdtp_highlevel);
 
 	HPSB_INFO("Loaded AMDTP driver");
 
@@ -1277,7 +1285,8 @@ static int __init amdtp_init_module (void)
 
 static void __exit amdtp_exit_module (void)
 {
-        hpsb_unregister_highlevel(amdtp_highlevel);
+        hpsb_unregister_highlevel(&amdtp_highlevel);
+	devfs_unregister(devfs_handle);
         ieee1394_unregister_chardev(IEEE1394_MINOR_BLOCK_AMDTP);
 
 	HPSB_INFO("Unloaded AMDTP driver");

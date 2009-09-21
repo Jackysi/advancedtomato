@@ -33,7 +33,7 @@
  *
  * Version 1.9, Wed Oct  4 18:58:15 MSK 1995
  *
- * $Id: syncppp.c,v 1.1.1.4 2003/10/14 08:08:30 sparq Exp $
+ * $Id: syncppp.c,v 1.18 2000/04/11 05:25:31 asj Exp $
  */
 #undef DEBUG
 
@@ -727,7 +727,7 @@ static void sppp_cisco_input (struct sppp *sp, struct sk_buff *skb)
 		{
 		struct in_device *in_dev;
 		struct in_ifaddr *ifa;
-		u32 addr = 0, mask = ~0; 
+		u32 addr = 0, mask = ~0; /* FIXME: is the mask correct? */
 #ifdef CONFIG_INET
 		if ((in_dev=in_dev_get(dev)) != NULL)
 		{
@@ -1052,6 +1052,11 @@ void sppp_attach(struct ppp_device *pd)
 	 *	These 4 are callers but MUST also call sppp_ functions
 	 */
 	dev->do_ioctl = sppp_do_ioctl;
+#if 0
+	dev->get_stats = NULL;		/* Let the driver override these */
+	dev->open = sppp_open;
+	dev->stop = sppp_close;
+#endif	
 	dev->change_mtu = sppp_change_mtu;
 	dev->hard_header_cache = NULL;
 	dev->header_cache_update = NULL;

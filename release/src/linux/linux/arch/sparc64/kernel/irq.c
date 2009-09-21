@@ -1,4 +1,4 @@
-/* $Id: irq.c,v 1.1.1.4 2003/10/14 08:07:50 sparq Exp $
+/* $Id: irq.c,v 1.112 2001/11/16 00:04:54 kanoj Exp $
  * irq.c: UltraSparc IRQ handling/init/registry.
  *
  * Copyright (C) 1997  David S. Miller  (davem@caip.rutgers.edu)
@@ -148,12 +148,24 @@ void enable_irq(unsigned int irq)
 		return;
 
 	if (tlb_type == cheetah || tlb_type == cheetah_plus) {
-		/* We set it to our Safari AID. */
-		__asm__ __volatile__("ldxa [%%g0] %1, %0"
-				     : "=r" (tid)
-				     : "i" (ASI_SAFARI_CONFIG));
-		tid = ((tid & (0x3ffUL<<17)) << 9);
-		tid &= IMAP_AID_SAFARI;
+		unsigned long ver;
+
+		__asm__ ("rdpr %%ver, %0" : "=r" (ver));
+		if ((ver >> 32) == 0x003e0016) {
+			/* We set it to our JBUS ID. */
+			__asm__ __volatile__("ldxa [%%g0] %1, %0"
+					     : "=r" (tid)
+					     : "i" (ASI_JBUS_CONFIG));
+			tid = ((tid & (0x1fUL<<17)) << 9);
+			tid &= IMAP_TID_JBUS;
+		} else {
+			/* We set it to our Safari AID. */
+			__asm__ __volatile__("ldxa [%%g0] %1, %0"
+					     : "=r" (tid)
+					     : "i" (ASI_SAFARI_CONFIG));
+			tid = ((tid & (0x3ffUL<<17)) << 9);
+			tid &= IMAP_AID_SAFARI;
+		}
 	} else if (this_is_starfire == 0) {
 		/* We set it to our UPA MID. */
 		__asm__ __volatile__("ldxa [%%g0] %1, %0"
@@ -341,7 +353,7 @@ int request_irq(unsigned int irq, void (*handler)(int, void *, struct pt_regs *)
 	}	
 	if(action == NULL)
 	    action = (struct irqaction *)kmalloc(sizeof(struct irqaction),
-						 GFP_KERNEL);
+						 GFP_ATOMIC);
 	
 	if(!action) { 
 		restore_flags(flags);
@@ -361,7 +373,7 @@ int request_irq(unsigned int irq, void (*handler)(int, void *, struct pt_regs *)
 				goto free_and_ebusy;
 			}
 			if((bucket->flags & IBF_MULTI) == 0) {
-				vector = kmalloc(sizeof(void *) * 4, GFP_KERNEL);
+				vector = kmalloc(sizeof(void *) * 4, GFP_ATOMIC);
 				if(vector == NULL)
 					goto free_and_enomem;
 
@@ -584,7 +596,11 @@ static void show(char * str)
 
 #define MAXCOUNT 100000000
 
-#define SYNC_OTHER_ULTRAS(x)	membar("#Sync");
+#if 0
+#define SYNC_OTHER_ULTRAS(x)	udelay(x+1)
+#else
+#define SYNC_OTHER_ULTRAS(x)	membar_safe("#Sync");
+#endif
 
 void synchronize_irq(void)
 {
@@ -708,6 +724,10 @@ void catch_disabled_ivec(struct pt_regs *regs)
 	 * for real the request_irq() code will check the bit and signal
 	 * a local CPU interrupt for it.
 	 */
+#if 0
+	printk("IVEC: Spurious interrupt vector (%x) received at (%016lx)\n",
+	       bucket - &ivector_table[0], regs->tpc);
+#endif
 	*irq_work(cpu, 0) = 0;
 	bucket->pending = 1;
 }
@@ -795,12 +815,8 @@ void handler_irq(int irq, struct pt_regs *regs)
 	 */
 	{
 		unsigned long clr_mask = 1 << irq;
-		unsigned long tick_mask;
+		unsigned long tick_mask = tick_ops->softint_mask;
 
-		if (SPARC64_USE_STICK)
-			tick_mask = (1UL << 16);
-		else
-			tick_mask = (1UL << 0);
 		if ((irq == 14) && (get_softint() & tick_mask)) {
 			irq = 0;
 			clr_mask = tick_mask;
@@ -975,7 +991,7 @@ int request_fast_irq(unsigned int irq,
 	}
 	if(action == NULL)
 		action = (struct irqaction *)kmalloc(sizeof(struct irqaction),
-						     GFP_KERNEL);
+						     GFP_ATOMIC);
 	if(!action) {
 		restore_flags(flags);
 		return -ENOMEM;
@@ -1015,100 +1031,6 @@ unsigned long probe_irq_on(void)
 int probe_irq_off(unsigned long mask)
 {
 	return 0;
-}
-
-/* This is gets the master TICK_INT timer going. */
-void init_timers(void (*cfunc)(int, void *, struct pt_regs *),
-		 unsigned long *clock)
-{
-	unsigned long pstate;
-	extern unsigned long timer_tick_offset;
-	int node, err;
-#ifdef CONFIG_SMP
-	extern void smp_tick_init(void);
-#endif
-
-	if (!SPARC64_USE_STICK) {
-		node = linux_cpus[0].prom_node;
-		*clock = prom_getint(node, "clock-frequency");
-	} else {
-		node = prom_root_node;
-		*clock = prom_getint(node, "stick-frequency");
-	}
-	timer_tick_offset = *clock / HZ;
-#ifdef CONFIG_SMP
-	smp_tick_init();
-#endif
-
-	/* Register IRQ handler. */
-	err = request_irq(build_irq(0, 0, 0UL, 0UL), cfunc, SA_STATIC_ALLOC,
-			  "timer", NULL);
-
-	if(err) {
-		prom_printf("Serious problem, cannot register TICK_INT\n");
-		prom_halt();
-	}
-
-	/* Guarentee that the following sequences execute
-	 * uninterrupted.
-	 */
-	__asm__ __volatile__("rdpr	%%pstate, %0\n\t"
-			     "wrpr	%0, %1, %%pstate"
-			     : "=r" (pstate)
-			     : "i" (PSTATE_IE));
-
-	__asm__ __volatile__(
-	"	sethi	%%hi(0x80000000), %%g1\n"
-	"	ba,pt	%%xcc, 1f\n"
-	"	 sllx	%%g1, 32, %%g1\n"
-	"	.align	64\n"
-	"1:	rd	%%tick, %%g2\n"
-	"	add	%%g2, 6, %%g2\n"
-	"	andn	%%g2, %%g1, %%g2\n"
-	"	wrpr	%%g2, 0, %%tick\n"
-	"	rdpr	%%tick, %%g0"
-	: /* no outputs */
-	: /* no inputs */
-	: "g1", "g2");
-
-	if (!SPARC64_USE_STICK) {
-	__asm__ __volatile__(
-	"	rd	%%tick, %%g1\n"
-	"	ba,pt	%%xcc, 1f\n"
-	"	 add	%%g1, %0, %%g1\n"
-	"	.align	64\n"
-	"1:	wr	%%g1, 0x0, %%tick_cmpr\n"
-	"	rd	%%tick_cmpr, %%g0"
-	: /* no outputs */
-	: "r" (timer_tick_offset)
-	: "g1");
-	} else {
-	/* Let the user get at STICK too. */
-	__asm__ __volatile__(
-	"	sethi	%%hi(0x80000000), %%g1\n"
-	"	sllx	%%g1, 32, %%g1\n"
-	"	rd	%%asr24, %%g2\n"
-	"	andn	%%g2, %%g1, %%g2\n"
-	"	wr	%%g2, 0, %%asr24"
-	: /* no outputs */
-	: /* no inputs */
-	: "g1", "g2");
-
-	__asm__ __volatile__(
-	"	rd	%%asr24, %%g1\n"
-	"	add	%%g1, %0, %%g1\n"
-	"	wr	%%g1, 0x0, %%asr25"
-	: /* no outputs */
-	: "r" (timer_tick_offset)
-	: "g1");
-	}
-
-	/* Restore PSTATE_IE. */
-	__asm__ __volatile__("wrpr	%0, 0x0, %%pstate"
-			     : /* no outputs */
-			     : "r" (pstate));
-
-	sti();
 }
 
 #ifdef CONFIG_SMP
@@ -1411,6 +1333,7 @@ static void register_irq_proc (unsigned int irq)
 	irq_dir[irq] = proc_mkdir(name, root_irq_dir);
 
 #ifdef CONFIG_SMP
+	/* XXX SMP affinity not supported on starfire yet. */
 	if (this_is_starfire == 0) {
 		struct proc_dir_entry *entry;
 

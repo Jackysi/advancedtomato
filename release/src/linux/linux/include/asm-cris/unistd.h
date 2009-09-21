@@ -230,17 +230,51 @@
 #define __NR_security           223     /* syscall for security modules */
 #define __NR_gettid             224
 #define __NR_readahead          225
-#define __NR_tkill              226
+#define __NR_setxattr		226
+#define __NR_lsetxattr		227
+#define __NR_fsetxattr		228
+#define __NR_getxattr		229
+#define __NR_lgetxattr		230
+#define __NR_fgetxattr		231
+#define __NR_listxattr		232
+#define __NR_llistxattr		233
+#define __NR_flistxattr		234
+#define __NR_removexattr	235
+#define __NR_lremovexattr	236
+#define __NR_fremovexattr	237
+#define __NR_tkill		238
+#define __NR_sendfile64		239
+#define __NR_futex		240
+#define __NR_sched_setaffinity	241
+#define __NR_sched_getaffinity	242
+#define __NR_set_thread_area	243
+#define __NR_get_thread_area	244
+#define __NR_io_setup		245
+#define __NR_io_destroy		246
+#define __NR_io_getevents	247
+#define __NR_io_submit		248
+#define __NR_io_cancel		249
+#define __NR_alloc_hugepages	250
+#define __NR_free_hugepages	251
+#define __NR_exit_group		252
 
+/* XXX - _foo needs to be __foo, while __NR_bar could be _NR_bar. */
+/*
+ * Don't remove the .ifnc tests; they are an insurance against
+ * any hard-to-spot gcc register allocation bugs.
+ */
 #define _syscall0(type,name) \
 type name(void) \
 { \
   register long __a __asm__ ("r10"); \
-  __asm__ __volatile__ ("movu.w %1,$r9\n\tbreak 13" \
+  register long __n_ __asm__ ("r9") = (__NR_##name); \
+  __asm__ __volatile__ (".ifnc %0%1,$r10$r9\n\t" \
+			".err\n\t" \
+			".endif\n\t" \
+			"break 13" \
 			: "=r" (__a) \
-			: "g" (__NR_##name) \
-			: "r10", "r9"); \
-  if(__a >= 0) \
+			: "r" (__n_)); \
+  if (__a >= 0) \
      return (type) __a; \
   errno = -__a; \
   return (type) -1; \
@@ -250,11 +284,14 @@ type name(void) \
 type name(type1 arg1) \
 { \
   register long __a __asm__ ("r10") = (long) arg1; \
-  __asm__ __volatile__ ("movu.w %1,$r9\n\tbreak 13" \
+  register long __n_ __asm__ ("r9") = (__NR_##name); \
+  __asm__ __volatile__ (".ifnc %0%1,$r10$r9\n\t" \
+			".err\n\t" \
+			".endif\n\t" \
+			"break 13" \
 			: "=r" (__a) \
-			: "g" (__NR_##name), "0" (__a) \
-			: "r10", "r9"); \
-  if(__a >= 0) \
+			: "r" (__n_), "0" (__a)); \
+  if (__a >= 0) \
      return (type) __a; \
   errno = -__a; \
   return (type) -1; \
@@ -265,11 +302,14 @@ type name(type1 arg1,type2 arg2) \
 { \
   register long __a __asm__ ("r10") = (long) arg1; \
   register long __b __asm__ ("r11") = (long) arg2; \
-  __asm__ __volatile__ ("movu.w %1,$r9\n\tbreak 13" \
+  register long __n_ __asm__ ("r9") = (__NR_##name); \
+  __asm__ __volatile__ (".ifnc %0%1%3,$r10$r9$r11\n\t" \
+			".err\n\t" \
+			".endif\n\t" \
+			"break 13" \
 			: "=r" (__a) \
-			: "g" (__NR_##name), "0" (__a), "r" (__b) \
-			: "r10", "r9"); \
-  if(__a >= 0) \
+			: "r" (__n_), "0" (__a), "r" (__b)); \
+  if (__a >= 0) \
      return (type) __a; \
   errno = -__a; \
   return (type) -1; \
@@ -281,11 +321,14 @@ type name(type1 arg1,type2 arg2,type3 arg3) \
   register long __a __asm__ ("r10") = (long) arg1; \
   register long __b __asm__ ("r11") = (long) arg2; \
   register long __c __asm__ ("r12") = (long) arg3; \
-  __asm__ __volatile__ ("movu.w %1,$r9\n\tbreak 13" \
+  register long __n_ __asm__ ("r9") = (__NR_##name); \
+  __asm__ __volatile__ (".ifnc %0%1%3%4,$r10$r9$r11$r12\n\t" \
+			".err\n\t" \
+			".endif\n\t" \
+			"break 13" \
 			: "=r" (__a) \
-			: "g" (__NR_##name), "0" (__a), "r" (__b), "r" (__c) \
-			: "r10", "r9"); \
-  if(__a >= 0) \
+			: "r" (__n_), "0" (__a), "r" (__b), "r" (__c)); \
+  if (__a >= 0) \
      return (type) __a; \
   errno = -__a; \
   return (type) -1; \
@@ -298,12 +341,15 @@ type name (type1 arg1, type2 arg2, type3 arg3, type4 arg4) \
   register long __b __asm__ ("r11") = (long) arg2; \
   register long __c __asm__ ("r12") = (long) arg3; \
   register long __d __asm__ ("r13") = (long) arg4; \
-  __asm__ __volatile__ ("movu.w %1,$r9\n\tbreak 13" \
+  register long __n_ __asm__ ("r9") = (__NR_##name); \
+  __asm__ __volatile__ (".ifnc %0%1%3%4%5,$r10$r9$r11$r12$r13\n\t" \
+			".err\n\t" \
+			".endif\n\t" \
+			"break 13" \
 			: "=r" (__a) \
-			: "g" (__NR_##name), "0" (__a), "r" (__b), \
-			  "r" (__c), "r" (__d) \
-			: "r10", "r9"); \
-  if(__a >= 0) \
+			: "r" (__n_), "0" (__a), "r" (__b), \
+			  "r" (__c), "r" (__d)); \
+  if (__a >= 0) \
      return (type) __a; \
   errno = -__a; \
   return (type) -1; \
@@ -317,13 +363,16 @@ type name (type1 arg1,type2 arg2,type3 arg3,type4 arg4,type5 arg5) \
   register long __b __asm__ ("r11") = (long) arg2; \
   register long __c __asm__ ("r12") = (long) arg3; \
   register long __d __asm__ ("r13") = (long) arg4; \
-  __asm__ __volatile__ ("move %6,$mof\n\t" \
-			"movu.w %1,$r9\n\tbreak 13" \
+  register long __n_ __asm__ ("r9") = (__NR_##name); \
+  __asm__ __volatile__ (".ifnc %0%1%3%4%5,$r10$r9$r11$r12$r13\n\t" \
+			".err\n\t" \
+			".endif\n\t" \
+			"move %6,$mof\n\t" \
+			"break 13" \
 			: "=r" (__a) \
-			: "g" (__NR_##name), "0" (__a), "r" (__b), \
-			  "r" (__c), "r" (__d), "g" (arg5) \
-			: "r10", "r9"); \
-  if(__a >= 0) \
+			: "r" (__n_), "0" (__a), "r" (__b), \
+			  "r" (__c), "r" (__d), "g" (arg5)); \
+  if (__a >= 0) \
      return (type) __a; \
   errno = -__a; \
   return (type) -1; \
@@ -337,13 +386,17 @@ type name (type1 arg1,type2 arg2,type3 arg3,type4 arg4,type5 arg5,type6 arg6) \
   register long __b __asm__ ("r11") = (long) arg2; \
   register long __c __asm__ ("r12") = (long) arg3; \
   register long __d __asm__ ("r13") = (long) arg4; \
-  __asm__ __volatile__ ("move %6,$mof\n\tmove %7,$srp\n\t" \
-			"movu.w %1,$r9\n\tbreak 13" \
+  register long __n_ __asm__ ("r9") = (__NR_##name); \
+  __asm__ __volatile__ (".ifnc %0%1%3%4%5,$r10$r9$r11$r12$r13\n\t" \
+			".err\n\t" \
+			".endif\n\t" \
+			"move %6,$mof\n\tmove %7,$srp\n\t" \
+			"break 13" \
 			: "=r" (__a) \
-			: "g" (__NR_##name), "0" (__a), "r" (__b), \
+			: "r" (__n_), "0" (__a), "r" (__b), \
 			  "r" (__c), "r" (__d), "g" (arg5), "g" (arg6)\
-			: "r10", "r9", "srp"); \
-  if(__a >= 0) \
+			: "srp"); \
+  if (__a >= 0) \
      return (type) __a; \
   errno = -__a; \
   return (type) -1; \
@@ -364,30 +417,40 @@ type name (type1 arg1,type2 arg2,type3 arg3,type4 arg4,type5 arg5,type6 arg6) \
  * some others too.
  */
 #define __NR__exit __NR_exit
-static inline _syscall0(int,idle)
-static inline _syscall0(int,fork)
-static inline _syscall2(int,clone,unsigned long,flags,char *,esp)
-static inline _syscall0(int,pause)
-static inline _syscall0(int,setup)
-static inline _syscall0(int,sync)
-static inline _syscall0(pid_t,setsid)
-static inline _syscall3(int,write,int,fd,const char *,buf,off_t,count)
-static inline _syscall1(int,dup,int,fd)
-static inline _syscall3(int,execve,const char *,file,char **,argv,char **,envp)
-static inline _syscall3(int,open,const char *,file,int,flag,int,mode)
-static inline _syscall1(int,close,int,fd)
-static inline _syscall1(int,_exit,int,exitcode)
-static inline _syscall3(pid_t,waitpid,pid_t,pid,int *,wait_stat,int,options)
-static inline _syscall3(off_t,lseek,int,fd,off_t,offset,int,count)
+extern inline _syscall0(int,idle)
+extern inline _syscall0(int,fork)
+extern inline _syscall2(int,clone,unsigned long,flags,char *,esp)
+extern inline _syscall0(int,pause)
+extern inline _syscall0(int,setup)
+extern inline _syscall0(int,sync)
+extern inline _syscall0(pid_t,setsid)
+extern inline _syscall3(int,write,int,fd,const char *,buf,off_t,count)
+extern inline _syscall1(int,dup,int,fd)
+extern inline _syscall3(int,execve,const char *,file,char **,argv,char **,envp)
+extern inline _syscall3(int,open,const char *,file,int,flag,int,mode)
+extern inline _syscall1(int,close,int,fd)
+
+/*
+ * Since we define it "external", it collides with the built-in
+ * definition, which has the "noreturn" attribute and will cause
+ * complaints.  We don't want to use -fno-builtin, so just use a
+ * different name when in the kernel.
+ */
+#ifdef __KERNEL__
+#define _exit kernel_syscall_exit
+#endif
+extern inline _syscall1(int,_exit,int,exitcode)
+extern inline _syscall3(pid_t,waitpid,pid_t,pid,int *,wait_stat,int,options)
+extern inline _syscall3(off_t,lseek,int,fd,off_t,offset,int,count)
 
   /* the following are just while developing the elinux port! */
 
-static inline _syscall3(int,read,int,fd,char *,buf,off_t,count)
-static inline _syscall2(int,socketcall,int,call,unsigned long *,args)
-static inline _syscall3(int,ioctl,unsigned int,fd,unsigned int,cmd,unsigned long,arg)
-static inline _syscall5(int,mount,const char *,a,const char *,b,const char *,c,unsigned long,rwflag,const void *,data)
+extern inline _syscall3(int,read,int,fd,char *,buf,off_t,count)
+extern inline _syscall2(int,socketcall,int,call,unsigned long *,args)
+extern inline _syscall3(int,ioctl,unsigned int,fd,unsigned int,cmd,unsigned long,arg)
+extern inline _syscall5(int,mount,const char *,a,const char *,b,const char *,c,unsigned long,rwflag,const void *,data)
 
-static inline pid_t wait(int * wait_stat)
+extern inline pid_t wait(int * wait_stat)
 {
 	return waitpid(-1,wait_stat,0);
 }

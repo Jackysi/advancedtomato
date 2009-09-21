@@ -1,4 +1,4 @@
-/* $Id: rtrap.S,v 1.1.1.4 2003/10/14 08:07:48 sparq Exp $
+/* $Id: rtrap.S,v 1.57 2001/07/17 16:17:33 anton Exp $
  * rtrap.S: Return from Sparc trap low-level code.
  *
  * Copyright (C) 1995 David S. Miller (davem@caip.rutgers.edu)
@@ -70,16 +70,16 @@ C_LABEL(ret_trap_lockless_ipi):
 signal_p:
 	cmp	%g2, 0
 	bz,a	ret_trap_continue
-	 ld	[%sp + REGWIN_SZ + PT_PSR], %t_psr
+	 ld	[%sp + STACKFRAME_SZ + PT_PSR], %t_psr
 
 	clr	%o0
 	mov	%l5, %o2
 	mov	%l6, %o3
 	call	C_LABEL(do_signal)
-	 add	%sp, REGWIN_SZ, %o1	! pt_regs ptr
+	 add	%sp, STACKFRAME_SZ, %o1	! pt_regs ptr
 
 	/* Fall through. */
-	ld	[%sp + REGWIN_SZ + PT_PSR], %t_psr
+	ld	[%sp + STACKFRAME_SZ + PT_PSR], %t_psr
 	clr	%l6
 ret_trap_continue:
 	wr	%t_psr, 0x0, %psr
@@ -95,7 +95,7 @@ ret_trap_continue:
 
 	mov	1, %o1
 	call	C_LABEL(try_to_clear_window_buffer)
-	 add	%sp, REGWIN_SZ, %o0
+	 add	%sp, STACKFRAME_SZ, %o0
 
 	b	signal_p
 	 ld	[%curptr + AOFF_task_sigpending], %g2
@@ -142,7 +142,7 @@ ret_trap_userwins_ok:
 	 nop
 
 	b	ret_trap_unaligned_pc
-	 add	%sp, REGWIN_SZ, %o0
+	 add	%sp, STACKFRAME_SZ, %o0
 
 1:
 	LOAD_PT_YREG(sp, g1)
@@ -155,9 +155,9 @@ ret_trap_userwins_ok:
 	rett	%t_npc
 	
 ret_trap_unaligned_pc:
-	ld	[%sp + REGWIN_SZ + PT_PC], %o1
-	ld	[%sp + REGWIN_SZ + PT_NPC], %o2
-	ld	[%sp + REGWIN_SZ + PT_PSR], %o3
+	ld	[%sp + STACKFRAME_SZ + PT_PC], %o1
+	ld	[%sp + STACKFRAME_SZ + PT_NPC], %o2
+	ld	[%sp + STACKFRAME_SZ + PT_PSR], %o3
 
 	wr	%t_wim, 0x0, %wim		! or else...
 
@@ -215,7 +215,7 @@ ret_trap_user_stack_is_bolixed:
 	WRITE_PAUSE
 
 	call	C_LABEL(window_ret_fault)
-	 add	%sp, REGWIN_SZ, %o0
+	 add	%sp, STACKFRAME_SZ, %o0
 
 	b	signal_p
 	 ld	[%curptr + AOFF_task_sigpending], %g2

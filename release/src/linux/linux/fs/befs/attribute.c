@@ -12,7 +12,7 @@
 #include <linux/kernel.h>
 #include <linux/string.h>
 
-#include "befs_fs.h"
+#include "befs.h"
 #include "endian.h"
 
 #define SD_DATA(sd)\
@@ -27,7 +27,6 @@ int
 
 befs_small_data *find_small_data(struct super_block *sb, befs_inode * inode,
 				 const char *name);
-
 int
  read_small_data(struct super_block *sb, befs_inode * inode,
 		 befs_small_data * sdata, void *buf, size_t bufsize);

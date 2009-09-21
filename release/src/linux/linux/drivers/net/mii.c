@@ -2,7 +2,7 @@
 
 	mii.c: MII interface library
 
-	Maintained by Jeff Garzik <jgarzik@mandrakesoft.com>
+	Maintained by Jeff Garzik <jgarzik@pobox.com>
 	Copyright 2001,2002 Jeff Garzik
 
 	Various code came from myson803.c and other files by
@@ -124,13 +124,13 @@ int mii_ethtool_sset(struct mii_if_info *mii, struct ethtool_cmd *ecmd)
 		/* advertise only what has been requested */
 		advert = mii->mdio_read(dev, mii->phy_id, MII_ADVERTISE);
 		tmp = advert & ~(ADVERTISE_ALL | ADVERTISE_100BASE4);
-		if (ADVERTISED_10baseT_Half)
+		if (ecmd->advertising & ADVERTISED_10baseT_Half)
 			tmp |= ADVERTISE_10HALF;
-		if (ADVERTISED_10baseT_Full)
+		if (ecmd->advertising & ADVERTISED_10baseT_Full)
 			tmp |= ADVERTISE_10FULL;
-		if (ADVERTISED_100baseT_Half)
+		if (ecmd->advertising & ADVERTISED_100baseT_Half)
 			tmp |= ADVERTISE_100HALF;
-		if (ADVERTISED_100baseT_Full)
+		if (ecmd->advertising & ADVERTISED_100baseT_Full)
 			tmp |= ADVERTISE_100FULL;
 		if (advert != tmp) {
 			mii->mdio_write(dev, mii->phy_id, MII_ADVERTISE, tmp);
@@ -339,7 +339,7 @@ int generic_mii_ioctl(struct mii_if_info *mii_if,
 	return rc;
 }
 
-MODULE_AUTHOR ("Jeff Garzik <jgarzik@mandrakesoft.com>");
+MODULE_AUTHOR ("Jeff Garzik <jgarzik@pobox.com>");
 MODULE_DESCRIPTION ("MII hardware support library");
 MODULE_LICENSE("GPL");
 

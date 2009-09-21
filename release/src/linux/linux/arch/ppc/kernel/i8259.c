@@ -1,7 +1,3 @@
-/*
- * BK Id: %F% %I% %G% %U% %#%
- */
-
 #include <linux/stddef.h>
 #include <linux/init.h>
 #include <linux/irq.h>
@@ -21,17 +17,37 @@ static spinlock_t i8259_lock = SPIN_LOCK_UNLOCKED;
 
 int i8259_pic_irq_offset;
 
-/* Acknowledge the irq using the PCI host bridge's interrupt acknowledge
- * feature. (Polling is somehow broken on some IBM and Motorola PReP boxes.)
+/*
+ * Acknowledge the IRQ using either the PCI host bridge's interrupt
+ * acknowledge feature or poll.  How i8259_init() is called determines
+ * which is called.  It should be noted that polling is broken on some
+ * IBM and Motorola PReP boxes so we must use the int-ack feature on them.
  */
-int i8259_irq(struct pt_regs *regs)
+int
+i8259_irq(struct pt_regs *regs)
 {
 	int irq;
 
-	spin_lock/*_irqsave*/(&i8259_lock/*, flags*/);
+	spin_lock(&i8259_lock);
 
-	irq = *pci_intack;
-	if (irq==7) {
+	/* Either int-ack or poll for the IRQ */
+	if (pci_intack)
+		irq = *pci_intack;
+	else {
+		/* Perform an interrupt acknowledge cycle on controller 1. */
+		outb(0x0C, 0x20);		/* prepare for poll */
+		irq = inb(0x20) & 7;
+		if (irq == 2 ) {
+			/*
+			 * Interrupt is cascaded so perform interrupt
+			 * acknowledge on controller 2.
+			 */
+			outb(0x0C, 0xA0);	/* prepare for poll */
+			irq = (inb(0xA0) & 7) + 8;
+		}
+	}
+
+	if (irq == 7) {
 		/*
 		 * This may be a spurious interrupt.
 		 *
@@ -39,47 +55,13 @@ int i8259_irq(struct pt_regs *regs)
 		 * significant bit is not set then there is no valid
 		 * interrupt.
 		 */
-		if(~inb(0x20)&0x80) {
+		if (!pci_intack)
+			outb(0x0B, 0x20);	/* ISR register */
+		if(~inb(0x20) & 0x80)
 			irq = -1;
-		}
 	}
-	spin_unlock/*_irqrestore*/(&i8259_lock/*, flags*/);
-	return irq;
-}
 
-/* Poke the 8259's directly using poll commands. */
-int i8259_poll(struct pt_regs *regs)
-{
-	int irq;
-
-	spin_lock/*_irqsave*/(&i8259_lock/*, flags*/);
-	/*
-	 * Perform an interrupt acknowledge cycle on controller 1
-	 */
-	outb(0x0C, 0x20); /* prepare for poll */
-	irq = inb(0x20) & 7;
-	if (irq == 2) {
-		/*
-		 * Interrupt is cascaded so perform interrupt
-		 * acknowledge on controller 2
-		 */
-		outb(0x0C, 0xA0); /* prepare for poll */
-		irq = (inb(0xA0) & 7) + 8;
-	} else if (irq==7) {
-		/*
-		 * This may be a spurious interrupt
-		 *
-		 * Read the interrupt status register. If the most
-		 * significant bit is not set then there is no valid
-		 * interrupt
-		 */
-		outb(0x0b, 0x20);
-		if(~inb(0x20)&0x80) {
-			spin_unlock/*_irqrestore*/(&i8259_lock/*, flags*/);
-			return -1;
-		}
-	}
-	spin_unlock/*_irqrestore*/(&i8259_lock/*, flags*/);
+	spin_unlock(&i8259_lock);
 	return irq;
 }
 
@@ -111,7 +93,7 @@ static void i8259_set_irq_mask(int irq_nr)
 	outb(cached_A1,0xA1);
 	outb(cached_21,0x21);
 }
- 
+
 static void i8259_mask_irq(unsigned int irq_nr)
 {
 	unsigned long flags;
@@ -159,6 +141,7 @@ struct hw_interrupt_type i8259_pic = {
 	NULL
 };
 
+#if 0 /* Do not request these before the host bridge resource have been setup */
 static struct resource pic1_iores = {
 	"8259 (master)", 0x20, 0x21, IORESOURCE_BUSY
 };
@@ -170,6 +153,7 @@ static struct resource pic2_iores = {
 static struct resource pic_edgectrl_iores = {
 	"8259 edge control", 0x4d0, 0x4d1, IORESOURCE_BUSY
 };
+#endif
 
 void __init i8259_init(unsigned long intack_addr)
 {
@@ -201,6 +185,11 @@ void __init i8259_init(unsigned long intack_addr)
 	/* reserve our resources */
 	request_irq( i8259_pic_irq_offset + 2, no_action, SA_INTERRUPT,
 				"82c59 secondary cascade", NULL );
+#if 0 /* Do not request these before the host bridge resource have been setup */
+	request_resource(&ioport_resource, &pic1_iores);
+	request_resource(&ioport_resource, &pic2_iores);
+	request_resource(&ioport_resource, &pic_edgectrl_iores);
+#endif
 	if (intack_addr)
 		pci_intack = ioremap(intack_addr, 1);
 }

@@ -40,6 +40,7 @@
 mmu_gather_t mmu_gathers[NR_CPUS];
 
 static unsigned long totalram_pages;
+extern unsigned long memory_size;
 
 pgd_t swapper_pg_dir[PTRS_PER_PGD] __attribute__((__aligned__(PAGE_SIZE)));
 char  empty_zero_page[PAGE_SIZE] __attribute__((__aligned__(PAGE_SIZE)));
@@ -64,6 +65,11 @@ int do_check_pgt_cache(int low, int high)
                 } while(pgtable_cache_size > low);
         }
         return freed;
+}
+
+void diag10(unsigned long addr)
+{
+        asm volatile ("diag %0,%0,0x10" : : "a" (addr));
 }
 
 void show_mem(void)

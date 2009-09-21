@@ -8,7 +8,7 @@
  *  License. See the file COPYING in the main directory of this archive for
  *  more details.
  *
- *  $Header: /home/cvsroot/wrt54g/src/linux/linux/drivers/video/pm3fb.h,v 1.1.1.2 2003/10/14 08:08:54 sparq Exp $
+ *  $Header: /cvsroot/linux/drivers/video/pm3fb.h,v 1.1 2002/02/25 19:11:06 marcelo Exp $
  *
  */
 
@@ -607,16 +607,16 @@
 #define PM3FBDestReadModeOr					0xac98
 	#define PM3FBDestReadMode_ReadDisable			0<<0
 	#define PM3FBDestReadMode_ReadEnable			1<<0
-	#define PM3FBDestReadMode_StripePitch(sp)	(((sp)&0x7)<<2
-	#define PM3FBDestReadMode_StripeHeight(sh)	(((sh)&0x7)<<7
+	#define PM3FBDestReadMode_StripePitch(sp)	(((sp)&0x7)<<2)
+	#define PM3FBDestReadMode_StripeHeight(sh)	(((sh)&0x7)<<7)
 	#define PM3FBDestReadMode_Enable0			1<<8
 	#define PM3FBDestReadMode_Enable1			1<<9
 	#define PM3FBDestReadMode_Enable2			1<<10
 	#define PM3FBDestReadMode_Enable3			1<<11
-	#define PM3FBDestReadMode_Layout0(l)		(((l)&0x3)<<12
-	#define PM3FBDestReadMode_Layout1(l)		(((l)&0x3)<<14
-	#define PM3FBDestReadMode_Layout2(l)		(((l)&0x3)<<16
-	#define PM3FBDestReadMode_Layout3(l)		(((l)&0x3)<<18
+	#define PM3FBDestReadMode_Layout0(l)		(((l)&0x3)<<12)
+	#define PM3FBDestReadMode_Layout1(l)		(((l)&0x3)<<14)
+	#define PM3FBDestReadMode_Layout2(l)		(((l)&0x3)<<16)
+	#define PM3FBDestReadMode_Layout3(l)		(((l)&0x3)<<18)
 	#define PM3FBDestReadMode_Origin0			1<<20
 	#define PM3FBDestReadMode_Origin1			1<<21
 	#define PM3FBDestReadMode_Origin2			1<<22
@@ -640,16 +640,16 @@
 #define PM3FBSourceReadModeOr					0xaca8
 	#define PM3FBSourceReadMode_ReadDisable			(0<<0)
 	#define PM3FBSourceReadMode_ReadEnable			(1<<0)
-	#define PM3FBSourceReadMode_StripePitch(sp)	(((sp)&0x7)<<2
-	#define PM3FBSourceReadMode_StripeHeight(sh)	(((sh)&0x7)<<7
-	#define PM3FBSourceReadMode_Layout(l)		(((l)&0x3)<<8
+	#define PM3FBSourceReadMode_StripePitch(sp)	(((sp)&0x7)<<2)
+	#define PM3FBSourceReadMode_StripeHeight(sh)	(((sh)&0x7)<<7)
+	#define PM3FBSourceReadMode_Layout(l)		(((l)&0x3)<<8)
 	#define PM3FBSourceReadMode_Origin			1<<10
 	#define PM3FBSourceReadMode_Blocking			1<<11
 	#define PM3FBSourceReadMode_UserTexelCoord		1<<13
 	#define PM3FBSourceReadMode_WrapXEnable			1<<14
 	#define PM3FBSourceReadMode_WrapYEnable			1<<15
-	#define PM3FBSourceReadMode_WrapX(w)		(((w)&0xf)<<16
-	#define PM3FBSourceReadMode_WrapY(w)		(((w)&0xf)<<20
+	#define PM3FBSourceReadMode_WrapX(w)		(((w)&0xf)<<16)
+	#define PM3FBSourceReadMode_WrapY(w)		(((w)&0xf)<<20)
 	#define PM3FBSourceReadMode_ExternalSourceData		1<<24
 #define PM3FBWriteBufferAddr0                                   0xb000
 #define PM3FBWriteBufferAddr1                                   0xb008
@@ -942,7 +942,7 @@
 #define PM3Window						0x8980
 	#define PM3Window_ForceLBUpdate				1<<3
 	#define PM3Window_LBUpdateSource			1<<4
-	#define PM3Window_FrameCount(c)				(((c)&0xff)<<9
+	#define PM3Window_FrameCount(c)				(((c)&0xff)<<9)
 	#define PM3Window_StencilFCP				1<<17
 	#define PM3Window_DepthFCP				1<<18
 	#define PM3Window_OverrideWriteFiltering		1<<19
@@ -1211,7 +1211,7 @@
 /* ***** A bunch of register-access macro ***** */
 /* ******************************************** */
 #ifdef KERNEL_2_2
-#ifdef MUST_BYTESWAP     /* we are writing big_endian to big_endian through a little_endian macro */
+#ifdef MUST_BYTESWAP /* we are writing big_endian to big_endian through a little_endian macro */
 #define PM3_READ_REG(r) __swab32(readl((l_fb_info->vIOBase + r)))
 #define PM3_WRITE_REG(r, v) writel(__swab32(v), (l_fb_info->vIOBase + r))
 #else /* MUST_BYTESWAP */
@@ -1219,7 +1219,7 @@
 #define PM3_READ_REG(r) readl((l_fb_info->vIOBase + r))
 #endif /* MUST_BYTESWAP */
 #endif /* KERNEL_2_2 */
-#if (defined KERNEL_2_4) || (defined KERNEL_2_5)     /* native-endian access */
+#if (defined KERNEL_2_4) || (defined KERNEL_2_5) /* native-endian access */
 #define PM3_WRITE_REG(r, v) fb_writel(v, (l_fb_info->vIOBase + r))
 #define PM3_READ_REG(r) fb_readl((l_fb_info->vIOBase + r))
 #endif /* KERNEL_2_4 or KERNEL_2_5 */

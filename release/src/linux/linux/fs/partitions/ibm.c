@@ -9,6 +9,7 @@
  * 07/10/00 Fixed detection of CMS formatted disks     
  * 02/13/00 VTOC partition support added
  * 12/27/01 fixed PL030593 (CMS reserved minidisk not detected on 64 bit)
+ * 07/24/03 no longer using contents of freed page for CMS label recognition (BZ3611)
  */
 
 #include <linux/config.h>
@@ -67,9 +68,21 @@ ibm_ioctl_unopened(struct block_device *bdev, unsigned cmd, unsigned long arg)
 
 	if (genhd_dasd_ioctl == NULL)
 		return -ENODEV;
+#if 0
+	lock_kernel();
+	if (bd_ops->owner)
+		__MOD_INC_USE_COUNT(bdev->bd_op->owner);
+	unlock_kernel();
+#endif
 	set_fs(KERNEL_DS);
 	res = (*genhd_dasd_ioctl)(bdev->bd_inode, NULL, cmd, arg);
 	set_fs(old_fs);
+#if 0
+	lock_kernel();
+	if (bd_ops->owner)
+		__MOD_DEV_USE_COUNT(bd_ops->owner);
+	unlock_kernel();
+#endif
 	return res;
 }
 
@@ -129,7 +142,7 @@ ibm_partition(struct gendisk *hd, struct block_device *bdev,
 		/*
 		 * VM style CMS1 labeled disk
 		 */
-		int *label = (int *) data;
+		int *label = (int *) vlabel;
 
 		if (label[13] != 0) {
 			printk("CMS1/%8s(MDSK):", name);
@@ -146,7 +159,8 @@ ibm_partition(struct gendisk *hd, struct block_device *bdev,
 		add_gd_partition(hd, first_part_minor,
 				 offset*(blocksize >> 9),
 				 size-offset*(blocksize >> 9));
-	} else if (strncmp(type, "VOL1", 4) == 0) {
+	} else if ((strncmp(type, "VOL1", 4) == 0) &&
+		(!info->FBA_layout) && (!strcmp(info->type, "ECKD"))) {
 		/*
 		 * New style VOL1 labeled disk
 		 */

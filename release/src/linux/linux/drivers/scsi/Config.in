@@ -60,11 +60,27 @@ if [ "$CONFIG_SCSI_AIC7XXX" != "y" ]; then
       bool '  Collect statistics to report in /proc' CONFIG_AIC7XXX_OLD_PROC_STATS
    fi
 fi
-dep_tristate 'Adaptec I2O RAID support ' CONFIG_SCSI_DPT_I2O $CONFIG_SCSI
+if [ "$CONFIG_X86_64" != "y" ]; then
+  dep_tristate 'Adaptec I2O RAID support ' CONFIG_SCSI_DPT_I2O $CONFIG_SCSI
+fi
 dep_tristate 'AdvanSys SCSI support' CONFIG_SCSI_ADVANSYS $CONFIG_SCSI
 dep_tristate 'Always IN2000 SCSI support' CONFIG_SCSI_IN2000 $CONFIG_SCSI
 dep_tristate 'AM53/79C974 PCI SCSI support' CONFIG_SCSI_AM53C974 $CONFIG_SCSI $CONFIG_PCI
 dep_tristate 'AMI MegaRAID support' CONFIG_SCSI_MEGARAID $CONFIG_SCSI
+dep_tristate 'AMI MegaRAID2 support' CONFIG_SCSI_MEGARAID2 $CONFIG_SCSI
+dep_mbool 'Serial ATA (SATA) support' CONFIG_SCSI_SATA $CONFIG_SCSI
+dep_tristate '  AHCI SATA support (EXPERIMENTAL)' CONFIG_SCSI_SATA_AHCI $CONFIG_SCSI_SATA $CONFIG_PCI $CONFIG_EXPERIMENTAL
+dep_tristate '  ServerWorks Frodo / Apple K2 SATA support (EXPERIMENTAL)' CONFIG_SCSI_SATA_SVW $CONFIG_SCSI_SATA $CONFIG_PCI $CONFIG_EXPERIMENTAL
+dep_tristate '  Intel PIIX/ICH SATA support' CONFIG_SCSI_ATA_PIIX $CONFIG_SCSI_SATA $CONFIG_PCI
+dep_tristate '  NVIDIA SATA support (EXPERIMENTAL)' CONFIG_SCSI_SATA_NV $CONFIG_SCSI_SATA $CONFIG_PCI $CONFIG_EXPERIMENTAL
+dep_tristate '  Pacific Digital SATA QStor support' CONFIG_SCSI_SATA_QSTOR $CONFIG_SCSI_SATA $CONFIG_PCI
+dep_tristate '  Promise SATA TX2/TX4 support (EXPERIMENTAL)' CONFIG_SCSI_SATA_PROMISE $CONFIG_SCSI_SATA $CONFIG_PCI $CONFIG_EXPERIMENTAL
+dep_tristate '  Promise SATA SX4 support (EXPERIMENTAL)' CONFIG_SCSI_SATA_SX4 $CONFIG_SCSI_SATA $CONFIG_PCI $CONFIG_EXPERIMENTAL
+dep_tristate '  Silicon Image SATA support (EXPERIMENTAL)' CONFIG_SCSI_SATA_SIL $CONFIG_SCSI_SATA $CONFIG_PCI $CONFIG_EXPERIMENTAL
+dep_tristate '  SiS 964/180 SATA support (EXPERIMENTAL)' CONFIG_SCSI_SATA_SIS $CONFIG_SCSI_SATA $CONFIG_PCI $CONFIG_EXPERIMENTAL
+dep_tristate '  ULi Electronics SATA support (EXPERIMENTAL)' CONFIG_SCSI_SATA_ULI $CONFIG_SCSI_SATA $CONFIG_PCI $CONFIG_EXPERIMENTAL
+dep_tristate '  VIA SATA support (EXPERIMENTAL)' CONFIG_SCSI_SATA_VIA $CONFIG_SCSI_SATA $CONFIG_PCI $CONFIG_EXPERIMENTAL
+dep_tristate '  Vitesse VSC-7174 SATA support (EXPERIMENTAL)' CONFIG_SCSI_SATA_VITESSE $CONFIG_SCSI_SATA $CONFIG_PCI $CONFIG_EXPERIMENTAL
 
 dep_tristate 'BusLogic SCSI support' CONFIG_SCSI_BUSLOGIC $CONFIG_SCSI
 if [ "$CONFIG_SCSI_BUSLOGIC" != "n" ]; then
@@ -204,6 +220,7 @@ dep_tristate 'UltraStor 14F/34F support' CONFIG_SCSI_U14_34F $CONFIG_SCSI
 if [ "$CONFIG_X86" = "y" ]; then
    dep_tristate 'UltraStor SCSI support' CONFIG_SCSI_ULTRASTOR $CONFIG_SCSI
 fi
+dep_tristate 'Workbit NinjaSCSI-32Bi/UDE support' CONFIG_SCSI_NSP32 $CONFIG_SCSI
 #
 # Note - this is a very special 'host' adapter that simulates the presence of some disks.
 # It can come in very handy for troubleshooting.  Anyone else is welcome to use it - all
@@ -233,7 +250,7 @@ fi
 if [ "$CONFIG_AMIGA" = "y" ]; then
    dep_tristate 'A3000 WD33C93A support' CONFIG_A3000_SCSI $CONFIG_SCSI
    if [ "$CONFIG_EXPERIMENTAL" = "y" ]; then
-      bool 'A4000T SCSI support (EXPERIMENTAL)' CONFIG_A4000T_SCSI
+      bool 'Amiga NCR53c710 SCSI support (EXPERIMENTAL)' CONFIG_SCSI_AMIGA7XX
    fi
 fi
 if [ "$CONFIG_ZORRO" = "y" ]; then
@@ -245,12 +262,8 @@ if [ "$CONFIG_ZORRO" = "y" ]; then
    dep_tristate 'Blizzard 1230IV/1260 SCSI support' CONFIG_BLZ1230_SCSI $CONFIG_SCSI
    dep_tristate 'Fastlane SCSI support' CONFIG_FASTLANE_SCSI $CONFIG_SCSI
    if [ "$CONFIG_EXPERIMENTAL" = "y" ]; then
-      bool 'A4091 SCSI support (EXPERIMENTAL)' CONFIG_A4091_SCSI
-      bool 'WarpEngine SCSI support (EXPERIMENTAL)' CONFIG_WARPENGINE_SCSI
-      bool 'Blizzard PowerUP 603e+ SCSI (EXPERIMENTAL)' CONFIG_BLZ603EPLUS_SCSI
       dep_tristate 'BSC Oktagon SCSI support (EXPERIMENTAL)' CONFIG_OKTAGON_SCSI $CONFIG_SCSI
 #      bool 'Cyberstorm Mk III SCSI support (EXPERIMENTAL)' CONFIG_CYBERSTORMIII_SCSI
-#      bool 'GVP Turbo 040/060 SCSI support (EXPERIMENTAL)' CONFIG_GVP_TURBO_SCSI
    fi
 fi
 

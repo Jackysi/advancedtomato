@@ -148,7 +148,6 @@ static int autofs4_root_revalidate(struct dentry * dentry, int flags)
 {
 	struct inode * dir = dentry->d_parent->d_inode;
 	struct autofs_sb_info *sbi = autofs4_sbi(dir->i_sb);
-	struct autofs_info *ino;
 	int oz_mode = autofs4_oz_mode(sbi);
 
 	/* Pending dentry */
@@ -162,8 +161,6 @@ static int autofs4_root_revalidate(struct dentry * dentry, int flags)
 	/* Negative dentry.. invalidate if "old" */
 	if (dentry->d_inode == NULL)
 		return (dentry->d_time - jiffies <= AUTOFS_NEGATIVE_TIMEOUT);
-
-	ino = autofs4_dentry_ino(dentry);
 
 	/* Check for a non-mountpoint directory with no contents */
 	spin_lock(&dcache_lock);
@@ -234,6 +231,11 @@ static struct dentry_operations autofs4_dentry_operations = {
    already in the dcache */
 static struct dentry *autofs4_dir_lookup(struct inode *dir, struct dentry *dentry)
 {
+#if 0
+	DPRINTK(("autofs_dir_lookup: ignoring lookup of %.*s/%.*s\n",
+		 dentry->d_parent->d_name.len, dentry->d_parent->d_name.name,
+		 dentry->d_name.len, dentry->d_name.name));
+#endif
 
 	dentry->d_fsdata = NULL;
 	d_add(dentry, NULL);

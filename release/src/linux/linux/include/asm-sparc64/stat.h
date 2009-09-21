@@ -1,4 +1,4 @@
-/* $Id: stat.h,v 1.1.1.4 2003/10/14 08:09:23 sparq Exp $ */
+/* $Id: stat.h,v 1.7 2000/08/04 05:35:55 davem Exp $ */
 #ifndef _SPARC64_STAT_H
 #define _SPARC64_STAT_H
 

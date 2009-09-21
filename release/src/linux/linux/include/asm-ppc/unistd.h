@@ -1,6 +1,3 @@
-/*
- * BK Id: SCCS/s.unistd.h 1.11 10/18/01 17:29:53 trini
- */
 #ifndef _ASM_PPC_UNISTD_H_
 #define _ASM_PPC_UNISTD_H_
 
@@ -117,10 +114,10 @@
 #define __NR_lstat		107
 #define __NR_fstat		108
 #define __NR_olduname		109
-#define __NR_iopl		110
+/* 110 was __NR_iopl */
 #define __NR_vhangup		111
 #define __NR_idle		112
-#define __NR_vm86		113
+/* 113 was __NR_vm86 */
 #define __NR_wait4		114
 #define __NR_swapoff		115
 #define __NR_sysinfo		116
@@ -130,7 +127,7 @@
 #define __NR_clone		120
 #define __NR_setdomainname	121
 #define __NR_uname		122
-#define __NR_modify_ldt		123
+/* 123 was __NR_modify_ldt */
 #define __NR_adjtimex		124
 #define __NR_mprotect		125
 #define __NR_sigprocmask	126
@@ -228,176 +225,136 @@
 #define __NR_removexattr	218
 #define __NR_lremovexattr	219
 #define __NR_fremovexattr	220
+#if 0
+#define __NR_futex		221
+#define __NR_sched_setaffinity	222
+#define __NR_sched_getaffinity	223
+#define __NR_security		224
+#define __NR_tuxcall		225
+#define __NR_sendfile64		226
+#define __NR_io_setup		227
+#define __NR_io_destroy		228
+#define __NR_io_getevents	229
+#define __NR_io_submit		230
+#define __NR_io_cancel		231
+#define __NR_set_tid_address	232
+#define __NR_fadvise64		233
+#define __NR_exit_group		234
+#define __NR_lookup_dcookie	235
+#define __NR_epoll_create	236
+#define __NR_epoll_ctl		237
+#define __NR_epoll_wait		238
+#define __NR_remap_file_pages	239
+#define __NR_timer_create	240
+#define __NR_timer_settime	241
+#define __NR_timer_gettime	242
+#define __NR_timer_getoverrun	243
+#define __NR_timer_delete	244
+#define __NR_clock_settime	245
+#define __NR_clock_gettime	246
+#define __NR_clock_getres	247
+#define __NR_clock_nanosleep	248
+#endif
+#define __NR_swapcontext	249
 
 #define __NR(n)	#n
 
+/* On powerpc a system call basically clobbers the same registers like a
+ * function call, with the exception of LR (which is needed for the
+ * "sc; bnslr" sequence) and CR (where only CR0.SO is clobbered to signal
+ * an error return status).
+ */
 
-#define __syscall_return(type) \
-	return (__sc_err & 0x10000000 ? errno = __sc_ret, __sc_ret = -1 : 0), \
-	       (type) __sc_ret
+#define __syscall_nr(nr, type, name, args...)				\
+	unsigned long __sc_ret, __sc_err;				\
+	{								\
+		register unsigned long __sc_0  __asm__ ("r0");		\
+		register unsigned long __sc_3  __asm__ ("r3");		\
+		register unsigned long __sc_4  __asm__ ("r4");		\
+		register unsigned long __sc_5  __asm__ ("r5");		\
+		register unsigned long __sc_6  __asm__ ("r6");		\
+		register unsigned long __sc_7  __asm__ ("r7");		\
+									\
+		__sc_loadargs_##nr(name, args);				\
+		__asm__ __volatile__					\
+			("sc           \n\t"				\
+			 "mfcr %0      "				\
+			: "=&r" (__sc_0),				\
+			  "=&r" (__sc_3),  "=&r" (__sc_4),		\
+			  "=&r" (__sc_5),  "=&r" (__sc_6),		\
+			  "=&r" (__sc_7)				\
+			: __sc_asm_input_##nr				\
+			: "cr0", "ctr", "memory",			\
+			  "r8", "r9", "r10","r11", "r12");		\
+		__sc_ret = __sc_3;					\
+		__sc_err = __sc_0;					\
+	}								\
+	if (__sc_err & 0x10000000)					\
+	{								\
+		errno = __sc_ret;					\
+		__sc_ret = -1;						\
+	}								\
+	return (type) __sc_ret
 
-#define __syscall_clobbers \
-	"r4", "r5", "r6", "r7", "r8", "r9", "r10", "r11", "r12"
+#define __sc_loadargs_0(name, dummy...)					\
+	__sc_0 = __NR_##name
+#define __sc_loadargs_1(name, arg1)					\
+	__sc_loadargs_0(name);						\
+	__sc_3 = (unsigned long) (arg1)
+#define __sc_loadargs_2(name, arg1, arg2)				\
+	__sc_loadargs_1(name, arg1);					\
+	__sc_4 = (unsigned long) (arg2)
+#define __sc_loadargs_3(name, arg1, arg2, arg3)				\
+	__sc_loadargs_2(name, arg1, arg2);				\
+	__sc_5 = (unsigned long) (arg3)
+#define __sc_loadargs_4(name, arg1, arg2, arg3, arg4)			\
+	__sc_loadargs_3(name, arg1, arg2, arg3);			\
+	__sc_6 = (unsigned long) (arg4)
+#define __sc_loadargs_5(name, arg1, arg2, arg3, arg4, arg5)		\
+	__sc_loadargs_4(name, arg1, arg2, arg3, arg4);			\
+	__sc_7 = (unsigned long) (arg5)
+
+#define __sc_asm_input_0 "0" (__sc_0)
+#define __sc_asm_input_1 __sc_asm_input_0, "1" (__sc_3)
+#define __sc_asm_input_2 __sc_asm_input_1, "2" (__sc_4)
+#define __sc_asm_input_3 __sc_asm_input_2, "3" (__sc_5)
+#define __sc_asm_input_4 __sc_asm_input_3, "4" (__sc_6)
+#define __sc_asm_input_5 __sc_asm_input_4, "5" (__sc_7)
 
 #define _syscall0(type,name)						\
 type name(void)								\
 {									\
-	unsigned long __sc_ret, __sc_err;				\
-	{								\
-		register unsigned long __sc_0 __asm__ ("r0");		\
-		register unsigned long __sc_3 __asm__ ("r3");		\
-									\
-		__sc_0 = __NR_##name;					\
-		__asm__ __volatile__					\
-			("sc           \n\t"				\
-			 "mfcr %1      "				\
-			: "=&r" (__sc_3), "=&r" (__sc_0)		\
-			: "0"   (__sc_3), "1"   (__sc_0)		\
-			: __syscall_clobbers);				\
-		__sc_ret = __sc_3;					\
-		__sc_err = __sc_0;					\
-	}								\
-	__syscall_return (type);					\
+	__syscall_nr(0, type, name);					\
 }
 
 #define _syscall1(type,name,type1,arg1)					\
 type name(type1 arg1)							\
 {									\
-	unsigned long __sc_ret, __sc_err;				\
-	{								\
-		register unsigned long __sc_0 __asm__ ("r0");		\
-		register unsigned long __sc_3 __asm__ ("r3");		\
-									\
-		__sc_3 = (unsigned long) (arg1);			\
-		__sc_0 = __NR_##name;					\
-		__asm__ __volatile__					\
-			("sc           \n\t"				\
-			 "mfcr %1      "				\
-			: "=&r" (__sc_3), "=&r" (__sc_0)		\
-			: "0"   (__sc_3), "1"   (__sc_0)		\
-			: __syscall_clobbers);				\
-		__sc_ret = __sc_3;					\
-		__sc_err = __sc_0;					\
-	}								\
-	__syscall_return (type);					\
+	__syscall_nr(1, type, name, arg1);				\
 }
 
 #define _syscall2(type,name,type1,arg1,type2,arg2)			\
 type name(type1 arg1, type2 arg2)					\
 {									\
-	unsigned long __sc_ret, __sc_err;				\
-	{								\
-		register unsigned long __sc_0 __asm__ ("r0");		\
-		register unsigned long __sc_3 __asm__ ("r3");		\
-		register unsigned long __sc_4 __asm__ ("r4");		\
-									\
-		__sc_3 = (unsigned long) (arg1);			\
-		__sc_4 = (unsigned long) (arg2);			\
-		__sc_0 = __NR_##name;					\
-		__asm__ __volatile__					\
-			("sc           \n\t"				\
-			 "mfcr %1      "				\
-			: "=&r" (__sc_3), "=&r" (__sc_0)		\
-			: "0"   (__sc_3), "1"   (__sc_0),		\
-			  "r"   (__sc_4)				\
-			: __syscall_clobbers);				\
-		__sc_ret = __sc_3;					\
-		__sc_err = __sc_0;					\
-	}								\
-	__syscall_return (type);					\
+	__syscall_nr(2, type, name, arg1, arg2);			\
 }
 
 #define _syscall3(type,name,type1,arg1,type2,arg2,type3,arg3)		\
 type name(type1 arg1, type2 arg2, type3 arg3)				\
 {									\
-	unsigned long __sc_ret, __sc_err;				\
-	{								\
-		register unsigned long __sc_0 __asm__ ("r0");		\
-		register unsigned long __sc_3 __asm__ ("r3");		\
-		register unsigned long __sc_4 __asm__ ("r4");		\
-		register unsigned long __sc_5 __asm__ ("r5");		\
-									\
-		__sc_3 = (unsigned long) (arg1);			\
-		__sc_4 = (unsigned long) (arg2);			\
-		__sc_5 = (unsigned long) (arg3);			\
-		__sc_0 = __NR_##name;					\
-		__asm__ __volatile__					\
-			("sc           \n\t"				\
-			 "mfcr %1      "				\
-			: "=&r" (__sc_3), "=&r" (__sc_0)		\
-			: "0"   (__sc_3), "1"   (__sc_0),		\
-			  "r"   (__sc_4),				\
-			  "r"   (__sc_5)				\
-			: __syscall_clobbers);				\
-		__sc_ret = __sc_3;					\
-		__sc_err = __sc_0;					\
-	}								\
-	__syscall_return (type);					\
+	__syscall_nr(3, type, name, arg1, arg2, arg3);			\
 }
 
 #define _syscall4(type,name,type1,arg1,type2,arg2,type3,arg3,type4,arg4) \
 type name(type1 arg1, type2 arg2, type3 arg3, type4 arg4)		\
 {									\
-	unsigned long __sc_ret, __sc_err;				\
-	{								\
-		register unsigned long __sc_0 __asm__ ("r0");		\
-		register unsigned long __sc_3 __asm__ ("r3");		\
-		register unsigned long __sc_4 __asm__ ("r4");		\
-		register unsigned long __sc_5 __asm__ ("r5");		\
-		register unsigned long __sc_6 __asm__ ("r6");		\
-									\
-		__sc_3 = (unsigned long) (arg1);			\
-		__sc_4 = (unsigned long) (arg2);			\
-		__sc_5 = (unsigned long) (arg3);			\
-		__sc_6 = (unsigned long) (arg4);			\
-		__sc_0 = __NR_##name;					\
-		__asm__ __volatile__					\
-			("sc           \n\t"				\
-			 "mfcr %1      "				\
-			: "=&r" (__sc_3), "=&r" (__sc_0)		\
-			: "0"   (__sc_3), "1"   (__sc_0),		\
-			  "r"   (__sc_4),				\
-			  "r"   (__sc_5),				\
-			  "r"   (__sc_6)				\
-			: __syscall_clobbers);				\
-		__sc_ret = __sc_3;					\
-		__sc_err = __sc_0;					\
-	}								\
-	__syscall_return (type);					\
+	__syscall_nr(4, type, name, arg1, arg2, arg3, arg4);		\
 }
 
 #define _syscall5(type,name,type1,arg1,type2,arg2,type3,arg3,type4,arg4,type5,arg5) \
 type name(type1 arg1, type2 arg2, type3 arg3, type4 arg4, type5 arg5)	\
 {									\
-	unsigned long __sc_ret, __sc_err;				\
-	{								\
-		register unsigned long __sc_0 __asm__ ("r0");		\
-		register unsigned long __sc_3 __asm__ ("r3");		\
-		register unsigned long __sc_4 __asm__ ("r4");		\
-		register unsigned long __sc_5 __asm__ ("r5");		\
-		register unsigned long __sc_6 __asm__ ("r6");		\
-		register unsigned long __sc_7 __asm__ ("r7");		\
-									\
-		__sc_3 = (unsigned long) (arg1);			\
-		__sc_4 = (unsigned long) (arg2);			\
-		__sc_5 = (unsigned long) (arg3);			\
-		__sc_6 = (unsigned long) (arg4);			\
-		__sc_7 = (unsigned long) (arg5);			\
-		__sc_0 = __NR_##name;					\
-		__asm__ __volatile__					\
-			("sc           \n\t"				\
-			 "mfcr %1      "				\
-			: "=&r" (__sc_3), "=&r" (__sc_0)		\
-			: "0"   (__sc_3), "1"   (__sc_0),		\
-			  "r"   (__sc_4),				\
-			  "r"   (__sc_5),				\
-			  "r"   (__sc_6),				\
-			  "r"   (__sc_7)				\
-			: __syscall_clobbers);				\
-		__sc_ret = __sc_3;					\
-		__sc_err = __sc_0;					\
-	}								\
-	__syscall_return (type);					\
+	__syscall_nr(5, type, name, arg1, arg2, arg3, arg4, arg5);	\
 }
 
 
@@ -425,11 +382,11 @@ static inline _syscall1(int,dup,int,fd)
 static inline _syscall3(int,execve,const char *,file,char **,argv,char **,envp)
 static inline _syscall3(int,open,const char *,file,int,flag,int,mode)
 static inline _syscall1(int,close,int,fd)
-static inline _syscall1(int,_exit,int,exitcode)
+static inline _syscall1(void,_exit,int,exitcode)
 static inline _syscall3(pid_t,waitpid,pid_t,pid,int *,wait_stat,int,options)
 static inline _syscall1(int,delete_module,const char *,name)
 
-static inline pid_t wait(int * wait_stat) 
+static inline pid_t wait(int * wait_stat)
 {
 	return waitpid(-1,wait_stat,0);
 }

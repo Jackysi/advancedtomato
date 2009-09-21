@@ -47,6 +47,12 @@ struct termios {
 #define VSTART		 8		/* Start (X-ON) character [IXON, IXOFF].  */
 #define VSTOP		 9		/* Stop (X-OFF) character [IXON, IXOFF].  */
 #define VSUSP		10		/* Suspend character [ISIG].  */
+#if 0
+/*
+ * VDSUSP is not supported
+ */
+#define VDSUSP		11		/* Delayed suspend character [ISIG].  */
+#endif
 #define VREPRINT	12		/* Reprint-line character [ICANON].  */
 #define VDISCARD	13		/* Discard character [IEXTEN].  */
 #define VWERASE		14		/* Word-erase character [ICANON].  */

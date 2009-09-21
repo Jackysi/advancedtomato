@@ -31,7 +31,7 @@
  * provisions above, a recipient may use your version of this file
  * under either the RHEPL or the GPL.
  *
- * $Id: compr_rubin.c,v 1.1.1.4 2003/10/14 08:09:00 sparq Exp $
+ * $Id: compr_rubin.c,v 1.13 2001/09/23 10:06:05 rmk Exp $
  *
  */
 
@@ -244,6 +244,14 @@ int rubin_do_compress(int bit_divider, int *bits, unsigned char *data_in,
 	*dstlen = outpos;
 	return 0;
 }		   
+#if 0
+/* _compress returns the compressed size, -1 if bigger */
+int rubinmips_compress(unsigned char *data_in, unsigned char *cpage_out, 
+		   __u32 *sourcelen, __u32 *dstlen)
+{
+	return rubin_do_compress(BIT_DIVIDER_MIPS, bits_mips, data_in, cpage_out, sourcelen, dstlen);
+}
+#endif
 int dynrubin_compress(unsigned char *data_in, unsigned char *cpage_out, 
 		   __u32 *sourcelen, __u32 *dstlen)
 {

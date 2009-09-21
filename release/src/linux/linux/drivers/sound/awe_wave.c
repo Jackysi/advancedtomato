@@ -698,7 +698,7 @@ awe_peek_dw(unsigned short cmd, unsigned short port)
 }
 
 /* wait delay number of AWE32 44100Hz clocks */
-#ifdef WAIT_BY_LOOP     /* wait by loop -- that's not good.. */
+#ifdef WAIT_BY_LOOP /* wait by loop -- that's not good.. */
 static void
 awe_wait(unsigned short delay)
 {
@@ -2051,26 +2051,23 @@ awe_ioctl(int dev, unsigned int cmd, caddr_t arg)
 			awe_info.nr_voices = awe_max_voices;
 		else
 			awe_info.nr_voices = AWE_MAX_CHANNELS;
-		memcpy((char*)arg, &awe_info, sizeof(awe_info));
+		if(copy_to_user(arg, &awe_info, sizeof(awe_info)))
+			return -EFAULT;
 		return 0;
-		break;
 
 	case SNDCTL_SEQ_RESETSAMPLES:
 		awe_reset(dev);
 		awe_reset_samples();
 		return 0;
-		break;
 
 	case SNDCTL_SEQ_PERCMODE:
 		/* what's this? */
 		return 0;
-		break;
 
 	case SNDCTL_SYNTH_MEMAVL:
 		return memsize - awe_free_mem_ptr() * 2;
 
 	default:
-		printk(KERN_WARNING "AWE32: unsupported ioctl %d\n", cmd);
 		return -EINVAL;
 	}
 }
@@ -2257,10 +2254,14 @@ awe_search_key(int bank, int preset, int note)
 {
 	unsigned int key;
 
+#if 1 /* new hash table */
 	if (bank == AWE_DRUM_BANK)
 		key = preset + note + 128;
 	else
 		key = bank + preset;
+#else
+	key = preset;
+#endif
 	key %= AWE_MAX_PRESETS;
 
 	return (int)key;
@@ -3187,6 +3188,41 @@ awe_load_map(awe_patch_info *patch, const char *addr, int count)
 	return 0;
 }
 
+#if 0
+/* probe preset in the current list -- nothing to be loaded */
+static int
+awe_probe_info(awe_patch_info *patch, const char *addr, int count)
+{
+#ifdef AWE_ALLOW_SAMPLE_SHARING
+	awe_voice_map map;
+	awe_voice_list *p;
+
+	if (! patch_opened)
+		return -EINVAL;
+
+	/* get the link info */
+	if (count < sizeof(map)) {
+		printk(KERN_WARNING "AWE32 Error: invalid patch info length\n");
+		return -EINVAL;
+	}
+	if (copy_from_user(&map, addr + AWE_PATCH_INFO_SIZE, sizeof(map)))
+		return -EFAULT;
+	
+	/* check if the identical mapping already exists */
+	if (sftail == NULL)
+		return -EINVAL;
+	p = awe_search_instr(map.src_bank, map.src_instr, map.src_key);
+	for (; p; p = p->next_instr) {
+		if (p->type == V_ST_NORMAL &&
+		    is_identical_holder(p->holder, sftail) &&
+		    p->v.low <= map.src_key &&
+		    p->v.high >= map.src_key)
+			return 0; /* already present! */
+	}
+#endif /* allow sharing */
+	return -EINVAL;
+}
+#endif
 
 /* probe sample in the current list -- nothing to be loaded */
 static int
@@ -4782,10 +4818,12 @@ static int __init awe_probe_isapnp(int *port)
 
 static void __exit awe_deactivate_isapnp(void)
 {
+#if 1
 	if (idev) {
 		idev->deactivate(idev);
 		idev = NULL;
 	}
+#endif
 }
 
 #endif
@@ -5427,6 +5465,23 @@ static void special_event(MidiStatus *st, int c)
 	}
 }
 
+#if 0
+/* read variable length value */
+static void queue_varlen(MidiStatus *st, int c)
+{
+	st->qlen += (c & 0x7f);
+	if (c & 0x80) {
+		st->qlen <<= 7;
+		return;
+	}
+	if (st->qlen <= 0) {
+		st->qlen = 0;
+		st->queue = Q_NONE;
+	}
+	st->queue = Q_READ;
+	st->read = 0;
+}
+#endif
 
 
 /* read a char */
@@ -5691,6 +5746,20 @@ static void midi_system_exclusive(MidiStatus *st)
 		0x41,0x10,0x42,0x12,0x40,/*XX,YY,ZZ*/
 	};
 
+#if 0
+	/* SC88 system mode set
+	 * single module mode: XX=1
+	 * double module mode: XX=0
+	 */
+	static unsigned char gs_mode_macro[] = {
+		0x41,0x10,0x42,0x12,0x00,0x00,0x7F,/*ZZ*/
+	};
+	/* SC88 display macro: XX=01:bitmap, 00:text
+	 */
+	static unsigned char gs_disp_macro[] = {
+		0x41,0x10,0x45,0x12,0x10,/*XX,00*/
+	};
+#endif
 
 	/* GM on */
 	if (memcmp(st->buf, gm_on_macro, sizeof(gm_on_macro)) == 0) {

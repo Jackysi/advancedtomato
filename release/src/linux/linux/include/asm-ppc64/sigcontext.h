@@ -9,13 +9,18 @@
  */
 
 #include <asm/ptrace.h>
+#include <asm/elf.h>
 
-struct sigcontext_struct {
+
+struct sigcontext {
 	unsigned long	_unused[4];
 	int		signal;
+	int		_pad0;
 	unsigned long	handler;
 	unsigned long	oldmask;
-	struct pt_regs 	*regs;
+	struct pt_regs	*regs;
+	elf_gregset_t	gp_regs;
+	elf_fpregset_t	fp_regs;
 };
 
 #endif /* _ASM_PPC64_SIGCONTEXT_H */

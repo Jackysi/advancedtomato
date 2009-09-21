@@ -4,7 +4,7 @@
  * Copyright (C) 2001 Allan Trautman, IBM Corporation
  *
  * iSeries specific routines for PCI.
- * /
+ * 
  * Based on code from pci.c and iSeries_pci.c 32bit
  *
  * This program is free software; you can redistribute it and/or modify

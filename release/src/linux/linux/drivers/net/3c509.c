@@ -43,7 +43,7 @@
 		v1.18 12Mar2001 Andrew Morton <andrewm@uow.edu.au>
 			- Avoid bogus detect of 3c590's (Andrzej Krzysztofowicz)
 			- Reviewed against 1.18 from scyld.com
-		v1.18a 17Nov2001 Jeff Garzik <jgarzik@mandrakesoft.com>
+		v1.18a 17Nov2001 Jeff Garzik <jgarzik@pobox.com>
 			- ethtool support
 		v1.18b 1Mar2002 Zwane Mwaikambo <zwane@commfireservices.com>
 			- Power Management support
@@ -661,6 +661,25 @@ el3_start_xmit(struct sk_buff *skb, struct net_device *dev)
 		printk("%s: el3_start_xmit(length = %u) called, status %4.4x.\n",
 			   dev->name, skb->len, inw(ioaddr + EL3_STATUS));
 	}
+#if 0
+#ifndef final_version
+	{	/* Error-checking code, delete someday. */
+		ushort status = inw(ioaddr + EL3_STATUS);
+		if (status & 0x0001 		/* IRQ line active, missed one. */
+			&& inw(ioaddr + EL3_STATUS) & 1) { 			/* Make sure. */
+			printk("%s: Missed interrupt, status then %04x now %04x"
+				   "  Tx %2.2x Rx %4.4x.\n", dev->name, status,
+				   inw(ioaddr + EL3_STATUS), inb(ioaddr + TX_STATUS),
+				   inw(ioaddr + RX_STATUS));
+			/* Fake interrupt trigger by masking, acknowledge interrupts. */
+			outw(SetStatusEnb | 0x00, ioaddr + EL3_CMD);
+			outw(AckIntr | IntLatch | TxAvailable | RxEarly | IntReq,
+				 ioaddr + EL3_CMD);
+			outw(SetStatusEnb | 0xff, ioaddr + EL3_CMD);
+		}
+	}
+#endif
+#endif
 	/*
 	 *	We lock the driver against other processors. Note
 	 *	we don't need to lock versus the IRQ as we suspended

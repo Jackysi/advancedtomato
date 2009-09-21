@@ -60,7 +60,9 @@ int cpu_idle(void *unused)
 	current->nice = 20;
 	current->counter = -100;
 	while (1) {
+		__cli();
 		if (current->need_resched) {
+			__sti();
 			schedule();
 			check_pgt_cache();
 			continue;
@@ -105,7 +107,7 @@ void show_regs(struct pt_regs *regs)
 		show_trace((unsigned long *) regs->gprs[15]);
 }
 
-int kernel_thread(int (*fn)(void *), void * arg, unsigned long flags)
+int arch_kernel_thread(int (*fn)(void *), void * arg, unsigned long flags)
 {
         int clone_arg = flags | CLONE_VM;
         int retval;
@@ -181,6 +183,8 @@ int copy_thread(int nr, unsigned long clone_flags, unsigned long new_stackp,
         /* save fprs, if used in last task */
 	save_fp_regs(&p->thread.fp_regs);
         p->thread.user_seg = __pa((unsigned long) p->mm->pgd) | _SEGMENT_TABLE;
+	/* start process with ar4 pointing to the correct address space */
+	p->thread.ar4 = get_fs().ar4;
         /* Don't copy debug registers */
         memset(&p->thread.per_info,0,sizeof(p->thread.per_info));
         return 0;

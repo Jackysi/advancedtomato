@@ -1,4 +1,4 @@
-/* $Id: rtc.c,v 1.1.1.4 2003/10/14 08:08:35 sparq Exp $
+/* $Id: rtc.c,v 1.28 2001/10/08 22:19:51 davem Exp $
  *
  * Linux/SPARC Real Time Clock Driver
  * Copyright (C) 1996 Thomas K. Dyas (tdyas@eden.rutgers.edu)
@@ -89,6 +89,7 @@ static int rtc_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
 	switch (cmd)
 	{
 	case RTCGET:
+		memset(&rtc_tm, 0, sizeof(struct rtc_time));
 		get_rtc_time(&rtc_tm);
 
 		if (copy_to_user((struct rtc_time*)arg, &rtc_tm, sizeof(struct rtc_time)))

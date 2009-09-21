@@ -4,7 +4,7 @@
  *	Description: Device Driver for Tekram DC-390(T) PCI SCSI       *
  *		     Bus Master Host Adapter			       *
  ***********************************************************************/
-/* $Id: dc390.h,v 1.1.1.4 2003/10/14 08:08:38 sparq Exp $ */
+/* $Id: dc390.h,v 2.43.2.22 2000/12/20 00:39:36 garloff Exp $ */
 
 /*
  * DC390/AMD 53C974 driver, header file
@@ -26,7 +26,7 @@
  * So long: Use old exception handling :-( */
 #define OLD_EH
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION (2,1,70) || defined(OLD_EH)
+#if LINUX_VERSION_CODE < KERNEL_VERSION (2,1,70) || defined (OLD_EH)
 # define NEW_EH
 #else
 # define NEW_EH use_new_eh_code: 1,

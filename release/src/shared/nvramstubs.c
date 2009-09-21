@@ -1,7 +1,7 @@
 /*
  * Stubs for NVRAM functions for platforms without flash
  *
- * Copyright 2005, Broadcom Corporation
+ * Copyright 2004, Broadcom Corporation
  * All Rights Reserved.
  * 
  * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
@@ -9,10 +9,13 @@
  * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
  * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
  *
- * $Id: nvramstubs.c,v 1.1.1.2 2005/03/07 07:31:12 kanki Exp $
+ * $Id$
  */
 
-#include <osl.h>
+#include <typedefs.h>
+#include <bcmutils.h>
+#undef strcmp
+#define strcmp(s1,s2)	0	/* always match */
 #include <bcmnvram.h>
 
 int
@@ -21,8 +24,14 @@ nvram_init(void *sbh)
 	return 0;
 }
 
+int
+nvram_append(void *sb, char *vars, uint varsz)
+{
+	return 0;
+}
+
 void
-nvram_exit(void)
+nvram_exit(void *sbh)
 {
 }
 
@@ -53,5 +62,9 @@ nvram_commit(void)
 int
 nvram_getall(char *buf, int count)
 {
+	/* add null string as terminator */
+	if (count < 1)
+		return BCME_BUFTOOSHORT;
+	*buf = '\0';
 	return 0;
 }

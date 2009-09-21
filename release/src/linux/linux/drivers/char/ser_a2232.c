@@ -1,6 +1,6 @@
 /* drivers/char/ser_a2232.c */
 
-/* $Id: ser_a2232.c,v 1.1.1.4 2003/10/14 08:08:02 sparq Exp $ */
+/* $Id: ser_a2232.c,v 0.4 2000/01/25 12:00:00 ehaase Exp $ */
 
 /* Linux serial driver for the Amiga A2232 board */
 
@@ -525,6 +525,18 @@ static __inline__ void a2232_receive_char(	struct a2232_port *port,
 
 	tty->flip.count++;
 
+#if 0
+	switch(err) {
+	case TTY_BREAK:
+		break;
+	case TTY_PARITY:
+		break;
+	case TTY_OVERRUN:
+		break;
+	case TTY_FRAME:
+		break;
+	}
+#endif
 
 	*tty->flip.flag_buf_ptr++ = err;
 	*tty->flip.char_buf_ptr++ = ch;
@@ -621,10 +633,7 @@ int ch, err, n, p;
 					
 				/* WakeUp if output buffer runs low */
 				if ((port->gs.xmit_cnt <= port->gs.wakeup_chars) && port->gs.tty) {
-					if ((port->gs.tty->flags & (1 << TTY_DO_WRITE_WAKEUP)) && port->gs.tty->ldisc.write_wakeup){
-						(port->gs.tty->ldisc.write_wakeup)(port->gs.tty);
-					}
-					wake_up_interruptible(&port->gs.tty->write_wait);
+					tty_wakeup(port->gs.tty);
 				}
 			} // if the port is used
 		} // for every port on the board
@@ -764,7 +773,7 @@ int a2232board_init(void)
 	volatile u_char *to;
 	volatile struct a2232memory *mem;
 
-#ifdef __SMP__
+#ifdef CONFIG_SMP
 	return -ENODEV;	/* This driver is not SMP aware. Is there an SMP ZorroII-bus-machine? */
 #endif
 

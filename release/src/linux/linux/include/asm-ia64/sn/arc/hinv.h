@@ -1,14 +1,12 @@
 /*
- *
  * This file is subject to the terms and conditions of the GNU General Public
  * License.  See the file "COPYING" in the main directory of this archive
  * for more details.
  *
- * Copyright (C) 2000-2001 Silicon Graphics, Inc. All rights reserved.
+ * Copyright (C) 2000-2003 Silicon Graphics, Inc. All rights reserved.
  */
 
-
-/* $Id: hinv.h,v 1.1.1.4 2003/10/14 08:09:11 sparq Exp $
+/* $Id$
  *
  * ARCS hardware/memory inventory/configuration and system ID definitions.
  */
@@ -102,7 +100,7 @@ typedef enum {
 	Output = 64
 } IDENTIFIERFLAG;
 
-#ifndef NULL			    /* for GetChild(NULL); */
+#ifndef NULL			/* for GetChild(NULL); */
 #define	NULL	0
 #endif
 

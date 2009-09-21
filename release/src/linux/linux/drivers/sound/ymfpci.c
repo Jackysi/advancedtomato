@@ -1,4 +1,55 @@
-
+/*
+ *  Copyright 1999 Jaroslav Kysela <perex@suse.cz>
+ *  Copyright 2000 Alan Cox <alan@redhat.com>
+ *  Copyright 2001 Kai Germaschewski <kai@tp1.ruhr-uni-bochum.de>
+ *  Copyright 2002 Pete Zaitcev <zaitcev@yahoo.com>
+ *
+ *  Yamaha YMF7xx driver.
+ *
+ *  This code is a result of high-speed collision
+ *  between ymfpci.c of ALSA and cs46xx.c of Linux.
+ *  -- Pete Zaitcev <zaitcev@yahoo.com>; 2000/09/18
+ *
+ *   This program is free software; you can redistribute it and/or modify
+ *   it under the terms of the GNU General Public License as published by
+ *   the Free Software Foundation; either version 2 of the License, or
+ *   (at your option) any later version.
+ *
+ *   This program is distributed in the hope that it will be useful,
+ *   but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *   GNU General Public License for more details.
+ *
+ *   You should have received a copy of the GNU General Public License
+ *   along with this program; if not, write to the Free Software
+ *   Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ *
+ * TODO:
+ *  - Use P44Slot for 44.1 playback (beware of idle buzzing in P44Slot).
+ *  - 96KHz playback for DVD - use pitch of 2.0.
+ *  - Retain DMA buffer on close, do not wait the end of frame.
+ *  - Resolve XXX tagged questions.
+ *  - Cannot play 5133Hz.
+ *  - 2001/01/07 Consider if we can remove voice_lock, like so:
+ *     : Allocate/deallocate voices in open/close under semafore.
+ *     : We access voices in interrupt, that only for pcms that open.
+ *    voice_lock around playback_prepare closes interrupts for insane duration.
+ *  - Revisit the way voice_alloc is done - too confusing, overcomplicated.
+ *    Should support various channel types, however.
+ *  - Remove prog_dmabuf from read/write, leave it in open.
+ *  - 2001/01/07 Replace the OPL3 part of CONFIG_SOUND_YMFPCI_LEGACY code with
+ *    native synthesizer through a playback slot.
+ *  - 2001/11/29 ac97_save_state
+ *    Talk to Kai to remove ac97_save_state before it's too late!
+ *  - Second AC97
+ *  - Restore S/PDIF - Toshibas have it.
+ *
+ * Kai used pci_alloc_consistent for DMA buffer, which sounds a little
+ * unconventional. However, given how small our fragments can be,
+ * a little uncached access is perhaps better than endless flushing.
+ * On i386 and other I/O-coherent architectures pci_alloc_consistent
+ * is entirely harmless.
+ */
 
 #include <linux/config.h>
 #include <linux/module.h>
@@ -101,22 +152,19 @@ static inline void ymfpci_writel(ymfpci_t *codec, u32 offset, u32 val)
 	writel(val, codec->reg_area_virt + offset);
 }
 
-static int ymfpci_codec_ready(ymfpci_t *codec, int secondary, int sched)
+static int ymfpci_codec_ready(ymfpci_t *unit, int secondary)
 {
-	signed long end_time;
+	enum { READY_STEP = 10 };
 	u32 reg = secondary ? YDSXGR_SECSTATUSADR : YDSXGR_PRISTATUSADR;
+	int i;
 
-	end_time = jiffies + 3 * (HZ / 4);
-	do {
-		if ((ymfpci_readw(codec, reg) & 0x8000) == 0)
+	for (i = 0; i < ((3*1000)/4) / READY_STEP; i++) {
+		if ((ymfpci_readw(unit, reg) & 0x8000) == 0)
 			return 0;
-		if (sched) {
-			set_current_state(TASK_UNINTERRUPTIBLE);
-			schedule_timeout(1);
-		}
-	} while (end_time - (signed long)jiffies >= 0);
+		mdelay(READY_STEP);
+	}
 	printk(KERN_ERR "ymfpci_codec_ready: codec %i is not ready [0x%x]\n",
-	    secondary, ymfpci_readw(codec, reg));
+	    secondary, ymfpci_readw(unit, reg));
 	return -EBUSY;
 }
 
@@ -125,26 +173,37 @@ static void ymfpci_codec_write(struct ac97_codec *dev, u8 reg, u16 val)
 	ymfpci_t *codec = dev->private_data;
 	u32 cmd;
 
-	ymfpci_codec_ready(codec, 0, 0);
+	spin_lock(&codec->ac97_lock);
+	/* XXX Do make use of dev->id */
+	ymfpci_codec_ready(codec, 0);
 	cmd = ((YDSXG_AC97WRITECMD | reg) << 16) | val;
 	ymfpci_writel(codec, YDSXGR_AC97CMDDATA, cmd);
+	spin_unlock(&codec->ac97_lock);
 }
 
 static u16 ymfpci_codec_read(struct ac97_codec *dev, u8 reg)
 {
 	ymfpci_t *unit = dev->private_data;
+	u16 ret;
 	int i;
 
-	if (ymfpci_codec_ready(unit, 0, 0))
-		return ~0;
+	spin_lock(&unit->ac97_lock);
+	if (ymfpci_codec_ready(unit, 0))
+		goto out_err;
 	ymfpci_writew(unit, YDSXGR_AC97CMDADR, YDSXG_AC97READCMD | reg);
-	if (ymfpci_codec_ready(unit, 0, 0))
-		return ~0;
+	if (ymfpci_codec_ready(unit, 0))
+		goto out_err;
 	if (unit->pci->device == PCI_DEVICE_ID_YAMAHA_744 && unit->rev < 2) {
 		for (i = 0; i < 600; i++)
 			ymfpci_readw(unit, YDSXGR_PRISTATUSDATA);
 	}
-	return ymfpci_readw(unit, YDSXGR_PRISTATUSDATA);
+	ret = ymfpci_readw(unit, YDSXGR_PRISTATUSDATA);
+	spin_unlock(&unit->ac97_lock);
+	return ret;
+
+ out_err:
+	spin_unlock(&unit->ac97_lock);
+	return ~0;
 }
 
 /*
@@ -180,7 +239,7 @@ static u32 ymfpci_calc_lpfK(u32 rate)
 	};
 	
 	if (rate == 44100)
-		return 0x40000000;	
+		return 0x40000000;	/* FIXME: What's the right value? */
 	for (i = 0; i < 8; i++)
 		if (rate <= def_rate[i])
 			return val[i];
@@ -257,6 +316,10 @@ static int alloc_dmabuf(ymfpci_t *unit, struct ymf_dmabuf *dmabuf)
 	if (!rawbuf)
 		return -ENOMEM;
 
+#if 0
+	printk(KERN_DEBUG "ymfpci: allocated %ld (order = %d) bytes at %p\n",
+	       PAGE_SIZE << order, order, rawbuf);
+#endif
 
 	dmabuf->ready  = dmabuf->mapped = 0;
 	dmabuf->rawbuf = rawbuf;
@@ -349,6 +412,7 @@ static int prog_dmabuf(struct ymf_state *state, int rec)
 	 *	Now set up the ring 
 	 */
 
+	/* XXX   ret = rec? cap_pre(): pbk_pre();  */
 	spin_lock_irqsave(&state->unit->voice_lock, flags);
 	if (rec) {
 		if ((ret = ymf_capture_prepare(state)) != 0) {
@@ -366,6 +430,12 @@ static int prog_dmabuf(struct ymf_state *state, int rec)
 	/* set the ready flag for the dma buffer (this comment is not stupid) */
 	dmabuf->ready = 1;
 
+#if 0
+	printk(KERN_DEBUG "prog_dmabuf: rate %d format 0x%x,"
+	    " numfrag %d fragsize %d dmasize %d\n",
+	       state->format.rate, state->format.format, dmabuf->numfrag,
+	       dmabuf->fragsize, dmabuf->dmasize);
+#endif
 
 	return 0;
 }
@@ -398,6 +468,15 @@ static void ymf_wait_dac(struct ymf_state *state)
 		ymf_playback_trigger(unit, ypcm, 1);
 	}
 
+#if 0
+	if (file->f_flags & O_NONBLOCK) {
+		/*
+		 * XXX Our  mistake is to attach DMA buffer to state
+		 * rather than to some per-device structure.
+		 * Cannot skip waiting, can only make it shorter.
+		 */
+	}
+#endif
 
 	set_current_state(TASK_UNINTERRUPTIBLE);
 	while (ypcm->running) {
@@ -677,7 +756,7 @@ static void ymf_cap_interrupt(ymfpci_t *unit, struct ymf_capture *cap)
 		}
 
 		dmabuf->total_bytes += delta;
-		if (dmabuf->count) {		
+		if (dmabuf->count) {		/* && is_sleeping  XXX */
 			wake_up(&dmabuf->wait);
 		}
 	}
@@ -845,6 +924,10 @@ static void ymf_pcm_init_voice(ymfpci_voice_t *voice, int stereo,
 	}
 }
 
+/*
+ * XXX Capture channel allocation is entirely fake at the moment.
+ * We use only one channel and mark it busy as required.
+ */
 static int ymf_capture_alloc(struct ymf_unit *unit, int *pbank)
 {
 	struct ymf_capture *cap;
@@ -886,6 +969,7 @@ static int ymf_capture_prepare(struct ymf_state *state)
 	ymfpci_t *unit = state->unit;
 	struct ymf_pcm *ypcm = &state->rpcm;
 	ymfpci_capture_bank_t * bank;
+	/* XXX This is confusing, gotta rename one of them banks... */
 	int nbank;		/* flip-flop bank */
 	int cbank;		/* input [super-]bank */
 	struct ymf_capture *cap;
@@ -929,6 +1013,12 @@ static int ymf_capture_prepare(struct ymf_state *state)
 		bank->start = 0;
 		bank->num_of_loops = 0;
 	}
+#if 0 /* s/pdif */
+	if (state->digital.dig_valid)
+		/*state->digital.type == SND_PCM_DIG_AES_IEC958*/
+		ymfpci_writew(codec, YDSXGR_SPDIFOUTSTATUS,
+		    state->digital.dig_status[0] | (state->digital.dig_status[1] << 8));
+#endif
 	return 0;
 }
 
@@ -1303,6 +1393,12 @@ ymf_write(struct file *file, const char *buffer, size_t count, loff_t *ppos)
 			}
 			dmabuf->swptr = swptr;
 		} else {
+			/*
+			 * XXX This is not right if dmabuf->count is small -
+			 * about 2*x frame size or less. We cannot count on
+			 * on appending and not causing an artefact.
+			 * Should use a variation of the count==0 case above.
+			 */
 			swptr = dmabuf->swptr;
 		}
 		cnt = dmabuf->dmasize - swptr;
@@ -1505,6 +1601,7 @@ static int ymf_ioctl(struct inode *inode, struct file *file,
 				ymf_wait_dac(state);
 			}
 		}
+		/* XXX What does this do for reading? dmabuf->count=0; ? */
 		return 0;
 
 	case SNDCTL_DSP_SPEED: /* set smaple rate */
@@ -1825,6 +1922,14 @@ static int ymf_open(struct inode *inode, struct file *file)
 
 	file->private_data = state;
 
+	/*
+	 * ymf_read and ymf_write that we borrowed from cs46xx
+	 * allocate buffers with prog_dmabuf(). We call prog_dmabuf
+	 * here so that in case of DMA memory exhaustion open
+	 * fails rather than write.
+	 *
+	 * XXX prog_dmabuf allocates voice. Should allocate explicitly, above.
+	 */
 	if (file->f_mode & FMODE_WRITE) {
 		if (!state->wpcm.dmabuf.ready) {
 			if ((err = prog_dmabuf(state, 0)) != 0) {
@@ -1840,11 +1945,21 @@ static int ymf_open(struct inode *inode, struct file *file)
 		}
 	}
 
+#if 0 /* test if interrupts work */
+	ymfpci_writew(unit, YDSXGR_TIMERCOUNT, 0xfffe);	/* ~ 680ms */
+	ymfpci_writeb(unit, YDSXGR_TIMERCTRL,
+	    (YDSXGR_TIMERCTRL_TEN|YDSXGR_TIMERCTRL_TIEN));
+#endif
 	up(&unit->open_sem);
 
 	return 0;
 
 out_nodma:
+	/*
+	 * XXX Broken custom: "goto out_xxx" in other place is
+	 * a nestable exception, but here it is not nestable due to semaphore.
+	 * XXX Doubtful technique of self-describing objects....
+	 */
 	dealloc_dmabuf(unit, &state->wpcm.dmabuf);
 	dealloc_dmabuf(unit, &state->rpcm.dmabuf);
 	ymf_pcm_free_substream(&state->wpcm);
@@ -1862,9 +1977,16 @@ static int ymf_release(struct inode *inode, struct file *file)
 	struct ymf_state *state = (struct ymf_state *)file->private_data;
 	ymfpci_t *unit = state->unit;
 
+#if 0 /* test if interrupts work */
+	ymfpci_writeb(unit, YDSXGR_TIMERCTRL, 0);
+#endif
 
 	down(&unit->open_sem);
 
+	/*
+	 * XXX Solve the case of O_NONBLOCK close - don't deallocate here.
+	 * Deallocate when unloading the driver and we can wait.
+	 */
 	ymf_wait_dac(state);
 	ymf_stop_adc(state);		/* fortunately, it's immediate */
 	dealloc_dmabuf(unit, &state->wpcm.dmabuf);
@@ -1995,9 +2117,10 @@ static int ymf_resume(struct pci_dev *pcidev)
 	int i;
 
 	ymfpci_aclink_reset(unit->pci);
-	ymfpci_codec_ready(unit, 0, 1);		/* prints diag if not ready. */
+	ymfpci_codec_ready(unit, 0);		/* prints diag if not ready. */
 
 #ifdef CONFIG_SOUND_YMFPCI_LEGACY
+	/* XXX At this time the legacy registers are probably deprogrammed. */
 #endif
 
 	ymfpci_download_image(unit);
@@ -2326,9 +2449,8 @@ static int ymf_ac97_init(ymfpci_t *unit, int num_ac97)
 	struct ac97_codec *codec;
 	u16 eid;
 
-	if ((codec = kmalloc(sizeof(struct ac97_codec), GFP_KERNEL)) == NULL)
+	if ((codec = ac97_alloc_codec()) == NULL)
 		return -ENOMEM;
-	memset(codec, 0, sizeof(struct ac97_codec));
 
 	/* initialize some basic codec information, other fields will be filled
 	   in ac97_probe_codec */
@@ -2344,9 +2466,8 @@ static int ymf_ac97_init(ymfpci_t *unit, int num_ac97)
 	}
 
 	eid = ymfpci_codec_read(codec, AC97_EXTENDED_ID);
-	if (eid==0xFFFFFF) {
+	if (eid==0xFFFF) {
 		printk(KERN_WARNING "ymfpci: no codec attached ?\n");
-		goto out_kfree;
 	}
 
 	unit->ac97_features = eid;
@@ -2360,7 +2481,7 @@ static int ymf_ac97_init(ymfpci_t *unit, int num_ac97)
 
 	return 0;
  out_kfree:
-	kfree(codec);
+	ac97_release_codec(codec);
 	return -ENODEV;
 }
 
@@ -2399,6 +2520,7 @@ static int __devinit ymf_probe_one(struct pci_dev *pcidev, const struct pci_devi
 
 	spin_lock_init(&codec->reg_lock);
 	spin_lock_init(&codec->voice_lock);
+	spin_lock_init(&codec->ac97_lock);
 	init_MUTEX(&codec->open_sem);
 	INIT_LIST_HEAD(&codec->states);
 	codec->pci = pcidev;
@@ -2421,7 +2543,7 @@ static int __devinit ymf_probe_one(struct pci_dev *pcidev, const struct pci_devi
 	    (char *)ent->driver_data, base, pcidev->irq);
 
 	ymfpci_aclink_reset(pcidev);
-	if (ymfpci_codec_ready(codec, 0, 1) < 0)
+	if (ymfpci_codec_ready(codec, 0) < 0)
 		goto out_unmap;
 
 #ifdef CONFIG_SOUND_YMFPCI_LEGACY
@@ -2470,7 +2592,7 @@ static int __devinit ymf_probe_one(struct pci_dev *pcidev, const struct pci_devi
 
 	if (codec->iomidi) {
 		if (!probe_uart401(&codec->mpu_data, THIS_MODULE)) {
-			codec->iomidi = 0;	
+			codec->iomidi = 0;	/* XXX kludge */
 		}
 	}
 #endif /* CONFIG_SOUND_YMFPCI_LEGACY */
@@ -2510,7 +2632,7 @@ static void __devexit ymf_remove_one(struct pci_dev *pcidev)
 	list_del(&codec->ymf_devs);
 
 	unregister_sound_mixer(codec->ac97_codec[0]->dev_mixer);
-	kfree(codec->ac97_codec[0]);
+	ac97_release_codec(codec->ac97_codec[0]);
 	unregister_sound_dsp(codec->dev_audio);
 	free_irq(pcidev->irq, codec);
 	ymfpci_memfree(codec);

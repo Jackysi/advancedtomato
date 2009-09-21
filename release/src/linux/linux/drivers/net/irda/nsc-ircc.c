@@ -6,8 +6,8 @@
  * Status:        Stable.
  * Author:        Dag Brattli <dagb@cs.uit.no>
  * Created at:    Sat Nov  7 21:43:15 1998
- * Modified at:   Wed Mar  1 11:29:34 2000
- * Modified by:   Dag Brattli <dagb@cs.uit.no>
+ * Modified at:   Sat Aug 14 04:14:57 2004
+ * Modified by:   Maik Broemme <mbroemme@plusserver.de>
  * 
  *     Copyright (c) 1998-2000 Dag Brattli <dagb@cs.uit.no>
  *     Copyright (c) 1998 Lichen Wang, <lwang@actisys.com>
@@ -83,8 +83,10 @@ static unsigned int dma[] = { 0, 0, 0, 0, 0 };
 
 static int nsc_ircc_probe_108(nsc_chip_t *chip, chipio_t *info);
 static int nsc_ircc_probe_338(nsc_chip_t *chip, chipio_t *info);
+static int nsc_ircc_probe_39x(nsc_chip_t *chip, chipio_t *info);
 static int nsc_ircc_init_108(nsc_chip_t *chip, chipio_t *info);
 static int nsc_ircc_init_338(nsc_chip_t *chip, chipio_t *info);
+static int nsc_ircc_init_39x(nsc_chip_t *chip, chipio_t *info);
 
 /* These are the known NSC chips */
 static nsc_chip_t chips[] = {
@@ -93,10 +95,16 @@ static nsc_chip_t chips[] = {
 	  nsc_ircc_probe_108, nsc_ircc_init_108 },
 	{ "PC87338", { 0x398, 0x15c, 0x2e }, 0x08, 0xb0, 0xf8, 
 	  nsc_ircc_probe_338, nsc_ircc_init_338 },
+	/* Contributed by Jan Frey - IBM A30/A31 */
+	{ "PC8739x", { 0x2e, 0x4e, 0x0 }, 0x20, 0xea, 0xff, 
+	  nsc_ircc_probe_39x, nsc_ircc_init_39x },
+	{ NULL }
+#if 0
+	/* Probably bogus, "PC8739x" should be the real thing. Jean II */
 	/* Contributed by Kevin Thayer - OmniBook 6100 */
 	{ "PC87338?", { 0x2e, 0x15c, 0x398 }, 0x08, 0x00, 0xf8, 
 	  nsc_ircc_probe_338, nsc_ircc_init_338 },
-	{ NULL }
+#endif
 };
 
 /* Max 4 instances for now */
@@ -361,15 +369,22 @@ static int nsc_ircc_open(int i, chipio_t *info)
 	}
 	MESSAGE("IrDA: Registered device %s\n", dev->name);
 
-	/* Check if user has supplied the dongle id or not */
+	/* Check if user has supplied the dongle id and if it is in the range of available ids or not. */
 	if (!dongle_id) {
 		dongle_id = nsc_ircc_read_dongle_id(self->io.fir_base);
 		
 		MESSAGE("%s, Found dongle: %s\n", driver_name,
 			dongle_types[dongle_id]);
 	} else {
-		MESSAGE("%s, Using dongle: %s\n", driver_name,
-			dongle_types[dongle_id]);
+		if (dongle_id < sizeof(dongle_types) / sizeof(dongle_types[0])) {
+			MESSAGE("%s, Using dongle: %s\n", driver_name,
+				dongle_types[dongle_id]);
+		} else {
+			MESSAGE("%s, dongle id %i out of range, start autodetect.\n", driver_name, dongle_id);
+			dongle_id = nsc_ircc_read_dongle_id(self->io.fir_base);
+			MESSAGE("%s, Found dongle: %s\n", driver_name,
+				dongle_types[dongle_id]);
+		}
 	}
 	
 	self->io.dongle_id = dongle_id;
@@ -439,7 +454,7 @@ static int nsc_ircc_init_108(nsc_chip_t *chip, chipio_t *info)
 	outb(0x00, cfg_base+1); /* Disable device */
 	
 	/* Base Address and Interrupt Control Register (BAIC) */
-	outb(0, cfg_base);
+	outb(CFG_108_BAIC, cfg_base);
 	switch (info->fir_base) {
 	case 0x3e8: outb(0x14, cfg_base+1); break;
 	case 0x2e8: outb(0x15, cfg_base+1); break;
@@ -459,7 +474,7 @@ static int nsc_ircc_init_108(nsc_chip_t *chip, chipio_t *info)
 	case 15: temp = 0x07; break;
 	default: ERROR("%s(), invalid irq", __FUNCTION__);
 	}
-	outb(1, cfg_base);
+	outb(CFG_108_CSRT, cfg_base);
 	
 	switch (info->dma) {	
 	case 0: outb(0x08+temp, cfg_base+1); break;
@@ -468,7 +483,7 @@ static int nsc_ircc_init_108(nsc_chip_t *chip, chipio_t *info)
 	default: ERROR("%s(), invalid dma", __FUNCTION__);
 	}
 	
-	outb(2, cfg_base);      /* Mode Control Register (MCTL) */
+	outb(CFG_108_MCTL, cfg_base);      /* Mode Control Register (MCTL) */
 	outb(0x03, cfg_base+1); /* Enable device */
 
 	return 0;
@@ -486,7 +501,7 @@ static int nsc_ircc_probe_108(nsc_chip_t *chip, chipio_t *info)
 	int reg;
 
 	/* Read address and interrupt control register (BAIC) */
-	outb(CFG_BAIC, cfg_base);
+	outb(CFG_108_BAIC, cfg_base);
 	reg = inb(cfg_base+1);
 	
 	switch (reg & 0x03) {
@@ -508,7 +523,7 @@ static int nsc_ircc_probe_108(nsc_chip_t *chip, chipio_t *info)
 		__FUNCTION__, info->fir_base);
 
 	/* Read control signals routing register (CSRT) */
-	outb(CFG_CSRT, cfg_base);
+	outb(CFG_108_CSRT, cfg_base);
 	reg = inb(cfg_base+1);
 
 	switch (reg & 0x07) {
@@ -557,7 +572,7 @@ static int nsc_ircc_probe_108(nsc_chip_t *chip, chipio_t *info)
 	IRDA_DEBUG(2, "%s(), probing dma=%d\n", __FUNCTION__, info->dma);
 
 	/* Read mode control register (MCTL) */
-	outb(CFG_MCTL, cfg_base);
+	outb(CFG_108_MCTL, cfg_base);
 	reg = inb(cfg_base+1);
 
 	info->enabled = reg & 0x01;
@@ -594,13 +609,13 @@ static int nsc_ircc_probe_338(nsc_chip_t *chip, chipio_t *info)
 	int pnp;
 
 	/* Read funtion enable register (FER) */
-	outb(CFG_FER, cfg_base);
+	outb(CFG_338_FER, cfg_base);
 	reg = inb(cfg_base+1);
 
 	info->enabled = (reg >> 2) & 0x01;
 
 	/* Check if we are in Legacy or PnP mode */
-	outb(CFG_PNP0, cfg_base);
+	outb(CFG_338_PNP0, cfg_base);
 	reg = inb(cfg_base+1);
 	
 	pnp = (reg >> 3) & 0x01;
@@ -615,7 +630,7 @@ static int nsc_ircc_probe_338(nsc_chip_t *chip, chipio_t *info)
 		info->fir_base = reg;
 	} else {
 		/* Read function address register (FAR) */
-		outb(CFG_FAR, cfg_base);
+		outb(CFG_338_FAR, cfg_base);
 		reg = inb(cfg_base+1);
 		
 		switch ((reg >> 4) & 0x03) {
@@ -665,22 +680,146 @@ static int nsc_ircc_probe_338(nsc_chip_t *chip, chipio_t *info)
 	info->sir_base = info->fir_base;
 
 	/* Read PnP register 1 (PNP1) */
-	outb(CFG_PNP1, cfg_base);
+	outb(CFG_338_PNP1, cfg_base);
 	reg = inb(cfg_base+1);
 	
 	info->irq = reg >> 4;
 	
 	/* Read PnP register 3 (PNP3) */
-	outb(CFG_PNP3, cfg_base);
+	outb(CFG_338_PNP3, cfg_base);
 	reg = inb(cfg_base+1);
 
 	info->dma = (reg & 0x07) - 1;
 
 	/* Read power and test register (PTR) */
-	outb(CFG_PTR, cfg_base);
+	outb(CFG_338_PTR, cfg_base);
 	reg = inb(cfg_base+1);
 
 	info->suspended = reg & 0x01;
+
+	return 0;
+}
+
+
+/*
+ * Function nsc_ircc_init_39x (chip, info)
+ *
+ *    Now that we know it's a '39x (see probe below), we need to
+ *    configure it so we can use it.
+ *
+ * The NSC '338 chip is a Super I/O chip with a "bank" architecture,
+ * the configuration of the different functionality (serial, parallel,
+ * floppy...) are each in a different bank (Logical Device Number).
+ * The base address, irq and dma configuration registers are common
+ * to all functionalities (index 0x30 to 0x7F).
+ * There is only one configuration register specific to the
+ * serial port, CFG_39X_SPC.
+ * JeanII
+ *
+ * Note : this code was written by Jan Frey <janfrey@web.de>
+ */
+static int nsc_ircc_init_39x(nsc_chip_t *chip, chipio_t *info) 
+{
+	int cfg_base = info->cfg_base;
+	int enabled;
+
+	/* User is shure about his config... accept it. */
+	IRDA_DEBUG(2, "%s(): nsc_ircc_init_39x (user settings): "
+		   "io=0x%04x, irq=%d, dma=%d\n", 
+		   __FUNCTION__, info->fir_base, info->irq, info->dma);
+
+	/* Access bank for SP2 */
+	outb(CFG_39X_LDN, cfg_base);
+	outb(0x02, cfg_base+1);
+
+	/* Configure SP2 */
+
+	/* We want to enable the device if not enabled */
+	outb(CFG_39X_ACT, cfg_base);
+	enabled = inb(cfg_base+1) & 0x01;
+	
+	if (!enabled) {
+		/* Enable the device */
+		outb(CFG_39X_SIOCF1, cfg_base);
+		outb(0x01, cfg_base+1);
+		/* May want to update info->enabled. Jean II */
+	}
+
+	/* Enable UART bank switching (bit 7) ; Sets the chip to normal
+	 * power mode (wake up from sleep mode) (bit 1) */
+	outb(CFG_39X_SPC, cfg_base);
+	outb(0x82, cfg_base+1);
+
+	return 0;
+}
+
+/*
+ * Function nsc_ircc_probe_39x (chip, info)
+ *
+ *    Test if we really have a '39x chip at the given address
+ *
+ * Note : this code was written by Jan Frey <janfrey@web.de>
+ */
+static int nsc_ircc_probe_39x(nsc_chip_t *chip, chipio_t *info) 
+{
+	int cfg_base = info->cfg_base;
+	int reg1, reg2, irq, irqt, dma1, dma2;
+	int enabled, susp;
+
+	IRDA_DEBUG(2, "%s(), nsc_ircc_probe_39x, base=%d\n",
+		   __FUNCTION__, cfg_base);
+
+	/* This function should be executed with irq off to avoid
+	 * another driver messing with the Super I/O bank - Jean II */
+
+	/* Access bank for SP2 */
+	outb(CFG_39X_LDN, cfg_base);
+	outb(0x02, cfg_base+1);
+
+	/* Read infos about SP2 ; store in info struct */
+	outb(CFG_39X_BASEH, cfg_base);
+	reg1 = inb(cfg_base+1);
+	outb(CFG_39X_BASEL, cfg_base);
+	reg2 = inb(cfg_base+1);
+	info->fir_base = (reg1 << 8) | reg2;
+
+	outb(CFG_39X_IRQNUM, cfg_base);
+	irq = inb(cfg_base+1);
+	outb(CFG_39X_IRQSEL, cfg_base);
+	irqt = inb(cfg_base+1);
+	info->irq = irq;
+
+	outb(CFG_39X_DMA0, cfg_base);
+	dma1 = inb(cfg_base+1);
+	outb(CFG_39X_DMA1, cfg_base);
+	dma2 = inb(cfg_base+1);
+	info->dma = dma1 -1;
+
+	outb(CFG_39X_ACT, cfg_base);
+	info->enabled = enabled = inb(cfg_base+1) & 0x01;
+	
+	outb(CFG_39X_SPC, cfg_base);
+	susp = 1 - ((inb(cfg_base+1) & 0x02) >> 1);
+
+	IRDA_DEBUG(2, "%s(): io=0x%02x%02x, irq=%d (type %d), rxdma=%d, txdma=%d, enabled=%d (suspended=%d)\n", __FUNCTION__, reg1,reg2,irq,irqt,dma1,dma2,enabled,susp);
+
+	/* Configure SP2 */
+
+	/* We want to enable the device if not enabled */
+	outb(CFG_39X_ACT, cfg_base);
+	enabled = inb(cfg_base+1) & 0x01;
+	
+	if (!enabled) {
+		/* Enable the device */
+		outb(CFG_39X_SIOCF1, cfg_base);
+		outb(0x01, cfg_base+1);
+		/* May want to update info->enabled. Jean II */
+	}
+
+	/* Enable UART bank switching (bit 7) ; Sets the chip to normal
+	 * power mode (wake up from sleep mode) (bit 1) */
+	outb(CFG_39X_SPC, cfg_base);
+	outb(0x82, cfg_base+1);
 
 	return 0;
 }
@@ -700,7 +839,7 @@ static int nsc_ircc_setup(chipio_t *info)
 	switch_bank(iobase, BANK3);
 	version = inb(iobase+MID);
 
-	IRDA_DEBUG(2, __FUNCTION__  "() Driver %s Found chip version %02x\n",
+	IRDA_DEBUG(2, "%s() Driver %s Found chip version %02x\n", __FUNCTION__,
 		   driver_name, version);
 
 	/* Should be 0x2? */

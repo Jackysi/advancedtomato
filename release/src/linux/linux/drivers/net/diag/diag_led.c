@@ -26,7 +26,7 @@
 #include <asm/system.h>
 
 #include <typedefs.h>
-#include <bcm4710.h>
+#include "bcm4710.h"
 #include <sbextif.h>
 #include <bcmnvram.h>
 

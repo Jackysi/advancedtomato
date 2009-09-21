@@ -280,7 +280,7 @@ int __init sun3lance_probe( struct net_device *dev )
 
 static int __init lance_probe( struct net_device *dev)
 {	
-	unsigned long ioaddr;
+ 	unsigned long ioaddr;
 	struct lance_private	*lp;
 	int 			i;
 	static int 		did_version;
@@ -288,26 +288,7 @@ static int __init lance_probe( struct net_device *dev)
 	unsigned short tmp1, tmp2;
 
 #ifdef CONFIG_SUN3
-	unsigned long iopte;
-	int found = 0;
-
-	/* LANCE_OBIO can be found within the IO pmeg with some effort */
-	for(ioaddr = 0xfe00000; ioaddr < (0xfe00000 +
-	    SUN3_PMEG_SIZE); ioaddr += SUN3_PTE_SIZE) {
-
-		iopte = sun3_get_pte(ioaddr);
-		if(!(iopte & SUN3_PAGE_TYPE_IO)) /* this an io page? */
-			continue;
-
-		if(((iopte & SUN3_PAGE_PGNUM_MASK) << PAGE_SHIFT) ==
-		   LANCE_OBIO) {
-			found = 1;
-			break;
-		}
-	}
-	
-	if(!found)
-		return 0;
+ 	ioaddr = (unsigned long)ioremap(LANCE_OBIO, PAGE_SIZE);
 #else
 	ioaddr = SUN3X_LANCE;
 #endif
@@ -580,6 +561,21 @@ static int lance_start_xmit( struct sk_buff *skb, struct net_device *dev )
 #endif
 
 	/* Fill in a Tx ring entry */
+#if 0
+	if (lance_debug >= 2) {
+		u_char *p;
+		int i;
+		printk( "%s: TX pkt %d type 0x%04x from ", dev->name,
+			lp->new_tx, ((u_short *)skb->data)[6]);
+		for( p = &((u_char *)skb->data)[6], i = 0; i < 6; i++ )
+			printk("%02x%s", *p++, i != 5 ? ":" : "" );
+		printk(" to ");
+		for( p = (u_char *)skb->data, i = 0; i < 6; i++ )
+			printk("%02x%s", *p++, i != 5 ? ":" : "" );
+		printk(" data at 0x%08x len %d\n", (int)skb->data,
+		       (int)skb->len );
+	}
+#endif	
 	/* We're not prepared for the int until the last flags are set/reset.
 	 * And the int may happen already after setting the OWN_CHIP... */
 	save_and_cli(flags);
@@ -601,6 +597,9 @@ static int lance_start_xmit( struct sk_buff *skb, struct net_device *dev )
 	head->misc = 0;
 
 	memcpy( PKTBUF_ADDR(head), (void *)skb->data, skb->len );
+	if(len != skb->len)
+		memset(PKTBUF_ADDR(head) + skb->len, 0, len-skb->len);
+
 	head->flag = TMD1_OWN_CHIP | TMD1_ENP | TMD1_STP;
 	lp->new_tx = (lp->new_tx + 1) & TX_RING_MOD_MASK;
 	lp->stats.tx_bytes += skb->len;
@@ -797,6 +796,22 @@ static int lance_rx( struct net_device *dev )
 					     RX_RING_MOD_MASK;
 				}
 
+#if 0
+				if (lance_debug >= 3) {
+					u_char *data = PKTBUF_ADDR(head), *p;
+					printk( "%s: RX pkt %d type 0x%04x from ", dev->name, entry, ((u_short *)data)[6]);
+					for( p = &data[6], i = 0; i < 6; i++ )
+						printk("%02x%s", *p++, i != 5 ? ":" : "" );
+					printk(" to ");
+					for( p = data, i = 0; i < 6; i++ )
+						printk("%02x%s", *p++, i != 5 ? ":" : "" );
+					printk(" data %02x %02x %02x %02x %02x %02x %02x %02x "
+					       "len %d at %08x\n",
+					       data[15], data[16], data[17], data[18],
+					       data[19], data[20], data[21], data[22],
+					       pkt_len, data);
+				}
+#endif
 				if (lance_debug >= 3) {
 					u_char *data = PKTBUF_ADDR(head);
 					printk( "%s: RX pkt %d type 0x%04x len %d\n ", dev->name, entry, ((u_short *)data)[6], pkt_len);

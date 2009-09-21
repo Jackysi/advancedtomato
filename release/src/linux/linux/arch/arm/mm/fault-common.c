@@ -43,52 +43,77 @@
 #define READ_FAULT(m)		(!(m))
 #endif
 
-NORET_TYPE void die(const char *msg, struct pt_regs *regs, int err) ATTRIB_NORET;
-
 /*
  * This is useful to dump out the page tables associated with
  * 'addr' in mm 'mm'.
  */
 void show_pte(struct mm_struct *mm, unsigned long addr)
 {
-	pgd_t *pgd;
+	mm_segment_t fs;
 
 	if (!mm)
 		mm = &init_mm;
 
-	printk(KERN_ALERT "pgd = %p\n", mm->pgd);
-	pgd = pgd_offset(mm, addr);
-	printk(KERN_ALERT "*pgd = %08lx", pgd_val(*pgd));
+	printk(KERN_ALERT "mm = %p pgd = %p\n", mm, mm->pgd);
 
+	fs = get_fs();
+	set_fs(get_ds());
 	do {
-		pmd_t *pmd;
-		pte_t *pte;
+		pgd_t pg, *pgd = pgd_offset(mm, addr);
+		pmd_t pm, *pmd;
+		pte_t pt, *pte;
 
-		if (pgd_none(*pgd))
+		printk(KERN_ALERT "*pgd = ");
+
+		if (__get_user(pgd_val(pg), (unsigned long *)pgd)) {
+			printk("(faulted)");
+			break;
+		}
+
+		printk("%08lx", pgd_val(pg));
+
+		if (pgd_none(pg))
 			break;
 
-		if (pgd_bad(*pgd)) {
+		if (pgd_bad(pg)) {
 			printk("(bad)");
 			break;
 		}
 
 		pmd = pmd_offset(pgd, addr);
-		printk(", *pmd = %08lx", pmd_val(*pmd));
 
-		if (pmd_none(*pmd))
+		printk(", *pmd = ");
+
+		if (__get_user(pmd_val(pm), (unsigned long *)pmd)) {
+			printk("(faulted)");
+			break;
+		}
+
+		printk("%08lx", pmd_val(pm));
+
+		if (pmd_none(pm))
 			break;
 
-		if (pmd_bad(*pmd)) {
+		if (pmd_bad(pm)) {
 			printk("(bad)");
 			break;
 		}
 
 		pte = pte_offset(pmd, addr);
-		printk(", *pte = %08lx", pte_val(*pte));
+
+		printk(", *pte = ");
+
+		if (__get_user(pte_val(pt), (unsigned long *)pte)) {
+			printk("(faulted)");
+			break;
+		}
+
+		printk("%08lx", pte_val(pt));
 #ifdef CONFIG_CPU_32
 		printk(", *ppte = %08lx", pte_val(pte[-PTRS_PER_PTE]));
 #endif
 	} while(0);
+	set_fs(fs);
 
 	printk("\n");
 }
@@ -345,12 +370,19 @@ int do_translation_fault(unsigned long addr, int error_code, struct pt_regs *reg
 
 	offset = __pgd_offset(addr);
 
+	/*
+	 * FIXME: CP15 C1 is write only on ARMv3 architectures.
+	 */
 	pgd = cpu_get_pgd() + offset;
 	pgd_k = init_mm.pgd + offset;
 
 	if (pgd_none(*pgd_k))
 		goto bad_area;
 
+#if 0	/* note that we are two-level */
+	if (!pgd_present(*pgd))
+		set_pgd(pgd, *pgd_k);
+#endif
 
 	pmd_k = pmd_offset(pgd_k, addr);
 	pmd   = pmd_offset(pgd, addr);

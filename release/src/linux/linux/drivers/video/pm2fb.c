@@ -4,7 +4,7 @@
  * Copyright (c) 1999 Jakub Jelinek (jakub@redhat.com)
  * Based on linux/drivers/video/skeletonfb.c by Geert Uytterhoeven.
  * --------------------------------------------------------------------------
- * $Id: pm2fb.c,v 1.1.1.4 2003/10/14 08:08:54 sparq Exp $
+ * $Id: pm2fb.c,v 1.163 1999/02/21 14:06:49 illo Exp $
  * --------------------------------------------------------------------------
  * TODO multiple boards support
  * --------------------------------------------------------------------------
@@ -1078,6 +1078,7 @@ static int __init pm2pci_detect(struct pm2fb_info* p) {
 		unsigned long w, h;
 		int i;
 		prom_getstring(pcp->prom_node, "timing-numbers", timing, 256);
+		/* FIXME: Find out what the actual pixclock is and other values as well */
 		if (timing[0]) {
 			w = simple_strtoul(timing, &q, 0);
 			h = 0;
@@ -1169,7 +1170,7 @@ static int pm2fb_blank(int blank_mode, struct fb_info_gen* info) {
 	video=i->current_par.video;
 	if (blank_mode>0) {
 		switch (blank_mode-1) {
-			case VESA_NO_BLANKING:		
+			case VESA_NO_BLANKING:		/* FIXME */
 				video=video&~(PM2F_VIDEO_ENABLE);
 				break;
 			case VESA_HSYNC_SUSPEND:
@@ -1570,7 +1571,7 @@ static int pm2fb_decode_var(const struct fb_var_screeninfo* var,
 	p.hsend=p.hsstart+to3264(var->hsync_len, p.depth, data64);
 	p.hbend=p.hsend+to3264(var->left_margin, p.depth, data64);
 	p.htotal=to3264(xres, p.depth, data64)+p.hbend-1;
-	p.vsstart=var->lower_margin?var->lower_margin-1:0;	
+	p.vsstart=var->lower_margin?var->lower_margin-1:0;	/* FIXME! */
 	p.vsend=var->lower_margin+var->vsync_len-1;
 	p.vbend=var->lower_margin+var->vsync_len+var->upper_margin;
 	p.vtotal=var->yres+p.vbend-1;
@@ -1985,7 +1986,7 @@ static struct pm2_cursor * __init pm2_init_cursor(struct pm2fb_info *fb)
 	struct pm2_cursor *cursor;
 
 	if (fb->type != PM2_TYPE_PERMEDIA2V)
-		return 0; 
+		return 0; /* FIXME: Support hw cursor everywhere */
 
 	cursor = kmalloc(sizeof(struct pm2_cursor), GFP_ATOMIC);
 	if (!cursor)

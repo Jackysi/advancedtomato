@@ -7,7 +7,7 @@ LDFLAGS	=
 all: libmssl.so libmssl.a
 
 libmssl.so: mssl.o
-	$(CC) -shared -o $@ $^ ../matrixssl/src/libmatrixsslstatic.a -L../shared -lshared
+	$(CC) -shared -o $@ $^ ../matrixssl/src/libmatrixsslstatic.a -L../shared -lshared -lpthread
 	$(STRIP) $@
 	$(CPTMP)
 

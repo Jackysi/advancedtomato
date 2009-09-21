@@ -1,7 +1,4 @@
 /*
- * BK Id: SCCS/s.start.c 1.20 04/09/02 21:01:58 paulus
- */
-/*
  * Copyright (C) 1996 Paul Mackerras.
  */
 #include <linux/config.h>
@@ -14,9 +11,11 @@
 #include <linux/cuda.h>
 #include <linux/kernel.h>
 #include <linux/errno.h>
+#include <linux/sysrq.h>
 #include <asm/prom.h>
 #include <asm/bootx.h>
 #include <asm/machdep.h>
+#include <asm/errno.h>
 #include <asm/pmac_feature.h>
 #include <asm/processor.h>
 #include <asm/delay.h>
@@ -26,11 +25,10 @@
 #endif
 
 static volatile unsigned char *sccc, *sccd;
-unsigned long TXRDY, RXRDY;
+unsigned int TXRDY, RXRDY, DLAB;
 extern void xmon_printf(const char *fmt, ...);
 static int xmon_expect(const char *str, unsigned int timeout);
 
-static int console;
 static int use_screen;
 static int via_modem;
 static int xmon_use_sccb;
@@ -48,11 +46,64 @@ static inline unsigned int readtb(void)
 
 void buf_access(void)
 {
-	if ( _machine == _MACH_chrp )
-		sccd[3] &= ~0x80;	/* reset DLAB */
+	if (DLAB)
+		sccd[3] &= ~DLAB;	/* reset DLAB */
 }
 
 extern int adb_init(void);
+
+#ifdef CONFIG_ALL_PPC
+/*
+ * This looks in the "ranges" property for the primary PCI host bridge
+ * to find the physical address of the start of PCI/ISA I/O space.
+ * It is basically a cut-down version of pci_process_bridge_OF_ranges.
+ */
+static unsigned long chrp_find_phys_io_base(void)
+{
+	struct device_node *node;
+	unsigned int *ranges;
+	unsigned long base = CHRP_ISA_IO_BASE;
+	int rlen = 0;
+	int np;
+
+	node = find_devices("isa");
+	if (node != NULL) {
+		node = node->parent;
+		if (node == NULL || node->type == NULL
+		    || strcmp(node->type, "pci") != 0)
+			node = NULL;
+	}
+	if (node == NULL)
+		node = find_devices("pci");
+	if (node == NULL)
+		return base;
+
+	ranges = (unsigned int *) get_property(node, "ranges", &rlen);
+	np = prom_n_addr_cells(node) + 5;
+	while ((rlen -= np * sizeof(unsigned int)) >= 0) {
+		if ((ranges[0] >> 24) == 1 && ranges[2] == 0) {
+			/* I/O space starting at 0, grab the phys base */
+			base = ranges[np - 3];
+			break;
+		}
+		ranges += np;
+	}
+	return base;
+}
+#endif /* CONFIG_ALL_PPC */
+
+static void sysrq_handle_xmon(int key, struct pt_regs *regs,
+			      struct kbd_struct *kbd, struct tty_struct *tty)
+{
+	xmon(regs);
+}
+
+static struct sysrq_key_op sysrq_xmon_op =
+{
+	handler:	sysrq_handle_xmon,
+	help_msg:	"Xmon",
+	action_msg:	"Entering xmon\n",
+};
 
 void
 xmon_map_scc(void)
@@ -61,7 +112,7 @@ xmon_map_scc(void)
 	volatile unsigned char *base;
 
 	use_screen = 0;
-	
+
 	if (_machine == _MACH_Pmac) {
 		struct device_node *np;
 		unsigned long addr;
@@ -98,6 +149,7 @@ xmon_map_scc(void)
 			while (np != NULL && strcmp(np->name, name) != 0)
 				np = np->sibling;
 			if (np != NULL) {
+				/* XXX should parse this properly */
 				channel_node = np;
 				slots = get_property(np, "slot-names", &l);
 				if (slots != NULL && l >= 10
@@ -124,25 +176,29 @@ xmon_map_scc(void)
 #endif
 		TXRDY = 4;
 		RXRDY = 1;
-		
+
 		np = find_devices("mac-io");
 		if (np && np->n_addrs)
 			addr = np->addrs[0].address + 0x13020;
 		base = (volatile unsigned char *) ioremap(addr & PAGE_MASK, PAGE_SIZE);
 		sccc = base + (addr & ~PAGE_MASK);
 		sccd = sccc + 0x10;
-	}
-	else
-	{
-		/* should already be mapped by the kernel boot */
-		sccc = (volatile unsigned char *) (isa_io_base + 0x3fd);
-		sccd = (volatile unsigned char *) (isa_io_base + 0x3f8);
+
+	} else {
+		base = (volatile unsigned char *) isa_io_base;
+		if (_machine == _MACH_chrp)
+			base = (volatile unsigned char *)
+				ioremap(chrp_find_phys_io_base(), 0x1000);
+
+		sccc = base + 0x3fd;
+		sccd = base + 0x3f8;
 		if (xmon_use_sccb) {
 			sccc -= 0x100;
 			sccd -= 0x100;
 		}
 		TXRDY = 0x20;
 		RXRDY = 1;
+		DLAB = 0x80;
 	}
 #elif defined(CONFIG_GEMINI)
 	/* should already be mapped by the kernel boot */
@@ -150,8 +206,16 @@ xmon_map_scc(void)
 	sccd = (volatile unsigned char *) 0xffeffb08;
 	TXRDY = 0x20;
 	RXRDY = 1;
-	console = 1;
+	DLAB = 0x80;
+#elif defined(CONFIG_405GP) || defined(CONFIG_405LP) || defined(CONFIG_405EP)
+	sccc = (volatile unsigned char *)0xef600305;
+	sccd = (volatile unsigned char *)0xef600300;
+	TXRDY = 0x20;
+	RXRDY = 1;
+	DLAB = 0x80;
 #endif /* platform */
+
+	__sysrq_put_key_op('x', &sysrq_xmon_op);
 }
 
 static int scc_initialized = 0;
@@ -208,8 +272,6 @@ xmon_write(void *handle, void *ptr, int nb)
 			ct = 1;
 			--i;
 		} else {
-			if (console)
-				printk("%c", c);
 			ct = 0;
 		}
 		buf_access();
@@ -395,6 +457,22 @@ xmon_init_scc()
 	}
 }
 
+#if 0
+extern int (*prom_entry)(void *);
+
+int
+xmon_exit(void)
+{
+    struct prom_args {
+	char *service;
+    } args;
+
+    for (;;) {
+	args.service = "exit";
+	(*prom_entry)(&args);
+    }
+}
+#endif
 
 void *xmon_stdin;
 void *xmon_stdout;

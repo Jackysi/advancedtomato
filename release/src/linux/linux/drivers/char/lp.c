@@ -12,7 +12,7 @@
  * "lp=" command line parameters added by Grant Guenther, grant@torque.net
  * lp_read (Status readback) support added by Carsten Gross,
  *                                             carsten@sol.wohnheim.uni-ulm.de
- * Support for parport by Philip Blundell <Philip.Blundell@pobox.com>
+ * Support for parport by Philip Blundell <philb@gnu.org>
  * Parport sharing hacking by Andrea Arcangeli
  * Fixed kernel_(to/from)_user memory copy to check for errors
  * 				by Riccardo Facchetti <fizban@tin.it>
@@ -314,11 +314,13 @@ static ssize_t lp_write(struct file * file, const char * buf,
 	if (copy_size > LP_BUFFER_SIZE)
 		copy_size = LP_BUFFER_SIZE;
 
-	if (copy_from_user (kbuf, buf, copy_size))
-		return -EFAULT;
-
 	if (down_interruptible (&lp_table[minor].port_mutex))
 		return -EINTR;
+
+	if (copy_from_user (kbuf, buf, copy_size)) {
+		retv = -EFAULT;
+		goto out_unlock;
+	}
 
  	/* Claim Parport or sleep until it becomes available
  	 */
@@ -398,7 +400,7 @@ static ssize_t lp_write(struct file * file, const char * buf,
 		lp_table[minor].current_mode = IEEE1284_MODE_COMPAT;
 		lp_release_parport (&lp_table[minor]);
 	}
-
+out_unlock:
 	up (&lp_table[minor].port_mutex);
 
  	return retv;

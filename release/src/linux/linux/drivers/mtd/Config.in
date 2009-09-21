@@ -1,5 +1,5 @@
 
-# $Id: Config.in,v 1.1.1.4 2003/10/14 08:08:16 sparq Exp $
+# $Id: Config.in,v 1.74 2002/04/23 13:52:14 mag Exp $
 
 mainmenu_option next_comment
 comment 'Memory Technology Devices (MTD)'
@@ -14,8 +14,8 @@ if [ "$CONFIG_MTD" = "y" -o "$CONFIG_MTD" = "m" ]; then
    dep_tristate '  MTD partitioning support' CONFIG_MTD_PARTITIONS $CONFIG_MTD
    dep_tristate '  MTD concatenating support' CONFIG_MTD_CONCAT $CONFIG_MTD
    dep_tristate '  RedBoot partition table parsing' CONFIG_MTD_REDBOOT_PARTS $CONFIG_MTD_PARTITIONS
+   dep_tristate '  Command line partition table parsing' CONFIG_MTD_CMDLINE_PARTS $CONFIG_MTD_PARTITIONS
    if [ "$CONFIG_ARM" = "y" ]; then
-      dep_tristate '  Compaq bootldr partition table parsing' CONFIG_MTD_BOOTLDR_PARTS $CONFIG_MTD_PARTITIONS
       dep_tristate '  ARM Firmware Suite partition parsing' CONFIG_MTD_AFS_PARTS $CONFIG_MTD_PARTITIONS
    fi
 

@@ -30,7 +30,7 @@ do {									   \
 		"	jmp 2b\n"					   \
 		".previous\n"						   \
 		".section __ex_table,\"a\"\n"				   \
-		"	.align 4\n"					   \
+		"	.align 8\n"					   \
 		"	.quad 0b,3b\n"					   \
 		".previous"						   \
 		: "=r"(res), "=c"(count), "=&a" (__d0), "=&S" (__d1),	   \
@@ -68,7 +68,7 @@ unsigned long __clear_user(void *addr, unsigned long size)
 	asm volatile(
 		"	testq  %[size8],%[size8]\n"
 		"	jz     4f\n"
-		"0:	movnti %[zero],(%[dst])\n"
+		"0:	movq %[zero],(%[dst])\n"
 		"	addq   %[eight],%[dst]\n"
 		"	decl %%ecx ; jnz   0b\n"
 		"4:	movq  %[size1],%%rcx\n"
@@ -77,7 +77,7 @@ unsigned long __clear_user(void *addr, unsigned long size)
 		"1:	movb   %b[zero],(%[dst])\n"
 		"	incq   %[dst]\n"
 		"	decl %%ecx ; jnz  1b\n"
-		"2:	sfence\n"
+		"2:\n"
 		".section .fixup,\"ax\"\n"
 		"3:	lea 0(%[size1],%[size8],8),%[size8]\n"
 		"	jmp 2b\n"
@@ -88,7 +88,7 @@ unsigned long __clear_user(void *addr, unsigned long size)
 		"	.quad 1b,2b\n"
 		".previous"
 		: [size8] "=c"(size), [dst] "=&D" (__d0)
-		: [size1] "r"(size & 7), "[size8]" (size / 8), "[dst] "(addr),
+		: [size1] "r"(size & 7), "[size8]" (size / 8), "[dst]"(addr),
 		  [zero] "r" (0UL), [eight] "r" (8UL));
 	return size;
 }
@@ -125,4 +125,12 @@ long strnlen_user(const char *s, long n)
 		res++;
 		s++;
 	}
+}
+
+unsigned long copy_in_user(void *to, const void *from, unsigned len)
+{
+	if (access_ok(VERIFY_WRITE, to, len) && access_ok(VERIFY_READ, from, len)) { 
+		return copy_user_generic(to, from, len);
+	} 
+	return len;		
 }

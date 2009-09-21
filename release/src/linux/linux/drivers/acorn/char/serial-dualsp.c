@@ -10,15 +10,28 @@
  *  Changelog:
  *   30-07-1996	RMK	Created
  */
-#define MY_CARD_LIST { MANU_SERPORT, PROD_SERPORT_DSPORT }
-#define MY_NUMPORTS 2
-#define MY_BAUD_BASE (3686400 / 16)
-#define MY_BASE_ADDRESS(ec) \
-	ecard_address (ec, ECARD_IOC, ECARD_SLOW) + (0x2000 >> 2)
-#define MY_PORT_ADDRESS(port,cardaddress) \
-	((cardaddress) + (port) * 8)
+#include <linux/ioport.h>
+#include <asm/ecard.h>
 
-#define INIT serial_card_dualsp_init
-#define EXIT serial_card_dualsp_exit
+#define MAX_PORTS       3
+
+struct serial_card_type {
+	unsigned int	num_ports;
+	unsigned int	baud_base;
+	unsigned int	type;
+	unsigned int	offset[MAX_PORTS];
+};
+
+static struct serial_card_type serport_type = {
+	.num_ports	= 2,
+	.baud_base	= 3686400 / 16,
+	.type		= ECARD_RES_IOCSLOW,
+	.offset 	= { 0x2000, 0x2020 },
+};
+
+static const struct ecard_id serial_cids[] = {
+	{ MANU_SERPORT, 	PROD_SERPORT_DSPORT,	&serport_type	},
+	{ 0xffff, 0xffff }
+};
 
 #include "serial-card.c"

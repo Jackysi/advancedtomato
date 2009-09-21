@@ -41,4 +41,30 @@ static inline void isync(void)
 #define isync_on_smp()	__asm__ __volatile__("": : :"memory")
 #endif
 
+/* Macros for adjusting thread priority (hardware multi-threading) */
+
+#define HMT_very_low()     asm volatile("or 31,31,31       # very low priority")
+#define HMT_low()	asm volatile("or 1,1,1		# low priority")
+#define HMT_medium_low()   asm volatile("or 6,6,6          # medium low priority")
+#define HMT_medium()	asm volatile("or 2,2,2		# medium priority")
+#define HMT_medium_high()  asm volatile("or 5,5,5          # medium high priority")
+#define HMT_high()	asm volatile("or 3,3,3		# high priority")
+
+#define HMT_VERY_LOW            "\tor   31,31,31        # very low priority\n"
+#define HMT_LOW		"\tor	1,1,1		# low priority\n"
+#define HMT_MEDIUM_LOW          "\tor   6,6,6           # medium low priority\n"
+#define HMT_MEDIUM	"\tor	2,2,2		# medium priority\n"
+#define HMT_MEDIUM_HIGH         "\tor   5,5,5           # medium high priority\n"
+#define HMT_HIGH	"\tor	3,3,3		# high priority\n"
+
+/*
+ * Various operational modes for SMT
+ * Off    : never run threaded
+ * On     : always run threaded
+ * Dynamic: Allow the system to switch modes as needed
+ */
+#define SMT_OFF      0
+#define SMT_ON       1
+#define SMT_DYNAMIC  2
+
 #endif

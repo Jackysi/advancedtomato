@@ -70,15 +70,24 @@ struct iSeries_irqAnchor iSeries_irqMap[NR_IRQS];
 
 void iSeries_init_irqMap(int irq);
 
+void iSeries_init_irq_desc(irq_desc_t *desc)
+{
+	if (!desc->handler)
+		desc->handler = &iSeries_IRQ_handler;
+}
+
 /*  This is called by init_IRQ.  set in ppc_md.init_IRQ by iSeries_setup.c */
 void __init iSeries_init_IRQ(void)
 {
 	int i;
+	irq_desc_t *desc;
+
 	for (i = 0; i < NR_IRQS; i++) {
-		irq_desc[i].handler = &iSeries_IRQ_handler;
-		irq_desc[i].status = 0;
-		irq_desc[i].status |= IRQ_DISABLED;
-		irq_desc[i].depth = 1;
+		desc = real_irqdesc(i);
+		desc->handler = &iSeries_IRQ_handler;
+		desc->status = 0;
+		desc->status |= IRQ_DISABLED;
+		desc->depth = 1;
 		iSeries_init_irqMap(i);
 	}
 	/* Register PCI event handler and open an event path */
@@ -117,6 +126,7 @@ int __init iSeries_assign_IRQ(int irq, HvBusNumber busNumber, HvSubBusNumber sub
 	u32 dsa = (busNumber << 16) | (subBusNumber << 8) | deviceId;
 	struct iSeries_irqEntry* newEntry;
 	unsigned long flags;
+	irq_desc_t *desc = irqdesc(irq);
 
 	if (irq < 0 || irq >= NR_IRQS) {
 		return -1;
@@ -132,7 +142,7 @@ int __init iSeries_assign_IRQ(int irq, HvBusNumber busNumber, HvSubBusNumber sub
 	* done during buswalk, but it should not hurt anything except a 
 	* little performance to be smp safe.
 	*******************************************************************/
-	spin_lock_irqsave(&irq_desc[irq].lock, flags);
+	spin_lock_irqsave(&desc->lock, flags);
 
 	if (iSeries_irqMap[irq].valid) {
 		/* Push the new element onto the irq stack */
@@ -147,7 +157,7 @@ int __init iSeries_assign_IRQ(int irq, HvBusNumber busNumber, HvSubBusNumber sub
 		kfree(newEntry);
 		rc = -1;
     }
-	spin_unlock_irqrestore(&irq_desc[irq].lock, flags);
+	spin_unlock_irqrestore(&desc->lock, flags);
 	return rc;
 }
 
@@ -179,10 +189,11 @@ void __init iSeries_activate_IRQs()
 	int irq;
 	unsigned long flags;
 	for (irq=0; irq < NR_IRQS; irq++) {
-		spin_lock_irqsave(&irq_desc[irq].lock, flags);
-		irq_desc[irq].handler->startup(irq);
-		spin_unlock_irqrestore(&irq_desc[irq].lock, flags);
-    	}
+		irq_desc_t *desc = irqdesc(irq);
+		spin_lock_irqsave(&desc->lock, flags);
+		desc->handler->startup(irq);
+		spin_unlock_irqrestore(&desc->lock, flags);
+	}
 }
 
 /*  this is not called anywhere currently */

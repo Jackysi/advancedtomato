@@ -105,8 +105,10 @@ void oss_irq(int irq, void *dev_id, struct pt_regs *regs)
 			(int) oss->irq_pending);
 	}
 #endif
+	/* FIXME: how do you clear a pending IRQ?    */
 
 	if (events & OSS_IP_SOUND) {
+		/* FIXME: call sound handler */
 		oss->irq_pending &= ~OSS_IP_SOUND;
 	} else if (events & OSS_IP_SCSI) {
 		oss->irq_level[OSS_SCSI] = OSS_IRQLEV_DISABLED;
@@ -114,6 +116,7 @@ void oss_irq(int irq, void *dev_id, struct pt_regs *regs)
 		oss->irq_pending &= ~OSS_IP_SCSI;
 		oss->irq_level[OSS_SCSI] = OSS_IRQLEV_SCSI;
 	} else {
+		/* FIXME: error check here? */
 	}
 }
 
@@ -237,6 +240,7 @@ void oss_irq_disable(int irq) {
  */
 
 void oss_irq_clear(int irq) {
+	/* FIXME: how to do this on OSS? */
 	switch(irq) {
 		case IRQ_SCC:
 		case IRQ_SCCA:

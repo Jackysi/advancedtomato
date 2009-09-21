@@ -585,9 +585,7 @@ static void pc_close(struct tty_struct * tty, struct file * filp)
 		if (tty->driver.flush_buffer)
 			tty->driver.flush_buffer(tty);
 
-		if (tty->ldisc.flush_buffer)
-			tty->ldisc.flush_buffer(tty);
-
+		tty_ldisc_flush(tty);
 		shutdown(ch);
 		tty->closing = 0;
 		ch->event = 0;
@@ -692,15 +690,13 @@ static void pc_hangup(struct tty_struct *tty)
 		cli();
 		if (tty->driver.flush_buffer)
 			tty->driver.flush_buffer(tty);
-
-		if (tty->ldisc.flush_buffer)
-			tty->ldisc.flush_buffer(tty);
-
+		
+		tty_ldisc_flush(tty);
+		
 		shutdown(ch);
 
 		if (ch->count)
 			MOD_DEC_USE_COUNT;
-		
 
 		ch->tty   = NULL;
 		ch->event = 0;
@@ -1175,9 +1171,7 @@ static void pc_flush_buffer(struct tty_struct *tty)
 	memoff(ch);
 	restore_flags(flags);
 
-	wake_up_interruptible(&tty->write_wait);
-	if ((tty->flags & (1 << TTY_DO_WRITE_WAKEUP)) && tty->ldisc.write_wakeup)
-		(tty->ldisc.write_wakeup)(tty);
+	tty_wakeup(tty);
 
 } /* End pc_flush_buffer */
 
@@ -2023,7 +2017,8 @@ static void post_fep_init(unsigned int crd)
 	    (*(ushort *)((ulong)memaddr + XEPORTS) < 3))
 		shrinkmem = 1;
 	if (bd->type < PCIXEM)
-		request_region((int)bd->port, 4, board_desc[bd->type]);
+		if (!request_region((int)bd->port, 4, board_desc[bd->type]))
+			return;		
 
 	memwinon(bd, 0);
 
@@ -2187,9 +2182,13 @@ static void post_fep_init(unsigned int crd)
 		if (!(ch->tmp_buf))
 		{
 			printk(KERN_ERR "POST FEP INIT : kmalloc failed for port 0x%x\n",i);
-
+			release_region((int)bd->port, 4);
+			while(i-- > 0)
+				kfree((ch--)->tmp_buf);
+			return;
 		}
-		memset((void *)ch->tmp_buf,0,ch->txbufsize);
+		else 
+			memset((void *)ch->tmp_buf,0,ch->txbufsize);
 	} /* End for each port */
 
 	printk(KERN_INFO 
@@ -2378,10 +2377,7 @@ static void doevent(int crd)
 				{ /* Begin if LOWWAIT */
 
 					ch->statusflags &= ~LOWWAIT;
-					if ((tty->flags & (1 << TTY_DO_WRITE_WAKEUP)) &&
-						  tty->ldisc.write_wakeup)
-						(tty->ldisc.write_wakeup)(tty);
-					wake_up_interruptible(&tty->write_wait);
+					tty_wakeup(tty);
 
 				} /* End if LOWWAIT */
 
@@ -2397,11 +2393,7 @@ static void doevent(int crd)
 				{ /* Begin if EMPTYWAIT */
 
 					ch->statusflags &= ~EMPTYWAIT;
-					if ((tty->flags & (1 << TTY_DO_WRITE_WAKEUP)) &&
-						  tty->ldisc.write_wakeup)
-						(tty->ldisc.write_wakeup)(tty);
-
-					wake_up_interruptible(&tty->write_wait);
+					tty_wakeup(tty);
 
 				} /* End if EMPTYWAIT */
 
@@ -3250,8 +3242,8 @@ static int pc_ioctl(struct tty_struct *tty, struct file * file,
 			}
 			else 
 			{
-				if (tty->ldisc.flush_buffer)
-					tty->ldisc.flush_buffer(tty);
+				/* ldisc lock already held in ioctl */
+				tty_ldisc_flush(tty);
 			}
 
 			/* Fall Thru */
@@ -3414,7 +3406,7 @@ static void do_softint(void *private_)
 			if (test_and_clear_bit(EPCA_EVENT_HANGUP, &ch->event)) 
 			{ /* Begin if clear_bit */
 
-				tty_hangup(tty);	
+				tty_hangup(tty);	/* FIXME: module removal race here - AKPM */
 				wake_up_interruptible(&ch->open_wait);
 				ch->asyncflags &= ~(ASYNC_NORMAL_ACTIVE | ASYNC_CALLOUT_ACTIVE);
 
@@ -3750,7 +3742,7 @@ void epca_setup(char *str, int *ints)
 
 			case 5:
 				board.port = (unsigned char *)ints[index];
-				if (board.port <= 0)
+				if (ints[index] <= 0)
 				{
 					printk(KERN_ERR "<Error> - epca_setup: Invalid io port 0x%x\n", (unsigned int)board.port);
 					invalid_lilo_config = 1;
@@ -3762,7 +3754,7 @@ void epca_setup(char *str, int *ints)
 
 			case 6:
 				board.membase = (unsigned char *)ints[index];
-				if (board.membase <= 0)
+				if (ints[index] <= 0)
 				{
 					printk(KERN_ERR "<Error> - epca_setup: Invalid memory base 0x%x\n",(unsigned int)board.membase);
 					invalid_lilo_config = 1;

@@ -19,6 +19,7 @@
 #include <linux/smp.h>
 #include <linux/smp_lock.h>
 #include <linux/version.h>
+#include <linux/vt_kern.h>
 
 #include <asm/branch.h>
 #include <asm/hardirq.h>
@@ -101,6 +102,10 @@ asmlinkage void do_page_fault(struct pt_regs *regs, unsigned long write,
 	 */
 	if (in_interrupt() || !mm)
 		goto no_context;
+#if 0
+	printk("[%s:%d:%08lx:%ld:%08lx]\n", current->comm, current->pid,
+	       address, write, regs->cp0_epc);
+#endif
 	down_read(&mm->mmap_sem);
 	vma = find_vma(mm, address);
 	if (!vma)
@@ -159,6 +164,15 @@ bad_area:
 	if (user_mode(regs)) {
 		tsk->thread.cp0_badvaddr = address;
 		tsk->thread.error_code = write;
+#if 0
+		printk("do_page_fault() #2: sending SIGSEGV to %s for illegal %s\n"
+		       "%08lx (epc == %08lx, ra == %08lx)\n",
+		       tsk->comm,
+		       write ? "write access to" : "read access from",
+		       address,
+		       (unsigned long) regs->cp0_epc,
+		       (unsigned long) regs->regs[31]);
+#endif
 		info.si_signo = SIGSEGV;
 		info.si_errno = 0;
 		/* info.si_code has been set above */

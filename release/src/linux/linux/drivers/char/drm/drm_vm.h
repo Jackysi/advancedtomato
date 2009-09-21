@@ -57,7 +57,7 @@ struct vm_operations_struct   DRM(vm_sg_ops) = {
 
 struct page *DRM(vm_nopage)(struct vm_area_struct *vma,
 			    unsigned long address,
-			    int unused)
+			    int write_access)
 {
 #if __REALLY_HAVE_AGP
 	drm_file_t *priv  = vma->vm_file->private_data;
@@ -70,7 +70,7 @@ struct page *DRM(vm_nopage)(struct vm_area_struct *vma,
          * Find the right map
          */
 
-	if(!dev->agp->cant_use_aperture) goto vm_nopage_error;
+	if(!dev->agp || !dev->agp->cant_use_aperture) goto vm_nopage_error;
 
 	list_for_each(list, &dev->maplist->head) {
 		r_list = (drm_map_list_t *)list;
@@ -141,6 +141,7 @@ struct page *DRM(vm_shm_nopage)(struct vm_area_struct *vma,
 		return NOPAGE_OOM;
 	get_page(page);
 
+	DRM_DEBUG("shm_nopage 0x%lx\n", address);
 	return page;
 }
 
@@ -205,7 +206,7 @@ void DRM(vm_shm_close)(struct vm_area_struct *vma)
 					DRM_DEBUG("mtrr_del = %d\n", retcode);
 				}
 #endif
-				DRM(ioremapfree)(map->handle, map->size);
+				DRM(ioremapfree)(map->handle, map->size, dev);
 				break;
 			case _DRM_SHM:
 				vfree(map->handle);
@@ -242,6 +243,7 @@ struct page *DRM(vm_dma_nopage)(struct vm_area_struct *vma,
 
 	get_page(page);
 
+	DRM_DEBUG("dma_nopage 0x%lx (page %lu)\n", address, page_nr);
 	return page;
 }
 
@@ -340,6 +342,7 @@ int DRM(mmap_dma)(struct file *filp, struct vm_area_struct *vma)
 
 	vma->vm_ops   = &DRM(vm_dma_ops);
 	vma->vm_flags |= VM_RESERVED; /* Don't swap */
+	vma->vm_flags |= VM_DONTEXPAND;
 	vma->vm_file  =	 filp;	/* Needed for drm_vm_open() */
 	DRM(vm_open)(vma);
 	return 0;
@@ -399,7 +402,7 @@ int DRM(mmap)(struct file *filp, struct vm_area_struct *vma)
 
 	if (!capable(CAP_SYS_ADMIN) && (map->flags & _DRM_READ_ONLY)) {
 		vma->vm_flags &= VM_MAYWRITE;
-#if defined(__i386__)
+#if defined(__i386__) || defined(__x86_64__)
 		pgprot_val(vma->vm_page_prot) &= ~_PAGE_RW;
 #else
 				/* Ye gads this is ugly.  With more thought
@@ -426,7 +429,7 @@ int DRM(mmap)(struct file *filp, struct vm_area_struct *vma)
 	case _DRM_FRAME_BUFFER:
 	case _DRM_REGISTERS:
 		if (VM_OFFSET(vma) >= __pa(high_memory)) {
-#if defined(__i386__)
+#if defined(__i386__) || defined(__x86_64__)
 			if (boot_cpu_data.x86 > 3 && map->type != _DRM_AGP) {
 				pgprot_val(vma->vm_page_prot) |= _PAGE_PCD;
 				pgprot_val(vma->vm_page_prot) &= ~_PAGE_PWT;
@@ -442,12 +445,12 @@ int DRM(mmap)(struct file *filp, struct vm_area_struct *vma)
 		}
 		offset = DRIVER_GET_REG_OFS();
 #ifdef __sparc__
-		if (io_remap_page_range(vma->vm_start,
+		if (io_remap_page_range(DRM_RPR_ARG(vma) vma->vm_start,
 					VM_OFFSET(vma) + offset,
 					vma->vm_end - vma->vm_start,
 					vma->vm_page_prot, 0))
 #else
-		if (remap_page_range(vma->vm_start,
+		if (remap_page_range(DRM_RPR_ARG(vma) vma->vm_start,
 				     VM_OFFSET(vma) + offset,
 				     vma->vm_end - vma->vm_start,
 				     vma->vm_page_prot))
@@ -473,6 +476,7 @@ int DRM(mmap)(struct file *filp, struct vm_area_struct *vma)
 		return -EINVAL;	/* This should never happen. */
 	}
 	vma->vm_flags |= VM_RESERVED; /* Don't swap */
+	vma->vm_flags |= VM_DONTEXPAND;
 
 	vma->vm_file  =	 filp;	/* Needed for drm_vm_open() */
 	DRM(vm_open)(vma);

@@ -40,8 +40,20 @@ int DRM(irq_busid)(struct inode *inode, struct file *filp,
 	if (copy_from_user(&p, (drm_irq_busid_t *)arg, sizeof(p)))
 		return -EFAULT;
 	dev = pci_find_slot(p.busnum, PCI_DEVFN(p.devnum, p.funcnum));
-	if (dev) p.irq = dev->irq;
-	else	 p.irq = 0;
+	if (!dev) {
+		DRM_ERROR("pci_find_slot failed for %d:%d:%d\n",
+			  p.busnum, p.devnum, p.funcnum);
+		p.irq = 0;
+		goto out;
+	}			
+	if (pci_enable_device(dev) != 0) {
+		DRM_ERROR("pci_enable_device failed for %d:%d:%d\n",
+			  p.busnum, p.devnum, p.funcnum);
+		p.irq = 0;
+		goto out;
+	}		
+	p.irq = dev->irq;
+ out:
 	DRM_DEBUG("%d:%d:%d => IRQ %d\n",
 		  p.busnum, p.devnum, p.funcnum, p.irq);
 	if (copy_to_user((drm_irq_busid_t *)arg, &p, sizeof(p)))
@@ -99,7 +111,7 @@ int DRM(setunique)(struct inode *inode, struct file *filp,
 
 	do {
 		struct pci_dev *pci_dev;
-                int b, d, f;
+                int domain, b, d, f;
                 char *p;
  
                 for(p = dev->unique; p && *p && *p != ':'; p++);
@@ -111,6 +123,27 @@ int DRM(setunique)(struct inode *inode, struct file *filp,
                 f = (int)simple_strtoul(p+1, &p, 10);
                 if (*p) break;
  
+		domain = b >> 8;
+		b &= 0xff;
+
+#ifdef __alpha__
+		/*
+		 * Find the hose the device is on (the domain number is the
+		 * hose index) and offset the bus by the root bus of that
+		 * hose.
+		 */
+                for(pci_dev = pci_find_device(PCI_ANY_ID,PCI_ANY_ID,NULL);
+                    pci_dev;
+                    pci_dev = pci_find_device(PCI_ANY_ID,PCI_ANY_ID,pci_dev)) {
+			struct pci_controller *hose = pci_dev->sysdata;
+			
+			if (hose->index == domain) {
+				b += hose->bus->number;
+				break;
+			}
+		}
+#endif
+
                 pci_dev = pci_find_slot(b, PCI_DEVFN(d,f));
                 if (pci_dev) {
 			dev->pdev = pci_dev;

@@ -69,7 +69,7 @@ static inline void pmd_free(pmd_t * pmd)
 #define pgd_populate(mm, pmd, pte)	BUG()
 
 /* Do nothing */
-static inline int do_check_pgt_cache(int low, int high) { }
+static inline int do_check_pgt_cache(int low, int high) { return 0; }
 
 /*
  * TLB flushing:

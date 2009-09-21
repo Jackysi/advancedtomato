@@ -31,13 +31,9 @@
 #include <asm/ddb5xxx/ddb5xxx.h>
 
 
-#ifdef CONFIG_REMOTE_DEBUG
+#ifdef CONFIG_KGDB
 extern void rs_kgdb_hook(int);
 extern void breakpoint(void);
-#endif
-
-#if defined(CONFIG_SERIAL_CONSOLE)
-extern void console_setup(char *);
 #endif
 
 extern struct ide_ops std_ide_ops;
@@ -80,10 +76,6 @@ extern void ddb_irq_setup(void);
 extern void rtc_ds1386_init(unsigned long base);
 
 extern void (*board_timer_setup) (struct irqaction * irq);
-
-void __init bus_error_init(void)
-{
-}
 
 static void __init ddb_timer_init(struct irqaction *irq)
 {

@@ -93,6 +93,7 @@ static struct izo_upcall_hdr *upc_pack(__u32 opcode, int pathlen, char *path,
 
         ptr = (char *)hdr + sizeof(*hdr);
 
+        /* XXX do we need fsuid ? */
         hdr->u_len = *size;
         hdr->u_version = IZO_UPC_VERSION;
         hdr->u_opc = opcode;
@@ -100,6 +101,8 @@ static struct izo_upcall_hdr *upc_pack(__u32 opcode, int pathlen, char *path,
         hdr->u_uid = current->fsuid;
 
         if (path) { 
+                /*XXX Robert: please review what len to pass in for 
+                  NUL terminated strings */
                 hdr->u_pathlen = strlen(path);
                 LOGL0(path, hdr->u_pathlen, ptr);
         }
@@ -450,6 +453,33 @@ int izo_upc_repstatus(int minor,  char * fsetname, struct izo_rcvd_rec *lr_serve
 }
 
 
+#if 0
+int izo_upc_client_make_branch(int minor, char *fsetname, char *tagname,
+                               char *branchname)
+{
+        int size, error;
+        struct izo_upcall_hdr *hdr;
+        int pathlen;
+        char *path;
+        ENTRY;
+
+        hdr = upc_pack(IZO_UPC_CLIENT_MAKE_BRANCH, strlen(tagname), tagname,
+                       fsetname, strlen(branchname) + 1, branchname, &size);
+        if (!hdr || IS_ERR(hdr)) {
+                error = -PTR_ERR(hdr);
+                goto error;
+        }
+
+        error = izo_upc_upcall(minor, &size, hdr, SYNCHRONOUS);
+        if (error)
+                CERROR("InterMezzo: error %d\n", error);
+
+ error:
+        PRESTO_FREE(path, pathlen);
+        EXIT;
+        return error;
+}
+#endif
 
 int izo_upc_server_make_branch(int minor, char *fsetname)
 {

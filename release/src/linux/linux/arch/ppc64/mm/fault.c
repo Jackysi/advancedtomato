@@ -59,42 +59,80 @@ extern unsigned long get_srr1(void);
 #endif
 
 /*
- * For 600- and 800-family processors, the error_code parameter is DSISR
- * for a data fault, SRR1 for an instruction fault.
+ * Check whether the instruction at regs->nip is a store using
+ * an update addressing form which will update r1.
+ */
+static int store_updates_sp(struct pt_regs *regs)
+{
+	unsigned int inst;
+
+	if (get_user(inst, (unsigned int *)regs->nip))
+		return 0;
+	/* check for 1 in the rA field */
+	if (((inst >> 16) & 0x1f) != 1)
+		return 0;
+	/* check major opcode */
+	switch (inst >> 26) {
+	case 37:	/* stwu */
+	case 39:	/* stbu */
+	case 45:	/* sthu */
+	case 53:	/* stfsu */
+	case 55:	/* stfdu */
+		return 1;
+	case 62:	/* std or stdu */
+		return (inst & 3) == 1;
+	case 31:
+		/* check minor opcode */
+		switch ((inst >> 1) & 0x3ff) {
+		case 181:	/* stdux */
+		case 183:	/* stwux */
+		case 247:	/* stbux */
+		case 439:	/* sthux */
+		case 695:	/* stfsux */
+		case 759:	/* stfdux */
+			return 1;
+		}
+	}
+	return 0;
+}
+
+/*
+ * The error_code parameter is
+ *  - DSISR for a non-SLB data access fault,
+ *  - SRR1 & 0x08000000 for a non-SLB instruction access fault
+ *  - 0 any SLB fault.
  */
 void do_page_fault(struct pt_regs *regs, unsigned long address,
 		   unsigned long error_code)
 {
-	struct vm_area_struct * vma;
+	struct vm_area_struct * vma, * prev_vma;
 	struct mm_struct *mm = current->mm;
 	siginfo_t info;
 	unsigned long code = SEGV_MAPERR;
 	unsigned long is_write = error_code & 0x02000000;
 	unsigned long mm_fault_return;
 
-	PPCDBG(PPCDBG_MM, "Entering do_page_fault: addr = 0x%16.16lx, error_code = %lx\n\tregs_trap = %lx, srr0 = %lx, srr1 = %lx\n", address, error_code, regs->trap, get_srr0(), get_srr1());
-	/*
-	 * Fortunately the bit assignments in SRR1 for an instruction
-	 * fault and DSISR for a data fault are mostly the same for the
-	 * bits we are interested in.  But there are some bits which
-	 * indicate errors in DSISR but can validly be set in SRR1.
-	 */
-	if (regs->trap == 0x400)
-		error_code &= 0x48200000;
-
 #if defined(CONFIG_XMON) || defined(CONFIG_KGDB)
 	if (debugger_fault_handler && (regs->trap == 0x300 ||
-				regs->trap == 0x380)) {
+				       regs->trap == 0x380)) {
 		debugger_fault_handler(regs);
 		return;
 	}
+#endif /* CONFIG_XMON || CONFIG_KGDB */
 
+	/* On a kernel SLB miss we can only check for a valid exception entry */
+	if (!user_mode(regs) && (regs->trap == 0x380)) {
+		bad_page_fault(regs, address);
+		return;
+	}
+
+#if defined(CONFIG_XMON) || defined(CONFIG_KGDB) || defined(CONFIG_KDB)
 	if (error_code & 0x00400000) {
 		/* DABR match */
 		if (debugger_dabr_match(regs))
 			return;
 	}
-#endif /* CONFIG_XMON || CONFIG_KGDB */
+#endif /* CONFIG_XMON || CONFIG_KGDB || CONFIG_KDB */
 
 	if (in_interrupt() || mm == NULL) {
 		bad_page_fault(regs, address);
@@ -115,6 +153,39 @@ void do_page_fault(struct pt_regs *regs, unsigned long address,
 		PPCDBG(PPCDBG_MM, "\tdo_page_fault: vma->vm_flags = %lx, %lx\n", vma->vm_flags, VM_GROWSDOWN);
 		goto bad_area;
 	}
+
+	/*
+	 * N.B. The POWER/Open ABI allows programs to access up to
+	 * 288 bytes below the stack pointer.
+	 * The kernel signal delivery code writes up to about 1.5kB
+	 * below the stack pointer (r1) before decrementing it.
+	 * The exec code can write slightly over 640kB to the stack
+	 * before setting the user r1.  Thus we allow the stack to
+	 * expand to 1MB without further checks.
+	 */
+	if (address + 0x100000 < vma->vm_end) {
+		/* get user regs even if this fault is in kernel mode */
+		struct pt_regs *uregs = current->thread.regs;
+		if (uregs == NULL)
+			goto bad_area;
+
+		/*
+		 * A user-mode access to an address a long way below
+		 * the stack pointer is only valid if the instruction
+		 * is one which would update the stack pointer to the
+		 * address accessed if the instruction completed,
+		 * i.e. either stwu rs,n(r1) or stwux rs,r1,rb
+		 * (or the byte, halfword, float or double forms).
+		 *
+		 * If we don't check this then any write to the area
+		 * between the last mapped region and the stack will
+		 * expand the stack rather than segfaulting.
+		 */
+		if (address + 2048 < uregs->gpr[1]
+		    && (!user_mode(regs) || !store_updates_sp(regs)))
+			goto bad_area;
+	}
+
 	if (expand_stack(vma, address)) {
 		PPCDBG(PPCDBG_MM, "\tdo_page_fault: expand_stack\n");
 		goto bad_area;
@@ -136,6 +207,7 @@ good_area:
 			goto bad_area;
 	}
 
+ survive:
 	/*
 	 * If for any reason at all we couldn't handle the fault,
 	 * make sure we exit gracefully rather than endlessly redo
@@ -189,6 +261,11 @@ bad_area:
  */
 out_of_memory:
 	up_read(&mm->mmap_sem);
+	if (current->pid == 1) {
+		yield();
+		down_read(&mm->mmap_sem);
+		goto survive;
+	}
 	printk("VM: killing process %s\n", current->comm);
 	if (user_mode(regs))
 		do_exit(SIGKILL);
@@ -224,13 +301,10 @@ bad_page_fault(struct pt_regs *regs, unsigned long address)
 
 	/* kernel has accessed a bad area */
 	show_regs(regs);
-#if defined(CONFIG_XMON) || defined(CONFIG_KGDB)
+#if defined(CONFIG_XMON) || defined(CONFIG_KGDB) || defined(CONFIG_KDB)
 	if (debugger_kernel_faults)
 		debugger(regs);
 #endif
-#if defined(CONFIG_KDB)
-	kdb(KDB_REASON_FAULT, regs->trap, regs);
-#endif	
 	print_backtrace( (unsigned long *)regs->gpr[1] );
 	panic("kernel access of bad area pc %lx lr %lx address %lX tsk %s/%d",
 	      regs->nip,regs->link,address,current->comm,current->pid);

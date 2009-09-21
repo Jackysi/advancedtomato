@@ -459,9 +459,9 @@ static ssize_t debug_output(struct file *file,	/* file descriptor */
 		size = MIN((len - count), (size - entry_offset));
 
 		if(size){
-			if ((rc = copy_to_user(user_buf + count, 
-					p_info->temp_buf + entry_offset, size)))
-			return rc;
+			if (copy_to_user(user_buf + count, 
+					p_info->temp_buf + entry_offset, size))
+				return -EFAULT;
 		}
 		count += size;
 		entry_offset = 0;
@@ -470,8 +470,8 @@ static ssize_t debug_output(struct file *file,	/* file descriptor */
 				goto out;
 	}
 out:
-	p_info->offset           = *offset + count;
-	p_info->act_entry_offset = size;	
+	p_info->offset           += count;
+	p_info->act_entry_offset = size;
 	*offset = p_info->offset;
 	return count;
 }
@@ -744,8 +744,10 @@ void debug_set_level(debug_info_t* id, int new_level)
                         id->name, new_level, 0, DEBUG_MAX_LEVEL);
         } else {
                 id->level = new_level;
+#ifdef DEBUG
                 printk(KERN_INFO 
 			"debug: %s: new level %i\n",id->name,id->level);
+#endif
         }
 	spin_unlock_irqrestore(&id->lock,flags);
 }
@@ -947,9 +949,21 @@ int debug_register_view(debug_info_t * id, struct debug_view *view)
 	int i;
 	unsigned long flags;
 	mode_t mode = S_IFREG;
+	struct proc_dir_entry *pde;
+
 
 	if (!id)
 		goto out;
+	pde = debug_create_proc_dir_entry(id->proc_root_entry,
+					  view->name, mode,
+					  &debug_inode_ops,
+					  &debug_file_ops);
+	if(!pde){
+		printk(KERN_WARNING "debug: create_proc_entry() failed! Cannot register view %s/%s\n", id->name,view->name);
+		rc = -1;
+		goto out;
+	}
+
 	spin_lock_irqsave(&id->lock, flags);
 	for (i = 0; i < DEBUG_MAX_VIEWS; i++) {
 		if (id->views[i] == NULL)
@@ -960,6 +974,8 @@ int debug_register_view(debug_info_t * id, struct debug_view *view)
 			id->name,view->name);
 		printk(KERN_WARNING 
 			"debug: maximum number of views reached (%i)!\n", i);
+		debug_delete_proc_dir_entry(id->proc_root_entry, pde);
+		
 		rc = -1;
 	}
 	else {
@@ -968,11 +984,7 @@ int debug_register_view(debug_info_t * id, struct debug_view *view)
 			mode |= S_IRUSR;
 		if (view->input_proc)
 			mode |= S_IWUSR;
-		id->proc_entries[i] =
-		    debug_create_proc_dir_entry(id->proc_root_entry,
-						view->name, mode,
-						&debug_inode_ops,
-						&debug_file_ops);
+		id->proc_entries[i] = pde;
 		rc = 0;
 	}
 	spin_unlock_irqrestore(&id->lock, flags);
@@ -1056,7 +1068,7 @@ static int debug_input_level_fn(debug_info_t * id, struct debug_view *view,
 		       input_buf[0]);
 	}
       out:
-	*offset += in_buf_size;
+	*offset = in_buf_size;
 	return rc;		/* number of input characters */
 }
 
@@ -1123,7 +1135,7 @@ static int debug_input_flush_fn(debug_info_t * id, struct debug_view *view,
         printk(KERN_INFO "debug: area `%c` is not valid\n", input_buf[0]);
 
       out:
-        *offset += in_buf_size;
+        *offset = in_buf_size;
         return rc;              /* number of input characters */
 }
 

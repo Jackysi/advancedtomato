@@ -33,17 +33,34 @@ static struct tag * __init memtag(struct tag *tag, unsigned long start, unsigned
 	return tag;
 }
 
-static void __init build_tag_list(struct param_struct *params, void *taglist, int mem_init)
+static void __init build_tag_list(struct param_struct *params, void *taglist)
 {
 	struct tag *tag = taglist;
-
-	printk(KERN_DEBUG "Converting old-style param struct to taglist\n");
 
 	if (params->u1.s.page_size != PAGE_SIZE) {
 		printk(KERN_WARNING "Warning: bad configuration page, "
 		       "trying to continue\n");
 		return;
 	}
+
+	printk(KERN_DEBUG "Converting old-style param struct to taglist\n");
+
+#ifdef CONFIG_ARCH_NETWINDER
+	if (params->u1.s.nr_pages != 0x02000 &&
+	    params->u1.s.nr_pages != 0x04000 &&
+	    params->u1.s.nr_pages != 0x08000 &&
+	    params->u1.s.nr_pages != 0x10000) {
+		printk(KERN_WARNING "Warning: bad NeTTrom parameters "
+		       "detected, using defaults\n");
+
+		params->u1.s.nr_pages = 0x1000;	/* 16MB */
+		params->u1.s.ramdisk_size = 0;
+		params->u1.s.flags = FLAG_READONLY;
+		params->u1.s.initrd_start = 0;
+		params->u1.s.initrd_size = 0;
+		params->u1.s.rd_start = 0;
+	}
+#endif
 
 	tag->hdr.tag  = ATAG_CORE;
 	tag->hdr.size = tag_size(tag_core);
@@ -76,17 +93,15 @@ static void __init build_tag_list(struct param_struct *params, void *taglist, in
 	tag->hdr.size = tag_size(tag_revision);
 	tag->u.revision.rev = params->u1.s.system_rev;
 
-	if (mem_init) {
 #ifdef CONFIG_ARCH_ACORN
-		if (machine_is_riscpc()) {
-			int i;
-			for (i = 0; i < 4; i++)
-				tag = memtag(tag, PHYS_OFFSET + (i << 26),
-					 params->u1.s.pages_in_bank[i] * PAGE_SIZE);
-		} else
+	if (machine_is_riscpc()) {
+		int i;
+		for (i = 0; i < 4; i++)
+			tag = memtag(tag, PHYS_OFFSET + (i << 26),
+				 params->u1.s.pages_in_bank[i] * PAGE_SIZE);
+	} else
 #endif
-		tag = memtag(tag, PHYS_OFFSET, params->u1.s.nr_pages * PAGE_SIZE);
-	}
+	tag = memtag(tag, PHYS_OFFSET, params->u1.s.nr_pages * PAGE_SIZE);
 
 #ifdef CONFIG_FOOTBRIDGE
 	if (params->u1.s.mem_fclk_21285) {
@@ -94,6 +109,23 @@ static void __init build_tag_list(struct param_struct *params, void *taglist, in
 		tag->hdr.tag = ATAG_MEMCLK;
 		tag->hdr.size = tag_size(tag_memclk);
 		tag->u.memclk.fmemclk = params->u1.s.mem_fclk_21285;
+	}
+#endif
+
+#ifdef CONFIG_ARCH_EBSA285
+	if (machine_is_ebsa285()) {
+		tag = tag_next(tag);
+		tag->hdr.tag = ATAG_VIDEOTEXT;
+		tag->hdr.size = tag_size(tag_videotext);
+		tag->u.videotext.x	      = params->u1.s.video_x;
+		tag->u.videotext.y	      = params->u1.s.video_y;
+		tag->u.videotext.video_page   = 0;
+		tag->u.videotext.video_mode   = 0;
+		tag->u.videotext.video_cols   = params->u1.s.video_num_cols;
+		tag->u.videotext.video_ega_bx = 0;
+		tag->u.videotext.video_lines  = params->u1.s.video_num_rows;
+		tag->u.videotext.video_isvga  = 1;
+		tag->u.videotext.video_points = 8;
 	}
 #endif
 
@@ -114,14 +146,22 @@ static void __init build_tag_list(struct param_struct *params, void *taglist, in
 	strcpy(tag->u.cmdline.cmdline, params->commandline);
 
 	tag = tag_next(tag);
-	tag->hdr.tag = 0;
+	tag->hdr.tag = ATAG_NONE;
 	tag->hdr.size = 0;
 
 	memmove(params, taglist, ((int)tag) - ((int)taglist) +
 				 sizeof(struct tag_header));
 }
 
-void __init convert_to_tag_list(struct param_struct *params, int mem_init)
+void __init convert_to_tag_list(struct tag *tags)
 {
-	build_tag_list(params, &params->u2, mem_init);
+	struct param_struct *params = (struct param_struct *)tags;
+	build_tag_list(params, &params->u2);
+}
+
+void __init squash_mem_tags(struct tag *tag)
+{
+	for (; tag->hdr.size; tag = tag_next(tag))
+		if (tag->hdr.tag == ATAG_MEM)
+			tag->hdr.tag = ATAG_NONE;
 }

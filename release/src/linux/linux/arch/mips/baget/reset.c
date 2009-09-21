@@ -14,6 +14,7 @@ static void baget_reboot(char *from_fun)
 	(*(vector*)R3000_RESET_VEC)();
 }
 
+/* fixme: proper functionality */
 
 void baget_machine_restart(char *command)
 {

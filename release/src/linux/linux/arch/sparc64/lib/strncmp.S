@@ -1,4 +1,4 @@
-/* $Id: strncmp.S,v 1.1.1.4 2003/10/14 08:07:51 sparq Exp $
+/* $Id: strncmp.S,v 1.2 1997/03/11 17:51:44 jj Exp $
  * Sparc64 optimized strncmp code.
  *
  * Copyright (C) 1997 Jakub Jelinek (jj@sunsite.mff.cuni.cz)

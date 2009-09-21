@@ -8,7 +8,7 @@
 
 #include <asm/atomic.h>
 #include <asm/hardirq.h>
-#include <asm/system.h>		/* for membar() */
+#include <asm/system.h>		/* for membar_safe() */
 
 #define local_bh_disable()	(local_bh_count(smp_processor_id())++)
 #define __local_bh_enable()	(local_bh_count(smp_processor_id())--)

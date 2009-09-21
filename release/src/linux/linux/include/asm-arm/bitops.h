@@ -88,7 +88,7 @@ extern int find_next_zero_bit(void * addr, int size, int offset);
  */
 static inline int test_bit(int nr, const void * addr)
 {
-    return ((unsigned char *) addr)[nr >> 3] & (1U << (nr & 7));
+    return (((unsigned char *) addr)[nr >> 3] >> (nr & 7)) & 1;
 }	
 
 /*

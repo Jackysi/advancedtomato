@@ -2,8 +2,10 @@
 #define _ASM_IA64_SIGINFO_H
 
 /*
- * Copyright (C) 1998-2002 Hewlett-Packard Co
- *	David Mosberger-Tang <davidm@hpl.hp.com>
+ * Based on <asm-i386/siginfo.h>.
+ *
+ * Modified 1998-2002
+ *	David Mosberger-Tang <davidm@hpl.hp.com>, Hewlett-Packard Co
  */
 
 #include <linux/types.h>
@@ -266,8 +268,8 @@ copy_siginfo (siginfo_t *to, siginfo_t *from)
 	if (from->si_code < 0)
 		memcpy(to, from, sizeof(siginfo_t));
 	else
-		/* _sigchld is currently the largest know union member */
-		memcpy(to, from, 3*sizeof(int) + sizeof(from->_sifields._sigchld));
+		/* _sigprof is currently the largest know union member */
+		memcpy(to, from, 4*sizeof(int) + sizeof(from->_sifields._sigprof));
 }
 
 extern int copy_siginfo_to_user(siginfo_t *to, siginfo_t *from);

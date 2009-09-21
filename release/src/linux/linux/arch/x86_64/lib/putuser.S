@@ -20,6 +20,7 @@
  * as they get called from within inline assembly.
  */
 
+/* FIXME: putuser.S should be really merged with getuser.S, and preprocessor should be used to keep code duplication lower */
 
 #include <linux/linkage.h>
 #include <asm/page.h>

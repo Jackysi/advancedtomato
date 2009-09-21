@@ -1,5 +1,5 @@
 /*
- *	$Id: proc.c,v 1.1.1.4 2003/10/14 08:08:56 sparq Exp $
+ *	$Id: proc.c,v 1.1.2.1 1998/06/07 23:21:01 geert Exp $
  *
  *	Procfs interface for the Zorro bus.
  *
@@ -50,11 +50,9 @@ proc_bus_zorro_read(struct file *file, char *buf, size_t nbytes, loff_t *ppos)
 	struct ConfigDev cd;
 	loff_t pos = *ppos;
 
-	if (pos >= sizeof(struct ConfigDev))
+	if (pos < 0 || pos >= sizeof(struct ConfigDev))
 		return 0;
-	if (nbytes >= sizeof(struct ConfigDev))
-		nbytes = sizeof(struct ConfigDev);
-	if (pos + nbytes > sizeof(struct ConfigDev))
+	if (nbytes > sizeof(struct ConfigDev) - pos)
 		nbytes = sizeof(struct ConfigDev) - pos;
 
 	/* Construct a ConfigDev */
@@ -67,7 +65,7 @@ proc_bus_zorro_read(struct file *file, char *buf, size_t nbytes, loff_t *ppos)
 
 	if (copy_to_user(buf, &cd, nbytes))
 		return -EFAULT;
-	*ppos += nbytes;
+	*ppos = pos + nbytes;
 
 	return nbytes;
 }

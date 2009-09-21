@@ -86,7 +86,7 @@ unsigned int sa11x0_validatespeed(unsigned int khz)
 
 static int __init sa11x0_init_clock(void)
 {
-	cpufreq_init(cclk_frequency_100khz[PPCR & 0xf] * 100, 0, 0);
+	cpufreq_init(cclk_frequency_100khz[PPCR & 0xf] * 100, 59000, 287000);
 	return 0;
 }
 

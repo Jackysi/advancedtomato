@@ -4,19 +4,10 @@
 
 O_TARGET := cramfs.o
 
-obj-y  := inode.o
-
-ifdef CONFIG_ZLIB_FS_INFLATE
-obj-y += uncompress.o
-CFLAGS_uncompress.o := -I $(TOPDIR)/fs/inflate_fs
-else
-ifdef CONFIG_LZMA_FS_INFLATE
-obj-y += $(TOPDIR)/fs/inflate_lzma/7zlzma.o \
-         $(TOPDIR)/fs/inflate_lzma/LZMADecoder.o \
-         $(TOPDIR)/fs/inflate_lzma/IInOutStreams.o
-endif
-endif
+obj-y  := inode.o uncompress.o
 
 obj-m := $(O_TARGET)
+
+CFLAGS_uncompress.o := -I $(TOPDIR)/fs/inflate_fs
 
 include $(TOPDIR)/Rules.make

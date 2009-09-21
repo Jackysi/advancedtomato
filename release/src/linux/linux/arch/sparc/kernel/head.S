@@ -1,4 +1,4 @@
-/* $Id: head.S,v 1.1.1.4 2003/10/14 08:07:48 sparq Exp $
+/* $Id: head.S,v 1.105 2001/08/12 09:08:56 davem Exp $
  * head.S: The initial boot code for the Sparc port of Linux.
  *
  * Copyright (C) 1995 David S. Miller (davem@caip.rutgers.edu)
@@ -511,6 +511,7 @@ already_mapped:
 
 		/* Copy over the Prom's level 14 clock handler. */
 copy_prom_lvl14:
+#if 1
 		/* DJHR
 		 * preserve our linked/calculated instructions
 		 */
@@ -522,6 +523,7 @@ copy_prom_lvl14:
 		std	%g4, [%g1]
 		ldd	[%g3+8], %g4
 		std	%g4, [%g1+8]
+#endif
 		rd	%tbr, %g1
 		andn	%g1, 0xfff, %g1		! proms trap table base
 		or	%g0, (0x1e<<4), %g2	! offset to lvl14 intr
@@ -620,6 +622,11 @@ srmmu_remap:
 		/* Ok, pull in the PTD. */
 		lda	[%o1] ASI_M_BYPASS, %o2		! This is the 0x0 16MB pgd
 
+		/* Calculate to KERNBASE entry.
+		 *
+		 * XXX Should not use empirical constant, but Gas gets an  XXX
+		 * XXX upset stomach with the bitshift I would have to use XXX
+		 */
 		add	%o1, 0x3c0, %o3		
 
 		/* Poke the entry into the calculated address. */
@@ -895,6 +902,7 @@ sun4d_init:
 	/* Fall through to sun4m_init */
 
 sun4m_init:
+	/* XXX Fucking Cypress... */
 	lda	[%g0] ASI_M_MMUREGS, %g5
 	srl	%g5, 28, %g4
 
@@ -1003,7 +1011,7 @@ sun4c_continue_boot:
 
 		/* I want a kernel stack NOW! */
 		set	C_LABEL(init_task_union), %g1
-		set	(TASK_UNION_SIZE - REGWIN_SZ), %g2
+		set	(TASK_UNION_SIZE - STACKFRAME_SZ), %g2
 		add	%g1, %g2, %sp
 		mov	0, %fp			/* And for good luck */
 

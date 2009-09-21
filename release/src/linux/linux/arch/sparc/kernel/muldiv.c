@@ -1,9 +1,12 @@
-/* $Id: muldiv.c,v 1.1.1.4 2003/10/14 08:07:48 sparq Exp $
+/* $Id: muldiv.c,v 1.5 1997/12/15 20:07:20 ecd Exp $
  * muldiv.c: Hardware multiply/division illegal instruction trap
  *		for sun4c/sun4 (which do not have those instructions)
  *
  * Copyright (C) 1996 Jakub Jelinek (jj@sunsite.mff.cuni.cz)
  * Copyright (C) 1996 David S. Miller (davem@caip.rutgers.edu)
+ *
+ * 2004-12-25	Krzysztof Helt (krzysztof.h1@wp.pl) 
+ *		- fixed registers constrains in inline assembly declarations
  */
 
 #include <linux/kernel.h>
@@ -125,7 +128,7 @@ int do_user_muldiv(struct pt_regs *regs, unsigned long pc)
 			"mov	%%o0, %0\n\t"
 			"mov	%%o1, %1\n\t"
 			: "=r" (rs1), "=r" (rs2)
-		        :
+		        : "0" (rs1), "1" (rs2)
 			: "o0", "o1", "o2", "o3", "o4", "o5", "o7", "cc");
 #ifdef DEBUG_MULDIV
 		printk ("0x%x%08x\n", rs2, rs1);
@@ -145,7 +148,7 @@ int do_user_muldiv(struct pt_regs *regs, unsigned long pc)
 			"mov	%%o0, %0\n\t"
 			"mov	%%o1, %1\n\t"
 			: "=r" (rs1), "=r" (rs2)
-			:
+		        : "0" (rs1), "1" (rs2)
 			: "o0", "o1", "o2", "o3", "o4", "o5", "o7", "cc");
 #ifdef DEBUG_MULDIV
 		printk ("0x%x%08x\n", rs2, rs1);
@@ -174,7 +177,7 @@ int do_user_muldiv(struct pt_regs *regs, unsigned long pc)
 			"mov	%%o1, %0\n\t"
 			"mov	%%o0, %1\n\t"
 			: "=r" (rs1), "=r" (rs2)
-			: "r" (regs->y)
+			: "r" (regs->y), "0" (rs1), "1" (rs2)
 			: "o0", "o1", "o2", "o3", "o4", "o5", "o7",
 			  "g1", "g2", "g3", "cc");
 #ifdef DEBUG_MULDIV
@@ -203,7 +206,7 @@ int do_user_muldiv(struct pt_regs *regs, unsigned long pc)
 			"mov	%%o1, %0\n\t"
 			"mov	%%o0, %1\n\t"
 			: "=r" (rs1), "=r" (rs2)
-			: "r" (regs->y)
+			: "r" (regs->y), "0" (rs1), "1" (rs2)
 			: "o0", "o1", "o2", "o3", "o4", "o5", "o7",
 			  "g1", "g2", "g3", "cc");
 #ifdef DEBUG_MULDIV

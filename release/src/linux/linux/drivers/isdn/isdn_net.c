@@ -1,4 +1,4 @@
-/* $Id: isdn_net.c,v 1.1.1.4 2003/10/14 08:08:11 sparq Exp $
+/* $Id: isdn_net.c,v 1.1.4.1 2001/11/20 14:19:34 kai Exp $
  *
  * Linux ISDN subsystem, network interfaces and related functions (linklevel).
  *
@@ -183,7 +183,7 @@ static int isdn_net_start_xmit(struct sk_buff *, struct net_device *);
 static void isdn_net_ciscohdlck_connected(isdn_net_local *lp);
 static void isdn_net_ciscohdlck_disconnected(isdn_net_local *lp);
 
-char *isdn_net_revision = "$Revision: 1.1.1.4 $";
+char *isdn_net_revision = "$Revision: 1.1.4.1 $";
 
  /*
   * Code for raw-networking over ISDN
@@ -1296,6 +1296,16 @@ isdn_net_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 						restore_flags(flags);
 						return 0;	/* STN (skb to nirvana) ;) */
 					}
+#ifdef CONFIG_IPPP_FILTER
+					if (isdn_ppp_autodial_filter(skb, lp)) {
+						isdn_ppp_free(lp);
+						isdn_net_unbind_channel(lp);
+						restore_flags(flags);
+						isdn_net_unreachable(ndev, skb, "dial rejected: packet filtered");
+						dev_kfree_skb(skb);
+						return 0;
+					}
+#endif
 					restore_flags(flags);
 					isdn_net_dial();	/* Initiate dialing */
 					netif_stop_queue(ndev);
@@ -1793,9 +1803,6 @@ isdn_net_receive(struct net_device *ndev, struct sk_buff *skb)
 {
 	isdn_net_local *lp = (isdn_net_local *) ndev->priv;
 	isdn_net_local *olp = lp;	/* original 'lp' */
-#ifdef CONFIG_ISDN_PPP
-	int proto = PPP_PROTOCOL(skb->data);
-#endif
 #ifdef CONFIG_ISDN_X25
 	struct concap_proto *cprot = lp -> netdev -> cprot;
 #endif
@@ -1855,14 +1862,7 @@ isdn_net_receive(struct net_device *ndev, struct sk_buff *skb)
 			break;
 #ifdef CONFIG_ISDN_PPP
 		case ISDN_NET_ENCAP_SYNCPPP:
-			/*
-			 * If encapsulation is syncppp, don't reset
-			 * huptimer on LCP packets.
-			 */
-			if (proto != PPP_LCP) {
-				olp->huptimer = 0;
-				lp->huptimer = 0;
-			}
+			/* huptimer is done in isdn_ppp_push_higher */
 			isdn_ppp_receive(lp->netdev, olp, skb);
 			return;
 #endif
@@ -2159,7 +2159,7 @@ isdn_net_find_icall(int di, int ch, int idx, setup_parm *setup)
 	isdn_net_dev *p;
 	isdn_net_phone *n;
 	ulong flags;
-	char nr[32];
+	char nr[ISDN_MSNLEN];
 	char *my_eaz;
 
 	/* Search name in netdev-chain */
@@ -2169,8 +2169,10 @@ isdn_net_find_icall(int di, int ch, int idx, setup_parm *setup)
 		nr[0] = '0';
 		nr[1] = '\0';
 		printk(KERN_INFO "isdn_net: Incoming call without OAD, assuming '0'\n");
-	} else
-		strcpy(nr, setup->phone);
+	} else {
+		strncpy(nr, setup->phone, ISDN_MSNLEN - 1);
+		nr[ISDN_MSNLEN - 1] = 0;
+	}
 	si1 = (int) setup->si1;
 	si2 = (int) setup->si2;
 	if (!setup->eazmsn[0]) {
@@ -2831,6 +2833,7 @@ isdn_net_setcfg(isdn_net_ioctl_cfg * cfg)
 
 			/* If binding is exclusive, try to grab the channel */
 			save_flags(flags);
+			cli();
 			if ((i = isdn_get_free_channel(ISDN_USAGE_NET,
 				lp->l2_proto, lp->l3_proto, drvidx,
 				chidx, lp->msn)) < 0) {
@@ -2854,7 +2857,8 @@ isdn_net_setcfg(isdn_net_ioctl_cfg * cfg)
 				chidx = -1;
 			}
 		}
-		strcpy(lp->msn, cfg->eaz);
+		strncpy(lp->msn, cfg->eaz, sizeof(lp->msn) - 1);
+		lp->msn[sizeof(lp->msn) - 1] = 0;
 		lp->pre_device = drvidx;
 		lp->pre_channel = chidx;
 		lp->onhtime = cfg->onhtime;
@@ -3003,7 +3007,8 @@ isdn_net_addphone(isdn_net_ioctl_phone * phone)
 	if (p) {
 		if (!(n = (isdn_net_phone *) kmalloc(sizeof(isdn_net_phone), GFP_KERNEL)))
 			return -ENOMEM;
-		strcpy(n->num, phone->phone);
+		strncpy(n->num, phone->phone, sizeof(n->num) - 1);
+		n->num[sizeof(n->num) - 1] = 0;
 		n->next = p->local->phone[phone->outgoing & 1];
 		p->local->phone[phone->outgoing & 1] = n;
 		return 0;

@@ -55,7 +55,7 @@ do {			\
 
 /*-------------------------------------------------------------------*/
 /* Version Information */
-#define DRIVER_VERSION "1.2.6"
+#define DRIVER_VERSION "1.2.7"
 #define DRIVER_AUTHOR  "Wolfgang Mües <wolfgang@iksw-muees.de>"
 #define DRIVER_DESC    "Auerswald PBX/System Telephone usb driver"
 
@@ -110,8 +110,8 @@ static int auerswald_status_retry(int status)
 	case 0:
 	case -ETIMEDOUT:
 	case -EOVERFLOW:
+	case -EFBIG:
 	case -EAGAIN:
-	case -EPIPE:
 	case -EPROTO:
 	case -EILSEQ:
 	case -ENOSR:

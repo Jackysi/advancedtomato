@@ -30,7 +30,7 @@
  *		  - slot 0: SCSI interrupt
  *		  - slot 1: Sound interrupt
  *
- * Levels 3-6 vary by machine type. For VIA or RBV Macintohes:
+ * Levels 3-6 vary by machine type. For VIA or RBV Macintoshes:
  *
  *	3	- unused (?)
  *
@@ -490,6 +490,13 @@ int mac_irq_pending( unsigned int irq )
 	return 0;
 }
 
+/*
+ * Add an interrupt service routine to an interrupt source.
+ * Returns 0 on success.
+ *
+ * FIXME: You can register interrupts on nonexistent source (ie PSC4 on a
+ *        non-PSC machine). We should return -EINVAL in those cases.
+ */
  
 int mac_request_irq(unsigned int irq,
 		    void (*handler)(int, void *, struct pt_regs *),
@@ -678,7 +685,23 @@ void mac_nmi_handler(int irq, void *dev_id, struct pt_regs *fp)
 		udelay(1000);
 
 	if ( console_loglevel >= 8 ) {
+#if 0
+		show_state();
+		printk("PC: %08lx\nSR: %04x  SP: %p\n", fp->pc, fp->sr, fp);
+		printk("d0: %08lx    d1: %08lx    d2: %08lx    d3: %08lx\n",
+		       fp->d0, fp->d1, fp->d2, fp->d3);
+		printk("d4: %08lx    d5: %08lx    a0: %08lx    a1: %08lx\n",
+		       fp->d4, fp->d5, fp->a0, fp->a1);
+	
+		if (STACK_MAGIC != *(unsigned long *)current->kernel_stack_page)
+			printk("Corrupted stack page\n");
+		printk("Process %s (pid: %d, stackpage=%08lx)\n",
+			current->comm, current->pid, current->kernel_stack_page);
+		if (intr_count == 1)
+			dump_stack((struct frame *)fp);
+#else
 		/* printk("NMI "); */
+#endif
 	}
 	in_nmi--;
 }

@@ -23,12 +23,6 @@
 
 /*
  * $Log: NCR5380.h,v $
- * Revision 1.1.1.2  2003/10/14 08:08:36  sparq
- * Broadcom Release 3.51.8.0 for BCM4712.
- *
- * Revision 1.1.1.1  2003/02/03 22:37:51  mhuang
- * LINUX_2_4 branch snapshot from linux-mips.org CVS
- *
  */
 
 #ifndef NCR5380_H
@@ -179,7 +173,11 @@
 #define CSR_SCSI_BUF_RDY       0x02	/* ro  SCSI buffer read */
 #define CSR_GATED_53C80_IRQ    0x01	/* ro  Last block xferred */
 
+#if 0
+#define CSR_BASE CSR_SCSI_BUFF_INTR | CSR_53C80_INTR
+#else
 #define CSR_BASE CSR_53C80_INTR
+#endif
 
 /* Number of 128-byte blocks to be transferred */
 #define C400_BLOCK_COUNTER_REG   NCR53C400_register_offset-7	/* rw */
@@ -235,7 +233,7 @@
  * Scsi_Host structure
  */
 
-#define IRQ_NONE	255
+#define SCSI_IRQ_NONE	255
 #define DMA_NONE	255
 #define IRQ_AUTO	254
 #define DMA_AUTO	254

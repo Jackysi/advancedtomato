@@ -1,4 +1,4 @@
-/* $Id: avmcard.h,v 1.1.1.4 2003/10/14 08:08:11 sparq Exp $
+/* $Id: avmcard.h,v 1.1.4.1 2001/11/20 14:19:34 kai Exp $
  *
  * Copyright 1999 by Carsten Paeth <calle@calle.de>
  *

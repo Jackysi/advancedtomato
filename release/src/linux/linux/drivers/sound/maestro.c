@@ -383,6 +383,7 @@ static struct notifier_block maestro_nb = {maestro_notifier, NULL, 0};
 
 struct ess_state {
 	unsigned int magic;
+	/* FIXME: we probably want submixers in here, but only one record pair */
 	u8 apu[6];		/* l/r output, l/r intput converters, l/r input apus */
 	u8 apu_mode[6];		/* Running mode for this APU */
 	u8 apu_pan[6];		/* Panning setup for this APU */
@@ -409,6 +410,8 @@ struct ess_state {
 		unsigned buforder;
 		unsigned numfrag;
 		unsigned fragshift;
+		/* XXX zab - swptr only in here so that it can be referenced by
+			clear_advance, as far as I can tell :( */
 		unsigned hwptr, swptr;
 		unsigned total_bytes;
 		int count;
@@ -845,6 +848,7 @@ static u16 __init maestro_ac97_init(struct ess_card *card)
 		card->mix.supported_mixers &= ~(SOUND_MASK_BASS|SOUND_MASK_TREBLE);
 	}
 
+	/* XXX endianness, dork head. */
 	/* vendor specifc bits.. */
 	switch ((long)(vend1 << 16) | vend2) {
 	case 0x545200ff:	/* TriTech */
@@ -863,6 +867,14 @@ static u16 __init maestro_ac97_init(struct ess_card *card)
 		card->mix.supported_mixers &= ~(SOUND_MASK_MIC);
 		card->mix.record_sources = 0;
 		card->mix.recmask_io = NULL;
+#if 0	/* don't ask.  I have yet to see what these actually do. */
+		maestro_ac97_set(card,0x76,0xABBA); /* o/~ Take a chance on me o/~ */
+		udelay(20);
+		maestro_ac97_set(card,0x78,0x3002);
+		udelay(20);
+		maestro_ac97_set(card,0x78,0x3802);
+		udelay(20);
+#endif
 		break;
 #endif
 	default: break;
@@ -943,6 +955,32 @@ maestro_ac97_reset(int ioaddr, struct pci_dev *pcidev)
 	outw( inw(ioaddr + 0x3a) & 0xfffc, ioaddr + 0x3a);
 	outw( inw(ioaddr + 0x3c) & 0xfffc, ioaddr + 0x3c);
 
+#if 0 /* the loop here needs to be much better if we want it.. */
+	M_printk("trying software reset\n");
+	/* try and do a software reset */
+	outb(0x80|0x7c, ioaddr + 0x30);
+	for (w=0; ; w++) {
+		if ((inw(ioaddr+ 0x30) & 1) == 0) {
+			if(inb(ioaddr + 0x32) !=0) break;
+
+			outb(0x80|0x7d, ioaddr + 0x30);
+			if (((inw(ioaddr+ 0x30) & 1) == 0) && (inb(ioaddr + 0x32) !=0)) break;
+			outb(0x80|0x7f, ioaddr + 0x30);
+			if (((inw(ioaddr+ 0x30) & 1) == 0) && (inb(ioaddr + 0x32) !=0)) break;
+		}
+
+		if( w > 10000) {
+			outb( inb(ioaddr + 0x37) | 0x08, ioaddr + 0x37);  /* do a software reset */
+			mdelay(500); /* oh my.. */
+			outb( inb(ioaddr + 0x37) & ~0x08, ioaddr + 0x37);  
+			udelay(1);
+			outw( 0x80, ioaddr+0x30);
+			for(w = 0 ; w < 10000; w++) {
+				if((inw(ioaddr + 0x30) & 1) ==0) break;
+			}
+		}
+	}
+#endif
 	if ( vend == NEC_VERSA_SUBID1 || vend == NEC_VERSA_SUBID2) {
 		/* turn on external amp? */
 		outw(0xf9ff, ioaddr + 0x64);
@@ -1256,6 +1294,7 @@ static void set_adc_rate(struct ess_state *s, unsigned rate)
 /* Stop our host of recording apus */
 static inline void stop_adc(struct ess_state *s)
 {
+	/* XXX lets hope we don't have to lock around this */
 	if (! (s->enable & ADC_RUNNING)) return;
 
 	s->enable &= ~ADC_RUNNING;
@@ -1268,6 +1307,7 @@ static inline void stop_adc(struct ess_state *s)
 /* stop output apus */
 static void stop_dac(struct ess_state *s)
 {
+	/* XXX have to lock around this? */
 	if (! (s->enable & DAC_RUNNING)) return;
 
 	s->enable &= ~DAC_RUNNING;
@@ -1277,6 +1317,7 @@ static void stop_dac(struct ess_state *s)
 
 static void start_dac(struct ess_state *s)
 {
+	/* XXX locks? */
 	if (	(s->dma_dac.mapped || s->dma_dac.count > 0) && 
 		s->dma_dac.ready &&
 		(! (s->enable & DAC_RUNNING)) ) {
@@ -1294,6 +1335,7 @@ static void start_dac(struct ess_state *s)
 
 static void start_adc(struct ess_state *s)
 {
+	/* XXX locks? */
 	if ((s->dma_adc.mapped || s->dma_adc.count < (signed)(s->dma_adc.dmasize - 2*s->dma_adc.fragsize)) 
 	    && s->dma_adc.ready && (! (s->enable & ADC_RUNNING)) ) {
 
@@ -1360,12 +1402,14 @@ ess_play_setup(struct ess_state *ess, int mode, u32 rate, void *buffer, int size
 		
 		pa|=0x00400000;			/* System RAM */
 
+		/* XXX the 16bit here might not be needed.. */
 		if((mode & ESS_FMT_STEREO) && (mode & ESS_FMT_16BIT)) {
 			if(channel) 
 				pa|=0x00800000;			/* Stereo */
 			pa>>=1;
 		}
 			
+/* XXX think about endianess when writing these registers */
 		M_printk("maestro: ess_play_setup: APU[%d] pa = 0x%x\n", ess->apu[channel], pa);
 		/* start of sample */
 		apu_set_register(ess, channel, 4, ((pa>>16)&0xFF)<<8);
@@ -1512,6 +1556,7 @@ ess_rec_setup(struct ess_state *ess, int mode, u32 rate, void *buffer, int size)
 				
 		/* Load the buffer into the wave engine */
 		apu_set_register(ess, channel, 4, ((pa>>16)&0xFF)<<8);
+		/* XXX reg is little endian.. */
 		apu_set_register(ess, channel, 5, pa&0xFFFF);
 		apu_set_register(ess, channel, 6, (pa+bsize)&0xFFFF);
 		apu_set_register(ess, channel, 7, bsize);
@@ -1601,6 +1646,7 @@ static void start_bob(struct ess_state *s)
 	int prescale;
 	int divide;
 	
+	/* XXX make freq selector much smarter, see calc_bob_rate */
 	int freq = 200; 
 	
 	/* compute ideal interrupt frequency for buffer size & play rate */
@@ -1832,6 +1878,7 @@ ess_update_ptr(struct ess_state *s)
 					hwptr, s->dma_dac.swptr);
 				/* FILL ME 
 				wrindir(s, SV_CIENABLE, s->enable); */
+				/* XXX how on earth can calling this with the lock held work.. */
 				stop_dac(s);
 				/* brute force everyone back in sync, sigh */
 				s->dma_dac.count = 0; 
@@ -2140,6 +2187,7 @@ static int drain_dac(struct ess_state *s, int nonblock)
 	current->state = TASK_INTERRUPTIBLE;
         add_wait_queue(&s->dma_dac.wait, &wait);
         for (;;) {
+		/* XXX uhm.. questionable locking*/
                 spin_lock_irqsave(&s->lock, flags);
 		count = s->dma_dac.count;
                 spin_unlock_irqrestore(&s->lock, flags);
@@ -2154,6 +2202,8 @@ static int drain_dac(struct ess_state *s, int nonblock)
                 }
 		tmo = (count * HZ) / s->ratedac;
 		tmo >>= sample_shift[(s->fmt >> ESS_DAC_SHIFT) & ESS_FMT_MASK];
+		/* XXX this is just broken.  someone is waking us up alot, or schedule_timeout is broken.
+			or something.  who cares. - zach */
 		if (!schedule_timeout(tmo ? tmo : 1) && tmo)
 			M_printk(KERN_DEBUG "maestro: dma timed out?? %ld\n",jiffies);
         }
@@ -2443,6 +2493,15 @@ static int ess_mmap(struct file *file, struct vm_area_struct *vma)
 			goto out;
 		db = &s->dma_dac;
 	} else 
+#if 0
+	/* if we can have the wp/wc do the combining
+		we can turn this back on.  */
+	      if (vma->vm_flags & VM_READ) {
+		if ((ret = prog_dmabuf(s, 0)) != 0)
+			goto out;
+		db = &s->dma_adc;
+	} else  
+#endif
 		goto out;
 	ret = -EINVAL;
 	if (vma->vm_pgoff != 0)
@@ -2484,6 +2543,7 @@ static int ess_ioctl(struct inode *inode, struct file *file, unsigned int cmd, u
 		return 0;
 		
 	case SNDCTL_DSP_SETDUPLEX:
+		/* XXX fix */
 		return 0;
 
 	case SNDCTL_DSP_GETCAPS:
@@ -2584,6 +2644,12 @@ static int ess_ioctl(struct inode *inode, struct file *file, unsigned int cmd, u
 				s->dma_adc.ready = 0;
 	/* fixed at 16bit for now */
 				fmtd |= ESS_FMT_16BIT << ESS_ADC_SHIFT;
+#if 0
+				if (val == AFMT_S16_LE)
+					fmtd |= ESS_FMT_16BIT << ESS_ADC_SHIFT;
+				else
+					fmtm &= ~(ESS_FMT_16BIT << ESS_ADC_SHIFT);
+#endif
 			}
 			if (file->f_mode & FMODE_WRITE) {
 				stop_dac(s);
@@ -2811,6 +2877,8 @@ static void maestro_power(struct ess_card *card, int tostate)
 		pci_write_config_byte(card->pcidev, card->power_regs+0x4, tostate);
 	}
 
+	/* and make sure the units we care about are on 
+		XXX we might want to do this before state flipping? */
 	pci_write_config_word(card->pcidev, 0x54, ~ active_mask);
 	pci_write_config_word(card->pcidev, 0x56, ~ active_mask);
 }
@@ -3072,6 +3140,7 @@ maestro_config(struct ess_card *card)
 	
 	pci_read_config_word(pcidev, 0x52, &w);
 	w&=~(1<<15);		/* Turn off internal clock multiplier */
+	/* XXX how do we know which to use? */
 	w&=~(1<<14);		/* External clock */
 	
 	w|= (1<<7);		/* Hardware volume control on */
@@ -3214,6 +3283,7 @@ maestro_config(struct ess_card *card)
 		outw(0x0000, 0x12+iobase);
 	}
 
+#if 1
 	wave_set_register(ess, IDR7_WAVE_ROMRAM, 
 		(wave_get_register(ess, IDR7_WAVE_ROMRAM)&0xFF00));
 	wave_set_register(ess, IDR7_WAVE_ROMRAM,
@@ -3222,6 +3292,16 @@ maestro_config(struct ess_card *card)
 		wave_get_register(ess, IDR7_WAVE_ROMRAM)&~0x200);
 	wave_set_register(ess, IDR7_WAVE_ROMRAM,
 		wave_get_register(ess, IDR7_WAVE_ROMRAM)|~0x400);
+#else		
+	maestro_write(ess, IDR7_WAVE_ROMRAM, 
+		(maestro_read(ess, IDR7_WAVE_ROMRAM)&0xFF00));
+	maestro_write(ess, IDR7_WAVE_ROMRAM,
+		maestro_read(ess, IDR7_WAVE_ROMRAM)|0x100);
+	maestro_write(ess, IDR7_WAVE_ROMRAM,
+		maestro_read(ess, IDR7_WAVE_ROMRAM)&~0x200);
+	maestro_write(ess, IDR7_WAVE_ROMRAM,
+		maestro_read(ess, IDR7_WAVE_ROMRAM)|0x400);
+#endif
 	
 	maestro_write(ess, IDR2_CRAM_DATA, 0x0000);
 	maestro_write(ess, 0x08, 0xB004);
@@ -3279,7 +3359,7 @@ parse_power(struct ess_card *card, struct pci_dev *pcidev)
 	/* check to see if we have a capabilities list in
 		the config register */
 	pci_read_config_word(pcidev, PCI_STATUS, &w);
-	if(! w & PCI_STATUS_CAP_LIST) return 0;
+	if(!(w & PCI_STATUS_CAP_LIST)) return 0;
 
 	/* walk the list, starting at the head. */
 	pci_read_config_byte(pcidev,PCI_CAPABILITY_LIST,&next);
@@ -3491,6 +3571,8 @@ static void maestro_remove(struct pci_dev *pcidev) {
 	int i;
 	u32 n;
 	
+	/* XXX maybe should force stop bob, but should be all 
+		stopped by _release by now */
 
 	/* Turn off hardware volume control interrupt.
 	   This has to come before we leave the IRQ below,
@@ -3560,6 +3642,7 @@ static int maestro_notifier(struct notifier_block *nb, unsigned long event, void
 	M_printk("maestro: shutting down\n");
 	/* this will remove all card instances too */
 	pci_unregister_driver(&maestro_pci_driver);
+	/* XXX dunno about power management */
 	return NOTIFY_OK;
 }
 
@@ -3627,6 +3710,10 @@ maestro_suspend(struct ess_card *card)
 
 	restore_flags(flags);
 
+	/* we trust in the bios to power down the chip on suspend.
+	 * XXX I'm also not sure that in_suspend will protect
+	 * against all reg accesses from here on out. 
+	 */
 	return 0;
 }
 static int 

@@ -10,6 +10,9 @@
  *  PowerPC version 
  *    Copyright (C) 1995-1996 Gary Thomas (gdt@linuxppc.org)
  *
+ *  VMX/Altivec port from ppc32 (c) IBM 2003
+ *   Denis Joseph Barrow (dj@de.ibm.com,barrow_dj@yahoo.com)
+ *
  *  This program is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU General Public License
  *  as published by the Free Software Foundation; either version
@@ -42,10 +45,14 @@
 #include <asm/ppcdebug.h>
 #include <asm/machdep.h>
 #include <asm/iSeries/HvCallHpt.h>
+#include <asm/cputable.h>
 
 int dump_fpu(struct pt_regs *regs, elf_fpregset_t *fpregs);
 
+#ifndef CONFIG_SMP
 struct task_struct *last_task_used_math = NULL;
+struct task_struct *last_task_used_altivec = NULL;
+#endif /* CONFIG_SMP */
 static struct fs_struct init_fs = INIT_FS;
 static struct files_struct init_files = INIT_FILES;
 static struct signal_struct init_signals = INIT_SIGNALS;
@@ -92,6 +99,32 @@ dump_fpu(struct pt_regs *regs, elf_fpregset_t *fpregs)
 	return 1;
 }
 
+#ifdef CONFIG_ALTIVEC
+int
+dump_altivec(struct pt_regs *regs, elf_vrregset_t *vrregs)
+{
+	if (regs->msr & MSR_VEC)
+		giveup_altivec(current);
+	memcpy(vrregs, &current->thread.vr[0], sizeof(*vrregs));
+	return 1;
+}
+
+
+void
+enable_kernel_altivec(void)
+{
+#ifdef CONFIG_SMP
+	if (current->thread.regs && (current->thread.regs->msr & MSR_VEC))
+		giveup_altivec(current);
+	else
+		giveup_altivec(NULL);	/* just enable AltiVec for kernel - force */
+#else
+	giveup_altivec(last_task_used_altivec);
+#endif /* __SMP __ */
+}
+#endif /* CONFIG_ALTIVEC */
+
+
 void
 _switch_to(struct task_struct *prev, struct task_struct *new,
 	  struct task_struct **last)
@@ -120,7 +153,21 @@ _switch_to(struct task_struct *prev, struct task_struct *new,
 	 */
 	if ( prev->thread.regs && (prev->thread.regs->msr & MSR_FP) )
 		giveup_fpu(prev);
-
+#ifdef CONFIG_ALTIVEC
+	/*
+	 * If the previous thread used altivec in the last quantum
+	 * (thus changing altivec regs) then save them.
+	 * We used to check the VRSAVE register but not all apps
+	 * set it, so we don't rely on it now (and in fact we need
+	 * to save & restore VSCR even if VRSAVE == 0).  -- paulus
+	 *
+	 * On SMP we always save/restore altivec regs just to avoid the
+	 * complexity of changing processors.
+	 *  -- Cort
+	 */
+	if ((prev->thread.regs && (prev->thread.regs->msr & MSR_VEC)))
+		giveup_altivec(prev);
+#endif /* CONFIG_ALTIVEC */
 	/* prev->last_processor = prev->processor; */
 	current_set[smp_processor_id()].task = new;
 #endif /* CONFIG_SMP */
@@ -144,8 +191,11 @@ void show_regs(struct pt_regs * regs)
 	printk("TASK = %p[%d] '%s' ",
 	       current, current->pid, current->comm);
 	printk("Last syscall: %ld ", current->thread.last_syscall);
-	printk("\nlast math %p ", last_task_used_math);
-	
+#ifndef CONFIG_SMP
+	printk("\nlast math %p last altivec %p", last_task_used_math,
+	       last_task_used_altivec);
+#endif
+
 #ifdef CONFIG_SMP
 	/* printk(" CPU: %d last CPU: %d", current->processor,current->last_processor); */
 #endif /* CONFIG_SMP */
@@ -172,14 +222,22 @@ void show_regs(struct pt_regs * regs)
 
 void exit_thread(void)
 {
+#ifndef CONFIG_SMP
 	if (last_task_used_math == current)
 		last_task_used_math = NULL;
+	if (last_task_used_altivec == current)
+		last_task_used_altivec = NULL;
+#endif
 }
 
 void flush_thread(void)
 {
+#ifndef CONFIG_SMP
 	if (last_task_used_math == current)
 		last_task_used_math = NULL;
+	if (last_task_used_altivec == current)
+		last_task_used_altivec = NULL;
+#endif
 }
 
 void
@@ -224,7 +282,6 @@ copy_thread(int nr, unsigned long clone_flags, unsigned long usp,
 		/* Stack is in kernel space - must adjust */
 		childregs->gpr[1] = (unsigned long)(childregs + 1);
 		*((unsigned long *) childregs->gpr[1]) = 0;
-		childregs->gpr[13] = (unsigned long) p;
 	} else {
 		/* Provided stack is in user space */
 		childregs->gpr[1] = usp;
@@ -241,6 +298,19 @@ copy_thread(int nr, unsigned long clone_flags, unsigned long usp,
 	}
 	memcpy(&p->thread.fpr, &current->thread.fpr, sizeof(p->thread.fpr));
 	p->thread.fpscr = current->thread.fpscr;
+	p->thread.fpexc_mode = current->thread.fpexc_mode;
+
+#ifdef CONFIG_ALTIVEC
+	/*
+	 * copy altiVec info - assume lazy altiVec switch
+	 * - kumar
+	 */
+	if (regs->msr & MSR_VEC)
+		giveup_altivec(current);
+	memcpy(&p->thread.vr, &current->thread.vr, sizeof(p->thread.vr));
+	p->thread.vscr = current->thread.vscr;
+	childregs->msr &= ~MSR_VEC;
+#endif /* CONFIG_ALTIVEC */
 
 	return 0;
 }
@@ -273,9 +343,45 @@ void start_thread(struct pt_regs *regs, unsigned long fdptr, unsigned long sp)
 	regs->gpr[1] = sp;
 	regs->gpr[2] = toc;
 	regs->msr = MSR_USER64;
+#ifndef CONFIG_SMP
 	if (last_task_used_math == current)
 		last_task_used_math = 0;
+	if (last_task_used_altivec == current)
+		last_task_used_altivec = 0;
+#endif /* CONFIG_SMP */
+	memset(current->thread.fpr, 0, sizeof(current->thread.fpr));
 	current->thread.fpscr = 0;
+#ifdef CONFIG_ALTIVEC
+	memset(&current->thread.vr[0], 0,offsetof(struct thread_struct,vrsave[2])-
+	       offsetof(struct thread_struct,vr[0]));
+	current->thread.vscr.u[3] = 0x00010000; /* Java mode disabled */
+#endif /* CONFIG_ALTIVEC */
+}
+
+# define PR_FP_EXC_DISABLED     0       /* FP exceptions disabled */
+# define PR_FP_EXC_NONRECOV     1       /* async non-recoverable exc. mode */
+# define PR_FP_EXC_ASYNC        2       /* async recoverable exception mode */
+# define PR_FP_EXC_PRECISE      3       /* precise exception mode */
+
+int set_fpexc_mode(struct task_struct *tsk, unsigned int val)
+{
+	struct pt_regs *regs = tsk->thread.regs;
+
+	if (val > PR_FP_EXC_PRECISE)
+		return -EINVAL;
+	tsk->thread.fpexc_mode = __pack_fe01(val);
+	if (regs != NULL && (regs->msr & MSR_FP) != 0)
+		regs->msr = (regs->msr & ~(MSR_FE0|MSR_FE1))
+			| tsk->thread.fpexc_mode;
+	return 0;
+}
+
+int get_fpexc_mode(struct task_struct *tsk, unsigned long adr)
+{
+	unsigned int val;
+
+	val = __unpack_fe01(tsk->thread.fpexc_mode);
+	return put_user(val, (unsigned int *) adr);
 }
 
 int sys_clone(int p1, int p2, int p3, int p4, int p5, int p6,
@@ -309,7 +415,10 @@ int sys_execve(unsigned long a0, unsigned long a1, unsigned long a2,
 		goto out;
 	if (regs->msr & MSR_FP)
 		giveup_fpu(current);
-  
+#ifdef CONFIG_ALTIVEC
+	if (regs->msr & MSR_VEC)
+		giveup_altivec(current);
+#endif /* CONFIG_ALTIVEC */
 	error = do_execve(filename, (char **) a1, (char **) a2, regs);
   
 	if (error == 0)
@@ -337,13 +446,13 @@ void free_task_struct(struct task_struct * task_ptr)
 
 void initialize_paca_hardware_interrupt_stack(void)
 {
-	extern struct naca_struct *naca;
+	extern struct systemcfg *systemcfg;
 
 	int i;
 	unsigned long stack;
 	unsigned long end_of_stack =0;
 
-	for (i=1; i < naca->processorCount; i++) {
+	for (i=1; i < systemcfg->processorCount; i++) {
 		/* Carve out storage for the hardware interrupt stack */
 		stack = __get_free_pages(GFP_KERNEL, get_order(8*PAGE_SIZE));
 
@@ -363,10 +472,10 @@ void initialize_paca_hardware_interrupt_stack(void)
 	 * __get_free_pages() might give us a page > KERNBASE+256M which
 	 * is mapped with large ptes so we can't set up the guard page.
 	 */
-	if (__is_processor(PV_POWER4) || __is_processor(PV_POWER4p))
+	if (cur_cpu_spec->cpu_features & CPU_FTR_16M_PAGE)
 		return;
 
-	for (i=0; i < naca->processorCount; i++) {
+	for (i=0; i < systemcfg->processorCount; i++) {
 		/* set page at the top of stack to be protected - prevent overflow */
 		end_of_stack = paca[i].xHrdIntStack - (8*PAGE_SIZE - STACK_FRAME_OVERHEAD);
 		ppc_md.hpte_updateboltedpp(PP_RXRX,end_of_stack);
@@ -461,8 +570,12 @@ unsigned long get_wchan(struct task_struct *p)
 			return 0;
 		if (count > 0) {
 			ip = *(unsigned long *)(sp + 16);
+			/*
+			 * XXX we mask the upper 32 bits until procps
+			 * gets fixed.
+			 */
 			if (ip < first_sched || ip >= last_sched)
-				return (ip & 0xFFFFFFFF);
+				return (ip);
 		}
 	} while (count++ < 16);
 	return 0;

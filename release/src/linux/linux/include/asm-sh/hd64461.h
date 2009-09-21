@@ -1,7 +1,7 @@
 #ifndef __ASM_SH_HD64461
 #define __ASM_SH_HD64461
 /*
- *	$Id: hd64461.h,v 1.1.1.4 2003/10/14 08:09:21 sparq Exp $
+ *	$Id: hd64461.h,v 1.7 2001/07/07 11:43:58 yaegashi Exp $
  *	Copyright (C) 2000 YAEGASHI Takeshi
  *	Hitachi HD64461 companion chip support
  */

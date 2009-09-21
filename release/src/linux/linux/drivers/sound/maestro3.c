@@ -1261,6 +1261,7 @@ static void m3_interrupt(int irq, void *dev_id, struct pt_regs *regs)
         }
     }
 
+    /* XXX is this needed? */
     if(status & 0x40) 
         outb(0x40, c->iobase+0x1A);
 }
@@ -1309,6 +1310,8 @@ static int drain_dac(struct m3_state *s, int nonblock)
         }
         tmo = (count * HZ) / s->ratedac;
         tmo >>= sample_shift[(s->fmt >> ESS_DAC_SHIFT) & ESS_FMT_MASK];
+        /* XXX this is just broken.  someone is waking us up alot, or schedule_timeout is broken.
+            or something.  who cares. - zach */
         if (!schedule_timeout(tmo ? tmo : 1) && tmo)
             DPRINTK(DPCRAP,"dma timed out?? %ld\n",jiffies);
     }
@@ -1596,6 +1599,7 @@ static int m3_ioctl(struct inode *inode, struct file *file, unsigned int cmd, un
         return 0;
         
     case SNDCTL_DSP_SETDUPLEX:
+        /* XXX fix */
         return 0;
 
     case SNDCTL_DSP_GETCAPS:
@@ -2277,15 +2281,24 @@ static void m3_codec_reset(struct m3_card *card, int busywait)
                 delay1, delay2);
     }
 
+#if 0
+    /* more gung-ho reset that doesn't
+     * seem to work anywhere :)
+     */
+    tmp = inw(io + RING_BUS_CTRL_A);
+    outw(RAC_SDFS_ENABLE|LAC_SDFS_ENABLE, io + RING_BUS_CTRL_A);
+    mdelay(20);
+    outw(tmp, io + RING_BUS_CTRL_A);
+    mdelay(50);
+#endif
 }
 
 static int __init m3_codec_install(struct m3_card *card)
 {
     struct ac97_codec *codec;
 
-    if ((codec = kmalloc(sizeof(struct ac97_codec), GFP_KERNEL)) == NULL)
+    if ((codec = ac97_alloc_codec()) == NULL)
         return -ENOMEM;
-    memset(codec, 0, sizeof(struct ac97_codec));
 
     codec->private_data = card;
     codec->codec_read = m3_ac97_read;
@@ -2295,13 +2308,13 @@ static int __init m3_codec_install(struct m3_card *card)
 
     if (ac97_probe_codec(codec) == 0) {
         printk(KERN_ERR PFX "codec probe failed\n");
-        kfree(codec);
+        ac97_release_codec(codec);
         return -1;
     }
 
     if ((codec->dev_mixer = register_sound_mixer(&m3_mixer_fops, -1)) < 0) {
         printk(KERN_ERR PFX "couldn't register mixer!\n");
-        kfree(codec);
+        ac97_release_codec(codec);
         return -1;
     }
 
@@ -2760,7 +2773,7 @@ static int m3_notifier(struct notifier_block *nb, unsigned long event, void *buf
 
     for(card = devs; card != NULL; card = card->next) {
         if(!card->in_suspend)
-            m3_suspend(card->pcidev, 3); 
+            m3_suspend(card->pcidev, 3); /* XXX legal? */
     }
     return 0;
 }

@@ -1,7 +1,4 @@
 /*
- * BK Id: SCCS/s.mmu.h 1.10 06/28/01 15:50:17 paulus
- */
-/*
  * PowerPC memory management structures
  */
 
@@ -12,6 +9,18 @@
 #include <linux/config.h>
 
 #ifndef __ASSEMBLY__
+
+/*
+ * Define physical address type.  Machines using split size
+ * virtual/physical addressing like 32-bit virtual / 36-bit
+ * physical need a larger than native word size type. -Matt
+ */
+#ifdef CONFIG_PTE_64BIT
+typedef unsigned long long phys_addr_t;
+extern phys_addr_t fixup_bigphys_addr(phys_addr_t, phys_addr_t);
+#else
+typedef unsigned long phys_addr_t;
+#endif
 
 /* Default "unsigned long" context */
 typedef unsigned long mm_context_t;
@@ -41,7 +50,10 @@ typedef struct _PTE {
 	unsigned long g:1;	/* Guarded */
 	unsigned long  :1;	/* Unused */
 	unsigned long pp:2;	/* Page protection */
-} PTE; 
+} PTE;
+
+extern PTE *Hash, *Hash_end;
+extern unsigned long Hash_size, Hash_mask;
 
 /* Values for PP (assumes Ks=0, Kp=1) */
 #define PP_RWXX	0	/* Supervisor read/write, User none */
@@ -81,7 +93,7 @@ typedef struct _BATU {		/* Upper part of BAT (all except 601) */
 	unsigned long bl:11;	/* Block size mask */
 	unsigned long vs:1;	/* Supervisor valid */
 	unsigned long vp:1;	/* User valid */
-} BATU;   
+} BATU;
 
 typedef struct _P601_BATL {	/* Lower part of BAT for 601 processor */
 	unsigned long brpn:15;	/* Real page index (physical address) */
@@ -293,7 +305,7 @@ extern void _tlbia(void);		/* invalidate all TLB entries */
 
 #define	TLB_LO          1
 #define	TLB_HI          0
-       
+
 #define	TLB_DATA        TLB_LO
 #define	TLB_TAG         TLB_HI
 
@@ -313,7 +325,7 @@ extern void _tlbia(void);		/* invalidate all TLB entries */
 #define TLB_VALID       0x00000040      /* Entry is valid */
 
 /* Data portion */
-                 
+
 #define TLB_RPN_MASK    0xFFFFFC00      /* Real Page Number */
 #define TLB_PERM_MASK   0x00000300
 #define TLB_EX          0x00000200      /* Instruction execution allowed */
@@ -325,6 +337,55 @@ extern void _tlbia(void);		/* invalidate all TLB entries */
 #define TLB_I           0x00000004      /* Caching is inhibited */
 #define TLB_M           0x00000002      /* Memory is coherent */
 #define TLB_G           0x00000001      /* Memory is guarded from prefetch */
+
+/*
+ * PPC44x support
+ */
+#define PPC44x_MMUCR_TID	0x000000ff	
+#define PPC44x_MMUCR_STS	0x00010000
+
+#define	PPC44x_TLB_PAGEID	0
+#define	PPC44x_TLB_XLAT		1
+#define	PPC44x_TLB_ATTRIB	2
+
+/* Page identification fields */
+#define PPC44x_TLB_EPN_MASK	0xfffffc00      /* Effective Page Number */
+#define	PPC44x_TLB_VALID	0x00000200      /* Valid flag */
+#define PPC44x_TLB_TS		0x00000100	/* Translation address space */
+#define PPC44x_TLB_PAGESZ_MASK	0x000000f0
+#define PPC44x_TLB_PAGESZ(x)	(x << 4)
+#define PPC44x_PAGESZ_1K	0
+#define PPC44x_PAGESZ_4K	1
+#define PPC44x_PAGESZ_16K	2
+#define PPC44x_PAGESZ_64K	3
+#define PPC44x_PAGESZ_256K	4
+#define PPC44x_PAGESZ_1M	5
+#define PPC44x_PAGESZ_16M	7
+#define	PPC44x_PAGESZ_256M	9
+
+/* Translation fields */
+#define PPC44x_TLB_RPN_MASK	0xfffffc00      /* Real Page Number */
+#define	PPC44x_TLB_ERPN_MASK	0x0000000f
+
+/* Storage attribute and access control fields */
+#define PPC44x_TLB_ATTR_MASK	0x0000ff80
+#define PPC44x_TLB_U0		0x00008000      /* User 0 */
+#define PPC44x_TLB_U1		0x00004000      /* User 1 */
+#define PPC44x_TLB_U2		0x00002000      /* User 2 */
+#define PPC44x_TLB_U3		0x00001000      /* User 3 */
+#define PPC44x_TLB_W		0x00000800      /* Caching is write-through */
+#define PPC44x_TLB_I		0x00000400      /* Caching is inhibited */
+#define PPC44x_TLB_M		0x00000200      /* Memory is coherent */
+#define PPC44x_TLB_G		0x00000100      /* Memory is guarded */
+#define PPC44x_TLB_E		0x00000080      /* Memory is guarded */
+
+#define PPC44x_TLB_PERM_MASK	0x0000003f
+#define PPC44x_TLB_UX		0x00000020      /* User execution */
+#define PPC44x_TLB_UW		0x00000010      /* User write */
+#define PPC44x_TLB_UR		0x00000008      /* User read */
+#define PPC44x_TLB_SX		0x00000004      /* Super execution */
+#define PPC44x_TLB_SW		0x00000002      /* Super write */
+#define PPC44x_TLB_SR		0x00000001      /* Super read */
 
 #endif /* _PPC_MMU_H_ */
 #endif /* __KERNEL__ */

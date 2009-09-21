@@ -75,6 +75,9 @@
 #define MSR_P6_EVNTSEL0			0x186
 #define MSR_P6_EVNTSEL1			0x187
 
+#define MSR_IA32_PERF_STATUS		0x198
+#define MSR_IA32_PERF_CTL		0x199
+
 /* AMD Defined MSRs */
 #define MSR_K6_EFER			0xC0000080
 #define MSR_K6_STAR			0xC0000081
@@ -87,6 +90,7 @@
 #define MSR_K7_EVNTSEL0			0xC0010000
 #define MSR_K7_PERFCTR0			0xC0010004
 #define MSR_K7_HWCR			0xC0010015
+#define MSR_K7_CLK_CTL			0xC001001b
 #define MSR_K7_FID_VID_CTL		0xC0010041
 #define MSR_K7_VID_STATUS		0xC0010042
 
@@ -109,10 +113,13 @@
 /* VIA Cyrix defined MSRs*/
 #define MSR_VIA_FCR			0x1107
 #define MSR_VIA_LONGHAUL		0x110a
+#define MSR_VIA_RNG			0x110b
 #define MSR_VIA_BCR2			0x1147
 
 /* Transmeta defined MSRs */
 #define MSR_TMTA_LONGRUN_CTRL		0x80868010
 #define MSR_TMTA_LONGRUN_FLAGS		0x80868011
+#define MSR_TMTA_LRTI_READOUT		0x80868018
+#define MSR_TMTA_LRTI_VOLT_MHZ		0x8086801a
 
 #endif /* __ASM_MSR_H */

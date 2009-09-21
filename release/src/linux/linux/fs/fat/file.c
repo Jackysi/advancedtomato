@@ -62,7 +62,8 @@ int fat_get_block(struct inode *inode, long iblock, struct buffer_head *bh_resul
 	}
 	if (!create)
 		return 0;
-	if (iblock << sb->s_blocksize_bits != MSDOS_I(inode)->mmu_private) {
+
+	if (iblock != MSDOS_I(inode)->mmu_private >> sb->s_blocksize_bits){
 		BUG();
 		return -EIO;
 	}

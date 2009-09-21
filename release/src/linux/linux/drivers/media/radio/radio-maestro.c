@@ -307,30 +307,6 @@ void __exit maestro_radio_exit(void)
 	video_unregister_device(&maestro_radio);
 }
 
-int __init maestro_radio_init(void)
-{
-	register __u16 found=0;
-	struct pci_dev *pcidev = NULL;
-	if(!pci_present())
-		return -ENODEV;
-	while(!found && (pcidev = pci_find_device(PCI_VENDOR_ESS, 
-						  PCI_DEVICE_ID_ESS_ESS1968,
-						  pcidev)))
-		found |= radio_install(pcidev);
-	while(!found && (pcidev = pci_find_device(PCI_VENDOR_ESS,
-						  PCI_DEVICE_ID_ESS_ESS1978, 
-						  pcidev)))
-		found |= radio_install(pcidev);
-	if(!found) {
-		printk(KERN_INFO "radio-maestro: no devices found.\n");
-		return -ENODEV;
-	}
-	return 0;
-}
-
-module_init(maestro_radio_init);
-module_exit(maestro_radio_exit);
-
 inline static __u16 radio_power_on(struct radio_device *dev)
 {
 	register __u16 io=dev->io;
@@ -377,4 +353,28 @@ inline static __u16 radio_install(struct pci_dev *pcidev)
 	} else
 		return 0;   
 }
+
+int __init maestro_radio_init(void)
+{
+	register __u16 found=0;
+	struct pci_dev *pcidev = NULL;
+	if(!pci_present())
+		return -ENODEV;
+	while(!found && (pcidev = pci_find_device(PCI_VENDOR_ESS, 
+						  PCI_DEVICE_ID_ESS_ESS1968,
+						  pcidev)))
+		found |= radio_install(pcidev);
+	while(!found && (pcidev = pci_find_device(PCI_VENDOR_ESS,
+						  PCI_DEVICE_ID_ESS_ESS1978, 
+						  pcidev)))
+		found |= radio_install(pcidev);
+	if(!found) {
+		printk(KERN_INFO "radio-maestro: no devices found.\n");
+		return -ENODEV;
+	}
+	return 0;
+}
+
+module_init(maestro_radio_init);
+module_exit(maestro_radio_exit);
 

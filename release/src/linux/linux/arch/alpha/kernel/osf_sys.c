@@ -73,6 +73,10 @@ asmlinkage int osf_set_program_attributes(
 	mm = current->mm;
 	mm->end_code = bss_start + bss_len;
 	mm->brk = bss_start + bss_len;
+#if 0
+	printk("set_program_attributes(%lx %lx %lx %lx)\n",
+		text_start, text_len, bss_start, bss_len);
+#endif
 	unlock_kernel();
 	return 0;
 }
@@ -121,7 +125,7 @@ static int osf_filldir(void *__buf, const char *name, int namlen, loff_t offset,
 	put_user(reclen, &dirent->d_reclen);
 	copy_to_user(dirent->d_name, name, namlen);
 	put_user(0, dirent->d_name + namlen);
-	((char *) dirent) += reclen;
+	dirent = (char *)dirent + reclen;
 	buf->dirent = dirent;
 	buf->count -= reclen;
 	return 0;
@@ -226,6 +230,11 @@ asmlinkage unsigned long osf_mmap(unsigned long addr, unsigned long len,
 	struct file *file = NULL;
 	unsigned long ret = -EBADF;
 
+#if 0
+	if (flags & (_MAP_HASSEMAPHORE | _MAP_INHERIT | _MAP_UNALIGNED))
+		printk("%s: unimplemented OSF mmap flags %04lx\n", 
+			current->comm, flags);
+#endif
 	if (!(flags & MAP_ANONYMOUS)) {
 		file = fget(fd);
 		if (!file)
@@ -453,13 +462,8 @@ out:
 
 asmlinkage int osf_swapon(const char *path, int flags, int lowat, int hiwat)
 {
-	int ret;
-
 	/* for now, simply ignore lowat and hiwat... */
-	lock_kernel();
-	ret = sys_swapon(path, flags);
-	unlock_kernel();
-	return ret;
+	return sys_swapon(path, flags);
 }
 
 asmlinkage unsigned long sys_getpagesize(void)
@@ -520,18 +524,13 @@ asmlinkage long osf_shmat(int shmid, void *shmaddr, int shmflg)
 	unsigned long raddr;
 	long err;
 
-	lock_kernel();
 	err = sys_shmat(shmid, shmaddr, shmflg, &raddr);
-	if (err)
-		goto out;
+
 	/*
 	 * This works because all user-level addresses are
 	 * non-negative longs!
 	 */
-	err = raddr;
-out:
-	unlock_kernel();
-	return err;
+	return err ? err : (long)raddr;
 }
 
 
@@ -685,6 +684,13 @@ out:
 	return error;
 }
 
+/*
+ * The Linux kernel isn't good at returning values that look
+ * like negative longs (they are mistaken as error values).
+ * Until that is fixed, we need this little workaround for
+ * create_module() because it's one of the few system calls
+ * that return kernel addresses (which are negative).
+ */
 asmlinkage unsigned long alpha_create_module(char *module_name, unsigned long size,
 					  int a3, int a4, int a5, int a6,
 					     struct pt_regs regs)

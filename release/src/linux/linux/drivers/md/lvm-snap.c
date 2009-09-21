@@ -42,6 +42,9 @@
  *    15/10/2001 - fix snapshot alignment problem [CM]
  *               - fix snapshot full oops (always check lv_block_exception) [CM]
  *    26/06/2002 - support for new list_move macro [patch@luckynet.dynu.com]
+ *    26/07/2002 - removed conditional list_move macro because we will
+ *                 discontinue LVM1 before 2.6 anyway
+ *    27/08/2003 - fixed unsafe list handling in lvm_find_exception_table() [HM]
  *
  */
 
@@ -57,7 +60,8 @@
 
 #include "lvm-internal.h"
 
-static char *lvm_snap_version __attribute__ ((unused)) = "LVM "LVM_RELEASE_NAME" snapshot code ("LVM_RELEASE_DATE")\n";
+static char *lvm_snap_version __attribute__ ((unused)) =
+    "LVM " LVM_RELEASE_NAME " snapshot code (" LVM_RELEASE_DATE ")\n";
 
 
 extern const char *const lvm_name;
@@ -65,19 +69,20 @@ extern int lvm_blocksizes[];
 
 void lvm_snapshot_release(lv_t *);
 
-static int _write_COW_table_block(vg_t *vg, lv_t *lv, int idx,
+static int _write_COW_table_block(vg_t * vg, lv_t * lv, int idx,
 				  const char **reason);
-static void _disable_snapshot(vg_t *vg, lv_t *lv);
+static void _disable_snapshot(vg_t * vg, lv_t * lv);
 
 
 static inline int __brw_kiovec(int rw, int nr, struct kiobuf *iovec[],
 			       kdev_t dev, unsigned long b[], int size,
-			       lv_t *lv) {
+			       lv_t * lv)
+{
 	return brw_kiovec(rw, nr, iovec, dev, b, size);
 }
 
 
-static int _pv_get_number(vg_t * vg, kdev_t rdev, uint *pvn)
+static int _pv_get_number(vg_t * vg, kdev_t rdev, uint * pvn)
 {
 	uint p;
 	for (p = 0; p < vg->pv_max; p++) {
@@ -104,39 +109,31 @@ static int _pv_get_number(vg_t * vg, kdev_t rdev, uint *pvn)
 #define hashfn(dev,block,mask,chunk_size) \
 	((HASHDEV(dev)^((block)/(chunk_size))) & (mask))
 
-static inline lv_block_exception_t *
-lvm_find_exception_table(kdev_t org_dev, unsigned long org_start, lv_t * lv)
+static inline lv_block_exception_t *lvm_find_exception_table(kdev_t
+							     org_dev,
+							     unsigned long
+							     org_start,
+							     lv_t * lv)
 {
-	struct list_head * hash_table = lv->lv_snapshot_hash_table, * next;
+	struct list_head *hash_table = lv->lv_snapshot_hash_table, *next, *n;
 	unsigned long mask = lv->lv_snapshot_hash_mask;
 	int chunk_size = lv->lv_chunk_size;
-	lv_block_exception_t * ret;
-	int i = 0;
+	lv_block_exception_t *ret;
 
-	hash_table = &hash_table[hashfn(org_dev, org_start, mask, chunk_size)];
+	hash_table =
+	    &hash_table[hashfn(org_dev, org_start, mask, chunk_size)];
 	ret = NULL;
-	for (next = hash_table->next; next != hash_table; next = next->next)
-	{
-		lv_block_exception_t * exception;
+
+	for (next = hash_table->next, n = next->next; next != hash_table;
+             next = n, n = next->next) {
+		lv_block_exception_t *exception;
 
 		exception = list_entry(next, lv_block_exception_t, hash);
 		if (exception->rsector_org == org_start &&
-		    exception->rdev_org == org_dev)
-		{
-			if (i)
-			{
-				/* fun, isn't it? :) */
-#ifdef	list_move
-				list_move(next, hash_table);
-#else
-				list_del(next);
-				list_add(next, hash_table);
-#endif
-			}
+		    exception->rdev_org == org_dev) {
 			ret = exception;
 			break;
 		}
-		i++;
 	}
 	return ret;
 }
@@ -145,13 +142,14 @@ inline void lvm_hash_link(lv_block_exception_t * exception,
 			  kdev_t org_dev, unsigned long org_start,
 			  lv_t * lv)
 {
-	struct list_head * hash_table = lv->lv_snapshot_hash_table;
+	struct list_head *hash_table = lv->lv_snapshot_hash_table;
 	unsigned long mask = lv->lv_snapshot_hash_mask;
 	int chunk_size = lv->lv_chunk_size;
 
 	if (!hash_table)
 		BUG();
-	hash_table = &hash_table[hashfn(org_dev, org_start, mask, chunk_size)];
+	hash_table =
+	    &hash_table[hashfn(org_dev, org_start, mask, chunk_size)];
 	list_add(&exception->hash, hash_table);
 }
 
@@ -163,26 +161,25 @@ inline void lvm_hash_link(lv_block_exception_t * exception,
  *
  * We need to be holding at least a read lock on lv->lv_lock.
  */
-int lvm_snapshot_remap_block(kdev_t * org_dev, unsigned long * org_sector,
+int lvm_snapshot_remap_block(kdev_t * org_dev, unsigned long *org_sector,
 			     unsigned long pe_start, lv_t * lv)
 {
 	int ret;
 	unsigned long pe_off, pe_adjustment, __org_start;
 	kdev_t __org_dev;
 	int chunk_size = lv->lv_chunk_size;
-	lv_block_exception_t * exception;
+	lv_block_exception_t *exception;
 
 	if (!lv->lv_block_exception)
 		return -1;
 
 	pe_off = pe_start % chunk_size;
-	pe_adjustment = (*org_sector-pe_off) % chunk_size;
+	pe_adjustment = (*org_sector - pe_off) % chunk_size;
 	__org_start = *org_sector - pe_adjustment;
 	__org_dev = *org_dev;
 	ret = 0;
 	exception = lvm_find_exception_table(__org_dev, __org_start, lv);
-	if (exception)
-	{
+	if (exception) {
 		*org_dev = exception->rdev_new;
 		*org_sector = exception->rsector_new + pe_adjustment;
 		ret = 1;
@@ -190,7 +187,7 @@ int lvm_snapshot_remap_block(kdev_t * org_dev, unsigned long * org_sector,
 	return ret;
 }
 
-void lvm_drop_snapshot(vg_t *vg, lv_t *lv_snap, const char *reason)
+void lvm_drop_snapshot(vg_t * vg, lv_t * lv_snap, const char *reason)
 {
 	kdev_t last_dev;
 	int i;
@@ -203,7 +200,7 @@ void lvm_drop_snapshot(vg_t *vg, lv_t *lv_snap, const char *reason)
 	_disable_snapshot(vg, lv_snap);
 
 	for (i = last_dev = 0; i < lv_snap->lv_remap_ptr; i++) {
-		if ( lv_snap->lv_block_exception[i].rdev_new != last_dev) {
+		if (lv_snap->lv_block_exception[i].rdev_new != last_dev) {
 			last_dev = lv_snap->lv_block_exception[i].rdev_new;
 			invalidate_buffers(last_dev);
 		}
@@ -214,14 +211,14 @@ void lvm_drop_snapshot(vg_t *vg, lv_t *lv_snap, const char *reason)
 
 	printk(KERN_INFO
 	       "%s -- giving up to snapshot %s on %s: %s\n",
-	       lvm_name, lv_snap->lv_snapshot_org->lv_name, lv_snap->lv_name,
-	       reason);
+	       lvm_name, lv_snap->lv_snapshot_org->lv_name,
+	       lv_snap->lv_name, reason);
 }
 
 static inline int lvm_snapshot_prepare_blocks(unsigned long *blocks,
-					       unsigned long start,
-					       int nr_sectors,
-					       int blocksize)
+					      unsigned long start,
+					      int nr_sectors,
+					      int blocksize)
 {
 	int i, sectors_per_block, nr_blocks;
 
@@ -244,8 +241,7 @@ inline int lvm_get_blksize(kdev_t dev)
 	int correct_size = BLOCK_SIZE, i, major;
 
 	major = MAJOR(dev);
-	if (blksize_size[major])
-	{
+	if (blksize_size[major]) {
 		i = blksize_size[major][MINOR(dev)];
 		if (i)
 			correct_size = i;
@@ -254,10 +250,10 @@ inline int lvm_get_blksize(kdev_t dev)
 }
 
 #ifdef DEBUG_SNAPSHOT
-static inline void invalidate_snap_cache(unsigned long start, unsigned long nr,
-					 kdev_t dev)
+static inline void invalidate_snap_cache(unsigned long start,
+					 unsigned long nr, kdev_t dev)
 {
-	struct buffer_head * bh;
+	struct buffer_head *bh;
 	int sectors_per_block, i, blksize, minor;
 
 	minor = MINOR(dev);
@@ -266,8 +262,7 @@ static inline void invalidate_snap_cache(unsigned long start, unsigned long nr,
 	nr /= sectors_per_block;
 	start /= sectors_per_block;
 
-	for (i = 0; i < nr; i++)
-	{
+	for (i = 0; i < nr; i++) {
 		bh = get_hash_table(dev, start++, blksize);
 		if (bh)
 			bforget(bh);
@@ -280,40 +275,44 @@ int lvm_snapshot_fill_COW_page(vg_t * vg, lv_t * lv_snap)
 {
 	int id = 0, is = lv_snap->lv_remap_ptr;
 	ulong blksize_snap;
-	lv_COW_table_disk_t * lv_COW_table = (lv_COW_table_disk_t *)
-		page_address(lv_snap->lv_COW_table_iobuf->maplist[0]);
+	lv_COW_table_disk_t *lv_COW_table = (lv_COW_table_disk_t *)
+	    page_address(lv_snap->lv_COW_table_iobuf->maplist[0]);
 
 	if (is == 0)
 		return 0;
 
 	is--;
 	blksize_snap =
-		lvm_get_blksize(lv_snap->lv_block_exception[is].rdev_new);
+	    lvm_get_blksize(lv_snap->lv_block_exception[is].rdev_new);
 	is -= is % (blksize_snap / sizeof(lv_COW_table_disk_t));
 
 	memset(lv_COW_table, 0, blksize_snap);
-	for ( ; is < lv_snap->lv_remap_ptr; is++, id++) {
+	for (; is < lv_snap->lv_remap_ptr; is++, id++) {
 		/* store new COW_table entry */
-		lv_block_exception_t *be = lv_snap->lv_block_exception + is;
+		lv_block_exception_t *be =
+		    lv_snap->lv_block_exception + is;
 		uint pvn;
 
 		if (_pv_get_number(vg, be->rdev_org, &pvn))
 			goto bad;
 
 		lv_COW_table[id].pv_org_number = cpu_to_le64(pvn);
-		lv_COW_table[id].pv_org_rsector = cpu_to_le64(be->rsector_org);
+		lv_COW_table[id].pv_org_rsector =
+		    cpu_to_le64(be->rsector_org);
 
 		if (_pv_get_number(vg, be->rdev_new, &pvn))
 			goto bad;
 
 		lv_COW_table[id].pv_snap_number = cpu_to_le64(pvn);
-		lv_COW_table[id].pv_snap_rsector = cpu_to_le64(be->rsector_new);
+		lv_COW_table[id].pv_snap_rsector =
+		    cpu_to_le64(be->rsector_new);
 	}
 
 	return 0;
 
- bad:
-	printk(KERN_ERR "%s -- lvm_snapshot_fill_COW_page failed", lvm_name);
+      bad:
+	printk(KERN_ERR "%s -- lvm_snapshot_fill_COW_page failed",
+	       lvm_name);
 	return -1;
 }
 
@@ -323,12 +322,12 @@ int lvm_snapshot_fill_COW_page(vg_t * vg, lv_t * lv_snap)
  *
  * We need to hold a write lock on lv_snap->lv_lock.
  */
-int lvm_write_COW_table_block(vg_t * vg, lv_t *lv_snap)
+int lvm_write_COW_table_block(vg_t * vg, lv_t * lv_snap)
 {
 	int r;
 	const char *err;
-	if((r = _write_COW_table_block(vg, lv_snap,
-				       lv_snap->lv_remap_ptr - 1, &err)))
+	if ((r = _write_COW_table_block(vg, lv_snap,
+					lv_snap->lv_remap_ptr - 1, &err)))
 		lvm_drop_snapshot(vg, lv_snap, err);
 	return r;
 }
@@ -349,13 +348,15 @@ int lvm_snapshot_COW(kdev_t org_phys_dev,
 		     unsigned long org_phys_sector,
 		     unsigned long org_pe_start,
 		     unsigned long org_virt_sector,
-		     vg_t *vg, lv_t* lv_snap)
+		     vg_t * vg, lv_t * lv_snap)
 {
-	const char * reason;
-	unsigned long org_start, snap_start, snap_phys_dev, virt_start, pe_off;
+	const char *reason;
+	unsigned long org_start, snap_start, snap_phys_dev, virt_start,
+	    pe_off;
 	unsigned long phys_start;
-	int idx = lv_snap->lv_remap_ptr, chunk_size = lv_snap->lv_chunk_size;
-	struct kiobuf * iobuf = lv_snap->lv_iobuf;
+	int idx = lv_snap->lv_remap_ptr, chunk_size =
+	    lv_snap->lv_chunk_size;
+	struct kiobuf *iobuf = lv_snap->lv_iobuf;
 	unsigned long *blocks = iobuf->blocks;
 	int blksize_snap, blksize_org, min_blksize, max_blksize;
 	int max_sectors, nr_sectors;
@@ -366,7 +367,8 @@ int lvm_snapshot_COW(kdev_t org_phys_dev,
 
 	/* calculate physical boundaries of source chunk */
 	pe_off = org_pe_start % chunk_size;
-	org_start = org_phys_sector - ((org_phys_sector-pe_off) % chunk_size);
+	org_start =
+	    org_phys_sector - ((org_phys_sector - pe_off) % chunk_size);
 	virt_start = org_virt_sector - (org_phys_sector - org_start);
 
 	/* calculate physical boundaries of destination chunk */
@@ -381,25 +383,22 @@ int lvm_snapshot_COW(kdev_t org_phys_dev,
 	       lvm_name,
 	       kdevname(org_phys_dev), org_phys_sector, org_start,
 	       kdevname(snap_phys_dev), snap_start,
-	       chunk_size,
-	       org_pe_start, pe_off,
-	       org_virt_sector);
+	       chunk_size, org_pe_start, pe_off, org_virt_sector);
 #endif
 
 	blksize_org = lvm_sectsize(org_phys_dev);
 	blksize_snap = lvm_sectsize(snap_phys_dev);
 	max_blksize = max(blksize_org, blksize_snap);
 	min_blksize = min(blksize_org, blksize_snap);
-	max_sectors = KIO_MAX_SECTORS * (min_blksize>>9);
+	max_sectors = KIO_MAX_SECTORS * (min_blksize >> 9);
 
-	if (chunk_size % (max_blksize>>9))
+	if (chunk_size % (max_blksize >> 9))
 		goto fail_blksize;
 
 	/* Don't change org_start, we need it to fill in the exception table */
 	phys_start = org_start;
 
-	while (chunk_size)
-	{
+	while (chunk_size) {
 		nr_sectors = min(chunk_size, max_sectors);
 		chunk_size -= nr_sectors;
 
@@ -410,7 +409,8 @@ int lvm_snapshot_COW(kdev_t org_phys_dev,
 			goto fail_prepare;
 
 		if (__brw_kiovec(READ, 1, &iobuf, org_phys_dev, blocks,
-				 blksize_org, lv_snap) != (nr_sectors<<9))
+				 blksize_org,
+				 lv_snap) != (nr_sectors << 9))
 			goto fail_raw_read;
 
 		if (!lvm_snapshot_prepare_blocks(blocks, snap_start,
@@ -418,7 +418,8 @@ int lvm_snapshot_COW(kdev_t org_phys_dev,
 			goto fail_prepare;
 
 		if (__brw_kiovec(WRITE, 1, &iobuf, snap_phys_dev, blocks,
-				 blksize_snap, lv_snap) != (nr_sectors<<9))
+				 blksize_snap,
+				 lv_snap) != (nr_sectors << 9))
 			goto fail_raw_write;
 
 		phys_start += nr_sectors;
@@ -440,53 +441,55 @@ int lvm_snapshot_COW(kdev_t org_phys_dev,
 		      org_phys_dev, org_start, lv_snap);
 	lv_snap->lv_remap_ptr = idx + 1;
 	if (lv_snap->lv_snapshot_use_rate > 0) {
-		if (lv_snap->lv_remap_ptr * 100 / lv_snap->lv_remap_end >= lv_snap->lv_snapshot_use_rate)
+		if (lv_snap->lv_remap_ptr * 100 / lv_snap->lv_remap_end >=
+		    lv_snap->lv_snapshot_use_rate)
 			wake_up_interruptible(&lv_snap->lv_snapshot_wait);
 	}
 	return 0;
 
 	/* slow path */
-out:
+      out:
 	lvm_drop_snapshot(vg, lv_snap, reason);
 	return 1;
 
-fail_out_of_space:
+      fail_out_of_space:
 	reason = "out of space";
 	goto out;
-fail_raw_read:
+      fail_raw_read:
 	reason = "read error";
 	goto out;
-fail_raw_write:
+      fail_raw_write:
 	reason = "write error";
 	goto out;
-fail_blksize:
+      fail_blksize:
 	reason = "blocksize error";
 	goto out;
 
-fail_prepare:
+      fail_prepare:
 	reason = "couldn't prepare kiovec blocks "
-		"(start probably isn't block aligned)";
+	    "(start probably isn't block aligned)";
 	goto out;
 }
 
-int lvm_snapshot_alloc_iobuf_pages(struct kiobuf * iobuf, int sectors)
+int lvm_snapshot_alloc_iobuf_pages(struct kiobuf *iobuf, int sectors)
 {
 	int bytes, nr_pages, err, i;
 
 	bytes = sectors * SECTOR_SIZE;
 	nr_pages = (bytes + ~PAGE_MASK) >> PAGE_SHIFT;
 	err = expand_kiobuf(iobuf, nr_pages);
-	if (err) goto out;
+	if (err)
+		goto out;
 
 	err = -ENOMEM;
 	iobuf->locked = 1;
 	iobuf->nr_pages = 0;
-	for (i = 0; i < nr_pages; i++)
-	{
-		struct page * page;
+	for (i = 0; i < nr_pages; i++) {
+		struct page *page;
 
 		page = alloc_page(GFP_KERNEL);
-		if (!page) goto out;
+		if (!page)
+			goto out;
 
 		iobuf->maplist[i] = page;
 		LockPage(page);
@@ -496,7 +499,7 @@ int lvm_snapshot_alloc_iobuf_pages(struct kiobuf * iobuf, int sectors)
 
 	err = 0;
 
-out:
+      out:
 	return err;
 }
 
@@ -516,13 +519,13 @@ int lvm_snapshot_alloc_hash_table(lv_t * lv)
 {
 	int err;
 	unsigned long buckets, max_buckets, size;
-	struct list_head * hash;
+	struct list_head *hash;
 
 	buckets = lv->lv_remap_end;
 	max_buckets = calc_max_buckets();
 	buckets = min(buckets, max_buckets);
-	while (buckets & (buckets-1))
-		buckets &= (buckets-1);
+	while (buckets & (buckets - 1))
+		buckets &= (buckets - 1);
 
 	size = buckets * sizeof(struct list_head);
 
@@ -534,11 +537,11 @@ int lvm_snapshot_alloc_hash_table(lv_t * lv)
 		goto out;
 	lv->lv_snapshot_hash_table_size = size;
 
-	lv->lv_snapshot_hash_mask = buckets-1;
+	lv->lv_snapshot_hash_mask = buckets - 1;
 	while (buckets--)
-		INIT_LIST_HEAD(hash+buckets);
+		INIT_LIST_HEAD(hash + buckets);
 	err = 0;
-out:
+      out:
 	return err;
 }
 
@@ -548,33 +551,39 @@ int lvm_snapshot_alloc(lv_t * lv_snap)
 
 	/* allocate kiovec to do chunk io */
 	ret = alloc_kiovec(1, &lv_snap->lv_iobuf);
-	if (ret) goto out;
+	if (ret)
+		goto out;
 
-	max_sectors = KIO_MAX_SECTORS << (PAGE_SHIFT-9);
+	max_sectors = KIO_MAX_SECTORS << (PAGE_SHIFT - 9);
 
-	ret = lvm_snapshot_alloc_iobuf_pages(lv_snap->lv_iobuf, max_sectors);
-	if (ret) goto out_free_kiovec;
+	ret =
+	    lvm_snapshot_alloc_iobuf_pages(lv_snap->lv_iobuf, max_sectors);
+	if (ret)
+		goto out_free_kiovec;
 
 	/* allocate kiovec to do exception table io */
 	ret = alloc_kiovec(1, &lv_snap->lv_COW_table_iobuf);
-	if (ret) goto out_free_kiovec;
+	if (ret)
+		goto out_free_kiovec;
 
 	ret = lvm_snapshot_alloc_iobuf_pages(lv_snap->lv_COW_table_iobuf,
-					     PAGE_SIZE/SECTOR_SIZE);
-	if (ret) goto out_free_both_kiovecs;
+					     PAGE_SIZE / SECTOR_SIZE);
+	if (ret)
+		goto out_free_both_kiovecs;
 
 	ret = lvm_snapshot_alloc_hash_table(lv_snap);
-	if (ret) goto out_free_both_kiovecs;
+	if (ret)
+		goto out_free_both_kiovecs;
 
-out:
+      out:
 	return ret;
 
-out_free_both_kiovecs:
+      out_free_both_kiovecs:
 	unmap_kiobuf(lv_snap->lv_COW_table_iobuf);
 	free_kiovec(1, &lv_snap->lv_COW_table_iobuf);
 	lv_snap->lv_COW_table_iobuf = NULL;
 
-out_free_kiovec:
+      out_free_kiovec:
 	unmap_kiobuf(lv_snap->lv_iobuf);
 	free_kiovec(1, &lv_snap->lv_iobuf);
 	lv_snap->lv_iobuf = NULL;
@@ -585,27 +594,23 @@ out_free_kiovec:
 
 void lvm_snapshot_release(lv_t * lv)
 {
-	if (lv->lv_block_exception)
-	{
+	if (lv->lv_block_exception) {
 		vfree(lv->lv_block_exception);
 		lv->lv_block_exception = NULL;
 	}
-	if (lv->lv_snapshot_hash_table)
-	{
+	if (lv->lv_snapshot_hash_table) {
 		vfree(lv->lv_snapshot_hash_table);
 		lv->lv_snapshot_hash_table = NULL;
 		lv->lv_snapshot_hash_table_size = 0;
 	}
-	if (lv->lv_iobuf)
-	{
-	        kiobuf_wait_for_io(lv->lv_iobuf);
+	if (lv->lv_iobuf) {
+		kiobuf_wait_for_io(lv->lv_iobuf);
 		unmap_kiobuf(lv->lv_iobuf);
 		free_kiovec(1, &lv->lv_iobuf);
 		lv->lv_iobuf = NULL;
 	}
-	if (lv->lv_COW_table_iobuf)
-	{
-	        kiobuf_wait_for_io(lv->lv_COW_table_iobuf);
+	if (lv->lv_COW_table_iobuf) {
+		kiobuf_wait_for_io(lv->lv_COW_table_iobuf);
 		unmap_kiobuf(lv->lv_COW_table_iobuf);
 		free_kiovec(1, &lv->lv_COW_table_iobuf);
 		lv->lv_COW_table_iobuf = NULL;
@@ -613,55 +618,67 @@ void lvm_snapshot_release(lv_t * lv)
 }
 
 
-static int _write_COW_table_block(vg_t *vg, lv_t *lv_snap,
-				  int idx, const char **reason) {
+static int _write_COW_table_block(vg_t * vg, lv_t * lv_snap,
+				  int idx, const char **reason)
+{
 	int blksize_snap;
 	int end_of_table;
 	int idx_COW_table;
 	uint pvn;
 	ulong snap_pe_start, COW_table_sector_offset,
-	      COW_entries_per_pe, COW_chunks_per_pe, COW_entries_per_block;
+	    COW_entries_per_pe, COW_chunks_per_pe, COW_entries_per_block;
 	ulong blocks[1];
 	kdev_t snap_phys_dev;
 	lv_block_exception_t *be;
 	struct kiobuf *COW_table_iobuf = lv_snap->lv_COW_table_iobuf;
-	lv_COW_table_disk_t * lv_COW_table =
-	   ( lv_COW_table_disk_t *) page_address(lv_snap->lv_COW_table_iobuf->maplist[0]);
+	lv_COW_table_disk_t *lv_COW_table =
+	    (lv_COW_table_disk_t *) page_address(lv_snap->
+						 lv_COW_table_iobuf->
+						 maplist[0]);
 
 	COW_chunks_per_pe = LVM_GET_COW_TABLE_CHUNKS_PER_PE(vg, lv_snap);
 	COW_entries_per_pe = LVM_GET_COW_TABLE_ENTRIES_PER_PE(vg, lv_snap);
 
 	/* get physical addresse of destination chunk */
 	snap_phys_dev = lv_snap->lv_block_exception[idx].rdev_new;
-	snap_pe_start = lv_snap->lv_block_exception[idx - (idx % COW_entries_per_pe)].rsector_new - lv_snap->lv_chunk_size;
+	snap_pe_start =
+	    lv_snap->lv_block_exception[idx -
+					(idx %
+					 COW_entries_per_pe)].rsector_new -
+	    lv_snap->lv_chunk_size;
 
 	blksize_snap = lvm_sectsize(snap_phys_dev);
 
-        COW_entries_per_block = blksize_snap / sizeof(lv_COW_table_disk_t);
-        idx_COW_table = idx % COW_entries_per_pe % COW_entries_per_block;
+	COW_entries_per_block = blksize_snap / sizeof(lv_COW_table_disk_t);
+	idx_COW_table = idx % COW_entries_per_pe % COW_entries_per_block;
 
-	if ( idx_COW_table == 0) memset(lv_COW_table, 0, blksize_snap);
+	if (idx_COW_table == 0)
+		memset(lv_COW_table, 0, blksize_snap);
 
 	/* sector offset into the on disk COW table */
-	COW_table_sector_offset = (idx % COW_entries_per_pe) / (SECTOR_SIZE / sizeof(lv_COW_table_disk_t));
+	COW_table_sector_offset =
+	    (idx % COW_entries_per_pe) / (SECTOR_SIZE /
+					  sizeof(lv_COW_table_disk_t));
 
-        /* COW table block to write next */
-	blocks[0] = (snap_pe_start + COW_table_sector_offset) >> (blksize_snap >> 10);
+	/* COW table block to write next */
+	blocks[0] =
+	    (snap_pe_start +
+	     COW_table_sector_offset) >> (blksize_snap >> 10);
 
 	/* store new COW_table entry */
 	be = lv_snap->lv_block_exception + idx;
-	if(_pv_get_number(vg, be->rdev_org, &pvn))
+	if (_pv_get_number(vg, be->rdev_org, &pvn))
 		goto fail_pv_get_number;
 
 	lv_COW_table[idx_COW_table].pv_org_number = cpu_to_le64(pvn);
 	lv_COW_table[idx_COW_table].pv_org_rsector =
-		cpu_to_le64(be->rsector_org);
-	if(_pv_get_number(vg, snap_phys_dev, &pvn))
+	    cpu_to_le64(be->rsector_org);
+	if (_pv_get_number(vg, snap_phys_dev, &pvn))
 		goto fail_pv_get_number;
 
 	lv_COW_table[idx_COW_table].pv_snap_number = cpu_to_le64(pvn);
 	lv_COW_table[idx_COW_table].pv_snap_rsector =
-		cpu_to_le64(be->rsector_new);
+	    cpu_to_le64(be->rsector_new);
 
 	COW_table_iobuf->length = blksize_snap;
 	/* COW_table_iobuf->nr_pages = 1; */
@@ -672,36 +689,42 @@ static int _write_COW_table_block(vg_t *vg, lv_t *lv_snap,
 
 	/* initialization of next COW exception table block with zeroes */
 	end_of_table = idx % COW_entries_per_pe == COW_entries_per_pe - 1;
-	if (idx_COW_table % COW_entries_per_block == COW_entries_per_block - 1 || end_of_table)
-	{
+	if (idx_COW_table % COW_entries_per_block ==
+	    COW_entries_per_block - 1 || end_of_table) {
 		/* don't go beyond the end */
-		if (idx + 1 >= lv_snap->lv_remap_end) goto out;
+		if (idx + 1 >= lv_snap->lv_remap_end)
+			goto out;
 
 		memset(lv_COW_table, 0, blksize_snap);
 
-		if (end_of_table)
-		{
+		if (end_of_table) {
 			idx++;
-			snap_phys_dev = lv_snap->lv_block_exception[idx].rdev_new;
-			snap_pe_start = lv_snap->lv_block_exception[idx - (idx % COW_entries_per_pe)].rsector_new - lv_snap->lv_chunk_size;
+			snap_phys_dev =
+			    lv_snap->lv_block_exception[idx].rdev_new;
+			snap_pe_start =
+			    lv_snap->lv_block_exception[idx -
+							(idx %
+							 COW_entries_per_pe)].
+			    rsector_new - lv_snap->lv_chunk_size;
 			blksize_snap = lvm_sectsize(snap_phys_dev);
 			blocks[0] = snap_pe_start >> (blksize_snap >> 10);
-		} else blocks[0]++;
+		} else
+			blocks[0]++;
 
 		if (__brw_kiovec(WRITE, 1, &COW_table_iobuf, snap_phys_dev,
-                                 blocks, blksize_snap, lv_snap) !=
-                    blksize_snap)
+				 blocks, blksize_snap, lv_snap) !=
+		    blksize_snap)
 			goto fail_raw_write;
 	}
 
-out:
+      out:
 	return 0;
 
-fail_raw_write:
+      fail_raw_write:
 	*reason = "write error";
 	return 1;
 
-fail_pv_get_number:
+      fail_pv_get_number:
 	*reason = "_pv_get_number failed";
 	return 1;
 }
@@ -717,10 +740,12 @@ fail_pv_get_number:
  * to activate the snapshot and prevent this from happening.
  */
 
-static void _disable_snapshot(vg_t *vg, lv_t *lv) {
+static void _disable_snapshot(vg_t * vg, lv_t * lv)
+{
 	const char *err;
-	lv->lv_block_exception[0].rsector_org = LVM_SNAPSHOT_DROPPED_SECTOR;
-	if(_write_COW_table_block(vg, lv, 0, &err) < 0) {
+	lv->lv_block_exception[0].rsector_org =
+	    LVM_SNAPSHOT_DROPPED_SECTOR;
+	if (_write_COW_table_block(vg, lv, 0, &err) < 0) {
 		printk(KERN_ERR "%s -- couldn't disable snapshot: %s\n",
 		       lvm_name, err);
 	}

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2000, 2002 Hewlett-Packard Co
+ * Copyright (C) 2000, 2002-2003 Hewlett-Packard Co
  *	David Mosberger-Tang <davidm@hpl.hp.com>
  *
  * Kernel unwind support.
@@ -43,12 +43,6 @@ struct unw_info_block {
 	u64 header;
 	u64 desc[0];		/* unwind descriptors */
 	/* personality routine and language-specific data follow behind descriptors */
-};
-
-struct unw_table_entry {
-	u64 start_offset;
-	u64 end_offset;
-	u64 info_offset;
 };
 
 struct unw_table {
@@ -137,7 +131,8 @@ enum unw_insn_opcode {
 	UNW_INSN_SETNAT_MEMSTK,		/* s[dst+1].nat.type = MEMSTK;
 					   s[dst+1].nat.off = *s.pri_unat - s[dst] */
 	UNW_INSN_SETNAT_TYPE,		/* s[dst+1].nat.type = val */
-	UNW_INSN_LOAD			/* s[dst] = *s[val] */
+	UNW_INSN_LOAD,			/* s[dst] = *s[val] */
+	UNW_INSN_MOVE_SCRATCH,		/* s[dst] = scratch reg "val" */
 };
 
 struct unw_insn {
@@ -147,7 +142,7 @@ struct unw_insn {
 };
 
 /*
- * Preserved general static registers (r2-r5) give rise to two script
+ * Preserved general static registers (r4-r7) give rise to two script
  * instructions; everything else yields at most one instruction; at
  * the end of the script, the psp gets popped, accounting for one more
  * instruction.

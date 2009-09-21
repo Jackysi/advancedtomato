@@ -467,9 +467,20 @@ startup:basr  %r13,0                     # get base
 	larl  %r12,_pstart               # pointer to parameter area
 					 # move IPL device to lowcore
         mvc   __LC_IPLDEV(4),IPL_DEVICE+4-PARMAREA(%r12)
+
+#
+# clear bss memory
+#
+	larl  %r2,__bss_start           # start of bss segment
+        larl  %r3,_end                  # end of bss segment
+        sgr   %r3,%r2                   # length of bss
+        sgr   %r4,%r4                   #
+        sgr   %r5,%r5                   # set src,length and pad to zero
+        mvcle %r2,%r4,0                 # clear mem
+        jo    .-4                       # branch back, if not finish
+
 					 # set program check new psw mask
 	mvc   __LC_PGM_NEW_PSW(8),.Lpcmsk-.LPG1(%r13)
-
 
 #
 # find memory chunks.
@@ -542,6 +553,10 @@ startup:basr  %r13,0                     # get base
         bne    1f-.LPG1(%r13)
         oi     7(%r12),4                # set P/390 flag
 1:
+	chi    %r0,0x2084		# new stidp format?
+	bne    2f-.LPG1(%r13)
+	oi     7(%r12),64		# set new stidp flag
+2:	
 
 #
 # find out if we have the MVPG instruction
@@ -575,7 +590,7 @@ startup:basr  %r13,0                     # get base
         .quad  .Lduct                   # cr2: dispatchable unit control table
         .quad  0                        # cr3: instruction authorization
         .quad  0                        # cr4: instruction authorization
-        .quad  0                        # cr5:  various things
+        .quad  0xffffffffffffffff       # cr5: primary-aste origin
         .quad  0                        # cr6:  I/O interrupts
         .quad  0                        # cr7:  secondary space segment table
         .quad  0                        # cr8:  access registers translation
@@ -631,16 +646,7 @@ _stext:	basr  %r13,0                    # get base
         stg   %r15,__LC_KERNEL_STACK    # set end of kernel stack
         aghi  %r15,-160
         xc    0(8,%r15),0(%r15)         # set backchain to zero
-#
-# clear bss memory
-#
-	larl  %r2,__bss_start           # start of bss segment
-        larl  %r3,_end                  # end of bss segment
-        sgr   %r3,%r2                   # length of bss
-        sgr   %r4,%r4                   #
-        sgr   %r5,%r5                   # set src,length and pad to zero
-        mvcle %r2,%r4,0                 # clear mem
-        jo    .-4                       # branch back, if not finish
+
 # check control registers
         stctg  %c0,%c15,0(%r15)
 	oi     6(%r15),0x20             # enable sigp external interrupts
@@ -658,5 +664,5 @@ _stext:	basr  %r13,0                    # get base
 #
             .align 8
 .Ldw:       .quad  0x0002000180000000,0x0000000000000000
-.Laregs:    .long  0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0
+.Laregs:    .long  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
 

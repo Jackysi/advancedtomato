@@ -3,7 +3,7 @@
  * connections per IP address.
  *   (c) 2000 Gerd Knorr <kraxel@bytesex.org>
  *   Nov 2002: Martin Bene <martin.bene@icomedias.com>:
- *		only ignore TIME_WAIT or gone connections
+ *             only ignore TIME_WAIT or gone connections
  *
  * based on ...
  *
@@ -13,7 +13,6 @@
 #include <linux/module.h>
 #include <linux/skbuff.h>
 #include <linux/list.h>
-#include <linux/version.h>
 #include <linux/netfilter_ipv4/ip_conntrack.h>
 #include <linux/netfilter_ipv4/ip_conntrack_core.h>
 #include <linux/netfilter_ipv4/ip_conntrack_tcp.h>
@@ -36,9 +35,15 @@ struct ipt_connlimit_data {
 	struct list_head iphash[256];
 };
 
-static inline unsigned ipt_iphash(const unsigned addr)
+static int ipt_iphash(u_int32_t addr)
 {
-	return ((addr ^ (addr >> 8) ^ (addr >> 16) ^ (addr >> 24)) & 0xff);
+	int hash;
+
+	hash  =  addr        & 0xff;
+	hash ^= (addr >>  8) & 0xff;
+	hash ^= (addr >> 16) & 0xff;
+	hash ^= (addr >> 24) & 0xff;
+	return hash;
 }
 
 static int count_them(struct ipt_connlimit_data *data,
@@ -56,17 +61,17 @@ static int count_them(struct ipt_connlimit_data *data,
 	struct ipt_connlimit_conn *conn;
 	struct list_head *hash,*lh;
 
-	spin_lock_bh(&data->lock);
+	spin_lock(&data->lock);
 	tuple = ct->tuplehash[0].tuple;
 	hash = &data->iphash[ipt_iphash(addr & mask)];
 
 	/* check the saved connections */
 	for (lh = hash->next; lh != hash; lh = lh->next) {
 		conn = list_entry(lh,struct ipt_connlimit_conn,list);
-		found = ip_conntrack_find_get(&conn->tuple,ct);
-		if (found != NULL &&
-		    0 == memcmp(&conn->tuple,&tuple,sizeof(tuple)) &&
-		    found->ctrack->proto.tcp.state != TCP_CONNTRACK_TIME_WAIT) {
+               found = ip_conntrack_find_get(&conn->tuple,ct);
+               if (0 == memcmp(&conn->tuple,&tuple,sizeof(tuple)) &&
+                   found != NULL &&
+                   found->ctrack->proto.tcp.state != TCP_CONNTRACK_TIME_WAIT) {
 			/* Just to be sure we have it only once in the list.
 			   We should'nt see tuples twice unless someone hooks this
 			   into a table without "-p tcp --syn" */
@@ -84,6 +89,8 @@ static int count_them(struct ipt_connlimit_data *data,
 			lh = lh->prev;
 			list_del(lh->next);
 			kfree(conn);
+			/* connection in 'gone' state - sumit@elitecore.com */
+			matches++;
 			continue;
 		}
 		if (found->ctrack->proto.tcp.state == TCP_CONNTRACK_TIME_WAIT) {
@@ -118,7 +125,7 @@ static int count_them(struct ipt_connlimit_data *data,
 		list_add(&conn->list,hash);
 		matches++;
 	}
-	spin_unlock_bh(&data->lock);
+	spin_unlock(&data->lock);
 	return matches;
 }
 

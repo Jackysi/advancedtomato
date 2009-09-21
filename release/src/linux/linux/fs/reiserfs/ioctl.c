@@ -51,7 +51,7 @@ int reiserfs_ioctl (struct inode * inode, struct file * filp, unsigned int cmd,
 		if (get_user(flags, (int *) arg))
 			return -EFAULT;
 
-		if ( ( flags & REISERFS_IMMUTABLE_FL ) && 
+		if ( ( ( flags ^ inode->u.reiserfs_i.i_attrs) & ( REISERFS_IMMUTABLE_FL | REISERFS_APPEND_FL)) && 
 		     !capable( CAP_LINUX_IMMUTABLE ) )
 			return -EPERM;
 			
@@ -84,6 +84,7 @@ int reiserfs_ioctl (struct inode * inode, struct file * filp, unsigned int cmd,
 	default:
 		return -ENOTTY;
 	}
+	return 0;
 }
 
 /*

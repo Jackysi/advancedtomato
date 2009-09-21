@@ -3,7 +3,7 @@
  *
  * Author: Jonas Holmberg <jonas.holmberg@axis.com>
  *
- * $Id: amd_flash.c,v 1.1.1.4 2003/10/14 08:08:17 sparq Exp $
+ * $Id: amd_flash.c,v 1.19 2003/01/24 13:30:11 dwmw2 Exp $
  *
  * Copyright (c) 2001 Axis Communications AB
  *
@@ -75,6 +75,7 @@
 /* Fujitsu */
 #define MBM29LV160TE	0x22C4
 #define MBM29LV160BE	0x2249
+#define MBM29LV800BB	0x225B
 
 /* ST - www.st.com */
 #define M29W800T	0x00D7
@@ -560,6 +561,18 @@ static struct mtd_info *amd_flash_probe(struct map_info *map)
 			{ offset: 0x0FC000, erasesize: 0x04000, numblocks:  1 }
 		}
 	}, {
+		mfr_id: MANUFACTURER_FUJITSU,
+		dev_id: MBM29LV800BB,
+		name: "Fujitsu MBM29LV800BB",
+		size: 0x00100000,
+		numeraseregions: 4,
+		regions: {
+			{ offset: 0x000000, erasesize: 0x04000, numblocks:  1 },
+			{ offset: 0x004000, erasesize: 0x02000, numblocks:  2 },
+			{ offset: 0x008000, erasesize: 0x08000, numblocks:  1 },
+			{ offset: 0x010000, erasesize: 0x10000, numblocks: 15 }
+		}
+	}, {
 		mfr_id: MANUFACTURER_ST,
 		dev_id: M29W800T,
 		name: "ST M29W800T",
@@ -913,7 +926,7 @@ retry:
 
 	times_left = 500000;
 	while (times_left-- && flash_is_busy(map, adr, private->interleave)) { 
-		if (current->need_resched) {
+		if (need_resched()) {
 			spin_unlock_bh(chip->mutex);
 			schedule();
 			spin_lock_bh(chip->mutex);
@@ -1131,7 +1144,7 @@ retry:
 				return -EINTR;
 			}
 			
-			timeo = jiffies + (HZ*2); 
+			timeo = jiffies + (HZ*2); /* FIXME */
 			spin_lock_bh(chip->mutex);
 			continue;
 		}
@@ -1150,7 +1163,7 @@ retry:
 		/* Latency issues. Drop the lock, wait a while and retry */
 		spin_unlock_bh(chip->mutex);
 
-		if (current->need_resched)
+		if (need_resched())
 			schedule();
 		else
 			udelay(1);
@@ -1337,6 +1350,7 @@ static void amd_flash_sync(struct mtd_info *mtd)
 
 		default:
 			/* Not an idle state */
+			set_current_state(TASK_UNINTERRUPTIBLE);
 			add_wait_queue(&chip->wq, &wait);
 			
 			spin_unlock_bh(chip->mutex);

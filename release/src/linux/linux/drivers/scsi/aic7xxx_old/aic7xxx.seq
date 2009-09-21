@@ -32,7 +32,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- *	$Id: aic7xxx.seq,v 1.1.1.4 2003/10/14 08:08:44 sparq Exp $
+ *	$Id: aic7xxx.seq,v 1.77 1998/06/28 02:58:57 gibbs Exp $
  */
 
 #include "aic7xxx.reg"
@@ -238,6 +238,7 @@ selection:
  */
 initiator_reselect:
 	mvi	CLRSINT0, CLRSELDI;
+	/* XXX test for and handle ONE BIT condition */
 	and	SAVED_TCL, SELID_MASK, SELID;
 	mvi	CLRSINT1,CLRBUSFREE;
 	or	SIMODE1, ENBUSFREE;		/*

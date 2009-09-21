@@ -37,9 +37,9 @@
  * IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGES.
  *
- * $Id: aic7770.c,v 1.1.1.4 2003/10/14 08:08:43 sparq Exp $
+ * $Id: //depot/aic7xxx/aic7xxx/aic7770.c#32 $
  *
- * $FreeBSD: src/sys/dev/aic7xxx/aic7770.c,v 1.1 2000/09/16 20:02:27 gibbs Exp $
+ * $FreeBSD$
  */
 
 #ifdef __linux__
@@ -56,14 +56,18 @@
 #define ID_AHA_274x	0x04907771
 #define ID_AHA_284xB	0x04907756 /* BIOS enabled */
 #define ID_AHA_284x	0x04907757 /* BIOS disabled*/
+#define	ID_OLV_274x	0x04907782 /* Olivetti OEM */
+#define	ID_OLV_274xD	0x04907783 /* Olivetti OEM (Differential) */
 
+static int aic7770_chip_init(struct ahc_softc *ahc);
+static int aic7770_suspend(struct ahc_softc *ahc);
+static int aic7770_resume(struct ahc_softc *ahc);
 static int aha2840_load_seeprom(struct ahc_softc *ahc);
 static ahc_device_setup_t ahc_aic7770_VL_setup;
 static ahc_device_setup_t ahc_aic7770_EISA_setup;;
 static ahc_device_setup_t ahc_aic7770_setup;
 
-
-struct aic7770_identity aic7770_ident_table [] =
+struct aic7770_identity aic7770_ident_table[] =
 {
 	{
 		ID_AHA_274x,
@@ -76,6 +80,24 @@ struct aic7770_identity aic7770_ident_table [] =
 		0xFFFFFFFE,
 		"Adaptec 284X SCSI adapter",
 		ahc_aic7770_VL_setup
+	},
+	{
+		ID_AHA_284x,
+		0xFFFFFFFE,
+		"Adaptec 284X SCSI adapter (BIOS Disabled)",
+		ahc_aic7770_VL_setup
+	},
+	{
+		ID_OLV_274x,
+		0xFFFFFFFF,
+		"Adaptec (Olivetti OEM) 274X SCSI adapter",
+		ahc_aic7770_EISA_setup
+	},
+	{
+		ID_OLV_274xD,
+		0xFFFFFFFF,
+		"Adaptec (Olivetti OEM) 274X Differential SCSI adapter",
+		ahc_aic7770_EISA_setup
 	},
 	/* Generic chip probes for devices we don't know 'exactly' */
 	{
@@ -105,7 +127,6 @@ int
 aic7770_config(struct ahc_softc *ahc, struct aic7770_identity *entry, u_int io)
 {
 	u_long	l;
-	u_long	s;
 	int	error;
 	int	have_seeprom;
 	u_int	hostconf;
@@ -131,8 +152,14 @@ aic7770_config(struct ahc_softc *ahc, struct aic7770_identity *entry, u_int io)
 
 	ahc->description = entry->name;
 	error = ahc_softc_init(ahc);
+	if (error != 0)
+		return (error);
 
-	error = ahc_reset(ahc);
+	ahc->bus_chip_init = aic7770_chip_init;
+	ahc->bus_suspend = aic7770_suspend;
+	ahc->bus_resume = aic7770_resume;
+
+	error = ahc_reset(ahc, /*reinit*/FALSE);
 	if (error != 0)
 		return (error);
 
@@ -213,6 +240,9 @@ aic7770_config(struct ahc_softc *ahc, struct aic7770_identity *entry, u_int io)
 	ahc_outb(ahc, BUSSPD, hostconf & DFTHRSH);
 	ahc_outb(ahc, BUSTIME, (hostconf << 2) & BOFF);
 
+	ahc->bus_softc.aic7770_softc.busspd = hostconf & DFTHRSH;
+	ahc->bus_softc.aic7770_softc.bustime = (hostconf << 2) & BOFF;
+
 	/*
 	 * Generic aic7xxx initialization.
 	 */
@@ -235,16 +265,31 @@ aic7770_config(struct ahc_softc *ahc, struct aic7770_identity *entry, u_int io)
 	 */
 	ahc_outb(ahc, BCTL, ENABLE);
 
-	/*
-	 * Allow interrupts.
-	 */
-	ahc_lock(ahc, &s);
-	ahc_intr_enable(ahc, TRUE);
-	ahc_unlock(ahc, &s);
-
 	ahc_list_unlock(&l);
 
 	return (0);
+}
+
+static int
+aic7770_chip_init(struct ahc_softc *ahc)
+{
+	ahc_outb(ahc, BUSSPD, ahc->bus_softc.aic7770_softc.busspd);
+	ahc_outb(ahc, BUSTIME, ahc->bus_softc.aic7770_softc.bustime);
+	ahc_outb(ahc, SBLKCTL, ahc_inb(ahc, SBLKCTL) & ~AUTOFLUSHDIS);
+	ahc_outb(ahc, BCTL, ENABLE);
+	return (ahc_chip_init(ahc));
+}
+
+static int
+aic7770_suspend(struct ahc_softc *ahc)
+{
+	return (ahc_suspend(ahc));
+}
+
+static int
+aic7770_resume(struct ahc_softc *ahc)
+{
+	return (ahc_resume(ahc));
 }
 
 /*
@@ -365,5 +410,6 @@ ahc_aic7770_setup(struct ahc_softc *ahc)
 	ahc->features = AHC_AIC7770_FE;
 	ahc->bugs |= AHC_TMODE_WIDEODD_BUG;
 	ahc->flags |= AHC_PAGESCBS;
+	ahc->instruction_ram_size = 448;
 	return (0);
 }

@@ -96,7 +96,15 @@ static int __init snap_init(void)
 		printk("SNAP - unable to register with 802.2\n");
 	return 0;
 }
+
+static void __exit snap_exit(void)
+{
+	unregister_8022_client(0xAA);
+}
+
 module_init(snap_init);
+module_exit(snap_exit);
+
 
 /*
  *	Register SNAP clients. We don't yet use this for IP.
@@ -152,3 +160,5 @@ void unregister_snap_client(unsigned char *desc)
 
 	restore_flags(flags);
 }
+
+MODULE_LICENSE("GPL");

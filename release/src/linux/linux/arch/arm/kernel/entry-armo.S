@@ -99,6 +99,16 @@ irq_prio_h:	.byte	 0, 8, 9, 8,10,10,10,10,11,11,11,11,10,10,10,10
  * For entry-common.S
  */
 
+#if 0
+/*
+ * Uncomment these if you wish to get more debugging into about data aborts.
+ */
+#define FAULT_CODE_LDRSTRPOST	0x80
+#define FAULT_CODE_LDRSTRPRE	0x40
+#define FAULT_CODE_LDRSTRREG	0x20
+#define FAULT_CODE_LDMSTM	0x10
+#define FAULT_CODE_LDCSTC	0x08
+#endif
 #define FAULT_CODE_PREFETCH	0x04
 #define FAULT_CODE_WRITE	0x02
 #define FAULT_CODE_FORCECOW	0x01

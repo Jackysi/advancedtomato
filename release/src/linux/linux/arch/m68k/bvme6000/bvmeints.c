@@ -66,6 +66,15 @@ int bvme6000_request_irq(unsigned int irq,
 		printk("%s: Incorrect IRQ %d from %s\n", __FUNCTION__, irq, devname);
 		return -ENXIO;
 	}
+#if 0
+	/* Nothing special about auto-vectored devices for the BVME6000,
+	 * but treat it specially to avoid changes elsewhere.
+	 */
+
+	if (irq >= VEC_INT1 && irq <= VEC_INT7)
+		return sys_request_irq(irq - VEC_SPUR, handler, flags,
+						devname, dev_id);
+#endif
 	if (!(irq_tab[irq].flags & IRQ_FLG_STD)) {
 		if (irq_tab[irq].flags & IRQ_FLG_LOCK) {
 			printk("%s: IRQ %d from %s is not replaceable\n",
@@ -91,6 +100,12 @@ void bvme6000_free_irq(unsigned int irq, void *dev_id)
 		printk("%s: Incorrect IRQ %d\n", __FUNCTION__, irq);
 		return;
 	}
+#if 0
+	if (irq >= VEC_INT1 && irq <= VEC_INT7) {
+		sys_free_irq(irq - VEC_SPUR, dev_id);
+		return;
+	}
+#endif
 	if (irq_tab[irq].dev_id != dev_id)
 		printk("%s: Removing probably wrong IRQ %d from %s\n",
 		       __FUNCTION__, irq, irq_tab[irq].devname);

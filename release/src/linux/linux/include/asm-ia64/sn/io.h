@@ -3,8 +3,8 @@
  * License.  See the file "COPYING" in the main directory of this archive
  * for more details.
  *
+ * Copyright (C) 2000-2003 Silicon Graphics, Inc.  All Rights Reserved.
  * Copyright (C) 2000 Ralf Baechle
- * Copyright (C) 2000-2001 Silicon Graphics, Inc.
  */
 #ifndef _ASM_IA64_SN_IO_H
 #define _ASM_IA64_SN_IO_H
@@ -12,6 +12,8 @@
 #include <linux/config.h>
 
 #include <asm/sn/addrs.h>
+
+extern int numionodes;
 
 /* Because we only have PCI I/O ports.  */
 #define IIO_ITTE_BASE	0x400160	/* base of translation table entries */
@@ -56,26 +58,12 @@
 			(_x) : \
 			(_x) - (HUB_WIDGET_ID_MIN-1)) << 3) )
 
-#if defined(CONFIG_IA64_SGI_SN1)
-#include <asm/sn/sn1/bedrock.h>
-#include <asm/sn/sn1/hubio.h>
-#include <asm/sn/sn1/hubio_next.h>
-#include <asm/sn/sn1/hubmd.h>
-#include <asm/sn/sn1/hubmd_next.h>
-#include <asm/sn/sn1/hubpi.h>
-#include <asm/sn/sn1/hubpi_next.h>
-#include <asm/sn/sn1/hublb.h>
-#include <asm/sn/sn1/hublb_next.h>
-#include <asm/sn/sn1/hubni.h>
-#include <asm/sn/sn1/hubni_next.h>
-#include <asm/sn/sn1/hubxb.h>
-#include <asm/sn/sn1/hubxb_next.h>
-#include <asm/sn/sn1/hubstat.h>
-#include <asm/sn/sn1/hubdev.h>
-#include <asm/sn/sn1/synergy.h>
-#elif defined(CONFIG_IA64_SGI_SN2)
 #include <asm/sn/sn2/shub.h>
 #include <asm/sn/sn2/shubio.h>
-#endif
+
+/*
+ * Used to ensure write ordering (like mb(), but for I/O space)
+ */
+extern void sn_mmiob(void);
 
 #endif /* _ASM_IA64_SN_IO_H */

@@ -1,4 +1,17 @@
-
+/*
+ * linux/fs/hfs/binsert.c
+ *
+ * Copyright (C) 1995-1997  Paul H. Hargrove
+ * This file may be distributed under the terms of the GNU General Public License.
+ *
+ * This file contains the code to insert records in a B-tree.
+ *
+ * "XXX" in a comment is a note to myself to consider changing something.
+ *
+ * In function preconditions the term "valid" applied to a pointer to
+ * a structure means that the pointer is non-NULL and the structure it
+ * points to has all fields initialized to consistent values.
+ */
 
 #include "hfs_btree.h"
 
@@ -311,6 +324,50 @@ found:
 	return right;
 }
 
+/*
+ * binsert()
+ *
+ * Description:
+ *   Inserts a record in a tree known to have enough room, even if the
+ *   insertion requires the splitting of nodes.
+ * Input Variable(s):
+ *    struct hfs_brec *brec: partial path to the node to insert in
+ *    const struct hfs_bkey *key: key for the new record
+ *    const void *data: data for the new record
+ *    hfs_u8 keysize: size of the key
+ *    hfs_u16 datasize: size of the data
+ *    int reserve: number of nodes reserved in case of splits
+ * Output Variable(s):
+ *    *brec = NULL
+ * Returns:
+ *    int: 0 on success, error code on failure
+ * Preconditions:
+ *    'brec' points to a valid (struct hfs_brec) corresponding to a
+ *     record in a leaf node, after which a record is to be inserted,
+ *     or to "record 0" of the leaf node if the record is to be inserted
+ *     before all existing records in the node.	 The (struct hfs_brec)
+ *     includes all ancestors of the leaf node that are needed to
+ *     complete the insertion including the parents of any nodes that
+ *     will be split.
+ *    'key' points to a valid (struct hfs_bkey) which is appropriate
+ *     to this tree, and which belongs at the insertion point.
+ *    'data' points data appropriate for the indicated node.
+ *    'keysize' gives the size in bytes of the key.
+ *    'datasize' gives the size in bytes of the data.
+ *    'reserve' gives the number of nodes that have been reserved in the
+ *     tree to allow for splitting of nodes.
+ * Postconditions:
+ *    All 'reserve'd nodes have been either used or released.
+ *    *brec = NULL
+ *    On success the key and data have been inserted at the indicated
+ *    location in the tree, all appropriate fields of the in-core data
+ *    structures have been changed and updated versions of the on-disk
+ *    data structures have been scheduled for write-back to disk.
+ *    On failure the B*-tree is probably invalid both on disk and in-core.
+ *
+ *    XXX: Some attempt at repair might be made in the event of failure,
+ *    or the fs should be remounted read-only so things don't get worse.
+ */
 static int binsert(struct hfs_brec *brec, const struct hfs_bkey *key,
 		   const void *data, hfs_u8 keysize, hfs_u16 datasize,
 		   int reserve)

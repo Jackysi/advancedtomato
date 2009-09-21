@@ -233,6 +233,15 @@
  * keeps the same pseudo inode when a rename operation
  * is done on a file in the same directory.
  */
+/* #Specification: function name / convention
+ * A simple convention for function names has been used in
+ * the UMSDOS filesystem. First, all functions use the prefix
+ * umsdos_ to avoid name clashes with other parts of the kernel.
+ * 
+ * Standard VFS entry points use the prefix UMSDOS (upper case)
+ * so it's easier to tell them apart.
+ * N.B. (FIXME) PTW, the order and contents of this struct changed.
+ */
 
 /* #Specification: mount / options
  * Umsdos run on top of msdos. Currently, it supports no

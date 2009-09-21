@@ -55,11 +55,11 @@ struct illegal_op_return
 ia64_emulate_brl (struct pt_regs *regs, unsigned long ar_ec)
 {
 	unsigned long bundle[2];
-	unsigned long opcode, btype, qp, offset;
+	unsigned long opcode, btype, qp, offset, cpl;
 	unsigned long next_ip;
 	struct siginfo siginfo;
 	struct illegal_op_return rv;
-	int tmp_taken, unimplemented_address;
+	long tmp_taken, unimplemented_address;
 
 	rv.fkt = (unsigned long) -1;
 
@@ -158,9 +158,9 @@ ia64_emulate_brl (struct pt_regs *regs, unsigned long ar_ec)
 			 *  AR[PFS].pec = AR[EC]
 			 *  AR[PFS].ppl = PSR.cpl
 			 */
+			cpl = ia64_psr(regs)->cpl;
 			regs->ar_pfs = ((regs->cr_ifs & 0x3fffffffff)
-					| (ar_ec << 52)
-					| ((unsigned long) ia64_psr(regs)->cpl << 62));
+					| (ar_ec << 52) | (cpl << 62));
 
 			/*
 			 *  CFM.sof -= CFM.sol
@@ -195,7 +195,7 @@ ia64_emulate_brl (struct pt_regs *regs, unsigned long ar_ec)
 		/*
 		 *  The target address contains unimplemented bits.
 		 */
-		printk("Woah! Unimplemented Instruction Address Trap!\n");
+		printk(KERN_DEBUG "Woah! Unimplemented Instruction Address Trap!\n");
 		siginfo.si_signo = SIGILL;
 		siginfo.si_errno = 0;
 		siginfo.si_flags = 0;

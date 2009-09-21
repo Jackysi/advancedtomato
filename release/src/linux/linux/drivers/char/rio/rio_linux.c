@@ -26,21 +26,15 @@
  *      USA.
  *
  * Revision history:
- * $Log: rio_linux.c,v $
- * Revision 1.1.1.4  2003/10/14 08:08:08  sparq
- * Broadcom Release 3.51.8.0 for BCM4712.
- *
- * Revision 1.1.1.1  2003/02/03 22:37:40  mhuang
- * LINUX_2_4 branch snapshot from linux-mips.org CVS
- *
+ * $Log: rio.c,v $
  * Revision 1.1  1999/07/11 10:13:54  wolff
  * Initial revision
  *
  * */
 
 
-#define RCS_ID "$Id: rio_linux.c,v 1.1.1.4 2003/10/14 08:08:08 sparq Exp $"
-#define RCS_REV "$Revision: 1.1.1.4 $"
+#define RCS_ID "$Id: rio.c,v 1.1 1999/07/11 10:13:54 wolff Exp wolff $"
+#define RCS_REV "$Revision: 1.1 $"
 
 
 #include <linux/module.h>
@@ -156,6 +150,15 @@ more than 512 ports.... */
 */
 #define IRQ_RATE_LIMIT 200
 
+#if 0
+/* Not implemented */
+/* 
+ * The following defines are mostly for testing purposes. But if you need
+ * some nice reporting in your syslog, you can define them also.
+ */
+#define RIO_REPORT_FIFO
+#define RIO_REPORT_OVERRUN
+#endif 
 
 
 /* These constants are derived from SCO Source */
@@ -166,7 +169,7 @@ RIOConf =
   /* startuptime */     HZ*2,           /* how long to wait for card to run */
   /* slowcook */        0,              /* TRUE -> always use line disc. */
   /* intrpolltime */    1,              /* The frequency of OUR polls */
-  /* breakinterval */   25,             
+  /* breakinterval */   25,             /* x10 mS XXX: units seem to be 1ms not 10! -- REW*/
   /* timer */           10,             /* mS */
   /* RtaLoadBase */     0x7000,
   /* HostLoadBase */    0x7C00,
@@ -626,6 +629,20 @@ static void rio_shutdown_port (void * ptr)
 
   PortP = (struct Port *)ptr;
   PortP->gs.tty = NULL;
+#if 0
+  port->gs.flags &= ~ GS_ACTIVE;
+  if (!port->gs.tty) {
+    rio_dprintk (RIO_DBUG_TTY, "No tty.\n");
+    return;
+  }
+  if (!port->gs.tty->termios) {
+    rio_dprintk (RIO_DEBUG_TTY, "No termios.\n");
+    return;
+  }
+  if (port->gs.tty->termios->c_cflag & HUPCL) {
+    rio_setsignals (port, 0, 0);
+  }
+#endif
 
   func_exit();
 }
@@ -707,6 +724,12 @@ static int rio_ioctl (struct tty_struct * tty, struct file * filp,
 
   rc  = 0;
   switch (cmd) {
+#if 0
+  case TIOCGSOFTCAR:
+    rc = Put_user(((tty->termios->c_cflag & CLOCAL) ? 1 : 0),
+                  (unsigned int *) arg);
+    break;
+#endif
   case TIOCSSOFTCAR:
     if ((rc = verify_area(VERIFY_READ, (void *) arg,
                           sizeof(int))) == 0) {
@@ -751,6 +774,39 @@ static int rio_ioctl (struct tty_struct * tty, struct file * filp,
                           sizeof(struct serial_struct))) == 0)
       rc = gs_setserial(&PortP->gs, (struct serial_struct *) arg);
     break;
+#if 0
+  case TIOCMGET:
+    if ((rc = verify_area(VERIFY_WRITE, (void *) arg,
+                          sizeof(unsigned int))) == 0) {
+      ival = rio_getsignals(port);
+      put_user(ival, (unsigned int *) arg);
+    }
+    break;
+  case TIOCMBIS:
+    if ((rc = verify_area(VERIFY_READ, (void *) arg,
+                          sizeof(unsigned int))) == 0) {
+      Get_user(ival, (unsigned int *) arg);
+      rio_setsignals(port, ((ival & TIOCM_DTR) ? 1 : -1),
+                           ((ival & TIOCM_RTS) ? 1 : -1));
+    }
+    break;
+  case TIOCMBIC:
+    if ((rc = verify_area(VERIFY_READ, (void *) arg,
+                          sizeof(unsigned int))) == 0) {
+      Get_user(ival, (unsigned int *) arg);
+      rio_setsignals(port, ((ival & TIOCM_DTR) ? 0 : -1),
+                           ((ival & TIOCM_RTS) ? 0 : -1));
+    }
+    break;
+  case TIOCMSET:
+    if ((rc = verify_area(VERIFY_READ, (void *) arg,
+                          sizeof(unsigned int))) == 0) {
+      Get_user(ival, (unsigned int *) arg);
+      rio_setsignals(port, ((ival & TIOCM_DTR) ? 1 : 0),
+                           ((ival & TIOCM_RTS) ? 1 : 0));
+    }
+    break;
+#endif
   default:
     rc = -ENOIOCTLCMD;
     break;
@@ -965,6 +1021,7 @@ static int rio_init_datastructures (void)
   rio_driver.termios = rio_termios;
   rio_driver.termios_locked = rio_termios_locked;
   
+#if 1
   for (i = 0; i < RIO_PORTS; i++) {
     port = p->RIOPortp[i] = ckmalloc (sizeof (struct Port));
     if (!port) {
@@ -985,6 +1042,9 @@ static int rio_init_datastructures (void)
     init_waitqueue_head(&port->gs.open_wait);
     init_waitqueue_head(&port->gs.close_wait);
   }
+#else
+  /* We could postpone initializing them to when they are configured. */
+#endif
 
 
   
@@ -1145,8 +1205,8 @@ static int __init rio_init(void)
       hp->Ivec = get_irq (pdev);
       if (((1 << hp->Ivec) & rio_irqmask) == 0)
               hp->Ivec = 0;
-      hp->CardP	= (struct DpRam *)
       hp->Caddr = ioremap(p->RIOHosts[p->RIONumHosts].PaddrP, RIO_WINDOW_LEN);
+      hp->CardP	= (struct DpRam *) hp->Caddr;
       hp->Type  = RIO_PCI;
       hp->Copy  = rio_pcicopy; 
       hp->Mode  = RIO_PCI_BOOT_FROM_RAM;
@@ -1217,8 +1277,8 @@ static int __init rio_init(void)
       if (((1 << hp->Ivec) & rio_irqmask) == 0) 
       	hp->Ivec = 0;
       hp->Ivec |= 0x8000; /* Mark as non-sharable */
-      hp->CardP	= (struct DpRam *)
       hp->Caddr = ioremap(p->RIOHosts[p->RIONumHosts].PaddrP, RIO_WINDOW_LEN);
+      hp->CardP	= (struct DpRam *) hp->Caddr;
       hp->Type  = RIO_PCI;
       hp->Copy  = rio_pcicopy;
       hp->Mode  = RIO_PCI_BOOT_FROM_RAM;
@@ -1269,8 +1329,8 @@ static int __init rio_init(void)
     hp->PaddrP = rio_probe_addrs[i];
     /* There was something about the IRQs of these cards. 'Forget what.--REW */
     hp->Ivec = 0;
-    hp->CardP = (struct DpRam *)
     hp->Caddr = ioremap(p->RIOHosts[p->RIONumHosts].PaddrP, RIO_WINDOW_LEN);
+    hp->CardP = (struct DpRam *) hp->Caddr;
     hp->Type = RIO_AT;
     hp->Copy = rio_pcicopy; /* AT card PCI???? - PVDL
                              * -- YES! this is now a normal copy. Only the 
@@ -1324,7 +1384,7 @@ static int __init rio_init(void)
               rio_dprintk (RIO_DEBUG_INIT, "Enabling interrupts on rio card.\n"); 
               hp->Mode |= RIO_PCI_INT_ENABLE;
       } else
-              hp->Mode &= !RIO_PCI_INT_ENABLE;
+              hp->Mode &= ~RIO_PCI_INT_ENABLE;
       rio_dprintk (RIO_DEBUG_INIT, "New Mode: %x\n", hp->Mode);
       rio_start_card_running (hp);
     }

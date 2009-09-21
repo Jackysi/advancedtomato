@@ -141,8 +141,30 @@ extern int skip_ioapic_setup;
  */
 #define io_apic_assign_pci_irqs (mp_irq_entries && !skip_ioapic_setup)
 
-#else  /* !CONFIG_X86_IO_APIC */
+extern int skip_ioapic_setup;	/* 1 for "noapic" */
+
+static inline void disable_ioapic_setup(void)
+{
+	skip_ioapic_setup = 1;
+}
+
+static inline int ioapic_setup_disabled(void)
+{
+	return skip_ioapic_setup;
+}
+
+#else	/* !CONFIG_X86_IO_APIC */
+
 #define io_apic_assign_pci_irqs 0
-#endif
+
+static inline void disable_ioapic_setup(void)
+{ }
+
+#endif	/* !CONFIG_X86_IO_APIC */
+
+extern int io_apic_get_unique_id (int ioapic, int apic_id);
+extern int io_apic_get_version (int ioapic);
+extern int io_apic_get_redir_entries (int ioapic);
+extern int io_apic_set_pci_routing (int ioapic, int pin, int irq, int, int);
 
 #endif

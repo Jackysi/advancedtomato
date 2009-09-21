@@ -1104,6 +1104,9 @@ done:
 	return 0;
 }
 
+/*
+ *	FIXME: nonblock behaviour looks like it may have a bug.
+ */
 static int ax25_connect(struct socket *sock, struct sockaddr *uaddr, int addr_len, int flags)
 {
 	struct sock *sk = sock->sk;
@@ -1429,6 +1432,11 @@ static int ax25_sendmsg(struct socket *sock, struct msghdr *msg, int len, struct
 		else
 			dp = &dtmp;
 	} else {
+		/*
+		 *	FIXME: 1003.1g - if the socket is like this because
+		 *	it has become closed (not started closed) and is VC
+		 *	we ought to SIGPIPE, EPIPE
+		 */
 		if (sk->state != TCP_ESTABLISHED)
 			return -ENOTCONN;
 		sax.sax25_family = AF_AX25;
@@ -1563,6 +1571,7 @@ static int ax25_recvmsg(struct socket *sock, struct msghdr *msg, int size, int f
 
 static int ax25_shutdown(struct socket *sk, int how)
 {
+	/* FIXME - generate DM and RNR states */
 	return -EOPNOTSUPP;
 }
 

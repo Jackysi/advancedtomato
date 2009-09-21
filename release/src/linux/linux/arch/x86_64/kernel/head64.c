@@ -3,9 +3,10 @@
  *
  *  Copyright (C) 2000 Andrea Arcangeli <andrea@suse.de> SuSE
  *
- *  $Id: head64.c,v 1.1.1.4 2003/10/14 08:07:52 sparq Exp $
+ *  $Id: head64.c,v 1.27 2003/03/31 15:12:07 ak Exp $
  */
 
+#include <asm/bootsetup.h>
 #include <linux/init.h>
 #include <linux/linkage.h>
 #include <linux/types.h>
@@ -50,7 +51,7 @@ static void __init copy_bootdata(char *real_mode_data)
 		printk("old bootloader convention, maybe loadlin?\n");
 	}
 	command_line = (char *) ((u64)(new_data));
-	memcpy(saved_command_line, command_line, 2048);
+	memcpy(saved_command_line, command_line, COMMAND_LINE_SIZE);
 	printk("Bootdata ok (command line is %s)\n", saved_command_line);	
 }
 
@@ -81,6 +82,12 @@ void __init x86_64_start_kernel(char * real_mode_data)
 	s = strstr(saved_command_line, "earlyprintk="); 
 	if (s != NULL)
 		setup_early_printk(s+12); 
+#ifdef CONFIG_DISCONTIGMEM
+	extern int numa_setup(char *);
+	s = strstr(saved_command_line, "numa=");
+	if (s != NULL)
+		numa_setup(s+5);
+#endif		
 	early_printk("booting x86_64 kernel... ");
 	setup_boot_cpu_data();
 	start_kernel();

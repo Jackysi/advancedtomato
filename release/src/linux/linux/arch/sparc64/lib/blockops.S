@@ -1,4 +1,4 @@
-/* $Id: blockops.S,v 1.1.1.4 2003/10/14 08:07:51 sparq Exp $
+/* $Id: blockops.S,v 1.41 2001/12/05 06:05:35 davem Exp $
  * blockops.S: UltraSparc block zero optimized routines.
  *
  * Copyright (C) 1996, 1998, 1999, 2000 David S. Miller (davem@redhat.com)
@@ -65,12 +65,14 @@ cheetah_patch_1:
 	 */
 	ldub		[%g6 + AOFF_task_thread + AOFF_thread_use_blkcommit], %g3
 
+	/* Spitfire Errata #32 workaround */
 	mov		PRIMARY_CONTEXT, %o4
 	stxa		%g0, [%o4] ASI_DMMU
 	membar		#Sync
 
 	ldxa		[%o3] ASI_DTLB_TAG_READ, %o4
 
+	/* Spitfire Errata #32 workaround */
 	mov		PRIMARY_CONTEXT, %o5
 	stxa		%g0, [%o5] ASI_DMMU
 	membar		#Sync
@@ -82,12 +84,14 @@ cheetah_patch_1:
 	membar		#Sync
 	add		%o3, (TLBTEMP_ENTSZ), %o3
 
+	/* Spitfire Errata #32 workaround */
 	mov		PRIMARY_CONTEXT, %g5
 	stxa		%g0, [%g5] ASI_DMMU
 	membar		#Sync
 
 	ldxa		[%o3] ASI_DTLB_TAG_READ, %g5
 
+	/* Spitfire Errata #32 workaround */
 	mov		PRIMARY_CONTEXT, %g7
 	stxa		%g0, [%g7] ASI_DMMU
 	membar		#Sync
@@ -361,12 +365,14 @@ cheetah_patch_2:
 	rdpr		%pstate, %g3
 	wrpr		%g3, PSTATE_IE, %pstate
 
+	/* Spitfire Errata #32 workaround */
 	mov		PRIMARY_CONTEXT, %g5
 	stxa		%g0, [%g5] ASI_DMMU
 	membar		#Sync
 
 	ldxa		[%o3] ASI_DTLB_TAG_READ, %g5
 
+	/* Spitfire Errata #32 workaround */
 	mov		PRIMARY_CONTEXT, %g7
 	stxa		%g0, [%g7] ASI_DMMU
 	membar		#Sync

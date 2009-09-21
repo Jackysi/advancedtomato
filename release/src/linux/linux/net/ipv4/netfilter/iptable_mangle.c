@@ -160,7 +160,9 @@ ipt_local_hook(unsigned int hook,
 	if (ret != NF_DROP && ret != NF_STOLEN && ret != NF_QUEUE
 	    && ((*pskb)->nh.iph->saddr != saddr
 		|| (*pskb)->nh.iph->daddr != daddr
+#ifdef CONFIG_IP_ROUTE_FWMARK
 		|| (*pskb)->nfmark != nfmark
+#endif
 		|| (*pskb)->nh.iph->tos != tos))
 		return ip_route_me_harder(pskb) == 0 ? ret : NF_DROP;
 
@@ -170,7 +172,7 @@ ipt_local_hook(unsigned int hook,
 static struct nf_hook_ops ipt_ops[]
 = { { { NULL, NULL }, ipt_route_hook, PF_INET, NF_IP_PRE_ROUTING, 
 	NF_IP_PRI_MANGLE },
-    { { NULL, NULL }, ipt_local_hook, PF_INET, NF_IP_LOCAL_IN,
+    { { NULL, NULL }, ipt_route_hook, PF_INET, NF_IP_LOCAL_IN,
 	NF_IP_PRI_MANGLE },
     { { NULL, NULL }, ipt_route_hook, PF_INET, NF_IP_FORWARD,
 	NF_IP_PRI_MANGLE },

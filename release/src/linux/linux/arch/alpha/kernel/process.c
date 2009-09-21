@@ -78,6 +78,8 @@ cpu_idle(void)
 	current->counter = -100;
 
 	while (1) {
+		/* FIXME -- EV6 and LCA45 know how to power down
+		   the CPU.  */
 
 		/* Although we are an idle CPU, we do not want to 
 		   get into the scheduler unnecessarily.  */
@@ -157,7 +159,7 @@ common_shutdown_1(void *generic_ptr)
 		/* This has the effect of resetting the VGA video origin.  */
 		take_over_console(&dummy_con, 0, MAX_NR_CONSOLES-1, 1);
 #endif
-		/* reset_for_srm(); */
+		pci_restore_srm_config();
 		set_hae(srm_hae);
 	}
 
@@ -334,7 +336,7 @@ copy_thread(int nr, unsigned long clone_flags, unsigned long usp,
 }
 
 /*
- * fill in the user structure for a core dump..
+ * Fill in the user structure for an ECOFF core dump.
  */
 void
 dump_thread(struct pt_regs * pt, struct user * dump)
@@ -392,6 +394,55 @@ dump_thread(struct pt_regs * pt, struct user * dump)
 	dump->regs[EF_A1]  = pt->r17;
 	dump->regs[EF_A2]  = pt->r18;
 	memcpy((char *)dump->regs + EF_SIZE, sw->fp, 32 * 8);
+}
+
+/*
+ * Fill in the user structure for a ELF core dump.
+ */
+void
+dump_elf_thread(elf_gregset_t dest, struct pt_regs *pt,
+		struct task_struct *task)
+{
+	/* switch stack follows right below pt_regs: */
+	struct switch_stack * sw = ((struct switch_stack *) pt) - 1;
+
+	dest[ 0] = pt->r0;
+	dest[ 1] = pt->r1;
+	dest[ 2] = pt->r2;
+	dest[ 3] = pt->r3;
+	dest[ 4] = pt->r4;
+	dest[ 5] = pt->r5;
+	dest[ 6] = pt->r6;
+	dest[ 7] = pt->r7;
+	dest[ 8] = pt->r8;
+	dest[ 9] = sw->r9;
+	dest[10] = sw->r10;
+	dest[11] = sw->r11;
+	dest[12] = sw->r12;
+	dest[13] = sw->r13;
+	dest[14] = sw->r14;
+	dest[15] = sw->r15;
+	dest[16] = pt->r16;
+	dest[17] = pt->r17;
+	dest[18] = pt->r18;
+	dest[19] = pt->r19;
+	dest[20] = pt->r20;
+	dest[21] = pt->r21;
+	dest[22] = pt->r22;
+	dest[23] = pt->r23;
+	dest[24] = pt->r24;
+	dest[25] = pt->r25;
+	dest[26] = pt->r26;
+	dest[27] = pt->r27;
+	dest[28] = pt->r28;
+	dest[29] = pt->gp;
+	dest[30] = rdusp();
+	dest[31] = pt->pc;
+
+	/* Once upon a time this was the PS value.  Which is stupid
+	   since that is always 8 for usermode.  Usurped for the more
+	   useful value of the thread's UNIQUE field.  */
+	dest[32] = task->thread.unique;
 }
 
 int

@@ -25,7 +25,7 @@
 /*
  * BlueZ symbols.
  *
- * $Id: syms.c,v 1.1.1.4 2003/10/14 08:09:32 sparq Exp $
+ * $Id: syms.c,v 1.1 2002/03/08 21:06:59 maxk Exp $
  */
 
 #include <linux/config.h>
@@ -44,6 +44,9 @@
 /* HCI Core */
 EXPORT_SYMBOL(hci_register_dev);
 EXPORT_SYMBOL(hci_unregister_dev);
+EXPORT_SYMBOL(hci_suspend_dev);
+EXPORT_SYMBOL(hci_resume_dev);
+
 EXPORT_SYMBOL(hci_register_proto);
 EXPORT_SYMBOL(hci_unregister_proto);
 
@@ -56,7 +59,7 @@ EXPORT_SYMBOL(hci_conn_encrypt);
 EXPORT_SYMBOL(hci_recv_frame);
 EXPORT_SYMBOL(hci_send_acl);
 EXPORT_SYMBOL(hci_send_sco);
-EXPORT_SYMBOL(hci_send_raw);
+EXPORT_SYMBOL(hci_send_cmd);
 EXPORT_SYMBOL(hci_si_event);
 
 /* BlueZ lib */
@@ -75,4 +78,4 @@ EXPORT_SYMBOL(bluez_sock_recvmsg);
 EXPORT_SYMBOL(bluez_sock_poll);
 EXPORT_SYMBOL(bluez_accept_enqueue);
 EXPORT_SYMBOL(bluez_accept_dequeue);
-EXPORT_SYMBOL(bluez_sock_w4_connect);
+EXPORT_SYMBOL(bluez_sock_wait_state);

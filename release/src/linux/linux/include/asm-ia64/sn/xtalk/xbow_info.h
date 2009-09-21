@@ -1,10 +1,10 @@
-/* $Id: xbow_info.h,v 1.1.1.4 2003/10/14 08:09:14 sparq Exp $
+/* $Id$
  *
  * This file is subject to the terms and conditions of the GNU General Public
  * License.  See the file "COPYING" in the main directory of this archive
  * for more details.
  *
- * Copyright (C) 1992-1997,2000-2002 Silicon Graphics, Inc.  All Rights Reserved.
+ * Copyright (C) 1992-1997,2000-2003 Silicon Graphics, Inc.  All Rights Reserved.
  */
 #ifndef _ASM_SN_XTALK_XBOW_INFO_H
 #define _ASM_SN_XTALK_XBOW_INFO_H
@@ -48,9 +48,9 @@ typedef struct xbow_perf {
     volatile uint32_t    *xp_perf_reg;
 } xbow_perf_t;
 
-extern void             xbow_update_perf_counters(devfs_handle_t);
-extern xbow_perf_link_t *xbow_get_perf_counters(devfs_handle_t);
-extern int              xbow_enable_perf_counter(devfs_handle_t, int, int, int);
+extern void             xbow_update_perf_counters(vertex_hdl_t);
+extern xbow_perf_link_t *xbow_get_perf_counters(vertex_hdl_t);
+extern int              xbow_enable_perf_counter(vertex_hdl_t, int, int, int);
 
 #define XBOWIOC_PERF_ENABLE	  	1
 #define XBOWIOC_PERF_DISABLE	 	2

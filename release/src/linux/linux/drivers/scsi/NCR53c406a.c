@@ -709,6 +709,11 @@ NCR53c406a_queue(Scsi_Cmnd *SCpnt, void (*done)(Scsi_Cmnd *)){
                SCpnt->lun,  
                SCpnt->request_bufflen));
     
+#if 0
+    VDEB(for(i=0; i<SCpnt->cmd_len; i++)
+         printk("cmd[%d]=%02x  ", i, SCpnt->cmnd[i]));
+    VDEB(printk("\n"));
+#endif
     
     current_SC = SCpnt;
     current_SC->scsi_done = done;
@@ -811,7 +816,7 @@ NCR53c406a_intr(int unused, void *dev_id, struct pt_regs *regs){
 #if NCR53C406A_DEBUG
     printk("status=%02x, seq_reg=%02x, int_reg=%02x, fifo_size=%02x", 
            status, seq_reg, int_reg, fifo_size);
-#if USE_DMA
+#if (USE_DMA)
     printk("\n");
 #else
     printk(", pio=%02x\n", pio_status);
@@ -877,7 +882,7 @@ NCR53c406a_intr(int unused, void *dev_id, struct pt_regs *regs){
             VDEB(printk("NCR53c406a: Data-Out phase\n"));
             outb(FLUSH_FIFO, CMD_REG);
             LOAD_DMA_COUNT(current_SC->request_bufflen); /* Max transfer size */
-#if USE_DMA			    /* No s/g support for DMA */
+#if USE_DMA			/* No s/g support for DMA */
             NCR53c406a_dma_write(current_SC->request_buffer, 
                                  current_SC->request_bufflen);
 #endif /* USE_DMA */
@@ -906,7 +911,7 @@ NCR53c406a_intr(int unused, void *dev_id, struct pt_regs *regs){
             VDEB(printk("NCR53c406a: Data-In phase\n"));
             outb(FLUSH_FIFO, CMD_REG);
             LOAD_DMA_COUNT(current_SC->request_bufflen); /* Max transfer size */
-#if USE_DMA			    /* No s/g support for DMA */
+#if USE_DMA			/* No s/g support for DMA */
             NCR53c406a_dma_read(current_SC->request_buffer, 
                                 current_SC->request_bufflen);
 #endif /* USE_DMA */

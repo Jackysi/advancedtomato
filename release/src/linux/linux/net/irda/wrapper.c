@@ -37,8 +37,6 @@
 #include <net/irda/irlap_frame.h>
 #include <net/irda/irda_device.h>
 
-static inline int stuff_byte(__u8 byte, __u8 *buf);
-
 static void state_outside_frame(struct net_device *dev, 
 				struct net_device_stats *stats, 
 				iobuff_t *rx_buff, __u8 byte);
@@ -60,6 +58,32 @@ static void (*state[])(struct net_device *dev, struct net_device_stats *stats,
 	state_link_escape,
 	state_inside_frame,
 };
+
+/*
+ * Function stuff_byte (byte, buf)
+ *
+ *    Byte stuff one single byte and put the result in buffer pointed to by
+ *    buf. The buffer must at all times be able to have two bytes inserted.
+ * 
+ */
+static inline int stuff_byte(__u8 byte, __u8 *buf) 
+{
+	switch (byte) {
+	case BOF: /* FALLTHROUGH */
+	case EOF: /* FALLTHROUGH */
+	case CE:
+		/* Insert transparently coded */
+		buf[0] = CE;               /* Send link escape */
+		buf[1] = byte^IRDA_TRANS;    /* Complement bit 5 */
+		return 2;
+		/* break; */
+	default:
+		 /* Non-special value, no transparency required */
+		buf[0] = byte;
+		return 1;
+		/* break; */
+	}
+}
 
 /*
  * Function async_wrap (skb, *tx_buff, buffsize)
@@ -93,16 +117,16 @@ int async_wrap_skb(struct sk_buff *skb, __u8 *tx_buff, int buffsize)
 		 * Nothing to worry about, but we set the default number of 
 		 * BOF's
 		 */
-		IRDA_DEBUG(1, __FUNCTION__ "(), wrong magic in skb!\n");
+		IRDA_DEBUG(1, "%s(), wrong magic in skb!\n", __FUNCTION__);
 		xbofs = 10;
 	} else
 		xbofs = cb->xbofs + cb->xbofs_delay;
 
-	IRDA_DEBUG(4, __FUNCTION__ "(), xbofs=%d\n", xbofs);
+	IRDA_DEBUG(4, "%s(), xbofs=%d\n", __FUNCTION__, xbofs);
 
 	/* Check that we never use more than 115 + 48 xbofs */
 	if (xbofs > 163) {
-		IRDA_DEBUG(0, __FUNCTION__ "(), too many xbofs (%d)\n", xbofs);
+		IRDA_DEBUG(0, "%s(), too many xbofs (%d)\n", __FUNCTION__, xbofs);
 		xbofs = 163;
 	}
 
@@ -137,32 +161,6 @@ int async_wrap_skb(struct sk_buff *skb, __u8 *tx_buff, int buffsize)
 	tx_buff[n++] = EOF;
 
 	return n;
-}
-
-/*
- * Function stuff_byte (byte, buf)
- *
- *    Byte stuff one single byte and put the result in buffer pointed to by
- *    buf. The buffer must at all times be able to have two bytes inserted.
- * 
- */
-static inline int stuff_byte(__u8 byte, __u8 *buf) 
-{
-	switch (byte) {
-	case BOF: /* FALLTHROUGH */
-	case EOF: /* FALLTHROUGH */
-	case CE:
-		/* Insert transparently coded */
-		buf[0] = CE;               /* Send link escape */
-		buf[1] = byte^IRDA_TRANS;    /* Complement bit 5 */
-		return 2;
-		/* break; */
-	default:
-		 /* Non-special value, no transparency required */
-		buf[0] = byte;
-		return 1;
-		/* break; */
-	}
 }
 
 /*
@@ -265,7 +263,7 @@ static void state_begin_frame(struct net_device *dev,
 	case EOF:
 		/* Abort frame */
 		rx_buff->state = OUTSIDE_FRAME;
-		IRDA_DEBUG(1, __FUNCTION__ "(), abort frame\n");
+		IRDA_DEBUG(1, "%s(), abort frame\n", __FUNCTION__);
 		stats->rx_errors++;
 		stats->rx_frame_errors++;
 		break;
@@ -289,13 +287,12 @@ static void state_link_escape(struct net_device *dev,
 {
 	switch (byte) {
 	case BOF: /* New frame? */
-		IRDA_DEBUG(1, __FUNCTION__ 
-			   "(), Discarding incomplete frame\n");
+		IRDA_DEBUG(1, "%s(), Discarding incomplete frame\n", __FUNCTION__);
 		rx_buff->state = BEGIN_FRAME;
 		irda_device_set_media_busy(dev, TRUE);
 		break;
 	case CE:
-		WARNING(__FUNCTION__ "(), state not defined\n");
+		WARNING("%s(), state not defined\n", __FUNCTION__);
 		break;
 	case EOF: /* Abort frame */
 		rx_buff->state = OUTSIDE_FRAME;
@@ -311,7 +308,7 @@ static void state_link_escape(struct net_device *dev,
 			rx_buff->fcs = irda_fcs(rx_buff->fcs, byte);
 			rx_buff->state = INSIDE_FRAME;
 		} else {
-			IRDA_DEBUG(1, __FUNCTION__ "(), rx buffer overflow\n");
+			IRDA_DEBUG(1, "%s(), rx buffer overflow\n", __FUNCTION__);
 			rx_buff->state = OUTSIDE_FRAME;
 		}
 		break;
@@ -332,8 +329,7 @@ static void state_inside_frame(struct net_device *dev,
 
 	switch (byte) {
 	case BOF: /* New frame? */
-		IRDA_DEBUG(1, __FUNCTION__ 
-			   "(), Discarding incomplete frame\n");
+		IRDA_DEBUG(1, "%s(), Discarding incomplete frame\n", __FUNCTION__);
 		rx_buff->state = BEGIN_FRAME;
 		irda_device_set_media_busy(dev, TRUE);
 		break;
@@ -354,7 +350,7 @@ static void state_inside_frame(struct net_device *dev,
 			/* Wrong CRC, discard frame!  */
 			irda_device_set_media_busy(dev, TRUE); 
 
-			IRDA_DEBUG(1, __FUNCTION__ "(), crc error\n");
+			IRDA_DEBUG(1, "%s(), crc error\n", __FUNCTION__);
 			stats->rx_errors++;
 			stats->rx_crc_errors++;
 		}			
@@ -364,8 +360,7 @@ static void state_inside_frame(struct net_device *dev,
 			rx_buff->data[rx_buff->len++] = byte;
 			rx_buff->fcs = irda_fcs(rx_buff->fcs, byte);
 		} else {
-			IRDA_DEBUG(1, __FUNCTION__ 
-			      "(), Rx buffer overflow, aborting\n");
+			IRDA_DEBUG(1, "%s(), Rx buffer overflow, aborting\n", __FUNCTION__);
 			rx_buff->state = OUTSIDE_FRAME;
 		}
 		break;

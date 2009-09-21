@@ -7,24 +7,17 @@
  * 
  * Copyright 1994 Comtrol Corporation.    All Rights Reserved.
  * 
- * The following source code is subject to Comtrol Corporation's
- * Developer's License Agreement.
- * 
- * This source code is protected by United States copyright law and 
- * international copyright treaties.
- * 
- * This source code may only be used to develop software products that
- * will operate with Comtrol brand hardware.
- * 
- * You may not reproduce nor distribute this source code in its original
- * form but must produce a derivative work which includes portions of
- * this source code only.
- * 
- * The portions of this source code which you use in your derivative
- * work must bear Comtrol's copyright notice:
- * 
- * 		Copyright 1994 Comtrol Corporation.
- * 
+ * Erroneously clashing license removed. This file is GPL
+ * (Kurt Robideau, Comtrol Corp, 20030610)
+ * This driver is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2, or (at your option)
+ * any later version.
+ *
+ * This driver is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  */
 
 /*
@@ -152,7 +145,65 @@ Channel Register Offsets - Indexed - Internal - Fixed
 #define _BAUD       0xFF4    /* Baud Rate                      16  Write */
 #define _CLK_PRE    0xFF6    /* Clock Prescaler                 8  Write */
 
+#if 0
+#define CLOCK_PRESC 0x14          /* ?????? new mod 4 (divide by 5) prescale */
 
+#define BRD50             9215
+#define BRD75             6143  
+#define BRD110            4188
+#define BRD134            3438
+#define BRD150            3071
+#define BRD200            2303
+#define BRD300            1535
+#define BRD600            767
+#define BRD1200           383
+#define BRD1800           255
+#define BRD2000           229
+#define BRD2400           191
+#define BRD3600           127
+#define BRD4800           95
+#define BRD7200           63
+#define BRD9600           47
+#define BRD14400          31 
+#define BRD19200          23
+#define BRD38400          11
+#define BRD57600          7
+#define BRD76800          5
+#define BRD115200         3
+#define BRD230400         1
+#define BRD460800	  0
+#endif
+
+#if 0
+
+/* Old clock prescale definition and baud rates associated with it */
+
+#define CLOCK_PRESC 0x19          /* mod 9 (divide by 10) prescale */
+#define BRD50             4607
+#define BRD75             3071
+#define BRD110            2094
+#define BRD134            1712
+#define BRD150            1535
+#define BRD200            1151
+#define BRD300            767
+#define BRD600            383
+#define BRD1200           191
+#define BRD1800           127
+#define BRD2000           114
+#define BRD2400           95
+#define BRD3600           64
+#define BRD4800           47
+#define BRD7200           31
+#define BRD9600           23
+#define BRD14400          15
+#define BRD19200          11
+#define BRD38400          5
+#define BRD57600          3
+#define BRD76800          2
+#define BRD115200         1
+#define BRD230400         0
+
+#endif
 
 #define STMBREAK   0x08        /* BREAK */
 #define STMFRAME   0x04        /* framing error */
@@ -1148,6 +1199,9 @@ struct r_port {
 #endif
 #ifndef PCI_DEVICE_ID_RP8J
 #define PCI_DEVICE_ID_RP8J		0x0006
+#endif
+#ifndef PCI_DEVICE_ID_RP4J
+#define PCI_DEVICE_ID_RP4J		0x0007
 #endif
 #ifndef PCI_DEVICE_ID_RPP4
 #define PCI_DEVICE_ID_RPP4		0x000A

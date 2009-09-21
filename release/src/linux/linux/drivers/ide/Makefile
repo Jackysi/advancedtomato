@@ -8,82 +8,82 @@
 # In the future, some of these should be built conditionally.
 #
 
-O_TARGET := idedriver.o
 
-export-objs		:= ide.o ide-features.o ide-probe.o ide-taskfile.o ataraid.o
-list-multi		:= ide-mod.o ide-probe-mod.o
+export-objs := ide-iops.o ide-taskfile.o ide-proc.o ide.o ide-probe.o ide-probe-mini.o ide-dma.o ide-lib.o setup-pci.o ide-io.o ide-disk.o
+
+all-subdirs	:= arm legacy pci ppc raid
+mod-subdirs	:= arm legacy pci ppc raid
 
 obj-y		:=
 obj-m		:=
 ide-obj-y	:=
 
-obj-$(CONFIG_BLK_DEV_HD)	+= hd.o
-obj-$(CONFIG_BLK_DEV_IDE)       += ide-mod.o ide-probe-mod.o
-obj-$(CONFIG_BLK_DEV_IDECS)     += ide-cs.o
-obj-$(CONFIG_BLK_DEV_IDEDISK)   += ide-disk.o
-obj-$(CONFIG_BLK_DEV_IDECD)     += ide-cd.o
-obj-$(CONFIG_BLK_DEV_IDETAPE)   += ide-tape.o
-obj-$(CONFIG_BLK_DEV_IDEFLOPPY) += ide-floppy.o
+subdir-$(CONFIG_BLK_DEV_IDE) += legacy ppc arm raid pci
 
-obj-$(CONFIG_BLK_DEV_IT8172)    += it8172.o
+# First come modules that register themselves with the core
 
-ide-obj-$(CONFIG_BLK_DEV_AEC62XX)	+= aec62xx.o
-ide-obj-$(CONFIG_BLK_DEV_ALI14XX)	+= ali14xx.o
-ide-obj-$(CONFIG_BLK_DEV_ALI15X3)	+= alim15x3.o
-ide-obj-$(CONFIG_BLK_DEV_AMD74XX)	+= amd74xx.o
-ide-obj-$(CONFIG_BLK_DEV_BUDDHA)	+= buddha.o
-ide-obj-$(CONFIG_BLK_DEV_CMD640)	+= cmd640.o
-ide-obj-$(CONFIG_BLK_DEV_CMD64X)	+= cmd64x.o
-ide-obj-$(CONFIG_BLK_DEV_CS5530)	+= cs5530.o
-ide-obj-$(CONFIG_BLK_DEV_CY82C693)	+= cy82c693.o
-ide-obj-$(CONFIG_BLK_DEV_DTC2278)	+= dtc2278.o
-ide-obj-$(CONFIG_BLK_DEV_FALCON_IDE)	+= falconide.o
-ide-obj-$(CONFIG_BLK_DEV_GAYLE)		+= gayle.o
-ide-obj-$(CONFIG_BLK_DEV_Q40IDE)	+= q40ide.o
-ide-obj-$(CONFIG_BLK_DEV_HPT34X)	+= hpt34x.o
-ide-obj-$(CONFIG_BLK_DEV_HPT366)	+= hpt366.o
-ide-obj-$(CONFIG_BLK_DEV_HT6560B)	+= ht6560b.o
-ide-obj-$(CONFIG_BLK_DEV_IDE_ICSIDE)	+= icside.o
-ide-obj-$(CONFIG_BLK_DEV_ADMA)		+= ide-adma.o
-ide-obj-$(CONFIG_BLK_DEV_IDEDMA_PCI)	+= ide-dma.o
-ide-obj-$(CONFIG_BLK_DEV_IDEPCI)	+= ide-pci.o
-ide-obj-$(CONFIG_BLK_DEV_ISAPNP)	+= ide-pnp.o
-ide-obj-$(CONFIG_BLK_DEV_IDE_PMAC)	+= ide-pmac.o
-ide-obj-$(CONFIG_BLK_DEV_IDE_SIBYTE)	+= ide-sibyte.o
-ide-obj-$(CONFIG_BLK_DEV_MAC_IDE)	+= macide.o
-ide-obj-$(CONFIG_BLK_DEV_NS87415)	+= ns87415.o
-ide-obj-$(CONFIG_BLK_DEV_OPTI621)	+= opti621.o
-ide-obj-$(CONFIG_BLK_DEV_SVWKS)		+= serverworks.o
-ide-obj-$(CONFIG_BLK_DEV_PDC202XX)	+= pdc202xx.o
-ide-obj-$(CONFIG_BLK_DEV_PDC4030)	+= pdc4030.o
-ide-obj-$(CONFIG_BLK_DEV_PDC_ADMA)	+= pdcadma.o
-ide-obj-$(CONFIG_BLK_DEV_PIIX)		+= piix.o
-ide-obj-$(CONFIG_BLK_DEV_QD65XX)	+= qd65xx.o
-ide-obj-$(CONFIG_BLK_DEV_IDE_RAPIDE)	+= rapide.o
-ide-obj-$(CONFIG_BLK_DEV_RZ1000)	+= rz1000.o
-ide-obj-$(CONFIG_BLK_DEV_SIS5513)	+= sis5513.o
-ide-obj-$(CONFIG_BLK_DEV_SLC90E66)	+= slc90e66.o
-ide-obj-$(CONFIG_BLK_DEV_SL82C105)	+= sl82c105.o
-ide-obj-$(CONFIG_BLK_DEV_TRM290)	+= trm290.o
-ide-obj-$(CONFIG_BLK_DEV_UMC8672)	+= umc8672.o
-ide-obj-$(CONFIG_BLK_DEV_VIA82CXXX)	+= via82cxxx.o
-ide-obj-$(CONFIG_BLK_DEV_MPC8xx_IDE)	+= ide-m8xx.o
+ifeq ($(CONFIG_BLK_DEV_IDE),y)
+  obj-y		+= pci/idedriver-pci.o
+endif
 
-# The virtualised raid layers MUST come after the ide itself or bad stuff
-# will happen.
-obj-$(CONFIG_BLK_DEV_ATARAID)		+= ataraid.o
-obj-$(CONFIG_BLK_DEV_ATARAID_PDC)	+= pdcraid.o
-obj-$(CONFIG_BLK_DEV_ATARAID_HPT)	+= hptraid.o
+# Core IDE code - must come before legacy
 
-ide-obj-$(CONFIG_PROC_FS)		+= ide-proc.o
+ide-core-objs	:= ide-iops.o ide-taskfile.o ide.o ide-lib.o ide-io.o \
+		   ide-default.o ide-probe.o ide-geometry.o
+ide-detect-objs	:= ide-probe-mini.o
 
-ide-mod-objs		:= ide.o ide-features.o ide-taskfile.o $(ide-obj-y)
-ide-probe-mod-objs	:= ide-probe.o ide-geometry.o
+ifeq ($(CONFIG_PROC_FS),y)
+ide-core-objs	+= ide-proc.o
+endif
+ifeq ($(CONFIG_BLK_DEV_IDEPCI),y)
+ide-core-objs += setup-pci.o
+endif
+ifeq ($(CONFIG_BLK_DEV_IDEDMA_PCI),y)
+ide-core-objs += ide-dma.o
+endif
+
+# Initialisation order:
+#	Core sets up
+#	Legacy drivers may register a callback
+#	Drivers are pre initialised
+#	Probe inits the drivers and driver callbacks
+#	Raid scans the devices
+
+obj-$(CONFIG_BLK_DEV_IDE)		+= ide-core.o
+
+ifeq ($(CONFIG_BLK_DEV_IDE),y)
+  obj-y		+= legacy/idedriver-legacy.o
+  obj-y		+= ppc/idedriver-ppc.o
+  obj-y		+= arm/idedriver-arm.o
+else
+  ifeq ($(CONFIG_BLK_DEV_HD_ONLY),y)
+	subdir-$(CONFIG_BLK_DEV_HD_ONLY) += legacy
+	obj-y	+= legacy/idedriver-legacy.o
+  endif
+endif
+
+obj-$(CONFIG_BLK_DEV_ISAPNP) 		+= ide-pnp.o
+
+obj-$(CONFIG_BLK_DEV_IDEDISK)		+= ide-disk.o
+obj-$(CONFIG_BLK_DEV_IDECD)		+= ide-cd.o
+obj-$(CONFIG_BLK_DEV_IDETAPE)		+= ide-tape.o
+obj-$(CONFIG_BLK_DEV_IDEFLOPPY)		+= ide-floppy.o
+
+obj-$(CONFIG_BLK_DEV_IDE) += ide-detect.o
+
+ifeq ($(CONFIG_BLK_DEV_IDE),y)
+# RAID must be last of all
+  obj-y		+= raid/idedriver-raid.o
+endif
+
+list-multi	:= ide-core.o ide-detect.o
+O_TARGET := idedriver.o
 
 include $(TOPDIR)/Rules.make
 
-ide-mod.o: $(ide-mod-objs)
-	$(LD) -r -o $@ $(ide-mod-objs)
+ide-core.o:	$(ide-core-objs)
+	$(LD) -r -o $@ $(ide-core-objs)
 
-ide-probe-mod.o: $(ide-probe-mod-objs)
-	$(LD) -r -o $@ $(ide-probe-mod-objs)
+ide-detect.o:	$(ide-detect-objs)
+	$(LD) -r -o $@ $(ide-detect-objs)
+

@@ -263,6 +263,12 @@ static int hilse_inc_lcv(hil_mlc *mlc, int lim) {
 	return 0;
 }
 
+#if 0
+static int hilse_set_lcv(hil_mlc *mlc, int val) {
+	mlc->lcv = val;
+	return 0;
+}
+#endif
 
 /* Management of the discovered device index (zero based, -1 means no devs) */
 static int hilse_set_ddi(hil_mlc *mlc, int val) {

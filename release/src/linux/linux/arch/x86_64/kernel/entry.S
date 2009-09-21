@@ -5,7 +5,7 @@
  *  Copyright (C) 2000, 2001, 2002  Andi Kleen SuSE Labs
  *  Copyright (C) 2000  Pavel Machek <pavel@suse.cz>
  * 
- *  $Id: entry.S,v 1.1.1.4 2003/10/14 08:07:52 sparq Exp $		
+ *  $Id: entry.S,v 1.99 2003/10/24 17:48:32 ak Exp $		
  */
 
 /*
@@ -34,6 +34,7 @@
 #include <asm/offset.h>
 #include <asm/msr.h>
 #include <asm/unistd.h>
+#include <asm/hw_irq.h>
 
 	.code64
 
@@ -85,6 +86,7 @@ ENTRY(ret_from_fork)
 2:
 	movq %rsp,%rdi	
 	call syscall_trace
+	GET_CURRENT(%rcx)
 	jmp 1b
 
 /*
@@ -187,6 +189,7 @@ tracesys_done:		/* backtrace marker */
 	jmp ret_from_sys_call
 		
 badsys:
+	movq $0,ORIG_RAX-ARGOFFSET(%rsp)
 	movq $-ENOSYS,RAX-ARGOFFSET(%rsp)
 	jmp ret_from_sys_call
 
@@ -227,6 +230,7 @@ intret_signal_test:
 	je   retint_restore_args_swapgs
 	sti
 	call schedule
+	# RED-PEN: can we lose signals here?
 	jmp  intret_signal_test
 	
 /* 
@@ -245,7 +249,16 @@ intret_signal_test:
 	PTREGSCALL stub_vfork, sys_vfork
 	PTREGSCALL stub_rt_sigsuspend, sys_rt_sigsuspend
 	PTREGSCALL stub_sigaltstack, sys_sigaltstack
-	PTREGSCALL stub_iopl, sys_iopl
+
+	.macro PTREGSCALL3 label,func,arg
+	.globl \label
+\label:
+	leaq	\func(%rip),%rax
+	leaq    -ARGOFFSET+8(%rsp),\arg /* 8 for return address */
+	jmp	ptregscall_common
+	.endm
+
+	PTREGSCALL3 stub_iopl, sys_iopl, %rsi
 
 ENTRY(ptregscall_common)
 	popq %r11
@@ -307,8 +320,13 @@ ENTRY(common_interrupt)
 	je   1f
 	swapgs
 1:	cld
+#ifdef CONFIG_X86_REMOTE_DEBUG
+	SAVE_ALL
+	movq %rsp,%rdi
+#else			
 	SAVE_ARGS
 	leaq -ARGOFFSET(%rsp),%rdi	# arg1 for handler
+#endif	
 	addl $1,PDAREF(pda_irqcount)	# XXX: should be merged with irq.c irqcount
 	movq PDAREF(pda_irqstackptr),%rax
 	cmoveq %rax,%rsp
@@ -342,6 +360,7 @@ iret_label:
 	.section .fixup,"ax"
 	/* force a signal here? this matches i386 behaviour */
 bad_iret:
+	/* runs with kernelgs again */	
 	movq $-9999,%rdi	/* better code? */
 	jmp do_exit			
 	.previous	
@@ -368,6 +387,48 @@ retint_reschedule:
 	call schedule
 	cli
 	jmp retint_with_reschedule
+		
+/* IF:off, stack contains irq number on origrax */ 	
+	.macro IRQ_ENTER	
+	cld
+	pushq %rdi
+	pushq %rsi
+	pushq %rdx
+	pushq %rcx
+	pushq %rax
+	pushq %r8
+	pushq %r9
+	pushq %r10
+	pushq %r11
+	leaq -48(%rsp),%rdi
+	testl $3,136(%rdi)
+	je 1f
+	swapgs
+1:	addl $1,%gs:pda_irqcount
+	movq %gs:pda_irqstackptr,%rax
+	cmoveq %rax,%rsp
+	pushq %rdi
+	.endm	
+
+	.macro BUILD_SMP_INTERRUPT x,v
+ENTRY(\x)
+	push $\v-256
+	IRQ_ENTER
+	call smp_\x
+	jmp ret_from_intr
+	.endm
+
+#ifdef CONFIG_SMP				
+	BUILD_SMP_INTERRUPT reschedule_interrupt,RESCHEDULE_VECTOR
+	BUILD_SMP_INTERRUPT invalidate_interrupt,INVALIDATE_TLB_VECTOR
+	BUILD_SMP_INTERRUPT call_function_interrupt,CALL_FUNCTION_VECTOR
+#endif
+#ifdef CONFIG_X86_LOCAL_APIC
+	BUILD_SMP_INTERRUPT apic_timer_interrupt,LOCAL_TIMER_VECTOR
+	BUILD_SMP_INTERRUPT error_interrupt,ERROR_APIC_VECTOR
+	BUILD_SMP_INTERRUPT spurious_interrupt,SPURIOUS_APIC_VECTOR
+#endif
+		
 		
 /*
  * Exception entry points.
@@ -403,12 +464,11 @@ error_entry:
 	pushq %r11
 	cld
 	SAVE_REST
+	xorl %r15d,%r15d	
 	testl $3,CS(%rsp)
 	je error_kernelspace
 	swapgs	
-	movl $1,%r15d	
-error_action:		
-	sti	
+error_action:
 	movq  %rdi,RDI(%rsp) 	
 	movq %rsp,%rdi
 	movq ORIG_RAX(%rsp),%rsi	/* get error code */ 
@@ -417,7 +477,7 @@ error_action:
 	/* r15d: swapgs flag */
 error_exit:
 	testl %r15d,%r15d
-	jz   error_restore
+	jnz   error_restore
 error_test:		
 	cli	
 	GET_CURRENT(%rcx)
@@ -451,23 +511,56 @@ error_signal_test:
 	jmp  error_signal_test
 	
 error_kernelspace:	
-	xorl %r15d,%r15d
-	cmpq $iret_label,RIP(%rsp)
+	incl %r15d
+	/* There are two places in the kernel that can potentially fault with
+	   usergs. Handle them here. */	   
+	leaq iret_label(%rip),%rdx
+	cmpq %rdx,RIP(%rsp)
+	je 1f
+	/* check truncated address too. This works around a CPU issue */
+	movl %edx,%edx	/* zero extend */
+	cmpq %rdx,RIP(%rsp)
+	je   1f
+	cmpq $gs_change,RIP(%rsp)
 	jne  error_action
-	movl $1,%r15d
-	swapgs
+	/* iret_label and gs_change are handled by exception handlers
+	   and the exit points run with kernelgs again */
+1:	swapgs
 	jmp error_action
 
+	/* Reload gs selector with exception handling */
+	/* edi:	 new selector */ 
+ENTRY(load_gs_index)
+	pushf
+	cli
+	swapgs
+gs_change:	
+	movl %edi,%gs	
+2:	mfence		/* workaround for opteron errata #88 */
+	swapgs
+	popf
+	ret
+	
+	.section __ex_table,"a"
+	.align 8
+	.quad gs_change,bad_gs
+	.previous
+
+bad_gs:
+	swapgs
+	xorl %eax,%eax
+	movl %eax,%gs
+	jmp 2b
 /*
  * Create a kernel thread.
  *
  * C extern interface:
- *	extern long kernel_thread(int (*fn)(void *), void * arg, unsigned long flags)
+ *	extern long arch_kernel_thread(int (*fn)(void *), void * arg, unsigned long flags)
  *
  * asm input arguments:
  *	rdi: fn, rsi: arg, rdx: flags
  */
-ENTRY(kernel_thread)
+ENTRY(arch_kernel_thread)
 	FAKE_STACK_FRAME $child_rip
 	SAVE_ALL
 
@@ -535,18 +628,6 @@ ENTRY(execve)
 	ret
 
 ENTRY(page_fault)
-#ifdef CONFIG_KDB
-	pushq %rcx
-	pushq %rdx
-	pushq %rax
-	movl  $473,%ecx
-	rdmsr
-	andl  $0xfffffffe,%eax		/* Disable last branch recording */
-	wrmsr
-	popq  %rax
-	popq  %rdx
-	popq  %rcx
-#endif	
 	errorentry do_page_fault
 
 ENTRY(coprocessor_error)
@@ -562,15 +643,15 @@ ENTRY(device_not_available)
 	testl $3,CS(%rsp)
 	jz 1f
 	swapgs 
-	movl $1,%r15d
-1:	
-	movq  %cr0,%rax
+2:	movq  %cr0,%rax
 	leaq  math_state_restore(%rip),%rcx
 	leaq  math_emulate(%rip),%rbx
 	testl $0x4,%eax
 	cmoveq %rcx,%rbx
 	call  *%rbx
 	jmp  error_exit
+1:	incl %r15d
+	jmp  2b
 
 ENTRY(debug)
 	zeroentry do_debug

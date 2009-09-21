@@ -16,7 +16,7 @@
    along with this program; if not, write to the Free Software
    Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
 
-   $Id: elan-104nc.c,v 1.1.1.4 2003/10/14 08:08:17 sparq Exp $
+   $Id: elan-104nc.c,v 1.13 2002/02/13 15:30:20 dwmw2 Exp $
 
 The ELAN-104NC has up to 8 Mibyte of Intel StrataFlash (28F320/28F640) in x16
 mode.  This drivers uses the CFI probe and Intel Extended Command Set drivers.
@@ -147,7 +147,7 @@ static void elan_104nc_copy_from(struct map_info *map, void *to, unsigned long f
 		elan_104nc_page(map, from);
 		memcpy_fromio(to, iomapadr + (from & WINDOW_MASK), thislen);
 		spin_unlock(&elan_104nc_spin);
-		(__u8*)to += thislen;
+		to += thislen;
 		from += thislen;
 		len -= thislen;
 	}

@@ -54,6 +54,7 @@ typedef unsigned long long u64;
 #define BITS_PER_LONG 32
 
 typedef u32 dma_addr_t;
+typedef u32 dma64_addr_t;
 
 typedef union {
 	unsigned long long pair;

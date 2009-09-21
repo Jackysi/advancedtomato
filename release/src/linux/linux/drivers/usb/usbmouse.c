@@ -1,5 +1,5 @@
 /*
- * $Id: usbmouse.c,v 1.1.1.4 2003/10/14 08:08:51 sparq Exp $
+ * $Id: usbmouse.c,v 1.6 2000/08/14 21:05:26 vojtech Exp $
  *
  *  Copyright (c) 1999-2000 Vojtech Pavlik
  *
@@ -188,7 +188,7 @@ static struct usb_device_id usb_mouse_id_table [] = {
 MODULE_DEVICE_TABLE (usb, usb_mouse_id_table);
 
 static struct usb_driver usb_mouse_driver = {
-	name:		"usb_mouse",
+	name:		"usbmouse",
 	probe:		usb_mouse_probe,
 	disconnect:	usb_mouse_disconnect,
 	id_table:	usb_mouse_id_table,

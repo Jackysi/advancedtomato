@@ -24,7 +24,7 @@ obj-y           += cache.o pacache.o setup.o traps.o time.o irq.o \
 		pa7300lc.o syscall.o entry.o sys_parisc.o firmware.o \
 		ptrace.o hardware.o inventory.o drivers.o semaphore.o \
 		signal.o hpmc.o real2.o parisc_ksyms.o unaligned.o \
-		processor.o power.o
+		processor.o power.o pdc_chassis.o
 
 export-objs	:= parisc_ksyms.o superio.o keyboard.o
 

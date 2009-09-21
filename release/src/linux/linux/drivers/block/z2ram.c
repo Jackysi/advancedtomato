@@ -198,6 +198,7 @@ z2_open( struct inode *inode, struct file *filp )
 		size = m68k_memory[index].size & ~(Z2RAM_CHUNKSIZE-1);
 
 #ifdef __powerpc__
+		/* FIXME: ioremap doesn't build correct memory tables. */
 		{
 			vfree(vmalloc (size));
 		}
@@ -325,6 +326,9 @@ z2_release( struct inode *inode, struct file *filp )
     if ( current_device == -1 )
 	return 0;     
 
+    /*
+     * FIXME: unmap memory
+     */
 
     return 0;
 }

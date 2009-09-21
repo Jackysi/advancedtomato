@@ -1,4 +1,4 @@
-/* $Id: timer.h,v 1.1.1.4 2003/10/14 08:09:22 sparq Exp $
+/* $Id: timer.h,v 1.21 1999/04/20 13:22:51 anton Exp $
  * timer.h:  Definitions for the timer chips on the Sparc.
  *
  * Copyright (C) 1995 David S. Miller (davem@caip.rutgers.edu)
@@ -103,6 +103,7 @@ extern struct sun4d_timer_regs *sun4d_timers;
 extern __volatile__ unsigned int *master_l10_counter;
 extern __volatile__ unsigned int *master_l10_limit;
 
+/* FIXME: Make do_[gs]ettimeofday btfixup calls */
 BTFIXUPDEF_CALL(void, bus_do_settimeofday, struct timeval *tv)
 #define bus_do_settimeofday(tv) BTFIXUP_CALL(bus_do_settimeofday)(tv)
 

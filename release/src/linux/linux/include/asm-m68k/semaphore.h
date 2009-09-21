@@ -51,7 +51,7 @@ struct semaphore {
 #define DECLARE_MUTEX(name) __DECLARE_SEMAPHORE_GENERIC(name,1)
 #define DECLARE_MUTEX_LOCKED(name) __DECLARE_SEMAPHORE_GENERIC(name,0)
 
-extern inline void sema_init (struct semaphore *sem, int val)
+static inline void sema_init(struct semaphore *sem, int val)
 {
 	*sem = (struct semaphore)__SEMAPHORE_INITIALIZER(*sem, val);
 }
@@ -81,7 +81,7 @@ asmlinkage void __up(struct semaphore * sem);
  * "down_failed" is a special asm handler that calls the C
  * routine that actually waits. See arch/m68k/lib/semaphore.S
  */
-extern inline void down(struct semaphore * sem)
+static inline void down(struct semaphore *sem)
 {
 	register struct semaphore *sem1 __asm__ ("%a1") = sem;
 
@@ -103,7 +103,7 @@ extern inline void down(struct semaphore * sem)
 		: "memory");
 }
 
-extern inline int down_interruptible(struct semaphore * sem)
+static inline int down_interruptible(struct semaphore *sem)
 {
 	register struct semaphore *sem1 __asm__ ("%a1") = sem;
 	register int result __asm__ ("%d0");
@@ -128,7 +128,7 @@ extern inline int down_interruptible(struct semaphore * sem)
 	return result;
 }
 
-extern inline int down_trylock(struct semaphore * sem)
+static inline int down_trylock(struct semaphore *sem)
 {
 	register struct semaphore *sem1 __asm__ ("%a1") = sem;
 	register int result __asm__ ("%d0");
@@ -159,7 +159,7 @@ extern inline int down_trylock(struct semaphore * sem)
  * The default case (no contention) will result in NO
  * jumps for both down() and up().
  */
-extern inline void up(struct semaphore * sem)
+static inline void up(struct semaphore *sem)
 {
 	register struct semaphore *sem1 __asm__ ("%a1") = sem;
 

@@ -42,7 +42,8 @@
 	 ASSABET_BCR_LED_GREEN  | ASSABET_BCR_LED_RED   | \
 	 ASSABET_BCR_RS232EN    | ASSABET_BCR_LCD_12RGB | \
 	 ASSABET_BCR_CF_BUS_OFF | ASSABET_BCR_STEREO_LB | \
-	 ASSABET_BCR_IRDA_MD0   | ASSABET_BCR_CF_RST)
+	 ASSABET_BCR_IRDA_MD0   | ASSABET_BCR_CF_RST	| \
+	 ASSABET_BCR_CODEC_RST  )
 
 unsigned long SCR_value = ASSABET_SCR_INIT;
 EXPORT_SYMBOL(SCR_value);
@@ -285,9 +286,9 @@ static u_int assabet_get_mctrl(struct uart_port *port)
 }
 
 static struct sa1100_port_fns assabet_port_fns __initdata = {
-	set_mctrl:	assabet_set_mctrl,
-	get_mctrl:	assabet_get_mctrl,
-	pm:		assabet_uart_pm,
+	.set_mctrl	= assabet_set_mctrl,
+	.get_mctrl	= assabet_get_mctrl,
+	.pm		= assabet_uart_pm,
 };
 
 static void __init assabet_map_io(void)

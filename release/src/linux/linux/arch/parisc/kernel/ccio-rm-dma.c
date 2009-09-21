@@ -74,8 +74,6 @@ static int ccio_dma_supported( struct pci_dev *dev, u64 mask)
 		return(0);
 	}
 
-	dev->dma_mask = mask;   /* save it */
-
 	/* only support 32-bit devices (ie PCI/GSC) */
 	return((int) (mask >= 0xffffffffUL));
 }
@@ -120,7 +118,7 @@ static int ccio_map_sg(struct pci_dev *dev, struct scatterlist *sglist, int nent
 
         /* KISS: map each buffer seperately. */
 	while (nents) {
-		sg_dma_address(sglist) = ccio_map_single(dev, sglist->address, sglist->length, direction);
+		sg_dma_address(sglist) = ccio_map_single(dev, sg_virt_addr(sglist), sglist->length, direction);
 		sg_dma_len(sglist) = sglist->length;
 		nents--;
 		sglist++;
@@ -132,7 +130,16 @@ static int ccio_map_sg(struct pci_dev *dev, struct scatterlist *sglist, int nent
 
 static void ccio_unmap_sg(struct pci_dev *dev, struct scatterlist *sglist, int nents, int direction)
 {
+#if 0
+	while (nents) {
+		ccio_unmap_single(dev, sg_dma_address(sglist), sg_dma_len(sglist), direction);
+		nents--;
+		sglist++;
+	}
+	return;
+#else
 	/* Do nothing (copied from current ccio_unmap_single()  :^) */
+#endif
 }
 
 
@@ -161,7 +168,16 @@ ccio_probe(struct parisc_device *dev)
 			dev->id.hversion == U2_BC_GSC ? "U2" : "UTurn",
 			dev->hpa);
 
+/*
+** FIXME - should check U2 registers to verify it's really running
+** in "Real Mode".
+*/
 
+#if 0
+/* will need this for "Virtual Mode" operation */
+	ccio_hw_init(ccio_dev);
+	ccio_common_init(ccio_dev);
+#endif
 	hppa_dma_ops = &ccio_ops;
 	return 0;
 }

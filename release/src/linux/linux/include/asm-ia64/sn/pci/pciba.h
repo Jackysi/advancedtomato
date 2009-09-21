@@ -3,7 +3,7 @@
  * Public License.  See the file "COPYING" in the main directory of
  * this archive for more details.
  *
- * Copyright (C) 1997, 2001 Silicon Graphics, Inc. All rights reserved.
+ * Copyright (C) 1997, 2001-2003 Silicon Graphics, Inc. All rights reserved.
  *
  */
 
@@ -13,14 +13,6 @@
 #include <linux/ioctl.h>
 #include <linux/types.h>
 #include <linux/pci.h>
-
-/* for application compatibility with IRIX (why do I bother?) */
-
-#ifndef __KERNEL__
-typedef u_int8_t uint8_t;
-typedef u_int16_t uint16_t;
-typedef u_int32_t uint32_t;
-#endif
 
 #define PCI_CFG_VENDOR_ID	PCI_VENDOR_ID
 #define PCI_CFG_COMMAND		PCI_COMMAND
@@ -79,6 +71,8 @@ typedef u_int32_t uint32_t;
  * which will get the value of the BASE<n> register.
  */
 
+/* FIXME chadt: this doesn't tell me whether or not this will work
+   with non-constant 'n.'  */
 #define	PCIIOCGETBASE(n)	PCIIOCCFGRD(uint32_t,PCI_CFG_BASE_ADDR(n))
 
 
@@ -89,6 +83,23 @@ typedef u_int32_t uint32_t;
 #define	PCIIOCDMAALLOC		_IOWR(0,1,uint64_t)
 #define	PCIIOCDMAFREE		_IOW(0,1,uint64_t)
 
+/* pio cache-mode ioctl defines.  current only uncached accelerated */
+#define PCIBA_CACHE_MODE_SET	1
+#define PCIBA_CACHE_MODE_CLEAR	2
+#ifdef PIOMAP_UNC_ACC
+#define PCIBA_UNCACHED_ACCEL	PIOMAP_UNC_ACC
+#endif
+
+/* The parameter for PCIIOCDMAALLOC needs to contain
+ * both the size of the request and the flag values
+ * to be used in setting up the DMA.
+ *
+
+FIXME chadt: gonna have to revisit this: what flags would an IRIXer like to
+ have available?
+
+ * Any flags normally useful in pciio_dmamap
+ * or pciio_dmatrans function calls can6 be used here.  */
 #define	PCIIOCDMAALLOC_REQUEST_PACK(flags,size)		\
 	((((uint64_t)(flags))<<32)|			\
 	 (((uint64_t)(size))&0xFFFFFFFF))

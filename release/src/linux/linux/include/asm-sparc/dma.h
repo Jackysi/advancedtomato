@@ -1,4 +1,4 @@
-/* $Id: dma.h,v 1.1.1.4 2003/10/14 08:09:22 sparq Exp $
+/* $Id: dma.h,v 1.35 1999/12/27 06:37:09 anton Exp $
  * include/asm-sparc/dma.h
  *
  * Copyright 1995 (C) David S. Miller (davem@caip.rutgers.edu)
@@ -193,6 +193,41 @@ extern void dvma_init(struct sbus_bus *);
 	if(DMA_ISBROKEN(dma)) DMA_INTSON(dregs); \
    } while(0)
 
+#if 0	/* P3 this stuff is inline in ledma.c:init_restart_ledma() */
+/* Pause until counter runs out or BIT isn't set in the DMA condition
+ * register.
+ */
+extern __inline__ void sparc_dma_pause(struct sparc_dma_registers *regs,
+				       unsigned long bit)
+{
+	int ctr = 50000;   /* Let's find some bugs ;) */
+
+	/* Busy wait until the bit is not set any more */
+	while((regs->cond_reg&bit) && (ctr>0)) {
+		ctr--;
+		__delay(5);
+	}
+
+	/* Check for bogus outcome. */
+	if(!ctr)
+		panic("DMA timeout");
+}
+
+/* Reset the friggin' thing... */
+#define DMA_RESET(dma) do { \
+	struct sparc_dma_registers *regs = dma->regs;                      \
+	/* Let the current FIFO drain itself */                            \
+	sparc_dma_pause(regs, (DMA_FIFO_ISDRAIN));                         \
+	/* Reset the logic */                                              \
+	regs->cond_reg |= (DMA_RST_SCSI);     /* assert */                 \
+	__delay(400);                         /* let the bits set ;) */    \
+	regs->cond_reg &= ~(DMA_RST_SCSI);    /* de-assert */              \
+	sparc_dma_enable_interrupts(regs);    /* Re-enable interrupts */   \
+	/* Enable FAST transfers if available */                           \
+	if(dma->revision>dvmarev1) regs->cond_reg |= DMA_3CLKS;            \
+	dma->running = 0;                                                  \
+} while(0)
+#endif
 
 #define for_each_dvma(dma) \
         for((dma) = dma_chain; (dma); (dma) = (dma)->next)

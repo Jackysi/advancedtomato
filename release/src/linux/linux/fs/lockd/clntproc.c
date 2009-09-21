@@ -392,6 +392,10 @@ nlmclnt_test(struct nlm_rqst *req, struct file_lock *fl)
 	if (status == NLM_LCK_GRANTED) {
 		fl->fl_type = F_UNLCK;
 	} if (status == NLM_LCK_DENIED) {
+		/*
+		 * Report the conflicting lock back to the application.
+		 * FIXME: Is it OK to report the pid back as well?
+		 */
 		locks_copy_lock(fl, &req->a_res.lock.fl);
 		/* fl->fl_pid = 0; */
 	} else {
@@ -456,7 +460,7 @@ nlmclnt_lock(struct nlm_rqst *req, struct file_lock *fl)
 		}
 		if (status < 0)
 			return status;
-	} while (resp->status == NLM_LCK_BLOCKED);
+	} while (resp->status == NLM_LCK_BLOCKED && req->a_args.block);
 
 	if (resp->status == NLM_LCK_GRANTED) {
 		fl->fl_u.nfs_fl.state = host->h_state;
@@ -497,6 +501,17 @@ nlmclnt_reclaim(struct nlm_host *host, struct file_lock *fl)
 				"(errno %d, status %d)\n", fl->fl_pid,
 				status, req->a_res.status);
 
+	/*
+	 * FIXME: This is a serious failure. We can
+	 *
+	 *  a.	Ignore the problem
+	 *  b.	Send the owning process some signal (Linux doesn't have
+	 *	SIGLOST, though...)
+	 *  c.	Retry the operation
+	 *
+	 * Until someone comes up with a simple implementation
+	 * for b or c, I'll choose option a.
+	 */
 
 	return -ENOLCK;
 }

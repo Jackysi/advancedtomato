@@ -1,40 +1,56 @@
 /******************************************************************************
  *
  * Module Name: exoparg2 - AML execution - opcodes with 2 arguments
- *              $Revision: 1.1.1.2 $
  *
  *****************************************************************************/
 
 /*
- *  Copyright (C) 2000, 2001 R. Byron Moore
+ * Copyright (C) 2000 - 2004, R. Byron Moore
+ * All rights reserved.
  *
- *  This program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2 of the License, or
- *  (at your option) any later version.
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions, and the following disclaimer,
+ *    without modification.
+ * 2. Redistributions in binary form must reproduce at minimum a disclaimer
+ *    substantially similar to the "NO WARRANTY" disclaimer below
+ *    ("Disclaimer") and any redistribution must be conditioned upon
+ *    including a substantially similar Disclaimer requirement for further
+ *    binary redistribution.
+ * 3. Neither the names of the above-listed copyright holders nor the names
+ *    of any contributors may be used to endorse or promote products derived
+ *    from this software without specific prior written permission.
  *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
+ * Alternatively, this software may be distributed under the terms of the
+ * GNU General Public License ("GPL") version 2 as published by the Free
+ * Software Foundation.
  *
- *  You should have received a copy of the GNU General Public License
- *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * NO WARRANTY
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR
+ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+ * HOLDERS OR CONTRIBUTORS BE LIABLE FOR SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+ * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+ * STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING
+ * IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGES.
  */
 
 
-#include "acpi.h"
-#include "acparser.h"
-#include "acnamesp.h"
-#include "acinterp.h"
-#include "acevents.h"
-#include "amlcode.h"
-#include "acdispat.h"
+#include <acpi/acpi.h>
+#include <acpi/acparser.h>
+#include <acpi/acinterp.h>
+#include <acpi/acevents.h>
+#include <acpi/amlcode.h>
 
 
 #define _COMPONENT          ACPI_EXECUTER
-	 MODULE_NAME         ("exoparg2")
+	 ACPI_MODULE_NAME    ("exoparg2")
 
 
 /*!
@@ -62,9 +78,9 @@
 
 /*******************************************************************************
  *
- * FUNCTION:    Acpi_ex_opcode_2A_0T_0R
+ * FUNCTION:    acpi_ex_opcode_2A_0T_0R
  *
- * PARAMETERS:  Walk_state          - Current walk state
+ * PARAMETERS:  walk_state          - Current walk state
  *
  * RETURN:      Status
  *
@@ -77,57 +93,52 @@
 
 acpi_status
 acpi_ex_opcode_2A_0T_0R (
-	acpi_walk_state         *walk_state)
+	struct acpi_walk_state          *walk_state)
 {
-	acpi_operand_object     **operand = &walk_state->operands[0];
-	acpi_namespace_node     *node;
-	acpi_status             status = AE_OK;
+	union acpi_operand_object       **operand = &walk_state->operands[0];
+	struct acpi_namespace_node      *node;
+	acpi_status                     status = AE_OK;
 
 
-	FUNCTION_TRACE_STR ("Ex_opcode_2A_0T_0R", acpi_ps_get_opcode_name (walk_state->opcode));
+	ACPI_FUNCTION_TRACE_STR ("ex_opcode_2A_0T_0R",
+			acpi_ps_get_opcode_name (walk_state->opcode));
 
 
 	/* Examine the opcode */
 
 	switch (walk_state->opcode) {
-
-	case AML_NOTIFY_OP:         /* Notify (Notify_object, Notify_value) */
+	case AML_NOTIFY_OP:         /* Notify (notify_object, notify_value) */
 
 		/* The first operand is a namespace node */
 
-		node = (acpi_namespace_node *) operand[0];
+		node = (struct acpi_namespace_node *) operand[0];
 
-		/* The node must refer to a device or thermal zone */
+		/* Notifies allowed on this object? */
 
-		if (node && operand[1])     /* TBD: is this check necessary? */ {
-			switch (node->type) {
-			case ACPI_TYPE_DEVICE:
-			case ACPI_TYPE_THERMAL:
+		if (!acpi_ev_is_notify_object (node)) {
+			ACPI_DEBUG_PRINT ((ACPI_DB_ERROR, "Unexpected notify object type [%s]\n",
+					acpi_ut_get_type_name (node->type)));
 
-				/*
-				 * Dispatch the notify to the appropriate handler
-				 * NOTE: the request is queued for execution after this method
-				 * completes.  The notify handlers are NOT invoked synchronously
-				 * from this thread -- because handlers may in turn run other
-				 * control methods.
-				 */
-				status = acpi_ev_queue_notify_request (node,
-						 (u32) operand[1]->integer.value);
-				break;
-
-			default:
-				ACPI_DEBUG_PRINT ((ACPI_DB_ERROR, "Unexpected notify object type %X\n",
-					node->type));
-
-				status = AE_AML_OPERAND_TYPE;
-				break;
-			}
+			status = AE_AML_OPERAND_TYPE;
+			break;
 		}
+
+		/*
+		 * Dispatch the notify to the appropriate handler
+		 * NOTE: the request is queued for execution after this method
+		 * completes.  The notify handlers are NOT invoked synchronously
+		 * from this thread -- because handlers may in turn run other
+		 * control methods.
+		 */
+		status = acpi_ev_queue_notify_request (node,
+				  (u32) operand[1]->integer.value);
 		break;
+
 
 	default:
 
-		REPORT_ERROR (("Acpi_ex_opcode_2A_0T_0R: Unknown opcode %X\n", walk_state->opcode));
+		ACPI_REPORT_ERROR (("acpi_ex_opcode_2A_0T_0R: Unknown opcode %X\n",
+				walk_state->opcode));
 		status = AE_AML_BAD_OPCODE;
 	}
 
@@ -137,9 +148,9 @@ acpi_ex_opcode_2A_0T_0R (
 
 /*******************************************************************************
  *
- * FUNCTION:    Acpi_ex_opcode_2A_2T_1R
+ * FUNCTION:    acpi_ex_opcode_2A_2T_1R
  *
- * PARAMETERS:  Walk_state          - Current walk state
+ * PARAMETERS:  walk_state          - Current walk state
  *
  * RETURN:      Status
  *
@@ -150,22 +161,22 @@ acpi_ex_opcode_2A_0T_0R (
 
 acpi_status
 acpi_ex_opcode_2A_2T_1R (
-	acpi_walk_state         *walk_state)
+	struct acpi_walk_state          *walk_state)
 {
-	acpi_operand_object     **operand = &walk_state->operands[0];
-	acpi_operand_object     *return_desc1 = NULL;
-	acpi_operand_object     *return_desc2 = NULL;
-	acpi_status             status;
+	union acpi_operand_object       **operand = &walk_state->operands[0];
+	union acpi_operand_object       *return_desc1 = NULL;
+	union acpi_operand_object       *return_desc2 = NULL;
+	acpi_status                     status;
 
 
-	FUNCTION_TRACE_STR ("Ex_opcode_2A_2T_1R", acpi_ps_get_opcode_name (walk_state->opcode));
+	ACPI_FUNCTION_TRACE_STR ("ex_opcode_2A_2T_1R", acpi_ps_get_opcode_name (walk_state->opcode));
 
 
 	/*
 	 * Execute the opcode
 	 */
 	switch (walk_state->opcode) {
-	case AML_DIVIDE_OP:             /* Divide (Dividend, Divisor, Remainder_result Quotient_result) */
+	case AML_DIVIDE_OP:             /* Divide (Dividend, Divisor, remainder_result quotient_result) */
 
 		return_desc1 = acpi_ut_create_internal_object (ACPI_TYPE_INTEGER);
 		if (!return_desc1) {
@@ -179,7 +190,7 @@ acpi_ex_opcode_2A_2T_1R (
 			goto cleanup;
 		}
 
-		/* Quotient to Return_desc1, remainder to Return_desc2 */
+		/* Quotient to return_desc1, remainder to return_desc2 */
 
 		status = acpi_ut_divide (&operand[0]->integer.value, &operand[1]->integer.value,
 				   &return_desc1->integer.value, &return_desc2->integer.value);
@@ -191,11 +202,10 @@ acpi_ex_opcode_2A_2T_1R (
 
 	default:
 
-		REPORT_ERROR (("Acpi_ex_opcode_2A_2T_1R: Unknown opcode %X\n",
+		ACPI_REPORT_ERROR (("acpi_ex_opcode_2A_2T_1R: Unknown opcode %X\n",
 				walk_state->opcode));
 		status = AE_AML_BAD_OPCODE;
 		goto cleanup;
-		break;
 	}
 
 
@@ -235,9 +245,9 @@ cleanup:
 
 /*******************************************************************************
  *
- * FUNCTION:    Acpi_ex_opcode_2A_1T_1R
+ * FUNCTION:    acpi_ex_opcode_2A_1T_1R
  *
- * PARAMETERS:  Walk_state          - Current walk state
+ * PARAMETERS:  walk_state          - Current walk state
  *
  * RETURN:      Status
  *
@@ -248,16 +258,17 @@ cleanup:
 
 acpi_status
 acpi_ex_opcode_2A_1T_1R (
-	acpi_walk_state         *walk_state)
+	struct acpi_walk_state          *walk_state)
 {
-	acpi_operand_object     **operand   = &walk_state->operands[0];
-	acpi_operand_object     *return_desc = NULL;
-	acpi_operand_object     *temp_desc;
-	u32                     index;
-	acpi_status             status      = AE_OK;
+	union acpi_operand_object       **operand = &walk_state->operands[0];
+	union acpi_operand_object       *return_desc = NULL;
+	union acpi_operand_object       *temp_desc = NULL;
+	u32                             index;
+	acpi_status                     status = AE_OK;
+	acpi_size                       length;
 
 
-	FUNCTION_TRACE_STR ("Ex_opcode_2A_1T_1R", acpi_ps_get_opcode_name (walk_state->opcode));
+	ACPI_FUNCTION_TRACE_STR ("ex_opcode_2A_1T_1R", acpi_ps_get_opcode_name (walk_state->opcode));
 
 
 	/*
@@ -280,7 +291,7 @@ acpi_ex_opcode_2A_1T_1R (
 
 
 	switch (walk_state->opcode) {
-	case AML_MOD_OP:                /* Mod (Dividend, Divisor, Remainder_result (ACPI 2.0) */
+	case AML_MOD_OP:                /* Mod (Dividend, Divisor, remainder_result (ACPI 2.0) */
 
 		return_desc = acpi_ut_create_internal_object (ACPI_TYPE_INTEGER);
 		if (!return_desc) {
@@ -288,11 +299,10 @@ acpi_ex_opcode_2A_1T_1R (
 			goto cleanup;
 		}
 
-		/* Return_desc will contain the remainder */
+		/* return_desc will contain the remainder */
 
 		status = acpi_ut_divide (&operand[0]->integer.value, &operand[1]->integer.value,
 				  NULL, &return_desc->integer.value);
-
 		break;
 
 
@@ -305,20 +315,22 @@ acpi_ex_opcode_2A_1T_1R (
 		 * guaranteed to be either Integer/String/Buffer by the operand
 		 * resolution mechanism above.
 		 */
-		switch (operand[0]->common.type) {
+		switch (ACPI_GET_OBJECT_TYPE (operand[0])) {
 		case ACPI_TYPE_INTEGER:
-			status = acpi_ex_convert_to_integer (operand[1], &operand[1], walk_state);
+			status = acpi_ex_convert_to_integer (operand[1], &temp_desc, walk_state);
 			break;
 
 		case ACPI_TYPE_STRING:
-			status = acpi_ex_convert_to_string (operand[1], &operand[1], 16, ACPI_UINT32_MAX, walk_state);
+			status = acpi_ex_convert_to_string (operand[1], &temp_desc, 16, ACPI_UINT32_MAX, walk_state);
 			break;
 
 		case ACPI_TYPE_BUFFER:
-			status = acpi_ex_convert_to_buffer (operand[1], &operand[1], walk_state);
+			status = acpi_ex_convert_to_buffer (operand[1], &temp_desc, walk_state);
 			break;
 
 		default:
+			ACPI_REPORT_ERROR (("Concat - invalid obj type: %X\n",
+					ACPI_GET_OBJECT_TYPE (operand[0])));
 			status = AE_AML_INTERNAL;
 		}
 
@@ -331,20 +343,69 @@ acpi_ex_opcode_2A_1T_1R (
 		 * (Both are Integer, String, or Buffer), and we can now perform the
 		 * concatenation.
 		 */
-		status = acpi_ex_do_concatenate (operand[0], operand[1], &return_desc, walk_state);
+		status = acpi_ex_do_concatenate (operand[0], temp_desc, &return_desc, walk_state);
+		if (temp_desc != operand[1]) {
+			acpi_ut_remove_reference (temp_desc);
+		}
 		break;
 
 
-	case AML_TO_STRING_OP:          /* To_string (Buffer, Length, Result) (ACPI 2.0) */
+	case AML_TO_STRING_OP:          /* to_string (Buffer, Length, Result) (ACPI 2.0) */
 
-		status = acpi_ex_convert_to_string (operand[0], &return_desc, 16,
-				  (u32) operand[1]->integer.value, walk_state);
+		/*
+		 * Input object is guaranteed to be a buffer at this point (it may have
+		 * been converted.)  Copy the raw buffer data to a new object of type String.
+		 */
+
+		/* Get the length of the new string */
+
+		length = 0;
+		if (operand[1]->integer.value == 0) {
+			/* Handle optional length value */
+
+			operand[1]->integer.value = ACPI_INTEGER_MAX;
+		}
+
+		while ((length < operand[0]->buffer.length) &&
+			   (length < operand[1]->integer.value) &&
+			   (operand[0]->buffer.pointer[length])) {
+			length++;
+		}
+
+		if (length > ACPI_MAX_STRING_CONVERSION) {
+			status = AE_AML_STRING_LIMIT;
+			goto cleanup;
+		}
+
+		/* Create the internal return object */
+
+		return_desc = acpi_ut_create_internal_object (ACPI_TYPE_STRING);
+		if (!return_desc) {
+			status = AE_NO_MEMORY;
+			goto cleanup;
+		}
+
+		/* Allocate a new string buffer (Length + 1 for null terminator) */
+
+		return_desc->string.pointer = ACPI_MEM_CALLOCATE (length + 1);
+		if (!return_desc->string.pointer) {
+			status = AE_NO_MEMORY;
+			goto cleanup;
+		}
+
+		/* Copy the raw buffer data with no transform */
+
+		ACPI_MEMCPY (return_desc->string.pointer, operand[0]->buffer.pointer, length);
+
+		/* Set the string length */
+
+		return_desc->string.length = (u32) length;
 		break;
 
 
-	case AML_CONCAT_RES_OP:         /* Concatenate_res_template (Buffer, Buffer, Result) (ACPI 2.0) */
+	case AML_CONCAT_RES_OP:         /* concatenate_res_template (Buffer, Buffer, Result) (ACPI 2.0) */
 
-		status = AE_NOT_IMPLEMENTED;
+		status = acpi_ex_concat_template (operand[0], operand[1], &return_desc, walk_state);
 		break;
 
 
@@ -352,7 +413,7 @@ acpi_ex_opcode_2A_1T_1R (
 
 		/* Create the internal return object */
 
-		return_desc = acpi_ut_create_internal_object (INTERNAL_TYPE_REFERENCE);
+		return_desc = acpi_ut_create_internal_object (ACPI_TYPE_LOCAL_REFERENCE);
 		if (!return_desc) {
 			status = AE_NO_MEMORY;
 			goto cleanup;
@@ -363,73 +424,52 @@ acpi_ex_opcode_2A_1T_1R (
 		/*
 		 * At this point, the Source operand is either a Package or a Buffer
 		 */
-		if (operand[0]->common.type == ACPI_TYPE_PACKAGE) {
+		if (ACPI_GET_OBJECT_TYPE (operand[0]) == ACPI_TYPE_PACKAGE) {
 			/* Object to be indexed is a Package */
 
 			if (index >= operand[0]->package.count) {
-				ACPI_DEBUG_PRINT ((ACPI_DB_ERROR, "Index value beyond package end\n"));
+				ACPI_DEBUG_PRINT ((ACPI_DB_ERROR, "Index value (%X) beyond package end (%X)\n",
+					index, operand[0]->package.count));
 				status = AE_AML_PACKAGE_LIMIT;
 				goto cleanup;
 			}
 
-			if ((operand[2]->common.type == INTERNAL_TYPE_REFERENCE) &&
-				(operand[2]->reference.opcode == AML_ZERO_OP)) {
-				/*
-				 * There is no actual result descriptor (the Zero_op Result
-				 * descriptor is a placeholder), so just delete the placeholder and
-				 * return a reference to the package element
-				 */
-				acpi_ut_remove_reference (operand[2]);
-			}
-
-			else {
-				/*
-				 * Each element of the package is an internal object.  Get the one
-				 * we are after.
-				 */
-				temp_desc                        = operand[0]->package.elements [index];
-				return_desc->reference.opcode    = AML_INDEX_OP;
-				return_desc->reference.target_type = temp_desc->common.type;
-				return_desc->reference.object    = temp_desc;
-
-				status = acpi_ex_store (return_desc, operand[2], walk_state);
-				return_desc->reference.object    = NULL;
-			}
-
-			/*
-			 * The local return object must always be a reference to the package element,
-			 * not the element itself.
-			 */
-			return_desc->reference.opcode    = AML_INDEX_OP;
 			return_desc->reference.target_type = ACPI_TYPE_PACKAGE;
+			return_desc->reference.object    = operand[0];
 			return_desc->reference.where     = &operand[0]->package.elements [index];
 		}
-
 		else {
 			/* Object to be indexed is a Buffer */
 
 			if (index >= operand[0]->buffer.length) {
-				ACPI_DEBUG_PRINT ((ACPI_DB_ERROR, "Index value beyond end of buffer\n"));
+				ACPI_DEBUG_PRINT ((ACPI_DB_ERROR, "Index value (%X) beyond end of buffer (%X)\n",
+					index, operand[0]->buffer.length));
 				status = AE_AML_BUFFER_LIMIT;
 				goto cleanup;
 			}
 
-			return_desc->reference.opcode      = AML_INDEX_OP;
 			return_desc->reference.target_type = ACPI_TYPE_BUFFER_FIELD;
-			return_desc->reference.object      = operand[0];
-			return_desc->reference.offset      = index;
-
-			status = acpi_ex_store (return_desc, operand[2], walk_state);
+			return_desc->reference.object    = operand[0];
 		}
+
+		/* Complete the Index reference object */
+
+		return_desc->reference.opcode    = AML_INDEX_OP;
+		return_desc->reference.offset    = index;
+
+		/* Store the reference to the Target */
+
+		status = acpi_ex_store (return_desc, operand[2], walk_state);
+
+		/* Return the reference */
 
 		walk_state->result_obj = return_desc;
 		goto cleanup;
-		break;
 
 
 	default:
 
-		REPORT_ERROR (("Acpi_ex_opcode_2A_1T_1R: Unknown opcode %X\n",
+		ACPI_REPORT_ERROR (("acpi_ex_opcode_2A_1T_1R: Unknown opcode %X\n",
 				walk_state->opcode));
 		status = AE_AML_BAD_OPCODE;
 		break;
@@ -440,7 +480,7 @@ store_result_to_target:
 
 	if (ACPI_SUCCESS (status)) {
 		/*
-		 * Store the result of the operation (which is now in Return_desc) into
+		 * Store the result of the operation (which is now in return_desc) into
 		 * the Target descriptor.
 		 */
 		status = acpi_ex_store (return_desc, operand[2], walk_state);
@@ -448,7 +488,9 @@ store_result_to_target:
 			goto cleanup;
 		}
 
-		walk_state->result_obj = return_desc;
+		if (!walk_state->result_obj) {
+			walk_state->result_obj = return_desc;
+		}
 	}
 
 
@@ -466,9 +508,9 @@ cleanup:
 
 /*******************************************************************************
  *
- * FUNCTION:    Acpi_ex_opcode_2A_0T_1R
+ * FUNCTION:    acpi_ex_opcode_2A_0T_1R
  *
- * PARAMETERS:  Walk_state          - Current walk state
+ * PARAMETERS:  walk_state          - Current walk state
  *
  * RETURN:      Status
  *
@@ -478,15 +520,15 @@ cleanup:
 
 acpi_status
 acpi_ex_opcode_2A_0T_1R (
-	acpi_walk_state         *walk_state)
+	struct acpi_walk_state          *walk_state)
 {
-	acpi_operand_object     **operand = &walk_state->operands[0];
-	acpi_operand_object     *return_desc = NULL;
-	acpi_status             status = AE_OK;
-	u8                      logical_result = FALSE;
+	union acpi_operand_object       **operand = &walk_state->operands[0];
+	union acpi_operand_object       *return_desc = NULL;
+	acpi_status                     status = AE_OK;
+	u8                              logical_result = FALSE;
 
 
-	FUNCTION_TRACE_STR ("Ex_opcode_2A_0T_1R", acpi_ps_get_opcode_name (walk_state->opcode));
+	ACPI_FUNCTION_TRACE_STR ("ex_opcode_2A_0T_1R", acpi_ps_get_opcode_name (walk_state->opcode));
 
 
 	/* Create the internal return object */
@@ -500,7 +542,7 @@ acpi_ex_opcode_2A_0T_1R (
 	/*
 	 * Execute the Opcode
 	 */
-	if (walk_state->op_info->flags & AML_LOGICAL) /* Logical_op (Operand0, Operand1) */ {
+	if (walk_state->op_info->flags & AML_LOGICAL) /* logical_op (Operand0, Operand1) */ {
 		logical_result = acpi_ex_do_logical_op (walk_state->opcode,
 				 operand[0]->integer.value,
 				 operand[1]->integer.value);
@@ -509,7 +551,7 @@ acpi_ex_opcode_2A_0T_1R (
 
 
 	switch (walk_state->opcode) {
-	case AML_ACQUIRE_OP:            /* Acquire (Mutex_object, Timeout) */
+	case AML_ACQUIRE_OP:            /* Acquire (mutex_object, Timeout) */
 
 		status = acpi_ex_acquire_mutex (operand[1], operand[0], walk_state);
 		if (status == AE_TIME) {
@@ -519,7 +561,7 @@ acpi_ex_opcode_2A_0T_1R (
 		break;
 
 
-	case AML_WAIT_OP:               /* Wait (Event_object, Timeout) */
+	case AML_WAIT_OP:               /* Wait (event_object, Timeout) */
 
 		status = acpi_ex_system_wait_event (operand[1], operand[0]);
 		if (status == AE_TIME) {
@@ -531,16 +573,16 @@ acpi_ex_opcode_2A_0T_1R (
 
 	default:
 
-		REPORT_ERROR (("Acpi_ex_opcode_2A_0T_1R: Unknown opcode %X\n", walk_state->opcode));
+		ACPI_REPORT_ERROR (("acpi_ex_opcode_2A_0T_1R: Unknown opcode %X\n",
+			walk_state->opcode));
 		status = AE_AML_BAD_OPCODE;
 		goto cleanup;
-		break;
 	}
 
 
 store_logical_result:
 	/*
-	 * Set return value to according to Logical_result. logical TRUE (all ones)
+	 * Set return value to according to logical_result. logical TRUE (all ones)
 	 * Default is FALSE (zero)
 	 */
 	if (logical_result) {

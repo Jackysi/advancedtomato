@@ -173,6 +173,9 @@ typedef u64 u_int64;
 **	and above since SCSI data structures are not ready yet.
 */
 /* #if LINUX_VERSION_CODE < LinuxVersionCode(2,3,0) */
+#if 0
+#define	SCSI_NCR_INTEGRITY_CHECKING
+#endif
 
 #define MIN(a,b)        (((a) < (b)) ? (a) : (b))
 #define MAX(a,b)        (((a) > (b)) ? (a) : (b))
@@ -1329,7 +1332,15 @@ MODULE_PARM(sym53c8xx, "s");
 	cmd->result = (((h_sts) << 16) + ((s_sts) & 0x7f))
 
 /* We may have to remind our amnesiac SCSI layer of the reason of the abort */
+#if 0
+#define SetScsiAbortResult(cmd)	\
+	  SetScsiResult(	\
+	    cmd, 		\
+	    (cmd)->abort_reason == DID_TIME_OUT ? DID_TIME_OUT : DID_ABORT, \
+	    0xff)
+#else
 #define SetScsiAbortResult(cmd) SetScsiResult(cmd, DID_ABORT, 0xff)
+#endif
 
 static void sym53c8xx_select_queue_depths(
 	struct Scsi_Host *host, struct scsi_device *devlist);
@@ -2570,6 +2581,9 @@ static inline char *ncr_name (ncb_p np)
 #define	RELOC_SOFTC	0x40000000
 #define	RELOC_LABEL	0x50000000
 #define	RELOC_REGISTER	0x60000000
+#if 0
+#define	RELOC_KVAR	0x70000000
+#endif
 #define	RELOC_LABELH	0x80000000
 #define	RELOC_MASK	0xf0000000
 
@@ -5089,7 +5103,11 @@ static int __init ncr_prepare_setting(ncb_p np, ncr_nvram *nvram)
 		np->rv_dmode	|= BOF;		/* Burst Opcode Fetch */
 	if (np->features & FE_ERMP)
 		np->rv_dmode	|= ERMP;	/* Enable Read Multiple */
+#if 1
 	if ((np->features & FE_PFEN) && !np->base2_ba)
+#else
+	if (np->features & FE_PFEN)
+#endif
 		np->rv_dcntl	|= PFEN;	/* Prefetch Enable */
 	if (np->features & FE_CLSE)
 		np->rv_dcntl	|= CLSE;	/* Cache Line Size Enable */
@@ -6084,6 +6102,10 @@ static int ncr_ic_nego(ncb_p np, ccb_p cp, Scsi_Cmnd *cmd, u_char *msgptr)
 			 * is accessible.
 			 */
 
+#if 0
+			if (tp->ic_max_width && (tp->ic_min_sync != 255 ))
+				tp->ppr_negotiation = 1;
+#endif
 			tp->ppr_negotiation = 0;
 			if (np->features & FE_ULTRA3) {
 			    if (tp->ic_max_width && (tp->ic_min_sync == 0x09))
@@ -6573,6 +6595,12 @@ static int ncr_queue_command (ncb_p np, Scsi_Cmnd *cmd)
 	**
 	**----------------------------------------------------
 	*/
+#if 0	/* This stuff was only useful for linux-1.2.13 */
+	if (lp && !lp->numtags && cmd->device && cmd->device->tagged_queue) {
+		lp->numtags = tp->usrtags;
+		ncr_setup_tags (np, cp->target, cp->lun);
+	}
+#endif
 
 	/*----------------------------------------------------
 	**
@@ -6964,7 +6992,7 @@ static void ncr_chip_reset (ncb_p np)
 
 static void ncr_soft_reset(ncb_p np)
 {
-	u_char istat;
+	u_char istat = 0;
 	int i;
 
 	if (!(np->features & FE_ISTAT1) || !(INB (nc_istat1) & SRUN))
@@ -6977,7 +7005,7 @@ static void ncr_soft_reset(ncb_p np)
 			INW (nc_sist);
 		}
 		else if (istat & DIP) {
-			if (INB (nc_dstat) & ABRT);
+			if (INB (nc_dstat) & ABRT)
 				break;
 		}
 		UDELAY(5);
@@ -7939,6 +7967,26 @@ static void ncr_getsync(ncb_p np, u_char sfac, u_char *fakp, u_char *scntl3p)
 	*/
 	fak = (kpc - 1) / div_10M[div] + 1;
 
+#if 0	/* This optimization does not seem very useful */
+
+	per = (fak * div_10M[div]) / clk;
+
+	/*
+	**	Why not to try the immediate lower divisor and to choose 
+	**	the one that allows the fastest output speed ?
+	**	We dont want input speed too much greater than output speed.
+	*/
+	if (div >= 1 && fak < 8) {
+		u_long fak2, per2;
+		fak2 = (kpc - 1) / div_10M[div-1] + 1;
+		per2 = (fak2 * div_10M[div-1]) / clk;
+		if (per2 < per && fak2 <= 8) {
+			fak = fak2;
+			per = per2;
+			--div;
+		}
+	}
+#endif
 
 	if (fak < 4) fak = 4;	/* Should never happen, too bad ... */
 
@@ -8795,6 +8843,10 @@ void ncr_exception (ncb_p np)
 	if (!(istat & (SIP|DIP)))
 		return;
 
+#if 0	/* We should never get this one */
+	if (istat & CABRT)
+		OUTB (nc_istat, CABRT);
+#endif
 
 	/*
 	**	Steinbach's Guideline for Systems Programming:
@@ -9573,6 +9625,11 @@ unexpected_phase:
 	case 2:	/* COMMAND phase */
 		nxtdsp = NCB_SCRIPT_PHYS (np, dispatch);
 		break;
+#if 0
+	case 3:	/* STATUS  phase */
+		nxtdsp = NCB_SCRIPT_PHYS (np, dispatch);
+		break;
+#endif
 	case 6:	/* MSG OUT phase */
 		/*
 		**	If the device may want to use untagged when we want 
@@ -9595,6 +9652,11 @@ unexpected_phase:
 			nxtdsp = NCB_SCRIPTH_PHYS (np, nego_bad_phase);
 		}
 		break;
+#if 0
+	case 7:	/* MSG IN  phase */
+		nxtdsp = NCB_SCRIPT_PHYS (np, clrack);
+		break;
+#endif
 	}
 
 	if (nxtdsp) {
@@ -10296,6 +10358,9 @@ static void ncr_sir_task_recovery(ncb_p np, int num)
 
 		if (p[0] != 0x70 || p[2] != 0x6 || p[12] != 0x29)
 			break;
+#if 0
+		(void) ncr_clear_tasks(np, HS_RESET, cp->target, cp->lun, -1);
+#endif
 		break;
 	}
 
@@ -11877,6 +11942,16 @@ static lcb_p ncr_setup_lcb (ncb_p np, u_char tn, u_char ln, u_char *inq_data)
 	if (!lp && !(lp = ncr_alloc_lcb(np, tn, ln)))
 		goto fail;
 
+#if 0	/* No more used. Left here as provision */
+	/*
+	**	Get device quirks.
+	*/
+	tp->quirks = 0;
+	if (tp->quirks && bootverbose) {
+		PRINT_LUN(np, tn, ln);
+		printk ("quirks=%x.\n", tp->quirks);
+	}
+#endif
 
 	/*
 	**	Evaluate trustable target/unit capabilities.
@@ -11904,6 +11979,19 @@ static lcb_p ncr_setup_lcb (ncb_p np, u_char tn, u_char ln, u_char *inq_data)
 	*/
 	if (driver_setup.force_sync_nego)
 		inq_byte7 |= INQ7_SYNC;
+
+	/*
+	**	Don't do PPR negotiations on SCSI-2 devices unless
+	**	they set the DT bit (0x04) in byte 57 of the INQUIRY
+	**	return data.
+	*/
+	if (((inq_data[2] & 0x07) < 3) && (inq_data[4] < 53 ||
+					   !(inq_data[56] & 0x04))) {
+		if (tp->minsync < 10)
+			tp->minsync = 10;
+		if (tp->usrsync < 10)
+			tp->usrsync = 10;
+	}
 
 	/*
 	**	Prepare negotiation if SIP capabilities have changed.
@@ -12136,7 +12224,11 @@ static int __init ncr_regtest (struct ncb* np)
 	data = 0xffffffff;
 	OUTL_OFF(offsetof(struct ncr_reg, nc_dstat), data);
 	data = INL_OFF(offsetof(struct ncr_reg, nc_dstat));
+#if 1
 	if (data == 0xffffffff) {
+#else
+	if ((data & 0xe2f0fffd) != 0x02000080) {
+#endif
 		printk ("CACHE TEST FAILED: reg dstat-sstat2 readback %x.\n",
 			(unsigned) data);
 		return (0x10);
@@ -12192,6 +12284,7 @@ restart_test:
 	**	Check for fatal DMA errors.
 	*/
 	dstat = INB (nc_dstat);
+#if 1	/* Band aiding for broken hardwares that fail PCI parity */
 	if ((dstat & MDPE) && (np->rv_ctest4 & MPEE)) {
 		printk ("%s: PCI DATA PARITY ERROR DETECTED - "
 			"DISABLING MASTER DATA PARITY CHECKING.\n",
@@ -12199,6 +12292,7 @@ restart_test:
 		np->rv_ctest4 &= ~MPEE;
 		goto restart_test;
 	}
+#endif
 	if (dstat & (MDPE|BF|IID)) {
 		printk ("CACHE TEST FAILED: DMA error (dstat=0x%02x).", dstat);
 		return (0x80);
@@ -13088,7 +13182,7 @@ sym53c8xx_pci_init(Scsi_Host_Template *tpnt, pcidev_t pdev, ncr_device *device)
 	** descriptors.
 	*/
 	if (chip && (chip->features & FE_DAC)) {
-		if (pci_set_dma_mask(pdev, (u64) 0xffffffffff))
+		if (pci_set_dma_mask(pdev, (u64) 0xffffffffffULL))
 			chip->features &= ~FE_DAC_IN_USE;
 		else
 			chip->features |= FE_DAC_IN_USE;
@@ -13200,11 +13294,13 @@ sym53c8xx_pci_init(Scsi_Host_Template *tpnt, pcidev_t pdev, ncr_device *device)
 	**    If you have a better idea, let me know.
 	*/
 /* #ifdef SCSI_NCR_IOMAPPED */
+#if 1
 	if (!(command & PCI_COMMAND_IO)) { 
 		printk(NAME53C8XX ": I/O base address (0x%lx) disabled.\n",
 			(long) io_port);
 		io_port = 0;
 	}
+#endif
 	if (!(command & PCI_COMMAND_MEMORY)) {
 		printk(NAME53C8XX ": PCI_COMMAND_MEMORY not set.\n");
 		base	= 0;
@@ -13215,6 +13311,7 @@ sym53c8xx_pci_init(Scsi_Host_Template *tpnt, pcidev_t pdev, ncr_device *device)
 	base_2	&= PCI_BASE_ADDRESS_MEM_MASK;
 
 /* #ifdef SCSI_NCR_IOMAPPED */
+#if 1
 	if (io_port && check_region (io_port, 128)) {
 		printk(NAME53C8XX ": IO region 0x%lx[0..127] is in use\n",
 			(long) io_port);
@@ -13222,6 +13319,7 @@ sym53c8xx_pci_init(Scsi_Host_Template *tpnt, pcidev_t pdev, ncr_device *device)
 	}
 	if (!io_port)
 		return -1;
+#endif
 #ifndef SCSI_NCR_IOMAPPED
 	if (!base) {
 		printk(NAME53C8XX ": MMIO base address disabled.\n");

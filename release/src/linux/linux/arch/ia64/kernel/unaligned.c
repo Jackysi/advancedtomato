@@ -5,6 +5,10 @@
  *	Stephane Eranian <eranian@hpl.hp.com>
  *	David Mosberger-Tang <davidm@hpl.hp.com>
  *
+ * 2002/12/09   Fix rotating register handling (off-by-1 error, missing fr-rotation).  Fix
+ *		get_rse_reg() to not leak kernel bits to user-level (reading an out-of-frame
+ *		stacked register returns an undefined value; it does NOT trigger a
+ *		"rsvd register fault").
  * 2001/10/11	Fix unaligned access to rotating registers in s/w pipelined loops.
  * 2001/08/13	Correct size of extended floats (float_fsz) from 16 to 10 bytes.
  * 2001/01/17	Add support emulation of unaligned kernel accesses.
@@ -213,8 +217,9 @@ static u16 fr_info[32]={
 	RSW(f2), RSW(f3), RSW(f4), RSW(f5),
 
 	RPT(f6), RPT(f7), RPT(f8), RPT(f9),
+	RPT(f10), RPT(f11),
 
-	RSW(f10), RSW(f11), RSW(f12), RSW(f13), RSW(f14),
+	RSW(f12), RSW(f13), RSW(f14),
 	RSW(f15), RSW(f16), RSW(f17), RSW(f18), RSW(f19),
 	RSW(f20), RSW(f21), RSW(f22), RSW(f23), RSW(f24),
 	RSW(f25), RSW(f26), RSW(f27), RSW(f28), RSW(f29),
@@ -275,6 +280,15 @@ invala_fr (int regno)
 #	undef F
 }
 
+static inline unsigned long
+rotate_reg (unsigned long sor, unsigned long rrb, unsigned long reg)
+{
+	reg += rrb;
+	if (reg >= sor)
+		reg -= sor;
+	return reg;
+}
+
 static void
 set_rse_reg (struct pt_regs *regs, unsigned long r1, unsigned long val, int nat)
 {
@@ -286,26 +300,22 @@ set_rse_reg (struct pt_regs *regs, unsigned long r1, unsigned long val, int nat)
 	long sof = (regs->cr_ifs) & 0x7f;
 	long sor = 8 * ((regs->cr_ifs >> 14) & 0xf);
 	long rrb_gr = (regs->cr_ifs >> 18) & 0x7f;
-	long ridx;
+	long ridx = r1 - 32;
 
-	if ((r1 - 32) > sor)
-		ridx = -sof + (r1 - 32);
-	else if ((r1 - 32) < (sor - rrb_gr))
-		ridx = -sof + (r1 - 32) + rrb_gr;
-	else
-		ridx = -sof + (r1 - 32) - (sor - rrb_gr);
-
-	DPRINT("r%lu, sw.bspstore=%lx pt.bspstore=%lx sof=%ld sol=%ld ridx=%ld\n",
-	       r1, sw->ar_bspstore, regs->ar_bspstore, sof, (regs->cr_ifs >> 7) & 0x7f, ridx);
-
-	if ((r1 - 32) >= sof) {
+	if (ridx >= sof) {
 		/* this should never happen, as the "rsvd register fault" has higher priority */
 		DPRINT("ignoring write to r%lu; only %lu registers are allocated!\n", r1, sof);
 		return;
 	}
 
+	if (ridx < sor)
+		ridx = rotate_reg(sor, rrb_gr, ridx);
+
+	DPRINT("r%lu, sw.bspstore=%lx pt.bspstore=%lx sof=%ld sol=%ld ridx=%ld\n",
+	       r1, sw->ar_bspstore, regs->ar_bspstore, sof, (regs->cr_ifs >> 7) & 0x7f, ridx);
+
 	on_kbs = ia64_rse_num_regs(kbs, (unsigned long *) sw->ar_bspstore);
-	addr = ia64_rse_skip_regs((unsigned long *) sw->ar_bspstore, ridx);
+	addr = ia64_rse_skip_regs((unsigned long *) sw->ar_bspstore, -sof + ridx);
 	if (addr >= kbs) {
 		/* the register is on the kernel backing store: easy... */
 		rnat_addr = ia64_rse_rnat_addr(addr);
@@ -333,7 +343,7 @@ set_rse_reg (struct pt_regs *regs, unsigned long r1, unsigned long val, int nat)
 	bspstore = (unsigned long *)regs->ar_bspstore;
 	ubs_end = ia64_rse_skip_regs(bspstore, on_kbs);
 	bsp     = ia64_rse_skip_regs(ubs_end, -sof);
-	addr    = ia64_rse_skip_regs(bsp, ridx + sof);
+	addr    = ia64_rse_skip_regs(bsp, ridx);
 
 	DPRINT("ubs_end=%p bsp=%p addr=%p\n", (void *) ubs_end, (void *) bsp, (void *) addr);
 
@@ -367,26 +377,22 @@ get_rse_reg (struct pt_regs *regs, unsigned long r1, unsigned long *val, int *na
 	long sof = (regs->cr_ifs) & 0x7f;
 	long sor = 8 * ((regs->cr_ifs >> 14) & 0xf);
 	long rrb_gr = (regs->cr_ifs >> 18) & 0x7f;
-	long ridx;
+	long ridx = r1 - 32;
 
-	if ((r1 - 32) > sor)
-		ridx = -sof + (r1 - 32);
-	else if ((r1 - 32) < (sor - rrb_gr))
-		ridx = -sof + (r1 - 32) + rrb_gr;
-	else
-		ridx = -sof + (r1 - 32) - (sor - rrb_gr);
+	if (ridx >= sof) {
+		/* read of out-of-frame register returns an undefined value; 0 in our case.  */
+		DPRINT("ignoring read from r%lu; only %lu registers are allocated!\n", r1, sof);
+		goto fail;
+	}
+
+	if (ridx < sor)
+		ridx = rotate_reg(sor, rrb_gr, ridx);
 
 	DPRINT("r%lu, sw.bspstore=%lx pt.bspstore=%lx sof=%ld sol=%ld ridx=%ld\n",
 	       r1, sw->ar_bspstore, regs->ar_bspstore, sof, (regs->cr_ifs >> 7) & 0x7f, ridx);
 
-	if ((r1 - 32) >= sof) {
-		/* this should never happen, as the "rsvd register fault" has higher priority */
-		DPRINT("ignoring read from r%lu; only %lu registers are allocated!\n", r1, sof);
-		return;
-	}
-
 	on_kbs = ia64_rse_num_regs(kbs, (unsigned long *) sw->ar_bspstore);
-	addr = ia64_rse_skip_regs((unsigned long *) sw->ar_bspstore, ridx);
+	addr = ia64_rse_skip_regs((unsigned long *) sw->ar_bspstore, -sof + ridx);
 	if (addr >= kbs) {
 		/* the register is on the kernel backing store: easy... */
 		*val = *addr;
@@ -406,13 +412,13 @@ get_rse_reg (struct pt_regs *regs, unsigned long r1, unsigned long *val, int *na
 	 */
 	if (regs->r12 >= TASK_SIZE) {
 		DPRINT("ignoring kernel read of r%lu; register isn't on the RBS!", r1);
-		return;
+		goto fail;
 	}
 
 	bspstore = (unsigned long *)regs->ar_bspstore;
 	ubs_end = ia64_rse_skip_regs(bspstore, on_kbs);
 	bsp     = ia64_rse_skip_regs(ubs_end, -sof);
-	addr    = ia64_rse_skip_regs(bsp, ridx + sof);
+	addr    = ia64_rse_skip_regs(bsp, ridx);
 
 	DPRINT("ubs_end=%p bsp=%p addr=%p\n", (void *) ubs_end, (void *) bsp, (void *) addr);
 
@@ -427,6 +433,13 @@ get_rse_reg (struct pt_regs *regs, unsigned long r1, unsigned long *val, int *na
 		ia64_peek(current, sw, (unsigned long) ubs_end, (unsigned long) rnat_addr, &rnats);
 		*nat = (rnats & nat_mask) != 0;
 	}
+	return;
+
+  fail:
+	*val = 0;
+	if (nat)
+		*nat = 0;
+	return;
 }
 
 
@@ -485,7 +498,16 @@ setreg (unsigned long regnum, unsigned long val, int nat, struct pt_regs *regs)
 	DPRINT("*0x%lx=0x%lx NaT=%d new unat: %p=%lx\n", addr, val, nat, (void *) unat,*unat);
 }
 
-#define IA64_FPH_OFFS(r) (r - IA64_FIRST_ROTATING_FR)
+/*
+ * Return the (rotated) index for floating point register REGNUM (REGNUM must be in the
+ * range from 32-127, result is in the range from 0-95.
+ */
+static inline unsigned long
+fph_index (struct pt_regs *regs, long regnum)
+{
+	unsigned long rrb_fr = (regs->cr_ifs >> 25) & 0x7f;
+	return rotate_reg(96, rrb_fr, (regnum - IA64_FIRST_ROTATING_FR));
+}
 
 static void
 setfpreg (unsigned long regnum, struct ia64_fpreg *fpval, struct pt_regs *regs)
@@ -506,7 +528,7 @@ setfpreg (unsigned long regnum, struct ia64_fpreg *fpval, struct pt_regs *regs)
 	 */
 	if (regnum >= IA64_FIRST_ROTATING_FR) {
 		ia64_sync_fph(current);
-		current->thread.fph[IA64_FPH_OFFS(regnum)] = *fpval;
+		current->thread.fph[fph_index(regs, regnum)] = *fpval;
 	} else {
 		/*
 		 * pt_regs or switch_stack ?
@@ -565,7 +587,7 @@ getfpreg (unsigned long regnum, struct ia64_fpreg *fpval, struct pt_regs *regs)
 	 */
 	if (regnum >= IA64_FIRST_ROTATING_FR) {
 		ia64_flush_fph(current);
-		*fpval = current->thread.fph[IA64_FPH_OFFS(regnum)];
+		*fpval = current->thread.fph[fph_index(regs, regnum)];
 	} else {
 		/*
 		 * f0 = 0.0, f1= 1.0. Those registers are constant and are thus
@@ -650,8 +672,8 @@ emulate_load_updates (update_t type, load_store_t ld, struct pt_regs *regs, unsi
 	 * just in case.
 	 */
 	if (ld.x6_op == 1 || ld.x6_op == 3) {
-		printk("%s %s: register update on speculative load, error\n", KERN_ERR, __FUNCTION__);
-		die_if_kernel("unaligned reference on specualtive load with register update\n",
+		printk(KERN_ERR "%s: register update on speculative load, error\n", __FUNCTION__);
+		die_if_kernel("unaligned reference on speculative load with register update\n",
 			      regs, 30);
 	}
 
@@ -1028,6 +1050,10 @@ emulate_load_floatpair (unsigned long ifa, load_store_t ld, struct pt_regs *regs
 
 		DPRINT("ld.r1=%d ld.imm=%d x6_sz=%d\n", ld.r1, ld.imm, ld.x6_sz);
 		DDUMP("frp_init =", &fpr_init, 2*len);
+		/*
+		 * XXX fixme
+		 * Could optimize inlines by using ldfpX & 2 spills
+		 */
 		switch( ld.x6_sz ) {
 			case 0:
 				mem2float_extended(&fpr_init[0], &fpr_final[0]);
@@ -1047,6 +1073,13 @@ emulate_load_floatpair (unsigned long ifa, load_store_t ld, struct pt_regs *regs
 				break;
 		}
 		DDUMP("fpr_final =", &fpr_final, 2*len);
+		/*
+		 * XXX fixme
+		 *
+		 * A possible optimization would be to drop fpr_final and directly
+		 * use the storage from the saved context i.e., the actual final
+		 * destination (pt_regs, switch_stack or thread structure).
+		 */
 		setfpreg(ld.r1, &fpr_final[0], regs);
 		setfpreg(ld.imm, &fpr_final[1], regs);
 	}
@@ -1069,8 +1102,8 @@ emulate_load_floatpair (unsigned long ifa, load_store_t ld, struct pt_regs *regs
 		 * For this reason we keep this sanity check
 		 */
 		if (ld.x6_op == 1 || ld.x6_op == 3)
-			printk("%s %s: register update on speculative load pair, "
-			       "error\n",KERN_ERR, __FUNCTION__);
+			printk(KERN_ERR "%s: register update on speculative load pair, error\n",
+			       __FUNCTION__);
 
 		setreg(ld.r3, ifa, 0, regs);
 	}
@@ -1136,6 +1169,13 @@ emulate_load_float (unsigned long ifa, load_store_t ld, struct pt_regs *regs)
 				break;
 		}
 		DDUMP("fpr_final =", &fpr_final, len);
+		/*
+		 * XXX fixme
+		 *
+		 * A possible optimization would be to drop fpr_final and directly
+		 * use the storage from the saved context i.e., the actual final
+		 * destination (pt_regs, switch_stack or thread structure).
+		 */
 		setfpreg(ld.r1, &fpr_final, regs);
 	}
 
@@ -1337,6 +1377,36 @@ ia64_handle_unaligned (unsigned long ifa, struct pt_regs *regs)
 	       "ld.x6=0x%x ld.m=%d ld.op=%d\n", opcode, u.insn.qp, u.insn.r1, u.insn.imm,
 	       u.insn.r3, u.insn.x, u.insn.hint, u.insn.x6_sz, u.insn.m, u.insn.op);
 
+	/*
+	 * IMPORTANT:
+	 * Notice that the switch statement DOES not cover all possible instructions
+	 * that DO generate unaligned references. This is made on purpose because for some
+	 * instructions it DOES NOT make sense to try and emulate the access. Sometimes it
+	 * is WRONG to try and emulate. Here is a list of instruction we don't emulate i.e.,
+	 * the program will get a signal and die:
+	 *
+	 *	load/store:
+	 *		- ldX.spill
+	 *		- stX.spill
+	 *	Reason: RNATs are based on addresses
+	 *
+	 *	synchronization:
+	 *		- cmpxchg
+	 *		- fetchadd
+	 *		- xchg
+	 *	Reason: ATOMIC operations cannot be emulated properly using multiple
+	 *	        instructions.
+	 *
+	 *	speculative loads:
+	 *		- ldX.sZ
+	 *	Reason: side effects, code must be ready to deal with failure so simpler
+	 *		to let the load fail.
+	 * ---------------------------------------------------------------------------------
+	 * XXX fixme
+	 *
+	 * I would like to get rid of this switch case and do something
+	 * more elegant.
+	 */
 	switch (opcode) {
 	      case LDS_OP:
 	      case LDSA_OP:

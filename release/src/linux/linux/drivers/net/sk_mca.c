@@ -651,7 +651,7 @@ static u16 irqrx_handler(struct SKMCA_NETDEV *dev, u16 oldcsr0)
 				skb->protocol = eth_type_trans(skb, dev);
 				skb->ip_summed = CHECKSUM_NONE;
 				priv->stat.rx_packets++;
-#if LINUX_VERSION_CODE >= 0x020119	    /* byte counters for >= 2.1.25 */
+#if LINUX_VERSION_CODE >= 0x020119	/* byte counters for >= 2.1.25 */
 				priv->stat.rx_bytes += descr.Len;
 #endif
 				netif_rx(skb);
@@ -711,7 +711,7 @@ static u16 irqtx_handler(struct SKMCA_NETDEV *dev, u16 oldcsr0)
 		/* update statistics */
 		if ((descr.Flags & TXDSCR_FLAGS_ERR) == 0) {
 			priv->stat.tx_packets++;
-#if LINUX_VERSION_CODE >= 0x020119	    /* byte counters for >= 2.1.25 */
+#if LINUX_VERSION_CODE >= 0x020119	/* byte counters for >= 2.1.25 */
 			priv->stat.tx_bytes++;
 #endif
 		} else {
@@ -775,6 +775,9 @@ static void irq_handler(int irq, void *device, struct pt_regs *regs)
 		return;
 
 #if (LINUX_VERSION_CODE >= 0x02032a)
+#if 0
+	set_bit(LINK_STATE_RXSEM, &dev->state);
+#endif
 #else
 	dev->interrupt = 1;
 #endif
@@ -802,6 +805,9 @@ static void irq_handler(int irq, void *device, struct pt_regs *regs)
 	while ((csr0val & CSR0_INTR) != 0);
 
 #if (LINUX_VERSION_CODE >= 0x02032a)
+#if 0
+	clear_bit(LINK_STATE_RXSEM, &dev->state);
+#endif
 #else
 	dev->interrupt = 0;
 #endif
@@ -1042,13 +1048,13 @@ static void skmca_set_multicast_list(struct SKMCA_NETDEV *dev)
 		block.Mode &= ~LANCE_INIT_PROM;
 
 	if (dev->flags & IFF_ALLMULTI) {	/* get all multicasts */
-		memset(block.LAdrF, 8, 0xff);
+		memset(block.LAdrF, 0xff, sizeof(block.LAdrF));
 	} else {		/* get selected/no multicasts */
 
 		struct dev_mc_list *mptr;
 		int code;
 
-		memset(block.LAdrF, 8, 0x00);
+		memset(block.LAdrF, 0, sizeof(block.LAdrF));
 		for (mptr = dev->mc_list; mptr != NULL; mptr = mptr->next) {
 			code = GetHash(mptr->dmi_addr);
 			block.LAdrF[(code >> 3) & 7] |= 1 << (code & 7);

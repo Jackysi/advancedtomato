@@ -1,4 +1,4 @@
-/* $Id: fault.c,v 1.1.1.4 2003/10/14 08:07:39 sparq Exp $
+/* $Id: fault.c,v 1.5 2000/01/26 16:20:29 jsm Exp $
  *
  * This file is subject to the terms and conditions of the GNU General Public
  * License.  See the file "COPYING" in the main directory of this archive
@@ -119,6 +119,25 @@ parisc_acctyp(unsigned long code, unsigned int inst)
 #undef BITSSET
 
 
+#if 0
+/* This is the treewalk to find a vma which is the highest that has
+ * a start < addr.  We're using find_vma_prev instead right now, but
+ * we might want to use this at some point in the future.  Probably
+ * not, but I want it committed to CVS so I don't lose it :-)
+ */
+			while (tree != vm_avl_empty) {
+				if (tree->vm_start > addr) {
+					tree = tree->vm_avl_left;
+				} else {
+					prev = tree;
+					if (prev->vm_next == NULL)
+						break;
+					if (prev->vm_next->vm_start > addr)
+						break;
+					tree = tree->vm_avl_right;
+				}
+			}
+#endif
 
 void do_page_fault(struct pt_regs *regs, unsigned long code,
 			      unsigned long address)
@@ -198,6 +217,7 @@ bad_area:
 		}
 		show_regs(regs);
 #endif
+		/* FIXME: actually we need to get the signo and code correct */
 		si.si_signo = SIGSEGV;
 		si.si_errno = 0;
 		si.si_code = SEGV_MAPERR;
@@ -237,7 +257,8 @@ no_context:
 	}
 
 	parisc_terminate("Bad Address (null pointer deref?)", regs, code, address);
-
+	/* NOT REACHED! */
+	
   out_of_memory:
 	up_read(&mm->mmap_sem);
 	printk(KERN_CRIT "VM: killing process %s\n", current->comm);

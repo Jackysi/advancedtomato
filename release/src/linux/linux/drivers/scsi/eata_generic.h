@@ -97,7 +97,7 @@
 #define DELAY(x) { ulong flags, i;                \
                    save_flags(flags); sti();      \
                    i = jiffies + (x * HZ);        \
-                   while (jiffies < i);           \
+                   while (time_before(jiffies, i)) cpu_relax();           \
                    restore_flags(flags); }
 
 /***********************************************

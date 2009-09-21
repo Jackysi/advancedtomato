@@ -1,6 +1,3 @@
-/*
- * BK Id: SCCS/s.vc_ioctl.h 1.5 05/17/01 18:14:26 cort
- */
 #ifndef _LINUX_VC_IOCTL_H
 #define _LINUX_VC_IOCTL_H
 
@@ -41,6 +38,6 @@ extern int console_setcmap(int, unsigned char *, unsigned char *,
 extern int console_powermode(int);
 extern struct vc_mode display_info;
 extern struct fb_info *console_fb_info;
-#endif
+#endif /* __KERNEL__ */
 
 #endif /* _LINUX_VC_IOCTL_H */

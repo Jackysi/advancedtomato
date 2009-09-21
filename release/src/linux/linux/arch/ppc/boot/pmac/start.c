@@ -1,7 +1,4 @@
 /*
- * BK Id: SCCS/s.start.c 1.10 07/25/01 18:13:07 trini
- */
-/*
  * Copyright (C) Paul Mackerras 1997.
  *
  * This program is free software; you can redistribute it and/or
@@ -10,62 +7,27 @@
  * 2 of the License, or (at your option) any later version.
  */
 #include <stdarg.h>
+#include "of1275.h"
 
 extern int strlen(const char *s);
 extern void boot(int a1, int a2, void *prom);
 
-int (*prom)();
+phandle stdin;
+phandle stdout;
+phandle stderr;
 
-void *chosen_handle;
-void *stdin;
-void *stdout;
-void *stderr;
-
-void exit(void);
-void *finddevice(const char *name);
-int getprop(void *phandle, const char *name, void *buf, int buflen);
 void printk(char *fmt, ...);
 
 void
 start(int a1, int a2, void *promptr)
 {
-    prom = (int (*)()) promptr;
-    chosen_handle = finddevice("/chosen");
-    if (chosen_handle == (void *) -1)
-	exit();
-    if (getprop(chosen_handle, "stdout", &stdout, sizeof(stdout)) != 4)
-	exit();
-    stderr = stdout;
-    if (getprop(chosen_handle, "stdin", &stdin, sizeof(stdin)) != 4)
+    ofinit(promptr);
+    if (ofstdio(&stdin, &stdout, &stderr))
 	exit();
 
     boot(a1, a2, promptr);
     for (;;)
 	exit();
-}
-
-int
-write(void *handle, void *ptr, int nb)
-{
-    struct prom_args {
-	char *service;
-	int nargs;
-	int nret;
-	void *ihandle;
-	void *addr;
-	int len;
-	int actual;
-    } args;
-
-    args.service = "write";
-    args.nargs = 3;
-    args.nret = 1;
-    args.ihandle = handle;
-    args.addr = ptr;
-    args.len = nb;
-    args.actual = -1;
-    (*prom)(&args);
-    return args.actual;
 }
 
 int writestring(void *f, char *ptr, int nb)
@@ -85,142 +47,6 @@ int writestring(void *f, char *ptr, int nb)
 	if (w < nb)
 		write(f, ptr + w, nb - w);
 	return nb;
-}
-
-int
-read(void *handle, void *ptr, int nb)
-{
-    struct prom_args {
-	char *service;
-	int nargs;
-	int nret;
-	void *ihandle;
-	void *addr;
-	int len;
-	int actual;
-    } args;
-
-    args.service = "read";
-    args.nargs = 3;
-    args.nret = 1;
-    args.ihandle = handle;
-    args.addr = ptr;
-    args.len = nb;
-    args.actual = -1;
-    (*prom)(&args);
-    return args.actual;
-}
-
-void
-exit(void)
-{
-    struct prom_args {
-	char *service;
-    } args;
-
-    for (;;) {
-	args.service = "exit";
-	(*prom)(&args);
-    }
-}
-
-void
-pause(void)
-{
-    struct prom_args {
-	char *service;
-    } args;
-
-    args.service = "enter";
-    (*prom)(&args);
-}
-
-void *
-finddevice(const char *name)
-{
-    struct prom_args {
-	char *service;
-	int nargs;
-	int nret;
-	const char *devspec;
-	void *phandle;
-    } args;
-
-    args.service = "finddevice";
-    args.nargs = 1;
-    args.nret = 1;
-    args.devspec = name;
-    args.phandle = (void *) -1;
-    (*prom)(&args);
-    return args.phandle;
-}
-
-void *
-claim(unsigned int virt, unsigned int size, unsigned int align)
-{
-    struct prom_args {
-	char *service;
-	int nargs;
-	int nret;
-	unsigned int virt;
-	unsigned int size;
-	unsigned int align;
-	void *ret;
-    } args;
-
-    args.service = "claim";
-    args.nargs = 3;
-    args.nret = 1;
-    args.virt = virt;
-    args.size = size;
-    args.align = align;
-    (*prom)(&args);
-    return args.ret;
-}
-
-void
-release(void *virt, unsigned int size)
-{
-    struct prom_args {
-	char *service;
-	int nargs;
-	int nret;
-	void *virt;
-	unsigned int size;
-    } args;
-
-    args.service = "release";
-    args.nargs = 2;
-    args.nret = 0;
-    args.virt = virt;
-    args.size = size;
-    (*prom)(&args);
-}
-
-int
-getprop(void *phandle, const char *name, void *buf, int buflen)
-{
-    struct prom_args {
-	char *service;
-	int nargs;
-	int nret;
-	void *phandle;
-	const char *name;
-	void *buf;
-	int buflen;
-	int size;
-    } args;
-
-    args.service = "getprop";
-    args.nargs = 4;
-    args.nret = 1;
-    args.phandle = phandle;
-    args.name = name;
-    args.buf = buf;
-    args.buflen = buflen;
-    args.size = -1;
-    (*prom)(&args);
-    return args.size;
 }
 
 int

@@ -893,12 +893,21 @@ static int x25_sendmsg(struct socket *sock, struct msghdr *msg, int len, struct 
 		if (sx25.sx25_family != AF_X25)
 			return -EINVAL;
 	} else {
+		/*
+		 *	FIXME 1003.1g - if the socket is like this because
+		 *	it has become closed (not started closed) we ought
+		 *	to SIGPIPE, EPIPE;
+		 */
 		if (sk->state != TCP_ESTABLISHED)
 			return -ENOTCONN;
 
 		sx25.sx25_family = AF_X25;
 		sx25.sx25_addr   = sk->protinfo.x25->dest_addr;
 	}
+
+	/* Sanity check the packet size */
+	if (len > 65535)
+		return -EMSGSIZE;
 
 	SOCK_DEBUG(sk, "x25_sendmsg: sendto: Addresses built.\n");
 

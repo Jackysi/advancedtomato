@@ -1,4 +1,4 @@
-/* $Id: sparc_ksyms.c,v 1.1.1.4 2003/10/14 08:07:48 sparq Exp $
+/* $Id: sparc_ksyms.c,v 1.107 2001/07/17 16:17:33 anton Exp $
  * arch/sparc/kernel/ksyms.c: Sparc specific ksyms support.
  *
  * Copyright (C) 1996 David S. Miller (davem@caip.rutgers.edu)
@@ -122,6 +122,7 @@ EXPORT_SYMBOL(__down_trylock);
 EXPORT_SYMBOL(__down_interruptible);
 
 EXPORT_SYMBOL(sparc_valid_addr_bitmap);
+EXPORT_SYMBOL(phys_base);
 
 /* Atomic operations. */
 EXPORT_SYMBOL_PRIVATE(_atomic_add);
@@ -151,10 +152,12 @@ EXPORT_SYMBOL(__cpu_logical_map);
 #endif
 
 EXPORT_SYMBOL(udelay);
+EXPORT_SYMBOL(ndelay);
 EXPORT_SYMBOL(mostek_lock);
 EXPORT_SYMBOL(mstk48t02_regs);
 #if CONFIG_SUN_AUXIO
-EXPORT_SYMBOL(auxio_register);
+EXPORT_SYMBOL(set_auxio);
+EXPORT_SYMBOL(get_auxio);
 #endif
 EXPORT_SYMBOL(request_fast_irq);
 EXPORT_SYMBOL(io_remap_page_range);
@@ -281,6 +284,7 @@ EXPORT_SYMBOL(__copy_user);
 EXPORT_SYMBOL(__strncpy_from_user);
 
 /* Networking helper routines. */
+/* XXX This is NOVERS because C_LABEL_STR doesn't get the version number. -DaveM */
 EXPORT_SYMBOL_NOVERS(__csum_partial_copy_sparc_generic);
 
 /* No version information on this, heavily used in inline asm,
@@ -293,6 +297,7 @@ EXPORT_SYMBOL_NOVERS(memcmp);
 EXPORT_SYMBOL_NOVERS(memcpy);
 EXPORT_SYMBOL_NOVERS(memset);
 EXPORT_SYMBOL_NOVERS(memmove);
+EXPORT_SYMBOL_NOVERS(memchr);
 EXPORT_SYMBOL_NOVERS(__ashrdi3);
 EXPORT_SYMBOL_NOVERS(__ashldi3);
 EXPORT_SYMBOL_NOVERS(__lshrdi3);

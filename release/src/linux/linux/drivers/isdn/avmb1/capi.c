@@ -1,4 +1,4 @@
-/* $Id: capi.c,v 1.1.1.4 2003/10/14 08:08:11 sparq Exp $
+/* $Id: capi.c,v 1.1.4.2 2001/12/09 18:45:13 kai Exp $
  *
  * CAPI 2.0 Interface for Linux
  *
@@ -45,7 +45,7 @@
 #include "capifs.h"
 #endif
 
-static char *revision = "$Revision: 1.1.1.4 $";
+static char *revision = "$Revision: 1.1.4.2 $";
 
 MODULE_DESCRIPTION("CAPI4Linux: Userspace /dev/capi20 interface");
 MODULE_AUTHOR("Carsten Paeth");
@@ -1630,7 +1630,7 @@ static int capinc_tty_init(void)
 	drv->stop = capinc_tty_stop;
 	drv->start = capinc_tty_start;
 	drv->hangup = capinc_tty_hangup;
-#if (LINUX_VERSION_CODE >= 131394)     /* Linux 2.1.66 */
+#if (LINUX_VERSION_CODE >= 131394) /* Linux 2.1.66 */
 	drv->break_ctl = capinc_tty_break_ctl;
 #endif
 	drv->flush_buffer = capinc_tty_flush_buffer;

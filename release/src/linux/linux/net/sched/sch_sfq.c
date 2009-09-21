@@ -131,10 +131,6 @@ static __inline__ unsigned sfq_fold_hash(struct sfq_sched_data *q, u32 h, u32 h1
 	return h & 0x3FF;
 }
 
-#ifndef IPPROTO_ESP
-#define IPPROTO_ESP 50
-#endif
-
 static unsigned sfq_hash(struct sfq_sched_data *q, struct sk_buff *skb)
 {
 	u32 h, h2;
@@ -213,12 +209,12 @@ extern __inline__ void sfq_inc(struct sfq_sched_data *q, sfq_index x)
 	sfq_link(q, x);
 }
 
-static int sfq_drop(struct Qdisc *sch)
+static unsigned int sfq_drop(struct Qdisc *sch)
 {
 	struct sfq_sched_data *q = (struct sfq_sched_data *)sch->data;
 	sfq_index d = q->max_depth;
 	struct sk_buff *skb;
-	int len;
+	unsigned int len;
 
 	/* Queue is full! Find the longest slot and
 	   drop a packet from it */

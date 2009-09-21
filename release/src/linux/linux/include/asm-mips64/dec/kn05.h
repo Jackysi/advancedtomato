@@ -1,10 +1,10 @@
 /*
  *	include/asm-mips/dec/kn05.h
  *
- *	DECstation 5000/260 (4max+ or KN05) and DECsystem 5900-260
+ *	DECstation 5000/260 (4max+ or KN05) and DECsystem 5900/260
  *	definitions.
  *
- *	Copyright (C) 2002  Maciej W. Rozycki
+ *	Copyright (C) 2002, 2003  Maciej W. Rozycki
  *
  *	This program is free software; you can redistribute it and/or
  *	modify it under the terms of the GNU General Public License
@@ -31,31 +31,32 @@
 #define KN05_IOCTL	(17*IOASIC_SLOT_SIZE)	/* I/O ASIC */
 #define KN05_ESAR	(18*IOASIC_SLOT_SIZE)	/* LANCE MAC address chip */
 #define KN05_LANCE	(19*IOASIC_SLOT_SIZE)	/* LANCE Ethernet */
-#define KN05_MB_INT	(20*IOASIC_SLOT_SIZE)	/* MB interrupt register? */
-#define KN05_MB_UNKN_0	(21*IOASIC_SLOT_SIZE)	/* MB unknown register */
-#define KN05_MB_UNKN_1	(22*IOASIC_SLOT_SIZE)	/* MB unknown register */
+#define KN05_MB_INT	(20*IOASIC_SLOT_SIZE)	/* MB interrupt register */
+#define KN05_MB_EA	(21*IOASIC_SLOT_SIZE)	/* MB error address? */
+#define KN05_MB_EC	(22*IOASIC_SLOT_SIZE)	/* MB error ??? */
 #define KN05_MB_CSR	(23*IOASIC_SLOT_SIZE)	/* MB control & status */
-#define KN05_RESERVED_0	(24*IOASIC_SLOT_SIZE)	/* unused? */
-#define KN05_RESERVED_1	(25*IOASIC_SLOT_SIZE)	/* unused? */
-#define KN05_RESERVED_2	(26*IOASIC_SLOT_SIZE)	/* unused? */
-#define KN05_RESERVED_3	(27*IOASIC_SLOT_SIZE)	/* unused? */
+#define KN05_RES_24	(24*IOASIC_SLOT_SIZE)	/* unused? */
+#define KN05_RES_25	(25*IOASIC_SLOT_SIZE)	/* unused? */
+#define KN05_RES_26	(26*IOASIC_SLOT_SIZE)	/* unused? */
+#define KN05_RES_27	(27*IOASIC_SLOT_SIZE)	/* unused? */
 #define KN05_SCSI	(28*IOASIC_SLOT_SIZE)	/* ASC SCSI */
-#define KN05_RESERVED_4	(29*IOASIC_SLOT_SIZE)	/* unused? */
-#define KN05_RESERVED_5	(30*IOASIC_SLOT_SIZE)	/* unused? */
-#define KN05_RESERVED_6	(31*IOASIC_SLOT_SIZE)	/* unused? */
+#define KN05_RES_29	(29*IOASIC_SLOT_SIZE)	/* unused? */
+#define KN05_RES_30	(30*IOASIC_SLOT_SIZE)	/* unused? */
+#define KN05_RES_31	(31*IOASIC_SLOT_SIZE)	/* unused? */
 
 /*
- * Bits for the MB interrupt (?) register.
+ * Bits for the MB interrupt register.
  * The register appears read-only.
  */
 #define KN05_MB_INT_TC		(1<<0)		/* TURBOchannel? */
 #define KN05_MB_INT_RTC		(1<<1)		/* RTC? */
+#define KN05_MB_INT_MT		(1<<3)		/* ??? */
 
 /*
  * Bits for the MB control & status register.
  * Set to 0x00bf8001 on my system by the ROM.
  */
-#define KN05_MB_CSR_PF		(1<<0)		/* ??? */
+#define KN05_MB_CSR_PF		(1<<0)		/* PreFetching enable? */
 #define KN05_MB_CSR_F		(1<<1)		/* ??? */
 #define KN05_MB_CSR_ECC		(0xff<<2)	/* ??? */
 #define KN05_MB_CSR_OD		(1<<10)		/* ??? */

@@ -25,10 +25,16 @@
 #include <linux/ext2_fs.h>
 #include <linux/hdreg.h>
 #include <linux/if_bonding.h>
+#include <linux/loop.h>
+#include <linux/blkpg.h>
+#include <linux/blk.h>
+#include <linux/elevator.h>
+#include <linux/raw.h>
 #include <asm/types.h>
 #include <asm/uaccess.h>
 #include <asm/dasd.h>
 #include <asm/sockios.h>
+#include "../../../drivers/s390/char/tubio.h"
 
 #include "linux32.h"
 
@@ -373,6 +379,107 @@ static int do_ext2_ioctl(unsigned int fd, unsigned int cmd, unsigned long arg)
 	return sys_ioctl(fd, cmd, arg);
 }
 
+struct loop_info32 {
+	int			lo_number;      /* ioctl r/o */
+	__kernel_dev_t32	lo_device;      /* ioctl r/o */
+	unsigned int		lo_inode;       /* ioctl r/o */
+	__kernel_dev_t32	lo_rdevice;     /* ioctl r/o */
+	int			lo_offset;
+	int			lo_encrypt_type;
+	int			lo_encrypt_key_size;    /* ioctl w/o */
+	int			lo_flags;       /* ioctl r/o */
+	char			lo_name[LO_NAME_SIZE];
+	unsigned char		lo_encrypt_key[LO_KEY_SIZE]; /* ioctl w/o */
+	unsigned int		lo_init[2];
+	char			reserved[4];
+};
+
+static int loop_status(unsigned int fd, unsigned int cmd, unsigned long arg)
+{
+	mm_segment_t old_fs = get_fs();
+	struct loop_info l;
+	int err = -EINVAL;
+
+	switch(cmd) {
+	case LOOP_SET_STATUS:
+		err = get_user(l.lo_number, &((struct loop_info32 *)arg)->lo_number);
+		err |= __get_user(l.lo_device, &((struct loop_info32 *)arg)->lo_device);
+		err |= __get_user(l.lo_inode, &((struct loop_info32 *)arg)->lo_inode);
+		err |= __get_user(l.lo_rdevice, &((struct loop_info32 *)arg)->lo_rdevice);
+		err |= __copy_from_user((char *)&l.lo_offset, (char *)&((struct loop_info32 *)arg)->lo_offset,
+					   8 + (unsigned long)l.lo_init - (unsigned long)&l.lo_offset);
+		if (err) {
+			err = -EFAULT;
+		} else {
+			set_fs (KERNEL_DS);
+			err = sys_ioctl (fd, cmd, (unsigned long)&l);
+			set_fs (old_fs);
+		}
+		break;
+	case LOOP_GET_STATUS:
+		set_fs (KERNEL_DS);
+		err = sys_ioctl (fd, cmd, (unsigned long)&l);
+		set_fs (old_fs);
+		if (!err) {
+			err = put_user(l.lo_number, &((struct loop_info32 *)arg)->lo_number);
+			err |= __put_user(l.lo_device, &((struct loop_info32 *)arg)->lo_device);
+			err |= __put_user(l.lo_inode, &((struct loop_info32 *)arg)->lo_inode);
+			err |= __put_user(l.lo_rdevice, &((struct loop_info32 *)arg)->lo_rdevice);
+			err |= __copy_to_user((char *)&((struct loop_info32 *)arg)->lo_offset,
+					   (char *)&l.lo_offset, (unsigned long)l.lo_init - (unsigned long)&l.lo_offset);
+			if (err)
+				err = -EFAULT;
+		}
+		break;
+	default: {
+		static int count = 0;
+		if (++count <= 20)
+			printk("%s: Unknown loop ioctl cmd, fd(%d) "
+			       "cmd(%08x) arg(%08lx)\n",
+			       __FUNCTION__, fd, cmd, arg);
+	}
+	}
+	return err;
+}
+
+
+struct blkpg_ioctl_arg32 {
+	int op;
+	int flags;
+	int datalen;
+	u32 data;
+};
+                                
+static int blkpg_ioctl_trans(unsigned int fd, unsigned int cmd, struct blkpg_ioctl_arg32 *arg)
+{
+	struct blkpg_ioctl_arg a;
+	struct blkpg_partition p;
+	int err;
+	mm_segment_t old_fs = get_fs();
+	
+	err = get_user(a.op, &arg->op);
+	err |= __get_user(a.flags, &arg->flags);
+	err |= __get_user(a.datalen, &arg->datalen);
+	err |= __get_user((long)a.data, &arg->data);
+	if (err) return err;
+	switch (a.op) {
+	case BLKPG_ADD_PARTITION:
+	case BLKPG_DEL_PARTITION:
+		if (a.datalen < sizeof(struct blkpg_partition))
+			return -EINVAL;
+                if (copy_from_user(&p, a.data, sizeof(struct blkpg_partition)))
+			return -EFAULT;
+		a.data = &p;
+		set_fs (KERNEL_DS);
+		err = sys_ioctl(fd, cmd, (unsigned long)&a);
+		set_fs (old_fs);
+	default:
+		return -EINVAL;
+	}                                        
+	return err;
+}
+
+
 static int w_long(unsigned int fd, unsigned int cmd, unsigned long arg)
 {
 	mm_segment_t old_fs = get_fs();
@@ -413,15 +520,34 @@ static struct ioctl32_list ioctl32_handler_table[] = {
 	IOCTL32_DEFAULT(BIODASDINFO),
 	IOCTL32_DEFAULT(BIODASDFMT),
 
+	IOCTL32_DEFAULT(BLKROSET),
+	IOCTL32_DEFAULT(BLKROGET),
 	IOCTL32_DEFAULT(BLKRRPART),
+	IOCTL32_DEFAULT(BLKFLSBUF),
+	IOCTL32_DEFAULT(BLKRASET),
+	IOCTL32_DEFAULT(BLKFRASET),
+	IOCTL32_DEFAULT(BLKSECTSET),
+	IOCTL32_DEFAULT(BLKSSZGET),
+	IOCTL32_DEFAULT(BLKBSZGET),
+	IOCTL32_DEFAULT(BLKGETSIZE64),
+
+	IOCTL32_DEFAULT(BLKELVGET),
+	IOCTL32_DEFAULT(BLKELVSET),
 
 	IOCTL32_HANDLER(HDIO_GETGEO, hd_geometry_ioctl),
 
+	IOCTL32_DEFAULT(TUBICMD),
+	IOCTL32_DEFAULT(TUBOCMD),
+	IOCTL32_DEFAULT(TUBGETI),
+	IOCTL32_DEFAULT(TUBGETO),
+	IOCTL32_DEFAULT(TUBSETMOD),
+	IOCTL32_DEFAULT(TUBGETMOD),
 	IOCTL32_DEFAULT(TCGETA),
 	IOCTL32_DEFAULT(TCSETA),
 	IOCTL32_DEFAULT(TCSETAW),
 	IOCTL32_DEFAULT(TCSETAF),
 	IOCTL32_DEFAULT(TCSBRK),
+	IOCTL32_DEFAULT(TCSBRKP),
 	IOCTL32_DEFAULT(TCXONC),
 	IOCTL32_DEFAULT(TCFLSH),
 	IOCTL32_DEFAULT(TCGETS),
@@ -508,6 +634,10 @@ static struct ioctl32_list ioctl32_handler_table[] = {
 
 	IOCTL32_DEFAULT(SIOCGSTAMP),
 
+	IOCTL32_DEFAULT(LOOP_SET_FD),
+	IOCTL32_DEFAULT(LOOP_CLR_FD),
+
+	IOCTL32_DEFAULT(SIOCATMARK),
 	IOCTL32_HANDLER(SIOCGIFNAME, dev_ifname32),
 	IOCTL32_HANDLER(SIOCGIFCONF, dev_ifconf),
 	IOCTL32_HANDLER(SIOCGIFFLAGS, dev_ifsioc),
@@ -552,7 +682,18 @@ static struct ioctl32_list ioctl32_handler_table[] = {
 	IOCTL32_HANDLER(EXT2_IOC32_GETVERSION, do_ext2_ioctl),
 	IOCTL32_HANDLER(EXT2_IOC32_SETVERSION, do_ext2_ioctl),
 
-	IOCTL32_HANDLER(BLKGETSIZE, w_long)
+	IOCTL32_HANDLER(LOOP_SET_STATUS, loop_status),
+	IOCTL32_HANDLER(LOOP_GET_STATUS, loop_status),
+
+/* Raw devices */
+	IOCTL32_DEFAULT(RAW_SETBIND),
+	IOCTL32_DEFAULT(RAW_GETBIND),
+
+	IOCTL32_HANDLER(BLKRAGET, w_long),
+	IOCTL32_HANDLER(BLKGETSIZE, w_long),
+	IOCTL32_HANDLER(BLKFRAGET, w_long),
+	IOCTL32_HANDLER(BLKSECTGET, w_long),
+	IOCTL32_HANDLER(BLKPG, blkpg_ioctl_trans)
 
 };
 
@@ -604,6 +745,8 @@ out:
 static void ioctl32_insert(struct ioctl32_list *entry)
 {
 	int hash = ioctl32_hash(entry->handler.cmd);
+
+	entry->next = 0;
 	if (!ioctl32_hash_table[hash])
 		ioctl32_hash_table[hash] = entry;
 	else {
@@ -612,8 +755,49 @@ static void ioctl32_insert(struct ioctl32_list *entry)
 		while (l->next)
 			l = l->next;
 		l->next = entry;
-		entry->next = 0;
 	}
+}
+
+int register_ioctl32_conversion(unsigned int cmd,
+				int (*handler)(unsigned int, unsigned int,
+					       unsigned long, struct file *))
+{
+	struct ioctl32_list *l, *new;
+	int hash;
+
+	hash = ioctl32_hash(cmd);
+	for (l = ioctl32_hash_table[hash]; l != NULL; l = l->next)
+		if (l->handler.cmd == cmd)
+			return -EBUSY;
+	new = kmalloc(sizeof(struct ioctl32_list), GFP_KERNEL);
+	if (new == NULL)
+		return -ENOMEM;
+	new->handler.cmd = cmd;
+	new->handler.function = (void *) handler;
+	ioctl32_insert(new);
+	return 0;
+}
+
+int unregister_ioctl32_conversion(unsigned int cmd)
+{
+	struct ioctl32_list *p, *l;
+	int hash;
+
+	hash = ioctl32_hash(cmd);
+	p = NULL;
+	for (l = ioctl32_hash_table[hash]; l != NULL; l = l->next) {
+		if (l->handler.cmd == cmd)
+			break;
+		p = l;
+	}
+	if (l == NULL)
+		return -ENOENT;
+	if (p == NULL)
+		ioctl32_hash_table[hash] = l->next;
+	else
+		p->next = l->next;
+	kfree(l);
+	return 0;
 }
 
 static int __init init_ioctl32(void)

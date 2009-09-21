@@ -21,21 +21,19 @@ CFLAGS_seagate.o =   -DARBITRATE -DPARITY -DSEAGATE_USE_ASM
 
 O_TARGET := scsidrv.o
 
-export-objs	:= scsi_syms.o 53c700.o
+export-objs	:= scsi_syms.o 53c700.o libata-core.o
 mod-subdirs	:= pcmcia ../acorn/scsi
 
 
 subdir-$(CONFIG_SCSI_AACRAID)	+= aacraid
 subdir-$(CONFIG_SCSI_AIC7XXX)	+= aic7xxx
+subdir-$(CONFIG_SCSI_AIC79XX)	+= aic7xxx
 subdir-$(CONFIG_PCMCIA)		+= pcmcia
 
 
 obj-$(CONFIG_SCSI)		+= scsi_mod.o
 
-obj-$(CONFIG_A4000T_SCSI)	+= amiga7xx.o	53c7xx.o
-obj-$(CONFIG_A4091_SCSI)	+= amiga7xx.o	53c7xx.o
-obj-$(CONFIG_BLZ603EPLUS_SCSI)	+= amiga7xx.o	53c7xx.o
-obj-$(CONFIG_WARPENGINE_SCSI)	+= amiga7xx.o	53c7xx.o
+obj-$(CONFIG_SCSI_AMIGA7XX)	+= amiga7xx.o	53c7xx.o
 obj-$(CONFIG_A3000_SCSI)	+= a3000.o	wd33c93.o
 obj-$(CONFIG_A2091_SCSI)	+= a2091.o	wd33c93.o
 obj-$(CONFIG_GVP11_SCSI)	+= gvp11.o	wd33c93.o
@@ -50,7 +48,7 @@ obj-$(CONFIG_OKTAGON_SCSI)	+= NCR53C9x.o	oktagon_esp.o	oktagon_io.o
 obj-$(CONFIG_ATARI_SCSI)	+= atari_scsi.o
 obj-$(CONFIG_MAC_SCSI)		+= mac_scsi.o
 obj-$(CONFIG_SCSI_MAC_ESP)	+= mac_esp.o	NCR53C9x.o
-obj-$(CONFIG_SUN3_SCSI)		+= sun3_scsi.o
+obj-$(CONFIG_SUN3_SCSI)		+= sun3_scsi.o  sun3_scsi_vme.o
 obj-$(CONFIG_MVME16x_SCSI)	+= mvme16x.o	53c7xx.o
 obj-$(CONFIG_BVME6000_SCSI)	+= bvme6000.o	53c7xx.o
 obj-$(CONFIG_SCSI_SIM710)	+= sim710.o
@@ -70,6 +68,9 @@ ifeq ($(CONFIG_SCSI_AACRAID),y)
 endif
 ifeq ($(CONFIG_SCSI_AIC7XXX),y)
   obj-$(CONFIG_SCSI_AIC7XXX)	+= aic7xxx/aic7xxx.o
+endif
+ifeq ($(CONFIG_SCSI_AIC79XX),y)
+  obj-$(CONFIG_SCSI_AIC79XX)	+= aic7xxx/aic79xx.o
 endif
 obj-$(CONFIG_SCSI_AIC7XXX_OLD)	+= aic7xxx_old.o
 obj-$(CONFIG_SCSI_IPS)		+= ips.o
@@ -93,7 +94,7 @@ obj-$(CONFIG_SCSI_DTC3280)	+= dtc.o
 obj-$(CONFIG_SCSI_NCR53C7xx)	+= 53c7,8xx.o 
 subdir-$(CONFIG_SCSI_SYM53C8XX_2)	+= sym53c8xx_2
 ifeq ($(CONFIG_SCSI_SYM53C8XX_2),y)
-  obj-$(CONFIG_SCSI_SYM53C8XX_2)	+= sym53c8xx_2/sym53c8xx.o
+  obj-$(CONFIG_SCSI_SYM53C8XX_2)	+= sym53c8xx_2/sym53c8xx_2.o
 endif
 obj-$(CONFIG_SCSI_SYM53C8XX)	+= sym53c8xx.o 
 obj-$(CONFIG_SCSI_NCR53C8XX)	+= ncr53c8xx.o 
@@ -106,6 +107,7 @@ obj-$(CONFIG_SCSI_EATA)		+= eata.o
 obj-$(CONFIG_SCSI_DC390T)	+= tmscsim.o
 obj-$(CONFIG_SCSI_AM53C974)	+= AM53C974.o
 obj-$(CONFIG_SCSI_MEGARAID)	+= megaraid.o
+obj-$(CONFIG_SCSI_MEGARAID2)	+= megaraid2.o
 obj-$(CONFIG_SCSI_ACARD)	+= atp870u.o
 obj-$(CONFIG_SCSI_SUNESP)	+= esp.o
 obj-$(CONFIG_SCSI_GDTH)		+= gdth.o
@@ -127,6 +129,19 @@ obj-$(CONFIG_SCSI_DEBUG)	+= scsi_debug.o
 obj-$(CONFIG_SCSI_FCAL)		+= fcal.o
 obj-$(CONFIG_SCSI_CPQFCTS)	+= cpqfc.o
 obj-$(CONFIG_SCSI_LASI700)	+= lasi700.o 53c700.o
+obj-$(CONFIG_SCSI_NSP32)	+= nsp32.o
+obj-$(CONFIG_SCSI_SATA_AHCI)	+= libata.o ahci.o
+obj-$(CONFIG_SCSI_SATA_SVW)	+= libata.o sata_svw.o
+obj-$(CONFIG_SCSI_ATA_PIIX)	+= libata.o ata_piix.o
+obj-$(CONFIG_SCSI_SATA_PROMISE)	+= libata.o sata_promise.o
+obj-$(CONFIG_SCSI_SATA_QSTOR)	+= libata.o sata_qstor.o
+obj-$(CONFIG_SCSI_SATA_SIL)	+= libata.o sata_sil.o
+obj-$(CONFIG_SCSI_SATA_VIA)	+= libata.o sata_via.o
+obj-$(CONFIG_SCSI_SATA_VITESSE)	+= libata.o sata_vsc.o
+obj-$(CONFIG_SCSI_SATA_SIS)	+= libata.o sata_sis.o
+obj-$(CONFIG_SCSI_SATA_SX4)	+= libata.o sata_sx4.o
+obj-$(CONFIG_SCSI_SATA_NV)	+= libata.o sata_nv.o
+obj-$(CONFIG_SCSI_SATA_ULI)	+= libata.o sata_uli.o
 
 subdir-$(CONFIG_ARCH_ACORN)	+= ../acorn/scsi
 obj-$(CONFIG_ARCH_ACORN)	+= ../acorn/scsi/acorn-scsi.o
@@ -138,7 +153,7 @@ obj-$(CONFIG_BLK_DEV_SR)	+= sr_mod.o
 obj-$(CONFIG_CHR_DEV_SG)	+= sg.o
 
 list-multi	:= scsi_mod.o sd_mod.o sr_mod.o initio.o a100u2w.o cpqfc.o \
-			zalon7xx_mod.o
+			zalon7xx_mod.o libata.o
 scsi_mod-objs	:= scsi.o hosts.o scsi_ioctl.o constants.o \
 			scsicam.o scsi_proc.o scsi_error.o \
 			scsi_obsolete.o scsi_queue.o scsi_lib.o \
@@ -151,6 +166,7 @@ a100u2w-objs	:= inia100.o i60uscsi.o
 zalon7xx_mod-objs := zalon7xx.o ncr53c8xx.o
 cpqfc-objs	:= cpqfcTSinit.o cpqfcTScontrol.o cpqfcTSi2c.o \
 		   cpqfcTSworker.o cpqfcTStrigger.o
+libata-objs	:= libata-core.o libata-scsi.o
 
 include $(TOPDIR)/Rules.make
 
@@ -175,6 +191,9 @@ zalon7xx_mod.o: $(zalon7xx_mod-objs)
 
 cpqfc.o: $(cpqfc-objs)
 	$(LD) -r -o $@ $(cpqfc-objs)
+
+libata.o: $(libata-objs)
+	$(LD) -r -o $@ $(libata-objs)
 
 53c8xx_d.h: 53c7,8xx.scr script_asm.pl
 	ln -sf 53c7,8xx.scr fake8.c

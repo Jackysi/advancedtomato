@@ -61,6 +61,19 @@ unsigned char pckbd_sysrq_xlate[128] =
 	"\r\000/";					/* 0x60 - 0x6f */
 #endif
 
+/* Warning: do not redefine kbd_controller_present on ia64, mips and mips64 */
+#ifndef kbd_controller_present
+#define kbd_controller_present() keyboard_controller_present
+
+int keyboard_controller_present __initdata = 1;
+static int __init removable_keyb(char *str)
+{
+        keyboard_controller_present = 0;
+        return 0;
+}
+__setup("nokeyb", removable_keyb);
+#endif
+
 static void kbd_write_command_w(int data);
 static void kbd_write_output_w(int data);
 #ifdef CONFIG_PSMOUSE
@@ -69,9 +82,6 @@ static void __aux_write_ack(int val);
 static int aux_reconnect = 0;
 #endif
 
-#ifndef kbd_controller_present
-#define kbd_controller_present()	1
-#endif
 static spinlock_t kbd_controller_lock = SPIN_LOCK_UNLOCKED;
 static unsigned char handle_kbd_event(void);
 
@@ -288,6 +298,10 @@ static int do_acknowledge(unsigned char scancode)
 			return 0;
 		}
 		/* Should not happen... */
+#if 0
+		printk(KERN_DEBUG "keyboard reply expected - got %02x\n",
+		       scancode);
+#endif
 	}
 	return 1;
 }
@@ -492,8 +506,10 @@ static unsigned char handle_kbd_event(void)
 
 		/* Error bytes must be ignored to make the 
 		   Synaptics touchpads compaq use work */
+#if 1
 		/* Ignore error bytes */
 		if (!(status & (KBD_STAT_GTO | KBD_STAT_PERR)))
+#endif
 		{
 			if (status & KBD_STAT_MOUSE_OBF)
 				handle_mouse_event(scancode);
@@ -1084,7 +1100,7 @@ static int open_aux(struct inode * inode, struct file * file)
 	
 	mdelay(2);			/* Ensure we follow the kbc access delay rules.. */
 
-	send_data(KBD_CMD_ENABLE);	
+	send_data(KBD_CMD_ENABLE);	/* try to workaround toshiba4030cdt problem */
 
 	return 0;
 }

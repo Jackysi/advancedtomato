@@ -42,6 +42,14 @@ extern rwlock_t xtime_lock;
 
 #if !defined(__alpha__) && !defined(__ia64__)
 
+/*
+ * sys_time() can be implemented in user-level using
+ * sys_gettimeofday().  Is this for backwards compatibility?  If so,
+ * why not move it into the appropriate arch directory (for those
+ * architectures that need it).
+ *
+ * XXX This function is NOT 64-bit clean!
+ */
 asmlinkage long sys_time(int * tloc)
 {
 	struct timeval now; 
@@ -233,6 +241,9 @@ int do_adjtimex(struct timex *txc)
 	/* Save for later - semantics of adjtime is to return old value */
 	save_adjust = time_adjust;
 
+#if 0	/* STA_CLOCKERR is never set yet */
+	time_status &= ~STA_CLOCKERR;		/* reset STA_CLOCKERR */
+#endif
 	/* If there are input parameters, then process them */
 	if (txc->modes)
 	{

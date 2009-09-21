@@ -97,6 +97,8 @@ static int verify_iovec32(struct msghdr *kern_msg, struct iovec *kern_iov,
 		kern_msg->msg_name = NULL;
 
 	if(kern_msg->msg_iovlen > UIO_FASTIOV) {
+		if (kern_msg->msg_iovlen > (2*PAGE_SIZE)/ sizeof(struct iovec))
+			return -EINVAL; 
 		kern_iov = kmalloc(kern_msg->msg_iovlen * sizeof(struct iovec),
 				   GFP_KERNEL);
 		if(!kern_iov)
@@ -125,20 +127,20 @@ static int cmsghdr_from_user32_to_kern(struct msghdr *kmsg,
 	struct cmsghdr *kcmsg, *kcmsg_base;
 	__kernel_size_t32 ucmlen;
 	__kernel_size_t kcmlen, tmp;
+	int err = -EFAULT;
 
 	kcmlen = 0;
 	kcmsg_base = kcmsg = (struct cmsghdr *)stackbuf;
 	ucmsg = CMSG32_FIRSTHDR(kmsg);
 	while(ucmsg != NULL) {
-		if(get_user(ucmlen, &ucmsg->cmsg_len))
+		if (get_user(ucmlen, &ucmsg->cmsg_len))
 			return -EFAULT;
 
 		/* Catch bogons. */
-		if(CMSG32_ALIGN(ucmlen) <
-		   CMSG32_ALIGN(sizeof(struct cmsghdr32)))
+		if (!CMSG32_OK(ucmlen, ucmsg, kmsg))
 			return -EINVAL;
-		if((unsigned long)(((char *)ucmsg - (char *)kmsg->msg_control)
-				   + ucmlen) > kmsg->msg_controllen)
+
+		if (kmsg->msg_controllen > 65536) 
 			return -EINVAL;
 
 		tmp = ((ucmlen - CMSG32_ALIGN(sizeof(*ucmsg))) +
@@ -163,18 +165,19 @@ static int cmsghdr_from_user32_to_kern(struct msghdr *kmsg,
 	memset(kcmsg, 0, kcmlen);
 	ucmsg = CMSG32_FIRSTHDR(kmsg);
 	while(ucmsg != NULL) {
-		__get_user(ucmlen, &ucmsg->cmsg_len);
+		if (__get_user(ucmlen, &ucmsg->cmsg_len))
+			goto Efault;
 		tmp = ((ucmlen - CMSG32_ALIGN(sizeof(*ucmsg))) +
 		       CMSG_ALIGN(sizeof(struct cmsghdr)));
+		if ((char *)kcmsg_base + kcmlen - (char *)kcmsg < CMSG_ALIGN(tmp))
+			goto Einval;
 		kcmsg->cmsg_len = tmp;
-		__get_user(kcmsg->cmsg_level, &ucmsg->cmsg_level);
-		__get_user(kcmsg->cmsg_type, &ucmsg->cmsg_type);
-
-		/* Copy over the data. */
-		if(copy_from_user(CMSG_DATA(kcmsg),
-				  CMSG32_DATA(ucmsg),
-				  (ucmlen - CMSG32_ALIGN(sizeof(*ucmsg)))))
-			goto out_free_efault;
+		if (__get_user(kcmsg->cmsg_level, &ucmsg->cmsg_level) ||
+		    __get_user(kcmsg->cmsg_type, &ucmsg->cmsg_type) ||
+		    copy_from_user(CMSG_DATA(kcmsg),
+				   CMSG32_DATA(ucmsg),
+				   (ucmlen - CMSG32_ALIGN(sizeof(*ucmsg)))))
+			goto Efault;
 
 		/* Advance. */
 		kcmsg = (struct cmsghdr *)((char *)kcmsg + CMSG_ALIGN(tmp));
@@ -186,10 +189,12 @@ static int cmsghdr_from_user32_to_kern(struct msghdr *kmsg,
 	kmsg->msg_controllen = kcmlen;
 	return 0;
 
-out_free_efault:
-	if(kcmsg_base != (struct cmsghdr *)stackbuf)
+Einval:
+	err = -EINVAL;
+Efault:
+	if (kcmsg_base != (struct cmsghdr *)stackbuf)
 		kfree(kcmsg_base);
-	return -EFAULT;
+	return err;
 }
 
 static void put_cmsg32(struct msghdr *kmsg, int level, int type,
@@ -301,7 +306,8 @@ static void scm_detach_fds32(struct msghdr *kmsg, struct scm_cookie *scm)
  *		IPV6_RTHDR	ipv6 routing exthdr	32-bit clean
  *		IPV6_AUTHHDR	ipv6 auth exthdr	32-bit clean
  */
-static void cmsg32_recvmsg_fixup(struct msghdr *kmsg, unsigned long orig_cmsg_uptr)
+static void cmsg32_recvmsg_fixup(struct msghdr *kmsg,
+		unsigned long orig_cmsg_uptr, __kernel_size_t orig_cmsg_len)
 {
 	unsigned char *workbuf, *wp;
 	unsigned long bufsz, space_avail;
@@ -332,6 +338,9 @@ static void cmsg32_recvmsg_fixup(struct msghdr *kmsg, unsigned long orig_cmsg_up
 		__get_user(kcmsg32->cmsg_type, &ucmsg->cmsg_type);
 
 		clen64 = kcmsg32->cmsg_len;
+		if ((clen64 < CMSG_ALIGN(sizeof(*ucmsg))) ||
+				(clen64 > (orig_cmsg_len + wp - workbuf)))
+			break;
 		copy_from_user(CMSG32_DATA(kcmsg32), CMSG_DATA(ucmsg),
 			       clen64 - CMSG_ALIGN(sizeof(*ucmsg)));
 		clen32 = ((clen64 - CMSG_ALIGN(sizeof(*ucmsg))) +
@@ -362,7 +371,7 @@ fail:
 	kmsg->msg_control = (void *) orig_cmsg_uptr;
 }
 
-asmlinkage int sys32_sendmsg(int fd, struct msghdr32 *user_msg, unsigned user_flags)
+asmlinkage long sys32_sendmsg(int fd, struct msghdr32 *user_msg, unsigned user_flags)
 {
 	struct socket *sock;
 	char address[MAX_SOCK_ADDR];
@@ -407,7 +416,7 @@ out:
 	return err;
 }
 
-asmlinkage int sys32_recvmsg(int fd, struct msghdr32 *user_msg, unsigned int user_flags)
+asmlinkage long sys32_recvmsg(int fd, struct msghdr32 *user_msg, unsigned int user_flags)
 {
 	struct iovec iovstack[UIO_FASTIOV];
 	struct msghdr kern_msg;
@@ -417,6 +426,7 @@ asmlinkage int sys32_recvmsg(int fd, struct msghdr32 *user_msg, unsigned int use
 	struct sockaddr *uaddr;
 	int *uaddr_len;
 	unsigned long cmsg_ptr;
+	__kernel_size_t cmsg_len;
 	int err, total_len, len = 0;
 
 	if(msghdr_from_user32_to_kern(&kern_msg, user_msg))
@@ -432,6 +442,7 @@ asmlinkage int sys32_recvmsg(int fd, struct msghdr32 *user_msg, unsigned int use
 	total_len = err;
 
 	cmsg_ptr = (unsigned long) kern_msg.msg_control;
+	cmsg_len = kern_msg.msg_controllen;
 	kern_msg.msg_flags = 0;
 
 	sock = sockfd_lookup(fd, &err);
@@ -457,7 +468,8 @@ asmlinkage int sys32_recvmsg(int fd, struct msghdr32 *user_msg, unsigned int use
 				 * to fix it up before we tack on more stuff.
 				 */
 				if((unsigned long) kern_msg.msg_control != cmsg_ptr)
-					cmsg32_recvmsg_fixup(&kern_msg, cmsg_ptr);
+					cmsg32_recvmsg_fixup(&kern_msg,
+							cmsg_ptr, cmsg_len);
 
 				/* Wheee... */
 				if(sock->passcred)
@@ -499,8 +511,6 @@ static int do_set_attach_filter(int fd, int level, int optname,
 		__u32 filter;
 	} *fprog32 = (struct sock_fprog32 *)optval;
 	struct sock_fprog kfprog;
-	struct sock_filter *kfilter;
-	unsigned int fsize;
 	mm_segment_t old_fs;
 	__u32 uptr;
 	int ret;
@@ -510,26 +520,15 @@ static int do_set_attach_filter(int fd, int level, int optname,
 		return -EFAULT;
 
 	kfprog.filter = (struct sock_filter *)A(uptr);
-	fsize = kfprog.len * sizeof(struct sock_filter);
 
-	kfilter = (struct sock_filter *)kmalloc(fsize, GFP_KERNEL);
-	if (kfilter == NULL)
-		return -ENOMEM;
-
-	if (copy_from_user(kfilter, kfprog.filter, fsize)) {
-		kfree(kfilter);
+	if (verify_area(VERIFY_WRITE, kfprog.filter, kfprog.len*sizeof(struct sock_filter)))
 		return -EFAULT;
-	}
-
-	kfprog.filter = kfilter;
 
 	old_fs = get_fs();
 	set_fs(KERNEL_DS);
 	ret = sys_setsockopt(fd, level, optname,
 			     (char *)&kfprog, sizeof(kfprog));
 	set_fs(old_fs);
-
-	kfree(kfilter);
 
 	return ret;
 }
@@ -561,10 +560,10 @@ static int do_set_icmpv6_filter(int fd, int level, int optname,
 	return ret;
 }
 
-asmlinkage int sys32_setsockopt(int fd, int level, int optname,
+asmlinkage long sys32_setsockopt(int fd, int level, int optname,
 				char *optval, int optlen)
 {
-	if (optname == SO_ATTACH_FILTER)
+	if (level == SOL_SOCKET && optname == SO_ATTACH_FILTER)
 		return do_set_attach_filter(fd, level, optname,
 					    optval, optlen);
 	if (level == SOL_ICMPV6 && optname == ICMPV6_FILTER)
@@ -664,7 +663,7 @@ asmlinkage long sys32_socketcall(int call, u32 *args)
 			ret = sys_shutdown(a0,a1);
 			break;
 		case SYS_SETSOCKOPT:
-			ret = sys_setsockopt(a0, a1, a[2], (char *)A(a[3]),
+			ret = sys32_setsockopt(a0, a1, a[2], (char *)A(a[3]),
 					      a[4]);
 			break;
 		case SYS_GETSOCKOPT:

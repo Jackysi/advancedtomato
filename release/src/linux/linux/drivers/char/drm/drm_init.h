@@ -31,7 +31,11 @@
 
 #include "drmP.h"
 
+#if 0
+int DRM(flags) = DRM_FLAG_DEBUG;
+#else
 int DRM(flags) = 0;
+#endif
 
 /* drm_parse_option parses a single option.  See description for
  * drm_parse_options for details.

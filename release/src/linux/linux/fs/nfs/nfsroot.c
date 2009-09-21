@@ -1,5 +1,5 @@
 /*
- *  $Id: nfsroot.c,v 1.1.1.4 2003/10/14 08:09:01 sparq Exp $
+ *  $Id: nfsroot.c,v 1.45 1998/03/07 10:44:46 mj Exp $
  *
  *  Copyright (C) 1995, 1996  Gero Kuhlmann <gero@gkminix.han.de>
  *
@@ -305,7 +305,7 @@ int __init root_nfs_init(void)
  */
 int __init nfs_root_setup(char *line)
 {
-	ROOT_DEV = MKDEV(UNNAMED_MAJOR, 255);
+	ROOT_DEV = MKDEV(NFS_MAJOR, NFS_MINOR);
 	if (line[0] == '/' || line[0] == ',' || (line[0] >= '0' && line[0] <= '9')) {
 		strncpy(nfs_root_name, line, sizeof(nfs_root_name));
 		nfs_root_name[sizeof(nfs_root_name)-1] = '\0';
@@ -352,6 +352,11 @@ static int __init root_nfs_getport(int program, int version, int proto)
 }
 
 
+/*
+ *  Use portmapper to find mountd and nfsd port numbers if not overriden
+ *  by the user. Use defaults if portmapper is not available.
+ *  XXX: Is there any nfs server with no portmapper?
+ */
 static int __init root_nfs_ports(void)
 {
 	int port;
@@ -379,10 +384,11 @@ static int __init root_nfs_ports(void)
 					"number from server, using default\n");
 			port = nfsd_port;
 		}
-		nfs_port = htons(port);
+		nfs_port = port;
 		dprintk("Root-NFS: Portmapper on server returned %d "
 			"as nfsd port\n", port);
 	}
+	nfs_port = htons(nfs_port);
 
 	if ((port = root_nfs_getport(NFS_MNT_PROGRAM, mountd_ver, proto)) < 0) {
 		printk(KERN_ERR "Root-NFS: Unable to get mountd port "

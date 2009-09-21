@@ -1,4 +1,4 @@
-/* $Id: systbl.S,v 1.1.1.4 2003/10/14 08:07:51 sparq Exp $
+/* $Id: systbl.S,v 1.11 2000/03/13 21:57:35 davem Exp $
  * systbl.S: System call entry point table for Solaris compatibility.
  *
  * Copyright (C) 1997,1998 Jakub Jelinek (jj@sunsite.mff.cuni.cz)
@@ -31,7 +31,7 @@ solaris_sys_table:
 	.word CHAIN(write)		/* write	dpd	4	*/
 	.word solaris_open		/* open		soo	5	*/
 	.word CHAIN(close)		/* close	d	6	*/
-	.word solaris_wait		
+	.word solaris_wait		/* wait		xxx	7	*/
 	.word CHAIN(creat)		/* creat	so	8	*/
 	.word CHAIN(link)		/* link		ss	9	*/
 	.word CHAIN(unlink)		/* unlink	s	10	*/
@@ -50,7 +50,11 @@ solaris_sys_table:
 	.word CHAIN(setuid)		/* setuid	d	23	*/
 	.word solaris_getuid		/* getuid		24	*/
 	.word CHAIN(stime)		/* stime	d	25	*/
+#if 0
+	.word solaris_ptrace		/* ptrace	xdxx	26	*/
+#else
 	.word CHAIN(ptrace)		/* ptrace	xdxx	26	*/
+#endif
 	.word CHAIN(alarm)		/* alarm	d	27	*/
 	.word solaris_fstat		/* fstat	dp	28	*/
 	.word CHAIN(pause)		/* pause		29	*/
@@ -79,7 +83,7 @@ solaris_sys_table:
 	.word solaris_shmsys		/* shmsys	ddxo	52	*/
 	.word REGS(solaris_semsys)	/* semsys	dddx	53	*/
 	.word solaris_ioctl		/* ioctl	dxx	54	*/
-	.word solaris_unimplemented	
+	.word solaris_unimplemented	/* uadmin	xxx	55	*/
 	.word solaris_unimplemented	/* reserved:exch	56	*/
 	.word solaris_utssys		/* utssys	x	57	*/
 	.word CHAIN(fsync)		/* fsync	d	58	*/
@@ -133,7 +137,7 @@ solaris_sys_table:
 	.word solaris_unimplemented	/* nfssys		106	*/
 	.word solaris_waitid		/* waitid	ddxd	107	*/
 	.word solaris_unimplemented	/* sigsendsys	ddd	108	*/
-	.word REGS(solaris_hrtsys)	
+	.word REGS(solaris_hrtsys)	/* hrtsys	xxx	109	*/
 	.word solaris_unimplemented	/* acancel	dxd	110	*/
 	.word solaris_unimplemented	/* async		111	*/
 	.word solaris_unimplemented	/* priocntlsys		112	*/
@@ -183,20 +187,20 @@ solaris_sys_table:
 	.word solaris_gettimeofday	/* gettimeofday	x	156	*/
 	.word CHAIN(getitimer)		/* getitimer	dx	157	*/
 	.word CHAIN(setitimer)		/* setitimer	dxx	158	*/
-	.word solaris_unimplemented	
-	.word solaris_unimplemented	
-	.word solaris_unimplemented	
-	.word solaris_unimplemented	
-	.word solaris_unimplemented	
-	.word solaris_unimplemented	
-	.word solaris_unimplemented	
-	.word solaris_unimplemented	
-	.word solaris_unimplemented	
-	.word solaris_unimplemented	
-	.word solaris_unimplemented	
-	.word solaris_unimplemented	
-	.word solaris_unimplemented	
-	.word solaris_unimplemented	
+	.word solaris_unimplemented	/* lwp-xxx		159	*/
+	.word solaris_unimplemented	/* lwp-xxx		160	*/
+	.word solaris_unimplemented	/* lwp-xxx		161	*/
+	.word solaris_unimplemented	/* lwp-xxx		162	*/
+	.word solaris_unimplemented	/* lwp-xxx		163	*/
+	.word solaris_unimplemented	/* lwp-xxx		164	*/
+	.word solaris_unimplemented	/* lwp-xxx		165	*/
+	.word solaris_unimplemented	/* lwp-xxx		166	*/
+	.word solaris_unimplemented	/* lwp-xxx		167	*/
+	.word solaris_unimplemented	/* lwp-xxx		168	*/
+	.word solaris_unimplemented	/* lwp-xxx		169	*/
+	.word solaris_unimplemented	/* lwp-xxx		170	*/
+	.word solaris_unimplemented	/* lwp-xxx		171	*/
+	.word solaris_unimplemented	/* lwp-xxx		172	*/
 	.word solaris_pread		/* pread	dpdd	173	*/
 	.word solaris_pwrite		/* pwrite	dpdd	174	*/
 	.word REGS(solaris_llseek)	/* llseek	dLd	175	*/

@@ -1,7 +1,7 @@
 /*
  * HvCall.c
  * Copyright (C) 2001  Mike Corrigan IBM Corporation
- * 
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
@@ -60,7 +60,7 @@ int HvCall_readLogBuffer(HvLpIndex lpIndex, void *buffer, u64 bufLen)
 	curPtr = virt_to_absolute( (unsigned long) buffer );
 	for(i=0; i<npages; i++) {
 		bufList[i].addr = curPtr;
-      
+
 		leftThisPage = ((curPtr & PAGE_MASK) + PAGE_SIZE) - curPtr;
 
 		if (leftThisPage > bytesLeft) {
@@ -90,11 +90,11 @@ void HvCall_writeLogBuffer(const void *buffer, u64 bufLen)
 	struct HvLpBufferList bufList;
 	u64 bytesLeft = bufLen;
 	u64 leftThisPage;
-	u64 curPtr = virt_to_absolute( (unsigned long) buffer );
+	u64 curPtr = virt_to_absolute((unsigned long) buffer);
 
 	while (bytesLeft) {
 		bufList.addr = curPtr;
-      
+
 		leftThisPage = ((curPtr & PAGE_MASK) + PAGE_SIZE) - curPtr;
 
 		if (leftThisPage > bytesLeft) {
@@ -105,11 +105,11 @@ void HvCall_writeLogBuffer(const void *buffer, u64 bufLen)
 			bytesLeft -= leftThisPage;
 		}
 
+
+		HvCall2(HvCallBaseWriteLogBuffer,
+			virt_to_absolute((unsigned long) &bufList),
+			bufList.len);
+
 		curPtr = (curPtr & PAGE_MASK) + PAGE_SIZE;
 	}
-
-
-	HvCall2(HvCallBaseWriteLogBuffer,
-		virt_to_absolute((unsigned long)&bufList), bufLen);
-
 }

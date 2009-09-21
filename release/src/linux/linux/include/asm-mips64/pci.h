@@ -19,14 +19,12 @@ extern unsigned int pcibios_assign_all_busses(void);
 #else
 #define pcibios_assign_all_busses()	0
 #endif
+#define pcibios_scan_all_fns()		0
 
 #define PCIBIOS_MIN_IO		0x1000
 #define PCIBIOS_MIN_MEM		0x10000000
 
-static inline void pcibios_set_master(struct pci_dev *dev)
-{
-	/* No special bus mastering setup handling */
-}
+extern void pcibios_set_master(struct pci_dev *dev);
 
 static inline void pcibios_penalize_isa_irq(int irq)
 {
@@ -199,8 +197,7 @@ static inline int pci_map_sg(struct pci_dev *hwdev, struct scatterlist *sg,
 		if (sg->address) {
 			dma_cache_wback_inv((unsigned long)sg->address,
 			                    sg->length);
-			sg->dma_address = bus_to_baddr(hwdev->bus,
-			                               __pa(sg->address));
+			sg->dma_address = bus_to_baddr(hwdev->bus, __pa(sg->address));
 		} else {
 			sg->dma_address = page_to_bus(sg->page) +
 			                  sg->offset;
@@ -350,7 +347,7 @@ static inline void pci_dac_dma_sync_single(struct pci_dev *pdev,
 /*
  * Return the index of the PCI controller for device.
  */
-#define pci_controller_num(pdev)	(0)
+#define pci_controller_num(pdev)	({ (void)(pdev); 0; })
 
 /*
  * These macros should be used after a pci_map_sg call has been done

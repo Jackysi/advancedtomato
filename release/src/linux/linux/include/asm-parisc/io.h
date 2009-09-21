@@ -51,7 +51,7 @@ extern __inline__ unsigned char __raw_readb(unsigned long addr)
 
 	__asm__ __volatile__(
 	"	rsm	2,%0\n"
-	"	ldbx	0(%2),%1\n"
+	"	ldb,ma	0(%2),%1\n"
 	"	mtsm	%0\n"
 	: "=&r" (flags), "=r" (ret) : "r" (addr) );
 
@@ -65,7 +65,7 @@ extern __inline__ unsigned short __raw_readw(unsigned long addr)
 
 	__asm__ __volatile__(
 	"	rsm	2,%0\n"
-	"	ldhx	0(%2),%1\n"
+	"	ldh,ma	0(%2),%1\n"
 	"	mtsm	%0\n"
 	: "=&r" (flags), "=r" (ret) : "r" (addr) );
 
@@ -77,7 +77,7 @@ extern __inline__ unsigned int __raw_readl(unsigned long addr)
 	u32 ret;
 
 	__asm__ __volatile__(
-	"	ldwax	0(%1),%0\n"
+	"	ldwa,ma	0(%1),%0\n"
 	: "=r" (ret) : "r" (addr) );
 
 	return ret;
@@ -88,7 +88,7 @@ extern __inline__ unsigned long long __raw_readq(unsigned long addr)
 	unsigned long long ret;
 #ifdef __LP64__
 	__asm__ __volatile__(
-	"	ldda	0(%1),%0\n"
+	"	ldda,ma	0(%1),%0\n"
 	:  "=r" (ret) : "r" (addr) );
 #else
 	/* two reads may have side effects.. */
@@ -103,7 +103,7 @@ extern __inline__ void __raw_writeb(unsigned char val, unsigned long addr)
 	long flags;
 	__asm__ __volatile__(
 	"	rsm	2,%0\n"
-	"	stbs	%1,0(%2)\n"
+	"	stb,ma	%1,0(%2)\n"
 	"	mtsm	%0\n"
 	: "=&r" (flags) :  "r" (val), "r" (addr) );
 }
@@ -113,7 +113,7 @@ extern __inline__ void __raw_writew(unsigned short val, unsigned long addr)
 	long flags;
 	__asm__ __volatile__(
 	"	rsm	2,%0\n"
-	"	sths	%1,0(%2)\n"
+	"	sth,ma	%1,0(%2)\n"
 	"	mtsm	%0\n"
 	: "=&r" (flags) :  "r" (val), "r" (addr) );
 }
@@ -121,7 +121,7 @@ extern __inline__ void __raw_writew(unsigned short val, unsigned long addr)
 extern __inline__ void __raw_writel(unsigned int val, unsigned long addr)
 {
 	__asm__ __volatile__(
-	"	stwas	%0,0(%1)\n"
+	"	stwa,ma	%0,0(%1)\n"
 	: :  "r" (val), "r" (addr) );
 }
 
@@ -129,7 +129,7 @@ extern __inline__ void __raw_writeq(unsigned long long val, unsigned long addr)
 {
 #ifdef __LP64__
 	__asm__ __volatile__(
-	"	stda	%0,0(%1)\n"
+	"	stda,ma	%0,0(%1)\n"
 	: :  "r" (val), "r" (addr) );
 #else
 	/* two writes may have side effects.. */
@@ -177,6 +177,11 @@ extern void memset_io(unsigned long dest, char fill, int count);
 #define isa_memcpy_fromio(a,b,c) memcpy_fromio((a), EISA_BASE | (b), (c))
 #define isa_memcpy_toio(a,b,c) memcpy_toio(EISA_BASE | (a), (b), (c))
 
+/*
+ * XXX - We don't have csum_partial_copy_fromio() yet, so we cheat here and 
+ * just copy it. The net code will then do the checksum later. Presently 
+ * only used by some shared memory 8390 Ethernet cards anyway.
+ */
 
 #define eth_io_copy_and_sum(skb,src,len,unused) \
   memcpy_fromio((skb)->data,(src),(len))

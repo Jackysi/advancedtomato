@@ -6,11 +6,11 @@ Release Notes For Linux Kernel 2.2 and higher.
 These notes are for the drivers which have already been integrated into the
 kernel and have been tested on Linux kernels 2.0, 2.2, 2.3, and 2.4.
 
-Version: 1.2.14
-Date: 11/01/2001
+Version: 1.2.18
+Date: 12/22/2004
 Historical Author: Andrew Manison <amanison@america.net>
 Primary Author: Doug McNash
-Support: support@computone.com
+Support: mhw@wittsend.com
 Fixes and Updates: Mike Warfield <mhw@wittsend.com>
 
 This file assumes that you are using the Computone drivers which are
@@ -26,7 +26,7 @@ with the exception of the MicroChannel controllers.  It does not support
 products previous to the Intelliport II.
 
 This driver was developed on the v2.0.x Linux tree and has been tested up
-to v2.4.14; it will probably not work with earlier v1.X kernels,.
+to v2.4.28; it will probably not work with earlier v1.X kernels,.
 
 
 2. QUICK INSTALLATION

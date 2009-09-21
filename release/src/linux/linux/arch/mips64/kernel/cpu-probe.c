@@ -4,7 +4,7 @@
  *	Processor capabilities determination functions.
  *
  *	Copyright (C) xxxx  the Anonymous
- *	Copyright (C) 2003  Maciej W. Rozycki
+ *	Copyright (C) 2003, 2004  Maciej W. Rozycki
  *
  *	This program is free software; you can redistribute it and/or
  *	modify it under the terms of the GNU General Public License
@@ -18,6 +18,7 @@
 #include <linux/stddef.h>
 
 #include <asm/bugs.h>
+#include <asm/compiler.h>
 #include <asm/cpu.h>
 #include <asm/fpu.h>
 #include <asm/mipsregs.h>
@@ -35,7 +36,7 @@ void (*cpu_wait)(void) = NULL;
 static void r3081_wait(void)
 {
 	unsigned long cfg = read_c0_conf();
-	write_c0_conf(cfg | CONF_HALT);
+	write_c0_conf(cfg | R30XX_CONF_HALT);
 }
 
 static void r39xx_wait(void)
@@ -57,23 +58,29 @@ void au1k_wait(void)
 	/* using the wait instruction makes CP0 counter unusable */
 	__asm__(".set\tmips3\n\t"
 		"wait\n\t"
-		"nop\n\t" "nop\n\t" "nop\n\t" "nop\n\t" ".set\tmips0");
+		"nop\n\t"
+		"nop\n\t"
+		"nop\n\t"
+		"nop\n\t"
+		".set\tmips0");
 #else
-	__asm__("nop\n\t" "nop\n\t");
+	__asm__("nop\n\t"
+		"nop");
 #endif
 }
 
 static inline void check_wait(void)
 {
+	struct cpuinfo_mips *c = &current_cpu_data;
+
 	printk("Checking for 'wait' instruction... ");
-	switch(mips_cpu.cputype) {
+	switch (c->cputype) {
 	case CPU_R3081:
 	case CPU_R3081E:
 		cpu_wait = r3081_wait;
 		printk(" available.\n");
 		break;
 	case CPU_TX3927:
-	case CPU_TX39XX:
 		cpu_wait = r39xx_wait;
 		printk(" available.\n");
 		break;
@@ -86,12 +93,15 @@ static inline void check_wait(void)
 	case CPU_R5000:
 	case CPU_NEVADA:
 	case CPU_RM7000:
+	case CPU_RM9000:
 	case CPU_TX49XX:
 	case CPU_4KC:
 	case CPU_4KEC:
 	case CPU_4KSC:
 	case CPU_5KC:
 /*	case CPU_20KC:*/
+	case CPU_24K:
+	case CPU_25KF:
 		cpu_wait = r4k_wait;
 		printk(" available.\n");
 		break;
@@ -107,21 +117,40 @@ static inline void check_wait(void)
 	}
 }
 
-static inline void check_mult_sh(void)
+static inline void align_mod(const int align, const int mod)
+{
+	asm volatile(
+		".set	push\n\t"
+		".set	noreorder\n\t"
+		".balign %0\n\t"
+		".rept	%1\n\t"
+		"nop\n\t"
+		".endr\n\t"
+		".set	pop"
+		:
+		: "n" (align), "n" (mod));
+}
+
+static inline void mult_sh_align_mod(long *v1, long *v2, long *w,
+				     const int align, const int mod)
 {
 	unsigned long flags;
 	int m1, m2;
-	long p, s, v;
+	long p, s, lv1, lv2, lw;
 
-	/* Instead of clobbers; for egcs 1.1.2 sake.  */
-	long __d0, __d1, __d2;
-
-	printk("Checking for the multiply/shift bug... ");
+	/*
+	 * We want the multiply and the shift to be isolated from the
+	 * rest of the code to disable gcc optimizations.  Hence the
+	 * asm statements that execute nothing, but make gcc not know
+	 * what the values of m1, m2 and s are and what lv2 and p are
+	 * used for.
+	 */
 
 	local_irq_save(flags);
 	/*
-	 * The following code leads to a wrong result of dsll32 when
-	 * executed on R4000 rev. 2.2 or 3.0.
+	 * The following code leads to a wrong result of the first
+	 * dsll32 when executed on R4000 rev. 2.2 or 3.0 (PRId
+	 * 00000422 or 00000430, respectively).
 	 *
 	 * See "MIPS R4000PC/SC Errata, Processor Revision 2.2 and
 	 * 3.0" by MIPS Technologies, Inc., errata #16 and #28 for
@@ -129,38 +158,97 @@ static inline void check_mult_sh(void)
 	 * sigh... --macro
 	 */
 	asm volatile(
+		""
+		: "=r" (m1), "=r" (m2), "=r" (s)
+		: "0" (5), "1" (8), "2" (5));
+	align_mod(align, mod);
+	/*
+	 * The trailing nop is needed to fullfill the two-instruction
+	 * requirement between reading hi/lo and staring a mult/div.
+	 * Leaving it out may cause gas insert a nop itself breaking
+	 * the desired alignment of the next chunk.
+	 */
+	asm volatile(
 		".set	push\n\t"
 		".set	noat\n\t"
 		".set	noreorder\n\t"
 		".set	nomacro\n\t"
-		"mult	%4, %5\n\t"
-		"dsll32	%0, %6, %7\n\t"
+		"mult	%2, %3\n\t"
+		"dsll32	%0, %4, %5\n\t"
 		"mflo	$0\n\t"
+		"dsll32	%1, %4, %5\n\t"
+		"nop\n\t"
 		".set	pop"
-		: "=r" (v), "=&h" (__d0), "=&l" (__d1), "=&a" (__d2)
-		: "r" (5), "r" (8), "r" (5), "I" (0));
+		: "=&r" (lv1), "=r" (lw)
+		: "r" (m1), "r" (m2), "r" (s), "I" (0)
+		: "hi", "lo", GCC_REG_ACCUM);
+	/* We have to use single integers for m1 and m2 and a double
+	 * one for p to be sure the mulsidi3 gcc's RTL multiplication
+	 * instruction has the workaround applied.  Older versions of
+	 * gcc have correct umulsi3 and mulsi3, but other
+	 * multiplication variants lack the workaround.
+	 */
+	asm volatile(
+		""
+		: "=r" (m1), "=r" (m2), "=r" (s)
+		: "0" (m1), "1" (m2), "2" (s));
+	align_mod(align, mod);
+	p = m1 * m2;
+	lv2 = s << 32;
+	asm volatile(
+		""
+		: "=r" (lv2)
+		: "0" (lv2), "r" (p));
 	local_irq_restore(flags);
 
-	if (v == 5L << 32) {
+	*v1 = lv1;
+	*v2 = lv2;
+	*w = lw;
+}
+
+static inline void check_mult_sh(void)
+{
+	long v1[8], v2[8], w[8];
+	int bug, fix, i;
+
+	printk("Checking for the multiply/shift bug... ");
+
+	/*
+	 * Testing discovered false negatives for certain code offsets
+	 * into cache lines.  Hence we test all possible offsets for
+	 * the worst assumption of an R4000 I-cache line width of 32
+	 * bytes.
+	 *
+	 * We can't use a loop as alignment directives need to be
+	 * immediates.
+	 */
+	mult_sh_align_mod(&v1[0], &v2[0], &w[0], 32, 0);
+	mult_sh_align_mod(&v1[1], &v2[1], &w[1], 32, 1);
+	mult_sh_align_mod(&v1[2], &v2[2], &w[2], 32, 2);
+	mult_sh_align_mod(&v1[3], &v2[3], &w[3], 32, 3);
+	mult_sh_align_mod(&v1[4], &v2[4], &w[4], 32, 4);
+	mult_sh_align_mod(&v1[5], &v2[5], &w[5], 32, 5);
+	mult_sh_align_mod(&v1[6], &v2[6], &w[6], 32, 6);
+	mult_sh_align_mod(&v1[7], &v2[7], &w[7], 32, 7);
+
+	bug = 0;
+	for (i = 0; i < 8; i++)
+		if (v1[i] != w[i])
+			bug = 1;
+		
+	if (bug == 0) {
 		printk("no.\n");
 		return;
 	}
 
 	printk("yes, workaround... ");
-	local_irq_save(flags);
-	asm volatile(
-		""
-		: "=r" (m1), "=r" (m2), "=r" (s)
-		: "0" (5), "1" (8), "2" (5));
-	p = m1 * m2;
-	v = s << 32;
-	asm volatile(
-		""
-		: "=r" (v)
-		: "0" (v), "r" (p));
-	local_irq_restore(flags);
 
-	if (v == 5L << 32) {
+	fix = 1;
+	for (i = 0; i < 8; i++)
+		if (v2[i] != w[i])
+			fix = 0;
+		
+	if (fix == 1) {
 		printk("yes.\n");
 		return;
 	}
@@ -188,7 +276,7 @@ static inline void check_daddi(void)
 	extern asmlinkage void handle_daddi_ov(void);
 	unsigned long flags;
 	void *handler;
-	long v;
+	long v, tmp;
 
 	printk("Checking for the daddi bug... ");
 
@@ -196,7 +284,8 @@ static inline void check_daddi(void)
 	handler = set_except_vector(12, handle_daddi_ov);
 	/*
 	 * The following code fails to trigger an overflow exception
-	 * when executed on R4000 rev. 2.2 or 3.0.
+	 * when executed on R4000 rev. 2.2 or 3.0 (PRId 00000422 or
+	 * 00000430, respectively).
 	 *
 	 * See "MIPS R4000PC/SC Errata, Processor Revision 2.2 and
 	 * 3.0" by MIPS Technologies, Inc., erratum #23 for details.
@@ -207,13 +296,15 @@ static inline void check_daddi(void)
 		".set	noat\n\t"
 		".set	noreorder\n\t"
 		".set	nomacro\n\t"
+		"addiu	%1, $0, %2\n\t"
+		"dsrl	%1, %1, 1\n\t"
 #ifdef HAVE_AS_SET_DADDI
 		".set	daddi\n\t"
 #endif
-		"daddi	%0, %1, %2\n\t"
+		"daddi	%0, %1, %3\n\t"
 		".set	pop"
-		: "=r" (v)
-		: "r" (0x7fffffffffffedcd), "I" (0x1234));
+		: "=r" (v), "=&r" (tmp)
+		: "I" (0xffffffffffffdb9a), "I" (0x1234));
 	set_except_vector(12, handler);
 	local_irq_restore(flags);
 
@@ -227,9 +318,11 @@ static inline void check_daddi(void)
 	local_irq_save(flags);
 	handler = set_except_vector(12, handle_daddi_ov);
 	asm volatile(
-		"daddi	%0, %1, %2"
-		: "=r" (v)
-		: "r" (0x7fffffffffffedcd), "I" (0x1234));
+		"addiu	%1, $0, %2\n\t"
+		"dsrl	%1, %1, 1\n\t"
+		"daddi	%0, %1, %3"
+		: "=r" (v), "=&r" (tmp)
+		: "I" (0xffffffffffffdb9a), "I" (0x1234));
 	set_except_vector(12, handler);
 	local_irq_restore(flags);
 
@@ -250,21 +343,22 @@ static inline void check_daddi(void)
 
 static inline void check_daddiu(void)
 {
-	long v, w;
+	long v, w, tmp;
 
 	printk("Checking for the daddiu bug... ");
 
 	/*
 	 * The following code leads to a wrong result of daddiu when
-	 * executed on R4400 rev. 1.0.
+	 * executed on R4400 rev. 1.0 (PRId 00000440).
 	 *
 	 * See "MIPS R4400PC/SC Errata, Processor Revision 1.0" by
 	 * MIPS Technologies, Inc., erratum #7 for details.
 	 *
 	 * According to "MIPS R4000PC/SC Errata, Processor Revision
 	 * 2.2 and 3.0" by MIPS Technologies, Inc., erratum #41 this
-	 * problem affects R4000 rev. 2.2 and 3.0, too.  Testing
-	 * failed to trigger it so far.
+	 * problem affects R4000 rev. 2.2 and 3.0 (PRId 00000422 and
+	 * 00000430, respectively), too.  Testing failed to trigger it
+	 * so far.
 	 *
 	 * I got no permission to duplicate the errata here, sigh...
 	 * --macro
@@ -274,15 +368,17 @@ static inline void check_daddiu(void)
 		".set	noat\n\t"
 		".set	noreorder\n\t"
 		".set	nomacro\n\t"
+		"addiu	%2, $0, %3\n\t"
+		"dsrl	%2, %2, 1\n\t"
 #ifdef HAVE_AS_SET_DADDI
 		".set	daddi\n\t"
 #endif
-		"daddiu	%0, %2, %3\n\t"
-		"addiu	%1, $0, %3\n\t"
+		"daddiu	%0, %2, %4\n\t"
+		"addiu	%1, $0, %4\n\t"
 		"daddu	%1, %2\n\t"
 		".set	pop"
-		: "=&r" (v), "=&r" (w)
-		: "r" (0x7fffffffffffedcd), "I" (0x1234));
+		: "=&r" (v), "=&r" (w), "=&r" (tmp)
+		: "I" (0xffffffffffffdb9a), "I" (0x1234));
 
 	if (v == w) {
 		printk("no.\n");
@@ -292,11 +388,13 @@ static inline void check_daddiu(void)
 	printk("yes, workaround... ");
 
 	asm volatile(
-		"daddiu	%0, %2, %3\n\t"
-		"addiu	%1, $0, %3\n\t"
+		"addiu	%2, $0, %3\n\t"
+		"dsrl	%2, %2, 1\n\t"
+		"daddiu	%0, %2, %4\n\t"
+		"addiu	%1, $0, %4\n\t"
 		"daddu	%1, %2"
-		: "=&r" (v), "=&r" (w)
-		: "r" (0x7fffffffffffedcd), "I" (0x1234));
+		: "=&r" (v), "=&r" (w), "=&r" (tmp)
+		: "I" (0xffffffffffffdb9a), "I" (0x1234));
 
 	if (v == w) {
 		printk("yes.\n");
@@ -334,7 +432,7 @@ static inline int cpu_has_confreg(void)
 	unsigned long cfg = read_c0_conf();
 
 	size1 = r3k_cache_size(ST0_ISC);
-	write_c0_conf(cfg ^ CONF_AC);
+	write_c0_conf(cfg ^ R30XX_CONF_AC);
 	size2 = r3k_cache_size(ST0_ISC);
 	write_c0_conf(cfg);
 	return size1 != size2;
@@ -360,357 +458,433 @@ static inline unsigned long cpu_get_fpu_id(void)
 /*
  * Check the CPU has an FPU the official way.
  */
-static inline int cpu_has_fpu(void)
+static inline int __cpu_has_fpu(void)
 {
 	return ((cpu_get_fpu_id() & 0xff00) != FPIR_IMP_NONE);
 }
 
-/* declaration of the global struct */
-struct mips_cpu mips_cpu = {
-    .processor_id	= PRID_IMP_UNKNOWN,
-    .fpu_id		= FPIR_IMP_NONE,
-    .cputype		= CPU_UNKNOWN
-};
-
-/* Shortcut for assembler access to mips_cpu.options */
-int *cpuoptions = &mips_cpu.options;
-
 #define R4K_OPTS (MIPS_CPU_TLB | MIPS_CPU_4KEX | MIPS_CPU_4KTLB \
-		| MIPS_CPU_COUNTER | MIPS_CPU_CACHE_CDEX)
+		| MIPS_CPU_COUNTER)
 
-__init void cpu_probe(void)
+static inline void cpu_probe_legacy(struct cpuinfo_mips *c)
 {
-#if defined(CONFIG_CPU_MIPS32) || defined(CONFIG_CPU_MIPS64)
+	switch (c->processor_id & 0xff00) {
+	case PRID_IMP_R2000:
+		c->cputype = CPU_R2000;
+		c->isa_level = MIPS_CPU_ISA_I;
+		c->options = MIPS_CPU_TLB | MIPS_CPU_NOFPUEX;
+		if (__cpu_has_fpu())
+			c->options |= MIPS_CPU_FPU;
+		c->tlbsize = 64;
+		break;
+	case PRID_IMP_R3000:
+		if ((c->processor_id & 0xff) == PRID_REV_R3000A)
+			if (cpu_has_confreg())
+				c->cputype = CPU_R3081E;
+			else
+				c->cputype = CPU_R3000A;
+		else
+			c->cputype = CPU_R3000;
+		c->isa_level = MIPS_CPU_ISA_I;
+		c->options = MIPS_CPU_TLB | MIPS_CPU_NOFPUEX; 
+		if (__cpu_has_fpu())
+			c->options |= MIPS_CPU_FPU;
+		c->tlbsize = 64;
+		break;
+	case PRID_IMP_R4000:
+		if (read_c0_config() & CONF_SC) {
+			if ((c->processor_id & 0xff) >= PRID_REV_R4400)
+				c->cputype = CPU_R4400PC;
+			else
+				c->cputype = CPU_R4000PC;
+		} else {
+			if ((c->processor_id & 0xff) >= PRID_REV_R4400)
+				c->cputype = CPU_R4400SC;
+			else
+				c->cputype = CPU_R4000SC;
+		}
+
+		c->isa_level = MIPS_CPU_ISA_III;
+		c->options = R4K_OPTS | MIPS_CPU_FPU | MIPS_CPU_32FPR |
+		             MIPS_CPU_WATCH | MIPS_CPU_VCE |
+		             MIPS_CPU_LLSC;
+		c->tlbsize = 48;
+		break;
+	case PRID_IMP_VR41XX:
+		switch (c->processor_id & 0xf0) {
+#ifndef CONFIG_VR4181
+		case PRID_REV_VR4111:
+			c->cputype = CPU_VR4111;
+			break;
+#else
+		case PRID_REV_VR4181:
+			c->cputype = CPU_VR4181;
+			break;
+#endif
+		case PRID_REV_VR4121:
+			c->cputype = CPU_VR4121;
+			break;
+		case PRID_REV_VR4122:
+			if ((c->processor_id & 0xf) < 0x3)
+				c->cputype = CPU_VR4122;
+			else
+				c->cputype = CPU_VR4181A;
+			break;
+		case PRID_REV_VR4130:
+			if ((c->processor_id & 0xf) < 0x4)
+				c->cputype = CPU_VR4131;
+			else
+				c->cputype = CPU_VR4133;
+			break;
+		default:
+			printk(KERN_INFO "Unexpected CPU of NEC VR4100 series\n");
+			c->cputype = CPU_VR41XX;
+			break;
+		}
+		c->isa_level = MIPS_CPU_ISA_III;
+		c->options = R4K_OPTS;
+		c->tlbsize = 32;
+		break;
+	case PRID_IMP_R4300:
+		c->cputype = CPU_R4300;
+		c->isa_level = MIPS_CPU_ISA_III;
+		c->options = R4K_OPTS | MIPS_CPU_FPU | MIPS_CPU_32FPR |
+		             MIPS_CPU_LLSC;
+		c->tlbsize = 32;
+		break;
+	case PRID_IMP_R4600:
+		c->cputype = CPU_R4600;
+		c->isa_level = MIPS_CPU_ISA_III;
+		c->options = R4K_OPTS | MIPS_CPU_FPU | MIPS_CPU_LLSC;
+		c->tlbsize = 48;
+		break;
+	#if 0
+ 	case PRID_IMP_R4650:
+		/*
+		 * This processor doesn't have an MMU, so it's not
+		 * "real easy" to run Linux on it. It is left purely
+		 * for documentation.  Commented out because it shares
+		 * it's c0_prid id number with the TX3900.
+		 */
+ 		c->cputype = CPU_R4650;
+	 	c->isa_level = MIPS_CPU_ISA_III;
+		c->options = R4K_OPTS | MIPS_CPU_FPU | MIPS_CPU_LLSC;
+	        c->tlbsize = 48;
+		break;
+	#endif
+	case PRID_IMP_TX39:
+		c->isa_level = MIPS_CPU_ISA_I;
+		c->options = MIPS_CPU_TLB;
+
+		if ((c->processor_id & 0xf0) == (PRID_REV_TX3927 & 0xf0)) {
+			c->cputype = CPU_TX3927;
+			c->tlbsize = 64;
+		} else {
+			switch (c->processor_id & 0xff) {
+			case PRID_REV_TX3912:
+				c->cputype = CPU_TX3912;
+				c->tlbsize = 32;
+				break;
+			case PRID_REV_TX3922:
+				c->cputype = CPU_TX3922;
+				c->tlbsize = 64;
+				break;
+			default:
+				c->cputype = CPU_UNKNOWN;
+				break;
+			}
+		}
+		break;
+	case PRID_IMP_R4700:
+		c->cputype = CPU_R4700;
+		c->isa_level = MIPS_CPU_ISA_III;
+		c->options = R4K_OPTS | MIPS_CPU_FPU | MIPS_CPU_32FPR |
+		             MIPS_CPU_LLSC;
+		c->tlbsize = 48;
+		break;
+	case PRID_IMP_TX49:
+		c->cputype = CPU_TX49XX;
+		c->isa_level = MIPS_CPU_ISA_III;
+		c->options = R4K_OPTS | MIPS_CPU_LLSC;
+		if (!(c->processor_id & 0x08))
+			c->options |= MIPS_CPU_FPU | MIPS_CPU_32FPR;
+		c->tlbsize = 48;
+		break;
+	case PRID_IMP_R5000:
+		c->cputype = CPU_R5000;
+		c->isa_level = MIPS_CPU_ISA_IV;
+		c->options = R4K_OPTS | MIPS_CPU_FPU | MIPS_CPU_32FPR |
+		             MIPS_CPU_LLSC;
+		c->tlbsize = 48;
+		break;
+	case PRID_IMP_R5432:
+		c->cputype = CPU_R5432;
+		c->isa_level = MIPS_CPU_ISA_IV;
+		c->options = R4K_OPTS | MIPS_CPU_FPU | MIPS_CPU_32FPR |
+		             MIPS_CPU_WATCH | MIPS_CPU_LLSC;
+		c->tlbsize = 48;
+		break;
+	case PRID_IMP_R5500:
+		c->cputype = CPU_R5500;
+		c->isa_level = MIPS_CPU_ISA_IV;
+		c->options = R4K_OPTS | MIPS_CPU_FPU | MIPS_CPU_32FPR |
+		             MIPS_CPU_WATCH | MIPS_CPU_LLSC;
+		c->tlbsize = 48;
+		break;
+	case PRID_IMP_NEVADA:
+		c->cputype = CPU_NEVADA;
+		c->isa_level = MIPS_CPU_ISA_IV;
+		c->options = R4K_OPTS | MIPS_CPU_FPU | MIPS_CPU_32FPR |
+		             MIPS_CPU_DIVEC | MIPS_CPU_LLSC;
+		c->tlbsize = 48;
+		break;
+	case PRID_IMP_R6000:
+		c->cputype = CPU_R6000;
+		c->isa_level = MIPS_CPU_ISA_II;
+		c->options = MIPS_CPU_TLB | MIPS_CPU_FPU |
+		             MIPS_CPU_LLSC;
+		c->tlbsize = 32;
+		break;
+	case PRID_IMP_R6000A:
+		c->cputype = CPU_R6000A;
+		c->isa_level = MIPS_CPU_ISA_II;
+		c->options = MIPS_CPU_TLB | MIPS_CPU_FPU |
+		             MIPS_CPU_LLSC;
+		c->tlbsize = 32;
+		break;
+	case PRID_IMP_RM7000:
+		c->cputype = CPU_RM7000;
+		c->isa_level = MIPS_CPU_ISA_IV;
+		c->options = R4K_OPTS | MIPS_CPU_FPU | MIPS_CPU_32FPR |
+		             MIPS_CPU_LLSC;
+		/*
+		 * Undocumented RM7000:  Bit 29 in the info register of
+		 * the RM7000 v2.0 indicates if the TLB has 48 or 64
+		 * entries.
+		 *
+		 * 29      1 =>    64 entry JTLB
+		 *         0 =>    48 entry JTLB
+		 */
+		c->tlbsize = (read_c0_info() & (1 << 29)) ? 64 : 48;
+		break;
+	case PRID_IMP_RM9000:
+		c->cputype = CPU_RM9000;
+		c->isa_level = MIPS_CPU_ISA_IV;
+		c->options = R4K_OPTS | MIPS_CPU_FPU | MIPS_CPU_32FPR |
+		             MIPS_CPU_LLSC;
+		/*
+		 * Bit 29 in the info register of the RM9000
+		 * indicates if the TLB has 48 or 64 entries.
+		 *
+		 * 29      1 =>    64 entry JTLB
+		 *         0 =>    48 entry JTLB
+		 */
+		c->tlbsize = (read_c0_info() & (1 << 29)) ? 64 : 48;
+		break;
+	case PRID_IMP_R8000:
+		c->cputype = CPU_R8000;
+		c->isa_level = MIPS_CPU_ISA_IV;
+		c->options = MIPS_CPU_TLB | MIPS_CPU_4KEX |
+		             MIPS_CPU_FPU | MIPS_CPU_32FPR |
+		             MIPS_CPU_LLSC;
+		c->tlbsize = 384;      /* has weird TLB: 3-way x 128 */
+		break;
+	case PRID_IMP_R10000:
+		c->cputype = CPU_R10000;
+		c->isa_level = MIPS_CPU_ISA_IV;
+		c->options = MIPS_CPU_TLB | MIPS_CPU_4KEX |
+		             MIPS_CPU_FPU | MIPS_CPU_32FPR |
+			     MIPS_CPU_COUNTER | MIPS_CPU_WATCH |
+		             MIPS_CPU_LLSC;
+		c->tlbsize = 64;
+		break;
+	case PRID_IMP_R12000:
+		c->cputype = CPU_R12000;
+		c->isa_level = MIPS_CPU_ISA_IV;
+		c->options = MIPS_CPU_TLB | MIPS_CPU_4KEX |
+		             MIPS_CPU_FPU | MIPS_CPU_32FPR |
+			     MIPS_CPU_COUNTER | MIPS_CPU_WATCH |
+		             MIPS_CPU_LLSC;
+		c->tlbsize = 64;
+		break;
+	default:
+		c->cputype = CPU_UNKNOWN;
+		break;
+	}
+}
+
+static inline void decode_config1(struct cpuinfo_mips *c)
+{
 	unsigned long config0 = read_c0_config();
 	unsigned long config1;
 
-        if (config0 & (1 << 31)) {
-		/* MIPS32 or MIPS64 compliant CPU. Read Config 1 register. */
-		mips_cpu.options = MIPS_CPU_TLB | MIPS_CPU_4KEX |
-			MIPS_CPU_4KTLB | MIPS_CPU_COUNTER | MIPS_CPU_DIVEC;
-		config1 = read_c0_config1();
-		if (config1 & (1 << 3))
-			mips_cpu.options |= MIPS_CPU_WATCH;
-		if (config1 & (1 << 2))
-			mips_cpu.options |= MIPS_CPU_MIPS16;
-		if (config1 & (1 << 1))
-			mips_cpu.options |= MIPS_CPU_EJTAG;
-		if (config1 & 1) {
-			mips_cpu.options |= MIPS_CPU_FPU;
-#if defined(CONFIG_CPU_MIPS64)
-			mips_cpu.options |= MIPS_CPU_32FPR;
-#endif
-		}
-		mips_cpu.scache.flags = MIPS_CACHE_NOT_PRESENT;
-	}
-#endif
-	mips_cpu.processor_id = read_c0_prid();
-	switch (mips_cpu.processor_id & 0xff0000) {
-	case PRID_COMP_LEGACY:
-		switch (mips_cpu.processor_id & 0xff00) {
-		case PRID_IMP_R2000:
-			mips_cpu.cputype = CPU_R2000;
-			mips_cpu.isa_level = MIPS_CPU_ISA_I;
-			mips_cpu.options = MIPS_CPU_TLB | MIPS_CPU_NOFPUEX;
-			if (cpu_has_fpu())
-				mips_cpu.options |= MIPS_CPU_FPU;
-			mips_cpu.tlbsize = 64;
-			break;
-		case PRID_IMP_R3000:
-			if ((mips_cpu.processor_id & 0xff) == PRID_REV_R3000A)
-				if (cpu_has_confreg())
-					mips_cpu.cputype = CPU_R3081E;
-				else
-					mips_cpu.cputype = CPU_R3000A;
-			else
-				mips_cpu.cputype = CPU_R3000;
-			mips_cpu.isa_level = MIPS_CPU_ISA_I;
-			mips_cpu.options = MIPS_CPU_TLB | MIPS_CPU_NOFPUEX;
-			if (cpu_has_fpu())
-				mips_cpu.options |= MIPS_CPU_FPU;
-			mips_cpu.tlbsize = 64;
-			break;
-		case PRID_IMP_R4000:
-			if ((mips_cpu.processor_id & 0xff) >= PRID_REV_R4400)
-				mips_cpu.cputype = CPU_R4400SC;
-			else
-				mips_cpu.cputype = CPU_R4000SC;
-			mips_cpu.isa_level = MIPS_CPU_ISA_III;
-			mips_cpu.options = R4K_OPTS | MIPS_CPU_FPU |
-			                   MIPS_CPU_32FPR | MIPS_CPU_WATCH |
-			                   MIPS_CPU_VCE;
-			mips_cpu.tlbsize = 48;
-			break;
-                case PRID_IMP_VR41XX:
-			switch (mips_cpu.processor_id & 0xf0) {
-#ifndef CONFIG_VR4181
-			case PRID_REV_VR4111:
-				mips_cpu.cputype = CPU_VR4111;
-				break;
-#else
-			case PRID_REV_VR4181:
-				mips_cpu.cputype = CPU_VR4181;
-				break;
-#endif
-			case PRID_REV_VR4121:
-				mips_cpu.cputype = CPU_VR4121;
-				break;
-			case PRID_REV_VR4122:
-				if ((mips_cpu.processor_id & 0xf) < 0x3)
-					mips_cpu.cputype = CPU_VR4122;
-				else
-					mips_cpu.cputype = CPU_VR4181A;
-				break;
-			case PRID_REV_VR4131:
-				mips_cpu.cputype = CPU_VR4131;
-				mips_cpu.icache.ways = 2;
-				mips_cpu.dcache.ways = 2;
-				break;
-			default:
-				printk(KERN_INFO "Unexpected CPU of NEC VR4100 series\n");
-				mips_cpu.cputype = CPU_VR41XX;
-				break;
-			}
-                        mips_cpu.isa_level = MIPS_CPU_ISA_III;
-                        mips_cpu.options = R4K_OPTS;
-                        mips_cpu.tlbsize = 32;
-                        break;
-		case PRID_IMP_R4300:
-			mips_cpu.cputype = CPU_R4300;
-			mips_cpu.isa_level = MIPS_CPU_ISA_III;
-			mips_cpu.options = R4K_OPTS | MIPS_CPU_FPU |
-					   MIPS_CPU_32FPR;
-			mips_cpu.tlbsize = 32;
-			break;
-		case PRID_IMP_R4600:
-			mips_cpu.cputype = CPU_R4600;
-			mips_cpu.isa_level = MIPS_CPU_ISA_III;
-			mips_cpu.options = R4K_OPTS | MIPS_CPU_FPU;
-			mips_cpu.tlbsize = 48;
-			break;
-		#if 0
- 		case PRID_IMP_R4650:
-			/*
-			 * This processor doesn't have an MMU, so it's not
-			 * "real easy" to run Linux on it. It is left purely
-			 * for documentation.  Commented out because it shares
-			 * it's c0_prid id number with the TX3900.
-			 */
-	 		mips_cpu.cputype = CPU_R4650;
-		 	mips_cpu.isa_level = MIPS_CPU_ISA_III;
-			mips_cpu.options = R4K_OPTS | MIPS_CPU_FPU;
-		        mips_cpu.tlbsize = 48;
-			break;
-		#endif
-		case PRID_IMP_TX39:
-			mips_cpu.isa_level = MIPS_CPU_ISA_I;
-			mips_cpu.options = MIPS_CPU_TLB;
+	if ((config0 & (1 << 31)) == 0)
+		return;			/* actually wort a panic() */
 
-			if ((mips_cpu.processor_id & 0xf0) ==
-			    (PRID_REV_TX3927 & 0xf0)) {
-				mips_cpu.cputype = CPU_TX3927;
-				mips_cpu.tlbsize = 64;
-				mips_cpu.icache.ways = 2;
-				mips_cpu.dcache.ways = 2;
-			} else {
-				switch (mips_cpu.processor_id & 0xff) {
-				case PRID_REV_TX3912:
-					mips_cpu.cputype = CPU_TX3912;
-					mips_cpu.tlbsize = 32;
-					break;
-				case PRID_REV_TX3922:
-					mips_cpu.cputype = CPU_TX3922;
-					mips_cpu.tlbsize = 64;
-					break;
-				default:
-					mips_cpu.cputype = CPU_UNKNOWN;
-					break;
-				}
-			}
-			break;
-		case PRID_IMP_R4700:
-			mips_cpu.cputype = CPU_R4700;
-			mips_cpu.isa_level = MIPS_CPU_ISA_III;
-			mips_cpu.options = R4K_OPTS | MIPS_CPU_FPU |
-			                   MIPS_CPU_32FPR;
-			mips_cpu.tlbsize = 48;
-			break;
-		case PRID_IMP_TX49:
-			mips_cpu.cputype = CPU_TX49XX;
-			mips_cpu.isa_level = MIPS_CPU_ISA_III;
-			mips_cpu.options = R4K_OPTS | MIPS_CPU_FPU |
-			                   MIPS_CPU_32FPR;
-			mips_cpu.tlbsize = 48;
-			mips_cpu.icache.ways = 4;
-			mips_cpu.dcache.ways = 4;
-			break;
-		case PRID_IMP_R5000:
-			mips_cpu.cputype = CPU_R5000;
-			mips_cpu.isa_level = MIPS_CPU_ISA_IV;
-			mips_cpu.options = R4K_OPTS | MIPS_CPU_FPU |
-			                   MIPS_CPU_32FPR;
-			mips_cpu.tlbsize = 48;
-			break;
-		case PRID_IMP_R5432:
-			mips_cpu.cputype = CPU_R5432;
-			mips_cpu.isa_level = MIPS_CPU_ISA_IV;
-			mips_cpu.options = R4K_OPTS | MIPS_CPU_FPU |
-			                   MIPS_CPU_32FPR | MIPS_CPU_WATCH;
-			mips_cpu.tlbsize = 48;
-			break;
-		case PRID_IMP_R5500:
-			mips_cpu.cputype = CPU_R5500;
-			mips_cpu.isa_level = MIPS_CPU_ISA_IV;
-			mips_cpu.options = R4K_OPTS | MIPS_CPU_FPU |
-			                   MIPS_CPU_32FPR | MIPS_CPU_WATCH;
-			mips_cpu.tlbsize = 48;
-			break;
-		case PRID_IMP_NEVADA:
-			mips_cpu.cputype = CPU_NEVADA;
-			mips_cpu.isa_level = MIPS_CPU_ISA_IV;
-			mips_cpu.options = R4K_OPTS | MIPS_CPU_FPU |
-			                   MIPS_CPU_32FPR | MIPS_CPU_DIVEC;
-			mips_cpu.tlbsize = 48;
-			mips_cpu.icache.ways = 2;
-			mips_cpu.dcache.ways = 2;
-			break;
-		case PRID_IMP_R6000:
-			mips_cpu.cputype = CPU_R6000;
-			mips_cpu.isa_level = MIPS_CPU_ISA_II;
-			mips_cpu.options = MIPS_CPU_TLB | MIPS_CPU_FPU;
-			mips_cpu.tlbsize = 32;
-			break;
-		case PRID_IMP_R6000A:
-			mips_cpu.cputype = CPU_R6000A;
-			mips_cpu.isa_level = MIPS_CPU_ISA_II;
-			mips_cpu.options = MIPS_CPU_TLB | MIPS_CPU_FPU;
-			mips_cpu.tlbsize = 32;
-			break;
-		case PRID_IMP_RM7000:
-			mips_cpu.cputype = CPU_RM7000;
-			mips_cpu.isa_level = MIPS_CPU_ISA_IV;
-			mips_cpu.options = R4K_OPTS | MIPS_CPU_FPU |
-			                   MIPS_CPU_32FPR;
-			/*
-			 * Undocumented RM7000:  Bit 29 in the info register of
-			 * the RM7000 v2.0 indicates if the TLB has 48 or 64
-			 * entries.
-			 *
-			 * 29      1 =>    64 entry JTLB
-			 *         0 =>    48 entry JTLB
-			 */
-			mips_cpu.tlbsize = (read_c0_info() & (1 << 29)) ? 64 : 48;
-			break;
-		case PRID_IMP_R8000:
-			mips_cpu.cputype = CPU_R8000;
-			mips_cpu.isa_level = MIPS_CPU_ISA_IV;
-			mips_cpu.options = MIPS_CPU_TLB | MIPS_CPU_4KEX |
-				           MIPS_CPU_FPU | MIPS_CPU_32FPR;
-			mips_cpu.tlbsize = 384;      /* has weird TLB: 3-way x 128 */
-			break;
-		case PRID_IMP_R10000:
-			mips_cpu.cputype = CPU_R10000;
-			mips_cpu.isa_level = MIPS_CPU_ISA_IV;
-			mips_cpu.options = MIPS_CPU_TLB | MIPS_CPU_4KEX |
-				           MIPS_CPU_FPU | MIPS_CPU_32FPR |
-				           MIPS_CPU_COUNTER | MIPS_CPU_WATCH;
-			mips_cpu.tlbsize = 64;
-			break;
-		case PRID_IMP_R12000:
-			mips_cpu.cputype = CPU_R12000;
-			mips_cpu.isa_level = MIPS_CPU_ISA_IV;
-			mips_cpu.options = MIPS_CPU_TLB | MIPS_CPU_4KEX |
-				           MIPS_CPU_FPU | MIPS_CPU_32FPR |
-				           MIPS_CPU_COUNTER | MIPS_CPU_WATCH;
-			mips_cpu.tlbsize = 64;
-			break;
-		default:
-			mips_cpu.cputype = CPU_UNKNOWN;
-			break;
-		}
+	/* MIPS32 or MIPS64 compliant CPU. Read Config 1 register. */
+	c->options = MIPS_CPU_TLB | MIPS_CPU_4KEX |
+		MIPS_CPU_4KTLB | MIPS_CPU_COUNTER | MIPS_CPU_DIVEC |
+		MIPS_CPU_LLSC;
+	config1 = read_c0_config1();
+	if (config1 & (1 << 3))
+		c->options |= MIPS_CPU_WATCH;
+	if (config1 & (1 << 2))
+		c->options |= MIPS_CPU_MIPS16;
+	if (config1 & (1 << 1))
+		c->options |= MIPS_CPU_EJTAG;
+	if (config1 & 1) {
+		c->options |= MIPS_CPU_FPU;
+		c->options |= MIPS_CPU_32FPR;
+	}
+	c->scache.flags = MIPS_CACHE_NOT_PRESENT;
+
+	c->tlbsize = ((config1 >> 25) & 0x3f) + 1;
+}
+
+static inline void cpu_probe_mips(struct cpuinfo_mips *c)
+{
+	decode_config1(c);
+	switch (c->processor_id & 0xff00) {
+	case PRID_IMP_4KC:
+		c->cputype = CPU_4KC;
+		c->isa_level = MIPS_CPU_ISA_M32;
 		break;
-#if defined(CONFIG_CPU_MIPS32) || defined(CONFIG_CPU_MIPS64)
-	case PRID_COMP_MIPS:
-		switch (mips_cpu.processor_id & 0xff00) {
-		case PRID_IMP_4KC:
-			mips_cpu.cputype = CPU_4KC;
-			mips_cpu.isa_level = MIPS_CPU_ISA_M32;
-			break;
-		case PRID_IMP_4KEC:
-			mips_cpu.cputype = CPU_4KEC;
-			mips_cpu.isa_level = MIPS_CPU_ISA_M32;
-			break;
-		case PRID_IMP_4KSC:
-			mips_cpu.cputype = CPU_4KSC;
-			mips_cpu.isa_level = MIPS_CPU_ISA_M32;
-			break;
-		case PRID_IMP_5KC:
-			mips_cpu.cputype = CPU_5KC;
-			mips_cpu.isa_level = MIPS_CPU_ISA_M64;
-			break;
-		case PRID_IMP_20KC:
-			mips_cpu.cputype = CPU_20KC;
-			mips_cpu.isa_level = MIPS_CPU_ISA_M64;
-			break;
-		default:
-			mips_cpu.cputype = CPU_UNKNOWN;
-			break;
-		}
+	case PRID_IMP_4KEC:
+		c->cputype = CPU_4KEC;
+		c->isa_level = MIPS_CPU_ISA_M32;
 		break;
-	case PRID_COMP_ALCHEMY:
-		switch (mips_cpu.processor_id & 0xff00) {
-		case PRID_IMP_AU1_REV1:
-		case PRID_IMP_AU1_REV2:
-			switch ((mips_cpu.processor_id >> 24) & 0xff) {
-			case 0:
- 				mips_cpu.cputype = CPU_AU1000;
-				break;
-			case 1:
-				mips_cpu.cputype = CPU_AU1500;
-				break;
-			case 2:
-				mips_cpu.cputype = CPU_AU1100;
-				break;
-			default:
-				panic("Unknown Au Core!");
-				break;
-			}
-			mips_cpu.isa_level = MIPS_CPU_ISA_M32;
- 			break;
-		default:
-			mips_cpu.cputype = CPU_UNKNOWN;
-			break;
-		}
+	case PRID_IMP_4KSC:
+		c->cputype = CPU_4KSC;
+		c->isa_level = MIPS_CPU_ISA_M32;
 		break;
-#endif /* CONFIG_CPU_MIPS32 */
-	case PRID_COMP_SIBYTE:
-		switch (mips_cpu.processor_id & 0xff00) {
-		case PRID_IMP_SB1:
-			mips_cpu.cputype = CPU_SB1;
-			mips_cpu.isa_level = MIPS_CPU_ISA_M64;
-			mips_cpu.options = MIPS_CPU_TLB | MIPS_CPU_4KEX |
-			                   MIPS_CPU_COUNTER | MIPS_CPU_DIVEC |
-			                   MIPS_CPU_MCHECK | MIPS_CPU_EJTAG;
-#ifndef CONFIG_SB1_PASS_1_WORKAROUNDS
-			/* FPU in pass1 is known to have issues. */
-			mips_cpu.options |= MIPS_CPU_FPU;
-#endif
-			break;
-		default:
-			mips_cpu.cputype = CPU_UNKNOWN;
-			break;
-		}
+	case PRID_IMP_5KC:
+		c->cputype = CPU_5KC;
+		c->isa_level = MIPS_CPU_ISA_M64;
+		break;
+	case PRID_IMP_20KC:
+		c->cputype = CPU_20KC;
+		c->isa_level = MIPS_CPU_ISA_M64;
+		break;
+	case PRID_IMP_24K:
+		c->cputype = CPU_24K;
+		c->isa_level = MIPS_CPU_ISA_M32;
+		break;
+	case PRID_IMP_25KF:
+		c->cputype = CPU_25KF;
+		c->isa_level = MIPS_CPU_ISA_M64;
+		/* Probe for L2 cache */
+		c->scache.flags &= ~MIPS_CACHE_NOT_PRESENT;
 		break;
 	default:
-		mips_cpu.cputype = CPU_UNKNOWN;
+		c->cputype = CPU_UNKNOWN;
+		break;
 	}
-	if (mips_cpu.options & MIPS_CPU_FPU)
-		mips_cpu.fpu_id = cpu_get_fpu_id();
+}
+
+static inline void cpu_probe_alchemy(struct cpuinfo_mips *c)
+{
+	decode_config1(c);
+	switch (c->processor_id & 0xff00) {
+	case PRID_IMP_AU1_REV1:
+	case PRID_IMP_AU1_REV2:
+		switch ((c->processor_id >> 24) & 0xff) {
+		case 0:
+ 			c->cputype = CPU_AU1000;
+			break;
+		case 1:
+			c->cputype = CPU_AU1500;
+			break;
+		case 2:
+			c->cputype = CPU_AU1100;
+			break;
+		default:
+			panic("Unknown Au Core!");
+			break;
+		}
+		c->isa_level = MIPS_CPU_ISA_M32;
+		break;
+	}
+}
+
+static inline void cpu_probe_sibyte(struct cpuinfo_mips *c)
+{
+	decode_config1(c);
+	switch (c->processor_id & 0xff00) {
+	case PRID_IMP_SB1:
+		c->cputype = CPU_SB1;
+		c->isa_level = MIPS_CPU_ISA_M64;
+		c->options = MIPS_CPU_TLB | MIPS_CPU_4KEX |
+		             MIPS_CPU_COUNTER | MIPS_CPU_DIVEC |
+		             MIPS_CPU_MCHECK | MIPS_CPU_EJTAG |
+		             MIPS_CPU_WATCH | MIPS_CPU_LLSC;
+#ifndef CONFIG_SB1_PASS_1_WORKAROUNDS
+		/* FPU in pass1 is known to have issues. */
+		c->options |= MIPS_CPU_FPU | MIPS_CPU_32FPR;
+#endif
+		break;
+	default:
+		c->cputype = CPU_UNKNOWN;
+		break;
+	}
+}
+
+static inline void cpu_probe_sandcraft(struct cpuinfo_mips *c)
+{
+	decode_config1(c);
+	switch (c->processor_id & 0xff00) {
+	case PRID_IMP_SR71000:
+		c->cputype = CPU_SR71000;
+		c->isa_level = MIPS_CPU_ISA_M64;
+		c->options = MIPS_CPU_TLB | MIPS_CPU_4KEX |
+		             MIPS_CPU_4KTLB | MIPS_CPU_FPU |
+		             MIPS_CPU_COUNTER | MIPS_CPU_MCHECK;
+		c->scache.ways = 8;
+		c->tlbsize = 64;
+		break;
+	default:
+		c->cputype = CPU_UNKNOWN;
+		break;
+	}
+}
+
+__init void cpu_probe(void)
+{
+	struct cpuinfo_mips *c = &current_cpu_data;
+
+	c->processor_id	= PRID_IMP_UNKNOWN;
+	c->fpu_id	= FPIR_IMP_NONE;
+	c->cputype	= CPU_UNKNOWN;
+
+	c->processor_id = read_c0_prid();
+	switch (c->processor_id & 0xff0000) {
+	case PRID_COMP_LEGACY:
+		cpu_probe_legacy(c);
+		break;
+	case PRID_COMP_MIPS:
+		cpu_probe_mips(c);
+		break;
+	case PRID_COMP_ALCHEMY:
+		cpu_probe_alchemy(c);
+		break;
+	case PRID_COMP_SIBYTE:
+		cpu_probe_sibyte(c);
+		break;
+
+	case PRID_COMP_SANDCRAFT:
+		cpu_probe_sandcraft(c);
+		break;
+	default:
+		c->cputype = CPU_UNKNOWN;
+	}
+	if (c->options & MIPS_CPU_FPU)
+		c->fpu_id = cpu_get_fpu_id();
 }
 
 __init void cpu_report(void)
 {
-	printk("CPU revision is: %08x\n", mips_cpu.processor_id);
-	if (mips_cpu.options & MIPS_CPU_FPU)
-		printk("FPU revision is: %08x\n", mips_cpu.fpu_id);
+	struct cpuinfo_mips *c = &current_cpu_data;
+
+	printk("CPU revision is: %08x\n", c->processor_id);
+	if (c->options & MIPS_CPU_FPU)
+		printk("FPU revision is: %08x\n", c->fpu_id);
 }

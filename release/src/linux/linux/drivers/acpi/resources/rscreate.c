@@ -1,50 +1,67 @@
 /*******************************************************************************
  *
  * Module Name: rscreate - Create resource lists/tables
- *              $Revision: 1.1.1.2 $
  *
  ******************************************************************************/
 
 /*
- *  Copyright (C) 2000, 2001 R. Byron Moore
+ * Copyright (C) 2000 - 2004, R. Byron Moore
+ * All rights reserved.
  *
- *  This program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2 of the License, or
- *  (at your option) any later version.
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions, and the following disclaimer,
+ *    without modification.
+ * 2. Redistributions in binary form must reproduce at minimum a disclaimer
+ *    substantially similar to the "NO WARRANTY" disclaimer below
+ *    ("Disclaimer") and any redistribution must be conditioned upon
+ *    including a substantially similar Disclaimer requirement for further
+ *    binary redistribution.
+ * 3. Neither the names of the above-listed copyright holders nor the names
+ *    of any contributors may be used to endorse or promote products derived
+ *    from this software without specific prior written permission.
  *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
+ * Alternatively, this software may be distributed under the terms of the
+ * GNU General Public License ("GPL") version 2 as published by the Free
+ * Software Foundation.
  *
- *  You should have received a copy of the GNU General Public License
- *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * NO WARRANTY
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR
+ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+ * HOLDERS OR CONTRIBUTORS BE LIABLE FOR SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+ * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+ * STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING
+ * IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGES.
  */
 
 
-#include "acpi.h"
-#include "acresrc.h"
-#include "amlcode.h"
-#include "acnamesp.h"
+#include <acpi/acpi.h>
+#include <acpi/acresrc.h>
+#include <acpi/amlcode.h>
+#include <acpi/acnamesp.h>
 
 #define _COMPONENT          ACPI_RESOURCES
-	 MODULE_NAME         ("rscreate")
+	 ACPI_MODULE_NAME    ("rscreate")
 
 
 /*******************************************************************************
  *
- * FUNCTION:    Acpi_rs_create_resource_list
+ * FUNCTION:    acpi_rs_create_resource_list
  *
- * PARAMETERS:  Byte_stream_buffer      - Pointer to the resource byte stream
- *              Output_buffer           - Pointer to the user's buffer
- *              Output_buffer_length    - Pointer to the size of Output_buffer
+ * PARAMETERS:  byte_stream_buffer      - Pointer to the resource byte stream
+ *              output_buffer           - Pointer to the user's buffer
  *
  * RETURN:      Status  - AE_OK if okay, else a valid acpi_status code
- *              If Output_buffer is not large enough, Output_buffer_length
- *              indicates how large Output_buffer should be, else it
- *              indicates how may u8 elements of Output_buffer are valid.
+ *              If output_buffer is not large enough, output_buffer_length
+ *              indicates how large output_buffer should be, else it
+ *              indicates how may u8 elements of output_buffer are valid.
  *
  * DESCRIPTION: Takes the byte stream returned from a _CRS, _PRS control method
  *              execution and parses the stream to create a linked list
@@ -54,21 +71,21 @@
 
 acpi_status
 acpi_rs_create_resource_list (
-	acpi_operand_object     *byte_stream_buffer,
-	u8                      *output_buffer,
-	u32                     *output_buffer_length)
+	union acpi_operand_object       *byte_stream_buffer,
+	struct acpi_buffer              *output_buffer)
 {
 
-	acpi_status             status;
-	u8                      *byte_stream_start;
-	u32                     list_size_needed = 0;
-	u32                     byte_stream_buffer_length;
+	acpi_status                     status;
+	u8                              *byte_stream_start;
+	acpi_size                       list_size_needed = 0;
+	u32                             byte_stream_buffer_length;
 
 
-	FUNCTION_TRACE ("Rs_create_resource_list");
+	ACPI_FUNCTION_TRACE ("rs_create_resource_list");
 
 
-	ACPI_DEBUG_PRINT ((ACPI_DB_INFO, "Byte_stream_buffer = %p\n", byte_stream_buffer));
+	ACPI_DEBUG_PRINT ((ACPI_DB_INFO, "byte_stream_buffer = %p\n",
+		byte_stream_buffer));
 
 	/*
 	 * Params already validated, so we don't re-validate here
@@ -77,300 +94,280 @@ acpi_rs_create_resource_list (
 	byte_stream_start = byte_stream_buffer->buffer.pointer;
 
 	/*
-	 * Pass the Byte_stream_buffer into a module that can calculate
+	 * Pass the byte_stream_buffer into a module that can calculate
 	 * the buffer size needed for the linked list
 	 */
-	status = acpi_rs_calculate_list_length (byte_stream_start, byte_stream_buffer_length,
+	status = acpi_rs_get_list_length (byte_stream_start, byte_stream_buffer_length,
 			 &list_size_needed);
 
-	ACPI_DEBUG_PRINT ((ACPI_DB_INFO, "Status=%X List_size_needed=%X\n",
-		status, list_size_needed));
-
-	/*
-	 * Exit with the error passed back
-	 */
+	ACPI_DEBUG_PRINT ((ACPI_DB_INFO, "Status=%X list_size_needed=%X\n",
+		status, (u32) list_size_needed));
 	if (ACPI_FAILURE (status)) {
 		return_ACPI_STATUS (status);
 	}
 
-	/*
-	 * If the linked list will fit into the available buffer
-	 * call to fill in the list
-	 */
-	if (list_size_needed <= *output_buffer_length) {
-		/*
-		 * Zero out the return buffer before proceeding
-		 */
-		MEMSET (output_buffer, 0x00, *output_buffer_length);
+	/* Validate/Allocate/Clear caller buffer */
 
-		status = acpi_rs_byte_stream_to_list (byte_stream_start, byte_stream_buffer_length,
-				 &output_buffer);
-
-		/*
-		 * Exit with the error passed back
-		 */
-		if (ACPI_FAILURE (status)) {
-			return_ACPI_STATUS (status);
-		}
-
-		ACPI_DEBUG_PRINT ((ACPI_DB_INFO, "Output_buffer = %p\n", output_buffer));
+	status = acpi_ut_initialize_buffer (output_buffer, list_size_needed);
+	if (ACPI_FAILURE (status)) {
+		return_ACPI_STATUS (status);
 	}
 
-	else {
-		*output_buffer_length = list_size_needed;
-		return_ACPI_STATUS (AE_BUFFER_OVERFLOW);
+	/* Do the conversion */
+
+	status = acpi_rs_byte_stream_to_list (byte_stream_start, byte_stream_buffer_length,
+			  output_buffer->pointer);
+	if (ACPI_FAILURE (status)) {
+		return_ACPI_STATUS (status);
 	}
 
-	*output_buffer_length = list_size_needed;
+	ACPI_DEBUG_PRINT ((ACPI_DB_INFO, "output_buffer %p Length %X\n",
+			output_buffer->pointer, (u32) output_buffer->length));
 	return_ACPI_STATUS (AE_OK);
 }
 
 
 /*******************************************************************************
  *
- * FUNCTION:    Acpi_rs_create_pci_routing_table
+ * FUNCTION:    acpi_rs_create_pci_routing_table
  *
- * PARAMETERS:  Package_object          - Pointer to an acpi_operand_object
+ * PARAMETERS:  package_object          - Pointer to an union acpi_operand_object
  *                                        package
- *              Output_buffer           - Pointer to the user's buffer
- *              Output_buffer_length    - Size of Output_buffer
+ *              output_buffer           - Pointer to the user's buffer
  *
  * RETURN:      Status  AE_OK if okay, else a valid acpi_status code.
- *              If the Output_buffer is too small, the error will be
- *              AE_BUFFER_OVERFLOW and Output_buffer_length will point
+ *              If the output_buffer is too small, the error will be
+ *              AE_BUFFER_OVERFLOW and output_buffer->Length will point
  *              to the size buffer needed.
  *
- * DESCRIPTION: Takes the acpi_operand_object  package and creates a
+ * DESCRIPTION: Takes the union acpi_operand_object    package and creates a
  *              linked list of PCI interrupt descriptions
+ *
+ * NOTE: It is the caller's responsibility to ensure that the start of the
+ * output buffer is aligned properly (if necessary).
  *
  ******************************************************************************/
 
 acpi_status
 acpi_rs_create_pci_routing_table (
-	acpi_operand_object     *package_object,
-	u8                      *output_buffer,
-	u32                     *output_buffer_length)
+	union acpi_operand_object       *package_object,
+	struct acpi_buffer              *output_buffer)
 {
-	u8                      *buffer = output_buffer;
-	acpi_operand_object     **top_object_list = NULL;
-	acpi_operand_object     **sub_object_list = NULL;
-	acpi_operand_object     *package_element = NULL;
-	u32                     buffer_size_needed = 0;
-	u32                     number_of_elements = 0;
-	u32                     index = 0;
-	pci_routing_table       *user_prt = NULL;
-	acpi_namespace_node     *node;
-	acpi_status             status;
+	u8                              *buffer;
+	union acpi_operand_object       **top_object_list;
+	union acpi_operand_object       **sub_object_list;
+	union acpi_operand_object       *obj_desc;
+	acpi_size                       buffer_size_needed = 0;
+	u32                             number_of_elements;
+	u32                             index;
+	struct acpi_pci_routing_table   *user_prt;
+	struct acpi_namespace_node      *node;
+	acpi_status                     status;
+	struct acpi_buffer              path_buffer;
 
 
-	FUNCTION_TRACE ("Rs_create_pci_routing_table");
+	ACPI_FUNCTION_TRACE ("rs_create_pci_routing_table");
 
+
+	/* Params already validated, so we don't re-validate here */
 
 	/*
-	 * Params already validated, so we don't re-validate here
+	 * Get the required buffer length
 	 */
-	status = acpi_rs_calculate_pci_routing_table_length (package_object,
+	status = acpi_rs_get_pci_routing_table_length (package_object,
 			 &buffer_size_needed);
-
-	if (!ACPI_SUCCESS(status)) {
+	if (ACPI_FAILURE (status)) {
 		return_ACPI_STATUS (status);
 	}
 
-	ACPI_DEBUG_PRINT ((ACPI_DB_INFO, "Buffer_size_needed = %X\n", buffer_size_needed));
+	ACPI_DEBUG_PRINT ((ACPI_DB_INFO, "buffer_size_needed = %X\n",
+		(u32) buffer_size_needed));
+
+	/* Validate/Allocate/Clear caller buffer */
+
+	status = acpi_ut_initialize_buffer (output_buffer, buffer_size_needed);
+	if (ACPI_FAILURE (status)) {
+		return_ACPI_STATUS (status);
+	}
 
 	/*
-	 * If the data will fit into the available buffer
-	 * call to fill in the list
+	 * Loop through the ACPI_INTERNAL_OBJECTS - Each object
+	 * should be a package that in turn contains an
+	 * acpi_integer Address, a u8 Pin, a Name and a u8 source_index.
 	 */
-	if (buffer_size_needed <= *output_buffer_length) {
+	top_object_list  = package_object->package.elements;
+	number_of_elements = package_object->package.count;
+	buffer           = output_buffer->pointer;
+	user_prt         = ACPI_CAST_PTR (struct acpi_pci_routing_table, buffer);
+
+	for (index = 0; index < number_of_elements; index++) {
 		/*
-		 * Zero out the return buffer before proceeding
+		 * Point user_prt past this current structure
+		 *
+		 * NOTE: On the first iteration, user_prt->Length will
+		 * be zero because we cleared the return buffer earlier
 		 */
-		MEMSET (output_buffer, 0x00, *output_buffer_length);
+		buffer += user_prt->length;
+		user_prt = ACPI_CAST_PTR (struct acpi_pci_routing_table, buffer);
 
 		/*
-		 * Loop through the ACPI_INTERNAL_OBJECTS - Each object should
-		 * contain a u32 Address, a u8 Pin, a Name and a u8
-		 * Source_index.
+		 * Fill in the Length field with the information we have at this point.
+		 * The minus four is to subtract the size of the u8 Source[4] member
+		 * because it is added below.
 		 */
-		top_object_list     = package_object->package.elements;
-		number_of_elements  = package_object->package.count;
-		user_prt            = (pci_routing_table *) buffer;
+		user_prt->length = (sizeof (struct acpi_pci_routing_table) - 4);
 
-
-		buffer = ROUND_PTR_UP_TO_8 (buffer, u8);
-
-		for (index = 0; index < number_of_elements; index++) {
-			/*
-			 * Point User_prt past this current structure
-			 *
-			 * NOTE: On the first iteration, User_prt->Length will
-			 * be zero because we cleared the return buffer earlier
-			 */
-			buffer += user_prt->length;
-			user_prt = (pci_routing_table *) buffer;
-
-
-			/*
-			 * Fill in the Length field with the information we
-			 * have at this point.
-			 * The minus four is to subtract the size of the
-			 * u8 Source[4] member because it is added below.
-			 */
-			user_prt->length = (sizeof (pci_routing_table) -4);
-
-			/*
-			 * Dereference the sub-package
-			 */
-			package_element = *top_object_list;
-
-			/*
-			 * The Sub_object_list will now point to an array of
-			 * the four IRQ elements: Address, Pin, Source and
-			 * Source_index
-			 */
-			sub_object_list = package_element->package.elements;
-
-			/*
-			 * 1) First subobject:  Dereference the Address
-			 */
-			if (ACPI_TYPE_INTEGER == (*sub_object_list)->common.type) {
-				user_prt->address = (*sub_object_list)->integer.value;
-			}
-
-			else {
-				ACPI_DEBUG_PRINT ((ACPI_DB_ERROR, "Need Integer, found %s\n",
-					acpi_ut_get_type_name ((*sub_object_list)->common.type)));
-				return_ACPI_STATUS (AE_BAD_DATA);
-			}
-
-			/*
-			 * 2) Second subobject: Dereference the Pin
-			 */
-			sub_object_list++;
-
-			if (ACPI_TYPE_INTEGER == (*sub_object_list)->common.type) {
-				user_prt->pin = (u32) (*sub_object_list)->integer.value;
-			}
-
-			else {
-				ACPI_DEBUG_PRINT ((ACPI_DB_ERROR, "Need Integer, found %s\n",
-					acpi_ut_get_type_name ((*sub_object_list)->common.type)));
-				return_ACPI_STATUS (AE_BAD_DATA);
-			}
-
-			/*
-			 * 3) Third subobject: Dereference the Source Name
-			 */
-			sub_object_list++;
-
-			switch ((*sub_object_list)->common.type) {
-			case INTERNAL_TYPE_REFERENCE:
-
-				if ((*sub_object_list)->reference.opcode != AML_INT_NAMEPATH_OP) {
-				   ACPI_DEBUG_PRINT ((ACPI_DB_ERROR, "Need name, found reference op %X\n",
-						(*sub_object_list)->reference.opcode));
-					return_ACPI_STATUS (AE_BAD_DATA);
-				}
-
-				node = (*sub_object_list)->reference.node;
-
-				/* TBD: use *remaining* length of the buffer! */
-
-				status = acpi_ns_handle_to_pathname ((acpi_handle *) node,
-						 output_buffer_length, user_prt->source);
-
-				user_prt->length += STRLEN (user_prt->source) + 1; /* include null terminator */
-				break;
-
-
-			case ACPI_TYPE_STRING:
-
-				STRCPY (user_prt->source,
-					  (*sub_object_list)->string.pointer);
-
-				/*
-				 * Add to the Length field the length of the string
-				 */
-				user_prt->length += (*sub_object_list)->string.length;
-				break;
-
-
-			case ACPI_TYPE_INTEGER:
-				/*
-				 * If this is a number, then the Source Name
-				 * is NULL, since the entire buffer was zeroed
-				 * out, we can leave this alone.
-				 */
-				/*
-				 * Add to the Length field the length of
-				 * the u32 NULL
-				 */
-				user_prt->length += sizeof (u32);
-				break;
-
-
-			default:
-
-			   ACPI_DEBUG_PRINT ((ACPI_DB_ERROR, "Need Integer, found %s\n",
-					acpi_ut_get_type_name ((*sub_object_list)->common.type)));
-			   return_ACPI_STATUS (AE_BAD_DATA);
-			   break;
-			}
-
-			/* Now align the current length */
-
-			user_prt->length = ROUND_UP_TO_64_bITS (user_prt->length);
-
-			/*
-			 * 4) Fourth subobject: Dereference the Source Index
-			 */
-			sub_object_list++;
-
-			if (ACPI_TYPE_INTEGER == (*sub_object_list)->common.type) {
-				user_prt->source_index = (u32) (*sub_object_list)->integer.value;
-			}
-
-			else {
-				ACPI_DEBUG_PRINT ((ACPI_DB_ERROR, "Need Integer, found %s\n",
-					acpi_ut_get_type_name ((*sub_object_list)->common.type)));
-				return_ACPI_STATUS (AE_BAD_DATA);
-			}
-
-			/*
-			 * Point to the next acpi_operand_object
-			 */
-			top_object_list++;
+		/*
+		 * Each element of the top-level package must also be a package
+		 */
+		if (ACPI_GET_OBJECT_TYPE (*top_object_list) != ACPI_TYPE_PACKAGE) {
+			ACPI_DEBUG_PRINT ((ACPI_DB_ERROR,
+				"(PRT[%X]) Need sub-package, found %s\n",
+				index, acpi_ut_get_object_type_name (*top_object_list)));
+			return_ACPI_STATUS (AE_AML_OPERAND_TYPE);
 		}
 
-		ACPI_DEBUG_PRINT ((ACPI_DB_INFO, "Output_buffer = %p\n", output_buffer));
+		/* Each sub-package must be of length 4 */
+
+		if ((*top_object_list)->package.count != 4) {
+			ACPI_DEBUG_PRINT ((ACPI_DB_ERROR,
+				"(PRT[%X]) Need package of length 4, found length %d\n",
+				index, (*top_object_list)->package.count));
+			return_ACPI_STATUS (AE_AML_PACKAGE_LIMIT);
+		}
+
+		/*
+		 * Dereference the sub-package.
+		 * The sub_object_list will now point to an array of the four IRQ
+		 * elements: [Address, Pin, Source, source_index]
+		 */
+		sub_object_list = (*top_object_list)->package.elements;
+
+		/*
+		 * 1) First subobject: Dereference the PRT.Address
+		 */
+		obj_desc = sub_object_list[0];
+		if (ACPI_GET_OBJECT_TYPE (obj_desc) == ACPI_TYPE_INTEGER) {
+			user_prt->address = obj_desc->integer.value;
+		}
+		else {
+			ACPI_DEBUG_PRINT ((ACPI_DB_ERROR,
+				"(PRT[%X].Address) Need Integer, found %s\n",
+				index, acpi_ut_get_object_type_name (obj_desc)));
+			return_ACPI_STATUS (AE_BAD_DATA);
+		}
+
+		/*
+		 * 2) Second subobject: Dereference the PRT.Pin
+		 */
+		obj_desc = sub_object_list[1];
+		if (ACPI_GET_OBJECT_TYPE (obj_desc) == ACPI_TYPE_INTEGER) {
+			user_prt->pin = (u32) obj_desc->integer.value;
+		}
+		else {
+			ACPI_DEBUG_PRINT ((ACPI_DB_ERROR,
+				"(PRT[%X].Pin) Need Integer, found %s\n",
+				index, acpi_ut_get_object_type_name (obj_desc)));
+			return_ACPI_STATUS (AE_BAD_DATA);
+		}
+
+		/*
+		 * 3) Third subobject: Dereference the PRT.source_name
+		 */
+		obj_desc = sub_object_list[2];
+		switch (ACPI_GET_OBJECT_TYPE (obj_desc)) {
+		case ACPI_TYPE_LOCAL_REFERENCE:
+
+			if (obj_desc->reference.opcode != AML_INT_NAMEPATH_OP) {
+				ACPI_DEBUG_PRINT ((ACPI_DB_ERROR,
+					"(PRT[%X].Source) Need name, found reference op %X\n",
+					index, obj_desc->reference.opcode));
+				return_ACPI_STATUS (AE_BAD_DATA);
+			}
+
+			node = obj_desc->reference.node;
+
+			/* Use *remaining* length of the buffer as max for pathname */
+
+			path_buffer.length = output_buffer->length -
+					   (u32) ((u8 *) user_prt->source -
+					   (u8 *) output_buffer->pointer);
+			path_buffer.pointer = user_prt->source;
+
+			status = acpi_ns_handle_to_pathname ((acpi_handle) node, &path_buffer);
+
+			user_prt->length += (u32) ACPI_STRLEN (user_prt->source) + 1; /* include null terminator */
+			break;
+
+
+		case ACPI_TYPE_STRING:
+
+			ACPI_STRCPY (user_prt->source, obj_desc->string.pointer);
+
+			/* Add to the Length field the length of the string (add 1 for terminator) */
+
+			user_prt->length += obj_desc->string.length + 1;
+			break;
+
+
+		case ACPI_TYPE_INTEGER:
+			/*
+			 * If this is a number, then the Source Name is NULL, since the
+			 * entire buffer was zeroed out, we can leave this alone.
+			 *
+			 * Add to the Length field the length of the u32 NULL
+			 */
+			user_prt->length += sizeof (u32);
+			break;
+
+
+		default:
+
+		   ACPI_DEBUG_PRINT ((ACPI_DB_ERROR,
+			   "(PRT[%X].Source) Need Ref/String/Integer, found %s\n",
+				index, acpi_ut_get_object_type_name (obj_desc)));
+		   return_ACPI_STATUS (AE_BAD_DATA);
+		}
+
+		/* Now align the current length */
+
+		user_prt->length = (u32) ACPI_ROUND_UP_to_64_bITS (user_prt->length);
+
+		/*
+		 * 4) Fourth subobject: Dereference the PRT.source_index
+		 */
+		obj_desc = sub_object_list[3];
+		if (ACPI_GET_OBJECT_TYPE (obj_desc) == ACPI_TYPE_INTEGER) {
+			user_prt->source_index = (u32) obj_desc->integer.value;
+		}
+		else {
+			ACPI_DEBUG_PRINT ((ACPI_DB_ERROR,
+				"(PRT[%X].source_index) Need Integer, found %s\n",
+				index, acpi_ut_get_object_type_name (obj_desc)));
+			return_ACPI_STATUS (AE_BAD_DATA);
+		}
+
+		/* Point to the next union acpi_operand_object in the top level package */
+
+		top_object_list++;
 	}
 
-	else {
-		*output_buffer_length = buffer_size_needed;
-
-		return_ACPI_STATUS (AE_BUFFER_OVERFLOW);
-	}
-
-	/*
-	 * Report the amount of buffer used
-	 */
-	*output_buffer_length = buffer_size_needed;
+	ACPI_DEBUG_PRINT ((ACPI_DB_INFO, "output_buffer %p Length %X\n",
+			output_buffer->pointer, (u32) output_buffer->length));
 	return_ACPI_STATUS (AE_OK);
 }
 
 
 /*******************************************************************************
  *
- * FUNCTION:    Acpi_rs_create_byte_stream
+ * FUNCTION:    acpi_rs_create_byte_stream
  *
- * PARAMETERS:  Linked_list_buffer      - Pointer to the resource linked list
- *              Output_buffer           - Pointer to the user's buffer
- *              Output_buffer_length    - Size of Output_buffer
+ * PARAMETERS:  linked_list_buffer      - Pointer to the resource linked list
+ *              output_buffer           - Pointer to the user's buffer
  *
  * RETURN:      Status  AE_OK if okay, else a valid acpi_status code.
- *              If the Output_buffer is too small, the error will be
- *              AE_BUFFER_OVERFLOW and Output_buffer_length will point
+ *              If the output_buffer is too small, the error will be
+ *              AE_BUFFER_OVERFLOW and output_buffer->Length will point
  *              to the size buffer needed.
  *
  * DESCRIPTION: Takes the linked list of device resources and
@@ -381,66 +378,51 @@ acpi_rs_create_pci_routing_table (
 
 acpi_status
 acpi_rs_create_byte_stream (
-	acpi_resource           *linked_list_buffer,
-	u8                      *output_buffer,
-	u32                     *output_buffer_length)
+	struct acpi_resource            *linked_list_buffer,
+	struct acpi_buffer              *output_buffer)
 {
-	acpi_status             status;
-	u32                     byte_stream_size_needed = 0;
+	acpi_status                     status;
+	acpi_size                       byte_stream_size_needed = 0;
 
 
-	FUNCTION_TRACE ("Rs_create_byte_stream");
+	ACPI_FUNCTION_TRACE ("rs_create_byte_stream");
 
 
-	ACPI_DEBUG_PRINT ((ACPI_DB_INFO, "Linked_list_buffer = %p\n", linked_list_buffer));
+	ACPI_DEBUG_PRINT ((ACPI_DB_INFO, "linked_list_buffer = %p\n",
+		linked_list_buffer));
 
 	/*
 	 * Params already validated, so we don't re-validate here
 	 *
-	 * Pass the Linked_list_buffer into a module that can calculate
+	 * Pass the linked_list_buffer into a module that calculates
 	 * the buffer size needed for the byte stream.
 	 */
-	status = acpi_rs_calculate_byte_stream_length (linked_list_buffer,
+	status = acpi_rs_get_byte_stream_length (linked_list_buffer,
 			 &byte_stream_size_needed);
 
-	ACPI_DEBUG_PRINT ((ACPI_DB_INFO, "Byte_stream_size_needed=%X, %s\n",
-		byte_stream_size_needed, acpi_format_exception (status)));
-
-	/*
-	 * Exit with the error passed back
-	 */
+	ACPI_DEBUG_PRINT ((ACPI_DB_INFO, "byte_stream_size_needed=%X, %s\n",
+		(u32) byte_stream_size_needed, acpi_format_exception (status)));
 	if (ACPI_FAILURE (status)) {
 		return_ACPI_STATUS (status);
 	}
 
-	/*
-	 * If the linked list will fit into the available buffer
-	 * call to fill in the list
-	 */
-	if (byte_stream_size_needed <= *output_buffer_length) {
-		/*
-		 * Zero out the return buffer before proceeding
-		 */
-		MEMSET (output_buffer, 0x00, *output_buffer_length);
+	/* Validate/Allocate/Clear caller buffer */
 
-		status = acpi_rs_list_to_byte_stream (linked_list_buffer, byte_stream_size_needed,
-				 &output_buffer);
-
-		/*
-		 * Exit with the error passed back
-		 */
-		if (ACPI_FAILURE (status)) {
-			return_ACPI_STATUS (status);
-		}
-
-		ACPI_DEBUG_PRINT ((ACPI_DB_INFO, "Output_buffer = %p\n", output_buffer));
+	status = acpi_ut_initialize_buffer (output_buffer, byte_stream_size_needed);
+	if (ACPI_FAILURE (status)) {
+		return_ACPI_STATUS (status);
 	}
 
-	else {
-		*output_buffer_length = byte_stream_size_needed;
-		return_ACPI_STATUS (AE_BUFFER_OVERFLOW);
+	/* Do the conversion */
+
+	status = acpi_rs_list_to_byte_stream (linked_list_buffer, byte_stream_size_needed,
+			  output_buffer->pointer);
+	if (ACPI_FAILURE (status)) {
+		return_ACPI_STATUS (status);
 	}
 
+	ACPI_DEBUG_PRINT ((ACPI_DB_INFO, "output_buffer %p Length %X\n",
+			output_buffer->pointer, (u32) output_buffer->length));
 	return_ACPI_STATUS (AE_OK);
 }
 

@@ -360,6 +360,10 @@ do {									     \
   } while (0)
 
 
+/*
+ * Main negation routine.  FIXME -- when we care about setting exception
+ * bits reliably, this will not do.  We should examine all of the fp classes.
+ */
 
 #define _FP_NEG(fs, wc, R, X)		\
   do {					\

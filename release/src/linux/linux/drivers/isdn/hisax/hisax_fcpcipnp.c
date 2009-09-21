@@ -515,6 +515,7 @@ static inline void hdlc_xdu_irq(struct fritz_bcs *bcs)
 	}
 	skb_push(bcs->tx_skb, bcs->tx_cnt);
 	bcs->tx_cnt = 0;
+	hdlc_fill_fifo(bcs);
 }
 
 static inline void hdlc_xpr_irq(struct fritz_bcs *bcs)

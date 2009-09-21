@@ -40,9 +40,32 @@
 mmu_gather_t mmu_gathers[NR_CPUS];
 
 static unsigned long totalram_pages;
+extern unsigned long memory_size;
 
 pgd_t swapper_pg_dir[PTRS_PER_PGD] __attribute__((__aligned__(PAGE_SIZE)));
 char  empty_zero_page[PAGE_SIZE] __attribute__((__aligned__(PAGE_SIZE)));
+
+static inline int
+__pgd_populate(unsigned long *pgd_slot, unsigned long offset, pmd_t *pmd)
+{
+	if (offset == 0 && 
+	    ((*pgd_slot & _PGD_ENTRY_INV) != 0 ||
+	     (*pgd_slot & _PGD_ENTRY_LEN(2)) == 0)) {
+		/* Set lower pmd, upper pmd is empty. */
+		*pgd_slot = __pa(pmd) | _PGD_ENTRY_MASK |
+				_PGD_ENTRY_OFF(0) | _PGD_ENTRY_LEN(1);
+		return 1;
+	}
+	if (offset == 4 &&
+	    ((*pgd_slot & _PGD_ENTRY_INV) != 0 ||
+	     (*pgd_slot & _PGD_ENTRY_OFF(2)) != 0)) {
+		/* Lower pmd empty, set upper pmd. */
+		*pgd_slot = (__pa(pmd) - 0x2000) | _PGD_ENTRY_MASK |
+				_PGD_ENTRY_OFF(2) | _PGD_ENTRY_LEN(3);
+		return 1;
+	}
+        return 0;
+}
 
 pmd_t *pgd_populate(struct mm_struct *mm, pgd_t *pgd, pmd_t *pmd)
 {
@@ -51,29 +74,42 @@ pmd_t *pgd_populate(struct mm_struct *mm, pgd_t *pgd, pmd_t *pmd)
         unsigned long offset = addr & 4;
 	pmd_t *new, *pmd2;
 	int i;
- 
-        if (offset == 0 && 
-	    ((*pgd_slot & _PGD_ENTRY_INV) != 0 ||
-	     (*pgd_slot & _PGD_ENTRY_LEN(2)) == 0)) {
-                /* Set lower pmd, upper pmd is empty. */
-                *pgd_slot = __pa(pmd) | _PGD_ENTRY_MASK |
-                                _PGD_ENTRY_OFF(0) | _PGD_ENTRY_LEN(1);
+
+        /* Check if we can get away with a half-sized pmd. */
+        if (__pgd_populate(pgd_slot, offset, pmd))
                 return pmd;
-        }
-        if (offset == 4 &&
-	    ((*pgd_slot & _PGD_ENTRY_INV) != 0 ||
-	     (*pgd_slot & _PGD_ENTRY_OFF(2)) != 0)) {
-                /* Lower pmd empty, set upper pmd. */
-                *pgd_slot = (__pa(pmd) - 0x2000) | _PGD_ENTRY_MASK |
-                                _PGD_ENTRY_OFF(2) | _PGD_ENTRY_LEN(3);
-                return pmd;
-        }
+
         /* We have to enlarge the pmd to 16K if we arrive here. */
+        spin_unlock(&mm->page_table_lock);
 	new = (pmd_t *) __get_free_pages(GFP_KERNEL, 2);
-	if (new == NULL) {
+        spin_lock(&mm->page_table_lock);
+
+        /*
+         * Because we dropped the lock, we should re-check the
+         * entry, as somebody else could have populated it..
+         */
+        if (!pgd_none(*pgd)) {
+                if (new)
+                        free_pages((unsigned long) new, 2);
+                pmd_free(pmd);
+                return (pmd_t *) pgd_val(*pgd);
+        }
+
+	if (!new) {
 		pmd_free(pmd);
 		return NULL;
 	}
+
+        /*
+         * Re-check if we can get away with a half-sized pmd. We
+         * dropped the lock so somebody else could have freed the
+         * other half of the pmd.
+         */
+        if (__pgd_populate(pgd_slot, offset, pmd)) {
+                free_pages((unsigned long) new, 2);
+                return pmd;
+        }
+
 	/* Set the PG_arch_1 bit on the first and the third pmd page
            so that pmd_free_fast can recognize pmds that have been
            allocated with an order 2 allocation.  */
@@ -132,6 +168,15 @@ int do_check_pgt_cache(int low, int high)
                 } while(pgtable_cache_size > low);
         }
         return freed;
+}
+
+void diag10(unsigned long addr)
+{
+        if (addr >= 0x80000000)
+                return;
+        asm volatile ("sam31\n\t"
+                      "diag %0,%0,0x10\n\t"
+                      "sam64" : : "a" (addr) );
 }
 
 void show_mem(void)

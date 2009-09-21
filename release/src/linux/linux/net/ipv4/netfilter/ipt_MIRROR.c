@@ -32,36 +32,55 @@
 #include <linux/netfilter_ipv4/ip_tables.h>
 #include <linux/netdevice.h>
 #include <linux/route.h>
-struct in_device;
 #include <net/route.h>
 
+#if 0
+#define DEBUGP printk
+#else
 #define DEBUGP(format, args...)
+#endif
 
-static int route_mirror(struct sk_buff *skb)
+static inline struct rtable *route_mirror(struct sk_buff *skb, int local)
 {
         struct iphdr *iph = skb->nh.iph;
+	struct dst_entry *odst;
+	struct rt_key key = {};
 	struct rtable *rt;
 
-	/* Backwards */
-	if (ip_route_output(&rt, iph->saddr, iph->daddr,
-			    RT_TOS(iph->tos) | RTO_CONN,
-			    0)) {
-		return 0;
+	if (local) {
+		key.dst = iph->saddr;
+		key.src = iph->daddr;
+		key.tos = RT_TOS(iph->tos);
+
+		if (ip_route_output_key(&rt, &key) != 0)
+			return NULL;
+	} else {
+		/* non-local src, find valid iif to satisfy
+		 * rp-filter when calling ip_route_input. */
+		key.dst = iph->daddr;
+		if (ip_route_output_key(&rt, &key) != 0)
+			return NULL;
+
+		odst = skb->dst;
+		if (ip_route_input(skb, iph->saddr, iph->daddr,
+		                   RT_TOS(iph->tos), rt->u.dst.dev) != 0) {
+			dst_release(&rt->u.dst);
+			return NULL;
+		}
+		dst_release(&rt->u.dst);
+		rt = (struct rtable *)skb->dst;
+		skb->dst = odst;
 	}
 
-	/* check if the interface we are leaving by is the same as the
-           one we arrived on */
-	if (skb->dev == rt->u.dst.dev) {
-		/* Drop old route. */
-		dst_release(skb->dst);
-		skb->dst = &rt->u.dst;
-		return 1;
+	if (rt->u.dst.error) {
+		dst_release(&rt->u.dst);
+		rt = NULL;
 	}
-	return 0;
+
+	return rt;
 }
 
-static void
-ip_rewrite(struct sk_buff *skb)
+static inline void ip_rewrite(struct sk_buff *skb)
 {
 	struct iphdr *iph = skb->nh.iph;
 	u32 odaddr = iph->saddr;
@@ -81,8 +100,11 @@ static void ip_direct_send(struct sk_buff *skb)
 	struct hh_cache *hh = dst->hh;
 
 	if (hh) {
+		int hh_alen;
+
 		read_lock_bh(&hh->hh_lock);
-  		memcpy(skb->data - 16, hh->hh_data, 16);
+		hh_alen = HH_DATA_ALIGN(hh->hh_len);
+  		memcpy(skb->data - hh_alen, hh->hh_data, hh_alen);
 		read_unlock_bh(&hh->hh_lock);
 	        skb_push(skb, hh->hh_len);
 		hh->hh_output(skb);
@@ -101,32 +123,48 @@ static unsigned int ipt_mirror_target(struct sk_buff **pskb,
 				      const void *targinfo,
 				      void *userinfo)
 {
-	if (((*pskb)->dst != NULL) &&
-	    route_mirror(*pskb)) {
+	struct rtable *rt;
+	struct sk_buff *nskb;
+	unsigned int hh_len;
 
-		ip_rewrite(*pskb);
-
-		/* If we are not at FORWARD hook (INPUT/PREROUTING),
-		 * the TTL isn't decreased by the IP stack */
-		if (hooknum != NF_IP_FORWARD) {
-			struct iphdr *iph = (*pskb)->nh.iph;
-			if (iph->ttl <= 1) {
-				/* this will traverse normal stack, and 
-				 * thus call conntrack on the icmp packet */
-				icmp_send(*pskb, ICMP_TIME_EXCEEDED, 
-					  ICMP_EXC_TTL, 0);
-				return NF_DROP;
-			}
-			ip_decrease_ttl(iph);
+	/* If we are not at FORWARD hook (INPUT/PREROUTING),
+	 * the TTL isn't decreased by the IP stack */
+	if (hooknum != NF_IP_FORWARD) {
+		struct iphdr *iph = (*pskb)->nh.iph;
+		if (iph->ttl <= 1) {
+			/* this will traverse normal stack, and 
+			 * thus call conntrack on the icmp packet */
+			icmp_send(*pskb, ICMP_TIME_EXCEEDED, 
+				  ICMP_EXC_TTL, 0);
+			return NF_DROP;
 		}
-
-		/* Don't let conntrack code see this packet:
-                   it will think we are starting a new
-                   connection! --RR */
-		ip_direct_send(*pskb);
-
-		return NF_STOLEN;
+		ip_decrease_ttl(iph);
 	}
+
+	if ((rt = route_mirror(*pskb, hooknum == NF_IP_LOCAL_IN)) == NULL)
+		return NF_DROP;
+
+	hh_len = (rt->u.dst.dev->hard_header_len + 15) & ~15;
+
+	/* Copy skb (even if skb is about to be dropped, we can't just
+	 * clone it because there may be other things, such as tcpdump,
+	 * interested in it). We also need to expand headroom in case
+	 * hh_len of incoming interface < hh_len of outgoing interface */
+	nskb = skb_copy_expand(*pskb, hh_len, skb_tailroom(*pskb), GFP_ATOMIC);
+	if (nskb == NULL) {
+		dst_release(&rt->u.dst);
+		return NF_DROP;
+	}
+
+	dst_release(nskb->dst);
+	nskb->dst = &rt->u.dst;
+
+	ip_rewrite(nskb);
+	/* Don't let conntrack code see this packet:
+           it will think we are starting a new
+           connection! --RR */
+	ip_direct_send(nskb);
+
 	return NF_DROP;
 }
 

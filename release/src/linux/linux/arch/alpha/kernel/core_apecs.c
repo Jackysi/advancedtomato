@@ -168,6 +168,7 @@ conf_read(unsigned long addr, unsigned char type1)
 	mcheck_expected(0) = 0;
 	mb();
 
+#if 1
 	/*
 	 * david.rusling@reo.mts.dec.com.  This code is needed for the
 	 * EB64+ as it does not generate a machine check (why I don't
@@ -193,6 +194,7 @@ conf_read(unsigned long addr, unsigned char type1)
 		wrmces(0x7);			/* reset machine check */
 		value = 0xffffffff;
 	}
+#endif
 
 	/* If Type1 access, must reset HAE #2 so normal IO space ops work.  */
 	if (type1) {
@@ -236,6 +238,7 @@ conf_write(unsigned long addr, unsigned int value, unsigned char type1)
 	mcheck_expected(0) = 0;
 	mb();
 
+#if 1
 	/*
 	 * david.rusling@reo.mts.dec.com.  This code is needed for the
 	 * EB64+ as it does not generate a machine check (why I don't
@@ -259,6 +262,7 @@ conf_write(unsigned long addr, unsigned int value, unsigned char type1)
 		mb();
 		wrmces(0x7);			/* reset machine check */
 	}
+#endif
 
 	/* If Type1 access, must reset HAE #2 so normal IO space ops work.  */
 	if (type1) {

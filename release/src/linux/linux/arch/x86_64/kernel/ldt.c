@@ -85,11 +85,6 @@ static int write_ldt(void * ptr, unsigned long bytecount, int oldmode)
 			goto out;
 	}
 
-	me->thread.fsindex = 0; 
-	me->thread.gsindex = 0; 
-	me->thread.gs = 0; 
-	me->thread.fs = 0; 
-
 	/*
 	 * the GDT index of the LDT is allocated dynamically, and is
 	 * limited by MAX_LDT_DESCRIPTORS.
@@ -142,10 +137,8 @@ static int write_ldt(void * ptr, unsigned long bytecount, int oldmode)
 
 	/* Install the new entry ...  */
 install:
-	write_lock(&mm->context.ldtlock);
 	*lp	= entry_1;
 	*(lp+1)	= entry_2;
-	write_unlock(&mm->context.ldtlock);
 	error = 0;
 
 out_unlock:

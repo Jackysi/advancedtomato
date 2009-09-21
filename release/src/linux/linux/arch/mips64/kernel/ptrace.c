@@ -113,10 +113,19 @@ asmlinkage int sys32_ptrace(int request, int pid, int addr, int data)
 			break;
 		case FPR_BASE ... FPR_BASE + 31:
 			if (child->used_math) {
-				unsigned long *fregs = get_fpu_regs(child);
-				tmp = fregs[addr - FPR_BASE];
+				unsigned long long *fregs;
+				fregs = (unsigned long long *)get_fpu_regs(child);
+				/*
+				 * The odd registers are actually the high
+				 * order bits of the values stored in the even
+				 * registers - unless we're using r2k_switch.S.
+				 */
+				if (addr & 1)
+					tmp = (unsigned long) (fregs[((addr & ~1) - 32)] >> 32);
+				else
+					tmp = (unsigned long) (fregs[(addr - 32)] & 0xffffffff);
 			} else {
-				tmp = -EIO;
+				tmp = -1;	/* FP not yet used  */
 			}
 			break;
 		case PC:
@@ -135,13 +144,13 @@ asmlinkage int sys32_ptrace(int request, int pid, int addr, int data)
 			tmp = regs->lo;
 			break;
 		case FPC_CSR:
-			if (mips_cpu.options & MIPS_CPU_FPU)
+			if (cpu_has_fpu)
 				tmp = child->thread.fpu.hard.control;
 			else
 				tmp = child->thread.fpu.soft.sr;
 			break;
 		case FPC_EIR: { /* implementation / version register */
-			unsigned int flags;
+			unsigned long flags;
 			__save_flags(flags);
 			__enable_fpu();
 			__asm__ __volatile__("cfc1\t%0,$0": "=r" (tmp));
@@ -176,14 +185,28 @@ asmlinkage int sys32_ptrace(int request, int pid, int addr, int data)
 			regs->regs[addr] = data;
 			break;
 		case FPR_BASE ... FPR_BASE + 31: {
-			unsigned long *fregs = get_fpu_regs(child);
+			unsigned long long *fregs;
+			fregs = (unsigned long long *)get_fpu_regs(child);
 			if (!child->used_math) {
 				/* FP not yet used  */
 				memset(&child->thread.fpu.hard, ~0,
 				       sizeof(child->thread.fpu.hard));
 				child->thread.fpu.hard.control = 0;
 			}
-			fregs[addr - FPR_BASE] = data;
+			/*
+			 * The odd registers are actually the high order bits
+			 * of the values stored in the even registers - unless
+			 * we're using r2k_switch.S.
+			 */
+			if (addr & 1) {
+				fregs[(addr & ~1) - FPR_BASE] &= 0xffffffff;
+				fregs[(addr & ~1) - FPR_BASE] |= ((unsigned long long) data) << 32;
+			} else {
+				fregs[addr - FPR_BASE] &= ~0xffffffffLL;
+				/* Must cast, lest sign extension fill upper
+				   bits!  */
+				fregs[addr - FPR_BASE] |= (unsigned int)data;
+			}
 			break;
 		}
 		case PC:
@@ -196,7 +219,7 @@ asmlinkage int sys32_ptrace(int request, int pid, int addr, int data)
 			regs->lo = data;
 			break;
 		case FPC_CSR:
-			if (mips_cpu.options & MIPS_CPU_FPU)
+			if (cpu_has_fpu)
 				child->thread.fpu.hard.control = data;
 			else
 				child->thread.fpu.soft.sr = data;
@@ -206,7 +229,7 @@ asmlinkage int sys32_ptrace(int request, int pid, int addr, int data)
 			ret = -EIO;
 			break;
 		}
-		goto out;
+		break;
 		}
 	case PTRACE_SYSCALL: /* continue and stop at next (return from) syscall */
 	case PTRACE_CONT: { /* restart after signal. */
@@ -267,6 +290,11 @@ asmlinkage int sys_ptrace(long request, long pid, long addr, long data)
 	int ret;
 
 	lock_kernel();
+#if 0
+	printk("ptrace(r=%d,pid=%d,addr=%08lx,data=%08lx)\n",
+	       (int) request, (int) pid, (unsigned long) addr,
+	       (unsigned long) data);
+#endif
 	ret = -EPERM;
 	if (request == PTRACE_TRACEME) {
 		/* are we already being traced? */
@@ -288,7 +316,7 @@ asmlinkage int sys_ptrace(long request, long pid, long addr, long data)
 
 	ret = -EPERM;
 	if (pid == 1)		/* you may not mess with init */
-		goto out;
+		goto out_tsk;
 
 	if (request == PTRACE_ATTACH) {
 		ret = ptrace_attach(child);
@@ -351,13 +379,13 @@ asmlinkage int sys_ptrace(long request, long pid, long addr, long data)
 			tmp = regs->lo;
 			break;
 		case FPC_CSR:
-			if (mips_cpu.options & MIPS_CPU_FPU)
+			if (cpu_has_fpu)
 				tmp = child->thread.fpu.hard.control;
 			else
 				tmp = child->thread.fpu.soft.sr;
 			break;
 		case FPC_EIR: { /* implementation / version register */
-			unsigned int flags;
+			unsigned long flags;
 			__save_flags(flags);
 			__enable_fpu();
 			__asm__ __volatile__("cfc1\t%0,$0": "=r" (tmp));
@@ -412,7 +440,7 @@ asmlinkage int sys_ptrace(long request, long pid, long addr, long data)
 			regs->lo = data;
 			break;
 		case FPC_CSR:
-			if (mips_cpu.options & MIPS_CPU_FPU)
+			if (cpu_has_fpu)
 				child->thread.fpu.hard.control = data;
 			else
 				child->thread.fpu.soft.sr = data;
@@ -422,7 +450,7 @@ asmlinkage int sys_ptrace(long request, long pid, long addr, long data)
 			ret = -EIO;
 			break;
 		}
-		goto out;
+		break;
 		}
 	case PTRACE_SYSCALL: /* continue and stop at next (return from) syscall */
 	case PTRACE_CONT: { /* restart after signal. */

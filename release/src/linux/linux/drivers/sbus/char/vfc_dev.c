@@ -36,6 +36,9 @@
 
 #define VFC_MAJOR (60)
 
+#if 0
+#define VFC_IOCTL_DEBUG
+#endif
 
 #include "vfc.h"
 #include <asm/vfc_ioctls.h>
@@ -565,6 +568,9 @@ static int vfc_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
 	
 	switch(cmd & 0x0000ffff) {
 	case VFCGCTRL:
+#if 0
+		VFC_IOCTL_DEBUG_PRINTK(("vfc%d: IOCTL(VFCGCTRL)\n", dev->instance));
+#endif
 		tmp = sbus_readl(&dev->regs->control);
 		if(copy_to_user((void *)arg, &tmp, sizeof(unsigned int))) {
 			ret = -EFAULT;
@@ -737,4 +743,4 @@ void cleanup_module(void)
 }
 #endif
 
-
+MODULE_LICENSE("GPL");

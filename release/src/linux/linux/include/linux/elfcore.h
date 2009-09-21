@@ -24,12 +24,30 @@ typedef elf_fpxregset_t fpxregset_t;
 #define NGREG ELF_NGREG
 #endif
 
+/*
+ * Definitions to generate Intel SVR4-like core files.
+ * These mostly have the same names as the SVR4 types with "elf_"
+ * tacked on the front to prevent clashes with linux definitions,
+ * and the typedef forms have been avoided.  This is mostly like
+ * the SVR4 structure, but more Linuxy, with things that Linux does
+ * not support and which gdb doesn't really use excluded.
+ * Fields present but not used are marked with "XXX".
+ */
 struct elf_prstatus
 {
+#if 0
+	long	pr_flags;	/* XXX Process flags */
+	short	pr_why;		/* XXX Reason for process halt */
+	short	pr_what;	/* XXX More detailed reason */
+#endif
 	struct elf_siginfo pr_info;	/* Info associated with signal */
 	short	pr_cursig;		/* Current signal */
 	unsigned long pr_sigpend;	/* Set of pending signals */
 	unsigned long pr_sighold;	/* Set of held signals */
+#if 0
+	struct sigaltstack pr_altstack;	/* Alternate stack info */
+	struct sigaction pr_action;	/* Signal action for current sig */
+#endif
 	pid_t	pr_pid;
 	pid_t	pr_ppid;
 	pid_t	pr_pgrp;
@@ -38,6 +56,9 @@ struct elf_prstatus
 	struct timeval pr_stime;	/* System time */
 	struct timeval pr_cutime;	/* Cumulative user time */
 	struct timeval pr_cstime;	/* Cumulative system time */
+#if 0
+	long	pr_instr;		/* Current instruction */
+#endif
 	elf_gregset_t pr_reg;	/* GP registers */
 	int pr_fpvalid;		/* True if math co-processor being used.  */
 };

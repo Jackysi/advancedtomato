@@ -117,9 +117,6 @@
 
 static int urb_debug = 0;
 
-#include "hc_simple.c"
-#include "hc_sl811_rh.c"
-
 /* Include hardware and board depens */
 #include <asm/hc_sl811-hw.h>
 
@@ -600,6 +597,9 @@ static inline int hc_parse_trans (hci_t * hci, int *actbytes, __u8 * data,
 
 	return 0;
 }
+
+#include "hc_simple.c"
+#include "hc_sl811_rh.c"
 
 /************************************************************************
  * Function Name : hc_start_int

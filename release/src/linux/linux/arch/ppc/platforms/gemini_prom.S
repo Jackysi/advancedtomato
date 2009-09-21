@@ -1,7 +1,4 @@
 /*
- * BK Id: %F% %I% %G% %U% %#%
- */
-/*
  *  arch/ppc/kernel/gemini_prom.S
  *
  *  Not really prom support code (yet), but sort of anti-prom code.  The current
@@ -41,6 +38,28 @@ _GLOBAL(gemini_prom_init)
 	andc	r4,r4,r3
 	mtmsr	r4
 	isync
+#if 0
+	/* zero out the bats now that the MMU is off */
+prom_no_mmu:
+	li	r3,0
+        mtspr   IBAT0U,r3
+        mtspr   IBAT0L,r3
+        mtspr   IBAT1U,r3
+        mtspr   IBAT1L,r3
+        mtspr   IBAT2U,r3
+        mtspr   IBAT2L,r3
+        mtspr   IBAT3U,r3
+        mtspr   IBAT3L,r3
+
+        mtspr   DBAT0U,r3
+        mtspr   DBAT0L,r3
+        mtspr   DBAT1U,r3
+        mtspr   DBAT1L,r3
+        mtspr   DBAT2U,r3
+	mtspr   DBAT2L,r3
+        mtspr   DBAT3U,r3
+        mtspr   DBAT3L,r3
+#endif
 
 	/* the bootloader (as far as I'm currently aware) doesn't mess with page
 	   tables, but since we're already here, might as well zap these, too */

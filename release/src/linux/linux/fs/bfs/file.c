@@ -123,6 +123,8 @@ static int bfs_get_block(struct inode * inode, long block,
 	phys += block;
 	sb->su_lf_eblk = inode->iu_eblock = phys;
 
+	/* this assumes nothing can write the inode back while we are here
+	 * and thus update inode->i_blocks! (XXX)*/
 	sb->su_freeb -= inode->iu_eblock - inode->iu_sblock + 1 - inode->i_blocks;
 	mark_inode_dirty(inode);
 	mark_buffer_dirty(sbh);

@@ -181,15 +181,14 @@ unsigned long xicor_get_time(void)
 			hour = (hour & 0xf) + 0x12;
 	}
 
-	BCD_TO_BIN(sec);
-	BCD_TO_BIN(min);
-	BCD_TO_BIN(hour);
-
 	day = xicor_read(X1241REG_DT);
 	mon = xicor_read(X1241REG_MO);
 	year = xicor_read(X1241REG_YR);
 	y2k = xicor_read(X1241REG_Y2K);
 
+	BCD_TO_BIN(sec);
+	BCD_TO_BIN(min);
+	BCD_TO_BIN(hour);
 	BCD_TO_BIN(day);
 	BCD_TO_BIN(mon);
 	BCD_TO_BIN(year);
@@ -200,3 +199,7 @@ unsigned long xicor_get_time(void)
 	return mktime(year, mon, day, hour, min, sec);
 }
 
+int xicor_probe(void)
+{
+	return (xicor_read(X1241REG_SC) != -1);
+}

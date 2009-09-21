@@ -1,7 +1,3 @@
-/*
- * BK Id: SCCS/s.op-common.h 1.5 05/17/01 18:14:23 cort
- */
-
 #define _FP_DECL(wc, X)			\
   _FP_I_TYPE X##_c, X##_s, X##_e;	\
   _FP_FRAC_DECL_##wc(X)
@@ -281,6 +277,10 @@ do {									     \
 } while (0)
 
 
+/*
+ * Main negation routine.  FIXME -- when we care about setting exception
+ * bits reliably, this will not do.  We should examine all of the fp classes.
+ */
 
 #define _FP_NEG(fs, wc, R, X)		\
   do {					\
@@ -525,7 +525,7 @@ do {									\
  * Convert from FP to integer
  */
 
-/* "When a NaN, infinity, large positive argument >= 2147483648.0, or 
+/* "When a NaN, infinity, large positive argument >= 2147483648.0, or
  * large negative argument <= -2147483649.0 is converted to an integer,
  * the invalid_current bit...should be set and fp_exception_IEEE_754 should
  * be raised. If the floating point invalid trap is disabled, no trap occurs
@@ -538,7 +538,7 @@ do {									\
  * -- SPARC Architecture Manual V9, Appendix B, which specifies how
  * SPARCs resolve implementation dependencies in the IEEE-754 spec.
  * I don't believe that the code below follows this. I'm not even sure
- * it's right! 
+ * it's right!
  * It doesn't cope with needing to convert to an n bit integer when there
  * is no n bit integer type. Fortunately gcc provides long long so this
  * isn't a problem for sparc32.
@@ -546,7 +546,7 @@ do {									\
  *         -- PMM 02/1998
  * NB: rsigned is not 'is r declared signed?' but 'should the value stored
  * in r be signed or unsigned?'. r is always(?) declared unsigned.
- * Comments below are mine, BTW -- PMM 
+ * Comments below are mine, BTW -- PMM
  */
 #define _FP_TO_INT(fs, wc, r, X, rsize, rsigned)			\
   do {									\

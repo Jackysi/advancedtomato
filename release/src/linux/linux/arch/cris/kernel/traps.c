@@ -1,12 +1,11 @@
-/* $Id: traps.c,v 1.1.1.4 2003/10/14 08:07:17 sparq Exp $
- *
+/*
  *  linux/arch/cris/traps.c
  *
- *  Here we handle the break vectors not used by the system call 
- *  mechanism, as well as some general stack/register dumping 
+ *  Here we handle the break vectors not used by the system call
+ *  mechanism, as well as some general stack/register dumping
  *  things.
- * 
- *  Copyright (C) 2000,2001 Axis Communications AB
+ *
+ *  Copyright (C) 2000, 2001, 2002, 2003 Axis Communications AB
  *
  *  Authors:   Bjorn Wesen
  *  	       Hans-Peter Nilsson
@@ -129,6 +128,20 @@ show_stack(unsigned long *sp)
 	show_trace(sp);
 }
 
+#if 0
+/* displays a short stack trace */
+
+int 
+show_stack()
+{
+	unsigned long *sp = (unsigned long *)rdusp();
+	int i;
+	printk("Stack dump [0x%08lx]:\n", (unsigned long)sp);
+	for(i = 0; i < 16; i++)
+		printk("sp + %d: 0x%08lx\n", i*4, sp[i]);
+	return 0;
+}
+#endif
 
 void 
 show_registers(struct pt_regs * regs)
@@ -202,6 +215,8 @@ bad:
  * we have the nice doggy development flag set, we halt here
  * instead of rebooting.
  */
+extern void reset_watchdog(void);
+extern void stop_watchdog(void);
 
 void
 watchdog_bite_hook(struct pt_regs *regs)
@@ -225,9 +240,6 @@ void dump_stack(void)
 void 
 die_if_kernel(const char * str, struct pt_regs * regs, long err)
 {
-	extern void reset_watchdog(void);
-	extern void stop_watchdog(void);
-
 	if(user_mode(regs))
 		return;
 

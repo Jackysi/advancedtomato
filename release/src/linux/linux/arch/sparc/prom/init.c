@@ -1,4 +1,4 @@
-/* $Id: init.c,v 1.1.1.4 2003/10/14 08:07:49 sparq Exp $
+/* $Id: init.c,v 1.14 2000/01/29 01:09:12 anton Exp $
  * init.c:  Initialize internal variables used by the PROM
  *          library functions.
  *

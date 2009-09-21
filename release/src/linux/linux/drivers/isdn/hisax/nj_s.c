@@ -1,4 +1,4 @@
-/* $Id: nj_s.c,v 1.1.1.4 2003/10/14 08:08:13 sparq Exp $
+/* $Id: nj_s.c,v 1.1.4.1 2001/11/20 14:19:36 kai Exp $
  *
  * This software may be used and distributed according to the terms
  * of the GNU General Public License, incorporated herein by reference.
@@ -16,7 +16,7 @@
 #include <linux/ppp_defs.h>
 #include "netjet.h"
 
-const char *NETjet_S_revision = "$Revision: 1.1.1.4 $";
+const char *NETjet_S_revision = "$Revision: 1.1.4.1 $";
 
 static u_char dummyrr(struct IsdnCardState *cs, int chan, u_char off)
 {
@@ -130,6 +130,7 @@ NETjet_S_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 			release_io_netjet(cs);
 			return(0);
 		case CARD_INIT:
+			reset_netjet_s(cs);
 			inittiger(cs);
 			clear_pending_isac_ints(cs);
 			initisac(cs);
@@ -262,7 +263,6 @@ setup_netjet_s(struct IsdnCard *card)
 	} else {
 		request_region(cs->hw.njet.base, bytecnt, "netjet-s isdn");
 	}
-	reset_netjet_s(cs);
 	cs->readisac  = &NETjet_ReadIC;
 	cs->writeisac = &NETjet_WriteIC;
 	cs->readisacfifo  = &NETjet_ReadICfifo;

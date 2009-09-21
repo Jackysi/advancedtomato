@@ -1,4 +1,4 @@
-/* $Id: klconfig.h,v 1.1.1.4 2003/10/14 08:09:11 sparq Exp $
+/* $Id$
  *
  * This file is subject to the terms and conditions of the GNU General Public
  * License.  See the file "COPYING" in the main directory of this archive
@@ -6,7 +6,7 @@
  *
  * Derived from IRIX <sys/SN/klconfig.h>.
  *
- * Copyright (C) 1992-1997,1999,2001-2002 Silicon Graphics, Inc.  All Rights Reserved.
+ * Copyright (C) 1992-1997,1999,2001-2003 Silicon Graphics, Inc.  All Rights Reserved.
  * Copyright (C) 1999 by Ralf Baechle
  */
 #ifndef _ASM_IA64_SN_KLCONFIG_H
@@ -46,14 +46,8 @@
 #include <asm/sn/xtalk/xtalk.h>
 #include <asm/sn/kldir.h>
 #include <asm/sn/sn_fru.h>
-
-#ifdef CONFIG_IA64_SGI_SN1
-#include <asm/sn/sn1/hubmd_next.h>
-#endif
-
-#ifdef CONFIG_IA64_SGI_SN2
 #include <asm/sn/sn2/shub_md.h>
-#endif
+#include <asm/sn/geo.h>
 
 #define KLCFGINFO_MAGIC	0xbeedbabe
 
@@ -67,6 +61,7 @@ typedef s32 klconf_off_t;
  */
 #define MAX_SLOTS_PER_NODE	(1 + 3 + 6 + 1 + 1) 
 
+/* XXX if each node is guranteed to have some memory */
 
 #define MAX_PCI_DEVS		8
 
@@ -268,7 +263,7 @@ typedef struct kl_config_hdr {
  * Each BOARD consists of COMPONENTs and the BOARD structure has 
  * pointers (offsets) to its COMPONENT structure.
  * The COMPONENT structure has version info, size and speed info, revision,
- * error info and the NIC info. This structure can accomodate any
+ * error info and the NIC info. This structure can accommodate any
  * BOARD with arbitrary COMPONENT composition.
  *
  * The ERRORINFO part of each BOARD has error information
@@ -334,8 +329,8 @@ typedef struct kl_config_hdr {
 
 #define KLCLASS_IOBRICK	0x70		/* IP35 iobrick */
 
-#define KLCLASS_MAX	7		/* Bump this if a new CLASS is added */
-#define KLTYPE_MAX	10		/* Bump this if a new CLASS is added */
+#define KLCLASS_MAX	8		/* Bump this if a new CLASS is added */
+#define KLTYPE_MAX	11		/* Bump this if a new CLASS is added */
 
 #define KLCLASS_UNKNOWN	0xf0
 
@@ -351,8 +346,9 @@ typedef struct kl_config_hdr {
 
 #define KLTYPE_WEIRDCPU (KLCLASS_CPU | 0x0)
 #define KLTYPE_SNIA	(KLCLASS_CPU | 0x1)
+#define KLTYPE_TIO	(KLCLASS_CPU | 0x2)
 
-#define KLTYPE_WEIRDIO	(KLCLASS_IO  | 0x0)
+#define KLTYPE_WEIRDIO	(KLCLASS_IOBRICK  | 0x0)
 #define KLTYPE_BASEIO	(KLCLASS_IO  | 0x1) /* IOC3, SuperIO, Bridge, SCSI */
 #define KLTYPE_IO6	KLTYPE_BASEIO       /* Additional name */
 #define KLTYPE_4CHSCSI	(KLCLASS_IO  | 0x2)
@@ -360,7 +356,7 @@ typedef struct kl_config_hdr {
 #define KLTYPE_ETHERNET	(KLCLASS_IO  | 0x3)
 #define KLTYPE_MENET	KLTYPE_ETHERNET     /* Additional name */
 #define KLTYPE_FDDI  	(KLCLASS_IO  | 0x4)
-#define KLTYPE_UNUSED	(KLCLASS_IO  | 0x5) 
+#define KLTYPE_UNUSED	(KLCLASS_IO  | 0x5) /* XXX UNUSED */
 #define KLTYPE_HAROLD   (KLCLASS_IO  | 0x6) /* PCI SHOE BOX */
 #define KLTYPE_PCI	KLTYPE_HAROLD
 #define KLTYPE_VME      (KLCLASS_IO  | 0x7) /* Any 3rd party VME card */
@@ -393,6 +389,13 @@ typedef struct kl_config_hdr {
 #define KLTYPE_IBRICK		(KLCLASS_IOBRICK | 0x1)
 #define KLTYPE_PBRICK		(KLCLASS_IOBRICK | 0x2)
 #define KLTYPE_XBRICK		(KLCLASS_IOBRICK | 0x3)
+#define KLTYPE_NBRICK		(KLCLASS_IOBRICK | 0x4)
+#define KLTYPE_PEBRICK		(KLCLASS_IOBRICK | 0x5)
+#define KLTYPE_PXBRICK		(KLCLASS_IOBRICK | 0x6)
+#define KLTYPE_IXBRICK		(KLCLASS_IOBRICK | 0x7)
+#define KLTYPE_CGBRICK		(KLCLASS_IOBRICK | 0x8)
+#define KLTYPE_OPUSBRICK	(KLCLASS_IOBRICK | 0x9)
+
 
 #define KLTYPE_PBRICK_BRIDGE	KLTYPE_PBRICK
 
@@ -432,7 +435,7 @@ typedef struct lboard_s {
  	unsigned char 	brd_flags;        /* Enabled, Disabled etc */
 	unsigned char 	brd_slot;         /* slot number */
 	unsigned short	brd_debugsw;      /* Debug switches */
-	moduleid_t	brd_module;       /* module to which it belongs */
+	geoid_t		brd_geoid;	  /* geo id */
 	partid_t 	brd_partition;    /* Partition number */
         unsigned short 	brd_diagval;      /* diagnostic value */
         unsigned short 	brd_diagparm;     /* diagnostic parameter */
@@ -443,10 +446,11 @@ typedef struct lboard_s {
 	klconf_off_t 	brd_compts[MAX_COMPTS_PER_BRD]; /* pointers to COMPONENTS */
 	klconf_off_t 	brd_errinfo;      /* Board's error information */
 	struct lboard_s *brd_parent;	  /* Logical parent for this brd */
-	devfs_handle_t	brd_graph_link;   /* vertex hdl to connect extern compts */
+	vertex_hdl_t	brd_graph_link;   /* vertex hdl to connect extern compts */
 	confidence_t	brd_confidence;	  /* confidence that the board is bad */
 	nasid_t		brd_owner;        /* who owns this board */
 	unsigned char 	brd_nic_flags;    /* To handle 8 more NICs */
+	char		pad[32];	  /* future expansion */
 	char		brd_name[32];
 } lboard_t;
 
@@ -479,7 +483,8 @@ typedef struct lboard_s {
         ((_brd)->brd_next ?     \
          (NODE_OFFSET_TO_LBOARD(NASID_GET(_brd), (_brd)->brd_next)): NULL)
 #define KLCF_COMP(_brd, _ndx)   \
-                (NODE_OFFSET_TO_KLINFO(NASID_GET(_brd), (_brd)->brd_compts[(_ndx)]))
+                ((((_brd)->brd_compts[(_ndx)]) == 0) ? 0 : \
+			(NODE_OFFSET_TO_KLINFO(NASID_GET(_brd), (_brd)->brd_compts[(_ndx)])))
 
 #define KLCF_COMP_ERROR(_brd, _comp)    \
                 (NODE_OFFSET_TO_K0(NASID_GET(_brd), (_comp)->errinfo))
@@ -548,7 +553,7 @@ typedef struct klinfo_s {                  /* Generic info */
 #define KLSTRUCT_HUB_UART 	17
 #define KLSTRUCT_IOC3ENET 	18
 #define KLSTRUCT_IOC3UART 	19
-#define KLSTRUCT_UNUSED		20 
+#define KLSTRUCT_UNUSED		20 /* XXX UNUSED */
 #define KLSTRUCT_IOC3PCKM       21
 #define KLSTRUCT_RAD        	22
 #define KLSTRUCT_HUB_TTY        23
@@ -569,6 +574,17 @@ typedef struct klinfo_s {                  /* Generic info */
 #define KLSTRUCT_USB		34
 #define KLSTRUCT_USBKBD		35
 #define KLSTRUCT_USBMS		36
+#define KLSTRUCT_SCSI_CTLR	37
+#define KLSTRUCT_PEBRICK	38
+#define KLSTRUCT_GIGE           39
+#define KLSTRUCT_IDE		40
+#define KLSTRUCT_IOC4		41
+#define KLSTRUCT_IOC4UART	42
+#define KLSTRUCT_IOC4_TTY	43
+#define KLSTRUCT_IOC4PCKM	44
+#define KLSTRUCT_IOC4MS		45
+#define KLSTRUCT_IOC4_ATA	46
+#define KLSTRUCT_PCIGFX		47
 
 /*
  * These are the indices of various components within a lboard structure.
@@ -610,6 +626,7 @@ typedef struct klport_s {
 	nasid_t		port_nasid;
 	unsigned char	port_flag;
 	klconf_off_t	port_offset;
+	short		port_num;
 } klport_t;
 
 typedef struct klcpu_s {                          /* CPU */
@@ -619,6 +636,7 @@ typedef struct klcpu_s {                          /* CPU */
     	unsigned short 	cpu_speed;	/* Speed in MHZ */
     	unsigned short 	cpu_scachesz;	/* secondary cache size in MB */
     	unsigned short 	cpu_scachespeed;/* secondary cache speed in MHz */
+	unsigned long	pad;
 } klcpu_t ;
 
 #define CPU_STRUCT_VERSION   2
@@ -626,16 +644,20 @@ typedef struct klcpu_s {                          /* CPU */
 typedef struct klhub_s {			/* HUB */
 	klinfo_t 	hub_info;
 	uint 		hub_flags;		/* PCFG_HUB_xxx flags */
-	klport_t	hub_port;		/* hub is connected to this */
+#define MAX_NI_PORTS                    2
+	klport_t	hub_port[MAX_NI_PORTS + 1];/* hub is connected to this */
 	nic_t		hub_box_nic;		/* nic of containing box */
 	klconf_off_t	hub_mfg_nic;		/* MFG NIC string */
 	u64		hub_speed;		/* Speed of hub in HZ */
+	moduleid_t	hub_io_module;		/* attached io module */
+	unsigned long	pad;
 } klhub_t ;
 
 typedef struct klhub_uart_s {			/* HUB */
 	klinfo_t 	hubuart_info;
 	uint 		hubuart_flags;		/* PCFG_HUB_xxx flags */
 	nic_t		hubuart_box_nic;	/* nic of containing box */
+	unsigned long	pad;
 } klhub_uart_t ;
 
 #define MEMORY_STRUCT_VERSION   2
@@ -646,6 +668,7 @@ typedef struct klmembnk_s {			/* MEMORY BANK */
 	short		membnk_dimm_select; /* bank to physical addr mapping*/
 	short		membnk_bnksz[MD_MEM_BANKS]; /* Memory bank sizes */
 	short		membnk_attr;
+	unsigned long	pad;
 } klmembnk_t ;
 
 #define KLCONFIG_MEMBNK_SIZE(_info, _bank)	\
@@ -664,6 +687,7 @@ typedef struct klmod_serial_num_s {
               char snum_str[MAX_SERIAL_NUM_SIZE];
               unsigned long long       snum_int;
       } snum;
+      unsigned long   pad;
 } klmod_serial_num_t;
 
 /* Macros needed to access serial number structure in lboard_t.
@@ -681,6 +705,7 @@ typedef struct klxbow_s {                          /* XBOW */
     	klport_t	xbow_port_info[MAX_XBOW_LINKS] ; /* Module number */
         int		xbow_master_hub_link;
         /* type of brd connected+component struct ptr+flags */
+	unsigned long	pad;
 } klxbow_t ;
 
 #define MAX_PCI_SLOTS 8
@@ -699,6 +724,7 @@ typedef struct klbri_s {                          /* BRIDGE */
     	pci_t    	pci_specific  ;    /* PCI Board config info */
 	klpci_device_t	bri_devices[MAX_PCI_DEVS] ;	/* PCI IDs */
 	klconf_off_t	bri_mfg_nic ;
+	unsigned long	pad;
 } klbri_t ;
 
 #define MAX_IOC3_TTY	2
@@ -712,6 +738,7 @@ typedef struct klioc3_s {                          /* IOC3 */
 	klinfo_t	ioc3_enet ;
 	klconf_off_t	ioc3_enet_off ;
 	klconf_off_t	ioc3_kbd_off ;
+	unsigned long	pad;
 } klioc3_t ;
 
 #define MAX_VME_SLOTS 8
@@ -720,16 +747,19 @@ typedef struct klvmeb_s {                          /* VME BRIDGE - PCI CTLR */
 	klinfo_t 	vmeb_info ;
 	vmeb_t		vmeb_specific ;
     	klconf_off_t   	vmeb_brdinfo[MAX_VME_SLOTS]   ;    /* VME Board config info */
+	unsigned long	pad;
 } klvmeb_t ;
 
 typedef struct klvmed_s {                          /* VME DEVICE - VME BOARD */
 	klinfo_t	vmed_info ;
 	vmed_t		vmed_specific ;
     	klconf_off_t   	vmed_brdinfo[MAX_VME_SLOTS]   ;    /* VME Board config info */
+	unsigned long	pad;
 } klvmed_t ;
 
 #define ROUTER_VECTOR_VERS	2
 
+/* XXX - Don't we need the number of ports here?!? */
 typedef struct klrou_s {                          /* ROUTER */
 	klinfo_t 	rou_info ;
 	uint		rou_flags ;           /* PCFG_ROUTER_xxx flags */
@@ -737,6 +767,7 @@ typedef struct klrou_s {                          /* ROUTER */
     	klport_t 	rou_port[MAX_ROUTER_PORTS + 1] ; /* array index 1 to 6 */
 	klconf_off_t	rou_mfg_nic ;     /* MFG NIC string */
 	u64	rou_vector;	  /* vector from master node */
+	unsigned long   pad;
 } klrou_t ;
 
 /*
@@ -761,16 +792,19 @@ typedef struct klgfx_s {		/* GRAPHICS Device */
 	graphics_t	gfx_specific;
 	klconf_off_t    pad0;		/* for compatibility with older proms */
 	klconf_off_t    gfx_mfg_nic;
+	unsigned long	pad;
 } klgfx_t;
 
 typedef struct klxthd_s {   
 	klinfo_t 	xthd_info ;
 	klconf_off_t	xthd_mfg_nic ;        /* MFG NIC string */
+	unsigned long	pad;
 } klxthd_t ;
 
 typedef struct kltpu_s {                     /* TPU board */
 	klinfo_t 	tpu_info ;
 	klconf_off_t	tpu_mfg_nic ;        /* MFG NIC string */
+	unsigned long	pad;
 } kltpu_t ;
 
 typedef struct klgsn_s {                     /* GSN board */
@@ -787,49 +821,69 @@ typedef struct klgsn_s {                     /* GSN board */
  * that as the size to be klmalloced.
  */
 
-typedef struct klscsi_s {                          /* SCSI Controller */
+typedef struct klscsi_s {                          /* SCSI Bus */
 	klinfo_t 	scsi_info ;
     	scsi_t       	scsi_specific   ; 
 	unsigned char 	scsi_numdevs ;
 	klconf_off_t	scsi_devinfo[MAX_SCSI_DEVS] ; 
+	unsigned long	pad;
 } klscsi_t ;
+
+typedef struct klscctl_s {                          /* SCSI Controller */
+	klinfo_t 	scsi_info ;
+	uint		type;
+	uint		scsi_buscnt;                        /* # busses this cntlr */
+	void		*scsi_bus[2];                       /* Pointer to 2 klscsi_t's */
+	unsigned long	pad;
+} klscctl_t ;
 
 typedef struct klscdev_s {                          /* SCSI device */
 	klinfo_t 	scdev_info ;
 	struct scsidisk_data *scdev_cfg ; /* driver fills up this */
+	unsigned long	pad;
 } klscdev_t ;
 
 typedef struct klttydev_s {                          /* TTY device */
 	klinfo_t 	ttydev_info ;
 	struct terminal_data *ttydev_cfg ; /* driver fills up this */
+	unsigned long	pad;
 } klttydev_t ;
 
 typedef struct klenetdev_s {                          /* ENET device */
 	klinfo_t 	enetdev_info ;
 	struct net_data *enetdev_cfg ; /* driver fills up this */
+	unsigned long	pad;
 } klenetdev_t ;
+
+typedef struct klpcigfx_s {                          /* PCI GFX */
+        klinfo_t        gfx_info ;
+} klpcigfx_t ;
 
 typedef struct klkbddev_s {                          /* KBD device */
 	klinfo_t 	kbddev_info ;
 	struct keyboard_data *kbddev_cfg ; /* driver fills up this */
+	unsigned long	pad;
 } klkbddev_t ;
 
 typedef struct klmsdev_s {                          /* mouse device */
         klinfo_t        msdev_info ;
         void 		*msdev_cfg ; 
+	unsigned long	pad;
 } klmsdev_t ;
 
-#define MAX_FDDI_DEVS 10 
+#define MAX_FDDI_DEVS 10 /* XXX Is this true */
 
 typedef struct klfddi_s {                          /* FDDI */
 	klinfo_t 	fddi_info ;
     	fddi_t        	fddi_specific ;       
 	klconf_off_t	fddi_devinfo[MAX_FDDI_DEVS] ;
+	unsigned long	pad;
 } klfddi_t ;
 
 typedef struct klmio_s {                          /* MIO */
 	klinfo_t 	mio_info ;
     	mio_t       	mio_specific   ; 
+	unsigned long	pad;
 } klmio_t ;
 
 /*
@@ -840,6 +894,7 @@ typedef struct klusb_s {
 	klinfo_t	usb_info;	/* controller info */
 	void		*usb_bus;	/* handle to usb_bus_t */
 	uint64_t	usb_controller;	/* ptr to controller info */
+	unsigned long	pad;
 } klusb_t ; 
 
 typedef union klcomp_s {
@@ -854,6 +909,7 @@ typedef union klcomp_s {
 	klrou_t		kc_rou;
 	klgfx_t		kc_gfx;
 	klscsi_t	kc_scsi;
+	klscctl_t	kc_scsi_ctl;
 	klscdev_t	kc_scsi_dev;
 	klfddi_t	kc_fddi;
 	klmio_t		kc_mio;
@@ -922,31 +978,23 @@ extern klinfo_t *find_first_component(lboard_t *brd, unsigned char type);
 extern klcpu_t *nasid_slice_to_cpuinfo(nasid_t, int);
 
 
-extern xwidgetnum_t nodevertex_widgetnum_get(devfs_handle_t node_vtx);
-extern devfs_handle_t nodevertex_xbow_peer_get(devfs_handle_t node_vtx);
 extern lboard_t *find_gfxpipe(int pipenum);
-extern void setup_gfxpipe_link(devfs_handle_t vhdl,int pipenum);
 extern lboard_t *find_lboard_class(lboard_t *start, unsigned char brd_class);
-extern lboard_t *find_lboard_module_class(lboard_t *start, moduleid_t mod,
-                                               unsigned char brd_class);
 extern lboard_t *find_nic_lboard(lboard_t *, nic_t);
 extern lboard_t *find_nic_type_lboard(nasid_t, unsigned char, nic_t);
-extern lboard_t *find_lboard_modslot(lboard_t *start, moduleid_t mod, slotid_t slot);
-extern lboard_t *find_lboard_module(lboard_t *start, moduleid_t mod);
-extern lboard_t *get_board_name(nasid_t nasid, moduleid_t mod, slotid_t slot, char *name);
+extern lboard_t *find_lboard_modslot(lboard_t *start, geoid_t geoid);
+extern lboard_t *find_lboard_module(lboard_t *start, geoid_t geoid);
 extern int	config_find_nic_router(nasid_t, nic_t, lboard_t **, klrou_t**);
 extern int	config_find_nic_hub(nasid_t, nic_t, lboard_t **, klhub_t**);
 extern int	config_find_xbow(nasid_t, lboard_t **, klxbow_t**);
 extern int 	update_klcfg_cpuinfo(nasid_t, int);
 extern void 	board_to_path(lboard_t *brd, char *path);
-extern moduleid_t get_module_id(nasid_t nasid);
 extern void 	nic_name_convert(char *old_name, char *new_name);
 extern int 	module_brds(nasid_t nasid, lboard_t **module_brds, int n);
 extern lboard_t *brd_from_key(uint64_t key);
 extern void 	device_component_canonical_name_get(lboard_t *,klinfo_t *,
 						    char *);
 extern int	board_serial_number_get(lboard_t *,char *);
-extern int	is_master_baseio(nasid_t,moduleid_t,slotid_t);
 extern nasid_t	get_actual_nasid(lboard_t *brd) ;
 extern net_vec_t klcfg_discover_route(lboard_t *, lboard_t *, int);
 

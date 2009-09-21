@@ -21,7 +21,7 @@
 /* With some changes from Kyösti Mälkki <kmalkki@cc.hut.fi> and even
    Frodo Looijaard <frodol@dds.nl> */
 
-/* $Id: i2c-philips-par.c,v 1.1.1.4 2003/10/14 08:08:09 sparq Exp $ */
+/* $Id: i2c-philips-par.c,v 1.18 2000/07/06 19:21:49 frodo Exp $ */
 
 #include <linux/kernel.h>
 #include <linux/ioport.h>
@@ -156,33 +156,31 @@ static void bit_lp_dec_use(struct i2c_adapter *adap)
  */
  
 static struct i2c_algo_bit_data bit_lp_data = {
-	NULL,
-	bit_lp_setsda,
-	bit_lp_setscl,
-	bit_lp_getsda,
-	bit_lp_getscl,
-	80, 80, 100,		/*	waits, timeout */
+	.setsda		= bit_lp_setsda,
+	.setscl		= bit_lp_setscl,
+	.getsda		= bit_lp_getsda,
+	.getscl		= bit_lp_getscl,
+	.udelay		= 80,
+	.mdelay		= 80,
+	.timeout	= HZ
 }; 
 
 static struct i2c_algo_bit_data bit_lp_data2 = {
-	NULL,
-	bit_lp_setsda2,
-	bit_lp_setscl2,
-	bit_lp_getsda2,
-	NULL,
-	80, 80, 100,		/*	waits, timeout */
+	.setsda		= bit_lp_setsda2,
+	.setscl		= bit_lp_setscl2,
+	.getsda		= bit_lp_getsda2,
+	.udelay		= 80,
+	.mdelay		= 80,
+	.timeout	= HZ
 }; 
 
 static struct i2c_adapter bit_lp_ops = {
-	"Philips Parallel port adapter",
-	I2C_HW_B_LP,
-	NULL,
-	NULL,
-	bit_lp_inc_use,
-	bit_lp_dec_use,
-	bit_lp_reg,
-
-	bit_lp_unreg,
+	.name		= "Philips Parallel port adapter",
+	.id		= I2C_HW_B_LP,
+	.inc_use	= bit_lp_inc_use,
+	.dec_use	= bit_lp_dec_use,
+	.client_register = bit_lp_reg,
+	.client_unregister = bit_lp_unreg,
 };
 
 static void i2c_parport_attach (struct parport *port)
@@ -190,18 +188,18 @@ static void i2c_parport_attach (struct parport *port)
 	struct i2c_par *adapter = kmalloc(sizeof(struct i2c_par),
 					  GFP_KERNEL);
 	if (!adapter) {
-		printk("i2c-philips-par: Unable to malloc.\n");
+		printk(KERN_ERR "i2c-philips-par: Unable to malloc.\n");
 		return;
 	}
 
-	printk("i2c-philips-par.o: attaching to %s\n", port->name);
+	printk(KERN_DEBUG "i2c-philips-par.o: attaching to %s\n", port->name);
 
 	adapter->pdev = parport_register_device(port, "i2c-philips-par",
 						NULL, NULL, NULL, 
 						PARPORT_FLAG_EXCL,
 						NULL);
 	if (!adapter->pdev) {
-		printk("i2c-philips-par: Unable to register with parport.\n");
+		printk(KERN_ERR "i2c-philips-par: Unable to register with parport.\n");
 		return;
 	}
 
@@ -212,13 +210,13 @@ static void i2c_parport_attach (struct parport *port)
 
 	/* reset hardware to sane state */
 	parport_claim_or_block(adapter->pdev);
-	bit_lp_setsda(port, 1);
-	bit_lp_setscl(port, 1);
+	adapter->bit_lp_data.setsda(port, 1);
+	adapter->bit_lp_data.setscl(port, 1);
 	parport_release(adapter->pdev);
 
 	if (i2c_bit_add_bus(&adapter->adapter) < 0)
 	{
-		printk("i2c-philips-par: Unable to register with I2C.\n");
+		printk(KERN_ERR "i2c-philips-par: Unable to register with I2C.\n");
 		parport_unregister_device(adapter->pdev);
 		kfree(adapter);
 		return;		/* No good */
@@ -250,41 +248,25 @@ static void i2c_parport_detach (struct parport *port)
 }
 
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,3,4)
 static struct parport_driver i2c_driver = {
 	"i2c-philips-par",
 	i2c_parport_attach,
 	i2c_parport_detach,
 	NULL
 };
-#endif
 
 int __init i2c_bitlp_init(void)
 {
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,3,4)
-	struct parport *port;
-#endif
-	printk("i2c-philips-par.o: i2c Philips parallel port adapter module\n");
+	printk(KERN_INFO "i2c-philips-par.o: i2c Philips parallel port adapter module version %s (%s)\n", I2C_VERSION, I2C_DATE);
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,3,4)
 	parport_register_driver(&i2c_driver);
-#else
-	for (port = parport_enumerate(); port; port=port->next)
-		i2c_parport_attach(port);
-#endif
 	
 	return 0;
 }
 
 void __exit i2c_bitlp_exit(void)
 {
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,3,4)
 	parport_unregister_driver(&i2c_driver);
-#else
-	struct parport *port;
-	for (port = parport_enumerate(); port; port=port->next)
-		i2c_parport_detach(port);
-#endif
 }
 
 EXPORT_NO_SYMBOLS;

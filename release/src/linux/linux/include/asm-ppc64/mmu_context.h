@@ -6,7 +6,9 @@
 #include <linux/mm.h>	
 #include <asm/mmu.h>	
 #include <asm/ppcdebug.h>	
-
+#ifdef CONFIG_ALTIVEC
+#include <asm/cputable.h>
+#endif
 /*
  * Copyright (C) 2001 PPC 64 Team, IBM Corp
  *
@@ -24,7 +26,11 @@
 /* Choose whether we want to implement our context
  * number allocator as a LIFO or FIFO queue.
  */
+#if 1
 #define MMU_CONTEXT_LIFO
+#else
+#define MMU_CONTEXT_FIFO
+#endif
 
 struct mmu_context_queue_t {
 	spinlock_t lock;
@@ -63,11 +69,12 @@ static inline int
 init_new_context(struct task_struct *tsk, struct mm_struct *mm)
 {
 	long head, size;
+	unsigned long flags;
 
-	spin_lock( &mmu_context_queue.lock );
+	spin_lock_irqsave(&mmu_context_queue.lock, flags);
 
 	if ( (size = mmu_context_queue.size) <= 0 ) {
-		spin_unlock( &mmu_context_queue.lock );
+		spin_unlock_irqrestore(&mmu_context_queue.lock, flags);
 		return -ENOMEM;
 	}
 
@@ -78,7 +85,7 @@ init_new_context(struct task_struct *tsk, struct mm_struct *mm)
 	mmu_context_queue.head = head;
 	mmu_context_queue.size = size-1;
 
-	spin_unlock( &mmu_context_queue.lock );
+	spin_unlock_irqrestore(&mmu_context_queue.lock, flags);
 
 	return 0;
 }
@@ -90,11 +97,12 @@ static inline void
 destroy_context(struct mm_struct *mm)
 {
 	long index, size = mmu_context_queue.size;
+	unsigned long flags;
 
-	spin_lock( &mmu_context_queue.lock );
+	spin_lock_irqsave(&mmu_context_queue.lock, flags);
 
 	if ( (size = mmu_context_queue.size) >= NUM_USER_CONTEXT ) {
-		spin_unlock( &mmu_context_queue.lock );
+		spin_unlock_irqrestore(&mmu_context_queue.lock, flags);
 		mmu_context_underflow();
 	}
 
@@ -111,9 +119,10 @@ destroy_context(struct mm_struct *mm)
 	mmu_context_queue.size = size+1;
 	mmu_context_queue.elements[index] = mm->context;
 
-	spin_unlock( &mmu_context_queue.lock );
+	spin_unlock_irqrestore(&mmu_context_queue.lock, flags);
 }
 
+extern void flush_stab(void);
 
 /*
  * switch_mm is the entry point called from the architecture independent
@@ -123,8 +132,14 @@ static inline void
 switch_mm(struct mm_struct *prev, struct mm_struct *next,
 	  struct task_struct *tsk, int cpu)
 {
-	tsk->thread.pgdir = next->pgd;	/* cache the pgdir in the thread 
-					   maybe not needed any more */
+#ifdef CONFIG_ALTIVEC
+	 __asm__ __volatile__(
+		 BEGIN_FTR_SECTION
+		 "\tdssall\n"
+		  "\tsync\n"
+		 END_FTR_SECTION_IFSET(CPU_FTR_ALTIVEC)
+		 ::);
+#endif
 	flush_stab();
 }
 
@@ -132,13 +147,8 @@ switch_mm(struct mm_struct *prev, struct mm_struct *next,
  * After we have set current->mm to a new value, this activates
  * the context for the new mm so we see the new mappings.
  */
-static inline void
-activate_mm(struct mm_struct *active_mm, struct mm_struct *mm)
-{
-	current->thread.pgdir = mm->pgd;
-	flush_stab();
-}
-
+#define activate_mm(active_mm, mm) \
+	switch_mm(active_mm, mm, current, smp_processor_id());
 
 #define VSID_RANDOMIZER 42470972311
 #define VSID_MASK	0xfffffffff

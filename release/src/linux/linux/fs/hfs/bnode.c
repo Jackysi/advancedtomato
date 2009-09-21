@@ -1,4 +1,22 @@
-
+/*
+ * linux/fs/hfs/bnode.c
+ *
+ * Copyright (C) 1995-1997  Paul H. Hargrove
+ * This file may be distributed under the terms of the GNU General Public License.
+ *
+ * This file contains the code to access nodes in the B-tree structure.
+ *
+ * "XXX" in a comment is a note to myself to consider changing something.
+ *
+ * In function preconditions the term "valid" applied to a pointer to
+ * a structure means that the pointer is non-NULL and the structure it
+ * points to has all fields initialized to consistent values.
+ *
+ * The code in this file initializes some structures which contain
+ * pointers by calling memset(&foo, 0, sizeof(foo)).
+ * This produces the desired behavior only due to the non-ANSI
+ * assumption that the machine representation of NULL is all zeros.
+ */
 
 #include "hfs_btree.h"
 

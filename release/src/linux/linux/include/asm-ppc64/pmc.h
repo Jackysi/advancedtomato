@@ -88,9 +88,15 @@ extern char *ppc64_pmc_hw(int file);
 void *btmalloc(unsigned long size);
 void btfree(void *addr);
 
+#if 1
 #define PMC_SW_PROCESSOR(F)      pmc_sw_cpu[smp_processor_id()].F++
 #define PMC_SW_PROCESSOR_A(F, E) (pmc_sw_cpu[smp_processor_id()].F[(E)])++
 #define PMC_SW_SYSTEM(F)         pmc_sw_system.F++
+#else
+#define PMC_SW_PROCESSOR(F)   do {;} while (0)
+#define PMC_SW_PROCESSOR_A(F) do {;} while (0)
+#define PMC_SW_SYSTEM(F)      do {;} while (0)
+#endif
 
 #define PMC_CONTROL_CPI 1
 #define PMC_CONTROL_TLB 2

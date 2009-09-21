@@ -34,9 +34,9 @@ static void __init check_bugs(void)
 		*p++ = '4';
 		printk("CPU: SH7750/SH7751\n");
 		break;
-	case CPU_ST40STB1:
+	case CPU_ST40:
 		*p++ = '4';
-		printk("CPU: ST40STB1\n");
+		printk("CPU: ST40STB1/GX1\n");
 		break;
 	default:
 		printk("CPU: ??????\n");

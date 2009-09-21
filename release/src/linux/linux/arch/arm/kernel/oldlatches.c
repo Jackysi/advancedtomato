@@ -29,10 +29,10 @@ void oldlatch_aupdate(unsigned char mask,unsigned char newdata)
 	if (machine_is_archimedes()) {
 		unsigned long flags;
 
-		local_save_flags(flags);
+		local_irq_save(flags);
 		latch_a_copy = (latch_a_copy & ~mask) | newdata;
 		__raw_writeb(latch_a_copy, LATCHA_BASE);
-		local_restore_flags(flags);
+		local_irq_restore(flags);
 
 		printk("Latch: A = 0x%02x\n", latch_a_copy);
 	} else
@@ -46,10 +46,10 @@ void oldlatch_bupdate(unsigned char mask,unsigned char newdata)
 	if (machine_is_archimedes()) {
 		unsigned long flags;
 
-		local_save_flags(flags);
+		local_irq_save(flags);
 		latch_b_copy = (latch_b_copy & ~mask) | newdata;
 		__raw_writeb(latch_b_copy, LATCHB_BASE);
-		local_restore_flags(flags);
+		local_irq_restore(flags);
 
 		printk("Latch: B = 0x%02x\n", latch_b_copy);
 	} else

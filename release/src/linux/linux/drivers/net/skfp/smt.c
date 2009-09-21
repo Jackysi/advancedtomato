@@ -506,6 +506,13 @@ int fs ;			/* frame status */
 		smt_free_mbuf(smc,mb) ;
 		return ;
 	}
+#if	0		/* for DUP recognition, do NOT filter them */
+	/* ignore loop back packets */
+	if (is_my_addr(smc,&sm->smt_source) && !local) {
+		smt_free_mbuf(smc,mb) ;
+		return ;
+	}
+#endif
 
 	smt_swap_para(sm,(int) mb->sm_len,1) ;
 	DB_SMT("SMT : received packet [%s] at 0x%x\n",
@@ -1130,6 +1137,11 @@ int length ;
 	SMbuf			*mb ;
 	struct smt_header	*smt ;
 
+#if	0
+	if (!smc->r.sm_ma_avail) {
+		return(0) ;
+	}
+#endif
 	if (!(mb = smt_get_mbuf(smc)))
 		return(mb) ;
 
@@ -1686,6 +1698,10 @@ static const struct smt_pdef {
 	{ SMT_P001C, sizeof(struct smt_p_001c) , SWAP_SMT_P001C } ,
 	{ SMT_P001D, sizeof(struct smt_p_001d) , SWAP_SMT_P001D } ,
 #endif
+#if	0
+	{ SMT_P_FSC,	sizeof(struct smt_p_fsc) ,
+		SWAP_SMT_P_FSC					} ,
+#endif
 
 	{ SMT_P_SETCOUNT,0,	SWAP_SMT_P_SETCOUNT		} ,
 	{ SMT_P1048,	0,	SWAP_SMT_P1048			} ,
@@ -1801,6 +1817,35 @@ struct fddi_addr *addr2 ;
 }
 
 
+#if	0
+/*
+ * send ANTC data test frame
+ */
+void fddi_send_antc(smc,dest)
+struct s_smc *smc ;
+struct fddi_addr *dest ;
+{
+	SK_UNUSED(smc) ;
+	SK_UNUSED(dest) ;
+#if	0
+	SMbuf			*mb ;
+	struct smt_header	*smt ;
+	int			i ;
+	char			*p ;
+
+	mb = smt_get_mbuf() ;
+	mb->sm_len = 3000+12 ;
+	p = smtod(mb, char *) + 12 ;
+	for (i = 0 ; i < 3000 ; i++)
+		*p++ = 1 << (i&7) ;
+
+	smt = smtod(mb, struct smt_header *) ;
+	smt->smt_dest = *dest ;
+	smt->smt_source = smc->mib.m[MAC0].fddiMACSMTAddress ;
+	smt_send_mbuf(smc,mb,FC_ASYNC_LLC) ;
+#endif
+}
+#endif
 
 #ifdef	DEBUG
 #define hextoasc(x)	"0123456789abcdef"[x]

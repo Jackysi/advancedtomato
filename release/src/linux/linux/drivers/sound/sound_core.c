@@ -1,4 +1,38 @@
-
+/*
+ *	Sound core handling. Breaks out sound functions to submodules
+ *	
+ *	Author:		Alan Cox <alan.cox@linux.org>
+ *
+ *	Fixes:
+ *
+ *
+ *	This program is free software; you can redistribute it and/or
+ *	modify it under the terms of the GNU General Public License
+ *	as published by the Free Software Foundation; either version
+ *	2 of the License, or (at your option) any later version.
+ *
+ *                         --------------------
+ * 
+ *	Top level handler for the sound subsystem. Various devices can
+ *	plug into this. The fact they dont all go via OSS doesn't mean 
+ *	they don't have to implement the OSS API. There is a lot of logic
+ *	to keeping much of the OSS weight out of the code in a compatibility
+ *	module, but its up to the driver to rember to load it...
+ *
+ *	The code provides a set of functions for registration of devices
+ *	by type. This is done rather than providing a single call so that
+ *	we can hide any future changes in the internals (eg when we go to
+ *	32bit dev_t) from the modules and their interface.
+ *
+ *	Secondly we need to allocate the dsp, dsp16 and audio devices as
+ *	one. Thus we misuse the chains a bit to simplify this.
+ *
+ *	Thirdly to make it more fun and for 2.3.x and above we do all
+ *	of this using fine grained locking.
+ *
+ *	FIXME: we have to resolve modules and fine grained load/unload
+ *	locking at some point in 2.3.x.
+ */
 
 #include <linux/config.h>
 #include <linux/module.h>
@@ -140,9 +174,9 @@ static int sound_insert_unit(struct sound_unit **list, struct file_operations *f
 	}
 	
 	if (r == low)
-		sprintf (name_buf, "%s", name);
+		snprintf (name_buf, sizeof(name_buf), "%s", name);
 	else
-		sprintf (name_buf, "%s%d", name, (r - low) / SOUND_STEP);
+		snprintf (name_buf, sizeof(name_buf), "%s%d", name, (r - low) / SOUND_STEP);
 	s->de = devfs_register (devfs_handle, name_buf,
 				DEVFS_FL_NONE, SOUND_MAJOR, s->unit_minor,
 				S_IFCHR | mode, fops, NULL);
@@ -473,9 +507,9 @@ int soundcore_open(struct inode *inode, struct file *file)
 		 *  ALSA toplevel modules for soundcards, thus we need
 		 *  load them at first.	  [Jaroslav Kysela <perex@jcu.cz>]
 		 */
-		sprintf(mod, "sound-slot-%i", unit>>4);
+		snprintf(mod, sizeof(mod), "sound-slot-%i", unit>>4);
 		request_module(mod);
-		sprintf(mod, "sound-service-%i-%i", unit>>4, chain);
+		snprintf(mod, sizeof(mod), "sound-service-%i-%i", unit>>4, chain);
 		request_module(mod);
 		spin_lock(&sound_loader_lock);
 		s = __look_for_unit(chain, unit);

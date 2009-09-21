@@ -284,6 +284,23 @@ static int mace_open(struct net_device *dev)
 {
 	struct mace_data *mp = (struct mace_data *) dev->priv;
 	volatile struct mace *mb = mp->mace;
+#if 0
+	int i;
+
+	i = 200;
+	while (--i) {
+		mb->biucc = SWRST;
+		if (mb->biucc & SWRST) {
+			udelay(10);
+			continue;
+		}
+		break;
+	}
+	if (!i) {
+		printk(KERN_ERR "%s: software reset failed!!\n", dev->name);
+		return -EAGAIN;
+	}
+#endif
 
 	mb->biucc = XMTSP_64;
 	mb->fifocc = XMTFW_16 | RCVFW_64 | XMTFWU | RCVFWU | XMTBRST | RCVBRST;
@@ -303,8 +320,8 @@ static int mace_open(struct net_device *dev)
 
 	/* Allocate the DMA ring buffers */
 
-	mp->rx_ring = (void *) __get_free_pages(GFP_DMA, N_RX_PAGES);
-	mp->tx_ring = (void *) __get_free_pages(GFP_DMA, 0);
+	mp->rx_ring = (void *) __get_free_pages(GFP_KERNEL | GFP_DMA, N_RX_PAGES);
+	mp->tx_ring = (void *) __get_free_pages(GFP_KERNEL | GFP_DMA, 0);
 	
 	if (mp->tx_ring==NULL || mp->rx_ring==NULL) {
 		if (mp->rx_ring) free_pages((u32) mp->rx_ring, N_RX_PAGES);
@@ -315,8 +332,8 @@ static int mace_open(struct net_device *dev)
 		return -ENOMEM;
 	}
 
-	mp->rx_ring_phys = (unsigned char *) virt_to_bus(mp->rx_ring);
-	mp->tx_ring_phys = (unsigned char *) virt_to_bus(mp->tx_ring);
+	mp->rx_ring_phys = (unsigned char *) virt_to_bus((void *)mp->rx_ring);
+	mp->tx_ring_phys = (unsigned char *) virt_to_bus((void *)mp->tx_ring);
 
 	/* We want the Rx buffer to be uncached and the Tx buffer to be writethrough */
 
@@ -332,6 +349,29 @@ static int mace_open(struct net_device *dev)
 	psc_write_word(PSC_ENETWR_CTL, 0x0400);
 	psc_write_word(PSC_ENETRD_CTL, 0x0400);
 
+#if 0
+	/* load up the hardware address */
+	
+	mb->iac = ADDRCHG | PHYADDR;
+	
+	while ((mb->iac & ADDRCHG) != 0);
+	
+	for (i = 0; i < 6; ++i)
+		mb->padr = dev->dev_addr[i];
+
+	/* clear the multicast filter */
+	mb->iac = ADDRCHG | LOGADDR;
+
+	while ((mb->iac & ADDRCHG) != 0);
+	
+	for (i = 0; i < 8; ++i)
+		mb->ladrf = 0;
+
+	mb->plscc = PORTSEL_GPSI + ENPLSIO;
+
+	mb->maccc = ENXMT | ENRCV;
+	mb->imr = RCVINT;
+#endif
 
 	mace_rxdma_reset(dev);
 	mace_txdma_reset(dev);

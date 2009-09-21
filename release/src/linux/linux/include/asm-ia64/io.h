@@ -13,7 +13,7 @@
  * over and over again with slight variations and possibly making a
  * mistake somewhere.
  *
- * Copyright (C) 1998-2001 Hewlett-Packard Co
+ * Copyright (C) 1998-2002 Hewlett-Packard Co
  *	David Mosberger-Tang <davidm@hpl.hp.com>
  * Copyright (C) 1999 Asit Mallick <asit.k.mallick@intel.com>
  * Copyright (C) 1999 Don Dugger <don.dugger@intel.com>
@@ -31,6 +31,24 @@
  * on IO_SPACE_LIMIT.  These additional spaces are described in ACPI.
  */
 #define IO_SPACE_LIMIT		0xffffffffffffffffUL
+
+#define MAX_IO_SPACES			16
+#define IO_SPACE_BITS			24
+#define IO_SPACE_SIZE			(1UL << IO_SPACE_BITS)
+
+#define IO_SPACE_NR(port)		((port) >> IO_SPACE_BITS)
+#define IO_SPACE_BASE(space)		((space) << IO_SPACE_BITS)
+#define IO_SPACE_PORT(port)		((port) & (IO_SPACE_SIZE - 1))
+
+#define IO_SPACE_SPARSE_ENCODING(p)	((((p) >> 2) << 12) | (p & 0xfff))
+
+struct io_space {
+	unsigned long mmio_base;	/* base in MMIO space */
+	int sparse;
+};
+
+extern struct io_space io_space[];
+extern unsigned int num_io_spaces;
 
 # ifdef __KERNEL__
 
@@ -80,11 +98,17 @@ __ia64_get_io_port_base (void)
 static inline void*
 __ia64_mk_io_addr (unsigned long port)
 {
-	const unsigned long io_base = __ia64_get_io_port_base();
-	unsigned long addr;
+	struct io_space *space;
+	unsigned long offset;
 
-	addr = io_base | ((port >> 2) << 12) | (port & 0xfff);
-	return (void *) addr;
+	space = &io_space[IO_SPACE_NR(port)];
+	port = IO_SPACE_PORT(port);
+	if (space->sparse)
+		offset = IO_SPACE_SPARSE_ENCODING(port);
+	else
+		offset = port;
+
+	return (void *) (space->mmio_base | offset);
 }
 
 /*
@@ -261,9 +285,9 @@ __outsl (unsigned long port, void *src, unsigned long count)
 }
 
 /*
- * Unfortunately, some platforms are broken and do not follow the
- * IA-64 architecture specification regarding legacy I/O support.
- * Thus, we have to make these operations platform dependent...
+ * Unfortunately, some platforms are broken and do not follow the IA-64 architecture
+ * specification regarding legacy I/O support.  Thus, we have to make these operations
+ * platform dependent...
  */
 #define __inb		platform_inb
 #define __inw		platform_inw
@@ -272,18 +296,18 @@ __outsl (unsigned long port, void *src, unsigned long count)
 #define __outw		platform_outw
 #define __outl		platform_outl
 
-#define inb		__inb
-#define inw		__inw
-#define inl		__inl
-#define insb		__insb
-#define insw		__insw
-#define insl		__insl
-#define outb		__outb
-#define outw		__outw
-#define outl		__outl
-#define outsb		__outsb
-#define outsw		__outsw
-#define outsl		__outsl
+#define inb(p)		__inb(p)
+#define inw(p)		__inw(p)
+#define inl(p)		__inl(p)
+#define insb(p,d,c)	__insb(p,d,c)
+#define insw(p,d,c)	__insw(p,d,c)
+#define insl(p,d,c)	__insl(p,d,c)
+#define outb(v,p)	__outb(v,p)
+#define outw(v,p)	__outw(v,p)
+#define outl(v,p)	__outl(v,p)
+#define outsb(p,s,c)	__outsb(p,s,c)
+#define outsw(p,s,c)	__outsw(p,s,c)
+#define outsl(p,s,c)	__outsl(p,s,c)
 
 /*
  * The address passed to these functions are ioremap()ped already.

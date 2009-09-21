@@ -69,9 +69,26 @@ running once the system is up.
 	53c7xx=		[HW,SCSI] Amiga SCSI controllers.
 
 	acpi=		[HW,ACPI] Advanced Configuration and Power Interface 
+		force	Enable ACPI if default was off
+		off	Disable ACPI if default was on
+		noirq	Do not use ACPI for IRQ routing (see pci=noacpi)
+		ht	Limit ACPI to boot-time LAPIC enumeration for HT,
+			disabling the run-time AML interpreter.
+		strict	Be less tolerant of platforms that are not
+			strictly ACPI specification compliant.
 
-	acpismp=force	[IA-32] Early setup parse and use ACPI SMP table.
+	acpi_sci=	[HW,ACPI] ACPI System Control Interrupt trigger mode
+			Format: { level | edge |  high | low }
  
+	acpi_irq_balance	ACPI will balance active IRQs
+	acpi_irq_nobalance	ACPI will not move active IRQs
+	acpi_irq_pci=	If irq_balance, Clear listed IRQs for use by PCI
+	acpi_irq_isa=	If irq_balance, Mark listed IRQs used by ISA
+
+	acpi_osi=	[HW,ACPI] empty param disables _OSI
+
+	acpi_serialize	[HW,ACPI] force serialization of AML methods
+
 	ad1816=		[HW,SOUND]
 
 	ad1848=		[HW,SOUND]
@@ -276,6 +293,8 @@ running once the system is up.
 
 	keepinitrd	[HW, ARM]
 
+	lapic		[IA-32,APIC] Enable the local APIC even if BIOS disabled it.
+
 	load_ramdisk=	[RAM] List of ramdisks to load from floppy.
 
 	lockd.udpport=	[NFS]
@@ -341,6 +360,18 @@ running once the system is up.
 			memory; to be used when the kernel is not able
 			to see the whole system memory or for test.
 
+	mem=nn[KMG]@ss[KMG]
+			[KNL,BOOT] Force usage of a specific region of memory
+			Region of memory to be used, from ss to ss+nn.
+
+	mem=nn[KMG]#ss[KMG]
+			[KNL,BOOT,ACPI] Mark specific memory as ACPI data.
+			Region of memory to be used, from ss to ss+nn.
+
+	mem=nn[KMG]$ss[KMG]
+			[KNL,BOOT,ACPI] Mark specific memory as reserved.
+			Region of memory to be used, from ss to ss+nn.
+
 	memfrac=	[KNL]
 
 	mga=		[HW,DRM]
@@ -393,15 +424,19 @@ running once the system is up.
 			instruction doesn't work correctly and not to
 			use it.
 
-	noht		[SMP,IA-32] Disables P4 Xeon(tm) HyperThreading.
-
 	noisapnp	[ISAPNP] Disables ISA PnP code.
 
 	noinitrd	[RAM] Tells the kernel not to load any configured
 			initial RAM disk.
 
 	nointroute	[IA-64]
+
+	nokeyb		[HW] Skip console keyboard initialization for systems 
+			without a console keyboard, removable keyboard, or 
+			bladecenters with a USB console keyboard switch, etc.
  
+	nolapic		[IA-32,APIC] Do not enable or use the local APIC.
+
 	no-scroll	[VGA]
 
 	nosmp		[SMP] Tells an SMP kernel to act as a UP kernel.
@@ -491,7 +526,7 @@ running once the system is up.
 	plip=		[PPT,NET] Parallel port network link.
 
 	profile=	[KNL] enable kernel profiling via /proc/profile
-			(param:log level).
+			(param: profile step/bucket size as a power of 2)
 
 	prompt_ramdisk=	[RAM] List of RAM disks to prompt for floppy disk
 			before loading.
@@ -525,6 +560,9 @@ running once the system is up.
 	ro		[KNL] Mount root device read-only on boot.
 
 	root=		[KNL] root filesystem.
+
+	rootdelay=	[KNL] Delay (in seconds) to pause before attempting to
+			mount the root filesystem
 
 	rootflags=	[KNL] set root filesystem mount option string
 

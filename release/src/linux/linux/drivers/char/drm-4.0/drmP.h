@@ -67,7 +67,7 @@
 #include <linux/types.h>
 #include <linux/agp_backend.h>
 #endif
-#if LINUX_VERSION_CODE >= 0x020100     /* KERNEL_VERSION(2,1,0) */
+#if LINUX_VERSION_CODE >= 0x020100 /* KERNEL_VERSION(2,1,0) */
 #include <linux/tqueue.h>
 #include <linux/poll.h>
 #endif
@@ -257,9 +257,9 @@ static inline unsigned long __cmpxchg(volatile void *ptr, unsigned long old,
 
 				/* Macros to make printk easier */
 #define DRM_ERROR(fmt, arg...) \
-	printk(KERN_ERR "[" DRM_NAME ":" __FUNCTION__ "] *ERROR* " fmt , ##arg)
+	printk(KERN_ERR "[" DRM_NAME ":%s] *ERROR* " fmt , __FUNCTION__ , ##arg)
 #define DRM_MEM_ERROR(area, fmt, arg...) \
-	printk(KERN_ERR "[" DRM_NAME ":" __FUNCTION__ ":%s] *ERROR* " fmt , \
+	printk(KERN_ERR "[" DRM_NAME ":%s:%s] *ERROR* " fmt , __FUNCTION__, \
 	       drm_mem_stats[area].name , ##arg)
 #define DRM_INFO(fmt, arg...)  printk(KERN_INFO "[" DRM_NAME "] " fmt , ##arg)
 
@@ -268,8 +268,8 @@ static inline unsigned long __cmpxchg(volatile void *ptr, unsigned long old,
 	do {								  \
 		if (drm_flags&DRM_FLAG_DEBUG)				  \
 			printk(KERN_DEBUG				  \
-			       "[" DRM_NAME ":" __FUNCTION__ "] " fmt ,	  \
-			       ##arg);					  \
+			       "[" DRM_NAME ":%s] " fmt ,		  \
+			       __FUNCTION__ , ##arg);			  \
 	} while (0)
 #else
 #define DRM_DEBUG(fmt, arg...)		 do { } while (0)
@@ -679,8 +679,8 @@ extern void	     drm_free(void *pt, size_t size, int area);
 extern unsigned long drm_alloc_pages(int order, int area);
 extern void	     drm_free_pages(unsigned long address, int order,
 				    int area);
-extern void	     *drm_ioremap(unsigned long offset, unsigned long size);
-extern void	     drm_ioremapfree(void *pt, unsigned long size);
+extern void	     *drm_ioremap(unsigned long offset, unsigned long size, drm_device_t *dev);
+extern void	     drm_ioremapfree(void *pt, unsigned long size, drm_device_t *dev);
 
 #if defined(CONFIG_AGP) || defined(CONFIG_AGP_MODULE)
 extern agp_memory    *drm_alloc_agp(int pages, u32 type);

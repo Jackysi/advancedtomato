@@ -1,4 +1,4 @@
-/* $Id: sunos_ioctl.c,v 1.1.1.4 2003/10/14 08:07:48 sparq Exp $
+/* $Id: sunos_ioctl.c,v 1.34 2000/09/03 14:10:56 anton Exp $
  * sunos_ioctl.c: The Linux Operating system: SunOS ioctl compatibility.
  * 
  * Copyright (C) 1995 Miguel de Icaza (miguel@nuclecu.unam.mx)
@@ -24,6 +24,10 @@
 #include <linux/file.h>
 #include <asm/kbio.h>
 
+#if 0
+extern char sunkbd_type;
+extern char sunkbd_layout;
+#endif
 
 /* NR_OPEN is now larger and dynamic in recent kernels. */
 #define SUNOS_NR_OPEN	256
@@ -212,6 +216,11 @@ asmlinkage int sunos_ioctl (int fd, unsigned long cmd, unsigned long arg)
 	}
 	}
 
+#if 0
+	if ((cmd & 0xff00) == ('k' << 8)) {
+		printk ("[[KBIO: %8.8x\n", (unsigned int) cmd);
+	}
+#endif
 
 	ret = sys_ioctl(fd, cmd, arg);
 	/* so stupid... */

@@ -1,4 +1,4 @@
-/* $Id: ioctl.c,v 1.1.1.4 2003/10/14 08:07:51 sparq Exp $
+/* $Id: ioctl.c,v 1.16.2.1 2002/03/03 23:41:26 davem Exp $
  * ioctl.c: Solaris ioctl emulation.
  *
  * Copyright (C) 1997 Jakub Jelinek (jj@sunsite.mff.cuni.cz)
@@ -104,6 +104,9 @@ static u32 linux_to_solaris_cflag(u32 cflag)
 		case B460800: baud = 6; break;
 		case B614400: baud = 7; break;
 		case B921600: baud = 8; break;
+#if 0		
+		case B1843200: baud = 9; break;
+#endif
 		}
 		cflag |= 0x200000 | baud;
 	}
@@ -364,6 +367,7 @@ static inline int solaris_sockmod(unsigned int fd, unsigned int cmd, u32 arg)
 	case 106: /* SI_GETINTRANSIT */
 	case 107: /* SI_TCL_LINK */
 	case 108: /* SI_TCL_UNLINK */
+		;
 	}
 	return TNOTSUPPORT;
 }
@@ -451,6 +455,7 @@ static inline int solaris_timod(unsigned int fd, unsigned int cmd, u32 arg,
 	case 145: /* TI_GETPEERNAME */
 	case 146: /* TI_SETMYNAME */
 	case 147: /* TI_SETPEERNAME */
+		;
 	}
 	return TNOTSUPPORT;
 }
@@ -661,6 +666,10 @@ static inline int solaris_i(unsigned int fd, unsigned int cmd, u32 arg)
 			}
 			return ret;
 		}
+#if 0		
+	case 86: /* SIOCSOCKSYS */
+		return socksys_syscall(fd, arg);
+#endif		
 	case 87: /* SIOCGIFNUM */
 		{
 			struct net_device *d;

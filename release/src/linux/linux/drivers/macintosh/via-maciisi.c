@@ -606,9 +606,18 @@ maciisi_interrupt(int irq, void* arg, struct pt_regs* regs)
 			printk(KERN_DEBUG "extra data after packet: status %x ifr %x\n",
 			       status, via[IFR]);
 #endif
+#if 0
+			udelay(ADB_DELAY);
+			via[B] |= TIP;
+
+			maciisi_state = reading;
+			reading_reply = 0;
+			reply_ptr = maciisi_rbuf;
+#else
 			/* Process the packet now */
 			reading_reply = 0;
 			goto switch_start;
+#endif
 			/* We used to do this... but the controller might actually have data for us */
 			/* maciisi_stfu(); */
 		}

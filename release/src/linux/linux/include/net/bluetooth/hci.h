@@ -23,7 +23,7 @@
 */
 
 /*
- *  $Id: hci.h,v 1.1.1.4 2003/10/14 08:09:29 sparq Exp $
+ *  $Id: hci.h,v 1.5 2002/06/27 17:29:30 maxk Exp $
  */
 
 #ifndef __HCI_H
@@ -39,6 +39,8 @@
 #define HCI_DEV_UNREG   2
 #define HCI_DEV_UP	3
 #define HCI_DEV_DOWN	4
+#define HCI_DEV_SUSPEND	5
+#define HCI_DEV_RESUME	6
 
 /* HCI device types */
 #define HCI_VHCI	0
@@ -46,6 +48,12 @@
 #define HCI_PCCARD	2
 #define HCI_UART 	3
 #define HCI_RS232 	4
+#define HCI_PCI		5
+
+/* HCI device quirks */
+enum {
+	HCI_QUIRK_RESET_ON_INIT
+};
 
 /* HCI device flags */
 enum {
@@ -157,6 +165,7 @@ enum {
 #define HCI_LM_AUTH	0x0002
 #define HCI_LM_ENCRYPT	0x0004
 #define HCI_LM_TRUSTED	0x0008
+#define HCI_LM_RELIABLE	0x0010
 
 /* -----  HCI Commands ----- */
 /* OGF & OCF values */
@@ -330,6 +339,8 @@ typedef struct {
 } __attribute__ ((packed)) status_bdaddr_rp;
 #define STATUS_BDADDR_RP_SIZE 7
 
+#define OCF_INQUIRY_CANCEL	0x0002
+
 #define OCF_LINK_KEY_REPLY	0x000B
 #define OCF_LINK_KEY_NEG_REPLY	0x000C
 typedef struct {
@@ -436,6 +447,12 @@ typedef struct {
 /* Status params */
 #define OGF_STATUS_PARAM 	0x05
 
+/* Testing commands */
+#define OGF_TESTING_CMD 	0x3e
+
+/* Vendor specific commands */
+#define OGF_VENDOR_CMD  	0x3f
+
 /* ---- HCI Events ---- */
 #define EVT_INQUIRY_COMPLETE 	0x01
 
@@ -449,6 +466,17 @@ typedef struct {
 	__u16	clock_offset;
 } __attribute__ ((packed)) inquiry_info;
 #define INQUIRY_INFO_SIZE 14
+
+#define EVT_INQUIRY_RESULT_WITH_RSSI	0x22
+typedef struct {
+	bdaddr_t	bdaddr;
+	__u8	pscan_rep_mode;
+	__u8	pscan_period_mode;
+	__u8	dev_class[3];
+	__u16	clock_offset;
+	__s8	rssi;
+} __attribute__ ((packed)) inquiry_info_with_rssi;
+#define INQUIRY_INFO_WITH_RSSI_SIZE 14
 
 #define EVT_CONN_COMPLETE 	0x03
 typedef struct {
@@ -542,7 +570,7 @@ typedef struct {
 	bdaddr_t bdaddr;
 	__u8     role;
 } __attribute__ ((packed)) evt_role_change;
-#define EVT_ROLE_CHANGE_SIZE 1
+#define EVT_ROLE_CHANGE_SIZE 8
 
 #define EVT_PIN_CODE_REQ        0x16
 typedef struct {

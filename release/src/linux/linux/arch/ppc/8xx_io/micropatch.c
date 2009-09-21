@@ -662,6 +662,17 @@ cpm_load_patch(volatile immap_t *immr)
 		*dp++ = patch_2f00[i];
 
 #ifdef USE_USB_SOF_PATCH
+#if 0 /* usb patch should not relocate iic */
+	iip = (iic_t *)&commproc->cp_dparam[PROFF_IIC];
+#define RPBASE 0x0030
+	iip->iic_rpbase = RPBASE;
+
+	/* Put SPI above the IIC, also 32-byte aligned.
+	*/
+	i = (RPBASE + sizeof(iic_t) + 31) & ~31;
+	spp = (spi_t *)&commproc->cp_dparam[PROFF_SPI];
+	spp->spi_rpbase = i;
+#endif
 
 	/* Enable uCode fetches from DPRAM. */
 	commproc->cp_rccr = 0x0009;

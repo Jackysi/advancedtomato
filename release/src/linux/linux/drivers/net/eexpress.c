@@ -7,7 +7,7 @@
  * Support for 8-bit mode by Zoltan Szilagyi <zoltans@cs.arizona.edu>
  *
  * Many modifications, and currently maintained, by
- *  Philip Blundell <Philip.Blundell@pobox.com>
+ *  Philip Blundell <philb@gnu.org>
  * Added the Compaq LTE  Alan Cox <alan@redhat.com>
  * Added MCA support Adam Fritzler <mid@auk.cx>
  *
@@ -371,6 +371,13 @@ int __init express_probe(struct net_device *dev)
 
 			dev->irq = mca_irqmap[(pos1>>4)&0x7];
 			
+			/*
+			 * XXX: Transciever selection is done
+			 * differently on the MCA version.  
+			 * How to get it to select something
+			 * other than external/AUI is currently
+			 * unknown.  This code is just for looks. -- ASF
+			 */
 			if ((pos0 & 0x7) == 0x1)
 				dev->if_port = AUI;
 			else if ((pos0 & 0x7) == 0x5) {
@@ -633,6 +640,7 @@ static void eexp_timeout(struct net_device *dev)
 static int eexp_xmit(struct sk_buff *buf, struct net_device *dev)
 {
 	struct net_local *lp = (struct net_local *)dev->priv;
+	short length = buf->len;
 #ifdef CONFIG_SMP
 	unsigned long flags;
 #endif
@@ -640,6 +648,14 @@ static int eexp_xmit(struct sk_buff *buf, struct net_device *dev)
 #if NET_DEBUG > 6
 	printk(KERN_DEBUG "%s: eexp_xmit()\n", dev->name);
 #endif
+
+	if(buf->len < ETH_ZLEN)
+	{
+		buf = skb_padto(buf, ETH_ZLEN);
+		if(buf == NULL)
+			return 0;
+		length = ETH_ZLEN;
+	}
 
 	disable_irq(dev->irq);
 
@@ -653,8 +669,6 @@ static int eexp_xmit(struct sk_buff *buf, struct net_device *dev)
 #endif
   
 	{
-		unsigned short length = (ETH_ZLEN < buf->len) ? buf->len :
-			ETH_ZLEN;
 		unsigned short *data = (unsigned short *)buf->data;
 
 		lp->stats.tx_bytes += length;
@@ -809,8 +823,23 @@ static void eexp_irq(int irq, void *dev_info, struct pt_regs *regs)
 		{
 			printk(KERN_WARNING "%s: RU stopped: status %04x\n",
 			       dev->name,status);
+#if 0
+			printk(KERN_WARNING "%s: cur_rfd=%04x, cur_rbd=%04x\n", dev->name, lp->cur_rfd, lp->cur_rbd);
+			outw(lp->cur_rfd, ioaddr+READ_PTR);
+			printk(KERN_WARNING "%s: [%04x]\n", dev->name, inw(ioaddr+DATAPORT));
+			outw(lp->cur_rfd+6, ioaddr+READ_PTR);
+			printk(KERN_WARNING "%s: rbd is %04x\n", dev->name, rbd= inw(ioaddr+DATAPORT));
+			outw(rbd, ioaddr+READ_PTR);
+			printk(KERN_WARNING "%s: [%04x %04x] ", dev->name, inw(ioaddr+DATAPORT), inw(ioaddr+DATAPORT));
+			outw(rbd+8, ioaddr+READ_PTR);
+			printk("[%04x]\n", inw(ioaddr+DATAPORT));
+#endif
 			lp->stats.rx_errors++;
+#if 1
 		        eexp_hw_rxinit(dev);
+#else
+			lp->cur_rfd = lp->first_rfd;
+#endif
 			scb_wrrfa(dev, lp->rx_buf_start);
 			scb_command(dev, SCB_RUstart);
 			outb(0,ioaddr+SIGNAL_CA);
@@ -1462,6 +1491,9 @@ static void eexp_hw_init586(struct net_device *dev)
 	outw((dev->flags & IFF_PROMISC)?(i|1):(i & ~1), 
 	     ioaddr+SHADOW(CONF_PROMISC));
 	lp->was_promisc = dev->flags & IFF_PROMISC;
+#if 0
+	eexp_setup_filter(dev);
+#endif
 
 	/* Write our hardware address */
 	outw(CONF_HWADDR & ~31, ioaddr+SM_PTR);
@@ -1603,6 +1635,9 @@ eexp_set_multicast(struct net_device *dev)
                 scb_command(dev, SCB_CUsuspend);
                 outb(0, ioaddr+SIGNAL_CA);
                 outb(0, ioaddr+SIGNAL_CA);
+#if 0
+                printk("%s: waiting for CU to go suspended\n", dev->name);
+#endif
                 oj = jiffies;
                 while ((SCB_CUstat(scb_status(dev)) == 2) &&
                        ((jiffies-oj) < 2000));

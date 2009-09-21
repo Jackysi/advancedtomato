@@ -67,6 +67,28 @@ static inline int put_reg(struct task_struct *task, int regno,
 	return -EIO;
 }
 
+#ifdef CONFIG_ALTIVEC
+/*
+ * Get contents of AltiVec register state in task TASK
+ */
+static inline int get_vrregs(unsigned long data, struct task_struct *task)
+{
+	return (copy_to_user((void *)data,&task->thread.vr[0],
+			offsetof(struct thread_struct,vrsave[2])-
+			     offsetof(struct thread_struct,vr[0])) ? -EFAULT : 0 );
+}
+
+/*
+ * Write contents of AltiVec register state into task TASK.
+ */
+static inline int set_vrregs(struct task_struct *task, unsigned long data)
+{
+	return (copy_from_user(&task->thread.vr[0],(void *)data,
+			offsetof(struct thread_struct,vrsave[2])-
+			     offsetof(struct thread_struct,vr[0])) ? -EFAULT : 0 );
+}
+#endif
+
 static inline void
 set_single_step(struct task_struct *task)
 {
@@ -252,52 +274,87 @@ int sys_ptrace(long request, long pid, long addr, long data)
 		break;
 
 	case PPC_PTRACE_GETREGS: { /* Get GPRs 0 - 31. */
-		u64 tmp;
-		u64 cntr;
+		int i;
+		unsigned long *reg = &((unsigned long *)child->thread.regs)[0];
+		unsigned long *tmp = (unsigned long *)addr;
 
-		ret = 0; 
-		for (cntr=0; cntr<32 && ret==0; ++cntr) {
-			tmp = ((u64*)child->thread.regs)[cntr];
-			ret = put_user(tmp, (u64*)(data+cntr));
+		for (i = 0; i < 32; i++) {
+			ret = put_user(*reg, tmp);
+			if (ret)
+				break;
+			reg++;
+			tmp++;
 		}
 		break;
 	}
 
 	case PPC_PTRACE_SETREGS: { /* Set GPRs 0 - 31. */
-		u64 cntr;
+		int i;
+		unsigned long *reg = &((unsigned long *)child->thread.regs)[0];
+		unsigned long *tmp = (unsigned long *)addr;
 
-		ret = 0; 
-		for (cntr=0; cntr<32 && ret==0; ++cntr)
-			ret = put_reg(child, cntr, *(u64*)(data+cntr));
+		for (i = 0; i < 32; i++) {
+			ret = get_user(*reg, tmp);
+			if (ret)
+				break;
+			reg++;
+			tmp++;
+		}
 		break;
 	}
 
 	case PPC_PTRACE_GETFPREGS: { /* Get FPRs 0 - 31. */
-		u64 tmp;
-		u64 cntr;
+		int i;
+		unsigned long *reg = &((unsigned long *)child->thread.fpr)[0];
+		unsigned long *tmp = (unsigned long *)addr;
 
-		ret = -EIO;
 		if (child->thread.regs->msr & MSR_FP)
 			giveup_fpu(child);
-		ret = 0; 
-		for (cntr=0; cntr<32 && ret==0; ++cntr) {
-			tmp = ((u64*)child->thread.fpr)[cntr];
-			ret = put_user(tmp, (u64*)(data+cntr));
+
+		for (i = 0; i < 32; i++) {
+			ret = put_user(*reg, tmp);
+			if (ret)
+				break;
+			reg++;
+			tmp++;
 		}
 		break;
 	}
 
 	case PPC_PTRACE_SETFPREGS: { /* Get FPRs 0 - 31. */
-		u64 cntr;
+		int i;
+		unsigned long *reg = &((unsigned long *)child->thread.fpr)[0];
+		unsigned long *tmp = (unsigned long *)addr;
 
-		ret = -EIO;
 		if (child->thread.regs->msr & MSR_FP)
 			giveup_fpu(child);
-		for (cntr=0; cntr<32; ++cntr)
-			((u64*)child->thread.fpr)[cntr] = *(u64*)(data+cntr);
-		ret = 0; 
+
+		for (i = 0; i < 32; i++) {
+			ret = get_user(*reg, tmp);
+			if (ret)
+				break;
+			reg++;
+			tmp++;
+		}
 		break;
 	}
+#ifdef CONFIG_ALTIVEC
+	case PTRACE_GETVRREGS:
+		/* Get the child altivec register state. */
+		if (child->thread.regs->msr & MSR_VEC)
+			giveup_altivec(child);
+		ret = get_vrregs(data, child);
+		break;
+
+	case PTRACE_SETVRREGS:
+		/* Set the child altivec register state. */
+		/* this is to clear the MSR_VEC bit to force a reload
+		 * of register state from memory */
+		if (child->thread.regs->msr & MSR_VEC)
+			giveup_altivec(child);
+		ret = set_vrregs(child,data);
+		break;
+#endif
 
 	default:
 		ret = -EIO;

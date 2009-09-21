@@ -62,6 +62,8 @@ int ncp_ioctl(struct inode *inode, struct file *filp,
 		}
 		ncp_lock_server(server);
 
+		/* FIXME: We hack around in the server's structures
+		   here to be able to use ncp_request */
 
 		server->has_subfunction = 0;
 		server->current_size = request.size;
@@ -432,7 +434,7 @@ outrel:
 			oldprivatelen = server->priv.len;
 			server->auth.auth_type = user.auth_type;
 			server->auth.object_name_len = user.object_name_len;
-			server->auth.object_name = user.object_name;
+			server->auth.object_name = newname;
 			server->priv.len = 0;
 			server->priv.data = NULL;
 			/* leave critical section */

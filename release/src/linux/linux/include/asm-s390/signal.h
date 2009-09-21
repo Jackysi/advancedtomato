@@ -127,6 +127,8 @@ typedef unsigned long sigset_t;
 #define SA_PROBE                SA_ONESHOT
 #define SA_SAMPLE_RANDOM        SA_RESTART
 #define SA_SHIRQ                0x04000000
+#define SA_DOPATHGROUP          0x00100000
+#define SA_FORCE                0x00200000
 #endif
 
 #define SIG_BLOCK          0    /* for blocking signals */

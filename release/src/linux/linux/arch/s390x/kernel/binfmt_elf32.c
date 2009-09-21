@@ -35,7 +35,7 @@
 
 /* For SVR4/S390 the function pointer to be registered with `atexit` is
    passed in R14. */
-#define ELF_PLAT_INIT(_r) \
+#define ELF_PLAT_INIT(_r, load_addr) \
 	do { \
 	_r->gprs[14] = 0; \
 	current->thread.flags |= S390_FLAG_31BIT; \
@@ -87,7 +87,13 @@
 #define ELF_PLATFORM (NULL)
 
 #ifdef __KERNEL__
-#define SET_PERSONALITY(ex, ibcs2) set_personality((ibcs2)?PER_SVR4:PER_LINUX)
+#define SET_PERSONALITY(ex, ibcs2)			\
+do {							\
+	if (ibcs2)                                      \
+		set_personality(PER_SVR4);              \
+	else if (current->personality != PER_LINUX32)   \
+		set_personality(PER_LINUX);             \
+} while (0)
 #endif 
 
 #include "linux32.h"

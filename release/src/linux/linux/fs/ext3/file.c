@@ -61,7 +61,8 @@ static int ext3_open_file (struct inode * inode, struct file * filp)
 static ssize_t
 ext3_file_write(struct file *file, const char *buf, size_t count, loff_t *ppos)
 {
-	int ret, err;
+	ssize_t ret;
+	int err;
 	struct inode *inode = file->f_dentry->d_inode;
 
 	ret = generic_file_write(file, buf, count, ppos);

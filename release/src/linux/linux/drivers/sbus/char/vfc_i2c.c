@@ -31,6 +31,9 @@ fairly certain that the flowcharts in the phillips docs are wrong. */
 #include <asm/system.h>
 #include <asm/sbus.h>
 
+#if 0 
+#define VFC_I2C_DEBUG
+#endif
 
 #include "vfc.h"
 #include "vfc_i2c.h"
@@ -158,9 +161,11 @@ int vfc_i2c_wait_for_pin(struct vfc_dev *dev, int ack)
 int vfc_i2c_xmit_addr(struct vfc_dev *dev, unsigned char addr, char mode) 
 { 
 	int ret, raddr;
+#if 1
 	WRITE_S1(SEND_I2C_STOP | ACK);
 	WRITE_S1(SELECT(S0) | ENABLE_SERIAL);
 	vfc_i2c_delay(dev);
+#endif
 
 	switch(mode) {
 	case VFC_I2C_READ:

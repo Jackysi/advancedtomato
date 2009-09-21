@@ -226,7 +226,7 @@ maybe_end_cruft:
 	andi	ta2, a1, 0x3
 
 small_memcpy:
- j small_csumcpy; move a1, ta2		
+ j small_csumcpy; move a1, ta2		/* XXX ??? */
 	beqz	t2, out
 	 move	a1, ta2
 

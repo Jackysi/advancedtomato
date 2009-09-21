@@ -356,7 +356,7 @@ char * strsep(char **s, const char *ct)
  *
  * Do not use memset() to access IO space, use memset_io() instead.
  */
-void * memset(void * s,int c, size_t count)
+void * memset(void * s,int c,size_t count)
 {
 	char *xs = (char *) s;
 
@@ -380,14 +380,13 @@ void * memset(void * s,int c, size_t count)
  * You should not use this function to access IO space, use memcpy_toio()
  * or memcpy_fromio() instead.
  */
-char * bcopy(const char * src, char * dest, int count)
+void bcopy(const void * srcp, void * destp, size_t count)
 {
-	char *tmp = dest;
+	const char *src = srcp;
+	char *dest = destp;
 
 	while (count--)
-		*tmp++ = *src++;
-
-	return dest;
+		*dest++ = *src++;
 }
 #endif
 
@@ -449,6 +448,7 @@ void * memmove(void * dest,const void *src,size_t count)
  * @ct: Another area of memory
  * @count: The size of the area.
  */
+#undef memcmp
 int memcmp(const void * cs,const void * ct,size_t count)
 {
 	const unsigned char *su1, *su2;
@@ -474,15 +474,14 @@ int memcmp(const void * cs,const void * ct,size_t count)
 void * memscan(void * addr, int c, size_t size)
 {
 	unsigned char * p = (unsigned char *) addr;
-	unsigned char * e = p + size;
 
-	while (p != e) {
-		if (*p == (unsigned char)c)
+	while (size) {
+		if (*p == c)
 			return (void *) p;
 		p++;
+		size--;
 	}
-
-	return (void *) p;
+  	return (void *) p;
 }
 #endif
 

@@ -1,4 +1,4 @@
-/* $Id: irq.c,v 1.1.1.4 2003/10/14 08:07:47 sparq Exp $
+/* $Id: irq.c,v 1.21 2001/07/17 02:26:53 gniibe Exp $
  *
  * linux/arch/sh/kernel/irq.c
  *
@@ -246,7 +246,7 @@ asmlinkage int do_IRQ(unsigned long r4, unsigned long r5,
 	   REPLAY is when Linux resends an IRQ that was dropped earlier
 	   WAITING is used by probe to mark irqs that are being tested
 	   */
-	status = desc->status & ~(IRQ_REPLAY | IRQ_WAITING);
+	status = desc->status & ~(IRQ_REPLAY | IRQ_WAITING | IRQ_INPROGRESS);
 	status |= IRQ_PENDING; /* we _want_ to handle it */
 
 	/*

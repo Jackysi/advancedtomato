@@ -13,12 +13,21 @@
 #include <linux/rtnetlink.h>
 #include <net/pkt_sched.h>
 #include <net/dsfield.h>
+#include <net/inet_ecn.h>
 #include <asm/byteorder.h>
 
 
+#if 1 /* control */
 #define DPRINTK(format,args...) printk(KERN_DEBUG format,##args)
+#else
+#define DPRINTK(format,args...)
+#endif
 
+#if 0 /* data */
+#define D2PRINTK(format,args...) printk(KERN_DEBUG format,##args)
+#else
 #define D2PRINTK(format,args...)
+#endif
 
 
 #define PRIV(sch) ((struct dsmark_qdisc_data *) (sch)->data)
@@ -69,6 +78,7 @@ static int dsmark_graft(struct Qdisc *sch,unsigned long arg,
 	*old = xchg(&p->q,new);
 	if (*old)
 		qdisc_reset(*old);
+	sch->q.qlen = 0;
 	sch_tree_unlock(sch); /* @@@ move up ? */
         return 0;
 }
@@ -187,10 +197,12 @@ static int dsmark_enqueue(struct sk_buff *skb,struct Qdisc *sch)
 	if (p->set_tc_index) {
 		switch (skb->protocol) {
 			case __constant_htons(ETH_P_IP):
-				skb->tc_index = ipv4_get_dsfield(skb->nh.iph);
+				skb->tc_index = ipv4_get_dsfield(skb->nh.iph)
+					& ~INET_ECN_MASK;
 				break;
 			case __constant_htons(ETH_P_IPV6):
-				skb->tc_index = ipv6_get_dsfield(skb->nh.ipv6h);
+				skb->tc_index = ipv6_get_dsfield(skb->nh.ipv6h)
+					& ~INET_ECN_MASK;
 				break;
 			default:
 				skb->tc_index = 0;
@@ -208,6 +220,10 @@ static int dsmark_enqueue(struct sk_buff *skb,struct Qdisc *sch)
 			case TC_POLICE_SHOT:
 				kfree_skb(skb);
 				break;
+#if 0
+			case TC_POLICE_RECLASSIFY:
+				/* FIXME: what to do here ??? */
+#endif
 #endif
 			case TC_POLICE_OK:
 				skb->tc_index = TC_H_MIN(res.classid);
@@ -289,17 +305,18 @@ static int dsmark_requeue(struct sk_buff *skb,struct Qdisc *sch)
 }
 
 
-static int dsmark_drop(struct Qdisc *sch)
+static unsigned int dsmark_drop(struct Qdisc *sch)
 {
 	struct dsmark_qdisc_data *p = PRIV(sch);
-
+	unsigned int len;
+	
 	DPRINTK("dsmark_reset(sch %p,[qdisc %p])\n",sch,p);
 	if (!p->q->ops->drop)
 		return 0;
-	if (!p->q->ops->drop(p->q))
+	if (!(len = p->q->ops->drop(p->q)))
 		return 0;
 	sch->q.qlen--;
-	return 1;
+	return len;
 }
 
 
@@ -310,12 +327,11 @@ int dsmark_init(struct Qdisc *sch,struct rtattr *opt)
 	__u16 tmp;
 
 	DPRINTK("dsmark_init(sch %p,[qdisc %p],opt %p)\n",sch,p,opt);
-	if (rtattr_parse(tb,TCA_DSMARK_MAX,RTA_DATA(opt),RTA_PAYLOAD(opt)) < 0 ||
+	if (!opt ||
+	    rtattr_parse(tb,TCA_DSMARK_MAX,RTA_DATA(opt),RTA_PAYLOAD(opt)) < 0 ||
 	    !tb[TCA_DSMARK_INDICES-1] ||
 	    RTA_PAYLOAD(tb[TCA_DSMARK_INDICES-1]) < sizeof(__u16))
                 return -EINVAL;
-	memset(p,0,sizeof(*p));
-	p->filter_list = NULL;
 	p->indices = *(__u16 *) RTA_DATA(tb[TCA_DSMARK_INDICES-1]);
 	if (!p->indices)
 		return -EINVAL;
@@ -364,7 +380,7 @@ static void dsmark_destroy(struct Qdisc *sch)
 	while (p->filter_list) {
 		tp = p->filter_list;
 		p->filter_list = tp->next;
-		tp->ops->destroy(tp);
+		tcf_destroy(tp);
 	}
 	qdisc_destroy(p->q);
 	p->q = &noop_qdisc;

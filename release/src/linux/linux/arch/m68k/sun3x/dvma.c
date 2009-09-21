@@ -45,9 +45,15 @@ static volatile unsigned long *iommu_pte = (unsigned long *)SUN3X_IOMMU;
 #define dvma_entry_paddr(index) 	(iommu_pte[index] & IOMMU_ADDR_MASK)
 #define dvma_entry_vaddr(index,paddr) 	((index << DVMA_PAGE_SHIFT) |  \
 					 (paddr & (DVMA_PAGE_SIZE-1)))
+#if 0
+#define dvma_entry_set(index,addr)	(iommu_pte[index] =            \
+					    (addr & IOMMU_ADDR_MASK) | \
+				             IOMMU_DT_VALID | IOMMU_CACHE_INHIBIT)
+#else
 #define dvma_entry_set(index,addr)	(iommu_pte[index] =            \
 					    (addr & IOMMU_ADDR_MASK) | \
 				             IOMMU_DT_VALID)
+#endif
 #define dvma_entry_clr(index)		(iommu_pte[index] = IOMMU_DT_INVALID)
 #define dvma_entry_hash(addr)		((addr >> DVMA_PAGE_SHIFT) ^ \
 					 ((addr & 0x03c00000) >>     \
@@ -186,6 +192,13 @@ void dvma_unmap_iommu(unsigned long baddr, int len)
 	for(; index < end ; index++) {
 #ifdef DEBUG
 		printk("freeing bus mapping %08x\n", index << DVMA_PAGE_SHIFT);
+#endif
+#if 0
+		if(!dvma_entry_use(index)) 
+			printk("dvma_unmap freeing unused entry %04x\n",
+			       index);
+		else
+			dvma_entry_dec(index);
 #endif
 		dvma_entry_clr(index);
 	}

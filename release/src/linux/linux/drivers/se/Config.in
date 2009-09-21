@@ -1,8 +1,0 @@
-#
-# Broadcom Nasoc streaming encryption driver configuration
-#
-
-mainmenu_option next_comment
-comment 'Broadcom NASOC streaming encryption devices'
-   dep_tristate 'Broadcom streaming encryption device support' CONFIG_BCM_SE $CONFIG_BCM4780
-endmenu

@@ -6,7 +6,10 @@
  *	in1:	source address
  *	in2:	number of bytes to copy
  * Output:
- * 	0 if success, or number of byte NOT copied if error occurred.
+ *	for bcopy:     return nothing
+ *	for memcpy:    return dest
+ * 	for copy_user: 0 if success,
+ *		       or number of bytes NOT copied if error occurred.
  *
  * Copyright (C) 2002 Intel Corp.
  * Copyright (C) 2002 Ken Chen <kenneth.w.chen@intel.com>
@@ -20,15 +23,6 @@
 #else
 # define EK(y,x...)	x
 #endif
-
-GLOBAL_ENTRY(bcopy)
-	.regstk 3,0,0,0
-	mov r8=in0
-	mov in0=in1
-	;;
-	mov in1=r8
-	;;
-END(bcopy)
 
 /* McKinley specific optimization */
 
@@ -82,10 +76,19 @@ END(bcopy)
 #define in1		r33
 #define in2		r34
 
+GLOBAL_ENTRY(bcopy)
+	.regstk 3,0,0,0
+	mov r8=in0		// swap the src and dest arguments
+	mov in0=in1
+	;;
+	mov in1=r8
+	;;
+END(bcopy)			// fall through to memcpy
 GLOBAL_ENTRY(memcpy)
 	and	r28=0x7,in0
 	and	r29=0x7,in1
 	mov	f6=f0
+	mov	retval=in0
 	br.cond.sptk .common_code
 	;;
 END(memcpy)
@@ -97,7 +100,7 @@ GLOBAL_ENTRY(__copy_user)
 	mov	f6=f1
 	mov	saved_in0=in0	// save dest pointer
 	mov	saved_in1=in1	// save src pointer
-	mov	saved_in2=in2	// save len
+	mov	retval=r0	// initialize return value
 	;;
 .common_code:
 	cmp.gt	p15,p0=8,in2	// check for small size
@@ -105,7 +108,7 @@ GLOBAL_ENTRY(__copy_user)
 	cmp.ne	p14,p0=0,r29	// check src alignment
 	add	src0=0,in1
 	sub	r30=8,r28	// for .align_dest
-	mov	retval=r0	// initialize return value
+	mov	saved_in2=in2	// save len
 	;;
 	add	dst0=0,in0
 	add	dst1=1,in0	// dest odd index
@@ -160,7 +163,7 @@ GLOBAL_ENTRY(__copy_user)
 	mov	ar.ec=2
 (p10)	br.dpnt.few .aligned_src_tail
 	;;
-	.align 32
+//	.align 32
 1:
 EX(.ex_handler, (p16)	ld8	r34=[src0],16)
 EK(.ex_handler, (p16)	ld8	r38=[src1],16)
@@ -317,7 +320,7 @@ EK(.ex_handler,	(p[D])	st8 [dst1] = t15, 4*8)
 (p7)	mov	ar.lc = r21
 (p8)	mov	ar.lc = r0
 	;;
-	.align 32
+//	.align 32
 1:	lfetch	  [src_pre_mem], 128
 	lfetch.excl [dst_pre_mem], 128
 	br.cloop.dptk.few 1b
@@ -523,7 +526,7 @@ EK(.ex_handler,  (p17)	st8	[dst1]=r39,8);						\
 		 shrp	r21=r22,r38,shift;	/* speculative work */			\
 		 br.sptk.few .unaligned_src_tail /* branch out of jump table */		\
 		 ;;
-	.align 32
+//	.align 32
 .jump_table:
 	COPYU(8)	// unaligned cases
 .jmp1:

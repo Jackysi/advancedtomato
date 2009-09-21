@@ -9,7 +9,7 @@
  *	Al Longyear <longyear@netcom.com>, Paul Mackerras <Paul.Mackerras@cs.anu.edu.au>
  *
  * Original release 01/11/99
- * $Id: n_hdlc.c,v 1.1.1.4 2003/10/14 08:08:02 sparq Exp $
+ * $Id: n_hdlc.c,v 3.7 2003/05/01 15:45:29 paulkf Exp $
  *
  * This code is released under the GNU General Public License (GPL)
  *
@@ -78,7 +78,7 @@
  */
 
 #define HDLC_MAGIC 0x239e
-#define HDLC_VERSION "$Revision: 1.1.1.4 $"
+#define HDLC_VERSION "$Revision: 3.7 $"
 
 #include <linux/version.h>
 #include <linux/config.h>
@@ -172,9 +172,9 @@ struct n_hdlc {
 /*
  * HDLC buffer list manipulation functions
  */
-void n_hdlc_buf_list_init(N_HDLC_BUF_LIST *list);
-void n_hdlc_buf_put(N_HDLC_BUF_LIST *list,N_HDLC_BUF *buf);
-N_HDLC_BUF* n_hdlc_buf_get(N_HDLC_BUF_LIST *list);
+static void n_hdlc_buf_list_init(N_HDLC_BUF_LIST *list);
+static void n_hdlc_buf_put(N_HDLC_BUF_LIST *list,N_HDLC_BUF *buf);
+static N_HDLC_BUF* n_hdlc_buf_get(N_HDLC_BUF_LIST *list);
 
 /* Local functions */
 
@@ -183,13 +183,16 @@ static struct n_hdlc *n_hdlc_alloc (void);
 MODULE_PARM(debuglevel, "i");
 MODULE_PARM(maxframe, "i");
 
+#ifdef MODULE_LICENSE
+MODULE_LICENSE("GPL");
+#endif
 
 /* debug level can be set by insmod for debugging purposes */
 #define DEBUG_LEVEL_INFO	1
-int debuglevel=0;
+static int debuglevel=0;
 
 /* max frame size for memory allocations */
-ssize_t	maxframe=4096;
+static ssize_t	maxframe=4096;
 
 /* TTY callbacks */
 
@@ -265,7 +268,8 @@ static void n_hdlc_release (struct n_hdlc *n_hdlc)
 		} else
 			break;
 	}
-	
+	if (n_hdlc->tbuf)
+		kfree(n_hdlc->tbuf);
 	kfree(n_hdlc);
 	
 }	/* end of n_hdlc_release() */
@@ -347,9 +351,8 @@ static int n_hdlc_tty_open (struct tty_struct *tty)
 #endif
 	
 	/* Flush any pending characters in the driver and discipline. */
-	
-	if (tty->ldisc.flush_buffer)
-		tty->ldisc.flush_buffer (tty);
+
+	tty_ldisc_flush(tty);	
 
 	if (tty->driver.flush_buffer)
 		tty->driver.flush_buffer (tty);
@@ -905,7 +908,7 @@ static struct n_hdlc *n_hdlc_alloc (void)
  * Arguments:	 	list	pointer to buffer list
  * Return Value:	None	
  */
-void n_hdlc_buf_list_init(N_HDLC_BUF_LIST *list)
+static void n_hdlc_buf_list_init(N_HDLC_BUF_LIST *list)
 {
 	memset(list,0,sizeof(N_HDLC_BUF_LIST));
 	spin_lock_init(&list->spinlock);
@@ -922,7 +925,7 @@ void n_hdlc_buf_list_init(N_HDLC_BUF_LIST *list)
  * 
  * Return Value:	None	
  */
-void n_hdlc_buf_put(N_HDLC_BUF_LIST *list,N_HDLC_BUF *buf)
+static void n_hdlc_buf_put(N_HDLC_BUF_LIST *list,N_HDLC_BUF *buf)
 {
 	unsigned long flags;
 	spin_lock_irqsave(&list->spinlock,flags);
@@ -952,7 +955,7 @@ void n_hdlc_buf_put(N_HDLC_BUF_LIST *list,N_HDLC_BUF *buf)
  * 
  * 	pointer to HDLC buffer if available, otherwise NULL
  */
-N_HDLC_BUF* n_hdlc_buf_get(N_HDLC_BUF_LIST *list)
+static N_HDLC_BUF* n_hdlc_buf_get(N_HDLC_BUF_LIST *list)
 {
 	unsigned long flags;
 	N_HDLC_BUF *buf;
@@ -1025,5 +1028,4 @@ static void __exit n_hdlc_exit(void)
 module_init(n_hdlc_init);
 module_exit(n_hdlc_exit);
 
-MODULE_LICENSE("GPL");
 EXPORT_NO_SYMBOLS;

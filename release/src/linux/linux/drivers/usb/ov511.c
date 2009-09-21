@@ -1,7 +1,7 @@
 /*
  * OmniVision OV511 Camera-to-USB Bridge Driver
  *
- * Copyright (c) 1999-2002 Mark W. McClelland
+ * Copyright (c) 1999-2003 Mark W. McClelland
  * Original decompression code Copyright 1998-2000 OmniVision Technologies
  * Many improvements by Bret Wallach <bwallac1@san.rr.com>
  * Color fixes by by Orion Sky Lawlor <olawlor@acm.org> (2/26/2000)
@@ -11,6 +11,7 @@
  * Original SAA7111A code by Dave Perks <dperks@ibm.net>
  * URB error messages from pwc driver by Nemosoft
  * generic_ioctl() code from videodev.c by Gerd Knorr and Alan Cox
+ * Memory management (rvmalloc) code from bttv driver, by Gerd Knorr and others
  *
  * Based on the Linux CPiA driver written by Peter Pregler,
  * Scott J. Bertin and Johannes Erdfelt.
@@ -48,8 +49,9 @@
 #include <asm/semaphore.h>
 #include <asm/processor.h>
 #include <linux/wrapper.h>
+#include <linux/mm.h>
 
-#if defined(__i386__)
+#if defined (__i386__)
 	#include <asm/cpufeature.h>
 #endif
 
@@ -58,9 +60,9 @@
 /*
  * Version Information
  */
-#define DRIVER_VERSION "v1.61 for Linux 2.4"
+#define DRIVER_VERSION "v1.63 for Linux 2.4"
 #define EMAIL "mark@alpha.dyndns.org"
-#define DRIVER_AUTHOR "Mark McClelland <mmcclell@bigfoot.com> & Bret Wallach \
+#define DRIVER_AUTHOR "Mark McClelland <mark@alpha.dyndns.org> & Bret Wallach \
 	& Orion Sky Lawlor <olawlor@acm.org> & Kevin Moore & Charl P. Botha \
 	<cpbotha@ieee.org> & Claudio Matsuoka <claudio@conectiva.com>"
 #define DRIVER_DESC "ov511 USB Camera Driver"
@@ -97,7 +99,6 @@ static int force_rgb;
 static int cams			= 1;
 static int compress;
 static int testpat;
-static int sensor_gbr;
 static int dumppix;
 static int led 			= 1;
 static int dump_bridge;
@@ -122,6 +123,7 @@ static int backlight;
 static int unit_video[OV511_MAX_UNIT_VIDEO];
 static int remove_zeros;
 static int mirror;
+static int ov518_color;
 
 MODULE_PARM(autobright, "i");
 MODULE_PARM_DESC(autobright, "Sensor automatically changes brightness");
@@ -199,6 +201,8 @@ MODULE_PARM_DESC(remove_zeros,
   "Remove zero-padding from uncompressed incoming data");
 MODULE_PARM(mirror, "i");
 MODULE_PARM_DESC(mirror, "Reverse image horizontally");
+MODULE_PARM(ov518_color, "i");
+MODULE_PARM_DESC(ov518_color, "Enable OV518 color (experimental)");
 
 MODULE_AUTHOR(DRIVER_AUTHOR);
 MODULE_DESCRIPTION(DRIVER_DESC);
@@ -222,7 +226,7 @@ static int i2c_detect_tries = 5;
 /* MMX support is present in kernel and CPU. Checked upon decomp module load. */
 static int ov51x_mmx_available;
 
-static __devinitdata struct usb_device_id device_table [] = {
+static struct usb_device_id device_table [] = {
 	{ USB_DEVICE(VEND_OMNIVISION, PROD_OV511) },
 	{ USB_DEVICE(VEND_OMNIVISION, PROD_OV511PLUS) },
 	{ USB_DEVICE(VEND_OMNIVISION, PROD_OV518) },
@@ -261,7 +265,9 @@ static struct symbolic_list camlist[] = {
 	{ 100, "Lifeview RoboCam" },
 	{ 102, "AverMedia InterCam Elite" },
 	{ 112, "MediaForte MV300" },	/* or OV7110 evaluation kit */
+	{ 134, "Ezonics EZCam II" },
 	{ 192, "Webeye 2000B" },
+	{ 253, "Alpha Vision Tech. AlphaCam SE" },
 	{  -1, NULL }
 };
 
@@ -294,6 +300,7 @@ static struct symbolic_list brglist[] = {
 	{ -1, NULL }
 };
 
+#if defined(CONFIG_VIDEO_PROC_FS)
 static struct symbolic_list senlist[] = {
 	{ SEN_OV76BE,	"OV76BE" },
 	{ SEN_OV7610,	"OV7610" },
@@ -309,6 +316,7 @@ static struct symbolic_list senlist[] = {
 	{ SEN_SAA7111A,	"SAA7111A" },
 	{ -1, NULL }
 };
+#endif
 
 /* URB error codes: */
 static struct symbolic_list urb_errlist[] = {
@@ -326,8 +334,8 @@ static struct symbolic_list urb_errlist[] = {
  **********************************************************************/
 
 static void ov51x_clear_snapshot(struct usb_ov511 *);
-static inline int sensor_get_picture(struct usb_ov511 *,
-				     struct video_picture *);
+static int sensor_get_picture(struct usb_ov511 *,
+			      struct video_picture *);
 #if defined(CONFIG_PROC_FS) && defined(CONFIG_VIDEO_PROC_FS)
 static int sensor_get_exposure(struct usb_ov511 *, unsigned char *);
 static int ov51x_control_ioctl(struct inode *, struct file *, unsigned int,
@@ -403,7 +411,7 @@ static struct proc_dir_entry *ov511_proc_entry = NULL;
 extern struct proc_dir_entry *video_proc_entry;
 
 static struct file_operations ov511_control_fops = {
-	ioctl:		ov51x_control_ioctl,
+	.ioctl =	ov51x_control_ioctl,
 };
 
 #define YES_NO(x) ((x) ? "yes" : "no")
@@ -463,6 +471,8 @@ ov511_read_proc_info(char *page, char **start, off_t off, int count, int *eof,
 		       symbolic(senlist, ov->sensor));
 	out += sprintf(out, "packet_size     : %d\n", ov->packet_size);
 	out += sprintf(out, "framebuffer     : 0x%p\n", ov->fbuf);
+	out += sprintf(out, "packet_numbering: %d\n", ov->packet_numbering);
+	out += sprintf(out, "topology        : %s\n", ov->usb_path);
 
 	len = out - page;
 	len -= off;
@@ -554,8 +564,8 @@ create_proc_ov511_cam(struct usb_ov511 *ov)
 			ov511_read_proc_button, ov);
 		if (!ov->proc_button)
 			return;
+		ov->proc_button->owner = THIS_MODULE;
 	}
-	ov->proc_button->owner = THIS_MODULE;
 
 	/* Create "control" entry (ioctl() interface) */
 	PDEBUG(4, "creating /proc/video/ov511/%s/control", dirname);
@@ -917,6 +927,10 @@ ov511_i2c_write_internal(struct usb_ov511 *ov,
 
 		if ((rc&2) == 0) /* Ack? */
 			break;
+#if 0
+		/* I2C abort */
+		reg_w(ov, R511_I2C_CTL, 0x10);
+#endif
 		if (--retries < 0) {
 			err("i2c write retries exhausted");
 			return -1;
@@ -1129,8 +1143,6 @@ i2c_set_slave_internal(struct usb_ov511 *ov, unsigned char slave)
 	return 0;
 }
 
-#if defined(CONFIG_PROC_FS) && defined(CONFIG_VIDEO_PROC_FS)
-
 /* Write to a specific I2C slave ID and register, using the specified mask */
 static int
 i2c_w_slave(struct usb_ov511 *ov,
@@ -1186,8 +1198,6 @@ out:
 	return rc;
 }
 
-#endif /* defined(CONFIG_PROC_FS) && defined(CONFIG_VIDEO_PROC_FS) */
-
 /* Sets I2C read and write slave IDs. Returns <0 for error */
 static int
 ov51x_set_slave_ids(struct usb_ov511 *ov, unsigned char sid)
@@ -1233,8 +1243,7 @@ write_regvals(struct usb_ov511 *ov, struct ov511_regvals * pRegvals)
 static void
 dump_i2c_range(struct usb_ov511 *ov, int reg1, int regn)
 {
-	int i;
-	int rc;
+	int i, rc;
 
 	for (i = reg1; i <= regn; i++) {
 		rc = i2c_r(ov, i);
@@ -1252,8 +1261,7 @@ dump_i2c_regs(struct usb_ov511 *ov)
 static void
 dump_reg_range(struct usb_ov511 *ov, int reg1, int regn)
 {
-	int i;
-	int rc;
+	int i, rc;
 
 	for (i = reg1; i <= regn; i++) {
 		rc = reg_r(ov, i);
@@ -1285,6 +1293,31 @@ ov511_dump_regs(struct usb_ov511 *ov)
 	dump_reg_range(ov, 0x80, 0x9f);
 	dump_reg_range(ov, 0xa0, 0xbf);
 
+}
+
+static void
+ov518_dump_regs(struct usb_ov511 *ov)
+{
+	info("VIDEO MODE REGS");
+	dump_reg_range(ov, 0x20, 0x2f);
+	info("DATA PUMP AND SNAPSHOT REGS");
+	dump_reg_range(ov, 0x30, 0x3f);
+	info("I2C REGS");
+	dump_reg_range(ov, 0x40, 0x4f);
+	info("SYSTEM CONTROL AND VENDOR REGS");
+	dump_reg_range(ov, 0x50, 0x5f);
+	info("60 - 6F");
+	dump_reg_range(ov, 0x60, 0x6f);
+	info("70 - 7F");
+	dump_reg_range(ov, 0x70, 0x7f);
+	info("Y QUANTIZATION TABLE");
+	dump_reg_range(ov, 0x80, 0x8f);
+	info("UV QUANTIZATION TABLE");
+	dump_reg_range(ov, 0x90, 0x9f);
+	info("A0 - BF");
+	dump_reg_range(ov, 0xa0, 0xbf);
+	info("CBR");
+	dump_reg_range(ov, 0xc0, 0xcf);
 }
 #endif
 
@@ -1327,9 +1360,9 @@ static void
 ov51x_clear_snapshot(struct usb_ov511 *ov)
 {
 	if (ov->bclass == BCL_OV511) {
-		reg_w(ov, R51x_SYS_SNAP, 0x01);
-		reg_w(ov, R51x_SYS_SNAP, 0x03);
-		reg_w(ov, R51x_SYS_SNAP, 0x01);
+		reg_w(ov, R51x_SYS_SNAP, 0x00);
+		reg_w(ov, R51x_SYS_SNAP, 0x02);
+		reg_w(ov, R51x_SYS_SNAP, 0x00);
 	} else if (ov->bclass == BCL_OV518) {
 		warn("snapshot reset not supported yet on OV518(+)");
 	} else {
@@ -1374,7 +1407,7 @@ init_ov_sensor(struct usb_ov511 *ov)
 	if (i2c_w(ov, 0x12, 0x80) < 0) return -EIO;
 
 	/* Wait for it to initialize */
-	schedule_timeout (1 + 150 * HZ / 1000);
+	schedule_timeout(1 + 150 * HZ / 1000);
 
 	for (i = 0, success = 0; i < i2c_detect_tries && !success; i++) {
 		if ((i2c_r(ov, OV7610_REG_ID_HIGH) == 0x7F) &&
@@ -1881,6 +1914,15 @@ sensor_set_hue(struct usb_ov511 *ov, unsigned short val)
 		break;
 	case SEN_OV7620:
 // Hue control is causing problems. I will enable it once it's fixed.
+#if 0
+		rc = i2c_w(ov, 0x7a, (unsigned char)(val >> 8) + 0xb);
+		if (rc < 0)
+			goto out;
+
+		rc = i2c_w(ov, 0x79, (unsigned char)(val >> 8) + 0xb);
+		if (rc < 0)
+			goto out;
+#endif
 		break;
 	case SEN_SAA7111A:
 		rc = i2c_w(ov, 0x0d, (val + 32768) >> 8);
@@ -1972,7 +2014,7 @@ sensor_set_picture(struct usb_ov511 *ov, struct video_picture *p)
 	return 0;
 }
 
-static inline int
+static int
 sensor_get_picture(struct usb_ov511 *ov, struct video_picture *p)
 {
 	int rc;
@@ -1999,10 +2041,6 @@ sensor_get_picture(struct usb_ov511 *ov, struct video_picture *p)
 		return rc;
 
 	p->whiteness = 105 << 8;
-
-	/* Can we get these from frame[0]? -claudio? */
-	p->depth = ov->frame[0].depth;
-	p->palette = ov->frame[0].format;
 
 	return 0;
 }
@@ -2379,6 +2417,13 @@ mode_init_ov_sensor_regs(struct usb_ov511 *ov, int width, int height,
 	case SEN_OV7610:
 		i2c_w(ov, 0x14, qvga?0x24:0x04);
 // FIXME: Does this improve the image quality or frame rate?
+#if 0
+		i2c_w_mask(ov, 0x28, qvga?0x00:0x20, 0x20);
+		i2c_w(ov, 0x24, 0x10);
+		i2c_w(ov, 0x25, qvga?0x40:0x8a);
+		i2c_w(ov, 0x2f, qvga?0x30:0xb0);
+		i2c_w(ov, 0x35, qvga?0x1c:0x9c);
+#endif
 		break;
 	case SEN_OV7620:
 //		i2c_w(ov, 0x2b, 0x00);
@@ -2394,11 +2439,20 @@ mode_init_ov_sensor_regs(struct usb_ov511 *ov, int width, int height,
 //		i2c_w(ov, 0x2b, 0x00);
 		i2c_w(ov, 0x14, qvga?0xa4:0x84);
 // FIXME: Enable this once 7620AE uses 7620 initial settings
+#if 0
+		i2c_w_mask(ov, 0x28, qvga?0x00:0x20, 0x20);
+		i2c_w(ov, 0x24, qvga?0x20:0x3a);
+		i2c_w(ov, 0x25, qvga?0x30:0x60);
+		i2c_w_mask(ov, 0x2d, qvga?0x40:0x00, 0x40);
+		i2c_w_mask(ov, 0x67, qvga?0xb0:0x90, 0xf0);
+		i2c_w_mask(ov, 0x74, qvga?0x20:0x00, 0x20);
+#endif
 		break;
 	case SEN_OV6620:
-	case SEN_OV6630:
 		i2c_w(ov, 0x14, qvga?0x24:0x04);
-		/* No special settings yet */
+		break;
+	case SEN_OV6630:
+		i2c_w(ov, 0x14, qvga?0xa0:0x80);
 		break;
 	default:
 		err("Invalid sensor");
@@ -2412,13 +2466,33 @@ mode_init_ov_sensor_regs(struct usb_ov511 *ov, int width, int height,
 			/* these aren't valid on the OV6620/OV7620/6630? */
 			i2c_w_mask(ov, 0x0e, 0x40, 0x40);
 		}
-		i2c_w_mask(ov, 0x13, 0x20, 0x20);
+
+		if (ov->sensor == SEN_OV6630 && ov->bridge == BRG_OV518
+		    && ov518_color) {
+			i2c_w_mask(ov, 0x12, 0x00, 0x10);
+			i2c_w_mask(ov, 0x13, 0x00, 0x20);
+		} else {
+			i2c_w_mask(ov, 0x13, 0x20, 0x20);
+		}
 	} else {
 		if (ov->sensor == SEN_OV7610 || ov->sensor == SEN_OV76BE) {
 			/* not valid on the OV6620/OV7620/6630? */
 			i2c_w_mask(ov, 0x0e, 0x00, 0x40);
 		}
-		i2c_w_mask(ov, 0x13, 0x00, 0x20);
+
+		/* The OV518 needs special treatment. Although both the OV518
+		 * and the OV6630 support a 16-bit video bus, only the 8 bit Y
+		 * bus is actually used. The UV bus is tied to ground.
+		 * Therefore, the OV6630 needs to be in 8-bit multiplexed
+		 * output mode */
+
+		if (ov->sensor == SEN_OV6630 && ov->bridge == BRG_OV518
+		    && ov518_color) {
+			i2c_w_mask(ov, 0x12, 0x10, 0x10);
+			i2c_w_mask(ov, 0x13, 0x20, 0x20);
+		} else {
+			i2c_w_mask(ov, 0x13, 0x00, 0x20);
+		}
 	}
 
 	/******** Clock programming ********/
@@ -2476,19 +2550,11 @@ mode_init_ov_sensor_regs(struct usb_ov511 *ov, int width, int height,
 	if (framedrop >= 0)
 		i2c_w(ov, 0x16, framedrop);
 
-	if (sensor_gbr)
-		i2c_w_mask(ov, 0x12, 0x08, 0x08);
-	else
-		i2c_w_mask(ov, 0x12, 0x00, 0x08);
-
 	/* Test Pattern */
 	i2c_w_mask(ov, 0x12, (testpat?0x02:0x00), 0x02);
 
-	/* Auto white balance */
-//	if (awb)
-		i2c_w_mask(ov, 0x12, 0x04, 0x04);
-//	else
-//		i2c_w_mask(ov, 0x12, 0x00, 0x04);
+	/* Enable auto white balance */
+	i2c_w_mask(ov, 0x12, 0x04, 0x04);
 
 	// This will go away as soon as ov51x_mode_init_sensor_regs()
 	// is fully tested.
@@ -2588,6 +2654,7 @@ set_ov_sensor_window(struct usb_ov511 *ov, int width, int height, int mode,
 	hoffset = ((hwsize - width) / 2) >> hwscale;
 	voffset = ((vwsize - height) / 2) >> vwscale;
 
+	/* FIXME! - This needs to be changed to support 160x120 and 6620!!! */
 	if (sub_flag) {
 		i2c_w(ov, 0x17, hwsbase+(ov->subx>>hwscale));
 		i2c_w(ov, 0x18,	hwebase+((ov->subx+ov->subw)>>hwscale));
@@ -2676,7 +2743,7 @@ ov511_mode_init_regs(struct usb_ov511 *ov,
 	reg_w(ov, R511_CAM_PXDIV, 0x00);
 	reg_w(ov, R511_CAM_LNDIV, 0x00);
 
-	/* YUV420, low pass filer on */
+	/* YUV420, low pass filter on */
 	reg_w(ov, R511_CAM_OPTS, 0x03);
 
 	/* Snapshot additions */
@@ -2752,8 +2819,29 @@ ov518_mode_init_regs(struct usb_ov511 *ov,
 	reg_w(ov, 0x3d, 0);
 	reg_w(ov, 0x3e, 0);
 
-	reg_w(ov, 0x28, (mode == VIDEO_PALETTE_GREY) ? 0x00:0x80);
-	reg_w(ov, 0x38, (mode == VIDEO_PALETTE_GREY) ? 0x00:0x80);
+	if (ov->bridge == BRG_OV518 && ov518_color) {
+		/* OV518 needs U and V swapped */
+		i2c_w_mask(ov, 0x15, 0x00, 0x01);
+
+	 	if (mode == VIDEO_PALETTE_GREY) {
+			/* Set 16-bit input format (UV data are ignored) */
+			reg_w_mask(ov, 0x20, 0x00, 0x08);
+
+			/* Set 8-bit (4:0:0) output format */
+			reg_w_mask(ov, 0x28, 0x00, 0xf0);
+			reg_w_mask(ov, 0x38, 0x00, 0xf0);
+		} else {
+			/* Set 8-bit (YVYU) input format */
+			reg_w_mask(ov, 0x20, 0x08, 0x08);
+
+			/* Set 12-bit (4:2:0) output format */
+			reg_w_mask(ov, 0x28, 0x80, 0xf0);
+			reg_w_mask(ov, 0x38, 0x80, 0xf0);
+		}
+	} else {
+		reg_w(ov, 0x28, (mode == VIDEO_PALETTE_GREY) ? 0x00:0x80);
+		reg_w(ov, 0x38, (mode == VIDEO_PALETTE_GREY) ? 0x00:0x80);
+	}
 
 	hsegs = width / 16;
 	vsegs = height / 4;
@@ -3146,7 +3234,7 @@ make_8x8(unsigned char *pIn, unsigned char *pOut, int w)
 }
 
 /*
- * For RAW BW (YUV400) images, data shows up in 256 byte segments.
+ * For RAW BW (YUV 4:0:0) images, data show up in 256 byte segments.
  * The segments represent 4 squares of 8x8 pixels as follows:
  *
  *      0  1 ...  7    64  65 ...  71   ...  192 193 ... 199
@@ -3177,7 +3265,7 @@ yuv400raw_to_yuv400p(struct ov511_frame *frame,
 }
 
 /*
- * For YUV4:2:0 images, the data shows up in 384 byte segments.
+ * For YUV 4:2:0 images, the data show up in 384 byte segments.
  * The first 64 bytes of each segment are U, the next 64 are V.  The U and
  * V are arranged as follows:
  *
@@ -3196,8 +3284,8 @@ yuv400raw_to_yuv400p(struct ov511_frame *frame,
  *           ...              ...                    ...
  *     56 57 ... 63   120 121 ... 127   ...  248 249 ... 255
  *
- * Note that the U and V data in one segment represents a 16 x 16 pixel
- * area, but the Y data represents a 32 x 8 pixel area. If the width is not an
+ * Note that the U and V data in one segment represent a 16 x 16 pixel
+ * area, but the Y data represent a 32 x 8 pixel area. If the width is not an
  * even multiple of 32, the extra 8x8 blocks within a 32x8 block belong to the
  * next horizontal stripe.
  *
@@ -3205,9 +3293,13 @@ yuv400raw_to_yuv400p(struct ov511_frame *frame,
  * verbatim, in order, into the frame. When used with vidcat -f ppm -s 640x480
  * this puts the data on the standard output and can be analyzed with the
  * parseppm.c utility I wrote.  That's a much faster way for figuring out how
- * this data is scrambled.
+ * these data are scrambled.
  */
 
+/* Converts from raw, uncompressed segments at pIn0 to a YUV420P frame at pOut0.
+ *
+ * FIXME: Currently only handles width and height that are multiples of 16
+ */
 static void
 yuv420raw_to_yuv420p(struct ov511_frame *frame,
 		     unsigned char *pIn0, unsigned char *pOut0)
@@ -3804,6 +3896,7 @@ ov511_move_data(struct usb_ov511 *ov, unsigned char *in, int n)
 		PDEBUG(4, "Frame start, framenum = %d", ov->curframe);
 
 		/* Check to see if it's a snapshot frame */
+		/* FIXME?? Should the snapshot reset go here? Performance? */
 		if (in[8] & 0x02) {
 			frame->snapshot = 1;
 			PDEBUG(3, "snapshot detected");
@@ -3970,6 +4063,14 @@ sof:
 	PDEBUG(4, "Starting capture on frame %d", frame->framenum);
 
 // Snapshot not reverse-engineered yet.
+#if 0
+	/* Check to see if it's a snapshot frame */
+	/* FIXME?? Should the snapshot reset go here? Performance? */
+	if (in[8] & 0x02) {
+		frame->snapshot = 1;
+		PDEBUG(3, "snapshot detected");
+	}
+#endif
 	frame->scanstate = STATE_LINES;
 	frame->bytes_recvd = 0;
 	frame->compressed = 1;
@@ -4101,7 +4202,10 @@ ov51x_isoc_irq(struct urb *urb)
 		}
 	}
 
+	/* Resubmit this URB */
 	urb->dev = ov->dev;
+	if ((i = usb_submit_urb(urb)) != 0)
+		err("usb_submit_urb() ret %d", i);
 
 	return;
 }
@@ -4173,6 +4277,7 @@ ov51x_init_isoc(struct usb_ov511 *ov)
 
 	for (n = 0; n < OV511_NUMSBUF; n++) {
 		urb = usb_alloc_urb(FRAMES_PER_DESC);
+
 		if (!urb) {
 			err("init isoc: usb_alloc_urb ret. NULL");
 			return -ENOMEM;
@@ -4186,6 +4291,7 @@ ov51x_init_isoc(struct usb_ov511 *ov)
 		urb->complete = ov51x_isoc_irq;
 		urb->number_of_packets = FRAMES_PER_DESC;
 		urb->transfer_buffer_length = ov->packet_size * FRAMES_PER_DESC;
+		urb->interval = 1;
 		for (fx = 0; fx < FRAMES_PER_DESC; fx++) {
 			urb->iso_frame_desc[fx].offset = ov->packet_size * fx;
 			urb->iso_frame_desc[fx].length = ov->packet_size;
@@ -4193,10 +4299,6 @@ ov51x_init_isoc(struct usb_ov511 *ov)
 	}
 
 	ov->streaming = 1;
-
-	ov->sbuf[OV511_NUMSBUF - 1].urb->next = ov->sbuf[0].urb;
-	for (n = 0; n < OV511_NUMSBUF - 1; n++)
-		ov->sbuf[n].urb->next = ov->sbuf[n+1].urb;
 
 	for (n = 0; n < OV511_NUMSBUF; n++) {
 		ov->sbuf[n].urb->dev = ov->dev;
@@ -4355,11 +4457,6 @@ ov51x_alloc(struct usb_ov511 *ov)
 	PDEBUG(4, "entered");
 	down(&ov->buf_lock);
 
-	if (ov->buf_state == BUF_PEND_DEALLOC) {
-		ov->buf_state = BUF_ALLOCATED;
-		del_timer(&ov->buf_timer);
-	}
-
 	if (ov->buf_state == BUF_ALLOCATED)
 		goto out;
 
@@ -4432,8 +4529,9 @@ ov51x_dealloc(struct usb_ov511 *ov, int now)
  ***************************************************************************/
 
 static int
-ov51x_v4l1_open(struct video_device *vdev, int flags)
+ov51x_v4l1_open(struct inode *inode, struct file *file)
 {
+	struct video_device *vdev = video_devdata(file);
 	struct usb_ov511 *ov = vdev->priv;
 	int err, i;
 
@@ -4477,6 +4575,7 @@ ov51x_v4l1_open(struct video_device *vdev, int flags)
 	}
 
 	ov->user++;
+	file->private_data = vdev;
 
 	if (ov->led_policy == LED_AUTO)
 		ov51x_led_control(ov, 1);
@@ -4486,9 +4585,10 @@ out:
 	return err;
 }
 
-static void
-ov51x_v4l1_close(struct video_device *vdev)
+static int
+ov51x_v4l1_close(struct inode *inode, struct file *file)
 {
+	struct video_device *vdev = file->private_data;
 	struct usb_ov511 *ov = vdev->priv;
 
 	PDEBUG(4, "ov511_close");
@@ -4517,19 +4617,22 @@ ov51x_v4l1_close(struct video_device *vdev)
 		up(&ov->cbuf_lock);
 
 		ov51x_dealloc(ov, 1);
-		video_unregister_device(&ov->vdev);
 		kfree(ov);
 		ov = NULL;
 	}
 
-	return;
+	file->private_data = NULL;
+	return 0;
 }
 
 /* Do not call this function directly! */
 static int
-ov51x_v4l1_ioctl_internal(struct usb_ov511 *ov, unsigned int cmd,
-			  void *arg)
+ov51x_v4l1_ioctl_internal(struct inode *inode, struct file *file,
+			  unsigned int cmd, void *arg)
 {
+	struct video_device *vdev = file->private_data;
+	struct usb_ov511 *ov = vdev->priv;
+
 	PDEBUG(5, "IOCtl: 0x%X", cmd);
 
 	if (!ov->dev)
@@ -4623,6 +4726,10 @@ ov51x_v4l1_ioctl_internal(struct usb_ov511 *ov, unsigned int cmd,
 		if (sensor_get_picture(ov, p))
 			return -EIO;
 
+		/* Can we get these from frame[0]? -claudio? */
+		p->depth = ov->frame[0].depth;
+		p->palette = ov->frame[0].format;
+
 		return 0;
 	}
 	case VIDIOCSPICT:
@@ -4713,6 +4820,16 @@ ov51x_v4l1_ioctl_internal(struct usb_ov511 *ov, unsigned int cmd,
 
 		PDEBUG(4, "VIDIOCSWIN: %dx%d", vw->width, vw->height);
 
+#if 0
+		if (vw->flags)
+			return -EINVAL;
+		if (vw->clipcount)
+			return -EINVAL;
+		if (vw->height != ov->maxheight)
+			return -EINVAL;
+		if (vw->width != ov->maxwidth)
+			return -EINVAL;
+#endif
 
 		/* If we're collecting previous frame wait
 		   before changing modes */
@@ -4736,7 +4853,7 @@ ov51x_v4l1_ioctl_internal(struct usb_ov511 *ov, unsigned int cmd,
 		struct video_window *vw = arg;
 
 		memset(vw, 0, sizeof(struct video_window));
-		vw->x = 0;		
+		vw->x = 0;		/* FIXME */
 		vw->y = 0;
 		vw->width = ov->frame[0].width;
 		vw->height = ov->frame[0].height;
@@ -4777,8 +4894,8 @@ ov51x_v4l1_ioctl_internal(struct usb_ov511 *ov, unsigned int cmd,
 
 		depth = get_depth(vm->format);
 		if (!depth) {
-			err("VIDIOCMCAPTURE: invalid format (%s)",
-			    symbolic(v4l1_plist, vm->format));
+			PDEBUG(2, "VIDIOCMCAPTURE: invalid format (%s)",
+			       symbolic(v4l1_plist, vm->format));
 			return -EINVAL;
 		}
 
@@ -4799,8 +4916,8 @@ ov51x_v4l1_ioctl_internal(struct usb_ov511 *ov, unsigned int cmd,
 		}
 
 		if (force_palette && (vm->format != force_palette)) {
-			info("palette rejected (%s)",
-			     symbolic(v4l1_plist, vm->format));
+			PDEBUG(2, "palette rejected (%s)",
+			       symbolic(v4l1_plist, vm->format));
 			return -EINVAL;
 		}
 
@@ -4817,6 +4934,12 @@ ov51x_v4l1_ioctl_internal(struct usb_ov511 *ov, unsigned int cmd,
 			if (signal_pending(current)) return -EINTR;
 			ret = mode_init_regs(ov, vm->width, vm->height,
 				vm->format, ov->sub_flag);
+#if 0
+			if (ret < 0) {
+				PDEBUG(1, "Got error while initializing regs ");
+				return ret;
+			}
+#endif
 			ov->frame[f].width = vm->width;
 			ov->frame[f].height = vm->height;
 			ov->frame[f].format = vm->format;
@@ -4883,6 +5006,7 @@ redo:
 			frame->grabstate = FRAME_UNUSED;
 
 			/* Reset the hardware snapshot button */
+			/* FIXME - Is this the best place for this? */
 			if ((ov->snap_enabled) && (frame->snapshot)) {
 				frame->snapshot = 0;
 				ov51x_clear_snapshot(ov);
@@ -4922,6 +5046,24 @@ redo:
 
 		return 0;
 	}
+	case OV511IOC_WI2C:
+	{
+		struct ov511_i2c_struct *w = arg;
+
+		return i2c_w_slave(ov, w->slave, w->reg, w->value, w->mask);
+	}
+	case OV511IOC_RI2C:
+	{
+		struct ov511_i2c_struct *r = arg;
+		int rc;
+
+		rc = i2c_r_slave(ov, r->slave, r->reg);
+		if (rc < 0)
+			return rc;
+
+		r->value = rc;
+		return 0;
+	}
 	default:
 		PDEBUG(3, "Unsupported IOCtl: 0x%X", cmd);
 		return -ENOIOCTLCMD;
@@ -4930,80 +5072,29 @@ redo:
 	return 0;
 }
 
-/* This is implemented as video_generic_ioctl() in the new V4L's videodev.c */
 static int
-ov51x_v4l1_generic_ioctl(struct video_device *vdev, unsigned int cmd, void *arg)
+ov51x_v4l1_ioctl(struct inode *inode, struct file *file,
+		 unsigned int cmd, unsigned long arg)
 {
-	char	sbuf[128];
-	void    *mbuf = NULL;
-	void	*parg = NULL;
-	int	err  = -EINVAL;
-
-	/*  Copy arguments into temp kernel buffer  */
-	switch (_IOC_DIR(cmd)) {
-	case _IOC_NONE:
-		parg = arg;
-		break;
-	case _IOC_READ: /* some v4l ioctls are marked wrong ... */
-	case _IOC_WRITE:
-	case (_IOC_WRITE | _IOC_READ):
-		if (_IOC_SIZE(cmd) <= sizeof(sbuf)) {
-			parg = sbuf;
-		} else {
-			/* too big to allocate from stack */
-			mbuf = kmalloc(_IOC_SIZE(cmd), GFP_KERNEL);
-			if (NULL == mbuf)
-				return -ENOMEM;
-			parg = mbuf;
-		}
-
-		err = -EFAULT;
-		if (copy_from_user(parg, arg, _IOC_SIZE(cmd)))
-			goto out;
-		break;
-	}
-
-	err = ov51x_v4l1_ioctl_internal(vdev->priv, cmd, parg);
-	if (err == -ENOIOCTLCMD)
-		err = -EINVAL;
-	if (err < 0)
-		goto out;
-
-	/*  Copy results into user buffer  */
-	switch (_IOC_DIR(cmd))
-	{
-	case _IOC_READ:
-	case (_IOC_WRITE | _IOC_READ):
-		if (copy_to_user(arg, parg, _IOC_SIZE(cmd)))
-			err = -EFAULT;
-		break;
-	}
-
-out:
-	if (mbuf)
-		kfree(mbuf);
-	return err;
-}
-
-static int
-ov51x_v4l1_ioctl(struct video_device *vdev, unsigned int cmd, void *arg)
-{
+	struct video_device *vdev = file->private_data;
 	struct usb_ov511 *ov = vdev->priv;
 	int rc;
 
 	if (down_interruptible(&ov->lock))
 		return -EINTR;
 
-	rc = ov51x_v4l1_generic_ioctl(vdev, cmd, arg);
+	rc = video_usercopy(inode, file, cmd, arg, ov51x_v4l1_ioctl_internal);
 
 	up(&ov->lock);
 	return rc;
 }
 
-static inline long
-ov51x_v4l1_read(struct video_device *vdev, char *buf, unsigned long count,
-		int noblock)
+static int
+ov51x_v4l1_read(struct file *file, char *buf, size_t cnt, loff_t *ppos)
 {
+	struct video_device *vdev = file->private_data;
+	int noblock = file->f_flags&O_NONBLOCK;
+	unsigned long count = cnt;
 	struct usb_ov511 *ov = vdev->priv;
 	int i, rc = 0, frmx = -1;
 	struct ov511_frame *frame;
@@ -5114,6 +5205,7 @@ restart:
 //	    > get_frame_length((struct ov511_frame *)frame))
 //		count = frame->scanlength - frame->bytes_read;
 
+	/* FIXME - count hardwired to be one frame... */
 	count = get_frame_length(frame);
 
 	PDEBUG(4, "Copy to user space: %ld bytes", count);
@@ -5127,7 +5219,7 @@ restart:
 	PDEBUG(4, "{copy} count used=%ld, new bytes_read=%ld",
 		count, frame->bytes_read);
 
-	/* If all data has been read... */
+	/* If all data have been read... */
 	if (frame->bytes_read
 	    >= get_frame_length(frame)) {
 		frame->bytes_read = 0;
@@ -5152,9 +5244,11 @@ error:
 }
 
 static int
-ov51x_v4l1_mmap(struct video_device *vdev, const char *adr, unsigned long size)
+ov51x_v4l1_mmap(struct file *file, struct vm_area_struct *vma)
 {
-	unsigned long start = (unsigned long)adr;
+	struct video_device *vdev = file->private_data;
+	unsigned long start = vma->vm_start;
+	unsigned long size  = vma->vm_end - vma->vm_start;
 	struct usb_ov511 *ov = vdev->priv;
 	unsigned long page, pos;
 
@@ -5190,16 +5284,22 @@ ov51x_v4l1_mmap(struct video_device *vdev, const char *adr, unsigned long size)
 	return 0;
 }
 
+static struct file_operations ov511_fops = {
+	.owner =	THIS_MODULE,
+	.open =		ov51x_v4l1_open,
+	.release =	ov51x_v4l1_close,
+	.read =		ov51x_v4l1_read,
+	.mmap =		ov51x_v4l1_mmap,
+	.ioctl =	ov51x_v4l1_ioctl,
+	.llseek =	no_llseek,
+};
+
 static struct video_device vdev_template = {
-	owner:		THIS_MODULE,
-	name:		"OV511 USB Camera",
-	type:		VID_TYPE_CAPTURE,
-	hardware:	VID_HARDWARE_OV511,
-	open:		ov51x_v4l1_open,
-	close:		ov51x_v4l1_close,
-	read:		ov51x_v4l1_read,
-	ioctl:		ov51x_v4l1_ioctl,
-	mmap:		ov51x_v4l1_mmap,
+	.owner =	THIS_MODULE,
+	.name =		"OV511 USB Camera",
+	.type =		VID_TYPE_CAPTURE,
+	.hardware =	VID_HARDWARE_OV511,
+	.fops =		&ov511_fops,
 };
 
 #if defined(CONFIG_PROC_FS) && defined(CONFIG_VIDEO_PROC_FS)
@@ -5389,8 +5489,7 @@ ov51x_control_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
 		if (copy_from_user(&w, arg, sizeof(w)))
 			return -EFAULT;
 
-		return i2c_w_slave(ov, w.slave, w.reg, w.value,
-			w.mask);
+		return i2c_w_slave(ov, w.slave, w.reg, w.value,	w.mask);
 	}
 	case OV511IOC_RI2C:
 	{
@@ -5596,19 +5695,16 @@ ov7xx0_configure(struct usb_ov511 *ov)
 		ov->sensor = SEN_OV7610;
 	} else if ((rc & 3) == 1) {
 		/* I don't know what's different about the 76BE yet. */
-		if (i2c_r(ov, 0x15) & 1) {
+		if (i2c_r(ov, 0x15) & 1)
 			info("Sensor is an OV7620AE");
-			info("PLEASE REPORT THE EXISTENCE OF THIS SENSOR TO");
-			info("THE DRIVER AUTHOR");
-		} else {
+		else
 			info("Sensor is an OV76BE");
-		}
 
 		/* OV511+ will return all zero isoc data unless we
 		 * configure the sensor as a 7620. Someone needs to
 		 * find the exact reg. setting that causes this. */
 		if (ov->bridge == BRG_OV511PLUS) {
-			info("Enabling 511+/76BE workaround");
+			info("Enabling 511+/7620AE workaround");
 			ov->sensor = SEN_OV7620;
 		} else {
 			ov->sensor = SEN_OV76BE;
@@ -5693,86 +5789,61 @@ ov6xx0_configure(struct usb_ov511 *ov)
 		{ OV511_I2C_BUS, 0x4f, 0x04 },
 // Do 50-53 have any effect?
 // Toggle 0x12[2] off and on here?
-		{ OV511_DONE_BUS, 0x0, 0x00 },
+		{ OV511_DONE_BUS, 0x0, 0x00 },	/* END MARKER */
 	};
 
-	/* This chip is undocumented so many of these are guesses. OK=verified,
-	 * A=Added since 6620, U=unknown function (not a 6620 reg) */
 	static struct ov511_regvals aRegvalsNorm6x30[] = {
-	/*OK*/	{ OV511_I2C_BUS, 0x12, 0x80 }, /* reset */
-	/*00?*/	{ OV511_I2C_BUS, 0x11, 0x01 },
-	/*OK*/	{ OV511_I2C_BUS, 0x03, 0x60 },
-	/*0A?*/	{ OV511_I2C_BUS, 0x05, 0x7f }, /* For when autoadjust is off */
+		{ OV511_I2C_BUS, 0x12, 0x80 }, /* reset */
+		{ OV511_I2C_BUS, 0x11, 0x00 },
+		{ OV511_I2C_BUS, 0x03, 0x60 },
+		{ OV511_I2C_BUS, 0x05, 0x7f }, /* For when autoadjust is off */
 		{ OV511_I2C_BUS, 0x07, 0xa8 },
 		/* The ratio of 0x0c and 0x0d  controls the white point */
-	/*OK*/	{ OV511_I2C_BUS, 0x0c, 0x24 },
-	/*OK*/	{ OV511_I2C_BUS, 0x0d, 0x24 },
-	/*A*/	{ OV511_I2C_BUS, 0x0e, 0x20 },
-
-//	/*24?*/	{ OV511_I2C_BUS, 0x12, 0x28 }, /* Enable AGC */
-//		{ OV511_I2C_BUS, 0x12, 0x24 }, /* Enable AGC */
-
-//	/*A*/	{ OV511_I2C_BUS, 0x13, 0x21 },
-//	/*A*/	{ OV511_I2C_BUS, 0x13, 0x25 }, /* Tristate Y and UV busses */
-
-//	/*04?*/	{ OV511_I2C_BUS, 0x14, 0x80 },
-		/* 0x16: 0x06 helps frame stability with moving objects */
-	/*03?*/	{ OV511_I2C_BUS, 0x16, 0x06 },
-//	/*OK*/	{ OV511_I2C_BUS, 0x20, 0x30 }, /* Aperture correction enable */
+		{ OV511_I2C_BUS, 0x0c, 0x24 },
+		{ OV511_I2C_BUS, 0x0d, 0x24 },
+		{ OV511_I2C_BUS, 0x0e, 0x20 },
+//		{ OV511_I2C_BUS, 0x14, 0x80 },
+		{ OV511_I2C_BUS, 0x16, 0x03 },
+//		{ OV511_I2C_BUS, 0x20, 0x30 }, /* Aperture correction enable */
 		// 21 & 22? The suggested values look wrong. Go with default
-	/*A*/	{ OV511_I2C_BUS, 0x23, 0xc0 },
-	/*A*/	{ OV511_I2C_BUS, 0x25, 0x9a }, // Check this against default
-//	/*OK*/	{ OV511_I2C_BUS, 0x26, 0xb2 }, /* BLC enable */
+		{ OV511_I2C_BUS, 0x23, 0xc0 },
+		{ OV511_I2C_BUS, 0x25, 0x9a }, // Check this against default
+//		{ OV511_I2C_BUS, 0x26, 0xb2 }, /* BLC enable */
 
 		/* 0x28: 0x05 Selects RGB format if RGB on */
-//	/*04?*/	{ OV511_I2C_BUS, 0x28, 0x05 },
-//	/*04?*/	{ OV511_I2C_BUS, 0x28, 0x45 }, // DEBUG: Tristate UV bus
+//		{ OV511_I2C_BUS, 0x28, 0x05 },
+//		{ OV511_I2C_BUS, 0x28, 0x45 }, // DEBUG: Tristate UV bus
 
-	/*OK*/	{ OV511_I2C_BUS, 0x2a, 0x04 }, /* Disable framerate adjust */
-//	/*OK*/	{ OV511_I2C_BUS, 0x2b, 0xac }, /* Framerate; Set 2a[7] first */
-//	/*U*/	{ OV511_I2C_BUS, 0x2c, 0xa0 },
+		{ OV511_I2C_BUS, 0x2a, 0x04 }, /* Disable framerate adjust */
+//		{ OV511_I2C_BUS, 0x2b, 0xac }, /* Framerate; Set 2a[7] first */
 		{ OV511_I2C_BUS, 0x2d, 0x99 },
-//	/*A*/	{ OV511_I2C_BUS, 0x33, 0x26 }, // Reserved bits on 6620
-//	/*d2?*/	{ OV511_I2C_BUS, 0x34, 0x03 }, /* Max A/D range */
-//	/*U*/	{ OV511_I2C_BUS, 0x36, 0x8f }, // May not be necessary
-//	/*U*/	{ OV511_I2C_BUS, 0x37, 0x80 }, // May not be necessary
-//	/*8b?*/	{ OV511_I2C_BUS, 0x38, 0x83 },
-//	/*40?*/	{ OV511_I2C_BUS, 0x39, 0xc0 }, // 6630 adds bit 7
+//		{ OV511_I2C_BUS, 0x33, 0x26 }, // Reserved bits on 6620
+//		{ OV511_I2C_BUS, 0x34, 0x03 }, /* Max A/D range */
+//		{ OV511_I2C_BUS, 0x38, 0x83 },
+//		{ OV511_I2C_BUS, 0x39, 0xc0 }, // 6630 adds bit 7
 //		{ OV511_I2C_BUS, 0x3c, 0x39 }, /* Enable AEC mode changing */
 //		{ OV511_I2C_BUS, 0x3c, 0x3c }, /* Change AEC mode */
 //		{ OV511_I2C_BUS, 0x3c, 0x24 }, /* Disable AEC mode changing */
-	/*OK*/	{ OV511_I2C_BUS, 0x3d, 0x80 },
-//	/*A*/	{ OV511_I2C_BUS, 0x3f, 0x0e },
-//	/*U*/	{ OV511_I2C_BUS, 0x40, 0x00 },
-//	/*U*/	{ OV511_I2C_BUS, 0x41, 0x00 },
-//	/*U*/	{ OV511_I2C_BUS, 0x42, 0x80 },
-//	/*U*/	{ OV511_I2C_BUS, 0x43, 0x3f },
-//	/*U*/	{ OV511_I2C_BUS, 0x44, 0x80 },
-//	/*U*/	{ OV511_I2C_BUS, 0x45, 0x20 },
-//	/*U*/	{ OV511_I2C_BUS, 0x46, 0x20 },
-//	/*U*/	{ OV511_I2C_BUS, 0x47, 0x80 },
-//	/*U*/	{ OV511_I2C_BUS, 0x48, 0x7f },
-//	/*U*/	{ OV511_I2C_BUS, 0x49, 0x00 },
+		{ OV511_I2C_BUS, 0x3d, 0x80 },
+//		{ OV511_I2C_BUS, 0x3f, 0x0e },
 
 		/* These next two registers (0x4a, 0x4b) are undocumented. They
 		 * control the color balance */
-//	/*OK?*/	{ OV511_I2C_BUS, 0x4a, 0x80 }, // Check these
-//	/*OK?*/	{ OV511_I2C_BUS, 0x4b, 0x80 },
-//	/*U*/	{ OV511_I2C_BUS, 0x4c, 0xd0 },
-	/*d2?*/	{ OV511_I2C_BUS, 0x4d, 0x10 }, /* This reduces noise a bit */
-	/*c1?*/	{ OV511_I2C_BUS, 0x4e, 0x40 },
-	/*04?*/	{ OV511_I2C_BUS, 0x4f, 0x07 },
-//	/*U*/	{ OV511_I2C_BUS, 0x50, 0xff },
-	/*U*/	{ OV511_I2C_BUS, 0x54, 0x23 },
-//	/*U*/	{ OV511_I2C_BUS, 0x55, 0xff },
-//	/*U*/	{ OV511_I2C_BUS, 0x56, 0x12 },
-	/*U*/	{ OV511_I2C_BUS, 0x57, 0x81 },
-//	/*U*/	{ OV511_I2C_BUS, 0x58, 0x75 },
-	/*U*/	{ OV511_I2C_BUS, 0x59, 0x01 },
-	/*U*/	{ OV511_I2C_BUS, 0x5a, 0x2c },
-	/*U*/	{ OV511_I2C_BUS, 0x5b, 0x0f },
-//	/*U*/	{ OV511_I2C_BUS, 0x5c, 0x10 },
-		{ OV511_DONE_BUS, 0x0, 0x00 },
+//		{ OV511_I2C_BUS, 0x4a, 0x80 }, // Check these
+//		{ OV511_I2C_BUS, 0x4b, 0x80 },
+		{ OV511_I2C_BUS, 0x4d, 0x10 }, /* U = 0.563u, V = 0.714v */
+		{ OV511_I2C_BUS, 0x4e, 0x40 },
+
+		/* UV average mode, color killer: strongest */
+		{ OV511_I2C_BUS, 0x4f, 0x07 },
+
+		{ OV511_I2C_BUS, 0x54, 0x23 }, /* Max AGC gain: 18dB */
+		{ OV511_I2C_BUS, 0x57, 0x81 }, /* (default) */
+		{ OV511_I2C_BUS, 0x59, 0x01 }, /* AGC dark current comp: +1 */
+		{ OV511_I2C_BUS, 0x5a, 0x2c }, /* (undocumented) */
+		{ OV511_I2C_BUS, 0x5b, 0x0f }, /* AWB chrominance levels */
+//		{ OV511_I2C_BUS, 0x5c, 0x10 },
+		{ OV511_DONE_BUS, 0x0, 0x00 },	/* END MARKER */
 	};
 
 	PDEBUG(4, "starting sensor configuration");
@@ -5793,16 +5864,19 @@ ov6xx0_configure(struct usb_ov511 *ov)
 		return -1;
 	}
 
-	if ((rc & 3) == 0)
+	if ((rc & 3) == 0) {
 		ov->sensor = SEN_OV6630;
-	else if ((rc & 3) == 1)
+		info("Sensor is an OV6630");
+	} else if ((rc & 3) == 1) {
 		ov->sensor = SEN_OV6620;
-	else if ((rc & 3) == 2)
+		info("Sensor is an OV6620");
+	} else if ((rc & 3) == 2) {
 		ov->sensor = SEN_OV6630;
-	else if ((rc & 3) == 3)
+		info("Sensor is an OV6630AE");
+	} else if ((rc & 3) == 3) {
 		ov->sensor = SEN_OV6630;
-
-	info("Sensor is an %s", symbolic(senlist, ov->sensor));
+		info("Sensor is an OV6630AF");
+	}
 
 	/* Set sensor-specific vars */
 	ov->maxwidth = 352;
@@ -5836,6 +5910,14 @@ ks0127_configure(struct usb_ov511 *ov)
 	int rc;
 
 // FIXME: I don't know how to sync or reset it yet
+#if 0
+	if (ov51x_init_ks_sensor(ov) < 0) {
+		err("Failed to initialize the KS0127");
+		return -1;
+	} else {
+		PDEBUG(1, "KS012x(B) sensor detected");
+	}
+#endif
 
 	/* Detect decoder subtype */
 	rc = i2c_r(ov, 0x00);
@@ -5915,6 +5997,14 @@ saa7111a_configure(struct usb_ov511 *ov)
 	};
 
 // FIXME: I don't know how to sync or reset it yet
+#if 0
+	if (ov51x_init_saa_sensor(ov) < 0) {
+		err("Failed to initialize the SAA7111A");
+		return -1;
+	} else {
+		PDEBUG(1, "SAA7111A sensor detected");
+	}
+#endif
 
 	/* 640x480 not supported with PAL */
 	if (ov->pal) {
@@ -5984,9 +6074,9 @@ ov511_configure(struct usb_ov511 *ov)
 
 	static struct ov511_regvals aRegvalsNorm511[] = {
 		{ OV511_REG_BUS, R511_DRAM_FLOW_CTL, 	0x01 },
-		{ OV511_REG_BUS, R51x_SYS_SNAP,		0x01 },
-		{ OV511_REG_BUS, R51x_SYS_SNAP,		0x03 },
-		{ OV511_REG_BUS, R51x_SYS_SNAP,		0x01 },
+		{ OV511_REG_BUS, R51x_SYS_SNAP,		0x00 },
+		{ OV511_REG_BUS, R51x_SYS_SNAP,		0x02 },
+		{ OV511_REG_BUS, R51x_SYS_SNAP,		0x00 },
 		{ OV511_REG_BUS, R511_FIFO_OPTS,	0x1f },
 		{ OV511_REG_BUS, R511_COMP_EN,		0x00 },
 		{ OV511_REG_BUS, R511_COMP_LUT_EN,	0x03 },
@@ -5995,9 +6085,9 @@ ov511_configure(struct usb_ov511 *ov)
 
 	static struct ov511_regvals aRegvalsNorm511Plus[] = {
 		{ OV511_REG_BUS, R511_DRAM_FLOW_CTL,	0xff },
-		{ OV511_REG_BUS, R51x_SYS_SNAP,		0x01 },
-		{ OV511_REG_BUS, R51x_SYS_SNAP,		0x03 },
-		{ OV511_REG_BUS, R51x_SYS_SNAP,		0x01 },
+		{ OV511_REG_BUS, R51x_SYS_SNAP,		0x00 },
+		{ OV511_REG_BUS, R51x_SYS_SNAP,		0x02 },
+		{ OV511_REG_BUS, R51x_SYS_SNAP,		0x00 },
 		{ OV511_REG_BUS, R511_FIFO_OPTS,	0xff },
 		{ OV511_REG_BUS, R511_COMP_EN,		0x00 },
 		{ OV511_REG_BUS, R511_COMP_LUT_EN,	0x03 },
@@ -6146,7 +6236,7 @@ ov518_configure(struct usb_ov511 *ov)
 		{ OV511_REG_BUS, 0x5d,			0x03 },
 		{ OV511_REG_BUS, 0x24,			0x9f },
 		{ OV511_REG_BUS, 0x25,			0x90 },
-		{ OV511_REG_BUS, 0x20,			0x00 }, /* Was 0x08 */
+		{ OV511_REG_BUS, 0x20,			0x00 },
 		{ OV511_REG_BUS, 0x51,			0x04 },
 		{ OV511_REG_BUS, 0x71,			0x19 },
 		{ OV511_DONE_BUS, 0x0, 0x00 },
@@ -6159,7 +6249,7 @@ ov518_configure(struct usb_ov511 *ov)
 		{ OV511_REG_BUS, 0x5d,			0x03 },
 		{ OV511_REG_BUS, 0x24,			0x9f },
 		{ OV511_REG_BUS, 0x25,			0x90 },
-		{ OV511_REG_BUS, 0x20,			0x60 }, /* Was 0x08 */
+		{ OV511_REG_BUS, 0x20,			0x60 },
 		{ OV511_REG_BUS, 0x51,			0x02 },
 		{ OV511_REG_BUS, 0x71,			0x19 },
 		{ OV511_REG_BUS, 0x40,			0xff },
@@ -6209,11 +6299,20 @@ ov518_configure(struct usb_ov511 *ov)
 
 	if (ov518_init_compression(ov)) goto error;
 
-	/* OV518+ has packet numbering turned on by default */
 	if (ov->bridge == BRG_OV518)
-		ov->packet_numbering = 0;
-	else
+	{
+		struct usb_interface *ifp = &ov->dev->config[0].interface[0];
+		__u16 mxps = ifp->altsetting[7].endpoint[0].wMaxPacketSize;
+
+		/* Some OV518s have packet numbering by default, some don't */
+		if (mxps == 897)
+			ov->packet_numbering = 1;
+		else
+			ov->packet_numbering = 0;
+	} else {
+		/* OV518+ has packet numbering turned on by default */
 		ov->packet_numbering = 1;
+	}
 
 	ov518_set_packet_size(ov, 0);
 
@@ -6358,6 +6457,8 @@ ov51x_probe(struct usb_device *dev, unsigned int ifnum,
 
 	info("USB %s video device found", symbolic(brglist, ov->bridge));
 
+	/* Workaround for some applications that want data in RGB
+	 * instead of BGR. */
 	if (force_rgb)
 		info("data format set to RGB");
 
@@ -6371,7 +6472,13 @@ ov51x_probe(struct usb_device *dev, unsigned int ifnum,
 
 	ov->buf_state = BUF_NOT_ALLOCATED;
 
-	/* Must be kmalloc()'ed, for DMA accessibility */
+	if (usb_make_path(dev, ov->usb_path, OV511_USB_PATH_LEN) < 0) {
+		err("usb_make_path error");
+		goto error_dealloc;
+	}
+
+	/* Allocate control transfer buffer. */
+	/* Must be kmalloc()'ed, for DMA compatibility */
 	ov->cbuf = kmalloc(OV511_CBUF_SIZE, GFP_KERNEL);
 	if (!ov->cbuf)
 		goto error;
@@ -6401,8 +6508,12 @@ ov51x_probe(struct usb_device *dev, unsigned int ifnum,
 		goto error;
 
 #ifdef OV511_DEBUG
-	if (dump_bridge)
-		ov511_dump_regs(ov);
+	if (dump_bridge) {
+		if (ov->bclass == BCL_OV511)
+			ov511_dump_regs(ov);
+		else
+			ov518_dump_regs(ov);
+	}
 #endif
 
 	memcpy(&ov->vdev, &vdev_template, sizeof(vdev_template));
@@ -6427,7 +6538,8 @@ ov51x_probe(struct usb_device *dev, unsigned int ifnum,
 		goto error;
 	}
 
-	info("Device registered on minor %d", ov->vdev.minor);
+	info("Device at %s registered to minor %d", ov->usb_path,
+	     ov->vdev.minor);
 
 #if defined(CONFIG_PROC_FS) && defined(CONFIG_VIDEO_PROC_FS)
 	create_proc_ov511_cam(ov);
@@ -6472,10 +6584,8 @@ ov51x_disconnect(struct usb_device *dev, void *ptr)
 
 	PDEBUG(3, "");
 
-	/* We don't want people trying to open up the device */
-	if (!ov->user)
-		video_unregister_device(&ov->vdev);
-	else
+	video_unregister_device(&ov->vdev);
+	if (ov->user)
 		PDEBUG(3, "Device open...deferring video_unregister_device");
 
 	for (n = 0; n < OV511_NUMFRAMES; n++)
@@ -6513,13 +6623,15 @@ ov51x_disconnect(struct usb_device *dev, void *ptr)
 	}
 
 	MOD_DEC_USE_COUNT;
+
+	PDEBUG(3, "Disconnect complete");
 }
 
 static struct usb_driver ov511_driver = {
-	name:		"ov511",
-	id_table:       device_table,
-	probe:		ov51x_probe,
-	disconnect:	ov51x_disconnect
+	.name =		"ov511",
+	.id_table =	device_table,
+	.probe =	ov51x_probe,
+	.disconnect =	ov51x_disconnect
 };
 
 
@@ -6619,7 +6731,7 @@ usb_ov511_init(void)
 	if (usb_register(&ov511_driver) < 0)
 		return -1;
 
-#if defined(__i386__)
+#if defined (__i386__)
 	if (test_bit(X86_FEATURE_MMX, boot_cpu_data.x86_capability))
 		ov51x_mmx_available = 1;
 #endif

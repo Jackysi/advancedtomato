@@ -735,7 +735,7 @@ local uInt border[] = { /* Order of the bit length code lengths */
       end-of-block.  Note however that the static length tree defines
       288 codes just to fill out the Huffman codes.  Codes 286 and 287
       cannot be used though, since there is no length base or extra bits
-      defined for them.  Similarily, there are up to 30 distance codes.
+      defined for them.  Similarly, there are up to 30 distance codes.
       However, static trees define 32 codes (all 5 bits) to fill out the
       Huffman codes, but the last two had better not show up in the data.
    7. Unzip can check dynamic Huffman blocks for complete code sets.
@@ -1338,6 +1338,7 @@ z_stream *zs;           /* for zalloc function */
     if ((j = *p++) != 0)
       v[x[j]++] = i;
   } while (++i < n);
+  n = x[g];			/* set n to length of v */
 
 
   /* Generate the Huffman codes and for each, make the table entries */
@@ -1813,7 +1814,7 @@ int r;
       Tracevv((stderr, "inflate:         distance %u\n", c->sub.copy.dist));
       c->mode = COPY;
     case COPY:          /* o: copying bytes in window, waiting for space */
-#ifndef __TURBOC__     /* Turbo C bug for following expression */
+#ifndef __TURBOC__ /* Turbo C bug for following expression */
       f = (uInt)(q - s->window) < c->sub.copy.dist ?
           s->end - (c->sub.copy.dist - (q - s->window)) :
           q - c->sub.copy.dist;

@@ -946,7 +946,6 @@ ipv4_connect(struct sockaddr_in *psin_server, struct socket **csocket,
 		/* BB other socket options to set KEEPALIVE, NODELAY? */
 			cFYI(1,("Socket created"));
 			(*csocket)->sk->allocation = GFP_NOFS; 
-			(*csocket)->sk->keepopen = 1; 	// test	jz			
 		}
 	}
 

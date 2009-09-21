@@ -394,10 +394,10 @@ z_decompress(arg, ibuf, isize, obuf, osize)
 
 	/* Check the sequence number. */
 	seq = (ibuf[PPP_HDRLEN] << 8) + ibuf[PPP_HDRLEN+1];
-	if (seq != state->seqno) {
+	if (seq != (state->seqno & 0xffff)) {
 		if (state->debug)
 			printk(KERN_DEBUG "z_decompress%d: bad seq # %d, expected %d\n",
-			       state->unit, seq, state->seqno);
+			       state->unit, seq, state->seqno & 0xffff);
 		return DECOMP_ERROR;
 	}
 	++state->seqno;

@@ -1,4 +1,18 @@
-
+/*
+ * linux/fs/hfs/bins_del.c
+ *
+ * Copyright (C) 1995-1997  Paul H. Hargrove
+ * This file may be distributed under the terms of the GNU General Public License.
+ *
+ * This file contains the code common to inserting and deleting records
+ * in a B-tree.
+ *
+ * "XXX" in a comment is a note to myself to consider changing something.
+ *
+ * In function preconditions the term "valid" applied to a pointer to
+ * a structure means that the pointer is non-NULL and the structure it
+ * points to has all fields initialized to consistent values.
+ */
 
 #include "hfs_btree.h"
 

@@ -170,6 +170,22 @@ static rwlock_t wanpipe_sklist_lock = RW_LOCK_UNLOCKED;
 atomic_t wanpipe_socks_nr;
 static unsigned long wanpipe_tx_critical=0;
 
+#if 0
+/* Private wanpipe socket structures. */
+struct wanpipe_opt
+{
+	void   *mbox;		/* Mail box  */
+	void   *card; 		/* Card bouded to */
+	netdevice_t *dev;	/* Bounded device */
+	unsigned short lcn;	/* Binded LCN */
+	unsigned char  svc;	/* 0=pvc, 1=svc */
+	unsigned char  timer;   /* flag for delayed transmit*/	
+	struct timer_list tx_timer;
+	unsigned poll_cnt;
+	unsigned char force;	/* Used to force sock release */
+	atomic_t packet_sent;   
+};
+#endif
 
 static int sk_count=0;
 extern struct proto_ops wanpipe_ops;
@@ -1382,6 +1398,7 @@ static int wanpipe_do_bind(struct sock *sk, netdevice_t *dev, int protocol)
 		err = -ENODEV;
 	}
 bind_unlock_exit:
+	/* FIXME where is this lock */
 
 	return err;
 }
@@ -1771,6 +1788,17 @@ static int wanpipe_getname(struct socket *sock, struct sockaddr *uaddr,
 	return 0;
 }
 
+/*============================================================
+ *  wanpipe_notifier
+ *	
+ *	If driver turns off network interface, this function
+ *      will be envoked. Currently I treate it as a 
+ *      call disconnect. More thought should go into this
+ *      function.
+ *
+ * FIXME: More thought should go into this function.
+ *
+ *===========================================================*/
 
 static int wanpipe_notifier(struct notifier_block *this, unsigned long msg, void *data)
 {
@@ -1816,6 +1844,14 @@ static int wanpipe_notifier(struct notifier_block *this, unsigned long msg, void
 	return NOTIFY_DONE;
 }
 
+/*============================================================
+ *  wanpipe_ioctl
+ *	
+ * 	Execute a user commands, and set socket options.
+ *
+ * FIXME: More thought should go into this function.
+ *
+ *===========================================================*/
 
 static int wanpipe_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg)
 {
@@ -1950,6 +1986,15 @@ static int wanpipe_ioctl(struct socket *sock, unsigned int cmd, unsigned long ar
 	/*NOTREACHED*/
 }
 
+/*============================================================
+ *  wanpipe_debug
+ *	
+ *	This function will pass up information about all
+ *      active sockets.
+ *
+ * FIXME: More thought should go into this function.
+ *
+ *===========================================================*/
 
 static int wanpipe_debug (struct sock *origsk, void *arg)
 {

@@ -46,6 +46,26 @@
 int fbmon_valid_timings(u_int pixclock, u_int htotal, u_int vtotal,
                         const struct fb_info *fb_info)
 {
+#if 0
+  /*
+   * long long divisions .... $#%%#$
+   */
+    unsigned long long hpicos, vpicos;
+    const unsigned long long _1e12 = 1000000000000ULL;
+    const struct fb_monspecs *monspecs = &fb_info->monspecs;
+
+    hpicos = (unsigned long long)htotal*(unsigned long long)pixclock;
+    vpicos = (unsigned long long)vtotal*(unsigned long long)hpicos;
+    if (!vpicos)
+      return 0;
+    
+    if (monspecs->hfmin == 0)
+      return 1;
+    
+    if (hpicos*monspecs->hfmin > _1e12 || hpicos*monspecs->hfmax < _1e12 ||
+        vpicos*monspecs->vfmin > _1e12 || vpicos*monspecs->vfmax < _1e12)
+      return 0;
+#endif
     return 1;
 }
 

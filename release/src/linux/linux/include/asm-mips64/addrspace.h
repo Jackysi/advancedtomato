@@ -82,8 +82,10 @@
 #define CKSSEG			0xffffffffc0000000
 #define CKSEG3			0xffffffffe0000000
 
-#if defined(CONFIG_CPU_R4300)						\
+#if defined (CONFIG_CPU_R4300)						\
     || defined (CONFIG_CPU_R4X00)					\
+    || defined (CONFIG_CPU_RM7000)					\
+    || defined (CONFIG_CPU_RM9000)					\
     || defined (CONFIG_CPU_R5000)					\
     || defined (CONFIG_CPU_NEVADA)					\
     || defined (CONFIG_CPU_MIPS64)
@@ -96,7 +98,7 @@
 #define TO_PHYS_MASK		0x0000000fffffffff	/* 2^^36 - 1 */
 #endif
 
-#if defined(CONFIG_CPU_R8000)
+#if defined (CONFIG_CPU_R8000)
 /* We keep KUSIZE consistent with R4000 for now (2^^40) instead of (2^^48) */
 #define	KUSIZE			0x0000010000000000	/* 2^^40 */
 #define	KUSIZE_64		0x0000010000000000	/* 2^^40 */
@@ -107,7 +109,7 @@
 #define TO_PHYS_MASK		0x000000ffffffffff	/* 2^^40 - 1 */
 #endif
 
-#if defined(CONFIG_CPU_R10000)
+#if defined (CONFIG_CPU_R10000)
 #define	KUSIZE			0x0000010000000000	/* 2^^40 */
 #define	KUSIZE_64		0x0000010000000000	/* 2^^40 */
 #define	K0SIZE			0x0000010000000000	/* 2^^40 */
@@ -124,7 +126,11 @@
 #define KUBASE			0
 #define KUSIZE_32		0x0000000080000000	/* KUSIZE
 							   for a 32 bit proc */
+#ifdef CONFIG_CPU_RM7000
+#define K0BASE			0x9800000000000000UL
+#else
 #define K0BASE			0xa800000000000000
+#endif
 #define K0BASE_EXL_WR		K0BASE			/* exclusive on write */
 #define K0BASE_NONCOH		0x9800000000000000	/* noncoherent */
 #define K0BASE_EXL		0xa000000000000000	/* exclusive */
@@ -137,7 +143,7 @@
 #endif
 #define K2BASE			0xc000000000000000
 
-#if !defined(CONFIG_CPU_R8000)
+#if !defined (CONFIG_CPU_R8000)
 #define COMPAT_K1BASE32		0xffffffffa0000000
 #define PHYS_TO_COMPATK1(x)	((x) | COMPAT_K1BASE32) /* 32-bit compat k1 */
 #endif

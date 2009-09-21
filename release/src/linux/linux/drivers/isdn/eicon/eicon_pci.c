@@ -1,4 +1,4 @@
-/* $Id: eicon_pci.c,v 1.1.1.4 2003/10/14 08:08:12 sparq Exp $
+/* $Id: eicon_pci.c,v 1.1.4.1 2001/11/20 14:19:35 kai Exp $
  *
  * ISDN low-level module for Eicon active ISDN-Cards.
  * Hardware-specific code for PCI cards.
@@ -24,9 +24,9 @@
 #include "adapter.h"
 #include "uxio.h"
 
-char *eicon_pci_revision = "$Revision: 1.1.1.4 $";
+char *eicon_pci_revision = "$Revision: 1.1.4.1 $";
 
-#if CONFIG_PCI	             /* intire stuff is only for PCI */
+#if CONFIG_PCI	         /* intire stuff is only for PCI */
 #ifdef CONFIG_ISDN_DRV_EICON_PCI
 
 int eicon_pci_find_card(char *ID)

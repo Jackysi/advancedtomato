@@ -1,4 +1,4 @@
-/*  $Id: setup.c,v 1.1.1.4 2003/10/14 08:07:48 sparq Exp $
+/*  $Id: setup.c,v 1.126 2001/11/13 00:49:27 davem Exp $
  *  linux/arch/sparc/kernel/setup.c
  *
  *  Copyright (C) 1995  David S. Miller (davem@caip.rutgers.edu)
@@ -78,6 +78,7 @@ void prom_sync_me(void)
 {
 	unsigned long prom_tbr, flags;
 
+	/* XXX Badly broken. FIX! - Anton */
 	save_and_cli(flags);
 	__asm__ __volatile__("rd %%tbr, %0\n\t" : "=r" (prom_tbr));
 	__asm__ __volatile__("wr %0, 0x0, %%tbr\n\t"
@@ -243,6 +244,10 @@ static void __init boot_flags_init(char *commands)
 			} else
 #endif
 			if (!strncmp(commands, "mem=", 4)) {
+				/*
+				 * "mem=XXX[kKmM] overrides the PROM-reported
+				 * memory size.
+				 */
 				cmdline_memory_size = simple_strtoul(commands + 4,
 							     &commands, 0);
 				if (*commands == 'K' || *commands == 'k') {

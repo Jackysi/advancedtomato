@@ -34,6 +34,10 @@ extern void iop_ism_irq(int, void *, struct pt_regs *);
 
 static struct adb_request *current_req;
 static struct adb_request *last_req;
+#if 0
+static unsigned char reply_buff[16];
+static unsigned char *reply_ptr;
+#endif
 
 static enum adb_iop_state {
     idle,
@@ -102,6 +106,9 @@ static void adb_iop_listen(struct iop_msg *msg, struct pt_regs *regs)
 	struct adb_iopmsg *amsg = (struct adb_iopmsg *) msg->message;
 	struct adb_request *req;
 	uint flags;
+#ifdef DEBUG_ADB_IOP
+	int i;
+#endif
 
 	save_flags(flags);
 	cli();
@@ -109,12 +116,10 @@ static void adb_iop_listen(struct iop_msg *msg, struct pt_regs *regs)
 	req = current_req;
 
 #ifdef DEBUG_ADB_IOP
-	printk("adb_iop_listen: rcvd packet, %d bytes: %02X %02X",
+	printk("adb_iop_listen %p: rcvd packet, %d bytes: %02X %02X", req,
 		(uint) amsg->count + 2, (uint) amsg->flags, (uint) amsg->cmd);
-	i = 0;
-	while (i < amsg->count) {
-		printk(" %02X", (uint) amsg->data[i++]);
-	}
+	for (i = 0; i < amsg->count; i++)
+		printk(" %02X", (uint) amsg->data[i]);
 	printk("\n");
 #endif
 
@@ -132,7 +137,7 @@ static void adb_iop_listen(struct iop_msg *msg, struct pt_regs *regs)
 			adb_iop_end_req(req, idle);
 		}
 	} else {
-		/* TODO: is it possible for more tha one chunk of data  */
+		/* TODO: is it possible for more than one chunk of data  */
 		/*       to arrive before the timeout? If so we need to */
 		/*       use reply_ptr here like the other drivers do.  */
 		if ((adb_iop_state == awaiting_reply) &&
@@ -161,6 +166,9 @@ static void adb_iop_start(void)
 	unsigned long flags;
 	struct adb_request *req;
 	struct adb_iopmsg amsg;
+#ifdef DEBUG_ADB_IOP
+	int i;
+#endif
 
 	/* get the packet to send */
 	req = current_req;
@@ -170,7 +178,7 @@ static void adb_iop_start(void)
 	cli();
 
 #ifdef DEBUG_ADB_IOP
-	printk("adb_iop_start: sending packet, %d bytes:", req->nbytes);
+	printk("adb_iop_start %p: sending packet, %d bytes:", req, req->nbytes);
 	for (i = 0 ; i < req->nbytes ; i++)
 		printk(" %02X", (uint) req->data[i]);
 	printk("\n");
@@ -267,13 +275,17 @@ void adb_iop_poll(void)
 
 int adb_iop_reset_bus(void)
 {
-	struct adb_request req;
+	struct adb_request req = {
+		.reply_expected = 0,
+		.nbytes = 2,
+		.data = { ADB_PACKET, 0 },
+	};
 
-	req.reply_expected = 0;
-	req.nbytes = 2;
-	req.data[0] = ADB_PACKET;
-	req.data[1] = 0; /* RESET */
 	adb_iop_write(&req);
-	while (!req.complete) adb_iop_poll();
+	while (!req.complete) {
+		adb_iop_poll();
+		schedule();
+	}
+
 	return 0;
 }

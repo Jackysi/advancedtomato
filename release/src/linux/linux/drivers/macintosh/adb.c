@@ -102,6 +102,18 @@ static struct adb_handler {
 	int handler_id;
 } adb_handler[16];
 
+#if 0
+static void printADBreply(struct adb_request *req)
+{
+        int i;
+
+        printk("adb reply (%d)", req->reply_len);
+        for(i = 0; i < req->reply_len; i++)
+                printk(" %x", req->reply[i]);
+        printk("\n");
+
+}
+#endif
 
 
 static __inline__ void adb_wait_ms(unsigned int ms)
@@ -240,6 +252,10 @@ __adb_probe_task(void *data)
 {
 	adb_probe_task_pid = kernel_thread(adb_probe_task, NULL,
 		SIGCHLD | CLONE_FS | CLONE_FILES | CLONE_SIGHAND);
+	if (adb_probe_task_pid < 0) {
+		adb_probe_task_pid = 0;
+		printk(KERN_ERR "adb: failed to create probe task !\n");
+	}
 }
 
 int
@@ -580,7 +596,6 @@ adb_get_infos(int address, int *original_address, int *handler_id)
 	return (*original_address != 0);
 }
 
-
 /*
  * /dev/adb device driver.
  */
@@ -624,6 +639,27 @@ static void adb_write_done(struct adb_request *req)
 	spin_unlock_irqrestore(&state->lock, flags);
 }
 
+static int
+do_adb_query(struct adb_request *req)
+{
+	int	ret = -EINVAL;
+
+	switch(req->data[1])
+	{
+	case ADB_QUERY_GETDEVINFO:
+		if (req->nbytes < 3)
+			break;
+		req->reply[0] = adb_handler[req->data[2]].original_address;
+		req->reply[1] = adb_handler[req->data[2]].handler_id;
+		req->complete = 1;
+		req->reply_len = 2;
+		adb_write_done(req);
+		ret = 0;
+		break;
+	}
+	return ret;
+}
+
 static int adb_open(struct inode *inode, struct file *file)
 {
 	struct adbdev_state *state;
@@ -643,6 +679,7 @@ static int adb_open(struct inode *inode, struct file *file)
 	return 0;
 }
 
+/* FIXME: Should wait completion, dequeue & delete pending requests */
 static int adb_release(struct inode *inode, struct file *file)
 {
 	struct adbdev_state *state = file->private_data;
@@ -760,9 +797,17 @@ static ssize_t adb_write(struct file *file, const char *buf,
 	/* If a probe is in progress or we are sleeping, wait for it to complete */
 	down(&adb_probe_mutex);
 
+	/* Queries are special requests sent to the ADB driver itself */
+	if (req->data[0] == ADB_QUERY) {
+		if (count > 1)
+			ret = do_adb_query(req);
+		else
+			ret = -EINVAL;
+		up(&adb_probe_mutex);
+	}
 	/* Special case for ADB_BUSRESET request, all others are sent to
 	   the controller */
-	if ((req->data[0] == ADB_PACKET)&&(count > 1)
+	else if ((req->data[0] == ADB_PACKET)&&(count > 1)
 		&&(req->data[1] == ADB_BUSRESET)) {
 		ret = do_adb_reset_bus();
 		up(&adb_probe_mutex);

@@ -248,12 +248,9 @@ char *		en;
     rio_dprintk (RIO_DEBUG_INTR, "Waking up.... ldisc:%d (%d/%d)....",
 		 (int)(PortP->gs.tty->flags & (1 << TTY_DO_WRITE_WAKEUP)),
 		 PortP->gs.wakeup_chars, PortP->gs.xmit_cnt); 
-    if ((PortP->gs.tty->flags & (1 << TTY_DO_WRITE_WAKEUP)) &&
-	PortP->gs.tty->ldisc.write_wakeup)
-      (PortP->gs.tty->ldisc.write_wakeup)(PortP->gs.tty);
+    tty_wakeup(PortP->gs.tty);
     rio_dprintk (RIO_DEBUG_INTR, "(%d/%d)\n",
 		PortP->gs.wakeup_chars, PortP->gs.xmit_cnt); 
-    wake_up_interruptible(&PortP->gs.tty->write_wait);
   }
 
 }
@@ -571,6 +568,7 @@ int From;
       /* For now don't handle RTA reboots. -- REW. 
 	 Reenabled. Otherwise RTA reboots didn't work. Duh. -- REW */
       if ( PortP->MagicFlags ) {
+#if 1
 	if ( PortP->MagicFlags & MAGIC_REBOOT ) {
 	  /*
 	  ** well, the RTA has been rebooted, and there is room
@@ -596,6 +594,7 @@ int From;
 	  rio_spin_lock(&PortP->portSem);
 	  PortP->MagicFlags &= ~MAGIC_REBOOT;
 	}
+#endif
 
 	/*
 	** As mentioned above, this is a tacky hack to cope

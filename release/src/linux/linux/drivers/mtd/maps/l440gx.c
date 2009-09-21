@@ -1,5 +1,5 @@
 /*
- * $Id: l440gx.c,v 1.1.1.4 2003/10/14 08:08:17 sparq Exp $
+ * $Id: l440gx.c,v 1.8 2002/01/10 20:27:40 eric Exp $
  *
  * BIOS Flash chip on Intel 440GX board.
  *
@@ -96,6 +96,12 @@ struct map_info l440gx_map = {
 	write16: l440gx_write16,
 	write32: l440gx_write32,
 	copy_to: l440gx_copy_to,
+#if 0
+	/* FIXME verify that this is the 
+	 * appripriate code for vpp enable/disable
+	 */
+	set_vpp: l440gx_set_vpp
+#endif
 };
 
 static int __init init_l440gx(void)

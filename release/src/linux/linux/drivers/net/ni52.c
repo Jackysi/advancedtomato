@@ -63,6 +63,41 @@
  *   sending in NOP-mode: peak performance up to 530K/s (but better don't run this mode)
  */
 
+/*
+ * 29.Sept.96: virt_to_bus changes for new memory scheme
+ * 19.Feb.96: more Mcast changes, module support (MH)
+ *
+ * 18.Nov.95: Mcast changes (AC).
+ *
+ * 23.April.95: fixed(?) receiving problems by configuring a RFD more
+ *              than the number of RBD's. Can maybe cause other problems.
+ * 18.April.95: Added MODULE support (MH)
+ * 17.April.95: MC related changes in init586() and set_multicast_list().
+ *              removed use of 'jiffies' in init586() (MH)
+ *
+ * 19.Sep.94: Added Multicast support (not tested yet) (MH)
+ *
+ * 18.Sep.94: Workaround for 'EL-Bug'. Removed flexible RBD-handling.
+ *            Now, every RFD has exact one RBD. (MH)
+ *
+ * 14.Sep.94: added promiscuous mode, a few cleanups (MH)
+ *
+ * 19.Aug.94: changed request_irq() parameter (MH)
+ *
+ * 20.July.94: removed cleanup bugs, removed a 16K-mem-probe-bug (MH)
+ *
+ * 19.July.94: lotsa cleanups .. (MH)
+ *
+ * 17.July.94: some patches ... verified to run with 1.1.29 (MH)
+ *
+ * 4.July.94: patches for Linux 1.1.24  (MH)
+ *
+ * 26.March.94: patches for Linux 1.0 and iomem-auto-probe (MH)
+ *
+ * 30.Sep.93: Added nop-chain .. driver now runs with only one Xmit-Buff, too (MH)
+ *
+ * < 30.Sep.93: first versions
+ */
 
 static int debuglevel;	/* debug-printk 0: off 1: a few 2: more */
 static int automatic_resume; /* experimental .. better should be zero */
@@ -165,6 +200,9 @@ static int     ni52_send_packet(struct sk_buff *,struct net_device *);
 static struct  net_device_stats *ni52_get_stats(struct net_device *dev);
 static void    set_multicast_list(struct net_device *dev);
 static void    ni52_timeout(struct net_device *dev);
+#if 0
+static void    ni52_dump(struct net_device *,void *);
+#endif
 
 /* helper-functions */
 static int     init586(struct net_device *dev);
@@ -188,10 +226,11 @@ struct priv
 	volatile struct iscp_struct	*iscp;	/* volatile is important */
 	volatile struct scb_struct	*scb;	/* volatile is important */
 	volatile struct tbd_struct	*xmit_buffs[NUM_XMIT_BUFFS];
-	volatile struct transmit_cmd_struct *xmit_cmds[NUM_XMIT_BUFFS];
-#if NUM_XMIT_BUFFS == 1
+#if (NUM_XMIT_BUFFS == 1)
+	volatile struct transmit_cmd_struct *xmit_cmds[2];
 	volatile struct nop_cmd_struct *nop_cmds[2];
 #else
+	volatile struct transmit_cmd_struct *xmit_cmds[NUM_XMIT_BUFFS];
 	volatile struct nop_cmd_struct *nop_cmds[NUM_XMIT_BUFFS];
 #endif
 	volatile int		nop_point,num_recv_buffs;
@@ -646,7 +685,7 @@ static int init586(struct net_device *dev)
 	/*
 	 * alloc nop/xmit-cmds
 	 */
-#if NUM_XMIT_BUFFS == 1
+#if (NUM_XMIT_BUFFS == 1)
 	for(i=0;i<2;i++)
 	{
 		p->nop_cmds[i] 			= (struct nop_cmd_struct *)ptr;
@@ -948,6 +987,24 @@ static void ni52_rcv_int(struct net_device *dev)
 	}
 #endif
 
+#if 0
+	if(!at_least_one)
+	{
+		int i;
+		volatile struct rfd_struct *rfds=p->rfd_top;
+		volatile struct rbd_struct *rbds;
+		printk("%s: received a FC intr. without having a frame: %04x %d\n",dev->name,status,old_at_least);
+		for(i=0;i< (p->num_recv_buffs+4);i++)
+		{
+			rbds = (struct rbd_struct *) make32(rfds->rbd_offset);
+			printk("%04x:%04x ",rfds->status,rbds->status);
+			rfds = (struct rfd_struct *) make32(rfds->next);
+		}
+		printk("\nerrs: %04x %04x stat: %04x\n",(int)p->scb->rsc_errs,(int)p->scb->ovrn_errs,(int)p->scb->status);
+		printk("\nerrs: %04x %04x rus: %02x, cus: %02x\n",(int)p->scb->rsc_errs,(int)p->scb->ovrn_errs,(int)p->scb->rus,(int)p->scb->cus);
+	}
+	old_at_least = at_least_one;
+#endif
 
 	if(debuglevel > 0)
 		printk("r");
@@ -1106,9 +1163,14 @@ static int ni52_send_packet(struct sk_buff *skb, struct net_device *dev)
 #endif
 	{
 		memcpy((char *)p->xmit_cbuffs[p->xmit_count],(char *)(skb->data),skb->len);
-		len = (ETH_ZLEN < skb->len) ? skb->len : ETH_ZLEN;
+		len = skb->len;
+		if(len < ETH_ZLEN)
+		{
+			len = ETH_ZLEN;
+			memset((char *)p->xmit_cbuffs[p->xmit_count]+skb->len, 0, len - skb->len);
+		}
 
-#if NUM_XMIT_BUFFS == 1
+#if (NUM_XMIT_BUFFS == 1)
 #	ifdef NO_NOPCOMMANDS
 
 #ifdef DEBUG
@@ -1270,6 +1332,42 @@ void cleanup_module(void)
 }
 #endif /* MODULE */
 
+#if 0
+/*
+ * DUMP .. we expect a not running CMD unit and enough space
+ */
+void ni52_dump(struct net_device *dev,void *ptr)
+{
+	struct priv *p = (struct priv *) dev->priv;
+	struct dump_cmd_struct *dump_cmd = (struct dump_cmd_struct *) ptr;
+	int i;
+
+	p->scb->cmd_cuc = CUC_ABORT;
+	ni_attn586();
+	WAIT_4_SCB_CMD();
+	WAIT_4_SCB_CMD_RUC();
+
+	dump_cmd->cmd_status = 0;
+	dump_cmd->cmd_cmd = CMD_DUMP | CMD_LAST;
+	dump_cmd->dump_offset = make16((dump_cmd + 1));
+	dump_cmd->cmd_link = 0xffff;
+
+	p->scb->cbl_offset = make16(dump_cmd);
+	p->scb->cmd_cuc = CUC_START;
+	ni_attn586();
+	WAIT_4_STAT_COMPL(dump_cmd);
+
+	if( (dump_cmd->cmd_status & (STAT_COMPL|STAT_OK)) != (STAT_COMPL|STAT_OK) )
+				printk("%s: Can't get dump information.\n",dev->name);
+
+	for(i=0;i<170;i++) {
+		printk("%02x ",(int) ((unsigned char *) (dump_cmd + 1))[i]);
+		if(i % 24 == 23)
+			printk("\n");
+	}
+	printk("\n");
+}
+#endif
 MODULE_LICENSE("GPL");
 
 /*

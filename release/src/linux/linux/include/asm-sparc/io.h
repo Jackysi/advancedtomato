@@ -1,5 +1,5 @@
 /*
- * $Id: io.h,v 1.1.1.4 2003/10/14 08:09:22 sparq Exp $
+ * $Id: io.h,v 1.29 2001/11/10 09:28:34 davem Exp $
  */
 #ifndef __SPARC_IO_H
 #define __SPARC_IO_H
@@ -163,6 +163,10 @@ static __inline__ void _sbus_writel(u32 b, unsigned long addr)
 	*(volatile u32 *)addr = b;
 }
 
+/*
+ * The only reason for #define's is to hide casts to unsigned long.
+ * XXX Rewrite drivers without structures for registers.
+ */
 #define sbus_readb(a)		_sbus_readb((unsigned long)(a))
 #define sbus_readw(a)		_sbus_readw((unsigned long)(a))
 #define sbus_readl(a)		_sbus_readl((unsigned long)(a))
@@ -197,6 +201,7 @@ extern void iounmap(void *addr);
  */
 extern unsigned long sbus_ioremap(struct resource *res, unsigned long offset,
     unsigned long size, char *name);
+/* XXX Partial deallocations? I think not! */
 extern void sbus_iounmap(unsigned long vaddr, unsigned long size);
 
 

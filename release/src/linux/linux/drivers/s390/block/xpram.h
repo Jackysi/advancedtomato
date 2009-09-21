@@ -23,7 +23,11 @@
                              * according to S/390 architecture
                              */
 #define XPRAM_BLKSIZE XPRAM_PGSIZE  /* must be equalt to page size ! */
-#define XPRAM_HARDSECT XPRAM_PGSIZE 
+#define XPRAM_HARDSECT XPRAM_PGSIZE /* FIXME -- we have to deal with both
+                                     * this hard sect size and in some cases
+                                     * hard coded 512 bytes which I call
+                                     * soft sects:
+                                     */
 #define XPRAM_SOFTSECT 512
 #define XPRAM_MAX_DEVS 32   /* maximal number of devices (partitions) */
 #define XPRAM_MAX_DEVS1 33  /* maximal number of devices (partitions) +1 */

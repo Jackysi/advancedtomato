@@ -1,4 +1,4 @@
-/* $Id: etrap.S,v 1.1.1.4 2003/10/14 08:07:48 sparq Exp $
+/* $Id: etrap.S,v 1.31 2000/01/08 16:38:18 anton Exp $
  * etrap.S: Sparc trap window preparation for entry into the
  *          Linux kernel.
  *
@@ -86,7 +86,7 @@ trap_setup:
 	/* From kernel, allocate more kernel stack and
 	 * build a pt_regs trap frame.
 	 */
-	sub	%fp, (REGWIN_SZ + TRACEREG_SZ), %t_kstack
+	sub	%fp, (STACKFRAME_SZ + TRACEREG_SZ), %t_kstack
 	STORE_PT_ALL(t_kstack, t_psr, t_pc, t_npc, g2)
 
 	/* See if we are in the trap window. */
@@ -127,7 +127,7 @@ tsetup_patch2:
 	jmpl	%t_retpc + 0x8, %g0	! return to caller
 	 mov	%t_kstack, %sp		! and onto new kernel stack
 
-#define STACK_OFFSET (TASK_UNION_SIZE - (TRACEREG_SZ + REGWIN_SZ))
+#define STACK_OFFSET (TASK_UNION_SIZE - TRACEREG_SZ - STACKFRAME_SZ)
 trap_setup_from_user:
 	/* We can't use %curptr yet. */
 	LOAD_CURRENT(t_kstack, t_twinmask)
@@ -142,8 +142,16 @@ trap_setup_from_user:
 	/* Build pt_regs frame. */
 	STORE_PT_ALL(t_kstack, t_psr, t_pc, t_npc, g2)
 
+#if 0
+	/* If we're sure every task_struct is TASK_UNION_SIZE aligned,
+	   we can speed this up. */
+	sethi	%hi(STACK_OFFSET), %curptr
+	or	%curptr, %lo(STACK_OFFSET), %curptr
+	sub	%t_kstack, %curptr, %curptr
+#else
 	sethi	%hi(~(TASK_UNION_SIZE - 1)), %curptr
 	and	%t_kstack, %curptr, %curptr
+#endif
 
 	/* Clear current->thread.w_saved */
 	st	%g0, [%curptr + AOFF_task_thread + AOFF_thread_w_saved]

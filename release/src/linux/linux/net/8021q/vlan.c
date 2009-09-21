@@ -1,4 +1,4 @@
-/*
+/* -*- linux-c -*-
  * INET		802.1Q VLAN
  *		Ethernet-type device handling.
  *
@@ -45,7 +45,7 @@ spinlock_t vlan_group_lock = SPIN_LOCK_UNLOCKED;
 
 static char vlan_fullname[] = "802.1Q VLAN Support";
 static unsigned int vlan_version = 1;
-static unsigned int vlan_release = 7;
+static unsigned int vlan_release = 8;
 static char vlan_copyright[] = "Ben Greear <greearb@candelatech.com>";
 static char vlan_buggyright[] = "David S. Miller <davem@redhat.com>";
 
@@ -229,11 +229,12 @@ static int unregister_vlan_dev(struct net_device *real_dev,
 			if (real_dev->features &
 			    (NETIF_F_HW_VLAN_RX | NETIF_F_HW_VLAN_FILTER)) {
 				real_dev->vlan_rx_kill_vid(real_dev, vlan_id);
-			} else {
-				br_write_lock(BR_NETPROTO_LOCK);
-				grp->vlan_devices[vlan_id] = NULL;
-				br_write_unlock(BR_NETPROTO_LOCK);
 			}
+
+			br_write_lock(BR_NETPROTO_LOCK);
+			grp->vlan_devices[vlan_id] = NULL;
+			br_write_unlock(BR_NETPROTO_LOCK);
+
 
 			/* Caller unregisters (and if necessary, puts)
 			 * VLAN device, but we get rid of the reference to
@@ -255,6 +256,12 @@ static int unregister_vlan_dev(struct net_device *real_dev,
 				spin_lock_bh(&vlan_group_lock);
 				__grp_unhash(grp);
 				spin_unlock_bh(&vlan_group_lock);
+
+				/* Free the group, after we have removed it
+				 * from the hash.
+				 */
+				kfree(grp);
+				grp = NULL;
 
 				ret = 1;
 			}
@@ -526,7 +533,9 @@ static struct net_device *register_vlan_device(const char *eth_IF_name,
 	    
 	grp->vlan_devices[VLAN_ID] = new_dev;
 
-	vlan_proc_add_dev(new_dev); /* create it's proc entry */
+	if (vlan_proc_add_dev(new_dev)<0)/* create it's proc entry */
+            	printk(KERN_WARNING "VLAN: failed to add proc entry for %s\n",
+					                 new_dev->name);
 
 	if (real_dev->features & NETIF_F_HW_VLAN_FILTER)
 		real_dev->vlan_rx_add_vid(real_dev, VLAN_ID);
@@ -647,14 +656,8 @@ out:
 int vlan_ioctl_handler(unsigned long arg)
 {
 	int err = 0;
+        unsigned short vid = 0;
 	struct vlan_ioctl_args args;
-
-	/* everything here needs root permissions, except aguably the
-	 * hack ioctls for sending packets.  However, I know _I_ don't
-	 * want users running that on my network! --BLG
-	 */
-	if (!capable(CAP_NET_ADMIN))
-		return -EPERM;
 
 	if (copy_from_user(&args, (void*)arg,
                            sizeof(struct vlan_ioctl_args)))
@@ -670,24 +673,33 @@ int vlan_ioctl_handler(unsigned long arg)
 
 	switch (args.cmd) {
 	case SET_VLAN_INGRESS_PRIORITY_CMD:
+		if (!capable(CAP_NET_ADMIN))
+			return -EPERM;
+
 		err = vlan_dev_set_ingress_priority(args.device1,
 						    args.u.skb_priority,
 						    args.vlan_qos);
 		break;
 
 	case SET_VLAN_EGRESS_PRIORITY_CMD:
+		if (!capable(CAP_NET_ADMIN))
+			return -EPERM;
 		err = vlan_dev_set_egress_priority(args.device1,
 						   args.u.skb_priority,
 						   args.vlan_qos);
 		break;
 
 	case SET_VLAN_FLAG_CMD:
+		if (!capable(CAP_NET_ADMIN))
+			return -EPERM;
 		err = vlan_dev_set_vlan_flag(args.device1,
 					     args.u.flag,
 					     args.vlan_qos);
 		break;
 
 	case SET_VLAN_NAME_TYPE_CMD:
+		if (!capable(CAP_NET_ADMIN))
+			return -EPERM;
 		if ((args.u.name_type >= 0) &&
 		    (args.u.name_type < VLAN_NAME_TYPE_HIGHEST)) {
 			vlan_name_type = args.u.name_type;
@@ -697,17 +709,9 @@ int vlan_ioctl_handler(unsigned long arg)
 		}
 		break;
 
-		/* TODO:  Figure out how to pass info back...
-		   case GET_VLAN_INGRESS_PRIORITY_IOCTL:
-		   err = vlan_dev_get_ingress_priority(args);
-		   break;
-
-		   case GET_VLAN_EGRESS_PRIORITY_IOCTL:
-		   err = vlan_dev_get_egress_priority(args);
-		   break;
-		*/
-
 	case ADD_VLAN_CMD:
+		if (!capable(CAP_NET_ADMIN))
+			return -EPERM;
 		/* we have been given the name of the Ethernet Device we want to
 		 * talk to:  args.dev1	 We also have the
 		 * VLAN ID:  args.u.VID
@@ -720,19 +724,64 @@ int vlan_ioctl_handler(unsigned long arg)
 		break;
 
 	case DEL_VLAN_CMD:
+		if (!capable(CAP_NET_ADMIN))
+			return -EPERM;
 		/* Here, the args.dev1 is the actual VLAN we want
 		 * to get rid of.
 		 */
 		err = unregister_vlan_device(args.device1);
 		break;
 
+	case GET_VLAN_INGRESS_PRIORITY_CMD:
+		/* TODO:  Implement
+		err = vlan_dev_get_ingress_priority(args);
+		if (copy_to_user((void*)arg, &args,
+				 sizeof(struct vlan_ioctl_args))) {
+			err = -EFAULT;
+		}
+		*/
+		err = -EINVAL;
+		break;
+
+	case GET_VLAN_EGRESS_PRIORITY_CMD:
+		/* TODO:  Implement
+		err = vlan_dev_get_egress_priority(args.device1, &(args.args);
+		if (copy_to_user((void*)arg, &args,
+				 sizeof(struct vlan_ioctl_args))) {
+			err = -EFAULT;
+		}
+		*/
+		err = -EINVAL;
+		break;
+
+	case GET_VLAN_REALDEV_NAME_CMD:
+		err = vlan_dev_get_realdev_name(args.device1, args.u.device2);
+		if (err)
+			goto out;
+		if (copy_to_user((void*)arg, &args,
+				 sizeof(struct vlan_ioctl_args))) {
+			err = -EFAULT;
+		}
+		break;
+
+	case GET_VLAN_VID_CMD:
+		err = vlan_dev_get_vid(args.device1, &vid);
+		if (err)
+			goto out;
+		args.u.VID = vid;
+		if (copy_to_user((void*)arg, &args,
+				 sizeof(struct vlan_ioctl_args))) {
+			err = -EFAULT;
+		}
+		break;
+		
 	default:
 		/* pass on to underlying device instead?? */
 		printk(VLAN_DBG "%s: Unknown VLAN CMD: %x \n",
 			__FUNCTION__, args.cmd);
 		return -EINVAL;
 	};
-
+out:
 	return err;
 }
 

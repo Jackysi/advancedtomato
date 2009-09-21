@@ -1,6 +1,6 @@
 /*
- *   Copyright (c) International Business Machines Corp., 2000-2002
- *   Portions Copyright (c) Christoph Hellwig, 2001-2002
+ *   Copyright (C) International Business Machines Corp., 2000-2005
+ *   Portions Copyright (C) Christoph Hellwig, 2001-2002
  *
  *   This program is free software;  you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -20,6 +20,7 @@
 #include <linux/config.h>
 #include <linux/fs.h>
 #include <linux/module.h>
+#include <linux/blkdev.h>
 #include <linux/completion.h>
 #include <asm/uaccess.h>
 #include "jfs_incore.h"
@@ -44,7 +45,7 @@ static pid_t jfsSyncThread;
 DECLARE_COMPLETION(jfsIOwait);
 
 #ifdef CONFIG_JFS_DEBUG
-int jfsloglevel = 1;
+int jfsloglevel = JFS_LOGLEVEL_WARN;
 MODULE_PARM(jfsloglevel, "i");
 MODULE_PARM_DESC(jfsloglevel, "Specify JFS loglevel (0, 1 or 2)");
 #endif
@@ -67,7 +68,7 @@ extern void jfs_delete_inode(struct inode *inode);
 extern void jfs_write_inode(struct inode *inode, int wait);
 extern int jfs_extendfs(struct super_block *, s64, int);
 
-#ifdef PROC_FS_JFS		    /* see jfs_debug.h */
+#ifdef PROC_FS_JFS		/* see jfs_debug.h */
 extern void jfs_proc_init(void);
 extern void jfs_proc_clean(void);
 #endif
@@ -76,13 +77,50 @@ extern wait_queue_head_t jfs_IO_thread_wait;
 extern wait_queue_head_t jfs_commit_thread_wait;
 extern wait_queue_head_t jfs_sync_thread_wait;
 
+static void jfs_handle_error(struct super_block *sb)
+{
+	struct jfs_sb_info *sbi = JFS_SBI(sb);
+
+	if (sb->s_flags & MS_RDONLY)
+		return;
+
+	updateSuper(sb, FM_DIRTY);
+
+	if (sbi->flag & JFS_ERR_PANIC)
+		panic("JFS (device %s): panic forced after error\n",
+			bdevname(sb->s_dev));
+	else if (sbi->flag & JFS_ERR_REMOUNT_RO) {
+		jfs_err("ERROR: (device %s): remounting filesystem "
+			"as read-only\n",
+			bdevname(sb->s_dev));
+		sb->s_flags |= MS_RDONLY;
+	} 
+
+	/* nothing is done for continue beyond marking the superblock dirty */
+}
+
+void jfs_error(struct super_block *sb, const char * function, ...)
+{
+	static char error_buf[256];
+	va_list args;
+
+	va_start(args, function);
+	vsprintf(error_buf, function, args);
+	va_end(args);
+
+	printk(KERN_ERR "ERROR: (device %s): %s\n", bdevname(sb->s_dev),
+	       error_buf);
+
+	jfs_handle_error(sb);
+}
+
 static int jfs_statfs(struct super_block *sb, struct statfs *buf)
 {
 	struct jfs_sb_info *sbi = JFS_SBI(sb);
 	s64 maxinodes;
 	struct inomap *imap = JFS_IP(sbi->ipimap)->i_imap;
 
-	jFYI(1, ("In jfs_statfs\n"));
+	jfs_info("In jfs_statfs");
 	buf->f_type = JFS_SUPER_MAGIC;
 	buf->f_bsize = sbi->bsize;
 	buf->f_blocks = sbi->bmap->db_mapsize;
@@ -113,20 +151,40 @@ static void jfs_put_super(struct super_block *sb)
 	struct jfs_sb_info *sbi = JFS_SBI(sb);
 	int rc;
 
-	jFYI(1, ("In jfs_put_super\n"));
+	jfs_info("In jfs_put_super");
 	rc = jfs_umount(sb);
-	if (rc) {
-		jERROR(1, ("jfs_umount failed with return code %d\n", rc));
+	if (rc)
+		jfs_err("jfs_umount failed with return code %d", rc);
+	if (sbi->nls_tab) {
+		unload_nls(sbi->nls_tab);
+		sbi->nls_tab = NULL;
 	}
-	unload_nls(sbi->nls_tab);
-	sbi->nls_tab = NULL;
 
 	kfree(sbi);
 }
 
-static int parse_options(char *options, struct super_block *sb, s64 *newLVSize)
+s64 jfs_get_volume_size(struct super_block *sb)
 {
-	void *nls_map = NULL;
+	uint blocks = 0;
+	s64 bytes;
+	kdev_t dev = sb->s_dev;
+	int major = MAJOR(dev);
+	int minor = MINOR(dev);
+
+	if (blk_size[major]) {
+		blocks = blk_size[major][minor];
+		if (blocks) {
+			bytes = ((s64)blocks) << BLOCK_SIZE_BITS;
+			return bytes >> sb->s_blocksize_bits;
+		}
+	}
+	return 0;
+}
+
+static int parse_options(char *options, struct super_block *sb, s64 *newLVSize,
+			 int *flag)
+{
+	void *nls_map = (void *)-1;	/* -1: no change;  NULL: none */
 	char *this_char;
 	char *value;
 	struct jfs_sb_info *sbi = JFS_SBI(sb);
@@ -140,20 +198,41 @@ static int parse_options(char *options, struct super_block *sb, s64 *newLVSize)
 			continue;
 		if ((value = strchr(this_char, '=')) != NULL)
 			*value++ = 0;
-		if (!strcmp(this_char, "iocharset")) {
+		if (!strcmp(this_char, "errors")) {
 			if (!value || !*value)
 				goto needs_arg;
-			if (nls_map)	/* specified iocharset twice! */
-				unload_nls(nls_map);
-			nls_map = load_nls(value);
-			if (!nls_map) {
-				printk(KERN_ERR "JFS: charset not found\n");
+			if (!strcmp(value, "continue")) {
+				*flag &= ~JFS_ERR_REMOUNT_RO;
+				*flag &= ~JFS_ERR_PANIC;
+				*flag |= JFS_ERR_CONTINUE;
+			} else if (!strcmp(value, "remount-ro")) {
+				*flag &= ~JFS_ERR_CONTINUE;
+				*flag &= ~JFS_ERR_PANIC;
+				*flag |= JFS_ERR_REMOUNT_RO;
+			} else if (!strcmp(value, "panic")) {
+				*flag &= ~JFS_ERR_CONTINUE;
+				*flag &= ~JFS_ERR_REMOUNT_RO;
+				*flag |= JFS_ERR_PANIC;
+			} else {
+				printk(KERN_ERR "JFS: %s is an invalid error handler\n", value);
 				goto cleanup;
 			}
+		} else if (!strcmp(this_char, "integrity")) {
+			*flag &= ~JFS_NOINTEGRITY;
+		} else 	if (!strcmp(this_char, "nointegrity")) {
+			*flag |= JFS_NOINTEGRITY;
+		} else if (!strcmp(this_char, "iocharset")) {
+			if (!value || !*value)
+				goto needs_arg;
+			if (nls_map && nls_map != (void *) -1)
+				unload_nls(nls_map);
+			if (!strcmp(value, "none"))
+				nls_map = NULL;
+			else
+				nls_map = load_nls(value);
 		} else if (!strcmp(this_char, "resize")) {
 			if (!value || !*value) {
-				*newLVSize = sb->s_bdev->bd_inode->i_size >>
-					sb->s_blocksize_bits;
+				*newLVSize = jfs_get_volume_size(sb);
 				if (*newLVSize == 0)
 					printk(KERN_ERR
 					 "JFS: Cannot determine volume size\n");
@@ -172,9 +251,9 @@ static int parse_options(char *options, struct super_block *sb, s64 *newLVSize)
 			goto cleanup;
 		}
 	}
-	if (nls_map) {
+	if (nls_map != (void *) -1) {
 		/* Discard old (if remount) */
-		if (sbi->nls_tab)
+		if (sbi->nls_tab && sbi->nls_tab != (void *) -1)
 			unload_nls(sbi->nls_tab);
 		sbi->nls_tab = nls_map;
 	}
@@ -182,17 +261,18 @@ static int parse_options(char *options, struct super_block *sb, s64 *newLVSize)
 needs_arg:
 	printk(KERN_ERR "JFS: %s needs an argument\n", this_char);
 cleanup:
-	if (nls_map)
+	if (nls_map && nls_map != (void *) -1)
 		unload_nls(nls_map);
 	return 0;
 }
 
-int jfs_remount(struct super_block *sb, int *flags, char *data)
+static int jfs_remount(struct super_block *sb, int *flags, char *data)
 {
 	s64 newLVSize = 0;
 	int rc = 0;
+	int flag = JFS_SBI(sb)->flag;
 
-	if (!parse_options(data, sb, &newLVSize)) {
+	if (!parse_options(data, sb, &newLVSize, &flag)) {
 		return -EINVAL;
 	}
 	if (newLVSize) {
@@ -206,10 +286,24 @@ int jfs_remount(struct super_block *sb, int *flags, char *data)
 			return rc;
 	}
 
-	if ((sb->s_flags & MS_RDONLY) && !(*flags & MS_RDONLY))
+	if ((sb->s_flags & MS_RDONLY) && !(*flags & MS_RDONLY)) {
+		JFS_SBI(sb)->flag = flag;
 		return jfs_mount_rw(sb, 1);
-	else if ((!(sb->s_flags & MS_RDONLY)) && (*flags & MS_RDONLY))
-		return jfs_umount_rw(sb);
+	}
+	if ((!(sb->s_flags & MS_RDONLY)) && (*flags & MS_RDONLY)) {
+		rc = jfs_umount_rw(sb);
+		JFS_SBI(sb)->flag = flag;
+		return rc;
+	}
+	if ((JFS_SBI(sb)->flag & JFS_NOINTEGRITY) != (flag & JFS_NOINTEGRITY))
+		if (!(sb->s_flags & MS_RDONLY)) {
+			rc = jfs_umount_rw(sb);
+			if (rc)
+				return rc;
+			JFS_SBI(sb)->flag = flag;
+			return jfs_mount_rw(sb, 1);
+		}
+	JFS_SBI(sb)->flag = flag;
 
 	return 0;
 }
@@ -221,10 +315,10 @@ static struct super_block *jfs_read_super(struct super_block *sb,
 	struct inode *inode;
 	int rc;
 	s64 newLVSize = 0;
+	int flag;
 
-	jFYI(1,
-	     ("In jfs_read_super s_dev=0x%x s_flags=0x%lx\n", sb->s_dev,
-	      sb->s_flags));
+	jfs_info("In jfs_read_super s_dev=0x%x s_flags=0x%lx", sb->s_dev,
+		 sb->s_flags);
 
 	sbi = kmalloc(sizeof (struct jfs_sb_info), GFP_KERNEL);
 	if (!sbi)
@@ -232,10 +326,16 @@ static struct super_block *jfs_read_super(struct super_block *sb,
 	memset(sbi, 0, sizeof (struct jfs_sb_info));
 	sb->u.generic_sbp = sbi;
 
-	if (!parse_options((char *) data, sb, &newLVSize)) {
+	/* initialize the mount flag and determine the default error handler */
+	flag = JFS_ERR_REMOUNT_RO;
+
+	/* nls_tab will be set to NULL if no character mapping is requested */
+	sbi->nls_tab = (void *) -1;
+	if (!parse_options((char *) data, sb, &newLVSize, &flag)) {
 		kfree(sbi);
 		return NULL;
 	}
+	sbi->flag = flag;
 
 	if (newLVSize) {
 		printk(KERN_ERR "resize option for remount only\n");
@@ -255,8 +355,7 @@ static struct super_block *jfs_read_super(struct super_block *sb,
 	rc = jfs_mount(sb);
 	if (rc) {
 		if (!silent) {
-			jERROR(1,
-			       ("jfs_mount failed w/return code = %d\n", rc));
+			jfs_err("jfs_mount failed w/return code = %d", rc);
 		}
 		goto out_kfree;
 	}
@@ -266,9 +365,8 @@ static struct super_block *jfs_read_super(struct super_block *sb,
 		rc = jfs_mount_rw(sb, 0);
 		if (rc) {
 			if (!silent) {
-				jERROR(1,
-				       ("jfs_mount_rw failed w/return code = %d\n",
-					rc));
+				jfs_err("jfs_mount_rw failed, return code = %d",
+					rc);
 			}
 			goto out_no_rw;
 		}
@@ -283,7 +381,7 @@ static struct super_block *jfs_read_super(struct super_block *sb,
 	if (!sb->s_root)
 		goto out_no_root;
 
-	if (!sbi->nls_tab)
+	if (sbi->nls_tab == (void *) -1)
 		sbi->nls_tab = load_nls_default();
 
 	/* logical blocks are represented by 40 bits in pxd_t, etc. */
@@ -299,17 +397,17 @@ static struct super_block *jfs_read_super(struct super_block *sb,
 	return sb;
 
 out_no_root:
-	jEVENT(1, ("jfs_read_super: get root inode failed\n"));
+	jfs_err("jfs_read_super: get root inode failed");
 	if (inode)
 		iput(inode);
 
 out_no_rw:
 	rc = jfs_umount(sb);
 	if (rc) {
-		jERROR(1, ("jfs_umount failed with return code %d\n", rc));
+		jfs_err("jfs_umount failed with return code %d", rc);
 	}
 out_kfree:
-	if (sbi->nls_tab)
+	if (sbi->nls_tab && sbi->nls_tab != (void *) -1)
 		unload_nls(sbi->nls_tab);
 	kfree(sbi);
 	return NULL;
@@ -323,6 +421,7 @@ static void jfs_write_super_lockfs(struct super_block *sb)
 	if (!(sb->s_flags & MS_RDONLY)) {
 		txQuiesce(sb);
 		lmLogShutdown(log);
+		updateSuper(sb, FM_CLEAN);
 	}
 }
 
@@ -333,14 +432,25 @@ static void jfs_unlockfs(struct super_block *sb)
 	int rc = 0;
 
 	if (!(sb->s_flags & MS_RDONLY)) {
+		updateSuper(sb, FM_MOUNT);
 		if ((rc = lmLogInit(log)))
-			jERROR(1,
-			       ("jfs_unlock failed with return code %d\n", rc));
+			jfs_err("jfs_unlock failed with return code %d", rc);
 		else
 			txResume(sb);
 	}
 }
 
+
+static int jfs_sync_fs(struct super_block *sb)
+{
+	struct jfs_log *log = JFS_SBI(sb)->log;
+
+	/* log == NULL indicates read-only mount */
+	if (log)
+		jfs_flush_journal(log, 1);
+
+	return 0;
+}
 
 static struct super_operations jfs_super_operations = {
 	.read_inode	= jfs_read_inode,
@@ -349,6 +459,7 @@ static struct super_operations jfs_super_operations = {
 	.clear_inode	= jfs_clear_inode,
 	.delete_inode	= jfs_delete_inode,
 	.put_super	= jfs_put_super,
+	.sync_fs	= jfs_sync_fs,
 	.write_super_lockfs = jfs_write_super_lockfs,
 	.unlockfs       = jfs_unlockfs,
 	.statfs		= jfs_statfs,
@@ -373,11 +484,11 @@ static void init_once(void *foo, kmem_cache_t * cachep, unsigned long flags)
 
 	if ((flags & (SLAB_CTOR_VERIFY | SLAB_CTOR_CONSTRUCTOR)) ==
 	    SLAB_CTOR_CONSTRUCTOR) {
+		memset(jfs_ip, 0, sizeof(struct jfs_inode_info));
 		INIT_LIST_HEAD(&jfs_ip->anon_inode_list);
-		INIT_LIST_HEAD(&jfs_ip->mp_list);
 		init_rwsem(&jfs_ip->rdwrlock);
 		init_MUTEX(&jfs_ip->commit_sem);
-		jfs_ip->atlhead = 0;
+		spin_lock_init(&jfs_ip->ag_lock);
 		jfs_ip->active_ag = -1;
 	}
 }
@@ -397,7 +508,7 @@ static int __init init_jfs_fs(void)
 	 */
 	rc = metapage_init();
 	if (rc) {
-		jERROR(1, ("metapage_init failed w/rc = %d\n", rc));
+		jfs_err("metapage_init failed w/rc = %d", rc);
 		goto free_slab;
 	}
 
@@ -406,7 +517,7 @@ static int __init init_jfs_fs(void)
 	 */
 	rc = txInit();
 	if (rc) {
-		jERROR(1, ("txInit failed w/rc = %d\n", rc));
+		jfs_err("txInit failed w/rc = %d", rc);
 		goto free_metapage;
 	}
 
@@ -416,8 +527,7 @@ static int __init init_jfs_fs(void)
 	jfsIOthread = kernel_thread(jfsIOWait, 0,
 				    CLONE_FS | CLONE_FILES | CLONE_SIGHAND);
 	if (jfsIOthread < 0) {
-		jERROR(1,
-		       ("init_jfs_fs: fork failed w/rc = %d\n", jfsIOthread));
+		jfs_err("init_jfs_fs: fork failed w/rc = %d", jfsIOthread);
 		goto end_txmngr;
 	}
 	wait_for_completion(&jfsIOwait);	/* Wait until thread starts */
@@ -425,9 +535,7 @@ static int __init init_jfs_fs(void)
 	jfsCommitThread = kernel_thread(jfs_lazycommit, 0,
 					CLONE_FS | CLONE_FILES | CLONE_SIGHAND);
 	if (jfsCommitThread < 0) {
-		jERROR(1,
-		       ("init_jfs_fs: fork failed w/rc = %d\n",
-			jfsCommitThread));
+		jfs_err("init_jfs_fs: fork failed w/rc = %d", jfsCommitThread);
 		goto kill_iotask;
 	}
 	wait_for_completion(&jfsIOwait);	/* Wait until thread starts */
@@ -435,8 +543,7 @@ static int __init init_jfs_fs(void)
 	jfsSyncThread = kernel_thread(jfs_sync, 0,
 				      CLONE_FS | CLONE_FILES | CLONE_SIGHAND);
 	if (jfsSyncThread < 0) {
-		jERROR(1,
-		       ("init_jfs_fs: fork failed w/rc = %d\n", jfsSyncThread));
+		jfs_err("init_jfs_fs: fork failed w/rc = %d", jfsSyncThread);
 		goto kill_committask;
 	}
 	wait_for_completion(&jfsIOwait);	/* Wait until thread starts */
@@ -461,12 +568,12 @@ free_metapage:
 	metapage_exit();
 free_slab:
 	kmem_cache_destroy(jfs_inode_cachep);
-	return -rc;
+	return rc;
 }
 
 static void __exit exit_jfs_fs(void)
 {
-	jFYI(1, ("exit_jfs_fs called\n"));
+	jfs_info("exit_jfs_fs called");
 
 	jfs_stop_threads = 1;
 	txExit();

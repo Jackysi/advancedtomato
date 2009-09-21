@@ -1,4 +1,4 @@
-/* $Id: debuglocks.c,v 1.1.1.4 2003/10/14 08:07:51 sparq Exp $
+/* $Id: debuglocks.c,v 1.9 2001/11/17 00:10:48 davem Exp $
  * debuglocks.c: Debugging versions of SMP locking primitives.
  *
  * Copyright (C) 1998 David S. Miller (davem@redhat.com)
@@ -61,7 +61,7 @@ again:
 			     : "=r" (val)
 			     : "r" (&(lock->lock))
 			     : "memory");
-	membar("#StoreLoad | #StoreStore");
+	membar_safe("#StoreLoad | #StoreStore");
 	if (val) {
 		while (lock->lock) {
 			if (!--stuck) {
@@ -69,7 +69,7 @@ again:
 					show(str, lock, caller);
 				stuck = INIT_STUCK;
 			}
-			membar("#LoadLoad");
+			rmb();
 		}
 		goto again;
 	}
@@ -89,7 +89,7 @@ int _spin_trylock(spinlock_t *lock)
 			     : "=r" (val)
 			     : "r" (&(lock->lock))
 			     : "memory");
-	membar("#StoreLoad | #StoreStore");
+	membar_safe("#StoreLoad | #StoreStore");
 	if (!val) {
 		lock->owner_pc = ((unsigned int)caller);
 		lock->owner_cpu = cpu;
@@ -103,7 +103,7 @@ void _do_spin_unlock(spinlock_t *lock)
 {
 	lock->owner_pc = 0;
 	lock->owner_cpu = NO_PROC_ID;
-	membar("#StoreStore | #LoadStore");
+	membar_safe("#StoreStore | #LoadStore");
 	lock->lock = 0;
 	current->thread.smp_lock_count--;
 }
@@ -126,7 +126,7 @@ wlock_again:
 				show_read(str, rw, caller);
 			stuck = INIT_STUCK;
 		}
-		membar("#LoadLoad");
+		rmb();
 	}
 	/* Try once to increment the counter.  */
 	__asm__ __volatile__(
@@ -139,7 +139,7 @@ wlock_again:
 "2:"	: "=r" (val)
 	: "0" (&(rw->lock))
 	: "g5", "g7", "memory");
-	membar("#StoreLoad | #StoreStore");
+	membar_safe("#StoreLoad | #StoreStore");
 	if (val)
 		goto wlock_again;
 	rw->reader_pc[cpu] = ((unsigned int)caller);
@@ -162,6 +162,7 @@ void _do_read_unlock (rwlock_t *rw, char *str)
 runlock_again:
 	/* Spin trying to decrement the counter using casx.  */
 	__asm__ __volatile__(
+"	membar	#StoreLoad | #LoadLoad\n"
 "	ldx	[%0], %%g5\n"
 "	sub	%%g5, 1, %%g7\n"
 "	casx	[%0], %%g5, %%g7\n"
@@ -196,7 +197,7 @@ wlock_again:
 				show_write(str, rw, caller);
 			stuck = INIT_STUCK;
 		}
-		membar("#LoadLoad");
+		rmb();
 	}
 
 	/* Try to acuire the write bit.  */
@@ -250,7 +251,7 @@ wlock_again:
 					show_write(str, rw, caller);
 				stuck = INIT_STUCK;
 			}
-			membar("#LoadLoad");
+			rmb();
 		}
 		goto wlock_again;
 	}
@@ -276,6 +277,7 @@ void _do_write_unlock(rwlock_t *rw)
 	current->thread.smp_lock_count--;
 wlock_again:
 	__asm__ __volatile__(
+"	membar	#StoreLoad | #LoadLoad\n"
 "	mov	1, %%g3\n"
 "	sllx	%%g3, 63, %%g3\n"
 "	ldx	[%0], %%g5\n"

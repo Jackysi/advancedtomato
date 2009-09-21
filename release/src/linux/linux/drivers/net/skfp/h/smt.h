@@ -60,6 +60,13 @@ _packed struct smt_header {
 } ;
 #define SWAP_SMTHEADER	"662sl8ss"
 
+#if	0
+/*
+ * MAC FC values
+ */
+#define FC_SMT_INFO	0x41		/* SMT info */
+#define FC_SMT_NSA	0x4f		/* SMT Next Station Addressing */
+#endif
 
 
 /*

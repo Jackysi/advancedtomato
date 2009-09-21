@@ -1,1 +1,0 @@
-#undef  CONFIG_64BIT_PHYS_ADDR

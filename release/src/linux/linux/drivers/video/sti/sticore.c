@@ -242,7 +242,7 @@ sti_rom_copy(unsigned long base, unsigned long count, void *dest)
 		dest++;
 	}
 
-	sti_flush(dest_start, dest_len); 
+	sti_flush(dest_start, dest_len); /* XXX */
 }
 
 
@@ -388,7 +388,7 @@ sti_init_glob_cfg(struct sti_struct *sti,
 	struct sti_glob_cfg_ext *glob_cfg_ext;
 	void *save_addr;
 	void *sti_mem_addr;
-	const int save_addr_size = 1024;	
+	const int save_addr_size = 1024;	/* XXX */
 	int i;
 
 	if (!sti->sti_mem_request)
@@ -433,6 +433,7 @@ sti_init_glob_cfg(struct sti_struct *sti,
 			REGION_OFFSET_TO_PHYS(sti->regions[i], newhpa);
 		
 		/* remap virtually */
+		/* FIXME: add BTLB support if btlb==1 */
 		len = sti->regions[i].region_desc.length * 4096;
 		
 		if (len)
@@ -466,6 +467,7 @@ sti_init_glob_cfg(struct sti_struct *sti,
 	return 0;
 }
 
+#ifdef CONFIG_FB
 struct sti_cooked_font * __init
 sti_select_fbfont( struct sti_cooked_rom *cooked_rom, char *fbfont_name )
 {
@@ -522,6 +524,13 @@ sti_select_fbfont( struct sti_cooked_rom *cooked_rom, char *fbfont_name )
 
 	return cooked_font;
 }
+#else
+struct sti_cooked_font * __init
+sti_select_fbfont(struct sti_cooked_rom *cooked_rom, char *fbfont_name)
+{
+	return NULL;
+}
+#endif
 
 struct sti_cooked_font * __init
 sti_select_font(struct sti_cooked_rom *rom,
@@ -650,7 +659,7 @@ sti_bmode_rom_copy(unsigned long base, unsigned long count, void *dest)
 		base += 4;
 		dest++;
 	}
-	sti_flush(dest_start, dest_len); 
+	sti_flush(dest_start, dest_len); /* XXX */
 }
 
 struct sti_rom * __init

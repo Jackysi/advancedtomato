@@ -1,4 +1,11 @@
-
+/* 
+ * linux/fs/hfs/hfs.h
+ *
+ * Copyright (C) 1995-1997  Paul H. Hargrove
+ * This file may be distributed under the terms of the GNU General Public License.
+ *
+ * "XXX" in a comment is a note to myself to consider changing something.
+ */
 
 #ifndef _HFS_H
 #define _HFS_H
@@ -25,8 +32,8 @@
 #define HFS_FILE_MAGIC		0x4801
 #define HFS_DIR_MAGIC		0x4802
 #define HFS_MDB_MAGIC		0x4803
-#define HFS_EXT_MAGIC		0x4804 
-#define HFS_BREC_MAGIC		0x4811 
+#define HFS_EXT_MAGIC		0x4804 /* XXX currently unused */
+#define HFS_BREC_MAGIC		0x4811 /* XXX currently unused */
 #define HFS_BTREE_MAGIC		0x4812
 #define HFS_BNODE_MAGIC		0x4813
 

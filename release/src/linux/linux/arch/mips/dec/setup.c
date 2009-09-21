@@ -6,7 +6,7 @@
  * for more details.
  *
  * Copyright (C) 1998 Harald Koerfgen
- * Copyright (C) 2000, 2001, 2002  Maciej W. Rozycki
+ * Copyright (C) 2000, 2001, 2002, 2003  Maciej W. Rozycki
  */
 #include <linux/config.h>
 #include <linux/sched.h>
@@ -25,6 +25,7 @@
 #include <asm/irq_cpu.h>
 #include <asm/mipsregs.h>
 #include <asm/reboot.h>
+#include <asm/time.h>
 #include <asm/traps.h>
 #include <asm/wbflush.h>
 
@@ -46,6 +47,11 @@ extern void dec_machine_power_off(void);
 extern void dec_intr_halt(int irq, void *dev_id, struct pt_regs *regs);
 
 extern asmlinkage void decstation_handle_int(void);
+
+#ifdef CONFIG_BLK_DEV_INITRD
+extern unsigned long initrd_start, initrd_end;
+extern void * __rd_start, * __rd_end;
+#endif
 
 spinlock_t ioasic_ssr_lock;
 
@@ -85,46 +91,59 @@ int_ptr asic_mask_nr_tbl[DEC_MAX_ASIC_INTS][2] = {
 };
 int cpu_fpu_mask = DEC_CPU_IRQ_MASK(DEC_CPU_INR_FPU);
 
-static struct irqaction ioirq = {NULL, 0, 0, "cascade", NULL, NULL};
-static struct irqaction fpuirq = {NULL, 0, 0, "fpu", NULL, NULL};
+static struct irqaction ioirq = {
+	.handler = no_action,
+	.name = "cascade",
+};
+static struct irqaction fpuirq = {
+	.handler = no_action,
+	.name = "fpu",
+};
 
-static struct irqaction haltirq = {dec_intr_halt, 0, 0, "halt", NULL, NULL};
+static struct irqaction busirq = {
+	.flags = SA_INTERRUPT,
+	.name = "bus error",
+};
 
-
-void (*board_time_init) (struct irqaction * irq);
-
-
-/*
- * enable the periodic interrupts
- */
-static void __init dec_time_init(struct irqaction *irq)
-{
-	/*
-	* Here we go, enable periodic rtc interrupts.
-	*/
-
-#ifndef LOG_2_HZ
-#  define LOG_2_HZ 7
-#endif
-
-	CMOS_WRITE(RTC_REF_CLCK_32KHZ | (16 - LOG_2_HZ), RTC_REG_A);
-	CMOS_WRITE(CMOS_READ(RTC_REG_B) | RTC_PIE, RTC_REG_B);
-	setup_irq(dec_interrupt[DEC_IRQ_RTC], irq);
-}
+static struct irqaction haltirq = {
+	.handler = dec_intr_halt,
+	.name = "halt",
+};
 
 
 /*
- * Bus error (DBE/IBE exceptions and memory interrupts) handling
- * setup.  Nothing for now.
+ * Bus error (DBE/IBE exceptions and bus interrupts) handling setup.
  */
-void __init bus_error_init(void)
+void __init dec_be_init(void)
 {
+	switch (mips_machtype) {
+	case MACH_DS23100:	/* DS2100/DS3100 Pmin/Pmax */
+		busirq.flags |= SA_SHIRQ;
+		break;
+	case MACH_DS5000_200:	/* DS5000/200 3max */
+	case MACH_DS5000_2X0:	/* DS5000/240 3max+ */
+	case MACH_DS5900:	/* DS5900 bigmax */
+		board_be_handler = dec_ecc_be_handler;
+		busirq.handler = dec_ecc_be_interrupt;
+		dec_ecc_be_init();
+		break;
+	}
 }
 
+
+extern void dec_time_init(void);
+extern void dec_timer_setup(struct irqaction *);
 
 void __init decstation_setup(void)
 {
+#ifdef CONFIG_BLK_DEV_INITRD
+	ROOT_DEV = MKDEV(RAMDISK_MAJOR, 0);
+	initrd_start = (unsigned long)&__rd_start;
+	initrd_end = (unsigned long)&__rd_end;
+#endif
+	board_be_init = dec_be_init;
 	board_time_init = dec_time_init;
+	board_timer_setup = dec_timer_setup;
 
 	wbflush_setup();
 
@@ -155,7 +174,7 @@ static int kn01_interrupt[DEC_NR_INTS] __initdata = {
 	[DEC_IRQ_HALT]		= -1,
 	[DEC_IRQ_ISDN]		= -1,
 	[DEC_IRQ_LANCE]		= DEC_CPU_IRQ_NR(KN01_CPU_INR_LANCE),
-	[DEC_IRQ_MEMORY]	= DEC_CPU_IRQ_NR(KN01_CPU_INR_MEMORY),
+	[DEC_IRQ_BUS]		= DEC_CPU_IRQ_NR(KN01_CPU_INR_BUS),
 	[DEC_IRQ_PSU]		= -1,
 	[DEC_IRQ_RTC]		= DEC_CPU_IRQ_NR(KN01_CPU_INR_RTC),
 	[DEC_IRQ_SCC0]		= -1,
@@ -189,8 +208,8 @@ static int kn01_interrupt[DEC_NR_INTS] __initdata = {
 };
 
 static int_ptr kn01_cpu_mask_nr_tbl[][2] __initdata = {
-	{ { .i = DEC_CPU_IRQ_MASK(KN01_CPU_INR_MEMORY) },
-		{ .i = DEC_CPU_IRQ_NR(KN01_CPU_INR_MEMORY) } },
+	{ { .i = DEC_CPU_IRQ_MASK(KN01_CPU_INR_BUS) },
+		{ .i = DEC_CPU_IRQ_NR(KN01_CPU_INR_BUS) } },
 	{ { .i = DEC_CPU_IRQ_MASK(KN01_CPU_INR_RTC) },
 		{ .i = DEC_CPU_IRQ_NR(KN01_CPU_INR_RTC) } },
 	{ { .i = DEC_CPU_IRQ_MASK(KN01_CPU_INR_DZ11) },
@@ -232,7 +251,7 @@ static int kn230_interrupt[DEC_NR_INTS] __initdata = {
 	[DEC_IRQ_HALT]		= DEC_CPU_IRQ_NR(KN230_CPU_INR_HALT),
 	[DEC_IRQ_ISDN]		= -1,
 	[DEC_IRQ_LANCE]		= DEC_CPU_IRQ_NR(KN230_CPU_INR_LANCE),
-	[DEC_IRQ_MEMORY]	= DEC_CPU_IRQ_NR(KN230_CPU_INR_MEMORY),
+	[DEC_IRQ_BUS]		= DEC_CPU_IRQ_NR(KN230_CPU_INR_BUS),
 	[DEC_IRQ_PSU]		= -1,
 	[DEC_IRQ_RTC]		= DEC_CPU_IRQ_NR(KN230_CPU_INR_RTC),
 	[DEC_IRQ_SCC0]		= -1,
@@ -266,8 +285,8 @@ static int kn230_interrupt[DEC_NR_INTS] __initdata = {
 };
 
 static int_ptr kn230_cpu_mask_nr_tbl[][2] __initdata = {
-	{ { .i = DEC_CPU_IRQ_MASK(KN230_CPU_INR_MEMORY) },
-		{ .i = DEC_CPU_IRQ_NR(KN230_CPU_INR_MEMORY) } },
+	{ { .i = DEC_CPU_IRQ_MASK(KN230_CPU_INR_BUS) },
+		{ .i = DEC_CPU_IRQ_NR(KN230_CPU_INR_BUS) } },
 	{ { .i = DEC_CPU_IRQ_MASK(KN230_CPU_INR_RTC) },
 		{ .i = DEC_CPU_IRQ_NR(KN230_CPU_INR_RTC) } },
 	{ { .i = DEC_CPU_IRQ_MASK(KN230_CPU_INR_DZ11) },
@@ -307,7 +326,7 @@ static int kn02_interrupt[DEC_NR_INTS] __initdata = {
 	[DEC_IRQ_HALT]		= -1,
 	[DEC_IRQ_ISDN]		= -1,
 	[DEC_IRQ_LANCE]		= KN02_IRQ_NR(KN02_CSR_INR_LANCE),
-	[DEC_IRQ_MEMORY]	= DEC_CPU_IRQ_NR(KN02_CPU_INR_MEMORY),
+	[DEC_IRQ_BUS]		= DEC_CPU_IRQ_NR(KN02_CPU_INR_BUS),
 	[DEC_IRQ_PSU]		= -1,
 	[DEC_IRQ_RTC]		= DEC_CPU_IRQ_NR(KN02_CPU_INR_RTC),
 	[DEC_IRQ_SCC0]		= -1,
@@ -341,8 +360,8 @@ static int kn02_interrupt[DEC_NR_INTS] __initdata = {
 };
 
 static int_ptr kn02_cpu_mask_nr_tbl[][2] __initdata = {
-	{ { .i = DEC_CPU_IRQ_MASK(KN02_CPU_INR_MEMORY) },
-		{ .i = DEC_CPU_IRQ_NR(KN02_CPU_INR_MEMORY) } },
+	{ { .i = DEC_CPU_IRQ_MASK(KN02_CPU_INR_BUS) },
+		{ .i = DEC_CPU_IRQ_NR(KN02_CPU_INR_BUS) } },
 	{ { .i = DEC_CPU_IRQ_MASK(KN02_CPU_INR_RTC) },
 		{ .i = DEC_CPU_IRQ_NR(KN02_CPU_INR_RTC) } },
 	{ { .i = DEC_CPU_IRQ_MASK(KN02_CPU_INR_CASCADE) },
@@ -404,7 +423,7 @@ static int kn02ba_interrupt[DEC_NR_INTS] __initdata = {
 	[DEC_IRQ_HALT]		= DEC_CPU_IRQ_NR(KN02BA_CPU_INR_HALT),
 	[DEC_IRQ_ISDN]		= -1,
 	[DEC_IRQ_LANCE]		= IO_IRQ_NR(KN02BA_IO_INR_LANCE),
-	[DEC_IRQ_MEMORY]	= IO_IRQ_NR(KN02BA_IO_INR_MEMORY),
+	[DEC_IRQ_BUS]		= IO_IRQ_NR(KN02BA_IO_INR_BUS),
 	[DEC_IRQ_PSU]		= IO_IRQ_NR(KN02BA_IO_INR_PSU),
 	[DEC_IRQ_RTC]		= IO_IRQ_NR(KN02BA_IO_INR_RTC),
 	[DEC_IRQ_SCC0]		= IO_IRQ_NR(KN02BA_IO_INR_SCC0),
@@ -451,8 +470,8 @@ static int_ptr kn02ba_cpu_mask_nr_tbl[][2] __initdata = {
 };
 
 static int_ptr kn02ba_asic_mask_nr_tbl[][2] __initdata = {
-	{ { .i = IO_IRQ_MASK(KN02BA_IO_INR_MEMORY) },
-		{ .i = IO_IRQ_NR(KN02BA_IO_INR_MEMORY) } },
+	{ { .i = IO_IRQ_MASK(KN02BA_IO_INR_BUS) },
+		{ .i = IO_IRQ_NR(KN02BA_IO_INR_BUS) } },
 	{ { .i = IO_IRQ_MASK(KN02BA_IO_INR_RTC) },
 		{ .i = IO_IRQ_NR(KN02BA_IO_INR_RTC) } },
 	{ { .i = IO_IRQ_DMA },
@@ -505,7 +524,7 @@ static int kn02ca_interrupt[DEC_NR_INTS] __initdata = {
 	[DEC_IRQ_HALT]		= DEC_CPU_IRQ_NR(KN02CA_CPU_INR_HALT),
 	[DEC_IRQ_ISDN]		= IO_IRQ_NR(KN02CA_IO_INR_ISDN),
 	[DEC_IRQ_LANCE]		= IO_IRQ_NR(KN02CA_IO_INR_LANCE),
-	[DEC_IRQ_MEMORY]	= DEC_CPU_IRQ_NR(KN02CA_CPU_INR_MEMORY),
+	[DEC_IRQ_BUS]		= DEC_CPU_IRQ_NR(KN02CA_CPU_INR_BUS),
 	[DEC_IRQ_PSU]		= -1,
 	[DEC_IRQ_RTC]		= DEC_CPU_IRQ_NR(KN02CA_CPU_INR_RTC),
 	[DEC_IRQ_SCC0]		= IO_IRQ_NR(KN02CA_IO_INR_SCC0),
@@ -539,8 +558,8 @@ static int kn02ca_interrupt[DEC_NR_INTS] __initdata = {
 };
 
 static int_ptr kn02ca_cpu_mask_nr_tbl[][2] __initdata = {
-	{ { .i = DEC_CPU_IRQ_MASK(KN02CA_CPU_INR_MEMORY) },
-		{ .i = DEC_CPU_IRQ_NR(KN02CA_CPU_INR_MEMORY) } },
+	{ { .i = DEC_CPU_IRQ_MASK(KN02CA_CPU_INR_BUS) },
+		{ .i = DEC_CPU_IRQ_NR(KN02CA_CPU_INR_BUS) } },
 	{ { .i = DEC_CPU_IRQ_MASK(KN02CA_CPU_INR_RTC) },
 		{ .i = DEC_CPU_IRQ_NR(KN02CA_CPU_INR_RTC) } },
 	{ { .i = DEC_CPU_IRQ_MASK(KN02CA_CPU_INR_CASCADE) },
@@ -589,7 +608,7 @@ void __init dec_init_kn02ca(void)
 /*
  * Machine-specific initialisation for KN03, aka DS5000/240,
  * aka 3max+ and DS5900, aka BIGmax.  Also applies to KN05, aka
- * DS5000/260, aka 4max+ and DS5900-260.
+ * DS5000/260, aka 4max+ and DS5900/260.
  */
 static int kn03_interrupt[DEC_NR_INTS] __initdata = {
 	[DEC_IRQ_CASCADE]	= DEC_CPU_IRQ_NR(KN03_CPU_INR_CASCADE),
@@ -602,7 +621,7 @@ static int kn03_interrupt[DEC_NR_INTS] __initdata = {
 	[DEC_IRQ_HALT]		= DEC_CPU_IRQ_NR(KN03_CPU_INR_HALT),
 	[DEC_IRQ_ISDN]		= -1,
 	[DEC_IRQ_LANCE]		= IO_IRQ_NR(KN03_IO_INR_LANCE),
-	[DEC_IRQ_MEMORY]	= DEC_CPU_IRQ_NR(KN03_CPU_INR_MEMORY),
+	[DEC_IRQ_BUS]		= DEC_CPU_IRQ_NR(KN03_CPU_INR_BUS),
 	[DEC_IRQ_PSU]		= IO_IRQ_NR(KN03_IO_INR_PSU),
 	[DEC_IRQ_RTC]		= DEC_CPU_IRQ_NR(KN03_CPU_INR_RTC),
 	[DEC_IRQ_SCC0]		= IO_IRQ_NR(KN03_IO_INR_SCC0),
@@ -636,8 +655,8 @@ static int kn03_interrupt[DEC_NR_INTS] __initdata = {
 };
 
 static int_ptr kn03_cpu_mask_nr_tbl[][2] __initdata = {
-	{ { .i = DEC_CPU_IRQ_MASK(KN03_CPU_INR_MEMORY) },
-		{ .i = DEC_CPU_IRQ_NR(KN03_CPU_INR_MEMORY) } },
+	{ { .i = DEC_CPU_IRQ_MASK(KN03_CPU_INR_BUS) },
+		{ .i = DEC_CPU_IRQ_NR(KN03_CPU_INR_BUS) } },
 	{ { .i = DEC_CPU_IRQ_MASK(KN03_CPU_INR_RTC) },
 		{ .i = DEC_CPU_IRQ_NR(KN03_CPU_INR_RTC) } },
 	{ { .i = DEC_CPU_IRQ_MASK(KN03_CPU_INR_CASCADE) },
@@ -722,7 +741,7 @@ void __init init_IRQ(void)
 	set_except_vector(0, decstation_handle_int);
 
 	/* Free the FPU interrupt if the exception is present. */
-	if (!(mips_cpu.options & MIPS_CPU_NOFPUEX)) {
+	if (!cpu_has_nofpuex) {
 		cpu_fpu_mask = 0;
 		dec_interrupt[DEC_IRQ_FPU] = -1;
 	}
@@ -732,6 +751,10 @@ void __init init_IRQ(void)
 		setup_irq(dec_interrupt[DEC_IRQ_FPU], &fpuirq);
 	if (dec_interrupt[DEC_IRQ_CASCADE] >= 0)
 		setup_irq(dec_interrupt[DEC_IRQ_CASCADE], &ioirq);
+
+	/* Register the bus error interrupt. */
+	if (dec_interrupt[DEC_IRQ_BUS] >= 0 && busirq.handler)
+		setup_irq(dec_interrupt[DEC_IRQ_BUS], &busirq);
 
 	/* Register the HALT interrupt. */
 	if (dec_interrupt[DEC_IRQ_HALT] >= 0)

@@ -131,3 +131,6 @@ arch/alpha/vmlinux.lds: arch/alpha/vmlinux.lds.in
 
 bootpfile:
 	@$(MAKEBOOT) bootpfile
+
+bootpzfile:
+	@$(MAKEBOOT) bootpzfile

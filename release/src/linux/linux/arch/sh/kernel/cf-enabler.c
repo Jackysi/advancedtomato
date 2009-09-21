@@ -1,4 +1,4 @@
-/* $Id: cf-enabler.c,v 1.1.1.4 2003/10/14 08:07:47 sparq Exp $
+/* $Id: cf-enabler.c,v 1.1.1.1.2.1 2003/06/24 08:52:51 dwmw2 Exp $
  *
  *  linux/drivers/block/cf-enabler.c
  *
@@ -11,7 +11,7 @@
 
 #include <linux/config.h>
 #include <linux/init.h>
-
+#include <linux/delay.h>
 #include <asm/io.h>
 #include <asm/irq.h>
 
@@ -65,6 +65,7 @@ static int __init allocate_cf_area(void)
 /*	printk("p3_ioremap(paddr=0x%08lx, psize=0x%08lx, prot=0x%08lx)=0x%08lx\n",
 	    	paddrbase, psize, prot.pgprot, cf_io_base);*/
 
+	/* XXX : do we need attribute and common-memory area also? */
 
 	return 0;
 }
@@ -86,7 +87,7 @@ static int __init cf_init_default(void)
 	return 0;
 }
 
-#if defined(CONFIG_SH_GENERIC) || defined(CONFIG_SH_SOLUTION_ENGINE)
+#if defined(CONFIG_SH_GENERIC) || defined(CONFIG_SH_SOLUTION_ENGINE) || defined(CONFIG_SH_HS7729PCI)
 #include <asm/hitachi_se.h>
 
 /*
@@ -141,15 +142,31 @@ static int __init cf_init_se(void)
 	ctrl_outw(0x2000, MRSHPC_ICR);
 	ctrl_outb(0x00, PA_MRSHPC_MW2 + 0x206);
 	ctrl_outb(0x42, PA_MRSHPC_MW2 + 0x200);
+
+	if (MACH_HS7729PCI) {
+		/* Empirical evidence shows that we have to delay for
+		   ten milliseconds and then redo the last outb. 
+		   I have no clue why. And all the docs are in Japanese
+		   so I feel no shame in just doing it this way. Besides,
+		   all this is just a crap hack for the fact that we don't
+		   have sensible userspace-less PCMCIA support in 2.4.
+
+		   dwmw2.
+		 */
+		mdelay(10);
+		ctrl_outb(0x42, PA_MRSHPC_MW2 + 0x200);
+	}
+
 	return 0;
 }
 #endif
 
 int __init cf_init(void)
 {
-#if defined(CONFIG_SH_GENERIC) || defined(CONFIG_SH_SOLUTION_ENGINE)
-	if (MACH_SE)
+#if defined(CONFIG_SH_GENERIC) || defined(CONFIG_SH_SOLUTION_ENGINE) || defined(CONFIG_SH_HS7729PCI)
+	if (MACH_SE || MACH_HS7729PCI) {
 		return cf_init_se();
+	}
 #endif
 	return cf_init_default();
 }

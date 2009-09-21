@@ -96,7 +96,11 @@ static int __init oaknet_init(void)
 	int reg0, regd;
 	int ret;
 	struct net_device tmp, *dev = NULL;
+#if 0
+	unsigned long ioaddr = OAKNET_IO_BASE; 
+#else
 	unsigned long ioaddr = ioremap(OAKNET_IO_BASE, OAKNET_IO_SIZE);
+#endif
 	bd_t *bip = (bd_t *)__res;
 
 	if (!ioaddr)
@@ -370,6 +374,9 @@ oaknet_get_8390_hdr(struct net_device *dev, struct e8390_pkt_hdr *hdr,
 	ei_status.dmaing &= ~0x01;
 }
 
+/*
+ * XXX - Document me.
+ */
 static void
 oaknet_block_input(struct net_device *dev, int count, struct sk_buff *skb,
 		   int ring_offset)
@@ -468,6 +475,9 @@ oaknet_block_output(struct net_device *dev, int count,
 		    const unsigned char *buf, int start_page)
 {
 	int base = E8390_BASE;
+#if 0
+	int bug;
+#endif
 	unsigned long start;
 #ifdef OAKNET_DISINT
 	unsigned long flags;
@@ -506,6 +516,43 @@ oaknet_block_output(struct net_device *dev, int count,
 retry:
 #endif
 
+#if 0
+	/*
+	 * The 83902 documentation states that the processor needs to
+	 * do a "dummy read" before doing the remote write to work
+	 * around a chip bug they don't feel like fixing.
+	 */
+
+	bug = 0;
+	while (1) {
+		unsigned int rdhi;
+		unsigned int rdlo;
+
+		/* Now the normal output. */
+		ei_obp(ENISR_RDC, base + EN0_ISR);
+		ei_obp(count & 0xff, base + EN0_RCNTLO);
+		ei_obp(count >> 8,   base + EN0_RCNTHI);
+		ei_obp(0x00, base + EN0_RSARLO);
+		ei_obp(start_page, base + EN0_RSARHI);
+
+		if (bug++)
+			break;
+
+		/* Perform the dummy read */
+		rdhi = ei_ibp(base + EN0_CRDAHI);
+		rdlo = ei_ibp(base + EN0_CRDALO);
+		ei_obp(E8390_RREAD + E8390_START, base + E8390_CMD);
+
+		while (1) {
+			unsigned int nrdhi;
+			unsigned int nrdlo;
+			nrdhi = ei_ibp(base + EN0_CRDAHI);
+			nrdlo = ei_ibp(base + EN0_CRDALO);
+			if ((rdhi != nrdhi) || (rdlo != nrdlo))
+				break;
+		}
+	}
+#else
 #ifdef OAKNET_RWFIX
 	/*
 	 * Handle the read-before-write bug the same way as the
@@ -530,6 +577,7 @@ retry:
 	ei_obp(count >> 8,   base + EN0_RCNTHI);
 	ei_obp(0x00, base + EN0_RSARLO);
 	ei_obp(start_page, base + EN0_RSARHI);
+#endif /* 0/1 */
 
 	ei_obp(E8390_RWRITE + E8390_START, base + E8390_CMD);
 	if (ei_status.word16) {

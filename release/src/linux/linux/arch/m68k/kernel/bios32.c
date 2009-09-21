@@ -10,7 +10,11 @@
 #include <linux/init.h>
 #include <linux/kernel.h>
 
+#if 0
+# define DBG_DEVS(args)		printk args
+#else
 # define DBG_DEVS(args)
+#endif
 
 #ifdef CONFIG_PCI
 
@@ -405,10 +409,17 @@ static void __init pcibios_claim_resources(struct pci_bus *bus)
 
 				if ((r->start == 0) || (r->parent != NULL))
 					continue;
+#if 1
 				if (r->flags & IORESOURCE_IO)
 					pr = &bus_info->io_space;
 				else
 					pr = &bus_info->mem_space;
+#else
+				if (r->flags & IORESOURCE_IO)
+					pr = &ioport_resource;
+				else
+					pr = &iomem_resource;
+#endif
 				if (request_resource(pr, r) < 0)
 				{
 					printk(KERN_ERR "PCI: Address space collision on region %d of device %s\n", i, dev->name);

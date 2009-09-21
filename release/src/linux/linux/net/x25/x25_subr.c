@@ -219,8 +219,8 @@ void x25_write_internal(struct sock *sk, int frametype)
 		case X25_RESET_REQUEST:
 			dptr    = skb_put(skb, 3);
 			*dptr++ = frametype;
-			*dptr++ = 0x00;		
-			*dptr++ = 0x00;		
+			*dptr++ = 0x00;		/* XXX */
+			*dptr++ = 0x00;		/* XXX */
 			break;
 
 		case X25_RR:

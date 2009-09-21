@@ -9,7 +9,11 @@
 #include <linux/kernel.h>
 #include <asm/io.h>
 
+#if 0
+# define DBG_DEVS(args)		printk args
+#else
 # define DBG_DEVS(args)
+#endif
 
 #if defined(CONFIG_PCI) && defined(CONFIG_HADES)
 
@@ -394,6 +398,7 @@ struct pci_bus_info * __init init_hades_pci(void)
 	bus->mem_space.start = HADES_MEM_BASE;
 	bus->mem_space.end = HADES_MEM_BASE + HADES_MEM_SIZE - 1;
 	bus->mem_space.name = pci_mem_name;
+#if 1
 	if (request_resource(&iomem_resource, &bus->mem_space) != 0)
 	{
 		release_resource(&io_space);
@@ -401,9 +406,11 @@ struct pci_bus_info * __init init_hades_pci(void)
 		kfree(bus);
 		return NULL;
 	}
+#endif
 	bus->io_space.start = pci_io_base_virt;
 	bus->io_space.end = pci_io_base_virt + HADES_VIRT_IO_SIZE - 1;
 	bus->io_space.name = pci_io_name;
+#if 1
 	if (request_resource(&ioport_resource, &bus->io_space) != 0)
 	{
 		release_resource(&bus->mem_space);
@@ -412,6 +419,7 @@ struct pci_bus_info * __init init_hades_pci(void)
 		kfree(bus);
 		return NULL;
 	}
+#endif
 	/*
 	 * Set hardware dependent functions.
 	 */

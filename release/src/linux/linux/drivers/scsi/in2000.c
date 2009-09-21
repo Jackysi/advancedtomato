@@ -337,6 +337,20 @@ DB(DB_QUEUE_COMMAND,printk("Q-%d-%02x-%ld(",cmd->target,cmd->cmnd[0],cmd->pid))
    cmd->scsi_done = done;
    cmd->result = 0;
 
+/* We use the Scsi_Pointer structure that's included with each command
+ * as a scratchpad (as it's intended to be used!). The handy thing about
+ * the SCp.xxx fields is that they're always associated with a given
+ * cmd, and are preserved across disconnect-reselect. This means we
+ * can pretty much ignore SAVE_POINTERS and RESTORE_POINTERS messages
+ * if we keep all the critical pointers and counters in SCp:
+ *  - SCp.ptr is the pointer into the RAM buffer
+ *  - SCp.this_residual is the size of that buffer
+ *  - SCp.buffer points to the current scatter-gather buffer
+ *  - SCp.buffers_residual tells us how many S.G. buffers there are
+ *  - SCp.have_data_in helps keep track of >2048 byte transfers
+ *  - SCp.sent_command is not used
+ *  - SCp.phase records this command's SRCID_ER bit setting
+ */
 
    if (cmd->use_sg) {
       cmd->SCp.buffer = (struct scatterlist *)cmd->buffer;
@@ -1902,14 +1916,14 @@ static u32 bios_tab[] in2000__INITDATA = {
    0
    };
 
-static const unsigned short base_tab[] in2000__INITDATA = {
+static unsigned short base_tab[] in2000__INITDATA = {
    0x220,
    0x200,
    0x110,
    0x100,
    };
 
-static const int int_tab[] in2000__INITDATA = {
+static int int_tab[] in2000__INITDATA = {
    15,
    14,
    11,

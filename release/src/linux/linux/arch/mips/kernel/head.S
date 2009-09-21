@@ -34,7 +34,7 @@
 #endif
 
 		.text
-		j	kernel_entry
+		j       kernel_entry
 		nop
 
 		/*
@@ -51,9 +51,9 @@
 
 		/* Cache Error */
 		LEAF(except_vec2_generic)
+		.set	push
 		.set	noreorder
 		.set	noat
-		.set	mips0
 		/*
 		 * This is a very bad place to be.  Our cache error
 		 * detection has triggered.  If we have write-back data
@@ -71,10 +71,9 @@
 		nop
 
 		j	cache_parity_error
-		nop
+		 nop
+		.set	pop
 		END(except_vec2_generic)
-
-		.set	at
 
 		/*
 		 * Special interrupt vector for embedded MIPS.  This is a
@@ -84,8 +83,11 @@
 		 * size!
 		 */
 		NESTED(except_vec4, 0, sp)
+		.set	push
+		.set	noreorder
 1:		j	1b			/* Dummy, will be replaced */
 		 nop
+		.set	pop
 		END(except_vec4)
 
 		/*
@@ -95,8 +97,11 @@
 		 * unconditional jump to this vector.
 		 */
 		NESTED(except_vec_ejtag_debug, 0, sp)
+		.set	push
+		.set	noreorder
 		j	ejtag_debug_handler
 		 nop
+		.set	pop
 		END(except_vec_ejtag_debug)
 
 		__FINIT
@@ -105,6 +110,7 @@
 		 * EJTAG debug exception handler.
 		 */
 		NESTED(ejtag_debug_handler, PT_SIZE, sp)
+		.set	push
 		.set	noat
 		.set	noreorder
 		mtc0	k0, CP0_DESAVE
@@ -113,7 +119,7 @@
 		sll	k0, k0, 30	# Check for SDBBP.
 		bgez	k0, ejtag_return
 
-		la	k0, ejtag_debug_buffer
+		 la	k0, ejtag_debug_buffer
 		sw	k1, 0(k0)
 		SAVE_ALL
 		jal	ejtag_exception_handler
@@ -128,7 +134,7 @@ ejtag_return:
 		deret
 		.set	mips0
 		 nop
-		.set	at
+		.set	pop
 		END(ejtag_debug_handler)
 
 		__INIT
@@ -140,23 +146,26 @@ ejtag_return:
 		* unconditional jump to this vector.
 		*/
 		NESTED(except_vec_nmi, 0, sp)
-		j	nmi_handler
+		.set	push
+		.set	noreorder
+		j       nmi_handler
 		 nop
+		.set	pop
 		END(except_vec_nmi)
 
 		__FINIT
 
 		NESTED(nmi_handler, PT_SIZE, sp)
-		.set	noat
-		.set	noreorder
-		.set	mips3
+		.set	push
+		.set    noat
+		.set    noreorder
+		.set    mips3
 		SAVE_ALL
-		jal	nmi_exception_handler
-		 move	a0, sp
+		jal     nmi_exception_handler
+		 move   a0, sp
 		RESTORE_ALL
 		eret
-		.set	at
-		.set	mips0
+		.set	pop
 		END(nmi_handler)
 
 		__INIT
@@ -165,19 +174,23 @@ ejtag_return:
 		 * Kernel entry point
 		 */
 		NESTED(kernel_entry, 16, sp)
+		.set	push
+		/*
+		 * For the moment disable interrupts and mark the kernel mode.
+		 * A full initialization of the CPU's status register is done
+		 * later in per_cpu_trap_init().
+		 */
+		mfc0	t0, CP0_STATUS
+		or	t0, ST0_CU0|0x1f
+		xor	t0, 0x1f
+		mtc0	t0, CP0_STATUS
+
 		.set	noreorder
+		sll	zero,3				# ehb
+		.set	reorder
 
 		/*
-		 * Stack for kernel and init, current variable
-		 */
-		la	$28, init_task_union
-		addiu	t0, $28, KERNEL_STACK_SIZE-32
-		subu	sp, t0, 4*SZREG
-
-		sw	t0, kernelsp
-
-#if	!defined(CONFIG_HWSIM) || defined(CONFIG_HWSIM_ZMEM)
-		/* The firmware/bootloader passes argc/argp/envp
+		 * The firmware/bootloader passes argc/argp/envp
 		 * to us as arguments.  But clear bss first because
 		 * the romvec and other important info is stored there
 		 * by prom_init().
@@ -187,12 +200,19 @@ ejtag_return:
 		la	t1, (_end - 4)
 1:
 		addiu	t0, 4
+		sw	zero, (t0)
 		bne	t0, t1, 1b
-		 sw	zero, (t0)
-#endif
+
+		/*
+		 * Stack for kernel and init, current variable
+		 */
+		la	$28, init_task_union
+		addiu	t0, $28, KERNEL_STACK_SIZE-32
+		subu	sp, t0, 4*SZREG
+		sw	t0, kernelsp
 
 		jal	init_arch
-		 nop
+		.set	pop
 		END(kernel_entry)
 
 
@@ -204,15 +224,24 @@ ejtag_return:
  */
 		LEAF(smp_bootstrap)
 		.set	push
-		.set	noreorder
-		mtc0	zero, CP0_WIRED
-		CLI
+		/*
+		 * For the moment disable interrupts and bootstrap exception
+		 * vectors and mark the kernel mode.  A full initialization of
+		 * the CPU's status register is done later in
+		 * per_cpu_trap_init().
+		 */
 		mfc0	t0, CP0_STATUS
-		li	t1, ~(ST0_CU1|ST0_CU2|ST0_CU3|ST0_KX|ST0_SX)
-		and	t0, t1
-		or	t0, (ST0_CU0);
-		jal	start_secondary
+		or	t0, ST0_CU0|ST0_BEV|0x1f
+		xor	t0, ST0_BEV|0x1f
 		mtc0	t0, CP0_STATUS
+
+		.set	noreorder
+		sll	zero,3				# ehb
+		.set	reorder
+
+		mtc0	zero, CP0_WIRED
+
+		jal	start_secondary
 		.set	pop
 		END(smp_bootstrap)
 #endif
@@ -227,7 +256,7 @@ ejtag_return:
 		EXPORT(ejtag_debug_buffer)
 		.fill	4
 
-		.comm	kernelsp, NR_CPUS * 8, 8
+		.comm	kernelsp,    NR_CPUS * 8, 8
 		.comm	pgd_current, NR_CPUS * 8, 8
 
 	.macro	page name, order=0

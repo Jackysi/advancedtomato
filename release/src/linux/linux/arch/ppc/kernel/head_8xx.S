@@ -1,10 +1,7 @@
 /*
- * BK Id: %F% %I% %G% %U% %#%
- */
-/*
  *  arch/ppc/kernel/except_8xx.S
  *
- *  PowerPC version 
+ *  PowerPC version
  *    Copyright (C) 1995-1996 Gary Thomas (gdt@linuxppc.org)
  *  Rewritten by Cort Dougan (cort@cs.nmt.edu) for PReP
  *    Copyright (C) 1996 Cort Dougan <cort@cs.nmt.edu>
@@ -24,9 +21,9 @@
  *
  */
 
+#include <linux/config.h>
 #include <asm/processor.h>
 #include <asm/page.h>
-#include <linux/config.h>
 #include <asm/mmu.h>
 #include <asm/cache.h>
 #include <asm/pgtable.h>
@@ -77,11 +74,31 @@ _start:
  * I used to use SPRG2 for a temporary register in the TLB handler, but it
  * has since been put to other uses.  I now use a hack to save a register
  * and the CCR at memory location 0.....Someday I'll fix this.....
+ *
+ * With regard to resetting the CPM. The UART console has a number of subtle
+ * assumptions built around the initialization to support kgdb/xmon debugging.
+ * The quick answer is we don't want to reset the CPM so we can proper support
+ * this debugging.
+ *
+ * When the kernel is first booted, kgdb/xmon use the CPM as it was set up by
+ * the boot rom.  There is a second initialization of the UART driver, but
+ * before the console is initialized.  This changes the BDs, but the UART
+ * still operates for kgdb/xmon.  The final stage initialization occurs when
+ * the console is initialized, and all of the "normal path" debugging and
+ * messages can occur after this point.  So the only time we want to do a CPM
+ * is in the case of a microcode patch.
+ *
  *	-- Dan
  */
 
 	.globl	__start
 __start:
+	/* To accomodate some SMP systems that overwrite the first few
+	 * locations before cpu 0 starts, the bootloader starts us at 0xc.
+	 */
+	nop
+	nop
+	nop
 	mr	r31,r3			/* save parameters */
 	mr	r30,r4
 	mr	r29,r5
@@ -321,19 +338,19 @@ InstructionTLBMiss:
 3:
 	lwz	r21, 0(r20)	/* Get the level 1 entry */
 	rlwinm.	r20, r21,0,0,19	/* Extract page descriptor page address */
-	beq	2f		/* If zero, don't try to find a pte */
 
 	/* We have a pte table, so load the MI_TWC with the attributes
-	 * for this page, which has only bit 31 set.
+	 * for this "segment."
 	 */
 	tophys(r21,r21)
 	ori	r21,r21,1		/* Set valid bit */
+	beq-	2f			/* If zero, don't try to find a pte */
 #ifdef CONFIG_8xx_CPU6
 	li	r3, 0x2b80
 	stw	r3, 12(r0)
 	lwz	r3, 12(r0)
 #endif
-	mtspr	MI_TWC, r21	/* Set page attributes */
+	mtspr	MI_TWC, r21	/* Set segment attributes */
 #ifdef CONFIG_8xx_CPU6
 	li	r3, 0x3b80
 	stw	r3, 12(r0)
@@ -352,9 +369,7 @@ InstructionTLBMiss:
 	 * set.  All other Linux PTE bits control the behavior
 	 * of the MMU.
 	 */
-	li	r21, 0x0600
-	andc	r20, r20, r21		/* Clear 21, 22 */
-	li	r21, 0x00f0
+2:	li	r21, 0x00f0
 	rlwimi	r20, r21, 0, 24, 28	/* Set 24-27, clear 28 */
 
 #ifdef CONFIG_8xx_CPU6
@@ -372,15 +387,6 @@ InstructionTLBMiss:
 	lwz	r3, 8(r0)
 #endif
 	rfi
-
-2:	mfspr	r20, M_TW	/* Restore registers */
-	lwz	r21, 0(r0)
-	mtcr	r21
-	lwz	r21, 4(r0)
-#ifdef CONFIG_8xx_CPU6
-	lwz	r3, 8(r0)
-#endif
-	b	InstructionAccess
 
 	. = 0x1200
 DataStoreTLBMiss:
@@ -407,12 +413,12 @@ DataStoreTLBMiss:
 3:
 	lwz	r21, 0(r20)	/* Get the level 1 entry */
 	rlwinm.	r20, r21,0,0,19	/* Extract page descriptor page address */
-	beq	2f		/* If zero, don't try to find a pte */
 
 	/* We have a pte table, so load fetch the pte from the table.
 	 */
 	tophys(r21, r21)
 	ori	r21, r21, 1	/* Set valid bit in physical L2 page */
+	beq-	2f		/* If zero, don't try to find a pte */
 #ifdef CONFIG_8xx_CPU6
 	li	r3, 0x3b80
 	stw	r3, 12(r0)
@@ -446,9 +452,7 @@ DataStoreTLBMiss:
 	 * set.  All other Linux PTE bits control the behavior
 	 * of the MMU.
 	 */
-	li	r21, 0x0600
-	andc	r20, r20, r21		/* Clear 21, 22 */
-	li	r21, 0x00f0
+2:	li	r21, 0x00f0
 	rlwimi	r20, r21, 0, 24, 28	/* Set 24-27, clear 28 */
 
 #ifdef CONFIG_8xx_CPU6
@@ -466,15 +470,6 @@ DataStoreTLBMiss:
 	lwz	r3, 8(r0)
 #endif
 	rfi
-
-2:	mfspr	r20, M_TW	/* Restore registers */
-	lwz	r21, 0(r0)
-	mtcr	r21
-	lwz	r21, 4(r0)
-#ifdef CONFIG_8xx_CPU6
-	lwz	r3, 8(r0)
-#endif
-	b	DataAccess
 
 /* This is an instruction TLB error on the MPC8xx.  This could be due
  * to many reasons, such as executing guarded memory or illegal instruction
@@ -511,6 +506,22 @@ DataTLBError:
 	andis.	r21, r20, 0x0200	/* If set, indicates store op */
 	beq	2f
 
+	/* The EA of a data TLB miss is automatically stored in the MD_EPN
+	 * register.  The EA of a data TLB error is automatically stored in
+	 * the DAR, but not the MD_EPN register.  We must copy the 20 most
+	 * significant bits of the EA from the DAR to MD_EPN before we
+	 * start walking the page tables.  We also need to copy the CASID
+	 * value from the M_CASID register.
+	 * Addendum:  The EA of a data TLB error is _supposed_ to be stored
+	 * in DAR, but it seems that this doesn't happen in some cases, such
+	 * as when the error is due to a dcbi instruction to a page with a
+	 * TLB that doesn't have the changed bit set.  In such cases, there
+	 * does not appear to be any way  to recover the EA of the error
+	 * since it is neither in DAR nor MD_EPN.  As a workaround, the
+	 * _PAGE_HWWRITE bit is set for all kernel data pages when the PTEs
+	 * are initialized in mapin_ram().  This will avoid the problem,
+	 * assuming we only use the dcbi instruction on kernel addresses.
+	 */
 	mfspr	r20, DAR
 	rlwinm	r21, r20, 0, 0, 19
 	ori	r21, r21, MD_EVALID
@@ -566,8 +577,6 @@ DataTLBError:
 	 * set.  All other Linux PTE bits control the behavior
 	 * of the MMU.
 	 */
-	li	r21, 0x0600
-	andc	r20, r20, r21		/* Clear 21, 22 */
 	li	r21, 0x00f0
 	rlwimi	r20, r21, 0, 24, 28	/* Set 24-27, clear 28 */
 
@@ -775,16 +784,31 @@ start_here:
  * kernel initialization.  This maps the first 8 MBytes of memory 1:1
  * virtual to physical.  Also, set the cache mode since that is defined
  * by TLB entries and perform any additional mapping (like of the IMMR).
+ * If configured to pin some TLBs, we pin the first 8 Mbytes of kernel,
+ * 24 Mbytes of data, and the 8M IMMR space.  Anything not covered by
+ * these mappings is mapped by page tables.
  */
 initial_mmu:
 	tlbia			/* Invalidate all TLB entries */
+#ifdef CONFIG_PIN_TLB
+	lis	r8, MI_RSV4I@h
+	ori	r8, r8, 0x1c00
+#else
 	li	r8, 0
-	mtspr	MI_CTR, r8	/* Set instruction control to zero */
-	lis	r8, MD_RESETVAL@h
-#ifndef CONFIG_8xx_COPYBACK
-	oris	r8, r8, MD_WTDEF@h
 #endif
-	mtspr	MD_CTR, r8	/* Set data TLB control */
+	mtspr	MI_CTR, r8	/* Set instruction MMU control */
+
+#ifdef CONFIG_PIN_TLB
+	lis	r10, (MD_RSV4I | MD_RESETVAL)@h
+	ori	r10, r10, 0x1c00
+	mr	r8, r10
+#else
+	lis	r10, MD_RESETVAL@h
+#endif
+#ifndef CONFIG_8xx_COPYBACK
+	oris	r10, r10, MD_WTDEF@h
+#endif
+	mtspr	MD_CTR, r10	/* Set data TLB control */
 
 	/* Now map the lower 8 Meg into the TLBs.  For this quick hack,
 	 * we can load the instruction and data TLB registers with the
@@ -808,6 +832,10 @@ initial_mmu:
 	/* Map another 8 MByte at the IMMR to get the processor
 	 * internal registers (among other things).
 	 */
+#ifdef CONFIG_PIN_TLB
+	addi	r10, r10, 0x0100
+	mtspr	MD_CTR, r10
+#endif
 	mfspr	r9, 638			/* Get current IMMR */
 	andis.	r9, r9, 0xff80		/* Get 8Mbyte boundary */
 
@@ -820,6 +848,30 @@ initial_mmu:
 	mr	r8, r9			/* Create paddr for TLB */
 	ori	r8, r8, MI_BOOTINIT|0x2 /* Inhibit cache -- Cort */
 	mtspr	MD_RPN, r8
+
+#ifdef CONFIG_PIN_TLB
+	/* Map two more 8M kernel data pages.
+	*/
+	addi	r10, r10, 0x0100
+	mtspr	MD_CTR, r10
+
+	lis	r8, KERNELBASE@h	/* Create vaddr for TLB */
+	addis	r8, r8, 0x0080		/* Add 8M */
+	ori	r8, r8, MI_EVALID	/* Mark it valid */
+	mtspr	MD_EPN, r8
+	li	r9, MI_PS8MEG		/* Set 8M byte page */
+	ori	r9, r9, MI_SVALID	/* Make it valid */
+	mtspr	MD_TWC, r9
+	li	r11, MI_BOOTINIT	/* Create RPN for address 0 */
+	addis	r11, r11, 0x0080	/* Add 8M */
+	mtspr	MD_RPN, r8
+
+	addis	r8, r8, 0x0080		/* Add 8M */
+	mtspr	MD_EPN, r8
+	mtspr	MD_TWC, r9
+	addis	r11, r11, 0x0080	/* Add 8M */
+	mtspr	MD_RPN, r8
+#endif
 
 	/* Since the cache is enabled according to the information we
 	 * just loaded into the TLB, invalidate and enable the caches here.

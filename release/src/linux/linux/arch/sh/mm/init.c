@@ -1,4 +1,4 @@
-/* $Id: init.c,v 1.1.1.4 2003/10/14 08:07:48 sparq Exp $
+/* $Id: init.c,v 1.1.1.1.2.2 2003/07/07 11:23:21 trent Exp $
  *
  *  linux/arch/sh/mm/init.c
  *
@@ -139,7 +139,7 @@ void __init paging_init(void)
 void __init mem_init(void)
 {
 	extern unsigned long empty_zero_page[1024];
-	int codesize, reservedpages, datasize, initsize;
+	int codesize, reservedpages, datasize, bsssize, initsize, pagemapsize;
 	int tmp;
 
 	max_mapnr = num_physpages = MAX_LOW_PFN - START_PFN;
@@ -163,15 +163,19 @@ void __init mem_init(void)
 			reservedpages++;
 	codesize =  (unsigned long) &_etext - (unsigned long) &_text;
 	datasize =  (unsigned long) &_edata - (unsigned long) &_etext;
+	bsssize  =  (unsigned long) &_end - (unsigned long) &__bss_start;
 	initsize =  (unsigned long) &__init_end - (unsigned long) &__init_begin;
+	pagemapsize = (max_mapnr + 1)*sizeof(struct page);
 
-	printk("Memory: %luk/%luk available (%dk kernel code, %dk reserved, %dk data, %dk init)\n",
-		(unsigned long) nr_free_pages() << (PAGE_SHIFT-10),
-		max_mapnr << (PAGE_SHIFT-10),
-		codesize >> 10,
-		reservedpages << (PAGE_SHIFT-10),
-		datasize >> 10,
-		initsize >> 10);
+	printk("Memory: %luk/%luk available (%dk reserved including: %dk kernel code, %dk data, %dk BSS, %dk init, %dk page map)\n",
+	       (unsigned long) nr_free_pages() << (PAGE_SHIFT-10),
+	       max_mapnr << (PAGE_SHIFT-10),
+	       reservedpages << (PAGE_SHIFT-10),
+	       codesize >> 10,
+	       datasize >> 10,
+	       bsssize >> 10,
+	       initsize >> 10,
+	       pagemapsize >> 10);
 
 	p3_cache_init();
 }

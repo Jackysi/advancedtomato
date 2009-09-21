@@ -1,8 +1,8 @@
 /******************************************************************* 
- * ident "$Id: idt77252.c,v 1.1.1.4 2003/10/14 08:07:57 sparq Exp $"
+ * ident "$Id: idt77252.c,v 1.3 2001/11/17 00:30:19 ecd Exp $"
  *
- * $Author: sparq $
- * $Date: 2003/10/14 08:07:57 $
+ * $Author: ecd $
+ * $Date: 2001/11/17 00:30:19 $
  *
  * Copyright (c) 2000 ATecoM GmbH 
  *
@@ -30,7 +30,7 @@
  *
  *******************************************************************/
 static char const rcsid[] =
-"$Id: idt77252.c,v 1.1.1.4 2003/10/14 08:07:57 sparq Exp $";
+"$Id: idt77252.c,v 1.3 2001/11/17 00:30:19 ecd Exp $";
 
 
 #include <linux/module.h>
@@ -356,6 +356,9 @@ idt77252_read_gp(struct idt77252_dev *card)
 	u32 gp;
 
 	gp = readl(SAR_REG_GP);
+#if 0
+	printk("RD: %s\n", gp & SAR_GP_EEDI ? "1" : "0");
+#endif
 	return gp;
 }
 
@@ -364,6 +367,11 @@ idt77252_write_gp(struct idt77252_dev *card, u32 value)
 {
 	unsigned long flags;
 
+#if 0
+	printk("WR: %s %s %s\n", value & SAR_GP_EECS ? "   " : "/CS",
+	       value & SAR_GP_EESCLK ? "HIGH" : "LOW ",
+	       value & SAR_GP_EEDO   ? "1" : "0");
+#endif
 
 	spin_lock_irqsave(&card->cmd_lock, flags);
 	waitfor_idle(card);
@@ -657,8 +665,8 @@ alloc_scq(struct idt77252_dev *card, int class)
 	skb_queue_head_init(&scq->transmit);
 	skb_queue_head_init(&scq->pending);
 
-	TXPRINTK("idt77252: SCQ: base 0x%p, next 0x%p, last 0x%p, paddr %08x\n",
-		 scq->base, scq->next, scq->last, scq->paddr);
+	TXPRINTK("idt77252: SCQ: base 0x%p, next 0x%p, last 0x%p, paddr %08llx\n",
+		 scq->base, scq->next, scq->last, (unsigned long long)scq->paddr);
 
 	return scq;
 }
@@ -722,7 +730,7 @@ push_on_scq(struct idt77252_dev *card, struct vc_map *vc, struct sk_buff *skb)
 		struct atm_vcc *vcc = vc->tx_vcc;
 
 		vc->estimator->cells += (skb->len + 47) / 48;
-		if (atomic_read(&vcc->tx_inuse) > (vcc->sk->sndbuf >> 1)) {
+		if (atomic_read(&vcc->sk->wmem_alloc) > (vcc->sk->sndbuf >> 1)) {
 			u32 cps = vc->estimator->maxcps;
 
 			vc->estimator->cps = cps;
@@ -1980,7 +1988,7 @@ idt77252_send_skb(struct atm_vcc *vcc, struct sk_buff *skb, int oam)
 		return -EINVAL;
 	}
 
-	if (ATM_SKB(skb)->iovcnt != 0) {
+	if (skb_shinfo(skb)->nr_frags != 0) {
 		printk("%s: No scatter-gather yet.\n", card->name);
 		atomic_inc(&vcc->stats->tx_err);
 		dev_kfree_skb(skb);
@@ -2017,8 +2025,7 @@ idt77252_send_oam(struct atm_vcc *vcc, void *cell, int flags)
 		atomic_inc(&vcc->stats->tx_err);
 		return -ENOMEM;
 	}
-	atomic_add(skb->truesize + ATM_PDU_OVHD, &vcc->tx_inuse);
-	ATM_SKB(skb)->iovcnt = 0;
+	atomic_add(skb->truesize, &vcc->sk->wmem_alloc);
 
 	memcpy(skb_put(skb, 52), cell, 52);
 
@@ -2138,8 +2145,8 @@ idt77252_init_est(struct vc_map *vc, int pcr)
 	est->cps = est->maxcps;
 	est->avcps = est->cps << 5;
 
-	est->interval = 2;		
-	est->ewma_log = 2;		
+	est->interval = 2;		/* XXX: make this configurable */
+	est->ewma_log = 2;		/* XXX: make this configurable */
 	est->timer.data = (unsigned long)vc;
 	est->timer.function = idt77252_est_timer;
 	init_timer(&est->timer);
@@ -2397,34 +2404,43 @@ idt77252_init_rx(struct idt77252_dev *card, struct vc_map *vc,
 static int
 idt77252_find_vcc(struct atm_vcc *vcc, short *vpi, int *vci)
 {
+	struct sock *s;
 	struct atm_vcc *walk;
 
+	read_lock(&vcc_sklist_lock);
 	if (*vpi == ATM_VPI_ANY) {
 		*vpi = 0;
-		walk = vcc->dev->vccs;
-		while (walk) {
+		s = vcc_sklist;
+		while (s) {
+			walk = s->protinfo.af_atm;
+			if (walk->dev != vcc->dev)
+				continue;
 			if ((walk->vci == *vci) && (walk->vpi == *vpi)) {
 				(*vpi)++;
-				walk = vcc->dev->vccs;
+				s = vcc_sklist;
 				continue;
 			}
-			walk = walk->next;
+			s = s->next;
 		}
 	}
 
 	if (*vci == ATM_VCI_ANY) {
 		*vci = ATM_NOT_RSV_VCI;
-		walk = vcc->dev->vccs;
-		while (walk) {
+		s = vcc_sklist;
+		while (s) {
+			walk = s->protinfo.af_atm;
+			if (walk->dev != vcc->dev)
+				continue;
 			if ((walk->vci == *vci) && (walk->vpi == *vpi)) {
 				(*vci)++;
-				walk = vcc->dev->vccs;
+				s = vcc_sklist;
 				continue;
 			}
-			walk = walk->next;
+			s = s->next;
 		}
 	}
 
+	read_unlock(&vcc_sklist_lock);
 	return 0;
 }
 
@@ -3298,6 +3314,23 @@ init_sram(struct idt77252_dev *card)
 		write_sram(card, card->rt_base + 256 + i, tmp);
 	}
 
+#if 0 /* Fill RDF and AIR tables. */
+	for (i = 0; i < 128; i++) {
+		unsigned int tmp;
+
+		tmp = RDF[0][(i << 1) + 0] << 16;
+		tmp |= RDF[0][(i << 1) + 1] << 0;
+		write_sram(card, card->rt_base + 512 + i, tmp);
+	}
+
+	for (i = 0; i < 128; i++) {
+		unsigned int tmp;
+
+		tmp = AIR[0][(i << 1) + 0] << 16;
+		tmp |= AIR[0][(i << 1) + 1] << 0;
+		write_sram(card, card->rt_base + 640 + i, tmp);
+	}
+#endif
 
 	IPRINTK("%s: initialize rate table ...\n", card->name);
 	writel(card->rt_base << 2, SAR_REG_RTBL);
@@ -3584,6 +3617,9 @@ init_card(struct atm_dev *dev)
 	printk("\n");
 #endif /* HAVE_EEPROM */
 
+	/*
+	 * XXX: <hack>
+	 */
 	sprintf(tname, "eth%d", card->index);
 	tmp = dev_get_by_name(tname);	/* jhs: was "tmp = dev_get(tname);" */
 	if (tmp) {
@@ -3594,6 +3630,9 @@ init_card(struct atm_dev *dev)
 		       card->atmdev->esi[2], card->atmdev->esi[3],
 		       card->atmdev->esi[4], card->atmdev->esi[5]);
 	}
+	/*
+	 * XXX: </hack>
+	 */
 
 	/* Set Maximum Deficit Count for now. */
 	writel(0xffff, SAR_REG_MDFCT);

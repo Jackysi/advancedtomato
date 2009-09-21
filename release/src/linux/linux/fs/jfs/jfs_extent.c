@@ -1,5 +1,5 @@
 /*
- *   Copyright (c) International Business Machines Corp., 2000-2002
+ *   Copyright (C) International Business Machines Corp., 2000-2003
  *
  *   This program is free software;  you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -18,6 +18,7 @@
 
 #include <linux/fs.h>
 #include "jfs_incore.h"
+#include "jfs_superblock.h"
 #include "jfs_dmap.h"
 #include "jfs_extent.h"
 #include "jfs_debug.h"
@@ -34,7 +35,6 @@ static s64 extRoundDown(s64 nb);
 /*
  * external references
  */
-extern int dbExtend(struct inode *, s64, s64, s64);
 extern int jfs_commit_inode(struct inode *, int);
 
 
@@ -83,15 +83,15 @@ extern int jfs_commit_inode(struct inode *, int);
  *
  * RETURN VALUES:
  *      0       - success
- *      EIO	- i/o error.
- *      ENOSPC	- insufficient disk resources.
+ *      -EIO	- i/o error.
+ *      -ENOSPC	- insufficient disk resources.
  */
 int
 extAlloc(struct inode *ip, s64 xlen, s64 pno, xad_t * xp, boolean_t abnr)
 {
 	struct jfs_sb_info *sbi = JFS_SBI(ip->i_sb);
 	s64 nxlen, nxaddr, xoff, hint, xaddr = 0;
-	int rc, nbperpage;
+	int rc;
 	int xflag;
 
 	/* This blocks if we are low on resources */
@@ -103,9 +103,6 @@ extAlloc(struct inode *ip, s64 xlen, s64 pno, xad_t * xp, boolean_t abnr)
 	/* validate extent length */
 	if (xlen > MAXXLEN)
 		xlen = MAXXLEN;
-
-	/* get the number of blocks per page */
-	nbperpage = sbi->nbperpage;
 
 	/* get the page's starting extent offset */
 	xoff = pno << sbi->l2nbperpage;
@@ -178,6 +175,7 @@ extAlloc(struct inode *ip, s64 xlen, s64 pno, xad_t * xp, boolean_t abnr)
 	xp->flag = xflag;
 
 	mark_inode_dirty(ip);
+	set_cflag(COMMIT_Syncdata, ip);
 
 	up(&JFS_IP(ip)->commit_sem);
 	/*
@@ -210,8 +208,8 @@ extAlloc(struct inode *ip, s64 xlen, s64 pno, xad_t * xp, boolean_t abnr)
  *
  * RETURN VALUES:
  *      0       - success
- *      EIO	- i/o error.
- *      ENOSPC	- insufficient disk resources.
+ *      -EIO	- i/o error.
+ *      -ENOSPC	- insufficient disk resources.
  */
 int extRealloc(struct inode *ip, s64 nxlen, xad_t * xp, boolean_t abnr)
 {
@@ -353,7 +351,7 @@ exit:
  *
  * RETURN VALUES:
  *      0       - success
- *      EIO	- i/o error.
+ *      -EIO	- i/o error.
  */
 int extHint(struct inode *ip, s64 offset, xad_t * xp)
 {
@@ -406,8 +404,10 @@ int extHint(struct inode *ip, s64 offset, xad_t * xp)
 	 */
 	xp->flag &= XAD_NOTRECORDED;
 
-	assert(xadl.nxad == 1);
-	assert(lengthXAD(xp) == nbperpage);
+        if(xadl.nxad != 1 || lengthXAD(xp) != nbperpage) {          
+		jfs_error(ip->i_sb, "extHint: corrupt xtree");
+		return -EIO;
+        }
 
 	return (0);
 }
@@ -424,8 +424,8 @@ int extHint(struct inode *ip, s64 offset, xad_t * xp)
  *
  * RETURN VALUES:
  *      0       - success
- *      EIO	- i/o error.
- *      ENOSPC	- insufficient disk resources.
+ *      -EIO	- i/o error.
+ *      -ENOSPC	- insufficient disk resources.
  */
 int extRecord(struct inode *ip, xad_t * xp)
 {
@@ -439,7 +439,7 @@ int extRecord(struct inode *ip, xad_t * xp)
 	rc = xtUpdate(0, ip, xp);
 
 	up(&JFS_IP(ip)->commit_sem);
-	return (rc);
+	return rc;
 }
 
 
@@ -456,8 +456,8 @@ int extRecord(struct inode *ip, xad_t * xp)
  *
  * RETURN VALUES:
  *      0       - success
- *      EIO	- i/o error.
- *      ENOSPC	- insufficient disk resources.
+ *      -EIO	- i/o error.
+ *      -ENOSPC	- insufficient disk resources.
  */
 int extFill(struct inode *ip, xad_t * xp)
 {
@@ -508,8 +508,8 @@ int extFill(struct inode *ip, xad_t * xp)
  *
  * RETURN VALUES:
  *      0       - success
- *      EIO	- i/o error.
- *      ENOSPC	- insufficient disk resources.
+ *      -EIO	- i/o error.
+ *      -ENOSPC	- insufficient disk resources.
  */
 static int
 extBalloc(struct inode *ip, s64 hint, s64 * nblocks, s64 * blkno)
@@ -538,7 +538,7 @@ extBalloc(struct inode *ip, s64 hint, s64 * nblocks, s64 * blkno)
 		/* if something other than an out of space error,
 		 * stop and return this error.
 		 */
-		if (rc != ENOSPC)
+		if (rc != -ENOSPC)
 			return (rc);
 
 		/* decrease the allocation request size */
@@ -554,6 +554,7 @@ extBalloc(struct inode *ip, s64 hint, s64 * nblocks, s64 * blkno)
 
 	if (S_ISREG(ip->i_mode) && (ji->fileset == FILESYSTEM_I)) {
 		ag = BLKTOAG(daddr, sbi);
+		spin_lock_irq(&ji->ag_lock);
 		if (ji->active_ag == -1) {
 			atomic_inc(&bmp->db_active[ag]);
 			ji->active_ag = ag;
@@ -562,6 +563,7 @@ extBalloc(struct inode *ip, s64 hint, s64 * nblocks, s64 * blkno)
 			atomic_inc(&bmp->db_active[ag]);
 			ji->active_ag = ag;
 		}
+		spin_unlock_irq(&ji->ag_lock);
 	}
 
 	return (0);
@@ -599,8 +601,8 @@ extBalloc(struct inode *ip, s64 hint, s64 * nblocks, s64 * blkno)
  *
  * RETURN VALUES:
  *      0       - success
- *      EIO	- i/o error.
- *      ENOSPC	- insufficient disk resources.
+ *      -EIO	- i/o error.
+ *      -ENOSPC	- insufficient disk resources.
  */
 static int
 extBrealloc(struct inode *ip,
@@ -613,7 +615,7 @@ extBrealloc(struct inode *ip,
 		*newblkno = blkno;
 		return (0);
 	} else {
-		if (rc != ENOSPC)
+		if (rc != -ENOSPC)
 			return (rc);
 	}
 

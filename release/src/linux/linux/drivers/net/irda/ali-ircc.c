@@ -2017,22 +2017,19 @@ static int ali_ircc_net_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
 
 	IRDA_DEBUG(2, "%s(), %s, (cmd=0x%X)\n", __FUNCTION__, dev->name, cmd);
 	
-	/* Disable interrupts & save flags */
-	save_flags(flags);
-	cli();	
-	
 	switch (cmd) {
 	case SIOCSBANDWIDTH: /* Set bandwidth */
 		IRDA_DEBUG(1, "%s(), SIOCSBANDWIDTH\n", __FUNCTION__);
-		/*
-		 * This function will also be used by IrLAP to change the
-		 * speed, so we still must allow for speed change within
-		 * interrupt context.
-		 */
-		if (!in_interrupt() && !capable(CAP_NET_ADMIN))
+		/* Root only */
+		if (!capable(CAP_NET_ADMIN))
 			return -EPERM;
 		
+		/* Is it really needed ? And what about spinlock ? */
+		save_flags(flags);
+		cli();	
+
 		ali_ircc_change_speed(self, irq->ifr_baudrate);		
+		restore_flags(flags);
 		break;
 	case SIOCSMEDIABUSY: /* Set media busy */
 		IRDA_DEBUG(1, "%s(), SIOCSMEDIABUSY\n", __FUNCTION__);
@@ -2042,14 +2039,17 @@ static int ali_ircc_net_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
 		break;
 	case SIOCGRECEIVING: /* Check if we are receiving right now */
 		IRDA_DEBUG(2, "%s(), SIOCGRECEIVING\n", __FUNCTION__);
+		/* Is it really needed ? And what about spinlock ? */
+		save_flags(flags);
+		cli();	
+
 		irq->ifr_receiving = ali_ircc_is_receiving(self);
+		restore_flags(flags);
 		break;
 	default:
 		ret = -EOPNOTSUPP;
 	}
-	
-	restore_flags(flags);
-	
+
 	IRDA_DEBUG(2, "%s(), ----------------- End ------------------\n", __FUNCTION__);	
 	
 	return ret;

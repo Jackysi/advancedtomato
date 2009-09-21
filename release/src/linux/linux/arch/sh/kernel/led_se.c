@@ -10,7 +10,14 @@
  */
 
 #include <linux/config.h>
+
+#ifdef CONFIG_SH_7751_SOLUTION_ENGINE
+#include <asm/hitachi_7751se.h>
+#elif defined(CONFIG_SH_MOBILE_SOLUTION_ENGINE)
+#include <asm/hitachi_shmse.h>
+#else
 #include <asm/hitachi_se.h>
+#endif
 
 static void mach_led(int position, int value)
 {

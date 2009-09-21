@@ -22,7 +22,7 @@
 
 extern void free_proc_entry(struct proc_dir_entry *);
 
-struct proc_dir_entry * de_get(struct proc_dir_entry *de)
+static inline struct proc_dir_entry * de_get(struct proc_dir_entry *de)
 {
 	if (de)
 		atomic_inc(&de->count);
@@ -32,7 +32,7 @@ struct proc_dir_entry * de_get(struct proc_dir_entry *de)
 /*
  * Decrements the use count and checks for deferred deletion.
  */
-void de_put(struct proc_dir_entry *de)
+static void de_put(struct proc_dir_entry *de)
 {
 	if (de) {	
 		lock_kernel();		
@@ -137,9 +137,11 @@ struct inode * proc_get_inode(struct super_block * sb, int ino,
 	 * Increment the use count so the dir entry can't disappear.
 	 */
 	de_get(de);
+#if 1
 /* shouldn't ever happen */
 if (de && de->deleted)
 printk("proc_iget: using deleted entry %s, count=%d\n", de->name, atomic_read(&de->count));
+#endif
 
 	inode = iget(sb, ino);
 	if (!inode)
@@ -184,6 +186,7 @@ struct super_block *proc_read_super(struct super_block *s,void *data,
 	s->s_blocksize_bits = 10;
 	s->s_magic = PROC_SUPER_MAGIC;
 	s->s_op = &proc_sops;
+	s->s_maxbytes = ~0UL;
 	
 	root_inode = proc_get_inode(s, PROC_ROOT_INO, &proc_root);
 	if (!root_inode)

@@ -296,7 +296,7 @@
 
 #include <linux/config.h>	/* for CONFIG_PCI */
   
-#define VERSION          "$Revision: 1.1.1.2 $"
+#define VERSION          "$Revision: 5.50 $"
 
 /* START OF USER DEFINABLE OPTIONS */
 
@@ -561,7 +561,8 @@ static void print_banner( struct Scsi_Host *shpnt )
    printk( "\n" );
 }
 
-static int __init fdomain_setup( char *str )
+/* no __init, may be called from fdomain_stubs.c */
+int fdomain_setup( char *str )
 {
 	int ints[4];
 
@@ -1124,6 +1125,40 @@ int fdomain_16x0_proc_info( char *buffer, char **start, off_t offset,
    return(len);
 }
    
+#if 0
+static int fdomain_arbitrate( void )
+{
+   int           status = 0;
+   unsigned long timeout;
+
+#if EVERY_ACCESS
+   printk( "fdomain_arbitrate()\n" );
+#endif
+   
+   outb( 0x00, SCSI_Cntl_port );              /* Disable data drivers */
+   outb( adapter_mask, port_base + SCSI_Data_NoACK ); /* Set our id bit */
+   outb( 0x04 | PARITY_MASK, TMC_Cntl_port ); /* Start arbitration */
+
+   timeout = 500;
+   do {
+      status = inb( TMC_Status_port );        /* Read adapter status */
+      if (status & 0x02)		      /* Arbitration complete */
+	    return 0;
+      mdelay(1);			/* Wait one millisecond */
+   } while (--timeout);
+
+   /* Make bus idle */
+   fdomain_make_bus_idle();
+
+#if EVERY_ACCESS
+   printk( "Arbitration failed, status = %x\n", status );
+#endif
+#if ERRORS_ONLY
+   printk( "scsi: <fdomain> Arbitration failed, status = %x\n", status );
+#endif
+   return 1;
+}
+#endif
 
 static int fdomain_select( int target )
 {
@@ -2012,7 +2047,9 @@ int fdomain_16x0_release(struct Scsi_Host *shpnt)
 
 MODULE_LICENSE("GPL");
 
+#ifndef PCMCIA
 /* Eventually this will go into an include file, but this will be later */
 static Scsi_Host_Template driver_template = FDOMAIN_16X0;
 
 #include "scsi_module.c"
+#endif

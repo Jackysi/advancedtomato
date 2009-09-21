@@ -10,6 +10,7 @@
 #include <linux/init.h>
 #include <linux/irq.h>
 #include <linux/interrupt.h>
+#include <linux/module.h>
 
 #include <asm/signal.h>
 #include <asm/dma.h>
@@ -137,6 +138,25 @@ int __init init_dma(void)
 	return 0;
 }
 
-module_init(init_dma);
+static void __exit exit_dma(void)
+{
+#ifdef CONFIG_CPU_SH4
+	free_irq(DMAE_IRQ);
+#endif
+}
 
-/**/
+module_init(init_dma);
+module_exit(exit_dma);
+
+MODULE_LICENSE("GPL");
+
+EXPORT_SYMBOL(setup_dma);
+EXPORT_SYMBOL(claim_dma_lock);
+EXPORT_SYMBOL(release_dma_lock);
+EXPORT_SYMBOL(enable_dma);
+EXPORT_SYMBOL(disable_dma);
+EXPORT_SYMBOL(set_dma_mode);
+EXPORT_SYMBOL(set_dma_addr);
+EXPORT_SYMBOL(set_dma_count);
+EXPORT_SYMBOL(get_dma_residue);
+

@@ -72,10 +72,13 @@ struct user_exports {
 #define PLATFORM_ISERIES_LPAR 0x0201
 
 /* Processor types */
+#define PV_NORTHSTAR    0x0033
 #define PV_PULSAR       0x0034
 #define PV_POWER4       0x0035
 #define PV_ICESTAR      0x0036
 #define PV_SSTAR        0x0037
+#define PV_POWER4p      0x0038
+#define PV_POWER4ul     0x0039
 #define PV_630          0x0040
 #define PV_630p         0x0041
 

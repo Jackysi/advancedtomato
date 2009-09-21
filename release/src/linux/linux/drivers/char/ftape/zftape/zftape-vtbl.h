@@ -20,9 +20,9 @@
  USA.
 
  *
- * $Source: /home/cvsroot/wrt54g/src/linux/linux/drivers/char/ftape/zftape/zftape-vtbl.h,v $
- * $Revision: 1.1.1.2 $
- * $Date: 2003/10/14 08:08:07 $
+ * $Source: /homes/cvs/ftape-stacked/ftape/zftape/zftape-vtbl.h,v $
+ * $Revision: 1.3 $
+ * $Date: 1997/10/28 14:30:09 $
  *
  *      This file defines a volume table as defined in the QIC-80
  *      development standards.

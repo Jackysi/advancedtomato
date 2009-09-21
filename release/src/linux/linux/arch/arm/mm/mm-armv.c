@@ -113,6 +113,9 @@ pgd_t *get_pgd_slow(struct mm_struct *mm)
 	memcpy(new_pgd + FIRST_KERNEL_PGD_NR, init_pgd + FIRST_KERNEL_PGD_NR,
 		       (PTRS_PER_PGD - FIRST_KERNEL_PGD_NR) * sizeof(pgd_t));
 
+	/*
+	 * FIXME: this should not be necessary
+	 */
 	clean_cache_area(new_pgd, PTRS_PER_PGD * sizeof(pgd_t));
 
 	return new_pgd;
@@ -120,6 +123,7 @@ pgd_t *get_pgd_slow(struct mm_struct *mm)
 no_pte:
 	spin_unlock(&mm->page_table_lock);
 	pmd_free(new_pmd);
+	check_pgt_cache();
 	free_pages((unsigned long)new_pgd, 2);
 	return NULL;
 
@@ -154,6 +158,7 @@ void free_pgd_slow(pgd_t *pgd)
 	pmd_clear(pmd);
 	pte_free(pte);
 	pmd_free(pmd);
+	check_pgt_cache();
 free:
 	free_pages((unsigned long) pgd, 2);
 }
@@ -197,7 +202,7 @@ alloc_init_page(unsigned long virt, unsigned long phys, int domain, int prot)
 	}
 	ptep = pte_offset(pmdp, virt);
 
-	set_pte(ptep, mk_pte_phys(phys, __pgprot(prot)));
+	set_pte(ptep, pfn_pte(phys >> PAGE_SHIFT, __pgprot(prot)));
 }
 
 /*
@@ -385,8 +390,6 @@ void __init memtable_init(struct meminfo *mi)
 	init_maps->bufferable = 0;
 
 	create_mapping(init_maps);
-
-	flush_cache_all();
 }
 
 /*
@@ -421,6 +424,11 @@ static inline void free_unused_memmap_node(int node, struct meminfo *mi)
 	unsigned long bank_start, prev_bank_end = 0;
 	unsigned int i;
 
+	/*
+	 * [FIXME] This relies on each bank being in address order.  This
+	 * may not be the case, especially if the user has provided the
+	 * information on the command line.
+	 */
 	for (i = 0; i < mi->nr_banks; i++) {
 		if (mi->bank[i].size == 0 || mi->bank[i].node != node)
 			continue;

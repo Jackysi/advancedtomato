@@ -1,4 +1,4 @@
-/* $Id: ptrace.h,v 1.1.1.4 2003/10/14 08:09:22 sparq Exp $ */
+/* $Id: ptrace.h,v 1.25 1997/03/04 16:27:25 jj Exp $ */
 #ifndef _SPARC_PTRACE_H
 #define _SPARC_PTRACE_H
 
@@ -58,7 +58,6 @@ struct sparc_stackf {
 
 #define TRACEREG_SZ   sizeof(struct pt_regs)
 #define STACKFRAME_SZ sizeof(struct sparc_stackf)
-#define REGWIN_SZ     sizeof(struct reg_window)
 
 #ifdef __KERNEL__
 #define user_mode(regs) (!((regs)->psr & PSR_PS))
@@ -70,7 +69,6 @@ extern void show_regs(struct pt_regs *);
 /* For assembly code. */
 #define TRACEREG_SZ       0x50
 #define STACKFRAME_SZ     0x60
-#define REGWIN_SZ         0x40
 #endif
 
 #include <asm/asm_offsets.h>

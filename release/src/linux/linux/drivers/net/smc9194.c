@@ -385,6 +385,11 @@ static void smc_shutdown( int ioaddr )
 	SMC_SELECT_BANK( 0 );
 	outb( RCR_CLEAR, ioaddr + RCR );
 	outb( TCR_CLEAR, ioaddr + TCR );
+#if 0
+	/* finally, shut the chip down */
+	SMC_SELECT_BANK( 1 );
+	outw( inw( ioaddr + CONTROL ), CTL_POWERDOWN, ioaddr + CONTROL  );
+#endif
 }
 
 
@@ -478,10 +483,20 @@ static int smc_wait_to_send_packet( struct sk_buff * skb, struct net_device * de
 		printk(CARDNAME": Bad Craziness - sent packet while busy.\n" );
 		return 1;
 	}
+
+	length = skb->len;
+
+	if(length < ETH_ZLEN)
+	{
+		skb = skb_padto(skb, ETH_ZLEN);
+		if(skb == NULL)
+		{
+			netif_wake_queue(dev);
+			return 0;
+		}
+		length = ETH_ZLEN;
+	}
 	lp->saved_skb = skb;
-
-	length = ETH_ZLEN < skb->len ? skb->len : ETH_ZLEN;
-
 		
 	/*
 	** The MMU wants the number of pages to be the number of 256 bytes
@@ -920,6 +935,22 @@ static int __init smc_probe(struct net_device *dev, int ioaddr)
 	/* now, reset the chip, and put it into a known state */
 	smc_reset( ioaddr );
 
+	/*
+	 . If dev->irq is 0, then the device has to be banged on to see
+	 . what the IRQ is.
+ 	 .
+	 . This banging doesn't always detect the IRQ, for unknown reasons.
+	 . a workaround is to reset the chip and try again.
+	 .
+	 . Interestingly, the DOS packet driver *SETS* the IRQ on the card to
+	 . be what is requested on the command line.   I don't do that, mostly
+	 . because the card that I have uses a non-standard method of accessing
+	 . the IRQs, and because this _should_ work in most configurations.
+	 .
+	 . Specifying an IRQ is done with the assumption that the user knows
+	 . what (s)he is doing.  No checking is done!!!!
+ 	 .
+	*/
 	if ( dev->irq < 2 ) {
 		int	trials;
 
@@ -994,6 +1025,36 @@ err_out:
 #if SMC_DEBUG > 2
 static void print_packet( byte * buf, int length )
 {
+#if 0
+	int i;
+	int remainder;
+	int lines;
+
+	printk("Packet of length %d \n", length );
+	lines = length / 16;
+	remainder = length % 16;
+
+	for ( i = 0; i < lines ; i ++ ) {
+		int cur;
+
+		for ( cur = 0; cur < 8; cur ++ ) {
+			byte a, b;
+
+			a = *(buf ++ );
+			b = *(buf ++ );
+			printk("%02x%02x ", a, b );
+		}
+		printk("\n");
+	}
+	for ( i = 0; i < remainder/2 ; i++ ) {
+		byte a, b;
+
+		a = *(buf ++ );
+		b = *(buf ++ );
+		printk("%02x%02x ", a, b );
+	}
+	printk("\n");
+#endif
 }
 #endif
 
@@ -1069,131 +1130,6 @@ static void smc_timeout(struct net_device *dev)
 	/* clear anything saved */
 	((struct smc_local *)dev->priv)->saved_skb = NULL;
 	netif_wake_queue(dev);
-}
-
-/*--------------------------------------------------------------------
- .
- . This is the main routine of the driver, to handle the device when
- . it needs some attention.
- .
- . So:
- .   first, save state of the chipset
- .   branch off into routines to handle each case, and acknowledge
- .	    each to the interrupt register
- .   and finally restore state.
- .
- ---------------------------------------------------------------------*/
-
-static void smc_interrupt(int irq, void * dev_id,  struct pt_regs * regs)
-{
-	struct net_device *dev 	= dev_id;
-	int ioaddr 		= dev->base_addr;
-	struct smc_local *lp 	= (struct smc_local *)dev->priv;
-
-	byte	status;
-	word	card_stats;
-	byte	mask;
-	int	timeout;
-	/* state registers */
-	word	saved_bank;
-	word	saved_pointer;
-
-
-
-	PRINTK3((CARDNAME": SMC interrupt started \n"));
-
-	saved_bank = inw( ioaddr + BANK_SELECT );
-
-	SMC_SELECT_BANK(2);
-	saved_pointer = inw( ioaddr + POINTER );
-
-	mask = inb( ioaddr + INT_MASK );
-	/* clear all interrupts */
-	outb( 0, ioaddr + INT_MASK );
-
-
-	/* set a timeout value, so I don't stay here forever */
-	timeout = 4;
-
-	PRINTK2((KERN_WARNING CARDNAME ": MASK IS %x \n", mask ));
-	do {
-		/* read the status flag, and mask it */
-		status = inb( ioaddr + INTERRUPT ) & mask;
-		if (!status )
-			break;
-
-		PRINTK3((KERN_WARNING CARDNAME
-			": Handling interrupt status %x \n", status ));
-
-		if (status & IM_RCV_INT) {
-			/* Got a packet(s). */
-			PRINTK2((KERN_WARNING CARDNAME
-				": Receive Interrupt\n"));
-			smc_rcv(dev);
-		} else if (status & IM_TX_INT ) {
-			PRINTK2((KERN_WARNING CARDNAME
-				": TX ERROR handled\n"));
-			smc_tx(dev);
-			outb(IM_TX_INT, ioaddr + INTERRUPT );
-		} else if (status & IM_TX_EMPTY_INT ) {
-			/* update stats */
-			SMC_SELECT_BANK( 0 );
-			card_stats = inw( ioaddr + COUNTER );
-			/* single collisions */
-			lp->stats.collisions += card_stats & 0xF;
-			card_stats >>= 4;
-			/* multiple collisions */
-			lp->stats.collisions += card_stats & 0xF;
-
-			/* these are for when linux supports these statistics */
-
-			SMC_SELECT_BANK( 2 );
-			PRINTK2((KERN_WARNING CARDNAME
-				": TX_BUFFER_EMPTY handled\n"));
-			outb( IM_TX_EMPTY_INT, ioaddr + INTERRUPT );
-			mask &= ~IM_TX_EMPTY_INT;
-			lp->stats.tx_packets += lp->packets_waiting;
-			lp->packets_waiting = 0;
-
-		} else if (status & IM_ALLOC_INT ) {
-			PRINTK2((KERN_DEBUG CARDNAME
-				": Allocation interrupt \n"));
-			/* clear this interrupt so it doesn't happen again */
-			mask &= ~IM_ALLOC_INT;
-
-			smc_hardware_send_packet( dev );
-
-			/* enable xmit interrupts based on this */
-			mask |= ( IM_TX_EMPTY_INT | IM_TX_INT );
-
-			/* and let the card send more packets to me */
-			netif_wake_queue(dev);
-			
-			PRINTK2((CARDNAME": Handoff done successfully.\n"));
-		} else if (status & IM_RX_OVRN_INT ) {
-			lp->stats.rx_errors++;
-			lp->stats.rx_fifo_errors++;
-			outb( IM_RX_OVRN_INT, ioaddr + INTERRUPT );
-		} else if (status & IM_EPH_INT ) {
-			PRINTK((CARDNAME ": UNSUPPORTED: EPH INTERRUPT \n"));
-		} else if (status & IM_ERCV_INT ) {
-			PRINTK((CARDNAME ": UNSUPPORTED: ERCV INTERRUPT \n"));
-			outb( IM_ERCV_INT, ioaddr + INTERRUPT );
-		}
-	} while ( timeout -- );
-
-
-	/* restore state register */
-	SMC_SELECT_BANK( 2 );
-	outb( mask, ioaddr + INT_MASK );
-
-	PRINTK3(( KERN_WARNING CARDNAME ": MASK is now %x \n", mask ));
-	outw( saved_pointer, ioaddr + POINTER );
-
-	SMC_SELECT_BANK( saved_bank );
-
-	PRINTK3((CARDNAME ": Interrupt done\n"));
-	return;
 }
 
 /*-------------------------------------------------------------
@@ -1365,6 +1301,9 @@ static void smc_tx( struct net_device * dev )
 			": Late collision occurred on last xmit.\n");
 		lp->stats.tx_window_errors++;
 	}
+#if 0
+		if ( tx_status & TS_16COL ) { ... }
+#endif
 
 	if ( tx_status & TS_SUCCESS ) {
 		printk(CARDNAME": Successful packet caused interrupt \n");
@@ -1381,6 +1320,131 @@ static void smc_tx( struct net_device * dev )
 	lp->packets_waiting--;
 
 	outb( saved_packet, ioaddr + PNR_ARR );
+	return;
+}
+
+/*--------------------------------------------------------------------
+ .
+ . This is the main routine of the driver, to handle the device when
+ . it needs some attention.
+ .
+ . So:
+ .   first, save state of the chipset
+ .   branch off into routines to handle each case, and acknowledge
+ .	    each to the interrupt register
+ .   and finally restore state.
+ .
+ ---------------------------------------------------------------------*/
+
+static void smc_interrupt(int irq, void * dev_id,  struct pt_regs * regs)
+{
+	struct net_device *dev 	= dev_id;
+	int ioaddr 		= dev->base_addr;
+	struct smc_local *lp 	= (struct smc_local *)dev->priv;
+
+	byte	status;
+	word	card_stats;
+	byte	mask;
+	int	timeout;
+	/* state registers */
+	word	saved_bank;
+	word	saved_pointer;
+
+
+
+	PRINTK3((CARDNAME": SMC interrupt started \n"));
+
+	saved_bank = inw( ioaddr + BANK_SELECT );
+
+	SMC_SELECT_BANK(2);
+	saved_pointer = inw( ioaddr + POINTER );
+
+	mask = inb( ioaddr + INT_MASK );
+	/* clear all interrupts */
+	outb( 0, ioaddr + INT_MASK );
+
+
+	/* set a timeout value, so I don't stay here forever */
+	timeout = 4;
+
+	PRINTK2((KERN_WARNING CARDNAME ": MASK IS %x \n", mask ));
+	do {
+		/* read the status flag, and mask it */
+		status = inb( ioaddr + INTERRUPT ) & mask;
+		if (!status )
+			break;
+
+		PRINTK3((KERN_WARNING CARDNAME
+			": Handling interrupt status %x \n", status ));
+
+		if (status & IM_RCV_INT) {
+			/* Got a packet(s). */
+			PRINTK2((KERN_WARNING CARDNAME
+				": Receive Interrupt\n"));
+			smc_rcv(dev);
+		} else if (status & IM_TX_INT ) {
+			PRINTK2((KERN_WARNING CARDNAME
+				": TX ERROR handled\n"));
+			smc_tx(dev);
+			outb(IM_TX_INT, ioaddr + INTERRUPT );
+		} else if (status & IM_TX_EMPTY_INT ) {
+			/* update stats */
+			SMC_SELECT_BANK( 0 );
+			card_stats = inw( ioaddr + COUNTER );
+			/* single collisions */
+			lp->stats.collisions += card_stats & 0xF;
+			card_stats >>= 4;
+			/* multiple collisions */
+			lp->stats.collisions += card_stats & 0xF;
+
+			/* these are for when linux supports these statistics */
+
+			SMC_SELECT_BANK( 2 );
+			PRINTK2((KERN_WARNING CARDNAME
+				": TX_BUFFER_EMPTY handled\n"));
+			outb( IM_TX_EMPTY_INT, ioaddr + INTERRUPT );
+			mask &= ~IM_TX_EMPTY_INT;
+			lp->stats.tx_packets += lp->packets_waiting;
+			lp->packets_waiting = 0;
+
+		} else if (status & IM_ALLOC_INT ) {
+			PRINTK2((KERN_DEBUG CARDNAME
+				": Allocation interrupt \n"));
+			/* clear this interrupt so it doesn't happen again */
+			mask &= ~IM_ALLOC_INT;
+
+			smc_hardware_send_packet( dev );
+
+			/* enable xmit interrupts based on this */
+			mask |= ( IM_TX_EMPTY_INT | IM_TX_INT );
+
+			/* and let the card send more packets to me */
+			netif_wake_queue(dev);
+			
+			PRINTK2((CARDNAME": Handoff done successfully.\n"));
+		} else if (status & IM_RX_OVRN_INT ) {
+			lp->stats.rx_errors++;
+			lp->stats.rx_fifo_errors++;
+			outb( IM_RX_OVRN_INT, ioaddr + INTERRUPT );
+		} else if (status & IM_EPH_INT ) {
+			PRINTK((CARDNAME ": UNSUPPORTED: EPH INTERRUPT \n"));
+		} else if (status & IM_ERCV_INT ) {
+			PRINTK((CARDNAME ": UNSUPPORTED: ERCV INTERRUPT \n"));
+			outb( IM_ERCV_INT, ioaddr + INTERRUPT );
+		}
+	} while ( timeout -- );
+
+
+	/* restore state register */
+	SMC_SELECT_BANK( 2 );
+	outb( mask, ioaddr + INT_MASK );
+
+	PRINTK3(( KERN_WARNING CARDNAME ": MASK is now %x \n", mask ));
+	outw( saved_pointer, ioaddr + POINTER );
+
+	SMC_SELECT_BANK( saved_bank );
+
+	PRINTK3((CARDNAME ": Interrupt done\n"));
 	return;
 }
 

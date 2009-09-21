@@ -44,7 +44,7 @@ extern int __cpu_logical_map[NR_CPUS];
 
 #define NO_PROC_ID	(-1)
 
-#define SMP_RESCHEDULE_YOURSELF	0x1	
+#define SMP_RESCHEDULE_YOURSELF	0x1	/* XXX braindead */
 #define SMP_CALL_FUNCTION	0x2
 
 #if (NR_CPUS <= _MIPS_SZLONG)
@@ -92,6 +92,37 @@ struct call_data_struct {
 extern struct call_data_struct *call_data;
 
 extern cpumask_t cpu_online_map;
+
+/* These are defined by the board-specific code. */
+
+/*
+ * Cause the function described by call_data to be executed on the passed
+ * cpu.  When the function has finished, increment the finished field of
+ * call_data.
+ */
+void core_send_ipi(int cpu, unsigned int action);
+
+/*
+ * Clear all undefined state in the cpu, set up sp and gp to the passed
+ * values, and kick the cpu into smp_bootstrap();
+ */
+int prom_boot_secondary(int cpu, unsigned long sp, unsigned long gp);
+
+/*
+ *  After we've done initial boot, this function is called to allow the
+ *  board code to clean up state, if needed
+ */
+void prom_init_secondary(void);
+
+/*
+ * Do whatever setup needs to be done for SMP at the board level.  Return
+ * the number of cpus in the system, including this one
+ */
+int prom_setup_smp(void);
+
+void prom_smp_finish(void);
+
+extern void asmlinkage smp_bootstrap(void);
 
 #endif /* CONFIG_SMP */
 #endif /* _ASM_SMP_H */

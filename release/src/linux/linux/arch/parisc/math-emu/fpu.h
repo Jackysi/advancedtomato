@@ -22,7 +22,7 @@
  * BEGIN_DESC
  * 
  *  File: 
- *      @(#)	pa/fp/fpu.h		$Revision: 1.1.1.2 $
+ *      @(#)	pa/fp/fpu.h		$Revision: $
  * 
  *  Purpose:
  *      <<please update with a synopis of the functionality provided by this file>>
@@ -36,9 +36,15 @@
 #endif
 
 
-#ifndef _MACHINE_FPU_INCLUDED     /* allows multiple inclusion */
+#ifndef _MACHINE_FPU_INCLUDED /* allows multiple inclusion */
 #define _MACHINE_FPU_INCLUDED
 
+#if 0
+#ifndef _SYS_STDSYMS_INCLUDED
+#    include <sys/stdsyms.h>
+#endif   /* _SYS_STDSYMS_INCLUDED  */
+#include  <machine/pdc/pdc_rqsts.h>
+#endif
 
 #define PA83_FPU_FLAG    0x00000001
 #define PA89_FPU_FLAG    0x00000002

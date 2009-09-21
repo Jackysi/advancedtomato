@@ -109,7 +109,7 @@ int media_bay_count = 0;
 #ifdef CONFIG_BLK_DEV_IDE
 /* check the busy bit in the media-bay ide interface
    (assumes the media-bay contains an ide device) */
-#define MB_IDE_READY(i)	((inb(media_bays[i].cd_base + 0x70) & 0x80) == 0)
+#define MB_IDE_READY(i)	((readb(media_bays[i].cd_base + 0x70) & 0x80) == 0)
 #endif
 
 /* Note: All delays are not in milliseconds and converted to HZ relative
@@ -577,7 +577,8 @@ media_bay_step(int i)
 				MBDBG("mediabay %d IDE ready\n", i);
 			}
 			break;
-	    	}
+	    	} else if (bay->timer > 0)
+	    		bay->timer--;
 	    	if (bay->timer == 0) {
 			printk("\nIDE Timeout in bay %d !\n", i);
 			MBDBG("mediabay%d: nIDE Timeout !\n", i);
@@ -756,7 +757,7 @@ media_bay_init(void)
 		struct media_bay_info* bay = &media_bays[n];
 		if (!np->parent || np->n_addrs == 0 || !request_OF_resource(np, 0, NULL)) {
 			np = np->next;
-			printk(KERN_ERR "media-bay: Can't request IO resource !\n");
+			printk(KERN_ERR "mediabay: Can't request IO resource !\n");
 			continue;
 		}
 		bay->mb_type = mb_ohare;
@@ -771,7 +772,7 @@ media_bay_init(void)
 			bay->mb_type = mb_ohare;
 			bay->ops = &ohare_mb_ops;
 		} else {
-			printk(KERN_ERR "mediabay: Unknown bay type !\n");
+			printk(KERN_ERR "media-bay: Unknown bay type !\n");
 			np = np->next;
 			continue;
 		}
@@ -782,7 +783,7 @@ media_bay_init(void)
 			MB_BIS(bay, KEYLARGO_MBCR, KL_MBCR_MB0_ENABLE);
 #ifdef MB_USE_INTERRUPTS
 		if (np->n_intrs == 0) {
-			printk(KERN_ERR "media bay %d has no irq\n",n);
+			printk(KERN_ERR "media-bay %d has no irq\n",n);
 			np = np->next;
 			continue;
 		}
@@ -823,8 +824,9 @@ media_bay_init(void)
 		pmu_register_sleep_notifier(&mb_sleep_notifier);
 #endif /* CONFIG_PMAC_PBOOK */
 
-		kernel_thread(media_bay_task, NULL,
-			      CLONE_FS | CLONE_FILES | CLONE_SIGHAND);
+		if (kernel_thread(media_bay_task, NULL,
+			      CLONE_FS | CLONE_FILES | CLONE_SIGHAND) < 0)
+			printk(KERN_ERR "media-bay: Cannot create polling thread !\n");
 	}
 }
 

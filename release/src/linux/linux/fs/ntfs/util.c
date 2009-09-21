@@ -165,13 +165,13 @@ int ntfs_decodeuni(ntfs_volume *vol, char *in, int in_len, ntfs_u16 **out,
 void ntfs_put(ntfs_io *dest, void *src, ntfs_size_t n)
 {
 	ntfs_memcpy(dest->param, src, n);
-	((char*)dest->param) += n;
+	dest->param = (char*)dest->param + n;
 }
 
 void ntfs_get(void* dest, ntfs_io *src, ntfs_size_t n)
 {
 	ntfs_memcpy(dest, src->param, n);
-	((char*)src->param) += n;
+	src->param = (char*)src->param + n;
 }
 
 void *ntfs_calloc(int size)

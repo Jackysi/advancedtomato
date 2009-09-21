@@ -292,7 +292,7 @@ static void fw_walk(struct tcf_proto *tp, struct tcf_walker *arg)
 			}
 			if (arg->fn(tp, (unsigned long)f, arg) < 0) {
 				arg->stop = 1;
-				break;
+				return;
 			}
 			arg->count++;
 		}

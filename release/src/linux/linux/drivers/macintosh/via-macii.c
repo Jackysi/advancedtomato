@@ -21,13 +21,13 @@
 #include <linux/delay.h>
 #include <linux/sched.h>
 #include <linux/adb.h>
+#include <linux/init.h>
 #include <asm/macintosh.h>
 #include <asm/macints.h>
 #include <asm/machw.h>
 #include <asm/mac_via.h>
 #include <asm/io.h>
 #include <asm/system.h>
-#include <asm/init.h>
 
 static volatile unsigned char *via;
 
@@ -334,6 +334,35 @@ static void macii_start(void)
 	 * IRQ signaled ?? (means ADB controller wants to send, or might 
 	 * be end of packet if we were reading)
 	 */
+#if 0 /* FIXME: This is broke broke broke, for some reason */
+	if ((via[B] & TREQ) == 0) {
+		printk("macii_start: weird poll stuff. huh?\n");
+		/*
+		 *	FIXME - we need to restart this on a timer
+		 *	or a collision at boot hangs us.
+		 *	Never set macii_state to idle here, or macii_start 
+		 *	won't be called again from send_request!
+		 *	(need to re-check other cases ...)
+		 */
+		/*
+		 * if the interrupt handler set the need_poll
+		 * flag, it's hopefully a SRQ poll or re-Talk
+		 * so we try to send here anyway
+		 */
+		if (!need_poll) {
+			if (console_loglevel == 10)
+				printk("macii_start: device busy - retry %p state %d status %x!\n", 
+					req, macii_state,
+					(uint) via[B] & (ST_MASK|TREQ));
+			retry_req = req;
+			/* set ADB status here ? */
+			restore_flags(flags);
+			return;
+		} else {
+			need_poll = 0;
+		}
+	}
+#endif
 	/*
 	 * Another retry pending? (sanity check)
 	 */

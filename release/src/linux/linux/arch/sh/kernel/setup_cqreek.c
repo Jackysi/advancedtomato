@@ -1,4 +1,4 @@
-/* $Id: setup_cqreek.c,v 1.1.1.4 2003/10/14 08:07:47 sparq Exp $
+/* $Id: setup_cqreek.c,v 1.9 2001/07/30 12:43:28 gniibe Exp $
  *
  * arch/sh/kernel/setup_cqreek.c
  *
@@ -120,6 +120,8 @@ static struct hw_interrupt_type cqreek_irq_type = {
 
 static int has_ide, has_isa;
 
+/* XXX: This is just for test for my NE2000 ISA board
+   What we really need is virtualized IRQ and demultiplexer like HP600 port */
 void __init init_cqreek_IRQ(void)
 {
 	if (has_ide) {
@@ -140,6 +142,7 @@ void __init init_cqreek_IRQ(void)
 		cqreek_irq_data[10].stat_port = BRIDGE_ISA_INTR_STAT;
 		cqreek_irq_data[10].bit = (1 << 10);
 
+		/* XXX: Err... we may need demultiplexer for ISA irq... */
 		irq_desc[10].handler = &cqreek_irq_type;
 		irq_desc[10].status = IRQ_DISABLED;
 		irq_desc[10].action = 0;

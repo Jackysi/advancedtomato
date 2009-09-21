@@ -62,6 +62,20 @@ LIST_HEAD(videodev_proc_list);
 
 #endif /* CONFIG_PROC_FS && CONFIG_VIDEO_PROC_FS */
 
+struct video_device *video_device_alloc(void)
+{
+	struct video_device *vfd;
+	vfd = kmalloc(sizeof(*vfd),GFP_KERNEL);
+	if (NULL == vfd)
+		return NULL;
+	memset(vfd,0,sizeof(*vfd));
+	return vfd;
+}
+
+void video_device_release(struct video_device *vfd)
+{
+	kfree(vfd);
+}
 
 /*
  *	Read will do some smarts later on. Buffer pin etc.
@@ -186,14 +200,21 @@ unlock_out:
 static int video_release(struct inode *inode, struct file *file)
 {
 	struct video_device *vfl;
+	struct module *owner;
+
+	vfl = video_devdata(file);
+	owner = vfl->owner;
+	if (vfl->close)
+		vfl->close(vfl);
 
 	down(&videodev_lock);
+	/* ->close() might have called video_device_unregister()
+           in case of a hot unplug, thus we have to get vfl again */
 	vfl = video_devdata(file);
-	if(vfl->close)
-		vfl->close(vfl);
-	vfl->users--;
-	if(vfl->owner)
-		__MOD_DEC_USE_COUNT(vfl->owner);
+	if (NULL != vfl)
+		vfl->users--;
+	if (owner)
+		__MOD_DEC_USE_COUNT(owner);
 	up(&videodev_lock);
 	return 0;
 }
@@ -368,6 +389,14 @@ static int videodev_proc_read(char *page, char **start, off_t off,
 		PRINT_VID_TYPE(VID_TYPE_MJPEG_ENCODER);
 	out += sprintf (out, "\n");
 	out += sprintf (out, "hardware        : 0x%x\n", vfd->hardware);
+#if 0
+	out += sprintf (out, "channels        : %d\n", d->vcap.channels);
+	out += sprintf (out, "audios          : %d\n", d->vcap.audios);
+	out += sprintf (out, "maxwidth        : %d\n", d->vcap.maxwidth);
+	out += sprintf (out, "maxheight       : %d\n", d->vcap.maxheight);
+	out += sprintf (out, "minwidth        : %d\n", d->vcap.minwidth);
+	out += sprintf (out, "minheight       : %d\n", d->vcap.minheight);
+#endif
 
 skip:
 	len = out - page;
@@ -460,7 +489,18 @@ static void videodev_proc_destroy_dev (struct video_device *vfd)
 
 #endif /* CONFIG_VIDEO_PROC_FS */
 
-extern struct file_operations video_fops;
+static struct file_operations video_fops=
+{
+	owner:		THIS_MODULE,
+	llseek:		no_llseek,
+	read:		video_read,
+	write:		video_write,
+	ioctl:		video_ioctl,
+	mmap:		video_mmap,
+	open:		video_open,
+	release:	video_release,
+	poll:		video_poll,
+};
 
 /**
  *	video_register_device - register video4linux devices
@@ -524,19 +564,19 @@ int video_register_device(struct video_device *vfd, int type, int nr)
 
 	/* pick a minor number */
 	down(&videodev_lock);
-	if (-1 == nr) {
+	if (nr >= 0  &&  nr < end-base) {
+		/* use the one the driver asked for */
+		i = base+nr;
+		if (NULL != video_device[i]) {
+			up(&videodev_lock);
+			return -ENFILE;
+		}
+	} else {
 		/* use first free */
 		for(i=base;i<end;i++)
 			if (NULL == video_device[i])
 				break;
 		if (i == end) {
-			up(&videodev_lock);
-			return -ENFILE;
-		}
-	} else {
-		/* use the one the driver asked for */
-		i = base+nr;
-		if (NULL != video_device[i]) {
 			up(&videodev_lock);
 			return -ENFILE;
 		}
@@ -596,24 +636,13 @@ void video_unregister_device(struct video_device *vfd)
 #endif
 
 	devfs_unregister (vfd->devfs_handle);
+	if (vfd->release)
+		vfd->release(vfd);
 	video_device[vfd->minor]=NULL;
 	MOD_DEC_USE_COUNT;
 	up(&videodev_lock);
 }
 
-
-static struct file_operations video_fops=
-{
-	owner:		THIS_MODULE,
-	llseek:		no_llseek,
-	read:		video_read,
-	write:		video_write,
-	ioctl:		video_ioctl,
-	mmap:		video_mmap,
-	open:		video_open,
-	release:	video_release,
-	poll:		video_poll,
-};
 
 /*
  *	Initialise video for linux
@@ -646,6 +675,8 @@ static void __exit videodev_exit(void)
 module_init(videodev_init)
 module_exit(videodev_exit)
 
+EXPORT_SYMBOL(video_device_alloc);
+EXPORT_SYMBOL(video_device_release);
 EXPORT_SYMBOL(video_register_device);
 EXPORT_SYMBOL(video_unregister_device);
 EXPORT_SYMBOL(video_devdata);

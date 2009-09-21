@@ -1,4 +1,4 @@
-/* $Id: tsunami.S,v 1.1.1.4 2003/10/14 08:07:49 sparq Exp $
+/* $Id: tsunami.S,v 1.6 2000/07/16 21:48:52 anton Exp $
  * tsunami.S: High speed MicroSparc-I mmu/cache operations.
  *
  * Copyright (C) 1997 David S. Miller (davem@caip.rutgers.edu)
@@ -23,7 +23,7 @@
 
 	/* Sliiick... */
 tsunami_flush_cache_page:
-	ld	[%o0 + 0x0], %o0	
+	ld	[%o0 + 0x0], %o0	/* XXX vma->vm_mm, GROSS XXX */
 tsunami_flush_cache_mm:
 tsunami_flush_cache_range:
 	ld	[%o0 + AOFF_mm_context], %g2
@@ -64,7 +64,7 @@ tsunami_flush_tlb_out:
 
 	/* This one can be done in a fine grained manner... */
 tsunami_flush_tlb_page:
-	ld	[%o0 + 0x00], %o0	
+	ld	[%o0 + 0x00], %o0	/* XXX vma->vm_mm GROSS XXX */
 	mov	SRMMU_CTX_REG, %g1
 	ld	[%o0 + AOFF_mm_context], %o3
 	andn	%o1, (PAGE_SIZE - 1), %o1

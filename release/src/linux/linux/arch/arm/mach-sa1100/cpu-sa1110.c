@@ -3,7 +3,7 @@
  *
  *  Copyright (C) 2001 Russell King
  *
- *  $Id: cpu-sa1110.c,v 1.1.1.4 2003/10/14 08:07:15 sparq Exp $
+ *  $Id: cpu-sa1110.c,v 1.6 2001/10/22 11:53:47 rmk Exp $
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -49,33 +49,33 @@ struct sdram_info {
 };
 
 static struct sdram_params tc59sm716_cl2_params __initdata = {
-	rows:		    12,
-	tck:		    10,
-	trcd:		    20,
-	trp:		    20,
-	twr:		    10,
-	refresh:	 64000,
-	cas_latency:	     2,
+	.rows		=    12,
+	.tck		=    10,
+	.trcd		=    20,
+	.trp		=    20,
+	.twr		=    10,
+	.refresh	= 64000,
+	.cas_latency	=     2,
 };
 
 static struct sdram_params tc59sm716_cl3_params __initdata = {
-	rows:		    12,
-	tck:		     8,
-	trcd:		    20,
-	trp:		    20,
-	twr:		     8,
-	refresh:	 64000,
-	cas_latency:	     3,
+	.rows		=    12,
+	.tck		=     8,
+	.trcd		=    20,
+	.trp		=    20,
+	.twr		=     8,
+	.refresh	= 64000,
+	.cas_latency	=     3,
 };
 
 static struct sdram_params samsung_k4s641632d_tc75 __initdata = {
-	rows:		    14,
-	tck:		     9,
-	trcd:		    27,
-	trp:		    20,
-	twr:		     9,
-	refresh:	 64000,
-	cas_latency:	     3,
+	.rows		=    14,
+	.tck		=     9,
+	.trcd		=    27,
+	.trp		=    20,
+	.twr		=     9,
+	.refresh	= 64000,
+	.cas_latency	=     3,
 };
 
 static struct sdram_params sdram_params;
@@ -165,6 +165,14 @@ static inline void sdram_set_refresh(u_int dri)
 	(void) MDREFR;
 }
 
+/*
+ * Update the refresh period.  We do this such that we always refresh
+ * the SDRAMs within their permissible period.  The refresh period is
+ * always a multiple of the memory clock (fixed at cpu_clock / 2).
+ *
+ * FIXME: we don't currently take account of burst accesses here,
+ * but neither do Intels DM nor Angel.
+ */
 static void
 sdram_update_refresh(u_int cpu_khz, struct sdram_params *sdram)
 {
@@ -194,6 +202,22 @@ static void sa1110_setspeed(unsigned int khz)
 	ppcr = sa11x0_freq_to_ppcr(khz);
 	sdram_calculate_timing(&sd, khz, sdram);
 
+#if 0
+	/*
+	 * These values are wrong according to the SA1110 documentation
+	 * and errata, but they seem to work.  Need to get a storage
+	 * scope on to the SDRAM signals to work out why.
+	 */
+	if (khz < 147500) {
+		sd.mdrefr |= MDREFR_K1DB2;
+		sd.mdcas[0] = 0xaaaaaa7f;
+	} else {
+		sd.mdrefr &= ~MDREFR_K1DB2;
+		sd.mdcas[0] = 0xaaaaaa9f;
+	}
+	sd.mdcas[1] = 0xaaaaaaaa;
+	sd.mdcas[2] = 0xaaaaaaaa;
+#endif
 	/*
 	 * The clock could be going away for some time.  Set the SDRAMs
 	 * to refresh rapidly (every 64 memory clock cycles).  To get
@@ -211,21 +235,21 @@ static void sa1110_setspeed(unsigned int khz)
 	 * the programming.
 	 */
 	local_irq_save(flags);
-	asm("mcr p15, 0, %0, c10, c4" : : "r" (0));
+	asm("mcr p15, 0, %0, c7, c10, 4" : : "r" (0));
 	udelay(10);
-	__asm__ __volatile__("
-		b	2f
-		.align	5
-1:		str	%3, [%1, #0]		@ MDCNFG
-		str	%4, [%1, #28]		@ MDREFR
-		str	%5, [%1, #4]		@ MDCAS0
-		str	%6, [%1, #8]		@ MDCAS1
-		str	%7, [%1, #12]		@ MDCAS2
-		str	%8, [%2, #0]		@ PPCR
-		ldr	%0, [%1, #0]
-		b	3f
-2:		b	1b
-3:		nop
+	__asm__ __volatile__("					\n\
+		b	2f					\n\
+		.align	5					\n\
+1:		str	%3, [%1, #0]		@ MDCNFG	\n\
+		str	%4, [%1, #28]		@ MDREFR	\n\
+		str	%5, [%1, #4]		@ MDCAS0	\n\
+		str	%6, [%1, #8]		@ MDCAS1	\n\
+		str	%7, [%1, #12]		@ MDCAS2	\n\
+		str	%8, [%2, #0]		@ PPCR		\n\
+		ldr	%0, [%1, #0]				\n\
+		b	3f					\n\
+2:		b	1b					\n\
+3:		nop						\n\
 		nop"
 		: "=&r" (unused)
 		: "r" (&MDCNFG), "r" (&PPCR), "0" (sd.mdcnfg),

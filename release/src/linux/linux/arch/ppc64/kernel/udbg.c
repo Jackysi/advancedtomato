@@ -82,7 +82,7 @@ udbg_putc(unsigned char c)
 				/* wait for idle */;
 			udbg_comport->thr = '\r'; eieio();
 		}
-	} else if (naca->platform == PLATFORM_ISERIES_LPAR) {
+	} else if (systemcfg->platform == PLATFORM_ISERIES_LPAR) {
 		/* ToDo: switch this via ppc_md */
 		printk("%c", c);
 	}
@@ -119,8 +119,6 @@ udbg_puts(const char *s)
 		if (s && *s != '\0') {
 			while ((c = *s++) != '\0')
 				ppc_md.udbg_putc(c);
-		} else {
-			udbg_puts("NULL");
 		}
 	} else {
 		printk("%s", s);
@@ -132,14 +130,15 @@ udbg_write(const char *s, int n)
 {
 	int remain = n;
 	char c;
+
 	if (!ppc_md.udbg_putc)
-		for (;;);	/* stop here for cpuctl */
+		return 0;
+
 	if ( s && *s != '\0' ) {
 		while ( (( c = *s++ ) != '\0') && (remain-- > 0)) {
 			ppc_md.udbg_putc(c);
 		}
-	} else
-		udbg_puts("NULL");
+	}
 	return n - remain;
 }
 
@@ -182,7 +181,7 @@ udbg_puthex(unsigned long val)
 void
 udbg_printSP(const char *s)
 {
-	if (naca->platform == PLATFORM_PSERIES) {
+	if (systemcfg->platform == PLATFORM_PSERIES) {
 		unsigned long sp;
 		asm("mr %0,1" : "=r" (sp) :);
 		if (s)
