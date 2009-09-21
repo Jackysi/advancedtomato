@@ -63,7 +63,7 @@ unsigned int ip_conntrack_htable_size = 0;
 int ip_conntrack_max = 0;
 int ip_conntrack_clear = 0;
 static int kill_all(struct ip_conntrack *i, void *data);
-static atomic_t ip_conntrack_count = ATOMIC_INIT(0);
+atomic_t ip_conntrack_count = ATOMIC_INIT(0);
 struct list_head *ip_conntrack_hash;
 static kmem_cache_t *ip_conntrack_cachep;
 static LIST_HEAD(unconfirmed);

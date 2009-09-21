@@ -293,6 +293,7 @@ static struct nf_hook_ops ip_conntrack_local_in_ops
 /* From ip_conntrack_core.c */
 extern int ip_conntrack_max;
 extern int ip_conntrack_clear;
+extern int ip_conntrack_count;
 extern unsigned int ip_conntrack_htable_size;
 
 /* From ip_conntrack_proto_tcp.c */
@@ -365,6 +366,7 @@ static ctl_table ip_ct_sysctl_table[] = {
 
 #define NET_IP_CONNTRACK_MAX 2089
 #define NET_IP_CONNTRACK_CLEAR 2090
+#define NET_IP_CONNTRACK_COUNT 2091
 
 static ctl_table ip_ct_netfilter_table[] = {
 	{NET_IPV4_NETFILTER, "netfilter", NULL, 0, 0555, ip_ct_sysctl_table, 0, 0, 0, 0, 0},
@@ -373,6 +375,9 @@ static ctl_table ip_ct_netfilter_table[] = {
 	 &proc_dointvec},
 	{NET_IP_CONNTRACK_CLEAR, "ip_conntrack_clear",
 	 &ip_conntrack_clear, sizeof(ip_conntrack_clear), 0644,  NULL,
+	 &proc_dointvec},
+	{NET_IP_CONNTRACK_COUNT, "ip_conntrack_count",
+	 &ip_conntrack_count, sizeof(ip_conntrack_count), 0444, NULL,
 	 &proc_dointvec},
 	{0}
 };
