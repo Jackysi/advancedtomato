@@ -341,9 +341,10 @@ sub genSO
 	}
 #	print "$cmd -u... ${arc}\n";	
 	if (scalar(@used) == 0) {
-		print "\n\n\n$name: WARNING: Library is not used by anything.\n\n\n";
-		<>;
-#		return 0;
+		print "$name: WARNING: Library is not used by anything, deleting...\n";
+		unlink $so;
+#		<>;
+		return 0;
 	}
 	$cmd .= " -u " . join(" -u ", @used) . " ". $arc;
 
@@ -399,7 +400,7 @@ fillGaps();
 genXref();
 
 
-genSO("${root}/lib/libc.so.0", "${uclibc}/lib/libc.a", "-init __uClibc_init ${uclibc}/lib/optinfo/interp.o");
+genSO("${root}/lib/libc.so.0", "${uclibc}/lib/libc.a", "-init __uClibc_init ${uclibc}/lib/optinfo/interp.os");
 genSO("${root}/lib/libresolv.so.0", "${uclibc}/lib/libresolv.a");
 genSO("${root}/lib/libcrypt.so.0", "${uclibc}/lib/libcrypt.a");
 genSO("${root}/lib/libm.so.0", "${uclibc}/lib/libm.a");
