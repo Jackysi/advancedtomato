@@ -14559,6 +14559,14 @@ CONFIG_USB_SERIAL_EDGEPORT
   The module will be called io_edgeport.o.  If you want to compile it
   as a module, say M here and read <file:Documentation/modules.txt>.
 
+USB IPWireless (3G UMTS TDD) Driver (EXPERIMENTAL)
+CONFIG_USB_SERIAL_IPW
+  Say Y here if you want to use a IPWireless USB modem such as
+  the ones supplied by Axity3G/Sentech South Africa.
+
+  To compile this driver as a module, choose M here: the
+  module will be called ipw.
+
 USB PalmConnect (and other KL5KUSB105-based) Single Port Serial Driver
 CONFIG_USB_SERIAL_KLSI
   Say Y here if you want to use a KL5KUSB105 - based single port
