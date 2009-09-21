@@ -10,7 +10,7 @@ O_TARGET	:= usbdrv.o
 
 # Objects that export symbols.
 
-export-objs		:= hcd.o usb.o ov511.o pwc-uncompress.o
+export-objs		:= hcd.o usb.o ov51x.o pwc-uncompress.o
 ifeq ($(CONFIG_USB_DEVPATH),y)
 	export-objs	+= devpath.o
 endif
@@ -110,7 +110,7 @@ obj-$(CONFIG_USB_MDC800)	+= mdc800.o
 obj-$(CONFIG_USB_USS720)	+= uss720.o
 obj-$(CONFIG_USB_DABUSB)	+= dabusb.o
 obj-$(CONFIG_USB_VICAM)		+= vicam.o usbvideo.o
-obj-$(CONFIG_USB_OV511)		+= ov511.o
+obj-$(CONFIG_USB_OV511)		+= ov51x.o ov511_decomp.o ov518_decomp.o
 obj-$(CONFIG_USB_W9968CF)	+= w9968cf.o
 obj-$(CONFIG_USB_SE401)		+= se401.o
 obj-$(CONFIG_USB_STV680)	+= stv680.o
