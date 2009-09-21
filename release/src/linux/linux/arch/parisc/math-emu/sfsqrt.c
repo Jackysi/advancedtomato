@@ -22,7 +22,7 @@
  * BEGIN_DESC
  *
  *  File:
- *	@(#)	pa/spmath/sfsqrt.c		$Revision: 1.1.1.2 $
+ *	@(#)	pa/spmath/sfsqrt.c		$Revision: $
  *
  *  Purpose:
  *	Single Floating-point Square Root

@@ -1,4 +1,4 @@
-/* $Id: hisax.h,v 1.1.1.4 2003/10/14 08:08:12 sparq Exp $
+/* $Id: hisax.h,v 1.1.4.2 2001/12/09 19:15:28 kai Exp $
  *
  * Basic declarations, defines and prototypes
  *
@@ -395,15 +395,15 @@ struct isar_hw {
 
 struct hdlc_stat_reg {
 #ifdef __BIG_ENDIAN
-	u_char fill __attribute__((packed));
-	u_char mode __attribute__((packed));
-	u_char xml  __attribute__((packed));
-	u_char cmd  __attribute__((packed));
+	u_char fill;
+	u_char mode;
+	u_char xml;
+	u_char cmd;
 #else
-	u_char cmd  __attribute__((packed));
-	u_char xml  __attribute__((packed));
-	u_char mode __attribute__((packed));
-	u_char fill __attribute__((packed));
+	u_char cmd;
+	u_char xml;
+	u_char mode;
+	u_char fill;
 #endif
 };
 
@@ -472,6 +472,8 @@ struct amd7930_hw {
 #define BC_FLG_FTI_RUN	13
 #define BC_FLG_LL_OK	14
 #define BC_FLG_LL_CONN	15
+#define BC_FLG_FTI_FTS	16
+#define BC_FLG_FRH_WAIT	17
 
 #define L1_MODE_NULL	0
 #define L1_MODE_TRANS	1

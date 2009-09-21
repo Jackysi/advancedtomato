@@ -66,8 +66,7 @@ struct rif_cache_s {
  *	up a lot.
  */
  
-rif_cache rif_table[RIF_TABLE_SIZE];
-
+static rif_cache rif_table[RIF_TABLE_SIZE];
 static spinlock_t rif_lock = SPIN_LOCK_UNLOCKED;
 
 #define RIF_TIMEOUT 60*10*HZ
@@ -93,10 +92,10 @@ int tr_header(struct sk_buff *skb, struct net_device *dev, unsigned short type,
 	int hdr_len;
 
 	/* 
-	 * Add the 802.2 SNAP header if IP as the IPv4 code calls  
+	 * Add the 802.2 SNAP header if IP as the IPv4/IPv6 code calls  
 	 * dev->hard_header directly.
 	 */
-	if (type == ETH_P_IP || type == ETH_P_ARP)
+	if (type == ETH_P_IP || type == ETH_P_IPV6 || type == ETH_P_ARP)
 	{
 		struct trllc *trllc=(struct trllc *)(trh+1);
 
@@ -147,6 +146,9 @@ int tr_rebuild_header(struct sk_buff *skb)
 	struct trllc *trllc=(struct trllc *)(skb->data+sizeof(struct trh_hdr));
 	struct net_device *dev = skb->dev;
 
+	/*
+	 *	FIXME: We don't yet support IPv6 over token rings
+	 */
 	 
 	if(trllc->ethertype != htons(ETH_P_IP)) {
 		printk("tr_rebuild_header: Don't know how to resolve type %04X addresses ?\n",(unsigned int)htons(trllc->ethertype));
@@ -215,6 +217,7 @@ unsigned short tr_type_trans(struct sk_buff *skb, struct net_device *dev)
 
 	if (trllc->dsap == EXTENDED_SAP &&
 	    (trllc->ethertype == ntohs(ETH_P_IP) ||
+	     trllc->ethertype == ntohs(ETH_P_IPV6) ||
 	     trllc->ethertype == ntohs(ETH_P_ARP)))
 	{
 		skb_pull(skb, sizeof(struct trllc));
@@ -324,9 +327,9 @@ static void tr_add_rif_info(struct trh_hdr *trh, struct net_device *dev)
 	int i;
 	unsigned int hash, rii_p = 0;
 	rif_cache entry;
+	unsigned long flags;
 
-
-	spin_lock_bh(&rif_lock);
+	spin_lock_irqsave(&rif_lock, flags);
 	
 	/*
 	 *	Firstly see if the entry exists
@@ -353,12 +356,19 @@ printk("adding rif_entry: addr:%02X:%02X:%02X:%02X:%02X:%02X rcf:%04X\n",
        		trh->saddr[3],trh->saddr[4],trh->saddr[5],
 		ntohs(trh->rcf));
 #endif
+		/*
+		 *	Allocate our new entry. A failure to allocate loses
+		 *	use the information. This is harmless.
+		 *
+		 *	FIXME: We ought to keep some kind of cache size
+		 *	limiting and adjust the timers to suit.
+		 */
 		entry=kmalloc(sizeof(struct rif_cache_s),GFP_ATOMIC);
 
 		if(!entry) 
 		{
 			printk(KERN_DEBUG "tr.c: Couldn't malloc rif cache entry !\n");
-			spin_unlock_bh(&rif_lock);
+			spin_unlock_irqrestore(&rif_lock,flags);
 			return;
 		}
 
@@ -400,7 +410,7 @@ printk("updating rif_entry: addr:%02X:%02X:%02X:%02X:%02X:%02X rcf:%04X\n",
 		    }                                         
            	entry->last_used=jiffies;               
 	}
-	spin_unlock_bh(&rif_lock);
+	spin_unlock_irqrestore(&rif_lock,flags);
 }
 
 /*
@@ -458,6 +468,7 @@ static int rif_get_info(char *buffer,char **start, off_t offset, int length)
 	off_t pos=0;
 	int size,i,j,rcf_len,segment,brdgnmb;
 	unsigned long now=jiffies;
+	unsigned long flags;
 
 	rif_cache entry;
 
@@ -466,7 +477,7 @@ static int rif_get_info(char *buffer,char **start, off_t offset, int length)
 	pos+=size;
 	len+=size;
 
-	spin_lock_bh(&rif_lock);
+	spin_lock_irqsave(&rif_lock, flags);
 	for(i=0;i < RIF_TABLE_SIZE;i++) 
 	{
 		for(entry=rif_table[i];entry;entry=entry->next) {
@@ -515,7 +526,7 @@ static int rif_get_info(char *buffer,char **start, off_t offset, int length)
 		if(pos>offset+length)
 			break;
 	}
-	spin_unlock_bh(&rif_lock);
+	spin_unlock_irqrestore(&rif_lock,flags);
 
 	*start=buffer+(offset-begin); /* Start of wanted data */
 	len-=(offset-begin);    /* Start slop */

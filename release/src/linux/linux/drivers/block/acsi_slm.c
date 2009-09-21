@@ -111,6 +111,9 @@ static char slmreqsense_cmd[6] = { 0x03, 0, 0, 0, 0, 0 };
 static char slmprint_cmd[6]    = { 0x0a, 0, 0, 0, 0, 0 };
 static char slminquiry_cmd[6]  = { 0x12, 0, 0, 0, 0, 0x80 };
 static char slmmsense_cmd[6]   = { 0x1a, 0, 0, 0, 255, 0 };
+#if 0
+static char slmmselect_cmd[6]  = { 0x15, 0, 0, 0, 0, 0 };
+#endif
 
 
 #define	MAX_SLM		2
@@ -258,6 +261,10 @@ static int slm_open( struct inode *inode, struct file *file );
 static int slm_release( struct inode *inode, struct file *file );
 static int slm_req_sense( int device );
 static int slm_mode_sense( int device, char *buffer, int abs_flag );
+#if 0
+static int slm_mode_select( int device, char *buffer, int len, int
+                            default_flag );
+#endif
 static int slm_get_pagesize( int device, int *w, int *h );
 
 /************************* End of Prototypes **************************/
@@ -360,6 +367,7 @@ static ssize_t slm_read( struct file *file, char *buf, size_t count,
 
 {
 	struct inode *node = file->f_dentry->d_inode;
+	loff_t pos = *ppos;
 	unsigned long page;
 	int length;
 	int end;
@@ -374,18 +382,18 @@ static ssize_t slm_read( struct file *file, char *buf, size_t count,
 		count = length;
 		goto out;
 	}
-	if (file->f_pos >= length) {
+	if (pos != (unsigned) pos || pos >= length) {
 		count = 0;
 		goto out;
 	}
-	if (count + file->f_pos > length)
-		count = length - file->f_pos;
-	end = count + file->f_pos;
-	if (copy_to_user(buf, (char *)page + file->f_pos, count)) {
+	if (count > length - pos)
+		count = length - pos;
+	end = count + pos;
+	if (copy_to_user(buf, (char *)page + pos, count)) {
 		count = -EFAULT;
 		goto out;
 	}
-	file->f_pos = end;
+	*ppos = end;
 out:	free_page( page );
 	return( count );
 }
@@ -872,6 +880,44 @@ static int slm_mode_sense( int device, char *buffer, int abs_flag )
 }
 
 
+#if 0
+/* currently unused */
+static int slm_mode_select( int device, char *buffer, int len,
+							int default_flag )
+
+{	int			stat, rv;
+	struct slm	*sip = &slm_info[device];
+	
+	stdma_lock( NULL, NULL );
+
+	CMDSET_TARG_LUN( slmmselect_cmd, sip->target, sip->lun );
+	slmmselect_cmd[5] = default_flag ? 0x80 : 0;
+	if (!acsicmd_nodma( slmmselect_cmd, 0 )) {
+		rv = SLMSTAT_ACSITO;
+		goto the_end;
+	}
+
+	if (!default_flag) {
+		unsigned char c = len;
+		if (!acsi_extcmd( &c, 1 )) {
+			rv = SLMSTAT_ACSITO;
+			goto the_end;
+		}
+		if (!acsi_extcmd( buffer, len )) {
+			rv = SLMSTAT_ACSITO;
+			goto the_end;
+		}
+	}
+	
+	stat = acsi_getstatus();
+	rv = (stat < 0 ? SLMSTAT_ACSITO : stat);
+
+  the_end:
+	ENABLE_IRQ();
+	stdma_release();
+	return( rv );
+}
+#endif
 
 
 static int slm_get_pagesize( int device, int *w, int *h )

@@ -617,14 +617,18 @@ printk("umsdos_link: rename to %s/%s failed, ret=%d\n",
 temp->d_parent->d_name.name, temp->d_name.name, ret);
 			goto cleanup;
 		}
-		/* mark the inode as a hardlink */
-		oldinode->u.umsdos_i.i_is_hlink = 1;
-
 		/*
 		 * Capture the path to the hidden link.
 		 */
 		path = umsdos_d_path(olddentry, (char *) buffer, PAGE_SIZE);
+		if (IS_ERR(path)) {
+			ret = PTR_ERR(path);
+			goto cleanup;
+		}
 Printk(("umsdos_link: hidden link path=%s\n", path));
+
+		/* mark the inode as a hardlink */
+		oldinode->u.umsdos_i.i_is_hlink = 1;
 
 		/*
 		 * Recreate a dentry for the original name and symlink it,
@@ -694,6 +698,8 @@ olddentry->d_parent->d_name.name, olddentry->d_name.name, old_info.fake.fname));
 		goto out_unlock;
 	path = umsdos_d_path(temp, (char *) buffer, PAGE_SIZE);
 	dput(temp);
+	if (IS_ERR(path))
+		goto out_unlock;
 Printk(("umsdos_link: %s/%s already hidden, path=%s\n",
 olddentry->d_parent->d_name.name, olddentry->d_name.name, path));
 

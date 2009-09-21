@@ -74,25 +74,25 @@
  * Example: #define SOUND_BASE 0x220 enables the sound card's CD channels
  *          #define SOUND_BASE 0     leaves the soundcard untouched
  */
-#if !(SBPCD_ISSUE-1)         /* first (or if you have only one) interface board: */
+#if !(SBPCD_ISSUE-1)     /* first (or if you have only one) interface board: */
 #define CDROM_PORT 0x340 /* <-----------<< port address                      */
 #define SBPRO      0     /* <-----------<< interface type                    */
 #define MAX_DRIVES 4     /* set to 1 if the card does not use "drive select" */
 #define SOUND_BASE 0x220 /* <-----------<< sound address of this card or 0   */
 #endif
-#if !(SBPCD_ISSUE-2)         /* ==================== second interface board: === */
+#if !(SBPCD_ISSUE-2)     /* ==================== second interface board: === */
 #define CDROM_PORT 0x344 /* <-----------<< port address                      */
 #define SBPRO      0     /* <-----------<< interface type                    */
 #define MAX_DRIVES 4     /* set to 1 if the card does not use "drive select" */
 #define SOUND_BASE 0x000 /* <-----------<< sound address of this card or 0   */
 #endif
-#if !(SBPCD_ISSUE-3)         /* ===================== third interface board: === */
+#if !(SBPCD_ISSUE-3)     /* ===================== third interface board: === */
 #define CDROM_PORT 0x630 /* <-----------<< port address                      */
 #define SBPRO      1     /* <-----------<< interface type                    */
 #define MAX_DRIVES 4     /* set to 1 if the card does not use "drive select" */
 #define SOUND_BASE 0x240 /* <-----------<< sound address of this card or 0   */
 #endif
-#if !(SBPCD_ISSUE-4)         /* ==================== fourth interface board: === */
+#if !(SBPCD_ISSUE-4)     /* ==================== fourth interface board: === */
 #define CDROM_PORT 0x634 /* <-----------<< port address                      */
 #define SBPRO      0     /* <-----------<< interface type                    */
 #define MAX_DRIVES 4     /* set to 1 if the card does not use "drive select" */
@@ -501,6 +501,156 @@ typedef union _blk
 
 /*==========================================================================*/
 
+/*============================================================================
+==============================================================================
+
+COMMAND SET of "old" drives like CR-521, CR-522
+               (the CR-562 family is different):
+
+No.	Command			       Code
+--------------------------------------------
+
+Drive Commands:
+ 1	Seek				01	
+ 2	Read Data			02
+ 3	Read XA-Data			03
+ 4	Read Header			04
+ 5	Spin Up				05
+ 6	Spin Down			06
+ 7	Diagnostic			07
+ 8	Read UPC			08
+ 9	Read ISRC			09
+10	Play Audio			0A
+11	Play Audio MSF			0B
+12	Play Audio Track/Index		0C
+
+Status Commands:
+13	Read Status			81	
+14	Read Error			82
+15	Read Drive Version		83
+16	Mode Select			84
+17	Mode Sense			85
+18	Set XA Parameter		86
+19	Read XA Parameter		87
+20	Read Capacity			88
+21	Read SUB_Q			89
+22	Read Disc Code			8A
+23	Read Disc Information		8B
+24	Read TOC			8C
+25	Pause/Resume			8D
+26	Read Packet			8E
+27	Read Path Check			00
+ 
+ 
+all numbers (lba, msf-bin, msf-bcd, counts) to transfer high byte first
+
+mnemo     7-byte command        #bytes response (r0...rn)
+________ ____________________  ____ 
+
+Read Status:
+status:  81.                    (1)  one-byte command, gives the main
+                                                          status byte
+Read Error:
+check1:  82 00 00 00 00 00 00.  (6)  r1: audio status
+
+Read Packet:
+check2:  8e xx 00 00 00 00 00. (xx)  gets xx bytes response, relating
+                                        to commands 01 04 05 07 08 09
+
+Play Audio:
+play:    0a ll-bb-aa nn-nn-nn.  (0)  play audio, ll-bb-aa: starting block (lba),
+                                                 nn-nn-nn: #blocks
+Play Audio MSF:
+         0b mm-ss-ff mm-ss-ff   (0)  play audio from/to
+
+Play Audio Track/Index:
+         0c ...
+
+Pause/Resume:
+pause:   8d pr 00 00 00 00 00.  (0)  pause (pr=00) 
+                                     resume (pr=80) audio playing
+
+Mode Select:
+         84 00 nn-nn ??.?? 00   (0)  nn-nn: 2048 or 2340
+                                     possibly defines transfer size
+
+set_vol: 84 83 00 00 sw le 00.  (0)  sw(itch): lrxxxxxx (off=1)
+                                     le(vel): min=0, max=FF, else half
+				     (firmware 2.11)
+
+Mode Sense:
+get_vol: 85 03 00 00 00 00 00.  (2)  tell current audio volume setting
+
+Read Disc Information:
+tocdesc: 8b 00 00 00 00 00 00.  (6)  read the toc descriptor ("msf-bin"-format)
+
+Read TOC:
+tocent:  8c fl nn 00 00 00 00.  (8)  read toc entry #nn
+                                       (fl=0:"lba"-, =2:"msf-bin"-format)
+
+Read Capacity:
+capacit: 88 00 00 00 00 00 00.  (5)  "read CD-ROM capacity"
+
+
+Read Path Check:
+ping:    00 00 00 00 00 00 00.  (2)  r0=AA, r1=55
+                                     ("ping" if the drive is connected)
+
+Read Drive Version:
+ident:   83 00 00 00 00 00 00. (12)  gives "MATSHITAn.nn" 
+                                     (n.nn = 2.01, 2.11., 3.00, ...)
+
+Seek:
+seek:    01 00 ll-bb-aa 00 00.  (0)  
+seek:    01 02 mm-ss-ff 00 00.  (0)  
+
+Read Data:
+read:    02 xx-xx-xx nn-nn fl.  (?)  read nn-nn blocks of 2048 bytes,
+                                     starting at block xx-xx-xx  
+                                     fl=0: "lba"-, =2:"msf-bcd"-coded xx-xx-xx
+
+Read XA-Data:
+read:    03 xx-xx-xx nn-nn fl.  (?)  read nn-nn blocks of 2340 bytes, 
+                                     starting at block xx-xx-xx
+                                     fl=0: "lba"-, =2:"msf-bcd"-coded xx-xx-xx
+
+Read SUB_Q:
+         89 fl 00 00 00 00 00. (13)  r0: audio status, r4-r7: lba/msf, 
+                                       fl=0: "lba", fl=2: "msf"
+
+Read Disc Code:
+         8a 00 00 00 00 00 00. (14)  possibly extended "check condition"-info
+
+Read Header:
+         04 00 ll-bb-aa 00 00.  (0)   4 bytes response with "check2"
+         04 02 mm-ss-ff 00 00.  (0)   4 bytes response with "check2"
+
+Spin Up:
+         05 00 ll-bb-aa 00 00.  (0)  possibly implies a "seek"
+
+Spin Down:
+         06 ...
+
+Diagnostic:
+         07 00 ll-bb-aa 00 00.  (2)   2 bytes response with "check2"
+         07 02 mm-ss-ff 00 00.  (2)   2 bytes response with "check2"
+
+Read UPC:
+         08 00 ll-bb-aa 00 00. (16)  
+         08 02 mm-ss-ff 00 00. (16)  
+
+Read ISRC:
+         09 00 ll-bb-aa 00 00. (15)  15 bytes response with "check2"
+         09 02 mm-ss-ff 00 00. (15)  15 bytes response with "check2"
+
+Set XA Parameter:
+         86 ...
+
+Read XA Parameter:
+         87 ...
+
+==============================================================================
+============================================================================*/
 
 /*
  * commands

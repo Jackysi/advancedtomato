@@ -29,7 +29,7 @@
     Reformatted, fixing spelling etc as I went
     Removed IRQ 0-15 assumption
 
-    Jeff Garzik <jgarzik@mandrakesoft.com> :
+    Jeff Garzik <jgarzik@pobox.com> :
     Updated to use new PCI driver API.
     Resource usage cleanups.
     Report driver version to user.
@@ -48,6 +48,10 @@
     Use time_after for jiffies calculation.  Added ethtool
     support.  Updated PCI resource allocation.  Do not
     forget to unmap PCI mapped skbs.
+    
+    Alan Cox <alan@redhat.com>
+    Added new PCI identifiers provided by Clear Zhang at ALi 
+    for their 1563 ethernet device.
 
     TODO
 
@@ -295,7 +299,7 @@ static int dmfe_start_xmit(struct sk_buff *, struct DEVICE *);
 static int dmfe_stop(struct DEVICE *);
 static struct net_device_stats * dmfe_get_stats(struct DEVICE *);
 static void dmfe_set_filter_mode(struct DEVICE *);
-static int dmfe_do_ioctl(struct DEVICE *, struct ifreq *, int);
+static struct ethtool_ops netdev_ethtool_ops;
 static u16 read_srom_word(long ,int);
 static void dmfe_interrupt(int , void *, struct pt_regs *);
 static void dmfe_descriptor_init(struct dmfe_board_info *, unsigned long);
@@ -374,6 +378,14 @@ static int __devinit dmfe_init_one (struct pci_dev *pdev,
 		goto err_out_disable;
 	}
 
+#if 0	/* pci_{enable_device,set_master} sets minimum latency for us now */
+
+	/* Set Latency Timer 80h */
+	/* FIXME: setting values > 32 breaks some SiS 559x stuff.
+	   Need a PCI quirk.. */
+
+	pci_write_config_byte(pdev, PCI_LATENCY_TIMER, 0x80);
+#endif
 
 	if (pci_request_regions(pdev, DRV_NAME)) {
 		printk(KERN_ERR DRV_NAME ": Failed to request PCI regions\n");
@@ -407,7 +419,7 @@ static int __devinit dmfe_init_one (struct pci_dev *pdev,
 	dev->stop = &dmfe_stop;
 	dev->get_stats = &dmfe_get_stats;
 	dev->set_multicast_list = &dmfe_set_filter_mode;
-	dev->do_ioctl = &dmfe_do_ioctl;
+	dev->ethtool_ops = &netdev_ethtool_ops;
 	spin_lock_init(&db->lock);
 
 	pci_read_config_dword(pdev, 0x50, &pci_pmr);
@@ -699,6 +711,14 @@ static int dmfe_stop(struct DEVICE *dev)
 	/* free allocated rx buffer */
 	dmfe_free_rxbuffer(db);
 
+#if 0
+	/* show statistic counter */
+	printk(DRV_NAME ": FU:%lx EC:%lx LC:%lx NC:%lx LOC:%lx TXJT:%lx RESET:%lx RCR8:%lx FAL:%lx TT:%lx\n",
+		db->tx_fifo_underrun, db->tx_excessive_collision,
+		db->tx_late_collision, db->tx_no_carrier, db->tx_loss_carrier,
+		db->tx_jabber_timeout, db->reset_count, db->reset_cr8,
+		db->reset_fatal, db->reset_TXtimeout);
+#endif
 
 	return 0;
 }
@@ -843,6 +863,20 @@ static void dmfe_free_tx_pkt(struct DEVICE *dev, struct dmfe_board_info * db)
 
 
 /*
+ *	Calculate the CRC valude of the Rx packet
+ *	flag = 	1 : return the reverse CRC (for the received packet CRC)
+ *		0 : return the normal CRC (for Hash Table index)
+ */
+
+static inline u32 cal_CRC(unsigned char * Data, unsigned int Len, u8 flag)
+{
+	u32 crc = ether_crc_le(Len, Data);
+	if (flag) crc = ~crc;
+	return crc;
+}
+
+
+/*
  *	Receive the come packet and pass to upper layer
  */
 
@@ -893,7 +927,7 @@ static void dmfe_rx_packet(struct DEVICE *dev, struct dmfe_board_info * db)
 				/* Received Packet CRC check need or not */
 				if ( (db->dm910x_chk_mode & 1) &&
 					(cal_CRC(skb->tail, rxlen, 1) !=
-					(*(u32 *) (skb->tail+rxlen) ))) { 
+					(*(u32 *) (skb->tail+rxlen) ))) { /* FIXME (?) */
 					/* Found a error received packet */
 					dmfe_reuse_skb(db, rxptr->rx_skb_ptr);
 					db->dm910x_chk_mode = 3;
@@ -982,54 +1016,23 @@ static void dmfe_set_filter_mode(struct DEVICE * dev)
 }
 
 
-/*
- *	Process the ethtool ioctl command
- */
-
-static int dmfe_ethtool_ioctl(struct net_device *dev, void *useraddr)
+static void netdev_get_drvinfo(struct net_device *dev,
+			       struct ethtool_drvinfo *info)
 {
-	struct dmfe_board_info *db = dev->priv;
-	struct ethtool_drvinfo info = { ETHTOOL_GDRVINFO };
-	u32 ethcmd;
+	struct dmfe_board_info *np = dev->priv;
 
-	if (copy_from_user(&ethcmd, useraddr, sizeof(ethcmd)))
-		return -EFAULT;
-
-        switch (ethcmd) {
-        case ETHTOOL_GDRVINFO:
-		strcpy(info.driver, DRV_NAME);
-		strcpy(info.version, DRV_VERSION);
-		if (db->pdev)
-			strcpy(info.bus_info, db->pdev->slot_name);
-		else
-			sprintf(info.bus_info, "EISA 0x%lx %d",
-				dev->base_addr, dev->irq);
-		if (copy_to_user(useraddr, &info, sizeof(info)))
-			return -EFAULT;
-		return 0;
-        }
-
-	return -EOPNOTSUPP;
+	strcpy(info->driver, DRV_NAME);
+	strcpy(info->version, DRV_VERSION);
+	if (np->pdev)
+		strcpy(info->bus_info, pci_name(np->pdev));
+	else
+		sprintf(info->bus_info, "EISA 0x%lx %d",
+			dev->base_addr, dev->irq);
 }
 
-
-/*
- *	Process the upper socket ioctl command
- */
-
-static int dmfe_do_ioctl(struct DEVICE *dev, struct ifreq *ifr, int cmd)
-{
-	int retval = -EOPNOTSUPP;
-	DMFE_DBUG(0, "dmfe_do_ioctl()", 0);
-
-	switch(cmd) {
-	case SIOCETHTOOL:
-		return dmfe_ethtool_ioctl(dev, (void*)ifr->ifr_data);
-	}
-
-	return retval;
-}
-
+static struct ethtool_ops netdev_ethtool_ops = {
+	.get_drvinfo		= netdev_get_drvinfo,
+};
 
 /*
  *	A periodic timer routine
@@ -1441,7 +1444,7 @@ static void allocate_rx_buffer(struct dmfe_board_info *db)
 	while(db->rx_avail_cnt < RX_DESC_CNT) {
 		if ( ( skb = dev_alloc_skb(RX_ALLOC_SIZE) ) == NULL )
 			break;
-		rxptr->rx_skb_ptr = skb; 
+		rxptr->rx_skb_ptr = skb; /* FIXME (?) */
 		rxptr->rdes2 = cpu_to_le32( pci_map_single(db->pdev, skb->tail, RX_ALLOC_SIZE, PCI_DMA_FROMDEVICE) );
 		wmb();
 		rxptr->rdes0 = cpu_to_le32(0x80000000);
@@ -1764,20 +1767,6 @@ static u16 phy_read_1bit(unsigned long ioaddr)
 
 
 /*
- *	Calculate the CRC valude of the Rx packet
- *	flag = 	1 : return the reverse CRC (for the received packet CRC)
- *		0 : return the normal CRC (for Hash Table index)
- */
-
-static inline u32 cal_CRC(unsigned char * Data, unsigned int Len, u8 flag)
-{
-	u32 crc = ether_crc_le(Len, Data);
-	if (flag) crc = ~crc;
-	return crc;
-}
-
-
-/*
  *	Parser SROM and media mode
  */
 
@@ -1961,6 +1950,7 @@ static struct pci_device_id dmfe_pci_tbl[] __devinitdata = {
 	{ 0x1282, 0x9102, PCI_ANY_ID, PCI_ANY_ID, 0, 0, PCI_DM9102_ID },
 	{ 0x1282, 0x9100, PCI_ANY_ID, PCI_ANY_ID, 0, 0, PCI_DM9100_ID },
 	{ 0x1282, 0x9009, PCI_ANY_ID, PCI_ANY_ID, 0, 0, PCI_DM9009_ID },
+	{ 0x10B9, 0x5261, PCI_ANY_ID, PCI_ANY_ID, 0, 0, PCI_DM9102_ID },
 	{ 0, }
 };
 MODULE_DEVICE_TABLE(pci, dmfe_pci_tbl);

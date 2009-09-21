@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002 Silicon Graphics, Inc.  All Rights Reserved.
+ * Copyright (c) 2002-2003 Silicon Graphics, Inc.  All Rights Reserved.
  * 
  * This program is free software; you can redistribute it and/or modify it 
  * under the terms of version 2 of the GNU General Public License 
@@ -30,7 +30,7 @@
  * http://oss.sgi.com/projects/GenInfo/NoticeExplan
  */
 
-/* $Id: ioc3.h,v 1.1.1.4 2003/10/14 08:09:11 sparq Exp $
+/* $Id: ioc3.h,v 1.2 2000/11/16 19:49:17 pfg Exp $
  *
  * Copyright (C) 1999 Ralf Baechle
  * This file is part of the Linux driver for the SGI IOC3.
@@ -192,6 +192,7 @@ struct ioc3 {
 	volatile u32    midr_w;           /* 0x00150  */
 	volatile u32	pad1[(0x20000 - 0x00154) / 4];
 
+	/* SuperIO Registers  XXX */
 	struct ioc3_sioregs	sregs;	/* 0x20000 */
 	volatile u32	pad2[(0x40000 - 0x20180) / 4];
 

@@ -1,5 +1,5 @@
 /*
- *	$Id: proc.c,v 1.1.1.4 2003/10/14 08:08:32 sparq Exp $
+ *	$Id: proc.c,v 1.13 1998/05/12 07:36:07 mj Exp $
  *
  *	Procfs interface for the PCI bus.
  *
@@ -47,7 +47,8 @@ proc_bus_pci_read(struct file *file, char *buf, size_t nbytes, loff_t *ppos)
 	const struct inode *ino = file->f_dentry->d_inode;
 	const struct proc_dir_entry *dp = ino->u.generic_ip;
 	struct pci_dev *dev = dp->data;
-	unsigned int pos = *ppos;
+	loff_t n = *ppos;
+	unsigned pos = n;
 	unsigned int cnt, size;
 
 	/*
@@ -63,7 +64,7 @@ proc_bus_pci_read(struct file *file, char *buf, size_t nbytes, loff_t *ppos)
 	else
 		size = 64;
 
-	if (pos >= size)
+	if (pos != n || pos >= size)
 		return 0;
 	if (nbytes >= size)
 		nbytes = size;
@@ -129,10 +130,11 @@ proc_bus_pci_write(struct file *file, const char *buf, size_t nbytes, loff_t *pp
 	const struct inode *ino = file->f_dentry->d_inode;
 	const struct proc_dir_entry *dp = ino->u.generic_ip;
 	struct pci_dev *dev = dp->data;
-	int pos = *ppos;
+	loff_t n = *ppos;
+	unsigned pos = n;
 	int cnt;
 
-	if (pos >= PCI_CFG_SPACE_SIZE)
+	if (pos != n || pos >= PCI_CFG_SPACE_SIZE)
 		return 0;
 	if (nbytes >= PCI_CFG_SPACE_SIZE)
 		nbytes = PCI_CFG_SPACE_SIZE;
@@ -309,6 +311,7 @@ static void *pci_seq_start(struct seq_file *m, loff_t *pos)
 	struct list_head *p = &pci_devices;
 	loff_t n = *pos;
 
+	/* XXX: surely we need some locking for traversing the list? */
 	while (n--) {
 		p = p->next;
 		if (p == &pci_devices)

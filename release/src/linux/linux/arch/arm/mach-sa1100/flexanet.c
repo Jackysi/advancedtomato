@@ -26,6 +26,7 @@
 #include <asm/mach/map.h>
 #include <asm/mach/serial_sa1100.h>
 #include <linux/serial_core.h>
+#include <asm/arch/flexanet.h>
 
 #include "generic.h"
 
@@ -145,6 +146,11 @@ static int flexanet_serial_init(void)
 
 static int __init flexanet_init(void)
 {
+	/* Set IRQ edges */
+	set_GPIO_IRQ_edge(GPIO_GUI_IRQ, GPIO_RISING_EDGE);
+
+	/* deassert the GUI reset */
+	FLEXANET_BCR_set(FHH_BCR_GUI_NRST);
 	return 0;
 }
 
@@ -155,10 +161,6 @@ static void __init
 fixup_flexanet(struct machine_desc *desc, struct param_struct *params,
 	      char **cmdline, struct meminfo *mi)
 {
-	int				status;
-	unsigned long	now;
-
-
 	/* fixed RAM size, by now (64MB) */
 	SET_BANK( 0, 0xc0000000, 64*1024*1024 );
 	mi->nr_banks = 1;
@@ -175,7 +177,7 @@ static struct map_desc flexanet_io_desc[] __initdata = {
   { 0xe8000000, 0x00000000, 0x02000000, DOMAIN_IO, 0, 1, 0, 0 }, /* Flash bank 0 */
   { 0xf0000000, 0x10000000, 0x00001000, DOMAIN_IO, 0, 1, 0, 0 }, /* Board Control Register */
   { 0xf1000000, 0x18000000, 0x01000000, DOMAIN_IO, 0, 1, 0, 0 }, /* Ethernet controller */
-  { 0xD0000000, 0x40000000, 0x01000000, DOMAIN_IO, 0, 1, 0, 0 }, /* Instrument boards */
+  { 0xD0000000, 0x40000000, 0x04000000, DOMAIN_IO, 0, 1, 0, 0 }, /* Instrument boards */
   { 0xD8000000, 0x48000000, 0x01000000, DOMAIN_IO, 0, 1, 0, 0 }, /* External peripherals */
   LAST_DESC
 };
@@ -198,13 +200,6 @@ static void __init flexanet_map_io(void)
 	 */
 	PCFR = PCFR_OPDE | PCFR_FP | PCFR_FS;
 
-	/* deassert the GUI reset */
-	FLEXANET_BCR_set(FHH_BCR_GUI_NRST);
-
-	/*
-	 * Set IRQ edges
-	 */
-	set_GPIO_IRQ_edge(GPIO_GUI_IRQ, GPIO_RISING_EDGE);
 }
 
 

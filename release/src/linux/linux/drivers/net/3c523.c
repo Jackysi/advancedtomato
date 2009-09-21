@@ -84,7 +84,7 @@
    Nov 2001
    added support for ethtool (jgarzik)
 	
-   $Header: /home/cvsroot/wrt54g/src/linux/linux/drivers/net/3c523.c,v 1.1.1.2 2003/10/14 08:08:18 sparq Exp $
+   $Header: /fsys2/home/chrisb/linux-1.3.59-MCA/drivers/net/RCS/3c523.c,v 1.1 1996/02/05 01:53:46 chrisb Exp chrisb $
  */
 
 #define DRV_NAME		"3c523"
@@ -160,7 +160,7 @@ sizeof(nop_cmd) = 8;
 #define NUM_RECV_BUFFS_8  4	/* config for 8K shared mem */
 #define NUM_RECV_BUFFS_16 9	/* config for 16K shared mem */
 
-#if NUM_XMIT_BUFFS == 1
+#if (NUM_XMIT_BUFFS == 1)
 #define NO_NOPCOMMANDS		/* only possible with NUM_XMIT_BUFFS=1 */
 #endif
 
@@ -190,7 +190,7 @@ static void elmc_timeout(struct net_device *dev);
 #ifdef ELMC_MULTICAST
 static void set_multicast_list(struct net_device *dev);
 #endif
-static int netdev_ioctl (struct net_device *dev, struct ifreq *rq, int cmd);
+static struct ethtool_ops netdev_ethtool_ops;
 
 /* helper-functions */
 static int init586(struct net_device *dev);
@@ -212,10 +212,11 @@ struct priv {
 	volatile struct iscp_struct *iscp;	/* volatile is important */
 	volatile struct scb_struct *scb;	/* volatile is important */
 	volatile struct tbd_struct *xmit_buffs[NUM_XMIT_BUFFS];
-	volatile struct transmit_cmd_struct *xmit_cmds[NUM_XMIT_BUFFS];
-#if NUM_XMIT_BUFFS == 1
+#if (NUM_XMIT_BUFFS == 1)
+	volatile struct transmit_cmd_struct *xmit_cmds[2];
 	volatile struct nop_cmd_struct *nop_cmds[2];
 #else
+	volatile struct transmit_cmd_struct *xmit_cmds[NUM_XMIT_BUFFS];
 	volatile struct nop_cmd_struct *nop_cmds[NUM_XMIT_BUFFS];
 #endif
 	volatile int nop_point, num_recv_buffs;
@@ -572,7 +573,7 @@ int __init elmc_probe(struct net_device *dev)
 #else
 	dev->set_multicast_list = NULL;
 #endif
-	dev->do_ioctl = netdev_ioctl;
+	dev->ethtool_ops = &netdev_ethtool_ops;
 	
 	ether_setup(dev);
 
@@ -724,7 +725,7 @@ static int init586(struct net_device *dev)
 	/*
 	 * alloc nop/xmit-cmds
 	 */
-#if NUM_XMIT_BUFFS == 1
+#if (NUM_XMIT_BUFFS == 1)
 	for (i = 0; i < 2; i++) {
 		p->nop_cmds[i] = (struct nop_cmd_struct *) ptr;
 		p->nop_cmds[i]->cmd_cmd = CMD_NOP;
@@ -1052,7 +1053,7 @@ static void elmc_xmt_int(struct net_device *dev)
 		}
 	}
 
-#if NUM_XMIT_BUFFS != 1
+#if (NUM_XMIT_BUFFS != 1)
 	if ((++p->xmit_last) == NUM_XMIT_BUFFS) {
 		p->xmit_last = 0;
 	}
@@ -1121,10 +1122,13 @@ static int elmc_send_packet(struct sk_buff *skb, struct net_device *dev)
 
 	netif_stop_queue(dev);
 
-	memcpy((char *) p->xmit_cbuffs[p->xmit_count], (char *) (skb->data), skb->len);
 	len = (ETH_ZLEN < skb->len) ? skb->len : ETH_ZLEN;
+	
+	if(len != skb->len)
+		memset((char *) p->xmit_cbuffs[p->xmit_count], 0, ETH_ZLEN);
+	memcpy((char *) p->xmit_cbuffs[p->xmit_count], (char *) (skb->data), skb->len);
 
-#if NUM_XMIT_BUFFS == 1
+#if (NUM_XMIT_BUFFS == 1)
 #ifdef NO_NOPCOMMANDS
 	p->xmit_buffs[0]->size = TBD_LAST | len;
 	for (i = 0; i < 16; i++) {
@@ -1224,70 +1228,17 @@ static void set_multicast_list(struct net_device *dev)
 }
 #endif
 
-/**
- * netdev_ethtool_ioctl: Handle network interface SIOCETHTOOL ioctls
- * @dev: network interface on which out-of-band action is to be performed
- * @useraddr: userspace address to which data is to be read and returned
- *
- * Process the various commands of the SIOCETHTOOL interface.
- */
-
-static int netdev_ethtool_ioctl (struct net_device *dev, void *useraddr)
+static void netdev_get_drvinfo(struct net_device *dev,
+			       struct ethtool_drvinfo *info)
 {
-	u32 ethcmd;
-
-	/* dev_ioctl() in ../../net/core/dev.c has already checked
-	   capable(CAP_NET_ADMIN), so don't bother with that here.  */
-
-	if (get_user(ethcmd, (u32 *)useraddr))
-		return -EFAULT;
-
-	switch (ethcmd) {
-
-	case ETHTOOL_GDRVINFO: {
-		struct ethtool_drvinfo info = { ETHTOOL_GDRVINFO };
-		strcpy (info.driver, DRV_NAME);
-		strcpy (info.version, DRV_VERSION);
-		sprintf(info.bus_info, "MCA 0x%lx", dev->base_addr);
-		if (copy_to_user (useraddr, &info, sizeof (info)))
-			return -EFAULT;
-		return 0;
-	}
-
-	default:
-		break;
-	}
-
-	return -EOPNOTSUPP;
+	strcpy(info->driver, DRV_NAME);
+	strcpy(info->version, DRV_VERSION);
+	sprintf(info->bus_info, "MCA 0x%lx", dev->base_addr);
 }
 
-/**
- * netdev_ioctl: Handle network interface ioctls
- * @dev: network interface on which out-of-band action is to be performed
- * @rq: user request data
- * @cmd: command issued by user
- *
- * Process the various out-of-band ioctls passed to this driver.
- */
-
-static int netdev_ioctl (struct net_device *dev, struct ifreq *rq, int cmd)
-{
-	int rc = 0;
-
-	switch (cmd) {
-	case SIOCETHTOOL:
-		rc = netdev_ethtool_ioctl(dev, (void *) rq->ifr_data);
-		break;
-
-	default:
-		rc = -EOPNOTSUPP;
-		break;
-	}
-
-	return rc;
-}
- 
-/*************************************************************************/
+static struct ethtool_ops netdev_ethtool_ops = {
+	.get_drvinfo		= netdev_get_drvinfo,
+};
 
 #ifdef MODULE
 
@@ -1301,6 +1252,9 @@ MODULE_PARM(irq, "1-" __MODULE_STRING(MAX_3C523_CARDS) "i");
 MODULE_PARM(io, "1-" __MODULE_STRING(MAX_3C523_CARDS) "i");
 MODULE_PARM_DESC(io, "EtherLink/MC I/O base address(es)");
 MODULE_PARM_DESC(irq, "EtherLink/MC IRQ number(s)");
+MODULE_AUTHOR("Chris Beauregard");
+MODULE_DESCRIPTION("net-3-driver for the 3c523 Etherlink/MC card (i82586 Ethernet chip)");
+MODULE_LICENSE("GPL");
 
 int init_module(void)
 {

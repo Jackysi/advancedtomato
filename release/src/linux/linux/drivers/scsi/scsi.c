@@ -84,7 +84,7 @@ static void scsi_dump_status(int level);
 #endif
 
 /*
-   static const char RCSid[] = "$Header: /home/cvsroot/wrt54g/src/linux/linux/drivers/scsi/scsi.c,v 1.1.1.2 2003/10/14 08:08:41 sparq Exp $";
+   static const char RCSid[] = "$Header: /vger/u4/cvs/linux/drivers/scsi/scsi.c,v 1.38 1997/01/19 23:07:18 davem Exp $";
  */
 
 /*
@@ -197,6 +197,7 @@ void  scsi_initialize_queue(Scsi_Device * SDpnt, struct Scsi_Host * SHpnt)
 
 	blk_init_queue(q, scsi_request_fn);
 	blk_queue_headactive(q, 0);
+	blk_queue_throttle_sectors(q, 1);
 	q->queuedata = (void *) SDpnt;
 }
 
@@ -367,6 +368,20 @@ Scsi_Cmnd *scsi_allocate_device(Scsi_Device * device, int wait,
 		SCpnt = NULL;
 		if (!device->device_blocked) {
 			if (device->single_lun) {
+				/*
+				 * FIXME(eric) - this is not at all optimal.  Given that
+				 * single lun devices are rare and usually slow
+				 * (i.e. CD changers), this is good enough for now, but
+				 * we may want to come back and optimize this later.
+				 *
+				 * Scan through all of the devices attached to this
+				 * host, and see if any are active or not.  If so,
+				 * we need to defer this command.
+				 *
+				 * We really need a busy counter per device.  This would
+				 * allow us to more easily figure out whether we should
+				 * do anything here or not.
+				 */
 				for (SDpnt = host->host_queue;
 				     SDpnt;
 				     SDpnt = SDpnt->next) {
@@ -443,6 +458,10 @@ Scsi_Cmnd *scsi_allocate_device(Scsi_Device * device, int wait,
 			spin_lock_irqsave(&device_request_lock, flags);
 
                         remove_wait_queue(&device->scpnt_wait, &wait);
+                        /*
+                         * FIXME - Isn't this redundant??  Someone
+                         * else will have forced the state back to running.
+                         */
                         set_current_state(TASK_RUNNING);
                         /*
                          * In the event that a signal has arrived that we need
@@ -1079,6 +1098,30 @@ void scsi_do_cmd(Scsi_Cmnd * SCpnt, const void *cmnd,
 	SCSI_LOG_MLQUEUE(3, printk("Leaving scsi_do_cmd()\n"));
 }
 
+/*
+ * This function is the mid-level interrupt routine, which decides how
+ *  to handle error conditions.  Each invocation of this function must
+ *  do one and *only* one of the following:
+ *
+ *      1) Insert command in BH queue.
+ *      2) Activate error handler for host.
+ *
+ * FIXME(eric) - I am concerned about stack overflow (still).  An
+ * interrupt could come while we are processing the bottom queue,
+ * which would cause another command to be stuffed onto the bottom
+ * queue, and it would in turn be processed as that interrupt handler
+ * is returning.  Given a sufficiently steady rate of returning
+ * commands, this could cause the stack to overflow.  I am not sure
+ * what is the most appropriate solution here - we should probably
+ * keep a depth count, and not process any commands while we still
+ * have a bottom handler active higher in the stack.
+ *
+ * There is currently code in the bottom half handler to monitor
+ * recursion in the bottom handler and report if it ever happens.  If
+ * this becomes a problem, it won't be hard to engineer something to
+ * deal with it so that only the outer layer ever does any real
+ * processing.  
+ */
 void scsi_done(Scsi_Cmnd * SCpnt)
 {
 	unsigned long flags;
@@ -1103,6 +1146,17 @@ void scsi_done(Scsi_Cmnd * SCpnt)
 	/* Set the serial numbers back to zero */
 	SCpnt->serial_number = 0;
 
+	/*
+	 * First, see whether this command already timed out.  If so, we ignore
+	 * the response.  We treat it as if the command never finished.
+	 *
+	 * Since serial_number is now 0, the error handler cound detect this
+	 * situation and avoid to call the low level driver abort routine.
+	 * (DB)
+         *
+         * FIXME(eric) - I believe that this test is now redundant, due to
+         * the test of the return status of del_timer().
+	 */
 	if (SCpnt->state == SCSI_STATE_TIMEOUT) {
 		SCSI_LOG_MLCOMPLETE(1, printk("Ignoring completion of %p due to timeout status", SCpnt));
 		return;
@@ -1671,6 +1725,12 @@ static int scsi_proc_info(char *buffer, char **start, off_t offset, int length)
 	len += size;
 	pos = begin + len;
 	for (HBA_ptr = scsi_hostlist; HBA_ptr; HBA_ptr = HBA_ptr->next) {
+#if 0
+		size += sprintf(buffer + len, "scsi%2d: %s\n", (int) HBA_ptr->host_no,
+				HBA_ptr->hostt->procname);
+		len += size;
+		pos = begin + len;
+#endif
 		for (scd = HBA_ptr->host_queue; scd; scd = scd->next) {
 			proc_print_scsidevice(scd, buffer, &size, len);
 			len += size;
@@ -1744,7 +1804,7 @@ static int proc_scsi_gen_write(struct file * file, const char * buf,
 	 * where token is one of [error,scan,mlqueue,mlcomplete,llqueue,
 	 * llcomplete,hlqueue,hlcomplete]
 	 */
-#ifdef CONFIG_SCSI_LOGGING		    /* { */
+#ifdef CONFIG_SCSI_LOGGING		/* { */
 
 	if (!strncmp("log", buffer + 5, 3)) {
 		char *token;
@@ -2067,9 +2127,21 @@ static int scsi_unregister_host(Scsi_Host_Template * tpnt)
 			    && SDpnt->host->hostt->module
 			    && GET_USE_COUNT(SDpnt->host->hostt->module))
 				goto err_out;
+			/* 
+			 * FIXME(eric) - We need to find a way to notify the
+			 * low level driver that we are shutting down - via the
+			 * special device entry that still needs to get added. 
+			 *
+			 * Is detach interface below good enough for this?
+			 */
 		}
 	}
 
+	/*
+	 * FIXME(eric) put a spinlock on this.  We force all of the devices offline
+	 * to help prevent race conditions where other hosts/processors could try and
+	 * get in and queue a command.
+	 */
 	for (shpnt = scsi_hostlist; shpnt; shpnt = shpnt->next) {
 		for (SDpnt = shpnt->host_queue; SDpnt;
 		     SDpnt = SDpnt->next) {
@@ -2438,9 +2510,27 @@ int scsi_unregister_module(int module_type, void *ptr)
 }
 
 #ifdef CONFIG_PROC_FS
+/*
+ * Function:    scsi_dump_status
+ *
+ * Purpose:     Brain dump of scsi system, used for problem solving.
+ *
+ * Arguments:   level - used to indicate level of detail.
+ *
+ * Notes:       The level isn't used at all yet, but we need to find some way
+ *              of sensibly logging varying degrees of information.  A quick one-line
+ *              display of each command, plus the status would be most useful.
+ *
+ *              This does depend upon CONFIG_SCSI_LOGGING - I do want some way of turning
+ *              it all off if the user wants a lean and mean kernel.  It would probably
+ *              also be useful to allow the user to specify one single host to be dumped.
+ *              A second argument to the function would be useful for that purpose.
+ *
+ *              FIXME - some formatting of the output into tables would be very handy.
+ */
 static void scsi_dump_status(int level)
 {
-#ifdef CONFIG_SCSI_LOGGING		    /* { */
+#ifdef CONFIG_SCSI_LOGGING		/* { */
 	int i;
 	struct Scsi_Host *shpnt;
 	Scsi_Cmnd *SCpnt;

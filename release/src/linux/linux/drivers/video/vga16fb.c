@@ -113,6 +113,14 @@ static void vga16fb_pan_var(struct fb_info *info, struct fb_var_screeninfo *var)
 	outb(pos >> 8, VGA_CRT_DC);
 	outb(VGA_CRTC_START_LO, VGA_CRT_IC);
 	outb(pos & 0xFF, VGA_CRT_DC);
+#if 0
+	/* if someone supports xoffset in bit resolution */
+	inb(VGA_IS1_RC);		/* reset flip-flop */
+	outb(VGA_ATC_PEL, VGA_ATT_IW);
+	outb(xoffset & 7, VGA_ATT_IW);
+	inb(VGA_IS1_RC);
+	outb(0x20, VGA_ATT_IW);
+#endif
 }
 
 static int vga16fb_update_var(int con, struct fb_info *info)
@@ -886,6 +894,7 @@ int __init vga16fb_init(void)
 
 	printk(KERN_DEBUG "vga16fb: initializing\n");
 
+	/* XXX share VGA_FB_PHYS region with vgacon */
 
         vga16fb.video_vbase = ioremap(VGA_FB_PHYS, VGA_FB_PHYS_LEN);
 	if (!vga16fb.video_vbase) {
@@ -910,6 +919,7 @@ int __init vga16fb_init(void)
 		palette[i].blue  = default_blu[j];
 	}
 
+	/* XXX share VGA I/O region with vgacon and others */
 
 	disp.var = vga16fb_defined;
 
@@ -940,6 +950,7 @@ static void __exit vga16fb_exit(void)
 {
     unregister_framebuffer(&vga16fb.fb_info);
     iounmap(vga16fb.video_vbase);
+    /* XXX unshare VGA regions */
 }
 
 #ifdef MODULE

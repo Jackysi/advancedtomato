@@ -9,7 +9,8 @@
 
 #include <linux/fs.h>
 
-#include "befs_fs.h"
+#include "befs.h"
+#include "super.h"
 #include "endian.h"
 
 /**
@@ -25,8 +26,11 @@ befs_load_sb(struct super_block *sb, befs_super_block * disk_sb)
 {
 	befs_sb_info *befs_sb = BEFS_SB(sb);
 
-	/* byte_order is special, no byte-swap */
-	befs_sb->byte_order = disk_sb->fs_byte_order;
+	/* Check the byte order of the filesystem */
+	if (le32_to_cpu(disk_sb->fs_byte_order) == BEFS_BYTEORDER_NATIVE)
+		befs_sb->byte_order = BEFS_BYTESEX_LE;
+	else if (be32_to_cpu(disk_sb->fs_byte_order) == BEFS_BYTEORDER_NATIVE)
+		befs_sb->byte_order = BEFS_BYTESEX_BE;
 
 	befs_sb->magic1 = fs32_to_cpu(sb, disk_sb->magic1);
 	befs_sb->magic2 = fs32_to_cpu(sb, disk_sb->magic2);

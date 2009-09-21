@@ -605,7 +605,7 @@ ii2DelayTimer(unsigned int mseconds)
 
 	set_current_state( TASK_INTERRUPTIBLE );
 
-	pDelayTimer->expires  = jiffies + ( mseconds + 9 ) / 10;
+	pDelayTimer->expires  = jiffies + ((HZ * mseconds + 999) / 1000);
 	pDelayTimer->function = ii2DelayWakeup;
 	pDelayTimer->data     = 0;
 
@@ -619,6 +619,93 @@ ii2DelayTimer(unsigned int mseconds)
 	del_timer ( pDelayTimer );
 }
 
+#if 0
+//static void ii2DelayIO(unsigned int);
+//******************************************************************************
+// !!! Not Used, this is DOS crap, some of you young folks may be interested in
+//     in how things were done in the stone age of caculating machines       !!!
+// Function:   ii2DelayIO(mseconds)
+// Parameters: mseconds - number of milliseconds to delay
+//
+// Returns:    Nothing
+//
+// Description:
+//
+// This routine delays for approximately mseconds milliseconds and is intended
+// to be called indirectly through i2Delay field in i2eBordStr. It is intended
+// for use where a clock-based function is impossible: for example, DOS drivers.
+//
+// This function uses the IN instruction to place bounds on the timing and
+// assumes that ii2Safe has been set. This is because I/O instructions are not
+// subject to caching and will therefore take a certain minimum time. To ensure
+// the delay is at least long enough on fast machines, it is based on some
+// fastest-case calculations.  On slower machines this may cause VERY long
+// delays. (3 x fastest case). In the fastest case, everything is cached except
+// the I/O instruction itself.
+//
+// Timing calculations:
+// The fastest bus speed for I/O operations is likely to be 10 MHz. The I/O
+// operation in question is a byte operation to an odd address. For 8-bit
+// operations, the architecture generally enforces two wait states. At 10 MHz, a
+// single cycle time is 100nS. A read operation at two wait states takes 6
+// cycles for a total time of 600nS. Therefore approximately 1666 iterations
+// would be required to generate a single millisecond delay. The worst
+// (reasonable) case would be an 8MHz system with no cacheing. In this case, the
+// I/O instruction would take 125nS x 6 cyles = 750 nS. More importantly, code
+// fetch of other instructions in the loop would take time (zero wait states,
+// however) and would be hard to estimate. This is minimized by using in-line
+// assembler for the in inner loop of IN instructions. This consists of just a
+// few bytes. So we'll guess about four code fetches per loop. Each code fetch
+// should take four cycles, so we have 125nS * 8 = 1000nS. Worst case then is
+// that what should have taken 1 mS takes instead 1666 * (1750) = 2.9 mS.
+//
+// So much for theoretical timings: results using 1666 value on some actual
+// machines:
+// IBM      286      6MHz     3.15 mS
+// Zenith   386      33MHz    2.45 mS
+// (brandX) 386      33MHz    1.90 mS  (has cache)
+// (brandY) 486      33MHz    2.35 mS
+// NCR      486      ??       1.65 mS (microchannel)
+//
+// For most machines, it is probably safe to scale this number back (remember,
+// for robust operation use an actual timed delay if possible), so we are using
+// a value of 1190. This yields 1.17 mS for the fastest machine in our sample,
+// 1.75 mS for typical 386 machines, and 2.25 mS the absolute slowest machine.
+//
+// 1/29/93:
+// The above timings are too slow. Actual cycle times might be faster. ISA cycle
+// times could approach 500 nS, and ...
+// The IBM model 77 being microchannel has no wait states for 8-bit reads and
+// seems to be accessing the I/O at 440 nS per access (from start of one to
+// start of next). This would imply we need 1000/.440 = 2272 iterations to
+// guarantee we are fast enough. In actual testing, we see that 2 * 1190 are in
+// fact enough. For diagnostics, we keep the level at 1190, but developers note
+// this needs tuning.
+//
+// Safe assumption:  2270 i/o reads = 1 millisecond
+//
+//******************************************************************************
+
+
+static int ii2DelValue = 1190;  // See timing calculations below
+						// 1666 for fastest theoretical machine
+						// 1190 safe for most fast 386 machines
+						// 1000 for fastest machine tested here
+						//  540 (sic) for AT286/6Mhz
+static void
+ii2DelayIO(unsigned int mseconds)
+{
+	if (!ii2Safe) 
+		return;   /* Do nothing if this variable uninitialized */
+
+	while(mseconds--) {
+		int i = ii2DelValue;
+		while ( i-- ) {
+			INB ( ii2Safe );
+		}
+	}
+}
+#endif 
 
 //******************************************************************************
 // Function:   ii2Nop()

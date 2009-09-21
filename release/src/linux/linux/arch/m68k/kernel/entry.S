@@ -144,6 +144,10 @@ SYMBOL_NAME_LABEL(ret_from_exception)
 	andw	#ALLOWINT,%sr
 	tstl	%curptr@(TASK_NEEDRESCHED)
 	jne	SYMBOL_NAME(reschedule)
+#if 0
+	cmpl	#SYMBOL_NAME(task),%curptr	| task[0] cannot have signals
+	jeq	2f
+#endif
 					| check for delayed trace
 	bclr	#PT_DTRACE_BIT,%curptr@(TASK_PTRACE+PT_DTRACE_OFF)
 	jne	do_delayed_trace
@@ -177,6 +181,34 @@ do_delayed_trace:
 	jra	5b
 
 
+#if 0
+#if CONFIG_AMIGA
+SYMBOL_NAME_LABEL(ami_inthandler)
+	addql	#1,SYMBOL_NAME(irq_stat)+4	| local_irq_count
+	SAVE_ALL_INT
+	GET_CURRENT(%d0)
+
+	bfextu	%sp@(PT_VECTOR){#4,#12},%d0
+	movel	%d0,%a0
+	addql	#1,%a0@(SYMBOL_NAME(kstat)+STAT_IRQ-VECOFF(VEC_SPUR))
+	movel	%a0@(SYMBOL_NAME(autoirq_list)-VECOFF(VEC_SPUR)),%a0
+
+| amiga vector int handler get the req mask instead of irq vector
+	lea	CUSTOMBASE,%a1
+	movew	%a1@(C_INTREQR),%d0
+	andw	%a1@(C_INTENAR),%d0
+
+| prepare stack (push frame pointer, dev_id & req mask)
+	pea	%sp@
+	movel	%a0@(IRQ_DEVID),%sp@-
+	movel	%d0,%sp@-
+	pea	%pc@(SYMBOL_NAME(ret_from_interrupt):w)
+	jbra	@(IRQ_HANDLER,%a0)@(0)
+
+ENTRY(nmi_handler)
+	rte
+#endif
+#endif
 
 /*
 ** This is the main interrupt handler, responsible for calling process_int()
@@ -208,11 +240,10 @@ SYMBOL_NAME_LABEL(ret_from_interrupt)
 2:
 	RESTORE_ALL
 1:
-	bfextu  %sp@(PT_SR){#5,#3},%d0	| Check for nested interrupt.
-#if MAX_NOINT_IPL > 0
-	cmpiw	#MAX_NOINT_IPL,%d0
-#endif
-	jhi	2b
+	moveq	#(~ALLOWINT>>8)&0xff,%d0
+	andb	%sp@(PT_SR),%d0
+	jne	2b
+
 	/* check if we need to do software interrupts */
 	tstl	SYMBOL_NAME(irq_stat)	| softirq_pending ?
 	jeq	SYMBOL_NAME(ret_from_exception)

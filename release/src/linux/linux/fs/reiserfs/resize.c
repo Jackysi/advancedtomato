@@ -35,14 +35,14 @@ int reiserfs_resize (struct super_block * s, unsigned long block_count_new)
 	sb = SB_DISK_SUPER_BLOCK(s);
 
 	if (SB_BLOCK_COUNT(s) >= block_count_new) {
-		printk("can\'t shrink filesystem on-line\n");
+		reiserfs_warning(s, "can\'t shrink filesystem on-line\n");
 		return -EINVAL;
 	}
 
 	/* check the device size */
 	bh = sb_bread(s, block_count_new - 1);
 	if (!bh) {
-		printk("reiserfs_resize: can\'t read last block\n");
+		reiserfs_warning(s, "reiserfs_resize: can\'t read last block\n");
 		return -EINVAL;
 	}	
 	bforget(bh);
@@ -51,7 +51,7 @@ int reiserfs_resize (struct super_block * s, unsigned long block_count_new)
 	 * cannot be resized */
 	if (SB_BUFFER_WITH_SB(s)->b_blocknr *	SB_BUFFER_WITH_SB(s)->b_size 
 		!= REISERFS_DISK_OFFSET_IN_BYTES ) {
-		printk("reiserfs_resize: unable to resize a reiserfs without distributed bitmap (fs version < 3.5.12)\n");
+		reiserfs_warning(s, "reiserfs_resize: unable to resize a reiserfs without distributed bitmap (fs version < 3.5.12)\n");
 		return -ENOTSUPP;
 	}
        
@@ -75,7 +75,7 @@ int reiserfs_resize (struct super_block * s, unsigned long block_count_new)
 	if (bmap_nr_new > bmap_nr) {	    
 	    /* reallocate journal bitmaps */
 	    if (reiserfs_allocate_list_bitmaps(s, jbitmap, bmap_nr_new) < 0) {
-		printk("reiserfs_resize: unable to allocate memory for journal bitmaps\n");
+		reiserfs_warning(s, "reiserfs_resize: unable to allocate memory for journal bitmaps\n");
 		unlock_super(s) ;
 		return -ENOMEM ;
 	    }
@@ -106,14 +106,14 @@ int reiserfs_resize (struct super_block * s, unsigned long block_count_new)
 	     * block pointers */
 	    bitmap = vmalloc(sizeof(struct reiserfs_bitmap_info) * bmap_nr_new);
 	    if (!bitmap) {
-		printk("reiserfs_resize: unable to allocate memory.\n");
+		reiserfs_warning(s, "reiserfs_resize: unable to allocate memory.\n");
 		return -ENOMEM;
 	    }
 	    for (i = 0; i < bmap_nr; i++)
 		bitmap[i] = SB_AP_BITMAP(s)[i];
 	    for (i = bmap_nr; i < bmap_nr_new; i++) {
 		bitmap[i].bh = sb_getblk(s, i * s->s_blocksize * 8);
-		memset(bitmap[i].bh->b_data, 0, sb->s_blocksize);
+		memset(bitmap[i].bh->b_data, 0, sb_blocksize(sb));
 		reiserfs_test_and_set_le_bit(0, bitmap[i].bh->b_data);
 
 		mark_buffer_dirty(bitmap[i].bh) ;

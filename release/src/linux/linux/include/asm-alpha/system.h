@@ -23,7 +23,7 @@
 #ifdef CONFIG_ALPHA_LEGACY_START_ADDRESS
 #define KERNEL_START_PHYS	0x300000 /* Old bootloaders hardcoded this.  */
 #else
-#define KERNEL_START_PHYS	0x800000 /* Wildfire has a huge console */
+#define KERNEL_START_PHYS	0x1000000 /* required: Wildfire/Titan/Marvel */
 #endif
 
 #define KERNEL_START	(PAGE_OFFSET+KERNEL_START_PHYS)
@@ -61,7 +61,8 @@ struct el_common {
 	int		retry	:  1;	/* retry flag */
 	unsigned int	proc_offset;	/* processor-specific offset */
 	unsigned int	sys_offset;	/* system-specific offset */
-	unsigned long	code;		/* machine check code */
+	unsigned int	code;		/* machine check code */
+	unsigned int	frame_rev;	/* frame revision */
 };
 
 /* Machine Check Frame for uncorrectable errors (Large format)
@@ -117,11 +118,11 @@ struct el_common_EV6_mcheck {
 	unsigned long DC0_SYNDROME;
 	unsigned long C_STAT;
 	unsigned long C_STS;
-	unsigned long RESERVED0;
+	unsigned long MM_STAT;
 	unsigned long EXC_ADDR;
 	unsigned long IER_CM;
 	unsigned long ISUM;
-	unsigned long MM_STAT;
+	unsigned long RESERVED0;
 	unsigned long PAL_BASE;
 	unsigned long I_CTL;
 	unsigned long PCTX;
@@ -200,6 +201,7 @@ enum implver_enum {
 enum amask_enum {
 	AMASK_BWX = (1UL << 0),
 	AMASK_FIX = (1UL << 1),
+	AMASK_CIX = (1UL << 2),
 	AMASK_MAX = (1UL << 8),
 	AMASK_PRECISE_TRAP = (1UL << 9),
 };
@@ -309,9 +311,11 @@ extern int __min_ipl;
 #define __sti()			do { barrier(); setipl(IPL_MIN); } while(0)
 #define __save_flags(flags)	((flags) = rdps())
 #define __save_and_cli(flags)	do { (flags) = swpipl(IPL_MAX); barrier(); } while(0)
+#define __save_and_sti(flags)	do { barrier(); (flags) = swpipl(IPL_MIN); } while(0)
 #define __restore_flags(flags)	do { barrier(); setipl(flags); barrier(); } while(0)
 
 #define local_irq_save(flags)		__save_and_cli(flags)
+#define local_irq_set(flags)            __save_and_sti(flags)
 #define local_irq_restore(flags)	__restore_flags(flags)
 #define local_irq_disable()		__cli()
 #define local_irq_enable()		__sti()

@@ -81,9 +81,7 @@ typedef struct flock {
 	short l_whence;
 	__kernel_off_t l_start;
 	__kernel_off_t l_len;
-	long  l_sysid;
 	__kernel_pid_t l_pid;
-	long  pad[4];
 } flock_t;
 
 #ifdef __KERNEL__

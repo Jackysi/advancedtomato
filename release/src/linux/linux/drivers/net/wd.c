@@ -151,7 +151,7 @@ static int __init wd_probe1(struct net_device *dev, int ioaddr)
 		printk(" %2.2X", dev->dev_addr[i] = inb(ioaddr + 8 + i));
 
 	/* The following PureData probe code was contributed by
-	   Mike Jagdis <jaggy@purplet.demon.co.uk>. Puredata does software
+	   Mike Jagdis <mjagdis@eris-associates.co.uk>. Puredata does software
 	   configuration differently from others so we have to check for them.
 	   This detects an 8 bit, 16 bit or dumb (Toshiba, jumpered) card.
 	   */
@@ -303,10 +303,12 @@ static int __init wd_probe1(struct net_device *dev, int ioaddr)
 	dev->stop = &wd_close;
 	NS8390_init(dev, 0);
 
+#if 1
 	/* Enable interrupt generation on softconfig cards -- M.U */
 	/* .. but possibly potentially unsafe - Donald */
 	if (inb(ioaddr+14) & 0x20)
 		outb(inb(ioaddr+4)|0x80, ioaddr+4);
+#endif
 
 	return 0;
 }

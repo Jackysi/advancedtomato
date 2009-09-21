@@ -146,6 +146,9 @@ enum status_bits {
 	TxIntr = 0x01,
 };
 
+/* bit mask for CSR5 TX/RX process state */
+#define CSR5_TS	0x00700000
+#define CSR5_RS	0x000e0000
 
 enum tulip_mode_bits {
 	TxThreshold		= (1 << 22),
@@ -188,8 +191,37 @@ struct tulip_tx_desc {
 
 enum desc_status_bits {
 	DescOwned = 0x80000000,
-	RxDescFatalErr = 0x8000,
+	/*
+	 * Error summary flag is logical or of 'CRC Error', 'Collision Seen',
+	 * 'Frame Too Long', 'Runt' and 'Descriptor Error' flags generated
+	 * within tulip chip.
+	 */
+	RxDescErrorSummary = 0x8000,
+	RxDescCRCError = 0x0002,
+	RxDescCollisionSeen = 0x0040,
+
+	/*
+	 * 'Frame Too Long' flag is set if packet length including CRC exceeds
+	 * 1518.  However, a full sized VLAN tagged frame is 1522 bytes
+	 * including CRC.
+	 *
+	 * The tulip chip does not block oversized frames, and if this flag is
+	 * set on a receive descriptor it does not indicate the frame has been
+	 * truncated.  The receive descriptor also includes the actual length.
+	 * Therefore we can safety ignore this flag and check the length
+	 * ourselves.
+	 */
+	RxDescFrameTooLong = 0x0080,
+	RxDescRunt = 0x0800,
+	RxDescDescErr = 0x4000,
 	RxWholePkt = 0x0300,
+	/*
+	 * Top three bits of 14 bit frame length (status bits 27-29) should
+	 * never be set as that would make frame over 2047 bytes. The Receive
+	 * Watchdog flag (bit 4) may indicate the length is over 2048 and the
+	 * length field is invalid.
+	 */
+	RxLengthOver2047 = 0x38000010
 };
 
 
@@ -297,7 +329,7 @@ enum t21143_csr6_bits {
 
 #define RUN_AT(x) (jiffies + (x))
 
-#if defined(__i386__)			    /* AKA get_unaligned() */
+#if defined(__i386__)			/* AKA get_unaligned() */
 #define get_u16(ptr) (*(u16 *)(ptr))
 #else
 #define get_u16(ptr) (((u8*)(ptr))[0] + (((u8*)(ptr))[1]<<8))
@@ -484,9 +516,19 @@ static inline void tulip_stop_rxtx(struct tulip_private *tp)
 	u32 csr6 = inl(ioaddr + CSR6);
 
 	if (csr6 & RxTx) {
+		unsigned i=1300/10;
 		outl(csr6 & ~RxTx, ioaddr + CSR6);
 		barrier();
-		(void) inl(ioaddr + CSR6); /* mmio sync */
+		/* wait until in-flight frame completes.
+		 * Max time @ 10BT: 1500*8b/10Mbps == 1200us (+ 100us margin)
+		 * Typically expect this loop to end in < 50us on 100BT.
+		 */
+		while (--i && (inl(ioaddr + CSR5) & (CSR5_TS|CSR5_RS))) 
+			udelay(10);
+
+		if (!i)
+			printk (KERN_DEBUG "%s: tulip_stop_rxtx() failed\n",
+					tp->pdev->slot_name);
 	}
 }
 

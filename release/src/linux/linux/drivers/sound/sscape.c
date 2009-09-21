@@ -275,6 +275,14 @@ static int host_read(struct sscape_info *devc)
 	return data;
 }
 
+#if 0 /* unused */
+static int host_command1(struct sscape_info *devc, int cmd)
+{
+	unsigned char buf[10];
+	buf[0] = (unsigned char) (cmd & 0xff);
+	return host_write(devc, buf, 1);
+}
+#endif /* unused */
 
 
 static int host_command2(struct sscape_info *devc, int cmd, int parm1)
@@ -660,7 +668,7 @@ void __init attach_sscape(struct address_info *hw_config)
 			break;
 		}
 	}
-	if (hw_config->irq > 15 || (regs[4] = irq_bits == 0xff))
+	if (hw_config->irq > 15 || ((regs[4] = irq_bits) == 0xff))
 	{
 		printk(KERN_ERR "Invalid IRQ%d\n", hw_config->irq);
 		return;

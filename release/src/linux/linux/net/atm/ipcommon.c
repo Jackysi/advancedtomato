@@ -15,7 +15,11 @@
 #include "ipcommon.h"
 
 
+#if 0
+#define DPRINTK(format,args...) printk(KERN_DEBUG format,##args)
+#else
 #define DPRINTK(format,args...)
+#endif
 
 
 const unsigned char llc_oui[] = {
@@ -63,4 +67,5 @@ void skb_migrate(struct sk_buff_head *from,struct sk_buff_head *to)
 }
 
 
+EXPORT_SYMBOL(llc_oui);
 EXPORT_SYMBOL(skb_migrate);

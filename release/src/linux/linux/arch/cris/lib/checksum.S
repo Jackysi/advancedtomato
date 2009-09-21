@@ -1,6 +1,6 @@
-/* $Id: checksum.S,v 1.1.1.4 2003/10/14 08:07:17 sparq Exp $
+/*
  * A fast checksum routine using movem
- * Copyright (c) 1998-2001 Axis Communications AB
+ * Copyright (c) 1998-2003 Axis Communications AB
  *
  * csum_partial(const unsigned char * buff, int len, unsigned int sum)
  */

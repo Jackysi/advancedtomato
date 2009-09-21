@@ -144,6 +144,10 @@ aty_set_cursor(struct fb_info_aty *fb, int on)
 			yoff = 0;
 		}
 
+                /* In doublescan mode, the cursor location also needs to be
+		   doubled. */
+                if (par->crtc.gen_cntl & CRTC_DBL_SCAN_EN)
+		   y<<=1;
 		wait_for_fifo(4, fb);
 		aty_st_le32(CUR_OFFSET, (c->offset >> 3) + (yoff << 1), fb);
 		aty_st_le32(CUR_HORZ_VERT_OFF,

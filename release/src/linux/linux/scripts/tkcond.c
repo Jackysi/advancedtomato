@@ -551,3 +551,52 @@ void fix_conditionals( struct kconfig * scfg )
 
 
 
+#if 0
+void dump_condition( struct condition *list )
+{
+    struct condition *tmp;
+    for ( tmp = list; tmp; tmp = tmp->next )
+    {
+	switch (tmp->op)
+	{
+	default:
+	    break;
+	case op_variable:
+	    printf( " %s", vartable[tmp->nameindex].name );
+	    break;
+	case op_constant: 
+	    printf( " %s", tmp->str );
+	    break;
+	case op_eq:
+	    printf( " =" );
+	    break;
+	case op_bang:
+	    printf( " !" );
+	    break;
+	case op_neq:
+	    printf( " !=" );
+	    break;
+	case op_and:
+	case op_and1:
+	    printf( " -a" );
+	    break;
+	case op_or:
+	    printf( " -o" );
+	    break;
+	case op_true:
+	    printf( " TRUE" );
+	    break;
+	case op_false:
+	    printf( " FALSE" );
+	    break;
+	case op_lparen:
+	    printf( " (" );
+	    break;
+	case op_rparen:
+	    printf( " )" );
+	    break;
+	}
+    }
+    printf( "\n" );
+}
+#endif

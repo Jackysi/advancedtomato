@@ -1,4 +1,3 @@
-#define __NO_VERSION__
 #include <linux/types.h>
 #include <linux/sched.h>
 #include <linux/timer.h>
@@ -15,11 +14,17 @@
 #include <linux/netfilter_ipv4/ip_conntrack_protocol.h>
 #include <linux/netfilter_ipv4/lockhelp.h>
 
+#if 0
+#define DEBUGP printk
+#else
 #define DEBUGP(format, args...)
+#endif
 
 /* Protects conntrack->proto.tcp */
 static DECLARE_RWLOCK(tcp_lock);
 
+/* FIXME: Examine ipfilter's timeouts and conntrack transitions more
+   closely.  They're more complex. --RR */
 
 /* Actually, I believe that neither ipmasq (where this code is stolen
    from) nor ipfilter do it exactly right.  A new conntrack machine taking
@@ -39,6 +44,33 @@ static const char *tcp_conntrack_names[] = {
 	"LISTEN"
 };
 
+#define SECS *HZ
+#define MINS * 60 SECS
+#define HOURS * 60 MINS
+#define DAYS * 24 HOURS
+
+unsigned long ip_ct_tcp_timeout_syn_sent =      2 MINS;
+unsigned long ip_ct_tcp_timeout_syn_recv =     60 SECS;
+unsigned long ip_ct_tcp_timeout_established =  4 HOURS;	// was 5 days	zzz
+unsigned long ip_ct_tcp_timeout_fin_wait =      2 MINS;
+unsigned long ip_ct_tcp_timeout_close_wait =   60 SECS;
+unsigned long ip_ct_tcp_timeout_last_ack =     30 SECS;
+unsigned long ip_ct_tcp_timeout_time_wait =     2 MINS;
+unsigned long ip_ct_tcp_timeout_close =        10 SECS;
+
+static unsigned long * tcp_timeouts[]
+= { 0,                                 /*      TCP_CONNTRACK_NONE */
+    &ip_ct_tcp_timeout_established,    /*      TCP_CONNTRACK_ESTABLISHED,      */
+    &ip_ct_tcp_timeout_syn_sent,       /*      TCP_CONNTRACK_SYN_SENT, */
+    &ip_ct_tcp_timeout_syn_recv,       /*      TCP_CONNTRACK_SYN_RECV, */
+    &ip_ct_tcp_timeout_fin_wait,       /*      TCP_CONNTRACK_FIN_WAIT, */
+    &ip_ct_tcp_timeout_time_wait,      /*      TCP_CONNTRACK_TIME_WAIT,        */
+    &ip_ct_tcp_timeout_close,          /*      TCP_CONNTRACK_CLOSE,    */
+    &ip_ct_tcp_timeout_close_wait,     /*      TCP_CONNTRACK_CLOSE_WAIT,       */
+    &ip_ct_tcp_timeout_last_ack,       /*      TCP_CONNTRACK_LAST_ACK, */
+    0,                                 /*      TCP_CONNTRACK_LISTEN */
+ };
+ 
 #define sNO TCP_CONNTRACK_NONE
 #define sES TCP_CONNTRACK_ESTABLISHED
 #define sSS TCP_CONNTRACK_SYN_SENT
@@ -162,13 +194,6 @@ static int tcp_packet(struct ip_conntrack *conntrack,
 		conntrack->proto.tcp.handshake_ack
 			= htonl(ntohl(tcph->seq) + 1);
 
-	if (oldtcpstate == TCP_CONNTRACK_SYN_SENT   
-	    && CTINFO2DIR(ctinfo) == IP_CT_DIR_REPLY
-	    && tcph->syn && !tcph->ack){
-	    	WRITE_UNLOCK(&tcp_lock);
-		return -1;
-	}
-
 	/* If only reply is a RST, we can consider ourselves not to
 	   have an established connection: this is a fairly common
 	   problem case, so we can delete the conntrack
@@ -186,8 +211,7 @@ static int tcp_packet(struct ip_conntrack *conntrack,
 			set_bit(IPS_ASSURED_BIT, &conntrack->status);
 
 		WRITE_UNLOCK(&tcp_lock);
- 		ip_ct_refresh(conntrack, 
- 			sysctl_ip_conntrack_tcp_timeouts[newconntrack]);
+		ip_ct_refresh_acct(conntrack,ctinfo,iph, *tcp_timeouts[newconntrack]);
 	}
 
 	return NF_ACCEPT;

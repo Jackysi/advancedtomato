@@ -11,6 +11,7 @@
 #include <linux/smp_lock.h>
 #include <linux/slab.h>
 #include <linux/iobuf.h>
+#include <linux/ptrace.h>
 
 #include <asm/poll.h>
 #include <asm/siginfo.h>
@@ -282,10 +283,18 @@ static long do_fcntl(unsigned int fd, unsigned int cmd,
 			break;
 		case F_SETLK:
 		case F_SETLKW:
-			err = fcntl_setlk(fd, cmd, (struct flock *) arg);
+			err = fcntl_setlk(fd, filp, cmd, (struct flock *) arg);
 			break;
 		case F_GETOWN:
+			/*
+			 * XXX If f_owner is a process group, the
+			 * negative return value will get converted
+			 * into an error.  Oops.  If we keep the
+			 * current syscall conventions, the only way
+			 * to fix this will be in libc.
+			 */
 			err = filp->f_owner.pid;
+			force_successful_syscall_return();
 			break;
 		case F_SETOWN:
 			lock_kernel();
@@ -360,10 +369,12 @@ asmlinkage long sys_fcntl64(unsigned int fd, unsigned int cmd, unsigned long arg
 			err = fcntl_getlk64(fd, (struct flock64 *) arg);
 			break;
 		case F_SETLK64:
-			err = fcntl_setlk64(fd, cmd, (struct flock64 *) arg);
+			err = fcntl_setlk64(fd, filp, cmd,
+					(struct flock64 *) arg);
 			break;
 		case F_SETLKW64:
-			err = fcntl_setlk64(fd, cmd, (struct flock64 *) arg);
+			err = fcntl_setlk64(fd, filp, cmd,
+					(struct flock64 *) arg);
 			break;
 		default:
 			err = do_fcntl(fd, cmd, arg, filp);

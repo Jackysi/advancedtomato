@@ -27,7 +27,7 @@
  * SUCH DAMAGE.
  */
 
-#ident "$Id: vxfs_subr.c,v 1.1.1.4 2003/10/14 08:08:59 sparq Exp $"
+#ident "$Id: vxfs_subr.c,v 1.8 2001/12/28 20:50:47 hch Exp hch $"
 
 /*
  * Veritas filesystem driver - shared subroutines.
@@ -50,6 +50,12 @@ struct address_space_operations vxfs_aops = {
 	.sync_page =		block_sync_page,
 };
 
+__inline__ void
+vxfs_put_page(struct page *pp)
+{
+	kunmap(pp);
+	page_cache_release(pp);
+}
 
 /**
  * vxfs_get_page - read a page into memory.
@@ -86,13 +92,6 @@ vxfs_get_page(struct address_space *mapping, u_long n)
 fail:
 	vxfs_put_page(pp);
 	return ERR_PTR(-EIO);
-}
-
-__inline__ void
-vxfs_put_page(struct page *pp)
-{
-	kunmap(pp);
-	page_cache_release(pp);
 }
 
 /**

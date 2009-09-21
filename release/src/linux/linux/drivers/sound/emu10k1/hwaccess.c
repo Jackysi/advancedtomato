@@ -48,6 +48,7 @@ u32 srToPitch(u32 sampleRate)
 {
 	int i;
 
+	/* FIXME: These tables should be defined in a headerfile */
 	static u32 logMagTable[128] = {
 		0x00000, 0x02dfc, 0x05b9e, 0x088e6, 0x0b5d6, 0x0e26f, 0x10eb3, 0x13aa2,
 		0x1663f, 0x1918a, 0x1bc84, 0x1e72e, 0x2118b, 0x23b9a, 0x2655d, 0x28ed5,
@@ -473,6 +474,7 @@ int emu10k1_mpu_reset(struct emu10k1_card *card)
 
 int emu10k1_mpu_acquire(struct emu10k1_card *card)
 {
+	/* FIXME: This should be a macro */
 	++card->mpuacqcount;
 
 	return 0;
@@ -480,6 +482,7 @@ int emu10k1_mpu_acquire(struct emu10k1_card *card)
 
 int emu10k1_mpu_release(struct emu10k1_card *card)
 {
+	/* FIXME: this should be a macro */
 	--card->mpuacqcount;
 
 	return 0;

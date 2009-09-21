@@ -1,4 +1,4 @@
-/* $Id: nj_u.c,v 1.1.1.4 2003/10/14 08:08:13 sparq Exp $ 
+/* $Id: nj_u.c,v 1.1.4.1 2001/11/20 14:19:36 kai Exp $ 
  *
  * This software may be used and distributed according to the terms
  * of the GNU General Public License, incorporated herein by reference.
@@ -16,7 +16,7 @@
 #include <linux/ppp_defs.h>
 #include "netjet.h"
 
-const char *NETjet_U_revision = "$Revision: 1.1.1.4 $";
+const char *NETjet_U_revision = "$Revision: 1.1.4.1 $";
 
 static u_char dummyrr(struct IsdnCardState *cs, int chan, u_char off)
 {

@@ -400,6 +400,9 @@ static int retz3_set_video(struct fb_info *info,
 
 	int bpp = var->bits_per_pixel;
 
+	/*
+	 * XXX
+	 */
 	if (bpp == 24)
 		return 0;
 
@@ -454,6 +457,28 @@ static int retz3_set_video(struct fb_info *info,
 	data.v_sstart	= yres + vfront - 1 - 2;
 	data.v_sstop	= yres + vfront + vsync - 1;
 
+#if 0 /* testing */
+
+	printk("HBS: %i\n", data.h_bstart);
+	printk("HSS: %i\n", data.h_sstart);
+	printk("HSE: %i\n", data.h_sstop);
+	printk("HBE: %i\n", data.h_bstop);
+	printk("HT: %i\n", data.h_total);
+
+	printk("hsync: %i\n", hsync);
+	printk("hfront: %i\n", hfront);
+	printk("hback: %i\n", hback);
+
+	printk("VBS: %i\n", data.v_bstart);
+	printk("VSS: %i\n", data.v_sstart);
+	printk("VSE: %i\n", data.v_sstop);
+	printk("VBE: %i\n", data.v_bstop);
+	printk("VT: %i\n", data.v_total);
+
+	printk("vsync: %i\n", vsync);
+	printk("vfront: %i\n", vfront);
+	printk("vback: %i\n", vback);
+#endif
 
 	if (data.v_total >= 1024)
 		printk(KERN_ERR "MAYDAY: v_total >= 1024; bailing out!\n");
@@ -591,9 +616,14 @@ static int retz3_set_video(struct fb_info *info,
  	DEBUG printk("CRT_START_VER_RETR: %ld\n", data.v_sstart & 0xff);
 	crt_w(regs, CRT_START_VER_RETR, (data.v_sstart & 0xff));
 
+#if 1
 	/* 5 refresh cycles per scanline */
 	DEBUG printk("CRT_END_VER_RETR: 64+32+%ld\n", data.v_sstop % 16);
 	crt_w(regs, CRT_END_VER_RETR, ((data.v_sstop & 0x0f) | 0x40 | 0x20));
+#else
+	DEBUG printk("CRT_END_VER_RETR: 128+32+%ld\n", data.v_sstop % 16);
+	crt_w(regs, CRT_END_VER_RETR, ((data.v_sstop & 0x0f) | 128 | 32));
+#endif
 	DEBUG printk("CRT_VER_DISP_ENA_END: %ld\n", data.v_dispend & 0xff);
 	crt_w(regs, CRT_VER_DISP_ENA_END, (data.v_dispend & 0xff));
 
@@ -1011,6 +1041,15 @@ static void retz3_bitblt (struct display *p,
 	zinfo->blitbusy = 1;
 }
 
+#if 0
+/*
+ * Move cursor to x, y
+ */
+static void retz3_MoveCursor (unsigned short x, unsigned short y)
+{
+	/* Guess we gotta deal with the cursor at some point */
+}
+#endif
 
 
 /*
@@ -1048,6 +1087,7 @@ static int do_fb_set_var(struct fb_info *info,
 		return err;
 	activate = var->activate;
 
+	/* XXX ... what to do about isactive ? */
 
 	if ((var->activate & FB_ACTIVATE_MASK) == FB_ACTIVATE_NOW && isactive)
 		retz3fb_set_par(info, &par);
@@ -1411,6 +1451,7 @@ int __init retz3fb_init(void)
 		       "video memory\n", GET_FB_IDX(fb_info->node),
 		       fb_info->modename, zinfo->fbsize>>10);
 
+		/* FIXME: This driver cannot be unloaded yet */
 		MOD_INC_USE_COUNT;
 
 		res = 0;
@@ -1503,6 +1544,12 @@ int init_module(void)
 
 void cleanup_module(void)
 {
+	/*
+	 * Not reached because the usecount will never
+	 * be decremented to zero
+	 *
+	 * FIXME: clean up ... *
+	 */
 }
 #endif
 

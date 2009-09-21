@@ -51,6 +51,8 @@ struct rivafb_info {
 	struct riva_regs initial_state;	/* initial startup video mode */
 	struct riva_regs current_state;
 
+	unsigned char *EDID;
+
 	struct display disp;
 	int currcon;
 	struct display *currcon_display;
@@ -66,6 +68,16 @@ struct rivafb_info {
 	struct display_switch dispsw;
 
 	riva_cfb8_cmap_t palette[256];	/* VGA DAC palette cache */
+
+	int panel_xres, panel_yres;
+	int clock;
+	int hOver_plus, hSync_width, hblank;
+	int vOver_plus, vSync_width, vblank;
+	int hAct_high, vAct_high, interlaced;
+	int synct, misc;
+
+	int use_default_var;
+	int got_dfpinfo;
 
 #if defined(FBCON_HAS_CFB16) || defined(FBCON_HAS_CFB32)
 	union {

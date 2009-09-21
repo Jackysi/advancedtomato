@@ -1,5 +1,5 @@
 /*
- *  arch/ppc/kernel/misc.S
+ *  arch/ppc64/kernel/misc.S
  *
  *  
  *
@@ -25,6 +25,7 @@
 #include <asm/processor.h>
 #include <asm/page.h>
 #include <asm/cache.h>
+#include <asm/cputable.h>
 #include "ppc_asm.h"
 
 	.text
@@ -68,16 +69,14 @@ _GLOBAL(get_sp)
 _GLOBAL(__no_use_save_flags)
 	mfspr	r4,SPRG3
 	lbz	r3,PACAPROCENABLED(r4)
+	/* shift into position of MSR.EE */
+	sldi	r3,r3,15
 	blr
 
-/* void __no_use_restore_flags(unsigned long flags) */	
+/* void __no_use_restore_flags(unsigned long flags) */
 _GLOBAL(__no_use_restore_flags)
-/*
- * Just set/clear the MSR_EE bit through restore/flags but do not
- * change anything else.  This is needed by the RT system and makes
- * sense anyway.
- *    -- Cort
- */
+	/* shift from position of MSR.EE */
+	srdi	r3,r3,15
 	mfspr	r6,SPRG3
 	lbz	r5,PACAPROCENABLED(r6)
 	 /* Check if things are setup the way we want _already_. */
@@ -103,6 +102,8 @@ _GLOBAL(__no_use_cli)
 	lbz	r3,PACAPROCENABLED(r5)
 	li	r4,0
 	stb	r4,PACAPROCENABLED(r5)
+	/* shift into position of MSR.EE */
+	sldi	r3,r3,15
 	blr			/* Done */
 
 _GLOBAL(__no_use_sti)
@@ -165,12 +166,14 @@ _GLOBAL(flush_icache_range)
  */
 	LOADADDR(r10,naca)		/* Get Naca address */
 	ld	r10,0(r10)
-	lhz	r7,DCACHEL1LINESIZE(r10)	/* Get cache line size */
+	LOADADDR(r11,systemcfg)		/* Get systemcfg address */
+	ld	r11,0(r11)
+	lwz	r7,DCACHEL1LINESIZE(r11)	/* Get cache line size */
 	addi	r5,r7,-1
 	andc	r6,r3,r5		/* round low to line bdy */
 	subf	r8,r6,r4		/* compute length */
 	add	r8,r8,r5		/* ensure we get enough */
-	lhz	r9,DCACHEL1LOGLINESIZE(r10)	/* Get log-2 of cache line size */
+	lwz	r9,DCACHEL1LOGLINESIZE(r10)	/* Get log-2 of cache line size */
 	srw.	r8,r8,r9		/* compute line count */
 	beqlr				/* nothing to do? */
 	mtctr	r8
@@ -181,12 +184,12 @@ _GLOBAL(flush_icache_range)
 
 /* Now invalidate the instruction cache */
 	
-	lhz	r7,ICACHEL1LINESIZE(r10)	/* Get Icache line size */
+	lwz	r7,ICACHEL1LINESIZE(r11)	/* Get Icache line size */
 	addi	r5,r7,-1
 	andc	r6,r3,r5		/* round low to line bdy */
 	subf	r8,r6,r4		/* compute length */
 	add	r8,r8,r5
-	lhz	r9,ICACHEL1LOGLINESIZE(r10)	/* Get log-2 of Icache line size */
+	lwz	r9,ICACHEL1LOGLINESIZE(r10)	/* Get log-2 of Icache line size */
 	srw.	r8,r8,r9		/* compute line count */
 	beqlr				/* nothing to do? */
 	mtctr	r8
@@ -212,12 +215,14 @@ _GLOBAL(flush_dcache_range)
  */
 	LOADADDR(r10,naca)		/* Get Naca address */
 	ld	r10,0(r10)
-	lhz	r7,DCACHEL1LINESIZE(r10)	/* Get dcache line size */
+	LOADADDR(r11,systemcfg)		/* Get systemcfg address */
+	ld	r11,0(r11)
+	lwz	r7,DCACHEL1LINESIZE(r11)	/* Get dcache line size */
 	addi	r5,r7,-1
 	andc	r6,r3,r5		/* round low to line bdy */
 	subf	r8,r6,r4		/* compute length */
 	add	r8,r8,r5		/* ensure we get enough */
-	lhz	r9,DCACHEL1LOGLINESIZE(r10)	/* Get log-2 of dcache line size */
+	lwz	r9,DCACHEL1LOGLINESIZE(r10)	/* Get log-2 of dcache line size */
 	srw.	r8,r8,r9		/* compute line count */
 	beqlr				/* nothing to do? */
 	mtctr	r8
@@ -244,9 +249,11 @@ _GLOBAL(__flush_dcache_icache)
 /* Flush the dcache */
 	LOADADDR(r7,naca)
 	ld	r7,0(r7)
+	LOADADDR(r8,systemcfg)			/* Get systemcfg address */
+	ld	r8,0(r8)
 	clrrdi	r3,r3,12           	    /* Page align */
-	lhz	r4,DCACHEL1LINESPERPAGE(r7)	/* Get # dcache lines per page */
-	lhz	r5,DCACHEL1LINESIZE(r7)		/* Get dcache line size */
+	lwz	r4,DCACHEL1LINESPERPAGE(r7)	/* Get # dcache lines per page */
+	lwz	r5,DCACHEL1LINESIZE(r8)		/* Get dcache line size */
 	mr	r6,r3
 	mtctr	r4
 0:	dcbst	0,r6
@@ -256,8 +263,8 @@ _GLOBAL(__flush_dcache_icache)
 
 /* Now invalidate the icache */	
 
-	lhz	r4,ICACHEL1LINESPERPAGE(r7)	/* Get # icache lines per page */
-	lhz	r5,ICACHEL1LINESIZE(r7)		/* Get icache line size */
+	lwz	r4,ICACHEL1LINESPERPAGE(r7)	/* Get # icache lines per page */
+	lwz	r5,ICACHEL1LINESIZE(r8)		/* Get icache line size */
 	mtctr	r4
 1:	icbi	0,r3
 	add	r3,r3,r5
@@ -265,24 +272,6 @@ _GLOBAL(__flush_dcache_icache)
 	isync
 	blr
 	
-/*
- * Copy a whole page.  Assumes a 4096B page size.
- */
-_GLOBAL(copy_page)
-	clrrdi	r3,r3,12           	    /* Page align */
-	clrrdi	r4,r4,12           	    /* Page align */
-	li	r5,256
-	mtctr	r5
-	addi	r3,r3,-8
-	addi	r4,r4,-8
-
-1:      ld 	r6,8(r4)
-        ldu	r7,16(r4)
-	std     r6,8(r3) 
-	stdu    r7,16(r3) 
-	bdnz+	1b
-	blr  
-
 /*
  * I/O string operations
  *
@@ -365,7 +354,6 @@ _GLOBAL(_outsl)
 	bdnz	00b
 	blr	
 
-_GLOBAL(ide_insw)
 _GLOBAL(_insw_ns)
 	cmpwi	0,r5,0
 	mtctr	r5
@@ -377,7 +365,6 @@ _GLOBAL(_insw_ns)
 	bdnz	00b
 	blr
 
-_GLOBAL(ide_outsw)
 _GLOBAL(_outsw_ns)
 	cmpwi	0,r5,0
 	mtctr	r5
@@ -474,28 +461,118 @@ _GLOBAL(_get_HID0)
 	blr
 
 _GLOBAL(cvt_fd)
-	lfd	0,-4(r5)	/* load up fpscr value */
+	lfd	0,0(r5)		/* load up fpscr value */
 	mtfsf	0xff,0
 	lfs	0,0(r3)
 	stfd	0,0(r4)
 	mffs	0		/* save new fpscr value */
-	stfd	0,-4(r5)
+	stfd	0,0(r5)
 	blr
 
 _GLOBAL(cvt_df)
-	lfd	0,-4(r5)	/* load up fpscr value */
+	lfd	0,0(r5)		/* load up fpscr value */
 	mtfsf	0xff,0
 	lfd	0,0(r3)
 	stfs	0,0(r4)
 	mffs	0		/* save new fpscr value */
-	stfd	0,-4(r5)
+	stfd	0,0(r5)
 	blr
 
 /*
- * Create a kernel thread
- *   kernel_thread(fn, arg, flags)
+ * identify_cpu,
+ * In:	 r3 = base of the cpu_specs array
+ *       r4 = address of cur_cpu_spec
+ *       r5 = relocation offset
  */
-_GLOBAL(kernel_thread)
+_GLOBAL(identify_cpu)
+	mfpvr	r7
+1:
+	lwz	r8,CPU_SPEC_PVR_MASK(r3)
+	and	r8,r8,r7
+	lwz	r9,CPU_SPEC_PVR_VALUE(r3)
+	cmplw	0,r9,r8
+	beq	1f
+	addi	r3,r3,CPU_SPEC_ENTRY_SIZE
+	b	1b
+1:
+	add	r3,r3,r5
+	std	r3,0(r4)
+	blr
+
+/*
+ * do_cpu_ftr_fixups - goes through the list of CPU feature fixups
+ * and writes nop's over sections of code that don't apply for this cpu.
+ * r3 = data offset (not changed)
+ */
+_GLOBAL(do_cpu_ftr_fixups)
+/* Dummy feature section to make sure section exists */
+BEGIN_FTR_SECTION
+END_FTR_SECTION(0,0)
+	/* Get CPU 0 features */
+	LOADADDR(r6,cur_cpu_spec)
+	sub	r6,r6,r3
+	ld	r4,0(r6)
+	sub	r4,r4,r3
+	ld	r4,CPU_SPEC_FEATURES(r4)
+	/* Get the fixup table */
+	LOADADDR(r6,__start___ftr_fixup)
+	sub	r6,r6,r3
+	LOADADDR(r7,__stop___ftr_fixup)
+	sub	r7,r7,r3
+	/* Do the fixup */
+1:	cmpld	r6,r7
+	bgelr
+	addi	r6,r6,32
+	ld	r8,-32(r6)	/* mask */
+	and	r8,r8,r4
+	ld	r9,-24(r6)	/* value */
+	cmpld	r8,r9
+	beq	1b
+	ld	r8,-16(r6)	/* section begin */
+	ld	r9,-8(r6)	/* section end */
+	subf.	r9,r8,r9
+	beq	1b
+	/* write nops over the section of code */
+	/* todo: if large section, add a branch at the start of it */
+	srwi	r9,r9,2
+	mtctr	r9
+	sub	r8,r8,r3
+	lis	r0,0x60000000@h	/* nop */
+3:	stw	r0,0(r8)
+	andi.	r10,r4,CPU_FTR_SPLIT_ID_CACHE@l
+	beq	2f
+	dcbst	0,r8		/* suboptimal, but simpler */
+	sync
+	icbi	0,r8
+2:	addi	r8,r8,4
+	bdnz	3b
+	sync			/* additional sync needed on g4 */
+	isync
+	b	1b
+
+/*
+ * call_setup_cpu - call the setup_cpu function for this cpu
+ * r3 = data offset
+ *
+ * Setup function is called with:
+ *   r3 = data offset
+ *   r4 = ptr to CPU spec (relocated)
+ */
+_GLOBAL(call_setup_cpu)
+	LOADADDR(r4, cur_cpu_spec)
+	sub	r4,r4,r3
+	lwz	r4,0(r4)		# load pointer to cpu_spec
+	sub	r4,r4,r3		# relocate
+	lwz	r6,CPU_SPEC_SETUP(r4)	# load function pointer
+	sub	r6,r6,r3	
+	mtctr	r6
+	bctr
+
+/*
+ * Create a kernel thread
+ *   arch_kernel_thread(fn, arg, flags)
+ */
+_GLOBAL(arch_kernel_thread)
 	mr	r6,r3		/* function */
 	ori	r3,r5,CLONE_VM	/* flags */
 	li	r0,__NR_clone
@@ -504,9 +581,10 @@ _GLOBAL(kernel_thread)
 	bnelr			/* return if parent */
 
 	li	r0,0		/* clear out p->thread.regs */
-	std	r0,THREAD+PT_REGS(r13)	/* since we don't have user ctx */
+	ld	r7,PACACURRENT(r13)
+	std	r0,THREAD+PT_REGS(r7)	/* since we don't have user ctx */
 	li	r0,RUN_FLAG		/* Run light on */
-	std	r0,THREAD+THREAD_FLAGS(r13)
+	std	r0,THREAD+THREAD_FLAGS(r7)
 
 	ld	r2,8(r6)
 	ld	r6,0(r6)
@@ -535,8 +613,8 @@ _GLOBAL(sys_call_table32)
 	.llong .sys32_execve
 	.llong .sys_chdir
 	.llong .sys32_time
-	.llong .sys32_mknod
-	.llong .sys32_chmod		/* 15 */
+	.llong .sys_mknod
+	.llong .sys_chmod		/* 15 */
 	.llong .sys_lchown
 	.llong .sys_ni_syscall			/* old break syscall holder */
 	.llong .sys32_stat
@@ -603,7 +681,7 @@ _GLOBAL(sys_call_table32)
 	.llong .sys32_settimeofday
 	.llong .sys32_getgroups	        /* 80 */
 	.llong .sys32_setgroups
-	.llong .ppc32_select
+	.llong .sys_ni_syscall		/* old select syscall */
 	.llong .sys_symlink
 	.llong .sys32_lstat
 	.llong .sys32_readlink	        /* 85 */
@@ -622,7 +700,7 @@ _GLOBAL(sys_call_table32)
 	.llong .sys_ni_syscall			/* old profil syscall holder */
 	.llong .sys32_statfs
 	.llong .sys32_fstatfs	/* 100 */
-	.llong .sys32_ioperm
+	.llong .sys_ioperm
 	.llong .sys32_socketcall
 	.llong .sys32_syslog
 	.llong .sys32_setitimer
@@ -631,10 +709,10 @@ _GLOBAL(sys_call_table32)
 	.llong .sys32_newlstat
 	.llong .sys32_newfstat
 	.llong .sys_uname
-	.llong .sys32_iopl		/* 110 */
+	.llong .sys_ni_syscall		/* 110 old iopl syscall */
 	.llong .sys_vhangup
 	.llong .sys_ni_syscall	/* old 'idle' syscall */
-	.llong .sys32_vm86
+	.llong .sys_ni_syscall		/* old vm86 syscall */
 	.llong .sys32_wait4
 	.llong .sys_swapoff	/* 115 */
 	.llong .sys32_sysinfo
@@ -644,7 +722,7 @@ _GLOBAL(sys_call_table32)
 	.llong .sys32_clone		/* 120 */
 	.llong .sys32_setdomainname
 	.llong .ppc64_newuname
-	.llong .sys32_modify_ldt
+	.llong .sys_ni_syscall		/* old modify_ldt syscall */
 	.llong .sys32_adjtimex
 	.llong .sys_mprotect	/* 125 */
 	.llong .sys32_sigprocmask
@@ -712,8 +790,8 @@ _GLOBAL(sys_call_table32)
 	.llong .sys_ni_syscall		/* streams2 */
 	.llong .sys32_vfork
 	.llong .sys32_getrlimit	        /* 190 */
-	.llong .sys_ni_syscall		/* 191 */	/* Unused */
-	.llong .sys_ni_syscall		/* 192 - reserved - mmap2 */
+	.llong .sys32_readahead
+	.llong .ppc32_mmap2
 	.llong .sys32_truncate64	/* 193 - truncate64 */
 	.llong .sys32_ftruncate64	/* 194 - ftruncate64 */
 	.llong .sys_stat64      	/* 195 - stat64 */
@@ -729,6 +807,22 @@ _GLOBAL(sys_call_table32)
 	.llong .sys_madvise		/* 205 */
 	.llong .sys_mincore		/* 206 */
 	.llong .sys_gettid		/* 207 */
+#if 0 /* Reserved syscalls */
+	.llong .sys_tkill		/* 208 */
+	.llong .sys_setxattr
+	.llong .sys_lsetxattr	/* 210 */
+	.llong .sys_fsetxattr
+	.llong .sys_getxattr
+	.llong .sys_lgetxattr
+	.llong .sys_fgetxattr
+	.llong .sys_listxattr	/* 215 */
+	.llong .sys_llistxattr
+	.llong .sys_flistxattr
+	.llong .sys_removexattr
+	.llong .sys_lremovexattr
+	.llong .sys_fremovexattr	/* 220 */
+	.llong .sys_futex
+#endif
 	.llong .sys_perfmonctl   /* Put this here for now ... */
 	.rept NR_syscalls-222
 		.llong .sys_ni_syscall
@@ -758,7 +852,7 @@ _GLOBAL(sys_call_table)
 	.llong .sys_lseek
 	.llong .sys_getpid	/* 20 */
 	.llong .sys_mount
-	.llong .sys_oldumount
+	.llong .sys_ni_syscall		/* old umount syscall */
 	.llong .sys_setuid
 	.llong .sys_getuid
 	.llong .ppc64_sys_stime		/* 25 */
@@ -795,7 +889,7 @@ _GLOBAL(sys_call_table)
 	.llong .sys_ni_syscall			/* old mpx syscall holder */
 	.llong .sys_setpgid
 	.llong .sys_ni_syscall			/* old ulimit syscall holder */
-	.llong .sys_olduname
+	.llong .sys_ni_syscall		/* old uname syscall */
 	.llong .sys_umask		/* 60 */
 	.llong .sys_chroot
 	.llong .sys_ustat
@@ -812,20 +906,20 @@ _GLOBAL(sys_call_table)
 	.llong .sys_sigpending
 	.llong .sys_sethostname
 	.llong .sys_setrlimit	/* 75 */
-	.llong .sys_old_getrlimit
+	.llong .sys_ni_syscall		/* old getrlimit syscall */
 	.llong .sys_getrusage
 	.llong .sys_gettimeofday
 	.llong .sys_settimeofday
 	.llong .sys_getgroups	/* 80 */
 	.llong .sys_setgroups
-	.llong .sys_select
+	.llong .sys_ni_syscall		/* old select syscall */
 	.llong .sys_symlink
 	.llong .sys_lstat
 	.llong .sys_readlink	/* 85 */
 	.llong .sys_uselib
 	.llong .sys_swapon
 	.llong .sys_reboot
-	.llong .old_readdir
+	.llong .sys_ni_syscall		/* old readdir syscall */
 	.llong .sys_mmap	/* 90 */
 	.llong .sys_munmap
 	.llong .sys_truncate
@@ -846,10 +940,10 @@ _GLOBAL(sys_call_table)
 	.llong .sys_newlstat
 	.llong .sys_newfstat
 	.llong .sys_uname
-	.llong .sys_iopl		/* 110 */
+	.llong .sys_ni_syscall		/* 110 old iopl syscall */
 	.llong .sys_vhangup
 	.llong .sys_ni_syscall	/* old 'idle' syscall */
-	.llong .sys_vm86
+	.llong .sys_ni_syscall		/* old vm86 syscall */
 	.llong .sys_wait4
 	.llong .sys_swapoff	/* 115 */
 	.llong .sys_sysinfo
@@ -859,7 +953,7 @@ _GLOBAL(sys_call_table)
 	.llong .sys_clone		/* 120 */
 	.llong .sys_setdomainname
 	.llong .ppc64_newuname
-	.llong .sys_modify_ldt
+	.llong .sys_ni_syscall		/* old modify_ldt syscall */
 	.llong .sys_adjtimex
 	.llong .sys_mprotect	/* 125 */
 	.llong .sys_sigprocmask
@@ -927,7 +1021,7 @@ _GLOBAL(sys_call_table)
 	.llong .sys_ni_syscall		/* streams2 */
 	.llong .sys_vfork
 	.llong .sys_getrlimit	        /* 190 */
-	.llong .sys_ni_syscall		/* 191 */	/* Unused */
+	.llong .sys_readahead
 	.llong .sys_ni_syscall		/* 192 - reserved - mmap2 */
 	.llong .sys_ni_syscall		/* 193 - reserved - truncate64 */
 	.llong .sys_ni_syscall		/* 194 - reserved - ftruncate64 */
@@ -944,6 +1038,22 @@ _GLOBAL(sys_call_table)
 	.llong .sys_madvise		/* 205 */
 	.llong .sys_mincore		/* 206 */
 	.llong .sys_gettid		/* 207 */
+#if 0 /* Reserved syscalls */
+	.llong .sys_tkill		/* 208 */
+	.llong .sys_setxattr
+	.llong .sys_lsetxattr	/* 210 */
+	.llong .sys_fsetxattr
+	.llong .sys_getxattr
+	.llong .sys_lgetxattr
+	.llong .sys_fgetxattr
+	.llong .sys_listxattr	/* 215 */
+	.llong .sys_llistxattr
+	.llong .sys_flistxattr
+	.llong .sys_removexattr
+	.llong .sys_lremovexattr
+	.llong .sys_fremovexattr	/* 220 */
+	.llong .sys_futex
+#endif
 	.llong .sys_perfmonctl   /* Put this here for now ... */
 	.rept NR_syscalls-222
 	.llong .sys_ni_syscall

@@ -1,10 +1,35 @@
-/* $Id: bte_error.c,v 1.1.1.4 2003/10/14 08:07:23 sparq Exp $
+/*
  *
- * This file is subject to the terms and conditions of the GNU General Public
- * License.  See the file "COPYING" in the main directory of this archive
- * for more details.
  *
- * Copyright (C) 1992 - 1997, 2000,2002 Silicon Graphics, Inc. All rights reserved.
+ * Copyright (c) 2000-2003 Silicon Graphics, Inc.  All Rights Reserved.
+ * 
+ * This program is free software; you can redistribute it and/or modify it 
+ * under the terms of version 2 of the GNU General Public License 
+ * as published by the Free Software Foundation.
+ * 
+ * This program is distributed in the hope that it would be useful, but 
+ * WITHOUT ANY WARRANTY; without even the implied warranty of 
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. 
+ * 
+ * Further, this software is distributed without any warranty that it is 
+ * free of the rightful claim of any third person regarding infringement 
+ * or the like.  Any license provided herein, whether implied or 
+ * otherwise, applies only to this software file.  Patent licenses, if 
+ * any, provided herein do not apply to combinations of this program with 
+ * other software, or any other product whatsoever.
+ * 
+ * You should have received a copy of the GNU General Public 
+ * License along with this program; if not, write the Free Software 
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston MA 02111-1307, USA.
+ * 
+ * Contact information:  Silicon Graphics, Inc., 1600 Amphitheatre Pkwy, 
+ * Mountain View, CA  94043, or:
+ * 
+ * http://www.sgi.com 
+ * 
+ * For further information regarding this notice, see: 
+ * 
+ * http://oss.sgi.com/projects/GenInfo/NoticeExplan
  */
 
 
@@ -30,137 +55,207 @@
 #include <asm/sn/bte.h>
 
 
-#ifdef BTE_ERROR
-// This routine is not called.  Yet.  It may be someday.  It probably
-// *should* be someday.  Until then, ifdef it out.
-bte_result_t
-bte_error_handler(bte_handle_t *bh)
 /*
- * Function: 	bte_error_handler
- * Purpose:	Process a BTE error after a transfer has failed.
- * Parameters:	bh - bte handle of bte that failed.
- * Returns:	The BTE error type.
- * Notes:
+ * Bte error handling is done in two parts.  The first captures
+ * any crb related errors.  Since there can be multiple crbs per
+ * interface and multiple interfaces active, we need to wait until
+ * all active crbs are completed.  This is the first job of the
+ * second part error handler.  When all bte related CRBs are cleanly
+ * completed, it resets the interfaces and gets them ready for new
+ * transfers to be queued.
  */
-{
-    devfs_handle_t	hub_v;
-    hubinfo_t		hinfo;
-    int			il;
-    hubreg_t		iidsr, imem, ieclr;
-    hubreg_t		bte_status;
 
-    bh->bh_bte->bte_error_count++;
 
-    /* 
-     * Process any CRB logs - we know that the bte_context contains
-     * the BTE completion status, but to avoid a race with error
-     * processing, we force a call to pick up any CRB errors pending. 
-     * After this call, we know that we have any CRB errors related to 
-     * this BTE transfer in the context.
-     */
-    hub_v = cnodeid_to_vertex(bh->bh_bte->bte_cnode);
-    hubinfo_get(hub_v, &hinfo);
-    (void)hubiio_crb_error_handler(hub_v, hinfo);
+void bte_error_handler(unsigned long);
 
-    /* Be sure BTE is stopped */
 
-    (void)BTE_LOAD(bh->bh_bte->bte_base, BTEOFF_CTRL);
-
-    /*	
-     * Now clear up the rest of the error - be sure to hold crblock 
-     * to avoid race with other cpu on this node.
-     */
-    imem = REMOTE_HUB_L(hinfo->h_nasid, IIO_IMEM);
-    ieclr = REMOTE_HUB_L(hinfo->h_nasid, IIO_IECLR);
-    if (bh->bh_bte->bte_num == 0) {
-	imem |= IIO_IMEM_W0ESD | IIO_IMEM_B0ESD;
-	ieclr|= IECLR_BTE0;
-    } else {
-	imem |= IIO_IMEM_W0ESD | IIO_IMEM_B1ESD;
-	ieclr|= IECLR_BTE1;
-    }
-
-    REMOTE_HUB_S(hinfo->h_nasid, IIO_IMEM, imem);
-    REMOTE_HUB_S(hinfo->h_nasid, IIO_IECLR, ieclr);
-
-    iidsr  = REMOTE_HUB_L(hinfo->h_nasid, IIO_IIDSR);
-    iidsr &= ~IIO_IIDSR_SENT_MASK;
-    iidsr |= IIO_IIDSR_ENB_MASK;
-    REMOTE_HUB_S(hinfo->h_nasid, IIO_IIDSR, iidsr);
-    mutex_spinunlock(&hinfo->h_crblock, il);
-
-    bte_status = BTE_LOAD(bh->bh_bte->bte_base, BTEOFF_STAT);
-    BTE_STORE(bh->bh_bte->bte_base, BTEOFF_STAT, bte_status & ~IBLS_BUSY);
-    ASSERT(!BTE_IS_BUSY(BTE_LOAD(bh->bh_bte->bte_base, BTEOFF_STAT)));
-
-    switch(bh->bh_error) {
-    case IIO_ICRB_ECODE_PERR:
-	return(BTEFAIL_POISON);
-    case IIO_ICRB_ECODE_WERR:
-	return(BTEFAIL_PROT);
-    case IIO_ICRB_ECODE_AERR:
-	return(BTEFAIL_ACCESS);
-    case IIO_ICRB_ECODE_TOUT:
-	return(BTEFAIL_TOUT);
-    case IIO_ICRB_ECODE_XTERR:
-	return(BTEFAIL_ERROR);
-    case IIO_ICRB_ECODE_DERR:
-	return(BTEFAIL_DIR);
-    case IIO_ICRB_ECODE_PWERR:
-    case IIO_ICRB_ECODE_PRERR:
-	/* NO BREAK */
-    default:
-	printk("BTE failure (%d) unexpected\n", 
-		bh->bh_error);
-	return(BTEFAIL_ERROR);
-    }
-}
-#endif // BTE_ERROR
-
+/*
+ * First part error handler.  This is called whenever any error CRB interrupt
+ * is generated by the II.
+ */
 void
-bte_crb_error_handler(devfs_handle_t hub_v, int btenum, 
-		      int crbnum, ioerror_t *ioe)
-/*
- * Function: 	bte_crb_error_handler
- * Purpose:	Process a CRB for a specific HUB/BTE
- * Parameters:	hub_v	- vertex of hub in HW graph
- *		btenum	- bte number on hub (0 == a, 1 == b)
- *		crbnum	- crb number being processed
- * Notes: 
- *	This routine assumes serialization at a higher level. A CRB 
- *	should not be processed more than once. The error recovery 
- *	follows the following sequence - if you change this, be real
- *	sure about what you are doing. 
- *
- */
+bte_crb_error_handler(vertex_hdl_t hub_v, int btenum,
+		      int crbnum, ioerror_t * ioe, int bteop)
 {
-        hubinfo_t	hinfo;
-	icrba_t		crba; 
-	icrbb_t		crbb; 
-	nasid_t		n;
+	hubinfo_t hinfo;
+	struct bteinfo_s *bte;
+
 
 	hubinfo_get(hub_v, &hinfo);
+	bte = &hinfo->h_nodepda->bte_if[btenum];
 
-
-	n = hinfo->h_nasid;
-	
-	/* Step 1 */
-	crba.ii_icrb0_a_regval = REMOTE_HUB_L(n, IIO_ICRB_A(crbnum));
-	crbb.ii_icrb0_b_regval = REMOTE_HUB_L(n, IIO_ICRB_B(crbnum));
-
-
-	/* Zero error and error code to prevent error_dump complaining
-	 * about these CRBs. 
+	/*
+	 * The caller has already figured out the error type, we save that
+	 * in the bte handle structure for the thread excercising the
+	 * interface to consume.
 	 */
-	crbb.b_error=0;
-	crbb.b_ecode=0;
+	switch (ioe->ie_errortype) {
+	case IIO_ICRB_ECODE_PERR:
+		bte->bh_error = BTEFAIL_POISON;
+		break;
+	case IIO_ICRB_ECODE_WERR:
+		bte->bh_error = BTEFAIL_PROT;
+		break;
+	case IIO_ICRB_ECODE_AERR:
+		bte->bh_error = BTEFAIL_ACCESS;
+		break;
+	case IIO_ICRB_ECODE_TOUT:
+		bte->bh_error = BTEFAIL_TOUT;
+		break;
+	case IIO_ICRB_ECODE_XTERR:
+		bte->bh_error = BTEFAIL_XTERR;
+		break;
+	case IIO_ICRB_ECODE_DERR:
+		bte->bh_error = BTEFAIL_DIR;
+		break;
+	case IIO_ICRB_ECODE_PWERR:
+	case IIO_ICRB_ECODE_PRERR:
+		/* NO BREAK */
+	default:
+		bte->bh_error = BTEFAIL_ERROR;
+	}
 
-	/* Step 2 */
-	REMOTE_HUB_S(n, IIO_ICRB_A(crbnum), crba.ii_icrb0_a_regval);
-	/* Step 3 */
-	REMOTE_HUB_S(n, IIO_ICCR, 
-		     IIO_ICCR_PENDING | IIO_ICCR_CMD_FLUSH | crbnum);
-	while (REMOTE_HUB_L(n, IIO_ICCR) & IIO_ICCR_PENDING)
-	    ;
+	bte->bte_error_count++;
+
+	BTE_PRINTK(("Got an error on cnode %d bte %d\n",
+		    bte->bte_cnode, bte->bte_num));
+	bte_error_handler((unsigned long) hinfo->h_nodepda);
 }
 
+
+/*
+ * Second part error handler.  Wait until all BTE related CRBs are completed
+ * and then reset the interfaces.
+ */
+void
+bte_error_handler(unsigned long _nodepda)
+{
+	struct nodepda_s *err_nodepda = (struct nodepda_s *) _nodepda;
+	spinlock_t *recovery_lock = &err_nodepda->bte_recovery_lock;
+	struct timer_list *recovery_timer = &err_nodepda->bte_recovery_timer;
+	nasid_t nasid;
+	int i;
+	int valid_crbs;
+	unsigned long irq_flags;
+	volatile u64 *notify;
+	bte_result_t bh_error;
+	ii_imem_u_t imem;	/* II IMEM Register */
+	ii_icrb0_d_u_t icrbd;	/* II CRB Register D */
+	ii_ibcr_u_t ibcr;
+	ii_icmr_u_t icmr;
+
+
+	BTE_PRINTK(("bte_error_handler(%p) - %d\n", err_nodepda,
+		    smp_processor_id()));
+
+	spin_lock_irqsave(recovery_lock, irq_flags);
+
+	if ((err_nodepda->bte_if[0].bh_error == BTE_SUCCESS) &&
+	    (err_nodepda->bte_if[1].bh_error == BTE_SUCCESS)) {
+		BTE_PRINTK(("eh:%p:%d Nothing to do.\n", err_nodepda,
+			    smp_processor_id()));
+		spin_unlock_irqrestore(recovery_lock, irq_flags);
+		return;
+	}
+	/*
+	 * Lock all interfaces on this node to prevent new transfers
+	 * from being queued.
+	 */
+	for (i = 0; i < BTES_PER_NODE; i++) {
+		if (err_nodepda->bte_if[i].cleanup_active) {
+			continue;
+		}
+		spin_lock(&err_nodepda->bte_if[i].spinlock);
+		BTE_PRINTK(("eh:%p:%d locked %d\n", err_nodepda,
+			    smp_processor_id(), i));
+		err_nodepda->bte_if[i].cleanup_active = 1;
+	}
+
+	/* Determine information about our hub */
+	nasid = cnodeid_to_nasid(err_nodepda->bte_if[0].bte_cnode);
+
+
+	/*
+	 * A BTE transfer can use multiple CRBs.  We need to make sure
+	 * that all the BTE CRBs are complete (or timed out) before
+	 * attempting to clean up the error.  Resetting the BTE while
+	 * there are still BTE CRBs active will hang the BTE.
+	 * We should look at all the CRBs to see if they are allocated
+	 * to the BTE and see if they are still active.  When none
+	 * are active, we can continue with the cleanup.
+	 *
+	 * We also want to make sure that the local NI port is up.
+	 * When a router resets the NI port can go down, while it
+	 * goes through the LLP handshake, but then comes back up.
+	 */
+	icmr.ii_icmr_regval = REMOTE_HUB_L(nasid, IIO_ICMR);
+	if (icmr.ii_icmr_fld_s.i_crb_mark != 0) {
+		/*
+		 * There are errors which still need to be cleaned up by
+		 * hubiio_crb_error_handler
+		 */
+		mod_timer(recovery_timer, HZ * 5);
+		BTE_PRINTK(("eh:%p:%d Marked Giving up\n", err_nodepda,
+			    smp_processor_id()));
+		spin_unlock_irqrestore(recovery_lock, irq_flags);
+		return;
+	}
+	if (icmr.ii_icmr_fld_s.i_crb_vld != 0) {
+
+		valid_crbs = icmr.ii_icmr_fld_s.i_crb_vld;
+
+		for (i = 0; i < IIO_NUM_CRBS; i++) {
+			if (!((1 << i) & valid_crbs)) {
+				/* This crb was not marked as valid, ignore */
+				continue;
+			}
+			icrbd.ii_icrb0_d_regval =
+			    REMOTE_HUB_L(nasid, IIO_ICRB_D(i));
+			if (icrbd.d_bteop) {
+				mod_timer(recovery_timer, HZ * 5);
+				BTE_PRINTK(("eh:%p:%d Valid %d, Giving up\n",
+					 err_nodepda, smp_processor_id(), i));
+				spin_unlock_irqrestore(recovery_lock,
+						       irq_flags);
+				return;
+			}
+		}
+	}
+
+
+	BTE_PRINTK(("eh:%p:%d Cleaning up\n", err_nodepda,
+		    smp_processor_id()));
+	/* Reenable both bte interfaces */
+	imem.ii_imem_regval = REMOTE_HUB_L(nasid, IIO_IMEM);
+	imem.ii_imem_fld_s.i_b0_esd = imem.ii_imem_fld_s.i_b1_esd = 1;
+	REMOTE_HUB_S(nasid, IIO_IMEM, imem.ii_imem_regval);
+
+	/* Reinitialize both BTE state machines. */
+	ibcr.ii_ibcr_regval = REMOTE_HUB_L(nasid, IIO_IBCR);
+	ibcr.ii_ibcr_fld_s.i_soft_reset = 1;
+	REMOTE_HUB_S(nasid, IIO_IBCR, ibcr.ii_ibcr_regval);
+
+
+	for (i = 0; i < BTES_PER_NODE; i++) {
+		bh_error = err_nodepda->bte_if[i].bh_error;
+		if (bh_error != BTE_SUCCESS) {
+			/* There is an error which needs to be notified */
+			notify = err_nodepda->bte_if[i].most_rcnt_na;
+			BTE_PRINTK(("cnode %d bte %d error=0x%lx\n",
+				    err_nodepda->bte_if[i].bte_cnode,
+				    err_nodepda->bte_if[i].bte_num,
+				    IBLS_ERROR | (u64) bh_error));
+			*notify = IBLS_ERROR | bh_error;
+			err_nodepda->bte_if[i].bh_error = BTE_SUCCESS;
+		}
+
+		err_nodepda->bte_if[i].cleanup_active = 0;
+		BTE_PRINTK(("eh:%p:%d Unlocked %d\n", err_nodepda,
+			    smp_processor_id(), i));
+		spin_unlock(&pda.cpu_bte_if[i]->spinlock);
+	}
+
+	del_timer(recovery_timer);
+
+	spin_unlock_irqrestore(recovery_lock, irq_flags);
+}

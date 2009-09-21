@@ -68,7 +68,8 @@ static inline unsigned short ip_fast_csum(unsigned char *iph, unsigned int ihl)
 	   are modified, we must also specify them as outputs, or gcc
 	   will assume they contain their original values. */
 	: "=r" (sum), "=r" (iph), "=r" (ihl)
-	: "1" (iph), "2" (ihl));
+	: "1" (iph), "2" (ihl) 
+	: "memory");
 	return(sum);
 }
 
@@ -125,7 +126,7 @@ csum_tcpudp_magic(unsigned long saddr, unsigned long daddr,
  * Before filling it in it needs to be csum_fold()'ed.
  * buff should be aligned to a 64bit boundary if possible.
  */ 
-extern unsigned int csum_partial(const unsigned char *buff, int len, unsigned int sum);
+extern unsigned int csum_partial(const unsigned char *buff, unsigned len, unsigned int sum);
 
 #define  _HAVE_ARCH_COPY_AND_CSUM_FROM_USER 1
 #define HAVE_CSUM_COPY_USER 1
@@ -179,4 +180,14 @@ extern unsigned short
 csum_ipv6_magic(struct in6_addr *saddr, struct in6_addr *daddr,
 		__u32 len, unsigned short proto, unsigned int sum);
 
+static inline unsigned add32_with_carry(unsigned a, unsigned b)
+{
+	asm("addl %2,%0\n\t"
+	    "adcl $0,%0" 
+	    : "=r" (a) 
+	    : "0" (a), "r" (b));
+	return a;
+}
+
 #endif
+

@@ -148,6 +148,20 @@ int RIOAssignRta(struct rio_info *, struct Map *);
 int RIOReMapPorts(struct rio_info *, struct Host *, struct Map *);
 int RIOChangeName(struct rio_info *, struct Map*);
 
+#if 0
+/* riodrvr.c */
+struct rio_info * rio_install(struct RioHostInfo *);
+int rio_uninstall(register struct rio_info *);
+int rio_open(struct rio_info *, int, struct file *);
+int rio_close(struct rio_info *, struct file *);
+int rio_read(struct rio_info *, struct file *, char *, int);
+int rio_write(struct rio_info *, struct file *	f, char *, int);
+int rio_ioctl(struct rio_info *, struct file *, int, char *);
+int rio_select(struct rio_info *, struct file *	f, int, struct sel *);
+int	rio_intr(char *);
+int rio_isr_thread(char  *);
+struct rio_info * rio_info_store( int cmd, struct rio_info * p);
+#endif
 
 extern int    rio_pcicopy(char *src, char *dst, int n);
 extern int rio_minor (kdev_t device);

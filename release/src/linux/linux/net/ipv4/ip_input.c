@@ -5,7 +5,7 @@
  *
  *		The Internet Protocol (IP) module.
  *
- * Version:	$Id: ip_input.c,v 1.1.1.4 2003/10/14 08:09:33 sparq Exp $
+ * Version:	$Id: ip_input.c,v 1.54.2.1 2002/01/12 07:39:23 davem Exp $
  *
  * Authors:	Ross Biro, <bir7@leland.Stanford.Edu>
  *		Fred N. van Kempen, <waltje@uWalt.NL.Mugnet.ORG>
@@ -170,7 +170,7 @@ int ip_call_ra_chain(struct sk_buff *skb)
 		    && ((sk->bound_dev_if == 0) 
 			|| (sk->bound_dev_if == skb->dev->ifindex))) {
 			if (skb->nh.iph->frag_off & htons(IP_MF|IP_OFFSET)) {
-				skb = ip_defrag(skb);
+				skb = ip_defrag(skb, IP_DEFRAG_CALL_RA_CHAIN);
 				if (skb == NULL) {
 					read_unlock(&ip_ra_lock);
 					return 1;
@@ -226,12 +226,9 @@ static inline int ip_local_deliver_finish(struct sk_buff *skb)
 
 	__skb_pull(skb, ihl);
 
-#ifdef CONFIG_NETFILTER
 	/* Free reference early: we don't need it any more, and it may
            hold ip_conntrack module loaded indefinitely. */
-	nf_conntrack_put(skb->nfct);
-	skb->nfct = NULL;
-#endif /*CONFIG_NETFILTER*/
+	nf_reset(skb);
 
         /* Point into the IP datagram, just past the header. */
         skb->h.raw = skb->data;
@@ -294,7 +291,7 @@ int ip_local_deliver(struct sk_buff *skb)
 	 */
 
 	if (skb->nh.iph->frag_off & htons(IP_MF|IP_OFFSET)) {
-		skb = ip_defrag(skb);
+		skb = ip_defrag(skb, IP_DEFRAG_LOCAL_DELIVER);
 		if (!skb)
 			return 0;
 	}

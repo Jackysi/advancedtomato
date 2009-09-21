@@ -142,7 +142,7 @@ static struct base {
 
 #define NO_BASES (sizeof (bases) / sizeof (struct base))
 
-static const struct signature {
+static struct signature {
 	const char *string;
 	int offset;
 } signatures[] __initdata = {
@@ -237,20 +237,20 @@ int __init t128_detect(Scsi_Host_Template * tpnt)
 		else
 			instance->irq = NCR5380_probe_irq(instance, T128_IRQS);
 
-		if (instance->irq != IRQ_NONE)
+		if (instance->irq != SCSI_IRQ_NONE)
 			if (request_irq(instance->irq, do_t128_intr, SA_INTERRUPT, "t128", NULL)) 
 			{
 				printk(KERN_WARNING "scsi%d : IRQ%d not free, interrupts disabled\n", instance->host_no, instance->irq);
-				instance->irq = IRQ_NONE;
+				instance->irq = SCSI_IRQ_NONE;
 			}
 
-		if (instance->irq == IRQ_NONE) {
+		if (instance->irq == SCSI_IRQ_NONE) {
 			printk(KERN_INFO "scsi%d : interrupts not enabled. for better interactive performance,\n", instance->host_no);
 			printk(KERN_INFO "scsi%d : please jumper the board for a free IRQ.\n", instance->host_no);
 		}
 
 		printk(KERN_INFO "scsi%d : at 0x%08lx", instance->host_no,instance->base);
-		if (instance->irq == IRQ_NONE)
+		if (instance->irq == SCSI_IRQ_NONE)
 			printk(" interrupts disabled");
 		else
 			printk(" irq %d", instance->irq);

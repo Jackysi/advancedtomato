@@ -1252,6 +1252,16 @@ static void AtaPlay(void)
 
 static void AtaInterrupt(int irq, void *dummy, struct pt_regs *fp)
 {
+#if 0
+	/* ++TeSche: if you should want to test this... */
+	static int cnt = 0;
+	if (write_sq.active == 2)
+		if (++cnt == 10) {
+			/* simulate losing an interrupt */
+			cnt = 0;
+			return;
+		}
+#endif
 
 	if (write_sq_ignore_int && is_falcon) {
 		/* ++TeSche: Falcon only: ignore first irq because it comes

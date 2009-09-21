@@ -535,10 +535,7 @@ static void do_softint(void *private_)
 		return;
 
 	if (test_and_clear_bit(RS_EVENT_WRITE_WAKEUP, &info->event)) {
-		if ((tty->flags & (1 << TTY_DO_WRITE_WAKEUP)) &&
-		    tty->ldisc.write_wakeup)
-			(tty->ldisc.write_wakeup)(tty);
-		wake_up_interruptible(&tty->write_wait);
+		tty_wakeup(tty);
 #ifdef SERIAL_HAVE_POLL_WAIT
 		wake_up_interruptible(&tty->poll_wait);
 #endif                                                    
@@ -572,6 +569,15 @@ static void rs_timer(unsigned long dummy)
 	last_strobe = jiffies;
 	mod_timer(&serial_timer, jiffies + RS_STROBE_TIME);
 
+#if 0
+	if (IRQ_ports[0]) {
+		save_flags(flags); cli();
+		rs_interrupt_single(0, NULL, NULL);
+		restore_flags(flags);
+
+		mod_timer(&serial_timer, jiffies + IRQ_timeout[0]);
+	}
+#endif
 }
 
 /*
@@ -1095,13 +1101,10 @@ static void rs_flush_buffer(struct tty_struct *tty)
 	save_flags(flags); cli();
 	info->xmit.head = info->xmit.tail = 0;
 	restore_flags(flags);
-	wake_up_interruptible(&tty->write_wait);
 #ifdef SERIAL_HAVE_POLL_WAIT
 	wake_up_interruptible(&tty->poll_wait);
 #endif
-	if ((tty->flags & (1 << TTY_DO_WRITE_WAKEUP)) &&
-	    tty->ldisc.write_wakeup)
-		(tty->ldisc.write_wakeup)(tty);
+	tty_wakeup(tty);
 }
 
 /*
@@ -1433,8 +1436,8 @@ static void rs_close(struct tty_struct *tty, struct file * filp)
 	 * the line discipline to only process XON/XOFF characters.
 	 */
 	tty->closing = 1;
-	if (info->closing_wait != ASYNC_CLOSING_WAIT_NONE)
-		tty_wait_until_sent(tty, info->closing_wait);
+	if (state->closing_wait != ASYNC_CLOSING_WAIT_NONE)
+		tty_wait_until_sent(tty, state->closing_wait);
 	/*
 	 * At this point we stop accepting input.  To do this, we
 	 * disable the receive line status interrupts, and tell the
@@ -1443,6 +1446,9 @@ static void rs_close(struct tty_struct *tty, struct file * filp)
 	 */
 	info->read_status_mask &= ~TXx927_SIDISR_RDIS;
 	if (info->flags & ASYNC_INITIALIZED) {
+#if 0
+		sio_reg(info)->dicr &= ~TXx927_SIDICR_RIE;
+#endif
 		/*
 		 * Before we drop DTR, make sure the UART transmitter
 		 * has completely drained; this is especially
@@ -1453,15 +1459,14 @@ static void rs_close(struct tty_struct *tty, struct file * filp)
 	shutdown(info);
 	if (tty->driver.flush_buffer)
 		tty->driver.flush_buffer(tty);
-	if (tty->ldisc.flush_buffer)
-		tty->ldisc.flush_buffer(tty);
+	tty_ldisc_flush(tty);
 	tty->closing = 0;
 	info->event = 0;
 	info->tty = 0;
 	if (info->blocked_open) {
-		if (info->close_delay) {
+		if (state->close_delay) {
 			current->state = TASK_INTERRUPTIBLE;
-			schedule_timeout(info->close_delay);
+			schedule_timeout(state->close_delay);
 		}
 		wake_up_interruptible(&info->open_wait);
 	}

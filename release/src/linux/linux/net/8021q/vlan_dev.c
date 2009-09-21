@@ -1,4 +1,4 @@
-/*
+/* -*- linux-c -*-
  * INET		802.1Q VLAN
  *		Ethernet-type device handling.
  *
@@ -75,7 +75,11 @@ int vlan_dev_rebuild_header(struct sk_buff *skb)
 static inline struct sk_buff *vlan_check_reorder_header(struct sk_buff *skb)
 {
 	if (VLAN_DEV_INFO(skb->dev)->flags & 1) {
-		skb = skb_share_check(skb, GFP_ATOMIC);
+		if (skb_shared(skb) || skb_cloned(skb)) {
+			struct sk_buff *nskb = skb_copy(skb, GFP_ATOMIC);
+			kfree_skb(skb);
+			skb = nskb;
+		}
 		if (skb) {
 			/* Lifted from Gleb's VLAN code... */
 			memmove(skb->data - ETH_HLEN,
@@ -171,7 +175,7 @@ int vlan_skb_recv(struct sk_buff *skb, struct net_device *dev,
 
 #ifdef VLAN_DEBUG
 		printk(VLAN_DBG "%s: dropping skb: %p because came in on wrong device, dev: %s  real_dev: %s, skb_dev: %s\n",
-			__FUNCTION__ skb, dev->name, 
+			__FUNCTION__, skb, dev->name, 
 			VLAN_DEV_INFO(skb->dev)->real_dev->name, 
 			skb->dev->name);
 #endif
@@ -442,6 +446,7 @@ int vlan_dev_hard_start_xmit(struct sk_buff *skb, struct net_device *dev)
 	 */
 
 	if (veth->h_vlan_proto != __constant_htons(ETH_P_8021Q)) {
+		int orig_headroom = skb_headroom(skb);
 		unsigned short veth_TCI;
 
 		/* This is not a VLAN frame...but we can fix that! */
@@ -451,33 +456,7 @@ int vlan_dev_hard_start_xmit(struct sk_buff *skb, struct net_device *dev)
 		printk(VLAN_DBG "%s: proto to encap: 0x%hx (hbo)\n",
 			__FUNCTION__, htons(veth->h_vlan_proto));
 #endif
-
-		if (skb_headroom(skb) < VLAN_HLEN) {
-			struct sk_buff *sk_tmp = skb;
-			skb = skb_realloc_headroom(sk_tmp, VLAN_HLEN);
-			kfree_skb(sk_tmp);
-			if (skb == NULL) {
-				stats->tx_dropped++;
-				return 0;
-			}
-			VLAN_DEV_INFO(dev)->cnt_inc_headroom_on_tx++;
-		} else {
-			if (!(skb = skb_unshare(skb, GFP_ATOMIC))) {
-				printk(KERN_ERR "vlan: failed to unshare skbuff\n");
-				stats->tx_dropped++;
-				return 0;
-			}
-		}
-		veth = (struct vlan_ethhdr *)skb_push(skb, VLAN_HLEN);
-
-		/* Move the mac addresses to the beginning of the new header. */
-		memmove(skb->data, skb->data + VLAN_HLEN, 12);
-
-		/* first, the ethernet type */
-		/* put_unaligned(__constant_htons(ETH_P_8021Q), &veth->h_vlan_proto); */
-		veth->h_vlan_proto = __constant_htons(ETH_P_8021Q);
-
-		/* Now, construct the second two bytes. This field looks something
+		/* Construct the second two bytes. This field looks something
 		 * like:
 		 * usr_priority: 3 bits	 (high bits)
 		 * CFI		 1 bit
@@ -486,10 +465,16 @@ int vlan_dev_hard_start_xmit(struct sk_buff *skb, struct net_device *dev)
 		veth_TCI = VLAN_DEV_INFO(dev)->vlan_id;
 		veth_TCI |= vlan_dev_get_egress_qos_mask(dev, skb);
 
-		veth->h_vlan_TCI = htons(veth_TCI);
-	}
+		skb = __vlan_put_tag(skb, veth_TCI);
+		if (!skb) {
+			stats->tx_dropped++;
+			return 0;
+		}
 
-	skb->dev = VLAN_DEV_INFO(dev)->real_dev;
+		if (orig_headroom < VLAN_HLEN) {
+			VLAN_DEV_INFO(dev)->cnt_inc_headroom_on_tx++;
+		}
+	}
 
 #ifdef VLAN_DEBUG
 	printk(VLAN_DBG "%s: about to send skb: %p to dev: %s\n",
@@ -503,6 +488,7 @@ int vlan_dev_hard_start_xmit(struct sk_buff *skb, struct net_device *dev)
 	stats->tx_packets++; /* for statics only */
 	stats->tx_bytes += skb->len;
 
+	skb->dev = VLAN_DEV_INFO(dev)->real_dev;
 	dev_queue_xmit(skb);
 
 	return 0;
@@ -511,17 +497,22 @@ int vlan_dev_hard_start_xmit(struct sk_buff *skb, struct net_device *dev)
 int vlan_dev_hwaccel_hard_start_xmit(struct sk_buff *skb, struct net_device *dev)
 {
 	struct net_device_stats *stats = vlan_dev_get_stats(dev);
-	struct vlan_skb_tx_cookie *cookie;
+	unsigned short veth_TCI;
+
+	/* Construct the second two bytes. This field looks something
+	 * like:
+	 * usr_priority: 3 bits	 (high bits)
+	 * CFI		 1 bit
+	 * VLAN ID	 12 bits (low bits)
+	 */
+	veth_TCI = VLAN_DEV_INFO(dev)->vlan_id;
+	veth_TCI |= vlan_dev_get_egress_qos_mask(dev, skb);
+	skb = __vlan_hwaccel_put_tag(skb, veth_TCI);
 
 	stats->tx_packets++;
 	stats->tx_bytes += skb->len;
 
 	skb->dev = VLAN_DEV_INFO(dev)->real_dev;
-	cookie = VLAN_TX_SKB_CB(skb);
-	cookie->magic = VLAN_TX_COOKIE_MAGIC;
-	cookie->vlan_tag = (VLAN_DEV_INFO(dev)->vlan_id |
-			    vlan_dev_get_egress_qos_mask(dev, skb));
-
 	dev_queue_xmit(skb);
 
 	return 0;
@@ -537,7 +528,7 @@ int vlan_dev_change_mtu(struct net_device *dev, int new_mtu)
 
 	dev->mtu = new_mtu;
 
-	return new_mtu;
+	return 0;
 }
 
 int vlan_dev_set_ingress_priority(char *dev_name, __u32 skb_prio, short vlan_prio)
@@ -555,6 +546,22 @@ int vlan_dev_set_ingress_priority(char *dev_name, __u32 skb_prio, short vlan_pri
 		dev_put(dev);
 	}
 	return -EINVAL;
+}
+
+/* Remove all egress_priority_map hash table entries. --redlicha */
+static void vlan_dev_destroy_egress_priority_map(struct net_device *dev)
+{
+	struct vlan_dev_info *info = VLAN_DEV_INFO(dev);
+	struct vlan_priority_tci_mapping *m;
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(info->egress_priority_map); i++) {
+		while ((m = info->egress_priority_map[i])) {
+			info->egress_priority_map[i] =
+				info->egress_priority_map[i]->next;
+			kfree(m);
+		}
+	}
 }
 
 int vlan_dev_set_egress_priority(char *dev_name, __u32 skb_prio, short vlan_prio)
@@ -631,6 +638,60 @@ int vlan_dev_set_vlan_flag(char *dev_name, __u32 flag, short flag_val)
 
 	return -EINVAL;
 }
+
+
+int vlan_dev_get_realdev_name(const char *dev_name, char* result)
+{
+	struct net_device *dev = dev_get_by_name(dev_name);
+	int rv = 0;
+	
+	if (dev) {
+		if (dev->priv_flags & IFF_802_1Q_VLAN) {
+			strncpy(result, VLAN_DEV_INFO(dev)->real_dev->name, 23);
+			dev_put(dev);
+			rv = 0;
+		} else {
+			/*printk(KERN_ERR 
+			       "%s: %s is not a vlan device, priv_flags: %hX.\n",
+			       __FUNCTION__, dev->name, dev->priv_flags);*/
+			dev_put(dev);
+			rv = -EINVAL;
+		}
+	} else {
+		/* printk(KERN_ERR	 "%s: Could not find device: %s\n", 
+		   __FUNCTION__, dev_name); */
+		rv = -ENODEV;
+	}
+
+	return rv;
+}
+
+int vlan_dev_get_vid(const char *dev_name, unsigned short* result)
+{
+	struct net_device *dev = dev_get_by_name(dev_name);
+	int rv = 0;
+	
+	if (dev) {
+		if (dev->priv_flags & IFF_802_1Q_VLAN) {
+			*result = VLAN_DEV_INFO(dev)->vlan_id;
+			dev_put(dev);
+			rv = 0;
+		} else {
+			/*printk(KERN_ERR 
+			       "%s: %s is not a vlan device, priv_flags: %hX.\n",
+			       __FUNCTION__, dev->name, dev->priv_flags);*/
+			dev_put(dev);
+			rv = -EINVAL;
+		}
+	} else {
+		/* printk(KERN_ERR	 "%s: Could not find device: %s\n", 
+		   __FUNCTION__, dev_name);*/
+		rv = -ENODEV;
+	}
+
+	return rv;
+}
+
 
 int vlan_dev_set_mac_address(struct net_device *dev, void *addr_struct_p)
 {
@@ -737,8 +798,7 @@ static void vlan_flush_mc_list(struct net_device *dev)
 	struct dev_mc_list *dmi = dev->mc_list;
 
 	while (dmi) {
-		dev_mc_delete(dev, dmi->dmi_addr, dmi->dmi_addrlen, 0);
-		printk(KERN_INFO "%s: del %.2x:%.2x:%.2x:%.2x:%.2x:%.2x mcast address from vlan interface\n",
+		printk(KERN_DEBUG "%s: del %.2x:%.2x:%.2x:%.2x:%.2x:%.2x mcast address from vlan interface\n",
 		       dev->name,
 		       dmi->dmi_addr[0],
 		       dmi->dmi_addr[1],
@@ -746,6 +806,7 @@ static void vlan_flush_mc_list(struct net_device *dev)
 		       dmi->dmi_addr[3],
 		       dmi->dmi_addr[4],
 		       dmi->dmi_addr[5]);
+		dev_mc_delete(dev, dmi->dmi_addr, dmi->dmi_addrlen, 0);
 		dmi = dev->mc_list;
 	}
 
@@ -781,7 +842,11 @@ void vlan_dev_destruct(struct net_device *dev)
 		if (dev->priv) {
 			if (VLAN_DEV_INFO(dev)->dent)
 				BUG();
-
+			/*
+			 * Don't leak the hash table entries in
+			 * VLAN_DEV_INFO(dev)->egress_priority_map! --redlicha
+			 */
+			vlan_dev_destroy_egress_priority_map(dev);
 			kfree(dev->priv);
 			dev->priv = NULL;
 		}
@@ -802,7 +867,7 @@ void vlan_dev_set_multicast_list(struct net_device *vlan_dev)
 		/* compare the current promiscuity to the last promisc we had.. */
 		inc = vlan_dev->promiscuity - VLAN_DEV_INFO(vlan_dev)->old_promiscuity;
 		if (inc) {
-			printk(KERN_INFO "%s: dev_set_promiscuity(master, %d)\n",
+			printk(KERN_DEBUG "%s: dev_set_promiscuity(master, %d)\n",
 			       vlan_dev->name, inc);
 			dev_set_promiscuity(real_dev, inc); /* found in dev.c */
 			VLAN_DEV_INFO(vlan_dev)->old_promiscuity = vlan_dev->promiscuity;
@@ -810,7 +875,7 @@ void vlan_dev_set_multicast_list(struct net_device *vlan_dev)
 
 		inc = vlan_dev->allmulti - VLAN_DEV_INFO(vlan_dev)->old_allmulti;
 		if (inc) {
-			printk(KERN_INFO "%s: dev_set_allmulti(master, %d)\n",
+			printk(KERN_DEBUG "%s: dev_set_allmulti(master, %d)\n",
 			       vlan_dev->name, inc);
 			dev_set_allmulti(real_dev, inc); /* dev.c */
 			VLAN_DEV_INFO(vlan_dev)->old_allmulti = vlan_dev->allmulti;
@@ -820,7 +885,7 @@ void vlan_dev_set_multicast_list(struct net_device *vlan_dev)
 		for (dmi = vlan_dev->mc_list; dmi != NULL; dmi = dmi->next) {
 			if (vlan_should_add_mc(dmi, VLAN_DEV_INFO(vlan_dev)->old_mc_list)) {
 				dev_mc_add(real_dev, dmi->dmi_addr, dmi->dmi_addrlen, 0);
-				printk(KERN_INFO "%s: add %.2x:%.2x:%.2x:%.2x:%.2x:%.2x mcast address to master interface\n",
+				printk(KERN_DEBUG "%s: add %.2x:%.2x:%.2x:%.2x:%.2x:%.2x mcast address to master interface\n",
 				       vlan_dev->name,
 				       dmi->dmi_addr[0],
 				       dmi->dmi_addr[1],
@@ -838,7 +903,7 @@ void vlan_dev_set_multicast_list(struct net_device *vlan_dev)
 				 * delete it from the real list on the underlying device.
 				 */
 				dev_mc_delete(real_dev, dmi->dmi_addr, dmi->dmi_addrlen, 0);
-				printk(KERN_INFO "%s: del %.2x:%.2x:%.2x:%.2x:%.2x:%.2x mcast address from master interface\n",
+				printk(KERN_DEBUG "%s: del %.2x:%.2x:%.2x:%.2x:%.2x:%.2x mcast address from master interface\n",
 				       vlan_dev->name,
 				       dmi->dmi_addr[0],
 				       dmi->dmi_addr[1],

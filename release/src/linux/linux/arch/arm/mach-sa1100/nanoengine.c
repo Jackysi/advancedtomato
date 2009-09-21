@@ -16,22 +16,6 @@
 #include "generic.h"
 
 
-static void __init
-fixup_nanoengine(struct machine_desc *desc, struct param_struct *params,
-		 char **cmdline, struct meminfo *mi)
-{
-	SET_BANK( 0, 0xc0000000, 32*1024*1024 );
-	mi->nr_banks = 1;
-
-	ROOT_DEV = MKDEV(RAMDISK_MAJOR,0);
-	setup_ramdisk( 1, 0, 0, 8192 );
-	setup_initrd( __phys_to_virt(0xc0800000), 4*1024*1024 );
-
-	/* Get command line parameters passed from the loader (if any) */
-	if( *((char*)0xc0000100) )
-		*cmdline = ((char *)0xc0000100);
-}
-
 static struct map_desc nanoengine_io_desc[] __initdata = {
  /* virtual     physical    length      domain     r  w  c  b */
   { 0xe8000000, 0x00000000, 0x02000000, DOMAIN_IO, 0, 1, 0, 0 }, /* Flash bank 0 */
@@ -56,7 +40,7 @@ static void __init nanoengine_map_io(void)
 
 MACHINE_START(NANOENGINE, "BSE nanoEngine")
 	BOOT_MEM(0xc0000000, 0x80000000, 0xf8000000)
-	FIXUP(fixup_nanoengine)
+	BOOT_PARAMS(0xc0000100)
 	MAPIO(nanoengine_map_io)
 	INITIRQ(sa1100_init_irq)
 MACHINE_END

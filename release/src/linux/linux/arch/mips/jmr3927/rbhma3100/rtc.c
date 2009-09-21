@@ -31,17 +31,16 @@
  *  with this program; if not, write  to the Free Software Foundation, Inc.,
  *  675 Mass Ave, Cambridge, MA 02139, USA.
  */
-#include <asm/mc146818rtc.h>	/* bad name... */
-#include <asm/jmr3927/jmr3927.h>
+#include <asm/mc146818rtc.h>
 
 static unsigned char jmr3927_rtc_read_data(unsigned long addr)
 {
-	return jmr3927_nvram_in(addr);
+	return readb(addr);
 }
 
 static void jmr3927_rtc_write_data(unsigned char data, unsigned long addr)
 {
-	jmr3927_nvram_out(data, addr);
+	writeb(data, addr);
 }
 
 static int jmr3927_rtc_bcd_mode(void)

@@ -8,7 +8,7 @@ Homepage: http://lpg.ticalc.org/prj_usb
 INTRODUCTION:
 
 This is a driver for the TI-GRAPH LINK USB (aka SilverLink) cable, a cable 
-designed by TI for connecting their TI8x/9x calculators to a computer 
+designed by TI for connecting their TI8x/9x graphing handhelds to a computer 
 (PC or Mac usually).
 
 If you need more information, please visit the 'SilverLink drivers' homepage 
@@ -16,10 +16,8 @@ at the above URL.
 
 WHAT YOU NEED:
 
-A TI calculator of course and a program capable to communicate with your 
-calculator.
-TiLP will work for sure (since I am his developer !). yal92 may be able to use
-it by changing tidev for tiglusb (may require some hacking...).
+A TI calculator/handheld of course and a program capable to communicate with 
+your calculator. A good choice is TiLP (http://www.tilp.info).
 
 HOW TO USE IT:
 
@@ -58,14 +56,19 @@ MODULE PARAMETERS:
 QUIRKS:
 
 The following problem seems to be specific to the link cable since it appears 
-on all platforms (Linux, Windows, Mac OS-X). 
+on all platforms (Linux, Windows, Mac OS-X). A guy told me it was a common but
+weird behaviour with Cypress microcontrollers (it uses an CY7C64013).
 
-In some very particular cases, the driver returns with success but
+In some very particular cases, the driver returns with success (no error) but
 without any data. The application should retry a read operation at least once.
+
+This problem and the need to issue IOCTL_TIUSB_RESET_PIPES before doing any
+packet transfer (like TI's software do) make this driver difficult to use in 
+pure raw access.
 
 HOW TO CONTACT US:
 
-You can email me at roms@lpg.ticalc.org. Please prefix the subject line
+You can email me at roms@tilp.info. Please prefix the subject line
 with "TIGLUSB: " so that I am certain to notice your message.
 You can also mail JB at jb@jblache.org: he has written the first release of 
 this driver but he better knows the Mac OS-X driver.
@@ -73,4 +76,4 @@ this driver but he better knows the Mac OS-X driver.
 CREDITS:
 
 The code is based on dabusb.c, printer.c and scanner.c !
-The driver has been developed independantly of Texas Instruments.
+The driver has been developed without any support from Texas Instruments Inc.

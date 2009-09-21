@@ -164,7 +164,8 @@ void  iSeries_Parse_SlotArea(SlotMap* MapPtr,int MapLen, struct iSeries_Device_N
 	/* Parse Slot label until we find the one requrested         */
 	/*************************************************************/
 	while (SlotMapLen > 0) {
-		if (SlotMapPtr->AgentId == DevNode->AgentId ) {
+		if ((SlotMapPtr->AgentId == DevNode->AgentId) && 
+		    (SlotMapPtr->SecondaryAgentId == 0x10   ) ) {
 			/*******************************************************/
 			/* If Phb wasn't found, grab the entry first one found.*/ 
 			/*******************************************************/
@@ -300,7 +301,7 @@ void  iSeries_Get_Location_Code(struct iSeries_Device_Node* DevNode)
 		printk("PCI: Bus VPD Buffer zero length.\n");
 		return;
 	}
-	//printk("PCI: BusVpdPtr: %p, %d\n",BusVpdPtr, BusVpdLen);
+	//printk("PCI: DevNode:0x%p BusVpdPtr:0x%p Length:%d\n",DevNode, BusVpdPtr, BusVpdLen);
 	/*************************************************************/
 	/* Make sure this is what I think it is                      */
 	/*************************************************************/

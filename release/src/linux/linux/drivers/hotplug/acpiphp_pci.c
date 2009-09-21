@@ -1,12 +1,12 @@
 /*
  * ACPI PCI HotPlug PCI configuration space management
  *
- * Copyright (c) 1995,2001 Compaq Computer Corporation
- * Copyright (c) 2001 Greg Kroah-Hartman (greg@kroah.com)
- * Copyright (c) 2001,2002 IBM Corp.
- * Copyright (c) 2002 Takayoshi Kochi (t-kouchi@cq.jp.nec.com)
- * Copyright (c) 2002 Hiroshi Aono (h-aono@ap.jp.nec.com)
- * Copyright (c) 2002 NEC Corporation
+ * Copyright (C) 1995,2001 Compaq Computer Corporation
+ * Copyright (C) 2001 Greg Kroah-Hartman (greg@kroah.com)
+ * Copyright (C) 2001,2002 IBM Corp.
+ * Copyright (C) 2002 Takayoshi Kochi (t-kochi@bq.jp.nec.com)
+ * Copyright (C) 2002 Hiroshi Aono (h-aono@ap.jp.nec.com)
+ * Copyright (C) 2002 NEC Corporation
  *
  * All rights reserved.
  *
@@ -25,28 +25,26 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * Send feedback to <t-kouchi@cq.jp.nec.com>
+ * Send feedback to <t-kochi@bq.jp.nec.com>
  *
  */
 
-#include <linux/config.h>
-#include <linux/kernel.h>
-#include <linux/module.h>
-#include <linux/pci.h>
 #include <linux/init.h>
+#include <linux/module.h>
+
+#include <linux/kernel.h>
+#include <linux/pci.h>
 #include "pci_hotplug.h"
 #include "acpiphp.h"
 
-static int debug = 1;			
 #define MY_NAME "acpiphp_pci"
 
 static void acpiphp_configure_irq (struct pci_dev *dev);
 
 
 /* allocate mem/pmem/io resource to a new function */
-static int alloc_resource (struct acpiphp_func *func)
+static int init_config_space (struct acpiphp_func *func)
 {
-	u64 base;
 	u32 bar, len;
 	u32 address[] = {
 		PCI_BASE_ADDRESS_0,
@@ -60,31 +58,30 @@ static int alloc_resource (struct acpiphp_func *func)
 	int count;
 	struct acpiphp_bridge *bridge;
 	struct pci_resource *res;
-	struct pci_ops *ops;
-	int bus, device, function;
+	struct pci_bus *bus;
+	int devfn;
 
 	bridge = func->slot->bridge;
-	bus = bridge->bus;
-	device = func->slot->device;
-	function = func->function;
-	ops = bridge->pci_ops;
+	bus = bridge->pci_bus;
+	devfn = PCI_DEVFN(func->slot->device, func->function);
 
 	for (count = 0; address[count]; count++) {	/* for 6 BARs */
-		pci_write_config_dword_nodev (ops, bus, device, function, address[count], 0xFFFFFFFF);
-		pci_read_config_dword_nodev(ops, bus, device, function, address[count], &bar);
+		pci_bus_write_config_dword(bus, devfn, address[count], 0xFFFFFFFF);
+		pci_bus_read_config_dword(bus, devfn, address[count], &bar);
 
 		if (!bar)	/* This BAR is not implemented */
 			continue;
 
-		dbg("Device %02x.%02x BAR %d wants %x", device, function, count, bar);
+		dbg("Device %02x.%d BAR %d wants %x\n", PCI_SLOT(devfn),
+				PCI_FUNC(devfn), count, bar);
 
 		if (bar & PCI_BASE_ADDRESS_SPACE_IO) {
 			/* This is IO */
 
-			len = bar & 0xFFFFFFFC;
-			len = ~len + 1;
+			len = bar & (PCI_BASE_ADDRESS_IO_MASK & 0xFFFF);
+			len = len & ~(len - 1);
 
-			dbg ("len in IO %x, BAR %d", len, count);
+			dbg("len in IO %x, BAR %d\n", len, count);
 
 			spin_lock(&bridge->res_lock);
 			res = acpiphp_get_io_resource(&bridge->io_head, len);
@@ -92,10 +89,10 @@ static int alloc_resource (struct acpiphp_func *func)
 
 			if (!res) {
 				err("cannot allocate requested io for %02x:%02x.%d len %x\n",
-				    bus, device, function, len);
+				    bus->number, PCI_SLOT(devfn), PCI_FUNC(devfn), len);
 				return -1;
 			}
-			pci_write_config_dword_nodev(ops, bus, device, function, address[count], (u32)res->base);
+			pci_bus_write_config_dword(bus, devfn, address[count], (u32)res->base);
 			res->next = func->io_head;
 			func->io_head = res;
 
@@ -107,7 +104,7 @@ static int alloc_resource (struct acpiphp_func *func)
 				len = bar & 0xFFFFFFF0;
 				len = ~len + 1;
 
-				dbg("len in PFMEM %x, BAR %d", len, count);
+				dbg("len in PFMEM %x, BAR %d\n", len, count);
 
 				spin_lock(&bridge->res_lock);
 				res = acpiphp_get_resource(&bridge->p_mem_head, len);
@@ -115,16 +112,16 @@ static int alloc_resource (struct acpiphp_func *func)
 
 				if (!res) {
 					err("cannot allocate requested pfmem for %02x:%02x.%d len %x\n",
-					    bus, device, function, len);
+					    bus->number, PCI_SLOT(devfn), PCI_FUNC(devfn), len);
 					return -1;
 				}
 
-				pci_write_config_dword_nodev(ops, bus, device, function, address[count], (u32)res->base);
+				pci_bus_write_config_dword(bus, devfn, address[count], (u32)res->base);
 
 				if (bar & PCI_BASE_ADDRESS_MEM_TYPE_64) {	/* takes up another dword */
-					dbg ("inside the pfmem 64 case, count %d", count);
+					dbg("inside the pfmem 64 case, count %d\n", count);
 					count += 1;
-					pci_write_config_dword_nodev(ops, bus, device, function, address[count], (u32)(res->base >> 32));
+					pci_bus_write_config_dword(bus, devfn, address[count], (u32)(res->base >> 32));
 				}
 
 				res->next = func->p_mem_head;
@@ -136,7 +133,7 @@ static int alloc_resource (struct acpiphp_func *func)
 				len = bar & 0xFFFFFFF0;
 				len = ~len + 1;
 
-				dbg("len in MEM %x, BAR %d", len, count);
+				dbg("len in MEM %x, BAR %d\n", len, count);
 
 				spin_lock(&bridge->res_lock);
 				res = acpiphp_get_resource(&bridge->mem_head, len);
@@ -144,17 +141,17 @@ static int alloc_resource (struct acpiphp_func *func)
 
 				if (!res) {
 					err("cannot allocate requested pfmem for %02x:%02x.%d len %x\n",
-					    bus, device, function, len);
+					    bus->number, PCI_SLOT(devfn), PCI_FUNC(devfn), len);
 					return -1;
 				}
 
-				pci_write_config_dword_nodev(ops, bus, device, function, address[count], (u32)res->base);
+				pci_bus_write_config_dword(bus, devfn, address[count], (u32)res->base);
 
 				if (bar & PCI_BASE_ADDRESS_MEM_TYPE_64) {
 					/* takes up another dword */
-					dbg ("inside mem 64 case, reg. mem, count %d", count);
+					dbg("inside mem 64 case, reg. mem, count %d\n", count);
 					count += 1;
-					pci_write_config_dword_nodev(ops, bus, device, function, address[count], (u32)(res->base >> 32));
+					pci_bus_write_config_dword(bus, devfn, address[count], (u32)(res->base >> 32));
 				}
 
 				res->next = func->mem_head;
@@ -165,7 +162,7 @@ static int alloc_resource (struct acpiphp_func *func)
 	}
 
 	/* disable expansion rom */
-	pci_write_config_dword_nodev(ops, bus, device, function, PCI_ROM_ADDRESS, 0x00000000);
+	pci_bus_write_config_dword(bus, devfn, PCI_ROM_ADDRESS, 0x00000000);
 
 	return 0;
 }
@@ -203,15 +200,16 @@ static int configure_pci_dev (struct pci_dev_wrapped *wrapped_dev, struct pci_bu
 	pci_proc_attach_device(dev);
 #endif
 	pci_announce_device_to_drivers(dev);
+	info("Device %s configured\n", dev->slot_name);
 
 	return 0;
 }
 
 
-static int is_pci_dev_in_use (struct pci_dev* dev) 
+static int is_pci_dev_in_use (struct pci_dev* dev)
 {
-	/* 
-	 * dev->driver will be set if the device is in use by a new-style 
+	/*
+	 * dev->driver will be set if the device is in use by a new-style
 	 * driver -- otherwise, check the device's regions to see if any
 	 * driver has claimed them
 	 */
@@ -253,13 +251,13 @@ static int unconfigure_pci_dev_driver (struct pci_dev_wrapped *wrapped_dev, stru
 {
 	struct pci_dev *dev = wrapped_dev->dev;
 
-	dbg("attempting removal of driver for device %s", dev->slot_name);
+	dbg("attempting removal of driver for device %s\n", dev->slot_name);
 
 	/* Now, remove the Linux Driver Representation */
 	if (dev->driver) {
 		if (dev->driver->remove) {
 			dev->driver->remove(dev);
-			dbg("driver was properly removed");
+			dbg("driver was properly removed\n");
 		}
 		dev->driver = NULL;
 	}
@@ -276,6 +274,7 @@ static int unconfigure_pci_dev (struct pci_dev_wrapped *wrapped_dev, struct pci_
 	/* Now, remove the Linux Representation */
 	if (dev) {
 		if (pci_hp_remove_device(dev) == 0) {
+			info("Device %s removed\n", dev->slot_name);
 			kfree(dev); /* Now, remove */
 		} else {
 			return -1; /* problems while freeing, abort visitation */
@@ -313,7 +312,7 @@ static int unconfigure_pci_bus (struct pci_bus_wrapped *wrapped_bus, struct pci_
 /* detect_used_resource - subtract resource under dev from bridge */
 static int detect_used_resource (struct acpiphp_bridge *bridge, struct pci_dev *dev)
 {
-	u32 bar, len, pin;
+	u32 bar, len;
 	u64 base;
 	u32 address[] = {
 		PCI_BASE_ADDRESS_0,
@@ -327,7 +326,7 @@ static int detect_used_resource (struct acpiphp_bridge *bridge, struct pci_dev *
 	int count;
 	struct pci_resource *res;
 
-	dbg("Device %s", dev->slot_name);
+	dbg("Device %s\n", dev->slot_name);
 
 	for (count = 0; address[count]; count++) {	/* for 6 BARs */
 		pci_read_config_dword(dev, address[count], &bar);
@@ -341,10 +340,10 @@ static int detect_used_resource (struct acpiphp_bridge *bridge, struct pci_dev *
 		if (len & PCI_BASE_ADDRESS_SPACE_IO) {
 			/* This is IO */
 			base = bar & 0xFFFFFFFC;
-			len &= 0xFFFFFFFC;
-			len = ~len + 1;
+			len = len & (PCI_BASE_ADDRESS_IO_MASK & 0xFFFF);
+			len = len & ~(len - 1);
 
-			dbg("BAR[%d] %08x - %08x (IO)", count, (u32)base, (u32)base + len - 1);
+			dbg("BAR[%d] %08x - %08x (IO)\n", count, (u32)base, (u32)base + len - 1);
 
 			spin_lock(&bridge->res_lock);
 			res = acpiphp_get_resource_with_base(&bridge->io_head, base, len);
@@ -361,10 +360,10 @@ static int detect_used_resource (struct acpiphp_bridge *bridge, struct pci_dev *
 				len = ~len + 1;
 
 				if (len & PCI_BASE_ADDRESS_MEM_TYPE_64) {	/* takes up another dword */
-					dbg ("prefetch mem 64");
+					dbg("prefetch mem 64\n");
 					count += 1;
 				}
-				dbg("BAR[%d] %08x - %08x (PMEM)", count, (u32)base, (u32)base + len - 1);
+				dbg("BAR[%d] %08x - %08x (PMEM)\n", count, (u32)base, (u32)base + len - 1);
 				spin_lock(&bridge->res_lock);
 				res = acpiphp_get_resource_with_base(&bridge->p_mem_head, base, len);
 				spin_unlock(&bridge->res_lock);
@@ -378,10 +377,10 @@ static int detect_used_resource (struct acpiphp_bridge *bridge, struct pci_dev *
 
 				if (len & PCI_BASE_ADDRESS_MEM_TYPE_64) {
 					/* takes up another dword */
-					dbg ("mem 64");
+					dbg("mem 64\n");
 					count += 1;
 				}
-				dbg("BAR[%d] %08x - %08x (MEM)", count, (u32)base, (u32)base + len - 1);
+				dbg("BAR[%d] %08x - %08x (MEM)\n", count, (u32)base, (u32)base + len - 1);
 				spin_lock(&bridge->res_lock);
 				res = acpiphp_get_resource_with_base(&bridge->mem_head, base, len);
 				spin_unlock(&bridge->res_lock);
@@ -403,9 +402,10 @@ static void detect_used_resource_bus(struct acpiphp_bridge *bridge, struct pci_b
 	struct list_head *l;
 	struct pci_dev *dev;
 
-	list_for_each(l, &bus->devices) {
+	list_for_each (l, &bus->devices) {
 		dev = pci_dev_b(l);
 		detect_used_resource(bridge, dev);
+		/* XXX recursive call */
 		if (dev->subordinate)
 			detect_used_resource_bus(bridge, dev->subordinate);
 	}
@@ -420,9 +420,6 @@ static void detect_used_resource_bus(struct acpiphp_bridge *bridge, struct pci_b
  */
 int acpiphp_detect_pci_resource (struct acpiphp_bridge *bridge)
 {
-	struct list_head *l;
-	struct pci_dev *dev;
-
 	detect_used_resource_bus(bridge, bridge->pci_bus);
 
 	return 0;
@@ -451,28 +448,27 @@ int acpiphp_init_func_resource (struct acpiphp_func *func)
 	};
 	int count;
 	struct pci_resource *res;
-	struct pci_ops *ops;
 	struct pci_dev *dev;
 
 	dev = func->pci_dev;
-	dbg("Hot-pluggable device %s", dev->slot_name);
+	dbg("Hot-pluggable device %s\n", dev->slot_name);
 
 	for (count = 0; address[count]; count++) {	/* for 6 BARs */
-		pci_read_config_dword (dev, address[count], &bar);
+		pci_read_config_dword(dev, address[count], &bar);
 
 		if (!bar)	/* This BAR is not implemented */
 			continue;
 
-		pci_write_config_dword (dev, address[count], 0xFFFFFFFF);
-		pci_read_config_dword (dev, address[count], &len);
+		pci_write_config_dword(dev, address[count], 0xFFFFFFFF);
+		pci_read_config_dword(dev, address[count], &len);
 
 		if (len & PCI_BASE_ADDRESS_SPACE_IO) {
 			/* This is IO */
 			base = bar & 0xFFFFFFFC;
-			len &= 0xFFFFFFFC;
-			len = ~len + 1;
+			len = len & (PCI_BASE_ADDRESS_IO_MASK & 0xFFFF);
+			len = len & ~(len - 1);
 
-			dbg("BAR[%d] %08x - %08x (IO)", count, (u32)base, (u32)base + len - 1);
+			dbg("BAR[%d] %08x - %08x (IO)\n", count, (u32)base, (u32)base + len - 1);
 
 			res = acpiphp_make_resource(base, len);
 			if (!res)
@@ -491,10 +487,10 @@ int acpiphp_init_func_resource (struct acpiphp_func *func)
 				len = ~len + 1;
 
 				if (len & PCI_BASE_ADDRESS_MEM_TYPE_64) {	/* takes up another dword */
-					dbg ("prefetch mem 64");
+					dbg("prefetch mem 64\n");
 					count += 1;
 				}
-				dbg("BAR[%d] %08x - %08x (PMEM)", count, (u32)base, (u32)base + len - 1);
+				dbg("BAR[%d] %08x - %08x (PMEM)\n", count, (u32)base, (u32)base + len - 1);
 				res = acpiphp_make_resource(base, len);
 				if (!res)
 					goto no_memory;
@@ -510,10 +506,10 @@ int acpiphp_init_func_resource (struct acpiphp_func *func)
 
 				if (len & PCI_BASE_ADDRESS_MEM_TYPE_64) {
 					/* takes up another dword */
-					dbg ("mem 64");
+					dbg("mem 64\n");
 					count += 1;
 				}
-				dbg("BAR[%d] %08x - %08x (MEM)", count, (u32)base, (u32)base + len - 1);
+				dbg("BAR[%d] %08x - %08x (MEM)\n", count, (u32)base, (u32)base + len - 1);
 				res = acpiphp_make_resource(base, len);
 				if (!res)
 					goto no_memory;
@@ -524,14 +520,16 @@ int acpiphp_init_func_resource (struct acpiphp_func *func)
 			}
 		}
 
-		pci_write_config_dword (dev, address[count], bar);
+		pci_write_config_dword(dev, address[count], bar);
 	}
+#if 1
 	acpiphp_dump_func_resource(func);
+#endif
 
 	return 0;
 
  no_memory:
-	err("out of memory");
+	err("out of memory\n");
 	acpiphp_free_resource(&func->io_head);
 	acpiphp_free_resource(&func->mem_head);
 	acpiphp_free_resource(&func->p_mem_head);
@@ -557,23 +555,22 @@ int acpiphp_configure_slot (struct acpiphp_slot *slot)
 	int retval = 0;
 	int is_multi = 0;
 
-	pci_read_config_byte_nodev(slot->bridge->pci_ops,
-				   slot->bridge->bus, slot->device, 0,
-				   PCI_HEADER_TYPE, &hdr);
+	pci_bus_read_config_byte(slot->bridge->pci_bus,
+					PCI_DEVFN(slot->device, 0),
+					PCI_HEADER_TYPE, &hdr);
 
 	if (hdr & 0x80)
 		is_multi = 1;
 
-	list_for_each(l, &slot->funcs) {
+	list_for_each (l, &slot->funcs) {
 		func = list_entry(l, struct acpiphp_func, sibling);
 		if (is_multi || func->function == 0) {
-			pci_read_config_dword_nodev(slot->bridge->pci_ops,
-						    slot->bridge->bus,
-						    slot->device,
-						    func->function,
+			pci_bus_read_config_dword(slot->bridge->pci_bus,
+						    PCI_DEVFN(slot->device,
+								func->function),
 						    PCI_VENDOR_ID, &dvid);
 			if (dvid != 0xffffffff) {
-				retval = alloc_resource(func);
+				retval = init_config_space(func);
 				if (retval)
 					break;
 			}
@@ -586,16 +583,16 @@ int acpiphp_configure_slot (struct acpiphp_slot *slot)
 
 /* for pci_visit_dev() */
 static struct pci_visit configure_functions = {
-	post_visit_pci_dev:	configure_pci_dev
+	.post_visit_pci_dev =	configure_pci_dev
 };
 
 static struct pci_visit unconfigure_functions_phase1 = {
-	post_visit_pci_dev:	unconfigure_pci_dev_driver
+	.post_visit_pci_dev =	unconfigure_pci_dev_driver
 };
 
 static struct pci_visit unconfigure_functions_phase2 = {
-	post_visit_pci_bus:	unconfigure_pci_bus,
-	post_visit_pci_dev:	unconfigure_pci_dev
+	.post_visit_pci_bus =	unconfigure_pci_bus,
+	.post_visit_pci_dev =	unconfigure_pci_dev
 };
 
 
@@ -644,7 +641,6 @@ int acpiphp_configure_function (struct acpiphp_func *func)
 int acpiphp_unconfigure_function (struct acpiphp_func *func)
 {
 	struct acpiphp_bridge *bridge;
-	struct pci_resource *tmp;
 	struct pci_dev_wrapped wrapped_dev;
 	struct pci_bus_wrapped wrapped_bus;
 	int retval = 0;
@@ -683,44 +679,6 @@ int acpiphp_unconfigure_function (struct acpiphp_func *func)
 }
 
 
-#ifdef CONFIG_IA64
-static int ia64_get_irq(struct pci_dev *dev, int pin)
-{
-	extern int pci_pin_to_vector(int bus, int slot, int pci_pin);
-	int irq;
-
-	irq = pci_pin_to_vector(dev->bus->number, PCI_SLOT(dev->devfn), pin);
-
-	if (irq < 0 && dev->bus->parent) {
-		/* go back to the bridge */
-		struct pci_dev *bridge = dev->bus->self;
-
-		if (bridge) {
-			/* allow for multiple bridges on an adapter */
-			do {
-				/* do the bridge swizzle... */
-				pin = (pin + PCI_SLOT(dev->devfn)) % 4;
-				irq = pci_pin_to_vector(bridge->bus->number,
-							PCI_SLOT(bridge->devfn),
-							   pin);
-			} while (irq < 0 && (bridge = bridge->bus->self));
-		}
-		if (irq >= 0)
-			printk(KERN_WARNING
-			       "PCI: using PPB(B%d,I%d,P%d) to get vector %02x\n",
-			       dev->bus->number, PCI_SLOT(dev->devfn),
-			       pin, irq);
-		else
-			printk(KERN_WARNING
-			       "PCI: Couldn't map irq for (B%d,I%d,P%d)\n",
-			       dev->bus->number, PCI_SLOT(dev->devfn), pin);
-	}
-
-	return irq;
-}
-#endif
-
-
 /*
  * acpiphp_configure_irq - configure PCI_INTERRUPT_PIN
  *
@@ -736,24 +694,10 @@ static int ia64_get_irq(struct pci_dev *dev, int pin)
  */
 static void acpiphp_configure_irq (struct pci_dev *dev)
 {
-#if CONFIG_IA64		      
-	int bus, device, function, irq;
-	u8 tmp;
+#if CONFIG_IA64		    /* XXX IA64 specific */
+	extern void iosapic_fixup_pci_interrupt (struct pci_dev *dev);
 
-	bus = dev->bus->number;
-	device = PCI_SLOT(dev->devfn);
-	function = PCI_FUNC(dev->devfn);
-
-	pci_read_config_byte (dev, PCI_INTERRUPT_PIN, &tmp);
-
-	if ((tmp > 0x00) && (tmp < 0x05)) {
-		irq = ia64_get_irq(dev, tmp - 1);
-		if (irq > 0) {
-			dev->irq = irq;
-			pci_write_config_byte (dev, PCI_INTERRUPT_LINE, irq);
-		} else {
-			err("Couldn't get IRQ for INT%c", 'A' + tmp - 1);
-		}
-	}
+	iosapic_fixup_pci_interrupt(dev);
+	pci_write_config_byte(dev, PCI_INTERRUPT_LINE, dev->irq);
 #endif
 }

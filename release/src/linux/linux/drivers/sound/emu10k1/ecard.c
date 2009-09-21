@@ -137,6 +137,7 @@ void __devinit emu10k1_ecard_init(struct emu10k1_card *card)
 	/* Step 2: Calibrate the ADC and DAC */
 	ecard_write(card, EC_DACCAL | EC_LEDN | EC_TRIM_CSN);
 
+	/* Step 3: Wait for awhile; FIXME: Is this correct? */
 
 	current->state = TASK_INTERRUPTIBLE;
 	schedule_timeout(HZ);

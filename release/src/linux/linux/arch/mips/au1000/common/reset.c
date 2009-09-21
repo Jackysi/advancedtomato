@@ -37,11 +37,10 @@
 #include <asm/system.h>
 #include <asm/au1000.h>
 
-extern int au_sleep(void);
-
 void au1000_restart(char *command)
 {
 	/* Set all integrated peripherals to disabled states */
+	extern void board_reset (void);
 	u32 prid = read_c0_prid();
 
 	printk(KERN_NOTICE "\n** Resetting Integrated Peripherals\n");
@@ -54,6 +53,10 @@ void au1000_restart(char *command)
 		au_writel(0x00, 0xb017fffc); /* usbh_enable */
 		au_writel(0x00, 0xb0200058); /* usbd_enable */
 		au_writel(0x00, 0xb0300040); /* ir_enable */
+		au_writel(0x00, 0xb4004104); /* mac dma */
+		au_writel(0x00, 0xb4004114); /* mac dma */
+		au_writel(0x00, 0xb4004124); /* mac dma */
+		au_writel(0x00, 0xb4004134); /* mac dma */
 		au_writel(0x00, 0xb0520000); /* macen0 */
 		au_writel(0x00, 0xb0520004); /* macen1 */
 		au_writel(0x00, 0xb1000008); /* i2s_enable  */
@@ -66,6 +69,8 @@ void au1000_restart(char *command)
 		au_writel(0x00, 0xb1900020); /* sys_freqctrl0 */
 		au_writel(0x00, 0xb1900024); /* sys_freqctrl1 */
 		au_writel(0x00, 0xb1900028); /* sys_clksrc */
+		au_writel(0x10, 0xb1900060); /* sys_cpupll */
+		au_writel(0x00, 0xb1900064); /* sys_auxpll */
 		au_writel(0x00, 0xb1900100); /* sys_pininputen */
 		break;
 	case 0x01000000: /* Au1500 */
@@ -74,6 +79,10 @@ void au1000_restart(char *command)
 		asm("sync");
 		au_writel(0x00, 0xb017fffc); /* usbh_enable */
 		au_writel(0x00, 0xb0200058); /* usbd_enable */
+		au_writel(0x00, 0xb4004104); /* mac dma */
+		au_writel(0x00, 0xb4004114); /* mac dma */
+		au_writel(0x00, 0xb4004124); /* mac dma */
+		au_writel(0x00, 0xb4004134); /* mac dma */
 		au_writel(0x00, 0xb1520000); /* macen0 */
 		au_writel(0x00, 0xb1520004); /* macen1 */
 		au_writel(0x00, 0xb1100100); /* uart0_enable */
@@ -81,6 +90,8 @@ void au1000_restart(char *command)
 		au_writel(0x00, 0xb1900020); /* sys_freqctrl0 */
 		au_writel(0x00, 0xb1900024); /* sys_freqctrl1 */
 		au_writel(0x00, 0xb1900028); /* sys_clksrc */
+		au_writel(0x10, 0xb1900060); /* sys_cpupll */
+		au_writel(0x00, 0xb1900064); /* sys_auxpll */
 		au_writel(0x00, 0xb1900100); /* sys_pininputen */
 		break;
 	case 0x02000000: /* Au1100 */
@@ -90,6 +101,10 @@ void au1000_restart(char *command)
 		au_writel(0x00, 0xb017fffc); /* usbh_enable */
 		au_writel(0x00, 0xb0200058); /* usbd_enable */
 		au_writel(0x00, 0xb0300040); /* ir_enable */
+		au_writel(0x00, 0xb4004104); /* mac dma */
+		au_writel(0x00, 0xb4004114); /* mac dma */
+		au_writel(0x00, 0xb4004124); /* mac dma */
+		au_writel(0x00, 0xb4004134); /* mac dma */
 		au_writel(0x00, 0xb0520000); /* macen0 */
 		au_writel(0x00, 0xb1000008); /* i2s_enable  */
 		au_writel(0x00, 0xb1100100); /* uart0_enable */
@@ -100,6 +115,51 @@ void au1000_restart(char *command)
 		au_writel(0x00, 0xb1900020); /* sys_freqctrl0 */
 		au_writel(0x00, 0xb1900024); /* sys_freqctrl1 */
 		au_writel(0x00, 0xb1900028); /* sys_clksrc */
+		au_writel(0x10, 0xb1900060); /* sys_cpupll */
+		au_writel(0x00, 0xb1900064); /* sys_auxpll */
+		au_writel(0x00, 0xb1900100); /* sys_pininputen */
+		break;
+	case 0x03000000: /* Au1550 */
+		au_writel(0x00, 0xb1a00004); /* psc 0 */
+		au_writel(0x00, 0xb1b00004); /* psc 1 */
+		au_writel(0x00, 0xb0a00004); /* psc 2 */
+		au_writel(0x00, 0xb0b00004); /* psc 3 */
+		au_writel(0x00, 0xb017fffc); /* usbh_enable */
+		au_writel(0x00, 0xb0200058); /* usbd_enable */
+		au_writel(0x00, 0xb4004104); /* mac dma */
+		au_writel(0x00, 0xb4004114); /* mac dma */
+		au_writel(0x00, 0xb4004124); /* mac dma */
+		au_writel(0x00, 0xb4004134); /* mac dma */
+		au_writel(0x00, 0xb1520000); /* macen0 */
+		au_writel(0x00, 0xb1520004); /* macen1 */
+		au_writel(0x00, 0xb1100100); /* uart0_enable */
+		au_writel(0x00, 0xb1200100); /* uart1_enable */
+		au_writel(0x00, 0xb1400100); /* uart3_enable */
+		au_writel(0x00, 0xb1900020); /* sys_freqctrl0 */
+		au_writel(0x00, 0xb1900024); /* sys_freqctrl1 */
+		au_writel(0x00, 0xb1900028); /* sys_clksrc */
+		au_writel(0x10, 0xb1900060); /* sys_cpupll */
+		au_writel(0x00, 0xb1900064); /* sys_auxpll */
+		au_writel(0x00, 0xb1900100); /* sys_pininputen */
+		break;
+	case 0x04000000: /* Au1200 */
+		au_writel(0x00, 0xb400300c); /* ddma */
+		au_writel(0x00, 0xb1a00004); /* psc 0 */
+		au_writel(0x00, 0xb1b00004); /* psc 1 */
+		au_writel(0x00d02000, 0xb4020004); /* ehci, ohci, udc, otg */
+		au_writel(0x00, 0xb5000004); /* lcd */
+		au_writel(0x00, 0xb060000c); /* sd0 */
+		au_writel(0x00, 0xb068000c); /* sd1 */
+		au_writel(0x00, 0xb1100100); /* swcnt */
+		au_writel(0x00, 0xb0300000); /* aes */
+		au_writel(0x00, 0xb4004000); /* cim */
+		au_writel(0x00, 0xb1100100); /* uart0_enable */
+		au_writel(0x00, 0xb1200100); /* uart1_enable */
+		au_writel(0x00, 0xb1900020); /* sys_freqctrl0 */
+		au_writel(0x00, 0xb1900024); /* sys_freqctrl1 */
+		au_writel(0x00, 0xb1900028); /* sys_clksrc */
+		au_writel(0x10, 0xb1900060); /* sys_cpupll */
+		au_writel(0x00, 0xb1900064); /* sys_auxpll */
 		au_writel(0x00, 0xb1900100); /* sys_pininputen */
 		break;
 
@@ -111,36 +171,33 @@ void au1000_restart(char *command)
 	set_c0_config(CONF_CM_UNCACHED);
 	flush_cache_all();
 	write_c0_wired(0);
- 
-#ifdef CONFIG_MIPS_PB1500
-	au_writel(0x00000000, 0xAE00001C);
-#endif
 
-#ifdef CONFIG_MIPS_PB1100
-	au_writel(0x00000000, 0xAE00001C);
-#endif
- 
+	/* Give board a chance to do a hardware reset */
+	board_reset();
+
+	/* Jump to the beggining in case board_reset() is empty */
 	__asm__ __volatile__("jr\t%0"::"r"(0xbfc00000));
 }
 
 void au1000_halt(void)
 {
-	printk(KERN_NOTICE "\n** You can safely turn off the power\n");
-#ifdef CONFIG_PM
-	au_sleep();
-
-	/* should not get here */
-	printk(KERN_ERR "Unable to put cpu in sleep mode\n");
-	while(1);
-#else
-	while (1)
+	/* Use WAIT in a low-power infinite spin loop */
+	while (1) {
 		__asm__(".set\tmips3\n\t"
 	                "wait\n\t"
 			".set\tmips0");
-#endif
+	}
 }
 
 void au1000_power_off(void)
 {
+	extern void board_power_off (void);
+
+	printk(KERN_NOTICE "\n** You can safely turn off the power\n");
+
+	/* Give board a chance to power-off */
+	board_power_off();
+
+	/* If board can't power-off, spin forever */
 	au1000_halt();
 }

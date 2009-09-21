@@ -16,7 +16,7 @@
 int atm_charge(struct atm_vcc *vcc,int truesize)
 {
 	atm_force_charge(vcc,truesize);
-	if (atomic_read(&vcc->rx_inuse) <= vcc->sk->rcvbuf) return 1;
+	if (atomic_read(&vcc->sk->rmem_alloc) <= vcc->sk->rcvbuf) return 1;
 	atm_return(vcc,truesize);
 	atomic_inc(&vcc->stats->rx_drop);
 	return 0;
@@ -29,11 +29,11 @@ struct sk_buff *atm_alloc_charge(struct atm_vcc *vcc,int pdu_size,
 	int guess = atm_guess_pdu2truesize(pdu_size);
 
 	atm_force_charge(vcc,guess);
-	if (atomic_read(&vcc->rx_inuse) <= vcc->sk->rcvbuf) {
+	if (atomic_read(&vcc->sk->rmem_alloc) <= vcc->sk->rcvbuf) {
 		struct sk_buff *skb = alloc_skb(pdu_size,gfp_flags);
 
 		if (skb) {
-			atomic_add(skb->truesize-guess,&vcc->rx_inuse);
+			atomic_add(skb->truesize-guess,&vcc->sk->rmem_alloc);
 			return skb;
 		}
 	}
@@ -45,15 +45,20 @@ struct sk_buff *atm_alloc_charge(struct atm_vcc *vcc,int pdu_size,
 
 static int check_ci(struct atm_vcc *vcc,short vpi,int vci)
 {
+	struct sock *s;
 	struct atm_vcc *walk;
 
-	for (walk = vcc->dev->vccs; walk; walk = walk->next)
+	for (s = vcc_sklist; s; s = s->next) {
+		walk = s->protinfo.af_atm;
+		if (walk->dev != vcc->dev)
+			continue;
 		if (test_bit(ATM_VF_ADDR,&walk->flags) && walk->vpi == vpi &&
 		    walk->vci == vci && ((walk->qos.txtp.traffic_class !=
 		    ATM_NONE && vcc->qos.txtp.traffic_class != ATM_NONE) ||
 		    (walk->qos.rxtp.traffic_class != ATM_NONE &&
 		    vcc->qos.rxtp.traffic_class != ATM_NONE)))
 			return -EADDRINUSE;
+	}
 		/* allow VCCs with same VPI/VCI iff they don't collide on
 		   TX/RX (but we may refuse such sharing for other reasons,
 		   e.g. if protocol requires to have both channels) */
@@ -67,9 +72,14 @@ int atm_find_ci(struct atm_vcc *vcc,short *vpi,int *vci)
 	static int c = 0;
 	short old_p;
 	int old_c;
+	int err;
 
-	if (*vpi != ATM_VPI_ANY && *vci != ATM_VCI_ANY)
-		return check_ci(vcc,*vpi,*vci);
+	read_lock(&vcc_sklist_lock);
+	if (*vpi != ATM_VPI_ANY && *vci != ATM_VCI_ANY) {
+		err = check_ci(vcc,*vpi,*vci);
+		read_unlock(&vcc_sklist_lock);
+		return err;
+	}
 	/* last scan may have left values out of bounds for current device */
 	if (*vpi != ATM_VPI_ANY) p = *vpi;
 	else if (p >= 1 << vcc->dev->ci_range.vpi_bits) p = 0;
@@ -82,6 +92,7 @@ int atm_find_ci(struct atm_vcc *vcc,short *vpi,int *vci)
 		if (!check_ci(vcc,p,c)) {
 			*vpi = p;
 			*vci = c;
+			read_unlock(&vcc_sklist_lock);
 			return 0;
 		}
 		if (*vci == ATM_VCI_ANY) {
@@ -96,6 +107,7 @@ int atm_find_ci(struct atm_vcc *vcc,short *vpi,int *vci)
 		}
 	}
 	while (old_p != p || old_c != c);
+	read_unlock(&vcc_sklist_lock);
 	return -EADDRINUSE;
 }
 

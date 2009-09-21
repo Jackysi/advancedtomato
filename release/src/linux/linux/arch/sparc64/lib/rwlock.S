@@ -1,4 +1,4 @@
-/* $Id: rwlock.S,v 1.1.1.4 2003/10/14 08:07:51 sparq Exp $
+/* $Id: rwlock.S,v 1.4 2000/09/09 00:00:34 davem Exp $
  * rwlocks.S: These things are too big to do inline.
  *
  * Copyright (C) 1999 David S. Miller (davem@redhat.com)
@@ -24,12 +24,13 @@ __read_lock: /* %o0 = lock_ptr */
 99:	retl
 	 nop
 __read_unlock: /* %o0 = lock_ptr */
+	membar		#StoreLoad | #LoadLoad
 	lduw		[%o0], %g5
 	sub		%g5, 1, %g7
 	cas		[%o0], %g5, %g7
 	cmp		%g5, %g7
 	be,pt		%xcc, 99b
-	 membar		#StoreLoad | #StoreStore
+	 nop
 	ba,a,pt		%xcc, __read_unlock
 
 __read_wait_for_writer:

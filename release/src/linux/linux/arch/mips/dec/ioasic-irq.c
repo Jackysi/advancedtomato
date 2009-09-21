@@ -3,7 +3,7 @@
  *
  *	DEC I/O ASIC interrupts.
  *
- *	Copyright (c) 2002  Maciej W. Rozycki
+ *	Copyright (c) 2002, 2003  Maciej W. Rozycki
  *
  *	This program is free software; you can redistribute it and/or
  *	modify it under the terms of the GNU General Public License
@@ -30,18 +30,18 @@ static inline void unmask_ioasic_irq(unsigned int irq)
 {
 	u32 simr;
 
-	simr = ioasic_read(SIMR);
+	simr = ioasic_read(IO_REG_SIMR);
 	simr |= (1 << (irq - ioasic_irq_base));
-	ioasic_write(SIMR, simr);
+	ioasic_write(IO_REG_SIMR, simr);
 }
 
 static inline void mask_ioasic_irq(unsigned int irq)
 {
 	u32 simr;
 
-	simr = ioasic_read(SIMR);
+	simr = ioasic_read(IO_REG_SIMR);
 	simr &= ~(1 << (irq - ioasic_irq_base));
-	ioasic_write(SIMR, simr);
+	ioasic_write(IO_REG_SIMR, simr);
 }
 
 static inline void clear_ioasic_irq(unsigned int irq)
@@ -49,7 +49,7 @@ static inline void clear_ioasic_irq(unsigned int irq)
 	u32 sir;
 
 	sir = ~(1 << (irq - ioasic_irq_base));
-	ioasic_write(SIR, sir);
+	ioasic_write(IO_REG_SIR, sir);
 }
 
 static inline void enable_ioasic_irq(unsigned int irq)
@@ -93,17 +93,14 @@ static inline void end_ioasic_irq(unsigned int irq)
 		enable_ioasic_irq(irq);
 }
 
-#define set_ioasic_affinity NULL
-
 static struct hw_interrupt_type ioasic_irq_type = {
-	"IO-ASIC",
-	startup_ioasic_irq,
-	shutdown_ioasic_irq,
-	enable_ioasic_irq,
-	disable_ioasic_irq,
-	ack_ioasic_irq,
-	end_ioasic_irq,
-	set_ioasic_affinity,
+	.typename = "IO-ASIC",
+	.startup = startup_ioasic_irq,
+	.shutdown = shutdown_ioasic_irq,
+	.enable = enable_ioasic_irq,
+	.disable = disable_ioasic_irq,
+	.ack = ack_ioasic_irq,
+	.end = end_ioasic_irq,
 };
 
 
@@ -124,17 +121,14 @@ static inline void end_ioasic_dma_irq(unsigned int irq)
 	end_ioasic_irq(irq);
 }
 
-#define set_ioasic_dma_affinity set_ioasic_affinity
-
 static struct hw_interrupt_type ioasic_dma_irq_type = {
-	"IO-ASIC-DMA",
-	startup_ioasic_dma_irq,
-	shutdown_ioasic_dma_irq,
-	enable_ioasic_dma_irq,
-	disable_ioasic_dma_irq,
-	ack_ioasic_dma_irq,
-	end_ioasic_dma_irq,
-	set_ioasic_dma_affinity,
+	.typename = "IO-ASIC-DMA",
+	.startup = startup_ioasic_dma_irq,
+	.shutdown = shutdown_ioasic_dma_irq,
+	.enable = enable_ioasic_dma_irq,
+	.disable = disable_ioasic_dma_irq,
+	.ack = ack_ioasic_dma_irq,
+	.end = end_ioasic_dma_irq,
 };
 
 
@@ -143,7 +137,7 @@ void __init init_ioasic_irqs(int base)
 	int i;
 
 	/* Mask interrupts. */
-	ioasic_write(SIMR, 0);
+	ioasic_write(IO_REG_SIMR, 0);
 	fast_iob();
 
 	for (i = base; i < base + IO_INR_DMA; i++) {

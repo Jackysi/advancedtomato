@@ -73,9 +73,14 @@ int DRM(agp_acquire)(struct inode *inode, struct file *filp,
 	drm_device_t	 *dev	 = priv->dev;
 	int              retcode;
 
-	if (!dev->agp || dev->agp->acquired || !drm_agp->acquire)
+	if (!dev->agp)
+		return -ENODEV;
+	if (dev->agp->acquired)
+		return -EBUSY;
+	if(!drm_agp->acquire)
 		return -EINVAL;
-	if ((retcode = drm_agp->acquire())) return retcode;
+	if ((retcode = drm_agp->acquire()))
+		return retcode;
 	dev->agp->acquired = 1;
 	return 0;
 }
@@ -259,63 +264,13 @@ drm_agp_head_t *DRM(agp_init)(void)
 			return NULL;
 		}
 		head->memory = NULL;
-		switch (head->agp_info.chipset) {
-		case INTEL_GENERIC:	head->chipset = "Intel";         break;
-		case INTEL_LX:		head->chipset = "Intel 440LX";   break;
-		case INTEL_BX:		head->chipset = "Intel 440BX";   break;
-		case INTEL_GX:		head->chipset = "Intel 440GX";   break;
-		case INTEL_I810:	head->chipset = "Intel i810";    break;
-		case INTEL_I815:	head->chipset = "Intel i815";	 break;
-	 	case INTEL_I820:	head->chipset = "Intel i820";	 break;
-		case INTEL_I840:	head->chipset = "Intel i840";    break;
-		case INTEL_I845:	head->chipset = "Intel i845";    break;
-		case INTEL_I850:	head->chipset = "Intel i850";	 break;
-
-		case VIA_GENERIC:	head->chipset = "VIA";           break;
-		case VIA_VP3:		head->chipset = "VIA VP3";       break;
-		case VIA_MVP3:		head->chipset = "VIA MVP3";      break;
-		case VIA_MVP4:		head->chipset = "VIA MVP4";      break;
-		case VIA_APOLLO_KX133:	head->chipset = "VIA Apollo KX133";
-			break;
-		case VIA_APOLLO_KT133:	head->chipset = "VIA Apollo KT133";
-			break;
-		case VIA_APOLLO_PRO: 	head->chipset = "VIA Apollo Pro";
-			break;
-
-		case SIS_GENERIC:	head->chipset = "SiS";           break;
-		case AMD_GENERIC:	head->chipset = "AMD";           break;
-		case AMD_IRONGATE:	head->chipset = "AMD Irongate";  break;
-		case AMD_8151:		head->chipset = "AMD 8151";      break;
-		case ALI_GENERIC:	head->chipset = "ALi";           break;
-		case ALI_M1541: 	head->chipset = "ALi M1541";     break;
-
-		case ALI_M1621: 	head->chipset = "ALi M1621";	 break;
-		case ALI_M1631: 	head->chipset = "ALi M1631";	 break;
-		case ALI_M1632: 	head->chipset = "ALi M1632";	 break;
-		case ALI_M1641: 	head->chipset = "ALi M1641";	 break;
-		case ALI_M1644: 	head->chipset = "ALi M1644";	 break;
-		case ALI_M1647: 	head->chipset = "ALi M1647";	 break;
-		case ALI_M1651: 	head->chipset = "ALi M1651";	 break;
-
-		case SVWRKS_HE: 	head->chipset = "Serverworks HE";
-			break;
-		case SVWRKS_LE: 	head->chipset = "Serverworks LE";
-			break;
-		case SVWRKS_GENERIC: 	head->chipset = "Serverworks Generic";
-			break;
-
-		case HP_ZX1:		head->chipset = "HP ZX1";	 break;
-
-		default:		head->chipset = "Unknown";       break;
-		}
 
 		head->cant_use_aperture = head->agp_info.cant_use_aperture;
 		head->page_mask = head->agp_info.page_mask;
 
-		DRM_INFO("AGP %d.%d on %s @ 0x%08lx %ZuMB\n",
+		DRM_INFO("AGP %d.%d Aperture @ 0x%08lx %ZuMB\n",
 			 head->agp_info.version.major,
 			 head->agp_info.version.minor,
-			 head->chipset,
 			 head->agp_info.aper_base,
 			 head->agp_info.aper_size);
 	}

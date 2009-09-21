@@ -18,6 +18,8 @@
 #include <linux/proc_fs.h>
 #include <linux/init.h>
 #include <linux/crc32.h>
+#include <linux/ethtool.h>
+#include <asm/uaccess.h>
 #include <asm/prom.h>
 #include <asm/dbdma.h>
 #include <asm/io.h>
@@ -67,7 +69,6 @@ struct bmac_data {
 	volatile struct dbdma_cmd *tx_cmds;	/* xmit dma command list */
 	volatile struct dbdma_cmd *rx_cmds;	/* recv dma command list */
 	struct device_node *node;
-	int is_bmac_plus;
 	struct sk_buff *rx_bufs[N_RX_RING];
 	int rx_fill;
 	int rx_empty;
@@ -80,6 +81,8 @@ struct bmac_data {
 	int timeout_active;
 	int sleeping;
 	int opened;
+	int is_bmac_plus;
+	u32 device_id;
 	unsigned short hash_use_count[64];
 	unsigned short hash_table_mask[4];
 	struct net_device *next_bmac;
@@ -153,6 +156,7 @@ static int bmac_close(struct net_device *dev);
 static int bmac_transmit_packet(struct sk_buff *skb, struct net_device *dev);
 static struct net_device_stats *bmac_stats(struct net_device *dev);
 static void bmac_set_multicast(struct net_device *dev);
+static int bmac_do_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd);
 static void bmac_reset_and_enable(struct net_device *dev);
 static void bmac_start_chip(struct net_device *dev);
 static void bmac_init_chip(struct net_device *dev);
@@ -394,6 +398,19 @@ bmac_init_registers(struct net_device *dev)
 	return;
 }
 
+#if 0
+static void
+bmac_disable_interrupts(struct net_device *dev)
+{
+	bmwrite(dev, INTDISABLE, DisableAll);
+}
+
+static void
+bmac_enable_interrupts(struct net_device *dev)
+{
+	bmwrite(dev, INTDISABLE, EnableNormal);
+}
+#endif
 
 
 static void
@@ -962,6 +979,29 @@ bmac_update_hash_table_mask(struct net_device *dev, struct bmac_data *bp)
 	bmwrite(dev, BHASH0, bp->hash_table_mask[3]); /* bits 63 - 48 */
 }
 
+#if 0
+static void
+bmac_add_multi(struct net_device *dev,
+	       struct bmac_data *bp, unsigned char *addr)
+{
+	/* XXDEBUG(("bmac: enter bmac_add_multi\n")); */
+	bmac_addhash(bp, addr);
+	bmac_rx_off(dev);
+	bmac_update_hash_table_mask(dev, bp);
+	bmac_rx_on(dev, 1, (dev->flags & IFF_PROMISC)? 1 : 0);
+	/* XXDEBUG(("bmac: exit bmac_add_multi\n")); */
+}
+
+static void
+bmac_remove_multi(struct net_device *dev,
+		  struct bmac_data *bp, unsigned char *addr)
+{
+	bmac_removehash(bp, addr);
+	bmac_rx_off(dev);
+	bmac_update_hash_table_mask(dev, bp);
+	bmac_rx_on(dev, 1, (dev->flags & IFF_PROMISC)? 1 : 0);
+}
+#endif
 
 /* Set or clear the multicast filter for this adaptor.
     num_addrs == -1	Promiscuous mode, receive all packets
@@ -1017,7 +1057,7 @@ static void bmac_set_multicast(struct net_device *dev)
 {
 	struct dev_mc_list *dmi = dev->mc_list;
 	char *addrs;
-	int i, j, bit, byte;
+	int i;
 	unsigned short rx_cfg;
 	u32 crc;
 
@@ -1153,7 +1193,7 @@ static unsigned short
 read_srom(struct net_device *dev, unsigned int addr, unsigned int addr_len)
 {
 	unsigned short data, val;
-	int i;
+	unsigned int i;
 
 	/* send out the address we want to read from */
 	for (i = 0; i < addr_len; i++)	{
@@ -1267,6 +1307,7 @@ static void __init bmac_probe1(struct device_node *bmac, int is_bmac_plus)
 	struct bmac_data *bp;
 	unsigned char *addr;
 	struct net_device *dev;
+	u32 *deviceid;
 
 	if (bmac->n_addrs != 3 || bmac->n_intrs != 3) {
 		printk(KERN_ERR "can't use BMAC %s: need 3 addrs and 3 intrs\n",
@@ -1320,6 +1361,10 @@ static void __init bmac_probe1(struct device_node *bmac, int is_bmac_plus)
 		goto err_out;
 	dev->irq = bmac->intrs[0].line;
 
+	deviceid = (u32 *)get_property(bmac, "device-id", NULL);
+	if (deviceid)
+		bp->device_id = *deviceid;
+
 	bmac_enable_and_reset_chip(dev);
 	bmwrite(dev, INTDISABLE, DisableAll);
 
@@ -1342,6 +1387,7 @@ static void __init bmac_probe1(struct device_node *bmac, int is_bmac_plus)
 	dev->get_stats = bmac_stats;
 	dev->set_multicast_list = bmac_set_multicast;
 	dev->set_mac_address = bmac_set_address;
+	dev->do_ioctl = bmac_do_ioctl;
 
 	bmac_get_station_address(dev, addr);
 	if (bmac_verify_checksum(dev) != 0)
@@ -1365,9 +1411,7 @@ static void __init bmac_probe1(struct device_node *bmac, int is_bmac_plus)
 	bp->queue = (struct sk_buff_head *)(bp->rx_cmds + N_RX_RING + 1);
 	skb_queue_head_init(bp->queue);
 
-	memset((char *) bp->tx_cmds, 0,
-	       (N_TX_RING + N_RX_RING + 2) * sizeof(struct dbdma_cmd));
-	/*     init_timer(&bp->tx_timeout); */
+	init_timer(&bp->tx_timeout);
 	/*     bp->timeout_active = 0; */
 
 	ret = request_irq(dev->irq, bmac_misc_intr, 0, "BMAC-misc", dev);
@@ -1415,6 +1459,56 @@ err_out:
 	}
 	unregister_netdev(dev);
 	kfree(dev);
+}
+
+static int bmac_ethtool_ioctl(struct net_device *dev, void *useraddr)
+{
+	struct bmac_data *bp = (struct bmac_data *) dev->priv;
+	u32 ethcmd;
+
+	if (get_user(ethcmd, (u32 *)useraddr))
+		return -EFAULT;
+
+	switch (ethcmd) {
+	case ETHTOOL_GDRVINFO: {
+		struct ethtool_drvinfo info = { ETHTOOL_GDRVINFO };
+		strcpy (info.driver, "bmac");
+		info.version[0] = '\0';
+		snprintf(info.fw_version, 31, "chip id %x", bp->device_id);
+		if (copy_to_user (useraddr, &info, sizeof (info)))
+			return -EFAULT;
+		return 0;
+	}
+
+	case ETHTOOL_GSET:
+	case ETHTOOL_SSET:
+	case ETHTOOL_NWAY_RST:
+	case ETHTOOL_GLINK:
+	case ETHTOOL_GMSGLVL:
+	case ETHTOOL_SMSGLVL:
+	default:
+		;
+	}
+
+	return -EOPNOTSUPP;
+}
+
+static int bmac_do_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
+{
+	switch(cmd) {
+	case SIOCETHTOOL:
+		return bmac_ethtool_ioctl(dev, (void *) ifr->ifr_data);
+
+	case SIOCGMIIPHY:
+	case SIOCDEVPRIVATE:
+	case SIOCGMIIREG:
+	case SIOCDEVPRIVATE+1:
+	case SIOCSMIIREG:
+	case SIOCDEVPRIVATE+2:
+	default:
+		;
+	}
+	return -EOPNOTSUPP;
 }
 
 static int bmac_open(struct net_device *dev)
@@ -1583,6 +1677,23 @@ static void bmac_tx_timeout(unsigned long data)
 	restore_flags(flags);
 }
 
+#if 0
+static void dump_dbdma(volatile struct dbdma_cmd *cp,int count)
+{
+	int i,*ip;
+	
+	for (i=0;i< count;i++) {
+		ip = (int*)(cp+i);
+	
+		printk("dbdma req 0x%x addr 0x%x baddr 0x%x xfer/res 0x%x\n",
+		       ld_le32(ip+0),
+		       ld_le32(ip+1),
+		       ld_le32(ip+2),
+		       ld_le32(ip+3));
+	}
+
+}
+#endif
 
 static int
 bmac_proc_info(char *buffer, char **start, off_t offset, int length)

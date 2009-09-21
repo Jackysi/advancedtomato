@@ -502,6 +502,7 @@ static void cyber2000fb_set_timing(struct cfb_info *cfb, struct par_info *hw)
 	cyber2000_attrw(0x14, 0x00, cfb);
 
 	/* woody: set the interlaced bit... */
+	/* FIXME: what about doublescan? */
 	cyber2000fb_writeb(0x11, 0x3ce, cfb);
 	i = cyber2000fb_readb(0x3cf, cfb);
 	if (hw->vmode == FB_VMODE_INTERLACED)
@@ -1391,6 +1392,11 @@ static inline void cyberpro_init_hw(struct cfb_info *cfb, int at_boot)
 #endif
 
 	if (at_boot) {
+		/*
+		 * Use mclk from BIOS.  Only read this if we're
+		 * initialising this card for the first time.
+		 * FIXME: what about hotplug?
+		 */
 		cfb->mclk_mult = cyber2000_grphr(MCLK_MULT, cfb);
 		cfb->mclk_div  = cyber2000_grphr(MCLK_DIV, cfb);
 	}
@@ -1407,6 +1413,11 @@ static inline void cyberpro_init_hw(struct cfb_info *cfb, int at_boot)
 	outb(0x01, 0x3cf);
 
 	if (at_boot) {
+		/*
+		 * Use mclk from BIOS.  Only read this if we're
+		 * initialising this card for the first time.
+		 * FIXME: what about hotplug?
+		 */
 		cfb->mclk_mult = cyber2000_grphr(MCLK_MULT, cfb);
 		cfb->mclk_div  = cyber2000_grphr(MCLK_DIV, cfb);
 	}

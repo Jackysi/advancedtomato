@@ -23,8 +23,8 @@ define_bool CONFIG_ISA n
 define_bool CONFIG_EISA n
 define_bool CONFIG_MCA n
 define_bool CONFIG_SBUS n
-define_bool CONFIG_RWSEM_GENERIC_SPINLOCK y
-define_bool CONFIG_RWSEM_XCHGADD_ALGORITHM n
+define_bool CONFIG_RWSEM_GENERIC_SPINLOCK n
+define_bool CONFIG_RWSEM_XCHGADD_ALGORITHM y
 
 choice 'IA-64 processor type' \
 	"Itanium		CONFIG_ITANIUM \
@@ -33,10 +33,9 @@ choice 'IA-64 processor type' \
 choice 'IA-64 system type'					\
 	"generic		CONFIG_IA64_GENERIC		\
 	 DIG-compliant		CONFIG_IA64_DIG			\
-	 HP-simulator		CONFIG_IA64_HP_SIM		\
-	 HP-zx1			CONFIG_IA64_HP_ZX1		\
-	 SGI-SN1		CONFIG_IA64_SGI_SN1		\
-	 SGI-SN2		CONFIG_IA64_SGI_SN2" generic
+	 HP			CONFIG_IA64_HP_ZX1		\
+	 SGI-SN2		CONFIG_IA64_SGI_SN2		\
+	 Ski-simulator		CONFIG_IA64_HP_SIM" generic
 
 if [ "$CONFIG_ITANIUM" = "y" ]; then
   choice 'Kernel page size'						\
@@ -51,38 +50,31 @@ else
 	 64KB			CONFIG_IA64_PAGE_SIZE_64KB" 16KB
 fi
 
-bool 'Virtually mapped mem_map?' CONFIG_VIRTUAL_MEM_MAP n
-
 if [ "$CONFIG_ITANIUM" = "y" ]; then
 	define_bool CONFIG_IA64_BRL_EMU y
 	bool '  Enable Itanium B-step specific code' CONFIG_ITANIUM_BSTEP_SPECIFIC
-	if [ "$CONFIG_IA64_SGI_SN1" = "y" ]; then
-	  define_int CONFIG_IA64_L1_CACHE_SHIFT 7 # align cache-sensitive data to 128 bytes
-	else
-	  define_int CONFIG_IA64_L1_CACHE_SHIFT 6 # align cache-sensitive data to 64 bytes
-	fi
+	define_int CONFIG_IA64_L1_CACHE_SHIFT 6 # align cache-sensitive data to 64 bytes
 fi
 
 if [ "$CONFIG_MCKINLEY" = "y" ]; then
 	define_int CONFIG_IA64_L1_CACHE_SHIFT 7
-	bool '  Enable McKinley A-step specific code' CONFIG_MCKINLEY_ASTEP_SPECIFIC
-	if [ "$CONFIG_MCKINLEY_ASTEP_SPECIFIC" = "y" ]; then
-	  bool '   Enable McKinley A0/A1-step specific code' CONFIG_MCKINLEY_A0_SPECIFIC
-	fi
 fi
 
 if [ "$CONFIG_IA64_GENERIC" = "y" -o "$CONFIG_IA64_DIG" = "y" -o "$CONFIG_IA64_HP_ZX1" = "y" ]; then
+	bool '  Enable NUMA support' CONFIG_NUMA
+	if [ "$CONFIG_NUMA" = "y" ]; then
+	  define_bool CONFIG_DISCONTIGMEM y
+	fi
 	bool '  Enable IA-64 Machine Check Abort' CONFIG_IA64_MCA
 	define_bool CONFIG_PM y
 fi
 
-if [ "$CONFIG_IA64_SGI_SN1" = "y" -o "$CONFIG_IA64_SGI_SN2" = "y" ]; then
+if [ "$CONFIG_IA64_SGI_SN2" = "y" ]; then
 	define_bool CONFIG_IA64_SGI_SN y
 	bool '  Enable extra debugging code' CONFIG_IA64_SGI_SN_DEBUG
 	bool '  Enable SGI Medusa Simulator Support' CONFIG_IA64_SGI_SN_SIM
-	bool '  Enable autotest (llsc). Option to run cache test instead of booting' \
-			CONFIG_IA64_SGI_AUTOTEST
 	bool '  Enable protocol mode for the L1 console' CONFIG_SERIAL_SGI_L1_PROTOCOL
+	define_bool CONFIG_HWGFS_FS y
 	define_bool CONFIG_DISCONTIGMEM y
 	define_bool CONFIG_IA64_MCA y
 	define_bool CONFIG_NUMA y
@@ -92,8 +84,37 @@ fi
 
 define_bool CONFIG_KCORE_ELF y	# On IA-64, we always want an ELF /proc/kcore.
 
+define_int CONFIG_FORCE_MAX_ZONEORDER 19
+
+if [ "$CONFIG_HUGETLB_PAGE" = "y" ]; then
+	if [ "$CONFIG_MCKINLEY" = "y" ]; then
+		choice '    IA-64 Huge TLB Page Size'		\
+			"4GB	CONFIG_HUGETLB_PAGE_SIZE_4GB	\
+			 1GB	CONFIG_HUGETLB_PAGE_SIZE_1GB	\
+                         256MB	CONFIG_HUGETLB_PAGE_SIZE_256MB	\
+			 64MB	CONFIG_HUGETLB_PAGE_SIZE_64MB	\
+			 16MB	CONFIG_HUGETLB_PAGE_SIZE_16MB	\
+			 4MB	CONFIG_HUGETLB_PAGE_SIZE_4MB	\
+			 1MB	CONFIG_HUGETLB_PAGE_SIZE_1MB	\
+			 256KB	CONFIG_HUGETLB_PAGE_SIZE_256KB"	16MB
+	else
+		choice '    IA-64 Huge TLB Page Size'		\
+			"256MB	CONFIG_HUGETLB_PAGE_SIZE_256MB	\
+			 64MB	CONFIG_HUGETLB_PAGE_SIZE_64MB	\
+			 16MB	CONFIG_HUGETLB_PAGE_SIZE_16MB	\
+			 4MB	CONFIG_HUGETLB_PAGE_SIZE_4MB	\
+			 1MB	CONFIG_HUGETLB_PAGE_SIZE_1MB	\
+			 256KB	CONFIG_HUGETLB_PAGE_SIZE_256KB"	16MB
+	fi
+fi
+
+bool 'Use PAL_HALT_LIGHT in idle loop' CONFIG_IA64_PAL_IDLE
 bool 'SMP support' CONFIG_SMP
-tristate 'Support running of Linux/x86 binaries' CONFIG_IA32_SUPPORT
+if [ "$CONFIG_SMP" = "y" ]; then
+   int  'Maximum number of CPUs (2-32)' CONFIG_NR_CPUS 32
+fi
+
+bool 'Support running of Linux/x86 binaries' CONFIG_IA32_SUPPORT
 bool 'Performance monitor support' CONFIG_PERFMON
 tristate '/proc/pal support' CONFIG_IA64_PALINFO
 tristate '/proc/efi/vars support' CONFIG_EFI_VARS
@@ -102,7 +123,7 @@ bool 'Networking support' CONFIG_NET
 bool 'System V IPC' CONFIG_SYSVIPC
 bool 'BSD Process Accounting' CONFIG_BSD_PROCESS_ACCT
 bool 'Sysctl support' CONFIG_SYSCTL
-tristate 'Kernel support for ELF binaries' CONFIG_BINFMT_ELF
+bool 'Kernel support for ELF binaries' CONFIG_BINFMT_ELF
 tristate 'Kernel support for MISC binaries' CONFIG_BINFMT_MISC
 
 if [ "$CONFIG_IA64_HP_SIM" = "n" ]; then
@@ -150,7 +171,6 @@ if [ "$CONFIG_IA64_HP_SIM" = "n" ]; then
   if [ "$CONFIG_IDE" != "n" ]; then
     source drivers/ide/Config.in
   else
-    define_bool CONFIG_BLK_DEV_IDE_MODES n
     define_bool CONFIG_BLK_DEV_HD n
   fi
   endmenu
@@ -185,6 +205,9 @@ if [ "$CONFIG_IA64_HP_SIM" = "n" ]; then
     bool 'Network device support' CONFIG_NETDEVICES
     if [ "$CONFIG_NETDEVICES" = "y" ]; then
       source drivers/net/Config.in
+      if [ "$CONFIG_ATM" = "y" -o "$CONFIG_ATM" = "m" ]; then
+         source drivers/atm/Config.in
+      fi
     fi
     endmenu
   fi
@@ -245,6 +268,7 @@ if [ "$CONFIG_IA64_HP_SIM" = "n" ]; then
 
   source drivers/usb/Config.in
 
+  source crypto/Config.in
   source lib/Config.in
 
   if [ "$CONFIG_EXPERIMENTAL" = "y" ]; then
@@ -256,10 +280,10 @@ if [ "$CONFIG_IA64_HP_SIM" != "n" -o "$CONFIG_IA64_GENERIC" != "n" ]; then
   mainmenu_option next_comment
   comment 'Simulated drivers'
 
-  bool 'Simulated Ethernet ' CONFIG_SIMETH
-  bool 'Simulated serial driver support' CONFIG_SIM_SERIAL
+  bool 'Simulated Ethernet ' CONFIG_HP_SIMETH
+  bool 'Simulated serial driver support' CONFIG_HP_SIMSERIAL
   if [ "$CONFIG_SCSI" != "n" ]; then
-    bool 'Simulated SCSI disk' CONFIG_SCSI_SIM
+    bool 'Simulated SCSI disk' CONFIG_HP_SIMSCSI
   fi
   endmenu
 fi
@@ -292,11 +316,6 @@ if [ "$CONFIG_DEBUG_KERNEL" != "n" ]; then
    bool '  Turn on irq debug checks (slow!)' CONFIG_IA64_DEBUG_IRQ
 fi
 
-tristate 'Kernel Profiling Support' CONFIG_KERNPROF
-bool 'Instrument kernel at entry to all C functions' CONFIG_MCOUNT
-if [ "$CONFIG_MCOUNT" != "n" ]; then
-    define_bool CONFIG_KERNPROF y
-    bool '  Limit recursion in entry profiling' CONFIG_LIMIT_RECURS
-fi
+int 'Kernel messages buffer length shift (0 = default)' CONFIG_LOG_BUF_SHIFT 0
 
 endmenu

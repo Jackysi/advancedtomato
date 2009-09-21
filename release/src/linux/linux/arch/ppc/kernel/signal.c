@@ -1,10 +1,7 @@
 /*
- * BK Id: %F% %I% %G% %U% %#%
- */
-/*
  *  linux/arch/ppc/kernel/signal.c
  *
- *  PowerPC version 
+ *  PowerPC version
  *    Copyright (C) 1995-1996 Gary Thomas (gdt@linuxppc.org)
  *
  *  Derived from "arch/i386/kernel/signal.c"
@@ -43,17 +40,7 @@
 
 #define GP_REGS_SIZE	MIN(sizeof(elf_gregset_t), sizeof(struct pt_regs))
 
-/* 
- * These are the flags in the MSR that the user is allowed to change
- * by modifying the saved value of the MSR on the stack.  SE and BE
- * should not be in this list since gdb may want to change these.  I.e,
- * you should be able to step out of a signal handler to see what
- * instruction executes next after the signal handler completes.
- * Alternately, if you stepped into a signal handler, you should be
- * able to continue 'til the next breakpoint from within the signal
- * handler, even if the handler returns.
- */
-#define MSR_USERCHANGE	(MSR_FE0 | MSR_FE1)
+extern void syscall_direct_return(struct pt_regs *regs);
 
 int do_signal(sigset_t *oldset, struct pt_regs *regs);
 
@@ -120,7 +107,7 @@ sys_sigsuspend(old_sigset_t mask, int p2, int p3, int p4, int p6, int p7,
 			 * do_signal() has set R3 to the signal number (the
 			 * first argument of the signal handler), so don't
 			 * overwrite that with EINTR !
-			 * In the other cases, do_signal() doesn't touch 
+			 * In the other cases, do_signal() doesn't touch
 			 * R3, so it's still set to -EINTR (see above).
 			 */
 			return regs->gpr[3];
@@ -133,6 +120,7 @@ sys_rt_sigsuspend(sigset_t *unewset, size_t sigsetsize, int p3, int p4, int p6,
 {
 	sigset_t saveset, newset;
 
+	/* XXX: Don't preclude handling different sized sigset_t's.  */
 	if (sigsetsize != sizeof(sigset_t))
 		return -EINVAL;
 
@@ -159,13 +147,13 @@ sys_rt_sigsuspend(sigset_t *unewset, size_t sigsetsize, int p3, int p4, int p6,
 
 
 int
-sys_sigaltstack(const stack_t *uss, stack_t *uoss)
+sys_sigaltstack(const stack_t *uss, stack_t *uoss, int r5, int r6,
+		int r7, int r8, struct pt_regs *regs)
 {
-	struct pt_regs *regs = (struct pt_regs *) &uss;
 	return do_sigaltstack(uss, uoss, regs->gpr[1]);
 }
 
-int 
+int
 sys_sigaction(int sig, const struct old_sigaction *act,
 	      struct old_sigaction *oact)
 {
@@ -201,271 +189,298 @@ sys_sigaction(int sig, const struct old_sigaction *act,
  * When we have signals to deliver, we set up on the
  * user stack, going down from the original stack pointer:
  *	a sigregs struct
- *	one or more sigcontext structs with
+ *	a sigcontext struct
  *	a gap of __SIGNAL_FRAMESIZE bytes
  *
  * Each of these things must be a multiple of 16 bytes in size.
  *
  */
 struct sigregs {
-	elf_gregset_t	gp_regs;
-	double		fp_regs[ELF_NFPREG];
-	unsigned long	tramp[2];
+	struct mcontext	mctx;		/* all the register values */
 	/* Programs using the rs6000/xcoff abi can save up to 19 gp regs
 	   and 18 fp regs below sp before decrementing it. */
 	int		abigap[56];
 };
 
-struct rt_sigframe
-{
-	unsigned long	_unused[2];
-	struct siginfo *pinfo;
-	void *puc;
-	struct siginfo info;
-	struct ucontext uc;
-};
-
+/* We use the mc_pad field for the signal return trampoline. */
+#define tramp	mc_pad
 
 /*
  *  When we have rt signals to deliver, we set up on the
  *  user stack, going down from the original stack pointer:
- *	   a sigregs struct
- *	   one rt_sigframe struct (siginfo + ucontext)
- *	   a gap of __SIGNAL_FRAMESIZE bytes
+ *	one rt_sigframe struct (siginfo + ucontext + ABI gap)
+ *	a gap of __SIGNAL_FRAMESIZE+16 bytes
+ *  (the +16 is to get the siginfo and ucontext in the same
+ *  positions as in older kernels).
  *
  *  Each of these things must be a multiple of 16 bytes in size.
  *
  */
+struct rt_sigframe
+{
+	struct siginfo info;
+	struct ucontext uc;
+	/* Programs using the rs6000/xcoff abi can save up to 19 gp regs
+	   and 18 fp regs below sp before decrementing it. */
+	int		abigap[56];
+};
+
+/*
+ * Save the current user registers on the user stack.
+ * We only save the altivec registers if the process has used
+ * altivec instructions at some point.
+ */
+static int
+save_user_regs(struct pt_regs *regs, struct mcontext *frame, int sigret)
+{
+	/* save general and floating-point registers */
+	if (regs->msr & MSR_FP)
+		giveup_fpu(current);
+	if (__copy_to_user(&frame->mc_gregs, regs, GP_REGS_SIZE)
+	    || __copy_to_user(&frame->mc_fregs, current->thread.fpr,
+			      ELF_NFPREG * sizeof(double)))
+		return 1;
+
+	current->thread.fpscr = 0;	/* turn off all fp exceptions */
+
+#ifdef CONFIG_ALTIVEC
+	/* save altivec registers */
+	if (current->thread.used_vr) {
+		if (regs->msr & MSR_VEC)
+			giveup_altivec(current);
+		if (__copy_to_user(&frame->mc_vregs, current->thread.vr,
+				   ELF_NVRREG * sizeof(vector128)))
+			return 1;
+		/* set MSR_VEC in the saved MSR value to indicate that
+		   frame->mc_vregs contains valid data */
+		if (__put_user(regs->msr | MSR_VEC, &frame->mc_gregs[PT_MSR]))
+			return 1;
+	}
+	/* else assert((regs->msr & MSR_VEC) == 0) */
+
+	/* We always copy to/from vrsave, it's 0 if we don't have or don't
+	 * use altivec. Since VSCR only contains 32 bits saved in the least
+	 * significant bits of a vector, we "cheat" and stuff VRSAVE in the
+	 * most significant bits of that same vector. --BenH
+	 */
+	if (__put_user(current->thread.vrsave, (u32 *)&frame->mc_vregs[32]))
+		return 1;
+#endif /* CONFIG_ALTIVEC */
+
+	if (sigret) {
+		/* Set up the sigreturn trampoline: li r0,sigret; sc */
+		if (__put_user(0x38000000UL + sigret, &frame->tramp[0])
+		    || __put_user(0x44000002UL, &frame->tramp[1]))
+			return 1;
+		flush_icache_range((unsigned long) &frame->tramp[0],
+				   (unsigned long) &frame->tramp[2]);
+	}
+
+	return 0;
+}
+
+/*
+ * Restore the current user register values from the user stack,
+ * (except for MSR).
+ */
+static int
+restore_user_regs(struct pt_regs *regs, struct mcontext *sr)
+{
+#ifdef CONFIG_ALTIVEC
+	unsigned long msr;
+#endif
+
+	/* copy up to but not including MSR */
+	if (__copy_from_user(regs, &sr->mc_gregs, PT_MSR * sizeof(elf_greg_t)))
+		return 1;
+	/* copy from orig_r3 (the word after the MSR) up to the end */
+	if (__copy_from_user(&regs->orig_gpr3, &sr->mc_gregs[PT_ORIG_R3],
+			     GP_REGS_SIZE - PT_ORIG_R3 * sizeof(elf_greg_t)))
+		return 1;
+
+	/* force the process to reload the FP registers from
+	   current->thread when it next does FP instructions */
+	regs->msr &= ~MSR_FP;
+	if (__copy_from_user(current->thread.fpr, &sr->mc_fregs,
+			     sizeof(sr->mc_fregs)))
+		return 1;
+
+#ifdef CONFIG_ALTIVEC
+	/* force the process to reload the altivec registers from
+	   current->thread when it next does altivec instructions */
+	regs->msr &= ~MSR_VEC;
+	if (!__get_user(msr, &sr->mc_gregs[PT_MSR]) && (msr & MSR_VEC) != 0) {
+		/* restore altivec registers from the stack */
+		if (__copy_from_user(current->thread.vr, &sr->mc_vregs,
+				     sizeof(sr->mc_vregs)))
+			return 1;
+	} else if (current->thread.used_vr)
+		memset(&current->thread.vr, 0, ELF_NVRREG * sizeof(vector128));
+
+	/* Always get VRSAVE back */
+	if (__get_user(current->thread.vrsave, (u32 *)&sr->mc_vregs[32]))
+		return 1;
+#endif /* CONFIG_ALTIVEC */
+
+	return 0;
+}
+
+/*
+ * Restore the user process's signal mask
+ */
+static void
+restore_sigmask(sigset_t *set)
+{
+	sigdelsetmask(set, ~_BLOCKABLE);
+	spin_lock_irq(&current->sigmask_lock);
+	current->blocked = *set;
+	recalc_sigpending(current);
+	spin_unlock_irq(&current->sigmask_lock);
+}
+
+/*
+ * Set up a signal frame for a "real-time" signal handler
+ * (one which gets siginfo).
+ */
+static void
+handle_rt_signal(unsigned long sig, struct k_sigaction *ka,
+		 siginfo_t *info, sigset_t *oldset, struct pt_regs * regs,
+		 unsigned long newsp)
+{
+	struct rt_sigframe *rt_sf;
+	struct mcontext *frame;
+	unsigned long origsp = newsp;
+
+	/* Set up Signal Frame */
+	/* Put a Real Time Context onto stack */
+	newsp -= sizeof(*rt_sf);
+	rt_sf = (struct rt_sigframe *) newsp;
+
+	/* create a stack frame for the caller of the handler */
+	newsp -= __SIGNAL_FRAMESIZE + 16;
+
+	if (verify_area(VERIFY_WRITE, (void *) newsp, origsp - newsp))
+		goto badframe;
+
+	/* Put the siginfo & fill in most of the ucontext */
+	if (__copy_to_user(&rt_sf->info, info, sizeof(*info))
+	    || __put_user(0, &rt_sf->uc.uc_flags)
+	    || __put_user(0, &rt_sf->uc.uc_link)
+	    || __put_user(current->sas_ss_sp, &rt_sf->uc.uc_stack.ss_sp)
+	    || __put_user(sas_ss_flags(regs->gpr[1]), 
+			  &rt_sf->uc.uc_stack.ss_flags)
+	    || __put_user(current->sas_ss_size, &rt_sf->uc.uc_stack.ss_size)
+	    || __put_user(&rt_sf->uc.uc_mcontext, &rt_sf->uc.uc_regs)
+	    || __copy_to_user(&rt_sf->uc.uc_sigmask, oldset, sizeof(*oldset)))
+		goto badframe;
+
+	/* Save user registers on the stack */
+	frame = &rt_sf->uc.uc_mcontext;
+	if (save_user_regs(regs, frame, 0x6666))
+		goto badframe;
+
+	if (put_user(regs->gpr[1], (unsigned long *)newsp))
+		goto badframe;
+	regs->gpr[1] = newsp;
+	regs->gpr[3] = sig;
+	regs->gpr[4] = (unsigned long) &rt_sf->info;
+	regs->gpr[5] = (unsigned long) &rt_sf->uc;
+	regs->gpr[6] = (unsigned long) rt_sf;
+	regs->nip = (unsigned long) ka->sa.sa_handler;
+	regs->link = (unsigned long) frame->tramp;
+
+	return;
+
+badframe:
+#if DEBUG_SIG
+	printk("badframe in handle_rt_signal, regs=%p frame=%p newsp=%lx\n",
+	       regs, frame, newsp);
+#endif
+	if (sig == SIGSEGV)
+		ka->sa.sa_handler = SIG_DFL;
+	force_sig(SIGSEGV, current);
+}
+
+static int do_setcontext(struct ucontext *ucp, struct pt_regs *regs)
+{
+	sigset_t set;
+	struct mcontext *mcp;
+
+	if (__copy_from_user(&set, &ucp->uc_sigmask, sizeof(set))
+	    || __get_user(mcp, &ucp->uc_regs))
+		return -EFAULT;
+	restore_sigmask(&set);
+	if (restore_user_regs(regs, mcp))
+		return -EFAULT;
+
+	return 0;
+}
+
+int sys_swapcontext(struct ucontext *old_ctx, struct ucontext *new_ctx,
+		    int r5, int r6, int r7, int r8, struct pt_regs *regs)
+{
+	unsigned char tmp;
+
+	if (old_ctx != NULL) {
+		if (verify_area(VERIFY_WRITE, old_ctx, sizeof(*old_ctx))
+		    || save_user_regs(regs, &old_ctx->uc_mcontext, 0)
+		    || __copy_to_user(&old_ctx->uc_sigmask,
+				      &current->blocked, sizeof(sigset_t))
+		    || __put_user(&old_ctx->uc_mcontext, &old_ctx->uc_regs))
+			return -EFAULT;
+	}
+	if (new_ctx == NULL)
+		return 0;
+	if (verify_area(VERIFY_READ, new_ctx, sizeof(*new_ctx))
+	    || __get_user(tmp, (u8 *) new_ctx)
+	    || __get_user(tmp, (u8 *) (new_ctx + 1) - 1))
+		return -EFAULT;
+
+	/*
+	 * If we get a fault copying the context into the kernel's
+	 * image of the user's registers, we can't just return -EFAULT
+	 * because the user's registers will be corrupted.  For instance
+	 * the NIP value may have been updated but not some of the
+	 * other registers.  Given that we have done the verify_area
+	 * and successfully read the first and last bytes of the region
+	 * above, this should only happen in an out-of-memory situation
+	 * or if another thread unmaps the region containing the context.
+	 * We kill the task with a SIGSEGV in this situation.
+	 */
+	if (do_setcontext(new_ctx, regs))
+		do_exit(SIGSEGV);
+	syscall_direct_return(regs);
+	/* doesn't actually return back to here */
+	return 0;
+}
+
 int sys_rt_sigreturn(struct pt_regs *regs)
 {
 	struct rt_sigframe *rt_sf;
-	struct sigcontext_struct sigctx;
-	struct sigregs *sr;
-	int ret;
-	elf_gregset_t saved_regs;  /* an array of ELF_NGREG unsigned longs */
-	sigset_t set;
 	stack_t st;
-	unsigned long prevsp;
 
-	rt_sf = (struct rt_sigframe *)(regs->gpr[1] + __SIGNAL_FRAMESIZE);
-	if (copy_from_user(&sigctx, &rt_sf->uc.uc_mcontext, sizeof(sigctx))
-	    || copy_from_user(&set, &rt_sf->uc.uc_sigmask, sizeof(set))
-	    || copy_from_user(&st, &rt_sf->uc.uc_stack, sizeof(st)))
-		goto badframe;
-	sigdelsetmask(&set, ~_BLOCKABLE);
-	spin_lock_irq(&current->sigmask_lock);
-	current->blocked = set;
-	recalc_sigpending(current);
-	spin_unlock_irq(&current->sigmask_lock);
-	if (regs->msr & MSR_FP)
-		giveup_fpu(current);
+	rt_sf = (struct rt_sigframe *)(regs->gpr[1] + __SIGNAL_FRAMESIZE + 16);
+	if (verify_area(VERIFY_READ, rt_sf, sizeof(struct rt_sigframe)))
+		goto bad;
+	if (do_setcontext(&rt_sf->uc, regs))
+		goto bad;
 
-	rt_sf++;			/* Look at next rt_sigframe */
-	if (rt_sf == (struct rt_sigframe *)(sigctx.regs)) {
-		/* Last stacked signal - restore registers -
-		 * sigctx is initialized to point to the 
-		 * preamble frame (where registers are stored) 
-		 * see handle_signal()
-		 */
-		sr = (struct sigregs *) sigctx.regs;
-		if (copy_from_user(saved_regs, &sr->gp_regs,
-				   sizeof(sr->gp_regs)))
-			goto badframe;
-		saved_regs[PT_MSR] = (regs->msr & ~MSR_USERCHANGE)
-			| (saved_regs[PT_MSR] & MSR_USERCHANGE);
-		memcpy(regs, saved_regs, GP_REGS_SIZE);
-		if (copy_from_user(current->thread.fpr, &sr->fp_regs,
-				   sizeof(sr->fp_regs)))
-			goto badframe;
-		/* This function sets back the stack flags into
-		   the current task structure.  */
-		sys_sigaltstack(&st, NULL);
+	/*
+	 * It's not clear whether or why it is desirable to save the
+	 * sigaltstack setting on signal delivery and restore it on
+	 * signal return.  But other architectures do this and we have
+	 * always done it up until now so it is probably better not to
+	 * change it.  -- paulus
+	 */
+	if (__copy_from_user(&st, &rt_sf->uc.uc_stack, sizeof(st)))
+		goto bad;
+	do_sigaltstack(&st, NULL, regs->gpr[1]);
 
-		ret = regs->result;
-	} else {
-		/* More signals to go */
-		/* Set up registers for next signal handler */
-		regs->gpr[1] = (unsigned long)rt_sf - __SIGNAL_FRAMESIZE;
-		if (copy_from_user(&sigctx, &rt_sf->uc.uc_mcontext, sizeof(sigctx)))
-			goto badframe;
-		sr = (struct sigregs *) sigctx.regs;
-		regs->gpr[3] = ret = sigctx.signal;
-		/* Get the siginfo   */
-		get_user(regs->gpr[4], (unsigned long *)&rt_sf->pinfo);
-		/* Get the ucontext */
-		get_user(regs->gpr[5], (unsigned long *)&rt_sf->puc);
-		regs->gpr[6] = (unsigned long) rt_sf;
+	return regs->result;
 
-		regs->link = (unsigned long) &sr->tramp;
-		regs->nip = sigctx.handler;
-		if (get_user(prevsp, &sr->gp_regs[PT_R1])
-		    || put_user(prevsp, (unsigned long *) regs->gpr[1]))
-			goto badframe;
-		current->thread.fpscr = 0;
-	}
-	return ret;
-
-badframe:
-	do_exit(SIGSEGV);
-}
-
-static void
-setup_rt_frame(struct pt_regs *regs, struct sigregs *frame,
-	       signed long newsp)
-{
-	struct rt_sigframe *rt_sf = (struct rt_sigframe *) newsp;
-
-	/* Set up preamble frame */
-	if (verify_area(VERIFY_WRITE, frame, sizeof(*frame)))
-		goto badframe;
-	if (regs->msr & MSR_FP)
-		giveup_fpu(current);
-	if (__copy_to_user(&frame->gp_regs, regs, GP_REGS_SIZE)
-	    || __copy_to_user(&frame->fp_regs, current->thread.fpr,
-			      ELF_NFPREG * sizeof(double))
-	/* Set up to return from user space.
-	   It calls the sc exception at offset 0x9999 
-	   for sys_rt_sigreturn().
-	*/
-	    || __put_user(0x38006666UL, &frame->tramp[0])	/* li r0,0x6666 */
-	    || __put_user(0x44000002UL, &frame->tramp[1]))	/* sc */
-		goto badframe;
-	flush_icache_range((unsigned long) &frame->tramp[0],
-			   (unsigned long) &frame->tramp[2]);
-	current->thread.fpscr = 0;	/* turn off all fp exceptions */
-
-	/* Retrieve rt_sigframe from stack and
-	   set up registers for signal handler
-	*/
-	newsp -= __SIGNAL_FRAMESIZE;
-	if (put_user(regs->gpr[1], (unsigned long *)newsp)
-	    || get_user(regs->nip, &rt_sf->uc.uc_mcontext.handler)
-	    || get_user(regs->gpr[3], &rt_sf->uc.uc_mcontext.signal)
-	    || get_user(regs->gpr[4], (unsigned long *)&rt_sf->pinfo)
-	    || get_user(regs->gpr[5], (unsigned long *)&rt_sf->puc))
-		goto badframe;
-
-	regs->gpr[1] = newsp;
-	regs->gpr[6] = (unsigned long) rt_sf;
-	regs->link = (unsigned long) frame->tramp;
-
-	return;
-
-badframe:
-#if DEBUG_SIG
-	printk("badframe in setup_rt_frame, regs=%p frame=%p newsp=%lx\n",
-	       regs, frame, newsp);
-#endif
-	do_exit(SIGSEGV);
-}
-
-/*
- * Do a signal return; undo the signal stack.
- */
-int sys_sigreturn(struct pt_regs *regs)
-{
-	struct sigcontext_struct *sc, sigctx;
-	struct sigregs *sr;
-	int ret;
-	elf_gregset_t saved_regs;  /* an array of ELF_NGREG unsigned longs */
-	sigset_t set;
-	unsigned long prevsp;
-
-	sc = (struct sigcontext_struct *)(regs->gpr[1] + __SIGNAL_FRAMESIZE);
-	if (copy_from_user(&sigctx, sc, sizeof(sigctx)))
-		goto badframe;
-
-	set.sig[0] = sigctx.oldmask;
-#if _NSIG_WORDS > 1
-	set.sig[1] = sigctx._unused[3];
-#endif
-	sigdelsetmask(&set, ~_BLOCKABLE);
-	spin_lock_irq(&current->sigmask_lock);
-	current->blocked = set;
-	recalc_sigpending(current);
-	spin_unlock_irq(&current->sigmask_lock);
-	if (regs->msr & MSR_FP )
-		giveup_fpu(current);
-
-	sc++;			/* Look at next sigcontext */
-	if (sc == (struct sigcontext_struct *)(sigctx.regs)) {
-		/* Last stacked signal - restore registers */
-		sr = (struct sigregs *) sigctx.regs;
-		if (copy_from_user(saved_regs, &sr->gp_regs,
-				   sizeof(sr->gp_regs)))
-			goto badframe;
-		saved_regs[PT_MSR] = (regs->msr & ~MSR_USERCHANGE)
-			| (saved_regs[PT_MSR] & MSR_USERCHANGE);
-		memcpy(regs, saved_regs, GP_REGS_SIZE);
-
-		if (copy_from_user(current->thread.fpr, &sr->fp_regs,
-				   sizeof(sr->fp_regs)))
-			goto badframe;
-
-		ret = regs->result;
-
-	} else {
-		/* More signals to go */
-		regs->gpr[1] = (unsigned long)sc - __SIGNAL_FRAMESIZE;
-		if (copy_from_user(&sigctx, sc, sizeof(sigctx)))
-			goto badframe;
-		sr = (struct sigregs *) sigctx.regs;
-		regs->gpr[3] = ret = sigctx.signal;
-		regs->gpr[4] = (unsigned long) sc;
-		regs->link = (unsigned long) &sr->tramp;
-		regs->nip = sigctx.handler;
-
-		if (get_user(prevsp, &sr->gp_regs[PT_R1])
-		    || put_user(prevsp, (unsigned long *) regs->gpr[1]))
-			goto badframe;
-		current->thread.fpscr = 0;
-	}
-	return ret;
-
-badframe:
-	do_exit(SIGSEGV);
-}	
-
-/*
- * Set up a signal frame.
- */
-static void
-setup_frame(struct pt_regs *regs, struct sigregs *frame,
-	    unsigned long newsp)
-{
-	struct sigcontext_struct *sc = (struct sigcontext_struct *) newsp;
-
-	if (verify_area(VERIFY_WRITE, frame, sizeof(*frame)))
-		goto badframe;
-	if (regs->msr & MSR_FP)
-		giveup_fpu(current);
-	if (__copy_to_user(&frame->gp_regs, regs, GP_REGS_SIZE)
-	    || __copy_to_user(&frame->fp_regs, current->thread.fpr,
-			      ELF_NFPREG * sizeof(double))
-	    || __put_user(0x38007777UL, &frame->tramp[0])    /* li r0,0x7777 */
-	    || __put_user(0x44000002UL, &frame->tramp[1]))   /* sc */
-		goto badframe;
-	flush_icache_range((unsigned long) &frame->tramp[0],
-			   (unsigned long) &frame->tramp[2]);
-	current->thread.fpscr = 0;	/* turn off all fp exceptions */
-
-	newsp -= __SIGNAL_FRAMESIZE;
-	if (put_user(regs->gpr[1], (unsigned long *)newsp)
-	    || get_user(regs->nip, &sc->handler)
-	    || get_user(regs->gpr[3], &sc->signal))
-		goto badframe;
-	regs->gpr[1] = newsp;
-	regs->gpr[4] = (unsigned long) sc;
-	regs->link = (unsigned long) frame->tramp;
-
-	return;
-
-badframe:
-#if DEBUG_SIG
-	printk("badframe in setup_frame, regs=%p frame=%p newsp=%lx\n",
-	       regs, frame, newsp);
-#endif
-	do_exit(SIGSEGV);
+ bad:
+	force_sig(SIGSEGV, current);
+	return 0;
 }
 
 /*
@@ -474,105 +489,103 @@ badframe:
 static void
 handle_signal(unsigned long sig, struct k_sigaction *ka,
 	      siginfo_t *info, sigset_t *oldset, struct pt_regs * regs,
-	      unsigned long *newspp, unsigned long frame)
+	      unsigned long newsp)
 {
-	struct sigcontext_struct *sc;
-	struct rt_sigframe *rt_sf;
-
-	if (regs->trap == 0x0C00 /* System Call! */
-	    && ((int)regs->result == -ERESTARTNOHAND ||
-		((int)regs->result == -ERESTARTSYS &&
-		 !(ka->sa.sa_flags & SA_RESTART))))
-		regs->result = -EINTR;
+	struct sigcontext *sc;
+	struct sigregs *frame;
+	unsigned long origsp = newsp;
 
 	/* Set up Signal Frame */
-	if (ka->sa.sa_flags & SA_SIGINFO) {
-		/* Put a Real Time Context onto stack */
-		*newspp -= sizeof(*rt_sf);
-		rt_sf = (struct rt_sigframe *) *newspp;
-		if (verify_area(VERIFY_WRITE, rt_sf, sizeof(*rt_sf)))
-			goto badframe;
+	newsp -= sizeof(struct sigregs);
+	frame = (struct sigregs *) newsp;
 
-		if (__put_user((unsigned long) ka->sa.sa_handler, &rt_sf->uc.uc_mcontext.handler)
-		    || __put_user(&rt_sf->info, &rt_sf->pinfo)
-		    || __put_user(&rt_sf->uc, &rt_sf->puc)
-		    /* Put the siginfo */
-		    || __copy_to_user(&rt_sf->info, info, sizeof(*info))
-		    /* Create the ucontext */
-		    || __put_user(0, &rt_sf->uc.uc_flags)
-		    || __put_user(0, &rt_sf->uc.uc_link)
-		    || __put_user(current->sas_ss_sp, &rt_sf->uc.uc_stack.ss_sp)
-		    || __put_user(sas_ss_flags(regs->gpr[1]), 
-				  &rt_sf->uc.uc_stack.ss_flags)
-		    || __put_user(current->sas_ss_size, &rt_sf->uc.uc_stack.ss_size)
-		    || __copy_to_user(&rt_sf->uc.uc_sigmask, oldset, sizeof(*oldset))
-		    /* mcontext.regs points to preamble register frame */
-		    || __put_user((struct pt_regs *)frame, &rt_sf->uc.uc_mcontext.regs)
-		    || __put_user(sig, &rt_sf->uc.uc_mcontext.signal))
-			goto badframe;
-	} else {
-		/* Put another sigcontext on the stack */
-		*newspp -= sizeof(*sc);
-		sc = (struct sigcontext_struct *) *newspp;
-		if (verify_area(VERIFY_WRITE, sc, sizeof(*sc)))
-			goto badframe;
-		
-		if (__put_user((unsigned long) ka->sa.sa_handler, &sc->handler)
-		    || __put_user(oldset->sig[0], &sc->oldmask)
-#if _NSIG_WORDS > 1
-		    || __put_user(oldset->sig[1], &sc->_unused[3])
+	/* Put a sigcontext on the stack */
+	newsp -= sizeof(*sc);
+	sc = (struct sigcontext *) newsp;
+
+	/* create a stack frame for the caller of the handler */
+	newsp -= __SIGNAL_FRAMESIZE;
+
+	if (verify_area(VERIFY_WRITE, (void *) newsp, origsp - newsp))
+		goto badframe;
+
+#if _NSIG != 64
+#error "Please adjust handle_signal()"
 #endif
-		    || __put_user((struct pt_regs *)frame, &sc->regs)
-		    || __put_user(sig, &sc->signal))
-			goto badframe;
-	}
+	if (__put_user((unsigned long) ka->sa.sa_handler, &sc->handler)
+	    || __put_user(oldset->sig[0], &sc->oldmask)
+	    || __put_user(oldset->sig[1], &sc->_unused[3])
+	    || __put_user((struct pt_regs *)frame, &sc->regs)
+	    || __put_user(sig, &sc->signal))
+		goto badframe;
 
-	if (ka->sa.sa_flags & SA_ONESHOT)
-		ka->sa.sa_handler = SIG_DFL;
+	if (save_user_regs(regs, &frame->mctx, 0x7777))
+		goto badframe;
 
-	if (!(ka->sa.sa_flags & SA_NODEFER)) {
-		spin_lock_irq(&current->sigmask_lock);
-		sigorsets(&current->blocked,&current->blocked,&ka->sa.sa_mask);
-		sigaddset(&current->blocked,sig);
-		recalc_sigpending(current);
-		spin_unlock_irq(&current->sigmask_lock);
-	}
+	if (put_user(regs->gpr[1], (unsigned long *)newsp))
+		goto badframe;
+	regs->gpr[1] = newsp;
+	regs->gpr[3] = sig;
+	regs->gpr[4] = (unsigned long) sc;
+	regs->nip = (unsigned long) ka->sa.sa_handler;
+	regs->link = (unsigned long) frame->mctx.tramp;
+
 	return;
 
 badframe:
 #if DEBUG_SIG
 	printk("badframe in handle_signal, regs=%p frame=%lx newsp=%lx\n",
 	       regs, frame, *newspp);
-	printk("sc=%p sig=%d ka=%p info=%p oldset=%p\n", sc, sig, ka, info, oldset);
 #endif
-	do_exit(SIGSEGV);
+	if (sig == SIGSEGV)
+		ka->sa.sa_handler = SIG_DFL;
+	force_sig(SIGSEGV, current);
 }
 
 /*
- * Note that 'init' is a special process: it doesn't get signals it doesn't
- * want to handle. Thus you cannot kill init even with a SIGKILL even by
- * mistake.
+ * Do a signal return; undo the signal stack.
  */
-int do_signal(sigset_t *oldset, struct pt_regs *regs)
+int sys_sigreturn(struct pt_regs *regs)
 {
-	siginfo_t info;
+	struct sigcontext *sc, sigctx;
+	struct mcontext *sr;
+	int ret;
+	sigset_t set;
+
+	sc = (struct sigcontext *)(regs->gpr[1] + __SIGNAL_FRAMESIZE);
+	if (copy_from_user(&sigctx, sc, sizeof(sigctx)))
+		goto badframe;
+
+	set.sig[0] = sigctx.oldmask;
+	set.sig[1] = sigctx._unused[3];
+	restore_sigmask(&set);
+
+	sr = (struct mcontext *) sigctx.regs;
+	if (verify_area(VERIFY_READ, sr, sizeof(*sr))
+	    || restore_user_regs(regs, sr))
+		goto badframe;
+
+	ret = regs->result;
+
+	return ret;
+
+badframe:
+	force_sig(SIGSEGV, current);
+	return 0;
+}	
+
+static int get_signal_to_deliver(struct siginfo *infop, struct pt_regs *regs)
+{
 	struct k_sigaction *ka;
-	unsigned long frame, newsp;
-
-	if (!oldset)
-		oldset = &current->blocked;
-
-	newsp = frame = 0;
+	int signr;
 
 	for (;;) {
-		unsigned long signr;
-
 		spin_lock_irq(&current->sigmask_lock);
-		signr = dequeue_signal(&current->blocked, &info);
+		signr = dequeue_signal(&current->blocked, infop);
 		spin_unlock_irq(&current->sigmask_lock);
 
 		if (!signr)
-			break;
+			return 0;
 
 		if ((current->ptrace & PT_PTRACED) && signr != SIGKILL) {
 			/* Let the debugger run.  */
@@ -591,17 +604,17 @@ int do_signal(sigset_t *oldset, struct pt_regs *regs)
 				continue;
 
 			/* Update the siginfo structure.  Is this good?  */
-			if (signr != info.si_signo) {
-				info.si_signo = signr;
-				info.si_errno = 0;
-				info.si_code = SI_USER;
-				info.si_pid = current->p_pptr->pid;
-				info.si_uid = current->p_pptr->uid;
+			if (signr != infop->si_signo) {
+				infop->si_signo = signr;
+				infop->si_errno = 0;
+				infop->si_code = SI_USER;
+				infop->si_pid = current->p_pptr->pid;
+				infop->si_uid = current->p_pptr->uid;
 			}
 
 			/* If the (new) signal is now blocked, requeue it.  */
 			if (sigismember(&current->blocked, signr)) {
-				send_sig_info(signr, &info, current);
+				send_sig_info(signr, infop, current);
 				continue;
 			}
 		}
@@ -648,39 +661,85 @@ int do_signal(sigset_t *oldset, struct pt_regs *regs)
 				/* FALLTHRU */
 
 			default:
-				sig_exit(signr, exit_code, &info);
+				sig_exit(signr, exit_code, infop);
 				/* NOTREACHED */
 			}
 		}
+		return signr;
+	}
+}
 
-		if ( (ka->sa.sa_flags & SA_ONSTACK)
-		     && (! on_sig_stack(regs->gpr[1])))
-			newsp = (current->sas_ss_sp + current->sas_ss_size);
-		else
-			newsp = regs->gpr[1];
-		newsp = frame = newsp - sizeof(struct sigregs);
+/*
+ * Note that 'init' is a special process: it doesn't get signals it doesn't
+ * want to handle. Thus you cannot kill init even with a SIGKILL even by
+ * mistake.
+ */
+int do_signal(sigset_t *oldset, struct pt_regs *regs)
+{
+	siginfo_t info;
+	struct k_sigaction *ka;
+	unsigned long frame, newsp;
+	int signr;
 
-		/* Whee!  Actually deliver the signal.  */
-		handle_signal(signr, ka, &info, oldset, regs, &newsp, frame);
-		break;
+	if (!oldset)
+		oldset = &current->blocked;
+
+	newsp = frame = 0;
+
+	signr = get_signal_to_deliver(&info, regs);
+
+	ka = (signr == 0)? NULL: &current->sig->action[signr-1];
+
+	if (regs->trap == 0xc00) {		/* system call */
+		switch ((int) regs->result) {
+		case -ERESTARTSYS:
+			if (signr == 0 || (ka->sa.sa_flags & SA_RESTART))
+				goto retry;
+			/* fall through */
+		case -ERESTARTNOHAND:
+			if (signr > 0) {
+				/* make the system call return an EINTR */
+				regs->result = -EINTR;
+				break;
+			}
+			/* fall through */
+		case -ERESTARTNOINTR:
+		retry:
+			/* Back up & retry system call */
+			regs->gpr[3] = regs->orig_gpr3;
+			regs->nip -= 4;
+			regs->result = 0;
+			break;
+		}
 	}
 
-	if (regs->trap == 0x0C00 /* System Call! */ &&
-	    ((int)regs->result == -ERESTARTNOHAND ||
-	     (int)regs->result == -ERESTARTSYS ||
-	     (int)regs->result == -ERESTARTNOINTR)) {
-		regs->gpr[3] = regs->orig_gpr3;
-		regs->nip -= 4;		/* Back up & retry system call */
-		regs->result = 0;
-	}
-
-	if (newsp == frame)
+	if (signr == 0)
 		return 0;		/* no signals delivered */
 
-	if (ka->sa.sa_flags & SA_SIGINFO)
-		setup_rt_frame(regs, (struct sigregs *) frame, newsp);
+	if ((ka->sa.sa_flags & SA_ONSTACK) && current->sas_ss_size
+	    && !on_sig_stack(regs->gpr[1]))
+		newsp = current->sas_ss_sp + current->sas_ss_size;
 	else
-		setup_frame(regs, (struct sigregs *) frame, newsp);
+		newsp = regs->gpr[1];
+	newsp &= ~0xfUL;
+
+	/* Whee!  Actually deliver the signal.  */
+	if (ka->sa.sa_flags & SA_SIGINFO)
+		handle_rt_signal(signr, ka, &info, oldset, regs, newsp);
+	else
+		handle_signal(signr, ka, &info, oldset, regs, newsp);
+
+	if (ka->sa.sa_flags & SA_ONESHOT)
+		ka->sa.sa_handler = SIG_DFL;
+
+	if (!(ka->sa.sa_flags & SA_NODEFER)) {
+		spin_lock_irq(&current->sigmask_lock);
+		sigorsets(&current->blocked,&current->blocked,&ka->sa.sa_mask);
+		sigaddset(&current->blocked, signr);
+		recalc_sigpending(current);
+		spin_unlock_irq(&current->sigmask_lock);
+	}
+
 	return 1;
 }
 

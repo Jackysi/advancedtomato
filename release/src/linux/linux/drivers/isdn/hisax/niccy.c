@@ -1,4 +1,4 @@
-/* $Id: niccy.c,v 1.1.1.4 2003/10/14 08:08:13 sparq Exp $
+/* $Id: niccy.c,v 1.1.4.1 2001/11/20 14:19:36 kai Exp $
  *
  * low level stuff for Dr. Neuhaus NICCY PnP and NICCY PCI and
  * compatible (SAGEM cybermodem)
@@ -25,7 +25,7 @@
 #include <linux/isapnp.h>
 
 extern const char *CardType[];
-const char *niccy_revision = "$Revision: 1.1.1.4 $";
+const char *niccy_revision = "$Revision: 1.1.4.1 $";
 
 #define byteout(addr,val) outb(val,addr)
 #define bytein(addr) inb(addr)

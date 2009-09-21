@@ -1,8 +1,207 @@
 
+/* sx.c -- driver for the Specialix SX series cards. 
+ *
+ *  This driver will also support the older SI, and XIO cards.
+ *
+ *
+ *   (C) 1998 - 2000  R.E.Wolff@BitWizard.nl
+ *
+ *  Simon Allen (simonallen@cix.compulink.co.uk) wrote a previous
+ *  version of this driver. Some fragments may have been copied. (none
+ *  yet :-)
+ *
+ * Specialix pays for the development and support of this driver.
+ * Please DO contact support@specialix.co.uk if you require
+ * support. But please read the documentation (sx.txt) first.
+ *
+ *
+ *
+ *      This program is free software; you can redistribute it and/or
+ *      modify it under the terms of the GNU General Public License as
+ *      published by the Free Software Foundation; either version 2 of
+ *      the License, or (at your option) any later version.
+ *
+ *      This program is distributed in the hope that it will be
+ *      useful, but WITHOUT ANY WARRANTY; without even the implied
+ *      warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
+ *      PURPOSE.  See the GNU General Public License for more details.
+ *
+ *      You should have received a copy of the GNU General Public
+ *      License along with this program; if not, write to the Free
+ *      Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139,
+ *      USA.
+ *
+ * Revision history:
+ * $Log: sx.c,v $
+ * Revision 1.33  2000/03/09 10:00:00  pvdl,wolff
+ * - Fixed module and port counting
+ * - Fixed signal handling
+ * - Fixed an Ooops
+ * 
+ * Revision 1.32  2000/03/07 09:00:00  wolff,pvdl
+ * - Fixed some sx_dprintk typos
+ * - added detection for an invalid board/module configuration
+ *
+ * Revision 1.31  2000/03/06 12:00:00  wolff,pvdl
+ * - Added support for EISA
+ *
+ * Revision 1.30  2000/01/21 17:43:06  wolff
+ * - Added support for SX+
+ *
+ * Revision 1.26  1999/08/05 15:22:14  wolff
+ * - Port to 2.3.x
+ * - Reformatted to Linus' liking.
+ *
+ * Revision 1.25  1999/07/30 14:24:08  wolff
+ * Had accidentally left "gs_debug" set to "-1" instead of "off" (=0).
+ *
+ * Revision 1.24  1999/07/28 09:41:52  wolff
+ * - I noticed the remark about use-count straying in sx.txt. I checked
+ *   sx_open, and found a few places where that could happen. I hope it's
+ *   fixed now.
+ *
+ * Revision 1.23  1999/07/28 08:56:06  wolff
+ * - Fixed crash when sx_firmware run twice.
+ * - Added sx_slowpoll as a module parameter (I guess nobody really wanted
+ *   to change it from the default... )
+ * - Fixed a stupid editing problem I introduced in 1.22.
+ * - Fixed dropping characters on a termios change.
+ *
+ * Revision 1.22  1999/07/26 21:01:43  wolff
+ * Russell Brown noticed that I had overlooked 4 out of six modem control
+ * signals in sx_getsignals. Ooops.
+ *
+ * Revision 1.21  1999/07/23 09:11:33  wolff
+ * I forgot to free dynamically allocated memory when the driver is unloaded.
+ *
+ * Revision 1.20  1999/07/20 06:25:26  wolff
+ * The "closing wait" wasn't honoured. Thanks to James Griffiths for
+ * reporting this.
+ *
+ * Revision 1.19  1999/07/11 08:59:59  wolff
+ * Fixed an oops in close, when an open was pending. Changed the memtest
+ * a bit. Should also test the board in word-mode, however my card fails the
+ * memtest then. I still have to figure out what is wrong...
+ *
+ * Revision 1.18  1999/06/10 09:38:42  wolff
+ * Changed the format of the firmware revision from %04x to %x.%02x .
+ *
+ * Revision 1.17  1999/06/04 09:44:35  wolff
+ * fixed problem: reference to pci stuff when config_pci was off...
+ * Thanks to Jorge Novo for noticing this.
+ *
+ * Revision 1.16  1999/06/02 08:30:15  wolff
+ * added/removed the workaround for the DCD bug in the Firmware.
+ * A bit more debugging code to locate that...
+ *
+ * Revision 1.15  1999/06/01 11:35:30  wolff
+ * when DCD is left low (floating?), on TA's the firmware first tells us
+ * that DCD is high, but after a short while suddenly comes to the
+ * conclusion that it is low. All this would be fine, if it weren't that
+ * Unix requires us to send a "hangup" signal in that case. This usually
+ * all happens BEFORE the program has had a chance to ioctl the device
+ * into clocal mode..
+ *
+ * Revision 1.14  1999/05/25 11:18:59  wolff
+ * Added PCI-fix.
+ * Added checks for return code of sx_sendcommand.
+ * Don't issue "reconfig" if port isn't open yet. (bit us on TA modules...)
+ *
+ * Revision 1.13  1999/04/29 15:18:01  wolff
+ * Fixed an "oops" that showed on SuSE 6.0 systems.
+ * Activate DTR again after stty 0.
+ *
+ * Revision 1.12  1999/04/29 07:49:52  wolff
+ * Improved "stty 0" handling a bit. (used to change baud to 9600 assuming
+ *     the connection would be dropped anyway. That is not always the case,
+ *     and confuses people).
+ * Told the card to always monitor the modem signals.
+ * Added support for dynamic  gs_debug adjustments.
+ * Now tells the rest of the system the number of ports.
+ *
+ * Revision 1.11  1999/04/24 11:11:30  wolff
+ * Fixed two stupid typos in the memory test.
+ *
+ * Revision 1.10  1999/04/24 10:53:39  wolff
+ * Added some of Christian's suggestions.
+ * Fixed an HW_COOK_IN bug (ISIG was not in I_OTHER. We used to trust the
+ * card to send the signal to the process.....)
+ *
+ * Revision 1.9  1999/04/23 07:26:38  wolff
+ * Included Christian Lademann's 2.0 compile-warning fixes and interrupt
+ *    assignment redesign.
+ * Cleanup of some other stuff.
+ *
+ * Revision 1.8  1999/04/16 13:05:30  wolff
+ * fixed a DCD change unnoticed bug.
+ *
+ * Revision 1.7  1999/04/14 22:19:51  wolff
+ * Fixed typo that showed up in 2.0.x builds (get_user instead of Get_user!)
+ *
+ * Revision 1.6  1999/04/13 18:40:20  wolff
+ * changed misc-minor to 161, as assigned by HPA.
+ *
+ * Revision 1.5  1999/04/13 15:12:25  wolff
+ * Fixed use-count leak when "hangup" occurred.
+ * Added workaround for a stupid-PCIBIOS bug.
+ *
+ *
+ * Revision 1.4  1999/04/01 22:47:40  wolff
+ * Fixed < 1M linux-2.0 problem.
+ * (vremap isn't compatible with ioremap in that case)
+ *
+ * Revision 1.3  1999/03/31 13:45:45  wolff
+ * Firmware loading is now done through a separate IOCTL.
+ *
+ * Revision 1.2  1999/03/28 12:22:29  wolff
+ * rcs cleanup
+ *
+ * Revision 1.1  1999/03/28 12:10:34  wolff
+ * Readying for release on 2.0.x (sorry David, 1.01 becomes 1.1 for RCS). 
+ *
+ * Revision 0.12  1999/03/28 09:20:10  wolff
+ * Fixed problem in 0.11, continueing cleanup.
+ *
+ * Revision 0.11  1999/03/28 08:46:44  wolff
+ * cleanup. Not good.
+ *
+ * Revision 0.10  1999/03/28 08:09:43  wolff
+ * Fixed loosing characters on close.
+ *
+ * Revision 0.9  1999/03/21 22:52:01  wolff
+ * Ported back to 2.2.... (minor things)
+ *
+ * Revision 0.8  1999/03/21 22:40:33  wolff
+ * Port to 2.0
+ *
+ * Revision 0.7  1999/03/21 19:06:34  wolff
+ * Fixed hangup processing.
+ *
+ * Revision 0.6  1999/02/05 08:45:14  wolff
+ * fixed real_raw problems. Inclusion into kernel imminent.
+ *
+ * Revision 0.5  1998/12/21 23:51:06  wolff
+ * Snatched a nasty bug: sx_transmit_chars was getting re-entered, and it
+ * shouldn't have. THATs why I want to have transmit interrupts even when
+ * the buffer is empty.
+ *
+ * Revision 0.4  1998/12/17 09:34:46  wolff
+ * PPP works. ioctl works. Basically works!
+ *
+ * Revision 0.3  1998/12/15 13:05:18  wolff
+ * It works! Wow! Gotta start implementing IOCTL and stuff....
+ *
+ * Revision 0.2  1998/12/01 08:33:53  wolff
+ * moved over to 2.1.130
+ *
+ * Revision 0.1  1998/11/03 21:23:51  wolff
+ * Initial revision. Detects SX card.
+ *
+ * */
 
 
-#define RCS_ID "$Id: sx.c,v 1.1.1.4 2003/10/14 08:08:03 sparq Exp $"
-#define RCS_REV "$Revision: 1.1.1.4 $"
+#define RCS_ID "$Id: sx.c,v 1.33 2000/03/08 10:01:02 wolff, pvdl Exp $"
+#define RCS_REV "$Revision: 1.33 $"
 
 
 #include <linux/module.h>
@@ -85,6 +284,15 @@ MODULE_DEVICE_TABLE(pci, sx_pci_tbl);
 #undef IRQ_RATE_LIMIT
 
 
+#if 0
+/* Not implemented */
+/* 
+ * The following defines are mostly for testing purposes. But if you need
+ * some nice reporting in your syslog, you can define them also.
+ */
+#define SX_REPORT_FIFO
+#define SX_REPORT_OVERRUN
+#endif 
 
 
 /* Function prototypes */
@@ -314,13 +522,13 @@ static int sx_busy_wait_eq (struct sx_board *board,
 
 	func_enter ();
 
-	for (i=0; i < TIMEOUT_1 > 0;i++) 
+	for (i=0; i < TIMEOUT_1 ;i++)
 		if ((read_sx_byte (board, offset) & mask) == correctval) {
 			func_exit ();
 			return 1;
 		}
 
-	for (i=0; i < TIMEOUT_2 > 0;i++) {
+	for (i=0; i < TIMEOUT_2 ;i++) {
 		if ((read_sx_byte (board, offset) & mask) == correctval) {
 			func_exit ();
 			return 1;
@@ -340,13 +548,13 @@ static int sx_busy_wait_neq (struct sx_board *board,
 
 	func_enter ();
 
-	for (i=0; i < TIMEOUT_1 > 0;i++) 
+	for (i=0; i < TIMEOUT_1 ;i++)
 		if ((read_sx_byte (board, offset) & mask) != badval) {
 			func_exit ();
 			return 1;
 		}
 
-	for (i=0; i < TIMEOUT_2 > 0;i++) {
+	for (i=0; i < TIMEOUT_2 ;i++) {
 		if ((read_sx_byte (board, offset) & mask) != badval) {
 			func_exit ();
 			return 1;
@@ -625,6 +833,7 @@ static void sx_set_baud (struct sx_port *port)
 		if (t > 0) {
 			/* The baud rate is not set to 0, so we're enabeling DTR... -- REW */
 			sx_setsignals (port, 1, -1); 
+			/* XXX This is not TA & MTA compatible */
 			sx_write_channel_byte (port, hi_csr, 0xff);
 
 			sx_write_channel_byte (port, hi_txbaud, t);
@@ -848,9 +1057,7 @@ static void sx_transmit_chars (struct sx_port *port)
 	}
 
 	if ((port->gs.xmit_cnt <= port->gs.wakeup_chars) && port->gs.tty) {
-		if ((port->gs.tty->flags & (1 << TTY_DO_WRITE_WAKEUP)) &&
-		    port->gs.tty->ldisc.write_wakeup)
-			(port->gs.tty->ldisc.write_wakeup)(port->gs.tty);
+		tty_wakeup(port->gs.tty);
 		sx_dprintk (SX_DEBUG_TRANSMIT, "Waking up.... ldisc (%d)....\n",
 		            port->gs.wakeup_chars); 
 		wake_up_interruptible(&port->gs.tty->write_wait);
@@ -1140,6 +1347,7 @@ static void sx_enable_tx_interrupts (void * ptr)
 	data_in_buffer = (sx_read_channel_byte (port, hi_txipos) - 
 	                  sx_read_channel_byte (port, hi_txopos)) & 0xff;
 
+	/* XXX Must be "HIGH_WATER" for SI card according to doc. */
 	if (data_in_buffer < LOW_WATER) 
 		port->gs.flags &= ~GS_TX_INTEN;
 
@@ -1258,9 +1466,14 @@ static int sx_open  (struct tty_struct * tty, struct file * filp)
 	port->gs.flags |= GS_ACTIVE;
 	sx_setsignals (port, 1,1);
 
+#if 0
+	if (sx_debug & SX_DEBUG_OPEN)
+		my_hd ((unsigned char *)port, sizeof (*port));
+#else
 	if (sx_debug & SX_DEBUG_OPEN)
 		my_hd ((unsigned char *)port->board->base + port->ch_base, 
 		       sizeof (*port));
+#endif
 
 	if (sx_send_command (port, HS_LOPEN, -1, HS_IDLE_OPEN) != 1) {
 		printk (KERN_ERR "sx: Card didn't respond to LOPEN command.\n");
@@ -1418,6 +1631,22 @@ static int do_memtest (struct sx_board *board, int min, int max)
 #define R0         if (read_sx_word (board, i) != 0x55aa) return 1
 #define R1         if (read_sx_word (board, i) != 0xaa55) return 1
 
+#if 0
+/* This memtest takes a human-noticable time. You normally only do it
+   once a boot, so I guess that it is worth it. */
+static int do_memtest_w (struct sx_board *board, int min, int max)
+{
+	int i;
+
+	MARCHUP   {W0;}
+	MARCHUP   {R0;W1;R1;W0;R0;W1;}
+	MARCHUP   {R1;W0;W1;}
+	MARCHDOWN {R1;W0;W1;W0;}
+	MARCHDOWN {R0;W1;W0;}
+
+	return 0;
+}
+#endif
 
 
 static int sx_fw_ioctl (struct inode *inode, struct file *filp,
@@ -1432,6 +1661,13 @@ static int sx_fw_ioctl (struct inode *inode, struct file *filp,
 
 	func_enter();
 
+#if 0 
+	/* Removed superuser check: Sysops can use the permissions on the device
+	   file to restrict access. Recommendation: Root only. (root.root 600) */
+	if (!capable(CAP_SYS_ADMIN)) {
+		return -EPERM;
+	}
+#endif
 
 	sx_dprintk (SX_DEBUG_FIRMWARE, "IOCTL %x: %lx\n", cmd, arg);
 
@@ -1496,8 +1732,10 @@ static int sx_fw_ioctl (struct inode *inode, struct file *filp,
 				if (copy_from_user(tmp, (char *)data + i, 
 						   (i + SX_CHUNK_SIZE >
 						    nbytes) ? nbytes - i :
-						   	      SX_CHUNK_SIZE))
+						   	      SX_CHUNK_SIZE)) {
+					kfree (tmp);
 					return -EFAULT;
+				}
 				memcpy_toio    ((char *) (board->base2 + offset + i), tmp, 
 				                (i+SX_CHUNK_SIZE>nbytes)?nbytes-i:SX_CHUNK_SIZE);
 			}
@@ -1756,6 +1994,7 @@ static int sx_init_board (struct sx_board *board)
 	/*  board->ta_type = mod_compat_type (read_sx_byte (board, 0x80 + 0x08)); */
 	board->ta_type = mod_compat_type (sx_read_module_byte (board, 0x80, mc_chip));
 
+	/* XXX byteorder */
 	for (addr = 0x80;addr != 0;addr = read_sx_word (board, addr) & 0x7fff) {
 		type = sx_read_module_byte (board, addr, mc_chip);
 		sx_dprintk (SX_DEBUG_INIT, "Module at %x: %d channels\n", 
@@ -1789,6 +2028,16 @@ static int sx_init_board (struct sx_board *board)
 			chans=0;
 			break;
 		}
+#if 0 /* Problem fixed: firmware 3.05 */
+		if (IS_SX_BOARD(board) && (type == TA8)) {
+			/* There are some issues with the firmware and the DCD/RTS
+			   lines. It might work if you tie them together or something.
+			   It might also work if you get a newer sx_firmware.	Therefore
+			   this is just a warning. */
+			printk (KERN_WARNING "sx: The SX host doesn't work too well "
+			        "with the TA8 adapters.\nSpecialix is working on it.\n");
+		}
+#endif
 	}
 
 	if (chans) {
@@ -2144,6 +2393,7 @@ static int sx_init_portstructs (int nboards, int nports)
 		/* Possibly the configuration was rejected. */
 		sx_dprintk (SX_DEBUG_PROBE, "Board has %d channels\n", board->nports);
 		if (board->nports <= 0) continue;
+		/* XXX byteorder ?? */
 		for (addr = 0x80;addr != 0;addr = read_sx_word (board, addr) & 0x7fff) {
 			chans = sx_read_module_byte (board, addr, mc_type); 
 			sx_dprintk (SX_DEBUG_PROBE, "Module at %x: %d channels\n", addr, chans);
@@ -2295,6 +2545,7 @@ static int __init sx_init(void)
 			board->base = (ulong) ioremap(board->hw_base, WINDOW_LEN (board));
 			if (!board->base) {
 				printk(KERN_ERR "ioremap failed\n");
+				/* XXX handle error */
 			}
 
 			/* Most of the stuff on the CF board is offset by

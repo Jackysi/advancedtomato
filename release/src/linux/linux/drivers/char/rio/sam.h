@@ -43,7 +43,7 @@
 #endif
 
 
-#if !defined(HOST) && !defined(INKERNEL)
+#if !defined( HOST ) && !defined( INKERNEL )
 #define RTA 1
 #endif
 

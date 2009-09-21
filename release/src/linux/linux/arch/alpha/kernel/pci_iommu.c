@@ -30,10 +30,9 @@
 #define DEBUG_NODIRECT 0
 #define DEBUG_FORCEDAC 0
 
-/* Most Alphas support 32-bit ISA DMA. Exceptions are XL, Ruffian and
-   Nautilus (see asm/dma.h for details). */
-#define ISA_DMA_MASK	(MAX_DMA_ADDRESS - IDENT_ADDR - 1 < 0xffffffff ? \
-			 MAX_DMA_ADDRESS - IDENT_ADDR - 1 : 0xffffffff)
+/* Most Alphas support 32-bit ISA DMA. Exceptions are XL, Ruffian,
+   Sable, and Alcor (see asm-alpha/dma.h for details). */
+#define ISA_DMA_MASK	(MAX_DMA_ADDRESS - IDENT_ADDR - 1)
 
 static inline unsigned long
 mk_iommu_pte(unsigned long paddr)
@@ -61,8 +60,8 @@ size_for_memory(unsigned long max)
 }
 
 struct pci_iommu_arena *
-iommu_arena_new(struct pci_controller *hose, dma_addr_t base,
-		unsigned long window_size, unsigned long align)
+iommu_arena_new_node(int nid, struct pci_controller *hose, dma_addr_t base,
+		     unsigned long window_size, unsigned long align)
 {
 	unsigned long mem_size;
 	struct pci_iommu_arena *arena;
@@ -76,8 +75,35 @@ iommu_arena_new(struct pci_controller *hose, dma_addr_t base,
 	if (align < mem_size)
 		align = mem_size;
 
+
+#ifdef CONFIG_DISCONTIGMEM
+
+        if (!NODE_DATA(nid) ||
+            (NULL == (arena = alloc_bootmem_node(NODE_DATA(nid),
+                                                 sizeof(*arena))))) {
+                printk("%s: couldn't allocate arena from node %d\n"
+                       "    falling back to system-wide allocation\n",
+                       __FUNCTION__, nid);
+                arena = alloc_bootmem(sizeof(*arena));
+        }
+
+        if (!NODE_DATA(nid) ||
+            (NULL == (arena->ptes = __alloc_bootmem_node(NODE_DATA(nid),
+                                                         mem_size,
+                                                         align,
+                                                         0)))) {
+                printk("%s: couldn't allocate arena ptes from node %d\n"
+                       "    falling back to system-wide allocation\n",
+                       __FUNCTION__, nid);
+                arena->ptes = __alloc_bootmem(mem_size, align, 0);
+        }
+
+#else /* CONFIG_DISCONTIGMEM */
+
 	arena = alloc_bootmem(sizeof(*arena));
 	arena->ptes = __alloc_bootmem(mem_size, align, 0);
+
+#endif /* CONFIG_DISCONTIGMEM */
 
 	spin_lock_init(&arena->lock);
 	arena->hose = hose;
@@ -90,6 +116,13 @@ iommu_arena_new(struct pci_controller *hose, dma_addr_t base,
 	arena->align_entry = 1;
 
 	return arena;
+}
+
+struct pci_iommu_arena *
+iommu_arena_new(struct pci_controller *hose, dma_addr_t base,
+		unsigned long window_size, unsigned long align)
+{
+	return iommu_arena_new_node(0, hose, base, window_size, align);
 }
 
 /* Must be called with the arena lock held */
@@ -133,8 +166,8 @@ iommu_arena_find_pages(struct pci_iommu_arena *arena, long n, long mask)
 	return p;
 }
 
-long
-iommu_arena_alloc(struct pci_iommu_arena *arena, long n)
+static long
+iommu_arena_alloc(struct pci_iommu_arena *arena, long n, unsigned int align)
 {
 	unsigned long flags;
 	unsigned long *ptes;
@@ -144,7 +177,7 @@ iommu_arena_alloc(struct pci_iommu_arena *arena, long n)
 
 	/* Search for N empty ptes */
 	ptes = arena->ptes;
-	mask = arena->align_entry - 1;
+	mask = max(align, arena->align_entry) - 1;
 	p = iommu_arena_find_pages(arena, n, mask);
 	if (p < 0) {
 		spin_unlock_irqrestore(&arena->lock, flags);
@@ -233,7 +266,8 @@ pci_map_single_1(struct pci_dev *pdev, void *cpu_addr, size_t size,
 		arena = hose->sg_isa;
 
 	npages = calc_npages((paddr & ~PAGE_MASK) + size);
-	dma_ofs = iommu_arena_alloc(arena, npages);
+	/* Force allocation to 64KB boundary for all ISA devices. */
+	dma_ofs = iommu_arena_alloc(arena, npages, pdev ? 0 : 8);
 	if (dma_ofs < 0) {
 		printk(KERN_WARNING "pci_map_single failed: "
 		       "could not allocate dma page tables\n");
@@ -361,8 +395,10 @@ pci_alloc_consistent(struct pci_dev *pdev, size_t size, dma_addr_t *dma_addrp)
 {
 	void *cpu_addr;
 	long order = get_order(size);
+	int gfp = GFP_ATOMIC;
 
-	cpu_addr = (void *)__get_free_pages(GFP_ATOMIC, order);
+try_again:
+	cpu_addr = (void *)__get_free_pages(gfp, order);
 	if (! cpu_addr) {
 		printk(KERN_INFO "pci_alloc_consistent: "
 		       "get_free_pages failed from %p\n",
@@ -376,7 +412,12 @@ pci_alloc_consistent(struct pci_dev *pdev, size_t size, dma_addr_t *dma_addrp)
 	*dma_addrp = pci_map_single_1(pdev, cpu_addr, size, 0);
 	if (*dma_addrp == 0) {
 		free_pages((unsigned long)cpu_addr, order);
-		return NULL;
+		if (alpha_mv.mv_pci_tbi || (gfp & GFP_DMA))
+			return NULL;
+		/* The address doesn't fit required mask and we
+		   do not have iommu. Try again with GFP_DMA. */
+		gfp |= GFP_DMA;
+		goto try_again;
 	}
 		
 	DBGA2("pci_alloc_consistent: %lx -> [%p,%x] from %p\n",
@@ -462,7 +503,7 @@ sg_classify(struct scatterlist *sg, struct scatterlist *end, int virt_ok)
 /* Given a scatterlist leader, choose an allocation method and fill
    in the blanks.  */
 
-static inline int
+static int
 sg_fill(struct scatterlist *leader, struct scatterlist *end,
 	struct scatterlist *out, struct pci_iommu_arena *arena,
 	dma_addr_t max_dma, int dac_allowed)
@@ -505,7 +546,7 @@ sg_fill(struct scatterlist *leader, struct scatterlist *end,
 
 	paddr &= ~PAGE_MASK;
 	npages = calc_npages(paddr + size);
-	dma_ofs = iommu_arena_alloc(arena, npages);
+	dma_ofs = iommu_arena_alloc(arena, npages, 0);
 	if (dma_ofs < 0) {
 		/* If we attempted a direct map above but failed, die.  */
 		if (leader->dma_address == 0)
@@ -740,6 +781,10 @@ pci_dma_supported(struct pci_dev *pdev, u64 mask)
 		return 1;
 	arena = hose->sg_pci;
 	if (arena && arena->dma_base + arena->size - 1 <= mask)
+		return 1;
+
+	/* As last resort try ZONE_DMA.  */
+	if (!__direct_map_base && MAX_DMA_ADDRESS - IDENT_ADDR - 1 <= mask)
 		return 1;
 
 	return 0;

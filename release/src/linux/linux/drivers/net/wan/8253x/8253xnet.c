@@ -317,6 +317,31 @@ static void sab8253x_check_statusN(struct sab_port *port,
 			netif_carrier_off(port->dev);
 		}
 	}
+#if 0				/* need to think about CTS/RTS stuff for a network driver */
+	sig = &port->cts;
+	if (port->flags & FLAG8253X_CTS_FLOW) 
+	{				/* not setting this yet */
+		if (port->tty->hw_stopped) 
+		{
+			if (sig->val) 
+			{
+				
+				port->tty->hw_stopped = 0;
+				sab8253x_sched_event(port, RS_EVENT_WRITE_WAKEUP);
+				port->interrupt_mask1 &= ~(SAB82532_IMR1_XPR);
+				WRITEB(port, imr1, port->interrupt_mask1);
+				sab8253x_start_txS(port);
+			}
+		} 
+		else 
+		{
+			if (!(sig->val)) 
+			{
+				port->tty->hw_stopped = 1;
+			}
+		}
+	}
+#endif
 }
 
 static void Sab8253xCollectStats(struct net_device *dev)
@@ -363,6 +388,119 @@ int sab8253xn_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 	return 0;
 }
 
+#if 0
+static int sab8253x_block_til_readyN(SAB_PORT *port)
+{
+	DECLARE_WAITQUEUE(wait, current);
+	int retval;
+	int do_clocal = 0;
+	unsigned long	flags;
+	
+	/*
+	 * If the device is in the middle of being closed, then block
+	 * until it's done, and then try again.
+	 */
+	if (port->flags & FLAG8253X_CLOSING)
+	{
+		if (port->flags & FLAG8253X_CLOSING)
+		{
+			interruptible_sleep_on(&port->close_wait);
+		}
+#ifdef SERIAL_DO_RESTART
+		if (port->flags & FLAG8253X_HUP_NOTIFY)
+		{
+			return -EAGAIN;
+		}
+		else
+		{
+			return -ERESTARTSYS;
+		}
+#else
+		return -EAGAIN;
+#endif
+	}
+	
+	/*
+	 * this is not a callout device
+	 */
+	
+	/* suppose callout active */
+	if (port->flags & FLAG8253X_CALLOUT_ACTIVE) 
+	{
+		if (port->normal_termios.c_cflag & CLOCAL)
+		{
+			do_clocal = 1;
+		}
+	} 
+	
+	/*
+	 * Block waiting for the carrier detect and the line to become
+	 * free (i.e., not in use by the callout).  While we are in
+	 * this loop, port->count is dropped by one, so that
+	 * sab8253x_close() knows when to free things.  We restore it upon
+	 * exit, either normal or abnormal.
+	 */
+	retval = 0;
+	add_wait_queue(&port->open_wait, &wait);
+	port->blocked_open++;
+	while (1) 
+	{
+		save_flags(flags); cli();
+		if (!(port->flags & FLAG8253X_CALLOUT_ACTIVE))
+		{
+			RAISE(port,dtr);
+			RAISE(port,rts);	/* maybe not correct for sync */
+			/*
+			 * ??? Why changing the mode here? 
+			 *  port->regs->rw.mode |= SAB82532_MODE_FRTS;
+			 *  port->regs->rw.mode &= ~(SAB82532_MODE_RTS);
+			 */
+		}
+		restore_flags(flags);
+		current->state = TASK_INTERRUPTIBLE;
+		if (!(port->flags & FLAG8253X_INITIALIZED)) 
+		{
+#ifdef SERIAL_DO_RESTART
+			if (port->flags & FLAG8253X_HUP_NOTIFY)
+			{
+				retval = -EAGAIN;
+			}
+			else
+			{
+				retval = -ERESTARTSYS;	
+			}
+#else
+			retval = -EAGAIN;
+#endif
+			break;
+		}
+		if (!(port->flags & FLAG8253X_CALLOUT_ACTIVE) &&
+		    !(port->flags & FLAG8253X_CLOSING) &&
+		    (do_clocal || ISON(port,dcd))) 
+		{
+			break;
+		}
+#ifdef DEBUG_OPEN
+		printk("block_til_readyN:2 flags = 0x%x\n",port->flags);
+#endif
+		if (signal_pending(current)) 
+		{
+			retval = -ERESTARTSYS;
+			break;
+		}
+		schedule();
+	}
+	current->state = TASK_RUNNING;
+	remove_wait_queue(&port->open_wait, &wait);
+	port->blocked_open--;
+	if (retval)
+	{
+		return retval;
+	}
+	port->flags |= FLAG8253X_NORMAL_ACTIVE; /* is this a good flag? */
+	return 0;
+}
+#endif
 
 int sab8253x_startupN(struct sab_port *port)
 {

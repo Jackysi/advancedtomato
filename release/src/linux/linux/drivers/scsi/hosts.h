@@ -22,7 +22,7 @@
 #define _HOSTS_H
 
 /*
-    $Header: /home/cvsroot/wrt54g/src/linux/linux/drivers/scsi/hosts.h,v 1.1.1.2 2003/10/14 08:08:39 sparq Exp $
+    $Header: /vger/u4/cvs/linux/drivers/scsi/hosts.h,v 1.6 1997/01/19 23:07:13 davem Exp $
 */
 
 #include <linux/config.h>
@@ -291,6 +291,9 @@ typedef struct	SHT
      */
     unsigned emulated:1;
 
+    /*
+     * True for drivers that can do I/O from highmem
+     */
     unsigned highmem_io:1;
 
     /*

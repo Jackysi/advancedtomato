@@ -18,7 +18,7 @@
 
 #include <asm/io_7751se.h>
 
-void heartbeat_7751se(void);
+void heartbeat_se(void);
 void setup_7751se(void);
 void init_7751se_IRQ(void);
 
@@ -67,7 +67,7 @@ struct sh_machine_vector mv_7751se __initmv = {
 	mv_init_arch:		setup_7751se,
 	mv_init_irq:		init_7751se_IRQ,
 #ifdef CONFIG_HEARTBEAT
-	mv_heartbeat:		heartbeat_7751se,
+	mv_heartbeat:		heartbeat_se,
 #endif
 
 	mv_rtc_gettimeofday:	sh_rtc_gettimeofday,

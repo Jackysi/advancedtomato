@@ -148,6 +148,8 @@ static int q40fb_set_var(struct fb_var_screeninfo *var, int con,
 		return -EINVAL;
 	if(var->activate!=FB_ACTIVATE_NOW)
 		return -EINVAL;
+// ignore broken tools trying to set these values
+#if 0
 	if(var->pixclock!=0)
 		return -EINVAL;
 	if(var->left_margin!=0)
@@ -162,6 +164,7 @@ static int q40fb_set_var(struct fb_var_screeninfo *var, int con,
 		return -EINVAL;
 	if(var->vmode!=FB_VMODE_NONINTERLACED)
 		return -EINVAL;
+#endif
 
 	return 0;
 
@@ -210,6 +213,7 @@ static int q40_setcolreg(unsigned regno, unsigned red, unsigned green,
 static int q40fb_get_cmap(struct fb_cmap *cmap, int kspc, int con,
 			 struct fb_info *info)
 {
+#if 1
 	if (con == currcon) /* current console? */
 		return fb_get_cmap(cmap, kspc, q40_getcolreg, info);
 	else if (fb_display[con].cmap.len) /* non default colormap? */
@@ -218,11 +222,17 @@ static int q40fb_get_cmap(struct fb_cmap *cmap, int kspc, int con,
 		fb_copy_cmap(fb_default_cmap(1<<fb_display[con].var.bits_per_pixel),
 			     cmap, kspc ? 0 : 2);
 	return 0;
+#else
+	printk(KERN_ERR "get cmap not supported\n");
+
+	return -EINVAL;
+#endif
 }
 
 static int q40fb_set_cmap(struct fb_cmap *cmap, int kspc, int con,
 			 struct fb_info *info)
 {
+#if 1
 	int err;
 
 	if (!fb_display[con].cmap.len) {	/* no colormap allocated? */
@@ -236,12 +246,38 @@ static int q40fb_set_cmap(struct fb_cmap *cmap, int kspc, int con,
 	else
 		fb_copy_cmap(cmap, &fb_display[con].cmap, kspc ? 0 : 1);
 	return 0;
+#else
+	printk(KERN_ERR "set cmap not supported\n");
+
+	return -EINVAL;
+#endif
 }
 
 static int q40fb_ioctl(struct inode *inode, struct file *file,
 		      unsigned int cmd, unsigned long arg, int con,
 		      struct fb_info *info)
 {
+#if 0
+        unsigned long i;
+	struct display *display;
+
+	if (con>=0)
+	  display = &fb_display[con];
+	else
+	  display = &disp[0];
+
+        if (cmd == FBIOSETSCROLLMODE)
+	  {
+	    i = verify_area(VERIFY_READ, (void *)arg, sizeof(unsigned long));
+	    if (!i) 
+	      {
+		copy_from_user(&i, (void *)arg, sizeof(unsigned long));
+		display->scrollmode = i;
+	      }
+	    q40_updatescrollmode(display);
+	    return i;
+	  }
+#endif
 	return -EINVAL;
 }
 
@@ -284,7 +320,12 @@ int __init q40fb_init(void)
 
         if ( !MACH_IS_Q40)
 	  return -ENXIO;
+#if 0
+        q40_screen_addr = kernel_map(Q40_PHYS_SCREEN_ADDR, 1024*1024,
+					   KERNELMAP_NO_COPYBACK, NULL);
+#else
 	q40_screen_addr = Q40_PHYS_SCREEN_ADDR; /* mapped in q40/config.c */
+#endif
 
 	fb_info.changevar=NULL;
 	strcpy(&fb_info.modename[0],q40fb_name);

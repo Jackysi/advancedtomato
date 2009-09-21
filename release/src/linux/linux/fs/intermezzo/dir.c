@@ -209,6 +209,20 @@ struct dentry *presto_add_ilookup_dentry(struct dentry *parent,
         /* already exists */
         if (de->d_inode)
                 BUG();
+#if 0 
+                if (de->d_inode != inode ) { 
+                        CERROR("XX de->d_inode %ld, inode %ld\n", 
+                               de->d_inode->i_ino, inode->i_ino); 
+                        BUG();
+                }
+                if (dd->dd_inodentry) { 
+                        CERROR("inodentry exists %ld \n", inode->i_ino);
+                        BUG();
+                }
+                dput(inodir);
+                return de;
+        }
+#endif 
 
         if (presto_d2d(de)) 
                 BUG();
@@ -263,12 +277,20 @@ struct dentry *presto_lookup(struct inode * dir, struct dentry *dentry)
                 CERROR("DD -- BAD dentry %p has data\n", dentry);
                        
         dentry->d_fsdata = NULL;
+#if 0
+        if (ext2_check_for_iopen(dir, dentry))
+                de = NULL;
+        else {
+#endif
                 if ( izo_dentry_is_ilookup(dentry, &ino, &generation) ) { 
                         de = cache->cache_filter->o_trops->tr_ilookup
                                 (dir, dentry, ino, generation);
                         is_ilookup = 1;
                 } else
                         de = iops->lookup(dir, dentry);
+#if 0
+        }
+#endif
 
         if ( IS_ERR(de) ) {
                 CERROR("dentry lookup error %ld\n", PTR_ERR(de));
@@ -278,10 +300,7 @@ struct dentry *presto_lookup(struct inode * dir, struct dentry *dentry)
         /* some file systems have no read_inode: set methods here */
         if (dentry->d_inode)
                 presto_set_ops(dentry->d_inode, cache->cache_filter);
-
-        filter_setup_dentry_ops(cache->cache_filter,
-                                dentry->d_op, &presto_dentry_ops);
-        dentry->d_op = filter_c2udops(cache->cache_filter);
+		/* dentry->d_op is now hooked in dcache.c:presto_set_dd */
 
         /* In lookup we will tolerate EROFS return codes from presto_set_dd
          * to placate NFS. EROFS indicates that a fileset was not found but
@@ -350,6 +369,12 @@ int presto_setattr(struct dentry *de, struct iattr *iattr)
         return error;
 }
 
+/*
+ *  Now the meat: the fs operations that require journaling
+ *
+ *
+ *  XXX: some of these need modifications for hierarchical filesets
+ */
 
 int presto_prep(struct dentry *dentry, struct presto_cache **cache,
                 struct presto_file_set **fset)
@@ -487,6 +512,14 @@ static int presto_link(struct dentry *old_dentry, struct inode *dir,
         error = presto_do_link(fset, old_dentry, parent,
                                new_dentry, &info);
 
+#if 0
+        /* XXX for links this is not right */
+        if (cache->cache_filter->o_trops->tr_add_ilookup ) { 
+                struct dentry *d;
+                d = cache->cache_filter->o_trops->tr_add_ilookup
+                        (dir->i_sb->s_root, new_dentry, 1); 
+        }
+#endif 
 
         presto_relock_other(dir);
         presto_put_permit(dir);
@@ -1235,6 +1268,25 @@ int presto_ioctl(struct inode *inode, struct file *file,
                 EXIT;
                 return copy_to_user((char *)arg, data, sizeof(*data))? -EFAULT : 0;
         }
+#if 0
+        case IZO_IOC_CLIENT_MAKE_BRANCH: {
+                struct presto_file_set *fset;
+                int minor;
+
+                fset = presto_fset(file->f_dentry);
+                if (fset == NULL) {
+                        EXIT;
+                        return -ENODEV;
+                }
+                minor = presto_f2m(fset);
+
+                rc = izo_upc_client_make_branch(minor, fset->fset_name,
+                                                data->ioc_inlbuf1,
+                                                data->ioc_inlbuf2);
+                EXIT;
+                return rc;
+        }
+#endif
         case IZO_IOC_SERVER_MAKE_BRANCH: {
                 struct presto_file_set *fset;
                 int minor;

@@ -559,6 +559,27 @@ static void DumpData(char *msg, struct strip *strip_info, __u8 *ptr, __u8 *end)
     printk(KERN_INFO "%s: %-13s%s\n", strip_info->dev.name, msg, pkt_text);
 }
 
+#if 0
+static void HexDump(char *msg, struct strip *strip_info, __u8 *start, __u8 *end)
+{
+    __u8 *ptr = start;
+    printk(KERN_INFO "%s: %s: %d bytes\n", strip_info->dev.name, msg, end-ptr);
+
+    while (ptr < end)
+    {
+        long offset = ptr - start;
+        __u8 text[80], *p = text;
+        while (ptr < end && p < &text[16*3])
+        {
+            *p++ = hextable[*ptr >> 4];
+            *p++ = hextable[*ptr++ & 0xF];
+            *p++ = ' ';
+        }
+        p[-1] = 0;
+        printk(KERN_INFO "%s: %4lX %s\n", strip_info->dev.name, offset, text);
+    }
+}
+#endif
 
 
 /************************************************************************/
@@ -2320,6 +2341,14 @@ strip_receive_buf(struct tty_struct *tty, const unsigned char *cp, char *fp, int
     if (strip_info->mtu != strip_info->dev.mtu)
         strip_changedmtu(strip_info);
 
+#if 0
+    {
+    struct timeval tv;
+    do_gettimeofday(&tv);
+    printk(KERN_INFO "**** strip_receive_buf: %3d bytes at %02d.%06d\n",
+        count, tv.tv_sec % 100, tv.tv_usec);
+    }
+#endif
 
 #ifdef EXT_COUNTERS
     strip_info->rx_sbytes += count;
@@ -2446,6 +2475,9 @@ static struct net_device_stats *strip_get_stats(struct net_device *dev)
 static int strip_open_low(struct net_device *dev)
 {
     struct strip *strip_info = (struct strip *)(dev->priv);
+#if 0
+    struct in_device *in_dev = dev->ip_ptr;
+#endif
 
     if (strip_info->tty == NULL)
         return(-ENODEV);
@@ -2462,6 +2494,17 @@ static int strip_open_low(struct net_device *dev)
     strip_info->next_command   = CompatibilityCommand;
     strip_info->user_baud      = get_baud(strip_info->tty);
 
+#if 0
+    /*
+     * Needed because address '0' is special
+     *
+     * --ANK Needed it or not needed, it does not matter at all.
+     *	     Make it at user level, guys.
+     */
+
+    if (in_dev->ifa_list->ifa_address == 0)
+        in_dev->ifa_list->ifa_address = ntohl(0xC0A80001);
+#endif
     printk(KERN_INFO "%s: Initializing Radio.\n", strip_info->dev.name);
     ResetRadio(strip_info);
     strip_info->idle_timer.expires = jiffies + 1*HZ;
@@ -2663,8 +2706,7 @@ static int strip_open(struct tty_struct *tty)
     tty->disc_data = strip_info;
     if (tty->driver.flush_buffer)
         tty->driver.flush_buffer(tty);
-    if (tty->ldisc.flush_buffer)
-        tty->ldisc.flush_buffer(tty);
+    tty_ldisc_flush(tty);
 
     /*
      * Restore default settings

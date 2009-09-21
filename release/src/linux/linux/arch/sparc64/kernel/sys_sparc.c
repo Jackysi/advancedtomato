@@ -1,4 +1,4 @@
-/* $Id: sys_sparc.c,v 1.1.1.4 2003/10/14 08:07:50 sparq Exp $
+/* $Id: sys_sparc.c,v 1.55.2.1 2001/12/21 04:58:23 davem Exp $
  * linux/arch/sparc64/kernel/sys_sparc.c
  *
  * This file contains various random system calls that
@@ -32,6 +32,9 @@
 
 /* #define DEBUG_UNIMP_SYSCALL */
 
+/* XXX Make this per-binary type, this way we can detect the type of
+ * XXX a binary.  Every Sparc executable calls this very early on.
+ */
 asmlinkage unsigned long sys_getpagesize(void)
 {
 	return PAGE_SIZE;
@@ -179,7 +182,10 @@ asmlinkage int sys_ipc (unsigned call, int first, int second, unsigned long thir
 	if (call <= SEMCTL)
 		switch (call) {
 		case SEMOP:
-			err = sys_semop (first, (struct sembuf *)ptr, second);
+			err = sys_semtimedop (first, (struct sembuf *)ptr, second, NULL);
+			goto out;
+		case SEMTIMEDOP:
+			err = sys_semtimedop (first, (struct sembuf *)ptr, second, (const struct timespec *) fifth);
 			goto out;
 		case SEMGET:
 			err = sys_semget (first, second, (int)third);
@@ -196,7 +202,7 @@ asmlinkage int sys_ipc (unsigned call, int first, int second, unsigned long thir
 			goto out;
 			}
 		default:
-			err = -EINVAL;
+			err = -ENOSYS;
 			goto out;
 		}
 	if (call <= MSGCTL) 
@@ -215,14 +221,20 @@ asmlinkage int sys_ipc (unsigned call, int first, int second, unsigned long thir
 			err = sys_msgctl (first, second | IPC_64, (struct msqid_ds *) ptr);
 			goto out;
 		default:
-			err = -EINVAL;
+			err = -ENOSYS;
 			goto out;
 		}
 	if (call <= SHMCTL) 
 		switch (call) {
-		case SHMAT:
-			err = sys_shmat (first, (char *) ptr, second, (ulong *) third);
+		case SHMAT: {
+			ulong raddr;
+			err = sys_shmat (first, (char *) ptr, second, &raddr);
+			if (!err) {
+				if (put_user(raddr, (ulong *) third))
+					err = -EFAULT;
+			}
 			goto out;
+		}
 		case SHMDT:
 			err = sys_shmdt ((char *)ptr);
 			goto out;
@@ -233,11 +245,11 @@ asmlinkage int sys_ipc (unsigned call, int first, int second, unsigned long thir
 			err = sys_shmctl (first, second | IPC_64, (struct shmid_ds *) ptr);
 			goto out;
 		default:
-			err = -EINVAL;
+			err = -ENOSYS;
 			goto out;
 		}
 	else
-		err = -EINVAL;
+		err = -ENOSYS;
 out:
 	return err;
 }
@@ -288,12 +300,11 @@ asmlinkage unsigned long sys_mmap(unsigned long addr, unsigned long len,
 
 	if (current->thread.flags & SPARC_FLAG_32BIT) {
 		if (len > 0xf0000000UL ||
-		    ((flags & MAP_FIXED) && addr > 0xf0000000UL - len))
+		    (addr > 0xf0000000UL - len))
 			goto out_putf;
 	} else {
 		if (len > -PAGE_OFFSET ||
-		    ((flags & MAP_FIXED) &&
-		     addr < PAGE_OFFSET && addr + len > -PAGE_OFFSET))
+		    (addr < PAGE_OFFSET && addr + len > -PAGE_OFFSET))
 			goto out_putf;
 	}
 
@@ -557,6 +568,7 @@ sys_rt_sigaction(int sig, const struct sigaction *act, struct sigaction *oact,
 	struct k_sigaction new_ka, old_ka;
 	int ret;
 
+	/* XXX: Don't preclude handling different sized sigset_t's.  */
 	if (sigsetsize != sizeof(sigset_t))
 		return -EINVAL;
 

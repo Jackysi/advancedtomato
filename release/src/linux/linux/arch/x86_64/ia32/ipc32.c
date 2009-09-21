@@ -16,6 +16,8 @@
 
 #include <asm/ia32.h>
 
+extern int sem_ctls[];
+
 /*
  * sys32_ipc() is the de-multiplexer for the SysV IPC calls in 32bit emulation..
  *
@@ -163,6 +165,7 @@ struct ipc_kludge {
 #define SEMOP		 1
 #define SEMGET		 2
 #define SEMCTL		 3
+#define SEMTIMEDOP       4
 #define MSGSND		11
 #define MSGRCV		12
 #define MSGGET		13
@@ -185,12 +188,58 @@ ipc_parse_version32 (int *cmd)
 	}
 }
 
+static int put_semid(void *user_semid, struct semid64_ds *s, int version)
+{
+	int err2;
+	switch (version) { 
+	case IPC_64: { 
+		struct semid64_ds32 *usp64 = (struct semid64_ds32 *) user_semid;
+		
+		if (!access_ok(VERIFY_WRITE, usp64, sizeof(*usp64))) {
+			err2 = -EFAULT;
+			break;
+		} 
+		err2 = __put_user(s->sem_perm.key, &usp64->sem_perm.key);
+		err2 |= __put_user(s->sem_perm.uid, &usp64->sem_perm.uid);
+		err2 |= __put_user(s->sem_perm.gid, &usp64->sem_perm.gid);
+		err2 |= __put_user(s->sem_perm.cuid, &usp64->sem_perm.cuid);
+		err2 |= __put_user(s->sem_perm.cgid, &usp64->sem_perm.cgid);
+		err2 |= __put_user(s->sem_perm.mode, &usp64->sem_perm.mode);
+		err2 |= __put_user(s->sem_perm.seq, &usp64->sem_perm.seq);
+		err2 |= __put_user(s->sem_otime, &usp64->sem_otime);
+		err2 |= __put_user(s->sem_ctime, &usp64->sem_ctime);
+		err2 |= __put_user(s->sem_nsems, &usp64->sem_nsems);
+		break;
+	}
+	default: {
+		struct semid_ds32 *usp32 = (struct semid_ds32 *) user_semid;
+		
+		if (!access_ok(VERIFY_WRITE, usp32, sizeof(*usp32))) {
+			err2 = -EFAULT;
+			break;
+		} 
+		err2 = __put_user(s->sem_perm.key, &usp32->sem_perm.key);
+		err2 |= __put_user(s->sem_perm.uid, &usp32->sem_perm.uid);
+		err2 |= __put_user(s->sem_perm.gid, &usp32->sem_perm.gid);
+		err2 |= __put_user(s->sem_perm.cuid, &usp32->sem_perm.cuid);
+		err2 |= __put_user(s->sem_perm.cgid, &usp32->sem_perm.cgid);
+		err2 |= __put_user(s->sem_perm.mode, &usp32->sem_perm.mode);
+		err2 |= __put_user(s->sem_perm.seq, &usp32->sem_perm.seq);
+		err2 |= __put_user(s->sem_otime, &usp32->sem_otime);
+		err2 |= __put_user(s->sem_ctime, &usp32->sem_ctime);
+		err2 |= __put_user(s->sem_nsems, &usp32->sem_nsems);
+		break;
+	}
+	}
+	return err2;
+}
+
 static int
 semctl32 (int first, int second, int third, void *uptr)
 {
 	union semun fourth;
 	u32 pad;
-	int err = 0, err2;
+	int err = 0;
 	struct semid64_ds s;
 	mm_segment_t old_fs;
 	int version = ipc_parse_version32(&third);
@@ -223,46 +272,15 @@ semctl32 (int first, int second, int third, void *uptr)
 		fourth.__pad = &s;
 		old_fs = get_fs();
 		set_fs(KERNEL_DS);
-		err = sys_semctl(first, second|IPC_64, third, fourth);
+		err = sys_semctl(first, second, third|IPC_64, fourth);
 		set_fs(old_fs);
 
-		if (version == IPC_64) {
-			struct semid64_ds32 *usp64 = (struct semid64_ds32 *) A(pad);
+		if (!err) 
+			err = put_semid((void *)A(pad), &s, version);
 
-			if (!access_ok(VERIFY_WRITE, usp64, sizeof(*usp64))) {
-				err = -EFAULT;
-				break;
-			}
-			err2 = __put_user(s.sem_perm.key, &usp64->sem_perm.key);
-			err2 |= __put_user(s.sem_perm.uid, &usp64->sem_perm.uid);
-			err2 |= __put_user(s.sem_perm.gid, &usp64->sem_perm.gid);
-			err2 |= __put_user(s.sem_perm.cuid, &usp64->sem_perm.cuid);
-			err2 |= __put_user(s.sem_perm.cgid, &usp64->sem_perm.cgid);
-			err2 |= __put_user(s.sem_perm.mode, &usp64->sem_perm.mode);
-			err2 |= __put_user(s.sem_perm.seq, &usp64->sem_perm.seq);
-			err2 |= __put_user(s.sem_otime, &usp64->sem_otime);
-			err2 |= __put_user(s.sem_ctime, &usp64->sem_ctime);
-			err2 |= __put_user(s.sem_nsems, &usp64->sem_nsems);
-		} else {
-			struct semid_ds32 *usp32 = (struct semid_ds32 *) A(pad);
-
-			if (!access_ok(VERIFY_WRITE, usp32, sizeof(*usp32))) {
-				err = -EFAULT;
-				break;
-			}
-			err2 = __put_user(s.sem_perm.key, &usp32->sem_perm.key);
-			err2 |= __put_user(s.sem_perm.uid, &usp32->sem_perm.uid);
-			err2 |= __put_user(s.sem_perm.gid, &usp32->sem_perm.gid);
-			err2 |= __put_user(s.sem_perm.cuid, &usp32->sem_perm.cuid);
-			err2 |= __put_user(s.sem_perm.cgid, &usp32->sem_perm.cgid);
-			err2 |= __put_user(s.sem_perm.mode, &usp32->sem_perm.mode);
-			err2 |= __put_user(s.sem_perm.seq, &usp32->sem_perm.seq);
-			err2 |= __put_user(s.sem_otime, &usp32->sem_otime);
-			err2 |= __put_user(s.sem_ctime, &usp32->sem_ctime);
-			err2 |= __put_user(s.sem_nsems, &usp32->sem_nsems);
-		}
-		if (err2)
-		    err = -EFAULT;
+		break;
+	default:
+		err = -EINVAL;
 		break;
 	}
 	return err;
@@ -284,7 +302,7 @@ do_sys32_msgsnd (int first, int second, int third, void *uptr)
 	if (!p)
 		return -ENOMEM;
 	err = get_user(p->mtype, &up->mtype);
-	err |= copy_from_user(p->mtext, &up->mtext, second);
+	err |= (copy_from_user(p->mtext, &up->mtext, second) ? -EFAULT : 0);
 	if (err)
 		goto out;
 	old_fs = get_fs();
@@ -604,6 +622,10 @@ shmctl32 (int first, int second, void *uptr)
 			err = -EFAULT;
 		break;
 
+	default:
+		err = -EINVAL;
+		break;
+
 	}
 	return err;
 }
@@ -619,7 +641,27 @@ sys32_ipc (u32 call, int first, int second, int third, u32 ptr, u32 fifth)
 	switch (call) {
 	      case SEMOP:
 		/* struct sembuf is the same on 32 and 64bit :)) */
-		return sys_semop(first, (struct sembuf *)AA(ptr), second);
+		return sys_semtimedop(first, (struct sembuf *)AA(ptr), second, NULL);
+	      case SEMTIMEDOP: { 
+		int err;
+		mm_segment_t oldfs = get_fs();
+		struct timespec32 *ts32 = (struct timespec32 *)AA(fifth);
+		struct timespec ts;
+		if ((unsigned)second > sem_ctls[2])
+			return -EINVAL;		
+		if (ts32) { 
+			if (get_user(ts.tv_sec, &ts32->tv_sec) ||
+				__get_user(ts.tv_nsec, &ts32->tv_nsec) ||
+				verify_area(VERIFY_READ, (void *)AA(ptr), 
+								second*sizeof(struct sembuf)))
+					return -EFAULT; 
+		} 			
+		set_fs(KERNEL_DS); 
+	 	err = sys_semtimedop(first, (struct sembuf *)AA(ptr), second,
+					ts32 ? &ts : NULL); 
+		set_fs(oldfs);
+		return err; 			
+	      }	
 	      case SEMGET:
 		return sys_semget(first, second, third);
 	      case SEMCTL:
@@ -644,9 +686,7 @@ sys32_ipc (u32 call, int first, int second, int third, u32 ptr, u32 fifth)
 	      case SHMCTL:
 		return shmctl32(first, second, (void *)AA(ptr));
 
-	      default:
-		return -EINVAL;
 	}
-	return -EINVAL;
+	return -ENOSYS;
 }
 

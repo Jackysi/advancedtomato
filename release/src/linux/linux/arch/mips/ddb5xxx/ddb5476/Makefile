@@ -15,6 +15,6 @@ O_TARGET = ddb5476.o
 
 obj-y				+= setup.o irq.o int-handler.o pci.o pci_ops.o \
 				   nile4_pic.o vrc5476_irq.o
-obj-$(CONFIG_REMOTE_DEBUG)	+= dbg_io.o
+obj-$(CONFIG_KGDB)	+= dbg_io.o
 
 include $(TOPDIR)/Rules.make

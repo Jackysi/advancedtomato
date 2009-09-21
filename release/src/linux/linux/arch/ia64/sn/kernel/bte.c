@@ -1,102 +1,194 @@
 /*
- * This file is subject to the terms and conditions of the GNU General Public
- * License.  See the file "COPYING" in the main directory of this archive
- * for more details.
+ *
+ *
+ * Copyright (c) 2000-2003 Silicon Graphics, Inc.  All Rights Reserved.
  * 
- * Copyright (c) 2001-2002 Silicon Graphics, Inc.  All rights reserved.
+ * This program is free software; you can redistribute it and/or modify it 
+ * under the terms of version 2 of the GNU General Public License 
+ * as published by the Free Software Foundation.
+ * 
+ * This program is distributed in the hope that it would be useful, but 
+ * WITHOUT ANY WARRANTY; without even the implied warranty of 
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. 
+ * 
+ * Further, this software is distributed without any warranty that it is 
+ * free of the rightful claim of any third person regarding infringement 
+ * or the like.  Any license provided herein, whether implied or 
+ * otherwise, applies only to this software file.  Patent licenses, if 
+ * any, provided herein do not apply to combinations of this program with 
+ * other software, or any other product whatsoever.
+ * 
+ * You should have received a copy of the GNU General Public 
+ * License along with this program; if not, write the Free Software 
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston MA 02111-1307, USA.
+ * 
+ * Contact information:  Silicon Graphics, Inc., 1600 Amphitheatre Pkwy, 
+ * Mountain View, CA  94043, or:
+ * 
+ * http://www.sgi.com 
+ * 
+ * For further information regarding this notice, see: 
+ * 
+ * http://oss.sgi.com/projects/GenInfo/NoticeExplan
  */
 
+#include <linux/config.h>
 #include <asm/sn/nodepda.h>
 #include <asm/sn/addrs.h>
 #include <asm/sn/arch.h>
 #include <asm/sn/sn_cpuid.h>
 #include <asm/sn/pda.h>
+#include <asm/sn/sn2/shubio.h>
 #include <asm/nodedata.h>
 
 #include <linux/bootmem.h>
 #include <linux/string.h>
 #include <linux/sched.h>
 
-#include <asm/sn/bte_copy.h>
+#include <asm/sn/bte.h>
 
-int bte_offsets[] = { IIO_IBLS0, IIO_IBLS1 };
-
-/*
- * bte_init_node(nodepda, cnode, cmdline_p)
- *
- * Initialize the nodepda structure with BTE base addresses and
- * spinlocks.
- *
- */
-void
-bte_init_node(nodepda_t * mynodepda, cnodeid_t cnode, char **cmdline_p)
-{
-	int bteTestMode = 0;
-	int cmdoffset = 0;
-	int i;
-
-#ifdef ZZZ
-	if (!cmdoffset) {
-		for (;cmdline_p[cmdoffset]; cmdoffset++) {
-			if (strstr(cmdline_p[cmdoffset], "btetest")) {
-				bteTestMode = 1;
-				break;
-			}
-		}
-	}
-#endif
-
-	/*
-	 * Indicate that all the block transfer engines on this node
-	 * are available.
-	 */
-	for (i = 0; i < BTES_PER_NODE; i++) {
-#ifdef CONFIG_IA64_SGI_SN2
-		/* >>> Don't know why the 0x1800000L is here.  Robin */
-		mynodepda->node_bte_info[i].bte_base_addr =
-		    (char *)LOCAL_MMR_ADDR(bte_offsets[i] | 0x1800000L);
-#elif CONFIG_IA64_SGI_SN1
-		mynodepda->node_bte_info[i].bte_base_addr =
-		    (char *)LOCAL_HUB_ADDR(bte_offsets[i]);
-#else
-#error BTE Not defined for this hardware platform.
-#endif
-
-#ifdef CONFIG_IA64_SGI_BTE_LOCKING
-		/* Initialize the notification and spinlock */
-		/* so the first transfer can occur. */
-		mynodepda->node_bte_info[i].mostRecentNotification =
-		    &(mynodepda->node_bte_info[i].notify);
-		mynodepda->node_bte_info[i].notify = 0L;
-		spin_lock_init(&mynodepda->node_bte_info[i].spinlock);
-#endif				/* CONFIG_IA64_SGI_BTE_LOCKING */
-
-		if (bteTestMode) {
-			mynodepda->node_bte_info[i].bteTestBuf =
-				alloc_bootmem_node(NODE_DATA(cnode),
-						   BTE_MAX_XFER);
-		}
-	}
-}
 
 /*
- * bte_init_cpu()
- *
- * Initialize the cpupda structure with pointers to the
- * nodepda bte blocks.
- *
+ * The base address of for each set of bte registers.
  */
-void
-bte_init_cpu(void)
+static int bte_offsets[] = { IIO_IBLS0, IIO_IBLS1 };
+
+
+/************************************************************************
+ * Block Transfer Engine copy related functions.
+ *
+ ***********************************************************************/
+
+
+/*
+ * bte_copy(src, dest, len, mode, notification)
+ *
+ * Use the block transfer engine to move kernel memory from src to dest
+ * using the assigned mode.
+ *
+ * Paramaters:
+ *   src - physical address of the transfer source.
+ *   dest - physical address of the transfer destination.
+ *   len - number of bytes to transfer from source to dest.
+ *   mode - hardware defined.  See reference information
+ *          for IBCT0/1 in the SHUB Programmers Reference
+ *   notification - kernel virtual address of the notification cache
+ *                  line.  If NULL, the default is used and
+ *                  the bte_copy is synchronous.
+ *
+ * NOTE:  This function requires src, dest, and len to
+ * be cacheline aligned.
+ */
+bte_result_t
+bte_copy(u64 src, u64 dest, u64 len, u64 mode, void *notification)
 {
-	/* Called by setup.c as each cpu is being added to the nodepda */
-	if (local_node_data->active_cpu_count & 0x1) {
-		pda.cpubte[0] = &(nodepda->node_bte_info[0]);
-		pda.cpubte[1] = &(nodepda->node_bte_info[1]);
+	int bte_to_use;
+	u64 transfer_size;
+	struct bteinfo_s *bte;
+	bte_result_t bte_status;
+	unsigned long irq_flags;
+
+
+	BTE_PRINTK(("bte_copy(0x%lx, 0x%lx, 0x%lx, 0x%lx, 0x%p)\n",
+		    src, dest, len, mode, notification));
+
+	if (len == 0) {
+		return BTE_SUCCESS;
+	}
+
+	ASSERT(!((len & L1_CACHE_MASK) ||
+		 (src & L1_CACHE_MASK) || (dest & L1_CACHE_MASK)));
+	ASSERT(len < ((BTE_LEN_MASK + 1) << L1_CACHE_SHIFT));
+
+	do {
+		local_irq_save(irq_flags);
+
+		bte_to_use = 0;
+		/* Attempt to lock one of the BTE interfaces. */
+		while ((bte_to_use < BTES_PER_NODE) &&
+		       BTE_LOCK_IF_AVAIL(bte_to_use)) {
+			bte_to_use++;
+		}
+
+		if (bte_to_use < BTES_PER_NODE) {
+			break;
+		}
+
+		local_irq_restore(irq_flags);
+
+		if (!(mode & BTE_WACQUIRE)) {
+			return BTEFAIL_NOTAVAIL;
+		}
+
+		/* Wait until a bte is available. */
+		udelay(10);
+	} while (1);
+
+	bte = pda.cpu_bte_if[bte_to_use];
+	BTE_PRINTKV(("Got a lock on bte %d\n", bte_to_use));
+
+
+	if (notification == NULL) {
+		/* User does not want to be notified. */
+		bte->most_rcnt_na = &bte->notify;
 	} else {
-		pda.cpubte[0] = &(nodepda->node_bte_info[1]);
-		pda.cpubte[1] = &(nodepda->node_bte_info[0]);
+		bte->most_rcnt_na = notification;
 	}
+
+	/* Calculate the number of cache lines to transfer. */
+	transfer_size = ((len >> L1_CACHE_SHIFT) & BTE_LEN_MASK);
+
+	/* Initialize the notification to a known value. */
+	*bte->most_rcnt_na = -1L;
+
+	/* Set the status reg busy bit and transfer length */
+	BTE_PRINTKV(("IBLS - HUB_S(0x%p, 0x%lx)\n",
+		     BTEREG_LNSTAT_ADDR, IBLS_BUSY | transfer_size));
+	HUB_S(BTEREG_LNSTAT_ADDR, (IBLS_BUSY | transfer_size));
+
+	/* Set the source and destination registers */
+	BTE_PRINTKV(("IBSA - HUB_S(0x%p, 0x%lx)\n", BTEREG_SRC_ADDR,
+		     (TO_PHYS(src))));
+	HUB_S(BTEREG_SRC_ADDR, (TO_PHYS(src)));
+	BTE_PRINTKV(("IBDA - HUB_S(0x%p, 0x%lx)\n", BTEREG_DEST_ADDR,
+		     (TO_PHYS(dest))));
+	HUB_S(BTEREG_DEST_ADDR, (TO_PHYS(dest)));
+
+	/* Set the notification register */
+	BTE_PRINTKV(("IBNA - HUB_S(0x%p, 0x%lx)\n", BTEREG_NOTIF_ADDR,
+		     (TO_PHYS(ia64_tpa(bte->most_rcnt_na)))));
+	HUB_S(BTEREG_NOTIF_ADDR, (TO_PHYS(ia64_tpa(bte->most_rcnt_na))));
+
+
+	/* Initiate the transfer */
+	BTE_PRINTK(("IBCT - HUB_S(0x%p, 0x%lx)\n", BTEREG_CTRL_ADDR,
+		     BTE_VALID_MODE(mode)));
+	HUB_S(BTEREG_CTRL_ADDR, BTE_VALID_MODE(mode));
+
+	spin_unlock_irqrestore(&bte->spinlock, irq_flags);
+
+
+	if (notification != NULL) {
+		return BTE_SUCCESS;
+	}
+
+	while (*bte->most_rcnt_na == -1UL) {
+	}
+
+
+	BTE_PRINTKV((" Delay Done.  IBLS = 0x%lx, most_rcnt_na = 0x%lx\n",
+				HUB_L(BTEREG_LNSTAT_ADDR), *bte->most_rcnt_na));
+
+	if (*bte->most_rcnt_na & IBLS_ERROR) {
+		bte_status = *bte->most_rcnt_na & ~IBLS_ERROR;
+		*bte->most_rcnt_na = 0L;
+	} else {
+		bte_status = BTE_SUCCESS;
+	}
+	BTE_PRINTK(("Returning status is 0x%lx and most_rcnt_na is 0x%lx\n",
+				HUB_L(BTEREG_LNSTAT_ADDR), *bte->most_rcnt_na));
+
+	return bte_status;
 }
 
 
@@ -112,14 +204,12 @@ bte_init_cpu(void)
  *   len - number of bytes to transfer from source to dest.
  *   mode - hardware defined.  See reference information
  *          for IBCT0/1 in the SGI documentation.
- *   bteBlock - kernel virtual address of a temporary
- *              buffer used during unaligned transfers.
  *
  * NOTE: If the source, dest, and len are all cache line aligned,
  * then it would be _FAR_ preferrable to use bte_copy instead.
  */
 bte_result_t
-bte_unaligned_copy(u64 src, u64 dest, u64 len, u64 mode, char *bteBlock)
+bte_unaligned_copy(u64 src, u64 dest, u64 len, u64 mode)
 {
 	int destFirstCacheOffset;
 	u64 headBteSource;
@@ -132,10 +222,14 @@ bte_unaligned_copy(u64 src, u64 dest, u64 len, u64 mode, char *bteBlock)
 	u64 footBcopyDest;
 	u64 footBcopyLen;
 	bte_result_t rv;
+	char *bteBlock;
 
 	if (len == 0) {
-		return (BTE_SUCCESS);
+		return BTE_SUCCESS;
 	}
+
+	/* temporary buffer used during unaligned transfers */
+	bteBlock = pda.cpu_bte_if[0]->scratch_buf;
 
 	headBcopySrcOffset = src & L1_CACHE_MASK;
 	destFirstCacheOffset = dest & L1_CACHE_MASK;
@@ -200,15 +294,15 @@ bte_unaligned_copy(u64 src, u64 dest, u64 len, u64 mode, char *bteBlock)
 				headBteLen += footBteLen;
 			} else if (footBcopyLen > 0) {
 				rv = bte_copy(footBteSource,
-					      __pa(bteBlock),
+					      ia64_tpa(bteBlock),
 					      footBteLen, mode, NULL);
 				if (rv != BTE_SUCCESS) {
-					return (rv);
+					return rv;
 				}
 
 
 				memcpy(__va(footBcopyDest),
-				       (char *)bteBlock, footBcopyLen);
+				       (char *) bteBlock, footBcopyLen);
 			}
 		} else {
 			footBcopyLen = 0;
@@ -223,7 +317,7 @@ bte_unaligned_copy(u64 src, u64 dest, u64 len, u64 mode, char *bteBlock)
 				      (len - headBcopyLen -
 				       footBcopyLen), mode, NULL);
 			if (rv != BTE_SUCCESS) {
-				return (rv);
+				return rv;
 			}
 
 		}
@@ -250,14 +344,93 @@ bte_unaligned_copy(u64 src, u64 dest, u64 len, u64 mode, char *bteBlock)
 
 	if (headBcopyLen > 0) {
 		rv = bte_copy(headBteSource,
-			      __pa(bteBlock), headBteLen, mode, NULL);
+			      ia64_tpa(bteBlock), headBteLen, mode, NULL);
 		if (rv != BTE_SUCCESS) {
-			return (rv);
+			return rv;
 		}
 
-		memcpy(__va(headBcopyDest), ((char *)bteBlock +
+		memcpy(__va(headBcopyDest), ((char *) bteBlock +
 					     headBcopySrcOffset),
 		       headBcopyLen);
 	}
-	return (BTE_SUCCESS);
+	return BTE_SUCCESS;
+}
+
+
+/************************************************************************
+ * Block Transfer Engine initialization functions.
+ *
+ ***********************************************************************/
+
+
+/*
+ * bte_init_node(nodepda, cnode)
+ *
+ * Initialize the nodepda structure with BTE base addresses and
+ * spinlocks.
+ */
+void
+bte_init_node(nodepda_t * mynodepda, cnodeid_t cnode)
+{
+	int i;
+
+
+	/*
+	 * Indicate that all the block transfer engines on this node
+	 * are available.
+	 */
+
+	/*
+	 * Allocate one bte_recover_t structure per node.  It holds
+	 * the recovery lock for node.  All the bte interface structures
+	 * will point at this one bte_recover structure to get the lock.
+	 */
+	spin_lock_init(&mynodepda->bte_recovery_lock);
+	init_timer(&mynodepda->bte_recovery_timer);
+	mynodepda->bte_recovery_timer.function = bte_error_handler;
+	mynodepda->bte_recovery_timer.data = (unsigned long) mynodepda;
+
+	for (i = 0; i < BTES_PER_NODE; i++) {
+		/* >>> Don't know why the 0x1800000L is here.  Robin */
+		mynodepda->bte_if[i].bte_base_addr =
+		    (char *) LOCAL_MMR_ADDR(bte_offsets[i] | 0x1800000L);
+
+		/*
+		 * Initialize the notification and spinlock
+		 * so the first transfer can occur.
+		 */
+		mynodepda->bte_if[i].most_rcnt_na =
+		    &(mynodepda->bte_if[i].notify);
+		mynodepda->bte_if[i].notify = 0L;
+		spin_lock_init(&mynodepda->bte_if[i].spinlock);
+
+		mynodepda->bte_if[i].scratch_buf =
+		    alloc_bootmem_node(NODE_DATA(cnode), BTE_MAX_XFER);
+		mynodepda->bte_if[i].bte_cnode = cnode;
+		mynodepda->bte_if[i].bte_error_count = 0;
+		mynodepda->bte_if[i].bte_num = i;
+		mynodepda->bte_if[i].cleanup_active = 0;
+		mynodepda->bte_if[i].bh_error = 0;
+	}
+
+}
+
+/*
+ * bte_init_cpu()
+ *
+ * Initialize the cpupda structure with pointers to the
+ * nodepda bte blocks.
+ *
+ */
+void
+bte_init_cpu(void)
+{
+	/* Called by setup.c as each cpu is being added to the nodepda */
+	if (local_node_data->active_cpu_count & 0x1) {
+		pda.cpu_bte_if[0] = &(nodepda->bte_if[0]);
+		pda.cpu_bte_if[1] = &(nodepda->bte_if[1]);
+	} else {
+		pda.cpu_bte_if[0] = &(nodepda->bte_if[1]);
+		pda.cpu_bte_if[1] = &(nodepda->bte_if[0]);
+	}
 }

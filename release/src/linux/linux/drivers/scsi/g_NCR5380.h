@@ -26,13 +26,7 @@
  */
 
 /*
- * $Log: g_NCR5380.h,v $
- * Revision 1.1.1.2  2003/10/14 08:08:39  sparq
- * Broadcom Release 3.51.8.0 for BCM4712.
- *
- * Revision 1.1.1.1  2003/02/03 22:37:53  mhuang
- * LINUX_2_4 branch snapshot from linux-mips.org CVS
- *
+ * $Log: generic_NCR5380.h,v $
  */
 
 #ifndef GENERIC_NCR5380_H
@@ -98,6 +92,9 @@ int generic_NCR5380_proc_info(char *buffer, char **start, off_t offset, int leng
 #define NCR5380_instance_name io_port
 #define NCR53C400_register_offset 0
 #define NCR53C400_address_adjust 8
+/*
+ *	FIXME: size should be runtime decided
+ */
 #ifdef NCR53C400
 #define NCR5380_region_size 16
 #else

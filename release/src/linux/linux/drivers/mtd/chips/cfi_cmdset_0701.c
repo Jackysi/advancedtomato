@@ -8,7 +8,7 @@
  *
  * This code is GPL
  *
- * $Id: cfi_cmdset_0701.c,v 1.1.1.4 2003/10/14 08:08:17 sparq Exp $
+ * $Id: cfi_cmdset_0701.c,v 1.1 2005/03/16 13:50:00 wbx Exp $
  *
  */
 

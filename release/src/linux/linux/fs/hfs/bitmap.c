@@ -1,4 +1,20 @@
-
+/*
+ * linux/fs/hfs/bitmap.c
+ *
+ * Copyright (C) 1996-1997  Paul H. Hargrove
+ * This file may be distributed under the terms of the GNU General Public License.
+ *
+ * Based on GPLed code Copyright (C) 1995  Michael Dreher
+ *
+ * This file contains the code to modify the volume bitmap:
+ * search/set/clear bits.
+ *
+ * "XXX" in a comment is a note to myself to consider changing something.
+ *
+ * In function preconditions the term "valid" applied to a pointer to
+ * a structure means that the pointer is non-NULL and the structure it
+ * points to has all fields initialized to consistent values.
+ */
 
 #include "hfs.h"
 
@@ -65,6 +81,33 @@ hfs_u16 hfs_vbm_count_free(const struct hfs_mdb *mdb, hfs_u16 start)
 	return count;
 }
 
+/*
+ * hfs_vbm_search_free()
+ *
+ * Description:
+ *   Search for 'num_bits' consecutive cleared bits in the bitmap blocks of
+ *   the hfs MDB. 'mdb' had better be locked or the returned range
+ *   may be no longer free, when this functions returns!
+ *   XXX Currently the search starts from bit 0, but it should start with
+ *   the bit number stored in 's_alloc_ptr' of the MDB.
+ * Input Variable(s):
+ *   struct hfs_mdb *mdb: Pointer to the hfs MDB
+ *   hfs_u16 *num_bits: Pointer to the number of cleared bits
+ *     to search for
+ * Output Variable(s):
+ *   hfs_u16 *num_bits: The number of consecutive clear bits of the
+ *     returned range. If the bitmap is fragmented, this will be less than
+ *     requested and it will be zero, when the disk is full.
+ * Returns:
+ *   The number of the first bit of the range of cleared bits which has been
+ *   found. When 'num_bits' is zero, this is invalid!
+ * Preconditions:
+ *   'mdb' points to a "valid" (struct hfs_mdb).
+ *   'num_bits' points to a variable of type (hfs_u16), which contains
+ *	the number of cleared bits to find.
+ * Postconditions:
+ *   'num_bits' is set to the length of the found sequence.
+ */
 hfs_u16 hfs_vbm_search_free(const struct hfs_mdb *mdb, hfs_u16 *num_bits)
 {
 	hfs_u16 block_nr; /* index of the current bitmap block */

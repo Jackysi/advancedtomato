@@ -42,6 +42,7 @@
  * if CX/DX have been changed in the e801 call and if so use AX/BX .
  * Michael Miller, April 2001 <michaelm@mjmm.org>
  *
+ * Added long mode checking and SSE force. March 2003, Andi Kleen.		
  */
 
 #include <linux/config.h>
@@ -197,10 +198,10 @@ fin:	ret
 prtsp2:	call	prtspc		# Print double space
 prtspc:	movb	$0x20, %al	# Print single space (note: fall-thru)
 
-# Part of above routine, this one just prints ascii al
-prtchr:	pushw	%ax
+prtchr:	
+	pushw	%ax
 	pushw	%cx
-	xorb	%bh, %bh
+	movw	$0007,%bx
 	movw	$0x01, %cx
 	movb	$0x0e, %ah
 	int	$0x10
@@ -277,6 +278,90 @@ good_sig:
 loader_panic_mess: .string "Wrong loader, giving up..."
 
 loader_ok:
+	/* check for long mode. */
+	/* we have to do this before the VESA setup, otherwise the user
+	   can't see the error message. */
+	
+	pushw	%ds
+	movw	%cs,%ax
+	movw	%ax,%ds
+	
+	/* minimum CPUID flags for x86-64 */
+	/* see http://www.x86-64.org/lists/discuss/msg02971.html */		
+#define SSE_MASK ((1<<25)|(1<<26))
+#define REQUIRED_MASK1 ((1<<0)|(1<<3)|(1<<4)|(1<<5)|(1<<6)|(1<<8)|\
+					   (1<<13)|(1<<15)|(1<<24))
+#define REQUIRED_MASK2 (1<<29)
+
+	pushfl				/* standard way to check for cpuid */
+	popl	%eax
+	movl	%eax,%ebx
+	xorl	$0x200000,%eax
+	pushl	%eax
+	popfl
+	pushfl
+	popl	%eax
+	cmpl	%eax,%ebx
+	jz	no_longmode		/* cpu has no cpuid */
+	movl	$0x0,%eax
+	cpuid
+	cmpl	$0x1,%eax
+	jb	no_longmode		/* no cpuid 1 */
+	xor	%di,%di
+	cmpl	$0x68747541,%ebx	/* AuthenticAMD */
+	jnz	noamd
+	cmpl	$0x69746e65,%edx
+	jnz	noamd
+	cmpl	$0x444d4163,%ecx
+	jnz	noamd
+	mov	$1,%di			/* cpu is from AMD */
+noamd:		
+	movl    $0x1,%eax
+	cpuid
+	andl	$REQUIRED_MASK1,%edx
+	xorl	$REQUIRED_MASK1,%edx
+	jnz	no_longmode
+	movl    $0x80000000,%eax
+	cpuid
+	cmpl    $0x80000001,%eax
+	jb      no_longmode             /* no extended cpuid */
+	movl    $0x80000001,%eax
+	cpuid
+	andl    $REQUIRED_MASK2,%edx
+	xorl    $REQUIRED_MASK2,%edx
+	jnz     no_longmode
+sse_test:		
+	movl	$1,%eax
+	cpuid
+	andl	$SSE_MASK,%edx
+	cmpl	$SSE_MASK,%edx
+	je	sse_ok
+	test	%di,%di
+	jz	no_longmode	/* only try to force SSE on AMD */ 
+	movl	$0xc0010015,%ecx	/* HWCR */
+	rdmsr
+	btr	$15,%eax	/* enable SSE */
+	wrmsr
+	xor	%di,%di		/* don't loop */
+	jmp	sse_test	/* try again */	
+no_longmode:
+	call	beep
+	lea	long_mode_panic,%si
+	call	prtstr
+no_longmode_loop:		
+	jmp	no_longmode_loop
+long_mode_panic:
+	.string "Your CPU does not support long mode. Use a 32bit distribution."
+	.byte 0
+	
+sse_ok:
+	popw	%ds
+	
+# tell BIOS we want to go to long mode
+	movl  $0xec00,%eax	# declare target operating mode
+	movl  $2,%ebx		# long mode
+	int $0x15			
+	
 # Get memory size (extended mem, kB)
 
 	xorl	%eax, %eax
@@ -449,7 +534,7 @@ no_psmouse:
 	cmpw	$0, %cs:realmode_swtch
 	jz	rmodeswtch_normal
 
-	lcall	%cs:realmode_swtch
+	lcall	*%cs:realmode_swtch
 
 	jmp	rmodeswtch_end
 

@@ -103,6 +103,15 @@ ip6t_local_out_hook(unsigned int hook,
 		   const struct net_device *out,
 		   int (*okfn)(struct sk_buff *))
 {
+#if 0
+	/* root is playing with raw sockets. */
+	if ((*pskb)->len < sizeof(struct iphdr)
+	    || (*pskb)->nh.iph->ihl * 4 < sizeof(struct iphdr)) {
+		if (net_ratelimit())
+			printk("ip6t_hook: happy cracking.\n");
+		return NF_ACCEPT;
+	}
+#endif
 
 	return ip6t_do_table(pskb, hook, in, out, &packet_filter, NULL);
 }

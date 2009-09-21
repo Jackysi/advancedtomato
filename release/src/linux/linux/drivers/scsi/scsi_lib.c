@@ -378,6 +378,7 @@ static Scsi_Cmnd *__scsi_end_request(Scsi_Cmnd * SCpnt,
 		if ((bh = req->bh) != NULL) {
 			nsect = bh->b_size >> 9;
 			blk_finished_io(nsect);
+			blk_finished_sectors(req, nsect);
 			req->bh = bh->b_reqnext;
 			bh->b_reqnext = NULL;
 			sectors -= nsect;

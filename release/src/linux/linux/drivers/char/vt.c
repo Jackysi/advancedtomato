@@ -166,6 +166,9 @@ do_kdsk_ioctl(int cmd, struct kbentry *user_kbe, int perm, struct kbd_struct *kb
 	if (i >= NR_KEYS || s >= MAX_NR_KEYMAPS)
 		return -EINVAL;	
 
+	if (!capable(CAP_SYS_TTY_CONFIG))
+		perm = 0;
+
 	switch (cmd) {
 	case KDGKBENT:
 		key_map = key_maps[s];
@@ -275,6 +278,9 @@ do_kdgkb_ioctl(int cmd, struct kbsentry *user_kdgkb, int perm)
 	int delta;
 	char *first_free, *fj, *fnw;
 	int i, j, k;
+
+	if (!capable(CAP_SYS_TTY_CONFIG))
+		perm = 0;
 
 	/* we mostly copy too much here (512bytes), but who cares ;) */
 	if (copy_from_user(&tmp, user_kdgkb, sizeof(struct kbsentry)))
@@ -588,8 +594,7 @@ int vt_ioctl(struct tty_struct *tty, struct file * file,
 		  default:
 			return -EINVAL;
 		}
-		if (tty->ldisc.flush_buffer)
-			tty->ldisc.flush_buffer(tty);
+		tty_ldisc_flush(tty);
 		return 0;
 
 	case KDGKBMODE:

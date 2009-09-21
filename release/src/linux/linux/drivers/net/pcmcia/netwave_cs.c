@@ -247,6 +247,8 @@ static struct iw_statistics* netwave_get_wireless_stats(struct net_device *dev);
 #endif
 static int netwave_ioctl(struct net_device *, struct ifreq *, int);
 
+static struct ethtool_ops netdev_ethtool_ops;
+
 static void set_multicast_list(struct net_device *dev);
 
 /*
@@ -493,6 +495,7 @@ static dev_link_t *netwave_attach(void)
     dev->get_wireless_stats = &netwave_get_wireless_stats;
 #endif
     dev->do_ioctl = &netwave_ioctl;
+    SET_ETHTOOL_OPS(dev, &netdev_ethtool_ops);
 
     dev->tx_timeout = &netwave_watchdog;
     dev->watchdog_timeo = TX_TIMEOUT;
@@ -603,53 +606,34 @@ static void netwave_flush_stale_links(void)
     }
 } /* netwave_flush_stale_links */
 
-static int netdev_ethtool_ioctl (struct net_device *dev, void *useraddr)
+static void netdev_get_drvinfo(struct net_device *dev,
+			       struct ethtool_drvinfo *info)
 {
-	u32 ethcmd;
-
-	/* dev_ioctl() in ../../net/core/dev.c has already checked
-	   capable(CAP_NET_ADMIN), so don't bother with that here.  */
-
-	if (get_user(ethcmd, (u32 *)useraddr))
-		return -EFAULT;
-
-	switch (ethcmd) {
-
-	case ETHTOOL_GDRVINFO: {
-		struct ethtool_drvinfo info = { ETHTOOL_GDRVINFO };
-		strcpy (info.driver, DRV_NAME);
-		strcpy (info.version, DRV_VERSION);
-		sprintf(info.bus_info, "PCMCIA 0x%lx", dev->base_addr);
-		if (copy_to_user (useraddr, &info, sizeof (info)))
-			return -EFAULT;
-		return 0;
-	}
+	strcpy(info->driver, DRV_NAME);
+	strcpy(info->version, DRV_VERSION);
+	sprintf(info->bus_info, "PCMCIA 0x%lx", dev->base_addr);
+}
 
 #ifdef PCMCIA_DEBUG
-	/* get message-level */
-	case ETHTOOL_GMSGLVL: {
-		struct ethtool_value edata = {ETHTOOL_GMSGLVL};
-		edata.data = pc_debug;
-		if (copy_to_user(useraddr, &edata, sizeof(edata)))
-			return -EFAULT;
-		return 0;
-	}
-	/* set message-level */
-	case ETHTOOL_SMSGLVL: {
-		struct ethtool_value edata;
-		if (copy_from_user(&edata, useraddr, sizeof(edata)))
-			return -EFAULT;
-		pc_debug = edata.data;
-		return 0;
-	}
-#endif
-
-	default:
-		break;
-	}
-
-	return -EOPNOTSUPP;
+static u32 netdev_get_msglevel(struct net_device *dev)
+{
+	return pc_debug;
 }
+
+static void netdev_set_msglevel(struct net_device *dev, u32 level)
+{
+	pc_debug = level;
+}
+#endif /* PCMCIA_DEBUG */
+
+static struct ethtool_ops netdev_ethtool_ops = {
+	.get_drvinfo		= netdev_get_drvinfo,
+#ifdef PCMCIA_DEBUG
+	.get_msglevel		= netdev_get_msglevel,
+	.set_msglevel		= netdev_set_msglevel,
+#endif /* PCMCIA_DEBUG */
+};
+
 /*
  * Function netwave_ioctl (dev, rq, cmd)
  *
@@ -672,9 +656,6 @@ static int netwave_ioctl(struct net_device *dev, /* ioctl device */
 	
     DEBUG(0, "%s: ->netwave_ioctl(cmd=0x%X)\n", dev->name, cmd);
 	
-    if (cmd == SIOCETHTOOL)
-    	return netdev_ethtool_ioctl(dev, (void *) rq->ifr_data);
-
     /* Disable interrupts & save flags */
     save_flags(flags);
     cli();
@@ -715,7 +696,7 @@ static int netwave_ioctl(struct net_device *dev, /* ioctl device */
 	wrq->u.nwid.on = 1;
 #endif	/* WIRELESS_EXT > 8 */
 	break;
-#if WIRELESS_EXT > 8	    /* Note : The API did change... */
+#if WIRELESS_EXT > 8	/* Note : The API did change... */
     case SIOCGIWENCODE:
 	/* Get scramble key */
 	if(wrq->u.encoding.pointer != (caddr_t) 0)

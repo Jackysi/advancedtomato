@@ -192,11 +192,11 @@ void hpfs_read_inode(struct inode *i)
 
 void hpfs_write_inode_ea(struct inode *i, struct fnode *fnode)
 {
-	if (fnode->acl_size_l || fnode->acl_size_s) {
-		/* Some unknown structures like ACL may be in fnode,
-		   we'd better not overwrite them */
+	/*if (fnode->acl_size_l || fnode->acl_size_s) {
+		   Some unknown structures like ACL may be in fnode,
+		   we'd better not overwrite them
 		hpfs_error(i->i_sb, "fnode %08x has some unknown HPFS386 stuctures", i->i_ino);
-	} else if (i->i_sb->s_hpfs_eas >= 2) {
+	} else*/ if (i->i_sb->s_hpfs_eas >= 2) {
 		unsigned char ea[4];
 		if ((i->i_uid != i->i_sb->s_hpfs_uid) || i->i_hpfs_ea_uid) {
 			ea[0] = i->i_uid & 0xff;
@@ -259,16 +259,18 @@ void hpfs_write_inode_nolock(struct inode *i)
 	struct hpfs_dirent *de;
 	if (i->i_ino == i->i_sb->s_hpfs_root) return;
 	if (!(fnode = hpfs_map_fnode(i->i_sb, i->i_ino, &bh))) return;
-	if (i->i_ino != i->i_sb->s_hpfs_root) {
+	if (i->i_ino != i->i_sb->s_hpfs_root && i->i_nlink) {
 		if (!(de = map_fnode_dirent(i->i_sb, i->i_ino, fnode, &qbh))) {
 			brelse(bh);
 			return;
 		}
 	} else de = NULL;
 	if (S_ISREG(i->i_mode)) {
-		fnode->file_size = de->file_size = i->i_size;
+		fnode->file_size = i->i_size;
+		if (de) de->file_size = i->i_size;
 	} else if (S_ISDIR(i->i_mode)) {
-		fnode->file_size = de->file_size = 0;
+		fnode->file_size = 0;
+		if (de) de->file_size = 0;
 	}
 	hpfs_write_inode_ea(i, fnode);
 	if (de) {

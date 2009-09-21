@@ -53,6 +53,7 @@ CONFIG_BINFMT_AOUT=y
 CONFIG_BINFMT_ELF=y
 CONFIG_BINFMT_MISC=m
 CONFIG_SUNOS_EMUL=y
+# CONFIG_OOM_KILLER is not set
 
 #
 # Parallel port support
@@ -154,6 +155,17 @@ CONFIG_INET=y
 # CONFIG_SYN_COOKIES is not set
 CONFIG_IPV6=m
 # CONFIG_KHTTPD is not set
+
+#
+#    SCTP Configuration (EXPERIMENTAL)
+#
+CONFIG_IPV6_SCTP__=m
+CONFIG_IP_SCTP=m
+# CONFIG_SCTP_DBG_MSG is not set
+# CONFIG_SCTP_DBG_OBJCNT is not set
+# CONFIG_SCTP_HMAC_NONE is not set
+CONFIG_SCTP_HMAC_SHA1=y
+# CONFIG_SCTP_HMAC_MD5 is not set
 # CONFIG_ATM is not set
 # CONFIG_VLAN_8021Q is not set
 
@@ -191,7 +203,6 @@ CONFIG_DECNET_SIOCGIFCONF=y
 #
 CONFIG_NET_PKTGEN=m
 # CONFIG_IDE is not set
-# CONFIG_BLK_DEV_IDE_MODES is not set
 # CONFIG_BLK_DEV_HD is not set
 
 #
@@ -279,6 +290,7 @@ CONFIG_UNIX98_PTY_COUNT=256
 # File systems
 #
 # CONFIG_QUOTA is not set
+# CONFIG_QFMT_V2 is not set
 CONFIG_AUTOFS_FS=m
 CONFIG_AUTOFS4_FS=m
 # CONFIG_REISERFS_FS is not set
@@ -288,6 +300,9 @@ CONFIG_AUTOFS4_FS=m
 # CONFIG_ADFS_FS_RW is not set
 CONFIG_AFFS_FS=m
 # CONFIG_HFS_FS is not set
+CONFIG_HFSPLUS_FS=m
+CONFIG_BEFS_FS=m
+# CONFIG_BEFS_DEBUG is not set
 # CONFIG_BFS_FS is not set
 CONFIG_EXT3_FS=m
 CONFIG_JBD=m
@@ -305,6 +320,9 @@ CONFIG_RAMFS=y
 CONFIG_ISO9660_FS=m
 # CONFIG_JOLIET is not set
 # CONFIG_ZISOFS is not set
+CONFIG_JFS_FS=m
+# CONFIG_JFS_DEBUG is not set
+# CONFIG_JFS_STATISTICS is not set
 CONFIG_MINIX_FS=m
 # CONFIG_VXFS_FS is not set
 # CONFIG_NTFS_FS is not set
@@ -324,6 +342,11 @@ CONFIG_SYSV_FS=m
 # CONFIG_UDF_RW is not set
 CONFIG_UFS_FS=m
 # CONFIG_UFS_FS_WRITE is not set
+CONFIG_XFS_FS=m
+CONFIG_XFS_QUOTA=y
+# CONFIG_XFS_RT is not set
+# CONFIG_XFS_TRACE is not set
+# CONFIG_XFS_DEBUG is not set
 
 #
 # Network File Systems
@@ -332,13 +355,16 @@ CONFIG_CODA_FS=m
 CONFIG_INTERMEZZO_FS=m
 CONFIG_NFS_FS=y
 # CONFIG_NFS_V3 is not set
+# CONFIG_NFS_DIRECTIO is not set
 # CONFIG_ROOT_NFS is not set
 CONFIG_NFSD=m
 # CONFIG_NFSD_V3 is not set
+CONFIG_NFSD_TCP=y
 CONFIG_SUNRPC=y
 CONFIG_LOCKD=y
 CONFIG_SMB_FS=m
 # CONFIG_SMB_NLS_DEFAULT is not set
+# CONFIG_SMB_UNIX is not set
 # CONFIG_NCP_FS is not set
 # CONFIG_NCPFS_PACKET_SIGNING is not set
 # CONFIG_NCPFS_IOCTL_LOCKING is not set
@@ -349,7 +375,6 @@ CONFIG_SMB_FS=m
 # CONFIG_NCPFS_NLS is not set
 # CONFIG_NCPFS_EXTRAS is not set
 # CONFIG_ZISOFS_FS is not set
-# CONFIG_ZLIB_FS_INFLATE is not set
 
 #
 # Partition Types
@@ -415,4 +440,17 @@ CONFIG_NLS_DEFAULT="iso8859-1"
 #
 # Kernel hacking
 #
-# CONFIG_MAGIC_SYSRQ is not set
+# CONFIG_DEBUG_KERNEL is not set
+CONFIG_LOG_BUF_SHIFT=0
+
+#
+# Cryptographic options
+#
+# CONFIG_CRYPTO is not set
+
+#
+# Library routines
+#
+# CONFIG_CRC32 is not set
+CONFIG_ZLIB_INFLATE=m
+CONFIG_ZLIB_DEFLATE=m

@@ -5,12 +5,6 @@
  * Added /proc/sys/net directories for each protocol family. [MS]
  *
  * $Log: sysctl_net.c,v $
- * Revision 1.1.1.2  2003/10/14 08:09:31  sparq
- * Broadcom Release 3.51.8.0 for BCM4712.
- *
- * Revision 1.1.1.1  2003/02/03 22:38:20  mhuang
- * LINUX_2_4 branch snapshot from linux-mips.org CVS
- *
  * Revision 1.2  1996/05/08  20:24:40  shaver
  * Added bits for NET_BRIDGE and the NET_IPV4_ARP stuff and
  * NET_IPV4_IP_FORWARD.

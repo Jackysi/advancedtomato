@@ -359,6 +359,12 @@ asmlinkage long sys_semop (int semid, struct sembuf *sops, unsigned nsops)
 	return -ENOSYS;
 }
 
+asmlinkage long sys_semtimedop(int semid, struct sembuf *sops, unsigned nsops,
+			       const struct timespec *timeout)
+{
+	return -ENOSYS;
+}
+
 asmlinkage long sys_semctl (int semid, int semnum, int cmd, union semun arg)
 {
 	return -ENOSYS;

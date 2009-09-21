@@ -535,6 +535,9 @@ int dtl1_close(dtl1_info_t *info)
 	unsigned int iobase = info->link.io.BasePort1;
 	struct hci_dev *hdev = &(info->hdev);
 
+	if (info->link.state & DEV_CONFIG_PENDING)
+		return -ENODEV;
+
 	dtl1_hci_close(hdev);
 
 	spin_lock_irqsave(&(info->lock), flags);

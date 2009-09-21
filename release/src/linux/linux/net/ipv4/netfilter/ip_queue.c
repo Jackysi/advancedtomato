@@ -62,7 +62,9 @@ static DECLARE_MUTEX(ipqnl_sem);
 static void
 ipq_issue_verdict(struct ipq_queue_entry *entry, int verdict)
 {
+	local_bh_disable();
 	nf_reinject(entry->skb, entry->info, verdict);
+	local_bh_enable();
 	kfree(entry);
 }
 
@@ -300,8 +302,9 @@ ipq_enqueue_packet(struct sk_buff *skb, struct nf_info *info, void *data)
 	write_lock_bh(&queue_lock);
 	
 	if (!peer_pid)
-		goto err_out_unlock;
+		goto err_out_free_nskb; 
 
+ 	/* netlink_unicast will either free the nskb or attach it to a socket */ 
 	status = netlink_unicast(ipqnl, nskb, peer_pid, MSG_DONTWAIT);
 	if (status < 0)
 		goto err_out_unlock;
@@ -312,6 +315,9 @@ ipq_enqueue_packet(struct sk_buff *skb, struct nf_info *info, void *data)
 
 	write_unlock_bh(&queue_lock);
 	return status;
+
+err_out_free_nskb:
+	kfree_skb(nskb); 
 	
 err_out_unlock:
 	write_unlock_bh(&queue_lock);
@@ -513,7 +519,7 @@ ipq_rcv_skb(struct sk_buff *skb)
 	write_unlock_bh(&queue_lock);
 	
 	status = ipq_receive_peer(NLMSG_DATA(nlh), type,
-	                          skblen - NLMSG_LENGTH(0));
+	                          nlmsglen - NLMSG_LENGTH(0));
 	if (status < 0)
 		RCV_SKB_FAIL(status);
 		
@@ -581,12 +587,11 @@ static struct notifier_block ipq_nl_notifier = {
 	0
 };
 
-static int sysctl_maxlen = IPQ_QMAX_DEFAULT;
 static struct ctl_table_header *ipq_sysctl_header;
 
 static ctl_table ipq_table[] = {
-	{ NET_IPQ_QMAX, NET_IPQ_QMAX_NAME, &sysctl_maxlen,
-	  sizeof(sysctl_maxlen), 0644,  NULL, proc_dointvec },
+	{ NET_IPQ_QMAX, NET_IPQ_QMAX_NAME, &queue_maxlen,
+	  sizeof(queue_maxlen), 0644,  NULL, proc_dointvec },
  	{ 0 }
 };
 

@@ -16,9 +16,6 @@
 
 #define INVALID_STORAGE_AREA ((void *)(-1 - 0x3FFF ))
 
-extern int disable_irq(unsigned int);
-extern int enable_irq(unsigned int);
-
 /*
  * path management control word
  */
@@ -420,14 +417,8 @@ typedef struct chsc_area_t {
 				__u32 reserved2;
 				/* word 5 */
 				__u32 reserved3;
-				/* word 6 */
-				__u32 ccdf;       /* content-code dependent field */
-				/* word 7 */
-				__u32 reserved4;
-				/* word 8 */
-				__u32 reserved5;
-				/* word 9 */
-				__u32 reserved6;
+				/* word 6-102 */
+				__u32 ccdf[96];   /* content-code dependent field */
 			} __attribute__ ((packed,aligned(8))) sei_res;
 			struct {
 				/* word 2 */
@@ -445,6 +436,8 @@ typedef struct chsc_area_t {
 				__u8 chpid[8];    /* chpids 0-7 */
 				/* words 6-9 */
 				__u16 fla[8];     /* full link addresses 0-7 */
+				/* words 10-102 */
+				__u32 padding[92];
 			} __attribute__ ((packed,aligned(8))) ssd_res;
 		} response_block_data;
 	} __attribute__ ((packed,aligned(8))) response_block;
@@ -497,6 +490,8 @@ typedef struct {
 #define DEVSTAT_SUSPENDED          0x00000400
 #define DEVSTAT_UNKNOWN_DEV        0x00000800
 #define DEVSTAT_UNFRIENDLY_DEV     0x00001000
+#define DEVSTAT_NOT_ACC            0x00002000
+#define DEVSTAT_NOT_ACC_ERR        0x00004000
 #define DEVSTAT_FINAL_STATUS       0x80000000
 
 #define DEVINFO_NOT_OPER           DEVSTAT_NOT_OPER
@@ -580,7 +575,7 @@ typedef struct {
                                         /* ... for suspended CCWs */
 #define DOIO_TIMEOUT             0x0080 /* 3 secs. timeout for sync. I/O */
 #define DOIO_DONT_CALL_INTHDLR   0x0100 /* don't call interrupt handler */
-#define DOIO_CANCEL_ON_TIMEOUT   0x0200 /* cancel I/O if it timed out */
+#define DOIO_USE_DIAG98          0x0400 /* use DIAG98 instead of SSCH */
 
 /*
  * do_IO()
@@ -662,7 +657,6 @@ int s390_request_irq_special( int                      irq,
                               void                    *dev_id);
 
 extern int set_cons_dev(int irq);
-extern int reset_cons_dev(int irq);
 extern int wait_cons_dev(int irq);
 extern schib_t *s390_get_schib( int irq );
 
@@ -785,6 +779,25 @@ extern __inline__ int ssch(int irq, volatile orb_t *addr)
         return ccode;
 }
 
+extern __inline__ int diag98(int irq, volatile orb_t *addr)
+{
+        int ccode;
+
+        __asm__ __volatile__(
+                "   lr    1,%1\n"
+                "   lr    0,%2\n"    /* orb in 0 */
+		"   lhi   2,12\n"    /* function code 0x0c */
+		"   diag  2,0,152\n" /* diag98 instead of ssch,
+					result in gpr 1 */
+                "   ipm   %0\n"      /* usual cc evaluation. cc=3 will be
+				        reported as not operational */
+                "   srl   %0,28"
+                : "=d" (ccode) 
+		: "d" (irq | 0x10000L), "a" (addr)
+                : "cc", "0", "1", "2");
+        return ccode;
+}
+
 extern __inline__ int rsch(int irq)
 {
         int ccode;
@@ -888,25 +901,8 @@ typedef struct {
 void VM_virtual_device_info( __u16      devno,   /* device number */
                              senseid_t *ps );    /* ptr to senseID data */
 
-extern __inline__ int diag210( diag210_t * addr)
-{
-        int ccode;
+extern int diag210( diag210_t * addr);
 
-        __asm__ __volatile__(
-#ifdef CONFIG_ARCH_S390X
-                "   sam31\n"
-                "   diag  %1,0,0x210\n"
-                "   sam64\n"
-#else
-                "   diag  %1,0,0x210\n"
-#endif
-                "   ipm   %0\n"
-                "   srl   %0,28"
-                : "=d" (ccode) 
-		: "a" (addr)
-                : "cc" );
-        return ccode;
-}
 extern __inline__ int chsc( chsc_area_t * chsc_area)
 {
 	int cc;
@@ -998,6 +994,8 @@ static inline void s390_do_profile (unsigned long addr)
 }
 
 #include <asm/s390io.h>
+
+#define get_irq_lock(irq) &ioinfo[irq]->irq_lock
 
 #define s390irq_spin_lock(irq) \
         spin_lock(&(ioinfo[irq]->irq_lock))

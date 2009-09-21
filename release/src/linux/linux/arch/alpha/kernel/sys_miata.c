@@ -64,6 +64,11 @@ miata_init_irq(void)
 	if (alpha_using_srm)
 		alpha_mv.device_interrupt = miata_srm_device_interrupt;
 
+#if 0
+	/* These break on MiataGL so we'll try not to do it at all.  */
+	*(vulp)PYXIS_INT_HILO = 0x000000B2UL; mb();	/* ISA/NMI HI */
+	*(vulp)PYXIS_RT_COUNT = 0UL; mb();		/* clear count */
+#endif
 
 	init_i8259a_irqs();
 
@@ -240,6 +245,9 @@ miata_init_pci(void)
 static void
 miata_kill_arch(int mode)
 {
+	cia_kill_arch(mode);
+
+#ifndef ALPHA_RESTORE_SRM_SETUP
 	switch(mode) {
 	case LINUX_REBOOT_CMD_RESTART:
 		/* Who said DEC engineers have no sense of humor? ;-)  */ 
@@ -255,6 +263,7 @@ miata_kill_arch(int mode)
 	}
 
 	halt();
+#endif
 }
 
 

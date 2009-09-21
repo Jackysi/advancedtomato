@@ -1,4 +1,15 @@
-
+/*
+ *  drivers/video/tx3912fb.c
+ *
+ *  Copyright (C) 1999 Harald Koerfgen
+ *  Copyright (C) 2001 Steven Hill (sjhill@realitydiluted.com)
+ *
+ * This file is subject to the terms and conditions of the GNU General Public
+ * License. See the file COPYING in the main directory of this archive for
+ * more details.
+ *
+ *  Framebuffer for LCD controller in TMPR3912/05 and PR31700 processors
+ */
 #include <linux/config.h>
 #include <linux/module.h>
 #include <linux/kernel.h>
@@ -457,6 +468,7 @@ static int tx3912fbcon_updatevar(int con, struct fb_info *info)
  */
 static void tx3912fbcon_blank(int blank, struct fb_info *info)
 {
+	/* FIXME */
 	printk("tx3912fbcon_blank\n");
 }
 

@@ -1,4 +1,4 @@
-/* $Id: uaccess.h,v 1.1.1.4 2003/10/14 08:09:22 sparq Exp $
+/* $Id: uaccess.h,v 1.24 2001/10/30 04:32:24 davem Exp $
  * uaccess.h: User space memore access functions.
  *
  * Copyright (C) 1996 David S. Miller (davem@caip.rutgers.edu)
@@ -103,7 +103,7 @@ __get_user_check((x),__gu_addr,sizeof(*(ptr)),__typeof__(*(ptr))); })
  * doing multiple accesses to the same area (the user has to do the
  * checks by hand with "access_ok()")
  */
-#define __put_user(x,ptr) __put_user_nocheck((x),(ptr),sizeof(*(ptr)))
+#define __put_user(x,ptr) __put_user_nocheck((__typeof__(*(ptr)))(x),(ptr),sizeof(*(ptr)))
 #define __get_user(x,ptr) __get_user_nocheck((x),(ptr),sizeof(*(ptr)),__typeof__(*(ptr)))
 
 struct __large_struct { unsigned long buf[100]; };

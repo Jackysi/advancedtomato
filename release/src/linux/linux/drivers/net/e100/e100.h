@@ -1,7 +1,7 @@
 /*******************************************************************************
 
   
-  Copyright(c) 1999 - 2002 Intel Corporation. All rights reserved.
+  Copyright(c) 1999 - 2004 Intel Corporation. All rights reserved.
   
   This program is free software; you can redistribute it and/or modify it 
   under the terms of the GNU General Public License as published by the Free 
@@ -56,10 +56,18 @@
 
 #include <linux/if.h>
 #include <asm/uaccess.h>
-#include <linux/proc_fs.h>
 #include <linux/ip.h>
+#include <linux/if_vlan.h>
+#include <linux/mii.h>
 
-#define E100_REGS_LEN 1
+#define E100_CABLE_UNKNOWN	0
+#define E100_CABLE_OK		1		
+#define E100_CABLE_OPEN_NEAR	2	/* Open Circuit Near End  */
+#define E100_CABLE_OPEN_FAR	3	/* Open Circuit Far End   */
+#define E100_CABLE_SHORT_NEAR	4	/* Short Circuit Near End */
+#define E100_CABLE_SHORT_FAR	5	/* Short Circuit Far End  */
+
+#define E100_REGS_LEN 2
 /*
  *  Configure parameters for buffers per controller.
  *  If the machine this is being used on is a faster machine (i.e. > 150MHz)
@@ -104,8 +112,6 @@
 #define E100_MAX_CU_IDLE_WAIT	50	/* Max udelays in wait_cus_idle */
 
 /* HWI feature related constant */
-#define HWI_MAX_LOOP                    100
-#define MAX_SAME_RESULTS		3
 #define HWI_REGISTER_GRANULARITY        80	/* register granularity = 80 Cm */
 #define HWI_NEAR_END_BOUNDARY           1000	/* Near end is defined as < 10 meters */
 
@@ -268,6 +274,7 @@ struct driver_stats {
 #define SCB_CUC_NOOP            0
 #define SCB_CUC_START           BIT_4	/* CU Start */
 #define SCB_CUC_RESUME          BIT_5	/* CU Resume */
+#define SCB_CUC_UNKNOWN         BIT_7	/* CU unknown command */
 /* Changed for 82558 enhancements */
 #define SCB_CUC_STATIC_RESUME   (BIT_5 | BIT_7)	/* 82558/9 Static Resume */
 #define SCB_CUC_DUMP_ADDR       BIT_6	/* CU Dump Counters Address */
@@ -301,6 +308,9 @@ struct driver_stats {
 
 /* EEPROM bit definitions */
 /*- EEPROM control register bits */
+#define EEPROM_FLAG_ASF  0x8000
+#define EEPROM_FLAG_GCL  0x4000
+
 #define EN_TRNF          0x10	/* Enable turnoff */
 #define EEDO             0x08	/* EEPROM data out */
 #define EEDI             0x04	/* EEPROM data in (set for writing data) */
@@ -319,6 +329,8 @@ struct driver_stats {
 #define EEPROM_COMPATIBILITY_WORD       3
 #define EEPROM_PWA_NO                   8
 #define EEPROM_ID_WORD			0x0A
+#define EEPROM_CONFIG_ASF		0x0D
+#define EEPROM_SMBUS_ADDR		0x90
 
 #define EEPROM_SUM                      0xbaba
 
@@ -358,7 +370,7 @@ struct driver_stats {
 #define CB_STATUS_MASK          BIT_12_15	/* CB Status Mask (4-bits) */
 #define CB_STATUS_COMPLETE      BIT_15	/* CB Complete Bit */
 #define CB_STATUS_OK            BIT_13	/* CB OK Bit */
-#define CB_STATUS_UNDERRUN      BIT_12	/* CB A Bit */
+#define CB_STATUS_VLAN          BIT_12 /* CB Valn detected Bit */
 #define CB_STATUS_FAIL          BIT_11	/* CB Fail (F) Bit */
 
 /*misc command bits */
@@ -422,6 +434,7 @@ struct driver_stats {
 #define D102_REV_ID      12
 #define D102C_REV_ID     13	/* 82550 step C */
 #define D102E_REV_ID     15
+#define D102E_A1_REV_ID  16
 
 /* ############Start of 82555 specific defines################## */
 
@@ -488,7 +501,7 @@ typedef struct _d101_scb_ext_t {
 	u8 scb_fc_thld;	/* Flow Control threshold */
 	u8 scb_fc_xon_xoff;	/* Flow Control XON/XOFF values */
 	u8 scb_pmdr;	/* Power Mgmt. Driver Reg */
-} d101_scb_ext __attribute__ ((__packed__));
+} __attribute__ ((__packed__)) d101_scb_ext;
 
 /* Changed for 82559 enhancement */
 typedef struct _d101m_scb_ext_t {
@@ -504,7 +517,7 @@ typedef struct _d101m_scb_ext_t {
 	u32 scb_function_event_mask;	/* Cardbus Function Mask */
 	u32 scb_function_present_state;	/* Cardbus Function state */
 	u32 scb_force_event;	/* Cardbus Force Event */
-} d101m_scb_ext __attribute__ ((__packed__));
+} __attribute__ ((__packed__)) d101m_scb_ext;
 
 /* Changed for 82550 enhancement */
 typedef struct _d102_scb_ext_t {
@@ -523,7 +536,7 @@ typedef struct _d102_scb_ext_t {
 	u32 scb_function_event_mask;	/* Cardbus Function Mask */
 	u32 scb_function_present_state;	/* Cardbus Function state */
 	u32 scb_force_event;	/* Cardbus Force Event */
-} d102_scb_ext __attribute__ ((__packed__));
+} __attribute__ ((__packed__)) d102_scb_ext;
 
 /*
  * 82557 status control block. this will be memory mapped & will hang of the
@@ -545,7 +558,7 @@ typedef struct _scb_t {
 		d101m_scb_ext d101m_scb;	/* 82559 specific fields */
 		d102_scb_ext d102_scb;
 	} scb_ext;
-} scb_t __attribute__ ((__packed__));
+} __attribute__ ((__packed__)) scb_t;
 
 /* Self test
  * This is used to dump results of the self test 
@@ -553,7 +566,7 @@ typedef struct _scb_t {
 typedef struct _self_test_t {
 	u32 st_sign;	/* Self Test Signature */
 	u32 st_result;	/* Self Test Results */
-} self_test_t __attribute__ ((__packed__));
+} __attribute__ ((__packed__)) self_test_t;
 
 /* 
  *  Statistical Counters 
@@ -636,39 +649,39 @@ typedef struct _cb_header_t {
 	u16 cb_status;	/* Command Block Status */
 	u16 cb_cmd;	/* Command Block Command */
 	u32 cb_lnk_ptr;	/* Link To Next CB */
-} cb_header_t __attribute__ ((__packed__));
+} __attribute__ ((__packed__)) cb_header_t;
 
 //* Individual Address Command Block (IA_CB)*/
 typedef struct _ia_cb_t {
 	cb_header_t ia_cb_hdr;
 	u8 ia_addr[ETH_ALEN];
-} ia_cb_t __attribute__ ((__packed__));
+} __attribute__ ((__packed__)) ia_cb_t;
 
 /* Configure Command Block (CONFIG_CB)*/
 typedef struct _config_cb_t {
 	cb_header_t cfg_cbhdr;
 	u8 cfg_byte[CB_CFIG_BYTE_COUNT + CB_CFIG_D102_BYTE_COUNT];
-} config_cb_t __attribute__ ((__packed__));
+} __attribute__ ((__packed__)) config_cb_t;
 
 /* MultiCast Command Block (MULTICAST_CB)*/
 typedef struct _multicast_cb_t {
 	cb_header_t mc_cbhdr;
 	u16 mc_count;	/* Number of multicast addresses */
 	u8 mc_addr[(ETH_ALEN * MAX_MULTICAST_ADDRS)];
-} mltcst_cb_t __attribute__ ((__packed__));
+} __attribute__ ((__packed__)) mltcst_cb_t;
 
 #define UCODE_MAX_DWORDS	134
 /* Load Microcode Command Block (LOAD_UCODE_CB)*/
 typedef struct _load_ucode_cb_t {
 	cb_header_t load_ucode_cbhdr;
 	u32 ucode_dword[UCODE_MAX_DWORDS];
-} load_ucode_cb_t __attribute__ ((__packed__));
+} __attribute__ ((__packed__)) load_ucode_cb_t;
 
 /* Load Programmable Filter Data*/
 typedef struct _filter_cb_t {
 	cb_header_t filter_cb_hdr;
 	u32 filter_data[MAX_FILTER];
-} filter_cb_t __attribute__ ((__packed__));
+} __attribute__ ((__packed__)) filter_cb_t;
 
 /* NON_TRANSMIT_CB -- Generic Non-Transmit Command Block 
  */
@@ -680,7 +693,7 @@ typedef struct _nxmit_cb_t {
 		mltcst_cb_t multicast;
 		filter_cb_t filter;
 	} ntcb;
-} nxmit_cb_t __attribute__ ((__packed__));
+} __attribute__ ((__packed__)) nxmit_cb_t;
 
 /*Block for queuing for postponed execution of the non-transmit commands*/
 typedef struct _nxmit_cb_entry_t {
@@ -706,14 +719,12 @@ typedef enum _non_tx_cmd_state_t {
 #define IPCB_INSERTVLAN_ENABLE 		BIT_1
 #define IPCB_IP_ACTIVATION_DEFAULT      IPCB_HARDWAREPARSING_ENABLE
 
-#define FOLD_CSUM(_XSUM)  ((((_XSUM << 16) | (_XSUM >> 16)) + _XSUM) >> 16)
-
 /* Transmit Buffer Descriptor (TBD)*/
 typedef struct _tbd_t {
 	u32 tbd_buf_addr;	/* Physical Transmit Buffer Address */
 	u16 tbd_buf_cnt;	/* Actual Count Of Bytes */
 	u16 padd;
-} tbd_t __attribute__ ((__packed__));
+} __attribute__ ((__packed__)) tbd_t;
 
 /* d102 specific fields */
 typedef struct _tcb_ipcb_t {
@@ -732,7 +743,7 @@ typedef struct _tcb_ipcb_t {
 		u16 tbd_zero_size;
 	} tbd_sec_size;
 	u16 total_tcp_payload;
-} tcb_ipcb_t __attribute__ ((__packed__));
+} __attribute__ ((__packed__)) tcb_ipcb_t;
 
 #define E100_TBD_ARRAY_SIZE (2+MAX_SKB_FRAGS)
 
@@ -795,7 +806,7 @@ typedef struct _rbd_t {
 	u32 rbd_rcb_addr;	/* Receive Buffer Address */
 	u16 rbd_sz;	/* Receive Buffer Size */
 	u16 rbd_filler1;
-} rbd_t __attribute__ ((__packed__));
+} __attribute__ ((__packed__)) rbd_t;
 
 /*
  * This structure is used to maintain a FIFO access to a resource that is 
@@ -853,6 +864,7 @@ struct ethtool_lpbk_data{
 };
 
 struct e100_private {
+	struct vlan_group *vlgrp;
 	u32 flags;		/* board management flags */
 	u32 tx_per_underrun;	/* number of good tx frames per underrun */
 	unsigned int tx_count;	/* count of tx frames, so we can request an interrupt */
@@ -888,7 +900,6 @@ struct e100_private {
 	struct driver_stats drv_stats;
 
 	u8 rev_id;		/* adapter PCI revision ID */
-	unsigned long device_type;	/* device type from e100_vendor.h */
 
 	unsigned int phy_addr;	/* address of PHY component */
 	unsigned int PhyId;	/* ID of PHY component */
@@ -925,23 +936,6 @@ struct e100_private {
 
 	struct cfg_params params;	/* adapter's command line parameters */
 
-	struct proc_dir_entry *proc_parent;
-
-	rwlock_t isolate_lock;
-	int driver_isolated;
-	char *id_string;
-	char *cable_status;
-	char *mdix_status;
-
-	/* Variables for HWI */
-	int saved_open_circut;
-	int saved_short_circut;
-	int saved_distance;
-	int saved_i;
-	int saved_same;
-	unsigned char hwi_started;
-	struct timer_list hwi_timer;	/* hwi timer id */
-
 	u32 speed_duplex_caps;	/* adapter's speed/duplex capabilities */
 
 	/* WOL params for ethtool */
@@ -954,7 +948,10 @@ struct e100_private {
 #ifdef CONFIG_PM
 	u32 pci_state[16];
 #endif
-	char ifname[IFNAMSIZ];
+#ifdef E100_CU_DEBUG	
+	u8 last_cmd;
+	u8 last_sub_cmd;
+#endif	
 };
 
 #define E100_AUTONEG        0
@@ -964,9 +961,12 @@ struct e100_private {
 #define E100_SPEED_100_FULL 4
 
 /********* function prototypes *************/
+extern int e100_open(struct net_device *);
+extern int e100_close(struct net_device *);
 extern void e100_isolate_driver(struct e100_private *bdp);
+extern unsigned char e100_hw_init(struct e100_private *);
 extern void e100_sw_reset(struct e100_private *bdp, u32 reset_cmd);
-extern void e100_start_cu(struct e100_private *bdp, tcb_t *tcb);
+extern u8 e100_start_cu(struct e100_private *bdp, tcb_t *tcb);
 extern void e100_free_non_tx_cmd(struct e100_private *bdp,
 				 nxmit_cb_entry_t *non_tx_cmd);
 extern nxmit_cb_entry_t *e100_alloc_non_tx_cmd(struct e100_private *bdp);
@@ -977,10 +977,11 @@ extern unsigned char e100_selftest(struct e100_private *bdp, u32 *st_timeout,
 extern unsigned char e100_get_link_state(struct e100_private *bdp);
 extern unsigned char e100_wait_scb(struct e100_private *bdp);
 
-extern void e100_deisolate_driver(struct e100_private *bdp,
-				  u8 recover, u8 full_reset);
-extern unsigned char e100_hw_reset_recover(struct e100_private *bdp,
-					   u32 reset_cmd);
+extern void e100_deisolate_driver(struct e100_private *bdp, u8 full_reset);
+extern unsigned char e100_configure_device(struct e100_private *bdp);
+#ifdef E100_CU_DEBUG
+extern unsigned char e100_cu_unknown_state(struct e100_private *bdp);
+#endif
 
 #define ROM_TEST_FAIL		0x01
 #define REGISTER_TEST_FAIL	0x02
@@ -988,14 +989,13 @@ extern unsigned char e100_hw_reset_recover(struct e100_private *bdp,
 #define TEST_TIMEOUT		0x08
 
 enum test_offsets {
-	E100_EEPROM_TEST_FAIL = 0,
-	E100_CHIP_TIMEOUT,
-	E100_ROM_TEST_FAIL,
-	E100_REG_TEST_FAIL,
-	E100_MAC_TEST_FAIL,
-	E100_LPBK_MAC_FAIL,
-	E100_LPBK_PHY_FAIL,
-	E100_MAX_TEST_RES
+	test_link,
+	test_eeprom,
+	test_self_test,
+	test_loopback_mac,
+	test_loopback_phy,
+	cable_diag,
+	max_test_res,  /* must be last */
 };
 
 #endif

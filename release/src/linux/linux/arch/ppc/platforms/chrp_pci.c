@@ -1,7 +1,4 @@
 /*
- * BK Id: %F% %I% %G% %U% %#%
- */
-/*
  * CHRP pci routines.
  */
 
@@ -26,12 +23,15 @@
 #include <asm/open_pic.h>
 
 /* LongTrail */
-unsigned long gg2_pci_config_base;
+unsigned long gg2_pci_config_base __chrpdata;
 
 #define pci_config_addr(dev, offset) \
-(gg2_pci_config_base | ((dev->bus->number)<<16) | ((dev->devfn)<<8) | (offset))
+(gg2_pci_config_base + ((dev->bus->number<<16) | (dev->devfn<<8) | offset))
 
-volatile struct Hydra *Hydra = NULL;
+volatile struct Hydra *Hydra __chrpdata = NULL;
+
+/* BriQ */
+extern int chrp_is_briq;
 
 /*
  * The VLSI Golden Gate II has only 512K of PCI configuration space, so we
@@ -66,7 +66,7 @@ GG2_PCI_OP(write, byte, u8, out_8)
 GG2_PCI_OP(write, word, u16, out_le16)
 GG2_PCI_OP(write, dword, u32, out_le32)
 
-static struct pci_ops gg2_pci_ops =
+static struct pci_ops gg2_pci_ops __chrpdata =
 {
 	gg2_read_config_byte,
 	gg2_read_config_word,
@@ -101,7 +101,7 @@ PYTHON_PCI_OP(write, byte, u8, out_8, 3)
 PYTHON_PCI_OP(write, word, u16, out_le16, 2)
 PYTHON_PCI_OP(write, dword, u32, out_le32, 0)
 
-static struct pci_ops python_pci_ops =
+static struct pci_ops python_pci_ops __chrpdata =
 {
 	python_read_config_byte,
 	python_read_config_word,
@@ -148,7 +148,7 @@ RTAS_PCI_WRITE_OP(byte, u8, 1)
 RTAS_PCI_WRITE_OP(word, u16, 2)
 RTAS_PCI_WRITE_OP(dword, u32, 4)
 
-static struct pci_ops rtas_pci_ops =
+static struct pci_ops rtas_pci_ops __chrpdata =
 {
 	rtas_read_config_byte,
 	rtas_read_config_word,
@@ -192,6 +192,71 @@ chrp_pcibios_fixup(void)
 			dev->irq = np->intrs[0].line;
 		pci_write_config_byte(dev, PCI_INTERRUPT_LINE, dev->irq);
 	}
+}
+
+/* W83C553 IDE Interrupt Routing Control Register */
+#define W83C553_IDEIRCR                0x43
+
+/* SL82C105 IDE Control/Status Register */
+#define SL82C105_IDECSR                0x40
+
+static void __init
+longtrail_pcibios_fixup(void)
+{
+       struct pci_dev *w83c553, *sl82c105;
+       u8 progif;
+
+       chrp_pcibios_fixup();
+
+       /*
+        *  Open Firmware may have left the SL82C105 IDE interface in the
+        *  W83C553 PCI/ISA bridge in legacy mode
+        */
+       if ((w83c553 = pci_find_device(PCI_VENDOR_ID_WINBOND,
+                                      PCI_DEVICE_ID_WINBOND_83C553, 0)) &&
+           (sl82c105 = pci_find_device(PCI_VENDOR_ID_WINBOND,
+                                       PCI_DEVICE_ID_WINBOND_82C105,
+                                       w83c553)) &&
+           (sl82c105->class & 5) != 5) {
+               printk("W83C553: Switching SL82C105 IDE to PCI native mode\n");
+               /* Enable W83C553 legacy interrupt internal routing to INTC#, */
+               /* which is connected to HYDRA_INT_EXT5 */
+               pci_write_config_byte(w83c553, W83C553_IDEIRCR, 0x00);
+               /* Enable SL82C105 PCI native IDE mode */
+               pci_read_config_byte(sl82c105, PCI_CLASS_PROG, &progif);
+               pci_write_config_byte(sl82c105, PCI_CLASS_PROG, progif | 0x05);
+               sl82c105->class |= 0x05;
+               /* Enable SL82C105 legacy interrupts & both channels */
+               pci_write_config_word(sl82c105, SL82C105_IDECSR, 0x0833);
+       }
+}
+
+static void __init
+briq_pcibios_fixup(void)
+{
+       struct pci_dev *w83c553, *sl82c105;
+       u8 progif;
+
+       chrp_pcibios_fixup();
+
+       /*
+        *  Open Firmware may have left the SL82C105 IDE interface in the
+        *  W83C553 PCI/ISA bridge in legacy mode
+        */
+       if ((w83c553 = pci_find_device(PCI_VENDOR_ID_WINBOND,
+                                      PCI_DEVICE_ID_WINBOND_83C553, 0)) &&
+           (sl82c105 = pci_find_device(PCI_VENDOR_ID_WINBOND,
+                                       PCI_DEVICE_ID_WINBOND_82C105,
+                                       w83c553)) &&
+           (sl82c105->class & 5) != 5) {
+               printk("W83C553: Switching SL82C105 IDE to PCI native mode\n");
+               /* Enable SL82C105 PCI native IDE mode */
+               pci_read_config_byte(sl82c105, PCI_CLASS_PROG, &progif);
+               pci_write_config_byte(sl82c105, PCI_CLASS_PROG, progif | 0x05);
+               sl82c105->class |= 0x05;
+               /* Disable SL82C105 second port */
+               pci_write_config_word(sl82c105, SL82C105_IDECSR, 0x0003);
+       }
 }
 
 #define PRG_CL_RESET_VALID 0x00010000
@@ -318,5 +383,10 @@ chrp_find_bridges(void)
 		}
 	}
 
-	ppc_md.pcibios_fixup = chrp_pcibios_fixup;
+       if (is_longtrail)
+               ppc_md.pcibios_fixup = longtrail_pcibios_fixup;
+       else if (chrp_is_briq)
+               ppc_md.pcibios_fixup = briq_pcibios_fixup;
+       else
+               ppc_md.pcibios_fixup = chrp_pcibios_fixup;
 }

@@ -1,4 +1,4 @@
-/* $Id: cgsixfb.c,v 1.1.1.4 2003/10/14 08:08:53 sparq Exp $
+/* $Id: cgsixfb.c,v 1.26 2001/10/16 05:44:44 davem Exp $
  * cgsixfb.c: CGsix (GX,GXplus) frame buffer driver
  *
  * Copyright (C) 1996,1998 Jakub Jelinek (jj@ultra.linux.cz)
@@ -742,6 +742,19 @@ char __init *cgsixfb_init(struct fb_info_sbusfb *fb)
 	fb->s.cg6.fhc = (u32 *)
 		sbus_ioremap(&sdev->resource[0], CG6_FHC_OFFSET,
 			     sizeof(u32), "cgsix fhc");
+#if 0
+	prom_printf("CG6: RES[%016lx:%016lx:%016lx]\n",
+		    sdev->resource[0].start,
+		    sdev->resource[0].end,
+		    sdev->resource[0].flags);
+	prom_printf("CG6: fbc(%p) tec(%p) thc(%p) bt(%p) fhc(%p)\n",
+		    fb->s.cg6.fbc,
+		    fb->s.cg6.tec,
+		    fb->s.cg6.thc,
+		    fb->s.cg6.bt,
+		    fb->s.cg6.fhc);
+	prom_halt();
+#endif
 	fb->dispsw = cg6_dispsw;
 
 	fb->margins = cg6_margins;

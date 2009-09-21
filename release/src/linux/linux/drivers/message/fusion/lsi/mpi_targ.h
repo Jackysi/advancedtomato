@@ -1,12 +1,12 @@
 /*
- *  Copyright (c) 2000-2001 LSI Logic Corporation.
+ *  Copyright (c) 2000-2003 LSI Logic Corporation.
  *
  *
- *           Name:  MPI_TARG.H
+ *           Name:  mpi_targ.h
  *          Title:  MPI Target mode messages and structures
  *  Creation Date:  June 22, 2000
  *
- *    MPI Version:  01.02.04
+ *    mpi_targ.h Version:  01.05.xx
  *
  *  Version History
  *  ---------------
@@ -34,6 +34,15 @@
  *                      of MPI.
  *  10-04-01  01.02.03  Added PriorityReason to MSG_TARGET_ERROR_REPLY.
  *  11-01-01  01.02.04  Added define for TARGET_STATUS_SEND_FLAGS_HIGH_PRIORITY.
+ *  03-14-02  01.02.05  Modified MPI_TARGET_FCP_RSP_BUFFER to get the proper
+ *                      byte ordering.
+ *  05-31-02  01.02.06  Modified TARGET_MODE_REPLY_ALIAS_MASK to only include
+ *                      one bit.
+ *                      Added AliasIndex field to MPI_TARGET_FCP_CMD_BUFFER.
+ *  09-16-02  01.02.07  Added flags for confirmed completion.
+ *                      Added PRIORITY_REASON_TARGET_BUSY.
+ *  11-15-02  01.02.08  Added AliasID field to MPI_TARGET_SCSI_SPI_CMD_BUFFER.
+ *  04-01-03  01.02.09  Added OptionalOxid field to MPI_TARGET_FCP_CMD_BUFFER.
  *  --------------------------------------------------------------------------
  */
 
@@ -133,6 +142,7 @@ typedef struct _MSG_PRIORITY_CMD_RECEIVED_REPLY
 #define PRIORITY_REASON_PROTOCOL_ERR            (0x06)
 #define PRIORITY_REASON_DATA_OUT_PARITY_ERR     (0x07)
 #define PRIORITY_REASON_DATA_OUT_CRC_ERR        (0x08)
+#define PRIORITY_REASON_TARGET_BUSY             (0x09)
 #define PRIORITY_REASON_UNKNOWN                 (0xFF)
 
 
@@ -161,6 +171,9 @@ typedef struct _MPI_TARGET_FCP_CMD_BUFFER
     U8      FcpCntl[4];                                 /* 08h */
     U8      FcpCdb[16];                                 /* 0Ch */
     U32     FcpDl;                                      /* 1Ch */
+    U8      AliasIndex;                                 /* 20h */
+    U8      Reserved1;                                  /* 21h */
+    U16     OptionalOxid;                               /* 22h */
 } MPI_TARGET_FCP_CMD_BUFFER, MPI_POINTER PTR_MPI_TARGET_FCP_CMD_BUFFER,
   MpiTargetFcpCmdBuffer, MPI_POINTER pMpiTargetFcpCmdBuffer;
 
@@ -179,6 +192,10 @@ typedef struct _MPI_TARGET_SCSI_SPI_CMD_BUFFER
     U8      TaskManagementFlags;                        /* 12h */
     U8      AdditionalCDBLength;                        /* 13h */
     U8      CDB[16];                                    /* 14h */
+    /* Alias ID */
+    U8      AliasID;                                    /* 24h */
+    U8      Reserved1;                                  /* 25h */
+    U16     Reserved2;                                  /* 26h */
 } MPI_TARGET_SCSI_SPI_CMD_BUFFER,
   MPI_POINTER PTR_MPI_TARGET_SCSI_SPI_CMD_BUFFER,
   MpiTargetScsiSpiCmdBuffer, MPI_POINTER pMpiTargetScsiSpiCmdBuffer;
@@ -209,6 +226,7 @@ typedef struct _MSG_TARGET_ASSIST_REQUEST
 #define TARGET_ASSIST_FLAGS_DATA_DIRECTION          (0x01)
 #define TARGET_ASSIST_FLAGS_AUTO_STATUS             (0x02)
 #define TARGET_ASSIST_FLAGS_HIGH_PRIORITY           (0x04)
+#define TARGET_ASSIST_FLAGS_CONFIRMED               (0x08)
 #define TARGET_ASSIST_FLAGS_REPOST_CMD_BUFFER       (0x80)
 
 
@@ -253,14 +271,19 @@ typedef struct _MSG_TARGET_STATUS_SEND_REQUEST
 
 #define TARGET_STATUS_SEND_FLAGS_AUTO_GOOD_STATUS   (0x01)
 #define TARGET_STATUS_SEND_FLAGS_HIGH_PRIORITY      (0x04)
+#define TARGET_STATUS_SEND_FLAGS_CONFIRMED          (0x08)
 #define TARGET_STATUS_SEND_FLAGS_REPOST_CMD_BUFFER  (0x80)
 
+/*
+ * NOTE: FCP_RSP data is big-endian. When used on a little-endian system, this
+ * structure properly orders the bytes.
+ */
 typedef struct _MPI_TARGET_FCP_RSP_BUFFER
 {
     U8      Reserved0[8];                               /* 00h */
-    U8      FcpStatus;                                  /* 08h */
-    U8      FcpFlags;                                   /* 09h */
-    U8      Reserved1[2];                               /* 0Ah */
+    U8      Reserved1[2];                               /* 08h */
+    U8      FcpFlags;                                   /* 0Ah */
+    U8      FcpStatus;                                  /* 0Bh */
     U32     FcpResid;                                   /* 0Ch */
     U32     FcpSenseLength;                             /* 10h */
     U32     FcpResponseLength;                          /* 14h */
@@ -269,6 +292,10 @@ typedef struct _MPI_TARGET_FCP_RSP_BUFFER
 } MPI_TARGET_FCP_RSP_BUFFER, MPI_POINTER PTR_MPI_TARGET_FCP_RSP_BUFFER,
   MpiTargetFcpRspBuffer, MPI_POINTER pMpiTargetFcpRspBuffer;
 
+/*
+ * NOTE: The SPI status IU is big-endian. When used on a little-endian system,
+ * this structure properly orders the bytes.
+ */
 typedef struct _MPI_TARGET_SCSI_SPI_STATUS_IU
 {
     U8      Reserved0;                                  /* 00h */
@@ -332,7 +359,7 @@ typedef struct _MSG_TARGET_MODE_ABORT_REPLY
 #define TARGET_MODE_REPLY_IO_INDEX_SHIFT        (0)
 #define TARGET_MODE_REPLY_INITIATOR_INDEX_MASK  (0x03FFC000)
 #define TARGET_MODE_REPLY_INITIATOR_INDEX_SHIFT (14)
-#define TARGET_MODE_REPLY_ALIAS_MASK            (0x0C000000)
+#define TARGET_MODE_REPLY_ALIAS_MASK            (0x04000000)
 #define TARGET_MODE_REPLY_ALIAS_SHIFT           (26)
 #define TARGET_MODE_REPLY_PORT_MASK             (0x10000000)
 #define TARGET_MODE_REPLY_PORT_SHIFT            (28)

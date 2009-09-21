@@ -1,4 +1,24 @@
-
+/*
+ * Copyright (C) 1995-1997  Paul H. Hargrove
+ * This file may be distributed under the terms of the GNU General Public License.
+ *
+ * This file contains the inode_operations and file_operations
+ * structures for HFS directories under the CAP scheme.
+ *
+ * Based on the minix file system code, (C) 1991, 1992 by Linus Torvalds
+ *
+ * The source code distribution of the Columbia AppleTalk Package for
+ * UNIX, version 6.0, (CAP) was used as a specification of the
+ * location and format of files used by CAP's Aufs.  No code from CAP
+ * appears in hfs_fs.  hfs_fs is not a work ``derived'' from CAP in
+ * the sense of intellectual property law.
+ *
+ * "XXX" in a comment is a note to myself to consider changing something.
+ *
+ * In function preconditions the term "valid" applied to a pointer to
+ * a structure means that the pointer is non-NULL and the structure it
+ * points to has all fields initialized to consistent values.
+ */
 
 #include "hfs.h"
 #include <linux/hfs_fs_sb.h>
@@ -133,6 +153,28 @@ done:
 	return NULL;
 }
 
+/*
+ * cap_readdir()
+ *
+ * This is the readdir() entry in the file_operations structure for
+ * HFS directories in the CAP scheme.  The purpose is to enumerate the
+ * entries in a directory, given the inode of the directory and a
+ * (struct file *), the 'f_pos' field of which indicates the location
+ * in the directory.  The (struct file *) is updated so that the next
+ * call with the same 'dir' and 'filp' arguments will produce the next
+ * directory entry.  The entries are returned in 'dirent', which is
+ * "filled-in" by calling filldir().  This allows the same readdir()
+ * function be used for different dirent formats.  We try to read in
+ * as many entries as we can before filldir() refuses to take any more.
+ *
+ * XXX: In the future it may be a good idea to consider not generating
+ * metadata files for covered directories since the data doesn't
+ * correspond to the mounted directory.	 However this requires an
+ * iget() for every directory which could be considered an excessive
+ * amount of overhead.	Since the inode for a mount point is always
+ * in-core this is another argument for a call to get an inode if it
+ * is in-core or NULL if it is not.
+ */
 static int cap_readdir(struct file * filp,
 		       void * dirent, filldir_t filldir)
 {

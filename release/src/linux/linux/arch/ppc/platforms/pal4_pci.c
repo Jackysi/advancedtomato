@@ -1,16 +1,14 @@
 /*
  * arch/ppc/platforms/pal4_pci.c
- * 
+ *
  * PCI support for SBS Palomar IV
  *
- * Author: Dan Cox 
+ * Author: Dan Cox
  *
- * Copyright 2002 MontaVista Software Inc.
- *
- * This program is free software; you can redistribute  it and/or modify it
- * under  the terms of  the GNU General Public License as published by the
- * Free Software Foundation;  either version 2 of the  License, or (at your
- * option) any later version.
+ * 2002 (c) MontaVista, Software, Inc.  This file is licensed under
+ * the terms of the GNU General Public License version 2.  This program
+ * is licensed "as is" without any warranty of any kind, whether express
+ * or implied.
  */
 
 #include <linux/kernel.h>
@@ -51,7 +49,7 @@ pal4_find_bridges(void)
 
 	/* Could snatch these from the CPC700.... */
 	pci_init_resource(&hose->io_resource,
-			  0x0, 
+			  0x0,
 			  0x03ffffff,
 			  IORESOURCE_IO,
 			  "PCI host bridge");
@@ -67,10 +65,10 @@ pal4_find_bridges(void)
 	hose->mem_space.start = 0x90000000;
 	hose->mem_space.end = 0x9fffffff;
 	hose->io_base_virt = (void *) 0xf8000000;
-	
+
 	setup_indirect_pci(hose, CPC700_PCI_CONFIG_ADDR,
 			   CPC700_PCI_CONFIG_DATA);
-	
+
 	hose->last_busno = pciauto_bus_scan(hose, hose->first_busno);
 
 	ppc_md.pci_swizzle = common_swizzle;

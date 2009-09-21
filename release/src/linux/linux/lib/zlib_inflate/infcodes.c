@@ -146,7 +146,7 @@ int r;
       DUMPBITS(j)
       c->mode = COPY;
     case COPY:          /* o: copying bytes in window, waiting for space */
-#ifndef __TURBOC__     /* Turbo C bug for following expression */
+#ifndef __TURBOC__ /* Turbo C bug for following expression */
       f = (uInt)(q - s->window) < c->sub.copy.dist ?
           s->end - (c->sub.copy.dist - (q - s->window)) :
           q - c->sub.copy.dist;

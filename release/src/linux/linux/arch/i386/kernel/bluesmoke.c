@@ -221,7 +221,7 @@ void __init mcheck_init(struct cpuinfo_x86 *c)
 			/*
 			 *	AMD K7 machine check is Intel like
 			 */
-			if(c->x86 == 6)
+			if(c->x86 == 6 || c->x86 == 15)
 				intel_mcheck_init(c);
 			break;
 		case X86_VENDOR_INTEL:

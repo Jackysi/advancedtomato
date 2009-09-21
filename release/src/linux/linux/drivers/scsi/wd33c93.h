@@ -22,7 +22,7 @@
 #ifndef WD33C93_H
 #define WD33C93_H
 
-#define PROC_INTERFACE     
+#define PROC_INTERFACE     /* add code for /proc/scsi/wd33c93/xxx interface */
 #ifdef  PROC_INTERFACE
 #define PROC_STATISTICS    /* add code for keeping various real time stats */
 #endif

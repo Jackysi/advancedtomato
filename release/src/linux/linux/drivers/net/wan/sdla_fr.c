@@ -302,7 +302,7 @@ typedef struct fr_channel
 typedef struct dlci_status
 {
 	unsigned short dlci	PACKED;
-	unsigned char state	PACKED;
+	unsigned char state;
 } dlci_status_t;
 
 typedef struct dlci_IB_mapping
@@ -316,9 +316,9 @@ typedef struct dlci_IB_mapping
  */
 typedef struct fr_dlci_interface 
 {
-	unsigned char gen_interrupt	PACKED;
+	unsigned char gen_interrupt;
 	unsigned short packet_length	PACKED;
-	unsigned char reserved		PACKED;
+	unsigned char reserved;
 } fr_dlci_interface_t; 
 
 /* variable for keeping track of enabling/disabling FT1 monitor status */
@@ -1005,6 +1005,7 @@ static int new_if (wan_device_t* wandev, netdevice_t* dev, wanif_conf_t* conf)
 	chan->dlci_configured = DLCI_NOT_CONFIGURED;	
 
 
+	/*FIXME: IPX disabled in this WANPIPE version */
 	if (conf->enable_IPX == WANOPT_YES){
 		printk(KERN_INFO "%s: ERROR - This version of WANPIPE doesn't support IPX\n",
 				card->devname);
@@ -2635,6 +2636,11 @@ static void spur_intr (sdla_t* card)
 
 
 //FIXME: Fix the IPX in next version
+/*===========================================================================
+ *  Return 0 for non-IPXWAN packet
+ *         1 for IPXWAN packet or IPX is not enabled!
+ *  FIXME: Use a IPX structure here not offsets
+ */
 static int handle_IPXWAN(unsigned char *sendpacket, 
 			 char *devname, unsigned char enable_IPX, 
 			 unsigned long network_number)
@@ -3366,6 +3372,7 @@ static int fr_event (sdla_t *card, int event, fr_mbox_t* mbox)
 			{
 			netdevice_t *dev;
 
+			/* FIXME: Only startup devices that are on the list */
 			
 			for (dev = card->wandev.dev; dev; dev = *((netdevice_t **)dev->priv)) {
 				
@@ -3922,7 +3929,7 @@ static int process_udp_mgmt_pkt(sdla_t* card)
                                 break;
                         }
 
-			(void *)ptr_trc_el = card->u.f.curr_trc_el;
+			ptr_trc_el = (void *)card->u.f.curr_trc_el;
 
                         buffer_length = 0;
 			fr_udp_pkt->data[0x00] = 0x00;
@@ -3973,7 +3980,7 @@ static int process_udp_mgmt_pkt(sdla_t* card)
                                
 				ptr_trc_el ++;
 				if((void *)ptr_trc_el > card->u.f.trc_el_last)
-					(void*)ptr_trc_el = card->u.f.trc_el_base;
+					ptr_trc_el = (void*)card->u.f.trc_el_base;
 
 				buffer_length += sizeof(fpipemon_trc_hdr_t);
                                	if(fpipemon_trc->fpipemon_trc_hdr.data_passed) {
@@ -4534,9 +4541,7 @@ static void trigger_fr_arp (netdevice_t *dev)
 {
 	fr_channel_t* chan = dev->priv;
 
-	del_timer(&chan->fr_arp_timer);
-	chan->fr_arp_timer.expires = jiffies + (chan->inarp_interval * HZ);
-	add_timer(&chan->fr_arp_timer);
+	mod_timer(&chan->fr_arp_timer, jiffies + (chan->inarp_interval) * HZ);
 	return;
 }
 
@@ -4702,13 +4707,13 @@ void s508_s514_lock(sdla_t *card, unsigned long *smp_flags)
 {
 	if (card->hw.type != SDLA_S514){
 
-#if defined(__SMP__) || defined(LINUX_2_4)
+#if defined(CONFIG_SMP) || defined(LINUX_2_4)
 		spin_lock_irqsave(&card->wandev.lock, *smp_flags);
 #else
           	disable_irq(card->hw.irq);
 #endif
 	}else{
-#if defined(__SMP__) || defined(LINUX_2_4)
+#if defined(CONFIG_SMP) || defined(LINUX_2_4)
 		spin_lock(&card->u.f.if_send_lock);
 #endif
 	}
@@ -4720,13 +4725,13 @@ void s508_s514_unlock(sdla_t *card, unsigned long *smp_flags)
 {
 	if (card->hw.type != SDLA_S514){
 
-#if defined(__SMP__) || defined(LINUX_2_4)
+#if defined(CONFIG_SMP) || defined(LINUX_2_4)
 		spin_unlock_irqrestore (&card->wandev.lock, *smp_flags);
 #else
           	enable_irq(card->hw.irq);
 #endif
 	}else{
-#if defined(__SMP__) || defined(LINUX_2_4)
+#if defined(CONFIG_SMP) || defined(LINUX_2_4)
 		spin_unlock(&card->u.f.if_send_lock);
 #endif
 	}

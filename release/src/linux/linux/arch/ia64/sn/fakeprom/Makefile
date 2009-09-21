@@ -3,7 +3,7 @@
 # License.  See the file "COPYING" in the main directory of this archive
 # for more details.
 #
-#  Copyright (c) 2000-2001 Silicon Graphics, Inc.  All rights reserved.
+#  Copyright (c) 2000-2003 Silicon Graphics, Inc.  All rights reserved.
 #
 
 TOPDIR=../../../..
@@ -13,24 +13,15 @@ LIB     = ../../lib/lib.a
 
 OBJ=fpromasm.o main.o  fw-emu.o fpmem.o klgraph_init.o
 obj-y=fprom
+EXTRA_CFLAGS += -DSGI_SN2
+EXTRA_AFLAGS += -DSGI_SN2
+AFLAGS += -DSGI_SN2
 
 fprom: $(OBJ)
 	$(LD) -static -Tfprom.lds -o fprom $(OBJ) $(LIB)
 
 .S.o:
-	$(CC)  -D__ASSEMBLY__ $(AFLAGS) $(AFLAGS_KERNEL) -c -o $*.o $<
-
-fpmem.o: fpmem.c
-	$(CC)  $(subst -pg,,$(CFLAGS)) $(subst -pg,,$(CFLAGS_KERNEL)) -c -o $*.o $<
-
-fw-emu.o: fw-emu.c
-	$(CC)  $(subst -pg,,$(CFLAGS)) $(subst -pg,,$(CFLAGS_KERNEL)) -c -o $*.o $<
-
-klgraph_init.o: klgraph_init.c
-	$(CC)  $(subst -pg,,$(CFLAGS)) $(subst -pg,,$(CFLAGS_KERNEL)) -c -o $*.o $<
-
-main.o: main.c
-	$(CC)  $(subst -pg,,$(CFLAGS)) $(subst -pg,,$(CFLAGS_KERNEL)) -c -o $*.o $<
+	$(CC)  -D__ASSEMBLY__ $(AFLAGS) $(EXTRA_AFLAGS) $(AFLAGS_KERNEL) -c -o $*.o $<
 
 clean:
 	rm -f *.o fprom

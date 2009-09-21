@@ -27,6 +27,7 @@
 #include <linux/errno.h>
 #include <linux/sys.h>
 #include <linux/config.h>
+#include <asm/cputable.h>
 
 #ifdef CONFIG_PPC_ISERIES
 #define DO_SOFT_DISABLE
@@ -46,18 +47,19 @@ show_syscalls_task:
  */
 	.text
 _GLOBAL(DoSyscall)
-	std	r0,THREAD+LAST_SYSCALL(r13)
 	ld	r11,_CCR(r1)	/* Clear SO bit in CR */
 	lis	r10,0x1000
 	andc	r11,r11,r10
 	std	r11,_CCR(r1)
+	ld	r10,PACACURRENT(r13)
+	std	r0,THREAD+LAST_SYSCALL(r10)
 #ifdef SHOW_SYSCALLS
-#ifdef SHOW_SYSCALLS_TASK
+# ifdef SHOW_SYSCALLS_TASK
 	LOADBASE(r31,show_syscalls_task)
 	ld	r31,show_syscalls_task@l(r31)
-	cmp	0,r13,r31
+	cmp	0,r10,r31
 	bne	1f
-#endif
+# endif /* SHOW_SYSCALLS_TASK */
 	LOADADDR(r3,7f)
 	ld	r4,GPR0(r1)
 	ld	r5,GPR3(r1)
@@ -69,7 +71,7 @@ _GLOBAL(DoSyscall)
 	LOADADDR(r3,77f)
 	ld	r4,GPR8(r1)
 	ld	r5,GPR9(r1)
-	mr	r6,r13
+	ld	r6, PACACURRENT(r13)
 	bl	.printk
 	ld	r0,GPR0(r1)
 	ld	r3,GPR3(r1)
@@ -80,8 +82,8 @@ _GLOBAL(DoSyscall)
 	ld	r8,GPR8(r1)
 1:
 #endif /* SHOW_SYSCALLS */
-	ld	r10,TASK_PTRACE(r13)
-	andi.	r10,r10,PT_TRACESYS
+	ld	r11,TASK_PTRACE(r10)
+	andi.	r11,r11,PT_TRACESYS
 	bne-	50f
 	cmpli	0,r0,NR_syscalls
 	bge-	66f
@@ -90,10 +92,10 @@ _GLOBAL(DoSyscall)
  *
  */
 #ifdef CONFIG_BINFMT_ELF32
-	ld	r10,THREAD+THREAD_FLAGS(r13)
-	andi.	r10,r10,PPC_FLAG_32BIT
+	ld	r11,THREAD+THREAD_FLAGS(r10)
+	andi.	r11,r11,PPC_FLAG_32BIT
 	beq-	15f
-	LOADADDR(r10,.sys_call_table32)
+	LOADADDR(r11,.sys_call_table32)
 /* Now mung the first 4 parameters into shape, by making certain that
  * the high bits (most significant 32 bits in 64 bit reg) are 0
  * for the first 4 parameter regs(3-6).
@@ -105,26 +107,26 @@ _GLOBAL(DoSyscall)
 	b	17f
 15:
 #endif
-	LOADADDR(r10,.sys_call_table)
+	LOADADDR(r11,.sys_call_table)
 17:
 	slwi	r0,r0,3
-	ldx	r10,r10,r0	/* Fetch system call handler [ptr] */
+	ldx	r10,r11,r0	/* Fetch system call handler [ptr] */
 	mtlr	r10
 	addi	r9,r1,STACK_FRAME_OVERHEAD
 	blrl			/* Call handler */
 _GLOBAL(ret_from_syscall_1)
 20:	std	r3,RESULT(r1)	/* Save result */
 #ifdef SHOW_SYSCALLS
-#ifdef SHOW_SYSCALLS_TASK
+# ifdef SHOW_SYSCALLS_TASK
 	cmp	0,r13,r31
 	bne	91f
-#endif
+# endif /* SHOW_SYSCALLS_TASK */
 	mr	r4,r3
 	LOADADDR(r3,79f)
 	bl	.printk
 	ld	r3,RESULT(r1)
 91:
-#endif
+#endif /* SHOW_SYSCALLS */
 	li	r10,-_LAST_ERRNO
 	cmpl	0,r3,r10
 	blt	30f
@@ -153,7 +155,8 @@ _GLOBAL(ret_from_syscall_1)
 	cmpli	0,r0,NR_syscalls
 	bge-	66f
 #ifdef CONFIG_BINFMT_ELF32
-	ld	r10,THREAD+THREAD_FLAGS(r13)
+	ld	r10,PACACURRENT(r13)
+	ld	r10,THREAD+THREAD_FLAGS(r10)
 	andi.	r10,r10,PPC_FLAG_32BIT
 	beq-	55f
 	LOADADDR(r10,.sys_call_table32)
@@ -177,7 +180,6 @@ _GLOBAL(ret_from_syscall_1)
 	blrl			/* Call handler */
 _GLOBAL(ret_from_syscall_2)
 58:	std	r3,RESULT(r1)	/* Save result */	
-	std	r3,GPR0(r1)	/* temporary gross hack to make strace work */
 	li	r10,-_LAST_ERRNO
 	cmpl	0,r3,r10
 	blt	60f
@@ -215,7 +217,8 @@ _GLOBAL(ppc64_sigreturn)
 _GLOBAL(ppc64_rt_sigreturn)
 	bl	.sys_rt_sigreturn
 
-80:	ld	r10,TASK_PTRACE(r13)
+80:	ld	r10,PACACURRENT(r13)
+	ld	r10,TASK_PTRACE(r10)
 	andi.	r10,r10,PT_TRACESYS
 	bne-	81f
 	cmpi	0,r3,0
@@ -255,6 +258,11 @@ _GLOBAL(_switch)
 	mflr	r20		/* Return to switch caller */
 	mfmsr	r22
 	li	r6,MSR_FP	/* Disable floating-point */
+#ifdef CONFIG_ALTIVEC
+BEGIN_FTR_SECTION
+	oris	r6,r6,MSR_VEC@h	/* Disable altivec */
+END_FTR_SECTION_IFSET(CPU_FTR_ALTIVEC)
+#endif /* CONFIG_ALTIVEC */
 	andc	r22,r22,r6
 	mtmsrd	r22
 	isync
@@ -267,10 +275,9 @@ _GLOBAL(_switch)
 	std	r6,TRAP(r1)
 	std	r1,KSP(r3)	/* Set old stack pointer */
 
-	mfspr	r5,SPRG3	/* Get Paca */
 	addi	r3,r3,-THREAD	/* old 'current' for return value */
-	addi	r13,r4,-THREAD	/* Convert THREAD to 'current' */
-	std	r13,PACACURRENT(r5)	/* Set new 'current' */
+	addi	r7,r4,-THREAD	/* Convert THREAD to 'current' */
+	std	r7,PACACURRENT(r13)	/* Set new 'current' */
 
 #ifdef CONFIG_PPC_ISERIES
 	ld	r7,THREAD_FLAGS(r4)	/* Get run light flag */
@@ -293,7 +300,8 @@ _GLOBAL(_switch)
 
 _GLOBAL(ret_from_fork)
 	bl	.schedule_tail
-	ld	r0,TASK_PTRACE(r13)
+	ld	r4,PACACURRENT(r13)
+	ld	r0,TASK_PTRACE(r4)
 	andi.	r0,r0,PT_TRACESYS
 	beq+	.ret_from_except
 	bl	.syscall_trace
@@ -309,9 +317,8 @@ irq_recheck:
 	CHECKANYINT(r3,r4)
 	beq+	4f	/* skip do_IRQ if no interrupts */
 
-	mfspr	r5,SPRG3
 	li	r3,0
-	stb	r3,PACAPROCENABLED(r5)	/* ensure we are disabled */
+	stb	r3,PACAPROCENABLED(r13)	/* ensure we are disabled */
 	addi	r3,r1,STACK_FRAME_OVERHEAD
 	bl	.do_IRQ
 	b	irq_recheck	/* loop back and handle more */
@@ -323,14 +330,16 @@ _GLOBAL(do_bottom_half_ret)
 	beq+	restore		/* if so, check need_resched and signals */
 _GLOBAL(ret_to_user_hook)
 	nop
-	/* NEED_RESCHED is a volatile long (64-bits) */ 
-	ld	r3,NEED_RESCHED(r13)
+	/* NEED_RESCHED is a volatile long (64-bits) */
+	ld	r3,PACACURRENT(r13)
+	ld	r3,NEED_RESCHED(r3)
 	cmpi	0,r3,0		/* check need_resched flag */
 	beq+	7f
 	bl	.schedule
 	/* SIGPENDING is an int (32-bits) */
-7:	
-	lwz	r5,SIGPENDING(r13) /* Check for pending unblocked signals */
+7:
+	ld	r5,PACACURRENT(r13)
+	lwz	r5,SIGPENDING(r5) /* Check for pending unblocked signals */
 	cmpwi	0,r5,0
 	beq+	restore
 	li	r3,0
@@ -373,26 +382,37 @@ restore:
 #endif
 	stdcx.	r0,0,r1		/* to clear the reservation */
 
-	mfspr	r4,SPRG3	/* current task's PACA */
 #ifdef DO_SOFT_DISABLE
 	ld	r0,SOFTE(r1)
-	stb	r0,PACAPROCENABLED(r4)
+	stb	r0,PACAPROCENABLED(r13)
 #endif
 	/* if returning to user mode, save kernel SP */
 	ld	r0,_MSR(r1)
 	andi.	r0,r0,MSR_PR
 	beq+	1f
+	ld	r4,PACACURRENT(r13)
+#ifdef CONFIG_ALTIVEC
+BEGIN_FTR_SECTION
+	ld	r0,THREAD+THREAD_VRSAVE(r4)
+	mtspr	SPRN_VRSAVE,r0		/* if GPUL, restore VRSAVE reg */
+END_FTR_SECTION_IFSET(CPU_FTR_ALTIVEC)
+#endif /* CONFIG_ALTIVEC */
 	addi	r0,r1,INT_FRAME_SIZE	/* size of frame */
-	std	r0,THREAD+KSP(r13)	/* save kernel stack pointer */
-	std	r1,PACAKSAVE(r4)	/* save exception stack pointer */
+	std	r0,THREAD+KSP(r4)	/* save kernel stack pointer */
+	std	r1,PACAKSAVE(r13)	/* save exception stack pointer */
+	REST_GPR(13,r1)
 1:
+	mfmsr	r0
+	li	r2, MSR_RI
+	andc	r0,r0,r2
+	mtmsrd	r0,1
+
 	ld	r0,_MSR(r1)
 	mtspr	SRR1,r0
 	ld	r2,_CCR(r1)
 	mtcrf	0xFF,r2
 	ld	r2,_NIP(r1)
 	mtspr	SRR0,r2
-	REST_GPR(13,r1)
 	ld	r0,GPR0(r1)
 	ld	r2,GPR2(r1)
 	ld	r3,GPR3(r1)
@@ -438,14 +458,13 @@ _GLOBAL(enter_rtas)
 	mfsrr1	r10
 	std	r10,_SRR1(r1)
 
-	/* Unfortunatly, the stack pointer and the MSR are also clobbered,
+	/* Unfortunately, the stack pointer and the MSR are also clobbered,
 	 * so they are saved in the PACA (SPRG3) which allows us to restore
 	 * our original state after RTAS returns.
-         */
-	mfspr	r4,SPRG3		/* Get PACA */
-	std	r1,PACAR1(r4)
+	 */
+	std	r1,PACAR1(r13)
 	mfmsr	r6
-        std	r6,PACASAVEDMSR(r4)
+	std	r6,PACASAVEDMSR(r13)
 
 	/* Setup our real return addr */	
 	SET_REG_TO_LABEL(r4,.rtas_return_loc)
@@ -474,13 +493,19 @@ _GLOBAL(enter_rtas)
 
 _STATIC(rtas_return_loc)
 	/* relocation is off at this point */
-	mfspr	r4,SPRG3	        /* Get PACA */
+	mfspr	r13,SPRG3	        /* Get PACA */
 	SET_REG_TO_CONST(r5, KERNELBASE)
-        sub     r4,r4,r5                /* RELOC the PACA base pointer */
-        
-        ld	r1,PACAR1(r4)           /* Restore our SP */
+	sub     r13,r13,r5              /* RELOC the PACA base pointer */
+
+	mfmsr	r6			/* Clear RI while SRR0/1 are live */
+	li	r0,MSR_RI
+	andc	r6,r6,r0
+	sync
+	mtmsrd	r6
+
+	ld	r1,PACAR1(r13)           /* Restore our SP */
 	LOADADDR(r3,.rtas_restore_regs)
-        ld	r4,PACASAVEDMSR(r4)     /* Restore our MSR */
+	ld	r4,PACASAVEDMSR(r13)     /* Restore our MSR */
 
 	mtspr	SRR0,r3
 	mtspr	SRR1,r4
@@ -493,9 +518,8 @@ _STATIC(rtas_restore_regs)
 	REST_8GPRS(14, r1)		/* Restore the non-volatiles */
 	REST_10GPRS(22, r1)		/* ditto */
 
-	/* put back current in r13 */
-        mfspr	r4,SPRG3
-	ld	r13,PACACURRENT(r4)
+	/* put back paca in r13 */
+	mfspr	r13,SPRG3
 
 	ld	r4,_CCR(r1)
 	mtcr	r4
@@ -549,7 +573,7 @@ _GLOBAL(enter_prom)
 	mfmsr	r11
 	std	r11,_MSR(r1)
 
-	/* Unfortunatly, the stack pointer is also clobbered, so it is saved
+	/* Unfortunately, the stack pointer is also clobbered, so it is saved
 	 * in the SPRG2 which allows us to restore our original state after
 	 * PROM returns.
          */

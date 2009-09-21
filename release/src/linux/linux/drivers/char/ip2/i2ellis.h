@@ -33,7 +33,7 @@
 // here and in i2ellis.c is intended to provice a useful, but not required,
 // layer of insulation from the hardware specifics.
 //------------------------------------------------------------------------------
-#ifndef  I2ELLIS_H       /* To prevent multiple includes */
+#ifndef  I2ELLIS_H   /* To prevent multiple includes */
 #define  I2ELLIS_H   1
 //------------------------------------------------
 // Revision History:
@@ -403,7 +403,6 @@ typedef struct _i2eBordStr
 //	For queuing interupt bottom half handlers.	/\/\|=mhw=|\/\/
 	struct tq_struct	tqueue_interrupt;
 
-	struct timer_list  SendPendingTimer;   // Used by iiSendPending
 	unsigned int	SendPendingRetry;
 
 #ifdef	CONFIG_DEVFS_FS

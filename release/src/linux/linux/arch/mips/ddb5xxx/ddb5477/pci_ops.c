@@ -299,4 +299,3 @@ struct pci_ops ddb5477_io_pci_ops ={
 	iopci_write_config_word,
 	iopci_write_config_dword
 };
-

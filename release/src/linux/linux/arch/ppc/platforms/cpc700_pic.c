@@ -1,6 +1,6 @@
 /*
  * arch/ppc/platforms/cpc700_pic.c
- * 
+ *
  * Interrupt controller support for IBM Spruce
  *
  * Authors: Mark Greer, Matt Porter, and Johnnie Peters
@@ -8,27 +8,10 @@
  *          mporter@mvista.com
  *          jpeters@mvista.com
  *
- * Copyright 2001-2002 MontaVista Software Inc.
- *
- * This program is free software; you can redistribute  it and/or modify it
- * under  the terms of  the GNU General Public License as published by the
- * Free Software Foundation;  either version 2 of the  License, or (at your
- * option) any later version.
- *
- * THIS  SOFTWARE  IS PROVIDED   ``AS  IS'' AND   ANY  EXPRESS OR   IMPLIED
- * WARRANTIES,   INCLUDING, BUT NOT  LIMITED  TO, THE IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.  IN
- * NO  EVENT  SHALL   THE AUTHOR  BE    LIABLE FOR ANY   DIRECT,  INDIRECT,
- * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT
- * NOT LIMITED   TO, PROCUREMENT OF  SUBSTITUTE GOODS  OR SERVICES; LOSS OF
- * USE, DATA,  OR PROFITS; OR  BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
- * ANY THEORY OF LIABILITY, WHETHER IN  CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
- * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *
- * You should have received a copy of the  GNU General Public License along
- * with this program; if not, write  to the Free Software Foundation, Inc.,
- * 675 Mass Ave, Cambridge, MA 02139, USA.
+ * 2001-2002 (c) MontaVista, Software, Inc.  This file is licensed under
+ * the terms of the GNU General Public License version 2.  This program
+ * is licensed "as is" without any warranty of any kind, whether express
+ * or implied.
  */
 
 #include <linux/stddef.h>
@@ -64,7 +47,7 @@ cpc700_unmask_irq(unsigned int irq)
 
 		/* Know IRQ fits in entry 0 of ppc_cached_irq_mask[] */
 		ppc_cached_irq_mask[0] |= CPC700_UIC_IRQ_BIT(irq);
-		
+
 		CPC700_OUT_32(CPC700_UIC_UICER, ppc_cached_irq_mask[0]);
 	}
 	return;
@@ -145,10 +128,10 @@ cpc700_pic_init_irq(unsigned int irq)
 	tmp = CPC700_IN_32(CPC700_UIC_UICCR);
 	tmp |= CPC700_UIC_IRQ_BIT(irq);
 	CPC700_OUT_32(CPC700_UIC_UICCR, tmp);
-			
+
 	return;
 }
-	
+
 __init void
 cpc700_init_IRQ(void)
 {
@@ -196,7 +179,7 @@ cpc700_get_irq(struct pt_regs *regs)
 		irq++;
 		irq_test <<= 1;
 	} while (irq < NR_IRQS);
-		
+
 
 	if (irq == NR_IRQS)
 	    irq = 33;

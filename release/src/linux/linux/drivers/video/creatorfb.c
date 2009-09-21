@@ -1,4 +1,4 @@
-/* $Id: creatorfb.c,v 1.1.1.4 2003/10/14 08:08:53 sparq Exp $
+/* $Id: creatorfb.c,v 1.37 2001/10/16 05:44:44 davem Exp $
  * creatorfb.c: Creator/Creator3D frame buffer driver
  *
  * Copyright (C) 1997,1998,1999 Jakub Jelinek (jj@ultra.linux.cz)
@@ -588,6 +588,21 @@ static void ffb_revc(struct display *p, int xx, int yy)
 	/* Not used if hw cursor */
 }
 
+#if 0
+static void ffb_blank(struct fb_info_sbusfb *fb)
+{
+	struct ffb_dac *dac = fb->s.ffb.dac;
+	unsigned long flags;
+	u32 tmp;
+
+	spin_lock_irqsave(&fb->lock, flags);
+	upa_writel(0x6000, &dac->type);
+	tmp = (upa_readl(&dac->value) & ~0x1);
+	upa_writel(0x6000, &dac->type);
+	upa_writel(tmp, &dac->value);
+	spin_unlock_irqrestore(&fb->lock, flags);
+}
+#endif
 
 static void ffb_unblank(struct fb_info_sbusfb *fb)
 {
@@ -858,6 +873,16 @@ char __init *creatorfb_init(struct fb_info_sbusfb *fb)
 	fb->setcurshape = ffb_setcurshape;
 	fb->switch_from_graph = ffb_switch_from_graph;
 	fb->fill = ffb_fill;
+#if 0
+	/* XXX Can't enable this for now, I've seen cases
+	 * XXX where the VC was blanked, and Xsun24 was started
+	 * XXX via a remote login, the sunfb code did not
+	 * XXX unblank creator when it was mmap'd for some
+	 * XXX reason, investigate later... -DaveM
+	 */
+	fb->blank = ffb_blank;
+	fb->unblank = ffb_unblank;
+#endif
 	
 	/* If there are any read errors or fifo overflow conditions,
 	 * clear them now.

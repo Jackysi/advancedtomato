@@ -29,6 +29,7 @@
  */
 int __init setup_sh2000(void)
 {
+	/* XXX: RTC setting comes here */
 
 	/* These should be done by BIOS/IPL ... */
 	/* Enable nCE2A, nCE2B output */

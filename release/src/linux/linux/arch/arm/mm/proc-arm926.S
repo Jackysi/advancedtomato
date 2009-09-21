@@ -81,9 +81,8 @@ ENTRY(cpu_arm926_data_abort)
 
 	tst	r3, #1<<5			@ Check for Thumb-bit (NE -> found)
 	ldrneh	r1, [r2]			@ Read aborted Thumb instruction        
-	tstne	r1, r1, lsr #12 		@ C = bit 11
-
 	ldreq	r1, [r2]			@ Read aborted ARM instruction
+	movne	r1, r1, lsl #(20-12)		@ shift thumb bit 10 to ARM bit 20
 	tsteq	r1, r1, lsr #21 		@ C = bit 20
 
 	sbc	r1, r1, r1			@ r1 = C - 1
@@ -146,9 +145,7 @@ ENTRY(cpu_arm926_reset)
  */
 	.align	5
 ENTRY(cpu_arm926_do_idle)
-#if defined(CONFIG_CPU_ARM926_CPU_IDLE)
 	mcr	p15, 0, r0, c7, c0, 4		@ Wait for interrupt
-#endif
 	mov	pc, lr
 
 /* ================================= CACHE ================================ */
@@ -167,7 +164,7 @@ ENTRY(cpu_arm926_cache_clean_invalidate_all)
 	mov	r2, #1
 cpu_arm926_cache_clean_invalidate_all_r2:
 	mov	ip, #0
-#ifdef CONFIG_CPU_ARM926_WRITETHROUGH
+#ifdef CONFIG_CPU_DCACHE_WRITETHROUGH
 	mcr	p15, 0, ip, c7, c6, 0		@ invalidate D cache
 #else
 1:	mrc	p15, 0, r15, c7, c14, 3 	@ test,clean,invalidate
@@ -202,7 +199,7 @@ ENTRY(cpu_arm926_cache_clean_invalidate_range)
 	bhi	cpu_arm926_cache_clean_invalidate_all_r2
 
 1:	teq	r2, #0
-#ifdef CONFIG_CPU_ARM926_WRITETHROUGH
+#ifdef CONFIG_CPU_DCACHE_WRITETHROUGH
 	mcr	p15, 0, r0, c7, c6, 1		@ invalidate D entry
 	mcrne	p15, 0, r0, c7, c5, 1		@ invalidate I entry
 	add	r0, r0, #DCACHELINESIZE
@@ -235,7 +232,7 @@ ENTRY(cpu_arm926_cache_clean_invalidate_range)
 	.align	5
 ENTRY(cpu_arm926_flush_ram_page)
 	mov	r1, #PAGESIZE
-#ifdef CONFIG_CPU_ARM926_WRITETHROUGH
+#ifdef CONFIG_CPU_DCACHE_WRITETHROUGH
 1:	mcr	p15, 0, r0, c7, c6, 1		@ invalidate D entry
 	add	r0, r0, #DCACHELINESIZE
 	mcr	p15, 0, r0, c7, c6, 1		@ invalidate D entry
@@ -408,6 +405,10 @@ ENTRY(cpu_arm926_tlb_invalidate_all)
  */
 	.align	5
 ENTRY(cpu_arm926_tlb_invalidate_range)
+	sub	r3, r1, r0
+	cmp	r3, #256 * PAGESIZE		@ arbitary, should be tuned
+	bhi	cpu_arm926_tlb_invalidate_all
+
 	mov	r3, #0
 	mcr	p15, 0, r3, c7, c10, 4		@ drain WB
 
@@ -450,7 +451,7 @@ ENTRY(cpu_arm926_tlb_invalidate_page)
 	.align	5
 ENTRY(cpu_arm926_set_pgd)
 	mov	ip, #0
-#ifdef CONFIG_CPU_ARM926_WRITETHROUGH
+#ifdef CONFIG_CPU_DCACHE_WRITETHROUGH
 	/* Any reason why we don't use mcr p15, 0, r0, c7, c7, 0 here? --rmk */
 	mcr	p15, 0, ip, c7, c6, 0		@ invalidate D cache
 #else
@@ -475,7 +476,7 @@ ENTRY(cpu_arm926_set_pgd)
  */
 	.align	5
 ENTRY(cpu_arm926_set_pmd)
-#ifdef CONFIG_CPU_ARM926_WRITETHROUGH
+#ifdef CONFIG_CPU_DCACHE_WRITETHROUGH
 	eor	r2, r1, #0x0a			@ C & Section
 	tst	r2, #0x0b
 	biceq	r1, r1, #4			@ clear bufferable bit
@@ -511,38 +512,33 @@ ENTRY(cpu_arm926_set_pte)
 	tst	r1, #LPTE_PRESENT | LPTE_YOUNG	@ Present and Young?
 	movne	r2, #0
 
-#ifdef CONFIG_CPU_ARM926_WRITETHROUGH
+#ifdef CONFIG_CPU_DCACHE_WRITETHROUGH
 	eor	r3, r2, #0x0a			@ C & small page?
 	tst	r3, #0x0b
 	biceq	r2, r2, #4
 #endif
 	str	r2, [r0]			@ hardware version
 	mov	r0, r0
-#ifndef CONFIG_CPU_ARM926_WRITETHROUGH
+#ifndef CONFIG_CPU_DCACHE_WRITETHROUGH
 	mcr	p15, 0, r0, c7, c10, 1		@ clean D entry
 #endif
 	mcr	p15, 0, r0, c7, c10, 4		@ drain WB
 	mov	pc, lr
 
 
-cpu_manu_name:
-	.asciz	"ARM"
 ENTRY(cpu_arm926_name)
 	.ascii	"ARM926EJ-S"
-#if defined(CONFIG_CPU_ARM926_CPU_IDLE)
-	.ascii	"s"
-#endif
-#if defined(CONFIG_CPU_ARM926_I_CACHE_ON)
+#ifndef CONFIG_CPU_ICACHE_DISABLE
 	.ascii	"i"
 #endif
-#if defined(CONFIG_CPU_ARM926_D_CACHE_ON)
+#ifndef CONFIG_CPU_DCACHE_DISABLE
 	.ascii	"d"
-#if defined(CONFIG_CPU_ARM926_WRITETHROUGH)
+#ifdef CONFIG_CPU_DCACHE_WRITETHROUGH
 	.ascii	"(wt)"
 #else
 	.ascii	"(wb)"
 #endif
-#ifdef CONFIG_CPU_ARM926_ROUND_ROBIN
+#ifdef CONFIG_CPU_CACHE_ROUND_ROBIN
 	.ascii	"RR"
 #endif
 #endif
@@ -559,7 +555,7 @@ __arm926_setup:
 	mcr	p15, 0, r4, c2, c0		@ load page table pointer
 
 
-#if defined(CONFIG_CPU_ARM926_WRITETHROUGH) 
+#ifdef CONFIG_CPU_DCACHE_WRITETHROUGH
 	mov	r0, #4				@ disable write-back on caches explicitly
 	mcr	p15, 7, r0, c15, c0, 0
 #endif 
@@ -581,13 +577,13 @@ __arm926_setup:
 	orr	r0, r0, #0x0031
 	orr	r0, r0, #0x2100 		@ ..1. ...1 ..11 ...1
 
-#ifdef CONFIG_CPU_ARM926_ROUND_ROBIN
+#ifdef CONFIG_CPU_CACHE_ROUND_ROBIN
 	orr	r0, r0, #0x4000 		@ .1.. .... .... ....
 #endif
-#ifdef CONFIG_CPU_ARM926_D_CACHE_ON
+#ifndef CONFIG_CPU_DCACHE_DISABLE
 	orr	r0, r0, #0x0004 		@ .... .... .... .1..
 #endif
-#ifdef CONFIG_CPU_ARM926_I_CACHE_ON
+#ifndef CONFIG_CPU_ICACHE_DISABLE
 	orr	r0, r0, #0x1000 		@ ...1 .... .... ....
 #endif
 	mov	pc, lr
@@ -635,7 +631,7 @@ arm926_processor_functions:
 
 	.type	cpu_arm926_info, #object
 cpu_arm926_info:
-	.long	cpu_manu_name
+	.long	0
 	.long	cpu_arm926_name
 	.size	cpu_arm926_info, . - cpu_arm926_info
 
@@ -660,7 +656,8 @@ __arm926_proc_info:
 	b	__arm926_setup
 	.long	cpu_arch_name
 	.long	cpu_elf_name
-	.long	HWCAP_SWP | HWCAP_HALF | HWCAP_26BIT
+	.long	HWCAP_SWP | HWCAP_HALF | HWCAP_THUMB | \
+		HWCAP_FAST_MULT
 	.long	cpu_arm926_info
 	.long	arm926_processor_functions
 	.size	__arm926_proc_info, . - __arm926_proc_info

@@ -17,9 +17,9 @@
  the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
 
  *
- * $Source: /home/cvsroot/wrt54g/src/linux/linux/drivers/char/ftape/lowlevel/ftape-rw.c,v $
- * $Revision: 1.1.1.2 $
- * $Date: 2003/10/14 08:08:06 $
+ * $Source: /homes/cvs/ftape-stacked/ftape/lowlevel/ftape-rw.c,v $
+ * $Revision: 1.7 $
+ * $Date: 1997/10/28 14:26:49 $
  *
  *      This file contains some common code for the segment read and
  *      segment write routines for the QIC-117 floppy-tape driver for
@@ -470,6 +470,7 @@ int ftape_wait_segment(buffer_state_enum state)
 				    ft_t_err, "fdc_interrupt_wait failed");
 		}
 		if (fdc_setup_error) {
+			/* recover... FIXME */
 			TRACE_ABORT(-EIO, ft_t_err, "setup error");
 		}
 	}
@@ -654,6 +655,11 @@ static int seek_forward(int segment_id, int fast)
 		logical_forward();
 	}
 	while (ft_location.segment < segment_id) {
+		/*  This requires at least one sector in a (bad) segment to
+		 *  have a valid and readable sector id !
+		 *  It looks like this is not guaranteed, so we must try
+		 *  to find a way to skip an EMPTY_SEGMENT. !!! FIXME !!!
+		 */
 		if (ftape_read_id() < 0 || !ft_location.known ||
 		    sigtestsetmask(&current->pending.signal, _DONT_BLOCK)) {
 			ft_location.known = 0;
@@ -795,6 +801,7 @@ static int skip_reverse(int segment_id, int *pstatus)
 				      min_rewind, min_rewind + error);
 				min_rewind += error;
 				if (min_rewind < -5) {
+					/* is this right ? FIXME ! */
 					/* keep sane value */
 					min_rewind = -5;
 					TRACE(ft_t_noise, 

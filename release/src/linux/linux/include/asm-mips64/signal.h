@@ -119,6 +119,12 @@ typedef unsigned int old_sigset_t32;
 #define SA_SAMPLE_RANDOM	SA_RESTART
 #define SA_SHIRQ		0x02000000
 
+#ifdef CONFIG_NET_RANDOM
+#define SA_NET_RANDOM	SA_SAMPLE_RANDOM
+#else
+#define SA_NET_RANDOM	0
+#endif
+
 #endif /* __KERNEL__ */
 
 #define SIG_BLOCK	1	/* for blocking signals */
@@ -139,8 +145,6 @@ struct sigaction {
 	unsigned int	sa_flags;
 	__sighandler_t	sa_handler;
 	sigset_t	sa_mask;
-	void		(*sa_restorer)(void);
-	int		sa_resv[1];	/* reserved */
 };
 
 struct k_sigaction {

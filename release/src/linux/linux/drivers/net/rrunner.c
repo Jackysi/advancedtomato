@@ -234,7 +234,7 @@ int __init rr_hippi_probe (struct net_device *dev)
 		 * Don't access any registes before this point!
 		 */
 #ifdef __BIG_ENDIAN
-		writel(readl(&regs->HostCtrl) | NO_SWAP, &regs->HostCtrl);
+		writel(readl(&rrpriv->regs->HostCtrl) | NO_SWAP, &rrpriv->regs->HostCtrl);
 #endif
 		/*
 		 * Need to add a case for little-endian 64-bit hosts here.
@@ -386,12 +386,41 @@ static int rr_reset(struct net_device *dev)
 	writel(0, &regs->PciState);
 #if (BITS_PER_LONG == 64) && defined __LITTLE_ENDIAN
 	writel(SWAP_DATA | PTR64BIT | PTR_WD_SWAP, &regs->Mode);
-#elif BITS_PER_LONG == 64
+#elif (BITS_PER_LONG == 64)
 	writel(SWAP_DATA | PTR64BIT | PTR_WD_NOSWAP, &regs->Mode);
 #else
 	writel(SWAP_DATA | PTR32BIT | PTR_WD_NOSWAP, &regs->Mode);
 #endif
 
+#if 0
+	/*
+	 * Don't worry, this is just black magic.
+	 */
+	writel(0xdf000, &regs->RxBase);
+	writel(0xdf000, &regs->RxPrd);
+	writel(0xdf000, &regs->RxCon);
+	writel(0xce000, &regs->TxBase);
+	writel(0xce000, &regs->TxPrd);
+	writel(0xce000, &regs->TxCon);
+	writel(0, &regs->RxIndPro);
+	writel(0, &regs->RxIndCon);
+	writel(0, &regs->RxIndRef);
+	writel(0, &regs->TxIndPro);
+	writel(0, &regs->TxIndCon);
+	writel(0, &regs->TxIndRef);
+	writel(0xcc000, &regs->pad10[0]);
+	writel(0, &regs->DrCmndPro);
+	writel(0, &regs->DrCmndCon);
+	writel(0, &regs->DwCmndPro);
+	writel(0, &regs->DwCmndCon);
+	writel(0, &regs->DwCmndRef);
+	writel(0, &regs->DrDataPro);
+	writel(0, &regs->DrDataCon);
+	writel(0, &regs->DrDataRef);
+	writel(0, &regs->DwDataPro);
+	writel(0, &regs->DwDataCon);
+	writel(0, &regs->DwDataRef);
+#endif
 
 	writel(0xffffffff, &regs->MbEvent);
 	writel(0, &regs->Event);
@@ -1187,7 +1216,6 @@ static int rr_open(struct net_device *dev)
 
 	rrpriv->info = kmalloc(sizeof(struct rr_info), GFP_KERNEL);
 	if (!rrpriv->info){
-		rrpriv->rx_ctrl = NULL;
 		ecode = -ENOMEM;
 		goto error;
 	}

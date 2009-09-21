@@ -21,6 +21,7 @@
 #include <linux/rtc.h>
 #include <linux/init.h>
 #include <linux/vt_kern.h>
+#include <linux/delay.h>
 #ifdef CONFIG_ZORRO
 #include <linux/zorro.h>
 #endif
@@ -95,6 +96,7 @@ static void a3000_gettod (int *, int *, int *, int *, int *, int *);
 static void a2000_gettod (int *, int *, int *, int *, int *, int *);
 static int amiga_hwclk (int, struct rtc_time *);
 static int amiga_set_clock_mmss (unsigned long);
+static unsigned int amiga_get_ss (void);
 extern void amiga_mksound( unsigned int count, unsigned int ticks );
 #ifdef CONFIG_AMIGA_FLOPPY
 extern void amiga_floppy_setup(char *, int *);
@@ -428,6 +430,7 @@ void __init config_amiga(void)
 
   mach_hwclk           = amiga_hwclk;
   mach_set_clock_mmss  = amiga_set_clock_mmss;
+  mach_get_ss          = amiga_get_ss; 
 #ifdef CONFIG_AMIGA_FLOPPY
   mach_floppy_setup    = amiga_floppy_setup;
 #endif
@@ -574,135 +577,145 @@ static unsigned long amiga_gettimeoffset (void)
 static void a3000_gettod (int *yearp, int *monp, int *dayp,
 			  int *hourp, int *minp, int *secp)
 {
-	volatile struct tod3000 *tod = TOD_3000;
+	tod_3000.cntrl1 = TOD3000_CNTRL1_HOLD;
 
-	tod->cntrl1 = TOD3000_CNTRL1_HOLD;
+	*secp  = tod_3000.second1 * 10 + tod_3000.second2;
+	*minp  = tod_3000.minute1 * 10 + tod_3000.minute2;
+	*hourp = tod_3000.hour1   * 10 + tod_3000.hour2;
+	*dayp  = tod_3000.day1    * 10 + tod_3000.day2;
+	*monp  = tod_3000.month1  * 10 + tod_3000.month2;
+	*yearp = tod_3000.year1   * 10 + tod_3000.year2;
 
-	*secp  = tod->second1 * 10 + tod->second2;
-	*minp  = tod->minute1 * 10 + tod->minute2;
-	*hourp = tod->hour1   * 10 + tod->hour2;
-	*dayp  = tod->day1    * 10 + tod->day2;
-	*monp  = tod->month1  * 10 + tod->month2;
-	*yearp = tod->year1   * 10 + tod->year2;
-
-	tod->cntrl1 = TOD3000_CNTRL1_FREE;
+	tod_3000.cntrl1 = TOD3000_CNTRL1_FREE;
 }
 
 static void a2000_gettod (int *yearp, int *monp, int *dayp,
 			  int *hourp, int *minp, int *secp)
 {
-	volatile struct tod2000 *tod = TOD_2000;
+	int cnt = 5;
 
-	tod->cntrl1 = TOD2000_CNTRL1_HOLD;
+	tod_2000.cntrl1 |= TOD2000_CNTRL1_HOLD;
+	
+	while ((tod_2000.cntrl1 & TOD2000_CNTRL1_BUSY) && cnt--)
+	{
+	        tod_2000.cntrl1 &= ~TOD2000_CNTRL1_HOLD;
+	        udelay(70);
+	        tod_2000.cntrl1 |= TOD2000_CNTRL1_HOLD;
+	}
 
-	while (tod->cntrl1 & TOD2000_CNTRL1_BUSY)
-		;
+	if (!cnt)
+		printk(KERN_INFO "gettod: timed out waiting for RTC (0x%x)\n", tod_2000.cntrl1);
 
-	*secp  = tod->second1     * 10 + tod->second2;
-	*minp  = tod->minute1     * 10 + tod->minute2;
-	*hourp = (tod->hour1 & 3) * 10 + tod->hour2;
-	*dayp  = tod->day1        * 10 + tod->day2;
-	*monp  = tod->month1      * 10 + tod->month2;
-	*yearp = tod->year1       * 10 + tod->year2;
+	*secp  = tod_2000.second1     * 10 + tod_2000.second2;
+	*minp  = tod_2000.minute1     * 10 + tod_2000.minute2;
+	*hourp = (tod_2000.hour1 & 3) * 10 + tod_2000.hour2;
+	*dayp  = tod_2000.day1        * 10 + tod_2000.day2;
+	*monp  = tod_2000.month1      * 10 + tod_2000.month2;
+	*yearp = tod_2000.year1       * 10 + tod_2000.year2;
 
-	if (!(tod->cntrl3 & TOD2000_CNTRL3_24HMODE)){
-		if (!(tod->hour1 & TOD2000_HOUR1_PM) && *hourp == 12)
+	if (!(tod_2000.cntrl3 & TOD2000_CNTRL3_24HMODE)){
+		if (!(tod_2000.hour1 & TOD2000_HOUR1_PM) && *hourp == 12)
 			*hourp = 0;
-		else if ((tod->hour1 & TOD2000_HOUR1_PM) && *hourp != 12)
+		else if ((tod_2000.hour1 & TOD2000_HOUR1_PM) && *hourp != 12)
 			*hourp += 12;
 	}
 
-	tod->cntrl1 &= ~TOD2000_CNTRL1_HOLD;
+	tod_2000.cntrl1 &= ~TOD2000_CNTRL1_HOLD;
 }
 
 static int amiga_hwclk(int op, struct rtc_time *t)
 {
 	if (AMIGAHW_PRESENT(A3000_CLK)) {
-		volatile struct tod3000 *tod = TOD_3000;
-
-		tod->cntrl1 = TOD3000_CNTRL1_HOLD;
+		tod_3000.cntrl1 = TOD3000_CNTRL1_HOLD;
 
 		if (!op) { /* read */
-			t->tm_sec  = tod->second1 * 10 + tod->second2;
-			t->tm_min  = tod->minute1 * 10 + tod->minute2;
-			t->tm_hour = tod->hour1   * 10 + tod->hour2;
-			t->tm_mday = tod->day1    * 10 + tod->day2;
-			t->tm_wday = tod->weekday;
-			t->tm_mon  = tod->month1  * 10 + tod->month2 - 1;
-			t->tm_year = tod->year1   * 10 + tod->year2;
+			t->tm_sec  = tod_3000.second1 * 10 + tod_3000.second2;
+			t->tm_min  = tod_3000.minute1 * 10 + tod_3000.minute2;
+			t->tm_hour = tod_3000.hour1   * 10 + tod_3000.hour2;
+			t->tm_mday = tod_3000.day1    * 10 + tod_3000.day2;
+			t->tm_wday = tod_3000.weekday;
+			t->tm_mon  = tod_3000.month1  * 10 + tod_3000.month2 - 1;
+			t->tm_year = tod_3000.year1   * 10 + tod_3000.year2;
 			if (t->tm_year <= 69)
 				t->tm_year += 100;
 		} else {
-			tod->second1 = t->tm_sec / 10;
-			tod->second2 = t->tm_sec % 10;
-			tod->minute1 = t->tm_min / 10;
-			tod->minute2 = t->tm_min % 10;
-			tod->hour1   = t->tm_hour / 10;
-			tod->hour2   = t->tm_hour % 10;
-			tod->day1    = t->tm_mday / 10;
-			tod->day2    = t->tm_mday % 10;
+			tod_3000.second1 = t->tm_sec / 10;
+			tod_3000.second2 = t->tm_sec % 10;
+			tod_3000.minute1 = t->tm_min / 10;
+			tod_3000.minute2 = t->tm_min % 10;
+			tod_3000.hour1   = t->tm_hour / 10;
+			tod_3000.hour2   = t->tm_hour % 10;
+			tod_3000.day1    = t->tm_mday / 10;
+			tod_3000.day2    = t->tm_mday % 10;
 			if (t->tm_wday != -1)
-				tod->weekday = t->tm_wday;
-			tod->month1  = (t->tm_mon + 1) / 10;
-			tod->month2  = (t->tm_mon + 1) % 10;
+				tod_3000.weekday = t->tm_wday;
+			tod_3000.month1  = (t->tm_mon + 1) / 10;
+			tod_3000.month2  = (t->tm_mon + 1) % 10;
 			if (t->tm_year >= 100)
 				t->tm_year -= 100;
-			tod->year1   = t->tm_year / 10;
-			tod->year2   = t->tm_year % 10;
+			tod_3000.year1   = t->tm_year / 10;
+			tod_3000.year2   = t->tm_year % 10;
 		}
 
-		tod->cntrl1 = TOD3000_CNTRL1_FREE;
+		tod_3000.cntrl1 = TOD3000_CNTRL1_FREE;
 	} else /* if (AMIGAHW_PRESENT(A2000_CLK)) */ {
-		volatile struct tod2000 *tod = TOD_2000;
+		int cnt = 5;
 
-		tod->cntrl1 = TOD2000_CNTRL1_HOLD;
-	    
-		while (tod->cntrl1 & TOD2000_CNTRL1_BUSY)
-			;
+		tod_2000.cntrl1 |= TOD2000_CNTRL1_HOLD;
+		
+		while ((tod_2000.cntrl1 & TOD2000_CNTRL1_BUSY) && cnt--)
+		{
+			tod_2000.cntrl1 &= ~TOD2000_CNTRL1_HOLD;
+			udelay(70);
+			tod_2000.cntrl1 |= TOD2000_CNTRL1_HOLD;
+		}
+
+		if (!cnt)
+			printk(KERN_INFO "hwclk: timed out waiting for RTC (0x%x)\n", tod_2000.cntrl1);
 
 		if (!op) { /* read */
-			t->tm_sec  = tod->second1     * 10 + tod->second2;
-			t->tm_min  = tod->minute1     * 10 + tod->minute2;
-			t->tm_hour = (tod->hour1 & 3) * 10 + tod->hour2;
-			t->tm_mday = tod->day1        * 10 + tod->day2;
-			t->tm_wday = tod->weekday;
-			t->tm_mon  = tod->month1      * 10 + tod->month2 - 1;
-			t->tm_year = tod->year1       * 10 + tod->year2;
+			t->tm_sec  = tod_2000.second1     * 10 + tod_2000.second2;
+			t->tm_min  = tod_2000.minute1     * 10 + tod_2000.minute2;
+			t->tm_hour = (tod_2000.hour1 & 3) * 10 + tod_2000.hour2;
+			t->tm_mday = tod_2000.day1        * 10 + tod_2000.day2;
+			t->tm_wday = tod_2000.weekday;
+			t->tm_mon  = tod_2000.month1      * 10 + tod_2000.month2 - 1;
+			t->tm_year = tod_2000.year1       * 10 + tod_2000.year2;
 			if (t->tm_year <= 69)
 				t->tm_year += 100;
 
-			if (!(tod->cntrl3 & TOD2000_CNTRL3_24HMODE)){
-				if (!(tod->hour1 & TOD2000_HOUR1_PM) && t->tm_hour == 12)
+			if (!(tod_2000.cntrl3 & TOD2000_CNTRL3_24HMODE)){
+				if (!(tod_2000.hour1 & TOD2000_HOUR1_PM) && t->tm_hour == 12)
 					t->tm_hour = 0;
-				else if ((tod->hour1 & TOD2000_HOUR1_PM) && t->tm_hour != 12)
+				else if ((tod_2000.hour1 & TOD2000_HOUR1_PM) && t->tm_hour != 12)
 					t->tm_hour += 12;
 			}
 		} else {
-			tod->second1 = t->tm_sec / 10;
-			tod->second2 = t->tm_sec % 10;
-			tod->minute1 = t->tm_min / 10;
-			tod->minute2 = t->tm_min % 10;
-			if (tod->cntrl3 & TOD2000_CNTRL3_24HMODE)
-				tod->hour1 = t->tm_hour / 10;
+			tod_2000.second1 = t->tm_sec / 10;
+			tod_2000.second2 = t->tm_sec % 10;
+			tod_2000.minute1 = t->tm_min / 10;
+			tod_2000.minute2 = t->tm_min % 10;
+			if (tod_2000.cntrl3 & TOD2000_CNTRL3_24HMODE)
+				tod_2000.hour1 = t->tm_hour / 10;
 			else if (t->tm_hour >= 12)
-				tod->hour1 = TOD2000_HOUR1_PM +
+				tod_2000.hour1 = TOD2000_HOUR1_PM +
 					(t->tm_hour - 12) / 10;
 			else
-				tod->hour1 = t->tm_hour / 10;
-			tod->hour2   = t->tm_hour % 10;
-			tod->day1    = t->tm_mday / 10;
-			tod->day2    = t->tm_mday % 10;
+				tod_2000.hour1 = t->tm_hour / 10;
+			tod_2000.hour2   = t->tm_hour % 10;
+			tod_2000.day1    = t->tm_mday / 10;
+			tod_2000.day2    = t->tm_mday % 10;
 			if (t->tm_wday != -1)
-				tod->weekday = t->tm_wday;
-			tod->month1  = (t->tm_mon + 1) / 10;
-			tod->month2  = (t->tm_mon + 1) % 10;
+				tod_2000.weekday = t->tm_wday;
+			tod_2000.month1  = (t->tm_mon + 1) / 10;
+			tod_2000.month2  = (t->tm_mon + 1) % 10;
 			if (t->tm_year >= 100)
 				t->tm_year -= 100;
-			tod->year1   = t->tm_year / 10;
-			tod->year2   = t->tm_year % 10;
+			tod_2000.year1   = t->tm_year / 10;
+			tod_2000.year2   = t->tm_year % 10;
 		}
 
-		tod->cntrl1 &= ~TOD2000_CNTRL1_HOLD;
+		tod_2000.cntrl1 &= ~TOD2000_CNTRL1_HOLD;
 	}
 
 	return 0;
@@ -713,33 +726,52 @@ static int amiga_set_clock_mmss (unsigned long nowtime)
 	short real_seconds = nowtime % 60, real_minutes = (nowtime / 60) % 60;
 
 	if (AMIGAHW_PRESENT(A3000_CLK)) {
-		volatile struct tod3000 *tod = TOD_3000;
+		tod_3000.cntrl1 = TOD3000_CNTRL1_HOLD;
 
-		tod->cntrl1 = TOD3000_CNTRL1_HOLD;
-
-		tod->second1 = real_seconds / 10;
-		tod->second2 = real_seconds % 10;
-		tod->minute1 = real_minutes / 10;
-		tod->minute2 = real_minutes % 10;
+		tod_3000.second1 = real_seconds / 10;
+		tod_3000.second2 = real_seconds % 10;
+		tod_3000.minute1 = real_minutes / 10;
+		tod_3000.minute2 = real_minutes % 10;
 		
-		tod->cntrl1 = TOD3000_CNTRL1_FREE;
+		tod_3000.cntrl1 = TOD3000_CNTRL1_FREE;
 	} else /* if (AMIGAHW_PRESENT(A2000_CLK)) */ {
-		volatile struct tod2000 *tod = TOD_2000;
+		int cnt = 5;
 
-		tod->cntrl1 = TOD2000_CNTRL1_HOLD;
-	    
-		while (tod->cntrl1 & TOD2000_CNTRL1_BUSY)
-			;
+		tod_2000.cntrl1 |= TOD2000_CNTRL1_HOLD;
+		
+		while ((tod_2000.cntrl1 & TOD2000_CNTRL1_BUSY) && cnt--)
+		{
+			tod_2000.cntrl1 &= ~TOD2000_CNTRL1_HOLD;
+			udelay(70);
+			tod_2000.cntrl1 |= TOD2000_CNTRL1_HOLD;
+		}
 
-		tod->second1 = real_seconds / 10;
-		tod->second2 = real_seconds % 10;
-		tod->minute1 = real_minutes / 10;
-		tod->minute2 = real_minutes % 10;
+		if (!cnt)
+			printk(KERN_INFO "set_clock_mmss: timed out waiting for RTC (0x%x)\n", tod_2000.cntrl1);
 
-		tod->cntrl1 &= ~TOD2000_CNTRL1_HOLD;
+		tod_2000.second1 = real_seconds / 10;
+		tod_2000.second2 = real_seconds % 10;
+		tod_2000.minute1 = real_minutes / 10;
+		tod_2000.minute2 = real_minutes % 10;
+
+		tod_2000.cntrl1 &= ~TOD2000_CNTRL1_HOLD;
 	}
 
 	return 0;
+}
+
+static unsigned int amiga_get_ss( void )
+{
+	unsigned int s;
+
+	if (AMIGAHW_PRESENT(A3000_CLK)) {
+		tod_3000.cntrl1 = TOD3000_CNTRL1_HOLD;
+		s = tod_3000.second1 * 10 + tod_3000.second2;
+		tod_3000.cntrl1 = TOD3000_CNTRL1_FREE;
+	} else /* if (AMIGAHW_PRESENT(A2000_CLK)) */ { 
+		s = tod_2000.second1 * 10 + tod_2000.second2;
+	}
+	return s;
 }
 
 static NORET_TYPE void amiga_reset( void )
@@ -845,7 +877,7 @@ static void amiga_savekmsg_init(void)
     savekmsg = amiga_chip_alloc_res(SAVEKMSG_MAXMEM, &debug_res);
     savekmsg->magic1 = SAVEKMSG_MAGIC1;
     savekmsg->magic2 = SAVEKMSG_MAGIC2;
-    savekmsg->magicptr = virt_to_phys(savekmsg);
+    savekmsg->magicptr = ZTWO_PADDR(savekmsg);
     savekmsg->size = 0;
 }
 

@@ -1,44 +1,118 @@
 /******************************************************************************
  *
  * Module Name: tbinstal - ACPI table installation and removal
- *              $Revision: 1.1.1.2 $
  *
  *****************************************************************************/
 
 /*
- *  Copyright (C) 2000, 2001 R. Byron Moore
+ * Copyright (C) 2000 - 2004, R. Byron Moore
+ * All rights reserved.
  *
- *  This program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2 of the License, or
- *  (at your option) any later version.
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions, and the following disclaimer,
+ *    without modification.
+ * 2. Redistributions in binary form must reproduce at minimum a disclaimer
+ *    substantially similar to the "NO WARRANTY" disclaimer below
+ *    ("Disclaimer") and any redistribution must be conditioned upon
+ *    including a substantially similar Disclaimer requirement for further
+ *    binary redistribution.
+ * 3. Neither the names of the above-listed copyright holders nor the names
+ *    of any contributors may be used to endorse or promote products derived
+ *    from this software without specific prior written permission.
  *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
+ * Alternatively, this software may be distributed under the terms of the
+ * GNU General Public License ("GPL") version 2 as published by the Free
+ * Software Foundation.
  *
- *  You should have received a copy of the GNU General Public License
- *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * NO WARRANTY
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR
+ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+ * HOLDERS OR CONTRIBUTORS BE LIABLE FOR SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+ * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+ * STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING
+ * IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGES.
  */
 
 
-#include "acpi.h"
-#include "achware.h"
-#include "actables.h"
+#include <acpi/acpi.h>
+#include <acpi/actables.h>
 
 
 #define _COMPONENT          ACPI_TABLES
-	 MODULE_NAME         ("tbinstal")
+	 ACPI_MODULE_NAME    ("tbinstal")
 
 
 /*******************************************************************************
  *
- * FUNCTION:    Acpi_tb_install_table
+ * FUNCTION:    acpi_tb_match_signature
  *
- * PARAMETERS:  Table_ptr           - Input buffer pointer, optional
- *              Table_info          - Return value from Acpi_tb_get_table
+ * PARAMETERS:  Signature           - Table signature to match
+ *              table_info          - Return data
+ *
+ * RETURN:      Status
+ *
+ * DESCRIPTION: Compare signature against the list of "ACPI-subsystem-owned"
+ *              tables (DSDT/FADT/SSDT, etc.) Returns the table_type_iD on match.
+ *
+ ******************************************************************************/
+
+acpi_status
+acpi_tb_match_signature (
+	char                            *signature,
+	struct acpi_table_desc          *table_info,
+	u8                              search_type)
+{
+	acpi_native_uint                i;
+
+
+	ACPI_FUNCTION_TRACE ("tb_match_signature");
+
+
+	/*
+	 * Search for a signature match among the known table types
+	 */
+	for (i = 0; i < NUM_ACPI_TABLE_TYPES; i++) {
+		if (!(acpi_gbl_table_data[i].flags & search_type)) {
+			continue;
+		}
+
+		if (!ACPI_STRNCMP (signature, acpi_gbl_table_data[i].signature,
+				   acpi_gbl_table_data[i].sig_length)) {
+			/* Found a signature match, return index if requested */
+
+			if (table_info) {
+				table_info->type = (u8) i;
+			}
+
+			ACPI_DEBUG_PRINT ((ACPI_DB_INFO,
+				"Table [%4.4s] is an ACPI table consumed by the core subsystem\n",
+				(char *) acpi_gbl_table_data[i].signature));
+
+			return_ACPI_STATUS (AE_OK);
+		}
+	}
+
+	ACPI_DEBUG_PRINT ((ACPI_DB_INFO,
+		"Table [%4.4s] is not an ACPI table consumed by the core subsystem - ignored\n",
+		(char *) signature));
+
+	return_ACPI_STATUS (AE_TABLE_NOT_SUPPORTED);
+}
+
+
+/*******************************************************************************
+ *
+ * FUNCTION:    acpi_tb_install_table
+ *
+ * PARAMETERS:  table_info          - Return value from acpi_tb_get_table_body
  *
  * RETURN:      Status
  *
@@ -50,45 +124,43 @@
 
 acpi_status
 acpi_tb_install_table (
-	acpi_table_header       *table_ptr,
-	acpi_table_desc         *table_info)
+	struct acpi_table_desc          *table_info)
 {
-	acpi_status             status;
+	acpi_status                     status;
 
-	FUNCTION_TRACE ("Tb_install_table");
+	ACPI_FUNCTION_TRACE ("tb_install_table");
 
-
-	/*
-	 * Check the table signature and make sure it is recognized
-	 * Also checks the header checksum
-	 */
-	status = acpi_tb_recognize_table (table_ptr, table_info);
-	if (ACPI_FAILURE (status)) {
-		return_ACPI_STATUS (status);
-	}
 
 	/* Lock tables while installing */
 
-	acpi_ut_acquire_mutex (ACPI_MTX_TABLES);
+	status = acpi_ut_acquire_mutex (ACPI_MTX_TABLES);
+	if (ACPI_FAILURE (status)) {
+		ACPI_REPORT_ERROR (("Could not acquire table mutex for [%4.4s], %s\n",
+			table_info->pointer->signature, acpi_format_exception (status)));
+		return_ACPI_STATUS (status);
+	}
 
 	/* Install the table into the global data structure */
 
 	status = acpi_tb_init_table_descriptor (table_info->type, table_info);
+	if (ACPI_FAILURE (status)) {
+		ACPI_REPORT_ERROR (("Could not install ACPI table [%4.4s], %s\n",
+			table_info->pointer->signature, acpi_format_exception (status)));
+	}
 
 	ACPI_DEBUG_PRINT ((ACPI_DB_INFO, "%s located at %p\n",
-		acpi_gbl_acpi_table_data[table_info->type].name, table_info->pointer));
+		acpi_gbl_table_data[table_info->type].name, table_info->pointer));
 
-	acpi_ut_release_mutex (ACPI_MTX_TABLES);
+	(void) acpi_ut_release_mutex (ACPI_MTX_TABLES);
 	return_ACPI_STATUS (status);
 }
 
 
 /*******************************************************************************
  *
- * FUNCTION:    Acpi_tb_recognize_table
+ * FUNCTION:    acpi_tb_recognize_table
  *
- * PARAMETERS:  Table_ptr           - Input buffer pointer, optional
- *              Table_info          - Return value from Acpi_tb_get_table
+ * PARAMETERS:  table_info          - Return value from acpi_tb_get_table_body
  *
  * RETURN:      Status
  *
@@ -106,73 +178,44 @@ acpi_tb_install_table (
 
 acpi_status
 acpi_tb_recognize_table (
-	acpi_table_header       *table_ptr,
-	acpi_table_desc         *table_info)
+	struct acpi_table_desc          *table_info,
+	u8                              search_type)
 {
-	acpi_table_header       *table_header;
-	acpi_status             status;
-	acpi_table_type         table_type = 0;
-	u32                     i;
+	struct acpi_table_header        *table_header;
+	acpi_status                     status;
 
 
-	FUNCTION_TRACE ("Tb_recognize_table");
+	ACPI_FUNCTION_TRACE ("tb_recognize_table");
 
 
 	/* Ensure that we have a valid table pointer */
 
-	table_header = (acpi_table_header *) table_info->pointer;
+	table_header = (struct acpi_table_header *) table_info->pointer;
 	if (!table_header) {
 		return_ACPI_STATUS (AE_BAD_PARAMETER);
 	}
 
 	/*
-	 * Search for a signature match among the known table types
-	 * Start at index one -> Skip the RSDP
+	 * We only "recognize" a limited number of ACPI tables -- namely, the
+	 * ones that are used by the subsystem (DSDT, FADT, etc.)
+	 *
+	 * An AE_TABLE_NOT_SUPPORTED means that the table was not recognized.
+	 * This can be any one of many valid ACPI tables, it just isn't one of
+	 * the tables that is consumed by the core subsystem
 	 */
-	status = AE_SUPPORT;
-	for (i = 1; i < NUM_ACPI_TABLES; i++) {
-		if (!STRNCMP (table_header->signature,
-				  acpi_gbl_acpi_table_data[i].signature,
-				  acpi_gbl_acpi_table_data[i].sig_length)) {
-			/*
-			 * Found a signature match, get the pertinent info from the
-			 * Table_data structure
-			 */
-			table_type      = i;
-			status          = acpi_gbl_acpi_table_data[i].status;
+	status = acpi_tb_match_signature (table_header->signature, table_info, search_type);
+	if (ACPI_FAILURE (status)) {
+		return_ACPI_STATUS (status);
+	}
 
-			ACPI_DEBUG_PRINT ((ACPI_DB_INFO, "Found %4.4s\n",
-				(char*)acpi_gbl_acpi_table_data[i].signature));
-			break;
-		}
+	status = acpi_tb_validate_table_header (table_header);
+	if (ACPI_FAILURE (status)) {
+		return_ACPI_STATUS (status);
 	}
 
 	/* Return the table type and length via the info struct */
 
-	table_info->type    = (u8) table_type;
-	table_info->length  = table_header->length;
-
-
-	/*
-	 * Validate checksum for _most_ tables,
-	 * even the ones whose signature we don't recognize
-	 */
-	if (table_type != ACPI_TABLE_FACS) {
-		/* But don't abort if the checksum is wrong */
-		/* TBD: [Future] make this a configuration option? */
-
-		acpi_tb_verify_table_checksum (table_header);
-	}
-
-	/*
-	 * An AE_SUPPORT means that the table was not recognized.
-	 * We basically ignore this;  just print a debug message
-	 */
-	if (status == AE_SUPPORT) {
-		ACPI_DEBUG_PRINT ((ACPI_DB_INFO,
-			"Unsupported table %s (Type %X) was found and discarded\n",
-			acpi_gbl_acpi_table_data[table_type].name, table_type));
-	}
+	table_info->length = (acpi_size) table_header->length;
 
 	return_ACPI_STATUS (status);
 }
@@ -180,10 +223,10 @@ acpi_tb_recognize_table (
 
 /*******************************************************************************
  *
- * FUNCTION:    Acpi_tb_init_table_descriptor
+ * FUNCTION:    acpi_tb_init_table_descriptor
  *
- * PARAMETERS:  Table_type          - The type of the table
- *              Table_info          - A table info struct
+ * PARAMETERS:  table_type          - The type of the table
+ *              table_info          - A table info struct
  *
  * RETURN:      None.
  *
@@ -193,93 +236,95 @@ acpi_tb_recognize_table (
 
 acpi_status
 acpi_tb_init_table_descriptor (
-	acpi_table_type         table_type,
-	acpi_table_desc         *table_info)
+	acpi_table_type                 table_type,
+	struct acpi_table_desc          *table_info)
 {
-	acpi_table_desc         *list_head;
-	acpi_table_desc         *table_desc;
+	struct acpi_table_list          *list_head;
+	struct acpi_table_desc          *table_desc;
 
 
-	FUNCTION_TRACE_U32 ("Tb_init_table_descriptor", table_type);
+	ACPI_FUNCTION_TRACE_U32 ("tb_init_table_descriptor", table_type);
+
+
+	/* Allocate a descriptor for this table */
+
+	table_desc = ACPI_MEM_CALLOCATE (sizeof (struct acpi_table_desc));
+	if (!table_desc) {
+		return_ACPI_STATUS (AE_NO_MEMORY);
+	}
 
 	/*
 	 * Install the table into the global data structure
 	 */
-	list_head   = &acpi_gbl_acpi_tables[table_type];
-	table_desc  = list_head;
-
+	list_head = &acpi_gbl_table_lists[table_type];
 
 	/*
 	 * Two major types of tables:  1) Only one instance is allowed.  This
 	 * includes most ACPI tables such as the DSDT.  2) Multiple instances of
 	 * the table are allowed.  This includes SSDT and PSDTs.
 	 */
-	if (IS_SINGLE_TABLE (acpi_gbl_acpi_table_data[table_type].flags)) {
+	if (ACPI_IS_SINGLE_TABLE (acpi_gbl_table_data[table_type].flags)) {
 		/*
 		 * Only one table allowed, and a table has alread been installed
 		 *  at this location, so return an error.
 		 */
-		if (list_head->pointer) {
-			return_ACPI_STATUS (AE_EXIST);
+		if (list_head->next) {
+			return_ACPI_STATUS (AE_ALREADY_EXISTS);
 		}
 
-		table_desc->count = 1;
+		table_desc->next = list_head->next;
+		list_head->next = table_desc;
+
+		if (table_desc->next) {
+			table_desc->next->prev = table_desc;
+		}
+
+		list_head->count++;
 	}
-
-
 	else {
 		/*
-		 * Multiple tables allowed for this table type, we must link
-		 * the new table in to the list of tables of this type.
+		 * Link the new table in to the list of tables of this type.
+		 * Insert at the end of the list, order IS IMPORTANT.
+		 *
+		 * table_desc->Prev & Next are already NULL from calloc()
 		 */
-		if (list_head->pointer) {
-			table_desc = ACPI_MEM_CALLOCATE (sizeof (acpi_table_desc));
-			if (!table_desc) {
-				return_ACPI_STATUS (AE_NO_MEMORY);
+		list_head->count++;
+
+		if (!list_head->next) {
+			list_head->next = table_desc;
+		}
+		else {
+			table_desc->next = list_head->next;
+
+			while (table_desc->next->next) {
+				table_desc->next = table_desc->next->next;
 			}
 
-			list_head->count++;
-
-			/* Update the original previous */
-
-			list_head->prev->next = table_desc;
-
-			/* Update new entry */
-
-			table_desc->prev = list_head->prev;
-			table_desc->next = list_head;
-
-			/* Update list head */
-
-			list_head->prev = table_desc;
-		}
-
-		else {
-			table_desc->count = 1;
+			table_desc->next->next = table_desc;
+			table_desc->prev = table_desc->next;
+			table_desc->next = NULL;
 		}
 	}
 
+	/* Finish initialization of the table descriptor */
 
-	/* Common initialization of the table descriptor */
-
+	table_desc->type                = (u8) table_type;
 	table_desc->pointer             = table_info->pointer;
-	table_desc->base_pointer        = table_info->base_pointer;
 	table_desc->length              = table_info->length;
 	table_desc->allocation          = table_info->allocation;
 	table_desc->aml_start           = (u8 *) (table_desc->pointer + 1),
 	table_desc->aml_length          = (u32) (table_desc->length -
-			 (u32) sizeof (acpi_table_header));
-	table_desc->table_id            = acpi_ut_allocate_owner_id (OWNER_TYPE_TABLE);
+			 (u32) sizeof (struct acpi_table_header));
+	table_desc->table_id            = acpi_ut_allocate_owner_id (ACPI_OWNER_TYPE_TABLE);
 	table_desc->loaded_into_namespace = FALSE;
 
 	/*
 	 * Set the appropriate global pointer (if there is one) to point to the
 	 * newly installed table
 	 */
-	if (acpi_gbl_acpi_table_data[table_type].global_ptr) {
-		*(acpi_gbl_acpi_table_data[table_type].global_ptr) = table_info->pointer;
+	if (acpi_gbl_table_data[table_type].global_ptr) {
+		*(acpi_gbl_table_data[table_type].global_ptr) = table_info->pointer;
 	}
-
 
 	/* Return Data */
 
@@ -292,7 +337,7 @@ acpi_tb_init_table_descriptor (
 
 /*******************************************************************************
  *
- * FUNCTION:    Acpi_tb_delete_acpi_tables
+ * FUNCTION:    acpi_tb_delete_all_tables
  *
  * PARAMETERS:  None.
  *
@@ -303,25 +348,24 @@ acpi_tb_init_table_descriptor (
  ******************************************************************************/
 
 void
-acpi_tb_delete_acpi_tables (void)
+acpi_tb_delete_all_tables (void)
 {
-	acpi_table_type             type;
+	acpi_table_type                 type;
 
 
 	/*
 	 * Free memory allocated for ACPI tables
 	 * Memory can either be mapped or allocated
 	 */
-	for (type = 0; type < NUM_ACPI_TABLES; type++) {
-		acpi_tb_delete_acpi_table (type);
+	for (type = 0; type < NUM_ACPI_TABLE_TYPES; type++) {
+		acpi_tb_delete_tables_by_type (type);
 	}
-
 }
 
 
 /*******************************************************************************
  *
- * FUNCTION:    Acpi_tb_delete_acpi_table
+ * FUNCTION:    acpi_tb_delete_tables_by_type
  *
  * PARAMETERS:  Type                - The table type to be deleted
  *
@@ -333,23 +377,24 @@ acpi_tb_delete_acpi_tables (void)
  ******************************************************************************/
 
 void
-acpi_tb_delete_acpi_table (
-	acpi_table_type             type)
+acpi_tb_delete_tables_by_type (
+	acpi_table_type                 type)
 {
-	FUNCTION_TRACE_U32 ("Tb_delete_acpi_table", type);
+	struct acpi_table_desc          *table_desc;
+	u32                             count;
+	u32                             i;
+
+
+	ACPI_FUNCTION_TRACE_U32 ("tb_delete_tables_by_type", type);
 
 
 	if (type > ACPI_TABLE_MAX) {
 		return_VOID;
 	}
 
-
-	acpi_ut_acquire_mutex (ACPI_MTX_TABLES);
-
-	/* Free the table */
-
-	acpi_tb_free_acpi_tables_of_type (&acpi_gbl_acpi_tables[type]);
-
+	if (ACPI_FAILURE (acpi_ut_acquire_mutex (ACPI_MTX_TABLES))) {
+		return;
+	}
 
 	/* Clear the appropriate "typed" global table pointer */
 
@@ -380,59 +425,31 @@ acpi_tb_delete_acpi_table (
 		break;
 	}
 
-	acpi_ut_release_mutex (ACPI_MTX_TABLES);
-
-	return_VOID;
-}
-
-
-/*******************************************************************************
- *
- * FUNCTION:    Acpi_tb_free_acpi_tables_of_type
- *
- * PARAMETERS:  Table_info          - A table info struct
- *
- * RETURN:      None.
- *
- * DESCRIPTION: Free the memory associated with an internal ACPI table
- *              Table mutex should be locked.
- *
- ******************************************************************************/
-
-void
-acpi_tb_free_acpi_tables_of_type (
-	acpi_table_desc         *list_head)
-{
-	acpi_table_desc         *table_desc;
-	u32                     count;
-	u32                     i;
-
-
-	FUNCTION_TRACE_PTR ("Tb_free_acpi_tables_of_type", list_head);
-
-
-	/* Get the head of the list */
-
-	table_desc  = list_head;
-	count       = list_head->count;
+	/*
+	 * Free the table
+	 * 1) Get the head of the list
+	 */
+	table_desc = acpi_gbl_table_lists[type].next;
+	count     = acpi_gbl_table_lists[type].count;
 
 	/*
-	 * Walk the entire list, deleting both the allocated tables
-	 * and the table descriptors
+	 * 2) Walk the entire list, deleting both the allocated tables
+	 *    and the table descriptors
 	 */
 	for (i = 0; i < count; i++) {
 		table_desc = acpi_tb_uninstall_table (table_desc);
 	}
 
+	(void) acpi_ut_release_mutex (ACPI_MTX_TABLES);
 	return_VOID;
 }
 
 
 /*******************************************************************************
  *
- * FUNCTION:    Acpi_tb_delete_single_table
+ * FUNCTION:    acpi_tb_delete_single_table
  *
- * PARAMETERS:  Table_info          - A table info struct
+ * PARAMETERS:  table_info          - A table info struct
  *
  * RETURN:      None.
  *
@@ -443,44 +460,45 @@ acpi_tb_free_acpi_tables_of_type (
 
 void
 acpi_tb_delete_single_table (
-	acpi_table_desc         *table_desc)
+	struct acpi_table_desc          *table_desc)
 {
 
-	if (!table_desc) {
+	/* Must have a valid table descriptor and pointer */
+
+	if ((!table_desc) ||
+		 (!table_desc->pointer)) {
 		return;
 	}
 
-	if (table_desc->pointer) {
-		/* Valid table, determine type of memory allocation */
+	/* Valid table, determine type of memory allocation */
 
-		switch (table_desc->allocation) {
+	switch (table_desc->allocation) {
+	case ACPI_MEM_NOT_ALLOCATED:
+		break;
 
-		case ACPI_MEM_NOT_ALLOCATED:
-			break;
+	case ACPI_MEM_ALLOCATED:
 
+		ACPI_MEM_FREE (table_desc->pointer);
+		break;
 
-		case ACPI_MEM_ALLOCATED:
+	case ACPI_MEM_MAPPED:
 
-			ACPI_MEM_FREE (table_desc->base_pointer);
-			break;
+		acpi_os_unmap_memory (table_desc->pointer, table_desc->length);
+		break;
 
-
-		case ACPI_MEM_MAPPED:
-
-			acpi_os_unmap_memory (table_desc->base_pointer, table_desc->length);
-			break;
-		}
+	default:
+		break;
 	}
 }
 
 
 /*******************************************************************************
  *
- * FUNCTION:    Acpi_tb_uninstall_table
+ * FUNCTION:    acpi_tb_uninstall_table
  *
- * PARAMETERS:  Table_info          - A table info struct
+ * PARAMETERS:  table_info          - A table info struct
  *
- * RETURN:      None.
+ * RETURN:      Pointer to the next table in the list (of same type)
  *
  * DESCRIPTION: Free the memory associated with an internal ACPI table that
  *              is either installed or has never been installed.
@@ -488,58 +506,45 @@ acpi_tb_delete_single_table (
  *
  ******************************************************************************/
 
-acpi_table_desc *
+struct acpi_table_desc *
 acpi_tb_uninstall_table (
-	acpi_table_desc         *table_desc)
+	struct acpi_table_desc          *table_desc)
 {
-	acpi_table_desc         *next_desc;
+	struct acpi_table_desc          *next_desc;
 
 
-	FUNCTION_TRACE_PTR ("Tb_delete_single_table", table_desc);
+	ACPI_FUNCTION_TRACE_PTR ("tb_uninstall_table", table_desc);
 
 
 	if (!table_desc) {
 		return_PTR (NULL);
 	}
 
-
-	/* Unlink the descriptor */
+	/* Unlink the descriptor from the doubly linked list */
 
 	if (table_desc->prev) {
 		table_desc->prev->next = table_desc->next;
+	}
+	else {
+		/* Is first on list, update list head */
+
+		acpi_gbl_table_lists[table_desc->type].next = table_desc->next;
 	}
 
 	if (table_desc->next) {
 		table_desc->next->prev = table_desc->prev;
 	}
 
-
 	/* Free the memory allocated for the table itself */
 
 	acpi_tb_delete_single_table (table_desc);
 
+	/* Free the table descriptor */
 
-	/* Free the table descriptor (Don't delete the list head, tho) */
+	next_desc = table_desc->next;
+	ACPI_MEM_FREE (table_desc);
 
-	if ((table_desc->prev) == (table_desc->next)) {
-
-		next_desc = NULL;
-
-		/* Clear the list head */
-
-		table_desc->pointer  = NULL;
-		table_desc->length   = 0;
-		table_desc->count    = 0;
-
-	}
-
-	else {
-		/* Free the table descriptor */
-
-		next_desc = table_desc->next;
-		ACPI_MEM_FREE (table_desc);
-	}
-
+	/* Return pointer to the next descriptor */
 
 	return_PTR (next_desc);
 }

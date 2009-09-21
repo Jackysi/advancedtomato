@@ -479,9 +479,9 @@ static int set_recmask(sb_devc * devc, int mask)
 						regimageL |= sb16_recmasks_L[i];
 						regimageR |= sb16_recmasks_R[i];
 					}
-					sb_setmixer (devc, SB16_IMASK_L, regimageL);
-					sb_setmixer (devc, SB16_IMASK_R, regimageR);
 				}
+				sb_setmixer (devc, SB16_IMASK_L, regimageL);
+				sb_setmixer (devc, SB16_IMASK_R, regimageR);
 			}
 			break;
 	}

@@ -1,14 +1,16 @@
-	;; $Id: e100lpslave.S,v 1.1.1.4 2003/10/14 08:07:17 sparq Exp $
-	;;
-	;; Etrax100 slave network<->parport forwarder
-	;;
-	;; Copyright (c) 1999 Bjorn Wesen, Axis Communications AB
-	;;
-	;; We got 784 bytes (par loader size) to do DMA forwarding
-	;; between DMA0/1 (ethernet) and DMA3/4 (par port 0 RX/1 TX)
-	;;
+;;
+;; Etrax100 slave network<->parport forwarder
+;;
+;; Copyright (c) 1999, 2000, 2001, 2002, 2003 Axis Communications AB
+;;
+;; We got 784 bytes (par loader size) to do DMA forwarding
+;; between DMA0/1 (ethernet) and DMA3/4 (par port 0 RX/1 TX)
+;;
 
 #include <linux/config.h>
+#if 0
+#define ASSEMBLER_MACROS_ONLY
+#endif
 #include <asm/sv_addr_ag.h>
 
 #define BUFSIZE 0x600
@@ -248,6 +250,15 @@ noswap1:
 	;; restart DMAs
 
 	jsr	startdmaFNTP
+#if 0
+#ifdef CONFIG_ETRAX_ETHERNET_LPSLAVE_HAS_LEDS
+	;; Light the LED signaling an incoming networkpacket
+	movu.b	0xFB, r0
+	move.b	r0, [R_PORT_PA_DATA]
+	move.d	0x00010000, r0
+	move.d	r0,[LEDCount]
+#endif
+#endif
 
 noswap2:
 #ifdef CONFIG_ETRAX_ETHERNET_LPSLAVE_HAS_LEDS

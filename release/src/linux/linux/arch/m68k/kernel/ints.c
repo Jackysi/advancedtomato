@@ -142,6 +142,20 @@ int sys_request_irq(unsigned int irq,
 		return -ENXIO;
 	}
 
+#if 0
+	if (!(irq_list[irq].flags & IRQ_FLG_STD)) {
+		if (irq_list[irq].flags & IRQ_FLG_LOCK) {
+			printk("%s: IRQ %d from %s is not replaceable\n",
+			       __FUNCTION__, irq, irq_list[irq].devname);
+			return -EBUSY;
+		}
+		if (!(flags & IRQ_FLG_REPLACE)) {
+			printk("%s: %s can't replace IRQ %d from %s\n",
+			       __FUNCTION__, devname, irq, irq_list[irq].devname);
+			return -EBUSY;
+		}
+	}
+#endif
 
 	irq_list[irq].handler = handler;
 	irq_list[irq].flags   = flags;

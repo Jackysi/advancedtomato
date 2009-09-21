@@ -199,7 +199,7 @@ static void hvc_poll(int index)
 			if (n <= 0)
 				break;
 			for (i = 0; i < n; ++i) {
-#ifdef CONFIG_MAGIC_SYSRQ		    /* Handle the SysRq Hack */
+#ifdef CONFIG_MAGIC_SYSRQ		/* Handle the SysRq Hack */
 				if (buf[i] == '\x0f') {	/* ^O -- should support a sequence */
 					sysrq_pressed = 1;
 					continue;
@@ -217,10 +217,7 @@ static void hvc_poll(int index)
 
 		if (hp->do_wakeup) {
 			hp->do_wakeup = 0;
-			if ((tty->flags & (1 << TTY_DO_WRITE_WAKEUP))
-			    && tty->ldisc.write_wakeup)
-				(tty->ldisc.write_wakeup)(tty);
-			wake_up_interruptible(&tty->write_wait);
+			tty_wakeup(tty);
 		}
 	}
 
@@ -252,7 +249,11 @@ int __init hvc_init(void)
 
 	hvc_driver.magic = TTY_DRIVER_MAGIC;
 	hvc_driver.driver_name = "hvc";
+#ifdef CONFIG_DEVFS_FS
 	hvc_driver.name = "hvc/%d";
+#else
+	hvc_driver.name = "hvc";
+#endif
 	hvc_driver.major = HVC_MAJOR;
 	hvc_driver.minor_start = HVC_MINOR;
 	hvc_driver.num = hvc_count(&hvc_offset);

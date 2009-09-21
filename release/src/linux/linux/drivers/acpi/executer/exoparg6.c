@@ -2,37 +2,55 @@
 /******************************************************************************
  *
  * Module Name: exoparg6 - AML execution - opcodes with 6 arguments
- *              $Revision: 1.1.1.2 $
  *
  *****************************************************************************/
 
 /*
- *  Copyright (C) 2000, 2001 R. Byron Moore
+ * Copyright (C) 2000 - 2004, R. Byron Moore
+ * All rights reserved.
  *
- *  This program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2 of the License, or
- *  (at your option) any later version.
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions, and the following disclaimer,
+ *    without modification.
+ * 2. Redistributions in binary form must reproduce at minimum a disclaimer
+ *    substantially similar to the "NO WARRANTY" disclaimer below
+ *    ("Disclaimer") and any redistribution must be conditioned upon
+ *    including a substantially similar Disclaimer requirement for further
+ *    binary redistribution.
+ * 3. Neither the names of the above-listed copyright holders nor the names
+ *    of any contributors may be used to endorse or promote products derived
+ *    from this software without specific prior written permission.
  *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
+ * Alternatively, this software may be distributed under the terms of the
+ * GNU General Public License ("GPL") version 2 as published by the Free
+ * Software Foundation.
  *
- *  You should have received a copy of the GNU General Public License
- *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * NO WARRANTY
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR
+ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+ * HOLDERS OR CONTRIBUTORS BE LIABLE FOR SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+ * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+ * STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING
+ * IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGES.
  */
 
 
-#include "acpi.h"
-#include "acinterp.h"
-#include "acparser.h"
-#include "amlcode.h"
+#include <acpi/acpi.h>
+#include <acpi/acinterp.h>
+#include <acpi/acparser.h>
+#include <acpi/amlcode.h>
 
 
 #define _COMPONENT          ACPI_EXECUTER
-	 MODULE_NAME         ("exoparg6")
+	 ACPI_MODULE_NAME    ("exoparg6")
 
 
 /*!
@@ -60,11 +78,11 @@
 
 /*******************************************************************************
  *
- * FUNCTION:    Acpi_ex_do_match
+ * FUNCTION:    acpi_ex_do_match
  *
- * PARAMETERS:  Match_op        - The AML match operand
- *              Package_value   - Value from the target package
- *              Match_value     - Value to be matched
+ * PARAMETERS:  match_op        - The AML match operand
+ *              package_value   - Value from the target package
+ *              match_value     - Value to be matched
  *
  * RETURN:      TRUE if the match is successful, FALSE otherwise
  *
@@ -74,9 +92,9 @@
 
 u8
 acpi_ex_do_match (
-	u32                     match_op,
-	acpi_integer            package_value,
-	acpi_integer            match_value)
+	u32                             match_op,
+	acpi_integer                    package_value,
+	acpi_integer                    match_value)
 {
 
 	switch (match_op) {
@@ -137,9 +155,9 @@ acpi_ex_do_match (
 
 /*******************************************************************************
  *
- * FUNCTION:    Acpi_ex_opcode_6A_0T_1R
+ * FUNCTION:    acpi_ex_opcode_6A_0T_1R
  *
- * PARAMETERS:  Walk_state          - Current walk state
+ * PARAMETERS:  walk_state          - Current walk state
  *
  * RETURN:      Status
  *
@@ -149,23 +167,23 @@ acpi_ex_do_match (
 
 acpi_status
 acpi_ex_opcode_6A_0T_1R (
-	acpi_walk_state         *walk_state)
+	struct acpi_walk_state          *walk_state)
 {
-	acpi_operand_object     **operand = &walk_state->operands[0];
-	acpi_operand_object     *return_desc = NULL;
-	acpi_status             status = AE_OK;
-	u32                     index;
-	acpi_operand_object     *this_element;
+	union acpi_operand_object       **operand = &walk_state->operands[0];
+	union acpi_operand_object       *return_desc = NULL;
+	acpi_status                     status = AE_OK;
+	u32                             index;
+	union acpi_operand_object       *this_element;
 
 
-	FUNCTION_TRACE_STR ("Ex_opcode_6A_0T_1R", acpi_ps_get_opcode_name (walk_state->opcode));
+	ACPI_FUNCTION_TRACE_STR ("ex_opcode_6A_0T_1R", acpi_ps_get_opcode_name (walk_state->opcode));
 
 
 	switch (walk_state->opcode) {
 	case AML_MATCH_OP:
 		/*
-		 * Match (Search_package[0], Match_op1[1], Match_object1[2],
-		 *                          Match_op2[3], Match_object2[4], Start_index[5])
+		 * Match (search_package[0], match_op1[1], match_object1[2],
+		 *                          match_op2[3], match_object2[4], start_index[5])
 		 */
 
 		/* Validate match comparison sub-opcodes */
@@ -199,8 +217,9 @@ acpi_ex_opcode_6A_0T_1R (
 		 * Examine each element until a match is found.  Within the loop,
 		 * "continue" signifies that the current element does not match
 		 * and the next should be examined.
+		 *
 		 * Upon finding a match, the loop will terminate via "break" at
-		 * the bottom.  If it terminates "normally", Match_value will be -1
+		 * the bottom.  If it terminates "normally", match_value will be -1
 		 * (its initial value) indicating that no match was found.  When
 		 * returned as a Number, this will produce the Ones value as specified.
 		 */
@@ -209,26 +228,20 @@ acpi_ex_opcode_6A_0T_1R (
 
 			/*
 			 * Treat any NULL or non-numeric elements as non-matching.
-			 * TBD [Unhandled] - if an element is a Name,
-			 *      should we examine its value?
 			 */
 			if (!this_element ||
-				this_element->common.type != ACPI_TYPE_INTEGER) {
+				ACPI_GET_OBJECT_TYPE (this_element) != ACPI_TYPE_INTEGER) {
 				continue;
 			}
 
-
 			/*
-			 * Within these switch statements:
-			 *      "break" (exit from the switch) signifies a match;
-			 *      "continue" (proceed to next iteration of enclosing
-			 *          "for" loop) signifies a non-match.
+			 * "continue" (proceed to next iteration of enclosing
+			 * "for" loop) signifies a non-match.
 			 */
 			if (!acpi_ex_do_match ((u32) operand[1]->integer.value,
 					   this_element->integer.value, operand[2]->integer.value)) {
 				continue;
 			}
-
 
 			if (!acpi_ex_do_match ((u32) operand[3]->integer.value,
 					   this_element->integer.value, operand[4]->integer.value)) {
@@ -246,18 +259,16 @@ acpi_ex_opcode_6A_0T_1R (
 
 	case AML_LOAD_TABLE_OP:
 
-		status = AE_NOT_IMPLEMENTED;
-		goto cleanup;
+		status = acpi_ex_load_table_op (walk_state, &return_desc);
 		break;
 
 
 	default:
 
-		REPORT_ERROR (("Acpi_ex_opcode_3A_0T_0R: Unknown opcode %X\n",
+		ACPI_REPORT_ERROR (("acpi_ex_opcode_3A_0T_0R: Unknown opcode %X\n",
 				walk_state->opcode));
 		status = AE_AML_BAD_OPCODE;
 		goto cleanup;
-		break;
 	}
 
 

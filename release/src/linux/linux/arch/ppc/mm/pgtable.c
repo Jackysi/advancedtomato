@@ -1,10 +1,7 @@
 /*
- * BK Id: %F% %I% %G% %U% %#%
- */
-/*
  * This file contains the routines setting up the linux page tables.
  *  -- paulus
- * 
+ *
  *  Derived from arch/ppc/mm/init.c:
  *    Copyright (C) 1995-1996 Gary Thomas (gdt@linuxppc.org)
  *
@@ -32,19 +29,19 @@
 #include <asm/pgtable.h>
 #include <asm/pgalloc.h>
 #include <asm/io.h>
+#include <asm/machdep.h>
 
 #include "mmu_decl.h"
-
-unsigned long ram_phys_base;
 
 unsigned long ioremap_base;
 unsigned long ioremap_bot;
 int io_bat_index;
 
-/* Maximum 768Mb of lowmem. On SMP, this value will be
- * trimmed down to whatever can be covered by BATs though.
+/* The maximum lowmem defaults to 768Mb, but this can be configured to
+ * another value.  On SMP, this value will be trimmed down to whatever
+ * can be covered by BATs.
  */
-#define MAX_LOW_MEM	0x30000000
+#define MAX_LOW_MEM	CONFIG_LOWMEM_SIZE
 
 #ifndef CONFIG_SMP
 struct pgtable_cache_struct quicklists;
@@ -71,17 +68,35 @@ void setbat(int index, unsigned long virt, unsigned long phys,
 #define p_mapped_by_bats(x)	(0UL)
 #endif /* HAVE_BATS */
 
-#ifndef CONFIG_PPC_ISERIES
+#ifdef CONFIG_PTE_64BIT
 void *
-ioremap(unsigned long addr, unsigned long size)
+ioremap(phys_addr_t addr, unsigned long size)
+{
+	phys_addr_t addr64 = fixup_bigphys_addr(addr, size);;
+
+	return ioremap64(addr64, size);
+}
+
+void *
+ioremap64(unsigned long long addr, unsigned long size)
 {
 	return __ioremap(addr, size, _PAGE_NO_CACHE);
 }
 
+#else /* !CONFIG_PTE_64BIT */
+
 void *
-__ioremap(unsigned long addr, unsigned long size, unsigned long flags)
+ioremap(phys_addr_t addr, unsigned long size)
 {
-	unsigned long p, v, i;
+	return __ioremap(addr, size, _PAGE_NO_CACHE);
+}
+#endif /* CONFIG_PTE_64BIT */
+
+void *
+__ioremap(phys_addr_t addr, unsigned long size, unsigned long flags)
+{
+	unsigned long v, i;
+	phys_addr_t p;
 	int err;
 
 	/*
@@ -106,7 +121,7 @@ __ioremap(unsigned long addr, unsigned long size, unsigned long flags)
 	 */
 	if ( mem_init_done && (p < virt_to_phys(high_memory)) )
 	{
-		printk("__ioremap(): phys addr %0lx is RAM lr %p\n", p,
+		printk("__ioremap(): phys addr "PTE_FMT" is RAM lr %p\n", p,
 		       __builtin_return_address(0));
 		return NULL;
 	}
@@ -127,7 +142,7 @@ __ioremap(unsigned long addr, unsigned long size, unsigned long flags)
 	 */
 	if ((v = p_mapped_by_bats(p)) /*&& p_mapped_by_bats(p+size-1)*/ )
 		goto out;
-	
+
 	if (mem_init_done) {
 		struct vm_struct *area;
 		area = get_vm_area(size, VM_IOREMAP);
@@ -157,7 +172,7 @@ __ioremap(unsigned long addr, unsigned long size, unsigned long flags)
 	}
 
 out:
-	return (void *) (v + (addr & ~PAGE_MASK));
+	return (void *) (v + ((unsigned long)addr & ~PAGE_MASK));
 }
 
 void iounmap(void *addr)
@@ -171,10 +186,9 @@ void iounmap(void *addr)
 	if (addr > high_memory && (unsigned long) addr < ioremap_bot)
 		vfree((void *) (PAGE_MASK & (unsigned long) addr));
 }
-#endif /* CONFIG_PPC_ISERIES */
 
 int
-map_page(unsigned long va, unsigned long pa, int flags)
+map_page(unsigned long va, phys_addr_t pa, int flags)
 {
 	pmd_t *pd;
 	pte_t *pg;
@@ -199,28 +213,38 @@ void __init
 adjust_total_lowmem(void)
 {
 	unsigned long max_low_mem = MAX_LOW_MEM;
-	
+
 #ifdef HAVE_BATS
 	unsigned long bat_max = 0x10000000;
 	unsigned long align;
-	unsigned long ram = total_lowmem;
+	unsigned long ram;
 	int is601 = 0;
-	
+
 	/* 601s have smaller BATs */
 	if (PVR_VER(mfspr(PVR)) == 1) {
 		bat_max = 0x00800000;
 		is601 = 1;
 	}
 
+	/* adjust BAT block size to max_low_mem */
+	if (max_low_mem < bat_max)
+		bat_max = max_low_mem;
+
+	/* adjust lowmem size to max_low_mem */
+	if (max_low_mem < total_lowmem)
+		ram = max_low_mem;
+	else
+		ram = total_lowmem;
+
 	/* Make sure we don't map a block larger than the
 	   smallest alignment of the physical address. */
-	/* alignment of ram_phys_base */
-	align = ~(ram_phys_base-1) & ram_phys_base;
+	/* alignment of PPC_MEMSTART */
+	align = ~(PPC_MEMSTART-1) & PPC_MEMSTART;
 	/* set BAT block size to MIN(max_size, align) */
 	if (align && align < bat_max)
 		bat_max = align;
 
-	/* Calculate BAT values */	
+	/* Calculate BAT values */
 	__bat2 = 1UL << __ilog2(ram);
 	if (__bat2 > bat_max)
 		__bat2 = bat_max;
@@ -232,8 +256,9 @@ adjust_total_lowmem(void)
 		ram -= __bat3;
 	}
 
-	printk(KERN_INFO "Memory BAT mapping: BAT2=%ldMb, BAT3=%ldMb, residual: %ldMb\n",
-		__bat2 >> 20, __bat3 >> 20, ram >> 20);
+	printk(KERN_INFO "Memory BAT mapping: BAT2=%ldMb, BAT3=%ldMb,"
+			" residual: %ldMb\n", __bat2 >> 20, __bat3 >> 20,
+			(total_lowmem - (__bat2 + __bat3)) >> 20);
 
 	/* On SMP, we limit the lowmem to the area mapped with BATs.
 	 * We also assume nobody will do SMP with 601s
@@ -247,8 +272,9 @@ adjust_total_lowmem(void)
 	if (total_lowmem > max_low_mem) {
 		total_lowmem = max_low_mem;
 #ifndef CONFIG_HIGHMEM
-		printk(KERN_INFO "Warning, memory limited to %ld Mb, use CONFIG_HIGHMEM"
-			" to reach %ld Mb\n", max_low_mem >> 20, total_lowmem >> 20);
+		printk(KERN_INFO "Warning, memory limited to %ld Mb, use "
+				"CONFIG_HIGHMEM to reach %ld Mb\n",
+				max_low_mem >> 20, total_memory >> 20);
 		total_memory = total_lowmem;
 #endif /* CONFIG_HIGHMEM */
 	}
@@ -267,16 +293,16 @@ void __init mapin_ram(void)
 #endif /* HAVE_BATS */
 
 	v = KERNELBASE;
-	p = ram_phys_base;
+	p = PPC_MEMSTART;
 	for (s = 0; s < total_lowmem; s += PAGE_SIZE) {
 		/* On the MPC8xx, we want the page shared so we
 		 * don't get ASID compares on kernel space.
 		 */
-		f = _PAGE_PRESENT | _PAGE_ACCESSED | _PAGE_SHARED;
-#if defined(CONFIG_KGDB) || defined(CONFIG_XMON)
+		f = _PAGE_PRESENT | _PAGE_ACCESSED | _PAGE_SHARED | _PAGE_HWEXEC;
+#if defined(CONFIG_KGDB) || defined(CONFIG_XMON) || defined(CONFIG_BDI_SWITCH)
 		/* Allows stub to set breakpoints everywhere */
 		f |= _PAGE_WRENABLE;
-#else	/* !CONFIG_KGDB && !CONFIG_XMON */
+#else	/* !CONFIG_KGDB && !CONFIG_XMON && !CONFIG_BDI_SWITCH */
 		if ((char *) v < _stext || (char *) v >= etext)
 			f |= _PAGE_WRENABLE;
 #ifdef CONFIG_PPC_STD_MMU
@@ -290,6 +316,8 @@ void __init mapin_ram(void)
 		v += PAGE_SIZE;
 		p += PAGE_SIZE;
 	}
+	if (ppc_md.progress)
+		ppc_md.progress("MMU:mapin_ram done", 0x401);
 }
 
 /* is x a power of 2? */
@@ -300,7 +328,7 @@ void __init mapin_ram(void)
  * virt, phys, size must all be page-aligned.
  * This should only be called before ioremap is called.
  */
-void __init io_block_mapping(unsigned long virt, unsigned long phys,
+void __init io_block_mapping(unsigned long virt, phys_addr_t phys,
 			     unsigned int size, int flags)
 {
 	int i;
@@ -380,7 +408,7 @@ unsigned long iopa(unsigned long addr)
 		mm = current->mm;
 	else
 		mm = &init_mm;
-	
+
 	pa = 0;
 	if (get_pteptr(mm, addr, &pte))
 		pa = (pte_val(*pte) & PAGE_MASK) | (addr & ~PAGE_MASK);
@@ -397,7 +425,32 @@ unsigned long
 mm_ptov (unsigned long paddr)
 {
 	unsigned long ret;
+#if 0
+	if (paddr < 16*1024*1024)
+		ret = ZTWO_VADDR(paddr);
+	else {
+		int i;
+
+		for (i = 0; i < kmap_chunk_count;){
+			unsigned long phys = kmap_chunks[i++];
+			unsigned long size = kmap_chunks[i++];
+			unsigned long virt = kmap_chunks[i++];
+			if (paddr >= phys
+			    && paddr < (phys + size)){
+				ret = virt + paddr - phys;
+				goto exit;
+			}
+		}
+
+		ret = (unsigned long) __va(paddr);
+	}
+exit:
+#ifdef DEBUGPV
+	printk ("PTOV(%lx)=%lx\n", paddr, ret);
+#endif
+#else
 	ret = (unsigned long)paddr + KERNELBASE;
+#endif
 	return ret;
 }
 

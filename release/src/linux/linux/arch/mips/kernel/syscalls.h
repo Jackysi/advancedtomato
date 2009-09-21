@@ -251,7 +251,7 @@ SYS(sys_removexattr, 2)
 SYS(sys_lremovexattr, 2)
 SYS(sys_fremovexattr, 2)			/* 4235 */
 SYS(sys_tkill, 2)
-SYS(sys_ni_syscall, 0)				/* res. for sendfile64 */
+SYS(sys_sendfile64, 5)
 SYS(sys_ni_syscall, 0)				/* res. for futex */
 SYS(sys_ni_syscall, 0)				/* res. for sched_setaffinity */
 SYS(sys_ni_syscall, 0)				/* 4240 res. for sched_getaffinity */

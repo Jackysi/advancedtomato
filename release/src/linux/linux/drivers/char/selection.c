@@ -290,9 +290,11 @@ int paste_selection(struct tty_struct *tty)
 {
 	struct vt_struct *vt = (struct vt_struct *) tty->driver_data;
 	int	pasted = 0, count;
+	struct  tty_ldisc *ld;
 	DECLARE_WAITQUEUE(wait, current);
 
 	poke_blanked_console();
+	ld = tty_ldisc_ref_wait(tty);
 	add_wait_queue(&vt->paste_wait, &wait);
 	while (sel_buffer && sel_buffer_lth > pasted) {
 		set_current_state(TASK_INTERRUPTIBLE);
@@ -301,12 +303,14 @@ int paste_selection(struct tty_struct *tty)
 			continue;
 		}
 		count = sel_buffer_lth - pasted;
-		count = MIN(count, tty->ldisc.receive_room(tty));
-		tty->ldisc.receive_buf(tty, sel_buffer + pasted, 0, count);
+		count = MIN(count, ld->receive_room(tty));
+		ld->receive_buf(tty, sel_buffer + pasted, 0, count);
 		pasted += count;
 	}
 	remove_wait_queue(&vt->paste_wait, &wait);
 	current->state = TASK_RUNNING;
+
+	tty_ldisc_deref(ld);
 	return 0;
 }
 

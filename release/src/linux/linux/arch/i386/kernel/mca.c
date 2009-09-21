@@ -704,6 +704,16 @@ int mca_is_adapter_used(int slot)
 
 EXPORT_SYMBOL(mca_is_adapter_used);
 
+/**
+ *	mca_mark_as_used - claim an MCA device
+ *	@slot:	slot to claim
+ *	FIXME:  should we make this threadsafe
+ *
+ *	Claim an MCA slot for a device driver. If the
+ *	slot is already taken the function returns 1,
+ *	if it is not taken it is claimed and 0 is
+ *	returned.
+ */
 
 int mca_mark_as_used(int slot)
 {

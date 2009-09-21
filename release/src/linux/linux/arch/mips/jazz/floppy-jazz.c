@@ -100,7 +100,7 @@ static unsigned long jazz_fd_dma_mem_alloc(unsigned long size)
 	mem = __get_dma_pages(GFP_KERNEL, get_order(size));
 	if(!mem)
 		return 0;
-	vdma_alloc(PHYSADDR(mem), size);	
+	vdma_alloc(PHYSADDR(mem), size);	/* XXX error checking */
 
 	return mem;
 }
@@ -114,6 +114,9 @@ static void jazz_fd_dma_mem_free(unsigned long addr,
 
 static unsigned long jazz_fd_drive_type(unsigned long n)
 {
+	/* XXX This is wrong for machines with ED 2.88mb disk drives like the
+	   Olivetti M700.  Anyway, we should suck this from the ARC
+	   firmware.  */
 	if (n == 0)
 		return 4;	/* 3,5", 1.44mb */
 

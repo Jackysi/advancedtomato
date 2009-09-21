@@ -1,1 +1,0 @@
-#undef  CONFIG_AUTOFS4_FS

@@ -249,6 +249,10 @@ static unsigned char *mem2hex(char *mem, char *buf, int count, int may_fault)
 
 	while (count-- > 0) {
 		ch = *(mem++);
+#if 0
+		if (mem_err)
+			return 0;
+#endif
 		*buf++ = hexchars[ch >> 4];
 		*buf++ = hexchars[ch & 0xf];
 	}
@@ -276,6 +280,10 @@ static char *hex2mem(char *buf, char *mem, int count, int may_fault)
 		ch = hex(*buf++) << 4;
 		ch |= hex(*buf++);
 		*(mem++) = ch;
+#if 0
+		if (mem_err)
+			return 0;
+#endif
 	}
 
 /*	set_mem_fault_trap(0); */
@@ -317,6 +325,7 @@ void set_debug_traps(void)
  */
 extern void fltr_set_mem_err(void)
 {
+  /* FIXME: Needs to be written... */
 }
 
 
@@ -399,6 +408,9 @@ void gdb_stub_handle_exception(struct gdb_pt_regs *regs,int sigval)
 	/*
 	 * reply to host that an exception has occurred
 	 */
+#if 0
+	send_signal(sigval);
+#endif
 	/*
 	 * Wait for input from remote GDB
 	 */
@@ -410,6 +422,9 @@ void gdb_stub_handle_exception(struct gdb_pt_regs *regs,int sigval)
 		switch (input_buffer[0])
 		{
 		case '?':
+#if 0
+			send_signal(sigval);
+#endif
 			continue;
 
 		case 'd':
@@ -427,6 +442,10 @@ void gdb_stub_handle_exception(struct gdb_pt_regs *regs,int sigval)
 			ptr = mem2hex((char *)&regs->fp_regs, ptr,sizeof(s390_fp_regs),FALSE);
 			break;
 	  
+		/*
+		 * set the value of the CPU registers - return OK
+		 * FIXME: Needs to be written
+		 */
 		case 'G':
 			ptr=input_buffer;
 			hex2mem (ptr, (char *)regs,S390_REGS_COMMON_SIZE, FALSE);
@@ -505,6 +524,9 @@ void gdb_stub_handle_exception(struct gdb_pt_regs *regs,int sigval)
 			break;		/* do nothing */
 
 
+		/*
+		 * Reset the whole machine (FIXME: system dependent)
+		 */
 		case 'r':
 			break;
 
@@ -517,6 +539,9 @@ void gdb_stub_handle_exception(struct gdb_pt_regs *regs,int sigval)
 			 * There is no single step insn in the MIPS ISA, so we
 			 * use breakpoints and continue, instead.
 			 */
+#if 0
+			single_step(regs);
+#endif
 			flush_cache_all();
 			return;
 			/* NOTREACHED */

@@ -27,7 +27,14 @@
 #include "p9100.h"
 
 static struct sbus_mmap_map p9100_mmap_map[] = {
+#if 0 /* For now, play we're a dumb color fb */
+  { P9100_CTL_OFF, 0x38000000, 0x2000 },
+  { P9100_CMD_OFF, 0x38002000, 0x2000 },
+  { P9100_FB_OFF, 0x38800000, 0x200000 },
+  { CG3_MMAP_OFFSET, 0x38800000, SBUS_MMAP_FBSIZE(1) },
+#else
   { CG3_MMAP_OFFSET, 0x0, SBUS_MMAP_FBSIZE(1) },
+#endif
   { 0, 0, 0 }
 };
 

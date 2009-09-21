@@ -1,4 +1,4 @@
-/* $Id: floppy.h,v 1.1.1.4 2003/10/14 08:09:23 sparq Exp $
+/* $Id: floppy.h,v 1.32 2001/10/26 17:59:36 davem Exp $
  * asm-sparc64/floppy.h: Sparc specific parts of the Floppy driver.
  *
  * Copyright (C) 1996 David S. Miller (davem@caip.rutgers.edu)
@@ -123,6 +123,7 @@ static unsigned char sun_82077_fd_inb(unsigned long port)
 	case 5: /* FD_DATA */
 		return sbus_readb(&sun_fdc->data_82077);
 	case 7: /* FD_DIR */
+		/* XXX: Is DCL on 0x80 in sun4m? */
 		return sbus_readb(&sun_fdc->dir_82077);
 	};
 	panic("sun_82072_fd_inb: How did I get here?");
@@ -245,6 +246,7 @@ static void sun_fd_free_irq(void)
 
 static unsigned int sun_get_dma_residue(void)
 {
+	/* XXX This isn't really correct. XXX */
 	return 0;
 }
 
@@ -292,6 +294,13 @@ static void sun_pci_fd_outb(unsigned char val, unsigned long port)
 static void sun_pci_fd_broken_outb(unsigned char val, unsigned long port)
 {
 	udelay(5);
+	/*
+	 * XXX: Due to SUN's broken floppy connector on AX and AXi
+	 *      we need to turn on MOTOR_0 also, if the floppy is
+	 *      jumpered to DS1 (like most PC floppies are). I hope
+	 *      this does not hurt correct hardware like the AXmp.
+	 *      (Eddie, Sep 12 1998).
+	 */
 	if (port == ((unsigned long)sun_fdc) + 2) {
 		if (((val & 0x03) == sun_pci_broken_drive) && (val & 0x20)) {
 			val |= 0x10;
@@ -304,6 +313,13 @@ static void sun_pci_fd_broken_outb(unsigned char val, unsigned long port)
 static void sun_pci_fd_lde_broken_outb(unsigned char val, unsigned long port)
 {
 	udelay(5);
+	/*
+	 * XXX: Due to SUN's broken floppy connector on AX and AXi
+	 *      we need to turn on MOTOR_0 also, if the floppy is
+	 *      jumpered to DS1 (like most PC floppies are). I hope
+	 *      this does not hurt correct hardware like the AXmp.
+	 *      (Eddie, Sep 12 1998).
+	 */
 	if (port == ((unsigned long)sun_fdc) + 2) {
 		if (((val & 0x03) == sun_pci_broken_drive) && (val & 0x10)) {
 			val &= ~(0x03);
@@ -744,6 +760,9 @@ static unsigned long __init sun_floppy_init(void)
         	fdc_status = (unsigned long) &sun_fdc->status_82077;
 		FLOPPY_MOTOR_MASK = 0xf0;
 
+		/*
+		 * XXX: Find out on which machines this is really needed.
+		 */
 		if (1) {
 			sun_pci_broken_drive = 1;
 			sun_fdops.fd_outb = sun_pci_fd_broken_outb;

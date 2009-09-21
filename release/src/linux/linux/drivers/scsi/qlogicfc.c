@@ -27,16 +27,10 @@
  */
 
 /*
- * $Date: 2003/10/14 08:08:41 $
- * $Revision: 1.1.1.2 $
+ * $Date: 1995/09/22 02:23:15 $
+ * $Revision: 0.5 $
  *
- * $Log: qlogicfc.c,v $
- * Revision 1.1.1.2  2003/10/14 08:08:41  sparq
- * Broadcom Release 3.51.8.0 for BCM4712.
- *
- * Revision 1.1.1.1  2003/02/03 22:37:53  mhuang
- * LINUX_2_4 branch snapshot from linux-mips.org CVS
- *
+ * $Log: isp1020.c,v $
  * Revision 0.5  1995/09/22  02:23:15  root
  * do auto request sense
  *
@@ -417,7 +411,7 @@ static unsigned short risc_code_addr01 = 0x1000 ;
    if that mbox should be copied as input.  For example 0x2 would mean
    only copy mbox1. */
 
-const u_char mbox_param[] =
+static const u_char mbox_param[] =
 {
 	0x01,			/* MBOX_NO_OP */
 	0x1f,			/* MBOX_LOAD_RAM */
@@ -700,7 +694,7 @@ static inline void isp2x00_disable_irqs(struct Scsi_Host *host)
 int isp2x00_detect(Scsi_Host_Template * tmpt)
 {
 	int hosts = 0;
-	int wait_time;
+	unsigned long wait_time;
 	struct Scsi_Host *host = NULL;
 	struct isp2x00_hostdata *hostdata;
 	struct pci_dev *pdev;
@@ -728,7 +722,7 @@ int isp2x00_detect(Scsi_Host_Template * tmpt)
 				continue;
 
 			/* Try to configure DMA attributes. */
-			if (pci_set_dma_mask(pdev, (u64) 0xffffffffffffffff) &&
+			if (pci_set_dma_mask(pdev, (u64) 0xffffffffffffffffULL) &&
 			    pci_set_dma_mask(pdev, (u64) 0xffffffff))
 					continue;
 
@@ -1930,6 +1924,9 @@ static int isp2x00_reset_hardware(struct Scsi_Host *host)
 	hostdata->wwn |= (u64) (cpu_to_le16(hostdata->control_block.node_name[3]) & 0x00ff) << 8;
 	hostdata->wwn |= (u64) (cpu_to_le16(hostdata->control_block.node_name[3]) & 0xff00) >> 8;
 
+	/* FIXME: If the DMA transfer goes one way only, this should use
+	 *        PCI_DMA_TODEVICE and below as well.
+	 */
 	busaddr = pci_map_page(hostdata->pci_dev,
 			       virt_to_page(&hostdata->control_block),
 			       ((unsigned long) &hostdata->control_block &

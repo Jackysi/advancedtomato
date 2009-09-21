@@ -74,6 +74,12 @@ typedef struct {
 #define SPIN_LOCK_UNLOCKED			(spinlock_t) { 0 }
 #define spin_lock_init(x)			((x)->lock = 0)
 
+#ifdef GAS_HAS_HINT_INSN
+#define HINT_PAUSE	";; (p7) hint @pause\n"
+#else
+#define HINT_PAUSE
+#endif										
+
 /*
  * Streamlined test_and_set_bit(0, (x)).  We use test-and-test-and-set
  * rather than a simple xchg to avoid writing the cache-line when
@@ -87,6 +93,7 @@ typedef struct {
 	"ld4 r2 = [%0]\n"					\
 	";;\n"							\
 	"cmp4.eq p0,p7 = r0,r2\n"				\
+	HINT_PAUSE 						\
 	"(p7) br.cond.spnt.few 1b \n"				\
 	"cmpxchg4.acq r2 = [%0], r29, ar.ccv\n"			\
 	";;\n"							\
@@ -115,20 +122,21 @@ do {										\
 	int tmp = 0;								\
 	__asm__ __volatile__ ("1:\tfetchadd4.acq %0 = [%1], 1\n"		\
 			      ";;\n"						\
-			      "tbit.nz p6,p0 = %0, 31\n"			\
-			      "(p6) br.cond.sptk.few 2f\n"			\
+			      "tbit.nz p7,p0 = %0, 31\n"			\
+			      "(p7) br.cond.sptk.few 2f\n"			\
 			      ".section .text.lock,\"ax\"\n"			\
 			      "2:\tfetchadd4.rel %0 = [%1], -1\n"		\
 			      ";;\n"						\
 			      "3:\tld4.acq %0 = [%1]\n"				\
 			      ";;\n"						\
-			      "tbit.nz p6,p0 = %0, 31\n"			\
-			      "(p6) br.cond.sptk.few 3b\n"			\
+			      "tbit.nz p7,p0 = %0, 31\n"			\
+			      HINT_PAUSE					\
+			      "(p7) br.cond.sptk.few 3b\n"			\
 			      "br.cond.sptk.few 1b\n"				\
 			      ";;\n"						\
 			      ".previous\n"					\
 			      : "=&r" (tmp)					\
-			      : "r" (rw) : "p6", "memory");			\
+			      : "r" (rw) : "p7", "memory");			\
 } while(0)
 
 #define read_unlock(rw)								\
@@ -150,6 +158,7 @@ do {										\
 		"ld4 r2 = [%0]\n"						\
 		";;\n"								\
 		"cmp4.eq p0,p7 = r0,r2\n"					\
+		HINT_PAUSE							\
 		"(p7) br.cond.spnt.few 1b \n"					\
 		"cmpxchg4.acq r2 = [%0], r29, ar.ccv\n"				\
 		";;\n"								\

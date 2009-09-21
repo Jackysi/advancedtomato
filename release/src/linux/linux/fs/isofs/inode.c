@@ -34,11 +34,6 @@
 
 #include "zisofs.h"
 
-/*
- * We have no support for "multi volume" CDs, but more and more disks carry
- * wrong information within the volume descriptors.
- */
-#define IGNORE_WRONG_MULTI_VOLUME_SPECS
 #define BEQUIET
 
 #ifdef LEAK_CHECK
@@ -340,16 +335,16 @@ static int parse_options(char *options, struct iso9660_options * popt)
 			else if (!strcmp(value,"acorn")) popt->map = 'a';
 			else return 0;
 		}
-		if (!strcmp(this_char,"session") && value) {
+		else if (!strcmp(this_char,"session") && value) {
 			char * vpnt = value;
 			unsigned int ivalue = simple_strtoul(vpnt, &vpnt, 0);
-			if(ivalue < 0 || ivalue >99) return 0;
+			if (ivalue > 99) return 0;
 			popt->session=ivalue+1;
 		}
-		if (!strcmp(this_char,"sbsector") && value) {
+		else if (!strcmp(this_char,"sbsector") && value) {
 			char * vpnt = value;
 			unsigned int ivalue = simple_strtoul(vpnt, &vpnt, 0);
-			if(ivalue < 0 || ivalue >660*512) return 0;
+			if (ivalue > 660*512) return 0;
 			popt->sbsector=ivalue;
 		}
 		else if (!strcmp(this_char,"check") && value) {
@@ -445,6 +440,13 @@ static unsigned int isofs_get_last_session(struct super_block *sb,s32 session )
 	}
 	i = ioctl_by_bdev(bdev, CDROMMULTISESSION, (unsigned long) &ms_info);
 	if(session > 0) printk(KERN_ERR "Invalid session number\n");
+#if 0
+	printk("isofs.inode: CDROMMULTISESSION: rc=%d\n",i);
+	if (i==0) {
+		printk("isofs.inode: XA disk: %s\n",ms_info.xa_flag?"yes":"no");
+		printk("isofs.inode: vol_desc_start = %d\n", ms_info.addr.lba);
+	}
+#endif
 	if (i==0)
 #if WE_OBEY_THE_WRITTEN_STANDARDS
         if (ms_info.xa_flag) /* necessary for a valid ms_info.addr */
@@ -481,7 +483,6 @@ static struct super_block *isofs_read_super(struct super_block *s, void *data,
 
 	if (!parse_options((char *) data, &opt))
 		goto out_unlock;
-
 
 	/*
 	 * First of all, get the hardware blocksize for this device.
@@ -604,19 +605,13 @@ root_found:
 
 	if(high_sierra){
 	  rootp = (struct iso_directory_record *) h_pri->root_directory_record;
-#ifndef IGNORE_WRONG_MULTI_VOLUME_SPECS
-	  if (isonum_723 (h_pri->volume_set_size) != 1)
-		goto out_no_support;
-#endif /* IGNORE_WRONG_MULTI_VOLUME_SPECS */
 	  s->u.isofs_sb.s_nzones = isonum_733 (h_pri->volume_space_size);
 	  s->u.isofs_sb.s_log_zone_size = isonum_723 (h_pri->logical_block_size);
 	  s->u.isofs_sb.s_max_size = isonum_733(h_pri->volume_space_size);
 	} else {
+	  if (!pri)
+	    goto out_freebh;
 	  rootp = (struct iso_directory_record *) pri->root_directory_record;
-#ifndef IGNORE_WRONG_MULTI_VOLUME_SPECS
-	  if (isonum_723 (pri->volume_set_size) != 1)
-		goto out_no_support;
-#endif /* IGNORE_WRONG_MULTI_VOLUME_SPECS */
 	  s->u.isofs_sb.s_nzones = isonum_733 (pri->volume_space_size);
 	  s->u.isofs_sb.s_log_zone_size = isonum_723 (pri->logical_block_size);
 	  s->u.isofs_sb.s_max_size = isonum_733(pri->volume_space_size);
@@ -836,11 +831,6 @@ out_bad_size:
 	printk(KERN_WARNING "Logical zone size(%d) < hardware blocksize(%u)\n",
 		orig_zonesize, blocksize);
 	goto out_freebh;
-#ifndef IGNORE_WRONG_MULTI_VOLUME_SPECS
-out_no_support:
-	printk(KERN_WARNING "Multi-volume disks not supported.\n");
-	goto out_freebh;
-#endif
 out_unknown_format:
 	if (!silent)
 		printk(KERN_WARNING "Unable to identify CD-ROM format.\n");
@@ -1193,30 +1183,13 @@ static void isofs_read_inode(struct inode * inode)
 	}
 
 	/*
-	 * The ISO-9660 filesystem only stores 32 bits for file size.
-	 * mkisofs handles files up to 2GB-2 = 2147483646 = 0x7FFFFFFE bytes
-	 * in size. This is according to the large file summit paper from 1996.
-	 * WARNING: ISO-9660 filesystems > 1 GB and even > 2 GB are fully
-	 *	    legal. Do not prevent to use DVD's schilling@fokus.gmd.de
-	 */
-	if ((inode->i_size < 0 || inode->i_size > 0x7FFFFFFE) &&
-	    inode->i_sb->u.isofs_sb.s_cruft == 'n') {
-		printk(KERN_WARNING "Warning: defective CD-ROM.  "
-		       "Enabling \"cruft\" mount option.\n");
-		inode->i_sb->u.isofs_sb.s_cruft = 'y';
-	}
-
-	/*
 	 * Some dipshit decided to store some other bit of information
-	 * in the high byte of the file length.  Catch this and holler.
-	 * WARNING: this will make it impossible for a file to be > 16MB
-	 * on the CDROM.
+	 * in the high byte of the file length.  Truncate in case
+	 * this CDROM was mounted with the cruft option.
 	 */
 
-	if (inode->i_sb->u.isofs_sb.s_cruft == 'y' &&
-	    inode->i_size & 0xff000000) {
+	if (inode->i_sb->u.isofs_sb.s_cruft == 'y')
 		inode->i_size &= 0x00ffffff;
-	}
 
 	if (de->interleave[0]) {
 		printk("Interleaved files not (yet) supported.\n");
@@ -1264,60 +1237,29 @@ static void isofs_read_inode(struct inode * inode)
 	/* get the volume sequence number */
 	volume_seq_no = isonum_723 (de->volume_sequence_number) ;
 
-    /*
-     * Multi volume means tagging a group of CDs with info in their headers.
-     * All CDs of a group must share the same vol set name and vol set size
-     * and have different vol set seq num. Deciding that data is wrong based
-     * in that three fields is wrong. The fields are informative, for
-     * cataloging purposes in a big jukebox, ie. Read sections 4.17, 4.18, 6.6
-     * of ftp://ftp.ecma.ch/ecma-st/Ecma-119.pdf (ECMA 119 2nd Ed = ISO 9660)
-     */
-#ifndef IGNORE_WRONG_MULTI_VOLUME_SPECS
-	/*
-	 * Disable checking if we see any volume number other than 0 or 1.
-	 * We could use the cruft option, but that has multiple purposes, one
-	 * of which is limiting the file size to 16Mb.  Thus we silently allow
-	 * volume numbers of 0 to go through without complaining.
-	 */
-	if (inode->i_sb->u.isofs_sb.s_cruft == 'n' &&
-	    (volume_seq_no != 0) && (volume_seq_no != 1)) {
-		printk(KERN_WARNING "Warning: defective CD-ROM "
-		       "(volume sequence number %d). "
-		       "Enabling \"cruft\" mount option.\n", volume_seq_no);
-		inode->i_sb->u.isofs_sb.s_cruft = 'y';
-	}
-#endif /*IGNORE_WRONG_MULTI_VOLUME_SPECS */
-
 	/* Install the inode operations vector */
-#ifndef IGNORE_WRONG_MULTI_VOLUME_SPECS
-	if (inode->i_sb->u.isofs_sb.s_cruft != 'y' &&
-	    (volume_seq_no != 0) && (volume_seq_no != 1)) {
-		printk(KERN_WARNING "Multi-volume CD somehow got mounted.\n");
-	} else
-#endif /*IGNORE_WRONG_MULTI_VOLUME_SPECS */
-	{
-		if (S_ISREG(inode->i_mode)) {
-			inode->i_fop = &generic_ro_fops;
-			switch ( inode->u.isofs_i.i_file_format ) {
+	if (S_ISREG(inode->i_mode)) {
+		inode->i_fop = &generic_ro_fops;
+		switch ( inode->u.isofs_i.i_file_format ) {
 #ifdef CONFIG_ZISOFS
-			case isofs_file_compressed:
-				inode->i_data.a_ops = &zisofs_aops;
-				break;
+		case isofs_file_compressed:
+			inode->i_data.a_ops = &zisofs_aops;
+			break;
 #endif
-			default:
-				inode->i_data.a_ops = &isofs_aops;
-				break;
-			}
-		} else if (S_ISDIR(inode->i_mode)) {
-			inode->i_op = &isofs_dir_inode_operations;
-			inode->i_fop = &isofs_dir_operations;
-		} else if (S_ISLNK(inode->i_mode)) {
-			inode->i_op = &page_symlink_inode_operations;
-			inode->i_data.a_ops = &isofs_symlink_aops;
-		} else
-			init_special_inode(inode, inode->i_mode,
-					   kdev_t_to_nr(inode->i_rdev));
-	}
+		default:
+			inode->i_data.a_ops = &isofs_aops;
+			break;
+		}
+	} else if (S_ISDIR(inode->i_mode)) {
+		inode->i_op = &isofs_dir_inode_operations;
+		inode->i_fop = &isofs_dir_operations;
+	} else if (S_ISLNK(inode->i_mode)) {
+		inode->i_op = &page_symlink_inode_operations;
+		inode->i_data.a_ops = &isofs_symlink_aops;
+	} else
+		/* XXX - parse_rock_ridge_inode() had already set i_rdev. */
+		init_special_inode(inode, inode->i_mode,
+				   kdev_t_to_nr(inode->i_rdev));
  out:
 	if (tmpde)
 		kfree(tmpde);

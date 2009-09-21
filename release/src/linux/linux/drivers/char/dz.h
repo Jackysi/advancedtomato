@@ -10,6 +10,8 @@
 #ifndef DZ_SERIAL_H
 #define DZ_SERIAL_H
 
+#include <asm/dec/serial.h>
+
 #define SERIAL_MAGIC 0x5301
 
 /*
@@ -17,6 +19,7 @@
  */
 #define DZ_TRDY        0x8000                 /* Transmitter empty */
 #define DZ_TIE         0x4000                 /* Transmitter Interrupt Enable */
+#define DZ_TLINE       0x0300                 /* Transmitter Line Number */
 #define DZ_RDONE       0x0080                 /* Receiver data ready */
 #define DZ_RIE         0x0040                 /* Receive Interrupt Enable */
 #define DZ_MSE         0x0020                 /* Master Scan Enable */
@@ -37,19 +40,30 @@
 #define UCHAR(x) (unsigned char)(x & DZ_RBUF_MASK)
 
 /*
- * Definitions for the Transmit Register.
+ * Definitions for the Transmit Control Register.
  */
 #define DZ_LINE_KEYBOARD 0x0001
 #define DZ_LINE_MOUSE    0x0002
 #define DZ_LINE_MODEM    0x0004
 #define DZ_LINE_PRINTER  0x0008
 
+#define DZ_MODEM_RTS     0x0800               /* RTS for the modem line (2) */
 #define DZ_MODEM_DTR     0x0400               /* DTR for the modem line (2) */
+#define DZ_PRINT_RTS     0x0200               /* RTS for the printer line (3) */
+#define DZ_PRINT_DTR     0x0100               /* DTR for the printer line (3) */
+#define DZ_LNENB         0x000f               /* Transmitter Line Enable */
 
 /*
  * Definitions for the Modem Status Register.
  */
+#define DZ_MODEM_RI      0x0800               /* RI for the modem line (2) */
+#define DZ_MODEM_CD      0x0400               /* CD for the modem line (2) */
 #define DZ_MODEM_DSR     0x0200               /* DSR for the modem line (2) */
+#define DZ_MODEM_CTS     0x0100               /* CTS for the modem line (2) */
+#define DZ_PRINT_RI      0x0008               /* RI for the printer line (2) */
+#define DZ_PRINT_CD      0x0004               /* CD for the printer line (2) */
+#define DZ_PRINT_DSR     0x0002               /* DSR for the printer line (2) */
+#define DZ_PRINT_CTS     0x0001               /* CTS for the printer line (2) */
 
 /*
  * Definitions for the Transmit Data Register.
@@ -115,9 +129,6 @@
 
 #define DZ_EVENT_WRITE_WAKEUP   0
 
-#ifndef MIN
-#define MIN(a,b)        ((a) < (b) ? (a) : (b))
-
 #define DZ_INITIALIZED       0x80000000 /* Serial port was initialized */
 #define DZ_CALLOUT_ACTIVE    0x40000000 /* Call out device is active */
 #define DZ_NORMAL_ACTIVE     0x20000000 /* Normal device is active */
@@ -129,6 +140,7 @@
 #define DZ_CLOSING_WAIT_INF  0
 #define DZ_CLOSING_WAIT_NONE 65535
 
+#define DZ_SAK             0x0004 /* Secure Attention Key (Orange book) */
 #define DZ_SPLIT_TERMIOS   0x0008 /* Separate termios for dialin/callout */
 #define DZ_SESSION_LOCKOUT 0x0100 /* Lock out cua opens based on session */
 #define DZ_PGRP_LOCKOUT    0x0200 /* Lock out cua opens based on pgrp */
@@ -166,79 +178,9 @@ struct dz_serial {
   long                    session;             /* Session of opening process */
   long                    pgrp;                /* pgrp of opening process */
 
+  struct dec_serial_hook  *hook;               /* Hook on this channel.  */
   unsigned char           is_console;          /* flag indicating a serial console */
   unsigned char           is_initialized;
 };
-
-static struct dz_serial multi[DZ_NB_PORT];    /* Four serial lines in the DZ chip */
-static struct dz_serial *dz_console;
-static struct tty_driver serial_driver, callout_driver;
-
-static struct tty_struct *serial_table[DZ_NB_PORT];
-static struct termios *serial_termios[DZ_NB_PORT];
-static struct termios *serial_termios_locked[DZ_NB_PORT];
-
-static int serial_refcount;
-
-/*
- * tmp_buf is used as a temporary buffer by serial_write.  We need to
- * lock it in case the copy_from_user blocks while swapping in a page,
- * and some other program tries to do a serial write at the same time.
- * Since the lock will only come under contention when the system is
- * swapping and available memory is low, it makes sense to share one
- * buffer across all the serial ports, since it significantly saves
- * memory if large numbers of serial ports are open.
- */
-static unsigned char *tmp_buf;
-static DECLARE_MUTEX(tmp_buf_sem);
-
-static char *dz_name = "DECstation DZ serial driver version ";
-static char *dz_version = "1.02";
-
-static inline unsigned short dz_in (struct dz_serial *, unsigned);
-static inline void dz_out (struct dz_serial *, unsigned, unsigned short);
-
-static inline void dz_sched_event (struct dz_serial *, int);
-static inline void receive_chars (struct dz_serial *);
-static inline void transmit_chars (struct dz_serial *);
-static inline void check_modem_status (struct dz_serial *);
-
-static void dz_stop (struct tty_struct *);
-static void dz_start (struct tty_struct *);
-static void dz_interrupt (int, void *, struct pt_regs *);
-static void do_serial_bh (void);
-static void do_softint (void *);
-static void do_serial_hangup (void *);
-static void change_speed (struct dz_serial *);
-static void dz_flush_chars (struct tty_struct *);
-static void dz_console_print (struct console *, const char *, unsigned int);
-static void dz_flush_buffer (struct tty_struct *);
-static void dz_throttle (struct tty_struct *);
-static void dz_unthrottle (struct tty_struct *);
-static void dz_send_xchar (struct tty_struct *, char);
-static void shutdown (struct dz_serial *);
-static void send_break (struct dz_serial *, int);
-static void dz_set_termios (struct tty_struct *, struct termios *);
-static void dz_close (struct tty_struct *, struct file *);
-static void dz_hangup (struct tty_struct *);
-static void show_serial_version (void);
-
-static int dz_write (struct tty_struct *, int, const unsigned char *, int);
-static int dz_write_room (struct tty_struct *);
-static int dz_chars_in_buffer (struct tty_struct *);
-static int startup (struct dz_serial *);
-static int get_serial_info (struct dz_serial *, struct serial_struct *);
-static int set_serial_info (struct dz_serial *, struct serial_struct *);
-static int get_lsr_info (struct dz_serial *, unsigned int *);
-static int dz_ioctl (struct tty_struct *, struct file *, unsigned int, unsigned long);
-static int block_til_ready (struct tty_struct *, struct file *, struct dz_serial *);
-static int dz_open (struct tty_struct *, struct file *);
-
-#ifdef MODULE
-int init_module (void)
-void cleanup_module (void)
-#endif
-
-#endif
 
 #endif /* DZ_SERIAL_H */

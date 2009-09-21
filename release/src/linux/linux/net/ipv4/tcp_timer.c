@@ -5,7 +5,7 @@
  *
  *		Implementation of the Transmission Control Protocol(TCP).
  *
- * Version:	$Id: tcp_timer.c,v 1.1.1.4 2003/10/14 08:09:33 sparq Exp $
+ * Version:	$Id: tcp_timer.c,v 1.87 2001/09/21 21:27:34 davem Exp $
  *
  * Authors:	Ross Biro, <bir7@leland.Stanford.Edu>
  *		Fred N. van Kempen, <waltje@uWalt.NL.Mugnet.ORG>
@@ -279,6 +279,21 @@ static void tcp_probe_timer(struct sock *sk)
 		return;
 	}
 
+	/* *WARNING* RFC 1122 forbids this
+	 *
+	 * It doesn't AFAIK, because we kill the retransmit timer -AK
+	 *
+	 * FIXME: We ought not to do it, Solaris 2.5 actually has fixing
+	 * this behaviour in Solaris down as a bug fix. [AC]
+	 *
+	 * Let me to explain. probes_out is zeroed by incoming ACKs
+	 * even if they advertise zero window. Hence, connection is killed only
+	 * if we received no ACKs for normal connection timeout. It is not killed
+	 * only because window stays zero for some time, window may be zero
+	 * until armageddon and even later. We are in full accordance
+	 * with RFCs, only probe timer combines both retransmission timeout
+	 * and probe timeout in one bottle.				--ANK
+	 */
 	max_probes = sysctl_tcp_retries2;
 
 	if (sk->dead) {
@@ -357,7 +372,11 @@ static void tcp_retransmit_timer(struct sock *sk)
 		}
 	}
 
-	tcp_enter_loss(sk, 0);
+	if (tcp_use_frto(sk)) {
+		tcp_enter_frto(sk);
+	} else {
+		tcp_enter_loss(sk, 0);
+	}
 
 	if (tcp_retransmit_skb(sk, skb_peek(&sk->write_queue)) > 0) {
 		/* Retransmission failed because of local congestion,

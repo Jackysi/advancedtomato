@@ -16,9 +16,10 @@
 #include <asm/processor.h>
 #include <asm/sigcontext.h>
 #include <asm/user.h>
+#include <asm/uaccess.h>
 
-extern void init_fpu(void);
-int save_i387( struct _fpstate *buf);
+extern void init_fpu(struct task_struct *child);
+extern int save_i387(struct _fpstate *buf);
 
 /*
  * FPU lazy state save handling...
@@ -33,7 +34,7 @@ int save_i387( struct _fpstate *buf);
 
 #define clear_fpu( tsk ) do { \
 	if ( tsk->flags & PF_USEDFPU ) { \
-		asm volatile("fwait"); \
+		asm volatile("fnclex ; fwait"); \
 		tsk->flags &= ~PF_USEDFPU; \
 		stts(); \
 	} \
@@ -85,6 +86,8 @@ static inline int restore_fpu_checking(struct i387_fxsave_struct *fx)
 		     ".previous"
 		     : [err] "=r" (err)
 		     : [fx] "r" (fx), "0" (0)); 
+	if (unlikely(err))
+		init_fpu(current);
 	return err;
 } 
 
@@ -103,6 +106,8 @@ static inline int save_i387_checking(struct i387_fxsave_struct *fx)
 		     ".previous"
 		     : [err] "=r" (err)
 		     : [fx] "r" (fx), "0" (0)); 
+	if (unlikely(err))
+		__clear_user(fx, sizeof(struct i387_fxsave_struct));
 	return err;
 } 
 
@@ -110,7 +115,7 @@ static inline void kernel_fpu_begin(void)
 {
 	struct task_struct *tsk = current;
 	if (tsk->flags & PF_USEDFPU) {
-		asm volatile("fxsave %0 ; fnclex"
+		asm volatile("rex64 ; fxsave %0 ; fnclex"
 			      : "=m" (tsk->thread.i387.fxsave));
 		tsk->flags &= ~PF_USEDFPU;
 		return;
@@ -120,8 +125,12 @@ static inline void kernel_fpu_begin(void)
 
 static inline void save_init_fpu( struct task_struct *tsk )
 {
-	asm volatile( "fxsave %0 ; fnclex"
+	asm volatile( "fxsave %0"
 		      : "=m" (tsk->thread.i387.fxsave));
+	if (tsk->thread.i387.fxsave.swd & (1<<7))
+		asm volatile("fnclex");
+	/* AMD CPUs leak F?P through FXSAVE. Clear it here */
+	asm volatile("ffree %st(7) ; fildl %gs:0");
 	tsk->flags &= ~PF_USEDFPU;
 	stts();
 }
@@ -133,19 +142,5 @@ static inline int restore_i387(struct _fpstate *buf)
 {
 	return restore_fpu_checking((struct i387_fxsave_struct *)buf);
 }
-
-
-static inline void empty_fpu(struct task_struct *child)
-{
-	if (!child->used_math) {
-		/* Simulate an empty FPU. */
-		memset(&child->thread.i387.fxsave,0,sizeof(struct i387_fxsave_struct));
-		child->thread.i387.fxsave.cwd = 0x037f; 
-		child->thread.i387.fxsave.swd = 0;
-		child->thread.i387.fxsave.twd = 0; 
-		child->thread.i387.fxsave.mxcsr = 0x1f80;
-	}
-	child->used_math = 1; 
-}		
 
 #endif /* __ASM_X86_64_I387_H */

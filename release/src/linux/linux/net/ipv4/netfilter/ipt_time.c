@@ -80,7 +80,7 @@ match(const struct sk_buff *skb,
 		return 0; /* the day doesn't match */
 
 	/* ... check the time now */
-	packet_time = (currenttime.tm_hour * 60) + currenttime.tm_min;
+	packet_time = ((currenttime.tm_hour * 60) + currenttime.tm_min) * 60 + currenttime.tm_sec;
 	if ((packet_time < info->time_start) || (packet_time > info->time_stop))
 		return 0;
 
@@ -114,8 +114,8 @@ checkentry(const char *tablename,
 	if (matchsize != IPT_ALIGN(sizeof(struct ipt_time_info)))
 		return 0;
 	/* Now check the coherence of the data ... */
-	if ((info->time_start > 1439) ||        /* 23*60+59 = 1439*/
-	    (info->time_stop  > 1439))
+	if ((info->time_start > 86399) ||        /* 23*60*60+59*60+59 = 86399 */
+	    (info->time_stop  > 86399))
 	{
 		printk(KERN_WARNING "ipt_time: invalid argument\n");
 		return 0;

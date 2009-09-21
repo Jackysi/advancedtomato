@@ -19,6 +19,11 @@
 #define RTAS_UNKNOWN_SERVICE (-1)
 #define RTAS_INSTANTIATE_MAX (1UL<<30) /* Don't instantiate rtas at/above this value */
 
+/* Error inject defines */
+#define ERRINJCT_TOKEN_LEN 24 /* Max length of an error inject token */
+#define MAX_ERRINJCT_TOKENS 8 /* Max # tokens. */
+#define WORKSPACE_SIZE 1024 
+
 /*
  * In general to call RTAS use rtas_token("string") to lookup
  * an RTAS token for the given string (e.g. "event-scan").
@@ -41,6 +46,9 @@ struct rtas_args {
 	u32 nargs;
 	u32 nret; 
 	rtas_arg_t args[16];
+#if 0
+	spinlock_t lock;
+#endif
 	rtas_arg_t *rets;     /* Pointer to return values in args[]. */
 };  
 
@@ -54,11 +62,11 @@ struct rtas_t {
 };
 
 /* Event classes */
-#define INTERNAL_ERROR		0x80000000 /* set bit 0 */
-#define EPOW_WARNING		0x40000000 /* set bit 1 */
-#define POWERMGM_EVENTS		0x20000000 /* set bit 2 */
-#define HOTPLUG_EVENTS		0x10000000 /* set bit 3 */
-#define EVENT_SCAN_ALL_EVENTS	0xf0000000
+#define RTAS_INTERNAL_ERROR		0x80000000 /* set bit 0 */
+#define RTAS_EPOW_WARNING		0x40000000 /* set bit 1 */
+#define RTAS_POWERMGM_EVENTS		0x20000000 /* set bit 2 */
+#define RTAS_HOTPLUG_EVENTS		0x10000000 /* set bit 3 */
+#define RTAS_EVENT_SCAN_ALL_EVENTS	0xf0000000
 
 /* event-scan returns */
 #define SEVERITY_FATAL		0x5
@@ -128,6 +136,11 @@ struct rtas_error_log {
 	unsigned char buffer[1];		/* allocated by klimit bump */
 };
 
+struct errinjct_token {
+    	char * name;
+	int value;
+};
+
 struct flash_block {
 	char *data;
 	unsigned long length;
@@ -162,8 +175,49 @@ extern void call_rtas_display_status(char);
 extern void rtas_restart(char *cmd);
 extern void rtas_power_off(void);
 extern void rtas_halt(void);
+extern int rtas_errinjct_open(void);
+extern int rtas_errinjct(unsigned int, char *, char *);
+extern int rtas_errinjct_close(unsigned int);
 
 extern struct proc_dir_entry *rtas_proc_dir;
+extern struct errinjct_token ei_token_list[MAX_ERRINJCT_TOKENS];
 
+extern void pSeries_log_error(char *buf, unsigned int err_type, int fatal);
+
+/* Error types logged.  */
+#define ERR_FLAG_ALREADY_LOGGED	0x0
+#define ERR_FLAG_BOOT		0x1 	/* log was pulled from NVRAM on boot */
+#define ERR_TYPE_RTAS_LOG	0x2	/* from rtas event-scan */
+#define ERR_TYPE_KERNEL_PANIC	0x4	/* from panic() */
+
+/* All the types and not flags */
+#define ERR_TYPE_MASK	(ERR_TYPE_RTAS_LOG | ERR_TYPE_KERNEL_PANIC)
+
+#define RTAS_ERR KERN_ERR "RTAS: "
+
+#define RTAS_ERROR_LOG_MAX 1024
+
+
+/* Event Scan Parameters */
+#define EVENT_SCAN_ALL_EVENTS	0xf0000000
+#define SURVEILLANCE_TOKEN	9000
+#define LOG_NUMBER		64		/* must be a power of two */
+#define LOG_NUMBER_MASK		(LOG_NUMBER-1)
+
+/* Given an RTAS status code of 9900..9905 compute the hinted delay */
+unsigned int rtas_extended_busy_delay_time(int status);
+static inline int rtas_is_extended_busy(int status)
+{
+	return status >= 9900 && status <= 9909;
+}
+
+/* Some RTAS ops require a data buffer and that buffer must be < 4G.
+ * Rather than having a memory allocator, just use this buffer
+ * (get the lock first), make the RTAS call.  Copy the data instead
+ * of holding the buffer for long.
+ */
+#define RTAS_DATA_BUF_SIZE 4096
+extern spinlock_t rtas_data_buf_lock;
+extern char rtas_data_buf[RTAS_DATA_BUF_SIZE];
 
 #endif /* _PPC64_RTAS_H */

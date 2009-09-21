@@ -32,7 +32,7 @@
 #define SCC_BAUD_BASE_M147	312500	/* 5 MHz */
 #define SCC_BAUD_BASE_MVME_PCLK	781250	/* 12.5 MHz */
 #define SCC_BAUD_BASE_MVME	625000	/* 10.000 MHz */
-#define SCC_BAUD_BASE_BVME_PCLK	781250	/* 12.5 MHz */   
+#define SCC_BAUD_BASE_BVME_PCLK	781250	/* 12.5 MHz */   /* XXX ??? */
 #define SCC_BAUD_BASE_BVME	460800	/* 7.3728 MHz */
 
 /* The SCC configuration structure */

@@ -26,6 +26,78 @@
 
 ****************************************************************************/
 
+/****************************************************************************
+ *  Header: remcom.c,v 1.34 91/03/09 12:29:49 glenne Exp $
+ *
+ *  Module name: remcom.c $
+ *  Revision: 1.34 $
+ *  Date: 91/03/09 12:29:49 $
+ *  Contributor:     Lake Stevens Instrument Division$
+ *
+ *  Description:     low level support for gdb debugger. $
+ *
+ *  Considerations:  only works on target hardware $
+ *
+ *  Written by:      Glenn Engel $
+ *  ModuleState:     Experimental $
+ *
+ *  NOTES:           See Below $
+ *
+ *  Modified for SPARC by Stu Grossman, Cygnus Support.
+ *
+ *  This code has been extensively tested on the Fujitsu SPARClite demo board.
+ *
+ *  To enable debugger support, two things need to happen.  One, a
+ *  call to set_debug_traps() is necessary in order to allow any breakpoints
+ *  or error conditions to be properly intercepted and reported to gdb.
+ *  Two, a breakpoint needs to be generated to begin communication.  This
+ *  is most easily accomplished by a call to breakpoint().  Breakpoint()
+ *  simulates a breakpoint by executing a trap #1.
+ *
+ *************
+ *
+ *    The following gdb commands are supported:
+ *
+ * command          function                               Return value
+ *
+ *    g             return the value of the CPU registers  hex data or ENN
+ *    G             set the value of the CPU registers     OK or ENN
+ *    qOffsets      Get section offsets.  Reply is Text=xxx;Data=yyy;Bss=zzz
+ *
+ *    mAA..AA,LLLL  Read LLLL bytes at address AA..AA      hex data or ENN
+ *    MAA..AA,LLLL: Write LLLL bytes at address AA.AA      OK or ENN
+ *
+ *    c             Resume at current address              SNN   ( signal NN)
+ *    cAA..AA       Continue at address AA..AA             SNN
+ *
+ *    s             Step one instruction                   SNN
+ *    sAA..AA       Step one instruction from AA..AA       SNN
+ *
+ *    k             kill
+ *
+ *    ?             What was the last sigval ?             SNN   (signal NN)
+ *
+ *    bBB..BB	    Set baud rate to BB..BB		   OK or BNN, then sets
+ *							   baud rate
+ *
+ * All commands and responses are sent with a packet which includes a
+ * checksum.  A packet consists of
+ *
+ * $<packet info>#<checksum>.
+ *
+ * where
+ * <packet info> :: <characters representing the command or response>
+ * <checksum>    :: <two hex digits computed as modulo 256 sum of <packetinfo>>
+ *
+ * When a packet is received, it is first acknowledged with either '+' or '-'.
+ * '+' indicates a successful transfer.  '-' indicates a failed transfer.
+ *
+ * Example:
+ *
+ * Host:                  Reply:
+ * $m0,10#2a               +$00010203040506070809101112131415#42
+ *
+ ****************************************************************************/
 
 #include <linux/config.h>
 #include <linux/kernel.h>
@@ -62,6 +134,13 @@ static const char hexchars[]="0123456789abcdef";
 /* struct tt_entry kgdb_savettable[256]; */
 /* typedef void (*trapfunc_t)(void); */
 
+#if 0
+/* Install an exception handler for kgdb */
+static void exceptionHandler(int tnum, unsigned int *tfunc)
+{
+	/* We are dorking with a live trap table, all irqs off */
+}
+#endif
 
 int
 kgdb_setjmp(long *buf)
@@ -71,6 +150,7 @@ kgdb_setjmp(long *buf)
 	     "mfcr 0; stw 0,12(%0);"
 	     "stmw 13,16(%0)"
 	     : : "r" (buf));
+	/* XXX should save fp regs as well */
 	return 0;
 }
 void
@@ -270,6 +350,25 @@ static void kgdb_flush_cache_all(void)
  */
 void set_debug_traps(void)
 {
+#if 0
+	unsigned char c;
+
+	save_and_cli(flags);
+
+	/* In case GDB is started before us, ack any packets (presumably
+	 * "$?#xx") sitting there.
+	 *
+	 * I've found this code causes more problems than it solves,
+	 * so that's why it's commented out.  GDB seems to work fine
+	 * now starting either before or after the kernel   -bwb
+	 */
+
+	while((c = getDebugChar()) != '$');
+	while((c = getDebugChar()) != '#');
+	c = getDebugChar(); /* eat first csum byte */
+	c = getDebugChar(); /* eat second csum byte */
+	putDebugChar('+'); /* ack it */
+#endif
 	debugger = kgdb;
 	debugger_bpt = kgdb_bpt;
 	debugger_sstep = kgdb_sstep;
@@ -397,6 +496,11 @@ handle_exception (struct pt_regs *regs)
 	sigval = computeSignal(regs->trap);
 	ptr = remcomOutBuffer;
 
+#if 0
+	*ptr++ = 'S';
+	*ptr++ = hexchars[sigval >> 4];
+	*ptr++ = hexchars[sigval & 0xf];
+#else
 	*ptr++ = 'T';
 	*ptr++ = hexchars[sigval >> 4];
 	*ptr++ = hexchars[sigval & 0xf];
@@ -410,11 +514,16 @@ handle_exception (struct pt_regs *regs)
 	*ptr++ = ':';
 	ptr = mem2hex(((char *)&regs) + SP_REGNUM*4, ptr, 4);
 	*ptr++ = ';';
+#endif
 
 	*ptr++ = 0;
 
 	putpacket(remcomOutBuffer);
 
+	/* XXX We may want to add some features dealing with poking the
+	 * XXX page tables, ... (look at sparc-stub.c for more info)
+	 * XXX also required hacking to the gdb sources directly...
+	 */
 
 	while (1) {
 		remcomOutBuffer[0] = 0;
@@ -427,6 +536,21 @@ handle_exception (struct pt_regs *regs)
 			remcomOutBuffer[2] = hexchars[sigval & 0xf];
 			remcomOutBuffer[3] = 0;
 			break;
+#if 0
+		case 'q': /* this screws up gdb for some reason...*/
+		{
+			extern long _start, sdata, __bss_start;
+
+			ptr = &remcomInBuffer[1];
+			if (strncmp(ptr, "Offsets", 7) != 0)
+				break;
+
+			ptr = remcomOutBuffer;
+			sprintf(ptr, "Text=%8.8x;Data=%8.8x;Bss=%8.8x",
+				&_start, &sdata, &__bss_start);
+			break;
+		}
+#endif
 		case 'd':
 			/* toggle debug flag */
 			kdebug ^= 1;
@@ -447,6 +571,7 @@ handle_exception (struct pt_regs *regs)
 			ptr = remcomOutBuffer;
 			/* General Purpose Regs */
 			ptr = mem2hex((char *)regs, ptr, 32 * 4);
+			/* Floating Point Regs - FIXME */
 			/*ptr = mem2hex((char *), ptr, 32 * 8);*/
 			for(i=0; i<(32*8*2); i++) { /* 2chars/byte */
 				ptr[i] = '0';
@@ -474,6 +599,7 @@ handle_exception (struct pt_regs *regs)
 			/* General Purpose Regs */
 			hex2mem(ptr, (char *)regs, 32 * 4);
 
+			/* Floating Point Regs - FIXME?? */
 			/*ptr = hex2mem(ptr, ??, 32 * 8);*/
 			ptr += 32*8*2;
 
@@ -554,6 +680,9 @@ handle_exception (struct pt_regs *regs)
 		case 's':
 			kgdb_flush_cache_all();
 			regs->msr |= MSR_SE;
+#if 0
+			set_msr(msr | MSR_SE);
+#endif
 			unlock_kernel();
 			kgdb_active = 0;
 			return;

@@ -4,7 +4,7 @@
  * License.  See the file "COPYING" in the main directory of this archive
  * for more details.
  *
- * Copyright (C) 2000-2001 Silicon Graphics, Inc.  All rights reserved.
+ * Copyright (C) 2000-2003 Silicon Graphics, Inc.  All rights reserved.
  */
 
 
@@ -12,97 +12,58 @@
 #include <linux/config.h>
 #include <linux/types.h>
 #include <asm/bitops.h>
+#include <asm/sn/simulator.h>
+#include "fpmem.h"
 
 extern void klgraph_init(void);
-void bedrock_init(int);
-void synergy_init(int, int);
-void sys_fw_init (const char *args, int arglen, int bsp);
-
-volatile int	bootmaster=0;		/* Used to pick bootmaster */
-volatile int	nasidmaster[128]={0};	/* Used to pick node/synergy masters */
-int		init_done=0;
-extern int	bsp_lid;
-
-#define get_bit(b,p)	(((*p)>>(b))&1)
+void sys_fw_init (const char *args, int arglen);
 
 int
 fmain(int lid, int bsp) {
-	int	syn, nasid, cpu;
+	int	nasid, cpu, mynasid, mycpu, bootmaster;
+
+	/*
+	 * * Pass the parameter base address to the build_efi_xxx routines.
+	 */
+#if defined(SGI_SN2)
+	build_init(0x3000000000UL | ((long)base_nasid<<38));
+#endif
 
 	/*
 	 * First lets figure out who we are. This is done from the
 	 * LID passed to us.
 	 */
-
-#ifdef CONFIG_IA64_SGI_SN1
-	nasid = (lid>>24);
-	syn = (lid>>17)&1;
-	cpu = (lid>>16)&1;
+	mynasid = (lid>>16)&0xfff;
+	mycpu = (lid>>28)&3;
 
 	/*
-	 * Now pick a synergy master to initialize synergy registers.
+	 * Determine if THIS cpu is the bootmaster. The <bsp> parameter
+	 * is the logical cpu of the bootmaster. Cpus are numbered
+	 * low-to-high nasid/lid.
 	 */
-	if (test_and_set_bit(syn, &nasidmaster[nasid]) == 0) {
-		synergy_init(nasid, syn);
-		test_and_set_bit(syn+2, &nasidmaster[nasid]);
-	} else
-		while (get_bit(syn+2, &nasidmaster[nasid]) == 0);
-#else
-	nasid = (lid>>16)&0xfff;
-	cpu = (lid>>28)&3;
-	syn = 0;
+	GetLogicalCpu(bsp, &nasid, &cpu);
+	bootmaster = (mynasid == nasid) && (mycpu == cpu);
+	
+	/*
+	 * Initialize SAL & EFI tables.
+	 *   Note: non-bootmaster cpus will return to the slave loop 
+	 *   in fpromasm.S. They spin there until they receive an
+	 *   external interrupt from the master cpu.
+	 */
+	if (bootmaster) {
+#if 0
+		/*
+		 * Undef if you need fprom to generate a 1 node klgraph
+		 * information .. only works for 1 node for nasid 0.
+		 */
+		klgraph_init();
 #endif
-	
-	/*
-	 * Now pick a nasid master to initialize Bedrock registers.
-	 */
-	if (test_and_set_bit(8, &nasidmaster[nasid]) == 0) {
-		bedrock_init(nasid);
-		test_and_set_bit(9, &nasidmaster[nasid]);
-	} else
-		while (get_bit(9, &nasidmaster[nasid]) == 0);
-	
+		sys_fw_init(0, 0);
+	}
 
-	/*
-	 * Now pick a BSP & finish init.
-	 */
-	if (test_and_set_bit(0, &bootmaster) == 0) {
-		sys_fw_init(0, 0, bsp);
-		test_and_set_bit(1, &bootmaster);
-	} else
-		while (get_bit(1, &bootmaster) == 0);
-
-	return (lid == bsp_lid);
+	return (bootmaster);
 }
 
-
-void
-bedrock_init(int nasid)
-{
-	nasid = nasid;		/* to quiet gcc */
-}
-
-
-void
-synergy_init(int nasid, int syn)
-{
-	long	*base;
-	long	off;
-
-	/*
-	 * Enable all FSB flashed interrupts.
-	 * ZZZ - I'd really like defines for this......
-	 */
-	base = (long*)0x80000e0000000000LL;		/* base of synergy regs */
-	for (off = 0x2a0; off < 0x2e0; off+=8)		/* offset for VEC_MASK_{0-3}_A/B */
-		*(base+off/8) = -1LL;
-
-	/*
-	 * Set the NASID in the FSB_CONFIG register.
-	 */
-	base = (long*)0x80000e0000000450LL;
-	*base = (long)((nasid<<16)|(syn<<9));
-}
 
 
 /* Why isnt there a bcopy/memcpy in lib64.a */

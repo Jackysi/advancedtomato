@@ -1,7 +1,7 @@
 /*
  * BCM47XX Sonics SiliconBackplane SDRAM/MEMC core initialization
  *
- * Copyright 2005, Broadcom Corporation
+ * Copyright 2004, Broadcom Corporation
  * All Rights Reserved.
  * 
  * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
@@ -9,7 +9,7 @@
  * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
  * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
  *
- * $Id: sbsdram.S,v 1.7 2005/03/07 08:35:32 kanki Exp $
+ * $Id$
  */
 
 #include <sbconfig.h>
@@ -78,6 +78,9 @@
  */
 
 
+	.text
+	.set	mips32
+
 	LEAF(board_draminit)
 	.set	noreorder
 
@@ -134,15 +137,19 @@ read_nvram:
 	nop
 
 	/* It is a chipcommon core: */
-	/* 1: Isolate corerev in v1 */
+	/* 1: Isolate memc's corerev in v1 */
+	and	t2,v1,SBIDH_RCE_MASK
+	srl	t2,t2,SBIDH_RCE_SHIFT
 	and	v1,v1,SBIDH_RC_MASK
+	or	v1,t2
 
 	/* 1.5: 5365a0 lies about its revision, it is really 1 */
 	bnez	v1,1f
 	nop
-	lw	t1,0(t0)		# Check chipid
-	andi	t1,CID_ID_MASK
-	bne	t1,BCM5365_DEVICE_ID,1f
+
+	lw	t1,CC_CHIPID(t0)		# Get chipid
+	andi	t1,CID_ID_MASK			# Check chipid
+	bne	t1,BCM5365_CHIP_ID,1f
 	nop
 	li	v1,1
 
@@ -159,11 +166,11 @@ notcc:
 
 find_nvram:
 	li	t3,FLASH_MIN 
-	li	t0, NVRAM_MAGIC
+	li	t0,NVRAM_MAGIC
 
 1:
 	add	a2,t2,t3
-	lw	t1, 0(a2)
+	lw	t1,0(a2)
 	beq	t0,t1,read_parms
 	nop
 
@@ -570,7 +577,7 @@ sdram_init:
 	sw	t2, 8(a0)		# SDRAM refresh
 
 
-	/* Change the memory priority inversion counter value*/
+	/* Change the memory priority inversion counter value */
 	/* Determine memory size and return */
 memprio_szmem:
 
@@ -580,29 +587,61 @@ memprio_szmem:
 	and     t0, t0, t1
 	ori	t0, t0, 0x1
 	sw      t0, MEMC_PRIORINV(a0)
+#else
+	li	t0,KSEG1ADDR(SB_ENUM_BASE)	# is there a chipcommon core?
+	lw	t1,(SBCONFIGOFF + SBIDHIGH)(t0)
+	and	t1,t1,SBIDH_CC_MASK
+	srl	t1,t1,SBIDH_CC_SHIFT
+	bne	t1,SB_CC,0f
+	nop
+	lw	t1,CC_CHIPID(t0)		# is this BCM4785 chip?
+	and	t1,t1,CID_ID_MASK
+	bne	t1,BCM4785_CHIP_ID,0f
+	nop
+	lw	t0,MEMC_PRIORINV(a0)		# change PriorInvTim to 2
+	and     t0,t0,0xFFFF0000
+	ori	t0,t0,0x02
+	sw      t0,MEMC_PRIORINV(a0)
 #endif
-	lw	t0,(SBCONFIGOFF + SBIDHIGH)(a0)
-	and	t0,t0,SBIDH_CC_MASK
-	srl	t0,t0,SBIDH_CC_SHIFT
-	bne	t0,SB_SOCRAM,szmem_alias
+0:	lw	t0,(SBCONFIGOFF + SBIDHIGH)(a0)
+	and	t1,t0,SBIDH_CC_MASK
+	srl	t1,t1,SBIDH_CC_SHIFT
+	bne	t1,SB_SOCRAM,szmem_alias
 	nop
 
 	/* The socram core tells us how much memory there is */
-	lw	t0,SOCRAM_MEMSIZE(a0)
-	addi	t0,SOCRAM_MEMSIZE_BASESHIFT
+	lw	t1,SR_COREINFO(a0)
+	and	t0,t0,SBIDH_RC_MASK		/* Find corerev */
+	beq	t0,zero,crev0
+
+	/* Its corerev >= 1 */
+	and	t2,t1,SRCI_SRNB_MASK		/* Find number of blocks */
+	srl	t2,t2,SRCI_SRNB_SHIFT
+	and	t1,t1,SRCI_SRBSZ_MASK		/* Find block size */
+	addi	t1,t1,SR_BSZ_BASE
+	li	t0,1
+	sll	t0,t0,t1
+	mul	v0,t0,t2
+	jr	t6
+	nop
+
+crev0:
+	and	t1,t1,SRCI_MS0_MASK
+	add	t1,t1,SR_MS0_BASE
 	li	v0,1
-	sll	v0,v0,t0
+	sll	v0,v0,t1
 	jr	t6
 	nop
 	
 szmem_alias:
 	li	t0,KSEG1
 	li	t2,0xaa55beef
-	sw	t2,0(t0)
+	sw	zero,0(t0)
 	li	v0,(1 << 20)
 
-1:
-	or	t0,v0,KSEG1
+1:	or	t0,v0,KSEG1
+	sw	t2,0(t0)
+	li	t0,KSEG1
 	lw	t1,0(t0)
 	beq	t1,t2,done
 	nop
@@ -720,7 +759,7 @@ bad_mem:
 	 *	t3:	memc rd ncdl value
 	 *	t4:	memc g ncdl value
 	 *
-	 * Uses a1, t7, t8, t9 (here and by calling sb_core_reset)
+	 * Uses a1, a2, t7, t8, t9 (here and by calling sb_core_reset)
 	 */
 ddr_do_init:
 
@@ -732,6 +771,8 @@ ddr_do_init:
 
 	li	a1,MEMC_CONFIG_INIT
 	or	a1,a1,t0
+	lui	a2, 0x8			# set DQMGate for memc rev 4 or more
+	or	a1, a1, a2
 	sw	a1,MEMC_CONFIG(a0)
 
 	li	a1,MEMC_DRAMTIM25_INIT	# Assume CAS latency of 2.5
@@ -742,7 +783,48 @@ ddr_do_init:
 1:	
 	sw	a1,MEMC_DRAMTIM(a0)
 
-	andi	t8,t3,0xff
+#ifndef	BCM_ATE
+	li	t8,KSEG1ADDR(SB_ENUM_BASE)	# Get package options
+	lw	a1,CC_CHIPID(t8)		# Get chipid
+	li	t9,CID_PKG_MASK			# Check package options
+	and	a1,a1,t9
+	srl	a1,a1,CID_PKG_SHIFT
+	addi	t8,SBCONFIGOFF			# Get corerev for chipcommon
+	lw	a2,SBIDHIGH(t8)
+	li	t8,SBIDH_RCE_MASK
+	and	t8,t8,a2
+	srl	t8,SBIDH_RCE_SHIFT
+	li	t9,SBIDH_RC_MASK
+	and	t9,t9,a2
+	or	t8,t8,t9
+	bge	t8,10,1f			# If ccrev is >= 10 use 4bit pkg opt
+	nop
+	ori	a1,8				#  else add a bit to the 3bit field
+1:
+	beq	a1,HDLSIM_PKG_ID,hdlsim		# Special case for hdl sim:
+	nop
+
+	li	t8,KSEG1ADDR(SB_ENUM_BASE)	# Get chipid again
+	lw	a2,CC_CHIPID(t8)
+	li	t9,BCM5350_CHIP_ID		# 5350 ChipID
+	li	t8,CID_ID_MASK
+	and	t8,t8,a2
+	bne	t8,t9,notsim			# if not 5350keep going
+	nop
+
+	bne	a1,(8 | HDLSIM5350_PKG_ID),notsim	# If 5350, is it (3/4-bit) vsim?
+	nop
+#endif	/* !BCM_ATE */
+
+hdlsim:
+	li	a1,MEMC_RDNCDLCOR_SIMINIT	#  Fixed 0xf6 rdncdl and no inits
+	sw	a1,MEMC_RDNCDLCOR(a0)		#  of wrncdl, dqsgate and miscdly.
+
+#ifndef	BCM_ATE
+	b	simskip
+	nop
+
+notsim:	andi	t8,t3,0xff
 	sll	a1,t8,8			# Replicate rd ncdl 4 times
 	or	a1,a1,t8
 	sll	t8,a1,16
@@ -773,7 +855,9 @@ ddr_do_init:
 	li	a1,MEMC_MISCDLYCTL_INIT
 2:
 	sw	a1,MEMC_MISCDLYCTL(a0)
+#endif	/* !BCM_ATE */
 
+simskip:
 	li	a1,MEMC_NCDLCTL_INIT
 	sw	a1,MEMC_NCDLCTL(a0)
 

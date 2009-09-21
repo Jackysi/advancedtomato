@@ -1,1 +1,0 @@
-#define CONFIG_NEW_TIME_C 1

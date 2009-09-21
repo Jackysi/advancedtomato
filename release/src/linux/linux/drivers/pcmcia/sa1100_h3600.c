@@ -167,6 +167,12 @@ static int h3600_pcmcia_socket_suspend(int sock)
 		break;
 	}
 
+	/*
+	 * FIXME:  This doesn't fit well.  We don't have the mechanism in
+	 * the generic PCMCIA layer to deal with the idea of two sockets
+	 * on one bus.  We rely on the cs.c behaviour shutting down
+	 * socket 0 then socket 1.
+	 */
 	if (sock == 1) {
 		clr_h3600_egpio(IPAQ_EGPIO_OPT_ON);
 		clr_h3600_egpio(IPAQ_EGPIO_OPT_NVRAM_ON);

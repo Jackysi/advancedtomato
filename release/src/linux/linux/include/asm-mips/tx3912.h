@@ -1,7 +1,22 @@
-
+/*
+ *  include/asm-mips/tx3912.h
+ *
+ *  Copyright (C) 2001 Steven J. Hill (sjhill@realitydiluted.com)
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ *  Registers for TMPR3912/05 and PR31700 processors
+ */
 #ifndef _TX3912_H_
 #define _TX3912_H_
 
+/*****************************************************************************
+ *	Clock Subsystem                                                      *
+ *	---------------                                                      *
+ *	Chapter 6 in Philips PR31700 and Toshiba TMPR3905/12 User Manuals    *
+ *****************************************************************************/
 #define TX3912_CLK_CTRL					0x01c0
 
 /*
@@ -40,6 +55,11 @@
 #define TX3912_CLK_CTRL_ENUARTBCLK			0x00000001
 
 
+/*****************************************************************************
+ *	Interrupt Subsystem                                                  *
+ *	-------------------                                                  *
+ *	Chapter 8 in Philips PR31700 and Toshiba TMPR3905/12 User Manuals    *
+ *****************************************************************************/
 #define TX3912_INT1_CLEAR				0x0100
 #define TX3912_INT2_CLEAR				0x0104
 #define TX3912_INT3_CLEAR				0x0108
@@ -172,6 +192,12 @@
 #define TX3912_INT6_ENABLE_HIGH_PRIORITY		0x0000ffff
 
 
+/*****************************************************************************
+ *	Power Subsystem                                                      *
+ *	---------------                                                      *
+ *	Chapter 11 in Philips PR31700 User Manual                            *
+ *	Chapter 12 in Toshiba TMPR3905/12 User Manual                        *
+ *****************************************************************************/
 #define TX3912_POWER_CTRL				0x01c4
 
 /*
@@ -199,6 +225,12 @@
 #define TX3912_POWER_CTRL_VCCON				0x00000001
 
 
+/*****************************************************************************
+ *	Timer Subsystem                                                      *
+ *	---------------                                                      *
+ *	Chapter 14 in Philips PR31700 User Manual                            *
+ *	Chapter 15 in Toshiba TMPR3905/12 User Manual                        *
+ *****************************************************************************/
 #define TX3912_RTC_HIGH					0x0140
 #define TX3912_RTC_LOW					0x0144
 #define TX3912_RTC_ALARM_HIGH				0x0148
@@ -226,6 +258,12 @@
 #define TX3912_SYS_TIMER_VALUE				(1152000/HZ)
 
 
+/*****************************************************************************
+ *	UART Subsystem                                                       *
+ *	--------------                                                       *
+ *	Chapter 15 in Philips PR31700 User Manual                            *
+ *	Chapter 16 in Toshiba TMPR3905/12 User Manual                        *
+ *****************************************************************************/
 #define TX3912_UARTA_CTRL1				0x00b0
 #define TX3912_UARTA_CTRL2				0x00b4
 #define TX3912_UARTA_DMA_CTRL1				0x00b8
@@ -280,6 +318,12 @@
 #define TX3912_UART_CTRL2_B600				0x017f	/* 383 */
 #define TX3912_UART_CTRL2_B300				0x02ff	/* 767 */
 
+/*****************************************************************************
+ *	Video Subsystem                                                      *
+ *	---------------                                                      *
+ *	Chapter 16 in Philips PR31700 User Manual                            *
+ *	Chapter 17 in Toshiba TMPR3905/12 User Manual                        *
+ *****************************************************************************/
 #define TX3912_VIDEO_CTRL1				0x0028
 #define TX3912_VIDEO_CTRL2				0x002c
 #define TX3912_VIDEO_CTRL3				0x0030

@@ -1,7 +1,4 @@
 /*
- * BK Id: %F% %I% %G% %U% %#%
- */
-/*
  * Procedures for interfacing to the Open Firmware PROM on
  * Power Macintosh computers.
  *
@@ -77,7 +74,7 @@ static unsigned long finish_node_interrupts(struct device_node *, unsigned long)
 extern void enter_rtas(void *);
 void phys_call_rtas(int, int, int, ...);
 
-extern char cmd_line[512];	
+extern char cmd_line[512];	/* XXX */
 extern boot_infos_t *boot_infos;
 unsigned long dev_tree_size;
 
@@ -506,6 +503,38 @@ prom_n_size_cells(struct device_node* np)
 }
 
 static unsigned long __init
+map_addr(struct device_node *np, unsigned long space, unsigned long addr)
+{
+	int na;
+	unsigned int *ranges;
+	int rlen = 0;
+	unsigned int type;
+
+	type = (space >> 24) & 3;
+	if (type == 0)
+		return addr;
+
+	while ((np = np->parent) != NULL) {
+		if (strcmp(np->type, "pci") != 0)
+			continue;
+		/* PCI bridge: map the address through the ranges property */
+		na = prom_n_addr_cells(np);
+		ranges = (unsigned int *) get_property(np, "ranges", &rlen);
+		while ((rlen -= (na + 5) * sizeof(unsigned int)) >= 0) {
+			if (((ranges[0] >> 24) & 3) == type
+			    && ranges[2] <= addr
+			    && addr - ranges[2] < ranges[na+4]) {
+				/* ok, this matches, translate it */
+				addr += ranges[na+2] - ranges[2];
+				break;
+			}
+			ranges += na + 5;
+		}
+	}
+	return addr;
+}
+
+static unsigned long __init
 interpret_pci_props(struct device_node *np, unsigned long mem_start,
 		    int naddrc, int nsizec)
 {
@@ -520,7 +549,8 @@ interpret_pci_props(struct device_node *np, unsigned long mem_start,
 		adr = (struct address_range *) mem_start;
 		while ((l -= sizeof(struct pci_reg_property)) >= 0) {
 			adr[i].space = pci_addrs[i].addr.a_hi;
-			adr[i].address = pci_addrs[i].addr.a_lo;
+			adr[i].address = map_addr(np, pci_addrs[i].addr.a_hi,
+						  pci_addrs[i].addr.a_lo);
 			adr[i].size = pci_addrs[i].size_lo;
 			++i;
 		}
@@ -757,8 +787,15 @@ prom_get_irq_senses(unsigned char *senses, int off, int max)
 	for (np = allnodes; np != 0; np = np->allnext) {
 		for (j = 0; j < np->n_intrs; j++) {
 			i = np->intrs[j].line;
-			if (i >= off && i < max)
-				senses[i-off] = np->intrs[j].sense;
+			if (i >= off && i < max) {
+				if (np->intrs[j].sense == 1) {
+					senses[i-off] = (IRQ_SENSE_LEVEL |
+							IRQ_POLARITY_NEGATIVE);
+				} else {
+					senses[i-off] = (IRQ_SENSE_EDGE |
+							IRQ_POLARITY_POSITIVE);
+				}
+			}
 		}
 	}
 }
@@ -963,8 +1000,8 @@ find_parent_pci_resource(struct pci_dev* pdev, struct address_range *range)
 {
 	unsigned long mask;
 	int i;
-	
-	/* Check this one */ 
+
+	/* Check this one */
 	mask = bus_space_to_resource_flags(range->space);
 	for (i=0; i<DEVICE_COUNT_RESOURCE; i++) {
 		if ((pdev->resource[i].flags & mask) == mask &&
@@ -1012,7 +1049,7 @@ request_OF_resource(struct device_node* node, int index, const char* name_postfi
 		parent = &ioport_resource;
 	else
 		goto fail;
-		
+
 	/* Find a PCI parent if any */
 	nd = node;
 	pcidev = NULL;
@@ -1067,7 +1104,7 @@ release_OF_resource(struct device_node* node, int index)
 		parent = &ioport_resource;
 	else
 		return -EINVAL;
-		
+
 	/* Find a PCI parent if any */
 	nd = node;
 	pcidev = NULL;
@@ -1106,6 +1143,57 @@ release_OF_resource(struct device_node* node, int index)
 	return 0;
 }
 
+#if 0
+void __openfirmware
+print_properties(struct device_node *np)
+{
+	struct property *pp;
+	char *cp;
+	int i, n;
+
+	for (pp = np->properties; pp != 0; pp = pp->next) {
+		printk(KERN_INFO "%s", pp->name);
+		for (i = strlen(pp->name); i < 16; ++i)
+			printk(" ");
+		cp = (char *) pp->value;
+		for (i = pp->length; i > 0; --i, ++cp)
+			if ((i > 1 && (*cp < 0x20 || *cp > 0x7e))
+			    || (i == 1 && *cp != 0))
+				break;
+		if (i == 0 && pp->length > 1) {
+			/* looks like a string */
+			printk(" %s\n", (char *) pp->value);
+		} else {
+			/* dump it in hex */
+			n = pp->length;
+			if (n > 64)
+				n = 64;
+			if (pp->length % 4 == 0) {
+				unsigned int *p = (unsigned int *) pp->value;
+
+				n /= 4;
+				for (i = 0; i < n; ++i) {
+					if (i != 0 && (i % 4) == 0)
+						printk("\n                ");
+					printk(" %08x", *p++);
+				}
+			} else {
+				unsigned char *bp = pp->value;
+
+				for (i = 0; i < n; ++i) {
+					if (i != 0 && (i % 16) == 0)
+						printk("\n                ");
+					printk(" %02x", *bp++);
+				}
+			}
+			printk("\n");
+			if (pp->length > 64)
+				printk("                 ... (length = %d)\n",
+				       pp->length);
+		}
+	}
+}
+#endif
 
 static spinlock_t rtas_lock = SPIN_LOCK_UNLOCKED;
 

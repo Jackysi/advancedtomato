@@ -14,6 +14,16 @@
 #include <asm/gdb-stub.h>
 
 /*
+ * [jsun] We reserves about 2x GDB_FR_SIZE in stack.  The lower (addressed)
+ * part is used to store registers and passed to exception handler.
+ * The upper part is reserved for "call func" feature where gdb client
+ * saves some of the regs, setups call frame and passes args.
+ *
+ * A trace shows about 200 bytes are used to store about half of all regs.
+ * The rest should be big enough for frame setup and passing args.
+ */
+
+/*
  * The low level trap handler
  */
 		.align 	5
@@ -38,7 +48,7 @@
 		nop
 1:
 		move	k0,sp
-		subu	sp,k1,GDB_FR_SIZE
+		subu	sp,k1,GDB_FR_SIZE*2	# see comment above
 		sw	k0,GDB_FR_REG29(sp)
 		sw	v0,GDB_FR_REG2(sp)
 
@@ -273,7 +283,7 @@
 		lw	v0,GDB_FR_HI(sp)
 		lw	v1,GDB_FR_LO(sp)
 		mthi	v0
-		mtlo	v0
+		mtlo	v1
 		lw	ra,GDB_FR_REG31(sp)
 		lw	fp,GDB_FR_REG30(sp)
 		lw	gp,GDB_FR_REG28(sp)

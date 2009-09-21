@@ -38,8 +38,13 @@
 #include <linux/netfilter_ipv4/ip_nat_helper.h>
 #include <linux/netfilter_ipv4/listhelp.h>
 
+#if 0
+#define DEBUGP printk
+#define DUMP_OFFSET(x)	printk("offset_before=%d, offset_after=%d, correction_pos=%u\n", x->offset_before, x->offset_after, x->correction_pos);
+#else
 #define DEBUGP(format, args...)
 #define DUMP_OFFSET(x)
+#endif
 
 DECLARE_LOCK(ip_nat_seqofs_lock);
 			 
@@ -108,6 +113,14 @@ ip_nat_resize_packet(struct sk_buff **skb,
 }
 
 
+/* Generic function for mangling variable-length address changes inside
+ * NATed TCP connections (like the PORT XXX,XXX,XXX,XXX,XXX,XXX
+ * command in FTP).
+ *
+ * Takes care about all the nasty sequence number changes, checksumming,
+ * skb enlargement, ...
+ *
+ * */
 int 
 ip_nat_mangle_tcp_packet(struct sk_buff **skb,
 			 struct ip_conntrack *ct,
@@ -182,16 +195,11 @@ ip_nat_mangle_tcp_packet(struct sk_buff **skb,
 		skb_trim(*skb, newlen);
 	}
 
-	/* fix checksum information */
-
 	iph->tot_len = htons(newlen);
-	(*skb)->csum = csum_partial((char *)tcph + tcph->doff*4,
-				    newtcplen - tcph->doff*4, 0);
-
+	/* fix checksum information */
 	tcph->check = 0;
 	tcph->check = tcp_v4_check(tcph, newtcplen, iph->saddr, iph->daddr,
-				   csum_partial((char *)tcph, tcph->doff*4,
-					   (*skb)->csum));
+				   csum_partial((char *)tcph, newtcplen, 0));
 	ip_send_check(iph);
 
 	return 1;
@@ -356,8 +364,8 @@ sack_adjust(struct tcphdr *tcph,
 /* TCP SACK sequence number adjustment. */
 static inline void
 ip_nat_sack_adjust(struct sk_buff *skb,
-			struct ip_conntrack *ct,
-			enum ip_conntrack_info ctinfo)
+		   struct ip_conntrack *ct,
+		   enum ip_conntrack_info ctinfo)
 {
 	struct tcphdr *tcph;
 	unsigned char *ptr, *optend;
@@ -475,9 +483,9 @@ int ip_nat_helper_register(struct ip_nat_helper *me)
 			const char *tmp = me->me->name;
 			
 			if (strlen(tmp) + 6 > MODULE_MAX_NAMELEN) {
-				printk(__FUNCTION__ ": unable to "
+				printk("%s: unable to "
 				       "compute conntrack helper name "
-				       "from %s\n", tmp);
+				       "from %s\n", __FUNCTION__, tmp);
 				return -EBUSY;
 			}
 			tmp += 6;
@@ -512,15 +520,9 @@ int ip_nat_helper_register(struct ip_nat_helper *me)
 }
 
 static int
-kill_helper(const struct ip_conntrack *i, void *helper)
+kill_helper(struct ip_conntrack *i, void *helper)
 {
-	int ret;
-
-	READ_LOCK(&ip_nat_lock);
-	ret = (i->nat.info.helper == helper);
-	READ_UNLOCK(&ip_nat_lock);
-
-	return ret;
+	return (i->nat.info.helper == helper);
 }
 
 void ip_nat_helper_unregister(struct ip_nat_helper *me)
@@ -546,7 +548,7 @@ void ip_nat_helper_unregister(struct ip_nat_helper *me)
 	   forces admins to gen fake RSTs or bounce box, either of
 	   which is just a long-winded way of making things
 	   worse. --RR */
-	ip_ct_selective_cleanup(kill_helper, me);
+	ip_ct_iterate_cleanup(kill_helper, me);
 
 	if (found)
 		MOD_DEC_USE_COUNT;
@@ -560,7 +562,8 @@ void ip_nat_helper_unregister(struct ip_nat_helper *me)
 		    && ct_helper->me) {
 			__MOD_DEC_USE_COUNT(ct_helper->me);
 		} else 
-			printk(__FUNCTION__ ": unable to decrement usage count"
-			       " of conntrack helper %s\n", me->me->name);
+			printk("%s: unable to decrement usage count"
+			       " of conntrack helper %s\n",
+			       __FUNCTION__, me->me->name);
 	}
 }

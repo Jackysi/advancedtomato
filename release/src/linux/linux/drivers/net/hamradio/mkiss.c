@@ -330,6 +330,12 @@ static void ax_bump(struct ax_disp *ax)
 				return;
 			}
 			ax->rcount -= 2;
+                        /* dl9sau bugfix: the trailling two bytes flexnet crc
+                         * will not be passed to the kernel. thus we have
+                         * to correct the kissparm signature, because it
+                         * indicates a crc but there's none
+			 */
+                        *ax->rbuff &= ~0x20;
 		}
  	}
 
@@ -648,8 +654,7 @@ static int ax25_open(struct tty_struct *tty)
 
 	if (tty->driver.flush_buffer)
 		tty->driver.flush_buffer(tty);
-	if (tty->ldisc.flush_buffer)
-		tty->ldisc.flush_buffer(tty);
+	tty_ldisc_flush(tty);
 
 	/* Restore default settings */
 	ax->dev->type = ARPHRD_AX25;

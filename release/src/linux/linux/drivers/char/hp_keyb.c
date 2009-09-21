@@ -484,6 +484,12 @@ void handle_at_scancode(int keyval)
 			esc1 = 3;	/* e1-xx-xx are 3 chars */
 			scancode = keyval;
 			break;
+#if 0
+		case KBD_RESEND :
+			/* dunno what to do when it happens. RFC */
+			printk(KERN_INFO "keyboard: KBD_RESEND received.\n");
+			return;
+#endif
 		case 0x14 : 
 			/* translate e1-14-77-e1-f0-14-f0-77 to 
 			   e1-1d-45-e1-9d-c5 (the Pause key) */

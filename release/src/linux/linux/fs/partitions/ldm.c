@@ -370,7 +370,7 @@ static BOOL ldm_validate_privheads (struct block_device *bdev,
 			if (i < 2)
 				goto out;	/* Already logged */
 			else
-				break;	
+				break;	/* FIXME ignore for now, 3rd PH can fail on odd-sized disks */
 		}
 	}
 
@@ -394,6 +394,11 @@ static BOOL ldm_validate_privheads (struct block_device *bdev,
 		ldm_crit ("Primary and backup PRIVHEADs don't match.");
 		goto out;
 	}
+	/* FIXME ignore this for now
+	if (!ldm_compare_privheads (ph[0], ph[2])) {
+		ldm_crit ("Primary and backup PRIVHEADs don't match.");
+		goto out;
+	}*/
 	ldm_debug ("Validated PRIVHEADs successfully.");
 	result = TRUE;
 out:
@@ -521,6 +526,7 @@ static BOOL ldm_validate_vmdb (struct block_device *bdev, unsigned long base,
 	if (vm->vblk_offset != 512)
 		ldm_info ("VBLKs start at offset 0x%04x.", vm->vblk_offset);
 
+	/* FIXME: How should we handle this situation? */
 	if ((vm->vblk_size * vm->last_vblk_seq) != (toc->bitmap1_size << 9))
 		ldm_info ("VMDB and TOCBLOCK don't agree on the database size.");
 
@@ -1217,8 +1223,10 @@ static BOOL ldm_ldmdb_add (u8 *data, int len, struct ldmdb *ldb)
 		return FALSE;
 	}
 
-	if (!ldm_parse_vblk (data, len, vb))
+	if (!ldm_parse_vblk (data, len, vb)) {
+		kfree(vb);
 		return FALSE;			/* Already logged */
+	}
 
 	/* Put vblk into the correct list. */
 	switch (vb->type) {

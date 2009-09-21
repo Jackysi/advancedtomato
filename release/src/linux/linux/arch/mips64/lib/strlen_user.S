@@ -23,18 +23,18 @@
  * Return 0 for error
  */
 LEAF(__strlen_user_asm)
-	ld	v0, THREAD_CURDS($28)			# pointer ok?
-	and	v0, a0
-	bnez	v0, fault
+	LONG_L		v0, THREAD_CURDS($28)	# pointer ok?
+	and		v0, a0
+	bnez		v0, fault
 
 FEXPORT(__strlen_user_nocheck_asm)
-	move	v0, a0
-1:	EX(lb, ta0, (v0), fault)
-	daddiu	v0, 1
-	bnez	ta0, 1b
-	dsubu	v0, a0
-	jr	ra
+	move		v0, a0
+1:	EX(lb, t0, (v0), fault)
+	PTR_ADDIU	v0, 1
+	bnez		t0, 1b
+	PTR_SUBU	v0, a0
+	jr		ra
 	END(__strlen_user_asm)
 
-fault:	move	v0, zero
-	jr	ra
+fault:	move		v0, zero
+	jr		ra

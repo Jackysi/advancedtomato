@@ -49,8 +49,10 @@
 #include "hosts.h"
 #include "mesh.h"
 
+#if 1
 #undef KERN_DEBUG
 #define KERN_DEBUG KERN_WARNING
+#endif
 
 MODULE_AUTHOR("Paul Mackerras (paulus@samba.org)");
 MODULE_DESCRIPTION("PowerMac MESH SCSI driver");
@@ -419,6 +421,9 @@ mesh_notify_sleep(struct pmu_sleep_notifier *self, int when)
 	
 	switch (when) {
 	case PBOOK_SLEEP_REQUEST:
+		/* XXX We should wait for current transactions and queue
+		 * new ones that would be posted beyond this point 
+		 */ 
 		break;
 	case PBOOK_SLEEP_REJECT:
 		break;
@@ -690,6 +695,7 @@ mesh_start_cmd(struct mesh_state *ms, Scsi_Cmnd *cmd)
 	ms->tgts[cmd->target].data_goes_out = data_goes_out(cmd);
 	ms->tgts[cmd->target].current_req = cmd;
 
+#if 1
 	if (DEBUG_TARGET(cmd)) {
 		int i;
 		printk(KERN_DEBUG "mesh_start: %p ser=%lu tgt=%d cmd=",
@@ -699,6 +705,7 @@ mesh_start_cmd(struct mesh_state *ms, Scsi_Cmnd *cmd)
 		printk(" use_sg=%d buffer=%p bufflen=%u\n",
 		       cmd->use_sg, cmd->request_buffer, cmd->request_bufflen);
 	}
+#endif
 	if (ms->dma_started)
 		panic("mesh: double DMA start !\n");
 
@@ -747,6 +754,7 @@ mesh_start_cmd(struct mesh_state *ms, Scsi_Cmnd *cmd)
 			udelay(1);
 		}
 		if (mr->bus_status1 & (BS1_BSY | BS1_SEL)) {
+			/* XXX should try again in a little while */
 			ms->stat = DID_BUS_BUSY;
 			ms->phase = idle;
 			mesh_done(ms, 0);
@@ -1616,6 +1624,13 @@ mesh_interrupt(int irq, void *dev_id, struct pt_regs *ptregs)
 	volatile struct mesh_regs *mr = ms->mesh;
 	int intr;
 
+#if 0
+	if (ALLOW_DEBUG(ms->conn_tgt))
+		printk(KERN_DEBUG "mesh_intr, bs0=%x int=%x exc=%x err=%x "
+		       "phase=%d msgphase=%d\n", mr->bus_status0,
+		       mr->interrupt, mr->exception, mr->error,
+		       ms->phase, ms->msgphase);
+#endif
 	while ((intr = in_8(&mr->interrupt)) != 0) {
 		dlog(ms, "interrupt intr/err/exc/seq=%.8x", 
 		     MKWORD(intr, mr->error, mr->exception, mr->sequence));
@@ -1816,6 +1831,7 @@ set_dma_cmds(struct mesh_state *ms, Scsi_Cmnd *cmd)
 			if (dtot > 0xffff)
 				panic("mesh: transfer size >= 64k");
 			st_le16(&dcmds->req_count, dtot);
+			/* XXX Use pci DMA API here ... */
 			st_le32(&dcmds->phy_addr,
 				virt_to_phys(cmd->request_buffer) + ms->data_ptr);
 			dcmds->xfer_status = 0;

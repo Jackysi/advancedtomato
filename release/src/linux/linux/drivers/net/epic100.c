@@ -69,10 +69,9 @@
 
 */
 
-#define DRV_NAME	"epic100"
-#define DRV_VERSION	"1.11+LK1.1.14"
-#define DRV_RELDATE	"Aug 4, 2002"
-
+#define DRV_NAME        "epic100"
+#define DRV_VERSION     "1.11+LK1.1.14"
+#define DRV_RELDATE     "Aug 4, 2002"
 
 /* The user-configurable values.
    These may be modified when a driver module is loaded.*/
@@ -243,7 +242,7 @@ static struct epic_chip_info pci_id_tbl[] = {
 };
 
 
-static struct pci_device_id epic_pci_tbl[] __devinitdata = {
+static struct pci_device_id epic_pci_tbl[] = {
 	{ 0x10B8, 0x0005, 0x1092, 0x0AB4, 0, 0, SMSC_83C170_0 },
 	{ 0x10B8, 0x0005, PCI_ANY_ID, PCI_ANY_ID, 0, 0, SMSC_83C170 },
 	{ 0x10B8, 0x0006, PCI_ANY_ID, PCI_ANY_ID,
@@ -361,8 +360,9 @@ static void epic_tx_timeout(struct net_device *dev);
 static void epic_init_ring(struct net_device *dev);
 static int epic_start_xmit(struct sk_buff *skb, struct net_device *dev);
 static int epic_rx(struct net_device *dev);
-static void epic_interrupt(int irq, void *dev_instance, struct pt_regs *regs);
+static irqreturn_t epic_interrupt(int irq, void *dev_instance, struct pt_regs *regs);
 static int netdev_ioctl(struct net_device *dev, struct ifreq *rq, int cmd);
+static struct ethtool_ops netdev_ethtool_ops;
 static int epic_close(struct net_device *dev);
 static struct net_device_stats *epic_get_stats(struct net_device *dev);
 static void set_rx_mode(struct net_device *dev);
@@ -479,7 +479,7 @@ static int __devinit epic_init_one (struct pci_dev *pdev,
 
 	if (debug > 2) {
 		printk(KERN_DEBUG DRV_NAME "(%s): EEPROM contents\n",
-		       pdev->slot_name);
+		       pci_name(pdev));
 		for (i = 0; i < 64; i++)
 			printk(" %4.4x%s", read_eeprom(ioaddr, i),
 				   i % 16 == 15 ? "\n" : "");
@@ -500,7 +500,7 @@ static int __devinit epic_init_one (struct pci_dev *pdev,
 				ep->phys[phy_idx++] = phy;
 				printk(KERN_INFO DRV_NAME "(%s): MII transceiver #%d control "
 					   "%4.4x status %4.4x.\n",
-					   pdev->slot_name, phy, mdio_read(dev, phy, 0), mii_status);
+					   pci_name(pdev), phy, mdio_read(dev, phy, 0), mii_status);
 			}
 		}
 		ep->mii_phy_cnt = phy_idx;
@@ -509,10 +509,10 @@ static int __devinit epic_init_one (struct pci_dev *pdev,
 			ep->mii.advertising = mdio_read(dev, phy, MII_ADVERTISE);
 			printk(KERN_INFO DRV_NAME "(%s): Autonegotiation advertising %4.4x link "
 				   "partner %4.4x.\n",
-				   pdev->slot_name, ep->mii.advertising, mdio_read(dev, phy, 5));
+				   pci_name(pdev), ep->mii.advertising, mdio_read(dev, phy, 5));
 		} else if ( ! (ep->chip_flags & NO_MII)) {
 			printk(KERN_WARNING DRV_NAME "(%s): ***WARNING***: No MII transceiver found!\n",
-			       pdev->slot_name);
+			       pci_name(pdev));
 			/* Use the known PHY address of the EPII. */
 			ep->phys[0] = 3;
 		}
@@ -528,7 +528,7 @@ static int __devinit epic_init_one (struct pci_dev *pdev,
 	if (duplex) {
 		ep->mii.force_media = ep->mii.full_duplex = 1;
 		printk(KERN_INFO DRV_NAME "(%s):  Forced full duplex operation requested.\n",
-		       pdev->slot_name);
+		       pci_name(pdev));
 	}
 	dev->if_port = ep->default_port = option;
 
@@ -539,6 +539,7 @@ static int __devinit epic_init_one (struct pci_dev *pdev,
 	dev->get_stats = &epic_get_stats;
 	dev->set_multicast_list = &set_rx_mode;
 	dev->do_ioctl = &netdev_ioctl;
+	dev->ethtool_ops = &netdev_ethtool_ops;
 	dev->watchdog_timeo = TX_TIMEOUT;
 	dev->tx_timeout = &epic_tx_timeout;
 
@@ -690,10 +691,13 @@ static int epic_open(struct net_device *dev)
 	   required by the details of which bits are reset and the transceiver
 	   wiring on the Ositech CardBus card.
 	*/
+#if 0
+	outl(dev->if_port == 1 ? 0x13 : 0x12, ioaddr + MIICfg);
+#endif
 	if (ep->chip_flags & MII_PWRDWN)
 		outl((inl(ioaddr + NVCTL) & ~0x003C) | 0x4800, ioaddr + NVCTL);
 
-#if defined(__powerpc__) || defined(__sparc__)		    /* Big endian */
+#if defined(__powerpc__) || defined(__sparc__)		/* Big endian */
 	outl(0x4432 | (RX_FIFO_THRESH<<8), ioaddr + GENCTL);
 	inl(ioaddr + GENCTL);
 	outl(0x0432 | (RX_FIFO_THRESH<<8), ioaddr + GENCTL);
@@ -703,7 +707,7 @@ static int epic_open(struct net_device *dev)
 	outl(0x0412 | (RX_FIFO_THRESH<<8), ioaddr + GENCTL);
 #endif
 
-	udelay(20); 
+	udelay(20); /* Looks like EPII needs that if you want reliable RX init. FIXME: pci posting bug? */
 	
 	for (i = 0; i < 3; i++)
 		outl(cpu_to_le16(((u16*)dev->dev_addr)[i]), ioaddr + LAN0 + i*4);
@@ -810,7 +814,7 @@ static void epic_restart(struct net_device *dev)
 	for (i = 16; i > 0; i--)
 		outl(0x0008, ioaddr + TEST1);
 
-#if defined(__powerpc__) || defined(__sparc__)		    /* Big endian */
+#if defined(__powerpc__) || defined(__sparc__)		/* Big endian */
 	outl(0x0432 | (RX_FIFO_THRESH<<8), ioaddr + GENCTL);
 #else
 	outl(0x0412 | (RX_FIFO_THRESH<<8), ioaddr + GENCTL);
@@ -971,7 +975,13 @@ static int epic_start_xmit(struct sk_buff *skb, struct net_device *dev)
 	struct epic_private *ep = dev->priv;
 	int entry, free_count;
 	u32 ctrl_word;
-	long flags;
+	unsigned long flags;
+	
+	if (skb->len < ETH_ZLEN) {
+		skb = skb_padto(skb, ETH_ZLEN);
+		if (skb == NULL)
+			return 0;
+	}
 
 	/* Caution: the write order is important here, set the field with the
 	   "ownership" bit last. */
@@ -1020,12 +1030,13 @@ static int epic_start_xmit(struct sk_buff *skb, struct net_device *dev)
 
 /* The interrupt handler does all of the Rx thread work and cleans up
    after the Tx thread. */
-static void epic_interrupt(int irq, void *dev_instance, struct pt_regs *regs)
+static irqreturn_t epic_interrupt(int irq, void *dev_instance, struct pt_regs *regs)
 {
 	struct net_device *dev = dev_instance;
 	struct epic_private *ep = dev->priv;
 	long ioaddr = dev->base_addr;
 	int status, boguscnt = max_interrupt_work;
+	unsigned int handled = 0;
 
 	do {
 		status = inl(ioaddr + INTSTAT);
@@ -1039,6 +1050,7 @@ static void epic_interrupt(int irq, void *dev_instance, struct pt_regs *regs)
 
 		if ((status & IntrSummary) == 0)
 			break;
+		handled = 1;
 
 		if (status & (RxDone | RxStarted | RxEarlyWarn | RxOverflow))
 			epic_rx(dev);
@@ -1148,7 +1160,7 @@ static void epic_interrupt(int irq, void *dev_instance, struct pt_regs *regs)
 		printk(KERN_DEBUG "%s: exiting interrupt, intr_status=%#4.4x.\n",
 			   dev->name, status);
 
-	return;
+	return IRQ_RETVAL(handled);
 }
 
 static int epic_rx(struct net_device *dev)
@@ -1200,8 +1212,13 @@ static int epic_rx(struct net_device *dev)
 				&& (skb = dev_alloc_skb(pkt_len + 2)) != NULL) {
 				skb->dev = dev;
 				skb_reserve(skb, 2);	/* 16 byte align the IP header */
+#if 1 /* HAS_IP_COPYSUM */
 				eth_copy_and_sum(skb, ep->rx_skbuff[entry]->tail, pkt_len, 0);
 				skb_put(skb, pkt_len);
+#else
+				memcpy(skb_put(skb, pkt_len), ep->rx_skbuff[entry]->tail,
+					   pkt_len);
+#endif
 			} else {
 				pci_unmap_single(ep->pci_dev, 
 					ep->rx_ring[entry].bufaddr, 
@@ -1330,9 +1347,11 @@ static void set_rx_mode(struct net_device *dev)
 
 		memset(mc_filter, 0, sizeof(mc_filter));
 		for (i = 0, mclist = dev->mc_list; mclist && i < dev->mc_count;
-			 i++, mclist = mclist->next)
-			set_bit(ether_crc_le(ETH_ALEN, mclist->dmi_addr) & 0x3f,
-					mc_filter);
+			 i++, mclist = mclist->next) {
+			unsigned int bit_nr =
+				ether_crc_le(ETH_ALEN, mclist->dmi_addr) & 0x3f;
+			mc_filter[bit_nr >> 3] |= (1 << bit_nr);
+		}
 	}
 	/* ToDo: perhaps we need to stop the Tx and Rx process here? */
 	if (memcmp(mc_filter, ep->mc_filter, sizeof(mc_filter))) {
@@ -1343,81 +1362,72 @@ static void set_rx_mode(struct net_device *dev)
 	return;
 }
 
-static int netdev_ethtool_ioctl (struct net_device *dev, void *useraddr)
+static void netdev_get_drvinfo (struct net_device *dev, struct ethtool_drvinfo *info)
 {
 	struct epic_private *np = dev->priv;
-	u32 ethcmd;
 
-	if (copy_from_user (&ethcmd, useraddr, sizeof (ethcmd)))
-		return -EFAULT;
-
-	switch (ethcmd) {
-	case ETHTOOL_GDRVINFO: {
-		struct ethtool_drvinfo info = { ETHTOOL_GDRVINFO };
-		strcpy (info.driver, DRV_NAME);
-		strcpy (info.version, DRV_VERSION);
-		strcpy (info.bus_info, np->pci_dev->slot_name);
-		if (copy_to_user (useraddr, &info, sizeof (info)))
-			return -EFAULT;
-		return 0;
-	}
-
-	/* get settings */
-	case ETHTOOL_GSET: {
-		struct ethtool_cmd ecmd = { ETHTOOL_GSET };
-		spin_lock_irq(&np->lock);
-		mii_ethtool_gset(&np->mii, &ecmd);
-		spin_unlock_irq(&np->lock);
-		if (copy_to_user(useraddr, &ecmd, sizeof(ecmd)))
-			return -EFAULT;
-		return 0;
-	}
-	/* set settings */
-	case ETHTOOL_SSET: {
-		int r;
-		struct ethtool_cmd ecmd;
-		if (copy_from_user(&ecmd, useraddr, sizeof(ecmd)))
-			return -EFAULT;
-		spin_lock_irq(&np->lock);
-		r = mii_ethtool_sset(&np->mii, &ecmd);
-		spin_unlock_irq(&np->lock);
-		return r;
-	}
-	/* restart autonegotiation */
-	case ETHTOOL_NWAY_RST: {
-		return mii_nway_restart(&np->mii);
-	}
-	/* get link status */
-	case ETHTOOL_GLINK: {
-		struct ethtool_value edata = {ETHTOOL_GLINK};
-		edata.data = mii_link_ok(&np->mii);
-		if (copy_to_user(useraddr, &edata, sizeof(edata)))
-			return -EFAULT;
-		return 0;
-	}
-
-	/* get message-level */
-	case ETHTOOL_GMSGLVL: {
-		struct ethtool_value edata = {ETHTOOL_GMSGLVL};
-		edata.data = debug;
-		if (copy_to_user(useraddr, &edata, sizeof(edata)))
-			return -EFAULT;
-		return 0;
-	}
-	/* set message-level */
-	case ETHTOOL_SMSGLVL: {
-		struct ethtool_value edata;
-		if (copy_from_user(&edata, useraddr, sizeof(edata)))
-			return -EFAULT;
-		debug = edata.data;
-		return 0;
-	}
-	default:
-		break;
-	}
-
-	return -EOPNOTSUPP;
+	strcpy (info->driver, DRV_NAME);
+	strcpy (info->version, DRV_VERSION);
+	strcpy (info->bus_info, pci_name(np->pci_dev));
 }
+
+static int netdev_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+{
+	struct epic_private *np = dev->priv;
+	int rc;
+
+	spin_lock_irq(&np->lock);
+	rc = mii_ethtool_gset(&np->mii, cmd);
+	spin_unlock_irq(&np->lock);
+
+	return rc;
+}
+
+static int netdev_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+{
+	struct epic_private *np = dev->priv;
+	int rc;
+
+	spin_lock_irq(&np->lock);
+	rc = mii_ethtool_sset(&np->mii, cmd);
+	spin_unlock_irq(&np->lock);
+
+	return rc;
+}
+
+static int netdev_nway_reset(struct net_device *dev)
+{
+	struct epic_private *np = dev->priv;
+	return mii_nway_restart(&np->mii);
+}
+
+static u32 netdev_get_link(struct net_device *dev)
+{
+	struct epic_private *np = dev->priv;
+	return mii_link_ok(&np->mii);
+}
+
+static u32 netdev_get_msglevel(struct net_device *dev)
+{
+	return debug;
+}
+
+static void netdev_set_msglevel(struct net_device *dev, u32 value)
+{
+	debug = value;
+}
+
+static struct ethtool_ops netdev_ethtool_ops = {
+	.get_drvinfo		= netdev_get_drvinfo,
+	.get_settings		= netdev_get_settings,
+	.set_settings		= netdev_set_settings,
+	.nway_reset		= netdev_nway_reset,
+	.get_link		= netdev_get_link,
+	.get_msglevel		= netdev_get_msglevel,
+	.set_msglevel		= netdev_set_msglevel,
+	.get_sg			= ethtool_op_get_sg,
+	.get_tx_csum		= ethtool_op_get_tx_csum,
+};
 
 static int netdev_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
 {
@@ -1432,16 +1442,10 @@ static int netdev_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
 		outl((inl(ioaddr + NVCTL) & ~0x003C) | 0x4800, ioaddr + NVCTL);
 	}
 
-	/* ethtool commands */
-	if (cmd == SIOCETHTOOL)
-		rc = netdev_ethtool_ioctl(dev, (void *) rq->ifr_data);
-
-	/* all other ioctls (the SIOC[GS]MIIxxx ioctls) */
-	else {
-		spin_lock_irq(&np->lock);
-		rc = generic_mii_ioctl(&np->mii, data, cmd, NULL);
-		spin_unlock_irq(&np->lock);
-	}
+	/* all non-ethtool ioctls (the SIOC[GS]MIIxxx ioctls) */
+	spin_lock_irq(&np->lock);
+	rc = generic_mii_ioctl(&np->mii, data, cmd, NULL);
+	spin_unlock_irq(&np->lock);
 
 	/* power-down, if interface is down */
 	if (! netif_running(dev)) {
@@ -1502,13 +1506,13 @@ static int epic_resume (struct pci_dev *pdev)
 
 
 static struct pci_driver epic_driver = {
-	name:		DRV_NAME,
-	id_table:	epic_pci_tbl,
-	probe:		epic_init_one,
-	remove:		__devexit_p(epic_remove_one),
+	.name		= DRV_NAME,
+	.id_table	= epic_pci_tbl,
+	.probe		= epic_init_one,
+	.remove		= __devexit_p(epic_remove_one),
 #ifdef CONFIG_PM
-	suspend:	epic_suspend,
-	resume:		epic_resume,
+	.suspend	= epic_suspend,
+	.resume		= epic_resume,
 #endif /* CONFIG_PM */
 };
 

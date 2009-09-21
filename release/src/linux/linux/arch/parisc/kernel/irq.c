@@ -57,7 +57,7 @@ extern void ipi_interrupt(int, void *, struct pt_regs *);
 /* Bits in EIEM correlate with cpu_irq_action[].
 ** Numbered *Big Endian*! (ie bit 0 is MSB)
 */
-static unsigned long cpu_eiem = 0;
+static volatile unsigned long cpu_eiem = 0;
 
 static spinlock_t irq_lock = SPIN_LOCK_UNLOCKED;  /* protect IRQ regions */
 
@@ -104,6 +104,13 @@ static inline void unmask_cpu_irq(void *unused, int irq)
 	set_eiem(cpu_eiem);
 }
 
+/*
+ * XXX cpu_irq_actions[] will become 2 dimensional for per CPU EIR support.
+ * correspond changes needed in:
+ * 	processor_probe()	initialize additional action arrays
+ * 	request_irq()		handle CPU IRQ region specially
+ * 	do_cpu_irq_mask()	index into the matching irq_action array.
+ */
 struct irqaction cpu_irq_actions[IRQ_PER_REGION] = {
 	[IRQ_OFFSET(TIMER_IRQ)] { handler: timer_interrupt, name: "timer", },
 #ifdef CONFIG_SMP
@@ -194,7 +201,7 @@ int get_irq_list(char *buf)
 {
 #ifdef CONFIG_PROC_FS
 	char *p = buf;
-	unsigned int regnr;
+	unsigned int regnr = 0;
 
 	p += sprintf(p, "     ");
 #ifdef CONFIG_SMP
@@ -360,6 +367,11 @@ txn_alloc_addr(int virt_irq)
 unsigned int
 txn_alloc_data(int virt_irq, unsigned int bits_wide)
 {
+	/* XXX FIXME : bits_wide indicates how wide the transaction
+	** data is allowed to be...we may need a different virt_irq
+	** if this one won't work. Another reason to index virtual
+	** irq's into a table which can manage CPU/IRQ bit seperately.
+	*/
 	if (IRQ_OFFSET(virt_irq) > (1 << (bits_wide -1)))
 	{
 		panic("Sorry -- didn't allocate valid IRQ for this device\n");
@@ -450,7 +462,7 @@ void do_cpu_irq_mask(struct pt_regs *regs)
 
 		for (irq = 0; eirr_val && bit; bit>>=1, irq++)
 		{
-			if (!(bit&eirr_val))
+			if (!(bit&eirr_val&cpu_eiem))
 				continue;
 
 			/* clear bit in mask - can exit loop sooner */
@@ -569,6 +581,7 @@ struct irq_region *alloc_irq_region( int count, struct irq_region_ops *ops,
 	return irq_region[index];
 }
 
+/* FIXME: SMP, flags, bottom halves, rest */
 
 int request_irq(unsigned int irq,
 		void (*handler)(int, void *, struct pt_regs *),
@@ -578,6 +591,9 @@ int request_irq(unsigned int irq,
 {
 	struct irqaction * action;
 
+#if 0
+	printk(KERN_INFO "request_irq(%d, %p, 0x%lx, %s, %p)\n",irq, handler, irqflags, devname, dev_id);
+#endif
 
 	irq = irq_cannonicalize(irq);
 	/* request_irq()/free_irq() may not be called from interrupt context. */

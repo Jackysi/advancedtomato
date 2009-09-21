@@ -1,4 +1,4 @@
-/* $Id: errtbls.c,v 1.1.1.4 2003/10/14 08:07:48 sparq Exp $
+/* $Id: errtbls.c,v 1.2 1995/11/25 00:57:55 davem Exp $
  * errtbls.c: Error number conversion tables between various syscall
  *            OS semantics.
  *
@@ -107,7 +107,7 @@ int solaris_errno[] = {
 	SOL_ECOMM,
 	SOL_EPROTO,
 	SOL_EMULTIHOP,
-	SOL_EINVAL,    
+	SOL_EINVAL,    /* EDOTDOT XXX??? */
 	SOL_REMCHG,
 	SOL_NOSYS,
 	SOL_STRPIPE,
@@ -235,7 +235,7 @@ int netbsd_errno[] = {
 	BSD_ECOMM,
 	BSD_EPROTO,
 	BSD_EMULTIHOP,
-	BSD_EINVAL,    
+	BSD_EINVAL,    /* EDOTDOT XXX??? */
 	BSD_REMCHG,
 	BSD_NOSYS,
 	BSD_STRPIPE,

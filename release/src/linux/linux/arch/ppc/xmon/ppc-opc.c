@@ -1,6 +1,3 @@
-/*
- * BK Id: SCCS/s.ppc-opc.c 1.5 05/17/01 18:14:23 cort
- */
 /* ppc-opc.c -- PowerPC opcode list
    Copyright 1994 Free Software Foundation, Inc.
    Written by Ian Lance Taylor, Cygnus Support
@@ -396,7 +393,7 @@ const struct powerpc_operand powerpc_operands[] =
    same.  */
 
 /*ARGSUSED*/
-static unsigned long 
+static unsigned long
 insert_bat (insn, value, errmsg)
      unsigned long insn;
      long value;
@@ -872,7 +869,7 @@ insert_ras (insn, value, errmsg)
    extraction function just checks that the fields are the same.  */
 
 /*ARGSUSED*/
-static unsigned long 
+static unsigned long
 insert_rbs (insn, value, errmsg)
      unsigned long insn;
      long value;

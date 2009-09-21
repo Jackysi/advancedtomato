@@ -306,6 +306,7 @@ static int econet_sendmsg(struct socket *sock, struct msghdr *msg, int len,
 		
 		eb = (struct ec_cb *)&skb->cb;
 		
+		/* BUG: saddr may be NULL */
 		eb->cookie = saddr->cookie;
 		eb->sec = *saddr;
 		eb->sent = ec_tx_done;
@@ -926,6 +927,12 @@ static void aun_data_available(struct sock *sk, int slen)
 	case 4:
 		aun_tx_ack(ah->handle, ECTYPE_TRANSMIT_NOT_LISTENING);
 		break;
+#if 0
+		/* This isn't quite right yet. */
+	case 5:
+		aun_send_response(ip->saddr, ah->handle, 6, ah->cb);
+		break;
+#endif
 	default:
 		printk(KERN_DEBUG "unknown AUN packet (type %d)\n", data[0]);
 	}
@@ -1026,14 +1033,14 @@ static int econet_rcv(struct sk_buff *skb, struct net_device *dev, struct packet
 	if (! edev)
 	{
 		kfree_skb(skb);
-		return 0;
+		return NET_RX_DROP;
 	}
 
 	if (skb->len < sizeof(struct ec_framehdr))
 	{
 		/* Frame is too small to be any use */
 		kfree_skb(skb);
-		return 0;
+		return NET_RX_DROP;
 	}
 
 	/* First check for encapsulated IP */
@@ -1049,11 +1056,15 @@ static int econet_rcv(struct sk_buff *skb, struct net_device *dev, struct packet
 	if (!sk) 
 	{
 		kfree_skb(skb);
-		return 0;
+		return NET_RX_DROP;
 	}
 
-	return ec_queue_packet(sk, skb, edev->net, hdr->src_stn, hdr->cb, 
-			       hdr->port);
+	if (ec_queue_packet(sk, skb, edev->net, hdr->src_stn, hdr->cb, 
+			    hdr->port)) {
+		kfree_skb(skb);
+		return NET_RX_DROP;
+	}
+	return 0;
 }
 
 static struct packet_type econet_packet_type = {

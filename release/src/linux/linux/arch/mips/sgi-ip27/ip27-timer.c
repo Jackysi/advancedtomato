@@ -51,9 +51,8 @@ static int set_rtc_mmss(unsigned long nowtime)
 	struct m48t35_rtc *rtc;
 	nasid_t nid;
 
-	nid = get_nasid();
-	rtc = (struct m48t35_rtc *)(KL_CONFIG_CH_CONS_INFO(nid)->memory_base +
-							IOC3_BYTEBUS_DEV0);
+	rtc = (struct m48t35_rtc *)
+	(KL_CONFIG_CH_CONS_INFO(master_nasid)->memory_base + IOC3_BYTEBUS_DEV0);
 
 	spin_lock(&rtc_lock);
 	rtc->control |= M48T35_RTC_READ;
@@ -90,7 +89,7 @@ static int set_rtc_mmss(unsigned long nowtime)
 	return retval;
 }
 
-#define IP27_TIMER_IRQ	9			
+#define IP27_TIMER_IRQ	9			/* XXX Assign number */
 
 void rt_timer_interrupt(struct pt_regs *regs)
 {
@@ -198,7 +197,7 @@ static void ip27_timer_setup(struct irqaction *irq)
 	irq->handler = no_action;
 
 	/* setup irqaction */
-//	setup_irq(IP27_TIMER_IRQ, irq);		
+//	setup_irq(IP27_TIMER_IRQ, irq);		/* XXX Can't do this yet.  */
 }
 
 void __init ip27_time_init(void)

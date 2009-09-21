@@ -61,11 +61,19 @@ static inline int get_sr(int n)
 {
 	int ret;
 
+#if 0
+	// DRENG does not assemble 
+	asm (" mfsrin %0,%1" : "=r" (ret) : "r" (n << 28));
+#endif
 	return ret;
 }
 
 static inline void set_sr(int n, int val)
 {
+#if 0
+	// DRENG does not assemble 
+	asm ("mtsrin %0,%1" : : "r" (val), "r" (n << 28));
+#endif
 }
 
 static inline void store_inst(void *p)

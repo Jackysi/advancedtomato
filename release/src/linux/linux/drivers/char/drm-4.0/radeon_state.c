@@ -388,6 +388,9 @@ static inline void radeon_emit_state( drm_radeon_private_t *dev_priv )
 	}
 
 	if ( dirty & RADEON_UPLOAD_TEX2 ) {
+#if 0
+		radeon_emit_tex2( dev_priv );
+#endif
 		sarea_priv->dirty &= ~RADEON_UPLOAD_TEX2;
 	}
 
@@ -581,6 +584,9 @@ static void radeon_cp_dispatch_clear( drm_device_t *dev,
 				radeon_emit_state( dev_priv );
 			}
 
+			/* FIXME: Render a rectangle to clear the depth
+			 * buffer.  So much for those "fast Z clears"...
+			 */
 			BEGIN_RING( 23 );
 
 			RADEON_WAIT_UNTIL_2D_IDLE();
@@ -817,6 +823,7 @@ static void radeon_cp_dispatch_vertex( drm_device_t *dev,
 
 		buf->pending = 1;
 		buf->used = 0;
+		/* FIXME: Check dispatched field */
 		buf_priv->dispatched = 0;
 	}
 
@@ -877,6 +884,7 @@ static void radeon_cp_dispatch_indirect( drm_device_t *dev,
 
 		buf->pending = 1;
 		buf->used = 0;
+		/* FIXME: Check dispatched field */
 		buf_priv->dispatched = 0;
 	}
 
@@ -953,6 +961,7 @@ static void radeon_cp_dispatch_indices( drm_device_t *dev,
 		ADVANCE_RING();
 
 		buf->pending = 1;
+		/* FIXME: Check dispatched field */
 		buf_priv->dispatched = 0;
 	}
 

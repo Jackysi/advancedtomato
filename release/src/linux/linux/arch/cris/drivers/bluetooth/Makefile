@@ -1,19 +1,10 @@
-include $(APPS)/Rules.elinux
+include $(AXIS_TOP_DIR)/tools/build/Rules.axis
 
 all:
 
 install:	src/bluetooth.c include/btcommon.h
 	ln -sfn ../../arch/cris/drivers/bluetooth/include ../../../../include/linux/bluetooth
-	if ! grep arch/cris/drivers/bluetooth/src/Config.in ../Config.in; then \
-	  echo '' >> ../Config.in; \
-	  echo '# The following if statement was added by arch/cris/drivers/bluetooth/Makefile' >> ../Config.in; \
-	  echo 'if [ "$$CONFIG_ETRAX_SERIAL" = "y" ]; then' >> ../Config.in; \
-	  echo '  source arch/cris/drivers/bluetooth/src/Config.in' >> ../Config.in; \
-	  echo 'fi' >> ../Config.in; \
-	fi
-	if ! grep bluetooth/src/bt.o ../Makefile; then \
-	  perl -pi -e "s:include:\# The following two lines were added by arch/cris/drivers/bluetooth/Makefile\nobj-\\\$$(CONFIG_BLUETOOTH)                 += bluetooth/src/bt.o\nsubdir-\\\$$(CONFIG_BLUETOOTH)              += bluetooth/src\n\ninclude:" ../Makefile; \
-	fi
+	(cd .. && patch -N -r /tmp/bt.rej < bluetooth/bt.patch >/dev/null || true)
 
 clean:
 

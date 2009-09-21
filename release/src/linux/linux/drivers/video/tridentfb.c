@@ -586,6 +586,13 @@ static inline void write3CE(int reg, unsigned char val)
 }
 
 #define bios_reg(reg) 	write3CE(BiosReg, reg)
+#if 0
+static inline void unprotect_all(void)
+{
+	outb(Protection, 0x3C4);
+	outb(0x92, 0x3C5);
+}
+#endif
 static inline void enable_mmio(void)
 {
 	/* Goto New Mode */

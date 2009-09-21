@@ -1,4 +1,4 @@
-/* $Id: b1.c,v 1.1.1.4 2003/10/14 08:08:11 sparq Exp $
+/* $Id: b1.c,v 1.1.4.1 2001/11/20 14:19:34 kai Exp $
  * 
  * Common module for AVM B1 cards.
  * 
@@ -27,7 +27,7 @@
 #include "capicmd.h"
 #include "capiutil.h"
 
-static char *revision = "$Revision: 1.1.1.4 $";
+static char *revision = "$Revision: 1.1.4.1 $";
 
 /* ------------------------------------------------------------- */
 

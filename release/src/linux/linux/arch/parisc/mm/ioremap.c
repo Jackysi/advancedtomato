@@ -60,7 +60,7 @@ static inline int remap_area_pmd(pmd_t * pmd, unsigned long address, unsigned lo
 	return 0;
 }
 
-#if USE_HPPA_IOREMAP
+#if (USE_HPPA_IOREMAP)
 static int remap_area_pages(unsigned long address, unsigned long phys_addr,
 				 unsigned long size, unsigned long flags)
 {

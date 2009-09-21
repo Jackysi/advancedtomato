@@ -1,4 +1,4 @@
-/* $Id: vaddrs.h,v 1.1.1.4 2003/10/14 08:09:22 sparq Exp $ */
+/* $Id: vaddrs.h,v 1.27 2001/07/04 00:18:18 davem Exp $ */
 #ifndef _SPARC_VADDRS_H
 #define _SPARC_VADDRS_H
 
@@ -34,6 +34,7 @@
 
 #define VMALLOC_START		0xfe300000
 
+/* XXX Alter this when I get around to fixing sun4c - Anton */
 #define VMALLOC_END		0xffc00000
 
 /*

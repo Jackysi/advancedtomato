@@ -22,7 +22,7 @@
  * BEGIN_DESC
  *
  *  File:
- *	@(#)	pa/spmath/dfsub.c		$Revision: 1.1.1.2 $
+ *	@(#)	pa/spmath/dfsub.c		$Revision: $
  *
  *  Purpose:
  *	Double_subtract: subtract two double precision values.

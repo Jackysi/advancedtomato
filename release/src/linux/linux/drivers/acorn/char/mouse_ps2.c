@@ -1,8 +1,6 @@
 /* 
  * Driver for PS/2 mouse on IOMD interface
  */
-
-#include <linux/config.h>
 #include <linux/sched.h>
 #include <linux/interrupt.h>
 #include <linux/tty.h>
@@ -294,3 +292,6 @@ int __init psaux_init(void)
 
 	return 0;
 }
+
+module_init(psaux_init);
+

@@ -130,6 +130,11 @@ static inline unsigned long
 gettimeoffset (void)
 {
 #ifndef CONFIG_SMP
+	/*
+	 * FIXME: This won't work on smp because jiffies are updated by cpu 0.
+	 *    Once parisc-linux learns the cr16 difference between processors,
+	 *    this could be made to work.
+	 */
 	long last_tick;
 	long elapsed_cycles;
 

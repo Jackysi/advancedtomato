@@ -1,4 +1,4 @@
-/* $Id: setup.c,v 1.1.1.4 2003/10/14 08:07:47 sparq Exp $
+/* $Id: setup.c,v 1.1.1.1.2.7 2003/06/20 13:13:25 trent Exp $
  *
  *  linux/arch/sh/kernel/setup.c
  *
@@ -42,6 +42,11 @@
 #include <asm/machvec.h>
 #ifdef CONFIG_SH_EARLY_PRINTK
 #include <asm/sh_bios.h>
+#endif
+
+#ifdef CONFIG_SH_KGDB
+#include <asm/kgdb.h>
+static int kgdb_parse_options(char *options);
 #endif
 
 /*
@@ -207,6 +212,9 @@ static inline void parse_cmdline (char ** cmdline_p, char mv_name[MV_NAME_SIZE],
 	memory_end = memory_start + __MEMORY_SIZE;
 
 	for (;;) {
+		/*
+		 * "mem=XXX[kKmM]" defines a size of memory.
+		 */
 		if (c == ' ' && !memcmp(from, "mem=", 4)) {
 			if (to != command_line)
 				to--;
@@ -294,6 +302,10 @@ void __init setup_arch(char **cmdline_p)
 	data_resource.end = virt_to_bus(&_edata)-1;
 
 	parse_cmdline(cmdline_p, mv_name, &mv, &mv_io_base, &mv_mmio_enable);
+
+#ifdef CONFIG_CMDLINE_BOOL
+	sprintf(*cmdline_p, CONFIG_CMDLINE);
+#endif
 
 #ifdef CONFIG_SH_GENERIC
 	if (mv == NULL) {
@@ -441,6 +453,22 @@ void __init setup_arch(char **cmdline_p)
 	}
 #endif
 
+#if 0
+	/*
+	 * Request the standard RAM and ROM resources -
+	 * they eat up PCI memory space
+	 */
+	request_resource(&iomem_resource, ram_resources+0);
+	request_resource(&iomem_resource, ram_resources+1);
+	request_resource(&iomem_resource, ram_resources+2);
+	request_resource(ram_resources+1, &code_resource);
+	request_resource(ram_resources+1, &data_resource);
+	probe_roms();
+
+	/* request I/O space for devices used on all i[345]86 PCs */
+	for (i = 0; i < STANDARD_IO_RESOURCES; i++)
+		request_resource(&ioport_resource, standard_io_resources+i);
+#endif
 
 #ifdef CONFIG_VT
 #if defined(CONFIG_VGA_CONSOLE)
@@ -456,10 +484,20 @@ void __init setup_arch(char **cmdline_p)
 	}
 
 #if defined(__SH4__)
-	/* We already grab/initialized FPU in head.S.  Make it consisitent. */
-	init_task.used_math = 1;
-	init_task.flags |= PF_USEDFPU;
+	init_task.used_math = 0;
+	init_task.flags &= ~PF_USEDFPU;
 #endif
+
+#ifdef CONFIG_UBC_WAKEUP
+	/*
+	 * Some brain-damaged loaders decided it would be a good idea to put
+	 * the UBC to sleep. This causes some issues when it comes to things
+	 * like PTRACE_SINGLESTEP or doing hardware watchpoints in GDB.  So ..
+	 * we wake it up and hope that all is well.
+	 */
+	ubc_wakeup();
+#endif
+
 	paging_init();
 }
 
@@ -509,7 +547,7 @@ static int show_cpuinfo(struct seq_file *m, void *v)
 	
 	PRINT_CLOCK("CPU", boot_cpu_data.cpu_clock);
 	PRINT_CLOCK("Bus", boot_cpu_data.bus_clock);
-#ifdef CONFIG_CPU_SUBTYPE_ST40STB1
+#ifdef CONFIG_CPU_SUBTYPE_ST40
 	PRINT_CLOCK("Memory", boot_cpu_data.memory_clock);
 #endif
 	PRINT_CLOCK("Peripheral module", boot_cpu_data.module_clock);
@@ -534,4 +572,94 @@ struct seq_operations cpuinfo_op = {
 	stop:	c_stop,
 	show:	show_cpuinfo,
 };
-#endif
+#endif /* CONFIG_PROC_FS */
+
+#ifdef CONFIG_SH_KGDB
+/*
+ * Parse command-line kgdb options.  By default KGDB is enabled,
+ * entered on error (or other action) using default serial info.
+ * The command-line option can include a serial port specification
+ * and an action to override default or configured behavior.
+ */
+struct kgdb_sermap kgdb_sci_sermap =
+{ "ttySC", 5, kgdb_sci_setup, NULL };
+
+struct kgdb_sermap *kgdb_serlist = &kgdb_sci_sermap;
+struct kgdb_sermap *kgdb_porttype = &kgdb_sci_sermap;
+
+void kgdb_register_sermap(struct kgdb_sermap *map)
+{
+	struct kgdb_sermap *last;
+
+	for (last = kgdb_serlist; last->next; last = last->next)
+		;
+	last->next = map;
+	if (!map->namelen) {
+		map->namelen = strlen(map->name);
+	}
+}
+
+static int __init kgdb_parse_options(char *options)
+{
+	char c;
+	int baud;
+
+	/* Check for port spec (or use default) */
+
+	/* Determine port type and instance */
+	if (!memcmp(options, "tty", 3)) {
+		struct kgdb_sermap *map = kgdb_serlist;
+
+		while (map && memcmp(options, map->name, map->namelen))
+			map = map->next;
+
+		if (!map) {
+			KGDB_PRINTK("unknown port spec in %s\n", options);
+			return -1;
+		}
+
+		kgdb_porttype = map;
+		kgdb_serial_setup = map->setup_fn;
+		kgdb_portnum = options[map->namelen] - '0';
+		options += map->namelen + 1;
+
+		options = (*options == ',') ? options+1 : options;
+		
+		/* Read optional parameters (baud/parity/bits) */
+		baud = simple_strtoul(options, &options, 10);
+		if (baud != 0) {
+			kgdb_baud = baud;
+
+			c = toupper(*options);
+			if (c == 'E' || c == 'O' || c == 'N') {
+				kgdb_parity = c;
+				options++;
+			}
+
+			c = *options;
+			if (c == '7' || c == '8') {
+				kgdb_bits = c;
+				options++;
+			}
+			options = (*options == ',') ? options+1 : options;
+		}
+	}
+
+	/* Check for action specification */
+	if (!memcmp(options, "halt", 4)) {
+		kgdb_halt = 1;
+		options += 4;
+	} else if (!memcmp(options, "disabled", 8)) {
+		kgdb_enabled = 0;
+		options += 8;
+	}
+
+	if (*options) {
+                KGDB_PRINTK("ignored unknown options: %s\n", options);
+		return 0;
+	}
+	return 1;
+}
+__setup("kgdb=", kgdb_parse_options);
+#endif /* CONFIG_SH_KGDB */
+

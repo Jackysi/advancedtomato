@@ -9,13 +9,14 @@
  * Delay routines, using a pre-computed "loops_per_jiffy" value.
  */
 
-extern __inline__ void __delay(unsigned long loops)
+static inline void __delay(unsigned long loops)
 {
 	__asm__ __volatile__ ("1: subql #1,%0; jcc 1b"
 		: "=d" (loops) : "0" (loops));
 }
 
 extern void __bad_udelay(void);
+extern void __bad_ndelay(void);
 
 /*
  * Use only for very small delays ( < 1 msec).  Should probably use a
@@ -39,11 +40,21 @@ static inline void __udelay(unsigned long usecs)
 	__const_udelay(usecs * 4295);	/* 2**32 / 1000000 */
 }
 
+static inline void __ndelay(unsigned long nsecs)
+{
+	__const_udelay(nsecs * 5);	/* 2**32 / 1000000000 */
+}
+
 #define udelay(n) (__builtin_constant_p(n) ? \
 	((n) > 20000 ? __bad_udelay() : __const_udelay((n) * 4295)) : \
 	__udelay(n))
 
-extern __inline__ unsigned long muldiv(unsigned long a, unsigned long b, unsigned long c)
+#define ndelay(n) (__builtin_constant_p(n) ? \
+	((n) > 20000 ? __bad_ndelay() : __const_udelay((n) * 5)) : \
+	__ndelay(n))
+
+static inline unsigned long muldiv(unsigned long a, unsigned long b,
+				   unsigned long c)
 {
 	unsigned long tmp;
 

@@ -40,17 +40,11 @@
  *
  ***************************************************************************/
 
-static char ixj_c_rcsid[] = "$Id: ixj.c,v 1.1.1.4 2003/10/14 08:08:49 sparq Exp $";
-static char ixj_c_revision[] = "$Revision: 1.1.1.4 $";
+static char ixj_c_rcsid[] = "$Id: ixj.c,v 4.7 2001/08/13 06:19:33 craigs Exp $";
+static char ixj_c_revision[] = "$Revision: 4.7 $";
 
 /*
  * $Log: ixj.c,v $
- * Revision 1.1.1.4  2003/10/14 08:08:49  sparq
- * Broadcom Release 3.51.8.0 for BCM4712.
- *
- * Revision 1.1.1.1  2003/02/03 22:37:56  mhuang
- * LINUX_2_4 branch snapshot from linux-mips.org CVS
- *
  * Revision 4.7  2001/08/13 06:19:33  craigs
  * Added additional changes from Alan Cox and John Anderson for
  * 2.2 to 2.4 cleanup and bounds checking
@@ -6007,12 +6001,14 @@ static int ixj_build_filter_cadence(IXJ *j, IXJ_FILTER_CADENCE * cp)
 		if(ixjdebug & 0x0001) {
 			printk(KERN_INFO "Could not copy cadence to kernel\n");
 		}
+		kfree(lcp);
 		return -EFAULT;
 	}
 	if (lcp->filter > 5) {
 		if(ixjdebug & 0x0001) {
 			printk(KERN_INFO "Cadence out of range\n");
 		}
+		kfree(lcp);
 		return -1;
 	}
 	j->cadence_f[lcp->filter].state = 0;
@@ -9382,6 +9378,29 @@ static s16 tone_table[][19] =
 		 21,		/* 21/32 in-band to broad-band ratio */
 		 0x0FF5		/* shift-mask 0x0FF (look at 16 half-frames) bit count = 5 */
 	},
+#if 0
+	{			/* f425 */
+		30881,		/* A1 = -1.884827 */
+		 -32603,	/* A2 = 0.994965 */
+		 -496,		/* B2 = -0.015144 */
+		 0,		/* B1 = 0.000000 */
+		 496,		/* B0 = 0.015144 */
+		 30880,		/* A1 = -1.884766 */
+		 -32692,	/* A2 = 0.997711 */
+		 24767,		/* B2 = 0.755859 */
+		 -23290,	/* B1 = -1.421509 */
+		 24767,		/* B0 = 0.755859 */
+		 30967,		/* A1 = -1.890076 */
+		 -32694,	/* A2 = 0.997772 */
+		 728,		/* B2 = 0.022232 */
+		 -691,		/* B1 = -0.042194 */
+		 728,		/* B0 = 0.022232 */
+		 5,		/* Internal filter scaling */
+		 159,		/* Minimum in-band energy threshold */
+		 21,		/* 21/32 in-band to broad-band ratio */
+		 0x0FF5		/* shift-mask 0x0FF (look at 16 half-frames) bit count = 5 */
+	},
+#else
 	{
 		30850,
 		-32534,
@@ -9403,6 +9422,7 @@ static s16 tone_table[][19] =
 		17,
 		0xff5
 	},
+#endif
 	{			/* f425_450[] */
 		30646,		/* A1 = 1.870544 */
 		 -32327,	/* A2 = -0.986572 */

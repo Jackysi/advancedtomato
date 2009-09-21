@@ -1,5 +1,3 @@
-/* $Id: posix_types.h,v 1.1.1.4 2003/10/14 08:09:09 sparq Exp $ */
-
 /* We cheat a bit and use our C-coded bitops functions from asm/bitops.h */
 /* I guess we should write these in assembler because they are used often. */
 
@@ -23,7 +21,7 @@ typedef int		__kernel_pid_t;
 typedef unsigned short  __kernel_ipc_pid_t;
 typedef unsigned short	__kernel_uid_t;
 typedef unsigned short	__kernel_gid_t;
-typedef unsigned long	__kernel_size_t;
+typedef __SIZE_TYPE__	__kernel_size_t;
 typedef long		__kernel_ssize_t;
 typedef int		__kernel_ptrdiff_t;
 typedef long		__kernel_time_t;

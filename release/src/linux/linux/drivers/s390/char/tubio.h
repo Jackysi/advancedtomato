@@ -227,7 +227,7 @@ typedef struct tub_s {
 	devstat_t       devstat;
 	ccw1_t          rccw;
 	ccw1_t          wccw;
-	addr_t		*wbuf;
+	struct idal_buffer *wbuf;
 	int             cswl;
 	void            (*intv)(struct tub_s *, devstat_t *);
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(2,3,0))

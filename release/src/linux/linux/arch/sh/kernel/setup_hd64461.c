@@ -1,5 +1,5 @@
 /*
- *	$Id: setup_hd64461.c,v 1.1.1.4 2003/10/14 08:07:47 sparq Exp $
+ *	$Id: setup_hd64461.c,v 1.9 2001/07/15 23:26:56 gniibe Exp $
  *	Copyright (C) 2000 YAEGASHI Takeshi
  *	Hitachi HD64461 companion chip support
  */
@@ -122,7 +122,7 @@ int __init setup_hd64461(void)
 	       CONFIG_HD64461_IOBASE, CONFIG_HD64461_IRQ,
 	       HD64461_IRQBASE, HD64461_IRQBASE+15);
 
-#if defined(CONFIG_CPU_SUBTYPE_SH7709)     /* Should be at processor specific part.. */
+#if defined(CONFIG_CPU_SUBTYPE_SH7709) /* Should be at processor specific part.. */
 	outw(0x2240, INTC_ICR1);
 #endif
 	outw(0xffff, HD64461_NIMR);

@@ -1,4 +1,4 @@
-/* $Id: signal.c,v 1.1.1.4 2003/10/14 08:07:51 sparq Exp $
+/* $Id: signal.c,v 1.7 2000/09/05 21:44:54 davem Exp $
  * signal.c: Signal emulation for Solaris
  *
  * Copyright (C) 1997 Jakub Jelinek (jj@sunsite.mff.cuni.cz)
@@ -420,5 +420,6 @@ asmlinkage int solaris_context(struct pt_regs *regs)
 
 asmlinkage int solaris_sigaltstack(u32 ss, u32 oss)
 {
+/* XXX Implement this soon */
 	return 0;
 }

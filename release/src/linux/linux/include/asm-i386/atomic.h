@@ -57,19 +57,6 @@ static __inline__ void atomic_add(int i, atomic_t *v)
 		:"=m" (v->counter)
 		:"ir" (i), "m" (v->counter));
 }
- 
-#if CPU != 386
-/* Like the above but also returns the result */
-static __inline__ int atomic_add_return(int i, atomic_t *v)
-{
-	register int oldval;
-        __asm__ __volatile__(
-                LOCK "xaddl %2,%0"
-                :"=m" (v->counter), "=r" (oldval)
-                :"1" (i), "m" (v->counter) : "memory");
-	return oldval + i;
-}
-#endif
 
 /**
  * atomic_sub - subtract the atomic variable

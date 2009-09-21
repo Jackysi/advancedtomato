@@ -12,7 +12,7 @@
 #ifndef _SD_H
 #define _SD_H
 /*
-   $Header: /home/cvsroot/wrt54g/src/linux/linux/drivers/scsi/sd.h,v 1.1.1.2 2003/10/14 08:08:42 sparq Exp $
+   $Header: /usr/src/linux/kernel/blk_drv/scsi/RCS/sd.h,v 1.1 1992/07/24 06:27:38 root Exp root $
  */
 
 #ifndef _SCSI_H

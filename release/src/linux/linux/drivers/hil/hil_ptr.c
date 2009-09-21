@@ -386,9 +386,9 @@ static void hil_ptr_connect(struct serio *serio, struct serio_dev *dev)
 
 
 struct serio_dev hil_ptr_serio_dev = {
-	connect: hil_ptr_connect,
-	disconnect: hil_ptr_disconnect,
-	interrupt: hil_ptr_interrupt
+	.connect =	hil_ptr_connect,
+	.disconnect =	hil_ptr_disconnect,
+	.interrupt =	hil_ptr_interrupt
 };
 
 static int __init hil_ptr_init(void)

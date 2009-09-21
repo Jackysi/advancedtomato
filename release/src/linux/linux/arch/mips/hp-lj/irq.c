@@ -25,7 +25,7 @@ void __init init_IRQ(void)
     mips_cpu_irq_init(0);
     set_except_vector(0, hpIRQ);
 
-#ifdef CONFIG_REMOTE_DEBUG
+#ifdef CONFIG_KGDB
     {
        extern void breakpoint(void);
        extern int remote_debug;

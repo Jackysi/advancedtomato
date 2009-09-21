@@ -56,7 +56,7 @@ unsigned char boot_cpu_id4 = 0; /* boot_cpu_id << 2 */
 int smp_activated = 0;
 volatile int __cpu_number_map[NR_CPUS];
 volatile int __cpu_logical_map[NR_CPUS];
-cycles_t cacheflush_time = 0; 
+cycles_t cacheflush_time = 0; /* XXX */
 
 /* The only guaranteed locking primitive available on all Sparc
  * processors is 'ldstub [%reg + immediate], %dest_reg' which atomically
@@ -102,13 +102,6 @@ void __init smp_commence(void)
 	smp_commenced = 1;
 	local_flush_cache_all();
 	local_flush_tlb_all();
-}
-
-/* Only broken Intel needs this, thus it should not even be referenced
- * globally...
- */
-void __init initialize_secondary(void)
-{
 }
 
 extern int cpu_idle(void);
@@ -221,7 +214,15 @@ void smp_flush_tlb_page(struct vm_area_struct *vma, unsigned long page)
 
 void smp_flush_page_to_ram(unsigned long page)
 {
+	/* Current theory is that those who call this are the one's
+	 * who have just dirtied their cache with the pages contents
+	 * in kernel space, therefore we only run this on local cpu.
+	 *
+	 * XXX This experiment failed, research further... -DaveM
+	 */
+#if 1
 	xc1((smpfunc_t) BTFIXUP_CALL(local_flush_page_to_ram), page);
+#endif
 	local_flush_page_to_ram(page);
 }
 

@@ -46,7 +46,13 @@
 #include <asm/bitops.h>
 #include <asm/io.h>
 #include <asm/au1000.h>
+#if defined(CONFIG_MIPS_PB1000) || defined(CONFIG_MIPS_PB1100)
 #include <asm/pb1000.h>
+#elif defined(CONFIG_MIPS_DB1000) || defined(CONFIG_MIPS_DB1100)
+#include <asm/db1x00.h>
+#else 
+#error au1k_ir: unsupported board
+#endif
 
 #include <net/irda/irda.h>
 #include <net/irda/irmod.h>
@@ -71,7 +77,7 @@ static void dma_free(void *, size_t);
 static int qos_mtt_bits = 0x07;  /* 1 ms or more */
 static struct net_device *ir_devs[NUM_IR_IFF];
 static char version[] __devinitdata =
-    "au1k_ircc:1.0 ppopov@mvista.com\n";
+    "au1k_ircc:1.2 ppopov@mvista.com\n";
 
 #define RUN_AT(x) (jiffies + (x))
 
@@ -128,7 +134,7 @@ static void *dma_alloc(size_t size, dma_addr_t * dma_handle)
 	if (ret != NULL) {
 		memset(ret, 0, size);
 		*dma_handle = virt_to_bus(ret);
-		ret = KSEG0ADDR(ret);
+		ret = (void *)KSEG0ADDR(ret);
 	}
 	return ret;
 }
@@ -136,7 +142,7 @@ static void *dma_alloc(size_t size, dma_addr_t * dma_handle)
 
 static void dma_free(void *vaddr, size_t size)
 {
-	vaddr = KSEG0ADDR(vaddr);
+	vaddr = (void *)KSEG0ADDR(vaddr);
 	free_pages((unsigned long) vaddr, get_order(size));
 }
 
@@ -213,7 +219,7 @@ static int au1k_irda_net_init(struct net_device *dev)
 	struct au1k_private *aup = NULL;
 	int i, retval = 0, err;
 	db_dest_t *pDB, *pDBfree;
-	unsigned long temp;
+	dma_addr_t temp;
 
 	dev->priv = kmalloc(sizeof(struct au1k_private), GFP_KERNEL);
 	if (dev->priv == NULL) {
@@ -294,6 +300,14 @@ static int au1k_irda_net_init(struct net_device *dev)
 		aup->tx_ring[i]->flags = 0;
 		aup->tx_db_inuse[i] = pDB;
 	}
+
+#if defined(CONFIG_MIPS_DB1000) || defined(CONFIG_MIPS_DB1100)
+	/* power on */
+	bcsr->resets &= ~BCSR_RESETS_IRDA_MODE_MASK;
+	bcsr->resets |= BCSR_RESETS_IRDA_MODE_FULL;
+	au_sync();
+#endif
+
 	return 0;
 
 out:
@@ -534,13 +548,13 @@ static int au1k_irda_hard_xmit(struct sk_buff *skb, struct net_device *dev)
 	flags = ptxd->flags;
 
 	if (flags & AU_OWN) {
-		printk(KERN_INFO "%s: tx_full\n", dev->name);
+		printk(KERN_DEBUG "%s: tx_full\n", dev->name);
 		netif_stop_queue(dev);
 		aup->tx_full = 1;
 		return 1;
 	}
 	else if (((aup->tx_head + 1) & (NUM_IR_DESC - 1)) == aup->tx_tail) {
-		printk(KERN_INFO "%s: tx_full\n", dev->name);
+		printk(KERN_DEBUG "%s: tx_full\n", dev->name);
 		netif_stop_queue(dev);
 		aup->tx_full = 1;
 		return 1;
@@ -548,12 +562,19 @@ static int au1k_irda_hard_xmit(struct sk_buff *skb, struct net_device *dev)
 
 	pDB = aup->tx_db_inuse[aup->tx_head];
 
+#if 0
+	if (read_ir_reg(IR_RX_BYTE_CNT) != 0) {
+		printk("tx warning: rx byte cnt %x\n", 
+				read_ir_reg(IR_RX_BYTE_CNT));
+	}
+#endif
 	
 	if (aup->speed == 4000000) {
 		/* FIR */
 		memcpy((void *)pDB->vaddr, skb->data, skb->len);
 		ptxd->count_0 = skb->len & 0xff;
 		ptxd->count_1 = (skb->len >> 8) & 0xff;
+
 	}
 	else {
 		/* SIR */
@@ -561,6 +582,7 @@ static int au1k_irda_hard_xmit(struct sk_buff *skb, struct net_device *dev)
 		ptxd->count_0 = len & 0xff;
 		ptxd->count_1 = (len >> 8) & 0xff;
 		ptxd->flags |= IR_DIS_CRC;
+		au_writel(au_readl(0xae00000c) & ~(1<<13), 0xae00000c);
 	}
 	ptxd->flags |= AU_OWN;
 	au_sync();
@@ -695,6 +717,9 @@ au1k_irda_set_speed(struct net_device *dev, int speed)
 	u32 control;
 	int ret = 0, timeout = 10, i;
 	volatile ring_dest_t *ptxd;
+#if defined(CONFIG_MIPS_DB1000) || defined(CONFIG_MIPS_DB1100)
+	unsigned long irda_resets;
+#endif
 
 	if (speed == aup->speed)
 		return ret;
@@ -740,10 +765,20 @@ au1k_irda_set_speed(struct net_device *dev, int speed)
 		ptxd->flags = AU_OWN;
 	}
 
-	if (speed == 4000000)
+	if (speed == 4000000) {
+#if defined(CONFIG_MIPS_DB1000) || defined(CONFIG_MIPS_DB1100)
+		bcsr->resets |= BCSR_RESETS_FIR_SEL;
+#else /* Pb1000 and Pb1100 */
 		writel(1<<13, CPLD_AUX1);
-	else
+#endif
+	}
+	else {
+#if defined(CONFIG_MIPS_DB1000) || defined(CONFIG_MIPS_DB1100)
+		bcsr->resets &= ~BCSR_RESETS_FIR_SEL;
+#else /* Pb1000 and Pb1100 */
 		writel(readl(CPLD_AUX1) & ~(1<<13), CPLD_AUX1);
+#endif
+	}
 
 	switch (speed) {
 	case 9600:	
@@ -789,15 +824,15 @@ au1k_irda_set_speed(struct net_device *dev, int speed)
 	}
 	else {
 		if (control & (1<<11))
-			printk(KERN_INFO "%s Valid SIR config\n", dev->name);
+			printk(KERN_DEBUG "%s Valid SIR config\n", dev->name);
 		if (control & (1<<12))
-			printk(KERN_INFO "%s Valid MIR config\n", dev->name);
+			printk(KERN_DEBUG "%s Valid MIR config\n", dev->name);
 		if (control & (1<<13))
-			printk(KERN_INFO "%s Valid FIR config\n", dev->name);
+			printk(KERN_DEBUG "%s Valid FIR config\n", dev->name);
 		if (control & (1<<10))
-			printk(KERN_INFO "%s TX enabled\n", dev->name);
+			printk(KERN_DEBUG "%s TX enabled\n", dev->name);
 		if (control & (1<<9))
-			printk(KERN_INFO "%s RX enabled\n", dev->name);
+			printk(KERN_DEBUG "%s RX enabled\n", dev->name);
 	}
 
 	spin_unlock_irqrestore(&ir_lock, flags);
@@ -856,6 +891,7 @@ static struct net_device_stats *au1k_irda_stats(struct net_device *dev)
 #ifdef MODULE
 MODULE_AUTHOR("Pete Popov <ppopov@mvista.com>");
 MODULE_DESCRIPTION("Au1000 IrDA Device Driver");
+MODULE_LICENSE("GPL");
 
 module_init(au1k_irda_init);
 module_exit(au1k_irda_exit);

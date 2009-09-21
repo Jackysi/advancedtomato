@@ -23,7 +23,7 @@
 */
 
 /*
- * $Id: hci_vhci.h,v 1.1.1.4 2003/10/14 08:07:59 sparq Exp $
+ * $Id: hci_vhci.h,v 1.1.1.1 2002/03/08 21:03:15 maxk Exp $
  */
 
 #ifndef __HCI_VHCI_H

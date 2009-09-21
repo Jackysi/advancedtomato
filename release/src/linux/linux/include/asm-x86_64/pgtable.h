@@ -79,7 +79,7 @@ extern void paging_init(void);
  * ZERO_PAGE is a global shared page that is always zero: used
  * for zero-mapped memory areas etc..
  */
-extern unsigned long empty_zero_page[1024];
+extern unsigned long empty_zero_page[PAGE_SIZE/sizeof(unsigned long)];
 #define ZERO_PAGE(vaddr) (virt_to_page(empty_zero_page))
 
 #endif /* !__ASSEMBLY__ */
@@ -156,12 +156,12 @@ extern inline void pgd_clear (pgd_t * pgd)
 /* Find an entry in the second-level page table.. */
 #define pmd_offset(dir, address) ((pmd_t *) pgd_page(*(dir)) + \
 			__pmd_offset(address))
-#define __mk_pmd(address,prot) ((pmd_t) { (address) | pgprot_val(prot) })
+#define __mk_pmd(address,prot) ((pmd_t) { ((address) | pgprot_val(prot)) & __supported_pte_mask})
 
 #define ptep_get_and_clear(xp)	__pte(xchg(&(xp)->pte, 0))
 #define pte_same(a, b)		((a).pte == (b).pte)
-#define __mk_pte(page_nr,pgprot) __pte(((page_nr) << PAGE_SHIFT) | pgprot_val(pgprot))
-
+#define __mk_pte(page_nr,pgprot) \
+	__pte(((page_nr) << PAGE_SHIFT) | (pgprot_val(pgprot) & __supported_pte_mask))
 #define PML4_SIZE	(1UL << PML4_SHIFT)
 #define PML4_MASK	(~(PML4_SIZE-1))
 #define PMD_SIZE	(1UL << PMD_SHIFT)
@@ -230,13 +230,20 @@ extern inline void pgd_clear (pgd_t * pgd)
 
 #define PAGE_NONE	__pgprot(_PAGE_PROTNONE | _PAGE_ACCESSED)
 #define PAGE_SHARED	__pgprot(_PAGE_PRESENT | _PAGE_RW | _PAGE_USER | _PAGE_ACCESSED)
-#define PAGE_COPY	__pgprot(_PAGE_PRESENT | _PAGE_USER | _PAGE_ACCESSED)
-#define PAGE_READONLY	__pgprot(_PAGE_PRESENT | _PAGE_USER | _PAGE_ACCESSED)
+#define PAGE_SHARED_NOEXEC	__pgprot(_PAGE_NX | _PAGE_PRESENT | _PAGE_RW | _PAGE_USER | _PAGE_ACCESSED)
+#define PAGE_COPY_NOEXEC	__pgprot(_PAGE_PRESENT | _PAGE_USER | _PAGE_ACCESSED | _PAGE_NX)
+#define PAGE_COPY PAGE_COPY_NOEXEC
+#define PAGE_COPY_EXEC  \
+	__pgprot(_PAGE_PRESENT | _PAGE_USER | _PAGE_ACCESSED)
+#define PAGE_READONLY __pgprot(_PAGE_PRESENT | _PAGE_USER | _PAGE_ACCESSED | _PAGE_NX)
+#define PAGE_READONLY_EXEC \
+	__pgprot(_PAGE_PRESENT | _PAGE_USER | _PAGE_ACCESSED)
+#define PAGE_EXECONLY PAGE_READONLY_EXEC
 
 #define PAGE_LARGE (_PAGE_PSE|_PAGE_PRESENT) 
 
 #define __PAGE_KERNEL \
-	(_PAGE_PRESENT | _PAGE_RW | _PAGE_DIRTY | _PAGE_ACCESSED)
+	(_PAGE_PRESENT | _PAGE_RW | _PAGE_DIRTY | _PAGE_ACCESSED | _PAGE_NX)
 #define __PAGE_KERNEL_NOCACHE   (__PAGE_KERNEL | _PAGE_PCD)
 #define __PAGE_KERNEL_RO        (__PAGE_KERNEL & ~_PAGE_RW)
 #define __PAGE_KERNEL_VSYSCALL	(_PAGE_PRESENT | _PAGE_USER | _PAGE_ACCESSED)
@@ -249,32 +256,34 @@ extern inline void pgd_clear (pgd_t * pgd)
 extern unsigned long __supported_pte_mask; 
 #define __PTE_SUPP(x) __pgprot((x) & __supported_pte_mask)
 
-#define PAGE_KERNEL __PTE_SUPP((__PAGE_KERNEL|_PAGE_GLOBAL) )
-#define PAGE_KERNEL_RO __PTE_SUPP(__PAGE_KERNEL_RO|_PAGE_GLOBAL)
-#define PAGE_KERNEL_NOCACHE __PTE_SUPP(__PAGE_KERNEL_NOCACHE|_PAGE_GLOBAL)
-#define PAGE_KERNEL_VSYSCALL __PTE_SUPP(__PAGE_KERNEL_VSYSCALL|_PAGE_GLOBAL)
-#define PAGE_KERNEL_LARGE __PTE_SUPP(__PAGE_KERNEL_LARGE|_PAGE_GLOBAL)
-#define PAGE_KERNEL_LARGE_NOCACHE __PTE_SUPP(__PAGE_KERNEL_LARGE_NOCACHE|_PAGE_GLOBAL)
-#define PAGE_USER_NOCACHE_RO __PTE_SUPP(__PAGE_USER_NOCACHE_RO|_PAGE_GLOBAL)
-#define PAGE_KERNEL_EXECUTABLE __PTE_SUPP(__PAGE_KERNEL_EXECUTABLE|_PAGE_GLOBAL)
+/* _NX is masked away in mk_pmd/pte */
+
+#define PAGE_KERNEL __PTE_SUPP(__PAGE_KERNEL|_PAGE_GLOBAL)
+#define PAGE_KERNEL_RO __pgprot(__PAGE_KERNEL_RO|_PAGE_GLOBAL)
+#define PAGE_KERNEL_NOCACHE __pgprot(__PAGE_KERNEL_NOCACHE|_PAGE_GLOBAL)
+#define PAGE_KERNEL_VSYSCALL __pgprot(__PAGE_KERNEL_VSYSCALL|_PAGE_GLOBAL)
+#define PAGE_KERNEL_LARGE __pgprot(__PAGE_KERNEL_LARGE|_PAGE_GLOBAL)
+#define PAGE_KERNEL_LARGE_NOCACHE __pgprot(__PAGE_KERNEL_LARGE_NOCACHE|_PAGE_GLOBAL)
+#define PAGE_USER_NOCACHE_RO __pgprot(__PAGE_USER_NOCACHE_RO|_PAGE_GLOBAL)
+#define PAGE_KERNEL_EXECUTABLE __pgprot(__PAGE_KERNEL_EXECUTABLE|_PAGE_GLOBAL)
 
 /*         xwr */
 #define __P000	PAGE_NONE
 #define __P001	PAGE_READONLY
 #define __P010	PAGE_COPY
 #define __P011	PAGE_COPY
-#define __P100	PAGE_READONLY
-#define __P101	PAGE_READONLY
-#define __P110	PAGE_COPY
-#define __P111	PAGE_COPY
+#define __P100	PAGE_EXECONLY
+#define __P101	PAGE_READONLY_EXEC
+#define __P110	PAGE_COPY_EXEC
+#define __P111	PAGE_COPY_EXEC
 
 /*         xwr */
 #define __S000	PAGE_NONE
 #define __S001	PAGE_READONLY
-#define __S010	PAGE_SHARED
-#define __S011	PAGE_SHARED
-#define __S100	PAGE_READONLY
-#define __S101	PAGE_READONLY
+#define __S010	PAGE_SHARED_NOEXEC
+#define __S011	PAGE_SHARED_NOEXEC
+#define __S100	PAGE_EXECONLY
+#define __S101	PAGE_READONLY_EXEC
 #define __S110	PAGE_SHARED
 #define __S111	PAGE_SHARED
 
@@ -342,6 +351,7 @@ static inline void ptep_mkdirty(pte_t *ptep)			{ set_bit(_PAGE_BIT_DIRTY, ptep);
 	pte_t __pte; 								 \
 	unsigned long __val = page_to_phys(page);  			 \
 	__val |= pgprot_val(pgprot);						 \
+	__val &= __supported_pte_mask;						\
  	set_pte(&__pte, __pte(__val));						 \
  	__pte;									 \
 }) 
@@ -350,13 +360,15 @@ static inline void ptep_mkdirty(pte_t *ptep)			{ set_bit(_PAGE_BIT_DIRTY, ptep);
 static inline pte_t mk_pte_phys(unsigned long physpage, pgprot_t pgprot)
 { 
 	pte_t __pte; 
-	set_pte(&__pte, __pte(physpage + pgprot_val(pgprot))); 
+	set_pte(&__pte, __pte(physpage + (pgprot_val(pgprot) & __supported_pte_mask))); 
 	return __pte;
 }
 
 extern inline pte_t pte_modify(pte_t pte, pgprot_t newprot)
 { 
-	set_pte(&pte, __pte((pte_val(pte) & _PAGE_CHG_MASK) | pgprot_val(newprot))); 
+	set_pte(&pte, 
+		__pte(((pte_val(pte) & _PAGE_CHG_MASK) | pgprot_val(newprot))  &
+		      __supported_pte_mask));
 	return pte; 
 }
 
@@ -376,7 +388,7 @@ extern inline pte_t pte_modify(pte_t pte, pgprot_t newprot)
    Other CPUs get synced lazily via the page fault handler. */
 #define pgd_offset_k(address) \
 	__pgd_offset_k( \
-       (pgd_t *)__va(pml4_val(init_level4_pgt[pml4_index(address)]) & PAGE_MASK), address)
+       (pgd_t *)__va(pml4_val(init_level4_pgt[pml4_index(address)]) & PHYSICAL_PAGE_MASK), address)
 
 #define __pmd_offset(address) \
 		(((address) >> PMD_SHIFT) & (PTRS_PER_PMD-1))
@@ -388,12 +400,12 @@ extern inline pte_t pte_modify(pte_t pte, pgprot_t newprot)
 			__pte_offset(address))
 
 /* never use these in the common code */
-#define pml4_page(level4) ((unsigned long) __va(pml4_val(level4) & PAGE_MASK))
+#define pml4_page(level4) ((unsigned long) __va(pml4_val(level4) & PHYSICAL_PAGE_MASK))
 #define pml4_index(address) (((address) >> PML4_SHIFT) & (PTRS_PER_PML4-1))
 #define pml4_offset_k(address) ((pml4_t *)read_pda(level4_pgt) + pml4_index(address))
 #define level3_offset_k(dir, address) ((pgd_t *) pml4_page(*(dir)) + pgd_index(address))
 #define mk_kernel_pml4(address,prot) ((pml4_t){(address) | pgprot_val(prot)})
-
+#define pml4_present(pml4) (pml4_val(pml4) & _PAGE_PRESENT)
 
 /*
  * x86 doesn't have any external MMU info: the kernel page
@@ -415,12 +427,7 @@ struct page;
 struct page;
 extern int change_page_attr(struct page *page, int numpages, pgprot_t prot);
 
-/* 
- * Map or remap large pages in the kernel mapping.
- * Only valid during kernel initilization (__init) 
- */
-extern void __map_kernel_range(void *, int, pgprot_t);
-#define map_kernel_range(adr,size) __map_kernel_range(adr,size,PAGE_KERNEL_LARGE)
+extern void clear_kernel_mapping(unsigned long addr, unsigned long size);
 
 #endif /* !__ASSEMBLY__ */
 

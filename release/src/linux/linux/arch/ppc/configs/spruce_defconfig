@@ -33,8 +33,10 @@ CONFIG_PPC_STD_MMU=y
 # CONFIG_ALL_PPC is not set
 # CONFIG_APUS is not set
 CONFIG_SPRUCE=y
+# CONFIG_LOPEC is not set
 # CONFIG_PAL4 is not set
 # CONFIG_GEMINI is not set
+CONFIG_GEN550=y
 # CONFIG_SMP is not set
 # CONFIG_ALTIVEC is not set
 # CONFIG_TAU is not set
@@ -57,6 +59,7 @@ CONFIG_KCORE_ELF=y
 CONFIG_BINFMT_ELF=y
 CONFIG_KERNEL_ELF=y
 # CONFIG_BINFMT_MISC is not set
+# CONFIG_OOM_KILLER is not set
 # CONFIG_PCI_NAMES is not set
 # CONFIG_HOTPLUG is not set
 # CONFIG_PCMCIA is not set
@@ -65,7 +68,7 @@ CONFIG_KERNEL_ELF=y
 # Parallel port support
 #
 # CONFIG_PARPORT is not set
-CONFIG_PPC_RTC=y
+CONFIG_GEN_RTC=y
 CONFIG_CMDLINE_BOOL=y
 CONFIG_CMDLINE="ip=on"
 
@@ -170,7 +173,6 @@ CONFIG_IP_PNP_DHCP=y
 # ATA/IDE/MFM/RLL support
 #
 # CONFIG_IDE is not set
-# CONFIG_BLK_DEV_IDE_MODES is not set
 # CONFIG_BLK_DEV_HD is not set
 
 #
@@ -218,6 +220,7 @@ CONFIG_NET_ETHERNET=y
 # CONFIG_NET_ISA is not set
 CONFIG_NET_PCI=y
 CONFIG_PCNET32=y
+# CONFIG_AMD8111_ETH is not set
 # CONFIG_ADAPTEC_STARFIRE is not set
 # CONFIG_APRICOT is not set
 # CONFIG_CS89x0 is not set
@@ -226,6 +229,7 @@ CONFIG_PCNET32=y
 # CONFIG_DGRS is not set
 # CONFIG_DM9102 is not set
 # CONFIG_EEPRO100 is not set
+# CONFIG_EEPRO100_PIO is not set
 # CONFIG_E100 is not set
 # CONFIG_LNE390 is not set
 # CONFIG_FEALNX is not set
@@ -260,6 +264,7 @@ CONFIG_PCNET32=y
 # CONFIG_NS83820 is not set
 # CONFIG_HAMACHI is not set
 # CONFIG_YELLOWFIN is not set
+# CONFIG_R8169 is not set
 # CONFIG_SK98LIN is not set
 # CONFIG_TIGON3 is not set
 # CONFIG_FDDI is not set
@@ -368,11 +373,18 @@ CONFIG_PSMOUSE=y
 # Input core support is needed for joysticks
 #
 # CONFIG_QIC02_TAPE is not set
+# CONFIG_IPMI_HANDLER is not set
+# CONFIG_IPMI_PANIC_EVENT is not set
+# CONFIG_IPMI_DEVICE_INTERFACE is not set
+# CONFIG_IPMI_KCS is not set
+# CONFIG_IPMI_WATCHDOG is not set
 
 #
 # Watchdog Cards
 #
 # CONFIG_WATCHDOG is not set
+# CONFIG_SCx200_GPIO is not set
+# CONFIG_AMD_PM768 is not set
 # CONFIG_NVRAM is not set
 # CONFIG_RTC is not set
 # CONFIG_DTLK is not set
@@ -504,3 +516,4 @@ CONFIG_MSDOS_PARTITION=y
 # Kernel hacking
 #
 # CONFIG_DEBUG_KERNEL is not set
+# CONFIG_SERIAL_TEXT_DEBUG is not set

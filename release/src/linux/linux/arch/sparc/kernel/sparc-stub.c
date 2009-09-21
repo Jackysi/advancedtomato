@@ -1,4 +1,4 @@
-/* $Id: sparc-stub.c,v 1.1.1.4 2003/10/14 08:07:48 sparq Exp $
+/* $Id: sparc-stub.c,v 1.28 2001/10/30 04:54:21 davem Exp $
  * sparc-stub.c:  KGDB support for the Linux kernel.
  *
  * Modifications to run under Linux
@@ -165,6 +165,10 @@ unsigned long get_sun4csegmap(unsigned long addr)
 	return entry;
 }
 
+#if 0
+/* Have to sort this out. This cannot be done after initialization. */
+static void flush_cache_all_nop(void) {}
+#endif
 
 /* Place where we save old trap entries for restoration */
 struct tt_entry kgdb_savettable[256];
@@ -401,6 +405,10 @@ set_debug_traps(void)
 	unsigned long flags;
 
 	save_and_cli(flags);
+#if 0	
+/* Have to sort this out. This cannot be done after initialization. */
+	BTFIXUPSET_CALL(flush_cache_all, flush_cache_all_nop, BTFIXUPCALL_NOP);
+#endif
 
 	/* Initialize our copy of the Linux Sparc trap table */
 	eh_init();
@@ -419,6 +427,13 @@ set_debug_traps(void)
 	 * so that's why it's commented out.  GDB seems to work fine
 	 * now starting either before or after the kernel   -bwb
 	 */
+#if 0
+	while((c = getDebugChar()) != '$');
+	while((c = getDebugChar()) != '#');
+	c = getDebugChar(); /* eat first csum byte */
+	c = getDebugChar(); /* eat second csum byte */
+	putDebugChar('+'); /* ack it */
+#endif
 
 	initialized = 1; /* connect! */
 	restore_flags(flags);
@@ -555,6 +570,11 @@ handle_exception (unsigned long *registers)
 
 	putpacket(remcomOutBuffer);
 
+	/* XXX We may want to add some features dealing with poking the
+	 * XXX page tables, the real ones on the srmmu, and what is currently
+	 * XXX loaded in the sun4/sun4c tlb at this point in time.  But this
+	 * XXX also required hacking to the gdb sources directly...
+	 */
 
 	while (1) {
 		remcomOutBuffer[0] = 0;

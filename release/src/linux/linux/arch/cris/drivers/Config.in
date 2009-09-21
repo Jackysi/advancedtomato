@@ -11,7 +11,10 @@ if [ "$CONFIG_ETRAX_ETHERNET" = "y" ]; then
   "LED_on_when_link      CONFIG_ETRAX_NETWORK_LED_ON_WHEN_LINK    \
    LED_on_when_activity  CONFIG_ETRAX_NETWORK_LED_ON_WHEN_ACTIVITY" \
      LED_on_when_activity
-
+  choice 'Network LED behavior on no connection' \
+  "RED_LED_on_no_connection      CONFIG_ETRAX_NETWORK_RED_ON_NO_CONNECTION  \
+   LED_OFF_on_no_connection      CONFIG_ETRAX_NETWORK_OFF_ON_NO_CONNECTION" \
+    LED_OFF_on_no_connection
 else
   define_bool CONFIG_NET_ETHERNET n
 fi
@@ -23,49 +26,189 @@ fi
 
 bool 'Serial-port support' CONFIG_ETRAX_SERIAL
 if [ "$CONFIG_ETRAX_SERIAL" = "y" ]; then
-  bool '  Use fast timers for serial DMA flush (experimental)' CONFIG_ETRAX_SERIAL_FAST_TIMER
+  bool '  Use fast timers for serial DMA flush' CONFIG_ETRAX_SERIAL_FAST_TIMER
   if [ "$CONFIG_ETRAX_SERIAL_FAST_TIMER" = "n" ]; then
     bool '  Fast serial port DMA flush' CONFIG_ETRAX_SERIAL_FLUSH_DMA_FAST
-    if [ "$CONFIG_ETRAX100_SERIAL_FLUSH_DMA_FAST" = "n" ]; then
+    if [ "$CONFIG_ETRAX_SERIAL_FLUSH_DMA_FAST" = "n" ]; then
       int '  Receive flush timeout (ticks) ' CONFIG_ETRAX_SERIAL_RX_TIMEOUT_TICKS 5
     fi
   fi
+  bool '  Enable external clock on PB6' CONFIG_ETRAX_EXTERN_PB6CLK_ENABLED
+  if [ "$CONFIG_ETRAX_EXTERN_PB6CLK_ENABLED" = "y" ]; then
+    int '  Extern clock frequency (baudrate=clk/8) (Hz)' CONFIG_ETRAX_EXTERN_PB6CLK_FREQ 0
+  fi
   bool '  Serial port 0 enabled' CONFIG_ETRAX_SERIAL_PORT0
   if [ "$CONFIG_ETRAX_SERIAL_PORT0" = "y" ]; then
-    bool '  Ser0 DTR, RI, DSR, CD on PB' CONFIG_ETRAX_SER0_DTR_RI_DSR_CD_ON_PB
-    if [ "$CONFIG_ETRAX_SER0_DTR_RI_DSR_CD_ON_PB" = "y" ]; then
-      int '    Ser0 DTR on PB bit' CONFIG_ETRAX_SER0_DTR_ON_PB_BIT 4
-      int '    Ser0 RI  on PB bit' CONFIG_ETRAX_SER0_RI_ON_PB_BIT 5
-      int '    Ser0 DSR on PB bit' CONFIG_ETRAX_SER0_DSR_ON_PB_BIT 6
-      int '    Ser0 CD  on PB bit' CONFIG_ETRAX_SER0_CD_ON_PB_BIT 7
+  choice 'Ser0 DMA out assignment' \
+  "NO_DMA_OUT      CONFIG_ETRAX_SERIAL_PORT0_NO_DMA_OUT \
+   DMA6_OUT    CONFIG_ETRAX_SERIAL_PORT0_DMA6_OUT" \
+     DMA6_OUT
+  choice 'Ser0 DMA in assignment' \
+  "NO_DMA_IN      CONFIG_ETRAX_SERIAL_PORT0_NO_DMA_IN \
+   DMA7_IN    CONFIG_ETRAX_SERIAL_PORT0_DMA7_IN" \
+     DMA7_IN
+  choice 'Ser0 DTR, RI, DSR and CD assignment' \
+  "No_DTR_RI_DSR_CD      CONFIG_ETRAX_SER0_DTR_RI_DSR_CD_ON_NONE \
+   DTR_RI_DSR_CD_on_PA   CONFIG_ETRAX_SER0_DTR_RI_DSR_CD_ON_PA \
+   DTR_RI_DSR_CD_on_PB   CONFIG_ETRAX_SER0_DTR_RI_DSR_CD_ON_PB \
+   DTR_RI_DSR_CD_mixed_on_PA_and_PB  CONFIG_ETRAX_SER0_DTR_RI_DSR_CD_MIXED" \
+     No_DTR_RI_DSR_CD
+
+    if [ "$CONFIG_ETRAX_SER0_DTR_RI_DSR_CD_ON_PA" = "y" -o \
+         "$CONFIG_ETRAX_SER0_DTR_RI_DSR_CD_MIXED" = "y" ]; then
+      int '    Ser0 DTR on PA bit (-1 = not used)' CONFIG_ETRAX_SER0_DTR_ON_PA_BIT 4
+      int '    Ser0 RI  on PA bit (-1 = not used)' CONFIG_ETRAX_SER0_RI_ON_PA_BIT 5
+      int '    Ser0 DSR on PA bit (-1 = not used)' CONFIG_ETRAX_SER0_DSR_ON_PA_BIT 6
+      int '    Ser0 CD  on PA bit (-1 = not used)' CONFIG_ETRAX_SER0_CD_ON_PA_BIT 7
+    else
+      define_int CONFIG_ETRAX_SER0_DTR_ON_PA_BIT -1
+      define_int CONFIG_ETRAX_SER0_RI_ON_PA_BIT -1
+      define_int CONFIG_ETRAX_SER0_DSR_ON_PA_BIT -1
+      define_int CONFIG_ETRAX_SER0_CD_ON_PA_BIT -1
+    fi
+    if [ "$CONFIG_ETRAX_SER0_DTR_RI_DSR_CD_ON_PB" = "y" -o \
+         "$CONFIG_ETRAX_SER0_DTR_RI_DSR_CD_MIXED" = "y" ]; then
+      int '    Ser0 DTR on PB bit (-1 = not used)' CONFIG_ETRAX_SER0_DTR_ON_PB_BIT 4
+      int '    Ser0 RI  on PB bit (-1 = not used)' CONFIG_ETRAX_SER0_RI_ON_PB_BIT 5
+      int '    Ser0 DSR on PB bit (-1 = not used)' CONFIG_ETRAX_SER0_DSR_ON_PB_BIT 6
+      int '    Ser0 CD  on PB bit (-1 = not used)' CONFIG_ETRAX_SER0_CD_ON_PB_BIT 7
+    else
+      define_int CONFIG_ETRAX_SER0_DTR_ON_PB_BIT -1
+      define_int CONFIG_ETRAX_SER0_RI_ON_PB_BIT -1
+      define_int CONFIG_ETRAX_SER0_DSR_ON_PB_BIT -1
+      define_int CONFIG_ETRAX_SER0_CD_ON_PB_BIT -1
     fi
   fi
 
   bool '  Serial port 1 enabled' CONFIG_ETRAX_SERIAL_PORT1
   if [ "$CONFIG_ETRAX_SERIAL_PORT1" = "y" ]; then
-    bool '  Ser1 DTR, RI, DSR, CD on PB' CONFIG_ETRAX_SER1_DTR_RI_DSR_CD_ON_PB
-    if [ "$CONFIG_ETRAX_SER1_DTR_RI_DSR_CD_ON_PB" = "y" ]; then
-      int '    Ser1 DTR on PB bit' CONFIG_ETRAX_SER1_DTR_ON_PB_BIT 4
-      int '    Ser1 RI  on PB bit' CONFIG_ETRAX_SER1_RI_ON_PB_BIT 5
-      int '    Ser1 DSR on PB bit' CONFIG_ETRAX_SER1_DSR_ON_PB_BIT 6
-      int '    Ser1 CD  on PB bit' CONFIG_ETRAX_SER1_CD_ON_PB_BIT 7
+  choice 'Ser1 DMA out assignment' \
+  "NO_DMA_OUT      CONFIG_ETRAX_SERIAL_PORT1_NO_DMA_OUT \
+   DMA8_OUT    CONFIG_ETRAX_SERIAL_PORT1_DMA8_OUT" \
+     DMA8_OUT
+  choice 'Ser1 DMA in assignment' \
+  "NO_DMA_IN      CONFIG_ETRAX_SERIAL_PORT1_NO_DMA_IN \
+   DMA9_IN    CONFIG_ETRAX_SERIAL_PORT1_DMA9_IN" \
+     DMA9_IN
+  choice 'Ser1 DTR, RI, DSR and CD assignment' \
+  "No_DTR_RI_DSR_CD      CONFIG_ETRAX_SER1_DTR_RI_DSR_CD_ON_NONE \
+   DTR_RI_DSR_CD_on_PA   CONFIG_ETRAX_SER1_DTR_RI_DSR_CD_ON_PA \
+   DTR_RI_DSR_CD_on_PB   CONFIG_ETRAX_SER1_DTR_RI_DSR_CD_ON_PB \
+   DTR_RI_DSR_CD_mixed_on_PA_and_PB  CONFIG_ETRAX_SER1_DTR_RI_DSR_CD_MIXED" \
+     No_DTR_RI_DSR_CD
+
+    if [ "$CONFIG_ETRAX_SER1_DTR_RI_DSR_CD_ON_PA" = "y" -o \
+         "$CONFIG_ETRAX_SER1_DTR_RI_DSR_CD_MIXED" = "y" ]; then
+      int '    Ser1 DTR on PA bit (-1 = not used)' CONFIG_ETRAX_SER1_DTR_ON_PA_BIT 4
+      int '    Ser1 RI  on PA bit (-1 = not used)' CONFIG_ETRAX_SER1_RI_ON_PA_BIT 5
+      int '    Ser1 DSR on PA bit (-1 = not used)' CONFIG_ETRAX_SER1_DSR_ON_PA_BIT 6
+      int '    Ser1 CD  on PA bit (-1 = not used)' CONFIG_ETRAX_SER1_CD_ON_PA_BIT 7
+    else
+      define_int CONFIG_ETRAX_SER1_DTR_ON_PA_BIT -1
+      define_int CONFIG_ETRAX_SER1_RI_ON_PA_BIT -1
+      define_int CONFIG_ETRAX_SER1_DSR_ON_PA_BIT -1
+      define_int CONFIG_ETRAX_SER1_CD_ON_PA_BIT -1
+    fi
+    if [ "$CONFIG_ETRAX_SER1_DTR_RI_DSR_CD_ON_PB" = "y" -o \
+         "$CONFIG_ETRAX_SER1_DTR_RI_DSR_CD_MIXED" = "y" ]; then
+      int '    Ser1 DTR on PB bit (-1 = not used)' CONFIG_ETRAX_SER1_DTR_ON_PB_BIT 4
+      int '    Ser1 RI  on PB bit (-1 = not used)' CONFIG_ETRAX_SER1_RI_ON_PB_BIT 5
+      int '    Ser1 DSR on PB bit (-1 = not used)' CONFIG_ETRAX_SER1_DSR_ON_PB_BIT 6
+      int '    Ser1 CD  on PB bit (-1 = not used)' CONFIG_ETRAX_SER1_CD_ON_PB_BIT 7
+    else
+      define_int CONFIG_ETRAX_SER1_DTR_ON_PB_BIT -1
+      define_int CONFIG_ETRAX_SER1_RI_ON_PB_BIT -1
+      define_int CONFIG_ETRAX_SER1_DSR_ON_PB_BIT -1
+      define_int CONFIG_ETRAX_SER1_CD_ON_PB_BIT -1
     fi
   fi
+
   if [ "$CONFIG_ETRAX_SER0_DTR_RI_DSR_CD_ON_PB" = "y" -a \
        "$CONFIG_ETRAX_SER1_DTR_RI_DSR_CD_ON_PB" = "y" ]; then
     comment 'Make sure you dont have the same PB bits more than once!'
   fi
   bool '  Serial port 2 enabled' CONFIG_ETRAX_SERIAL_PORT2
   if [ "$CONFIG_ETRAX_SERIAL_PORT2" = "y" ]; then
-    bool '    Ser2 DTR, RI, DSR, CD on PA' CONFIG_ETRAX_SER2_DTR_RI_DSR_CD_ON_PA
-    if [ "$CONFIG_ETRAX_SER2_DTR_RI_DSR_CD_ON_PA" = "y" ]; then
-      int '      Ser2 DTR on PA bit' CONFIG_ETRAX_SER2_DTR_ON_PA_BIT 4
-      int '      Ser2 RI  on PA bit' CONFIG_ETRAX_SER2_RI_ON_PA_BIT 5
-      int '      Ser2 DSR on PA bit' CONFIG_ETRAX_SER2_DSR_ON_PA_BIT 6
-      int '      Ser2 CD  on PA bit' CONFIG_ETRAX_SER2_CD_ON_PA_BIT 7
-    fi 
+  choice 'Ser2 DMA out assignment' \
+  "NO_DMA_OUT      CONFIG_ETRAX_SERIAL_PORT2_NO_DMA_OUT \
+   DMA2_OUT    CONFIG_ETRAX_SERIAL_PORT2_DMA2_OUT" \
+     DMA2_OUT
+  choice 'Ser2 DMA in assignment' \
+  "NO_DMA_IN      CONFIG_ETRAX_SERIAL_PORT2_NO_DMA_IN \
+   DMA3_IN    CONFIG_ETRAX_SERIAL_PORT2_DMA3_IN" \
+     DMA3_IN
+  choice 'Ser2 DTR, RI, DSR and CD assignment' \
+  "No_DTR_RI_DSR_CD      CONFIG_ETRAX_SER2_DTR_RI_DSR_CD_ON_NONE \
+   DTR_RI_DSR_CD_on_PA   CONFIG_ETRAX_SER2_DTR_RI_DSR_CD_ON_PA \
+   DTR_RI_DSR_CD_on_PB   CONFIG_ETRAX_SER2_DTR_RI_DSR_CD_ON_PB \
+   DTR_RI_DSR_CD_mixed_on_PA_and_PB  CONFIG_ETRAX_SER2_DTR_RI_DSR_CD_MIXED" \
+     No_DTR_RI_DSR_CD
+    if [ "$CONFIG_ETRAX_SER2_DTR_RI_DSR_CD_ON_PA" = "y" -o \
+         "$CONFIG_ETRAX_SER2_DTR_RI_DSR_CD_MIXED" = "y" ]; then
+      int '    Ser2 DTR on PA bit (-1 = not used)' CONFIG_ETRAX_SER2_DTR_ON_PA_BIT 4
+      int '    Ser2 RI  on PA bit (-1 = not used)' CONFIG_ETRAX_SER2_RI_ON_PA_BIT 5
+      int '    Ser2 DSR on PA bit (-1 = not used)' CONFIG_ETRAX_SER2_DSR_ON_PA_BIT 6
+      int '    Ser2 CD  on PA bit (-1 = not used)' CONFIG_ETRAX_SER2_CD_ON_PA_BIT 7
+    else
+      define_int CONFIG_ETRAX_SER2_DTR_ON_PA_BIT -1
+      define_int CONFIG_ETRAX_SER2_RI_ON_PA_BIT -1
+      define_int CONFIG_ETRAX_SER2_DSR_ON_PA_BIT -1
+      define_int CONFIG_ETRAX_SER2_CD_ON_PA_BIT -1
+    fi
+    if [ "$CONFIG_ETRAX_SER2_DTR_RI_DSR_CD_ON_PB" = "y" -o \
+         "$CONFIG_ETRAX_SER2_DTR_RI_DSR_CD_MIXED" = "y" ]; then
+      int '    Ser2 DTR on PB bit (-1 = not used)' CONFIG_ETRAX_SER2_DTR_ON_PB_BIT 4
+      int '    Ser2 RI  on PB bit (-1 = not used)' CONFIG_ETRAX_SER2_RI_ON_PB_BIT 5
+      int '    Ser2 DSR on PB bit (-1 = not used)' CONFIG_ETRAX_SER2_DSR_ON_PB_BIT 6
+      int '    Ser2 CD  on PB bit (-1 = not used)' CONFIG_ETRAX_SER2_CD_ON_PB_BIT 7
+    else
+      define_int CONFIG_ETRAX_SER2_DTR_ON_PB_BIT -1
+      define_int CONFIG_ETRAX_SER2_RI_ON_PB_BIT -1
+      define_int CONFIG_ETRAX_SER2_DSR_ON_PB_BIT -1
+      define_int CONFIG_ETRAX_SER2_CD_ON_PB_BIT -1
+    fi
   fi
   bool '  Serial port 3 enabled' CONFIG_ETRAX_SERIAL_PORT3
+  if [ "$CONFIG_ETRAX_SERIAL_PORT3" = "y" ]; then
+  choice 'Ser3 DMA out assignment' \
+  "NO_DMA_OUT      CONFIG_ETRAX_SERIAL_PORT3_NO_DMA_OUT \
+   DMA4_OUT    CONFIG_ETRAX_SERIAL_PORT3_DMA4_OUT" \
+     DMA4_OUT
+  choice 'Ser3 DMA in assignment' \
+  "NO_DMA_IN      CONFIG_ETRAX_SERIAL_PORT3_NO_DMA_IN \
+   DMA5_IN    CONFIG_ETRAX_SERIAL_PORT3_DMA5_IN" \
+     DMA5_IN
+  choice 'Ser3 DTR, RI, DSR and CD assignment' \
+  "No_DTR_RI_DSR_CD      CONFIG_ETRAX_SER3_DTR_RI_DSR_CD_ON_NONE \
+   DTR_RI_DSR_CD_on_PA   CONFIG_ETRAX_SER3_DTR_RI_DSR_CD_ON_PA \
+   DTR_RI_DSR_CD_on_PB   CONFIG_ETRAX_SER3_DTR_RI_DSR_CD_ON_PB \
+   DTR_RI_DSR_CD_mixed_on_PA_and_PB  CONFIG_ETRAX_SER3_DTR_RI_DSR_CD_MIXED" \
+     No_DTR_RI_DSR_CD
+    if [ "$CONFIG_ETRAX_SER3_DTR_RI_DSR_CD_ON_PA" = "y" -o \
+         "$CONFIG_ETRAX_SER3_DTR_RI_DSR_CD_MIXED" = "y" ]; then
+      int '    Ser3 DTR on PA bit (-1 = not used)' CONFIG_ETRAX_SER3_DTR_ON_PA_BIT -1
+      int '    Ser3 RI  on PA bit (-1 = not used)' CONFIG_ETRAX_SER3_RI_ON_PA_BIT -1
+      int '    Ser3 DSR on PA bit (-1 = not used)' CONFIG_ETRAX_SER3_DSR_ON_PA_BIT -1
+      int '    Ser3 CD  on PA bit (-1 = not used)' CONFIG_ETRAX_SER3_CD_ON_PA_BIT -1
+    else
+      define_int CONFIG_ETRAX_SER3_DTR_ON_PA_BIT -1
+      define_int CONFIG_ETRAX_SER3_RI_ON_PA_BIT -1
+      define_int CONFIG_ETRAX_SER3_DSR_ON_PA_BIT -1
+      define_int CONFIG_ETRAX_SER3_CD_ON_PA_BIT -1
+    fi
+    if [ "$CONFIG_ETRAX_SER3_DTR_RI_DSR_CD_ON_PB" = "y" -o \
+         "$CONFIG_ETRAX_SER3_DTR_RI_DSR_CD_MIXED" = "y" ]; then
+      int '    Ser3 DTR on PB bit (-1 = not used)' CONFIG_ETRAX_SER3_DTR_ON_PB_BIT -1
+      int '    Ser3 RI  on PB bit (-1 = not used)' CONFIG_ETRAX_SER3_RI_ON_PB_BIT -1
+      int '    Ser3 DSR on PB bit (-1 = not used)' CONFIG_ETRAX_SER3_DSR_ON_PB_BIT -1
+      int '    Ser3 CD  on PB bit (-1 = not used)' CONFIG_ETRAX_SER3_CD_ON_PB_BIT -1
+    else
+      define_int CONFIG_ETRAX_SER3_DTR_ON_PB_BIT -1
+      define_int CONFIG_ETRAX_SER3_RI_ON_PB_BIT -1
+      define_int CONFIG_ETRAX_SER3_DSR_ON_PB_BIT -1
+      define_int CONFIG_ETRAX_SER3_CD_ON_PB_BIT -1
+    fi
+  fi
   bool '  RS-485 support' CONFIG_ETRAX_RS485
   if [ "$CONFIG_ETRAX_RS485" = "y" ]; then
     bool '    RS-485 mode on PA' CONFIG_ETRAX_RS485_ON_PA
@@ -78,13 +221,13 @@ fi
 
 bool 'Synchronous serial port support' CONFIG_ETRAX_SYNCHRONOUS_SERIAL
 if [ "$CONFIG_ETRAX_SYNCHRONOUS_SERIAL" = "y" ]; then 
-  bool '  Synchronous serial port 0 enabled' CONFIG_ETRAX_SYNCHRONOUS_SERIAL_PORT0
+  bool '  Synchronous serial port 0 enabled (sser1)' CONFIG_ETRAX_SYNCHRONOUS_SERIAL_PORT0
   if [ "$CONFIG_ETRAX_SYNCHRONOUS_SERIAL_PORT0" = "y" ]; then
-    bool '    Synchronous serial port 0 uses DMA' CONFIG_ETRAX_SYNCHRONOUS_SERIAL0_DMA
+    bool '    Synchronous serial port 0 uses DMA 8,9' CONFIG_ETRAX_SYNCHRONOUS_SERIAL0_DMA
   fi
-  bool '  Synchronous serial port 1 enabled' CONFIG_ETRAX_SYNCHRONOUS_SERIAL_PORT1
+  bool '  Synchronous serial port 1 enabled (sser3)' CONFIG_ETRAX_SYNCHRONOUS_SERIAL_PORT1
   if [ "$CONFIG_ETRAX_SYNCHRONOUS_SERIAL_PORT1" = "y" ]; then
-    bool '    Synchronous serial port 1 uses DMA' CONFIG_ETRAX_SYNCHRONOUS_SERIAL1_DMA
+    bool '    Synchronous serial port 1 uses DMA 4,5' CONFIG_ETRAX_SYNCHRONOUS_SERIAL1_DMA
   fi 
 fi
 
@@ -137,17 +280,28 @@ if [ "$CONFIG_ETRAX_AXISFLASHMAP" = "y" ]; then
 # here we define the CONFIG_'s necessary to enable MTD support
 # for the flash
 	define_bool CONFIG_MTD y
-
-	define_bool CONFIG_MTD_CFI y
-	define_bool CONFIG_MTD_CFI_INTELEXT n
-	define_bool CONFIG_MTD_CFI_AMDSTD y
-
-	define_bool CONFIG_MTD_OBSOLETE_CHIPS y
-	define_bool CONFIG_MTD_AMDSTD y
-
+	define_bool CONFIG_MTD_PARTITIONS y
 	define_bool CONFIG_MTD_CHAR y
 	define_bool CONFIG_MTD_BLOCK y
-	define_bool CONFIG_MTD_PARTITIONS y
+
+	if [ "$CONFIG_MTD_CFI" = "n" ] && [ "$CONFIG_MTD_AMDSTD" = "n" ] && \
+	   [ "$CONFIG_MTD_MTDRAM" = "n" ]; then
+		# Bad initial configuration, make axisflashmap work by enabling
+		# all drivers it may need.
+
+		define_bool CONFIG_MTD_CFI y
+		define_bool CONFIG_MTD_CFI_AMDSTD y
+
+		define_bool CONFIG_MTD_OBSOLETE_CHIPS y
+		define_bool CONFIG_MTD_AMDSTD y
+
+		define_bool CONFIG_MTD_CONCAT y
+
+		define_bool CONFIG_MTD_MTDRAM y
+		define_int CONFIG_MTDRAM_TOTAL_SIZE 0
+		define_int CONFIG_MTDRAM_ERASE_SIZE 64
+		define_int CONFIG_MTDRAM_ABS_POS 0
+	fi
 fi
 
 bool 'I2C support' CONFIG_ETRAX_I2C
@@ -199,6 +353,7 @@ fi
 
 bool 'Real Time Clock support' CONFIG_ETRAX_RTC
 if [ "$CONFIG_ETRAX_RTC" = "y" ]; then
+  bool '  Enable RTC read only mode' CONFIG_ETRAX_RTC_READONLY	 
   choice '  RTC chip' \
     "DS1302 CONFIG_ETRAX_DS1302 \
      PCF8563  CONFIG_ETRAX_PCF8563" DS1302
@@ -209,6 +364,7 @@ if [ "$CONFIG_ETRAX_DS1302" = "y" ]; then
   int '  DS1302 RST bit number' CONFIG_ETRAX_DS1302_RSTBIT 2
   int '  DS1302 SCL bit number' CONFIG_ETRAX_DS1302_SCLBIT 1
   int '  DS1302 SDA bit number' CONFIG_ETRAX_DS1302_SDABIT 0
+  int '  DS1302 Trickle charger value' CONFIG_ETRAX_DS1302_TRICKLE_CHARGE 0
 fi
 
 endmenu

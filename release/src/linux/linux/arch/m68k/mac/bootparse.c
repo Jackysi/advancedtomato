@@ -24,7 +24,11 @@ void parse_booter(char *env)
 {
  	char *name;
  	char *value;
+#if 0
+ 	while(0 && *env)
+#else
  	while(*env)
+#endif
  	{
  		name=env;
  		value=name;
@@ -36,6 +40,16 @@ void parse_booter(char *env)
  		while(*env)
  			env++;
  		env++;
+#if 0 			
+ 		if(strcmp(name,"VIDEO_ADDR")==0)
+ 			mac_mch.videoaddr=atol(value);
+ 		if(strcmp(name,"ROW_BYTES")==0)
+ 			mac_mch.videorow=atol(value); 			
+ 		if(strcmp(name,"SCREEN_DEPTH")==0)
+ 			mac_mch.videodepth=atol(value);
+ 		if(strcmp(name,"DIMENSIONS")==0)
+ 			mac_mch.dimensions=atol(value);
+#endif 			
  		if(strcmp(name,"BOOTTIME")==0)
  			mac_bi_data.boottime=atol(value);
  		if(strcmp(name,"GMTBIAS")==0)
@@ -71,6 +85,17 @@ void parse_booter(char *env)
  		if(strcmp(name,"ADBDELAY")==0)
  			mac_bi_data.adbdelay=atol(value);
  	}
+#if 0	/* XXX: TODO with m68k_mach_* */
+ 	/* Fill in the base stuff */
+ 	boot_info.machtype=MACH_MAC;
+ 	/* Read this from the macinfo we got ! */
+/*	boot_info.cputype=CPU_68020|FPUB_68881;*/
+/* 	boot_info.memory[0].addr=0;*/
+/* 	boot_info.memory[0].size=((mac_bi_data.id>>7)&31)<<20;*/
+ 	boot_info.num_memory=1;		/* On a MacII */
+ 	boot_info.ramdisk_size=0;	/* For now */
+ 	*boot_info.command_line=0;
+#endif
  }
  
 

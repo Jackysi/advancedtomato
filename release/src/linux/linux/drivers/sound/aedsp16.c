@@ -1344,6 +1344,10 @@ static int __init do_init_aedsp16(void) {
 
 	if (init_aedsp16() == FALSE) {
 		printk(KERN_ERR "aedsp16: initialization failed\n");
+		/*
+		 * XXX
+		 * What error should we return here ?
+		 */
 		return -EINVAL;
 	}
 	return 0;

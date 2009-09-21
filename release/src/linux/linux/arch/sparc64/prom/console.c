@@ -1,4 +1,4 @@
-/* $Id: console.c,v 1.1.1.4 2003/10/14 08:07:51 sparq Exp $
+/* $Id: console.c,v 1.9 1997/10/29 07:41:43 ecd Exp $
  * console.c: Routines that deal with sending and receiving IO
  *            to/from the current console device using the PROM.
  *
@@ -87,6 +87,7 @@ prom_query_input_device()
 	prom_getproperty(st_p, "device_type", propb, sizeof(propb));
 	if(strncmp(propb, "serial", 6))
 		return PROMDEV_I_UNK;
+	/* FIXME: Is there any better way how to find out? */	
 	memset(propb, 0, sizeof(propb));
 	st_p = prom_finddevice ("/options");
 	prom_getproperty(st_p, "input-device", propb, sizeof(propb));
@@ -123,6 +124,7 @@ prom_query_output_device()
 		return PROMDEV_OSCREEN;
 	if(strncmp("serial", propb, 6))
 		return PROMDEV_O_UNK;
+	/* FIXME: Is there any better way how to find out? */	
 	memset(propb, 0, sizeof(propb));
 	st_p = prom_finddevice ("/options");
 	prom_getproperty(st_p, "output-device", propb, sizeof(propb));

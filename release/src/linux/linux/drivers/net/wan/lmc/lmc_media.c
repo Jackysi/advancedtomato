@@ -1,4 +1,4 @@
-/* $Id: lmc_media.c,v 1.1.1.4 2003/10/14 08:08:30 sparq Exp $ */
+/* $Id: lmc_media.c,v 1.13 2000/04/11 05:25:26 asj Exp $ */
 
 #include <linux/version.h>
 #include <linux/config.h>
@@ -866,6 +866,10 @@ write_av9110 (lmc_softc_t * sc, u_int32_t n, u_int32_t m, u_int32_t v,
 {
   int i;
 
+#if 0
+  printk (LMC_PRINTF_FMT ": speed %u, %d %d %d %d %d\n",
+	  LMC_PRINTF_ARGS, sc->ictl.clock_rate, n, m, v, x, r);
+#endif
 
   sc->lmc_gpio |= LMC_GEP_SSI_GENERATOR;
   sc->lmc_gpio &= ~(LMC_GEP_DATA | LMC_GEP_CLK);

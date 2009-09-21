@@ -30,6 +30,7 @@ dep_tristate '  miroSOUND PCM20 radio' CONFIG_RADIO_MIROPCM20 $CONFIG_VIDEO_DEV 
 if [ "$CONFIG_ISA" = "y" ]; then
    dep_tristate '    miroSOUND PCM20 radio RDS user interface (EXPERIMENTAL)' CONFIG_RADIO_MIROPCM20_RDS $CONFIG_RADIO_MIROPCM20 $CONFIG_EXPERIMENTAL
    dep_tristate '  SF16FMI Radio' CONFIG_RADIO_SF16FMI $CONFIG_VIDEO_DEV
+   dep_tristate '  SF16FMR2 Radio' CONFIG_RADIO_SF16FMR2 $CONFIG_VIDEO_DEV
    dep_tristate '  TerraTec ActiveRadio ISA Standalone' CONFIG_RADIO_TERRATEC $CONFIG_VIDEO_DEV
    if [ "$CONFIG_RADIO_TERRATEC" = "y" ]; then
       hex '    Terratec i/o port (normally 0x590)' CONFIG_RADIO_TERRATEC_PORT 590

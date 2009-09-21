@@ -466,6 +466,18 @@ startup:basr  %r13,0                     # get base
         mvc   __LC_IPLDEV(4),IPL_DEVICE-PARMAREA(%r12)
 	
 #
+# clear bss memory
+#
+        l     %r2,.Lbss_bgn-.LPG1(%r13) # start of bss
+        l     %r3,.Lbss_end-.LPG1(%r13) # end of bss
+        sr    %r3,%r2                   # length of bss
+        sr    %r4,%r4                   #
+        sr    %r5,%r5                   # set src,length and pad to zero
+        sr    %r0,%r0                   #
+        mvcle %r2,%r4,0                 # clear mem
+        jo    .-4                       # branch back, if not finish
+
+#
 # find memory chunks.
 #
 	mvc   __LC_PGM_NEW_PSW(8),.Lpcmem-.LPG1(%r13)
@@ -513,15 +525,29 @@ startup:basr  %r13,0                     # get base
 #
         stidp  __LC_CPUID               # store cpuid
 	tm     __LC_CPUID,0xff          # running under VM ?
-	bno    .Lnovm-.LPG1(%r13)
+	bno    .Lchkpfix-.LPG1(%r13)
         oi     3(%r12),1                # set VM flag
-.Lnovm:
+#
+# we are running under VM, find out if we have PFIX
+#
+        mvc    __LC_PGM_NEW_PSW(8),.Lpcpfix-.LPG1(%r13)
+	lhi    %r0,0x4000
+	slr    %r2,%r2
+	.long  0x83200098		# diag 2,0,x'0098' - lock page
+	lhi    %r2,4
+	.long  0x83200098		# diag 2,0,x'0098' - unlock page
+	oi     3(%r12),128              # set PFIX flag
+.Lchkpfix:
         lh     %r0,__LC_CPUID+4         # get cpu version
         chi    %r0,0x7490               # running on a P/390 ?
         bne    .Lnop390-.LPG1(%r13)
         oi     3(%r12),4                # set P/390 flag
 .Lnop390:
-
+	chi    %r0,0x2084		# new stidp format?
+	bne    .Loldfmt-.LPG1(%r13)
+	oi     3(%r12),64		# set new stidp flag
+.Loldfmt:	
+		
 #
 # find out if we have an IEEE fpu
 #
@@ -561,7 +587,7 @@ startup:basr  %r13,0                     # get base
         .long  .Lduct                   # cr2: dispatchable unit control table
         .long  0                        # cr3: instruction authorization
         .long  0                        # cr4: instruction authorization
-        .long  0                        # cr5:  various things
+        .long  0xffffffff               # cr5: primary-aste origin
         .long  0                        # cr6:  I/O interrupts
         .long  0                        # cr7:  secondary space segment table
         .long  0                        # cr8:  access registers translation
@@ -576,9 +602,12 @@ startup:basr  %r13,0                     # get base
 .Lpcfpu:.long  0x00080000,0x80000000 + .Lchkfpu
 .Lpccsp:.long  0x00080000,0x80000000 + .Lchkcsp
 .Lpcmvpg:.long 0x00080000,0x80000000 + .Lchkmvpg
+.Lpcpfix:.long 0x00080000,0x80000000 + .Lchkpfix
 .Lmemsize:.long memory_size
 .Lmchunk:.long memory_chunk
 .Lmflags:.long machine_flags
+.Lbss_bgn:  .long  __bss_start
+.Lbss_end:  .long  _end
 
 	.org PARMAREA-64
 .Lduct:	.long 0,0,0,0,0,0,0,0
@@ -620,17 +649,6 @@ _stext:	basr  %r13,0                    # get base
         ahi   %r15,-96
         xc    0(4,%r15),0(%r15)         # set backchain to zero
 
-#
-# clear bss memory
-#
-        l     %r2,.Lbss_bgn-.LPG2(%r13) # start of bss
-        l     %r3,.Lbss_end-.LPG2(%r13) # end of bss
-        sr    %r3,%r2                   # length of bss
-        sr    %r4,%r4                   #
-        sr    %r5,%r5                   # set src,length and pad to zero
-        sr    %r0,%r0                   #
-        mvcle %r2,%r4,0                 # clear mem
-        jo    .-4                       # branch back, if not finish
 # check control registers
         stctl  %c0,%c15,0(%r15)
 	oi     2(%r15),0x20             # enable sigp external interrupts
@@ -651,7 +669,5 @@ _stext:	basr  %r13,0                    # get base
 .Ldw:	    .long  0x000a0000,0x00000000
 .Linittu:   .long  init_task_union
 .Lstart:    .long  start_kernel
-.Lbss_bgn:  .long  __bss_start
-.Lbss_end:  .long  _end
-.Laregs:    .long  0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0
+.Laregs:    .long  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
 

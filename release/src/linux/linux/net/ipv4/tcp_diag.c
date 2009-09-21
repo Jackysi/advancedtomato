@@ -1,7 +1,7 @@
 /*
  * tcp_diag.c	Module for monitoring TCP sockets.
  *
- * Version:	$Id: tcp_diag.c,v 1.1.1.4 2003/10/14 08:09:33 sparq Exp $
+ * Version:	$Id: tcp_diag.c,v 1.2 2001/11/05 09:42:22 davem Exp $
  *
  * Authors:	Alexey Kuznetsov, <kuznet@ms2.inr.ac.ru>
  *
@@ -49,6 +49,7 @@ static int tcpdiag_fill(struct sk_buff *skb, struct sock *sk,
 	struct nlmsghdr  *nlh;
 	struct tcp_info  *info = NULL;
 	struct tcpdiag_meminfo  *minfo = NULL;
+	struct tcpvegas_info *vinfo = NULL;
 	unsigned char	 *b = skb->tail;
 
 	nlh = NLMSG_PUT(skb, pid, seq, TCPDIAG_GETSOCK, sizeof(*r));
@@ -58,6 +59,10 @@ static int tcpdiag_fill(struct sk_buff *skb, struct sock *sk,
 			minfo = TCPDIAG_PUT(skb, TCPDIAG_MEMINFO, sizeof(*minfo));
 		if (ext & (1<<(TCPDIAG_INFO-1)))
 			info = TCPDIAG_PUT(skb, TCPDIAG_INFO, sizeof(*info));
+
+		if ((tcp_is_westwood(tp) || tcp_is_vegas(tp))
+		    && (ext & (1<<(TCPDIAG_VEGASINFO-1))))
+			vinfo = TCPDIAG_PUT(skb, TCPDIAG_VEGASINFO, sizeof(*vinfo));
 	}
 	r->tcpdiag_family = sk->family;
 	r->tcpdiag_state = sk->state;
@@ -184,6 +189,20 @@ static int tcpdiag_fill(struct sk_buff *skb, struct sock *sk,
 		info->tcpi_snd_cwnd = tp->snd_cwnd;
 		info->tcpi_advmss = tp->advmss;
 		info->tcpi_reordering = tp->reordering;
+	}
+
+	if (vinfo) {
+		if (tcp_is_vegas(tp)) {
+			vinfo->tcpv_enabled = tp->vegas.doing_vegas_now;
+			vinfo->tcpv_rttcnt = tp->vegas.cntRTT;
+			vinfo->tcpv_rtt = (1000000*tp->vegas.baseRTT)/HZ;
+			vinfo->tcpv_minrtt = (1000000*tp->vegas.minRTT)/HZ;
+		} else {
+			vinfo->tcpv_enabled = 0;
+			vinfo->tcpv_rttcnt = 0;
+			vinfo->tcpv_rtt = (1000000*tp->westwood.rtt)/HZ;
+			vinfo->tcpv_minrtt = (1000000*tp->westwood.rtt_min)/HZ;
+		}
 	}
 
 	nlh->nlmsg_len = skb->tail - b;
@@ -578,7 +597,7 @@ err_inval:
 }
 
 
-extern __inline__ void tcpdiag_rcv_skb(struct sk_buff *skb)
+static inline void tcpdiag_rcv_skb(struct sk_buff *skb)
 {
 	int err;
 	struct nlmsghdr * nlh;
@@ -588,7 +607,7 @@ extern __inline__ void tcpdiag_rcv_skb(struct sk_buff *skb)
 		if (nlh->nlmsg_len < sizeof(*nlh) || skb->len < nlh->nlmsg_len)
 			return;
 		err = tcpdiag_rcv_msg(skb, nlh);
-		if (err) 
+		if (err || nlh->nlmsg_flags & NLM_F_ACK) 
 			netlink_ack(skb, nlh, err);
 	}
 }

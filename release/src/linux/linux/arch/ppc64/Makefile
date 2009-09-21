@@ -19,6 +19,13 @@ ifeq ($(shell uname -m),ppc64)
 CHECKS		= checks
 endif
 
+HAS_BIARCH      := $(shell if $(CC) -m64 -S -o /dev/null -xc /dev/null > /dev/null 2>&1; then echo y; else echo n; fi;)
+ifeq ($(HAS_BIARCH),y)
+AS              := $(AS) -64
+LD              := $(LD) -m elf64ppc
+CC		:= $(CC) -m64
+endif
+
 LINKFLAGS	= -T arch/ppc64/vmlinux.lds -Bstatic \
 		-e $(KERNELLOAD) -Ttext $(KERNELLOAD)
 CFLAGS		:= $(CFLAGS) -fsigned-char -msoft-float -pipe \
@@ -26,6 +33,11 @@ CFLAGS		:= $(CFLAGS) -fsigned-char -msoft-float -pipe \
 		-mtraceback=full
 CPP		= $(CC) -E $(CFLAGS)
 
+HAVE_ZERO_BSS := $(shell if $(CC) -fno-zero-initialized-in-bss -S -o /dev/null -xc /dev/null > /dev/null 2>&1; then echo y; else echo n; fi)
+
+ifeq ($(HAVE_ZERO_BSS),y)
+CFLAGS		+= -fno-zero-initialized-in-bss
+endif
 
 HEAD := arch/ppc64/kernel/head.o
 
@@ -37,10 +49,6 @@ CORE_FILES := arch/ppc64/kernel/kernel.o arch/ppc64/mm/mm.o arch/ppc64/lib/lib.o
 ifdef CONFIG_XMON
 SUBDIRS += arch/ppc64/xmon
 CORE_FILES += arch/ppc64/xmon/x.o
-endif
-ifdef CONFIG_KDB
-SUBDIRS += arch/ppc64/kdb
-CORE_FILES += arch/ppc64/kdb/kdba.o
 endif
 
 MAKEBOOT = $(MAKE) -C arch/$(ARCH)/boot

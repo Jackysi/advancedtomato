@@ -18,6 +18,25 @@
 #include <asm/uaccess.h>
 #include <asm/io.h>
 
+#ifndef SET_UNALIGN_CTL
+# define SET_UNALIGN_CTL(a,b)	(-EINVAL)
+#endif
+#ifndef GET_UNALIGN_CTL
+# define GET_UNALIGN_CTL(a,b)	(-EINVAL)
+#endif
+#ifndef SET_FPEMU_CTL
+# define SET_FPEMU_CTL(a,b)	(-EINVAL)
+#endif
+#ifndef GET_FPEMU_CTL
+# define GET_FPEMU_CTL(a,b)	(-EINVAL)
+#endif
+#ifndef SET_FPEXC_CTL
+# define SET_FPEXC_CTL(a,b)	(-EINVAL)
+#endif
+#ifndef GET_FPEXC_CTL
+# define GET_FPEXC_CTL(a,b)	(-EINVAL)
+#endif
+
 /*
  * this is where the system-wide overflow UID and GID are defined, for
  * architectures that now have 32-bit UID/GID but didn't in the past
@@ -492,19 +511,12 @@ static inline void cap_emulate_setxuid(int old_ruid, int old_euid,
 
 static int set_user(uid_t new_ruid, int dumpclear)
 {
-	struct user_struct *new_user, *old_user;
+	struct user_struct *new_user;
 
-	/* What if a process setreuid()'s and this brings the
-	 * new uid over his NPROC rlimit?  We can check this now
-	 * cheaply with the new uid cache, so if it matters
-	 * we should be checking for it.  -DaveM
-	 */
 	new_user = alloc_uid(new_ruid);
 	if (!new_user)
 		return -EAGAIN;
-	old_user = current->user;
-	atomic_dec(&old_user->processes);
-	atomic_inc(&new_user->processes);
+	switch_uid(new_user);
 
 	if(dumpclear)
 	{
@@ -512,8 +524,6 @@ static int set_user(uid_t new_ruid, int dumpclear)
 		wmb();
 	}
 	current->uid = new_ruid;
-	current->user = new_user;
-	free_uid(old_user);
 	return 0;
 }
 
@@ -745,6 +755,14 @@ asmlinkage long sys_setfsuid(uid_t uid)
 		current->fsuid = uid;
 	}
 
+	/* We emulate fsuid by essentially doing a scaled-down version
+	 * of what we did in setresuid and friends. However, we only
+	 * operate on the fs-specific bits of the process' effective
+	 * capabilities 
+	 *
+	 * FIXME - is fsuser used for all CAP_FS_MASK capabilities?
+	 *          if not, we might be a bit too harsh here.
+	 */
 	
 	if (!issecure(SECURE_NO_SETUID_FIXUP)) {
 		if (old_fsuid == 0 && current->fsuid != 0) {
@@ -1025,6 +1043,7 @@ asmlinkage long sys_newuname(struct new_utsname * name)
 asmlinkage long sys_sethostname(char *name, int len)
 {
 	int errno;
+	char tmp[__NEW_UTS_LEN];
 
 	if (!capable(CAP_SYS_ADMIN))
 		return -EPERM;
@@ -1032,7 +1051,8 @@ asmlinkage long sys_sethostname(char *name, int len)
 		return -EINVAL;
 	down_write(&uts_sem);
 	errno = -EFAULT;
-	if (!copy_from_user(system_utsname.nodename, name, len)) {
+	if (!copy_from_user(tmp, name, len)) {
+		memcpy(system_utsname.nodename, tmp, len);
 		system_utsname.nodename[len] = 0;
 		errno = 0;
 	}
@@ -1064,6 +1084,7 @@ asmlinkage long sys_gethostname(char *name, int len)
 asmlinkage long sys_setdomainname(char *name, int len)
 {
 	int errno;
+	char tmp[__NEW_UTS_LEN];
 
 	if (!capable(CAP_SYS_ADMIN))
 		return -EPERM;
@@ -1072,9 +1093,10 @@ asmlinkage long sys_setdomainname(char *name, int len)
 
 	down_write(&uts_sem);
 	errno = -EFAULT;
-	if (!copy_from_user(system_utsname.domainname, name, len)) {
-		errno = 0;
+	if (!copy_from_user(tmp, name, len)) {
+		memcpy(system_utsname.domainname, tmp, len);
 		system_utsname.domainname[len] = 0;
+		errno = 0;
 	}
 	up_write(&uts_sem);
 	return errno;
@@ -1119,6 +1141,8 @@ asmlinkage long sys_setrlimit(unsigned int resource, struct rlimit *rlim)
 		return -EINVAL;
 	if(copy_from_user(&new_rlim, rlim, sizeof(*rlim)))
 		return -EFAULT;
+       if (new_rlim.rlim_cur > new_rlim.rlim_max)
+               return -EINVAL;
 	old_rlim = current->rlim + resource;
 	if (((new_rlim.rlim_cur > old_rlim->rlim_max) ||
 	     (new_rlim.rlim_max > old_rlim->rlim_max)) &&
@@ -1132,6 +1156,23 @@ asmlinkage long sys_setrlimit(unsigned int resource, struct rlimit *rlim)
 	return 0;
 }
 
+/*
+ * It would make sense to put struct rusage in the task_struct,
+ * except that would make the task_struct be *really big*.  After
+ * task_struct gets moved into malloc'ed memory, it would
+ * make sense to do this.  It will make moving the rest of the information
+ * a lot simpler!  (Which we're not doing right now because we're not
+ * measuring them yet).
+ *
+ * This is SMP safe.  Either we are called from sys_getrusage on ourselves
+ * below (we know we aren't going to exit/disappear and only we change our
+ * rusage counters), or we are called from wait4() on a process which is
+ * either stopped or zombied.  In the zombied case the task won't get
+ * reaped till shortly after the call to getrusage(), in both cases the
+ * task being examined is in a frozen state so the counters won't change.
+ *
+ * FIXME! Get the fault counts properly!
+ */
 int getrusage(struct task_struct *p, int who, struct rusage *ru)
 {
 	struct rusage r;
@@ -1201,7 +1242,7 @@ asmlinkage long sys_prctl(int option, unsigned long arg2, unsigned long arg3,
 			error = put_user(current->pdeath_signal, (int *)arg2);
 			break;
 		case PR_GET_DUMPABLE:
-			if (current->mm->dumpable)
+			if (is_dumpable(current))
 				error = 1;
 			break;
 		case PR_SET_DUMPABLE:
@@ -1211,36 +1252,24 @@ asmlinkage long sys_prctl(int option, unsigned long arg2, unsigned long arg3,
 			}
 			current->mm->dumpable = arg2;
 			break;
+
 	        case PR_SET_UNALIGN:
-#ifdef SET_UNALIGN_CTL
 			error = SET_UNALIGN_CTL(current, arg2);
-#else
-			error = -EINVAL;
-#endif
 			break;
-
 	        case PR_GET_UNALIGN:
-#ifdef GET_UNALIGN_CTL
 			error = GET_UNALIGN_CTL(current, arg2);
-#else
-			error = -EINVAL;
-#endif
 			break;
-
 	        case PR_SET_FPEMU:
-#ifdef SET_FPEMU_CTL
 			error = SET_FPEMU_CTL(current, arg2);
-#else
-			error = -EINVAL;
-#endif
 			break;
-
 	        case PR_GET_FPEMU:
-#ifdef GET_FPEMU_CTL
 			error = GET_FPEMU_CTL(current, arg2);
-#else
-			error = -EINVAL;
-#endif
+			break;
+		case PR_SET_FPEXC:
+			error = SET_FPEXC_CTL(current, arg2);
+			break;
+		case PR_GET_FPEXC:
+			error = GET_FPEXC_CTL(current, arg2);
 			break;
 
 		case PR_GET_KEEPCAPS:

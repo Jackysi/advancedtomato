@@ -28,8 +28,7 @@
 
 #include "ieee1394.h"
 #include "ohci1394.h"
-#include <linux/pci.h>
-#include <asm/scatterlist.h>
+#include "dma.h"
 
 /* data structures private to the dv1394 driver */
 /* none of this is exposed to user-space */
@@ -98,7 +97,7 @@ static inline void fill_output_more_immediate(struct output_more_immediate *omi,
 	omi->q[3] = 0;
 	
 	/* IT packet header */
-	omi->q[4] = cpu_to_le32(  (0x0 << 16)  /* DMA_SPEED_100 */
+	omi->q[4] = cpu_to_le32(  (0x0 << 16)  /* IEEE1394_SPEED_100 */
 				  | (tag << 14)
 				  | (channel << 8)
 				  | (TCODE_ISO_DATA << 4) 
@@ -130,10 +129,10 @@ static inline void fill_output_last(struct output_last *ol,
 	u32 temp = 0;
 	temp |= 1 << 28; /* OUTPUT_LAST */
 
-	if(want_timestamp) /* controller will update timestamp at DMA time */
+	if (want_timestamp) /* controller will update timestamp at DMA time */
 		temp |= 1 << 27;
 
-	if(want_interrupt)
+	if (want_interrupt)
 		temp |= 3 << 20;
 
 	temp |= 3 << 18; /* must take branch */
@@ -167,12 +166,14 @@ static inline void fill_input_more(struct input_more *im,
 }
  
 static inline void fill_input_last(struct input_last *il,
+				    int want_interrupt,
 				    unsigned int data_size,
 				    unsigned long data_phys_addr)
 {
 	u32 temp =  3 << 28; /* INPUT_LAST */
 	temp |= 8 << 24; /* s = 1, update xferStatus and resCount */
-	temp |= 3 << 20; /* enable interrupts */
+	if (want_interrupt)
+		temp |= 3 << 20; /* enable interrupts */
 	temp |= 0xC << 16; /* enable branch to address */
 	                       /* disable wait on sync field, not used in DV :-( */
 	temp |= data_size;
@@ -301,8 +302,7 @@ struct frame {
 	unsigned long data; 
 
 	/* Max # of packets per frame */
-	/* 320 is enough for NTSC, need to check what PAL is */
-        #define MAX_PACKETS 500
+#define MAX_PACKETS 500
 
 
 	/* a PAGE_SIZE memory pool for allocating CIP headers
@@ -383,35 +383,6 @@ static void frame_delete(struct frame *f);
 /* reset f so that it can be used again */
 static void frame_reset(struct frame *f);
 
-
-/* structure for bookkeeping of a large non-physically-contiguous DMA buffer */
-
-struct dma_region {
-	unsigned int n_pages;
-	unsigned int n_dma_pages;
-	struct scatterlist *sglist;
-};
-
-/* return the DMA bus address of the byte with the given offset
-   relative to the beginning of the dma_region */
-
-static inline dma_addr_t dma_offset_to_bus(struct dma_region *dma, unsigned long offset)
-{
-	int i;
-	struct scatterlist *sg;
-	
-	for(i = 0, sg = &dma->sglist[0]; i < dma->n_dma_pages; i++, sg++) {
-		if(offset < sg_dma_len(sg)) {
-			return sg_dma_address(sg) + offset;
-		} 
-		offset -= sg_dma_len(sg);
-	}
-	
-	printk(KERN_ERR "dv1394: dma_offset_to_bus failed for offset %lu!\n", offset);
-	return 0;
-}
-
-
 /* struct video_card contains all data associated with one instance
    of the dv1394 driver 
 */
@@ -487,6 +458,10 @@ struct video_card {
 	 */
 	spinlock_t spinlock;
 
+	/* flag to prevent spurious interrupts (which OHCI seems to
+	   generate a lot :) from accessing the struct */
+	int dma_running;
+	
 	/*
 	  3) the sleeping semaphore 'sem' - this is used from process context only,
 	  to serialize various operations on the video_card. Even though only one
@@ -508,9 +483,8 @@ struct video_card {
 	
 	/* the large, non-contiguous (rvmalloc()) ringbuffer for DV
            data, exposed to user-space via mmap() */
-	unsigned char     *user_buf;
-	unsigned long      user_buf_size;
-	struct dma_region  user_dma;
+	unsigned long      dv_buf_size;
+	struct dma_region  dv_buf;
 	
 	/* next byte in the ringbuffer that a write() call will fill */
 	size_t write_off;
@@ -518,7 +492,7 @@ struct video_card {
 	struct frame *frames[DV1394_MAX_FRAMES];
 	
 	/* n_frames also serves as an indicator that this struct video_card is
-	   intialized and ready to run DMA buffers */
+	   initialized and ready to run DMA buffers */
 
 	int n_frames;
 
@@ -579,10 +553,8 @@ struct video_card {
 
 	
 	/* physically contiguous packet ringbuffer for receive */
-#define MAX_PACKET_BUFFER 30
-	struct packet *packet_buffer;
-	dma_addr_t     packet_buffer_dma;
-	unsigned long  packet_buffer_size;
+	struct dma_region packet_buf;
+	unsigned long  packet_buf_size;
 	
 	unsigned int current_packet;
 	int first_frame; 	/* received first start frame marker? */
@@ -603,7 +575,7 @@ static inline int video_card_initialized(struct video_card *v)
 
 static int do_dv1394_init(struct video_card *video, struct dv1394_init *init);
 static int do_dv1394_init_default(struct video_card *video);
-static int do_dv1394_shutdown(struct video_card *video, int free_user_buf);
+static void do_dv1394_shutdown(struct video_card *video, int free_user_buf);
 
 
 /* NTSC empty packet rate accurate to within 0.01%, 

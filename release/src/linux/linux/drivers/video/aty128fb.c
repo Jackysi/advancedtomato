@@ -1,4 +1,4 @@
-/* $Id: aty128fb.c,v 1.1.1.4 2003/10/14 08:08:53 sparq Exp $
+/* $Id: aty128fb.c,v 1.1.1.1.36.1 1999/12/11 09:03:05 Exp $
  *  linux/drivers/video/aty128fb.c -- Frame buffer device for ATI Rage128
  *
  *  Copyright (C) 1999-2000, Brad Douglas <brad@neruo.com>
@@ -1135,6 +1135,22 @@ aty128_set_pll(struct aty128_pll *pll, const struct fb_info_aty128 *info)
     /* clear the reset, just in case */
     aty_st_pll(PPLL_CNTL, aty_ld_pll(PPLL_CNTL) & ~PPLL_RESET);
 
+#if 0
+    if (info->chip_gen == rage_M3) {
+	/* XXX energy saving, disable VCLK during blanking */
+	aty_pll_wait_readupdate(info);
+    	aty_st_pll(VCLK_ECP_CNTL, aty_ld_pll(VCLK_ECP_CNTL) | 0xc0);
+		aty_pll_writeupdate(info);
+
+	/* Set PM clocks */
+	aty_pll_wait_readupdate(info);
+	aty_st_pll(XCLK_CNTL, aty_ld_pll(XCLK_CNTL) | 0x00330000);
+	aty_pll_writeupdate(info);
+	aty_pll_wait_readupdate(info);
+	aty_st_pll(MCLK_CNTL, aty_ld_pll(MCLK_CNTL) | 0x00000700);
+	aty_pll_writeupdate(info);
+    }
+#endif    
 }
 
 
@@ -1706,6 +1722,11 @@ aty128_st_pal(u_int regno, u_int red, u_int green, u_int blue,
      */
 
     if (info->chip_gen == rage_M3) {
+#if 0
+        aty_st_le32(DAC_CNTL, aty_ld_le32(DAC_CNTL) | DAC_PALETTE_ACCESS_CNTL);
+        aty_st_8(PALETTE_INDEX, regno);
+        aty_st_le32(PALETTE_DATA, (red<<16)|(green<<8)|blue);
+#endif
         aty_st_le32(DAC_CNTL, aty_ld_le32(DAC_CNTL) & ~DAC_PALETTE_ACCESS_CNTL);
     }
     aty_st_8(PALETTE_INDEX, regno);
@@ -2113,9 +2134,12 @@ static char __init
 	char *rom_base;
 	char *rom;
 	int  stage;
-	int  i;
+	int  i,j;
 	char aty_rom_sig[] = "761295520";   /* ATI ROM Signature      */
-	char R128_sig[] = "R128";           /* Rage128 ROM identifier */
+	char *R128_sig[] = {
+		"R128",			/* Rage128 ROM identifier */
+		"128b"
+	};
 
 	for (segstart=0x000c0000; segstart<0x000f0000; segstart+=0x00001000) {
         	stage = 1;
@@ -2146,10 +2170,14 @@ static char __init
 
 		/* ATI signature found.  Let's see if it's a Rage128 */
 		for (i = 0; (i < 512) && (stage != 4); i++) {
-			if (R128_sig[0] == *rom)
-				if (strncmp(R128_sig, rom, 
-						strlen(R128_sig)) == 0)
-					stage = 4;
+		    for(j = 0;j < sizeof(R128_sig)/sizeof(char *);j++) {
+			if (R128_sig[j][0] == *rom)
+				if (strncmp(R128_sig[j], rom, 
+					    strlen(R128_sig[j])) == 0) {
+					      stage = 4;
+					      break;
+					    }
+		    }
 			rom++;
 		}
 		if (stage != 4) {
@@ -2510,7 +2538,7 @@ aty128_set_backlight_enable(int on, int level, void* data)
 	reg |= LVDS_BL_MOD_EN | LVDS_BLON;
 	if (on && level > BACKLIGHT_OFF) {
 		reg |= LVDS_DIGION;
-		if (!reg & LVDS_ON) {
+		if ((reg & LVDS_ON) == 0) {
 			reg &= ~LVDS_BLON;
 			aty_st_le32(LVDS_GEN_CNTL, reg);
 			(void)aty_ld_le32(LVDS_GEN_CNTL);
@@ -2836,7 +2864,12 @@ aty128_set_suspend(struct fb_info_aty128 *info, int suspend)
 
 		/* Set the power management mode to be PCI based */
 		pmgt = aty_ld_pll(POWER_MANAGEMENT);
+#if 0
+		pmgt &= ~PWR_MGT_MODE_MASK;
+		pmgt |= PWR_MGT_MODE_PCI | PWR_MGT_ON | PWR_MGT_TRISTATE_MEM_EN | PWR_MGT_AUTO_PWR_UP_EN;
+#else		/* Use this magic value for now */
 		pmgt = 0x0c005407;
+#endif
 		aty_st_pll(POWER_MANAGEMENT, pmgt);
 		(void)aty_ld_pll(POWER_MANAGEMENT);
 		aty_st_le32(BUS_CNTL1, 0x00000010);

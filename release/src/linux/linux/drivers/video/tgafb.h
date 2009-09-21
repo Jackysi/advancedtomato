@@ -3,7 +3,7 @@
  *
  *  	Copyright (C) 1999,2000 Martin Lucina, Tom Zerucha
  *  
- *  $Id: tgafb.h,v 1.1.1.4 2003/10/14 08:08:55 sparq Exp $
+ *  $Id: tgafb.h,v 1.4.2.3 2000/04/04 06:44:56 mato Exp $
  *
  *  This file is subject to the terms and conditions of the GNU General Public
  *  License. See the file COPYING in the main directory of this archive for
@@ -36,6 +36,7 @@
 #define	TGA_RASTEROP_REG		0x0034
 #define	TGA_PIXELSHIFT_REG		0x0038
 #define	TGA_DEEP_REG			0x0050
+#define	TGA_START_REG			0x0054
 #define	TGA_PIXELMASK_REG		0x005c
 #define	TGA_CURSOR_BASE_REG		0x0060
 #define	TGA_HORIZ_REG			0x0064

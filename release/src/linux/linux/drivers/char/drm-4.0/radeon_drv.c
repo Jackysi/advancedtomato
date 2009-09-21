@@ -294,7 +294,7 @@ static int radeon_takedown(drm_device_t *dev)
 					DRM_DEBUG("mtrr_del = %d\n", retcode);
 				}
 #endif
-				drm_ioremapfree(map->handle, map->size);
+				drm_ioremapfree(map->handle, map->size, dev);
 				break;
 			case _DRM_SHM:
 				drm_free_pages((unsigned long)map->handle,
@@ -639,6 +639,9 @@ int radeon_lock(struct inode *inode, struct file *filp, unsigned int cmd,
                 if (lock.flags & _DRM_LOCK_QUIESCENT) {
 				/* Make hardware quiescent */
 			DRM_DEBUG("not quiescent!\n");
+#if 0
+                        radeon_quiescent(dev);
+#endif
 		}
         }
 
@@ -681,6 +684,7 @@ int radeon_unlock(struct inode *inode, struct file *filp, unsigned int cmd,
 	if (_DRM_LOCK_IS_CONT(dev->lock.hw_lock->lock))
 		atomic_inc(&dev->total_contends);
 	drm_lock_transfer(dev, &dev->lock.hw_lock->lock, DRM_KERNEL_CONTEXT);
+				/* FIXME: Try to send data to card here */
 	if (!dev->context_flag) {
 		if (drm_lock_free(dev, &dev->lock.hw_lock->lock,
 				  DRM_KERNEL_CONTEXT)) {

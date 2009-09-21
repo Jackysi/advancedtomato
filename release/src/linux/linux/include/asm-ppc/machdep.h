@@ -1,6 +1,3 @@
-/*
- * BK Id: %F% %I% %G% %U% %#%
- */
 #ifdef __KERNEL__
 #ifndef _PPC_MACHDEP_H
 #define _PPC_MACHDEP_H
@@ -12,7 +9,7 @@
 #endif
 
 struct pt_regs;
-struct pci_bus;	
+struct pci_bus;
 struct pci_dev;
 struct seq_file;
 
@@ -30,7 +27,7 @@ struct machdep_calls {
 	unsigned int	(*irq_cannonicalize)(unsigned int irq);
 	void		(*init_IRQ)(void);
 	int		(*get_irq)(struct pt_regs *);
-	
+
 	/* A general init function, called by ppc_init in init/main.c.
 	   May be NULL. */
 	void		(*init)(void);
@@ -48,6 +45,7 @@ struct machdep_calls {
 	unsigned long	(*find_end_of_memory)(void);
 	void		(*setup_io_mappings)(void);
 
+	void		(*early_serial_map)(void);
   	void		(*progress)(char *, unsigned short);
 
 	unsigned char 	(*nvram_read_val)(int addr);
@@ -105,6 +103,9 @@ struct machdep_calls {
 	 * lines, chip power control, etc...).
 	 */
 	int (*feature_call)(unsigned int feature, ...);
+
+	/* Hook for board-specific info passed by the bootloader */
+	void (*board_info)(void *bdinfo, int bdinfo_size);
 
 #ifdef CONFIG_SMP
 	/* functions for dealing with other cpus */

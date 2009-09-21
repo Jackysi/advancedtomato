@@ -45,7 +45,8 @@
 #define MAX_PACAS MAX_PROCESSORS * 2
 
 extern struct paca_struct paca[];
-#define get_paca() ((struct paca_struct *)mfspr(SPRG3))
+register struct paca_struct *local_paca asm("r13");
+#define get_paca()	local_paca
 
 /*============================================================================
  * Name_______:	paca
@@ -84,7 +85,9 @@ struct paca_struct {
 	u8 xSegments[STAB_CACHE_SIZE];	/* Cache of used stab entries		0x68,0x70 */
 	u8 xProcEnabled;		/* 1=soft enabled			0x78 */
 	u8 xHrdIntCount;		/* Count of active hardware interrupts  0x79  */
-	u8 resv1[6];			/*					0x7B-0x7F */
+	u8 active;			/* Is this cpu active?			0x1a */
+	u8 available;			/* Is this cpu available?		0x1b */
+	u8 resv1[4];			/*					0x7B-0x7F */
 
 /*=====================================================================================
  * CACHE_LINE_2 0x0080 - 0x00FF
@@ -96,7 +99,9 @@ struct paca_struct {
 	u64 pgtable_cache_sz;		/*					0x18 */
 	u64 next_jiffy_update_tb;	/* TB value for next jiffy update	0x20 */
 	u32 lpEvent_count;		/* lpEvents processed			0x28 */
-	u8  rsvd2[128-5*8-1*4];		/*					0x68 */
+	u8  yielded;                    /* 0 = this processor is running        0x2c */
+					/* 1 = this processor is yielded             */
+	u8  rsvd2[128-5*8-1*4-1];	/*					0x68 */
 
 /*=====================================================================================
  * CACHE_LINE_3 0x0100 - 0x017F
@@ -131,9 +136,8 @@ struct paca_struct {
  * CACHE_LINE_19 - 20 Profile Data
  *=====================================================================================
  */
-	u32 pmc[12];                    /* Default pmc value		*/	
+	u64 pmc[12];                    /* Default pmc value		*/	
 	u64 pmcc[8];                    /* Cumulative pmc counts        */
-	u64 rsvd5a[2];
 
 	u32 prof_multiplier;		/*					 */
 	u32 prof_shift;			/* iSeries shift for profile bucket size */
@@ -144,13 +148,15 @@ struct paca_struct {
 	u8  prof_mode;                  /* */
 	u8  rsvv5b[3];
 	u64 prof_counter;		/*					 */
-	u8  rsvd5c[128-8*6];
+	u8  rsvd5c[256-8*26];
 
 /*=====================================================================================
  * CACHE_LINE_20-30
  *=====================================================================================
  */
-	u8 rsvd6[0x500];
+	u64 slb_shadow[0x20];
+	u64 dispatch_log;
+	u8  rsvd6[0x400 - 0x8];
 
 /*=====================================================================================
  * CACHE_LINE_31 0x0F00 - 0x0F7F Exception stack
@@ -171,5 +177,7 @@ struct paca_struct {
  */
 	u8 guard[0x1000];               /* ... and then hang 'em         */ 
 };
+
+#define get_hard_smp_processor_id(CPU) (paca[(CPU)].xHwProcNum)
 
 #endif /* _PPC64_PACA_H */

@@ -26,7 +26,7 @@
 #include <asm/gsc.h>
 #include <asm/hardware.h>
 #include <asm/led.h>
-
+#include <asm/pdc.h>
 #include "busdevice.h"
 
 
@@ -77,7 +77,10 @@ lasi_init_irq(struct busdevice *this_lasi)
 
 	/* Resets */
 	/* gsc_writel(0xFFFFFFFF, lasi_base+0x2000);*/	/* Parallel */
-	gsc_writel(0xFFFFFFFF, lasi_base+0x4004);	/* Audio */
+
+	if(pdc_add_valid(lasi_base+0x4004) == PDC_OK)
+		gsc_writel(0xFFFFFFFF, lasi_base+0x4004);	/* Audio */
+
 	/* gsc_writel(0xFFFFFFFF, lasi_base+0x5000);*/	/* Serial */ 
 	/* gsc_writel(0xFFFFFFFF, lasi_base+0x6000);*/	/* SCSI */
 	gsc_writel(0xFFFFFFFF, lasi_base+0x7000);	/* LAN */
@@ -88,6 +91,9 @@ lasi_init_irq(struct busdevice *this_lasi)
 	** comatose and muzzled.  Devices will now unmask LASI
 	** interrupts as they are registered as irq's in the LASI range.
 	*/
+	/* XXX: I thought it was `awks that got `it on the `ead with an
+	 * `ammer.  -- willy
+	 */
 }
 
 
@@ -221,6 +227,9 @@ lasi_init_chip(struct parisc_device *dev)
 			lasi_choose_irq);
 
 	/* initialize the power off function */
+	/* FIXME: Record the LASI HPA for the power off function.  This should
+	 * ensure that only the first LASI (the one controlling the power off)
+	 * should set the HPA here */
 	lasi_power_off_hpa = lasi->hpa;
 	pm_power_off = lasi_power_off;
 	

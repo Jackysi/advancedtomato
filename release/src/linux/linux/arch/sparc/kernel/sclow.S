@@ -35,8 +35,18 @@
 LABEL(sunosnop):
 	CC_AND_RETT
 
+#if 0
+/* Not SMP safe */
+	.globl	LABEL(sunosgetpid)
+LABEL(sunosgetpid):
+	LOAD_CURRENT(l4, l5)
+	ld	[%l4 + AOFF_task_pid], %i0
+	ld	[%l4 + AOFF_task_p_opptr], %l5
+	ld	[%l5 + AOFF_task_pid], %i1
+	CC_AND_RETT
+#endif
 
-#if ASIZ_task_uid == 2 && ASIZ_task_euid == 2
+#if (ASIZ_task_uid == 2 && ASIZ_task_euid == 2)
 	.globl	LABEL(sunosgetuid)
 LABEL(sunosgetuid):
 	LOAD_CURRENT(l4, l5)
@@ -45,7 +55,7 @@ LABEL(sunosgetuid):
 	CC_AND_RETT
 #endif
 
-#if ASIZ_task_gid == 2 && ASIZ_task_egid == 2
+#if (ASIZ_task_gid == 2 && ASIZ_task_egid == 2)
 	.globl	LABEL(sunosgetgid)
 LABEL(sunosgetgid):
 	LOAD_CURRENT(l4, l5)
@@ -88,3 +98,16 @@ LABEL(getpagesize):
 	set	PAGE_SIZE, %i0
 	CC_AND_RETT
 
+	/* XXX sys_nice() XXX */
+	/* XXX sys_setpriority() XXX */
+	/* XXX sys_getpriority() XXX */
+	/* XXX sys_setregid() XXX */
+	/* XXX sys_setgid() XXX */
+	/* XXX sys_setreuid() XXX */
+	/* XXX sys_setuid() XXX */
+	/* XXX sys_setfsuid() XXX */
+	/* XXX sys_setfsgid() XXX */
+	/* XXX sys_setpgid() XXX */
+	/* XXX sys_getpgid() XXX */
+	/* XXX sys_setsid() XXX */
+	/* XXX sys_getsid() XXX */

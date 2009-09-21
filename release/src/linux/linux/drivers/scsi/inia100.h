@@ -138,7 +138,11 @@ extern int inia100_biosparam(Scsi_Disk *, kdev_t, int *);	/*for linux v2.0 */
 #ifndef FAILURE
 #define FAILURE  (-1)
 #endif
+#if 1
 #define ORC_MAXQUEUE		245
+#else
+#define ORC_MAXQUEUE		25
+#endif
 
 #define TOTAL_SG_ENTRY		32
 #define MAX_TARGETS		16

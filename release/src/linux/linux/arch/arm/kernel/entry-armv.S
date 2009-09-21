@@ -187,11 +187,10 @@ irq_prio_ld:	.byte	40,40,41,40,42,42,42,42,43,43,43,43,43,43,43,43
 
 		.macro	get_irqnr_and_base, irqnr, irqstat, base, tmp
 		mov	r4, #0xe0000000
-		orr	r4, r4, #0x20
 
 		mov	\irqstat, #0x0C
-		strb	\irqstat, [r4]			@outb(0x0C, 0x20) /* Poll command */
-		ldrb	\irqnr, [r4]			@irq = inb(0x20) & 7
+		strb	\irqstat, [r4, #0x20]		@outb(0x0C, 0x20) /* Poll command */
+		ldrb	\irqnr, [r4, #0x20]		@irq = inb(0x20) & 7
 		and	\irqstat, \irqnr, #0x80
 		teq	\irqstat, #0
 		beq	43f
@@ -199,8 +198,8 @@ irq_prio_ld:	.byte	40,40,41,40,42,42,42,42,43,43,43,43,43,43,43,43
 		teq	\irqnr, #2
 		bne	44f
 43:		mov	\irqstat, #0x0C
-		strb	\irqstat, [r4, #0x80]		@outb(0x0C, 0xA0) /* Poll command */
-		ldrb	\irqnr, [r4, #0x80]		@irq = (inb(0xA0) & 7) + 8
+		strb	\irqstat, [r4, #0xa0]		@outb(0x0C, 0xA0) /* Poll command */
+		ldrb	\irqnr, [r4, #0xa0]		@irq = (inb(0xA0) & 7) + 8
 		and	\irqstat, \irqnr, #0x80
 		teq	\irqstat, #0
 		beq	44f
@@ -434,6 +433,7 @@ ENTRY(soft_irq_mask)
 		.endm
 
 		.macro	get_irqnr_and_base, irqnr, irqstat, base, tmp
+/* FIXME: should not be using soo many LDRs here */
 		ldr	\irqnr, =IO_ADDRESS(INTEGRATOR_IC_BASE)
 		ldr	\irqstat, [\irqnr, #IRQ_STATUS]		@ get masked status
 		ldr	\irqnr, =IO_ADDRESS(INTEGRATOR_HDR_BASE)
@@ -451,6 +451,23 @@ ENTRY(soft_irq_mask)
 		.endm
 
 		.macro	irq_prio_table
+		.endm
+
+#elif defined(CONFIG_ARCH_AT91RM9200)
+#include <asm/hardware.h>
+
+		.macro  disable_fiq
+		.endm
+
+		.macro  get_irqnr_and_base, irqnr, irqstat, base, tmp
+		ldr	\base, =(AT91C_VA_BASE_SYS)	@ base virtual address of SYS peripherals
+		ldr	\irqnr, [\base, #AIC_IVR]	@ read IRQ vector register: de-asserts nIRQ to processor (and clears interrupt)
+		ldr	\irqstat, [\base, #AIC_ISR]	@ read interrupt source number
+		teq	\irqstat, #0			@ ISR is 0 when no current interrupt, or spurious interrupt
+		streq   \tmp, [\base, #AIC_EOICR]	@ not going to be handled further, then ACK it now.
+		.endm
+
+		.macro  irq_prio_table
 		.endm
 
 #elif defined(CONFIG_ARCH_MX1ADS)
@@ -477,6 +494,32 @@ ENTRY(soft_irq_mask)
 
 		.macro	irq_prio_table
 		.endm
+
+#elif defined(CONFIG_ARCH_OMAHA)
+
+		.macro	disable_fiq
+		.endm
+
+		.macro	get_irqnr_and_base, irqnr, irqstat, base, tmp
+		
+		/* Read all interrupts pending... */
+		ldr	\irqnr, =IO_ADDRESS(PLAT_PERIPHERAL_BASE) + OMAHA_INTPND
+		ldr	\irqstat, [\irqnr]		/* INTPND */
+
+		/* All pending irqs are now in \irqstat */
+		mov	\irqnr, #0
+1001:		tst	\irqstat, #1
+		bne	1002f
+		add	\irqnr, \irqnr, #1
+		mov	\irqstat, \irqstat, lsr #1
+		cmp	\irqnr, #MAXIRQNUM
+		bcc	1001b
+1002:		/* EQ will be set if we reach MAXIRQNUM */
+
+		.endm
+
+		.macro	irq_prio_table
+		.endm    
 
 #elif defined(CONFIG_ARCH_CLPS711X)
 
@@ -524,7 +567,7 @@ ENTRY(soft_irq_mask)
 		.macro	irq_prio_table
 		.endm
 	
-#elif defined(CONFIG_ARCH_CAMELOT)
+#elif defined (CONFIG_ARCH_CAMELOT)
 #include <asm/arch/platform.h>
 #undef IRQ_MODE /* same name defined in asm/proc/ptrace.h */
 #include <asm/arch/int_ctrl00.h>
@@ -610,16 +653,6 @@ __und_invalid:	sub	sp, sp, #S_FRAME_SIZE
 		and	r2, r6, #31			@ int mode
 		b	SYMBOL_NAME(bad_mode)
 
-#if defined CONFIG_FPE_NWFPE || defined CONFIG_FPE_FASTFPE
-		/* The FPE is always present */
-		.equ	fpe_not_present, 0
-#else
-wfs_mask_data:	.word	0x0e200110			@ WFS/RFS
-		.word	0x0fef0fff
-		.word	0x0d000100			@ LDF [sp]/STF [sp]
-		.word	0x0d000100			@ LDF [fp]/STF [fp]
-		.word	0x0f000f00
-
 /* We get here if an undefined instruction happens and the floating
  * point emulator is not present.  If the offending instruction was
  * a WFS, we just perform a normal return as if we had emulated the
@@ -627,30 +660,7 @@ wfs_mask_data:	.word	0x0e200110			@ WFS/RFS
  * to run so that the emulator module proper can be loaded. --philb
  */
 fpe_not_present:
-		adr	r10, wfs_mask_data
-		ldmia	r10, {r4, r5, r6, r7, r8}
-		ldr	r10, [sp, #S_PC]		@ Load PC
-		sub	r10, r10, #4
-		mask_pc	r10, r10
-		ldrt	r10, [r10]			@ get instruction
-		and	r5, r10, r5
-		teq	r5, r4				@ Is it WFS?
-		moveq	pc, r9
-		and	r5, r10, r8
-		teq	r5, r6				@ Is it LDF/STF on sp or fp?
-		teqne	r5, r7
-		movne	pc, lr
-		tst	r10, #0x00200000		@ Does it have WB
-		moveq	pc, r9
-		and	r4, r10, #255			@ get offset
-		and	r6, r10, #0x000f0000
-		tst	r10, #0x00800000		@ +/-
-		ldr	r5, [sp, r6, lsr #14]		@ Load reg
-		rsbeq	r4, r4, #0
-		add	r5, r5, r4, lsl #2
-		str	r5, [sp, r6, lsr #14]		@ Save reg
-		mov	pc, r9
-#endif
+		mov	pc, lr
 
 /*
  * SVC mode handlers
@@ -702,10 +712,12 @@ __irq_svc:	sub	sp, sp, #S_FRAME_SIZE
 		@ routine called with r0 = irq number, r1 = struct pt_regs *
 		@
 		adrsvc	ne, lr, 1b
-		bne	do_IRQ
+		bne	asm_do_IRQ
 		ldr	r0, [sp, #S_PSR]		@ irqs are already disabled
 		msr	spsr, r0
 		ldmia	sp, {r0 - pc}^			@ load r0 - pc, cpsr
+
+		.ltorg
 
 		.align	5
 __und_svc:	sub	sp, sp, #S_FRAME_SIZE
@@ -806,10 +818,12 @@ __irq_usr:	sub	sp, sp, #S_FRAME_SIZE
 		@
 		@ routine called with r0 = irq number, r1 = struct pt_regs *
 		@
-		bne	do_IRQ
+		bne	asm_do_IRQ
 		mov	why, #0
 		get_current_task tsk
 		b	ret_to_user
+
+		.ltorg
 
 		.align	5
 __und_usr:	sub	sp, sp, #S_FRAME_SIZE		@ Allocate frame size in one go
@@ -821,6 +835,8 @@ __und_usr:	sub	sp, sp, #S_FRAME_SIZE		@ Allocate frame size in one go
 		stmdb	r8, {sp, lr}^			@ Save user sp, lr
 		alignment_trap r4, r7, __temp_und
 		zero_fp
+		tst	r6, #T_BIT			@ Thumb mode
+		bne	fpundefinstr
 		adrsvc	al, r9, ret_from_exception	@ r9  = normal FP return
 		adrsvc	al, lr, fpundefinstr		@ lr  = undefined instr return
 
@@ -858,8 +874,9 @@ __pabt_usr:	sub	sp, sp, #S_FRAME_SIZE		@ Allocate frame size in one go
  * This is the return code to user mode for abort handlers
  */
 ENTRY(ret_from_exception)
-		get_current_task tsk
+		disable_irq r1
 		mov	why, #0
+		get_current_task tsk
 		b	ret_to_user
 
 		.data
@@ -908,7 +925,9 @@ vector_IRQ:	@
 		@
 		@ now branch to the relevent MODE handling routine
 		@
-		mov	r13, #I_BIT | MODE_SVC
+		mrs	r13, cpsr
+		bic	r13, r13, #MODE_MASK
+		orr	r13, r13, #I_BIT | MODE_SVC
 		msr	spsr_c, r13			@ switch to SVC_32 mode
 
 		and	lr, lr, #15
@@ -949,7 +968,9 @@ vector_data:	@
 		@
 		@ now branch to the relevent MODE handling routine
 		@
-		mov	r13, #I_BIT | MODE_SVC
+		mrs	r13, cpsr
+		bic	r13, r13, #MODE_MASK
+		orr	r13, r13, #I_BIT | MODE_SVC
 		msr	spsr_c, r13			@ switch to SVC_32 mode
 
 		and	lr, lr, #15
@@ -991,7 +1012,9 @@ vector_prefetch:
 		@
 		@ now branch to the relevent MODE handling routine
 		@
-		mov	r13, #I_BIT | MODE_SVC
+		mrs	r13, cpsr
+		bic	r13, r13, #MODE_MASK
+		orr	r13, r13, #I_BIT | MODE_SVC
 		msr	spsr_c, r13			@ switch to SVC_32 mode
 
 		ands	lr, lr, #15
@@ -1032,7 +1055,9 @@ vector_undefinstr:
 		@
 		@ now branch to the relevent MODE handling routine
 		@
-		mov	r13, #I_BIT | MODE_SVC
+		mrs	r13, cpsr
+		bic	r13, r13, #MODE_MASK
+		orr	r13, r13, #I_BIT | MODE_SVC
 		msr	spsr_c, r13			@ switch to SVC_32 mode
 
 		and	lr, lr, #15

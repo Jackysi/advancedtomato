@@ -1,4 +1,4 @@
-/* $Id: mostek.h,v 1.1.1.4 2003/10/14 08:09:23 sparq Exp $
+/* $Id: mostek.h,v 1.4 2001/01/11 15:07:09 davem Exp $
  * mostek.h:  Describes the various Mostek time of day clock registers.
  *
  * Copyright (C) 1995 David S. Miller (davem@caip.rutgers.edu)
@@ -134,13 +134,11 @@ do {	u8 __val = mostek_read(regs + MOSTEK_ ## name); \
  */
 #define MOSTEK_48T08_OFFSET	0x0000UL	/* Lower NVRAM portions */
 #define MOSTEK_48T08_48T02	0x1800UL	/* Offset to 48T02 chip */
-extern unsigned long mstk48t08_regs;
 
 /* SUN5 systems usually have 48t59 model clock chipsets.  But we keep the older
  * clock chip definitions around just in case.
  */
 #define MOSTEK_48T59_OFFSET	0x0000UL	/* Lower NVRAM portions */
 #define MOSTEK_48T59_48T02	0x1800UL	/* Offset to 48T02 chip */
-extern unsigned long mstk48t59_regs;
 
 #endif /* !(_SPARC64_MOSTEK_H) */

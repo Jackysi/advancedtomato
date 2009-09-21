@@ -1,6 +1,7 @@
 #ifndef _ASM_HW_IRQ_H
 #define _ASM_HW_IRQ_H
 
+#ifndef __ASSEMBLY__
 /*
  *	linux/include/asm/hw_irq.h
  *
@@ -13,12 +14,15 @@
  *
  *	hacked by Andi Kleen for x86-64.
  * 
- *  $Id: hw_irq.h,v 1.1.1.4 2003/10/14 08:09:23 sparq Exp $
+ *  $Id: hw_irq.h,v 1.31 2003/02/18 18:35:55 ak Exp $
  */
 
 #include <linux/config.h>
+#include <linux/stddef.h>
 #include <asm/atomic.h>
 #include <asm/irq.h>
+
+#endif
 
 /*
  * IDT vectors usable for external interrupt sources start
@@ -27,7 +31,6 @@
 #define FIRST_EXTERNAL_VECTOR	0x20
 
 #define IA32_SYSCALL_VECTOR	0x80
-#define KDBENTER_VECTOR		0x81
 
 
 /*
@@ -47,9 +50,8 @@
 #define ERROR_APIC_VECTOR	0xfe
 #define INVALIDATE_TLB_VECTOR	0xfd
 #define RESCHEDULE_VECTOR	0xfc
-#define KDB_VECTOR		0xfa
+/* 0xfa free */
 #define CALL_FUNCTION_VECTOR	0xfb
-#define KDB_VECTOR              0xfa
 
 /*
  * Local APIC timer IRQ vector is on a different priority level,
@@ -66,6 +68,7 @@
 #define FIRST_DEVICE_VECTOR	0x31
 #define FIRST_SYSTEM_VECTOR	0xef
 
+#ifndef __ASSEMBLY__
 extern int irq_vector[NR_IRQS];
 #define IO_APIC_VECTOR(irq)	irq_vector[irq]
 
@@ -100,57 +103,17 @@ extern char _stext, _etext;
 
 #define IO_APIC_IRQ(x) (((x) >= 16) || ((1<<(x)) & io_apic_irqs))
 
-#define __STR(x) #x
-#define STR(x) __STR(x)
-
 #include <asm/ptrace.h>
-#ifndef ASM_OFFSET_H
-#include <asm/offset.h>
-#endif
 
-/* IF:off, stack contains irq number on origrax */ 
-#define IRQ_ENTER								\
-"	cld ;"									\
-"	pushq %rdi ;"								\
-"	pushq %rsi ;"								\
-"	pushq %rdx ;"								\
-"	pushq %rcx ;"								\
-"	pushq %rax ;"								\
-"	pushq %r8 ;"								\
-"	pushq %r9 ;"								\
-"	pushq %r10 ;"								\
-"	pushq %r11 ;"								\
-"	leaq -48(%rsp),%rdi	;"						\
-"	testl $3,136(%rdi)	;"						\
-"	je 1f ;"								\
-"	swapgs ;"								\
-"1:	addl $1,%gs: " STR(pda_irqcount) ";"					\
-"	movq %gs: " STR(pda_irqstackptr) ",%rax ;"				\
-"	cmoveq %rax,%rsp ;"							\
-"	pushq %rdi ;" 
+extern void reschedule_interrupt(void);
+extern void invalidate_interrupt(void);
+extern void call_function_interrupt(void);
+extern void apic_timer_interrupt(void);
+extern void spurious_interrupt(void);
+extern void error_interrupt(void);
 
 #define IRQ_NAME2(nr) nr##_interrupt(void)
 #define IRQ_NAME(nr) IRQ_NAME2(IRQ##nr)
-
-/*
- *	SMP has a few special interrupts for IPI messages
- */
-
-	/* there is a second layer of macro just to get the symbolic
-	   name for the vector evaluated. This change is for RTLinux */
-#define BUILD_SMP_INTERRUPT(x,v) XBUILD_SMP_INTERRUPT(x,v)
-#define XBUILD_SMP_INTERRUPT(x,v)\
-asmlinkage void x(void); \
-asmlinkage void call_##x(void); \
-__asm__( \
-"\n"__ALIGN_STR"\n" \
-SYMBOL_NAME_STR(x) ":\n\t" \
-	"push $" #v "-256;" \
-	IRQ_ENTER \
-	"call " SYMBOL_NAME_STR(smp_##x) " ; " \
-	"jmp ret_from_intr")
-
-#define BUILD_COMMON_IRQ()
 
 #define BUILD_IRQ(nr) \
 asmlinkage void IRQ_NAME(nr); \
@@ -193,13 +156,15 @@ static inline void x86_do_profile (unsigned long eip)
 	atomic_inc((atomic_t *)&prof_buffer[eip]);
 }
 
-#ifdef CONFIG_SMP     /*more of this file should probably be ifdefed SMP */
+#ifdef CONFIG_SMP /*more of this file should probably be ifdefed SMP */
 static inline void hw_resend_irq(struct hw_interrupt_type *h, unsigned int i) {
 	if (IO_APIC_IRQ(i))
 		send_IPI_self(IO_APIC_VECTOR(i));
 }
 #else
 static inline void hw_resend_irq(struct hw_interrupt_type *h, unsigned int i) {}
+#endif
+
 #endif
 
 #endif /* _ASM_HW_IRQ_H */

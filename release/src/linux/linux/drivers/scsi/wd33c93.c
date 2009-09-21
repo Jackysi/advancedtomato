@@ -331,6 +331,20 @@ DB(DB_QUEUE_COMMAND,printk("Q-%d-%02x-%ld( ",cmd->target,cmd->cmnd[0],cmd->pid))
    cmd->scsi_done = done;
    cmd->result = 0;
 
+/* We use the Scsi_Pointer structure that's included with each command
+ * as a scratchpad (as it's intended to be used!). The handy thing about
+ * the SCp.xxx fields is that they're always associated with a given
+ * cmd, and are preserved across disconnect-reselect. This means we
+ * can pretty much ignore SAVE_POINTERS and RESTORE_POINTERS messages
+ * if we keep all the critical pointers and counters in SCp:
+ *  - SCp.ptr is the pointer into the RAM buffer
+ *  - SCp.this_residual is the size of that buffer
+ *  - SCp.buffer points to the current scatter-gather buffer
+ *  - SCp.buffers_residual tells us how many S.G. buffers there are
+ *  - SCp.have_data_in is not used
+ *  - SCp.sent_command is not used
+ *  - SCp.phase records this command's SRCID_ER bit setting
+ */
 
    if (cmd->use_sg) {
       cmd->SCp.buffer = (struct scatterlist *)cmd->buffer;
@@ -1660,6 +1674,17 @@ int wd33c93_setup (char *str)
 
    p1 = setup_buffer;
    *p1 = '\0';
+#if 0
+/*
+ * Old style command line arguments are now dead
+ */
+   if (ints[0]) {
+      for (i=0; i<ints[0]; i++) {
+         x = vsprintf(p1,"nosync:0x%02x,",&(ints[i+1]));
+         p1 += x;
+         }
+      }
+#endif
    if (str)
       strncpy(p1, str, SETUP_BUFFER_SIZE - strlen(setup_buffer));
    setup_buffer[SETUP_BUFFER_SIZE - 1] = '\0';

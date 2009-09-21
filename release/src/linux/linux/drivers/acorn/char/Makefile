@@ -24,7 +24,9 @@ export-objs	:= mouse_rpc.o
 obj-arc		:= keyb_arc.o
 obj-rpc		:= keyb_ps2.o
 obj-clps7500	:= keyb_ps2.o defkeymap-acorn.o
+obj-riscstation := keyb_ps2.o defkeymap-acorn.o
 
+obj-$(CONFIG_7K5MOUSE)		+= mouse_ps2.o
 obj-$(CONFIG_RPCMOUSE)		+= mouse_rpc.o
 obj-$(CONFIG_ATOMWIDE_SERIAL)	+= serial-atomwide.o
 obj-$(CONFIG_DUALSP_SERIAL)	+= serial-dualsp.o

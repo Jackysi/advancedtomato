@@ -23,10 +23,10 @@
 */
 
 /*
- * $Id: hci_uart.h,v 1.1.1.4 2003/10/14 08:07:59 sparq Exp $
+ * $Id: hci_uart.h,v 1.2 2002/09/09 01:17:32 maxk Exp $
  */
 
-#ifndef N_HCI
+#ifndef N_HCI 
 #define N_HCI	15
 #endif
 
@@ -35,26 +35,27 @@
 #define HCIUARTGETPROTO	_IOR('U', 201, int)
 
 /* UART protocols */
-#define HCI_UART_MAX_PROTO	3
+#define HCI_UART_MAX_PROTO	4
 
 #define HCI_UART_H4	0
 #define HCI_UART_BCSP	1
-#define HCI_UART_NCSP	2
+#define HCI_UART_3WIRE	2
+#define HCI_UART_H4DS	3
 
 #ifdef __KERNEL__
-struct n_hci;
+struct hci_uart;
 
 struct hci_uart_proto {
 	unsigned int id;
-	int (*open)(struct n_hci *n_hci);
-	int (*recv)(struct n_hci *n_hci, void *data, int len);
-	int (*send)(struct n_hci *n_hci, void *data, int len);
-	int (*close)(struct n_hci *n_hci);
-	int (*flush)(struct n_hci *n_hci);
-	struct sk_buff* (*preq)(struct n_hci *n_hci, struct sk_buff *skb);
+	int (*open)(struct hci_uart *hu);
+	int (*close)(struct hci_uart *hu);
+	int (*flush)(struct hci_uart *hu);
+	int (*recv)(struct hci_uart *hu, void *data, int len);
+	int (*enqueue)(struct hci_uart *hu, struct sk_buff *skb);
+	struct sk_buff *(*dequeue)(struct hci_uart *hu);
 };
 
-struct n_hci {
+struct hci_uart {
 	struct tty_struct  *tty;
 	struct hci_dev     hdev;
 	unsigned long      flags;
@@ -62,19 +63,20 @@ struct n_hci {
 	struct hci_uart_proto *proto;
 	void               *priv;
 	
-	struct sk_buff_head txq;
-	unsigned long       tx_state;
-	spinlock_t          rx_lock;
+	struct sk_buff     *tx_skb;
+	unsigned long      tx_state;
+	spinlock_t         rx_lock;
 };
 
-/* N_HCI flag bits */
-#define N_HCI_PROTO_SET		0x00
+/* HCI_UART flag bits */
+#define HCI_UART_PROTO_SET		0
 
 /* TX states  */
-#define N_HCI_SENDING		1
-#define N_HCI_TX_WAKEUP		2
+#define HCI_UART_SENDING		1
+#define HCI_UART_TX_WAKEUP		2
 
 int hci_uart_register_proto(struct hci_uart_proto *p);
 int hci_uart_unregister_proto(struct hci_uart_proto *p);
+int hci_uart_tx_wakeup(struct hci_uart *hu);
 
 #endif /* __KERNEL__ */

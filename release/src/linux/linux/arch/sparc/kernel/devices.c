@@ -15,7 +15,7 @@
 #include <asm/smp.h>
 #include <asm/system.h>
 
-struct prom_cpuinfo linux_cpus[32];
+struct prom_cpuinfo linux_cpus[NR_CPUS];
 int linux_num_cpus = 0;
 
 extern void cpu_probe(void);
@@ -72,7 +72,7 @@ device_scan(void)
 		if (linux_num_cpus == 0) {
 			printk("No CPU nodes found, cannot continue.\n");
 			/* Probably a sun4e, Sun is trying to trick us ;-) */
-			halt();
+			prom_halt();
 		}
 		printk("Found %d CPU prom device tree node(s).\n", linux_num_cpus);
 	}

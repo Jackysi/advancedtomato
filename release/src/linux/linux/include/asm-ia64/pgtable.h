@@ -60,7 +60,8 @@
 #define _PAGE_PROTNONE		(__IA64_UL(1) << 63)
 
 #define _PFN_MASK		_PAGE_PPN_MASK
-#define _PAGE_CHG_MASK		(_PFN_MASK | _PAGE_A | _PAGE_D)
+/* Mask of bits which may be changed by pte_modify(); the odd bits are there for _PAGE_PROTNONE */
+#define _PAGE_CHG_MASK	(_PAGE_P | _PAGE_PROTNONE | _PAGE_PL_MASK | _PAGE_AR_MASK | _PAGE_ED)
 
 #define _PAGE_SIZE_4K	12
 #define _PAGE_SIZE_8K	13
@@ -163,10 +164,21 @@ ia64_phys_addr_valid (unsigned long addr)
 	return (addr & (local_cpu_data->unimpl_pa_mask)) == 0;
 }
 
-#ifndef CONFIG_DISCONTIGMEM
+/*
+ * kern_addr_valid(ADDR) tests if ADDR is pointing to valid kernel
+ * memory.  For the return value to be meaningful, ADDR must be >=
+ * PAGE_OFFSET.  This operation can be relatively expensive (e.g.,
+ * require a hash-, or multi-level tree-lookup or something of that
+ * sort) but it guarantees to return TRUE only if accessing the page
+ * at that address does not cause an error.  Note that there may be
+ * addresses for which kern_addr_valid() returns FALSE even though an
+ * access would not cause an error (e.g., this is typically true for
+ * memory mapped I/O regions.
+ *
+ * XXX Need to implement this for IA-64.
+ */
 #define kern_addr_valid(addr)	(1)
 
-#endif
 
 /*
  * Now come the defines and routines to manage and access the three-level
@@ -180,18 +192,13 @@ ia64_phys_addr_valid (unsigned long addr)
 #define set_pte(ptep, pteval)	(*(ptep) = (pteval))
 
 #define RGN_SIZE	(1UL << 61)
-#define RGN_MAP_LIMIT	((1UL << (4*PAGE_SHIFT - 12)) - PAGE_SIZE)	/* per region addr limit */
 #define RGN_KERNEL	7
 
 #define VMALLOC_START		(0xa000000000000000 + 3*PAGE_SIZE)
 #define VMALLOC_VMADDR(x)	((unsigned long)(x))
-#ifdef CONFIG_VIRTUAL_MEM_MAP
-# define VMALLOC_END_INIT        (0xa000000000000000 + (1UL << (4*PAGE_SHIFT - 9))) 
-# define VMALLOC_END             vmalloc_end
-  extern unsigned long vmalloc_end;
-#else
-# define VMALLOC_END		(0xa000000000000000 + (1UL << (4*PAGE_SHIFT - 9)))
-#endif
+#define VMALLOC_END_INIT        (0xa000000000000000 + (1UL << (4*PAGE_SHIFT - 9))) 
+#define VMALLOC_END             vmalloc_end
+extern unsigned long vmalloc_end;
 
 /*
  * Conversion functions: convert a page and protection to a page entry,
@@ -210,7 +217,7 @@ ia64_phys_addr_valid (unsigned long addr)
 ({ pte_t __pte; pte_val(__pte) = physpage + pgprot_val(pgprot); __pte; })
 
 #define pte_modify(_pte, newprot) \
-	(__pte((pte_val(_pte) & _PAGE_CHG_MASK) | pgprot_val(newprot)))
+	(__pte((pte_val(_pte) & ~_PAGE_CHG_MASK) | (pgprot_val(newprot) & _PAGE_CHG_MASK)))
 
 #define page_pte_prot(page,prot)	mk_pte(page, prot)
 #define page_pte(page)			page_pte_prot(page, __pgprot(0))
@@ -218,10 +225,8 @@ ia64_phys_addr_valid (unsigned long addr)
 #define pte_none(pte) 			(!pte_val(pte))
 #define pte_present(pte)		(pte_val(pte) & (_PAGE_P | _PAGE_PROTNONE))
 #define pte_clear(pte)			(pte_val(*(pte)) = 0UL)
-#ifndef CONFIG_DISCONTIGMEM
 /* pte_page() returns the "struct page *" corresponding to the PTE: */
 #define pte_page(pte)			(mem_map + (unsigned long) ((pte_val(pte) & _PFN_MASK) >> PAGE_SHIFT))
-#endif
 
 #define pmd_none(pmd)			(!pmd_val(pmd))
 #define pmd_bad(pmd)			(!ia64_phys_addr_valid(pmd_val(pmd)))
@@ -271,11 +276,7 @@ ia64_phys_addr_valid (unsigned long addr)
  * works bypasses the caches, but does allow for consecutive writes to
  * be combined into single (but larger) write transactions.
  */
-#ifdef CONFIG_MCKINLEY_A0_SPECIFIC
-# define pgprot_writecombine(prot)	prot
-#else
-# define pgprot_writecombine(prot)	__pgprot((pgprot_val(prot) & ~_PAGE_MA_MASK) | _PAGE_MA_WC)
-#endif
+#define pgprot_writecombine(prot)	__pgprot((pgprot_val(prot) & ~_PAGE_MA_MASK) | _PAGE_MA_WC)
 
 /*
  * Return the region index for virtual address ADDRESS.
@@ -418,24 +419,29 @@ extern void paging_init (void);
 /* Needs to be defined here and not in linux/mm.h, as it is arch dependent */
 #define PageSkip(page)		(0)
 
-#define io_remap_page_range remap_page_range	
+#define io_remap_page_range remap_page_range	/* XXX is this right? */
 
 /*
  * ZERO_PAGE is a global shared page that is always zero: used
  * for zero-mapped memory areas etc..
  */
 extern unsigned long empty_zero_page[PAGE_SIZE/sizeof(unsigned long)];
-#define ZERO_PAGE(vaddr) (virt_to_page(empty_zero_page))
+extern struct page *zero_page_memmap_ptr;
+#define ZERO_PAGE(vaddr) (zero_page_memmap_ptr)
 
 /* We provide our own get_unmapped_area to cope with VA holes for userland */
 #define HAVE_ARCH_UNMAPPED_AREA
+
+#ifdef CONFIG_HUGETLB_PAGE
+#define HUGETLB_PGDIR_SHIFT	(HPAGE_SHIFT + 2*(PAGE_SHIFT-3))
+#define HUGETLB_PGDIR_SIZE	(__IA64_UL(1) << HUGETLB_PGDIR_SHIFT)
+#define HUGETLB_PGDIR_MASK	(~(HUGETLB_PGDIR_SIZE-1))
+#endif
 
 /*
  * No page table caches to initialise
  */
 #define pgtable_cache_init()	do { } while (0)
-
-#ifdef CONFIG_VIRTUAL_MEM_MAP
 
 /* arch mem_map init routines are needed due to holes in a virtual mem_map */
 #define HAVE_ARCH_MEMMAP_INIT
@@ -446,8 +452,6 @@ typedef unsigned long memmap_init_callback_t(struct page *start,
 extern unsigned long arch_memmap_init (memmap_init_callback_t *callback,
 	struct page *start, struct page *end, int zone,
 	unsigned long start_paddr, int highmem);
-
-#endif /* CONFIG_VIRTUAL_MEM_MAP */
 
 # endif /* !__ASSEMBLY__ */
 

@@ -2,7 +2,6 @@ The paging design used on the x86-64 linux kernel port in 2.4.x provides:
 
 o	per process virtual address space limit of 512 Gigabytes
 o	top of userspace stack located at address 0x0000007fffffffff
-o	PAGE_OFFSET = 0xffff800000000000
 o	start of the kernel mapping =  0x0000010000000000
 o	global RAM per system 508*512GB=254 Terabytes
 o	no need of any common code change
@@ -65,6 +64,7 @@ Current PML4 Layout:
         1    unmapped
         2    __PAGE_OFFSET - start of direct mapping of physical memory
         ...  direct mapping in further slots as needed.
+	509  some io mappings (others are in a memory hole below 4gb)
         510  vmalloc and ioremap space
 	511  kernel code mapping, fixmaps and modules.  
 
@@ -191,4 +191,4 @@ Unsolved issues:
 Andrea <andrea@suse.de> SuSE
 Andi Kleen <ak@suse.de> SuSE
 
-$Id: mm.txt,v 1.1.1.4 2003/10/14 08:07:11 sparq Exp $
+$Id$

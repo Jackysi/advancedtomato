@@ -1,4 +1,4 @@
-/* $Id: isurf.c,v 1.1.1.4 2003/10/14 08:08:12 sparq Exp $
+/* $Id: isurf.c,v 1.1.4.1 2001/11/20 14:19:36 kai Exp $
  *
  * low level stuff for Siemens I-Surf/I-Talk cards
  *
@@ -20,7 +20,7 @@
 
 extern const char *CardType[];
 
-static const char *ISurf_revision = "$Revision: 1.1.1.4 $";
+static const char *ISurf_revision = "$Revision: 1.1.4.1 $";
 
 #define byteout(addr,val) outb(val,addr)
 #define bytein(addr) inb(addr)
@@ -235,8 +235,18 @@ setup_isurf(struct IsdnCard *card)
 				pd->prepare(pd);
 				pd->deactivate(pd);
 				pd->activate(pd);
+				/* The ISA-PnP logic apparently
+				 * expects upper limit address to be
+				 * set. Since the isa-pnp module
+				 * doesn't do this, so we have to make
+				 * up for it.
+				 */
+				isapnp_cfg_begin(pd->bus->number, pd->devfn);
+				isapnp_write_word(ISAPNP_CFG_MEM+3, 
+					pd->resource[8].end >> 8);
+				isapnp_cfg_end();
 				cs->hw.isurf.reset = pd->resource[0].start;
-				cs->hw.isurf.phymem = pd->resource[1].start;
+				cs->hw.isurf.phymem = pd->resource[8].start;
 				cs->irq = pd->irq_resource[0].start;
 				if (!cs->irq || !cs->hw.isurf.reset || !cs->hw.isurf.phymem) {
 					printk(KERN_ERR "ISurfPnP:some resources are missing %d/%x/%lx\n",

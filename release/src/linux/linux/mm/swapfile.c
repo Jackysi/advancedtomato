@@ -256,7 +256,7 @@ static int exclusive_swap_page(struct page *page)
  * work, but we opportunistically check whether
  * we need to get all the locks first..
  */
-int can_share_swap_page(struct page *page)
+int fastcall can_share_swap_page(struct page *page)
 {
 	int retval = 0;
 
@@ -284,7 +284,7 @@ int can_share_swap_page(struct page *page)
  * Work out if there are any other processes sharing this
  * swap cache page. Free it if you can. Return success.
  */
-int remove_exclusive_swap_page(struct page *page)
+int fastcall remove_exclusive_swap_page(struct page *page)
 {
 	int retval;
 	struct swap_info_struct * p;
@@ -521,6 +521,7 @@ static int try_to_unuse(unsigned int type)
 	int i = 0;
 	int retval = 0;
 	int reset_overflow = 0;
+	int shmem;
 
 	/*
 	 * When searching mms for an entry, a good strategy is to
@@ -599,11 +600,12 @@ static int try_to_unuse(unsigned int type)
 		 * Whenever we reach init_mm, there's no address space
 		 * to search, but use it as a reminder to search shmem.
 		 */
+		shmem = 0;
 		swcount = *swap_map;
 		if (swcount > 1) {
 			flush_page_to_ram(page);
 			if (start_mm == &init_mm)
-				shmem_unuse(entry, page);
+				shmem = shmem_unuse(entry, page);
 			else
 				unuse_process(start_mm, entry, page);
 		}
@@ -620,7 +622,9 @@ static int try_to_unuse(unsigned int type)
 				swcount = *swap_map;
 				if (mm == &init_mm) {
 					set_start_mm = 1;
-					shmem_unuse(entry, page);
+					spin_unlock(&mmlist_lock);
+					shmem = shmem_unuse(entry, page);
+					spin_lock(&mmlist_lock);
 				} else
 					unuse_process(mm, entry, page);
 				if (set_start_mm && *swap_map < swcount) {
@@ -669,14 +673,23 @@ static int try_to_unuse(unsigned int type)
 		 * read from disk into another page.  Splitting into two
 		 * pages would be incorrect if swap supported "shared
 		 * private" pages, but they are handled by tmpfs files.
-		 * Note shmem_unuse already deleted its from swap cache.
+		 *
+		 * Note shmem_unuse already deleted swappage from cache,
+		 * unless corresponding filepage found already in cache:
+		 * in which case it left swappage in cache, lowered its
+		 * swap count to pass quickly through the loops above,
+		 * and now we must reincrement count to try again later.
 		 */
 		if ((*swap_map > 1) && PageDirty(page) && PageSwapCache(page)) {
 			rw_swap_page(WRITE, page);
 			lock_page(page);
 		}
-		if (PageSwapCache(page))
-			delete_from_swap_cache(page);
+		if (PageSwapCache(page)) {
+			if (shmem)
+				swap_duplicate(entry);
+			else
+				delete_from_swap_cache(page);
+		}
 
 		/*
 		 * So we could skip searching mms once swap count went
@@ -725,8 +738,10 @@ asmlinkage long sys_swapoff(const char * specialfile)
 	for (type = swap_list.head; type >= 0; type = swap_info[type].next) {
 		p = swap_info + type;
 		if ((p->flags & SWP_WRITEOK) == SWP_WRITEOK) {
-			if (p->swap_file == nd.dentry)
-			  break;
+			if (p->swap_file == nd.dentry ||
+			    (S_ISBLK(nd.dentry->d_inode->i_mode) &&
+			    p->swap_device == nd.dentry->d_inode->i_rdev))
+				break;
 		}
 		prev = type;
 	}
@@ -914,6 +929,11 @@ asmlinkage long sys_swapon(const char * specialfile, int swap_flags)
 		kdev_t dev = swap_inode->i_rdev;
 		struct block_device_operations *bdops;
 		devfs_handle_t de;
+
+		if (is_mounted(dev)) {
+			error = -EBUSY;
+			goto bad_swap_2;
+		}
 
 		p->swap_device = dev;
 		set_blocksize(dev, PAGE_SIZE);
@@ -1170,47 +1190,6 @@ out:
 
 bad_file:
 	printk(KERN_ERR "swap_dup: %s%08lx\n", Bad_file, entry.val);
-	goto out;
-}
-
-/*
- * Page lock needs to be held in all cases to prevent races with
- * swap file deletion.
- */
-int swap_count(struct page *page)
-{
-	struct swap_info_struct * p;
-	unsigned long offset, type;
-	swp_entry_t entry;
-	int retval = 0;
-
-	entry.val = page->index;
-	if (!entry.val)
-		goto bad_entry;
-	type = SWP_TYPE(entry);
-	if (type >= nr_swapfiles)
-		goto bad_file;
-	p = type + swap_info;
-	offset = SWP_OFFSET(entry);
-	if (offset >= p->max)
-		goto bad_offset;
-	if (!p->swap_map[offset])
-		goto bad_unused;
-	retval = p->swap_map[offset];
-out:
-	return retval;
-
-bad_entry:
-	printk(KERN_ERR "swap_count: null entry!\n");
-	goto out;
-bad_file:
-	printk(KERN_ERR "swap_count: %s%08lx\n", Bad_file, entry.val);
-	goto out;
-bad_offset:
-	printk(KERN_ERR "swap_count: %s%08lx\n", Bad_offset, entry.val);
-	goto out;
-bad_unused:
-	printk(KERN_ERR "swap_count: %s%08lx\n", Unused_offset, entry.val);
 	goto out;
 }
 

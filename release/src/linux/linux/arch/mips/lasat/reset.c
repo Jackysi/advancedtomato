@@ -29,6 +29,7 @@
 #include <asm/system.h>
 #include <asm/lasat/lasat.h>
 #include "picvue.h"
+#include "prom.h"
 
 static void lasat_machine_restart(char *command);
 static void lasat_machine_halt(void);
@@ -38,31 +39,29 @@ int lasat_boot_to_service = 0;
 
 static void lasat_machine_restart(char *command)
 {
-	cli();
+	local_irq_disable();
 
-	{
-		volatile unsigned int *softres_reg = lasat_misc->reset_reg;
-
-		if (lasat_boot_to_service) {
-			printk("machine_restart: Rebooting to service mode\n");
-			*(volatile unsigned int *)0xa0000024 = 0xdeadbeef;
-			*(volatile unsigned int *)0xa00000fc = 0xfedeabba;
-		}
-		*softres_reg = 0xbedead;
+	if (lasat_boot_to_service) {
+		printk("machine_restart: Rebooting to service mode\n");
+		*(volatile unsigned int *)0xa0000024 = 0xdeadbeef;
+		*(volatile unsigned int *)0xa00000fc = 0xfedeabba;
 	}
+	*lasat_misc->reset_reg = 0xbedead;
 	for (;;) ;
 }
 
 #define MESSAGE "System halted"
 static void lasat_machine_halt(void)
 {
+	local_irq_disable();
+
 	/* Disable interrupts and loop forever */
 	printk(KERN_NOTICE MESSAGE "\n");
 #ifdef CONFIG_PICVUE
 	pvc_clear();
 	pvc_write_string(MESSAGE, 0, 0);
 #endif
-	cli();
+	prom_monitor();
 	for (;;) ;
 }
 

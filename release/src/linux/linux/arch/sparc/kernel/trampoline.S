@@ -1,4 +1,4 @@
-/* $Id: trampoline.S,v 1.1.1.4 2003/10/14 08:07:48 sparq Exp $
+/* $Id: trampoline.S,v 1.13 1999/08/04 03:19:15 davem Exp $
  * trampoline.S: SMP cpu boot-up trampoline code.
  *
  * Copyright (C) 1995 David S. Miller (davem@caip.rutgers.edu)
@@ -63,8 +63,8 @@ cpu3_startup:
 	and	%g4, 0xc, %g4
 	ld	[%g5 + %g4], %g6
 
-	sethi	%hi(TASK_UNION_SIZE - REGWIN_SZ), %sp
-	or	%sp, %lo(TASK_UNION_SIZE - REGWIN_SZ), %sp
+	sethi	%hi(TASK_UNION_SIZE - STACKFRAME_SZ), %sp
+	or	%sp, %lo(TASK_UNION_SIZE - STACKFRAME_SZ), %sp
 	add	%g6, %sp, %sp
 
 	/* Turn on traps (PSR_ET). */
@@ -140,8 +140,8 @@ C_LABEL(sun4d_cpu_startup):
 	srl	%g3, 1, %g4
 	ld	[%g5 + %g4], %g6
 
-	sethi	%hi(TASK_UNION_SIZE - REGWIN_SZ), %sp
-	or	%sp, %lo(TASK_UNION_SIZE - REGWIN_SZ), %sp
+	sethi	%hi(TASK_UNION_SIZE - STACKFRAME_SZ), %sp
+	or	%sp, %lo(TASK_UNION_SIZE - STACKFRAME_SZ), %sp
 	add	%g6, %sp, %sp
 
 	/* Turn on traps (PSR_ET). */

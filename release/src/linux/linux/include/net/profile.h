@@ -73,7 +73,7 @@ static inline void  net_profile_add(struct timeval *add,
 }
 
 
-#elif defined(__alpha__)
+#elif defined (__alpha__)
 
 extern __u32 alpha_lo;
 extern long alpha_hi;

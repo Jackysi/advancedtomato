@@ -482,6 +482,20 @@ calc_width_bits(unsigned baudrate, unsigned widthselect, unsigned clockselect)
 /* ================================================================ */
 
 
+/* descriptors for rx/tx ring
+ *
+ * accessed by hardware - don't change!
+ *
+ * the descriptor is owned by hardware, when the ACTIVE status bit
+ * is set and nothing (besides reading status to test the bit)
+ * shall be done. The bit gets cleared by hw, when the descriptor
+ * gets closed. Premature reaping of descriptors owned be the chip
+ * can be achieved by disabling IRCFG_MSTR
+ *
+ * Attention: Writing addr overwrites status!
+ *
+ * ### FIXME: we depend on endianess here
+ */
 
 struct ring_descr {
 	volatile u16	rd_count;	/* tx/rx count [11:0] */

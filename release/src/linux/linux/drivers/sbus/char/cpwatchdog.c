@@ -544,7 +544,7 @@ static void wd_toggleintr(struct wd_timer* pTimer, int enable)
 static void wd_pingtimer(struct wd_timer* pTimer)
 {
 	if(wd_readb(&pTimer->regs->status) & WD_S_RUNNING) {
-		wd_readb(&pTimer->regs->dcntr);
+		wd_readw(&pTimer->regs->dcntr);
 	}
 }
 

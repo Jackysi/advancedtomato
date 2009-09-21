@@ -1,4 +1,4 @@
-/* $Id: traps.c,v 1.1.1.4 2003/10/14 08:07:48 sparq Exp $
+/* $Id: traps.c,v 1.64 2000/09/03 15:00:49 anton Exp $
  * arch/sparc/kernel/traps.c
  *
  * Copyright 1995 David S. Miller (davem@caip.rutgers.edu)
@@ -52,6 +52,7 @@ void sun4m_nmi(struct pt_regs *regs)
 	unsigned long afsr, afar;
 
 	printk("Aieee: sun4m NMI received!\n");
+	/* XXX HyperSparc hack XXX */
 	__asm__ __volatile__("mov 0x500, %%g1\n\t"
 			     "lda [%%g1] 0x4, %0\n\t"
 			     "mov 0x600, %%g1\n\t"
@@ -151,6 +152,7 @@ void do_hw_interrupt(unsigned long type, unsigned long psr, unsigned long pc)
 void do_illegal_instruction(struct pt_regs *regs, unsigned long pc, unsigned long npc,
 			    unsigned long psr)
 {
+	extern int do_user_muldiv (struct pt_regs *, unsigned long);
 	siginfo_t info;
 
 	if(psr & PSR_PS)
@@ -159,11 +161,9 @@ void do_illegal_instruction(struct pt_regs *regs, unsigned long pc, unsigned lon
 	printk("Ill instr. at pc=%08lx instruction is %08lx\n",
 	       regs->pc, *(unsigned long *)regs->pc);
 #endif
-	if (sparc_cpu_model == sun4c || sparc_cpu_model == sun4) {
-		extern int do_user_muldiv (struct pt_regs *, unsigned long);
-		if (!do_user_muldiv (regs, pc))
-			return;
-	}
+	if (!do_user_muldiv (regs, pc))
+		return;
+
 	info.si_signo = SIGILL;
 	info.si_errno = 0;
 	info.si_code = ILL_ILLOPC;
@@ -187,6 +187,7 @@ void do_priv_instruction(struct pt_regs *regs, unsigned long pc, unsigned long n
 	send_sig_info(SIGILL, &info, current);
 }
 
+/* XXX User may want to be allowed to do this. XXX */
 
 void do_memaccess_unaligned(struct pt_regs *regs, unsigned long pc, unsigned long npc,
 			    unsigned long psr)
@@ -199,10 +200,15 @@ void do_memaccess_unaligned(struct pt_regs *regs, unsigned long pc, unsigned lon
 		die_if_kernel("BOGUS", regs);
 		/* die_if_kernel("Kernel MNA access", regs); */
 	}
+#if 0
+	show_regs (regs);
+	instruction_dump ((unsigned long *) regs->pc);
+	printk ("do_MNA!\n");
+#endif
 	info.si_signo = SIGBUS;
 	info.si_errno = 0;
 	info.si_code = BUS_ADRALN;
-	info.si_addr =  (void *)0;
+	info.si_addr = /* FIXME: Should dig out mna address */ (void *)0;
 	info.si_trapno = 0;
 	send_sig_info(SIGBUS, &info, current);
 }

@@ -1,19 +1,17 @@
 /*
  * misc.c
  *
- * $Id: misc.c,v 1.1.1.4 2003/10/14 08:07:16 sparq Exp $
- * 
- * This is a collection of several routines from gzip-1.0.3 
+ * This is a collection of several routines from gzip-1.0.3
  * adapted for Linux.
  *
  * malloc by Hannu Savolainen 1993 and Matthias Urlichs 1994
  * puts by Nick Holloway 1993, better puts by Martin Mares 1995
  * adoptation for Linux/CRIS Axis Communications AB, 1999
- * 
+ *
  */
 
 /* where the piggybacked kernel image expects itself to live.
- * it is the same adress we use when we network load an uncompressed
+ * it is the same address we use when we network load an uncompressed
  * image into DRAM, and it is the address the kernel is linked to live
  * at by etrax100.ld.
  */
@@ -65,8 +63,8 @@ static unsigned outcnt = 0;  /* bytes in output buffer */
 #define ENCRYPTED    0x20 /* bit 5 set: file is encrypted */
 #define RESERVED     0xC0 /* bit 6,7:   reserved */
 
-#define get_byte() inbuf[inptr++]	
-	
+#define get_byte() inbuf[inptr++]
+
 /* Diagnostic functions */
 #ifdef DEBUG
 #  define Assert(cond,msg) {if(!(cond)) error(msg);}
@@ -95,20 +93,20 @@ extern char *input_data;  /* lives in head.S */
 static long bytes_out = 0;
 static uch *output_data;
 static unsigned long output_ptr = 0;
- 
+
 static void *malloc(int size);
 static void free(void *where);
 static void error(char *m);
 static void gzip_mark(void **);
 static void gzip_release(void **);
- 
+
 static void puts(const char *);
 
 /* the "heap" is put directly after the BSS ends, at end */
-  
+
 extern int end;
 static long free_mem_ptr = (long)&end;
- 
+
 #include "../../../../lib/inflate.c"
 
 static void *malloc(int size)
@@ -196,9 +194,9 @@ flush_window()
     ulg c = crc;         /* temporary variable */
     unsigned n;
     uch *in, *out, ch;
-    
+
     in = window;
-    out = &output_data[output_ptr]; 
+    out = &output_data[output_ptr];
     for (n = 0; n < outcnt; n++) {
 	    ch = *out++ = *in++;
 	    c = crc_32_tab[((int)c ^ ch) & 0xff] ^ (c >> 8);
@@ -229,7 +227,7 @@ void
 decompress_kernel()
 {
 	char revision;
-	
+
 	/* input_data is set in head.S */
 	inbuf = input_data;
 

@@ -224,15 +224,26 @@ static u_long __init pci_map_mem(u_long base, u_long size)
 {
 	u_long page_base	= ((u_long) base) & PAGE_MASK;
 	u_long page_offs	= ((u_long) base) - page_base;
-	u_long page_remapped	= (u_long) ioremap(page_base, page_offs+size);
+	u_long page_remapped;
+
+	spin_unlock_irq(&io_request_lock);
+	page_remapped = (u_long) ioremap(page_base, page_offs+size);
+	spin_lock_irq(&io_request_lock);
 
 	return page_remapped? (page_remapped + page_offs) : 0UL;
 }
 
-static void __init pci_unmap_mem(u_long vaddr, u_long size)
+static void pci_unmap_mem(u_long vaddr,
+                          u_long size,
+                          int holding_io_request_lock)
 {
-	if (vaddr)
+	if (vaddr) {
+		if (holding_io_request_lock)
+			spin_unlock_irq(&io_request_lock);
 		iounmap((void *) (vaddr & PAGE_MASK));
+		if (holding_io_request_lock)
+			spin_lock_irq(&io_request_lock);
+	}
 }
 #endif
 
@@ -556,6 +567,20 @@ void sym_set_cam_result_error(hcb_p np, ccb_p cp, int resid)
 			bzero(&csio->sense_buffer, sizeof(csio->sense_buffer));
 			bcopy(cp->sns_bbuf, csio->sense_buffer,
 			      MIN(sizeof(csio->sense_buffer),SYM_SNS_BBUF_LEN));
+#if 0
+			/*
+			 *  If the device reports a UNIT ATTENTION condition 
+			 *  due to a RESET condition, we should consider all 
+			 *  disconnect CCBs for this unit as aborted.
+			 */
+			if (1) {
+				u_char *p;
+				p  = (u_char *) csio->sense_data;
+				if (p[0]==0x70 && p[2]==0x6 && p[12]==0x29)
+					sym_clear_tasks(np, DID_ABORT,
+							cp->target,cp->lun, -1);
+			}
+#endif
 		}
 		else
 			cam_status = DID_ERROR;
@@ -798,6 +823,16 @@ int sym_setup_data_and_start(hcb_p np, Scsi_Cmnd *csio, ccb_p cp)
 	 *  It is the first test we want to do after a driver 
 	 *  change that does not seem obviously safe. :)
 	 */
+#if 0
+	switch (cp->cdb_buf[0]) {
+	case 0x0A: case 0x2A: case 0xAA:
+		panic("XXXXXXXXXXXXX WRITE NOT YET ALLOWED XXXXXXXXXXXXXX\n");
+		MDELAY(10000);
+		break;
+	default:
+		break;
+	}
+#endif
 
 	/*
 	 *	activate this job.
@@ -1097,6 +1132,11 @@ static int sym_eh_handler(int op, char *opname, Scsi_Cmnd *cmd)
 
 	SYM_LOCK_HCB(np, flags);
 
+#if 0
+	/* This one should be the result of some race, thus to ignore */
+	if (cmd->serial_number != cmd->serial_number_at_timeout)
+		goto prepare;
+#endif
 
 	/* This one is not queued to the core driver -> to complete here */ 
 	FOR_EACH_QUEUED_ELEMENT(&np->s.wait_cmdq, qp) {
@@ -1120,7 +1160,6 @@ prepare:
 	switch(to_do) {
 	default:
 	case SYM_EH_DO_IGNORE:
-		goto finish;
 		break;
 	case SYM_EH_DO_WAIT:
 #if LINUX_VERSION_CODE > LinuxVersionCode(2,3,0)
@@ -1164,7 +1203,6 @@ prepare:
 		to_do = SYM_EH_DO_IGNORE;
 	}
 
-finish:
 	ep->to_do = to_do;
 	/* Complete the command with locks held as required by the driver */
 	if (to_do == SYM_EH_DO_COMPLETE)
@@ -1356,9 +1394,13 @@ sym53c8xx_select_queue_depths(struct Scsi_Host *host,
 			reqtags = tp->usrtags;
 		if (!device->tagged_supported)
 			reqtags = 0;
+#if 1 /* Avoid to locally queue commands for no good reasons */
 		if (reqtags > SYM_CONF_MAX_TAG)
 			reqtags = SYM_CONF_MAX_TAG;
 		device->queue_depth = reqtags ? reqtags : 2;
+#else
+		device->queue_depth = reqtags ? SYM_CONF_MAX_TAG : 2;
+#endif
 		lp->s.scdev_depth = device->queue_depth;
 		sym_tune_dev_queuing(np, device->id, device->lun, reqtags);
 	}
@@ -1436,7 +1478,8 @@ static void sym_exec_user_command (hcb_p np, struct sym_usrcmd *uc)
 					tp->tinfo.goal.offset  = 0;
 					break;
 				}
-				if (uc->data <= 9 && np->minsync_dt) {
+				if (uc->data <= 9 && np->minsync_dt &&
+				    np->scsi_mode == SMODE_LVD) {
 					if (uc->data < np->minsync_dt)
 						uc->data = np->minsync_dt;
 					tp->tinfo.goal.options = PPR_OPT_DT;
@@ -1808,7 +1851,7 @@ static int sym53c8xx_proc_info(char *buffer, char **start, off_t offset,
 /*
  *	Free controller resources.
  */
-static void sym_free_resources(hcb_p np)
+static void sym_free_resources(hcb_p np, int holding_io_request_lock)
 {
 	/*
 	 *  Free O/S specific resources.
@@ -1819,9 +1862,13 @@ static void sym_free_resources(hcb_p np)
 		release_region(np->s.io_port, np->s.io_ws);
 #ifndef SYM_OPT_NO_BUS_MEMORY_MAPPING
 	if (np->s.mmio_va)
-		pci_unmap_mem(np->s.mmio_va, np->s.io_ws);
+		pci_unmap_mem(np->s.mmio_va,
+		              np->s.io_ws,
+		              holding_io_request_lock);
 	if (np->s.ram_va)
-		pci_unmap_mem(np->s.ram_va, np->ram_ws);
+		pci_unmap_mem(np->s.ram_va,
+		              np->ram_ws,
+		              holding_io_request_lock);
 #endif
 	/*
 	 *  Free O/S independant resources.
@@ -2123,7 +2170,7 @@ attach_failed:
 	if (!instance) return -1;
 	printf_info("%s: giving up ...\n", sym_name(np));
 	if (np)
-		sym_free_resources(np);
+		sym_free_resources(np, 1);
 	scsi_unregister(instance);
 
         return -1;
@@ -2165,7 +2212,7 @@ static void __init sym_get_nvram(sym_device *devp, sym_nvram *nvp)
 #ifdef SYM_CONF_IOMAPPED
 	release_region(devp->s.io_port, 128);
 #else
-	pci_unmap_mem((u_long) devp->s.mmio_va, 128ul);
+	pci_unmap_mem((u_long) devp->s.mmio_va, 128ul, 1);
 #endif
 }
 #endif	/* SYM_CONF_NVRAM_SUPPORT */
@@ -2519,7 +2566,7 @@ sym53c8xx_pci_init(Scsi_Host_Template *tpnt, pcidev_t pdev, sym_device *device)
 		ram_ptr = pci_map_mem(base_2_c, ram_size);
 		if (ram_ptr) {
 			ram_val = readl_raw(ram_ptr + ram_size - 16);
-			pci_unmap_mem(ram_ptr, ram_size);
+			pci_unmap_mem(ram_ptr, ram_size, 1);
 			if (ram_val == 0x52414944) {
 				printf_info("%s: not initializing, "
 				            "driven by RAID controller.\n",
@@ -2948,7 +2995,7 @@ static int sym_detach(hcb_p np)
 	/*
 	 *  Free host resources
 	 */
-	sym_free_resources(np);
+	sym_free_resources(np, 0);
 
 	return 1;
 }

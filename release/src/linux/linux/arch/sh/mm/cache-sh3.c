@@ -1,4 +1,4 @@
-/* $Id: cache-sh3.c,v 1.1.1.4 2003/10/14 08:07:48 sparq Exp $
+/* $Id: cache-sh3.c,v 1.6 2001/09/10 08:59:59 dwmw2 Exp $
  *
  *  linux/arch/sh/mm/cache-sh3.c
  *
@@ -139,6 +139,10 @@ void __init cache_init(void)
 	jump_to_P2();
 	ccr = ctrl_inl(CCR);
 	if (ccr & CCR_CACHE_CE)
+		/*
+		 * XXX: Should check RA here. 
+		 * If RA was 1, we only need to flush the half of the caches.
+		 */
 		cache_wback_all();
 
 	ctrl_outl(CCR_CACHE_INIT, CCR);

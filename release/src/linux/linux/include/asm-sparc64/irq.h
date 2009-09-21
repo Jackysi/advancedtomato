@@ -1,4 +1,4 @@
-/* $Id: irq.h,v 1.1.1.4 2003/10/14 08:09:23 sparq Exp $
+/* $Id: irq.h,v 1.20.2.1 2002/03/03 10:31:56 davem Exp $
  * irq.h: IRQ registers on the 64-bit Sparc.
  *
  * Copyright (C) 1996 David S. Miller (davem@caip.rutgers.edu)
@@ -76,6 +76,7 @@ extern unsigned char dma_sync_reg_table_entry;
 /* IMAP/ICLR register defines */
 #define IMAP_VALID		0x80000000	/* IRQ Enabled		*/
 #define IMAP_TID_UPA		0x7c000000	/* UPA TargetID		*/
+#define IMAP_TID_JBUS		0x7c000000	/* JBUS TargetID	*/
 #define IMAP_AID_SAFARI		0x7c000000	/* Safari AgentID	*/
 #define IMAP_NID_SAFARI		0x03e00000	/* Safari NodeID	*/
 #define IMAP_IGN		0x000007c0	/* IRQ Group Number	*/
@@ -109,13 +110,11 @@ static __inline__ char *__irq_itoa(unsigned int irq)
 	return buff;
 }
 
-#define NR_IRQS    15
+#define NR_IRQS    16
 
 extern void disable_irq(unsigned int);
 #define disable_irq_nosync disable_irq
 extern void enable_irq(unsigned int);
-extern void init_timers(void (*lvl10_irq)(int, void *, struct pt_regs *),
-			unsigned long *);
 extern unsigned int build_irq(int pil, int inofixup, unsigned long iclr, unsigned long imap);
 extern unsigned int sbus_build_irq(void *sbus, unsigned int ino);
 extern unsigned int psycho_build_irq(void *psycho, int imap_off, int ino, int need_dma_sync);

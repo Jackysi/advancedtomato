@@ -78,6 +78,14 @@ inline void presto_cache_init_hash(void)
         }
 }
 
+int izo_ioctl_packlen(struct izo_ioctl_data *data)
+{
+        int len = sizeof(struct izo_ioctl_data);
+        len += size_round(data->ioc_inllen1);
+        len += size_round(data->ioc_inllen2);
+        return len;
+}
+
 /* map a device to a cache */
 struct presto_cache *presto_cache_find(kdev_t dev)
 {
@@ -154,6 +162,9 @@ inline void presto_free_cache(struct presto_cache *cache)
                                 presto_d2d(cache->cache_sb->s_root));
                 cache->cache_sb->s_root->d_fsdata = NULL;
         }
+
+		if (cache->cache_type)
+				PRESTO_FREE(cache->cache_type, strlen(cache->cache_type) + 1 );
 
         PRESTO_FREE(cache, sizeof(struct presto_cache));
 }

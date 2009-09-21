@@ -1027,7 +1027,7 @@ gmac_set_multicast(struct net_device *dev)
 
 	if (dev->flags & IFF_PROMISC)
 		promisc = 1;
-	else if ((dev->flags & IFF_ALLMULTI) ) {
+	else if ((dev->flags & IFF_ALLMULTI) /* || (dev->mc_count > XXX) */) {
 		multicast_all = 1;
 	} else {
 		u16 hash_table[16];
@@ -1171,6 +1171,7 @@ gmac_sleep_notify(struct pmu_sleep_notifier *self, int when)
 {
 	struct gmac *gm;
 	
+	/* XXX should handle more than one */
 	if (gmacs == NULL)
 		return PBOOK_SLEEP_OK;
 
@@ -1283,6 +1284,9 @@ gmac_xmit_start(struct sk_buff *skb, struct net_device *dev)
 	gm->tx_buff[i] = skb;
 	
 	dp = &gm->txring[i];
+	/* FIXME: Interrupt on all packet for now, change this to every N packet,
+	 * with N to be adjusted
+	 */
 	dp->flags = TX_FL_INTERRUPT;
 	dp->hi_addr = 0;
 	st_le32(&dp->lo_addr, virt_to_bus(skb->data));
@@ -1618,6 +1622,7 @@ gmac_probe1(struct device_node *gmac)
 	gm->of_node = gmac;
 	if (!request_OF_resource(gmac, 0, " (gmac)")) {
 		printk(KERN_ERR "GMAC: can't request IO resource !\n");
+		gm->of_node = NULL;
 		goto out_unreg;
 	}
 	dev->base_addr = gmac->addrs[0].address;

@@ -1,10 +1,10 @@
-/* $Id: shub_intr.c,v 1.1.1.4 2003/10/14 08:07:23 sparq Exp $
+/* $Id: shub_intr.c,v 1.1 2002/02/28 17:31:25 marcelo Exp $
  *
  * This file is subject to the terms and conditions of the GNU General Public
  * License.  See the file "COPYING" in the main directory of this archive
  * for more details.
  *
- * Copyright (C) 1992-1997, 2000-2002 Silicon Graphics, Inc.  All Rights Reserved.
+ * Copyright (C) 1992-1997, 2000-2003 Silicon Graphics, Inc.  All Rights Reserved.
  */
 
 #include <linux/types.h>
@@ -25,37 +25,36 @@
 #include <asm/sn/intr.h>
 #include <asm/sn/xtalk/xtalkaddrs.h>
 #include <asm/sn/klconfig.h>
+#include <asm/sn/sn2/shub_mmr.h>
 #include <asm/sn/sn_cpuid.h>
-
-extern void hub_device_desc_update(device_desc_t, ilvl_t, cpuid_t);
+#include <asm/sn/pci/pcibr.h>
+#include <asm/sn/pci/pcibr_private.h>
+#include <asm/sn/pci/bridge.h>
 
 /* ARGSUSED */
 void
-hub_intr_init(devfs_handle_t hubv)
+hub_intr_init(vertex_hdl_t hubv)
 {
-	extern void sn_cpei_handler(int, void *, struct pt_regs *);
-	extern void sn_init_cpei_timer(void);
-
-	if (request_irq(SGI_SHUB_ERROR_VECTOR, sn_cpei_handler, 0, "SN hub error", NULL) ) {
-		printk("hub_intr_init: Couldn't register SGI_SHUB_ERROR_VECTOR = %x\n",SGI_SHUB_ERROR_VECTOR);
-	}
-	sn_init_cpei_timer();
 }
 
 xwidgetnum_t
 hub_widget_id(nasid_t nasid)
 {
-        hubii_wcr_t     ii_wcr; /* the control status register */
-        
-        ii_wcr.wcr_reg_value = REMOTE_HUB_L(nasid,IIO_WCR);
-        
-        return ii_wcr.wcr_fields_s.wcr_widget_id;
+
+	if (!(nasid & 1)) {
+        	hubii_wcr_t     ii_wcr; /* the control status register */
+        	ii_wcr.wcr_reg_value = REMOTE_HUB_L(nasid,IIO_WCR);
+        	return ii_wcr.wcr_fields_s.wcr_widget_id;
+	} else {
+		/* ICE does not have widget id. */
+		return(-1);
+	}
 }
 
 static hub_intr_t
-do_hub_intr_alloc(devfs_handle_t dev,
+do_hub_intr_alloc(vertex_hdl_t dev,
 		device_desc_t dev_desc,
-		devfs_handle_t owner_dev,
+		vertex_hdl_t owner_dev,
 		int uncond_nothread)
 {
 	cpuid_t		cpu = 0;
@@ -82,14 +81,12 @@ do_hub_intr_alloc(devfs_handle_t dev,
 	cnode = cpuid_to_cnodeid(cpu);
 
 	if (slice) {
-		xtalk_addr = SH_II_INT1 | GLOBAL_MMR_SPACE |
-			((unsigned long)nasid << 36) | (1UL << 47);
+		xtalk_addr = SH_II_INT1 | ((unsigned long)nasid << 36) | (1UL << 47);
 	} else {
-		xtalk_addr = SH_II_INT0 | GLOBAL_MMR_SPACE |
-			((unsigned long)nasid << 36) | (1UL << 47);
+		xtalk_addr = SH_II_INT0 | ((unsigned long)nasid << 36) | (1UL << 47);
 	}
 
-	intr_hdl = snia_kmem_alloc_node(sizeof(struct hub_intr_s), KM_NOSLEEP, cnode);
+	intr_hdl = snia_kmem_alloc_node(sizeof(struct hub_intr_s), cnode);
 	ASSERT_ALWAYS(intr_hdl);
 
 	xtalk_info = &intr_hdl->i_xtalk_info;
@@ -107,22 +104,21 @@ do_hub_intr_alloc(devfs_handle_t dev,
 	intr_hdl->i_bit = vector;
 	intr_hdl->i_flags |= HUB_INTR_IS_ALLOCED;
 
-	hub_device_desc_update(dev_desc, intr_swlevel, cpu);
 	return(intr_hdl);
 }
 
 hub_intr_t
-hub_intr_alloc(devfs_handle_t dev,
+hub_intr_alloc(vertex_hdl_t dev,
 		device_desc_t dev_desc,
-		devfs_handle_t owner_dev)
+		vertex_hdl_t owner_dev)
 {
 	return(do_hub_intr_alloc(dev, dev_desc, owner_dev, 0));
 }
 
 hub_intr_t
-hub_intr_alloc_nothd(devfs_handle_t dev,
+hub_intr_alloc_nothd(vertex_hdl_t dev,
 		device_desc_t dev_desc,
-		devfs_handle_t owner_dev)
+		vertex_hdl_t owner_dev)
 {
 	return(do_hub_intr_alloc(dev, dev_desc, owner_dev, 1));
 }
@@ -150,6 +146,8 @@ hub_intr_free(hub_intr_t intr_hdl)
 
 int
 hub_intr_connect(hub_intr_t intr_hdl,
+		intr_func_t intr_func,          /* xtalk intr handler */
+		void *intr_arg,                 /* arg to intr handler */
 		xtalk_intr_setfunc_t setfunc,
 		void *setfunc_arg)
 {
@@ -160,7 +158,6 @@ hub_intr_connect(hub_intr_t intr_hdl,
 	ASSERT(intr_hdl->i_flags & HUB_INTR_IS_ALLOCED);
 
 	rv = intr_connect_level(cpu, vector, intr_hdl->i_swlevel, NULL);
-
 	if (rv < 0) {
 		return rv;
 	}
@@ -199,17 +196,56 @@ hub_intr_disconnect(hub_intr_t intr_hdl)
 	intr_hdl->i_flags &= ~HUB_INTR_IS_CONNECTED;
 }
 
-
-/*
- * Return a hwgraph vertex that represents the CPU currently
- * targeted by an interrupt.
+/* 
+ * Redirect an interrupt to another cpu.
  */
-devfs_handle_t
-hub_intr_cpu_get(hub_intr_t intr_hdl)
-{
-	cpuid_t cpuid = intr_hdl->i_cpuid;
 
-	ASSERT(cpuid != CPU_NONE);
+void
+sn_shub_redirect_intr(pcibr_intr_t intr, unsigned long cpu) {
+	unsigned long bit;
+	int cpuphys, slice;
+	nasid_t nasid;
+	unsigned long xtalk_addr;
+	bridge_t	*bridge = intr->bi_soft->bs_base;
+	picreg_t	int_enable;
+	picreg_t	host_addr;
+	int		irq;
 
-	return(cpuid_to_vertex(cpuid));
+	cpuphys = cpu_physical_id(cpu);
+	slice = cpu_physical_id_to_slice(cpuphys);
+	nasid = cpu_physical_id_to_nasid(cpuphys);
+
+	if (slice) {    
+		xtalk_addr = SH_II_INT1 | ((unsigned long)nasid << 36) | (1UL << 47);
+	} else {
+		xtalk_addr = SH_II_INT0 | ((unsigned long)nasid << 36) | (1UL << 47);
+	}
+
+	for (bit = 0; bit < 8; bit++) {
+		if (intr->bi_ibits & (1 << bit) ) {
+			/* Disable interrupts. */
+			int_enable = bridge->p_int_enable_64;
+			int_enable &= ~bit;
+			bridge->p_int_enable_64 = int_enable;
+			/* Reset Host address (Interrupt destination) */
+			host_addr = bridge->p_int_addr_64[bit];
+			host_addr &= ~((1UL << 48) - 1);
+			host_addr |= xtalk_addr;
+			bridge->p_int_addr_64[bit] = host_addr;
+			/* Enable interrupt */
+			int_enable |= bit;
+			bridge->p_int_enable_64 = int_enable;
+			/* Force an interrupt, just in case. */
+			bridge->b_force_pin[bit].intr = 1;
+		}
+	}
+	irq = intr->bi_irq;
+	if (pdacpu(cpu).sn_first_irq == 0 || pdacpu(cpu).sn_first_irq > irq) {
+		pdacpu(cpu).sn_first_irq = irq;
+	}
+	if (pdacpu(cpu).sn_last_irq < irq) {
+		pdacpu(cpu).sn_last_irq = irq;
+	}
+	intr->bi_cpu = (int)cpu;
 }
+

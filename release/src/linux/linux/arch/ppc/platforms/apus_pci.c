@@ -1,7 +1,4 @@
 /*
- * BK Id: %F% %I% %G% %U% %#%
- */
-/*
  * Copyright (C) Michel Dänzer <michdaen@iiic.ethz.ch>
  *
  * APUS PCI routines.
@@ -36,7 +33,7 @@
 #define DPRINTK(a,b...)	printk(KERN_DEBUG "apus_pci: %s: " a, __FUNCTION__ , ## b)
 #else
 #define DPRINTK(a,b...)
-#endif 
+#endif
 
 /*
  * The _DEFINITIVE_ memory mapping/unmapping functions.
@@ -114,6 +111,8 @@ apus_pcibios_fixup(void)
 /*	struct pci_dev *dev = pci_find_slot(0, 1<<3);
 	unsigned int reg, val, offset;*/
 
+	/* FIXME: interrupt? */
+	/*dev->interrupt = xxx;*/
 
         request_resource(&iomem_resource, &pci_mem);
     	printk("%s: PCI mem resource requested\n", __FUNCTION__);
@@ -125,9 +124,9 @@ static void __init apus_pcibios_fixup_bus(struct pci_bus *bus)
 }
 
 
-/* 
+/*
  * This is from pm2fb.c again
- * 
+ *
  * Check if PCI (B/CVisionPPC) is available, initialize it and set up
  * the pcibios_* pointers
  */
