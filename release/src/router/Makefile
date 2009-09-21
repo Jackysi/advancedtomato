@@ -26,6 +26,7 @@ SEP=echo "\033[41;1m   $@   \033[0m"
 obj-y += nvram
 obj-y += shared
 obj-y += prebuilt
+obj-y += igmpproxy
 obj-y += iptables
 obj-y += rc
 obj-y += iproute2
@@ -491,6 +492,22 @@ dropbear-clean:
 dropbear/config.h:
 	cd dropbear && CFLAGS="-O2 -Wall" ac_cv_func_logout=no ac_cv_func_logwtmp=no ./configure --host=mipsel-linux --disable-zlib --enable-syslog --disable-lastlog --disable-utmp --disable-utmpx --disable-wtmp --disable-wtmpx --disable-pututline --disable-pututxline --disable-loginfunc --disable-largefile
 	make -C dropbear clean
+
+igmpproxy/src/Makefile: igmpproxy/src/Makefile.in
+	cd igmpproxy && CFLAGS="-O2 -Wall" \
+	$(CONFIGURE) --prefix=/usr
+
+igmpproxy: igmpproxy/src/Makefile
+	@$(SEP)
+	@$(MAKE) -C igmpproxy/src
+
+igmpproxy-install:
+	install -D igmpproxy/src/igmpproxy $(INSTALLDIR)/igmpproxy/usr/sbin/igmpproxy
+	$(STRIP) $(INSTALLDIR)/igmpproxy/usr/sbin/igmpproxy
+
+igmpproxy-clean:
+	$(MAKE) -C igmpproxy/src clean
+	rm -f igmpproxy/src/Makefile
 
 
 ebtables: dummy
