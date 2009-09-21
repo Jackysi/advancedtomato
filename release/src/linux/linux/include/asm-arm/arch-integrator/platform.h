@@ -26,7 +26,7 @@
  * 	NOTE: This is a multi-hosted header file for use with uHAL and
  * 	      supported debuggers.
  * 
- * 	$Id: platform.h,v 1.1.1.4 2003/10/14 08:09:07 sparq Exp $
+ * 	$Id: platform.s,v 1.32 2000/02/18 10:51:39 asims Exp $
  * 
  * ***********************************************************************/
 
@@ -315,13 +315,15 @@
  *  we maintain the same addresses, even if they're not mapped.
  * 
  */
-#define PHYS_PCI_MEM_BASE               0x40000000   
+#define PHYS_PCI_MEM_BASE               0x40000000   /* 512M to xxx */
 /*  unused 256M from A0000000-AFFFFFFF might be used for I2O ???
  */
-#define PHYS_PCI_IO_BASE                0x60000000   
+#define PHYS_PCI_IO_BASE                0x60000000   /* 16M to xxx */
 /*  unused (128-16)M from B1000000-B7FFFFFF
  */
-#define PHYS_PCI_CONFIG_BASE            0x61000000   
+#define PHYS_PCI_CONFIG_BASE            0x61000000   /* 16M to xxx */
+/*  unused ((128-16)M - 64K) from XXX
+ */
 #define PHYS_PCI_V3_BASE                0x62000000
 
 #define PCI_DRAMSIZE                    INTEGRATOR_SSRAM_SIZE	

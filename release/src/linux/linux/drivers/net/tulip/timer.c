@@ -1,7 +1,7 @@
 /*
 	drivers/net/tulip/timer.c
 
-	Maintained by Jeff Garzik <jgarzik@mandrakesoft.com>
+	Maintained by Jeff Garzik <jgarzik@pobox.com>
 	Copyright 2000,2001  The Linux Kernel Team
 	Written/copyright 1994-2001 by Donald Becker.
 
@@ -14,6 +14,7 @@
 
 */
 
+#include <linux/pci.h>
 #include "tulip.h"
 
 
@@ -211,10 +212,16 @@ void comet_timer(unsigned long data)
 	if (tulip_debug > 1)
 		printk(KERN_DEBUG "%s: Comet link status %4.4x partner capability "
 			   "%4.4x.\n",
-			   dev->name, inl(ioaddr + 0xB8), inl(ioaddr + 0xC8));
+			   dev->name,
+			   tulip_mdio_read(dev, tp->phys[0], 1),
+			   tulip_mdio_read(dev, tp->phys[0], 5));
 	/* mod_timer synchronizes us with potential add_timer calls
 	 * from interrupts.
 	 */
+	if (tulip_check_duplex(dev) < 0)
+		{ netif_carrier_off(dev); }
+	else
+		{ netif_carrier_on(dev); }
 	mod_timer(&tp->timer, RUN_AT(next_tick));
 }
 

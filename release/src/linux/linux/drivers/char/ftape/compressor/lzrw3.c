@@ -1,7 +1,7 @@
 /*
- * $Source: /home/cvsroot/wrt54g/src/linux/linux/drivers/char/ftape/compressor/lzrw3.c,v $
- * $Revision: 1.1.1.2 $
- * $Date: 2003/10/14 08:08:06 $
+ * $Source: /homes/cvs/ftape-stacked/ftape/compressor/lzrw3.c,v $
+ * $Revision: 1.1 $
+ * $Date: 1997/10/05 19:12:29 $
  *
  * Implementation of Ross Williams lzrw3 algorithm. Adaption for zftape.
  *
@@ -471,10 +471,15 @@ LONG  *p_dst_len;
           /* Copy */
           
           /* Match up to 15 remaining bytes using an unrolled loop and code. */
+#if 0
+          PS || PS || PS || PS || PS || PS || PS || PS ||
+          PS || PS || PS || PS || PS || PS || PS || p_src++;
+#else     
           if (
                !( PS || PS || PS || PS || PS || PS || PS || PS ||
                   PS || PS || PS || PS || PS || PS || PS ) 
              ) p_src++;
+#endif
           *p_dst++=((index&0xF00)>>4)|(--p_src-p_ziv-3);
           *p_dst++=index&0xFF;
           
@@ -547,8 +552,14 @@ LONG  *p_dst_len;
  /* Once an overrun occurs, the only thing to do is to set the copy flag and  */
  /* copy the input over.                                                      */
  overrun:
+#if 0
+ *p_dst_first=FLAG_COPY;
+ fast_copy(p_src_first,p_dst_first+FLAG_BYTES,src_len);
+ *p_dst_len=src_len+FLAG_BYTES;
+#else
  fast_copy(p_src_first,p_dst_first,src_len);
  *p_dst_len= -src_len; /* return a negative number to indicate uncompressed data */
+#endif
 }
 
 /******************************************************************************/
@@ -607,12 +618,21 @@ ULONG *p_dst_len;
  /* operation instead of a compression operation. If a copy operation was     */
  /* used, then all we need to do is copy the data over, set the output length */
  /* and return.                                                               */
+#if 0
+ if (*p_src_first==FLAG_COPY)
+   {
+    fast_copy(p_src_first+FLAG_BYTES,p_dst_first,src_len-FLAG_BYTES);
+    *p_dst_len=src_len-FLAG_BYTES;
+    return;
+   }
+#else
   if ( src_len < 0 )
   {                                            
    fast_copy(p_src_first,p_dst_first,-src_len );
    *p_dst_len = (ULONG)-src_len;
    return;
   }
+#endif
    
  /* Initialize all elements of the hash table to point to a constant string.  */
  /* Use of an unrolled loop speeds this up considerably.                      */
@@ -709,12 +729,14 @@ ULONG *p_dst_len;
           
        /* Shift the control buffer so the next control bit is in bit 0. */
        control>>=1;
+#if 1
        if (p_dst > p_dst_post) 
        {
 	       /* Shit: we tried to decompress corrupt data */
 	       *p_dst_len = 0;
 	       return;
        }
+#endif
       } /* End unrolled inner loop. */
                
    } /* End of outer loop */

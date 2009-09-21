@@ -1,6 +1,6 @@
 /* Driver for USB Mass Storage compliant devices
  *
- * $Id: usb.c,v 1.1.1.4 2003/10/14 08:08:52 sparq Exp $
+ * $Id: usb.c,v 1.73 2002/01/27 09:02:15 mdharm Exp $
  *
  * Current development and maintenance by:
  *   (c) 1999-2002 Matthew Dharm (mdharm-usb@one-eyed-alien.net)
@@ -332,6 +332,8 @@ static int usb_stor_control_thread(void * __us)
 
 	/* set our name for identification purposes */
 	sprintf(current->comm, "usb-storage-%d", us->host_number);
+	
+	current->flags |= PF_MEMALLOC;
 
 	unlock_kernel();
 
@@ -343,6 +345,7 @@ static int usb_stor_control_thread(void * __us)
 	set_current_state(TASK_INTERRUPTIBLE);
 
 	for(;;) {
+		unsigned long flags;
 		US_DEBUGP("*** thread sleeping.\n");
 		if(down_interruptible(&us->sema))
 			break;
@@ -350,7 +353,7 @@ static int usb_stor_control_thread(void * __us)
 		US_DEBUGP("*** thread awakened.\n");
 
 		/* lock access to the queue element */
-		down(&(us->queue_exclusion));
+		spin_lock_irqsave(&(us->queue_exclusion), flags);
 
 		/* take the command off the queue */
 		action = us->action;
@@ -358,7 +361,7 @@ static int usb_stor_control_thread(void * __us)
 		us->srb = us->queue_srb;
 
 		/* release the queue lock as fast as possible */
-		up(&(us->queue_exclusion));
+		spin_unlock_irqrestore(&(us->queue_exclusion), flags);
 
 		switch (action) {
 		case US_ACT_COMMAND:
@@ -393,18 +396,6 @@ static int usb_stor_control_thread(void * __us)
 				US_DEBUGP("Bad LUN (%d/%d)\n",
 					  us->srb->target, us->srb->lun);
 				us->srb->result = DID_BAD_TARGET << 16;
-
-				set_current_state(TASK_INTERRUPTIBLE);
-				us->srb->scsi_done(us->srb);
-				us->srb = NULL;
-				break;
-			}
-
-			/* handle those devices which can't do a START_STOP */
-			if ((us->srb->cmnd[0] == START_STOP) &&
-			    (us->flags & US_FL_START_STOP)) {
-				US_DEBUGP("Skipping START_STOP command\n");
-				us->srb->result = GOOD << 1;
 
 				set_current_state(TASK_INTERRUPTIBLE);
 				us->srb->scsi_done(us->srb);
@@ -469,7 +460,8 @@ static int usb_stor_control_thread(void * __us)
 					   us->srb->result);
 				set_current_state(TASK_INTERRUPTIBLE);
 				us->srb->scsi_done(us->srb);
-			} else {
+			};
+			if (atomic_read(&us->abortcnt) != 0) {			
 				US_DEBUGP("scsi command aborted\n");
 				set_current_state(TASK_INTERRUPTIBLE);
 				complete(&(us->notify));
@@ -509,6 +501,9 @@ static int usb_stor_control_thread(void * __us)
  * strucuture is current.  This includes the ep_int field, which gives us
  * the endpoint for the interrupt.
  * Returns non-zero on failure, zero on success
+ *
+ * ss->dev_semaphore is expected taken, except for a newly minted,
+ * unregistered device.
  */ 
 static int usb_stor_allocate_irq(struct us_data *ss)
 {
@@ -518,13 +513,9 @@ static int usb_stor_allocate_irq(struct us_data *ss)
 
 	US_DEBUGP("Allocating IRQ for CBI transport\n");
 
-	/* lock access to the data structure */
-	down(&(ss->irq_urb_sem));
-
 	/* allocate the URB */
 	ss->irq_urb = usb_alloc_urb(0);
 	if (!ss->irq_urb) {
-		up(&(ss->irq_urb_sem));
 		US_DEBUGP("couldn't allocate interrupt URB");
 		return 1;
 	}
@@ -545,12 +536,9 @@ static int usb_stor_allocate_irq(struct us_data *ss)
 	US_DEBUGP("usb_submit_urb() returns %d\n", result);
 	if (result) {
 		usb_free_urb(ss->irq_urb);
-		up(&(ss->irq_urb_sem));
 		return 2;
 	}
 
-	/* unlock the data structure and return success */
-	up(&(ss->irq_urb_sem));
 	return 0;
 }
 
@@ -618,9 +606,16 @@ static void * storage_probe(struct usb_device *dev, unsigned int ifnum,
 	/* At this point, we know we've got a live one */
 	US_DEBUGP("USB Mass Storage device detected\n");
 
+	/* we wait one second for the device to settle */
+	ssleep(1);
+
 	/* Determine subclass and protocol, or copy from the interface */
-	subclass = unusual_dev->useProtocol;
-	protocol = unusual_dev->useTransport;
+	subclass = (unusual_dev->useProtocol == US_SC_DEVICE) ?
+			altsetting->bInterfaceSubClass :
+			unusual_dev->useProtocol;
+	protocol = (unusual_dev->useTransport == US_PR_DEVICE) ?
+			altsetting->bInterfaceProtocol :
+			unusual_dev->useTransport;
 	flags = unusual_dev->flags;
 
 	/*
@@ -732,6 +727,7 @@ static void * storage_probe(struct usb_device *dev, unsigned int ifnum,
 
 		/* allocate an IRQ callback if one is needed */
 		if ((ss->protocol == US_PR_CBI) && usb_stor_allocate_irq(ss)) {
+			up(&(ss->dev_semaphore));
 			usb_dec_dev_use(dev);
 			return NULL;
 		}
@@ -739,6 +735,7 @@ static void * storage_probe(struct usb_device *dev, unsigned int ifnum,
 		/* allocate the URB we're going to use */
 		ss->current_urb = usb_alloc_urb(0);
 		if (!ss->current_urb) {
+			up(&(ss->dev_semaphore));
 			usb_dec_dev_use(dev);
 			return NULL;
 		}
@@ -750,6 +747,11 @@ static void * storage_probe(struct usb_device *dev, unsigned int ifnum,
 		/* unlock the device pointers */
 		up(&(ss->dev_semaphore));
 
+		/* Try to re-connect ourselves to the SCSI subsystem */
+		if (scsi_add_single_device(ss->host, 0, 0, 0))
+		    printk(KERN_WARNING "Unable to connect USB device to the SCSI subsystem\n");
+		else
+		    printk(KERN_WARNING "USB device connected to the SCSI subsystem\n");
 	} else { 
 		/* New device -- allocate memory and initialize */
 		US_DEBUGP("New GUID " GUID_FORMAT "\n", GUID_ARGS(guid));
@@ -773,8 +775,7 @@ static void * storage_probe(struct usb_device *dev, unsigned int ifnum,
 		/* Initialize the mutexes only when the struct is new */
 		init_completion(&(ss->notify));
 		init_MUTEX_LOCKED(&(ss->ip_waitq));
-		init_MUTEX(&(ss->queue_exclusion));
-		init_MUTEX(&(ss->irq_urb_sem));
+		spin_lock_init(&(ss->queue_exclusion));
 		init_MUTEX(&(ss->current_urb_sem));
 		init_MUTEX(&(ss->dev_semaphore));
 
@@ -1001,7 +1002,16 @@ static void * storage_probe(struct usb_device *dev, unsigned int ifnum,
 		 * the host controller thread in us_detect.  But how else are
 		 * we to do it?
 		 */
-		(struct us_data *)ss->htmplt.proc_dir = ss; 
+		ss->htmplt.proc_dir = (void *)ss; 
+
+		/* According to the technical support people at Genesys Logic,
+		 * devices using their chips have problems transferring more
+		 * than 32 KB at a time.  In practice people have found that
+		 * 64 KB works okay and that's what Windows does.  But we'll
+		 * be conservative.
+		 */
+		if (ss->pusb_dev->descriptor.idVendor == USB_VENDOR_ID_GENESYS)
+			ss->htmplt.max_sectors = 64;
 
 		/* Just before we start our control thread, initialize
 		 * the device if it needs initialization */
@@ -1064,8 +1074,13 @@ static void storage_disconnect(struct usb_device *dev, void *ptr)
 	/* lock access to the device data structure */
 	down(&(ss->dev_semaphore));
 
+	/* Try to un-hook ourselves from the SCSI subsystem */
+	if (scsi_remove_single_device(ss->host, 0, 0, 0))
+	    printk(KERN_WARNING "Unable to disconnect USB device from the SCSI subsystem\n");
+	else
+	    printk(KERN_WARNING "USB device disconnected from the SCSI subsystem\n");
+
 	/* release the IRQ, if we have one */
-	down(&(ss->irq_urb_sem));
 	if (ss->irq_urb) {
 		US_DEBUGP("-- releasing irq URB\n");
 		result = usb_unlink_urb(ss->irq_urb);
@@ -1073,7 +1088,6 @@ static void storage_disconnect(struct usb_device *dev, void *ptr)
 		usb_free_urb(ss->irq_urb);
 		ss->irq_urb = NULL;
 	}
-	up(&(ss->irq_urb_sem));
 
 	/* free up the main URB for this device */
 	US_DEBUGP("-- releasing main URB\n");

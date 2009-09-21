@@ -1,4 +1,33 @@
-
+/*
+ *	AARP:		An implementation of the AppleTalk AARP protocol for
+ *			Ethernet 'ELAP'.
+ *
+ *		Alan Cox  <Alan.Cox@linux.org>
+ *
+ *	This doesn't fit cleanly with the IP arp. Potentially we can use
+ *	the generic neighbour discovery code to clean this up.
+ *
+ *	FIXME:
+ *		We ought to handle the retransmits with a single list and a 
+ *	separate fast timer for when it is needed.
+ *		Use neighbour discovery code.
+ *		Token Ring Support.
+ *
+ *		This program is free software; you can redistribute it and/or
+ *		modify it under the terms of the GNU General Public License
+ *		as published by the Free Software Foundation; either version
+ *		2 of the License, or (at your option) any later version.
+ *
+ *
+ *	References:
+ *		Inside AppleTalk (2nd Ed).
+ *	Fixes:
+ *		Jaume Grau	-	flush caches on AARP_PROBE
+ *		Rob Newberry	-	Added proxy AARP and AARP proc fs, 
+ *					moved probing from DDP module.
+ *		Arnaldo C. Melo -	don't mangle rx packets
+ *
+ */
 
 #include <linux/config.h>
 #if defined(CONFIG_ATALK) || defined(CONFIG_ATALK_MODULE) 

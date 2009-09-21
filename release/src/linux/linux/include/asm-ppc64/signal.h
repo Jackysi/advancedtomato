@@ -10,7 +10,7 @@ struct siginfo;
 #define _NSIG_BPW	64
 #define _NSIG_WORDS	(_NSIG / _NSIG_BPW)
 
-typedef unsigned long old_sigset_t;		/* at least 32 bits */
+typedef unsigned long old_sigset_t;
 
 typedef struct {
 	unsigned long sig[_NSIG_WORDS];

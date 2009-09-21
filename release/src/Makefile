@@ -136,11 +136,11 @@ setprofile:
 
 
 cleanlibc:
-	@$(MAKE) -C ../../tools-src/uClibc clean
+#	@$(MAKE) -C ../../tools-src/uClibc clean
 
 libc: cleanlibc
-	@$(MAKE) -C ../../tools-src/uClibc
-	@$(MAKE) -C ../../tools-src/uClibc install
+#	@$(MAKE) -C ../../tools-src/uClibc
+#	@$(MAKE) -C ../../tools-src/uClibc install
 
 echotest:
 	@( echo -e foo | grep "\-e foo" ) && echo bar || echo foo

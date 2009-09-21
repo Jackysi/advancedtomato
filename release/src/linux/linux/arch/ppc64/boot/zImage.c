@@ -17,6 +17,8 @@
 #include <asm/bootinfo.h>
 
 void memmove(void *dst, void *im, int len);
+void *memcpy(void *dest, const void *src, size_t n);
+size_t strlen(const char *s);
 
 extern void *finddevice(const char *);
 extern int getprop(void *, const char *, void *, int);
@@ -50,8 +52,9 @@ extern char _sysmap_start[];
 extern char _sysmap_end[];
 extern char _initrd_start[];
 extern char _initrd_end[];
-extern unsigned long vmlinux_filesize;
-extern unsigned long vmlinux_memsize;
+
+extern void *_vmlinux_filesize;
+extern void *_vmlinux_memsize;
 
 struct addr_range {
 	unsigned long addr;
@@ -66,8 +69,8 @@ struct addr_range initrd  = {0, 0, 0};
 static char scratch[128<<10];	/* 128kB of scratch space for gunzip */
 
 typedef void (*kernel_entry_t)( unsigned long,
-                                unsigned long,
-                                void *,
+		                unsigned long,
+		                void *,
 				struct bi_record *);
 
 
@@ -83,6 +86,7 @@ void
 start(unsigned long a1, unsigned long a2, void *promptr)
 {
 	unsigned long i, claim_addr, claim_size;
+	unsigned long vmlinux_filesize;
 	extern char _start;
 	struct bi_record *bi_recs;
 	kernel_entry_t kernel_entry;
@@ -99,8 +103,7 @@ start(unsigned long a1, unsigned long a2, void *promptr)
 	if (getprop(chosen_handle, "stdin", &stdin, sizeof(stdin)) != 4)
 		exit();
 
-	printf("zImage starting: loaded at 0x%x\n\r", (unsigned)&_start);
-
+	printf("\n\rzImage starting: loaded at 0x%x\n\r", (unsigned)&_start);
 
 	initrd.size = (unsigned long)(_initrd_end - _initrd_start);
 	initrd.memsize = initrd.size;
@@ -116,12 +119,13 @@ start(unsigned long a1, unsigned long a2, void *promptr)
 	vmlinuz.addr = (unsigned long)_vmlinux_start;
 	vmlinuz.size = (unsigned long)(_vmlinux_end - _vmlinux_start);
 	vmlinux.addr = (unsigned long)(void *)-1;
+	vmlinux_filesize = (unsigned long)&_vmlinux_filesize;
 	vmlinux.size = PAGE_ALIGN(vmlinux_filesize);
-	vmlinux.memsize = vmlinux_memsize;
+	vmlinux.memsize = (unsigned long)&_vmlinux_memsize;
 
 	claim_size = vmlinux.memsize /* PPPBBB: + fudge for bi_recs */;
-	for(claim_addr = PROG_START; 
-	    claim_addr <= PROG_START * 8; 
+	for(claim_addr = PROG_START;
+	    claim_addr <= PROG_START * 8;
 	    claim_addr += 0x100000) {
 		printf("    trying: 0x%08lx\n\r", claim_addr);
 		vmlinux.addr = (unsigned long)claim(claim_addr, claim_size, 0);

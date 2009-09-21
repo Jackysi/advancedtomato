@@ -23,6 +23,7 @@
  *
  * Routines specific to the LASAT boards
  */
+#include <linux/types.h>
 #include <asm/lasat/lasat.h>
 
 #include <linux/config.h>
@@ -38,8 +39,6 @@
 
 #include "sysctl.h"
 #include "ds1603.h"
-
-static char lasat_firmware_version[176];
 
 static DECLARE_MUTEX(lasat_info_sem);
 
@@ -96,51 +95,6 @@ int proc_dolasatint(ctl_table *table, int write, struct file *filp,
 	return 0;
 }
 
-/* Same for vendor ID that's only a char in EEPROM struct */
-int proc_dolasatvendor(ctl_table *table, int write, struct file *filp,
-		       void *buffer, size_t *lenp)
-{
-	int r;
-	down(&lasat_info_sem);
-	r = proc_dointvec(table, write, filp, buffer, lenp);
-	if ( (!write) || r) {
-		up(&lasat_info_sem);
-		return r;
-	}
-	lasat_board_info.li_eeprom_info.vendid = 
-		lasat_board_info.li_vendid & 0xff;
-	lasat_board_info.li_vendid &= 0xff;
-	lasat_write_eeprom_info();
-	up(&lasat_info_sem);
-	return 0;
-}
-
-static int rtctmp;
-
-#ifdef CONFIG_DS1603
-/* proc function to read/write RealTime Clock */ 
-int proc_dolasatrtc(ctl_table *table, int write, struct file *filp,
-		       void *buffer, size_t *lenp)
-{
-	int r;
-	down(&lasat_info_sem);
-	if (!write) {
-		rtctmp = ds1603_read();
-		/* check for time < 0 and set to 0 */
-		if (rtctmp < 0)
-			rtctmp = 0;
-	}
-	r = proc_dointvec(table, write, filp, buffer, lenp);
-	if ( (!write) || r) {
-		up(&lasat_info_sem);
-		return r;
-	}
-	ds1603_set(rtctmp);
-	up(&lasat_info_sem);
-	return 0;
-}
-#endif
-
 /* Sysctl for setting the IP addresses */
 int sysctl_lasat_intvec(ctl_table *table, int *name, int nlen,
 		    void *oldval, size_t *oldlenp,
@@ -160,31 +114,23 @@ int sysctl_lasat_intvec(ctl_table *table, int *name, int nlen,
 	return 1;
 }
 
-#if CONFIG_DS1603
-/* Same for RTC */
-int sysctl_lasat_rtc(ctl_table *table, int *name, int nlen,
-		    void *oldval, size_t *oldlenp,
-		    void *newval, size_t newlen, void **context)
-{
-	int r;
-	down(&lasat_info_sem);
-	rtctmp = ds1603_read();
-	if (rtctmp < 0)
-		rtctmp = 0;
-	r = sysctl_intvec(table, name, nlen, oldval, oldlenp, newval, newlen, context);
-	if (r < 0) {
-		up(&lasat_info_sem);
-		return r;
-	}
-	if (newval && newlen) {
-		ds1603_set(rtctmp);
-	}
-	up(&lasat_info_sem);
-	return 1;
-}
-#endif
-
 #ifdef CONFIG_INET
+static char lasat_bcastaddr[16];
+
+void update_bcastaddr(void)
+{
+	unsigned int ip;
+	
+	ip = lasat_board_info.li_eeprom_info.ipaddr |
+		~lasat_board_info.li_eeprom_info.netmask;
+
+	sprintf(lasat_bcastaddr, "%d.%d.%d.%d",
+			(ip      ) & 0xff,
+			(ip >>  8) & 0xff,
+			(ip >> 16) & 0xff,
+			(ip >> 24) & 0xff);
+}
+
 static char proc_lasat_ipbuf[32];
 /* Parsing of IP address */
 int proc_lasat_ip(ctl_table *table, int write, struct file *filp,
@@ -251,6 +197,7 @@ int proc_lasat_ip(ctl_table *table, int write, struct file *filp,
 		*lenp = len;
 		filp->f_pos += len;
 	}
+	update_bcastaddr();
 	up(&lasat_info_sem);
 	return 0;
 }
@@ -274,8 +221,6 @@ static int sysctl_lasat_eeprom_value(ctl_table *table, int *name, int nlen,
 	{
 		if (name && *name == LASAT_PRID)
 			lasat_board_info.li_eeprom_info.prid = *(int*)newval;
-		if (name && *name == LASAT_DEBUGACCESS)
-			lasat_board_info.li_eeprom_info.debugaccess = *(char*)newval;
 
 		lasat_write_eeprom_info();
 		lasat_init_board_info();
@@ -318,62 +263,25 @@ static ctl_table lasat_table[] = {
 	 0444, NULL, &proc_dointvec, &sysctl_intvec},
 	{LASAT_MODEL, "bmid", &lasat_board_info.li_bmid, sizeof(int),
 	 0444, NULL, &proc_dointvec, &sysctl_intvec},
-	{LASAT_SERIAL, "serial", &lasat_board_info.li_serial, sizeof(lasat_board_info.li_serial),
-	 0444, NULL, &proc_dostring, &sysctl_string},
-	{LASAT_PARTNO, "partno", &lasat_board_info.li_partno, sizeof(lasat_board_info.li_partno),
-	 0444, NULL, &proc_dostring, &sysctl_string},
-	{LASAT_EDHAC, "edhac", &lasat_board_info.li_edhac, sizeof(int),
-	 0444, NULL, &proc_dointvec, &sysctl_intvec},
-	{LASAT_EADI, "eadi", &lasat_board_info.li_eadi, sizeof(int),
-	 0444, NULL, &proc_dointvec, &sysctl_intvec},
-	{LASAT_LEASEDLINE, "leasedline", &lasat_board_info.li_leasedline, sizeof(int),
-	 0444, NULL, &proc_dointvec, &sysctl_intvec},
-	{LASAT_ISDN, "isdn", &lasat_board_info.li_isdn, sizeof(int),
-	 0444, NULL, &proc_dointvec, &sysctl_intvec},
-	{LASAT_HIFN, "hifn", &lasat_board_info.li_hifn, sizeof(int),
-	 0444, NULL, &proc_dointvec, &sysctl_intvec},
-	{LASAT_USVER, "us-version", &lasat_board_info.li_usversion, sizeof(int),
-	 0444, NULL, &proc_dointvec, &sysctl_intvec},
 	{LASAT_PRID, "prid", &lasat_board_info.li_prid, sizeof(int),
 	 0644, NULL, &proc_lasat_eeprom_value, &sysctl_lasat_eeprom_value},
-	{LASAT_VENDID, "vendid", &lasat_board_info.li_vendid, sizeof(int),
-	 0644, NULL, &proc_dolasatvendor, &sysctl_intvec},
 #ifdef CONFIG_INET
 	{LASAT_IPADDR, "ipaddr", &lasat_board_info.li_eeprom_info.ipaddr, sizeof(int),
 	 0644, NULL, &proc_lasat_ip, &sysctl_lasat_intvec},
 	{LASAT_NETMASK, "netmask", &lasat_board_info.li_eeprom_info.netmask, sizeof(int),
 	 0644, NULL, &proc_lasat_ip, &sysctl_lasat_intvec},
+	{LASAT_BCAST, "bcastaddr", &lasat_bcastaddr, 
+		sizeof(lasat_bcastaddr), 0600, NULL, 
+		&proc_dostring, &sysctl_string},
 #endif
 	{LASAT_PASSWORD, "passwd_hash", &lasat_board_info.li_eeprom_info.passwd_hash, sizeof(lasat_board_info.li_eeprom_info.passwd_hash),
 	 0600, NULL, &proc_dolasatstring, &sysctl_lasatstring},
-	{LASAT_SERVICEFLAG, "serviceflag", &lasat_board_info.li_eeprom_info.serviceflag, sizeof(lasat_board_info.li_eeprom_info.serviceflag),
-	 0644, NULL, &proc_dolasatint, &sysctl_lasat_intvec},
 	{LASAT_SBOOT, "boot-service", &lasat_boot_to_service, sizeof(int),
-	 0666, NULL, &proc_dointvec, &sysctl_intvec},
-#if CONFIG_DS1603
-	{LASAT_RTC, "rtc", &rtctmp, sizeof(int),
-	 0644, NULL, &proc_dolasatrtc, &sysctl_lasat_rtc},
-#endif
-	{LASAT_VER, "version", &lasat_firmware_version, 176,
-	 0444, NULL, &proc_dostring, &sysctl_string},
-	{LASAT_SERVICEVER, "service-version", (char*)0xbfc00100/* fixed position */, 64,
-	 0444, NULL, &proc_dostring, &sysctl_string},
- 	{LASAT_UPGRADE, "upgrade_eeprom", &lasat_board_info.li_eeprom_upgrade_version, sizeof(int),
 	 0644, NULL, &proc_dointvec, &sysctl_intvec},
- 	{LASAT_VPN_KBPS, "vpn_kbps", &lasat_board_info.li_vpn_kbps, sizeof(int),
-	 0644, NULL, &proc_dointvec, &sysctl_intvec},
- 	{LASAT_TUNNELS, "vpn_tunnels", &lasat_board_info.li_vpn_tunnels, sizeof(int),
-	 0644, NULL, &proc_dointvec, &sysctl_intvec},
- 	{LASAT_CLIENTS, "vpn_clients", &lasat_board_info.li_vpn_clients, sizeof(int),
-	 0644, NULL, &proc_dointvec, &sysctl_intvec},
-	{LASAT_VENDSTR, "vendstr", &lasat_board_info.li_vendstr, sizeof(lasat_board_info.li_vendstr),
-	 0444, NULL, &proc_dostring, &sysctl_string},
 	{LASAT_NAMESTR, "namestr", &lasat_board_info.li_namestr, sizeof(lasat_board_info.li_namestr),
 	 0444, NULL, &proc_dostring, &sysctl_string},
 	{LASAT_TYPESTR, "typestr", &lasat_board_info.li_typestr, sizeof(lasat_board_info.li_typestr),
 	 0444, NULL, &proc_dostring, &sysctl_string},
-	{LASAT_DEBUGACCESS, "debugaccess", &lasat_board_info.li_debugaccess, sizeof(int),
-	 0644, NULL, &proc_lasat_eeprom_value, &sysctl_lasat_eeprom_value},
 	{0}
 };
 

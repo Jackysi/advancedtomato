@@ -2,7 +2,7 @@
  *	Linux INET6 implementation 
  *
  *	Authors:
- *	Pedro Roque		<roque@di.fc.ul.pt>	
+ *	Pedro Roque		<pedro_m@yahoo.com>	
  *
  *	This program is free software; you can redistribute it and/or
  *      modify it under the terms of the GNU General Public License
@@ -80,6 +80,8 @@ struct rt6_info
 
 	struct rt6key			rt6i_dst;
 	struct rt6key			rt6i_src;
+
+	u8				rt6i_protocol;
 };
 
 struct fib6_walker_t
@@ -118,7 +120,7 @@ static inline void fib6_walker_unlink(struct fib6_walker_t *w)
 struct rt6_statistics {
 	__u32		fib_nodes;
 	__u32		fib_route_nodes;
-	__u32		fib_rt_alloc;		/* permanet routes	*/
+	__u32		fib_rt_alloc;		/* permanent routes	*/
 	__u32		fib_rt_entries;		/* rt entries in table	*/
 	__u32		fib_rt_cache;		/* cache routes		*/
 };
@@ -168,11 +170,17 @@ extern int			fib6_walk(struct fib6_walker_t *w);
 extern int			fib6_walk_continue(struct fib6_walker_t *w);
 
 extern int			fib6_add(struct fib6_node *root,
-					 struct rt6_info *rt);
+					 struct rt6_info *rt,
+					 struct nlmsghdr *nlh,
+					 struct netlink_skb_parms *req);
 
-extern int			fib6_del(struct rt6_info *rt);
+extern int			fib6_del(struct rt6_info *rt,
+					 struct nlmsghdr *nlh,
+					 struct netlink_skb_parms *req);
 
-extern void			inet6_rt_notify(int event, struct rt6_info *rt);
+extern void			inet6_rt_notify(int event, struct rt6_info *rt,
+						struct nlmsghdr *nlh,
+						struct netlink_skb_parms *req);
 
 extern void			fib6_run_gc(unsigned long dummy);
 

@@ -1,8 +1,8 @@
 /******************************************************************* 
- * ident "$Id: idt77252.h,v 1.1.1.4 2003/10/14 08:07:57 sparq Exp $"
+ * ident "$Id: idt77252.h,v 1.2 2001/11/11 08:13:54 ecd Exp $"
  *
- * $Author: sparq $
- * $Date: 2003/10/14 08:07:57 $
+ * $Author: ecd $
+ * $Date: 2001/11/11 08:13:54 $
  *
  * Copyright (c) 2000 ATecoM GmbH 
  *
@@ -121,7 +121,11 @@
 #define SAR_FBQ3_LOW		1
 #define SAR_FBQ3_HIGH		2
 
+#if 0
+#define SAR_TST_RESERVED	44	/* Num TST reserved for UBR/ABR/VBR */
+#else
 #define SAR_TST_RESERVED	0	/* Num TST reserved for UBR/ABR/VBR */
+#endif
 
 #define TCT_CBR			0x00000000
 #define TCT_UBR			0x00000000

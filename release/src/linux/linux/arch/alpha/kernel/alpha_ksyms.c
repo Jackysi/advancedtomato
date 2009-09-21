@@ -37,6 +37,8 @@
 
 extern struct hwrpb_struct *hwrpb;
 extern void dump_thread(struct pt_regs *, struct user *);
+extern void dump_elf_thread(elf_gregset_t dest, struct pt_regs *pt,
+			    struct task_struct *task);
 extern int dump_fpu(struct pt_regs *, elf_fpregset_t *);
 extern spinlock_t kernel_flag;
 extern spinlock_t rtc_lock;
@@ -119,7 +121,7 @@ EXPORT_SYMBOL(copy_page);
 EXPORT_SYMBOL(clear_page);
 
 EXPORT_SYMBOL(__delay);
-EXPORT_SYMBOL(__udelay);
+EXPORT_SYMBOL(ndelay);
 EXPORT_SYMBOL(udelay);
 
 EXPORT_SYMBOL(__direct_map_base);
@@ -142,6 +144,7 @@ EXPORT_SYMBOL(pci_dac_dma_to_offset);
 #endif
 
 EXPORT_SYMBOL(dump_thread);
+EXPORT_SYMBOL(dump_elf_thread);
 EXPORT_SYMBOL(dump_fpu);
 EXPORT_SYMBOL(hwrpb);
 EXPORT_SYMBOL(wrusp);
@@ -237,6 +240,13 @@ EXPORT_SYMBOL(read_lock);
 EXPORT_SYMBOL(cpu_present_mask);
 #endif /* CONFIG_SMP */
 
+/*
+ * NUMA specific symbols
+ */
+#ifdef CONFIG_DISCONTIGMEM
+EXPORT_SYMBOL(plat_node_data);
+#endif /* CONFIG_DISCONTIGMEM */
+
 EXPORT_SYMBOL(rtc_lock);
 
 /*
@@ -265,4 +275,12 @@ EXPORT_SYMBOL(get_wchan);
 #ifdef CONFIG_ALPHA_IRONGATE
 EXPORT_SYMBOL(irongate_ioremap);
 EXPORT_SYMBOL(irongate_iounmap);
+#endif
+#ifdef CONFIG_ALPHA_TITAN
+EXPORT_SYMBOL(titan_ioremap);
+EXPORT_SYMBOL(titan_iounmap);
+#endif
+#ifdef CONFIG_ALPHA_MARVEL
+EXPORT_SYMBOL(marvel_ioremap);
+EXPORT_SYMBOL(marvel_iounmap);
 #endif

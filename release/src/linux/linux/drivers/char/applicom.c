@@ -1,7 +1,7 @@
 /* Derived from Applicom driver ac.c for SCO Unix                            */
 /* Ported by David Woodhouse, Axiom (Cambridge) Ltd.                         */
 /* dwmw2@redhat.com  30/8/98                                                 */
-/* $Id: applicom.c,v 1.1.1.4 2003/10/14 08:08:00 sparq Exp $			     */
+/* $Id: ac.c,v 1.30 2000/03/22 16:03:57 dwmw2 Exp $			     */
 /* This module is for Linux 2.1 and 2.2 series kernels.                      */
 /*****************************************************************************/
 /* J PAGET 18/02/94 passage V2.4.2 ioctl avec code 2 reset to les interrupt  */
@@ -203,7 +203,7 @@ int __init applicom_init(void)
 	void *RamIO;
 	int boardno;
 
-	printk(KERN_INFO "Applicom driver: $Id: applicom.c,v 1.1.1.4 2003/10/14 08:08:00 sparq Exp $\n");
+	printk(KERN_INFO "Applicom driver: $Id: ac.c,v 1.30 2000/03/22 16:03:57 dwmw2 Exp $\n");
 
 	/* No mem and irq given - check for a PCI card */
 
@@ -222,6 +222,7 @@ int __init applicom_init(void)
 
 		if (!RamIO) {
 			printk(KERN_INFO "ac.o: Failed to ioremap PCI memory space at 0x%lx\n", PCI_BASE_ADDRESS(dev));
+			pci_disable_device(dev);
 			return -EIO;
 		}
 
@@ -233,12 +234,14 @@ int __init applicom_init(void)
 						  (unsigned long)RamIO,0))) {
 			printk(KERN_INFO "ac.o: PCI Applicom device doesn't have correct signature.\n");
 			iounmap(RamIO);
+			pci_disable_device(dev);
 			continue;
 		}
 
 		if (request_irq(dev->irq, &ac_interrupt, SA_SHIRQ, "Applicom PCI", &dummy)) {
 			printk(KERN_INFO "Could not allocate IRQ %d for PCI Applicom device.\n", dev->irq);
 			iounmap(RamIO);
+			pci_disable_device(dev);
 			apbs[boardno - 1].RamIO = 0;
 			continue;
 		}
@@ -265,12 +268,6 @@ int __init applicom_init(void)
 
 	/* Now try the specified ISA cards */
 
-#warning "LEAK"
-	RamIO = ioremap(mem, LEN_RAM_IO * MAX_ISA_BOARD);
-
-	if (!RamIO) 
-		printk(KERN_INFO "ac.o: Failed to ioremap ISA memory space at 0x%lx\n", mem);
-
 	for (i = 0; i < MAX_ISA_BOARD; i++) {
 		RamIO = ioremap(mem + (LEN_RAM_IO * i), LEN_RAM_IO);
 
@@ -293,7 +290,8 @@ int __init applicom_init(void)
 				iounmap((void *) RamIO);
 				apbs[boardno - 1].RamIO = 0;
 			}
-			apbs[boardno - 1].irq = irq;
+			else
+				apbs[boardno - 1].irq = irq;
 		}
 		else
 			apbs[boardno - 1].irq = 0;
@@ -368,7 +366,7 @@ static ssize_t ac_write(struct file *file, const char *buf, size_t count, loff_t
 	if (count != sizeof(struct st_ram_io) + sizeof(struct mailbox)) {
 		static int warncount = 5;
 		if (warncount) {
-			printk(KERN_INFO "Hmmm. write() of Applicom card, length %d != expected %d\n",
+			printk(KERN_INFO "Hmmm. write() of Applicom card, length %zd != expected %zd\n",
 			       count, sizeof(struct st_ram_io) + sizeof(struct mailbox));
 			warncount--;
 		}
@@ -476,18 +474,17 @@ static ssize_t ac_write(struct file *file, const char *buf, size_t count, loff_t
 	return 0;
 }
 
-static int do_ac_read(int IndexCard, char *buf)
+static int do_ac_read(int IndexCard, char *buf,
+		struct st_ram_io *st_loc, struct mailbox *mailbox)
 {
-	struct st_ram_io st_loc;
-	struct mailbox tmpmailbox;	/* bounce buffer - can't copy to user space with cli() */
 	unsigned long from = (unsigned long)apbs[IndexCard].RamIO + RAM_TO_PC;
-	unsigned char *to = (unsigned char *)&tmpmailbox;
+	unsigned char *to = (unsigned char *)&mailbox;
 #ifdef DEBUG
 	int c;
 #endif
 
-	st_loc.tic_owner_to_pc = readb(apbs[IndexCard].RamIO + TIC_OWNER_TO_PC);
-	st_loc.numcard_owner_to_pc = readb(apbs[IndexCard].RamIO + NUMCARD_OWNER_TO_PC);
+	st_loc->tic_owner_to_pc = readb(apbs[IndexCard].RamIO + TIC_OWNER_TO_PC);
+	st_loc->numcard_owner_to_pc = readb(apbs[IndexCard].RamIO + NUMCARD_OWNER_TO_PC);
 
 
 	{
@@ -510,32 +507,24 @@ static int do_ac_read(int IndexCard, char *buf)
 		printk("Read from applicom card #%d. struct st_ram_io follows:", NumCard);
 
 		for (c = 0; c < sizeof(struct st_ram_io);) {
-			printk("\n%5.5X: %2.2X", c, ((unsigned char *) &st_loc)[c]);
+			printk("\n%5.5X: %2.2X", c, ((unsigned char *)st_loc)[c]);
 
 			for (c++; c % 8 && c < sizeof(struct st_ram_io); c++) {
-				printk(" %2.2X", ((unsigned char *) &st_loc)[c]);
+				printk(" %2.2X", ((unsigned char *)st_loc)[c]);
 			}
 		}
 
 		printk("\nstruct mailbox follows:");
 
 		for (c = 0; c < sizeof(struct mailbox);) {
-			printk("\n%5.5X: %2.2X", c, ((unsigned char *) &tmpmailbox)[c]);
+			printk("\n%5.5X: %2.2X", c, ((unsigned char *)mailbox)[c]);
 
 			for (c++; c % 8 && c < sizeof(struct mailbox); c++) {
-				printk(" %2.2X", ((unsigned char *) &tmpmailbox)[c]);
+				printk(" %2.2X", ((unsigned char *)mailbox)[c]);
 			}
 		}
 		printk("\n");
 #endif
-
-#warning "Je suis stupide. DW. - copy*user in cli"
-
-	if (copy_to_user(buf, &st_loc, sizeof(struct st_ram_io)))
-		return -EFAULT;
-	if (copy_to_user(&buf[sizeof(struct st_ram_io)], &tmpmailbox, sizeof(struct mailbox)))
-		return -EFAULT;
-
 	return (sizeof(struct st_ram_io) + sizeof(struct mailbox));
 }
 
@@ -551,7 +540,7 @@ static ssize_t ac_read (struct file *filp, char *buf, size_t count, loff_t *ptr)
 #endif
 	/* No need to ratelimit this. Only root can trigger it anyway */
 	if (count != sizeof(struct st_ram_io) + sizeof(struct mailbox)) {
-		printk( KERN_WARNING "Hmmm. read() of Applicom card, length %d != expected %d\n",
+		printk( KERN_WARNING "Hmmm. read() of Applicom card, length %zd != expected %zd\n",
 			count,sizeof(struct st_ram_io) + sizeof(struct mailbox));
 		return -EINVAL;
 	}
@@ -570,11 +559,19 @@ static ssize_t ac_read (struct file *filp, char *buf, size_t count, loff_t *ptr)
 			tmp = readb(apbs[i].RamIO + DATA_TO_PC_READY);
 			
 			if (tmp == 2) {
+				struct st_ram_io st_loc;
+				struct mailbox mailbox;
+
 				/* Got a packet for us */
-				ret = do_ac_read(i, buf);
+				ret = do_ac_read(i, buf, &st_loc, &mailbox);
 				spin_unlock_irqrestore(&apbs[i].mutex, flags);
 				set_current_state(TASK_RUNNING);
 				remove_wait_queue(&FlagSleepRec, &wait);
+
+				if (copy_to_user(buf, &st_loc, sizeof(st_loc)))
+					return -EFAULT;
+				if (copy_to_user(buf + sizeof(st_loc), &mailbox, sizeof(mailbox)))
+					return -EFAULT;
 				return tmp;
 			}
 			
@@ -786,7 +783,7 @@ static int ac_ioctl(struct inode *inode, struct file *file, unsigned int cmd, un
 		writeb(1, apbs[IndexCard].RamIO + RAM_IT_FROM_PC);
 		break;
 	case 6:
-		printk(KERN_INFO "APPLICOM driver release .... V2.8.0 ($Revision: 1.1.1.4 $)\n");
+		printk(KERN_INFO "APPLICOM driver release .... V2.8.0 ($Revision: 1.30 $)\n");
 		printk(KERN_INFO "Number of installed boards . %d\n", (int) numboards);
 		printk(KERN_INFO "Segment of board ........... %X\n", (int) mem);
 		printk(KERN_INFO "Interrupt IRQ number ....... %d\n", (int) irq);

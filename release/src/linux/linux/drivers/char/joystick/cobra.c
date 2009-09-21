@@ -1,5 +1,5 @@
 /*
- * $Id: cobra.c,v 1.1.1.4 2003/10/14 08:08:07 sparq Exp $
+ * $Id: cobra.c,v 1.10 2000/06/08 10:23:45 vojtech Exp $
  *
  *  Copyright (c) 1999-2000 Vojtech Pavlik
  *

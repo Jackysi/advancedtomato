@@ -481,6 +481,13 @@ static void tokenize_line( const char * pnt )
 	syntax_error( "bogus 'then'" );
     }
 
+#if 0
+    if ( token == token_unset )
+    {
+	fprintf( stderr, "Ignoring 'unset' command\n" );
+	return;
+    }
+#endif
 
     if ( token == token_UNKNOWN )
 	syntax_error( "unknown command" );

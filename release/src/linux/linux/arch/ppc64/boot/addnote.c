@@ -14,6 +14,7 @@
  * Usage: addnote zImage
  */
 #include <stdio.h>
+#include <stdlib.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <string.h>
@@ -115,6 +116,7 @@ main(int ac, char **av)
 		ph += ps;
 	}
 
+	/* XXX check that the area we want to use is all zeroes */
 	for (i = 0; i < ps + nnote; ++i)
 		if (buf[ph + i] != 0)
 			goto nospace;
@@ -126,6 +128,7 @@ main(int ac, char **av)
 	PUT_32BE(ph + PH_FILESZ, nnote);
 
 	/* fill in the note area we point to */
+	/* XXX we should probably make this a proper section */
 	PUT_32BE(ns, strlen(arch) + 1);
 	PUT_32BE(ns + 4, N_DESCR * 4);
 	PUT_32BE(ns + 8, 0x1275);

@@ -3,7 +3,7 @@
  *
  *  Copyright (C) 1991, 1992, 1993  Linus Torvalds
  *
- *  $Id: head.S,v 1.1.1.4 2003/10/14 08:07:51 sparq Exp $	 		
+ *  $Id: head.S,v 1.3 2001/04/20 00:59:28 ak Exp $	 		
  */
 
 /*
@@ -48,6 +48,11 @@ startup_32:
 	cmpl %eax,0x100000
 	je 1b
 
+/*
+ * Initialize eflags.  Some BIOS's leave bits like NT set.  This would
+ * confuse the debugger if this code is traced.
+ * XXX - best to initialize before switching to protected mode.
+ */
 	pushl $0
 	popfl
 /*

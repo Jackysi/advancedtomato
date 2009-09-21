@@ -6,6 +6,7 @@
 typedef unsigned char   cc_t;
 typedef unsigned int    speed_t;
 
+/* XXX is this right for sparc64?  it was an unsigned long... XXX */
 typedef unsigned int    tcflag_t;
 
 #define NCC 8

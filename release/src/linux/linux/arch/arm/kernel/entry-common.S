@@ -14,7 +14,7 @@
  * We rely on the fact that R0 is at the bottom of the stack (due to
  * slow/fast restore user regs).
  */
-#if S_R0
+#if S_R0 != 0
 #error "Please fix"
 #endif
 
@@ -34,6 +34,7 @@ ENTRY(__do_softirq)
  * stack.
  */
 ret_fast_syscall:
+	disable_irq r1				@ ensure IRQs are disabled
 	ldr	r1, [tsk, #TSK_NEED_RESCHED]
 	ldr	r2, [tsk, #TSK_SIGPENDING]
 	teq	r1, #0				@ need_resched || sigpending
@@ -45,28 +46,35 @@ ret_fast_syscall:
  * Ok, we need to do extra processing, enter the slow path.
  */
 slow:	str	r0, [sp, #S_R0+S_OFF]!	@ returned r0
-	b	1f
+	teq	r1, #0
+	beq	1f
 
 /*
  * "slow" syscall return path.  "why" tells us if this was a real syscall.
  */
 reschedule:
 	bl	SYMBOL_NAME(schedule)
+ret_disable_irq:
+	disable_irq r1				@ ensure IRQs are disabled
 ENTRY(ret_to_user)
 ret_slow_syscall:
 	ldr	r1, [tsk, #TSK_NEED_RESCHED]
 	ldr	r2, [tsk, #TSK_SIGPENDING]
-1:	teq	r1, #0				@ need_resched => schedule()
+	teq	r1, #0				@ need_resched => schedule()
 	bne	reschedule
-	teq	r2, #0				@ sigpending => do_signal()
-	blne	__do_signal
+1:	teq	r2, #0				@ sigpending => do_signal()
+	bne	__do_signal
+restore:
 	restore_user_regs
 
 __do_signal:
+	enable_irq r1
 	mov	r0, #0				@ NULL 'oldset'
 	mov	r1, sp				@ 'regs'
 	mov	r2, why				@ 'syscall'
-	b	SYMBOL_NAME(do_signal)		@ note the bl above sets lr
+	bl	SYMBOL_NAME(do_signal)		@ note the bl above sets lr
+	disable_irq r1				@ ensure IRQs are disabled
+	b	restore
 
 /*
  * This is how we return from a fork.  __switch_to will be calling us
@@ -79,11 +87,11 @@ ENTRY(ret_from_fork)
 	ldr	ip, [tsk, #TSK_PTRACE]		@ check for syscall tracing
 	mov	why, #1
 	tst	ip, #PT_TRACESYS		@ are we tracing syscalls?
-	beq	ret_slow_syscall
+	beq	ret_disable_irq
 	mov	r1, sp
 	mov	r0, #1				@ trace exit [IP = 1]
 	bl	SYMBOL_NAME(syscall_trace)
-	b	ret_slow_syscall
+	b	ret_disable_irq
 	
 
 #include "calls.S"
@@ -130,7 +138,7 @@ ENTRY(vector_swi)
 	ldr	ip, [ip]
 	mcr	p15, 0, ip, c1, c0		@ update control register
 #endif
-	enable_irqs ip
+	enable_irq ip
 
 	str	r4, [sp, #-S_OFF]!		@ push fifth arg
 
@@ -174,7 +182,7 @@ __sys_trace_return:
 	mov	r1, sp
 	mov	r0, #1				@ trace exit [IP = 1]
 	bl	SYMBOL_NAME(syscall_trace)
-	b	ret_slow_syscall
+	b	ret_disable_irq
 
 	.align	5
 #ifdef CONFIG_ALIGNMENT_TRAP

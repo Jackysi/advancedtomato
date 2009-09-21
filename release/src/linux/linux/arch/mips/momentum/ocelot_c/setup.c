@@ -12,6 +12,9 @@
  * Author: Matthew Dharm, Momentum Computer
  *   mdharm@momenco.com
  *
+ * Louis Hamilton, Red Hat, Inc.
+ *   hamilton@redhat.com  [MIPS64 modifications]
+ *
  * Author: RidgeRun, Inc.
  *   glonnon@ridgerun.com, skranz@ridgerun.com, stevej@ridgerun.com
  *
@@ -69,6 +72,7 @@
 #include "ocelot_c_fpga.h"
 
 unsigned long mv64340_base;
+extern unsigned long mv64340_sram_base;
 unsigned long cpu_clock;
 
 /* These functions are used for rebooting or halting the machine*/
@@ -80,9 +84,8 @@ void momenco_time_init(void);
 
 static char reset_reason;
 
+void add_wired_entry(unsigned long entrylo0, unsigned long entrylo1, unsigned long entryhi, unsigned long pagemask);
 #define ENTRYLO(x) ((pte_val(mk_pte_phys((x), PAGE_KERNEL_UNCACHED)) >> 6)|1)
-
-void __init bus_error_init(void) { /* nothing */ }
 
 /* setup code for a handoff from a version 2 PMON 2000 PROM */
 void PMON_v2_setup(void)
@@ -102,7 +105,19 @@ void PMON_v2_setup(void)
 		Internal SRAM		0xfe000000	0xfe000000
 		M-Systems DOC (CS3)	0xff000000	0xff000000
 	*/
+  printk("PMON_v2_setup\n");
 
+#ifdef CONFIG_MIPS64
+	/* marvell and extra space */
+	add_wired_entry(ENTRYLO(0xf4000000), ENTRYLO(0xf4010000), 0xfffffffff4000000, PM_64K);
+	/* fpga, rtc, and uart */
+	add_wired_entry(ENTRYLO(0xfc000000), ENTRYLO(0xfd000000), 0xfffffffffc000000, PM_16M);
+	/* m-sys and internal SRAM */
+	add_wired_entry(ENTRYLO(0xfe000000), ENTRYLO(0xff000000), 0xfffffffffe000000, PM_16M);
+
+	mv64340_base = 0xfffffffff4000000;
+	mv64340_sram_base = 0xfffffffffe000000;
+#else
 	/* marvell and extra space */
 	add_wired_entry(ENTRYLO(0xf4000000), ENTRYLO(0xf4010000), 0xf4000000, PM_64K);
 	/* fpga, rtc, and uart */
@@ -111,6 +126,8 @@ void PMON_v2_setup(void)
 	add_wired_entry(ENTRYLO(0xfe000000), ENTRYLO(0xff000000), 0xfe000000, PM_16M);
 
 	mv64340_base = 0xf4000000;
+	mv64340_sram_base = 0xfe000000;
+#endif
 }
 
 #define CONV_BCD_TO_BIN(val)	(((val) & 0xf) + (((val) >> 4) * 10))
@@ -118,7 +135,11 @@ void PMON_v2_setup(void)
 
 unsigned long m48t37y_get_time(void)
 {
+#ifdef CONFIG_MIPS64
+	unsigned char *rtc_base = (unsigned char*)0xfffffffffc800000;
+#else
 	unsigned char* rtc_base = (unsigned char*)0xfc800000;
+#endif
 	unsigned int year, month, day, hour, min, sec;
 
 	/* stop the update */
@@ -143,7 +164,11 @@ unsigned long m48t37y_get_time(void)
 
 int m48t37y_set_time(unsigned long sec)
 {
+#ifdef CONFIG_MIPS64
+	unsigned char* rtc_base = (unsigned char*)0xfffffffffc800000;
+#else
 	unsigned char* rtc_base = (unsigned char*)0xfc800000;
+#endif
 	struct rtc_time tm;
 
 	/* convert to a more useful format -- note months count from 0 */
@@ -185,12 +210,13 @@ void momenco_timer_setup(struct irqaction *irq)
 void momenco_time_init(void)
 {
 #ifdef CONFIG_CPU_SR71000
-	mips_counter_frequency = cpu_clock;
+	mips_hpt_frequency = cpu_clock;
 #elif defined(CONFIG_CPU_RM7000)
-	mips_counter_frequency = cpu_clock / 2;
+	mips_hpt_frequency = cpu_clock / 2;
 #else
 #error Unknown CPU for this board
 #endif
+	printk("momenco_time_init cpu_clock=%d\n", cpu_clock);
 	board_timer_setup = momenco_timer_setup;
 
 	rtc_get_time = m48t37y_get_time;
@@ -313,6 +339,7 @@ void __init momenco_ocelot_c_setup(void)
 	}
 }
 
+#ifndef CONFIG_MIPS64
 /* This needs to be one of the first initcalls, because no I/O port access
    can work before this */
 static int io_base_ioremap(void)
@@ -330,3 +357,4 @@ static int io_base_ioremap(void)
 }
 
 module_init(io_base_ioremap);
+#endif

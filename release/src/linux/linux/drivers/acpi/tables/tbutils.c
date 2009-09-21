@@ -1,162 +1,102 @@
 /******************************************************************************
  *
  * Module Name: tbutils - Table manipulation utilities
- *              $Revision: 1.1.1.2 $
  *
  *****************************************************************************/
 
 /*
- *  Copyright (C) 2000, 2001 R. Byron Moore
+ * Copyright (C) 2000 - 2004, R. Byron Moore
+ * All rights reserved.
  *
- *  This program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2 of the License, or
- *  (at your option) any later version.
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions, and the following disclaimer,
+ *    without modification.
+ * 2. Redistributions in binary form must reproduce at minimum a disclaimer
+ *    substantially similar to the "NO WARRANTY" disclaimer below
+ *    ("Disclaimer") and any redistribution must be conditioned upon
+ *    including a substantially similar Disclaimer requirement for further
+ *    binary redistribution.
+ * 3. Neither the names of the above-listed copyright holders nor the names
+ *    of any contributors may be used to endorse or promote products derived
+ *    from this software without specific prior written permission.
  *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
+ * Alternatively, this software may be distributed under the terms of the
+ * GNU General Public License ("GPL") version 2 as published by the Free
+ * Software Foundation.
  *
- *  You should have received a copy of the GNU General Public License
- *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * NO WARRANTY
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR
+ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+ * HOLDERS OR CONTRIBUTORS BE LIABLE FOR SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+ * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+ * STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING
+ * IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGES.
  */
 
 
-#include "acpi.h"
-#include "actables.h"
-#include "acinterp.h"
+#include <acpi/acpi.h>
+#include <acpi/actables.h>
 
 
 #define _COMPONENT          ACPI_TABLES
-	 MODULE_NAME         ("tbutils")
+	 ACPI_MODULE_NAME    ("tbutils")
 
 
 /*******************************************************************************
  *
- * FUNCTION:    Acpi_tb_handle_to_object
+ * FUNCTION:    acpi_tb_handle_to_object
  *
- * PARAMETERS:  Table_id            - Id for which the function is searching
- *              Table_desc          - Pointer to return the matching table
+ * PARAMETERS:  table_id            - Id for which the function is searching
+ *              table_desc          - Pointer to return the matching table
  *                                      descriptor.
  *
- * RETURN:      Search the tables to find one with a matching Table_id and
+ * RETURN:      Search the tables to find one with a matching table_id and
  *              return a pointer to that table descriptor.
  *
  ******************************************************************************/
 
 acpi_status
 acpi_tb_handle_to_object (
-	u16                     table_id,
-	acpi_table_desc         **table_desc)
+	u16                             table_id,
+	struct acpi_table_desc          **return_table_desc)
 {
-	u32                     i;
-	acpi_table_desc         *list_head;
+	u32                             i;
+	struct acpi_table_desc          *table_desc;
 
 
-	PROC_NAME ("Tb_handle_to_object");
+	ACPI_FUNCTION_NAME ("tb_handle_to_object");
 
 
 	for (i = 0; i < ACPI_TABLE_MAX; i++) {
-		list_head = &acpi_gbl_acpi_tables[i];
-		do {
-			if (list_head->table_id == table_id) {
-				*table_desc = list_head;
+		table_desc = acpi_gbl_table_lists[i].next;
+		while (table_desc) {
+			if (table_desc->table_id == table_id) {
+				*return_table_desc = table_desc;
 				return (AE_OK);
 			}
 
-			list_head = list_head->next;
-
-		} while (list_head != &acpi_gbl_acpi_tables[i]);
+			table_desc = table_desc->next;
+		}
 	}
 
-
-	ACPI_DEBUG_PRINT ((ACPI_DB_ERROR, "Table_id=%X does not exist\n", table_id));
+	ACPI_DEBUG_PRINT ((ACPI_DB_ERROR, "table_id=%X does not exist\n", table_id));
 	return (AE_BAD_PARAMETER);
 }
 
 
 /*******************************************************************************
  *
- * FUNCTION:    Acpi_tb_system_table_pointer
+ * FUNCTION:    acpi_tb_validate_table_header
  *
- * PARAMETERS:  *Where              - Pointer to be examined
- *
- * RETURN:      TRUE if Where is within the AML stream (in one of the ACPI
- *              system tables such as the DSDT or an SSDT.)
- *              FALSE otherwise
- *
- ******************************************************************************/
-
-u8
-acpi_tb_system_table_pointer (
-	void                    *where)
-{
-	u32                     i;
-	acpi_table_desc         *table_desc;
-	acpi_table_header       *table;
-
-
-	/* No function trace, called too often! */
-
-
-	/* Ignore null pointer */
-
-	if (!where) {
-		return (FALSE);
-	}
-
-
-	/* Check for a pointer within the DSDT */
-
-	if ((acpi_gbl_DSDT) &&
-		(IS_IN_ACPI_TABLE (where, acpi_gbl_DSDT))) {
-		return (TRUE);
-	}
-
-
-	/* Check each of the loaded SSDTs (if any)*/
-
-	table_desc = &acpi_gbl_acpi_tables[ACPI_TABLE_SSDT];
-
-	for (i = 0; i < acpi_gbl_acpi_tables[ACPI_TABLE_SSDT].count; i++) {
-		table = table_desc->pointer;
-
-		if (IS_IN_ACPI_TABLE (where, table)) {
-			return (TRUE);
-		}
-
-		table_desc = table_desc->next;
-	}
-
-
-	/* Check each of the loaded PSDTs (if any)*/
-
-	table_desc = &acpi_gbl_acpi_tables[ACPI_TABLE_PSDT];
-
-	for (i = 0; i < acpi_gbl_acpi_tables[ACPI_TABLE_PSDT].count; i++) {
-		table = table_desc->pointer;
-
-		if (IS_IN_ACPI_TABLE (where, table)) {
-			return (TRUE);
-		}
-
-		table_desc = table_desc->next;
-	}
-
-
-	/* Pointer does not point into any system table */
-
-	return (FALSE);
-}
-
-
-/*******************************************************************************
- *
- * FUNCTION:    Acpi_tb_validate_table_header
- *
- * PARAMETERS:  Table_header        - Logical pointer to the table
+ * PARAMETERS:  table_header        - Logical pointer to the table
  *
  * RETURN:      Status
  *
@@ -168,52 +108,52 @@ acpi_tb_system_table_pointer (
  *             name
  *          3) Table must be readable for length specified in the header
  *          4) Table checksum must be valid (with the exception of the FACS
- *              which has no checksum for some odd reason)
+ *              which has no checksum because it contains variable fields)
  *
  ******************************************************************************/
 
 acpi_status
 acpi_tb_validate_table_header (
-	acpi_table_header       *table_header)
+	struct acpi_table_header        *table_header)
 {
-	acpi_name               signature;
+	acpi_name                       signature;
 
 
-	PROC_NAME ("Tb_validate_table_header");
+	ACPI_FUNCTION_NAME ("tb_validate_table_header");
 
 
 	/* Verify that this is a valid address */
 
-	if (!acpi_os_readable (table_header, sizeof (acpi_table_header))) {
+	if (!acpi_os_readable (table_header, sizeof (struct acpi_table_header))) {
 		ACPI_DEBUG_PRINT ((ACPI_DB_ERROR,
 			"Cannot read table header at %p\n", table_header));
 		return (AE_BAD_ADDRESS);
 	}
 
-
 	/* Ensure that the signature is 4 ASCII characters */
 
-	MOVE_UNALIGNED32_TO_32 (&signature, &table_header->signature);
+	ACPI_MOVE_32_TO_32 (&signature, table_header->signature);
 	if (!acpi_ut_valid_acpi_name (signature)) {
 		ACPI_DEBUG_PRINT ((ACPI_DB_ERROR,
 			"Table signature at %p [%p] has invalid characters\n",
 			table_header, &signature));
 
-		REPORT_WARNING (("Invalid table signature %4.4s found\n", (char*)&signature));
-		DUMP_BUFFER (table_header, sizeof (acpi_table_header));
+		ACPI_REPORT_WARNING (("Invalid table signature found: [%4.4s]\n",
+			(char *) &signature));
+		ACPI_DUMP_BUFFER (table_header, sizeof (struct acpi_table_header));
 		return (AE_BAD_SIGNATURE);
 	}
 
-
 	/* Validate the table length */
 
-	if (table_header->length < sizeof (acpi_table_header)) {
+	if (table_header->length < sizeof (struct acpi_table_header)) {
 		ACPI_DEBUG_PRINT ((ACPI_DB_ERROR,
 			"Invalid length in table header %p name %4.4s\n",
-			table_header, (char*)&signature));
+			table_header, (char *) &signature));
 
-		REPORT_WARNING (("Invalid table header length found\n"));
-		DUMP_BUFFER (table_header, sizeof (acpi_table_header));
+		ACPI_REPORT_WARNING (("Invalid table header length (0x%X) found\n",
+			(u32) table_header->length));
+		ACPI_DUMP_BUFFER (table_header, sizeof (struct acpi_table_header));
 		return (AE_BAD_HEADER);
 	}
 
@@ -223,90 +163,9 @@ acpi_tb_validate_table_header (
 
 /*******************************************************************************
  *
- * FUNCTION:    Acpi_tb_map_acpi_table
+ * FUNCTION:    acpi_tb_verify_table_checksum
  *
- * PARAMETERS:  Physical_address        - Physical address of table to map
- *              *Size                   - Size of the table.  If zero, the size
- *                                        from the table header is used.
- *                                        Actual size is returned here.
- *              **Logical_address       - Logical address of mapped table
- *
- * RETURN:      Logical address of the mapped table.
- *
- * DESCRIPTION: Maps the physical address of table into a logical address
- *
- ******************************************************************************/
-
-acpi_status
-acpi_tb_map_acpi_table (
-	ACPI_PHYSICAL_ADDRESS   physical_address,
-	u32                     *size,
-	acpi_table_header       **logical_address)
-{
-	acpi_table_header       *table;
-	u32                     table_size = *size;
-	acpi_status             status = AE_OK;
-
-
-	PROC_NAME ("Tb_map_acpi_table");
-
-
-	/* If size is zero, look at the table header to get the actual size */
-
-	if ((*size) == 0) {
-		/* Get the table header so we can extract the table length */
-
-		status = acpi_os_map_memory (physical_address, sizeof (acpi_table_header),
-				  (void **) &table);
-		if (ACPI_FAILURE (status)) {
-			return (status);
-		}
-
-		/* Extract the full table length before we delete the mapping */
-
-		table_size = table->length;
-
-		/*
-		 * Validate the header and delete the mapping.
-		 * We will create a mapping for the full table below.
-		 */
-		status = acpi_tb_validate_table_header (table);
-
-		/* Always unmap the memory for the header */
-
-		acpi_os_unmap_memory (table, sizeof (acpi_table_header));
-
-		/* Exit if header invalid */
-
-		if (ACPI_FAILURE (status)) {
-			return (status);
-		}
-	}
-
-
-	/* Map the physical memory for the correct length */
-
-	status = acpi_os_map_memory (physical_address, table_size, (void **) &table);
-	if (ACPI_FAILURE (status)) {
-		return (status);
-	}
-
-	ACPI_DEBUG_PRINT ((ACPI_DB_INFO,
-		"Mapped memory for ACPI table, length=%d(%X) at %p\n",
-		table_size, table_size, table));
-
-	*size = table_size;
-	*logical_address = table;
-
-	return (status);
-}
-
-
-/*******************************************************************************
- *
- * FUNCTION:    Acpi_tb_verify_table_checksum
- *
- * PARAMETERS:  *Table_header           - ACPI table to verify
+ * PARAMETERS:  *table_header           - ACPI table to verify
  *
  * RETURN:      8 bit checksum of table
  *
@@ -317,13 +176,13 @@ acpi_tb_map_acpi_table (
 
 acpi_status
 acpi_tb_verify_table_checksum (
-	acpi_table_header       *table_header)
+	struct acpi_table_header        *table_header)
 {
-	u8                      checksum;
-	acpi_status             status = AE_OK;
+	u8                              checksum;
+	acpi_status                     status = AE_OK;
 
 
-	FUNCTION_TRACE ("Tb_verify_table_checksum");
+	ACPI_FUNCTION_TRACE ("tb_verify_table_checksum");
 
 
 	/* Compute the checksum on the table */
@@ -333,20 +192,18 @@ acpi_tb_verify_table_checksum (
 	/* Return the appropriate exception */
 
 	if (checksum) {
-		REPORT_WARNING (("Invalid checksum (%X) in table %4.4s\n",
-			checksum, (char*)&table_header->signature));
+		ACPI_REPORT_WARNING (("Invalid checksum in table [%4.4s] (%02X, sum %02X is not zero)\n",
+			table_header->signature, (u32) table_header->checksum, (u32) checksum));
 
 		status = AE_BAD_CHECKSUM;
 	}
-
-
 	return_ACPI_STATUS (status);
 }
 
 
 /*******************************************************************************
  *
- * FUNCTION:    Acpi_tb_checksum
+ * FUNCTION:    acpi_tb_checksum
  *
  * PARAMETERS:  Buffer              - Buffer to checksum
  *              Length              - Size of the buffer
@@ -359,12 +216,12 @@ acpi_tb_verify_table_checksum (
 
 u8
 acpi_tb_checksum (
-	void                    *buffer,
-	u32                     length)
+	void                            *buffer,
+	u32                             length)
 {
-	u8                      *limit;
-	u8                      *rover;
-	u8                      sum = 0;
+	const u8                        *limit;
+	const u8                        *rover;
+	u8                              sum = 0;
 
 
 	if (buffer && length) {
@@ -376,7 +233,6 @@ acpi_tb_checksum (
 			sum = (u8) (sum + *rover);
 		}
 	}
-
 	return (sum);
 }
 

@@ -7,7 +7,7 @@
  *		PROC file system.  It is mainly used for debugging and
  *		statistics.
  *
- * Version:	$Id: proc.c,v 1.1.1.4 2003/10/14 08:09:33 sparq Exp $
+ * Version:	$Id: proc.c,v 1.45 2001/05/16 16:45:35 davem Exp $
  *
  * Authors:	Fred N. van Kempen, <waltje@uWalt.NL.Mugnet.ORG>
  *		Gerald J. Heim, <heim@peanuts.informatik.uni-tuebingen.de>
@@ -134,9 +134,17 @@ int snmp_get_info(char *buffer, char **start, off_t offset, int length)
 	len += sprintf (buffer + len,
 		"\nTcp: RtoAlgorithm RtoMin RtoMax MaxConn ActiveOpens PassiveOpens AttemptFails EstabResets CurrEstab InSegs OutSegs RetransSegs InErrs OutRsts\n"
 		  "Tcp:");
-	for (i=0; i<offsetof(struct tcp_mib, __pad)/sizeof(unsigned long); i++)
-		len += sprintf(buffer+len, " %lu", fold_field((unsigned long*)tcp_statistics, sizeof(struct tcp_mib), i));
-
+	for (i=0; i<offsetof(struct tcp_mib, __pad)/sizeof(unsigned long); i++) {
+		if (i == (offsetof(struct tcp_mib, TcpMaxConn) / sizeof(unsigned long)))
+			/* MaxConn field is negative, RFC 2012 */
+			len += sprintf(buffer+len, " %ld",
+				       fold_field((unsigned long*)tcp_statistics,
+					          sizeof(struct tcp_mib), i));
+		else
+			len += sprintf(buffer+len, " %lu",
+				       fold_field((unsigned long*)tcp_statistics,
+					          sizeof(struct tcp_mib), i));
+	}
 	len += sprintf (buffer + len,
 		"\nUdp: InDatagrams NoPorts InErrors OutDatagrams\n"
 		  "Udp:");

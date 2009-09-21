@@ -1,16 +1,15 @@
 /******************************************************************************
  *
  * Name:	skaddr.h
- * Project:	GEnesis, PCI Gigabit Ethernet Adapter
- * Version:	$Revision: 1.1.1.2 $
- * Date:	$Date: 2003/10/14 08:08:27 $
+ * Project:	Gigabit Ethernet Adapters, ADDR-Modul
  * Purpose:	Header file for Address Management (MC, UC, Prom).
  *
  ******************************************************************************/
 
 /******************************************************************************
  *
- *	(C)Copyright 1998-2001 SysKonnect GmbH.
+ *	(C)Copyright 1998-2002 SysKonnect GmbH.
+ *	(C)Copyright 2002-2003 Marvell.
  *
  *	This program is free software; you can redistribute it and/or modify
  *	it under the terms of the GNU General Public License as published by
@@ -18,100 +17,6 @@
  *	(at your option) any later version.
  *
  *	The information in this file is provided "AS IS" without warranty.
- *
- ******************************************************************************/
-
-/******************************************************************************
- *
- * History:
- *
- *	$Log: skaddr.h,v $
- *	Revision 1.1.1.2  2003/10/14 08:08:27  sparq
- *	Broadcom Release 3.51.8.0 for BCM4712.
- *	
- *	Revision 1.1.1.1  2003/02/03 22:37:48  mhuang
- *	LINUX_2_4 branch snapshot from linux-mips.org CVS
- *	
- *	Revision 1.24  2001/01/22 13:41:34  rassmann
- *	Supporting two nets on dual-port adapters.
- *	
- *	Revision 1.23  2000/08/10 11:27:50  rassmann
- *	Editorial changes.
- *	Preserving 32-bit alignment in structs for the adapter context.
- *	
- *	Revision 1.22  2000/08/07 11:10:40  rassmann
- *	Editorial changes.
- *	
- *	Revision 1.21  2000/05/04 09:39:59  rassmann
- *	Editorial changes.
- *	Corrected multicast address hashing.
- *	
- *	Revision 1.20  1999/11/22 13:46:14  cgoos
- *	Changed license header to GPL.
- *	Allowing overwrite for SK_ADDR_EQUAL.
- *	
- *	Revision 1.19  1999/05/28 10:56:07  rassmann
- *	Editorial changes.
- *	
- *	Revision 1.18  1999/04/06 17:22:04  rassmann
- *	Added private "ActivePort".
- *	
- *	Revision 1.17  1999/01/14 16:18:19  rassmann
- *	Corrected multicast initialization.
- *	
- *	Revision 1.16  1999/01/04 10:30:36  rassmann
- *	SkAddrOverride only possible after SK_INIT_IO phase.
- *	
- *	Revision 1.15  1998/12/29 13:13:11  rassmann
- *	An address override is now preserved in the SK_INIT_IO phase.
- *	All functions return an int now.
- *	Extended parameter checking.
- *	
- *	Revision 1.14  1998/11/24 12:39:45  rassmann
- *	Reserved multicast entry for BPDU address.
- *	13 multicast entries left for protocol.
- *	
- *	Revision 1.13  1998/11/13 17:24:32  rassmann
- *	Changed return value of SkAddrOverride to int.
- *	
- *	Revision 1.12  1998/11/13 16:56:19  rassmann
- *	Added macro SK_ADDR_COMPARE.
- *	Changed return type of SkAddrOverride to SK_BOOL.
- *	
- *	Revision 1.11  1998/10/28 18:16:35  rassmann
- *	Avoiding I/Os before SK_INIT_RUN level.
- *	Aligning InexactFilter.
- *	
- *	Revision 1.10  1998/10/22 11:39:10  rassmann
- *	Corrected signed/unsigned mismatches.
- *	
- *	Revision 1.9  1998/10/15 15:15:49  rassmann
- *	Changed Flags Parameters from SK_U8 to int.
- *	Checked with lint.
- *	
- *	Revision 1.8  1998/09/24 19:15:12  rassmann
- *	Code cleanup.
- *	
- *	Revision 1.7  1998/09/18 20:22:13  rassmann
- *	Added HW access.
- *	
- *	Revision 1.6  1998/09/04 19:40:20  rassmann
- *	Interface enhancements.
- *	
- *	Revision 1.5  1998/09/04 12:40:57  rassmann
- *	Interface cleanup.
- *	
- *	Revision 1.4  1998/09/04 12:14:13  rassmann
- *	Interface cleanup.
- *	
- *	Revision 1.3  1998/09/02 16:56:40  rassmann
- *	Updated interface.
- *	
- *	Revision 1.2  1998/08/27 14:26:09  rassmann
- *	Updated interface.
- *	
- *	Revision 1.1  1998/08/21 08:31:08  rassmann
- *	First public version.
  *
  ******************************************************************************/
 
@@ -138,7 +43,6 @@
 #define __INC_SKADDR_H
 
 #ifdef __cplusplus
-#error C++ is not yet supported.
 extern "C" {
 #endif	/* cplusplus */
 
@@ -150,7 +54,7 @@ extern "C" {
 /* ----- Common return values ----- */
 
 #define SK_ADDR_SUCCESS				0	/* Function returned successfully. */
-#define SK_ADDR_ILLEGAL_PORT		100	/* Port number too high. */
+#define SK_ADDR_ILLEGAL_PORT			100	/* Port number too high. */
 #define SK_ADDR_TOO_EARLY			101	/* Function called too early. */
 
 /* ----- Clear/Add flag bits ----- */
@@ -204,6 +108,7 @@ extern "C" {
 
 /* Macros */
 
+#ifdef OLD_STUFF
 #ifndef SK_ADDR_EQUAL
 /*
  * "&" instead of "&&" allows better optimization on IA-64.
@@ -221,6 +126,25 @@ extern "C" {
 #define SK_ADDR_EQUAL(A1,A2)	( \
 	(*(SK_U32 *)&(((SK_U8 *)(A1))[2]) == *(SK_U32 *)&(((SK_U8 *)(A2))[2])) & \
 	(*(SK_U32 *)&(((SK_U8 *)(A1))[0]) == *(SK_U32 *)&(((SK_U8 *)(A2))[0])))
+#endif	/* SK_ADDR_DWORD_COMPARE */
+#endif	/* SK_ADDR_EQUAL */
+#endif /* 0 */
+
+#ifndef SK_ADDR_EQUAL
+#ifndef SK_ADDR_DWORD_COMPARE
+#define SK_ADDR_EQUAL(A1,A2)	( \
+	(((SK_U8 SK_FAR *)(A1))[5] == ((SK_U8 SK_FAR *)(A2))[5]) & \
+	(((SK_U8 SK_FAR *)(A1))[4] == ((SK_U8 SK_FAR *)(A2))[4]) & \
+	(((SK_U8 SK_FAR *)(A1))[3] == ((SK_U8 SK_FAR *)(A2))[3]) & \
+	(((SK_U8 SK_FAR *)(A1))[2] == ((SK_U8 SK_FAR *)(A2))[2]) & \
+	(((SK_U8 SK_FAR *)(A1))[1] == ((SK_U8 SK_FAR *)(A2))[1]) & \
+	(((SK_U8 SK_FAR *)(A1))[0] == ((SK_U8 SK_FAR *)(A2))[0]))
+#else	/* SK_ADDR_DWORD_COMPARE */
+#define SK_ADDR_EQUAL(A1,A2)	( \
+	(*(SK_U16 SK_FAR *)&(((SK_U8 SK_FAR *)(A1))[4]) == \
+	*(SK_U16 SK_FAR *)&(((SK_U8 SK_FAR *)(A2))[4])) && \
+	(*(SK_U32 SK_FAR *)&(((SK_U8 SK_FAR *)(A1))[0]) == \
+	*(SK_U32 SK_FAR *)&(((SK_U8 SK_FAR *)(A2))[0])))
 #endif	/* SK_ADDR_DWORD_COMPARE */
 #endif	/* SK_ADDR_EQUAL */
 
@@ -245,13 +169,13 @@ typedef struct s_AddrPort {
 
 /* ----- Public part (read-only) ----- */
 
-	SK_MAC_ADDR	CurrentMacAddress;		/* Current physical MAC Address. */
+	SK_MAC_ADDR	CurrentMacAddress;	/* Current physical MAC Address. */
 	SK_MAC_ADDR	PermanentMacAddress;	/* Permanent physical MAC Address. */
-	int			PromMode;				/* Promiscuous Mode. */
+	int		PromMode;		/* Promiscuous Mode. */
 
 /* ----- Private part ----- */
 
-	SK_MAC_ADDR	PreviousMacAddress;		/* Prev. phys. MAC Address. */
+	SK_MAC_ADDR	PreviousMacAddress;	/* Prev. phys. MAC Address. */
 	SK_BOOL		CurrentMacAddressSet;	/* CurrentMacAddress is set. */
 	SK_U8		Align01;
 
@@ -261,18 +185,20 @@ typedef struct s_AddrPort {
 	SK_U32		NextExactMatchDrv;
 	SK_MAC_ADDR	Exact[SK_ADDR_EXACT_MATCHES];
 	SK_FILTER64	InexactFilter;			/* For 64-bit hash register. */
+	SK_FILTER64	InexactRlmtFilter;		/* For 64-bit hash register. */
+	SK_FILTER64	InexactDrvFilter;		/* For 64-bit hash register. */
 } SK_ADDR_PORT;
 
 
 struct s_AddrNet {
 /* ----- Public part (read-only) ----- */
 
-	SK_MAC_ADDR		CurrentMacAddress;		/* Logical MAC Address. */
+	SK_MAC_ADDR		CurrentMacAddress;	/* Logical MAC Address. */
 	SK_MAC_ADDR		PermanentMacAddress;	/* Logical MAC Address. */
 
 /* ----- Private part ----- */
 
-	SK_U32			ActivePort;				/* View of module ADDR. */
+	SK_U32			ActivePort;		/* View of module ADDR. */
 	SK_BOOL			CurrentMacAddressSet;	/* CurrentMacAddress is set. */
 	SK_U8			Align01;
 	SK_U16			Align02;
@@ -300,22 +226,58 @@ typedef struct s_Addr {
 extern	int	SkAddrInit(
 	SK_AC	*pAC,
 	SK_IOC	IoC,
-	int		Level);
+	int	Level);
 
 extern	int	SkAddrMcClear(
 	SK_AC	*pAC,
 	SK_IOC	IoC,
 	SK_U32	PortNumber,
-	int		Flags);
+	int	Flags);
+
+extern	int	SkAddrXmacMcClear(
+	SK_AC	*pAC,
+	SK_IOC	IoC,
+	SK_U32	PortNumber,
+	int	Flags);
+
+extern	int	SkAddrGmacMcClear(
+	SK_AC	*pAC,
+	SK_IOC	IoC,
+	SK_U32	PortNumber,
+	int	Flags);
 
 extern	int	SkAddrMcAdd(
 	SK_AC		*pAC,
 	SK_IOC		IoC,
 	SK_U32		PortNumber,
 	SK_MAC_ADDR	*pMc,
-	int			Flags);
+	int		Flags);
+
+extern	int	SkAddrXmacMcAdd(
+	SK_AC		*pAC,
+	SK_IOC		IoC,
+	SK_U32		PortNumber,
+	SK_MAC_ADDR	*pMc,
+	int		Flags);
+
+extern	int	SkAddrGmacMcAdd(
+	SK_AC		*pAC,
+	SK_IOC		IoC,
+	SK_U32		PortNumber,
+	SK_MAC_ADDR	*pMc,
+	int		Flags);
 
 extern	int	SkAddrMcUpdate(
+	SK_AC	*pAC,
+	SK_IOC	IoC,
+	SK_U32	PortNumber);
+
+extern	int	SkAddrXmacMcUpdate(
+	SK_AC	*pAC,
+	SK_IOC	IoC,
+	SK_U32	PortNumber);
+
+extern	int	SkAddrGmacMcUpdate(
 	SK_AC	*pAC,
 	SK_IOC	IoC,
 	SK_U32	PortNumber);
@@ -324,20 +286,34 @@ extern	int	SkAddrOverride(
 	SK_AC		*pAC,
 	SK_IOC		IoC,
 	SK_U32		PortNumber,
-	SK_MAC_ADDR	*pNewAddr,
-	int			Flags);
+	SK_MAC_ADDR	SK_FAR *pNewAddr,
+	int		Flags);
 
 extern	int	SkAddrPromiscuousChange(
 	SK_AC	*pAC,
 	SK_IOC	IoC,
 	SK_U32	PortNumber,
-	int		NewPromMode);
+	int	NewPromMode);
 
+extern	int	SkAddrXmacPromiscuousChange(
+	SK_AC	*pAC,
+	SK_IOC	IoC,
+	SK_U32	PortNumber,
+	int	NewPromMode);
+
+extern	int	SkAddrGmacPromiscuousChange(
+	SK_AC	*pAC,
+	SK_IOC	IoC,
+	SK_U32	PortNumber,
+	int	NewPromMode);	
+
+#ifndef SK_SLIM
 extern	int	SkAddrSwap(
 	SK_AC	*pAC,
 	SK_IOC	IoC,
 	SK_U32	FromPortNumber,
 	SK_U32	ToPortNumber);
+#endif
 
 #else	/* defined(SK_KR_PROTO)) */
 

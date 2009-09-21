@@ -44,9 +44,11 @@
 #include <asm/irq.h>
 #include <asm/desc.h>
 #include <asm/mmu_context.h>
+#include <asm/smpboot.h>
 #ifdef CONFIG_MATH_EMULATION
 #include <asm/math_emu.h>
 #endif
+#include <asm/apic.h>
 
 #include <linux/irq.h>
 
@@ -151,7 +153,6 @@ static int __init idle_setup (char *str)
 
 __setup("idle=", idle_setup);
 
-static long no_idt[2];
 static int reboot_mode;
 int reboot_thru_bios;
 
@@ -222,7 +223,8 @@ static struct
 	unsigned long long * base __attribute__ ((packed));
 }
 real_mode_gdt = { sizeof (real_mode_gdt_entries) - 1, real_mode_gdt_entries },
-real_mode_idt = { 0x3ff, 0 };
+real_mode_idt = { 0x3ff, 0 },
+no_idt = { 0, 0 };
 
 /* This is 16-bit protected mode code to disable paging and the cache,
    switch to real mode and jump to the BIOS reset code.
@@ -253,7 +255,7 @@ static unsigned char real_mode_switch [] =
 	0x66, 0x0f, 0x20, 0xc3,			/*    movl  %cr0,%ebx        */
 	0x66, 0x81, 0xe3, 0x00, 0x00, 0x00, 0x60,	/*    andl  $0x60000000,%ebx */
 	0x74, 0x02,				/*    jz    f                */
-	0x0f, 0x08,				/*    invd                   */
+	0x0f, 0x09,				/*    wbinvd                 */
 	0x24, 0x10,				/* f: andb  $0x10,al         */
 	0x66, 0x0f, 0x22, 0xc0			/*    movl  %eax,%cr0        */
 };
@@ -376,7 +378,7 @@ void machine_restart(char * __unused)
 		   if its not, default to the BSP */
 		if ((reboot_cpu == -1) ||  
 		      (reboot_cpu > (NR_CPUS -1))  || 
-		      !(phys_cpu_present_map & (1<<cpuid))) 
+		      !(phys_cpu_present_map & apicid_to_phys_cpu_present(cpuid)))
 			reboot_cpu = boot_cpu_physical_apicid;
 
 		reboot_smp = 0;  /* use this as a flag to only go through this once*/
@@ -399,6 +401,14 @@ void machine_restart(char * __unused)
 	 * other OSs see a clean IRQ state.
 	 */
 	smp_send_stop();
+#elif CONFIG_X86_LOCAL_APIC
+	if (cpu_has_apic) {
+		__cli();
+		disable_local_APIC();
+		__sti();
+	}
+#endif
+#ifdef CONFIG_X86_IO_APIC
 	disable_IO_APIC();
 #endif
 
@@ -466,26 +476,9 @@ void show_regs(struct pt_regs * regs)
 }
 
 /*
- * No need to lock the MM as we are the last user
- */
-void release_segments(struct mm_struct *mm)
-{
-	void * ldt = mm->context.segments;
-
-	/*
-	 * free the LDT
-	 */
-	if (ldt) {
-		mm->context.segments = NULL;
-		clear_LDT();
-		vfree(ldt);
-	}
-}
-
-/*
  * Create a kernel thread
  */
-int kernel_thread(int (*fn)(void *), void * arg, unsigned long flags)
+int arch_kernel_thread(int (*fn)(void *), void * arg, unsigned long flags)
 {
 	long retval, d0;
 
@@ -508,6 +501,7 @@ int kernel_thread(int (*fn)(void *), void * arg, unsigned long flags)
 		 "r" (arg), "r" (fn),
 		 "b" (flags | CLONE_VM)
 		: "memory");
+
 	return retval;
 }
 
@@ -534,49 +528,23 @@ void flush_thread(void)
 void release_thread(struct task_struct *dead_task)
 {
 	if (dead_task->mm) {
-		void * ldt = dead_task->mm->context.segments;
-
 		// temporary debugging check
-		if (ldt) {
-			printk("WARNING: dead process %8s still has LDT? <%p>\n",
-					dead_task->comm, ldt);
+		if (dead_task->mm->context.size) {
+			printk("WARNING: dead process %8s still has LDT? <%p/%d>\n",
+					dead_task->comm,
+					dead_task->mm->context.ldt,
+					dead_task->mm->context.size);
 			BUG();
 		}
 	}
-
 	release_x86_irqs(dead_task);
-}
-
-/*
- * we do not have to muck with descriptors here, that is
- * done in switch_mm() as needed.
- */
-void copy_segments(struct task_struct *p, struct mm_struct *new_mm)
-{
-	struct mm_struct * old_mm;
-	void *old_ldt, *ldt;
-
-	ldt = NULL;
-	old_mm = current->mm;
-	if (old_mm && (old_ldt = old_mm->context.segments) != NULL) {
-		/*
-		 * Completely new LDT, we initialize it from the parent:
-		 */
-		ldt = vmalloc(LDT_ENTRIES*LDT_ENTRY_SIZE);
-		if (!ldt)
-			printk(KERN_WARNING "ldt allocation failed\n");
-		else
-			memcpy(ldt, old_ldt, LDT_ENTRIES*LDT_ENTRY_SIZE);
-	}
-	new_mm->context.segments = ldt;
-	new_mm->context.cpuvalid = ~0UL;	/* valid on all CPU's - they can't have stale data */
 }
 
 /*
  * Save a segment.
  */
 #define savesegment(seg,value) \
-	asm volatile("movl %%" #seg ",%0":"=m" (*(int *)&(value)))
+	asm volatile("mov %%" #seg ",%0":"=m" (value))
 
 int copy_thread(int nr, unsigned long clone_flags, unsigned long esp,
 	unsigned long unused,
@@ -676,7 +644,7 @@ void dump_thread(struct pt_regs * regs, struct user * dump)
  * More important, however, is the fact that this allows us much
  * more flexibility.
  */
-void __switch_to(struct task_struct *prev_p, struct task_struct *next_p)
+void fastcall __switch_to(struct task_struct *prev_p, struct task_struct *next_p)
 {
 	struct thread_struct *prev = &prev_p->thread,
 				 *next = &next_p->thread;
@@ -693,8 +661,8 @@ void __switch_to(struct task_struct *prev_p, struct task_struct *next_p)
 	 * Save away %fs and %gs. No need to save %es and %ds, as
 	 * those are always kernel segments while inside the kernel.
 	 */
-	asm volatile("movl %%fs,%0":"=m" (*(int *)&prev->fs));
-	asm volatile("movl %%gs,%0":"=m" (*(int *)&prev->gs));
+	asm volatile("mov %%fs,%0":"=m" (prev->fs));
+	asm volatile("mov %%gs,%0":"=m" (prev->gs));
 
 	/*
 	 * Restore %fs and %gs.
@@ -726,7 +694,7 @@ void __switch_to(struct task_struct *prev_p, struct task_struct *next_p)
 			 * is not really acceptable.]
 			 */
 			memcpy(tss->io_bitmap, next->io_bitmap,
-				 IO_BITMAP_SIZE*sizeof(unsigned long));
+				 IO_BITMAP_BYTES);
 			tss->bitmap = IO_BITMAP_OFFSET;
 		} else
 			/*

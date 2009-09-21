@@ -163,9 +163,9 @@
  *
  *   Description:  Common shared global defines.
  *
- *   $Date: 2003/10/14 08:08:36 $
+ *   $Date: 1996/09/04 01:26:13 $
  *
- *   $Revision: 1.1.1.4 $
+ *   $Revision: 1.11 $
  *
  *----------------------------------------------------------------------*/
 #ifndef __GLOBALS_H__
@@ -302,7 +302,7 @@ typedef u32bits 	* pu32bits;
 	extern OS_OutPortWordBuffer(u32bits ioport, pu16bits buffer, u32bits count);
 #endif	/* NETWARE || OTHER_32 || OTHER_16 */
 
-#if defined(NT) || defined(WIN95_32) || defined(WIN95_16)
+#if defined (NT) || defined(WIN95_32) || defined(WIN95_16)
 	#if defined(NT)
 
 		extern __declspec(dllimport) u08bits ScsiPortReadPortUchar(pu08bits ioport);
@@ -339,7 +339,7 @@ typedef u32bits 	* pu32bits;
 	#define OS_UnLock(x)
 #endif /* NT || WIN95_32 || WIN95_16 */
 
-#if defined(UNIX) && !defined(OS_InPortByte)
+#if defined (UNIX) && !defined(OS_InPortByte)
 	#define OS_InPortByte(ioport)    inb((u16bits)ioport)
 	#define OS_InPortWord(ioport)    inw((u16bits)ioport)
 	#define OS_InPortLong(ioport)    inl((u16bits)ioport)
@@ -402,9 +402,9 @@ extern void     OS_OutPortLong(unsigned long ioport, unsigned long val);
  *   Description:  Common shared SCCB Interface defines and SCCB 
  *						 Manager specifics defines.
  *
- *   $Date: 2003/10/14 08:08:36 $
+ *   $Date: 1996/10/24 23:09:33 $
  *
- *   $Revision: 1.1.1.4 $
+ *   $Revision: 1.14 $
  *
  *----------------------------------------------------------------------*/
 
@@ -479,7 +479,7 @@ typedef struct SCCBMgr_info {
 
 
 
-#if FW_TYPE==_SCCB_MGR_
+#if (FW_TYPE==_SCCB_MGR_)
 	#define SCSI_PARITY_ENA		  0x0001
 	#define LOW_BYTE_TERM		  0x0010
 	#define HIGH_BYTE_TERM		  0x0020
@@ -553,7 +553,7 @@ typedef struct _SCCB {
    UCHAR   Save_CdbLen;
    UCHAR   Sccb_XferState;
    ULONG   Sccb_SGoffset;
-#if FW_TYPE == _UCB_MGR_
+#if (FW_TYPE == _UCB_MGR_)
    PUCB    Sccb_ucb_ptr;
 #endif
    } SCCB;
@@ -626,7 +626,7 @@ typedef struct _SCCB {
 
 
 
-#if FW_TYPE==_UCB_MGR_
+#if (FW_TYPE==_UCB_MGR_)  
    #define  HBA_AUTO_SENSE_FAIL        0x1B  
    #define  HBA_TQ_REJECTED            0x1C  
    #define  HBA_UNSUPPORTED_MSG         0x1D  
@@ -659,7 +659,7 @@ typedef struct _SCCB {
 
 
 
-#if FW_TYPE == _UCB_MGR_
+#if (FW_TYPE == _UCB_MGR_)
 	void SccbMgr_start_sccb(CARD_HANDLE pCurrCard, PUCB p_ucb);
 	s32bits SccbMgr_abort_sccb(CARD_HANDLE pCurrCard, PUCB p_ucb);
 	u08bits SccbMgr_my_int(CARD_HANDLE pCurrCard);
@@ -674,7 +674,7 @@ typedef struct _SCCB {
 #endif
 
 
-#if FW_TYPE == _SCCB_MGR_
+#if (FW_TYPE == _SCCB_MGR_)
 
  #if defined (DOS)
 	int    SccbMgr_sense_adapter(PSCCBMGR_INFO pCardInfo);
@@ -720,9 +720,9 @@ typedef struct _SCCB {
  *   Description: This module contains SCCB/UCB Manager implementation
  *                specific stuff.
  *
- *   $Date: 2003/10/14 08:08:36 $
+ *   $Date: 1996/11/13 18:34:22 $
  *
- *   $Revision: 1.1.1.4 $
+ *   $Revision: 1.10 $
  *
  *----------------------------------------------------------------------*/
 
@@ -778,7 +778,7 @@ typedef struct _SCCB {
 #define SG_ELEMENT_MASK 0xFFFFFFFFL
 
 
-#if FW_TYPE == _UCB_MGR_
+#if (FW_TYPE == _UCB_MGR_)
 	#define OPC_DECODE_NORMAL       0x0f7f
 #endif   // _UCB_MGR_
 
@@ -833,7 +833,7 @@ typedef struct _SCCB {
 	#define WR_HARP32(ioport,offset,data)  OS_OutPortLong((ULONG)(ioport + offset), data)
 #endif /* NT || WIN95_32 || WIN95_16 */
 
-#if defined(UNIX)
+#if defined (UNIX)
 	#define RD_HARPOON(ioport)          OS_InPortByte((u32bits)ioport)
 	#define RDW_HARPOON(ioport)         OS_InPortWord((u32bits)ioport)
 	#define RD_HARP32(ioport,offset,data) (data = OS_InPortLong((u32bits)(ioport + offset)))
@@ -877,9 +877,9 @@ typedef struct _SCCB {
  *
  *   Description:  Definitions for Target related structures
  *
- *   $Date: 2003/10/14 08:08:36 $
+ *   $Date: 1996/12/11 22:06:20 $
  *
- *   $Revision: 1.1.1.4 $
+ *   $Revision: 1.9 $
  *
  *----------------------------------------------------------------------*/
 
@@ -964,7 +964,7 @@ typedef struct NVRAMInfo {
 
 #if defined(DOS)
 typedef NVRAMINFO near *PNVRamInfo;
-#elif defined(OS2)
+#elif defined (OS2)
 typedef NVRAMINFO far *PNVRamInfo;
 #else
 typedef NVRAMINFO *PNVRamInfo;
@@ -978,7 +978,7 @@ typedef NVRAMINFO *PNVRamInfo;
 
 typedef struct SCCBcard {
    PSCCB currentSCCB;
-#if FW_TYPE==_SCCB_MGR_
+#if (FW_TYPE==_SCCB_MGR_)
    PSCCBMGR_INFO cardInfo;
 #else
    PADAPTER_INFO cardInfo;
@@ -1004,7 +1004,7 @@ typedef struct SCCBcard {
 
 #if defined(DOS)
 typedef struct SCCBcard near *PSCCBcard;
-#elif defined(OS2)
+#elif defined (OS2)
 typedef struct SCCBcard far *PSCCBcard;
 #else
 typedef struct SCCBcard *PSCCBcard;
@@ -1076,9 +1076,9 @@ typedef struct SCCBscam_info {
  *
  *   Description:  Register definitions for HARPOON ASIC.
  *
- *   $Date: 2003/10/14 08:08:36 $
+ *   $Date: 1996/11/13 18:32:57 $
  *
- *   $Revision: 1.1.1.4 $
+ *   $Revision: 1.4 $
  *
  *----------------------------------------------------------------------*/
 
@@ -1208,9 +1208,9 @@ typedef struct SCCBscam_info {
  *
  *   Description:  Definitions for EEPROM related structures
  *
- *   $Date: 2003/10/14 08:08:36 $
+ *   $Date: 1996/11/13 18:28:39 $
  *
- *   $Revision: 1.1.1.4 $
+ *   $Revision: 1.4 $
  *
  *----------------------------------------------------------------------*/
 
@@ -1293,9 +1293,9 @@ typedef struct SCCBscam_info {
  *
  *   Description:  Register definitions for HARPOON ASIC.
  *
- *   $Date: 2003/10/14 08:08:36 $
+ *   $Date: 1997/07/09 21:44:36 $
  *
- *   $Revision: 1.1.1.4 $
+ *   $Revision: 1.9 $
  *
  *----------------------------------------------------------------------*/
 
@@ -2023,7 +2023,7 @@ typedef struct SCCBscam_info {
 #endif
 
 
-#if FW_TYPE==_UCB_MGR_
+#if (FW_TYPE==_UCB_MGR_)
 void ReadNVRam(PSCCBcard pCurrCard,PUCB p_ucb);
 void WriteNVRam(PSCCBcard pCurrCard,PUCB p_ucb);
 void UpdateCheckSum(u32bits baseport);
@@ -2205,7 +2205,7 @@ void  hostDataXferAbort(ULONG port, UCHAR p_card, PSCCB pCurrSCCB);
 void  hostDataXferRestart(PSCCB currSCCB);
 
 
-#if defined(DOS)
+#if defined (DOS)
 UCHAR SccbMgr_bad_isr(USHORT p_port, UCHAR p_card, PSCCBcard pCurrCard, USHORT p_int);
 #else
 UCHAR SccbMgr_bad_isr(ULONG p_port, UCHAR p_card, PSCCBcard pCurrCard, USHORT p_int);
@@ -2264,7 +2264,7 @@ void  autoLoadDefaultMap(ULONG p_port);
 
 
 
-#if FW_TYPE==_SCCB_MGR_
+#if (FW_TYPE==_SCCB_MGR_)
 	void  OS_start_timer(unsigned long ioport, unsigned long timeout);
 	void  OS_stop_timer(unsigned long ioport, unsigned long timeout);
 	void  OS_disable_int(unsigned char intvec);
@@ -2307,13 +2307,13 @@ extern UCHAR debug_index[MAX_CARDS];
 void Debug_Load(UCHAR p_card, UCHAR p_bug_data);
 #endif
 
-#if FW_TYPE==_SCCB_MGR_
+#if (FW_TYPE==_SCCB_MGR_)
 #if defined(DOS)
    extern UCHAR first_time;
 #endif
 #endif /* (FW_TYPE==_SCCB_MGR_) */
 
-#if FW_TYPE==_UCB_MGR_
+#if (FW_TYPE==_UCB_MGR_)
 #if defined(DOS)
    extern u08bits first_time;
 #endif
@@ -2326,7 +2326,7 @@ void Debug_Load(UCHAR p_card, UCHAR p_bug_data);
 extern unsigned int SccbGlobalFlags;
 
 
-#ident "$Id: FlashPoint.c,v 1.1.1.4 2003/10/14 08:08:36 sparq Exp $"
+#ident "$Id: sccb.c 1.18 1997/06/10 16:47:04 mohan Exp $"
 /*----------------------------------------------------------------------
  *
  *
@@ -2340,15 +2340,15 @@ extern unsigned int SccbGlobalFlags;
  *   Description:  Functions relating to handling of the SCCB interface
  *                 between the device driver and the HARPOON.
  *
- *   $Date: 2003/10/14 08:08:36 $
+ *   $Date: 1997/06/10 16:47:04 $
  *
- *   $Revision: 1.1.1.4 $
+ *   $Revision: 1.18 $
  *
  *----------------------------------------------------------------------*/
 
 /*#include <globals.h>*/
 
-#if FW_TYPE==_UCB_MGR_
+#if (FW_TYPE==_UCB_MGR_)
 	/*#include <budi.h>*/
 	/*#include <budioctl.h>*/
 #endif
@@ -2362,7 +2362,7 @@ extern unsigned int SccbGlobalFlags;
 
 
 
-#if FW_TYPE==_SCCB_MGR_
+#if (FW_TYPE==_SCCB_MGR_)
 #define mOS_Lock(card)    OS_Lock((PSCCBMGR_INFO)(((PSCCBcard)card)->cardInfo))
 #define mOS_UnLock(card)  OS_UnLock((PSCCBMGR_INFO)(((PSCCBcard)card)->cardInfo))
 #else /* FW_TYPE==_UCB_MGR_ */
@@ -2378,7 +2378,7 @@ extern SCCBCARD BL_Card[MAX_CARDS];
 extern NVRAMINFO nvRamInfo[MAX_MB_CARDS];
 extern UCHAR mbCards;
 
-#if defined(OS2)
+#if defined (OS2)
    extern void (far *s_PhaseTbl[8]) (ULONG, UCHAR);
 #else
    #if defined(DOS)
@@ -2396,7 +2396,7 @@ void Debug_Load(UCHAR p_card, UCHAR p_bug_data);
 #endif
 */
 
-#if FW_TYPE==_SCCB_MGR_
+#if (FW_TYPE==_SCCB_MGR_)
 
 /*---------------------------------------------------------------------
  *
@@ -2480,7 +2480,7 @@ int SccbMgr_sense_adapter(PSCCBMGR_INFO pCardInfo)
 		}
 	}else
 		pCurrNvRam = NULL;
-#if defined(NO_BIOS_OPTION)
+#if defined (NO_BIOS_OPTION)
 	pCurrNvRam = NULL;
    XbowInit(ioport, 0);                /*Must Init the SCSI before attempting */
    DiagEEPROM(ioport);
@@ -2779,7 +2779,7 @@ ULONG SccbMgr_config_adapter(PSCCBMGR_INFO pCardInfo)
    BusMasterInit(ioport);
    XbowInit(ioport, ScamFlg);
 
-#if defined(NO_BIOS_OPTION)
+#if defined (NO_BIOS_OPTION)
 
 
    if (DiagXbow(ioport)) return(FAILURE);
@@ -3041,7 +3041,7 @@ STATIC s32bits probe_adapter(PADAPTER_INFO pAdapterInfo)
 	}else
 		pCurrNvRam = NULL;
 
-#if defined(NO_BIOS_OPTION)
+#if defined (NO_BIOS_OPTION)
 	pCurrNvRam = NULL;
    XbowInit(ioport, 0);                /*Must Init the SCSI before attempting */
    DiagEEPROM(ioport);
@@ -3380,7 +3380,7 @@ STATIC CARD_HANDLE init_adapter(PADAPTER_INFO pCardInfo)
    BusMasterInit(ioport);
    XbowInit(ioport, ScamFlg);
 
-#if defined(NO_BIOS_OPTION)
+#if defined (NO_BIOS_OPTION)
 
 
    if (DiagXbow(ioport)) return(FAILURE);
@@ -3632,7 +3632,7 @@ STATIC  int GetDevSyncRate(PSCCBcard pCurrCard,PUCB p_ucb)
 	BASE_PORT ioport;
 	u08bits scsiID, j;
 
-#if FW_TYPE != _SCCB_MGR_
+#if (FW_TYPE != _SCCB_MGR_)
 	if( p_ucb->UCB_targid >= pCurrCard->cardInfo->ai_MaxTarg )
 	{
 		return(1);
@@ -3717,7 +3717,7 @@ STATIC int SetDevSyncRate(PSCCBcard pCurrCard, PUCB p_ucb)
 		u16bits tempw;
 	}temp2;
 
-#if FW_TYPE != _SCCB_MGR_
+#if (FW_TYPE != _SCCB_MGR_)
 	if( p_ucb->UCB_targid >= pCurrCard->cardInfo->ai_MaxTarg )
 	{
 		return(1);
@@ -3757,17 +3757,17 @@ STATIC int SetDevSyncRate(PSCCBcard pCurrCard, PUCB p_ucb)
 	}
 	if(currTar_Info->TarEEValue && EE_SYNC_MASK == syncVal)
 		return(0);
-	currTar_Info->TarEEValue = (currTar_Info->TarEEValue & !EE_SYNC_MASK)
+	currTar_Info->TarEEValue = (currTar_Info->TarEEValue & ~EE_SYNC_MASK)
 											| syncVal;
 	syncOffset = (SYNC_RATE_TBL + scsiID) / 2;
 	temp2.tempw = utilEERead(ioPort, syncOffset);
 	if(scsiID & 0x01)
 	{
-		temp2.tempb[0] = (temp2.tempb[0] & !EE_SYNC_MASK) | syncVal;
+		temp2.tempb[0] = (temp2.tempb[0] & ~EE_SYNC_MASK) | syncVal;
 	}
 	else
 	{
-		temp2.tempb[1] = (temp2.tempb[1] & !EE_SYNC_MASK) | syncVal;
+		temp2.tempb[1] = (temp2.tempb[1] & ~EE_SYNC_MASK) | syncVal;
 	}
 	utilEEWriteOnOff(ioPort, 1);
 	utilEEWrite(ioPort, temp2.tempw, syncOffset);
@@ -3816,7 +3816,7 @@ int SetDevWideMode(PSCCBcard pCurrCard,PUCB p_ucb)
 		u16bits tempw;
 	}temp2;
 
-#if FW_TYPE != _SCCB_MGR_
+#if (FW_TYPE != _SCCB_MGR_)
 	if( !(pCurrCard->cardInfo->ai_attributes & WIDE_CAPABLE) )
 	{
 		return(1);
@@ -4055,7 +4055,7 @@ void SccbMgr_restore_native_state(CARD_HANDLE pCurrCard)
 #endif /* (FW_TYPE==_UCB_MGR_)   */
 
 #ifndef NO_IOCTLS
-#if FW_TYPE==_UCB_MGR_
+#if (FW_TYPE==_UCB_MGR_)
 void SccbMgr_unload_card(CARD_HANDLE pCurrCard)
 #else
 #if defined(DOS)
@@ -4124,7 +4124,7 @@ void RNVRamData(PNVRamInfo pNvRamInfo)
 	ULONG regOffset;
 #endif
 	ULONG scamData;
-#if defined(OS2)
+#if defined (OS2)
 	ULONG far *pScamTbl;
 #else
 	ULONG *pScamTbl;
@@ -4175,7 +4175,7 @@ void WrStack(ULONG portBase, UCHAR index, UCHAR data)
 }
 
 
-#if FW_TYPE==_UCB_MGR_
+#if (FW_TYPE==_UCB_MGR_)
 u08bits ChkIfChipInitialized(BASE_PORT ioPort)
 #else
 #if defined(DOS)
@@ -4205,7 +4205,7 @@ UCHAR ChkIfChipInitialized(ULONG ioPort)
  *              callback function.
  *
  *---------------------------------------------------------------------*/
-#if FW_TYPE==_UCB_MGR_
+#if (FW_TYPE==_UCB_MGR_)
 void SccbMgr_start_sccb(CARD_HANDLE pCurrCard, PUCB p_ucb)
 #else
 #if defined(DOS)
@@ -4224,7 +4224,7 @@ void SccbMgr_start_sccb(ULONG pCurrCard, PSCCB p_Sccb)
 	PSCCB pSaveSccb;
    CALL_BK_FN callback;
 
-#if FW_TYPE==_UCB_MGR_
+#if (FW_TYPE==_UCB_MGR_)
    PSCCB p_Sccb;
 #endif
 
@@ -4232,14 +4232,14 @@ void SccbMgr_start_sccb(ULONG pCurrCard, PSCCB p_Sccb)
    thisCard = ((PSCCBcard) pCurrCard)->cardIndex;
    ioport = ((PSCCBcard) pCurrCard)->ioPort;
 
-#if FW_TYPE==_UCB_MGR_
+#if (FW_TYPE==_UCB_MGR_)
    p_Sccb = (PSCCB)p_ucb->UCB_MgrPrivatePtr;
 #endif
 
 	if((p_Sccb->TargID > MAX_SCSI_TAR) || (p_Sccb->Lun > MAX_LUN))
 	{
 
-#if FW_TYPE==_UCB_MGR_
+#if (FW_TYPE==_UCB_MGR_)
 		p_ucb->UCB_hbastat = SCCB_COMPLETE;
 		p_ucb->UCB_status=SCCB_ERROR;
 		callback = (CALL_BK_FN)p_ucb->UCB_callback;
@@ -4247,7 +4247,7 @@ void SccbMgr_start_sccb(ULONG pCurrCard, PSCCB p_Sccb)
 			callback(p_ucb);
 #endif
 
-#if FW_TYPE==_SCCB_MGR_
+#if (FW_TYPE==_SCCB_MGR_)
 		p_Sccb->HostStatus = SCCB_COMPLETE;
 		p_Sccb->SccbStatus = SCCB_ERROR;
 		callback = (CALL_BK_FN)p_Sccb->SccbCallback;
@@ -4259,12 +4259,12 @@ void SccbMgr_start_sccb(ULONG pCurrCard, PSCCB p_Sccb)
 		return;
 	}
 
-#if FW_TYPE==_SCCB_MGR_
+#if (FW_TYPE==_SCCB_MGR_)
    sinits(p_Sccb,thisCard);
 #endif
 
 
-#if FW_TYPE==_UCB_MGR_
+#if (FW_TYPE==_UCB_MGR_)
 #ifndef NO_IOCTLS
 
    if (p_ucb->UCB_opcode & OPC_IOCTL)
@@ -4291,7 +4291,7 @@ void SccbMgr_start_sccb(ULONG pCurrCard, PSCCB p_Sccb)
 				return;
 
 			case SEND_SCSI_PASSTHRU:
-#if FW_TYPE != _SCCB_MGR_
+#if (FW_TYPE != _SCCB_MGR_)
 				if( p_ucb->UCB_targid >=
 				    ((PSCCBcard)pCurrCard)->cardInfo->ai_MaxTarg )
 				{
@@ -4488,7 +4488,7 @@ void SccbMgr_start_sccb(ULONG pCurrCard, PSCCB p_Sccb)
  *              callback function.
  *
  *---------------------------------------------------------------------*/
-#if FW_TYPE==_UCB_MGR_
+#if (FW_TYPE==_UCB_MGR_)
 s32bits SccbMgr_abort_sccb(CARD_HANDLE pCurrCard, PUCB p_ucb)
 #else
 #if defined(DOS)
@@ -4512,7 +4512,7 @@ int SccbMgr_abort_sccb(ULONG pCurrCard, PSCCB p_Sccb)
 	PSCCBMgr_tar_info currTar_Info;
 
 
-#if FW_TYPE==_UCB_MGR_
+#if (FW_TYPE==_UCB_MGR_)
 	PSCCB    p_Sccb;
 	p_Sccb=(PSCCB)p_ucb->UCB_MgrPrivatePtr;
 #endif
@@ -4542,7 +4542,7 @@ int SccbMgr_abort_sccb(ULONG pCurrCard, PSCCB p_Sccb)
 				WR_HARPOON(ioport+hp_semaphore,(RD_HARPOON(ioport+hp_semaphore)
 					& (UCHAR)(~(SCCB_MGR_ACTIVE | TICKLE_ME)) ));
 
-#if FW_TYPE==_SCCB_MGR_
+#if (FW_TYPE==_SCCB_MGR_)
 			p_Sccb->SccbStatus = SCCB_ABORT;
 			callback = p_Sccb->SccbCallback;
 			callback(p_Sccb);
@@ -4579,7 +4579,7 @@ int SccbMgr_abort_sccb(ULONG pCurrCard, PSCCB p_Sccb)
 					{
 						p_Sccb->SccbStatus = SCCB_ABORT;
 						p_Sccb->Sccb_scsistat = ABORT_ST;
-#if FW_TYPE==_UCB_MGR_
+#if (FW_TYPE==_UCB_MGR_)
 						p_ucb->UCB_status=SCCB_ABORT;
 #endif
 						p_Sccb->Sccb_scsimsg = SMABORT_TAG;
@@ -4626,7 +4626,7 @@ int SccbMgr_abort_sccb(ULONG pCurrCard, PSCCB p_Sccb)
  *              interrupt for this card and disable the IRQ Pin if so.
  *
  *---------------------------------------------------------------------*/
-#if FW_TYPE==_UCB_MGR_
+#if (FW_TYPE==_UCB_MGR_)
 u08bits SccbMgr_my_int(CARD_HANDLE pCurrCard)
 #else
 #if defined(DOS)
@@ -4670,7 +4670,7 @@ UCHAR SccbMgr_my_int(ULONG pCurrCard)
  *              us.
  *
  *---------------------------------------------------------------------*/
-#if FW_TYPE==_UCB_MGR_
+#if (FW_TYPE==_UCB_MGR_)
 s32bits SccbMgr_isr(CARD_HANDLE pCurrCard)
 #else
 #if defined(DOS)
@@ -5137,7 +5137,7 @@ PNVRamInfo pCurrNvRam;
  *              Sccbs will be returned via the callback.
  *
  *---------------------------------------------------------------------*/
-#if FW_TYPE==_UCB_MGR_
+#if (FW_TYPE==_UCB_MGR_)
 void SccbMgr_scsi_reset(CARD_HANDLE pCurrCard)
 #else
 #if defined(DOS)
@@ -5182,7 +5182,7 @@ void SccbMgr_scsi_reset(ULONG pCurrCard)
 */
          scini(thisCard, ((PSCCBcard)pCurrCard)->ourId, 0);
 
-#if FW_TYPE==_UCB_MGR_
+#if (FW_TYPE==_UCB_MGR_)
    ((PSCCBcard)pCurrCard)->cardInfo->ai_AEN_routine(0x01,pCurrCard,0,0,0,0);
 #endif
 
@@ -5201,7 +5201,7 @@ void SccbMgr_scsi_reset(ULONG pCurrCard)
  *
  *---------------------------------------------------------------------*/
 
-#if FW_TYPE==_UCB_MGR_
+#if (FW_TYPE==_UCB_MGR_)
 void SccbMgr_timer_expired(CARD_HANDLE pCurrCard)
 #else
 #if defined(DOS)
@@ -5352,7 +5352,7 @@ void Debug_Load(UCHAR p_card, UCHAR p_bug_data)
 }
 
 #endif
-#ident "$Id: FlashPoint.c,v 1.1.1.4 2003/10/14 08:08:36 sparq Exp $"
+#ident "$Id: sccb_dat.c 1.10 1997/02/22 03:16:02 awin Exp $"
 /*----------------------------------------------------------------------
  *
  *
@@ -5366,15 +5366,15 @@ void Debug_Load(UCHAR p_card, UCHAR p_bug_data)
  *   Description:  Functions relating to handling of the SCCB interface 
  *                 between the device driver and the HARPOON.
  *
- *   $Date: 2003/10/14 08:08:36 $
+ *   $Date: 1997/02/22 03:16:02 $
  *
- *   $Revision: 1.1.1.4 $
+ *   $Revision: 1.10 $
  *
  *----------------------------------------------------------------------*/
 
 /*#include <globals.h>*/
 
-#if FW_TYPE==_UCB_MGR_
+#if (FW_TYPE==_UCB_MGR_)
 	/*#include <budi.h>*/
 #endif
 
@@ -5424,7 +5424,7 @@ UCHAR    debug_int[MAX_CARDS][debug_size] = { 0 };
 UCHAR    debug_index[MAX_CARDS] = { 0 };
 UCHAR    reserved_1[3] = { 0 };
 #endif
-#ident "$Id: FlashPoint.c,v 1.1.1.4 2003/10/14 08:08:36 sparq Exp $"
+#ident "$Id: scsi.c 1.23 1997/07/09 21:42:54 mohan Exp $"
 /*----------------------------------------------------------------------
  *
  *
@@ -5439,15 +5439,15 @@ UCHAR    reserved_1[3] = { 0 };
  *                 selection/reselection, sync negotiation, message-in
  *                 decoding.
  *
- *   $Date: 2003/10/14 08:08:36 $
+ *   $Date: 1997/07/09 21:42:54 $
  *
- *   $Revision: 1.1.1.4 $
+ *   $Revision: 1.23 $
  *
  *----------------------------------------------------------------------*/
 
 /*#include <globals.h>*/
 
-#if FW_TYPE==_UCB_MGR_
+#if (FW_TYPE==_UCB_MGR_)
 	/*#include <budi.h>*/
 #endif
 
@@ -7518,7 +7518,7 @@ void sinits(PSCCB p_sccb, UCHAR p_card)
 }
 
 
-#ident "$Id: FlashPoint.c,v 1.1.1.4 2003/10/14 08:08:36 sparq Exp $"
+#ident "$Id: phase.c 1.11 1997/01/31 02:08:49 mohan Exp $"
 /*----------------------------------------------------------------------
  *
  *
@@ -7533,15 +7533,15 @@ void sinits(PSCCB p_sccb, UCHAR p_card)
  *                 the target asserts request (and the automation is not
  *                 enabled to handle the situation).
  *
- *   $Date: 2003/10/14 08:08:36 $
+ *   $Date: 1997/01/31 02:08:49 $
  *
- *   $Revision: 1.1.1.4 $
+ *   $Revision: 1.11 $
  *
  *----------------------------------------------------------------------*/
 
 /*#include <globals.h>*/
 
-#if FW_TYPE==_UCB_MGR_
+#if (FW_TYPE==_UCB_MGR_)
 	/*#include <budi.h>*/
 #endif
 
@@ -8267,7 +8267,7 @@ void phaseBusFree(ULONG port, UCHAR p_card)
 
 
 
-#ident "$Id: FlashPoint.c,v 1.1.1.4 2003/10/14 08:08:36 sparq Exp $"
+#ident "$Id: automate.c 1.14 1997/01/31 02:11:46 mohan Exp $"
 /*----------------------------------------------------------------------
  *
  *
@@ -8281,15 +8281,15 @@ void phaseBusFree(ULONG port, UCHAR p_card)
  *   Description:  Functions relating to programming the automation of
  *                 the HARPOON.
  *
- *   $Date: 2003/10/14 08:08:36 $
+ *   $Date: 1997/01/31 02:11:46 $
  *
- *   $Revision: 1.1.1.4 $
+ *   $Revision: 1.14 $
  *
  *----------------------------------------------------------------------*/
 
 /*#include <globals.h>*/
 
-#if FW_TYPE==_UCB_MGR_
+#if (FW_TYPE==_UCB_MGR_)
 	/*#include <budi.h>*/
 #endif
 
@@ -8577,7 +8577,7 @@ void autoCmdCmplt(ULONG p_port, UCHAR p_card)
                = TRUE;
      
 
-#if FW_TYPE==_SCCB_MGR_
+#if (FW_TYPE==_SCCB_MGR_)
             if (currSCCB->RequestSenseLength != NO_AUTO_REQUEST_SENSE) {
 
                if (currSCCB->RequestSenseLength == 0)
@@ -8659,7 +8659,7 @@ void autoCmdCmplt(ULONG p_port, UCHAR p_card)
 
    queueCmdComplete(&BL_Card[p_card], currSCCB, p_card);
 }
-#ident "$Id: FlashPoint.c,v 1.1.1.4 2003/10/14 08:08:36 sparq Exp $"
+#ident "$Id: busmstr.c 1.8 1997/01/31 02:10:27 mohan Exp $"
 /*----------------------------------------------------------------------
  *
  *
@@ -8672,15 +8672,15 @@ void autoCmdCmplt(ULONG p_port, UCHAR p_card)
  *
  *   Description:  Functions to start, stop, and abort BusMaster operations.
  *
- *   $Date: 2003/10/14 08:08:36 $
+ *   $Date: 1997/01/31 02:10:27 $
  *
- *   $Revision: 1.1.1.4 $
+ *   $Revision: 1.8 $
  *
  *----------------------------------------------------------------------*/
 
 /*#include <globals.h>*/
 
-#if FW_TYPE==_UCB_MGR_
+#if (FW_TYPE==_UCB_MGR_)
 	/*#include <budi.h>*/
 #endif
 
@@ -9351,7 +9351,7 @@ void hostDataXferRestart(PSCCB currSCCB)
       currSCCB->Sccb_XferCnt = currSCCB->DataLength - currSCCB->Sccb_ATC;
       }
 }
-#ident "$Id: FlashPoint.c,v 1.1.1.4 2003/10/14 08:08:36 sparq Exp $"
+#ident "$Id: scam.c 1.17 1997/03/20 23:49:37 mohan Exp $"
 /*----------------------------------------------------------------------
  *
  *
@@ -9366,15 +9366,15 @@ void hostDataXferRestart(PSCCB currSCCB)
  *                 and the determination of the SCSI IDs to be assigned
  *                 to all perspective SCSI targets.
  *
- *   $Date: 2003/10/14 08:08:36 $
+ *   $Date: 1997/03/20 23:49:37 $
  *
- *   $Revision: 1.1.1.4 $
+ *   $Revision: 1.17 $
  *
  *----------------------------------------------------------------------*/
 
 /*#include <globals.h>*/
 
-#if FW_TYPE==_UCB_MGR_
+#if (FW_TYPE==_UCB_MGR_)
 	/*#include <budi.h>*/
 #endif
 
@@ -10581,7 +10581,7 @@ void scsavdi(UCHAR p_card, ULONG p_port)
    utilEEWrite(p_port, sum_data, EEPROM_CHECK_SUM/2);
    utilEEWriteOnOff(p_port,0);   /* Turn off write access */
 }
-#ident "$Id: FlashPoint.c,v 1.1.1.4 2003/10/14 08:08:36 sparq Exp $"
+#ident "$Id: diagnose.c 1.10 1997/06/10 16:51:47 mohan Exp $"
 /*----------------------------------------------------------------------
  *
  *
@@ -10595,15 +10595,15 @@ void scsavdi(UCHAR p_card, ULONG p_port)
  *   Description:  Diagnostic funtions for testing the integrity of
  *                 the HARPOON.
  *
- *   $Date: 2003/10/14 08:08:36 $
+ *   $Date: 1997/06/10 16:51:47 $
  *
- *   $Revision: 1.1.1.4 $
+ *   $Revision: 1.10 $
  *
  *----------------------------------------------------------------------*/
 
 /*#include <globals.h>*/
 
-#if FW_TYPE==_UCB_MGR_
+#if (FW_TYPE==_UCB_MGR_)
 	/*#include <budi.h>*/
 #endif
 
@@ -11026,7 +11026,7 @@ void DiagEEPROM(ULONG p_port)
 
 }
 
-#ident "$Id: FlashPoint.c,v 1.1.1.4 2003/10/14 08:08:36 sparq Exp $"
+#ident "$Id: utility.c 1.23 1997/06/10 16:55:06 mohan Exp $"
 /*----------------------------------------------------------------------
  *
  *
@@ -11040,14 +11040,14 @@ void DiagEEPROM(ULONG p_port)
  *   Description:  Utility functions relating to queueing and EEPROM
  *                 manipulation and any other garbage functions.
  *
- *   $Date: 2003/10/14 08:08:36 $
+ *   $Date: 1997/06/10 16:55:06 $
  *
- *   $Revision: 1.1.1.4 $
+ *   $Revision: 1.23 $
  *
  *----------------------------------------------------------------------*/
 /*#include <globals.h>*/
 
-#if FW_TYPE==_UCB_MGR_
+#if (FW_TYPE==_UCB_MGR_)
 	/*#include <budi.h>*/
 #endif
 
@@ -11245,7 +11245,7 @@ void queueSelectFail(PSCCBcard pCurrCard, UCHAR p_card)
 void queueCmdComplete(PSCCBcard pCurrCard, PSCCB p_sccb, UCHAR p_card)
 {
 
-#if FW_TYPE==_UCB_MGR_
+#if (FW_TYPE==_UCB_MGR_)
 
    u08bits SCSIcmd;
    CALL_BK_FN callback;

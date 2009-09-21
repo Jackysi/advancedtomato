@@ -175,7 +175,7 @@
  *	chmod 600 $random_seed
  *	poolfile=/proc/sys/kernel/random/poolsize
  *	[ -r $poolfile ] && bytes=`cat $poolfile` || bytes=512
- *	dd if=/dev/urandom of=$random_seed count=1 bs=bytes
+ *	dd if=/dev/urandom of=$random_seed count=1 bs=$bytes
  *
  * and the following lines in an appropriate script which is run as
  * the system is shutdown:
@@ -188,7 +188,7 @@
  *	chmod 600 $random_seed
  *	poolfile=/proc/sys/kernel/random/poolsize
  *	[ -r $poolfile ] && bytes=`cat $poolfile` || bytes=512
- *	dd if=/dev/urandom of=$random_seed count=1 bs=bytes
+ *	dd if=/dev/urandom of=$random_seed count=1 bs=$bytes
  *
  * For example, on most modern systems using the System V init
  * scripts, such code fragments would be found in
@@ -251,6 +251,8 @@
 #include <linux/random.h>
 #include <linux/poll.h>
 #include <linux/init.h>
+#include <linux/interrupt.h>
+#include <linux/spinlock.h>
 
 #include <asm/processor.h>
 #include <asm/uaccess.h>
@@ -295,15 +297,29 @@ static struct poolinfo {
 
 	/* x^1024 + x^817 + x^615 + x^412 + x^204 + x + 1 -- 290 */
 	{ 1024,	817,	615,	412,	204,	1 },
+#if 0				/* Alternate polynomial */
+	/* x^1024 + x^819 + x^616 + x^410 + x^207 + x^2 + 1 -- 115 */
+	{ 1024,	819,	616,	410,	207,	2 },
+#endif
 
 	/* x^512 + x^411 + x^308 + x^208 + x^104 + x + 1 -- 225 */
 	{ 512,	411,	308,	208,	104,	1 },
+#if 0				/* Alternates */
+	/* x^512 + x^409 + x^307 + x^206 + x^102 + x^2 + 1 -- 95 */
+	{ 512,	409,	307,	206,	102,	2 },
+	/* x^512 + x^409 + x^309 + x^205 + x^103 + x^2 + 1 -- 95 */
+	{ 512,	409,	309,	205,	103,	2 },
+#endif
 
 	/* x^256 + x^205 + x^155 + x^101 + x^52 + x + 1 -- 125 */
 	{ 256,	205,	155,	101,	52,	1 },
 
 	/* x^128 + x^103 + x^76 + x^51 +x^25 + x + 1 -- 105 */
 	{ 128,	103,	76,	51,	25,	1 },
+#if 0	/* Alternate polynomial */
+	/* x^128 + x^103 + x^78 + x^51 + x^27 + x^2 + 1 -- 70 */
+	{ 128,	103,	78,	51,	27,	2 },
+#endif
 
 	/* x^64 + x^52 + x^39 + x^26 + x^14 + x + 1 -- 15 */
 	{ 64,	52,	39,	26,	14,	1 },
@@ -397,7 +413,7 @@ static void sysctl_init_random(struct entropy_store *random_state);
  * to optimize a static rotate left of x bits, it doesn't know how to
  * deal with a variable rotate of x bits.  So we use a bit of asm magic.
  */
-#if !defined(__i386__)
+#if (!defined (__i386__))
 static inline __u32 rotate_left(int i, __u32 word)
 {
 	return (word << i) | (word >> (32 - i));
@@ -422,6 +438,16 @@ static inline __u32 rotate_left(int i, __u32 word)
  * Note the "12bits" suffix - this is used for numbers between
  * 0 and 4095 only.  This allows a few shortcuts.
  */
+#if 0	/* Slow but clear version */
+static inline __u32 int_ln_12bits(__u32 word)
+{
+	__u32 nbits = 0;
+	
+	while (word >>= 1)
+		nbits++;
+	return nbits;
+}
+#else	/* Faster (more clever) version, courtesy Colin Plumb */
 static inline __u32 int_ln_12bits(__u32 word)
 {
 	/* Smear msbit right to make an n-bit mask */
@@ -438,8 +464,13 @@ static inline __u32 int_ln_12bits(__u32 word)
 	word += (word >> 8);
 	return word & 15;
 }
+#endif
 
+#if 0
+#define DEBUG_ENT(fmt, arg...) printk(KERN_DEBUG "random: " fmt, ## arg)
+#else
 #define DEBUG_ENT(fmt, arg...) do {} while (0)
+#endif
 
 /**********************************************************************
  *
@@ -684,7 +715,9 @@ struct timer_rand_state {
 static struct timer_rand_state keyboard_timer_state;
 static struct timer_rand_state mouse_timer_state;
 static struct timer_rand_state extract_timer_state;
+#ifndef CONFIG_ARCH_S390
 static struct timer_rand_state *irq_timer_state[NR_IRQS];
+#endif
 static struct timer_rand_state *blkdev_timer_state[MAX_BLKDEV];
 
 /*
@@ -705,7 +738,7 @@ static void add_timer_randomness(struct timer_rand_state *state, unsigned num)
 	__s32		delta, delta2, delta3;
 	int		entropy = 0;
 
-#if defined(__i386__)
+#if defined (__i386__)
 	if (cpu_has_tsc) {
 		__u32 high;
 		rdtsc(time, high);
@@ -713,10 +746,15 @@ static void add_timer_randomness(struct timer_rand_state *state, unsigned num)
 	} else {
 		time = jiffies;
 	}
-#elif defined(__x86_64__)
+#elif defined (__x86_64__)
 	__u32 high;
 	rdtsc(time, high);
 	num ^= high;
+#elif defined (__sparc_v9__)
+	unsigned long tick = tick_ops->get_tick();
+
+	time = (unsigned int) tick;
+	num ^= (tick >> 32UL);
 #else
 	time = jiffies;
 #endif
@@ -760,6 +798,7 @@ static void add_timer_randomness(struct timer_rand_state *state, unsigned num)
 	batch_entropy_store(num, time, entropy);
 }
 
+#ifndef CONFIG_ARCH_S390
 void add_keyboard_randomness(unsigned char scancode)
 {
 	static unsigned char last_scancode;
@@ -782,6 +821,7 @@ void add_interrupt_randomness(int irq)
 
 	add_timer_randomness(irq_timer_state[irq], 0x100+irq);
 }
+#endif
 
 void add_blkdev_randomness(int major)
 {
@@ -955,7 +995,7 @@ static void SHATransform(__u32 digest[85], __u32 const data[16])
 	subRound( C, D, E, A, B, f4, K4, W[ i+3 ] );
 	subRound( B, C, D, E, A, f4, K4, W[ i+4 ] );
     }
-#elif SHA_CODE_SIZE == 3   /* Really large version */
+#elif SHA_CODE_SIZE == 3 /* Really large version */
     subRound( A, B, C, D, E, f1, K1, W[  0 ] );
     subRound( E, A, B, C, D, f1, K1, W[  1 ] );
     subRound( D, E, A, B, C, f1, K1, W[  2 ] );
@@ -1206,15 +1246,14 @@ static ssize_t extract_entropy(struct entropy_store *r, void * buf,
  * at which point we do a "catastrophic reseeding".
  */
 static inline void xfer_secondary_pool(struct entropy_store *r,
-				       size_t nbytes)
+				       size_t nbytes, __u32 *tmp,
+				       size_t tmpsize)
 {
-	__u32	tmp[TMP_BUF_SIZE];
-
 	if (r->entropy_count < nbytes * 8 &&
 	    r->entropy_count < r->poolinfo.POOLBITS) {
 		int nwords = min_t(int,
 				   r->poolinfo.poolwords - r->entropy_count/32,
-				   sizeof(tmp) / 4);
+				   tmpsize / 4);
 
 		DEBUG_ENT("xfer %d from primary to %s (have %d, need %d)\n",
 			  nwords * 32,
@@ -1228,9 +1267,9 @@ static inline void xfer_secondary_pool(struct entropy_store *r,
 	if (r->extract_count > 1024) {
 		DEBUG_ENT("reseeding %s with %d from primary\n",
 			  r == sec_random_state ? "secondary" : "unknown",
-			  sizeof(tmp) * 8);
-		extract_entropy(random_state, tmp, sizeof(tmp), 0);
-		add_entropy_words(r, tmp, sizeof(tmp) / 4);
+			  tmpsize * 8);
+		extract_entropy(random_state, tmp, tmpsize, 0);
+		add_entropy_words(r, tmp, tmpsize / 4);
 		r->extract_count = 0;
 	}
 }
@@ -1262,7 +1301,7 @@ static ssize_t extract_entropy(struct entropy_store *r, void * buf,
 		r->entropy_count = r->poolinfo.POOLBITS;
 
 	if (flags & EXTRACT_ENTROPY_SECONDARY)
-		xfer_secondary_pool(r, nbytes);
+		xfer_secondary_pool(r, nbytes, tmp, sizeof(tmp));
 
 	DEBUG_ENT("%s has %d bits, want %d bits\n",
 		  r == sec_random_state ? "secondary" :
@@ -1320,7 +1359,7 @@ static ssize_t extract_entropy(struct entropy_store *r, void * buf,
 		 */
 		for (i = 0; i <  HASH_BUFFER_SIZE/2; i++)
 			tmp[i] ^= tmp[i + (HASH_BUFFER_SIZE+1)/2];
-#if HASH_BUFFER_SIZE & 1	    /* There's a middle word to deal with */
+#if HASH_BUFFER_SIZE & 1	/* There's a middle word to deal with */
 		x = tmp[HASH_BUFFER_SIZE/2];
 		x ^= (x >> 16);		/* Fold it in half */
 		((__u16 *)tmp)[HASH_BUFFER_SIZE-1] = (__u16)x;
@@ -1416,8 +1455,10 @@ void __init rand_initialize(void)
 #ifdef CONFIG_SYSCTL
 	sysctl_init_random(random_state);
 #endif
+#ifndef CONFIG_ARCH_S390
 	for (i = 0; i < NR_IRQS; i++)
 		irq_timer_state[i] = NULL;
+#endif
 	for (i = 0; i < MAX_BLKDEV; i++)
 		blkdev_timer_state[i] = NULL;
 	memset(&keyboard_timer_state, 0, sizeof(struct timer_rand_state));
@@ -1426,6 +1467,7 @@ void __init rand_initialize(void)
 	extract_timer_state.dont_count_entropy = 1;
 }
 
+#ifndef CONFIG_ARCH_S390
 void rand_initialize_irq(int irq)
 {
 	struct timer_rand_state *state;
@@ -1443,6 +1485,7 @@ void rand_initialize_irq(int irq)
 		irq_timer_state[irq] = state;
 	}
 }
+#endif
 
 void rand_initialize_blkdev(int major, int mode)
 {
@@ -1745,7 +1788,7 @@ static int poolsize_strategy(ctl_table *table, int *name, int nlen,
 			     void *oldval, size_t *oldlenp,
 			     void *newval, size_t newlen, void **context)
 {
-	int	len;
+	unsigned int	len;
 	
 	sysctl_poolsize = random_state->poolinfo.POOLBYTES;
 
@@ -2006,56 +2049,102 @@ static __u32 twothirdsMD4Transform (__u32 const buf[4], __u32 const in[12])
 
 /* This should not be decreased so low that ISNs wrap too fast. */
 #define REKEY_INTERVAL	300
-#define HASH_BITS 24
+/*
+ * Bit layout of the tcp sequence numbers (before adding current time):
+ * bit 24-31: increased after every key exchange
+ * bit 0-23: hash(source,dest)
+ *
+ * The implementation is similar to the algorithm described
+ * in the Appendix of RFC 1185, except that
+ * - it uses a 1 MHz clock instead of a 250 kHz clock
+ * - it performs a rekey every 5 minutes, which is equivalent
+ * 	to a (source,dest) tulple dependent forward jump of the
+ * 	clock by 0..2^(HASH_BITS+1)
+ *
+ * Thus the average ISN wraparound time is 68 minutes instead of
+ * 4.55 hours.
+ *
+ * SMP cleanup and lock avoidance with poor man's RCU.
+ * 			Manfred Spraul <manfred@colorfullife.com>
+ * 		
+ */
+#define COUNT_BITS	8
+#define COUNT_MASK	( (1<<COUNT_BITS)-1)
+#define HASH_BITS	24
+#define HASH_MASK	( (1<<HASH_BITS)-1 )
+
+static struct keydata {
+	time_t rekey_time;
+	__u32	count;		// already shifted to the final position
+	__u32	secret[12];
+} ____cacheline_aligned ip_keydata[2];
+
+static spinlock_t ip_lock = SPIN_LOCK_UNLOCKED;
+static unsigned int ip_cnt;
+
+static struct keydata *__check_and_rekey(time_t time)
+{
+	struct keydata *keyptr;
+	spin_lock_bh(&ip_lock);
+	keyptr = &ip_keydata[ip_cnt&1];
+	if (!keyptr->rekey_time || (time - keyptr->rekey_time) > REKEY_INTERVAL) {
+		keyptr = &ip_keydata[1^(ip_cnt&1)];
+		keyptr->rekey_time = time;
+		get_random_bytes(keyptr->secret, sizeof(keyptr->secret));
+		keyptr->count = (ip_cnt&COUNT_MASK)<<HASH_BITS;
+		mb();
+		ip_cnt++;
+	}
+	spin_unlock_bh(&ip_lock);
+	return keyptr;
+}
+
+static inline struct keydata *check_and_rekey(time_t time)
+{
+	struct keydata *keyptr = &ip_keydata[ip_cnt&1];
+
+	rmb();
+	if (!keyptr->rekey_time || (time - keyptr->rekey_time) > REKEY_INTERVAL) {
+		keyptr = __check_and_rekey(time);
+	}
+
+	return keyptr;
+}
 
 #if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
 __u32 secure_tcpv6_sequence_number(__u32 *saddr, __u32 *daddr,
 				   __u16 sport, __u16 dport)
 {
-	static __u32	rekey_time;
-	static __u32	count;
-	static __u32	secret[12];
 	struct timeval 	tv;
 	__u32		seq;
+	__u32		hash[12];
+	struct keydata *keyptr;
 
-	/* The procedure is the same as for IPv4, but addresses are longer. */
+	/* The procedure is the same as for IPv4, but addresses are longer.
+	 * Thus we must use twothirdsMD4Transform.
+	 */
 
 	do_gettimeofday(&tv);	/* We need the usecs below... */
+	keyptr = check_and_rekey(tv.tv_sec);
 
-	if (!rekey_time || (tv.tv_sec - rekey_time) > REKEY_INTERVAL) {
-		rekey_time = tv.tv_sec;
-		/* First five words are overwritten below. */
-		get_random_bytes(&secret[5], sizeof(secret)-5*4);
-		count = (tv.tv_sec/REKEY_INTERVAL) << HASH_BITS;
-	}
+	memcpy(hash, saddr, 16);
+	hash[4]=(sport << 16) + dport;
+	memcpy(&hash[5],keyptr->secret,sizeof(__u32)*7);
 
-	memcpy(secret, saddr, 16);
-	secret[4]=(sport << 16) + dport;
-
-	seq = (twothirdsMD4Transform(daddr, secret) &
-	       ((1<<HASH_BITS)-1)) + count;
-
+	seq = twothirdsMD4Transform(daddr, hash) & HASH_MASK;
+	seq += keyptr->count;
 	seq += tv.tv_usec + tv.tv_sec*1000000;
+
 	return seq;
 }
 
 __u32 secure_ipv6_id(__u32 *daddr)
 {
-	static time_t	rekey_time;
-	static __u32	secret[12];
-	time_t		t;
+	struct keydata *keyptr;
 
-	/*
-	 * Pick a random secret every REKEY_INTERVAL seconds.
-	 */
-	t = CURRENT_TIME;
-	if (!rekey_time || (t - rekey_time) > REKEY_INTERVAL) {
-		rekey_time = t;
-		/* First word is overwritten below. */
-		get_random_bytes(secret, sizeof(secret));
-	}
+	keyptr = check_and_rekey(CURRENT_TIME);
 
-	return twothirdsMD4Transform(daddr, secret);
+	return halfMD4Transform(daddr, keyptr->secret);
 }
 
 #endif
@@ -2064,40 +2153,30 @@ __u32 secure_ipv6_id(__u32 *daddr)
 __u32 secure_tcp_sequence_number(__u32 saddr, __u32 daddr,
 				 __u16 sport, __u16 dport)
 {
-	static __u32	rekey_time;
-	static __u32	count;
-	static __u32	secret[12];
 	struct timeval 	tv;
 	__u32		seq;
+	__u32	hash[4];
+	struct keydata *keyptr;
 
 	/*
 	 * Pick a random secret every REKEY_INTERVAL seconds.
 	 */
 	do_gettimeofday(&tv);	/* We need the usecs below... */
-
-	if (!rekey_time || (tv.tv_sec - rekey_time) > REKEY_INTERVAL) {
-		rekey_time = tv.tv_sec;
-		/* First three words are overwritten below. */
-		get_random_bytes(&secret[3], sizeof(secret)-12);
-		count = (tv.tv_sec/REKEY_INTERVAL) << HASH_BITS;
-	}
+	keyptr = check_and_rekey(tv.tv_sec);
 
 	/*
 	 *  Pick a unique starting offset for each TCP connection endpoints
 	 *  (saddr, daddr, sport, dport).
-	 *  Note that the words are placed into the first words to be
-	 *  mixed in with the halfMD4.  This is because the starting
-	 *  vector is also a random secret (at secret+8), and further
-	 *  hashing fixed data into it isn't going to improve anything,
-	 *  so we should get started with the variable data.
+	 *  Note that the words are placed into the starting vector, which is 
+	 *  then mixed with a partial MD4 over random data.
 	 */
-	secret[0]=saddr;
-	secret[1]=daddr;
-	secret[2]=(sport << 16) + dport;
+	hash[0]=saddr;
+	hash[1]=daddr;
+	hash[2]=(sport << 16) + dport;
+	hash[3]=keyptr->secret[11];
 
-	seq = (halfMD4Transform(secret+8, secret) &
-	       ((1<<HASH_BITS)-1)) + count;
-
+	seq = halfMD4Transform(hash, keyptr->secret) & HASH_MASK;
+	seq += keyptr->count;
 	/*
 	 *	As close as possible to RFC 793, which
 	 *	suggests using a 250 kHz clock.
@@ -2107,6 +2186,10 @@ __u32 secure_tcp_sequence_number(__u32 saddr, __u32 daddr,
 	 *	(Networks are faster now - should this be increased?)
 	 */
 	seq += tv.tv_usec + tv.tv_sec*1000000;
+#if 0
+	printk("init_seq(%lx, %lx, %d, %d) = %d\n",
+	       saddr, daddr, sport, dport, seq);
+#endif
 	return seq;
 }
 
@@ -2115,31 +2198,22 @@ __u32 secure_tcp_sequence_number(__u32 saddr, __u32 daddr,
  */
 __u32 secure_ip_id(__u32 daddr)
 {
-	static time_t	rekey_time;
-	static __u32	secret[12];
-	time_t		t;
+	struct keydata *keyptr;
+	__u32 hash[4];
 
-	/*
-	 * Pick a random secret every REKEY_INTERVAL seconds.
-	 */
-	t = CURRENT_TIME;
-	if (!rekey_time || (t - rekey_time) > REKEY_INTERVAL) {
-		rekey_time = t;
-		/* First word is overwritten below. */
-		get_random_bytes(secret+1, sizeof(secret)-4);
-	}
+	keyptr = check_and_rekey(CURRENT_TIME);
 
 	/*
 	 *  Pick a unique starting offset for each IP destination.
-	 *  Note that the words are placed into the first words to be
-	 *  mixed in with the halfMD4.  This is because the starting
-	 *  vector is also a random secret (at secret+8), and further
-	 *  hashing fixed data into it isn't going to improve anything,
-	 *  so we should get started with the variable data.
+	 *  The dest ip address is placed in the starting vector,
+	 *  which is then hashed with random data.
 	 */
-	secret[0]=daddr;
+	hash[0] = daddr;
+	hash[1] = keyptr->secret[9];
+	hash[2] = keyptr->secret[10];
+	hash[3] = keyptr->secret[11];
 
-	return halfMD4Transform(secret+8, secret);
+	return halfMD4Transform(hash, keyptr->secret);
 }
 
 #ifdef CONFIG_SYN_COOKIES
@@ -2244,9 +2318,11 @@ __u32 check_tcp_syn_cookie(__u32 cookie, __u32 saddr, __u32 daddr, __u16 sport,
 
 
 
+#ifndef CONFIG_ARCH_S390
 EXPORT_SYMBOL(add_keyboard_randomness);
 EXPORT_SYMBOL(add_mouse_randomness);
 EXPORT_SYMBOL(add_interrupt_randomness);
+#endif
 EXPORT_SYMBOL(add_blkdev_randomness);
 EXPORT_SYMBOL(batch_entropy_store);
 EXPORT_SYMBOL(generate_random_uuid);

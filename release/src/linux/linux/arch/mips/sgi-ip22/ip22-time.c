@@ -8,6 +8,8 @@
  *
  * Copyright (C) 2001 by Ladislav Michl
  */
+
+#include <linux/init.h>
 #include <linux/kernel.h>
 #include <linux/interrupt.h>
 #include <linux/kernel_stat.h>
@@ -17,11 +19,12 @@
 #include <asm/mipsregs.h>
 #include <asm/io.h>
 #include <asm/irq.h>
+#include <asm/time.h>
 #include <asm/ds1286.h>
 #include <asm/sgialib.h>
-#include <asm/sgi/sgint23.h>
-#include <asm/sgi/sgigio.h>
-#include <asm/time.h>
+#include <asm/sgi/ioc.h>
+#include <asm/sgi/hpc3.h>
+#include <asm/sgi/ip22.h>
 
 /*
  * note that mktime uses month from 1 to 12 while to_tm
@@ -29,20 +32,20 @@
  */
 static unsigned long indy_rtc_get_time(void)
 {
-	unsigned char yrs, mon, day, hrs, min, sec;
-	unsigned char save_control;
+	unsigned int yrs, mon, day, hrs, min, sec;
+	unsigned int save_control;
 
-	save_control = CMOS_READ(RTC_CMD);
-	CMOS_WRITE((save_control|RTC_TE), RTC_CMD);
+	save_control = hpc3c0->rtcregs[RTC_CMD] & 0xff;
+	hpc3c0->rtcregs[RTC_CMD] = save_control | RTC_TE;
 
-	sec = CMOS_READ(RTC_SECONDS);
-	min = CMOS_READ(RTC_MINUTES);
-	hrs = CMOS_READ(RTC_HOURS) & 0x1f;
-	day = CMOS_READ(RTC_DATE);
-	mon = CMOS_READ(RTC_MONTH) & 0x1f;
-	yrs = CMOS_READ(RTC_YEAR);
+	sec = hpc3c0->rtcregs[RTC_SECONDS] & 0xff;
+	min = hpc3c0->rtcregs[RTC_MINUTES] & 0xff;
+	hrs = hpc3c0->rtcregs[RTC_HOURS] & 0x3f;
+	day = hpc3c0->rtcregs[RTC_DATE] & 0xff;
+	mon = hpc3c0->rtcregs[RTC_MONTH] & 0x1f;
+	yrs = hpc3c0->rtcregs[RTC_YEAR] & 0xff;
 
-	CMOS_WRITE(save_control, RTC_CMD);
+	hpc3c0->rtcregs[RTC_CMD] = save_control;
 
 	BCD_TO_BIN(sec);
 	BCD_TO_BIN(min);
@@ -56,13 +59,13 @@ static unsigned long indy_rtc_get_time(void)
 	if ((yrs += 40) < 70)
 		yrs += 100;
 
-	return mktime((int)yrs + 1900, mon, day, hrs, min, sec);
+	return mktime(yrs + 1900, mon, day, hrs, min, sec);
 }
 
 static int indy_rtc_set_time(unsigned long tim)
 {
 	struct rtc_time tm;
-	unsigned char save_control;
+	unsigned int save_control;
 
 	to_tm(tim, &tm);
 
@@ -78,53 +81,54 @@ static int indy_rtc_set_time(unsigned long tim)
 	BIN_TO_BCD(tm.tm_mon);
 	BIN_TO_BCD(tm.tm_year);
 
-	save_control = CMOS_READ(RTC_CMD);
-	CMOS_WRITE((save_control|RTC_TE), RTC_CMD);
+	save_control = hpc3c0->rtcregs[RTC_CMD] & 0xff;
+	hpc3c0->rtcregs[RTC_CMD] = save_control | RTC_TE;
 
-	CMOS_WRITE(tm.tm_year, RTC_YEAR);
-	CMOS_WRITE(tm.tm_mon, RTC_MONTH);
-	CMOS_WRITE(tm.tm_mday, RTC_DATE);
-	CMOS_WRITE(tm.tm_hour, RTC_HOURS);
-	CMOS_WRITE(tm.tm_min, RTC_MINUTES);
-	CMOS_WRITE(tm.tm_sec, RTC_SECONDS);
-	CMOS_WRITE(0, RTC_HUNDREDTH_SECOND);
+	hpc3c0->rtcregs[RTC_YEAR] = tm.tm_year;
+	hpc3c0->rtcregs[RTC_MONTH] = tm.tm_mon;
+	hpc3c0->rtcregs[RTC_DATE] = tm.tm_mday;
+	hpc3c0->rtcregs[RTC_HOURS] = tm.tm_hour;
+	hpc3c0->rtcregs[RTC_MINUTES] = tm.tm_min;
+	hpc3c0->rtcregs[RTC_SECONDS] = tm.tm_sec;
+	hpc3c0->rtcregs[RTC_HUNDREDTH_SECOND] = 0;
 
-	CMOS_WRITE(save_control, RTC_CMD);
+	hpc3c0->rtcregs[RTC_CMD] = save_control;
 
 	return 0;
 }
 
-static unsigned long dosample(volatile unsigned char *tcwp,
-			      volatile unsigned char *tc2p)
+static unsigned long dosample(void)
 {
 	u32 ct0, ct1;
 	volatile u8 msb, lsb;
 
 	/* Start the counter. */
-	*tcwp = (SGINT_TCWORD_CNT2 | SGINT_TCWORD_CALL | SGINT_TCWORD_MRGEN);
-	*tc2p = (SGINT_TCSAMP_COUNTER & 0xff);
-	*tc2p = (SGINT_TCSAMP_COUNTER >> 8);
+	sgint->tcword = (SGINT_TCWORD_CNT2 | SGINT_TCWORD_CALL |
+			 SGINT_TCWORD_MRGEN);
+	sgint->tcnt2 = SGINT_TCSAMP_COUNTER & 0xff;
+	sgint->tcnt2 = SGINT_TCSAMP_COUNTER >> 8;
 
 	/* Get initial counter invariant */
 	ct0 = read_c0_count();
 
 	/* Latch and spin until top byte of counter2 is zero */
 	do {
-		*tcwp = (SGINT_TCWORD_CNT2 | SGINT_TCWORD_CLAT);
-		lsb = *tc2p;
-		msb = *tc2p;
+		sgint->tcword = SGINT_TCWORD_CNT2 | SGINT_TCWORD_CLAT;
+		lsb = sgint->tcnt2;
+		msb = sgint->tcnt2;
 		ct1 = read_c0_count();
-	} while(msb);
+	} while (msb);
 
 	/* Stop the counter. */
-	*tcwp = (SGINT_TCWORD_CNT2 | SGINT_TCWORD_CALL | SGINT_TCWORD_MSWST);
-
+	sgint->tcword = (SGINT_TCWORD_CNT2 | SGINT_TCWORD_CALL |
+			 SGINT_TCWORD_MSWST);
 	/*
 	 * Return the difference, this is how far the r4k counter increments
 	 * for every 1/HZ seconds. We round off the nearest 1 MHz of master
-	 * clock (= 1000000 / 100 / 2 = 5000 count).
+	 * clock (= 1000000 / HZ / 2).
 	 */
-	return ((ct1 - ct0) / 5000) * 5000;
+	/*return (ct1 - ct0 + (500000/HZ/2)) / (500000/HZ) * (500000/HZ);*/
+	return (ct1 - ct0) / (500000/HZ) * (500000/HZ);
 }
 
 /*
@@ -132,54 +136,48 @@ static unsigned long dosample(volatile unsigned char *tcwp,
  */
 void indy_time_init(void)
 {
-	struct sgi_ioc_timers *p;
-	volatile unsigned char *tcwp, *tc2p;
 	unsigned long r4k_ticks[3];
 	unsigned long r4k_tick;
 
-	/* Figure out the r4k offset, the algorithm is very simple
-	 * and works in _all_ cases as long as the 8254 counter
-	 * register itself works ok (as an interrupt driving timer
-	 * it does not because of bug, this is why we are using
-	 * the onchip r4k counter/compare register to serve this
-	 * purpose, but for r4k_offset calculation it will work
-	 * ok for us).  There are other very complicated ways
-	 * of performing this calculation but this one works just
-	 * fine so I am not going to futz around. ;-)
+	/* 
+	 * Figure out the r4k offset, the algorithm is very simple and works in
+	 * _all_ cases as long as the 8254 counter register itself works ok (as
+	 * an interrupt driving timer it does not because of bug, this is why
+	 * we are using the onchip r4k counter/compare register to serve this
+	 * purpose, but for r4k_offset calculation it will work ok for us).
+	 * There are other very complicated ways of performing this calculation
+	 * but this one works just fine so I am not going to futz around. ;-)
 	 */
-	p = ioc_timers;
-	tcwp = &p->tcword;
-	tc2p = &p->tcnt2;
-
 	printk(KERN_INFO "Calibrating system timer... ");
-	dosample(tcwp, tc2p);                   /* Prime cache. */
-	dosample(tcwp, tc2p);                   /* Prime cache. */
+	dosample();	/* Prime cache. */
+	dosample();	/* Prime cache. */
 	/* Zero is NOT an option. */
 	do {
-		r4k_ticks[0] = dosample (tcwp, tc2p);
+		r4k_ticks[0] = dosample();
 	} while (!r4k_ticks[0]);
 	do {
-		r4k_ticks[1] = dosample (tcwp, tc2p);
+		r4k_ticks[1] = dosample();
 	} while (!r4k_ticks[1]);
 
 	if (r4k_ticks[0] != r4k_ticks[1]) {
-		printk ("warning: timer counts differ, retrying...");
-		r4k_ticks[2] = dosample (tcwp, tc2p);
+		printk("warning: timer counts differ, retrying... ");
+		r4k_ticks[2] = dosample();
 		if (r4k_ticks[2] == r4k_ticks[0]
 		    || r4k_ticks[2] == r4k_ticks[1])
 			r4k_tick = r4k_ticks[2];
 		else {
-			printk ("disagreement, using average...");
+			printk("disagreement, using average... ");
 			r4k_tick = (r4k_ticks[0] + r4k_ticks[1]
 				   + r4k_ticks[2]) / 3;
 		}
 	} else
 		r4k_tick = r4k_ticks[0];
 
-	printk("%d [%d.%02d MHz CPU]\n", (int) r4k_tick,
-		(int) (r4k_tick / 5000), (int) (r4k_tick % 5000) / 50);
+	printk("%d [%d.%04d MHz CPU]\n", (int) r4k_tick,
+		(int) (r4k_tick / (500000 / HZ)),
+		(int) (r4k_tick % (500000 / HZ)));
 
-	mips_counter_frequency = r4k_tick * HZ;
+	mips_hpt_frequency = r4k_tick * HZ;
 }
 
 /* Generic SGI handler for (spurious) 8254 interrupts */
@@ -192,7 +190,7 @@ void indy_8254timer_irq(struct pt_regs *regs)
 
 	irq_enter(cpu, irq);
 	kstat.irqs[cpu][irq]++;
-	printk("indy_8254timer_irq: Whoops, should not have gotten this IRQ\n");
+	printk(KERN_ALERT "Oops, got 8254 interrupt.\n");
 	ArcRead(0, &c, 1, &cnt);
 	ArcEnterInteractiveMode();
 	irq_exit(cpu, irq);
@@ -216,21 +214,14 @@ extern int setup_irq(unsigned int irq, struct irqaction *irqaction);
 
 static void indy_timer_setup(struct irqaction *irq)
 {
-	unsigned long count;
-
 	/* over-write the handler, we use our own way */
 	irq->handler = no_action;
-
-	/* set time for first interrupt */
-	count = read_c0_count();
-	count += mips_counter_frequency / HZ;
-	write_c0_compare(count);
 
 	/* setup irqaction */
 	setup_irq(SGI_TIMER_IRQ, irq);
 }
 
-void sgitime_init(void)
+void __init ip22_time_init(void)
 {
 	/* setup hookup functions */
 	rtc_get_time = indy_rtc_get_time;

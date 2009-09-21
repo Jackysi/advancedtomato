@@ -57,6 +57,11 @@ asmlinkage void lcall27(void);
 struct desc_struct default_ldt[] = { { 0, 0 }, { 0, 0 }, { 0, 0 },
 		{ 0, 0 }, { 0, 0 } };
 
+/*
+ * The IDT has to be page-aligned to simplify the Pentium
+ * F0 0F bug workaround.. We have a special link segment
+ * for this.
+ */
 struct desc_struct idt_table[256] __attribute__((__section__(".data.idt"))) = { {0, 0}, };
 
 asmlinkage void divide_error(void);
@@ -626,15 +631,14 @@ void math_error(void *eip)
 	 */
 	cwd = get_fpu_cwd(task);
 	swd = get_fpu_swd(task);
-	switch (((~cwd) & swd & 0x3f) | (swd & 0x240)) {
+	switch (swd & ~cwd & 0x3f) {
 		case 0x000:
 		default:
 			break;
 		case 0x001: /* Invalid Op */
-		case 0x041: /* Stack Fault */
-		case 0x241: /* Stack Fault | Direction */
+			/* swd & 0x240 == 0x040: Stack Fault */
+			/* swd & 0x240 == 0x240: Stack Fault | Direction */
 			info.si_code = FPE_FLTINV;
-			/* Should we clear the SF or let user space do it ???? */
 			break;
 		case 0x002: /* Denormalize */
 		case 0x010: /* Underflow */
@@ -734,6 +738,10 @@ asmlinkage void do_simd_coprocessor_error(struct pt_regs * regs,
 asmlinkage void do_spurious_interrupt_bug(struct pt_regs * regs,
 					  long error_code)
 {
+#if 0
+	/* No need to warn about this any longer. */
+	printk("Ignoring P6 Local APIC Spurious Interrupt Bug...\n");
+#endif
 }
 
 /*
@@ -915,6 +923,7 @@ lithium_init(void)
 	printk("Lithium PCI Bridge B (PIIX4), Bus Number: %d\n",
 				li_pcib_read16(LI_PCI_BUSNUM) & 0xff);
 
+	/* XXX blindly enables all interrupts */
 	li_pcia_write16(LI_PCI_INTEN, 0xffff);
 	li_pcib_write16(LI_PCI_INTEN, 0xffff);
 }

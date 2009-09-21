@@ -159,7 +159,7 @@ static char * is_there_reiserfs_struct (char * fmt, int * what, int * skip)
 
   *skip = 0;
   
-  while ((k = strstr (k, "%")) != NULL)
+  while ((k = strchr (k, '%')) != NULL)
   {
     if (k[1] == 'k' || k[1] == 'K' || k[1] == 'h' || k[1] == 't' ||
 	      k[1] == 'z' || k[1] == 'b' || k[1] == 'y' || k[1] == 'a' ) {
@@ -180,10 +180,12 @@ static char * is_there_reiserfs_struct (char * fmt, int * what, int * skip)
    specification for complex structures like you used to do with
    printfs for integers, doubles and pointers. For instance, to print
    out key structure you have to write just: 
-   reiserfs_warning ("bad key %k", key); 
+   reiserfs_warning (NULL, "bad key %k", key); 
    instead of 
    printk ("bad key %lu %lu %lu %lu", key->k_dir_id, key->k_objectid, 
            key->k_offset, key->k_uniqueness); 
+   Also if you'd specify a pointer to fs super block as the first argument,
+   device name will be prepended to the output.
 */
 
 
@@ -259,18 +261,23 @@ prepare_error_buf( const char *fmt, va_list args )
     va_end( args );\
 }
 
-void reiserfs_warning (const char * fmt, ...)
+void reiserfs_warning (struct super_block * sb, const char * fmt, ...)
 {
   do_reiserfs_warning(fmt);
   /* console_print (error_buf); */
-  printk (KERN_WARNING "%s", error_buf);
+  if (sb)
+    printk (KERN_WARNING "%s:", bdevname(sb->s_dev));
+  else
+    printk (KERN_WARNING);
+
+  printk ("%s", error_buf);
 }
 
 void reiserfs_debug (struct super_block *s, int level, const char * fmt, ...)
 {
 #ifdef CONFIG_REISERFS_CHECK
   do_reiserfs_warning(fmt);
-  printk (KERN_DEBUG "%s", error_buf);
+  printk (KERN_DEBUG "%s: %s", bdevname(s->s_dev), error_buf);
 #else
   ; 
 #endif
@@ -330,7 +337,7 @@ void reiserfs_panic (struct super_block * sb, const char * fmt, ...)
 {
   show_reiserfs_locks() ;
   do_reiserfs_warning(fmt);
-  printk ( KERN_EMERG "%s", error_buf);
+  printk ( KERN_EMERG "%s (device %s)\n", error_buf, bdevname(sb->s_dev));
   BUG ();
 
   /* this is not actually called, but makes reiserfs_panic() "noreturn" */
@@ -409,13 +416,13 @@ static int print_internal (struct buffer_head * bh, int first, int last)
 	to = last < B_NR_ITEMS (bh) ? last : B_NR_ITEMS (bh);
     }
 
-    reiserfs_warning ("INTERNAL NODE (%ld) contains %z\n",  bh->b_blocknr, bh);
+    reiserfs_warning (NULL, "INTERNAL NODE (%ld) contains %z\n",  bh->b_blocknr, bh);
     
     dc = B_N_CHILD (bh, from);
-    reiserfs_warning ("PTR %d: %y ", from, dc);
+    reiserfs_warning (NULL, "PTR %d: %y ", from, dc);
     
     for (i = from, key = B_N_PDELIM_KEY (bh, from), dc ++; i < to; i ++, key ++, dc ++) {
-	reiserfs_warning ("KEY %d: %k PTR %d: %y ", i, key, i + 1, dc);
+	reiserfs_warning (NULL, "KEY %d: %k PTR %d: %y ", i, key, i + 1, dc);
 	if (i && i % 4 == 0)
 	    printk ("\n");
     }
@@ -444,10 +451,10 @@ static int print_leaf (struct buffer_head * bh, int print_mode, int first, int l
     nr = blkh_nr_item(blkh);
 
     printk ("\n===================================================================\n");
-    reiserfs_warning ("LEAF NODE (%ld) contains %z\n", bh->b_blocknr, bh);
+    reiserfs_warning (NULL, "LEAF NODE (%ld) contains %z\n", bh->b_blocknr, bh);
 
     if (!(print_mode & PRINT_LEAF_ITEMS)) {
-	reiserfs_warning ("FIRST ITEM_KEY: %k, LAST ITEM KEY: %k\n",
+	reiserfs_warning (NULL, "FIRST ITEM_KEY: %k, LAST ITEM KEY: %k\n",
 			  &(ih->ih_key), &((ih + nr - 1)->ih_key));
 	return 0;
     }
@@ -467,7 +474,7 @@ static int print_leaf (struct buffer_head * bh, int print_mode, int first, int l
     printk ("|##|   type    |           key           | ilen | free_space | version | loc  |\n");
     for (i = from; i < to; i++, ih ++) {
 	printk ("-------------------------------------------------------------------------------\n");
-	reiserfs_warning ("|%2d| %h |\n", i, ih);
+	reiserfs_warning (NULL, "|%2d| %h |\n", i, ih);
 	if (print_mode & PRINT_LEAF_ITEMS)
 	    op_print_item (ih, B_I_PITEM (bh, ih));
     }
@@ -496,12 +503,13 @@ static int print_super_block (struct buffer_head * bh)
     char *version;
     
 
-    if (strncmp (rs->s_magic,  REISERFS_SUPER_MAGIC_STRING,
-                 strlen ( REISERFS_SUPER_MAGIC_STRING)) == 0) {
+    if (is_reiserfs_3_5(rs)) {
         version = "3.5";
-    } else if( strncmp (rs->s_magic,  REISER2FS_SUPER_MAGIC_STRING,
-                        strlen ( REISER2FS_SUPER_MAGIC_STRING)) == 0) {
+    } else if (is_reiserfs_3_6(rs)) {
         version = "3.6";
+    } else if (is_reiserfs_jr(rs)) {
+      version = ((sb_version(rs) == REISERFS_VERSION_2) ?
+ 		 "3.6" : "3.5");  
     } else {
 	return 1;
     }
@@ -516,19 +524,18 @@ static int print_super_block (struct buffer_head * bh)
     // someone stores reiserfs super block in some data block ;)
 //    skipped = (bh->b_blocknr * bh->b_size) / sb_blocksize(rs);
     skipped = bh->b_blocknr;
-    data_blocks = sb_block_count(rs) - skipped - 1 -
-                  sb_bmap_nr(rs) - (sb_orig_journal_size(rs) + 1) -
-                  sb_free_blocks(rs);
-    printk ("Busy blocks (skipped %d, bitmaps - %d, journal blocks - %d\n"
-	    "1 super blocks, %d data blocks\n", 
-	    skipped, sb_bmap_nr(rs), 
-	    (sb_orig_journal_size(rs) + 1), data_blocks);
+    data_blocks = sb_block_count(rs) - skipped - 1 - sb_bmap_nr(rs) -
+	    (!is_reiserfs_jr(rs) ? sb_jp_journal_size(rs) + 1 : sb_reserved_for_journal(rs)) -	    
+	    sb_free_blocks(rs);
+    printk ("Busy blocks (skipped %d, bitmaps - %d, journal (or reserved) blocks - %d\n"
+	    "1 super block, %d data blocks\n", 
+	    skipped, sb_bmap_nr(rs), (!is_reiserfs_jr(rs) ? (sb_jp_journal_size(rs) + 1) :
+				      sb_reserved_for_journal(rs)) , data_blocks);
     printk ("Root block %u\n", sb_root_block(rs));
-    printk ("Journal block (first) %d\n", sb_journal_block(rs));
-    printk ("Journal dev %d\n", sb_journal_dev(rs));
-    printk ("Journal orig size %d\n", sb_orig_journal_size(rs));
-    printk ("Filesystem state %s\n", 
-	    (sb_state(rs) == REISERFS_VALID_FS) ? "VALID" : "ERROR");
+    printk ("Journal block (first) %d\n", sb_jp_journal_1st_block(rs));
+    printk ("Journal dev %d\n", sb_jp_journal_dev(rs));
+    printk ("Journal orig size %d\n", sb_jp_journal_size(rs));
+    printk ("FS state %d\n", sb_fs_state(rs));
     printk ("Hash function \"%s\"\n",
             reiserfs_hashname(sb_hash_function_code(rs)));
 

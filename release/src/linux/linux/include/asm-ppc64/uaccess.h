@@ -11,6 +11,7 @@
 #ifndef __ASSEMBLY__
 #include <linux/sched.h>
 #include <linux/errno.h>
+#include <asm/pgtable.h>
 #include <asm/processor.h>
 
 #define VERIFY_READ	0

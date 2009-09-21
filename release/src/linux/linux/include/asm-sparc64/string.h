@@ -1,4 +1,4 @@
-/* $Id: string.h,v 1.1.1.4 2003/10/14 08:09:23 sparq Exp $
+/* $Id: string.h,v 1.20 2001/09/27 04:36:24 kanoj Exp $
  * string.h: External definitions for optimized assembly string
  *           routines for the Linux Kernel.
  *
@@ -15,59 +15,25 @@
 
 #include <asm/asi.h>
 
-extern void __memmove(void *,const void *,__kernel_size_t);
-extern __kernel_size_t __memcpy(void *,const void *,__kernel_size_t);
 extern void *__memset(void *,int,__kernel_size_t);
-extern void *__builtin_memcpy(void *,const void *,__kernel_size_t);
-extern void *__builtin_memset(void *,int,__kernel_size_t);
 
 #ifndef EXPORT_SYMTAB_STROPS
 
 /* First the mem*() things. */
-#define __HAVE_ARCH_BCOPY
 #define __HAVE_ARCH_MEMMOVE
-
-#undef memmove
-#define memmove(_to, _from, _n) \
-({ \
-	void *_t = (_to); \
-	__memmove(_t, (_from), (_n)); \
-	_t; \
-})
+extern void *memmove(void *, const void *, __kernel_size_t);
 
 #define __HAVE_ARCH_MEMCPY
-
-static inline void *__constant_memcpy(void *to, const void *from, __kernel_size_t n)
-{
-	if(n) {
-		if(n <= 32) {
-			__builtin_memcpy(to, from, n);
-		} else {
-			__memcpy(to, from, n);
-		}
-	}
-	return to;
-}
-
-static inline void *__nonconstant_memcpy(void *to, const void *from, __kernel_size_t n)
-{
-	__memcpy(to, from, n);
-	return to;
-}
-
-#undef memcpy
-#define memcpy(t, f, n) \
-(__builtin_constant_p(n) ? \
- __constant_memcpy((t),(f),(n)) : \
- __nonconstant_memcpy((t),(f),(n)))
+extern void *memcpy(void *, const void *, __kernel_size_t);
 
 #define __HAVE_ARCH_MEMSET
+extern void *__builtin_memset(void *,int,__kernel_size_t);
 
 static inline void *__constant_memset(void *s, int c, __kernel_size_t count)
 {
 	extern __kernel_size_t __bzero(void *, __kernel_size_t);
 
-	if(!c) {
+	if (!c) {
 		__bzero(s, count);
 		return s;
 	} else
@@ -85,19 +51,19 @@ static inline void *__constant_memset(void *s, int c, __kernel_size_t count)
 #define __HAVE_ARCH_MEMSCAN
 
 #undef memscan
-#define memscan(__arg0, __char, __arg2)						\
-({										\
-	extern void *__memscan_zero(void *, size_t);				\
-	extern void *__memscan_generic(void *, int, size_t);			\
-	void *__retval, *__addr = (__arg0);					\
-	size_t __size = (__arg2);						\
-										\
-	if(__builtin_constant_p(__char) && !(__char))				\
-		__retval = __memscan_zero(__addr, __size);			\
-	else									\
-		__retval = __memscan_generic(__addr, (__char), __size);		\
-										\
-	__retval;								\
+#define memscan(__arg0, __char, __arg2)					\
+({									\
+	extern void *__memscan_zero(void *, size_t);			\
+	extern void *__memscan_generic(void *, int, size_t);		\
+	void *__retval, *__addr = (__arg0);				\
+	size_t __size = (__arg2);					\
+									\
+	if(__builtin_constant_p(__char) && !(__char))			\
+		__retval = __memscan_zero(__addr, __size);		\
+	else								\
+		__retval = __memscan_generic(__addr, (__char), __size);	\
+									\
+	__retval;							\
 })
 
 #define __HAVE_ARCH_MEMCMP

@@ -557,7 +557,7 @@ static int __init wdtpci_init_one (struct pci_dev *dev,
 
 	ret = register_reboot_notifier (&wdtpci_notifier);
 	if (ret) {
-		printk (KERN_ERR PFX "can't misc_register on minor=%d\n", WATCHDOG_MINOR);
+		printk (KERN_ERR PFX "can't register_reboot_notifier on minor=%d\n", WATCHDOG_MINOR);
 		goto out_misc;
 	}
 #ifdef CONFIG_WDT_501

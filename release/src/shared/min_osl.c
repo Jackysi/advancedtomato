@@ -2,7 +2,7 @@
  * Initialization and support routines for self-booting
  * compressed image.
  *
- * Copyright 2005, Broadcom Corporation
+ * Copyright 2004, Broadcom Corporation
  * All Rights Reserved.
  * 
  * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
@@ -10,13 +10,17 @@
  * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
  * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
  *
- * $Id: min_osl.c,v 1.1.1.3 2005/03/07 07:31:12 kanki Exp $
+ * $Id$
  */
 
+#include <typedefs.h>
+#include <bcmdefs.h>
 #include <osl.h>
-#include <sbutils.h>
 #include <bcmutils.h>
-#include <hndmips.h>
+#include <sbutils.h>
+#include <hndcpu.h>
+#include <sbchipc.h>
+#include <hndchipc.h>
 
 /* Cache support */
 
@@ -36,11 +40,9 @@ _change_cachability(uint32 cm)
 	if ((prid & (PRID_COMP_MASK | PRID_IMP_MASK)) ==
 	    (PRID_COMP_BROADCOM | PRID_IMP_BCM3302)) {
 		c0reg = MFC0(C0_BROADCOM, 0);
-		/* Enable icache */
-		c0reg |= (1 << 31);
-		/* Enable dcache */
-		c0reg |= (1 << 30);
-		MTC0(C0_BROADCOM, 0 , c0reg);
+		/* Enable icache & dcache */
+		c0reg |= BRCM_IC_ENABLE | BRCM_DC_ENABLE;
+		MTC0(C0_BROADCOM, 0, c0reg);
 	}
 }	
 static void (*change_cachability)(uint32);
@@ -62,6 +64,9 @@ caches_on(void)
 	dcache_size = size;
 	dc_lsize = lsize;
 	
+	/* If caches are not in the default state then
+	 * presume that caches are already init'd
+	 */
 	if ((MFC0(C0_CONFIG, 0) & CONF_CM_CMASK) != CONF_CM_UNCACHED) {
 		blast_dcache();
 		blast_icache();
@@ -74,7 +79,7 @@ caches_on(void)
 	MTC0(C0_TAGLO, 0, 0);
 	MTC0(C0_TAGHI, 0, 0);
 	while (start < end) {
-		cache_unroll(start, Index_Store_Tag_I);
+		cache_op(start, Index_Store_Tag_I);
 		start += ic_lsize;
 	}
 	
@@ -84,7 +89,7 @@ caches_on(void)
 	MTC0(C0_TAGLO, 0, 0);
 	MTC0(C0_TAGHI, 0, 0);
 	while (start < end) {
-		cache_unroll(start, Index_Store_Tag_D);
+		cache_op(start, Index_Store_Tag_D);
 		start += dc_lsize;
 	}
 
@@ -94,7 +99,7 @@ caches_on(void)
 }
 
 
-#define BCM4710_DUMMY_RREG() (((sbconfig_t *)(KSEG1ADDR(0x18000000 + SBCONFIGOFF)))->sbimstate)
+#define BCM4710_DUMMY_RREG() (((sbconfig_t *)(KSEG1ADDR(SB_ENUM_BASE + SBCONFIGOFF)))->sbimstate)
 
 void
 blast_dcache(void)
@@ -104,9 +109,9 @@ blast_dcache(void)
 	start = KSEG0;
 	end = start + dcache_size;
 
-	while(start < end) {
+	while (start < end) {
 		BCM4710_DUMMY_RREG();
-		cache_unroll(start, Index_Writeback_Inv_D);
+		cache_op(start, Index_Writeback_Inv_D);
 		start += dc_lsize;
 	}
 }
@@ -119,8 +124,8 @@ blast_icache(void)
 	start = KSEG0;
 	end = start + icache_size;
 
-	while(start < end) {
-		cache_unroll(start, Index_Invalidate_I);
+	while (start < end) {
+		cache_op(start, Index_Invalidate_I);
 		start += ic_lsize;
 	}
 }
@@ -128,13 +133,13 @@ blast_icache(void)
 /* uart output */
 
 struct serial_struct {
-	unsigned char	*iomem_base;
-	unsigned short	iomem_reg_shift;
+	unsigned char	*reg_base;
+	unsigned short	reg_shift;
 	int	irq;
 	int	baud_base;
 };
 
-static struct serial_struct hndrte_uart;
+static struct serial_struct min_uart;
 
 #define LOG_BUF_LEN	(1024)
 #define LOG_BUF_MASK	(LOG_BUF_LEN-1)
@@ -145,14 +150,14 @@ static unsigned long log_start;
 static inline int
 serial_in(struct serial_struct *info, int offset)
 {
-	return ((int)R_REG((uint8 *)(info->iomem_base + (offset << info->iomem_reg_shift))));
+	return ((int)R_REG(NULL, (uint8 *)(info->reg_base + (offset << info->reg_shift))));
 }
 
 static inline void
 serial_out(struct serial_struct *info, int offset, int value)
 {
-	W_REG((uint8 *)(info->iomem_base + (offset << info->iomem_reg_shift)), value);
-	*((volatile unsigned int *) KSEG1ADDR(0x18000000));
+	W_REG(NULL, (uint8 *)(info->reg_base + (offset << info->reg_shift)), value);
+	*((volatile unsigned int *) KSEG1ADDR(SB_ENUM_BASE));
 }
 
 void
@@ -167,15 +172,22 @@ putc(int c)
 	log_start = (log_start + 1) & LOG_BUF_MASK;
 
 	/* No UART */
-	if (!hndrte_uart.iomem_base)
+	if (!min_uart.reg_base)
 		return;
 
-	while (!(serial_in(&hndrte_uart, UART_LSR) & UART_LSR_THRE));
-	serial_out(&hndrte_uart, UART_TX, c);
+	while (!(serial_in(&min_uart, UART_LSR) & UART_LSR_THRE));
+	serial_out(&min_uart, UART_TX, c);
 }
 
 /* assert & debugging */
 
+#ifdef BCMDBG_ASSERT
+void
+assfail(char *exp, char *file, int line)
+{
+	printf("ASSERT %s file %s line %d\n", exp, file, line);
+}
+#endif /* BCMDBG_ASSERT */
 
 /* general purpose memory allocation */
 
@@ -223,7 +235,7 @@ static unsigned long cpu_clock = 125000000;
 static inline void
 __delay(uint loops)
 {
-        __asm__ __volatile__ (
+	__asm__ __volatile__(
                 ".set\tnoreorder\n"
                 "1:\tbnez\t%0,1b\n\t"
                 "subu\t%0,1\n\t"
@@ -242,18 +254,6 @@ udelay(uint us)
 	__delay(loops);
 }
 
-extern char *
-getvar(char *vars, char *name)
-{
-	return NULL;
-}
-
-extern int
-getintvar(char *vars, char *name)
-{
-	return 0;
-}
-
 /* No trap handling in self-decompressing boots */
 extern void trap_init(void);
 
@@ -268,20 +268,20 @@ serial_add(void *regs, uint irq, uint baud_base, uint reg_shift)
 {
 	int quot;
 
-	if (hndrte_uart.iomem_base)
+	if (min_uart.reg_base)
 		return;
 
-	hndrte_uart.iomem_base = regs;
-	hndrte_uart.irq = irq;
-	hndrte_uart.baud_base = baud_base / 16;
-	hndrte_uart.iomem_reg_shift = reg_shift;
+	min_uart.reg_base = regs;
+	min_uart.irq = irq;
+	min_uart.baud_base = baud_base / 16;
+	min_uart.reg_shift = reg_shift;
 
 	/* Set baud and 8N1 */
-	quot = (hndrte_uart.baud_base + 57600) / 115200;
-	serial_out(&hndrte_uart, UART_LCR, UART_LCR_DLAB);
-	serial_out(&hndrte_uart, UART_DLL, quot & 0xff);
-	serial_out(&hndrte_uart, UART_DLM, quot >> 8);
-	serial_out(&hndrte_uart, UART_LCR, UART_LCR_WLEN8);
+	quot = (min_uart.baud_base + 57600) / 115200;
+	serial_out(&min_uart, UART_LCR, UART_LCR_DLAB);
+	serial_out(&min_uart, UART_DLL, quot & 0xff);
+	serial_out(&min_uart, UART_DLM, quot >> 8);
+	serial_out(&min_uart, UART_LCR, UART_LCR_WLEN8);
 
 	/* According to the Synopsys website: "the serial clock
 	 * modules must have time to see new register values
@@ -299,22 +299,32 @@ void *
 osl_init()
 {
 	uint32 c0reg;
-	void *sbh;
+	sb_t *sbh;
 
 	/* Disable interrupts */
 	c0reg = MFC0(C0_STATUS, 0);
 	c0reg &= ~ST0_IE;
-	MTC0(C0_STATUS, 0 , c0reg);
+	MTC0(C0_STATUS, 0, c0reg);
 
 	/* Scan backplane */
-	sbh = sb_kattach();
+	sbh = sb_kattach(SB_OSH);
 
-	sb_mips_init(sbh);
+	sb_mips_init(sbh, 0);
 	sb_serial_init(sbh, serial_add);
 
 	/* Init malloc */
 	free_mem_ptr = (ulong) bss_end;
 	free_mem_ptr_end = ((ulong)&c0reg) - 8192;	/* Enough stack? */
 
-	return (sbh);
+	return ((void *)sbh);
+}
+
+/* translate bcmerros */
+int
+osl_error(int bcmerror)
+{
+	if (bcmerror)
+		return -1;
+	else
+		return 0;
 }

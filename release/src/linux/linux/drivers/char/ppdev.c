@@ -399,6 +399,7 @@ static int pp_ioctl(struct inode *inode, struct file *file,
 		int mode;
 		if (copy_from_user (&mode, (int *) arg, sizeof (mode)))
 			return -EFAULT;
+		/* FIXME: validate mode */
 		pp->state.mode = mode;
 		pp->state.phase = init_phase (mode);
 
@@ -429,6 +430,7 @@ static int pp_ioctl(struct inode *inode, struct file *file,
 		if (copy_from_user (&phase, (int *) arg, sizeof (phase))) {
 			return -EFAULT;
 		}
+		/* FIXME: validate phase */
 		pp->state.phase = phase;
 
 		if (pp->flags & PP_CLAIMED) {

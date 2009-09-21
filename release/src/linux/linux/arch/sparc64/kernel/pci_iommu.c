@@ -1,4 +1,4 @@
-/* $Id: pci_iommu.c,v 1.1.1.4 2003/10/14 08:07:50 sparq Exp $
+/* $Id: pci_iommu.c,v 1.16 2001/10/09 02:24:33 davem Exp $
  * pci_iommu.c: UltraSparc PCI controller IOM/STC support.
  *
  * Copyright (C) 1999 David S. Miller (davem@redhat.com)
@@ -56,6 +56,39 @@ static void __iommu_flushall(struct pci_iommu *iommu)
 	}
 }
 
+#define IOPTE_CONSISTENT(CTX) \
+	(IOPTE_VALID | IOPTE_CACHE | \
+	 (((CTX) << 47) & IOPTE_CONTEXT))
+
+#define IOPTE_STREAMING(CTX) \
+	(IOPTE_CONSISTENT(CTX) | IOPTE_STBUF)
+
+/* Existing mappings are never marked invalid, instead they
+ * are pointed to a dummy page.
+ */
+#define IOPTE_IS_DUMMY(iommu, iopte)	\
+	((iopte_val(*iopte) & IOPTE_PAGE) == (iommu)->dummy_page_pa)
+
+static void inline iopte_make_dummy(struct pci_iommu *iommu, iopte_t *iopte)
+{
+	unsigned long val = iopte_val(*iopte);
+
+	val &= ~IOPTE_PAGE;
+	val |= iommu->dummy_page_pa;
+
+	iopte_val(*iopte) = val;
+}
+
+void pci_iommu_table_init(struct pci_iommu *iommu, int tsbsize)
+{
+	int i;
+
+	tsbsize /= sizeof(iopte_t);
+
+	for (i = 0; i < tsbsize; i++)
+		iopte_make_dummy(iommu, &iommu->page_table[i]);
+}
+
 static iopte_t *alloc_streaming_cluster(struct pci_iommu *iommu, unsigned long npages)
 {
 	iopte_t *iopte, *limit, *first;
@@ -79,7 +112,7 @@ static iopte_t *alloc_streaming_cluster(struct pci_iommu *iommu, unsigned long n
 	
 	first = iopte;
 	for (;;) {
-		if (iopte_val(*iopte) == 0UL) {
+		if (IOPTE_IS_DUMMY(iommu, iopte)) {
 			if ((iopte + (1 << cnum)) >= limit)
 				ent = 0;
 			else
@@ -142,12 +175,12 @@ static iopte_t *alloc_consistent_cluster(struct pci_iommu *iommu, unsigned long 
 	iopte = iommu->page_table + (1 << (iommu->page_table_sz_bits - PBM_LOGCLUSTERS));
 	while (iopte > iommu->page_table) {
 		iopte--;
-		if (!(iopte_val(*iopte) & IOPTE_VALID)) {
+		if (IOPTE_IS_DUMMY(iommu, iopte)) {
 			unsigned long tmp = npages;
 
 			while (--tmp) {
 				iopte--;
-				if (iopte_val(*iopte) & IOPTE_VALID)
+				if (!IOPTE_IS_DUMMY(iommu, iopte))
 					break;
 			}
 			if (tmp == 0) {
@@ -161,15 +194,6 @@ static iopte_t *alloc_consistent_cluster(struct pci_iommu *iommu, unsigned long 
 	}
 	return NULL;
 }
-
-#define IOPTE_CONSISTENT(CTX) \
-	(IOPTE_VALID | IOPTE_CACHE | \
-	 (((CTX) << 47) & IOPTE_CONTEXT))
-
-#define IOPTE_STREAMING(CTX) \
-	(IOPTE_CONSISTENT(CTX) | IOPTE_STBUF)
-
-#define IOPTE_INVALID	0UL
 
 /* Allocate and map kernel buffer of size SIZE using consistent mode
  * DMA for PCI device PDEV.  Return non-NULL cpu-side address if
@@ -261,7 +285,7 @@ void pci_free_consistent(struct pci_dev *pdev, size_t size, void *cpu, dma_addr_
 		limit = (iommu->page_table +
 			 (1 << (iommu->page_table_sz_bits - PBM_LOGCLUSTERS)));
 		while (walk < limit) {
-			if (iopte_val(*walk) != IOPTE_INVALID)
+			if (!IOPTE_IS_DUMMY(iommu, walk))
 				break;
 			walk++;
 		}
@@ -280,7 +304,7 @@ void pci_free_consistent(struct pci_dev *pdev, size_t size, void *cpu, dma_addr_
 		ctx = (iopte_val(*iopte) & IOPTE_CONTEXT) >> 47UL;
 
 	for (i = 0; i < npages; i++, iopte++)
-		iopte_val(*iopte) = IOPTE_INVALID;
+		iopte_make_dummy(iommu, iopte);
 
 	if (iommu->iommu_ctxflush) {
 		pci_iommu_write(iommu->iommu_ctxflush, ctx);
@@ -377,7 +401,7 @@ void pci_unmap_single(struct pci_dev *pdev, dma_addr_t bus_addr, size_t sz, int 
 	base = iommu->page_table +
 		((bus_addr - iommu->page_table_map_base) >> IO_PAGE_SHIFT);
 #ifdef DEBUG_PCI_IOMMU
-	if (iopte_val(*base) == IOPTE_INVALID)
+	if (IOPTE_IS_DUMMY(iommu, base))
 		printk("pci_unmap_single called on non-mapped region %08x,%08x from %016lx\n",
 		       bus_addr, sz, __builtin_return_address(0));
 #endif
@@ -412,11 +436,11 @@ void pci_unmap_single(struct pci_dev *pdev, dma_addr_t bus_addr, size_t sz, int 
 		pci_iommu_write(strbuf->strbuf_fsync, strbuf->strbuf_flushflag_pa);
 		(void) pci_iommu_read(iommu->write_complete_reg);
 		while (!PCI_STC_FLUSHFLAG_SET(strbuf))
-			membar("#LoadLoad");
+			rmb();
 	}
 
 	/* Step 2: Clear out first TSB entry. */
-	iopte_val(*base) = IOPTE_INVALID;
+	iopte_make_dummy(iommu, base);
 
 	free_streaming_cluster(iommu, bus_addr - iommu->page_table_map_base,
 			       npages, ctx);
@@ -617,7 +641,7 @@ void pci_unmap_sg(struct pci_dev *pdev, struct scatterlist *sglist, int nelems, 
 		((bus_addr - iommu->page_table_map_base) >> IO_PAGE_SHIFT);
 
 #ifdef DEBUG_PCI_IOMMU
-	if (iopte_val(*base) == IOPTE_INVALID)
+	if (IOPTE_IS_DUMMY(iommu, base))
 		printk("pci_unmap_sg called on non-mapped region %016lx,%d from %016lx\n", sglist->dma_address, nelems, __builtin_return_address(0));
 #endif
 
@@ -650,11 +674,11 @@ void pci_unmap_sg(struct pci_dev *pdev, struct scatterlist *sglist, int nelems, 
 		pci_iommu_write(strbuf->strbuf_fsync, strbuf->strbuf_flushflag_pa);
 		(void) pci_iommu_read(iommu->write_complete_reg);
 		while (!PCI_STC_FLUSHFLAG_SET(strbuf))
-			membar("#LoadLoad");
+			rmb();
 	}
 
 	/* Step 2: Clear out first TSB entry. */
-	iopte_val(*base) = IOPTE_INVALID;
+	iopte_make_dummy(iommu, base);
 
 	free_streaming_cluster(iommu, bus_addr - iommu->page_table_map_base,
 			       npages, ctx);
@@ -718,7 +742,7 @@ void pci_dma_sync_single(struct pci_dev *pdev, dma_addr_t bus_addr, size_t sz, i
 	pci_iommu_write(strbuf->strbuf_fsync, strbuf->strbuf_flushflag_pa);
 	(void) pci_iommu_read(iommu->write_complete_reg);
 	while (!PCI_STC_FLUSHFLAG_SET(strbuf))
-		membar("#LoadLoad");
+		rmb();
 
 	spin_unlock_irqrestore(&iommu->lock, flags);
 }
@@ -783,9 +807,29 @@ void pci_dma_sync_sg(struct pci_dev *pdev, struct scatterlist *sglist, int nelem
 	pci_iommu_write(strbuf->strbuf_fsync, strbuf->strbuf_flushflag_pa);
 	(void) pci_iommu_read(iommu->write_complete_reg);
 	while (!PCI_STC_FLUSHFLAG_SET(strbuf))
-		membar("#LoadLoad");
+		rmb();
 
 	spin_unlock_irqrestore(&iommu->lock, flags);
+}
+
+static void ali_sound_dma_hack(struct pci_dev *pdev, int set_bit)
+{
+	struct pci_dev *ali_isa_bridge;
+	u8 val;
+
+	/* ALI sound chips generate 31-bits of DMA, a special register
+	 * determines what bit 31 is emitted as.
+	 */
+	ali_isa_bridge = pci_find_device(PCI_VENDOR_ID_AL,
+					 PCI_DEVICE_ID_AL_M1533,
+					 NULL);
+
+	pci_read_config_byte(ali_isa_bridge, 0x7e, &val);
+	if (set_bit)
+		val |= 0x01;
+	else
+		val &= ~0x01;
+	pci_write_config_byte(ali_isa_bridge, 0x7e, val);
 }
 
 int pci_dma_supported(struct pci_dev *pdev, u64 device_mask)
@@ -799,7 +843,18 @@ int pci_dma_supported(struct pci_dev *pdev, u64 device_mask)
 		struct pci_iommu *iommu = pcp->pbm->iommu;
 
 		dma_addr_mask = iommu->dma_addr_mask;
+
+		if (pdev->vendor == PCI_VENDOR_ID_AL &&
+		    pdev->device == PCI_DEVICE_ID_AL_M5451 &&
+		    device_mask == 0x7fffffff) {
+			ali_sound_dma_hack(pdev,
+					   (dma_addr_mask & 0x80000000) != 0);
+			return 1;
+		}
 	}
+
+	if (device_mask >= (1UL << 32UL))
+		return 0;
 
 	return (device_mask & dma_addr_mask) == dma_addr_mask;
 }

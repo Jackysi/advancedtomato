@@ -25,9 +25,9 @@
 /*
  * BlueZ Bluetooth address family and sockets.
  *
- * $Id: af_bluetooth.c,v 1.1.1.4 2003/10/14 08:09:32 sparq Exp $
+ * $Id: af_bluetooth.c,v 1.8 2002/07/22 20:32:54 maxk Exp $
  */
-#define VERSION "2.2"
+#define VERSION "2.4"
 
 #include <linux/config.h>
 #include <linux/module.h>
@@ -57,12 +57,12 @@
 #endif
 
 /* Bluetooth sockets */
-#define BLUEZ_MAX_PROTO	5
+#define BLUEZ_MAX_PROTO	7
 static struct net_proto_family *bluez_proto[BLUEZ_MAX_PROTO];
 
 int bluez_sock_register(int proto, struct net_proto_family *ops)
 {
-	if (proto >= BLUEZ_MAX_PROTO)
+	if (proto < 0 || proto >= BLUEZ_MAX_PROTO)
 		return -EINVAL;
 
 	if (bluez_proto[proto])
@@ -74,7 +74,7 @@ int bluez_sock_register(int proto, struct net_proto_family *ops)
 
 int bluez_sock_unregister(int proto)
 {
-	if (proto >= BLUEZ_MAX_PROTO)
+	if (proto < 0 || proto >= BLUEZ_MAX_PROTO)
 		return -EINVAL;
 
 	if (!bluez_proto[proto])
@@ -86,7 +86,7 @@ int bluez_sock_unregister(int proto)
 
 static int bluez_sock_create(struct socket *sock, int proto)
 {
-	if (proto >= BLUEZ_MAX_PROTO)
+	if (proto < 0 || proto >= BLUEZ_MAX_PROTO)
 		return -EINVAL;
 
 #if defined(CONFIG_KMOD)
@@ -221,12 +221,11 @@ int bluez_sock_recvmsg(struct socket *sock, struct msghdr *msg, int len, int fla
 unsigned int bluez_sock_poll(struct file * file, struct socket *sock, poll_table *wait)
 {
 	struct sock *sk = sock->sk;
-	unsigned int mask;
+	unsigned int mask = 0;
 
 	BT_DBG("sock %p, sk %p", sock, sk);
 
 	poll_wait(file, sk->sleep, wait);
-	mask = 0;
 
 	if (sk->err || !skb_queue_empty(&sk->error_queue))
 		mask |= POLLERR;
@@ -242,9 +241,11 @@ unsigned int bluez_sock_poll(struct file * file, struct socket *sock, poll_table
 	if (sk->state == BT_CLOSED)
 		mask |= POLLHUP;
 
-	if (sk->state == BT_CONNECT || sk->state == BT_CONNECT2)
+	if (sk->state == BT_CONNECT ||
+			sk->state == BT_CONNECT2 ||
+			sk->state == BT_CONFIG)
 		return mask;
-	
+
 	if (sock_writeable(sk))
 		mask |= POLLOUT | POLLWRNORM | POLLWRBAND;
 	else
@@ -253,19 +254,24 @@ unsigned int bluez_sock_poll(struct file * file, struct socket *sock, poll_table
 	return mask;
 }
 
-int bluez_sock_w4_connect(struct sock *sk, int flags)
+int bluez_sock_wait_state(struct sock *sk, int state, unsigned long timeo)
 {
 	DECLARE_WAITQUEUE(wait, current);
-	long timeo = sock_sndtimeo(sk, flags & O_NONBLOCK);
 	int err = 0;
 
 	BT_DBG("sk %p", sk);
 
 	add_wait_queue(sk->sleep, &wait);
-	while (sk->state != BT_CONNECTED) {
+	while (sk->state != state) {
 		set_current_state(TASK_INTERRUPTIBLE);
+
 		if (!timeo) {
 			err = -EAGAIN;
+			break;
+		}
+
+		if (signal_pending(current)) {
+			err = sock_intr_errno(timeo);
 			break;
 		}
 
@@ -273,17 +279,8 @@ int bluez_sock_w4_connect(struct sock *sk, int flags)
 		timeo = schedule_timeout(timeo);
 		lock_sock(sk);
 
-		err = 0;
-		if (sk->state == BT_CONNECTED)
-			break;
-
 		if (sk->err) {
 			err = sock_error(sk);
-			break;
-		}
-
-		if (signal_pending(current)) {
-			err = sock_intr_errno(timeo);
 			break;
 		}
 	}

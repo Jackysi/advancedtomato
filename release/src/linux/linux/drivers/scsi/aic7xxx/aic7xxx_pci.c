@@ -39,9 +39,9 @@
  * IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGES.
  *
- * $Id: aic7xxx_pci.c,v 1.1.1.4 2003/10/14 08:08:44 sparq Exp $
+ * $Id: //depot/aic7xxx/aic7xxx/aic7xxx_pci.c#69 $
  *
- * $FreeBSD: src/sys/dev/aic7xxx/aic7xxx_pci.c,v 1.2.2.14 2002/04/29 19:36:31 gibbs Exp $
+ * $FreeBSD$
  */
 
 #ifdef __linux__
@@ -76,7 +76,7 @@ ahc_compose_id(u_int device, u_int vendor, u_int subdevice, u_int subvendor)
 #define ID_9005_SISL_MASK		0x000FFFFF00000000ull
 #define ID_9005_SISL_ID			0x0005900500000000ull
 #define ID_AIC7850			0x5078900400000000ull
-#define ID_AHA_2902_04_10_15_20_30C	0x5078900478509004ull
+#define ID_AHA_2902_04_10_15_20C_30C	0x5078900478509004ull
 #define ID_AIC7855			0x5578900400000000ull
 #define ID_AIC7859			0x3860900400000000ull
 #define ID_AHA_2930CU			0x3860900438699004ull
@@ -245,9 +245,9 @@ struct ahc_pci_identity ahc_pci_ident_table [] =
 {
 	/* aic7850 based controllers */
 	{
-		ID_AHA_2902_04_10_15_20_30C,
+		ID_AHA_2902_04_10_15_20C_30C,
 		ID_ALL_MASK,
-		"Adaptec 2902/04/10/15/20/30C SCSI adapter",
+		"Adaptec 2902/04/10/15/20C/30C SCSI adapter",
 		ahc_aic785X_setup
 	},
 	/* aic7860 based controllers */
@@ -350,6 +350,10 @@ struct ahc_pci_identity ahc_pci_ident_table [] =
 		ahc_aha398XU_setup
 	},
 	{
+		/*
+		 * XXX Don't know the slot numbers
+		 * so we can't identify channels
+		 */
 		ID_AHA_4944U & ID_DEV_VENDOR_MASK,
 		ID_DEV_VENDOR_MASK,
 		"Adaptec 4944 Ultra SCSI adapter",
@@ -637,6 +641,7 @@ const u_int ahc_num_pci_devs = NUM_ELEMENTS(ahc_pci_ident_table);
 #define AHC_494X_SLOT_CHANNEL_D	7
 
 #define	DEVCONFIG		0x40
+#define		PCIERRGENDIS	0x80000000ul
 #define		SCBSIZE32	0x00010000ul	/* aic789X only */
 #define		REXTVALID	0x00001000ul	/* ultra cards only */
 #define		MPORTMODE	0x00000400ul	/* aic7870+ only */
@@ -655,6 +660,14 @@ const u_int ahc_num_pci_devs = NUM_ELEMENTS(ahc_pci_ident_table);
 #define	CSIZE_LATTIME		0x0c
 #define		CACHESIZE	0x0000003ful	/* only 5 bits */
 #define		LATTIME		0x0000ff00ul
+
+/* PCI STATUS definitions */
+#define	DPE	0x80
+#define SSE	0x40
+#define	RMA	0x20
+#define	RTA	0x10
+#define STA	0x08
+#define DPR	0x01
 
 static int ahc_9005_subdevinfo_valid(uint16_t vendor, uint16_t device,
 				     uint16_t subvendor, uint16_t subdevice);
@@ -683,8 +696,12 @@ static void aic787X_cable_detect(struct ahc_softc *ahc, int *internal50_present,
 static void aic785X_cable_detect(struct ahc_softc *ahc, int *internal50_present,
 				 int *externalcable_present,
 				 int *eeprom_present);
-static void write_brdctl(struct ahc_softc *ahc, uint8_t value);
+static void    write_brdctl(struct ahc_softc *ahc, uint8_t value);
 static uint8_t read_brdctl(struct ahc_softc *ahc);
+static void ahc_pci_intr(struct ahc_softc *ahc);
+static int  ahc_pci_chip_init(struct ahc_softc *ahc);
+static int  ahc_pci_suspend(struct ahc_softc *ahc);
+static int  ahc_pci_resume(struct ahc_softc *ahc);
 
 static int
 ahc_9005_subdevinfo_valid(uint16_t device, uint16_t vendor,
@@ -735,10 +752,7 @@ ahc_find_pci_device(ahc_dev_softc_t pci)
 	device = ahc_pci_read_config(pci, PCIR_DEVICE, /*bytes*/2);
 	subvendor = ahc_pci_read_config(pci, PCIR_SUBVEND_0, /*bytes*/2);
 	subdevice = ahc_pci_read_config(pci, PCIR_SUBDEV_0, /*bytes*/2);
-	full_id = ahc_compose_id(device,
-				 vendor,
-				 subdevice,
-				 subvendor);
+	full_id = ahc_compose_id(device, vendor, subdevice, subvendor);
 
 	/*
 	 * If the second function is not hooked up, ignore it.
@@ -767,18 +781,17 @@ ahc_find_pci_device(ahc_dev_softc_t pci)
 int
 ahc_pci_config(struct ahc_softc *ahc, struct ahc_pci_identity *entry)
 {
-	struct scb_data *shared_scb_data;
-	u_long		 l;
-	u_long		 s;
-	u_int		 command;
-	u_int		 our_id = 0;
-	u_int		 sxfrctl1;
-	u_int		 scsiseq;
-	u_int		 dscommand0;
-	int		 error;
-	uint8_t		 sblkctl;
+	u_long	 l;
+	u_int	 command;
+	u_int	 our_id;
+	u_int	 sxfrctl1;
+	u_int	 scsiseq;
+	u_int	 dscommand0;
+	uint32_t devconfig;
+	int	 error;
+	uint8_t	 sblkctl;
 
-	shared_scb_data = NULL;
+	our_id = 0;
 	error = entry->setup(ahc);
 	if (error != 0)
 		return (error);
@@ -799,6 +812,8 @@ ahc_pci_config(struct ahc_softc *ahc, struct ahc_pci_identity *entry)
 	 */
 	ahc_intr_enable(ahc, FALSE);
 
+	devconfig = ahc_pci_read_config(ahc->dev_softc, DEVCONFIG, /*bytes*/4);
+
 	/*
 	 * If we need to support high memory, enable dual
 	 * address cycles.  This bit must be set to enable
@@ -806,22 +821,23 @@ ahc_pci_config(struct ahc_softc *ahc, struct ahc_pci_identity *entry)
 	 * 64bit bus (PCI64BIT set in devconfig).
 	 */
 	if ((ahc->flags & AHC_39BIT_ADDRESSING) != 0) {
-		uint32_t devconfig;
 
 		if (bootverbose)
 			printf("%s: Enabling 39Bit Addressing\n",
 			       ahc_name(ahc));
-		devconfig = ahc_pci_read_config(ahc->dev_softc,
-						DEVCONFIG, /*bytes*/4);
 		devconfig |= DACEN;
-		ahc_pci_write_config(ahc->dev_softc, DEVCONFIG,
-				     devconfig, /*bytes*/4);
 	}
 	
+	/* Ensure that pci error generation, a test feature, is disabled. */
+	devconfig |= PCIERRGENDIS;
+
+	ahc_pci_write_config(ahc->dev_softc, DEVCONFIG, devconfig, /*bytes*/4);
+
 	/* Ensure busmastering is enabled */
-	command = ahc_pci_read_config(ahc->dev_softc, PCIR_COMMAND, /*bytes*/1);
+	command = ahc_pci_read_config(ahc->dev_softc, PCIR_COMMAND, /*bytes*/2);
 	command |= PCIM_CMD_BUSMASTEREN;
-	ahc_pci_write_config(ahc->dev_softc, PCIR_COMMAND, command, /*bytes*/1);
+
+	ahc_pci_write_config(ahc->dev_softc, PCIR_COMMAND, command, /*bytes*/2);
 
 	/* On all PCI adapters, we allow SCB paging */
 	ahc->flags |= AHC_PAGESCBS;
@@ -830,7 +846,21 @@ ahc_pci_config(struct ahc_softc *ahc, struct ahc_pci_identity *entry)
 	if (error != 0)
 		return (error);
 
+	/*
+	 * Disable PCI parity error checking.  Users typically
+	 * do this to work around broken PCI chipsets that get
+	 * the parity timing wrong and thus generate lots of spurious
+	 * errors.  The chip only allows us to disable *all* parity
+	 * error reporting when doing this, so CIO bus, scb ram, and
+	 * scratch ram parity errors will be ignored too.
+	 */
+	if ((ahc->flags & AHC_DISABLE_PCI_PERR) != 0)
+		ahc->seqctl |= FAILDIS;
+
 	ahc->bus_intr = ahc_pci_intr;
+	ahc->bus_chip_init = ahc_pci_chip_init;
+	ahc->bus_suspend = ahc_pci_suspend;
+	ahc->bus_resume = ahc_pci_resume;
 
 	/* Remeber how the card was setup in case there is no SEEPROM */
 	if ((ahc_inb(ahc, HCNTRL) & POWRDN) == 0) {
@@ -847,7 +877,7 @@ ahc_pci_config(struct ahc_softc *ahc, struct ahc_pci_identity *entry)
 		scsiseq = 0;
 	}
 
-	error = ahc_reset(ahc);
+	error = ahc_reset(ahc, /*reinit*/FALSE);
 	if (error != 0)
 		return (ENXIO);
 
@@ -937,7 +967,8 @@ ahc_pci_config(struct ahc_softc *ahc, struct ahc_pci_identity *entry)
 		 * a SEEPROM.
 		 */
 		/* See if someone else set us up already */
-		if (scsiseq != 0) {
+		if ((ahc->flags & AHC_NO_BIOS_INIT) == 0
+		 && scsiseq != 0) {
 			printf("%s: Using left over BIOS settings\n",
 				ahc_name(ahc));
 			ahc->flags &= ~AHC_USEDEFAULTS;
@@ -969,6 +1000,35 @@ ahc_pci_config(struct ahc_softc *ahc, struct ahc_pci_identity *entry)
 	if ((sxfrctl1 & STPWEN) != 0)
 		ahc->flags |= AHC_TERM_ENB_A;
 
+	/*
+	 * Save chip register configuration data for chip resets
+	 * that occur during runtime and resume events.
+	 */
+	ahc->bus_softc.pci_softc.devconfig =
+	    ahc_pci_read_config(ahc->dev_softc, DEVCONFIG, /*bytes*/4);
+	ahc->bus_softc.pci_softc.command =
+	    ahc_pci_read_config(ahc->dev_softc, PCIR_COMMAND, /*bytes*/1);
+	ahc->bus_softc.pci_softc.csize_lattime =
+	    ahc_pci_read_config(ahc->dev_softc, CSIZE_LATTIME, /*bytes*/1);
+	ahc->bus_softc.pci_softc.dscommand0 = ahc_inb(ahc, DSCOMMAND0);
+	ahc->bus_softc.pci_softc.dspcistatus = ahc_inb(ahc, DSPCISTATUS);
+	if ((ahc->features & AHC_DT) != 0) {
+		u_int sfunct;
+
+		sfunct = ahc_inb(ahc, SFUNCT) & ~ALT_MODE;
+		ahc_outb(ahc, SFUNCT, sfunct | ALT_MODE);
+		ahc->bus_softc.pci_softc.optionmode = ahc_inb(ahc, OPTIONMODE);
+		ahc->bus_softc.pci_softc.targcrccnt = ahc_inw(ahc, TARGCRCCNT);
+		ahc_outb(ahc, SFUNCT, sfunct);
+		ahc->bus_softc.pci_softc.crccontrol1 =
+		    ahc_inb(ahc, CRCCONTROL1);
+	}
+	if ((ahc->features & AHC_MULTI_FUNC) != 0)
+		ahc->bus_softc.pci_softc.scbbaddr = ahc_inb(ahc, SCBBADDR);
+
+	if ((ahc->features & AHC_ULTRA2) != 0)
+		ahc->bus_softc.pci_softc.dff_thrsh = ahc_inb(ahc, DFF_THRSH);
+
 	/* Core initialization */
 	error = ahc_init(ahc);
 	if (error != 0)
@@ -986,11 +1046,6 @@ ahc_pci_config(struct ahc_softc *ahc, struct ahc_pci_identity *entry)
 	 * Link this softc in with all other ahc instances.
 	 */
 	ahc_softc_insert(ahc);
-
-	ahc_lock(ahc, &s);
-	ahc_intr_enable(ahc, TRUE);
-	ahc_unlock(ahc, &s);
-
 	ahc_list_unlock(&l);
 	return (0);
 }
@@ -1191,6 +1246,85 @@ done:
 }
 
 /*
+ * Perform some simple tests that should catch situations where
+ * our registers are invalidly mapped.
+ */
+int
+ahc_pci_test_register_access(struct ahc_softc *ahc)
+{
+	int	 error;
+	u_int	 status1;
+	uint32_t cmd;
+	uint8_t	 hcntrl;
+
+	error = EIO;
+
+	/*
+	 * Enable PCI error interrupt status, but suppress NMIs
+	 * generated by SERR raised due to target aborts.
+	 */
+	cmd = ahc_pci_read_config(ahc->dev_softc, PCIR_COMMAND, /*bytes*/2);
+	ahc_pci_write_config(ahc->dev_softc, PCIR_COMMAND,
+			     cmd & ~PCIM_CMD_SERRESPEN, /*bytes*/2);
+
+	/*
+	 * First a simple test to see if any
+	 * registers can be read.  Reading
+	 * HCNTRL has no side effects and has
+	 * at least one bit that is guaranteed to
+	 * be zero so it is a good register to
+	 * use for this test.
+	 */
+	hcntrl = ahc_inb(ahc, HCNTRL);
+	if (hcntrl == 0xFF)
+		goto fail;
+
+	/*
+	 * Next create a situation where write combining
+	 * or read prefetching could be initiated by the
+	 * CPU or host bridge.  Our device does not support
+	 * either, so look for data corruption and/or flagged
+	 * PCI errors.  First pause without causing another
+	 * chip reset.
+	 */
+	hcntrl &= ~CHIPRST;
+	ahc_outb(ahc, HCNTRL, hcntrl|PAUSE);
+	while (ahc_is_paused(ahc) == 0)
+		;
+
+	/* Clear any PCI errors that occurred before our driver attached. */
+	status1 = ahc_pci_read_config(ahc->dev_softc,
+				      PCIR_STATUS + 1, /*bytes*/1);
+	ahc_pci_write_config(ahc->dev_softc, PCIR_STATUS + 1,
+			     status1, /*bytes*/1);
+	ahc_outb(ahc, CLRINT, CLRPARERR);
+
+	ahc_outb(ahc, SEQCTL, PERRORDIS);
+	ahc_outb(ahc, SCBPTR, 0);
+	ahc_outl(ahc, SCB_BASE, 0x5aa555aa);
+	if (ahc_inl(ahc, SCB_BASE) != 0x5aa555aa)
+		goto fail;
+
+	status1 = ahc_pci_read_config(ahc->dev_softc,
+				      PCIR_STATUS + 1, /*bytes*/1);
+	if ((status1 & STA) != 0)
+		goto fail;
+
+	error = 0;
+
+fail:
+	/* Silently clear any latched errors. */
+	status1 = ahc_pci_read_config(ahc->dev_softc,
+				      PCIR_STATUS + 1, /*bytes*/1);
+	ahc_pci_write_config(ahc->dev_softc, PCIR_STATUS + 1,
+			     status1, /*bytes*/1);
+	ahc_outb(ahc, CLRINT, CLRPARERR);
+	ahc_outb(ahc, SEQCTL, PERRORDIS|FAILDIS);
+	ahc_pci_write_config(ahc->dev_softc, PCIR_COMMAND, cmd, /*bytes*/2);
+	return (error);
+}
+
+/*
  * Check the external port logic for a serial eeprom
  * and termination/cable detection contrls.
  */
@@ -1275,13 +1409,12 @@ check_extport(struct ahc_softc *ahc, u_int *sxfrctl1)
 			int	  i;
 
 			sc_data = (uint16_t *)sc;
-			for (i = 0; i < 32; i++) {
-				uint16_t val;
-				int	 j;
+			for (i = 0; i < 32; i++, sc_data++) {
+				int	j;
 
 				j = i * 2;
-				val = ahc_inb(ahc, SRAM_BASE + j)
-				    | ahc_inb(ahc, SRAM_BASE + j + 1) << 8;
+				*sc_data = ahc_inb(ahc, SRAM_BASE + j)
+					 | ahc_inb(ahc, SRAM_BASE + j + 1) << 8;
 			}
 			have_seeprom = ahc_verify_cksum(sc);
 			if (have_seeprom)
@@ -1325,6 +1458,7 @@ check_extport(struct ahc_softc *ahc, u_int *sxfrctl1)
 	}
 
 	if (have_autoterm) {
+		ahc->flags |= AHC_HAS_TERM_LOGIC;
 		ahc_acquire_seeprom(ahc, &sd);
 		configure_termination(ahc, &sd, sc->adapter_control, sxfrctl1);
 		ahc_release_seeprom(&sd);
@@ -1524,6 +1658,8 @@ configure_termination(struct ahc_softc *ahc,
 			aic785X_cable_detect(ahc, &internal50_present,
 					     &externalcable_present,
 					     &eeprom_present);
+			/* Can never support a wide connector. */
+			internal68_present = 0;
 		} else {
 			aic787X_cable_detect(ahc, &internal50_present,
 					     &internal68_present,
@@ -1756,14 +1892,52 @@ aic785X_cable_detect(struct ahc_softc *ahc, int *internal50_present,
 	spiocap |= EXT_BRDCTL;
 	ahc_outb(ahc, SPIOCAP, spiocap);
 	ahc_outb(ahc, BRDCTL, BRDRW|BRDCS);
+	ahc_flush_device_writes(ahc);
+	ahc_delay(500);
 	ahc_outb(ahc, BRDCTL, 0);
+	ahc_flush_device_writes(ahc);
+	ahc_delay(500);
 	brdctl = ahc_inb(ahc, BRDCTL);
 	*internal50_present = (brdctl & BRDDAT5) ? 0 : 1;
 	*externalcable_present = (brdctl & BRDDAT6) ? 0 : 1;
-
 	*eeprom_present = (ahc_inb(ahc, SPIOCAP) & EEPROM) ? 1 : 0;
 }
 	
+int
+ahc_acquire_seeprom(struct ahc_softc *ahc, struct seeprom_descriptor *sd)
+{
+	int wait;
+
+	if ((ahc->features & AHC_SPIOCAP) != 0
+	 && (ahc_inb(ahc, SPIOCAP) & SEEPROM) == 0)
+		return (0);
+
+	/*
+	 * Request access of the memory port.  When access is
+	 * granted, SEERDY will go high.  We use a 1 second
+	 * timeout which should be near 1 second more than
+	 * is needed.  Reason: after the chip reset, there
+	 * should be no contention.
+	 */
+	SEEPROM_OUTB(sd, sd->sd_MS);
+	wait = 1000;  /* 1 second timeout in msec */
+	while (--wait && ((SEEPROM_STATUS_INB(sd) & sd->sd_RDY) == 0)) {
+		ahc_delay(1000);  /* delay 1 msec */
+	}
+	if ((SEEPROM_STATUS_INB(sd) & sd->sd_RDY) == 0) {
+		SEEPROM_OUTB(sd, 0); 
+		return (0);
+	}
+	return(1);
+}
+
+void
+ahc_release_seeprom(struct seeprom_descriptor *sd)
+{
+	/* Release access to the memory port and the serial EEPROM. */
+	SEEPROM_OUTB(sd, 0);
+}
+
 static void
 write_brdctl(struct ahc_softc *ahc, uint8_t value)
 {
@@ -1797,8 +1971,7 @@ write_brdctl(struct ahc_softc *ahc, uint8_t value)
 }
 
 static uint8_t
-read_brdctl(ahc)
-	struct 	ahc_softc *ahc;
+read_brdctl(struct ahc_softc *ahc)
 {
 	uint8_t brdctl;
 	uint8_t value;
@@ -1819,14 +1992,7 @@ read_brdctl(ahc)
 	return (value);
 }
 
-#define	DPE	0x80
-#define SSE	0x40
-#define	RMA	0x20
-#define	RTA	0x10
-#define STA	0x08
-#define DPR	0x01
-
-void
+static void
 ahc_pci_intr(struct ahc_softc *ahc)
 {
 	u_int error;
@@ -1844,6 +2010,7 @@ ahc_pci_intr(struct ahc_softc *ahc)
 	      ahc_inb(ahc, SEQADDR0) | (ahc_inb(ahc, SEQADDR1) << 8));
 
 	if (status1 & DPE) {
+		ahc->pci_target_perr_count++;
 		printf("%s: Data Parity Error Detected during address "
 		       "or write data phase\n", ahc_name(ahc));
 	}
@@ -1875,7 +2042,87 @@ ahc_pci_intr(struct ahc_softc *ahc)
 		ahc_outb(ahc, CLRINT, CLRPARERR);
 	}
 
+	if (ahc->pci_target_perr_count > AHC_PCI_TARGET_PERR_THRESH) {
+		printf(
+"%s: WARNING WARNING WARNING WARNING\n"
+"%s: Too many PCI parity errors observed as a target.\n"
+"%s: Some device on this bus is generating bad parity.\n"
+"%s: This is an error *observed by*, not *generated by*, this controller.\n"
+"%s: PCI parity error checking has been disabled.\n"
+"%s: WARNING WARNING WARNING WARNING\n",
+		       ahc_name(ahc), ahc_name(ahc), ahc_name(ahc),
+		       ahc_name(ahc), ahc_name(ahc), ahc_name(ahc));
+		ahc->seqctl |= FAILDIS;
+		ahc_outb(ahc, SEQCTL, ahc->seqctl);
+	}
 	ahc_unpause(ahc);
+}
+
+static int
+ahc_pci_chip_init(struct ahc_softc *ahc)
+{
+	ahc_outb(ahc, DSCOMMAND0, ahc->bus_softc.pci_softc.dscommand0);
+	ahc_outb(ahc, DSPCISTATUS, ahc->bus_softc.pci_softc.dspcistatus);
+	if ((ahc->features & AHC_DT) != 0) {
+		u_int sfunct;
+
+		sfunct = ahc_inb(ahc, SFUNCT) & ~ALT_MODE;
+		ahc_outb(ahc, SFUNCT, sfunct | ALT_MODE);
+		ahc_outb(ahc, OPTIONMODE, ahc->bus_softc.pci_softc.optionmode);
+		ahc_outw(ahc, TARGCRCCNT, ahc->bus_softc.pci_softc.targcrccnt);
+		ahc_outb(ahc, SFUNCT, sfunct);
+		ahc_outb(ahc, CRCCONTROL1,
+			 ahc->bus_softc.pci_softc.crccontrol1);
+	}
+	if ((ahc->features & AHC_MULTI_FUNC) != 0)
+		ahc_outb(ahc, SCBBADDR, ahc->bus_softc.pci_softc.scbbaddr);
+
+	if ((ahc->features & AHC_ULTRA2) != 0)
+		ahc_outb(ahc, DFF_THRSH, ahc->bus_softc.pci_softc.dff_thrsh);
+
+	return (ahc_chip_init(ahc));
+}
+
+static int
+ahc_pci_suspend(struct ahc_softc *ahc)
+{
+	return (ahc_suspend(ahc));
+}
+
+static int
+ahc_pci_resume(struct ahc_softc *ahc)
+{
+
+	ahc_power_state_change(ahc, AHC_POWER_STATE_D0);
+
+	/*
+	 * We assume that the OS has restored our register
+	 * mappings, etc.  Just update the config space registers
+	 * that the OS doesn't know about and rely on our chip
+	 * reset handler to handle the rest.
+	 */
+	ahc_pci_write_config(ahc->dev_softc, DEVCONFIG, /*bytes*/4,
+			     ahc->bus_softc.pci_softc.devconfig);
+	ahc_pci_write_config(ahc->dev_softc, PCIR_COMMAND, /*bytes*/1,
+			     ahc->bus_softc.pci_softc.command);
+	ahc_pci_write_config(ahc->dev_softc, CSIZE_LATTIME, /*bytes*/1,
+			     ahc->bus_softc.pci_softc.csize_lattime);
+	if ((ahc->flags & AHC_HAS_TERM_LOGIC) != 0) {
+		struct	seeprom_descriptor sd;
+		u_int	sxfrctl1;
+
+		sd.sd_ahc = ahc;
+		sd.sd_control_offset = SEECTL;		
+		sd.sd_status_offset = SEECTL;		
+		sd.sd_dataout_offset = SEECTL;		
+
+		ahc_acquire_seeprom(ahc, &sd);
+		configure_termination(ahc, &sd,
+				      ahc->seep_config->adapter_control,
+				      &sxfrctl1);
+		ahc_release_seeprom(&sd);
+	}
+	return (ahc_resume(ahc));
 }
 
 static int
@@ -1892,6 +2139,7 @@ ahc_aic785X_setup(struct ahc_softc *ahc)
 	rev = ahc_pci_read_config(pci, PCIR_REVID, /*bytes*/1);
 	if (rev >= 1)
 		ahc->bugs |= AHC_PCI_2_1_RETRY_BUG;
+	ahc->instruction_ram_size = 512;
 	return (0);
 }
 
@@ -1909,16 +2157,15 @@ ahc_aic7860_setup(struct ahc_softc *ahc)
 	rev = ahc_pci_read_config(pci, PCIR_REVID, /*bytes*/1);
 	if (rev >= 1)
 		ahc->bugs |= AHC_PCI_2_1_RETRY_BUG;
+	ahc->instruction_ram_size = 512;
 	return (0);
 }
 
 static int
 ahc_apa1480_setup(struct ahc_softc *ahc)
 {
-	ahc_dev_softc_t pci;
 	int error;
 
-	pci = ahc->dev_softc;
 	error = ahc_aic7860_setup(ahc);
 	if (error != 0)
 		return (error);
@@ -1929,13 +2176,12 @@ ahc_apa1480_setup(struct ahc_softc *ahc)
 static int
 ahc_aic7870_setup(struct ahc_softc *ahc)
 {
-	ahc_dev_softc_t pci;
 
-	pci = ahc->dev_softc;
 	ahc->channel = 'A';
 	ahc->chip = AHC_AIC7870;
 	ahc->features = AHC_AIC7870_FE;
 	ahc->bugs |= AHC_TMODE_WIDEODD_BUG|AHC_CACHETHEN_BUG|AHC_PCI_MWI_BUG;
+	ahc->instruction_ram_size = 512;
 	return (0);
 }
 
@@ -1989,19 +2235,16 @@ ahc_aic7880_setup(struct ahc_softc *ahc)
 	} else {
 		ahc->bugs |= AHC_CACHETHEN_BUG|AHC_PCI_MWI_BUG;
 	}
+	ahc->instruction_ram_size = 512;
 	return (0);
 }
 
 static int
 ahc_aha2940Pro_setup(struct ahc_softc *ahc)
 {
-	ahc_dev_softc_t pci;
-	int error;
 
-	pci = ahc->dev_softc;
 	ahc->flags |= AHC_INT50_SPEEDFLEX;
-	error = ahc_aic7880_setup(ahc);
-	return (0);
+	return (ahc_aic7880_setup(ahc));
 }
 
 static int
@@ -2040,20 +2283,20 @@ ahc_aic7890_setup(struct ahc_softc *ahc)
 	rev = ahc_pci_read_config(pci, PCIR_REVID, /*bytes*/1);
 	if (rev == 0)
 		ahc->bugs |= AHC_AUTOFLUSH_BUG|AHC_CACHETHEN_BUG;
+	ahc->instruction_ram_size = 768;
 	return (0);
 }
 
 static int
 ahc_aic7892_setup(struct ahc_softc *ahc)
 {
-	ahc_dev_softc_t pci;
 
-	pci = ahc->dev_softc;
 	ahc->channel = 'A';
 	ahc->chip = AHC_AIC7892;
 	ahc->features = AHC_AIC7892_FE;
 	ahc->flags |= AHC_NEWEEPROM_FMT;
 	ahc->bugs |= AHC_SCBCHAN_UPLOAD_BUG;
+	ahc->instruction_ram_size = 1024;
 	return (0);
 }
 
@@ -2089,10 +2332,27 @@ ahc_aic7895_setup(struct ahc_softc *ahc)
 		ahc_pci_write_config(pci, PCIR_COMMAND, command, /*bytes*/1);
 		ahc->bugs |= AHC_PCI_MWI_BUG;
 	}
+	/*
+	 * XXX Does CACHETHEN really not work???  What about PCI retry?
+	 * on C level chips.  Need to test, but for now, play it safe.
+	 */
 	ahc->bugs |= AHC_TMODE_WIDEODD_BUG|AHC_PCI_2_1_RETRY_BUG
 		  |  AHC_CACHETHEN_BUG;
 
+#if 0
+	uint32_t devconfig;
+
+	/*
+	 * Cachesize must also be zero due to stray DAC
+	 * problem when sitting behind some bridges.
+	 */
+	ahc_pci_write_config(pci, CSIZE_LATTIME, 0, /*bytes*/1);
+	devconfig = ahc_pci_read_config(pci, DEVCONFIG, /*bytes*/1);
+	devconfig |= MRDCEN;
+	ahc_pci_write_config(pci, DEVCONFIG, devconfig, /*bytes*/1);
+#endif
 	ahc->flags |= AHC_NEWEEPROM_FMT;
+	ahc->instruction_ram_size = 512;
 	return (0);
 }
 
@@ -2107,6 +2367,7 @@ ahc_aic7896_setup(struct ahc_softc *ahc)
 	ahc->features = AHC_AIC7896_FE;
 	ahc->flags |= AHC_NEWEEPROM_FMT;
 	ahc->bugs |= AHC_CACHETHEN_DIS_BUG;
+	ahc->instruction_ram_size = 768;
 	return (0);
 }
 
@@ -2121,6 +2382,7 @@ ahc_aic7899_setup(struct ahc_softc *ahc)
 	ahc->features = AHC_AIC7899_FE;
 	ahc->flags |= AHC_NEWEEPROM_FMT;
 	ahc->bugs |= AHC_SCBCHAN_UPLOAD_BUG;
+	ahc->instruction_ram_size = 1024;
 	return (0);
 }
 

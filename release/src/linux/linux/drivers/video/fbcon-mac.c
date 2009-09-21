@@ -376,6 +376,7 @@ static void plot_pixel_mac(struct display *p, int bw, int pixel_x, int pixel_y)
     plot_helper(dest, bit, bw);
     break;
 
+/* FIXME: You can't access framebuffer directly like this! */
   case 16:
     dest16 = (u16 *) ((pixel_x *2) + p->screen_base + pixel_y * p->next_line);
     pix16 = 0xFFFF;

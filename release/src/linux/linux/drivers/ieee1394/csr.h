@@ -2,6 +2,10 @@
 #ifndef _IEEE1394_CSR_H
 #define _IEEE1394_CSR_H
 
+#ifdef CONFIG_PREEMPT
+#include <linux/sched.h>
+#endif
+
 #define CSR_REGISTER_BASE  0xfffff0000000ULL
 
 /* register offsets relative to CSR_REGISTER_BASE */
@@ -16,8 +20,10 @@
 #define CSR_BUSY_TIMEOUT          0x210
 #define CSR_BUS_MANAGER_ID        0x21c
 #define CSR_BANDWIDTH_AVAILABLE   0x220
+#define CSR_CHANNELS_AVAILABLE    0x224
 #define CSR_CHANNELS_AVAILABLE_HI 0x224
 #define CSR_CHANNELS_AVAILABLE_LO 0x228
+#define CSR_BROADCAST_CHANNEL     0x234
 #define CSR_CONFIG_ROM            0x400
 #define CSR_CONFIG_ROM_END        0x800
 #define CSR_FCP_COMMAND           0xB00
@@ -35,14 +41,18 @@ struct csr_control {
         quadlet_t state;
         quadlet_t node_ids;
         quadlet_t split_timeout_hi, split_timeout_lo;
+	unsigned long expire;	// Calculated from split_timeout
         quadlet_t cycle_time;
         quadlet_t bus_time;
         quadlet_t bus_manager_id;
         quadlet_t bandwidth_available;
         quadlet_t channels_available_hi, channels_available_lo;
+	quadlet_t broadcast_channel;
 
-        const quadlet_t *rom;
+        quadlet_t *rom;
         size_t rom_size;
+        unsigned char rom_version;
+
 
         quadlet_t topology_map[256];
         quadlet_t speed_map[1024];

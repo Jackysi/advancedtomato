@@ -40,6 +40,14 @@ struct affs_inode_info {
 	u32	 i_protect;			/* unused attribute bits */
 	u32	 i_lastalloc;			/* last allocated block */
 	int	 i_pa_cnt;			/* number of preallocated blocks */
+#if 0
+	s32	 i_original;			/* if != 0, this is the key of the original */
+	u32	 i_data[AFFS_MAX_PREALLOC];	/* preallocated blocks */
+	int	 i_cache_users;			/* Cache cannot be freed while > 0 */
+	unsigned char i_hlink;			/* This is a fake */
+	unsigned char i_pad;
+	s32	 i_parent;			/* parent ino */
+#endif
 };
 
 /* short cut to get to the affs specific inode data */

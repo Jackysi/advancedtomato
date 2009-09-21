@@ -2,7 +2,7 @@
 #define __LINUX_UHCI_H
 
 /*
-   $Id: usb-uhci.h,v 1.1.3.1 2005/03/18 02:55:52 kanki Exp $
+   $Id: usb-uhci.h,v 1.58 2001/08/28 16:45:00 acher Exp $
  */
 #define MODNAME "usb-uhci"
 #define UHCI_LATENCY_TIMER 0
@@ -218,7 +218,6 @@ typedef struct uhci {
 	int timeout_urbs;
 	struct pci_dev *uhci_pci;
 	struct pci_pool *desc_pool;
-	long last_error_time;          // last error output in uhci_interrupt()
 } uhci_t, *puhci_t;
 
 

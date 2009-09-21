@@ -6,11 +6,11 @@
  */
 
 #include <asm/ptrace.h>
+#include <asm/user.h>
 #include <asm/proc/elf.h>
 #include <asm/procinfo.h>
 
 typedef unsigned long elf_greg_t;
-typedef unsigned long elf_freg_t[3];
 
 #define EM_ARM	40
 #define EF_ARM_APCS26 0x08
@@ -18,7 +18,7 @@ typedef unsigned long elf_freg_t[3];
 #define ELF_NGREG (sizeof (struct pt_regs) / sizeof(elf_greg_t))
 typedef elf_greg_t elf_gregset_t[ELF_NGREG];
 
-typedef struct { void *null; } elf_fpregset_t;
+typedef struct user_fp elf_fpregset_t;
 
 /*
  * This is used to ensure we don't load something for the wrong architecture.
@@ -48,12 +48,11 @@ typedef struct { void *null; } elf_fpregset_t;
 /* When the program starts, a1 contains a pointer to a function to be 
    registered with atexit, as per the SVR4 ABI.  A value of 0 means we 
    have no such handler.  */
-#define ELF_PLAT_INIT(_r)	(_r)->ARM_r0 = 0
+#define ELF_PLAT_INIT(_r, load_addr)	(_r)->ARM_r0 = 0
 
 /* This yields a mask that user programs can use to figure out what
    instruction set this cpu supports. */
 
-extern unsigned int elf_hwcap;
 #define ELF_HWCAP	(elf_hwcap)
 
 /* This yields a string that ld.so will use to load implementation

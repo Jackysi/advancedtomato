@@ -1,5 +1,5 @@
 /*
- *	de620.c $Revision: 1.1.1.2 $ BETA
+ *	de620.c $Revision: 1.40 $ BETA
  *
  *
  *	Linux driver for the D-Link DE-620 Ethernet pocket adapter.
@@ -39,7 +39,7 @@
  *
  *****************************************************************************/
 static const char version[] =
-	"de620.c: $Revision: 1.1.1.2 $,  Bjorn Ekwall <bj0rn@blox.se>\n";
+	"de620.c: $Revision: 1.40 $,  Bjorn Ekwall <bj0rn@blox.se>\n";
 
 /***********************************************************************
  *
@@ -148,11 +148,11 @@ typedef unsigned char byte;
  * See also "de620.h"                                  *
  *                                                     *
  *******************************************************/
-#ifndef DE620_IO     /* Compile-time configurable */
+#ifndef DE620_IO /* Compile-time configurable */
 #define DE620_IO 0x378
 #endif
 
-#ifndef DE620_IRQ     /* Compile-time configurable */
+#ifndef DE620_IRQ /* Compile-time configurable */
 #define DE620_IRQ	7
 #endif
 
@@ -163,7 +163,7 @@ typedef unsigned char byte;
 #define RUNT 60		/* Too small Ethernet packet */
 #define GIANT 1514	/* largest legal size packet, no fcs */
 
-#ifdef DE620_DEBUG     /* Compile-time configurable */
+#ifdef DE620_DEBUG /* Compile-time configurable */
 #define PRINTK(x) if (de620_debug >= 2) printk x
 #else
 #define DE620_DEBUG 0
@@ -316,7 +316,7 @@ de620_read_byte(struct net_device *dev)
 }
 
 static inline void
-de620_write_block(struct net_device *dev, byte *buffer, int count)
+de620_write_block(struct net_device *dev, byte *buffer, int count, int pad)
 {
 #ifndef LOWSPEED
 	byte uflip = NIC_Cmd ^ (DS0 | DS1);
@@ -334,6 +334,9 @@ de620_write_block(struct net_device *dev, byte *buffer, int count)
 	/* No further optimization useful, the limit is in the adapter. */
 	for ( ; count > 0; --count, ++buffer) {
 		de620_put_byte(dev,*buffer);
+	}
+	for ( count = pad ; count > 0; --count, ++buffer) {
+		de620_put_byte(dev, 0);
 	}
 	de620_send_command(dev,W_DUMMY);
 #ifdef COUNT_LOOPS
@@ -576,7 +579,7 @@ static int de620_start_xmit(struct sk_buff *skb, struct net_device *dev)
 		restore_flags(flags);
 		return 1;
 	}
-	de620_write_block(dev, buffer, len);
+	de620_write_block(dev, buffer, skb->len, len-skb->len);
 
 	dev->trans_start = jiffies;
 	if(!(using_txbuf == (TXBF0 | TXBF1)))

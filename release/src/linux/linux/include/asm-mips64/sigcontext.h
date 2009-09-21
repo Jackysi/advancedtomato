@@ -27,4 +27,26 @@ struct sigcontext {
 	unsigned int       sc_badvaddr;
 };
 
+#ifdef __KERNEL__
+struct sigcontext32 {
+	u32 sc_regmask;		/* Unused */
+	u32 sc_status;
+	u64 sc_pc;
+	u64 sc_regs[32];
+	u64 sc_fpregs[32];
+	u32 sc_ownedfp;		/* Unused */
+	u32 sc_fpc_csr;
+	u32 sc_fpc_eir;		/* Unused */
+	u32 sc_used_math;
+	u32 sc_ssflags;		/* Unused */
+	u64 sc_mdhi;
+	u64 sc_mdlo;
+
+	u32 sc_cause;		/* Unused */
+	u32 sc_badvaddr;	/* Unused */
+
+	u32 sc_sigset[4];	/* kernel's sigset_t */
+};
+#endif /* __KERNEL__ */
+
 #endif /* _ASM_SIGCONTEXT_H */

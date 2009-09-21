@@ -3,7 +3,7 @@
 ;*		    TEKRAM DC-390(T) PCI SCSI Bus Master Host Adapter  *
 ;*		    Device Driver				       *
 ;***********************************************************************/
-/* $Id: tmscsim.h,v 1.1.1.4 2003/10/14 08:08:43 sparq Exp $ */
+/* $Id: tmscsim.h,v 2.15.2.3 2000/11/17 20:52:27 garloff Exp $ */
 
 #ifndef _TMSCSIM_H
 #define _TMSCSIM_H
@@ -11,7 +11,7 @@
 #include <linux/types.h>
 #include <linux/config.h>
 
-#define IRQ_NONE 255
+#define SCSI_IRQ_NONE 255
 
 #define MAX_ADAPTER_NUM 	4
 #define MAX_SG_LIST_BUF 	16	/* Not used */

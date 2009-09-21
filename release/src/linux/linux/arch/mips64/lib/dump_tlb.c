@@ -87,7 +87,7 @@ void dump_tlb(int first, int last)
 
 void dump_tlb_all(void)
 {
-	dump_tlb(0, mips_cpu.tlbsize - 1);
+	dump_tlb(0, current_cpu_data.tlbsize - 1);
 }
 
 void dump_tlb_wired(void)
@@ -107,10 +107,10 @@ void dump_tlb_wired(void)
 
 void dump_tlb_addr(unsigned long addr)
 {
-	unsigned int flags, oldpid;
+	unsigned long flags, oldpid;
 	int index;
 
-	__save_and_cli(flags);
+	local_irq_save(flags);
 	oldpid = read_c0_entryhi() & 0xff;
 	BARRIER;
 	write_c0_entryhi((addr & PAGE_MASK) | oldpid);
@@ -119,7 +119,7 @@ void dump_tlb_addr(unsigned long addr)
 	BARRIER;
 	index = read_c0_index();
 	write_c0_entryhi(oldpid);
-	__restore_flags(flags);
+	local_irq_restore(flags);
 
 	if (index < 0) {
 		printk("No entry for address 0x%08lx in TLB\n", addr);
@@ -132,7 +132,7 @@ void dump_tlb_addr(unsigned long addr)
 
 void dump_tlb_nonwired(void)
 {
-	dump_tlb(read_c0_wired(), mips_cpu.tlbsize - 1);
+	dump_tlb(read_c0_wired(), current_cpu_data.tlbsize - 1);
 }
 
 void dump_list_process(struct task_struct *t, void *address)
@@ -201,12 +201,10 @@ void dump16(unsigned long *p)
 {
 	int i;
 
-	for(i = 0; i < 8; i++) {
-		printk("*%08lx == %08lx, ",
-		       (unsigned long)p, (unsigned long)*p);
+	for (i = 0; i < 8; i++) {
+		printk("*%08lx == %08lx, ", (unsigned long)p, *p);
 		p++;
-		printk("*%08lx == %08lx\n",
-		       (unsigned long)p, (unsigned long)*p);
+		printk("*%08lx == %08lx\n", (unsigned long)p, *p);
 		p++;
 	}
 }

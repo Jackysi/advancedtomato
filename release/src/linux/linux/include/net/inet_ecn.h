@@ -1,6 +1,14 @@
 #ifndef _INET_ECN_H_
 #define _INET_ECN_H_
 
+enum {
+	INET_ECN_NOT_ECT = 0,
+	INET_ECN_ECT_1 = 1,
+	INET_ECN_ECT_0 = 2,
+	INET_ECN_CE = 3,
+	INET_ECN_MASK = 3,
+};
+
 static inline int INET_ECN_is_ce(__u8 dsfield)
 {
 	return (dsfield&3) == 3;

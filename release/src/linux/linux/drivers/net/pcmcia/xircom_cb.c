@@ -11,13 +11,11 @@
  *      of the GNU General Public License, incorporated herein by reference.
  *
  *
- * 	$Id: xircom_cb.c,v 1.1.1.4 2003/10/14 08:08:26 sparq Exp $
+ * 	$Id: xircom_cb.c,v 1.33 2001/03/19 14:02:07 arjanv Exp $
  */
-
 
 #include <linux/module.h>
 #include <linux/kernel.h>
-#include <linux/sched.h>
 #include <linux/string.h>
 #include <linux/errno.h>
 #include <linux/ioport.h>
@@ -30,11 +28,10 @@
 #include <linux/delay.h>
 #include <linux/init.h>
 #include <linux/ethtool.h>
+
 #include <asm/uaccess.h>
 #include <asm/bitops.h>
 #include <asm/io.h>
-
-
 
 #ifdef DEBUG
 #define enter(x)   printk("Enter: %s, %s line %i\n",x,__FILE__,__LINE__)
@@ -114,7 +111,7 @@ struct xircom_private {
 /* Function prototypes */
 static int xircom_probe(struct pci_dev *pdev, const struct pci_device_id *id);
 static void xircom_remove(struct pci_dev *pdev);
-static void xircom_interrupt(int irq, void *dev_instance, struct pt_regs *regs);
+static irqreturn_t xircom_interrupt(int irq, void *dev_instance, struct pt_regs *regs);
 static int xircom_start_xmit(struct sk_buff *skb, struct net_device *dev);
 static int xircom_open(struct net_device *dev);
 static int xircom_close(struct net_device *dev);
@@ -124,7 +121,7 @@ static struct net_device_stats *xircom_get_stats(struct net_device *dev);
 static void investigate_read_descriptor(struct net_device *dev,struct xircom_private *card, int descnr, unsigned int bufferoffset);
 static void investigate_write_descriptor(struct net_device *dev, struct xircom_private *card, int descnr, unsigned int bufferoffset);
 static void read_mac_address(struct xircom_private *card);
-static void tranceiver_voodoo(struct xircom_private *card);
+static void transceiver_voodoo(struct xircom_private *card);
 static void initialize_card(struct xircom_private *card);
 static void trigger_transmit(struct xircom_private *card);
 static void trigger_receive(struct xircom_private *card);
@@ -143,17 +140,19 @@ static int link_status(struct xircom_private *card);
 
 
 
-static struct pci_device_id xircom_pci_table[] __devinitdata = {
+static struct pci_device_id xircom_pci_table[] = {
 	{0x115D, 0x0003, PCI_ANY_ID, PCI_ANY_ID,},
 	{0,},
 };
 MODULE_DEVICE_TABLE(pci, xircom_pci_table);
 
 static struct pci_driver xircom_ops = {
-	name:		"xircom_cb", 
-	id_table:	xircom_pci_table, 
-	probe:		xircom_probe, 
-	remove:		__devexit_p(xircom_remove),
+	.name		= "xircom_cb", 
+	.id_table	= xircom_pci_table, 
+	.probe		= xircom_probe, 
+	.remove		= xircom_remove, 
+	.suspend =NULL,
+	.resume =NULL
 };
 
 
@@ -176,36 +175,18 @@ static void print_binary(unsigned int number)
 }
 #endif
 
-static int netdev_ethtool_ioctl(struct net_device *dev, void *useraddr)
+static void netdev_get_drvinfo(struct net_device *dev,
+			       struct ethtool_drvinfo *info)
 {
-	u32 ethcmd;
-		
-	if (copy_from_user(&ethcmd, useraddr, sizeof(ethcmd)))
-		return -EFAULT;
-	
-	switch (ethcmd) {
-	case ETHTOOL_GDRVINFO: {
-		struct ethtool_drvinfo info = {ETHTOOL_GDRVINFO};
-		strncpy(info.driver, "xircom_cb", sizeof(info.driver)-1);
-		if (copy_to_user(useraddr, &info, sizeof(info)))
-			return -EFAULT;
-		return 0;
-	}
-	}
-	
-	return -EOPNOTSUPP;
+	struct xircom_private *private = dev->priv;
+
+	strcpy(info->driver, "xircom_cb");
+	strcpy(info->bus_info, pci_name(private->pdev));
 }
 
-static int private_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
-{
-
-       switch(cmd) {
-       case SIOCETHTOOL:
-	       return netdev_ethtool_ioctl(dev, (void *) rq->ifr_data);
-	default:
-		return -EOPNOTSUPP;
-	}
-}
+static struct ethtool_ops netdev_ethtool_ops = {
+	.get_drvinfo		= netdev_get_drvinfo,
+};
 
 /* xircom_probe is the code that gets called on device insertion.
    it sets up the hardware and registers the device to the networklayer.
@@ -244,40 +225,32 @@ static int __devinit xircom_probe(struct pci_dev *pdev, const struct pci_device_
 		return -ENODEV;
 	}
 
-	
 	/* 
 	   Before changing the hardware, allocate the memory.
 	   This way, we can fail gracefully if not enough memory
 	   is available. 
 	 */
-	private = kmalloc(sizeof(*private),GFP_KERNEL);
-	memset(private, 0, sizeof(struct xircom_private));
+	dev = alloc_etherdev(sizeof(struct xircom_private));
+	if (!dev) {
+		printk(KERN_ERR "xircom_probe: failed to allocate etherdev\n");
+		goto device_fail;
+	}
+	private = dev->priv;
 	
 	/* Allocate the send/receive buffers */
 	private->rx_buffer = pci_alloc_consistent(pdev,8192,&private->rx_dma_handle);
-	
 	if (private->rx_buffer == NULL) {
  		printk(KERN_ERR "xircom_probe: no memory for rx buffer \n");
- 		kfree(private);
-		return -ENODEV;
+		goto rx_buf_fail;
 	}	
 	private->tx_buffer = pci_alloc_consistent(pdev,8192,&private->tx_dma_handle);
 	if (private->tx_buffer == NULL) {
 		printk(KERN_ERR "xircom_probe: no memory for tx buffer \n");
-		kfree(private->rx_buffer);
-		kfree(private);
-		return -ENODEV;
+		goto tx_buf_fail;
 	}
-	dev = init_etherdev(dev, 0);
-	if (dev == NULL) {
-		printk(KERN_ERR "xircom_probe: failed to allocate etherdev\n");
-		kfree(private->rx_buffer);
-		kfree(private->tx_buffer);
-		kfree(private);
-		return -ENODEV;
-	}
+
 	SET_MODULE_OWNER(dev);
-	printk(KERN_INFO "%s: Xircom cardbus revision %i at irq %i \n", dev->name, chip_rev, pdev->irq);
+
 
 	private->dev = dev;
 	private->pdev = pdev;
@@ -285,7 +258,6 @@ static int __devinit xircom_probe(struct pci_dev *pdev, const struct pci_device_
 	private->lock = SPIN_LOCK_UNLOCKED;
 	dev->irq = pdev->irq;
 	dev->base_addr = private->io_port;
-	
 	
 	initialize_card(private);
 	read_mac_address(private);
@@ -296,23 +268,37 @@ static int __devinit xircom_probe(struct pci_dev *pdev, const struct pci_device_
 	dev->stop = &xircom_close;
 	dev->get_stats = &xircom_get_stats;
 	dev->priv = private;
-	dev->do_ioctl = &private_ioctl;
-	pdev->driver_data = dev;
+	SET_ETHTOOL_OPS(dev, &netdev_ethtool_ops);
+	pci_set_drvdata(pdev, dev);
 
-	
+	if (register_netdev(dev)) {
+		printk(KERN_ERR "xircom_probe: netdevice registration failed.\n");
+		goto reg_fail;
+	}
+		
+	printk(KERN_INFO "%s: Xircom cardbus revision %i at irq %i \n", dev->name, chip_rev, pdev->irq);
 	/* start the transmitter to get a heartbeat */
 	/* TODO: send 2 dummy packets here */
-	tranceiver_voodoo(private);
+	transceiver_voodoo(private);
 	
 	spin_lock_irqsave(&private->lock,flags);
-	  activate_transmitter(private);
-	  activate_receiver(private);
+	activate_transmitter(private);
+	activate_receiver(private);
 	spin_unlock_irqrestore(&private->lock,flags);
 	
 	trigger_receive(private);
 	
 	leave("xircom_probe");
 	return 0;
+
+reg_fail:
+	kfree(private->tx_buffer);
+tx_buf_fail:
+	kfree(private->rx_buffer);
+rx_buf_fail:
+	free_netdev(dev);
+device_fail:
+	return -ENODEV;
 }
 
 
@@ -324,28 +310,21 @@ static int __devinit xircom_probe(struct pci_dev *pdev, const struct pci_device_
  */
 static void __devexit xircom_remove(struct pci_dev *pdev)
 {
-	struct net_device *dev = pdev->driver_data;
-	struct xircom_private *card;
+	struct net_device *dev = pci_get_drvdata(pdev);
+	struct xircom_private *card = dev->priv;
+
 	enter("xircom_remove");
-	if (dev!=NULL) {
-		card=dev->priv;
-		if (card!=NULL) {	
-			if (card->rx_buffer!=NULL)
-				pci_free_consistent(pdev,8192,card->rx_buffer,card->rx_dma_handle);
-			card->rx_buffer = NULL;
-			if (card->tx_buffer!=NULL)
-				pci_free_consistent(pdev,8192,card->tx_buffer,card->tx_dma_handle);
-			card->tx_buffer = NULL;			
-		}
-		kfree(card);
-	}
+	pci_free_consistent(pdev,8192,card->rx_buffer,card->rx_dma_handle);
+	pci_free_consistent(pdev,8192,card->tx_buffer,card->tx_dma_handle);
+
 	release_region(dev->base_addr, 128);
 	unregister_netdev(dev);
-	kfree(dev);
+	free_netdev(dev);
+	pci_set_drvdata(pdev, NULL);
 	leave("xircom_remove");
 } 
 
-static void xircom_interrupt(int irq, void *dev_instance, struct pt_regs *regs)
+static irqreturn_t xircom_interrupt(int irq, void *dev_instance, struct pt_regs *regs)
 {
 	struct net_device *dev = (struct net_device *) dev_instance;
 	struct xircom_private *card = (struct xircom_private *) dev->priv;
@@ -362,6 +341,11 @@ static void xircom_interrupt(int irq, void *dev_instance, struct pt_regs *regs)
 	printk("tx status 0x%08x 0x%08x \n",card->tx_buffer[0],card->tx_buffer[4]);
 	printk("rx status 0x%08x 0x%08x \n",card->rx_buffer[0],card->rx_buffer[4]);
 #endif	
+	/* Handle shared irq and hotplug */
+	if (status == 0 || status == 0xffffffff) {
+		spin_unlock(&card->lock);
+		return;
+	}
 
 	if (link_status_changed(card)) {
 		int newlink;
@@ -376,7 +360,8 @@ static void xircom_interrupt(int irq, void *dev_instance, struct pt_regs *regs)
 	}
 
 	/* Clear all remaining interrupts */	
-	status |= 0xffffffff; 
+	status |= 0xffffffff; /* FIXME: make this clear only the
+				        real existing bits */
 	outl(status,card->io_port+CSR5);
 	
 
@@ -388,6 +373,7 @@ static void xircom_interrupt(int irq, void *dev_instance, struct pt_regs *regs)
 	
 	spin_unlock(&card->lock);
 	leave("xircom_interrupt");
+	return IRQ_HANDLED;
 }
 
 static int xircom_start_xmit(struct sk_buff *skb, struct net_device *dev)
@@ -418,6 +404,8 @@ static int xircom_start_xmit(struct sk_buff *skb, struct net_device *dev)
 			memcpy(&(card->tx_buffer[bufferoffsets[desc]/4]),skb->data,skb->len);
 	
 	
+			/* FIXME: The specification tells us that the length we send HAS to be a multiple of
+			   4 bytes. */
 			   
 			card->tx_buffer[4*desc+1] = skb->len;
 			if (desc == NUMDESCRIPTORS-1)
@@ -484,6 +472,11 @@ static int xircom_close(struct net_device *dev)
 	spin_lock_irqsave(&card->lock,flags);
 	
 	disable_all_interrupts(card);
+#if 0	
+	/* We can enable this again once we send dummy packets on ifconfig ethX up */
+	deactivate_receiver(card);
+	deactivate_transmitter(card);
+#endif	
 	remove_descriptors(card);
 	
 	spin_unlock_irqrestore(&card->lock,flags);
@@ -1034,7 +1027,7 @@ static int enable_promisc(struct xircom_private *card)
 
 
 /* 
-link_status() checks the link's status and will return 0 for no link, 10 for 10mbit link and 100 for.. guess what.
+link_status() checks the the links status and will return 0 for no link, 10 for 10mbit link and 100 for.. guess what.
 
 Must be called in locked state with interrupts disabled
 */
@@ -1109,15 +1102,15 @@ static void read_mac_address(struct xircom_private *card)
 
 
 /*
- tranceiver_voodoo() enables the external UTP plug thingy.
+ transceiver_voodoo() enables the external UTP plug thingy.
  it's called voodoo as I stole this code and cannot cross-reference
  it with the specification.
  */
-static void tranceiver_voodoo(struct xircom_private *card)
+static void transceiver_voodoo(struct xircom_private *card)
 {
 	unsigned long flags;
 
-	enter("tranceiver_voodoo");
+	enter("transceiver_voodoo");
 
 	/* disable all powermanagement */
 	pci_write_config_dword(card->pdev, PCI_POWERMGMT, 0x0000);
@@ -1136,7 +1129,7 @@ static void tranceiver_voodoo(struct xircom_private *card)
         spin_unlock_irqrestore(&card->lock, flags);
 
 	netif_start_queue(card->dev);
-	leave("tranceiver_voodoo");
+	leave("transceiver_voodoo");
 }
 
 
@@ -1227,6 +1220,13 @@ static void investigate_write_descriptor(struct net_device *dev, struct xircom_p
 		enter("investigate_write_descriptor");
 		
 		status = card->tx_buffer[4*descnr];
+#if 0		
+		if (status & 0x8000) {	/* Major error */
+			printk(KERN_ERR "Major transmit error status %x \n", status);
+			card->tx_buffer[4*descnr] = 0;
+			netif_wake_queue (dev);
+		}
+#endif
 		if (status > 0) {	/* bit 31 is 0 when done */
 			if (card->tx_skb[descnr]!=NULL) {
 				card->stats.tx_bytes += card->tx_skb[descnr]->len;

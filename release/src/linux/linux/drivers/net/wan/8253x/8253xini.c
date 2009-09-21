@@ -1183,6 +1183,28 @@ static SAB_BOARD* find_ati_cpci_card(void)
 	devfn = pdev->devfn;
 	DEBUGPRINT((KERN_ALERT "auraXX20n: bus is %x, slot is %x.\n", bus, PCI_SLOT(devfn)));
 	pcibios_read_config_word(bus, devfn, PCI_COMMAND, &pci_command);
+#if 0
+	/* The Aurora card does not act as a PCI master
+	 * ugh!!
+	 */
+	new_command = pci_command | PCI_COMMAND_MASTER;
+	if(pci_command != new_command)
+	{
+		DEBUGPRINT((KERN_ALERT 
+			    "auraXX20n: the PCI BIOS has not enabled this device!"
+			    " Updating PCI command %4.4x->%4.4x.\n", 
+			    pci_command,
+			    new_command));
+		pcibios_write_config_word(bus, devfn, PCI_COMMAND, 
+					  new_command);
+	}
+	else
+	{
+		DEBUGPRINT
+			((KERN_ALERT 
+			  "auraXX20n: the PCI BIOS has enabled this device as master!\n"));
+	}
+#endif
 	if((pci_command & PCI_COMMAND_MASTER) != PCI_COMMAND_MASTER)
 	{
 		DEBUGPRINT((KERN_ALERT "auraXX20n: Aurora card is not a bus master.\n"));
@@ -1196,6 +1218,9 @@ static SAB_BOARD* find_ati_cpci_card(void)
 			((KERN_ALERT
 			  "auraXX20n: PCI latency timer (CFLT) is low at %i.\n", pci_latency));
 		/* may need to change the latency */
+#if 0
+		pcibios_write_config_byte(bus, devfn, PCI_LATENCY_TIMER, 32);
+#endif
 	} 
 	else 
 	{
@@ -1549,6 +1574,28 @@ static SAB_BOARD* find_ati_wanms_card(void)   /* wan multichanner server == mcs 
 	DEBUGPRINT((KERN_ALERT "auraXX20n: bus is %x, slot is %x.\n", bus, PCI_SLOT(devfn)));
 	pcibios_read_config_word(bus, devfn, PCI_COMMAND, &pci_command);
 	
+#if 0
+	/* The Aurora card does not act as a PCI master
+	 * ugh!!
+	 */
+	new_command = pci_command | PCI_COMMAND_MASTER;
+	if(pci_command != new_command)
+	{
+		DEBUGPRINT((KERN_ALERT 
+			    "auraXX20n: the PCI BIOS has not enabled this device!"
+			    " Updating PCI command %4.4x->%4.4x.\n", 
+			    pci_command,
+			    new_command));
+		pcibios_write_config_word(bus, devfn, PCI_COMMAND, 
+					  new_command);
+	}
+	else
+	{
+		DEBUGPRINT
+			((KERN_ALERT 
+			  "auraXX20n: the PCI BIOS has enabled this device as master!\n"));
+	}
+#endif
 	
 	if((pci_command & PCI_COMMAND_MASTER) != PCI_COMMAND_MASTER)
 	{
@@ -1563,6 +1610,9 @@ static SAB_BOARD* find_ati_wanms_card(void)   /* wan multichanner server == mcs 
 			((KERN_ALERT
 			  "auraXX20n: PCI latency timer (CFLT) is low at %i.\n", pci_latency));
 		/* may need to change the latency */
+#if 0
+		pcibios_write_config_byte(bus, devfn, PCI_LATENCY_TIMER, 32);
+#endif
 	} 
 	else 
 	{
@@ -1821,6 +1871,28 @@ static SAB_BOARD* find_ati_multiport_card(void)
 	devfn = pdev->devfn;
 	DEBUGPRINT((KERN_ALERT "auraXX20n: bus is %x, slot is %x.\n", bus, PCI_SLOT(devfn)));
 	pcibios_read_config_word(bus, devfn, PCI_COMMAND, &pci_command);
+#if 0
+	/* The Aurora card does not act as a PCI master
+	 * ugh!!
+	 */
+	new_command = pci_command | PCI_COMMAND_MASTER;
+	if(pci_command != new_command)
+	{
+		DEBUGPRINT((KERN_ALERT 
+			    "auraXX20n: the PCI BIOS has not enabled this device!"
+			    " Updating PCI command %4.4x->%4.4x.\n", 
+			    pci_command,
+			    new_command));
+		pcibios_write_config_word(bus, devfn, PCI_COMMAND, 
+					  new_command);
+	}
+	else
+	{
+		DEBUGPRINT
+			((KERN_ALERT 
+			  "auraXX20n: the PCI BIOS has enabled this device as master!\n"));
+	}
+#endif
 	if((pci_command & PCI_COMMAND_MASTER) != PCI_COMMAND_MASTER)
 	{
 		DEBUGPRINT((KERN_ALERT "auraXX20n: Aurora card is not a bus master.\n"));
@@ -1834,6 +1906,9 @@ static SAB_BOARD* find_ati_multiport_card(void)
 			((KERN_ALERT
 			  "auraXX20n: PCI latency timer (CFLT) is low at %i.\n", pci_latency));
 		/* may need to change the latency */
+#if 0
+		pcibios_write_config_byte(bus, devfn, PCI_LATENCY_TIMER, 32);
+#endif
 	} 
 	else 
 	{
@@ -2283,7 +2358,11 @@ static int __init auraXX20_probe(void)	/* legacy device initialization 2.4.* */
 		strcpy(dev->name, auraXX20n_prototype.name);
 		sprintf(&dev->name[namelength-1], "%3.3d", portno);
 		
+#if 1
 		current_sab_port = portptr;
+#else
+		dev->priv = portptr;
+#endif
 		result = register_netdev(dev);
 		if(result)
 		{			/* if we run into some internal kernel limit */
@@ -2962,3 +3041,4 @@ module_init(auraXX20_probe);
 module_exit(auraXX20_cleanup);
 MODULE_DESCRIPTION("Aurora Multiport Multiprotocol Serial Driver");
 MODULE_AUTHOR("Joachim Martillo <martillo@telfordtools.com>");
+MODULE_LICENSE("GPL");

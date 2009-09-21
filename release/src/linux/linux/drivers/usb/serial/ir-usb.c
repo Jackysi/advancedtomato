@@ -553,6 +553,11 @@ static void ir_set_termios (struct usb_serial_port *port, struct termios *old_te
 			__FUNCTION__,
 			tty_get_baud_rate(port->tty));
 
+		/* 
+		 * FIXME, we should compare the baud request against the
+		 * capability stated in the IR header that we got in the
+		 * startup funtion.
+		 */
 		switch (cflag & CBAUD) {
 			case B2400:    ir_baud = SPEED_2400;    break;
 			default:
@@ -563,7 +568,9 @@ static void ir_set_termios (struct usb_serial_port *port, struct termios *old_te
 			case B115200:  ir_baud = SPEED_115200;  break;
 			case B576000:  ir_baud = SPEED_576000;  break;
 			case B1152000: ir_baud = SPEED_1152000; break;
+#ifdef B4000000
 			case B4000000: ir_baud = SPEED_4000000; break;
+#endif
 		}
 
 		if (xbof == -1) {
@@ -575,6 +582,11 @@ static void ir_set_termios (struct usb_serial_port *port, struct termios *old_te
 		/* Notify the tty driver that the termios have changed. */
 		port->tty->ldisc.set_termios(port->tty, NULL);
 
+		/* FIXME need to check to see if our write urb is busy right
+		 * now, or use a urb pool.
+		 *
+		 * send the baud change out on an "empty" data packet
+		 */
 		transfer_buffer = port->write_urb->transfer_buffer;
 		*transfer_buffer = ir_xbof | ir_baud;
 

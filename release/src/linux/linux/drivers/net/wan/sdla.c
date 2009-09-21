@@ -319,7 +319,7 @@ static int sdla_cpuspeed(struct net_device *dev, struct ifreq *ifr)
 struct _dlci_stat 
 {
 	short dlci		__attribute__((packed));
-	char  flags		__attribute__((packed));
+	char  flags;
 };
 
 struct _frad_stat 
@@ -1201,6 +1201,7 @@ static int sdla_xfer(struct net_device *dev, struct sdla_mem *info, int read)
 		temp = kmalloc(mem.len, GFP_KERNEL);
 		if (!temp)
 			return(-ENOMEM);
+		memset(temp, 0, mem.len);
 		sdla_read(dev, mem.addr, temp, mem.len);
 		if(copy_to_user(mem.data, temp, mem.len))
 		{
@@ -1300,6 +1301,8 @@ NOTE:  This is rather a useless action right now, as the
 
 		case SDLA_WRITEMEM:
 		case SDLA_READMEM:
+			if(!capable(CAP_SYS_RAWIO))
+				return -EPERM;
 			return(sdla_xfer(dev, (struct sdla_mem *)ifr->ifr_data, cmd == SDLA_READMEM));
 
 		case SDLA_START:
@@ -1510,6 +1513,12 @@ int sdla_set_config(struct net_device *dev, struct ifmap *map)
 			break;   
 
 	if (i == sizeof(valid_mem) / sizeof(int))
+	/*
+	 *	FIXME:
+	 *	BUG BUG BUG: MUST RELEASE THE IRQ WE ALLOCATED IN
+	 *	ALL THESE CASES
+	 *
+	 */
 		return(-EINVAL);
 
 	if ((flp->type == SDLA_S502A) && (((map->mem_start & 0xF000) >> 12) == 0x0E))

@@ -13,8 +13,9 @@
  * And probably incredibly slow on parisc.  OTOH, we don't
  * have to write any serious assembly.   prumpf
  */
-
 #ifdef CONFIG_SMP
+#include <asm/spinlock_t.h>
+
 /* Use an array of spinlocks for our atomic_ts.
 ** Hash function to index into a different SPINLOCK.
 ** Since "a" is usually an address, ">>8" makes one spinlock per 64-bytes.
@@ -23,25 +24,33 @@
 #  define ATOMIC_HASH(a) (&__atomic_hash[(((unsigned long) a)>>8)&(ATOMIC_HASH_SIZE-1)])
 
 extern spinlock_t __atomic_hash[ATOMIC_HASH_SIZE];
-/* copied from <asm/spinlock.h> and modified */
-#  define SPIN_LOCK(x) \
-	do { while(__ldcw(&(x)->lock) == 0); } while(0)
-	
-#  define SPIN_UNLOCK(x) \
-	do { (x)->lock = 1; } while(0)
-#else
-#  define ATOMIC_HASH_SIZE 1
-#  define ATOMIC_HASH(a)	(0)
+
+/* copied from <asm/spinlock.h> and modified.
+ * No CONFIG_DEBUG_SPINLOCK support.
+ *
+ * XXX REVISIT these could be renamed and moved to spinlock_t.h as well
+ */
+#define SPIN_LOCK(x)	do { while(__ldcw(&(x)->lock) == 0); } while(0)
+#define SPIN_UNLOCK(x)  do { (x)->lock = 1; } while(0)
+
+#else	/* CONFIG_SMP */
+
+#define ATOMIC_HASH_SIZE 1
+#define ATOMIC_HASH(a)	(0)
+
+#define SPIN_LOCK(x) (void)(x)
+#define SPIN_UNLOCK(x) do { } while(0)
+
+#endif	/* CONFIG_SMP */
 
 /* copied from <linux/spinlock.h> and modified */
-#  define SPIN_LOCK(x) (void)(x)
-	
-#  define SPIN_UNLOCK(x) do { } while(0)
-#endif
+#define SPIN_LOCK_IRQSAVE(lock, flags)	do { \
+	local_irq_save(flags); 	SPIN_LOCK(lock); \
+} while (0)
 
-/* copied from <linux/spinlock.h> and modified */
-#define SPIN_LOCK_IRQSAVE(lock, flags)		do { local_irq_save(flags);       SPIN_LOCK(lock); } while (0)
-#define SPIN_UNLOCK_IRQRESTORE(lock, flags)	do { SPIN_UNLOCK(lock);  local_irq_restore(flags); } while (0)
+#define SPIN_UNLOCK_IRQRESTORE(lock, flags) do { \
+	SPIN_UNLOCK(lock);  local_irq_restore(flags); \
+} while (0)
 
 /* Note that we need not lock read accesses - aligned word writes/reads
  * are atomic, so a reader never sees unconsistent values.
@@ -53,10 +62,6 @@ typedef struct {
 	volatile int counter;
 } atomic_t;
 
-
-/*
-** xchg/cmpxchg moved from asm/system.h - ggg
-*/
 
 /* This should get optimized out since it's never called.
 ** Or get a link error if xchg is used "wrong".
@@ -90,7 +95,7 @@ static __inline__ unsigned long __xchg(unsigned long x, __volatile__ void * ptr,
 /*
 ** REVISIT - Abandoned use of LDCW in xchg() for now:
 ** o need to test sizeof(*ptr) to avoid clearing adjacent bytes
-** o and while we are at it, could __LP64__ code use LDCD too?
+** o and while we are at it, could 64-bit code use LDCD too?
 **
 **	if (__builtin_constant_p(x) && (x == NULL))
 **		if (((unsigned long)p & 0xf) == 0)

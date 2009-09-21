@@ -14,9 +14,13 @@
 #include <linux/sched.h>
 #include <linux/interrupt.h>
 #include <linux/ptrace.h>
+#include <linux/delay.h>
 #include <linux/serial_core.h>
+#include <linux/list.h>
+#include <linux/timer.h>
 
 #include <asm/hardware.h>
+#include <asm/hardware/sa1111.h>
 #include <asm/setup.h>
 #include <asm/irq.h>
 
@@ -29,6 +33,7 @@
 
 #include "generic.h"
 #include "sa1111.h"
+
 
 static int __init adsbitsy_init(void)
 {
@@ -43,12 +48,32 @@ static int __init adsbitsy_init(void)
 	 */
 	sa1110_mb_disable();
 
+	/* Bitsy uses GPIO pins for SPI interface to AVR
+	 * Bitsy Plus uses the standard pins instead.
+	 * it also needs to reset the AVR when booting
+	 */
+
+	PPAR |= PPAR_SSPGPIO;
+
 	/*
 	 * Reset SA1111
 	 */
 	GPCR |= GPIO_GPIO26;
 	udelay(1000);
 	GPSR |= GPIO_GPIO26;
+
+
+#ifndef CONFIG_LEDS_TIMER
+	// Set Serial port 1 RTS and DTR Low during sleep
+	PGSR |= GPIO_GPIO15 | GPIO_GPIO20;
+#else
+	// only RTS (because DTR is also the LED
+	// which should be off during sleep);
+	PGSR |= GPIO_GPIO15;
+#endif
+
+	// Set Serial port 3RTS Low during sleep
+	PGSR |= GPIO_GPIO19;
 
 	/*
 	 * Probe for SA1111.
@@ -72,15 +97,6 @@ static int __init adsbitsy_init(void)
 	sa1111_configure_smc(1,
 			     FExtr(MDCNFG, MDCNFG_SA1110_DRAC0),
 			     FExtr(MDCNFG, MDCNFG_SA1110_TDL0));
-
-	/*
-	 * Enable PWM control for LCD
-	 */
-	SKPCR |= SKPCR_PWMCLKEN;
-	SKPWM0 = 0x7F;				// VEE
-	SKPEN0 = 1;
-	SKPWM1 = 0x01;				// Backlight
-	SKPEN1 = 1;
 
 	/*
 	 * We only need to turn on DCLK whenever we want to use the
@@ -108,48 +124,135 @@ static void __init adsbitsy_init_irq(void)
 }
 
 
-/*
- * Initialization fixup
- */
-
-static void __init
-fixup_adsbitsy(struct machine_desc *desc, struct param_struct *params,
-		     char **cmdline, struct meminfo *mi)
-{
-	SET_BANK( 0, 0xc0000000, 32*1024*1024 );
-	mi->nr_banks = 1;
-
-	ROOT_DEV = MKDEV(RAMDISK_MAJOR,0);
-	setup_ramdisk( 1, 0, 0, 8192 );
-	setup_initrd( __phys_to_virt(0xc0800000), 4*1024*1024 );
-}
-
 static struct map_desc adsbitsy_io_desc[] __initdata = {
  /* virtual     physical    length      domain     r  w  c  b */
-  { 0xe8000000, 0x08000000, 0x01000000, DOMAIN_IO, 0, 1, 0, 0 }, /* Flash bank 1 */
+  { 0xe8000000, 0x08000000, 0x02000000, DOMAIN_IO, 0, 1, 0, 0 }, /* Flash bank 1 */
+  { 0xf0000000, 0x3C000000, 0x00004000, DOMAIN_IO, 0, 1, 0, 0 }, /* 91C1111 */
   { 0xf4000000, 0x18000000, 0x00800000, DOMAIN_IO, 0, 1, 0, 0 }, /* SA1111 */
   LAST_DESC
 };
+
+/* Use this to see when all uarts are shutdown.  Or all are closed.
+ * We can only turn off RS232 chip if either of these are true.
+ */
+
+static int uart_wake_count[3] = {1, 1, 1};
+
+enum {UART_SHUTDOWN, UART_WAKEUP};
+
+static void update_uart_counts(int line, int state)
+{
+	switch (state) {
+	case UART_WAKEUP:
+		uart_wake_count[line]++;
+		break;
+	case UART_SHUTDOWN:
+		uart_wake_count[line]--;
+		break;
+	}
+}
 
 static int adsbitsy_uart_open(struct uart_port *port, struct uart_info *info)
 {
 	if (port->mapbase == _Ser1UTCR0) {
 		Ser1SDCR0 |= SDCR0_UART;
-#error Fixme	// Set RTS High (should be done in the set_mctrl fn)
-		GPCR = GPIO_GPIO15;
 	} else if (port->mapbase == _Ser2UTCR0) {
 		Ser2UTCR4 = Ser2HSCR0 = 0;
-#error Fixme	// Set RTS High (should be done in the set_mctrl fn)
-		GPCR = GPIO_GPIO17;
-	} else if (port->mapbase == _Ser2UTCR0) {
-#error Fixme	// Set RTS High (should be done in the set_mctrl fn)
-		GPCR = GPIO_GPIO19;
 	}
 	return 0;
 }
 
+void adsbitsy_uart_pm(struct uart_port *port, u_int state, u_int oldstate)
+{
+	// state has ACPI D0-D3
+	// ACPI D0 	  : resume from suspend
+	// ACPI D1-D3 : enter to a suspend state
+	if (port->mapbase == _Ser1UTCR0) {
+		if (state) {
+			update_uart_counts(1, UART_SHUTDOWN);
+			// disable uart
+			Ser1UTCR3 = 0;
+		}
+		else {
+			update_uart_counts(1, UART_WAKEUP);
+		}
+	}
+	else if (port->mapbase == _Ser2UTCR0) {
+		if (state) {
+			update_uart_counts(2, UART_SHUTDOWN);
+			// disable uart
+			Ser2UTCR3 = 0;
+			Ser2HSCR0 = 0;
+		}
+		else {
+			update_uart_counts(2, UART_WAKEUP);
+		}
+	}
+	else if (port->mapbase == _Ser3UTCR0) {
+		if (state) {
+			update_uart_counts(0, UART_SHUTDOWN);
+			// disable uart
+			Ser3UTCR3 = 0;
+		}
+		else {
+			update_uart_counts(0, UART_WAKEUP);
+		}
+	}
+}
+
+static void adsbitsy_set_mctrl(struct uart_port *port, u_int mctrl)
+{
+	// note: only ports 1 and 3 have modem control
+	if (port->mapbase == _Ser1UTCR0) {
+		if (mctrl & TIOCM_RTS)
+			// Set RTS High
+			GPCR = GPIO_GPIO15;
+		else
+			// Set RTS LOW
+			GPSR = GPIO_GPIO15;
+		if (mctrl & TIOCM_DTR)
+			// Set DTR High
+			GPCR = GPIO_GPIO20;
+		else
+			// Set DTR Low
+			GPSR = GPIO_GPIO20;
+	} else if (port->mapbase == _Ser3UTCR0) {
+		if (mctrl & TIOCM_RTS)
+			// Set RTS High
+			GPCR = GPIO_GPIO19;
+		else
+			// Set RTS LOW
+			GPSR = GPIO_GPIO19;
+	}
+}
+
+static u_int adsbitsy_get_mctrl(struct uart_port *port)
+{
+	u_int ret = 0;
+
+	// note: only ports 1 and 3 have modem control
+	if (port->mapbase == _Ser1UTCR0) {
+		if (!(GPLR & GPIO_GPIO14))
+			ret |= TIOCM_CTS;
+		if (!(GPLR & GPIO_GPIO24))
+			ret |= TIOCM_DSR;
+		if (!(GPLR & GPIO_GPIO16))
+			ret |= TIOCM_RI;
+		if (!(GPLR & GPIO_GPIO17))
+			ret |= TIOCM_CD;
+	} else if (port->mapbase == _Ser3UTCR0) {
+		if (!(GPLR & GPIO_GPIO18))
+			ret |= TIOCM_CTS;
+	}
+
+	return ret;
+}
+
 static struct sa1100_port_fns adsbitsy_port_fns __initdata = {
-	open:	adsbitsy_uart_open,
+	.set_mctrl =    adsbitsy_set_mctrl,
+	.get_mctrl =    adsbitsy_get_mctrl,
+	.open =	        adsbitsy_uart_open,
+	.pm =           adsbitsy_uart_pm,
 };
 
 static void __init adsbitsy_map_io(void)
@@ -160,14 +263,27 @@ static void __init adsbitsy_map_io(void)
 	sa1100_register_uart_fns(&adsbitsy_port_fns);
 	sa1100_register_uart(0, 3);
 	sa1100_register_uart(1, 1);
+
+	// don't register if you want to use IRDA
+#ifndef CONFIG_SA1100_FIR
 	sa1100_register_uart(2, 2);
-	GPDR |= GPIO_GPIO15 | GPIO_GPIO17 | GPIO_GPIO19;
-	GPDR &= ~(GPIO_GPIO14 | GPIO_GPIO16 | GPIO_GPIO18);
+#endif
+
+	// COM1 Set RTS and DTR Output
+	GPDR |= GPIO_GPIO15 | GPIO_GPIO20;
+	// Set CTS, DSR, RI and CD Input
+	GPDR &= ~(GPIO_GPIO14 | GPIO_GPIO24 | GPIO_GPIO16 | GPIO_GPIO17);
+
+	// COM3 Set RTS Output
+	GPDR |= GPIO_GPIO19;
+	// Set CTS Input
+	GPDR &= ~GPIO_GPIO18;
 }
 
+
 MACHINE_START(ADSBITSY, "ADS Bitsy")
+	BOOT_PARAMS(0xc000003c)
 	BOOT_MEM(0xc0000000, 0x80000000, 0xf8000000)
-	FIXUP(fixup_adsbitsy)
 	MAPIO(adsbitsy_map_io)
 	INITIRQ(adsbitsy_init_irq)
 MACHINE_END

@@ -3,7 +3,7 @@
                              -------------------
     begin                : Thu Sep 7 2000
     copyright            : (C) 2000 by Adaptec
-    email                : deanna_bonds@adaptec.com
+    email                : aacraid@adaptec.com
 
     			   July 30, 2001 First version being submitted
 			   for inclusion in the kernel.  V2.4
@@ -434,7 +434,7 @@ static int adpt_queue(Scsi_Cmnd * cmd, void (*done) (Scsi_Cmnd *))
 			cmd->scsi_done(cmd);
 			return 0;
 		}
-		(struct adpt_device*)(cmd->device->hostdata) = pDev;
+		cmd->device->hostdata = pDev;
 	}
 	pDev->pScsi_dev = cmd->device;
 
@@ -807,7 +807,7 @@ static int adpt_hba_reset(adpt_hba* pHba)
 static void adpt_i2o_sys_shutdown(void)
 {
 	adpt_hba *pHba, *pNext;
-	struct adpt_i2o_post_wait_data *p1, *p2;
+	struct adpt_i2o_post_wait_data *p1, *old;
 
 	 printk(KERN_INFO"Shutting down Adaptec I2O controllers.\n");
 	 printk(KERN_INFO"   This could take a few minutes if there are many devices attached\n");
@@ -821,13 +821,14 @@ static void adpt_i2o_sys_shutdown(void)
 	}
 
 	/* Remove any timedout entries from the wait queue.  */
-	p2 = NULL;
 //	spin_lock_irqsave(&adpt_post_wait_lock, flags);
 	/* Nothing should be outstanding at this point so just
 	 * free them 
 	 */
-	for(p1 = adpt_post_wait_queue; p1; p2 = p1, p1 = p2->next) {
-		kfree(p1);
+	for(p1 = adpt_post_wait_queue; p1;) {
+		old = p1;
+		p1 = p1->next;
+		kfree(old);
 	}
 //	spin_unlock_irqrestore(&adpt_post_wait_lock, flags);
 	adpt_post_wait_queue = 0;
@@ -1318,7 +1319,9 @@ static s32 adpt_i2o_reset_hba(adpt_hba* pHba)
 	while(*status == 0){
 		if(time_after(jiffies,timeout)){
 			printk(KERN_WARNING"%s: IOP Reset Timeout\n",pHba->name);
-			kfree(status);
+			/* We loose 4 bytes of "status" here, but we cannot
+			   free these because controller may awake and corrupt
+			   those bytes at any time */
 			return -ETIMEDOUT;
 		}
 		rmb();
@@ -1336,6 +1339,9 @@ static s32 adpt_i2o_reset_hba(adpt_hba* pHba)
 			}
 			if(time_after(jiffies,timeout)){
 				printk(KERN_ERR "%s:Timeout waiting for IOP Reset.\n",pHba->name);
+			/* We loose 4 bytes of "status" here, but we cannot
+			   free these because controller may awake and corrupt
+			   those bytes at any time */
 				return -ETIMEDOUT;
 			}
 		} while (m == EMPTY_QUEUE);
@@ -1498,7 +1504,7 @@ static int adpt_i2o_parse_lct(adpt_hba* pHba)
 							pDev->next_lun; pDev = pDev->next_lun){
 					}
 					pDev->next_lun = kmalloc(sizeof(struct adpt_device),GFP_KERNEL);
-					if(pDev == NULL) {
+					if(pDev->next_lun == NULL) {
 						return -ENOMEM;
 					}
 					memset(pDev->next_lun,0,sizeof(struct adpt_device));
@@ -1803,11 +1809,11 @@ static int adpt_system_info(void *buffer)
 
 #if defined __i386__ 
 	adpt_i386_info(&si);
-#elif defined(__ia64__)
+#elif defined (__ia64__)
 	adpt_ia64_info(&si);
 #elif defined(__sparc__)
 	adpt_sparc_info(&si);
-#elif defined(__alpha__)
+#elif defined (__alpha__)
 	adpt_alpha_info(&si);
 #else
 	si.processorType = 0xff ;
@@ -2189,7 +2195,7 @@ static s32 adpt_scsi_register(adpt_hba* pHba,Scsi_Host_Template * sht)
 		printk ("%s: scsi_register returned NULL\n",pHba->name);
 		return -1;
 	}
-	(adpt_hba*)(host->hostdata[0]) = pHba;
+	host->hostdata[0] = (unsigned long)pHba;
 	pHba->host = host;
 
 	host->irq = pHba->pDev->irq;;
@@ -2560,7 +2566,7 @@ static int adpt_i2o_activate_hba(adpt_hba* pHba)
 
 	if(pHba->initialized ) {
 		if (adpt_i2o_status_get(pHba) < 0) {
-			if((rcode = adpt_i2o_reset_hba(pHba) != 0)){
+			if((rcode = adpt_i2o_reset_hba(pHba)) != 0){
 				printk(KERN_WARNING"%s: Could NOT reset.\n", pHba->name);
 				return rcode;
 			}
@@ -2586,7 +2592,7 @@ static int adpt_i2o_activate_hba(adpt_hba* pHba)
 			}
 		}
 	} else {
-		if((rcode = adpt_i2o_reset_hba(pHba) != 0)){
+		if((rcode = adpt_i2o_reset_hba(pHba)) != 0){
 			printk(KERN_WARNING"%s: Could NOT reset.\n", pHba->name);
 			return rcode;
 		}

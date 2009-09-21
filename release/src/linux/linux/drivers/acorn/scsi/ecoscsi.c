@@ -33,12 +33,6 @@
 
 /*
  * $Log: ecoscsi.c,v $
- * Revision 1.1.1.2  2003/10/14 08:07:53  sparq
- * Broadcom Release 3.51.8.0 for BCM4712.
- *
- * Revision 1.1.1.1  2003/02/03 22:37:34  mhuang
- * LINUX_2_4 branch snapshot from linux-mips.org CVS
- *
  * Revision 1.2  1998/03/08 05:49:47  davem
  * Merge to 2.1.89
  *
@@ -174,6 +168,71 @@ const char * ecoscsi_info (struct Scsi_Host *spnt) {
     return "";
 }
 
+#if 0
+#define STAT(p) inw(p + 144)
+
+static inline int NCR5380_pwrite(struct Scsi_Host *instance, unsigned char *addr,
+              int len)
+{
+  int iobase = instance->io_port;
+printk("writing %p len %d\n",addr, len);
+  if(!len) return -1;
+
+  while(1)
+  {
+    int status;
+    while(((status = STAT(iobase)) & 0x100)==0);
+  }
+}
+
+static inline int NCR5380_pread(struct Scsi_Host *instance, unsigned char *addr,
+              int len)
+{
+  int iobase = instance->io_port;
+  int iobase2= instance->io_port + 0x100;
+  unsigned char *start = addr;
+  int s;
+printk("reading %p len %d\n",addr, len);
+  outb(inb(iobase + 128), iobase + 135);
+  while(len > 0)
+  {
+    int status,b,i, timeout;
+    timeout = 0x07FFFFFF;
+    while(((status = STAT(iobase)) & 0x100)==0)
+    {
+      timeout--;
+      if(status & 0x200 || !timeout)
+      {
+        printk("status = %p\n",status);
+        outb(0, iobase + 135);
+        return 1;
+      }
+    }
+    if(len >= 128)
+    {
+      for(i=0; i<64; i++)
+      {
+        b = inw(iobase + 136);
+        *addr++ = b;
+        *addr++ = b>>8;
+      }
+      len -= 128;
+    }
+    else
+    {
+      b = inw(iobase + 136);
+      *addr ++ = b;
+      len -= 1;
+      if(len)
+        *addr ++ = b>>8;
+      len -= 1;
+    }
+  }
+  outb(0, iobase + 135);
+  printk("first bytes = %02X %02X %02X %20X %02X %02X %02X\n",*start, start[1], start[2], start[3], start[4], start[5], start[6]);
+  return 1;
+}
+#endif
 #undef STAT
 
 #define NCR5380_implementation_fields \

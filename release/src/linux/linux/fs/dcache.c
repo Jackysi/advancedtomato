@@ -55,7 +55,10 @@ static LIST_HEAD(dentry_unused);
 /* Statistics gathering. */
 struct dentry_stat_t dentry_stat = {0, 0, 45, 0,};
 
-/* no dcache_lock, please */
+/*
+ * no dcache_lock, please.  The caller must decrement dentry_stat.nr_dentry
+ * inside dcache_lock.
+ */
 static inline void d_free(struct dentry *dentry)
 {
 	if (dentry->d_op && dentry->d_op->d_release)
@@ -63,7 +66,6 @@ static inline void d_free(struct dentry *dentry)
 	if (dname_external(dentry)) 
 		kfree(dentry->d_name.name);
 	kmem_cache_free(dentry_cache, dentry); 
-	dentry_stat.nr_dentry--;
 }
 
 /*
@@ -148,6 +150,7 @@ unhash_it:
 kill_it: {
 		struct dentry *parent;
 		list_del(&dentry->d_child);
+		dentry_stat.nr_dentry--;	/* For d_free, below */
 		/* drops the lock, at that point nobody can reach this dentry */
 		dentry_iput(dentry);
 		parent = dentry->d_parent;
@@ -218,7 +221,7 @@ int d_invalidate(struct dentry * dentry)
 static inline struct dentry * __dget_locked(struct dentry *dentry)
 {
 	atomic_inc(&dentry->d_count);
-	if (atomic_read(&dentry->d_count) == 1) {
+	if (!list_empty(&dentry->d_lru)) {
 		dentry_stat.nr_unused--;
 		list_del_init(&dentry->d_lru);
 	}
@@ -297,6 +300,7 @@ static inline void prune_one_dentry(struct dentry * dentry)
 
 	list_del_init(&dentry->d_hash);
 	list_del(&dentry->d_child);
+	dentry_stat.nr_dentry--;	/* For d_free, below */
 	dentry_iput(dentry);
 	parent = dentry->d_parent;
 	d_free(dentry);
@@ -623,13 +627,15 @@ struct dentry * d_alloc(struct dentry * parent, const struct qstr *name)
 	if (parent) {
 		dentry->d_parent = dget(parent);
 		dentry->d_sb = parent->d_sb;
-		spin_lock(&dcache_lock);
-		list_add(&dentry->d_child, &parent->d_subdirs);
-		spin_unlock(&dcache_lock);
 	} else
 		INIT_LIST_HEAD(&dentry->d_child);
 
+	spin_lock(&dcache_lock);
+	if (parent)
+		list_add(&dentry->d_child, &parent->d_subdirs);
 	dentry_stat.nr_dentry++;
+	spin_unlock(&dcache_lock);
+
 	return dentry;
 }
 
@@ -977,21 +983,24 @@ char * __d_path(struct dentry *dentry, struct vfsmount *vfsmnt,
 		namelen = dentry->d_name.len;
 		buflen -= namelen + 1;
 		if (buflen < 0)
-			break;
+			return ERR_PTR(-ENAMETOOLONG);
 		end -= namelen;
 		memcpy(end, dentry->d_name.name, namelen);
 		*--end = '/';
 		retval = end;
 		dentry = parent;
 	}
+
 	return retval;
+
 global_root:
 	namelen = dentry->d_name.len;
 	buflen -= namelen;
 	if (buflen >= 0) {
 		retval -= namelen-1;	/* hit the slash */
 		memcpy(retval, dentry->d_name.name, namelen);
-	}
+	} else
+		retval = ERR_PTR(-ENAMETOOLONG);
 	return retval;
 }
 
@@ -1040,6 +1049,10 @@ asmlinkage long sys_getcwd(char *buf, unsigned long size)
 		cwd = __d_path(pwd, pwdmnt, root, rootmnt, page, PAGE_SIZE);
 		spin_unlock(&dcache_lock);
 
+		error = PTR_ERR(cwd);
+		if (IS_ERR(cwd))
+			goto out;
+
 		error = -ERANGE;
 		len = PAGE_SIZE + page - cwd;
 		if (len <= size) {
@@ -1049,6 +1062,8 @@ asmlinkage long sys_getcwd(char *buf, unsigned long size)
 		}
 	} else
 		spin_unlock(&dcache_lock);
+
+out:
 	dput(pwd);
 	mntput(pwdmnt);
 	dput(root);
@@ -1273,7 +1288,7 @@ void __init vfs_caches_init(unsigned long mempages)
 	if(!filp_cachep)
 		panic("Cannot create filp SLAB cache");
 
-#if defined(CONFIG_QUOTA)
+#if defined (CONFIG_QUOTA)
 	dquot_cachep = kmem_cache_create("dquot", 
 			sizeof(struct dquot), sizeof(unsigned long) * 4,
 			SLAB_HWCACHE_ALIGN, NULL, NULL);

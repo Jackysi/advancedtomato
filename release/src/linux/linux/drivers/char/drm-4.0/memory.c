@@ -296,7 +296,7 @@ void drm_free_pages(unsigned long address, int order, int area)
 	}
 }
 
-void *drm_ioremap(unsigned long offset, unsigned long size)
+void *drm_ioremap(unsigned long offset, unsigned long size, drm_device_t *dev)
 {
 	void *pt;
 	
@@ -319,7 +319,7 @@ void *drm_ioremap(unsigned long offset, unsigned long size)
 	return pt;
 }
 
-void drm_ioremapfree(void *pt, unsigned long size)
+void drm_ioremapfree(void *pt, unsigned long size, drm_device_t *dev)
 {
 	int alloc_count;
 	int free_count;

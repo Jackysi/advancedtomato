@@ -1,4 +1,4 @@
-/* $Id: sunlance.c,v 1.1.1.4 2003/10/14 08:08:23 sparq Exp $
+/* $Id: sunlance.c,v 1.109.2.1 2002/01/14 10:07:56 davem Exp $
  * lance.c: Linux/Sparc/Lance driver
  *
  *	Written 1995, 1996 by Miguel de Icaza
@@ -1400,6 +1400,9 @@ static int __init sparc_lance_init(struct net_device *dev,
 			printk(KERN_INFO "%s: using auto-carrier-detection.\n",
 			       dev->name);
 
+			/* Is this found at /options .attributes in all
+			 * Prom versions? XXX
+			 */
 			topnd = prom_getchild(prom_root_node);
 
 			nd = prom_searchsiblings(topnd, "options");
@@ -1418,7 +1421,7 @@ static int __init sparc_lance_init(struct net_device *dev,
 				       "'tpe-link-test?'\n", dev->name);
 				printk(KERN_NOTICE "%s: warning: mail any problems "
 				       "to ecd@skynet.be\n", dev->name);
-				set_auxio(AUXIO_LINK_TEST, 0);
+				auxio_set_lte(AUXIO_LTE_ON);
 			}
 no_link_test:
 			lp->auto_select = 1;
@@ -1499,6 +1502,7 @@ static inline struct sbus_dma *find_ledma(struct sbus_dev *sdev)
 #ifdef CONFIG_SUN4
 
 #include <asm/sun4paddr.h>
+#include <asm/machines.h>
 
 /* Find all the lance cards on the system and initialize them */
 static int __init sparc_lance_probe(void)

@@ -1,7 +1,4 @@
 /*
- * BK Id: %F% %I% %G% %U% %#%
- */
-/*
  * Smp support for CHRP machines.
  *
  * Written by Cort Dougan (cort@cs.nmt.edu) borrowing a great
@@ -47,7 +44,7 @@ extern unsigned long smp_chrp_cpu_nr;
  * call event-scan periodically, not always the same
  * one.  The event-scan function needs to be called a
  * total of rtas-event-scan-rate times a minute"
- * 
+ *
  * We must call on each cpu in on a regular basis
  * so that firmware can watch for cpu unique errors.
  */
@@ -101,6 +98,7 @@ smp_chrp_setup_cpu(int cpu_nr)
 		call_rtas("freeze-time-base", 0, 1, NULL);
 		mb();
 		frozen = 1;
+		/* XXX assumes this is not a 601 */
 		set_tb(0, 0);
 		last_jiffy_stamp(0) = 0;
 		while (atomic_read(&ready) < smp_num_cpus)
@@ -124,37 +122,9 @@ smp_chrp_setup_cpu(int cpu_nr)
 
 	if (OpenPIC_Addr)
 		do_openpic_setup_cpu();
-}
 
-#ifdef CONFIG_POWER4
-static void __chrp
-smp_xics_message_pass(int target, int msg, unsigned long data, int wait)
-{
-	/* for now, only do reschedule messages
-	   since we only have one IPI */
-	if (msg != PPC_MSG_RESCHEDULE)
-		return;
-	for (i = 0; i < smp_num_cpus; ++i) {
-		if (target == MSG_ALL || target == i
-		    || (target == MSG_ALL_BUT_SELF
-			&& i != smp_processor_id()))
-			xics_cause_IPI(i);
-	}
+	spread_heartbeat();
 }
-
-static int __chrp
-smp_xics_probe(void)
-{
-	return smp_chrp_cpu_nr;
-}
-
-static void __chrp
-smp_xics_setup_cpu(int cpu_nr)
-{
-	if (cpu_nr > 0)
-		xics_setup_cpu();
-}
-#endif /* CONFIG_POWER4 */
 
 /* CHRP with openpic */
 struct smp_ops_t chrp_smp_ops __chrpdata = {
@@ -163,13 +133,3 @@ struct smp_ops_t chrp_smp_ops __chrpdata = {
 	smp_chrp_kick_cpu,
 	smp_chrp_setup_cpu,
 };
-
-#ifdef CONFIG_POWER4
-/* CHRP with new XICS interrupt controller */
-struct smp_ops_t xics_smp_ops __chrpdata = {
-	smp_xics_message_pass,
-	smp_xics_probe,
-	smp_chrp_kick_cpu,
-	smp_xics_setup_cpu,
-};
-#endif /* CONFIG_POWER4 */

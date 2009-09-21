@@ -277,7 +277,7 @@
  * CACHE_ERR_SP_PTR could either contain an address to the stack, or
  * the stack could start at CACHE_ERR_SP_PTR
  */
-#if defined(HUB_ERR_STS_WAR)
+#if defined (HUB_ERR_STS_WAR)
 #define CACHE_ERR_EFRAME	0x480
 #else /* HUB_ERR_STS_WAR */
 #define CACHE_ERR_EFRAME	0x400
@@ -363,7 +363,7 @@
 
 #endif /* _STANDALONE */
 
-#if defined(HUB_ERR_STS_WAR)
+#if defined (HUB_ERR_STS_WAR)
 
 #define ERR_STS_WAR_REGISTER	IIO_IIBUSERR
 #define ERR_STS_WAR_ADDR	LOCAL_HUB_ADDR(IIO_IIBUSERR)

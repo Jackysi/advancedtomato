@@ -29,38 +29,36 @@ extern unsigned long mmu_context_cache;
  */
 #define MMU_VPN_MASK	0xfffff000
 
-static __inline__ void
-get_new_mmu_context(struct mm_struct *mm)
-{
-	extern void flush_tlb_all(void);
-
-	unsigned long mc = ++mmu_context_cache;
-
-	if (!(mc & MMU_CONTEXT_ASID_MASK)) {
-		/* We exhaust ASID of this version.
-		   Flush all TLB and start new cycle. */
-		flush_tlb_all();
-		/* Fix version if needed.
-		   Note that we avoid version #0 to distingush NO_CONTEXT. */
-		if (!mc)
-			mmu_context_cache = mc = MMU_CONTEXT_FIRST_VERSION;
-	}
-	mm->context = mc;
-}
-
 /*
  * Get MMU context if needed.
  */
 static __inline__ void
 get_mmu_context(struct mm_struct *mm)
 {
-	if (mm) {
-		unsigned long mc = mmu_context_cache;
-		/* Check if we have old version of context.
-		   If it's old, we need to get new context with new version. */
-		if ((mm->context ^ mc) & MMU_CONTEXT_VERSION_MASK)
-			get_new_mmu_context(mm);
+	extern void flush_tlb_all(void);
+	unsigned long mc = mmu_context_cache;
+
+	/* Check if we have old version of context. */
+	if (((mm->context ^ mc) & MMU_CONTEXT_VERSION_MASK) == 0)
+		/* It's up to date, do nothing */
+		return;
+
+	/* It's old, we need to get new context with new version. */
+	mc = ++mmu_context_cache;
+	if (!(mc & MMU_CONTEXT_ASID_MASK)) {
+		/*
+		 * We exhaust ASID of this version.
+		 * Flush all TLB and start new cycle.
+		 */
+		flush_tlb_all();
+		/*
+		 * Fix version; Note that we avoid version #0
+		 * to distingush NO_CONTEXT.
+		 */
+		if (!mc)
+			mmu_context_cache = mc = MMU_CONTEXT_FIRST_VERSION;
 	}
+	mm->context = mc;
 }
 
 /*
@@ -169,8 +167,6 @@ static __inline__ void switch_mm(struct mm_struct *prev,
 	if (prev != next) {
 		unsigned long __pgdir = (unsigned long)next->pgd;
 
-		clear_bit(cpu, &prev->cpu_vm_mask);
-		set_bit(cpu, &next->cpu_vm_mask);
 		__asm__ __volatile__("mov.l	%0, %1"
 				     : /* no output */
 				     : "r" (__pgdir), "m" (__m(MMU_TTB)));
@@ -185,4 +181,5 @@ static __inline__ void
 enter_lazy_tlb(struct mm_struct *mm, struct task_struct *tsk, unsigned cpu)
 {
 }
+
 #endif /* __ASM_SH_MMU_CONTEXT_H */

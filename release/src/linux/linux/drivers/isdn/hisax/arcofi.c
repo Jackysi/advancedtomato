@@ -1,4 +1,4 @@
-/* $Id: arcofi.c,v 1.1.1.4 2003/10/14 08:08:12 sparq Exp $
+/* $Id: arcofi.c,v 1.1.4.1 2001/11/20 14:19:35 kai Exp $
  *
  * Ansteuerung ARCOFI 2165
  *

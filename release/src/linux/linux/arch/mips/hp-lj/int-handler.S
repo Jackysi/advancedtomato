@@ -36,6 +36,10 @@ NESTED(hpIRQ, PT_SIZE, sp)
 	beqz	t0,3f			# no pending intrs, then spurious
 	nop				# delay slot
 
+	/*
+	 * Find irq with highest priority
+	 * FIXME: This is slow - use binary search
+	 */
 
 	la	a0,7
 1:	bltz	t0,2f			# found pending irq

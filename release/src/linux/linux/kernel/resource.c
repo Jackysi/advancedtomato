@@ -13,6 +13,7 @@
 #include <linux/init.h>
 #include <linux/slab.h>
 #include <linux/spinlock.h>
+#include <linux/seq_file.h>
 #include <asm/io.h>
 
 struct resource ioport_resource = { "PCI IO", 0x0000, IO_SPACE_LIMIT, IORESOURCE_IO };
@@ -20,48 +21,92 @@ struct resource iomem_resource = { "PCI mem", 0x00000000, 0xffffffff, IORESOURCE
 
 static rwlock_t resource_lock = RW_LOCK_UNLOCKED;
 
-/*
- * This generates reports for /proc/ioports and /proc/iomem
- */
-static char * do_resource_list(struct resource *entry, const char *fmt, int offset, char *buf, char *end)
+enum { MAX_IORES_LEVEL = 5 };
+
+static void *r_next(struct seq_file *m, void *v, loff_t *pos)
 {
-	if (offset < 0)
-		offset = 0;
-
-	while (entry) {
-		const char *name = entry->name;
-		unsigned long from, to;
-
-		if ((int) (end-buf) < 80)
-			return buf;
-
-		from = entry->start;
-		to = entry->end;
-		if (!name)
-			name = "<BAD>";
-
-		buf += sprintf(buf, fmt + offset, from, to, name);
-		if (entry->child)
-			buf = do_resource_list(entry->child, fmt, offset-2, buf, end);
-		entry = entry->sibling;
-	}
-
-	return buf;
+	struct resource *p = v;
+	(*pos)++;
+	if (p->child)
+		return p->child;
+	while (!p->sibling && p->parent)
+		p = p->parent;
+	return p->sibling;
 }
 
-int get_resource_list(struct resource *root, char *buf, int size)
+static void *r_start(struct seq_file *m, loff_t *pos)
 {
-	char *fmt;
-	int retval;
-
-	fmt = "        %08lx-%08lx : %s\n";
-	if (root->end < 0x10000)
-		fmt = "        %04lx-%04lx : %s\n";
+	struct resource *p = m->private;
+	loff_t l = 0;
 	read_lock(&resource_lock);
-	retval = do_resource_list(root->child, fmt, 8, buf, buf + size) - buf;
+	for (p = p->child; p && l < *pos; p = r_next(m, p, &l))
+		;
+	return p;
+}
+
+static void r_stop(struct seq_file *m, void *v)
+{
 	read_unlock(&resource_lock);
-	return retval;
-}	
+}
+
+static int r_show(struct seq_file *m, void *v)
+{
+	struct resource *root = m->private;
+	struct resource *r = v, *p;
+	int width = root->end < 0x10000 ? 4 : 8;
+	int depth;
+
+	for (depth = 0, p = r; depth < MAX_IORES_LEVEL; depth++, p = p->parent)
+		if (p->parent == root)
+			break;
+	seq_printf(m, "%*s%0*lx-%0*lx : %s\n",
+			depth * 2, "",
+			width, r->start,
+			width, r->end,
+			r->name ? r->name : "<BAD>");
+	return 0;
+}
+
+static struct seq_operations resource_op = {
+	.start	= r_start,
+	.next	= r_next,
+	.stop	= r_stop,
+	.show	= r_show,
+};
+
+static int ioports_open(struct inode *inode, struct file *file)
+{
+	int res = seq_open(file, &resource_op);
+	if (!res) {
+		struct seq_file *m = file->private_data;
+		m->private = &ioport_resource;
+	}
+	return res;
+}
+
+static int iomem_open(struct inode *inode, struct file *file)
+{
+	int res = seq_open(file, &resource_op);
+	if (!res) {
+		struct seq_file *m = file->private_data;
+		m->private = &iomem_resource;
+	}
+	return res;
+}
+
+struct file_operations proc_ioports_operations = {
+	.open		= ioports_open,
+	.read		= seq_read,
+	.llseek		= seq_lseek,
+	.release	= seq_release,
+};
+
+struct file_operations proc_iomem_operations = {
+	.open		= iomem_open,
+	.read		= seq_read,
+	.llseek		= seq_lseek,
+	.release	= seq_release,
+};
 
 /* Return the conflict entry if you can't request it */
 static struct resource * __request_resource(struct resource *root, struct resource *new)
@@ -303,7 +348,7 @@ static int __init reserve_setup(char *str)
 	static struct resource reserve[MAXRESERVE];
 
 	for (;;) {
-		int io_start, io_num;
+		unsigned int io_start, io_num;
 		int x = reserved;
 
 		if (get_option (&str, &io_start) != 2)

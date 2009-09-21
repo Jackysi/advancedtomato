@@ -2470,6 +2470,7 @@ static int chandev_setup(int in_read_conf,char *instr,char *errstr,int lineno)
 					goto BadArgs;
 					
 				}
+				break;
 			case del_auto_msck_stridx*stridx_mult:
 			case (del_auto_msck_stridx*stridx_mult)|iscomma:
 				switch(ints[0])
@@ -2482,6 +2483,7 @@ static int chandev_setup(int in_read_conf,char *instr,char *errstr,int lineno)
 				default:
 					goto BadArgs;
 				}
+				break;
 			case del_noauto_stridx*stridx_mult:
 				chandev_free_all_list((list **)&chandev_noauto_head);
 				break;
@@ -2800,6 +2802,7 @@ static void chandev_read_conf(void)
 	struct stat statbuf;
 	char        *buff;
 	int         curr,left,len,fd;
+	mm_segment_t oldfs;
 
 	/* if called from chandev_register_and_probe & 
 	   the driver is compiled into the kernel the
@@ -2810,6 +2813,7 @@ static void chandev_read_conf(void)
 	if(in_interrupt()||current->fs->root==NULL)
 		return;
 	atomic_set(&chandev_conf_read,TRUE);
+	oldfs = get_fs();
 	set_fs(KERNEL_DS);
 	if(stat(CHANDEV_FILE,&statbuf)==0)
 	{
@@ -2834,7 +2838,7 @@ static void chandev_read_conf(void)
 			vfree(buff);
 		}
 	}
-	set_fs(USER_DS);
+	set_fs(oldfs);
 }
 
 static void chandev_read_conf_if_necessary(void)

@@ -1,4 +1,4 @@
-/* $Id: isa.h,v 1.1.1.4 2003/10/14 08:09:23 sparq Exp $
+/* $Id: isa.h,v 1.1 2001/05/11 04:31:55 davem Exp $
  * isa.h: Sparc64 layer for PCI to ISA bridge devices.
  *
  * Copyright (C) 2001 David S. Miller (davem@redhat.com)
@@ -32,6 +32,11 @@ struct isa_bridge {
 #define linux_prom_isa_ranges linux_prom_ebus_ranges
 	struct linux_prom_isa_ranges	isa_ranges[PROMREG_MAX];
 	int			num_isa_ranges;
+#define linux_prom_isa_intmap	linux_prom_ebus_intmap
+	struct linux_prom_isa_intmap	isa_intmap[PROMREG_MAX];
+	int			num_isa_intmap;
+#define linux_prom_isa_intmask	linux_prom_ebus_intmask
+	struct linux_prom_isa_intmap	isa_intmask;
 };
 
 extern struct isa_bridge	*isa_chain;

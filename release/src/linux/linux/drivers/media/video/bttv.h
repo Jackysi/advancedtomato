@@ -90,11 +90,37 @@
 #define BTTV_SENSORAY311    0x49
 #define BTTV_RV605          0x4a
 #define BTTV_WINDVR         0x4c
+#define BTTV_GRANDTEC       0x4d
+#define BTTV_KWORLD         0x4e
 #define BTTV_HAUPPAUGEPVR   0x50
+#define BTTV_GVBCTV5PCI     0x51
+#define BTTV_OSPREY1x0      0x52
+#define BTTV_OSPREY1x0_848  0x53
+#define BTTV_OSPREY101_848  0x54
+#define BTTV_OSPREY1x1      0x55
+#define BTTV_OSPREY1x1_SVID 0x56
+#define BTTV_OSPREY2xx      0x57
+#define BTTV_OSPREY2x0_SVID 0x58
+#define BTTV_OSPREY2x0      0x59
+#define BTTV_OSPREY500      0x5a
+#define BTTV_OSPREY540      0x5b
+#define BTTV_OSPREY2000     0x5c
+#define BTTV_IDS_EAGLE      0x5d
+#define BTTV_PINNACLESAT    0x5e
+#define BTTV_FORMAC_PROTV   0x5f
+#define BTTV_EURESYS_PICOLO 0x61
+#define BTTV_PV150          0x62
+#define BTTV_AD_TVK503      0x63
+#define BTTV_IVC200         0x66
+#define BTTV_XGUARD         0x67
+#define BTTV_NEBULA_DIGITV  0x68
+#define BTTV_PV143          0x69
 
 /* i2c address list */
 #define I2C_TSA5522        0xc2
 #define I2C_TDA7432        0x8a
+#define I2C_BT832_ALT1	   0x88
+#define I2C_BT832_ALT2	   0x8a // alternate setting
 #define I2C_TDA8425        0x82
 #define I2C_TDA9840        0x84
 #define I2C_TDA9850        0xb6 /* also used by 9855,9873 */
@@ -104,8 +130,10 @@
 #define I2C_STBEE          0xae
 #define I2C_VHX            0xc0
 #define I2C_MSP3400        0x80
+#define I2C_MSP3400_ALT    0x88
 #define I2C_TEA6300        0x80
 #define I2C_DPL3518	   0x84
+#define I2C_TDA9887	   0x86
 
 /* more card-specific defines */
 #define PT2254_L_CHANNEL 0x10
@@ -116,39 +144,46 @@
 #define WINVIEW_PT2254_DATA 0x20
 #define WINVIEW_PT2254_STROBE 0x80
 
+/* digital_mode */
+#define DIGITAL_MODE_VIDEO 1
+#define DIGITAL_MODE_CAMERA 2
+
 struct bttv;
 
 struct tvcard
 {
         char *name;
-        int video_inputs;
-        int audio_inputs;
-        int tuner;
-        int svhs;
+        unsigned int video_inputs;
+        unsigned int audio_inputs;
+        unsigned int tuner;
+        unsigned int svhs;
+	unsigned int digital_mode; // DIGITAL_MODE_CAMERA or DIGITAL_MODE_VIDEO
         u32 gpiomask;
         u32 muxsel[16];
         u32 audiomux[6]; /* Tuner, Radio, external, internal, mute, stereo */
         u32 gpiomask2;   /* GPIO MUX mask */
 
 	/* i2c audio flags */
-	int no_msp34xx:1;
-	int no_tda9875:1;
-	int needs_tvaudio:1;
+	unsigned int no_msp34xx:1;
+	unsigned int no_tda9875:1;
+	unsigned int no_tda7432:1;
+	unsigned int needs_tvaudio:1;
+	unsigned int msp34xx_alt:1;
 
 	/* other settings */
-	int pll;
+	unsigned int pll;
 #define PLL_NONE 0
 #define PLL_28   1
 #define PLL_35   2
 
-	int tuner_type;
-	int has_radio;
+	unsigned int tuner_type;
+	unsigned int has_radio;
 	void (*audio_hook)(struct bttv *btv, struct video_audio *v, int set);
 	void (*muxsel_hook)(struct bttv *btv, unsigned int input);
 };
 
 extern struct tvcard bttv_tvcards[];
-extern const int bttv_num_tvcards;
+extern const unsigned int bttv_num_tvcards;
 
 /* identification / initialization of the card */
 extern void bttv_idcard(struct bttv *btv);
@@ -174,7 +209,8 @@ extern int bttv_handle_chipset(struct bttv *btv);
    for possible values see lines below beginning with #define BTTV_UNKNOWN
    returns negative value if error occurred 
 */
-extern int bttv_get_cardinfo(unsigned int card, int *type, int *cardid);
+extern int bttv_get_cardinfo(unsigned int card, int *type,
+			     unsigned int *cardid);
 extern struct pci_dev* bttv_get_pcidev(unsigned int card);
 
 /* obsolete, use bttv_get_cardinfo instead */
@@ -216,7 +252,6 @@ extern void bttv_i2c_call(unsigned int card, unsigned int cmd, void *arg);
 
 
 /* i2c */
-#define I2C_CLIENTS_MAX 16
 extern void bttv_bit_setscl(void *data, int state);
 extern void bttv_bit_setsda(void *data, int state);
 extern void bttv_call_i2c_clients(struct bttv *btv, unsigned int cmd, void *arg);

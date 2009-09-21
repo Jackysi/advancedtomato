@@ -3,7 +3,7 @@
  *
  * Questions/comments/discussion to linux-ns83820@kvack.org.
  *
- * $Revision: 1.1.1.2 $
+ * $Revision: 1.34.2.23 $
  *
  * Copyright 2001 Benjamin LaHaise.
  * Copyright 2001, 2002 Red Hat.
@@ -499,9 +499,9 @@ static inline void build_rx_desc(struct ns83820 *dev, u32 *desc, dma_addr_t link
 {
 	desc_addr_set(desc + DESC_LINK, link);
 	desc_addr_set(desc + DESC_BUFPTR, buf);
-	desc[DESC_EXTSTS] = extsts;
+	desc[DESC_EXTSTS] = cpu_to_le32(extsts);
 	mb();
-	desc[DESC_CMDSTS] = cmdsts;
+	desc[DESC_CMDSTS] = cpu_to_le32(cmdsts);
 }
 
 #define nr_rx_empty(dev) ((NR_RX_DESC-2 + dev->rx_info.next_rx - dev->rx_info.next_empty) % NR_RX_DESC)
@@ -520,6 +520,13 @@ static inline int ns83820_add_rx_skb(struct ns83820 *dev, struct sk_buff *skb)
 		return 1;
 	}
 
+#if 0
+	dprintk("next_empty[%d] nr_used[%d] next_rx[%d]\n",
+		dev->rx_info.next_empty,
+		dev->rx_info.nr_used,
+		dev->rx_info.next_rx
+		);
+#endif
 
 	sg = dev->rx_info.descs + (next_empty * DESC_SIZE);
 	if (unlikely(NULL != dev->rx_info.skbs[next_empty]))
@@ -580,7 +587,7 @@ static inline int rx_refill(struct ns83820 *dev, int gfp)
 }
 
 static void FASTCALL(rx_refill_atomic(struct ns83820 *dev));
-static void rx_refill_atomic(struct ns83820 *dev)
+static void fastcall rx_refill_atomic(struct ns83820 *dev)
 {
 	rx_refill(dev, GFP_ATOMIC);
 }
@@ -601,7 +608,7 @@ static inline void clear_rx_desc(struct ns83820 *dev, unsigned i)
 }
 
 static void FASTCALL(phy_intr(struct ns83820 *dev));
-static void phy_intr(struct ns83820 *dev)
+static void fastcall phy_intr(struct ns83820 *dev)
 {
 	static char *speeds[] = { "10", "100", "1000", "1000(?)", "1000F" };
 	u32 cfg, new_cfg;
@@ -786,7 +793,7 @@ static void ns83820_cleanup_rx(struct ns83820 *dev)
 }
 
 static void FASTCALL(ns83820_rx_kick(struct ns83820 *dev));
-static void ns83820_rx_kick(struct ns83820 *dev)
+static void fastcall ns83820_rx_kick(struct ns83820 *dev)
 {
 	/*if (nr_rx_empty(dev) >= NR_RX_DESC/4)*/ {
 		if (dev->rx_info.up) {
@@ -807,7 +814,7 @@ static void ns83820_rx_kick(struct ns83820 *dev)
  *	
  */
 static void FASTCALL(rx_irq(struct ns83820 *dev));
-static void rx_irq(struct ns83820 *dev)
+static void fastcall rx_irq(struct ns83820 *dev)
 {
 	struct rx_info *info = &dev->rx_info;
 	unsigned next_rx;
@@ -1207,7 +1214,7 @@ static int ns83820_ethtool_ioctl (struct ns83820 *dev, void *useraddr)
 
 static int ns83820_ioctl(struct net_device *_dev, struct ifreq *rq, int cmd)
 {
-	struct ns83820 *dev = _dev->priv;
+	struct ns83820 *dev = (struct ns83820 *)_dev;
 
 	switch(cmd) {
 	case SIOCETHTOOL:
@@ -1338,6 +1345,10 @@ static void ns83820_do_isr(struct ns83820 *dev, u32 isr)
 	if (unlikely(ISR_PHY & isr))
 		phy_intr(dev);
 
+#if 0	/* Still working on the interrupt mitigation strategy */
+	if (dev->ihr)
+		writel(dev->ihr, dev->base + IHR);
+#endif
 }
 
 static void ns83820_do_reset(struct ns83820 *dev, u32 which)
@@ -1354,6 +1365,7 @@ static int ns83820_stop(struct net_device *_dev)
 {
 	struct ns83820 *dev = (struct ns83820 *)_dev;
 
+	/* FIXME: protect against interrupt handler? */
 	del_timer_sync(&dev->tx_watchdog);
 
 	/* disable interrupts */
@@ -1472,7 +1484,7 @@ static int ns83820_open(struct net_device *_dev)
 	dev->tx_watchdog.function = ns83820_tx_watch;
 	mod_timer(&dev->tx_watchdog, jiffies + 2*HZ);
 
-	netif_start_queue(&dev->net_dev);	
+	netif_start_queue(&dev->net_dev);	/* FIXME: wait for phy to come up */
 
 	return 0;
 
@@ -1486,11 +1498,15 @@ static void ns83820_getmac(struct ns83820 *dev, u8 *mac)
 	unsigned i;
 	for (i=0; i<3; i++) {
 		u32 data;
+#if 0	/* I've left this in as an example of how to use eeprom.h */
+		data = eeprom_readw(&dev->ee, 0xa + 2 - i);
+#else
 		/* Read from the perfect match memory: this is loaded by
 		 * the chip from the EEPROM via the EELOAD self test.
 		 */
 		writel(i*2, dev->base + RFCR);
 		data = readl(dev->base + RFDR);
+#endif
 		*mac++ = data;
 		*mac++ = data >> 8;
 	}
@@ -1569,6 +1585,7 @@ static void ns83820_run_bist(struct ns83820 *dev, const char *name, u32 enable, 
 	dprintk("%s: done %s in %d loops\n", dev->net_dev.name, name, loops);
 }
 
+#ifdef PHY_CODE_IS_FINISHED
 static void ns83820_mii_write_bit(struct ns83820 *dev, int bit)
 {
 	/* drive MDC low */
@@ -1695,6 +1712,18 @@ static void ns83820_probe_phy(struct ns83820 *dev)
 #define MII_PHYIDR1	0x02
 #define MII_PHYIDR2	0x03
 
+#if 0
+	if (!first) {
+		unsigned tmp;
+		ns83820_mii_read_reg(dev, 1, 0x09);
+		ns83820_mii_write_reg(dev, 1, 0x10, 0x0d3e);
+
+		tmp = ns83820_mii_read_reg(dev, 1, 0x00);
+		ns83820_mii_write_reg(dev, 1, 0x00, tmp | 0x8000);
+		udelay(1300);
+		ns83820_mii_read_reg(dev, 1, 0x09);
+	}
+#endif
 	first = 1;
 
 	for (i=1; i<2; i++) {
@@ -1729,6 +1758,7 @@ static void ns83820_probe_phy(struct ns83820 *dev)
 		dprintk("version: 0x%04x 0x%04x\n", a, b);
 	}
 }
+#endif
 
 static int __devinit ns83820_init_one(struct pci_dev *pci_dev, const struct pci_device_id *id)
 {
@@ -1738,7 +1768,7 @@ static int __devinit ns83820_init_one(struct pci_dev *pci_dev, const struct pci_
 	int using_dac = 0;
 
 	/* See if we can set the dma mask early on; failure is fatal. */
-	if (TRY_DAC && !pci_set_dma_mask(pci_dev, 0xffffffffffffffff)) {
+	if (TRY_DAC && !pci_set_dma_mask(pci_dev, 0xffffffffffffffffULL)) {
 		using_dac = 1;
 	} else if (!pci_set_dma_mask(pci_dev, 0xffffffff)) {
 		using_dac = 0;
@@ -1760,8 +1790,9 @@ static int __devinit ns83820_init_one(struct pci_dev *pci_dev, const struct pci_
 	dev->ee.cache = &dev->MEAR_cache;
 	dev->ee.lock = &dev->misc_lock;
 	dev->net_dev.owner = THIS_MODULE;
+	dev->net_dev.priv = dev;
 
-	PREPARE_TQUEUE(&dev->tq_refill, queue_refill, dev);
+	INIT_TQUEUE(&dev->tq_refill, queue_refill, dev);
 	tasklet_init(&dev->rx_tasklet, rx_action, (unsigned long)dev);
 
 	err = pci_enable_device(pci_dev);
@@ -1900,6 +1931,12 @@ static int __devinit ns83820_init_one(struct pci_dev *pci_dev, const struct pci_
 		writel(dev->CFG_cache, dev->base + CFG);
 	}
 
+#if 0	/* Huh?  This sets the PCI latency register.  Should be done via 
+	 * the PCI layer.  FIXME.
+	 */
+	if (readl(dev->base + SRR))
+		writel(readl(dev->base+0x20c) | 0xfe00, dev->base + 0x20c);
+#endif
 
 	/* Note!  The DMA burst size interacts with packet
 	 * transmission, such that the largest packet that
@@ -2032,6 +2069,10 @@ static struct pci_driver driver = {
 	id_table:	ns83820_pci_tbl,
 	probe:		ns83820_init_one,
 	remove:		__devexit_p(ns83820_remove_one),
+#if 0	/* FIXME: implement */
+	suspend:	,
+	resume:		,
+#endif
 };
 
 

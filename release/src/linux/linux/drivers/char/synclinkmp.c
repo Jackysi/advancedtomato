@@ -1,5 +1,5 @@
 /*
- * $Id: synclinkmp.c,v 1.1.1.4 2003/10/14 08:08:03 sparq Exp $
+ * $Id: synclinkmp.c,v 3.27 2005/02/15 21:29:09 paulkf Exp $
  *
  * Device driver for Microgate SyncLink Multiport
  * high speed multiprotocol serial adapter.
@@ -504,7 +504,7 @@ MODULE_PARM(maxframe,"1-" __MODULE_STRING(MAX_DEVICES) "i");
 MODULE_PARM(dosyncppp,"1-" __MODULE_STRING(MAX_DEVICES) "i");
 
 static char *driver_name = "SyncLink MultiPort driver";
-static char *driver_version = "$Revision: 1.1.1.4 $";
+static char *driver_version = "$Revision: 3.27 $";
 
 static int __devinit synclinkmp_init_one(struct pci_dev *dev,const struct pci_device_id *ent);
 static void __devexit synclinkmp_remove_one(struct pci_dev *dev);
@@ -514,6 +514,10 @@ static struct pci_device_id synclinkmp_pci_tbl[] __devinitdata = {
 	{ 0, }, /* terminate list */
 };
 MODULE_DEVICE_TABLE(pci, synclinkmp_pci_tbl);
+
+#ifdef MODULE_LICENSE
+MODULE_LICENSE("GPL");
+#endif
 
 static struct pci_driver synclinkmp_pci_driver = {
 	name:		"synclinkmp",
@@ -677,7 +681,7 @@ static unsigned char tx_active_fifo_level = 16;	// tx request FIFO activation le
 static unsigned char tx_negate_fifo_level = 32;	// tx request FIFO negation level in bytes
 
 static u32 misc_ctrl_value = 0x007e4040;
-static u32 lcr1_brdr_value = 0x0080002d;
+static u32 lcr1_brdr_value = 0x00800029;
 
 static u32 read_ahead_count = 8;
 
@@ -724,8 +728,34 @@ static inline int sanity_check(SLMP_INFO *info,
 		printk(badmagic, kdevname(device), routine);
 		return 1;
 	}
+#else
+	if (!info)
+		return 1;
 #endif
 	return 0;
+}
+
+/**
+ * line discipline callback wrappers
+ *
+ * The wrappers maintain line discipline references
+ * while calling into the line discipline.
+ *
+ * ldisc_receive_buf  - pass receive data to line discipline
+ */
+
+static void ldisc_receive_buf(struct tty_struct *tty,
+			      const __u8 *data, char *flags, int count)
+{
+	struct tty_ldisc *ld;
+	if (!tty)
+		return;
+	ld = tty_ldisc_ref(tty);
+	if (ld) {
+		if (ld->receive_buf)
+			ld->receive_buf(tty, data, flags, count);
+		tty_ldisc_deref(ld);
+	}
 }
 
 /* tty callbacks */
@@ -748,12 +778,8 @@ static int open(struct tty_struct *tty, struct file *filp)
 	info = synclinkmp_device_list;
 	while(info && info->line != line)
 		info = info->next_device;
-	if ( !info ){
-		printk("%s(%d):%s Can't find specified device on open (line=%d)\n",
-			__FILE__,__LINE__,info->device_name,line);
+	if (sanity_check(info, tty->device, "open"))
 		return -ENODEV;
-	}
-
 	if ( info->init_error ) {
 		printk("%s(%d):%s device is not allocated, init error=%d\n",
 			__FILE__,__LINE__,info->device_name,info->init_error);
@@ -762,8 +788,6 @@ static int open(struct tty_struct *tty, struct file *filp)
 
 	tty->driver_data = info;
 	info->tty = tty;
-	if (sanity_check(info, tty->device, "open"))
-		return -ENODEV;
 
 	if (debug_level >= DEBUG_LEVEL_INFO)
 		printk("%s(%d):%s open(), old ref count = %d\n",
@@ -825,6 +849,8 @@ static int open(struct tty_struct *tty, struct file *filp)
 
 cleanup:
 	if (retval) {
+		if (tty->count == 1)
+			info->tty = 0; /* tty layer will release tty struct */
 		if(MOD_IN_USE)
 			MOD_DEC_USE_COUNT;
 		if(info->count)
@@ -841,14 +867,17 @@ static void close(struct tty_struct *tty, struct file *filp)
 {
 	SLMP_INFO * info = (SLMP_INFO *)tty->driver_data;
 
-	if (!info || sanity_check(info, tty->device, "close"))
+	if (sanity_check(info, tty->device, "close"))
 		return;
 
 	if (debug_level >= DEBUG_LEVEL_INFO)
 		printk("%s(%d):%s close() entry, count=%d\n",
 			 __FILE__,__LINE__, info->device_name, info->count);
 
-	if (!info->count || tty_hung_up_p(filp))
+	if (!info->count)
+		return;
+
+	if (tty_hung_up_p(filp))
 		goto cleanup;
 
 	if ((tty->count == 1) && (info->count != 1)) {
@@ -900,8 +929,7 @@ static void close(struct tty_struct *tty, struct file *filp)
 	if (tty->driver.flush_buffer)
 		tty->driver.flush_buffer(tty);
 
-	if (tty->ldisc.flush_buffer)
-		tty->ldisc.flush_buffer(tty);
+	tty_ldisc_flush(tty);
 
 	shutdown(info);
 
@@ -1203,7 +1231,7 @@ static void wait_until_sent(struct tty_struct *tty, int timeout)
 			schedule_timeout(char_time);
 			if (signal_pending(current))
 				break;
-			if (timeout && ((orig_jiffies + timeout) < jiffies))
+			if (timeout && time_after(jiffies, orig_jiffies + timeout))
 				break;
 		}
 	} else {
@@ -1214,7 +1242,7 @@ static void wait_until_sent(struct tty_struct *tty, int timeout)
 			schedule_timeout(char_time);
 			if (signal_pending(current))
 				break;
-			if (timeout && ((orig_jiffies + timeout) < jiffies))
+			if (timeout && time_after(jiffies, orig_jiffies + timeout))
 				break;
 		}
 	}
@@ -1309,9 +1337,7 @@ static void flush_buffer(struct tty_struct *tty)
 	spin_unlock_irqrestore(&info->lock,flags);
 
 	wake_up_interruptible(&tty->write_wait);
-	if ((tty->flags & (1 << TTY_DO_WRITE_WAKEUP)) &&
-	    tty->ldisc.write_wakeup)
-		(tty->ldisc.write_wakeup)(tty);
+	tty_wakeup(tty);
 }
 
 /* throttle (stop) transmitter
@@ -1977,13 +2003,7 @@ void bh_transmit(SLMP_INFO *info)
 			__FILE__,__LINE__,info->device_name);
 
 	if (tty) {
-		if ((tty->flags & (1 << TTY_DO_WRITE_WAKEUP)) &&
-		    tty->ldisc.write_wakeup) {
-			if ( debug_level >= DEBUG_LEVEL_BH )
-				printk( "%s(%d):%s calling ldisc.write_wakeup\n",
-					__FILE__,__LINE__,info->device_name);
-			(tty->ldisc.write_wakeup)(tty);
-		}
+		tty_wakeup(tty);
 		wake_up_interruptible(&tty->write_wait);
 	}
 }
@@ -2030,16 +2050,15 @@ void isr_rxint(SLMP_INFO * info)
 {
  	struct tty_struct *tty = info->tty;
  	struct	mgsl_icount *icount = &info->icount;
-	unsigned char status = read_reg(info, SR1);
-	unsigned char status2 = read_reg(info, SR2);
+	unsigned char status = read_reg(info, SR1) & info->ie1_value & (FLGD + IDLD + CDCD + BRKD);
+	unsigned char status2 = read_reg(info, SR2) & info->ie2_value & OVRN;
 
 	/* clear status bits */
-	if ( status & (FLGD + IDLD + CDCD + BRKD) )
-		write_reg(info, SR1, 
-				(unsigned char)(status & (FLGD + IDLD + CDCD + BRKD)));
+	if (status)
+		write_reg(info, SR1, status);
 
-	if ( status2 & OVRN )
-		write_reg(info, SR2, (unsigned char)(status2 & OVRN));
+	if (status2)
+		write_reg(info, SR2, status2);
 	
 	if ( debug_level >= DEBUG_LEVEL_ISR )
 		printk("%s(%d):%s isr_rxint status=%02X %02x\n",
@@ -2176,14 +2195,21 @@ void isr_txeom(SLMP_INFO * info, unsigned char status)
 		printk("%s(%d):%s isr_txeom status=%02x\n",
 			__FILE__,__LINE__,info->device_name,status);
 
-	/* disable and clear MSCI interrupts */
-	info->ie1_value &= ~(IDLE + UDRN);
-	write_reg(info, IE1, info->ie1_value);
-	write_reg(info, SR1, (unsigned char)(UDRN + IDLE));
-
 	write_reg(info, TXDMA + DIR, 0x00); /* disable Tx DMA IRQs */
 	write_reg(info, TXDMA + DSR, 0xc0); /* clear IRQs and disable DMA */
 	write_reg(info, TXDMA + DCMD, SWABORT);	/* reset/init DMA channel */
+
+	if (status & UDRN) {
+		write_reg(info, CMD, TXRESET);
+		write_reg(info, CMD, TXENABLE);
+	} else
+		write_reg(info, CMD, TXBUFCLR);
+
+	/* disable and clear tx interrupts */
+	info->ie0_value &= ~TXRDYE;
+	info->ie1_value &= ~(IDLE + UDRN);
+	write_reg16(info, IE0, (unsigned short)((info->ie1_value << 8) + info->ie0_value));
+	write_reg(info, SR1, (unsigned char)(UDRN + IDLE));
 
 	if ( info->tx_active ) {
 		if (info->params.mode != MGSL_MODE_ASYNC) {
@@ -2225,10 +2251,10 @@ void isr_txeom(SLMP_INFO * info, unsigned char status)
  */
 void isr_txint(SLMP_INFO * info)
 {
-	unsigned char status = read_reg(info, SR1);
+	unsigned char status = read_reg(info, SR1) & info->ie1_value & (UDRN + IDLE + CCTS);
 
 	/* clear status bits */
-	write_reg(info, SR1, (unsigned char)(status & (UDRN + IDLE + CCTS)));
+	write_reg(info, SR1, status);
 
 	if ( debug_level >= DEBUG_LEVEL_ISR )
 		printk("%s(%d):%s isr_txint status=%02x\n",
@@ -2256,6 +2282,14 @@ void isr_txrdy(SLMP_INFO * info)
 	if ( debug_level >= DEBUG_LEVEL_ISR )
 		printk("%s(%d):%s isr_txrdy() tx_count=%d\n",
 			__FILE__,__LINE__,info->device_name,info->tx_count);
+
+	if (info->params.mode != MGSL_MODE_ASYNC) {
+		/* disable TXRDY IRQ, enable IDLE IRQ */
+		info->ie0_value &= ~TXRDYE;
+		info->ie1_value |= IDLE;
+		write_reg16(info, IE0, (unsigned short)((info->ie1_value << 8) + info->ie0_value));
+		return;
+	}
 
 	if (info->tty && (info->tty->stopped || info->tty->hw_stopped)) {
 		tx_stop(info);
@@ -2311,13 +2345,6 @@ void isr_rxdmaerror(SLMP_INFO * info)
 
 void isr_txdmaok(SLMP_INFO * info)
 {
-	/* BIT7 = EOT (end of transfer, used for async mode)
-	 * BIT6 = EOM (end of message/frame, used for sync mode)
-	 *
-	 * We don't look at DMA status because only EOT is enabled
-	 * and we always clear and disable all tx DMA IRQs.
-	 */
-//	unsigned char dma_status = read_reg(info,TXDMA + DSR) & 0xc0;
 	unsigned char status_reg1 = read_reg(info, SR1);
 
 	write_reg(info, TXDMA + DIR, 0x00);	/* disable Tx DMA IRQs */
@@ -2328,19 +2355,10 @@ void isr_txdmaok(SLMP_INFO * info)
 		printk("%s(%d):%s isr_txdmaok(), status=%02x\n",
 			__FILE__,__LINE__,info->device_name,status_reg1);
 
-	/* If transmitter already idle, do end of frame processing,
-	 * otherwise enable interrupt for tx IDLE.
-	 */
-	if (status_reg1 & IDLE)
-		isr_txeom(info, IDLE);
-	else {
-		/* disable and clear underrun IRQ, enable IDLE interrupt */
-		info->ie1_value |= IDLE;
-		info->ie1_value &= ~UDRN;
-		write_reg(info, IE1, info->ie1_value);
-
-		write_reg(info, SR1, UDRN);
-	}
+	/* program TXRDY as FIFO empty flag, enable TXRDY IRQ */
+	write_reg16(info, TRC0, 0);
+	info->ie0_value |= TXRDYE;
+	write_reg(info, IE0, info->ie0_value);
 }
 
 void isr_txdmaerror(SLMP_INFO * info)
@@ -3031,7 +3049,7 @@ static int wait_mgsl_event(SLMP_INFO * info, int * mask_ptr)
 		unsigned char oldval = info->ie1_value;
 		unsigned char newval = oldval +
 			 (mask & MgslEvent_ExitHuntMode ? FLGD:0) +
-			 (mask & MgslEvent_IdleReceived ? IDLE:0);
+			 (mask & MgslEvent_IdleReceived ? IDLD:0);
 		if ( oldval != newval ) {
 			info->ie1_value = newval;
 			write_reg(info, IE1, info->ie1_value);
@@ -3098,7 +3116,7 @@ static int wait_mgsl_event(SLMP_INFO * info, int * mask_ptr)
 		spin_lock_irqsave(&info->lock,flags);
 		if (!waitqueue_active(&info->event_wait_q)) {
 			/* disable enable exit hunt mode/idle rcvd IRQs */
-			info->ie1_value &= ~(FLGD|IDLE);
+			info->ie1_value &= ~(FLGD|IDLD);
 			write_reg(info, IE1, info->ie1_value);
 		}
 		spin_unlock_irqrestore(&info->lock,flags);
@@ -3548,9 +3566,10 @@ void free_tmp_rx_buf(SLMP_INFO *info)
 
 int claim_resources(SLMP_INFO *info)
 {
-	if (request_mem_region(info->phys_memory_base,0x40000,"synclinkmp") == NULL) {
+	if (request_mem_region(info->phys_memory_base,SCA_MEM_SIZE,"synclinkmp") == NULL) {
 		printk( "%s(%d):%s mem addr conflict, Addr=%08X\n",
 			__FILE__,__LINE__,info->device_name, info->phys_memory_base);
+		info->init_error = DiagStatus_AddressConflict;
 		goto errout;
 	}
 	else
@@ -3559,22 +3578,25 @@ int claim_resources(SLMP_INFO *info)
 	if (request_mem_region(info->phys_lcr_base + info->lcr_offset,128,"synclinkmp") == NULL) {
 		printk( "%s(%d):%s lcr mem addr conflict, Addr=%08X\n",
 			__FILE__,__LINE__,info->device_name, info->phys_lcr_base);
+		info->init_error = DiagStatus_AddressConflict;
 		goto errout;
 	}
 	else
 		info->lcr_mem_requested = 1;
 
-	if (request_mem_region(info->phys_sca_base + info->sca_offset,512,"synclinkmp") == NULL) {
+	if (request_mem_region(info->phys_sca_base + info->sca_offset,SCA_BASE_SIZE,"synclinkmp") == NULL) {
 		printk( "%s(%d):%s sca mem addr conflict, Addr=%08X\n",
 			__FILE__,__LINE__,info->device_name, info->phys_sca_base);
+		info->init_error = DiagStatus_AddressConflict;
 		goto errout;
 	}
 	else
 		info->sca_base_requested = 1;
 
-	if (request_mem_region(info->phys_statctrl_base + info->statctrl_offset,16,"synclinkmp") == NULL) {
+	if (request_mem_region(info->phys_statctrl_base + info->statctrl_offset,SCA_REG_SIZE,"synclinkmp") == NULL) {
 		printk( "%s(%d):%s stat/ctrl mem addr conflict, Addr=%08X\n",
 			__FILE__,__LINE__,info->device_name, info->phys_statctrl_base);
+		info->init_error = DiagStatus_AddressConflict;
 		goto errout;
 	}
 	else
@@ -3584,33 +3606,41 @@ int claim_resources(SLMP_INFO *info)
 	if (!info->memory_base) {
 		printk( "%s(%d):%s Cant map shared memory, MemAddr=%08X\n",
 			__FILE__,__LINE__,info->device_name, info->phys_memory_base );
+		info->init_error = DiagStatus_CantAssignPciResources;
 		goto errout;
 	}
+
+	info->lcr_base = ioremap(info->phys_lcr_base,PAGE_SIZE);
+	if (!info->lcr_base) {
+		printk( "%s(%d):%s Cant map LCR memory, MemAddr=%08X\n",
+			__FILE__,__LINE__,info->device_name, info->phys_lcr_base );
+		info->init_error = DiagStatus_CantAssignPciResources;
+		goto errout;
+	}
+	info->lcr_base += info->lcr_offset;
+
+	info->sca_base = ioremap(info->phys_sca_base,PAGE_SIZE);
+	if (!info->sca_base) {
+		printk( "%s(%d):%s Cant map SCA memory, MemAddr=%08X\n",
+			__FILE__,__LINE__,info->device_name, info->phys_sca_base );
+		info->init_error = DiagStatus_CantAssignPciResources;
+		goto errout;
+	}
+	info->sca_base += info->sca_offset;
+
+	info->statctrl_base = ioremap(info->phys_statctrl_base,PAGE_SIZE);
+	if (!info->statctrl_base) {
+		printk( "%s(%d):%s Cant map SCA Status/Control memory, MemAddr=%08X\n",
+			__FILE__,__LINE__,info->device_name, info->phys_statctrl_base );
+		info->init_error = DiagStatus_CantAssignPciResources;
+		goto errout;
+	}
+	info->statctrl_base += info->statctrl_offset;
 
 	if ( !memory_test(info) ) {
 		printk( "%s(%d):Shared Memory Test failed for device %s MemAddr=%08X\n",
 			__FILE__,__LINE__,info->device_name, info->phys_memory_base );
-		goto errout;
-	}
-
-	info->lcr_base = ioremap(info->phys_lcr_base,PAGE_SIZE) + info->lcr_offset;
-	if (!info->lcr_base) {
-		printk( "%s(%d):%s Cant map LCR memory, MemAddr=%08X\n",
-			__FILE__,__LINE__,info->device_name, info->phys_lcr_base );
-		goto errout;
-	}
-
-	info->sca_base = ioremap(info->phys_sca_base,PAGE_SIZE) + info->sca_offset;
-	if (!info->sca_base) {
-		printk( "%s(%d):%s Cant map SCA memory, MemAddr=%08X\n",
-			__FILE__,__LINE__,info->device_name, info->phys_sca_base );
-		goto errout;
-	}
-
-	info->statctrl_base = ioremap(info->phys_statctrl_base,PAGE_SIZE) + info->statctrl_offset;
-	if (!info->statctrl_base) {
-		printk( "%s(%d):%s Cant map SCA Status/Control memory, MemAddr=%08X\n",
-			__FILE__,__LINE__,info->device_name, info->phys_statctrl_base );
+		info->init_error = DiagStatus_MemoryError;
 		goto errout;
 	}
 
@@ -3633,7 +3663,7 @@ void release_resources(SLMP_INFO *info)
 	}
 
 	if ( info->shared_mem_requested ) {
-		release_mem_region(info->phys_memory_base,0x40000);
+		release_mem_region(info->phys_memory_base,SCA_MEM_SIZE);
 		info->shared_mem_requested = 0;
 	}
 	if ( info->lcr_mem_requested ) {
@@ -3641,11 +3671,11 @@ void release_resources(SLMP_INFO *info)
 		info->lcr_mem_requested = 0;
 	}
 	if ( info->sca_base_requested ) {
-		release_mem_region(info->phys_sca_base + info->sca_offset,512);
+		release_mem_region(info->phys_sca_base + info->sca_offset,SCA_BASE_SIZE);
 		info->sca_base_requested = 0;
 	}
 	if ( info->sca_statctrl_requested ) {
-		release_mem_region(info->phys_statctrl_base + info->statctrl_offset,16);
+		release_mem_region(info->phys_statctrl_base + info->statctrl_offset,SCA_REG_SIZE);
 		info->sca_statctrl_requested = 0;
 	}
 
@@ -3976,34 +4006,25 @@ static void __exit synclinkmp_exit(void)
 		       __FILE__,__LINE__,rc);
 	restore_flags(flags);
 
+	/* reset devices */
+	info = synclinkmp_device_list;
+	while(info) {
+		reset_port(info);
+		info = info->next_device;
+	}
+
+	/* release devices */
 	info = synclinkmp_device_list;
 	while(info) {
 #ifdef CONFIG_SYNCLINK_SYNCPPP
 		if (info->dosyncppp)
 			sppp_delete(info);
 #endif
-		reset_port(info);
-		if ( info->port_num == 0 ) {
-			if ( info->irq_requested ) {
-				free_irq(info->irq_level, info);
-				info->irq_requested = 0;
-			}
-		}
-		info = info->next_device;
-	}
-
-	/* port 0 of each adapter originally claimed
-	 * all resources, release those now
-	 */
-	info = synclinkmp_device_list;
-	while(info) {
 		free_dma_bufs(info);
 		free_tmp_rx_buf(info);
 		if ( info->port_num == 0 ) {
-			spin_lock_irqsave(&info->lock,flags);
-			reset_adapter(info);
-			write_reg(info, LPR, 1);		/* set low power mode */
-			spin_unlock_irqrestore(&info->lock,flags);
+			if (info->sca_base)
+				write_reg(info, LPR, 1); /* set low power mode */
 			release_resources(info);
 		}
 		tmp = info;
@@ -4223,6 +4244,9 @@ void tx_start(SLMP_INFO *info)
 				}
 			}
 
+			write_reg16(info, TRC0,
+				(unsigned short)(((tx_negate_fifo_level-1)<<8) + tx_active_fifo_level));
+
 			write_reg(info, TXDMA + DSR, 0); 		/* disable DMA channel */
 			write_reg(info, TXDMA + DCMD, SWABORT);	/* reset/init DMA channel */
 	
@@ -4234,11 +4258,10 @@ void tx_start(SLMP_INFO *info)
 			write_reg16(info, TXDMA + EDA,
 				info->tx_buf_list_ex[info->last_tx_buf].phys_entry);
 	
-			/* clear IDLE and UDRN status bit */
-			info->ie1_value &= ~(IDLE + UDRN);
-			if (info->params.mode != MGSL_MODE_ASYNC)
-				info->ie1_value |= UDRN;     		/* HDLC, IRQ on underrun */
-			write_reg(info, IE1, info->ie1_value);	/* enable MSCI interrupts */
+			/* enable underrun IRQ */
+			info->ie1_value &= ~IDLE;
+			info->ie1_value |= UDRN;
+			write_reg(info, IE1, info->ie1_value);
 			write_reg(info, SR1, (unsigned char)(IDLE + UDRN));
 	
 			write_reg(info, TXDMA + DIR, 0x40);		/* enable Tx DMA interrupts (EOM) */
@@ -4459,7 +4482,7 @@ void async_mode(SLMP_INFO *info)
 	 * 07..05  Reserved, must be 0
 	 * 04..00  RRC<4..0> Rx FIFO trigger active 0x00 = 1 byte
 	 */
-	write_reg(info, TRC0, 0x00);
+	write_reg(info, RRC, 0x00);
 
 	/* TRC0 Transmit Ready Control 0
 	 *
@@ -4575,6 +4598,11 @@ void hdlc_mode(SLMP_INFO *info)
 	case HDLC_ENCODING_BIPHASE_MARK:  RegValue |= BIT7 + BIT5; break; /* aka FM1 */
 	case HDLC_ENCODING_BIPHASE_SPACE: RegValue |= BIT7 + BIT6; break; /* aka FM0 */
 	case HDLC_ENCODING_BIPHASE_LEVEL: RegValue |= BIT7; break; 	/* aka Manchester */
+#if 0
+	case HDLC_ENCODING_NRZB:	       				/* not supported */
+	case HDLC_ENCODING_NRZI_MARK:          				/* not supported */
+	case HDLC_ENCODING_DIFF_BIPHASE_LEVEL: 				/* not supported */
+#endif
 	}
 	if ( info->params.flags & HDLC_FLAG_DPLL_DIV16 ) {
 		DpllDivisor = 16;
@@ -4975,15 +5003,8 @@ CheckAgain:
 			}
 			else
 #endif
-			{
-				if ( tty && tty->ldisc.receive_buf ) {
-					/* Call the line discipline receive callback directly. */
-					tty->ldisc.receive_buf(tty,
-						info->tmp_rx_buf,
-						info->flag_buf,
-						framesize);
-				}
-			}
+				ldisc_receive_buf(tty,info->tmp_rx_buf,
+						  info->flag_buf, framesize);
 		}
 	}
 	/* Free the buffers used by this frame. */

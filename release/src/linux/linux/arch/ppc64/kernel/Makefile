@@ -17,7 +17,7 @@ all: $(KHEAD) kernel.o
 
 O_TARGET := kernel.o
 
-export-objs         := ppc_ksyms.o setup.o
+export-objs         := ppc_ksyms.o setup.o vio.o viopath.o
 
 obj-y               :=	ppc_ksyms.o setup.o entry.o traps.o irq.o idle.o \
 			time.o process.o signal.o syscalls.o misc.o ptrace.o \
@@ -27,20 +27,25 @@ obj-y               :=	ppc_ksyms.o setup.o entry.o traps.o irq.o idle.o \
 			pmc.o mf_proc.o proc_pmc.o proc_pcifr.o iSeries_setup.o \
 			ItLpQueue.o hvCall.o mf.o HvLpEvent.o ras.o \
 			iSeries_proc.o HvCall.o flight_recorder.o HvLpConfig.o \
-			rtc.o perfmon.o
+			rtc.o perfmon.o cputable.o vio.o
 
 obj-$(CONFIG_PCI) +=  pci.o pci_dn.o pci_dma.o pSeries_lpar.o pSeries_hvCall.o
 
 ifeq ($(CONFIG_PPC_ISERIES),y)
 obj-$(CONFIG_PCI) += iSeries_pci.o iSeries_pci_reset.o iSeries_IoMmTable.o iSeries_irq.o iSeries_VpdInfo.o XmPciLpEvent.o 
+obj-$(CONFIG_VIOPATH) += viopath.o
 endif
 ifeq ($(CONFIG_PPC_PSERIES),y)
 obj-$(CONFIG_PCI) += pSeries_pci.o eeh.o
 
-obj-y += rtasd.o nvram.o
+obj-y += nvram.o rtasd.o
 endif
 
 obj-$(CONFIG_RTAS_FLASH) += rtas_flash.o
+
+obj-$(CONFIG_SCANLOG) += scanlog.o
+
+obj-$(CONFIG_LPARCFG) += lparcfg.o
 
 obj-$(CONFIG_KGDB) += ppc-stub.o
 

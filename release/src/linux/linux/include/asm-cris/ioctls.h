@@ -73,7 +73,7 @@
 #define TIOCSERSETRS485 0x5460  /* enable rs-485 */
 #define TIOCSERWRRS485  0x5461  /* write rs-485 */
 
-
+#define FIOQSIZE  _IOR('f', 128, loff_t) /* Get exact space used by quota */
 
 /* Used for packet mode */
 #define TIOCPKT_DATA		 0

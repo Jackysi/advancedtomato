@@ -9,7 +9,9 @@
  * as published by the Free Software Foundation; either version
  * 2 of the License, or (at your option) any later version.
  */
+#include <asm/types.h>
 #include <asm/ptrace.h>
+#include <asm/cputable.h>
 
 #define ELF_NGREG	48	/* includes nip, msr, lr, etc. */
 #define ELF_NFPREG	33	/* includes fpscr */
@@ -40,8 +42,16 @@ typedef elf_greg_t32 elf_gregset_t32[ELF_NGREG];
 # define elf_caddr_t u32
 #endif
 
+/* Floating point registers */
 typedef double elf_fpreg_t;
 typedef elf_fpreg_t elf_fpregset_t[ELF_NFPREG];
+
+/* Altivec registers */
+typedef __vector128 elf_vrreg_t;
+typedef elf_vrreg_t elf_vrregset_t[ELF_NVRREG];
+
+
+#ifdef __KERNEL__
 
 /*
  * This is used to ensure we don't load something for the wrong architecture.
@@ -75,7 +85,7 @@ elf_core_copy_regs(elf_gregset_t dstRegs, struct pt_regs* srcRegs)
    instruction set this cpu supports.  This could be done in userspace,
    but it's not easy, and we've already done it here.  */
 
-#define ELF_HWCAP	(0)
+#define ELF_HWCAP	(cur_cpu_spec->cpu_user_features)
 
 /* This yields a string that ld.so will use to load implementation
    specific libraries for optimization.  This is more specific in
@@ -87,15 +97,14 @@ elf_core_copy_regs(elf_gregset_t dstRegs, struct pt_regs* srcRegs)
 #define ELF_PLATFORM	(NULL)
 
 
-#define ELF_PLAT_INIT(_r, load_addr)	do { \
+#define ELF_PLAT_INIT(_r, interp_load_addr)	do { \
 	memset(_r->gpr, 0, sizeof(_r->gpr)); \
 	_r->ctr = _r->link = _r->xer = _r->ccr = 0; \
-	_r->gpr[2] = load_addr; \
+	_r->gpr[2] = interp_load_addr; \
 } while (0)
 
 
 
-#ifdef __KERNEL__
 #define SET_PERSONALITY(ex, ibcs2)				\
 do {	if ((ex).e_ident[EI_CLASS] == ELFCLASS32)		\
 		current->thread.flags |= PPC_FLAG_32BIT;	\
@@ -106,7 +115,6 @@ do {	if ((ex).e_ident[EI_CLASS] == ELFCLASS32)		\
 	else if (current->personality != PER_LINUX32)		\
 		set_personality(PER_LINUX);			\
 } while (0)
-#endif
 
 /*
  * We need to put in some extra aux table entries to tell glibc what
@@ -146,4 +154,5 @@ do {									\
 	NEW_AUX_ENT(1, AT_IGNOREPPC, AT_IGNOREPPC);			\
  } while (0)
 
+#endif /* __KERNEL__ */
 #endif /* __PPC64_ELF_H */

@@ -42,7 +42,12 @@ MODULE_PARM(ports,"1-" __MODULE_STRING(MAX_PORTS) "i");
 MODULE_PARM_DESC(ports, "port numbers of tftp servers");
 #endif
 
+#if 0
+#define DEBUGP(format, args...) printk(__FILE__ ":" __FUNCTION__ ": " \
+				       format, ## args)
+#else
 #define DEBUGP(format, args...)
+#endif
 static unsigned int 
 tftp_nat_help(struct ip_conntrack *ct,
 	      struct ip_conntrack_expect *exp,
@@ -75,8 +80,8 @@ tftp_nat_help(struct ip_conntrack *ct,
 		DUMP_TUPLE(&ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple);
 		DUMP_TUPLE(&ct->tuplehash[IP_CT_DIR_REPLY].tuple);
 		DEBUGP("expecting: ");
-		DUMP_TUPLE_RAW(&repl);
-		DUMP_TUPLE_RAW(&exp->mask);
+		DUMP_TUPLE(&repl);
+		DUMP_TUPLE(&exp->mask);
 		ip_conntrack_change_expect(exp, &repl);
 		break;
 	default:
@@ -96,6 +101,12 @@ tftp_nat_expected(struct sk_buff **pskb,
 	const struct ip_conntrack_tuple *orig = 
 			&master->tuplehash[IP_CT_DIR_ORIGINAL].tuple;
 	struct ip_nat_multi_range mr;
+#if 0
+	const struct ip_conntrack_tuple *repl =
+			&master->tuplehash[IP_CT_DIR_REPLY].tuple;
+	struct iphdr *iph = (*pskb)->nh.iph;
+	struct udphdr *udph = (void *)iph + iph->ihl*4;
+#endif
 
 	IP_NF_ASSERT(info);
 	IP_NF_ASSERT(master);
@@ -142,15 +153,13 @@ static void fini(void)
 
 static int __init init(void)
 {
-	int i, ret;
+	int i, ret = 0;
 	char *tmpname;
 
 	if (!ports[0])
 		ports[0] = TFTP_PORT;
 
 	for (i = 0 ; (i < MAX_PORTS) && ports[i] ; i++) {
-		memset(&tftp[i], 0, sizeof(struct ip_nat_helper));
-
 		tftp[i].tuple.dst.protonum = IPPROTO_UDP;
 		tftp[i].tuple.src.u.udp.port = htons(ports[i]);
 		tftp[i].mask.dst.protonum = 0xFFFF;

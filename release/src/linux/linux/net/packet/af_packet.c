@@ -5,7 +5,7 @@
  *
  *		PACKET - implements raw packet sockets.
  *
- * Version:	$Id: af_packet.c,v 1.1.1.4 2003/10/14 08:09:35 sparq Exp $
+ * Version:	$Id: af_packet.c,v 1.58 2001/11/28 21:02:10 davem Exp $
  *
  * Authors:	Ross Biro, <bir7@leland.Stanford.Edu>
  *		Fred N. van Kempen, <waltje@uWalt.NL.Mugnet.ORG>
@@ -34,6 +34,8 @@
  *	Alexey Kuznetsov	:	Untied from IPv4 stack.
  *	Cyrus Durgin		:	Fixed kerneld for kmod.
  *	Michal Ostrowski        :       Module initialization cleanup.
+ *         Ulises Alonso        :       Frame number limit removal and 
+ *                                      packet_set_ring memory leak.
  *
  *		This program is free software; you can redistribute it and/or
  *		modify it under the terms of the GNU General Public License
@@ -176,28 +178,45 @@ static void packet_flush_mclist(struct sock *sk);
 
 struct packet_opt
 {
+	struct tpacket_stats	stats;
+#ifdef CONFIG_PACKET_MMAP
+	unsigned long		*pg_vec;
+	unsigned int		head;
+	unsigned int            frames_per_block;
+	unsigned int		frame_size;
+	unsigned int		frame_max;
+	int			copy_thresh;
+#endif
 	struct packet_type	prot_hook;
 	spinlock_t		bind_lock;
 	char			running;	/* prot_hook is attached*/
 	int			ifindex;	/* bound device		*/
-	struct tpacket_stats	stats;
 #ifdef CONFIG_PACKET_MULTICAST
 	struct packet_mclist	*mclist;
 #endif
 #ifdef CONFIG_PACKET_MMAP
 	atomic_t		mapped;
-	unsigned long		*pg_vec;
 	unsigned int		pg_vec_order;
 	unsigned int		pg_vec_pages;
 	unsigned int		pg_vec_len;
-
-	struct tpacket_hdr	**iovec;
-	unsigned int		frame_size;
-	unsigned int		iovmax;
-	unsigned int		head;
-	int			copy_thresh;
 #endif
 };
+
+#ifdef CONFIG_PACKET_MMAP
+
+static inline unsigned long packet_lookup_frame(struct packet_opt *po, unsigned int position)
+{
+	unsigned int pg_vec_pos, frame_offset;
+	unsigned long frame;
+
+	pg_vec_pos = position / po->frames_per_block;
+	frame_offset = position % po->frames_per_block;
+
+	frame = (unsigned long) (po->pg_vec[pg_vec_pos] + (frame_offset * po->frame_size));
+	
+	return frame;
+}
+#endif
 
 void packet_sock_destruct(struct sock *sk)
 {
@@ -344,6 +363,10 @@ static int packet_sendmsg_spkt(struct socket *sock, struct msghdr *msg, int len,
 	 *	Fill it in 
 	 */
 	 
+	/* FIXME: Save some space for broken drivers that write a
+	 * hard header at transmission time by themselves. PPP is the
+	 * notable one here. This should really be fixed at the driver level.
+	 */
 	skb_reserve(skb,(dev->hard_header_len+15)&~15);
 	skb->nh.raw = skb->data;
 
@@ -586,11 +609,11 @@ static int tpacket_rcv(struct sk_buff *skb, struct net_device *dev,  struct pack
 		snaplen = skb->len-skb->data_len;
 
 	spin_lock(&sk->receive_queue.lock);
-	h = po->iovec[po->head];
+	h = (struct tpacket_hdr *)packet_lookup_frame(po, po->head);
 
 	if (h->tp_status)
 		goto ring_is_full;
-	po->head = po->head != po->iovmax ? po->head+1 : 0;
+	po->head = po->head != po->frame_max ? po->head+1 : 0;
 	po->stats.tp_packets++;
 	if (copy_skb) {
 		status |= TP_STATUS_COPY;
@@ -1019,6 +1042,11 @@ static int packet_recvmsg(struct socket *sock, struct msghdr *msg, int len,
 	if (flags & ~(MSG_PEEK|MSG_DONTWAIT|MSG_TRUNC))
 		goto out;
 
+#if 0
+	/* What error should we return now? EUNATTACH? */
+	if (sk->protinfo.af_packet->ifindex < 0)
+		return -ENODEV;
+#endif
 
 	/*
 	 *	If the address length field is there to be filled in, we fill
@@ -1369,8 +1397,13 @@ static int packet_notifier(struct notifier_block *this, unsigned long msg, void 
 		po = sk->protinfo.af_packet;
 
 		switch (msg) {
-		case NETDEV_DOWN:
 		case NETDEV_UNREGISTER:
+#ifdef CONFIG_PACKET_MULTICAST
+			if (po->mclist)
+				packet_dev_mclist(dev, po->mclist, -1);
+			// fallthrough
+#endif
+		case NETDEV_DOWN:
 			if (dev->ifindex == po->ifindex) {
 				spin_lock(&po->bind_lock);
 				if (po->running) {
@@ -1387,10 +1420,6 @@ static int packet_notifier(struct notifier_block *this, unsigned long msg, void 
 				}
 				spin_unlock(&po->bind_lock);
 			}
-#ifdef CONFIG_PACKET_MULTICAST
-			if (po->mclist)
-				packet_dev_mclist(dev, po->mclist, -1);
-#endif
 			break;
 		case NETDEV_UP:
 			spin_lock(&po->bind_lock);
@@ -1400,10 +1429,6 @@ static int packet_notifier(struct notifier_block *this, unsigned long msg, void 
 				po->running = 1;
 			}
 			spin_unlock(&po->bind_lock);
-#ifdef CONFIG_PACKET_MULTICAST
-			if (po->mclist)
-				packet_dev_mclist(dev, po->mclist, +1);
-#endif
 			break;
 		}
 	}
@@ -1549,10 +1574,13 @@ unsigned int packet_poll(struct file * file, struct socket *sock, poll_table *wa
 	unsigned int mask = datagram_poll(file, sock, wait);
 
 	spin_lock_bh(&sk->receive_queue.lock);
-	if (po->iovec) {
-		unsigned last = po->head ? po->head-1 : po->iovmax;
+	if (po->pg_vec) {
+		unsigned last = po->head ? po->head-1 : po->frame_max;
+		struct tpacket_hdr *h;
 
-		if (po->iovec[last]->tp_status)
+		h = (struct tpacket_hdr *)packet_lookup_frame(po, last);
+
+		if (h->tp_status)
 			mask |= POLLIN | POLLRDNORM;
 	}
 	spin_unlock_bh(&sk->receive_queue.lock);
@@ -1612,16 +1640,18 @@ static void free_pg_vec(unsigned long *pg_vec, unsigned order, unsigned len)
 static int packet_set_ring(struct sock *sk, struct tpacket_req *req, int closing)
 {
 	unsigned long *pg_vec = NULL;
-	struct tpacket_hdr **io_vec = NULL;
 	struct packet_opt *po = sk->protinfo.af_packet;
 	int order = 0;
 	int err = 0;
 
 	if (req->tp_block_nr) {
 		int i, l;
-		int frames_per_block;
 
 		/* Sanity tests and some calculations */
+
+		if (po->pg_vec)
+			return -EBUSY;
+
 		if ((int)req->tp_block_size <= 0)
 			return -EINVAL;
 		if (req->tp_block_size&(PAGE_SIZE-1))
@@ -1630,10 +1660,11 @@ static int packet_set_ring(struct sock *sk, struct tpacket_req *req, int closing
 			return -EINVAL;
 		if (req->tp_frame_size&(TPACKET_ALIGNMENT-1))
 			return -EINVAL;
-		frames_per_block = req->tp_block_size/req->tp_frame_size;
-		if (frames_per_block <= 0)
+
+		po->frames_per_block = req->tp_block_size/req->tp_frame_size;
+		if (po->frames_per_block <= 0)
 			return -EINVAL;
-		if (frames_per_block*req->tp_block_nr != req->tp_frame_nr)
+		if (po->frames_per_block*req->tp_block_nr != req->tp_frame_nr)
 			return -EINVAL;
 		/* OK! */
 
@@ -1660,20 +1691,16 @@ static int packet_set_ring(struct sock *sk, struct tpacket_req *req, int closing
 		}
 		/* Page vector is allocated */
 
-		/* Draw frames */
-		io_vec = kmalloc(req->tp_frame_nr*sizeof(struct tpacket_hdr*), GFP_KERNEL);
-		if (io_vec == NULL)
-			goto out_free_pgvec;
-		memset(io_vec, 0, req->tp_frame_nr*sizeof(struct tpacket_hdr*));
-
 		l = 0;
 		for (i=0; i<req->tp_block_nr; i++) {
 			unsigned long ptr = pg_vec[i];
+			struct tpacket_hdr *header;
 			int k;
 
-			for (k=0; k<frames_per_block; k++, l++) {
-				io_vec[l] = (struct tpacket_hdr*)ptr;
-				io_vec[l]->tp_status = TP_STATUS_KERNEL;
+			for (k=0; k<po->frames_per_block; k++) {
+				
+				header = (struct tpacket_hdr*)ptr;
+				header->tp_status = TP_STATUS_KERNEL;
 				ptr += req->tp_frame_size;
 			}
 		}
@@ -1698,8 +1725,7 @@ static int packet_set_ring(struct sock *sk, struct tpacket_req *req, int closing
 
 		spin_lock_bh(&sk->receive_queue.lock);
 		pg_vec = XC(po->pg_vec, pg_vec);
-		io_vec = XC(po->iovec, io_vec);
-		po->iovmax = req->tp_frame_nr-1;
+		po->frame_max = req->tp_frame_nr-1;
 		po->head = 0;
 		po->frame_size = req->tp_frame_size;
 		spin_unlock_bh(&sk->receive_queue.lock);
@@ -1708,7 +1734,7 @@ static int packet_set_ring(struct sock *sk, struct tpacket_req *req, int closing
 		req->tp_block_nr = XC(po->pg_vec_len, req->tp_block_nr);
 
 		po->pg_vec_pages = req->tp_block_size/PAGE_SIZE;
-		po->prot_hook.func = po->iovec ? tpacket_rcv : packet_rcv;
+		po->prot_hook.func = po->pg_vec ? tpacket_rcv : packet_rcv;
 		skb_queue_purge(&sk->receive_queue);
 #undef XC
 		if (atomic_read(&po->mapped))
@@ -1721,9 +1747,6 @@ static int packet_set_ring(struct sock *sk, struct tpacket_req *req, int closing
 	spin_unlock(&po->bind_lock);
 
 	release_sock(sk);
-
-	if (io_vec)
-		kfree(io_vec);
 
 out_free_pgvec:
 	if (pg_vec)
@@ -1754,6 +1777,7 @@ static int packet_mmap(struct file *file, struct socket *sock, struct vm_area_st
 
 	atomic_inc(&po->mapped);
 	start = vma->vm_start;
+	vma->vm_flags |= VM_IO;
 	err = -EAGAIN;
 	for (i=0; i<po->pg_vec_len; i++) {
 		if (remap_page_range(start, __pa(po->pg_vec[i]),

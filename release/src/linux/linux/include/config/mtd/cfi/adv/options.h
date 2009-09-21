@@ -1,1 +1,0 @@
-#define CONFIG_MTD_CFI_ADV_OPTIONS 1

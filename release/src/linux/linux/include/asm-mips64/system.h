@@ -30,7 +30,7 @@ __asm__ (
 	".set\tpop\n\t"
 	".endm");
 
-extern __inline__ void
+static __inline__ void
 __sti(void)
 {
 	__asm__ __volatile__(
@@ -63,7 +63,7 @@ __asm__ (
 	".set\tpop\n\t"
 	".endm");
 
-extern __inline__ void
+static __inline__ void
 __cli(void)
 {
 	__asm__ __volatile__(
@@ -109,6 +109,25 @@ __asm__ __volatile__(							\
 	: /* no inputs */						\
 	: "memory")
 
+__asm__ (
+	".macro\t__save_and_sti result\n\t"
+	".set\tpush\n\t"
+	".set\treorder\n\t"
+	".set\tnoat\n\t"
+	"mfc0\t\\result, $12\n\t"
+	"ori\t$1, \\result, 1\n\t"
+	".set\tnoreorder\n\t"
+	"mtc0\t$1, $12\n\t"
+	".set\tpop\n\t"
+	".endm");
+
+#define __save_and_sti(x)						\
+__asm__ __volatile__(							\
+	"__save_and_sti\t%0"						\
+	: "=r" (x)							\
+	: /* no inputs */						\
+	: "memory")
+
 __asm__(".macro\t__restore_flags flags\n\t"
 	".set\tnoreorder\n\t"
 	".set\tnoat\n\t"
@@ -147,6 +166,7 @@ extern void __global_restore_flags(unsigned long);
 #define save_flags(x) ((x)=__global_save_flags())
 #define restore_flags(x) __global_restore_flags(x)
 #define save_and_cli(x) do { save_flags(x); cli(); } while(0)
+#define save_and_sti(x) do { save_flags(x); sti(); } while(0)
 
 #else
 
@@ -155,11 +175,13 @@ extern void __global_restore_flags(unsigned long);
 #define save_flags(x) __save_flags(x)
 #define restore_flags(x) __restore_flags(x)
 #define save_and_cli(x) __save_and_cli(x)
+#define save_and_sti(x) __save_and_sti(x)
 
 #endif /* CONFIG_SMP */
 
 /* For spinlocks etc */
 #define local_irq_save(x)	__save_and_cli(x)
+#define local_irq_set(x)	__save_and_sti(x)
 #define local_irq_restore(x)	__restore_flags(x)
 #define local_irq_disable()	__cli()
 #define local_irq_enable()	__sti()
@@ -227,7 +249,7 @@ do { \
 	(last) = resume(prev, next); \
 } while(0)
 
-extern __inline__ unsigned long xchg_u32(volatile int * m, unsigned long val)
+static __inline__ unsigned long xchg_u32(volatile int * m, unsigned long val)
 {
 	unsigned long dummy;
 
@@ -249,7 +271,7 @@ extern __inline__ unsigned long xchg_u32(volatile int * m, unsigned long val)
 	return val;
 }
 
-extern __inline__ unsigned long xchg_u64(volatile int * m, unsigned long val)
+static __inline__ unsigned long xchg_u64(volatile int * m, unsigned long val)
 {
 	unsigned long dummy;
 
@@ -288,6 +310,7 @@ static inline unsigned long __xchg(unsigned long x, volatile void * ptr,
 }
 
 extern void *set_except_vector(int n, void *addr);
+extern void per_cpu_trap_init(void);
 
 extern void __die(const char *, struct pt_regs *, const char *file,
 	const char *func, unsigned long line) __attribute__((noreturn));

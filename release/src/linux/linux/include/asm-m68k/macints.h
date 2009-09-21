@@ -111,6 +111,17 @@
 #define IRQ_SCC 	     (32)
 #define IRQ_SCCA	     (33)
 #define IRQ_SCCB	     (34)
+#if 0 /* FIXME: are there multiple interrupt conditions on the SCC ?? */
+/* SCC interrupts */
+#define IRQ_SCCB_TX	     (32)
+#define IRQ_SCCB_STAT	     (33)
+#define IRQ_SCCB_RX	     (34)
+#define IRQ_SCCB_SPCOND	     (35)
+#define IRQ_SCCA_TX	     (36)
+#define IRQ_SCCA_STAT	     (37)
+#define IRQ_SCCA_RX	     (38)
+#define IRQ_SCCA_SPCOND	     (39)
+#endif
 
 /* Level 4 (PSC, AV Macs only) interrupts */
 #define IRQ_PSC4_0	  (32)

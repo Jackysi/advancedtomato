@@ -1,5 +1,5 @@
 /*
- * $Id: magellan.c,v 1.1.1.4 2003/10/14 08:08:07 sparq Exp $
+ * $Id: magellan.c,v 1.8 2000/05/31 13:17:12 vojtech Exp $
  *
  *  Copyright (c) 1999-2000 Vojtech Pavlik
  *

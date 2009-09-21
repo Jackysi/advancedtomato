@@ -1,7 +1,4 @@
 /*
- * BK Id: %F% %I% %G% %U% %#%
- */
-/*
  * Support for indirect PCI bridges.
  *
  * Copyright (C) 1998 Gabriel Paubert.
@@ -27,15 +24,30 @@
 #define cfg_read(val, addr, type, op)	*val = op((type)(addr))
 #define cfg_write(val, addr, type, op)	op((type *)(addr), (val))
 
+#ifdef CONFIG_PPC_INDIRECT_PCI_BE
+#define PCI_CFG_OUT out_be32
+#else
+#define PCI_CFG_OUT out_le32
+#endif
+
 #define INDIRECT_PCI_OP(rw, size, type, op, mask)			 \
 static int								 \
 indirect_##rw##_config_##size(struct pci_dev *dev, int offset, type val) \
 {									 \
 	struct pci_controller *hose = dev->sysdata;			 \
+	u8 cfg_type = 0;						 \
 									 \
-	out_be32(hose->cfg_addr, 					 \
-		 ((offset & 0xfc) << 24) | (dev->devfn << 16)		 \
-		 | (dev->bus->number << 8) | 0x80);			 \
+	if (ppc_md.pci_exclude_device)					 \
+		if (ppc_md.pci_exclude_device(dev->bus->number, dev->devfn)) \
+			return PCIBIOS_DEVICE_NOT_FOUND;		 \
+									 \
+	if (hose->set_cfg_type)					 	 \
+		if (dev->bus->number != hose->first_busno)		 \
+			cfg_type = 1;					 \
+									 \
+	PCI_CFG_OUT(hose->cfg_addr, 					 \
+		 (0x80000000 | ((dev->bus->number - hose->bus_offset) << 16) \
+		  | (dev->devfn << 8) | ((offset & 0xfc) | cfg_type)));	 \
 	cfg_##rw(val, hose->cfg_data + (offset & mask), type, op);	 \
 	return PCIBIOS_SUCCESSFUL;    					 \
 }

@@ -36,6 +36,7 @@
 /* Platform Specific Values */
 #define SH7751_VENDOR_ID             0x1054
 #define SH7751_DEVICE_ID             0x3505
+#define SH7751R_DEVICE_ID            0x350e
 
 /* SH7751 Specific Values */
 #define SH7751_PCI_CONFIG_BASE	     0xFD000000  /* Config space base addr */

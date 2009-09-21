@@ -32,6 +32,6 @@ obj-y				:= mipsIRQ.o reset.o display.o init.o \
 obj-$(CONFIG_MIPS_ATLAS)	+= time.o
 obj-$(CONFIG_MIPS_MALTA)	+= time.o
 obj-$(CONFIG_PCI)		+= pci.o
-obj-$(CONFIG_REMOTE_DEBUG)	+= gdb_hook.o
+obj-$(CONFIG_KGDB)		+= gdb_hook.o
 
 include $(TOPDIR)/Rules.make

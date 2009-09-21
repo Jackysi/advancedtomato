@@ -150,6 +150,19 @@ static int __init ne3210_probe1(struct net_device *dev, int ioaddr)
 	}
 
 	
+#if 0
+/*	Check the vendor ID as well. Not really required. */
+	if (inb(ioaddr + NE3210_SA_PROM + 0) != NE3210_ADDR0
+		|| inb(ioaddr + NE3210_SA_PROM + 1) != NE3210_ADDR1
+		|| inb(ioaddr + NE3210_SA_PROM + 2) != NE3210_ADDR2 ) {
+		printk("ne3210.c: card not found");
+		for(i = 0; i < ETHER_ADDR_LEN; i++)
+			printk(" %02x", inb(ioaddr + NE3210_SA_PROM + i));
+		printk(" (invalid prefix).\n");
+		retval = -ENODEV;
+		goto out;
+	}
+#endif
 
 	/* Allocate dev->priv and fill in 8390 specific dev fields. */
 	if (ethdev_init(dev)) {

@@ -45,14 +45,16 @@
  */
 
 enum super_flags {
+	BEFS_BYTESEX_BE,
+	BEFS_BYTESEX_LE,
 	BEFS_CLEAN = 0x434c454e,
 	BEFS_DIRTY = 0x44495254,
-	BEFS_BYTESEX_BE = 0x45474942,
-	BEFS_BYTESEX_LE = 0x42494745,
 	BEFS_SUPER_MAGIC1 = 0x42465331,	/* BFS1 */
 	BEFS_SUPER_MAGIC2 = 0xdd121031,
 	BEFS_SUPER_MAGIC3 = 0x15b6830e,
 };
+
+#define BEFS_BYTEORDER_NATIVE 0x42494745
 
 #define BEFS_SUPER_MAGIC BEFS_SUPER_MAGIC1
 
@@ -77,15 +79,15 @@ enum inode_flags {
  * On-Disk datastructures of BeFS
  */
 
-typedef __u64 befs_off_t;
-typedef __u64 befs_time_t;
+typedef u64 befs_off_t;
+typedef u64 befs_time_t;
 typedef void befs_binode_etc;
 
 /* Block runs */
 typedef struct {
-	__u32 allocation_group;
-	__u16 start;
-	__u16 len;
+	u32 allocation_group;
+	u16 start;
+	u16 len;
 } PACKED befs_block_run;
 
 typedef befs_block_run befs_inode_addr;
@@ -95,29 +97,29 @@ typedef befs_block_run befs_inode_addr;
  */
 typedef struct {
 	char name[B_OS_NAME_LENGTH];
-	__u32 magic1;
-	__u32 fs_byte_order;
+	u32 magic1;
+	u32 fs_byte_order;
 
-	__u32 block_size;
-	__u32 block_shift;
+	u32 block_size;
+	u32 block_shift;
 
 	befs_off_t num_blocks;
 	befs_off_t used_blocks;
 
-	__u32 inode_size;
+	u32 inode_size;
 
-	__u32 magic2;
-	__u32 blocks_per_ag;
-	__u32 ag_shift;
-	__u32 num_ags;
+	u32 magic2;
+	u32 blocks_per_ag;
+	u32 ag_shift;
+	u32 num_ags;
 
-	__u32 flags;
+	u32 flags;
 
 	befs_block_run log_blocks;
 	befs_off_t log_start;
 	befs_off_t log_end;
 
-	__u32 magic3;
+	u32 magic3;
 	befs_inode_addr root_dir;
 	befs_inode_addr indices;
 
@@ -139,35 +141,35 @@ typedef struct {
 
 /* Attribute */
 typedef struct {
-	__u32 type;
-	__u16 name_size;
-	__u16 data_size;
+	u32 type;
+	u16 name_size;
+	u16 data_size;
 	char name[1];
 } PACKED befs_small_data;
 
 /* Inode structure */
 typedef struct {
-	__u32 magic1;
+	u32 magic1;
 	befs_inode_addr inode_num;
-	__u32 uid;
-	__u32 gid;
-	__u32 mode;
-	__u32 flags;
+	u32 uid;
+	u32 gid;
+	u32 mode;
+	u32 flags;
 	befs_time_t create_time;
 	befs_time_t last_modified_time;
 	befs_inode_addr parent;
 	befs_inode_addr attributes;
-	__u32 type;
+	u32 type;
 
-	__u32 inode_size;
-	__u32 etc;		/* not use */
+	u32 inode_size;
+	u32 etc;		/* not use */
 
 	union {
 		befs_data_stream datastream;
 		char symlink[BEFS_SYMLINK_LEN];
 	} data;
 
-	__u32 pad[4];		/* not use */
+	u32 pad[4];		/* not use */
 	befs_small_data small_data[1];
 } PACKED befs_inode;
 
@@ -188,10 +190,10 @@ enum btree_types {
 };
 
 typedef struct {
-	__u32 magic;
-	__u32 node_size;
-	__u32 max_depth;
-	__u32 data_type;
+	u32 magic;
+	u32 node_size;
+	u32 max_depth;
+	u32 data_type;
 	befs_off_t root_node_ptr;
 	befs_off_t free_node_ptr;
 	befs_off_t max_size;
@@ -204,8 +206,8 @@ typedef struct {
 	befs_off_t left;
 	befs_off_t right;
 	befs_off_t overflow;
-	__u16 all_key_count;
-	__u16 all_key_length;
+	u16 all_key_count;
+	u16 all_key_length;
 } PACKED befs_btree_nodehead;
 
 #endif				/* _LINUX_BEFS_FS_TYPES */

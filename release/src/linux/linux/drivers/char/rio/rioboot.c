@@ -328,6 +328,7 @@ register struct DownLoad *rbp;
 
 			if ( copyin((int)rbp->DataP,DownCode,rbp->Count)==COPYFAIL ) {
 				rio_dprintk (RIO_DEBUG_BOOT, "Bad copyin of host data\n");
+				sysfree( DownCode, rbp->Count );
 				p->RIOError.Error = COPYIN_FAILED;
 				func_exit ();
 				return EFAULT;
@@ -532,6 +533,10 @@ register struct DownLoad *rbp;
 
 		WWORD(ParmMapP->links , RIO_LINK_ENABLE);
 
+		/*
+		** now wait for the card to set all the parmmap->XXX stuff
+		** this is a wait of upto two seconds....
+		*/
 		rio_dprintk (RIO_DEBUG_BOOT, "Looking for init_done - %d ticks\n",p->RIOConf.StartupTime);
 		HostP->timeout_id = 0;
 		for ( wait_count=0; (wait_count<p->RIOConf.StartupTime) && 
@@ -1304,3 +1309,52 @@ struct Host *HostP;
 	}
 }
 
+#if 0
+/*
+	Function:	This function is to disable the disk interrupt 
+    Returns :   Nothing
+*/
+void
+disable_interrupt(vector)
+int	vector;
+{
+	int	ps;
+	int	val;
+
+	disable(ps);
+	if (vector > 40)  {
+		val = 1 << (vector - 40);
+		__outb(S8259+1, __inb(S8259+1) | val);
+	}
+	else {
+		val = 1 << (vector - 32);
+		__outb(M8259+1, __inb(M8259+1) | val);
+	}
+	restore(ps);
+}
+
+/*
+	Function:	This function is to enable the disk interrupt 
+    Returns :   Nothing
+*/
+void
+enable_interrupt(vector)
+int	vector;
+{
+	int	ps;
+	int	val;
+
+	disable(ps);
+	if (vector > 40)  {
+		val = 1 << (vector - 40);
+		val = ~val;
+		__outb(S8259+1, __inb(S8259+1) & val);
+	}
+	else {
+		val = 1 << (vector - 32);
+		val = ~val;
+		__outb(M8259+1, __inb(M8259+1) & val);
+	}
+	restore(ps);
+}
+#endif

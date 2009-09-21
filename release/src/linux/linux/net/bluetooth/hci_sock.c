@@ -25,7 +25,7 @@
 /*
  * BlueZ HCI socket layer.
  *
- * $Id: hci_sock.c,v 1.1.1.4 2003/10/14 08:09:32 sparq Exp $
+ * $Id: hci_sock.c,v 1.5 2002/07/22 20:32:54 maxk Exp $
  */
 
 #include <linux/config.h>
@@ -49,6 +49,7 @@
 
 #include <asm/system.h>
 #include <asm/uaccess.h>
+#include <asm/unaligned.h>
 
 #include <net/bluetooth/bluetooth.h>
 #include <net/bluetooth/hci_core.h>
@@ -65,17 +66,20 @@ static struct hci_sec_filter hci_sec_filter = {
 	/* Packet types */
 	0x10,
 	/* Events */
-	{ 0xd9fe, 0x0 },
+	{ 0x1000d9fe, 0x0000300c },
 	/* Commands */
 	{
+		{ 0x0 },
 		/* OGF_LINK_CTL */
-		{ 0x2a000002, 0x0, 0x0, 0x0 },
+		{ 0xbe000006, 0x00000001, 0x0000, 0x00 },
 		/* OGF_LINK_POLICY */
-		{ 0x1200, 0x0, 0x0, 0x0     },
+		{ 0x00005200, 0x00000000, 0x0000, 0x00 },
 		/* OGF_HOST_CTL */
-		{ 0x80100000, 0xa, 0x0, 0x0 },
+		{ 0xaab00200, 0x2b402aaa, 0x0154, 0x00 },
 		/* OGF_INFO_PARAM */
-		{ 0x22a, 0x0, 0x0, 0x0      }
+		{ 0x000002be, 0x00000000, 0x0000, 0x00 },
+		/* OGF_STATUS_PARAM */
+		{ 0x000000ea, 0x00000000, 0x0000, 0x00 }
 	}
 };
 
@@ -387,25 +391,37 @@ static int hci_sock_sendmsg(struct socket *sock, struct msghdr *msg, int len,
 
 	skb->pkt_type = *((unsigned char *) skb->data);
 	skb_pull(skb, 1);
-
-	if (!capable(CAP_NET_RAW)) {
-		err = -EPERM;
-
-		if (skb->pkt_type == HCI_COMMAND_PKT) {
-			__u16 opcode = __le16_to_cpu(*(__u16 *)skb->data);
-			__u16 ogf = cmd_opcode_ogf(opcode) - 1;
-			__u16 ocf = cmd_opcode_ocf(opcode) & HCI_FLT_OCF_BITS;
-
-			if (ogf > HCI_SFLT_MAX_OGF ||
-					!hci_test_bit(ocf, &hci_sec_filter.ocf_mask[ogf]))
-				goto drop;
-		} else
-			goto drop;
-	}
-		
-	/* Send frame to HCI core */
 	skb->dev = (void *) hdev;
-	hci_send_raw(skb);
+
+	if (skb->pkt_type == HCI_COMMAND_PKT) {
+		u16 opcode = __le16_to_cpu(get_unaligned((u16 *)skb->data));
+		u16 ogf = cmd_opcode_ogf(opcode);
+		u16 ocf = cmd_opcode_ocf(opcode);
+
+		if (((ogf > HCI_SFLT_MAX_OGF) || 
+				!hci_test_bit(ocf & HCI_FLT_OCF_BITS, &hci_sec_filter.ocf_mask[ogf])) &&
+		    			!capable(CAP_NET_RAW)) {
+			err = -EPERM;
+			goto drop;
+		}
+
+		if (test_bit(HCI_RAW, &hdev->flags) || (ogf == OGF_VENDOR_CMD)) {
+			skb_queue_tail(&hdev->raw_q, skb);
+			hci_sched_tx(hdev);
+		} else {
+			skb_queue_tail(&hdev->cmd_q, skb);
+			hci_sched_cmd(hdev);
+		}
+	} else {
+		if (!capable(CAP_NET_RAW)) {
+			err = -EPERM;
+			goto drop;
+		}
+
+		skb_queue_tail(&hdev->raw_q, skb);
+		hci_sched_tx(hdev);
+	}
+
 	err = len;
 
 done:
@@ -453,6 +469,8 @@ int hci_sock_setsockopt(struct socket *sock, int level, int optname, char *optva
 		break;
 
 	case HCI_FILTER:
+		memcpy(&flt, &hci_pi(sk)->filter, sizeof(flt));
+
 		len = MIN(len, sizeof(struct hci_filter));
 		if (copy_from_user(&flt, optval, len)) {
 			err = -EFAULT;

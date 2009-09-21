@@ -1,10 +1,10 @@
-/* $Id: ml_SN_intr.c,v 1.1.1.4 2003/10/14 08:07:23 sparq Exp $
+/* $Id: ml_SN_intr.c,v 1.1 2002/02/28 17:31:25 marcelo Exp $
  *
  * This file is subject to the terms and conditions of the GNU General Public
  * License.  See the file "COPYING" in the main directory of this archive
  * for more details.
  *
- * Copyright (C) 1992-1997, 2000-2002 Silicon Graphics, Inc.  All Rights Reserved.
+ * Copyright (C) 1992-1997, 2000-2003 Silicon Graphics, Inc.  All Rights Reserved.
  */
 
 /*
@@ -13,7 +13,7 @@
  *	handle interrupts on an IPXX board.
  */
 
-#ident  "$Revision: 1.1.1.4 $"
+#ident  "$Revision: 1.1 $"
 
 #include <linux/types.h>
 #include <linux/slab.h>
@@ -36,14 +36,18 @@
 #include <asm/sn/pci/pcibr_private.h>
 #include <asm/sn/intr.h>
 #include <asm/sn/sn2/shub_mmr_t.h>
+#include <asm/sn/sn2/shubio.h>
 #include <asm/sal.h>
 #include <asm/sn/sn_sal.h>
 
-extern irqpda_t	*irqpdaindr[];
-extern cnodeid_t master_node_get(devfs_handle_t vhdl);
+extern irqpda_t	*irqpdaindr;
+extern cnodeid_t master_node_get(vertex_hdl_t vhdl);
 extern nasid_t master_nasid;
 
 //  Initialize some shub registers for interrupts, both IO and error.
+//  
+
+
 
 void
 intr_init_vecblk( nodepda_t *npda,
@@ -51,24 +55,17 @@ intr_init_vecblk( nodepda_t *npda,
 		int sn)
 {
 	int 			nasid = cnodeid_to_nasid(node);
-	nasid_t			console_nasid;
 	sh_ii_int0_config_u_t	ii_int_config;
 	cpuid_t			cpu;
 	cpuid_t			cpu0, cpu1;
 	nodepda_t		*lnodepda;
 	sh_ii_int0_enable_u_t	ii_int_enable;
-	sh_local_int0_config_u_t	local_int_config;
-	sh_local_int0_enable_u_t	local_int_enable;
-	sh_fsb_system_agent_config_u_t	fsb_system_agent;
 	sh_int_node_id_config_u_t	node_id_config;
-	int is_console;
+	sh_local_int5_config_u_t	local5_config;
+	sh_local_int5_enable_u_t	local5_enable;
+	extern void sn_init_cpei_timer(void);
+	static int timer_added = 0;
 
-	console_nasid = get_console_nasid();
-	if (console_nasid < 0) {
-		console_nasid = master_nasid;
-	}
-
-	is_console = nasid == console_nasid;
 
 	if (is_headless_node(node) ) {
 		int cnode;
@@ -95,13 +92,28 @@ intr_init_vecblk( nodepda_t *npda,
 	}
 
 	// Get the physical id's of the cpu's on this node.
-	cpu0 = id_eid_to_cpu_physical_id(nasid, 0);
-	cpu1 = id_eid_to_cpu_physical_id(nasid, 1);
+	cpu0 = nasid_slice_to_cpu_physical_id(nasid, 0);
+	cpu1 = nasid_slice_to_cpu_physical_id(nasid, 2);
 
 	HUB_S( (unsigned long *)GLOBAL_MMR_ADDR(nasid, SH_PI_ERROR_MASK), 0);
 	HUB_S( (unsigned long *)GLOBAL_MMR_ADDR(nasid, SH_PI_CRBP_ERROR_MASK), 0);
 
+	// Config and enable UART interrupt, all nodes.
+
+	local5_config.sh_local_int5_config_regval = 0;
+	local5_config.sh_local_int5_config_s.idx = SGI_UART_VECTOR;
+	local5_config.sh_local_int5_config_s.pid = cpu;
+	HUB_S( (unsigned long *)GLOBAL_MMR_ADDR(nasid, SH_LOCAL_INT5_CONFIG),
+		local5_config.sh_local_int5_config_regval);
+
+	local5_enable.sh_local_int5_enable_regval = 0;
+	local5_enable.sh_local_int5_enable_s.uart_int = 1;
+	HUB_S( (unsigned long *)GLOBAL_MMR_ADDR(nasid, SH_LOCAL_INT5_ENABLE),
+		local5_enable.sh_local_int5_enable_regval);
+
+
 	// The II_INT_CONFIG register for cpu 0.
+	ii_int_config.sh_ii_int0_config_regval = 0;
 	ii_int_config.sh_ii_int0_config_s.type = 0;
 	ii_int_config.sh_ii_int0_config_s.agt = 0;
 	ii_int_config.sh_ii_int0_config_s.pid = cpu0;
@@ -110,7 +122,9 @@ intr_init_vecblk( nodepda_t *npda,
 	HUB_S((unsigned long *)GLOBAL_MMR_ADDR(nasid, SH_II_INT0_CONFIG),
 		ii_int_config.sh_ii_int0_config_regval);
 
+
 	// The II_INT_CONFIG register for cpu 1.
+	ii_int_config.sh_ii_int0_config_regval = 0;
 	ii_int_config.sh_ii_int0_config_s.type = 0;
 	ii_int_config.sh_ii_int0_config_s.agt = 0;
 	ii_int_config.sh_ii_int0_config_s.pid = cpu1;
@@ -119,7 +133,9 @@ intr_init_vecblk( nodepda_t *npda,
 	HUB_S((unsigned long *)GLOBAL_MMR_ADDR(nasid, SH_II_INT1_CONFIG),
 		ii_int_config.sh_ii_int0_config_regval);
 
+
 	// Enable interrupts for II_INT0 and 1.
+	ii_int_enable.sh_ii_int0_enable_regval = 0;
 	ii_int_enable.sh_ii_int0_enable_s.ii_enable = 1;
 
 	HUB_S((unsigned long *)GLOBAL_MMR_ADDR(nasid, SH_II_INT0_ENABLE),
@@ -127,93 +143,11 @@ intr_init_vecblk( nodepda_t *npda,
 	HUB_S((unsigned long *)GLOBAL_MMR_ADDR(nasid, SH_II_INT1_ENABLE),
 		ii_int_enable.sh_ii_int0_enable_regval);
 
-	// init error regs
-	// LOCAL_INT0 is for the UART only.
 
-	local_int_config.sh_local_int0_config_s.type = 0;
-	local_int_config.sh_local_int0_config_s.agt = 0;
-	local_int_config.sh_local_int0_config_s.pid = cpu;
-	local_int_config.sh_local_int0_config_s.base = 0;
-	local_int_config.sh_local_int0_config_s.idx = SGI_UART_VECTOR;
-
-	HUB_S((unsigned long *)GLOBAL_MMR_ADDR(nasid, SH_LOCAL_INT0_CONFIG),
-		local_int_config.sh_local_int0_config_regval);
-
-	// LOCAL_INT1 is for all hardware errors.
-	// It will send a BERR, which will result in an MCA.
-	local_int_config.sh_local_int0_config_s.idx = 0;
-
-	HUB_S((unsigned long *)GLOBAL_MMR_ADDR(nasid, SH_LOCAL_INT1_CONFIG),
-		local_int_config.sh_local_int0_config_regval);
-
-	// Clear the LOCAL_INT_ENABLE register.
-	local_int_enable.sh_local_int0_enable_regval = 0;
-
-	if (is_console) {
-		// Enable the UART interrupt.  Only applies to the console nasid.
-		local_int_enable.sh_local_int0_enable_s.uart_int = 1;
-
-		HUB_S((unsigned long *)GLOBAL_MMR_ADDR(nasid, SH_LOCAL_INT0_ENABLE),
-			local_int_enable.sh_local_int0_enable_regval);
+	if (!timer_added) { // can only init the timer once.
+		timer_added = 1;
+		sn_init_cpei_timer();
 	}
-
-	// Enable all the error interrupts.
-	local_int_enable.sh_local_int0_enable_s.uart_int = 0;
-	local_int_enable.sh_local_int0_enable_s.pi_hw_int = 1;
-	local_int_enable.sh_local_int0_enable_s.md_hw_int = 1;
-	local_int_enable.sh_local_int0_enable_s.xn_hw_int = 1;
-	local_int_enable.sh_local_int0_enable_s.lb_hw_int = 1;
-	local_int_enable.sh_local_int0_enable_s.ii_hw_int = 1;
-	local_int_enable.sh_local_int0_enable_s.pi_uce_int = 1;
-	local_int_enable.sh_local_int0_enable_s.md_uce_int = 1;
-	local_int_enable.sh_local_int0_enable_s.xn_uce_int = 1;
-	local_int_enable.sh_local_int0_enable_s.system_shutdown_int = 1;
-	local_int_enable.sh_local_int0_enable_s.l1_nmi_int = 1;
-	local_int_enable.sh_local_int0_enable_s.stop_clock = 1;
-
-
-	// Send BERR, rather than an interrupt, for shub errors.
-	local_int_config.sh_local_int0_config_s.agt = 1;
-	HUB_S((unsigned long *)GLOBAL_MMR_ADDR(nasid, SH_LOCAL_INT1_CONFIG),
-		local_int_config.sh_local_int0_config_regval);
-
-	HUB_S((unsigned long *)GLOBAL_MMR_ADDR(nasid, SH_LOCAL_INT1_ENABLE),
-		local_int_enable.sh_local_int0_enable_regval);
-
-	// Make sure BERR is enabled.
-	fsb_system_agent.sh_fsb_system_agent_config_regval = 
-		HUB_L( (unsigned long *)GLOBAL_MMR_ADDR(nasid, SH_FSB_SYSTEM_AGENT_CONFIG) );
-	fsb_system_agent.sh_fsb_system_agent_config_s.berr_assert_en = 1;
-	HUB_S((unsigned long *)GLOBAL_MMR_ADDR(nasid, SH_FSB_SYSTEM_AGENT_CONFIG),
-		fsb_system_agent.sh_fsb_system_agent_config_regval);
-
-	// Set LOCAL_INT2 to field CEs
-
-	local_int_enable.sh_local_int0_enable_regval = 0;
-
-	local_int_config.sh_local_int0_config_s.agt = 0;
-	local_int_config.sh_local_int0_config_s.idx = SGI_SHUB_ERROR_VECTOR;
-	HUB_S((unsigned long *)GLOBAL_MMR_ADDR(nasid, SH_LOCAL_INT2_CONFIG),
-		local_int_config.sh_local_int0_config_regval);
-
-	local_int_enable.sh_local_int0_enable_s.pi_ce_int = 1;
-	local_int_enable.sh_local_int0_enable_s.md_ce_int = 1;
-	local_int_enable.sh_local_int0_enable_s.xn_ce_int = 1;
-
-	HUB_S((unsigned long *)GLOBAL_MMR_ADDR(nasid, SH_LOCAL_INT2_ENABLE),
-		local_int_enable.sh_local_int0_enable_regval);
-
-	// Make sure all the rest of the LOCAL_INT regs are disabled.
-	local_int_enable.sh_local_int0_enable_regval = 0;
-	HUB_S((unsigned long *)GLOBAL_MMR_ADDR(nasid, SH_LOCAL_INT3_ENABLE),
-		local_int_enable.sh_local_int0_enable_regval);
-
-	HUB_S((unsigned long *)GLOBAL_MMR_ADDR(nasid, SH_LOCAL_INT4_ENABLE),
-		local_int_enable.sh_local_int0_enable_regval);
-
-	HUB_S((unsigned long *)GLOBAL_MMR_ADDR(nasid, SH_LOCAL_INT5_ENABLE),
-		local_int_enable.sh_local_int0_enable_regval);
-
 }
 
 // (Un)Reserve an irq on this cpu.
@@ -224,7 +158,8 @@ do_intr_reserve_level(cpuid_t cpu,
 			int reserve)
 {
 	int i;
-	irqpda_t	*irqs = irqpdaindr[cpu];
+	irqpda_t	*irqs = irqpdaindr;
+	int		min_shared;
 
 	if (reserve) {
 		if (bit < 0) {
@@ -235,8 +170,32 @@ do_intr_reserve_level(cpuid_t cpu,
 				}
 			}
 		}
-		if (bit < 0) {
-			return -1;
+		if (bit < 0) {  /* ran out of irqs.  Have to share.  This will be rare. */
+			min_shared = 256;
+			for (i=IA64_SN2_FIRST_DEVICE_VECTOR; i < IA64_SN2_LAST_DEVICE_VECTOR; i++) {
+				/* Share with the same device class */
+				if (irqpdaindr->current->vendor == irqpdaindr->device_dev[i]->vendor &&
+					irqpdaindr->current->device == irqpdaindr->device_dev[i]->device &&
+					irqpdaindr->share_count[i] < min_shared) {
+						min_shared = irqpdaindr->share_count[i];
+						bit = i;
+				}
+			}
+			min_shared = 256;
+			if (bit < 0) {  /* didn't find a matching device, just pick one. This will be */
+					/* exceptionally rare. */
+				for (i=IA64_SN2_FIRST_DEVICE_VECTOR; i < IA64_SN2_LAST_DEVICE_VECTOR; i++) {
+					if (irqpdaindr->share_count[i] < min_shared) {
+						min_shared = irqpdaindr->share_count[i];
+						bit = i;
+					}
+				}
+			}
+			irqpdaindr->share_count[bit]++;
+		}
+		if (irqs->irq_flags[bit] & SN2_IRQ_SHARED) {
+			irqs->irq_flags[bit] |= SN2_IRQ_RESERVED;
+			return bit;
 		}
 		if (irqs->irq_flags[bit] & SN2_IRQ_RESERVED) {
 			return -1;
@@ -260,7 +219,7 @@ int
 intr_reserve_level(cpuid_t cpu,
 		int bit,
 		int resflags,
-		devfs_handle_t owner_dev,
+		vertex_hdl_t owner_dev,
 		char *name)
 {
 	return(do_intr_reserve_level(cpu, bit, 1));
@@ -280,9 +239,13 @@ do_intr_connect_level(cpuid_t cpu,
 			int bit,
 			int connect)
 {
-	irqpda_t	*irqs = irqpdaindr[cpu];
+	irqpda_t	*irqs = irqpdaindr;
 
 	if (connect) {
+		if (irqs->irq_flags[bit] & SN2_IRQ_SHARED) {
+			irqs->irq_flags[bit] |= SN2_IRQ_CONNECTED;
+			return bit;
+		}
 		if (irqs->irq_flags[bit] & SN2_IRQ_CONNECTED) {
 			return -1;
 		} else {
@@ -325,24 +288,29 @@ do_intr_cpu_choose(cnodeid_t cnode) {
 	int		slice, min_count = 1000;
 	irqpda_t	*irqs;
 
-	for (slice = 0; slice < CPUS_PER_NODE; slice++) {
+	for (slice = CPUS_PER_NODE - 1; slice >= 0; slice--) {
 		int intrs;
 
 		cpu = cnode_slice_to_cpuid(cnode, slice);
-		if (cpu == CPU_NONE) {
+		if (cpu == smp_num_cpus) {
 			continue;
 		}
 
-		if (!cpu_enabled(cpu)) {
+		if (!cpu_online(cpu)) {
 			continue;
 		}
 
-		irqs = irqpdaindr[cpu];
+		irqs = irqpdaindr;
 		intrs = irqs->num_irq_used;
 
 		if (min_count > intrs) {
 			min_count = intrs;
 			best_cpu = cpu;
+			if ( enable_shub_wars_1_1() ) {
+				/* Rather than finding the best cpu, always return the first cpu*/
+				/* This forces all interrupts to the same cpu */
+				break;
+			}
 		}
 	}
 	return best_cpu;
@@ -362,7 +330,7 @@ intr_bit_reserve_test(cpuid_t cpu,
 			cnodeid_t cnode,
 			int req_bit,
 			int resflags,
-			devfs_handle_t owner_dev,
+			vertex_hdl_t owner_dev,
 			char *name,
 			int *resp_bit)
 {
@@ -384,40 +352,50 @@ intr_bit_reserve_test(cpuid_t cpu,
 // Find the node to assign for this interrupt.
 
 cpuid_t
-intr_heuristic(devfs_handle_t dev,
+intr_heuristic(vertex_hdl_t dev,
 		device_desc_t dev_desc,
 		int	req_bit,
 		int resflags,
-		devfs_handle_t owner_dev,
+		vertex_hdl_t owner_dev,
 		char *name,
 		int *resp_bit)
 {
 	cpuid_t		cpuid;
-	cnodeid_t	candidate = -1;
-	devfs_handle_t	pconn_vhdl;
+	cpuid_t		candidate = CPU_NONE;
+	cnodeid_t	candidate_node;
+	vertex_hdl_t	pconn_vhdl;
 	pcibr_soft_t	pcibr_soft;
+	int 		bit;
+	static cnodeid_t last_node = 0;
 
 /* SN2 + pcibr addressing limitation */
 /* Due to this limitation, all interrupts from a given bridge must go to the name node.*/
+/* The interrupt must also be targetted for the same processor. */
 /* This limitation does not exist on PIC. */
+/* But, the processor limitation will stay.  The limitation will be similar to */
+/* the bedrock/xbridge limit regarding PI's */
 
 	if ( (hwgraph_edge_get(dev, EDGE_LBL_PCI, &pconn_vhdl) == GRAPH_SUCCESS) &&
 		( (pcibr_soft = pcibr_soft_get(pconn_vhdl) ) != NULL) ) {
 			if (pcibr_soft->bsi_err_intr) {
-				candidate = cpuid_to_cnodeid( ((hub_intr_t)pcibr_soft->bsi_err_intr)->i_cpuid);
+				candidate =  ((hub_intr_t)pcibr_soft->bsi_err_intr)->i_cpuid;
 			}
 	}
 
-	if (candidate >= 0) {
-		// The node was chosen already when we assigned the error interrupt.
-		cpuid = intr_bit_reserve_test(CPU_NONE,
-						0,
-						candidate,
-						req_bit,
-						0,
-						owner_dev,
-						name,
-						resp_bit);
+
+	if (candidate != CPU_NONE) {
+		// The cpu was chosen already when we assigned the error interrupt.
+		bit = intr_reserve_level(candidate, 
+					req_bit, 
+					resflags, 
+					owner_dev, 
+					name);
+		if (bit < 0) {
+			cpuid = CPU_NONE;
+		} else {
+			cpuid = candidate;
+			*resp_bit = bit;
+		}
 	} else {
 		// Need to choose one.  Try the controlling c-brick first.
 		cpuid = intr_bit_reserve_test(CPU_NONE,
@@ -434,11 +412,11 @@ intr_heuristic(devfs_handle_t dev,
 		return cpuid;
 	}
 
-	if (candidate >= 0) {
-		printk("Cannot target interrupt to target node (%d).\n",candidate);
-		return CPU_NONE;
+	if (candidate  != CPU_NONE) {
+		printk("Cannot target interrupt to target node (%ld).\n",candidate);
+		return CPU_NONE; 
 	} else {
-		printk("Cannot target interrupt to closest node (%d) 0x%p\n",
+		printk("Cannot target interrupt to closest node (0x%x) 0x%p\n",
 			master_node_get(dev), (void *)owner_dev);
 	}
 
@@ -446,19 +424,21 @@ intr_heuristic(devfs_handle_t dev,
 	// Do a stupid round-robin assignment of the node.
 
 	{
-		static cnodeid_t last_node = -1;
+		int i;
+
 		if (last_node >= numnodes) last_node = 0;
-		for (candidate = last_node + 1; candidate != last_node; candidate++) {
-			if (candidate == numnodes) candidate = 0;
+		for (i = 0, candidate_node = last_node; i < numnodes; candidate_node++,i++) {
+			if (candidate_node == numnodes) candidate_node = 0;
 			cpuid = intr_bit_reserve_test(CPU_NONE,
 							0,
-							candidate,
+							candidate_node,
 							req_bit,
 							0,
 							owner_dev,
 							name,
 							resp_bit);
 			if (cpuid != CPU_NONE) {
+				last_node = candidate_node + 1;
 				return cpuid;
 			}
 		}

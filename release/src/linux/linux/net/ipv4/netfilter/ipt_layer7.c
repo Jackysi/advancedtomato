@@ -16,6 +16,7 @@
   and cls_layer7.c (C) 2003 Matthew Strait, Ethan Sommer, Justin Levandoski
 */
 
+#include <linux/version.h>
 #include <linux/module.h>
 #include <linux/skbuff.h>
 #include <linux/netfilter_ipv4/ip_conntrack.h>
@@ -331,7 +332,12 @@ static int add_data(struct ip_conntrack * master_conntrack,
 /* Returns true on match and false otherwise.  */
 static int match(/* const */struct sk_buff *skb, const struct net_device *in,
 		 const struct net_device *out, const void *matchinfo,
-		 int offset,		   int *hotdrop)
+		 int offset,
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,0)
+		 const void *hdr,
+		 u_int16_t datalen,
+#endif
+		 int *hotdrop)
 {
 	struct ipt_layer7_info * info = (struct ipt_layer7_info *)matchinfo;
 	enum ip_conntrack_info master_ctinfo, ctinfo;

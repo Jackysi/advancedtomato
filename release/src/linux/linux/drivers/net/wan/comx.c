@@ -227,6 +227,21 @@ static void comx_loadavg_timerfun(unsigned long d)
 	mod_timer(&ch->loadavg_timer,jiffies + HZ * ch->loadavg[0]);
 }
 
+#if 0
+static void comx_reset_timerfun(unsigned long d)
+{ 
+	struct net_device *dev = (struct net_device *)d;
+	struct comx_channel *ch = dev->priv;
+
+	if(!(ch->line_status & (PROTO_LOOP | PROTO_UP))) {
+		if(test_and_set_bit(0,&ch->reset_pending) && ch->HW_reset) {
+			ch->HW_reset(dev);
+		}
+	}
+
+	mod_timer(&ch->reset_timer, jiffies + HZ * ch->reset_timeout);
+}
+#endif                                            
 
 static int comx_open(struct net_device *dev)
 {
@@ -248,6 +263,14 @@ static int comx_open(struct net_device *dev)
 			comxdir->mode = S_IFREG | 0444;
 	}
 
+#if 0
+	ch->reset_pending = 1;
+	ch->reset_timeout = 30;
+	ch->reset_timer.function = comx_reset_timerfun;
+	ch->reset_timer.data = (unsigned long)dev;
+	ch->reset_timer.expires = jiffies + HZ * ch->reset_timeout;
+	add_timer(&ch->reset_timer);
+#endif
 
 	return 0;
 }
@@ -262,6 +285,9 @@ static int comx_close(struct net_device *dev)
 		del_timer(&ch->lineup_timer);
 	}
 
+#if 0	
+	del_timer(&ch->reset_timer);
+#endif
 
 	if (ch->init_status & LINE_OPEN && ch->protocol && ch->LINE_close) {
 		ret = ch->LINE_close(dev);
@@ -288,6 +314,11 @@ void comx_status(struct net_device *dev, int status)
 {
 	struct comx_channel *ch = dev->priv;
 
+#if 0
+	if(status & (PROTO_UP | PROTO_LOOP)) {
+		clear_bit(0,&ch->reset_pending);
+	}
+#endif
 
 	printk(KERN_NOTICE "Interface %s: modem status %s, line protocol %s\n",
 		    dev->name, status & LINE_UP ? "UP" : "DOWN", 

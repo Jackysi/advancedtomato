@@ -21,7 +21,7 @@ static int __init shark_map_irq(struct pci_dev *dev, u8 slot, u8 pin)
 }
 
 struct hw_pci shark_pci __initdata = {
-	init: via82c505_init,
-	swizzle: no_swizzle,
-	map_irq: shark_map_irq
+	.init		= via82c505_init,
+	.swizzle	= no_swizzle,
+	.map_irq	= shark_map_irq,
 };

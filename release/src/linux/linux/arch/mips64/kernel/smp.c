@@ -43,7 +43,6 @@
 spinlock_t kernel_flag __cacheline_aligned_in_smp = SPIN_LOCK_UNLOCKED;
 int smp_threads_ready;	/* Not used */
 atomic_t smp_commenced = ATOMIC_INIT(0);
-struct cpuinfo_mips cpu_data[NR_CPUS];
 
 atomic_t cpus_booted = ATOMIC_INIT(0);
 
@@ -53,65 +52,16 @@ int __cpu_number_map[NR_CPUS];
 int __cpu_logical_map[NR_CPUS];
 cycles_t cacheflush_time;
 
-/* These are defined by the board-specific code. */
-
-/*
- * Cause the function described by call_data to be executed on the passed
- * cpu.  When the function has finished, increment the finished field of
- * call_data.
- */
-void core_send_ipi(int cpu, unsigned int action);
-
-/*
- * Clear all undefined state in the cpu, set up sp and gp to the passed
- * values, and kick the cpu into smp_bootstrap();
- */
-void prom_boot_secondary(int cpu, unsigned long sp, unsigned long gp);
-
-/*
- *  After we've done initial boot, this function is called to allow the
- *  board code to clean up state, if needed
- */
-void prom_init_secondary(void);
-
-/*
- * Do whatever setup needs to be done for SMP at the board level.  Return
- * the number of cpus in the system, including this one
- */
-int prom_setup_smp(void);
-
-void prom_smp_finish(void);
-
-static void smp_tune_scheduling(void)
-{
-}
+EXPORT_SYMBOL(__cpu_number_map);
+EXPORT_SYMBOL(__cpu_logical_map);
 
 void __init smp_callin(void)
 {
+#if 0
+	calibrate_delay();
+	smp_store_cpu_info(cpuid);
+#endif
 }
-
-#ifndef CONFIG_SGI_IP27
-/*
- * Hook for doing final board-specific setup after the generic smp setup
- * is done
- */
-asmlinkage void start_secondary(void)
-{
-	unsigned int cpu = smp_processor_id();
-
-	prom_init_secondary();
-	per_cpu_trap_init();
-
-	pgd_current[cpu] = init_mm.pgd;
-	cpu_data[cpu].udelay_val = loops_per_jiffy;
-	prom_smp_finish();
-	printk("Slave cpu booted successfully\n");
-	CPUMASK_SETB(cpu_online_map, cpu);
-	atomic_inc(&cpus_booted);
-	while (!atomic_read(&smp_commenced));
-	cpu_idle();
-}
-#endif /* CONFIG_SGI_IP27 */
 
 void __init smp_commence(void)
 {
@@ -129,7 +79,7 @@ void smp_send_reschedule(int cpu)
 	core_send_ipi(cpu, SMP_RESCHEDULE_YOURSELF);
 }
 
-static spinlock_t call_lock = SPIN_LOCK_UNLOCKED;
+spinlock_t smp_call_lock = SPIN_LOCK_UNLOCKED;
 
 struct call_data_struct *call_data;
 
@@ -161,8 +111,9 @@ int smp_call_function (void (*func) (void *info), void *info, int retry,
 	if (wait)
 		atomic_set(&data.finished, 0);
 
-	spin_lock(&call_lock);
+	spin_lock(&smp_call_lock);
 	call_data = &data;
+	wmb();
 
 	/* Send a message to all other CPUs and wait for them to respond */
 	for (i = 0; i < smp_num_cpus; i++)
@@ -170,13 +121,14 @@ int smp_call_function (void (*func) (void *info), void *info, int retry,
 			core_send_ipi(i, SMP_CALL_FUNCTION);
 
 	/* Wait for response */
+	/* FIXME: lock-up detection, backtrace on lock-up */
 	while (atomic_read(&data.started) != cpus)
 		barrier();
 
 	if (wait)
 		while (atomic_read(&data.finished) != cpus)
 			barrier();
-	spin_unlock(&call_lock);
+	spin_unlock(&smp_call_lock);
 
 	return 0;
 }
@@ -188,7 +140,7 @@ void smp_call_function_interrupt(void)
 	int wait = call_data->wait;
 	int cpu = smp_processor_id();
 
-	irq_enter(cpu, 0);	
+	irq_enter(cpu, 0);	/* XXX choose an irq number? */
 	/*
 	 * Notify initiating CPU that I've grabbed the data and am
 	 * about to execute the function.
@@ -204,7 +156,7 @@ void smp_call_function_interrupt(void)
 		mb();
 		atomic_inc(&call_data->finished);
 	}
-	irq_exit(cpu, 0);	
+	irq_exit(cpu, 0);	/* XXX choose an irq number? */
 }
 
 static void stop_this_cpu(void *dummy)
@@ -214,7 +166,7 @@ static void stop_this_cpu(void *dummy)
 	 */
 	clear_bit(smp_processor_id(), &cpu_online_map);
 	/* May need to service _machine_restart IPI */
-	__sti();
+	local_irq_enable();
 	/* XXXKW wait if available? */
 	for (;;);
 }
@@ -227,6 +179,12 @@ void smp_send_stop(void)
 	 * cause a restart to happen on CPU0.
 	 */
 	smp_num_cpus = 1;
+}
+
+/* Not really SMP stuff ... */
+int setup_profiling_timer(unsigned int multiplier)
+{
+	return 0;
 }
 
 static void flush_tlb_all_ipi(void *info)
@@ -329,7 +287,6 @@ void flush_tlb_page(struct vm_area_struct *vma, unsigned long page)
 
 EXPORT_SYMBOL(smp_num_cpus);
 EXPORT_SYMBOL(flush_tlb_page);
-EXPORT_SYMBOL(cpu_data);
 EXPORT_SYMBOL(synchronize_irq);
 EXPORT_SYMBOL(kernel_flag);
 EXPORT_SYMBOL(__global_sti);

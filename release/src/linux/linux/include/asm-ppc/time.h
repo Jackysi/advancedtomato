@@ -1,7 +1,4 @@
 /*
- * BK Id: SCCS/s.time.h 1.17 10/23/01 08:09:35 trini
- */
-/*
  * Common time prototypes and such for all ppc machines.
  *
  * Written by Cort Dougan (cort@fsmlabs.com) to merge
@@ -15,6 +12,7 @@
 #include <linux/config.h>
 #include <linux/mc146818rtc.h>
 #include <linux/threads.h>
+#include <linux/compiler.h>
 
 #include <asm/processor.h>
 
@@ -32,14 +30,14 @@ extern void set_dec_cpu6(unsigned int val);
 int via_calibrate_decr(void);
 
 /* Accessor functions for the decrementer register.
- * The 4xx doesn't even have a decrementer.  I tried to use the
- * generic timer interrupt code, which seems OK, with the 4xx PIT
+ * The 40x doesn't even have a decrementer.  I tried to use the
+ * generic timer interrupt code, which seems OK, with the 40x PIT
  * in auto-reload mode.  The problem is PIT stops counting when it
  * hits zero.  If it would wrap, we could use it just like a decrementer.
  */
 static __inline__ unsigned int get_dec(void)
 {
-#if defined(CONFIG_4xx)
+#if defined(CONFIG_40x)
 	return (mfspr(SPRN_PIT));
 #else
 	return (mfspr(SPRN_DEC));
@@ -48,7 +46,7 @@ static __inline__ unsigned int get_dec(void)
 
 static __inline__ void set_dec(unsigned int val)
 {
-#if defined(CONFIG_4xx)
+#if defined(CONFIG_40x)
 	return;		/* Have to let it auto-reload */
 #elif defined(CONFIG_8xx_CPU6)
 	set_dec_cpu6(val);
@@ -60,7 +58,7 @@ static __inline__ void set_dec(unsigned int val)
 /* Accessor functions for the timebase (RTC on 601) registers. */
 /* If one day CONFIG_POWER is added just define __USE_RTC as 1 */
 #ifdef CONFIG_6xx
-extern __inline__ int const __USE_RTC(void) {
+extern __inline__ int __attribute_const__ __USE_RTC(void) {
 	return (mfspr(SPRN_PVR)>>16) == 1;
 }
 #else
@@ -112,6 +110,27 @@ extern __inline__ unsigned tb_ticks_since(unsigned tstamp) {
 	}
 }
 
+#if 0
+extern __inline__ unsigned long get_bin_rtcl(void) {
+      unsigned long rtcl, rtcu1, rtcu2;
+      asm volatile("\
+1:    mfrtcu  %0\n\
+      mfrtcl  %1\n\
+      mfrtcu  %2\n\
+      cmpw    %0,%2\n\
+      bne-    1b\n"
+      : "=r" (rtcu1), "=r" (rtcl), "=r" (rtcu2)
+      : : "cr0");
+      return rtcu2*1000000000+rtcl;
+}
+
+extern __inline__ unsigned binary_tbl(void) {
+      if (__USE_RTC())
+              return get_bin_rtcl();
+      else
+              return get_tbl();
+}
+#endif
 
 /* Use mulhwu to scale processor timebase to timeval */
 #define mulhwu(x,y) \

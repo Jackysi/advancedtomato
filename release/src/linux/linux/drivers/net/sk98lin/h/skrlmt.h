@@ -2,15 +2,14 @@
  *
  * Name:	skrlmt.h
  * Project:	GEnesis, PCI Gigabit Ethernet Adapter
- * Version:	$Revision: 1.1.1.2 $
- * Date:	$Date: 2003/10/14 08:08:27 $
  * Purpose:	Header file for Redundant Link ManagemenT.
  *
  ******************************************************************************/
 
 /******************************************************************************
  *
- *	(C)Copyright 1998-2001 SysKonnect GmbH.
+ *	(C)Copyright 1998-2002 SysKonnect GmbH.
+ *	(C)Copyright 2002-2003 Marvell.
  *
  *	This program is free software; you can redistribute it and/or modify
  *	it under the terms of the GNU General Public License as published by
@@ -19,128 +18,6 @@
  *
  *	The information in this file is provided "AS IS" without warranty.
  *
- ******************************************************************************/
-
-/******************************************************************************
- *
- * History:
- *
- *	$Log: skrlmt.h,v $
- *	Revision 1.1.1.2  2003/10/14 08:08:27  sparq
- *	Broadcom Release 3.51.8.0 for BCM4712.
- *	
- *	Revision 1.1.1.1  2003/02/03 22:37:48  mhuang
- *	LINUX_2_4 branch snapshot from linux-mips.org CVS
- *	
- *	Revision 1.32  2001/02/14 14:06:31  rassmann
- *	Editorial changes.
- *	
- *	Revision 1.31  2001/02/05 14:25:26  rassmann
- *	Prepared RLMT for transparent operation.
- *	
- *	Revision 1.30  2001/01/22 13:41:39  rassmann
- *	Supporting two nets on dual-port adapters.
- *	
- *	Revision 1.29  2000/11/17 08:58:00  rassmann
- *	Moved CheckSwitch from SK_RLMT_PACKET_RECEIVED to SK_RLMT_TIM event.
- *	
- *	Revision 1.28  2000/11/09 12:24:34  rassmann
- *	Editorial changes.
- *	
- *	Revision 1.27  1999/11/22 13:59:56  cgoos
- *	Changed license header to GPL.
- *	
- *	Revision 1.26  1999/10/04 14:01:19  rassmann
- *	Corrected reaction to reception of BPDU frames (#10441).
- *	
- *	Revision 1.25  1999/07/20 12:53:39  rassmann
- *	Fixed documentation errors for lookahead macros.
- *	
- *	Revision 1.24  1999/05/28 11:15:56  rassmann
- *	Changed behaviour to reflect Design Spec v1.2.
- *	Controlling Link LED(s).
- *	Introduced RLMT Packet Version field in RLMT Packet.
- *	Newstyle lookahead macros (checking meta-information before looking at
- *	  the packet).
- *	
- *	Revision 1.23  1999/01/28 12:50:42  rassmann
- *	Not using broadcast time stamps in CheckLinkState mode.
- *	
- *	Revision 1.22  1999/01/27 14:13:04  rassmann
- *	Monitoring broadcast traffic.
- *	Switching more reliably and not too early if switch is
- *	 configured for spanning tree.
- *	
- *	Revision 1.21  1998/12/08 13:11:25  rassmann
- *	Stopping SegTimer at RlmtStop.
- *	
- *	Revision 1.20  1998/11/24 12:37:33  rassmann
- *	Implemented segmentation check.
- *	
- *	Revision 1.19  1998/11/17 13:43:06  rassmann
- *	Handling (logical) tx failure.
- *	Sending packet on logical address after PORT_SWITCH.
- *	
- *	Revision 1.18  1998/11/13 16:56:56  rassmann
- *	Added macro version of SkRlmtLookaheadPacket.
- *	
- *	Revision 1.17  1998/11/06 18:06:05  rassmann
- *	Corrected timing when RLMT checks fail.
- *	Clearing tx counter earlier in periodical checks.
- *	
- *	Revision 1.16  1998/11/03 13:53:50  rassmann
- *	RLMT should switch now (at least in mode 3).
- *	
- *	Revision 1.15  1998/10/22 11:39:52  rassmann
- *	Corrected signed/unsigned mismatches.
- *	Corrected receive list handling and address recognition.
- *	
- *	Revision 1.14  1998/10/15 15:16:36  rassmann
- *	Finished Spanning Tree checking.
- *	Checked with lint.
- *	
- *	Revision 1.13  1998/09/24 19:16:08  rassmann
- *	Code cleanup.
- *	Introduced Timer for PORT_DOWN due to no RX.
- *	
- *	Revision 1.12  1998/09/16 11:09:52  rassmann
- *	Syntax corrections.
- *	
- *	Revision 1.11  1998/09/15 11:28:50  rassmann
- *	Syntax corrections.
- *	
- *	Revision 1.10  1998/09/14 17:07:38  rassmann
- *	Added code for port checking via LAN.
- *	Changed Mbuf definition.
- *	
- *	Revision 1.9  1998/09/07 11:14:15  rassmann
- *	Syntax corrections.
- *	
- *	Revision 1.8  1998/09/07 09:06:08  rassmann
- *	Syntax corrections.
- *	
- *	Revision 1.7  1998/09/04 19:41:34  rassmann
- *	Syntax corrections.
- *	Started entering code for checking local links.
- *	
- *	Revision 1.6  1998/09/04 12:14:28  rassmann
- *	Interface cleanup.
- *	
- *	Revision 1.5  1998/09/02 16:55:29  rassmann
- *	Updated to reflect new DRV/HWAC/RLMT interface.
- *	
- *	Revision 1.4  1998/09/02 07:26:02  afischer
- *	typedef for SK_RLMT_PORT
- *
- *	Revision 1.3  1998/08/27 14:29:03  rassmann
- *	Code cleanup.
- *	
- *	Revision 1.2  1998/08/27 14:26:25  rassmann
- *	Updated interface.
- *	
- *	Revision 1.1  1998/08/21 08:29:10  rassmann
- *	First public version.
- *	
  ******************************************************************************/
 
 /******************************************************************************
@@ -166,7 +43,6 @@
 #define __INC_SKRLMT_H
 
 #ifdef __cplusplus
-#error C++ is not yet supported.
 extern "C" {
 #endif	/* cplusplus */
 
@@ -273,6 +149,14 @@ extern "C" {
 
 /* Macros */
 
+#if 0
+SK_AC		*pAC		/* adapter context */
+SK_U32		PortNum		/* receiving port */
+unsigned	PktLen		/* received packet's length */
+SK_BOOL		IsBc		/* Flag: packet is broadcast */
+unsigned	*pOffset	/* offs. of bytes to present to SK_RLMT_LOOKAHEAD */
+unsigned	*pNumBytes	/* #Bytes to present to SK_RLMT_LOOKAHEAD */
+#endif	/* 0 */
 
 #define SK_RLMT_PRE_LOOKAHEAD(pAC,PortNum,PktLen,IsBc,pOffset,pNumBytes) { \
 	SK_AC	*_pAC; \
@@ -281,30 +165,49 @@ extern "C" {
 	_PortNum = (SK_U32)(PortNum); \
 	/* _pAC->Rlmt.Port[_PortNum].PacketsRx++; */ \
 	_pAC->Rlmt.Port[_PortNum].PacketsPerTimeSlot++; \
-	if ((_pAC->Rlmt.Port[_PortNum].Net->RlmtMode & SK_RLMT_TRANSPARENT) != 0) { \
+    if (_pAC->Rlmt.RlmtOff) { \
 		*(pNumBytes) = 0; \
-	} \
-	else if (IsBc) { \
-		if (_pAC->Rlmt.Port[_PortNum].Net->RlmtMode != SK_RLMT_MODE_CLS) { \
-			*(pNumBytes) = 6; \
-			*(pOffset) = 6; \
-		} \
-		else { \
-			*(pNumBytes) = 0; \
-		} \
-	} \
-	else { \
-		if ((PktLen) > SK_RLMT_MAX_TX_BUF_SIZE) { \
-			/* _pAC->Rlmt.Port[_PortNum].DataPacketsPerTimeSlot++; */ \
-			*(pNumBytes) = 0; \
-		} \
-		else { \
-			*(pNumBytes) = 6; \
-			*(pOffset) = 0; \
-		} \
-	} \
+    } \
+    else {\
+        if ((_pAC->Rlmt.Port[_PortNum].Net->RlmtMode & SK_RLMT_TRANSPARENT) != 0) { \
+    		*(pNumBytes) = 0; \
+    	} \
+    	else if (IsBc) { \
+    		if (_pAC->Rlmt.Port[_PortNum].Net->RlmtMode != SK_RLMT_MODE_CLS) { \
+    			*(pNumBytes) = 6; \
+    			*(pOffset) = 6; \
+    		} \
+    		else { \
+    			*(pNumBytes) = 0; \
+    		} \
+    	} \
+    	else { \
+    		if ((PktLen) > SK_RLMT_MAX_TX_BUF_SIZE) { \
+    			/* _pAC->Rlmt.Port[_PortNum].DataPacketsPerTimeSlot++; */ \
+    			*(pNumBytes) = 0; \
+    		} \
+    		else { \
+    			*(pNumBytes) = 6; \
+    			*(pOffset) = 0; \
+    		} \
+    	} \
+    } \
 }
 
+#if 0
+SK_AC		*pAC		/* adapter context */
+SK_U32		PortNum		/* receiving port */
+SK_U8		*pLaPacket,	/* received packet's data (points to pOffset) */
+SK_BOOL		IsBc		/* Flag: packet is broadcast */
+SK_BOOL		IsMc		/* Flag: packet is multicast */
+unsigned	*pForRlmt	/* Result: bits SK_RLMT_RX_RLMT, SK_RLMT_RX_PROTOCOL */
+SK_RLMT_LOOKAHEAD() expects *pNumBytes from
+packet offset *pOffset (s.a.) at *pLaPacket.
+
+If you use SK_RLMT_LOOKAHEAD in a path where you already know if the packet is
+BC, MC, or UC, you should use constants for IsBc and IsMc, so that your compiler
+can trash unneeded parts of the if construction.
+#endif	/* 0 */
 
 #define SK_RLMT_LOOKAHEAD(pAC,PortNum,pLaPacket,IsBc,IsMc,pForRlmt) { \
 	SK_AC	*_pAC; \
@@ -452,6 +355,7 @@ struct s_RlmtNet {
 
 	/* For PNMI */
 
+	SK_U32			ChgBcPrio;			/* Change Priority of last broadcast received */
 	SK_U32			RlmtMode;			/* Check ... */
 	SK_U32			ActivePort;			/* Active port. */
 	SK_U32			Preference;		/* 0xFFFFFFFF: Automatic. */
@@ -485,8 +389,10 @@ typedef struct s_Rlmt {
 
 /* ----- Private part ----- */
 	SK_BOOL			CheckSwitch;
-	SK_U8			Align01;
-	SK_U16			Align02;
+	SK_BOOL			RlmtOff;            /* set to zero if the Mac addresses 
+                                           are equal or the second one 
+                                           is zero */
+	SK_U16			Align01;
 
 } SK_RLMT;
 

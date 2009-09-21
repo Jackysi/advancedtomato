@@ -3,7 +3,7 @@
  *
  *  Copyright (C) 2001 Deep Blue Solutions Ltd.
  *
- *  $Id: cpu.c,v 1.1.1.4 2003/10/14 08:07:14 sparq Exp $
+ *  $Id: cpu.c,v 1.2.2.1 2002/05/30 15:08:03 db Exp $
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as

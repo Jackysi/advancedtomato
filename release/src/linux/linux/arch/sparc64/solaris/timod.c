@@ -1,4 +1,4 @@
-/* $Id: timod.c,v 1.1.1.4 2003/10/14 08:07:51 sparq Exp $
+/* $Id: timod.c,v 1.16.2.1 2001/12/18 22:15:25 davem Exp $
  * timod.c: timod emulation.
  *
  * Copyright (C) 1998 Patrik Rak (prak3264@ss1000.ms.mff.cuni.cz)
@@ -200,7 +200,7 @@ static void timod_error(unsigned int fd, int prim, int terr, int uerr)
 		err->PRIM_type = T_ERROR_ACK;
 		err->ERROR_prim = prim;
 		err->TLI_error = terr;
-		err->UNIX_error = uerr; 
+		err->UNIX_error = uerr; /* FIXME: convert this */
 		timod_queue(fd, it);
 	}
 	SOLD("done");
@@ -547,7 +547,7 @@ int timod_putmsg(unsigned int fd, char *ctl_buf, int ctl_len,
 			SOLD("got primsg");
 			dis = (struct T_discon_ind *)&it->type;
 			dis->PRIM_type = T_DISCON_IND;
-			dis->DISCON_reason = -error;	
+			dis->DISCON_reason = -error;	/* FIXME: convert this as in iABI_errors() */
 			dis->SEQ_number = 0;
 		}
 		putpage(buf);
@@ -776,7 +776,7 @@ int timod_getmsg(unsigned int fd, char *ctl_buf, int ctl_maxlen, s32 *ctl_len,
 			if (len>ctl_maxlen) {
 				SOLD("data don't fit");
 				putpage(buf);
-				return -EFAULT;		
+				return -EFAULT;		/* XXX - is this ok ? */
 			}
 			if(copy_to_user(ctl_buf,buf,len) || put_user(len,ctl_len)){
 				SOLD("can't copy data");

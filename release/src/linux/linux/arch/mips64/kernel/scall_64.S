@@ -25,22 +25,24 @@
 	.align  5
 NESTED(handle_sys64, PT_SIZE, sp)
 /* When 32-bit compatibility is configured scall_o32.S already did this.  */
-#ifndef CONFIG_MIPS32_COMPAT
+#if !defined(CONFIG_MIPS32_O32) && !defined(CONFIG_MIPS32_N32)
 	.set	noat
 	SAVE_SOME
 	STI
 	.set	at
 #endif
-	ld	t1, PT_EPC(sp)		# skip syscall on return
 
-	subu	t0, v0, __NR_Linux	# check syscall number
-	sltiu	t0, t0,	__NR_Linux_syscalls + 1
+	subu	t0, v0, __NR_64_Linux	# check syscall number
+	sltiu	t0, t0,	__NR_64_Linux_syscalls + 1
+#if !defined(CONFIG_MIPS32_O32) && !defined(CONFIG_MIPS32_N32)
+	ld	t1, PT_EPC(sp)		# skip syscall on return
 	daddiu	t1, 4			# skip to next instruction
-	beqz	t0, illegal_syscall
 	sd	t1, PT_EPC(sp)
+#endif
+	beqz	t0, illegal_syscall
 
 	dsll	t0, v0, 3		# offset into table
-	ld	t2, (sys_call_table - (__NR_Linux * 8))(t0) # syscall routine
+	ld	t2, (sys_call_table - (__NR_64_Linux * 8))(t0) # syscall routine
 
 	sd	a3, PT_R26(sp)		# save a3 for syscall restarting
 
@@ -67,7 +69,7 @@ ret_from_sys_call:
 	SSNOP; SSNOP; SSNOP
 
 	ld	t2, TASK_NEED_RESCHED($28)
-	bnez	t2, reschedule
+	bnez	t2, _64_reschedule
 	lw	v0, TASK_SIGPENDING($28)
 	bnez	v0, signal_return
 
@@ -84,12 +86,14 @@ signal_return:
 	ori	t0, t0, 1
 	mtc0	t0, CP0_STATUS
 
+	SAVE_STATIC
 	move	a0, zero
 	move	a1, sp
 	jal	do_signal
+	RESTORE_STATIC
 	b	restore_all
 
-reschedule:
+_64_reschedule:
 	SAVE_STATIC
 	jal	schedule
 	b	ret_from_sys_call
@@ -98,15 +102,14 @@ reschedule:
 
 trace_a_syscall:
 	SAVE_STATIC
-	sd	t2,PT_R1(sp)
+	move	s0, t2
 	jal	syscall_trace
-	ld	t2,PT_R1(sp)
 
 	ld	a0, PT_R4(sp)		# Restore argument registers
 	ld	a1, PT_R5(sp)
 	ld	a2, PT_R6(sp)
 	ld	a3, PT_R7(sp)
-	jalr	t2
+	jalr	s0
 
 	li	t0, -EMAXERRNO - 1	# error?
 	sltu	t0, t0, v0
@@ -324,10 +327,25 @@ sys_call_table:
 	PTR	sys_lremovexattr		/* 5190 */
 	PTR	sys_fremovexattr
 	PTR	sys_tkill
-	PTR	sys_time
+	PTR	sys_ni_syscall
 	PTR	sys_ni_syscall			/* res. for futex */
 	PTR	sys_ni_syscall			/* 5195 rs. sched_setaffinity */
 	PTR	sys_ni_syscall			/* res. f. sched_getaffinity */
 	PTR	sys_cacheflush
 	PTR	sys_cachectl
 	PTR	sys_sysmips
+	PTR	sys_ni_syscall			/* 5200 */
+	PTR	sys_ni_syscall
+	PTR	sys_ni_syscall
+	PTR	sys_ni_syscall
+	PTR	sys_ni_syscall
+	PTR	sys_ni_syscall			/* 5205 */
+	PTR	sys_ni_syscall
+	PTR	sys_ni_syscall
+	PTR	sys_ni_syscall
+	PTR	sys_ni_syscall
+	PTR	sys_ni_syscall			/* 5210 */
+	PTR	sys_rt_sigreturn
+	PTR	sys_ni_syscall
+	PTR	sys_ni_syscall
+	PTR	sys_semtimedop

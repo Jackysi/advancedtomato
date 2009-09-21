@@ -1,4 +1,4 @@
-/* $Id: dma.h,v 1.1.1.4 2003/10/14 08:09:10 sparq Exp $
+/* $Id: dma.h,v 1.7 1992/12/14 00:29:34 root Exp root $
  * linux/include/asm/dma.h: Defines for using and allocating dma channels.
  * Written by Hennus Bergman, 1992.
  * High DMA channel support & info by Hannu Savolainen
@@ -239,7 +239,7 @@ static __inline__ void set_dma_addr(unsigned int dmanr, unsigned int a)
 }
 
 
-/* Set transfer size (max 64k for DMA1..3, 128k for DMA5..7) for
+/* Set transfer size (max 64k for DMA0..3, 128k for DMA5..7) for
  * a specific DMA channel.
  * You must ensure the parameters are valid.
  * NOTE: from a manual: "the number of transfers is one more

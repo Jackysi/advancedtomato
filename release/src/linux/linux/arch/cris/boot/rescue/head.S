@@ -1,5 +1,4 @@
-/* $Id: head.S,v 1.1.1.4 2003/10/14 08:07:16 sparq Exp $
- * 
+/*
  * Rescue code, made to reside at the beginning of the
  * flash-memory. when it starts, it checks a partition
  * table at the first sector after the rescue sector.
@@ -52,7 +51,7 @@
  * 
  * Bit 0 in flags signifies RW or RO. The rescue code only bothers
  * to check the checksum for RO partitions, since the others will
- * change its data without updating the checksums. A 1 in bit 0
+ * change their data without updating the checksums. A 1 in bit 0
  * means RO, 0 means RW. That way, it is possible to set a partition
  * in RO mode initially, and later mark it as RW, since you can always
  * write 0's to the flash.
@@ -60,7 +59,7 @@
  * During the wait for serial input, the status LED will flash so the
  * user knows something went wrong.
  * 
- * Copyright (C) 1999,2001 Axis Communications AB
+ * Copyright (C) 1999, 2000, 2001, 2002, 2003 Axis Communications AB
  */
 
 #include <linux/config.h>
@@ -130,7 +129,7 @@ in_cache:
 
 	;; first put a jump test to give a possibility of upgrading the rescue code
 	;; without erasing/reflashing the sector. we put a longword of -1 here and if
-	;; its not -1, we jump using the value as jump target. since we can always
+	;; it is not -1, we jump using the value as jump target. since we can always
 	;; change 1's to 0's without erasing the sector, it is possible to add new
 	;; code after this and altering the jumptarget in an upgrade.
 
@@ -150,7 +149,20 @@ no_newjump:
 	move.d 0x3, $r0    ; enable = on, phy = mii_clk
 	move.d $r0, [R_NETWORK_GEN_CONFIG]
 #endif
+
+	;; Setup port PA and PB default initial directions and data
+	;; (so we can flash LEDs, and so that DTR and others are set)
 	
+	move.b	CONFIG_ETRAX_DEF_R_PORT_PA_DIR, $r0
+	move.b	$r0, [R_PORT_PA_DIR]
+	move.b	CONFIG_ETRAX_DEF_R_PORT_PA_DATA, $r0
+	move.b	$r0, [R_PORT_PA_DATA]
+	
+	move.b	CONFIG_ETRAX_DEF_R_PORT_PB_DIR, $r0
+	move.b	$r0, [R_PORT_PB_DIR]
+	move.b	CONFIG_ETRAX_DEF_R_PORT_PB_DATA, $r0
+	move.b	$r0, [R_PORT_PB_DATA]
+
 	;; We need to setup the bus registers before we start using the DRAM
 #include "../../lib/dram_init.S"
 
@@ -192,7 +204,7 @@ no_newjump:
 	moveq	-1, $r7
 	
 ploop:	move.d	[$r3+], $r1	; partition offset (from ptable start)
-	bne	notfirst	; check if its the partition containing ptable
+	bne	notfirst	; check if it is the partition containing ptable
 	nop			; yes..
 	move.d	$r8, $r1	; for its checksum check, skip the ptable
 	move.d	[$r3+], $r2	; partition length
@@ -226,18 +238,6 @@ bosse:	move.d	[$r3+], $r5	; checksum
 	;; otherwise fall through to the rescue code.
 	
 do_rescue:
-	;; setup port PA and PB default initial directions and data
-	;; (so we can flash LEDs, and so that DTR and others are set)
-	
-	move.b	CONFIG_ETRAX_DEF_R_PORT_PA_DIR, $r0
-	move.b	$r0, [R_PORT_PA_DIR]
-	move.b	CONFIG_ETRAX_DEF_R_PORT_PA_DATA, $r0
-	move.b	$r0, [R_PORT_PA_DATA]
-	
-	move.b	CONFIG_ETRAX_DEF_R_PORT_PB_DIR, $r0
-	move.b	$r0, [R_PORT_PB_DIR]
-	move.b	CONFIG_ETRAX_DEF_R_PORT_PB_DATA, $r0
-	move.b	$r0, [R_PORT_PB_DATA]
 
 	;; setup the serial port at 115200 baud
 	

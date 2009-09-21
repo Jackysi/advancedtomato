@@ -244,6 +244,12 @@
 /* Streamer defaults for buffers */
 
 #define STREAMER_RX_RING_SIZE 16	/* should be a power of 2 */
+/* Setting the number of TX descriptors to 1 is a workaround for an
+ * undocumented hardware problem with the lanstreamer board. Setting
+ * this to something higher may slightly increase the throughput you
+ * can get from the card, but at the risk of locking up the box. - 
+ * <yoder1@us.ibm.com>
+ */
 #define STREAMER_TX_RING_SIZE 1	/* should be a power of 2 */
 
 #define PKT_BUF_SZ 4096		/* Default packet size */

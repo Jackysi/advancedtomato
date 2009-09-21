@@ -45,12 +45,6 @@
 
 /*
  * $Log: AM53C974.c,v $
- * Revision 1.1.1.2  2003/10/14 08:08:35  sparq
- * Broadcom Release 3.51.8.0 for BCM4712.
- *
- * Revision 1.1.1.1  2003/02/03 22:37:51  mhuang
- * LINUX_2_4 branch snapshot from linux-mips.org CVS
- *
  */
 
 #ifdef AM53C974_DEBUG
@@ -1033,6 +1027,78 @@ static void do_AM53C974_intr(int irq, void *dev_id, struct pt_regs *regs)
 	spin_unlock_irqrestore(&io_request_lock, flags);
 }
 
+/************************************************************************** 
+* Function : AM53C974_set_async(struct Scsi_Host *instance, int target)
+*
+* Purpose : put controller into async. mode
+*
+* Inputs : instance -- which AM53C974
+*          target -- which SCSI target to deal with
+* 
+* Returns : nothing
+**************************************************************************/
+static __inline__ void AM53C974_set_async(struct Scsi_Host *instance, int target)
+{
+	AM53C974_local_declare();
+	struct AM53C974_hostdata *hostdata = (struct AM53C974_hostdata *) instance->hostdata;
+	AM53C974_setio(instance);
+
+	AM53C974_write_8(STPREG, hostdata->sync_per[target]);
+	AM53C974_write_8(SOFREG, (DEF_SOF_RAD << 6) | (DEF_SOF_RAA << 4));
+}
+
+/************************************************************************** 
+* Function : AM53C974_set_sync(struct Scsi_Host *instance, int target)
+*
+* Purpose : put controller into sync. mode
+*
+* Inputs : instance -- which AM53C974
+*          target -- which SCSI target to deal with
+* 
+* Returns : nothing
+**************************************************************************/
+static __inline__ void AM53C974_set_sync(struct Scsi_Host *instance, int target)
+{
+	AM53C974_local_declare();
+	struct AM53C974_hostdata *hostdata = (struct AM53C974_hostdata *) instance->hostdata;
+	AM53C974_setio(instance);
+
+	AM53C974_write_8(STPREG, hostdata->sync_per[target]);
+	AM53C974_write_8(SOFREG, (SOFREG_SO & hostdata->sync_off[target]) |
+			 (DEF_SOF_RAD << 6) | (DEF_SOF_RAA << 4));
+}
+
+/************************************************************************** 
+* Function : AM53C974_transfer_dma(struct Scsi_Host *instance, short dir,
+*                                  unsigned long length, char *data)
+*
+* Purpose : setup DMA transfer
+*
+* Inputs : instance -- which AM53C974
+*          dir -- direction flag, 0: write to device, read from memory; 
+*                                 1: read from device, write to memory
+*          length -- number of bytes to transfer to from buffer
+*          data -- pointer to data buffer
+* 
+* Returns : nothing
+**************************************************************************/
+static __inline__ void AM53C974_transfer_dma(struct Scsi_Host *instance, short dir,
+					unsigned long length, char *data)
+{
+	AM53C974_local_declare();
+	AM53C974_setio(instance);
+
+	AM53C974_write_8(CMDREG, CMDREG_NOP);
+	AM53C974_write_8(DMACMD, (dir << 7) | DMACMD_INTE_D);	/* idle command */
+	AM53C974_write_8(STCLREG, (unsigned char) (length & 0xff));
+	AM53C974_write_8(STCMREG, (unsigned char) ((length & 0xff00) >> 8));
+	AM53C974_write_8(STCHREG, (unsigned char) ((length & 0xff0000) >> 16));
+	AM53C974_write_32(DMASTC, length & 0xffffff);
+	AM53C974_write_32(DMASPA, virt_to_bus(data));
+	AM53C974_write_8(CMDREG, CMDREG_IT | CMDREG_DMA);
+	AM53C974_write_8(DMACMD, (dir << 7) | DMACMD_INTE_D | DMACMD_START);
+}
+
 /************************************************************************
 * Function : AM53C974_intr(int irq, void *dev_id, struct pt_regs *regs) *
 *                                                                       *
@@ -1468,47 +1534,6 @@ static int AM53C974_sync_neg(struct Scsi_Host *instance, int target, unsigned ch
 		printk("\ntarget %d: rate=%d.%d Mhz, asynchronous\n", target, rate, rate_rem);
 
 	return (0);
-}
-
-/************************************************************************** 
-* Function : AM53C974_set_async(struct Scsi_Host *instance, int target)
-*
-* Purpose : put controller into async. mode
-*
-* Inputs : instance -- which AM53C974
-*          target -- which SCSI target to deal with
-* 
-* Returns : nothing
-**************************************************************************/
-static __inline__ void AM53C974_set_async(struct Scsi_Host *instance, int target)
-{
-	AM53C974_local_declare();
-	struct AM53C974_hostdata *hostdata = (struct AM53C974_hostdata *) instance->hostdata;
-	AM53C974_setio(instance);
-
-	AM53C974_write_8(STPREG, hostdata->sync_per[target]);
-	AM53C974_write_8(SOFREG, (DEF_SOF_RAD << 6) | (DEF_SOF_RAA << 4));
-}
-
-/************************************************************************** 
-* Function : AM53C974_set_sync(struct Scsi_Host *instance, int target)
-*
-* Purpose : put controller into sync. mode
-*
-* Inputs : instance -- which AM53C974
-*          target -- which SCSI target to deal with
-* 
-* Returns : nothing
-**************************************************************************/
-static __inline__ void AM53C974_set_sync(struct Scsi_Host *instance, int target)
-{
-	AM53C974_local_declare();
-	struct AM53C974_hostdata *hostdata = (struct AM53C974_hostdata *) instance->hostdata;
-	AM53C974_setio(instance);
-
-	AM53C974_write_8(STPREG, hostdata->sync_per[target]);
-	AM53C974_write_8(SOFREG, (SOFREG_SO & hostdata->sync_off[target]) |
-			 (DEF_SOF_RAD << 6) | (DEF_SOF_RAA << 4));
 }
 
 /***********************************************************************
@@ -2163,37 +2188,6 @@ static void AM53C974_intr_reselect(struct Scsi_Host *instance, unsigned char sta
 }
 
 /************************************************************************** 
-* Function : AM53C974_transfer_dma(struct Scsi_Host *instance, short dir,
-*                                  unsigned long length, char *data)
-*
-* Purpose : setup DMA transfer
-*
-* Inputs : instance -- which AM53C974
-*          dir -- direction flag, 0: write to device, read from memory; 
-*                                 1: read from device, write to memory
-*          length -- number of bytes to transfer to from buffer
-*          data -- pointer to data buffer
-* 
-* Returns : nothing
-**************************************************************************/
-static __inline__ void AM53C974_transfer_dma(struct Scsi_Host *instance, short dir,
-					unsigned long length, char *data)
-{
-	AM53C974_local_declare();
-	AM53C974_setio(instance);
-
-	AM53C974_write_8(CMDREG, CMDREG_NOP);
-	AM53C974_write_8(DMACMD, (dir << 7) | DMACMD_INTE_D);	/* idle command */
-	AM53C974_write_8(STCLREG, (unsigned char) (length & 0xff));
-	AM53C974_write_8(STCMREG, (unsigned char) ((length & 0xff00) >> 8));
-	AM53C974_write_8(STCHREG, (unsigned char) ((length & 0xff0000) >> 16));
-	AM53C974_write_32(DMASTC, length & 0xffffff);
-	AM53C974_write_32(DMASPA, virt_to_bus(data));
-	AM53C974_write_8(CMDREG, CMDREG_IT | CMDREG_DMA);
-	AM53C974_write_8(DMACMD, (dir << 7) | DMACMD_INTE_D | DMACMD_START);
-}
-
-/************************************************************************** 
 * Function : AM53C974_dma_blast(struct Scsi_Host *instance, unsigned char dmastatus,
 *                               unsigned char statreg)
 *
@@ -2377,6 +2371,17 @@ static int AM53C974_abort(Scsi_Cmnd * cmd)
 	return (SCSI_ABORT_NOT_RUNNING);
 }
 
+/************************************************************************** 
+* Function : int AM53C974_reset(Scsi_Cmnd *cmd)
+*
+* Purpose : reset the SCSI controller and bus
+*
+* Inputs : cmd -- which command within the command block was responsible for the reset
+* 
+* Returns : status (SCSI_ABORT_SUCCESS)
+* 
+* FIXME(eric) the reset_flags are ignored.
+**************************************************************************/
 static int AM53C974_reset(Scsi_Cmnd * cmd, unsigned int reset_flags)
 {
 	AM53C974_local_declare();

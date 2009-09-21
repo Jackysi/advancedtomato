@@ -1,4 +1,4 @@
-/* $Id: memory.c,v 1.1.1.4 2003/10/14 08:07:49 sparq Exp $
+/* $Id: memory.c,v 1.15 2000/01/29 01:09:12 anton Exp $
  * memory.c: Prom routine for acquiring various bits of information
  *           about RAM on the machine, both virtual and physical.
  *
@@ -156,7 +156,7 @@ void __init prom_meminit(void)
 			prom_prom_taken[iter].num_bytes =
 				(unsigned long) prom_reg_memlist[iter].reg_size;
 			prom_prom_taken[iter].theres_more =
-				&prom_phys_total[iter+1];
+				&prom_prom_taken[iter+1];
 		}
 		prom_prom_taken[iter-1].theres_more = 0x0;
 

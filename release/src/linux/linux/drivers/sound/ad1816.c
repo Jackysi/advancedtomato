@@ -1,4 +1,36 @@
-
+/*
+ *
+ * AD1816 lowlevel sound driver for Linux 2.2.0 and above
+ *
+ * Copyright (C) 1998 by Thorsten Knabe <tek@rbg.informatik.tu-darmstadt.de>
+ *
+ * Based on the CS4232/AD1848 driver Copyright (C) by Hannu Savolainen 1993-1996
+ *
+ *
+ * version: 1.3.1
+ * status: experimental
+ * date: 1999/4/18
+ *
+ * Changes:
+ *	Oleg Drokin: Some cleanup of load/unload functions.	1998/11/24
+ *	
+ *	Thorsten Knabe: attach and unload rewritten, 
+ *	some argument checks added				1998/11/30
+ *
+ *	Thorsten Knabe: Buggy isa bridge workaround added	1999/01/16
+ *	
+ *	David Moews/Thorsten Knabe: Introduced options 
+ *	parameter. Added slightly modified patch from 
+ *	David Moews to disable dsp audio sources by setting 
+ *	bit 0 of options parameter. This seems to be
+ *	required by some Aztech/Newcom SC-16 cards.		1999/04/18
+ *
+ *	Christoph Hellwig: Adapted to module_init/module_exit.	2000/03/03
+ *
+ *	Christoph Hellwig: Added isapnp support			2000/03/15
+ *
+ *	Arnaldo Carvalho de Melo: get rid of check_region	2001/10/07
+ */
 
 #include <linux/config.h>
 #include <linux/module.h>

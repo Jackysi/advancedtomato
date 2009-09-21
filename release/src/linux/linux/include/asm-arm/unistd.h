@@ -1,7 +1,7 @@
 /*
  *  linux/include/asm-arm/unistd.h
  *
- *  Copyright (C) 2001 Russell King
+ *  Copyright (C) 2001-2002 Russell King
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -13,7 +13,13 @@
 #ifndef __ASM_ARM_UNISTD_H
 #define __ASM_ARM_UNISTD_H
 
+#include <linux/linkage.h>
+
+#if defined(__thumb__)
+#define __NR_SYSCALL_BASE	0
+#else
 #define __NR_SYSCALL_BASE	0x900000
+#endif
 
 /*
  * This file contains the system call numbers.
@@ -244,11 +250,41 @@
 #define __NR_security			(__NR_SYSCALL_BASE+223)
 #define __NR_gettid			(__NR_SYSCALL_BASE+224)
 #define __NR_readahead			(__NR_SYSCALL_BASE+225)
+#if 0 /* allocated in 2.5 */
+#define __NR_setxattr			(__NR_SYSCALL_BASE+226)
+#define __NR_lsetxattr			(__NR_SYSCALL_BASE+227)
+#define __NR_fsetxattr			(__NR_SYSCALL_BASE+228)
+#define __NR_getxattr			(__NR_SYSCALL_BASE+229)
+#define __NR_lgetxattr			(__NR_SYSCALL_BASE+230)
+#define __NR_fgetxattr			(__NR_SYSCALL_BASE+231)
+#define __NR_listxattr			(__NR_SYSCALL_BASE+232)
+#define __NR_llistxattr			(__NR_SYSCALL_BASE+233)
+#define __NR_flistxattr			(__NR_SYSCALL_BASE+234)
+#define __NR_removexattr		(__NR_SYSCALL_BASE+235)
+#define __NR_lremovexattr		(__NR_SYSCALL_BASE+236)
+#define __NR_fremovexattr		(__NR_SYSCALL_BASE+237)
+#endif
 #define __NR_tkill			(__NR_SYSCALL_BASE+238)
-/*
- * Please check 2.5 _before_ adding calls here,
- * and copy changes to rmk@arm.linux.org.uk.  Thanks.
- */
+#if 0 /* allocated in 2.5 */
+#define __NR_sendfile64                 (__NR_SYSCALL_BASE+239)
+#define __NR_futex                      (__NR_SYSCALL_BASE+240)
+#define __NR_sched_setaffinity          (__NR_SYSCALL_BASE+241)
+#define __NR_sched_getaffinity          (__NR_SYSCALL_BASE+242)
+#define __NR_io_setup                   (__NR_SYSCALL_BASE+243)
+#define __NR_io_destroy                 (__NR_SYSCALL_BASE+244)
+#define __NR_io_getevents               (__NR_SYSCALL_BASE+245)
+#define __NR_io_submit                  (__NR_SYSCALL_BASE+246)
+#define __NR_io_cancel                  (__NR_SYSCALL_BASE+247)
+#define __NR_exit_group                 (__NR_SYSCALL_BASE+248)
+#define __NR_lookup_dcookie             (__NR_SYSCALL_BASE+249)
+#define __NR_epoll_create               (__NR_SYSCALL_BASE+250)
+#define __NR_epoll_ctl                  (__NR_SYSCALL_BASE+251)
+#define __NR_epoll_wait                 (__NR_SYSCALL_BASE+252)
+#define __NR_remap_file_pages           (__NR_SYSCALL_BASE+253)
+                                        /* 254 for set_thread_area */
+                                        /* 255 for get_thread_area */
+                                        /* 256 for set_tid_address */
+#endif
 
 /*
  * The following SWIs are ARM private.
@@ -263,13 +299,21 @@
 #define __sys1(x) __sys2(x)
 
 #ifndef __syscall
+#if defined(__thumb__)
+#define __syscall(name)					\
+	"push	{r7}\n\t"				\
+	"mov	r7, #" __sys1(__NR_##name) "\n\t"	\
+	"swi	0\n\t"					\
+	"pop	{r7}"
+#else
 #define __syscall(name) "swi\t" __sys1(__NR_##name) "\n\t"
+#endif
 #endif
 
 #define __syscall_return(type, res)					\
 do {									\
 	if ((unsigned long)(res) >= (unsigned long)(-125)) {		\
-		errno = -(res);						\
+		errno = -(res); 					\
 		res = -1;						\
 	}								\
 	return (type) (res);						\
@@ -277,91 +321,103 @@ do {									\
 
 #define _syscall0(type,name)						\
 type name(void) {							\
-  long __res;								\
+  register long __res __asm__("r0");					\
   __asm__ __volatile__ (						\
   __syscall(name)							\
-  "mov %0,r0"								\
-  :"=r" (__res) : : "r0","lr");						\
-  __syscall_return(type,__res);						\
+	:"=r" (__res)							\
+	:								\
+	: "lr");							\
+  __syscall_return(type,__res); 					\
 }
 
-#define _syscall1(type,name,type1,arg1)					\
-type name(type1 arg1) {							\
-  long __res;								\
+#define _syscall1(type,name,type1,arg1) 				\
+type name(type1 arg1) { 						\
+  register long __r0 __asm__("r0") = (long)arg1;			\
+  register long __res __asm__("r0");					\
   __asm__ __volatile__ (						\
-  "mov\tr0,%1\n\t"							\
   __syscall(name)							\
-  "mov %0,r0"								\
-        : "=r" (__res)							\
-        : "r" ((long)(arg1))						\
-	: "r0","lr");							\
-  __syscall_return(type,__res);						\
+	: "=r" (__res)							\
+	: "r" (__r0)							\
+	: "lr");							\
+  __syscall_return(type,__res); 					\
 }
 
 #define _syscall2(type,name,type1,arg1,type2,arg2)			\
 type name(type1 arg1,type2 arg2) {					\
-  long __res;								\
+  register long __r0 __asm__("r0") = (long)arg1;			\
+  register long __r1 __asm__("r1") = (long)arg2;			\
+  register long __res __asm__("r0");					\
   __asm__ __volatile__ (						\
-  "mov\tr0,%1\n\t"							\
-  "mov\tr1,%2\n\t"							\
   __syscall(name)							\
-  "mov\t%0,r0"								\
-        : "=r" (__res)							\
-        : "r" ((long)(arg1)),"r" ((long)(arg2))				\
-	: "r0","r1","lr");						\
-  __syscall_return(type,__res);						\
+	: "=r" (__res)							\
+	: "r" (__r0),"r" (__r1) 					\
+	: "lr");							\
+  __syscall_return(type,__res); 					\
 }
 
 
 #define _syscall3(type,name,type1,arg1,type2,arg2,type3,arg3)		\
 type name(type1 arg1,type2 arg2,type3 arg3) {				\
-  long __res;								\
+  register long __r0 __asm__("r0") = (long)arg1;			\
+  register long __r1 __asm__("r1") = (long)arg2;			\
+  register long __r2 __asm__("r2") = (long)arg3;			\
+  register long __res __asm__("r0");					\
   __asm__ __volatile__ (						\
-  "mov\tr0,%1\n\t"							\
-  "mov\tr1,%2\n\t"							\
-  "mov\tr2,%3\n\t"							\
   __syscall(name)							\
-  "mov\t%0,r0"								\
-        : "=r" (__res)							\
-        : "r" ((long)(arg1)),"r" ((long)(arg2)),"r" ((long)(arg3))	\
-        : "r0","r1","r2","lr");						\
-  __syscall_return(type,__res);						\
+	: "=r" (__res)							\
+	: "r" (__r0),"r" (__r1),"r" (__r2)				\
+	: "lr");							\
+  __syscall_return(type,__res); 					\
 }
 
 
-#define _syscall4(type,name,type1,arg1,type2,arg2,type3,arg3,type4,arg4)		\
-type name(type1 arg1, type2 arg2, type3 arg3, type4 arg4) {				\
-  long __res;										\
-  __asm__ __volatile__ (								\
-  "mov\tr0,%1\n\t"									\
-  "mov\tr1,%2\n\t"									\
-  "mov\tr2,%3\n\t"									\
-  "mov\tr3,%4\n\t"									\
-  __syscall(name)									\
-  "mov\t%0,r0"										\
-  	: "=r" (__res)									\
-  	: "r" ((long)(arg1)),"r" ((long)(arg2)),"r" ((long)(arg3)),"r" ((long)(arg4))	\
-  	: "r0","r1","r2","r3","lr");							\
-  __syscall_return(type,__res);								\
+#define _syscall4(type,name,type1,arg1,type2,arg2,type3,arg3,type4,arg4)\
+type name(type1 arg1, type2 arg2, type3 arg3, type4 arg4) {		\
+  register long __r0 __asm__("r0") = (long)arg1;			\
+  register long __r1 __asm__("r1") = (long)arg2;			\
+  register long __r2 __asm__("r2") = (long)arg3;			\
+  register long __r3 __asm__("r3") = (long)arg4;			\
+  register long __res __asm__("r0");					\
+  __asm__ __volatile__ (						\
+  __syscall(name)							\
+	: "=r" (__res)							\
+	: "r" (__r0),"r" (__r1),"r" (__r2),"r" (__r3)			\
+	: "lr");							\
+  __syscall_return(type,__res); 					\
 }
   
 
 #define _syscall5(type,name,type1,arg1,type2,arg2,type3,arg3,type4,arg4,type5,arg5)	\
-type name(type1 arg1, type2 arg2, type3 arg3, type4 arg4, type5 arg5) {			\
-  long __res;										\
-  __asm__ __volatile__ (								\
-  "mov\tr0,%1\n\t"									\
-  "mov\tr1,%2\n\t"									\
-  "mov\tr2,%3\n\t"									\
-  "mov\tr3,%4\n\t"									\
-  "mov\tr4,%5\n\t"									\
-  __syscall(name)									\
-  "mov\t%0,r0"										\
-  	: "=r" (__res)									\
-  	: "r" ((long)(arg1)),"r" ((long)(arg2)),"r" ((long)(arg3)),"r" ((long)(arg4)),	\
-	  "r" ((long)(arg5))								\
-	: "r0","r1","r2","r3","r4","lr");						\
-  __syscall_return(type,__res);								\
+type name(type1 arg1, type2 arg2, type3 arg3, type4 arg4, type5 arg5) { \
+  register long __r0 __asm__("r0") = (long)arg1;			\
+  register long __r1 __asm__("r1") = (long)arg2;			\
+  register long __r2 __asm__("r2") = (long)arg3;			\
+  register long __r3 __asm__("r3") = (long)arg4;			\
+  register long __r4 __asm__("r4") = (long)arg5;			\
+  register long __res __asm__("r0");					\
+  __asm__ __volatile__ (						\
+  __syscall(name)							\
+	: "=r" (__res)							\
+	: "r" (__r0),"r" (__r1),"r" (__r2),"r" (__r3),"r" (__r4)	\
+	: "lr");							\
+  __syscall_return(type,__res); 					\
+}
+
+#define _syscall6(type,name,type1,arg1,type2,arg2,type3,arg3,type4,arg4,type5,arg5,type6,arg6)	\
+type name(type1 arg1, type2 arg2, type3 arg3, type4 arg4, type5 arg5, type6 arg6) {	\
+  register long __r0 __asm__("r0") = (long)arg1;			\
+  register long __r1 __asm__("r1") = (long)arg2;			\
+  register long __r2 __asm__("r2") = (long)arg3;			\
+  register long __r3 __asm__("r3") = (long)arg4;			\
+  register long __r4 __asm__("r4") = (long)arg5;			\
+  register long __r5 __asm__("r5") = (long)arg6;			\
+  register long __res __asm__("r0");					\
+  __asm__ __volatile__ (						\
+  __syscall(name)							\
+	: "=r" (__res)							\
+	: "r" (__r0),"r" (__r1),"r" (__r2),"r" (__r3),"r" (__r4),"r" (__r5)		\
+	: "lr");							\
+  __syscall_return(type,__res); 					\
 }
 
 #ifdef __KERNEL_SYSCALLS__

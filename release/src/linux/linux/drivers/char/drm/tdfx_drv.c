@@ -53,10 +53,10 @@
 #ifndef PCI_DEVICE_ID_3DFX_VOODOO4
 #define PCI_DEVICE_ID_3DFX_VOODOO4 0x0007
 #endif
-#ifndef PCI_DEVICE_ID_3DFX_VOODOO3_3000     /* Voodoo3 3000 */
+#ifndef PCI_DEVICE_ID_3DFX_VOODOO3_3000 /* Voodoo3 3000 */
 #define PCI_DEVICE_ID_3DFX_VOODOO3_3000 0x0005
 #endif
-#ifndef PCI_DEVICE_ID_3DFX_VOODOO3_2000     /* Voodoo3 3000 */
+#ifndef PCI_DEVICE_ID_3DFX_VOODOO3_2000 /* Voodoo3 3000 */
 #define PCI_DEVICE_ID_3DFX_VOODOO3_2000 0x0004
 #endif
 #ifndef PCI_DEVICE_ID_3DFX_BANSHEE
@@ -81,25 +81,6 @@ static drm_pci_list_t DRM(idlist)[] = {
 #include "drm_dma.h"
 #include "drm_drawable.h"
 #include "drm_drv.h"
-
-#ifndef MODULE
-/* DRM(options) is called by the kernel to parse command-line options
- * passed via the boot-loader (e.g., LILO).  It calls the insmod option
- * routine, drm_parse_drm.
- */
-
-/* JH- We have to hand expand the string ourselves because of the cpp.  If
- * anyone can think of a way that we can fit into the __setup macro without
- * changing it, then please send the solution my way.
- */
-static int __init tdfx_options( char *str )
-{
-	DRM(parse_options)( str );
-	return 1;
-}
-
-__setup( DRIVER_NAME "=", tdfx_options );
-#endif
 
 #include "drm_fops.h"
 #include "drm_init.h"

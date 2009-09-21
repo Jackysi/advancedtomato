@@ -1,4 +1,4 @@
-/* $Id: entry.S,v 1.1.1.4 2003/10/14 08:07:49 sparq Exp $
+/* $Id: entry.S,v 1.141 2001/12/05 23:56:32 davem Exp $
  * arch/sparc64/kernel/entry.S:  Sparc64 trap low-level entry points.
  *
  * Copyright (C) 1995,1997 David S. Miller (davem@caip.rutgers.edu)
@@ -20,6 +20,8 @@
 #include <asm/processor.h>
 #include <asm/visasm.h>
 #include <asm/estate.h>
+#include <asm/auxio.h>
+#include <asm/sfafsr.h>
 
 /* #define SYSCALL_TRACING	1 */
 
@@ -272,7 +274,7 @@ fpdis_exit2:
 	.align		32
 fp_other_bounce:
 	call		do_fpother
-	 add		%sp, STACK_BIAS + REGWIN_SZ, %o0
+	 add		%sp, PTREGS_OFF, %o0
 	ba,pt		%xcc, rtrap
 	 clr		%l6
 
@@ -499,7 +501,7 @@ do_ivec_spurious:
 	ba,pt		%xcc, etrap
 109:	 or		%g7, %lo(109b), %g7
 	call		catch_disabled_ivec
-	 add		%sp, STACK_BIAS + REGWIN_SZ, %o0
+	 add		%sp, PTREGS_OFF, %o0
 	ba,pt		%xcc, rtrap
 	 clr		%l6
 
@@ -606,7 +608,7 @@ utrap:	brz,pn		%g1, etrap
 	done
 utrap_ill:
         call		bad_trap
-	 add		%sp, STACK_BIAS + REGWIN_SZ, %o0
+	 add		%sp, PTREGS_OFF, %o0
 	ba,pt		%xcc, rtrap
 	 clr		%l6
 
@@ -662,9 +664,11 @@ floppy_tdone:
 	sethi		%hi(auxio_register), %g1
 	ldx		[%g1 + %lo(auxio_register)], %g7
 	lduba		[%g7] ASI_PHYS_BYPASS_EC_E, %g5
-	or		%g5, 0xc2, %g5
+	or		%g5, AUXIO_AUX1_FTCNT, %g5
+/*	andn		%g5, AUXIO_AUX1_MASK, %g5 */
 	stba		%g5, [%g7] ASI_PHYS_BYPASS_EC_E
-	andn		%g5, 0x02, %g5
+	andn		%g5, AUXIO_AUX1_FTCNT, %g5
+/*	andn		%g5, AUXIO_AUX1_MASK, %g5 */
 
 	nop; nop;  nop; nop;  nop; nop;
 	nop; nop;  nop; nop;  nop; nop;
@@ -711,92 +715,116 @@ floppy_dosoftint:
 	mov		11, %o0
 	mov		0, %o1
 	call		sparc_floppy_irq
-	 add		%sp, STACK_BIAS + REGWIN_SZ, %o2
+	 add		%sp, PTREGS_OFF, %o2
 
 	b,pt		%xcc, rtrap
 	 clr		%l6
 
 #endif /* CONFIG_BLK_DEV_FD */
 
+	/* XXX Here is stuff we still need to write... -DaveM XXX */
 	.globl		netbsd_syscall
 netbsd_syscall:
 	retl
 	 nop
 
-	/* These next few routines must be sure to clear the
-	 * SFSR FaultValid bit so that the fast tlb data protection
-	 * handler does not flush the wrong context and lock up the
-	 * box.
+	/* We need to carefully read the error status, ACK
+	 * the errors, prevent recursive traps, and pass the
+	 * information on to C code for logging.
+	 *
+	 * We pass the AFAR in as-is, and we encode the status
+	 * information as described in asm-sparc64/sfafsr.h
 	 */
-	.globl		__do_data_access_exception
-	.globl		__do_data_access_exception_tl1
-__do_data_access_exception_tl1:
-	rdpr		%pstate, %g4
-	wrpr		%g4, PSTATE_MG|PSTATE_AG, %pstate
-	mov		TLB_SFSR, %g3
-	mov		DMMU_SFAR, %g5
-	ldxa		[%g3] ASI_DMMU, %g4	! Get SFSR
-	ldxa		[%g5] ASI_DMMU, %g5	! Get SFAR
-	stxa		%g0, [%g3] ASI_DMMU	! Clear SFSR.FaultValid bit
+	.globl		__spitfire_access_error
+__spitfire_access_error:
+	/* Disable ESTATE error reporting so that we do not
+	 * take recursive traps and RED state the processor.
+	 */
+	stxa		%g0, [%g0] ASI_ESTATE_ERROR_EN
 	membar		#Sync
-	ba,pt		%xcc, winfix_dax
-	 rdpr		%tpc, %g3
-__do_data_access_exception:
-	rdpr		%pstate, %g4
-	wrpr		%g4, PSTATE_MG|PSTATE_AG, %pstate
-	mov		TLB_SFSR, %g3
-	mov		DMMU_SFAR, %g5
-	ldxa		[%g3] ASI_DMMU, %g4	! Get SFSR
-	ldxa		[%g5] ASI_DMMU, %g5	! Get SFAR
-	stxa		%g0, [%g3] ASI_DMMU	! Clear SFSR.FaultValid bit
-	membar		#Sync
-	sethi		%hi(109f), %g7
-	ba,pt		%xcc, etrap
-109:	 or		%g7, %lo(109b), %g7
-	mov		%l4, %o1
-	mov		%l5, %o2
-	call		data_access_exception
-	 add		%sp, STACK_BIAS + REGWIN_SZ, %o0
-	ba,pt		%xcc, rtrap
-	 clr		%l6
 
-	.globl		__do_instruction_access_exception
-	.globl		__do_instruction_access_exception_tl1
-__do_instruction_access_exception_tl1:
-	rdpr		%pstate, %g4
-	wrpr		%g4, PSTATE_MG|PSTATE_AG, %pstate
-	mov		TLB_SFSR, %g3
-	mov		DMMU_SFAR, %g5
-	ldxa		[%g3] ASI_DMMU, %g4	! Get SFSR
-	ldxa		[%g5] ASI_DMMU, %g5	! Get SFAR
-	stxa		%g0, [%g3] ASI_IMMU	! Clear FaultValid bit
+	mov		UDBE_UE, %g1
+	ldxa		[%g0] ASI_AFSR, %g4	! Get AFSR
+
+	/* __spitfire_cee_trap branches here with AFSR in %g4 and
+	 * UDBE_CE in %g1.  It only clears ESTATE_ERR_CE in the
+	 * ESTATE Error Enable register.
+	 */
+__spitfire_cee_trap_continue:
+	ldxa		[%g0] ASI_AFAR, %g5	! Get AFAR
+
+	rdpr		%tt, %g3
+	and		%g3, 0x1ff, %g3		! Paranoia
+	sllx		%g3, SFSTAT_TRAP_TYPE_SHIFT, %g3
+	or		%g4, %g3, %g4
+	rdpr		%tl, %g3
+	cmp		%g3, 1
+	mov		1, %g3
+	bleu		%xcc, 1f
+	 sllx		%g3, SFSTAT_TL_GT_ONE_SHIFT, %g3
+
+	or		%g4, %g3, %g4
+
+	/* Read in the UDB error register state, clearing the
+	 * sticky error bits as-needed.  We only clear them if
+	 * the UE bit is set.  Likewise, __spitfire_cee_trap
+	 * below will only do so if the CE bit is set.
+	 *
+	 * NOTE: UltraSparc-I/II have high and low UDB error
+	 *       registers, corresponding to the two UDB units
+	 *       present on those chips.  UltraSparc-IIi only
+	 *       has a single UDB, called "SDB" in the manual.
+	 *       For IIi the upper UDB register always reads
+	 *       as zero so for our purposes things will just
+	 *       work with the checks below.
+	 */
+1:	ldxa		[%g0] ASI_UDBH_ERROR_R, %g3
+	and		%g3, 0x3ff, %g7		! Paranoia
+	sllx		%g7, SFSTAT_UDBH_SHIFT, %g7
+	or		%g4, %g7, %g4
+	andcc		%g3, %g1, %g3		! UDBE_UE or UDBE_CE
+	be,pn		%xcc, 1f
+	 nop
+	stxa		%g3, [%g0] ASI_UDB_ERROR_W
 	membar		#Sync
-	sethi		%hi(109f), %g7
+
+1:	mov		0x18, %g3
+	ldxa		[%g3] ASI_UDBL_ERROR_R, %g3
+	and		%g3, 0x3ff, %g7		! Paranoia
+	sllx		%g7, SFSTAT_UDBL_SHIFT, %g7
+	or		%g4, %g7, %g4
+	andcc		%g3, %g1, %g3		! UDBE_UE or UDBE_CE
+	be,pn		%xcc, 1f
+	 nop
+	mov		0x18, %g7
+	stxa		%g3, [%g7] ASI_UDB_ERROR_W
+	membar		#Sync
+
+1:	/* Ok, now that we've latched the error state,
+	 * clear the sticky bits in the AFSR.
+	 */
+	stxa		%g4, [%g0] ASI_AFSR
+	membar		#Sync
+
+	rdpr		%tl, %g2
+	cmp		%g2, 1
+	rdpr		%pil, %g2
+	bleu,pt		%xcc, 1f
+	 wrpr		%g0, 15, %pil
+
 	ba,pt		%xcc, etraptl1
-109:	 or		%g7, %lo(109b), %g7
-	mov		%l4, %o1
-	mov		%l5, %o2
-	call		instruction_access_exception_tl1
-	 add		%sp, STACK_BIAS + REGWIN_SZ, %o0
-	ba,pt		%xcc, rtrap
-	 clr		%l6
+	 rd		%pc, %g7
 
-__do_instruction_access_exception:
-	rdpr		%pstate, %g4
-	wrpr		%g4, PSTATE_MG|PSTATE_AG, %pstate
-	mov		TLB_SFSR, %g3
-	mov		DMMU_SFAR, %g5
-	ldxa		[%g3] ASI_DMMU, %g4	! Get SFSR
-	ldxa		[%g5] ASI_DMMU, %g5	! Get SFAR
-	stxa		%g0, [%g3] ASI_IMMU	! Clear FaultValid bit
-	membar		#Sync
-	sethi		%hi(109f), %g7
-	ba,pt		%xcc, etrap
-109:	 or		%g7, %lo(109b), %g7
-	mov		%l4, %o1
+	ba,pt		%xcc, 2f
+	 nop
+
+1:	ba,pt		%xcc, etrap_irq
+	 rd		%pc, %g7
+
+2:	mov		%l4, %o1
 	mov		%l5, %o2
-	call		instruction_access_exception
-	 add		%sp, STACK_BIAS + REGWIN_SZ, %o0
+	call		spitfire_access_error
+	 add		%sp, PTREGS_OFF, %o0
 	ba,pt		%xcc, rtrap
 	 clr		%l6
 
@@ -817,79 +845,124 @@ __do_instruction_access_exception:
 	 * as it is the only situation where we can safely record
 	 * and log.  For trap level >1 we just clear the CE bit
 	 * in the AFSR and return.
-	 */
-
-	/* Our trap handling infrastructure allows us to preserve
-	 * two 64-bit values during etrap for arguments to
-	 * subsequent C code.  Therefore we encode the information
-	 * as follows:
 	 *
-	 * value 1) Full 64-bits of AFAR
-	 * value 2) Low 33-bits of AFSR, then bits 33-->42
-	 *          are UDBL error status and bits 43-->52
-	 *          are UDBH error status
+	 * This is just like __spiftire_access_error above, but it
+	 * specifically handles correctable errors.  If an
+	 * uncorrectable error is indicated in the AFSR we
+	 * will branch directly above to __spitfire_access_error
+	 * to handle it instead.  Uncorrectable therefore takes
+	 * priority over correctable, and the error logging
+	 * C code will notice this case by inspecting the
+	 * trap type.
 	 */
-	.align	64
-	.globl	cee_trap
-cee_trap:
-	ldxa	[%g0] ASI_AFSR, %g1		! Read AFSR
-	ldxa	[%g0] ASI_AFAR, %g2		! Read AFAR
-	sllx	%g1, 31, %g1			! Clear reserved bits
-	srlx	%g1, 31, %g1			! in AFSR
+	.globl		__spitfire_cee_trap
+__spitfire_cee_trap:
+	ldxa		[%g0] ASI_AFSR, %g4	! Get AFSR
+	mov		1, %g3
+	sllx		%g3, SFAFSR_UE_SHIFT, %g3
+	andcc		%g4, %g3, %g0		! Check for UE
+	bne,pn		%xcc, __spitfire_access_error
+	 nop
 
-	/* NOTE: UltraSparc-I/II have high and low UDB error
-	 *       registers, corresponding to the two UDB units
-	 *       present on those chips.  UltraSparc-IIi only
-	 *       has a single UDB, called "SDB" in the manual.
-	 *       For IIi the upper UDB register always reads
-	 *       as zero so for our purposes things will just
-	 *       work with the checks below.
+	/* Ok, in this case we only have a correctable error.
+	 * Indicate we only wish to capture that state in register
+	 * %g1, and we only disable CE error reporting unlike UE
+	 * handling which disables all errors.
 	 */
-	ldxa	[%g0] ASI_UDBL_ERROR_R, %g3	! Read UDB-Low error status
-	andcc	%g3, (1 << 8), %g4		! Check CE bit
-	sllx	%g3, (64 - 10), %g3		! Clear reserved bits
-	srlx	%g3, (64 - 10), %g3		! in UDB-Low error status
+	ldxa		[%g0] ASI_ESTATE_ERROR_EN, %g3
+	andn		%g3, ESTATE_ERR_CE, %g3
+	stxa		%g3, [%g0] ASI_ESTATE_ERROR_EN
+	membar		#Sync
 
-	sllx	%g3, (33 + 0), %g3		! Shift up to encoding area
-	or	%g1, %g3, %g1			! Or it in
-	be,pn	%xcc, 1f			! Branch if CE bit was clear
+	/* Preserve AFSR in %g4, indicate UDB state to capture in %g1 */
+	ba,pt		%xcc, __spitfire_cee_trap_continue
+	 mov		UDBE_CE, %g1
+
+	.globl		__spitfire_data_access_exception
+	.globl		__spitfire_data_access_exception_tl1
+__spitfire_data_access_exception_tl1:
+	rdpr		%pstate, %g4
+	wrpr		%g4, PSTATE_MG|PSTATE_AG, %pstate
+	mov		TLB_SFSR, %g3
+	mov		DMMU_SFAR, %g5
+	ldxa		[%g3] ASI_DMMU, %g4	! Get SFSR
+	ldxa		[%g5] ASI_DMMU, %g5	! Get SFAR
+	stxa		%g0, [%g3] ASI_DMMU	! Clear SFSR.FaultValid bit
+	membar		#Sync
+	rdpr		%tt, %g3
+	cmp		%g3, 0x80		! first win spill/fill trap
+	blu,pn		%xcc, 1f
+	 cmp		%g3, 0xff		! last win spill/fill trap
+	bgu,pn		%xcc, 1f
 	 nop
-	stxa	%g4, [%g0] ASI_UDB_ERROR_W	! Clear CE sticky bit in UDBL
-	membar	#Sync				! Synchronize ASI stores
-1:	mov	0x18, %g5			! Addr of UDB-High error status
-	ldxa	[%g5] ASI_UDBH_ERROR_R, %g3	! Read it
+	ba,pt		%xcc, winfix_dax
+	 rdpr		%tpc, %g3
+1:	sethi		%hi(109f), %g7
+	ba,pt		%xcc, etraptl1
+109:	 or		%g7, %lo(109b), %g7
+	mov		%l4, %o1
+	mov		%l5, %o2
+	call		spitfire_data_access_exception_tl1
+	 add		%sp, PTREGS_OFF, %o0
+	ba,pt		%xcc, rtrap
+	 clr		%l6
 
-	andcc	%g3, (1 << 8), %g4		! Check CE bit
-	sllx	%g3, (64 - 10), %g3		! Clear reserved bits
-	srlx	%g3, (64 - 10), %g3		! in UDB-High error status
-	sllx	%g3, (33 + 10), %g3		! Shift up to encoding area
-	or	%g1, %g3, %g1			! Or it in
-	be,pn	%xcc, 1f			! Branch if CE bit was clear
-	 nop
-	nop
+__spitfire_data_access_exception:
+	rdpr		%pstate, %g4
+	wrpr		%g4, PSTATE_MG|PSTATE_AG, %pstate
+	mov		TLB_SFSR, %g3
+	mov		DMMU_SFAR, %g5
+	ldxa		[%g3] ASI_DMMU, %g4	! Get SFSR
+	ldxa		[%g5] ASI_DMMU, %g5	! Get SFAR
+	stxa		%g0, [%g3] ASI_DMMU	! Clear SFSR.FaultValid bit
+	membar		#Sync
+	sethi		%hi(109f), %g7
+	ba,pt		%xcc, etrap
+109:	 or		%g7, %lo(109b), %g7
+	mov		%l4, %o1
+	mov		%l5, %o2
+	call		spitfire_data_access_exception
+	 add		%sp, PTREGS_OFF, %o0
+	ba,pt		%xcc, rtrap
+	 clr		%l6
 
-	stxa	%g4, [%g5] ASI_UDB_ERROR_W	! Clear CE sticky bit in UDBH
-	membar	#Sync				! Synchronize ASI stores
-1:	mov	1, %g5				! AFSR CE bit is
-	sllx	%g5, 20, %g5			! bit 20
-	stxa	%g5, [%g0] ASI_AFSR		! Clear CE sticky bit in AFSR
-	membar	#Sync				! Synchronize ASI stores
-	sllx	%g2, (64 - 41), %g2		! Clear reserved bits
-	srlx	%g2, (64 - 41), %g2		! in latched AFAR
+	.globl		__spitfire_insn_access_exception
+	.globl		__spitfire_insn_access_exception_tl1
+__spitfire_insn_access_exception_tl1:
+	rdpr		%pstate, %g4
+	wrpr		%g4, PSTATE_MG|PSTATE_AG, %pstate
+	mov		TLB_SFSR, %g3
+	ldxa		[%g3] ASI_IMMU, %g4	! Get SFSR
+	rdpr		%tpc, %g5		! IMMU has no SFAR, use TPC
+	stxa		%g0, [%g3] ASI_IMMU	! Clear FaultValid bit
+	membar		#Sync
+	sethi		%hi(109f), %g7
+	ba,pt		%xcc, etraptl1
+109:	 or		%g7, %lo(109b), %g7
+	mov		%l4, %o1
+	mov		%l5, %o2
+	call		spitfire_insn_access_exception_tl1
+	 add		%sp, PTREGS_OFF, %o0
+	ba,pt		%xcc, rtrap
+	 clr		%l6
 
-	andn	%g2, 0x0f, %g2			! Finish resv bit clearing
-	mov	%g1, %g4			! Move AFSR+UDB* into save reg
-	mov	%g2, %g5			! Move AFAR into save reg
-	rdpr	%pil, %g2
-	wrpr	%g0, 15, %pil
-	ba,pt	%xcc, etrap_irq
-	 rd	%pc, %g7
-	mov	%l4, %o0
-
-	mov	%l5, %o1
-	call	cee_log
-	 add	%sp, STACK_BIAS + REGWIN_SZ, %o2
-	ba,a,pt	%xcc, rtrap_clr_l6
+__spitfire_insn_access_exception:
+	rdpr		%pstate, %g4
+	wrpr		%g4, PSTATE_MG|PSTATE_AG, %pstate
+	mov		TLB_SFSR, %g3
+	ldxa		[%g3] ASI_IMMU, %g4	! Get SFSR
+	rdpr		%tpc, %g5		! IMMU has no SFAR, use TPC
+	stxa		%g0, [%g3] ASI_IMMU	! Clear FaultValid bit
+	membar		#Sync
+	sethi		%hi(109f), %g7
+	ba,pt		%xcc, etrap
+109:	 or		%g7, %lo(109b), %g7
+	mov		%l4, %o1
+	mov		%l5, %o2
+	call		spitfire_insn_access_exception
+	 add		%sp, PTREGS_OFF, %o0
+	ba,pt		%xcc, rtrap
+	 clr		%l6
 
 	/* Capture I/D/E-cache state into per-cpu error scoreboard.
 	 *
@@ -907,10 +980,15 @@ cee_trap:
 	sllx		%g1, 63, %g2;					\
 	or		%g4, %g2, %g4;					\
 	/* Get log entry pointer for this cpu at this trap level. */	\
+	BRANCH_IF_JALAPENO(g2,g3,50f)					\
 	ldxa		[%g0] ASI_SAFARI_CONFIG, %g2;			\
 	srlx		%g2, 17, %g2;					\
-	and		%g2, 0x3ff, %g2;				\
-	sllx		%g2, 9, %g2;					\
+	ba,pt		%xcc, 60f; 					\
+	 and		%g2, 0x3ff, %g2;				\
+50:	ldxa		[%g0] ASI_JBUS_CONFIG, %g2;			\
+	srlx		%g2, 17, %g2;					\
+	and		%g2, 0x1f, %g2;					\
+60:	sllx		%g2, 9, %g2;					\
 	sethi		%hi(cheetah_error_log), %g3;			\
 	ldx		[%g3 + %lo(cheetah_error_log)], %g3;		\
 	brz,pn		%g3, 80f;					\
@@ -1103,7 +1181,7 @@ do_cheetah_plus_data_parity:
 	 rd		%pc, %g7
 	mov		0x0, %o0
 	call		cheetah_plus_parity_error
-	 add		%sp, STACK_BIAS + REGWIN_SZ, %o1
+	 add		%sp, PTREGS_OFF, %o1
 	ba,pt		%xcc, rtrap
 	 clr		%l6
 
@@ -1133,7 +1211,7 @@ do_cheetah_plus_insn_parity:
 	 rd		%pc, %g7
 	mov		0x1, %o0
 	call		cheetah_plus_parity_error
-	 add		%sp, STACK_BIAS + REGWIN_SZ, %o1
+	 add		%sp, PTREGS_OFF, %o1
 	ba,pt		%xcc, rtrap
 	 clr		%l6
 
@@ -1195,7 +1273,7 @@ do_dcpe_tl1_fatal:
 1:	or		%g7, %lo(1b), %g7
 	mov		0x2, %o0
 	call		cheetah_plus_parity_error
-	 add		%sp, STACK_BIAS + REGWIN_SZ, %o1
+	 add		%sp, PTREGS_OFF, %o1
 	ba,pt		%xcc, rtrap
 	 clr		%l6
 
@@ -1233,7 +1311,7 @@ do_icpe_tl1_fatal:
 1:	or		%g7, %lo(1b), %g7
 	mov		0x3, %o0
 	call		cheetah_plus_parity_error
-	 add		%sp, STACK_BIAS + REGWIN_SZ, %o1
+	 add		%sp, PTREGS_OFF, %o1
 	ba,pt		%xcc, rtrap
 	 clr		%l6
 	
@@ -1289,7 +1367,7 @@ cheetah_fast_ecc:
 	mov		%l4, %o1
 	mov		%l5, %o2
 	call		cheetah_fecc_handler
-	 add		%sp, STACK_BIAS + REGWIN_SZ, %o0
+	 add		%sp, PTREGS_OFF, %o0
 	ba,a,pt		%xcc, rtrap_clr_l6
 
 	/* Our caller has disabled I-cache and performed membar Sync. */
@@ -1315,7 +1393,7 @@ cheetah_cee:
 	mov		%l4, %o1
 	mov		%l5, %o2
 	call		cheetah_cee_handler
-	 add		%sp, STACK_BIAS + REGWIN_SZ, %o0
+	 add		%sp, PTREGS_OFF, %o0
 	ba,a,pt		%xcc, rtrap_clr_l6
 
 	/* Our caller has disabled I-cache+D-cache and performed membar Sync. */
@@ -1341,7 +1419,7 @@ cheetah_deferred_trap:
 	mov		%l4, %o1
 	mov		%l5, %o2
 	call		cheetah_deferred_handler
-	 add		%sp, STACK_BIAS + REGWIN_SZ, %o0
+	 add		%sp, PTREGS_OFF, %o0
 	ba,a,pt		%xcc, rtrap_clr_l6
 
 	.globl		__do_privact
@@ -1353,7 +1431,7 @@ __do_privact:
 	ba,pt		%xcc, etrap
 109:	or		%g7, %lo(109b), %g7
 	call		do_privact
-	 add		%sp, STACK_BIAS + REGWIN_SZ, %o0
+	 add		%sp, PTREGS_OFF, %o0
 	ba,pt		%xcc, rtrap
 	 clr		%l6
 
@@ -1380,7 +1458,7 @@ do_mna:
 	mov		%l4, %o1
 	mov		%l5, %o2
 	call		mem_address_unaligned
-	 add		%sp, STACK_BIAS + REGWIN_SZ, %o0
+	 add		%sp, PTREGS_OFF, %o0
 	ba,pt		%xcc, rtrap
 	 clr		%l6
 
@@ -1398,7 +1476,7 @@ do_lddfmna:
 	mov		%l4, %o1
 	mov		%l5, %o2
 	call		handle_lddfmna
-	 add		%sp, STACK_BIAS + REGWIN_SZ, %o0
+	 add		%sp, PTREGS_OFF, %o0
 	ba,pt		%xcc, rtrap
 	 clr		%l6
 
@@ -1416,14 +1494,14 @@ do_stdfmna:
 	mov		%l4, %o1
 	mov		%l5, %o2
 	call		handle_stdfmna
-	 add		%sp, STACK_BIAS + REGWIN_SZ, %o0
+	 add		%sp, PTREGS_OFF, %o0
 	ba,pt		%xcc, rtrap
 	 clr		%l6
 
 	.globl	breakpoint_trap
 breakpoint_trap:
 	call		sparc_breakpoint
-	 add		%sp, STACK_BIAS + REGWIN_SZ, %o0
+	 add		%sp, PTREGS_OFF, %o0
 	ba,pt		%xcc, rtrap
 	 nop
 
@@ -1459,9 +1537,9 @@ sunos_getpid:
 	call	sys_getppid
 	 nop
 	call	sys_getpid
-	 stx	%o0, [%sp + STACK_BIAS + REGWIN_SZ + PT_V9_I1]
+	 stx	%o0, [%sp + PTREGS_OFF + PT_V9_I1]
 	b,pt	%xcc, ret_sys_call
-	 stx	%o0, [%sp + STACK_BIAS + REGWIN_SZ + PT_V9_I0]
+	 stx	%o0, [%sp + PTREGS_OFF + PT_V9_I0]
 
 	/* SunOS getuid() returns uid in %o0 and euid in %o1 */
 	.globl	sunos_getuid
@@ -1469,9 +1547,9 @@ sunos_getuid:
 	call	sys32_geteuid16
 	 nop
 	call	sys32_getuid16
-	 stx	%o0, [%sp + STACK_BIAS + REGWIN_SZ + PT_V9_I1]
+	 stx	%o0, [%sp + PTREGS_OFF + PT_V9_I1]
 	b,pt	%xcc, ret_sys_call
-	 stx	%o0, [%sp + STACK_BIAS + REGWIN_SZ + PT_V9_I0]
+	 stx	%o0, [%sp + PTREGS_OFF + PT_V9_I0]
 
 	/* SunOS getgid() returns gid in %o0 and egid in %o1 */
 	.globl	sunos_getgid
@@ -1479,9 +1557,9 @@ sunos_getgid:
 	call	sys32_getegid16
 	 nop
 	call	sys32_getgid16
-	 stx	%o0, [%sp + STACK_BIAS + REGWIN_SZ + PT_V9_I1]
+	 stx	%o0, [%sp + PTREGS_OFF + PT_V9_I1]
 	b,pt	%xcc, ret_sys_call
-	 stx	%o0, [%sp + STACK_BIAS + REGWIN_SZ + PT_V9_I0]
+	 stx	%o0, [%sp + PTREGS_OFF + PT_V9_I0]
 #endif
 
 	/* SunOS's execv() call only specifies the argv argument, the
@@ -1493,14 +1571,14 @@ sys_execve:
 	ba,pt		%xcc, execve_merge
 	 or		%g1, %lo(sparc_execve), %g1
 sunos_execv:
-	stx		%g0, [%sp + STACK_BIAS + REGWIN_SZ + PT_V9_I2]
+	stx		%g0, [%sp + PTREGS_OFF + PT_V9_I2]
 sys32_execve:
 	sethi		%hi(sparc32_execve), %g1
 	or		%g1, %lo(sparc32_execve), %g1
 execve_merge:
 	flushw
 	jmpl		%g1, %g0
-	 add		%sp, STACK_BIAS + REGWIN_SZ, %o0
+	 add		%sp, PTREGS_OFF, %o0
 
 	.globl	sys_pipe, sys_sigpause, sys_nis_syscall
 	.globl	sys_sigsuspend, sys_rt_sigsuspend, sys32_rt_sigsuspend
@@ -1511,12 +1589,12 @@ execve_merge:
 	.globl	sys32_sigstack
 	.align	32
 sys_pipe:	ba,pt		%xcc, sparc_pipe
-		 add		%sp, STACK_BIAS + REGWIN_SZ, %o0
+		 add		%sp, PTREGS_OFF, %o0
 sys_nis_syscall:ba,pt		%xcc, c_sys_nis_syscall
-		 add		%sp, STACK_BIAS + REGWIN_SZ, %o0
+		 add		%sp, PTREGS_OFF, %o0
 sys_memory_ordering:
 		ba,pt		%xcc, sparc_memory_ordering
-		 add		%sp, STACK_BIAS + REGWIN_SZ, %o1
+		 add		%sp, PTREGS_OFF, %o1
 sys_sigaltstack:ba,pt		%xcc, do_sigaltstack
 		 add		%i6, STACK_BIAS, %o2
 sys32_sigstack:	ba,pt		%xcc, do_sys32_sigstack
@@ -1526,41 +1604,41 @@ sys32_sigaltstack:
 		 mov		%i6, %o2
 
 		.align		32
-sys_sigsuspend:	add		%sp, STACK_BIAS + REGWIN_SZ, %o0
+sys_sigsuspend:	add		%sp, PTREGS_OFF, %o0
 		call		do_sigsuspend
 		 add		%o7, 1f-.-4, %o7
 		nop
 sys_rt_sigsuspend: /* NOTE: %o0,%o1 have a correct value already */
-		add		%sp, STACK_BIAS + REGWIN_SZ, %o2
+		add		%sp, PTREGS_OFF, %o2
 		call		do_rt_sigsuspend
 		 add		%o7, 1f-.-4, %o7
 		nop
 sys32_rt_sigsuspend: /* NOTE: %o0,%o1 have a correct value already */
 		srl		%o0, 0, %o0
-		add		%sp, STACK_BIAS + REGWIN_SZ, %o2
+		add		%sp, PTREGS_OFF, %o2
 		call		do_rt_sigsuspend32
 		 add		%o7, 1f-.-4, %o7
 		/* NOTE: %o0 has a correct value already */
-sys_sigpause:	add		%sp, STACK_BIAS + REGWIN_SZ, %o1
+sys_sigpause:	add		%sp, PTREGS_OFF, %o1
 		call		do_sigpause
 		 add		%o7, 1f-.-4, %o7
 		nop
 sys32_sigreturn:
-		add		%sp, STACK_BIAS + REGWIN_SZ, %o0
+		add		%sp, PTREGS_OFF, %o0
 		call		do_sigreturn32
 		 add		%o7, 1f-.-4, %o7
 		nop
 sys_rt_sigreturn:
-		add		%sp, STACK_BIAS + REGWIN_SZ, %o0
+		add		%sp, PTREGS_OFF, %o0
 		call		do_rt_sigreturn
 		 add		%o7, 1f-.-4, %o7
 		nop
 sys32_rt_sigreturn:
-		add		%sp, STACK_BIAS + REGWIN_SZ, %o0
+		add		%sp, PTREGS_OFF, %o0
 		call		do_rt_sigreturn32
 		 add		%o7, 1f-.-4, %o7
 		nop
-sys_ptrace:	add		%sp, STACK_BIAS + REGWIN_SZ, %o0
+sys_ptrace:	add		%sp, PTREGS_OFF, %o0
 		call		do_ptrace
 		 add		%o7, 1f-.-4, %o7
 		nop
@@ -1575,6 +1653,29 @@ sys_ptrace:	add		%sp, STACK_BIAS + REGWIN_SZ, %o0
 		ba,pt		%xcc, rtrap
 		 clr		%l6
 
+	/* This is how fork() was meant to be done, 8 instruction entry.
+	 *
+	 * I questioned the following code briefly, let me clear things
+	 * up so you must not reason on it like I did.
+	 *
+	 * Know the fork_kpsr etc. we use in the sparc32 port?  We don't
+	 * need it here because the only piece of window state we copy to
+	 * the child is the CWP register.  Even if the parent sleeps,
+	 * we are safe because we stuck it into pt_regs of the parent
+	 * so it will not change.
+	 *
+	 * XXX This raises the question, whether we can do the same on
+	 * XXX sparc32 to get rid of fork_kpsr _and_ fork_kwim.  The
+	 * XXX answer is yes.  We stick fork_kpsr in UREG_G0 and
+	 * XXX fork_kwim in UREG_G1 (global registers are considered
+	 * XXX volatile across a system call in the sparc ABI I think
+	 * XXX if it isn't we can use regs->y instead, anyone who depends
+	 * XXX upon the Y register being preserved across a fork deserves
+	 * XXX to lose).
+	 *
+	 * In fact we should take advantage of that fact for other things
+	 * during system calls...
+	 */
 	.globl	sys_fork, sys_vfork, sys_clone, sparc_exit
 	.globl	ret_from_syscall
 	.align	32
@@ -1588,7 +1689,7 @@ sys_clone:	flushw
 		movrz		%o1, %fp, %o1
 		mov		0, %o3
 		ba,pt		%xcc, do_fork
-		 add		%sp, STACK_BIAS + REGWIN_SZ, %o2
+		 add		%sp, PTREGS_OFF, %o2
 ret_from_syscall:
 		/* Clear SPARC_FLAG_NEWCHILD, switch_to leaves thread.flags in
 		 * %o7 for us.  Check performance counter stuff too.
@@ -1603,6 +1704,10 @@ ret_from_syscall:
 		ldx		[%g6 + AOFF_task_thread + AOFF_thread_pcr_reg], %o7
 		wr		%g0, %o7, %pcr
 
+		/* Blackbird errata workaround.  See commentary in
+		 * smp.c:smp_percpu_timer_interrupt() for more
+		 * information.
+		 */
 		ba,pt		%xcc, 99f
 		 nop
 		.align		64
@@ -1610,7 +1715,7 @@ ret_from_syscall:
 		rd		%pic, %g0
 
 1:		b,pt		%xcc, ret_sys_call
-		 ldx		[%sp + STACK_BIAS + REGWIN_SZ + PT_V9_I0], %o0
+		 ldx		[%sp + PTREGS_OFF + PT_V9_I0], %o0
 sparc_exit:	wrpr		%g0, (PSTATE_RMO | PSTATE_PEF | PSTATE_PRIV), %pstate
 		rdpr		%otherwin, %g1
 		rdpr		%cansave, %g3
@@ -1658,7 +1763,7 @@ linux_sparc_syscall32:
 	sll		%g1, 2, %l4				! IEU0	Group
 #ifdef SYSCALL_TRACING
 	call		syscall_trace_entry
-	 add		%sp, STACK_BIAS + REGWIN_SZ, %o0
+	 add		%sp, PTREGS_OFF, %o0
 	srl		%i0, 0, %o0
 #endif
 	mov		%i4, %o4				! IEU1
@@ -1686,7 +1791,7 @@ linux_sparc_syscall:
 	sll		%g1, 2, %l4				! IEU0	Group
 #ifdef SYSCALL_TRACING
 	call		syscall_trace_entry
-	 add		%sp, STACK_BIAS + REGWIN_SZ, %o0
+	 add		%sp, PTREGS_OFF, %o0
 	mov		%i0, %o0
 #endif
 	mov		%i1, %o1				! IEU1
@@ -1703,52 +1808,64 @@ linux_sparc_syscall:
 	 mov		%i5, %o5				! IEU0
 	nop
 
-3:	stx		%o0, [%sp + STACK_BIAS + REGWIN_SZ + PT_V9_I0]
+3:	stx		%o0, [%sp + PTREGS_OFF + PT_V9_I0]
 ret_sys_call:
 #ifdef SYSCALL_TRACING
 	mov		%o0, %o1
 	call		syscall_trace_exit
-	 add		%sp, STACK_BIAS + REGWIN_SZ, %o0
+	 add		%sp, PTREGS_OFF, %o0
 	mov		%o1, %o0
 #endif
-	ldx		[%sp + STACK_BIAS + REGWIN_SZ + PT_V9_TSTATE], %g3
-	ldx		[%sp + STACK_BIAS + REGWIN_SZ + PT_V9_TNPC], %l1 ! pc = npc
+	ldx		[%sp + PTREGS_OFF + PT_V9_TSTATE], %g3
+	ldx		[%sp + PTREGS_OFF + PT_V9_TNPC], %l1 ! pc = npc
 	sra		%o0, 0, %o0
 	mov		%ulo(TSTATE_XCARRY | TSTATE_ICARRY), %g2
 	cmp		%o0, -ENOIOCTLCMD
 	sllx		%g2, 32, %g2
 	bgeu,pn		%xcc, 1f
-
 	 andcc		%l0, 0x02, %l6	
+80:
 	andn		%g3, %g2, %g3		/* System call success, clear Carry condition code. */
-	stx		%g3, [%sp + STACK_BIAS + REGWIN_SZ + PT_V9_TSTATE]	
+	stx		%g3, [%sp + PTREGS_OFF + PT_V9_TSTATE]	
 	bne,pn		%icc, linux_syscall_trace2
 	 add		%l1, 0x4, %l2				         ! npc = npc+4
-	stx		%l1, [%sp + STACK_BIAS + REGWIN_SZ + PT_V9_TPC]
+	stx		%l1, [%sp + PTREGS_OFF + PT_V9_TPC]
 	ba,pt		%xcc, rtrap_clr_l6
-	 stx		%l2, [%sp + STACK_BIAS + REGWIN_SZ + PT_V9_TNPC]
+	 stx		%l2, [%sp + PTREGS_OFF + PT_V9_TNPC]
 
 1:
+	/* Really a failure?  Check if force_successful_syscall_return()
+	 * was invoked.
+	 */
+	ldx		[%curptr + AOFF_task_thread + AOFF_thread_flags], %l0
+	andcc		%l0, SPARC_FLAG_SYS_SUCCESS, %g0
+	be,pt		%icc, 1f
+	 andcc		%l6, 0x02, %g0
+	andn		%l0, SPARC_FLAG_SYS_SUCCESS, %l0
+	ba,pt		%xcc, 80b
+	 stx		%l0, [%curptr + AOFF_task_thread + AOFF_thread_flags]
+
 	/* System call failure, set Carry condition code.
 	 * Also, get abs(errno) to return to the process.
 	 */
+1:
 	sub		%g0, %o0, %o0
 	or		%g3, %g2, %g3
-	stx		%o0, [%sp + STACK_BIAS + REGWIN_SZ + PT_V9_I0]
+	stx		%o0, [%sp + PTREGS_OFF + PT_V9_I0]
 	mov		1, %l6
-	stx		%g3, [%sp + STACK_BIAS + REGWIN_SZ + PT_V9_TSTATE]
+	stx		%g3, [%sp + PTREGS_OFF + PT_V9_TSTATE]
 	bne,pn		%icc, linux_syscall_trace2
 	 add		%l1, 0x4, %l2				         !npc = npc+4
-	stx		%l1, [%sp + STACK_BIAS + REGWIN_SZ + PT_V9_TPC]
+	stx		%l1, [%sp + PTREGS_OFF + PT_V9_TPC]
 
 	b,pt		%xcc, rtrap
-	 stx		%l2, [%sp + STACK_BIAS + REGWIN_SZ + PT_V9_TNPC]
+	 stx		%l2, [%sp + PTREGS_OFF + PT_V9_TNPC]
 linux_syscall_trace2:
 	call		syscall_trace
 	 nop
-	stx		%l1, [%sp + STACK_BIAS + REGWIN_SZ + PT_V9_TPC]
+	stx		%l1, [%sp + PTREGS_OFF + PT_V9_TPC]
 	ba,pt		%xcc, rtrap
-	 stx		%l2, [%sp + STACK_BIAS + REGWIN_SZ + PT_V9_TNPC]
+	 stx		%l2, [%sp + PTREGS_OFF + PT_V9_TNPC]
 
 	.align		32
 	.globl		__flushw_user
@@ -1765,69 +1882,3 @@ __flushw_user:
 	 restore	%g0, %g0, %g0
 2:	retl
 	 nop
-
-/* This need not obtain the xtime_lock as it is coded in
- * an implicitly SMP safe way already.
- */
-	.align		64
-	.globl		do_gettimeofday
-do_gettimeofday:	/* %o0 = timevalp */
-	/* Load doubles must be used on xtime so that what we get
-	 * is guarenteed to be atomic, this is why we can run this
-	 * with interrupts on full blast.  Don't touch this... -DaveM
-	 *
-	 * Note with time_t changes to the timeval type, I must now use
-	 * nucleus atomic quad 128-bit loads.
-	 *
-	 * If xtime was stored recently, I've seen crap from the
-	 * quad load on Cheetah.  Putting a membar SYNC before
-	 * the quad load seems to make the problem go away. -DaveM
-	 * (we should nop out workarounds like this on spitfire)
-	 */
-	sethi	%hi(timer_tick_offset), %g3
-	sethi	%hi(xtime), %g2
-	sethi	%hi(timer_tick_compare), %g1
-	ldx	[%g3 + %lo(timer_tick_offset)], %g3
-	or	%g2, %lo(xtime), %g2
-	or	%g1, %lo(timer_tick_compare), %g1
-1:	membar	#Sync
-	ldda	[%g2] ASI_NUCLEUS_QUAD_LDD, %o4
-	BRANCH_IF_ANY_CHEETAH(o2,o1,2f)
-	ba,pt	%xcc, 3f
-	 rd	%tick, %o1
-2:	ba,pt	%xcc, 3f
-	 rd	%asr24, %o1
-3:	ldx	[%g1], %g7
-	membar	#Sync
-	ldda	[%g2] ASI_NUCLEUS_QUAD_LDD, %o2
-	xor	%o4, %o2, %o2
-	xor	%o5, %o3, %o3
-	orcc	%o2, %o3, %g0
-	bne,pn	%xcc, 1b
-	 sethi	%hi(wall_jiffies), %o2
-	sethi	%hi(jiffies), %o3
-	ldx	[%o2 + %lo(wall_jiffies)], %o2
-	ldx	[%o3 + %lo(jiffies)], %o3
-	sub	%o3, %o2, %o2
-	sethi	%hi(timer_ticks_per_usec_quotient), %o3
-	add	%g3, %o1, %o1
-	ldx	[%o3 + %lo(timer_ticks_per_usec_quotient)], %o3
-	sub	%o1, %g7, %o1
-	mulx	%o3, %o1, %o1
-	brz,pt	%o2, 1f
-	 srlx	%o1, 32, %o1
-	sethi	%hi(10000), %g2
-	or	%g2, %lo(10000), %g2
-	add	%o1, %g2, %o1
-1:	sethi	%hi(1000000), %o2
-	srlx	%o5, 32, %o5
-	or	%o2, %lo(1000000), %o2
-	add	%o5, %o1, %o5
-	cmp	%o5, %o2
-	bl,a,pn	%xcc, 1f
-	 stx	%o4, [%o0 + 0x0]
-	add	%o4, 0x1, %o4
-	sub	%o5, %o2, %o5
-	stx	%o4, [%o0 + 0x0]
-1:	retl
-	 st	%o5, [%o0 + 0x8]

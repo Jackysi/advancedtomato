@@ -138,7 +138,7 @@ static unsigned char sjcd_mode = 0;
 
 #define SJCD_READ_TIMEOUT 5000
 
-#if defined(SJCD_GATHER_STAT)
+#if defined( SJCD_GATHER_STAT )
 /*
  * Statistic.
  */
@@ -218,7 +218,7 @@ static void hsg2msf(long hsg, struct msf *msf)
  */
 static void sjcd_send_cmd(unsigned char cmd)
 {
-#if defined(SJCD_TRACE)
+#if defined( SJCD_TRACE )
 	printk("SJCD: send_cmd( 0x%x )\n", cmd);
 #endif
 	outb(cmd, SJCDPORT(0));
@@ -232,7 +232,7 @@ static void sjcd_send_cmd(unsigned char cmd)
  */
 static void sjcd_send_1_cmd(unsigned char cmd, unsigned char a)
 {
-#if defined(SJCD_TRACE)
+#if defined( SJCD_TRACE )
 	printk("SJCD: send_1_cmd( 0x%x, 0x%x )\n", cmd, a);
 #endif
 	outb(cmd, SJCDPORT(0));
@@ -249,7 +249,7 @@ static void sjcd_send_4_cmd(unsigned char cmd, unsigned char a,
 			    unsigned char b, unsigned char c,
 			    unsigned char d)
 {
-#if defined(SJCD_TRACE)
+#if defined( SJCD_TRACE )
 	printk("SJCD: send_4_cmd( 0x%x )\n", cmd);
 #endif
 	outb(cmd, SJCDPORT(0));
@@ -267,7 +267,7 @@ static void sjcd_send_4_cmd(unsigned char cmd, unsigned char a,
  */
 static void sjcd_send_6_cmd(unsigned char cmd, struct sjcd_play_msf *pms)
 {
-#if defined(SJCD_TRACE)
+#if defined( SJCD_TRACE )
 	printk("SJCD: send_long_cmd( 0x%x )\n", cmd);
 #endif
 	outb(cmd, SJCDPORT(0));
@@ -343,7 +343,7 @@ static void sjcd_load_status(void)
 	 */
 	if (sjcd_media_is_changed)
 		sjcd_toc_uptodate = 0;
-#if defined(SJCD_TRACE)
+#if defined( SJCD_TRACE )
 	printk("SJCD: status %02x.%02x loaded.\n",
 	       (int) sjcd_completion_status, (int) sjcd_completion_error);
 #endif
@@ -409,7 +409,7 @@ static int sjcd_wait_for_status(void)
 	sjcd_status_timeout = SJCD_WAIT_FOR_STATUS_TIMEOUT;
 	SJCD_SET_TIMER(sjcd_status_timer, 1);
 	sleep_on(&sjcd_waitq);
-#if defined(SJCD_DIAGNOSTIC) || defined(SJCD_TRACE)
+#if defined( SJCD_DIAGNOSTIC ) || defined ( SJCD_TRACE )
 	if (sjcd_status_timeout <= 0)
 		printk("SJCD: Error Wait For Status.\n");
 #endif
@@ -419,7 +419,7 @@ static int sjcd_wait_for_status(void)
 static int sjcd_receive_status(void)
 {
 	int i;
-#if defined(SJCD_TRACE)
+#if defined( SJCD_TRACE )
 	printk("SJCD: receive_status\n");
 #endif
 	/*
@@ -427,7 +427,7 @@ static int sjcd_receive_status(void)
 	 */
 	for (i = 200; i-- && (sjcd_check_status() == 0););
 	if (i < 0) {
-#if defined(SJCD_TRACE)
+#if defined( SJCD_TRACE )
 		printk("SJCD: long wait for status\n");
 #endif
 		if (sjcd_wait_for_status() <= 0)
@@ -443,7 +443,7 @@ static int sjcd_receive_status(void)
  */
 static void sjcd_get_status(void)
 {
-#if defined(SJCD_TRACE)
+#if defined( SJCD_TRACE )
 	printk("SJCD: get_status\n");
 #endif
 	sjcd_send_cmd(SCMD_GET_STATUS);
@@ -455,6 +455,9 @@ static void sjcd_get_status(void)
  */
 static int sjcd_disk_change(kdev_t full_dev)
 {
+#if 0
+	printk("SJCD: sjcd_disk_change( 0x%x )\n", full_dev);
+#endif
 	if (MINOR(full_dev) > 0) {
 		printk("SJCD: request error: invalid device minor.\n");
 		return 0;
@@ -476,7 +479,7 @@ static int sjcd_update_toc(void)
 {
 	struct sjcd_hw_disk_info info;
 	int i;
-#if defined(SJCD_TRACE)
+#if defined( SJCD_TRACE )
 	printk("SJCD: update toc:\n");
 #endif
 	/*
@@ -512,7 +515,7 @@ static int sjcd_update_toc(void)
 		printk("SJCD: get first failed\n");
 		return (-1);
 	}
-#if defined(SJCD_TRACE)
+#if defined( SJCD_TRACE )
 	printk("SJCD: TOC start 0x%02x ", sjcd_first_track_no);
 #endif
 	/*
@@ -542,7 +545,7 @@ static int sjcd_update_toc(void)
 		printk("SJCD: get last failed\n");
 		return (-1);
 	}
-#if defined(SJCD_TRACE)
+#if defined( SJCD_TRACE )
 	printk("SJCD: TOC finish 0x%02x ", sjcd_last_track_no);
 #endif
 	for (i = sjcd_first_track_no; i <= sjcd_last_track_no; i++) {
@@ -607,7 +610,7 @@ static int sjcd_update_toc(void)
 		printk("SJCD: get size failed\n");
 		return (1);
 	}
-#if defined(SJCD_TRACE)
+#if defined( SJCD_TRACE )
 	printk("SJCD: (%02x:%02x.%02x)\n", sjcd_disk_length.min,
 	       sjcd_disk_length.sec, sjcd_disk_length.frame);
 #endif
@@ -620,7 +623,7 @@ static int sjcd_update_toc(void)
 static int sjcd_get_q_info(struct sjcd_hw_qinfo *qp)
 {
 	int s;
-#if defined(SJCD_TRACE)
+#if defined( SJCD_TRACE )
 	printk("SJCD: load sub q\n");
 #endif
 	sjcd_send_cmd(SCMD_GET_QINFO);
@@ -676,7 +679,7 @@ static int sjcd_play(struct sjcd_play_msf *mp)
  */
 static int sjcd_tray_close(void)
 {
-#if defined(SJCD_TRACE)
+#if defined( SJCD_TRACE )
 	printk("SJCD: tray_close\n");
 #endif
 	sjcd_send_cmd(SCMD_CLOSE_TRAY);
@@ -685,7 +688,7 @@ static int sjcd_tray_close(void)
 
 static int sjcd_tray_lock(void)
 {
-#if defined(SJCD_TRACE)
+#if defined( SJCD_TRACE )
 	printk("SJCD: tray_lock\n");
 #endif
 	sjcd_send_cmd(SCMD_LOCK_TRAY);
@@ -694,7 +697,7 @@ static int sjcd_tray_lock(void)
 
 static int sjcd_tray_unlock(void)
 {
-#if defined(SJCD_TRACE)
+#if defined( SJCD_TRACE )
 	printk("SJCD: tray_unlock\n");
 #endif
 	sjcd_send_cmd(SCMD_UNLOCK_TRAY);
@@ -703,7 +706,7 @@ static int sjcd_tray_unlock(void)
 
 static int sjcd_tray_open(void)
 {
-#if defined(SJCD_TRACE)
+#if defined( SJCD_TRACE )
 	printk("SJCD: tray_open\n");
 #endif
 	sjcd_send_cmd(SCMD_EJECT_TRAY);
@@ -716,7 +719,7 @@ static int sjcd_tray_open(void)
 static int sjcd_ioctl(struct inode *ip, struct file *fp,
 		      unsigned int cmd, unsigned long arg)
 {
-#if defined(SJCD_TRACE)
+#if defined( SJCD_TRACE )
 	printk("SJCD:ioctl\n");
 #endif
 
@@ -731,14 +734,14 @@ static int sjcd_ioctl(struct inode *ip, struct file *fp,
 
 	switch (cmd) {
 	case CDROMSTART:{
-#if defined(SJCD_TRACE)
+#if defined( SJCD_TRACE )
 			printk("SJCD: ioctl: start\n");
 #endif
 			return (0);
 		}
 
 	case CDROMSTOP:{
-#if defined(SJCD_TRACE)
+#if defined( SJCD_TRACE )
 			printk("SJCD: ioctl: stop\n");
 #endif
 			sjcd_send_cmd(SCMD_PAUSE);
@@ -749,7 +752,7 @@ static int sjcd_ioctl(struct inode *ip, struct file *fp,
 
 	case CDROMPAUSE:{
 			struct sjcd_hw_qinfo q_info;
-#if defined(SJCD_TRACE)
+#if defined( SJCD_TRACE )
 			printk("SJCD: ioctl: pause\n");
 #endif
 			if (sjcd_audio_status == CDROM_AUDIO_PLAY) {
@@ -769,7 +772,7 @@ static int sjcd_ioctl(struct inode *ip, struct file *fp,
 		}
 
 	case CDROMRESUME:{
-#if defined(SJCD_TRACE)
+#if defined( SJCD_TRACE )
 			printk("SJCD: ioctl: resume\n");
 #endif
 			if (sjcd_audio_status == CDROM_AUDIO_PAUSED) {
@@ -792,7 +795,7 @@ static int sjcd_ioctl(struct inode *ip, struct file *fp,
 	case CDROMPLAYTRKIND:{
 			struct cdrom_ti ti;
 			int s;
-#if defined(SJCD_TRACE)
+#if defined( SJCD_TRACE )
 			printk("SJCD: ioctl: playtrkind\n");
 #endif
 			if ((s =
@@ -833,7 +836,7 @@ static int sjcd_ioctl(struct inode *ip, struct file *fp,
 	case CDROMPLAYMSF:{
 			struct cdrom_msf sjcd_msf;
 			int s;
-#if defined(SJCD_TRACE)
+#if defined( SJCD_TRACE )
 			printk("SJCD: ioctl: playmsf\n");
 #endif
 			if ((s =
@@ -876,7 +879,7 @@ static int sjcd_ioctl(struct inode *ip, struct file *fp,
 	case CDROMREADTOCHDR:{
 			struct cdrom_tochdr toc_header;
 			int s;
-#if defined(SJCD_TRACE)
+#if defined (SJCD_TRACE )
 			printk("SJCD: ioctl: readtocheader\n");
 #endif
 			if ((s =
@@ -893,7 +896,7 @@ static int sjcd_ioctl(struct inode *ip, struct file *fp,
 	case CDROMREADTOCENTRY:{
 			struct cdrom_tocentry toc_entry;
 			int s;
-#if defined(SJCD_TRACE)
+#if defined( SJCD_TRACE )
 			printk("SJCD: ioctl: readtocentry\n");
 #endif
 			if ((s =
@@ -947,7 +950,7 @@ static int sjcd_ioctl(struct inode *ip, struct file *fp,
 	case CDROMSUBCHNL:{
 			struct cdrom_subchnl subchnl;
 			int s;
-#if defined(SJCD_TRACE)
+#if defined( SJCD_TRACE )
 			printk("SJCD: ioctl: subchnl\n");
 #endif
 			if ((s =
@@ -1003,7 +1006,7 @@ static int sjcd_ioctl(struct inode *ip, struct file *fp,
 	case CDROMVOLCTRL:{
 			struct cdrom_volctrl vol_ctrl;
 			int s;
-#if defined(SJCD_TRACE)
+#if defined( SJCD_TRACE )
 			printk("SJCD: ioctl: volctrl\n");
 #endif
 			if ((s =
@@ -1024,7 +1027,7 @@ static int sjcd_ioctl(struct inode *ip, struct file *fp,
 		}
 
 	case CDROMEJECT:{
-#if defined(SJCD_TRACE)
+#if defined( SJCD_TRACE )
 			printk("SJCD: ioctl: eject\n");
 #endif
 			if (!sjcd_command_is_in_progress) {
@@ -1035,10 +1038,10 @@ static int sjcd_ioctl(struct inode *ip, struct file *fp,
 			return (0);
 		}
 
-#if defined(SJCD_GATHER_STAT)
+#if defined( SJCD_GATHER_STAT )
 	case 0xABCD:{
 			int s;
-#if defined(SJCD_TRACE)
+#if defined( SJCD_TRACE )
 			printk("SJCD: ioctl: statistic\n");
 #endif
 			if ((s =
@@ -1076,7 +1079,7 @@ static void sjcd_invalidate_buffers(void)
 
 static void sjcd_transfer(void)
 {
-#if defined(SJCD_TRACE)
+#if defined( SJCD_TRACE )
 	printk("SJCD: transfer:\n");
 #endif
 	if (CURRENT_IS_VALID) {
@@ -1098,7 +1101,7 @@ static void sjcd_transfer(void)
 				}
 				if (nr_sectors > CURRENT->nr_sectors)
 					nr_sectors = CURRENT->nr_sectors;
-#if defined(SJCD_TRACE)
+#if defined( SJCD_TRACE )
 				printk("SJCD: copy out\n");
 #endif
 				memcpy(CURRENT->buffer, sjcd_buf + offs,
@@ -1112,14 +1115,14 @@ static void sjcd_transfer(void)
 			}
 		}
 	}
-#if defined(SJCD_TRACE)
+#if defined( SJCD_TRACE )
 	printk("SJCD: transfer: done\n");
 #endif
 }
 
 static void sjcd_poll(void)
 {
-#if defined(SJCD_GATHER_STAT)
+#if defined( SJCD_GATHER_STAT )
 	/*
 	 * Update total number of ticks.
 	 */
@@ -1130,17 +1133,17 @@ static void sjcd_poll(void)
       ReSwitch:switch (sjcd_transfer_state) {
 
 	case SJCD_S_IDLE:{
-#if defined(SJCD_GATHER_STAT)
+#if defined( SJCD_GATHER_STAT )
 			statistic.idle_ticks++;
 #endif
-#if defined(SJCD_TRACE)
+#if defined( SJCD_TRACE )
 			printk("SJCD_S_IDLE\n");
 #endif
 			return;
 		}
 
 	case SJCD_S_START:{
-#if defined(SJCD_GATHER_STAT)
+#if defined( SJCD_GATHER_STAT )
 			statistic.start_ticks++;
 #endif
 			sjcd_send_cmd(SCMD_GET_STATUS);
@@ -1148,7 +1151,7 @@ static void sjcd_poll(void)
 			    sjcd_mode ==
 			    SCMD_MODE_COOKED ? SJCD_S_READ : SJCD_S_MODE;
 			sjcd_transfer_timeout = 500;
-#if defined(SJCD_TRACE)
+#if defined( SJCD_TRACE )
 			printk("SJCD_S_START: goto SJCD_S_%s mode\n",
 			       sjcd_transfer_state ==
 			       SJCD_S_READ ? "READ" : "MODE");
@@ -1163,7 +1166,7 @@ static void sjcd_poll(void)
 				 */
 				if (!sjcd_status_valid
 				    || sjcd_command_failed) {
-#if defined(SJCD_TRACE)
+#if defined( SJCD_TRACE )
 					printk
 					    ("SJCD_S_MODE: pre-cmd failed: goto to SJCD_S_STOP mode\n");
 #endif
@@ -1176,12 +1179,12 @@ static void sjcd_poll(void)
 						SCMD_MODE_COOKED);
 				sjcd_transfer_state = SJCD_S_READ;
 				sjcd_transfer_timeout = 1000;
-#if defined(SJCD_TRACE)
+#if defined( SJCD_TRACE )
 				printk
 				    ("SJCD_S_MODE: goto SJCD_S_READ mode\n");
 #endif
 			}
-#if defined(SJCD_GATHER_STAT)
+#if defined( SJCD_GATHER_STAT )
 			else
 				statistic.mode_ticks++;
 #endif
@@ -1195,7 +1198,7 @@ static void sjcd_poll(void)
 				 */
 				if (!sjcd_status_valid
 				    || sjcd_command_failed) {
-#if defined(SJCD_TRACE)
+#if defined( SJCD_TRACE )
 					printk
 					    ("SJCD_S_READ: pre-cmd failed: goto to SJCD_S_STOP mode\n");
 #endif
@@ -1203,7 +1206,7 @@ static void sjcd_poll(void)
 					goto ReSwitch;
 				}
 				if (!sjcd_media_is_available) {
-#if defined(SJCD_TRACE)
+#if defined( SJCD_TRACE )
 					printk
 					    ("SJCD_S_READ: no disk: goto to SJCD_S_STOP mode\n");
 #endif
@@ -1216,7 +1219,7 @@ static void sjcd_poll(void)
 					 */
 					if (sjcd_load_response
 					    (&sjcd_mode, 1) != 0) {
-#if defined(SJCD_TRACE)
+#if defined( SJCD_TRACE )
 						printk
 						    ("SJCD_S_READ: load failed: goto to SJCD_S_STOP mode\n");
 #endif
@@ -1225,7 +1228,7 @@ static void sjcd_poll(void)
 						goto ReSwitch;
 					}
 					if (sjcd_mode != SCMD_MODE_COOKED) {
-#if defined(SJCD_TRACE)
+#if defined( SJCD_TRACE )
 						printk
 						    ("SJCD_S_READ: mode failed: goto to SJCD_S_STOP mode\n");
 #endif
@@ -1244,7 +1247,7 @@ static void sjcd_poll(void)
 					msf.end.sec = 0;
 					msf.end.frame = sjcd_read_count =
 					    SJCD_BUF_SIZ;
-#if defined(SJCD_TRACE)
+#if defined( SJCD_TRACE )
 					printk
 					    ("SJCD: ---reading msf-address %x:%x:%x  %x:%x:%x\n",
 					     msf.start.min, msf.start.sec,
@@ -1260,12 +1263,12 @@ static void sjcd_poll(void)
 							&msf);
 					sjcd_transfer_state = SJCD_S_DATA;
 					sjcd_transfer_timeout = 500;
-#if defined(SJCD_TRACE)
+#if defined( SJCD_TRACE )
 					printk
 					    ("SJCD_S_READ: go to SJCD_S_DATA mode\n");
 #endif
 				} else {
-#if defined(SJCD_TRACE)
+#if defined( SJCD_TRACE )
 					printk
 					    ("SJCD_S_READ: nothing to read: go to SJCD_S_STOP mode\n");
 #endif
@@ -1273,7 +1276,7 @@ static void sjcd_poll(void)
 					goto ReSwitch;
 				}
 			}
-#if defined(SJCD_GATHER_STAT)
+#if defined( SJCD_GATHER_STAT )
 			else
 				statistic.read_ticks++;
 #endif
@@ -1286,7 +1289,7 @@ static void sjcd_poll(void)
 		      sjcd_s_data:stat =
 			    inb(SJCDPORT
 				(1));
-#if defined(SJCD_TRACE)
+#if defined( SJCD_TRACE )
 			printk("SJCD_S_DATA: status = 0x%02x\n", stat);
 #endif
 			if (SJCD_STATUS_AVAILABLE(stat)) {
@@ -1298,14 +1301,14 @@ static void sjcd_poll(void)
 
 				if (!sjcd_status_valid
 				    || sjcd_command_failed) {
-#if defined(SJCD_TRACE)
+#if defined( SJCD_TRACE )
 					printk
 					    ("SJCD: read block %d failed, maybe audio disk? Giving up\n",
 					     sjcd_next_bn);
 #endif
 					if (CURRENT_IS_VALID)
 						end_request(0);
-#if defined(SJCD_TRACE)
+#if defined( SJCD_TRACE )
 					printk
 					    ("SJCD_S_DATA: pre-cmd failed: go to SJCD_S_STOP mode\n");
 #endif
@@ -1330,7 +1333,7 @@ static void sjcd_poll(void)
 				 */
 				if (!CURRENT_IS_VALID
 				    && sjcd_buf_in == sjcd_buf_out) {
-#if defined(SJCD_TRACE)
+#if defined( SJCD_TRACE )
 					printk
 					    ("SJCD_S_DATA: nothing to read: go to SJCD_S_STOP mode\n");
 					printk
@@ -1347,7 +1350,7 @@ static void sjcd_poll(void)
 				sjcd_buf_bn[sjcd_buf_in] = -1;	/* ??? */
 				insb(SJCDPORT(2),
 				     sjcd_buf + 2048 * sjcd_buf_in, 2048);
-#if defined(SJCD_TRACE)
+#if defined( SJCD_TRACE )
 				printk
 				    ("SJCD_S_DATA: next_bn=%d, buf_in=%d, buf_out=%d, buf_bn=%d\n",
 				     sjcd_next_bn, sjcd_buf_in,
@@ -1389,7 +1392,7 @@ static void sjcd_poll(void)
 					     || CURRENT->sector / 4 >
 					     sjcd_next_bn +
 					     SJCD_BUF_SIZ)) {
-#if defined(SJCD_TRACE)
+#if defined( SJCD_TRACE )
 						printk
 						    ("SJCD_S_DATA: can't read: go to SJCD_S_STOP mode\n");
 #endif
@@ -1403,7 +1406,7 @@ static void sjcd_poll(void)
 				 */
 				goto sjcd_s_data;
 			}
-#if defined(SJCD_GATHER_STAT)
+#if defined( SJCD_GATHER_STAT )
 			else
 				statistic.data_ticks++;
 #endif
@@ -1415,7 +1418,7 @@ static void sjcd_poll(void)
 			sjcd_send_cmd(SCMD_STOP);
 			sjcd_transfer_state = SJCD_S_STOPPING;
 			sjcd_transfer_timeout = 500;
-#if defined(SJCD_GATHER_STAT)
+#if defined( SJCD_GATHER_STAT )
 			statistic.stop_ticks++;
 #endif
 			break;
@@ -1425,12 +1428,12 @@ static void sjcd_poll(void)
 			unsigned char stat;
 
 			stat = inb(SJCDPORT(1));
-#if defined(SJCD_TRACE)
+#if defined( SJCD_TRACE )
 			printk("SJCD_S_STOP: status = 0x%02x\n", stat);
 #endif
 			if (SJCD_DATA_AVAILABLE(stat)) {
 				int i;
-#if defined(SJCD_TRACE)
+#if defined( SJCD_TRACE )
 				printk("SJCD_S_STOP: discard data\n");
 #endif
 				/*
@@ -1457,7 +1460,7 @@ static void sjcd_poll(void)
 					sjcd_transfer_state = SJCD_S_IDLE;
 				goto ReSwitch;
 			}
-#if defined(SJCD_GATHER_STAT)
+#if defined( SJCD_GATHER_STAT )
 			else
 				statistic.stopping_ticks++;
 #endif
@@ -1488,7 +1491,7 @@ static void sjcd_poll(void)
 
 static void do_sjcd_request(request_queue_t * q)
 {
-#if defined(SJCD_TRACE)
+#if defined( SJCD_TRACE )
 	printk("SJCD: do_sjcd_request(%ld+%ld)\n",
 	       CURRENT->sector, CURRENT->nr_sectors);
 #endif
@@ -1522,7 +1525,7 @@ static void do_sjcd_request(request_queue_t * q)
 		}
 	}
 	sjcd_transfer_is_active = 0;
-#if defined(SJCD_TRACE)
+#if defined( SJCD_TRACE )
 	printk
 	    ("sjcd_next_bn:%x sjcd_buf_in:%x sjcd_buf_out:%x sjcd_buf_bn:%x\n",
 	     sjcd_next_bn, sjcd_buf_in, sjcd_buf_out,
@@ -1567,25 +1570,25 @@ int sjcd_open(struct inode *ip, struct file *fp)
 			if (!sjcd_status_valid)
 				sjcd_get_status();
 			if (!sjcd_status_valid) {
-#if defined(SJCD_DIAGNOSTIC)
+#if defined( SJCD_DIAGNOSTIC )
 				printk
 				    ("SJCD: open: timed out when check status.\n");
 #endif
 				goto err_out;
 			} else if (!sjcd_media_is_available) {
-#if defined(SJCD_DIAGNOSTIC)
+#if defined( SJCD_DIAGNOSTIC )
 				printk("SJCD: open: no disk in drive\n");
 #endif
 				if (!sjcd_door_closed) {
 					sjcd_door_was_open = 1;
-#if defined(SJCD_TRACE)
+#if defined( SJCD_TRACE )
 					printk
 					    ("SJCD: open: close the tray\n");
 #endif
 					s = sjcd_tray_close();
 					if (s < 0 || !sjcd_status_valid
 					    || sjcd_command_failed) {
-#if defined(SJCD_DIAGNOSTIC)
+#if defined( SJCD_DIAGNOSTIC )
 						printk
 						    ("SJCD: open: tray close attempt failed\n");
 #endif
@@ -1599,12 +1602,12 @@ int sjcd_open(struct inode *ip, struct file *fp)
 		}
 		s = sjcd_tray_lock();
 		if (s < 0 || !sjcd_status_valid || sjcd_command_failed) {
-#if defined(SJCD_DIAGNOSTIC)
+#if defined( SJCD_DIAGNOSTIC )
 			printk("SJCD: open: tray lock attempt failed\n");
 #endif
 			goto err_out;
 		}
-#if defined(SJCD_TRACE)
+#if defined( SJCD_TRACE )
 		printk("SJCD: open: done\n");
 #endif
 	}
@@ -1623,14 +1626,14 @@ static int sjcd_release(struct inode *inode, struct file *file)
 {
 	int s;
 
-#if defined(SJCD_TRACE)
+#if defined( SJCD_TRACE )
 	printk("SJCD: release\n");
 #endif
 	if (--sjcd_open_count == 0) {
 		sjcd_invalidate_buffers();
 		s = sjcd_tray_unlock();
 		if (s < 0 || !sjcd_status_valid || sjcd_command_failed) {
-#if defined(SJCD_DIAGNOSTIC)
+#if defined( SJCD_DIAGNOSTIC )
 			printk
 			    ("SJCD: release: tray unlock attempt failed.\n");
 #endif
@@ -1639,7 +1642,7 @@ static int sjcd_release(struct inode *inode, struct file *file)
 			s = sjcd_tray_open();
 			if (s < 0 || !sjcd_status_valid
 			    || sjcd_command_failed) {
-#if defined(SJCD_DIAGNOSTIC)
+#if defined( SJCD_DIAGNOSTIC )
 				printk
 				    ("SJCD: release: tray unload attempt failed.\n");
 #endif
@@ -1685,7 +1688,7 @@ int __init sjcd_init(void)
 	       "SJCD: Sanyo CDR-H94A cdrom driver version %d.%d.\n",
 	       SJCD_VERSION_MAJOR, SJCD_VERSION_MINOR);
 
-#if defined(SJCD_TRACE)
+#if defined( SJCD_TRACE )
 	printk("SJCD: sjcd=0x%x: ", sjcd_base);
 #endif
 

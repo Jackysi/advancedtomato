@@ -54,9 +54,17 @@
 
 #endif /* MODULE */
 
+#if 0
+#define DPRINTK(args...) printk(KERN_DEBUG __FILE__": " ##args)
+#else
 #define DPRINTK(args...)
+#endif
 
+#if 0
+#define CHKINFO(ret) if (info != &fb_info) { printk(KERN_DEBUG __FILE__": This should never happen, line:%d \n", __LINE__); return ret; }
+#else
 #define CHKINFO(ret)
+#endif
 
 /* Description of the hardware layout */
 
@@ -417,6 +425,23 @@ int hga_get_var(struct fb_var_screeninfo *var, int con, struct fb_info *info)
 	return 0;
 }
 
+/**
+ *	hga_set_var - set the user defined part of the display
+ *	@var:new video mode
+ *	@con:unused
+ *	@info:pointer to fb_info object containing info for current hga board
+ *	
+ *	This function is called for changing video modes. Since HGA cards have
+ *	only one fixed mode we have not much to do. After checking input 
+ *	parameters @var is copied to @info->var and @info->changevar is called.
+ *	A zero is returned on success and %-EINVAL for failure.
+ *	
+ *	FIXME:
+ *	This is the most mystical function (at least for me).
+ *	What is the exact specification of xxx_set_var()?
+ *	Should it handle xoffset, yoffset? Should it do panning?
+ *	What does vmode mean?
+ */
 
 int hga_set_var(struct fb_var_screeninfo *var, int con, struct fb_info *info)
 {
@@ -603,6 +628,9 @@ static int hgafbcon_switch(int con, struct fb_info *info)
 	DPRINTK("hgafbcon_switch: currcon:%d, con:%d, info:%x, fb_info:%x\n", currcon, con, (unsigned)info, (unsigned)&fb_info);
 
 	/* Save the colormap and video mode */
+#if 0	/* Not necessary in hgafb, we use fixed colormap */
+	fb_copy_cmap(&info->cmap, &fb_display[currcon].cmap, 0);
+#endif
 
 	if (currcon != -1) /* this check is absolute necessary! */
 		memcpy(&fb_display[currcon].var, &info->var,
@@ -612,6 +640,10 @@ static int hgafbcon_switch(int con, struct fb_info *info)
 	 * sets all the colormaps and video modes to the default values at
 	 * bootup.
 	 */
+#if 0
+	fb_copy_cmap(&fb_display[con].cmap, &info->cmap, 0);
+	fb_set_cmap(&info->cmap, 1, hga_setcolreg, info);
+#endif
 
 	memcpy(&info->var, &fb_display[con].var,
 			sizeof(struct fb_var_screeninfo));
@@ -672,7 +704,7 @@ static void hgafbcon_blank(int blank_mode, struct fb_info *info)
 int __init hgafb_init(void)
 {
 	if (! hga_card_detect()) {
-		printk(KERN_ERR "hgafb: HGA card not detected.\n");
+		printk(KERN_INFO "hgafb: HGA card not detected.\n");
 		return -EINVAL;
 	}
 

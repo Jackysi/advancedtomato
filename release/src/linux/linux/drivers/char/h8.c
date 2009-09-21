@@ -464,6 +464,7 @@ h8_q_cmd(u_char *cmd, int cmd_size, int resp_size)
         /* queue it at the end of the cmd queue */
         save_flags(flags); cli();
 
+        /* XXX this actually puts it at the start of cmd queue, bug? */
         list_add(&qp->link, &h8_cmdq);
 
         restore_flags(flags);
@@ -502,6 +503,7 @@ h8_start_new_cmd(void)
          */
         qp = list_entry(h8_cmdq.next, h8_cmd_q_t, link);
         list_del(&qp->link);
+        /* XXX should this go to the end of the active queue? */
         list_add(&qp->link, &h8_actq);
         h8_state = H8_XMIT;
         if (h8_debug & 0x1)
@@ -969,6 +971,20 @@ h8_monitor_thread(void * unused)
                         h8_manage_therm();
                 }
 
+#if 0
+                if (h8_event_mask & H8_POWER_BUTTON) {
+                        h8_system_down();
+                }
+
+		/*
+		 * If an external DC supply is removed or added make 
+		 * appropriate CPU speed adjustments.
+		 */
+                if (h8_event_mask & H8_MANAGE_BATTERY) {
+                          h8_run_level_3_manage(H8_RUN); 
+                          h8_clear_event_mask(H8_MANAGE_BATTERY);
+                }
+#endif
         }
 }
 

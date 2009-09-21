@@ -39,6 +39,10 @@
 		beqz	t0,3f
 		sll	t0,16			# delay slot
 
+		/*
+		 * Find irq with highest priority
+		 * FIXME: This is slow - use binary search
+		 */
 		la	t1,ll_vectors
 1:		bltz	t0,2f			# found pending irq
 		sll	t0,1
@@ -69,7 +73,7 @@ ll_local_dma:	li	s1,~IE_IRQ0
 		PANIC("Unimplemented local_dma handler")
 
 ll_local_dev:	lbu	t0,JAZZ_IO_IRQ_SOURCE
-#if PTRSIZE == 8	    /* True 64 bit kernel */
+#if PTRSIZE == 8	/* True 64 bit kernel */
 		dsll	t0,1
 #endif
 		.set	reorder
@@ -132,6 +136,28 @@ ll_timer:	lw	zero,JAZZ_TIMER_REGISTER # timer irq cleared on read
 ll_count:	j	return
 		 mtc0	zero,CP0_COMPARE
 
+#if 0
+/*
+ * Call the handler for the interrupt
+ * (Currently unused)
+ */
+call_real:	/*
+		 * temporarily disable interrupt
+		 */
+		mfc0	t2,CP0_STATUS
+		and	t2,s1
+		mtc0	t2,CP0_STATUS
+		nor	s1,zero,s1
+		jal	do_IRQ
+
+		/*
+		 * reenable interrupt
+		 */
+		mfc0	t2,CP0_STATUS
+		or	t2,s1
+		mtc0	t2,CP0_STATUS
+		j	ret_from_irq
+#endif
 
 		.data
 		PTR	ll_sw0			# SW0

@@ -1,1 +1,0 @@
-#undef  CONFIG_MTD_REDBOOT_PARTS

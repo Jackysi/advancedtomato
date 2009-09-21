@@ -14,12 +14,12 @@ SECTIONS
 	*(.gnu.warning)
 	} = 0
 
+  _etext = .;			/* End of text section */
+  
   . = ALIGN(16);
   .rodata : { *(.rodata) *(.rodata.*) }
   .kstrtab : { *(.kstrtab) }
 
-  _etext = .;			/* End of text section */
-  
   .data BLOCK(8192) : {			/* Data without special */
 	data_start = .;
 	*(.data)

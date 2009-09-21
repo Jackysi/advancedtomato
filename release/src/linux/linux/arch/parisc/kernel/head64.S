@@ -24,7 +24,7 @@
 #include <asm/pdc.h>		/* for PDC_PSW defines */
 
 
-	.level 2.0
+	.level 2.0w
 
 	.section	.initcall.init
 	.align		4
@@ -99,7 +99,7 @@ $bss_loop:
 	mtctl		%r4,%cr24	/* Initialize kernel root pointer */
 	mtctl		%r4,%cr25	/* Initialize user root pointer */
 
-#if __PAGE_OFFSET != 0x10000000UL
+#if (__PAGE_OFFSET != 0x10000000UL)
 Error! Code below (the next five std's) needs to be changed
 #endif
 

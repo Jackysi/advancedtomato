@@ -3,11 +3,11 @@
  *	Linux INET6 implementation
  *
  *	Authors:
- *	Pedro Roque		<roque@di.fc.ul.pt>
+ *	Pedro Roque		<pedro_m@yahoo.com>
  *	Andi Kleen		<ak@muc.de>
  *	Alexey Kuznetsov	<kuznet@ms2.inr.ac.ru>
  *
- *	$Id: exthdrs.c,v 1.1.1.4 2003/10/14 08:09:34 sparq Exp $
+ *	$Id: exthdrs.c,v 1.13 2001/06/19 15:58:56 davem Exp $
  *
  *	This program is free software; you can redistribute it and/or
  *      modify it under the terms of the GNU General Public License
@@ -235,8 +235,13 @@ looped_back:
 		return (&hdr->nexthdr) - skb->nh.raw;
 	}
 
-	if (hdr->type != IPV6_SRCRT_TYPE_0 || (hdr->hdrlen & 0x01)) {
-		icmpv6_param_prob(skb, ICMPV6_HDR_FIELD, hdr->type != IPV6_SRCRT_TYPE_0 ? 2 : 1);
+	if (hdr->type != IPV6_SRCRT_TYPE_0) {
+		icmpv6_param_prob(skb, ICMPV6_HDR_FIELD, (&hdr->type) - skb->nh.raw);
+		return -1;
+	}
+	
+	if (hdr->hdrlen & 0x01) {
+		icmpv6_param_prob(skb, ICMPV6_HDR_FIELD, (&hdr->hdrlen) - skb->nh.raw);
 		return -1;
 	}
 
@@ -288,9 +293,11 @@ looped_back:
 	dst_release(xchg(&skb->dst, NULL));
 	ip6_route_input(skb);
 	if (skb->dst->error) {
+		skb_push(skb, skb->data - skb->nh.raw);
 		skb->dst->input(skb);
 		return -1;
 	}
+
 	if (skb->dst->dev->flags&IFF_LOOPBACK) {
 		if (skb->nh.ipv6h->hop_limit <= 1) {
 			icmpv6_send(skb, ICMPV6_TIME_EXCEED, ICMPV6_EXC_HOPLIMIT,
@@ -302,6 +309,7 @@ looped_back:
 		goto looped_back;
 	}
 
+	skb_push(skb, skb->data - skb->nh.raw);
 	skb->dst->input(skb);
 	return -1;
 }
@@ -402,7 +410,13 @@ static int ipv6_auth_hdr(struct sk_buff **skb_ptr, int nhoff)
 	if (!pskb_may_pull(skb, (skb->h.raw-skb->data)+8))
 		goto fail;
 
-	len = (skb->h.raw[1]+1)<<2;
+	/*
+	 * RFC2402 2.2 Payload Length
+	 * The 8-bit field specifies the length of AH in 32-bit words 
+	 * (4-byte units), minus "2".
+	 * -- Noriaki Takamiya @USAGI Project
+	 */
+	len = (skb->h.raw[1]+2)<<2;
 
 	if (len&7)
 		goto fail;
@@ -772,7 +786,7 @@ int ipv6_ext_hdr(u8 nexthdr)
  * --ANK (980726)
  */
 
-int ipv6_skip_exthdr(struct sk_buff *skb, int start, u8 *nexthdrp, int len)
+int ipv6_skip_exthdr(const struct sk_buff *skb, int start, u8 *nexthdrp, int len)
 {
 	u8 nexthdr = *nexthdrp;
 
@@ -787,8 +801,16 @@ int ipv6_skip_exthdr(struct sk_buff *skb, int start, u8 *nexthdrp, int len)
 		if (skb_copy_bits(skb, start, &hdr, sizeof(hdr)))
 			BUG();
 		if (nexthdr == NEXTHDR_FRAGMENT) {
-			struct frag_hdr *fhdr = (struct frag_hdr *) &hdr;
-			if (ntohs(fhdr->frag_off) & ~0x7)
+			unsigned short frag_off;
+			if (skb_copy_bits(skb,
+					  start+offsetof(struct frag_hdr,
+							 frag_off),
+					  &frag_off,
+					  sizeof(frag_off))) {
+				return -1;
+			}
+
+			if (ntohs(frag_off) & ~0x7)
 				break;
 			hdrlen = 8;
 		} else if (nexthdr == NEXTHDR_AUTH)

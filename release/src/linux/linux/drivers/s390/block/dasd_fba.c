@@ -1,9 +1,12 @@
-
 /* 
  * File...........: linux/drivers/s390/block/dasd_fba.c
  * Author(s)......: Holger Smolinski <Holger.Smolinski@de.ibm.com>
  * Bugreports.to..: <Linux390@de.ibm.com>
  * (C) IBM Corporation, IBM Deutschland Entwicklung GmbH, 1999,2000
+ *
+ * $Revision: 1.50 $
+ *
+ * History of changes
  *          fixed partition handling and HDIO_GETGEO
  */
 
@@ -37,6 +40,12 @@
 #define DASD_FBA_CCW_READ 0x42
 #define DASD_FBA_CCW_LOCATE 0x43
 #define DASD_FBA_CCW_DEFINE_EXTENT 0x63
+
+#ifdef MODULE
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,4,12))
+MODULE_LICENSE("GPL");
+#endif
+#endif
 
 dasd_discipline_t dasd_fba_discipline;
 
@@ -123,35 +132,46 @@ dasd_fba_check_characteristics (struct dasd_device_t *device)
 	dasd_fba_private_t *private;
 
 	if (device == NULL) {
-		printk (KERN_WARNING PRINTK_HEADER
-			"Null device pointer passed to characteristics checker\n");
+
+		MESSAGE (KERN_WARNING, "%s",
+                         "Null device pointer passed to characteristics "
+                         "checker");
+
                 return -ENODEV;
 	}
 	device->private = kmalloc (sizeof (dasd_fba_private_t), GFP_KERNEL);
+
 	if (device->private == NULL) {
-		printk (KERN_WARNING PRINTK_HEADER
-			"memory allocation failed for private data\n");
+
+		MESSAGE (KERN_WARNING, "%s",
+			"memory allocation failed for private data");
+
                 rc = -ENOMEM;
                 goto fail;
 	}
 	private = (dasd_fba_private_t *) device->private;
 	rdc_data = (void *) &(private->rdc_data);
 	rc = read_dev_chars (device->devinfo.irq, &rdc_data, 32);
+
 	if (rc) {
-		printk (KERN_WARNING PRINTK_HEADER
-			"Read device characteristics returned error %d\n", rc);
+
+		MESSAGE (KERN_WARNING,
+			"Read device characteristics returned error %d", 
+                         rc);
+
                 goto fail;
 	}
-	printk (KERN_INFO PRINTK_HEADER
-		"%04X on sch %d: %04X/%02X(CU:%04X/%02X) %dMB at(%d B/blk)\n",
-		device->devinfo.devno, device->devinfo.irq,
-		device->devinfo.sid_data.dev_type,
-		device->devinfo.sid_data.dev_model,
-		device->devinfo.sid_data.cu_type,
-		device->devinfo.sid_data.cu_model,
-		(private->rdc_data.blk_bdsa *
-		 (private->rdc_data.blk_size >> 9)) >> 11,
-		private->rdc_data.blk_size);
+
+	DEV_MESSAGE (KERN_INFO, device,
+                     "%04X/%02X(CU:%04X/%02X) %dMB at(%d B/blk)",
+                     device->devinfo.sid_data.dev_type,
+                     device->devinfo.sid_data.dev_model,
+                     device->devinfo.sid_data.cu_type,
+                     device->devinfo.sid_data.cu_model,
+                     ((private->rdc_data.blk_bdsa *
+                       (private->rdc_data.blk_size >> 9)) >> 11),
+                     private->rdc_data.blk_size);
+
         goto out;
  fail:
         if ( rc ) {
@@ -180,9 +200,11 @@ dasd_fba_do_analysis (struct dasd_device_t *device)
 		device->sizes.bp_block = bs;
 		break;
 	default:
-		printk (KERN_INFO PRINTK_HEADER
-			"/dev/%s (%04X): unknown blocksize %d\n",
-			device->name, device->devinfo.devno, bs);
+
+		DEV_MESSAGE (KERN_INFO, device,
+                             "unknown blocksize %d",
+                             bs);
+
 		return -EMEDIUMTYPE;
 	}
 	device->sizes.s2b_shift = 0;	/* bits to shift 512 to get a block */
@@ -247,8 +269,11 @@ dasd_fba_erp_postaction (ccw_req_t * cqr)
 {
 	if (cqr->function == dasd_default_erp_action)
 		return dasd_default_erp_postaction;
-	printk (KERN_WARNING PRINTK_HEADER
-		"unknown ERP action %p\n", cqr->function);
+
+	MESSAGE (KERN_WARNING,
+                 "unknown ERP action %p", 
+                 cqr->function);
+
 	return NULL;
 }
 
@@ -265,14 +290,20 @@ dasd_fba_build_cp_from_req (dasd_device_t * device, struct request *req)
 	struct buffer_head *bh;
 	dasd_fba_private_t *private = (dasd_fba_private_t *) device->private;
 	int byt_per_blk = device->sizes.bp_block;
+        unsigned long reloc_sector = req->sector + 
+                device->major_info->gendisk.part[MINOR (req->rq_dev)].start_sect;
         
 	if (req->cmd == READ) {
 		rw_cmd = DASD_FBA_CCW_READ;
 	} else if (req->cmd == WRITE) {
 		rw_cmd = DASD_FBA_CCW_WRITE;
 	} else {
-		PRINT_ERR ("Unknown command %d\n", req->cmd);
-		return NULL;
+
+		MESSAGE (KERN_ERR,
+                         "Unknown command %d\n", 
+                         req->cmd);
+
+		return ERR_PTR(-EINVAL);
 	}
 	/* Build the request */
 	/* count hs to prevent errors, when bh smaller than block */
@@ -300,14 +331,14 @@ dasd_fba_build_cp_from_req (dasd_device_t * device, struct request *req)
                                             device);
         }
 	if (!rw_cp) {
-		return NULL;
+		return ERR_PTR(-ENOMEM);
 	}
 	DE_data = rw_cp->data;
 	LO_data = rw_cp->data + sizeof (DE_fba_data_t);
 	ccw = rw_cp->cpaddr;
 
 	if (define_extent (ccw, DE_data, req->cmd, byt_per_blk,
-                           req->sector, req->nr_sectors, rw_cp, device)) {
+                           reloc_sector, req->nr_sectors, rw_cp, device)) {
                 goto clear_rw_cp;
         }
 	ccw->flags |= CCW_FLAG_CC;
@@ -363,11 +394,12 @@ dasd_fba_build_cp_from_req (dasd_device_t * device, struct request *req)
 }
 
 static int
-dasd_fba_fill_info (dasd_device_t * device, dasd_information_t * info)
+dasd_fba_fill_info (dasd_device_t * device, dasd_information2_t * info)
 {
 	int rc = 0;
 	info->label_block = 1;
 	info->FBA_layout = 1;
+	info->format = DASD_FORMAT_LDL;
 	info->characteristics_size = sizeof (dasd_fba_characteristics_t);
 	memcpy (info->characteristics,
 		&((dasd_fba_private_t *) device->private)->rdc_data,
@@ -376,21 +408,6 @@ dasd_fba_fill_info (dasd_device_t * device, dasd_information_t * info)
 	return rc;
 }
 
-
-static char *
-dasd_fba_dump_sense (struct dasd_device_t *device, ccw_req_t * req)
-{
-	char *page = (char *) get_free_page (GFP_KERNEL);
-	int len;
-	if (page == NULL) {
-		return NULL;
-	}
-	len = sprintf (page, KERN_WARNING PRINTK_HEADER
-		       "device %04X on irq %d: I/O status report:\n",
-		       device->devinfo.devno, device->devinfo.irq);
-
-	return page;
-}
 
 dasd_discipline_t dasd_fba_discipline = {
         owner: THIS_MODULE,
@@ -407,17 +424,20 @@ dasd_discipline_t dasd_fba_discipline = {
 	erp_action:dasd_fba_erp_action,
 	erp_postaction:dasd_fba_erp_postaction,
 	build_cp_from_req:dasd_fba_build_cp_from_req,
-	dump_sense:dasd_fba_dump_sense,
 	int_handler:dasd_int_handler,
 	fill_info:dasd_fba_fill_info,
+	list:LIST_HEAD_INIT(dasd_fba_discipline.list),
 };
 
 int
 dasd_fba_init (void)
 {
 	int rc = 0;
-	printk (KERN_INFO PRINTK_HEADER
-		"%s discipline initializing\n", dasd_fba_discipline.name);
+
+	MESSAGE (KERN_INFO,
+                 "%s discipline initializing", 
+                 dasd_fba_discipline.name);
+
 	ASCEBC (dasd_fba_discipline.ebcname, 4);
 	dasd_discipline_add (&dasd_fba_discipline);
 #ifdef CONFIG_DASD_DYNAMIC
@@ -426,12 +446,15 @@ dasd_fba_init (void)
 		for (i = 0;
 		     i < sizeof (dasd_fba_known_devices) / sizeof (devreg_t);
 		     i++) {
-			printk (KERN_INFO PRINTK_HEADER
-				"We are interested in: Dev %04X/%02X @ CU %04X/%02x\n",
-				dasd_fba_known_devices[i].ci.hc.dtype,
-				dasd_fba_known_devices[i].ci.hc.dmode,
-				dasd_fba_known_devices[i].ci.hc.ctype,
-				dasd_fba_known_devices[i].ci.hc.cmode);
+
+			MESSAGE (KERN_INFO,
+                                 "We are interested in: "
+                                 "Dev %04X/%02X @ CU %04X/%02x",
+                                 dasd_fba_known_devices[i].ci.hc.dtype,
+                                 dasd_fba_known_devices[i].ci.hc.dmode,
+                                 dasd_fba_known_devices[i].ci.hc.ctype,
+                                 dasd_fba_known_devices[i].ci.hc.cmode);
+
 			s390_device_register (&dasd_fba_known_devices[i]);
 		}
 	}
@@ -441,8 +464,11 @@ dasd_fba_init (void)
 
 void
 dasd_fba_cleanup( void ) {
-        printk ( KERN_INFO PRINTK_HEADER
-                 "%s discipline cleaning up\n", dasd_fba_discipline.name);
+
+        MESSAGE (KERN_INFO,
+                 "%s discipline cleaning up", 
+                 dasd_fba_discipline.name);
+
 #ifdef CONFIG_DASD_DYNAMIC
         {
 	int i;

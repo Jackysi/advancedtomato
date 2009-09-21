@@ -7,7 +7,7 @@
  * Copyright (C) 1999 Andrew R. Baker (andrewb@uab.edu)
  *                    - Indigo2 changes
  *                    - Interrupt handling fixes
- * Copyright (C) 2001 Ladislav Michl (ladis@psi.cz)
+ * Copyright (C) 2001, 2003 Ladislav Michl (ladis@linux-mips.org)
  */
 
 #include <linux/types.h>
@@ -21,17 +21,16 @@
 #include <asm/mipsregs.h>
 #include <asm/addrspace.h>
 
-#include <asm/sgi/sgint23.h>
-#include <asm/sgi/sgihpc.h>
+#include <asm/sgi/ioc.h>
+#include <asm/sgi/hpc3.h>
+#include <asm/sgi/ip22.h>
 
 /* #define DEBUG_SGINT */
-#undef I_REALLY_NEED_THIS_IRQ
 
-struct sgi_int2_regs *sgi_i2regs;
-struct sgi_int3_regs *sgi_i3regs;
-struct sgi_ioc_ints *ioc_icontrol;
-struct sgi_ioc_timers *ioc_timers;
-volatile unsigned char *ioc_tclear;
+/* So far nothing hangs here */
+#undef USE_LIO3_IRQ 
+
+struct sgint_regs *sgint;
 
 static char lc0msk_to_irqnr[256];
 static char lc1msk_to_irqnr[256];
@@ -39,8 +38,7 @@ static char lc2msk_to_irqnr[256];
 static char lc3msk_to_irqnr[256];
 
 extern asmlinkage void indyIRQ(void);
-extern void do_IRQ(int irq, struct pt_regs *regs);
-extern int ip22_eisa_init (void);
+extern int ip22_eisa_init(void);
 
 static void enable_local0_irq(unsigned int irq)
 {
@@ -50,7 +48,7 @@ static void enable_local0_irq(unsigned int irq)
 	/* don't allow mappable interrupt to be enabled from setup_irq,
 	 * we have our own way to do so */
 	if (irq != SGI_MAP_0_IRQ)
-		ioc_icontrol->imask0 |= (1 << (irq - SGINT_LOCAL0));
+		sgint->imask0 |= (1 << (irq - SGINT_LOCAL0));
 	restore_flags(flags);
 }
 
@@ -65,7 +63,7 @@ static void disable_local0_irq(unsigned int irq)
 	unsigned long flags;
 
 	save_and_cli(flags);
-	ioc_icontrol->imask0 &= ~(1 << (irq - SGINT_LOCAL0));
+	sgint->imask0 &= ~(1 << (irq - SGINT_LOCAL0));
 	restore_flags(flags);
 }
 
@@ -96,7 +94,7 @@ static void enable_local1_irq(unsigned int irq)
 	/* don't allow mappable interrupt to be enabled from setup_irq,
 	 * we have our own way to do so */
 	if (irq != SGI_MAP_1_IRQ)
-		ioc_icontrol->imask1 |= (1 << (irq - SGINT_LOCAL1));
+		sgint->imask1 |= (1 << (irq - SGINT_LOCAL1));
 	restore_flags(flags);
 }
 
@@ -111,7 +109,7 @@ void disable_local1_irq(unsigned int irq)
 	unsigned long flags;
 
 	save_and_cli(flags);
-	ioc_icontrol->imask1 &= ~(1 << (irq - SGINT_LOCAL1));
+	sgint->imask1 &= ~(1 << (irq - SGINT_LOCAL1));
 	restore_flags(flags);
 }
 
@@ -139,8 +137,8 @@ static void enable_local2_irq(unsigned int irq)
 	unsigned long flags;
 
 	save_and_cli(flags);
-	ioc_icontrol->imask0 |= (1 << (SGI_MAP_0_IRQ - SGINT_LOCAL0));
-	ioc_icontrol->cmeimask0 |= (1 << (irq - SGINT_LOCAL2));
+	sgint->imask0 |= (1 << (SGI_MAP_0_IRQ - SGINT_LOCAL0));
+	sgint->cmeimask0 |= (1 << (irq - SGINT_LOCAL2));
 	restore_flags(flags);
 }
 
@@ -155,9 +153,9 @@ void disable_local2_irq(unsigned int irq)
 	unsigned long flags;
 
 	save_and_cli(flags);
-	ioc_icontrol->cmeimask0 &= ~(1 << (irq - SGINT_LOCAL2));
-	if (!ioc_icontrol->cmeimask0)
-		ioc_icontrol->imask0 &= ~(1 << (SGI_MAP_0_IRQ - SGINT_LOCAL0));
+	sgint->cmeimask0 &= ~(1 << (irq - SGINT_LOCAL2));
+	if (!sgint->cmeimask0)
+		sgint->imask0 &= ~(1 << (SGI_MAP_0_IRQ - SGINT_LOCAL0));
 	restore_flags(flags);
 }
 
@@ -182,16 +180,12 @@ static struct hw_interrupt_type ip22_local2_irq_type = {
 
 static void enable_local3_irq(unsigned int irq)
 {
-#ifdef I_REALLY_NEED_THIS_IRQ
 	unsigned long flags;
 
 	save_and_cli(flags);
-	ioc_icontrol->imask1 |= (1 << (SGI_MAP_1_IRQ - SGINT_LOCAL1));
-	ioc_icontrol->cmeimask1 |= (1 << (irq - SGINT_LOCAL3));
+	sgint->imask1 |= (1 << (SGI_MAP_1_IRQ - SGINT_LOCAL1));
+	sgint->cmeimask1 |= (1 << (irq - SGINT_LOCAL3));
 	restore_flags(flags);
-#else
-	panic("Who need local 3 irq? see ip22-int.c");
-#endif
 }
 
 static unsigned int startup_local3_irq(unsigned int irq)
@@ -205,9 +199,9 @@ void disable_local3_irq(unsigned int irq)
 	unsigned long flags;
 
 	save_and_cli(flags);
-	ioc_icontrol->cmeimask1 &= ~(1 << (irq - SGINT_LOCAL3));
-	if (!ioc_icontrol->cmeimask1)
-		ioc_icontrol->imask1 &= ~(1 << (SGI_MAP_1_IRQ - SGINT_LOCAL1));
+	sgint->cmeimask1 &= ~(1 << (irq - SGINT_LOCAL3));
+	if (!sgint->cmeimask1)
+		sgint->imask1 &= ~(1 << (SGI_MAP_1_IRQ - SGINT_LOCAL1));
 	restore_flags(flags);
 }
 
@@ -232,18 +226,15 @@ static struct hw_interrupt_type ip22_local3_irq_type = {
 
 void indy_local0_irqdispatch(struct pt_regs *regs)
 {
-	unsigned char mask = ioc_icontrol->istat0;
-	unsigned char mask2 = 0;
+	u8 mask = sgint->istat0 & sgint->imask0;
+	u8 mask2;
 	int irq;
 
-	mask &= ioc_icontrol->imask0;
-	if (mask & ISTAT0_LIO2) {
-		mask2 = ioc_icontrol->vmeistat;
-		mask2 &= ioc_icontrol->cmeimask0;
+	if (mask & SGINT_ISTAT0_LIO2) {
+		mask2 = sgint->vmeistat & sgint->cmeimask0;
 		irq = lc2msk_to_irqnr[mask2];
-	} else {
+	} else
 		irq = lc0msk_to_irqnr[mask];
-	}
 
 	/* if irq == 0, then the interrupt has already been cleared */
 	if (irq)
@@ -253,21 +244,15 @@ void indy_local0_irqdispatch(struct pt_regs *regs)
 
 void indy_local1_irqdispatch(struct pt_regs *regs)
 {
-	unsigned char mask = ioc_icontrol->istat1;
-	unsigned char mask2 = 0;
+	u8 mask = sgint->istat1 & sgint->imask1;
+	u8 mask2;
 	int irq;
 
-	mask &= ioc_icontrol->imask1;
-	if (mask & ISTAT1_LIO3) {
-#ifndef I_REALLY_NEED_THIS_IRQ
-		printk("Whee: Got an LIO3 irq, winging it...\n");
-#endif
-		mask2 = ioc_icontrol->vmeistat;
-		mask2 &= ioc_icontrol->cmeimask1;
+	if (mask & SGINT_ISTAT1_LIO3) {
+		mask2 = sgint->vmeistat & sgint->cmeimask1;
 		irq = lc3msk_to_irqnr[mask2];
-	} else {
+	} else
 		irq = lc1msk_to_irqnr[mask];
-	}
 
 	/* if irq == 0, then the interrupt has already been cleared */
 	if (irq)
@@ -275,7 +260,7 @@ void indy_local1_irqdispatch(struct pt_regs *regs)
 	return;
 }
 
-extern void be_ip22_interrupt(int irq, struct pt_regs *regs);
+extern void ip22_be_interrupt(int irq, struct pt_regs *regs);
 
 void indy_buserror_irq(struct pt_regs *regs)
 {
@@ -284,7 +269,7 @@ void indy_buserror_irq(struct pt_regs *regs)
 
 	irq_enter(cpu, irq);
 	kstat.irqs[cpu][irq]++;
-	be_ip22_interrupt(irq, regs);
+	ip22_be_interrupt(irq, regs);
 	irq_exit(cpu, irq);
 }
 
@@ -312,12 +297,15 @@ static struct irqaction map0_cascade = {
 	.name		= "mapable0 cascade",
 };
 
-#ifdef I_REALLY_NEED_THIS_IRQ
+#ifdef USE_LIO3_IRQ
 static struct irqaction map1_cascade = { 
 	.handler	= no_action,
 	.flags		= SA_INTERRUPT,
 	.name		= "mapable1 cascade",
 };
+#define SGI_INTERRUPTS	SGINT_END
+#else
+#define SGI_INTERRUPTS	SGINT_LOCAL3
 #endif
 
 extern void mips_cpu_irq_init(unsigned int irq_base);
@@ -325,9 +313,6 @@ extern void mips_cpu_irq_init(unsigned int irq_base);
 void __init init_IRQ(void)
 {
 	int i;
-
-	sgi_i2regs = (struct sgi_int2_regs *) (KSEG1 + SGI_INT2_BASE);
-	sgi_i3regs = (struct sgi_int3_regs *) (KSEG1 + SGI_INT3_BASE);
 
 	/* Init local mask --> irq tables. */
 	for (i = 0; i < 256; i++) {
@@ -379,22 +364,11 @@ void __init init_IRQ(void)
 		}
 	}
 
-	/* Indy uses an INT3, Indigo2 uses an INT2 */
-	if (sgi_guiness) {
-		ioc_icontrol = &sgi_i3regs->ints;
-		ioc_timers = &sgi_i3regs->timers;
-		ioc_tclear = &sgi_i3regs->tclear;
-	} else {
-		ioc_icontrol = &sgi_i2regs->ints;
-		ioc_timers = &sgi_i2regs->timers;
-		ioc_tclear = &sgi_i2regs->tclear;
-	}
-
 	/* Mask out all interrupts. */
-	ioc_icontrol->imask0 = 0;
-	ioc_icontrol->imask1 = 0;
-	ioc_icontrol->cmeimask0 = 0;
-	ioc_icontrol->cmeimask1 = 0;
+	sgint->imask0 = 0;
+	sgint->imask1 = 0;
+	sgint->cmeimask0 = 0;
+	sgint->cmeimask1 = 0;
 
 	set_except_vector(0, indyIRQ);
 
@@ -402,7 +376,7 @@ void __init init_IRQ(void)
 	/* init CPU irqs */
 	mips_cpu_irq_init(SGINT_CPU);
 
-	for (i = SGINT_LOCAL0; i < SGINT_END; i++) {
+	for (i = SGINT_LOCAL0; i < SGI_INTERRUPTS; i++) {
 		hw_irq_controller *handler;
 
 		if (i < SGINT_LOCAL1)
@@ -427,11 +401,12 @@ void __init init_IRQ(void)
 
 	/* cascade in cascade. i love Indy ;-) */
 	setup_irq(SGI_MAP_0_IRQ, &map0_cascade);
-#ifdef I_REALLY_NEED_THIS_IRQ
+#ifdef USE_LIO3_IRQ
 	setup_irq(SGI_MAP_1_IRQ, &map1_cascade);
 #endif
-#ifdef CONFIG_IP22_EISA
-	if (!sgi_guiness)	/* Only Indigo-2 have EISA stuff */
+
+#ifdef CONFIG_EISA
+	if (ip22_is_fullhouse())	/* Only Indigo-2 have EISA stuff */
 	        ip22_eisa_init ();
 #endif
 }

@@ -50,6 +50,8 @@ struct cpuinfo_S390
 
 extern void print_cpu_info(struct cpuinfo_S390 *);
 
+extern void show_trace(unsigned long* esp);
+
 /* Lazy FPU handling on uni-processor */
 extern struct task_struct *last_task_used_math;
 
@@ -113,7 +115,7 @@ struct mm_struct;
 
 /* Free all resources held by a thread. */
 extern void release_thread(struct task_struct *);
-extern int kernel_thread(int (*fn)(void *), void * arg, unsigned long flags);
+extern int arch_kernel_thread(int (*fn)(void *), void * arg, unsigned long flags);
 
 /* Copy and release all segment info associated with a VM */
 #define copy_segments(nr, mm)           do { } while (0)

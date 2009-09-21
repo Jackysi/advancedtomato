@@ -34,6 +34,7 @@
 #define IDADEREGDISK		0x33333434
 #define IDAREGNEWDISK		0x34343535
 #define IDAGETLOGINFO		0x35353636
+#define IDABIGPASSTHRU          0x36363535
 
 typedef struct _ida_pci_info_struct
 {
@@ -93,5 +94,28 @@ typedef struct {
 		scsi_param_t		scsi_param;
 	} c;
 } ida_ioctl_t;
+
+#define IDA_MAX_KMALLOC_SIZE 128000
+
+/* transfer type of the commands */
+#define IDA_XFER_NONE	0x00
+#define IDA_XFER_READ	0x01
+#define IDA_XFER_WRITE	0x02
+#define IDA_XFER_BOTH	0x03
+
+typedef struct {
+	__u8	cmd;
+	__u8	rcode;
+	__u8	unit;
+	__u32	blk;
+	__u16	blk_cnt;
+
+	__u8	xfer_type;
+	__u8    *buff;
+	size_t	buff_size;
+	__u32	buff_malloc_size;
+	scsi_param_t *scsi_param; /* used only for PASSTHRU_A */
+
+} ida_big_ioctl_t;
 
 #endif /* IDA_IOCTL_H */

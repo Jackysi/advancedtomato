@@ -1,37 +1,31 @@
 /*
- * FILE NAME
- *	arch/mips/vr41xx/victor-mpc30x/setup.c
+ *  setup.c, Setup for the Victor MP-C303/304.
  *
- * BRIEF MODULE DESCRIPTION
- *	Setup for the Victor MP-C303/304.
+ *  Copyright (C) 2002-2004  Yoichi Yuasa <yuasa@hh.iij4u.or.jp>
  *
- * Copyright 2002 Yoichi Yuasa
- *                yuasa@hh.iij4u.or.jp
+ *  This program is free software; you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation; either version 2 of the License, or
+ *  (at your option) any later version.
  *
- *  This program is free software; you can redistribute it and/or modify it
- *  under the terms of the GNU General Public License as published by the
- *  Free Software Foundation; either version 2 of the License, or (at your
- *  option) any later version.
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program; if not, write to the Free Software
+ *  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 #include <linux/config.h>
-#include <linux/init.h>
 #include <linux/console.h>
 #include <linux/ide.h>
+#include <linux/init.h>
 #include <linux/ioport.h>
 
 #include <asm/pci_channel.h>
-#include <asm/reboot.h>
 #include <asm/time.h>
 #include <asm/vr41xx/mpc30x.h>
-
-#ifdef CONFIG_BLK_DEV_INITRD
-extern unsigned long initrd_start, initrd_end;
-extern void * __rd_start, * __rd_end;
-#endif
-
-#ifdef CONFIG_BLK_DEV_IDE
-extern struct ide_ops mpc30x_ide_ops;
-#endif
 
 #ifdef CONFIG_PCI
 static struct resource vr41xx_pci_io_resource = {
@@ -47,8 +41,6 @@ static struct resource vr41xx_pci_mem_resource = {
 	VR41XX_PCI_MEM_END,
 	IORESOURCE_MEM
 };
-
-extern struct pci_ops vr41xx_pci_ops;
 
 struct pci_channel mips_pci_channels[] = {
 	{&vr41xx_pci_ops, &vr41xx_pci_io_resource, &vr41xx_pci_mem_resource, 0, 256},
@@ -88,16 +80,6 @@ void __init victor_mpc30x_setup(void)
 	iomem_resource.start = IO_MEM1_RESOURCE_START;
 	iomem_resource.end = IO_MEM2_RESOURCE_END;
 
-#ifdef CONFIG_BLK_DEV_INITRD
-	ROOT_DEV = MKDEV(RAMDISK_MAJOR, 0);
-	initrd_start = (unsigned long)&__rd_start;
-	initrd_end = (unsigned long)&__rd_end;
-#endif
-
-	_machine_restart = vr41xx_restart;
-	_machine_halt = vr41xx_halt;
-	_machine_power_off = vr41xx_power_off;
-
 	board_time_init = vr41xx_time_init;
 	board_timer_setup = vr41xx_timer_setup;
 
@@ -105,15 +87,17 @@ void __init victor_mpc30x_setup(void)
 	conswitchp = &dummy_con;
 #endif
 
-#ifdef CONFIG_BLK_DEV_IDE
-	ide_ops = &mpc30x_ide_ops;
+#if defined(CONFIG_IDE) || defined(CONFIG_IDE_MODULE)
+	ide_ops = &vr41xx_ide_ops;
 #endif
 
 	vr41xx_bcu_init();
+	vr41xx_cmu_init();
+	vr41xx_pmu_init();
 
-	vr41xx_cmu_init(0);
-
+#ifdef CONFIG_SERIAL
 	vr41xx_siu_init(SIU_RS232C, 0);
+#endif
 
 #ifdef CONFIG_PCI
 	vr41xx_pciu_init(&pci_address_map);

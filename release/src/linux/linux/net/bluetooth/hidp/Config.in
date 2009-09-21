@@ -1,0 +1,5 @@
+#
+# Bluetooth HIDP layer configuration
+#
+
+dep_tristate 'HIDP protocol support' CONFIG_BLUEZ_HIDP $CONFIG_INPUT $CONFIG_BLUEZ_L2CAP

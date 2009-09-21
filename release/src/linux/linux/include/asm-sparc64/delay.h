@@ -1,4 +1,4 @@
-/* $Id: delay.h,v 1.1.1.4 2003/10/14 08:09:22 sparq Exp $
+/* $Id: delay.h,v 1.12.2.1 2002/02/02 02:11:52 kanoj Exp $
  * delay.h: Linux delay routines on the V9.
  *
  * Copyright (C) 1996 David S. Miller (davem@caip.rutgers.edu).
@@ -45,6 +45,19 @@ extern __inline__ void __udelay(unsigned long usecs, unsigned long lps)
 	__delay(usecs * HZ);
 }
 
+extern __inline__ void __ndelay(unsigned long usecs, unsigned long lps)
+{
+	usecs *= 0x0000000000000005UL;		/* 2**32 / 10000 */
+
+	__asm__ __volatile__(
+"	mulx	%1, %2, %0\n"
+"	srlx	%0, 32, %0\n"
+	: "=r" (usecs)
+	: "r" (usecs), "r" (lps));
+
+	__delay(usecs * HZ);
+}
+
 #ifdef CONFIG_SMP
 #define __udelay_val cpu_data[smp_processor_id()].udelay_val
 #else
@@ -52,6 +65,7 @@ extern __inline__ void __udelay(unsigned long usecs, unsigned long lps)
 #endif
 
 #define udelay(usecs) __udelay((usecs),__udelay_val)
+#define ndelay(usecs) __ndelay((usecs),__udelay_val)
 
 #endif /* !__ASSEMBLY__ */
 

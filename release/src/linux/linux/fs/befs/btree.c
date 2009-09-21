@@ -26,7 +26,9 @@
 #include <linux/slab.h>
 #include <linux/mm.h>
 
-#include "befs_fs.h"
+#include "befs.h"
+#include "btree.h"
+#include "datastream.h"
 #include "endian.h"
 
 /*
@@ -83,7 +85,7 @@ typedef struct {
 } befs_btree_node;
 
 /* local constants */
-const static befs_off_t befs_bt_inval = 0xffffffffffffffff;
+const static befs_off_t befs_bt_inval = 0xffffffffffffffffULL;
 
 /* local functions */
 static int befs_btree_seekleaf(struct super_block *sb, befs_data_stream * ds,
@@ -719,3 +721,65 @@ befs_compare_strings(const void *key1, int keylen1,
 }
 
 /* These will be used for non-string keyed btrees */
+#if 0
+static int
+btree_compare_int32(cont void *key1, int keylen1, const void *key2, int keylen2)
+{
+	return *(int32_t *) key1 - *(int32_t *) key2;
+}
+
+static int
+btree_compare_uint32(cont void *key1, int keylen1,
+		     const void *key2, int keylen2)
+{
+	if (*(u_int32_t *) key1 == *(u_int32_t *) key2)
+		return 0;
+	else if (*(u_int32_t *) key1 > *(u_int32_t *) key2)
+		return 1;
+
+	return -1;
+}
+static int
+btree_compare_int64(cont void *key1, int keylen1, const void *key2, int keylen2)
+{
+	if (*(int64_t *) key1 == *(int64_t *) key2)
+		return 0;
+	else if (*(int64_t *) key1 > *(int64_t *) key2)
+		return 1;
+
+	return -1;
+}
+
+static int
+btree_compare_uint64(cont void *key1, int keylen1,
+		     const void *key2, int keylen2)
+{
+	if (*(u_int64_t *) key1 == *(u_int64_t *) key2)
+		return 0;
+	else if (*(u_int64_t *) key1 > *(u_int64_t *) key2)
+		return 1;
+
+	return -1;
+}
+
+static int
+btree_compare_float(cont void *key1, int keylen1, const void *key2, int keylen2)
+{
+	float result = *(float *) key1 - *(float *) key2;
+	if (result == 0.0f)
+		return 0;
+
+	return (result < 0.0f) ? -1 : 1;
+}
+
+static int
+btree_compare_double(cont void *key1, int keylen1,
+		     const void *key2, int keylen2)
+{
+	double result = *(double *) key1 - *(double *) key2;
+	if (result == 0.0)
+		return 0;
+
+	return (result < 0.0) ? -1 : 1;
+}
+#endif				//0

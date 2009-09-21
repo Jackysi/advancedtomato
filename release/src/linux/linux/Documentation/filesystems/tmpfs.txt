@@ -47,26 +47,28 @@ tmpfs has the following uses:
    shared memory)
 
 3) Some people (including me) find it very convenient to mount it
-   e.g. on /tmp and /var/tmp and have a big swap partition. But be
-   aware: loop mounts of tmpfs files do not work due to the internal
-   design. So mkinitrd shipped by most distributions will fail with a
-   tmpfs /tmp.
+   e.g. on /tmp and /var/tmp and have a big swap partition. And now
+   loop mounts of tmpfs files do work, so mkinitrd shipped by most
+   distributions should succeed with a tmpfs /tmp.
 
 4) And probably a lot more I do not know about :-)
 
 
-tmpfs has a couple of mount options:
+tmpfs has three mount options for sizing:
 
-size:	   The limit of allocated bytes for this tmpfs instance. The 
+size:      The limit of allocated bytes for this tmpfs instance. The 
            default is half of your physical RAM without swap. If you
-	   oversize your tmpfs instances the machine will deadlock
-	   since the OOM handler will not be able to free that memory.
-nr_blocks: The same as size, but in blocks of PAGECACHE_SIZE.
+           oversize your tmpfs instances the machine will deadlock
+           since the OOM handler will not be able to free that memory.
+nr_blocks: The same as size, but in blocks of PAGE_CACHE_SIZE.
 nr_inodes: The maximum number of inodes for this instance. The default
            is half of the number of your physical RAM pages.
 
 These parameters accept a suffix k, m or g for kilo, mega and giga and
-can be changed on remount.
+can be changed on remount.  The size parameter also accepts a suffix %
+to limit this tmpfs instance to that percentage of your physical RAM:
+the default, when neither size nor nr_blocks is specified, is size=50%
+
 
 To specify the initial root directory you can use the following mount
 options:
@@ -84,19 +86,7 @@ will give you tmpfs instance on /mytmpfs which can allocate 10GB
 RAM/SWAP in 10240 inodes and it is only accessible by root.
 
 
-TODOs:
-
-1) give the size option a percent semantic: If you give a mount option
-   size=50% the tmpfs instance should be able to grow to 50 percent of
-   RAM + swap. So the instance should adapt automatically if you add
-   or remove swap space.
-2) loop mounts: This is difficult since loop.c relies on the readpage
-   operation. This operation gets a page from the caller to be filled
-   with the content of the file at that position. But tmpfs always has
-   the page and thus cannot copy the content to the given page. So it
-   cannot provide this operation. The VM had to be changed seriously
-   to achieve this.
-3) Show the number of tmpfs RAM pages. (As shared?)
-
 Author:
    Christoph Rohland <cr@sap.com>, 1.12.01
+Updated:
+   Hugh Dickins <hugh@veritas.com>, 01 April 2003

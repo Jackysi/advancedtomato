@@ -1,4 +1,4 @@
-/* $Id: VISmemset.S,v 1.1.1.4 2003/10/14 08:07:51 sparq Exp $
+/* $Id: VISmemset.S,v 1.10 1999/12/23 17:02:16 jj Exp $
  * VISmemset.S: High speed memset operations utilizing the UltraSparc
  *        Visual Instruction Set.
  *

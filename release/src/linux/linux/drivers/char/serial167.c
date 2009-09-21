@@ -9,7 +9,7 @@
  * ==============================================================
  *
  * static char rcsid[] =
- * "$Revision: 1.1.1.2 $$Date: 2003/10/14 08:08:02 $";
+ * "$Revision: 1.36.1.4 $$Date: 1995/03/29 06:14:14 $";
  *
  *  linux/kernel/cyclades.c
  *
@@ -27,13 +27,7 @@
  *   int cy_init(void);
  *   int  cy_open(struct tty_struct *tty, struct file *filp);
  *
- * $Log: serial167.c,v $
- * Revision 1.1.1.2  2003/10/14 08:08:02  sparq
- * Broadcom Release 3.51.8.0 for BCM4712.
- *
- * Revision 1.1.1.1  2003/02/03 22:37:38  mhuang
- * LINUX_2_4 branch snapshot from linux-mips.org CVS
- *
+ * $Log: cyclades.c,v $
  * Revision 1.36.1.4  1995/03/29  06:14:14  bentson
  * disambiguate between Cyclom-16Y and Cyclom-32Ye;
  *
@@ -168,6 +162,17 @@ static int baud_table[] = {
         1800,  2400,  4800,  9600, 19200, 38400, 57600, 76800,115200,150000,
         0};
 
+#if 0
+static char baud_co[] = {  /* 25 MHz clock option table */
+        /* value =>    00    01   02    03    04 */
+        /* divide by    8    32   128   512  2048 */
+        0x00,  0x04,  0x04,  0x04,  0x04,  0x04,  0x03,  0x03,  0x03,  0x02,
+        0x02,  0x02,  0x01,  0x01,  0x00,  0x00,  0x00,  0x00,  0x00,  0x00};
+
+static char baud_bpr[] = {  /* 25 MHz baud rate period table */
+        0x00,  0xf5,  0xa3,  0x6f,  0x5c,  0x51,  0xf5,  0xa3,  0x51,  0xa3,
+        0x6d,  0x51,  0xa3,  0x51,  0xa3,  0x51,  0x36,  0x29,  0x1b,  0x15};
+#endif
 
 /* I think 166 brd clocks 2401 at 20MHz.... */
 
@@ -263,6 +268,32 @@ serial_paranoia_check(struct cyclades_port *info,
 	return 0;
 } /* serial_paranoia_check */
 
+#if 0
+/* The following diagnostic routines allow the driver to spew
+   information on the screen, even (especially!) during interrupts.
+ */
+void
+SP(char *data){
+  unsigned long flags;
+    save_flags(flags); cli();
+        console_print(data);
+    restore_flags(flags);
+}
+char scrn[2];
+void
+CP(char data){
+  unsigned long flags;
+    save_flags(flags); cli();
+        scrn[0] = data;
+        console_print(scrn);
+    restore_flags(flags);
+}/* CP */
+
+void CP1(int data) { (data<10)?  CP(data+'0'): CP(data+'A'-10); }/* CP1 */
+void CP2(int data) { CP1((data>>4) & 0x0f); CP1( data & 0x0f); }/* CP2 */
+void CP4(int data) { CP2((data>>8) & 0xff); CP2(data & 0xff); }/* CP4 */
+void CP8(long data) { CP4((data>>16) & 0xffff); CP4(data & 0xffff); }/* CP8 */
+#endif
 
 /* This routine waits up to 1000 micro-seconds for the previous
    command to the Cirrus chip to complete and then issues the
@@ -742,11 +773,7 @@ do_softint(void *private_)
 	wake_up_interruptible(&info->open_wait);
     }
     if (test_and_clear_bit(Cy_EVENT_WRITE_WAKEUP, &info->event)) {
-	if((tty->flags & (1<< TTY_DO_WRITE_WAKEUP))
-	&& tty->ldisc.write_wakeup){
-	    (tty->ldisc.write_wakeup)(tty);
-	}
-	wake_up_interruptible(&tty->write_wait);
+	tty_wakeup(tty);
     }
 } /* do_softint */
 
@@ -1022,6 +1049,16 @@ config_setup(struct cyclades_port * info)
     }
 	
     /* CTS flow control flag */
+#if 0
+    /* Don't complcate matters for now! RGH 141095 */
+    if (cflag & CRTSCTS){
+	info->flags |= ASYNC_CTS_FLOW;
+	info->cor2 |= CyCtsAE;
+    }else{
+	info->flags &= ~ASYNC_CTS_FLOW;
+	info->cor2 &= ~CyCtsAE;
+    }
+#endif
     if (cflag & CLOCAL)
 	info->flags &= ~ASYNC_CHECK_CD;
     else
@@ -1316,9 +1353,7 @@ cy_flush_buffer(struct tty_struct *tty)
 	info->xmit_cnt = info->xmit_head = info->xmit_tail = 0;
     restore_flags(flags);
     wake_up_interruptible(&tty->write_wait);
-    if ((tty->flags & (1 << TTY_DO_WRITE_WAKEUP))
-    && tty->ldisc.write_wakeup)
-	(tty->ldisc.write_wakeup)(tty);
+    tty_wakeup(tty);
 } /* cy_flush_buffer */
 
 
@@ -1875,18 +1910,9 @@ cy_close(struct tty_struct * tty, struct file * filp)
     shutdown(info);
     if (tty->driver.flush_buffer)
 	tty->driver.flush_buffer(tty);
-    if (tty->ldisc.flush_buffer)
-	tty->ldisc.flush_buffer(tty);
+    tty_ldisc_flush(tty);
     info->event = 0;
     info->tty = 0;
-    if (tty->ldisc.num != ldiscs[N_TTY].num) {
-	if (tty->ldisc.close)
-	    (tty->ldisc.close)(tty);
-	tty->ldisc = ldiscs[N_TTY];
-	tty->termios->c_line = N_TTY;
-	if (tty->ldisc.open)
-	    (tty->ldisc.open)(tty);
-    }
     if (info->blocked_open) {
 	if (info->close_delay) {
 	    current->state = TASK_INTERRUPTIBLE;
@@ -1921,6 +1947,14 @@ cy_hangup(struct tty_struct *tty)
 	return;
     
     shutdown(info);
+#if 0
+    info->event = 0;
+    info->count = 0;
+#ifdef SERIAL_DEBUG_COUNT
+    printk("cyc: %d: setting count to 0\n", __LINE__);
+#endif
+    info->tty = 0;
+#endif
     info->flags &= ~(ASYNC_NORMAL_ACTIVE|ASYNC_CALLOUT_ACTIVE);
     wake_up_interruptible(&info->open_wait);
 } /* cy_hangup */
@@ -2325,6 +2359,9 @@ serial167_init(void)
     if (!(mvme16x_config &MVME16x_CONFIG_GOT_CD2401))
 	return 0;
 
+#if 0
+scrn[1] = '\0';
+#endif
 
     show_version();
 
@@ -2335,6 +2372,9 @@ serial167_init(void)
 	DefSpeed = initial_console_speed;
 	serial_console_info = &cy_port[0];
 	serial_console_cflag = DefSpeed | CS8;
+#if 0
+	serial_console = 64; /*callout_driver.minor_start*/
+#endif
     }
 
     /* Initialize the tty_driver structure */
@@ -2570,6 +2610,12 @@ show_status(int line_num)
 
 /* Virtual Registers */
 
+#if 0
+	printk(" CyRIVR %x\n", base_addr[CyRIVR]);
+	printk(" CyTIVR %x\n", base_addr[CyTIVR]);
+	printk(" CyMIVR %x\n", base_addr[CyMIVR]);
+	printk(" CyMISR %x\n", base_addr[CyMISR]);
+#endif
 
 /* Channel Registers */
 
@@ -2580,8 +2626,21 @@ show_status(int line_num)
 	printk(" CyCOR3 %x\n", base_addr[CyCOR3]);
 	printk(" CyCOR4 %x\n", base_addr[CyCOR4]);
 	printk(" CyCOR5 %x\n", base_addr[CyCOR5]);
+#if 0
+	printk(" CyCCSR %x\n", base_addr[CyCCSR]);
+	printk(" CyRDCR %x\n", base_addr[CyRDCR]);
+#endif
 	printk(" CySCHR1 %x\n", base_addr[CySCHR1]);
 	printk(" CySCHR2 %x\n", base_addr[CySCHR2]);
+#if 0
+	printk(" CySCHR3 %x\n", base_addr[CySCHR3]);
+	printk(" CySCHR4 %x\n", base_addr[CySCHR4]);
+	printk(" CySCRL %x\n", base_addr[CySCRL]);
+	printk(" CySCRH %x\n", base_addr[CySCRH]);
+	printk(" CyLNC %x\n", base_addr[CyLNC]);
+	printk(" CyMCOR1 %x\n", base_addr[CyMCOR1]);
+	printk(" CyMCOR2 %x\n", base_addr[CyMCOR2]);
+#endif
 	printk(" CyRTPRL %x\n", base_addr[CyRTPRL]);
 	printk(" CyRTPRH %x\n", base_addr[CyRTPRH]);
 	printk(" CyMSVR1 %x\n", base_addr[CyMSVR1]);
@@ -2596,6 +2655,75 @@ show_status(int line_num)
 #endif
 
 
+#if 0
+/* Dummy routine in mvme16x/config.c for now */
+
+/* Serial console setup. Called from linux/init/main.c */
+
+void console_setup(char *str, int *ints)
+{
+	char *s;
+	int baud, bits, parity;
+	int cflag = 0;
+
+	/* Sanity check. */
+	if (ints[0] > 3 || ints[1] > 3) return;
+
+	/* Get baud, bits and parity */
+	baud = 2400;
+	bits = 8;
+	parity = 'n';
+	if (ints[2]) baud = ints[2];
+	if ((s = strchr(str, ','))) {
+		do {
+			s++;
+		} while(*s >= '0' && *s <= '9');
+		if (*s) parity = *s++;
+		if (*s) bits   = *s - '0';
+	}
+
+	/* Now construct a cflag setting. */
+	switch(baud) {
+		case 1200:
+			cflag |= B1200;
+			break;
+		case 9600:
+			cflag |= B9600;
+			break;
+		case 19200:
+			cflag |= B19200;
+			break;
+		case 38400:
+			cflag |= B38400;
+			break;
+		case 2400:
+		default:
+			cflag |= B2400;
+			break;
+	}
+	switch(bits) {
+		case 7:
+			cflag |= CS7;
+			break;
+		default:
+		case 8:
+			cflag |= CS8;
+			break;
+	}
+	switch(parity) {
+		case 'o': case 'O':
+			cflag |= PARODD;
+			break;
+		case 'e': case 'E':
+			cflag |= PARENB;
+			break;
+	}
+
+	serial_console_info = &cy_port[ints[1]];
+	serial_console_cflag = cflag;
+	serial_console = ints[1] + 64; /*callout_driver.minor_start*/
+}
+#endif
 
 /*
  * The following is probably out of date for 2.1.x serial console stuff.
@@ -2771,6 +2899,11 @@ int getDebugChar()
 
 	port = DEBUG_PORT;
 	base_addr[CyCAR] = (u_char)port;
+#if 0
+	while (base_addr[CyCCR])
+		;
+	base_addr[CyCCR] = CyENB_RCVR;
+#endif
 	ier = base_addr[CyIER];
 	base_addr[CyIER] = CyRxData;
 

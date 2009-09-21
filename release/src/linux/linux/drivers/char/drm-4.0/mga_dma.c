@@ -308,7 +308,7 @@ static int mga_init_primary_bufs(drm_device_t *dev, drm_mga_init_t *init)
 	temp = ((temp + PAGE_SIZE - 1) / PAGE_SIZE) * PAGE_SIZE;
 
 	dev_priv->ioremap = drm_ioremap(dev->agp->base + offset,
-					temp);
+					temp, dev);
 	if(dev_priv->ioremap == NULL) {
 		DRM_ERROR("Ioremap failed\n");
 		return -ENOMEM;
@@ -635,7 +635,7 @@ int mga_dma_cleanup(drm_device_t *dev)
 				    dev_priv->primary_size +
 				    PAGE_SIZE - 1) / PAGE_SIZE * PAGE_SIZE;
 
-			drm_ioremapfree((void *) dev_priv->ioremap, temp);
+			drm_ioremapfree((void *) dev_priv->ioremap, temp, dev);
 		}
 	   	if(dev_priv->status_page != NULL) {
 		   	iounmap(dev_priv->status_page);

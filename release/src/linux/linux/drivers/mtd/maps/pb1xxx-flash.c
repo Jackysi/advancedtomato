@@ -3,7 +3,7 @@
  * 
  * (C) 2001 Pete Popov <ppopov@mvista.com>
  * 
- * $Id: pb1xxx-flash.c,v 1.1.1.4 2003/10/14 08:08:17 sparq Exp $
+ * $Id: pb1xxx-flash.c,v 1.4 2002/09/13 13:51:54 dwmw2 Exp $
  */
 
 #include <linux/config.h>
@@ -131,8 +131,8 @@ static struct mtd_partition pb1xxx_partitions[] = {
 
 static unsigned char flash_buswidth = 4;
 #if defined(CONFIG_MTD_PB1500_BOOT) && defined(CONFIG_MTD_PB1500_USER)
-/* both 32MB banks will be used. Combine the first 32MB bank and the
- * first 28MB of the second bank together into a single jffs/jffs2
+/* both 32MiB banks will be used. Combine the first 32MiB bank and the
+ * first 28MiB of the second bank together into a single jffs/jffs2
  * partition.
  */
 static unsigned long flash_size = 0x04000000;
@@ -192,6 +192,34 @@ static struct mtd_partition pb1xxx_partitions[] = {
 #else
 #error MTD_PB1500 define combo error /* should never happen */
 #endif
+#elif defined(CONFIG_MTD_BOSPORUS)
+static unsigned char flash_buswidth = 2;
+static unsigned long flash_size 	= 0x02000000;
+#define WINDOW_ADDR 0x1F000000
+#define WINDOW_SIZE 0x2000000
+static struct mtd_partition pb1xxx_partitions[] = {
+        {
+                name:   "User FS",
+                size:   0x00400000,
+                offset: 0x00000000,
+        },{
+                name:   "Yamon-2",
+                size:   0x00100000,
+                offset: 0x00400000,
+        },{
+                name:   "Root FS",
+                size:   0x00700000,
+                offset: 0x00500000,
+        },{
+                name:   "Yamon-1",
+                size:   0x00100000,
+                offset: 0x00C00000,
+        },{
+                name:   "Kernel",
+                size:   0x00300000,
+                offset: 0x00D00000,
+        }
+};
 #else
 #error Unsupported board
 #endif

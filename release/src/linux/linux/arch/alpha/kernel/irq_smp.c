@@ -31,6 +31,10 @@ static void *previous_irqholder = NULL;
 static void
 show(char * str, void *where)
 {
+#if 0
+	int i;
+        unsigned long *stack;
+#endif
         int cpu = smp_processor_id();
 
         printk("\n%s, CPU %d: %p\n", str, cpu, where);
@@ -43,6 +47,16 @@ show(char * str, void *where)
 	       spin_is_locked(&global_bh_lock) ? 1 : 0,
 	       local_bh_count(0),
 	       local_bh_count(1));
+#if 0
+        stack = (unsigned long *) &str;
+        for (i = 40; i ; i--) {
+		unsigned long x = *++stack;
+                if (x > (unsigned long) &init_task_union &&
+		    x < (unsigned long) &vsprintf) {
+			printk("<[%08lx]> ", x);
+                }
+        }
+#endif
 }
 
 static inline void
@@ -208,9 +222,29 @@ __global_restore_flags(unsigned long flags)
 void
 synchronize_irq(void)
 {
+#if 0
+	/* Joe's version.  */
+	int cpu = smp_processor_id();
+	int local_count;
+	int global_count;
+	int countdown = 1<<24;
+	void *where = __builtin_return_address(0);
+
+	mb();
+	do {
+		local_count = local_irq_count(cpu);
+		global_count = atomic_read(&global_irq_count);
+		if (DEBUG_SYNCHRONIZE_IRQ && (--countdown == 0)) {
+			printk("%d:%d/%d\n", cpu, local_count, global_count);
+			show("synchronize_irq", where);
+			break;
+		}
+	} while (global_count != local_count);
+#else
 	/* Jay's version.  */
 	if (irqs_running()) {
 		cli();
 		sti();
 	}
+#endif
 }

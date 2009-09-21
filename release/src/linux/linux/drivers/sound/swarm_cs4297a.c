@@ -10,7 +10,8 @@
 *               (audio@crystal.cirrus.com).
 *            -- adapted from cs4281 PCI driver for cs4297a on
 *               BCM1250 Synchronous Serial interface
-*               (kwalker@broadcom.com)
+*               (Kip Walker, Broadcom Corp.)
+*      Copyright (C) 2004  Maciej W. Rozycki
 *
 *      This program is free software; you can redistribute it and/or modify
 *      it under the terms of the GNU General Public License as published by
@@ -71,14 +72,16 @@
 #include <linux/ac97_codec.h>
 #include <linux/pci.h>
 #include <linux/bitops.h>
-#include <asm/io.h>
-#include <asm/dma.h>
 #include <linux/init.h>
 #include <linux/poll.h>
 #include <linux/smp_lock.h>
 #include <linux/wrapper.h>
-#include <asm/uaccess.h>
+
+#include <asm/byteorder.h>
+#include <asm/dma.h>
 #include <asm/hardirq.h>
+#include <asm/io.h>
+#include <asm/uaccess.h>
 
 #include <asm/sibyte/sb1250_regs.h>
 #include <asm/sibyte/sb1250_int.h>
@@ -188,6 +191,10 @@ MODULE_PARM(cs_debugmask, "i");
 #define FRAME_TX_US             20
 
 #define SERDMA_NEXTBUF(d,f) (((d)->f+1) % (d)->ringsz)
+
+#ifdef CONFIG_SIBYTE_SB1250_DUART	
+extern char sb1250_duart_present[];
+#endif
 
 static const char invalid_magic[] =
     KERN_CRIT "cs4297a: invalid magic value\n";
@@ -309,8 +316,10 @@ struct cs4297a_state {
         volatile u64 reg_request;
 };
 
+#if 1
 #define prog_codec(a,b)
 #define dealloc_dmabuf(a,b);
+#endif
 
 static int prog_dmabuf_adc(struct cs4297a_state *s)
 {
@@ -619,7 +628,8 @@ static int init_serdma(serdma_t *dma)
         }
         memset(dma->descrtab, 0, dma->ringsz * sizeof(serdma_descr_t));
         dma->descrtab_end = dma->descrtab + dma->ringsz;
-	dma->descrtab_phys = PHYSADDR((int)dma->descrtab);
+	/* XXX bloddy mess, use proper DMA API here ...  */
+	dma->descrtab_phys = PHYSADDR((long)dma->descrtab);
         dma->descr_add = dma->descr_rem = dma->descrtab;
 
         /* Frame buffer area */
@@ -630,7 +640,7 @@ static int init_serdma(serdma_t *dma)
                 return -1;
         }
         memset(dma->dma_buf, 0, DMA_BUF_SIZE);
-        dma->dma_buf_phys = PHYSADDR((int)dma->dma_buf);
+        dma->dma_buf_phys = PHYSADDR((long)dma->dma_buf);
 
         /* Samples buffer area */
         dma->sbufsz = SAMPLE_BUF_SIZE;
@@ -751,7 +761,7 @@ static int serdma_reg_access(struct cs4297a_state *s, u64 data)
 
                 descr = &d->descrtab[swptr];
                 data_p = &d->dma_buf[swptr * 4];
-                *data_p = data;
+		*data_p = cpu_to_be64(data);
                 out64(1, SS_CSR(R_SER_DMA_DSCR_COUNT_TX));
                 CS_DBGOUT(CS_DESCR, 4,
                           printk(KERN_INFO "cs4297a: add_tx  %p (%x -> %x)\n",
@@ -802,6 +812,13 @@ static void stop_dac(struct cs4297a_state *s)
 	CS_DBGOUT(CS_WAVE_WRITE, 3, printk(KERN_INFO "cs4297a: stop_dac():\n"));
 	spin_lock_irqsave(&s->lock, flags);
 	s->ena &= ~FMODE_WRITE;
+#if 0
+        /* XXXKW what do I really want here?  My theory for now is
+           that I just flip the "ena" bit, and the interrupt handler
+           will stop processing the xmit channel */
+        out64((s->ena & FMODE_READ) ? M_SYNCSER_DMA_RX_EN : 0,
+              SS_CSR(R_SER_DMA_ENABLE));
+#endif
 
 	spin_unlock_irqrestore(&s->lock, flags);
 }
@@ -936,12 +953,12 @@ static void cs4297a_update_ptr(struct cs4297a_state *s, int intflag)
                         s_ptr = (u32 *)&(d->dma_buf[d->swptr*4]);
                         descr = &d->descrtab[d->swptr];
                         while (diff2--) {
-                                u64 data = *(u64 *)s_ptr;
+				u64 data = be64_to_cpu(*(u64 *)s_ptr);
                                 u64 descr_a;
                                 u16 left, right;
                                 descr_a = descr->descr_a;
                                 descr->descr_a &= ~M_DMA_SERRX_SOP;
-                                if ((descr_a & M_DMA_DSCRA_A_ADDR) != PHYSADDR((int)s_ptr)) {
+                                if ((descr_a & M_DMA_DSCRA_A_ADDR) != PHYSADDR((long)s_ptr)) {
                                         printk(KERN_ERR "cs4297a: RX Bad address (read)\n");
                                 }
                                 if (((data & 0x9800000000000000) != 0x9800000000000000) ||
@@ -963,10 +980,11 @@ static void cs4297a_update_ptr(struct cs4297a_state *s, int intflag)
                                         continue;
                                 }
                                 good_diff++;
-                                left = ((s_ptr[1] & 0xff) << 8) | ((s_ptr[2] >> 24) & 0xff);
-                                right = (s_ptr[2] >> 4) & 0xffff;
-                                *d->sb_hwptr++ = left;
-                                *d->sb_hwptr++ = right;
+				left = ((be32_to_cpu(s_ptr[1]) & 0xff) << 8) |
+				       ((be32_to_cpu(s_ptr[2]) >> 24) & 0xff);
+				right = (be32_to_cpu(s_ptr[2]) >> 4) & 0xffff;
+				*d->sb_hwptr++ = cpu_to_be16(left);
+				*d->sb_hwptr++ = cpu_to_be16(right);
                                 if (d->sb_hwptr == d->sb_end)
                                         d->sb_hwptr = d->sample_buf;
                                 descr++;
@@ -1011,11 +1029,11 @@ static void cs4297a_update_ptr(struct cs4297a_state *s, int intflag)
                            here because of an interrupt, so there must
                            be a buffer to process. */
                         do {
-                                data = *data_p;
-                                if ((descr->descr_a & M_DMA_DSCRA_A_ADDR) != PHYSADDR((int)data_p)) {
-                                        printk(KERN_ERR "cs4297a: RX Bad address %d (%x %x)\n", d->swptr,
-                                               (int)(descr->descr_a & M_DMA_DSCRA_A_ADDR),
-                                               (int)PHYSADDR((int)data_p));
+				data = be64_to_cpu(*data_p);
+                                if ((descr->descr_a & M_DMA_DSCRA_A_ADDR) != PHYSADDR((long)data_p)) {
+                                        printk(KERN_ERR "cs4297a: RX Bad address %d (%llx %lx)\n", d->swptr,
+                                               (long long)(descr->descr_a & M_DMA_DSCRA_A_ADDR),
+                                               (long)PHYSADDR((long)data_p));
                                 }
                                 if (!(data & (1LL << 63)) ||
                                     !(descr->descr_a & M_DMA_SERRX_SOP) ||
@@ -1790,7 +1808,6 @@ static ssize_t cs4297a_write(struct file *file, const char *buffer,
                 u32 *s_tmpl;
                 u32 *t_tmpl;
                 u32 left, right;
-                /* XXXKW check system endian here ... */
                 int swap = (s->prop_dac.fmt == AFMT_S16_LE) || (s->prop_dac.fmt == AFMT_U16_LE);
                 
                 /* XXXXXX this is broken for BLOAT_FACTOR */
@@ -1831,21 +1848,21 @@ static ssize_t cs4297a_write(struct file *file, const char *buffer,
 
                 /* XXXKW assuming 16-bit stereo! */
                 do {
-                        t_tmpl[0] = 0x98000000;
-                        left = s_tmpl[0] >> 16;
-                        if (left & 0x8000)
-                                left |= 0xf0000;
-                        right = s_tmpl[0] & 0xffff;
-                        if (right & 0x8000)
-                                right |= 0xf0000;
-                        if (swap) {
-                          t_tmpl[1] = left & 0xff;
-                          t_tmpl[2] = ((left & 0xff00) << 16) | ((right & 0xff) << 12) |
-                              ((right & 0xff00) >> 4);
-                        } else {
-                          t_tmpl[1] = left >> 8;
-                          t_tmpl[2] = ((left & 0xff) << 24) | (right << 4);
-                        }
+			u32 tmp;
+
+			t_tmpl[0] = cpu_to_be32(0x98000000);
+
+			tmp = be32_to_cpu(s_tmpl[0]);
+			left = tmp & 0xffff;
+			right = tmp >> 16;
+			if (swap) {
+				left = swab16(left);
+				right = swab16(right);
+			}
+			t_tmpl[1] = cpu_to_be32(left >> 8);
+			t_tmpl[2] = cpu_to_be32(((left & 0xff) << 24) |
+						(right << 4));
+
                         s_tmpl++;
                         t_tmpl += 8;
                         copy_cnt -= 4;
@@ -1853,7 +1870,8 @@ static ssize_t cs4297a_write(struct file *file, const char *buffer,
 
                 /* Mux in any pending read/write accesses */
                 if (s->reg_request) {
-                        *(u64 *)(d->dma_buf + (swptr * 4)) |= s->reg_request;
+			*(u64 *)(d->dma_buf + (swptr * 4)) |=
+				cpu_to_be64(s->reg_request);
                         s->reg_request = 0;
                         wake_up(&s->dma_dac.reg_wait);
                 }
@@ -2517,6 +2535,14 @@ static void cs4297a_interrupt(int irq, void *dev_id, struct pt_regs *regs)
         CS_DBGOUT(CS_INTERRUPT, 6, printk(KERN_INFO
                  "cs4297a: cs4297a_interrupt() HISR=0x%.8x\n", status));
 
+#if 0
+        /* XXXKW what check *should* be done here? */
+        if (!(status & (M_SYNCSER_RX_EOP_COUNT | M_SYNCSER_RX_OVERRUN | M_SYNCSER_RX_SYNC_ERR))) {
+                status = in64(SS_CSR(R_SER_STATUS));
+                printk(KERN_ERR "cs4297a: unexpected interrupt (status %08x)\n", status);
+                return;
+        }
+#endif
 
         if (status & M_SYNCSER_RX_SYNC_ERR) {
                 status = in64(SS_CSR(R_SER_STATUS));
@@ -2552,6 +2578,7 @@ static void cs4297a_interrupt(int irq, void *dev_id, struct pt_regs *regs)
 		  "cs4297a: cs4297a_interrupt()-\n"));
 }
 
+#if 0
 static struct initvol {
 	int mixch;
 	int vol;
@@ -2567,18 +2594,23 @@ static struct initvol {
 	{SOUND_MIXER_WRITE_SPEAKER, 0x4040},
 	{SOUND_MIXER_WRITE_MIC, 0x0000}
 };
+#endif
 
 static int __init cs4297a_init(void)
 {
 	struct cs4297a_state *s;
-        u64 cfg;
-        u32 pwr, id;
+	u32 pwr, id;
 	mm_segment_t fs;
-        int rval, mdio_val;
+	int rval;
+#ifndef CONFIG_BCM_CS4297A_CSWARM
+	u64 cfg;
+	int mdio_val;
+#endif
 
 	CS_DBGOUT(CS_INIT | CS_FUNCTION, 2, printk(KERN_INFO 
 		"cs4297a: cs4297a_init_module()+ \n"));
 
+#ifndef CONFIG_BCM_CS4297A_CSWARM
         mdio_val = in64(KSEG1 + A_MAC_REGISTER(2, R_MAC_MDIO)) &
                 (M_MAC_MDIO_DIR|M_MAC_MDIO_OUT);
 
@@ -2604,6 +2636,7 @@ static int __init cs4297a_init(void)
         out64(mdio_val | M_MAC_GENC, KSEG1+A_MAC_REGISTER(2, R_MAC_MDIO));
         /* Give the codec some time to finish resetting (start the bit clock) */
         udelay(100);
+#endif
 
 	if (!(s = kmalloc(sizeof(struct cs4297a_state), GFP_KERNEL))) {
 		CS_DBGOUT(CS_ERROR, 1, printk(KERN_ERR
@@ -2658,14 +2691,28 @@ static int __init cs4297a_init(void)
         if (!rval) {
                 fs = get_fs();
                 set_fs(KERNEL_DS);
+#if 0
+                val = SOUND_MASK_LINE;
+                mixer_ioctl(s, SOUND_MIXER_WRITE_RECSRC, (unsigned long) &val);
+                for (i = 0; i < sizeof(initvol) / sizeof(initvol[0]); i++) {
+                        val = initvol[i].vol;
+                        mixer_ioctl(s, initvol[i].mixch, (unsigned long) &val);
+                }
+//                cs4297a_write_ac97(s, 0x18, 0x0808);
+#else
                 //                cs4297a_write_ac97(s, 0x5e, 0x180);
                 cs4297a_write_ac97(s, 0x02, 0x0808);
                 cs4297a_write_ac97(s, 0x18, 0x0808);
+#endif
                 set_fs(fs);
 
                 list_add(&s->list, &cs4297a_devs);
 
                 cs4297a_read_ac97(s, AC97_VENDOR_ID1, &id);
+
+#ifdef CONFIG_SIBYTE_SB1250_DUART	
+		sb1250_duart_present[1] = 0;
+#endif
                 
                 printk(KERN_INFO "cs4297a: initialized (vendor id = %x)\n", id);
 
@@ -2707,7 +2754,7 @@ static void __exit cs4297a_cleanup(void)
 
 EXPORT_NO_SYMBOLS;
 
-MODULE_AUTHOR("Kip Walker, kwalker@broadcom.com");
+MODULE_AUTHOR("Kip Walker, Broadcom Corp.");
 MODULE_DESCRIPTION("Cirrus Logic CS4297a Driver for Broadcom SWARM board");
 
 // --------------------------------------------------------------------- 

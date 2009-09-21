@@ -48,3 +48,31 @@ int __init setup_harp(void)
 
 	return 0;
 }
+
+#ifdef CONFIG_PCI
+/*
+ * PCI based boards need a function that maps IRQ's to given PCI
+ * slots. This code is used by the st40 pci routines in arch/sh/kernel
+ */
+ 
+int __init pcibios_map_platform_irq(struct pci_dev *dev, u8 slot, u8 pin)
+{
+    	switch (slot) {
+#ifdef CONFIG_SH_STB1_HARP
+	case 2:		/*This is the PCI slot on the */
+		return HARP_PCI_IRQ;
+	case 1:		/* this is the bridge */
+		return HARP_BRIDGE_IRQ;
+#elif defined(CONFIG_SH_STB1_OVERDRIVE)
+	case 1:
+	case 2:
+	case 3:
+		return slot - 1;
+#else
+#error Unknown board
+#endif
+	default:
+		return -1;
+	}
+}
+#endif

@@ -10,6 +10,7 @@
  */
 #include <linux/interrupt.h>
 #include <linux/spinlock.h>
+#include <asm/current.h>
 
 extern spinlock_t kernel_flag;
 

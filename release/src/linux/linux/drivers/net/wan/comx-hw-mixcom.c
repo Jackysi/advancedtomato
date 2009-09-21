@@ -102,7 +102,7 @@ static inline void hscx_cmd(struct net_device *dev, int cmd)
 	unsigned char cec;
 	unsigned delay = 0;
 
-	while ((cec = (rd_hscx(dev, HSCX_STAR) & HSCX_CEC) != 0) && 
+	while ((cec = (rd_hscx(dev, HSCX_STAR) & HSCX_CEC)) != 0 && 
 	    (jiffs + HZ > jiffies)) {
 		udelay(1);
 		if (++delay > (100000 / HZ)) break;
@@ -200,6 +200,19 @@ out:
 	return ret;
 }
 
+#if 0
+static void MIXCOM_set_clock(struct net_device *dev)
+{
+	struct comx_channel *ch = dev->priv;
+	struct mixcom_privdata *hw = ch->HW_privdata;
+
+	if (hw->clock) {
+		;
+	} else {
+		;
+	}
+}
+#endif
 
 static void mixcom_board_on(struct net_device *dev)
 {
@@ -838,6 +851,16 @@ static int MIXCOM_init(struct net_device *dev) {
 	new_file->write_proc = &mixcom_write_proc;
 	new_file->nlink = 1;
 
+#if 0
+	if ((new_file = create_proc_entry(FILENAME_CLOCK, S_IFREG | 0644, 
+	    ch->procdir)) == NULL) {
+	    	return -EIO;
+	}
+	new_file->data = (void *)new_file;
+	new_file->read_proc = &mixcom_read_proc;
+	new_file->write_proc = &mixcom_write_proc;
+	new_file->nlink = 1;
+#endif
 
 	if ((new_file = create_proc_entry(FILENAME_CHANNEL, S_IFREG | 0644, 
 	    ch->procdir)) == NULL) {
@@ -901,6 +924,9 @@ static int MIXCOM_exit(struct net_device *dev)
 	kfree(ch->HW_privdata);
 	remove_proc_entry(FILENAME_IO, ch->procdir);
 	remove_proc_entry(FILENAME_IRQ, ch->procdir);
+#if 0
+	remove_proc_entry(FILENAME_CLOCK, ch->procdir);
+#endif
 	remove_proc_entry(FILENAME_CHANNEL, ch->procdir);
 	remove_proc_entry(FILENAME_TWIN, ch->procdir);
 

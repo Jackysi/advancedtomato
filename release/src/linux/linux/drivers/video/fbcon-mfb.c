@@ -158,6 +158,7 @@ void fbcon_mfb_clear_margins(struct vc_data *conp, struct display *p,
     int height, bottom;
     int inverse = conp ? attr_reverse(p,conp->vc_video_erase_char) : 0;
 
+    /* XXX Need to handle right margin? */
 
     height = p->var.yres - conp->vc_rows * fontheight(p);
     if (!height)

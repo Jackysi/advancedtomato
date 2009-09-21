@@ -1,4 +1,4 @@
-/* $Id: tpqic02.c,v 1.1.1.4 2003/10/14 08:08:03 sparq Exp $
+/* $Id: tpqic02.c,v 1.10 1997/01/26 07:13:20 davem Exp $
  *
  * Driver for tape drive support for Linux-i386
  *
@@ -137,8 +137,8 @@ static volatile struct mtget ioctl_status;	/* current generic status */
 
 static volatile struct tpstatus tperror;	/* last drive status */
 
-static char rcs_revision[] = "$Revision: 1.1.1.4 $";
-static char rcs_date[] = "$Date: 2003/10/14 08:08:03 $";
+static char rcs_revision[] = "$Revision: 1.10 $";
+static char rcs_date[] = "$Date: 1997/01/26 07:13:20 $";
 
 /* Flag bits for status and outstanding requests.
  * (Could all be put in one bit-field-struct.)
@@ -202,6 +202,7 @@ static int mode_access;		/* access mode: READ or WRITE */
 
 static int qic02_get_resources(void);
 static void qic02_release_resources(void);
+static void finish_rw(int cmd);
 
 /* This is a pointer to the actual kernel buffer where the interrupt routines
  * read from/write to. It is needed because the DMA channels 1 and 3 cannot
@@ -333,6 +334,11 @@ static void tpqputs(unsigned long flags, const char *s)
 }				/* tpqputs */
 
 
+/* Perform byte order swapping for a 16-bit word.
+ *
+ * [FIXME] This should probably be in include/asm/
+ * ([FIXME] i486 can do this faster)
+ */
 static inline void byte_swap_w(volatile unsigned short *w)
 {
 	int t = *w;
@@ -574,6 +580,7 @@ static int wait_for_ready(time_t timeout)
 	timeout -= spin_t;
 	spin_t += jiffies;
 
+	/* FIXME...*/
 	while (((stat = inb_p(QIC02_STAT_PORT) & QIC02_STAT_MASK) == QIC02_STAT_MASK) 
 		&& time_before(jiffies, spin_t))
 		schedule();	/* don't waste all the CPU time */
@@ -702,6 +709,7 @@ static int rdstatus(char *stp, unsigned size, char qcmd)
 		 * you rarely ever see the message below, and it should
 		 * be small enough to give reasonable response time.]
 		 */
+	 	/* FIXME */
 		tpqputs(TPQD_ALWAYS, "waiting looong in rdstatus() -- drive dead?");
 		while ((inb_p(QIC02_STAT_PORT) & QIC02_STAT_MASK) == QIC02_STAT_MASK)
 			schedule();
@@ -765,7 +773,7 @@ static int rdstatus(char *stp, unsigned size, char qcmd)
 static int get_status(volatile struct tpstatus *stp)
 {
 	int stat = rdstatus((char *) stp, TPSTATSIZE, QCMD_RD_STAT);
-#if defined(__i386__) || defined(__x86_64__)
+#if defined(__i386__) || defined (__x86_64__)
 	byte_swap_w(&(stp->dec));
 	byte_swap_w(&(stp->urc));
 #else
@@ -776,6 +784,35 @@ static int get_status(volatile struct tpstatus *stp)
 }				/* get_status */
 
 
+#if 0
+/* This fails for my Wangtek drive */
+/* get "Extended Status Register 3" (64 bytes)
+ *
+ * If the meaning of the returned bytes were known, the MT_TYPE
+ * identifier could be used to decode them, since they are
+ * "vendor unique". :-(
+ */
+static int get_ext_status3(void)
+{
+	char vus[64];		/* vendor unique status */
+	int stat, i;
+
+	tpqputs(TPQD_ALWAYS, "Attempting to read Extended Status 3...");
+	stat = rdstatus(vus, sizeof(vus), QCMD_RD_STAT_X3);
+	if (stat != TE_OK)
+		return stat;
+
+	tpqputs(TPQD_ALWAYS, "Returned status bytes:");
+	for (i = 0; i < sizeof(vus); i++) {
+		if (i % 8 == 0)
+			printk("\n" TPQIC02_NAME ": %2d:");
+		printk(" %2x", vus[i] & 0xff);
+	}
+	printk("\n");
+
+	return TE_OK;
+}				/* get_ext_status3 */
+#endif
 
 
 /* Read drive status and set generic status too.
@@ -784,7 +821,6 @@ static int get_status(volatile struct tpstatus *stp)
 static int tp_sense(int ignore)
 {
 	unsigned err = 0, exnr = 0, gs = 0;
-	static void finish_rw(int cmd);
 
 	if (TPQDBG(SENSE_TEXT))
 		printk(TPQIC02_NAME ": tp_sense(ignore=0x%x) enter\n",
@@ -1255,6 +1291,9 @@ static int do_ioctl_cmd(int cmd)
 			 * SEEK_EOD correctly, unless it is preceded by a
 			 * rewind command.
 			 */
+# if 0
+			status_eom_detected = status_eof_detected = NO;
+# endif
 			stat = do_qic_cmd(QCMD_REWIND, TIM_R);
 			if (stat)
 				return stat;
@@ -1283,6 +1322,7 @@ static int do_ioctl_cmd(int cmd)
 			if (mode_access == READ)
 				return -EACCES;
 
+			/* FIXME */
 			/* give user a few seconds to pull out tape */
 			while (jiffies - t < 4 * HZ)
 				schedule();
@@ -1434,7 +1474,15 @@ static int start_dma(short mode, unsigned long bytes_todo)
 		/* First, we have to clear the status -- maybe remove TP_FIL???
 		 */
 
+#if 0
+		/* Next dummy get status is to make sure CNI is valid,
+		   since we're only just starting a read/write it doesn't
+		   matter some exceptions are cleared by reading the status;
+		   we're only interested in CNI and WRP. -Eddy */
+		get_status(&tperror);
+#else
 		/* TP_CNI should now be handled in open(). -Hennus */
+#endif
 
 		stat =
 		    tp_sense(((mode ==
@@ -1732,6 +1780,29 @@ static void qic02_tape_interrupt(int irq, void *dev_id,
 }				/* qic02_tape_interrupt */
 
 
+/* read/write routines:
+ * This code copies between a kernel buffer and a user buffer. The 
+ * actual data transfer is done using DMA and interrupts. Time-outs
+ * are also used.
+ *
+ * When a filemark is read, we return '0 bytes read' and continue with the
+ * next file after that.
+ * When EOM is read, we return '0 bytes read' twice.
+ * When the EOT marker is detected on writes, '0 bytes read' should be
+ * returned twice. If user program does a MTNOP after that, 2 additional
+ * blocks may be written.	------- FIXME: Implement this correctly  *************************************************
+ *
+ * Only read/writes in multiples of 512 bytes are accepted.
+ * When no bytes are available, we sleep() until they are. The controller will
+ * generate an interrupt, and we (should) get a wake_up() call.
+ *
+ * Simple buffering is used. User program should ensure that a large enough
+ * buffer is used. Usually the drive does some buffering as well (something
+ * like 4k or so).
+ *
+ * Scott S. Bertilson suggested to continue filling the user buffer, rather
+ * than waste time on a context switch, when the kernel buffer fills up.
+ */
 
 /*
  * Problem: tar(1) doesn't always read the entire file. Sometimes the entire file
@@ -1747,6 +1818,7 @@ static ssize_t qic02_tape_read(struct file *filp, char *buf, size_t count,
 	kdev_t dev = filp->f_dentry->d_inode->i_rdev;
 	unsigned short flags = filp->f_flags;
 	unsigned long bytes_todo, bytes_done, total_bytes_done = 0;
+	loff_t pos = *ppos;
 	int stat;
 
 	if (status_zombie == YES) {
@@ -1827,6 +1899,7 @@ static ssize_t qic02_tape_read(struct file *filp, char *buf, size_t count,
 
 	/*****************************/
 		if (bytes_todo == 0) {
+			*ppos = pos;
 			return total_bytes_done;
 		}
 
@@ -1856,9 +1929,13 @@ static ssize_t qic02_tape_read(struct file *filp, char *buf, size_t count,
 
 			} else if (stat != TE_END) {
 				/* should do sense() on error here */
+#if 0
+				return -ENXIO;
+#else
 				printk("Trouble: stat==%02x\n", stat);
 				return_read_eof = YES;
 		/*************** check EOF/EOT handling!!!!!! **/
+#endif
 			}
 			end_dma(&bytes_done);
 			if (bytes_done > bytes_todo) {
@@ -1871,6 +1948,7 @@ static ssize_t qic02_tape_read(struct file *filp, char *buf, size_t count,
 				if (copy_to_user(buf, buffaddr, bytes_done))
 					return -EFAULT;
 			}
+#if 1
 			/* Checks Ton's patch below */
 			if ((return_read_eof == NO)
 			    && (status_eof_detected == YES)) {
@@ -1878,6 +1956,7 @@ static ssize_t qic02_tape_read(struct file *filp, char *buf, size_t count,
 				       ": read(): return_read_eof=%d, status_eof_detected=YES. return_read_eof:=YES\n",
 				       return_read_eof);
 			}
+#endif
 			if ((bytes_todo != bytes_done)
 			    || (status_eof_detected == YES)) {
 				/* EOF or EOM detected. return EOF next time. */
@@ -1889,7 +1968,7 @@ static ssize_t qic02_tape_read(struct file *filp, char *buf, size_t count,
 		if (bytes_done > 0) {
 			status_bytes_rd = YES;
 			buf += bytes_done;
-			*ppos += bytes_done;
+			pos += bytes_done;
 			total_bytes_done += bytes_done;
 			count -= bytes_done;
 		}
@@ -2094,16 +2173,6 @@ static ssize_t qic02_tape_write(struct file *filp, const char *buf,
  * Don't rewind if the minor bits specify density 0.
  */
 
-static int qic02_tape_open(struct inode *inode, struct file *filp)
-{
-	static int qic02_tape_open_no_use_count(struct inode *,
-						struct file *);
-	int open_error;
-
-	open_error = qic02_tape_open_no_use_count(inode, filp);
-	return open_error;
-}
-
 static int qic02_tape_open_no_use_count(struct inode *inode,
 					struct file *filp)
 {
@@ -2305,6 +2374,14 @@ static int qic02_tape_open_no_use_count(struct inode *inode,
 	return 0;
 }				/* qic02_tape_open */
 
+
+static int qic02_tape_open(struct inode *inode, struct file *filp)
+{
+	int open_error;
+
+	open_error = qic02_tape_open_no_use_count(inode, filp);
+	return open_error;
+}
 
 static int qic02_tape_release(struct inode *inode, struct file *filp)
 {

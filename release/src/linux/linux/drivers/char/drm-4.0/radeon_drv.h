@@ -71,6 +71,10 @@ typedef struct drm_radeon_private {
 
    	drm_radeon_freelist_t *head;
    	drm_radeon_freelist_t *tail;
+/* FIXME: ROTATE_BUFS is a hask to cycle through bufs until freelist
+   code is used.  Note this hides a problem with the scratch register
+   (used to keep track of last buffer completed) being written to before
+   the last buffer has actually completed rendering. */
 #define ROTATE_BUFS 1
 #if ROTATE_BUFS
 	int last_buf;

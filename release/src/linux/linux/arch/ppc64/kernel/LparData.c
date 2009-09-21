@@ -71,7 +71,7 @@ struct HvReleaseData hvReleaseData = {
 	6,		/* TEMP: This allows non-GA driver */
 	4,		/* We are v5r2m0               */
 	3,		/* Min supported PLIC = v5r1m0 */
-	3,		/* Min usuable PLIC   = v5r1m0 */
+	3,		/* Min usable PLIC   = v5r1m0 */
 	{ 0xd3, 0x89, 0x95, 0xa4, /* "Linux 2.4   "*/
 	  0xa7, 0x40, 0xf2, 0x4b,
 	  0xf4, 0x4b, 0xf6, 0xf4 },

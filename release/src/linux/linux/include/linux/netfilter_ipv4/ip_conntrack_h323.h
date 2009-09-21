@@ -4,7 +4,6 @@
 
 #ifdef __KERNEL__
 /* Protects H.323 related data */
-#include <linux/netfilter_ipv4/lockhelp.h>
 DECLARE_LOCK_EXTERN(ip_h323_lock);
 #endif
 

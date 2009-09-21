@@ -1,4 +1,3 @@
-/* $Id: etraxgpio.h,v 1.1.1.4 2003/10/14 08:09:09 sparq Exp $ */
 /*
  * The following devices are accessable using this driver using
  * GPIO_MAJOR (120) and a couple of minor numbers:
@@ -6,11 +5,12 @@
  * /dev/gpiob  minor 1, 8 bit GPIO, each bit can change direction
  * /dev/leds   minor 2, Access to leds depending on kernelconfig
  * /dev/gpiog  minor 3
-         g0dir, g8_15dir, g16_23dir, g24 dir configurable in R_GEN_CONFIG
-         g1-g7 and g25-g31 is both input and outputs but on different pins
-         Also note that some bits change pins depending on what interfaces 
-         are enabled.
+ *       g0dir, g8_15dir, g16_23dir, g24 dir configurable in R_GEN_CONFIG
+ *       g1-g7 and g25-g31 is both input and outputs but on different pins
+ *       Also note that some bits change pins depending on what interfaces
+ *       are enabled.
  */
+
 #ifndef _ASM_ETRAXGPIO_H
 #define _ASM_ETRAXGPIO_H
 
@@ -41,7 +41,7 @@
 
 /* GPIO direction ioctl's */
 #define IO_READDIR    0x8  /* Read direction 0=input 1=output  (obsolete) */
-#define IO_SETINPUT   0x9  /* Set direction for bits set, 0=unchanged 1=input, 
+#define IO_SETINPUT   0x9  /* Set direction for bits set, 0=unchanged 1=input,
                               returns mask with current inputs (obsolete) */
 #define IO_SETOUTPUT  0xA  /* Set direction for bits set, 0=unchanged 1=output,
                               returns mask with current outputs (obsolete)*/
@@ -55,11 +55,11 @@
 #define IO_GET_PWR_BT 0xE
 
 /* Bit toggling in driver settings */
-/* bit set in low byte0 is CLK mask (0x00FF), 
-   bit set in byte1 is DATA mask    (0xFF00) 
+/* bit set in low byte0 is CLK mask (0x00FF),
+   bit set in byte1 is DATA mask    (0xFF00)
    msb, data_mask[7:0] , clk_mask[7:0]
  */
-#define IO_CFG_WRITE_MODE 0xF 
+#define IO_CFG_WRITE_MODE 0xF
 #define IO_CFG_WRITE_MODE_VALUE(msb, data_mask, clk_mask) \
   ( (((msb)&1) << 16) | (((data_mask) &0xFF) << 8) | ((clk_mask) & 0xFF) )
 
@@ -75,7 +75,5 @@
 #define IO_SETGET_OUTPUT 0x13 /* bits set in *arg is set to output,
                                * *arg updated with current output pins.
                                */
-
-
 
 #endif

@@ -2,7 +2,7 @@
  *
  * Lan Emulation client header file
  *
- * Marko Kiiskila carnil@cs.tut.fi
+ * Marko Kiiskila mkiiskila@yahoo.com
  *
  */
 
@@ -14,7 +14,7 @@
 #include <linux/netdevice.h>
 #include <linux/atmlec.h>
 
-#if defined(CONFIG_BRIDGE) || defined(CONFIG_BRIDGE_MODULE)
+#if defined (CONFIG_BRIDGE) || defined(CONFIG_BRIDGE_MODULE)
 #include <linux/if_bridge.h>
 extern struct net_bridge_fdb_entry *(*br_fdb_get_hook)(struct net_bridge *br,
                                                 unsigned char *addr);
@@ -37,6 +37,9 @@ struct lecdatahdr_8025 {
   unsigned char h_dest[ETH_ALEN];
   unsigned char h_source[ETH_ALEN];
 };
+
+#define LEC_MINIMUM_8023_SIZE   62
+#define LEC_MINIMUM_8025_SIZE   16
 
 /*
  * Operations that LANE2 capable device can do. Two first functions
@@ -61,7 +64,8 @@ struct atm_lane_ops {
         int (*lecd_attach)(struct atm_vcc *vcc, int arg);
         int (*mcast_attach)(struct atm_vcc *vcc, int arg);
         int (*vcc_attach)(struct atm_vcc *vcc, void *arg);
-        struct net_device **(*get_lecs)(void);
+        struct net_device * (*get_lec)(int itf);
+        struct module *owner;
 };
 
 /*
@@ -98,7 +102,8 @@ struct lec_priv {
            establishes multiple Multicast Forward VCCs to us. This list
            collects all those VCCs. LANEv1 client has only one item in this
            list. These entries are not aged out. */
-        atomic_t lec_arp_lock_var;
+        atomic_t lec_arp_users;
+        spinlock_t lec_arp_lock;
         struct atm_vcc *mcast_vcc; /* Default Multicast Send VCC */
         struct atm_vcc *lecd;
         struct timer_list lec_arp_timer;
@@ -145,14 +150,16 @@ struct lec_priv {
 int lecd_attach(struct atm_vcc *vcc, int arg);
 int lec_vcc_attach(struct atm_vcc *vcc, void *arg);
 int lec_mcast_attach(struct atm_vcc *vcc, int arg);
-struct net_device **get_dev_lec(void);
+struct net_device *get_dev_lec(int itf);
 int make_lec(struct atm_vcc *vcc);
 int send_to_lecd(struct lec_priv *priv,
                  atmlec_msg_type type, unsigned char *mac_addr,
                  unsigned char *atm_addr, struct sk_buff *data);
 void lec_push(struct atm_vcc *vcc, struct sk_buff *skb);
 
-void atm_lane_init(void);
-void atm_lane_init_ops(struct atm_lane_ops *ops);
+extern struct atm_lane_ops *atm_lane_ops;
+void atm_lane_ops_set(struct atm_lane_ops *hook);
+int try_atm_lane_ops(void);
+
 #endif /* _LEC_H_ */
 

@@ -530,16 +530,14 @@ static ssize_t uhci_proc_read(struct file *file, char *buf, size_t nbytes,
 			loff_t *ppos)
 {
 	struct uhci_proc *up = file->private_data;
-	unsigned int pos;
+	loff_t n = *ppos;
+	unsigned int pos = n;
 	unsigned int size;
 
-	pos = *ppos;
 	size = up->size;
-	if (pos >= size)
+	if (pos != n || pos >= size)
 		return 0;
-	if (nbytes >= size)
-		nbytes = size;
-	if (pos + nbytes > size)
+	if (nbytes > size - pos)
 		nbytes = size - pos;
 
 	if (!access_ok(VERIFY_WRITE, buf, nbytes))
@@ -548,7 +546,7 @@ static ssize_t uhci_proc_read(struct file *file, char *buf, size_t nbytes,
 	if (copy_to_user(buf, up->data + pos, nbytes))
 		return -EFAULT;
 
-	*ppos += nbytes;
+	*ppos = pos + nbytes;
 
 	return nbytes;
 }

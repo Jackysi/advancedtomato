@@ -31,7 +31,7 @@
  * provisions above, a recipient may use your version of this file
  * under either the RHEPL or the GPL.
  *
- * $Id: nodelist.h,v 1.1.1.4 2003/10/14 08:09:00 sparq Exp $
+ * $Id: nodelist.h,v 1.46.2.5 2003/11/02 13:54:20 dwmw2 Exp $
  *
  */
 
@@ -232,13 +232,13 @@ struct jffs2_eraseblock
 
 #define PAD(x) (((x)+3)&~3)
 
-static inline int jffs2_raw_ref_to_inum(struct jffs2_raw_node_ref *raw)
+static inline struct jffs2_inode_cache *jffs2_raw_ref_to_ic(struct jffs2_raw_node_ref *raw)
 {
 	while(raw->next_in_ino) {
 		raw = raw->next_in_ino;
 	}
 
-	return ((struct jffs2_inode_cache *)raw)->ino;
+	return ((struct jffs2_inode_cache *)raw);
 }
 
 /* nodelist.c */
@@ -249,7 +249,7 @@ int jffs2_get_inode_nodes(struct jffs2_sb_info *c, ino_t ino, struct jffs2_inode
 			  struct jffs2_tmp_dnode_info **tnp, struct jffs2_full_dirent **fdp,
 			  __u32 *highest_version, __u32 *latest_mctime,
 			  __u32 *mctime_ver);
-struct jffs2_inode_cache *jffs2_get_ino_cache(struct jffs2_sb_info *c, int ino);
+struct jffs2_inode_cache *jffs2_get_ino_cache(struct jffs2_sb_info *c, uint32_t ino);
 void jffs2_add_ino_cache (struct jffs2_sb_info *c, struct jffs2_inode_cache *new);
 void jffs2_del_ino_cache(struct jffs2_sb_info *c, struct jffs2_inode_cache *old);
 void jffs2_free_ino_caches(struct jffs2_sb_info *c);

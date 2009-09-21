@@ -153,6 +153,11 @@ struct i2ob_device
 	int power;
 };
 
+/*
+ *	FIXME:
+ *	We should cache align these to avoid ping-ponging lines on SMP
+ *	boxes under heavy I/O load...
+ */
 
 struct i2ob_request
 {
@@ -428,6 +433,7 @@ static inline void i2ob_unhook_request(struct i2ob_request *ireq,
  
 static inline void i2ob_end_request(struct request *req)
 {
+	/* FIXME  - pci unmap the request */
 
 	/*
 	 * Loop until all of the buffers that are linked

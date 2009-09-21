@@ -1,6 +1,3 @@
-/*
- * BK Id: SCCS/s.siginfo.h 1.5 05/17/01 18:14:25 cort
- */
 #ifndef _PPC_SIGINFO_H
 #define _PPC_SIGINFO_H
 
@@ -185,8 +182,8 @@ typedef struct siginfo {
 
 /*
  * sigevent definitions
- * 
- * It seems likely that SIGEV_THREAD will have to be handled from 
+ *
+ * It seems likely that SIGEV_THREAD will have to be handled from
  * userspace, libpthread transmuting it to SIGEV_SIGNAL, which the
  * thread manager then catches and does the appropriate nonsense.
  * However, everything is written out here so as to not get lost.

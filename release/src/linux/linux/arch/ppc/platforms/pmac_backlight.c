@@ -1,10 +1,7 @@
 /*
- * BK Id: SCCS/s.pmac_backlight.c 1.10 12/01/01 20:09:06 benh
- */
-/*
  * Miscellaneous procedures for dealing with the PowerMac hardware.
  * Contains support for the backlight.
- * 
+ *
  *   Copyright (C) 2000 Benjamin Herrenschmidt
  *
  */
@@ -41,7 +38,7 @@ register_backlight_controller(struct backlight_controller *ctrler, void *data, c
 	int valid = 0;
 
 	bk_node = find_devices("backlight");
-	
+
 #ifdef CONFIG_ADB_PMU
 	/* Special case for the old PowerBook since I can't test on it */
 	backlight_autosave = machine_is_compatible("AAPL,3400/2400")
@@ -61,7 +58,7 @@ register_backlight_controller(struct backlight_controller *ctrler, void *data, c
 		return;
 	backlighter = ctrler;
 	backlighter_data = data;
-	
+
 	if (bk_node && !backlight_autosave)
 		prop = get_property(bk_node, "bklt", NULL);
 	else
@@ -71,7 +68,7 @@ register_backlight_controller(struct backlight_controller *ctrler, void *data, c
 		if (backlight_level > BACKLIGHT_MAX)
 			backlight_level = BACKLIGHT_MAX;
 	}
-	
+
 #ifdef CONFIG_ADB_PMU
 	if (backlight_autosave) {
 		struct adb_request req;
@@ -100,7 +97,7 @@ int __pmac
 set_backlight_enable(int enable)
 {
 	int rc;
-	
+
 	if (!backlighter)
 		return -ENODEV;
 	rc = backlighter->set_enable(enable, backlight_level, backlighter_data);
@@ -121,7 +118,7 @@ int __pmac
 set_backlight_level(int level)
 {
 	int rc = 0;
-	
+
 	if (!backlighter)
 		return -ENODEV;
 	if (level < BACKLIGHT_MIN)

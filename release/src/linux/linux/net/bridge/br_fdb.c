@@ -5,7 +5,7 @@
  *	Authors:
  *	Lennert Buytenhek		<buytenh@gnu.org>
  *
- *	$Id: br_fdb.c,v 1.1.1.5 2003/10/14 08:09:32 sparq Exp $
+ *	$Id: br_fdb.c,v 1.5.2.1 2002/01/17 00:59:01 davem Exp $
  *
  *	This program is free software; you can redistribute it and/or
  *	modify it under the terms of the GNU General Public License
@@ -290,24 +290,32 @@ void br_fdb_insert(struct net_bridge *br,
 	hash = br_mac_hash(addr);
 
 	write_lock_bh(&br->hash_lock);
-	if (!is_local) {
-		fdb = br->hash[hash];
-		while (fdb != NULL) {
-			if (!memcmp(fdb->addr.addr, addr, ETH_ALEN)) {
-				__fdb_possibly_replace(fdb, source, is_local);
-				write_unlock_bh(&br->hash_lock);
-				return;
+	fdb = br->hash[hash];
+	while (fdb != NULL) {
+		if (!memcmp(fdb->addr.addr, addr, ETH_ALEN)) {
+			/* attempt to update an entry for a local interface */
+			if (fdb->is_local) {
+				if (is_local) 
+					printk(KERN_INFO "%s: attempt to add"
+					       " interface with same source address.\n",
+					       source->dev->name);
+				else if (net_ratelimit()) 
+					printk(KERN_WARNING "%s: received packet with "
+					       " own address as source address\n",
+					       source->dev->name);
+				goto out;
 			}
 
-			fdb = fdb->next_hash;
+			__fdb_possibly_replace(fdb, source, is_local);
+			goto out;
 		}
+
+		fdb = fdb->next_hash;
 	}
 
 	fdb = kmalloc(sizeof(*fdb), GFP_ATOMIC);
-	if (fdb == NULL) {
-		write_unlock_bh(&br->hash_lock);
-		return;
-	}
+	if (fdb == NULL) 
+		goto out;
 
 	memcpy(fdb->addr.addr, addr, ETH_ALEN);
 	atomic_set(&fdb->use_count, 1);
@@ -318,5 +326,6 @@ void br_fdb_insert(struct net_bridge *br,
 
 	__hash_link(br, fdb, hash);
 
+ out:
 	write_unlock_bh(&br->hash_lock);
 }

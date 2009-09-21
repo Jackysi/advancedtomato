@@ -1,4 +1,4 @@
-/* $Id: namei.h,v 1.1.1.4 2003/10/14 08:09:09 sparq Exp $
+/*
  * linux/include/asm-cris/namei.h
  *
  * Included from linux/fs/namei.c
@@ -9,7 +9,7 @@
 
 /* used to find file-system prefixes for doing emulations
  * see for example asm-sparc/namei.h
- * we dont use it...
+ * we don't use it...
  */
 
 #define __emul_prefix() NULL

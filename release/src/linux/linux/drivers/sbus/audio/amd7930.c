@@ -1,4 +1,4 @@
-/* $Id: amd7930.c,v 1.1.1.4 2003/10/14 08:08:34 sparq Exp $
+/* $Id: amd7930.c,v 1.28 2001/10/13 01:47:29 davem Exp $
  * drivers/sbus/audio/amd7930.c
  *
  * Copyright (C) 1996,1997 Thomas K. Dyas (tdyas@eden.rutgers.edu)
@@ -107,7 +107,7 @@ static __u8  mulaw2bilinear(__u8 data);
 static __u8  linear2mulaw(__u16 data);
 static __u16 mulaw2linear(__u8 data);
 
-#if defined(AMD79C30_ISDN)
+#if defined (AMD79C30_ISDN)
 #include "../../isdn/hisax/hisax.h"
 #include "../../isdn/hisax/isdnl1.h"
 #include "../../isdn/hisax/foreign.h"
@@ -1131,7 +1131,7 @@ static int amd7930_ioctl(struct inode * inode, struct file * file,
  *
  */
 
-#if defined(AMD79C30_ISDN)
+#if defined (AMD79C30_ISDN)
 static int amd7930_get_irqnum(int dev)
 {
 	struct amd7930_info *info;
@@ -1841,6 +1841,48 @@ static __u16 mulaw2linear(__u8 data)
 	return data;
 }
 
+#if 0
+#define INOUT(x,y) (((x) << 16) | (y))
+static int convert_audio(int in_format, int out_format, __u8* buffer, int count)
+{
+	static int i,sign,exponent;
+	static __u16 data;
+
+	if (in_format == out_format) return count;
+
+	switch(INOUT(in_format, out_format)) {
+	case INOUT(AUDIO_ENCODING_ULAW, AUDIO_ENCODING_LINEAR8):
+		for (i = 0;i < count; i++) {
+			buffer[i] = ulaw[buffer[i]];
+		};
+		break;
+	case INOUT(AUDIO_ENCODING_ULAW, AUDIO_ENCODING_LINEAR):
+		break;
+	case INOUT(AUDIO_ENCODING_LINEAR, AUDIO_ENCODING_ULAW):
+		/* buffer is two-byte => convert to first */
+		for (i = 0; i < count/2; i++) {
+			data = ((__u16*)buffer)[i];
+			sign = (data >> 8) & 0x80;
+			if (data > CLIP) data = CLIP;
+			data += BIAS;
+			exponent = exp_lut[(data >> 7) & 0xFF];
+			buffer[i] = ~(sign | (exponent << 4) | 
+						  ((data >> (exponent + 3)) & 0x0F));
+		};
+		break;
+	case INOUT(AUDIO_ENCODING_LINEAR8, AUDIO_ENCODING_ULAW):
+		for (i = 0; i < count; i++) {
+			buffer[i] = linear[buffer[i]];
+		};
+		break;
+	default:
+		return 0;
+	};
+
+	return count;
+}
+#undef INOUT
+#endif
 
 #undef BIAS
 #undef CLIP

@@ -39,7 +39,7 @@
 
 #include <asm/addrspace.h>
 #include <asm/bootinfo.h>
-#include <asm/galileo-boards/ev96100.h>
+#include <asm/gt64120/gt64120.h>
 
 
 /* Environment variable */

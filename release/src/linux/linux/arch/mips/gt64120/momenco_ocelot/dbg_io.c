@@ -1,6 +1,6 @@
 #include <linux/config.h>
 
-#if defined(CONFIG_REMOTE_DEBUG)
+#if defined(CONFIG_KGDB)
 
 #include <asm/serial.h> /* For the serial port location and base baud */
 

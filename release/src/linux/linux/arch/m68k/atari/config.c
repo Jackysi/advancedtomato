@@ -114,6 +114,36 @@ static char atari_sysrq_xlate[128] =
  *   -- Peter Maydell <pmaydell@chiark.greenend.org.uk>, 05/1998
  */
   
+#if 0
+static int __init
+hwreg_present_bywrite(volatile void *regp, unsigned char val)
+{
+    int		ret;
+    long	save_sp, save_vbr;
+    static long tmp_vectors[3] = { 0, 0, (long)&&after_test };
+	
+    __asm__ __volatile__
+	(	"movec	%/vbr,%2\n\t"	/* save vbr value            */
+                "movec	%4,%/vbr\n\t"	/* set up temporary vectors  */
+		"movel	%/sp,%1\n\t"	/* save sp                   */
+		"moveq	#0,%0\n\t"	/* assume not present        */
+		"moveb	%5,%3@\n\t"	/* write the hardware reg    */
+		"cmpb	%3@,%5\n\t"	/* compare it                */
+		"seq	%0"		/* comes here only if reg    */
+                                        /* is present                */
+		: "=d&" (ret), "=r&" (save_sp), "=r&" (save_vbr)
+		: "a" (regp), "r" (tmp_vectors), "d" (val)
+                );
+  after_test:
+    __asm__ __volatile__
+      (	"movel	%0,%/sp\n\t"		/* restore sp                */
+        "movec	%1,%/vbr"			/* restore vbr               */
+        : : "r" (save_sp), "r" (save_vbr) : "sp"
+	);
+
+    return( ret );
+}
+#endif
 
 
 /* ++roman: This is a more elaborate test for an SCC chip, since the plain
@@ -354,7 +384,13 @@ void __init config_atari(void)
         printk( "DSP56K " );
     }
     if (hwreg_present( &tt_scc_dma.dma_ctrl ) &&
+#if 0
+	/* This test sucks! Who knows some better? */
+	(tt_scc_dma.dma_ctrl = 0x01, (tt_scc_dma.dma_ctrl & 1) == 1) &&
+	(tt_scc_dma.dma_ctrl = 0x00, (tt_scc_dma.dma_ctrl & 1) == 0)
+#else
 	!MACH_IS_MEDUSA && !MACH_IS_HADES
+#endif
 	) {
 	ATARIHW_SET(SCC_DMA);
         printk( "SCC_DMA " );
@@ -390,6 +426,7 @@ void __init config_atari(void)
 	ATARIHW_SET(IDE);
         printk( "IDE " );
     }
+#if 1 /* This maybe wrong */
     if (!MACH_IS_MEDUSA && !MACH_IS_HADES &&
 	hwreg_present( &tt_microwire.data ) &&
 	hwreg_present( &tt_microwire.mask ) &&
@@ -402,6 +439,7 @@ void __init config_atari(void)
 	while (tt_microwire.mask != 0x7ff) ;
         printk( "MICROWIRE " );
     }
+#endif
     if (hwreg_present( &tt_rtc.regsel )) {
 	ATARIHW_SET(TT_CLK);
         printk( "TT_CLK " );

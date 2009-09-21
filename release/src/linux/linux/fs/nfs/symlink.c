@@ -46,7 +46,6 @@ static int nfs_symlink_filler(struct inode *inode, struct page *page)
 
 error:
 	SetPageError(page);
-	kunmap(page);
 	UnlockPage(page);
 	return -EIO;
 }

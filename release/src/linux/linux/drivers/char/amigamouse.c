@@ -109,11 +109,30 @@ static void mouse_interrupt(int irq, void *dummy, struct pt_regs *fp)
 	lastx = nx;
 	lasty = ny;
 
+#if 0
+	dx = -lastdx;
+	dx += (lastdx = joy0dat & 0xff);
+	if (dx < -127)
+	    dx = -255-dx;		/* underrun */
+	else
+	if (dx > 127)
+	    dx = 255-dx;		/* overflow */
+
+	dy = -lastdy;
+	dy += (lastdy = joy0dat >> 8);
+	if (dy < -127)
+	    dy = -255-dy;
+	else
+	if (dy > 127)
+	    dy = 255-dy;
+#endif
 
 
 	potgor = custom.potgor;
 	buttons = (ciaa.pra & 0x40 ? 4 : 0) |	/* left button; note that the bits are low-active, as are the expected results -> double negation */
+#if 1
 		  (potgor & 0x0100 ? 2 : 0) |	/* middle button; emulation goes here */
+#endif
 		  (potgor & 0x0400 ? 1 : 0);	/* right button */
 
 

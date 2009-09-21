@@ -1,5 +1,5 @@
 /*
- * $Id: mbx860.c,v 1.1.1.4 2003/10/14 08:08:17 sparq Exp $
+ * $Id: mbx860.c,v 1.1 2001/11/18 19:43:09 dwmw2 Exp $
  *
  * Handle mapping of the flash on MBX860 boards
  *

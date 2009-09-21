@@ -107,6 +107,10 @@ int drm_release(struct inode *inode, struct file *filp)
 			      &dev->lock.hw_lock->lock,
 			      _DRM_LOCKING_CONTEXT(dev->lock.hw_lock->lock));
 		
+				/* FIXME: may require heavy-handed reset of
+                                   hardware at this point, possibly
+                                   processed via a callback to the X
+                                   server. */
 	}
 	drm_reclaim_buffers(dev, priv->pid);
 

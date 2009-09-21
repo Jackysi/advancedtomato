@@ -1,4 +1,4 @@
-/* $Id: ffb_drv.c,v 1.1.1.4 2003/10/14 08:08:04 sparq Exp $
+/* $Id: ffb_drv.c,v 1.16 2001/10/18 16:00:24 davem Exp $
  * ffb_drv.c: Creator/Creator3D direct rendering driver.
  *
  * Copyright (C) 2000 David S. Miller (davem@redhat.com)
@@ -371,25 +371,6 @@ static int ffb_presetup(drm_device_t *dev)
 			   i);
 	return ret;
 }
-
-#ifndef MODULE
-/* DRM(options) is called by the kernel to parse command-line options
- * passed via the boot-loader (e.g., LILO).  It calls the insmod option
- * routine, drm_parse_drm.
- */
-
-/* JH- We have to hand expand the string ourselves because of the cpp.  If
- * anyone can think of a way that we can fit into the __setup macro without
- * changing it, then please send the solution my way.
- */
-static int __init ffb_options(char *str)
-{
-	DRM(parse_options)(str);
-	return 1;
-}
-
-__setup(DRIVER_NAME "=", ffb_options);
-#endif
 
 #include "drm_fops.h"
 #include "drm_init.h"

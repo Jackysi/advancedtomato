@@ -18,7 +18,7 @@
 #define COM2_PRIMARY_BASE	0x3f8
 #define RTC_PRIMARY_BASE	0x070
 #define KBC_PRIMARY_BASE	0x060
-#define AUXIO_PRIMARY_BASE	0x000	
+#define AUXIO_PRIMARY_BASE	0x000	/* XXX */
 
 /* Logical device number */
 #define LDN_FDC			0

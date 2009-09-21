@@ -862,6 +862,13 @@ static int depca_start_xmit(struct sk_buff *skb, struct net_device *dev)
 	if (skb->len < 1)
 		goto out;
 
+	if(skb->len < ETH_ZLEN)
+	{
+		skb = skb_padto(skb, ETH_ZLEN);
+		if(skb == NULL)
+			goto out;
+	}
+	
 	netif_stop_queue(dev);
 
 	if (TX_BUFFS_AVAIL) {	/* Fill in a Tx ring entry */
@@ -1739,7 +1746,7 @@ static int load_packet(struct net_device *dev, struct sk_buff *skb)
 
 		/* set up the buffer descriptors */
 		len = (skb->len < ETH_ZLEN) ? ETH_ZLEN : skb->len;
-		for (i = entry; i != end; i = (++i) & lp->txRingMask) {
+		for (i = entry; i != end; i = (i+1) & lp->txRingMask) {
 			/* clean out flags */
 			writel(readl(&lp->tx_ring[i].base) & ~T_FLAGS, &lp->tx_ring[i].base);
 			writew(0x0000, &lp->tx_ring[i].misc);	/* clears other error flags */

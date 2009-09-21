@@ -1,1 +1,0 @@
-#undef  CONFIG_MIPS_AU1000

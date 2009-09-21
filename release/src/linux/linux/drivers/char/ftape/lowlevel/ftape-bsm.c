@@ -17,9 +17,9 @@
  the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
 
  *
- * $Source: /home/cvsroot/wrt54g/src/linux/linux/drivers/char/ftape/lowlevel/ftape-bsm.c,v $
- * $Revision: 1.1.1.2 $
- * $Date: 2003/10/14 08:08:06 $
+ * $Source: /homes/cvs/ftape-stacked/ftape/lowlevel/ftape-bsm.c,v $
+ * $Revision: 1.3 $
+ * $Date: 1997/10/05 19:15:15 $
  *
  *      This file contains the bad-sector map handling code for
  *      the QIC-117 floppy tape driver for Linux.
@@ -46,6 +46,53 @@ typedef enum {
 	forward, backward
 } mode_type;
 
+#if 0
+/*  fix_tape converts a normal QIC-80 tape into a 'wide' tape.
+ *  For testing purposes only !
+ */
+void fix_tape(__u8 * buffer, ft_format_type new_code)
+{
+	static __u8 list[BAD_SECTOR_MAP_SIZE];
+	SectorMap *src_ptr = (SectorMap *) list;
+	__u8 *dst_ptr = bad_sector_map;
+	SectorMap map;
+	unsigned int sector = 1;
+	int i;
+
+	if (format_code != fmt_var && format_code != fmt_big) {
+		memcpy(list, bad_sector_map, sizeof(list));
+		memset(bad_sector_map, 0, sizeof(bad_sector_map));
+		while ((__u8 *) src_ptr - list < sizeof(list)) {
+			map = *src_ptr++;
+			if (map == EMPTY_SEGMENT) {
+				*(SectorMap *) dst_ptr = 0x800000 + sector;
+				dst_ptr += 3;
+				sector += SECTORS_PER_SEGMENT;
+			} else {
+				for (i = 0; i < SECTORS_PER_SEGMENT; ++i) {
+					if (map & 1) {
+						*(SewctorMap *) dst_ptr = sector;
+						dst_ptr += 3;
+					}
+					map >>= 1;
+					++sector;
+				}
+			}
+		}
+	}
+	bad_sector_map_changed = 1;
+	*(buffer + 4) = new_code;	/* put new format code */
+	if (format_code != fmt_var && new_code == fmt_big) {
+		PUT4(buffer, FT_6_HSEG_1,   (__u32)GET2(buffer, 6));
+		PUT4(buffer, FT_6_HSEG_2,   (__u32)GET2(buffer, 8));
+		PUT4(buffer, FT_6_FRST_SEG, (__u32)GET2(buffer, 10));
+		PUT4(buffer, FT_6_LAST_SEG, (__u32)GET2(buffer, 12));
+		memset(buffer+6, '\0', 8);
+	}
+	format_code = new_code;
+}
+
+#endif
 
 /*   given buffer that contains a header segment, find the end of
  *   of the bsm list
@@ -75,6 +122,7 @@ static inline void put_sector(SectorCount *ptr, unsigned int sector)
 
 static inline unsigned int get_sector(SectorCount *ptr)
 {
+#if 1
 	unsigned int sector;
 
 	sector  = ptr->bytes[0];
@@ -82,18 +130,65 @@ static inline unsigned int get_sector(SectorCount *ptr)
 	sector += ptr->bytes[2] << 16;
 
 	return sector;
+#else
+	/*  GET4 gets the next four bytes in Intel little endian order
+	 *  and converts them to host byte order and handles unaligned
+	 *  access.
+	 */
+	return (GET4(ptr, 0) & 0x00ffffff); /* back to host byte order */
+#endif
 }
 
 static void bsm_debug_fake(void)
 {
 	/* for testing of bad sector handling at end of tape
 	 */
+#if 0
+	ftape_put_bad_sector_entry(segments_per_track * tracks_per_tape - 3,
+				   0x000003e0;
+	ftape_put_bad_sector_entry(segments_per_track * tracks_per_tape - 2,
+				   0xff3fffff;
+	ftape_put_bad_sector_entry(segments_per_track * tracks_per_tape - 1,
+				   0xffffe000;
+#endif
 	/*  Enable to test bad sector handling
 	 */
+#if 0
+	ftape_put_bad_sector_entry(30, 0xfffffffe)
+	ftape_put_bad_sector_entry(32, 0x7fffffff);
+	ftape_put_bad_sector_entry(34, 0xfffeffff);
+	ftape_put_bad_sector_entry(36, 0x55555555);
+	ftape_put_bad_sector_entry(38, 0xffffffff);
+	ftape_put_bad_sector_entry(50, 0xffff0000);
+	ftape_put_bad_sector_entry(51, 0xffffffff);
+	ftape_put_bad_sector_entry(52, 0xffffffff);
+	ftape_put_bad_sector_entry(53, 0x0000ffff);
+#endif
 	/*  Enable when testing multiple volume tar dumps.
 	 */
+#if 0
+	{
+		int i;
+
+		for (i = ft_first_data_segment;
+		     i <= ft_last_data_segment - 7; ++i) {
+			ftape_put_bad_sector_entry(i, EMPTY_SEGMENT);
+		}
+	}
+#endif
 	/*  Enable when testing bit positions in *_error_map
 	 */
+#if 0
+	{
+		int i;
+		
+		for (i = first_data_segment; i <= last_data_segment; ++i) {
+			ftape_put_bad_sector_entry(i,
+					   ftape_get_bad_sector_entry(i) 
+					   | 0x00ff00ff);
+		}
+	}
+#endif
 }
 
 static void print_bad_sector_map(void)
@@ -108,6 +203,7 @@ static void print_bad_sector_map(void)
 	    ft_format_code == fmt_1100ft) {
 		SectorCount *ptr = (SectorCount *)bad_sector_map;
 		unsigned int sector;
+		__u16 *ptr16;
 
 		while((sector = get_sector(ptr++)) != 0) {
 			if ((ft_format_code == fmt_big || 
@@ -123,9 +219,10 @@ static void print_bad_sector_map(void)
 		}
 		/*  Display old ftape's end-of-file marks
 		 */
-		while ((sector = get_unaligned(((__u16*)ptr)++)) != 0) {
+		ptr16 = (__u16*)ptr;
+		while ((sector = get_unaligned(ptr16++)) != 0) {
 			TRACE(ft_t_noise, "Old ftape eof mark: %4d/%2d",
-			      sector, get_unaligned(((__u16*)ptr)++));
+			      sector, get_unaligned(ptr16++));
 		}
 	} else { /* fixed size format */
 		for (i = ft_first_data_segment;

@@ -31,6 +31,30 @@
 #include <asm/mach/map.h>
 #include <asm/hardware/clps7111.h>
 
+#if 0 //def CONFIG_DISCONTIGMEM
+  
+/*
+ * The assumption of maximum 4 discontiguous memory banks is present
+ * in several places in the ARM kernel, including the parameter block
+ * (this affects boot loaders, too).  Banks do not necessarily
+ * correspond 1:1 with NUMA nodes, although they usually will,
+ * especially if they are widely discontiguous.
+ *
+ *  - note that the parameter block is depreciated for new implementations
+ *  - also note that discontig_node_data is actually used
+ *    -- rmk 
+ */
+
+static bootmem_data_t node_bootmem_data[4];
+
+pg_data_t clps711x_node_data[4] = {
+        { bdata: &node_bootmem_data[0] },
+        { bdata: &node_bootmem_data[1] },
+        { bdata: &node_bootmem_data[2] },
+        { bdata: &node_bootmem_data[3] },
+};
+
+#endif
 
 /*
  * This maps the generic CLPS711x registers

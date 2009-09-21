@@ -1,7 +1,3 @@
-/*
- * BK Id: SCCS/s.kbd.c 1.9 01/11/02 10:46:07 trini
- */
-
 #include <linux/keyboard.h>
 
 #include "defkeymap.c"	/* yeah I know it's bad -- Cort */

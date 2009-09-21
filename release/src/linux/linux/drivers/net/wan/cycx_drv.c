@@ -288,6 +288,7 @@ static void reset_load(u32 addr, u8 *buffer, u32 cnt)
 	u16 i; /*, j; */
 
 	for (i = 0 ; i < cnt ; i++) {
+/*		for (j = 0 ; j < 50 ; j++); Delay - FIXME busy waiting... */
 		cyc2x_writeb(*buffer++, pt_code++);
 	}
 }
@@ -431,6 +432,10 @@ static int load_cyc2x(cycxhw_t *hw, cfm_t *cfm, u32 len)
 	/* Verify firmware module length and checksum */
 	cksum = checksum((u8*)&cfm->info, sizeof(cfm_info_t) +
 					      cfm->info.codesize);
+/*
+        FIXME cfm->info.codesize is off by 2
+	if (((len - sizeof(cfm_t) - 1) != cfm->info.codesize) ||
+*/
 	if (cksum != cfm->checksum) {
 		printk(KERN_ERR "%s:%s: firmware corrupted!\n",
 				modname, __FUNCTION__);

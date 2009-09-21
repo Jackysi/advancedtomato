@@ -1,7 +1,7 @@
 /* Driver for USB Mass Storage compliant devices
  * Main Header File
  *
- * $Id: usb.h,v 1.1.1.4 2003/10/14 08:08:52 sparq Exp $
+ * $Id: usb.h,v 1.18 2001/07/30 00:27:59 mdharm Exp $
  *
  * Current development and maintenance by:
  *   (c) 1999, 2000 Matthew Dharm (mdharm-usb@one-eyed-alien.net)
@@ -48,6 +48,8 @@
 #include <linux/blk.h>
 #include <linux/smp_lock.h>
 #include <linux/completion.h>
+#include <linux/spinlock.h>
+#include <asm/atomic.h>
 #include "scsi.h"
 #include "hosts.h"
 
@@ -97,10 +99,10 @@ struct us_unusual_dev {
 #define US_FL_SINGLE_LUN      0x00000001 /* allow access to only LUN 0	    */
 #define US_FL_MODE_XLATE      0x00000002 /* translate _6 to _10 commands for
 						    Win/MacOS compatibility */
-#define US_FL_START_STOP      0x00000004 /* ignore START_STOP commands	    */
 #define US_FL_IGNORE_SER      0x00000010 /* Ignore the serial number given  */
 #define US_FL_SCM_MULT_TARG   0x00000020 /* supports multiple targets */
 #define US_FL_FIX_INQUIRY     0x00000040 /* INQUIRY response needs fixing */
+#define US_FL_FIX_CAPACITY    0x00000080 /* READ_CAPACITY response too big */
 
 #define USB_STOR_STRING_LEN 32
 
@@ -114,7 +116,7 @@ struct us_data {
 	struct us_data		*next;		 /* next device */
 
 	/* the device we're working with */
-	struct semaphore	dev_semaphore;	 /* protect pusb_dev */
+	struct semaphore	dev_semaphore;	 /* protect many things */
 	struct usb_device	*pusb_dev;	 /* this usb_device */
 
 	unsigned int		flags;		 /* from filter initially */
@@ -147,18 +149,19 @@ struct us_data {
 	int			host_number;	 /* to find us		*/
 	int			host_no;	 /* allocated by scsi	*/
 	Scsi_Cmnd		*srb;		 /* current srb		*/
+	atomic_t                abortcnt;        /* must complete(&notify) */
+	
 
 	/* thread information */
 	Scsi_Cmnd		*queue_srb;	 /* the single queue slot */
 	int			action;		 /* what to do		  */
-	int			pid;		 /* control thread	  */
+	pid_t			pid;		 /* control thread	  */
 
 	/* interrupt info for CBI devices -- only good if attached */
 	struct semaphore	ip_waitq;	 /* for CBI interrupts	 */
 	atomic_t		ip_wanted[1];	 /* is an IRQ expected?	 */
 
 	/* interrupt communications data */
-	struct semaphore	irq_urb_sem;	 /* to protect irq_urb	 */
 	struct urb		*irq_urb;	 /* for USB int requests */
 	unsigned char		irqbuf[2];	 /* buffer for USB IRQ	 */
 	unsigned char		irqdata[2];	 /* data from USB IRQ	 */
@@ -167,13 +170,14 @@ struct us_data {
 	struct semaphore	current_urb_sem; /* to protect irq_urb	 */
 	struct urb		*current_urb;	 /* non-int USB requests */
 	struct completion	current_done;	 /* the done flag        */
+	unsigned int		tag;		 /* tag for bulk CBW/CSW */
 
 	/* the semaphore for sleeping the control thread */
 	struct semaphore	sema;		 /* to sleep thread on   */
 
 	/* mutual exclusion structures */
 	struct completion	notify;		 /* thread begin/end	    */
-	struct semaphore	queue_exclusion; /* to protect data structs */
+	spinlock_t		queue_exclusion; /* to protect data structs */
 	struct us_unusual_dev   *unusual_dev;	 /* If unusual device       */
 	void			*extra;		 /* Any extra data          */
 	extra_data_destructor	extra_destructor;/* extra data destructor   */
@@ -189,4 +193,7 @@ extern struct usb_driver usb_storage_driver;
 /* Function to fill an inquiry response. See usb.c for details */
 extern void fill_inquiry_response(struct us_data *us,
 	unsigned char *data, unsigned int data_len);
+
+/* Vendor ID list for devices that require special handling */
+#define USB_VENDOR_ID_GENESYS		0x05e3	/* Genesys Logic */
 #endif

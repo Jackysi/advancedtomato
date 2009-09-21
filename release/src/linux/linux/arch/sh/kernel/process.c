@@ -1,4 +1,4 @@
-/* $Id: process.c,v 1.1.1.4 2003/10/14 08:07:47 sparq Exp $
+/* $Id: process.c,v 1.1.1.1.2.4 2003/05/29 04:21:33 lethal Exp $
  *
  *  linux/arch/sh/kernel/process.c
  *
@@ -20,6 +20,8 @@
 #include <asm/elf.h>
 
 static int hlt_counter=0;
+
+int ubc_usercnt = 0;
 
 #define HARD_IDLE_TIMEOUT (HZ / 3)
 
@@ -45,8 +47,9 @@ void cpu_idle(void *unused)
 
 	while (1) {
 		if (hlt_counter) {
-			if (current->need_resched)
-				break;
+			while (1)
+				if (current->need_resched)
+					break;
 		} else {
 			__cli();
 			while (!current->need_resched) {
@@ -118,7 +121,7 @@ void free_task_struct(struct task_struct *p)
  * This is the mechanism for creating a new kernel thread.
  *
  */
-int kernel_thread(int (*fn)(void *), void * arg, unsigned long flags)
+int arch_kernel_thread(int (*fn)(void *), void * arg, unsigned long flags)
 {	/* Don't use this in BL=1(cli).  Or else, CPU resets! */
 	register unsigned long __sc0 __asm__ ("r0");
 	register unsigned long __sc3 __asm__ ("r3") = __NR_clone;
@@ -148,7 +151,10 @@ int kernel_thread(int (*fn)(void *), void * arg, unsigned long flags)
  */
 void exit_thread(void)
 {
-	/* Nothing to do. */
+	if (current->thread.ubc_pc1) {
+		current->thread.ubc_pc1 = 0;
+		ubc_usercnt -= 1;
+	}
 }
 
 void flush_thread(void)
@@ -179,11 +185,7 @@ int dump_fpu(struct pt_regs *regs, elf_fpregset_t *fpu)
 
 	fpvalid = tsk->used_math;
 	if (fpvalid) {
-		unsigned long flags;
-
-		save_and_cli(flags);
 		unlazy_fpu(tsk);
-		restore_flags(flags);
 		memcpy(fpu, &tsk->thread.fpu.hard, sizeof(*fpu));
 	}
 
@@ -203,15 +205,9 @@ int copy_thread(int nr, unsigned long clone_flags, unsigned long usp,
 #if defined(__SH4__)
 	struct task_struct *tsk = current;
 
-	if (tsk != &init_task) {
-		unsigned long flags;
-
-		save_and_cli(flags);
-		unlazy_fpu(tsk);
-		restore_flags(flags);
-		p->thread.fpu = current->thread.fpu;
-		p->used_math = tsk->used_math;
-	}
+	unlazy_fpu(tsk);
+	p->thread.fpu = current->thread.fpu;
+	p->used_math = tsk->used_math;
 #endif
 	childregs = ((struct pt_regs *)(THREAD_SIZE + (unsigned long) p)) - 1;
 	*childregs = *regs;
@@ -226,6 +222,9 @@ int copy_thread(int nr, unsigned long clone_flags, unsigned long usp,
 
 	p->thread.sp = (unsigned long) childregs;
 	p->thread.pc = (unsigned long) ret_from_fork;
+
+	p->thread.ubc_pc1 = 0;
+	p->thread.ubc_pc2 = 0;
 
 	return 0;
 }
@@ -250,6 +249,37 @@ void dump_thread(struct pt_regs * regs, struct user * dump)
 	dump->u_fpvalid = dump_fpu(regs, &dump->fpu);
 }
 
+/* Tracing by user break controller.  */
+static inline void
+ubc_set_tracing(int asid, unsigned long nextpc1, unsigned nextpc2)
+{
+	ctrl_outl(nextpc1, UBC_BARA);
+	ctrl_outb(asid, UBC_BASRA);
+	if(UBC_TYPE_SH7729){
+		ctrl_outl(0, UBC_BAMRA);
+		ctrl_outw(BBR_INST | BBR_READ | BBR_CPU, UBC_BBRA);
+	}else{
+		ctrl_outb(0, UBC_BAMRA);
+		ctrl_outw(BBR_INST | BBR_READ, UBC_BBRA);
+	}
+
+	if (nextpc2 != (unsigned long) -1) {
+		ctrl_outl(nextpc2, UBC_BARB);
+		ctrl_outb(asid, UBC_BASRB);
+		if(UBC_TYPE_SH7729){
+			ctrl_outl(0, UBC_BAMRB);
+			ctrl_outw(BBR_INST | BBR_READ | BBR_CPU, UBC_BBRB);
+		}else{
+			ctrl_outb(0, UBC_BAMRB);
+			ctrl_outw(BBR_INST | BBR_READ, UBC_BBRB);
+		}
+	}
+	if(UBC_TYPE_SH7729)
+		ctrl_outl(BRCR_PCTE, UBC_BRCR);
+	else
+		ctrl_outw(0, UBC_BRCR);
+}
+
 /*
  *	switch_to(x,y) should switch tasks from x to y.
  *
@@ -257,14 +287,9 @@ void dump_thread(struct pt_regs * regs, struct user * dump)
 void __switch_to(struct task_struct *prev, struct task_struct *next)
 {
 #if defined(__SH4__)
-	if (prev != &init_task) {
-		unsigned long flags;
-
-		save_and_cli(flags);
-		unlazy_fpu(prev);
-		restore_flags(flags);
-	}
+	unlazy_fpu(prev);
 #endif
+
 	/*
 	 * Restore the kernel mode register
 	 *   	k7 (r7_bank1)
@@ -272,6 +297,19 @@ void __switch_to(struct task_struct *prev, struct task_struct *next)
 	asm volatile("ldc	%0, r7_bank"
 		     : /* no output */
 		     :"r" (next));
+
+	/* If no tasks are using the UBC, we're done */
+	if (ubc_usercnt == 0)
+		return;
+
+	/* Otherwise, set or clear UBC as appropriate */
+	if (next->thread.ubc_pc1) {
+		ubc_set_tracing(next->mm->context & MMU_CONTEXT_ASID_MASK,
+				next->thread.ubc_pc1, next->thread.ubc_pc2);
+	} else {
+		ctrl_outw(0, UBC_BBRA);
+		ctrl_outw(0, UBC_BBRB);
+	}
 }
 
 asmlinkage int sys_fork(unsigned long r4, unsigned long r5,
@@ -375,6 +413,9 @@ asmlinkage void break_point_trap(unsigned long r4, unsigned long r5,
 	/* Clear tracing.  */
 	ctrl_outw(0, UBC_BBRA);
 	ctrl_outw(0, UBC_BBRB);
+	current->thread.ubc_pc1 = 0;
+	current->thread.ubc_pc2 = (unsigned long) -1;
+	ubc_usercnt -= 1;
 
 	force_sig(SIGTRAP, current);
 }

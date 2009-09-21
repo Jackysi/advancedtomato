@@ -18,11 +18,8 @@
 *! Jul 21 1999  Bjorn Wesen     eLinux port
 *!
 *! $Log: kgdb.c,v $
-*! Revision 1.1.1.4  2003/10/14 08:07:17  sparq
-*! Broadcom Release 3.51.8.0 for BCM4712.
-*!
-*! Revision 1.1.1.1  2003/02/03 22:37:20  mhuang
-*! LINUX_2_4 branch snapshot from linux-mips.org CVS
+*! Revision 1.8  2003/04/09 08:31:15  pkj
+*! Typo correction (taken from Linux 2.5).
 *!
 *! Revision 1.7  2002/07/12 09:14:56  bjornw
 *! Corrected typo
@@ -64,7 +61,7 @@
 *!
 *!---------------------------------------------------------------------------
 *!
-*! $Id: kgdb.c,v 1.1.1.4 2003/10/14 08:07:17 sparq Exp $
+*! $Id: kgdb.c,v 1.8 2003/04/09 08:31:15 pkj Exp $
 *!
 *! (C) Copyright 1999, Axis Communications AB, LUND, SWEDEN
 *!
@@ -158,7 +155,7 @@
  *    (IPL too high, disabled, ...)
  *
  *  - The gdb stub is currently not reentrant, i.e. errors that happen therein
- *    (e.g. accesing invalid memory) may not be caught correctly. This could
+ *    (e.g. accessing invalid memory) may not be caught correctly. This could
  *    be removed in future by introducing a stack of struct registers.
  *
  */
@@ -464,6 +461,7 @@ static int register_size[] =
    part of the code in order to avoid horrible addressing modes. */
 static registers reg;
 
+/* FIXME: Should this be used? Delete otherwise. */
 /* Contains the assumed consistency state of the register image. Uses the
    enum error_type for state information. */
 static int consistency_status = SUCCESS;
@@ -763,6 +761,7 @@ mem2hex(char *buf, unsigned char *mem, int count)
 	int ch;
         
         if (mem == NULL) {
+                /* Bogus read from m0. FIXME: What constitutes a valid address? */
                 for (i = 0; i < count; i++) {
                         *buf++ = '0';
                         *buf++ = '0';
@@ -1490,7 +1489,7 @@ kgdb_handle_serial:
   move.d   $r0,[reg+0x62]   ; Save the return address in BRP
   move     $usp,[reg+0x66]  ; USP
 
-;; get the serial character (from debugport.c) and check if its a ctrl-c
+;; get the serial character (from debugport.c) and check if it is a ctrl-c
 
   jsr getDebugChar
   cmp.b 3, $r10

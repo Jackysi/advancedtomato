@@ -3,7 +3,7 @@
 /*
  *      es1371.c  --  Creative Ensoniq ES1371.
  *
- *      Copyright (C) 1998-2001  Thomas Sailer (t.sailer@alumni.ethz.ch)
+ *      Copyright (C) 1998-2001, 2003  Thomas Sailer (t.sailer@alumni.ethz.ch)
  *
  *      This program is free software; you can redistribute it and/or modify
  *      it under the terms of the GNU General Public License as published by
@@ -110,6 +110,7 @@
  *    31.01.2001   0.30  Register/Unregister gameport
  *                       Fix SETTRIGGER non OSS API conformity
  *    14.07.2001   0.31  Add list of laptops needing amplifier control
+ *    03.01.2003   0.32  open_mode fixes from Georg Acher <acher@in.tum.de>
  */
 
 /*****************************************************************************/
@@ -411,7 +412,7 @@ struct es1371_state {
 	struct proc_dir_entry *ps;
 #endif /* ES1371_DEBUG */
 
-	struct ac97_codec codec;
+	struct ac97_codec *codec;
 
 	/* wave stuff */
 	unsigned ctrl;
@@ -687,10 +688,10 @@ static void wrcodec(struct ac97_codec *codec, u8 addr, u16 data)
 	unsigned long flags;
 	unsigned t, x;
         
+	spin_lock_irqsave(&s->lock, flags);
 	for (t = 0; t < POLL_COUNT; t++)
 		if (!(inl(s->io+ES1371_REG_CODEC) & CODEC_WIP))
 			break;
-	spin_lock_irqsave(&s->lock, flags);
 
         /* save the current state for later */
         x = wait_src_ready(s);
@@ -729,11 +730,12 @@ static u16 rdcodec(struct ac97_codec *codec, u8 addr)
 	unsigned long flags;
 	unsigned t, x;
 
+	spin_lock_irqsave(&s->lock, flags);
+	
         /* wait for WIP to go away */
 	for (t = 0; t < 0x1000; t++)
 		if (!(inl(s->io+ES1371_REG_CODEC) & CODEC_WIP))
 			break;
-	spin_lock_irqsave(&s->lock, flags);
 
 	/* save the current state for later */
 	x = (wait_src_ready(s) & (SRC_DIS | SRC_DDAC1 | SRC_DDAC2 | SRC_DADC));
@@ -761,7 +763,6 @@ static u16 rdcodec(struct ac97_codec *codec, u8 addr)
 	/* restore SRC reg */
 	wait_src_ready(s);
 	outl(x, s->io+ES1371_REG_SRCONV);
-	spin_unlock_irqrestore(&s->lock, flags);
 
         /* wait for WIP again */
 	for (t = 0; t < 0x1000; t++)
@@ -773,6 +774,7 @@ static u16 rdcodec(struct ac97_codec *codec, u8 addr)
 		if ((x = inl(s->io+ES1371_REG_CODEC)) & CODEC_RDY)
 			break;
         
+	spin_unlock_irqrestore(&s->lock, flags);
 	return ((x & CODEC_PIDAT_MASK) >> CODEC_PIDAT_SHIFT);
 }
 
@@ -1221,7 +1223,7 @@ static int es1371_open_mixdev(struct inode *inode, struct file *file)
 		if (list == &devs)
 			return -ENODEV;
 		s = list_entry(list, struct es1371_state, devs);
-		if (s->codec.dev_mixer == minor)
+		if (s->codec->dev_mixer == minor)
 			break;
 	}
        	VALIDATE_STATE(s);
@@ -1240,7 +1242,7 @@ static int es1371_release_mixdev(struct inode *inode, struct file *file)
 static int es1371_ioctl_mixdev(struct inode *inode, struct file *file, unsigned int cmd, unsigned long arg)
 {
 	struct es1371_state *s = (struct es1371_state *)file->private_data;
-	struct ac97_codec *codec = &s->codec;
+	struct ac97_codec *codec = s->codec;
 
 	return mixdev_ioctl(codec, cmd, arg);
 }
@@ -1908,7 +1910,7 @@ static int es1371_ioctl(struct inode *inode, struct file *file, unsigned int cmd
                 return -EINVAL;
 		
 	}
-	return mixdev_ioctl(&s->codec, cmd, arg);
+	return mixdev_ioctl(s->codec, cmd, arg);
 }
 
 static int es1371_open(struct inode *inode, struct file *file)
@@ -1995,7 +1997,7 @@ static int es1371_release(struct inode *inode, struct file *file)
 		stop_adc(s);
 		dealloc_dmabuf(s, &s->dma_adc);
 	}
-	s->open_mode &= (~file->f_mode) & (FMODE_READ|FMODE_WRITE);
+	s->open_mode &= ~(file->f_mode & (FMODE_READ|FMODE_WRITE));
 	up(&s->open_sem);
 	wake_up(&s->open_wait);
 	unlock_kernel();
@@ -2337,7 +2339,7 @@ static int es1371_ioctl_dac(struct inode *inode, struct file *file, unsigned int
                 return -EINVAL;
 		
 	}
-	return mixdev_ioctl(&s->codec, cmd, arg);
+	return mixdev_ioctl(s->codec, cmd, arg);
 }
 
 static int es1371_open_dac(struct inode *inode, struct file *file)
@@ -2357,6 +2359,10 @@ static int es1371_open_dac(struct inode *inode, struct file *file)
 	}
        	VALIDATE_STATE(s);
        	/* we allow opening with O_RDWR, most programs do it although they will only write */
+#if 0
+	if (file->f_mode & FMODE_READ)
+		return -EPERM;
+#endif
 	if (!(file->f_mode & FMODE_WRITE))
 		return -EINVAL;
        	file->private_data = s;
@@ -2666,7 +2672,7 @@ static int es1371_midi_release(struct inode *inode, struct file *file)
 		set_current_state(TASK_RUNNING);
 	}
 	down(&s->open_sem);
-	s->open_mode &= (~(file->f_mode << FMODE_MIDI_SHIFT)) & (FMODE_MIDI_READ|FMODE_MIDI_WRITE);
+	s->open_mode &= ~((file->f_mode << FMODE_MIDI_SHIFT) & (FMODE_MIDI_READ|FMODE_MIDI_WRITE));
 	spin_lock_irqsave(&s->lock, flags);
 	if (!(s->open_mode & (FMODE_MIDI_READ | FMODE_MIDI_WRITE))) {
 		s->ctrl &= ~CTRL_UART_EN;
@@ -2711,7 +2717,7 @@ static int proc_es1371_dump (char *buf, char **start, off_t fpos, int length, in
         /* print out CODEC state */
         len += sprintf (buf + len, "AC97 CODEC state\n");
 	for (cnt=0; cnt <= 0x7e; cnt = cnt +2)
-                len+= sprintf (buf + len, "reg:0x%02x  val:0x%04x\n", cnt, rdcodec(&s->codec, cnt));
+                len+= sprintf (buf + len, "reg:0x%02x  val:0x%04x\n", cnt, rdcodec(s->codec, cnt));
 
         if (fpos >=len){
                 *start = buf;
@@ -2814,6 +2820,11 @@ static int __devinit es1371_probe(struct pci_dev *pcidev, const struct pci_devic
 		return -ENOMEM;
 	}
 	memset(s, 0, sizeof(struct es1371_state));
+	
+	s->codec = ac97_alloc_codec();
+	if(s->codec == NULL)
+		goto err_codec;
+		
 	init_waitqueue_head(&s->dma_adc.wait);
 	init_waitqueue_head(&s->dma_dac1.wait);
 	init_waitqueue_head(&s->dma_dac2.wait);
@@ -2829,10 +2840,10 @@ static int __devinit es1371_probe(struct pci_dev *pcidev, const struct pci_devic
 	s->vendor = pcidev->vendor;
 	s->device = pcidev->device;
 	pci_read_config_byte(pcidev, PCI_REVISION_ID, &s->rev);
-	s->codec.private_data = s;
-	s->codec.id = 0;
-	s->codec.codec_read = rdcodec;
-	s->codec.codec_write = wrcodec;
+	s->codec->private_data = s;
+	s->codec->id = 0;
+	s->codec->codec_read = rdcodec;
+	s->codec->codec_write = wrcodec;
 	printk(KERN_INFO PFX "found chip, vendor id 0x%04x device id 0x%04x revision 0x%02x\n",
 	       s->vendor, s->device, s->rev);
 	if (!request_region(s->io, ES1371_EXTENT, "es1371")) {
@@ -2847,13 +2858,13 @@ static int __devinit es1371_probe(struct pci_dev *pcidev, const struct pci_devic
 	printk(KERN_INFO PFX "found es1371 rev %d at io %#lx irq %u\n"
 	       KERN_INFO PFX "features: joystick 0x%x\n", s->rev, s->io, s->irq, joystick[devindex]);
 	/* register devices */
-	if ((res=(s->dev_audio = register_sound_dsp(&es1371_audio_fops,-1))<0))
+	if ((res=(s->dev_audio = register_sound_dsp(&es1371_audio_fops,-1)))<0)
 		goto err_dev1;
-	if ((res=(s->codec.dev_mixer = register_sound_mixer(&es1371_mixer_fops, -1)) < 0))
+	if ((res=(s->codec->dev_mixer = register_sound_mixer(&es1371_mixer_fops, -1)) < 0))
 		goto err_dev2;
-	if ((res=(s->dev_dac = register_sound_dsp(&es1371_dac_fops, -1)) < 0))
+	if ((res=(s->dev_dac = register_sound_dsp(&es1371_dac_fops, -1))) < 0)
 		goto err_dev3;
-	if ((res=(s->dev_midi = register_sound_midi(&es1371_midi_fops, -1))<0 ))
+	if ((res=(s->dev_midi = register_sound_midi(&es1371_midi_fops, -1)))<0 )
 		goto err_dev4;
 #ifdef ES1371_DEBUG
 	/* intialize the debug proc device */
@@ -2940,7 +2951,7 @@ static int __devinit es1371_probe(struct pci_dev *pcidev, const struct pci_devic
 	/* init the sample rate converter */
 	src_init(s);
 	/* codec init */
-	if (!ac97_probe_codec(&s->codec)) {
+	if (!ac97_probe_codec(s->codec)) {
 		res = -ENODEV;
 		goto err_gp;
 	}
@@ -2949,16 +2960,16 @@ static int __devinit es1371_probe(struct pci_dev *pcidev, const struct pci_devic
 	fs = get_fs();
 	set_fs(KERNEL_DS);
 	val = SOUND_MASK_LINE;
-	mixdev_ioctl(&s->codec, SOUND_MIXER_WRITE_RECSRC, (unsigned long)&val);
+	mixdev_ioctl(s->codec, SOUND_MIXER_WRITE_RECSRC, (unsigned long)&val);
 	for (i = 0; i < sizeof(initvol)/sizeof(initvol[0]); i++) {
 		val = initvol[i].vol;
-		mixdev_ioctl(&s->codec, initvol[i].mixch, (unsigned long)&val);
+		mixdev_ioctl(s->codec, initvol[i].mixch, (unsigned long)&val);
 	}
 	/* mute master and PCM when in S/PDIF mode */
 	if (s->spdif_volume != -1) {
 		val = 0x0000;
-		s->codec.mixer_ioctl(&s->codec, SOUND_MIXER_WRITE_VOLUME, (unsigned long)&val);
-		s->codec.mixer_ioctl(&s->codec, SOUND_MIXER_WRITE_PCM, (unsigned long)&val);
+		s->codec->mixer_ioctl(s->codec, SOUND_MIXER_WRITE_VOLUME, (unsigned long)&val);
+		s->codec->mixer_ioctl(s->codec, SOUND_MIXER_WRITE_PCM, (unsigned long)&val);
 	}
 	set_fs(fs);
 	/* turn on S/PDIF output driver if requested */
@@ -2978,10 +2989,15 @@ static int __devinit es1371_probe(struct pci_dev *pcidev, const struct pci_devic
  err_gp:
 	if (s->gameport.io)
 		release_region(s->gameport.io, JOY_EXTENT);
+#ifdef ES1371_DEBUG
+	if (s->ps)
+		remove_proc_entry("es1371", NULL);
+#endif
+	unregister_sound_midi(s->dev_midi);
  err_dev4:
 	unregister_sound_dsp(s->dev_dac);
  err_dev3:
-	unregister_sound_mixer(s->codec.dev_mixer);
+	unregister_sound_mixer(s->codec->dev_mixer);
  err_dev2:
 	unregister_sound_dsp(s->dev_audio);
  err_dev1:
@@ -2990,6 +3006,8 @@ static int __devinit es1371_probe(struct pci_dev *pcidev, const struct pci_devic
  err_irq:
 	release_region(s->io, ES1371_EXTENT);
  err_region:
+ err_codec:
+	ac97_release_codec(s->codec);
 	kfree(s);
 	return res;
 }
@@ -3015,9 +3033,10 @@ static void __devinit es1371_remove(struct pci_dev *dev)
 	}
 	release_region(s->io, ES1371_EXTENT);
 	unregister_sound_dsp(s->dev_audio);
-	unregister_sound_mixer(s->codec.dev_mixer);
+	unregister_sound_mixer(s->codec->dev_mixer);
 	unregister_sound_dsp(s->dev_dac);
 	unregister_sound_midi(s->dev_midi);
+	ac97_release_codec(s->codec);
 	kfree(s);
 	pci_set_drvdata(dev, NULL);
 }
@@ -3042,7 +3061,7 @@ static int __init init_es1371(void)
 {
 	if (!pci_present())   /* No PCI bus in this machine! */
 		return -ENODEV;
-	printk(KERN_INFO PFX "version v0.30 time " __TIME__ " " __DATE__ "\n");
+	printk(KERN_INFO PFX "version v0.32 time " __TIME__ " " __DATE__ "\n");
 	return pci_module_init(&es1371_driver);
 }
 

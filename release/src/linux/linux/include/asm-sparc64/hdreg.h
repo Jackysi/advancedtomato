@@ -1,4 +1,4 @@
-/* $Id: hdreg.h,v 1.1.1.4 2003/10/14 08:09:23 sparq Exp $
+/* $Id: hdreg.h,v 1.1 1999/05/14 07:23:13 davem Exp $
  * hdreg.h: Ultra/PCI specific IDE glue.
  *
  * Copyright (C) 1997  David S. Miller (davem@caip.rutgers.edu)

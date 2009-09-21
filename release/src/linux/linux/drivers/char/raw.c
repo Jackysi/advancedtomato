@@ -170,7 +170,7 @@ int raw_ioctl(struct inode *inode,
 {
 	int minor = minor(inode->i_rdev), err; 
 	struct block_device *b; 
-	if (minor < 1 && minor > 255)
+	if (minor < 1 || minor > 255)
 		return -ENODEV;
 
 	b = raw_devices[minor].binding;
@@ -301,6 +301,7 @@ ssize_t	rw_raw_dev(int rw, struct file *filp, char *buf,
 	int		minor;
 	kdev_t		dev;
 	unsigned long	limit;
+	loff_t		off = *offp;
 
 	int		sector_size, sector_bits, sector_mask;
 	int		max_sectors;
@@ -338,12 +339,12 @@ ssize_t	rw_raw_dev(int rw, struct file *filp, char *buf,
 		 MAJOR(dev), MINOR(dev), limit);
 	
 	err = -EINVAL;
-	if ((*offp & sector_mask) || (size & sector_mask))
+	if ((off & sector_mask) || (size & sector_mask))
 		goto out_free;
 	err = 0;
 	if (size)
 		err = -ENXIO;
-	if ((*offp >> sector_bits) >= limit)
+	if ((off >> sector_bits) >= limit)
 		goto out_free;
 
 	/*
@@ -353,7 +354,7 @@ ssize_t	rw_raw_dev(int rw, struct file *filp, char *buf,
 	 */
 
 	transferred = 0;
-	blocknr = *offp >> sector_bits;
+	blocknr = off >> sector_bits;
 	while (size > 0) {
 		blocks = size >> sector_bits;
 		if (blocks > max_sectors)
@@ -390,7 +391,7 @@ ssize_t	rw_raw_dev(int rw, struct file *filp, char *buf,
 	}
 	
 	if (transferred) {
-		*offp += transferred;
+		*offp = off + transferred;
 		err = transferred;
 	}
 

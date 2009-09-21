@@ -1,5 +1,5 @@
 /*
- *   Copyright (c) International Business Machines Corp., 2000-2002
+ *   Copyright (C) International Business Machines Corp., 2000-2005
  *
  *   This program is free software;  you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -18,7 +18,7 @@
 
 #include <linux/fs.h>
 #include <linux/slab.h>
-#include "jfs_types.h"
+#include "jfs_incore.h"
 #include "jfs_filsys.h"
 #include "jfs_unicode.h"
 #include "jfs_debug.h"
@@ -34,20 +34,42 @@ int jfs_strfromUCS_le(char *to, const wchar_t * from,	/* LITTLE ENDIAN */
 {
 	int i;
 	int outlen = 0;
+	static int warn_again = 5;	/* Only warn up to 5 times total */
+	int warn = !!warn_again;	/* once per string */
 
-	for (i = 0; (i < len) && from[i]; i++) {
-		int charlen;
-		charlen =
-		    codepage->uni2char(le16_to_cpu(from[i]), &to[outlen],
-				       NLS_MAX_CHARSET_SIZE);
-		if (charlen > 0) {
-			outlen += charlen;
-		} else {
-			to[outlen++] = '?';
+	if (codepage) {
+		for (i = 0; (i < len) && from[i]; i++) {
+			int charlen;
+			charlen =
+			    codepage->uni2char(le16_to_cpu(from[i]),
+					       &to[outlen],
+					       NLS_MAX_CHARSET_SIZE);
+			if (charlen > 0)
+				outlen += charlen;
+			else
+				to[outlen++] = '?';
 		}
+	} else {
+		for (i = 0; (i < len) && from[i]; i++) {
+			if (le16_to_cpu(from[i]) & 0xff00) {
+				if (warn) {
+					warn--;
+					warn_again--;
+					printk(KERN_ERR
+			"non-latin1 character 0x%x found in JFS file name\n", 
+		       			       le16_to_cpu(from[i]));
+					printk(KERN_ERR
+				"mount with iocharset=utf8 to access\n");
+				}
+				to[i] = '?';
+			}
+			else
+				to[i] = (char) (le16_to_cpu(from[i]));
+		}
+		outlen = i;
+
 	}
 	to[outlen] = 0;
-	jEVENT(0, ("jfs_strfromUCS returning %d - '%s'\n", outlen, to));
 	return outlen;
 }
 
@@ -57,27 +79,28 @@ int jfs_strfromUCS_le(char *to, const wchar_t * from,	/* LITTLE ENDIAN */
  * FUNCTION:	Convert character string to unicode string
  *
  */
-int jfs_strtoUCS(wchar_t * to,
-		 const char *from, int len, struct nls_table *codepage)
+static int jfs_strtoUCS(wchar_t * to, const unsigned char *from, int len,
+		struct nls_table *codepage)
 {
 	int charlen;
 	int i;
 
-	jEVENT(0, ("jfs_strtoUCS - '%s'\n", from));
-
-	for (i = 0; len && *from; i++, from += charlen, len -= charlen) {
-		charlen = codepage->char2uni(from, len, &to[i]);
-		if (charlen < 1) {
-			jERROR(1, ("jfs_strtoUCS: char2uni returned %d.\n",
-				   charlen));
-			jERROR(1, ("charset = %s, char = 0x%x\n",
-				   codepage->charset, (unsigned char) *from));
-			to[i] = 0x003f;	/* a question mark */
-			charlen = 1;
+	if (codepage) {
+		for (i = 0; len && *from; i++, from += charlen, len -= charlen)
+		{
+			charlen = codepage->char2uni(from, len, &to[i]);
+			if (charlen < 1) {
+				jfs_err("jfs_strtoUCS: char2uni returned %d.",
+					charlen);
+				jfs_err("charset = %s, char = 0x%x",
+					codepage->charset, *from);
+				return charlen;
+			}
 		}
+	} else {
+		for (i = 0; (i < len) && from[i]; i++)
+			to[i] = (wchar_t) from[i];
 	}
-
-	jEVENT(0, (" returning %d\n", i));
 
 	to[i] = 0;
 	return i;
@@ -89,22 +112,27 @@ int jfs_strtoUCS(wchar_t * to,
  * FUNCTION:	Allocate and translate to unicode string
  *
  */
-int get_UCSname(struct component_name * uniName, struct dentry *dentry,
-		struct nls_table *nls_tab)
+int get_UCSname(struct component_name * uniName, struct dentry *dentry)
 {
+	struct nls_table *nls_tab = JFS_SBI(dentry->d_sb)->nls_tab;
 	int length = dentry->d_name.len;
 
 	if (length > JFS_NAME_MAX)
-		return ENAMETOOLONG;
+		return -ENAMETOOLONG;
 
 	uniName->name =
 	    kmalloc((length + 1) * sizeof(wchar_t), GFP_NOFS);
 
 	if (uniName->name == NULL)
-		return ENOSPC;
+		return -ENOSPC;
 
 	uniName->namlen = jfs_strtoUCS(uniName->name, dentry->d_name.name,
 				       length, nls_tab);
+
+	if (uniName->namlen < 0) {
+		kfree(uniName->name);
+		return uniName->namlen;
+	}
 
 	return 0;
 }

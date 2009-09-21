@@ -43,7 +43,7 @@
 #endif
 #endif
 
-#if defined(HOST) || defined(INKERNEL)
+#if defined( HOST ) || defined( INKERNEL )
 #define MAX_RUP          ((short) 16) 
 #endif
 #ifdef RTA

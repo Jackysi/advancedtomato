@@ -94,6 +94,17 @@ static int remap_area_pages(unsigned long address, phys_t phys_addr,
 }
 
 /*
+ * Allow physical addresses to be fixed up to help 36 bit 
+ * peripherals.
+ */
+static phys_t def_fixup_bigphys_addr(phys_t phys_addr, phys_t size)
+{
+	return phys_addr;
+}
+
+phys_t (*fixup_bigphys_addr)(phys_t phys_addr, phys_t size) = def_fixup_bigphys_addr;
+
+/*
  * Generic mapping function (not visible outside):
  */
 
@@ -107,7 +118,7 @@ static int remap_area_pages(unsigned long address, phys_t phys_addr,
  * caller shouldn't need to know that small detail.
  */
 
-#define IS_LOW512(addr) (!((phys_t)(addr) & ~0x1fffffffUL))
+#define IS_LOW512(addr) (!((phys_t)(addr) & (phys_t) ~0x1fffffffULL))
 
 void * __ioremap(phys_t phys_addr, phys_t size, unsigned long flags)
 {
@@ -115,6 +126,8 @@ void * __ioremap(phys_t phys_addr, phys_t size, unsigned long flags)
 	unsigned long offset;
 	phys_t last_addr;
 	void * addr;
+
+	phys_addr = fixup_bigphys_addr(phys_addr, size);
 
 	/* Don't allow wraparound or zero size */
 	last_addr = phys_addr + size - 1;
@@ -149,7 +162,7 @@ void * __ioremap(phys_t phys_addr, phys_t size, unsigned long flags)
 	 */
 	offset = phys_addr & ~PAGE_MASK;
 	phys_addr &= PAGE_MASK;
-	size = PAGE_ALIGN(last_addr) - phys_addr;
+	size = PAGE_ALIGN(last_addr + 1) - phys_addr;
 
 	/*
 	 * Ok, go for it..

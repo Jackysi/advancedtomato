@@ -60,8 +60,10 @@
 #include <net/ax25.h> 
 #endif /* CONFIG_AX25 || CONFIG_AX25_MODULE */
 
+static int my_errno;
+#define errno my_errno
 #define __KERNEL_SYSCALLS__
-#include <linux/unistd.h>
+#include <asm/unistd.h>
 
 /* --------------------------------------------------------------------- */
 
@@ -301,6 +303,18 @@ static const unsigned short crc_ccitt_table[] = {
 
 /*---------------------------------------------------------------------------*/
 
+#if 0
+static inline void append_crc_ccitt(unsigned char *buffer, int len)
+{
+ 	unsigned int crc = 0xffff;
+
+	for (;len>0;len--)
+		crc = (crc >> 8) ^ crc_ccitt_table[(crc ^ *buffer++) & 0xff];
+	crc ^= 0xffff;
+	*buffer++ = crc;
+	*buffer++ = crc >> 8;
+}
+#endif
 
 /*---------------------------------------------------------------------------*/
 
@@ -357,8 +371,6 @@ static void inline baycom_int_freq(struct baycom_state *bc)
 static char eppconfig_path[256] = "/usr/sbin/eppfpga";
 
 static char *envp[] = { "HOME=/", "TERM=linux", "PATH=/usr/bin:/bin", NULL };
-
-static int errno;
 
 static int exec_eppfpga(void *b)
 {
@@ -466,14 +478,14 @@ static void inline do_kiss_params(struct baycom_state *bc,
  */
 
 #define ENCODEITERA(j)                         \
-({                                             \
+do {                                           \
         if (!(notbitstream & (0x1f0 << j)))    \
                 goto stuff##j;                 \
   encodeend##j: ;                              \
-})
+} while (0)
 
 #define ENCODEITERB(j)                                          \
-({                                                              \
+do {                                                            \
   stuff##j:                                                     \
         bitstream &= ~(0x100 << j);                             \
         bitbuf = (bitbuf & (((2 << j) << numbit) - 1)) |        \
@@ -481,7 +493,7 @@ static void inline do_kiss_params(struct baycom_state *bc,
         numbit++;                                               \
         notbitstream = ~bitstream;                              \
         goto encodeend##j;                                      \
-})
+} while (0)
 
 
 static void encode_hdlc(struct baycom_state *bc)
@@ -698,16 +710,16 @@ static void do_rxpacket(struct net_device *dev)
 }
 
 #define DECODEITERA(j)                                                        \
-({                                                                            \
+do {                                                                          \
         if (!(notbitstream & (0x0fc << j)))              /* flag or abort */  \
                 goto flgabrt##j;                                              \
         if ((bitstream & (0x1f8 << j)) == (0xf8 << j))   /* stuffed bit */    \
                 goto stuff##j;                                                \
   enditer##j: ;                                                               \
-})
+} while (0)
 
 #define DECODEITERB(j)                                                                 \
-({                                                                                     \
+do {                                                                                   \
   flgabrt##j:                                                                          \
         if (!(notbitstream & (0x1fc << j))) {              /* abort received */        \
                 state = 0;                                                             \
@@ -726,7 +738,7 @@ static void do_rxpacket(struct net_device *dev)
         numbits--;                                                                     \
         bitbuf = (bitbuf & ((~0xff) << j)) | ((bitbuf & ~((~0xff) << j)) << 1);        \
         goto enditer##j;                                                               \
-})
+} while (0)
         
 static int receive(struct net_device *dev, int cnt)
 {
@@ -1023,6 +1035,12 @@ static int epp_open(struct net_device *dev)
                 printk(KERN_ERR "%s: parport at 0x%lx unknown\n", bc_drvname, dev->base_addr);
                 return -ENXIO;
         }
+#if 0
+        if (pp->irq < 0) {
+                printk(KERN_ERR "%s: parport at 0x%lx has no irq\n", bc_drvname, pp->base);
+                return -ENXIO;
+        }
+#endif
 	if ((~pp->modes) & (PARPORT_MODE_TRISTATE | PARPORT_MODE_PCSPP | PARPORT_MODE_SAFEININT)) {
                 printk(KERN_ERR "%s: parport at 0x%lx cannot be used\n",
 		       bc_drvname, pp->base);

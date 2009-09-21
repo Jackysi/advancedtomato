@@ -44,7 +44,7 @@ static inline void activate_page_nolock(struct page * page)
 	}
 }
 
-void activate_page(struct page * page)
+void fastcall activate_page(struct page * page)
 {
 	spin_lock(&pagemap_lru_lock);
 	activate_page_nolock(page);
@@ -55,7 +55,7 @@ void activate_page(struct page * page)
  * lru_cache_add: add a page to the page lists
  * @page: the page to add
  */
-void lru_cache_add(struct page * page)
+void fastcall lru_cache_add(struct page * page)
 {
 	if (!PageLRU(page)) {
 		spin_lock(&pagemap_lru_lock);
@@ -72,7 +72,7 @@ void lru_cache_add(struct page * page)
  * This function is for when the caller already holds
  * the pagemap_lru_lock.
  */
-void __lru_cache_del(struct page * page)
+void fastcall __lru_cache_del(struct page * page)
 {
 	if (TestClearPageLRU(page)) {
 		if (PageActive(page)) {
@@ -87,11 +87,83 @@ void __lru_cache_del(struct page * page)
  * lru_cache_del: remove a page from the page lists
  * @page: the page to remove
  */
-void lru_cache_del(struct page * page)
+void fastcall lru_cache_del(struct page * page)
 {
 	spin_lock(&pagemap_lru_lock);
 	__lru_cache_del(page);
 	spin_unlock(&pagemap_lru_lock);
+}
+
+/**
+ * delta_nr_active_pages: alter the number of active pages.
+ *
+ * @page: the page which is being activated/deactivated
+ * @delta: +1 for activation, -1 for deactivation
+ *
+ * Called under pagecache_lock
+ */
+void delta_nr_active_pages(struct page *page, long delta)
+{
+	pg_data_t *pgdat;
+	zone_t *classzone, *overflow;
+
+	classzone = page_zone(page);
+	pgdat = classzone->zone_pgdat;
+	overflow = pgdat->node_zones + pgdat->nr_zones;
+
+	while (classzone < overflow) {
+		classzone->nr_active_pages += delta;
+		classzone++;
+	}
+	nr_active_pages += delta;
+}
+
+/**
+ * delta_nr_inactive_pages: alter the number of inactive pages.
+ *
+ * @page: the page which is being deactivated/activated
+ * @delta: +1 for deactivation, -1 for activation
+ *
+ * Called under pagecache_lock
+ */
+void delta_nr_inactive_pages(struct page *page, long delta)
+{
+	pg_data_t *pgdat;
+	zone_t *classzone, *overflow;
+
+	classzone = page_zone(page);
+	pgdat = classzone->zone_pgdat;
+	overflow = pgdat->node_zones + pgdat->nr_zones;
+
+	while (classzone < overflow) {
+		classzone->nr_inactive_pages += delta;
+		classzone++;
+	}
+	nr_inactive_pages += delta;
+}
+
+/**
+ * delta_nr_cache_pages: alter the number of pages in the pagecache
+ *
+ * @page: the page which is being added/removed
+ * @delta: +1 for addition, -1 for removal
+ *
+ * Called under pagecache_lock
+ */
+void delta_nr_cache_pages(struct page *page, long delta)
+{
+	pg_data_t *pgdat;
+	zone_t *classzone, *overflow;
+
+	classzone = page_zone(page);
+	pgdat = classzone->zone_pgdat;
+	overflow = pgdat->node_zones + pgdat->nr_zones;
+
+	while (classzone < overflow) {
+		classzone->nr_cache_pages += delta;
+		classzone++;
+	}
+	page_cache_size += delta;
 }
 
 /*

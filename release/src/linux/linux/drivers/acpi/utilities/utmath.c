@@ -1,34 +1,52 @@
 /*******************************************************************************
  *
  * Module Name: utmath - Integer math support routines
- *              $Revision: 1.1.1.2 $
  *
  ******************************************************************************/
 
 /*
- *  Copyright (C) 2000, 2001 R. Byron Moore
+ * Copyright (C) 2000 - 2004, R. Byron Moore
+ * All rights reserved.
  *
- *  This program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2 of the License, or
- *  (at your option) any later version.
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions, and the following disclaimer,
+ *    without modification.
+ * 2. Redistributions in binary form must reproduce at minimum a disclaimer
+ *    substantially similar to the "NO WARRANTY" disclaimer below
+ *    ("Disclaimer") and any redistribution must be conditioned upon
+ *    including a substantially similar Disclaimer requirement for further
+ *    binary redistribution.
+ * 3. Neither the names of the above-listed copyright holders nor the names
+ *    of any contributors may be used to endorse or promote products derived
+ *    from this software without specific prior written permission.
  *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
+ * Alternatively, this software may be distributed under the terms of the
+ * GNU General Public License ("GPL") version 2 as published by the Free
+ * Software Foundation.
  *
- *  You should have received a copy of the GNU General Public License
- *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * NO WARRANTY
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR
+ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+ * HOLDERS OR CONTRIBUTORS BE LIABLE FOR SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+ * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+ * STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING
+ * IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGES.
  */
 
 
-#include "acpi.h"
+#include <acpi/acpi.h>
 
 
 #define _COMPONENT          ACPI_UTILITIES
-	 MODULE_NAME         ("utmath")
+	 ACPI_MODULE_NAME    ("utmath")
 
 /*
  * Support for double-precision integer divide.  This code is included here
@@ -39,12 +57,12 @@
 #ifndef ACPI_USE_NATIVE_DIVIDE
 /*******************************************************************************
  *
- * FUNCTION:    Acpi_ut_short_divide
+ * FUNCTION:    acpi_ut_short_divide
  *
- * PARAMETERS:  In_dividend         - Pointer to the dividend
+ * PARAMETERS:  in_dividend         - Pointer to the dividend
  *              Divisor             - 32-bit divisor
- *              Out_quotient        - Pointer to where the quotient is returned
- *              Out_remainder       - Pointer to where the remainder is returned
+ *              out_quotient        - Pointer to where the quotient is returned
+ *              out_remainder       - Pointer to where the remainder is returned
  *
  * RETURN:      Status (Checks for divide-by-zero)
  *
@@ -56,24 +74,24 @@
 
 acpi_status
 acpi_ut_short_divide (
-	acpi_integer            *in_dividend,
-	u32                     divisor,
-	acpi_integer            *out_quotient,
-	u32                     *out_remainder)
+	acpi_integer                    *in_dividend,
+	u32                             divisor,
+	acpi_integer                    *out_quotient,
+	u32                             *out_remainder)
 {
-	uint64_overlay          dividend;
-	uint64_overlay          quotient;
-	u32                     remainder32;
+	union uint64_overlay            dividend;
+	union uint64_overlay            quotient;
+	u32                             remainder32;
 
 
-	FUNCTION_TRACE ("Ut_short_divide");
+	ACPI_FUNCTION_TRACE ("ut_short_divide");
 
 	dividend.full = *in_dividend;
 
 	/* Always check for a zero divisor */
 
 	if (divisor == 0) {
-		REPORT_ERROR (("Acpi_ut_short_divide: Divide by zero\n"));
+		ACPI_REPORT_ERROR (("acpi_ut_short_divide: Divide by zero\n"));
 		return_ACPI_STATUS (AE_AML_DIVIDE_BY_ZERO);
 	}
 
@@ -101,12 +119,12 @@ acpi_ut_short_divide (
 
 /*******************************************************************************
  *
- * FUNCTION:    Acpi_ut_divide
+ * FUNCTION:    acpi_ut_divide
  *
- * PARAMETERS:  In_dividend         - Pointer to the dividend
- *              In_divisor          - Pointer to the divisor
- *              Out_quotient        - Pointer to where the quotient is returned
- *              Out_remainder       - Pointer to where the remainder is returned
+ * PARAMETERS:  in_dividend         - Pointer to the dividend
+ *              in_divisor          - Pointer to the divisor
+ *              out_quotient        - Pointer to where the quotient is returned
+ *              out_remainder       - Pointer to where the remainder is returned
  *
  * RETURN:      Status (Checks for divide-by-zero)
  *
@@ -116,29 +134,29 @@ acpi_ut_short_divide (
 
 acpi_status
 acpi_ut_divide (
-	acpi_integer            *in_dividend,
-	acpi_integer            *in_divisor,
-	acpi_integer            *out_quotient,
-	acpi_integer            *out_remainder)
+	acpi_integer                    *in_dividend,
+	acpi_integer                    *in_divisor,
+	acpi_integer                    *out_quotient,
+	acpi_integer                    *out_remainder)
 {
-	uint64_overlay          dividend;
-	uint64_overlay          divisor;
-	uint64_overlay          quotient;
-	uint64_overlay          remainder;
-	uint64_overlay          normalized_dividend;
-	uint64_overlay          normalized_divisor;
-	u32                     partial1;
-	uint64_overlay          partial2;
-	uint64_overlay          partial3;
+	union uint64_overlay            dividend;
+	union uint64_overlay            divisor;
+	union uint64_overlay            quotient;
+	union uint64_overlay            remainder;
+	union uint64_overlay            normalized_dividend;
+	union uint64_overlay            normalized_divisor;
+	u32                             partial1;
+	union uint64_overlay            partial2;
+	union uint64_overlay            partial3;
 
 
-	FUNCTION_TRACE ("Ut_divide");
+	ACPI_FUNCTION_TRACE ("ut_divide");
 
 
 	/* Always check for a zero divisor */
 
 	if (*in_divisor == 0) {
-		REPORT_ERROR (("Acpi_ut_divide: Divide by zero\n"));
+		ACPI_REPORT_ERROR (("acpi_ut_divide: Divide by zero\n"));
 		return_ACPI_STATUS (AE_AML_DIVIDE_BY_ZERO);
 	}
 
@@ -193,7 +211,7 @@ acpi_ut_divide (
 		 */
 		partial1      = quotient.part.lo * divisor.part.hi;
 		partial2.full = (acpi_integer) quotient.part.lo * divisor.part.lo;
-		partial3.full = partial2.part.hi + partial1;
+		partial3.full = (acpi_integer) partial2.part.hi + partial1;
 
 		remainder.part.hi = partial3.part.lo;
 		remainder.part.lo = partial2.part.lo;
@@ -213,8 +231,8 @@ acpi_ut_divide (
 			}
 
 			remainder.full    = remainder.full - dividend.full;
-			remainder.part.hi = -((s32) remainder.part.hi);
-			remainder.part.lo = -((s32) remainder.part.lo);
+			remainder.part.hi = (u32) -((s32) remainder.part.hi);
+			remainder.part.lo = (u32) -((s32) remainder.part.lo);
 
 			if (remainder.part.lo) {
 				remainder.part.hi--;
@@ -238,9 +256,9 @@ acpi_ut_divide (
 
 /*******************************************************************************
  *
- * FUNCTION:    Acpi_ut_short_divide, Acpi_ut_divide
+ * FUNCTION:    acpi_ut_short_divide, acpi_ut_divide
  *
- * DESCRIPTION: Native versions of the Ut_divide functions. Use these if either
+ * DESCRIPTION: Native versions of the ut_divide functions. Use these if either
  *              1) The target is a 64-bit platform and therefore 64-bit
  *                 integer math is supported directly by the machine.
  *              2) The target is a 32-bit or 16-bit platform, and the
@@ -251,19 +269,19 @@ acpi_ut_divide (
 
 acpi_status
 acpi_ut_short_divide (
-	acpi_integer            *in_dividend,
-	u32                     divisor,
-	acpi_integer            *out_quotient,
-	u32                     *out_remainder)
+	acpi_integer                    *in_dividend,
+	u32                             divisor,
+	acpi_integer                    *out_quotient,
+	u32                             *out_remainder)
 {
 
-	FUNCTION_TRACE ("Ut_short_divide");
+	ACPI_FUNCTION_TRACE ("ut_short_divide");
 
 
 	/* Always check for a zero divisor */
 
 	if (divisor == 0) {
-		REPORT_ERROR (("Acpi_ut_short_divide: Divide by zero\n"));
+		ACPI_REPORT_ERROR (("acpi_ut_short_divide: Divide by zero\n"));
 		return_ACPI_STATUS (AE_AML_DIVIDE_BY_ZERO);
 	}
 
@@ -281,18 +299,18 @@ acpi_ut_short_divide (
 
 acpi_status
 acpi_ut_divide (
-	acpi_integer            *in_dividend,
-	acpi_integer            *in_divisor,
-	acpi_integer            *out_quotient,
-	acpi_integer            *out_remainder)
+	acpi_integer                    *in_dividend,
+	acpi_integer                    *in_divisor,
+	acpi_integer                    *out_quotient,
+	acpi_integer                    *out_remainder)
 {
-	FUNCTION_TRACE ("Ut_divide");
+	ACPI_FUNCTION_TRACE ("ut_divide");
 
 
 	/* Always check for a zero divisor */
 
 	if (*in_divisor == 0) {
-		REPORT_ERROR (("Acpi_ut_divide: Divide by zero\n"));
+		ACPI_REPORT_ERROR (("acpi_ut_divide: Divide by zero\n"));
 		return_ACPI_STATUS (AE_AML_DIVIDE_BY_ZERO);
 	}
 

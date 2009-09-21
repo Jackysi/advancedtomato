@@ -21,6 +21,12 @@
 /*
  * PCI address allocation
  */
+#if 0
+#define GT_PCI_MEM_BASE    (0x22000000)
+#define GT_PCI_MEM_SIZE    GT_DEF_PCI0_MEM0_SIZE
+#define GT_PCI_IO_BASE     (0x20000000)
+#define GT_PCI_IO_SIZE     GT_DEF_PCI0_IO_SIZE
+#endif
 
 extern unsigned long gt64240_base;
 

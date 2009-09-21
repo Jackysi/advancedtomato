@@ -62,8 +62,10 @@
 	.set	at
 	mfc0	s0, CP0_CAUSE		# get irq mask
 
+#if 1
 	mfc0	t2,CP0_STATUS		# get enabled interrupts
 	and	s0,t2			# isolate allowed ones
+#endif
 	/* First we check for r4k counter/timer IRQ. */
 	andi	a0, s0, CAUSEF_IP2	# delay slot, check local level zero
 	beq	a0, zero, 1f

@@ -5,7 +5,7 @@
  *
  * This code is GPL
  *
- * $Id: mtdconcat.c,v 1.1.1.4 2003/10/14 08:08:17 sparq Exp $
+ * $Id: mtdconcat.c,v 1.3 2002/05/21 21:04:25 dwmw2 Exp $
  */
 
 #include <linux/module.h>
@@ -162,6 +162,10 @@ static int concat_dev_erase(struct mtd_info *mtd, struct erase_info *erase)
 	erase->callback = concat_erase_callback;
 	erase->priv = (unsigned long)&waitq;
 			
+	/*
+	 * FIXME: Allow INTERRUPTIBLE. Which means
+	 * not having the wait_queue head on the stack.
+	 */
 	err = mtd->erase(mtd, erase);
 	if (!err)
 	{
@@ -299,11 +303,14 @@ static int concat_erase (struct mtd_info *mtd, struct erase_info *instr)
 		 */
 		erase->addr = 0;
 	}
+	kfree(erase);
+	if (err)
+		return err;
+
 	instr->state = MTD_ERASE_DONE;
 	if (instr->callback)
 		instr->callback(instr);
-	kfree(erase);
-	return err;
+	return 0;
 }
 
 static int concat_lock (struct mtd_info *mtd, loff_t ofs, size_t len)

@@ -509,6 +509,8 @@ static void __sunkbd_inchar(unsigned char ch, struct pt_regs *regs)
 
 	tty = ttytab? ttytab[fg_console]: NULL;
 	if (tty && (!tty->driver_data)) {
+		/* This is to workaround ugly bug in tty_io.c, which
+                   does not do locking when it should */
 		tty = NULL;
 	}
 	kbd = kbd_table + fg_console;
@@ -539,7 +541,7 @@ static void __sunkbd_inchar(unsigned char ch, struct pt_regs *regs)
 		rep = test_and_set_bit(keycode, key_down);
 	}
 
-#ifdef CONFIG_MAGIC_SYSRQ			    /* Handle the SysRq hack */
+#ifdef CONFIG_MAGIC_SYSRQ			/* Handle the SysRq hack */
 	if (l1a_state.l1_down) {
 		if (!up_flag)
 			handle_sysrq(sun_sysrq_xlate[keycode], pt_regs, kbd, tty);
@@ -792,6 +794,19 @@ static void spawn_console(void)
 static void SAK(void)
 {
 	do_SAK(tty);
+#if 0
+	/*
+	 * Need to fix SAK handling to fix up RAW/MEDIUM_RAW and
+	 * vt_cons modes before we can enable RAW/MEDIUM_RAW SAK
+	 * handling.
+	 * 
+	 * We should do this some day --- the whole point of a secure
+	 * attention key is that it should be guaranteed to always
+	 * work.
+	 */
+	reset_vc(fg_console);
+	do_unblank_screen();	/* not in interrupt routine? */
+#endif
 }
 
 static void do_ignore(unsigned char value, char up_flag)
@@ -1235,6 +1250,7 @@ int __init sun_kbd_init(void)
 
 	kd_mksound = sunkbd_kd_mksound;
 
+	/* XXX Check keyboard-click? property in 'options' PROM node XXX */
 	if(sparc_cpu_model != sun4) {
 		opt_node = prom_getchild(prom_root_node);
 		opt_node = prom_searchsiblings(opt_node, "options");

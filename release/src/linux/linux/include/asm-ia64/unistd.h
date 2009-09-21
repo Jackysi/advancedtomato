@@ -206,12 +206,24 @@
 #define __NR_getdents64			1214
 #define __NR_getunwind			1215
 #define __NR_readahead			1216
-/*
- * 1217-1228: reserved for xattr
- * 1230-1232: reserved for futex and sched_[sg]etaffinity.
- */
+#define __NR_setxattr			1217
+#define __NR_lsetxattr			1218
+#define __NR_fsetxattr			1219
+#define __NR_getxattr			1220
+#define __NR_lgetxattr			1221
+#define __NR_fgetxattr			1222
+#define __NR_listxattr			1223
+#define __NR_llistxattr			1224
+#define __NR_flistxattr			1225
+#define __NR_removexattr		1226
+#define __NR_lremovexattr		1227
+#define __NR_fremovexattr		1228
 #define __NR_tkill			1229
-#define __NR_security			1233 /* syscall for security modules */
+/* 1230-1232: reserved for futex and sched_[sg]etaffinity */
+#define __NR_security			1233
+/* 1234-1235: reserved for {alloc,free}_hugepages */
+/* 1238-1242: reserved for io_{setup,destroy,getevents,submit,cancel} */
+#define __NR_semtimedop			1247
 
 #if !defined(__ASSEMBLY__) && !defined(ASSEMBLER)
 

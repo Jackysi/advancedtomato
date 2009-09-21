@@ -22,9 +22,6 @@
 #include <asm/unistd.h>
 #include <asm/sysmips.h>
 
-/* Highest syscall used of any syscall flavour */
-#define MAX_SYSCALL_NO	__NR_Linux32 + __NR_Linux32_syscalls
-
 	.align  5
 NESTED(handle_sys, PT_SIZE, sp)
 	.set	noat
@@ -36,9 +33,21 @@ NESTED(handle_sys, PT_SIZE, sp)
 	subu	t0, v0, __NR_O32_Linux	# check syscall number
 	sltiu	t0, t0, __NR_O32_Linux_syscalls + 1
 	daddiu	t1, 4			# skip to next instruction
-	beqz	t0, not_o32_scall
 	sd	t1, PT_EPC(sp)
+	beqz	t0, not_o32_scall
+#if 0
+ SAVE_ALL
+ move a1, v0
+ PRINT("Scall %ld\n")
+ RESTORE_ALL
+#endif
 
+	sll	a0, a0, 0
+	sll	a1, a1, 0
+	sll	a2, a2, 0
+	sll	a3, a3, 0
+
+	/* XXX Put both in one cacheline, should save a bit. */
 	dsll	t0, v0, 3		# offset into table
 	ld	t2, (sys_call_table - (__NR_O32_Linux * 8))(t0)
 	lbu	t3, (sys_narg_table - __NR_O32_Linux)(v0)
@@ -81,18 +90,24 @@ restore_all:	RESTORE_SOME
 		eret
 		.set	mips0
 
-signal_return:	mfc0	t0, CP0_STATUS	# need_resched and signals atomic test
+signal_return:
+		.type	signal_return, @function
+
+		mfc0	t0, CP0_STATUS
 		ori	t0, t0, 1
 		mtc0	t0, CP0_STATUS
+
+		SAVE_STATIC
 		move	a0, zero
 		move	a1, sp
-		SAVE_STATIC
 		jal	do_signal
+		RESTORE_STATIC
+		b	restore_all
 
 o32_reschedule:
 		SAVE_STATIC
 		jal	schedule
-		b	o32_ret_from_sys_call
+		j	ret_from_sys_call
 
 /* ------------------------------------------------------------------------ */
 
@@ -103,9 +118,8 @@ trace_a_syscall:
 	sd	a6, PT_R10(sp)
 	sd	a7, PT_R11(sp)
 
-	sd	t2,PT_R1(sp)
+	move	s0, t2
 	jal	syscall_trace
-	ld	t2,PT_R1(sp)
 
 	ld	a0, PT_R4(sp)		# Restore argument registers
 	ld	a1, PT_R5(sp)
@@ -114,7 +128,7 @@ trace_a_syscall:
 	ld	a4, PT_R8(sp)
 	ld	a5, PT_R9(sp)
 
-	jalr	t2
+	jalr	s0
 
 	li	t0, -EMAXERRNO - 1	# error?
 	sltu	t0, t0, v0
@@ -245,7 +259,7 @@ LEAF(sys32_sysmips)
 LEAF(sys32_syscall)
 	ld	t0, PT_R29(sp)		# user sp
 
-	sltu	v0, a0, __NR_Linux + __NR_Linux_syscalls + 1
+	sltu	v0, a0, __NR_O32_Linux + __NR_O32_Linux_syscalls + 1
 	beqz	v0, enosys
 
 	dsll	v0, a0, 3
@@ -336,7 +350,7 @@ out:	jr	ra
 	sys	sys_getuid	0
 	sys	sys_stime	1			/* 4025 */
 	sys	sys32_ptrace	4
-	sys	sys32_alarm	1
+	sys	sys_alarm	1
 	sys	sys_ni_syscall	0			/* was sys_fstat */
 	sys	sys_pause	0
 	sys	sys32_utime	2			/* 4030 */
@@ -371,7 +385,7 @@ out:	jr	ra
 	sys	sys_ni_syscall	0	/* was sys_olduname  */
 	sys	sys_umask	1			/* 4060 */
 	sys	sys_chroot	1
-	sys	sys_ustat	2
+	sys	sys32_ustat	2
 	sys	sys_dup2	2
 	sys	sys_getppid	0
 	sys	sys_getpgrp	0			/* 4065 */
@@ -411,7 +425,7 @@ out:	jr	ra
 	sys	sys32_statfs	2
 	sys	sys32_fstatfs	2			/* 4100 */
 	sys	sys_ni_syscall	0	/* sys_ioperm */
-	sys	sys_socketcall	2
+	sys	sys32_socketcall	2
 	sys	sys_syslog	3
 	sys	sys32_setitimer	3
 	sys	sys32_getitimer	2			/* 4105 */
@@ -436,9 +450,9 @@ out:	jr	ra
 	sys	sys32_adjtimex	1
 	sys	sys_mprotect	3			/* 4125 */
 	sys	sys32_sigprocmask	3
-	sys	sys_create_module 2
-	sys	sys_init_module	5
-	sys	sys_delete_module 1
+	sys	sys32_create_module 2
+	sys	sys32_init_module	5
+	sys	sys32_delete_module 1
 	sys	sys32_get_kernel_syms 1			/* 4130 */
 	sys	sys_quotactl	0
 	sys	sys_getpgid	1
@@ -496,7 +510,7 @@ out:	jr	ra
 	sys	sys_socketpair	4
 	sys	sys_setresuid	3			/* 4185 */
 	sys	sys_getresuid	3
-	sys	sys_query_module 5
+	sys	sys32_query_module 5
 	sys	sys_poll	3
 	sys	sys_nfsservctl	3
 	sys	sys_setresgid	3			/* 4190 */
@@ -546,7 +560,7 @@ out:	jr	ra
 	sys	sys_lremovexattr 2
 	sys	sys_fremovexattr 2		/* 4235 */
 	sys	sys_tkill, 2
-	sys	sys_ni_syscall, 0		/* res. for sendfile64 */
+	sys	sys_sendfile64, 5
 	sys	sys_ni_syscall, 0		/* res. for futex */
 	sys	sys_ni_syscall, 0		/* res. for sched_setaffinity */
 	sys	sys_ni_syscall, 0		/* 4240 res. for sched_getaffinity */
@@ -560,6 +574,8 @@ out:	jr	ra
 	.align	3
 sys_call_table:
 	syscalltable
+
+	.purgem	sys
 
 	.macro	sys function, nargs
 	.byte	\nargs

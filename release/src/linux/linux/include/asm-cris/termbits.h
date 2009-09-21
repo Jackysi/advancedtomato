@@ -1,5 +1,3 @@
-/* $Id: termbits.h,v 1.1.1.4 2003/10/14 08:09:09 sparq Exp $ */
-
 #ifndef __ARCH_ETRAX100_TERMBITS_H__
 #define __ARCH_ETRAX100_TERMBITS_H__
 
@@ -128,6 +126,7 @@ struct termios {
 #define  B1843200 0010006
 #define  B6250000 0010007
 #define CIBAUD	  002003600000	/* input baud rate (not used) */
+#define CMSPAR	  010000000000		/* mark or space (stick) parity, PARODD => mark parity */
 #define CRTSCTS	  020000000000		/* flow control */
 
 /* c_lflag bits */

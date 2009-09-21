@@ -21,6 +21,8 @@
 #ifndef _VIDEO_1394_H
 #define _VIDEO_1394_H
 
+#include "ieee1394-ioctl.h"
+
 #define VIDEO1394_DRIVER_NAME "video1394"
 
 #define VIDEO1394_MAX_SIZE 0x4000000

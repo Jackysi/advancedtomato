@@ -31,7 +31,7 @@
  * provisions above, a recipient may use your version of this file
  * under either the RHEPL or the GPL.
  *
- * $Id: malloc.c,v 1.1.1.4 2003/10/14 08:09:00 sparq Exp $
+ * $Id: malloc.c,v 1.16 2001/03/15 15:38:24 dwmw2 Exp $
  *
  */
 
@@ -41,7 +41,11 @@
 #include <linux/jffs2.h>
 #include "nodelist.h"
 
+#if 0
+#define JFFS2_SLAB_POISON SLAB_POISON
+#else
 #define JFFS2_SLAB_POISON 0
+#endif
 
 /* These are initialised to NULL in the kernel startup code.
    If you're porting to other operating systems, beware */

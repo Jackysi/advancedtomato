@@ -8,6 +8,8 @@
 #include <linux/delay.h>
 
 #include <asm/hardware.h>
+#include <asm/hardware/sa1111.h>
+#include <asm/irq.h>
 #include <asm/setup.h>
 
 #include <asm/mach/arch.h>
@@ -34,7 +36,7 @@ static int __init jornada720_init(void)
 	udelay(1);
 	GPSR = GPIO_GPIO20;
 	udelay(20);
-	SKCR = JORSKCR_INIT;	/* Turn on the PLL, enable Ready and enable nOE assertion from DC */
+	SBI_SKCR = JORSKCR_INIT;/* Turn on the PLL, enable Ready and enable nOE assertion from DC */
 	mdelay(100);
 
 	SBI_SKCR = JORSKCR_RCLK;/* turn on the RCLOCK */

@@ -1,7 +1,7 @@
 /*
 	drivers/net/tulip/21142.c
 
-	Maintained by Jeff Garzik <jgarzik@mandrakesoft.com>
+	Maintained by Jeff Garzik <jgarzik@pobox.com>
 	Copyright 2000,2001  The Linux Kernel Team
 	Written/copyright 1994-2001 by Donald Becker.
 
@@ -14,8 +14,8 @@
 
 */
 
-#include "tulip.h"
 #include <linux/pci.h>
+#include "tulip.h"
 #include <linux/delay.h>
 
 
@@ -180,6 +180,12 @@ void t21142_lnk_change(struct net_device *dev, int csr5)
 				tp->csr6 |= 0x0200;
 			outl(1, ioaddr + CSR13);
 		}
+#if 0							/* Restart shouldn't be needed. */
+		outl(tp->csr6 | RxOn, ioaddr + CSR6);
+		if (tulip_debug > 2)
+			printk(KERN_DEBUG "%s:  Restarting Tx and Rx, CSR5 is %8.8x.\n",
+				   dev->name, inl(ioaddr + CSR5));
+#endif
 		tulip_start_rxtx(tp);
 		if (tulip_debug > 2)
 			printk(KERN_DEBUG "%s:  Setting CSR6 %8.8x/%x CSR12 %8.8x.\n",

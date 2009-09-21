@@ -122,6 +122,7 @@ nsm_create(void)
 	clnt->cl_softrtry = 1;
 	clnt->cl_chatty   = 1;
 	clnt->cl_oneshot  = 1;
+	xprt->resvport = 1;	/* NSM requires a reserved port */
 out:
 	return clnt;
 

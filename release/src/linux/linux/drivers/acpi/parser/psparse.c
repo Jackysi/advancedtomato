@@ -1,26 +1,44 @@
 /******************************************************************************
  *
  * Module Name: psparse - Parser top level AML parse routines
- *              $Revision: 1.1.1.2 $
  *
  *****************************************************************************/
 
 /*
- *  Copyright (C) 2000, 2001 R. Byron Moore
+ * Copyright (C) 2000 - 2004, R. Byron Moore
+ * All rights reserved.
  *
- *  This program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2 of the License, or
- *  (at your option) any later version.
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions, and the following disclaimer,
+ *    without modification.
+ * 2. Redistributions in binary form must reproduce at minimum a disclaimer
+ *    substantially similar to the "NO WARRANTY" disclaimer below
+ *    ("Disclaimer") and any redistribution must be conditioned upon
+ *    including a substantially similar Disclaimer requirement for further
+ *    binary redistribution.
+ * 3. Neither the names of the above-listed copyright holders nor the names
+ *    of any contributors may be used to endorse or promote products derived
+ *    from this software without specific prior written permission.
  *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
+ * Alternatively, this software may be distributed under the terms of the
+ * GNU General Public License ("GPL") version 2 as published by the Free
+ * Software Foundation.
  *
- *  You should have received a copy of the GNU General Public License
- *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * NO WARRANTY
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR
+ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+ * HOLDERS OR CONTRIBUTORS BE LIABLE FOR SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+ * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+ * STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING
+ * IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGES.
  */
 
 
@@ -30,28 +48,26 @@
  * generated parser to tightly constrain stack and dynamic memory
  * usage.  At the same time, parsing is kept flexible and the code
  * fairly compact by parsing based on a list of AML opcode
- * templates in Aml_op_info[]
+ * templates in aml_op_info[]
  */
 
-#include "acpi.h"
-#include "acparser.h"
-#include "acdispat.h"
-#include "amlcode.h"
-#include "acnamesp.h"
-#include "acdebug.h"
-#include "acinterp.h"
+#include <acpi/acpi.h>
+#include <acpi/acparser.h>
+#include <acpi/acdispat.h>
+#include <acpi/amlcode.h>
+#include <acpi/acnamesp.h>
+#include <acpi/acinterp.h>
 
 #define _COMPONENT          ACPI_PARSER
-	 MODULE_NAME         ("psparse")
+	 ACPI_MODULE_NAME    ("psparse")
 
 
-u32                         acpi_gbl_depth = 0;
-extern u32                  acpi_gbl_scope_depth;
+static u32                          acpi_gbl_depth = 0;
 
 
 /*******************************************************************************
  *
- * FUNCTION:    Acpi_ps_get_opcode_size
+ * FUNCTION:    acpi_ps_get_opcode_size
  *
  * PARAMETERS:  Opcode          - An AML opcode
  *
@@ -61,9 +77,9 @@ extern u32                  acpi_gbl_scope_depth;
  *
  ******************************************************************************/
 
-static u32
+u32
 acpi_ps_get_opcode_size (
-	u32                     opcode)
+	u32                             opcode)
 {
 
 	/* Extended (2-byte) opcode if > 255 */
@@ -80,9 +96,9 @@ acpi_ps_get_opcode_size (
 
 /*******************************************************************************
  *
- * FUNCTION:    Acpi_ps_peek_opcode
+ * FUNCTION:    acpi_ps_peek_opcode
  *
- * PARAMETERS:  Parser_state        - A parser state object
+ * PARAMETERS:  parser_state        - A parser state object
  *
  * RETURN:      Status
  *
@@ -92,38 +108,22 @@ acpi_ps_get_opcode_size (
 
 u16
 acpi_ps_peek_opcode (
-	acpi_parse_state        *parser_state)
+	struct acpi_parse_state         *parser_state)
 {
-	u8                      *aml;
-	u16                     opcode;
+	u8                              *aml;
+	u16                             opcode;
 
 
 	aml = parser_state->aml;
-	opcode = (u16) GET8 (aml);
-
-	aml++;
+	opcode = (u16) ACPI_GET8 (aml);
 
 
-	/*
-	 * Original code special cased LNOTEQUAL, LLESSEQUAL, LGREATEREQUAL.
-	 * These opcodes are no longer recognized. Instead, they are broken into
-	 * two opcodes.
-	 *
-	 *
-	 *    if (Opcode == AML_EXTOP
-	 *       || (Opcode == AML_LNOT
-	 *          && (GET8 (Aml) == AML_LEQUAL
-	 *               || GET8 (Aml) == AML_LGREATER
-	 *               || GET8 (Aml) == AML_LLESS)))
-	 *
-	 *     extended Opcode, !=, <=, or >=
-	 */
 	if (opcode == AML_EXTOP) {
 		/* Extended opcode */
 
-		opcode = (u16) ((opcode << 8) | GET8 (aml));
+		aml++;
+		opcode = (u16) ((opcode << 8) | ACPI_GET8 (aml));
 	}
-
 
 	return (opcode);
 }
@@ -131,83 +131,36 @@ acpi_ps_peek_opcode (
 
 /*******************************************************************************
  *
- * FUNCTION:    Acpi_ps_find_object
+ * FUNCTION:    acpi_ps_complete_this_op
  *
- * PARAMETERS:  Opcode          - Current opcode
- *              Parser_state    - Current state
- *              Walk_state      - Current state
- *              *Op             - Where found/new op is returned
- *
- * RETURN:      Status
- *
- * DESCRIPTION: Find a named object.  Two versions - one to search the parse
- *              tree (for parser-only applications such as acpidump), another
- *              to search the ACPI internal namespace (the parse tree may no
- *              longer exist)
- *
- ******************************************************************************/
-
-#ifdef PARSER_ONLY
-
-acpi_status
-acpi_ps_find_object (
-	acpi_walk_state         *walk_state,
-	acpi_parse_object       **out_op)
-{
-	NATIVE_CHAR             *path;
-
-
-	/* We are only interested in opcodes that have an associated name */
-
-	if (!(walk_state->op_info->flags & AML_NAMED)) {
-		*out_op = walk_state->op;
-		return (AE_OK);
-	}
-
-	/* Find the name in the parse tree */
-
-	path = acpi_ps_get_next_namestring (&walk_state->parser_state);
-
-	*out_op = acpi_ps_find (acpi_ps_get_parent_scope (&walk_state->parser_state),
-			  path, walk_state->opcode, 1);
-
-	if (!(*out_op)) {
-		return (AE_NOT_FOUND);
-	}
-
-	return (AE_OK);
-}
-
-#endif
-
-
-/*******************************************************************************
- *
- * FUNCTION:    Acpi_ps_complete_this_op
- *
- * PARAMETERS:  Walk_state      - Current State
+ * PARAMETERS:  walk_state      - Current State
  *              Op              - Op to complete
  *
- * RETURN:      TRUE if Op and subtree was deleted
+ * RETURN:      None.
  *
  * DESCRIPTION: Perform any cleanup at the completion of an Op.
  *
  ******************************************************************************/
 
-static u8
+void
 acpi_ps_complete_this_op (
-	acpi_walk_state         *walk_state,
-	acpi_parse_object       *op)
+	struct acpi_walk_state          *walk_state,
+	union acpi_parse_object         *op)
 {
-#ifndef PARSER_ONLY
-	acpi_parse_object       *prev;
-	acpi_parse_object       *next;
-	const acpi_opcode_info  *parent_info;
-	acpi_parse_object       *replacement_op = NULL;
+	union acpi_parse_object         *prev;
+	union acpi_parse_object         *next;
+	const struct acpi_opcode_info   *parent_info;
+	union acpi_parse_object         *replacement_op = NULL;
 
 
-	FUNCTION_TRACE_PTR ("Ps_complete_this_op", op);
+	ACPI_FUNCTION_TRACE_PTR ("ps_complete_this_op", op);
 
+
+	/* Check for null Op, can happen if AML code is corrupt */
+
+	if (!op) {
+		return_VOID;
+	}
 
 	/* Delete this op and the subtree below it if asked to */
 
@@ -215,60 +168,84 @@ acpi_ps_complete_this_op (
 		(walk_state->op_info->class != AML_CLASS_ARGUMENT)) {
 		/* Make sure that we only delete this subtree */
 
-		if (op->parent) {
+		if (op->common.parent) {
 			/*
 			 * Check if we need to replace the operator and its subtree
 			 * with a return value op (placeholder op)
 			 */
-			parent_info = acpi_ps_get_opcode_info (op->parent->opcode);
+			parent_info = acpi_ps_get_opcode_info (op->common.parent->common.aml_opcode);
 
 			switch (parent_info->class) {
-			case AML_CLASS_CONTROL:        /* IF, ELSE, WHILE only */
+			case AML_CLASS_CONTROL:
 				break;
 
-			case AML_CLASS_NAMED_OBJECT:   /* Scope, method, etc. */
 			case AML_CLASS_CREATE:
 
 				/*
-				 * These opcodes contain Term_arg operands. The current
-				 * op must be replace by a placeholder return op
+				 * These opcodes contain term_arg operands. The current
+				 * op must be replaced by a placeholder return op
 				 */
-				if ((op->parent->opcode == AML_REGION_OP)               ||
-					(op->parent->opcode == AML_CREATE_FIELD_OP)         ||
-					(op->parent->opcode == AML_CREATE_BIT_FIELD_OP)     ||
-					(op->parent->opcode == AML_CREATE_BYTE_FIELD_OP)    ||
-					(op->parent->opcode == AML_CREATE_WORD_FIELD_OP)    ||
-					(op->parent->opcode == AML_CREATE_DWORD_FIELD_OP)   ||
-					(op->parent->opcode == AML_CREATE_QWORD_FIELD_OP)) {
+				replacement_op = acpi_ps_alloc_op (AML_INT_RETURN_VALUE_OP);
+				if (!replacement_op) {
+					return_VOID;
+				}
+				break;
+
+			case AML_CLASS_NAMED_OBJECT:
+
+				/*
+				 * These opcodes contain term_arg operands. The current
+				 * op must be replaced by a placeholder return op
+				 */
+				if ((op->common.parent->common.aml_opcode == AML_REGION_OP)      ||
+					(op->common.parent->common.aml_opcode == AML_DATA_REGION_OP) ||
+					(op->common.parent->common.aml_opcode == AML_BUFFER_OP)      ||
+					(op->common.parent->common.aml_opcode == AML_PACKAGE_OP)     ||
+					(op->common.parent->common.aml_opcode == AML_VAR_PACKAGE_OP)) {
 					replacement_op = acpi_ps_alloc_op (AML_INT_RETURN_VALUE_OP);
 					if (!replacement_op) {
-						return_VALUE (FALSE);
+						return_VOID;
 					}
 				}
 
+				if ((op->common.parent->common.aml_opcode == AML_NAME_OP) &&
+					(walk_state->descending_callback != acpi_ds_exec_begin_op)) {
+					if ((op->common.aml_opcode == AML_BUFFER_OP) ||
+						(op->common.aml_opcode == AML_PACKAGE_OP) ||
+						(op->common.aml_opcode == AML_VAR_PACKAGE_OP)) {
+						replacement_op = acpi_ps_alloc_op (op->common.aml_opcode);
+						if (!replacement_op) {
+							return_VOID;
+						}
+
+						replacement_op->named.data = op->named.data;
+						replacement_op->named.length = op->named.length;
+					}
+				}
 				break;
 
 			default:
 				replacement_op = acpi_ps_alloc_op (AML_INT_RETURN_VALUE_OP);
 				if (!replacement_op) {
-					return_VALUE (FALSE);
+					return_VOID;
 				}
 			}
 
 			/* We must unlink this op from the parent tree */
 
-			prev = op->parent->value.arg;
+			prev = op->common.parent->common.value.arg;
 			if (prev == op) {
 				/* This op is the first in the list */
 
 				if (replacement_op) {
-					replacement_op->parent   = op->parent;
-					replacement_op->value.arg = NULL;
-					op->parent->value.arg    = replacement_op;
-					replacement_op->next     = op->next;
+					replacement_op->common.parent       = op->common.parent;
+					replacement_op->common.value.arg    = NULL;
+					replacement_op->common.node         = op->common.node;
+					op->common.parent->common.value.arg = replacement_op;
+					replacement_op->common.next         = op->common.next;
 				}
 				else {
-					op->parent->value.arg    = op->next;
+					op->common.parent->common.value.arg    = op->common.next;
 				}
 			}
 
@@ -277,66 +254,61 @@ acpi_ps_complete_this_op (
 			else while (prev) {
 				/* Traverse all siblings in the parent's argument list */
 
-				next = prev->next;
+				next = prev->common.next;
 				if (next == op) {
 					if (replacement_op) {
-						replacement_op->parent = op->parent;
-						replacement_op->value.arg = NULL;
-						prev->next = replacement_op;
-						replacement_op->next = op->next;
+						replacement_op->common.parent   = op->common.parent;
+						replacement_op->common.value.arg = NULL;
+						replacement_op->common.node     = op->common.node;
+						prev->common.next               = replacement_op;
+						replacement_op->common.next     = op->common.next;
 						next = NULL;
 					}
 					else {
-						prev->next = op->next;
+						prev->common.next = op->common.next;
 						next = NULL;
 					}
 				}
 
 				prev = next;
 			}
-
 		}
 
 		/* Now we can actually delete the subtree rooted at op */
 
 		acpi_ps_delete_parse_tree (op);
 
-		return_VALUE (TRUE);
+		return_VOID;
 	}
 
-	return_VALUE (FALSE);
-
-#else
-	return (FALSE);
-#endif
+	return_VOID;
 }
 
 
 /*******************************************************************************
  *
- * FUNCTION:    Acpi_ps_next_parse_state
+ * FUNCTION:    acpi_ps_next_parse_state
  *
- * PARAMETERS:  Parser_state        - Current parser state object
+ * PARAMETERS:  parser_state        - Current parser state object
  *
- * RETURN:
+ * RETURN:      Status
  *
- * DESCRIPTION:
+ * DESCRIPTION: Update the parser state based upon the return exception from
+ *              the parser callback.
  *
  ******************************************************************************/
 
-static acpi_status
+acpi_status
 acpi_ps_next_parse_state (
-	acpi_walk_state         *walk_state,
-	acpi_parse_object       *op,
-	acpi_status             callback_status)
+	struct acpi_walk_state          *walk_state,
+	union acpi_parse_object         *op,
+	acpi_status                     callback_status)
 {
-	acpi_parse_state        *parser_state = &walk_state->parser_state;
-	acpi_status             status = AE_CTRL_PENDING;
-	u8                      *start;
-	u32                     package_length;
+	struct acpi_parse_state         *parser_state = &walk_state->parser_state;
+	acpi_status                     status = AE_CTRL_PENDING;
 
 
-	FUNCTION_TRACE_PTR ("Ps_next_parse_state", op);
+	ACPI_FUNCTION_TRACE_PTR ("ps_next_parse_state", op);
 
 
 	switch (callback_status) {
@@ -351,32 +323,40 @@ acpi_ps_next_parse_state (
 		break;
 
 
+	case AE_CTRL_BREAK:
+
+		parser_state->aml = walk_state->aml_last_while;
+		walk_state->control_state->common.value = FALSE;
+		status = AE_CTRL_BREAK;
+		break;
+
+	case AE_CTRL_CONTINUE:
+
+
+		parser_state->aml = walk_state->aml_last_while;
+		status = AE_CTRL_CONTINUE;
+		break;
+
 	case AE_CTRL_PENDING:
-
-		/*
-		 * Predicate of a WHILE was true and the loop just completed an
-		 * execution.  Go back to the start of the loop and reevaluate the
-		 * predicate.
-		 */
-
-		/* TBD: How to handle a break within a while. */
-		/* This code attempts it */
 
 		parser_state->aml = walk_state->aml_last_while;
 		break;
 
+#if 0
+	case AE_CTRL_SKIP:
+
+		parser_state->aml = parser_state->scope->parse_scope.pkg_end;
+		status = AE_OK;
+		break;
+#endif
 
 	case AE_CTRL_TRUE:
+
 		/*
 		 * Predicate of an IF was true, and we are at the matching ELSE.
 		 * Just close out this package
-		 *
-		 * Note: Parser_state->Aml is modified by the package length procedure
-		 * TBD: [Investigate] perhaps it shouldn't, too much trouble
 		 */
-		start = parser_state->aml;
-		package_length = acpi_ps_get_next_package_length (parser_state);
-		parser_state->aml = start + package_length;
+		parser_state->aml = acpi_ps_get_next_package_end (parser_state);
 		break;
 
 
@@ -406,7 +386,7 @@ acpi_ps_next_parse_state (
 		status = AE_CTRL_TRANSFER;
 		walk_state->prev_op = op;
 		walk_state->method_call_op = op;
-		walk_state->method_call_node = (op->value.arg)->node;
+		walk_state->method_call_node = (op->common.value.arg)->common.node;
 
 		/* Will return value (if any) be used by the caller? */
 
@@ -428,9 +408,9 @@ acpi_ps_next_parse_state (
 
 /*******************************************************************************
  *
- * FUNCTION:    Acpi_ps_parse_loop
+ * FUNCTION:    acpi_ps_parse_loop
  *
- * PARAMETERS:  Parser_state        - Current parser state object
+ * PARAMETERS:  parser_state        - Current parser state object
  *
  * RETURN:      Status
  *
@@ -441,24 +421,27 @@ acpi_ps_next_parse_state (
 
 acpi_status
 acpi_ps_parse_loop (
-	acpi_walk_state         *walk_state)
+	struct acpi_walk_state          *walk_state)
 {
-	acpi_status             status = AE_OK;
-	acpi_parse_object       *op = NULL;     /* current op */
-	acpi_parse_object       *arg = NULL;
-	acpi_parse_object       pre_op;
-	acpi_parse_state        *parser_state;
-	u8                      *aml_op_start;
+	acpi_status                     status = AE_OK;
+	union acpi_parse_object         *op = NULL;     /* current op */
+	union acpi_parse_object         *arg = NULL;
+	union acpi_parse_object         *pre_op = NULL;
+	struct acpi_parse_state         *parser_state;
+	u8                              *aml_op_start = NULL;
 
 
-	FUNCTION_TRACE_PTR ("Ps_parse_loop", walk_state);
+	ACPI_FUNCTION_TRACE_PTR ("ps_parse_loop", walk_state);
 
+	if (walk_state->descending_callback == NULL) {
+		return_ACPI_STATUS (AE_BAD_PARAMETER);
+	}
 
 	parser_state = &walk_state->parser_state;
 	walk_state->arg_types = 0;
 
-#ifndef PARSER_ONLY
-	if (walk_state->walk_type & WALK_METHOD_RESTART) {
+#if (!defined (ACPI_NO_METHOD_EXECUTION) && !defined (ACPI_CONSTANT_EVAL_ONLY))
+	if (walk_state->walk_type & ACPI_WALK_METHOD_RESTART) {
 		/* We are restarting a preempted control method */
 
 		if (acpi_ps_has_completed_scope (parser_state)) {
@@ -467,18 +450,17 @@ acpi_ps_parse_loop (
 			 * was just completed
 			 */
 			if ((parser_state->scope->parse_scope.op) &&
-			   ((parser_state->scope->parse_scope.op->opcode == AML_IF_OP) ||
-				(parser_state->scope->parse_scope.op->opcode == AML_WHILE_OP)) &&
+			   ((parser_state->scope->parse_scope.op->common.aml_opcode == AML_IF_OP) ||
+				(parser_state->scope->parse_scope.op->common.aml_opcode == AML_WHILE_OP)) &&
 				(walk_state->control_state) &&
 				(walk_state->control_state->common.state ==
-					CONTROL_PREDICATE_EXECUTING)) {
-
+					ACPI_CONTROL_PREDICATE_EXECUTING)) {
 				/*
 				 * A predicate was just completed, get the value of the
 				 * predicate and branch based on that value
 				 */
 				walk_state->op = NULL;
-				status = acpi_ds_get_predicate_value (walk_state, TRUE);
+				status = acpi_ds_get_predicate_value (walk_state, ACPI_TO_POINTER (TRUE));
 				if (ACPI_FAILURE (status) &&
 					((status & AE_CODE_MASK) != AE_CODE_CONTROL)) {
 					if (status == AE_AML_NO_RETURN_VALUE) {
@@ -487,7 +469,7 @@ acpi_ps_parse_loop (
 							acpi_format_exception (status)));
 
 					}
-					ACPI_DEBUG_PRINT ((ACPI_DB_ERROR, "Get_predicate Failed, %s\n",
+					ACPI_DEBUG_PRINT ((ACPI_DB_ERROR, "get_predicate Failed, %s\n",
 						acpi_format_exception (status)));
 					return_ACPI_STATUS (status);
 				}
@@ -495,10 +477,10 @@ acpi_ps_parse_loop (
 				status = acpi_ps_next_parse_state (walk_state, op, status);
 			}
 
-			acpi_ps_pop_scope (parser_state, &op, &walk_state->arg_types, &walk_state->arg_count);
+			acpi_ps_pop_scope (parser_state, &op,
+				&walk_state->arg_types, &walk_state->arg_count);
 			ACPI_DEBUG_PRINT ((ACPI_DB_PARSE, "Popped scope, Op=%p\n", op));
 		}
-
 		else if (walk_state->prev_op) {
 			/* We were in the middle of an op */
 
@@ -512,12 +494,13 @@ acpi_ps_parse_loop (
 	 * Iterative parsing loop, while there is more aml to process:
 	 */
 	while ((parser_state->aml < parser_state->aml_end) || (op)) {
+		aml_op_start = parser_state->aml;
 		if (!op) {
 			/* Get the next opcode from the AML stream */
 
-			aml_op_start = parser_state->aml;
-			walk_state->aml_offset = parser_state->aml - parser_state->aml_start;
-			walk_state->opcode    = acpi_ps_peek_opcode (parser_state);
+			walk_state->aml_offset = (u32) ACPI_PTR_DIFF (parser_state->aml,
+					   parser_state->aml_start);
+			walk_state->opcode   = acpi_ps_peek_opcode (parser_state);
 
 			/*
 			 * First cut to determine what we have found:
@@ -542,10 +525,10 @@ acpi_ps_parse_loop (
 				/* The opcode is unrecognized.  Just skip unknown opcodes */
 
 				ACPI_DEBUG_PRINT ((ACPI_DB_ERROR,
-					"Found unknown opcode %X at AML offset %X, ignoring\n",
-					walk_state->opcode, walk_state->aml_offset));
+					"Found unknown opcode %X at AML address %p offset %X, ignoring\n",
+					walk_state->opcode, parser_state->aml, walk_state->aml_offset));
 
-				DUMP_BUFFER (parser_state->aml, 128);
+				ACPI_DUMP_BUFFER (parser_state->aml, 128);
 
 				/* Assume one-byte bad opcode */
 
@@ -559,70 +542,85 @@ acpi_ps_parse_loop (
 				parser_state->aml += acpi_ps_get_opcode_size (walk_state->opcode);
 				walk_state->arg_types = walk_state->op_info->parse_args;
 				break;
-
 			}
-
 
 			/* Create Op structure and append to parent's argument list */
 
 			if (walk_state->op_info->flags & AML_NAMED) {
-				pre_op.value.arg = NULL;
-				pre_op.opcode = walk_state->opcode;
+				/* Allocate a new pre_op if necessary */
 
-				while (GET_CURRENT_ARG_TYPE (walk_state->arg_types) != ARGP_NAME) {
-					arg = acpi_ps_get_next_arg (parser_state,
-							 GET_CURRENT_ARG_TYPE (walk_state->arg_types),
-							 &walk_state->arg_count);
-					acpi_ps_append_arg (&pre_op, arg);
+				if (!pre_op) {
+					pre_op = acpi_ps_alloc_op (walk_state->opcode);
+					if (!pre_op) {
+						return_ACPI_STATUS (AE_NO_MEMORY);
+					}
+				}
+
+				pre_op->common.value.arg = NULL;
+				pre_op->common.aml_opcode = walk_state->opcode;
+
+				/*
+				 * Get and append arguments until we find the node that contains
+				 * the name (the type ARGP_NAME).
+				 */
+				while (GET_CURRENT_ARG_TYPE (walk_state->arg_types) &&
+					  (GET_CURRENT_ARG_TYPE (walk_state->arg_types) != ARGP_NAME)) {
+					status = acpi_ps_get_next_arg (walk_state, parser_state,
+							 GET_CURRENT_ARG_TYPE (walk_state->arg_types), &arg);
+					if (ACPI_FAILURE (status)) {
+						goto close_this_op;
+					}
+
+					acpi_ps_append_arg (pre_op, arg);
 					INCREMENT_ARG_LIST (walk_state->arg_types);
 				}
 
+				/* Make sure that we found a NAME and didn't run out of arguments */
+
+				if (!GET_CURRENT_ARG_TYPE (walk_state->arg_types)) {
+					return_ACPI_STATUS (AE_AML_NO_OPERAND);
+				}
 
 				/* We know that this arg is a name, move to next arg */
 
 				INCREMENT_ARG_LIST (walk_state->arg_types);
 
-				if (walk_state->descending_callback != NULL) {
-					/*
-					 * Find the object.  This will either insert the object into
-					 * the namespace or simply look it up
-					 */
-					walk_state->op = NULL;
+				/*
+				 * Find the object.  This will either insert the object into
+				 * the namespace or simply look it up
+				 */
+				walk_state->op = NULL;
 
-					status = walk_state->descending_callback (walk_state, &op);
-
-					/* TBD: check status here? */
-
-					if (ACPI_FAILURE (status)) {
-						ACPI_DEBUG_PRINT ((ACPI_DB_ERROR, "During name lookup/catalog, %s\n",
-								acpi_format_exception (status)));
-						goto close_this_op;
-					}
-
-					if (op == NULL) {
-						continue;
-					}
-					status = acpi_ps_next_parse_state (walk_state, op, status);
-					if (status == AE_CTRL_PENDING) {
-						status = AE_OK;
-						goto close_this_op;
-					}
-
-					if (ACPI_FAILURE (status)) {
-						goto close_this_op;
-					}
+				status = walk_state->descending_callback (walk_state, &op);
+				if (ACPI_FAILURE (status)) {
+					ACPI_DEBUG_PRINT ((ACPI_DB_ERROR, "During name lookup/catalog, %s\n",
+							acpi_format_exception (status)));
+					goto close_this_op;
 				}
 
-				acpi_ps_append_arg (op, pre_op.value.arg);
+				if (op == NULL) {
+					continue;
+				}
+
+				status = acpi_ps_next_parse_state (walk_state, op, status);
+				if (status == AE_CTRL_PENDING) {
+					status = AE_OK;
+					goto close_this_op;
+				}
+
+				if (ACPI_FAILURE (status)) {
+					goto close_this_op;
+				}
+
+				acpi_ps_append_arg (op, pre_op->common.value.arg);
 				acpi_gbl_depth++;
 
-
-				if (op->opcode == AML_REGION_OP) {
+				if (op->common.aml_opcode == AML_REGION_OP) {
 					/*
-					 * Defer final parsing of an Operation_region body,
+					 * Defer final parsing of an operation_region body,
 					 * because we don't have enough info in the first pass
 					 * to parse it correctly (i.e., there may be method
-					 * calls within the Term_arg elements of the body.
+					 * calls within the term_arg elements of the body.)
 					 *
 					 * However, we must continue parsing because
 					 * the opregion is not a standalone package --
@@ -630,12 +628,10 @@ acpi_ps_parse_loop (
 					 *
 					 * (Length is unknown until parse of the body complete)
 					 */
-					((acpi_parse2_object * ) op)->data    = aml_op_start;
-					((acpi_parse2_object * ) op)->length  = 0;
+					op->named.data    = aml_op_start;
+					op->named.length  = 0;
 				}
 			}
-
-
 			else {
 				/* Not a named opcode, just allocate Op and append to parent */
 
@@ -645,14 +641,13 @@ acpi_ps_parse_loop (
 					return_ACPI_STATUS (AE_NO_MEMORY);
 				}
 
-
 				if (walk_state->op_info->flags & AML_CREATE) {
 					/*
-					 * Backup to beginning of Create_xXXfield declaration
-					 * Body_length is unknown until we parse the body
+					 * Backup to beginning of create_xXXfield declaration
+					 * body_length is unknown until we parse the body
 					 */
-					((acpi_parse2_object * ) op)->data    = aml_op_start;
-					((acpi_parse2_object * ) op)->length  = 0;
+					op->named.data    = aml_op_start;
+					op->named.length  = 0;
 				}
 
 				acpi_ps_append_arg (acpi_ps_get_parent_scope (parser_state), op);
@@ -662,7 +657,7 @@ acpi_ps_parse_loop (
 					 * Find the object.  This will either insert the object into
 					 * the namespace or simply look it up
 					 */
-					walk_state->op    = op;
+					walk_state->op = op;
 
 					status = walk_state->descending_callback (walk_state, &op);
 					status = acpi_ps_next_parse_state (walk_state, op, status);
@@ -677,244 +672,318 @@ acpi_ps_parse_loop (
 				}
 			}
 
-			op->aml_offset = walk_state->aml_offset;
+			op->common.aml_offset = walk_state->aml_offset;
 
 			if (walk_state->op_info) {
 				ACPI_DEBUG_PRINT ((ACPI_DB_PARSE,
-					"Op=%p Opcode=%4.4X Aml %p Oft=%5.5X\n",
-					 op, op->opcode, parser_state->aml, op->aml_offset));
+					"Opcode %4.4X [%s] Op %p Aml %p aml_offset %5.5X\n",
+					 (u32) op->common.aml_opcode, walk_state->op_info->name,
+					 op, parser_state->aml, op->common.aml_offset));
 			}
 		}
 
 
-		/* Start Arg_count at zero because we don't know if there are any args yet */
+		/* Start arg_count at zero because we don't know if there are any args yet */
 
 		walk_state->arg_count = 0;
 
-
 		if (walk_state->arg_types) /* Are there any arguments that must be processed? */ {
-			/* get arguments */
+			/* Get arguments */
 
-			switch (op->opcode) {
+			switch (op->common.aml_opcode) {
 			case AML_BYTE_OP:       /* AML_BYTEDATA_ARG */
 			case AML_WORD_OP:       /* AML_WORDDATA_ARG */
 			case AML_DWORD_OP:      /* AML_DWORDATA_ARG */
 			case AML_QWORD_OP:      /* AML_QWORDATA_ARG */
 			case AML_STRING_OP:     /* AML_ASCIICHARLIST_ARG */
 
-				/* fill in constant or string argument directly */
+				/* Fill in constant or string argument directly */
 
 				acpi_ps_get_next_simple_arg (parser_state,
-						 GET_CURRENT_ARG_TYPE (walk_state->arg_types), op);
+					GET_CURRENT_ARG_TYPE (walk_state->arg_types), op);
 				break;
 
 			case AML_INT_NAMEPATH_OP:   /* AML_NAMESTRING_ARG */
 
-				acpi_ps_get_next_namepath (parser_state, op, &walk_state->arg_count, 1);
+				status = acpi_ps_get_next_namepath (walk_state, parser_state, op, 1);
+				if (ACPI_FAILURE (status)) {
+					goto close_this_op;
+				}
+
 				walk_state->arg_types = 0;
 				break;
 
-
 			default:
 
-				/* Op is not a constant or string, append each argument */
+				/* Op is not a constant or string, append each argument to the Op */
 
-				while (GET_CURRENT_ARG_TYPE (walk_state->arg_types) && !walk_state->arg_count) {
-					walk_state->aml_offset = parser_state->aml - parser_state->aml_start;
-					arg = acpi_ps_get_next_arg (parser_state,
-							 GET_CURRENT_ARG_TYPE (walk_state->arg_types),
-							 &walk_state->arg_count);
-					if (arg) {
-						arg->aml_offset = walk_state->aml_offset;
-						acpi_ps_append_arg (op, arg);
+				while (GET_CURRENT_ARG_TYPE (walk_state->arg_types) &&
+						!walk_state->arg_count) {
+					walk_state->aml_offset = (u32) ACPI_PTR_DIFF (parser_state->aml,
+							   parser_state->aml_start);
+					status = acpi_ps_get_next_arg (walk_state, parser_state,
+							 GET_CURRENT_ARG_TYPE (walk_state->arg_types), &arg);
+					if (ACPI_FAILURE (status)) {
+						goto close_this_op;
 					}
 
+					if (arg) {
+						arg->common.aml_offset = walk_state->aml_offset;
+						acpi_ps_append_arg (op, arg);
+					}
 					INCREMENT_ARG_LIST (walk_state->arg_types);
 				}
 
+				/* Special processing for certain opcodes */
 
-				/* For a method, save the length and address of the body */
+				switch (op->common.aml_opcode) {
+				case AML_METHOD_OP:
 
-				if (op->opcode == AML_METHOD_OP) {
 					/*
-					 * Skip parsing of control method or opregion body,
+					 * Skip parsing of control method
 					 * because we don't have enough info in the first pass
-					 * to parse them correctly.
+					 * to parse it correctly.
+					 *
+					 * Save the length and address of the body
 					 */
-					((acpi_parse2_object * ) op)->data    = parser_state->aml;
-					((acpi_parse2_object * ) op)->length  = (u32) (parser_state->pkg_end -
-							   parser_state->aml);
+					op->named.data   = parser_state->aml;
+					op->named.length = (u32) (parser_state->pkg_end - parser_state->aml);
 
-					/*
-					 * Skip body of method.  For Op_regions, we must continue
-					 * parsing because the opregion is not a standalone
-					 * package (We don't know where the end is).
-					 */
+					/* Skip body of method */
+
 					parser_state->aml   = parser_state->pkg_end;
-					walk_state->arg_count          = 0;
-				}
+					walk_state->arg_count = 0;
+					break;
 
+				case AML_BUFFER_OP:
+				case AML_PACKAGE_OP:
+				case AML_VAR_PACKAGE_OP:
+
+					if ((op->common.parent) &&
+						(op->common.parent->common.aml_opcode == AML_NAME_OP) &&
+						(walk_state->descending_callback != acpi_ds_exec_begin_op)) {
+						/*
+						 * Skip parsing of Buffers and Packages
+						 * because we don't have enough info in the first pass
+						 * to parse them correctly.
+						 */
+						op->named.data   = aml_op_start;
+						op->named.length = (u32) (parser_state->pkg_end - aml_op_start);
+
+						/* Skip body */
+
+						parser_state->aml   = parser_state->pkg_end;
+						walk_state->arg_count = 0;
+					}
+					break;
+
+				case AML_WHILE_OP:
+
+					if (walk_state->control_state) {
+						walk_state->control_state->control.package_end = parser_state->pkg_end;
+					}
+					break;
+
+				default:
+
+					/* No action for all other opcodes */
+					break;
+				}
 				break;
 			}
 		}
 
+		/* Check for arguments that need to be processed */
 
-		/*
-		 * Zero Arg_count means that all arguments for this op have been processed
-		 */
-		if (!walk_state->arg_count) {
-			/* completed Op, prepare for next */
+		if (walk_state->arg_count) {
+			/* There are arguments (complex ones), push Op and prepare for argument */
 
-			walk_state->op_info = acpi_ps_get_opcode_info (op->opcode);
-			if (walk_state->op_info->flags & AML_NAMED) {
-				if (acpi_gbl_depth) {
-					acpi_gbl_depth--;
-				}
+			status = acpi_ps_push_scope (parser_state, op,
+					 walk_state->arg_types, walk_state->arg_count);
+			if (ACPI_FAILURE (status)) {
+				return_ACPI_STATUS (status);
+			}
+			op = NULL;
+			continue;
+		}
 
-				if (op->opcode == AML_REGION_OP) {
-					/*
-					 * Skip parsing of control method or opregion body,
-					 * because we don't have enough info in the first pass
-					 * to parse them correctly.
-					 *
-					 * Completed parsing an Op_region declaration, we now
-					 * know the length.
-					 */
-					((acpi_parse2_object * ) op)->length = (u32) (parser_state->aml -
-							   ((acpi_parse2_object * ) op)->data);
-				}
+		/* All arguments have been processed -- Op is complete, prepare for next */
+
+		walk_state->op_info = acpi_ps_get_opcode_info (op->common.aml_opcode);
+		if (walk_state->op_info->flags & AML_NAMED) {
+			if (acpi_gbl_depth) {
+				acpi_gbl_depth--;
 			}
 
-			if (walk_state->op_info->flags & AML_CREATE) {
+			if (op->common.aml_opcode == AML_REGION_OP) {
 				/*
-				 * Backup to beginning of Create_xXXfield declaration (1 for
-				 * Opcode)
+				 * Skip parsing of control method or opregion body,
+				 * because we don't have enough info in the first pass
+				 * to parse them correctly.
 				 *
-				 * Body_length is unknown until we parse the body
+				 * Completed parsing an op_region declaration, we now
+				 * know the length.
 				 */
-				((acpi_parse2_object * ) op)->length = (u32) (parser_state->aml -
-						   ((acpi_parse2_object * ) op)->data);
+				op->named.length = (u32) (parser_state->aml - op->named.data);
 			}
+		}
 
-			/* This op complete, notify the dispatcher */
+		if (walk_state->op_info->flags & AML_CREATE) {
+			/*
+			 * Backup to beginning of create_xXXfield declaration (1 for
+			 * Opcode)
+			 *
+			 * body_length is unknown until we parse the body
+			 */
+			op->named.length = (u32) (parser_state->aml - op->named.data);
+		}
 
-			if (walk_state->ascending_callback != NULL) {
-				walk_state->op    = op;
-				walk_state->opcode = op->opcode;
+		/* This op complete, notify the dispatcher */
 
-				status = walk_state->ascending_callback (walk_state);
-				status = acpi_ps_next_parse_state (walk_state, op, status);
-				if (status == AE_CTRL_PENDING) {
-					status = AE_OK;
-					goto close_this_op;
-				}
+		if (walk_state->ascending_callback != NULL) {
+			walk_state->op    = op;
+			walk_state->opcode = op->common.aml_opcode;
+
+			status = walk_state->ascending_callback (walk_state);
+			status = acpi_ps_next_parse_state (walk_state, op, status);
+			if (status == AE_CTRL_PENDING) {
+				status = AE_OK;
+				goto close_this_op;
 			}
+		}
 
 
 close_this_op:
+		/*
+		 * Finished one argument of the containing scope
+		 */
+		parser_state->scope->parse_scope.arg_count--;
+
+		/* Close this Op (will result in parse subtree deletion) */
+
+		acpi_ps_complete_this_op (walk_state, op);
+		op = NULL;
+		if (pre_op) {
+			acpi_ps_free_op (pre_op);
+			pre_op = NULL;
+		}
+
+		switch (status) {
+		case AE_OK:
+			break;
+
+
+		case AE_CTRL_TRANSFER:
 
 			/*
-			 * Finished one argument of the containing scope
+			 * We are about to transfer to a called method.
 			 */
-			parser_state->scope->parse_scope.arg_count--;
-
-			/* Close this Op (may result in parse subtree deletion) */
-
-			if (acpi_ps_complete_this_op (walk_state, op)) {
-				op = NULL;
-			}
+			walk_state->prev_op = op;
+			walk_state->prev_arg_types = walk_state->arg_types;
+			return_ACPI_STATUS (status);
 
 
-			switch (status) {
-			case AE_OK:
-				break;
+		case AE_CTRL_END:
 
+			acpi_ps_pop_scope (parser_state, &op,
+				&walk_state->arg_types, &walk_state->arg_count);
 
-			case AE_CTRL_TRANSFER:
-
-				/*
-				 * We are about to transfer to a called method.
-				 */
-				walk_state->prev_op = op;
-				walk_state->prev_arg_types = walk_state->arg_types;
-				return_ACPI_STATUS (status);
-				break;
-
-
-			case AE_CTRL_END:
-
-				acpi_ps_pop_scope (parser_state, &op, &walk_state->arg_types, &walk_state->arg_count);
-
+			if (op) {
 				walk_state->op    = op;
-				walk_state->op_info = acpi_ps_get_opcode_info (op->opcode);
-				walk_state->opcode = op->opcode;
+				walk_state->op_info = acpi_ps_get_opcode_info (op->common.aml_opcode);
+				walk_state->opcode = op->common.aml_opcode;
 
 				status = walk_state->ascending_callback (walk_state);
 				status = acpi_ps_next_parse_state (walk_state, op, status);
 
 				acpi_ps_complete_this_op (walk_state, op);
 				op = NULL;
-				status = AE_OK;
-				break;
+			}
+			status = AE_OK;
+			break;
 
 
-			case AE_CTRL_TERMINATE:
+		case AE_CTRL_BREAK:
+		case AE_CTRL_CONTINUE:
 
-				status = AE_OK;
+			/* Pop off scopes until we find the While */
 
-				/* Clean up */
-				do {
-					if (op) {
-						acpi_ps_complete_this_op (walk_state, op);
-					}
+			while (!op || (op->common.aml_opcode != AML_WHILE_OP)) {
+				acpi_ps_pop_scope (parser_state, &op,
+					&walk_state->arg_types, &walk_state->arg_count);
+			}
 
-					acpi_ps_pop_scope (parser_state, &op, &walk_state->arg_types, &walk_state->arg_count);
-				} while (op);
+			/* Close this iteration of the While loop */
 
-				return_ACPI_STATUS (status);
-				break;
+			walk_state->op    = op;
+			walk_state->op_info = acpi_ps_get_opcode_info (op->common.aml_opcode);
+			walk_state->opcode = op->common.aml_opcode;
+
+			status = walk_state->ascending_callback (walk_state);
+			status = acpi_ps_next_parse_state (walk_state, op, status);
+
+			acpi_ps_complete_this_op (walk_state, op);
+			op = NULL;
+
+			status = AE_OK;
+			break;
 
 
-			default:  /* All other non-AE_OK status */
+		case AE_CTRL_TERMINATE:
 
-				if (op == NULL) {
-					acpi_ps_pop_scope (parser_state, &op, &walk_state->arg_types, &walk_state->arg_count);
+			status = AE_OK;
+
+			/* Clean up */
+			do {
+				if (op) {
+					acpi_ps_complete_this_op (walk_state, op);
 				}
-				walk_state->prev_op = op;
-				walk_state->prev_arg_types = walk_state->arg_types;
+				acpi_ps_pop_scope (parser_state, &op,
+					&walk_state->arg_types, &walk_state->arg_count);
 
-				/*
-				 * TEMP:
-				 */
+			} while (op);
 
-				return_ACPI_STATUS (status);
-				break;
+			return_ACPI_STATUS (status);
+
+
+		default:  /* All other non-AE_OK status */
+
+			do {
+				if (op) {
+					acpi_ps_complete_this_op (walk_state, op);
+				}
+				acpi_ps_pop_scope (parser_state, &op,
+					&walk_state->arg_types, &walk_state->arg_count);
+
+			} while (op);
+
+
+			/*
+			 * TBD: Cleanup parse ops on error
+			 */
+#if 0
+			if (op == NULL) {
+				acpi_ps_pop_scope (parser_state, &op,
+					&walk_state->arg_types, &walk_state->arg_count);
 			}
-
-			/* This scope complete? */
-
-			if (acpi_ps_has_completed_scope (parser_state)) {
-				acpi_ps_pop_scope (parser_state, &op, &walk_state->arg_types, &walk_state->arg_count);
-				ACPI_DEBUG_PRINT ((ACPI_DB_PARSE, "Popped scope, Op=%p\n", op));
-			}
-
-			else {
-				op = NULL;
-			}
-
+#endif
+			walk_state->prev_op = op;
+			walk_state->prev_arg_types = walk_state->arg_types;
+			return_ACPI_STATUS (status);
 		}
 
+		/* This scope complete? */
 
-		/* Arg_count is non-zero */
-
+		if (acpi_ps_has_completed_scope (parser_state)) {
+			acpi_ps_pop_scope (parser_state, &op,
+				&walk_state->arg_types, &walk_state->arg_count);
+			ACPI_DEBUG_PRINT ((ACPI_DB_PARSE, "Popped scope, Op=%p\n", op));
+		}
 		else {
-			/* complex argument, push Op and prepare for argument */
-
-			acpi_ps_push_scope (parser_state, op, walk_state->arg_types, walk_state->arg_count);
 			op = NULL;
 		}
 
-	} /* while Parser_state->Aml */
+	} /* while parser_state->Aml */
 
 
 	/*
@@ -928,8 +997,8 @@ close_this_op:
 		if (op) {
 			if (walk_state->ascending_callback != NULL) {
 				walk_state->op    = op;
-				walk_state->op_info = acpi_ps_get_opcode_info (op->opcode);
-				walk_state->opcode = op->opcode;
+				walk_state->op_info = acpi_ps_get_opcode_info (op->common.aml_opcode);
+				walk_state->opcode = op->common.aml_opcode;
 
 				status = walk_state->ascending_callback (walk_state);
 				status = acpi_ps_next_parse_state (walk_state, op, status);
@@ -947,7 +1016,8 @@ close_this_op:
 							acpi_ps_complete_this_op (walk_state, op);
 						}
 
-						acpi_ps_pop_scope (parser_state, &op, &walk_state->arg_types, &walk_state->arg_count);
+						acpi_ps_pop_scope (parser_state, &op,
+							&walk_state->arg_types, &walk_state->arg_count);
 
 					} while (op);
 
@@ -963,7 +1033,8 @@ close_this_op:
 			acpi_ps_complete_this_op (walk_state, op);
 		}
 
-		acpi_ps_pop_scope (parser_state, &op, &walk_state->arg_types, &walk_state->arg_count);
+		acpi_ps_pop_scope (parser_state, &op, &walk_state->arg_types,
+			&walk_state->arg_count);
 
 	} while (op);
 
@@ -973,12 +1044,12 @@ close_this_op:
 
 /*******************************************************************************
  *
- * FUNCTION:    Acpi_ps_parse_aml
+ * FUNCTION:    acpi_ps_parse_aml
  *
- * PARAMETERS:  Start_scope     - The starting point of the parse.  Becomes the
+ * PARAMETERS:  start_scope     - The starting point of the parse.  Becomes the
  *                                root of the parsed op tree.
  *              Aml             - Pointer to the raw AML code to parse
- *              Aml_size        - Length of the AML to parse
+ *              aml_size        - Length of the AML to parse
  *
  *
  * RETURN:      Status
@@ -989,33 +1060,36 @@ close_this_op:
 
 acpi_status
 acpi_ps_parse_aml (
-	acpi_walk_state         *walk_state)
+	struct acpi_walk_state          *walk_state)
 {
-	acpi_status             status;
-	acpi_walk_list          walk_list;
-	acpi_walk_list          *prev_walk_list = acpi_gbl_current_walk_list;
-	acpi_walk_state         *previous_walk_state;
+	acpi_status                     status;
+	acpi_status                     terminate_status;
+	struct acpi_thread_state        *thread;
+	struct acpi_thread_state        *prev_walk_list = acpi_gbl_current_walk_list;
+	struct acpi_walk_state          *previous_walk_state;
 
 
-	FUNCTION_TRACE ("Ps_parse_aml");
+	ACPI_FUNCTION_TRACE ("ps_parse_aml");
 
-	ACPI_DEBUG_PRINT ((ACPI_DB_PARSE, "Entered with Walk_state=%p Aml=%p size=%X\n",
+	ACPI_DEBUG_PRINT ((ACPI_DB_PARSE, "Entered with walk_state=%p Aml=%p size=%X\n",
 		walk_state, walk_state->parser_state.aml, walk_state->parser_state.aml_size));
 
 
-	/* Create and initialize a new walk list */
+	/* Create and initialize a new thread state */
 
-	walk_list.walk_state            = NULL;
-	walk_list.acquired_mutex_list.prev = NULL;
-	walk_list.acquired_mutex_list.next = NULL;
+	thread = acpi_ut_create_thread_state ();
+	if (!thread) {
+		return_ACPI_STATUS (AE_NO_MEMORY);
+	}
 
-	walk_state->walk_list = &walk_list;
-	acpi_ds_push_walk_state (walk_state, &walk_list);
+	walk_state->thread = thread;
+	acpi_ds_push_walk_state (walk_state, thread);
 
-
-	/* TBD: [Restructure] TEMP until we pass Walk_state to the interpreter
+	/*
+	 * This global allows the AML debugger to get a handle to the currently
+	 * executing control method.
 	 */
-	acpi_gbl_current_walk_list = &walk_list;
+	acpi_gbl_current_walk_list = thread;
 
 	/*
 	 * Execute the walk loop as long as there is a valid Walk State.  This
@@ -1027,37 +1101,62 @@ acpi_ps_parse_aml (
 	while (walk_state) {
 		if (ACPI_SUCCESS (status)) {
 			/*
-			 * The Parse_loop executes AML until the method terminates
+			 * The parse_loop executes AML until the method terminates
 			 * or calls another method.
 			 */
 			status = acpi_ps_parse_loop (walk_state);
 		}
 
 		ACPI_DEBUG_PRINT ((ACPI_DB_PARSE,
-			"Completed one call to walk loop, State=%p\n", walk_state));
+			"Completed one call to walk loop, %s State=%p\n",
+			acpi_format_exception (status), walk_state));
 
 		if (status == AE_CTRL_TRANSFER) {
 			/*
 			 * A method call was detected.
 			 * Transfer control to the called control method
 			 */
-			status = acpi_ds_call_control_method (&walk_list, walk_state, NULL);
+			status = acpi_ds_call_control_method (thread, walk_state, NULL);
 
 			/*
 			 * If the transfer to the new method method call worked, a new walk
 			 * state was created -- get it
 			 */
-			walk_state = acpi_ds_get_current_walk_state (&walk_list);
+			walk_state = acpi_ds_get_current_walk_state (thread);
 			continue;
 		}
-
 		else if (status == AE_CTRL_TERMINATE) {
 			status = AE_OK;
+		}
+		else if (status != AE_OK) {
+			ACPI_REPORT_METHOD_ERROR ("Method execution failed",
+				walk_state->method_node, NULL, status);
+
+			/* Check for possible multi-thread reentrancy problem */
+
+			if ((status == AE_ALREADY_EXISTS) &&
+				(!walk_state->method_desc->method.semaphore)) {
+				/*
+				 * This method is marked not_serialized, but it tried to create a named
+				 * object, causing the second thread entrance to fail.  We will workaround
+				 * this by marking the method permanently as Serialized.
+				 */
+				walk_state->method_desc->method.method_flags |= AML_METHOD_SERIALIZED;
+				walk_state->method_desc->method.concurrency = 1;
+			}
+		}
+
+		if (walk_state->method_desc) {
+			/* Decrement the thread count on the method parse tree */
+
+			if (walk_state->method_desc->method.thread_count) {
+				walk_state->method_desc->method.thread_count--;
+			}
 		}
 
 		/* We are done with this walk, move on to the parent if any */
 
-		walk_state = acpi_ds_pop_walk_state (&walk_list);
+		walk_state = acpi_ds_pop_walk_state (thread);
 
 		/* Reset the current scope to the beginning of scope stack */
 
@@ -1068,7 +1167,13 @@ acpi_ps_parse_aml (
 		 * there's lots of cleanup to do
 		 */
 		if ((walk_state->parse_flags & ACPI_PARSE_MODE_MASK) == ACPI_PARSE_EXECUTE) {
-			acpi_ds_terminate_control_method (walk_state);
+			terminate_status = acpi_ds_terminate_control_method (walk_state);
+			if (ACPI_FAILURE (terminate_status)) {
+				ACPI_REPORT_ERROR ((
+					"Could not terminate control method properly\n"));
+
+				/* Ignore error and continue */
+			}
 		}
 
 		/* Delete this walk state and all linked control states */
@@ -1077,22 +1182,29 @@ acpi_ps_parse_aml (
 
 		previous_walk_state = walk_state;
 
-		ACPI_DEBUG_PRINT ((ACPI_DB_PARSE, "Return_value=%p, State=%p\n",
+		ACPI_DEBUG_PRINT ((ACPI_DB_PARSE, "return_value=%p, State=%p\n",
 			walk_state->return_desc, walk_state));
 
 		/* Check if we have restarted a preempted walk */
 
-		walk_state = acpi_ds_get_current_walk_state (&walk_list);
+		walk_state = acpi_ds_get_current_walk_state (thread);
 		if (walk_state) {
 			if (ACPI_SUCCESS (status)) {
-				/* There is another walk state, restart it */
-
 				/*
-				 * If the method returned value is not used by the parent,
+				 * There is another walk state, restart it.
+				 * If the method return value is not used by the parent,
 				 * The object is deleted
 				 */
-				acpi_ds_restart_control_method (walk_state, previous_walk_state->return_desc);
-				walk_state->walk_type |= WALK_METHOD_RESTART;
+				status = acpi_ds_restart_control_method (walk_state,
+						 previous_walk_state->return_desc);
+				if (ACPI_SUCCESS (status)) {
+					walk_state->walk_type |= ACPI_WALK_METHOD_RESTART;
+				}
+			}
+			else {
+				/* On error, delete any return object */
+
+				acpi_ut_remove_reference (previous_walk_state->return_desc);
 			}
 		}
 
@@ -1103,7 +1215,6 @@ acpi_ps_parse_aml (
 		else if (previous_walk_state->caller_return_desc) {
 			*(previous_walk_state->caller_return_desc) = previous_walk_state->return_desc; /* NULL if no return value */
 		}
-
 		else if (previous_walk_state->return_desc) {
 			/* Caller doesn't want it, must delete it */
 
@@ -1113,10 +1224,10 @@ acpi_ps_parse_aml (
 		acpi_ds_delete_walk_state (previous_walk_state);
 	}
 
-
 	/* Normal exit */
 
-	acpi_ex_release_all_mutexes ((acpi_operand_object *) &walk_list.acquired_mutex_list);
+	acpi_ex_release_all_mutexes (thread);
+	acpi_ut_delete_generic_state (ACPI_CAST_PTR (union acpi_generic_state, thread));
 	acpi_gbl_current_walk_list = prev_walk_list;
 	return_ACPI_STATUS (status);
 }

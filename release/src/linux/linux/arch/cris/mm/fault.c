@@ -1,5 +1,81 @@
+/*
+ *  linux/arch/cris/mm/fault.c
+ *
+ *  Copyright (C) 2000, 2001  Axis Communications AB
+ *
+ *  Authors:  Bjorn Wesen 
+ * 
+ *  $Log: fault.c,v $
+ *  Revision 1.23  2003/10/16 05:32:32  starvik
+ *  Only read TLB_SELECT if DEBUG
+ *
+ *  Revision 1.22  2003/07/07 09:07:04  johana
+ *  Added special CONFIG_ETRAX_DEBUG_INTERRUPT handling here
+ *  to deal with a di in entry.S
+ *
+ *  Revision 1.21  2002/05/28 14:24:56  bjornw
+ *  Corrected typo
+ *
+ *  Revision 1.20  2001/11/22 13:34:06  bjornw
+ *  * Bug workaround (LX TR89): force a rerun of the whole of an interrupted
+ *    unaligned write, because the second half of the write will be corrupted
+ *    otherwise. Affected unaligned writes spanning not-yet mapped pages.
+ *  * Optimization: use the wr_rd bit in R_MMU_CAUSE to know whether a miss
+ *    was due to a read or a write (before we didn't know this until the next
+ *    restart of the interrupted instruction, thus wasting one fault-irq)
+ *
+ *  Revision 1.19  2001/11/12 19:02:10  pkj
+ *  Fixed compiler warnings.
+ *
+ *  Revision 1.18  2001/07/18 22:14:32  bjornw
+ *  Enable interrupts in the bulk of do_page_fault
+ *
+ *  Revision 1.17  2001/07/18 13:07:23  bjornw
+ *  * Detect non-existant PTE's in vmalloc pmd synchronization
+ *  * Remove comment about fast-paths for VMALLOC_START etc, because all that
+ *    was totally bogus anyway it turned out :)
+ *  * Fix detection of vmalloc-area synchronization
+ *  * Add some comments
+ *
+ *  Revision 1.16  2001/06/13 00:06:08  bjornw
+ *  current_pgd should be volatile
+ *
+ *  Revision 1.15  2001/06/13 00:02:23  bjornw
+ *  Use a separate variable to store the current pgd to avoid races in schedule
+ *
+ *  Revision 1.14  2001/05/16 17:41:07  hp
+ *  Last comment tweak further tweaked.
+ *
+ *  Revision 1.13  2001/05/15 00:58:44  hp
+ *  Expand a bit on the comment why we compare address >= TASK_SIZE rather
+ *  than >= VMALLOC_START.
+ *
+ *  Revision 1.12  2001/04/04 10:51:14  bjornw
+ *  mmap_sem is grabbed for reading
+ *
+ *  Revision 1.11  2001/03/23 07:36:07  starvik
+ *  Corrected according to review remarks
+ *
+ *  Revision 1.10  2001/03/21 16:10:11  bjornw
+ *  CRIS_FRAME_FIXUP not needed anymore, use FRAME_NORMAL
+ *
+ *  Revision 1.9  2001/03/05 13:22:20  bjornw
+ *  Spell-fix and fix in vmalloc_fault handling
+ *
+ *  Revision 1.8  2000/11/22 14:45:31  bjornw
+ *  * 2.4.0-test10 removed the set_pgdir instantaneous kernel global mapping
+ *    into all processes. Instead we fill in the missing PTE entries on demand.
+ *
+ *  Revision 1.7  2000/11/21 16:39:09  bjornw
+ *  fixup switches frametype
+ *
+ *  Revision 1.6  2000/11/17 16:54:08  bjornw
+ *  More detailed siginfo reporting
+ *
+ *
+ */
 
-
+#include <linux/config.h>
 #include <linux/signal.h>
 #include <linux/sched.h>
 #include <linux/kernel.h>
@@ -46,8 +122,9 @@ volatile pgd_t *current_pgd;
 void
 handle_mmu_bus_fault(struct pt_regs *regs)
 {
-	int cause, select;
+	int cause;
 #ifdef DEBUG
+	int select;
 	int index;
 	int page_id;
 	int acc, inv;
@@ -58,12 +135,15 @@ handle_mmu_bus_fault(struct pt_regs *regs)
 	int errcode;
 	unsigned long address;
 
+#ifdef CONFIG_ETRAX_DEBUG_INTERRUPT /* The di is actually in entry.S */
+	log_int(rdpc(), regs->dccr, 0);
+#endif
 	cause = *R_MMU_CAUSE;
-	select = *R_TLB_SELECT;
 
 	address = cause & PAGE_MASK; /* get faulting address */
 
 #ifdef DEBUG
+	select = *R_TLB_SELECT;
 	page_id = IO_EXTRACT(R_MMU_CAUSE,  page_id,   cause);
 	acc     = IO_EXTRACT(R_MMU_CAUSE,  acc_excp,  cause);
 	inv     = IO_EXTRACT(R_MMU_CAUSE,  inv_excp,  cause);  
@@ -73,6 +153,18 @@ handle_mmu_bus_fault(struct pt_regs *regs)
 	we      = IO_EXTRACT(R_MMU_CAUSE,  we_excp,   cause);
 	writeac = IO_EXTRACT(R_MMU_CAUSE,  wr_rd,     cause);
 
+	/* ETRAX 100LX TR89 bugfix: if the second half of an unaligned
+	 * write causes a MMU-fault, it will not be restarted correctly.
+	 * This could happen if a write crosses a page-boundary and the
+	 * second page is not yet COW'ed or even loaded. The workaround
+	 * is to clear the unaligned bit in the CPU status record, so 
+	 * that the CPU will rerun both the first and second halves of
+	 * the instruction. This will not have any sideeffects unless
+	 * the first half goes to any device or memory that can't be
+	 * written twice, and which is mapped through the MMU.
+	 *
+	 * We only need to do this for writes.
+	 */
 
 	if(writeac)
 		regs->csrinstr &= ~(1 << 5);

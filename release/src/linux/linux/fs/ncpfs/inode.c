@@ -580,6 +580,7 @@ int ncp_notify_change(struct dentry *dentry, struct iattr *attr)
 	info_mask = 0;
 	memset(&info, 0, sizeof(info));
 
+#if 1 
         if ((attr->ia_valid & ATTR_MODE) != 0)
         {
                 if (S_ISDIR(inode->i_mode)) {
@@ -631,6 +632,7 @@ int ncp_notify_change(struct dentry *dentry, struct iattr *attr)
 #endif
                 }
         }
+#endif
 
 	if ((attr->ia_valid & ATTR_CTIME) != 0) {
 		info_mask |= (DM_CREATE_TIME | DM_CREATE_DATE);
@@ -649,7 +651,7 @@ int ncp_notify_change(struct dentry *dentry, struct iattr *attr)
 	if ((attr->ia_valid & ATTR_ATIME) != 0) {
 		__u16 dummy;
 		info_mask |= (DM_LAST_ACCESS_DATE);
-		ncp_date_unix2dos(attr->ia_ctime,
+		ncp_date_unix2dos(attr->ia_atime,
 				  &(dummy), &(info.lastAccessDate));
 		info.lastAccessDate = le16_to_cpu(info.lastAccessDate);
 	}

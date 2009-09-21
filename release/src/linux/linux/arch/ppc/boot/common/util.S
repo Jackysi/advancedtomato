@@ -14,12 +14,10 @@
  *	   trini@mvista.com
  * Derived from arch/ppc/boot/prep/head.S (Cort Dougan, many others).
  *
- * Copyright 2001 MontaVista Software Inc.
- *
- * This program is free software; you can redistribute  it and/or modify it
- * under  the terms of  the GNU General  Public License as published by the
- * Free Software Foundation;  either version 2 of the  License, or (at your
- * option) any later version.
+ * 2001-2003 (c) MontaVista, Software, Inc.  This file is licensed under
+ * the terms of the GNU General Public License version 2.  This program
+ * is licensed "as is" without any warranty of any kind, whether express
+ * or implied.
  */
 
 #include <asm/processor.h>
@@ -100,7 +98,7 @@ _setup_L2CR:
 	isync
 	mfspr	r8,L2CR
 	rlwinm	r8,r8,0,1,31
-	oris	r8,r8,0x0020
+	oris	r8,r8,L2CR_L2I@h
 	sync
 	isync
 	mtspr	L2CR,r8
@@ -108,11 +106,25 @@ _setup_L2CR:
 	isync
 
 	/* Wait for the invalidation to complete */
-1:	mfspr	r8,L2CR
-	rlwinm.	r9,r8,0,31,31
-	bne	1b
+	mfspr   r8,PVR
+	srwi    r8,r8,16
+	cmpli	cr0,r8,0x8000			/* 7450 */
+	cmpli	cr1,r8,0x8001			/* 7455 */
+	cmpli	cr2,r8,0x8002			/* 7457 */
+	cror	4*cr0+eq,4*cr0+eq,4*cr1+eq	/* Now test if any are true. */
+	cror	4*cr0+eq,4*cr0+eq,4*cr2+eq
+	bne     2f
 
-	rlwinm	r8,r8,0,11,9		/* Turn off L2I bit */
+1:	mfspr	r8,L2CR		/* On 745x, poll L2I bit (bit 10) */
+	rlwinm.	r9,r8,0,10,10
+	bne	1b
+	b	3f
+
+2:      mfspr   r8,L2CR		/* On 75x & 74[01]0, poll L2IP bit (bit 31) */
+	rlwinm. r9,r8,0,31,31
+	bne     2b
+
+3:	rlwinm	r8,r8,0,11,9	/* Turn off L2I bit */
 	sync
 	isync
 	mtspr	L2CR,r8
@@ -120,10 +132,50 @@ _setup_L2CR:
 	isync
 	blr
 
+	.globl	_setup_L3CR
+_setup_L3CR:
+	/* Invalidate/disable L3 cache */
+	sync
+	isync
+	mfspr	r8,L3CR
+	rlwinm	r8,r8,0,1,31
+	ori	r8,r8,L3CR_L3I@l
+	sync
+	isync
+	mtspr	L3CR,r8
+	sync
+	isync
 
+	/* Wait for the invalidation to complete */
+1:	mfspr	r8,L3CR
+	rlwinm.	r9,r8,0,21,21
+	bne	1b
+
+	rlwinm	r8,r8,0,22,20		/* Turn off L3I bit */
+	sync
+	isync
+	mtspr	L3CR,r8
+	sync
+	isync
+	blr
+
+
+/* udelay (on non-601 processors) needs to know the period of the
+ * timebase in nanoseconds.  This used to be hardcoded to be 60ns
+ * (period of 66MHz/4).  Now a variable is used that is initialized to
+ * 60 for backward compatibility, but it can be overridden as necessary
+ * with code something like this:
+ *    extern unsigned long timebase_period_ns;
+ *    timebase_period_ns = 1000000000 / bd->bi_tbfreq;
+ */
+	.data
+	.globl timebase_period_ns
+timebase_period_ns:
+	.long	60
+
+	.text
 /*
  * Delay for a number of microseconds
- * -- Use the BUS timer (assumes 66MHz)
  */
 	.globl	udelay
 udelay:
@@ -141,8 +193,13 @@ udelay:
 
 .udelay_not_601:
 	mulli	r4,r3,1000	/* nanoseconds */
-	addi	r4,r4,59
-	li	r5,60
+	/*  Change r4 to be the number of ticks using:	
+	 *	(nanoseconds + (timebase_period_ns - 1 )) / timebase_period_ns
+	 *  timebase_period_ns defaults to 60 (16.6MHz) */
+	lis	r5,timebase_period_ns@ha
+	lwz	r5,timebase_period_ns@l(r5)
+	add	r4,r4,r5
+	addi	r4,r4,-1
 	divw	r4,r4,r5	/* BUS ticks */
 1:	mftbu	r5
 	mftb	r6
@@ -159,11 +216,6 @@ udelay:
 	cmp	0,r6,r9
 	blt	2b
 3:	blr
-
-.globl _put_MSR
-_put_MSR:
-	mtmsr	r3
-	blr
 
 	.section ".relocate_code","xa"
 /*

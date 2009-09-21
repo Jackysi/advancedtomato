@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2000, 2001 Broadcom Corporation
+ * Copyright (C) 2000, 2001, 2002, 2003 Broadcom Corporation
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -77,15 +77,11 @@
 	mfc0	a0, CP0_EPC
 	jal	sbprof_cpu_intr
 	 addu	a0, a0, t1		/* a0 = EPC + (BD ? 4 :	0) */
-	/* Re-enable interrupts here so that events due to sbprof_cpu_intr
-	   get charged to ret_from_irq (via a recursive interrupt)
-	   rather than the restart pc. */
-	mfc0	t0, CP0_STATUS
-	or	t0, ST0_IE
 	j	ret_from_irq
-	 mtc0	t0, CP0_STATUS		# delay slot
+	 nop
 0:
 #endif
+
 	/* Timer interrupt is routed to IP[4] */
 	andi	t1, s0, CAUSEF_IP4
 	beqz	t1, 1f
@@ -108,7 +104,7 @@
 2:
 #endif
 
-#ifdef CONFIG_REMOTE_DEBUG
+#ifdef CONFIG_KGDB
 	/* KGDB (uart 1) interrupt is routed to IP[6] */
 	andi	t1, s0, CAUSEF_IP6
 	beqz	t1, 1f
@@ -129,7 +125,7 @@
 	 * check the 1250 interrupt registers to figure out what to do
 	 * Need to detect which CPU we're on, now that smp_affinity is supported.
 	 */
-	la	v0, KSEG1 + A_IMR_CPU0_BASE
+	PTR_LA	v0, KSEG1 + A_IMR_CPU0_BASE
 #ifdef CONFIG_SMP
 	lw	t1, TASK_PROCESSOR($28)
 	sll	t1, IMR_REGISTER_SPACING_SHIFT

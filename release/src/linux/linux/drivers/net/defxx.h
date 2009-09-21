@@ -12,17 +12,11 @@
  *   Contains all definitions specified by port specification and required
  *   by the defxx.c driver.
  *
+ * The original author:
+ *   LVS	Lawrence V. Stefani <lstefani@yahoo.com>
+ *
  * Maintainers:
- *   LVS	Lawrence V. Stefani
- *
- * Contact:
- *	 The author may be reached at:
- *
- *		Inet: stefani@lkg.dec.com
- *		Mail: Digital Equipment Corporation
- *			  550 King Street
- *			  M/S: LKG1-3/M07
- *			  Littleton, MA  01460
+ *   macro	Maciej W. Rozycki <macro@linux-mips.org>
  *
  * Modification History:
  *		Date		Name	Description
@@ -30,6 +24,7 @@
  *		09-Sep-96	LVS		Added group_prom field.  Moved read/write I/O
  *							macros to DEFXX.C.
  *		12-Sep-96	LVS		Removed packet request header pointers.
+ *		04 Aug 2003	macro		Converted to the DMA API.
  */
 
 #ifndef _DEFXX_H_
@@ -1467,6 +1462,11 @@ typedef union
 
 #endif	/* #ifndef BIG_ENDIAN */
 
+/* Define TC PDQ CSR offset and length */
+
+#define PI_TC_K_CSR_OFFSET		0x100000
+#define PI_TC_K_CSR_LEN			0x80		/* 128 bytes */
+
 /* Define EISA controller register offsets */
 
 #define PI_ESIC_K_BURST_HOLDOFF		0x040
@@ -1634,6 +1634,7 @@ typedef union
 
 #define DFX_BUS_TYPE_PCI		0			/* type code for DEC FDDIcontroller/PCI */
 #define DFX_BUS_TYPE_EISA		1			/* type code for DEC FDDIcontroller/EISA */
+#define DFX_BUS_TYPE_TC			2			/* type code for DEC FDDIcontroller/TURBOchannel */
 
 #define DFX_FC_PRH2_PRH1_PRH0		0x54003820	/* Packet Request Header bytes + FC */
 #define DFX_PRH0_BYTE			0x20		/* Packet Request Header byte 0 */
@@ -1704,17 +1705,19 @@ typedef struct DFX_board_tag
 	{
 	/* Keep virtual and physical pointers to locked, physically contiguous memory */
 
-	char				*kmalloced;					/* kfree this on unload */ 
+	char				*kmalloced;					/* pci_free_consistent this on unload */ 
+	dma_addr_t			kmalloced_dma;
+	/* DMA handle for the above */
 	PI_DESCR_BLOCK			*descr_block_virt;				/* PDQ descriptor block virt address */
-	u32				descr_block_phys;				/* PDQ descriptor block phys address */
+	dma_addr_t			descr_block_phys;				/* PDQ descriptor block phys address */
 	PI_DMA_CMD_REQ			*cmd_req_virt;					/* Command request buffer virt address */
-	u32				cmd_req_phys;					/* Command request buffer phys address */
+	dma_addr_t			cmd_req_phys;					/* Command request buffer phys address */
 	PI_DMA_CMD_RSP			*cmd_rsp_virt;					/* Command response buffer virt address */
-	u32				cmd_rsp_phys;					/* Command response buffer phys address */
+	dma_addr_t			cmd_rsp_phys;					/* Command response buffer phys address */
 	char				*rcv_block_virt;				/* LLC host receive queue buf blk virt */
-	u32				rcv_block_phys;					/* LLC host receive queue buf blk phys */
+	dma_addr_t			rcv_block_phys;					/* LLC host receive queue buf blk phys */
 	PI_CONSUMER_BLOCK		*cons_block_virt;				/* PDQ consumer block virt address */
-	u32				cons_block_phys;				/* PDQ consumer block phys address */
+	dma_addr_t			cons_block_phys;				/* PDQ consumer block phys address */
 
 	/* Keep local copies of Type 1 and Type 2 register data */
 
@@ -1758,8 +1761,9 @@ typedef struct DFX_board_tag
 
 	struct net_device		*dev;						/* pointer to device structure */
 	struct net_device		*next;
-	u32				bus_type;					/* bus type (0 == PCI, 1 == EISA) */
-	u16				base_addr;					/* base I/O address (same as dev->base_addr) */
+	u32				bus_type;					/* bus type (0 == PCI, 1 == EISA, 2 == TC) */
+	long				base_addr;					/* base I/O address (same as dev->base_addr) */
+	int				slot;						/* TC slot number */
 	struct pci_dev *		pci_dev;
 	u32				full_duplex_enb;				/* FDDI Full Duplex enable (1 == on, 2 == off) */
 	u32				req_ttrt;					/* requested TTRT value (in 80ns units) */

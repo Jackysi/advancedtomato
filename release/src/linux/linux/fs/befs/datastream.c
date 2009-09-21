@@ -15,7 +15,9 @@
 #include <linux/string.h>
 #include <linux/slab.h>
 
-#include "befs_fs.h"
+#include "befs.h"
+#include "datastream.h"
+#include "io.h"
 #include "endian.h"
 
 const befs_inode_addr BAD_IADDR = { 0, 0, 0 };
@@ -277,6 +279,29 @@ befs_find_brun_direct(struct super_block *sb, befs_data_stream * data,
 	return BEFS_ERR;
 }
 
+/*
+	Finds the block run that starts at file block number blockno
+	in the file represented by the datastream data, if that 
+	blockno is in the indirect region of the datastream.
+	
+	sb: the superblock
+	data: the datastream
+	blockno: the blocknumber to find
+	run: The found run is passed back through this pointer
+	
+	Return value is BEFS_OK if the blockrun is found, BEFS_ERR
+	otherwise.
+	
+	Algorithm:
+	For each block in the indirect run of the datastream, read
+	it in and search through it for	search_blk.
+	
+	XXX:
+	Really should check to make sure blockno is inside indirect
+	region.
+	
+	2001-11-15 Will Dyson
+*/
 static int
 befs_find_brun_indirect(struct super_block *sb,
 			befs_data_stream * data, befs_blocknr_t blockno,
@@ -443,8 +468,7 @@ befs_find_brun_dblindirect(struct super_block *sb,
 	}
 
 	dbl_indir_block = befs_bread(sb,
-				     iaddr2blockno(sb,
-						   &data->double_indirect) +
+				     iaddr2blockno(sb, &data->double_indirect) +
 				     dbl_which_block);
 	if (dbl_indir_block == NULL) {
 		befs_error(sb, "befs_read_brun_dblindirect() couldn't read the "

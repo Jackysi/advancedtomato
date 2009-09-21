@@ -10,7 +10,7 @@
  * the Free Software Foundation; either version 2 of the License, or
  * (at your option) any later version.
  *
- * $Id: inode-v23.c,v 1.1.1.4 2003/10/14 08:09:00 sparq Exp $
+ * $Id: inode-v23.c,v 1.70 2001/10/02 09:16:02 dwmw2 Exp $
  *
  * Ported to Linux 2.3.x and MTD:
  * Copyright (C) 2000  Alexander Larsson (alex@cendio.se), Cendio Systems AB
@@ -470,6 +470,10 @@ jffs_rename(struct inode *old_dir, struct dentry *old_dentry,
 	raw_inode.mode = f->mode;
 	raw_inode.uid = current->fsuid;
 	raw_inode.gid = current->fsgid;
+#if 0
+	raw_inode.uid = f->uid;
+	raw_inode.gid = f->gid;
+#endif
 	raw_inode.atime = CURRENT_TIME;
 	raw_inode.mtime = raw_inode.atime;
 	raw_inode.ctime = f->ctime;
@@ -1344,6 +1348,13 @@ jffs_file_write(struct file *filp, const char *buf, size_t count,
 		  "filp: 0x%p, buf: 0x%p, count: %d\n",
 		  inode, inode->i_ino, filp, buf, count));
 
+#if 0
+	if (inode->i_sb->s_flags & MS_RDONLY) {
+		D(printk("jffs_file_write(): MS_RDONLY\n"));
+		err = -EROFS;
+		goto out_isem;
+	}
+#endif	
 	err = -EINVAL;
 
 	if (!S_ISREG(inode->i_mode)) {
@@ -1479,6 +1490,7 @@ static ssize_t
 jffs_prepare_write(struct file *filp, struct page *page,
                   unsigned from, unsigned to)
 {
+	/* FIXME: we should detect some error conditions here */
 
 	/* Bugger that. We should make sure the page is uptodate */
 	if (!Page_Uptodate(page) && (from || to < PAGE_CACHE_SIZE))
@@ -1492,6 +1504,7 @@ jffs_commit_write(struct file *filp, struct page *page,
                  unsigned from, unsigned to)
 {
        void *addr = page_address(page) + from;
+       /* XXX: PAGE_CACHE_SHIFT or PAGE_SHIFT */
        loff_t pos = (page->index<<PAGE_CACHE_SHIFT) + from;
 
        return jffs_file_write(filp, addr, to-from, &pos);

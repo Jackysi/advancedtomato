@@ -1,5 +1,5 @@
 /*
- * $Id: chipreg.c,v 1.1.1.4 2003/10/14 08:08:17 sparq Exp $
+ * $Id: chipreg.c,v 1.13 2002/02/21 08:26:58 dwmw2 Exp $
  *
  * Registration for chip drivers
  *
@@ -29,7 +29,7 @@ void unregister_mtd_chip_driver(struct mtd_chip_driver *drv)
 	spin_unlock(&chip_drvs_lock);
 }
 
-static struct mtd_chip_driver *get_mtd_chip_driver (char *name)
+static struct mtd_chip_driver *get_mtd_chip_driver (const char *name)
 {
 	struct list_head *pos;
 	struct mtd_chip_driver *ret = NULL, *this;
@@ -57,7 +57,7 @@ static struct mtd_chip_driver *get_mtd_chip_driver (char *name)
 	/* Hide all the horrid details, like some silly person taking
 	   get_module_symbol() away from us, from the caller. */
 
-struct mtd_info *do_map_probe(char *name, struct map_info *map)
+struct mtd_info *do_map_probe(const char *name, struct map_info *map)
 {
 	struct mtd_chip_driver *drv;
 	struct mtd_info *ret;

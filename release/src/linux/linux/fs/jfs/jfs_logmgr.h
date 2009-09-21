@@ -1,5 +1,5 @@
 /*
- *   Copyright (c) International Business Machines Corp., 2000-2002
+ *   Copyright (c) International Business Machines Corp., 2000-2003
  *   Portions Copyright (c) Christoph Hellwig, 2001-2002
  *
  *   This program is free software;  you can redistribute it and/or modify
@@ -403,6 +403,7 @@ struct jfs_log {
 		struct tblock *head;
 		struct tblock *tail;
 	} cqueue;
+	struct tblock *flush_tblk; /* tblk we're waiting on for flush */
 	int gcrtc;		/* 4: GC_READY transaction count */
 	struct tblock *gclrt;	/* 4: latest GC_READY transaction */
 	spinlock_t gclock;	/* 4: group commit lock */
@@ -416,6 +417,10 @@ struct jfs_log {
 	struct lbuf *wqueue;	/* 4: log pageout queue */
 	int count;		/* 4: count */
 	char uuid[16];		/* 16: 128-bit uuid of log device */
+
+	int no_integrity;	/* flag to disable journaling to disk */
+	int ni_page;		/* backup of page for nointegrity option */
+	int ni_eor;		/* backup of eor for nointegrity option */
 };
 
 /*
@@ -424,6 +429,7 @@ struct jfs_log {
 #define log_INLINELOG	1
 #define log_SYNCBARRIER	2
 #define log_QUIESCE	3
+#define log_FLUSH	4
 
 /*
  * group commit flag
@@ -502,11 +508,10 @@ struct logsyncblk {
 }
 
 extern int lmLogOpen(struct super_block *sb, struct jfs_log ** log);
-extern void lmLogWait(struct jfs_log * log);
 extern int lmLogClose(struct super_block *sb, struct jfs_log * log);
-extern int lmLogSync(struct jfs_log * log, int nosyncwait);
 extern int lmLogShutdown(struct jfs_log * log);
 extern int lmLogInit(struct jfs_log * log);
 extern int lmLogFormat(struct jfs_log *log, s64 logAddress, int logSize);
+extern void jfs_flush_journal(struct jfs_log * log, int wait);
 
 #endif				/* _H_JFS_LOGMGR */

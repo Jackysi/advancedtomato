@@ -154,6 +154,12 @@ long sys_shmat_wrapper(int shmid, char *shmaddr, int shmflag)
 }
 
 
+/*
+ * FIXME, please remove this crap as soon as possible
+ *
+ * This is here to fix up broken glibc structures, 
+ * which are already fixed in newer glibcs
+ */
 #include <linux/msg.h>
 #include <linux/sem.h>
 #include <linux/shm.h>

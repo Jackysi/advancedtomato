@@ -1,4 +1,25 @@
-
+/*
+ * linux/fs/hfs/catalog.c
+ *
+ * Copyright (C) 1995-1997  Paul H. Hargrove
+ * This file may be distributed under the terms of the GNU General Public License.
+ *
+ * This file contains the functions related to the catalog B-tree.
+ *
+ * "XXX" in a comment is a note to myself to consider changing something.
+ *
+ * Cache code shamelessly stolen from 
+ *     linux/fs/inode.c Copyright (C) 1991, 1992  Linus Torvalds
+ *     re-shamelessly stolen Copyright (C) 1997 Linus Torvalds
+ *
+ * In function preconditions the term "valid" applied to a pointer to
+ * a structure means that the pointer is non-NULL and the structure it
+ * points to has all fields initialized to consistent values.
+ *
+ * The code in this file initializes some structures by calling
+ * memset(&foo, 0, sizeof(foo)).  This produces the desired behavior
+ * only due to the non-ANSI assumption that the machine representation
+ */
 
 #include "hfs.h"
 
@@ -620,6 +641,12 @@ static void update_dir(struct hfs_mdb *mdb, struct hfs_cat_entry *dir,
 	hfs_cat_mark_dirty(dir);
 }
 
+/*
+ * Add a writer to dir, excluding readers.
+ *
+ * XXX: this is wrong. it allows a move to occur when a directory
+ *      is being written to. 
+ */
 static inline void start_write(struct hfs_cat_entry *dir)
 {
 	if (dir->u.dir.readers || waitqueue_active(&dir->u.dir.read_wait)) {
@@ -1323,7 +1350,7 @@ int hfs_cat_move(struct hfs_cat_entry *old_dir, struct hfs_cat_entry *new_dir,
 		hfs_sleep_on(&mdb->rename_wait);
 	}
 	spin_lock(&entry_lock);
-	mdb->rename_lock = 1; 
+	mdb->rename_lock = 1; /* XXX: should be atomic_inc */
 	spin_unlock(&entry_lock);
 
 	/* keep readers from getting confused by changing dir size */
@@ -1481,6 +1508,7 @@ have_distinct:
 		} else {
 			/* Something went seriously wrong.
 			   The dir/file has been deleted. */
+			/* XXX try some recovery? */
 			delete_entry(entry);
 			goto bail1;
 		}
@@ -1540,7 +1568,7 @@ done:
 	}
 	end_write(new_dir);
 	spin_lock(&entry_lock);
-	mdb->rename_lock = 0; 
+	mdb->rename_lock = 0; /* XXX: should use atomic_dec */
 	hfs_wake_up(&mdb->rename_wait);
 	spin_unlock(&entry_lock);
 

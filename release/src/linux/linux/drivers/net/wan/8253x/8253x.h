@@ -1,5 +1,5 @@
 /* -*- linux-c -*- */
-/* $Id: 8253x.h,v 1.1.1.4 2003/10/14 08:08:30 sparq Exp $
+/* $Id: 8253x.h,v 1.14 2002/02/10 22:17:25 martillo Exp $
  * sab82532.h: Register Definitions for the Siemens SAB82532 DUSCC
  *
  * Copyright (C) 1997  Eddie C. Dost  (ecd@skynet.be)
@@ -577,6 +577,18 @@ typedef struct sab_chip
 
 				/* leaving them for reference */
 				/* they are now defined in 8253xioc.h*/
+#if 0
+/* Mode Register (MODE) */
+#define SAB82532_MODE_TM0		0x80
+#define SAB82532_MODE_FRTS		0x40
+#define SAB82532_MODE_FCTS		0x20
+#define SAB82532_MODE_FLON		0x10
+#define SAB82532_MODE_TCPU		0x10
+#define SAB82532_MODE_RAC		0x08
+#define SAB82532_MODE_RTS		0x04
+#define SAB82532_MODE_TRS		0x02
+#define SAB82532_MODE_TLP		0x01
+#endif
 
 /* Receive Status Register (READ)  */
 #define SAB82532_RSTA_VFR		0x80
@@ -624,6 +636,46 @@ typedef struct sab_chip
 
 				/* leaving them for reference */
 				/* they are now defined in 8253xioc.h*/
+#if 0
+/* Channel Configuration Register 0 (CCR0) */
+#define SAB82532_CCR0_PU		0x80
+#define SAB82532_CCR0_MCE		0x40
+#define SAB82532_CCR0_SC_NRZ		0x00
+#define SAB82532_CCR0_SC_NRZI		0x08
+#define SAB82532_CCR0_SC_FM0		0x10
+#define SAB82532_CCR0_SC_FM1		0x14
+#define SAB82532_CCR0_SC_MANCH		0x18
+#define SAB82532_CCR0_SM_HDLC		0x00
+#define SAB82532_CCR0_SM_SDLC_LOOP	0x01
+#define SAB82532_CCR0_SM_BISYNC		0x02
+#define SAB82532_CCR0_SM_ASYNC		0x03
+
+/* Channel Configuration Register 1 (CCR1) */
+#define SAB82532_CCR1_SFLG		0x80
+#define SAB82532_CCR1_ODS		0x10
+#define SAB82532_CCR1_BCR		0x08
+#define SAB82532_CCR1_IFF		0x08
+#define SAB82532_CCR1_ITF		0x00
+#define SAB82532_CCR1_CM_MASK		0x07
+
+/* Channel Configuration Register 2 (CCR2) */
+#define SAB82532_CCR2_SOC1		0x80
+#define SAB82532_CCR2_SOC0		0x40
+#define SAB82532_CCR2_BR9		0x80
+#define SAB82532_CCR2_BR8		0x40
+#define SAB82532_CCR2_BDF		0x20
+#define SAB82532_CCR2_SSEL		0x10
+#define SAB82532_CCR2_XCS0		0x20
+#define SAB82532_CCR2_RCS0		0x10
+#define SAB82532_CCR2_TOE		0x08
+#define SAB82532_CCR2_RWX		0x04
+#define SAB82532_CCR2_C32		0x02
+#define SAB82532_CCR2_DIV		0x01
+
+/* Channel Configuration Register 3 (CCR3) */
+#define SAB82532_CCR3_PSD		0x01
+#define SAB82532_CCR3_RCRC		0x04
+#endif
 
 /* Time Slot Assignment Register Transmit (TSAX) */
 #define SAB82532_TSAX_TSNX_MASK		0xfc
@@ -756,6 +808,14 @@ typedef struct sab_chip
 				/* leaving them for reference */
 				/* they are now defined in 8253xioc.h*/
 
+#if 0
+/* Channel Configuration Register 4 (CCR4) */
+#define SAB82532_CCR4_MCK4		0x80/* needs to be set when board clock */
+					    /* over 10 Mhz (?)*/
+#define SAB82532_CCR4_EBRG		0x40
+#define SAB82532_CCR4_TST1		0x20
+#define SAB82532_CCR4_ICD		0x10
+#endif
 
 
 /* Port Interrupt Status Register (PIS) */
@@ -842,10 +902,17 @@ static void inline sab8253x_cec_wait(struct sab_port *port)
 {
 	int timeout = port->cec_timeout;
 
+#if 1				/* seems to work for 82532s */
 	while ((READB(port, star) & SAB82532_STAR_CEC) && --timeout)
 	{
 		udelay(1);
 	}
+#else
+	if (READB(port,star) & SAB82532_STAR_CEC)
+	{
+		udelay(1);
+	}
+#endif
 }
 
 extern void sab8253x_transmit_charsS(struct sab_port *port, union sab8253x_irq_status *stat);

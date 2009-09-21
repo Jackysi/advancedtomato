@@ -50,7 +50,7 @@ typedef __u32 magic_t;
 #define SMALL 5
 #endif
 
-#ifndef IRDA_MIN     /* Lets not mix this MIN with other header files */
+#ifndef IRDA_MIN /* Lets not mix this MIN with other header files */
 #define IRDA_MIN(a, b) (((a) < (b)) ? (a) : (b))
 #endif
 
@@ -210,7 +210,7 @@ typedef enum {
 	LOCK_UNLOCKED,
 } LOCK_STATUS;
 
-typedef enum { 
+typedef enum { /* FIXME check the two first reason codes */
 	LAP_DISC_INDICATION=1, /* Received a disconnect request from peer */
 	LAP_NO_RESPONSE,       /* To many retransmits without response */
 	LAP_RESET_INDICATION,  /* To many retransmits, or invalid nr/ns */

@@ -1,4 +1,4 @@
-/* $Id: diva.c,v 1.1.1.4 2003/10/14 08:08:12 sparq Exp $
+/* $Id: diva.c,v 1.1.4.2 2002/08/30 11:21:00 keil Exp $
  *
  * low level stuff for Eicon.Diehl Diva Family ISDN cards
  *
@@ -29,7 +29,7 @@
 
 extern const char *CardType[];
 
-const char *Diva_revision = "$Revision: 1.1.1.4 $";
+const char *Diva_revision = "$Revision: 1.1.4.2 $";
 
 #define byteout(addr,val) outb(val,addr)
 #define bytein(addr) inb(addr)
@@ -798,6 +798,7 @@ reset_diva(struct IsdnCardState *cs)
 		if (cs->subtyp == DIVA_ISA)
 			cs->hw.diva.ctrl_reg |= DIVA_ISA_LED_A;
 		else {
+			/* Workaround PCI9060 */
 			byteout(cs->hw.diva.pci_cfg + 0x69, 9);
 			cs->hw.diva.ctrl_reg |= DIVA_PCI_LED_A;
 		}

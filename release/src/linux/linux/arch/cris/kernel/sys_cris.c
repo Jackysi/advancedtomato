@@ -1,5 +1,4 @@
-/* $Id: sys_cris.c,v 1.1.1.4 2003/10/14 08:07:17 sparq Exp $
- *
+/*
  * linux/arch/cris/kernel/sys_cris.c
  *
  * This file contains various random system calls that
@@ -110,7 +109,10 @@ asmlinkage int sys_ipc (uint call, int first, int second,
 
 	switch (call) {
 	case SEMOP:
-		return sys_semop (first, (struct sembuf *)ptr, second);
+		return sys_semtimedop (first, (struct sembuf *)ptr, second, NULL);
+	case SEMTIMEDOP:
+		return sys_semtimedop (first, (struct sembuf *)ptr, second,
+				       (const struct timespec *)fifth);
 	case SEMGET:
 		return sys_semget (first, second, third);
 	case SEMCTL: {
@@ -164,7 +166,7 @@ asmlinkage int sys_ipc (uint call, int first, int second,
 		return sys_shmctl (first, second,
 				   (struct shmid_ds *) ptr);
 	default:
-		return -EINVAL;
+		return -ENOSYS;
 	}
 }
 

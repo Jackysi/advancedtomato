@@ -47,7 +47,6 @@
 #include <linux/notifier.h>
 #include <linux/proc_fs.h>
 #include <linux/version.h>
-#include <linux/cpufreq.h>
 
 #include <pcmcia/version.h>
 #include <pcmcia/cs_types.h>
@@ -699,6 +698,7 @@ sa1100_pcmcia_set_mem_map(unsigned int sock, struct pccard_mem_map *map)
 
     clock = cpufreq_get(0);
 
+    /* Fixme: MECR is not pre-empt safe. */
     mecr = MECR;
 
     if (map->flags & MAP_ATTRIB) {

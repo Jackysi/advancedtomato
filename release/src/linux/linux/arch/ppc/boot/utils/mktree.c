@@ -1,6 +1,4 @@
 /*
- * BK Id: %F% %I% %G% %U% %#%
- * 
  * Makes a tree bootable image for IBM Evaluation boards.
  * Basically, just take a zImage, skip the ELF header, and stuff
  * a 32 byte header on the front.
@@ -91,7 +89,7 @@ int main(int argc, char *argv[])
 	cp = (uint *)&bt;
 	for (i=0; i<sizeof(bt)/sizeof(uint); i++)
 		cksum += *cp++;
-	
+
 	/* Assume zImage is an ELF file, and skip the 64K header.
 	*/
 	if (read(in_fd, tmpbuf, IMGBLK) != IMGBLK) {

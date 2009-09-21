@@ -3,7 +3,7 @@
  *
  * Copyright (C) 2001 Stefan Eletzhofer <stefan.eletzhofer@eletztrick.de>
  *
- * $Id: system3.c,v 1.1.1.4 2003/10/14 08:07:15 sparq Exp $
+ * $Id: system3.c,v 1.1.6.1 2001/12/04 17:28:06 seletz Exp $
  *
  * This file contains all PT Sytsem 3 tweaks. Based on original work from
  * Nicolas Pitre's assabet fixes
@@ -13,12 +13,6 @@
  * published by the Free Software Foundation.
  *
  * $Log: system3.c,v $
- * Revision 1.1.1.4  2003/10/14 08:07:15  sparq
- * Broadcom Release 3.51.8.0 for BCM4712.
- *
- * Revision 1.1.1.1  2003/02/03 22:37:19  mhuang
- * LINUX_2_4 branch snapshot from linux-mips.org CVS
- *
  * Revision 1.1.6.1  2001/12/04 17:28:06  seletz
  * - merged from previous branch
  *
@@ -48,6 +42,8 @@
 #include <linux/module.h>
 #include <linux/errno.h>
 #include <linux/cpufreq.h>
+#include <linux/list.h>
+#include <linux/timer.h>
 
 #include <asm/hardware.h>
 #include <asm/setup.h>
@@ -113,19 +109,19 @@ static struct map_desc system3_io_desc[] __initdata = {
 };
 
 static struct sa1100_port_fns system3_port_fns __initdata = {
-	set_mctrl:	system3_set_mctrl,
-	get_mctrl:	system3_get_mctrl,
-	pm:		system3_uart_pm,
+	.set_mctrl	= system3_set_mctrl,
+	.get_mctrl	= system3_get_mctrl,
+	.pm		= system3_uart_pm,
 };
 
 static struct irqaction system3_irq = {
-	name:		"PT Digital Board SA1111 IRQ",
-	handler:	system3_IRQ_demux,
-	flags:		SA_INTERRUPT
+	.name		= "PT Digital Board SA1111 IRQ",
+	.handler	= system3_IRQ_demux,
+	.flags		= SA_INTERRUPT
 };
 
 static struct notifier_block system3_clkchg_block = {
-	notifier_call:	sdram_notifier,
+	.notifier_call	= sdram_notifier,
 };
 
 /**********************************************************************
@@ -164,6 +160,11 @@ static void system3_IRQ_demux( int irq, void *dev_id, struct pt_regs *regs )
 		if( irr & PT_IRQ_LAN )
 			do_IRQ(IRQ_SYSTEM3_SMC9196, regs);
 
+#if 0
+		/* Highspeed Serial Bus not yet used */
+		if( irr & PT_IRQ_USAR )
+			do_IRQ(PT_USAR_IRQ, regs);
+#endif
 
 		if( irr & PT_IRQ_SA1111 )
 			sa1111_IRQ_demux(irq, dev_id, regs);
@@ -185,6 +186,12 @@ static void __init system3_init_irq(void)
 	irq_desc[irq].valid	= 1;
 	irq_desc[irq].probe_ok	= 1;
 
+#if 0
+	/* Highspeed Serial Bus not yet used */
+	irq = PT_USAR_IRQ;
+	irq_desc[irq].valid	= 1;
+	irq_desc[irq].probe_ok	= 1;
+#endif
 
 	/* IRQ by CPLD */
 	set_GPIO_IRQ_edge( GPIO_GPIO(25), GPIO_RISING_EDGE );
@@ -237,6 +244,13 @@ static void system3_uart_pm(struct uart_port *port, u_int state, u_int oldstate)
 	/* TODO: switch on/off uart in powersave mode */
 }
 
+/*
+ * Note! this can be called from IRQ context.
+ * FIXME: Handle PT Digital Board CTRL regs irq-safe.
+ *
+ * NB: system3 uses COM_RTS and COM_DTR for both UART1 (com port)
+ * and UART3 (radio module).  We only handle them for UART1 here.
+ */
 static void system3_set_mctrl(struct uart_port *port, u_int mctrl)
 {
 	if (port->mapbase == _Ser1UTCR0) {
@@ -335,7 +349,7 @@ static int __init system3_init(void)
 
 	system3_init_irq();
 
-#if defined(CONFIG_CPU_FREQ)
+#if defined( CONFIG_CPU_FREQ )
 	ret = cpufreq_register_notifier(&system3_clkchg_block);
 	if ( ret != 0 ) {
 		printk( KERN_WARNING"PT Digital Board: could not register clock scale callback\n" );

@@ -77,13 +77,34 @@ struct i2c_driver
 };
 
 
+/*
+ * this holds the informations about a i2c bus available in the system.
+ * 
+ * a chip with a i2c bus interface (like bt848) registers the bus within
+ * the i2c module. This struct provides functions to access the i2c bus.
+ * 
+ * One must hold the spinlock to access the i2c bus (XXX: is the irqsave
+ * required? Maybe better use a semaphore?). 
+ * [-AC-] having a spinlock_irqsave is only needed if we have drivers wishing
+ *	  to bang their i2c bus from an interrupt.
+ * 
+ * attach/detach_inform is a callback to inform the bus driver about
+ * attached chip drivers.
+ *
+ */
 
 /* needed: unsigned long flags */
 
 #if LINUX_VERSION_CODE >= 0x020100
+# if 0
+#  define LOCK_FLAGS unsigned long flags;
+#  define LOCK_I2C_BUS(bus)    spin_lock_irqsave(&(bus->bus_lock),flags);
+#  define UNLOCK_I2C_BUS(bus)  spin_unlock_irqrestore(&(bus->bus_lock),flags);
+# else
 #  define LOCK_FLAGS
 #  define LOCK_I2C_BUS(bus)    spin_lock(&(bus->bus_lock));
 #  define UNLOCK_I2C_BUS(bus)  spin_unlock(&(bus->bus_lock));
+# endif
 #else
 # define LOCK_FLAGS unsigned long flags;
 # define LOCK_I2C_BUS(bus)    { save_flags(flags); cli(); }

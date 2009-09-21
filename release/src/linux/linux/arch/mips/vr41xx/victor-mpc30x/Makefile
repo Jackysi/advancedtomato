@@ -14,7 +14,6 @@ all: mpc30x.o
 
 obj-y	:= init.o setup.o
 
-obj-$(CONFIG_IDE)	+= ide-mpc30x.o
 obj-$(CONFIG_PCI)	+= pci_fixup.o
 
 include $(TOPDIR)/Rules.make

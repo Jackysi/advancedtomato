@@ -158,7 +158,6 @@ static int tx_params[MAX_UNITS] = {-1, -1, -1, -1, -1, -1, -1, -1};
 #include <linux/string.h>
 #include <linux/timer.h>
 #include <linux/time.h>
-#include <linux/ptrace.h>
 #include <linux/errno.h>
 #include <linux/ioport.h>
 #include <linux/slab.h>
@@ -508,13 +507,11 @@ struct hamachi_private {
 	unsigned int cur_tx, dirty_tx;
 	unsigned int rx_buf_sz;			/* Based on MTU+slack. */
 	unsigned int tx_full:1;			/* The Tx queue is full. */
-	unsigned int full_duplex:1;		/* Full-duplex operation requested. */
 	unsigned int duplex_lock:1;
-	unsigned int medialock:1;		/* Do not sense media. */
 	unsigned int default_port:4;		/* Last dev->if_port value. */
 	/* MII transceiver section. */
 	int mii_cnt;								/* MII device addresses. */
-	u16 advertising;							/* NWay media advertisement */
+	struct mii_if_info mii_if;		/* MII lib hooks/info */
 	unsigned char phys[MII_CNT];		/* MII device addresses, only first one used. */
 	u32 rx_int_var, tx_int_var;	/* interrupt control variables */
 	u32 option;							/* Hold on to a copy of the options */
@@ -557,8 +554,8 @@ MODULE_PARM_DESC(full_duplex, "GNIC-II full duplex setting(s) (1)");
 MODULE_PARM_DESC(force32, "GNIC-II: Bit 0: 32 bit PCI, bit 1: disable parity, bit 2: 64 bit PCI (all boards)");
                                                                         
 static int read_eeprom(long ioaddr, int location);
-static int mdio_read(long ioaddr, int phy_id, int location);
-static void mdio_write(long ioaddr, int phy_id, int location, int value);
+static int mdio_read(struct net_device *dev, int phy_id, int location);
+static void mdio_write(struct net_device *dev, int phy_id, int location, int value);
 static int hamachi_open(struct net_device *dev);
 static int netdev_ioctl(struct net_device *dev, struct ifreq *rq, int cmd);
 static void hamachi_timer(unsigned long data);
@@ -601,7 +598,7 @@ static int __init hamachi_init_one (struct pci_dev *pdev,
 	}
 
 	ioaddr = pci_resource_start(pdev, 0);
-#ifdef __alpha__				    /* Really "64 bit addrs" */
+#ifdef __alpha__				/* Really "64 bit addrs" */
 	ioaddr |= (pci_resource_start(pdev, 1) << 32);
 #endif
 
@@ -630,7 +627,7 @@ static int __init hamachi_init_one (struct pci_dev *pdev,
 		dev->dev_addr[i] = 1 ? read_eeprom(ioaddr, 4 + i)
 			: readb(ioaddr + StationAddr + i);
 
-#if !defined(final_version)
+#if ! defined(final_version)
 	if (hamachi_debug > 4)
 		for (i = 0; i < 0x10; i++)
 			printk("%2.2x%s",
@@ -639,6 +636,12 @@ static int __init hamachi_init_one (struct pci_dev *pdev,
 
 	hmp = dev->priv;
 	spin_lock_init(&hmp->lock);
+
+	hmp->mii_if.dev = dev;
+	hmp->mii_if.mdio_read = mdio_read;
+	hmp->mii_if.mdio_write = mdio_write;
+	hmp->mii_if.phy_id_mask = 0x1f;
+	hmp->mii_if.reg_num_mask = 0x1f;
 
 	ring_space = pci_alloc_consistent(pdev, TX_TOTAL_SIZE, &ring_dma);
 	if (!ring_space)
@@ -688,18 +691,18 @@ static int __init hamachi_init_one (struct pci_dev *pdev,
 	if (option > 0) {
 		hmp->option = option;
 		if (option & 0x200)
-			hmp->full_duplex = 1;
+			hmp->mii_if.full_duplex = 1;
 		else if (option & 0x080)
-			hmp->full_duplex = 0;
+			hmp->mii_if.full_duplex = 0;
 		hmp->default_port = option & 15;
 		if (hmp->default_port)
-			hmp->medialock = 1;
+			hmp->mii_if.force_media = 1;
 	}
 	if (card_idx < MAX_UNITS  &&  full_duplex[card_idx] > 0)
-		hmp->full_duplex = 1;
+		hmp->mii_if.full_duplex = 1;
 
 	/* lock the duplex mode if someone specified a value */
-	if (hmp->full_duplex || (option & 0x080))
+	if (hmp->mii_if.full_duplex || (option & 0x080))
 		hmp->duplex_lock = 1;
 
 	/* Set interrupt tuning parameters */
@@ -752,17 +755,21 @@ static int __init hamachi_init_one (struct pci_dev *pdev,
 	if (chip_tbl[hmp->chip_id].flags & CanHaveMII) {
 		int phy, phy_idx = 0;
 		for (phy = 0; phy < 32 && phy_idx < MII_CNT; phy++) {
-			int mii_status = mdio_read(ioaddr, phy, 1);
+			int mii_status = mdio_read(dev, phy, MII_BMSR);
 			if (mii_status != 0xffff  &&
 				mii_status != 0x0000) {
 				hmp->phys[phy_idx++] = phy;
-				hmp->advertising = mdio_read(ioaddr, phy, 4);
+				hmp->mii_if.advertising = mdio_read(dev, phy, MII_ADVERTISE);
 				printk(KERN_INFO "%s: MII PHY found at address %d, status "
 					   "0x%4.4x advertising %4.4x.\n",
-					   dev->name, phy, mii_status, hmp->advertising);
+					   dev->name, phy, mii_status, hmp->mii_if.advertising);
 			}
 		}
 		hmp->mii_cnt = phy_idx;
+		if (hmp->mii_cnt > 0)
+			hmp->mii_if.phy_id = hmp->phys[0];
+		else
+			memset(&hmp->mii_if, 0, sizeof(hmp->mii_if));
 	}
 	/* Configure gigabit autonegotiation. */
 	writew(0x0400, ioaddr + ANXchngCtrl);	/* Enable legacy links. */
@@ -808,8 +815,9 @@ static int __init read_eeprom(long ioaddr, int location)
    These routines assume the MDIO controller is idle, and do not exit until
    the command is finished. */
 
-static int mdio_read(long ioaddr, int phy_id, int location)
+static int mdio_read(struct net_device *dev, int phy_id, int location)
 {
+	long ioaddr = dev->base_addr;
 	int i;
 
 	/* We should check busy first - per docs -KDU */
@@ -824,8 +832,9 @@ static int mdio_read(long ioaddr, int phy_id, int location)
 	return readw(ioaddr + MII_Rd_Data);
 }
 
-static void mdio_write(long ioaddr, int phy_id, int location, int value)
+static void mdio_write(struct net_device *dev, int phy_id, int location, int value)
 {
+	long ioaddr = dev->base_addr;
 	int i;
 
 	/* We should check busy first - per docs -KDU */
@@ -915,7 +924,7 @@ static int hamachi_open(struct net_device *dev)
 	/* Setting the Rx mode will start the Rx process. */
 	/* If someone didn't choose a duplex, default to full-duplex */ 
 	if (hmp->duplex_lock != 1)
-		hmp->full_duplex = 1;
+		hmp->mii_if.full_duplex = 1;
 
 	/* always 1, takes no more time to do it */
 	writew(0x0001, ioaddr + RxChecksum);
@@ -1164,6 +1173,13 @@ static void hamachi_init_ring(struct net_device *dev)
 	hmp->cur_rx = hmp->cur_tx = 0;
 	hmp->dirty_rx = hmp->dirty_tx = 0;
 
+#if 0
+	/* This is wrong.  I'm not sure what the original plan was, but this
+	 * is wrong.  An MTU of 1 gets you a buffer of 1536, while an MTU
+	 * of 1501 gets a buffer of 1533? -KDU
+	 */
+	hmp->rx_buf_sz = (dev->mtu <= 1500 ? PKT_BUF_SZ : dev->mtu + 32);
+#endif
 	/* My attempt at a reasonable correction */
 	/* +26 gets the maximum ethernet encapsulation, +7 & ~7 because the
 	 * card needs room to do 8 byte alignment, +2 so we can reserve 
@@ -1353,167 +1369,6 @@ static int hamachi_start_xmit(struct sk_buff *skb, struct net_device *dev)
 	return 0;
 }
 
-/* The interrupt handler does all of the Rx thread work and cleans up
-   after the Tx thread. */
-static void hamachi_interrupt(int irq, void *dev_instance, struct pt_regs *rgs)
-{
-	struct net_device *dev = dev_instance;
-	struct hamachi_private *hmp;
-	long ioaddr, boguscnt = max_interrupt_work;
-
-#ifndef final_version			    /* Can never occur. */
-	if (dev == NULL) {
-		printk (KERN_ERR "hamachi_interrupt(): irq %d for unknown device.\n", irq);
-		return;
-	}
-#endif
-
-	ioaddr = dev->base_addr;
-	hmp = dev->priv;
-	spin_lock(&hmp->lock);
-
-	do {
-		u32 intr_status = readl(ioaddr + InterruptClear);
-
-		if (hamachi_debug > 4)
-			printk(KERN_DEBUG "%s: Hamachi interrupt, status %4.4x.\n",
-				   dev->name, intr_status);
-
-		if (intr_status == 0)
-			break;
-
-		if (intr_status & IntrRxDone)
-			hamachi_rx(dev);
-
-		if (intr_status & IntrTxDone){
-			/* This code should RARELY need to execute. After all, this is
-			 * a gigabit link, it should consume packets as fast as we put
-			 * them in AND we clear the Tx ring in hamachi_start_xmit().
-			 */ 
-			if (hmp->tx_full){
-				for (; hmp->cur_tx - hmp->dirty_tx > 0; hmp->dirty_tx++){
-					int entry = hmp->dirty_tx % TX_RING_SIZE;
-					struct sk_buff *skb;
-
-					if (hmp->tx_ring[entry].status_n_length & cpu_to_le32(DescOwn)) 
-						break;
-					skb = hmp->tx_skbuff[entry];
-					/* Free the original skb. */
-					if (skb){
-						pci_unmap_single(hmp->pci_dev, 
-							hmp->tx_ring[entry].addr, 
-							skb->len,
-							PCI_DMA_TODEVICE);
-						dev_kfree_skb_irq(skb);
-						hmp->tx_skbuff[entry] = 0;
-					}
-					hmp->tx_ring[entry].status_n_length = 0;
-					if (entry >= TX_RING_SIZE-1)  
-						hmp->tx_ring[TX_RING_SIZE-1].status_n_length |= 
-							cpu_to_le32(DescEndRing);
-					hmp->stats.tx_packets++;
-				}
-				if (hmp->cur_tx - hmp->dirty_tx < TX_RING_SIZE - 4){
-					/* The ring is no longer full */
-					hmp->tx_full = 0;
-					netif_wake_queue(dev);
-				}
-			} else {
-				netif_wake_queue(dev);
-			}
-		}
-
-
-		/* Abnormal error summary/uncommon events handlers. */
-		if (intr_status &
-			(IntrTxPCIFault | IntrTxPCIErr | IntrRxPCIFault | IntrRxPCIErr |
-			 LinkChange | NegotiationChange | StatsMax))
-			hamachi_error(dev, intr_status);
-
-		if (--boguscnt < 0) {
-			printk(KERN_WARNING "%s: Too much work at interrupt, status=0x%4.4x.\n",
-				   dev->name, intr_status);
-			break;
-		}
-	} while (1);
-
-	if (hamachi_debug > 3)
-		printk(KERN_DEBUG "%s: exiting interrupt, status=%#4.4x.\n",
-			   dev->name, readl(ioaddr + IntrStatus));
-
-#ifndef final_version
-	/* Code that should never be run!  Perhaps remove after testing.. */
-	{
-		static int stopit = 10;
-		if (dev->start == 0  &&  --stopit < 0) {
-			printk(KERN_ERR "%s: Emergency stop, looping startup interrupt.\n",
-				   dev->name);
-			free_irq(irq, dev);
-		}
-	}
-#endif
-
-	spin_unlock(&hmp->lock);
-}
-
-#ifdef TX_CHECKSUM
-/*
- * Copied from eth_type_trans(), with reduced header, since we don't
- * get it on RX, only on TX.
- */
-static unsigned short hamachi_eth_type_trans(struct sk_buff *skb,
-  struct net_device *dev)
-{
-	struct ethhdr *eth;
-	unsigned char *rawp;
-	
-	skb->mac.raw=skb->data;
-	skb_pull(skb,dev->hard_header_len-8);  /* artificially enlarged on tx */
-	eth= skb->mac.ethernet;
-	
-	if(*eth->h_dest&1)
-	{
-		if(memcmp(eth->h_dest,dev->broadcast, ETH_ALEN)==0)
-			skb->pkt_type=PACKET_BROADCAST;
-		else
-			skb->pkt_type=PACKET_MULTICAST;
-	}
-	
-	/*
-	 *	This ALLMULTI check should be redundant by 1.4
-	 *	so don't forget to remove it.
-	 *
-	 *	Seems, you forgot to remove it. All silly devices
-	 *	seems to set IFF_PROMISC.
-	 */
-	 
-	else if(dev->flags&(IFF_PROMISC/*|IFF_ALLMULTI*/))
-	{
-		if(memcmp(eth->h_dest,dev->dev_addr, ETH_ALEN))
-			skb->pkt_type=PACKET_OTHERHOST;
-	}
-	
-	if (ntohs(eth->h_proto) >= 1536)
-		return eth->h_proto;
-		
-	rawp = skb->data;
-	
-	/*
-	 *	This is a magic hack to spot IPX packets. Older Novell breaks
-	 *	the protocol design and runs IPX over 802.3 without an 802.2 LLC
-	 *	layer. We look for FFFF which isn't a used 802.2 SSAP/DSAP. This
-	 *	won't work for fault tolerant netware but does for the rest.
-	 */
-	if (*(unsigned short *)rawp == 0xFFFF)
-		return htons(ETH_P_802_3);
-		
-	/*
-	 *	Real 802.2 LLC
-	 */
-	return htons(ETH_P_802_2);
-}
-#endif  /* TX_CHECKSUM */
-
 /* This routine is logically part of the interrupt handler, but seperated
    for clarity and better register allocation. */
 static int hamachi_rx(struct net_device *dev)
@@ -1603,9 +1458,14 @@ static int hamachi_rx(struct net_device *dev)
 				skb->dev = dev;
 				skb_reserve(skb, 2);	/* 16 byte align the IP header */
 				/* Call copy + cksum if available. */
+#if 1 || USE_IP_COPYSUM
 				eth_copy_and_sum(skb, 
 					hmp->rx_skbuff[entry]->data, pkt_len, 0);
 				skb_put(skb, pkt_len);
+#else
+				memcpy(skb_put(skb, pkt_len), hmp->rx_ring_dma
+					+ entry*sizeof(*desc), pkt_len);
+#endif
 			} else {
 				pci_unmap_single(hmp->pci_dev, 
 					hmp->rx_ring[entry].addr, 
@@ -1613,12 +1473,7 @@ static int hamachi_rx(struct net_device *dev)
 				skb_put(skb = hmp->rx_skbuff[entry], pkt_len);
 				hmp->rx_skbuff[entry] = NULL;
 			}
-#ifdef TX_CHECKSUM
-			/* account for extra TX hard_header bytes */
-			skb->protocol = hamachi_eth_type_trans(skb, dev);
-#else
 			skb->protocol = eth_type_trans(skb, dev);
-#endif
 
 
 #ifdef RX_CHECKSUM
@@ -1717,6 +1572,109 @@ static int hamachi_rx(struct net_device *dev)
 		writew(0x0001, dev->base_addr + RxCmd);
 
 	return 0;
+}
+
+/* The interrupt handler does all of the Rx thread work and cleans up
+   after the Tx thread. */
+static void hamachi_interrupt(int irq, void *dev_instance, struct pt_regs *rgs)
+{
+	struct net_device *dev = dev_instance;
+	struct hamachi_private *hmp;
+	long ioaddr, boguscnt = max_interrupt_work;
+
+#ifndef final_version			/* Can never occur. */
+	if (dev == NULL) {
+		printk (KERN_ERR "hamachi_interrupt(): irq %d for unknown device.\n", irq);
+		return;
+	}
+#endif
+
+	ioaddr = dev->base_addr;
+	hmp = dev->priv;
+	spin_lock(&hmp->lock);
+
+	do {
+		u32 intr_status = readl(ioaddr + InterruptClear);
+
+		if (hamachi_debug > 4)
+			printk(KERN_DEBUG "%s: Hamachi interrupt, status %4.4x.\n",
+				   dev->name, intr_status);
+
+		if (intr_status == 0)
+			break;
+
+		if (intr_status & IntrRxDone)
+			hamachi_rx(dev);
+
+		if (intr_status & IntrTxDone){
+			/* This code should RARELY need to execute. After all, this is
+			 * a gigabit link, it should consume packets as fast as we put
+			 * them in AND we clear the Tx ring in hamachi_start_xmit().
+			 */ 
+			if (hmp->tx_full){
+				for (; hmp->cur_tx - hmp->dirty_tx > 0; hmp->dirty_tx++){
+					int entry = hmp->dirty_tx % TX_RING_SIZE;
+					struct sk_buff *skb;
+
+					if (hmp->tx_ring[entry].status_n_length & cpu_to_le32(DescOwn)) 
+						break;
+					skb = hmp->tx_skbuff[entry];
+					/* Free the original skb. */
+					if (skb){
+						pci_unmap_single(hmp->pci_dev, 
+							hmp->tx_ring[entry].addr, 
+							skb->len,
+							PCI_DMA_TODEVICE);
+						dev_kfree_skb_irq(skb);
+						hmp->tx_skbuff[entry] = 0;
+					}
+					hmp->tx_ring[entry].status_n_length = 0;
+					if (entry >= TX_RING_SIZE-1)  
+						hmp->tx_ring[TX_RING_SIZE-1].status_n_length |= 
+							cpu_to_le32(DescEndRing);
+					hmp->stats.tx_packets++;
+				}
+				if (hmp->cur_tx - hmp->dirty_tx < TX_RING_SIZE - 4){
+					/* The ring is no longer full */
+					hmp->tx_full = 0;
+					netif_wake_queue(dev);
+				}
+			} else {
+				netif_wake_queue(dev);
+			}
+		}
+
+
+		/* Abnormal error summary/uncommon events handlers. */
+		if (intr_status &
+			(IntrTxPCIFault | IntrTxPCIErr | IntrRxPCIFault | IntrRxPCIErr |
+			 LinkChange | NegotiationChange | StatsMax))
+			hamachi_error(dev, intr_status);
+
+		if (--boguscnt < 0) {
+			printk(KERN_WARNING "%s: Too much work at interrupt, status=0x%4.4x.\n",
+				   dev->name, intr_status);
+			break;
+		}
+	} while (1);
+
+	if (hamachi_debug > 3)
+		printk(KERN_DEBUG "%s: exiting interrupt, status=%#4.4x.\n",
+			   dev->name, readl(ioaddr + IntrStatus));
+
+#ifndef final_version
+	/* Code that should never be run!  Perhaps remove after testing.. */
+	{
+		static int stopit = 10;
+		if (dev->start == 0  &&  --stopit < 0) {
+			printk(KERN_ERR "%s: Emergency stop, looping startup interrupt.\n",
+				   dev->name);
+			free_irq(irq, dev);
+		}
+	}
+#endif
+
+	spin_unlock(&hmp->lock);
 }
 
 /* This is more properly named "uncommon interrupt events", as it covers more
@@ -1900,7 +1858,7 @@ static void set_rx_mode(struct net_device *dev)
 
 static int netdev_ethtool_ioctl(struct net_device *dev, void *useraddr)
 {
-	struct hamachi_private *hmp = dev->priv;
+	struct hamachi_private *np = dev->priv;
 	u32 ethcmd;
 		
 	if (copy_from_user(&ethcmd, useraddr, sizeof(ethcmd)))
@@ -1911,12 +1869,53 @@ static int netdev_ethtool_ioctl(struct net_device *dev, void *useraddr)
 		struct ethtool_drvinfo info = {ETHTOOL_GDRVINFO};
 		strcpy(info.driver, DRV_NAME);
 		strcpy(info.version, DRV_VERSION);
-		strcpy(info.bus_info, hmp->pci_dev->slot_name);
+		strcpy(info.bus_info, np->pci_dev->slot_name);
 		if (copy_to_user(useraddr, &info, sizeof(info)))
 			return -EFAULT;
 		return 0;
 	}
 
+	/* get settings */
+	case ETHTOOL_GSET: {
+		struct ethtool_cmd ecmd = { ETHTOOL_GSET };
+		if (!(chip_tbl[np->chip_id].flags & CanHaveMII))
+			return -EINVAL;
+		spin_lock_irq(&np->lock);
+		mii_ethtool_gset(&np->mii_if, &ecmd);
+		spin_unlock_irq(&np->lock);
+		if (copy_to_user(useraddr, &ecmd, sizeof(ecmd)))
+			return -EFAULT;
+		return 0;
+	}
+	/* set settings */
+	case ETHTOOL_SSET: {
+		int r;
+		struct ethtool_cmd ecmd;
+		if (!(chip_tbl[np->chip_id].flags & CanHaveMII))
+			return -EINVAL;
+		if (copy_from_user(&ecmd, useraddr, sizeof(ecmd)))
+			return -EFAULT;
+		spin_lock_irq(&np->lock);
+		r = mii_ethtool_sset(&np->mii_if, &ecmd);
+		spin_unlock_irq(&np->lock);
+		return r;
+	}
+	/* restart autonegotiation */
+	case ETHTOOL_NWAY_RST: {
+		if (!(chip_tbl[np->chip_id].flags & CanHaveMII))
+			return -EINVAL;
+		return mii_nway_restart(&np->mii_if);
+	}
+	/* get link status */
+	case ETHTOOL_GLINK: {
+		struct ethtool_value edata = {ETHTOOL_GLINK};
+		if (!(chip_tbl[np->chip_id].flags & CanHaveMII))
+			return -EINVAL;
+		edata.data = mii_link_ok(&np->mii_if);
+		if (copy_to_user(useraddr, &edata, sizeof(edata)))
+			return -EFAULT;
+		return 0;
+	}
         }
 	
 	return -EOPNOTSUPP;
@@ -1924,32 +1923,17 @@ static int netdev_ethtool_ioctl(struct net_device *dev, void *useraddr)
 
 static int netdev_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
 {
-	long ioaddr = dev->base_addr;
-	struct mii_ioctl_data *data = (struct mii_ioctl_data *)&rq->ifr_data;
+	struct hamachi_private *np = dev->priv;
+	struct mii_ioctl_data *data = (struct mii_ioctl_data *) & rq->ifr_data;
+	int rc;
 
-	switch(cmd) {
-	case SIOCETHTOOL:
-		return netdev_ethtool_ioctl(dev, (void *) rq->ifr_data);
-	case SIOCGMIIPHY:		/* Get address of MII PHY in use. */
-	case SIOCDEVPRIVATE:		/* for binary compat, remove in 2.5 */
-		data->phy_id = ((struct hamachi_private *)dev->priv)->phys[0] & 0x1f;
-		/* Fall Through */
+	if (!netif_running(dev))
+		return -EINVAL;
 
-	case SIOCGMIIREG:		/* Read MII PHY register. */
-	case SIOCDEVPRIVATE+1:		/* for binary compat, remove in 2.5 */
-		data->val_out = mdio_read(ioaddr, data->phy_id & 0x1f, data->reg_num & 0x1f);
-		return 0;
+	if (cmd == SIOCETHTOOL)
+		rc = netdev_ethtool_ioctl(dev, (void *) rq->ifr_data);
 
-	case SIOCSMIIREG:		/* Write MII PHY register. */
-	case SIOCDEVPRIVATE+2:		/* for binary compat, remove in 2.5 */
-		/* TODO: Check the sequencing of this.  Might need to stop and
-		 * restart Rx and Tx engines. -KDU
-		 */
-		if (!capable(CAP_NET_ADMIN))
-			return -EPERM;
-		mdio_write(ioaddr, data->phy_id & 0x1f, data->reg_num & 0x1f, data->val_in);
-		return 0;
-	case SIOCDEVPRIVATE+3: { /* set rx,tx intr params */
+	else if (cmd == (SIOCDEVPRIVATE+3)) { /* set rx,tx intr params */
 		u32 *d = (u32 *)&rq->ifr_data;
 		/* Should add this check here or an ordinary user can do nasty
 		 * things. -KDU
@@ -1963,11 +1947,16 @@ static int netdev_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
 		printk(KERN_NOTICE "%s: tx %08x, rx %08x intr\n", dev->name,
 		  (u32) readl(dev->base_addr + TxIntrCtrl),
 		  (u32) readl(dev->base_addr + RxIntrCtrl));
-		return 0;
-	    }
-	default:
-		return -EOPNOTSUPP;
+		rc = 0;
 	}
+
+	else {
+		spin_lock_irq(&np->lock);
+		rc = generic_mii_ioctl(&np->mii_if, data, cmd, NULL);
+		spin_unlock_irq(&np->lock);
+	}
+
+	return rc;
 }
 
 
@@ -1998,10 +1987,10 @@ static struct pci_device_id hamachi_pci_tbl[] __initdata = {
 MODULE_DEVICE_TABLE(pci, hamachi_pci_tbl);
 
 static struct pci_driver hamachi_driver = {
-	name:		DRV_NAME,
-	id_table:	hamachi_pci_tbl,
-	probe:		hamachi_init_one,
-	remove:		__devexit_p(hamachi_remove_one),
+	.name		= DRV_NAME,
+	.id_table	= hamachi_pci_tbl,
+	.probe		= hamachi_init_one,
+	.remove		= __devexit_p(hamachi_remove_one),
 };
 
 static int __init hamachi_init (void)

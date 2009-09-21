@@ -28,7 +28,12 @@ MODULE_PARM(ports, "1-" __MODULE_STRING(MAX_PORTS) "i");
 MODULE_PARM_DESC(ports, "port numbers of tftp servers");
 #endif
 
+#if 0
+#define DEBUGP(format, args...) printk(__FILE__ ":" __FUNCTION__ ": " \
+				       format, ## args)
+#else
 #define DEBUGP(format, args...)
+#endif
 
 static int tftp_help(const struct iphdr *iph, size_t len,
 	struct ip_conntrack *ct,
@@ -58,6 +63,13 @@ static int tftp_help(const struct iphdr *iph, size_t len,
 		DUMP_TUPLE(&exp.tuple);
 		DUMP_TUPLE(&exp.mask);
 		ip_conntrack_expect_related(ct, &exp);
+		break;
+	case TFTP_OPCODE_DATA:
+	case TFTP_OPCODE_ACK:
+		DEBUGP("Data/ACK opcode\n");
+		break;
+	case TFTP_OPCODE_ERROR:
+		DEBUGP("Error opcode\n");
 		break;
 	default:
 		DEBUGP("Unknown opcode\n");
@@ -89,8 +101,6 @@ static int __init init(void)
 
 	for (i = 0 ; (i < MAX_PORTS) && ports[i] ; i++) {
 		/* Create helper structure */
-		memset(&tftp[i], 0, sizeof(struct ip_conntrack_helper));
-
 		tftp[i].tuple.dst.protonum = IPPROTO_UDP;
 		tftp[i].tuple.src.u.udp.port = htons(ports[i]);
 		tftp[i].mask.dst.protonum = 0xFFFF;

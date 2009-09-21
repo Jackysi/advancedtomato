@@ -57,6 +57,12 @@ static void ntfs_fill_mft_header(ntfs_u8 *mft, int rec_size, int seq_no,
 	NTFS_PUTU32(mft + attr_ofs, (__u32)-1);	/* End of attributes marker. */
 }
 
+/*
+ * Search in an inode an attribute by type and name. 
+ * FIXME: Check that when attributes are inserted all attribute list
+ * attributes are expanded otherwise need to modify this function to deal
+ * with attribute lists. (AIA)
+ */
 ntfs_attribute *ntfs_find_attr(ntfs_inode *ino, int type, char *name)
 {
 	int i;
@@ -81,6 +87,14 @@ ntfs_attribute *ntfs_find_attr(ntfs_inode *ino, int type, char *name)
 	return 0;
 }
 
+/*
+ * Insert all attributes from the record mftno of the MFT in the inode ino.
+ * If mftno is a base mft record we abort as soon as we find the attribute
+ * list, but only on the first pass. We will get called later when the attribute
+ * list attribute is being parsed so we need to distinguish the two cases.
+ * FIXME: We should be performing structural consistency checks. (AIA)
+ * Return 0 on success or -errno on error.
+ */
 static int ntfs_insert_mft_attributes(ntfs_inode* ino, char *mft, int mftno)
 {
 	int i, error, type, len, present = 0;
@@ -137,6 +151,13 @@ static int ntfs_insert_mft_attributes(ntfs_inode* ino, char *mft, int mftno)
 	return 0;
 }
 
+/*
+ * Insert a single specific attribute from the record mftno of the MFT in the
+ * inode ino. We disregard the attribute list assuming we have already parsed
+ * it.
+ * FIXME: We should be performing structural consistency checks. (AIA)
+ * Return 0 on success or -errno on error.
+ */
 static int ntfs_insert_mft_attribute(ntfs_inode* ino, int mftno,
 		ntfs_u8 *attr)
 {
@@ -202,6 +223,13 @@ static int parse_attributes(ntfs_inode *ino, ntfs_u8 *alist, int *plen)
 			break;
 	        /* Process an attribute description. */
 		mftno = NTFS_GETU32(alist + 0x10); 
+			/* FIXME: The mft reference (alist + 0x10) is __s64.
+			* - Not a problem unless we encounter a huge partition.
+			* - Should be consistency checking the sequence numbers
+			*   though! This should maybe happen in 
+			*   ntfs_read_mft_record() itself and a hotfix could
+			*   then occur there or the user notified to run
+			*   ntfsck. (AIA) */
 		if (mftno != ino->i_number && mftno != last_mft) {
 continue_after_loading_mft_data:
 			last_mft = mftno;
@@ -232,7 +260,7 @@ failed_reading_mft_data:
 			ntfs_error("parse_attributes: mft records 0x%x and/or "
 				       "0x%x corrupt!\n", ino->i_number, mftno);
 			ntfs_free(mft);
-			return -EINVAL; 
+			return -EINVAL; /* FIXME: Better error code? (AIA) */
 		}
 		error = ntfs_insert_mft_attribute(ino, mftno, attr);
 		if (error) {
@@ -258,6 +286,20 @@ force_load_mft_data:
 	int error2;
 	int found2 = 0;
 	ntfs_u8 *alist2 = alist;
+	/*
+	 * We only get here if $DATA wasn't found in $MFT which only happens
+	 * on volume mount when $MFT has an attribute list and there are
+	 * attributes before $DATA which are inside extent mft records. So
+	 * we just skip forward to the $DATA attribute and read that. Then we
+	 * restart which is safe as an attribute will not be inserted twice.
+	 *
+	 * This still will not fix the case where the attribute list is non-
+	 * resident, larger than 1024 bytes, and the $DATA attribute list entry
+	 * is not in the first 1024 bytes. FIXME: This should be implemented
+	 * somehow! Perhaps by passing special error code up to
+	 * ntfs_load_attributes() so it keeps going trying to get to $DATA
+	 * regardless. Then it would have to restart just like we do here.
+	 */
 	mft2 = ntfs_malloc(ino->vol->mft_record_size);
 	if (!mft2) {
 		ntfs_free(mft);
@@ -360,7 +402,7 @@ static void ntfs_load_attributes(ntfs_inode *ino)
 	}
 	ntfs_debug(DEBUG_FILE2, "load_attributes 0x%x 5\n", ino->i_number);
 	buf = ntfs_malloc(1024);
-	if (!buf)    
+	if (!buf)    /* FIXME: Should be passing error code to caller. (AIA) */
 		return;
 	delta = 0;
 	for (offset = 0; datasize; datasize -= len, offset += len) {
@@ -583,6 +625,20 @@ int ntfs_decompress_run(unsigned char **data, int *length,
 	case 0x40:
 		*cluster += NTFS_GETS32(*data);
 		break;
+#if 0 /* Keep for future, in case ntfs_cluster_t ever becomes 64bit. */
+	case 0x50: 
+		*cluster += NTFS_GETS40(*data);
+		break;
+	case 0x60: 
+		*cluster += NTFS_GETS48(*data);
+		break;
+	case 0x70: 
+		*cluster += NTFS_GETS56(*data);
+		break;
+	case 0x80: 
+		*cluster += NTFS_GETS64(*data);
+		break;
+#endif
 	default:
 		ntfs_error("Can't decode run type field 0x%x\n", type);
 		return -1;
@@ -595,6 +651,16 @@ int ntfs_decompress_run(unsigned char **data, int *length,
 
 static void dump_runlist(const ntfs_runlist *rl, const int rlen);
 
+/*
+ * FIXME: ntfs_readwrite_attr() has the effect of writing @dest to @offset of
+ * the attribute value of the attribute @attr in the in memory inode @ino.
+ * If the attribute value of @attr is non-resident the value's contents at
+ * @offset are actually written to disk (from @dest). The on disk mft record
+ * describing the non-resident attribute value is not updated!
+ * If the attribute value is resident then the value is written only in
+ * memory. The on disk mft record containing the value is not written to disk.
+ * A possible fix would be to call ntfs_update_inode() before returning. (AIA)
+ */
 /* Reads l bytes of the attribute (attr, name) of ino starting at offset on
  * vol into buf. Returns the number of bytes read in the ntfs_io struct.
  * Returns 0 on success, errno on failure */
@@ -605,8 +671,8 @@ int ntfs_readwrite_attr(ntfs_inode *ino, ntfs_attribute *attr, __s64 offset,
 	ntfs_cluster_t cluster, s_cluster, vcn, len;
 	__s64 l, chunk, copied;
 
-	ntfs_debug(DEBUG_FILE3, __FUNCTION__ "(): %s 0x%x bytes at offset "
-			"0x%Lx %s inode 0x%x, attr type 0x%x.\n",
+	ntfs_debug(DEBUG_FILE3, "%s(): %s 0x%x bytes at offset "
+			"0x%Lx %s inode 0x%x, attr type 0x%x.\n", __FUNCTION__,
 			dest->do_read ? "Read" : "Write", dest->size, offset,
 			dest->do_read ? "from" : "to", ino->i_number,
 			attr->type);
@@ -640,6 +706,9 @@ int ntfs_readwrite_attr(ntfs_inode *ino, ntfs_attribute *attr, __s64 offset,
 				attr->size = offset + l;
 			/* Has amount of initialised data increased? */
 			if (offset + l > attr->initialized) {
+				/* FIXME: Clear the section between the old
+			 	 * initialised length and the write start.
+				 * (AIA) */
 				attr->initialized = offset + l;
 			}
 		}
@@ -677,11 +746,12 @@ int ntfs_readwrite_attr(ntfs_inode *ino, ntfs_attribute *attr, __s64 offset,
 			vcn + attr->d.r.runlist[rnum].len <= s_vcn; rnum++)
 		vcn += attr->d.r.runlist[rnum].len;
 	if (rnum == attr->d.r.len) {
-		ntfs_debug(DEBUG_FILE3, __FUNCTION__ "(): EOPNOTSUPP: "
+		ntfs_debug(DEBUG_FILE3, "%s(): EOPNOTSUPP: "
 			"inode = 0x%x, rnum = %i, offset = 0x%Lx, vcn = 0x%x, "
-			"s_vcn = 0x%x.\n", ino->i_number, rnum, offset, vcn,
-			s_vcn);
+			"s_vcn = 0x%x.\n", __FUNCTION__, ino->i_number, rnum,
+			offset, vcn, s_vcn);
 		dump_runlist(attr->d.r.runlist, attr->d.r.len);
+		/*FIXME: Should extend runlist. */
 		return -EOPNOTSUPP;
 	}
 	copied = 0;
@@ -723,8 +793,8 @@ int ntfs_read_attr(ntfs_inode *ino, int type, char *name, __s64 offset,
 	buf->do_read = 1;
 	attr = ntfs_find_attr(ino, type, name);
 	if (!attr) {
-		ntfs_debug(DEBUG_FILE3, __FUNCTION__ "(): attr 0x%x not found "
-				"in inode 0x%x\n", type, ino->i_number);
+		ntfs_debug(DEBUG_FILE3, "%s(): attr 0x%x not found in inode "
+				"0x%x\n", __FUNCTION__, type, ino->i_number);
 		return -EINVAL;
 	}
 	return ntfs_readwrite_attr(ino, attr, offset, buf);
@@ -738,8 +808,8 @@ int ntfs_write_attr(ntfs_inode *ino, int type, char *name, __s64 offset,
 	buf->do_read = 0;
 	attr = ntfs_find_attr(ino, type, name);
 	if (!attr) {
-		ntfs_debug(DEBUG_FILE3, __FUNCTION__ "(): attr 0x%x not found "
-				"in inode 0x%x\n", type, ino->i_number);
+		ntfs_debug(DEBUG_FILE3, "%s(): attr 0x%x not found in inode "
+				"0x%x\n", __FUNCTION__, type, ino->i_number);
 		return -EINVAL;
 	}
 	return ntfs_readwrite_attr(ino, attr, offset, buf);
@@ -868,7 +938,8 @@ static int layout_runs(ntfs_attribute *attr, char *rec, int *offs, int size)
 		} else /* if (len >= -0x80000000LL && len <= 0x7fffffff */ {
 			NTFS_PUTU32(rec + offset + 1, len);
 			coffs = 4;
-		} 
+		} /* else ... FIXME: When len becomes 64-bit we need to extend
+		   * 		     the else if () statements. (AIA) */
 		*(rec + offset) |= coffs++;
 		if (rl[i].lcn == (ntfs_cluster_t)-1) /* Compressed run. */
 			/* Nothing */;
@@ -889,7 +960,29 @@ static int layout_runs(ntfs_attribute *attr, char *rec, int *offs, int size)
 			NTFS_PUTS32(rec + offset + coffs, rclus
 							/* & 0xffffffffLL */);
 			coffs += 4;
-		} 
+		} /* FIXME: When rclus becomes 64-bit.
+		else if (rclus >= -0x8000000000 && rclus <= 0x7FFFFFFFFF) {
+			*(rec + offset) |= 0x50;
+			NTFS_PUTS40(rec + offset + coffs, rclus &
+							0xffffffffffLL);
+			coffs += 5;
+		} else if (rclus >= -0x800000000000 && 
+						rclus <= 0x7FFFFFFFFFFF) {
+			*(rec + offset) |= 0x60;
+			NTFS_PUTS48(rec + offset + coffs, rclus &
+							0xffffffffffffLL);
+			coffs += 6;
+		} else if (rclus >= -0x80000000000000 && 
+						rclus <= 0x7FFFFFFFFFFFFF) {
+			*(rec + offset) |= 0x70;
+			NTFS_PUTS56(rec + offset + coffs, rclus &
+							0xffffffffffffffLL);
+			coffs += 7;
+		} else {
+			*(rec + offset) |= 0x80;
+			NTFS_PUTS64(rec + offset + coffs, rclus);
+			coffs += 8;
+		} */
 		offset += coffs;
 		if (rl[i].lcn)
 			cluster = rl[i].lcn;
@@ -962,6 +1055,7 @@ static int layout_attr(ntfs_attribute *attr, char *buf, int size, int *psize)
  			return error;
  		/* The next attribute has to begin on 8-byte boundary. */
 		asize = (asize + 7) & ~7;
+		/* FIXME: fragments */
 		count_runs(attr, buf);
 		NTFS_PUTU16(buf + 0x20, hdrsize);
 		NTFS_PUTU16(buf + 0x22, attr->cengine);
@@ -1020,6 +1114,11 @@ int layout_inode(ntfs_inode *ino, ntfs_disk_inode *store)
  				return error;
 	 		recno = -1;
 		}
+		/*
+		 * FIXME: We need to support extension records properly.
+		 * At the moment they wouldn't work. Probably would "just" get
+		 * corrupted if we write to them... (AIA)
+		 */
 	 	store->records[count].recno = recno;
  		rec = store->records[count].record;
 	 	count++;
@@ -1049,6 +1148,13 @@ int layout_inode(ntfs_inode *ino, ntfs_disk_inode *store)
 	return count - ino->record_count;
 }
 
+/*
+ * FIXME: ntfs_update_inode() calls layout_inode() to create the mft record on
+ * disk structure corresponding to the inode @ino. After that, ntfs_write_attr()
+ * is called to write out the created mft record to disk.
+ * We shouldn't need to re-layout every single time we are updating an mft
+ * record. No wonder the ntfs driver is slow like hell. (AIA)
+ */
 int ntfs_update_inode(ntfs_inode *ino)
 {
 	int error, i;
@@ -1071,6 +1177,7 @@ int ntfs_update_inode(ntfs_inode *ino)
 			error = layout_inode(ino, &store);
 	}
 	if (error > 0) {
+		/* FIXME: Introduce extension records. */
 		error = -E2BIG;
 	}
 	if (error) {
@@ -1131,7 +1238,7 @@ void ntfs_decompress(unsigned char *dest, unsigned char *src, ntfs_size_t l)
 		clear_pos = 0;
 		if (head == 0)
 			/* Block is not used. */
-			return;
+			return;/* FIXME: copied */
 		if (!comp) { /* uncompressible */
 			ntfs_memcpy(dest, src, 0x1000);
 			dest += 0x1000;
@@ -1225,7 +1332,7 @@ static void dump_runlist(const ntfs_runlist *rl, const int rlen)
 	int i;
 	ntfs_cluster_t ct;
 
-	ntfs_debug(DEBUG_OTHER, __FUNCTION__ "(): rlen = %i.\n", rlen);
+	ntfs_debug(DEBUG_OTHER, "%s(): rlen = %i.\n", __FUNCTION__, rlen);
 	ntfs_debug(DEBUG_OTHER, "VCN        LCN        Run length\n");
 	for (i = 0, ct = 0; i < rlen; ct += rl[i++].len) {
 		if (rl[i].lcn == (ntfs_cluster_t)-1)
@@ -1265,30 +1372,31 @@ int splice_runlists(ntfs_runlist **rl1, int *r1len, const ntfs_runlist *rl2,
 	ntfs_runlist *rl;
 	int rlen, rl_size, rl2_pos;
 
-	ntfs_debug(DEBUG_OTHER, __FUNCTION__ "(): Entering with *r1len = %i, "
-			"r2len = %i.\n", *r1len, r2len);
-	ntfs_debug(DEBUG_OTHER, __FUNCTION__ "(): Dumping 1st runlist.\n");
+	ntfs_debug(DEBUG_OTHER, "%s(): Entering with *r1len = %i, "
+			"r2len = %i.\n", __FUNCTION__, *r1len, r2len);
+	ntfs_debug(DEBUG_OTHER, "%s(): Dumping 1st runlist.\n", __FUNCTION__);
 	if (*rl1)
 		dump_runlist(*rl1, *r1len);
 	else
-		ntfs_debug(DEBUG_OTHER, __FUNCTION__ "(): Not present.\n");
-	ntfs_debug(DEBUG_OTHER, __FUNCTION__ "(): Dumping 2nd runlist.\n");
+		ntfs_debug(DEBUG_OTHER, "%s(): Not present.\n", __FUNCTION__);
+	ntfs_debug(DEBUG_OTHER, "%s(): Dumping 2nd runlist.\n", __FUNCTION__);
 	dump_runlist(rl2, r2len);
 	rlen = *r1len + r2len + 1;
 	rl_size = (rlen * sizeof(ntfs_runlist) + PAGE_SIZE - 1) &
 			PAGE_MASK;
-	ntfs_debug(DEBUG_OTHER, __FUNCTION__ "(): rlen = %i, rl_size = %i.\n",
-			rlen, rl_size);
+	ntfs_debug(DEBUG_OTHER, "%s(): rlen = %i, rl_size = %i.\n",
+			__FUNCTION__, rlen, rl_size);
 	/* Do we have enough space? */
 	if (rl_size <= ((*r1len * sizeof(ntfs_runlist) + PAGE_SIZE - 1) &
 			PAGE_MASK)) {
 		/* Have enough space already. */
 		rl = *rl1;
-		ntfs_debug(DEBUG_OTHER, __FUNCTION__ "(): Have enough space "
-				"already.\n");
+		ntfs_debug(DEBUG_OTHER, "%s(): Have enough space already.\n",
+				__FUNCTION__);
 	} else {
 		/* Need more space. Reallocate. */
-		ntfs_debug(DEBUG_OTHER, __FUNCTION__ "(): Need more space.\n");
+		ntfs_debug(DEBUG_OTHER, "%s(): Need more space.\n",
+				__FUNCTION__);
 		rl = ntfs_vmalloc(rlen << sizeof(ntfs_runlist));
 		if (!rl)
 			return -ENOMEM;
@@ -1299,17 +1407,17 @@ int splice_runlists(ntfs_runlist **rl1, int *r1len, const ntfs_runlist *rl2,
 	}
 	/* Reuse rl_size as the current position index into rl. */
 	rl_size = *r1len - 1;
-	ntfs_debug(DEBUG_OTHER, __FUNCTION__ "(): rl_size = %i.\n");
+	ntfs_debug(DEBUG_OTHER, "%s(): rl_size = %i.\n", __FUNCTION__,rl_size);
 	/* Coalesce neighbouring elements, if present. */
 	rl2_pos = 0;
 	if (rl[rl_size].lcn + rl[rl_size].len == rl2[rl2_pos].lcn) {
-		ntfs_debug(DEBUG_OTHER, __FUNCTION__ "(): Coalescing adjacent "
-				"runs.\n");
-		ntfs_debug(DEBUG_OTHER, __FUNCTION__ "(): Before: "
-				"rl[rl_size].len = %i.\n", rl[rl_size].len);
+		ntfs_debug(DEBUG_OTHER, "%s(): Coalescing adjacent runs.\n",
+				__FUNCTION__);
+		ntfs_debug(DEBUG_OTHER, "%s(): Before: rl[rl_size].len = %i.\n",
+				__FUNCTION__, rl[rl_size].len);
 		rl[rl_size].len += rl2[rl2_pos].len;
-		ntfs_debug(DEBUG_OTHER, __FUNCTION__ "(): After: "
-				"rl[rl_size].len = %i.\n", rl[rl_size].len);
+		ntfs_debug(DEBUG_OTHER, "%s(): After: rl[rl_size].len = %i.\n",
+				__FUNCTION__, rl[rl_size].len);
 		rl2_pos++;
 		r2len--;
 		rlen--;
@@ -1321,13 +1429,97 @@ int splice_runlists(ntfs_runlist **rl1, int *r1len, const ntfs_runlist *rl2,
 	rl[rlen].lcn = (ntfs_cluster_t)-1;
 	rl[rlen].len = (ntfs_cluster_t)0;
 	*r1len = rlen;
-	ntfs_debug(DEBUG_OTHER, __FUNCTION__ "(): Dumping result runlist.\n");
+	ntfs_debug(DEBUG_OTHER, "%s(): Dumping result runlist.\n",
+			__FUNCTION__);
 	dump_runlist(*rl1, *r1len);
-	ntfs_debug(DEBUG_OTHER, __FUNCTION__ "(): Returning with *r1len = "
-			"%i.\n", rlen);
+	ntfs_debug(DEBUG_OTHER, "%s(): Returning with *r1len = %i.\n",
+			__FUNCTION__, rlen);
 	return 0;
 }
 
+/**
+ * ntfs_alloc_mft_record - allocate an mft record
+ * @vol:	volume to allocate an mft record on
+ * @result:	the mft record number allocated
+ *
+ * Allocate a new mft record on disk. Return 0 on success or -ERRNO on error.
+ * On success, *@result contains the allocated mft record number. On error,
+ * *@result is -1UL.
+ *
+ * Note, this function doesn't actually set the mft record to be in use. This
+ * is done by the caller, which at the moment is only ntfs_alloc_inode().
+ *
+ * To find a free mft record, we scan the mft bitmap for a zero bit. To
+ * optimize this we start scanning at the place where we last stopped and we
+ * perform wrap around when we reach the end. Note, we do not try to allocate
+ * mft records below number 24 because numbers 0 to 15 are the defined system
+ * files anyway and 16 to 24 are special in that they are used for storing
+ * extension mft records for $MFT's $DATA attribute. This is required to avoid
+ * the possibility of creating a run list with a circular dependence which once
+ * written to disk can never be read in again. Windows will only use records
+ * 16 to 24 for normal files if the volume is completely out of space. We never
+ * use them which means that when the volume is really out of space we cannot
+ * create any more files while Windows can still create up to 8 small files. We
+ * can start doing this at some later time, doesn't matter much for now.
+ *
+ * When scanning the mft bitmap, we only search up to the last allocated mft
+ * record. If there are no free records left in the range 24 to number of
+ * allocated mft records, then we extend the mft data in order to create free
+ * mft records. We extend the allocated size of $MFT/$DATA by 16 records at a
+ * time or one cluster, if cluster size is above 16kiB. If there isn't
+ * sufficient space to do this, we try to extend by a single mft record or one
+ * cluster, if cluster size is above mft record size, but we only do this if
+ * there is enough free space, which we know from the values returned by the
+ * failed cluster allocation function when we tried to do the first allocation.
+ *
+ * No matter how many mft records we allocate, we initialize only the first
+ * allocated mft record (incrementing mft data size and initialized size) and
+ * return its number to the caller in @*result, unless there are less than 24
+ * mft records, in which case we allocate and initialize mft records until we
+ * reach record 24 which we consider as the first free mft record for use by
+ * normal files.
+ *
+ * If during any stage we overflow the initialized data in the mft bitmap, we
+ * extend the initialized size (and data size) by 8 bytes, allocating another
+ * cluster if required. The bitmap data size has to be at least equal to the
+ * number of mft records in the mft, but it can be bigger, in which case the
+ * superflous bits are padded with zeroes.
+ *
+ * Thus, when we return successfully (return value 0), we will have:
+ *	- initialized / extended the mft bitmap if necessary,
+ *	- initialized / extended the mft data if necessary,
+ *	- set the bit corresponding to the mft record being allocated in the
+ *	  mft bitmap, and we will
+ *	- return the mft record number in @*result.
+ *
+ * On error (return value below zero), nothing will have changed. If we had
+ * changed anything before the error occured, we will have reverted back to
+ * the starting state before returning to the caller. Thus, except for bugs,
+ * we should always leave the volume in a consitents state when returning from
+ * this function. NOTE: Small exception to this is that we set the bit in the
+ * mft bitmap but we do not mark the mft record in use, which is inconsistent.
+ * However, the caller will immediately add the wanted attributes to the mft
+ * record, set it in use and write it out to disk, so there should be no
+ * problem.
+ *
+ * Note, this function cannot make use of most of the normal functions, like
+ * for example for attribute resizing, etc, because when the run list overflows
+ * the base mft record and an attribute list is used, it is very important
+ * that the extension mft records used to store the $DATA attribute of $MFT
+ * can be reached without having to read the information contained inside
+ * them, as this would make it impossible to find them in the first place
+ * after the volume is dismounted. $MFT/$BITMAP probably doesn't need to
+ * follow this rule because the bitmap is not essential for finding the mft
+ * records, but on the other hand, handling the bitmap in this special way
+ * would make life easier because otherwise there might be circular invocations
+ * of functions when reading the bitmap but if we are careful, we should be
+ * able to avoid all problems.
+ *
+ * FIXME: Don't forget $MftMirr, though this probably belongs in
+ *	  ntfs_update_inode() (or even deeper). (AIA)
+ *
+ * FIXME: Want finer grained locking. (AIA)
+ */
 static int ntfs_alloc_mft_record(ntfs_volume *vol, unsigned long *result)
 {
 	unsigned long nr_mft_records, buf_size, buf_pos, pass_start, pass_end;
@@ -1356,7 +1548,7 @@ static int ntfs_alloc_mft_record(ntfs_volume *vol, unsigned long *result)
 	/* Determine the number of allocated mft records in the mft. */
 	pass_end = nr_mft_records = data->allocated >>
 			vol->mft_record_size_bits;
-	ntfs_debug(DEBUG_OTHER, __FUNCTION__ "(): nr_mft_records = %lu.\n",
+	ntfs_debug(DEBUG_OTHER, "%s(): nr_mft_records = %lu.\n", __FUNCTION__,
 			nr_mft_records);
 	/* Make sure we don't overflow the bitmap. */
 	l = bmp->initialized << 3;
@@ -1375,9 +1567,10 @@ static int ntfs_alloc_mft_record(ntfs_volume *vol, unsigned long *result)
 	lcn = rl[rlen].lcn + rl[rlen].len;
 	io.fn_put = ntfs_put;
 	io.fn_get = ntfs_get;
-	ntfs_debug(DEBUG_OTHER, __FUNCTION__ "(): Starting bitmap search.\n");
-	ntfs_debug(DEBUG_OTHER, __FUNCTION__ "(): pass = %i, pass_start = %lu, "
-			"pass_end = %lu.\n", pass, pass_start, pass_end);
+	ntfs_debug(DEBUG_OTHER, "%s(): Starting bitmap search.\n",
+			__FUNCTION__);
+	ntfs_debug(DEBUG_OTHER, "%s(): pass = %i, pass_start = %lu, pass_end = "
+			"%lu.\n", __FUNCTION__, pass, pass_start, pass_end);
 	byte = NULL; // FIXME: For debugging only.
 	/* Loop until a free mft record is found. */
 	io.size = (nr_mft_records >> 3) & ~PAGE_MASK;
@@ -1385,29 +1578,29 @@ static int ntfs_alloc_mft_record(ntfs_volume *vol, unsigned long *result)
 		io.param = buf;
 		io.do_read = 1;
 		last_read_pos = buf_pos >> 3;
-		ntfs_debug(DEBUG_OTHER, __FUNCTION__ "(): Before: "
-				"bmp->allocated = 0x%Lx, bmp->size = 0x%Lx, "
-				"bmp->initialized = 0x%Lx.\n", bmp->allocated,
+		ntfs_debug(DEBUG_OTHER, "%s(): Before: bmp->allocated = 0x%Lx, "
+				"bmp->size = 0x%Lx, bmp->initialized = "
+				"0x%Lx.\n", __FUNCTION__, bmp->allocated,
 				bmp->size, bmp->initialized);
 		err = ntfs_readwrite_attr(vol->mft_ino, bmp, last_read_pos,
 				&io);
 		if (err)
 			goto err_ret;
-		ntfs_debug(DEBUG_OTHER, __FUNCTION__ "(): Read %lu bytes.\n",
+		ntfs_debug(DEBUG_OTHER, "%s(): Read %lu bytes.\n", __FUNCTION__,
 				(unsigned long)io.size);
-		ntfs_debug(DEBUG_OTHER, __FUNCTION__ "(): After: "
-				"bmp->allocated = 0x%Lx, bmp->size = 0x%Lx, "
-				"bmp->initialized = 0x%Lx.\n", bmp->allocated,
+		ntfs_debug(DEBUG_OTHER, "%s(): After: bmp->allocated = 0x%Lx, "
+				"bmp->size = 0x%Lx, bmp->initialized = "
+				"0x%Lx.\n", __FUNCTION__, bmp->allocated,
 				bmp->size, bmp->initialized);
 		if (!io.size)
 			goto pass_done;
 		buf_size = io.size << 3;
 		bit = buf_pos & 7UL;
 		buf_pos &= ~7UL;
-		ntfs_debug(DEBUG_OTHER, __FUNCTION__ "(): Before loop: "
-				"buf_size = %lu, buf_pos = %lu, bit = %lu, "
-				"*byte = 0x%x, b = %u.\n",
-				buf_size, buf_pos, bit, byte ? *byte : -1, b);
+		ntfs_debug(DEBUG_OTHER, "%s(): Before loop: buf_size = %lu, "
+				"buf_pos = %lu, bit = %lu, *byte = 0x%x, b = "
+				"%u.\n", __FUNCTION__, buf_size, buf_pos, bit,
+				byte ? *byte : -1, b);
 		for (; bit < buf_size && bit + buf_pos < pass_end;
 				bit &= ~7UL, bit += 8UL) {
 			byte = buf + (bit >> 3);
@@ -1416,34 +1609,35 @@ static int ntfs_alloc_mft_record(ntfs_volume *vol, unsigned long *result)
 			b = ffz((unsigned long)*byte);
 			if (b < (__u8)8 && b >= (bit & 7UL)) {
 				bit = b + (bit & ~7UL) + buf_pos;
-				ntfs_debug(DEBUG_OTHER, __FUNCTION__ "(): "
-						"Found free rec in for loop. "
-						"bit = %lu\n", bit);
+				ntfs_debug(DEBUG_OTHER, "%s(): Found free rec "
+						"in for loop. bit = %lu\n",
+						__FUNCTION__, bit);
 				goto found_free_rec;
 			}
 		}
-		ntfs_debug(DEBUG_OTHER, __FUNCTION__ "(): After loop: "
-				"buf_size = %lu, buf_pos = %lu, bit = %lu, "
-				"*byte = 0x%x, b = %u.\n",
-				buf_size, buf_pos, bit, byte ? *byte : -1, b);
+		ntfs_debug(DEBUG_OTHER, "%s(): After loop: buf_size = %lu, "
+				"buf_pos = %lu, bit = %lu, *byte = 0x%x, b = "
+				"%u.\n", __FUNCTION__, buf_size, buf_pos, bit,
+				byte ? *byte : -1, b);
 		buf_pos += buf_size;
 		if (buf_pos < pass_end)
 			continue;
 pass_done:	/* Finished with the current pass. */
-		ntfs_debug(DEBUG_OTHER, __FUNCTION__ "(): At pass_done.\n");
+		ntfs_debug(DEBUG_OTHER, "%s(): At pass_done.\n", __FUNCTION__);
 		if (pass == 1) {
 			/*
 			 * Now do pass 2, scanning the first part of the zone
 			 * we omitted in pass 1.
 			 */
-			ntfs_debug(DEBUG_OTHER, __FUNCTION__ "(): Done pass "
-					"1.\n");
-			ntfs_debug(DEBUG_OTHER, __FUNCTION__ "(): Pass = 2.\n");
+			ntfs_debug(DEBUG_OTHER, "%s(): Done pass 1.\n",
+					__FUNCTION__);
+			ntfs_debug(DEBUG_OTHER, "%s(): Pass = 2.\n",
+					__FUNCTION__);
 			pass = 2;
 			pass_end = pass_start;
 			buf_pos = pass_start = 24UL;
-			ntfs_debug(DEBUG_OTHER, __FUNCTION__ "(): pass = %i, "
-					"pass_start = %lu, pass_end = %lu.\n",
+			ntfs_debug(DEBUG_OTHER, "%s(): pass = %i, pass_start = "
+					"%lu, pass_end = %lu.\n", __FUNCTION__,
 					pass, pass_start, pass_end);
 			continue;
 		} /* pass == 2 */
@@ -1459,21 +1653,21 @@ pass_done:	/* Finished with the current pass. */
 			bit = nr_mft_records;
 			if (bit < 24UL)
 				bit = 24UL;
-			ntfs_debug(DEBUG_OTHER, __FUNCTION__ "(): Found free "
-					"record bit (#1) = 0x%lx.\n", bit);
+			ntfs_debug(DEBUG_OTHER, "%s(): Found free record bit "
+					"(#1) = 0x%lx.\n", __FUNCTION__, bit);
 			goto found_free_rec;
 		}
-		ntfs_debug(DEBUG_OTHER, __FUNCTION__ "(): Done pass 2.\n");
-		ntfs_debug(DEBUG_OTHER, __FUNCTION__ "(): Before: "
-				"bmp->allocated = 0x%Lx, bmp->size = 0x%Lx, "
-				"bmp->initialized = 0x%Lx.\n", bmp->allocated,
+		ntfs_debug(DEBUG_OTHER, "%s(): Done pass 2.\n", __FUNCTION__);
+		ntfs_debug(DEBUG_OTHER, "%s(): Before: bmp->allocated = 0x%Lx, "
+				"bmp->size = 0x%Lx, bmp->initialized = "
+				"0x%Lx.\n", __FUNCTION__, bmp->allocated,
 				bmp->size, bmp->initialized);
 		/* Need to extend the mft bitmap. */
 		if (bmp->initialized + 8LL > bmp->allocated) {
 			ntfs_io io2;
 
-			ntfs_debug(DEBUG_OTHER, __FUNCTION__ "(): Initialized "
-					"> allocated.\n");
+			ntfs_debug(DEBUG_OTHER, "%s(): Initialized "
+					"> allocated.\n", __FUNCTION__);
 			/* Need to extend bitmap by one more cluster. */
 			rl = bmp->d.r.runlist;
 			rlen = bmp->d.r.len - 1;
@@ -1487,8 +1681,8 @@ pass_done:	/* Finished with the current pass. */
 					&io2);
 			if (err)
 				goto err_ret;
-			ntfs_debug(DEBUG_OTHER, __FUNCTION__ "(): Read %lu "
-					"bytes.\n", (unsigned long)io2.size);
+			ntfs_debug(DEBUG_OTHER, "%s(): Read %lu bytes.\n",
+					__FUNCTION__, (unsigned long)io2.size);
 			if (io2.size == 1 && b != 0xff) {
 				__u8 tb = 1 << (lcn & (ntfs_cluster_t)7);
 				if (!(b & tb)) {
@@ -1505,9 +1699,10 @@ pass_done:	/* Finished with the current pass. */
 					}
 append_mftbmp_simple:			rl[rlen].len++;
 					have_allocated_mftbmp |= 1;
-					ntfs_debug(DEBUG_OTHER, __FUNCTION__
-							"(): Appending one "
-							"cluster to mftbmp.\n");
+					ntfs_debug(DEBUG_OTHER, "%s(): "
+							"Appending one cluster "
+							"to mftbmp.\n",
+							__FUNCTION__);
 				}
 			}
 			if (!have_allocated_mftbmp) {
@@ -1523,11 +1718,12 @@ append_mftbmp_simple:			rl[rlen].len++;
 					if (count > 0) {
 rl2_dealloc_err_out:				if (ntfs_deallocate_clusters(
 							vol, rl2, r2len))
-							ntfs_error(__FUNCTION__
-							"(): Cluster "
+							ntfs_error("%s(): "
+							"Cluster "
 							"deallocation in error "
 							"code path failed! You "
-							"should run chkdsk.\n");
+							"should run chkdsk.\n",
+							__FUNCTION__);
 					}
 					ntfs_vfree(rl2);
 					if (!err)
@@ -1562,10 +1758,9 @@ rl2_dealloc_err_out:				if (ntfs_deallocate_clusters(
 				rl[rlen].len = count;
 				bmp->d.r.len = ++rlen;
 				have_allocated_mftbmp |= 2;
-				ntfs_debug(DEBUG_OTHER, __FUNCTION__ "(): "
-						"Adding run to mftbmp. "
-						"LCN = %i, len = %i\n", lcn,
-						count);
+				ntfs_debug(DEBUG_OTHER, "%s(): Adding run to "
+						"mftbmp. LCN = %i, len = %i\n",
+						__FUNCTION__, lcn, count);
 			}
 			/*
 			 * We now have extended the mft bitmap allocated size
@@ -1573,24 +1768,24 @@ rl2_dealloc_err_out:				if (ntfs_deallocate_clusters(
 			 */
 			bmp->allocated += (__s64)vol->cluster_size;
 		}
-		ntfs_debug(DEBUG_OTHER, __FUNCTION__ "(): After: "
-				"bmp->allocated = 0x%Lx, bmp->size = 0x%Lx, "
-				"bmp->initialized = 0x%Lx.\n", bmp->allocated,
+		ntfs_debug(DEBUG_OTHER, "%s(): After: bmp->allocated = 0x%Lx, "
+				"bmp->size = 0x%Lx, bmp->initialized = "
+				"0x%Lx.\n", __FUNCTION__, bmp->allocated,
 				bmp->size, bmp->initialized);
 		/* We now have sufficient allocated space. */
-		ntfs_debug(DEBUG_OTHER, __FUNCTION__ "(): Now have sufficient "
-				"allocated space in mftbmp.\n");
-		ntfs_debug(DEBUG_OTHER, __FUNCTION__ "(): Before: "
-				"bmp->allocated = 0x%Lx, bmp->size = 0x%Lx, "
-				"bmp->initialized = 0x%Lx.\n", bmp->allocated,
+		ntfs_debug(DEBUG_OTHER, "%s(): Now have sufficient allocated "
+				"space in mftbmp.\n", __FUNCTION__);
+		ntfs_debug(DEBUG_OTHER, "%s(): Before: bmp->allocated = 0x%Lx, "
+				"bmp->size = 0x%Lx, bmp->initialized = "
+				"0x%Lx.\n", __FUNCTION__, bmp->allocated,
 				bmp->size, bmp->initialized);
 		buf_pos = bmp->initialized;
 		bmp->initialized += 8LL;
 		if (bmp->initialized > bmp->size)
 			bmp->size = bmp->initialized;
-		ntfs_debug(DEBUG_OTHER, __FUNCTION__ "(): After: "
-				"bmp->allocated = 0x%Lx, bmp->size = 0x%Lx, "
-				"bmp->initialized = 0x%Lx.\n", bmp->allocated,
+		ntfs_debug(DEBUG_OTHER, "%s(): After: bmp->allocated = 0x%Lx, "
+				"bmp->size = 0x%Lx, bmp->initialized = "
+				"0x%Lx.\n", __FUNCTION__, bmp->allocated,
 				bmp->size, bmp->initialized);
 		have_allocated_mftbmp |= 4;
 		/* Update the mft bitmap attribute value. */
@@ -1604,27 +1799,27 @@ rl2_dealloc_err_out:				if (ntfs_deallocate_clusters(
 				err = -EIO;
 			goto shrink_mftbmp_err_ret;
 		}
-		ntfs_debug(DEBUG_OTHER, __FUNCTION__ "(): Wrote extended "
-				"mftbmp bytes %lu.\n", (unsigned long)io.size);
-		ntfs_debug(DEBUG_OTHER, __FUNCTION__ "(): After write: "
-				"bmp->allocated = 0x%Lx, bmp->size = 0x%Lx, "
-				"bmp->initialized = 0x%Lx.\n", bmp->allocated,
+		ntfs_debug(DEBUG_OTHER, "%s(): Wrote extended mftbmp bytes "
+				"%lu.\n", __FUNCTION__, (unsigned long)io.size);
+		ntfs_debug(DEBUG_OTHER, "%s(): After write: bmp->allocated = "
+				"0x%Lx, bmp->size = 0x%Lx, bmp->initialized = "
+				"0x%Lx.\n", __FUNCTION__, bmp->allocated,
 				bmp->size, bmp->initialized);
 		bit = buf_pos << 3;
-		ntfs_debug(DEBUG_OTHER, __FUNCTION__ "(): Found free record "
-				"bit (#2) = 0x%lx.\n", bit);
+		ntfs_debug(DEBUG_OTHER, "%s(): Found free record bit (#2) = "
+				"0x%lx.\n", __FUNCTION__, bit);
 		goto found_free_rec;
 	}
 found_free_rec:
 	/* bit is the found free mft record. Allocate it in the mft bitmap. */
 	vol->mft_data_pos = bit;
-	ntfs_debug(DEBUG_OTHER, __FUNCTION__ "(): At found_free_rec.\n");
+	ntfs_debug(DEBUG_OTHER, "%s(): At found_free_rec.\n", __FUNCTION__);
 	io.param = buf;
 	io.size = 1;
 	io.do_read = 1;
-	ntfs_debug(DEBUG_OTHER, __FUNCTION__ "(): Before update: "
-			"bmp->allocated = 0x%Lx, bmp->size = 0x%Lx, "
-			"bmp->initialized = 0x%Lx.\n", bmp->allocated,
+	ntfs_debug(DEBUG_OTHER, "%s(): Before update: bmp->allocated = 0x%Lx, "
+			"bmp->size = 0x%Lx, bmp->initialized = 0x%Lx.\n",
+			__FUNCTION__, bmp->allocated,
 			bmp->size, bmp->initialized);
 	err = ntfs_readwrite_attr(vol->mft_ino, bmp, bit >> 3, &io);
 	if (err || io.size != 1) {
@@ -1632,7 +1827,7 @@ found_free_rec:
 			err = -EIO;
 		goto shrink_mftbmp_err_ret;
 	}
-	ntfs_debug(DEBUG_OTHER, __FUNCTION__ "(): Read %lu bytes.\n",
+	ntfs_debug(DEBUG_OTHER, "%s(): Read %lu bytes.\n", __FUNCTION__,
 			(unsigned long)io.size);
 #ifdef DEBUG
 	/* Check our bit is really zero! */
@@ -1648,22 +1843,22 @@ found_free_rec:
 			err = -EIO;
 		goto shrink_mftbmp_err_ret;
 	}
-	ntfs_debug(DEBUG_OTHER, __FUNCTION__ "(): Wrote %lu bytes.\n",
+	ntfs_debug(DEBUG_OTHER, "%s(): Wrote %lu bytes.\n", __FUNCTION__,
 			(unsigned long)io.size);
-	ntfs_debug(DEBUG_OTHER, __FUNCTION__ "(): After update: "
-			"bmp->allocated = 0x%Lx, bmp->size = 0x%Lx, "
-			"bmp->initialized = 0x%Lx.\n", bmp->allocated,
+	ntfs_debug(DEBUG_OTHER, "%s(): After update: bmp->allocated = 0x%Lx, "
+			"bmp->size = 0x%Lx, bmp->initialized = 0x%Lx.\n",
+			__FUNCTION__, bmp->allocated,
 			bmp->size, bmp->initialized);
 	/* The mft bitmap is now uptodate. Deal with mft data attribute now. */
 	ll = (__s64)(bit + 1) << vol->mft_record_size_bits;
 	if (ll <= data->initialized) {
 		/* The allocated record is already initialized. We are done! */
-		ntfs_debug(DEBUG_OTHER, __FUNCTION__ "(): Allocated mft record "
-				"already initialized!\n");
+		ntfs_debug(DEBUG_OTHER, "%s(): Allocated mft record "
+				"already initialized!\n", __FUNCTION__);
 		goto done_ret;
 	}
-	ntfs_debug(DEBUG_OTHER, __FUNCTION__ "(): Allocated mft record needs "
-			"to be initialized.\n");
+	ntfs_debug(DEBUG_OTHER, "%s(): Allocated mft record needs "
+			"to be initialized.\n", __FUNCTION__);
 	/* The mft record is outside the initialized data. */
 	mft_rec_size = (unsigned long)vol->mft_record_size;
 	/* Preserve old values for undo purposes. */
@@ -1678,32 +1873,31 @@ found_free_rec:
 	while (ll > data->allocated) {
 		ntfs_cluster_t lcn2, nr_lcn2, nr, min_nr;
 
-		ntfs_debug(DEBUG_OTHER, __FUNCTION__ "(): Extending mft "
-				"data allocation, data->allocated = 0x%Lx, "
-				"data->size = 0x%Lx, data->initialized = "
-				"0x%Lx.\n", data->allocated, data->size,
-				data->initialized);
+		ntfs_debug(DEBUG_OTHER, "%s(): Extending mft data allocation, "
+				"data->allocated = 0x%Lx, data->size = 0x%Lx, "
+				"data->initialized = 0x%Lx.\n", __FUNCTION__,
+				data->allocated, data->size, data->initialized);
 		/* Minimum allocation is one mft record worth of clusters. */
 		if (mft_rec_size <= vol->cluster_size)
 			min_nr = (ntfs_cluster_t)1;
 		else
 			min_nr = mft_rec_size >> vol->cluster_size_bits;
-		ntfs_debug(DEBUG_OTHER, __FUNCTION__ "(): min_nr = %i.\n",
+		ntfs_debug(DEBUG_OTHER, "%s(): min_nr = %i.\n", __FUNCTION__,
 				min_nr);
 		/* Allocate 16 mft records worth of clusters. */
 		nr = mft_rec_size << 4 >> vol->cluster_size_bits;
 		if (!nr)
 			nr = (ntfs_cluster_t)1;
 		/* Determine the preferred allocation location. */
-		ntfs_debug(DEBUG_OTHER, __FUNCTION__ "(): nr = %i.\n", nr);
+		ntfs_debug(DEBUG_OTHER, "%s(): nr = %i.\n", __FUNCTION__, nr);
 		rl2 = data->d.r.runlist;
 		r2len = data->d.r.len;
 		lcn2 = rl2[r2len - 1].lcn + rl2[r2len - 1].len;
-		ntfs_debug(DEBUG_OTHER, __FUNCTION__ "(): rl2[r2len - 1].lcn "
-				"= %i, .len = %i.\n", rl2[r2len - 1].lcn,
+		ntfs_debug(DEBUG_OTHER, "%s(): rl2[r2len - 1].lcn = %i, .len = "
+				"%i.\n", __FUNCTION__, rl2[r2len - 1].lcn,
 				rl2[r2len - 1].len);
-		ntfs_debug(DEBUG_OTHER, __FUNCTION__ "(): lcn2 = %i, r2len = "
-				"%i.\n", lcn2, r2len);
+		ntfs_debug(DEBUG_OTHER, "%s(): lcn2 = %i, r2len = %i.\n",
+				__FUNCTION__, lcn2, r2len);
 retry_mft_data_allocation:
 		nr_lcn2 = nr;
 		err = ntfs_allocate_clusters(vol, &lcn2, &nr_lcn2, &rl2,
@@ -1723,36 +1917,34 @@ retry_mft_data_allocation:
 			if (err == -ENOSPC && nr > min_nr &&
 					nr_lcn2 >= min_nr) {
 				nr = min_nr;
-				ntfs_debug(DEBUG_OTHER, __FUNCTION__ "(): "
-						"Retrying mft data "
-						"allocation, nr = min_nr = %i"
-						".\n", nr);
+				ntfs_debug(DEBUG_OTHER, "%s(): Retrying mft "
+						"data allocation, nr = min_nr "
+						"= %i.\n", __FUNCTION__, nr);
 				goto retry_mft_data_allocation;
 			}
 			goto undo_mftbmp_alloc_err_ret;
 		}
-		ntfs_debug(DEBUG_OTHER, __FUNCTION__ "(): Allocated %i "
-				"clusters starting at LCN %i.\n", nr_lcn2,
-				lcn2);
-		ntfs_debug(DEBUG_OTHER, __FUNCTION__ "(): Allocated "
-				"runlist:\n");
+		ntfs_debug(DEBUG_OTHER, "%s(): Allocated %i clusters starting "
+				"at LCN %i.\n", __FUNCTION__, nr_lcn2, lcn2);
+		ntfs_debug(DEBUG_OTHER, "%s(): Allocated runlist:\n",
+				__FUNCTION__);
 		dump_runlist(rl2, r2len);
 		/* Append rl2 to the mft data attribute's run list. */
 		err = splice_runlists(&data->d.r.runlist, (int*)&data->d.r.len,
 				rl2, r2len);
 		if (err) {
-			ntfs_debug(DEBUG_OTHER, __FUNCTION__ "(): "
-					"splice_runlists failed with error "
-					"code %i.\n", -err);
+			ntfs_debug(DEBUG_OTHER, "%s(): splice_runlists failed "
+					"with error code %i.\n", __FUNCTION__,
+					-err);
 			goto undo_partial_data_alloc_err_ret;
 		}
 		/* Reflect the allocated clusters in the mft allocated data. */
 		data->allocated += nr_lcn2 << vol->cluster_size_bits;
-		ntfs_debug(DEBUG_OTHER, __FUNCTION__ "(): After extending mft "
-				"data allocation, data->allocated = 0x%Lx, "
+		ntfs_debug(DEBUG_OTHER, "%s(): After extending mft data "
+				"allocation, data->allocated = 0x%Lx, "
 				"data->size = 0x%Lx, data->initialized = "
-				"0x%Lx.\n", data->allocated, data->size,
-				data->initialized);
+				"0x%Lx.\n", __FUNCTION__, data->allocated,
+				data->size, data->initialized);
 	}
 	/* Prepare a formatted (empty) mft record. */
 	memset(buf, 0, mft_rec_size);
@@ -1769,8 +1961,8 @@ retry_mft_data_allocation:
 	old_data_initialized = data->initialized;
 	old_data_size = data->size;
 	while (ll > data->initialized) {
-		ntfs_debug(DEBUG_OTHER, __FUNCTION__ "(): Initializing mft "
-				"record 0x%Lx.\n",
+		ntfs_debug(DEBUG_OTHER, "%s(): Initializing mft record "
+				"0x%Lx.\n", __FUNCTION__, 
 				data->initialized >> vol->mft_record_size_bits);
 		io.param = buf;
 		io.size = mft_rec_size;
@@ -1782,15 +1974,15 @@ retry_mft_data_allocation:
 				err = -EIO;
 			goto undo_data_init_err_ret;
 		}
-		ntfs_debug(DEBUG_OTHER, __FUNCTION__ "(): Wrote %i bytes to "
-				"mft data.\n", io.size);
+		ntfs_debug(DEBUG_OTHER, "%s(): Wrote %i bytes to mft data.\n",
+				__FUNCTION__, io.size);
 	}
 	/* Update the VFS inode size as well. */
 	VFS_I(vol->mft_ino)->i_size = data->size;
 #ifdef DEBUG
-	ntfs_debug(DEBUG_OTHER, __FUNCTION__ "(): After mft record "
+	ntfs_debug(DEBUG_OTHER, "%s(): After mft record "
 			"initialization: data->allocated = 0x%Lx, data->size "
-			"= 0x%Lx, data->initialized = 0x%Lx.\n",
+			"= 0x%Lx, data->initialized = 0x%Lx.\n", __FUNCTION__,
 			data->allocated, data->size, data->initialized);
 	/* Sanity checks. */
 	if (data->size > data->allocated || data->size < data->initialized ||
@@ -1799,45 +1991,47 @@ retry_mft_data_allocation:
 #endif
 done_ret:
 	/* Return the number of the allocated mft record. */
-	ntfs_debug(DEBUG_OTHER, __FUNCTION__ "(): At done_ret. *result = bit = "
-			"0x%lx.\n", bit);
+	ntfs_debug(DEBUG_OTHER, "%s(): At done_ret. *result = bit = 0x%lx.\n",
+			__FUNCTION__, bit);
 	*result = bit;
 	vol->mft_data_pos = bit + 1;
 err_ret:
 	unlock_kernel();
 	free_page((unsigned long)buf);
-	ntfs_debug(DEBUG_OTHER, __FUNCTION__ "(): Syncing inode $MFT.\n");
+	ntfs_debug(DEBUG_OTHER, "%s(): Syncing inode $MFT.\n", __FUNCTION__);
 	if (ntfs_update_inode(vol->mft_ino))
-		ntfs_error(__FUNCTION__ "(): Failed to sync inode $MFT. "
-				"Continuing anyway.\n");
+		ntfs_error("%s(): Failed to sync inode $MFT. "
+				"Continuing anyway.\n",__FUNCTION__);
 	if (!err) {
-		ntfs_debug(DEBUG_FILE3, __FUNCTION__ "(): Done. Allocated mft "
-				"record number *result = 0x%lx.\n", *result);
+		ntfs_debug(DEBUG_FILE3, "%s(): Done. Allocated mft record "
+				"number *result = 0x%lx.\n", __FUNCTION__,
+				*result);
 		return 0;
 	}
 	if (err != -ENOSPC)
-		ntfs_error(__FUNCTION__ "(): Failed to allocate an mft "
-				"record. Returning error code %i.\n", -err);
+		ntfs_error("%s(): Failed to allocate an mft record. Returning "
+				"error code %i.\n", __FUNCTION__, -err);
 	else
-		ntfs_debug(DEBUG_FILE3, __FUNCTION__ "(): Failed to allocate "
-				"an mft record due to lack of free space.\n");
+		ntfs_debug(DEBUG_FILE3, "%s(): Failed to allocate an mft "
+				"record due to lack of free space.\n",
+				__FUNCTION__);
 	return err;
 undo_data_init_err_ret:
-	ntfs_debug(DEBUG_OTHER, __FUNCTION__ "(): At "
-			"undo_data_init_err_ret.\n");
+	ntfs_debug(DEBUG_OTHER, "%s(): At undo_data_init_err_ret.\n",
+			__FUNCTION__);
 	data->initialized = old_data_initialized;
 	data->size = old_data_size;
 undo_data_alloc_err_ret:
-	ntfs_debug(DEBUG_OTHER, __FUNCTION__ "(): At undo_data_alloc_err_ret."
-			"\n");
+	ntfs_debug(DEBUG_OTHER, "%s(): At undo_data_alloc_err_ret.\n",
+			__FUNCTION__);
 	data->allocated = old_data_allocated;
 undo_partial_data_alloc_err_ret:
-	ntfs_debug(DEBUG_OTHER, __FUNCTION__ "(): At "
-			"undo_partial_data_alloc_err_ret.\n");
+	ntfs_debug(DEBUG_OTHER, "%s(): At undo_partial_data_alloc_err_ret.\n",
+			__FUNCTION__);
 	/* Deallocate the clusters. */
 	if (ntfs_deallocate_clusters(vol, rl2, r2len))
-		ntfs_error(__FUNCTION__ "(): Error deallocating clusters in "
-				"error code path. You should run chkdsk.\n");
+		ntfs_error("%s(): Error deallocating clusters in error code "
+			"path. You should run chkdsk.\n", __FUNCTION__);
 	ntfs_vfree(rl2);
 	/* Revert the run list back to what it was before. */
 	r2len = data->d.r.len;
@@ -1857,13 +2051,13 @@ undo_partial_data_alloc_err_ret:
 			ntfs_vfree(data->d.r.runlist);
 			data->d.r.runlist = rl2;
 		} else
-			ntfs_error(__FUNCTION__ "(): Error reallocating "
+			ntfs_error("%s(): Error reallocating "
 					"memory in error code path. This "
-					"should be harmless.\n");
+					"should be harmless.\n", __FUNCTION__);
 	}	
 undo_mftbmp_alloc_err_ret:
-	ntfs_debug(DEBUG_OTHER, __FUNCTION__ "(): At "
-			"undo_mftbmp_alloc_err_ret.\n");
+	ntfs_debug(DEBUG_OTHER, "%s(): At undo_mftbmp_alloc_err_ret.\n",
+			__FUNCTION__);
 	/* Deallocate the allocated bit in the mft bitmap. */
 	io.param = buf;
 	io.size = 1;
@@ -1878,13 +2072,14 @@ undo_mftbmp_alloc_err_ret:
 	if (err || io.size != 1) {
 		if (!err)
 			err = -EIO;
-		ntfs_error(__FUNCTION__ "(): Error deallocating mft record in "
-				"error code path. You should run chkdsk.\n");
+		ntfs_error("%s(): Error deallocating mft record in error code "
+			"path. You should run chkdsk.\n", __FUNCTION__);
 	}
 shrink_mftbmp_err_ret:
-	ntfs_debug(DEBUG_OTHER, __FUNCTION__ "(): At shrink_mftbmp_err_ret.\n");
-	ntfs_debug(DEBUG_OTHER, __FUNCTION__ "(): have_allocated_mftbmp = "
-			"%i.\n", have_allocated_mftbmp);
+	ntfs_debug(DEBUG_OTHER, "%s(): At shrink_mftbmp_err_ret.\n",
+			__FUNCTION__);
+	ntfs_debug(DEBUG_OTHER, "%s(): have_allocated_mftbmp = %i.\n",
+			__FUNCTION__, have_allocated_mftbmp);
 	if (!have_allocated_mftbmp)
 		goto err_ret;
 	/* Shrink the mftbmp back to previous size. */
@@ -1893,15 +2088,15 @@ shrink_mftbmp_err_ret:
 	bmp->initialized -= 8LL;
 	have_allocated_mftbmp &= ~4;
 	/* If no allocation occured then we are done. */
-	ntfs_debug(DEBUG_OTHER, __FUNCTION__ "(): have_allocated_mftbmp = "
-			"%i.\n", have_allocated_mftbmp);
+	ntfs_debug(DEBUG_OTHER, "%s(): have_allocated_mftbmp = %i.\n",
+			__FUNCTION__, have_allocated_mftbmp);
 	if (!have_allocated_mftbmp)
 		goto err_ret;
 	/* Deallocate the allocated cluster. */
 	bmp->allocated -= (__s64)vol->cluster_size;
 	if (ntfs_deallocate_cluster_run(vol, lcn, (ntfs_cluster_t)1))
-		ntfs_error(__FUNCTION__ "(): Error deallocating cluster in "
-				"error code path. You should run chkdsk.\n");
+		ntfs_error("%s(): Error deallocating cluster in error code "
+			"path. You should run chkdsk.\n", __FUNCTION__);
 	switch (have_allocated_mftbmp & 3) {
 	case 1:
 		/* Delete the last lcn from the last run of mftbmp. */
@@ -1921,10 +2116,10 @@ shrink_mftbmp_err_ret:
 				ntfs_vfree(rl);
 				bmp->d.r.runlist = rl = rlt;
 			} else
-				ntfs_error(__FUNCTION__ "(): Error "
+				ntfs_error("%s(): Error "
 						"reallocating memory in error "
 						"code path. This should be "
-						"harmless.\n");
+						"harmless.\n", __FUNCTION__);
 		}
 		bmp->d.r.runlist[bmp->d.r.len].lcn = (ntfs_cluster_t)-1;
 		bmp->d.r.runlist[bmp->d.r.len].len = (ntfs_cluster_t)0;
@@ -1977,6 +2172,12 @@ static int add_filename(ntfs_inode *ino, ntfs_inode *dir,
 	NTFS_PUTU64(position + 0x10, now);		/* Last modification */
 	NTFS_PUTU64(position + 0x18, now);		/* Last mod for MFT */
 	NTFS_PUTU64(position + 0x20, now);		/* Last access */
+	/* FIXME: Get the following two sizes by finding the data attribute
+	 * in ino->attr and copying the corresponding fields from there.
+	 * If no data present then set to zero. In current implementation
+	 * add_data is called after add_filename so zero is correct on
+	 * creation. Need to change when we have hard links / support different
+	 * filename namespaces. (AIA) */
 	NTFS_PUTS64(position + 0x28, 0);		/* Allocated size */
 	NTFS_PUTS64(position + 0x30, 0);		/* Data size */
 	NTFS_PUTU32(position + 0x38, flags);		/* File flags */
@@ -1984,6 +2185,9 @@ static int add_filename(ntfs_inode *ino, ntfs_inode *dir,
 							 * features yet. */
 	NTFS_PUTU8(position + 0x40, length);		/* Filename length */
 	NTFS_PUTU8(position + 0x41, 0);			/* Only long name */
+		/* FIXME: This is madness. We are defining the POSIX namespace
+		 * for the filename here which can mean that the file will be
+		 * invisible when in Windows NT/2k! )-: (AIA) */
 	position += 0x42;
 	for (count = 0; count < length; count++) {
 		NTFS_PUTU16(position + 2 * count, filename[count]);
@@ -2025,6 +2229,7 @@ int add_security(ntfs_inode* ino, ntfs_inode* dir)
 		ntfs_free(buf);
 		return error;
 	}
+	/* FIXME: Consider ACL inheritance. */
 	error = ntfs_create_attr(ino, ino->vol->at_security_descriptor,
 				 0, buf, size, &se);
 	ntfs_free(buf);
@@ -2038,6 +2243,13 @@ static int add_data(ntfs_inode* ino, unsigned char *data, int length)
 	return ntfs_create_attr(ino, ino->vol->at_data, 0, data, length, &da);
 }
 
+/*
+ * We _could_ use 'dir' to help optimise inode allocation.
+ *
+ * FIXME: Need to undo what we do in ntfs_alloc_mft_record if we get an error
+ * further on in ntfs_alloc_inode. Either fold the two functions to allow
+ * proper undo or just deallocate the record from the mft bitmap. (AIA)
+ */
 int ntfs_alloc_inode(ntfs_inode *dir, ntfs_inode *result, const char *filename,
 		int namelen, ntfs_u32 flags)
 {
@@ -2049,7 +2261,7 @@ int ntfs_alloc_inode(ntfs_inode *dir, ntfs_inode *result, const char *filename,
 	err = ntfs_alloc_mft_record(vol, &(result->i_number));
 	if (err) {
 		if (err == -ENOSPC)
-			ntfs_error(__FUNCTION__ "(): No free inodes.\n");
+			ntfs_error("%s(): No free inodes.\n", __FUNCTION__);
 		return err;
 	}
 	/* Get the sequence number. */

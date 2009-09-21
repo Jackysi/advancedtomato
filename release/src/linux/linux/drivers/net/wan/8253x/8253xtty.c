@@ -1,5 +1,5 @@
 /* -*- linux-c -*- */
-/* $Id: 8253xtty.c,v 1.1.1.4 2003/10/14 08:08:30 sparq Exp $
+/* $Id: 8253xtty.c,v 1.23 2002/02/10 22:17:25 martillo Exp $
  * sab82532.c: ASYNC Driver for the SIEMENS SAB82532 DUSCC.
  *
  * Copyright (C) 1997  Eddie C. Dost  (ecd@skynet.be)
@@ -60,7 +60,7 @@ static struct termios **sab8253x_termios_locked = 0;
 #undef XCONFIG_SERIAL_CONSOLE	/* leaving out CONFIG_SERIAL_CONSOLE for now */
 #endif
 
-#ifdef XCONFIG_SERIAL_CONSOLE	    /* not really implemented yet */
+#ifdef XCONFIG_SERIAL_CONSOLE	/* not really implemented yet */
 extern int serial_console;
 struct console sab8253x_console;
 int sab8253x_console_init(void);
@@ -254,7 +254,7 @@ void sab8253x_start_tx(struct sab_port *port)
 			if ((count <= 0) && (port->sabnext2.transmit->sendcrc == 0))
 			{
 				port->sabnext2.transmit->Count = OWN_DRIVER;
-#ifdef FREEININTERRUPT		    /* treat this routine as if taking place in interrupt */
+#ifdef FREEININTERRUPT		/* treat this routine as if taking place in interrupt */
 				if(port->sabnext2.transmit->HostVaddr)
 				{
 					skb_unlink(port->sabnext2.transmit->HostVaddr);
@@ -691,10 +691,7 @@ static void sab8253x_do_softint(void *private_)
 	port->DoingInterrupt = 1;
 	if (test_and_clear_bit(SAB8253X_EVENT_WRITE_WAKEUP, &port->event)) 
 	{
-		if ((tty->flags & (1 << TTY_DO_WRITE_WAKEUP)) &&
-		    tty->ldisc.write_wakeup)
-			(tty->ldisc.write_wakeup)(tty);
-		wake_up_interruptible(&tty->write_wait); /* in case tty driver waiting on write */
+		tty_wakeup(tty);
 	}
 	port->DoingInterrupt = 0;
 }
@@ -1165,9 +1162,21 @@ static void sab8253x_change_speed(struct sab_port *port)
 	if (port->tty)
 		port->tty->hw_stopped = 0;
 	
+	/*
+	 * Set up parity check flag
+	 * XXX: not implemented, yet.
+	 */
 #define RELEVANT_IFLAG(iflag) (iflag & (IGNBRK|BRKINT|IGNPAR|PARMRK|INPCK))
 	
+	/*
+	 * Characters to ignore
+	 * XXX: not implemented, yet.
+	 */
 	
+	/*
+	 * !!! ignore all characters if CREAD is not set
+	 * XXX: not implemented, yet.
+	 */
 	if ((cflag & CREAD) == 0)
 		port->ignore_status_mask |= SAB82532_ISR0_RPF |
 			/* SAB82532_ISR0_TIME |*/
@@ -1989,10 +1998,7 @@ static void sab8253x_close(struct tty_struct *tty, struct file * filp)
 	{
 		tty->driver.flush_buffer(tty);
 	}
-	if (tty->ldisc.flush_buffer)
-	{
-		tty->ldisc.flush_buffer(tty);
-	}
+	tty_ldisc_flush(tty);
 	tty->closing = 0;
 	port->event = 0;
 	port->tty = 0;
@@ -2119,7 +2125,7 @@ static int sab8253x_open(struct tty_struct *tty, struct file * filp)
 	/* Check whether or not the port is open in SYNC mode */
 	if(port->open_type == OPEN_SYNC_NET)
 	{
-		if(port->dev && netif_carrier_ok(port->dev));
+		if(port->dev && netif_carrier_ok(port->dev))
 		{
 			port->tty= NULL;	/* Don't bother with open counting here
 						   but make sure the tty field is NULL*/
@@ -2372,7 +2378,7 @@ static int sab8253x_read_proc(char *page, char **start, off_t off, int count,
 
 static void inline show_aurora_version(void)
 {
-	char *revision = "$Revision: 1.1.1.4 $";
+	char *revision = "$Revision: 1.23 $";
 	char *version, *p;
 	
 	version = strchr(revision, ' ');

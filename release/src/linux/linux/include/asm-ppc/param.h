@@ -1,14 +1,8 @@
-/*
- * BK Id: SCCS/s.param.h 1.8 08/20/01 22:50:29 paulus
- */
 #ifndef _ASM_PPC_PARAM_H
 #define _ASM_PPC_PARAM_H
 
 #ifndef HZ
 #define HZ 100
-#ifdef __KERNEL__
-#define hz_to_std(a) (a)
-#endif
 #endif
 
 #define EXEC_PAGESIZE	4096
@@ -25,6 +19,6 @@
 
 #ifdef __KERNEL__
 # define CLOCKS_PER_SEC	HZ	/* frequency at which times() counts */
-#endif
+#endif /* __KERNEL__ */
 
 #endif

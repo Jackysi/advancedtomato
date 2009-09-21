@@ -12,7 +12,7 @@ USE_STANDARD_AS_RULE := true
 
 L_TARGET  = rexlib.a
 
-obj-y			+= init.o memory.o cmdline.o identify.o
+obj-y			+= init.o memory.o cmdline.o identify.o console.o
 
 obj-$(CONFIG_MIPS32)	+= locore.o
 obj-$(CONFIG_MIPS64)	+= call_o32.o

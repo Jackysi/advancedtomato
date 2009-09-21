@@ -1,7 +1,3 @@
-/*
- * BK Id: %F% %I% %G% %U% %#%
- */
-
 /* Board specific functions for those embedded 8xx boards that do
  * not have boot monitor support for board information.
  *
@@ -18,7 +14,7 @@
 #endif
 #ifdef CONFIG_8260
 #include <asm/mpc8260.h>
-#include <asm/immap_8260.h>
+#include <asm/immap_cpm2.h>
 #endif
 #ifdef CONFIG_4xx
 #include <asm/io.h>
@@ -26,6 +22,7 @@
 #if defined(CONFIG_405GP) || defined(CONFIG_NP405H) || defined(CONFIG_NP405L)
 #include <linux/netdevice.h>
 #endif
+extern unsigned long timebase_period_ns;
 
 /* For those boards that don't provide one.
 */
@@ -55,7 +52,7 @@ embed_config(bd_t **bdp)
 {
 	u_char	*mp;
 	u_char	eebuf[128];
-	int i;
+	int i = 8;
 	bd_t    *bd;
 
 	bd = *bdp;
@@ -67,11 +64,21 @@ embed_config(bd_t **bdp)
 
 	/* All we are looking for is the Ethernet MAC address.  The
 	 * first 8 bytes are 'MOTOROLA', so check for part of that.
+	 * Next, the VPD describes a MAC 'packet' as being of type 08
+	 * and size 06.  So we look for that and the MAC must follow.
+	 * If there are more than one, we still only care about the first.
 	 * If it's there, assume we have a valid MAC address.  If not,
 	 * grab our default one.
 	 */
-	if ((*(uint *)eebuf) == 0x4d4f544f)
-		mp = &eebuf[0x4c];
+	if ((*(uint *)eebuf) == 0x4d4f544f) {
+		while (i < 127 && !(eebuf[i] == 0x08 && eebuf[i + 1] == 0x06))
+			 i += eebuf[i + 1] + 2;  /* skip this packet */
+
+		if (i == 127)	/* Couldn't find. */
+			mp = (u_char *)def_enet_addr;
+		else
+			mp = &eebuf[i + 2];
+	}
 	else
 		mp = (u_char *)def_enet_addr;
 
@@ -248,6 +255,7 @@ embed_config(bd_t **bdp)
 	bd = &bdinfo;
 	*bdp = bd;
 
+#if 1
 	iic_read(0xa8, eebuf, 0, 128);
 	iic_read(0xa8, &eebuf[128], 128, 128);
 
@@ -298,6 +306,15 @@ embed_config(bd_t **bdp)
 			break;
 	}
 	bd->bi_memstart = 0;
+#else
+	/* For boards without initialized EEPROM.
+	*/
+	bd->bi_memstart = 0;
+	bd->bi_memsize = (8 * 1024 * 1024);
+	bd->bi_intfreq = 48000000;
+	bd->bi_busfreq = 48000000;
+	bd->bi_baudrate = 9600;
+#endif
 }
 #endif /* RPXLITE || RPXCLASSIC */
 
@@ -363,8 +380,8 @@ embed_config(bd_t **bdp)
 
 	bd->bi_memstart = 0;
 	bd->bi_memsize = (8 * 1024 * 1024);
-	bd->bi_intfreq = 40000000;
-	bd->bi_busfreq = 40000000;
+	bd->bi_intfreq = 48000000;
+	bd->bi_busfreq = 48000000;
 }
 #endif /* FADS */
 
@@ -377,10 +394,10 @@ static void
 clk_8260(bd_t *bd)
 {
 	uint	scmr, vco_out, clkin;
-	uint	plldf, pllmf, busdf, brgdf, cpmdf;
-	volatile immap_t	*ip;
+	uint	plldf, pllmf, busdf, cpmdf;
+	volatile cpm2_map_t	*ip;
 
-	ip = (immap_t *)IMAP_ADDR;
+	ip = (cpm2_map_t *)CPM_MAP_ADDR;
 	scmr = ip->im_clkrst.car_scmr;
 
 	/* The clkin is always bus frequency.
@@ -419,6 +436,18 @@ embed_config(bd_t **bdp)
 	bd_t	*bd;
 
 	bd = *bdp;
+#if 0
+	/* This is actually provided by my boot rom.  I have it
+	 * here for those people that may load the kernel with
+	 * a JTAG/COP tool and not the rom monitor.
+	 */
+	bd->bi_baudrate = 115200;
+	bd->bi_intfreq = 200000000;
+	bd->bi_busfreq = 66666666;
+	bd->bi_cpmfreq = 66666666;
+	bd->bi_brgfreq = 33333333;
+	bd->bi_memsize = 16 * 1024 * 1024;
+#else
 	/* The boot rom passes these to us in MHz.  Linux now expects
 	 * them to be in Hz.
 	 */
@@ -426,6 +455,7 @@ embed_config(bd_t **bdp)
 	bd->bi_busfreq *= 1000000;
 	bd->bi_cpmfreq *= 1000000;
 	bd->bi_brgfreq *= 1000000;
+#endif
 
 	cp = (u_char *)def_enet_addr;
 	for (i=0; i<6; i++) {
@@ -472,7 +502,6 @@ void
 embed_config(bd_t **bdp)
 {
 	u_char	*cp, *keyvals;
-	int	i;
 	bd_t	*bd;
 
 	keyvals = (u_char *)*bdp;
@@ -552,7 +581,7 @@ embed_config(bd_t **bdp)
 	*/
 	bd->bi_intfreq = 200000000;
 }
-#endif /* RPX6 for testing */
+#endif /* RPX6 */
 
 #ifdef CONFIG_ADS8260
 void
@@ -621,7 +650,7 @@ embed_config(bd_t **bdp)
 }
 #endif /* WILLOW */
 
-#ifdef CONFIG_TREEBOOT
+#ifdef CONFIG_IBM_OPENBIOS
 /* This could possibly work for all treeboot roms.
 */
 #define	BOARD_INFO_VECTOR	0xFFFE0B50
@@ -635,15 +664,12 @@ embed_config(bd_t **bdp)
 	bd_t *(*get_board_info)(void) =
 	    (bd_t *(*)(void))(*(unsigned long *)BOARD_INFO_VECTOR);
 #if !defined(CONFIG_STB03xxx)
-	volatile emac_t *emacp;
-	emacp = (emac_t *)EMAC0_BASE;  /* assume 1st emac - armin */
-
 	/* shut down the Ethernet controller that the boot rom
 	 * sometimes leaves running.
 	 */
-	mtdcr(DCRN_MALCR, MALCR_MMSR);                /* 1st reset MAL */
-	while (mfdcr(DCRN_MALCR) & MALCR_MMSR) {};    /* wait for the reset */
-	emacp->em0mr0 = 0x20000000;        /* then reset EMAC */
+	mtdcr(DCRN_MALCR(DCRN_MAL_BASE), MALCR_MMSR);                /* 1st reset MAL */
+	while (mfdcr(DCRN_MALCR(DCRN_MAL_BASE)) & MALCR_MMSR) {};    /* wait for the reset */
+	out_be32((u32 *)EMAC0_BASE, 0x20000000);        /* then reset EMAC */
 	eieio();
 #endif
 
@@ -697,6 +723,7 @@ embed_config(bd_t **bdp)
 
 	bd = &bdinfo;
 	*bdp = bd;
+#if 1
 	        cp = (u_char *)0xF0000EE0;
 	        for (;;) {
 	                if (*cp == 'E') {
@@ -725,6 +752,13 @@ embed_config(bd_t **bdp)
 	bd->bi_intfreq   = 200000000;
 	bd->bi_busfreq   = 100000000;
 	bd->bi_pci_busfreq= 33000000 ;
+#else
+
+	bd->bi_memsize   = 64000000;
+	bd->bi_intfreq   = 200000000;
+	bd->bi_busfreq   = 100000000;
+	bd->bi_pci_busfreq= 33000000 ;
+#endif
+	timebase_period_ns = 1000000000 / bd->bi_tbfreq;
 }
 #endif
-

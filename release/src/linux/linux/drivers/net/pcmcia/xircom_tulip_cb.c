@@ -585,6 +585,7 @@ static int __devinit xircom_init_one(struct pci_dev *pdev, const struct pci_devi
 	tp->pdev = pdev;
 	tp->chip_id = chip_idx;
 	/* BugFixes: The 21143-TD hangs with PCI Write-and-Invalidate cycles. */
+	/* XXX: is this necessary for Xircom? */
 	tp->csr0 = csr0 & ~EnableMWI;
 
 	pci_set_drvdata(pdev, dev);
@@ -764,7 +765,7 @@ xircom_up(struct net_device *dev)
 	if (dev->if_port == 0)
 		dev->if_port = tp->default_port;
 
-	tp->csr6 = TxThresh10 /*| FullDuplexBit*/;						
+	tp->csr6 = TxThresh10 /*| FullDuplexBit*/;						/* XXX: why 10 and not 100? */
 
 	set_rx_mode(dev);
 
@@ -922,6 +923,14 @@ xircom_start_xmit(struct sk_buff *skb, struct net_device *dev)
 	/* Calculate the next Tx descriptor entry. */
 	entry = tp->cur_tx % TX_RING_SIZE;
 
+	/* Seems to be needed even though the docs disagree */
+	if(skb->len < ETH_ZLEN)
+	{
+		skb = skb_padto(skb, ETH_ZLEN);
+		if(skb == NULL)
+			return 0;
+	}
+	
 	tp->tx_skbuff[entry] = skb;
 #ifdef CARDBUS
 	if (tp->chip_id == X3201_3) {
@@ -1245,7 +1254,7 @@ xircom_rx(struct net_device *dev)
 				&& (skb = dev_alloc_skb(pkt_len + 2)) != NULL) {
 				skb->dev = dev;
 				skb_reserve(skb, 2);	/* 16 byte align the IP header */
-#if !defined(__alpha__)
+#if ! defined(__alpha__)
 				eth_copy_and_sum(skb, bus_to_virt(tp->rx_ring[entry].buffer1),
 								 pkt_len, 0);
 				skb_put(skb, pkt_len);
@@ -1573,6 +1582,7 @@ static void set_rx_mode(struct net_device *dev)
 		}
 
 		/* Truly brain-damaged hash filter layout */
+		/* XXX: not sure if I should take the last or the first 9 bits */
 		for (i = 0; i < dev->mc_count; i++, mclist = mclist->next) {
 			u32 *hptr;
 			hash = ether_crc(ETH_ALEN, mclist->dmi_addr) & 0x1ff;
@@ -1607,6 +1617,7 @@ static void set_rx_mode(struct net_device *dev)
 	/* Now add this frame to the Tx list. */
 	if (tp->cur_tx - tp->dirty_tx > TX_RING_SIZE - 2) {
 		/* Same setup recently queued, we need not add it. */
+		/* XXX: Huh? All it means is that the Tx list is full...*/
 	} else {
 		unsigned long flags;
 		unsigned int entry;

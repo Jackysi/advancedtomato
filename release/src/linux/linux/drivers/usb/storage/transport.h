@@ -1,7 +1,7 @@
 /* Driver for USB Mass Storage compliant devices
  * Transport Functions Header File
  *
- * $Id: transport.h,v 1.1.1.4 2003/10/14 08:08:52 sparq Exp $
+ * $Id: transport.h,v 1.17 2002/02/25 00:43:41 mdharm Exp $
  *
  * Current development and maintenance by:
  *   (c) 1999, 2000 Matthew Dharm (mdharm-usb@one-eyed-alien.net)
@@ -75,6 +75,8 @@
 #define US_PR_JUMPSHOT  0xf3            /* Lexar Jumpshot */
 #endif
 
+#define US_PR_DEVICE	0xff		/* Use device's value */
+
 /*
  * Bulk only data structures
  */
@@ -106,6 +108,8 @@ struct bulk_cs_wrap {
 
 #define US_BULK_CS_WRAP_LEN	13
 #define US_BULK_CS_SIGN		0x53425355	/* spells out 'USBS' */
+/* This is for Olympus Camedia digital cameras */
+#define US_BULK_CS_OLYMPUS_SIGN		0x55425355	/* spells out 'USBU' */
 #define US_BULK_STAT_OK		0
 #define US_BULK_STAT_FAIL	1
 #define US_BULK_STAT_PHASE	2

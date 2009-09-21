@@ -14,10 +14,16 @@ extern unsigned int pcibios_assign_all_busses(void);
 #else
 #define pcibios_assign_all_busses()	0
 #endif
+#define pcibios_scan_all_fns()		0
 
 extern unsigned long pci_mem_start;
 #define PCIBIOS_MIN_IO		0x1000
 #define PCIBIOS_MIN_MEM		(pci_mem_start)
+
+void pcibios_config_init(void);
+struct pci_bus * pcibios_scan_root(int bus);
+extern int (*pci_config_read)(int seg, int bus, int dev, int fn, int reg, int len, u32 *value);
+extern int (*pci_config_write)(int seg, int bus, int dev, int fn, int reg, int len, u32 value);
 
 void pcibios_set_master(struct pci_dev *dev);
 void pcibios_penalize_isa_irq(int irq);
@@ -103,7 +109,9 @@ static inline dma_addr_t pci_map_page(struct pci_dev *hwdev, struct page *page,
 	if (direction == PCI_DMA_NONE)
 		out_of_line_bug();
 
-	return (dma_addr_t)(page - mem_map) * PAGE_SIZE + offset;
+	return ((dma_addr_t)(page - mem_map) *
+		(dma_addr_t) PAGE_SIZE +
+		(dma_addr_t) offset);
 }
 
 static inline void pci_unmap_page(struct pci_dev *hwdev, dma_addr_t dma_address,

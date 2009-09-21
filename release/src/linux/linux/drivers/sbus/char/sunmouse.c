@@ -13,6 +13,30 @@
  * Aug/97    Added PCI 8042 controller support -DaveM
  */
 
+/* The mouse is run off of one of the Zilog serial ports.  On
+ * that port is the mouse and the keyboard, each gets a zs channel.
+ * The mouse itself is mouse-systems in nature.  So the protocol is:
+ *
+ * Byte 1) Button state which is bit-encoded as
+ *            0x4 == left-button down, else up
+ *            0x2 == middle-button down, else up
+ *            0x1 == right-button down, else up
+ *
+ * Byte 2) Delta-x
+ * Byte 3) Delta-y
+ * Byte 4) Delta-x again
+ * Byte 5) Delta-y again
+ *
+ * One day this driver will have to support more than one mouse in the system.
+ *
+ * This driver has two modes of operation: the default VUID_NATIVE is
+ * set when the device is opened and allows the application to see the
+ * mouse character stream as we get it from the serial (for gpm for
+ * example).  The second method, VUID_FIRM_EVENT will provide cooked
+ * events in Firm_event records as expected by SunOS/Solaris applications.
+ *
+ * FIXME: We need to support more than one mouse.
+ * */
 
 #include <linux/config.h>
 #include <linux/kernel.h>
@@ -205,6 +229,17 @@ sun_mouse_inbyte(unsigned char byte, int is_break)
 	Firm_event ev;
 
 	add_mouse_randomness (byte);
+#if 0
+	{
+		static int xxx = 0;
+		printk("mouse(%02x:%d) ",
+		       byte, is_break);
+		if (byte == 0x87) {
+			xxx = 0;
+			printk("\n");
+		}
+	}
+#endif
 	if (mouse_baud_detection(byte, is_break))
 		return;
 
@@ -219,6 +254,14 @@ sun_mouse_inbyte(unsigned char byte, int is_break)
 		/* Ok, we've begun the state machine. */
 		sunmouse.byte = 0;
 	}
+#if 0
+	/* If the mouse sends us a byte from 0x80 to 0x87
+	 * we are starting at byte zero in the transaction
+	 * protocol.
+	 */
+	if((byte & ~0x0f) == 0x80) 
+		sunmouse.byte = 0;
+#endif
 
 	mvalue = (signed char) byte;
 	switch(sunmouse.byte) {

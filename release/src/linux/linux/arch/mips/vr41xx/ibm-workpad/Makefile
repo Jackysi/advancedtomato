@@ -14,6 +14,4 @@ all: workpad.o
 
 obj-y	:= init.o setup.o
 
-obj-$(CONFIG_IDE)	+= ide-workpad.o
-
 include $(TOPDIR)/Rules.make

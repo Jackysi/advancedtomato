@@ -14,6 +14,7 @@
 #include <linux/types.h>
 #include <linux/interrupt.h>
 
+#include <asm/i8259.h>
 #include <asm/io.h>
 #include <asm/ptrace.h>
 

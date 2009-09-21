@@ -1,7 +1,7 @@
 /*
  * Sun3 SCSI stuff by Erik Verbruggen (erik@bigmama.xtdnet.nl)
  *
- * Sun3 DMA routines added by Sam Creasey (sammy@oh.verio.com)
+ * Sun3 DMA routines added by Sam Creasey (sammy@sammy.net)
  *
  * Adapted from mac_scsinew.c:
  */
@@ -46,13 +46,7 @@
  */
 
 /*
- * $Log: sun3_scsi.c,v $
- * Revision 1.1.1.2  2003/10/14 08:08:42  sparq
- * Broadcom Release 3.51.8.0 for BCM4712.
- *
- * Revision 1.1.1.1  2003/02/03 22:37:54  mhuang
- * LINUX_2_4 branch snapshot from linux-mips.org CVS
- *
+ * $Log: sun3_NCR5380.c,v $
  */
 
 #define AUTOSENSE
@@ -179,6 +173,9 @@ static inline void sun3_udc_write(unsigned short val, unsigned char reg)
 	udelay(SUN3_DMA_DELAY);
 }
 
+/*
+ * XXX: status debug
+ */
 static struct Scsi_Host *default_instance;
 
 /*
@@ -195,8 +192,7 @@ static struct Scsi_Host *default_instance;
  
 int sun3scsi_detect(Scsi_Host_Template * tpnt)
 {
-	unsigned long ioaddr, iopte;
-	int count = 0;
+	unsigned long ioaddr;
 	static int called = 0;
 	struct Scsi_Host *instance;
 
@@ -230,28 +226,9 @@ int sun3scsi_detect(Scsi_Host_Template * tpnt)
 		tpnt->this_id = 7;
 	}
 
-	/* Taken from Sammy's lance driver: */
-        /* IOBASE_SUN3_SCSI can be found within the IO pmeg with some effort */
-        for(ioaddr = 0xfe00000; ioaddr < (0xfe00000 + SUN3_PMEG_SIZE);
-            ioaddr += SUN3_PTE_SIZE) {
-
-                iopte = sun3_get_pte(ioaddr);
-                if(!(iopte & SUN3_PAGE_TYPE_IO)) /* this an io page? */
-                        continue;
-
-                if(((iopte & SUN3_PAGE_PGNUM_MASK) << PAGE_SHIFT) ==
-                   IOBASE_SUN3_SCSI) {
-                        count = 1;
-                        break;
-                }
-        }
-
-	if(!count) {
-		printk("No Sun3 NCR5380 found!\n");
-		return 0;
-	}
-
+	ioaddr = (unsigned long)ioremap(IOBASE_SUN3_SCSI, PAGE_SIZE);
 	sun3_scsi_regp = (unsigned char *)ioaddr;
+
 	dregs = (struct sun3_dma_regs *)(((unsigned char *)ioaddr) + 8);
 
 	if((udc_regs = dvma_malloc(sizeof(struct sun3_udc_regs)))
@@ -290,7 +267,7 @@ int sun3scsi_detect(Scsi_Host_Template * tpnt)
 #ifndef REAL_DMA
 		printk("scsi%d: IRQ%d not free, interrupts disabled\n",
 		       instance->host_no, instance->irq);
-		instance->irq = IRQ_NONE;
+		instance->irq = SCSI_IRQ_NONE;
 #else
 		printk("scsi%d: IRQ%d not free, bailing out\n",
 		       instance->host_no, instance->irq);
@@ -299,7 +276,7 @@ int sun3scsi_detect(Scsi_Host_Template * tpnt)
 	}
 	
 	printk("scsi%d: Sun3 5380 at port %lX irq", instance->host_no, instance->io_port);
-	if (instance->irq == IRQ_NONE)
+	if (instance->irq == SCSI_IRQ_NONE)
 		printk ("s disabled");
 	else
 		printk (" %d", instance->irq);
@@ -325,13 +302,17 @@ int sun3scsi_detect(Scsi_Host_Template * tpnt)
 	return 1;
 }
 
+#ifdef MODULE
 int sun3scsi_release (struct Scsi_Host *shpnt)
 {
-	if (shpnt->irq != IRQ_NONE)
+	if (shpnt->irq != SCSI_IRQ_NONE)
 		free_irq (shpnt->irq, NULL);
+
+	iounmap((void *)sun3_scsi_regp);
 
 	return 0;
 }
+#endif
 
 #ifdef RESET_BOOT
 /*
@@ -410,6 +391,20 @@ static void scsi_sun3_intr(int irq, void *dummy, struct pt_regs *fp)
  */
 
 /* this doesn't seem to get used at all -- sam */
+#if 0
+void sun3_sun3_debug (void)
+{
+	unsigned long flags;
+	NCR5380_local_declare();
+
+	if (default_instance) {
+			save_flags(flags);
+			cli();
+			NCR5380_print_status(default_instance);
+			restore_flags(flags);
+	}
+}
+#endif
 
 
 /* sun3scsi_dma_setup() -- initialize the dma controller for a read/write */
@@ -526,6 +521,14 @@ static inline unsigned long sun3scsi_dma_xfer_len(unsigned long wanted, Scsi_Cmn
 		return 0;
 }
 
+static inline int sun3scsi_dma_start(unsigned long count, unsigned char *data)
+{
+
+    sun3_udc_write(UDC_CHN_START, UDC_CSR);
+    
+    return 0;
+}
+
 /* clean up after our dma is done */
 static int sun3scsi_dma_finish(int write_flag)
 {
@@ -534,6 +537,7 @@ static int sun3scsi_dma_finish(int write_flag)
 	int ret = 0;
 	
 	sun3_dma_active = 0;
+#if 1
 	// check to empty the fifo on a read
 	if(!write_flag) {
 		int tmo = 20000; /* .2 sec */
@@ -549,6 +553,7 @@ static int sun3scsi_dma_finish(int write_flag)
 		}
 	}
 		
+#endif
 
 	count = sun3scsi_dma_count(default_instance);
 #ifdef OLDDMA

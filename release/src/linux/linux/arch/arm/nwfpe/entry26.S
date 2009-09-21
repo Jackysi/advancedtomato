@@ -95,7 +95,7 @@ next:
 
 	@ if condition code failed to match, next insn
 	beq	next			@ get the next instruction;
-	    
+
 	mov	r0, r6			@ prepare for EmulateAll()
 	adr	lr, 1b
 	orr	lr, lr, #3

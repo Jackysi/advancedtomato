@@ -2,7 +2,7 @@
 
     A driver for PCMCIA serial devices
 
-    serial_cs.c 1.128 2001/10/18 12:18:35
+    serial_cs.c 1.138 2002/10/25 06:24:52
 
     The contents of this file are subject to the Mozilla Public
     License Version 1.1 (the "License"); you may not use this file
@@ -28,7 +28,7 @@
     and other provisions required by the GPL.  If you do not delete
     the provisions above, a recipient may use your version of this
     file under either the MPL or the GPL.
-    
+
 ======================================================================*/
 
 #include <linux/module.h>
@@ -69,14 +69,14 @@ INT_MODULE_PARM(irq_mask, 0xdeb8);
 static int irq_list[4] = { -1 };
 MODULE_PARM(irq_list, "1-4i");
 
-/* Enable the speaker? */
-INT_MODULE_PARM(do_sound, 1);
+INT_MODULE_PARM(do_sound, 1);		/* Enable the speaker? */
+INT_MODULE_PARM(buggy_uart, 0);		/* Skip strict UART tests? */
 
 #ifdef PCMCIA_DEBUG
 INT_MODULE_PARM(pc_debug, PCMCIA_DEBUG);
 #define DEBUG(n, args...) if (pc_debug>(n)) printk(KERN_DEBUG args)
 static char *version =
-"serial_cs.c 1.128 2001/10/18 12:18:35 (David Hinds)";
+"serial_cs.c 1.138 2002/10/25 06:24:52 (David Hinds)";
 #else
 #define DEBUG(n, args...)
 #endif
@@ -95,6 +95,7 @@ static multi_id_t multi_id[] = {
     { MANFID_OMEGA, PRODID_OMEGA_QSP_100, 4 },
     { MANFID_QUATECH, PRODID_QUATECH_DUAL_RS232, 2 },
     { MANFID_QUATECH, PRODID_QUATECH_DUAL_RS232_D1, 2 },
+    { MANFID_QUATECH, PRODID_QUATECH_DUAL_RS232_D2, 2 },
     { MANFID_QUATECH, PRODID_QUATECH_QUAD_RS232, 4 },
     { MANFID_QUATECH, PRODID_QUATECH_DUAL_RS422, 2 },
     { MANFID_QUATECH, PRODID_QUATECH_QUAD_RS422, 4 },
@@ -148,7 +149,7 @@ static dev_link_t *serial_attach(void)
     client_reg_t client_reg;
     dev_link_t *link;
     int i, ret;
-    
+
     DEBUG(0, "serial_attach()\n");
 
     /* Create new serial device */
@@ -160,7 +161,7 @@ static dev_link_t *serial_attach(void)
     link->release.function = &serial_release;
     link->release.data = (u_long)link;
     link->io.Attributes1 = IO_DATA_PATH_WIDTH_8;
-    link->io.NumPorts1 = 8;
+    link->io.Attributes2 = IO_DATA_PATH_WIDTH_8;
     link->irq.Attributes = IRQ_TYPE_EXCLUSIVE;
     link->irq.IRQInfo1 = IRQ_INFO2_VALID|IRQ_LEVEL_ID;
     if (irq_list[0] == -1)
@@ -169,13 +170,12 @@ static dev_link_t *serial_attach(void)
 	for (i = 0; i < 4; i++)
 	    link->irq.IRQInfo2 |= 1 << irq_list[i];
     link->conf.Attributes = CONF_ENABLE_IRQ;
-    link->conf.Vcc = 50;
     if (do_sound) {
 	link->conf.Attributes |= CONF_ENABLE_SPKR;
 	link->conf.Status = CCSR_AUDIO_ENA;
     }
     link->conf.IntType = INT_MEMORY_AND_IO;
-    
+
     /* Register with Card Services */
     link->next = dev_list;
     dev_list = link;
@@ -194,7 +194,7 @@ static dev_link_t *serial_attach(void)
 	serial_detach(link);
 	return NULL;
     }
-    
+
     return link;
 } /* serial_attach */
 
@@ -214,7 +214,7 @@ static void serial_detach(dev_link_t *link)
     int ret;
 
     DEBUG(0, "serial_detach(0x%p)\n", link);
-    
+
     /* Locate device structure */
     for (linkp = &dev_list; *linkp; linkp = &(*linkp)->next)
 	if (*linkp == link) break;
@@ -224,17 +224,17 @@ static void serial_detach(dev_link_t *link)
     del_timer(&link->release);
     if (link->state & DEV_CONFIG)
 	serial_release((u_long)link);
-    
+
     if (link->handle) {
 	ret = CardServices(DeregisterClient, link->handle);
 	if (ret != CS_SUCCESS)
 	    cs_error(link->handle, DeregisterClient, ret);
     }
-    
+
     /* Unlink device structure, free bits */
     *linkp = link->next;
     kfree(info);
-    
+
 } /* serial_detach */
 
 /*====================================================================*/
@@ -243,18 +243,20 @@ static int setup_serial(serial_info_t *info, ioaddr_t port, int irq)
 {
     struct serial_struct serial;
     int line;
-    
+
     memset(&serial, 0, sizeof(serial));
     serial.port = port;
     serial.irq = irq;
     serial.flags = ASYNC_SKIP_TEST | ASYNC_SHARE_IRQ;
+    if (buggy_uart)
+	serial.flags |= ASYNC_BUGGY_UART;
     line = register_serial(&serial);
     if (line < 0) {
 	printk(KERN_NOTICE "serial_cs: register_serial() at 0x%04lx,"
 	       " irq %d failed\n", (u_long)serial.port, serial.irq);
 	return -1;
     }
-    
+
     info->line[info->ndev] = line;
     sprintf(info->node[info->ndev].dev_name, "ttyS%d", line);
     info->node[info->ndev].major = TTY_MAJOR;
@@ -262,7 +264,7 @@ static int setup_serial(serial_info_t *info, ioaddr_t port, int irq)
     if (info->ndev > 0)
 	info->node[info->ndev-1].next = &info->node[info->ndev];
     info->ndev++;
-    
+
     return 0;
 }
 
@@ -313,7 +315,10 @@ static int simple_config(dev_link_t *link)
 	    return setup_serial(info, port, config.AssignedIRQ);
     }
     link->conf.Vcc = config.Vcc;
-    
+
+    link->io.NumPorts1 = 8;
+    link->io.NumPorts2 = 0;
+
     /* First pass: look for a config entry that looks normal. */
     tuple.TupleData = (cisdata_t *)buf;
     tuple.TupleOffset = 0; tuple.TupleDataMax = 255;
@@ -340,7 +345,7 @@ static int simple_config(dev_link_t *link)
 	    i = next_tuple(handle, &tuple, &parse);
 	}
     }
-    
+
     /* Second pass: try to find an entry that isn't picky about
        its base address, then try to grab any standard serial port
        address, and finally try to get any free port. */
@@ -352,8 +357,7 @@ static int simple_config(dev_link_t *link)
 	    for (j = 0; j < 5; j++) {
 		link->io.BasePort1 = base[j];
 		link->io.IOAddrLines = base[j] ? 16 : 3;
-		i = CardServices(RequestIO, link->handle,
-				 &link->io);
+		i = CardServices(RequestIO, link->handle, &link->io);
 		if (i == CS_SUCCESS) goto found_port;
 	    }
 	}
@@ -365,7 +369,7 @@ found_port:
 	cs_error(link->handle, RequestIO, i);
 	return -1;
     }
-    
+
     i = CardServices(RequestIRQ, link->handle, &link->irq);
     if (i != CS_SUCCESS) {
 	cs_error(link->handle, RequestIRQ, i);
@@ -390,7 +394,11 @@ static int multi_config(dev_link_t *link)
     u_char buf[256];
     cisparse_t parse;
     cistpl_cftable_entry_t *cf = &parse.cftable_entry;
+    config_info_t config;
     int i, base2 = 0;
+
+    CardServices(GetConfigurationInfo, handle, &config);
+    link->conf.Vcc = config.Vcc;
 
     tuple.TupleData = (cisdata_t *)buf;
     tuple.TupleOffset = 0; tuple.TupleDataMax = 255;
@@ -433,12 +441,12 @@ static int multi_config(dev_link_t *link)
 	    i = next_tuple(handle, &tuple, &parse);
 	}
     }
-    
+
     if (i != CS_SUCCESS) {
-	cs_error(link->handle, RequestIO, i);
-	return -1;
+	/* At worst, try to configure as a single port */
+	return simple_config(link);
     }
-    
+
     i = CardServices(RequestIRQ, link->handle, &link->irq);
     if (i != CS_SUCCESS) {
 	cs_error(link->handle, RequestIRQ, i);
@@ -454,14 +462,27 @@ static int multi_config(dev_link_t *link)
 	cs_error(link->handle, RequestConfiguration, i);
 	return -1;
     }
-    
+
+    /* The Oxford Semiconductor OXCF950 cards are in fact single-port:
+       8 registers are for the UART, the others are extra registers */
+    if (info->manfid == MANFID_OXSEMI) {
+	if (cf->index == 1 || cf->index == 3) {
+	    setup_serial(info, base2, link->irq.AssignedIRQ);
+	    outb(12,link->io.BasePort1+1);
+	} else {
+	    setup_serial(info, link->io.BasePort1, link->irq.AssignedIRQ);
+	    outb(12,base2+1);
+	}
+	return 0;
+    }
+
     setup_serial(info, link->io.BasePort1, link->irq.AssignedIRQ);
     /* The Nokia cards are not really multiport cards */
     if (info->manfid == MANFID_NOKIA)
 	return 0;
     for (i = 0; i < info->multi-1; i++)
 	setup_serial(info, base2+(8*i), link->irq.AssignedIRQ);
-    
+
     return 0;
 }
 
@@ -487,7 +508,7 @@ void serial_config(dev_link_t *link)
     int i, last_ret, last_fn;
 
     DEBUG(0, "serial_config(0x%p)\n", link);
-    
+
     tuple.TupleData = (cisdata_t *)buf;
     tuple.TupleOffset = 0; tuple.TupleDataMax = 255;
     tuple.Attributes = 0;
@@ -500,7 +521,7 @@ void serial_config(dev_link_t *link)
     }
     link->conf.ConfigBase = parse.config.base;
     link->conf.Present = parse.config.rmask[0];
-    
+
     /* Configure card */
     link->state |= DEV_CONFIG;
 
@@ -508,8 +529,8 @@ void serial_config(dev_link_t *link)
     tuple.DesiredTuple = CISTPL_LONGLINK_MFC;
     tuple.Attributes = TUPLE_RETURN_COMMON | TUPLE_RETURN_LINK;
     info->multi = (first_tuple(handle, &tuple, &parse) == CS_SUCCESS);
-    
-    /* Is this a multiport card? */
+
+    /* Scan list of known multiport card ID's */
     tuple.DesiredTuple = CISTPL_MANFID;
     if (first_tuple(handle, &tuple, &parse) == CS_SUCCESS) {
 	info->manfid = le16_to_cpu(buf[0]);
@@ -537,15 +558,15 @@ void serial_config(dev_link_t *link)
 		info->multi = 2;
 	}
     }
-    
+
     if (info->multi > 1)
 	multi_config(link);
     else
 	simple_config(link);
-    
+
     if (info->ndev == 0)
 	goto failed;
-    
+
     if (info->manfid == MANFID_IBM) {
 	conf_reg_t reg = { 0, CS_READ, 0x800, 0 };
 	CS_CHECK(AccessConfigurationRegister, link->handle, &reg);
@@ -562,6 +583,7 @@ cs_failed:
     cs_error(link->handle, last_fn, last_ret);
 failed:
     serial_release((u_long)link);
+    link->state &= ~DEV_CONFIG_PENDING;
 
 } /* serial_config */
 
@@ -569,7 +591,7 @@ failed:
 
     After a card is removed, serial_release() will unregister the net
     device, and release the PCMCIA configuration.
-    
+
 ======================================================================*/
 
 void serial_release(u_long arg)
@@ -577,7 +599,7 @@ void serial_release(u_long arg)
     dev_link_t *link = (dev_link_t *)arg;
     serial_info_t *info = link->priv;
     int i;
-    
+
     DEBUG(0, "serial_release(0x%p)\n", link);
 
     for (i = 0; i < info->ndev; i++) {
@@ -590,7 +612,7 @@ void serial_release(u_long arg)
 	CardServices(ReleaseIO, link->handle, &link->io);
 	CardServices(ReleaseIRQ, link->handle, &link->irq);
     }
-    
+
     link->state &= ~DEV_CONFIG;
 
 } /* serial_release */
@@ -601,7 +623,7 @@ void serial_release(u_long arg)
     stuff to run after an event is received.  A CARD_REMOVAL event
     also sets some flags to discourage the serial drivers from
     talking to the ports.
-    
+
 ======================================================================*/
 
 static int serial_event(event_t event, int priority,
@@ -609,9 +631,9 @@ static int serial_event(event_t event, int priority,
 {
     dev_link_t *link = args->client_data;
     serial_info_t *info = link->priv;
-    
+
     DEBUG(1, "serial_event(0x%06x)\n", event);
-    
+
     switch (event) {
     case CS_EVENT_CARD_REMOVAL:
 	link->state &= ~DEV_PRESENT;
@@ -650,7 +672,7 @@ static int __init init_serial_cs(void)
     if (serv.Revision != CS_RELEASE_CODE) {
 	printk(KERN_NOTICE "serial_cs: Card Services release "
 	       "does not match!\n");
-	return -1;
+	return -EINVAL;
     }
     register_pccard_driver(&dev_info, &serial_attach, &serial_detach);
     return 0;

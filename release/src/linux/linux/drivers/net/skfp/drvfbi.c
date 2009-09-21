@@ -1155,7 +1155,7 @@ int slot ;
 
 	val = read_POS(smc,POS_104, slot - 1) ;	/* I/O, IRQ */
 
-#ifndef MEM_MAPPED_IO	    /* is defined by the operating system */
+#ifndef MEM_MAPPED_IO	/* is defined by the operating system */
 	i = val & POS_IOSEL ;	/* I/O base addr. (0x0200 .. 0xfe00) */
 	smc->hw.iop = (i + 1) * 0x0400 - 0x200 ;
 #endif
@@ -1294,7 +1294,7 @@ int	slot ;
 		return(0) ;
 
 	smc->hw.slot = slot ;
-#ifndef	MEM_MAPPED_IO		    /* if defined by the operating system */
+#ifndef	MEM_MAPPED_IO		/* if defined by the operating system */
 	smc->hw.iop = SADDR(slot) ;
 #endif
 

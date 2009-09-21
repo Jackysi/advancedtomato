@@ -23,6 +23,8 @@
 #define pte_quicklist (S390_lowcore.cpu_data.pte_quick)
 #define pgtable_cache_size (S390_lowcore.cpu_data.pgtable_cache_sz)
 
+extern void diag10(unsigned long addr);
+
 /*
  * Allocate and free page tables. The xxx_kernel() versions are
  * used to allocate a kernel page table - this turns on ASN bits
@@ -266,14 +268,15 @@ static inline void global_flush_tlb(void)
  */
 static inline void __flush_tlb_mm(struct mm_struct * mm)
 {
-	if ((smp_num_cpus > 1) &&
-	    ((atomic_read(&mm->mm_count) != 1) ||
-	     (mm->cpu_vm_mask != (1UL << smp_processor_id())))) {
-		mm->cpu_vm_mask = (1UL << smp_processor_id());
+	if (mm->cpu_vm_mask != (1UL << smp_processor_id())) {
+		/* mm was active on more than one cpu. */
+		if (mm == current->active_mm &&
+		    atomic_read(&mm->mm_users) == 1)
+			/* this cpu is the only one using the mm. */
+			mm->cpu_vm_mask = 1UL << smp_processor_id();
 		global_flush_tlb();
-	} else {                 
+	} else
 		local_flush_tlb();
-	}
 }
 
 static inline void flush_tlb(void)

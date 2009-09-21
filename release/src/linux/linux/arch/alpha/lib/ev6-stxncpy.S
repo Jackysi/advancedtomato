@@ -25,7 +25,7 @@
  *	a0  = unaligned address of the last *word* written
  *	a2  = the number of full words left in COUNT
  *
- * Furthermore, v0, a3-a5, t11, t12, and $at are untouched.
+ * Furthermore, v0, a3-a5, t11, and $at are untouched.
  *
  * Much of the information about 21264 scheduling/coding comes from:
  *	Compiler Writer's Guide for the Alpha 21264
@@ -38,7 +38,7 @@
  * Try not to change the actual algorithm if possible for consistency.
  */
 
-#include <alpha/regdef.h>
+#include <asm/regdef.h>
 
 	.set noat
 	.set noreorder
@@ -324,7 +324,7 @@ $u_eoc:
 	extqh	t2, a1, t0	# U : extract low bits for last word (stall)
 	or	t1, t0, t1	# E : (stall)
 
-	cmpbge	zero, t1, t8	# E :
+1:	cmpbge	zero, t1, t8	# E :
 	mov	t1, t0		# E :
 
 $u_eocfin:			# end-of-count, final word
@@ -350,22 +350,22 @@ $unaligned:
 	mskql	t6, a0, t6	# U :
 	nop
 	nop
-1:	subq	a1, t4, a1	# E : sub dest misalignment from src addr
+	subq	a1, t4, a1	# E : sub dest misalignment from src addr
 
 	/* If source misalignment is larger than dest misalignment, we need
 	   extra startup checks to avoid SEGV.  */
 
-	cmplt	t4, t5, t12	# E :
+1:	cmplt	t4, t5, t12	# E :
 	extql	t1, a1, t1	# U : shift src into place
 	lda	t2, -1		# E : for creating masks later
 	beq	t12, $u_head	# U : (stall)
 
-	mskqh	t2, t5, t2	# U : begin src byte validity mask
-	cmpbge	zero, t1, t8	# E : is there a zero?
 	extql	t2, a1, t2	# U :
+	cmpbge	zero, t1, t8	# E : is there a zero?
+	andnot	t2, t6, t12	# E : dest mask for a single word copy
 	or	t8, t10, t5	# E : test for end-of-count too
 
-	cmpbge	zero, t2, t3	# E :
+	cmpbge	zero, t12, t3	# E :
 	cmoveq	a2, t5, t8	# E : Latency=2, extra map slot
 	nop			# E : keep with cmoveq
 	andnot	t8, t3, t8	# E : (stall)
@@ -379,13 +379,13 @@ $unaligned:
 	negq	t8, t6		# E : build bitmask of bytes <= zero
 	mskqh	t1, t4, t1	# U :
 
-	and	t6, t8, t12	# E :
-	subq	t12, 1, t6	# E : (stall)
-	or	t6, t12, t8	# E : (stall)
-	zapnot	t2, t8, t2	# U : prepare source word; mirror changes (stall)
+	and	t6, t8, t2	# E :
+	subq	t2, 1, t6	# E : (stall)
+	or	t6, t2, t8	# E : (stall)
+	zapnot	t12, t8, t12	# U : prepare source word; mirror changes (stall)
 
 	zapnot	t1, t8, t1	# U : to source validity mask
-	andnot	t0, t2, t0	# E : zero place for source to reside
+	andnot	t0, t12, t0	# E : zero place for source to reside
 	or	t0, t1, t0	# E : and put it there (stall both t0, t1)
 	stq_u	t0, 0(a0)	# L : (stall)
 

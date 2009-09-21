@@ -1,1 +1,0 @@
-#undef  CONFIG_CPU_VR41XX

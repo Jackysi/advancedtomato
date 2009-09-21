@@ -1,4 +1,6 @@
-
+/*
+ * FIXME: old compatibility stuff, will be removed soon.
+ */
 
 #include <net/checksum.h>
 

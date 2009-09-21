@@ -32,17 +32,12 @@ do {									\
 			"cmpl $0, -8(%0);"				\
 			"jnz 2f;"					\
 			"1:;"						\
-									\
-                   ".subsection 1\n" \
-                   ".ifndef _text_lock_" __stringify(KBUILD_BASENAME) "\n" \
-                   "_text_lock_" __stringify(KBUILD_BASENAME) ":\n" \
-                   ".endif\n" \
+			LOCK_SECTION_START("") 		\
 			"2:"	\
 			"call do_softirq_thunk;"		\
 			""		\
 			"jmp 1b;"					\
-			".subsection 0;"				\
-									\
+			LOCK_SECTION_END			\
 		: /* no output */					\
 		: "r" (ptr)				\
 		/* no registers clobbered */ );				\

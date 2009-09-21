@@ -4,7 +4,7 @@
  * of the GNU General Public License, incorporated herein by reference.
  *
  * Module         : sk_g16.h
- * Version        : $Revision: 1.1.1.2 $  
+ * Version        : $Revision$  
  *
  * Author         : M.Hipp (mhipp@student.uni-tuebingen.de)
  * changes by     : Patrick J.D. Weichmann
@@ -15,13 +15,7 @@
  *                  the am7990 (LANCE) chip used for writing a
  *                  network device driver which uses this chip 
  *
- * $Log: sk_g16.h,v $
- * Revision 1.1.1.2  2003/10/14 08:08:23  sparq
- * Broadcom Release 3.51.8.0 for BCM4712.
- *
- * Revision 1.1.1.1  2003/02/03 22:37:46  mhuang
- * LINUX_2_4 branch snapshot from linux-mips.org CVS
- *
+ * $Log$
 -*/
 
 #ifndef SK_G16_H

@@ -1,6 +1,3 @@
-/*
- * BK Id: %F% %I% %G% %U% %#%
- */
 #include <linux/kernel.h>
 #include <linux/init.h>
 #include <linux/pci.h>
@@ -95,7 +92,7 @@ void __init gemini_pcibios_fixup(void)
 {
 	int i;
 	struct pci_dev *dev;
-	
+
 	pci_for_each_dev(dev) {
 		for(i = 0; i < 6; i++) {
 			if (dev->resource[i].flags & IORESOURCE_IO) {
@@ -112,7 +109,7 @@ void __init gemini_pcibios_fixup(void)
 void __init gemini_find_bridges(void)
 {
 	struct pci_controller* hose;
-	
+
 	ppc_md.pcibios_fixup = gemini_pcibios_fixup;
 
 	hose = pcibios_alloc_controller();

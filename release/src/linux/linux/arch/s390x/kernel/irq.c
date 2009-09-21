@@ -46,6 +46,18 @@ int           s390_request_irq( unsigned int irq,
                      const char    *devname,
                      void          *dev_id);
 
+#if 0
+/*
+ * The following vectors are part of the Linux architecture, there
+ * is no hardware IRQ pin equivalent for them, they are triggered
+ * through the ICC by us (IPIs), via smp_message_pass():
+ */
+BUILD_SMP_INTERRUPT(reschedule_interrupt)
+BUILD_SMP_INTERRUPT(invalidate_interrupt)
+BUILD_SMP_INTERRUPT(stop_cpu_interrupt)
+BUILD_SMP_INTERRUPT(mtrr_interrupt)
+BUILD_SMP_INTERRUPT(spurious_interrupt)
+#endif
 
 /*
  * Global interrupt locks for SMP. Allow interrupts to come in on any

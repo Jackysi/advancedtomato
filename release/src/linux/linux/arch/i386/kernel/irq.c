@@ -32,6 +32,7 @@
 #include <linux/kernel_stat.h>
 #include <linux/irq.h>
 #include <linux/proc_fs.h>
+#include <linux/seq_file.h>
 
 #include <asm/atomic.h>
 #include <asm/io.h>
@@ -131,55 +132,55 @@ atomic_t irq_mis_count;
  * Generic, controller-independent functions:
  */
 
-int get_irq_list(char *buf)
+int show_interrupts(struct seq_file *p, void *v)
 {
 	int i, j;
 	struct irqaction * action;
-	char *p = buf;
 
-	p += sprintf(p, "           ");
+	seq_printf(p, "           ");
 	for (j=0; j<smp_num_cpus; j++)
-		p += sprintf(p, "CPU%d       ",j);
-	*p++ = '\n';
+		seq_printf(p, "CPU%d       ",j);
+	seq_putc(p,'\n');
 
 	for (i = 0 ; i < NR_IRQS ; i++) {
 		action = irq_desc[i].action;
 		if (!action) 
 			continue;
-		p += sprintf(p, "%3d: ",i);
+		seq_printf(p, "%3d: ",i);
 #ifndef CONFIG_SMP
-		p += sprintf(p, "%10u ", kstat_irqs(i));
+		seq_printf(p, "%10u ", kstat_irqs(i));
 #else
 		for (j = 0; j < smp_num_cpus; j++)
-			p += sprintf(p, "%10u ",
+			seq_printf(p, "%10u ",
 				kstat.irqs[cpu_logical_map(j)][i]);
 #endif
-		p += sprintf(p, " %14s", irq_desc[i].handler->typename);
-		p += sprintf(p, "  %s", action->name);
+		seq_printf(p, " %14s", irq_desc[i].handler->typename);
+		seq_printf(p, "  %s", action->name);
 
 		for (action=action->next; action; action = action->next)
-			p += sprintf(p, ", %s", action->name);
-		*p++ = '\n';
+			seq_printf(p, ", %s", action->name);
+		seq_putc(p,'\n');
 	}
-	p += sprintf(p, "NMI: ");
+	seq_printf(p, "NMI: ");
 	for (j = 0; j < smp_num_cpus; j++)
-		p += sprintf(p, "%10u ",
+		seq_printf(p, "%10u ",
 			nmi_count(cpu_logical_map(j)));
-	p += sprintf(p, "\n");
+	seq_printf(p, "\n");
 #if CONFIG_X86_LOCAL_APIC
-	p += sprintf(p, "LOC: ");
+	seq_printf(p, "LOC: ");
 	for (j = 0; j < smp_num_cpus; j++)
-		p += sprintf(p, "%10u ",
+		seq_printf(p, "%10u ",
 			apic_timer_irqs[cpu_logical_map(j)]);
-	p += sprintf(p, "\n");
+	seq_printf(p, "\n");
 #endif
-	p += sprintf(p, "ERR: %10u\n", atomic_read(&irq_err_count));
+	seq_printf(p, "ERR: %10u\n", atomic_read(&irq_err_count));
 #ifdef CONFIG_X86_IO_APIC
 #ifdef APIC_MISMATCH_DEBUG
-	p += sprintf(p, "MIS: %10u\n", atomic_read(&irq_mis_count));
+	seq_printf(p, "MIS: %10u\n", atomic_read(&irq_mis_count));
 #endif
 #endif
-	return p - buf;
+
+	return 0;
 }
 
 
@@ -697,6 +698,7 @@ int request_irq(unsigned int irq,
 	int retval;
 	struct irqaction * action;
 
+#if 1
 	/*
 	 * Sanity-check: shared interrupts should REALLY pass in
 	 * a real dev-ID, otherwise we'll have trouble later trying
@@ -707,6 +709,7 @@ int request_irq(unsigned int irq,
 		if (!dev_id)
 			printk("Bad boy: %s (at 0x%x) called us without a dev_id!\n", devname, (&irq)[-1]);
 	}
+#endif
 
 	if (irq >= NR_IRQS)
 		return -EINVAL;
@@ -1033,7 +1036,7 @@ int setup_irq(unsigned int irq, struct irqaction * new)
 
 	if (!shared) {
 		desc->depth = 0;
-		desc->status &= ~(IRQ_DISABLED | IRQ_AUTODETECT | IRQ_WAITING);
+		desc->status &= ~(IRQ_DISABLED | IRQ_AUTODETECT | IRQ_WAITING | IRQ_INPROGRESS);
 		desc->handler->startup(irq);
 	}
 	spin_unlock_irqrestore(&desc->lock,flags);
@@ -1124,6 +1127,29 @@ static int irq_affinity_write_proc (struct file *file, const char *buffer,
 
 #endif
 
+static int prof_cpu_mask_read_proc (char *page, char **start, off_t off,
+			int count, int *eof, void *data)
+{
+	unsigned long *mask = (unsigned long *) data;
+	if (count < HEX_DIGITS+1)
+		return -EINVAL;
+	return sprintf (page, "%08lx\n", *mask);
+}
+
+static int prof_cpu_mask_write_proc (struct file *file, const char *buffer,
+					unsigned long count, void *data)
+{
+	unsigned long *mask = (unsigned long *) data, full_count = count, err;
+	unsigned long new_value;
+
+	err = parse_hex_value(buffer, count, &new_value);
+	if (err)
+		return err;
+
+	*mask = new_value;
+	return full_count;
+}
+
 #define MAX_NAMELEN 10
 
 static void register_irq_proc (unsigned int irq)
@@ -1159,12 +1185,26 @@ static void register_irq_proc (unsigned int irq)
 #endif
 }
 
+unsigned long prof_cpu_mask = -1;
+
 void init_irq_proc (void)
 {
+	struct proc_dir_entry *entry;
 	int i;
 
 	/* create /proc/irq */
 	root_irq_dir = proc_mkdir("irq", 0);
+
+	/* create /proc/irq/prof_cpu_mask */
+	entry = create_proc_entry("prof_cpu_mask", 0600, root_irq_dir);
+
+	if (!entry)
+	    return;
+
+	entry->nlink = 1;
+	entry->data = (void *)&prof_cpu_mask;
+	entry->read_proc = prof_cpu_mask_read_proc;
+	entry->write_proc = prof_cpu_mask_write_proc;
 
 	/*
 	 * Create entries for all existing IRQs.

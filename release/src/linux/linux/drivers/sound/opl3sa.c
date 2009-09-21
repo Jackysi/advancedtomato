@@ -1,4 +1,24 @@
-
+/*
+ * sound/opl3sa.c
+ *
+ * Low level driver for Yamaha YMF701B aka OPL3-SA chip
+ * 
+ *
+ *
+ * Copyright (C) by Hannu Savolainen 1993-1997
+ *
+ * OSS/Free for Linux is distributed under the GNU GENERAL PUBLIC LICENSE (GPL)
+ * Version 2 (June 1991). See the "COPYING" file distributed with this software
+ * for more info.
+ *
+ * Changes:
+ *	Alan Cox		Modularisation
+ *	Christoph Hellwig	Adapted to module_init/module_exit
+ *	Arnaldo C. de Melo	got rid of attach_uart401
+ *
+ * FIXME:
+ * 	Check for install of mpu etc is wrong, should check result of the mss stuff
+ */
 
 #include <linux/init.h>
 #include <linux/module.h>
@@ -146,6 +166,7 @@ static void __init attach_opl3sa_wss(struct address_info *hw_config)
 {
 	int nm = num_mixers;
 
+	/* FIXME */
 	attach_ms_sound(hw_config, THIS_MODULE);
 	if (num_mixers > nm)	/* A mixer was installed */
 	{

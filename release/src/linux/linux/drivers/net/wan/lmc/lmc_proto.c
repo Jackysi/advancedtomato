@@ -31,7 +31,7 @@
 #include <linux/interrupt.h>
 #include <linux/pci.h>
 #include <asm/segment.h>
-#include <asm/smp.h>
+#include <linux/smp.h>
 
 #include <linux/in.h>
 #include <linux/if_arp.h>

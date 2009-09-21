@@ -58,9 +58,17 @@ struct comx_channel {
 	long int	lineup_pending;
 	unsigned char	lineup_delay;
 
+#if 0
+	struct timer_list reset_timer; // for board resetting
+	long		reset_pending;
+	int		reset_timeout;
+#endif
 
 	struct net_device_stats	stats;	
 	struct net_device_stats *current_stats;
+#if 0
+	unsigned long	board_resets;
+#endif
 	unsigned long 	*avg_bytes;
 	int		loadavg_counter, loadavg_size;
 	int		loadavg[3];
@@ -104,6 +112,9 @@ struct comx_channel {
 	int	(*HW_close)(struct net_device *dev);
 	int	(*HW_send_packet)(struct net_device *dev,struct sk_buff *skb);
 	int	(*HW_statistics)(struct net_device *dev, char *page);
+#if 0
+	int	(*HW_reset)(struct net_device *dev, char *page);
+#endif
 	int	(*HW_load_board)(struct net_device *dev);
 	void	(*HW_set_clock)(struct net_device *dev);
 	void	*HW_privdata;
@@ -200,8 +211,6 @@ typedef u16	word;
 #ifndef	SEEK_END
 #define	SEEK_END	2
 #endif
-
-extern struct proc_dir_entry * comx_root_dir;
 
 extern int	comx_register_hardware(struct comx_hardware *comx_hw);
 extern int	comx_unregister_hardware(char *name);

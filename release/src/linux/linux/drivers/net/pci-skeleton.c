@@ -2,7 +2,7 @@
 
 	drivers/net/pci-skeleton.c
 
-	Maintained by Jeff Garzik <jgarzik@mandrakesoft.com>
+	Maintained by Jeff Garzik <jgarzik@pobox.com>
 
 	Original code came from 8139too.c, which in turns was based
 	originally on Donald Becker's rtl8139.c driver, versions 1.11
@@ -422,7 +422,7 @@ const static struct {
 } rtl_chip_info[] = {
 	{ "RTL-8139",
 	  0x40,
-	  0xf0fe0040, 
+	  0xf0fe0040, /* XXX copied from RTL8139A, verify */
 	},
 
 	{ "RTL-8139 rev K",
@@ -442,12 +442,12 @@ const static struct {
 
 	{ "RTL-8130",
 	  0x7C,
-	  0xf0fe0040, 
+	  0xf0fe0040, /* XXX copied from RTL8139A, verify */
 	},
 
 	{ "RTL-8139C",
 	  0x74,
-	  0xf0fc0040, 
+	  0xf0fc0040, /* XXX copied from RTL8139B, verify */
 	},
 
 };
@@ -483,7 +483,7 @@ struct netdrv_private {
 	chip_t chipset;
 };
 
-MODULE_AUTHOR ("Jeff Garzik <jgarzik@mandrakesoft.com>");
+MODULE_AUTHOR ("Jeff Garzik <jgarzik@pobox.com>");
 MODULE_DESCRIPTION ("Skeleton for a PCI Fast Ethernet driver");
 MODULE_LICENSE("GPL");
 MODULE_PARM (multicast_filter_limit, "i");
@@ -602,7 +602,7 @@ static int __devinit netdrv_init_board (struct pci_dev *pdev,
 	*ioaddr_out = NULL;
 	*dev_out = NULL;
 
-	/* dev zeroed in init_etherdev */
+	/* dev zeroed in alloc_etherdev */
 	dev = alloc_etherdev (sizeof (*tp));
 	if (dev == NULL) {
 		printk (KERN_ERR PFX "unable to alloc new ethernet\n");
@@ -789,7 +789,7 @@ static int __devinit netdrv_init_one (struct pci_dev *pdev,
 	dev->irq = pdev->irq;
 	dev->base_addr = (unsigned long) ioaddr;
 
-	/* dev->priv/tp zeroed and aligned in init_etherdev */
+	/* dev->priv/tp zeroed and aligned in alloc_etherdev */
 	tp = dev->priv;
 
 	/* note: tp->chipset set in netdrv_init_board */
@@ -1348,6 +1348,16 @@ static int netdrv_start_xmit (struct sk_buff *skb, struct net_device *dev)
 	void *ioaddr = tp->mmio_addr;
 	int entry;
 
+	/* If we don't have auto-pad remember not to send random
+	   memory! */
+	   
+	if (skb->len < ETH_ZLEN)
+	{
+		skb = skb_padto(skb, ETH_ZLEN);
+		if(skb == NULL)
+			return 0;
+	}
+	
 	/* Calculate the next Tx descriptor entry. */
 	entry = atomic_read (&tp->cur_tx) % NUM_TX_DESC;
 
@@ -1358,9 +1368,8 @@ static int netdrv_start_xmit (struct sk_buff *skb, struct net_device *dev)
 	/* tp->tx_info[entry].mapping = 0; */
 	memcpy (tp->tx_buf[entry], skb->data, skb->len);
 
-	/* Note: the chip doesn't have auto-pad! */
 	NETDRV_W32 (TxStatus0 + (entry * sizeof(u32)),
-		 tp->tx_flag | (skb->len >= ETH_ZLEN ? skb->len : ETH_ZLEN));
+		 tp->tx_flag | skb->len);
 
 	dev->trans_start = jiffies;
 	atomic_inc (&tp->cur_tx);
@@ -1435,7 +1444,7 @@ static void netdrv_tx_interrupt (struct net_device *dev,
 		tp->tx_info[entry].skb = NULL;
 		dirty_tx++;
 		if (dirty_tx < 0) { /* handle signed int overflow */
-			atomic_sub (cur_tx, &tp->cur_tx); 
+			atomic_sub (cur_tx, &tp->cur_tx); /* XXX racy? */
 			dirty_tx = cur_tx - tx_left + 1;
 		}
 		if (netif_queue_stopped (dev))
@@ -1490,6 +1499,8 @@ static void netdrv_rx_err (u32 rx_status, struct net_device *dev,
 	/* A.C.: Reset the multicast list. */
 	netdrv_set_rx_mode (dev);
 
+	/* XXX potentially temporary hack to
+	 * restart hung receiver */
 	while (--tmp_work > 0) {
 		tmp8 = NETDRV_R8 (ChipCmd);
 		if ((tmp8 & CmdRxEnb) && (tmp8 & CmdTxEnb))
@@ -1499,6 +1510,7 @@ static void netdrv_rx_err (u32 rx_status, struct net_device *dev,
 	}
 
 	/* G.S.: Re-enable receiver */
+	/* XXX temporary hack to work around receiver hang */
 	netdrv_set_rx_mode (dev);
 
 	if (tmp_work <= 0)
@@ -1636,6 +1648,7 @@ static void netdrv_weird_interrupt (struct net_device *dev,
 		status &= ~RxUnderrun;
 	}
 
+	/* XXX along with netdrv_rx_err, are we double-counting errors? */
 	if (status &
 	    (RxUnderrun | RxOverflow | RxErr | RxFIFOOver))
 		tp->stats.rx_errors++;

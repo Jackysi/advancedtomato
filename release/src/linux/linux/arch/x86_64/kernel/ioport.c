@@ -1,5 +1,5 @@
 /*
- *	linux/arch/i386/kernel/ioport.c
+ *	linux/arch/x86_64/kernel/ioport.c
  *
  * This contains the io-permission bitmap code - written by obz, with changes
  * by Linus.
@@ -19,41 +19,19 @@
 /* Set EXTENT bits starting at BASE in BITMAP to value TURN_ON. */
 static void set_bitmap(unsigned long *bitmap, short base, short extent, int new_value)
 {
-	int mask;
-	unsigned long *bitmap_base = bitmap + (base >> 6);
-	unsigned short low_index = base & 0x3f;
-	int length = low_index + extent;
-
-	if (low_index != 0) {
-		mask = (~0 << low_index);
-		if (length < 64)
-				mask &= ~(~0 << length);
+	int i;
 		if (new_value)
-			*bitmap_base++ |= mask;
+		for (i = base; i < base + extent; i++) 
+			__set_bit(i, bitmap); 
 		else
-			*bitmap_base++ &= ~mask;
-		length -= 32;
-	}
-
-	mask = (new_value ? ~0 : 0);
-	while (length >= 64) {
-		*bitmap_base++ = mask;
-		length -= 64;
-	}
-
-	if (length > 0) {
-		mask = ~(~0 << length);
-		if (new_value)
-			*bitmap_base++ |= mask;
-		else
-			*bitmap_base++ &= ~mask;
-	}
+		for (i = base; i < base + extent; i++) 
+			clear_bit(i, bitmap); 
 }
 
 /*
  * this changes the io permissions bitmap in the current task.
  */
-asmlinkage int sys_ioperm(unsigned long from, unsigned long num, int turn_on)
+asmlinkage long sys_ioperm(unsigned long from, unsigned long num, int turn_on)
 {
 	struct thread_struct * t = &current->thread;
 	struct tss_struct * tss = init_tss + smp_processor_id();
@@ -76,14 +54,18 @@ asmlinkage int sys_ioperm(unsigned long from, unsigned long num, int turn_on)
 		/*
 		 * this activates it in the TSS
 		 */
-		tss->io_map_base = IO_BITMAP_OFFSET;
 	}
 
 	/*
 	 * do it in the per-thread copy and in the TSS ...
 	 */
 	set_bitmap((unsigned long *) t->io_bitmap_ptr, from, num, !turn_on);
+	if (tss->io_map_base != IO_BITMAP_OFFSET) { 
+		memcpy(tss->io_bitmap, t->io_bitmap_ptr, sizeof(tss->io_bitmap));
+		tss->io_map_base = IO_BITMAP_OFFSET;
+	} else { 
 	set_bitmap((unsigned long *) tss->io_bitmap, from, num, !turn_on);
+	}
 
 	return 0;
 }
@@ -99,9 +81,9 @@ asmlinkage int sys_ioperm(unsigned long from, unsigned long num, int turn_on)
  * code.
  */
 
-asmlinkage long sys_iopl(unsigned int level, struct pt_regs regs)
+asmlinkage long sys_iopl(unsigned int level, struct pt_regs *regs)
 {
-	unsigned int old = (regs.eflags >> 12) & 3;
+	unsigned int old = (regs->eflags >> 12) & 3;
 
 	if (level > 3)
 		return -EINVAL;
@@ -110,6 +92,6 @@ asmlinkage long sys_iopl(unsigned int level, struct pt_regs regs)
 		if (!capable(CAP_SYS_RAWIO))
 			return -EPERM;
 	}
-	regs.eflags = (regs.eflags & 0xffffffffffffcfff) | (level << 12);
+	regs->eflags = (regs->eflags &~ 0x3000UL) | (level << 12);
 	return 0;
 }

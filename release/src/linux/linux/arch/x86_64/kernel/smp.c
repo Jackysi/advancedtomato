@@ -3,6 +3,7 @@
  *
  *	(c) 1995 Alan Cox, Building #3 <alan@redhat.com>
  *	(c) 1998-99, 2000 Ingo Molnar <mingo@redhat.com>
+ *	(c) 2002,2003 Andi Kleen, SuSE Labs.
  *
  *	This code is released under the GNU General Public License version 2 or
  *	later.
@@ -21,6 +22,84 @@
 #include <asm/mtrr.h>
 #include <asm/pgalloc.h>
 
+/*
+ *	Some notes on x86 processor bugs affecting SMP operation:
+ *
+ *	Pentium, Pentium Pro, II, III (and all CPUs) have bugs.
+ *	The Linux implications for SMP are handled as follows:
+ *
+ *	Pentium III / [Xeon]
+ *		None of the E1AP-E3AP errata are visible to the user.
+ *
+ *	E1AP.	see PII A1AP
+ *	E2AP.	see PII A2AP
+ *	E3AP.	see PII A3AP
+ *
+ *	Pentium II / [Xeon]
+ *		None of the A1AP-A3AP errata are visible to the user.
+ *
+ *	A1AP.	see PPro 1AP
+ *	A2AP.	see PPro 2AP
+ *	A3AP.	see PPro 7AP
+ *
+ *	Pentium Pro
+ *		None of 1AP-9AP errata are visible to the normal user,
+ *	except occasional delivery of 'spurious interrupt' as trap #15.
+ *	This is very rare and a non-problem.
+ *
+ *	1AP.	Linux maps APIC as non-cacheable
+ *	2AP.	worked around in hardware
+ *	3AP.	fixed in C0 and above steppings microcode update.
+ *		Linux does not use excessive STARTUP_IPIs.
+ *	4AP.	worked around in hardware
+ *	5AP.	symmetric IO mode (normal Linux operation) not affected.
+ *		'noapic' mode has vector 0xf filled out properly.
+ *	6AP.	'noapic' mode might be affected - fixed in later steppings
+ *	7AP.	We do not assume writes to the LVT deassering IRQs
+ *	8AP.	We do not enable low power mode (deep sleep) during MP bootup
+ *	9AP.	We do not use mixed mode
+ *
+ *	Pentium
+ *		There is a marginal case where REP MOVS on 100MHz SMP
+ *	machines with B stepping processors can fail. XXX should provide
+ *	an L1cache=Writethrough or L1cache=off option.
+ *
+ *		B stepping CPUs may hang. There are hardware work arounds
+ *	for this. We warn about it in case your board doesnt have the work
+ *	arounds. Basically thats so I can tell anyone with a B stepping
+ *	CPU and SMP problems "tough".
+ *
+ *	Specific items [From Pentium Processor Specification Update]
+ *
+ *	1AP.	Linux doesn't use remote read
+ *	2AP.	Linux doesn't trust APIC errors
+ *	3AP.	We work around this
+ *	4AP.	Linux never generated 3 interrupts of the same priority
+ *		to cause a lost local interrupt.
+ *	5AP.	Remote read is never used
+ *	6AP.	not affected - worked around in hardware
+ *	7AP.	not affected - worked around in hardware
+ *	8AP.	worked around in hardware - we get explicit CS errors if not
+ *	9AP.	only 'noapic' mode affected. Might generate spurious
+ *		interrupts, we log only the first one and count the
+ *		rest silently.
+ *	10AP.	not affected - worked around in hardware
+ *	11AP.	Linux reads the APIC between writes to avoid this, as per
+ *		the documentation. Make sure you preserve this as it affects
+ *		the C stepping chips too.
+ *	12AP.	not affected - worked around in hardware
+ *	13AP.	not affected - worked around in hardware
+ *	14AP.	we always deassert INIT during bootup
+ *	15AP.	not affected - worked around in hardware
+ *	16AP.	not affected - worked around in hardware
+ *	17AP.	not affected - worked around in hardware
+ *	18AP.	not affected - worked around in hardware
+ *	19AP.	not affected - worked around in BIOS
+ *
+ *	If this sounds worrying believe me these bugs are either ___RARE___,
+ *	or are signal timing bugs worked around in hardware and there's
+ *	about nothing of note with C stepping upwards.
+ */
 
 /* The 'big kernel lock' */
 spinlock_cacheline_t kernel_flag_cacheline = {SPIN_LOCK_UNLOCKED};
@@ -36,8 +115,6 @@ struct tlb_state cpu_tlbstate[NR_CPUS] __cacheline_aligned = {[0 ... NR_CPUS-1] 
 static inline unsigned int __prepare_ICR (unsigned int shortcut, int vector)
 {
 	unsigned int icr =  APIC_DM_FIXED | shortcut | vector | APIC_DEST_LOGICAL;
-	if (vector == KDB_VECTOR) 
-		icr = (icr & (~APIC_VECTOR_MASK)) | APIC_DM_NMI; 		
 	return icr;
 }
 
@@ -48,6 +125,13 @@ static inline int __prepare_ICR2 (unsigned int mask)
 
 static inline void __send_IPI_shortcut(unsigned int shortcut, int vector)
 {
+	/*
+	 * Subtle. In the case of the 'never do double writes' workaround
+	 * we have to lock out interrupts to be safe.  As we don't care
+	 * of the value read we use an atomic rmw access to avoid costly
+	 * cli/sti.  Otherwise we use an even cheaper single atomic write
+	 * to the APIC.
+	 */
 	unsigned int cfg;
 
 	/*
@@ -144,7 +228,8 @@ static void inline leave_mm (unsigned long cpu)
 		BUG();
 	clear_bit(cpu, &cpu_tlbstate[cpu].active_mm->cpu_vm_mask);
 	/* flush TLB before it goes away. this stops speculative prefetches */
-	__flush_tlb(); 
+	*read_pda(level4_pgt) = __pa(init_mm.pgd) | _PAGE_TABLE;
+	__flush_tlb();
 }
 
 /*
@@ -326,11 +411,6 @@ void flush_tlb_all(void)
 	do_flush_tlb_all_local();
 }
 
-void smp_kdb_stop(void)
-{
-	send_IPI_allbutself(KDB_VECTOR);
-} 
-
 /*
  * this function sends a 'reschedule' IPI to another CPU.
  * it goes straight through and wastes no time serializing
@@ -409,7 +489,7 @@ int smp_call_function (void (*func) (void *info), void *info, int nonatomic,
 	return 0;
 }
 
-static void stop_this_cpu (void * dummy)
+void smp_stop_cpu(void)
 {
 	/*
 	 * Remove this CPU:
@@ -417,8 +497,14 @@ static void stop_this_cpu (void * dummy)
 	clear_bit(smp_processor_id(), &cpu_online_map);
 	__cli();
 	disable_local_APIC();
-	for(;;) __asm__("hlt");
-	for (;;);
+	__sti(); 
+}
+
+static void smp_really_stop_cpu(void *dummy)
+{
+	smp_stop_cpu(); 
+	for (;;) 
+		asm("hlt"); 
 }
 
 /*
@@ -427,12 +513,8 @@ static void stop_this_cpu (void * dummy)
 
 void smp_send_stop(void)
 {
-	smp_call_function(stop_this_cpu, NULL, 1, 0);
-	smp_num_cpus = 1;
-
-	__cli();
-	disable_local_APIC();
-	__sti();
+	smp_call_function(smp_really_stop_cpu, NULL, 1, 0);
+	smp_stop_cpu();
 }
 
 /*
@@ -467,4 +549,3 @@ asmlinkage void smp_call_function_interrupt(void)
 		atomic_inc(&call_data->finished);
 	}
 }
-

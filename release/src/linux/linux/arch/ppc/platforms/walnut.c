@@ -1,287 +1,250 @@
 /*
- * BK Id: SCCS/s.walnut_setup.c 1.10 11/13/01 21:26:07 paulus
- */
-/*
  *
- *    Copyright (c) 1999-2000 Grant Erickson <grant@lcse.umn.edu>
+ *    Copyrigh t(c) 1999-2000 Grant Erickson <grant@lcse.umn.edu>
  *
- *    Module name: walnut_setup.c
+ *    Copyright 2000-2002 MontaVista Software Inc.
+ *      Completed implementation.
+ *      Author: MontaVista Software, Inc.  <source@mvista.com>
+ *
+ *    Module name: walnut.c
  *
  *    Description:
  *      Architecture- / platform-specific boot-time initialization code for
- *      the IBM PowerPC 403GP "Walnut" evaluation board. Adapted from original
+ *      IBM PowerPC 4xx based boards. Adapted from original
  *      code by Gary Thomas, Cort Dougan <cort@fsmlabs.com>, and Dan Malek
  *      <dan@net4x.com>.
  *
+ * Please read the COPYING file for all license details.
  */
-
 #include <linux/config.h>
 #include <linux/init.h>
 #include <linux/smp.h>
 #include <linux/threads.h>
-#include <linux/interrupt.h>
 #include <linux/param.h>
 #include <linux/string.h>
 #include <linux/blk.h>
-#include <linux/seq_file.h>
+#include <linux/pci.h>
+#include <linux/rtc.h>
 
+#include <asm/system.h>
+#include <asm/pci-bridge.h>
 #include <asm/processor.h>
-#include <asm/board.h>
 #include <asm/machdep.h>
 #include <asm/page.h>
-
-#include "ppc4xx_pic.h"
 #include <asm/time.h>
-#include "walnut_setup.h"
+#include <asm/io.h>
+#include <asm/todc.h>
+#include <platforms/ibm_ocp.h>
 
+#undef DEBUG
 
-/* Function Prototypes */
+#ifdef DEBUG
+#define DBG(x...) printk(x)
+#else
+#define DBG(x...)
+#endif
 
-extern void abort(void);
+void *kb_cs;
+void *kb_data;
+void *walnut_rtc_base;
 
-/* Global Variables */
-
-unsigned char __res[sizeof(bd_t)];
-
-
-/*
- * void __init walnut_init()
- *
- * Description:
- *   This routine...
- *
- * Input(s):
- *   r3 - Optional pointer to a board information structure.
- *   r4 - Optional pointer to the physical starting address of the init RAM
- *        disk.
- *   r5 - Optional pointer to the physical ending address of the init RAM
- *        disk.
- *   r6 - Optional pointer to the physical starting address of any kernel
- *        command-line parameters.
- *   r7 - Optional pointer to the physical ending address of any kernel
- *        command-line parameters.
- *
- * Output(s):
- *   N/A
- *
- * Returns:
- *   N/A
- *
- */
-void __init
-walnut_init(unsigned long r3, unsigned long r4, unsigned long r5, 
-	    unsigned long r6, unsigned long r7)
-{
-	/*
-	 * If we were passed in a board information, copy it into the
-	 * residual data area.
-	 */
-	if (r3) {
-		memcpy((void *)__res, (void *)(r3 + KERNELBASE), sizeof(bd_t));
-	}
-
-#if defined(CONFIG_BLK_DEV_INITRD)
-	/*
-	 * If the init RAM disk has been configured in, and there's a valid
-	 * starting address for it, set it up.
-	 */
-	if (r4) {
-		initrd_start = r4 + KERNELBASE;
-		initrd_end = r5 + KERNELBASE;
-	}
-#endif /* CONFIG_BLK_DEV_INITRD */
-
-	/* Copy the kernel command line arguments to a safe place. */
-
-	if (r6) {
- 		*(char *)(r7 + KERNELBASE) = 0;
-		strcpy(cmd_line, (char *)(r6 + KERNELBASE));
-	}
-
-	/* Initialize machine-dependency vectors */
-
-	ppc_md.setup_arch	 	= walnut_setup_arch;
-	ppc_md.show_percpuinfo	 	= walnut_show_percpuinfo;
-	ppc_md.irq_cannonicalize 	= NULL;
-	ppc_md.init_IRQ		 	= walnut_init_IRQ;
-	ppc_md.get_irq		 	= walnut_get_irq;
-	ppc_md.init		 	= NULL;
-
-	ppc_md.restart		 	= walnut_restart;
-	ppc_md.power_off	 	= walnut_power_off;
-	ppc_md.halt		 	= walnut_halt;
-
-	ppc_md.time_init	 	= walnut_time_init;
-	ppc_md.set_rtc_time	 	= walnut_set_rtc_time;
-	ppc_md.get_rtc_time	 	= walnut_get_rtc_time;
-	ppc_md.calibrate_decr	 	= walnut_calibrate_decr;
-
-	ppc_md.kbd_setkeycode    	= NULL;
-	ppc_md.kbd_getkeycode    	= NULL;
-	ppc_md.kbd_translate     	= NULL;
-	ppc_md.kbd_unexpected_up 	= NULL;
-	ppc_md.kbd_leds          	= NULL;
-	ppc_md.kbd_init_hw       	= NULL;
-	ppc_md.ppc_kbd_sysrq_xlate	= NULL;
-}
-
-/*
- * Document me.
- */
-void __init
-walnut_setup_arch(void)
-{
-}
-
-/*
- * int walnut_show_percpuinfo()
- *
- * Description:
- *   This routine pretty-prints the platform's internal CPU and bus clock
- *   frequencies into the buffer for usage in /proc/cpuinfo.
- *
- * Input(s):
- *  *buffer - Buffer into which CPU and bus clock frequencies are to be
- *            printed.
- *
- * Output(s):
- *  *buffer - Buffer with the CPU and bus clock frequencies.
- *
- * Returns:
- *   The number of bytes copied into 'buffer' if OK, otherwise zero or less
- *   on error.
- */
-int
-walnut_show_percpuinfo(struct seq_file *m)
-{
-	bd_t *bp = (bd_t *)__res;
-
-	seq_printf(m, "clock\t\t: %dMHz\n"
-		   "bus clock\t\t: %dMHz\n",
-		   bp->bi_intfreq / 1000000,
-		   bp->bi_busfreq / 1000000);
-
-	return 0;
-}
-
-/*
- * Document me.
- */
-void __init
-walnut_init_IRQ(void)
-{
-	int i;
-
-	ppc4xx_pic_init();
-
-	for (i = 0; i < NR_IRQS; i++) {
-		irq_desc[i].handler = ppc4xx_pic;
-	}
-
-	return;
-}
-
-/*
- * Document me.
- */
-int
-walnut_get_irq(struct pt_regs *regs)
-{
-	return (ppc4xx_pic_get_irq(regs));
-}
-
-/*
- * Document me.
- */
-void
-walnut_restart(char *cmd)
-{
-	abort();
-}
-
-/*
- * Document me.
- */
-void
-walnut_power_off(void)
-{
-	walnut_restart(NULL);
-}
-
-/*
- * Document me.
- */
-void
-walnut_halt(void)
-{
-	walnut_restart(NULL);
-}
-
-/*
- * Document me.
- */
-long __init
-walnut_time_init(void)
-{
-	return 0;
-}
-
-/*
- * Document me.
+#ifdef CONFIG_PCI
+/* Some IRQs unique to Walnut.
+ * Used by the generic 405 PCI setup functions in ppc4xx_pci.c
  */
 int __init
-walnut_set_rtc_time(unsigned long time)
+ppc405_map_irq(struct pci_dev *dev, unsigned char idsel, unsigned char pin)
 {
+	static char pci_irq_table[][4] =
+	    /*
+	     *      PCI IDSEL/INTPIN->INTLINE
+	     *      A       B       C       D
+	     */
+	{
+		{28, 28, 28, 28},	/* IDSEL 1 - PCI slot 1 */
+		{29, 29, 29, 29},	/* IDSEL 2 - PCI slot 2 */
+		{30, 30, 30, 30},	/* IDSEL 3 - PCI slot 3 */
+		{31, 31, 31, 31},	/* IDSEL 4 - PCI slot 4 */
+	};
 
-	return (0);
-}
+	const long min_idsel = 1, max_idsel = 4, irqs_per_slot = 4;
+	return PCI_IRQ_TABLE_LOOKUP;
+};
+#endif
 
-/*
- * Document me.
- */
-unsigned long __init
-walnut_get_rtc_time(void)
-{
-
-	return (0);
-}
-
-/*
- * void __init walnut_calibrate_decr()
- *
- * Description:
- *   This routine retrieves the internal processor frequency from the board
- *   information structure, sets up the kernel timer decrementer based on
- *   that value, enables the 403 programmable interval timer (PIT) and sets
- *   it up for auto-reload.
- *
- * Input(s):
- *   N/A
- *
- * Output(s):
- *   N/A
- *
- * Returns:
- *   N/A
- *
- */
 void __init
-walnut_calibrate_decr(void)
+board_setup_arch(void)
 {
-	unsigned int freq;
-	bd_t *bip = (bd_t *)__res;
+#define WALNUT_PS2_BASE		0xF0100000
+#define WALNUT_FPGA_BASE	0xF0300000
 
-	freq = bip->bi_intfreq;
+	void *fpga_brdc;
+	unsigned char fpga_brdc_data;
+	void *fpga_enable;
+	void *fpga_polarity;
+	void *fpga_status;
+	void *fpga_trigger;
 
-	decrementer_count = freq / HZ;
-	count_period_num = 1;
-	count_period_den = freq;
+	kb_data = ioremap(WALNUT_PS2_BASE, 8);
+	if (!kb_data) {
+		printk(KERN_CRIT
+		       "walnut_setup_arch() kb_data ioremap failed\n");
+		return;
+	}
 
-	/* Enable the PIT and set auto-reload of its value */
+	kb_cs = kb_data + 1;
 
-	mtspr(SPRN_TCR, TCR_PIE | TCR_ARE);
+	fpga_status = ioremap(WALNUT_FPGA_BASE, 8);
+	if (!fpga_status) {
+		printk(KERN_CRIT
+		       "walnut_setup_arch() fpga_status ioremap failed\n");
+		return;
+	}
 
-	/* Clear any pending timer interrupts */
+	fpga_enable = fpga_status + 1;
+	fpga_polarity = fpga_status + 2;
+	fpga_trigger = fpga_status + 3;
+	fpga_brdc = fpga_status + 4;
 
-	mtspr(SPRN_TSR, TSR_ENW | TSR_WIS | TSR_PIS | TSR_FIS);
+	/* split the keyboard and mouse interrupts */
+	fpga_brdc_data = readb(fpga_brdc);
+	fpga_brdc_data |= 0x80;
+	writeb(fpga_brdc_data, fpga_brdc);
+
+	writeb(0x3, fpga_enable);
+
+	writeb(0x3, fpga_polarity);
+
+	writeb(0x3, fpga_trigger);
+
+	/* RTC step for the walnut */
+	walnut_rtc_base = (void *) WALNUT_RTC_VADDR;
+	TODC_INIT(TODC_TYPE_DS1743, walnut_rtc_base, walnut_rtc_base,
+		  walnut_rtc_base, 8);
+	/* Identify the system */
+	printk("IBM Walnut port (C) 2000-2002 MontaVista Software, Inc. (source@mvista.com)\n");
+}
+
+#ifdef CONFIG_PCI
+void __init
+bios_fixup(struct pci_controller *hose, struct pcil0_regs *pcip)
+{
+
+	unsigned int bar_response, bar;
+	/*
+	 * Expected PCI mapping:
+	 *
+	 *  PLB addr             PCI memory addr
+	 *  ---------------------       ---------------------
+	 *  0000'0000 - 7fff'ffff <---  0000'0000 - 7fff'ffff
+	 *  8000'0000 - Bfff'ffff --->  8000'0000 - Bfff'ffff
+	 *
+	 *  PLB addr             PCI io addr
+	 *  ---------------------       ---------------------
+	 *  e800'0000 - e800'ffff --->  0000'0000 - 0001'0000
+	 *
+	 * The following code is simplified by assuming that the bootrom
+	 * has been well behaved in following this mapping.
+	 */
+
+#ifdef DEBUG
+	int i;
+
+	printk("ioremap PCLIO_BASE = 0x%x\n", pcip);
+	printk("PCI bridge regs before fixup \n");
+	for (i = 0; i <= 3; i++) {
+		printk(" pmm%dma\t0x%x\n", i, in_le32(&(pcip->pmm[i].ma)));
+		printk(" pmm%dma\t0x%x\n", i, in_le32(&(pcip->pmm[i].la)));
+		printk(" pmm%dma\t0x%x\n", i, in_le32(&(pcip->pmm[i].pcila)));
+		printk(" pmm%dma\t0x%x\n", i, in_le32(&(pcip->pmm[i].pciha)));
+	}
+	printk(" ptm1ms\t0x%x\n", in_le32(&(pcip->ptm1ms)));
+	printk(" ptm1la\t0x%x\n", in_le32(&(pcip->ptm1la)));
+	printk(" ptm2ms\t0x%x\n", in_le32(&(pcip->ptm2ms)));
+	printk(" ptm2la\t0x%x\n", in_le32(&(pcip->ptm2la)));
+
+#endif
+
+	/* added for IBM boot rom version 1.15 bios bar changes  -AK */
+
+	/* Disable region first */
+	out_le32((void *) &(pcip->pmm[0].ma), 0x00000000);
+	/* PLB starting addr, PCI: 0x80000000 */
+	out_le32((void *) &(pcip->pmm[0].la), 0x80000000);
+	/* PCI start addr, 0x80000000 */
+	out_le32((void *) &(pcip->pmm[0].pcila), PPC405_PCI_MEM_BASE);
+	/* 512MB range of PLB to PCI */
+	out_le32((void *) &(pcip->pmm[0].pciha), 0x00000000);
+	/* Enable no pre-fetch, enable region */
+	out_le32((void *) &(pcip->pmm[0].ma), ((0xffffffff -
+						(PPC405_PCI_UPPER_MEM -
+						 PPC405_PCI_MEM_BASE)) | 0x01));
+
+	/* Disable region one */
+	out_le32((void *) &(pcip->pmm[1].ma), 0x00000000);
+	out_le32((void *) &(pcip->pmm[1].la), 0x00000000);
+	out_le32((void *) &(pcip->pmm[1].pcila), 0x00000000);
+	out_le32((void *) &(pcip->pmm[1].pciha), 0x00000000);
+	out_le32((void *) &(pcip->pmm[1].ma), 0x00000000);
+	out_le32((void *) &(pcip->ptm1ms), 0x00000000);
+
+	/* Disable region two */
+	out_le32((void *) &(pcip->pmm[2].ma), 0x00000000);
+	out_le32((void *) &(pcip->pmm[2].la), 0x00000000);
+	out_le32((void *) &(pcip->pmm[2].pcila), 0x00000000);
+	out_le32((void *) &(pcip->pmm[2].pciha), 0x00000000);
+	out_le32((void *) &(pcip->pmm[2].ma), 0x00000000);
+	out_le32((void *) &(pcip->ptm2ms), 0x00000000);
+
+	/* Zero config bars */
+	for (bar = PCI_BASE_ADDRESS_1; bar <= PCI_BASE_ADDRESS_2; bar += 4) {
+		early_write_config_dword(hose, hose->first_busno,
+					 PCI_FUNC(hose->first_busno), bar,
+					 0x00000000);
+		early_read_config_dword(hose, hose->first_busno,
+					PCI_FUNC(hose->first_busno), bar,
+					&bar_response);
+		DBG("BUS %d, device %d, Function %d bar 0x%8.8x is 0x%8.8x\n",
+		    hose->first_busno, PCI_SLOT(hose->first_busno),
+		    PCI_FUNC(hose->first_busno), bar, bar_response);
+	}
+	/* end work arround */
+
+#ifdef DEBUG
+	printk("PCI bridge regs after fixup \n");
+	for (i = 0; i <= 3; i++) {
+		printk(" pmm%dma\t0x%x\n", i, in_le32(&(pcip->pmm[i].ma)));
+		printk(" pmm%dma\t0x%x\n", i, in_le32(&(pcip->pmm[i].la)));
+		printk(" pmm%dma\t0x%x\n", i, in_le32(&(pcip->pmm[i].pcila)));
+		printk(" pmm%dma\t0x%x\n", i, in_le32(&(pcip->pmm[i].pciha)));
+	}
+	printk(" ptm1ms\t0x%x\n", in_le32(&(pcip->ptm1ms)));
+	printk(" ptm1la\t0x%x\n", in_le32(&(pcip->ptm1la)));
+	printk(" ptm2ms\t0x%x\n", in_le32(&(pcip->ptm2ms)));
+	printk(" ptm2la\t0x%x\n", in_le32(&(pcip->ptm2la)));
+
+#endif
+}
+#endif
+
+void __init
+board_io_mapping(void)
+{
+	io_block_mapping(WALNUT_RTC_VADDR,
+			 WALNUT_RTC_PADDR, WALNUT_RTC_SIZE, _PAGE_IO);
+}
+
+void __init
+board_setup_irq(void)
+{
+}
+
+void __init
+board_init(void)
+{
+	ppc_md.time_init = todc_time_init;
+	ppc_md.set_rtc_time = todc_set_rtc_time;
+	ppc_md.get_rtc_time = todc_get_rtc_time;
+	ppc_md.nvram_read_val = todc_direct_read_val;
+	ppc_md.nvram_write_val = todc_direct_write_val;
 }

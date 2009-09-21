@@ -23,27 +23,82 @@
  */
 #include <linux/config.h>
 #include <linux/init.h>
+#include <linux/irq.h>
 #include <linux/sched.h>
 #include <linux/slab.h>
 #include <linux/interrupt.h>
 #include <linux/kernel_stat.h>
 #include <linux/random.h>
 
-#include <asm/irq.h>
+#include <asm/i8259.h>
 #include <asm/io.h>
 #include <asm/mips-boards/malta.h>
 #include <asm/mips-boards/maltaint.h>
 #include <asm/mips-boards/piix4.h>
-#include <asm/gt64120.h>
+#include <asm/gt64120/gt64120.h>
 #include <asm/mips-boards/generic.h>
 #include <asm/mips-boards/msc01_pci.h>
 
 extern asmlinkage void mipsIRQ(void);
-extern asmlinkage void do_IRQ(int irq, struct pt_regs *regs);
-extern void init_i8259_irqs (void);
 extern int mips_pcibios_iack(void);
 
+#ifdef CONFIG_KGDB
+extern void breakpoint(void);
+extern void set_debug_traps(void);
+extern int remote_debug;
+#endif
+
 static spinlock_t mips_irq_lock = SPIN_LOCK_UNLOCKED;
+
+/*
+ * Algorithmics Bonito64 system controller register base.
+ */
+static char * const _bonito = (char *)KSEG1ADDR(BONITO_REG_BASE);
+
+static inline int mips_pcibios_iack(void)
+{
+	int irq;
+        u32 dummy;
+
+	/*
+	 * Determine highest priority pending interrupt by performing
+	 * a PCI Interrupt Acknowledge cycle.
+	 */
+	switch(mips_revision_corid) {
+	case MIPS_REVISION_CORID_QED_RM5261:
+	case MIPS_REVISION_CORID_CORE_LV:
+	case MIPS_REVISION_CORID_CORE_FPGA:
+	case MIPS_REVISION_CORID_CORE_MSC:
+		if (mips_revision_corid == MIPS_REVISION_CORID_CORE_MSC)
+			MSC_READ(MSC01_PCI_IACK, irq);
+		else
+			irq = GT_READ(GT_PCI0_IACK_OFS);
+		irq &= 0xff;
+		break;
+	case MIPS_REVISION_CORID_BONITO64:
+	case MIPS_REVISION_CORID_CORE_20K:
+		/* The following will generate a PCI IACK cycle on the
+		 * Bonito controller. It's a little bit kludgy, but it
+		 * was the easiest way to implement it in hardware at
+		 * the given time.
+		 */
+		BONITO_PCIMAP_CFG = 0x20000;
+
+		/* Flush Bonito register block */
+		dummy = BONITO_PCIMAP_CFG;
+		iob();    /* sync */
+
+		irq = *(volatile u32 *)(KSEG1ADDR(BONITO_PCICFG_BASE));
+		iob();    /* sync */
+		irq &= 0xff;
+		BONITO_PCIMAP_CFG = 0;
+		break;
+	default:
+	        printk("Unknown Core card, don't know the system controller.\n");
+		return -1;
+	}
+	return irq;
+}
 
 static inline int get_int(int *irq)
 {
@@ -103,11 +158,11 @@ void corehi_irqdispatch(struct pt_regs *regs)
         case MIPS_REVISION_CORID_QED_RM5261:
         case MIPS_REVISION_CORID_CORE_LV:
         case MIPS_REVISION_CORID_CORE_FPGA:
-                GT_READ(GT_INTRCAUSE_OFS, data);
+                data = GT_READ(GT_INTRCAUSE_OFS);
                 printk("GT_INTRCAUSE = %08x\n", data);
-                GT_READ(0x70, data);
-                GT_READ(0x78, datahi);
-                printk("GT_CPU_ERR_ADDR = %0x2%08x\n", datahi,data);
+                data = GT_READ(0x70);
+                datahi = GT_READ(0x78);
+                printk("GT_CPU_ERR_ADDR = %02x%08x\n", datahi, data);
                 break;
         case MIPS_REVISION_CORID_BONITO64:
         case MIPS_REVISION_CORID_CORE_20K:
@@ -136,7 +191,7 @@ void __init init_IRQ(void)
 	init_generic_irq();
 	init_i8259_irqs();
 
-#ifdef CONFIG_REMOTE_DEBUG
+#ifdef CONFIG_KGDB
 	if (remote_debug) {
 		set_debug_traps();
 		breakpoint();

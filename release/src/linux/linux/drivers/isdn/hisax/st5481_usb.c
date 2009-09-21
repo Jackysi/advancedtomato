@@ -484,16 +484,18 @@ static void usb_in_complete(struct urb *urb)
 	ptr = urb->transfer_buffer;
 	while (len > 0) {
 		if (in->mode == L1_MODE_TRANS) {
-			memcpy(in->rcvbuf, ptr, len);
+			/* swap rx bytes to get hearable audio */
+			register unsigned char *dest = in->rcvbuf;
 			status = len;
-			len = 0;
+			for (; len; len--)
+				*dest++ = isdnhdlc_bit_rev_tab[*ptr++];
 		} else {
-			status = hdlc_decode(&in->hdlc_state, ptr, len, &count,
-					     in->rcvbuf, in->bufsize);
+			status = isdnhdlc_decode(&in->hdlc_state, ptr, len, &count,
+					         in->rcvbuf, in->bufsize);
 			ptr += count;
 			len -= count;
 		}
-		
+
 		if (status > 0) {
 			// Good frame received
 			DBG(4,"count=%d",status);
@@ -622,8 +624,8 @@ void st5481_in_mode(struct st5481_in *in, int mode)
 
 	if (in->mode != L1_MODE_NULL) {
 		if (in->mode != L1_MODE_TRANS)
-			hdlc_rcv_init(&in->hdlc_state,
-				      in->mode == L1_MODE_HDLC_56K);
+			isdnhdlc_rcv_init(&in->hdlc_state,
+				          in->mode == L1_MODE_HDLC_56K);
 		
 		st5481_usb_pipe_reset(in->adapter, in->ep, NULL, NULL);
 		st5481_usb_device_ctrl_msg(in->adapter, in->counter,

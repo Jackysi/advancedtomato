@@ -354,6 +354,17 @@ static inline int euc2sjisibm(unsigned char *sjis, const unsigned char euc_hi,
 {
 	int n;
 
+#if 0
+	if ((euc_hi == 0xA2) && (euc_lo == 0xCC)) {
+		sjis[0] = 0xFA;
+		sjis[1] = 0x54;
+		return 2;
+	} else if ((euc_hi == 0xA2) && (euc_lo == 0xE8)) {
+		sjis[0] = 0xFA;
+		sjis[1] = 0x5B;
+		return 2;
+	}
+#endif
 	if ((n = euc2sjisibm_g3upper(sjis, euc_hi, euc_lo))) {
 		return n;
 	} else if ((n = euc2sjisibm_jisx0212(sjis, euc_hi, euc_lo))) {

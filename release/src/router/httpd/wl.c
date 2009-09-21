@@ -27,6 +27,7 @@ void asp_wlscan(int argc, char **argv)
 	wif = nvram_safe_get("wl_ifname");
 
 	memset(&sp, 0xff, sizeof(sp));		// most default to -1
+	memset(&sp.bssid, 0xff, sizeof(sp.bssid));		//!!TB
 	sp.ssid.SSID_len = 0;
 	sp.bss_type = DOT11_BSSTYPE_ANY;	// =2
 	sp.channel_num = 0;
@@ -75,14 +76,19 @@ void asp_wlscan(int argc, char **argv)
 #error WL_BSS_INFO_VERSION
 #endif
 
+		eval("wl", "up"); //!!TB - without this the router may reboot
 #if WL_BSS_INFO_VERSION >= 108
+		//!!TB - it seems that the new WL driver needs another voodoo sequence
+		eval("wl", "ssid", "");
+
 		// no idea why this voodoo sequence works to wake up wl	-- zzz
 		eval("wl", "ssid", nvram_safe_get("wl_ssid"));
 		if (radio) set_radio(1);
 #endif
 	}
-	if (!radio) set_radio(0);
-
+	//!!TB if (!radio)
+	set_radio(radio);
+	
 	if (r < 0) {
 		free(results);
 		web_puts("[null,'Unable to obtain scan result.']];\n");
@@ -168,8 +174,8 @@ void wo_wlradio(char *url)
 static int read_noise(void)
 {
 	int v;
-
-	// WLC_GET_PHY_NOISE
+	
+	// WLC_GET_PHY_NOISE = 135
 	if (wl_ioctl(nvram_safe_get("wl_ifname"), 135, &v, sizeof(v)) == 0) {
 		char s[32];
 		sprintf(s, "%d", v);
@@ -215,6 +221,8 @@ void wo_wlmnoise(char *url)
 	web_close();
 	sleep(3);
 
+	int radio = get_radio();	//!!TB
+
 	wif = nvram_safe_get("wl_ifname");
 	if (wl_ioctl(wif, WLC_GET_AP, &ap, sizeof(ap)) < 0) return;
 
@@ -225,8 +233,17 @@ void wo_wlmnoise(char *url)
 		sleep(1);
 		read_noise();
 	}
-
+	
 	wl_ioctl(wif, WLC_SET_AP, &ap, sizeof(ap));
+
+	//!!TB - again, the same voodoo sequence seems to be needed for new WL driver
+	if (!radio) set_radio(1);
+	eval("wl", "up");
+#if WL_BSS_INFO_VERSION >= 108
+	eval("wl", "ssid", "");
+	eval("wl", "ssid", nvram_safe_get("wl_ssid"));
+#endif
+	set_radio(radio);
 }
 
 void asp_wlclient(int argc, char **argv)

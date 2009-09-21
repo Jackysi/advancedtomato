@@ -320,14 +320,19 @@ out:
 static ssize_t initrd_read(struct file *file, char *buf,
 			   size_t count, loff_t *ppos)
 {
-	int left;
+	loff_t n = *ppos;
+	unsigned pos = n;
+	unsigned left = initrd_end - initrd_start;
 
-	left = initrd_end - initrd_start - *ppos;
+	if (pos != n || pos >= left)
+		return 0;
+
+	left -= pos;
 	if (count > left) count = left;
 	if (count == 0) return 0;
-	if (copy_to_user(buf, (char *)initrd_start + *ppos, count))
+	if (copy_to_user(buf, (char *)initrd_start + pos, count))
 		return -EFAULT;
-	*ppos += count;
+	*ppos = pos + count;
 	return count;
 }
 

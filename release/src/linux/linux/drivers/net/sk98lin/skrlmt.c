@@ -2,15 +2,14 @@
  *
  * Name:	skrlmt.c
  * Project:	GEnesis, PCI Gigabit Ethernet Adapter
- * Version:	$Revision: 1.1.1.4 $
- * Date:	$Date: 2003/10/14 08:08:27 $
  * Purpose:	Manage links on SK-NET Adapters, esp. redundant ones.
  *
  ******************************************************************************/
 
 /******************************************************************************
  *
- *	(C)Copyright 1998-2001 SysKonnect GmbH.
+ *	(C)Copyright 1998-2002 SysKonnect GmbH.
+ *	(C)Copyright 2002-2003 Marvell.
  *
  *	This program is free software; you can redistribute it and/or modify
  *	it under the terms of the GNU General Public License as published by
@@ -20,7 +19,6 @@
  *	The information in this file is provided "AS IS" without warranty.
  *
  ******************************************************************************/
-
 
 /******************************************************************************
  *
@@ -39,13 +37,12 @@
 
 #ifndef	lint
 static const char SysKonnectFileId[] =
-	"@(#) $Id: skrlmt.c,v 1.1.1.4 2003/10/14 08:08:27 sparq Exp $ (C) SysKonnect.";
+	"@(#) $Id: skrlmt.c,v 1.69 2003/04/15 09:39:22 tschilli Exp $ (C) Marvell.";
 #endif	/* !defined(lint) */
 
 #define __SKRLMT_C
 
 #ifdef __cplusplus
-#error C++ is not yet supported.
 extern "C" {
 #endif	/* cplusplus */
 
@@ -345,6 +342,10 @@ int		Level)	/* Initialization Level */
 	SK_U32		i, j;
 	SK_U64		Random;
 	SK_EVPARA	Para;
+    SK_MAC_ADDR		VirtualMacAddress;
+    SK_MAC_ADDR		PhysicalAMacAddress;
+    SK_BOOL		VirtualMacAddressSet;
+    SK_BOOL		PhysicalAMacAddressSet;
 
 	SK_DBG_MSG(pAC, SK_DBGMOD_RLMT, SK_DBGCAT_INIT,
 		("RLMT Init level %d.\n", Level))
@@ -369,8 +370,8 @@ int		Level)	/* Initialization Level */
 		for (i = 0; i < SK_MAX_NETS; i++) {
 			pAC->Rlmt.Net[i].RlmtState = SK_RLMT_RS_INIT;
 			pAC->Rlmt.Net[i].RootIdSet = SK_FALSE;
-			pAC->Rlmt.Net[i].Preference = 0xFFFFFFFF;	  /* Automatic. */
 			pAC->Rlmt.Net[i].PrefPort = SK_RLMT_DEF_PREF_PORT;
+			pAC->Rlmt.Net[i].Preference = 0xFFFFFFFF;	  /* Automatic. */
 			/* Just assuming. */
 			pAC->Rlmt.Net[i].ActivePort = pAC->Rlmt.Net[i].PrefPort;
 			pAC->Rlmt.Net[i].RlmtMode = SK_RLMT_DEF_MODE;
@@ -392,7 +393,7 @@ int		Level)	/* Initialization Level */
 		pAC->Rlmt.Net[0].NumPorts = pAC->GIni.GIMacsFound;
 
 		/* Initialize HW registers? */
-		if (pAC->GIni.GIMacsFound < 2) {
+		if (pAC->GIni.GIMacsFound == 1) {
 			Para.Para32[0] = SK_RLMT_MODE_CLS;
 			Para.Para32[1] = 0;
 			(void)SkRlmtEvent(pAC, IoC, SK_RLMT_MODE_CHANGE, Para);
@@ -427,6 +428,38 @@ int		Level)	/* Initialization Level */
 			}
 
 			(void)SkAddrMcUpdate(pAC, IoC, i);
+		}
+
+    	VirtualMacAddressSet = SK_FALSE;
+		/* Read virtual MAC address from Control Register File. */
+		for (j = 0; j < SK_MAC_ADDR_LEN; j++) {
+			
+            SK_IN8(IoC, B2_MAC_1 + j, &VirtualMacAddress.a[j]);
+            VirtualMacAddressSet |= VirtualMacAddress.a[j];
+		}
+    	
+        PhysicalAMacAddressSet = SK_FALSE;
+		/* Read physical MAC address for MAC A from Control Register File. */
+		for (j = 0; j < SK_MAC_ADDR_LEN; j++) {
+			
+            SK_IN8(IoC, B2_MAC_2 + j, &PhysicalAMacAddress.a[j]);
+            PhysicalAMacAddressSet |= PhysicalAMacAddress.a[j];
+		}
+
+        /* check if the two mac addresses contain reasonable values */
+        if (!VirtualMacAddressSet || !PhysicalAMacAddressSet) {
+
+            pAC->Rlmt.RlmtOff = SK_TRUE;
+        }
+
+        /* if the two mac addresses are equal switch off the RLMT_PRE_LOOKAHEAD
+           and the RLMT_LOOKAHEAD macros */
+        else if (SK_ADDR_EQUAL(PhysicalAMacAddress.a, VirtualMacAddress.a)) {
+
+            pAC->Rlmt.RlmtOff = SK_TRUE;
+        }
+		else {
+			pAC->Rlmt.RlmtOff = SK_FALSE;
 		}
 		break;
 
@@ -498,7 +531,7 @@ SK_U32	NetIdx)	/* Net Number */
 				FirstMacUp = pAC->Rlmt.Net[NetIdx].Port[i];
 			}
 			else {
-				pAC->Rlmt.Net[NetIdx].Port[i]->PortCheck[
+				PrevMacUp->PortCheck[
 					pAC->Rlmt.Net[NetIdx].Port[i]->PortsChecked].CheckAddr =
 					pAC->Rlmt.Net[NetIdx].Port[i]->AddrPort->CurrentMacAddress;
 				PrevMacUp->PortCheck[
@@ -521,13 +554,13 @@ SK_U32	NetIdx)	/* Net Number */
 #ifdef DEBUG
 	for (i = 0; i < pAC->Rlmt.Net[NetIdx].NumPorts; i++) {
 		SK_DBG_MSG(pAC, SK_DBGMOD_RLMT, SK_DBGCAT_CTRL,
-			("Port %d checks %d other ports: %2X.\n", NetIdx,
+			("Port %d checks %d other ports: %2X.\n", i,
 				pAC->Rlmt.Net[NetIdx].Port[i]->PortsChecked,
 				pAC->Rlmt.Net[NetIdx].Port[i]->PortCheck[0].CheckAddr.a[5]))
 	}
 #endif	/* DEBUG */
 
-	return;       
+	return;
 }	/* SkRlmtBuildCheckChain */
 
 
@@ -556,6 +589,22 @@ SK_MAC_ADDR	*DestAddr)	/* Destination address */
 	SK_U16		Length;
 	SK_MBUF		*pMb;
 	SK_RLMT_PACKET	*pPacket;
+
+#ifdef DEBUG
+	SK_U8	CheckSrc  = 0;
+	SK_U8	CheckDest = 0;
+	
+	for (i = 0; i < SK_MAC_ADDR_LEN; ++i) {
+		CheckSrc  |= SrcAddr->a[i];
+		CheckDest |= DestAddr->a[i];
+	}
+
+	if ((CheckSrc == 0) || (CheckDest == 0)) {
+		SK_DBG_MSG(pAC, SK_DBGMOD_RLMT, SK_DBGCAT_ERR,
+			("SkRlmtBuildPacket: Invalid %s%saddr.\n",
+			 (CheckSrc == 0 ? "Src" : ""), (CheckDest == 0 ? "Dest" : "")))
+	}
+#endif
 
 	if ((pMb = SkDrvAllocRlmtMbuf(pAC, IoC, SK_RLMT_MAX_PACKET_SIZE)) != NULL) {
 		pPacket = (SK_RLMT_PACKET*)pMb->pData;
@@ -598,7 +647,7 @@ SK_MAC_ADDR	*DestAddr)	/* Destination address */
 		}
 	}
 
-	return (pMb);       
+	return (pMb);
 }	/* SkRlmtBuildPacket */
 
 
@@ -680,7 +729,7 @@ SK_U32	PortNumber)	/* Sending port */
 		pAC->Rlmt.Port[PortNumber].TxSpHelloReqCts++;
 	}
 
-	return (pMb);       
+	return (pMb);
 }	/* SkRlmtBuildSpanningTreePacket */
 
 
@@ -747,8 +796,8 @@ SK_U32	PortNumber)	/* Sending port */
 			SK_DBG_MSG(pAC, SK_DBGMOD_RLMT, SK_DBGCAT_TX,
 				("SkRlmtSend: BPDU Packet on Port %u.\n", PortNumber))
 		}
-	}   
-	return;   
+	}
+	return;
 }	/* SkRlmtSend */
 
 
@@ -950,6 +999,10 @@ SK_MBUF	*pMb)	/* Received packet */
 
 		switch (PacketType) {
 		case SK_PACKET_ANNOUNCE:	/* Not yet used. */
+#if 0
+			/* Build the check chain. */
+			SkRlmtBuildCheckChain(pAC);
+#endif	/* 0 */
 
 			SK_DBG_MSG(pAC, SK_DBGMOD_RLMT, SK_DBGCAT_RX,
 				("SkRlmtPacketReceive: Announce.\n"))
@@ -1084,7 +1137,7 @@ SK_MBUF	*pMb)	/* Received packet */
 					pRPort->Root.Id[0], pRPort->Root.Id[1],
 					pRPort->Root.Id[2], pRPort->Root.Id[3],
 					pRPort->Root.Id[4], pRPort->Root.Id[5],
-					pRPort->Root.Id[6], pRPort->Root.Id[7]))      
+					pRPort->Root.Id[6], pRPort->Root.Id[7]))
 		}
 
 		SkDrvFreeRlmtMbuf(pAC, IoC, pMb);
@@ -1247,10 +1300,10 @@ SK_U32	PortNumber)	/* Port to check */
 			SkRlmtCheckSwitch(pAC, IoC, pRPort->Net->NetNumber);
 		}
 
-		NewTimeout = SK_RLMT_DEF_TO_VAL;              
+		NewTimeout = SK_RLMT_DEF_TO_VAL;
 	}
 
-	return (NewTimeout);       
+	return (NewTimeout);
 }	/* SkRlmtCheckPort */
 
 
@@ -1284,13 +1337,14 @@ SK_U32	*pSelect)	/* New active port */
 	
 	/* Select port with the latest TimeStamp. */
 	for (i = 0; i < (SK_U32)pAC->GIni.GIMacsFound; i++) {
-#ifdef xDEBUG
+
 		SK_DBG_MSG(pAC, SK_DBGMOD_RLMT, SK_DBGCAT_CTRL,
-			("TimeStamp Port %d: %08x %08x.\n",
+			("TimeStamp Port %d (Down: %d, NoRx: %d): %08x %08x.\n",
 				i,
+   				pAC->Rlmt.Port[i].PortDown, pAC->Rlmt.Port[i].PortNoRx,
 				*((SK_U32*)(&pAC->Rlmt.Port[i].BcTimeStamp) + OFFS_HI32),
 				*((SK_U32*)(&pAC->Rlmt.Port[i].BcTimeStamp) + OFFS_LO32)))
-#endif	/* DEBUG */
+
 		if (!pAC->Rlmt.Port[i].PortDown && !pAC->Rlmt.Port[i].PortNoRx) {
 			if (!PortFound || pAC->Rlmt.Port[i].BcTimeStamp > BcTimeStamp) {
 				BcTimeStamp = pAC->Rlmt.Port[i].BcTimeStamp;
@@ -1301,6 +1355,8 @@ SK_U32	*pSelect)	/* New active port */
 	}
 
 	if (PortFound) {
+		SK_DBG_MSG(pAC, SK_DBGMOD_RLMT, SK_DBGCAT_CTRL,
+			("Port %d received the last broadcast.\n", *pSelect))
 
 		/* Look if another port's time stamp is similar. */
 		for (i = 0; i < (SK_U32)pAC->GIni.GIMacsFound; i++) {
@@ -1313,19 +1369,19 @@ SK_U32	*pSelect)	/* New active port */
 				pAC->Rlmt.Port[i].BcTimeStamp +
 				 SK_RLMT_BC_DELTA > BcTimeStamp)) {
 				PortFound = SK_FALSE;
-#ifdef xDEBUG
+				
 				SK_DBG_MSG(pAC, SK_DBGMOD_RLMT, SK_DBGCAT_CTRL,
 					("Port %d received a broadcast at a similar time.\n", i))
-#endif	/* DEBUG */
 				break;
 			}
 		}
 	}
 
-#ifdef xDEBUG
+#ifdef DEBUG
 	if (PortFound) {
 		SK_DBG_MSG(pAC, SK_DBGMOD_RLMT, SK_DBGCAT_CTRL,
-			("SK_RLMT_CHECK_SWITCH found Port %d receiving the substantially latest broadcast (%d).\n",
+			("SK_RLMT_SELECT_BCRX found Port %d receiving the substantially "
+			 "latest broadcast (%u).\n",
 				*pSelect,
 				BcTimeStamp - pAC->Rlmt.Port[1 - *pSelect].BcTimeStamp))
 	}
@@ -1375,7 +1431,7 @@ SK_U32	*pSelect)	/* New active port */
 			}
 			PortFound = SK_TRUE;
 			SK_DBG_MSG(pAC, SK_DBGMOD_RLMT, SK_DBGCAT_CTRL,
-				("SK_RLMT_CHECK_SWITCH found Port %d up and not check RX.\n",
+				("SK_RLMT_SELECT_NOTSUSPECT found Port %d up and not check RX.\n",
 					*pSelect))
 			break;
 		}
@@ -1425,7 +1481,7 @@ SK_BOOL	AutoNegDone)	/* Successfully auto-negotiated? */
 			}
 			PortFound = SK_TRUE;
 			SK_DBG_MSG(pAC, SK_DBGMOD_RLMT, SK_DBGCAT_CTRL,
-				("SK_RLMT_CHECK_SWITCH found Port %d up.\n", *pSelect))
+				("SK_RLMT_SELECT_UP found Port %d up.\n", *pSelect))
 			break;
 		}
 	}
@@ -1486,7 +1542,7 @@ SK_BOOL	AutoNegDone)	/* Successfully auto-negotiated? */
 	}
 
 	SK_DBG_MSG(pAC, SK_DBGMOD_RLMT, SK_DBGCAT_CTRL,
-		("SK_RLMT_CHECK_SWITCH found Port %d going up.\n", *pSelect))
+		("SK_RLMT_SELECT_GOINGUP found Port %d going up.\n", *pSelect))
 	return (SK_TRUE);
 }	/* SkRlmtSelectGoingUp */
 
@@ -1532,7 +1588,7 @@ SK_BOOL	AutoNegDone)	/* Successfully auto-negotiated? */
 			}
 			PortFound = SK_TRUE;
 			SK_DBG_MSG(pAC, SK_DBGMOD_RLMT, SK_DBGCAT_CTRL,
-				("SK_RLMT_CHECK_SWITCH found Port %d down.\n", *pSelect))
+				("SK_RLMT_SELECT_DOWN found Port %d down.\n", *pSelect))
 			break;
 		}
 	}
@@ -1569,6 +1625,13 @@ SK_U32	NetIdx)	/* Net index */
 	PrefPort = pAC->Rlmt.Net[NetIdx].PrefPort;	/* Index of preferred port. */
 	PortFound = SK_FALSE;
 	pAC->Rlmt.CheckSwitch = SK_FALSE;
+
+#if 0	/* RW 2001/10/18 - active port becomes always prefered one */
+	if (pAC->Rlmt.Net[NetIdx].Preference == 0xFFFFFFFF) { /* Automatic */
+		/* disable auto-fail back */
+		PrefPort = Active;
+	}
+#endif
 
 	if (pAC->Rlmt.Net[NetIdx].LinksUp == 0) {
 		/* Last link went down - shut down the net. */
@@ -1658,7 +1721,10 @@ SK_U32	NetIdx)	/* Net index */
 		 *		else
 		 *			SwitchSoft
 		 */
-		if (pAC->Rlmt.Net[0].RlmtMode != SK_RLMT_MODE_CLS) {
+		/* check of ChgBcPrio flag added */
+		if ((pAC->Rlmt.Net[0].RlmtMode != SK_RLMT_MODE_CLS) &&
+			(!pAC->Rlmt.Net[0].ChgBcPrio)) {
+			
 			if (!PortFound) {
 				PortFound = SkRlmtSelectBcRx(
 					pAC, IoC, Active, PrefPort, &Para.Para32[1]);
@@ -1666,6 +1732,20 @@ SK_U32	NetIdx)	/* Net index */
 
 			if (!PortFound) {
 				PortFound = SkRlmtSelectNotSuspect(
+					pAC, IoC, Active, PrefPort, &Para.Para32[1]);
+			}
+		}	/* pAC->Rlmt.RlmtMode != SK_RLMT_MODE_CLS */
+
+		/* with changed priority for last broadcast received */
+		if ((pAC->Rlmt.Net[0].RlmtMode != SK_RLMT_MODE_CLS) &&
+			(pAC->Rlmt.Net[0].ChgBcPrio)) {
+			if (!PortFound) {
+				PortFound = SkRlmtSelectNotSuspect(
+					pAC, IoC, Active, PrefPort, &Para.Para32[1]);
+			}
+
+			if (!PortFound) {
+				PortFound = SkRlmtSelectBcRx(
 					pAC, IoC, Active, PrefPort, &Para.Para32[1]);
 			}
 		}	/* pAC->Rlmt.RlmtMode != SK_RLMT_MODE_CLS */
@@ -1703,6 +1783,7 @@ SK_U32	NetIdx)	/* Net index */
 		}	/* pAC->Rlmt.RlmtMode != SK_RLMT_MODE_CLS */
 
 		if (PortFound) {
+
 			if (Para.Para32[1] != Active) {
 				SK_DBG_MSG(pAC, SK_DBGMOD_RLMT, SK_DBGCAT_CTRL,
 					("Active: %d, Para1: %d.\n", Active, Para.Para32[1]))
@@ -2145,6 +2226,7 @@ SK_EVPARA	Para)	/* SK_U32 PortNumber; SK_U32 -1 */
 	pRPort->PacketsPerTimeSlot = 0;
 	/* pRPort->DataPacketsPerTimeSlot = 0; */
 	pRPort->BpduPacketsPerTimeSlot = 0;
+	pRPort->BcTimeStamp = 0;
 
 	/*
 	 * RA;:;: To be checked:
@@ -2415,7 +2497,7 @@ SK_EVPARA	Para)	/* SK_U32 NetNumber; SK_U32 -1 */
 	}
 
 	/* Stop RLMT timers. */
-	SkTimerStop(pAC, IoC, &pAC->Rlmt.Net[Para.Para32[0]].LocTimer); 
+	SkTimerStop(pAC, IoC, &pAC->Rlmt.Net[Para.Para32[0]].LocTimer);
 	SkTimerStop(pAC, IoC, &pAC->Rlmt.Net[Para.Para32[0]].SegTimer);
 
 	/* Stop net. */
@@ -2474,6 +2556,8 @@ SK_EVPARA	Para)	/* SK_U32 NetNumber; SK_U32 -1 */
 	SK_U32			PortNumber;
 	SK_U32			i;
 
+	SK_DBG_MSG(pAC, SK_DBGMOD_RLMT, SK_DBGCAT_CTRL,
+		("SK_RLMT_TIM Event BEGIN.\n"))
 
 	if (Para.Para32[1] != (SK_U32)-1) {
 		SK_DBG_MSG(pAC, SK_DBGMOD_RLMT, SK_DBGCAT_CTRL,
@@ -2489,6 +2573,12 @@ SK_EVPARA	Para)	/* SK_U32 NetNumber; SK_U32 -1 */
 		return;
 	}
 
+#if 0
+	pAC->Rlmt.SwitchCheckCounter--;
+	if (pAC->Rlmt.SwitchCheckCounter == 0) {
+		pAC->Rlmt.SwitchCheckCounter;
+	}
+#endif	/* 0 */
 
 	NewTimeout = SK_RLMT_DEF_TO_VAL;
 	for (i = 0; i < pAC->Rlmt.Net[Para.Para32[0]].NumPorts; i++) {
@@ -2544,6 +2634,8 @@ SK_EVPARA	Para)	/* SK_U32 NetNumber; SK_U32 -1 */
 			SK_RLMT_RCS_SEG | SK_RLMT_RCS_REPORT_SEG;
 	}
 
+	SK_DBG_MSG(pAC, SK_DBGMOD_RLMT, SK_DBGCAT_CTRL,
+			("SK_RLMT_TIM Event END.\n"))
 }	/* SkRlmtEvtTim */
 
 
@@ -2566,7 +2658,7 @@ SK_AC		*pAC,	/* Adapter Context */
 SK_IOC		IoC,	/* I/O Context */
 SK_EVPARA	Para)	/* SK_U32 NetNumber; SK_U32 -1 */
 {
-#ifdef XDEBUG
+#ifdef xDEBUG
 	int j;
 #endif	/* DEBUG */
 
@@ -2582,7 +2674,7 @@ SK_EVPARA	Para)	/* SK_U32 NetNumber; SK_U32 -1 */
 	}
 
 #ifdef xDEBUG
-	for (j = 0; i < pAC->Rlmt.Net[Para.Para32[0]].NumPorts; j++) {
+	for (j = 0; j < pAC->Rlmt.Net[Para.Para32[0]].NumPorts; j++) {
 		SK_ADDR_PORT	*pAPort;
 		SK_U32			k;
 		SK_U16			*InAddr;
@@ -2604,8 +2696,8 @@ SK_EVPARA	Para)	/* SK_U32 NetNumber; SK_U32 -1 */
 					pAPort->Exact[k].a[4], pAPort->Exact[k].a[5]))
 		}
 	}
-#endif	/* DEBUG */
-				   
+#endif	/* xDEBUG */
+				
 	SkRlmtCheckSeg(pAC, IoC, Para.Para32[0]);
 
 	SK_DBG_MSG(pAC, SK_DBGMOD_RLMT, SK_DBGCAT_CTRL,
@@ -2636,6 +2728,9 @@ SK_EVPARA	Para)	/* SK_MBUF *pMb */
 	SK_MBUF	*pNextMb;
 	SK_U32	NetNumber;
 
+	
+	SK_DBG_MSG(pAC, SK_DBGMOD_RLMT, SK_DBGCAT_CTRL,
+		("SK_RLMT_PACKET_RECEIVED Event BEGIN.\n"))
 
 	/* Should we ignore frames during port switching? */
 
@@ -2663,6 +2758,8 @@ SK_EVPARA	Para)	/* SK_MBUF *pMb */
 		}
 	}
 
+	SK_DBG_MSG(pAC, SK_DBGMOD_RLMT, SK_DBGCAT_CTRL,
+		("SK_RLMT_PACKET_RECEIVED Event END.\n"))
 }	/* SkRlmtEvtPacketRx */
 
 
@@ -2741,6 +2838,9 @@ SK_AC		*pAC,	/* Adapter Context */
 SK_IOC		IoC,	/* I/O Context */
 SK_EVPARA	Para)	/* SK_U32 NetNumber; SK_U32 -1 */
 {
+	SK_DBG_MSG(pAC, SK_DBGMOD_RLMT, SK_DBGCAT_CTRL,
+		("SK_RLMT_STATS_UPDATE Event BEGIN.\n"))
+
 	if (Para.Para32[1] != (SK_U32)-1) {
 		SK_DBG_MSG(pAC, SK_DBGMOD_RLMT, SK_DBGCAT_CTRL,
 			("Bad Parameter.\n"))
@@ -2757,6 +2857,10 @@ SK_EVPARA	Para)	/* SK_U32 NetNumber; SK_U32 -1 */
 		return;
 	}
 
+	/* Update statistics - currently always up-to-date. */
+
+	SK_DBG_MSG(pAC, SK_DBGMOD_RLMT, SK_DBGCAT_CTRL,
+		("SK_RLMT_STATS_UPDATE Event END.\n"))
 }	/* SkRlmtEvtStatsUpdate */
 
 
@@ -2981,7 +3085,7 @@ SK_EVPARA	Para)	/* SK_U32 NewMode; SK_U32 NetNumber */
 
 	Para.Para32[0] |= SK_RLMT_CHECK_LINK;
 
-	if (pAC->Rlmt.Net[Para.Para32[1]].NumPorts < 2 &&
+	if ((pAC->Rlmt.Net[Para.Para32[1]].NumPorts == 1) &&
 		Para.Para32[0] != SK_RLMT_MODE_CLS) {
 		pAC->Rlmt.Net[Para.Para32[1]].RlmtMode = SK_RLMT_MODE_CLS;
 		SK_DBG_MSG(pAC, SK_DBGMOD_RLMT, SK_DBGCAT_CTRL,
@@ -3144,7 +3248,7 @@ SK_EVPARA	Para)	/* Event-specific parameter */
 		break;
 	}	/* switch() */
 
-	return (0);       
+	return (0);
 }	/* SkRlmtEvent */
 
 #ifdef __cplusplus

@@ -1,6 +1,6 @@
 Linux Magic System Request Key Hacks
 Documentation for sysrq.c version 1.15
-Last update: $Date: 2003/10/14 08:07:05 $
+Last update: $Date: 2001/01/28 10:15:59 $
 
 *  What is the magic SysRq key?
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -35,6 +35,10 @@ On PowerPC - Press 'ALT - Print Screen (or F13) - <command key>,
 
 On other - If you know of the key combos for other architectures, please
            let me know so I can add them to this section.
+
+On all -  write a character to /proc/sysrq-trigger.  eg:
+
+		echo t > /proc/sysrq-trigger
 
 *  What are the 'command' keys?
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

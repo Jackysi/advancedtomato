@@ -2,7 +2,7 @@
 
 <book id="ViaAudioGuide">
  <bookinfo>
-  <title>Via 686 Audio Driver for Linux</title>
+  <title>Via 686/8233/8235 Audio Driver for Linux</title>
   
   <authorgroup>
    <author>
@@ -54,7 +54,9 @@
   	The Via VT82C686A "super southbridge" chips contain
 	AC97-compatible audio logic which features dual 16-bit stereo
 	PCM sound channels (full duplex), plus a third PCM channel intended for use
-	in hardware-assisted FM synthesis.
+	in hardware-assisted FM synthesis. The VIA VT8233/8235 extends this
+	support to include six channel output and additional record
+	facilities.
   </para>
   <para>
   	The current Linux kernel audio driver for this family of chips
@@ -199,7 +201,9 @@
   <para>
 	This driver by default supports all PCI audio devices which report
 	a vendor id of 0x1106, and a device id of 0x3058.  Subsystem vendor
-	and device ids are not examined.
+	and device ids are not examined. The 8233 support covers all devices
+	with a device id of 0x3059 and vendor id of 0x1106. Again subsystem
+	ids are ignored as they usually hold the AC97 codec vendor information.
   </para>
   <para>
 	GNU indent formatting options:
@@ -223,6 +227,21 @@
 
   <chapter id="changelog">
       <title>Driver ChangeLog</title>
+
+<sect1 id="version191ac"><title>
+Version 1.9.1-ac
+</title>
+  <itemizedlist spacing=compact>
+   <listitem>
+    <para>
+    Added VIA 8233/8235 support including six channel support. We don't
+    yet support S/PDIF, EAPD, using the second DSP channel and FM channels
+    as extra dsp devices, or the extra record channel. New features tested
+    on a VIA EPIA-M kindly provided by VIA.
+    </para>
+   </listitem>
+  </itemizedlist>
+</sect1>
 
 <sect1 id="version191"><title>
 Version 1.9.1

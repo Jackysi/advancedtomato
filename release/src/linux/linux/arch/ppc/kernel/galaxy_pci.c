@@ -1,7 +1,4 @@
 /*
- * BK Id: %F% %I% %G% %U% %#%
- */
-/*
  *
  *    Copyright (c) 2000 Grant Erickson <grant@borg.umn.edu>
  *    All rights reserved.

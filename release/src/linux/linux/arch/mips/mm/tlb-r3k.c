@@ -37,7 +37,7 @@ extern char except_vec0_r2300;
 		"nop\n\t"		\
 		".set	pop\n\t")
 
-int r3k_have_wired_reg;		/* should be in mips_cpu? */
+int r3k_have_wired_reg;		/* should be in cpu_data? */
 
 /* TLB operations. */
 void local_flush_tlb_all(void)
@@ -54,7 +54,7 @@ void local_flush_tlb_all(void)
 	old_ctx = read_c0_entryhi() & ASID_MASK;
 	write_c0_entrylo0(0);
 	entry = r3k_have_wired_reg ? read_c0_wired() : 8;
-	for (; entry < mips_cpu.tlbsize; entry++) {
+	for (; entry < current_cpu_data.tlbsize; entry++) {
 		write_c0_index(entry << 8);
 		write_c0_entryhi((entry | 0x80000) << 12);
 		BARRIER;
@@ -69,16 +69,10 @@ void local_flush_tlb_mm(struct mm_struct *mm)
 	int cpu = smp_processor_id();
 
 	if (cpu_context(cpu, mm) != 0) {
-		unsigned long flags;
-
 #ifdef DEBUG_TLB
 		printk("[tlbmm<%lu>]", (unsigned long)cpu_context(cpu, mm));
 #endif
-		local_irq_save(flags);
-		get_new_mmu_context(mm, smp_processor_id());
-		if (mm == current->active_mm)
-			write_c0_entryhi(cpu_asid(cpu, mm));
-		local_irq_restore(flags);
+		drop_mmu_context(mm, cpu);
 	}
 }
 
@@ -97,7 +91,7 @@ void local_flush_tlb_range(struct mm_struct *mm, unsigned long start,
 #endif
 		local_irq_save(flags);
 		size = (end - start + (PAGE_SIZE - 1)) >> PAGE_SHIFT;
-		if (size <= mips_cpu.tlbsize) {
+		if (size <= current_cpu_data.tlbsize) {
 			int oldpid = read_c0_entryhi() & ASID_MASK;
 			int newpid = cpu_asid(cpu, mm);
 
@@ -119,9 +113,7 @@ void local_flush_tlb_range(struct mm_struct *mm, unsigned long start,
 			}
 			write_c0_entryhi(oldpid);
 		} else {
-			get_new_mmu_context(mm, smp_processor_id());
-			if (mm == current->active_mm)
-				write_c0_entryhi(cpu_asid(cpu, mm));
+			drop_mmu_context(mm, cpu);
 		}
 		local_irq_restore(flags);
 	}
@@ -158,8 +150,7 @@ finish:
 	}
 }
 
-void update_mmu_cache(struct vm_area_struct *vma, unsigned long address,
-		      pte_t pte)
+void __update_tlb(struct vm_area_struct *vma, unsigned long address, pte_t pte)
 {
 	unsigned long flags;
 	int idx, pid;

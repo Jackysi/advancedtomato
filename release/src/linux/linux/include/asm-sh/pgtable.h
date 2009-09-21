@@ -43,6 +43,7 @@ extern void paging_init(void);
 #define flush_icache_page(vma,pg)		do { } while (0)
 #define flush_icache_user_range(vma,pg,adr,len)	do { } while (0)
 #define flush_cache_sigtramp(vaddr)		do { } while (0)
+#define __flush_icache_all()			do { } while (0)
 
 #define p3_cache_init()				do { } while (0)
 
@@ -124,8 +125,8 @@ extern unsigned long empty_zero_page[1024];
 #define _PAGE_DIRTY	0x004  /* D-bit   : page changed */
 #define _PAGE_CACHABLE	0x008  /* C-bit   : cachable */
 /*			0x010     SZ0-bit : Size of page */
-#define _PAGE_RW	0x020  
-#define _PAGE_USER	0x040  
+#define _PAGE_RW	0x020  /* PR0-bit : write access allowed */
+#define _PAGE_USER	0x040  /* PR1-bit : user space access allowed */
 /*			0x080     SZ1-bit : Size of page (on SH-4) */
 #define _PAGE_PRESENT	0x100  /* V-bit   : page is valid */
 #define _PAGE_PROTNONE	0x200  /* software: if not present  */
@@ -309,5 +310,11 @@ extern void update_mmu_cache(struct vm_area_struct * vma,
  * No page table caches to initialise
  */
 #define pgtable_cache_init()	do { } while (0)
+
+/*
+ * Set pg flags to non-cached
+ */
+#define pgprot_noncached(_prot) __pgprot(pgprot_val(_prot) &= ~_PAGE_CACHABLE)
+
 
 #endif /* __ASM_SH_PAGE_H */

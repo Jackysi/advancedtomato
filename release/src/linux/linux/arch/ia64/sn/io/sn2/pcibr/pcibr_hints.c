@@ -4,7 +4,7 @@
  * License.  See the file "COPYING" in the main directory of this archive
  * for more details.
  *
- * Copyright (C) 2001-2002 Silicon Graphics, Inc. All rights reserved.
+ * Copyright (C) 2001-2003 Silicon Graphics, Inc. All rights reserved.
  */
 
 #include <linux/types.h>
@@ -27,20 +27,19 @@
 #include <asm/sn/prio.h>
 #include <asm/sn/xtalk/xbow.h>
 #include <asm/sn/ioc3.h>
-#include <asm/sn/eeprom.h>
 #include <asm/sn/io.h>
 #include <asm/sn/sn_private.h>
 
-pcibr_hints_t           pcibr_hints_get(devfs_handle_t, int);
-void                    pcibr_hints_fix_rrbs(devfs_handle_t);
-void                    pcibr_hints_dualslot(devfs_handle_t, pciio_slot_t, pciio_slot_t);
-void			pcibr_hints_intr_bits(devfs_handle_t, pcibr_intr_bits_f *);
-void                    pcibr_set_rrb_callback(devfs_handle_t, rrb_alloc_funct_t);
-void                    pcibr_hints_handsoff(devfs_handle_t);
-void                    pcibr_hints_subdevs(devfs_handle_t, pciio_slot_t, uint64_t);
+pcibr_hints_t           pcibr_hints_get(vertex_hdl_t, int);
+void                    pcibr_hints_fix_rrbs(vertex_hdl_t);
+void                    pcibr_hints_dualslot(vertex_hdl_t, pciio_slot_t, pciio_slot_t);
+void			pcibr_hints_intr_bits(vertex_hdl_t, pcibr_intr_bits_f *);
+void                    pcibr_set_rrb_callback(vertex_hdl_t, rrb_alloc_funct_t);
+void                    pcibr_hints_handsoff(vertex_hdl_t);
+void                    pcibr_hints_subdevs(vertex_hdl_t, pciio_slot_t, uint64_t);
 
 pcibr_hints_t
-pcibr_hints_get(devfs_handle_t xconn_vhdl, int alloc)
+pcibr_hints_get(vertex_hdl_t xconn_vhdl, int alloc)
 {
     arbitrary_info_t        ainfo = 0;
     graph_error_t	    rv;
@@ -79,27 +78,25 @@ abnormal_exit:
 }
 
 void
-pcibr_hints_fix_some_rrbs(devfs_handle_t xconn_vhdl, unsigned mask)
+pcibr_hints_fix_some_rrbs(vertex_hdl_t xconn_vhdl, unsigned mask)
 {
     pcibr_hints_t           hint = pcibr_hints_get(xconn_vhdl, 1);
 
     if (hint)
 	hint->ph_rrb_fixed = mask;
-#if DEBUG
     else
-	printk("pcibr_hints_fix_rrbs: pcibr_hints_get failed at\n"
-		"\t%p\n", xconn_vhdl);
-#endif
+        PCIBR_DEBUG_ALWAYS((PCIBR_DEBUG_HINTS, xconn_vhdl,
+		    "pcibr_hints_fix_rrbs: pcibr_hints_get failed\n"));
 }
 
 void
-pcibr_hints_fix_rrbs(devfs_handle_t xconn_vhdl)
+pcibr_hints_fix_rrbs(vertex_hdl_t xconn_vhdl)
 {
     pcibr_hints_fix_some_rrbs(xconn_vhdl, 0xFF);
 }
 
 void
-pcibr_hints_dualslot(devfs_handle_t xconn_vhdl,
+pcibr_hints_dualslot(vertex_hdl_t xconn_vhdl,
 		     pciio_slot_t host,
 		     pciio_slot_t guest)
 {
@@ -107,30 +104,26 @@ pcibr_hints_dualslot(devfs_handle_t xconn_vhdl,
 
     if (hint)
 	hint->ph_host_slot[guest] = host + 1;
-#if DEBUG
     else
-	printk("pcibr_hints_dualslot: pcibr_hints_get failed at\n"
-		"\t%p\n", xconn_vhdl);
-#endif
+	PCIBR_DEBUG_ALWAYS((PCIBR_DEBUG_HINTS, xconn_vhdl,
+		    "pcibr_hints_dualslot: pcibr_hints_get failed\n"));
 }
 
 void
-pcibr_hints_intr_bits(devfs_handle_t xconn_vhdl,
+pcibr_hints_intr_bits(vertex_hdl_t xconn_vhdl,
 		      pcibr_intr_bits_f *xxx_intr_bits)
 {
     pcibr_hints_t           hint = pcibr_hints_get(xconn_vhdl, 1);
 
     if (hint)
 	hint->ph_intr_bits = xxx_intr_bits;
-#if DEBUG
     else
-	printk("pcibr_hints_intr_bits: pcibr_hints_get failed at\n"
-	       "\t%p\n", xconn_vhdl);
-#endif
+	PCIBR_DEBUG_ALWAYS((PCIBR_DEBUG_HINTS, xconn_vhdl,
+		    "pcibr_hints_intr_bits: pcibr_hints_get failed\n"));
 }
 
 void
-pcibr_set_rrb_callback(devfs_handle_t xconn_vhdl, rrb_alloc_funct_t rrb_alloc_funct)
+pcibr_set_rrb_callback(vertex_hdl_t xconn_vhdl, rrb_alloc_funct_t rrb_alloc_funct)
 {
     pcibr_hints_t           hint = pcibr_hints_get(xconn_vhdl, 1);
 
@@ -139,35 +132,31 @@ pcibr_set_rrb_callback(devfs_handle_t xconn_vhdl, rrb_alloc_funct_t rrb_alloc_fu
 }
 
 void
-pcibr_hints_handsoff(devfs_handle_t xconn_vhdl)
+pcibr_hints_handsoff(vertex_hdl_t xconn_vhdl)
 {
     pcibr_hints_t           hint = pcibr_hints_get(xconn_vhdl, 1);
 
     if (hint)
 	hint->ph_hands_off = 1;
-#if DEBUG
     else
-	printk("pcibr_hints_handsoff: pcibr_hints_get failed at\n"
-		"\t%p\n", xconn_vhdl);
-#endif
+	PCIBR_DEBUG_ALWAYS((PCIBR_DEBUG_HINTS, xconn_vhdl,
+		    "pcibr_hints_handsoff: pcibr_hints_get failed\n"));
 }
 
 void
-pcibr_hints_subdevs(devfs_handle_t xconn_vhdl,
+pcibr_hints_subdevs(vertex_hdl_t xconn_vhdl,
 		    pciio_slot_t slot,
 		    uint64_t subdevs)
 {
     arbitrary_info_t        ainfo = 0;
     char                    sdname[16];
-    devfs_handle_t            pconn_vhdl = GRAPH_VERTEX_NONE;
+    vertex_hdl_t            pconn_vhdl = GRAPH_VERTEX_NONE;
 
-    sprintf(sdname, "pci/%d", slot);
+    sprintf(sdname, "%s/%d", EDGE_LBL_PCI, slot);
     (void) hwgraph_path_add(xconn_vhdl, sdname, &pconn_vhdl);
     if (pconn_vhdl == GRAPH_VERTEX_NONE) {
-#if DEBUG
-	printk("pcibr_hints_subdevs: hwgraph_path_create failed at\n"
-		"\t%p (seeking %s)\n", xconn_vhdl, sdname);
-#endif
+	PCIBR_DEBUG_ALWAYS((PCIBR_DEBUG_HINTS, xconn_vhdl,
+		    "pcibr_hints_subdevs: hwgraph_path_create failed\n"));
 	return;
     }
     hwgraph_info_get_LBL(pconn_vhdl, INFO_LBL_SUBDEVS, &ainfo);
@@ -176,10 +165,8 @@ pcibr_hints_subdevs(devfs_handle_t xconn_vhdl,
 
 	NEW(subdevp);
 	if (!subdevp) {
-#if DEBUG
-	    printk("pcibr_hints_subdevs: subdev ptr alloc failed at\n"
-		    "\t%p\n", pconn_vhdl);
-#endif
+	    PCIBR_DEBUG_ALWAYS((PCIBR_DEBUG_HINTS, xconn_vhdl,
+			"pcibr_hints_subdevs: subdev ptr alloc failed\n"));
 	    return;
 	}
 	*subdevp = subdevs;
@@ -189,16 +176,12 @@ pcibr_hints_subdevs(devfs_handle_t xconn_vhdl,
 	    return;
 	DEL(subdevp);
 	if (ainfo == (arbitrary_info_t) NULL) {
-#if DEBUG
-	    printk("pcibr_hints_subdevs: null subdevs ptr at\n"
-		    "\t%p\n", pconn_vhdl);
-#endif
+	    PCIBR_DEBUG_ALWAYS((PCIBR_DEBUG_HINTS, xconn_vhdl,
+			"pcibr_hints_subdevs: null subdevs ptr\n"));
 	    return;
 	}
-#if DEBUG
-	printk("pcibr_subdevs_get: dup subdev add_LBL at\n"
-		"\t%p\n", pconn_vhdl);
-#endif
+	PCIBR_DEBUG_ALWAYS((PCIBR_DEBUG_HINTS, xconn_vhdl,
+		    "pcibr_subdevs_get: dup subdev add_LBL\n"));
     }
     *(uint64_t *) ainfo = subdevs;
 }

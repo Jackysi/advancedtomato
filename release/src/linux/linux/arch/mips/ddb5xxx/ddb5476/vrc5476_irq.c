@@ -12,6 +12,7 @@
  */
 #include <linux/init.h>
 #include <linux/interrupt.h>
+#include <linux/irq.h>
 #include <linux/types.h>
 #include <linux/ptrace.h>
 
@@ -81,7 +82,6 @@ vrc5476_irq_init(u32 base)
 asmlinkage void
 vrc5476_irq_dispatch(struct pt_regs *regs)
 {
-	extern unsigned int do_IRQ(int irq, struct pt_regs *regs);
 	extern void spurious_interrupt(void);
 
 	u32 mask;

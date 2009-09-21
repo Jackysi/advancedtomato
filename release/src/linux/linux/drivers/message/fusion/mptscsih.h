@@ -15,12 +15,12 @@
  *
  *      (see also mptbase.c)
  *
- *  Copyright (c) 1999-2002 LSI Logic Corporation
+ *  Copyright (c) 1999-2004 LSI Logic Corporation
  *  Originally By: Steven J. Ralston
- *  (mailto:netscape.net)
- *  (mailto:Pam.Delaney@lsil.com)
+ *  (mailto:sjralston1@netscape.net)
+ *  (mailto:mpt_linux_developer@lsil.com)
  *
- *  $Id: mptscsih.h,v 1.1.1.4 2003/10/14 08:08:16 sparq Exp $
+ *  $Id: mptscsih.h,v 1.1.2.2 2003/05/07 14:08:35 pdelaney Exp $
  */
 /*=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=*/
 /*
@@ -72,12 +72,34 @@
 /*
  *	Try to keep these at 2^N-1
  */
-#define MPT_FC_CAN_QUEUE	63
-//#define MPT_SCSI_CAN_QUEUE	31
-#define MPT_SCSI_CAN_QUEUE	MPT_FC_CAN_QUEUE
-#define MPT_SCSI_CMD_PER_LUN	 7
+#define MPT_FC_CAN_QUEUE	127
+#if defined MPT_SCSI_USE_NEW_EH
+	#define MPT_SCSI_CAN_QUEUE	127
+#else
+	#define MPT_SCSI_CAN_QUEUE	63
+#endif
 
+#define MPT_SCSI_CMD_PER_DEV_HIGH	31
+#define MPT_SCSI_CMD_PER_DEV_LOW	7
+
+#define MPT_SCSI_CMD_PER_LUN		7
+
+#define MPT_SCSI_MAX_SECTORS    8192
+
+/*
+ * Set the MAX_SGE value based on user input.
+ */
+#ifdef  CONFIG_FUSION_MAX_SGE
+#if     CONFIG_FUSION_MAX_SGE  < 16
+#define MPT_SCSI_SG_DEPTH	16
+#elif   CONFIG_FUSION_MAX_SGE  > 128
+#define MPT_SCSI_SG_DEPTH	128
+#else
+#define MPT_SCSI_SG_DEPTH	CONFIG_FUSION_MAX_SGE
+#endif
+#else
 #define MPT_SCSI_SG_DEPTH	40
+#endif
 
 /* To disable domain validation, uncomment the
  * following line. No effect for FC devices.
@@ -94,12 +116,14 @@
 #define MPTSCSIH_DOMAIN_VALIDATION      1
 #define MPTSCSIH_MAX_WIDTH              1
 #define MPTSCSIH_MIN_SYNC               0x08
+#define MPTSCSIH_SAF_TE                 0
 
 struct mptscsih_driver_setup
 {
         u8      dv;
         u8      max_width;
         u8      min_sync_fac;
+        u8      saf_te;
 };
 
 
@@ -108,6 +132,7 @@ struct mptscsih_driver_setup
         MPTSCSIH_DOMAIN_VALIDATION,             \
         MPTSCSIH_MAX_WIDTH,                     \
         MPTSCSIH_MIN_SYNC,                      \
+        MPTSCSIH_SAF_TE,                        \
 }
 
 
@@ -146,13 +171,25 @@ struct mptscsih_driver_setup
 /*
  *	tq_scheduler disappeared @ lk-2.4.0-test12
  *	(right when <linux/sched.h> newly defined TQ_ACTIVE)
+ *	tq_struct reworked in 2.5.41. Include workqueue.h.
  */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,5,41)
+#	include <linux/sched.h>
+#	include <linux/workqueue.h>
+#define SCHEDULE_TASK(x)		\
+	if (schedule_work(x) == 0) {	\
+		/*MOD_DEC_USE_COUNT*/;	\
+	}
+#else
 #define HAVE_TQ_SCHED	1
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,4,0)
 #	include <linux/sched.h>
 #	ifdef TQ_ACTIVE
 #		undef HAVE_TQ_SCHED
 #	endif
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,5,40)
+#		undef HAVE_TQ_SCHED
+#endif
 #endif
 #ifdef HAVE_TQ_SCHED
 #define SCHEDULE_TASK(x)		\
@@ -166,6 +203,7 @@ struct mptscsih_driver_setup
 		/*MOD_DEC_USE_COUNT*/;	\
 	}
 #endif
+#endif
 
 /*=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=*/
 
@@ -178,11 +216,12 @@ struct mptscsih_driver_setup
 #define x_scsi_dev_reset	mptscsih_dev_reset
 #define x_scsi_host_reset	mptscsih_host_reset
 #define x_scsi_bios_param	mptscsih_bios_param
-#define x_scsi_select_queue_depths	mptscsih_select_queue_depths
 
 #define x_scsi_taskmgmt_bh	mptscsih_taskmgmt_bh
 #define x_scsi_old_abort	mptscsih_old_abort
 #define x_scsi_old_reset	mptscsih_old_reset
+#define x_scsi_select_queue_depths	mptscsih_select_queue_depths
+#define x_scsi_proc_info	mptscsih_proc_info
 
 /*=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=*/
 /*
@@ -202,90 +241,62 @@ extern	int		 x_scsi_old_abort(Scsi_Cmnd *);
 extern	int		 x_scsi_old_reset(Scsi_Cmnd *, unsigned int);
 #endif
 extern	int		 x_scsi_bios_param(Disk *, kdev_t, int *);
-extern	void		 x_scsi_select_queue_depths(struct Scsi_Host *, Scsi_Device *);
 extern	void		 x_scsi_taskmgmt_bh(void *);
+extern	void		 x_scsi_select_queue_depths(struct Scsi_Host *, Scsi_Device *);
+extern	int		 x_scsi_proc_info(char *, char **, off_t, int, int, int);
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,3,0)
 #define PROC_SCSI_DECL
 #else
-#define PROC_SCSI_DECL  proc_name: "mptscsih",
+#define PROC_SCSI_DECL  .proc_name = "mptscsih",
 #endif
 
 #ifdef MPT_SCSI_USE_NEW_EH
-
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,5,1)
-
 #define MPT_SCSIHOST {						\
-	next:				NULL,			\
+	.next				= NULL,			\
 	PROC_SCSI_DECL						\
-	name:				"MPT SCSI Host",	\
-	detect:				x_scsi_detect,		\
-	release:			x_scsi_release,		\
-	info:				x_scsi_info,		\
-	command:			NULL,			\
-	queuecommand:			x_scsi_queuecommand,	\
-	eh_strategy_handler:		NULL,			\
-	eh_abort_handler:		x_scsi_abort,		\
-	eh_device_reset_handler:	x_scsi_dev_reset,	\
-	eh_bus_reset_handler:		x_scsi_bus_reset,	\
-	eh_host_reset_handler:		x_scsi_host_reset,	\
-	bios_param:			x_scsi_bios_param,	\
-	can_queue:			MPT_SCSI_CAN_QUEUE,	\
-	this_id:			-1,			\
-	sg_tablesize:			MPT_SCSI_SG_DEPTH,	\
-	cmd_per_lun:			MPT_SCSI_CMD_PER_LUN,	\
-	unchecked_isa_dma:		0,			\
-	use_clustering:			ENABLE_CLUSTERING,	\
+	.proc_info			= x_scsi_proc_info,	\
+	.name				= "MPT SCSI Host",	\
+	.detect				= x_scsi_detect,	\
+	.release			= x_scsi_release,	\
+	.info				= x_scsi_info,		\
+	.command			= NULL,			\
+	.queuecommand			= x_scsi_queuecommand,	\
+	.eh_strategy_handler		= NULL,			\
+	.eh_abort_handler		= x_scsi_abort,		\
+	.eh_device_reset_handler	= x_scsi_dev_reset,	\
+	.eh_bus_reset_handler		= x_scsi_bus_reset,	\
+	.eh_host_reset_handler		= NULL,			\
+	.bios_param			= x_scsi_bios_param,	\
+	.can_queue			= MPT_SCSI_CAN_QUEUE,	\
+	.this_id			= -1,			\
+	.sg_tablesize			= MPT_SCSI_SG_DEPTH,	\
+	.cmd_per_lun			= MPT_SCSI_CMD_PER_LUN,	\
+	.unchecked_isa_dma		= 0,			\
+	.use_clustering			= ENABLE_CLUSTERING,	\
+	.use_new_eh_code		= 1			\
 }
-
-#else  /* LINUX_VERSION_CODE >= KERNEL_VERSION(2,5,1) */
-
-#define MPT_SCSIHOST {						\
-	next:				NULL,			\
-	PROC_SCSI_DECL						\
-	name:				"MPT SCSI Host",	\
-	detect:				x_scsi_detect,		\
-	release:			x_scsi_release,		\
-	info:				x_scsi_info,		\
-	command:			NULL,			\
-	queuecommand:			x_scsi_queuecommand,	\
-	eh_strategy_handler:		NULL,			\
-	eh_abort_handler:		x_scsi_abort,		\
-	eh_device_reset_handler:	x_scsi_dev_reset,	\
-	eh_bus_reset_handler:		x_scsi_bus_reset,	\
-	eh_host_reset_handler:		NULL,			\
-	bios_param:			x_scsi_bios_param,	\
-	can_queue:			MPT_SCSI_CAN_QUEUE,	\
-	this_id:			-1,			\
-	sg_tablesize:			MPT_SCSI_SG_DEPTH,	\
-	cmd_per_lun:			MPT_SCSI_CMD_PER_LUN,	\
-	unchecked_isa_dma:		0,			\
-	use_clustering:			ENABLE_CLUSTERING,	\
-	use_new_eh_code:		1			\
-}
-
-#endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(2,5,1) */
 
 #else /* MPT_SCSI_USE_NEW_EH */
 
 #define MPT_SCSIHOST {						\
-	next:				NULL,			\
+	.next				= NULL,			\
 	PROC_SCSI_DECL						\
-	name:				"MPT SCSI Host",	\
-	detect:				x_scsi_detect,		\
-	release:			x_scsi_release,		\
-	info:				x_scsi_info,		\
-	command:			NULL,			\
-	queuecommand:			x_scsi_queuecommand,	\
-	abort:				x_scsi_old_abort,	\
-	reset:				x_scsi_old_reset,	\
-	bios_param:			x_scsi_bios_param,	\
-	can_queue:			MPT_SCSI_CAN_QUEUE,	\
-	this_id:			-1,			\
-	sg_tablesize:			MPT_SCSI_SG_DEPTH,	\
-	cmd_per_lun:			MPT_SCSI_CMD_PER_LUN,	\
-	unchecked_isa_dma:		0,			\
-	use_clustering:			ENABLE_CLUSTERING	\
+	.name				= "MPT SCSI Host",	\
+	.detect				= x_scsi_detect,	\
+	.release			= x_scsi_release,	\
+	.info				= x_scsi_info,		\
+	.command			= NULL,			\
+	.queuecommand			= x_scsi_queuecommand,	\
+	.abort				= x_scsi_old_abort,	\
+	.reset				= x_scsi_old_reset,	\
+	.bios_param			= x_scsi_bios_param,	\
+	.can_queue			= MPT_SCSI_CAN_QUEUE,	\
+	.this_id			= -1,			\
+	.sg_tablesize			= MPT_SCSI_SG_DEPTH,	\
+	.cmd_per_lun			= MPT_SCSI_CMD_PER_LUN,	\
+	.unchecked_isa_dma		= 0,			\
+	.use_clustering			= ENABLE_CLUSTERING	\
 }
 #endif  /* MPT_SCSI_USE_NEW_EH */
 

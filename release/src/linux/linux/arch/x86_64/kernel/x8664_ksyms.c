@@ -13,7 +13,9 @@
 #include <linux/string.h>
 #include <linux/tty.h>
 #include <linux/string.h>
+#include <linux/nmi.h>
 
+#include <asm/ioctl32.h>
 #include <asm/semaphore.h>
 #include <asm/processor.h>
 #include <asm/i387.h>
@@ -52,6 +54,7 @@ EXPORT_SYMBOL(probe_irq_mask);
 EXPORT_SYMBOL(kernel_thread);
 EXPORT_SYMBOL(pm_idle);
 EXPORT_SYMBOL(pm_power_off);
+EXPORT_SYMBOL(sys_ioctl);
 
 #ifdef CONFIG_IO_DEBUG
 EXPORT_SYMBOL(__io_virt_debug);
@@ -94,6 +97,7 @@ EXPORT_SYMBOL(pci_free_consistent);
 
 EXPORT_SYMBOL(pci_map_sg);
 EXPORT_SYMBOL(pci_unmap_sg);
+EXPORT_SYMBOL(bad_dma_address);
 
 #ifdef CONFIG_PCI
 EXPORT_SYMBOL(pcibios_penalize_isa_irq);
@@ -153,7 +157,7 @@ extern void * memset(void *,int,__kernel_size_t);
 extern __kernel_size_t strlen(const char *);
 extern int strcmp(const char *,const char *);
 extern char * strcpy(char *,const char *);
-extern char * bcopy(const char * src, char * dest, int count);
+extern void bcopy(const void * src, void * dest, size_t count);
 
 EXPORT_SYMBOL_NOVERS(memcpy);
 EXPORT_SYMBOL_NOVERS(__memcpy);
@@ -220,3 +224,10 @@ EXPORT_SYMBOL(memnodemap);
 EXPORT_SYMBOL(plat_node_data);
 EXPORT_SYMBOL(fake_node);
 #endif
+
+extern void int_ret_from_sys_call(void);
+EXPORT_SYMBOL_NOVERS(int_ret_from_sys_call); 
+
+EXPORT_SYMBOL(touch_nmi_watchdog);
+
+EXPORT_SYMBOL(do_fork);
