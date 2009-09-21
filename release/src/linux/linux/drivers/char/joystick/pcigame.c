@@ -1,5 +1,5 @@
 /*
- * $Id: pcigame.c,v 1.1.1.4 2003/10/14 08:08:07 sparq Exp $
+ * $Id: pcigame.c,v 1.10 2001/04/26 10:24:46 vojtech Exp $
  *
  *  Copyright (c) 2000-2001 Vojtech Pavlik
  *
@@ -103,6 +103,7 @@ static int pcigame_open(struct gameport *gameport, int mode)
 	return 0;
 }
 
+#undef pcigame_attach
 struct pcigame *pcigame_attach(struct pci_dev *dev, int type)
 {
 	struct pcigame *pcigame;
@@ -148,6 +149,7 @@ struct pcigame *pcigame_attach(struct pci_dev *dev, int type)
 EXPORT_SYMBOL_GPL(pcigame_attach);
 
 
+#undef pcigame_detach
 void pcigame_detach(struct pcigame *game)
 {
 	gameport_unregister_port(&game->gameport);
@@ -195,7 +197,7 @@ static struct pci_driver pcigame_driver = {
 
 int __init pcigame_init(void)
 {
-	pci_module_init(&pcigame_driver);
+	pci_register_driver(&pcigame_driver);
 	/* Needed by other modules */
 	return 0;
 }

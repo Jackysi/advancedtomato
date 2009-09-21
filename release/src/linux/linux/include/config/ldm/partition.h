@@ -1,1 +1,0 @@
-#undef  CONFIG_LDM_PARTITION

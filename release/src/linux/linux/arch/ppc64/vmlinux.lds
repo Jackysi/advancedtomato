@@ -1,4 +1,4 @@
-OUTPUT_ARCH(powerpc)
+OUTPUT_ARCH(powerpc:common64)
 SEARCH_DIR(/lib); SEARCH_DIR(/usr/lib); SEARCH_DIR(/usr/local/lib); SEARCH_DIR(/usr/local/powerpc-any-elf/lib);
 /* Do we need any of these for elf?
    __DYNAMIC = 0;    */
@@ -73,6 +73,10 @@ SECTIONS
   __kallsyms : { *(__kallsyms) }
   __stop___kallsyms = .;
 
+  . = ALIGN(16);
+  __start___ftr_fixup = .;
+  __ftr_fixup : { *(__ftr_fixup) }
+  __stop___ftr_fixup = .;
 
   . = ALIGN(4096);
   .data.page_aligned : { *(.data.page_aligned) }

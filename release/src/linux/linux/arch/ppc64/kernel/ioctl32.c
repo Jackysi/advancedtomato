@@ -49,6 +49,7 @@
 #include <linux/cdrom.h>
 #include <linux/loop.h>
 #include <linux/auto_fs.h>
+#include <linux/autofs_4.h>
 #include <linux/devfs_fs.h>
 #include <linux/tty.h>
 #include <linux/vt_kern.h>
@@ -566,11 +567,52 @@ static int ethtool_ioctl(unsigned int fd, unsigned int cmd, unsigned long arg)
 		goto out;
 	}
 	switch (ethcmd) {
-	case ETHTOOL_GDRVINFO:	len = sizeof(struct ethtool_drvinfo); break;
+	case ETHTOOL_GSTRINGS:	{
+		struct ethtool_gstrings *stringsaddr = (struct ethtool_gstrings *)A(data);
+		if (get_user(len, (u32 *)&stringsaddr->len)) {
+			err = -EFAULT;
+			goto out;
+		}
+		if (len > (PAGE_SIZE - sizeof(struct ethtool_gstrings))/ETH_GSTRING_LEN ) {
+			err = -EINVAL;
+			goto out;
+		}
+		len = (len*ETH_GSTRING_LEN) + sizeof(struct ethtool_gstrings);
+		break;
+	}
+	case ETHTOOL_GSTATS:	{
+		struct ethtool_stats *statsaddr = (struct ethtool_stats *)A(data);
+		if (get_user(len, (u32 *)&statsaddr->n_stats)) {
+			err = -EFAULT;
+			goto out;
+		}
+		if (len > (PAGE_SIZE - sizeof(struct ethtool_stats))/sizeof(u64) ) {
+			err = -EINVAL;
+			goto out;
+		}
+		len = (len*sizeof(u64)) + sizeof(struct ethtool_stats);
+		break;
+	}
+	case ETHTOOL_SWOL:
+	case ETHTOOL_GWOL:
+		len = sizeof(struct ethtool_wolinfo);
+		break;
+	case ETHTOOL_GDRVINFO:
+		len = sizeof(struct ethtool_drvinfo);
+		break;
 	case ETHTOOL_GMSGLVL:
 	case ETHTOOL_SMSGLVL:
 	case ETHTOOL_GLINK:
-	case ETHTOOL_NWAY_RST:	len = sizeof(struct ethtool_value); break;
+	case ETHTOOL_NWAY_RST:
+	case ETHTOOL_SSG:
+	case ETHTOOL_GSG:
+	case ETHTOOL_GTXCSUM:
+	case ETHTOOL_STXCSUM:
+	case ETHTOOL_GRXCSUM:
+	case ETHTOOL_SRXCSUM:
+	case ETHTOOL_PHYS_ID:
+		len = sizeof(struct ethtool_value);
+		break;
 	case ETHTOOL_GREGS: {
 		struct ethtool_regs *regaddr = (struct ethtool_regs *)A(data);
 		/* darned variable size arguments */
@@ -578,11 +620,44 @@ static int ethtool_ioctl(unsigned int fd, unsigned int cmd, unsigned long arg)
 			err = -EFAULT;
 			goto out;
 		}
+		if (len > PAGE_SIZE - sizeof(struct ethtool_regs)) {
+			err = -EINVAL;
+			goto out;
+		}
 		len += sizeof(struct ethtool_regs);
 		break;
 	}
+	case ETHTOOL_GEEPROM:
+	case ETHTOOL_SEEPROM: {
+		struct ethtool_eeprom *promaddr = (struct ethtool_eeprom *)A(data);
+		/* darned variable size arguments */
+		if (get_user(len, (u32 *)&promaddr->len)) {
+			err = -EFAULT;
+			goto out;
+		}
+		if (len > PAGE_SIZE - sizeof(struct ethtool_eeprom)) {
+			err = -EINVAL;
+			goto out;
+		}
+		len += sizeof(struct ethtool_eeprom);
+		break;
+	}
+	case ETHTOOL_GRINGPARAM:
+	case ETHTOOL_SRINGPARAM:
+		len = sizeof(struct ethtool_ringparam);
+		break;
+	case ETHTOOL_GPAUSEPARAM:
+	case ETHTOOL_SPAUSEPARAM:
+		len = sizeof(struct ethtool_pauseparam);
+		break;
+	case ETHTOOL_GCOALESCE:
+	case ETHTOOL_SCOALESCE:
+		len = sizeof(struct ethtool_coalesce);
+		break;
 	case ETHTOOL_GSET:
-	case ETHTOOL_SSET:	len = sizeof(struct ethtool_cmd); break;
+	case ETHTOOL_SSET:
+		len = sizeof(struct ethtool_cmd);
+		break;
 	default:
 		err = -EOPNOTSUPP;
 		goto out;
@@ -802,13 +877,15 @@ static int routing_ioctl(unsigned int fd, unsigned int cmd, unsigned long arg)
 		r = (void *) &r4;
 	}
 
-	if (ret)
-		return -EFAULT;
+	if (ret) {
+		ret = -EFAULT;
+		goto out;
+	}
 
 	set_fs (KERNEL_DS);
 	ret = sys_ioctl (fd, cmd, (long) r);
 	set_fs (old_fs);
-
+out:
 	if (mysock)
 		sockfd_put(mysock);
 
@@ -834,6 +911,34 @@ static int hdio_getgeo(unsigned int fd, unsigned int cmd, unsigned long arg)
 	if (!err) {
 		err = copy_to_user ((struct hd_geometry32 *)arg, &geo, 4);
 		err |= __put_user (geo.start, &(((struct hd_geometry32 *)arg)->start));
+	}
+	return err ? -EFAULT : 0;
+}
+
+struct hd_big_geometry32 {
+	u8 heads;
+	u8 sectors;
+	u32 cylinders;
+	u32 start;
+};
+
+static int hdio_getgeo_big(unsigned int fd, unsigned int cmd, unsigned long arg)
+{
+	mm_segment_t old_fs = get_fs();
+	struct hd_big_geometry geo;
+	int err;
+	
+	set_fs (KERNEL_DS);
+	err = sys_ioctl(fd, HDIO_GETGEO_BIG, (unsigned long)&geo);
+	set_fs (old_fs);
+	if (err)
+		return err;
+	else {
+		struct hd_big_geometry32 *user_geo = (struct hd_big_geometry32 *)arg;
+		err = __put_user (geo.heads, &(user_geo->heads));
+		err |= __put_user (geo.sectors, &(user_geo->sectors));
+		err |= __put_user (geo.cylinders, &(user_geo->cylinders));
+		err |= __put_user (geo.start, &(user_geo->start));
 	}
 	return err ? -EFAULT : 0;
 }
@@ -1199,12 +1304,16 @@ typedef struct sg_iovec32 {
 	u32 iov_len;
 } sg_iovec32_t;
 
+#define EMU_SG_MAX 128
+
 static int alloc_sg_iovec(sg_io_hdr_t *sgp, u32 uptr32)
 {
 	sg_iovec32_t *uiov = (sg_iovec32_t *) A(uptr32);
 	sg_iovec_t *kiov;
 	int i;
 
+	if (sgp->iovec_count > EMU_SG_MAX)
+		return -EINVAL;
 	sgp->dxferp = kmalloc(sgp->iovec_count *
 			      sizeof(sg_iovec_t), GFP_KERNEL);
 	if (!sgp->dxferp)
@@ -1218,39 +1327,9 @@ static int alloc_sg_iovec(sg_io_hdr_t *sgp, u32 uptr32)
 		if (__get_user(iov_base32, &uiov->iov_base) ||
 		    __get_user(kiov->iov_len, &uiov->iov_len))
 			return -EFAULT;
-
-		kiov->iov_base = kmalloc(kiov->iov_len, GFP_KERNEL);
-		if (!kiov->iov_base)
-			return -ENOMEM;
-		if (copy_from_user(kiov->iov_base,
-				   (void *) A(iov_base32),
-				   kiov->iov_len))
+		if (verify_area(VERIFY_WRITE, (void *)A(iov_base32), kiov->iov_len))
 			return -EFAULT;
-
-		uiov++;
-		kiov++;
-	}
-
-	return 0;
-}
-
-static int copy_back_sg_iovec(sg_io_hdr_t *sgp, u32 uptr32)
-{
-	sg_iovec32_t *uiov = (sg_iovec32_t *) A(uptr32);
-	sg_iovec_t *kiov = (sg_iovec_t *) sgp->dxferp;
-	int i;
-
-	for (i = 0; i < sgp->iovec_count; i++) {
-		u32 iov_base32;
-
-		if (__get_user(iov_base32, &uiov->iov_base))
-			return -EFAULT;
-
-		if (copy_to_user((void *) A(iov_base32),
-				 kiov->iov_base,
-				 kiov->iov_len))
-			return -EFAULT;
-
+		kiov->iov_base = (void *)A(iov_base32);
 		uiov++;
 		kiov++;
 	}
@@ -1260,16 +1339,6 @@ static int copy_back_sg_iovec(sg_io_hdr_t *sgp, u32 uptr32)
 
 static void free_sg_iovec(sg_io_hdr_t *sgp)
 {
-	sg_iovec_t *kiov = (sg_iovec_t *) sgp->dxferp;
-	int i;
-
-	for (i = 0; i < sgp->iovec_count; i++) {
-		if (kiov->iov_base) {
-			kfree(kiov->iov_base);
-			kiov->iov_base = NULL;
-		}
-		kiov++;
-	}
 	kfree(sgp->dxferp);
 	sgp->dxferp = NULL;
 }
@@ -1298,6 +1367,10 @@ static int sg_ioctl_trans(unsigned int fd, unsigned int cmd, unsigned long arg)
 	sg_io64.sbp = NULL;
 
 	err |= __get_user(cmdp32, &sg_io32->cmdp);
+	if (sg_io64.cmd_len > 4*PAGE_SIZE || sg_io64.mx_sb_len > 4*PAGE_SIZE) {
+		err = -EINVAL;
+		goto out;
+	}
 	sg_io64.cmdp = kmalloc(sg_io64.cmd_len, GFP_KERNEL);
 	if (!sg_io64.cmdp) {
 		err = -ENOMEM;
@@ -1332,6 +1405,10 @@ static int sg_ioctl_trans(unsigned int fd, unsigned int cmd, unsigned long arg)
 			goto out;
 		}
 	} else {
+		if (sg_io64.dxfer_len > 4*PAGE_SIZE) {
+			err = -EINVAL;
+			goto out;
+		}
 		sg_io64.dxferp = kmalloc(sg_io64.dxfer_len, GFP_KERNEL);
 		if (!sg_io64.dxferp) {
 			err = -ENOMEM;
@@ -1372,7 +1449,7 @@ static int sg_ioctl_trans(unsigned int fd, unsigned int cmd, unsigned long arg)
 	err |= copy_to_user((void *)A(sbp32), sg_io64.sbp, sg_io64.mx_sb_len);
 	if (sg_io64.dxferp) {
 		if (sg_io64.iovec_count)
-			err |= copy_back_sg_iovec(&sg_io64, dxferp32);
+			;
 		else
 			err |= copy_to_user((void *)A(dxferp32),
 					    sg_io64.dxferp,
@@ -1428,6 +1505,8 @@ static int ppp_ioctl_trans(unsigned int fd, unsigned int cmd, unsigned long arg)
 	case PPPIOCSCOMPRESS32:
 		if (copy_from_user(&data32, (struct ppp_option_data32 *)arg, sizeof(struct ppp_option_data32)))
 			return -EFAULT;
+		if (data32.length > PAGE_SIZE)
+			return -EINVAL;
 		data.ptr = kmalloc (data32.length, GFP_KERNEL);
 		if (!data.ptr)
 			return -ENOMEM;
@@ -1630,10 +1709,9 @@ static int cdrom_ioctl_trans(unsigned int fd, unsigned int cmd, unsigned long ar
 		err |= __get_user(addr, &((struct cdrom_read_audio32 *)arg)->buf);
 		if (err)
 			return -EFAULT;
-		data = kmalloc(cdreadaudio.nframes * 2352, GFP_KERNEL);
-		if (!data)
-			return -ENOMEM;
-		cdreadaudio.buf = data;
+		if (verify_area(VERIFY_WRITE, (void *)A(addr), cdreadaudio.nframes*2352))
+			return -EFAULT;
+		cdreadaudio.buf = (void *)A(addr);
 		break;
 	case CDROM_SEND_PACKET:
 		karg = &cgc;
@@ -1642,9 +1720,9 @@ static int cdrom_ioctl_trans(unsigned int fd, unsigned int cmd, unsigned long ar
 		err |= __get_user(cgc.buflen, &((struct cdrom_generic_command32 *)arg)->buflen);
 		if (err)
 			return -EFAULT;
-		if ((data = kmalloc(cgc.buflen, GFP_KERNEL)) == NULL)
-			return -ENOMEM;
-		cgc.buffer = data;
+		if (verify_area(VERIFY_WRITE, (void *)A(addr), cgc.buflen))
+			return -EFAULT;
+		cgc.buffer = (void *)A(addr);
 		break;
 	default:
 		do {
@@ -1659,18 +1737,6 @@ static int cdrom_ioctl_trans(unsigned int fd, unsigned int cmd, unsigned long ar
 	set_fs (KERNEL_DS);
 	err = sys_ioctl (fd, cmd, (unsigned long)karg);
 	set_fs (old_fs);
-	if (err)
-		goto out;
-	switch (cmd) {
-	case CDROMREADAUDIO:
-		err = copy_to_user((char *)A(addr), data, cdreadaudio.nframes * 2352);
-		break;
-	case CDROM_SEND_PACKET:
-		err = copy_to_user((char *)A(addr), data, cgc.buflen);
-		break;
-	default:
-		break;
-	}
 out:	if (data)
 		kfree(data);
 	return err ? -EFAULT : 0;
@@ -2087,37 +2153,16 @@ static int do_atm_iobuf(unsigned int fd, unsigned int cmd, unsigned long arg)
 	if (iobuf32.buffer == (__kernel_caddr_t32) NULL || iobuf32.length == 0) {
 		iobuf.buffer = (void*)(unsigned long)iobuf32.buffer;
 	} else {
-		iobuf.buffer = kmalloc(iobuf.length, GFP_KERNEL);
-		if (iobuf.buffer == NULL) {
-			err = -ENOMEM;
-			goto out;
-		}
-
-		err = copy_from_user(iobuf.buffer, (void *)A(iobuf32.buffer), iobuf.length);
-		if (err) {
-			err = -EFAULT;
-			goto out;
-		}
+		iobuf.buffer = A(iobuf32.buffer);
+		if (verify_area(VERIFY_WRITE, iobuf.buffer, iobuf.length))
+			return -EINVAL;
 	}
 
 	old_fs = get_fs(); set_fs (KERNEL_DS);
-	err = sys_ioctl (fd, cmd, (unsigned long)&iobuf);      
+	err = sys_ioctl (fd, cmd, (unsigned long)&iobuf);
 	set_fs (old_fs);
-        if (err)
-		goto out;
-
-        if (iobuf.buffer && iobuf.length > 0) {
-		err = copy_to_user((void *)A(iobuf32.buffer), iobuf.buffer, iobuf.length);
-		if (err) {
-			err = -EFAULT;
-			goto out;
-		}
-	}
-	err = __put_user(iobuf.length, &(((struct atm_iobuf32*)arg)->length));
-
- out:
-        if (iobuf32.buffer && iobuf32.length > 0)
-		kfree(iobuf.buffer);
+	if (!err)
+		err = __put_user(iobuf.length, &(((struct atm_iobuf32*)arg)->length));
 
 	return err;
 }
@@ -2140,40 +2185,19 @@ static int do_atmif_sioc(unsigned int fd, unsigned int cmd, unsigned long arg)
         
 	if (sioc32.arg == (__kernel_caddr_t32) NULL || sioc32.length == 0) {
 		sioc.arg = (void*)(unsigned long)sioc32.arg;
-        } else {
-                sioc.arg = kmalloc(sioc.length, GFP_KERNEL);
-                if (sioc.arg == NULL) {
-                        err = -ENOMEM;
-			goto out;
-		}
-                
-                err = copy_from_user(sioc.arg, (void *)A(sioc32.arg), sioc32.length);
-                if (err) {
-                        err = -EFAULT;
-                        goto out;
-                }
-        }
-        
-        old_fs = get_fs(); set_fs (KERNEL_DS);
-        err = sys_ioctl (fd, cmd, (unsigned long)&sioc);	
-        set_fs (old_fs);
-        if (err) {
-                goto out;
+	} else {
+		sioc.arg = A(sioc32.arg);
+		if (verify_area(VERIFY_WRITE, sioc.arg, sioc32.length))
+			return -EFAULT;
 	}
-        
-        if (sioc.arg && sioc.length > 0) {
-                err = copy_to_user((void *)A(sioc32.arg), sioc.arg, sioc.length);
-                if (err) {
-                        err = -EFAULT;
-                        goto out;
-                }
-        }
-        err = __put_user(sioc.length, &(((struct atmif_sioc32*)arg)->length));
-        
- out:
-        if (sioc32.arg && sioc32.length > 0)
-		kfree(sioc.arg);
-        
+
+	old_fs = get_fs(); set_fs (KERNEL_DS);
+	err = sys_ioctl (fd, cmd, (unsigned long)&sioc);
+	set_fs (old_fs);
+
+	if (!err)
+		err = __put_user(sioc.length, &(((struct atmif_sioc32*)arg)->length));
+
 	return err;
 }
 
@@ -2389,12 +2413,24 @@ static lv_t *get_lv_t(u32 p, int *errp)
 		return NULL;
 	}
 	if (ptr1) {
+		if (l->lv_allocated_le > 2*PAGE_SIZE/sizeof(pe_t)) {
+			kfree(l);
+			*errp = -EINVAL;
+			return NULL;
+		}
 		size = l->lv_allocated_le * sizeof(pe_t);
 		l->lv_current_pe = vmalloc(size);
 		if (l->lv_current_pe)
 			err = copy_from_user(l->lv_current_pe, (void *)A(ptr1), size);
 	}
 	if (!err && ptr2) {
+		/* small limit */
+		/* just verify area it? */
+		if (l->lv_remap_end > 256*PAGE_SIZE/sizeof(lv_block_exception_t)) {
+			put_lv_t(l);
+			*errp = -EINVAL;
+			return NULL;
+		}
 		size = l->lv_remap_end * sizeof(lv_block_exception_t);
 		l->lv_block_exception = lbe = vmalloc(size);
 		if (l->lv_block_exception) {
@@ -3042,7 +3078,7 @@ typedef struct drm32_dma {
 #define DRM32_IOCTL_DMA	     DRM_IOWR(0x29, drm32_dma_t)
 
 /* RED PEN	The DRM layer blindly dereferences the send/request
- * 		indice/size arrays even though they are userland
+ * 		index/size arrays even though they are userland
  * 		pointers.  -DaveM
  */
 static int drm32_dma(unsigned int fd, unsigned int cmd, unsigned long arg)
@@ -3423,6 +3459,164 @@ out:
  *
  * I think we'll just need to simply duplicate the devio URB engine here.
  */
+#if 0
+struct usbdevfs_urb32 {
+	__u8 type;
+	__u8 endpoint;
+	__s32 status;
+	__u32 flags;
+	__u32 buffer;
+	__s32 buffer_length;
+	__s32 actual_length;
+	__s32 start_frame;
+	__s32 number_of_packets;
+	__s32 error_count;
+	__u32 signr;
+	__u32 usercontext; /* unused */
+	struct usbdevfs_iso_packet_desc iso_frame_desc[0];
+};
+
+#define USBDEVFS_SUBMITURB32       _IOR('U', 10, struct usbdevfs_urb32)
+
+static int get_urb32(struct usbdevfs_urb *kurb,
+		     struct usbdevfs_urb32 *uurb)
+{
+	if (get_user(kurb->type, &uurb->type) ||
+	    __get_user(kurb->endpoint, &uurb->endpoint) ||
+	    __get_user(kurb->status, &uurb->status) ||
+	    __get_user(kurb->flags, &uurb->flags) ||
+	    __get_user(kurb->buffer_length, &uurb->buffer_length) ||
+	    __get_user(kurb->actual_length, &uurb->actual_length) ||
+	    __get_user(kurb->start_frame, &uurb->start_frame) ||
+	    __get_user(kurb->number_of_packets, &uurb->number_of_packets) ||
+	    __get_user(kurb->error_count, &uurb->error_count) ||
+	    __get_user(kurb->signr, &uurb->signr))
+		return -EFAULT;
+
+	kurb->usercontext = 0; /* unused currently */
+
+	return 0;
+}
+
+/* Just put back the values which usbdevfs actually changes. */
+static int put_urb32(struct usbdevfs_urb *kurb,
+		     struct usbdevfs_urb32 *uurb)
+{
+	if (put_user(kurb->status, &uurb->status) ||
+	    __put_user(kurb->actual_length, &uurb->actual_length) ||
+	    __put_user(kurb->error_count, &uurb->error_count))
+		return -EFAULT;
+
+	if (kurb->number_of_packets != 0) {
+		int i;
+
+		for (i = 0; i < kurb->number_of_packets; i++) {
+			if (__put_user(kurb->iso_frame_desc[i].actual_length,
+				       &uurb->iso_frame_desc[i].actual_length) ||
+			    __put_user(kurb->iso_frame_desc[i].status,
+				       &uurb->iso_frame_desc[i].status))
+				return -EFAULT;
+		}
+	}
+
+	return 0;
+}
+
+static int get_urb32_isoframes(struct usbdevfs_urb *kurb,
+			       struct usbdevfs_urb32 *uurb)
+{
+	unsigned int totlen;
+	int i;
+
+	if (kurb->type != USBDEVFS_URB_TYPE_ISO) {
+		kurb->number_of_packets = 0;
+		return 0;
+	}
+
+	if (kurb->number_of_packets < 1 ||
+	    kurb->number_of_packets > 128)
+		return -EINVAL;
+
+	if (copy_from_user(&kurb->iso_frame_desc[0],
+			   &uurb->iso_frame_desc[0],
+			   sizeof(struct usbdevfs_iso_packet_desc) *
+			   kurb->number_of_packets))
+		return -EFAULT;
+
+	totlen = 0;
+	for (i = 0; i < kurb->number_of_packets; i++) {
+		unsigned int this_len;
+
+		this_len = kurb->iso_frame_desc[i].length;
+		if (this_len > 1023)
+			return -EINVAL;
+
+		totlen += this_len;
+	}
+
+	if (totlen > 32768)
+		return -EINVAL;
+
+	kurb->buffer_length = totlen;
+
+	return 0;
+}
+
+static int do_usbdevfs_urb(unsigned int fd, unsigned int cmd, unsigned long arg)
+{
+	struct usbdevfs_urb *kurb;
+	struct usbdevfs_urb32 *uurb;
+	mm_segment_t old_fs;
+	__u32 udata;
+	void *uptr, *kptr;
+	unsigned int buflen;
+	int err;
+
+	uurb = (struct usbdevfs_urb32 *) arg;
+
+	err = -ENOMEM;
+	kurb = kmalloc(sizeof(struct usbdevfs_urb) +
+		       (sizeof(struct usbdevfs_iso_packet_desc) * 128),
+		       GFP_KERNEL);
+	if (!kurb)
+		goto out;
+
+	err = -EFAULT;
+	if (get_urb32(kurb, uurb))
+		goto out;
+
+	err = get_urb32_isoframes(kurb, uurb);
+	if (err)
+		goto out;
+
+	err = -EFAULT;
+	if (__get_user(udata, &uurb->buffer))
+		goto out;
+	uptr = (void *) A(udata);
+
+	buflen = kurb->buffer_length;
+
+	err = verify_area(VERIFY_WRITE, uptr, buflen);
+	if (err)
+		goto out;
+
+	old_fs = get_fs();
+	set_fs(KERNEL_DS);
+	err = sys_ioctl(fd, USBDEVFS_SUBMITURB, (unsigned long) kurb);
+	set_fs(old_fs);
+
+	if (err >= 0) {
+		/* XXX Shit, this doesn't work for async URBs :-( XXX */
+		if (put_urb32(kurb, uurb)) {
+			err = -EFAULT;
+		}
+	}
+
+out:
+	kfree(kurb);
+	return err;
+}
+#endif
 
 #define USBDEVFS_REAPURB32         _IOW('U', 12, u32)
 #define USBDEVFS_REAPURBNDELAY32   _IOW('U', 13, u32)
@@ -3489,14 +3683,13 @@ struct mtd_oob_buf32 {
 #define MEMWRITEOOB32 	_IOWR('M',3,struct mtd_oob_buf32)
 #define MEMREADOOB32 	_IOWR('M',4,struct mtd_oob_buf32)
 
-static inline int 
+static inline int
 mtd_rw_oob(unsigned int fd, unsigned int cmd, unsigned long arg)
 {
 	mm_segment_t 			old_fs 	= get_fs();
 	struct mtd_oob_buf32	*uarg 	= (struct mtd_oob_buf32 *)arg;
 	struct mtd_oob_buf		karg;
 	u32 tmp;
-	char *ptr;
 	int ret;
 
 	if (get_user(karg.start, &uarg->start) 		||
@@ -3504,21 +3697,12 @@ mtd_rw_oob(unsigned int fd, unsigned int cmd, unsigned long arg)
 	    get_user(tmp, &uarg->ptr))
 		return -EFAULT;
 
-	ptr = (char *)A(tmp);
-	if (0 >= karg.length) 
-		return -EINVAL;
-
-	karg.ptr = kmalloc(karg.length, GFP_KERNEL);
-	if (NULL == karg.ptr)
-		return -ENOMEM;
-
-	if (copy_from_user(karg.ptr, ptr, karg.length)) {
-		kfree(karg.ptr);
+	karg.ptr = A(tmp);
+	if (verify_area(VERIFY_WRITE, karg.ptr, karg.length))
 		return -EFAULT;
-	}
 
 	set_fs(KERNEL_DS);
-	if (MEMREADOOB32 == cmd) 
+	if (MEMREADOOB32 == cmd)
 		ret = sys_ioctl(fd, MEMREADOOB, (unsigned long)&karg);
 	else if (MEMWRITEOOB32 == cmd)
 		ret = sys_ioctl(fd, MEMWRITEOOB, (unsigned long)&karg);
@@ -3527,14 +3711,45 @@ mtd_rw_oob(unsigned int fd, unsigned int cmd, unsigned long arg)
 	set_fs(old_fs);
 
 	if (0 == ret && cmd == MEMREADOOB32) {
-		ret = copy_to_user(ptr, karg.ptr, karg.length);
-		ret |= put_user(karg.start, &uarg->start);
+		ret = put_user(karg.start, &uarg->start);
 		ret |= put_user(karg.length, &uarg->length);
 	}
 
-	kfree(karg.ptr);
-	return ((0 == ret) ? 0 : -EFAULT);
-}	
+	return ret;
+}
+
+/* Fix sizeof(sizeof()) breakage */
+#define BLKELVGET_32	_IOR(0x12,106,int)
+#define BLKELVSET_32	_IOW(0x12,107,int)
+#define BLKBSZGET_32	_IOR(0x12,112,int)
+#define BLKBSZSET_32	_IOW(0x12,113,int)
+#define BLKGETSIZE64_32	_IOR(0x12,114,int)
+
+static int do_blkelvget(unsigned int fd, unsigned int cmd, unsigned long arg)
+{
+	return sys_ioctl(fd, BLKELVGET, arg);
+}
+
+static int do_blkelvset(unsigned int fd, unsigned int cmd, unsigned long arg)
+{
+	return sys_ioctl(fd, BLKELVSET, arg);
+}
+
+static int do_blkbszget(unsigned int fd, unsigned int cmd, unsigned long arg)
+{
+	return sys_ioctl(fd, BLKBSZGET, arg);
+}
+
+static int do_blkbszset(unsigned int fd, unsigned int cmd, unsigned long arg)
+{
+	return sys_ioctl(fd, BLKBSZSET, arg);
+}
+
+static int do_blkgetsize64(unsigned int fd, unsigned int cmd,
+			   unsigned long arg)
+{
+	return sys_ioctl(fd, BLKGETSIZE64, arg);
+}
 
 struct ioctl_trans {
 	unsigned long cmd;
@@ -3559,6 +3774,7 @@ COMPATIBLE_IOCTL(TCSETA),
 COMPATIBLE_IOCTL(TCSETAW),
 COMPATIBLE_IOCTL(TCSETAF),
 COMPATIBLE_IOCTL(TCSBRK),
+COMPATIBLE_IOCTL(TCSBRKP),
 COMPATIBLE_IOCTL(TCXONC),
 COMPATIBLE_IOCTL(TCFLSH),
 COMPATIBLE_IOCTL(TCGETS),
@@ -3594,6 +3810,8 @@ COMPATIBLE_IOCTL(TIOCGSERIAL),
 COMPATIBLE_IOCTL(TIOCSSERIAL),
 COMPATIBLE_IOCTL(TIOCSERGETLSR),
 COMPATIBLE_IOCTL(TIOCSLTC),
+COMPATIBLE_IOCTL(TIOCMIWAIT),
+COMPATIBLE_IOCTL(TIOCGICOUNT),
 /* Big F */
 COMPATIBLE_IOCTL(FBIOGET_VSCREENINFO),
 COMPATIBLE_IOCTL(FBIOPUT_VSCREENINFO),
@@ -3605,6 +3823,9 @@ COMPATIBLE_IOCTL(FBIOGET_CURSORSTATE),
 COMPATIBLE_IOCTL(FBIOPUT_CURSORSTATE),
 COMPATIBLE_IOCTL(FBIOGET_CON2FBMAP),
 COMPATIBLE_IOCTL(FBIOPUT_CON2FBMAP),
+#if 0
+COMPATIBLE_IOCTL(FBIOBLANK),
+#endif
 /* Little f */
 COMPATIBLE_IOCTL(FIOCLEX),
 COMPATIBLE_IOCTL(FIONCLEX),
@@ -3660,6 +3881,7 @@ COMPATIBLE_IOCTL(BLKGETSIZE64),
 
 /* RAID */
 COMPATIBLE_IOCTL(RAID_VERSION),
+COMPATIBLE_IOCTL(RAID_AUTORUN),
 COMPATIBLE_IOCTL(GET_ARRAY_INFO),
 COMPATIBLE_IOCTL(GET_DISK_INFO),
 COMPATIBLE_IOCTL(PRINT_RAID_DEBUG),
@@ -3958,6 +4180,8 @@ COMPATIBLE_IOCTL(SNDCTL_DSP_GETTRIGGER),
 COMPATIBLE_IOCTL(SNDCTL_DSP_SETTRIGGER),
 COMPATIBLE_IOCTL(SNDCTL_DSP_GETIPTR),
 COMPATIBLE_IOCTL(SNDCTL_DSP_GETOPTR),
+/* SNDCTL_DSP_MAPINBUF,  XXX needs translation */
+/* SNDCTL_DSP_MAPOUTBUF,  XXX needs translation */
 COMPATIBLE_IOCTL(SNDCTL_DSP_SETSYNCRO),
 COMPATIBLE_IOCTL(SNDCTL_DSP_SETDUPLEX),
 COMPATIBLE_IOCTL(SNDCTL_DSP_GETODELAY),
@@ -4057,6 +4281,11 @@ COMPATIBLE_IOCTL(AUTOFS_IOC_FAIL),
 COMPATIBLE_IOCTL(AUTOFS_IOC_CATATONIC),
 COMPATIBLE_IOCTL(AUTOFS_IOC_PROTOVER),
 COMPATIBLE_IOCTL(AUTOFS_IOC_EXPIRE),
+COMPATIBLE_IOCTL(AUTOFS_IOC_EXPIRE_MULTI),
+COMPATIBLE_IOCTL(AUTOFS_IOC_PROTOSUBVER),
+COMPATIBLE_IOCTL(AUTOFS_IOC_ASKREGHOST),
+COMPATIBLE_IOCTL(AUTOFS_IOC_TOGGLEREGHOST),
+COMPATIBLE_IOCTL(AUTOFS_IOC_ASKUMOUNT),
 /* DEVFS */
 COMPATIBLE_IOCTL(DEVFSDIOC_GET_PROTO_REV),
 COMPATIBLE_IOCTL(DEVFSDIOC_SET_EVENT_MASK),
@@ -4242,6 +4471,8 @@ HANDLE_IOCTL(SIOCDELRT, routing_ioctl),
 HANDLE_IOCTL(SIOCRTMSG, ret_einval),
 HANDLE_IOCTL(SIOCGSTAMP, do_siocgstamp),
 HANDLE_IOCTL(HDIO_GETGEO, hdio_getgeo),
+HANDLE_IOCTL(HDIO_GETGEO_BIG, hdio_getgeo_big),
+HANDLE_IOCTL(HDIO_GETGEO_BIG_RAW, hdio_getgeo_big),
 HANDLE_IOCTL(BLKRAGET, w_long),
 HANDLE_IOCTL(BLKGETSIZE, w_long),
 HANDLE_IOCTL(0x1260, broken_blkgetsize),
@@ -4359,6 +4590,14 @@ HANDLE_IOCTL(USBDEVFS_BULK32, do_usbdevfs_bulk),
 HANDLE_IOCTL(USBDEVFS_REAPURB32, do_usbdevfs_reapurb),
 HANDLE_IOCTL(USBDEVFS_REAPURBNDELAY32, do_usbdevfs_reapurb),
 HANDLE_IOCTL(USBDEVFS_DISCSIGNAL32, do_usbdevfs_discsignal),
+/* take care of sizeof(sizeof()) breakage */
+/* elevator */
+HANDLE_IOCTL(BLKELVGET_32, do_blkelvget),
+HANDLE_IOCTL(BLKELVSET_32, do_blkelvset),
+/* block stuff */
+HANDLE_IOCTL(BLKBSZGET_32, do_blkbszget),
+HANDLE_IOCTL(BLKBSZSET_32, do_blkbszset),
+HANDLE_IOCTL(BLKGETSIZE64_32, do_blkgetsize64),
 };
 
 unsigned long ioctl32_hash_table[1024];

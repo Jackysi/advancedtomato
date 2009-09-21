@@ -28,7 +28,6 @@
 #include <asm/pgalloc.h>
 #include <asm/pgtable.h>
 
-extern void die_if_kernel(const char *str, struct pt_regs *regs, int err);
 extern void show_pte(struct mm_struct *mm, unsigned long addr);
 extern int do_page_fault(unsigned long addr, int error_code,
 			 struct pt_regs *regs);
@@ -236,9 +235,13 @@ make_coherent(struct vm_area_struct *vma, unsigned long addr, struct page *page)
  */
 void update_mmu_cache(struct vm_area_struct *vma, unsigned long addr, pte_t pte)
 {
-	struct page *page = pte_page(pte);
+	unsigned long pfn = pte_pfn(pte);
+	struct page *page;
 
-	if (VALID_PAGE(page) && page->mapping) {
+	if (!pfn_valid(pfn))
+		return;
+	page = pfn_to_page(pfn);
+	if (page->mapping) {
 		if (test_and_clear_bit(PG_dcache_dirty, &page->flags)) {
 			unsigned long kvirt = (unsigned long)page_address(page);
 			cpu_cache_clean_invalidate_range(kvirt, kvirt + PAGE_SIZE, 0);

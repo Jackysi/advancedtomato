@@ -31,7 +31,7 @@
  * 2000-01-04: Thomas Sailer <sailer@ife.ee.ethz.ch>
  *   Turned into its own filesystem
  *
- * $Id: drivers.c,v 1.1.1.4 2003/10/14 08:08:49 sparq Exp $
+ * $Id: drivers.c,v 1.3 2000/01/11 13:58:24 tom Exp $
  */
 
 #include <linux/fs.h>
@@ -52,9 +52,10 @@ static ssize_t usb_driver_read(struct file *file, char *buf, size_t nbytes, loff
 	struct list_head *tmp = usb_driver_list.next;
 	char *page, *start, *end;
 	ssize_t ret = 0;
-	unsigned int pos, len;
+	loff_t n = *ppos;
+	unsigned int pos = n, len;
 
-	if (*ppos < 0)
+	if (pos != n)
 		return -EINVAL;
 	if (nbytes <= 0)
 		return 0;
@@ -64,7 +65,6 @@ static ssize_t usb_driver_read(struct file *file, char *buf, size_t nbytes, loff
                 return -ENOMEM;
 	start = page;
 	end = page + (PAGE_SIZE - 100);
-	pos = *ppos;
 	for (; tmp != &usb_driver_list; tmp = tmp->next) {
 		struct usb_driver *driver = list_entry(tmp, struct usb_driver, driver_list);
 		int minor = driver->fops ? driver->minor : -1;
@@ -88,7 +88,7 @@ static ssize_t usb_driver_read(struct file *file, char *buf, size_t nbytes, loff
 		if (copy_to_user(buf, page + pos, len))
 			ret = -EFAULT;
 		else
-			*ppos += len;
+			*ppos = pos + len;
 	}
 	free_page((unsigned long)page);
 	return ret;

@@ -1,5 +1,5 @@
 /* This version ported to the Linux-MTD system by dwmw2@infradead.org
- * $Id: ftl.c,v 1.1.1.4 2003/10/14 08:08:16 sparq Exp $
+ * $Id: ftl.c,v 1.45 2003/01/24 23:31:27 dwmw2 Exp $
  *
  * Fixes: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
  * - fixes some leaks on failure in build_maps and ftl_notify_add, cleanups
@@ -70,7 +70,6 @@
 #include <linux/fs.h>
 #include <linux/ioctl.h>
 #include <linux/hdreg.h>
-#include <stdarg.h>
 
 #if (LINUX_VERSION_CODE >= 0x20100)
 #include <linux/vmalloc.h>
@@ -176,6 +175,10 @@ typedef struct partition_t {
     u_int16_t		DataUnits;
     u_int32_t		BlocksPerUnit;
     erase_unit_header_t	header;
+#if 0
+    region_info_t	region;
+    memory_handle_t	handle;
+#endif
     atomic_t		open;
 } partition_t;
 
@@ -1411,7 +1414,7 @@ int init_ftl(void)
 
     memset(myparts, 0, sizeof(myparts));
     
-    DEBUG(0, "$Id: ftl.c,v 1.1.1.4 2003/10/14 08:08:16 sparq Exp $\n");
+    DEBUG(0, "$Id: ftl.c,v 1.45 2003/01/24 23:31:27 dwmw2 Exp $\n");
     
     if (register_blkdev(FTL_MAJOR, "ftl", &ftl_blk_fops)) {
 	printk(KERN_NOTICE "ftl_cs: unable to grab major "
@@ -1452,4 +1455,4 @@ module_exit(cleanup_ftl);
 
 MODULE_LICENSE("Dual MPL/GPL");
 MODULE_AUTHOR("David Hinds <dahinds@users.sourceforge.net>");
-MODULE_DESCRIPTION("Support code for Flash Translation Layer, used on PCMCIA devices and M-Systems DiskOnChip 1000");
+MODULE_DESCRIPTION("Support code for Flash Translation Layer, used on PCMCIA devices");

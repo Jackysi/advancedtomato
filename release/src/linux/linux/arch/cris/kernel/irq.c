@@ -1,8 +1,7 @@
-/* $Id: irq.c,v 1.1.1.4 2003/10/14 08:07:17 sparq Exp $
- *
+/*
  *	linux/arch/cris/kernel/irq.c
  *
- *      Copyright (c) 2000,2001 Axis Communications AB
+ *      Copyright (c) 2000, 2001, 2002, 2003 Axis Communications AB
  *
  *      Authors: Bjorn Wesen (bjornw@axis.com)
  *
@@ -59,7 +58,7 @@ void
 disable_irq(unsigned int irq_nr)
 {
 	unsigned long flags;
-	
+
 	save_flags(flags);
 	cli();
 	mask_irq(irq_nr);
@@ -70,6 +69,7 @@ void
 enable_irq(unsigned int irq_nr)
 {
 	unsigned long flags;
+
 	save_flags(flags);
 	cli();
 	unmask_irq(irq_nr);
@@ -88,7 +88,8 @@ probe_irq_off(unsigned long x)
 	return 0;
 }
 
-irqvectptr irq_shortcuts[NR_IRQS]; /* vector of shortcut jumps after the irq prologue */
+/* vector of shortcut jumps after the irq prologue */
+irqvectptr irq_shortcuts[NR_IRQS];
 
 /* don't use set_int_vector, it bypasses the linux interrupt handlers. it is
  * global just so that the kernel gdb can use it.
@@ -104,8 +105,8 @@ set_int_vector(int n, irqvectptr addr, irqvectptr saddr)
 	etrax_irv->v[n + 0x20] = (irqvectptr)addr;
 }
 
-/* the breakpoint vector is obviously not made just like the normal irq handlers
- * but needs to contain _code_ to jump to addr.
+/* the breakpoint vector is obviously not made just like the normal irq
+ * handlers but needs to contain _code_ to jump to addr.
  *
  * the BREAK n instruction jumps to IBR + n * 8
  */
@@ -117,7 +118,7 @@ set_break_vector(int n, irqvectptr addr)
 	unsigned long *jaddr = (unsigned long *)(jinstr + 1);
 
 	/* if you don't know what this does, do not touch it! */
-	
+
 	*jinstr = 0x0d3f;
 	*jaddr = (unsigned long)addr;
 
@@ -163,18 +164,18 @@ BUILD_IRQ(24, 0x1000000)
 BUILD_IRQ(25, 0x2000000)
 /* IRQ 26-30 are reserved */
 BUILD_IRQ(31, 0x80000000)
- 
+
 /*
- * Pointers to the low-level handlers 
+ * Pointers to the low-level handlers
  */
 
 static void (*interrupt[NR_IRQS])(void) = {
 	NULL, NULL, IRQ2_interrupt, IRQ3_interrupt,
 	IRQ4_interrupt, IRQ5_interrupt, IRQ6_interrupt, IRQ7_interrupt,
 	IRQ8_interrupt, IRQ9_interrupt, IRQ10_interrupt, IRQ11_interrupt,
-	IRQ12_interrupt, IRQ13_interrupt, NULL, NULL,	
-	IRQ16_interrupt, IRQ17_interrupt, IRQ18_interrupt, IRQ19_interrupt,	
-	IRQ20_interrupt, IRQ21_interrupt, IRQ22_interrupt, IRQ23_interrupt,	
+	IRQ12_interrupt, IRQ13_interrupt, NULL, NULL,
+	IRQ16_interrupt, IRQ17_interrupt, IRQ18_interrupt, IRQ19_interrupt,
+	IRQ20_interrupt, IRQ21_interrupt, IRQ22_interrupt, IRQ23_interrupt,
 	IRQ24_interrupt, IRQ25_interrupt, NULL, NULL, NULL, NULL, NULL,
 	IRQ31_interrupt
 };
@@ -183,9 +184,9 @@ static void (*sinterrupt[NR_IRQS])(void) = {
 	NULL, NULL, sIRQ2_interrupt, sIRQ3_interrupt,
 	sIRQ4_interrupt, sIRQ5_interrupt, sIRQ6_interrupt, sIRQ7_interrupt,
 	sIRQ8_interrupt, sIRQ9_interrupt, sIRQ10_interrupt, sIRQ11_interrupt,
-	sIRQ12_interrupt, sIRQ13_interrupt, NULL, NULL,	
-	sIRQ16_interrupt, sIRQ17_interrupt, sIRQ18_interrupt, sIRQ19_interrupt,	
-	sIRQ20_interrupt, sIRQ21_interrupt, sIRQ22_interrupt, sIRQ23_interrupt,	
+	sIRQ12_interrupt, sIRQ13_interrupt, NULL, NULL,
+	sIRQ16_interrupt, sIRQ17_interrupt, sIRQ18_interrupt, sIRQ19_interrupt,
+	sIRQ20_interrupt, sIRQ21_interrupt, sIRQ22_interrupt, sIRQ23_interrupt,
 	sIRQ24_interrupt, sIRQ25_interrupt, NULL, NULL, NULL, NULL, NULL,
 	sIRQ31_interrupt
 };
@@ -230,7 +231,7 @@ int get_irq_list(char *buf)
 
 	for (i = 0; i < NR_IRQS; i++) {
 		action = irq_action[i];
-		if (!action) 
+		if (!action)
 			continue;
 		len += sprintf(buf+len, "%2d: %10u %c %s",
 			i, kstat.irqs[0][i],
@@ -286,9 +287,9 @@ asmlinkage void do_IRQ(int irq, struct pt_regs * regs)
 }
 
 /* this function links in a handler into the chain of handlers for the
-   given irq, and if the irq has never been registred, the appropriate
-   handler is entered into the interrupt vector
-*/
+ * given irq, and if the irq has never been registred, the appropriate
+ * handler is entered into the interrupt vector
+ */
 
 int setup_etrax_irq(int irq, struct irqaction * new)
 {
@@ -322,37 +323,39 @@ int setup_etrax_irq(int irq, struct irqaction * new)
 	*p = new;
 
 	if (!shared) {
-		/* if the irq wasn't registred before, enter it into the vector table
-		   and unmask it physically 
-		*/
+		/* if the irq wasn't registred before, enter it into the vector
+		 * table and unmask it physically
+		 */
 		set_int_vector(irq, interrupt[irq], sinterrupt[irq]);
 		unmask_irq(irq);
 	}
-	
+
 	restore_flags(flags);
 	return 0;
 }
 
 /* this function is called by a driver to register an irq handler
-   Valid flags:
-   SA_INTERRUPT -> it's a fast interrupt, handler called with irq disabled and
-                   no signal checking etc is performed upon exit
-   SA_SHIRQ -> the interrupt can be shared between different handlers, the handler
-                is required to check if the irq was "aimed" at it explicitely
-   SA_RANDOM -> the interrupt will add to the random generators entropy
-*/
+ * Valid flags:
+ *   SA_INTERRUPT: it's a fast interrupt, handler called with irq disabled and
+ *                 no signal checking etc is performed upon exit
+ *   SA_SHIRQ:     the interrupt can be shared between different handlers, the
+ *                 handler is required to check if the irq was "aimed" at it
+ *                 explicitely
+ *   SA_RANDOM:    the interrupt will add to the random generators entropy
+ */
 
-int request_irq(unsigned int irq, 
+int request_irq(unsigned int irq,
 		void (*handler)(int, void *, struct pt_regs *),
-		unsigned long irqflags, 
+		unsigned long irqflags,
 		const char * devname,
 		void *dev_id)
 {
 	int retval;
 	struct irqaction * action;
 
-	/* interrupts 0 and 1 are hardware breakpoint and NMI and we can't support
-	   these yet. interrupt 15 is the multiple irq, it's special. */
+	/* interrupts 0 and 1 are hardware breakpoint and NMI and we can't
+	 * support these yet. interrupt 15 is the multiple irq, it's special.
+	 */
 
 	if(irq < 2 || irq == 15 || irq >= NR_IRQS)
 		return -EINVAL;
@@ -362,7 +365,7 @@ int request_irq(unsigned int irq,
 
 	/* allocate and fill in a handler structure and setup the irq */
 
-	action = (struct irqaction *)kmalloc(sizeof(struct irqaction), GFP_KERNEL);
+	action = kmalloc(sizeof *action, GFP_KERNEL);
 	if (!action)
 		return -ENOMEM;
 
@@ -379,7 +382,7 @@ int request_irq(unsigned int irq,
 		kfree(action);
 	return retval;
 }
-		
+
 void free_irq(unsigned int irq, void *dev_id)
 {
 	struct irqaction * action, **p;
@@ -415,9 +418,9 @@ void weird_irq(void)
 	while(1);
 }
 
-/* init_IRQ() is called by start_kernel and is responsible for fixing IRQ masks and
-   setting the irq vector table to point to bad_interrupt ptrs.
-*/
+/* init_IRQ() is called by start_kernel and is responsible for fixing IRQ masks
+ * and setting the irq vector table to point to bad_interrupt ptrs.
+ */
 
 void system_call(void);  /* from entry.S */
 void do_sigtrap(void); /* from entry.S */
@@ -442,26 +445,27 @@ init_IRQ(void)
 
 	for(i = 0; i < NR_IRQS; i++)
 		irq_shortcuts[i] = NULL;
-        
-        for (i = 0; i < 256; i++)
-               etrax_irv->v[i] = weird_irq;
 
-        /* the entries in the break vector contain actual code to be
-           executed by the associated break handler, rather than just a jump
-           address. therefore we need to setup a default breakpoint handler
-           for all breakpoints */
+	for (i = 0; i < 256; i++)
+		etrax_irv->v[i] = weird_irq;
+
+	/* the entries in the break vector contain actual code to be
+	 * executed by the associated break handler, rather than just a jump
+	 * address. therefore we need to setup a default breakpoint handler
+	 * for all breakpoints
+	 */
 
 	for (i = 0; i < 16; i++)
-                set_break_vector(i, do_sigtrap);
-        
+		set_break_vector(i, do_sigtrap);
+
 	/* set all etrax irq's to the bad handlers */
 	for (i = 2; i < NR_IRQS; i++)
 		set_int_vector(i, bad_interrupt[i], 0);
-        
+
 	/* except IRQ 15 which is the multiple-IRQ handler on Etrax100 */
 
 	set_int_vector(15, multiple_interrupt, 0);
-	
+
 	/* 0 and 1 which are special breakpoint/NMI traps */
 
 	set_int_vector(0, hwbreakpoint, 0);
@@ -475,17 +479,17 @@ init_IRQ(void)
 
 	set_break_vector(13, system_call);
 
-        /* setup a breakpoint handler for debugging used for both user and
-           kernel mode debugging  (which is why it is not inside an ifdef
-           CONFIG_ETRAX_KGDB) */
-        set_break_vector(8, gdb_handle_breakpoint);
+	/* setup a breakpoint handler for debugging used for both user and
+	 * kernel mode debugging  (which is why it is not inside an ifdef
+	 * CONFIG_ETRAX_KGDB)
+	 */
+	set_break_vector(8, gdb_handle_breakpoint);
 
 #ifdef CONFIG_ETRAX_KGDB
 	/* setup kgdb if its enabled, and break into the debugger */
 	kgdb_init();
 	breakpoint();
 #endif
-
 }
 
 #if defined(CONFIG_PROC_FS) && defined(CONFIG_SYSCTL)

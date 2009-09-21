@@ -57,6 +57,7 @@ extern inline void presto_debug_fail_blkdev(struct presto_file_set *fset,
 
 
 /* VFS interface */
+/* XXX! Fixme test for user defined attributes */
 int presto_set_ext_attr(struct inode *inode, 
                         const char *name, void *buffer,
                         size_t buffer_len, int flags) 
@@ -99,6 +100,15 @@ int presto_set_ext_attr(struct inode *inode,
         }
 
         if ((buffer != NULL) && (buffer_len != 0)) {
+            /* If buffer is a user space pointer copy it to kernel space
+            * and reset the flag. We do this since the journal functions need
+            * access to the contents of the buffer, and the file system
+            * does not care. When we actually invoke the function, we remove
+            * the EXT_ATTR_FLAG_USER flag.
+            *
+            * XXX:Check if the "fs does not care" assertion is always true -SHP
+            * (works for ext3)
+            */
             if (flags & EXT_ATTR_FLAG_USER) {
                 PRESTO_ALLOC(buf, buffer_len);
                 if (!buf) {
@@ -144,6 +154,7 @@ int presto_set_ext_attr(struct inode *inode,
 }
 
 /* Lento Interface */
+/* XXX: ignore flags? We should be forcing these operations through? -SHP*/
 int lento_set_ext_attr(const char *path, const char *name, 
                        void *buffer, size_t buffer_len, int flags, mode_t mode, 
                        struct lento_vfs_context *info) 

@@ -613,6 +613,10 @@ static int __init tc35815_probe1(struct pci_dev *pdev, unsigned int base_addr, u
 	dev->get_stats		= tc35815_get_stats;
 	dev->set_multicast_list = tc35815_set_multicast_list;
 
+#if 0	/* XXX called in init_etherdev */
+	/* Fill in the fields of the device structure with ethernet values. */
+	ether_setup(dev);
+#endif
 
 	return 0;
 }
@@ -1167,6 +1171,7 @@ tc35815_rx(struct net_device *dev)
 			lp->stats.rx_packets++;
 		} else {
 			lp->stats.rx_errors++;
+			/* WORKAROUND: LongErr and CRCErr means Overflow. */
 			if ((status & Rx_LongErr) && (status & Rx_CRCErr)) {
 				status &= ~(Rx_LongErr|Rx_CRCErr);
 				status |= Rx_Over;
@@ -1257,6 +1262,7 @@ tc35815_check_tx_stat(struct net_device *dev, int status)
 	if (status & Tx_TxColl_MASK)
 		lp->stats.collisions += status & Tx_TxColl_MASK;
 
+	/* WORKAROUND: ignore LostCrS in full duplex operation */
 	if (lp->fullduplex)
 		status &= ~Tx_NCarr;
 
@@ -1549,6 +1555,15 @@ static void tc35815_phy_chip_init(struct net_device *dev)
 
 		/* first data written to the PHY will be an ID number */
 		tc_phy_write(0, tr, 0, MII_CONTROL);	/* ID:0 */
+#if 0
+		tc_phy_write(MIICNTL_RESET, tr, 0, MII_CONTROL);
+		printk(KERN_INFO "%s: Resetting PHY...", dev->name);
+		while (tc_phy_read(tr, 0, MII_CONTROL) & MIICNTL_RESET)
+			;
+		printk("\n");
+		tc_phy_write(MIICNTL_AUTO|MIICNTL_SPEED|MIICNTL_FDX, tr, 0,
+			     MII_CONTROL);
+#endif
 		id0 = tc_phy_read(tr, 0, MII_PHY_ID0);
 		id1 = tc_phy_read(tr, 0, MII_PHY_ID1);
 		printk(KERN_DEBUG "%s: PHY ID %04x %04x\n", dev->name,
@@ -1668,12 +1683,16 @@ static void tc35815_chip_init(struct net_device *dev)
 	tc_writel(virt_to_bus(lp->fbl_ptr), &tr->BLFrmPtr);	/* start DMA receiver */
 	tc_writel(RX_CTL_CMD, &tr->Rx_Ctl);	/* start MAC receiver */
 	/* start MAC transmitter */
+	/* WORKAROUND: ignore LostCrS in full duplex operation */
 	if (lp->fullduplex)
 		txctl = TX_CTL_CMD & ~Tx_EnLCarr;
 #ifdef GATHER_TXINT
 	txctl &= ~Tx_EnComp;	/* disable global tx completion int. */
 #endif
 	tc_writel(txctl, &tr->Tx_Ctl);
+#if 0	/* No need to polling */
+	tc_writel(virt_to_bus(lp->tfd_base), &tr->TxFrmPtr);	/* start DMA transmitter */
+#endif
 	restore_flags(flags);
 }
 
@@ -1711,6 +1730,7 @@ static int tc35815_proc_info(char *buffer, char **start, off_t offset, int lengt
 	return len;
 }
 
+/* XXX */
 void
 tc35815_killall(void)
 {
@@ -1757,3 +1777,6 @@ static void __exit tc35815_cleanup_module(void)
 }
 module_init(tc35815_init_module);
 module_exit(tc35815_cleanup_module);
+MODULE_AUTHOR("MontaVista Software Inc.");
+MODULE_DESCRIPTION("TOSHIBA TC35815CF PCI 10/100Mbps ethernet driver");
+MODULE_LICENSE("GPL");

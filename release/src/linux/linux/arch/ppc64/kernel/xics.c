@@ -51,7 +51,6 @@ struct hw_interrupt_type xics_8259_pic = {
 };
 
 #define XICS_IPI		2
-#define XICS_IRQ_OFFSET		0x10
 #define XICS_IRQ_SPURIOUS	0
 
 /* Want a priority other than 0.  Various HW issues require this. */
@@ -88,6 +87,7 @@ unsigned int default_distrib_server = 0;
 /* RTAS service tokens */
 int ibm_get_xive;
 int ibm_set_xive;
+int ibm_int_on;
 int ibm_int_off;
 
 struct xics_interrupt_node {
@@ -135,45 +135,50 @@ extern xics_ops pSeriesLP_ops;
 
 
 void
-xics_enable_irq(
-	u_int	virq
-	)
+xics_enable_irq(u_int virq)
 {
 	u_int		irq;
 	unsigned long	status;
 	long	        call_status;
+	unsigned int    interrupt_server = default_server;
 
-	virq -= XICS_IRQ_OFFSET;
-	irq = virt_irq_to_real(virq);
+	irq = irq_offset_down(virq);
 	if (irq == XICS_IPI)
 		return;
+
 #ifdef CONFIG_IRQ_ALL_CPUS
-	call_status = rtas_call(ibm_set_xive, 3, 1, (unsigned long*)&status,
-				irq, smp_threads_ready ? default_distrib_server : default_server, DEFAULT_PRIORITY);
-#else
-	call_status = rtas_call(ibm_set_xive, 3, 1, (unsigned long*)&status,
-				irq, default_server, DEFAULT_PRIORITY);
+	if((smp_num_cpus == systemcfg->processorCount) &&
+	   (smp_threads_ready)) {
+		interrupt_server = default_distrib_server;
+	}
 #endif
+	call_status = rtas_call(ibm_set_xive, 3, 1, (unsigned long*)&status,
+				irq, interrupt_server, DEFAULT_PRIORITY);
+
 	if( call_status != 0 ) {
 		printk("xics_enable_irq: irq=%x: rtas_call failed; retn=%lx, status=%lx\n",
 		       irq, call_status, status);
 		return;
 	}
+	/* Now unmask the interrupt (often a no-op) */
+	call_status = rtas_call(ibm_int_on, 1, 1, (unsigned long*)&status, 
+				irq);
+	if( call_status != 0 ) {
+		printk("xics_disable_irq on: irq=%x: rtas_call failed, retn=%lx\n",
+		       irq, call_status);
+		return;
+	}
 }
 
 void
-xics_disable_irq(
-	u_int	virq
-	)
+xics_disable_irq(u_int virq)
 {
 	u_int		irq;
 	unsigned long 	status;
 	long 	        call_status;
 
-	virq -= XICS_IRQ_OFFSET;
-	irq = virt_irq_to_real(virq);
-	call_status = rtas_call(ibm_int_off, 1, 1, (unsigned long*)&status, 
-				irq);
+	irq = irq_offset_down(virq);
+	call_status = rtas_call(ibm_int_off, 1, 1, NULL, irq);
 	if( call_status != 0 ) {
 		printk("xics_disable_irq: irq=%x: rtas_call failed, retn=%lx\n",
 		       irq, call_status);
@@ -182,16 +187,12 @@ xics_disable_irq(
 }
 
 void
-xics_end_irq(
-	u_int	irq
-	)
+xics_end_irq(u_int irq)
 {
 	int cpu = smp_processor_id();
 
-	ops->cppr_info(cpu, 0); /* actually the value overwritten by ack */
 	iosync();
-	ops->xirr_info_set(cpu, ((0xff<<24) | (virt_irq_to_real(irq-XICS_IRQ_OFFSET))));
-	iosync();
+	ops->xirr_info_set(cpu, (0xff<<24) | irq_offset_down(irq));
 }
 
 void
@@ -199,7 +200,7 @@ xics_mask_and_ack_irq(u_int	irq)
 {
 	int cpu = smp_processor_id();
 
-	if( irq < XICS_IRQ_OFFSET ) {
+	if (irq < irq_offset_value()) {
 		i8259_pic.ack(irq);
 		iosync();
 		ops->xirr_info_set(cpu, ((0xff<<24) | xics_irq_8259_cascade_real));
@@ -226,13 +227,13 @@ xics_get_irq(struct pt_regs *regs)
 		irq = i8259_irq(cpu);
 		if(irq == -1) {
 			/* Spurious cascaded interrupt.  Still must ack xics */
-                        xics_end_irq(XICS_IRQ_OFFSET + xics_irq_8259_cascade);
+			xics_end_irq(irq_offset_up(xics_irq_8259_cascade));
 			irq = -1;
 		}
 	} else if( vec == XICS_IRQ_SPURIOUS ) {
 		irq = -1;
 	} else {
-		irq = real_irq_to_virt(vec) + XICS_IRQ_OFFSET;
+		irq = irq_offset_up(vec);
 	}
 	return irq;
 }
@@ -277,6 +278,15 @@ void xics_setup_cpu(void)
 }
 #endif /* CONFIG_SMP */
 
+void xics_init_irq_desc(irq_desc_t *desc)
+{
+	/* Don't mess with the handler if already set.
+	 * This leaves the setup of isa handlers undisturbed.
+	 */
+	if (!desc->handler)
+		desc->handler = &xics_pic;
+}
+
 void
 xics_init_IRQ( void )
 {
@@ -289,6 +299,7 @@ xics_init_IRQ( void )
 
 	ibm_get_xive = rtas_token("ibm,get-xive");
 	ibm_set_xive = rtas_token("ibm,set-xive");
+	ibm_int_on  = rtas_token("ibm,int-on");
 	ibm_int_off = rtas_token("ibm,int-off");
 
 	np = find_type_devices("PowerPC-External-Interrupt-Presentation");
@@ -359,12 +370,12 @@ nextnode:
 			while (1);
 		}
 		xics_irq_8259_cascade_real = *ireg;
-		xics_irq_8259_cascade = virt_irq_create_mapping(xics_irq_8259_cascade_real);
+		xics_irq_8259_cascade = xics_irq_8259_cascade_real;
 	}
 
-	if (naca->platform == PLATFORM_PSERIES) {
+	if (systemcfg->platform == PLATFORM_PSERIES) {
 #ifdef CONFIG_SMP
-		for (i = 0; i < naca->processorCount; ++i) {
+		for (i = 0; i < systemcfg->processorCount; ++i) {
 			xics_info.per_cpu[i] =
 			  __ioremap((ulong)inodes[get_hard_smp_processor_id(i)].addr, 
 				  (ulong)inodes[get_hard_smp_processor_id(i)].size, _PAGE_NO_CACHE);
@@ -376,7 +387,7 @@ nextnode:
 	/* actually iSeries does not use any of xics...but it has link dependencies
 	 * for now, except this new one...
 	 */
-	} else if (naca->platform == PLATFORM_PSERIES_LPAR) {
+	} else if (systemcfg->platform == PLATFORM_PSERIES_LPAR) {
 		ops = &pSeriesLP_ops;
 #endif
 	}
@@ -384,34 +395,22 @@ nextnode:
 	xics_8259_pic.enable = i8259_pic.enable;
 	xics_8259_pic.disable = i8259_pic.disable;
 	for (i = 0; i < 16; ++i)
-		irq_desc[i].handler = &xics_8259_pic;
-	for (; i < NR_IRQS; ++i)
-		irq_desc[i].handler = &xics_pic;
+		real_irqdesc(i)->handler = &xics_8259_pic;
 
 	ops->cppr_info(0, 0xff);
 	iosync();
 	if (xics_irq_8259_cascade != -1) {
-		if (request_irq(xics_irq_8259_cascade + XICS_IRQ_OFFSET, no_action,
-				0, "8259 cascade", 0))
+		if (request_irq(irq_offset_up(xics_irq_8259_cascade),
+				no_action, 0, "8259 cascade", 0))
 			printk(KERN_ERR "xics_init_IRQ: couldn't get 8259 cascade\n");
 		i8259_init();
 	}
 
 #ifdef CONFIG_SMP
-	real_irq_to_virt_map[XICS_IPI] = virt_irq_to_real_map[XICS_IPI] = XICS_IPI;
-	request_irq(XICS_IPI + XICS_IRQ_OFFSET, xics_ipi_action, 0, "IPI", 0);
-	irq_desc[XICS_IPI+XICS_IRQ_OFFSET].status |= IRQ_PER_CPU;
+	request_irq(irq_offset_up(XICS_IPI), xics_ipi_action, 0, "IPI", 0);
+	real_irqdesc(irq_offset_up(XICS_IPI))->status |= IRQ_PER_CPU;
 #endif
 	ppc64_boot_msg(0x21, "XICS Done");
-}
-
-void xics_isa_init(void)
-{
-	return;
-	if (request_irq(xics_irq_8259_cascade + XICS_IRQ_OFFSET, no_action,
-			0, "8259 cascade", 0))
-		printk(KERN_ERR "xics_init_IRQ: couldn't get 8259 cascade\n");
-	i8259_init();
 }
 
 /*
@@ -431,21 +430,19 @@ static inline u32 physmask(u32 cpumask)
 	return default_distrib_server;
 }
 
-void xics_set_affinity(unsigned int virq, unsigned long cpumask)
+void xics_set_affinity(unsigned int irq, unsigned long cpumask)
 {
-        irq_desc_t *desc = irq_desc + virq;
-	unsigned int irq;
+	irq_desc_t *desc = irqdesc(irq);
 	unsigned long flags;
 	long status;
 	unsigned long xics_status[2];
 	u32 newmask;
 
-	virq -= XICS_IRQ_OFFSET;
-	irq = virt_irq_to_real(virq);
+	irq = irq_offset_down(irq);
 	if (irq == XICS_IPI)
 		return;
 
-        spin_lock_irqsave(&desc->lock, flags);
+	spin_lock_irqsave(&desc->lock, flags);
 
 	status = rtas_call(ibm_get_xive, 1, 3, (void *)&xics_status, irq);
 
@@ -471,5 +468,5 @@ void xics_set_affinity(unsigned int virq, unsigned long cpumask)
 	}
 
 out:
-        spin_unlock_irqrestore(&desc->lock, flags);
+	spin_unlock_irqrestore(&desc->lock, flags);
 }

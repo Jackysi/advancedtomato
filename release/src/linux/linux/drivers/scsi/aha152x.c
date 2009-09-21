@@ -13,15 +13,9 @@
  * General Public License for more details.
  *
  *
- * $Id: aha152x.c,v 1.1.1.4 2003/10/14 08:08:37 sparq Exp $
+ * $Id: aha152x.c,v 2.5 2002/04/14 11:24:53 fischer Exp $
  *
  * $Log: aha152x.c,v $
- * Revision 1.1.1.4  2003/10/14 08:08:37  sparq
- * Broadcom Release 3.51.8.0 for BCM4712.
- *
- * Revision 1.1.1.1  2003/02/03 22:37:52  mhuang
- * LINUX_2_4 branch snapshot from linux-mips.org CVS
- *
  * Revision 2.5  2002/04/14 11:24:53  fischer
  * - isapnp support
  * - abort fixed
@@ -228,10 +222,6 @@
 
 #include <linux/module.h>
 
-#if defined(PCMCIA)
-#undef MODULE
-#endif
-
 #include <linux/sched.h>
 #include <asm/irq.h>
 #include <asm/io.h>
@@ -259,6 +249,10 @@
 #include <linux/stat.h>
 
 #include <scsi/scsicam.h>
+
+#if defined(PCMCIA)
+#undef MODULE
+#endif
 
 /* DEFINES */
 
@@ -1561,6 +1555,14 @@ int aha152x_internal_queue(Scsi_Cmnd *SCpnt, struct semaphore *sem, int phase, S
 
 int aha152x_queue(Scsi_Cmnd *SCpnt, void (*done)(Scsi_Cmnd *))
 {
+#if 0
+	if(*SCpnt->cmnd == REQUEST_SENSE) {
+		SCpnt->result = 0;
+		done(SCpnt);
+
+		return 0;
+	}
+#endif
 
 	return aha152x_internal_queue(SCpnt, 0, 0, 0, done);
 }
@@ -1572,6 +1574,11 @@ int aha152x_queue(Scsi_Cmnd *SCpnt, void (*done)(Scsi_Cmnd *))
  */
 void internal_done(Scsi_Cmnd *SCpnt)
 {
+#if 0
+	struct Scsi_Host *shpnt = SCpnt->host;
+
+	DPRINTK(debug_eh, INFO_LEAD "internal_done called\n", CMDINFO(SCpnt));
+#endif
 	if(SCSEM(SCpnt))
 		up(SCSEM(SCpnt));
 }
@@ -1628,6 +1635,12 @@ int aha152x_abort(Scsi_Cmnd *SCpnt)
 
 	DO_UNLOCK(flags);
 
+	/*
+	 * FIXME:
+	 * for current command: queue ABORT for message out and raise ATN
+	 * for disconnected command: pseudo SC with ABORT message or ABORT on reselection?
+	 *
+	 */
 
 	printk(ERR_LEAD "cannot abort running or disconnected command\n", CMDINFO(SCpnt));
 
@@ -1652,6 +1665,12 @@ static void timer_expired(unsigned long p)
 	up(sem);
 }
 
+/*
+ * Reset a device
+ *
+ * FIXME: never seen this live. might lockup...
+ *
+ */
 int aha152x_device_reset(Scsi_Cmnd * SCpnt)
 {
 	struct Scsi_Host *shpnt = SCpnt->host;
@@ -1911,9 +1930,27 @@ static void run(void)
 static void intr(int irqno, void *dev_id, struct pt_regs *regs)
 {
 	struct Scsi_Host *shpnt = lookup_irq(irqno);
+	unsigned char rev, dmacntrl0;
 
 	if (!shpnt) {
 		printk(KERN_ERR "aha152x: catched interrupt %d for unknown controller.\n", irqno);
+		return;
+	}
+
+	/*
+	 * Read a couple of registers that are known to not be all 1's. If
+	 * we read all 1's (-1), that means that either:
+	 * a. The host adapter chip has gone bad, and we cannot control it,
+	 * OR
+	 * b. The host adapter is a PCMCIA card that has been ejected
+	 * In either case, we cannot do anything with the host adapter at
+	 * this point in time. So just ignore the interrupt and return.
+	 * In the latter case, the interrupt might actually be meant for
+	 * someone else sharing this IRQ, and that driver will handle it
+	 */
+	rev = GETPORT(REV);
+	dmacntrl0 = GETPORT(DMACNTRL0);
+	if ((rev == 0xFF) && (dmacntrl0 == 0xFF)) {
 		return;
 	}
 
@@ -1921,6 +1958,14 @@ static void intr(int irqno, void *dev_id, struct pt_regs *regs)
 	   INTEN is restored by the BH handler */
 	CLRBITS(DMACNTRL0, INTEN);
 
+#if 0
+	/* check if there is already something to be
+           serviced; should not happen */
+	if(HOSTDATA(shpnt)->service) {
+		printk(KERN_ERR "aha152x%d: lost interrupt (%d)\n", HOSTNO, HOSTDATA(shpnt)->service);
+	        show_queues(shpnt);
+	}
+#endif
 	
 	/* Poke the BH handler */
 	HOSTDATA(shpnt)->service++;
@@ -1996,6 +2041,12 @@ static void busfree_run(struct Scsi_Host *shpnt)
 			Scsi_Cmnd *ptr=DONE_SC;
 			DONE_SC=SCDONE(DONE_SC);
 
+#if 0
+			if(HOSTDATA(shpnt)->debug & debug_eh) {
+				printk(ERR_LEAD "received sense: ", CMDINFO(ptr));
+				print_sense("bh", DONE_SC);
+			}
+#endif
 
 			HOSTDATA(shpnt)->commands--;
 			if (!HOSTDATA(shpnt)->commands)
@@ -2007,6 +2058,9 @@ static void busfree_run(struct Scsi_Host *shpnt)
 #if defined(AHA152X_STAT)
 			HOSTDATA(shpnt)->busfree_with_check_condition++;
 #endif
+#if 0
+			DPRINTK(debug_eh, ERR_LEAD "CHECK CONDITION found\n", CMDINFO(DONE_SC));
+#endif
 
 			if(!(DONE_SC->SCp.Status & not_issued)) {
 				Scsi_Cmnd *cmnd = kmalloc(sizeof(Scsi_Cmnd), GFP_ATOMIC);
@@ -2015,6 +2069,9 @@ static void busfree_run(struct Scsi_Host *shpnt)
 					Scsi_Cmnd *ptr=DONE_SC;
 					DONE_SC=0;
 
+#if 0
+					DPRINTK(debug_eh, ERR_LEAD "requesting sense\n", CMDINFO(ptr));
+#endif
 
 					cmnd->cmnd[0]         = REQUEST_SENSE;
 					cmnd->cmnd[1]         = 0;
@@ -2039,6 +2096,9 @@ static void busfree_run(struct Scsi_Host *shpnt)
 						kfree(cmnd);
 				}
 			} else {
+#if 0
+				DPRINTK(debug_eh, ERR_LEAD "command not issued - CHECK CONDITION ignored\n", CMDINFO(DONE_SC));
+#endif				
 			}
 		}
 
@@ -2235,6 +2295,19 @@ static void seldi_run(struct Scsi_Host *shpnt)
 	DPRINTK(debug_selection, DEBUG_LEAD "target %d reselected (%02x).\n", CMDINFO(CURRENT_SC), target, selid);
 }
 
+/*
+ * message in phase
+ * - handle initial message after reconnection to identify
+ *   reconnecting nexus
+ * - queue command on DISCONNECTED_SC on DISCONNECT message
+ * - set completed flag on COMMAND COMPLETE
+ *   (other completition code moved to busfree_run)
+ * - handle response to SDTR
+ * - clear synchronous transfer agreements on BUS RESET
+ *
+ * FIXME: what about SAVE POINTERS, RESTORE POINTERS?
+ *
+ */
 static void msgi_run(struct Scsi_Host *shpnt)
 {
 	for(;;) {
@@ -2594,7 +2667,7 @@ static void datai_init(struct Scsi_Host *shpnt)
 
 static void datai_run(struct Scsi_Host *shpnt)
 {
-	unsigned int the_time;
+	unsigned long the_time;
 	int fifodata, data_count;
 
 	/*
@@ -2602,6 +2675,10 @@ static void datai_run(struct Scsi_Host *shpnt)
 	 *
 	 */
 	while(TESTLO(DMASTAT, INTSTAT) || TESTLO(DMASTAT, DFIFOEMP) || TESTLO(SSTAT2, SEMPTY)) {
+		/* FIXME: maybe this should be done by setting up
+		 * STCNT to trigger ENSWRAP interrupt, instead of
+		 * polling for DFIFOFULL
+		 */
 		the_time=jiffies + 100*HZ;
 		while(TESTLO(DMASTAT, DFIFOFULL|INTSTAT) && time_before(jiffies,the_time))
 			barrier();
@@ -2732,7 +2809,7 @@ static void datao_init(struct Scsi_Host *shpnt)
 
 static void datao_run(struct Scsi_Host *shpnt)
 {
-	unsigned int the_time;
+	unsigned long the_time;
 	int data_count;
 
 	/* until phase changes or all data sent */
@@ -2876,6 +2953,12 @@ static int update_state(struct Scsi_Host *shpnt)
 	return dataphase;
 }
 
+/*
+ * handle parity error
+ *
+ * FIXME: in which phase?
+ *
+ */
 static void parerr_run(struct Scsi_Host *shpnt)
 {
 	printk(ERR_LEAD "parity error\n", CMDINFO(CURRENT_SC));
@@ -3868,7 +3951,9 @@ int aha152x_proc_info(char *buffer, char **start,
 	return thislength < length ? thislength : length;
 }
 
+#ifndef PCMCIA
 /* Eventually this will go into an include file, but this will be later */
 static Scsi_Host_Template driver_template = AHA152X;
 
 #include "scsi_module.c"
+#endif

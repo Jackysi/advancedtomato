@@ -3,7 +3,7 @@
 /*
  *	stallion.c  -- stallion multiport serial driver.
  *
- *	Copyright (C) 1996-1999  Stallion Technologies (support@stallion.oz.au).
+ *	Copyright (C) 1996-1999  Stallion Technologies
  *	Copyright (C) 1994-1996  Greg Ungerer.
  *
  *	This code is loosely based on the Linux serial driver, written by
@@ -1238,8 +1238,7 @@ static void stl_close(struct tty_struct *tty, struct file *filp)
 		portp->tx.tail = (char *) NULL;
 	}
 	set_bit(TTY_IO_ERROR, &tty->flags);
-	if (tty->ldisc.flush_buffer)
-		(tty->ldisc.flush_buffer)(tty);
+	tty_ldisc_flush(tty);
 
 	tty->closing = 0;
 	portp->tty = (struct tty_struct *) NULL;
@@ -1417,6 +1416,11 @@ static void stl_flushchars(struct tty_struct *tty)
 	if (portp->tx.buf == (char *) NULL)
 		return;
 
+#if 0
+	if (tty->stopped || tty->hw_stopped ||
+	    (portp->tx.head == portp->tx.tail))
+		return;
+#endif
 	stl_startrxtx(portp, -1, 1);
 }
 
@@ -1845,10 +1849,7 @@ static void stl_flushbuffer(struct tty_struct *tty)
 		return;
 
 	stl_flush(portp);
-	wake_up_interruptible(&tty->write_wait);
-	if ((tty->flags & (1 << TTY_DO_WRITE_WAKEUP)) &&
-	    tty->ldisc.write_wakeup)
-		(tty->ldisc.write_wakeup)(tty);
+	tty_wakeup(tty);
 }
 
 /*****************************************************************************/
@@ -2219,10 +2220,7 @@ static void stl_offintr(void *private)
 
 	lock_kernel();
 	if (test_bit(ASYI_TXLOW, &portp->istate)) {
-		if ((tty->flags & (1 << TTY_DO_WRITE_WAKEUP)) &&
-		    tty->ldisc.write_wakeup)
-			(tty->ldisc.write_wakeup)(tty);
-		wake_up_interruptible(&tty->write_wait);
+		tty_wakeup(tty);
 	}
 	if (test_bit(ASYI_DCDCHANGE, &portp->istate)) {
 		clear_bit(ASYI_DCDCHANGE, &portp->istate);
@@ -2234,7 +2232,7 @@ static void stl_offintr(void *private)
 			if (portp->flags & ASYNC_CHECK_CD) {
 				if (! ((portp->flags & ASYNC_CALLOUT_ACTIVE) &&
 				    (portp->flags & ASYNC_CALLOUT_NOHUP))) {
-					tty_hangup(tty);	
+					tty_hangup(tty);	/* FIXME: module removal race here - AKPM */
 				}
 			}
 		}
@@ -3644,7 +3642,12 @@ static int stl_cd1400getsignals(stlport_t *portp)
 	sigs |= (msvr1 & MSVR1_CTS) ? TIOCM_CTS : 0;
 	sigs |= (msvr1 & MSVR1_DTR) ? TIOCM_DTR : 0;
 	sigs |= (msvr2 & MSVR2_RTS) ? TIOCM_RTS : 0;
+#if 0
+	sigs |= (msvr1 & MSVR1_RI) ? TIOCM_RI : 0;
+	sigs |= (msvr1 & MSVR1_DSR) ? TIOCM_DSR : 0;
+#else
 	sigs |= TIOCM_DSR;
+#endif
 	return(sigs);
 }
 
@@ -4300,6 +4303,13 @@ static int stl_sc26198getglobreg(stlport_t *portp, int regnr)
 	return(inb(portp->ioaddr + XP_DATA));
 }
 
+#if 0
+static void stl_sc26198setglobreg(stlport_t *portp, int regnr, int value)
+{
+	outb(regnr, (portp->ioaddr + XP_ADDR));
+	outb(value, (portp->ioaddr + XP_DATA));
+}
+#endif
 
 /*****************************************************************************/
 

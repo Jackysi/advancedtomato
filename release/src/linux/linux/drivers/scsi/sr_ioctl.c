@@ -15,6 +15,9 @@
 #include <linux/cdrom.h>
 #include "sr.h"
 
+#if 0
+#define DEBUG
+#endif
 
 /* The sr_is_xa() seems to trigger firmware bugs with some drives :-(
  * It is off by default and can be turned on with this module parameter */
@@ -402,6 +405,10 @@ int sr_audio_ioctl(struct cdrom_device_info *cdi, unsigned int cmd, void *arg)
 		return -EINVAL;
 	}
 
+#if 0
+	if (result)
+		printk("DEBUG: sr_audio: result for ioctl %x: %x\n", cmd, result);
+#endif
 
 	return result;
 }

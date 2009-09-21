@@ -182,6 +182,7 @@ extern int NCR53c7xx_release(struct Scsi_Host *);
 #define SXFER_TP1		0x20
 #define SXFER_TP0		0x10	/* lsb */
 #define SXFER_TP_MASK		0x70
+/* FIXME : SXFER_TP_SHIFT == 5 is right for '8xx chips */
 #define SXFER_TP_SHIFT		5
 #define SXFER_TP_4		0x00	/* Divisors */
 #define SXFER_TP_5		0x10<<1
@@ -299,6 +300,10 @@ extern int NCR53c7xx_release(struct Scsi_Host *);
 #define SBCL_SSCF0		0x01	/* wo, -66 only */
 #define SBCL_SSCF_MASK		0x03
 
+/* 
+ * XXX note : when reading the DSTAT and STAT registers to clear interrupts,
+ * insure that 10 clocks elapse between the two  
+ */
 /* DMA status ro */
 #define DSTAT_REG		0x0c	
 #define DSTAT_DFE		0x80	/* DMA FIFO empty */
@@ -1063,6 +1068,14 @@ struct NCR53c7x0_cmd {
  * host code refer to them directly.
  */
 
+/* 
+ * HARD CODED : residual and saved_residual need to agree with the sizes
+ * used in NCR53c7,8xx.scr.  
+ * 
+ * FIXME: we want to consider the case where we have odd-length 
+ *	scatter/gather buffers and a WIDE transfer, in which case 
+ *	we'll need to use the CHAIN MOVE instruction.  Ick.
+ */
     u32 residual[6];			/* Residual data transfer which
 					   allows pointer code to work
 					   right.
@@ -1296,6 +1309,7 @@ struct NCR53c7x0_hostdata {
     volatile char *debug_read;		/* Current read pointer */
 #endif /* def NCR_DEBUG */
 
+    /* XXX - primitive debugging junk, remove when working ? */
     int debug_print_limit;		/* Number of commands to print
 					   out exhaustive debugging
 					   information for if 
@@ -1414,7 +1428,7 @@ struct NCR53c7x0_hostdata {
 
 };
 
-#define IRQ_NONE	255
+#define SCSI_IRQ_NONE	255
 #define DMA_NONE	255
 #define IRQ_AUTO	254
 #define DMA_AUTO	254

@@ -1,7 +1,4 @@
 /*
- * BK Id: %F% %I% %G% %U% %#%
- */
-/*
  *  arch/ppc/platforms/apus_setup.c
  *
  *  Copyright (C) 1998, 1999  Jesper Skov
@@ -82,6 +79,7 @@ extern unsigned count_period_den; /* count_period_num / count_period_den us */
 
 int num_memory = 0;
 struct mem_info memory[NUM_MEMINFO];/* memory description */
+/* FIXME: Duplicate memory data to avoid conflicts with m68k shared code. */
 int m68k_realnum_memory = 0;
 struct mem_info m68k_memory[NUM_MEMINFO];/* memory description */
 
@@ -135,6 +133,9 @@ void __init apus_setup_arch(void)
 	/* Let m68k-shared code know it should do the Amiga thing. */
 	m68k_machtype = MACH_AMIGA;
 
+	/* Parse the command line for arch-specific options.
+	 * For the m68k, this is currently only "debug=xxx" to enable printing
+	 * certain kernel messages to some machine-specific device.  */
 	for( p = cmd_line; p && *p; ) {
 	    i = 0;
 	    if (!strncmp( p, "debug=", 6 )) {
@@ -164,6 +165,20 @@ void __init apus_setup_arch(void)
 
 	config_amiga();
 
+#if 0 /* Enable for logging - also include logging.o in Makefile rule */
+	{
+#define LOG_SIZE 4096
+		void* base;
+
+		/* Throw away some memory - the P5 firmare stomps on top
+		 * of CHIP memory during bootup.
+		 */
+		amiga_chip_alloc(0x1000);
+
+		base = amiga_chip_alloc(LOG_SIZE+sizeof(klog_data_t));
+		LOG_INIT(base, base+sizeof(klog_data_t), LOG_SIZE);
+	}
+#endif
 #endif
 }
 
@@ -606,6 +621,7 @@ unsigned char __debug_ser_in( void )
 {
 	unsigned char c;
 
+	/* XXX: is that ok?? derived from amiga_ser.c... */
 	while( !(custom.intreqr & IF_RBF) )
 		barrier();
 	c = custom.serdatr;
@@ -729,6 +745,10 @@ unsigned long __init apus_find_end_of_memory(void)
 	/* Remove the memory chunks that are controlled by special
            Phase5 hardware. */
 
+	/* Remove the upper 512KB if it contains a shadow of
+	   the ADOS ROM. FIXME: It might be possible to
+	   disable this shadow HW. Check the booter
+	   (ppc_boot.c) */
 	if (shadow)
 		total -= HARDWARE_MAPPED_SIZE;
 

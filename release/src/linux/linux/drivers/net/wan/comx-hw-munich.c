@@ -269,7 +269,7 @@ typedef volatile struct		/* counters of E1-errors and errored seconds, see rfc24
 				   - Path Code Violations >1, but <320
 				   - not a Severely Errored Second
 				   - no AIS
-				   - not incremented during an Unavailabla Second                       */
+				   - not incremented during an Unavailable Second                       */
       severely_err_secs,	/* Severely Errored Second:
 				   - CRC4: >=832 Path COde Violations || >0 Out Of Frame defects
 				   - noCRC4: >=2048 Line Code Violations
@@ -908,6 +908,23 @@ static int munich_probe(void)
 /* 
  * Reset the hardware. Get called only from within this module if needed.
  */
+#if 0
+static int slicecom_reset(struct net_device *dev)
+{
+    struct comx_channel *ch = dev->priv;
+
+    printk("slicecom_reset: resetting the hardware\n");
+
+    /* Begin to reset the hardware */
+
+    if (ch->HW_set_clock)
+	ch->HW_set_clock(dev);
+
+    /* And finish it */
+
+    return 0;
+}
+#endif
 
 /* 
  * Transmit a packet. 
@@ -2460,7 +2477,14 @@ static int munich_write_proc(struct file *file, const char *buffer,
 	    return -EINVAL;
 	}
 	else
-	{			
+	{			/*
+				 * If somebody says:
+				 *      echo >boardnum  0
+				 *      echo >framing   no-crc4
+				 *      echo >boardnum  1
+				 * - when the framing was set, hw->boardnum was 0, so it would set the framing for board 0
+				 * Workaround: allow to set it only if interface is administrative UP
+				 */
 	    if (netif_running(dev))
 		slicecom_set_framing(hw->boardnum, slicecom_framings[i].value);
 	    else

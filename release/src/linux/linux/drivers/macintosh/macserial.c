@@ -8,7 +8,7 @@
  *
  * Receive DMA code by Takashi Oe <toe@unlserve.unl.edu>.
  *
- * $Id: macserial.c,v 1.1.1.4 2003/10/14 08:08:14 sparq Exp $
+ * $Id: macserial.c,v 1.24.2.4 1999/10/19 04:36:42 paulus Exp $
  */
 
 #include <linux/config.h>
@@ -317,7 +317,7 @@ static inline int get_zsbaud(struct mac_serial *ss)
 static inline void rs_recv_clear(struct mac_zschannel *zsc)
 {
 	write_zsreg(zsc, 0, ERR_RES);
-	write_zsreg(zsc, 0, RES_H_IUS); 
+	write_zsreg(zsc, 0, RES_H_IUS); /* XXX this is unnecessary */
 }
 
 /*
@@ -673,6 +673,15 @@ static void rs_stop(struct tty_struct *tty)
 	if (serial_paranoia_check(info, tty->device, "rs_stop"))
 		return;
 
+#if 0
+	save_flags(flags); cli();
+	if (info->curregs[5] & TxENAB) {
+		info->curregs[5] &= ~TxENAB;
+		info->pendregs[5] &= ~TxENAB;
+		write_zsreg(info->zs_channel, 5, info->curregs[5]);
+	}
+	restore_flags(flags);
+#endif
 }
 
 static void rs_start(struct tty_struct *tty)
@@ -689,9 +698,17 @@ static void rs_start(struct tty_struct *tty)
 		return;
 
 	save_flags(flags); cli();
+#if 0
+	if (info->xmit_cnt && info->xmit_buf && !(info->curregs[5] & TxENAB)) {
+		info->curregs[5] |= TxENAB;
+		info->pendregs[5] = info->curregs[5];
+		write_zsreg(info->zs_channel, 5, info->curregs[5]);
+	}
+#else
 	if (info->xmit_cnt && info->xmit_buf && !info->tx_active) {
 		transmit_chars(info);
 	}
+#endif
 	restore_flags(flags);
 }
 
@@ -718,12 +735,8 @@ static void do_softint(void *private_)
 	if (!tty)
 		return;
 
-	if (test_and_clear_bit(RS_EVENT_WRITE_WAKEUP, &info->event)) {
-		if ((tty->flags & (1 << TTY_DO_WRITE_WAKEUP)) &&
-		    tty->ldisc.write_wakeup)
-			(tty->ldisc.write_wakeup)(tty);
-		wake_up_interruptible(&tty->write_wait);
-	}
+	if (test_and_clear_bit(RS_EVENT_WRITE_WAKEUP, &info->event)) 
+		tty_wakeup(tty);
 }
 
 static int startup(struct mac_serial * info)
@@ -951,6 +964,26 @@ static void dma_init(struct mac_serial * info)
 	info->dma_initted = 1;
 }
 
+/*
+ * FixZeroBug....Works around a bug in the SCC receving channel.
+ * Taken from Darwin code, 15 Sept. 2000  -DanM
+ *
+ * The following sequence prevents a problem that is seen with O'Hare ASICs
+ * (most versions -- also with some Heathrow and Hydra ASICs) where a zero
+ * at the input to the receiver becomes 'stuck' and locks up the receiver.
+ * This problem can occur as a result of a zero bit at the receiver input
+ * coincident with any of the following events:
+ *
+ *	The SCC is initialized (hardware or software).
+ *	A framing error is detected.
+ *	The clocking option changes from synchronous or X1 asynchronous
+ *		clocking to X16, X32, or X64 asynchronous clocking.
+ *	The decoding mode is changed among NRZ, NRZI, FM0, or FM1.
+ *
+ * This workaround attempts to recover from the lockup condition by placing
+ * the SCC in synchronous loopback mode with a fast clock before programming
+ * any of the asynchronous modes.
+ */
 static void fix_zero_bug_scc(struct mac_serial * info)
 {
 	write_zsreg(info->zs_channel, 9,
@@ -1558,10 +1591,7 @@ static void rs_flush_buffer(struct tty_struct *tty)
 	save_flags(flags); cli();
 	info->xmit_cnt = info->xmit_head = info->xmit_tail = 0;
 	restore_flags(flags);
-	wake_up_interruptible(&tty->write_wait);
-	if ((tty->flags & (1 << TTY_DO_WRITE_WAKEUP)) &&
-	    tty->ldisc.write_wakeup)
-		(tty->ldisc.write_wakeup)(tty);
+	tty_wakeup(tty);
 }
 
 /*
@@ -1992,8 +2022,7 @@ static void rs_close(struct tty_struct *tty, struct file * filp)
 
 	if (tty->driver.flush_buffer)
 		tty->driver.flush_buffer(tty);
-	if (tty->ldisc.flush_buffer)
-		tty->ldisc.flush_buffer(tty);
+	tty_ldisc_flush(tty);
 	tty->closing = 0;
 	info->event = 0;
 	info->tty = 0;
@@ -2542,6 +2571,10 @@ int macserial_init(void)
 	if (zs_chain == 0)
 		probe_sccs();
 
+	/* XXX assume it's a powerbook if we have a via-pmu
+	 * 
+	 * This is OK for core99 machines as well.
+	 */
 	is_powerbook = find_devices("via-pmu") != 0;
 
 	/* Register the interrupt handler for each one
@@ -2766,6 +2799,22 @@ module_exit(macserial_cleanup);
 MODULE_LICENSE("GPL");
 EXPORT_NO_SYMBOLS;
 
+#if 0
+/*
+ * register_serial and unregister_serial allows for serial ports to be
+ * configured at run-time, to support PCMCIA modems.
+ */
+/* PowerMac: Unused at this time, just here to make things link. */
+int register_serial(struct serial_struct *req)
+{
+	return -1;
+}
+
+void unregister_serial(int line)
+{
+	return;
+}
+#endif
 
 /*
  * ------------------------------------------------------------
@@ -3070,6 +3119,12 @@ static inline void kgdb_chaninit(struct mac_zschannel *ms, int intson, int bps)
 	}
 }
 
+/* This is called at boot time to prime the kgdb serial debugging
+ * serial line.  The 'tty_num' argument is 0 for /dev/ttya and 1
+ * for /dev/ttyb which is determined in setup_arch() from the
+ * boot command line flags.
+ * XXX at the moment probably only channel A will work
+ */
 void __init zs_kgdb_hook(int tty_num)
 {
 	/* Find out how many Z8530 SCCs we have */

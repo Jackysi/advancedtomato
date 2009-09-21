@@ -72,7 +72,7 @@
 
 #define HTB_HSIZE 16	/* classid hash size */
 #define HTB_EWMAC 2	/* rate average over HTB_EWMAC*HTB_HSIZE sec */
-//#define HTB_DEBUG 1	/* compile debugging support (activated by tc tool) */
+#define HTB_DEBUG 1	/* compile debugging support (activated by tc tool) */
 #define HTB_RATECM 1    /* whether to use rate computer */
 #define HTB_HYSTERESIS 0/* whether to use mode hysteresis for speedup */
 #define HTB_QLOCK(S) spin_lock_bh(&(S)->dev->queue_lock)
@@ -370,7 +370,7 @@ static void htb_debug_dump (struct htb_sched *q)
 		list_for_each (l,q->hash+i) {
 			struct htb_class *cl = list_entry(l,struct htb_class,hlist);
 			long long diff = PSCHED_TDIFF_SAFE(q->now, cl->t_c, (u32)cl->mbuffer, 0);
-			printk(KERN_DEBUG "htb*c%x m=%d t=%ld c=%ld pq=%lu df=%ld ql=%d "
+			printk(KERN_DEBUG "htb*c%x m=%d t=%ld c=%ld pq=%lu df=%ld ql=%lld "
 					"pa=%x f:",
 				cl->classid,cl->cmode,cl->tokens,cl->ctokens,
 				cl->pq_node.rb_color==-1?0:cl->pq_key,diff,

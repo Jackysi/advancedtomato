@@ -1,4 +1,4 @@
-/* $Id: chmc.c,v 1.1.1.4 2003/10/14 08:07:49 sparq Exp $
+/* $Id: chmc.c,v 1.3 2001/04/03 12:49:47 davem Exp $
  * memctrlr.c: Driver for UltraSPARC-III memory controller.
  *
  * Copyright (C) 2001 David S. Miller (davem@redhat.com)
@@ -253,6 +253,21 @@ static u64 read_mcreg(struct mctrl_info *mp, unsigned long offset)
 	return ret;
 }
 
+#if 0 /* currently unused */
+static void write_mcreg(struct mctrl_info *mp, unsigned long offset, u64 val)
+{
+	if (mp->portid == smp_processor_id()) {
+		__asm__ __volatile__("stxa	%0, [%1] %2"
+				     : : "r" (val),
+				         "r" (offset), "i" (ASI_MCU_CTRL_REG));
+	} else {
+		__asm__ __volatile__("ldxa	%0, [%1] %2"
+				     : : "r" (val),
+				         "r" (mp->regs + offset),
+				         "i" (ASI_PHYS_BYPASS_EC_E));
+	}
+}
+#endif
 
 static void interpret_one_decode_reg(struct mctrl_info *mp, int which_bank, u64 val)
 {

@@ -1,4 +1,4 @@
-/* $Id: sun4c.c,v 1.1.1.4 2003/10/14 08:07:49 sparq Exp $
+/* $Id: sun4c.c,v 1.210 2001/11/13 03:27:47 davem Exp $
  * sun4c.c: Doing in software what should be done in hardware.
  *
  * Copyright (C) 1996 David S. Miller (davem@caip.rutgers.edu)
@@ -246,7 +246,7 @@ void sun4c_complete_all_stores(void)
 	_unused = sun4c_get_context();
 	sun4c_set_context(_unused);
 #ifdef CONFIG_SUN_AUXIO
-	_unused = *AUXREG;
+	_unused = get_auxio();
 #endif
 }
 
@@ -290,7 +290,7 @@ void __init sun4c_probe_vac(void)
 		switch (idprom->id_machtype) {
 
 		case (SM_SUN4|SM_4_110):
-			sun4c_vacinfo.type = NONE;
+			sun4c_vacinfo.type = VAC_NONE;
 			sun4c_vacinfo.num_bytes = 0;
 			sun4c_vacinfo.linesize = 0;
 			sun4c_vacinfo.do_hwflushes = 0;
@@ -299,21 +299,21 @@ void __init sun4c_probe_vac(void)
 			break;
 
 		case (SM_SUN4|SM_4_260):
-			sun4c_vacinfo.type = WRITE_BACK;
+			sun4c_vacinfo.type = VAC_WRITE_BACK;
 			sun4c_vacinfo.num_bytes = 128 * 1024;
 			sun4c_vacinfo.linesize = 16;
 			sun4c_vacinfo.do_hwflushes = 0;
 			break;
 
 		case (SM_SUN4|SM_4_330):
-			sun4c_vacinfo.type = WRITE_THROUGH;
+			sun4c_vacinfo.type = VAC_WRITE_THROUGH;
 			sun4c_vacinfo.num_bytes = 128 * 1024;
 			sun4c_vacinfo.linesize = 16;
 			sun4c_vacinfo.do_hwflushes = 0;
 			break;
 
 		case (SM_SUN4|SM_4_470):
-			sun4c_vacinfo.type = WRITE_BACK;
+			sun4c_vacinfo.type = VAC_WRITE_BACK;
 			sun4c_vacinfo.num_bytes = 128 * 1024;
 			sun4c_vacinfo.linesize = 32;
 			sun4c_vacinfo.do_hwflushes = 0;
@@ -324,7 +324,7 @@ void __init sun4c_probe_vac(void)
 			prom_halt();
 		};
 	} else {
-		sun4c_vacinfo.type = WRITE_THROUGH;
+		sun4c_vacinfo.type = VAC_WRITE_THROUGH;
 
 		if ((idprom->id_machtype == (SM_SUN4C | SM_4C_SS1)) ||
 		    (idprom->id_machtype == (SM_SUN4C | SM_4C_SS1PLUS))) {
@@ -386,7 +386,7 @@ extern unsigned long vac_hwflush_patch2, vac_hwflush_patch2_on;
 		daddr = &(dst);		\
 		iaddr = &(src);		\
 		*daddr = *iaddr;	\
-	} while (0);
+	} while (0)
 
 static void __init patch_kernel_fault_handler(void)
 {
@@ -560,6 +560,7 @@ static unsigned long sun4c_translate_dvma(unsigned long busa)
 static void sun4c_unmap_dma_area(unsigned long busa, int len)
 {
 	/* Fortunately for us, bus_addr == uncached_virt in sun4c. */
+	/* XXX Implement this */
 }
 
 /* TLB management. */

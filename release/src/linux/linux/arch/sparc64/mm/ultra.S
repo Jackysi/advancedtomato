@@ -1,4 +1,4 @@
-/* $Id: ultra.S,v 1.1.1.4 2003/10/14 08:07:51 sparq Exp $
+/* $Id: ultra.S,v 1.70.2.1 2002/03/03 10:31:56 davem Exp $
  * ultra.S: Don't expand these all over the place...
  *
  * Copyright (C) 1997, 2000 David S. Miller (davem@redhat.com)
@@ -89,6 +89,7 @@ __spitfire_flush_tlb_range_constant_time: /* %o0=ctx, %o1=start, %o3=end */
 	mov		TLB_TAG_ACCESS, %g3
 	mov		((SPITFIRE_HIGHEST_LOCKED_TLBENT-1) << 3), %g2
 
+	/* Spitfire Errata #32 workaround. */
 	mov		0x8, %o4
 	stxa		%g0, [%o4] ASI_DMMU
 	flush		%g6
@@ -120,6 +121,7 @@ __spitfire_flush_tlb_range_constant_time: /* %o0=ctx, %o1=start, %o3=end */
 	stxa		%g0, [%g2] ASI_ITLB_DATA_ACCESS
 	flush		%g6
 
+	/* Spitfire Errata #32 workaround. */
 	mov		0x8, %o4
 	stxa		%g0, [%o4] ASI_DMMU
 	flush		%g6
@@ -131,6 +133,7 @@ __spitfire_flush_tlb_range_constant_time: /* %o0=ctx, %o1=start, %o3=end */
 	stxa		%g0, [%g2] ASI_DTLB_DATA_ACCESS
 	flush		%g6
 
+	/* Spitfire Errata #32 workaround. */
 	mov		0x8, %o4
 	stxa		%g0, [%o4] ASI_DMMU
 	flush		%g6
@@ -180,9 +183,9 @@ __spitfire_flush_tlb_range_pbp_slow:
 /*
  * The following code flushes one page_size worth.
  */
-#if PAGE_SHIFT == 13
+#if (PAGE_SHIFT == 13)
 #define ITAG_MASK 0xfe
-#elif PAGE_SHIFT == 16
+#elif (PAGE_SHIFT == 16)
 #define ITAG_MASK 0x7fe
 #else
 #error unsupported PAGE_SIZE
@@ -239,13 +242,13 @@ iflush2:sub		%o1, 0x20, %g3
 	flush		%g6
 	ba,a,pt		%xcc, 3b
 
-#if PAGE_SHIFT == 13
+#if (PAGE_SHIFT == 13)
 #define DTAG_MASK 0x3
-#elif PAGE_SHIFT == 16
+#elif (PAGE_SHIFT == 16)
 #define DTAG_MASK 0x1f
-#elif PAGE_SHIFT == 19
+#elif (PAGE_SHIFT == 19)
 #define DTAG_MASK 0xff
-#elif PAGE_SHIFT == 22
+#elif (PAGE_SHIFT == 22)
 #define DTAG_MASK 0x3ff
 #endif
 
@@ -328,7 +331,7 @@ __prefill_itlb:
 __update_mmu_cache:	/* %o0=vma, %o1=address, %o2=pte */
 	ldub		[%g6 + AOFF_task_thread + AOFF_thread_fault_code], %o3
 	srlx		%o1, PAGE_SHIFT, %o1
-	ldx		[%o0 + 0x0], %o4		
+	ldx		[%o0 + 0x0], %o4		/* XXX vma->vm_mm */
 	brz,pn		%o3, 1f
 	 sllx		%o1, PAGE_SHIFT, %o0
 	ldx		[%o4 + AOFF_mm_context], %o5
@@ -521,6 +524,24 @@ xcall_flush_tlb_range:
 	nop
 	nop
 
+	/* This runs in a very controlled environment, so we do
+	 * not need to worry about BH races etc.
+	 */
+	.globl		xcall_sync_tick
+xcall_sync_tick:
+	rdpr		%pstate, %g2
+	wrpr		%g2, PSTATE_IG | PSTATE_AG, %pstate
+	rdpr		%pil, %g2
+	wrpr		%g0, 15, %pil
+	sethi		%hi(109f), %g7
+	b,pt		%xcc, etrap_irq
+109:	 or		%g7, %lo(109b), %g7
+	call		smp_synchronize_tick_client
+	 nop
+	clr		%l6
+	b		rtrap_xcall
+	 ldx		[%sp + PTREGS_OFF + PT_V9_TSTATE], %l1
+
 	/* NOTE: This is SPECIAL!!  We do etrap/rtrap however
 	 *       we choose to deal with the "BH's run with
 	 *       %pil==15" problem (described in asm/pil.h)
@@ -540,7 +561,7 @@ xcall_report_regs:
 	b,pt		%xcc, etrap_irq
 109:	 or		%g7, %lo(109b), %g7
 	call		__show_regs
-	 add		%sp, STACK_BIAS + REGWIN_SZ, %o0
+	 add		%sp, PTREGS_OFF, %o0
 	clr		%l6
 	/* Has to be a non-v9 branch due to the large distance. */
 	b		rtrap_xcall
@@ -619,6 +640,7 @@ errata32_hwbug:
 	/* These two are not performance critical... */
 	.globl		xcall_flush_tlb_all_spitfire
 xcall_flush_tlb_all_spitfire:
+	/* Spitfire Errata #32 workaround. */
 	sethi		%hi(errata32_hwbug), %g4
 	stx		%g0, [%g4 + %lo(errata32_hwbug)]
 
@@ -634,6 +656,7 @@ xcall_flush_tlb_all_spitfire:
 	stxa		%g0, [%g3] ASI_DTLB_DATA_ACCESS
 	membar		#Sync
 
+	/* Spitfire Errata #32 workaround. */
 	sethi		%hi(errata32_hwbug), %g4
 	stx		%g0, [%g4 + %lo(errata32_hwbug)]
 
@@ -647,6 +670,7 @@ xcall_flush_tlb_all_spitfire:
 	stxa		%g0, [%g3] ASI_ITLB_DATA_ACCESS
 	membar		#Sync
 
+	/* Spitfire Errata #32 workaround. */
 	sethi		%hi(errata32_hwbug), %g4
 	stx		%g0, [%g4 + %lo(errata32_hwbug)]
 

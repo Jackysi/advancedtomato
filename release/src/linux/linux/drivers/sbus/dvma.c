@@ -64,6 +64,9 @@ void __init init_one_dvma(struct sbus_dma *dma, int num_dma)
 		break;
 	}
 	printk("\n");
+#if 0 /* Clutters up the screen */
+	dump_dma_regs(dma->regs);
+#endif
 }
 
 /* Probe this SBus DMA module(s) */

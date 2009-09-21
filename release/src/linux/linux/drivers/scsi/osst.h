@@ -1,5 +1,5 @@
 /*
- *	$Header: /home/cvsroot/wrt54g/src/linux/linux/drivers/scsi/osst.h,v 1.1.1.2 2003/10/14 08:08:40 sparq Exp $
+ *	$Header: /cvsroot/osst/Driver/osst.h,v 1.12 2001/10/11 00:30:15 riede Exp $
  */
 
 #include <asm/byteorder.h>
@@ -9,6 +9,10 @@
 #include <linux/devfs_fs_kernel.h>
 #endif
 
+/*	FIXME - rename and use the following two types or delete them!
+ *              and the types really should go to st.h anyway...
+ *	INQUIRY packet command - Data Format (From Table 6-8 of QIC-157C)
+ */
 typedef struct {
 	unsigned	device_type	:5;	/* Peripheral Device Type */
 	unsigned	reserved0_765	:3;	/* Peripheral Qualifier - Reserved */

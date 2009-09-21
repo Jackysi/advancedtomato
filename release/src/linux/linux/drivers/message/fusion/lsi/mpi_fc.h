@@ -1,12 +1,12 @@
 /*
- *  Copyright (c) 2000-2001 LSI Logic Corporation.
+ *  Copyright (c) 2000-2003 LSI Logic Corporation.
  *
  *
- *           Name:  MPI_FC.H
+ *           Name:  mpi_fc.h
  *          Title:  MPI Fibre Channel messages and structures
  *  Creation Date:  June 12, 2000
  *
- *    MPI Version:  01.02.02
+ *    mpi_fc.h Version:  01.05.xx
  *
  *  Version History
  *  ---------------
@@ -35,6 +35,7 @@
  *  08-08-01  01.02.01  Original release for v1.2 work.
  *  09-28-01  01.02.02  Change name of reserved field in
  *                      MSG_LINK_SERVICE_RSP_REPLY.
+ *  05-31-02  01.02.03  Adding AliasIndex to FC Direct Access requests.
  *  --------------------------------------------------------------------------
  */
 
@@ -44,7 +45,7 @@
 
 /*****************************************************************************
 *
-*        F C    T a r g e t    M o d e    M e s s a g e s
+*        F C    D i r e c t    A c c e s s     M e s s a g e s
 *
 *****************************************************************************/
 
@@ -193,7 +194,7 @@ typedef struct _MSG_LINK_SERVICE_RSP_REPLY
 typedef struct _MSG_EXLINK_SERVICE_SEND_REQUEST
 {
     U8                      SendFlags;          /* 00h */
-    U8                      Reserved;           /* 01h */
+    U8                      AliasIndex;         /* 01h */
     U8                      ChainOffset;        /* 02h */
     U8                      Function;           /* 03h */
     U32                     MsgFlags_Did;       /* 04h */
@@ -212,7 +213,8 @@ typedef struct _MSG_EXLINK_SERVICE_SEND_REQUEST
 /* Extended Link Service Send Reply */
 typedef struct _MSG_EXLINK_SERVICE_SEND_REPLY
 {
-    U16                     Reserved;           /* 00h */
+    U8                      Reserved;           /* 00h */
+    U8                      AliasIndex;         /* 01h */
     U8                      MsgLength;          /* 02h */
     U8                      Function;           /* 03h */
     U16                     Reserved1;          /* 04h */
@@ -275,7 +277,7 @@ typedef struct _MSG_FC_ABORT_REPLY
 typedef struct _MSG_FC_COMMON_TRANSPORT_SEND_REQUEST
 {
     U8                      SendFlags;          /* 00h */
-    U8                      Reserved;           /* 01h */
+    U8                      AliasIndex;         /* 01h */
     U8                      ChainOffset;        /* 02h */
     U8                      Function;           /* 03h */
     U32                     MsgFlags_Did;       /* 04h */
@@ -297,7 +299,8 @@ typedef struct _MSG_FC_COMMON_TRANSPORT_SEND_REQUEST
 /* FC Common Transport Send Reply */
 typedef struct _MSG_FC_COMMON_TRANSPORT_SEND_REPLY
 {
-    U16                     Reserved;           /* 00h */
+    U8                      Reserved;           /* 00h */
+    U8                      AliasIndex;         /* 01h */
     U8                      MsgLength;          /* 02h */
     U8                      Function;           /* 03h */
     U16                     Reserved1;          /* 04h */
@@ -331,6 +334,7 @@ typedef struct _MSG_FC_PRIMITIVE_SEND_REQUEST
   FcPrimitiveSendRequest_t, MPI_POINTER pFcPrimitiveSendRequest_t;
 
 #define MPI_FC_PRIM_SEND_FLAGS_PORT_MASK       (0x01)
+#define MPI_FC_PRIM_SEND_FLAGS_ML_RESET_LINK   (0x02)
 #define MPI_FC_PRIM_SEND_FLAGS_RESET_LINK      (0x04)
 #define MPI_FC_PRIM_SEND_FLAGS_STOP_SEND       (0x08)
 #define MPI_FC_PRIM_SEND_FLAGS_SEND_ONCE       (0x10)

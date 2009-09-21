@@ -1,10 +1,10 @@
 /*
 	usa26msg.h
 
-	Copyright (c) 1998-2000 InnoSys Incorporated.  All Rights Reserved
+	Copyright (C) 1998-2000 InnoSys Incorporated.  All Rights Reserved
 	This file is available under a BSD-style copyright
 
-	Keyspan USB Async Firmware to run on Anchor EZ-USB
+	Keyspan USB Async Message Formats for the USA28X
 
 	Redistribution and use in source and binary forms, with or without
 	modification, are permitted provided that the following conditions are
@@ -15,15 +15,11 @@
    	disclaimer.  The following copyright notice must appear immediately at
    	the beginning of all source files:
 
-        	Copyright (c) 1998-2000 InnoSys Incorporated.  All Rights Reserved
+        	Copyright (C) 1998-2000 InnoSys Incorporated.  All Rights Reserved
 
         	This file is available under a BSD-style copyright
 
-	2. Redistributions in binary form must reproduce the above copyright
-   	notice, this list of conditions and the following disclaimer in the
-   	documentation and/or other materials provided with the distribution.
-
-	3. The name of InnoSys Incorprated may not be used to endorse or promote
+	2. The name of InnoSys Incorporated may not be used to endorse or promote
    	products derived from this software without specific prior written
    	permission.
 

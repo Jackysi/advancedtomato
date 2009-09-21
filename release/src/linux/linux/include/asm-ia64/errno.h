@@ -2,10 +2,10 @@
 #define _ASM_IA64_ERRNO_H
 
 /*
- * This is derived from the Linux/x86 version.
+ * Based on <asm-i386/errno.h>.
  *
- * Copyright (C) 1998, 1999 Hewlett-Packard Co
- * Copyright (C) 1998, 1999 David Mosberger-Tang <davidm@hpl.hp.com>
+ * Modified 1998, 1999
+ *	David Mosberger-Tang <davidm@hpl.hp.com>, Hewlett-Packard Co
  */
 
 #define	EPERM		 1	/* Operation not permitted */

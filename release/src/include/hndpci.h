@@ -2,7 +2,7 @@
  * HND SiliconBackplane PCI core software interface.
  *
  * $Id$
- * Copyright 2006, Broadcom Corporation
+ * Copyright 2007, Broadcom Corporation
  * All Rights Reserved.
  * 
  * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
@@ -26,6 +26,8 @@ extern void sbpci_ban(uint16 core);
 extern int sbpci_init(sb_t *sbh);
 extern int sbpci_init_pci(sb_t *sbh);
 extern void sbpci_init_cores(sb_t *sbh);
-extern void sbpci_check(sb_t *sbh);
+extern void sbpci_arb_park(sb_t *sbh, uint parkid);
+
+#define PCI_PARK_NVRAM    0xff
 
 #endif /* _hndpci_h_ */

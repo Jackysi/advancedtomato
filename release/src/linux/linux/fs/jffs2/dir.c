@@ -31,7 +31,7 @@
  * provisions above, a recipient may use your version of this file
  * under either the RHEPL or the GPL.
  *
- * $Id: dir.c,v 1.1.1.4 2003/10/14 08:09:00 sparq Exp $
+ * $Id: dir.c,v 1.45.2.8 2003/11/02 13:51:17 dwmw2 Exp $
  *
  */
 
@@ -43,7 +43,7 @@
 #include <linux/jffs2_fs_i.h>
 #include <linux/jffs2_fs_sb.h>
 #include "nodelist.h"
-#include "crc32.h"
+#include <linux/crc32.h>
 
 static int jffs2_readdir (struct file *, void *, filldir_t);
 
@@ -456,6 +456,7 @@ static int jffs2_do_link (struct dentry *old_dentry, struct inode *dir_i, struct
 	rd->mctime = CURRENT_TIME;
 	rd->nsize = dentry->d_name.len;
 
+	/* XXX: This is ugly. */
 	rd->type = (old_dentry->d_inode->i_mode & S_IFMT) >> 12;
 	if (!rd->type) rd->type = DT_REG;
 
@@ -520,6 +521,8 @@ static int jffs2_symlink (struct inode *dir_i, struct dentry *dentry, const char
 	__u32 writtenlen;
 	int ret;
 
+	/* FIXME: If you care. We'd need to use frags for the target
+	   if it grows much more than this */
 	if (strlen(target) > 254)
 		return -EINVAL;
 
@@ -904,6 +907,7 @@ static int jffs2_mknod (struct inode *dir_i, struct dentry *dentry, int mode, in
 	rd->mctime = CURRENT_TIME;
 	rd->nsize = namelen;
 
+	/* XXX: This is ugly. */
 	rd->type = (mode & S_IFMT) >> 12;
 
 	rd->node_crc = crc32(0, rd, sizeof(*rd)-8);
@@ -963,6 +967,10 @@ static int jffs2_rename (struct inode *old_dir_i, struct dentry *old_dentry,
 		}
 	}
 
+	/* XXX: We probably ought to alloc enough space for
+	   both nodes at the same time. Writing the new link, 
+	   then getting -ENOSPC, is quite bad :)
+	*/
 
 	/* Make a hard link */
 	ret = jffs2_do_link(old_dentry, new_dir_i, new_dentry, 1);

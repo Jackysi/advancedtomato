@@ -1,7 +1,4 @@
 /*
- * BK Id: SCCS/s.zlib.h 1.8 05/18/01 15:17:23 cort
- */
-/*
  * This file is derived from zlib.h and zconf.h from the zlib-0.95
  * distribution by Jean-loup Gailly and Mark Adler, with some additions
  * by Paul Mackerras to aid in implementing Deflate compression and
@@ -47,7 +44,7 @@
 
 /* zconf.h -- configuration of the zlib compression library
  * Copyright (C) 1995 Jean-loup Gailly.
- * For conditions of distribution and use, see copyright notice in zlib.h 
+ * For conditions of distribution and use, see copyright notice in zlib.h
  */
 
 /* From: zconf.h,v 1.12 1995/05/03 17:27:12 jloup Exp */
@@ -73,7 +70,7 @@
 #  endif
 #endif
 
-#ifdef	__MWERKS__     /* Metrowerks CodeWarrior declares fileno() in unix.h */
+#ifdef	__MWERKS__ /* Metrowerks CodeWarrior declares fileno() in unix.h */
 #  include <unix.h>
 #endif
 
@@ -110,7 +107,7 @@
 
                         /* Type declarations */
 
-#ifndef OF     /* function prototypes */
+#ifndef OF /* function prototypes */
 #  ifdef STDC
 #    define OF(args)  args
 #  else
@@ -140,7 +137,7 @@ typedef uLong FAR uLongf;
 
 #define ZLIB_VERSION "0.95P"
 
-/* 
+/*
      The 'zlib' compression library provides in-memory compression and
   decompression functions, including integrity checks of the uncompressed
   data.  This version of the library supports only one compression method
@@ -257,7 +254,7 @@ extern char *zlib_version;
                         /* basic functions */
 
 extern int inflateInit OF((z_stream *strm));
-/* 
+/*
      Initializes the internal stream state for decompression. The fields
    zalloc and zfree must be initialized before by the caller.  If zalloc and
    zfree are set to Z_NULL, inflateInit updates them to use default allocation
@@ -336,7 +333,7 @@ extern int inflateEnd OF((z_stream *strm));
 
 extern int inflateInit2 OF((z_stream *strm,
                             int  windowBits));
-/*   
+/*
      This is another version of inflateInit with more compression options. The
    fields next_out, zalloc and zfree must be initialized before by the caller.
 
@@ -368,7 +365,7 @@ extern int inflateInit2 OF((z_stream *strm,
 */
 
 extern int inflateSync OF((z_stream *strm));
-/* 
+/*
     Skips invalid compressed data until the special marker (see deflate()
   above) can be found, or until all available input is skipped. No output
   is provided.

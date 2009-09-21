@@ -1,5 +1,5 @@
 /*
- *    $Id: zorro.c,v 1.1.1.4 2003/10/14 08:08:56 sparq Exp $
+ *    $Id: zorro.c,v 1.1.2.1 1998/06/07 23:21:02 geert Exp $
  *
  *    Zorro Bus Services
  *
@@ -65,6 +65,20 @@ struct zorro_dev *zorro_find_device(zorro_id id, struct zorro_dev *from)
 }
 
 
+    /*
+     *  Bitmask indicating portions of available Zorro II RAM that are unused
+     *  by the system. Every bit represents a 64K chunk, for a maximum of 8MB
+     *  (128 chunks, physical 0x00200000-0x009fffff).
+     *
+     *  If you want to use (= allocate) portions of this RAM, you should clear
+     *  the corresponding bits.
+     *
+     *  Possible uses:
+     *      - z2ram device
+     *      - SCSI DMA bounce buffers
+     *
+     *  FIXME: use the normal resource management
+     */
 
 u32 zorro_unused_z2ram[4] = { 0, 0, 0, 0 };
 

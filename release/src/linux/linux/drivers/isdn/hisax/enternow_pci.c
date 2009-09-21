@@ -75,7 +75,7 @@
 
 
 
-const char *enternow_pci_rev = "$Revision: 1.1.1.2 $";
+const char *enternow_pci_rev = "$Revision: 1.1.2.1 $";
 
 
 /* *************************** I/O-Interface functions ************************************* */

@@ -23,7 +23,7 @@
 
 void sh_rtc_gettimeofday(struct timeval *tv)
 {
-	unsigned int sec128, sec, min, hr, wk, day, mon, yr, yr100;
+	unsigned int sec128, sec, min, hr, wk, day, mon, yr, yr100, badval;
 
  again:
 	do {
@@ -53,16 +53,21 @@ void sh_rtc_gettimeofday(struct timeval *tv)
 	}
 #endif
 
-	BCD_TO_BIN(yr100);
-	BCD_TO_BIN(yr);
-	BCD_TO_BIN(mon);
-	BCD_TO_BIN(day);
-	BCD_TO_BIN(hr);
-	BCD_TO_BIN(min);
-	BCD_TO_BIN(sec);
+	badval = ((yr & 15) > 9 || (mon & 15) > 9 || (day & 15) > 9 ||
+		 (hr & 15) > 9 || (min & 15) > 9 || (sec & 15) > 9);
 
-	if (yr > 99 || mon < 1 || mon > 12 || day > 31 || day < 1 ||
-	    hr > 23 || min > 59 || sec > 59) {
+	if (!badval) {
+		BCD_TO_BIN(yr100);
+		BCD_TO_BIN(yr);
+		BCD_TO_BIN(mon);
+		BCD_TO_BIN(day);
+		BCD_TO_BIN(hr);
+		BCD_TO_BIN(min);
+		BCD_TO_BIN(sec);
+	}
+
+	if (badval || yr > 99 || mon < 1 || mon > 12 || day > 31 || day < 1 ||
+	    hr > 23 || min > 59 || sec > 59 || (yr100 != 19 && yr100 != 20)) {
 		printk(KERN_ERR
 		       "SH RTC: invalid value, resetting to 1 Jan 2000\n");
 		ctrl_outb(RCR2_RESET, RCR2);  /* Reset & Stop */

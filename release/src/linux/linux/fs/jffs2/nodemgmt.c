@@ -31,7 +31,7 @@
  * provisions above, a recipient may use your version of this file
  * under either the RHEPL or the GPL.
  *
- * $Id: nodemgmt.c,v 1.1.1.4 2003/10/14 08:09:00 sparq Exp $
+ * $Id: nodemgmt.c,v 1.45.2.1 2002/02/23 14:13:34 dwmw2 Exp $
  *
  */
 
@@ -234,11 +234,13 @@ int jffs2_add_physical_node_ref(struct jffs2_sb_info *c, struct jffs2_raw_node_r
 	len = PAD(len);
 	jeb = &c->blocks[(new->flash_offset & ~3) / c->sector_size];
 	D1(printk(KERN_DEBUG "jffs2_add_physical_node_ref(): Node at 0x%x, size 0x%x\n", new->flash_offset & ~3, len));
+#if 1
 	if (jeb != c->nextblock || (new->flash_offset & ~3) != jeb->offset + (c->sector_size - jeb->free_size)) {
 		printk(KERN_WARNING "argh. node added in wrong place\n");
 		jffs2_free_raw_node_ref(new);
 		return -EINVAL;
 	}
+#endif
 	if (!jeb->first_node)
 		jeb->first_node = new;
 	if (jeb->last_node)

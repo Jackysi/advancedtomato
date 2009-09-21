@@ -3,19 +3,13 @@
  *
  * Copyright (C) 2001 Stefan Eletzhofer <stefan.eletzhofer@eletztrick.de>
  *
- * $Id: system3.h,v 1.1.1.4 2003/10/14 08:09:08 sparq Exp $
+ * $Id: system3.h,v 1.2.4.2 2001/12/04 14:58:50 seletz Exp $
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
  *
  * $Log: system3.h,v $
- * Revision 1.1.1.4  2003/10/14 08:09:08  sparq
- * Broadcom Release 3.51.8.0 for BCM4712.
- *
- * Revision 1.1.1.1  2003/02/03 22:38:05  mhuang
- * LINUX_2_4 branch snapshot from linux-mips.org CVS
- *
  * Revision 1.2.4.2  2001/12/04 14:58:50  seletz
  * - removed neponset hack
  * - removed irq definitions (now in irqs.h)
@@ -80,6 +74,7 @@
 #define PT_IRQ_RS1_DSR	( 1<<6 )
 #define PT_IRQ_RS2		( 1<<7 )
 
+/* FIXME */
 #define PT_IRQ_USAR		( 1<<1 )
 
 /* CTRL 0 */

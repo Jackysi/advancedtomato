@@ -1,7 +1,4 @@
 /*
- * BK Id: %F% %I% %G% %U% %#%
- */
-/*
  *  asm-ppc/gg2.h -- VLSI VAS96011/12 `Golden Gate 2' register definitions
  *
  *  Copyright (C) 1997 Geert Uytterhoeven

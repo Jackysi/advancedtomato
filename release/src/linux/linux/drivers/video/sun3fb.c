@@ -676,6 +676,14 @@ int __init sun3fb_init(void)
 	switch (p4id) {
 		case 0x00:
 			return sun3fb_init_fb(FBTYPE_SUN2BW, addr);
+#if 0 /* not yet */
+		case 0x40:
+			sun3fb_init_fb(FBTYPE_SUN4COLOR, addr);
+			break;
+		case 0x45:
+			sun3fb_init_fb(FBTYPE_SUN8COLOR, addr);
+			break;
+#endif
 		case 0x60:
 			return sun3fb_init_fb(FBTYPE_SUNFAST_COLOR, addr);
 	}

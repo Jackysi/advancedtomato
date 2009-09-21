@@ -1,6 +1,3 @@
-/*
- * BK Id: SCCS/s.sections.h 1.11 09/08/01 15:47:43 paulus
- */
 #ifdef __KERNEL__
 #ifndef _PPC_SECTIONS_H
 #define _PPC_SECTIONS_H
@@ -10,7 +7,7 @@
 #define __pmacfunc(__argpmac) \
 	__argpmac __pmac; \
 	__argpmac
-	
+
 #define __prep __attribute__ ((__section__ (".text.prep")))
 #define __prepdata __attribute__ ((__section__ (".data.prep")))
 #define __prepfunc(__argprep) \
@@ -29,6 +26,6 @@
 #define __openfirmwarefunc(__argopenfirmware) \
 	__argopenfirmware __openfirmware; \
 	__argopenfirmware
-	
+
 #endif /* _PPC_SECTIONS_H */
 #endif /* __KERNEL__ */

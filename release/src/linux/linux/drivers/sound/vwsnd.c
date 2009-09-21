@@ -21,6 +21,14 @@
 
 #undef VWSND_DEBUG			/* define for debugging */
 
+/*
+ * XXX to do -
+ *
+ *	External sync.
+ *	Rename swbuf, hwbuf, u&i, hwptr&swptr to something rational.
+ *	Bug - if select() called before read(), pcm_setup() not called.
+ *	Bug - output doesn't stop soon enough if process killed.
+ */
 
 /*
  * Things to test -
@@ -1523,6 +1531,18 @@ static atomic_t vwsnd_use_count = ATOMIC_INIT(0);
 # define DEC_USE_COUNT (atomic_dec(&vwsnd_use_count))
 # define IN_USE        (atomic_read(&vwsnd_use_count) != 0)
 
+/*
+ * Lithium can only DMA multiples of 32 bytes.  Its DMA buffer may
+ * be up to 8 Kb.  This driver always uses 8 Kb.
+ *
+ * Memory bug workaround -- I'm not sure what's going on here, but
+ * somehow pcm_copy_out() was triggering segv's going on to the next
+ * page of the hw buffer.  So, I make the hw buffer one size bigger
+ * than we actually use.  That way, the following page is allocated
+ * and mapped, and no error.  I suspect that something is broken
+ * in Cobalt, but haven't really investigated.  HBO is the actual
+ * size of the buffer, and HWBUF_ORDER is what we allocate.
+ */
 
 #define HWBUF_SHIFT 13
 #define HWBUF_SIZE (1 << HWBUF_SHIFT)
@@ -3220,6 +3240,7 @@ static int __init probe_vwsnd(struct address_info *hw_config)
 
 	DBGEV("(hw_config=0x%p)\n", hw_config);
 
+	/* XXX verify lithium present (to prevent crash on non-vw) */
 
 	if (li_create(&lith, hw_config->io_base) != 0) {
 		printk(KERN_WARNING "probe_vwsnd: can't map lithium\n");

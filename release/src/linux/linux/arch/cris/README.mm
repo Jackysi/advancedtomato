@@ -3,12 +3,6 @@ Memory management for CRIS/MMU
 HISTORY:
 
 $Log: README.mm,v $
-Revision 1.1.1.2  2003/10/14 08:07:16  sparq
-Broadcom Release 3.51.8.0 for BCM4712.
-
-Revision 1.1.1.1  2003/02/03 22:37:19  mhuang
-LINUX_2_4 branch snapshot from linux-mips.org CVS
-
 Revision 1.1  2000/07/10 16:25:21  bjornw
 Initial revision
 

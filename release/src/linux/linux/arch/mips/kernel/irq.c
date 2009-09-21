@@ -211,7 +211,7 @@ static inline void get_irqlock(int cpu)
 
 void __global_cli(void)
 {
-	unsigned int flags;
+	unsigned long flags;
 
 	__save_flags(flags);
 	if (flags & ST0_IE) {
@@ -534,6 +534,7 @@ int request_irq(unsigned int irq,
 	int retval;
 	struct irqaction * action;
 
+#if 1
 	/*
 	 * Sanity-check: shared interrupts should REALLY pass in
 	 * a real dev-ID, otherwise we'll have trouble later trying
@@ -544,6 +545,7 @@ int request_irq(unsigned int irq,
 		if (!dev_id)
 			printk("Bad boy: %s (at 0x%x) called us without a dev_id!\n", devname, (&irq)[-1]);
 	}
+#endif
 
 	if (irq >= NR_IRQS)
 		return -EINVAL;
@@ -868,7 +870,7 @@ int setup_irq(unsigned int irq, struct irqaction * new)
 
 	if (!shared) {
 		desc->depth = 0;
-		desc->status &= ~(IRQ_DISABLED | IRQ_AUTODETECT | IRQ_WAITING);
+		desc->status &= ~(IRQ_DISABLED | IRQ_AUTODETECT | IRQ_WAITING | IRQ_INPROGRESS);
 		desc->handler->startup(irq);
 	}
 	spin_unlock_irqrestore(&desc->lock,flags);
@@ -914,8 +916,8 @@ static unsigned int parse_hex_value (const char *buffer,
 		return -EFAULT;
 
 	/*
-	 * Parse the first 8 characters as a hex string, any non-hex char
-	 * is end-of-string. '00e1', 'e1', '00E1', 'E1' are all the same.
+	 * Parse the first HEX_DIGITS characters as a hex string, any non-hex
+	 * char is end-of-string. '00e1', 'e1', '00E1', 'E1' are all the same.
 	 */
 	value = 0;
 

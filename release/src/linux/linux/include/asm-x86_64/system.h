@@ -21,6 +21,23 @@
 #define __PUSH(x) "pushq %%" __STR(x) "\n\t"
 #define __POP(x)  "popq  %%" __STR(x) "\n\t"
 
+struct save_context_frame { 
+        unsigned long rbp; 
+        unsigned long rbx;
+	unsigned long r11;
+	unsigned long r10;
+	unsigned long r9;
+	unsigned long r8;
+	unsigned long rcx;
+	unsigned long rdx;
+	unsigned long r15;
+	unsigned long r14;
+	unsigned long r13;
+	unsigned long r12;
+	unsigned long rdi;
+	unsigned long rsi;
+};
+
 /* frame pointer must be last for get_wchan */
 #define SAVE_CONTEXT \
 	__PUSH(rsi) __PUSH(rdi) \
@@ -37,11 +54,12 @@
 	asm volatile(SAVE_CONTEXT					\
 		     "movq %%rsp,%0\n\t"	/* save RSP */		\
 		     "movq %3,%%rsp\n\t"	/* restore RSP */	\
-		     "leaq 1f(%%rip),%%rax\n\t"				\
+		     "leaq thread_return(%%rip),%%rax\n\t"		\
 		     "movq %%rax,%1\n\t"	/* save RIP */		\
 		     "pushq %4\n\t"		/* setup new RIP */	\
 		     "jmp __switch_to\n\t"				\
-		     "1:\n\t"						\
+		     ".globl thread_return\n"				\
+		     "thread_return:\n\t"				\
 		     RESTORE_CONTEXT					\
 		     :"=m" (prev->thread.rsp),"=m" (prev->thread.rip), "=a" (l) \
 		     :"m" (next->thread.rsp),"m" (next->thread.rip),	\
@@ -63,14 +81,14 @@ extern void load_gs_index(unsigned);
 		"2:\n"				\
 		".section .fixup,\"ax\"\n"	\
 		"3:\t"				\
-		"pushq $0 ; popq %% " #seg "\n\t"	\
+		"movl %1,%%" #seg "\n\t" \
 		"jmp 2b\n"			\
 		".previous\n"			\
 		".section __ex_table,\"a\"\n\t"	\
 		".align 4\n\t"			\
 		".quad 1b,3b\n"			\
 		".previous"			\
-		: :"r" ((int)(value)))
+		: :"r" ((int)(value)), "r" (0))
 
 #define set_debug(value,register) \
                 __asm__("movq %0,%%db" #register  \
@@ -233,7 +251,7 @@ static inline unsigned long __cmpxchg(volatile void *ptr, unsigned long old,
 #define mb() 	asm volatile("mfence":::"memory")
 #define rmb()	asm volatile("lfence":::"memory")
 #define wmb()	asm volatile("sfence":::"memory")
-#define set_mb(var, value) do { xchg(&var, value); } while (0)
+#define set_mb(var, value) do { (void) xchg(&var, value); } while (0)
 #define set_wmb(var, value) do { var = value; wmb(); } while (0)
 
 #define warn_if_not_ulong(x) do { unsigned long foo; (void) (&(x) == &foo); } while (0)
@@ -246,8 +264,12 @@ static inline unsigned long __cmpxchg(volatile void *ptr, unsigned long old,
 /* used in the idle loop; sti takes one instruction cycle to complete */
 #define safe_halt()		__asm__ __volatile__("sti; hlt": : :"memory")
 
+#define __save_and_cli(x)      do { __save_flags(x); __cli(); } while(0)
+#define __save_and_sti(x)      do { __save_flags(x); __sti(); } while(0)
+
 /* For spinlocks etc */
 #define local_irq_save(x) 	do { warn_if_not_ulong(x); __asm__ __volatile__("# local_irq_save \n\t pushfq ; popq %0 ; cli":"=g" (x): /* no input */ :"memory"); } while (0)
+#define local_irq_set(x) 	do { warn_if_not_ulong(x); __asm__ __volatile__("# local_irq_set \n\t pushfq ; popq %0 ; sti":"=g" (x): /* no input */ :"memory"); } while (0)
 #define local_irq_restore(x)	__asm__ __volatile__("# local_irq_restore \n\t pushq %0 ; popfq": /* no output */ :"g" (x):"memory")
 #define local_irq_disable()	__cli()
 #define local_irq_enable()	__sti()
@@ -262,6 +284,8 @@ extern void __global_restore_flags(unsigned long);
 #define sti() __global_sti()
 #define save_flags(x) ((x)=__global_save_flags())
 #define restore_flags(x) __global_restore_flags(x)
+#define save_and_cli(x) do { save_flags(x); cli(); } while(0)
+#define save_and_sti(x) do { save_flags(x); sti(); } while(0)
 
 #else
 
@@ -269,6 +293,8 @@ extern void __global_restore_flags(unsigned long);
 #define sti() __sti()
 #define save_flags(x) __save_flags(x)
 #define restore_flags(x) __restore_flags(x)
+#define save_and_cli(x) __save_and_cli(x)
+#define save_and_sti(x) __save_and_sti(x)
 
 #endif
 

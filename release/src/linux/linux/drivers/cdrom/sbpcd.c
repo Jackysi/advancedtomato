@@ -444,6 +444,42 @@ static int sbpcd[] =
 	CDROM_PORT, SBPRO, /* probe with user's setup first */
 #if DISTRIBUTION
 	0x230, 1, /* Soundblaster Pro and 16 (default) */
+#if 0
+	0x300, 0, /* CI-101P (default), WDH-7001C (default),
+		     Galaxy (default), Reveal (one default) */
+	0x250, 1, /* OmniCD default, Soundblaster Pro and 16 */
+	0x2C0, 3, /* Teac 16-bit cards */
+	0x260, 1, /* OmniCD */
+	0x320, 0, /* Lasermate, CI-101P, WDH-7001C, Galaxy, Reveal (other default),
+		     Longshine LCS-6853 (default) */
+	0x338, 0, /* Reveal Sound Wave 32 card model #SC600 */
+	0x340, 0, /* Mozart sound card (default), Lasermate, CI-101P */
+	0x360, 0, /* Lasermate, CI-101P */
+	0x270, 1, /* Soundblaster 16 */
+	0x670, 0, /* "sound card #9" */
+	0x690, 0, /* "sound card #9" */
+	0x338, 2, /* SPEA Media FX, Ensonic SoundScape (default) */
+	0x328, 2, /* SPEA Media FX */
+	0x348, 2, /* SPEA Media FX */
+	0x634, 0, /* some newer sound cards */
+	0x638, 0, /* some newer sound cards */
+	0x230, 1, /* some newer sound cards */
+	/* due to incomplete address decoding of the SbPro card, these must be last */
+	0x630, 0, /* "sound card #9" (default) */
+	0x650, 0, /* "sound card #9" */
+#ifdef MODULE
+	/*
+	 * some "hazardous" locations (no harm with the loadable version)
+	 * (will stop the bus if a NE2000 ethernet card resides at offset -0x10)
+	 */
+	0x330, 0, /* Lasermate, CI-101P, WDH-7001C */
+	0x350, 0, /* Lasermate, CI-101P */
+	0x358, 2, /* SPEA Media FX */
+	0x370, 0, /* Lasermate, CI-101P */
+	0x290, 1, /* Soundblaster 16 */
+	0x310, 0, /* Lasermate, CI-101P, WDH-7001C */
+#endif /* MODULE */
+#endif
 #endif /* DISTRIBUTION */
 };
 #else
@@ -481,11 +517,16 @@ extern int sbpcd4_init(void);
 static void sbp_sleep(u_int);
 static void mark_timeout_delay(u_long);
 static void mark_timeout_data(u_long);
+#if 0
+static void mark_timeout_audio(u_long);
+#endif
 static void sbp_read_cmd(struct request *req);
 static int sbp_data(struct request *req);
 static int cmd_out(void);
 static int DiskInfo(void);
 static int sbpcd_chk_disk_change(kdev_t);
+static int cmd_out_T(void);
+static int cc_DriveReset(void);
 
 /*==========================================================================*/
 
@@ -613,6 +654,9 @@ static DECLARE_MUTEX(ioctl_read_sem);
 static u_long timeout;
 static volatile u_char timed_out_delay;
 static volatile u_char timed_out_data;
+#if 0
+static volatile u_char timed_out_audio;
+#endif
 static u_int datarate= 1000000;
 static u_int maxtim16=16000000;
 static u_int maxtim04= 4000000;
@@ -682,7 +726,7 @@ static struct {
 	u_char vol_ctrl0;
 	char vol_chan1;
 	u_char vol_ctrl1;
-#if 000     /* no supported drive has it */
+#if 000 /* no supported drive has it */
 	char vol_chan2;
 	u_char vol_ctrl2;
 	char vol_chan3;
@@ -747,9 +791,15 @@ static struct {
  * drive space ends here (needed separate for each unit)
  */
 /*==========================================================================*/
+#if 0
+unsigned long cli_sti; /* for saving the processor flags */
+#endif
 /*==========================================================================*/
 static struct timer_list delay_timer = { function: mark_timeout_delay};
 static struct timer_list data_timer = { function: mark_timeout_data};
+#if 0
+static struct timer_list audio_timer = { function: mark_timeout_audio};
+#endif
 /*==========================================================================*/
 /*
  * DDI interface
@@ -801,13 +851,28 @@ static int sbpcd_dbg_ioctl(unsigned long arg, int level)
 static void mark_timeout_delay(u_long i)
 {
 	timed_out_delay=1;
+#if 0
+	msg(DBG_TIM,"delay timer expired.\n");
+#endif
 }
 /*==========================================================================*/
 static void mark_timeout_data(u_long i)
 {
 	timed_out_data=1;
+#if 0
+	msg(DBG_TIM,"data timer expired.\n");
+#endif
 }
 /*==========================================================================*/
+#if 0
+static void mark_timeout_audio(u_long i)
+{
+	timed_out_audio=1;
+#if 0
+	msg(DBG_TIM,"audio timer expired.\n");
+#endif
+}
+#endif
 /*==========================================================================*/
 /*
  * Wait a little while (used for polling the drive).
@@ -1150,8 +1215,6 @@ static int get_state_T(void)
 {
 	int i;
 	
-	static int cmd_out_T(void);
-
 	clr_cmdbuf();
 	D_S[d].n_bytes=1;
 	drvcmd[0]=CMDT_STATUS;
@@ -1299,7 +1362,6 @@ static int cmd_out_T(void)
 #define CMDT_TRIES 1000
 #define TEST_FALSE_FF 1
 	
-	static int cc_DriveReset(void);
 	int i, j, l=0, m, ntries;
 	long flags;
 
@@ -1334,7 +1396,7 @@ static int cmd_out_T(void)
 	restore_flags(flags);
 	for (ntries=CMDT_TRIES;ntries>0;ntries--)
 	{
-		if (drvcmd[0]==CMDT_READ_VER) sbp_sleep(HZ); 
+		if (drvcmd[0]==CMDT_READ_VER) sbp_sleep(HZ); /* fixme */
 #if 01
 		OUT(CDo_sel_i_d,1);
 #endif /* 01 */
@@ -1344,6 +1406,9 @@ static int cmd_out_T(void)
                   }
 		else
                   {
+#if 0
+                    OUT(CDo_sel_i_d,1);
+#endif /* 0 */ 
                     i=inb(CDi_status);
                   }
 		if (!(i&s_not_data_ready)) /* f.e. CMDT_DISKINFO */
@@ -1956,11 +2021,13 @@ static int cc_DriveReset(void)
 	}
 	if (fam0LV_drive) sbp_sleep(5*HZ); /* wait 5 seconds */
 	else sbp_sleep(1*HZ); /* wait a second */
+#if 1
 	if (famT_drive)
 	{
 		msg(DBG_TEA, "================CMDT_RESET given=================.\n");
 		sbp_sleep(3*HZ);
 	}
+#endif /* 1 */ 
 	flush_status();
 	i=GetStatus();
 	if (i<0) return i;
@@ -2279,6 +2346,9 @@ static int cc_CloseTray(void)
 	{
 		cc_DriveReset();
 		i=ResponseStatus();
+#if 0
+                sbp_sleep(HZ);
+#endif /* 0 */ 
 		i=ResponseStatus();
 	}
 	if (i<0)
@@ -2733,6 +2803,27 @@ static int cc_ReadTocDescr(void)
 			D_S[d].f_multisession=1;
 			D_S[d].lba_multi=msf2blk(make32(make16(0,infobuf[5]),make16(infobuf[6],infobuf[7])));
 		}
+#if 0
+		if (D_S[d].first_session!=D_S[d].last_session)
+		{
+			if (D_S[d].last_session<=20)
+				zwanzig=D_S[d].last_session+1;
+			else zwanzig=20;
+			for (count=D_S[d].first_session;count<zwanzig;count++)
+			{
+				drvcmd[0]=CMD2_DISKINFO;
+				drvcmd[1]=0x02;
+				drvcmd[2]=0xAB;
+				drvcmd[3]=count;
+				response_count=8;
+				flags_cmd_out=f_putcmd;
+				i=cmd_out();
+				if (i<0) return (i);
+				D_S[d].msf_multi_n[count]=make32(make16(0,infobuf[5]),make16(infobuf[6],infobuf[7]));
+			}
+			D_S[d].diskstate_flags |= multisession_bit;
+		}
+#endif
 		drvcmd[0]=CMD2_DISKINFO;
 		drvcmd[1]=0x02;
 		drvcmd[2]=0xAA;
@@ -2907,7 +2998,9 @@ static int cc_ReadUPC(void)
 	if (fam2_drive) return (0); /* not implemented yet */
 	if (famT_drive)	return (0); /* not implemented yet */
 	if (famV_drive)	return (0); /* not implemented yet */
+#if 1
 	if (fam0_drive) return (0); /* but it should work */
+#endif
 	
 	D_S[d].diskstate_flags &= ~upc_bit;
 #if TEST_UPC
@@ -3146,6 +3239,9 @@ static int cc_SubChanInfo(int frame, int count, u_char *buffer)
 	{
 		return (-1);
 	}
+#if 0
+	if (D_S[d].audio_state!=audio_playing) return (-ENODATA);
+#endif
 	clr_cmdbuf();
 	drvcmd[0]=CMD1_SUBCHANINF;
 	drvcmd[1]=(frame>>16)&0xFF;
@@ -3171,18 +3267,28 @@ static void __init check_datarate(void)
 	for (i=0;i<=1000;i++) printk(".");
 #endif
 	/* set a timer to make (timed_out_delay!=0) after 1.1 seconds */
+#if 1
 	del_timer(&delay_timer);
+#endif
 	delay_timer.expires=jiffies+11*HZ/10;
 	timed_out_delay=0;
 	add_timer(&delay_timer);
+#if 0
+	msg(DBG_TIM,"delay timer started (11*HZ/10).\n");
+#endif
 	do
 	{
 		i=inb(CDi_status);
 		datarate++;
+#if 1
 		if (datarate>0x6FFFFFFF) break;
+#endif 
 	}
 	while (!timed_out_delay);
 	del_timer(&delay_timer);
+#if 0
+	msg(DBG_TIM,"datarate: %04X\n", datarate);
+#endif
 	if (datarate<65536) datarate=65536;
 	maxtim16=datarate*16;
 	maxtim04=datarate*4;
@@ -3193,8 +3299,33 @@ static void __init check_datarate(void)
 #else
 	maxtim_data=datarate/300;
 #endif /* LONG_TIMING */ 
+#if 0
+	msg(DBG_TIM,"maxtim_8 %d, maxtim_data %d.\n", maxtim_8, maxtim_data);
+#endif
 }
 /*==========================================================================*/
+#if 0
+static int c2_ReadError(int fam)
+{
+	int i;
+	
+	clr_cmdbuf();
+	response_count=9;
+	clr_respo_buf(9);
+	if (fam==1)
+	{
+		drvcmd[0]=CMD0_READ_ERR; /* same as CMD1_ and CMDL_ */
+		i=do_cmd(f_putcmd|f_lopsta|f_getsta|f_ResponseStatus);
+	}
+	else if (fam==2)
+	{
+		drvcmd[0]=CMD2_READ_ERR;
+		i=do_cmd(f_putcmd);
+	}
+	else return (-1);
+	return (i);
+}
+#endif
 /*==========================================================================*/
 static void __init ask_mail(void)
 {
@@ -3317,6 +3448,11 @@ static int __init check_version(void)
 		clr_cmdbuf();
 		for (i=0;i<12;i++) infobuf[i]=0;
 		if (sbpro_type==1) OUT(CDo_sel_i_d,0);
+#if 0
+		OUT(CDo_reset,0);
+		sbp_sleep(6*HZ);
+		OUT(CDo_enable,D_S[d].drv_sel);
+#endif
 		drvcmd[0]=CMD2_READ_VER;
 		response_count=12;
 		flags_cmd_out=f_putcmd;
@@ -3375,6 +3511,9 @@ static int __init check_version(void)
 				OUT(CDo_sel_i_d,0);
 				i=inb(CDi_status);
 				msg(DBG_TEA,"TEAC CDi_status: %02X.\n",i);
+#if 0
+				if (i&s_not_result_ready) continue; /* drive not present or ready */
+#endif
 				i=inb(CDi_info);
 				msg(DBG_TEA,"TEAC CDi_info: %02X.\n",i);
 				if (i==0x55) break; /* drive found */
@@ -3834,9 +3973,26 @@ static int DiskInfo(void)
 	msg(DBG_000,"DiskInfo entered.\n");
 	for (j=1;j<LOOP_COUNT;j++)
 	{
+#if 0
+		i=SetSpeed();
+		if (i<0)
+		{
+			msg(DBG_INF,"DiskInfo: SetSpeed returns %d\n", i);
+			continue;
+		}
+		i=cc_ModeSense();
+		if (i<0)
+		{
+			msg(DBG_INF,"DiskInfo: cc_ModeSense returns %d\n", i);
+			continue;
+		}
+#endif
 		i=cc_ReadCapacity();
 		if (i>=0) break;
 		msg(DBG_INF,"DiskInfo: ReadCapacity #%d returns %d\n", j, i);
+#if 0
+		i=cc_DriveReset();
+#endif
 		if (!fam0_drive && j == 2) break;
 	}
 	if (j==LOOP_COUNT) return (-33); /* give up */
@@ -3903,10 +4059,18 @@ static int sbpcd_drive_status(struct cdrom_device_info *cdi, int slot_nr)
 	msg(DBG_000,"Drive Status: spinning =%d.\n", st_spinning);
 	msg(DBG_000,"Drive Status: busy =%d.\n", st_busy);
 
+#if 0
+  if (!(D_S[MINOR(cdi->dev)].status_bits & p_door_closed)) return CDS_TRAY_OPEN;
+  if (D_S[MINOR(cdi->dev)].status_bits & p_disk_ok) return CDS_DISC_OK;
+  if (D_S[MINOR(cdi->dev)].status_bits & p_disk_in) return CDS_DRIVE_NOT_READY;
+
+  return CDS_NO_DISC;
+#else
   if (D_S[MINOR(cdi->dev)].status_bits & p_spinning) return CDS_DISC_OK;
 /*  return CDS_TRAY_OPEN; */
   return CDS_NO_DISC;
   
+#endif
 
 }
 
@@ -4335,7 +4499,7 @@ static int sbpcd_dev_ioctl(struct cdrom_device_info *cdi, u_int cmd,
 				if (i<0) { msg(DBG_AUD,
 					       "read_audio: cc_ReadStatus error after read: %02X\n",
 					       D_S[d].status_bits);
-					   continue; 
+					   continue; /* FIXME */
 				   }
 			}
 			while ((fam0L_drive)&&(!st_check)&&(!(i&p_success)));
@@ -4481,7 +4645,11 @@ static int sbpcd_audio_ioctl(struct cdrom_device_info *cdi, u_int cmd,
 		if (D_S[d].audio_state==audio_playing)
 		{
 			msg(DBG_IOX,"CDROMPLAYTRKIND: already audio_playing.\n");
+#if 1
 			RETURN_UP(0); /* just let us play on */
+#else
+			RETURN_UP(-EINVAL); /* play on, but say "error" */
+#endif
 		}
 		memcpy(&ti,(void *) arg,sizeof(struct cdrom_ti));
 		msg(DBG_IOX,"ioctl: trk0: %d, ind0: %d, trk1:%d, ind1:%d\n",
@@ -4539,6 +4707,9 @@ static int sbpcd_audio_ioctl(struct cdrom_device_info *cdi, u_int cmd,
 #endif /* SAFE_MIXED */ 
 		i=cc_Pause_Resume(1);
 		D_S[d].audio_state=0;
+#if 0
+		cc_DriveReset();
+#endif
 		RETURN_UP(i);
 		
 	case CDROMSTART:  /* Spin up the drive */
@@ -4785,6 +4956,9 @@ static void DO_SBPCD_REQUEST(request_queue_t * q)
 	nsect = req->nr_sectors; /* always counted as 512-byte-pieces */
 	
 	msg(DBG_BSZ,"read sector %d (%d sectors)\n", block, nsect);
+#if 0
+	msg(DBG_MUL,"read LBA %d\n", block/4);
+#endif
 	
 	sbp_transfer(req);
 	/* if we satisfied the request from the buffer, we're done. */
@@ -5125,9 +5299,11 @@ static int sbp_data(struct request *req)
 				}
 				while (!(i&s_not_result_ready));
 				if (infobuf[0]==0x00) success=1;
+#if 1
 				for (j=0;j<l;j++) sprintf(&msgbuf[j*3], " %02X", infobuf[j]);
 				msgbuf[j*3]=0;
 				msg(DBG_TEA,"sbp_data info response:%s\n", msgbuf);
+#endif
 				if (infobuf[0]==0x02)
 				{
 					error_flag++;
@@ -5151,6 +5327,10 @@ static int sbp_data(struct request *req)
 			}
 			else
 			{
+#if 0
+				msg(DBG_TEA, "============= waiting for result=================.\n");
+				sbp_sleep(1);
+#endif
 			}
 		}
 		while (wait--);
@@ -5160,7 +5340,11 @@ static int sbp_data(struct request *req)
 	{
 		msg(DBG_TEA, "================error flag: %d=================.\n", error_flag);
 		msg(DBG_INF,"sbp_data: read aborted by drive.\n");
+#if 1
 		i=cc_DriveReset(); /* ugly fix to prevent a hang */
+#else
+		i=cc_ReadError();
+#endif
 		return (0);
 	}
 	
@@ -5192,12 +5376,19 @@ static int sbp_data(struct request *req)
 		SBPCD_STI;
 	}
 	
+#if 0
+	if (!success)
+#endif
 		do
 		{
 			if (fam0LV_drive) cc_ReadStatus();
+#if 1
 			if (famT_drive) msg(DBG_TEA, "================before ResponseStatus=================.\n", i);
+#endif
 			i=ResponseStatus();  /* builds status_bits, returns orig. status (old) or faked p_success (new) */
+#if 1
 			if (famT_drive)	msg(DBG_TEA, "================ResponseStatus: %d=================.\n", i);
+#endif
 			if (i<0)
 			{
 				msg(DBG_INF,"bad cc_ReadStatus after read: %02X\n", D_S[d].status_bits);
@@ -5474,7 +5665,11 @@ static int __init config_spea(void)
 	OUT(SPEA_REG_1,0x05);
 	OUT(SPEA_REG_2,0x10|drq_polarity|dack_polarity);
 	
+#if 1
 #define SPEA_PATTERN 0x80
+#else
+#define SPEA_PATTERN 0x00
+#endif
 	OUT(SPEA_REG_1,0x06);
 	OUT(SPEA_REG_2,dma_channel|irq_number|SPEA_PATTERN);
 	OUT(SPEA_REG_2,dma_channel|irq_number|SPEA_PATTERN);
@@ -5598,7 +5793,9 @@ int __init SBPCD_INIT(void)
 	{
 		if (D_S[j].drv_id==-1) continue;
 		switch_drive(j);
+#if 1
 		if (!famL_drive) cc_DriveReset();
+#endif
 		if (!st_spinning) cc_SpinUp();
 		D_S[j].sbp_first_frame = -1;  /* First frame in buffer */
 		D_S[j].sbp_last_frame = -1;   /* Last frame in buffer  */

@@ -3,7 +3,7 @@
  *
  *  Copyright (C) 2001 Deep Blue Solutions Ltd.
  *
- *  $Id: cpu.c,v 1.1.1.4 2003/10/14 08:07:15 sparq Exp $
+ *  $Id: cpu.c,v 1.2 2001/09/22 12:11:17 rmk Exp $
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -12,6 +12,10 @@
  * CPU support functions
  */
 
+/*  FIXME-
+ *  Add support for clock change on the fly.  (Power)
+ *
+ */
 #include <linux/config.h>
 #include <linux/types.h>
 #include <linux/kernel.h>

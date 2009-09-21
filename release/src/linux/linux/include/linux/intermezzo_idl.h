@@ -276,6 +276,7 @@ struct kml_rec {
  * KML, which is updated when KML truncation takes place.  All other fields are
  * reserved. */
 
+/* XXX - document how clean shutdowns are recorded */
 
 struct izo_rcvd_rec { 
         __u8    lr_uuid[16];       /* which peer? */

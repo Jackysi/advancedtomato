@@ -93,6 +93,10 @@ struct data_callback {
 static void
 found_data(struct sock *sk)
 {
+	/*
+	 * FIXME: copied from sock_def_readable, it should be a call to
+	 * server->data_ready()	-- manfreds@colorfullife.com
+	 */
 	read_lock(&sk->callback_lock);
 	if(!sk->dead) {
 		wake_up_interruptible(sk->sleep);
@@ -567,7 +571,11 @@ smb_receive_trans2(struct smb_sb_info *server,
 					parm_disp, parm_offset, parm_count,
 					data_disp, data_offset, data_count);
 				*parm  = base + parm_offset;
+				if (*parm - inbuf + parm_tot > server->packet_size)
+					goto out_bad_parm;
 				*data  = base + data_offset;
+				if (*data - inbuf + data_tot > server->packet_size)
+					goto out_bad_data;
 				goto success;
 			}
 
@@ -587,6 +595,8 @@ smb_receive_trans2(struct smb_sb_info *server,
 			rcv_buf = smb_vmalloc(buf_len);
 			if (!rcv_buf)
 				goto out_no_mem;
+			memset(rcv_buf, 0, buf_len);
+			
 			*parm = rcv_buf;
 			*data = rcv_buf + total_p;
 		} else if (data_tot > total_d || parm_tot > total_p)
@@ -594,7 +604,11 @@ smb_receive_trans2(struct smb_sb_info *server,
 
 		if (parm_disp + parm_count > total_p)
 			goto out_bad_parm;
+		if (parm_offset + parm_count > server->packet_size)	
+			goto out_bad_parm;
 		if (data_disp + data_count > total_d)
+			goto out_bad_data;
+		if (data_offset + data_count > server->packet_size)	
 			goto out_bad_data;
 		memcpy(*parm + parm_disp, base + parm_offset, parm_count);
 		memcpy(*data + data_disp, base + data_offset, data_count);
@@ -606,8 +620,11 @@ smb_receive_trans2(struct smb_sb_info *server,
 		 * Check whether we've received all of the data. Note that
 		 * we use the packet totals -- total lengths might shrink!
 		 */
-		if (data_len >= data_tot && parm_len >= parm_tot)
+		if (data_len >= data_tot && parm_len >= parm_tot) {
+			data_len = data_tot;
+			parm_len = parm_tot;
 			break;
+		}
 	}
 
 	/*
@@ -621,6 +638,9 @@ smb_receive_trans2(struct smb_sb_info *server,
 		server->packet = rcv_buf;
 		rcv_buf = inbuf;
 	} else {
+		if (parm_len + data_len > buf_len)
+			goto out_data_grew;
+
 		PARANOIA("copying data, old size=%d, new size=%u\n",
 			 server->packet_size, buf_len);
 		memcpy(inbuf, rcv_buf, parm_len + data_len);
@@ -782,6 +802,7 @@ smb_send_trans2(struct smb_sb_info *server, __u16 trans2_command,
 	struct iovec iov[4];
 	struct msghdr msg;
 
+	/* FIXME! this test needs to include SMB overhead too, I think ... */
 	if ((bcc + oparam) > server->opt.max_xmit)
 		return -ENOMEM;
 	p = smb_setup_header(server, SMBtrans2, smb_parameters, bcc);

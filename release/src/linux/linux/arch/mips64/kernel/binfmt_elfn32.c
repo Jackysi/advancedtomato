@@ -116,4 +116,7 @@ MODULE_AUTHOR("Ralf Baechle (ralf@linux-mips.org)");
 #undef MODULE_DESCRIPTION
 #undef MODULE_AUTHOR
 
+#undef TASK_SIZE
+#define TASK_SIZE TASK_SIZE32
+
 #include "../../../fs/binfmt_elf.c"

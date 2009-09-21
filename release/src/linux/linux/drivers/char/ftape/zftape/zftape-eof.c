@@ -21,9 +21,9 @@
  along with this program; see the file COPYING.  If not, write to
  the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
 
- * $Source: /home/cvsroot/wrt54g/src/linux/linux/drivers/char/ftape/zftape/zftape-eof.c,v $
- * $Revision: 1.1.1.2 $
- * $Date: 2003/10/14 08:08:06 $
+ * $Source: /homes/cvs/ftape-stacked/ftape/zftape/zftape-eof.c,v $
+ * $Revision: 1.2 $
+ * $Date: 1997/10/05 19:19:02 $
  *
  *      This file contains the eof mark handling code
  *      for the QIC-40/80 floppy-tape driver for Linux.
@@ -123,7 +123,7 @@ static __u8 * find_end_of_eof_list(__u8 * ptr, __u8 * limit)
 	while (ptr + 3 < limit) {
 
 		if (get_unaligned((__u32*)ptr)) {
-			++(__u32*)ptr;
+			ptr += sizeof(__u32);
 		} else {
 			return ptr;
 		}

@@ -220,7 +220,32 @@ static struct hw_interrupt_type clipper_irq_type = {
 static void
 dp264_device_interrupt(unsigned long vector, struct pt_regs * regs)
 {
+#if 1
 	printk("dp264_device_interrupt: NOT IMPLEMENTED YET!! \n");
+#else
+	unsigned long pld;
+	unsigned int i;
+
+	/* Read the interrupt summary register of TSUNAMI */
+	pld = TSUNAMI_cchip->dir0.csr;
+
+	/*
+	 * Now for every possible bit set, work through them and call
+	 * the appropriate interrupt handler.
+	 */
+	while (pld) {
+		i = ffz(~pld);
+		pld &= pld - 1; /* clear least bit set */
+		if (i == 55)
+			isa_device_interrupt(vector, regs);
+		else
+			handle_irq(16 + i, 16 + i, regs);
+#if 0
+		TSUNAMI_cchip->dir0.csr = 1UL << i; mb();
+		tmp = TSUNAMI_cchip->dir0.csr;
+#endif
+	}
+#endif
 }
 
 static void 
@@ -414,8 +439,13 @@ monet_map_irq(struct pci_dev *dev, u8 slot, u8 pin)
 		{    47,    47,    47,    47,    47}, /* IdSel 6 SCSI PCI1 */
 		{    -1,    -1,    -1,    -1,    -1}, /* IdSel 7 ISA Bridge */
 		{    -1,    -1,    -1,    -1,    -1}, /* IdSel 8 P2P PCI1 */
+#if 1
 		{    28,    28,    29,    30,    31}, /* IdSel 14 slot 4 PCI2*/
 		{    24,    24,    25,    26,    27}, /* IdSel 15 slot 5 PCI2*/
+#else
+		{    -1,    -1,    -1,    -1,    -1}, /* IdSel 9 unused */
+		{    -1,    -1,    -1,    -1,    -1}, /* IdSel 10 unused */
+#endif
 		{    40,    40,    41,    42,    43}, /* IdSel 11 slot 1 PCI0*/
 		{    36,    36,    37,    38,    39}, /* IdSel 12 slot 2 PCI0*/
 		{    32,    32,    33,    34,    35}, /* IdSel 13 slot 3 PCI0*/

@@ -22,7 +22,7 @@
  * BEGIN_DESC
  *
  *  File:
- *	@(#)	pa/spmath/dfadd.c		$Revision: 1.1.1.2 $
+ *	@(#)	pa/spmath/dfadd.c		$Revision: $
  *
  *  Purpose:
  *	Double_add: add two double precision values.

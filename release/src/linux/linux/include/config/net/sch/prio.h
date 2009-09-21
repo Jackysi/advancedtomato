@@ -1,1 +1,0 @@
-#define CONFIG_NET_SCH_PRIO 1

@@ -2,7 +2,7 @@
   
     Cardbus device configuration
     
-    cardbus.c 1.63 1999/11/08 20:47:02
+    cardbus.c 1.87 2002/10/24 06:11:41
 
     The contents of this file are subject to the Mozilla Public
     License Version 1.1 (the "License"); you may not use this file
@@ -175,8 +175,8 @@ static int cb_setup_cis_mem(socket_info_t * s, struct pci_dev *dev, struct resou
     
 =====================================================================*/
 
-void read_cb_mem(socket_info_t * s, u_char fn, int space,
-		 u_int addr, u_int len, void *ptr)
+int read_cb_mem(socket_info_t * s, u_char fn, int space,
+		u_int addr, u_int len, void *ptr)
 {
 	struct pci_dev *dev;
 	struct resource *res;
@@ -194,7 +194,7 @@ void read_cb_mem(socket_info_t * s, u_char fn, int space,
 			goto fail;
 		for (; len; addr++, ptr++, len--)
 			pci_readb(dev, addr, (u_char *) ptr);
-		return;
+		return 0;
 	}
 
 	res = dev->resource + space - 1;
@@ -214,12 +214,195 @@ void read_cb_mem(socket_info_t * s, u_char fn, int space,
 		goto fail;
 
 	memcpy_fromio(ptr, s->cb_cis_virt + addr, len);
-	return;
+	return 0;
 
 fail:
 	memset(ptr, 0xff, len);
-	return;
+	return -1;
 }
+
+struct pci_dev *cb_scan_slot(struct pci_dev *temp, struct list_head *list)
+{
+	struct pci_dev *dev;
+	struct pci_dev *first_dev = NULL;
+	int func = 0;
+	int is_multi = 0;
+	u8 hdr_type;
+
+	for (func = 0; func < 8; func++, temp->devfn++) {
+		if (func && !is_multi)		/* not a multi-function device */
+			continue;
+		if (pci_read_config_byte(temp, PCI_HEADER_TYPE, &hdr_type))
+			continue;
+		temp->hdr_type = hdr_type & 0x7f;
+
+		dev = pci_scan_device(temp);
+		if (!dev)
+			continue;
+		sprintf(dev->name, "PCI device %04x:%04x", dev->vendor, dev->device);
+		if (!func) {
+			is_multi = hdr_type & 0x80;
+			first_dev = dev;
+		}
+
+		list_add_tail(&dev->global_list, list);
+		/* Fix up broken headers */
+//FIXME		pci_fixup_device(PCI_FIXUP_HEADER, dev);
+	}
+	return first_dev;
+}
+
+static unsigned int cb_scan_new_bus(struct pci_bus *bus, int irq);
+
+static int cb_scan_bridge(struct pci_bus *bus, struct pci_dev * dev, int max, int irq)
+{
+	unsigned int buses;
+	unsigned short cr;
+	struct pci_bus *child;
+	int is_cardbus = (dev->hdr_type == PCI_HEADER_TYPE_CARDBUS);
+
+	pci_read_config_dword(dev, PCI_PRIMARY_BUS, &buses);
+	printk("Scanning behind PCI bridge %s, config %06x\n", dev->slot_name, buses & 0xffffff);
+	/*
+	 * We need to assign a number to this bus which we always
+	 * do in the second pass. We also keep all address decoders
+	 * on the bridge disabled during scanning.  FIXME: Why?
+	 */
+	pci_read_config_word(dev, PCI_COMMAND, &cr);
+	pci_write_config_word(dev, PCI_COMMAND, 0x0000);
+	pci_write_config_word(dev, PCI_STATUS, 0xffff);
+
+	child = pci_add_new_bus(bus, dev, ++max);
+	buses = (buses & 0xff000000)
+	      | ((unsigned int)(child->primary)     <<  0)
+	      | ((unsigned int)(child->secondary)   <<  8)
+	      | ((unsigned int)(child->subordinate) << 16);
+	/*
+	 * We need to blast all three values with a single write.
+	 */
+	pci_write_config_dword(dev, PCI_PRIMARY_BUS, buses);
+	if (!is_cardbus) {
+		/* Now we can scan all subordinate buses... */
+		max = cb_scan_new_bus(child, irq);
+	} else {
+		/*
+		 * For CardBus bridges, we leave 4 bus numbers
+		 * as cards with a PCI-to-PCI bridge can be
+		 * inserted later.
+		 */
+		max += 3;
+	}
+	/*
+	 * Set the subordinate bus number to its real value.
+	 */
+	child->subordinate = max;
+	pci_write_config_byte(dev, PCI_SUBORDINATE_BUS, max);
+	pci_write_config_word(dev, PCI_COMMAND, cr);
+	sprintf(child->name, (is_cardbus ? "PCI CardBus #%02x" : "PCI Bus #%02x"), child->number);
+	return max;
+}
+
+static unsigned int cb_scan_new_bus(struct pci_bus *bus, int irq)
+{
+	unsigned int devfn, max;
+	struct list_head *ln, *ln_tmp;
+	struct pci_dev *dev, dev0;
+	struct list_head found;
+	
+	INIT_LIST_HEAD(&found);
+	
+	printk("Scanning bus %02x\n", bus->number);
+	max = bus->secondary;
+
+	/* Create a device template */
+	memset(&dev0, 0, sizeof(dev0));
+	dev0.bus = bus;
+	dev0.sysdata = bus->sysdata;
+
+	/* Go find them, Rover! */
+	for (devfn = 0; devfn < 0x100; devfn += 8) {
+		dev0.devfn = devfn;
+		cb_scan_slot(&dev0, &found);
+	}
+
+	/*
+	 * After performing arch-dependent fixup of the bus, look behind
+	 * all PCI-to-PCI bridges on this bus.
+	 */
+	printk("Fixups for bus %02x\n", bus->number);
+	pci_read_bridge_bases(bus);
+
+	list_for_each_safe(ln, ln_tmp, &found)
+	{
+		int i;
+		u8 irq_pin;
+		dev = pci_dev_g(ln);
+		pci_set_power_state(dev, 0);
+		for(i=0;i<6;i++)
+		{
+			struct resource *r = dev->resource + i;
+			if(!r->start && r->end)
+				pci_assign_resource(dev, i);
+		}
+		/* Does this function have an interrupt at all? */
+		pci_readb(dev, PCI_INTERRUPT_PIN, &irq_pin);
+		if (irq_pin) {
+			dev->irq = irq;
+			pci_writeb(dev, PCI_INTERRUPT_LINE, irq);
+		}
+
+		pci_enable_device(dev); /* XXX check return */
+		pci_insert_device(dev, bus);
+		if (dev->hdr_type == PCI_HEADER_TYPE_BRIDGE || dev->hdr_type == PCI_HEADER_TYPE_CARDBUS)
+			max = cb_scan_bridge(bus, dev, max, irq);
+	}
+
+	/*
+	 * We've scanned the bus and so we know all about what's on
+	 * the other side of any bridges that may be on this bus plus
+	 * any devices.
+	 *
+	 * Return how far we've got finding sub-buses.
+	 */
+	printk("Bus scan for %02x returning with max=%02x\n", bus->number, max);
+	return max;
+}
+
+static void program_bridge(struct pci_dev *bridge)
+{
+	u32 l;
+	
+	/* Set up the top and bottom of the PCI I/O segment for this bus. */
+	pci_read_config_dword(bridge, PCI_IO_BASE, &l);
+	l &= 0xffff0000;
+	l |= (bridge->resource[7].start >> 8) & 0x00f0;
+	l |= bridge->resource[7].end & 0xf000;
+	pci_write_config_dword(bridge, PCI_IO_BASE, l);
+
+	/* Clear upper 16 bits of I/O base/limit. */
+	pci_write_config_dword(bridge, PCI_IO_BASE_UPPER16, 0);
+
+	/* Clear out the upper 32 bits of PREF base/limit. */
+	pci_write_config_dword(bridge, PCI_PREF_BASE_UPPER32, 0);
+	pci_write_config_dword(bridge, PCI_PREF_LIMIT_UPPER32, 0);
+
+	/* Set up the top and bottom of the PCI Memory segment
+	   for this bus. */
+	l = (bridge->resource[8].start >> 16) & 0xfff0;
+	l |= bridge->resource[8].end & 0xfff00000;
+	pci_write_config_dword(bridge, PCI_MEMORY_BASE, l);
+
+	/* Set up PREF base/limit. */
+	l = (bridge->resource[9].start >> 16) & 0xfff0;
+	l |= bridge->resource[9].end & 0xfff00000;
+	pci_write_config_dword(bridge, PCI_PREF_MEMORY_BASE, l);
+
+	/* FIXME - 0x0c if our ISA VGA is behind it. It looks like X
+	   can handle this itself - CHECK */
+	l = 0x04;
+	pci_write_config_word(bridge, PCI_BRIDGE_CONTROL, l);
+}
+
 
 /*=====================================================================
 
@@ -280,13 +463,57 @@ int cb_alloc(socket_info_t * s)
 		dev->hdr_type = hdr & 0x7f;
 
 		pci_setup_device(dev);
-
-		for (r = 0; r < 7; r++) {
-			struct resource *res = dev->resource + r;
-			if (res->flags)
-				pci_assign_resource(dev, r);
+		
+		if(dev->hdr_type == 1)
+		{
+			int max = bus->secondary;
+			int idx;
+			struct resource *res, *pres;
+			printk(KERN_INFO "Cardbus: Bridge found - we suck.\n");
+			pci_read_bridge_bases(bus);
+			for (idx = PCI_BRIDGE_RESOURCES; idx < PCI_BRIDGE_RESOURCES + 3; idx++) {
+				res = &dev->resource[idx];
+				/* This is ugly - pci_read_bridge_bases should have
+				   done it for us. Need to find out why it doesnt
+				   before fixing it */
+				if(idx == PCI_BRIDGE_RESOURCES) 
+					res->flags = IORESOURCE_IO | PCI_IO_RANGE_TYPE_32;
+				if(idx == PCI_BRIDGE_RESOURCES+1)
+					res->flags |= IORESOURCE_MEM;
+				if(idx == PCI_BRIDGE_RESOURCES+2)
+					res->flags |= IORESOURCE_MEM|IORESOURCE_PREFETCH;
+				/* Ignore any existing values in the chip */
+				res->start = 0;
+				/* Find the parent resource */
+				pres = pci_find_parent_resource(dev, res);
+				if(!pres)
+				{
+					printk(KERN_ERR "No parent resource for %lx\n", res->flags);
+					continue;
+				}
+				printk(KERN_ERR "Allocating for type %lx, in bus resource.\n", res->flags);
+				/* Hog the entire space */
+				res->start = pres->start;
+				if(idx != PCI_BRIDGE_RESOURCES)
+					res->end = pres->end;
+				else	/* Still working this out - FIXME */
+					res->end = res->start + 255;
+				if (!pres || request_resource(pres, res) < 0)
+					printk(KERN_ERR "PCI: Cannot allocate resource region %d of bridge %s\n", idx, dev->slot_name);
+			}
+			program_bridge(dev);
+			max = cb_scan_bridge(bus, dev, max, irq);
+			printk(KERN_INFO "Cardbus: Bridge scanned.\n");
 		}
-
+		else
+		{			
+			/* FIXME: Do we need to enable the expansion ROM? */
+			for (r = 0; r < 7; r++) {
+				struct resource *res = dev->resource + r;
+				if (res->flags)
+					pci_assign_resource(dev, r);
+			}
+		}
 		/* Does this function have an interrupt at all? */
 		pci_readb(dev, PCI_INTERRUPT_PIN, &irq_pin);
 		if (irq_pin) {
@@ -294,7 +521,7 @@ int cb_alloc(socket_info_t * s)
 			pci_writeb(dev, PCI_INTERRUPT_LINE, irq);
 		}
 
-		pci_enable_device(dev); 
+		pci_enable_device(dev); /* XXX check return */
 		pci_insert_device(dev, bus);
 	}
 

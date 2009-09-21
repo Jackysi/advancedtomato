@@ -1,7 +1,4 @@
 /*
- * BK Id: %F% %I% %G% %U% %#%
- */
-/*
  *  arch/ppc/platforms/setup.c
  *
  *  Copyright (C) 1995 Linus Torvalds
@@ -118,13 +115,14 @@ gemini_show_cpuinfo(struct seq_file *m)
 }
 
 static u_char gemini_openpic_initsenses[] = {
-	1,
-	1,
-	1,
-	1,
-	0,
-	0,
-	1, /* remainder are level-triggered */
+	(IRQ_SENSE_LEVEL | IRQ_POLARITY_NEGATIVE),	/* IRQ 0 */
+	(IRQ_SENSE_LEVEL | IRQ_POLARITY_NEGATIVE),	/* IRQ 1 */
+	(IRQ_SENSE_LEVEL | IRQ_POLARITY_NEGATIVE),	/* IRQ 2 */
+	(IRQ_SENSE_LEVEL | IRQ_POLARITY_NEGATIVE),	/* IRQ 3 */
+	(IRQ_SENSE_LEVEL | IRQ_POLARITY_POSITIVE),	/* IRQ 4 */
+	(IRQ_SENSE_LEVEL | IRQ_POLARITY_POSITIVE),	/* IRQ 5 */
+	(IRQ_SENSE_LEVEL | IRQ_POLARITY_NEGATIVE),	/* IRQ 6 */
+	/* remainder are level-triggered */
 };
 
 #define GEMINI_MPIC_ADDR (0xfcfc0000)
@@ -156,7 +154,7 @@ gemini_heartbeat(void)
 	if (smp_processor_id()) {
 		static short ratelimit;
 		if (!ratelimit++)
-			printk(KERN_ERR "%s: unexpected heartbeat on cpu %d\n", 
+			printk(KERN_ERR "%s: unexpected heartbeat on cpu %d\n",
 					__FUNCTION__, smp_processor_id());
 		return;
 	}
@@ -330,7 +328,7 @@ gemini_halt(void)
 void __init gemini_init_IRQ(void)
 {
 	/* gemini has no 8259 */
-	openpic_init(1, 0, 0, -1);
+	openpic_init(0);
 }
 
 #define gemini_rtc_read(x)       (readb(GEMINI_RTC+(x)))
@@ -374,7 +372,7 @@ gemini_get_rtc_time(void)
 		year = gemini_rtc_read(M48T35_RTC_YEAR);
 	} while( sec != gemini_rtc_read(M48T35_RTC_SECONDS));
 #ifdef DEBUG_RTC
-	printk("get rtc: sec=%x, min=%x, hour=%x, day=%x, mon=%x, year=%x\n", 
+	printk("get rtc: sec=%x, min=%x, hour=%x, day=%x, mon=%x, year=%x\n",
 	       sec, min, hour, day, mon, year);
 #endif
 
@@ -390,7 +388,7 @@ gemini_get_rtc_time(void)
 	if ((year += 1900) < 1970)
 		year += 100;
 #ifdef DEBUG_RTC
-	printk("get rtc: sec=%x, min=%x, hour=%x, day=%x, mon=%x, year=%x\n", 
+	printk("get rtc: sec=%x, min=%x, hour=%x, day=%x, mon=%x, year=%x\n",
 	       sec, min, hour, day, mon, year);
 #endif
 

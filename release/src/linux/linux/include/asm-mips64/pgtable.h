@@ -16,87 +16,24 @@
 #ifndef __ASSEMBLY__
 
 #include <linux/linkage.h>
+#include <asm/cacheflush.h>
 #include <linux/mmzone.h>
 #include <asm/cachectl.h>
 #include <asm/io.h>
 
-/* Cache flushing:
- *
- *  - flush_cache_all() flushes entire cache
- *  - flush_cache_mm(mm) flushes the specified mm context's cache lines
- *  - flush_cache_page(mm, vmaddr) flushes a single page
- *  - flush_cache_range(mm, start, end) flushes a range of pages
- *  - flush_page_to_ram(page) write back kernel page to ram
- */
-extern void (*_flush_cache_all)(void);
-extern void (*___flush_cache_all)(void);
-extern void (*_flush_cache_mm)(struct mm_struct *mm);
-extern void (*_flush_cache_range)(struct mm_struct *mm, unsigned long start,
-	unsigned long end);
-extern void (*_flush_cache_page)(struct vm_area_struct *vma,
-	unsigned long page);
-extern void (*_flush_page_to_ram)(struct page * page);
-extern void (*_flush_icache_range)(unsigned long start, unsigned long end);
-extern void (*_flush_icache_page)(struct vm_area_struct *vma,
-	struct page *page);
-extern void (*_flush_cache_sigtramp)(unsigned long addr);
-extern void (*_flush_icache_all)(void);
-
-/* These suck ...  */
-extern void (*_flush_cache_l2)(void);
-extern void (*_flush_cache_l1)(void);
-
-
-#define flush_cache_all()		_flush_cache_all()
-#define __flush_cache_all()		___flush_cache_all()
-#define flush_dcache_page(page)		do { } while (0)
-
-#ifdef CONFIG_CPU_R10000
 /*
- * Since the r10k handles VCEs in hardware, most of the flush cache
- * routines are not needed. Only the icache on a processor is not
- * coherent with the dcache of the _same_ processor, so we must flush
- * the icache so that it does not contain stale contents of physical
- * memory. No flushes are needed for dma coherency, since the o200s
- * are io coherent. The only place where we might be overoptimizing
- * out icache flushes are from mprotect (when PROT_EXEC is added).
+ * This flag is used to indicate that the page pointed to by a pte
+ * is dirty and requires cleaning before returning it to the user.
  */
-extern void andes_flush_icache_page(unsigned long);
-#define flush_cache_mm(mm)		do { } while(0)
-#define flush_cache_range(mm,start,end)	do { } while(0)
-#define flush_cache_page(vma,page)	do { } while(0)
-#define flush_page_to_ram(page)		do { } while(0)
-#define flush_icache_range(start, end)	_flush_cache_l1()
-#define flush_icache_user_range(vma, page, addr, len) \
-	flush_icache_page((vma), (page))
-#define flush_icache_page(vma, page)					\
-do {									\
-	if ((vma)->vm_flags & VM_EXEC)					\
-		andes_flush_icache_page(phys_to_virt(page_to_phys(page))); \
-} while (0)
+#define PG_dcache_dirty			PG_arch_1
 
-#else
+#define Page_dcache_dirty(page)		\
+	test_bit(PG_dcache_dirty, &(page)->flags)
+#define SetPageDcacheDirty(page)	\
+	set_bit(PG_dcache_dirty, &(page)->flags)
+#define ClearPageDcacheDirty(page)	\
+	clear_bit(PG_dcache_dirty, &(page)->flags)
 
-#define flush_cache_mm(mm)		_flush_cache_mm(mm)
-#define flush_cache_range(mm,start,end)	_flush_cache_range(mm,start,end)
-#define flush_cache_page(vma,page)	_flush_cache_page(vma, page)
-#define flush_page_to_ram(page)		_flush_page_to_ram(page)
-#define flush_icache_range(start, end)	_flush_icache_range(start, end)
-#define flush_icache_user_range(vma, page, addr, len) \
-	flush_icache_page((vma), (page))
-#define flush_icache_page(vma, page)	_flush_icache_page(vma, page)
-
-#endif /* !CONFIG_CPU_R10000 */
-
-#define flush_cache_sigtramp(addr)	_flush_cache_sigtramp(addr)
-#ifdef CONFIG_VTAG_ICACHE
-#define flush_icache_all()		_flush_icache_all()
-#else
-#define flush_icache_all()		do { } while(0)
-#endif
-
-#define flush_cache_l2()		_flush_cache_l2()
-#define flush_cache_l1()		_flush_cache_l1()
 
 /*
  * Each address space has 2 4K pages as its page directory, giving 1024
@@ -130,12 +67,43 @@ do {									\
 #define PGDIR_SIZE	(1UL << PGDIR_SHIFT)
 #define PGDIR_MASK	(~(PGDIR_SIZE-1))
 
-/* Entries per page directory level: we use two-level, so we don't really
-   have any PMD directory physically.  */
-#define PTRS_PER_PGD	1024
-#define PTRS_PER_PMD	1024
-#define PTRS_PER_PTE	512
+#define PGD_T_LOG2	ffz(~sizeof(pgd_t))
+#define PMD_T_LOG2	ffz(~sizeof(pmd_t))
+#define PTE_T_LOG2	ffz(~sizeof(pte_t))
+
+/*
+ * For 4kB page size we use a 3 level page tree and a 8kB pmd and pgds which
+ * permits us mapping 40 bits of virtual address space.
+ *
+ * We used to implement 41 bits by having an order 1 pmd level but that seemed
+ * rather pointless.
+ *
+ * For 16kB page size we use a 2 level page tree which permit a total of
+ * 36 bits of virtual address space.  We could add a third leve. but it seems
+ * like at the moment there's no need for this.
+ *
+ * For 64kB page size we use a 2 level page table tree for a total of 42 bits
+ * of virtual address space.
+ */
+#ifdef CONFIG_PAGE_SIZE_4KB
 #define PGD_ORDER		1
+#define PMD_ORDER		1
+#define PTE_ORDER		0
+#endif
+#ifdef CONFIG_PAGE_SIZE_16KB
+#define PGD_ORDER		0
+#define PMD_ORDER		0
+#define PTE_ORDER		0
+#endif
+#ifdef CONFIG_PAGE_SIZE_64KB
+#define PGD_ORDER		0
+#define PMD_ORDER		0
+#define PTE_ORDER		0
+#endif
+
+#define PTRS_PER_PGD		((PAGE_SIZE << PGD_ORDER) / sizeof(pgd_t))
+#define PTRS_PER_PMD		((PAGE_SIZE << PMD_ORDER) / sizeof(pmd_t))
+#define PTRS_PER_PTE		((PAGE_SIZE << PTE_ORDER) / sizeof(pte_t))
 
 #define USER_PTRS_PER_PGD	(TASK_SIZE / PGDIR_SIZE)
 #define FIRST_USER_PGD_NR	0
@@ -498,12 +466,20 @@ static inline pte_t *pte_offset(pmd_t * dir, unsigned long address)
 extern void pgd_init(unsigned long page);
 extern void pmd_init(unsigned long page, unsigned long pagetable);
 
-extern pgd_t swapper_pg_dir[1024];
+extern pgd_t swapper_pg_dir[PTRS_PER_PGD];
 extern void paging_init(void);
 
-extern void (*_update_mmu_cache)(struct vm_area_struct *vma,
-	unsigned long address, pte_t pte);
-#define update_mmu_cache(vma, address, pte) _update_mmu_cache(vma, address, pte)
+extern void __update_tlb(struct vm_area_struct *vma, unsigned long address,
+	pte_t pte);
+extern void __update_cache(struct vm_area_struct *vma, unsigned long address,
+	pte_t pte);
+
+static inline void update_mmu_cache(struct vm_area_struct *vma,
+	unsigned long address, pte_t pte)
+{
+	__update_tlb(vma, address, pte);
+	__update_cache(vma, address, pte);
+}
 
 /*
  * Non-present pages:  high 24 bits are offset, next 8 bits type,

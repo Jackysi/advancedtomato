@@ -2,7 +2,7 @@
  * Handle mapping of the flash memory access routines 
  * on TQM8xxL based devices.
  *
- * $Id: tqm8xxl.c,v 1.1.1.4 2003/10/14 08:08:17 sparq Exp $
+ * $Id: tqm8xxl.c,v 1.4 2002/06/20 13:41:20 mag Exp $
  *
  * based on rpxlite.c
  *
@@ -90,20 +90,6 @@ void tqm8xxl_copy_to(struct map_info *map, unsigned long to, const void *from, s
 {
 	memcpy_toio((void *)(map->map_priv_1 + to), from, len);
 }
-
-struct map_info tqm8xxl_map = {
-	name: "TQM8xxL",
-	//size: WINDOW_SIZE,
-	buswidth: 4,
-	read8: tqm8xxl_read8,
-	read16: tqm8xxl_read16,
-	read32: tqm8xxl_read32,
-	copy_from: tqm8xxl_copy_from,
-	write8: tqm8xxl_write8,
-	write16: tqm8xxl_write16,
-	write32: tqm8xxl_write32,
-	copy_to: tqm8xxl_copy_to
-};
 
 /*
  * Here are partition information for all known TQM8xxL series devices.
@@ -204,8 +190,9 @@ int __init init_tqm_mtd(void)
 			goto error_mem;
 		}
 		memset((void *)map_banks[idx]->name, 0, 16);
-		
+
 		sprintf(map_banks[idx]->name, "TQM8xxL%d", idx);
+		map_banks[idx]->size = flash_size;
 		map_banks[idx]->buswidth = 4;
 		map_banks[idx]->read8 = tqm8xxl_read8;
 		map_banks[idx]->read16 = tqm8xxl_read16;

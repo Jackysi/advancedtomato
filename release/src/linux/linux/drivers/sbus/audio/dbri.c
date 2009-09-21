@@ -1,4 +1,4 @@
-/* $Id: dbri.c,v 1.1.1.4 2003/10/14 08:08:34 sparq Exp $
+/* $Id: dbri.c,v 1.27 2001/10/08 22:19:50 davem Exp $
  * drivers/sbus/audio/dbri.c
  *
  * Copyright (C) 1997 Rudolf Koenig (rfkoenig@immd4.informatik.uni-erlangen.de)
@@ -51,6 +51,7 @@
 #include <linux/slab.h>
 #include <linux/version.h>
 #include <linux/delay.h>
+#include <linux/soundcard.h>
 #include <asm/openprom.h>
 #include <asm/oplib.h>
 #include <asm/system.h>
@@ -161,7 +162,7 @@ static volatile s32 *dbri_cmdlock(struct dbri *dbri)
 
 static void dbri_process_interrupt_buffer(struct dbri *);
 
-static void dbri_cmdsend(struct dbri *dbri, volatile s32 *cmd)
+static void dbri_cmdsend(struct dbri *dbri, volatile s32 *cmd, int pause)
 {
 	int MAXLOOPS = 1000000;
 	int maxloops = MAXLOOPS;
@@ -181,25 +182,30 @@ static void dbri_cmdsend(struct dbri *dbri, volatile s32 *cmd)
         } else if ((cmd - &dbri->dma->cmd[0]) >= DBRI_NO_CMDS-1) {
                 printk("DBRI: Command buffer overflow! (bug in driver)\n");
         } else {
-                *(cmd++) = DBRI_CMD(D_PAUSE, 0, 0);
+                if (pause) 
+			*(cmd++) = DBRI_CMD(D_PAUSE, 0, 0);
 		*(cmd++) = DBRI_CMD(D_WAIT, 1, 0);
 		dbri->wait_seen = 0;
                 sbus_writel(dbri->dma_dvma, dbri->regs + REG8);
-		while ((--maxloops) > 0 &&
-                       (sbus_readl(dbri->regs + REG0) & D_P))
-                        barrier();
-		if (maxloops == 0) {
-			printk("DBRI: Chip never completed command buffer\n");
-		} else {
-			while ((--maxloops) > 0 && (! dbri->wait_seen))
-				dbri_process_interrupt_buffer(dbri);
+		if (pause) {
+			while ((--maxloops) > 0 &&
+			       (sbus_readl(dbri->regs + REG0) & D_P))
+				barrier();
 			if (maxloops == 0) {
-				printk("DBRI: Chip never acked WAIT\n");
+				printk("DBRI: Chip never completed command buffer\n");
 			} else {
-				dprintk(D_INT, ("DBRI: Chip completed command "
-                                                "buffer (%d)\n",
-						MAXLOOPS - maxloops));
+				while ((--maxloops) > 0 && (! dbri->wait_seen))
+					dbri_process_interrupt_buffer(dbri);
+				if (maxloops == 0) {
+					printk("DBRI: Chip never acked WAIT\n");
+				} else {
+					dprintk(D_INT, ("DBRI: Chip completed command "
+							"buffer (%d)\n",
+							MAXLOOPS - maxloops));
+				}
 			}
+		} else {
+			dprintk(D_INT, ("DBRI: NO PAUSE\n"));
 		}
         }
 
@@ -257,7 +263,10 @@ static void dbri_initialize(struct dbri *dbri)
         /* We should query the openprom to see what burst sizes this
          * SBus supports.  For now, just disable all SBus bursts */
         tmp = sbus_readl(dbri->regs + REG0);
-        tmp &= ~(D_G | D_S | D_E);
+	/* A brute approach - DBRI falls back to working burst size by itself
+	 * On SS20 D_S does not work, so do not try so high. */
+        tmp |= D_G | D_E;
+        tmp &= ~D_S;
         sbus_writel(tmp, dbri->regs + REG0);
 
 	/*
@@ -268,7 +277,7 @@ static void dbri_initialize(struct dbri *dbri)
 	*(cmd++) = DBRI_CMD(D_IIQ, 0, 0);
 	*(cmd++) = dma_addr;
 
-        dbri_cmdsend(dbri, cmd);
+        dbri_cmdsend(dbri, cmd, 1);
 }
 
 
@@ -455,7 +464,7 @@ static void dbri_process_one_interrupt(struct dbri *dbri, int x)
 				    dbri->pipes[pipe].sdp
 				    | D_SDP_P | D_SDP_C | D_SDP_2SAME);
                 *(cmd++) = dbri->dma_dvma + dbri_dma_off(desc, td);
-		dbri_cmdsend(dbri, cmd);
+		dbri_cmdsend(dbri, cmd, 1);
 	}
 
 	if (code == D_INTR_FXDT) {
@@ -526,6 +535,10 @@ static void dbri_intr(int irq, void *opaque, struct pt_regs *regs)
                 sbus_writel(tmp, dbri->regs + REG0);
 	}
 
+#if 0
+	if (!(x & D_IR))	/* Not for us */
+		return;
+#endif
 
 	dbri_process_interrupt_buffer(dbri);
 }
@@ -575,7 +588,7 @@ static void reset_pipe(struct dbri *dbri, int pipe)
         cmd = dbri_cmdlock(dbri);
         *(cmd++) = DBRI_CMD(D_SDP, 0, sdp | D_SDP_C | D_SDP_P);
         *(cmd++) = 0;
-        dbri_cmdsend(dbri, cmd);
+        dbri_cmdsend(dbri, cmd, 1);
 
 	desc = dbri->pipes[pipe].desc;
 	while (desc != -1) {
@@ -718,7 +731,7 @@ static void link_time_slot(struct dbri *dbri, int pipe,
 		*(cmd++) = D_TS_LEN(length) | D_TS_CYCLE(cycle) | D_TS_NEXT(nextpipe);
 	}
 
-        dbri_cmdsend(dbri, cmd);
+        dbri_cmdsend(dbri, cmd, 1);
 }
 
 /* I don't use this function, so it's basically untested. */
@@ -748,7 +761,7 @@ static void unlink_time_slot(struct dbri *dbri, int pipe,
 		*(cmd++) = D_TS_NEXT(nextpipe);
         }
 
-        dbri_cmdsend(dbri, cmd);
+        dbri_cmdsend(dbri, cmd, 1);
 }
 
 /* xmit_fixed() / recv_fixed()
@@ -799,7 +812,7 @@ static void xmit_fixed(struct dbri *dbri, int pipe, unsigned int data)
         *(cmd++) = DBRI_CMD(D_SSP, 0, pipe);
         *(cmd++) = data;
 
-        dbri_cmdsend(dbri, cmd);
+        dbri_cmdsend(dbri, cmd, 1);
 }
 
 static void recv_fixed(struct dbri *dbri, int pipe, volatile __u32 *ptr)
@@ -880,7 +893,9 @@ static void xmit_on_pipe(struct dbri *dbri, int pipe,
                 }
 
                 if (len > ((1 << 13) - 1)) {
-                        mylen = (1 << 13) - 1;
+		/* One should not leave a buffer shorter than	 */
+		/* a single sample. Otherwise bad things happens.*/
+                        mylen = (1 << 13) - 4;
                 } else {
                         mylen = len;
                 }
@@ -950,7 +965,7 @@ static void xmit_on_pipe(struct dbri *dbri, int pipe,
 
 		cmd = dbri_cmdlock(dbri);
 		*(cmd++) = DBRI_CMD(D_CDP, 0, pipe);
-		dbri_cmdsend(dbri,cmd);
+		dbri_cmdsend(dbri,cmd, 0);
 	} else {
 		/* Pipe isn't active - issue an SDP command to start
 		 * our chain of TDs running.
@@ -961,7 +976,7 @@ static void xmit_on_pipe(struct dbri *dbri, int pipe,
 				    dbri->pipes[pipe].sdp
 				    | D_SDP_P | D_SDP_EVERY | D_SDP_C);
                 *(cmd++) = dbri->dma_dvma + dbri_dma_off(desc, first_td);
-		dbri_cmdsend(dbri, cmd);
+		dbri_cmdsend(dbri, cmd, 0);
 	}
 
 	restore_flags(flags);
@@ -994,6 +1009,9 @@ static void recv_on_pipe(struct dbri *dbri, int pipe,
                 return;
         }
 
+        /* XXX Fix this XXX
+	 * Should be able to queue multiple buffers to receive on a pipe
+         */
         if (dbri->pipes[pipe].desc != -1) {
 		printk("DBRI: recv_on_pipe: Called on active pipe %d\n", pipe);
                 return;
@@ -1076,7 +1094,7 @@ static void recv_on_pipe(struct dbri *dbri, int pipe,
 	*(cmd++) = DBRI_CMD(D_SDP, 0, dbri->pipes[pipe].sdp | D_SDP_P | D_SDP_C);
         *(cmd++) = dbri->dma_dvma + dbri_dma_off(desc, first_rd);
 
-        dbri_cmdsend(dbri, cmd);
+        dbri_cmdsend(dbri, cmd, 1);
 }
 
 
@@ -1121,6 +1139,9 @@ static void reset_chi(struct dbri *dbri, enum master_or_slave master_or_slave,
 		dbri->chi_in_pipe = 16;
 		dbri->chi_out_pipe = 16;
 
+#if 0
+		chi_initialized ++;
+#endif
 	} else {
 		int pipe;
 
@@ -1181,7 +1202,7 @@ static void reset_chi(struct dbri *dbri, enum master_or_slave master_or_slave,
 	*(cmd++) = DBRI_CMD(D_PAUSE, 0, 0);
 	*(cmd++) = DBRI_CMD(D_CDM, 0, D_CDM_XCE|D_CDM_XEN|D_CDM_REN);
 
-	dbri_cmdsend(dbri, cmd);
+	dbri_cmdsend(dbri, cmd, 1);
 }
 
 /*
@@ -1348,6 +1369,7 @@ static int mmcodec_setctrl(struct dbri *dbri)
 	int i, val;
         u32 tmp;
 
+	/* XXX - let the CPU do something useful during these delays */
 
 	/* Temporarily mute outputs, and wait 1/8000 sec (125 us)
 	 * to make sure this takes.  This avoids clicking noises.
@@ -1527,6 +1549,26 @@ static void dbri_start_output(struct sparcaudio_driver *drv,
 	xmit_on_pipe(dbri, 4, buffer, count,
 		     &dbri_audio_output_callback, drv);
 
+	/* Notify midlevel that we're a DMA-capable driver that
+	 * can accept another buffer immediately.  We should probably
+	 * check that we've got enough resources (i.e, descriptors)
+	 * available before doing this, but the default midlevel
+	 * settings only buffer 64KB, which we can handle with 16
+	 * of our DBRI_NO_DESCS (64) descriptors.
+	 *
+	 * This code is #ifdef'ed out because it's caused me more
+	 * problems than it solved.  It'd be nice to provide the
+	 * DBRI with a chain of buffers, but the midlevel code is
+	 * so tricky that I really don't want to deal with it.
+	 */
+	/*
+	 * This must be enabled otherwise the output is noisy
+	 * as return to user space is done when all buffers
+	 * are already played, so user space player has no time
+  	 * to prepare next ones without a period of silence. - Krzysztof Helt
+	 */
+
+	sparcaudio_output_done(drv, 2);
 }
 
 static void dbri_stop_output(struct sparcaudio_driver *drv)
@@ -1815,6 +1857,12 @@ static int dbri_get_input_rate(struct sparcaudio_driver *drv)
 	return dbri_get_output_rate(drv);
 }
 
+static int dbri_get_formats(struct sparcaudio_driver *drv)
+{
+/* 8-bit format is not working */
+        return (AFMT_MU_LAW | AFMT_A_LAW | AFMT_S16_BE);
+}
+
 /******************* sparcaudio midlevel - ports ***********************/
 
 static int dbri_set_output_port(struct sparcaudio_driver *drv, int port)
@@ -1956,6 +2004,19 @@ static struct sparcaudio_operations dbri_ops = {
 	dbri_get_input_ports,
 	dbri_set_output_muted,
 	dbri_get_output_muted,
+	NULL, /* dbri_set_output_pause, */
+	NULL, /* dbri_get_output_pause, */
+	NULL, /* dbri_set_input_pause, */
+	NULL, /* dbri_get_input_pause, */
+	NULL, /* dbri_set_output_samples, */
+	NULL, /* dbri_get_output_samples, */
+	NULL, /* dbri_set_input_samples, */
+	NULL, /* dbri_get_input_samples, */
+	NULL, /* dbri_set_output_error, */
+	NULL, /* dbri_get_output_error, */
+	NULL, /* dbri_set_input_error, */
+	NULL, /* dbri_get_input_error, */
+        dbri_get_formats
 };
 
 
@@ -2066,7 +2127,7 @@ void dbri_liu_activate(int dev, int priority)
 #endif
 	       *(cmd++) = DBRI_CMD(D_TE, 0, val);
 
-	       dbri_cmdsend(dbri, cmd);
+	       dbri_cmdsend(dbri, cmd, 1);
 
 	       /* Activate the interface */
                tmp = sbus_readl(dbri->regs + REG0);
@@ -2078,6 +2139,9 @@ void dbri_liu_activate(int dev, int priority)
 void dbri_liu_deactivate(int dev)
 {
        struct dbri *dbri;
+#if 0
+       u32 tmp;
+#endif
 
        if (dev >= num_drivers)
                return;
@@ -2086,6 +2150,14 @@ void dbri_liu_deactivate(int dev)
 
        tprintk(("dbri_liu_deactivate()\n"));
 
+#if 0
+       /* Turn off the ISDN TE interface */
+       tmp = sbus_readl(dbri->regs + REG0);
+       tmp &= ~D_T;
+       sbus_writel(tmp, dbri->regs + REG0);
+
+       dbri->liu_state = 0;
+#endif
 }
 
 void dbri_dxmit(int dev, __u8 *buffer, unsigned int count,

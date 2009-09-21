@@ -1,16 +1,10 @@
 #ifndef _ATP870U_H
 
-/* $Id: atp870u.h,v 1.1.1.4 2003/10/14 08:08:38 sparq Exp $
+/* $Id: atp870u.h,v 1.0 1997/05/07 15:09:00 root Exp root $
 
  * Header file for the ACARD 870U/W driver for Linux
  *
  * $Log: atp870u.h,v $
- * Revision 1.1.1.4  2003/10/14 08:08:38  sparq
- * Broadcom Release 3.51.8.0 for BCM4712.
- *
- * Revision 1.1.1.1  2003/02/03 22:37:52  mhuang
- * LINUX_2_4 branch snapshot from linux-mips.org CVS
- *
  * Revision 1.0  1997/05/07  15:09:00  root
  * Initial revision
  *

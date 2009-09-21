@@ -443,6 +443,7 @@ static int rme96xx_spdif_read_codec (rme96xx_info* s, const int address)
 
 static void rme96xx_initialize_spdif_receiver (rme96xx_info* s)
 {
+	/* XXX what unsets this ? */
 	/* no idea ???   HP 20020201 */
 
 	s->control_register |= RME96xx_SPDIF_RESET;
@@ -1127,6 +1128,10 @@ static int rme96xx_ioctl(struct inode *in, struct file *file, unsigned int cmd, 
 		return put_user(SOUND_VERSION, (int *)arg);
 
 	case SNDCTL_DSP_SYNC:
+#if 0
+		if (file->f_mode & FMODE_WRITE)
+			return drain_dac2(s, 0/*file->f_flags & O_NONBLOCK*/);
+#endif
 		return 0;
 		
 	case SNDCTL_DSP_SETDUPLEX:
@@ -1248,11 +1253,35 @@ static int rme96xx_ioctl(struct inode *in, struct file *file, unsigned int cmd, 
 
         case SNDCTL_DSP_GETTRIGGER:
 		val = 0;
+#if 0
+		if (file->f_mode & FMODE_READ && s->ctrl & CTRL_ADC_EN) 
+			val |= PCM_ENABLE_INPUT;
+		if (file->f_mode & FMODE_WRITE && s->ctrl & CTRL_DAC2_EN) 
+			val |= PCM_ENABLE_OUTPUT;
+#endif
 		return put_user(val, (int *)arg);
 		
 	case SNDCTL_DSP_SETTRIGGER:
 		if (get_user(val, (int *)arg))
 			return -EFAULT;
+#if 0
+		if (file->f_mode & FMODE_READ) {
+			if (val & PCM_ENABLE_INPUT) {
+				if (!s->dma_adc.ready && (ret = prog_dmabuf_adc(s)))
+					return ret;
+				start_adc(s);
+			} else
+				stop_adc(s);
+		}
+		if (file->f_mode & FMODE_WRITE) {
+			if (val & PCM_ENABLE_OUTPUT) {
+				if (!s->dma_dac2.ready && (ret = prog_dmabuf_dac2(s)))
+					return ret;
+				start_dac2(s);
+			} else
+				stop_dac2(s);
+		}
+#endif
 		return 0;
 
 	case SNDCTL_DSP_GETOSPACE:
@@ -1351,6 +1380,19 @@ static int rme96xx_ioctl(struct inode *in, struct file *file, unsigned int cmd, 
 		return 0;
 
         case SNDCTL_DSP_SUBDIVIDE:
+#if 0
+		if ((file->f_mode & FMODE_READ && s->dma_adc.subdivision) ||
+		    (file->f_mode & FMODE_WRITE && s->dma_dac2.subdivision))
+			return -EINVAL;
+                if (get_user(val, (int *)arg))
+			return -EFAULT;
+		if (val != 1 && val != 2 && val != 4)
+			return -EINVAL;
+		if (file->f_mode & FMODE_READ)
+			s->dma_adc.subdivision = val;
+		if (file->f_mode & FMODE_WRITE)
+			s->dma_dac2.subdivision = val;
+#endif		
 		return 0;
 
         case SOUND_PCM_READ_RATE:
@@ -1448,6 +1490,13 @@ static int rme96xx_release(struct inode *in, struct file *file)
 
 	COMM          ("draining")
 	if (dma->open_mode & FMODE_WRITE) {
+#if 0 /* Why doesn't this work with some cards ?? */
+	     hwp = rme96xx_gethwptr(dma->s,0);
+	     while (rme96xx_getospace(dma,hwp)) {
+		  interruptible_sleep_on(&(dma->wait));
+		  hwp = rme96xx_gethwptr(dma->s,0);
+	     }
+#endif
 	     rme96xx_clearbufs(dma);
 	}
 

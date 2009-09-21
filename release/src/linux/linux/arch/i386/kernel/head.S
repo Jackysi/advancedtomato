@@ -1,5 +1,5 @@
 /*
- *  linux/arch/i386/head.S -- the 32-bit startup code.
+ *  linux/arch/i386/kernel/head.S -- the 32-bit startup code.
  *
  *  Copyright (C) 1991, 1992  Linus Torvalds
  *
@@ -34,7 +34,7 @@
 #define X86_HARD_MATH	CPU_PARAMS+6
 #define X86_CPUID	CPU_PARAMS+8
 #define X86_CAPABILITY	CPU_PARAMS+12
-#define X86_VENDOR_ID	CPU_PARAMS+28
+#define X86_VENDOR_ID	CPU_PARAMS+36	/* tied to NCAPINTS in cpufeature.h */
 
 /*
  * swapper_pg_dir is the main page directory, address 0x00101000
@@ -113,7 +113,7 @@ startup_32:
 	popfl
 	jmp checkCPUtype
 1:
-#endif CONFIG_SMP
+#endif /* CONFIG_SMP */
 
 /*
  * Clear BSS first so that there are no surprises...
@@ -131,6 +131,11 @@ startup_32:
  * in 16-bit mode for the "real" operations.
  */
 	call setup_idt
+/*
+ * Initialize eflags.  Some BIOS's leave bits like NT set.  This would
+ * confuse the debugger if this code is traced.
+ * XXX - best to initialize before switching to protected mode.
+ */
 	pushl $0
 	popfl
 /*
@@ -167,6 +172,11 @@ checkCPUtype:
 	movl $-1,X86_CPUID		#  -1 for no CPUID initially
 
 /* check if it is 486 or 386. */
+/*
+ * XXX - this does a lot of unnecessary setup.  Alignment checks don't
+ * apply at our cpl of 0 and the stack ought to be aligned already, and
+ * we don't need to preserve eflags.
+ */
 
 	movb $3,X86		# at least 386
 	pushfl			# push EFLAGS
@@ -315,27 +325,21 @@ ENTRY(stack_start)
 
 /* This is the default interrupt "handler" :-) */
 int_msg:
-	.asciz "Unknown interrupt\n"
+	.asciz "Unknown interrupt, stack: %p %p %p %p\n"
 	ALIGN
 ignore_int:
 	cld
-	pushl %eax
-	pushl %ecx
-	pushl %edx
-	pushl %es
-	pushl %ds
 	movl $(__KERNEL_DS),%eax
 	movl %eax,%ds
 	movl %eax,%es
+	pushl 12(%esp)
+	pushl 12(%esp)
+	pushl 12(%esp)
+	pushl 12(%esp)
 	pushl $int_msg
 	call SYMBOL_NAME(printk)
-	popl %eax
-	popl %ds
-	popl %es
-	popl %edx
-	popl %ecx
-	popl %eax
-	iret
+1:	hlt
+	jmp 1b
 
 /*
  * The interrupt descriptor table has room for 256 idt's,

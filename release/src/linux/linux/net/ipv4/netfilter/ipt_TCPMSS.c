@@ -12,7 +12,11 @@
 #include <linux/netfilter_ipv4/ip_tables.h>
 #include <linux/netfilter_ipv4/ipt_TCPMSS.h>
 
+#if 0
+#define DEBUGP printk
+#else
 #define DEBUGP(format, args...)
+#endif
 
 static u_int16_t
 cheat_check(u_int32_t oldvalinv, u_int32_t newval, u_int16_t oldcheck)

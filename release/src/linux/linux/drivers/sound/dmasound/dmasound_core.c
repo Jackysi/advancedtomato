@@ -374,7 +374,7 @@ static struct file_operations mixer_fops =
 	release:	mixer_release,
 };
 
-static void __init mixer_init(void)
+static void mixer_init(void)
 {
 #ifndef MODULE
 	int mixer_unit;
@@ -577,6 +577,11 @@ static ssize_t sq_write(struct file *file, const char *src, size_t uLeft,
 		uWritten = 0 ;
 	}
 
+/* FIXME: I think that this may be the wrong behaviour when we get strapped
+	for time and the cpu is close to being (or actually) behind in sending data.
+	- because we've lost the time that the N samples, already in the buffer,
+	would have given us to get here with the next lot from the user.
+*/
 	/* The interrupt doesn't start to play the last, incomplete frame.
 	 * Thus we can append to it without disabling the interrupts! (Note
 	 * also that write_sq.rear isn't affected by the interrupt.)
@@ -778,6 +783,16 @@ static inline void sq_init_waitqueue(struct sound_queue *sq)
 	sq->busy = 0;
 }
 
+#if 0 /* blocking open() */
+static inline void sq_wake_up(struct sound_queue *sq, struct file *file,
+			      mode_t mode)
+{
+	if (file->f_mode & mode) {
+		sq->busy = 0; /* CHECK: IS THIS OK??? */
+		WAKE_UP(sq->open_queue);
+	}
+}
+#endif
 
 static int sq_open2(struct sound_queue *sq, struct file *file, mode_t mode,
 		    int numbufs, int bufsize)
@@ -786,10 +801,23 @@ static int sq_open2(struct sound_queue *sq, struct file *file, mode_t mode,
 
 	if (file->f_mode & mode) {
 		if (sq->busy) {
+#if 0 /* blocking open() */
+			rc = -EBUSY;
+			if (file->f_flags & O_NONBLOCK)
+				return rc;
+			rc = -EINTR;
+			while (sq->busy) {
+				SLEEP(sq->open_queue);
+				if (signal_pending(current))
+					return rc;
+			}
+			rc = 0;
+#else
 			/* OSS manual says we will return EBUSY regardless
 			   of O_NOBLOCK.
 			*/
 			return -EBUSY ;
+#endif
 		}
 		sq->busy = 1; /* Let's play spot-the-race-condition */
 
@@ -799,7 +827,11 @@ static int sq_open2(struct sound_queue *sq, struct file *file, mode_t mode,
 		   in the setfragments ioctl.
 		*/
 		if (( rc = sq_allocate_buffers(sq, numbufs, bufsize))) {
+#if 0 /* blocking open() */
+			sq_wake_up(sq, file, mode);
+#else
 			sq->busy = 0 ;
+#endif
 			return rc;
 		}
 
@@ -809,17 +841,26 @@ static int sq_open2(struct sound_queue *sq, struct file *file, mode_t mode,
 }
 
 #define write_sq_init_waitqueue()	sq_init_waitqueue(&write_sq)
+#if 0 /* blocking open() */
+#define write_sq_wake_up(file)		sq_wake_up(&write_sq, file, FMODE_WRITE)
+#endif
 #define write_sq_release_buffers()	sq_release_buffers(&write_sq)
 #define write_sq_open(file)	\
 	sq_open2(&write_sq, file, FMODE_WRITE, numWriteBufs, writeBufSize )
 
 #ifdef HAS_RECORD
 #define read_sq_init_waitqueue()	sq_init_waitqueue(&read_sq)
+#if 0 /* blocking open() */
+#define read_sq_wake_up(file)		sq_wake_up(&read_sq, file, FMODE_READ)
+#endif
 #define read_sq_release_buffers()	sq_release_buffers(&read_sq)
 #define read_sq_open(file)	\
 	sq_open2(&read_sq, file, FMODE_READ, numReadBufs, readBufSize )
 #else
 #define read_sq_init_waitqueue()	do {} while (0)
+#if 0 /* blocking open() */
+#define read_sq_wake_up(file)		do {} while (0)
+#endif
 #define read_sq_release_buffers()	do {} while (0)
 #define sq_reset_input()		do {} while (0)
 #endif
@@ -1011,6 +1052,17 @@ static int sq_release(struct inode *inode, struct file *file)
 
 	dmasound.mach.release();
 
+#if 0 /* blocking open() */
+	/* Wake up a process waiting for the queue being released.
+	 * Note: There may be several processes waiting for a call
+	 * to open() returning. */
+
+	/* Iain: hmm I don't understand this next comment ... */
+	/* There is probably a DOS atack here. They change the mode flag. */
+	/* XXX add check here,*/
+	read_sq_wake_up(file); /* checks f_mode */
+	write_sq_wake_up(file); /* checks f_mode */
+#endif /* blocking open() */
 
 	unlock_kernel();
 
@@ -1159,8 +1211,10 @@ static int sq_ioctl(struct inode *inode, struct file *file, u_int cmd,
 			shared_resources_initialised = 0 ;
 		return result ;
 		break ;
+	case SOUND_PCM_READ_RATE:
+		return IOCTL_OUT(arg, dmasound.soft.speed);
 	case SNDCTL_DSP_SPEED:
-		/* changing this on the fly will have wierd effects on the sound.
+		/* Changing this on the fly will have weird effects on the sound.
 		   Where there are rate conversions implemented in soft form - it
 		   will cause the _ctx_xxx() functions to be substituted.
 		   However, there doesn't appear to be any reason to dis-allow it from
@@ -1285,7 +1339,7 @@ static struct file_operations sq_fops =
 #endif
 };
 
-static int __init sq_init(void)
+static int sq_init(void)
 {
 #ifndef MODULE
 	int sq_unit;
@@ -1502,7 +1556,7 @@ static struct file_operations state_fops = {
 	release:	state_release,
 };
 
-static int __init state_init(void)
+static int state_init(void)
 {
 #ifndef MODULE
 	int state_unit;
@@ -1521,7 +1575,7 @@ static int __init state_init(void)
      *  This function is called by _one_ chipset-specific driver
      */
 
-int __init dmasound_init(void)
+int dmasound_init(void)
 {
 	int res ;
 #ifdef MODULE
@@ -1592,7 +1646,7 @@ void dmasound_deinit(void)
 
 #else /* !MODULE */
 
-static int __init dmasound_setup(char *str)
+static int dmasound_setup(char *str)
 {
 	int ints[6], size;
 
@@ -1600,18 +1654,21 @@ static int __init dmasound_setup(char *str)
 
 	/* check the bootstrap parameter for "dmasound=" */
 
+	/* FIXME: other than in the most naive of cases there is no sense in these
+	 *	  buffers being other than powers of two.  This is not checked yet.
+	 */
 
 	switch (ints[0]) {
 #ifdef HAS_RECORD
         case 5:
                 if ((ints[5] < 0) || (ints[5] > MAX_CATCH_RADIUS))
-                        printk("dmasound_setup: illegal catch radius, using default = %d\n", catchRadius);
+                        printk("dmasound_setup: invalid catch radius, using default = %d\n", catchRadius);
                 else
                         catchRadius = ints[5];
                 /* fall through */
         case 4:
                 if (ints[4] < MIN_BUFFERS)
-                        printk("dmasound_setup: illegal number of read buffers, using default = %d\n",
+                        printk("dmasound_setup: invalid number of read buffers, using default = %d\n",
                                  numReadBufs);
                 else
                         numReadBufs = ints[4];
@@ -1620,21 +1677,21 @@ static int __init dmasound_setup(char *str)
 		if ((size = ints[3]) < 256)  /* check for small buffer specs */
 			size <<= 10 ;
                 if (size < MIN_BUFSIZE || size > MAX_BUFSIZE)
-                        printk("dmasound_setup: illegal read buffer size, using default = %d\n", readBufSize);
+                        printk("dmasound_setup: invalid read buffer size, using default = %d\n", readBufSize);
                 else
                         readBufSize = size;
                 /* fall through */
 #else
 	case 3:
 		if ((ints[3] < 0) || (ints[3] > MAX_CATCH_RADIUS))
-			printk("dmasound_setup: illegal catch radius, using default = %d\n", catchRadius);
+			printk("dmasound_setup: invalid catch radius, using default = %d\n", catchRadius);
 		else
 			catchRadius = ints[3];
 		/* fall through */
 #endif
 	case 2:
 		if (ints[1] < MIN_BUFFERS)
-			printk("dmasound_setup: illegal number of buffers, using default = %d\n", numWriteBufs);
+			printk("dmasound_setup: invalid number of buffers, using default = %d\n", numWriteBufs);
 		else
 			numWriteBufs = ints[1];
 		/* fall through */
@@ -1642,13 +1699,13 @@ static int __init dmasound_setup(char *str)
 		if ((size = ints[2]) < 256) /* check for small buffer specs */
 			size <<= 10 ;
                 if (size < MIN_BUFSIZE || size > MAX_BUFSIZE)
-                        printk("dmasound_setup: illegal write buffer size, using default = %d\n", writeBufSize);
+                        printk("dmasound_setup: invalid write buffer size, using default = %d\n", writeBufSize);
                 else
                         writeBufSize = size;
 	case 0:
 		break;
 	default:
-		printk("dmasound_setup: illegal number of arguments\n");
+		printk("dmasound_setup: invalid number of arguments\n");
 		return 0;
 	}
 	return 1;

@@ -1,29 +1,30 @@
 /*
- *      epson1356fb.h  --  Epson SED1356 Framebuffer Driver
+ *	epson1356fb.h  --  Epson SED1356 Framebuffer Driver
  *
- * Copyright 2001 MontaVista Software Inc.
- * Author: MontaVista Software, Inc.
- *         	stevel@mvista.com or source@mvista.com
+ *	Copyright 2001, 2002, 2003 MontaVista Software Inc.
+ *	Author: MontaVista Software, Inc.
+ *		stevel@mvista.com or source@mvista.com
  *
- *  This program is free software; you can redistribute  it and/or modify it
- *  under  the terms of  the GNU General  Public License as published by the
- *  Free Software Foundation;  either version 2 of the  License, or (at your
- *  option) any later version.
+ *	This program is free software; you can redistribute  it and/or modify it
+ *	under  the terms of  the GNU General  Public License as published by the
+ *	Free Software Foundation;  either version 2 of the  License, or (at your
+ *	option) any later version.
  *
- *  THIS  SOFTWARE  IS PROVIDED   ``AS  IS'' AND   ANY  EXPRESS OR IMPLIED
- *  WARRANTIES,   INCLUDING, BUT NOT  LIMITED  TO, THE IMPLIED WARRANTIES OF
- *  MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.  IN
- *  NO  EVENT  SHALL   THE AUTHOR  BE    LIABLE FOR ANY   DIRECT, INDIRECT,
- *  INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT
- *  NOT LIMITED   TO, PROCUREMENT OF  SUBSTITUTE GOODS  OR SERVICES; LOSS OF
- *  USE, DATA,  OR PROFITS; OR  BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
- *  ANY THEORY OF LIABILITY, WHETHER IN  CONTRACT, STRICT LIABILITY, OR TORT
- *  (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
- *  THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *	THIS  SOFTWARE  IS PROVIDED   ``AS  IS'' AND   ANY  EXPRESS OR IMPLIED
+ *	WARRANTIES,   INCLUDING, BUT NOT  LIMITED  TO, THE IMPLIED WARRANTIES OF
+ *	MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.  IN
+ *	NO  EVENT  SHALL   THE AUTHOR  BE    LIABLE FOR ANY   DIRECT, INDIRECT,
+ *	INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT
+ *	NOT LIMITED   TO, PROCUREMENT OF  SUBSTITUTE GOODS  OR SERVICES; LOSS OF
+ *	USE, DATA,  OR PROFITS; OR  BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
+ *	ANY THEORY OF LIABILITY, WHETHER IN  CONTRACT, STRICT LIABILITY, OR TORT
+ *	(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
+ *	THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- *  You should have received a copy of the  GNU General Public License along
- *  with this program; if not, write  to the Free Software Foundation, Inc.,
- *  675 Mass Ave, Cambridge, MA 02139, USA.
+ *	You should have received a copy of the  GNU General Public License along
+ *	with this program; if not, write  to the Free Software Foundation, Inc.,
+ *	675 Mass Ave, Cambridge, MA 02139, USA.
+ *
  */
 
 #ifdef E1356FB_DEBUG
@@ -321,8 +322,8 @@ enum tv_format_t {
 
 struct e1356fb_fix {
 	int system;       // the number of a pre-packaged system
-	u64 regbase_phys; // phys start address of registers
-	u64 membase_phys; // phys start address of fb memory
+	phys_t regbase_phys; // phys start address of registers
+	phys_t membase_phys; // phys start address of fb memory
 
 	// Memory parameters
 	int mem_speed;    // speed: 50, 60, 70, or 80 (nsec)
@@ -482,17 +483,6 @@ static struct {
 	{
 		{   // fix
 			SYS_PB1000,
-			/*
-			 * Note!: these are "pseudo" physical addresses;
-			 * the SED1356 is not actually mapped here, but rather
-			 * at the 36-bit address of 0xE 0000 0000. There is an
-			 * ugly hack in the Au1000 TLB refill handler that will
-			 * translate pte_t's in the range 0xE000 0000 -->
-			 * 0xEFFF FFFF to the 36-bit range 0xE 0000 0000 -->
-			 * 0xE 0FFF FFFF. The long-term solution is to support
-			 * 36-bit physical addresses in linux-mips32 mm, since
-			 * the mips32 specification specifically supports this.
-			 */
 			0xE00000000, 0xE00200000,
 			60, MEM_TYPE_EDO_2CAS, 64, MEM_SMR_CBR,
 			0, 0,   // BUSCLK and MCLK are calculated at run-time
@@ -501,12 +491,12 @@ static struct {
 			DISP_TYPE_CRT,
 			0, 0, // TV Options
 			0, 0, // Panel options
-#elif defined(CONFIG_PB1000_NTSC)
+#elif defined (CONFIG_PB1000_NTSC)
 			DISP_TYPE_NTSC,
 			TV_FILT_FLICKER|TV_FILT_LUM|TV_FILT_CHROM,
 			TV_FMT_COMPOSITE,
 			0, 0, // Panel options
-#elif defined(CONFIG_PB1000_TFT)
+#elif defined (CONFIG_PB1000_TFT)
 			DISP_TYPE_TFT,
 			0, 0, // TV Options
 			0, 12, // Panel options, EL panel?, data width?
@@ -539,17 +529,6 @@ static struct {
 	{
 		{   // fix
 			SYS_PB1500,
-			/*
-			 * Note!: these are "pseudo" physical addresses;
-			 * the SED1356 is not actually mapped here, but rather
-			 * at the 36-bit address of 0xE 0000 0000. There is an
-			 * ugly hack in the Au1000 TLB refill handler that will
-			 * translate pte_t's in the range 0xE000 0000 -->
-			 * 0xEFFF FFFF to the 36-bit range 0xE 0000 0000 -->
-			 * 0xE 0FFF FFFF. The long-term solution is to support
-			 * 36-bit physical addresses in linux-mips32 mm, since
-			 * the mips32 specification specifically supports this.
-			 */
 			0xE1B000000, 0xE1B200000,
 			50, MEM_TYPE_EMBEDDED_SDRAM, 64, MEM_SMR_CBR,
 			0, 0,   // BUSCLK and MCLK are calculated at run-time
@@ -613,6 +592,11 @@ static struct {
 		}
 	},
 
+	/*
+	 * Vadem Clio 1050 - this is for the benefit of the Linux-VR project.
+	 * FIXME: Most of these settings are just guesses, until I can get a
+	 * Clio 1050 and dump the registers that WinCE has setup.
+	 */
 	{
 		{   // fix
 			SYS_CLIO1050,

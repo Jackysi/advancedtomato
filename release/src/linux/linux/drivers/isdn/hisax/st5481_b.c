@@ -67,24 +67,28 @@ static void usb_b_out(struct st5481_bcs *bcs,int buf_nr)
 				bytes_sent = buf_size - len;
 				if (skb->len < bytes_sent)
 					bytes_sent = skb->len;
-
-				memcpy(urb->transfer_buffer+len, skb->data, bytes_sent);
-				
+				{	/* swap tx bytes to get hearable audio data */
+					register unsigned char *src  = skb->data;
+					register unsigned char *dest = urb->transfer_buffer+len;
+					register unsigned int count;
+					for (count = 0; count < bytes_sent; count++)
+						*dest++ = isdnhdlc_bit_rev_tab[*src++];
+				}
 				len += bytes_sent;
 			} else {
-				len += hdlc_encode(&b_out->hdlc_state, 
-						   skb->data, skb->len, &bytes_sent,
-						   urb->transfer_buffer+len, buf_size-len);
+				len += isdnhdlc_encode(&b_out->hdlc_state,
+						       skb->data, skb->len, &bytes_sent,
+						       urb->transfer_buffer+len, buf_size-len);
 			}
 
 			skb_pull(skb, bytes_sent);
-			
+
 			if (!skb->len) {
 				// Frame sent
 				b_out->tx_skb = NULL;
 				B_L1L2(bcs, PH_DATA | CONFIRM, (void *) skb->truesize);
 				dev_kfree_skb_any(skb);
-				
+
 /* 				if (!(bcs->tx_skb = skb_dequeue(&bcs->sq))) { */
 /* 					st5481B_sched_event(bcs, B_XMTBUFREADY); */
 /* 				} */
@@ -95,9 +99,9 @@ static void usb_b_out(struct st5481_bcs *bcs,int buf_nr)
 				len = buf_size;
 			} else {
 				// Send flags
-				len += hdlc_encode(&b_out->hdlc_state, 
-						   NULL, 0, &bytes_sent,
-						   urb->transfer_buffer+len, buf_size-len);
+				len += isdnhdlc_encode(&b_out->hdlc_state,
+						       NULL, 0, &bytes_sent,
+						       urb->transfer_buffer+len, buf_size-len);
 			}
 		}	
 	}
@@ -209,7 +213,7 @@ static void st5481B_mode(struct st5481_bcs *bcs, int mode)
 	if (bcs->mode != L1_MODE_NULL) {
 		// Open the B channel
 		if (bcs->mode != L1_MODE_TRANS) {
-			hdlc_out_init(&b_out->hdlc_state, 0, bcs->mode == L1_MODE_HDLC_56K);
+			isdnhdlc_out_init(&b_out->hdlc_state, 0, bcs->mode == L1_MODE_HDLC_56K);
 		}
 		st5481_usb_pipe_reset(adapter, (bcs->channel+1)*2, NULL, NULL);
 	

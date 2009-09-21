@@ -1,7 +1,4 @@
 /*
- * BK Id: SCCS/s.mbx.h 1.11 08/17/01 15:23:17 paulus
- */
-/*
  * A collection of structures, addresses, and values associated with
  * the Motorola MBX boards.  This was originally created for the
  * MBX860, and probably needs revisions for other boards (like the 821).
@@ -92,7 +89,11 @@ typedef struct bd_info {
 
 /* The MBX uses the 8259.
 */
+#ifdef CONFIG_PCI
 #define NR_8259_INTS	16
+#else
+#define NR_8259_INTS	0
+#endif
 
 #endif
 #endif /* __KERNEL__ */

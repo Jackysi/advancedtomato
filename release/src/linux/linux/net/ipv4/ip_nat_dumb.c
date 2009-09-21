@@ -5,7 +5,7 @@
  *
  *		Dumb Network Address Translation.
  *
- * Version:	$Id: ip_nat_dumb.c,v 1.1.1.4 2003/10/14 08:09:33 sparq Exp $
+ * Version:	$Id: ip_nat_dumb.c,v 1.11 2000/12/13 18:31:48 davem Exp $
  *
  * Authors:	Alexey Kuznetsov, <kuznet@ms2.inr.ac.ru>
  *
@@ -124,6 +124,7 @@ ip_do_nat(struct sk_buff *skb)
 					key.dst = ciph->saddr;
 					key.iif = skb->dev->ifindex;
 					key.oif = 0;
+					key.gw	= 0;
 #ifdef CONFIG_IP_ROUTE_TOS
 					key.tos = RT_TOS(ciph->tos);
 #endif

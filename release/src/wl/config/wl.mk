@@ -1,24 +1,20 @@
 # Helper makefile for building Broadcom wl device driver
 # This file maps wl driver feature flags (import) to WLFLAGS and WLFILES (export).
 #
-# Copyright 2006, Broadcom Corporation
+# Copyright 2007, Broadcom Corporation
 # All Rights Reserved.
 # 
 # THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
 # KIND, EXPRESS OR IMPLIED, BY STATUTE, COMMUNICATION OR OTHERWISE. BROADCOM
 # SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
 # FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
-# $Id$
+# $Id: wl.mk,v 1.1.1.1 2008/07/21 09:20:39 james26_jang Exp $
 
 # os-independent config flag -> WLFLAGS and WLFILES mapping
 
 # debug/internal
-# DEBUG=1
-# WLTEST=1
-
 ifeq ($(DEBUG),1)
 	WLFLAGS += -DBCMDBG -DWLTEST
-	# WLFLAGS += -DWLTEST
 else
 	# This is true for mfgtest builds.
 	ifeq ($(WLTEST),1)
@@ -26,6 +22,7 @@ else
 	BCMNVRAMW=1
 	endif
 endif
+
 
 ifeq ($(BCMDBG_MEM),1)
 	WLFLAGS += -DBCMDBG_MEM
@@ -50,6 +47,7 @@ endif
 ifeq ($(WLVX),1)
 	WLFILES += wl_vx.c
 	WLFILES += bcmstdlib.c
+	WLFLAGS += -DWSEC_TXC_ENABLED
 endif
 
 ifeq ($(WLBSD),1)
@@ -79,6 +77,7 @@ ifeq ($(WLRTE),1)
 	WLFILES += wl_rte.c
 endif
 
+
 ## wl special
 # oids
 
@@ -95,6 +94,8 @@ ifeq ($(AP),1)
 	WLFILES += wlc_apps.c
 	WLFILES += wlc_apcs.c
 	WLFLAGS += -DAP
+	WLFLAGS += -DMBSS
+	WLFLAGS += -DWME_PER_AC_TX_PARAMS -DWME_PER_AC_TUNING
 endif
 
 # sta
@@ -106,11 +107,24 @@ endif
 ifeq ($(APSTA),1)
 	WLFLAGS += -DAPSTA
 endif
+# apsta
 
 # wet
 ifeq ($(WET),1)
 	WLFLAGS += -DWET
 	WLFILES += wlc_wet.c
+endif
+
+# mac spoof
+ifeq ($(MAC_SPOOF),1)
+	WLFLAGS += -DMAC_SPOOF
+endif
+
+# IBSS Security Support
+ifeq ($(IBSS_WPA2_SUPPORT),1)
+	WLFLAGS += -DIBSS_PEER_GROUP_KEY
+	WLFLAGS += -DIBSS_WPA2_PSK
+	WLFLAGS += -DIBSS_PEER_DISCOVERY_EVENT
 endif
 
 # led
@@ -172,18 +186,24 @@ ifeq ($(WLCNT),1)
 	WLFLAGS += -DWLCNT
 endif
 
+# WLCNTSCB
+ifeq ($(WLCNTSCB),1)
+	WLFLAGS += -DWLCNTSCB
+endif
+
 ## wl security
 # in-driver supplicant
 ifeq ($(BCMSUP_PSK),1)
 	WLFLAGS += -DBCMSUP_PSK
 	WLFILES += wlc_sup.c
 	ifneq ($(BCMROMOFFLOAD),1)
-		WLFILES += aes.c aeskeywrap.c hmac.c passhash.c prf.c sha1.c
+		WLFILES += aes.c aeskeywrap.c hmac.c prf.c sha1.c
 		##NetBSD 2.0 has MD5 and AES built in
 		ifneq ($(OSLBSD),1)
 			WLFILES += md5.c rijndael-alg-fst.c
 		endif
 	endif
+	WLFILES += passhash.c
 endif
 
 # bcmccx
@@ -241,6 +261,16 @@ ifeq ($(WLAMPDU),1)
 	WLFILES += wlc_ampdu.c
 endif
 
+ifeq ($(WOWL),1)
+	WLFLAGS += -DWOWL
+	WLFILES += d11wakeucode.c wlc_wowl.c
+endif
+
+ifeq ($(WLDPT),1)
+	WLFLAGS += -DWLDPT
+	WLFILES += wlc_dpt.c
+endif
+
 
 ## --- which buses
 
@@ -253,6 +283,12 @@ endif
 
 # sdio
 
+
+# AP with SDSTD
+ifeq ($(WLAPSDSTD),1)
+	WLFILES += sbutils.c nvramstubs.c bcmsrom.c
+endif
+
 ## --- basic shared files
 
 ifeq ($(HNDDMA),1)
@@ -264,11 +300,11 @@ ifeq ($(BCMUTILS),1)
 endif
 
 ifeq ($(BCMSROM),1)
-	WLFILES += bcmsrom.c
+	WLFILES += bcmsrom.c bcmotp.c
 endif
 
 ifeq ($(SBUTILS),1)
-	WLFILES += sbutils.c
+	WLFILES += sbutils.c hndpmu.c
 endif
 
 ifeq ($(SBMIPS),1)
@@ -341,7 +377,6 @@ endif
 
 ifeq ($(BCMNVRAMR),1)
 	WLFILES += nvram_ro.c sflash.c bcmotp.c
-	# WLFILES += nvram_ro.c sflash.c
 	WLFLAGS += -DBCMNVRAMR
 else
 	ifeq ($(BCMNVRAMW),1)
@@ -353,6 +388,7 @@ endif
 ifeq ($(DSLCPE),1)
 	WLFILES += wl_linux_dslcpe.c
 	WLFLAGS += -DDSLCPE
+	WLFLAGS += -DDSLCPE_DELAY
 endif
 
 ifeq ($(WLDIAG),1)
@@ -377,6 +413,28 @@ ifeq ($(BCMQT),1)
     # Use of RTE implies embedded (CPU emulated)
     WLFLAGS += -DBCMQT_CPU
   endif
+endif
+
+ifeq ($(BCM4312),1)
+  WLFLAGS += -DBCM4312
+endif
+
+ifeq ($(WLPFN),1)
+	WLFLAGS += -DWLPFN
+	WLFILES += wl_pfn.c
+	ifeq ($(WLPFN_AUTO_CONNECT),1)
+		WLFLAGS += -DWLPFN_AUTO_CONNECT
+	endif
+endif
+
+ifeq ($(TOE),1)
+	WLFLAGS += -DTOE
+	WLFILES += wl_toe.c
+endif
+
+ifeq ($(ARPOE),1)
+	WLFLAGS += -DARPOE
+	WLFILES += wl_arpoe.c
 endif
 
 #wlinfo:

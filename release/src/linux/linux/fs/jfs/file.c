@@ -26,75 +26,29 @@
 
 
 extern int jfs_commit_inode(struct inode *, int);
+extern void jfs_truncate(struct inode *);
 
 int jfs_fsync(struct file *file, struct dentry *dentry, int datasync)
 {
 	struct inode *inode = dentry->d_inode;
 	int rc = 0;
 
+	/* No need to resync the data at commit time, unless this flag gets
+	 * set again */
+	clear_cflag(COMMIT_Syncdata, inode);
+
 	rc = fsync_inode_data_buffers(inode);
 
-	if (!(inode->i_state & I_DIRTY))
+	if (!(inode->i_state & I_DIRTY) ||
+	    (datasync && !(inode->i_state & I_DIRTY_DATASYNC))) {
+		/* Make sure committed changes hit the disk */
+		jfs_flush_journal(JFS_SBI(inode->i_sb)->log, 1);
 		return rc;
-	if (datasync && !(inode->i_state & I_DIRTY_DATASYNC))
-		return rc;
+	}
 
 	rc |= jfs_commit_inode(inode, 1);
 
 	return rc ? -EIO : 0;
-}
-
-/*
- * Guts of jfs_truncate.  Called with locks already held.  Can be called
- * with directory for truncating directory index table.
- */
-void jfs_truncate_nolock(struct inode *ip, loff_t length)
-{
-	loff_t newsize;
-	tid_t tid;
-
-	ASSERT(length >= 0);
-
-	if (test_cflag(COMMIT_Nolink, ip)) {
-		xtTruncate(0, ip, length, COMMIT_WMAP);
-		return;
-	}
-
-	do {
-		tid = txBegin(ip->i_sb, 0);
-
-		/*
-		 * The commit_sem cannot be taken before txBegin.
-		 * txBegin may block and there is a chance the inode
-		 * could be marked dirty and need to be committed
-		 * before txBegin unblocks
-		 */
-		down(&JFS_IP(ip)->commit_sem);
-
-		newsize = xtTruncate(tid, ip, length,
-				     COMMIT_TRUNCATE | COMMIT_PWMAP);
-		if (newsize < 0) {
-			txEnd(tid);
-			up(&JFS_IP(ip)->commit_sem);
-			break;
-		}
-
-		ip->i_mtime = ip->i_ctime = CURRENT_TIME;
-		mark_inode_dirty(ip);
-
-		txCommit(tid, 1, &ip, 0);
-		txEnd(tid);
-		up(&JFS_IP(ip)->commit_sem);
-	} while (newsize > length);	/* Truncate isn't always atomic */
-}
-
-static void jfs_truncate(struct inode *ip)
-{
-	jFYI(1, ("jfs_truncate: size = 0x%lx\n", (ulong) ip->i_size));
-
-	IWRITE_LOCK(ip);
-	jfs_truncate_nolock(ip, ip->i_size);
-	IWRITE_UNLOCK(ip);
 }
 
 static int jfs_open(struct inode *inode, struct file *file)
@@ -116,11 +70,13 @@ static int jfs_open(struct inode *inode, struct file *file)
 	if (S_ISREG(inode->i_mode) && file->f_mode & FMODE_WRITE &&
 	    (inode->i_size == 0)) {
 		struct jfs_inode_info *ji = JFS_IP(inode);
+		spin_lock_irq(&ji->ag_lock);
 		if (ji->active_ag == -1) {
 			ji->active_ag = ji->agno;
 			atomic_inc(
 			    &JFS_SBI(inode->i_sb)->bmap->db_active[ji->agno]);
 		}
+		spin_unlock_irq(&ji->ag_lock);
 	}
 
 	return 0;
@@ -129,11 +85,13 @@ static int jfs_release(struct inode *inode, struct file *file)
 {
 	struct jfs_inode_info *ji = JFS_IP(inode);
 
+	spin_lock_irq(&ji->ag_lock);
 	if (ji->active_ag != -1) {
 		struct bmap *bmap = JFS_SBI(inode->i_sb)->bmap;
 		atomic_dec(&bmap->db_active[ji->active_ag]);
 		ji->active_ag = -1;
 	}
+	spin_unlock_irq(&ji->ag_lock);
 
 	return 0;
 }

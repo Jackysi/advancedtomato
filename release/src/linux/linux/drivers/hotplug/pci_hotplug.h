@@ -1,9 +1,9 @@
 /*
  * PCI HotPlug Core Functions
  *
- * Copyright (c) 1995,2001 Compaq Computer Corporation
- * Copyright (c) 2001 Greg Kroah-Hartman (greg@kroah.com)
- * Copyright (c) 2001 IBM Corp.
+ * Copyright (C) 1995,2001 Compaq Computer Corporation
+ * Copyright (C) 2001 Greg Kroah-Hartman (greg@kroah.com)
+ * Copyright (C) 2001 IBM Corp.
  *
  * All rights reserved.
  *
@@ -36,13 +36,34 @@ enum pci_bus_speed {
 	PCI_SPEED_66MHz_PCIX		= 0x02,
 	PCI_SPEED_100MHz_PCIX		= 0x03,
 	PCI_SPEED_133MHz_PCIX		= 0x04,
+ 	PCI_SPEED_66MHz_PCIX_ECC	= 0x05,
+ 	PCI_SPEED_100MHz_PCIX_ECC	= 0x06,
+ 	PCI_SPEED_133MHz_PCIX_ECC	= 0x07,
 	PCI_SPEED_66MHz_PCIX_266	= 0x09,
 	PCI_SPEED_100MHz_PCIX_266	= 0x0a,
 	PCI_SPEED_133MHz_PCIX_266	= 0x0b,
 	PCI_SPEED_66MHz_PCIX_533	= 0x11,
-	PCI_SPEED_100MHz_PCIX_533	= 0X12,
+	PCI_SPEED_100MHz_PCIX_533	= 0x12,
 	PCI_SPEED_133MHz_PCIX_533	= 0x13,
 	PCI_SPEED_UNKNOWN		= 0xff,
+};
+
+/* These values come from the PCI Express Spec */
+enum pcie_link_width {
+ 	PCIE_LNK_WIDTH_RESRV	= 0x00,
+ 	PCIE_LNK_X1		= 0x01,
+ 	PCIE_LNK_X2		= 0x02,
+ 	PCIE_LNK_X4		= 0x04,
+ 	PCIE_LNK_X8		= 0x08,
+ 	PCIE_LNK_X12		= 0x0C,
+ 	PCIE_LNK_X16		= 0x10,
+ 	PCIE_LNK_X32		= 0x20,
+ 	PCIE_LNK_WIDTH_UNKNOWN	= 0xFF,
+};
+
+enum pcie_link_speed {
+ 	PCIE_2PT5GB		= 0x14,
+ 	PCIE_LNK_SPEED_UNKNOWN	= 0xFF,
 };
 
 struct hotplug_slot;
@@ -69,6 +90,9 @@ struct hotplug_slot_core;
  * @get_adapter_status: Called to get see if an adapter is present in the slot or not.
  *	If this field is NULL, the value passed in the struct hotplug_slot_info
  *	will be used when this value is requested by a user.
+ * @get_address: Called to get pci address of a slot.
+ *	If this field is NULL, the value passed in the struct hotplug_slot_info
+ *	will be used when this value is requested by a user.
  * @get_max_bus_speed: Called to get the max bus speed for a slot.
  *	If this field is NULL, the value passed in the struct hotplug_slot_info
  *	will be used when this value is requested by a user.
@@ -91,6 +115,7 @@ struct hotplug_slot_ops {
 	int (*get_attention_status)	(struct hotplug_slot *slot, u8 *value);
 	int (*get_latch_status)		(struct hotplug_slot *slot, u8 *value);
 	int (*get_adapter_status)	(struct hotplug_slot *slot, u8 *value);
+	int (*get_address)		(struct hotplug_slot *slot, u32 *value);
 	int (*get_max_bus_speed)	(struct hotplug_slot *slot, enum pci_bus_speed *value);
 	int (*get_cur_bus_speed)	(struct hotplug_slot *slot, enum pci_bus_speed *value);
 };
@@ -101,6 +126,7 @@ struct hotplug_slot_ops {
  * @attention_status: if the attention light is enabled or not (1/0)
  * @latch_status: if the latch (if any) is open or closed (1/0)
  * @adapter_present: if there is a pci board present in the slot or not (1/0)
+ * @address: (domain << 16 | bus << 8 | dev)
  *
  * Used to notify the hotplug pci core of the status of a specific slot.
  */
@@ -109,6 +135,7 @@ struct hotplug_slot_info {
 	u8	attention_status;
 	u8	latch_status;
 	u8	adapter_status;
+	u32	address;
 	enum pci_bus_speed	max_bus_speed;
 	enum pci_bus_speed	cur_bus_speed;
 };
@@ -166,6 +193,18 @@ struct pci_visit {
 extern int pci_visit_dev	(struct pci_visit *fn,
 				 struct pci_dev_wrapped *wrapped_dev,
 				 struct pci_bus_wrapped *wrapped_parent);
+
+int pci_bus_read_config_byte (struct pci_bus *bus, unsigned int devfn, int where, u8 *val);
+int pci_bus_read_config_word (struct pci_bus *bus, unsigned int devfn, int where, u16 *val);
+int pci_bus_read_config_dword (struct pci_bus *bus, unsigned int devfn, int where, u32 *val);
+int pci_bus_write_config_byte(struct pci_bus *bus, unsigned int devfn, int where, u8 val);
+int pci_bus_write_config_word(struct pci_bus *bus, unsigned int devfn, int where, u16 val);
+int pci_bus_write_config_dword(struct pci_bus *bus, unsigned int devfn, int where, u32 val);
+
+/*
+ * Compatibility functions.  Don't use these, use the
+ * pci_bus_*() functions above.
+ */
 
 extern int pci_read_config_byte_nodev	(struct pci_ops *ops, u8 bus, u8 device,
 					 u8 function, int where, u8 *val);

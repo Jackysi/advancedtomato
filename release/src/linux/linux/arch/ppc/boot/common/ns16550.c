@@ -1,7 +1,4 @@
 /*
- * BK Id: SCCS/s.ns16550.c 1.16 03/13/02 09:17:06 trini
- */
-/*
  * COM1 NS16550 support
  */
 
@@ -44,7 +41,7 @@ unsigned long serial_init(int chan, void *ignored)
 
 	/* How far apart the registers are. */
 	shift = rs_table[chan].iomem_reg_shift;
-	
+
 	/* save the LCR */
 	lcr = inb(com_port + (UART_LCR << shift));
 	/* Access baud rate */
@@ -97,9 +94,4 @@ int
 serial_tstc(unsigned long com_port)
 {
 	return ((inb(com_port + (UART_LSR << shift)) & UART_LSR_DR) != 0);
-}
-
-void
-serial_close(unsigned long com_port)
-{
 }

@@ -591,8 +591,7 @@ int wpc_init (sdla_t* card, wandev_conf_t* conf)
 	
 
 		if (chdlc_set_intr_mode(card, APP_INT_ON_TIMER)){
-			printk (KERN_INFO "%s: 
-				Failed to set interrupt triggers!\n",
+			printk (KERN_INFO "%s: Failed to set interrupt triggers!\n",
 				card->devname);
 			return -EIO;	
         	}
@@ -1089,13 +1088,11 @@ static int if_open (netdevice_t* dev)
 	
 	set_bit(0,&chdlc_priv_area->config_chdlc);
 	chdlc_priv_area->config_chdlc_timeout=jiffies;
-	del_timer(&chdlc_priv_area->poll_delay_timer);
 
 	/* Start the CHDLC configuration after 1sec delay.
 	 * This will give the interface initilization time
 	 * to finish its configuration */
-	chdlc_priv_area->poll_delay_timer.expires=jiffies+HZ;
-	add_timer(&chdlc_priv_area->poll_delay_timer);
+	mod_timer(&chdlc_priv_area->poll_delay_timer, jiffies + HZ);
 	return err;
 }
 
@@ -2220,6 +2217,11 @@ static void rx_intr (sdla_t* card)
 		}
 #endif
 	}else{
+		/* FIXME: we should check to see if the received packet is a 
+                          multicast packet so that we can increment the multicast 
+                          statistic
+                          ++ chdlc_priv_area->if_stats.multicast;
+		*/
                	/* Pass it up the protocol stack */
 	
                 skb->dev = dev;
@@ -2356,6 +2358,17 @@ static int set_chdlc_config(sdla_t* card)
 		chdlc_priv_area->IP_netmask = ntohl(dev->pa_mask);
 #endif
 
+		/* FIXME: We must re-think this message in next release
+		if((cfg.IP_address & 0x000000FF) > 2) {
+			printk(KERN_WARNING "\n");
+	                printk(KERN_WARNING "  WARNING:%s configured with an\n",
+				card->devname);
+			printk(KERN_WARNING "  invalid local IP address.\n");
+                        printk(KERN_WARNING "  Slarp pragmatics will fail.\n");
+                        printk(KERN_WARNING "  IP address should be of the\n");
+			printk(KERN_WARNING "  format A.B.C.1 or A.B.C.2.\n");
+		}
+		*/		
 	}
 	
 	return chdlc_configure(card, &cfg);
@@ -3806,7 +3819,7 @@ static void chdlc_poll_delay (unsigned long dev_ptr)
 
 void s508_lock (sdla_t *card, unsigned long *smp_flags)
 {
-#if defined(__SMP__) || defined(LINUX_2_4)
+#if defined(CONFIG_SMP) || defined(LINUX_2_4)
 	spin_lock_irqsave(&card->wandev.lock, *smp_flags);
         if (card->next){
         	spin_lock(&card->next->wandev.lock);
@@ -3818,7 +3831,7 @@ void s508_lock (sdla_t *card, unsigned long *smp_flags)
 
 void s508_unlock (sdla_t *card, unsigned long *smp_flags)
 {
-#if defined(__SMP__) || defined(LINUX_2_4)
+#if defined(CONFIG_SMP) || defined(LINUX_2_4)
         if (card->next){
         	spin_unlock(&card->next->wandev.lock);
         }
@@ -3855,11 +3868,7 @@ static void tty_poll_task (void* data)
 	if ((tty=card->tty)==NULL)
 		return;
 	
-	if ((tty->flags & (1 << TTY_DO_WRITE_WAKEUP)) &&
-	    tty->ldisc.write_wakeup){
-		(tty->ldisc.write_wakeup)(tty);
-	}
-	wake_up_interruptible(&tty->write_wait);
+	tty_wakeup(tty);
 #if defined(SERIAL_HAVE_POLL_WAIT) || \
          (defined LINUX_2_1 && LINUX_VERSION_CODE >= KERNEL_VERSION(2,2,15))
 	wake_up_interruptible(&tty->poll_wait);
@@ -4085,6 +4094,7 @@ static void wanpipe_tty_receive(sdla_t *card, unsigned addr, unsigned int len)
 	char fp=0;
 	struct tty_struct *tty;
 	int i;
+	struct tty_ldisc *ld;
 	
 	if (!card->tty_open){
 		dbg_printk(KERN_INFO "%s: TTY not open during receive\n",
@@ -4172,8 +4182,11 @@ static void wanpipe_tty_receive(sdla_t *card, unsigned addr, unsigned int len)
 			len -= offset;
 		}
 		sdla_peek(&card->hw, addr, card->tty_rx+offset, len);
-		if (tty->ldisc.receive_buf){
-			tty->ldisc.receive_buf(tty,card->tty_rx,&fp,olen);
+		ld = tty_ldisc_ref(tty);
+		if (ld) {
+			if (ld->receive_buf)
+				ld->receive_buf(tty,card->tty_rx,&fp,olen);
+			tty_ldisc_deref(ld);
 		}else{
 			if (net_ratelimit()){
 				printk(KERN_INFO 
@@ -4187,6 +4200,13 @@ static void wanpipe_tty_receive(sdla_t *card, unsigned addr, unsigned int len)
 	return;
 }
 
+#if 0
+static int wanpipe_tty_ioctl(struct tty_struct *tty, struct file * file,
+		    unsigned int cmd, unsigned long arg)
+{
+	return -ENOIOCTLCMD;
+}
+#endif
 
 static void wanpipe_tty_stop(struct tty_struct *tty)
 {
@@ -4473,14 +4493,11 @@ static void wanpipe_tty_flush_buffer(struct tty_struct *tty)
 	if (!tty)
 		return;
 	
-	wake_up_interruptible(&tty->write_wait);
 #if defined(SERIAL_HAVE_POLL_WAIT) || \
          (defined LINUX_2_1 && LINUX_VERSION_CODE >= KERNEL_VERSION(2,2,15))
 	wake_up_interruptible(&tty->poll_wait);
 #endif
-	if ((tty->flags & (1 << TTY_DO_WRITE_WAKEUP)) &&
-	    tty->ldisc.write_wakeup)
-		(tty->ldisc.write_wakeup)(tty);
+	tty_wakeup(tty);
 
 	return;
 }

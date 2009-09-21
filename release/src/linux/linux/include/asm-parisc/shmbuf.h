@@ -37,6 +37,11 @@ struct shmid64_ds {
 };
 
 #ifdef __LP64__
+/* The 'unsigned int' (formerly 'unsigned long') data types below will
+ * ensure that a 32-bit app calling shmctl(*,IPC_INFO,*) will work on
+ * a wide kernel, but if some of these values are meant to contain pointers
+ * they may need to be 'long long' instead. -PB XXX FIXME
+ */
 #endif
 struct shminfo64 {
 	unsigned int	shmmax;

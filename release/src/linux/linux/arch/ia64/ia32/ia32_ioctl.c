@@ -268,6 +268,6 @@ sys32_ioctl (unsigned int fd, unsigned int cmd, unsigned int arg)
 		return sys_ioctl(fd, cmd, (unsigned long)arg);
 
 	}
-	printk("%x:unimplemented IA32 ioctl system call\n", cmd);
+	printk(KERN_ERR "%x:unimplemented IA32 ioctl system call\n", cmd);
 	return -EINVAL;
 }

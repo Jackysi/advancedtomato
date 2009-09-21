@@ -1,5 +1,5 @@
 /*
- *  $Id: build.c,v 1.1.1.4 2003/10/14 08:07:51 sparq Exp $
+ *  $Id: build.c,v 1.3 2001/06/26 15:14:50 pavel Exp $
  *
  *  Copyright (C) 1991, 1992  Linus Torvalds
  *  Copyright (C) 1997 Martin Mares

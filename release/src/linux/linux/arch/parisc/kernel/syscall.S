@@ -593,11 +593,18 @@ sys_call_table:
 	ENTRY_DIFF(ftruncate64)	/* 200 */
 	ENTRY_SAME(getdents64)
 	ENTRY_DIFF(fcntl64)
-	ENTRY_SAME(ni_syscall)		/* attrctl */
-	ENTRY_SAME(ni_syscall)		/* acl_get */
-	ENTRY_SAME(ni_syscall)		/* acl_set */
-	ENTRY_SAME(gettid)
+#ifdef CONFIG_XFS_FS
+	ENTRY_SAME(attrctl)
+	ENTRY_SAME(acl_get)
+	ENTRY_SAME(acl_set)            /* 205 */
+#else
+	ENTRY_SAME(ni_syscall)
+	ENTRY_SAME(ni_syscall)
+	ENTRY_SAME(ni_syscall)	       /* 205 */
+#endif
+	ENTRY_SAME(gettid)             
 	ENTRY_SAME(readahead)          
+	ENTRY_SAME(tkill)
 
 .end
 

@@ -36,6 +36,7 @@
 #define MACH_GROUP_NEC_VR41XX  19 /* NEC Vr41xx based boards/gadgets        */
 #define MACH_GROUP_HP_LJ       20 /* Hewlett Packard LaserJet               */
 #define MACH_GROUP_LASAT       21
+#define MACH_GROUP_TITAN       22 /* PMC-Sierra Titan 			    */
 
 /*
  * Valid machtype values for group unknown (low order halfword of mips_machtype)
@@ -83,7 +84,7 @@
 /*
  * Valid machtype for group SGI
  */
-#define MACH_SGI_IP22		0	/* Indy, Indigo2, Challenge S */ 
+#define MACH_SGI_IP22		0	/* Indy, Indigo2, Challenge S */
 #define MACH_SGI_IP27		1	/* Origin 200, Origin 2000, Onyx 2 */
 #define MACH_SGI_IP28		2	/* Indigo2 Impact */
 #define MACH_SGI_IP32		3	/* O2 */
@@ -124,6 +125,8 @@
  */
 #define MACH_MOMENCO_OCELOT		0
 #define MACH_MOMENCO_OCELOT_G		1
+#define MACH_MOMENCO_OCELOT_C		2
+#define MACH_MOMENCO_JAGUAR_ATX		3
 
 /*
  * Valid machtype for group ITE
@@ -153,6 +156,10 @@
 #define MACH_TOPAS		1
 #define MACH_JMR		2
 #define MACH_TOSHIBA_JMR3927	3	/* JMR-TX3927 CPU/IO board */
+#define MACH_TOSHIBA_RBTX4927	4
+#define MACH_TOSHIBA_RBTX4937	5
+#define GROUP_TOSHIBA_NAMES	{ "Pallas", "TopasCE", "JMR", "JMR TX3927", \
+				  "RBTX4927", "RBTX4937" }
 
 /*
  * Valid machtype for group LASAT
@@ -169,6 +176,9 @@
 #define MACH_DB1000		3       /* Au1000-based eval board */
 #define MACH_DB1100		4       /* Au1100-based eval board */
 #define MACH_DB1500		5       /* Au1500-based eval board */
+#define MACH_XXS1500		6       /* Au1500-based eval board */
+#define MACH_MTX1		7	/* 4G MTX-1 Au1500-based board */
+#define MACH_CSB250		8	/* Cogent Au1500 */
 
 /*
  * Valid machtype for group NEC_VR41XX
@@ -179,6 +189,13 @@
 #define MACH_VICTOR_MPC30X	3	/* Victor MP-C303/304 */
 #define MACH_IBM_WORKPAD	4	/* IBM WorkPad z50 */
 #define MACH_CASIO_E55		5	/* CASIO CASSIOPEIA E-10/15/55/65 */
+#define MACH_TANBAC_TB0226	6	/* TANBAC TB0226 (MBASE) */
+#define MACH_TANBAC_TB0229	7	/* TANBAC TB0229 (VR4131DIMM) */
+
+/*
+ * Valid machtype for group TITAN
+ */
+#define	MACH_TITAN_YOSEMITE	1 	/* PMC-Sierra Yosemite */
 
 #define CL_SIZE			(256)
 

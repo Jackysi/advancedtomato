@@ -8,7 +8,7 @@
  *		as published by the Free Software Foundation; either version
  *		2 of the License, or (at your option) any later version.
  *
- * Version:	$Id: af_unix.c,v 1.1.1.4 2003/10/14 08:09:36 sparq Exp $
+ * Version:	$Id: af_unix.c,v 1.126.2.5 2002/03/05 12:47:34 davem Exp $
  *
  * Fixes:
  *		Linus Torvalds	:	Assorted bug cures.
@@ -178,18 +178,7 @@ static int unix_mkname(struct sockaddr_un * sunaddr, int len, unsigned *hashp)
 		return -EINVAL;
 	if (!sunaddr || sunaddr->sun_family != AF_UNIX)
 		return -EINVAL;
-	if (sunaddr->sun_path[0])
-	{
-		/*
-		 *	This may look like an off by one error but it is
-		 *	a bit more subtle. 108 is the longest valid AF_UNIX
-		 *	path for a binding. sun_path[108] doesn't as such
-		 *	exist. However in kernel space we are guaranteed that
-		 *	it is a valid memory location in our kernel
-		 *	address buffer.
-		 */
-		if (len > sizeof(*sunaddr))
-			len = sizeof(*sunaddr);
+	if (sunaddr->sun_path[0]) {
 		((char *)sunaddr)[len]=0;
 		len = strlen(sunaddr->sun_path)+1+sizeof(short);
 		return len;
@@ -385,6 +374,7 @@ static int unix_release_sock (unix_socket *sk, int embrion)
 			read_lock(&skpair->callback_lock);
 			sk_wake_async(skpair,1,POLL_HUP);
 			read_unlock(&skpair->callback_lock);
+			yield(); /* let the other side wake up */
 		}
 		sock_put(skpair); /* It may now die */
 		unix_peer(sk) = NULL;
@@ -409,6 +399,16 @@ static int unix_release_sock (unix_socket *sk, int embrion)
 
 	/* ---- Socket is dead now and most probably destroyed ---- */
 
+	/*
+	 * Fixme: BSD difference: In BSD all sockets connected to use get
+	 *	  ECONNRESET and we die on the spot. In Linux we behave
+	 *	  like files and pipes do and wait for the last
+	 *	  dereference.
+	 *
+	 * Can't we simply set sock->err?
+	 *
+	 *	  What the above comment does talk about? --ANK(980817)
+	 */
 
 	if (atomic_read(&unix_tot_inflight))
 		unix_gc();		/* Garbage collect fds */	
@@ -1162,6 +1162,8 @@ static int unix_dgram_sendmsg(struct socket *sock, struct msghdr *msg, int len,
 	struct sk_buff *skb;
 	long timeo;
 
+	wait_for_unix_gc();
+
 	err = -EOPNOTSUPP;
 	if (msg->msg_flags&MSG_OOB)
 		goto out;
@@ -1292,6 +1294,8 @@ static int unix_stream_sendmsg(struct socket *sock, struct msghdr *msg, int len,
 	struct sk_buff *skb;
 	int sent=0;
 
+	wait_for_unix_gc();
+
 	err = -EOPNOTSUPP;
 	if (msg->msg_flags&MSG_OOB)
 		goto out_err;
@@ -1404,9 +1408,11 @@ static int unix_dgram_recvmsg(struct socket *sock, struct msghdr *msg, int size,
 
 	msg->msg_namelen = 0;
 
+	down(&sk->protinfo.af_unix.readsem);
+
 	skb = skb_recv_datagram(sk, flags, noblock, &err);
 	if (!skb)
-		goto out;
+		goto out_unlock;
 
 	wake_up_interruptible(&sk->protinfo.af_unix.peer_wait);
 
@@ -1450,6 +1456,8 @@ static int unix_dgram_recvmsg(struct socket *sock, struct msghdr *msg, int size,
 
 out_free:
 	skb_free_datagram(sk,skb);
+out_unlock:
+	up(&sk->protinfo.af_unix.readsem);
 out:
 	return err;
 }
@@ -1683,8 +1691,13 @@ static int unix_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg)
 			}
 
 			spin_lock(&sk->receive_queue.lock);
-			if((skb=skb_peek(&sk->receive_queue))!=NULL)
-				amount=skb->len;
+			if (sk->type == SOCK_STREAM) {
+				skb_queue_walk(&sk->receive_queue, skb)
+					amount += skb->len;
+			} else {
+				if((skb=skb_peek(&sk->receive_queue))!=NULL)
+					amount=skb->len;
+			}
 			spin_unlock(&sk->receive_queue.lock);
 			err = put_user(amount, (int *)arg);
 			break;

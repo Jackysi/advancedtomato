@@ -3,9 +3,9 @@
  *	Linux INET6 implementation 
  *
  *	Authors:
- *	Pedro Roque		<roque@di.fc.ul.pt>	
+ *	Pedro Roque		<pedro_m@yahoo.com>	
  *
- *	$Id: datagram.c,v 1.1.1.4 2003/10/14 08:09:34 sparq Exp $
+ *	$Id: datagram.c,v 1.23 2001/09/01 00:31:50 davem Exp $
  *
  *	This program is free software; you can redistribute it and/or
  *      modify it under the terms of the GNU General Public License
@@ -158,6 +158,7 @@ int ipv6_recv_error(struct sock *sk, struct msghdr *msg, int len)
 	if (serr->ee.ee_origin != SO_EE_ORIGIN_LOCAL) {
 		sin->sin6_family = AF_INET6;
 		sin->sin6_flowinfo = 0;
+		sin->sin6_scope_id = 0;
 		if (serr->ee.ee_origin == SO_EE_ORIGIN_ICMP6) {
 			memcpy(&sin->sin6_addr, &skb->nh.ipv6h->saddr, 16);
 			if (sk->net_pinfo.af_inet6.rxopt.all)
@@ -259,9 +260,7 @@ int datagram_send_ctl(struct msghdr *msg, struct flowi *fl,
 
 	for (cmsg = CMSG_FIRSTHDR(msg); cmsg; cmsg = CMSG_NXTHDR(msg, cmsg)) {
 
-		if (cmsg->cmsg_len < sizeof(struct cmsghdr) ||
-		    (unsigned long)(((char*)cmsg - (char*)msg->msg_control)
-				    + cmsg->cmsg_len) > msg->msg_controllen) {
+		if (!CMSG_OK(msg, cmsg)) {
 			err = -EINVAL;
 			goto exit_f;
 		}

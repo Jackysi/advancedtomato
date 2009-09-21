@@ -1,4 +1,4 @@
-/* $Id: sys_sunos.c,v 1.1.1.4 2003/10/14 08:07:48 sparq Exp $
+/* $Id: sys_sunos.c,v 1.135 2001/08/13 14:40:10 davem Exp $
  * sys_sunos.c: SunOS specific syscall compatibility support.
  *
  * Copyright (C) 1995 David S. Miller (davem@caip.rutgers.edu)
@@ -193,7 +193,7 @@ asmlinkage int sunos_brk(unsigned long brk)
 	 * fool it, but this should catch most mistakes.
 	 */
 	freepages = atomic_read(&buffermem_pages) >> PAGE_SHIFT;
-	freepages += atomic_read(&page_cache_size);
+	freepages += page_cache_size;
 	freepages >>= 1;
 	freepages += nr_free_pages();
 	freepages += nr_swap_pages;
@@ -227,6 +227,11 @@ asmlinkage unsigned long sunos_sbrk(int increment)
 	return error;
 }
 
+/* XXX Completely undocumented, and completely magic...
+ * XXX I believe it is to increase the size of the stack by
+ * XXX argument 'increment' and return the new end of stack
+ * XXX area.  Wheee...
+ */
 asmlinkage unsigned long sunos_sstk(int increment)
 {
 	lock_kernel();
@@ -536,10 +541,10 @@ asmlinkage int sunos_fpathconf(int fd, int name)
 	case _PCONF_PIPE:
 		ret = PIPE_BUF;
 		break;
-	case _PCONF_CHRESTRICT:		
+	case _PCONF_CHRESTRICT:		/* XXX Investigate XXX */
 		ret = 1;
 		break;
-	case _PCONF_NOTRUNC:		
+	case _PCONF_NOTRUNC:		/* XXX Investigate XXX */
 	case _PCONF_VDISABLE:
 		ret = 0;
 		break;
@@ -554,7 +559,7 @@ asmlinkage int sunos_pathconf(char *path, int name)
 {
 	int ret;
 
-	ret = sunos_fpathconf(0, name); 
+	ret = sunos_fpathconf(0, name); /* XXX cheese XXX */
 	return ret;
 }
 
@@ -683,8 +688,8 @@ static int get_default (int value, int def_value)
 
 static int sunos_nfs_mount(char *dir_name, int linux_flags, void *data)
 {
-	int  server_fd;
-	char *the_name;
+	int  server_fd, err;
+	char *the_name, *mount_page;
 	struct nfs_mount_data linux_nfs_mount;
 	struct sunos_nfs_mount_args sunos_mount;
 
@@ -737,7 +742,16 @@ static int sunos_nfs_mount(char *dir_name, int linux_flags, void *data)
 	linux_nfs_mount.hostname [255] = 0;
 	putname (the_name);
 	
-	return do_mount ("", dir_name, "nfs", linux_flags, &linux_nfs_mount);
+	mount_page = (char *) get_zeroed_page(GFP_KERNEL);
+	if (!mount_page)
+		return -ENOMEM;
+
+	memcpy(mount_page, &linux_nfs_mount, sizeof(linux_nfs_mount));
+
+	err = do_mount("", dir_name, "nfs", linux_flags, mount_page);
+
+	free_page((unsigned long) mount_page);
+	return err;
 }
 
 asmlinkage int

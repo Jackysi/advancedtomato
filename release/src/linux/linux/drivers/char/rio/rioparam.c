@@ -199,6 +199,28 @@ int SleepFlag;
 		** paramed with OPEN, we want to restore the saved port termio, but
 		** only if StoredTermio has been saved, i.e. NOT 1st open after reboot.
 		*/
+#if 0
+		if (PortP->FirstOpen) {
+			PortP->StoredTty.iflag = TtyP->tm.c_iflag;
+			PortP->StoredTty.oflag = TtyP->tm.c_oflag;
+			PortP->StoredTty.cflag = TtyP->tm.c_cflag;
+			PortP->StoredTty.lflag = TtyP->tm.c_lflag;
+			PortP->StoredTty.line = TtyP->tm.c_line;
+			for (i = 0; i < NCC + 5; i++)
+				PortP->StoredTty.cc[i] = TtyP->tm.c_cc[i];
+			PortP->FirstOpen = 0;
+		}
+		else if (PortP->Store || PortP->Lock) {
+			rio_dprintk (RIO_DEBUG_PARAM, "OPEN: Restoring stored/locked params\n");
+			TtyP->tm.c_iflag = PortP->StoredTty.iflag;
+			TtyP->tm.c_oflag = PortP->StoredTty.oflag;
+			TtyP->tm.c_cflag = PortP->StoredTty.cflag;
+			TtyP->tm.c_lflag = PortP->StoredTty.lflag;
+			TtyP->tm.c_line = PortP->StoredTty.line;
+			for (i = 0; i < NCC + 5; i++)
+				TtyP->tm.c_cc[i] = PortP->StoredTty.cc[i];
+		}
+#endif
 	}
 
 	/*
@@ -257,6 +279,15 @@ int SleepFlag;
 	phb_param_ptr = (struct phb_param *)PacketP->data;
 
 
+#if 0
+	/*
+	** COR 1
+	*/
+	if ( TtyP->tm.c_iflag & INPCK ) {
+		rio_dprintk (RIO_DEBUG_PARAM, "Parity checking on input enabled\n");
+		Cor1 |= COR1_INPCK;
+	}
+#endif
 
 	switch ( TtyP->termios->c_cflag & CSIZE ) {
 		case CS5:
@@ -474,6 +505,7 @@ int SleepFlag;
 	  e(115200); /* e(230400);e(460800); e(921600);  */
 	}
 
+	/* XXX MIssing conversion table. XXX */
 	/* 	 (TtyP->termios->c_cflag & V_CBAUD); */
 
 	rio_dprintk (RIO_DEBUG_PARAM, "tx baud 0x%x, rx baud 0x%x\n", TxBaud, RxBaud);
@@ -491,6 +523,10 @@ int SleepFlag;
 #ifdef XMT1EN
 	if ( TtyP->termios->c_cflag & XMT1EN )
 		rio_dprintk (RIO_DEBUG_PARAM, "XMT1EN (?)\n");
+#endif
+#if 0
+	if ( TtyP->termios->c_cflag & LOBLK )
+		rio_dprintk (RIO_DEBUG_PARAM, "LOBLK - JCL output blocks when not current\n");
 #endif
 	if ( TtyP->termios->c_lflag & ISIG )
 		rio_dprintk (RIO_DEBUG_PARAM, "Input character signal generating enabled\n");
@@ -536,6 +572,14 @@ int SleepFlag;
 		rio_dprintk (RIO_DEBUG_PARAM, "Carriage return delay set\n");
 	if ( TtyP->termios->c_oflag & TABDLY )
 		rio_dprintk (RIO_DEBUG_PARAM, "Tab delay set\n");
+#if 0
+	if ( TtyP->termios->c_oflag & BSDLY )
+		rio_dprintk (RIO_DEBUG_PARAM, "Back-space delay set\n");
+	if ( TtyP->termios->c_oflag & VTDLY )
+		rio_dprintk (RIO_DEBUG_PARAM, "Vertical tab delay set\n");
+	if ( TtyP->termios->c_oflag & FFDLY )
+		rio_dprintk (RIO_DEBUG_PARAM, "Form-feed delay set\n");
+#endif
 	/*
 	** These things are kind of useful in a later life!
 	*/

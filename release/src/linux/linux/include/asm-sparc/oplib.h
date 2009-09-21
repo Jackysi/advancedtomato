@@ -1,4 +1,4 @@
-/* $Id: oplib.h,v 1.1.1.4 2003/10/14 08:09:22 sparq Exp $
+/* $Id: oplib.h,v 1.21.2.2 2001/12/21 00:52:47 davem Exp $
  * oplib.h:  Describes the interface and available routines in the
  *           Linux Prom library.
  *
@@ -10,9 +10,6 @@
 
 #include <asm/openprom.h>
 #include <linux/spinlock.h>
-
-/* The master romvec pointer... */
-extern struct linux_romvec *romvec;
 
 /* Enumeration to describe the prom major version we have detected. */
 enum prom_major_version {
@@ -115,6 +112,12 @@ extern void prom_cmdline(void);
  */
 extern void prom_halt(void) __attribute__ ((noreturn));
 
+/* Set the PROM 'sync' callback function to the passed function pointer.
+ * When the user gives the 'sync' command at the prom prompt while the
+ * kernel is still active, the prom will call this routine.
+ *
+ * XXX The arguments are different on V0 vs. V2->higher proms, grrr! XXX
+ */
 typedef void (*sync_func_t)(void);
 extern void prom_setsync(sync_func_t func_ptr);
 
@@ -147,8 +150,9 @@ extern char prom_getchar(void);
 /* Blocking put character to console. */
 extern void prom_putchar(char character);
 
-/* Prom's internal printf routine, don't use in kernel/boot code. */
-void prom_printf(char *fmt, ...);
+/* Prom's internal routines, don't use in kernel/boot code. */
+extern void prom_printf(char *fmt, ...);
+extern void prom_write(const char *buf, unsigned int len);
 
 /* Query for input device type */
 
@@ -291,6 +295,9 @@ extern int prom_pathtoinode(char *path);
 extern int prom_inst2pkg(int);
 
 /* Dorking with Bus ranges... */
+
+extern void prom_adjust_ranges(struct linux_prom_ranges *, int,
+			       struct linux_prom_ranges *, int);
 
 /* Apply promlib probes OBIO ranges to registers. */
 extern void prom_apply_obio_ranges(struct linux_prom_registers *obioregs, int nregs);

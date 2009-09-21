@@ -111,6 +111,50 @@ out:
 	return error;
 }
 
+#if 0
+struct mmap_arg_struct64 {
+	__u32 addr;
+	__u32 len;
+	__u32 prot;
+	__u32 flags;
+	__u64 offset; /* 64 bits */
+	__u32 fd;
+};
+
+asmlinkage long sys_mmap64(struct mmap_arg_struct64 *arg)
+{
+	int error = -EFAULT;
+	struct file * file = NULL;
+	struct mmap_arg_struct64 a;
+	unsigned long pgoff;
+
+	if (copy_from_user(&a, arg, sizeof(a)))
+		return -EFAULT;
+
+	if ((long)a.offset & ~PAGE_MASK)
+		return -EINVAL;
+
+	pgoff = a.offset >> PAGE_SHIFT;
+	if ((a.offset >> PAGE_SHIFT) != pgoff)
+		return -EINVAL;
+
+	if (!(a.flags & MAP_ANONYMOUS)) {
+		error = -EBADF;
+		file = fget(a.fd);
+		if (!file)
+			goto out;
+	}
+	a.flags &= ~(MAP_EXECUTABLE | MAP_DENYWRITE);
+
+	down_write(&current->mm->mmap_sem);
+	error = do_mmap_pgoff(file, a.addr, a.len, a.prot, a.flags, pgoff);
+	up_write(&current->mm->mmap_sem);
+	if (file)
+		fput(file);
+out:
+	return error;
+}
+#endif
 
 extern asmlinkage int sys_select(int, fd_set *, fd_set *, fd_set *, struct timeval *);
 
@@ -396,7 +440,7 @@ cache_flush_040 (unsigned long addr, int scope, int cache, unsigned long len)
 			".chip 68k"			\
 			: "=a" (paddr)			\
 			: "0" (vaddr));			\
-  (paddr); 					\
+  (paddr); /* XXX */					\
 })
 
 static inline int
@@ -514,7 +558,8 @@ cache_flush_060 (unsigned long addr, int scope, int cache, unsigned long len)
     default:
     case FLUSH_SCOPE_PAGE:
       len += (addr & ~PAGE_MASK) + (PAGE_SIZE - 1);
-      addr &= PAGE_MASK;	
+      addr &= PAGE_MASK;	/* Workaround for bug in some
+				   revisions of the 68060 */
       for (len >>= PAGE_SHIFT; len--; addr += PAGE_SIZE)
 	{
 	  if (!(paddr = virt_to_phys_060(addr)))

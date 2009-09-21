@@ -311,21 +311,21 @@ static struct dentry_operations sockfs_dentry_operations = {
 /*
  *	Obtains the first available file descriptor and sets it up for use.
  *
- *	This functions creates file structure and maps it to fd space
+ *	This function creates file structure and maps it to fd space
  *	of current process. On success it returns file descriptor
  *	and file struct implicitly stored in sock->file.
  *	Note that another thread may close file descriptor before we return
  *	from this function. We use the fact that now we do not refer
  *	to socket after mapping. If one day we will need it, this
- *	function will inincrement ref. count on file by 1.
+ *	function will increment ref. count on file by 1.
  *
  *	In any case returned fd MAY BE not valid!
- *	This race condition is inavoidable
- *	with shared fd spaces, we cannot solve is inside kernel,
+ *	This race condition is unavoidable
+ *	with shared fd spaces, we cannot solve it inside kernel,
  *	but we take care of internal coherence yet.
  */
 
-static int sock_map_fd(struct socket *sock)
+int sock_map_fd(struct socket *sock)
 {
 	int fd;
 	struct qstr this;
@@ -436,11 +436,11 @@ struct socket *sock_alloc(void)
 	struct inode * inode;
 	struct socket * sock;
 
-	inode = get_empty_inode();
+	inode = new_inode(sock_mnt->mnt_sb);
 	if (!inode)
 		return NULL;
 
-	inode->i_sb = sock_mnt->mnt_sb;
+	inode->i_dev = NODEV;
 	sock = socki_lookup(inode);
 
 	inode->i_mode = S_IFSOCK|S_IRWXUGO;
@@ -1019,14 +1019,16 @@ asmlinkage long sys_bind(int fd, struct sockaddr *umyaddr, int addrlen)
  *	ready for listening.
  */
 
+int sysctl_somaxconn = SOMAXCONN;
+
 asmlinkage long sys_listen(int fd, int backlog)
 {
 	struct socket *sock;
 	int err;
 	
 	if ((sock = sockfd_lookup(fd, &err)) != NULL) {
-		if ((unsigned) backlog > SOMAXCONN)
-			backlog = SOMAXCONN;
+		if ((unsigned) backlog > sysctl_somaxconn)
+			backlog = sysctl_somaxconn;
 		err=sock->ops->listen(sock, backlog);
 		sockfd_put(sock);
 	}
@@ -1056,7 +1058,7 @@ asmlinkage long sys_accept(int fd, struct sockaddr *upeer_sockaddr, int *upeer_a
 	if (!sock)
 		goto out;
 
-	err = -EMFILE;
+	err = -ENFILE;
 	if (!(newsock = sock_alloc())) 
 		goto out_put;
 
@@ -1256,7 +1258,7 @@ asmlinkage long sys_recvfrom(int fd, void * ubuf, size_t size, unsigned flags,
 		flags |= MSG_DONTWAIT;
 	err=sock_recvmsg(sock, &msg, size, flags);
 
-	if(err >= 0 && addr != NULL && msg.msg_namelen)
+	if(err >= 0 && addr != NULL)
 	{
 		err2=move_addr_to_user(address, msg.msg_namelen, addr, addr_len);
 		if(err2<0)
@@ -1362,7 +1364,7 @@ asmlinkage long sys_sendmsg(int fd, struct msghdr *msg, unsigned flags)
 		goto out;
 
 	/* do not move before msg_sys is valid */
-	err = -EINVAL;
+	err = -EMSGSIZE;
 	if (msg_sys.msg_iovlen > UIO_MAXIOV)
 		goto out_put;
 
@@ -1445,7 +1447,7 @@ asmlinkage long sys_recvmsg(int fd, struct msghdr *msg, unsigned int flags)
 	if (!sock)
 		goto out;
 
-	err = -EINVAL;
+	err = -EMSGSIZE;
 	if (msg_sys.msg_iovlen > UIO_MAXIOV)
 		goto out_put;
 	
@@ -1480,7 +1482,7 @@ asmlinkage long sys_recvmsg(int fd, struct msghdr *msg, unsigned int flags)
 		goto out_freeiov;
 	len = err;
 
-	if (uaddr != NULL && msg_sys.msg_namelen) {
+	if (uaddr != NULL) {
 		err = move_addr_to_user(addr, msg_sys.msg_namelen, uaddr, uaddr_len);
 		if (err < 0)
 			goto out_freeiov;
@@ -1717,6 +1719,7 @@ void __init sock_init(void)
 	 */
 
 #ifdef CONFIG_NET
+	netlink_proto_init();
 	rtnetlink_init();
 #endif
 #ifdef CONFIG_NETLINK_DEV

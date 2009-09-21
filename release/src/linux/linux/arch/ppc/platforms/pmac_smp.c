@@ -1,11 +1,14 @@
 /*
- * BK Id: %F% %I% %G% %U% %#%
- */
-/*
  * SMP support for power macintosh.
  *
  * We support both the old "powersurge" SMP architecture
  * and the current Core99 (G4 PowerMac) machines.
+ *
+ * Note that we don't support the very first rev. of
+ * Apple/DayStar 2 CPUs board, the one with the funky
+ * watchdog. Hopefully, none of these should be there except
+ * maybe internally to Apple. I should probably still add some
+ * code to detect this card though and disable SMP. --BenH.
  *
  * Support Macintosh G4 SMP by Troy Benjegerdes (hozer@drgw.net)
  * and Ben Herrenschmidt <benh@kernel.crashing.org>.
@@ -96,14 +99,15 @@ static volatile u32 *psurge_pri_intr;
 static volatile u8 *psurge_sec_intr;
 static volatile u32 *psurge_start;
 
-/* what sort of powersurge board we have */
-static int psurge_type;
-
 /* values for psurge_type */
+#define PSURGE_NONE		-1
 #define PSURGE_DUAL		0
 #define PSURGE_QUAD_OKEE	1
 #define PSURGE_QUAD_COTTON	2
 #define PSURGE_QUAD_ICEGRASS	3
+
+/* what sort of powersurge board we have */
+static int psurge_type = PSURGE_NONE;
 
 volatile static long int core99_l2_cache;
 volatile static long int core99_l3_cache;
@@ -140,113 +144,13 @@ core99_init_caches(void)
 	}
 }
 
-/* Some CPU registers have to be saved from the first CPU and
- * applied to others. Note that we override what is setup by
- * the cputable intentionally.
- */
-
-#define	reg_hid0	0
-#define	reg_hid1	1
-#define	reg_msscr0	2
-#define	reg_msssr0	3
-#define	reg_ictrl	4
-#define	reg_ldstcr	5
-#define	reg_ldstdb	6
-#define	reg_count	7
-
-#define stringify __stringify
-
-static unsigned long cpu_regs[reg_count];
-
-static void __pmac
-cpu_setup_grab(void)
-{
-	unsigned int pvers = mfspr(SPRN_PVR)>>16;
-
-	/* Read cache setting of CPU 0 */
-	core99_init_caches();
-
-	/* 7400/7410/7450 */
-	if (pvers == 0x8000 || pvers == 0x000c || pvers == 0x800c) {
-		cpu_regs[reg_hid0] = mfspr(SPRN_HID0);
-		cpu_regs[reg_msscr0] = mfspr(SPRN_MSSCR0);
-		cpu_regs[reg_msssr0] = mfspr(SPRN_MSSSR0);
-	}
-	/* 7450 only */
-	if (pvers == 0x8000) {
-		cpu_regs[reg_hid1] = mfspr(SPRN_HID1);
-		cpu_regs[reg_ictrl] = mfspr(SPRN_ICTRL);
-		cpu_regs[reg_ldstcr] = mfspr(SPRN_LDSTCR);
-		cpu_regs[reg_ldstdb] = mfspr(SPRN_LDSTDB);
-	}
-	flush_dcache_range((unsigned long)cpu_regs, (unsigned long)&cpu_regs[reg_count]);
-}
-
-static void __pmac
-cpu_setup_apply(int cpu_nr)
-{
-	unsigned int pvers = mfspr(SPRN_PVR)>>16;
-
-	/* Apply cache setting from CPU 0 */
-	core99_init_caches();
-
-	/* 7400/7410/7450 */
-	if (pvers == 0x8000 || pvers == 0x000c || pvers == 0x800c) {
-		unsigned long tmp;
-		__asm__ __volatile__ (
-			"lwz	%0,4*"stringify(reg_hid0)"(%1)\n"
-			"sync\n"
-			"mtspr	"stringify(SPRN_HID0)", %0\n"
-			"isync;sync\n"
-			"lwz	%0, 4*"stringify(reg_msscr0)"(%1)\n"
-			"sync\n"
-			"mtspr	"stringify(SPRN_MSSCR0)", %0\n"
-			"isync;sync\n"
-//			"lwz	%0, "stringify(reg_msssr0)"(%1)\n"
-//			"sync\n"
-//			"mtspr	"stringify(SPRN_MSSSR0)", %0\n"
-//			"isync;sync\n"
-		: "=&r" (tmp) : "r" (cpu_regs));			
-	}
-	/* 7410 only */
-	if (pvers == 0x800c) {
-		unsigned long tmp;
-		__asm__ __volatile__ (
-			"li	%0, 0\n"
-			"sync\n"
-			"mtspr	"stringify(SPRN_L2CR2)", %0\n"
-			"isync;sync\n"
-		: "=&r" (tmp));		
-	}
-	/* 7450 only */
-	if (pvers == 0x8000) {
-		unsigned long tmp;
-		__asm__ __volatile__ (
-			"lwz	%0, 4*"stringify(reg_hid1)"(%1)\n"
-			"sync\n"
-			"mtspr	"stringify(SPRN_HID1)", %0\n"
-			"isync;sync\n"
-			"lwz	%0, 4*"stringify(reg_ictrl)"(%1)\n"
-			"sync\n"
-			"mtspr	"stringify(SPRN_ICTRL)", %0\n"
-			"isync;sync\n"
-			"lwz	%0, 4*"stringify(reg_ldstcr)"(%1)\n"
-			"sync\n"
-			"mtspr	"stringify(SPRN_LDSTCR)", %0\n"
-			"isync;sync\n"
-			"lwz	%0, 4*"stringify(reg_ldstdb)"(%1)\n"
-			"sync\n"
-			"mtspr	"stringify(SPRN_LDSTDB)", %0\n"
-			"isync;sync\n"
-		: "=&r" (tmp) : "r" (cpu_regs));		
-	}
-}
-
 /*
  * Set and clear IPIs for powersurge.
  */
 static inline void psurge_set_ipi(int cpu)
 {
+	if (psurge_type == PSURGE_NONE)
+		return;
 	if (cpu == 0)
 		in_be32(psurge_pri_intr);
 	else if (psurge_type == PSURGE_DUAL)
@@ -258,10 +162,14 @@ static inline void psurge_set_ipi(int cpu)
 static inline void psurge_clr_ipi(int cpu)
 {
 	if (cpu > 0) {
-		if (psurge_type == PSURGE_DUAL)
+		switch(psurge_type) {
+		case PSURGE_DUAL:
 			out_8(psurge_sec_intr, ~0);
-		else
+		case PSURGE_NONE:
+			break;
+		default:
 			PSURGE_QUAD_OUT(PSURGE_QUAD_IRQ_CLR, 1 << cpu);
+		}
 	}
 }
 
@@ -413,6 +321,7 @@ static int __init smp_psurge_probe(void)
 		if ((in_8(hhead_base + HHEAD_CONFIG) & 0x02) == 0) {
 			/* not a dual-cpu card */
 			iounmap((void *) hhead_base);
+			psurge_type = PSURGE_NONE;
 			return 1;
 		}
 		ncpus = 2;
@@ -499,15 +408,19 @@ smp_psurge_setup_cpu(int cpu_nr)
 {
 
 	if (cpu_nr == 0) {
+		/* If we failed to start the second CPU, we should still
+		 * send it an IPI to start the timebase & DEC or we might
+		 * have them stuck.
+		 */
 		if (smp_num_cpus < 2)
-			return;
+			goto sync_tb;
 		/* reset the entry point so if we get another intr we won't
 		 * try to startup again */
 		out_be32(psurge_start, 0x100);
-		if (request_irq(30, psurge_primary_intr, 0, "primary IPI", 0))
+		if (request_irq(30, psurge_primary_intr, SA_INTERRUPT, "primary IPI", 0))
 			printk(KERN_ERR "Couldn't get primary IPI interrupt");
 	}
-
+sync_tb:
 	if (psurge_type == PSURGE_DUAL)
 		psurge_dual_sync_tb(cpu_nr);
 }
@@ -529,8 +442,11 @@ smp_core99_probe(void)
 		openpic_request_IPIs();
 		for (i = 1; i < ncpus; ++i)
 			smp_hw_index[i] = i;
+#ifdef CONFIG_6xx	/* XXX */
 		powersave_nap = 0;
-		cpu_setup_grab();
+#endif
+		/* Read cache setting of CPU 0 */
+		core99_init_caches();
 	}
 
 	return ncpus;
@@ -550,13 +466,13 @@ smp_core99_kick_cpu(int nr)
 
 	local_irq_save(flags);
 	local_irq_disable();
-	
+
 	/* Save reset vector */
 	save_vector = *vector;
-	
-	/* Setup fake reset vector that does	  
+
+	/* Setup fake reset vector that does
 	 *   b __secondary_start_psurge - KERNELBASE
-	 */  
+	 */
 	switch(nr) {
 		case 1:
 			new_vector = (unsigned long)__secondary_start_psurge;
@@ -569,19 +485,24 @@ smp_core99_kick_cpu(int nr)
 			break;
 	}
 	*vector = 0x48000002 + new_vector - KERNELBASE;
-	
+
 	/* flush data cache and inval instruction cache */
 	flush_icache_range((unsigned long) vector, (unsigned long) vector + 4);
-	
+
 	/* Put some life in our friend */
 	pmac_call_feature(PMAC_FTR_RESET_CPU, NULL, nr, 0);
-	
+
+	/* FIXME: We wait a bit for the CPU to take the exception, I should
+	 * instead wait for the entry code to set something for me. Well,
+	 * ideally, all that crap will be done in prom.c and the CPU left
+	 * in a RAM-based wait loop like CHRP.
+	 */
 	mdelay(1);
-	
+
 	/* Restore our exception vector */
 	*vector = save_vector;
 	flush_icache_range((unsigned long) vector, (unsigned long) vector + 4);
-	
+
 	local_irq_restore(flags);
 	if (ppc_md.progress) ppc_md.progress("smp_core99_kick_cpu done", 0x347);
 }
@@ -589,10 +510,13 @@ smp_core99_kick_cpu(int nr)
 static void __init
 smp_core99_setup_cpu(int cpu_nr)
 {
-	/* Setup some registers */
+
+	/* Setup some critical registers
+	 * and apply cache setting from CPU 0
+	 */
 	if (cpu_nr != 0)
-		cpu_setup_apply(cpu_nr);
-	
+		core99_init_caches();
+
 	/* Setup openpic */
 	do_openpic_setup_cpu();
 
@@ -603,16 +527,16 @@ smp_core99_setup_cpu(int cpu_nr)
 
 /* PowerSurge-style Macs */
 struct smp_ops_t psurge_smp_ops __pmacdata = {
-	smp_psurge_message_pass,
-	smp_psurge_probe,
-	smp_psurge_kick_cpu,
-	smp_psurge_setup_cpu,
+	.message_pass	= smp_psurge_message_pass,
+	.probe		= smp_psurge_probe,
+	.kick_cpu	= smp_psurge_kick_cpu,
+	.setup_cpu	= smp_psurge_setup_cpu,
 };
 
 /* Core99 Macs (dual G4s) */
 struct smp_ops_t core99_smp_ops __pmacdata = {
-	smp_openpic_message_pass,
-	smp_core99_probe,
-	smp_core99_kick_cpu,
-	smp_core99_setup_cpu,
+	.message_pass	= smp_openpic_message_pass,
+	.probe		= smp_core99_probe,
+	.kick_cpu	= smp_core99_kick_cpu,
+	.setup_cpu	= smp_core99_setup_cpu,
 };

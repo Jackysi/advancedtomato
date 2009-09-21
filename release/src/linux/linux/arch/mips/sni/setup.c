@@ -51,9 +51,6 @@ static void __init sni_rm200_pci_time_init(struct irqaction *irq)
 }
 
 
-void __init bus_error_init(void) { /* nothing */ }
-
-
 extern unsigned char sni_map_isa_cache;
 
 /*
@@ -94,6 +91,7 @@ void __init sni_rm200_pci_setup(void)
 
 	request_region(0x00,0x20,"dma1");
 	request_region(0x40,0x20,"timer");
+	/* XXX FIXME: CONFIG_RTC */
 	request_region(0x70,0x10,"rtc");
 	request_region(0x80,0x10,"dma page reg");
 	request_region(0xc0,0x20,"dma2");

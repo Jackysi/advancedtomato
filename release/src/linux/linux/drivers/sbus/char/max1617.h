@@ -1,4 +1,4 @@
-/* $Id: max1617.h,v 1.1.1.4 2003/10/14 08:08:35 sparq Exp $ */
+/* $Id: max1617.h,v 1.1 2001/04/02 09:59:08 davem Exp $ */
 #ifndef _MAX1617_H
 #define _MAX1617_H
 

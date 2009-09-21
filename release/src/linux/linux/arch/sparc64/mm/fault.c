@@ -1,4 +1,4 @@
-/* $Id: fault.c,v 1.1.1.4 2003/10/14 08:07:51 sparq Exp $
+/* $Id: fault.c,v 1.58.2.2 2002/03/12 12:25:15 davem Exp $
  * arch/sparc64/mm/fault.c: Page fault handlers for the 64-bit Sparc.
  *
  * Copyright (C) 1996 David S. Miller (davem@caip.rutgers.edu)
@@ -203,14 +203,21 @@ outret:
 	return insn;
 }
 
-static void do_fault_siginfo(int code, int sig, unsigned long address)
+extern unsigned long compute_effective_address(struct pt_regs *, unsigned int, unsigned int);
+
+static void do_fault_siginfo(int code, int sig, struct pt_regs *regs,
+			     unsigned int insn, int fault_code)
 {
 	siginfo_t info;
 
 	info.si_code = code;
 	info.si_signo = sig;
 	info.si_errno = 0;
-	info.si_addr = (void *) address;
+	if (fault_code & FAULT_CODE_ITLB)
+		info.si_addr = (void *) regs->tpc;
+	else
+		info.si_addr = (void *)
+			compute_effective_address(regs, insn, 0);
 	info.si_trapno = 0;
 	force_sig_info(sig, &info, current);
 }
@@ -246,7 +253,7 @@ static void do_kernel_fault(struct pt_regs *regs, int si_code, int fault_code,
 	 * in that case.
 	 */
 
-	if (!(fault_code & FAULT_CODE_WRITE) &&
+	if (!(fault_code & (FAULT_CODE_WRITE|FAULT_CODE_ITLB)) &&
 	    (insn & 0xc0800000) == 0xc0800000) {
 		if (insn & 0x2000)
 			asi = (regs->tstate >> 24);
@@ -291,7 +298,7 @@ static void do_kernel_fault(struct pt_regs *regs, int si_code, int fault_code,
 		/* The si_code was set to make clear whether
 		 * this was a SEGV_MAPERR or SEGV_ACCERR fault.
 		 */
-		do_fault_siginfo(si_code, SIGSEGV, address);
+		do_fault_siginfo(si_code, SIGSEGV, regs, insn, fault_code);
 		return;
 	}
 
@@ -397,6 +404,16 @@ continue_fault:
 	 */
 good_area:
 	si_code = SEGV_ACCERR;
+
+	/* If we took a ITLB miss on a non-executable page, catch
+	 * that here.
+	 */
+	if ((fault_code & FAULT_CODE_ITLB) && !(vma->vm_flags & VM_EXEC)) {
+		BUG_ON(address != regs->tpc);
+		BUG_ON(regs->tstate & TSTATE_PRIV);
+		goto bad_area;
+	}
+
 	if (fault_code & FAULT_CODE_WRITE) {
 		if (!(vma->vm_flags & VM_WRITE))
 			goto bad_area;
@@ -467,7 +484,7 @@ do_sigbus:
 	 * Send a sigbus, regardless of whether we were in kernel
 	 * or user mode.
 	 */
-	do_fault_siginfo(BUS_ADRERR, SIGBUS, address);
+	do_fault_siginfo(BUS_ADRERR, SIGBUS, regs, insn, fault_code);
 
 	/* Kernel mode? Handle exceptions or die */
 	if (regs->tstate & TSTATE_PRIV)

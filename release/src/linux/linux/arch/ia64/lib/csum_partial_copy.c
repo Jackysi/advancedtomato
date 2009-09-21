@@ -12,6 +12,9 @@
 
 #include <asm/uaccess.h>
 
+/*
+ * XXX Fixme: those 2 inlines are meant for debugging and will go away
+ */
 static inline unsigned
 short from64to16(unsigned long x)
 {
@@ -92,6 +95,12 @@ out:
 	return result;
 }
 
+/*
+ * XXX Fixme
+ *
+ * This is very ugly but temporary. THIS NEEDS SERIOUS ENHANCEMENTS.
+ * But it's very tricky to get right even in C.
+ */
 extern unsigned long do_csum(const unsigned char *, long);
 
 static unsigned int
@@ -100,6 +109,11 @@ do_csum_partial_copy_from_user (const char *src, char *dst, int len,
 {
 	unsigned long result;
 
+	/* XXX Fixme
+	 * for now we separate the copy from checksum for obvious
+	 * alignment difficulties. Look at the Alpha code and you'll be
+	 * scared.
+	 */
 
 	if (__copy_from_user(dst, src, len) != 0 && errp)
 		*errp = -EFAULT;

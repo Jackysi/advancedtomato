@@ -3,7 +3,11 @@
 
 /* generic STI structures & functions */
 
+#if 0
+#define DPRINTK(x)	printk x
+#else
 #define DPRINTK(x) 
+#endif
 
 #define MAX_STI_ROMS 4		/* max no. of ROMs which this driver handles */
 
@@ -74,6 +78,9 @@ static int inline STI_CALL( unsigned long func,
 
 extern struct sti_struct *sti_init_roms(void);
 
+/* XXX: this probably should not be here, but we rely on STI being
+   initialized early and independently of stifb at the moment, so
+   there's no other way for stifb to find it. */
 extern struct sti_struct *default_sti;
 
 
@@ -385,6 +392,7 @@ int sti_read_rom(int wordmode, struct sti_struct *sti,
 	    unsigned long address);
 
 
+/* FIXME: Do we have another solution for this ? */
 #include <linux/kernel.h>
 #include <linux/slab.h>
 #include <asm/pgalloc.h>

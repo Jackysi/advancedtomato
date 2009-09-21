@@ -62,7 +62,7 @@ modprobe sb io=0x220 irq=5 dma=1 dma16=3
 
 	Or, take the hard way:
 
-insmod souncore
+insmod soundcore
 insmod sound
 insmod uart401
 insmod sb io=0x220 irq=5 dma=1 dma16=3

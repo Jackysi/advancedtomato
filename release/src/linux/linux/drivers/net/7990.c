@@ -244,8 +244,8 @@ static int lance_rx (struct net_device *dev)
         volatile struct lance_init_block *ib = lp->init_block;
         volatile struct lance_rx_desc *rd;
         unsigned char bits;
-        int len = 0;                    
-        struct sk_buff *skb = 0;        
+        int len = 0;                    /* XXX shut up gcc warnings */
+        struct sk_buff *skb = 0;        /* XXX shut up gcc warnings */
 #ifdef TEST_HITS
         int i;
 #endif
@@ -532,6 +532,8 @@ int lance_start_xmit (struct sk_buff *skb, struct net_device *dev)
         ib->btx_ring [entry].length = (-len) | 0xf000;
         ib->btx_ring [entry].misc = 0;
     
+    	if(skb->len < ETH_ZLEN)
+    		memset((char *)&ib->tx_buf[entry][0], 0, ETH_ZLEN);
         memcpy ((char *)&ib->tx_buf [entry][0], skb->data, skblen);
     
         /* Now, give the packet to the lance */

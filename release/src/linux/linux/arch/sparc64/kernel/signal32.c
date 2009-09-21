@@ -1,4 +1,4 @@
-/*  $Id: signal32.c,v 1.1.1.4 2003/10/14 08:07:50 sparq Exp $
+/*  $Id: signal32.c,v 1.70 2001/04/24 01:09:12 davem Exp $
  *  arch/sparc64/kernel/signal32.c
  *
  *  Copyright (C) 1991, 1992  Linus Torvalds
@@ -61,6 +61,16 @@ struct signal_sframe32 {
 	struct sigcontext32 sig_context;
 	unsigned extramask[_NSIG_WORDS32 - 1];
 };
+
+/* This magic should be in g_upper[0] for all upper parts
+ * to be valid.
+ */
+#define SIGINFO_EXTRA_V8PLUS_MAGIC	0x130e269
+typedef struct {
+	unsigned int g_upper[8];
+	unsigned int o_upper[8];
+	unsigned int asi;
+} siginfo_extra_v8plus_t;
 
 /* 
  * And the new one, intended to be used for Linux applications only
@@ -184,6 +194,7 @@ asmlinkage void do_rt_sigsuspend32(u32 uset, size_t sigsetsize, struct pt_regs *
 	sigset_t oldset, set;
 	sigset_t32 set32;
         
+	/* XXX: Don't preclude handling different sized sigset_t's.  */
 	if (((__kernel_size_t32)sigsetsize) != sizeof(sigset_t)) {
 		regs->tstate |= TSTATE_ICARRY;
 		regs->u_regs[UREG_I0] = EINVAL;
@@ -291,8 +302,13 @@ void do_new_sigreturn32(struct pt_regs *regs)
 	if ((psr & (PSR_VERS|PSR_IMPL)) == PSR_V8PLUS) {
 		err |= __get_user(i, &sf->v8plus.g_upper[0]);
 		if (i == SIGINFO_EXTRA_V8PLUS_MAGIC) {
+			unsigned long asi;
+
 			for (i = UREG_G1; i <= UREG_I7; i++)
 				err |= __get_user(((u32 *)regs->u_regs)[2*i], &sf->v8plus.g_upper[i]);
+			err |= __get_user(asi, &sf->v8plus.asi);
+			regs->tstate &= ~TSTATE_ASI;
+			regs->tstate |= ((asi & 0xffUL) << 24UL);
 		}
 	}
 
@@ -392,7 +408,7 @@ asmlinkage void do_rt_sigreturn32(struct pt_regs *regs)
 {
 	struct rt_signal_frame32 *sf;
 	unsigned int psr;
-	unsigned pc, npc, fpu_save;
+	unsigned pc, npc, fpu_save, u_ss_sp;
 	mm_segment_t old_fs;
 	sigset_t set;
 	sigset_t32 seta;
@@ -430,8 +446,13 @@ asmlinkage void do_rt_sigreturn32(struct pt_regs *regs)
 	if ((psr & (PSR_VERS|PSR_IMPL)) == PSR_V8PLUS) {
 		err |= __get_user(i, &sf->v8plus.g_upper[0]);
 		if (i == SIGINFO_EXTRA_V8PLUS_MAGIC) {
+			unsigned long asi;
+
 			for (i = UREG_G1; i <= UREG_I7; i++)
 				err |= __get_user(((u32 *)regs->u_regs)[2*i], &sf->v8plus.g_upper[i]);
+			err |= __get_user(asi, &sf->v8plus.asi);
+			regs->tstate &= ~TSTATE_ASI;
+			regs->tstate |= ((asi & 0xffUL) << 24UL);
 		}
 	}
 
@@ -443,7 +464,8 @@ asmlinkage void do_rt_sigreturn32(struct pt_regs *regs)
 	if (fpu_save)
 		err |= restore_fpu_state32(regs, &sf->fpu_state);
 	err |= copy_from_user(&seta, &sf->mask, sizeof(sigset_t32));
-	err |= __get_user((long)st.ss_sp, &sf->stack.ss_sp);
+	err |= __get_user(u_ss_sp, &sf->stack.ss_sp);
+	st.ss_sp = (void *) (long) u_ss_sp;
 	err |= __get_user(st.ss_flags, &sf->stack.ss_flags);
 	err |= __get_user(st.ss_size, &sf->stack.ss_size);
 	if (err)
@@ -507,6 +529,9 @@ setup_frame32(struct sigaction *sa, struct pt_regs *regs, int signr, sigset_t *o
 	unsigned long pc = regs->tpc;
 	unsigned long npc = regs->tnpc;
 	
+#if 0	
+	int window = 0;
+#endif	
 	unsigned psr;
 
 	if ((current->thread.flags & SPARC_FLAG_32BIT) != 0) {
@@ -519,7 +544,7 @@ setup_frame32(struct sigaction *sa, struct pt_regs *regs, int signr, sigset_t *o
 
 	sframep = (struct signal_sframe32 *)get_sigframe(sa, regs, SF_ALIGNEDSZ);
 	if (invalid_frame_pointer (sframep, sizeof(*sframep))){
-#ifdef DEBUG_SIGNALS     /* fills up the console logs during crashme runs, yuck... */
+#ifdef DEBUG_SIGNALS /* fills up the console logs during crashme runs, yuck... */
 		printk("%s [%d]: User has trashed signal stack\n",
 		       current->comm, current->pid);
 		printk("Sigstack ptr %p handler at pc<%016lx> for sig<%d>\n",
@@ -560,6 +585,18 @@ setup_frame32(struct sigaction *sa, struct pt_regs *regs, int signr, sigset_t *o
 	err |= __put_user(regs->u_regs[UREG_G1], &sc->sigc_g1);
 	err |= __put_user(regs->u_regs[UREG_I0], &sc->sigc_o0);
 	err |= __put_user(current->thread.w_saved, &sc->sigc_oswins);
+#if 0
+/* w_saved is not currently used... */
+	if(current->thread.w_saved)
+		for(window = 0; window < current->thread.w_saved; window++) {
+			sc->sigc_spbuf[window] =
+				(char *)current->thread.rwbuf_stkptrs[window];
+			err |= copy_to_user(&sc->sigc_wbuf[window],
+					    &current->thread.reg_window[window],
+					    sizeof(struct reg_window));
+		}
+	else
+#endif	
 		err |= copy_in_user((u32 *)sframep,
 				    (u32 *)(regs->u_regs[UREG_FP]),
 				    sizeof(struct reg_window32));
@@ -711,7 +748,10 @@ static inline void new_setup_frame32(struct k_sigaction *ka, struct pt_regs *reg
 	err |= __put_user(sizeof(siginfo_extra_v8plus_t), &sf->extra_size);
 	err |= __put_user(SIGINFO_EXTRA_V8PLUS_MAGIC, &sf->v8plus.g_upper[0]);
 	for (i = 1; i < 16; i++)
-		err |= __put_user(((u32 *)regs->u_regs)[2*i], &sf->v8plus.g_upper[i]);
+		err |= __put_user(((u32 *)regs->u_regs)[2*i],
+				  &sf->v8plus.g_upper[i]);
+	err |= __put_user((regs->tstate & TSTATE_ASI) >> 24UL,
+			  &sf->v8plus.asi);
 
 	if (psr & PSR_EF) {
 		err |= save_fpu_state32(regs, &sf->fpu_state);
@@ -802,6 +842,9 @@ setup_svr4_frame32(struct sigaction *sa, unsigned long pc, unsigned long npc,
 	svr4_gwindows_t *gw;
 	svr4_ucontext_t *uc;
 	svr4_sigset_t setv;
+#if 0	
+	int window = 0;
+#endif	
 	unsigned psr;
 	int i, err;
 
@@ -809,7 +852,7 @@ setup_svr4_frame32(struct sigaction *sa, unsigned long pc, unsigned long npc,
 	save_and_clear_fpu();
 	
 	regs->u_regs[UREG_FP] &= 0x00000000ffffffffUL;
-	sfp = (svr4_signal_frame_t *) get_sigframe(sa, regs, REGWIN_SZ + SVR4_SF_ALIGNED);
+	sfp = (svr4_signal_frame_t *) get_sigframe(sa, regs, sizeof(struct reg_window32) + SVR4_SF_ALIGNED);
 
 	if (invalid_frame_pointer (sfp, sizeof (*sfp))){
 #ifdef DEBUG_SIGNALS
@@ -828,6 +871,10 @@ setup_svr4_frame32(struct sigaction *sa, unsigned long pc, unsigned long npc,
 	mc = &uc->mcontext;
 	gr = &mc->greg;
 	
+	/* FIXME: where am I supposed to put this?
+	 * sc->sigc_onstack = old_status;
+	 * anyways, it does not look like it is used for anything at all.
+	 */
 	setv.sigbits[0] = oldset->sig[0];
 	setv.sigbits[1] = (oldset->sig[0] >> 32);
 	if (_NSIG_WORDS >= 2) {
@@ -880,6 +927,16 @@ setup_svr4_frame32(struct sigaction *sa, unsigned long pc, unsigned long npc,
 	 *    These windows are just used in case synchronize_user_stack failed
 	 *    to flush the user windows.
 	 */
+#if 0	 
+	for(window = 0; window < current->thread.w_saved; window++) {
+		err |= __put_user((int *) &(gw->win [window]),
+				  (int **)gw->winptr +window );
+		err |= copy_to_user(&gw->win [window],
+				    &current->thread.reg_window [window],
+				    sizeof (svr4_rwindow_t));
+		err |= __put_user(0, (int *)gw->winptr + window);
+	}
+#endif	
 
 	/* 4. We just pay attention to the gw->count field on setcontext */
 	current->thread.w_saved = 0; /* So process is allowed to execute. */
@@ -963,7 +1020,14 @@ svr4_getcontext(svr4_ucontext_t *uc, struct pt_regs *regs)
 	}
 	err |= __put_user(regs->tpc, &uc->mcontext.greg [SVR4_PC]);
 	err |= __put_user(regs->tnpc, &uc->mcontext.greg [SVR4_NPC]);
+#if 1
 	err |= __put_user(0, &uc->mcontext.greg [SVR4_PSR]);
+#else
+	i = tstate_to_psr(regs->tstate) & ~PSR_EF;		   
+	if (current->thread.fpsaved[0] & FPRS_FEF)
+		i |= PSR_EF;
+	err |= __put_user(i, &uc->mcontext.greg [SVR4_PSR]);
+#endif
 	err |= __put_user(regs->y, &uc->mcontext.greg [SVR4_Y]);
 	
 	/* Copy g [1..7] and o [0..7] registers */
@@ -990,12 +1054,15 @@ asmlinkage int svr4_setcontext(svr4_ucontext_t *c, struct pt_regs *regs)
 	struct thread_struct *tp = &current->thread;
 	svr4_gregset_t  *gr;
 	mm_segment_t old_fs;
-	u32 pc, npc, psr;
+	u32 pc, npc, psr, u_ss_sp;
 	sigset_t set;
 	svr4_sigset_t setv;
 	int i, err;
 	stack_t st;
 	
+	/* Fixme: restore windows, or is this already taken care of in
+	 * svr4_setup_frame when sync_user_windows is done?
+	 */
 	flush_user_windows();
 	
 	if (tp->w_saved){
@@ -1032,7 +1099,8 @@ asmlinkage int svr4_setcontext(svr4_ucontext_t *c, struct pt_regs *regs)
 	if (_NSIG_WORDS >= 2)
 		set.sig[1] = setv.sigbits[2] | (((long)setv.sigbits[3]) << 32);
 	
-	err |= __get_user((long)st.ss_sp, &c->stack.sp);
+	err |= __get_user(u_ss_sp, &c->stack.sp);
+	st.ss_sp = (void *) (long) u_ss_sp;
 	err |= __get_user(st.ss_flags, &c->stack.flags);
 	err |= __get_user(st.ss_size, &c->stack.size);
 	if (err)
@@ -1060,6 +1128,10 @@ asmlinkage int svr4_setcontext(svr4_ucontext_t *c, struct pt_regs *regs)
 	err |= __get_user(psr, &((*gr) [SVR4_PSR]));
 	regs->tstate &= ~(TSTATE_ICC|TSTATE_XCC);
 	regs->tstate |= psr_to_tstate_icc(psr);
+#if 0	
+	if(psr & PSR_EF)
+		regs->tstate |= TSTATE_PEF;
+#endif
 	/* Restore g[1..7] and o[0..7] registers */
 	for (i = 0; i < 7; i++)
 		err |= __get_user(regs->u_regs[UREG_G1+i], (&(*gr)[SVR4_G1])+i);
@@ -1126,7 +1198,10 @@ static inline void setup_rt_frame32(struct k_sigaction *ka, struct pt_regs *regs
 	err |= __put_user(sizeof(siginfo_extra_v8plus_t), &sf->extra_size);
 	err |= __put_user(SIGINFO_EXTRA_V8PLUS_MAGIC, &sf->v8plus.g_upper[0]);
 	for (i = 1; i < 16; i++)
-		err |= __put_user(((u32 *)regs->u_regs)[2*i], &sf->v8plus.g_upper[i]);
+		err |= __put_user(((u32 *)regs->u_regs)[2*i],
+				  &sf->v8plus.g_upper[i]);
+	err |= __put_user((regs->tstate & TSTATE_ASI) >> 24UL,
+			  &sf->v8plus.asi);
 
 	if (psr & PSR_EF) {
 		err |= save_fpu_state32(regs, &sf->fpu_state);
@@ -1301,6 +1376,8 @@ static inline void read_maps (void)
 			line = d_path(map->vm_file->f_dentry,
 				      map->vm_file->f_vfsmnt,
 				      buffer, PAGE_SIZE);
+			if (IS_ERR(line))
+				break;
 		}
 		printk(MAPS_LINE_FORMAT, map->vm_start, map->vm_end, str, map->vm_pgoff << PAGE_SHIFT,
 			      kdevname(dev), ino);
@@ -1397,7 +1474,7 @@ asmlinkage int do_signal32(sigset_t *oldset, struct pt_regs * regs,
 			if (current->pid == 1)
 				continue;
 			switch (signr) {
-			case SIGCONT: case SIGCHLD: case SIGWINCH:
+			case SIGCONT: case SIGCHLD: case SIGWINCH: case SIGURG:
 				continue;
 
 			case SIGTSTP: case SIGTTIN: case SIGTTOU:
@@ -1496,9 +1573,9 @@ asmlinkage int do_sys32_sigstack(u32 u_ssptr, u32 u_ossptr, unsigned long sp)
 	
 	/* Now see if we want to update the new state. */
 	if (ssptr) {
-		void *ss_sp;
+		u32 ss_sp;
 
-		if (get_user((long)ss_sp, &ssptr->the_stack))
+		if (get_user(ss_sp, &ssptr->the_stack))
 			goto out;
 		/* If the current stack was set with sigaltstack, don't
 		   swap stacks while we are on it.  */
@@ -1521,13 +1598,15 @@ out:
 asmlinkage int do_sys32_sigaltstack(u32 ussa, u32 uossa, unsigned long sp)
 {
 	stack_t uss, uoss;
+	u32 u_ss_sp = 0;
 	int ret;
 	mm_segment_t old_fs;
 	
-	if (ussa && (get_user((long)uss.ss_sp, &((stack_t32 *)(long)ussa)->ss_sp) ||
+	if (ussa && (get_user(u_ss_sp, &((stack_t32 *)(long)ussa)->ss_sp) ||
 		    __get_user(uss.ss_flags, &((stack_t32 *)(long)ussa)->ss_flags) ||
 		    __get_user(uss.ss_size, &((stack_t32 *)(long)ussa)->ss_size)))
 		return -EFAULT;
+	uss.ss_sp = (void *) (long) u_ss_sp;
 	old_fs = get_fs();
 	set_fs(KERNEL_DS);
 	ret = do_sigaltstack(ussa ? &uss : NULL, uossa ? &uoss : NULL, sp);

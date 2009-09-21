@@ -5,9 +5,9 @@
  *
  *		PF_INET6 protocol dispatch tables.
  *
- * Version:	$Id: protocol.c,v 1.1.1.4 2003/10/14 08:09:34 sparq Exp $
+ * Version:	$Id: protocol.c,v 1.10 2001/05/18 02:25:49 davem Exp $
  *
- * Authors:	Pedro Roque	<roque@di.fc.ul.pt>
+ * Authors:	Pedro Roque	<pedro_m@yahoo.com>
  *
  *		This program is free software; you can redistribute it and/or
  *		modify it under the terms of the GNU General Public License

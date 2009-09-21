@@ -124,7 +124,7 @@ static int softdog_release(struct inode *inode, struct file *file)
 	 *	Shut off the timer.
 	 * 	Lock it in if it's a module and we set nowayout
 	 */
-	if (expect_close) {
+	if (expect_close && nowayout == 0) {
 		del_timer(&watchdog_ticktock);
 	} else {
 		printk(KERN_CRIT "SOFTDOG: WDT device closed unexpectedly.  WDT will not stop!\n");

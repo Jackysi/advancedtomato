@@ -1,7 +1,7 @@
 /*
  * Low-Level PCI and SB support for BCM47xx
  *
- * Copyright 2006, Broadcom Corporation
+ * Copyright 2007, Broadcom Corporation
  * All Rights Reserved.
  * 
  * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
@@ -98,7 +98,7 @@ config_cmd(sb_t *sbh, uint bus, uint dev, uint func, uint off)
 
 	/* CardBusMode supports only one device */
 	if (cardbus && dev > 1)
-		return BCME_OK;
+		return 0;
 
 	osh = sb_osh(sbh);
 
@@ -193,8 +193,10 @@ extpci_read_config(sb_t *sbh, uint bus, uint dev, uint func, uint off, void *buf
 		;
 	else if (((addr = config_cmd(sbh, bus, dev, func, off)) == 0) ||
 	         ((reg = (uint32 *)REG_MAP(addr, len)) == 0) ||
-	         (BUSPROBE(val, reg) != 0))
+	         (BUSPROBE(val, reg) != 0)) {
+		PCI_MSG(("%s: Failed to read!\n", __FUNCTION__));
 		val = 0xffffffff;
+	}
 
 	PCI_MSG(("%s: 0x%x <= 0x%p(0x%x), len %d, off 0x%x, buf 0x%p\n",
 	       __FUNCTION__, val, reg, addr, len, off, buf));
@@ -207,7 +209,7 @@ extpci_read_config(sb_t *sbh, uint bus, uint dev, uint func, uint off, void *buf
 	else if (len == 1)
 		*((uint8 *) buf) = (uint8) val;
 	else
-		ret = BCME_ERROR;
+		ret = -1;
 
 	if (reg && addr)
 		REG_UNMAP(reg);
@@ -232,14 +234,16 @@ extpci_write_config(sb_t *sbh, uint bus, uint dev, uint func, uint off, void *bu
 	 *	BUSPROBE() fails;
 	 */
 	if (pci_disabled)
-		return BCME_OK;
+		return 0;
 	else if (bus == 1 && dev == pci_hbslot && func == 0 &&
 	         sb_pcihb_read_config(sbh, bus, dev, func, off, &reg, &val))
 		;
 	else if (((addr = config_cmd(sbh, bus, dev, func, off)) == 0) ||
 	         ((reg = (uint32 *) REG_MAP(addr, len)) == 0) ||
-	         (BUSPROBE(val, reg) != 0))
+	         (BUSPROBE(val, reg) != 0)) {
+		PCI_MSG(("%s: Failed to write!\n", __FUNCTION__));
 		goto done;
+	}
 
 	if (len == 4)
 		val = *((uint32 *) buf);
@@ -363,7 +367,7 @@ sb_read_config(sb_t *sbh, uint bus, uint dev, uint func, uint off, void *buf, in
 	pci_config_regs *cfg;
 
 	if (dev >= SB_MAXCORES || func >= MAXFUNCS || (off + len) > sizeof(pci_config_regs))
-		return BCME_ERROR;
+		return -1;
 	cfg = sb_pci_cfg[dev][func].emu;
 
 	ASSERT(ISALIGNED(off, len));
@@ -383,9 +387,9 @@ sb_read_config(sb_t *sbh, uint bus, uint dev, uint func, uint off, void *buf, in
 	else if (len == 1)
 		*((uint8 *) buf) = *((uint8 *)((ulong) cfg + off));
 	else
-		return BCME_ERROR;
+		return -1;
 
-	return BCME_OK;
+	return 0;
 }
 
 static int
@@ -398,10 +402,10 @@ sb_write_config(sb_t *sbh, uint bus, uint dev, uint func, uint off, void *buf, i
 	sb_bar_cfg_t *bar;
 
 	if (dev >= SB_MAXCORES || func >= MAXFUNCS || (off + len) > sizeof(pci_config_regs))
-		return BCME_ERROR;
+		return -1;
 	cfg = sb_pci_cfg[dev][func].emu;
 	if (!cfg)
-		return BCME_ERROR;
+		return -1;
 
 	ASSERT(ISALIGNED(off, len));
 	ASSERT(ISALIGNED((uintptr)buf, len));
@@ -426,21 +430,20 @@ sb_write_config(sb_t *sbh, uint bus, uint dev, uint func, uint off, void *buf, i
 				cfg->base[3] = ~(bar->size3 - 1);
 		}
 		sb_setcoreidx(sbh, coreidx);
-	}
-	else if (len == 4)
+	} else if (len == 4)
 		*((uint32 *)((ulong) cfg + off)) = htol32(*((uint32 *) buf));
 	else if (len == 2)
 		*((uint16 *)((ulong) cfg + off)) = htol16(*((uint16 *) buf));
 	else if (len == 1)
 		*((uint8 *)((ulong) cfg + off)) = *((uint8 *) buf);
 	else
-		return BCME_ERROR;
+		return -1;
 
 	/* sync emulation with real PCI config if necessary */
 	if (sb_pci_cfg[dev][func].pci)
 		sb_pcid_write_config(sbh, dev, &sb_pci_cfg[dev][func], off, len);
 
-	return BCME_OK;
+	return 0;
 }
 
 int
@@ -470,7 +473,7 @@ sbpci_ban(uint16 core)
 
 /*
  * Initiliaze PCI core. Return 0 after a successful initialization.
- * Otherwise return BCME_ERROR to indicate there is no PCI core and return 1
+ * Otherwise return -1 to indicate there is no PCI core and return 1
  * to indicate PCI core is disabled.
  */
 int __init
@@ -494,7 +497,7 @@ sbpci_init_pci(sb_t *sbh)
 	if (!(pci = (sbpciregs_t *) sb_setcore(sbh, SB_PCI, 0))) {
 		printf("PCI: no core\n");
 		pci_disabled = TRUE;
-		return BCME_ERROR;
+		return -1;
 	}
 	sb = (sbconfig_t *)((ulong) pci + SBCONFIGOFF);
 
@@ -550,15 +553,11 @@ sbpci_init_pci(sb_t *sbh)
 		W_REG(osh, &pci->control, 0xd);		/* enable the PCI clock */
 		OSL_DELAY(150);				/* delay > 100 us */
 		W_REG(osh, &pci->control, 0xf);		/* deassert PCI reset */
-		/* Use internal arbiter and park REQ/GRNT at external master 0 */
+		/* Use internal arbiter and park REQ/GRNT at external master 0
+		 * We will set it later after the bus has been probed
+		 */
 		W_REG(osh, &pci->arbcontrol, PCI_INT_ARB);
 		OSL_DELAY(1);				/* delay 1 us */
-		if (sb_corerev(sbh) >= 8) {
-			val = getintvar(NULL, "parkid");
-			ASSERT(val <= PCI_PARKID_LAST);
-			OR_REG(osh, &pci->arbcontrol, val << PCI_PARKID_SHIFT);
-			OSL_DELAY(1);
-		}
 
 		/* Enable CardBusMode */
 		cardbus = getintvar(NULL, "cardbus") == 1;
@@ -592,6 +591,47 @@ sbpci_init_pci(sb_t *sbh)
 	}
 
 	return ret;
+}
+
+void
+sbpci_arb_park(sb_t *sbh, uint parkid)
+{
+	sbpciregs_t *pci;
+	uint pcirev;
+	uint32  arb;
+
+	if (!(pci = (sbpciregs_t *) sb_setcore(sbh, SB_PCI, 0))) {
+		/* Should not happen */
+		printf("%s: no PCI core\n", __FUNCTION__);
+		return;
+	}
+
+	pcirev = sb_corerev(sbh);
+
+	/* Nothing to do, not supported for these revs */
+	if (pcirev < 8)
+		return;
+
+	/* Get parkid from NVRAM */
+	if (parkid == PCI_PARK_NVRAM) {
+		parkid = getintvar(NULL, "parkid");
+		if (getvar(NULL, "parkid") == NULL)
+			/* Not present in NVRAM use defaults */
+			parkid = (pcirev >= 11) ? PCI11_PARKID_LAST : PCI_PARKID_LAST;
+	}
+
+	/* Check the parkid is valid, if not set it to default */
+	if (parkid > ((pcirev >= 11) ? PCI11_PARKID_LAST : PCI_PARKID_LAST)) {
+		printf("%s: Invalid parkid %d\n", __FUNCTION__, parkid);
+		parkid = (pcirev >= 11) ? PCI11_PARKID_LAST : PCI_PARKID_LAST;
+	}
+
+	/* Now set the parkid */
+	arb = R_REG(sb_osh(sbh), &pci->arbcontrol);
+	arb &= ~PCI_PARKID_MASK;
+	arb |= parkid << PCI_PARKID_SHIFT;
+	W_REG(sb_osh(sbh), &pci->arbcontrol, arb);
+	OSL_DELAY(1);
 }
 
 /*
@@ -760,66 +800,4 @@ sbpci_init(sb_t *sbh)
 	int status = sbpci_init_pci(sbh);
 	sbpci_init_cores(sbh);
 	return status;
-}
-
-void
-sbpci_check(sb_t *sbh)
-{
-	uint coreidx;
-	sbpciregs_t *pci;
-	osl_t *osh;
-	uint32 sbtopci1;
-	uint32 buf[64], *ptr, i;
-	ulong pa;
-	volatile uint j;
-
-	coreidx = sb_coreidx(sbh);
-	pci = (sbpciregs_t *) sb_setcore(sbh, SB_PCI, 0);
-
-	osh = sb_osh(sbh);
-
-	/* Clear the test array */
-	pa = (ulong) DMA_MAP(NULL, buf, sizeof(buf), DMA_RX, NULL, NULL);
-	ptr = (uint32 *) OSL_UNCACHED(&buf[0]);
-	memset(ptr, 0, sizeof(buf));
-
-	/* Point PCI window 1 to memory */
-	sbtopci1 = R_REG(osh, &pci->sbtopci1);
-	W_REG(osh, &pci->sbtopci1, SBTOPCI_MEM | (pa & SBTOPCI1_MASK));
-
-	/* Fill the test array via PCI window 1 */
-	ptr = (uint32 *)REG_MAP(SB_PCI_CFG + (pa & ~SBTOPCI1_MASK), sizeof(buf));
-	for (i = 0; i < ARRAYSIZE(buf); i++) {
-		for (j = 0; j < 2; j++);
-		W_REG(osh, &ptr[i], i);
-	}
-	REG_UNMAP(ptr);
-
-	/* Restore PCI window 1 */
-	W_REG(osh, &pci->sbtopci1, sbtopci1);
-
-	/* Check the test array */
-	DMA_UNMAP(NULL, pa, sizeof(buf), DMA_RX, NULL, NULL);
-	ptr = (uint32 *) OSL_UNCACHED(&buf[0]);
-	for (i = 0; i < ARRAYSIZE(buf); i++) {
-		if (ptr[i] != i)
-			break;
-	}
-
-	/* Change the clock if the test fails */
-	if (i < ARRAYSIZE(buf)) {
-		uint32 req, cur;
-
-		cur = sb_clock(sbh);
-		printf("PCI: Test failed at %d MHz\n", (cur + 500000) / 1000000);
-		for (req = 104000000; req < 176000000; req += 4000000) {
-			printf("PCI: Resetting to %d MHz\n", (req + 500000) / 1000000);
-			/* This will only reset if the clocks are valid and have changed */
-			sb_mips_setclock(sbh, req, 0, 0);
-		}
-		/* Should not reach here */
-		ASSERT(0);
-	}
-
-	sb_setcoreidx(sbh, coreidx);
 }

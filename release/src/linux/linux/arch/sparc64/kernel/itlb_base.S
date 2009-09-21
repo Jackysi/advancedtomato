@@ -1,4 +1,4 @@
-/* $Id: itlb_base.S,v 1.1.1.4 2003/10/14 08:07:50 sparq Exp $
+/* $Id: itlb_base.S,v 1.11 2001/08/17 04:55:09 kanoj Exp $
  * itlb_base.S:	Front end to ITLB miss replacement strategy.
  *              This is included directly into the trap table.
  *
@@ -41,6 +41,9 @@
 	CREATE_VPTE_OFFSET2(%g4, %g6)			! Create VPTE offset
 	ldxa		[%g3 + %g6] ASI_P, %g5		! Load VPTE
 1:	brgez,pn	%g5, 3f				! Not valid, branch out
+	 sethi		%hi(_PAGE_EXEC), %g4		! Delay-slot
+	andcc		%g5, %g4, %g0			! Executable?
+	be,pn		%xcc, 3f			! Nope, branch.
 	 nop						! Delay-slot
 2:	stxa		%g5, [%g0] ASI_ITLB_DATA_IN	! Load PTE into TLB
 	retry						! Trap return
@@ -59,7 +62,7 @@ sparc64_realfault_common:				! Called by TL0 dtlb_miss too
 
 /* ITLB ** ICACHE line 3: Finish faults + window fixups	*/
 	call		do_sparc64_fault		! Call fault handler
-	 add		%sp, STACK_BIAS + REGWIN_SZ, %o0! Compute pt_regs arg
+	 add		%sp, PTREGS_OFF, %o0		! Compute pt_regs arg
 	ba,pt		%xcc, rtrap_clr_l6		! Restore cpu state
 	 nop
 winfix_trampoline:
@@ -69,9 +72,6 @@ winfix_trampoline:
 	done						! Do it to it
 
 /* ITLB ** ICACHE line 4: Unused...	*/
-	nop
-	nop
-	nop
 	nop
 	nop
 	nop

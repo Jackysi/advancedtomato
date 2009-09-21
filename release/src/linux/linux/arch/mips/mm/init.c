@@ -43,15 +43,21 @@ unsigned long highstart_pfn, highend_pfn;
 static unsigned long totalram_pages;
 static unsigned long totalhigh_pages;
 
-extern void prom_free_prom_memory(void);
-
-
-asmlinkage int sys_cacheflush(void *addr, int bytes, int cache)
+void pgd_init(unsigned long page)
 {
-	/* This should flush more selectivly ...  */
-	__flush_cache_all();
+	unsigned long *p = (unsigned long *) page;
+	int i;
 
-	return 0;
+	for (i = 0; i < USER_PTRS_PER_PGD; i+=8) {
+		p[i + 0] = (unsigned long) invalid_pte_table;
+		p[i + 1] = (unsigned long) invalid_pte_table;
+		p[i + 2] = (unsigned long) invalid_pte_table;
+		p[i + 3] = (unsigned long) invalid_pte_table;
+		p[i + 4] = (unsigned long) invalid_pte_table;
+		p[i + 5] = (unsigned long) invalid_pte_table;
+		p[i + 6] = (unsigned long) invalid_pte_table;
+		p[i + 7] = (unsigned long) invalid_pte_table;
+	}
 }
 
 /*
@@ -67,7 +73,8 @@ static inline unsigned long setup_zero_pages(void)
 {
 	unsigned long order, size;
 	struct page *page;
-	if(mips_cpu.options & MIPS_CPU_VCE)
+
+	if (cpu_has_vce)
 		order = 3;
 	else
 		order = 0;
@@ -161,6 +168,7 @@ void show_mem(void)
 extern char _ftext, _etext, _fdata, _edata;
 extern char __init_begin, __init_end;
 
+#ifdef CONFIG_HIGHMEM
 static void __init fixrange_init (unsigned long start, unsigned long end,
 	pgd_t *pgd_base)
 {
@@ -189,22 +197,25 @@ static void __init fixrange_init (unsigned long start, unsigned long end,
 		j = 0;
 	}
 }
+#endif
 
 void __init pagetable_init(void)
 {
+#ifdef CONFIG_HIGHMEM
 	unsigned long vaddr;
 	pgd_t *pgd, *pgd_base;
 	pmd_t *pmd;
 	pte_t *pte;
+#endif
 
 	/* Initialize the entire pgd.  */
 	pgd_init((unsigned long)swapper_pg_dir);
 	pgd_init((unsigned long)swapper_pg_dir +
 	         sizeof(pgd_t ) * USER_PTRS_PER_PGD);
 
+#ifdef CONFIG_HIGHMEM
 	pgd_base = swapper_pg_dir;
 
-#ifdef CONFIG_HIGHMEM
 	/*
 	 * Fixed mappings:
 	 */
@@ -250,7 +261,13 @@ void __init paging_init(void)
 	zones_size[ZONE_DMA] = low;
 #endif
 #ifdef CONFIG_HIGHMEM
-	zones_size[ZONE_HIGHMEM] = high - low;
+	if (cpu_has_dc_aliases) {
+		printk(KERN_WARNING "This processor doesn't support highmem.");
+		if (high - low)
+			printk(" %dk highmem ignored", high - low);
+		printk("\n");
+	} else
+		zones_size[ZONE_HIGHMEM] = high - low;
 #endif
 
 	free_area_init(zones_size);
@@ -360,7 +377,7 @@ void free_initrd_mem(unsigned long start, unsigned long end)
 #endif
 
 extern char __init_begin, __init_end;
-extern void prom_free_prom_memory(void);
+extern void prom_free_prom_memory(void) __init;
 
 void free_initmem(void)
 {

@@ -367,6 +367,14 @@ static void * pa11_dma_alloc_consistent (struct pci_dev *hwdev, size_t size, dma
 	map_uncached_pages(vaddr, size, paddr);
 	*dma_handle = (dma_addr_t) paddr;
 
+#if 0
+/* This probably isn't needed to support EISA cards.
+** ISA cards will certainly only support 24-bit DMA addressing.
+** Not clear if we can, want, or need to support ISA.
+*/
+	if (!hwdev || hwdev->dma_mask != 0xffffffff)
+		gfp |= GFP_DMA;
+#endif
 	return (void *)vaddr;
 }
 
@@ -420,9 +428,9 @@ static int pa11_dma_map_sg(struct pci_dev *dev, struct scatterlist *sglist, int 
 	    BUG();
 
 	for (i = 0; i < nents; i++, sglist++ ) {
-		sg_dma_address(sglist) = (dma_addr_t) virt_to_phys(sglist->address);
+		sg_dma_address(sglist) = (dma_addr_t) virt_to_phys(sg_virt_addr(sglist));
 		sg_dma_len(sglist) = sglist->length;
-		flush_kernel_dcache_range((unsigned long)sglist->address,
+		flush_kernel_dcache_range((unsigned long)sg_virt_addr(sglist),
 				sglist->length);
 	}
 	return nents;
@@ -441,7 +449,7 @@ static void pa11_dma_unmap_sg(struct pci_dev *dev, struct scatterlist *sglist, i
 	/* once we do combining we'll need to use phys_to_virt(sg_dma_address(sglist)) */
 
 	for (i = 0; i < nents; i++, sglist++ )
-		flush_kernel_dcache_range((unsigned long) sglist->address, sglist->length);
+		flush_kernel_dcache_range((unsigned long) sg_virt_addr(sglist), sglist->length);
 	return;
 }
 
@@ -460,7 +468,7 @@ static void pa11_dma_sync_sg(struct pci_dev *dev, struct scatterlist *sglist, in
 	/* once we do combining we'll need to use phys_to_virt(sg_dma_address(sglist)) */
 
 	for (i = 0; i < nents; i++, sglist++ )
-		flush_kernel_dcache_range((unsigned long) sglist->address, sglist->length);
+		flush_kernel_dcache_range((unsigned long) sg_virt_addr(sglist), sglist->length);
 }
 
 struct pci_dma_ops pcxl_dma_ops = {

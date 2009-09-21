@@ -3,7 +3,45 @@
 
 #ifdef __KERNEL__
 
+#include <linux/mm.h>
 #include <asm/arch/hardware.h>
+#include <asm/scatterlist.h>
+#include <asm/io.h>
+
+/*
+ * For SA-1111 these functions are "magic" and utilize bounce
+ * buffers as need to workaround SA-1111 DMA bugs.  They are called in
+ * place of their pci_* counterparts when dev_is_sa1111() returns true.
+ */
+dma_addr_t sa1111_map_single(void *, size_t, int);
+void sa1111_unmap_single(dma_addr_t, size_t, int);
+int sa1111_map_sg(struct scatterlist *, int, int);
+void sa1111_unmap_sg(struct scatterlist *, int, int);
+void sa1111_dma_sync_single(dma_addr_t, size_t, int);
+void sa1111_dma_sync_sg(struct scatterlist *, int, int);
+
+#ifdef CONFIG_SA1111
+
+#define SA1111_FAKE_PCIDEV ((struct pci_dev *) 1111)
+
+static inline int dev_is_sa1111(const struct pci_dev *dev)
+{
+	return (dev == SA1111_FAKE_PCIDEV);
+}
+
+#else
+
+static inline int dev_is_sa1111(const struct pci_dev *dev) { return 0; }
+
+#endif
+
+/*
+ * The PCI address space does equal the physical memory address space.
+ * The networking and block device layers use this boolean for bounce
+ * buffer decisions.
+ */
+#define PCI_DMA_BUS_IS_PHYS     (0)
+
 
 static inline void pcibios_set_master(struct pci_dev *dev)
 {
@@ -15,8 +53,7 @@ static inline void pcibios_penalize_isa_irq(int irq)
 	/* We don't do dynamic PCI IRQ allocation */
 }
 
-#include <asm/scatterlist.h>
-#include <asm/io.h>
+#define pcibios_scan_all_fns()		0
 
 struct pci_dev;
 
@@ -53,17 +90,9 @@ pci_free_consistent(struct pci_dev *hwdev, size_t size, void *vaddr,
 static inline dma_addr_t
 pci_map_single(struct pci_dev *hwdev, void *ptr, size_t size, int direction)
 {
-#ifdef CONFIG_SA1111
-	extern dma_addr_t sa1111_map_single(struct pci_dev *, void *, size_t, int);
+	if (dev_is_sa1111(hwdev))
+		return sa1111_map_single(ptr, size, direction);
 
-	/*
-	 * for SA1111 these functions are "magic" and relocate buffers.  We
-	 * only need to do these if hwdev is non-null; otherwise we expect
-	 * the buffer to already be suitable for DMA.
-	 */
-	if (hwdev != NULL)
-		return sa1111_map_single(hwdev, ptr, size, direction);
-#endif
 	consistent_sync(ptr, size, direction);
 	return virt_to_bus(ptr);
 }
@@ -78,12 +107,9 @@ pci_map_single(struct pci_dev *hwdev, void *ptr, size_t size, int direction)
 static inline void
 pci_unmap_single(struct pci_dev *hwdev, dma_addr_t dma_addr, size_t size, int direction)
 {
-#ifdef CONFIG_SA1111
-	extern void sa1111_unmap_single(struct pci_dev *, dma_addr_t, size_t, int);
+	if (dev_is_sa1111(hwdev))
+		sa1111_unmap_single(dma_addr, size, direction);
 
-	if (hwdev != NULL)
-		sa1111_unmap_single(hwdev, dma_addr, size, direction);
-#endif
 	/* nothing to do */
 }
 
@@ -132,9 +158,17 @@ pci_map_sg(struct pci_dev *hwdev, struct scatterlist *sg, int nents, int directi
 {
 	int i;
 
+	if (dev_is_sa1111(hwdev))
+		return sa1111_map_sg(sg, nents, direction);
+
 	for (i = 0; i < nents; i++, sg++) {
-		consistent_sync(sg->address, sg->length, direction);
-		sg->dma_address = virt_to_bus(sg->address);
+		char *vaddr = sg->address;
+
+		if (!vaddr)
+			vaddr = ((char *)page_address(sg->page)) + sg->offset;
+
+		consistent_sync(vaddr, sg->length, direction);
+		sg->dma_address = virt_to_bus(vaddr);
 	}
 
 	return nents;
@@ -147,6 +181,11 @@ pci_map_sg(struct pci_dev *hwdev, struct scatterlist *sg, int nents, int directi
 static inline void
 pci_unmap_sg(struct pci_dev *hwdev, struct scatterlist *sg, int nents, int direction)
 {
+	if (dev_is_sa1111(hwdev)) {
+		sa1111_unmap_sg(sg, nents, direction);
+		return;
+	}
+
 	/* nothing to do */
 }
 
@@ -162,6 +201,11 @@ pci_unmap_sg(struct pci_dev *hwdev, struct scatterlist *sg, int nents, int direc
 static inline void
 pci_dma_sync_single(struct pci_dev *hwdev, dma_addr_t dma_handle, size_t size, int direction)
 {
+	if (dev_is_sa1111(hwdev)) {
+	  	sa1111_dma_sync_single(dma_handle, size, direction);
+		return;
+	}
+
 	consistent_sync(bus_to_virt(dma_handle), size, direction);
 }
 
@@ -175,6 +219,11 @@ static inline void
 pci_dma_sync_sg(struct pci_dev *hwdev, struct scatterlist *sg, int nelems, int direction)
 {
 	int i;
+
+ 	if (dev_is_sa1111(hwdev)) {
+ 	  	sa1111_dma_sync_sg(sg, nelems, direction);
+ 		return;
+ 	}
 
 	for (i = 0; i < nelems; i++, sg++)
 		consistent_sync(sg->address, sg->length, direction);
@@ -195,6 +244,19 @@ static inline int pci_dma_supported(struct pci_dev *hwdev, u64 mask)
 
 /* Return the index of the PCI controller for device PDEV. */
 #define pci_controller_num(PDEV)	(0)
+
+
+#if defined(CONFIG_SA1111) && !defined(CONFIG_PCI)
+/* SA-1111 needs these prototypes even when !defined(CONFIG_PCI) */
+
+/* kmem_cache style wrapper around pci_alloc_consistent() */
+struct pci_pool *pci_pool_create (const char *name, struct pci_dev *dev,
+		size_t size, size_t align, size_t allocation, int flags);
+void pci_pool_destroy (struct pci_pool *pool);
+
+void *pci_pool_alloc (struct pci_pool *pool, int flags, dma_addr_t *handle);
+void pci_pool_free (struct pci_pool *pool, void *vaddr, dma_addr_t addr);
+#endif
 
 #endif /* __KERNEL__ */
  

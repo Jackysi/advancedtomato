@@ -1,6 +1,6 @@
 /*
- *   Copyright (c) International Business Machines Corp., 2000-2002
- *   Portions Copyright (c) Christoph Hellwig, 2001-2002
+ *   Copyright (C) International Business Machines Corp., 2000-2004
+ *   Portions Copyright (C) Christoph Hellwig, 2001-2002
  *
  *   This program is free software;  you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -54,7 +54,7 @@ void dump_mem(char *label, void *data, int length)
 }
 #endif
 
-#ifdef PROC_FS_JFS     /* see jfs_debug.h */
+#ifdef PROC_FS_JFS /* see jfs_debug.h */
 
 static struct proc_dir_entry *base;
 #ifdef CONFIG_JFS_DEBUG
@@ -100,6 +100,7 @@ static int loglevel_write(struct file *file, const char *buffer,
 
 #ifdef CONFIG_JFS_STATISTICS
 extern read_proc_t jfs_lmstats_read;
+extern read_proc_t jfs_txstats_read;
 extern read_proc_t jfs_xtstat_read;
 extern read_proc_t jfs_mpstat_read;
 #endif
@@ -111,6 +112,7 @@ static struct {
 } Entries[] = {
 #ifdef CONFIG_JFS_STATISTICS
 	{ "lmstats",	jfs_lmstats_read, },
+	{ "txstats",	jfs_txstats_read, },
 	{ "xtstat",	jfs_xtstat_read, },
 	{ "mpstat",	jfs_mpstat_read, },
 #endif
@@ -145,7 +147,7 @@ void jfs_proc_clean(void)
 	if (base) {
 		for (i = 0; i < NPROCENT; i++)
 			remove_proc_entry(Entries[i].name, base);
-		remove_proc_entry("jfs", base);
+		remove_proc_entry("jfs", proc_root_fs);
 	}
 }
 

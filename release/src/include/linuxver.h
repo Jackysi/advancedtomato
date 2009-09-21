@@ -2,22 +2,27 @@
  * Linux-specific abstractions to gain some independence from linux kernel versions.
  * Pave over some 2.2 versus 2.4 versus 2.6 kernel differences.
  *
- * Copyright 2006, Broadcom Corporation
+ * Copyright 2004, Broadcom Corporation
  * All Rights Reserved.
  * 
  * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
  * KIND, EXPRESS OR IMPLIED, BY STATUTE, COMMUNICATION OR OTHERWISE. BROADCOM
  * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
  * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
- *
+ *   
  * $Id$
  */
 
 #ifndef _linuxver_h_
 #define _linuxver_h_
 
-#include <linux/config.h>
 #include <linux/version.h>
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 0))
+#include <linux/config.h>
+#else
+#include <linux/autoconf.h>
+#endif
+#include <linux/module.h>
 
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(2, 3, 0))
 /* __NO_VERSION__ must be defined for all linkables except one in 2.2 */
@@ -27,15 +32,6 @@
 #define __NO_VERSION__
 #endif
 #endif	/* LINUX_VERSION_CODE < KERNEL_VERSION(2, 3, 0) */
-
-#if defined(MODULE) && defined(MODVERSIONS)
-#include <linux/modversions.h>
-#endif
-
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 5, 0)
-#include <linux/moduleparam.h>
-#endif
-
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2, 5, 0)
 #define module_param(_name_, _type_, _perm_)	MODULE_PARM(_name_, "i")
@@ -77,6 +73,13 @@
 #endif
 #endif	/* LINUX_VERSION_CODE > KERNEL_VERSION(2, 5, 41) */
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 20)
+#define	MY_INIT_WORK(_work, _func, _data)	INIT_WORK(_work, _func)
+#else
+#define	MY_INIT_WORK(_work, _func, _data)	INIT_WORK(_work, _func, _data)
+typedef void (*work_func_t)(void *work);
+#endif	/* < 2.6.20 */
+
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 0))
 /* Some distributions have their own 2.6.x compatibility layers */
 #ifndef IRQ_NONE
@@ -108,6 +111,12 @@ cs_error(client_handle_t handle, int func, int ret)
 	error_info_t err = { func, ret };
 	CardServices(ReportError, handle, &err);
 }
+#endif
+
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 15))
+
+typedef	struct pcmcia_device dev_link_t;
+
 #endif
 
 #endif /* CONFIG_PCMCIA */
@@ -226,7 +235,7 @@ static inline int get_order(unsigned long size)
 }
 
 static inline void *pci_alloc_consistent(struct pci_dev *hwdev, size_t size,
-                                         dma_addr_t *dma_handle)
+					 dma_addr_t *dma_handle)
 {
 	void *ret;
 	int gfp = GFP_ATOMIC | GFP_DMA;
@@ -240,7 +249,7 @@ static inline void *pci_alloc_consistent(struct pci_dev *hwdev, size_t size,
 	return ret;
 }
 static inline void pci_free_consistent(struct pci_dev *hwdev, size_t size,
-                                       void *vaddr, dma_addr_t dma_handle)
+				       void *vaddr, dma_addr_t dma_handle)
 {
 	free_pages((unsigned long)vaddr, get_order(size));
 }
@@ -273,10 +282,10 @@ extern void pci_unmap_single(void *dev, uint pa, uint size, int direction);
  * done by Aman Singla.
  */
 
-#define dev_kfree_skb_irq(a)	dev_kfree_skb(a)
+#define dev_kfree_skb_irq(a)		dev_kfree_skb(a)
 #define netif_wake_queue(dev) \
 		do { clear_bit(0, &(dev)->tbusy); mark_bh(NET_BH); } while (0)
-#define netif_stop_queue(dev)	set_bit(0, &(dev)->tbusy)
+#define netif_stop_queue(dev)		set_bit(0, &(dev)->tbusy)
 
 static inline void netif_start_queue(struct net_device *dev)
 {
@@ -302,8 +311,8 @@ static inline void tasklet_schedule(struct tasklet_struct *tasklet)
 }
 
 static inline void tasklet_init(struct tasklet_struct *tasklet,
-                                void (*func)(unsigned long),
-                                unsigned long data)
+				void (*func)(unsigned long),
+				unsigned long data)
 {
 	tasklet->next = NULL;
 	tasklet->sync = 0;
@@ -359,7 +368,7 @@ pci_save_state(struct pci_dev *dev, u32 *buffer)
 	return 0;
 }
 
-static inline int
+static inline int 
 pci_restore_state(struct pci_dev *dev, u32 *buffer)
 {
 	int i;
@@ -373,12 +382,12 @@ pci_restore_state(struct pci_dev *dev, u32 *buffer)
 	 * This works around a problem where warm-booting from Windows
 	 * combined with a D3(hot)->D0 transition causes PCI config
 	 * header data to be forgotten.
-	 */
+	 */	
 	else {
 		for (i = 0; i < 6; i ++)
 			pci_write_config_dword(dev,
-			                       PCI_BASE_ADDRESS_0 + (i * 4),
-			                       pci_resource_start(dev, i));
+					       PCI_BASE_ADDRESS_0 + (i * 4),
+					       pci_resource_start(dev, i));
 		pci_write_config_byte(dev, PCI_INTERRUPT_LINE, dev->irq);
 	}
 	return 0;

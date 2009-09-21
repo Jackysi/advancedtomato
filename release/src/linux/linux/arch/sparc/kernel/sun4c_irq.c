@@ -34,7 +34,12 @@
 #include <asm/sun4paddr.h>
 #include <asm/idprom.h>
 #include <asm/machines.h>
+#include <asm/sbus.h>
 
+#if 0
+static struct resource sun4c_timer_eb = { "sun4c_timer" };
+static struct resource sun4c_intr_eb = { "sun4c_intr" };
+#endif
 
 /* Pointer to the interrupt enable byte
  *
@@ -47,13 +52,24 @@
  */
 unsigned char *interrupt_enable = 0;
 
+static int sun4c_pil_map[] = { 0, 1, 2, 3, 5, 7, 8, 9 };
+
+unsigned int sun4c_sbint_to_irq(struct sbus_dev *sdev, unsigned int sbint)
+{
+	if (sbint >= sizeof(sun4c_pil_map)) {
+		printk(KERN_ERR "%s: bogus SBINT %d\n", sdev->prom_name, sbint);
+		BUG();
+	}
+	return sun4c_pil_map[sbint];
+}
+
 static void sun4c_disable_irq(unsigned int irq_nr)
 {
 	unsigned long flags;
 	unsigned char current_mask, new_mask;
     
 	save_and_cli(flags);
-	irq_nr &= NR_IRQS;
+	irq_nr &= (NR_IRQS - 1);
 	current_mask = *interrupt_enable;
 	switch(irq_nr) {
 	case 1:
@@ -82,7 +98,7 @@ static void sun4c_enable_irq(unsigned int irq_nr)
 	unsigned char current_mask, new_mask;
     
 	save_and_cli(flags);
-	irq_nr &= NR_IRQS;
+	irq_nr &= (NR_IRQS - 1);
 	current_mask = *interrupt_enable;
 	switch(irq_nr) {
 	case 1:
@@ -171,6 +187,10 @@ static void __init sun4c_init_timers(void (*counter_fn)(int, void *, struct pt_r
 		prom_halt();
 	}
     
+#if 0
+	/* This does not work on 4/330 */
+	sun4c_enable_irq(10);
+#endif
 	claim_ticker14(NULL, PROFILE_IRQ, 0);
 }
 
@@ -205,6 +225,7 @@ void __init sun4c_init_IRQ(void)
 		    int_regs[0].reg_size, "sun4c_intr");
 	}
 
+	BTFIXUPSET_CALL(sbint_to_irq, sun4c_sbint_to_irq, BTFIXUPCALL_NORM);
 	BTFIXUPSET_CALL(enable_irq, sun4c_enable_irq, BTFIXUPCALL_NORM);
 	BTFIXUPSET_CALL(disable_irq, sun4c_disable_irq, BTFIXUPCALL_NORM);
 	BTFIXUPSET_CALL(enable_pil_irq, sun4c_enable_irq, BTFIXUPCALL_NORM);
@@ -213,7 +234,7 @@ void __init sun4c_init_IRQ(void)
 	BTFIXUPSET_CALL(clear_profile_irq, sun4c_clear_profile_irq, BTFIXUPCALL_NOP);
 	BTFIXUPSET_CALL(load_profile_irq, sun4c_load_profile_irq, BTFIXUPCALL_NOP);
 	BTFIXUPSET_CALL(__irq_itoa, sun4m_irq_itoa, BTFIXUPCALL_NORM);
-	init_timers = sun4c_init_timers;
+	sparc_init_timers = sun4c_init_timers;
 #ifdef CONFIG_SMP
 	BTFIXUPSET_CALL(set_cpu_int, sun4c_nop, BTFIXUPCALL_NOP);
 	BTFIXUPSET_CALL(clear_cpu_int, sun4c_nop, BTFIXUPCALL_NOP);

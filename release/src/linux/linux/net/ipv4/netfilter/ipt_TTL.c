@@ -1,7 +1,7 @@
 /* TTL modification target for IP tables
  * (C) 2000 by Harald Welte <laforge@gnumonks.org>
  *
- * Version: 1.8
+ * Version: $Revision: 1.1 $
  *
  * This software is distributed under the terms of GNU GPL
  */

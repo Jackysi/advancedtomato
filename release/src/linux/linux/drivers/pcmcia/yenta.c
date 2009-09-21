@@ -2,6 +2,11 @@
  * Regular lowlevel cardbus driver ("yenta")
  *
  * (C) Copyright 1999, 2000 Linus Torvalds
+ *
+ * Changelog:
+ * Aug 2002: Manfred Spraul <manfred@colorfullife.com>
+ * 	Dynamically adjust the size of the bridge resource
+ * 	
  */
 #include <linux/init.h>
 #include <linux/pci.h>
@@ -20,11 +25,17 @@
 #include "yenta.h"
 #include "i82365.h"
 
+#if 0
+#define DEBUG(x,args...)	printk(KERN_DEBUG __FUNCTION__ ": " x,##args)
+#else
 #define DEBUG(x,args...)
+#endif
 
 /* Don't ask.. */
 #define to_cycles(ns)	((ns)/120)
 #define to_ns(cycles)	((cycles)*120)
+
+static int override_bios;
 
 /*
  * Generate easy-to-use ways of reading a cardbus sockets
@@ -532,6 +543,9 @@ static unsigned int yenta_probe_irq(pci_socket_t *socket, u32 isa_irq_mask)
 	 * Probe for usable interrupts using the force
 	 * register to generate bogus card status events.
 	 */
+
+#ifndef CONFIG_BCM947XX
+	/* WRT54G3G does not like this */
 	cb_writel(socket, CB_SOCKET_EVENT, -1);
 	cb_writel(socket, CB_SOCKET_MASK, CB_CSTSMASK);
 	exca_writeb(socket, I365_CSCINT, 0);
@@ -546,7 +560,8 @@ static unsigned int yenta_probe_irq(pci_socket_t *socket, u32 isa_irq_mask)
 	}
 	cb_writel(socket, CB_SOCKET_MASK, 0);
 	exca_writeb(socket, I365_CSCINT, 0);
-	
+#endif
+
 	mask = probe_irq_mask(val) & 0xffff;
 
 	bridge_ctrl &= ~CB_BRIDGE_INTR;
@@ -567,7 +582,14 @@ static void yenta_get_socket_capabilities(pci_socket_t *socket, u32 isa_irq_mask
 	socket->cap.cb_dev = socket->dev;
 	socket->cap.bus = NULL;
 
-	printk("Yenta IRQ list %04x, PCI irq%d\n", socket->cap.irq_mask, socket->cb_irq);
+#ifdef CONFIG_BCM947XX
+	/* irq mask probing is broken for the WRT54G3G */
+	if (socket->cap.irq_mask == 0)
+		socket->cap.irq_mask = 0x6f8;
+#endif
+
+	printk(KERN_INFO "Yenta ISA IRQ mask 0x%04x, PCI irq %d\n",
+	       socket->cap.irq_mask, socket->cb_irq);
 }
 
 extern void cardbus_register(pci_socket_t *socket);
@@ -594,8 +616,18 @@ static void yenta_open_bh(void * data)
 
 	/* Figure out what the dang thing can do for the PCMCIA layer... */
 	yenta_get_socket_capabilities(socket, isa_interrupts);
-	printk("Socket status: %08x\n", cb_readl(socket, CB_SOCKET_STATE));
+	printk(KERN_INFO "Socket status: %08x\n",
+	       cb_readl(socket, CB_SOCKET_STATE));
 
+	/* Generate an interrupt on card insert/remove */
+	config_writew(socket, CB_SOCKET_MASK, CB_CSTSMASK | CB_CDMASK);
+
+	/* Set up Multifunction Routing Status Register */
+	config_writew(socket, 0x8C, 0x1000 /* MFUNC3 to GPIO3 */ | 0x2 /* MFUNC0 to INTA */);
+	
+	/* Switch interrupts to parallelized */
+	config_writeb(socket, 0x92, 0x64);
+	
 	/* Register it with the pcmcia layer.. */
 	cardbus_register(socket);
 
@@ -625,6 +657,7 @@ static void yenta_clear_maps(pci_socket_t *socket)
  */
 static void yenta_config_init(pci_socket_t *socket)
 {
+	u32 state;
 	u16 bridge;
 	struct pci_dev *dev = socket->dev;
 
@@ -638,6 +671,7 @@ static void yenta_config_init(pci_socket_t *socket)
 			PCI_COMMAND_MASTER |
 			PCI_COMMAND_WAIT);
 
+	/* MAGIC NUMBERS! Fixme */
 	config_writeb(socket, PCI_CACHE_LINE_SIZE, L1_CACHE_BYTES / 4);
 	config_writeb(socket, PCI_LATENCY_TIMER, 168);
 	config_writel(socket, PCI_PRIMARY_BUS,
@@ -663,6 +697,10 @@ static void yenta_config_init(pci_socket_t *socket)
 	exca_writeb(socket, I365_GENCTL, 0x00);
 
 	/* Redo card voltage interrogation */
+	state = cb_readl(socket, CB_SOCKET_STATE);
+	if (!(state & (CB_CDETECT1 | CB_CDETECT2 | CB_5VCARD |
+			CB_3VCARD | CB_XVCARD | CB_YVCARD)))
+		
 	cb_writel(socket, CB_SOCKET_FORCE, CB_CVSTEST);
 }
 
@@ -699,11 +737,20 @@ static int yenta_suspend(pci_socket_t *socket)
 	return 0;
 }
 
+/*
+ * Use an adaptive allocation for the memory resource,
+ * sometimes the size behind pci bridges is limited:
+ * 1/8 of the size of the io window of the parent.
+ * max 4 MB, min 16 kB.
+ */
+#define BRIDGE_SIZE_MAX	4*1024*1024
+#define BRIDGE_SIZE_MIN	16*1024
+
 static void yenta_allocate_res(pci_socket_t *socket, int nr, unsigned type)
 {
 	struct pci_bus *bus;
 	struct resource *root, *res;
-	u32 start, end;
+	u32 start = 0, end = 0;
 	u32 align, size, min, max;
 	unsigned offset;
 	unsigned mask;
@@ -722,29 +769,60 @@ static void yenta_allocate_res(pci_socket_t *socket, int nr, unsigned type)
 	res->end = 0;
 	root = pci_find_parent_resource(socket->dev, res);
 
+#ifdef CONFIG_BCM947XX
+	/* default mem resources are completely fscked up on the wrt54g3g */
+	/* bypass the entire resource allocation stuff below and just set it statically */
+	if (type & IORESOURCE_MEM) {
+		res->start = 0x40004000;
+		res->end = res->start + 0x3fff;
+	}
+
+#else
 	if (!root)
 		return;
 
 	start = config_readl(socket, offset) & mask;
 	end = config_readl(socket, offset+4) | ~mask;
-	if (start && end > start) {
+	if (start && end > start && !override_bios) {
 		res->start = start;
 		res->end = end;
-		request_resource(root, res);
-		return;
+		if (request_resource(root, res) == 0)
+			return;
+		printk(KERN_INFO "yenta %s: Preassigned resource %d busy, reconfiguring...\n",
+				socket->dev->slot_name, nr);
+		res->start = res->end = 0;
 	}
 
-	align = size = 4*1024*1024;
-	min = PCIBIOS_MIN_MEM; max = ~0U;
 	if (type & IORESOURCE_IO) {
 		align = 1024;
 		size = 256;
 		min = 0x4000;
 		max = 0xffff;
+	} else {
+		unsigned long avail = root->end - root->start;
+		int i;
+		align = size = BRIDGE_SIZE_MAX;
+		if (size > avail/8) {
+			size=(avail+1)/8;
+			/* round size down to next power of 2 */
+			i = 0;
+			while ((size /= 2) != 0)
+				i++;
+			size = 1 << i;
+		}
+		if (size < BRIDGE_SIZE_MIN)
+			size = BRIDGE_SIZE_MIN;
+		align = size;
+		min = PCIBIOS_MIN_MEM; max = ~0U;
 	}
 		
-	if (allocate_resource(root, res, size, min, max, align, NULL, NULL) < 0)
+	if (allocate_resource(root, res, size, min, max, align, NULL, NULL) < 0) {
+		printk(KERN_INFO "yenta %s: no resource of type %x available, trying to continue...\n",
+				socket->dev->slot_name, type);
+		res->start = res->end = 0;
 		return;
+	}
+#endif
 
 	config_writel(socket, offset, res->start);
 	config_writel(socket, offset+4, res->end);
@@ -762,6 +840,20 @@ static void yenta_allocate_resources(pci_socket_t *socket)
 }
 
 /*
+ * Free the bridge mappings for the device..
+ */
+static void yenta_free_resources(pci_socket_t *socket)
+{
+	int i;
+	for (i=0;i<4;i++) {
+		struct resource *res;
+		res = socket->dev->resource + PCI_BRIDGE_RESOURCES + i;
+		if (res->start != 0 && res->end != 0)
+			release_resource(res);
+		res->start = res->end = 0;
+	}
+}
+/*
  * Close it down - release our resources and go home..
  */
 static void yenta_close(pci_socket_t *sock)
@@ -777,10 +869,12 @@ static void yenta_close(pci_socket_t *sock)
 
 	if (sock->base)
 		iounmap(sock->base);
+	yenta_free_resources(sock);
 }
 
 #include "ti113x.h"
 #include "ricoh.h"
+#include "o2micro.h"
 
 /*
  * Different cardbus controllers have slightly different
@@ -808,6 +902,15 @@ static struct cardbus_override_struct {
 	{ PD(TI,1420),	&ti_ops },
 	{ PD(TI,4410),	&ti_ops },
 	{ PD(TI,4451),	&ti_ops },
+	{ PD(TI,1510),  &ti_ops },
+	{ PD(TI,1520),  &ti_ops },
+
+	{ PD(ENE,1211),  &ti_ops },
+	{ PD(ENE,1225),  &ti_ops },
+	{ PD(ENE,1410),  &ti_ops },
+	{ PD(ENE,1420),  &ti_ops },
+
+	{ PCI_VENDOR_ID_O2, PCI_ANY_ID, &o2micro_ops },
 
 	{ PD(RICOH,RL5C465), &ricoh_ops },
 	{ PD(RICOH,RL5C466), &ricoh_ops },
@@ -834,7 +937,7 @@ static int yenta_open(pci_socket_t *socket)
 	if (pci_enable_device(dev))
 		return -1;
 	if (!pci_resource_start(dev, 0)) {
-		printk("No cardbus resource!\n");
+		printk(KERN_ERR "No cardbus resource!\n");
 		return -1;
 	}
 
@@ -881,6 +984,9 @@ static int yenta_open(pci_socket_t *socket)
 
 	return 0;
 }
+  
+MODULE_PARM (override_bios, "i");
+MODULE_PARM_DESC (override_bios, "yenta ignore bios resource allocation");
 
 /*
  * Standard plain cardbus - no frills, no extensions

@@ -35,7 +35,12 @@
 #define PTRS_PER_PMD	(1 << PMD_INDEX_SIZE)
 #define PTRS_PER_PGD	(1 << PGD_INDEX_SIZE)
 
+#if 0
+/* DRENG / PPPBBB This is a compiler bug!!! */
+#define USER_PTRS_PER_PGD	(TASK_SIZE / PGDIR_SIZE)
+#else
 #define USER_PTRS_PER_PGD	(1024)
+#endif
 #define FIRST_USER_PGD_NR	0
 
 #define EADDR_SIZE (PTE_INDEX_SIZE + PMD_INDEX_SIZE + \
@@ -46,7 +51,16 @@
  */
 #define VMALLOC_START (0xD000000000000000)
 #define VMALLOC_VMADDR(x) ((unsigned long)(x))
+
+#ifndef CONFIG_SHARED_MEMORY_ADDRESSING
 #define VMALLOC_END   (VMALLOC_START + VALID_EA_BITS)
+#else
+#define VMALLOC_END   (VMALLOC_START + (VALID_EA_BITS >> 1))
+#define SMALLOC_START (VMALLOC_START + (VALID_EA_BITS >> 1) + 1)
+#define SMALLOC_END   (VMALLOC_START + VALID_EA_BITS)
+#define SMALLOC_EA_SHIFT 40
+#define SMALLOC_ESID_SHIFT 12
+#endif
 
 /*
  * Define the address range of the imalloc VM area.
@@ -95,9 +109,9 @@
 /* preserving _PAGE_SECONDARY | _PAGE_GROUP_IX */
 #define _PAGE_CHG_MASK	(PAGE_MASK | _PAGE_ACCESSED | _PAGE_DIRTY | _PAGE_HPTEFLAGS)
 
-#define _PAGE_BASE	_PAGE_PRESENT | _PAGE_ACCESSED | _PAGE_COHERENT
+#define _PAGE_BASE	(_PAGE_PRESENT | _PAGE_ACCESSED | _PAGE_COHERENT)
 
-#define _PAGE_WRENABLE	_PAGE_RW | _PAGE_DIRTY 
+#define _PAGE_WRENABLE	(_PAGE_RW | _PAGE_DIRTY)
 
 /* __pgprot defined in asm-ppc64/page.h */
 #define PAGE_NONE	__pgprot(_PAGE_PRESENT | _PAGE_ACCESSED)
@@ -410,7 +424,11 @@ extern void build_valid_hpte(unsigned long vsid, unsigned long ea,
  */
 #define kern_addr_valid(addr)	(1)
 
-#define io_remap_page_range remap_page_range 
+#ifdef CONFIG_PPC_ISERIES
+#define io_remap_page_range remap_page_range
+#else
+extern int io_remap_page_range(unsigned long from, unsigned long to, unsigned long size, pgprot_t prot);
+#endif
 
 /*
  * No page table caches to initialise

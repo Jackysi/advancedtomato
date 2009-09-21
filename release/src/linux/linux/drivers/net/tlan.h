@@ -169,15 +169,22 @@ typedef u8 TLanBuffer[TLAN_MAX_FRAME_SIZE];
 
 typedef struct tlan_private_tag {
 	struct net_device       *nextDevice;
+	struct pci_dev		*pciDev;
 	void			*dmaStorage;
+	dma_addr_t		dmaStorageDMA;
+	unsigned int		dmaSize;
 	u8			*padBuffer;
 	TLanList                *rxList;
+	dma_addr_t		rxListDMA;
 	u8			*rxBuffer;
+	dma_addr_t		rxBufferDMA;
 	u32                     rxHead;
 	u32                     rxTail;
 	u32			rxEocCount;
 	TLanList                *txList;
+	dma_addr_t		txListDMA;
 	u8			*txBuffer;
+	dma_addr_t		txBufferDMA;
 	u32                     txHead;
 	u32                     txInProgress;
 	u32                     txTail;
@@ -495,6 +502,28 @@ inline void TLan_DioWrite32(u16 base_addr, u16 internal_addr, u32 data)
 
 
 
+#if 0
+inline void TLan_ClearBit(u8 bit, u16 port)
+{
+	outb_p(inb_p(port) & ~bit, port);
+}
+
+
+
+
+inline int TLan_GetBit(u8 bit, u16 port)
+{
+	return ((int) (inb_p(port) & bit));
+}
+
+
+
+
+inline void TLan_SetBit(u8 bit, u16 port)
+{
+	outb_p(inb_p(port) | bit, port);
+}
+#endif
 
 #define TLan_ClearBit( bit, port )	outb_p(inb_p(port) & ~bit, port)
 #define TLan_GetBit( bit, port )	((int) (inb_p(port) & bit))

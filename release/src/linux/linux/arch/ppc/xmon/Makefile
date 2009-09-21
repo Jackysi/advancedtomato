@@ -1,4 +1,3 @@
-# BK Id: SCCS/s.Makefile 1.6 06/27/01 14:49:58 trini
 #
 # Makefile for xmon
 

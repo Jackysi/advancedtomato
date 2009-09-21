@@ -1,4 +1,4 @@
-/* $Id: wd7000.c,v 1.1.1.4 2003/10/14 08:08:43 sparq Exp $
+/* $Id: $
  *  linux/drivers/scsi/wd7000.c
  *
  *  Copyright (C) 1992  Thomas Wuensche
@@ -501,6 +501,9 @@ typedef struct icbRevLvl {
 typedef struct icbUnsMask {	/* I'm totally guessing here */
     unchar op;
     volatile unchar mask[14];	/* mask bits                 */
+#if 0
+    unchar rsvd[12];		/* reserved                  */
+#endif
     volatile unchar vue;	/* vendor-unique error code  */
     volatile unchar status;	/* returned (icmb) status    */
     volatile unchar phase;	/* used by interrupt handler */

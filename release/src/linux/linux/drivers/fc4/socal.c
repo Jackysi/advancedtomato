@@ -36,7 +36,6 @@ static char *version =
 
 #include <asm/openprom.h>
 #include <asm/oplib.h>
-#include <asm/auxio.h>
 #include <asm/pgtable.h>
 #include <asm/irq.h>
 
@@ -114,6 +113,7 @@ static void socal_reset(fc_channel *fc)
 	socal_port *port = (socal_port *)fc;
 	struct socal *s = port->s;
 	
+	/* FIXME */
 	socal_disable(s);
 	s->req[0].seqno = 1;
 	s->req[1].seqno = 1;
@@ -128,6 +128,7 @@ static void socal_reset(fc_channel *fc)
 	s->rsp[0].out = 0;
 	s->rsp[1].out = 0;
 
+	/* FIXME */
 	socal_enable(s);
 }
 
@@ -149,6 +150,37 @@ static void inline socal_solicited(struct socal *s, unsigned long qno)
 		hwrsp = (socal_rsp *)sw_cq->pool + sw_cq->out;
 		SOD(("hwrsp %p out %d\n", hwrsp, sw_cq->out))
 		
+#if defined(SOCALDEBUG) && 0
+		{
+		u32 *u = (u32 *)hwrsp;
+		SOD(("%08x.%08x.%08x.%08x.%08x.%08x.%08x.%08x\n",
+		     u[0],u[1],u[2],u[3],u[4],u[5],u[6],u[7]))
+		u += 8;
+		SOD(("%08x.%08x.%08x.%08x.%08x.%08x.%08x.%08x\n",
+		     u[0],u[1],u[2],u[3],u[4],u[5],u[6],u[7]))
+		u = (u32 *)s->xram;
+		while (u < ((u32 *)s->regs)) {
+			if (sbus_readl(&u[0]) == 0x00003000 ||
+			    sbus_readl(&u[0]) == 0x00003801) {
+			SOD(("Found at %04lx\n",
+			     (unsigned long)u - (unsigned long)s->xram))
+			SOD(("  %08x.%08x.%08x.%08x.%08x.%08x.%08x.%08x\n",
+			     sbus_readl(&u[0]), sbus_readl(&u[1]),
+			     sbus_readl(&u[2]), sbus_readl(&u[3]),
+			     sbus_readl(&u[4]), sbus_readl(&u[5]),
+			     sbus_readl(&u[6]), sbus_readl(&u[7])))
+			u += 8;
+			SOD(("  %08x.%08x.%08x.%08x.%08x.%08x.%08x.%08x\n",
+			     sbus_readl(&u[0]), sbus_readl(&u[1]),
+			     sbus_readl(&u[2]), sbus_readl(&u[3]),
+			     sbus_readl(&u[4]), sbus_readl(&u[5]),
+			     sbus_readl(&u[6]), sbus_readl(&u[7])))
+			u -= 8;
+			}
+			u++;
+		}
+		}
+#endif
 
 		token = hwrsp->shdr.token;
 		status = hwrsp->status;
@@ -228,6 +260,16 @@ static void inline socal_unsolicited (struct socal *s, unsigned long qno)
 		hwrsp = (socal_rsp *)sw_cq->pool + sw_cq->out;
 		SOD(("hwrsp %p out %d\n", hwrsp, sw_cq->out))
 
+#if defined(SOCALDEBUG) && 0
+		{
+		u32 *u = (u32 *)hwrsp;
+		SOD(("%08x.%08x.%08x.%08x.%08x.%08x.%08x.%08x\n",
+		     u[0],u[1],u[2],u[3],u[4],u[5],u[6],u[7]))
+		u += 8;
+		SOD(("%08x.%08x.%08x.%08x.%08x.%08x.%08x.%08x\n",
+		     u[0],u[1],u[2],u[3],u[4],u[5],u[6],u[7]))
+		}
+#endif
 
 		hwrspc = NULL;
 		flags = hwrsp->shdr.flags;

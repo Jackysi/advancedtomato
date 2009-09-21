@@ -1,6 +1,6 @@
 #define AZT_VERSION "2.60"
 
-/*      $Id: aztcd.c,v 1.1.1.4 2003/10/14 08:07:59 sparq Exp $
+/*      $Id: aztcd.c,v 2.60 1997/11/29 09:51:19 root Exp root $
 	linux/drivers/block/aztcd.c - Aztech CD268 CDROM driver
 
 	Copyright (C) 1994-98 Werner Zimmermann(Werner.Zimmermann@fht-esslingen.de)
@@ -217,6 +217,16 @@ static int aztcd_blocksizes[1] = { 2048 };
 #define SWITCH_IDE_MASTER outb_p(0xa0,azt_port+6);
 
 
+#if 0
+#define AZT_TEST
+#define AZT_TEST1		/* <int-..> */
+#define AZT_TEST2		/* do_aztcd_request */
+#define AZT_TEST3		/* AZT_S_state */
+#define AZT_TEST4		/* QUICK_LOOP-counter */
+#define AZT_TEST5		/* port(1) state */
+#define AZT_DEBUG
+#define AZT_DEBUG_MULTISESSION
+#endif
 
 #define CURRENT_VALID \
   (!QUEUE_EMPTY && MAJOR(CURRENT -> rq_dev) == MAJOR_NR && CURRENT -> cmd == READ \
@@ -667,6 +677,7 @@ static int getAztStatus(void)
 
 	if (((st & AST_MODE_BITS) != AST_BUSY)
 	    && (aztAudioStatus == CDROM_AUDIO_PLAY))
+		/* XXX might be an error? look at q-channel? */
 		aztAudioStatus = CDROM_AUDIO_COMPLETED;
 
 	if ((st & AST_DSK_CHG) || (st & AST_NOT_READY)) {
@@ -1736,7 +1747,7 @@ int __init aztcd_init(void)
 	    ("aztcd: If you have problems, read /usr/src/linux/Documentation/cdrom/aztcd\n");
 
 
-#ifdef AZT_SW32			    /*CDROM connected to Soundwave32 card */
+#ifdef AZT_SW32			/*CDROM connected to Soundwave32 card */
 	if ((0xFF00 & inw(AZT_SW32_ID_REG)) != 0x4500) {
 		printk
 		    ("aztcd: no Soundwave32 card detected at base:%x init:%x config:%x id:%x\n",

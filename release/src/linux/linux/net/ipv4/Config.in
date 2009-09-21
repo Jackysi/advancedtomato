@@ -14,7 +14,6 @@ if [ "$CONFIG_IP_ADVANCED_ROUTER" = "y" ]; then
    bool '    IP: equal cost multipath' CONFIG_IP_ROUTE_MULTIPATH
    bool '    IP: use TOS value as routing key' CONFIG_IP_ROUTE_TOS
    bool '    IP: verbose route monitoring' CONFIG_IP_ROUTE_VERBOSE
-   bool '    IP: large routing tables' CONFIG_IP_ROUTE_LARGE_TABLES
 fi
 bool '  IP: kernel level autoconfiguration' CONFIG_IP_PNP
 if [ "$CONFIG_IP_PNP" = "y" ]; then
@@ -43,4 +42,7 @@ bool '  IP: TCP Explicit Congestion Notification support' CONFIG_INET_ECN
 bool '  IP: TCP syncookie support (disabled per default)' CONFIG_SYN_COOKIES
 if [ "$CONFIG_NETFILTER" != "n" ]; then
    source net/ipv4/netfilter/Config.in
+fi
+if [ "$CONFIG_NETFILTER" != "n" ]; then
+   source net/ipv4/ipvs/Config.in
 fi

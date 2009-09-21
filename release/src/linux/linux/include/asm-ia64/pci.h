@@ -15,6 +15,7 @@
  * loader.
  */
 #define pcibios_assign_all_busses()     0
+#define pcibios_scan_all_fns()		0
 
 #define PCIBIOS_MIN_IO		0x1000
 #define PCIBIOS_MIN_MEM		0x10000000
@@ -25,6 +26,13 @@ extern int (*pci_config_read)(int seg, int bus, int dev, int fn, int reg, int le
 extern int (*pci_config_write)(int seg, int bus, int dev, int fn, int reg, int len, u32 value);
 
 struct pci_dev;
+
+/*
+ * The PCI address space does equal the physical memory address space.
+ * The networking and block device layers use this boolean for bounce
+ * buffer decisions.
+ */
+#define PCI_DMA_BUS_IS_PHYS	(1)
 
 static inline void
 pcibios_set_master (struct pci_dev *dev)
@@ -38,6 +46,9 @@ pcibios_penalize_isa_irq (int irq)
 	/* We don't do dynamic PCI IRQ allocation */
 }
 
+#define HAVE_ARCH_PCI_MWI 1
+extern int pcibios_set_mwi (struct pci_dev *);
+
 /*
  * Dynamic DMA mapping API.  See Documentation/DMA-mapping.txt for details.
  */
@@ -49,7 +60,6 @@ pcibios_penalize_isa_irq (int irq)
 #define pci_unmap_sg			platform_pci_unmap_sg
 #define pci_dma_sync_single		platform_pci_dma_sync_single
 #define pci_dma_sync_sg			platform_pci_dma_sync_sg
-#define sg_dma_address			platform_pci_dma_address
 #define pci_dma_supported		platform_pci_dma_supported
 
 /* pci_unmap_{single,page} is not a nop, thus... */
@@ -73,21 +83,28 @@ pcibios_penalize_isa_irq (int irq)
 #define pci_dac_dma_to_offset(dev,dma_addr)	((dma_addr) & ~PAGE_MASK)
 #define pci_dac_dma_sync_single(dev,dma_addr,len,dir)	do { /* nothing */ } while (0)
 
-/* Return the index of the PCI controller for device PDEV. */
-#define pci_controller_num(PDEV)	(0)
+/* Return the PCI domain number */
+#define pci_controller_num(pdev)	(PCI_SEGMENT(pdev))
 
-#define sg_dma_len(sg)		((sg)->length)
+#define sg_dma_address(sg)	((sg)->dma_address)
+#define sg_dma_len(sg)		((sg)->dma_length)
 
 #define HAVE_PCI_MMAP
 extern int pci_mmap_page_range (struct pci_dev *dev, struct vm_area_struct *vma,
 				enum pci_mmap_state mmap_state, int write_combine);
+
+struct pci_window {
+	struct resource resource;
+	u64 offset;
+};
 
 struct pci_controller {
 	void *acpi_handle;
 	void *iommu;
 	int segment;
 
-	u64 mem_offset;
+	unsigned int windows;
+	struct pci_window *window;
 
 	void *platform_data;
 };

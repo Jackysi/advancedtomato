@@ -8,6 +8,7 @@
  * Kevin Kissell, kevink@mips.com and Carsten Langgaard, carstenl@mips.com
  * Copyright (C) 2000 MIPS Technologies, Inc.
  */
+#include <linux/config.h>
 #include <linux/types.h>
 #include <linux/sched.h>
 #include <linux/mm.h>
@@ -21,7 +22,7 @@
 #define offset(string, ptr, member) \
 	__asm__("\n@@@" string "%0" : : "i" (_offset(ptr, member)))
 #define constant(string, member) \
-	__asm__("\n@@@" string "%x0" : : "i" (member))
+	__asm__("\n@@@" string "%x0" : : "ri" (member))
 #define size(string, size) \
 	__asm__("\n@@@" string "%0" : : "i" (sizeof(size)))
 #define linefeed text("")
@@ -93,6 +94,12 @@ void output_task_defines(void)
 	offset("#define TASK_PID           ", struct task_struct, pid);
 	size(  "#define TASK_STRUCT_SIZE   ", struct task_struct);
 	linefeed;
+
+	text("/* MIPS task_struct allocation info. */");
+	constant("#define _THREAD_ORDER    ", THREAD_ORDER);
+	constant("#define _THREAD_SIZE     ", THREAD_SIZE);
+	constant("#define _THREAD_MASK     ", THREAD_MASK);
+	linefeed;
 }
 
 void output_thread_defines(void)
@@ -137,8 +144,28 @@ void output_mm_defines(void)
 	offset("#define MM_CONTEXT    ", struct mm_struct, context);
 	linefeed;
 	constant("#define _PAGE_SIZE     ", PAGE_SIZE);
-	constant("#define _PGD_ORDER     ", PGD_ORDER);
+	constant("#define _PAGE_SHIFT    ", PAGE_SHIFT);
+	linefeed;
+	constant("#define _PGD_T_SIZE    ", sizeof(pgd_t));
+	constant("#define _PMD_T_SIZE    ", sizeof(pmd_t));
+	constant("#define _PTE_T_SIZE    ", sizeof(pte_t));
+	linefeed;
+	constant("#define _PGD_T_LOG2    ", PGD_T_LOG2);
+	constant("#define _PMD_T_LOG2    ", PMD_T_LOG2);
+	constant("#define _PTE_T_LOG2    ", PTE_T_LOG2);
+	linefeed;
+	constant("#define _PMD_SHIFT     ", PMD_SHIFT);
 	constant("#define _PGDIR_SHIFT   ", PGDIR_SHIFT);
+	linefeed;
+	constant("#define _PGD_ORDER     ", PGD_ORDER);
+#ifdef PMD_ORDER
+	constant("#define _PMD_ORDER     ", PMD_ORDER);
+#endif
+	constant("#define _PTE_ORDER     ", PTE_ORDER);
+	linefeed;
+	constant("#define _PTRS_PER_PGD  ", PTRS_PER_PGD);
+	constant("#define _PTRS_PER_PMD  ", PTRS_PER_PMD);
+	constant("#define _PTRS_PER_PTE  ", PTRS_PER_PTE);
 	linefeed;
 }
 
@@ -156,6 +183,14 @@ void output_sc_defines(void)
 	offset("#define SC_CAUSE      ", struct sigcontext, sc_cause);
 	offset("#define SC_BADVADDR   ", struct sigcontext, sc_badvaddr);
 	linefeed;
+
+#ifdef CONFIG_MIPS64
+	text("/* Linux 32-bit sigcontext offsets. */");
+	offset("#define SC32_FPREGS     ", struct sigcontext32, sc_fpregs);
+	offset("#define SC32_FPC_CSR    ", struct sigcontext32, sc_fpc_csr);
+	offset("#define SC32_FPC_EIR    ", struct sigcontext32, sc_fpc_eir);
+	linefeed;
+#endif
 }
 
 void output_signal_defined(void)

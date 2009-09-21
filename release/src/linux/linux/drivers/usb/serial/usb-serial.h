@@ -1,7 +1,7 @@
 /*
  * USB Serial Converter driver
  *
- *	Copyright (C) 1999 - 2002
+ *	Copyright (C) 1999 - 2003
  *	    Greg Kroah-Hartman (greg@kroah.com)
  *
  *	This program is free software; you can redistribute it and/or modify
@@ -67,7 +67,7 @@
  * usb_serial_port: structure for the specific ports of a device.
  * @magic: magic number for internal validity of this pointer.
  * @serial: pointer back to the struct usb_serial owner of this port.
- * @tty: pointer to the coresponding tty for this port.
+ * @tty: pointer to the corresponding tty for this port.
  * @number: the number of the port (the minor number).
  * @interrupt_in_buffer: pointer to the interrupt in buffer for this port.
  * @interrupt_in_urb: pointer to the interrupt in struct urb for this port.
@@ -111,6 +111,8 @@ struct usb_serial_port {
 	int			bulk_out_size;
 	struct urb *		write_urb;
 	__u8			bulk_out_endpointAddress;
+	char			write_busy;	/* URB is active */
+	int			write_backlog;	/* Fifo used */
 
 	wait_queue_head_t	write_wait;
 	struct tq_struct	tqueue;
@@ -118,6 +120,16 @@ struct usb_serial_port {
 	struct semaphore	sem;
 	void *			private;
 };
+/* get and set the port private data pointer helper functions */
+static inline void *usb_get_serial_port_data (struct usb_serial_port *port)
+{
+	return port->private;
+}
+
+static inline void usb_set_serial_port_data (struct usb_serial_port *port, void *data)
+{
+	port->private = data;
+}
 
 /**
  * usb_serial - structure used by the usb-serial core for a device
@@ -151,11 +163,22 @@ struct usb_serial {
 	__u16				product;
 	struct usb_serial_port		port[MAX_NUM_PORTS];
 	void *				private;
+	int				ref;
 };
 
 
 #define NUM_DONT_CARE	(-1)
 
+/* get and set the serial private data pointer helper functions */
+static inline void *usb_get_serial_data (struct usb_serial *serial)
+{
+	return serial->private;
+}
+
+static inline void usb_set_serial_data (struct usb_serial *serial, void *data)
+{
+	serial->private = data;
+}
 
 /**
  * usb_serial_device_type - a structure that defines a usb serial device
@@ -285,20 +308,9 @@ static inline int port_paranoia_check (struct usb_serial_port *port, const char 
 	return 0;
 }
 
-
-static inline struct usb_serial* get_usb_serial (struct usb_serial_port *port, const char *function) 
-{ 
-	/* if no port was specified, or it fails a paranoia check */
-	if (!port || 
-		port_paranoia_check (port, function) ||
-		serial_paranoia_check (port->serial, function)) {
-		/* then say that we dont have a valid usb_serial thing, which will
-		 * end up genrating -ENODEV return values */ 
-		return NULL;
-	}
-
-	return port->serial;
-}
+#define get_usb_serial(p, f)	usb_serial_get_serial(p, f)
+extern struct usb_serial *usb_serial_get_serial(struct usb_serial_port *port,
+    const char *function_name);
 
 
 static inline void usb_serial_debug_data (const char *file, const char *function, int size, const unsigned char *data)
@@ -318,7 +330,7 @@ static inline void usb_serial_debug_data (const char *file, const char *function
 
 /* Use our own dbg macro */
 #undef dbg
-#define dbg(format, arg...) do { if (debug) printk(KERN_DEBUG __FILE__ ": " format "\n" , ## arg); } while (0)
+#define dbg(format, arg...) do { if (debug) printk(KERN_DEBUG "%s: " format "\n" , __FILE__ , ## arg); } while (0)
 
 
 

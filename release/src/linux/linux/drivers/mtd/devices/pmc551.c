@@ -1,4 +1,86 @@
-
+/*
+ * $Id: pmc551.c,v 1.22 2003/01/24 13:34:30 dwmw2 Exp $
+ *
+ * PMC551 PCI Mezzanine Ram Device
+ *
+ * Author:
+ *       Mark Ferrell <mferrell@mvista.com>
+ *       Copyright 1999,2000 Nortel Networks
+ *
+ * License:
+ *	 As part of this driver was derived from the slram.c driver it
+ *	 falls under the same license, which is GNU General Public
+ *	 License v2
+ *
+ * Description:
+ *	 This driver is intended to support the PMC551 PCI Ram device
+ *	 from Ramix Inc.  The PMC551 is a PMC Mezzanine module for
+ *	 cPCI embedded systems.  The device contains a single SROM
+ *	 that initially programs the V370PDC chipset onboard the
+ *	 device, and various banks of DRAM/SDRAM onboard.  This driver
+ *	 implements this PCI Ram device as an MTD (Memory Technology
+ *	 Device) so that it can be used to hold a file system, or for
+ *	 added swap space in embedded systems.  Since the memory on
+ *	 this board isn't as fast as main memory we do not try to hook
+ *	 it into main memory as that would simply reduce performance
+ *	 on the system.  Using it as a block device allows us to use
+ *	 it as high speed swap or for a high speed disk device of some
+ *	 sort.  Which becomes very useful on diskless systems in the
+ *	 embedded market I might add.
+ *	 
+ * Notes:
+ *	 Due to what I assume is more buggy SROM, the 64M PMC551 I
+ *	 have available claims that all 4 of it's DRAM banks have 64M
+ *	 of ram configured (making a grand total of 256M onboard).
+ *	 This is slightly annoying since the BAR0 size reflects the
+ *	 aperture size, not the dram size, and the V370PDC supplies no
+ *	 other method for memory size discovery.  This problem is
+ *	 mostly only relevant when compiled as a module, as the
+ *	 unloading of the module with an aperture size smaller then
+ *	 the ram will cause the driver to detect the onboard memory
+ *	 size to be equal to the aperture size when the module is
+ *	 reloaded.  Soooo, to help, the module supports an msize
+ *	 option to allow the specification of the onboard memory, and
+ *	 an asize option, to allow the specification of the aperture
+ *	 size.  The aperture must be equal to or less then the memory
+ *	 size, the driver will correct this if you screw it up.  This
+ *	 problem is not relevant for compiled in drivers as compiled
+ *	 in drivers only init once.
+ *
+ * Credits:
+ *       Saeed Karamooz <saeed@ramix.com> of Ramix INC. for the
+ *       initial example code of how to initialize this device and for
+ *       help with questions I had concerning operation of the device.
+ *
+ *       Most of the MTD code for this driver was originally written
+ *       for the slram.o module in the MTD drivers package which
+ *       allows the mapping of system memory into an MTD device.
+ *       Since the PMC551 memory module is accessed in the same
+ *       fashion as system memory, the slram.c code became a very nice
+ *       fit to the needs of this driver.  All we added was PCI
+ *       detection/initialization to the driver and automatically figure
+ *       out the size via the PCI detection.o, later changes by Corey
+ *       Minyard set up the card to utilize a 1M sliding apature.
+ *
+ *	 Corey Minyard <minyard@nortelnetworks.com>
+ *       * Modified driver to utilize a sliding aperture instead of 
+ *         mapping all memory into kernel space which turned out to
+ *         be very wasteful.
+ *       * Located a bug in the SROM's initialization sequence that 
+ *         made the memory unusable, added a fix to code to touch up
+ *         the DRAM some.
+ *
+ * Bugs/FIXME's:
+ *       * MUST fix the init function to not spin on a register
+ *       waiting for it to set .. this does not safely handle busted
+ *       devices that never reset the register correctly which will
+ *       cause the system to hang w/ a reboot being the only chance at
+ *       recover. [sort of fixed, could be better]
+ *       * Add I2C handling of the SROM so we can read the SROM's information
+ *       about the aperture size.  This should always accurately reflect the
+ *       onboard memory size.
+ *       * Comb the init routine.  It's still a bit cludgy on a few things.
+ */
 
 #include <linux/config.h>
 #include <linux/kernel.h>
@@ -16,8 +98,6 @@
 #include <linux/ioctl.h>
 #include <asm/io.h>
 #include <asm/system.h>
-#include <asm/segment.h>
-#include <stdarg.h>
 #include <linux/pci.h>
 
 #ifndef CONFIG_PCI
@@ -134,7 +214,7 @@ static int pmc551_point (struct mtd_info *mtd, loff_t from, size_t len, size_t *
 }
 
 
-static void pmc551_unpoint (struct mtd_info *mtd, u_char *addr)
+static void pmc551_unpoint (struct mtd_info *mtd, u_char *addr, loff_t from, size_t len)
 {
 #ifdef CONFIG_MTD_PMC551_DEBUG
 	printk(KERN_DEBUG "pmc551_unpoint()\n");
@@ -266,6 +346,18 @@ out:
         return 0;
 }
 
+/*
+ * Fixup routines for the V370PDC
+ * PCI device ID 0x020011b0
+ *
+ * This function basicly kick starts the DRAM oboard the card and gets it
+ * ready to be used.  Before this is done the device reads VERY erratic, so
+ * much that it can crash the Linux 2.2.x series kernels when a user cat's
+ * /proc/pci .. though that is mainly a kernel bug in handling the PCI DEVSEL
+ * register.  FIXME: stop spinning on registers .. must implement a timeout
+ * mechanism
+ * returns the size of the memory region found.
+ */
 static u32 fixup_pmc551 (struct pci_dev *dev)
 {
 #ifdef CONFIG_MTD_PMC551_BUGFIX
@@ -280,6 +372,10 @@ static u32 fixup_pmc551 (struct pci_dev *dev)
                 return -ENODEV;
         }
 
+	/*
+	 * Attempt to reset the card
+	 * FIXME: Stop Spinning registers
+	 */
 	counter=0;
 	/* unlock registers */
 	pci_write_config_byte(dev, PMC551_SYS_CTRL_REG, 0xA5 );
@@ -382,6 +478,10 @@ static u32 fixup_pmc551 (struct pci_dev *dev)
         pci_write_config_word( dev, PMC551_SDRAM_MA, 0x0400 );
         pci_write_config_word( dev, PMC551_SDRAM_CMD, 0x00bf );
 
+        /*
+         * Wait until command has gone through
+         * FIXME: register spinning issue
+         */
         do {	pci_read_config_word( dev, PMC551_SDRAM_CMD, &cmd );
 		if(counter++ > 100)break;
         } while ( (PCI_COMMAND_IO) & cmd );
@@ -395,6 +495,10 @@ static u32 fixup_pmc551 (struct pci_dev *dev)
         for ( i = 1; i<=8 ; i++) {
                 pci_write_config_word (dev, PMC551_SDRAM_CMD, 0x0df);
 
+                /*
+                 * Make certain command has gone through
+                 * FIXME: register spinning issue
+                 */
 		counter=0;
                 do {	pci_read_config_word(dev, PMC551_SDRAM_CMD, &cmd);
 			if(counter++ > 100)break;
@@ -404,6 +508,10 @@ static u32 fixup_pmc551 (struct pci_dev *dev)
         pci_write_config_word ( dev, PMC551_SDRAM_MA, 0x0020);
         pci_write_config_word ( dev, PMC551_SDRAM_CMD, 0x0ff);
 
+        /*
+         * Wait until command completes
+         * FIXME: register spinning issue
+         */
 	counter=0;
         do {	pci_read_config_word ( dev, PMC551_SDRAM_CMD, &cmd);
 		if(counter++ > 100)break;

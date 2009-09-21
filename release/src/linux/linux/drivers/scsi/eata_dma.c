@@ -463,6 +463,15 @@ int eata_queue(Scsi_Cmnd * cmd, void (* done) (Scsi_Cmnd *))
     save_flags(flags);
     cli();
 
+#if 0
+    for (x = 1, sh = first_HBA; x <= registered_HBAs; x++, sh = SD(sh)->next) {
+      if(inb((uint)sh->base + HA_RAUXSTAT) & HA_AIRQ) {
+            printk("eata_dma: scsi%d interrupt pending in eata_queue.\n"
+		   "          Calling interrupt handler.\n", sh->host_no);
+            eata_int_handler(sh->irq, 0, 0);
+      }
+    }
+#endif
     
     queue_counter++;
 
@@ -533,6 +542,9 @@ int eata_queue(Scsi_Cmnd * cmd, void (* done) (Scsi_Cmnd *))
 	ccb->DataIn = TRUE;	/* Input mode  */
     }
 
+    /* FIXME: This will will have to be changed once the midlevel driver 
+     *        allows different HBA IDs on every channel.
+     */
     if (cmd->target == sh->this_id) 
 	ccb->Interpret = TRUE;	/* Interpret command */
 
@@ -1055,7 +1067,7 @@ short register_HBA(u32 base, struct get_conf *gc, Scsi_Host_Template * tpnt,
     char *buff = 0;
     unchar bugs = 0;
     struct Scsi_Host *sh;
-    hostdata *hd;
+    hostdata *hd = NULL;
     int x;
     
     
@@ -1285,6 +1297,9 @@ short register_HBA(u32 base, struct get_conf *gc, Scsi_Host_Template * tpnt,
     sh->irq = gc->IRQ;
     sh->dma_channel = dma_channel;
     
+    /* FIXME:
+     * SCSI midlevel code should support different HBA ids on every channel
+     */
     sh->this_id = gc->scsi_id[3];
     
     if (gc->SECOND)

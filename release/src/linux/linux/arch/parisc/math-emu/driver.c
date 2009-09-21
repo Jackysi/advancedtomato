@@ -80,14 +80,19 @@ struct exc_reg {
 int
 handle_fpe(struct pt_regs *regs)
 {
-	extern void printbinary(unsigned long x, int nbits);
+	extern int printbinary(char *buf, unsigned long x, int nbits);
 	struct siginfo si;
 	unsigned int orig_sw, sw;
 	int signalcode;
+	char buf[128];
 	/* need an intermediate copy of float regs because FPU emulation
 	 * code expects an artificial last entry which contains zero
+	 *
+	 * also, the passed in fr registers contain one word that defines
+	 * the fpu type. the fpu type information is constructed 
+	 * inside the emulation code
 	 */
-	__u64 frcopy[33];
+	__u64 frcopy[36];
 
 	memcpy(frcopy, regs->fr, sizeof regs->fr);
 	frcopy[32] = 0;
@@ -96,8 +101,8 @@ handle_fpe(struct pt_regs *regs)
 
 	if (FPUDEBUG) {
 		printk(KERN_DEBUG "FP VZOUICxxxxCQCQCQCQCQCRMxxTDVZOUI ->\n   ");
-		printbinary(orig_sw, 32);
-		printk(KERN_DEBUG "\n");
+		printbinary(buf, orig_sw, 32);
+		printk(KERN_DEBUG "%s\n", buf);
 	}
 
 	signalcode = decode_fpu(frcopy, 0x666);
@@ -107,8 +112,8 @@ handle_fpe(struct pt_regs *regs)
 	if (FPUDEBUG) {
 		printk(KERN_DEBUG "VZOUICxxxxCQCQCQCQCQCRMxxTDVZOUI decode_fpu returns %d|0x%x\n",
 			signalcode >> 24, signalcode & 0xffffff);
-		printbinary(sw, 32);
-		printk(KERN_DEBUG "\n");
+		printbinary(buf, sw, 32);
+		printk(KERN_DEBUG "%s\n", buf);
 	}
 
 	memcpy(regs->fr, frcopy, sizeof regs->fr);

@@ -38,7 +38,7 @@
 #include <asm/uaccess.h>
 #include <linux/string.h>
 #include <linux/smp_lock.h>
-#if defined(CONFIG_EXT3_FS) || defined(CONFIG_EXT3_FS_MODULE)
+#if defined(CONFIG_EXT3_FS) || defined (CONFIG_EXT3_FS_MODULE)
 #include <linux/jbd.h>
 #include <linux/ext3_fs.h>
 #include <linux/ext3_jbd.h>
@@ -47,7 +47,7 @@
 #include <linux/intermezzo_fs.h>
 #include <linux/intermezzo_psdev.h>
 
-#if defined(CONFIG_EXT3_FS) || defined(CONFIG_EXT3_FS_MODULE)
+#if defined(CONFIG_EXT3_FS) || defined (CONFIG_EXT3_FS_MODULE)
 
 #define MAX_PATH_BLOCKS(inode) (PATH_MAX >> EXT3_BLOCK_SIZE_BITS((inode)->i_sb))
 #define MAX_NAME_BLOCKS(inode) (NAME_MAX >> EXT3_BLOCK_SIZE_BITS((inode)->i_sb))

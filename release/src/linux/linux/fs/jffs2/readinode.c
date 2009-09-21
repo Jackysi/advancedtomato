@@ -31,7 +31,7 @@
  * provisions above, a recipient may use your version of this file
  * under either the RHEPL or the GPL.
  *
- * $Id: readinode.c,v 1.1.1.4 2003/10/14 08:09:00 sparq Exp $
+ * $Id: readinode.c,v 1.58.2.8 2003/11/02 13:54:20 dwmw2 Exp $
  *
  */
 
@@ -44,7 +44,7 @@
 #include <linux/mtd/mtd.h>
 #include <linux/jffs2.h>
 #include "nodelist.h"
-#include "crc32.h"
+#include <linux/crc32.h>
 
 
 D1(void jffs2_print_frag_list(struct jffs2_inode_info *f)
@@ -390,6 +390,7 @@ void jffs2_read_inode (struct inode *inode)
 		/* ASSERT: f->fraglist != NULL */
 		if (f->fraglist->next) {
 			printk(KERN_WARNING "Argh. Special inode #%lu with mode 0%o had more than one node\n", inode->i_ino, inode->i_mode);
+			/* FIXME: Deal with it - check crc32, check for duplicate node, check times and discard the older one */
 			jffs2_clear_inode(inode);
 			make_bad_inode(inode);
 			return;
@@ -467,23 +468,12 @@ void jffs2_clear_inode (struct inode *inode)
 	struct jffs2_node_frag *frag, *frags;
 	struct jffs2_full_dirent *fd, *fds;
 	struct jffs2_inode_info *f = JFFS2_INODE_INFO(inode);
-        /* I don't think we care about the potential race due to reading this
-           without f->sem. It can never get undeleted. */
-        int deleted = f->inocache && !f->inocache->nlink;
+        int deleted;
 
 	D1(printk(KERN_DEBUG "jffs2_clear_inode(): ino #%lu mode %o\n", inode->i_ino, inode->i_mode));
 
-	/* If it's a deleted inode, grab the alloc_sem. This prevents
-	   jffs2_garbage_collect_pass() from deciding that it wants to
-	   garbage collect one of the nodes we're just about to mark 
-	   obsolete -- by the time we drop alloc_sem and return, all
-	   the nodes are marked obsolete, and jffs2_g_c_pass() won't
-	   call iget() for the inode in question.
-	*/
-	if (deleted)
-		down(&c->alloc_sem);
-
 	down(&f->sem);
+	deleted = f->inocache && !f->inocache->nlink;
 
 	frags = f->fraglist;
 	fds = f->dents;
@@ -514,8 +504,5 @@ void jffs2_clear_inode (struct inode *inode)
 	}
 
 	up(&f->sem);
-
-	if(deleted)
-		up(&c->alloc_sem);
 };
 

@@ -17,7 +17,7 @@
  *	file: sp502.h
  *	author: bkd
  *	created: 1/21/95
- *	revision info: $Id: sp502.h,v 1.1.1.4 2003/10/14 08:08:30 sparq Exp $
+ *	revision info: $Id: sp502.h,v 1.3 2002/02/10 22:17:26 martillo Exp $
  *	ripped off from: Header: /vol/sources.cvs/dev/acs/include/sp502.h,v 1.4 1996/11/07 21:35:10 bkd Exp 
  *	Used without modification in the multichannel server portion of the Linux driver by Joachim Martillo
  */
@@ -26,7 +26,7 @@
 #define _SP502_H
 
 #ifdef sun
-#   pragma ident "@(#)$Header: /home/cvsroot/wrt54g/src/linux/linux/drivers/net/wan/8253x/sp502.h,v 1.1.1.4 2003/10/14 08:08:30 sparq Exp $"
+#   pragma ident "@(#)$Header: /usr/local/cvs/linux-2.4.6/drivers/net/wan/8253x/sp502.h,v 1.3 2002/02/10 22:17:26 martillo Exp $"
 #endif
 
 /*

@@ -8,8 +8,8 @@
 for Linux.
 
 2. My Linux environment
-Linux kernel: 2.4.7 / 2.2.19
-pcmcia-cs:    3.1.27
+Linux kernel: 2.4.20 / 2.5.63
+pcmcia-cs:    3.1.33
 gcc:          gcc-2.95.4
 PC card:      I-O data PCSC-F (NinjaSCSI-3)
               I-O data CBSC-II in 16 bit mode (NinjaSCSI-32Bi)
@@ -46,22 +46,16 @@ $ cd linux
 $ make config
 ...
 
-[3] If you use this driver with Kernel 2.2, Unpack pcmcia-cs in some directory
-    and make & install. This driver requies pcmcia-cs header file.
-$ cd /usr/src
-$ tar zxvf cs-pcmcia-cs-3.x.x.tar.gz
-...
-
-[4] Extract this driver's archive somewhere, and edit Makefile, then do make.
+[3] Extract this driver's archive somewhere, and edit Makefile, then do make.
 $ tar -zxvf nsp_cs-x.x.tar.gz
 $ cd nsp_cs-x.x
 $ emacs Makefile
 ...
 $ make
 
-[5] Copy nsp_cs.o to suitable plase, like /lib/modules/<Kernel version>/pcmcia/ .
+[4] Copy nsp_cs.o to suitable plase, like /lib/modules/<Kernel version>/pcmcia/ .
 
-[6] Add these lines to /etc/pcmcia/config .
+[5] Add these lines to /etc/pcmcia/config .
     If you yse pcmcia-cs-3.1.8 or later, we can use "nsp_cs.conf" file.
     So, you don't need to edit file. Just copy to /etc/pcmcia/ .
 
@@ -97,7 +91,7 @@ card "WorkBit NinjaSCSI-32Bi (16bit) / KME-4"
   bind "nsp_cs"
 -------------------------------------
 
-[7] Start (or restart) pcmcia-cs.
+[6] Start (or restart) pcmcia-cs.
 # /etc/rc.d/rc.pcmcia start        (BSD style)
 or
 # /etc/init.d/pcmcia start         (SYSV style)
@@ -113,8 +107,7 @@ your computer, you encount some *BAD* error like disk crash.
 your data. Please backup your data when you use this driver.
 
 6. Known Bugs
- In 2.4 kernel, you can't use 640MB Optical disk. This error comes from
-high level SCSI driver.
+ Many bugs in this driver. Be careful!
 
 7. Testing
  Please send me some reports(bug reports etc..) of this software.
@@ -127,4 +120,4 @@ When you send report, please tell me these or more.
  See GPL.
 
 
-2001/08/08 yokota@netlab.is.tsukuba.ac.jp <YOKOTA Hiroshi>
+2002/01/17 yokota@netlab.is.tsukuba.ac.jp <YOKOTA Hiroshi>

@@ -1,7 +1,7 @@
 /*
  * RoboSwitch setup functions
  *
- * Copyright 2006, Broadcom Corporation
+ * Copyright 2007, Broadcom Corporation
  * All Rights Reserved.
  * 
  * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
@@ -14,6 +14,8 @@
 
 #ifndef _bcm_robo_h_
 #define _bcm_robo_h_
+
+#define DEVID5325   0x25    /* 5325 (Not really be we fake it) */
 
 /* Forward declaration */
 typedef struct robo_info_s robo_info_t;
@@ -54,15 +56,8 @@ struct robo_info_s {
 extern robo_info_t *bcm_robo_attach(sb_t *sbh, void *h, char *vars, miird_f miird, miiwr_f miiwr);
 extern void bcm_robo_detach(robo_info_t *robo);
 extern int bcm_robo_enable_device(robo_info_t *robo);
-extern int bcm_robo_config_vlan(robo_info_t *robo);
+extern int bcm_robo_config_vlan(robo_info_t *robo, uint8 *mac_addr);
 extern int bcm_robo_enable_switch(robo_info_t *robo);
 
-#ifdef BCMDBG
-extern char *robo_dump_regs(robo_info_t *robo, char *buf);
-#endif /* BCMDBG */
-
-#ifdef linux
-extern int bcm_robo_config_qos(robo_info_t *robo);
-#endif
 
 #endif /* _bcm_robo_h_ */

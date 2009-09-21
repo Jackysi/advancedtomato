@@ -63,10 +63,9 @@ typedef struct drm_i810_private {
 
       	unsigned long hw_status_page;
    	unsigned long counter;
-   	dma_addr_t dma_status_page;
 
-   	atomic_t flush_done;
-   	wait_queue_head_t flush_queue;	/* Processes waiting until flush    */
+	dma_addr_t dma_status_page;
+
 	drm_buf_t *mmap_buffer;
 
 
@@ -78,6 +77,7 @@ typedef struct drm_i810_private {
 	int overlay_physical;
 	int w, h;
 	int pitch;
+
 } drm_i810_private_t;
 
 				/* i810_dma.c */
@@ -92,8 +92,13 @@ extern void i810_reclaim_buffers(drm_device_t *dev, pid_t pid);
 extern int  i810_getage(struct inode *inode, struct file *filp,
 			unsigned int cmd, unsigned long arg);
 extern int i810_mmap_buffers(struct file *filp, struct vm_area_struct *vma);
+
+/* Obsolete:
+ */
 extern int i810_copybuf(struct inode *inode, struct file *filp,
 			unsigned int cmd, unsigned long arg);
+/* Obsolete:
+ */
 extern int i810_docopy(struct inode *inode, struct file *filp,
 		       unsigned int cmd, unsigned long arg);
 
@@ -110,9 +115,6 @@ extern int i810_dma_mc(struct inode *inode, struct file *filp,
 
 
 extern void i810_dma_quiescent(drm_device_t *dev);
-
-#define I810_VERBOSE 0
-
 
 int i810_dma_vertex(struct inode *inode, struct file *filp,
 		    unsigned int cmd, unsigned long arg);
@@ -196,6 +198,7 @@ int i810_clear_bufs(struct inode *inode, struct file *filp,
 
 #define CMD_OP_Z_BUFFER_INFO     ((0x0<<29)|(0x16<<23))
 #define CMD_OP_DESTBUFFER_INFO   ((0x0<<29)|(0x15<<23))
+#define CMD_OP_FRONTBUFFER_INFO  ((0x0<<29)|(0x14<<23))
 
 #define BR00_BITBLT_CLIENT   0x40000000
 #define BR00_OP_COLOR_BLT    0x10000000

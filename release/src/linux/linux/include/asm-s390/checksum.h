@@ -98,7 +98,25 @@ csum_partial_copy_nocheck (const char *src, char *dst, int len, unsigned int sum
 /*
  *      Fold a partial checksum without adding pseudo headers
  */
+#if 1
 unsigned short csum_fold(unsigned int sum);
+#else
+extern inline unsigned short
+csum_fold(unsigned int sum)
+{
+	register_pair rp;
+
+	__asm__ __volatile__ (
+		"    slr  %N1,%N1\n" /* %0 = H L */
+		"    lr   %1,%0\n"   /* %0 = H L, %1 = H L 0 0 */
+		"    srdl %1,16\n"   /* %0 = H L, %1 = 0 H L 0 */
+		"    alr  %1,%N1\n"  /* %0 = H L, %1 = L H L 0 */
+		"    alr  %0,%1\n"   /* %0 = H+L+C L+H */
+		"    srl  %0,16\n"   /* %0 = H+L+C */
+		: "+&d" (sum), "=d" (rp) : : "cc" );
+	return ((unsigned short) ~sum);
+}
+#endif
 
 /*
  *	This is a version of ip_compute_csum() optimized for IP headers,

@@ -38,7 +38,6 @@
 #include <linux/module.h>
 #include <linux/delay.h>
 #include <linux/slab.h>
-#include <linux/version.h>
 #include <linux/init.h>
 #include <asm/uaccess.h>
 #include <linux/ioport.h>
@@ -222,6 +221,79 @@ static int iic_init (struct i2c_algo_iic_data *adap)
  * the bus lines only if it seems to be idle.
  */
 static int test_bus(struct i2c_algo_iic_data *adap, char *name) {
+#if 0
+	int scl,sda;
+	sda=getsda(adap);
+	if (adap->getscl==NULL) {
+		printk("test_bus: Warning: Adapter can't read from clock line - skipping test.\n");
+		return 0;		
+	}
+	scl=getscl(adap);
+	printk("test_bus: Adapter: %s scl: %d  sda: %d -- testing...\n",
+	name,getscl(adap),getsda(adap));
+	if (!scl || !sda ) {
+		printk("test_bus: %s seems to be busy.\n",adap->name);
+		goto bailout;
+	}
+	sdalo(adap);
+	printk("test_bus:1 scl: %d  sda: %d \n",getscl(adap),
+	       getsda(adap));
+	if ( 0 != getsda(adap) ) {
+		printk("test_bus: %s SDA stuck high!\n",name);
+		sdahi(adap);
+		goto bailout;
+	}
+	if ( 0 == getscl(adap) ) {
+		printk("test_bus: %s SCL unexpected low while pulling SDA low!\n",
+			name);
+		goto bailout;
+	}		
+	sdahi(adap);
+	printk("test_bus:2 scl: %d  sda: %d \n",getscl(adap),
+	       getsda(adap));
+	if ( 0 == getsda(adap) ) {
+		printk("test_bus: %s SDA stuck low!\n",name);
+		sdahi(adap);
+		goto bailout;
+	}
+	if ( 0 == getscl(adap) ) {
+		printk("test_bus: %s SCL unexpected low while SDA high!\n",
+		       adap->name);
+	goto bailout;
+	}
+	scllo(adap);
+	printk("test_bus:3 scl: %d  sda: %d \n",getscl(adap),
+	       getsda(adap));
+	if ( 0 != getscl(adap) ) {
+
+		sclhi(adap);
+		goto bailout;
+	}
+	if ( 0 == getsda(adap) ) {
+		printk("test_bus: %s SDA unexpected low while pulling SCL low!\n",
+			name);
+		goto bailout;
+	}
+	sclhi(adap);
+	printk("test_bus:4 scl: %d  sda: %d \n",getscl(adap),
+	       getsda(adap));
+	if ( 0 == getscl(adap) ) {
+		printk("test_bus: %s SCL stuck low!\n",name);
+		sclhi(adap);
+		goto bailout;
+	}
+	if ( 0 == getsda(adap) ) {
+		printk("test_bus: %s SDA unexpected low while SCL high!\n",
+			name);
+		goto bailout;
+	}
+	printk("test_bus: %s passed test.\n",name);
+	return 0;
+bailout:
+	sdahi(adap);
+	sclhi(adap);
+	return -ENODEV;
+#endif
 	return (0);
 }
 
@@ -445,6 +517,41 @@ static int iic_readbytes(struct i2c_adapter *i2c_adap, char *buf, int count,
  * Each transfer (i.e. a read or a write) is separated by a repeated start
  * condition.
  */
+#if 0
+static int iic_combined_transaction(struct i2c_adapter *i2c_adap, struct i2c_msg msgs[], int num) 
+{
+   int i;
+   struct i2c_msg *pmsg;
+   int ret;
+
+   DEB2(printk("Beginning combined transaction\n"));
+
+   for(i=0; i<(num-1); i++) {
+      pmsg = &msgs[i];
+      if(pmsg->flags & I2C_M_RD) {
+         DEB2(printk("  This one is a read\n"));
+         ret = iic_readbytes(i2c_adap, pmsg->buf, pmsg->len, IIC_COMBINED_XFER);
+      }
+      else if(!(pmsg->flags & I2C_M_RD)) {
+         DEB2(printk("This one is a write\n"));
+         ret = iic_sendbytes(i2c_adap, pmsg->buf, pmsg->len, IIC_COMBINED_XFER);
+      }
+   }
+   /* Last read or write segment needs to be terminated with a stop */
+   pmsg = &msgs[i];
+
+   if(pmsg->flags & I2C_M_RD) {
+      DEB2(printk("Doing the last read\n"));
+      ret = iic_readbytes(i2c_adap, pmsg->buf, pmsg->len, IIC_SINGLE_XFER);
+   }
+   else if(!(pmsg->flags & I2C_M_RD)) {
+      DEB2(printk("Doing the last write\n"));
+      ret = iic_sendbytes(i2c_adap, pmsg->buf, pmsg->len, IIC_SINGLE_XFER);
+   }
+
+   return ret;
+}
+#endif
 
 
 /* Whenever we initiate a transaction, the first byte clocked
@@ -464,10 +571,39 @@ static inline int iic_doAddress(struct i2c_algo_iic_data *adap,
 
 /* Ten bit addresses not supported right now */
 	if ( (flags & I2C_M_TEN)  ) { 
+#if 0
+		addr = 0xf0 | (( msg->addr >> 7) & 0x03);
+		DEB2(printk("addr0: %d\n",addr));
+		ret = try_address(adap, addr, retries);
+		if (ret!=1) {
+			printk("iic_doAddress: died at extended address code.\n");
+			return -EREMOTEIO;
+		}
+		iic_outw(adap,msg->addr & 0x7f);
+		if (ret != 1) {
+			printk("iic_doAddress: died at 2nd address code.\n");
+			return -EREMOTEIO;
+		}
+		if ( flags & I2C_M_RD ) {
+			i2c_repstart(adap);
+			addr |= 0x01;
+			ret = try_address(adap, addr, retries);
+			if (ret!=1) {
+				printk("iic_doAddress: died at extended address code.\n");
+				return -EREMOTEIO;
+			}
+		}
+#endif
 	} else {
 
 		addr = ( msg->addr << 1 );
 
+#if 0
+		if (flags & I2C_M_RD )
+			addr |= 1;
+		if (flags & I2C_M_REV_DIR_ADDR )
+			addr ^= 1;
+#endif
 
 		if (iic_inw(adap, ITE_I2CSAR) != addr) {
 			iic_outw(adap, ITE_I2CSAR, addr);
@@ -526,6 +662,13 @@ static int iic_xfer(struct i2c_adapter *i2c_adap,
 	if (ret)
 		return -EIO;
 
+#if 0
+	/* Combined transaction (read and write) */
+	if(num > 1) {
+           DEB2(printk("iic_xfer: Call combined transaction\n"));
+           ret = iic_combined_transaction(i2c_adap, msgs, num);
+  }
+#endif
 
 	DEB3(printk("iic_xfer: Msg %d, addr=0x%x, flags=0x%x, len=%d\n",
 		i, msgs[i].addr, msgs[i].flags, msgs[i].len);)
@@ -640,7 +783,6 @@ int i2c_iic_add_bus(struct i2c_adapter *adap)
 	MOD_INC_USE_COUNT;
 #endif
 
-	i2c_add_adapter(adap);
 	iic_init(iic_adap);
 
 	/* scan bus */
@@ -661,7 +803,8 @@ int i2c_iic_add_bus(struct i2c_adapter *adap)
 			udelay(iic_adap->udelay);
 		}
 	}
-	return 0;
+
+	return i2c_add_adapter(adap);
 }
 
 

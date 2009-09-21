@@ -1,4 +1,4 @@
-/* $Id: page.h,v 1.1.1.4 2003/10/14 08:09:23 sparq Exp $ */
+/* $Id: page.h,v 1.38 2001/11/30 01:04:10 davem Exp $ */
 
 #ifndef _SPARC64_PAGE_H
 #define _SPARC64_PAGE_H
@@ -36,6 +36,7 @@ extern void do_BUG(const char *file, int line);
 extern void _clear_page(void *page);
 #define clear_page(X)	_clear_page((void *)(X))
 extern void clear_user_page(void *page, unsigned long vaddr);
+#define copy_page(X,Y)	memcpy((void *)(X), (void *)(Y), PAGE_SIZE)
 extern void copy_user_page(void *to, void *from, unsigned long vaddr);
 
 /* GROSS, defining this makes gcc pass these types as aggregates,
@@ -56,8 +57,8 @@ typedef struct { unsigned long iopgprot; } iopgprot_t;
 
 #define pte_val(x)	((x).pte)
 #define iopte_val(x)	((x).iopte)
-#define pmd_val(x)      ((unsigned long)(x).pmd)
-#define pgd_val(x)	((unsigned long)(x).pgd)
+#define pmd_val(x)      ((x).pmd)
+#define pgd_val(x)	((x).pgd)
 #define ctxd_val(x)	((x).ctxd)
 #define pgprot_val(x)	((x).pgprot)
 #define iopgprot_val(x)	((x).iopgprot)
@@ -82,8 +83,8 @@ typedef unsigned long iopgprot_t;
 
 #define pte_val(x)	(x)
 #define iopte_val(x)	(x)
-#define pmd_val(x)      ((unsigned long)(x))
-#define pgd_val(x)	((unsigned long)(x))
+#define pmd_val(x)      (x)
+#define pgd_val(x)	(x)
 #define ctxd_val(x)	(x)
 #define pgprot_val(x)	(x)
 #define iopgprot_val(x)	(x)

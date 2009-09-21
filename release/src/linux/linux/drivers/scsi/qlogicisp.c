@@ -722,8 +722,8 @@ int isp1020_detect(Scsi_Host_Template *tmpt)
 		continue;
 
 	fail_uninit:
-		iounmap((void *)hostdata->memaddr);
-		release_region(host->io_port, 0xff);
+		if (hostdata->memaddr) iounmap((void *)hostdata->memaddr);
+		if (host->io_port) release_region(host->io_port, 0xff);
 	fail_and_unregister:
 		if (hostdata->res_cpu)
 			pci_free_consistent(hostdata->pci_dev,
@@ -755,9 +755,9 @@ int isp1020_release(struct Scsi_Host *host)
 	isp_outw(0x0, host, PCI_INTF_CTL);
 	free_irq(host->irq, host);
 
-	iounmap((void *)hostdata->memaddr);
+	if (hostdata->memaddr) iounmap((void *)hostdata->memaddr);
 
-	release_region(host->io_port, 0xff);
+	if (host->io_port) release_region(host->io_port, 0xff);
 
 	LEAVE("isp1020_release");
 
@@ -1252,6 +1252,10 @@ int isp1020_biosparam(Disk *disk, kdev_t n, int ip[])
 		ip[0] = 255;
 		ip[1] = 63;
 		ip[2] = size / (ip[0] * ip[1]);
+#if 0
+		if (ip[2] > 1023)
+			ip[2] = 1023;
+#endif			
 	}
 
 	LEAVE("isp1020_biosparam");
@@ -1392,13 +1396,6 @@ static int isp1020_init(struct Scsi_Host *sh)
 		return 1;
 	}
 
-#ifdef __alpha__
-	/* Force ALPHA to use bus I/O and not bus MEM.
-	   This is to avoid having to use HAE_MEM registers,
-	   which is broken on some platforms and with SMP.  */
-	command &= ~PCI_COMMAND_MEMORY; 
-#endif
-
 	if (!(command & PCI_COMMAND_MASTER)) {
 		printk("qlogicisp : bus mastering is disabled\n");
 		return 1;
@@ -1406,26 +1403,34 @@ static int isp1020_init(struct Scsi_Host *sh)
 
 	sh->io_port = io_base;
 
-	if (!request_region(sh->io_port, 0xff, "qlogicisp")) {
-		printk("qlogicisp : i/o region 0x%lx-0x%lx already "
-		       "in use\n",
-		       sh->io_port, sh->io_port + 0xff);
-		return 1;
-	}
+	/*
+	  By default, we choose to use PCI memory-mapped registers,
+	  if configured/available.
 
+	  NOTE: we only ioremap() if we are going to use PCI
+	  memory-mapped registers, or only request_region() if using
+	  PCI I/O registers; we never do both anymore.
+	*/
  	if ((command & PCI_COMMAND_MEMORY) &&
  	    ((mem_flags & 1) == 0)) {
  		mem_base = (u_long) ioremap(mem_base, PAGE_SIZE);
 		if (!mem_base) {
  			printk("qlogicisp : i/o remapping failed.\n");
-			goto out_release;
+			return 1;
 		}
  		hostdata->memaddr = mem_base;
+		sh->io_port = io_base = 0;
  	} else {
 		if (command & PCI_COMMAND_IO && (io_flags & 3) != 1) {
 			printk("qlogicisp : i/o mapping is disabled\n");
-			goto out_release;
+			return 1;
  		}
+		if (!request_region(sh->io_port, 0xff, "qlogicisp")) {
+			printk("qlogicisp : i/o region 0x%lx-0x%lx already "
+			       "in use\n",
+			       sh->io_port, sh->io_port + 0xff);
+			return 1;
+		}
  		hostdata->memaddr = 0; /* zero to signify no i/o mapping */
  		mem_base = 0;
 	}
@@ -1473,9 +1478,8 @@ static int isp1020_init(struct Scsi_Host *sh)
 	return 0;
 
 out_unmap:
-	iounmap((void *)hostdata->memaddr);
-out_release:
-	release_region(sh->io_port, 0xff);
+	if (mem_base) iounmap((void *)hostdata->memaddr);
+	if (io_base) release_region(sh->io_port, 0xff);
 	return 1;
 }
 

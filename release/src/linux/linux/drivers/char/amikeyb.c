@@ -209,6 +209,23 @@ static void keyboard_interrupt(int irq, void *dummy, struct pt_regs *fp)
     /* switch SP pin to output for handshake */
     ciaa.cra |= 0x40;
 
+#if 0 /* No longer used */
+    /*
+     *  On receipt of the second RESET_WARNING, we must not pull KDAT high
+     *  again to delay the hard reset as long as possible.
+     *
+     *  Note that not all keyboards send reset warnings...
+     */
+    if (reset_warning)
+	if (scancode == RESET_WARNING) {
+	    printk(KERN_ALERT "amikeyb: Ctrl-Amiga-Amiga reset warning!!\n"
+		   "The system will be reset within 10 seconds!!\n");
+	    /* Panic doesn't sync from within an interrupt, so we do nothing */
+	    return;
+	} else
+	    /* Probably a mistake, cancel the alert */
+	    reset_warning = 0;
+#endif
 
     /* wait until 85 us have expired */
     udelay(85);
@@ -253,6 +270,11 @@ static void keyboard_interrupt(int irq, void *dummy, struct pt_regs *fp)
 	    case 0x7a:
 		printk(KERN_WARNING "amikeyb: keyboard buffer overflow\n");
 		break;
+#if 0 /* obsolete according to the HRM */
+	    case 0x7b:
+		printk(KERN_WARNING "amikeyb: keyboard controller failure\n");
+		break;
+#endif
 	    case 0x7c:
 		printk(KERN_ERR "amikeyb: keyboard selftest failure\n");
 		break;
@@ -262,6 +284,11 @@ static void keyboard_interrupt(int irq, void *dummy, struct pt_regs *fp)
 	    case 0x7e:
 		printk(KERN_INFO "amikeyb: terminate power-up key stream\n");
 		break;
+#if 0 /* obsolete according to the HRM */
+	    case 0x7f:
+		printk(KERN_WARNING "amikeyb: keyboard interrupt\n");
+		break;
+#endif
 	    default:
 		printk(KERN_WARNING "amikeyb: unknown keyboard communication code 0x%02x\n",
 		       scancode);

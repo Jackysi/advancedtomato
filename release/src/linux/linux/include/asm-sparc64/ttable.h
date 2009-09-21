@@ -1,4 +1,4 @@
-/* $Id: ttable.h,v 1.1.1.4 2003/10/14 08:09:23 sparq Exp $ */
+/* $Id: ttable.h,v 1.17 2001/11/28 23:32:16 davem Exp $ */
 #ifndef _SPARC64_TTABLE_H
 #define _SPARC64_TTABLE_H
 
@@ -24,7 +24,7 @@
 	ba,pt	%xcc, etrap;				\
 109:	 or	%g7, %lo(109b), %g7;			\
 	call	routine;				\
-	 add	%sp, STACK_BIAS + REGWIN_SZ, %o0;	\
+	 add	%sp, PTREGS_OFF, %o0;			\
 	ba,pt	%xcc, rtrap;				\
 	 clr	%l6;					\
 	nop;
@@ -34,7 +34,7 @@
 	ba,pt	%xcc, etrap;				\
 109:	 or	%g7, %lo(109b), %g7;			\
 	call	routine;				\
-	 add	%sp, STACK_BIAS + REGWIN_SZ, %o0;	\
+	 add	%sp, PTREGS_OFF, %o0;			\
 	ba,pt	%xcc, rtrap;				\
 	 clr	%l6;
 
@@ -43,7 +43,7 @@
 	ba,pt	%xcc, do_fptrap;			\
 109:	 or	%g7, %lo(109b), %g7;			\
 	call	routine;				\
-	 add	%sp, STACK_BIAS + REGWIN_SZ, %o0;	\
+	 add	%sp, PTREGS_OFF, %o0;			\
 	ba,pt	%xcc, rtrap;				\
 	 clr	%l6;					\
 	nop;
@@ -63,7 +63,7 @@
 	ba,pt	%xcc, etraptl1;				\
 109:	 or	%g7, %lo(109b), %g7;			\
 	call	routine;				\
-	 add	%sp, STACK_BIAS + REGWIN_SZ, %o0;	\
+	 add	%sp, PTREGS_OFF, %o0;			\
 	ba,pt	%xcc, rtrap;				\
 	 clr	%l6;					\
 	nop;
@@ -72,7 +72,7 @@
 	sethi	%hi(109f), %g7;				\
 	ba,pt	%xcc, etrap;				\
 109:	 or	%g7, %lo(109b), %g7;			\
-	add	%sp, STACK_BIAS + REGWIN_SZ, %o0;	\
+	add	%sp, PTREGS_OFF, %o0;			\
 	call	routine;				\
 	 mov	arg, %o1;				\
 	ba,pt	%xcc, rtrap;				\
@@ -82,7 +82,7 @@
 	sethi	%hi(109f), %g7;				\
 	ba,pt	%xcc, etraptl1;				\
 109:	 or	%g7, %lo(109b), %g7;			\
-	add	%sp, STACK_BIAS + REGWIN_SZ, %o0;	\
+	add	%sp, PTREGS_OFF, %o0;			\
 	call	routine;				\
 	 mov	arg, %o1;				\
 	ba,pt	%xcc, rtrap;				\
@@ -128,6 +128,7 @@
 #else
 #define SOLARIS_SYSCALL_TRAP TRAP(solaris_syscall)
 #endif
+/* FIXME: Write these actually */	
 #define NETBSD_SYSCALL_TRAP TRAP(netbsd_syscall)
 #define BREAKPOINT_TRAP TRAP(breakpoint_trap)
 
@@ -138,7 +139,7 @@
 	 rd	%pc, %g7;				\
 	mov	level, %o0;				\
 	call	routine;				\
-	 add	%sp, STACK_BIAS + REGWIN_SZ, %o1;	\
+	 add	%sp, PTREGS_OFF, %o1;			\
 	ba,a,pt	%xcc, rtrap_clr_l6;
 	
 #define TICK_SMP_IRQ					\
@@ -148,7 +149,7 @@
 	b,pt	%xcc, etrap_irq;			\
 109:	 or	%g7, %lo(109b), %g7;			\
 	call	smp_percpu_timer_interrupt;		\
-	 add	%sp, STACK_BIAS + REGWIN_SZ, %o0;	\
+	 add	%sp, PTREGS_OFF, %o0;			\
 	ba,a,pt	%xcc, rtrap_clr_l6;
 
 #define TRAP_IVEC TRAP_NOSAVE(do_ivec)
@@ -161,12 +162,29 @@
 	ba,pt	%xcc, etrap;						\
 	 rd	%pc, %g7;						\
 	flushw;								\
-	ldx	[%sp + STACK_BIAS + REGWIN_SZ + PT_V9_TNPC], %l1;	\
+	ldx	[%sp + PTREGS_OFF + PT_V9_TNPC], %l1;			\
 	add	%l1, 4, %l2;						\
-	stx	%l1, [%sp + STACK_BIAS + REGWIN_SZ + PT_V9_TPC];	\
+	stx	%l1, [%sp + PTREGS_OFF + PT_V9_TPC];			\
 	ba,pt	%xcc, rtrap_clr_l6;					\
-	 stx	%l2, [%sp + STACK_BIAS + REGWIN_SZ + PT_V9_TNPC];
+	 stx	%l2, [%sp + PTREGS_OFF + PT_V9_TNPC];
 	        
+/* Before touching these macros, you owe it to yourself to go and
+ * see how arch/sparc64/kernel/winfixup.S works... -DaveM
+ *
+ * For the user cases we used to use the %asi register, but
+ * it turns out that the "wr xxx, %asi" costs ~5 cycles, so
+ * now we use immediate ASI loads and stores instead.  Kudos
+ * to Greg Onufer for pointing out this performance anomaly.
+ *
+ * Further note that we cannot use the g2, g4, g5, and g7 alternate
+ * globals in the spill routines, check out the save instruction in
+ * arch/sparc64/kernel/etrap.S to see what I mean about g2, and
+ * g4/g5 are the globals which are preserved by etrap processing
+ * for the caller of it.  The g7 register is the return pc for
+ * etrap.  Finally, g6 is the current thread register so we cannot
+ * us it in the spill handlers either.  Most of these rules do not
+ * apply to fill processing, only g6 is not usable.
+ */
 
 /* Normal kernel spill */
 #define SPILL_0_NORMAL					\

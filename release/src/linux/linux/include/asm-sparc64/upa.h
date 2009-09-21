@@ -1,4 +1,4 @@
-/* $Id: upa.h,v 1.1.1.4 2003/10/14 08:09:23 sparq Exp $ */
+/* $Id: upa.h,v 1.3 1999/09/21 14:39:47 davem Exp $ */
 #ifndef _SPARC64_UPA_H
 #define _SPARC64_UPA_H
 

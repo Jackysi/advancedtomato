@@ -1,4 +1,4 @@
-/* $Id: sunkbd.h,v 1.1.1.4 2003/10/14 08:08:35 sparq Exp $
+/* $Id: sunkbd.h,v 1.4 2000/02/09 11:15:54 davem Exp $
  * sunkbd.h: Defines needed by SUN Keyboard drivers
  *
  * Copyright (C) 1997  Eddie C. Dost  (ecd@skynet.be)

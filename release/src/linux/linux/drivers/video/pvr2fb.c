@@ -279,6 +279,7 @@ static struct fb_videomode pvr2_modedb[] __initdata = {
 
     {
 	/* 640x240 @ 60Hz (NTSC) */
+	/* XXX: Broken! Don't use... */
 	"ntsc_640x240", 60, 640, 240, TV_CLK, 38, 33, 0, 0, 146, 22,
 	FB_SYNC_BROADCAST, FB_VMODE_YWRAP
     },
@@ -674,6 +675,13 @@ static int pvr2_decode_var(struct fb_var_screeninfo *var,
 
 	currbpp = par->bpp;
 
+	/*
+	 * XXX: It's possible that a user could use a VGA box, change the cable
+	 * type in hardware (i.e. switch from VGA<->composite), then change modes
+	 * (i.e. switching to another VT).  If that happens we should automagically
+	 * change the output format to cope, but currently I don't have a VGA box
+	 * to make sure this works properly.
+	 */
 	cable_type = pvr2_init_cable();
 	if (cable_type == CT_VGA && video_output != VO_VGA)
 		video_output = VO_VGA;
@@ -681,6 +689,10 @@ static int pvr2_decode_var(struct fb_var_screeninfo *var,
 	par->vmode = var->vmode & FB_VMODE_MASK;
 	if (par->vmode & FB_VMODE_INTERLACED && video_output != VO_VGA)
 		par->is_interlaced = 1;
+	/* 
+	 * XXX: Need to be more creative with this (i.e. allow doublecan for
+	 * PAL/NTSC output).
+	 */
 	par->is_doublescan = (par->yres < 480 && video_output == VO_VGA);
 	
 	par->hsync_total = var->left_margin + var->xres + var->right_margin +
@@ -694,10 +706,13 @@ static int pvr2_decode_var(struct fb_var_screeninfo *var,
 			vtotal /= 2;
 		if (vtotal > (PAL_VTOTAL + NTSC_VTOTAL)/2) {
 			/* PAL video output */
+			/* XXX: Should be using a range here ... ? */
 			if (par->hsync_total != PAL_HTOTAL) {
 				DPRINTK("invalid hsync total for PAL\n");
 				return -EINVAL;
 			}
+			/* XXX: Check for start values here... */
+			/* XXX: Check hardware for PAL-compatibility */
 			par->borderstart_h = 116;
 			par->borderstart_v = 44;
 		} else {
@@ -711,6 +726,11 @@ static int pvr2_decode_var(struct fb_var_screeninfo *var,
 		}
 	} else {
 		/* VGA mode */
+		/* XXX: What else needs to be checked? */
+		/* 
+		 * XXX: We have a little freedom in VGA modes, what ranges should
+		 * be here (i.e. hsync/vsync totals, etc.)?
+		 */
 		par->borderstart_h = 126;
 		par->borderstart_v = 40;
 	}
@@ -728,6 +748,7 @@ static int pvr2_decode_var(struct fb_var_screeninfo *var,
 	if (par->xres < 640)
 		par->is_lowres = 1;
 
+	/* XXX: Needs testing. */
 	if (!((par->vmode ^ var->vmode) & FB_VMODE_YWRAP)) {
 		par->xoffset = var->xoffset;
 		par->yoffset = var->yoffset;
@@ -971,6 +992,8 @@ static int pvr2_init_cable(void)
 	}
 
 	/* Now select the output format (either composite or other) */
+	/* XXX: Save the previous val first, as this reg is also AICA
+	  related */
 	if (cable_type == CT_COMPOSITE)
 		ctrl_outl(3 << 8, VOUTC);
 	else
@@ -1001,6 +1024,7 @@ int __init pvr2fb_init(void)
 		fb_info.monspecs.vfmax = 51;
 	}
 
+	/* XXX: This needs to pull default video output via BIOS or other means */
 	if (video_output < 0) {
 		if (cable_type == CT_VGA)
 			video_output = VO_VGA;

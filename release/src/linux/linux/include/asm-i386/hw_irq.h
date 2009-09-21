@@ -49,7 +49,6 @@
  * sources per level' errata.
  */
 #define LOCAL_TIMER_VECTOR	0xef
-#define PERFCTR_OVFL_VECTOR	0xee
 
 /*
  * First APIC vector available to drivers: (vectors 0x30-0xee)
@@ -181,7 +180,40 @@ SYMBOL_NAME_STR(IRQ) #nr "_interrupt:\n\t" \
 	"pushl $"#nr"-256\n\t" \
 	"jmp common_interrupt");
 
-#ifdef CONFIG_SMP     /*more of this file should probably be ifdefed SMP */
+extern unsigned long prof_cpu_mask;
+extern unsigned int * prof_buffer;
+extern unsigned long prof_len;
+extern unsigned long prof_shift;
+
+/*
+ * x86 profiling function, SMP safe. We might want to do this in
+ * assembly totally?
+ */
+static inline void x86_do_profile (unsigned long eip)
+{
+	if (!prof_buffer)
+		return;
+
+	/*
+	 * Only measure the CPUs specified by /proc/irq/prof_cpu_mask.
+	 * (default is all CPUs.)
+	 */
+	if (!((1<<smp_processor_id()) & prof_cpu_mask))
+		return;
+
+	eip -= (unsigned long) &_stext;
+	eip >>= prof_shift;
+	/*
+	 * Don't ignore out-of-bounds EIP values silently,
+	 * put them into the last histogram slot, so if
+	 * present, they will show up as a sharp peak.
+	 */
+	if (eip > prof_len-1)
+		eip = prof_len-1;
+	atomic_inc((atomic_t *)&prof_buffer[eip]);
+}
+
+#if defined(CONFIG_X86_IO_APIC)
 static inline void hw_resend_irq(struct hw_interrupt_type *h, unsigned int i) {
 	if (IO_APIC_IRQ(i))
 		send_IPI_self(IO_APIC_VECTOR(i));

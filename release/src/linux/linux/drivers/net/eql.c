@@ -28,12 +28,6 @@
 
 /*
  * $Log: eql.c,v $
- * Revision 1.1.1.2  2003/10/14 08:08:20  sparq
- * Broadcom Release 3.51.8.0 for BCM4712.
- *
- * Revision 1.1.1.1  2003/02/03 22:37:46  mhuang
- * LINUX_2_4 branch snapshot from linux-mips.org CVS
- *
  * Revision 1.2  1996/04/11 17:51:52  guru
  * Added one-line eql_remove_slave patch.
  *
@@ -128,7 +122,7 @@
 #include <asm/uaccess.h>
 
 static char version[] __initdata = 
-	"Equalizer1996: $Revision: 1.1.1.2 $ $Date: 2003/10/14 08:08:20 $ Simon Janes (simon@ncm.com)\n";
+	"Equalizer1996: $Revision: 1.2.1 $ $Date: 1996/09/22 13:52:00 $ Simon Janes (simon@ncm.com)\n";
 
 #ifndef EQL_DEBUG
 /* #undef EQL_DEBUG      -* print nothing at all, not even a boot-banner */
@@ -341,6 +335,152 @@ static int eql_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 }
 
 
+static inline int eql_number_slaves(slave_queue_t *queue)
+{
+	return queue->num_slaves;
+}
+
+
+static inline int eql_is_empty(slave_queue_t *queue)
+{
+	if (eql_number_slaves (queue) == 0)
+		return 1;
+	return 0;
+}
+
+static inline int eql_is_full(slave_queue_t *queue)
+{
+	equalizer_t *eql = (equalizer_t *) queue->master_dev->priv;
+
+	if (eql_number_slaves (queue) == eql->max_slaves)
+		return 1;
+	return 0;
+}
+
+static inline slave_t *eql_first_slave(slave_queue_t *queue)
+{
+	return queue->head->next;
+}
+
+
+static inline slave_t *eql_next_slave(slave_queue_t *queue, slave_t *slave)
+{
+	return slave->next;
+}
+
+static inline void eql_set_best_slave(slave_queue_t *queue, slave_t *slave)
+{
+	queue->best_slave = slave;
+}
+
+static inline void eql_schedule_slaves(slave_queue_t *queue)
+{
+	struct net_device *master_dev = queue->master_dev;
+	slave_t *best_slave = 0;
+	slave_t *slave_corpse = 0;
+
+#ifdef EQL_DEBUG
+	if (eql_debug >= 100)
+		printk ("%s: schedule %d slaves\n", 
+			master_dev->name, eql_number_slaves (queue));
+#endif
+	if ( eql_is_empty (queue) )
+	{
+		/*
+		 *	No slaves to play with 
+		 */
+		eql_set_best_slave (queue, (slave_t *) 0);
+		return;
+	}
+	else
+	{		
+		/*
+		 *	Make a pass to set the best slave 
+		 */
+		unsigned long best_load = (unsigned long) ULONG_MAX;
+		slave_t *slave = 0;
+		unsigned long flags;
+		int i;
+
+		save_flags(flags);
+		cli ();
+		for (i = 1, slave = eql_first_slave (queue);
+			i <= eql_number_slaves (queue);
+			i++, slave = eql_next_slave (queue, slave))
+		{
+			/*
+			 *	Go through the slave list once, updating best_slave 
+			 *      whenever a new best_load is found, whenever a dead
+			 *	slave is found, it is marked to be pulled out of the 
+			 *	queue 
+			 */
+		
+			unsigned long slave_load;
+			unsigned long bytes_queued; 
+			unsigned long priority_Bps; 
+	  	
+	  		if (slave != 0)
+			{
+				bytes_queued = slave->bytes_queued;
+				priority_Bps = slave->priority_Bps;    
+				if ( slave->dev != 0)
+				{
+					if ((slave->dev->flags & IFF_UP) == IFF_UP )
+					{
+						slave_load = (ULONG_MAX - (ULONG_MAX / 2)) - 
+							(priority_Bps) + bytes_queued * 8;
+
+		      				if (slave_load < best_load)
+						{
+							best_load = slave_load;
+							best_slave = slave;
+						}
+					}
+					else		/* we found a dead slave */
+					{
+						/* 
+						 *	We only bury one slave at a time, if more than
+						 *	one slave dies, we will bury him on the next 
+						 *	reschedule. slaves don't die all at once that 
+						 *	much anyway 
+						 */
+						slave_corpse = slave;
+					}
+				}
+			}
+		} /* for */
+		restore_flags(flags);
+		eql_set_best_slave (queue, best_slave);
+	} /* else */
+	if (slave_corpse != 0)
+	{
+		printk ("eql: scheduler found dead slave, burying...\n");
+		eql_delete_slave (eql_remove_slave (queue, slave_corpse));
+	}
+	return;
+}
+
+
+static inline struct net_device *eql_best_slave_dev(slave_queue_t *queue)
+{
+	if (queue->best_slave != 0)
+	{
+		if (queue->best_slave->dev != 0)
+			return queue->best_slave->dev;
+		else
+			return 0;
+	}
+	else
+		return 0;
+}
+
+
+static inline slave_t *eql_best_slave(slave_queue_t *queue)
+{
+	return queue->best_slave;
+}
+
+
 static int eql_slave_xmit(struct sk_buff *skb, struct net_device *dev)
 {
 	equalizer_t *eql = (equalizer_t *) dev->priv;
@@ -389,6 +529,28 @@ static struct net_device_stats * eql_get_stats(struct net_device *dev)
 	return eql->stats;
 }
 
+static inline int eql_is_slave(struct net_device *dev)
+{
+	if (dev)
+	{
+		if ((dev->flags & IFF_SLAVE) == IFF_SLAVE)
+			return 1;
+	}
+	return 0;
+}
+
+
+static inline int eql_is_master(struct net_device *dev)
+{
+	if (dev)
+	{
+		if ((dev->flags & IFF_MASTER) == IFF_MASTER)
+		return 1;
+	}
+	return 0;
+}
+
+
 /*
  *	Private ioctl functions
  */
@@ -415,6 +577,8 @@ static int eql_enslave(struct net_device *dev, slaving_request_t *srqp)
 #endif  
 	master_dev = dev;		/* for "clarity" */
 	slave_dev  = __dev_get_by_name (srq.slave_name);
+	if (!slave_dev)
+		return -ENODEV;
 
 	if (master_dev != 0 && slave_dev != 0)
 	{
@@ -469,6 +633,8 @@ static int eql_emancipate(struct net_device *dev, slaving_request_t *srqp)
 #endif
 	master_dev = dev;		/* for "clarity" */
 	slave_dev  = __dev_get_by_name (srq.slave_name);
+	if (!slave_dev)
+		return -ENODEV;
 
 	if ( eql_is_slave (slave_dev) )	/* really is a slave */
 	{
@@ -497,6 +663,8 @@ static int eql_g_slave_cfg(struct net_device *dev, slave_config_t *scp)
 #endif
 	eql = (equalizer_t *) dev->priv;
 	slave_dev = __dev_get_by_name (sc.slave_name);
+	if (!slave_dev)
+		return -ENODEV;
 
 	if ( eql_is_slave (slave_dev) )
 	{
@@ -531,6 +699,8 @@ static int eql_s_slave_cfg(struct net_device *dev, slave_config_t *scp)
 
 	eql = (equalizer_t *) dev->priv;
 	slave_dev = __dev_get_by_name (sc.slave_name);
+	if (!slave_dev)
+		return -ENODEV;
 
 	if ( eql_is_slave (slave_dev) )
 	{
@@ -595,28 +765,6 @@ static int eql_s_master_cfg(struct net_device *dev, master_config_t *mcp)
  *	Private device support functions
  */
 
-static inline int eql_is_slave(struct net_device *dev)
-{
-	if (dev)
-	{
-		if ((dev->flags & IFF_SLAVE) == IFF_SLAVE)
-			return 1;
-	}
-	return 0;
-}
-
-
-static inline int eql_is_master(struct net_device *dev)
-{
-	if (dev)
-	{
-		if ((dev->flags & IFF_MASTER) == IFF_MASTER)
-		return 1;
-	}
-	return 0;
-}
-
-
 static slave_t *eql_new_slave(void)
 {
 	slave_t *slave;
@@ -647,27 +795,6 @@ static long slave_bps(slave_t *slave)
 }
 
 #endif
-
-static inline int eql_number_slaves(slave_queue_t *queue)
-{
-	return queue->num_slaves;
-}
-
-static inline int eql_is_empty(slave_queue_t *queue)
-{
-	if (eql_number_slaves (queue) == 0)
-		return 1;
-	return 0;
-}
-
-static inline int eql_is_full(slave_queue_t *queue)
-{
-	equalizer_t *eql = (equalizer_t *) queue->master_dev->priv;
-
-	if (eql_number_slaves (queue) == eql->max_slaves)
-		return 1;
-	return 0;
-}
 
 static slave_queue_t *eql_new_slave_queue(struct net_device *dev)
 {
@@ -815,113 +942,6 @@ static int eql_remove_slave_dev(slave_queue_t *queue, struct net_device *dev)
 }
 
 
-static inline struct net_device *eql_best_slave_dev(slave_queue_t *queue)
-{
-	if (queue->best_slave != 0)
-	{
-		if (queue->best_slave->dev != 0)
-			return queue->best_slave->dev;
-		else
-			return 0;
-	}
-	else
-		return 0;
-}
-
-
-static inline slave_t *eql_best_slave(slave_queue_t *queue)
-{
-	return queue->best_slave;
-}
-
-static inline void eql_schedule_slaves(slave_queue_t *queue)
-{
-	struct net_device *master_dev = queue->master_dev;
-	slave_t *best_slave = 0;
-	slave_t *slave_corpse = 0;
-
-#ifdef EQL_DEBUG
-	if (eql_debug >= 100)
-		printk ("%s: schedule %d slaves\n", 
-			master_dev->name, eql_number_slaves (queue));
-#endif
-	if ( eql_is_empty (queue) )
-	{
-		/*
-		 *	No slaves to play with 
-		 */
-		eql_set_best_slave (queue, (slave_t *) 0);
-		return;
-	}
-	else
-	{		
-		/*
-		 *	Make a pass to set the best slave 
-		 */
-		unsigned long best_load = (unsigned long) ULONG_MAX;
-		slave_t *slave = 0;
-		unsigned long flags;
-		int i;
-
-		save_flags(flags);
-		cli ();
-		for (i = 1, slave = eql_first_slave (queue);
-			i <= eql_number_slaves (queue);
-			i++, slave = eql_next_slave (queue, slave))
-		{
-			/*
-			 *	Go through the slave list once, updating best_slave 
-			 *      whenever a new best_load is found, whenever a dead
-			 *	slave is found, it is marked to be pulled out of the 
-			 *	queue 
-			 */
-		
-			unsigned long slave_load;
-			unsigned long bytes_queued; 
-			unsigned long priority_Bps; 
-	  	
-	  		if (slave != 0)
-			{
-				bytes_queued = slave->bytes_queued;
-				priority_Bps = slave->priority_Bps;    
-				if ( slave->dev != 0)
-				{
-					if ((slave->dev->flags & IFF_UP) == IFF_UP )
-					{
-						slave_load = (ULONG_MAX - (ULONG_MAX / 2)) - 
-							(priority_Bps) + bytes_queued * 8;
-
-		      				if (slave_load < best_load)
-						{
-							best_load = slave_load;
-							best_slave = slave;
-						}
-					}
-					else		/* we found a dead slave */
-					{
-						/* 
-						 *	We only bury one slave at a time, if more than
-						 *	one slave dies, we will bury him on the next 
-						 *	reschedule. slaves don't die all at once that 
-						 *	much anyway 
-						 */
-						slave_corpse = slave;
-					}
-				}
-			}
-		} /* for */
-		restore_flags(flags);
-		eql_set_best_slave (queue, best_slave);
-	} /* else */
-	if (slave_corpse != 0)
-	{
-		printk ("eql: scheduler found dead slave, burying...\n");
-		eql_delete_slave (eql_remove_slave (queue, slave_corpse));
-	}
-	return;
-}
-
-
 static slave_t * eql_find_slave_dev(slave_queue_t *queue, struct net_device *dev)
 {
 	slave_t *slave = 0;
@@ -929,27 +949,17 @@ static slave_t * eql_find_slave_dev(slave_queue_t *queue, struct net_device *dev
 
 	while (slave != 0 && slave->dev != dev && slave != 0)
 	{
+#if 0
+		if (slave->dev != 0)
+			printk ("eql: find_slave_dev; looked at '%s'...\n", slave->dev->name);
+		else
+			printk ("eql: find_slave_dev; looked at nothing...\n");
+#endif
 		slave = slave->next;
 	}
 	return slave;
 }
 
-
-static inline slave_t *eql_first_slave(slave_queue_t *queue)
-{
-	return queue->head->next;
-}
-
-
-static inline slave_t *eql_next_slave(slave_queue_t *queue, slave_t *slave)
-{
-	return slave->next;
-}
-
-static inline void eql_set_best_slave(slave_queue_t *queue, slave_t *slave)
-{
-	queue->best_slave = slave;
-}
 
 static void eql_timer(unsigned long param)
 {

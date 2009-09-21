@@ -69,7 +69,7 @@
 /*************************************************
  * Maximum number of PHB's
  ************************************************/
-#if defined(HOST) || defined(INKERNEL)
+#if defined (HOST) || defined (INKERNEL)
 #define MAX_PHB               ((ushort) 128)  /* range 0-127 */
 #else
 #define MAX_PHB               ((ushort) 8)    /* range 0-7 */
@@ -270,7 +270,7 @@ struct PHB {
         } u4;
 #endif
 
-#ifdef RTA                                  /* some fields for the remotes */
+#ifdef RTA                              /* some fields for the remotes */
         ushort     flush_count;		/* Count of write flushes */
         ushort     txmode;		/* Modes for tx */
         ushort     rxmode;		/* Modes for rx */

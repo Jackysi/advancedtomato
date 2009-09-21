@@ -162,7 +162,7 @@ struct sjcd_toc {
   struct msf      disk_time;
 };
 
-#if defined(SJCD_GATHER_STAT)
+#if defined( SJCD_GATHER_STAT )
 
 struct sjcd_stat {
   int ticks;

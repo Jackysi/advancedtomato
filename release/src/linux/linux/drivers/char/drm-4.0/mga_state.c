@@ -62,10 +62,17 @@ static void mgaEmitClipRect(drm_mga_private_t * dev_priv,
 
 	/* Force reset of dwgctl on G400 (eliminates clip disable bit) */
 	if (dev_priv->chipset == MGA_CARD_TYPE_G400) {
+#if 0
+		PRIMOUTREG(MGAREG_DMAPAD, 0);
+		PRIMOUTREG(MGAREG_DWGSYNC, 0);
+		PRIMOUTREG(MGAREG_DWGSYNC, 0);
+		PRIMOUTREG(MGAREG_DWGCTL, regs[MGA_CTXREG_DWGCTL]);
+#else
 		PRIMOUTREG(MGAREG_DWGCTL, regs[MGA_CTXREG_DWGCTL]);
 		PRIMOUTREG(MGAREG_LEN + MGAREG_MGA_EXEC, 0x80000000);
 		PRIMOUTREG(MGAREG_DWGCTL, regs[MGA_CTXREG_DWGCTL]);
 		PRIMOUTREG(MGAREG_LEN + MGAREG_MGA_EXEC, 0x80000000);
+#endif
 	}
 	PRIMOUTREG(MGAREG_DMAPAD, 0);
 	PRIMOUTREG(MGAREG_CXBNDRY, ((box->x2) << 16) | (box->x1));
@@ -534,6 +541,9 @@ static void mga_dma_dispatch_vertex(drm_device_t * dev, drm_buf_t * buf)
 			      (MAX_STATE_SIZE + (5 * MGA_NR_SAREA_CLIPRECTS)));
 		mgaEmitState(dev_priv);
 
+#if 0
+		length = dev_priv->vertexsize * 3 * 4;
+#endif
 
 		do {
 			if (i < sarea_priv->nbox) {

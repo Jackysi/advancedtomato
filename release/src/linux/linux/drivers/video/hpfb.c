@@ -134,6 +134,10 @@ static int hpfb_get_cmap(struct fb_cmap *cmap, int kspc, int con,
 	return 0;
 }
 
+/*
+ * Set the palette.  This may not work on all boards but only experimentation will tell.
+ * XXX Doesn't work at all.
+ */
 
 static int hpfb_set_cmap(struct fb_cmap *cmap, int kspc, int con,
 			  struct fb_info *info)
@@ -284,6 +288,15 @@ int __init hpfb_init_one(unsigned long base)
 	fb_start = 0xf0000000 | (in_8(base + fboff) << 16);
 	fb_regs = base;
 
+#if 0
+	/* This is the magic incantation NetBSD uses to make Catseye boards work. */
+	out_8(base+0x4800, 0);
+	out_8(base+0x4510, 0);
+	out_8(base+0x4512, 0);
+	out_8(base+0x4514, 0);
+	out_8(base+0x4516, 0);
+	out_8(base+0x4206, 0x90);
+#endif
 
 	/*
 	 *	Fill in the available video resolution

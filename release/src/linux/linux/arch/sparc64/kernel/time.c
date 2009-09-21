@@ -1,4 +1,4 @@
-/* $Id: time.c,v 1.1.1.4 2003/10/14 08:07:50 sparq Exp $
+/* $Id: time.c,v 1.41.2.2 2002/03/03 04:08:10 davem Exp $
  * time.c: UltraSparc timer and TOD clock support.
  *
  * Copyright (C) 1997 David S. Miller (davem@caip.rutgers.edu)
@@ -22,7 +22,7 @@
 #include <linux/ioport.h>
 #include <linux/mc146818rtc.h>
 #include <linux/delay.h>
-#include <linux/kernprof.h>
+#include <linux/timer.h>
 
 #include <asm/oplib.h>
 #include <asm/mostek.h>
@@ -35,8 +35,10 @@
 #include <asm/ebus.h>
 #include <asm/isa.h>
 #include <asm/starfire.h>
+#include <asm/smp.h>
 
 extern rwlock_t xtime_lock;
+extern unsigned long wall_jiffies;
 
 spinlock_t mostek_lock = SPIN_LOCK_UNLOCKED;
 spinlock_t rtc_lock = SPIN_LOCK_UNLOCKED;
@@ -49,6 +51,352 @@ static unsigned long mstk48t08_regs = 0UL;
 static unsigned long mstk48t59_regs = 0UL;
 
 static int set_rtc_mmss(unsigned long);
+
+struct sparc64_tick_ops *tick_ops;
+
+#define TICK_PRIV_BIT	(1UL << 63)
+
+static void tick_disable_protection(void)
+{
+	/* Set things up so user can access tick register for profiling
+	 * purposes.  Also workaround BB_ERRATA_1 by doing a dummy
+	 * read back of %tick after writing it.
+	 */
+	__asm__ __volatile__(
+	"	ba,pt	%%xcc, 1f\n"
+	"	 nop\n"
+	"	.align	64\n"
+	"1:	rd	%%tick, %%g2\n"
+	"	add	%%g2, 6, %%g2\n"
+	"	andn	%%g2, %0, %%g2\n"
+	"	wrpr	%%g2, 0, %%tick\n"
+	"	rdpr	%%tick, %%g0"
+	: /* no outputs */
+	: "r" (TICK_PRIV_BIT)
+	: "g2");
+}
+
+static void tick_init_tick(unsigned long offset)
+{
+	tick_disable_protection();
+
+	__asm__ __volatile__(
+	"	rd	%%tick, %%g1\n"
+	"	andn	%%g1, %1, %%g1\n"
+	"	ba,pt	%%xcc, 1f\n"
+	"	 add	%%g1, %0, %%g1\n"
+	"	.align	64\n"
+	"1:	wr	%%g1, 0x0, %%tick_cmpr\n"
+	"	rd	%%tick_cmpr, %%g0"
+	: /* no outputs */
+	: "r" (offset), "r" (TICK_PRIV_BIT)
+	: "g1");
+}
+
+static unsigned long tick_get_tick(void)
+{
+	unsigned long ret;
+
+	__asm__ __volatile__("rd	%%tick, %0\n\t"
+			     "mov	%0, %0"
+			     : "=r" (ret));
+
+	return ret & ~TICK_PRIV_BIT;
+}
+
+static unsigned long tick_get_compare(void)
+{
+	unsigned long ret;
+
+	__asm__ __volatile__("rd	%%tick_cmpr, %0\n\t"
+			     "mov	%0, %0"
+			     : "=r" (ret));
+
+	return ret;
+}
+
+static unsigned long tick_add_compare(unsigned long adj)
+{
+	unsigned long new_compare;
+
+	/* Workaround for Spitfire Errata (#54 I think??), I discovered
+	 * this via Sun BugID 4008234, mentioned in Solaris-2.5.1 patch
+	 * number 103640.
+	 *
+	 * On Blackbird writes to %tick_cmpr can fail, the
+	 * workaround seems to be to execute the wr instruction
+	 * at the start of an I-cache line, and perform a dummy
+	 * read back from %tick_cmpr right after writing to it. -DaveM
+	 */
+	__asm__ __volatile__("rd	%%tick_cmpr, %0\n\t"
+			     "ba,pt	%%xcc, 1f\n\t"
+			     " add	%0, %1, %0\n\t"
+			     ".align	64\n"
+			     "1:\n\t"
+			     "wr	%0, 0, %%tick_cmpr\n\t"
+			     "rd	%%tick_cmpr, %%g0"
+			     : "=&r" (new_compare)
+			     : "r" (adj));
+
+	return new_compare;
+}
+
+static unsigned long tick_add_tick(unsigned long adj, unsigned long offset)
+{
+	unsigned long new_tick, tmp;
+
+	/* Also need to handle Blackbird bug here too. */
+	__asm__ __volatile__("rd	%%tick, %0\n\t"
+			     "add	%0, %2, %0\n\t"
+			     "wrpr	%0, 0, %%tick\n\t"
+			     "andn	%0, %4, %1\n\t"
+			     "ba,pt	%%xcc, 1f\n\t"
+			     " add	%1, %3, %1\n\t"
+			     ".align	64\n"
+			     "1:\n\t"
+			     "wr	%1, 0, %%tick_cmpr\n\t"
+			     "rd	%%tick_cmpr, %%g0"
+			     : "=&r" (new_tick), "=&r" (tmp)
+			     : "r" (adj), "r" (offset), "r" (TICK_PRIV_BIT));
+
+	return new_tick;
+}
+
+static struct sparc64_tick_ops tick_operations = {
+	.init_tick	=	tick_init_tick,
+	.get_tick	=	tick_get_tick,
+	.get_compare	=	tick_get_compare,
+	.add_tick	=	tick_add_tick,
+	.add_compare	=	tick_add_compare,
+	.softint_mask	=	1UL << 0,
+};
+
+static void stick_init_tick(unsigned long offset)
+{
+	tick_disable_protection();
+
+	/* Let the user get at STICK too. */
+	__asm__ __volatile__(
+	"	rd	%%asr24, %%g2\n"
+	"	andn	%%g2, %0, %%g2\n"
+	"	wr	%%g2, 0, %%asr24"
+	: /* no outputs */
+	: "r" (TICK_PRIV_BIT)
+	: "g1", "g2");
+
+	__asm__ __volatile__(
+	"	rd	%%asr24, %%g1\n"
+	"	andn	%%g1, %1, %%g1\n"
+	"	add	%%g1, %0, %%g1\n"
+	"	wr	%%g1, 0x0, %%asr25"
+	: /* no outputs */
+	: "r" (offset), "r" (TICK_PRIV_BIT)
+	: "g1");
+}
+
+static unsigned long stick_get_tick(void)
+{
+	unsigned long ret;
+
+	__asm__ __volatile__("rd	%%asr24, %0"
+			     : "=r" (ret));
+
+	return ret & ~TICK_PRIV_BIT;
+}
+
+static unsigned long stick_get_compare(void)
+{
+	unsigned long ret;
+
+	__asm__ __volatile__("rd	%%asr25, %0"
+			     : "=r" (ret));
+
+	return ret;
+}
+
+static unsigned long stick_add_tick(unsigned long adj, unsigned long offset)
+{
+	unsigned long new_tick, tmp;
+
+	__asm__ __volatile__("rd	%%asr24, %0\n\t"
+			     "add	%0, %2, %0\n\t"
+			     "wr	%0, 0, %%asr24\n\t"
+			     "andn	%0, %4, %1\n\t"
+			     "add	%1, %3, %1\n\t"
+			     "wr	%1, 0, %%asr25"
+			     : "=&r" (new_tick), "=&r" (tmp)
+			     : "r" (adj), "r" (offset), "r" (TICK_PRIV_BIT));
+
+	return new_tick;
+}
+
+static unsigned long stick_add_compare(unsigned long adj)
+{
+	unsigned long new_compare;
+
+	__asm__ __volatile__("rd	%%asr25, %0\n\t"
+			     "add	%0, %1, %0\n\t"
+			     "wr	%0, 0, %%asr25"
+			     : "=&r" (new_compare)
+			     : "r" (adj));
+
+	return new_compare;
+}
+
+static struct sparc64_tick_ops stick_operations = {
+	.init_tick	=	stick_init_tick,
+	.get_tick	=	stick_get_tick,
+	.get_compare	=	stick_get_compare,
+	.add_tick	=	stick_add_tick,
+	.add_compare	=	stick_add_compare,
+	.softint_mask	=	1UL << 16,
+};
+
+/* On Hummingbird the STICK/STICK_CMPR register is implemented
+ * in I/O space.  There are two 64-bit registers each, the
+ * first holds the low 32-bits of the value and the second holds
+ * the high 32-bits.
+ *
+ * Since STICK is constantly updating, we have to access it carefully.
+ *
+ * The sequence we use to read is:
+ * 1) read low
+ * 2) read high
+ * 3) read low again, if it rolled over increment high by 1
+ *
+ * Writing STICK safely is also tricky:
+ * 1) write low to zero
+ * 2) write high
+ * 3) write low
+ */
+#define HBIRD_STICKCMP_ADDR	0x1fe0000f060UL
+#define HBIRD_STICK_ADDR	0x1fe0000f070UL
+
+static unsigned long __hbird_read_stick(void)
+{
+	unsigned long ret, tmp1, tmp2, tmp3;
+	unsigned long addr = HBIRD_STICK_ADDR;
+
+	__asm__ __volatile__("ldxa	[%1] %5, %2\n\t"
+			     "add	%1, 0x8, %1\n\t"
+			     "ldxa	[%1] %5, %3\n\t"
+			     "sub	%1, 0x8, %1\n\t"
+			     "ldxa	[%1] %5, %4\n\t"
+			     "cmp	%4, %2\n\t"
+			     "blu,a,pn	%%xcc, 1f\n\t"
+			     " add	%3, 1, %3\n"
+			     "1:\n\t"
+			     "sllx	%3, 32, %3\n\t"
+			     "or	%3, %4, %0\n\t"
+			     : "=&r" (ret), "=&r" (addr),
+			       "=&r" (tmp1), "=&r" (tmp2), "=&r" (tmp3)
+			     : "i" (ASI_PHYS_BYPASS_EC_E), "1" (addr));
+
+	return ret;
+}
+
+static unsigned long __hbird_read_compare(void)
+{
+	unsigned long low, high;
+	unsigned long addr = HBIRD_STICKCMP_ADDR;
+
+	__asm__ __volatile__("ldxa	[%2] %3, %0\n\t"
+			     "add	%2, 0x8, %2\n\t"
+			     "ldxa	[%2] %3, %1"
+			     : "=&r" (low), "=&r" (high), "=&r" (addr)
+			     : "i" (ASI_PHYS_BYPASS_EC_E), "2" (addr));
+
+	return (high << 32UL) | low;
+}
+
+static void __hbird_write_stick(unsigned long val)
+{
+	unsigned long low = (val & 0xffffffffUL);
+	unsigned long high = (val >> 32UL);
+	unsigned long addr = HBIRD_STICK_ADDR;
+
+	__asm__ __volatile__("stxa	%%g0, [%0] %4\n\t"
+			     "add	%0, 0x8, %0\n\t"
+			     "stxa	%3, [%0] %4\n\t"
+			     "sub	%0, 0x8, %0\n\t"
+			     "stxa	%2, [%0] %4"
+			     : "=&r" (addr)
+			     : "0" (addr), "r" (low), "r" (high),
+			       "i" (ASI_PHYS_BYPASS_EC_E));
+}
+
+static void __hbird_write_compare(unsigned long val)
+{
+	unsigned long low = (val & 0xffffffffUL);
+	unsigned long high = (val >> 32UL);
+	unsigned long addr = HBIRD_STICKCMP_ADDR + 0x8UL;
+
+	__asm__ __volatile__("stxa	%3, [%0] %4\n\t"
+			     "sub	%0, 0x8, %0\n\t"
+			     "stxa	%2, [%0] %4"
+			     : "=&r" (addr)
+			     : "0" (addr), "r" (low), "r" (high),
+			       "i" (ASI_PHYS_BYPASS_EC_E));
+}
+
+static void hbtick_init_tick(unsigned long offset)
+{
+	unsigned long val;
+
+	tick_disable_protection();
+
+	/* XXX This seems to be necessary to 'jumpstart' Hummingbird
+	 * XXX into actually sending STICK interrupts.  I think because
+	 * XXX of how we store %tick_cmpr in head.S this somehow resets the
+	 * XXX {TICK + STICK} interrupt mux.  -DaveM
+	 */
+	__hbird_write_stick(__hbird_read_stick());
+
+	val = __hbird_read_stick() & ~TICK_PRIV_BIT;
+	__hbird_write_compare(val + offset);
+}
+
+static unsigned long hbtick_get_tick(void)
+{
+	return __hbird_read_stick() & ~TICK_PRIV_BIT;
+}
+
+static unsigned long hbtick_get_compare(void)
+{
+	return __hbird_read_compare();
+}
+
+static unsigned long hbtick_add_tick(unsigned long adj, unsigned long offset)
+{
+	unsigned long val;
+
+	val = __hbird_read_stick() + adj;
+	__hbird_write_stick(val);
+
+	val &= ~TICK_PRIV_BIT;
+	__hbird_write_compare(val + offset);
+
+	return val;
+}
+
+static unsigned long hbtick_add_compare(unsigned long adj)
+{
+	unsigned long val = __hbird_read_compare() + adj;
+
+	val &= ~TICK_PRIV_BIT;
+	__hbird_write_compare(val);
+
+	return val;
+}
+
+static struct sparc64_tick_ops hbtick_operations = {
+	.init_tick	=	hbtick_init_tick,
+	.get_tick	=	hbtick_get_tick,
+	.get_compare	=	hbtick_get_compare,
+	.add_tick	=	hbtick_add_tick,
+	.add_compare	=	hbtick_add_compare,
+	.softint_mask	=	1UL << 0,
+};
 
 /* timer_interrupt() needs to keep up the real-time clock,
  * as well as call the "do_timer()" routine every clocktick
@@ -78,6 +426,31 @@ static __inline__ void timer_check_rtc(void)
 	}
 }
 
+void sparc64_do_profile(unsigned long pc, unsigned long o7)
+{
+	if (prof_buffer && current->pid) {
+		extern int _stext;
+		extern int rwlock_impl_begin, rwlock_impl_end;
+		extern int atomic_impl_begin, atomic_impl_end;
+		extern int __bitops_begin, __bitops_end;
+
+		if ((pc >= (unsigned long) &atomic_impl_begin &&
+		     pc < (unsigned long) &atomic_impl_end) ||
+		    (pc >= (unsigned long) &rwlock_impl_begin &&
+		     pc < (unsigned long) &rwlock_impl_end) ||
+		    (pc >= (unsigned long) &__bitops_begin &&
+		     pc < (unsigned long) &__bitops_end))
+			pc = o7;
+
+		pc -= (unsigned long) &_stext;
+		pc >>= prof_shift;
+
+		if(pc >= prof_len)
+			pc = prof_len - 1;
+		atomic_inc((atomic_t *)&prof_buffer[pc]);
+	}
+}
+
 static void timer_interrupt(int irq, void *dev_id, struct pt_regs * regs)
 {
 	unsigned long ticks, pstate;
@@ -85,16 +458,10 @@ static void timer_interrupt(int irq, void *dev_id, struct pt_regs * regs)
 	write_lock(&xtime_lock);
 
 	do {
-
 #ifndef CONFIG_SMP
-#if defined(CONFIG_KERNPROF)
-		if (prof_timer_hook) {
-			flush_register_windows();
-			prof_timer_hook(regs);
-		}
-#endif	
+		if ((regs->tstate & TSTATE_PRIV) != 0)
+			sparc64_do_profile(regs->tpc, regs->u_regs[UREG_RETPC]);
 #endif
-
 		do_timer(regs);
 
 		/* Guarentee that the following sequences execute
@@ -105,33 +472,14 @@ static void timer_interrupt(int irq, void *dev_id, struct pt_regs * regs)
 				     : "=r" (pstate)
 				     : "i" (PSTATE_IE));
 
-		if (!SPARC64_USE_STICK) {
-		__asm__ __volatile__(
-		"	rd	%%tick_cmpr, %0\n"
-		"	ba,pt	%%xcc, 1f\n"
-		"	 add	%0, %2, %0\n"
-		"	.align	64\n"
-		"1: 	wr	%0, 0, %%tick_cmpr\n"
-		"	rd	%%tick_cmpr, %%g0\n"
-		"	rd	%%tick, %1\n"
-		"	mov	%1, %1"
-			: "=&r" (timer_tick_compare), "=r" (ticks)
-			: "r" (timer_tick_offset));
-		} else {
-		__asm__ __volatile__(
-		"	rd	%%asr25, %0\n"
-		"	add	%0, %2, %0\n"
-		"	wr	%0, 0, %%asr25\n"
-		"	rd	%%asr24, %1"
-			: "=&r" (timer_tick_compare), "=r" (ticks)
-			: "r" (timer_tick_offset));
-		}
+		timer_tick_compare = tick_ops->add_compare(timer_tick_offset);
+		ticks = tick_ops->get_tick();
 
 		/* Restore PSTATE_IE. */
 		__asm__ __volatile__("wrpr	%0, 0x0, %%pstate"
 				     : /* no outputs */
 				     : "r" (pstate));
-	} while (ticks >= timer_tick_compare);
+	} while (time_after_eq(ticks, timer_tick_compare));
 
 	timer_check_rtc();
 
@@ -148,19 +496,7 @@ void timer_tick_interrupt(struct pt_regs *regs)
 	/*
 	 * Only keep timer_tick_offset uptodate, but don't set TICK_CMPR.
 	 */
-	if (!SPARC64_USE_STICK) {
-	__asm__ __volatile__(
-	"	rd	%%tick_cmpr, %0\n"
-	"	add	%0, %1, %0"
-		: "=&r" (timer_tick_compare)
-		: "r" (timer_tick_offset));
-	} else {
-	__asm__ __volatile__(
-	"	rd	%%asr25, %0\n"
-	"	add	%0, %1, %0"
-		: "=&r" (timer_tick_compare)
-		: "r" (timer_tick_offset));
-	}
+	timer_tick_compare = tick_ops->get_compare() + timer_tick_offset;
 
 	timer_check_rtc();
 
@@ -433,6 +769,8 @@ void __init clock_probe(void)
 		    strcmp(model, "mk48t08") &&
 		    strcmp(model, "mk48t59") &&
 		    strcmp(model, "m5819") &&
+		    strcmp(model, "m5819p") &&
+		    strcmp(model, "m5823") &&
 		    strcmp(model, "ds1287")) {
 			if (cbus != NULL) {
 				prom_printf("clock_probe: Central bus lacks timer chip.\n");
@@ -491,7 +829,9 @@ void __init clock_probe(void)
 			}
 
 			if (!strcmp(model, "ds1287") ||
-			    !strcmp(model, "m5819")) {
+			    !strcmp(model, "m5819") ||
+			    !strcmp(model, "m5819p") ||
+			    !strcmp(model, "m5823")) {
 				ds1287_regs = edev->resource[0].start;
 			} else {
 				mstk48t59_regs = edev->resource[0].start;
@@ -511,7 +851,9 @@ try_isa_clock:
 				prom_halt();
 			}
 			if (!strcmp(model, "ds1287") ||
-			    !strcmp(model, "m5819")) {
+			    !strcmp(model, "m5819") ||
+			    !strcmp(model, "m5819p") ||
+			    !strcmp(model, "m5823")) {
 				ds1287_regs = isadev->resource.start;
 			} else {
 				mstk48t59_regs = isadev->resource.start;
@@ -571,43 +913,90 @@ try_isa_clock:
 	__restore_flags(flags);
 }
 
-extern void init_timers(void (*func)(int, void *, struct pt_regs *),
-			unsigned long *);
+/* This is gets the master TICK_INT timer going. */
+static unsigned long sparc64_init_timers(void (*cfunc)(int, void *, struct pt_regs *))
+{
+	unsigned long pstate, clock;
+	int node, err;
+#ifdef CONFIG_SMP
+	extern void smp_tick_init(void);
+#endif
 
+	if (tlb_type == spitfire) {
+		unsigned long ver, manuf, impl;
+
+		__asm__ __volatile__ ("rdpr %%ver, %0"
+				      : "=&r" (ver));
+		manuf = ((ver >> 48) & 0xffff);
+		impl = ((ver >> 32) & 0xffff);
+		if (manuf == 0x17 && impl == 0x13) {
+			/* Hummingbird, aka Ultra-IIe */
+			tick_ops = &hbtick_operations;
+			node = prom_root_node;
+			clock = prom_getint(node, "stick-frequency");
+		} else {
+			tick_ops = &tick_operations;
+			node = linux_cpus[0].prom_node;
+			clock = prom_getint(node, "clock-frequency");
+		}
+	} else {
+		tick_ops = &stick_operations;
+		node = prom_root_node;
+		clock = prom_getint(node, "stick-frequency");
+	}
+	timer_tick_offset = clock / HZ;
+
+#ifdef CONFIG_SMP
+	smp_tick_init();
+#endif
+
+	/* Register IRQ handler. */
+	err = request_irq(build_irq(0, 0, 0UL, 0UL), cfunc, SA_STATIC_ALLOC,
+			  "timer", NULL);
+
+	if(err) {
+		prom_printf("Serious problem, cannot register TICK_INT\n");
+		prom_halt();
+	}
+
+	/* Guarentee that the following sequences execute
+	 * uninterrupted.
+	 */
+	__asm__ __volatile__("rdpr	%%pstate, %0\n\t"
+			     "wrpr	%0, %1, %%pstate"
+			     : "=r" (pstate)
+			     : "i" (PSTATE_IE));
+
+	tick_ops->init_tick(timer_tick_offset);
+
+	/* Restore PSTATE_IE. */
+	__asm__ __volatile__("wrpr	%0, 0x0, %%pstate"
+			     : /* no outputs */
+			     : "r" (pstate));
+
+	sti();
+
+	return clock;
+}
+
+/* The quotient formula is taken from the IA64 port. */
 void __init time_init(void)
 {
-	/* clock_probe() is now done at end of [se]bus_init on sparc64
-	 * so that sbus, fhc and ebus bus information is probed and
-	 * available.
-	 */
-	unsigned long clock;
+	unsigned long clock = sparc64_init_timers(timer_interrupt);
 
-	init_timers(timer_interrupt, &clock);
-	timer_ticks_per_usec_quotient = ((1UL<<32) / (clock / 1000020));
+	timer_ticks_per_usec_quotient =
+		(((1000000UL << 30) +
+		  (clock / 2)) / clock);
 }
 
 static __inline__ unsigned long do_gettimeoffset(void)
 {
-	unsigned long ticks;
+	unsigned long ticks = tick_ops->get_tick();
 
-	if (!SPARC64_USE_STICK) {
-	__asm__ __volatile__(
-	"	rd	%%tick, %%g1\n"
-	"	add	%1, %%g1, %0\n"
-	"	sub	%0, %2, %0\n"
-		: "=r" (ticks)
-		: "r" (timer_tick_offset), "r" (timer_tick_compare)
-		: "g1", "g2");
-	} else {
-	__asm__ __volatile__("rd	%%asr24, %%g1\n\t"
-			     "add	%1, %%g1, %0\n\t"
-			     "sub	%0, %2, %0\n\t"
-			     : "=&r" (ticks)
-			     : "r" (timer_tick_offset), "r" (timer_tick_compare)
-			     : "g1");
-	}
+	ticks += timer_tick_offset;
+	ticks -= timer_tick_compare;
 
-	return (ticks * timer_ticks_per_usec_quotient) >> 32UL;
+	return (ticks * timer_ticks_per_usec_quotient) >> 30UL;
 }
 
 void do_settimeofday(struct timeval *tv)
@@ -618,7 +1007,9 @@ void do_settimeofday(struct timeval *tv)
 	write_lock_irq(&xtime_lock);
 
 	tv->tv_usec -= do_gettimeoffset();
-	if(tv->tv_usec < 0) {
+	tv->tv_usec -= (jiffies - wall_jiffies) * (1000000 / HZ);
+
+	while (tv->tv_usec < 0) {
 		tv->tv_usec += 1000000;
 		tv->tv_sec--;
 	}
@@ -630,6 +1021,31 @@ void do_settimeofday(struct timeval *tv)
 	time_esterror = NTP_PHASE_LIMIT;
 
 	write_unlock_irq(&xtime_lock);
+}
+
+void do_gettimeofday(struct timeval *tv)
+{
+	unsigned long flags;
+	unsigned long usec, sec;
+
+	read_lock_irqsave(&xtime_lock, flags);
+	usec = do_gettimeoffset();
+	{
+		unsigned long lost = jiffies - wall_jiffies;
+		if (lost)
+			usec += lost * (1000000 / HZ);
+	}
+	sec = xtime.tv_sec;
+	usec += xtime.tv_usec;
+	read_unlock_irqrestore(&xtime_lock, flags);
+
+	while (usec >= 1000000) {
+		usec -= 1000000;
+		sec++;
+	}
+
+	tv->tv_sec = sec;
+	tv->tv_usec = usec;
 }
 
 static int set_rtc_mmss(unsigned long nowtime)

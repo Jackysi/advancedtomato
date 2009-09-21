@@ -1,10 +1,10 @@
-/* $Id: iograph.h,v 1.1.1.4 2003/10/14 08:09:11 sparq Exp $
+/* $Id$
  *
  * This file is subject to the terms and conditions of the GNU General Public
  * License.  See the file "COPYING" in the main directory of this archive
  * for more details.
  *
- * Copyright (C) 1992 - 1997, 2000-2001 Silicon Graphics, Inc. All rights reserved.
+ * Copyright (C) 1992-1997,2000-2003 Silicon Graphics, Inc. All rights reserved.
  */
 #ifndef _ASM_IA64_SN_IOGRAPH_H
 #define _ASM_IA64_SN_IOGRAPH_H
@@ -32,6 +32,7 @@
 #define EDGE_LBL_CONTROLLER		"controller"
 #define EDGE_LBL_CPU			"cpu"
 #define EDGE_LBL_CPUNUM			"cpunum"
+#define EDGE_LBL_DIRECT			"direct"
 #define EDGE_LBL_DISABLED		"disabled"
 #define EDGE_LBL_DISK			"disk"
 #define EDGE_LBL_DMA_ENGINE             "dma_engine"    /* Only available on
@@ -67,13 +68,18 @@
 #define EDGE_LBL_HPC			"hpc"
 #define EDGE_LBL_GFX			"gfx"
 #define EDGE_LBL_HUB			"hub"		/* For SN0 */
+#define EDGE_LBL_ICE			"ice"		/* For TIO */
+#define EDGE_LBL_HW			"hw"
 #define EDGE_LBL_SYNERGY		"synergy"	/* For SNIA only */
 #define EDGE_LBL_IBUS			"ibus"		/* For EVEREST */
 #define EDGE_LBL_INTERCONNECT		"link"
 #define EDGE_LBL_IO			"io"
 #define EDGE_LBL_IO4			"io4"		/* For EVEREST */
 #define EDGE_LBL_IOC3			"ioc3"
+#define EDGE_LBL_IOC4			"ioc4"
 #define EDGE_LBL_LUN                    "lun"
+#define EDGE_LBL_LINUX                  "linux"
+#define EDGE_LBL_LINUX_BUS              EDGE_LBL_LINUX "/bus/pci-x"
 #define EDGE_LBL_MACE                   "mace" 		/* O2 mace */
 #define EDGE_LBL_MACHDEP                "machdep"       /* Platform depedent devices */
 #define EDGE_LBL_MASTER			".master"
@@ -86,6 +92,12 @@
 #define EDGE_LBL_NVRAM			"nvram"
 #define EDGE_LBL_PARTITION		"partition"
 #define EDGE_LBL_PCI			"pci"
+#define EDGE_LBL_PCIX			"pci-x"
+#define EDGE_LBL_PCIX_0			EDGE_LBL_PCIX "/0"
+#define EDGE_LBL_PCIX_1			EDGE_LBL_PCIX "/1"
+#define EDGE_LBL_AGP			"agp"
+#define EDGE_LBL_AGP_0			EDGE_LBL_AGP "/0"
+#define EDGE_LBL_AGP_1			EDGE_LBL_AGP "/1"
 #define EDGE_LBL_PORT			"port"
 #define EDGE_LBL_PROM			"prom"
 #define EDGE_LBL_RACK			"rack"
@@ -105,6 +117,7 @@
 #define	EDGE_LBL_XIO			"xio"
 #define EDGE_LBL_XSWITCH		".xswitch"
 #define EDGE_LBL_XTALK			"xtalk"
+#define EDGE_LBL_CORETALK		"coretalk"
 #define EDGE_LBL_XWIDGET		"xwidget"
 #define EDGE_LBL_ELSC			"elsc"
 #define EDGE_LBL_L1			"L1"
@@ -112,6 +125,7 @@
 #define EDGE_LBL_XPLINK			"xplink" 	/* Cross partition */
 #define	EDGE_LBL_XPLINK_NET		"net" 		/* XP network devs */
 #define	EDGE_LBL_XPLINK_RAW		"raw"		/* XP Raw devs */
+#define EDGE_LBL_SLAB			"slab"		/* Slab of a module */
 #define	EDGE_LBL_XPLINK_KERNEL		"kernel"	/* XP kernel devs */
 #define	EDGE_LBL_XPLINK_ADMIN		"admin"	   	/* Partition admin */
 #define	EDGE_LBL_KAIO			"kaio"	   	/* Kernel async i/o poll */
@@ -119,8 +133,13 @@
 #define EDGE_LBL_XBOX_RPS               "xbox_rps"      /* redundant power supply for xbox unit */ 
 #define EDGE_LBL_IOBRICK		"iobrick"
 #define EDGE_LBL_PBRICK			"Pbrick"
+#define EDGE_LBL_PEBRICK		"PEbrick"
+#define EDGE_LBL_PXBRICK		"PXbrick"
+#define EDGE_LBL_OPUSBRICK		"onboardio"
+#define EDGE_LBL_IXBRICK		"IXbrick"
 #define EDGE_LBL_IBRICK			"Ibrick"
 #define EDGE_LBL_XBRICK			"Xbrick"
+#define EDGE_LBL_CGBRICK		"CGbrick"
 #define EDGE_LBL_CPUBUS			"cpubus"	/* CPU Interfaces (SysAd) */
 
 /* vertex info labels in hwgraph */
@@ -202,16 +221,15 @@ void init_all_devices(void);
 
 #include <asm/sn/xtalk/xbow.h>	/* For get MAX_PORT_NUM */
 
-int io_brick_map_widget(char, int);
-int io_path_map_widget(devfs_handle_t);
+int io_brick_map_widget(int, int);
+int io_path_map_widget(vertex_hdl_t);
 
 /*
  * Map a brick's widget number to a meaningful int
  */
 
 struct io_brick_map_s {
-    char                ibm_type;                  /* brick type, e.g. */
-                                                   /* 'I' for Ibrick   */
+    int                 ibm_type;                  /* brick type */
     int                 ibm_map_wid[MAX_PORT_NUM]; /* wid to int map */
 };
 

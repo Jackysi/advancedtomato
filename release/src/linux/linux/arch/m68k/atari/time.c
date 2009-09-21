@@ -16,7 +16,7 @@
 #include <linux/init.h>
 #include <linux/rtc.h>
 
-#include <asm/rtc.h>
+#include <asm/atariints.h>
 
 void __init
 atari_sched_init(void (*timer_routine)(int, void *, struct pt_regs *))

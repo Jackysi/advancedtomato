@@ -1,1 +1,0 @@
-#undef  CONFIG_ACER_PICA_61

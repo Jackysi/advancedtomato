@@ -29,6 +29,7 @@
 
 #include <asm/uaccess.h>
 
+#if !defined(CONFIG_LOG_BUF_SHIFT) || (CONFIG_LOG_BUF_SHIFT == 0)
 #if defined(CONFIG_MULTIQUAD) || defined(CONFIG_IA64)
 #define LOG_BUF_LEN	(65536)
 #elif defined(CONFIG_ARCH_S390)
@@ -38,15 +39,14 @@
 #else	
 #define LOG_BUF_LEN	(16384)			/* This must be a power of two */
 #endif
+#else /* CONFIG_LOG_BUF_SHIFT */
+#define LOG_BUF_LEN (1 << CONFIG_LOG_BUF_SHIFT)
+#endif
 
 #define LOG_BUF_MASK	(LOG_BUF_LEN-1)
 
 #ifndef arch_consoles_callable
-#if defined(CONFIG_HWSIM) && defined(mips)
-#define arch_consoles_callable() (0)
-#else
 #define arch_consoles_callable() (1)
-#endif
 #endif
 
 /* printk's without a loglevel use this.. */
@@ -82,8 +82,7 @@ struct console *console_drivers;
  */
 static spinlock_t logbuf_lock = SPIN_LOCK_UNLOCKED;
 
-static char real_log_buf[LOG_BUF_LEN];
-static char *log_buf = real_log_buf;
+static char log_buf[LOG_BUF_LEN];
 #define LOG_BUF(idx) (log_buf[(idx) & LOG_BUF_MASK])
 
 /*
@@ -96,6 +95,7 @@ static unsigned long log_end;			/* Index into log_buf: most-recently-written-cha
 static unsigned long logged_chars;		/* Number of chars produced since last read+clear operation */
 
 struct console_cmdline console_cmdline[MAX_CMDLINECONSOLES];
+static int selected_console = -1;
 static int preferred_console = -1;
 
 /* Flag: console code may call schedule() */
@@ -104,7 +104,7 @@ static int console_may_schedule;
 /*
  *	Setup a list of consoles. Called from init/main.c
  */
-int __init console_setup(char *str)
+static int __init console_setup(char *str)
 {
 	struct console_cmdline *c;
 	char name[sizeof(c->name)];
@@ -141,12 +141,12 @@ int __init console_setup(char *str)
 	for(i = 0; i < MAX_CMDLINECONSOLES && console_cmdline[i].name[0]; i++)
 		if (strcmp(console_cmdline[i].name, name) == 0 &&
 			  console_cmdline[i].index == idx) {
-				preferred_console = i;
+				selected_console = i;
 				return 1;
 		}
 	if (i == MAX_CMDLINECONSOLES)
 		return 1;
-	preferred_console = i;
+	selected_console = i;
 	c = &console_cmdline[i];
 	memcpy(c->name, name, sizeof(c->name));
 	c->options = options;
@@ -418,11 +418,6 @@ asmlinkage int printk(const char *fmt, ...)
 	static char printk_buf[1024];
 	static int log_level_unknown = 1;
 
-#if defined(CONFIG_HWSIM) && defined(mips)
-	if (log_buf == real_log_buf)
-		log_buf = KSEG1ADDR((char *) real_log_buf);
-#endif
-
 	if (oops_in_progress) {
 		/* If a crash is occurring, make sure we can't deadlock */
 		spin_lock_init(&logbuf_lock);
@@ -566,7 +561,14 @@ void console_unblank(void)
 {
 	struct console *c;
 
-	acquire_console_sem();
+	/*
+	 * Try to get the console semaphore. If someone else owns it
+	 * we have to return without unblanking because console_unblank
+	 * may be called in interrupt context.
+	 */
+	if (down_trylock(&console_sem) != 0)
+		return;
+	console_may_schedule = 0;
 	for (c = console_drivers; c != NULL; c = c->next)
 		if ((c->flags & CON_ENABLED) && c->unblank)
 			c->unblank();
@@ -584,6 +586,9 @@ void register_console(struct console * console)
 {
 	int     i;
 	unsigned long flags;
+
+	if (preferred_console < 0)
+		preferred_console = selected_console;
 
 	/*
 	 *	See if we want to use this console driver. If we
@@ -639,7 +644,7 @@ void register_console(struct console * console)
 	}
 	if (console->flags & CON_PRINTBUFFER) {
 		/*
-		 * release_cosole_sem() will print out the buffered messages for us.
+		 * release_console_sem() will print out the buffered messages for us.
 		 */
 		spin_lock_irqsave(&logbuf_lock, flags);
 		con_start = log_start;
@@ -674,7 +679,7 @@ int unregister_console(struct console * console)
 	 * would prevent fbcon from taking over.
 	 */
 	if (console_drivers == NULL)
-		preferred_console = -1;
+		preferred_console = selected_console;
 		
 
 	release_console_sem();

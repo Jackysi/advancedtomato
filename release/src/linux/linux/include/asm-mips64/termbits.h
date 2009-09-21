@@ -13,11 +13,11 @@
 #include <linux/posix_types.h>
 
 typedef unsigned char cc_t;
-#if _MIPS_SZLONG == 32
+#if (_MIPS_SZLONG == 32)
 typedef unsigned long speed_t;
 typedef unsigned long tcflag_t;
 #endif
-#if _MIPS_SZLONG == 64
+#if (_MIPS_SZLONG == 64)
 typedef __u32 speed_t;
 typedef __u32 tcflag_t;
 #endif
@@ -49,6 +49,12 @@ struct termios {
 #define VSTART		 8		/* Start (X-ON) character [IXON, IXOFF].  */
 #define VSTOP		 9		/* Stop (X-OFF) character [IXON, IXOFF].  */
 #define VSUSP		10		/* Suspend character [ISIG].  */
+#if 0
+/*
+ * VDSUSP is not supported
+ */
+#define VDSUSP		11		/* Delayed suspend character [ISIG].  */
+#endif
 #define VREPRINT	12		/* Reprint-line character [ICANON].  */
 #define VDISCARD	13		/* Discard character [IEXTEN].  */
 #define VWERASE		14		/* Word-erase character [ICANON].  */

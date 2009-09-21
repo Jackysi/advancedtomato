@@ -3,7 +3,7 @@
  *
  * Written By: Jyoti Shah, IBM Corporation
  *
- * Copyright (c) 2001-2002 IBM Corp.
+ * Copyright (C) 2001-2002 IBM Corp.
  *
  * All rights reserved.
  *
@@ -184,14 +184,14 @@ static u8 i2c_ctrl_read (struct controller *ctlr_ptr, void *WPGBbar, u8 index)
 	}
 
 	wpg_data = swab32 (data);	// swap data before writing
-	(ulong) wpg_addr = (ulong) WPGBbar + (ulong) WPG_I2CMOSUP_OFFSET;
+	wpg_addr = WPGBbar + WPG_I2CMOSUP_OFFSET;
 	writel (wpg_data, wpg_addr);
 
 	//--------------------------------------------------------------------
 	// READ - step 2 : clear the message buffer
 	data = 0x00000000;
 	wpg_data = swab32 (data);
-	(ulong) wpg_addr = (ulong) WPGBbar + (ulong) WPG_I2CMBUFL_OFFSET;
+	wpg_addr = WPGBbar + WPG_I2CMBUFL_OFFSET;
 	writel (wpg_data, wpg_addr);
 
 	//--------------------------------------------------------------------
@@ -199,7 +199,7 @@ static u8 i2c_ctrl_read (struct controller *ctlr_ptr, void *WPGBbar, u8 index)
 	//                 2020 : [20] OR operation at [20] offset 0x20
 	data = WPG_I2CMCNTL_STARTOP_MASK;
 	wpg_data = swab32 (data);
-	(ulong) wpg_addr = (ulong) WPGBbar + (ulong) WPG_I2CMCNTL_OFFSET + (ulong) WPG_I2C_OR;
+	wpg_addr = WPGBbar + WPG_I2CMCNTL_OFFSET + WPG_I2C_OR;
 	writel (wpg_data, wpg_addr);
 
 	//--------------------------------------------------------------------
@@ -207,7 +207,7 @@ static u8 i2c_ctrl_read (struct controller *ctlr_ptr, void *WPGBbar, u8 index)
 	i = CMD_COMPLETE_TOUT_SEC;
 	while (i) {
 		long_delay (1 * HZ / 100);
-		(ulong) wpg_addr = (ulong) WPGBbar + (ulong) WPG_I2CMCNTL_OFFSET;
+		wpg_addr = WPGBbar + WPG_I2CMCNTL_OFFSET;
 		wpg_data = readl (wpg_addr);
 		data = swab32 (wpg_data);
 		if (!(data & WPG_I2CMCNTL_STARTOP_MASK))
@@ -223,7 +223,7 @@ static u8 i2c_ctrl_read (struct controller *ctlr_ptr, void *WPGBbar, u8 index)
 	i = CMD_COMPLETE_TOUT_SEC;
 	while (i) {
 		long_delay (1 * HZ / 100);
-		(ulong) wpg_addr = (ulong) WPGBbar + (ulong) WPG_I2CSTAT_OFFSET;
+		wpg_addr = WPGBbar + WPG_I2CSTAT_OFFSET;
 		wpg_data = readl (wpg_addr);
 		data = swab32 (wpg_data);
 		if (HPC_I2CSTATUS_CHECK (data))
@@ -237,7 +237,7 @@ static u8 i2c_ctrl_read (struct controller *ctlr_ptr, void *WPGBbar, u8 index)
 
 	//--------------------------------------------------------------------
 	// READ - step 6 : get DATA
-	(ulong) wpg_addr = (ulong) WPGBbar + (ulong) WPG_I2CMBUFL_OFFSET;
+	wpg_addr = WPGBbar + WPG_I2CMBUFL_OFFSET;
 	wpg_data = readl (wpg_addr);
 	data = swab32 (wpg_data);
 
@@ -295,14 +295,14 @@ static u8 i2c_ctrl_write (struct controller *ctlr_ptr, void *WPGBbar, u8 index, 
 	}
 
 	wpg_data = swab32 (data);	// swap data before writing
-	(ulong) wpg_addr = (ulong) WPGBbar + (ulong) WPG_I2CMOSUP_OFFSET;
+	wpg_addr = WPGBbar + WPG_I2CMOSUP_OFFSET;
 	writel (wpg_data, wpg_addr);
 
 	//--------------------------------------------------------------------
 	// WRITE - step 2 : clear the message buffer
 	data = 0x00000000 | (ulong) cmd;
 	wpg_data = swab32 (data);
-	(ulong) wpg_addr = (ulong) WPGBbar + (ulong) WPG_I2CMBUFL_OFFSET;
+	wpg_addr = WPGBbar + WPG_I2CMBUFL_OFFSET;
 	writel (wpg_data, wpg_addr);
 
 	//--------------------------------------------------------------------
@@ -310,7 +310,7 @@ static u8 i2c_ctrl_write (struct controller *ctlr_ptr, void *WPGBbar, u8 index, 
 	//                 2020 : [20] OR operation at [20] offset 0x20
 	data = WPG_I2CMCNTL_STARTOP_MASK;
 	wpg_data = swab32 (data);
-	(ulong) wpg_addr = (ulong) WPGBbar + (ulong) WPG_I2CMCNTL_OFFSET + (ulong) WPG_I2C_OR;
+	wpg_addr = WPGBbar + WPG_I2CMCNTL_OFFSET + WPG_I2C_OR;
 	writel (wpg_data, wpg_addr);
 
 	//--------------------------------------------------------------------
@@ -318,7 +318,7 @@ static u8 i2c_ctrl_write (struct controller *ctlr_ptr, void *WPGBbar, u8 index, 
 	i = CMD_COMPLETE_TOUT_SEC;
 	while (i) {
 		long_delay (1 * HZ / 100);
-		(ulong) wpg_addr = (ulong) WPGBbar + (ulong) WPG_I2CMCNTL_OFFSET;
+		wpg_addr = WPGBbar + WPG_I2CMCNTL_OFFSET;
 		wpg_data = readl (wpg_addr);
 		data = swab32 (wpg_data);
 		if (!(data & WPG_I2CMCNTL_STARTOP_MASK))
@@ -335,7 +335,7 @@ static u8 i2c_ctrl_write (struct controller *ctlr_ptr, void *WPGBbar, u8 index, 
 	i = CMD_COMPLETE_TOUT_SEC;
 	while (i) {
 		long_delay (1 * HZ / 100);
-		(ulong) wpg_addr = (ulong) WPGBbar + (ulong) WPG_I2CSTAT_OFFSET;
+		wpg_addr = WPGBbar + WPG_I2CSTAT_OFFSET;
 		wpg_data = readl (wpg_addr);
 		data = swab32 (wpg_data);
 		if (HPC_I2CSTATUS_CHECK (data))

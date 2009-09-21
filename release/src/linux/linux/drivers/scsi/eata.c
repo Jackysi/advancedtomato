@@ -1677,6 +1677,9 @@ static inline int do_qcomm(Scsi_Cmnd *SCpnt, void (*done)(Scsi_Cmnd *)) {
 
    cpp->reqsen = TRUE;
    cpp->dispri = TRUE;
+#if 0
+   if (SCpnt->device->type == TYPE_TAPE) cpp->hbaci = TRUE;
+#endif
    cpp->one = TRUE;
    cpp->channel = SCpnt->channel;
    cpp->target = SCpnt->target;
@@ -1960,7 +1963,7 @@ int eata2x_biosparam(Disk *disk, kdev_t dev, int *dkinfo) {
       dkinfo[2] = size / (dkinfo[0] * dkinfo[1]);
       }
 
-#if defined(DEBUG_GEOMETRY)
+#if defined (DEBUG_GEOMETRY)
    printk ("%s: biosparam, head=%d, sec=%d, cyl=%d.\n", driver_name,
            dkinfo[0], dkinfo[1], dkinfo[2]);
 #endif
@@ -2164,7 +2167,7 @@ static inline void ihdlr(int irq, unsigned int j) {
    /* Read the status register to clear the interrupt indication */
    reg = inb(sh[j]->io_port + REG_STATUS);
 
-#if defined(DEBUG_INTERRUPT)
+#if defined (DEBUG_INTERRUPT)
    {
    unsigned char *bytesp;
    int cnt;

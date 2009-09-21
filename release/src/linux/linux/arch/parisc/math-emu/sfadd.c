@@ -22,7 +22,7 @@
  * BEGIN_DESC
  *
  *  File:
- *	@(#)	pa/spmath/sfadd.c		$Revision: 1.1.1.2 $
+ *	@(#)	pa/spmath/sfadd.c		$Revision: $
  *
  *  Purpose:
  *	Single_add: add two single precision values.

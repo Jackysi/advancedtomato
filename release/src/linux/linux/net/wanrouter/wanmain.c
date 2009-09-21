@@ -186,6 +186,9 @@ static int devcnt 		= 0;
  */
 
 static unsigned char oui_ether[] = { 0x00, 0x00, 0x00 };
+#if 0
+static unsigned char oui_802_2[] = { 0x00, 0x80, 0xC2 };
+#endif
 
 #ifndef MODULE
 
@@ -604,7 +607,7 @@ static int device_setup (wan_device_t *wandev, wandev_conf_t *u_conf)
 		        return -EINVAL;;
 		}
 
-#if defined(LINUX_2_1) || defined(LINUX_2_4)
+#if defined (LINUX_2_1) || defined (LINUX_2_4)
 		data = vmalloc(conf->data_size);
 		if (data) {
 			if(!copy_from_user(data, conf->data, conf->data_size)){
@@ -758,7 +761,7 @@ static int device_new_if (wan_device_t *wandev, wanif_conf_t *u_conf)
 	if ((wandev->state == WAN_UNCONFIGURED) || (wandev->new_if == NULL))
 		return -ENODEV;
 	
-#if defined(LINUX_2_1) || defined(LINUX_2_4)	
+#if defined (LINUX_2_1) || defined (LINUX_2_4)	
 	if(copy_from_user(&conf, u_conf, sizeof(wanif_conf_t)))
 		return -EFAULT;
 #else
@@ -1066,7 +1069,7 @@ void unlock_adapter_irq(spinlock_t *lock, unsigned long *smp_flags)
 
 
 
-#if defined(LINUX_2_1) || defined(LINUX_2_4)
+#if defined (LINUX_2_1) || defined (LINUX_2_4)
 EXPORT_SYMBOL(register_wan_device);
 EXPORT_SYMBOL(unregister_wan_device);
 EXPORT_SYMBOL(wanrouter_encapsulate);

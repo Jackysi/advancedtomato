@@ -15,6 +15,19 @@
 
 #define ARCH_STACK_GROWSUP
 
+/*
+ * kern_addr_valid(ADDR) tests if ADDR is pointing to valid kernel
+ * memory.  For the return value to be meaningful, ADDR must be >=
+ * PAGE_OFFSET.  This operation can be relatively expensive (e.g.,
+ * require a hash-, or multi-level tree-lookup or something of that
+ * sort) but it guarantees to return TRUE only if accessing the page
+ * at that address does not cause an error.  Note that there may be
+ * addresses for which kern_addr_valid() returns FALSE even though an
+ * access would not cause an error (e.g., this is typically true for
+ * memory mapped I/O regions.
+ *
+ * XXX Need to implement this for parisc.
+ */
 #define kern_addr_valid(addr)	(1)
 
 /* Certain architectures need to do special things when PTEs
@@ -267,6 +280,11 @@ extern inline pte_t pte_mkwrite(pte_t pte)	{ pte_val(pte) |= _PAGE_WRITE; return
 									\
 	__pte;								\
 })
+
+/* 
+ * Change "struct page" to physical address.
+ */
+#define page_to_phys(page)      PAGE_TO_PA(page)
 
 #ifdef CONFIG_DISCONTIGMEM
 #define PAGE_TO_PA(page) \

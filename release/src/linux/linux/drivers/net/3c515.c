@@ -91,12 +91,14 @@ static int max_interrupt_work = 20;
 #define REQUEST_IRQ(i,h,f,n, instance) request_irq(i,h,f,n, instance)
 #define IRQ(irq, dev_id, pt_regs) (irq, dev_id, pt_regs)
 
+#define MAX_UNITS 8
+
 MODULE_AUTHOR("Donald Becker <becker@scyld.com>");
 MODULE_DESCRIPTION("3Com 3c515 Corkscrew driver");
 MODULE_LICENSE("GPL");
 
 MODULE_PARM(debug, "i");
-MODULE_PARM(options, "1-" __MODULE_STRING(8) "i");
+MODULE_PARM(options, "1-" __MODULE_STRING(MAX_UNITS) "i");
 MODULE_PARM(rx_copybreak, "i");
 MODULE_PARM(max_interrupt_work, "i");
 MODULE_PARM_DESC(debug, "3c515 debug level (0-6)");
@@ -404,7 +406,7 @@ static int corkscrew_close(struct net_device *dev);
 static void update_stats(int addr, struct net_device *dev);
 static struct net_device_stats *corkscrew_get_stats(struct net_device *dev);
 static void set_rx_mode(struct net_device *dev);
-static int netdev_ioctl (struct net_device *dev, struct ifreq *rq, int cmd);
+static struct ethtool_ops netdev_ethtool_ops;
 
 
 /* 
@@ -421,7 +423,7 @@ static int netdev_ioctl (struct net_device *dev, struct ifreq *rq, int cmd);
 */
 /* This driver uses 'options' to pass the media type, full-duplex flag, etc. */
 /* Note: this is the only limit on the number of cards supported!! */
-static int options[8] = { -1, -1, -1, -1, -1, -1, -1, -1, };
+static int options[MAX_UNITS] = { -1, -1, -1, -1, -1, -1, -1, -1, };
 
 #ifdef MODULE
 static int debug = -1;
@@ -558,9 +560,10 @@ no_pnp:
 		printk(KERN_INFO "3c515 Resource configuration register %#4.4x, DCR %4.4x.\n",
 		     inl(ioaddr + 0x2002), inw(ioaddr + 0x2000));
 		irq = inw(ioaddr + 0x2002) & 15;
-		corkscrew_found_device(dev, ioaddr, irq, CORKSCREW_ID, dev
-				       && dev->mem_start ? dev->
-				       mem_start : options[cards_found]);
+		corkscrew_found_device(dev, ioaddr, irq, CORKSCREW_ID,
+				       dev && dev->mem_start ?  dev->mem_start :
+				         (cards_found >= MAX_UNITS ? -1 :
+						options[cards_found]));
 		dev = 0;
 		cards_found++;
 	}
@@ -733,7 +736,7 @@ static int corkscrew_probe1(struct net_device *dev)
 	dev->stop = &corkscrew_close;
 	dev->get_stats = &corkscrew_get_stats;
 	dev->set_multicast_list = &set_rx_mode;
-	dev->do_ioctl = netdev_ioctl;
+	dev->ethtool_ops = &netdev_ethtool_ops;
 
 	return 0;
 }
@@ -1605,86 +1608,30 @@ static void set_rx_mode(struct net_device *dev)
 	outw(new_mode, ioaddr + EL3_CMD);
 }
 
-/**
- * netdev_ethtool_ioctl: Handle network interface SIOCETHTOOL ioctls
- * @dev: network interface on which out-of-band action is to be performed
- * @useraddr: userspace address to which data is to be read and returned
- *
- * Process the various commands of the SIOCETHTOOL interface.
- */
-
-static int netdev_ethtool_ioctl (struct net_device *dev, void *useraddr)
+static void netdev_get_drvinfo(struct net_device *dev,
+			       struct ethtool_drvinfo *info)
 {
-	u32 ethcmd;
-
-	/* dev_ioctl() in ../../net/core/dev.c has already checked
-	   capable(CAP_NET_ADMIN), so don't bother with that here.  */
-
-	if (get_user(ethcmd, (u32 *)useraddr))
-		return -EFAULT;
-
-	switch (ethcmd) {
-
-	case ETHTOOL_GDRVINFO: {
-		struct ethtool_drvinfo info = { ETHTOOL_GDRVINFO };
-		strcpy (info.driver, DRV_NAME);
-		strcpy (info.version, DRV_VERSION);
-		sprintf(info.bus_info, "ISA 0x%lx", dev->base_addr);
-		if (copy_to_user (useraddr, &info, sizeof (info)))
-			return -EFAULT;
-		return 0;
-	}
-
-	/* get message-level */
-	case ETHTOOL_GMSGLVL: {
-		struct ethtool_value edata = {ETHTOOL_GMSGLVL};
-		edata.data = corkscrew_debug;
-		if (copy_to_user(useraddr, &edata, sizeof(edata)))
-			return -EFAULT;
-		return 0;
-	}
-	/* set message-level */
-	case ETHTOOL_SMSGLVL: {
-		struct ethtool_value edata;
-		if (copy_from_user(&edata, useraddr, sizeof(edata)))
-			return -EFAULT;
-		corkscrew_debug = edata.data;
-		return 0;
-	}
-
-	default:
-		break;
-	}
-
-	return -EOPNOTSUPP;
+	strcpy(info->driver, DRV_NAME);
+	strcpy(info->version, DRV_VERSION);
+	sprintf(info->bus_info, "ISA 0x%lx", dev->base_addr);
 }
 
-/**
- * netdev_ioctl: Handle network interface ioctls
- * @dev: network interface on which out-of-band action is to be performed
- * @rq: user request data
- * @cmd: command issued by user
- *
- * Process the various out-of-band ioctls passed to this driver.
- */
-
-static int netdev_ioctl (struct net_device *dev, struct ifreq *rq, int cmd)
+static u32 netdev_get_msglevel(struct net_device *dev)
 {
-	int rc = 0;
-
-	switch (cmd) {
-	case SIOCETHTOOL:
-		rc = netdev_ethtool_ioctl(dev, (void *) rq->ifr_data);
-		break;
-
-	default:
-		rc = -EOPNOTSUPP;
-		break;
-	}
-
-	return rc;
+	return corkscrew_debug;
 }
- 
+
+static void netdev_set_msglevel(struct net_device *dev, u32 level)
+{
+	corkscrew_debug = level;
+}
+
+static struct ethtool_ops netdev_ethtool_ops = {
+	.get_drvinfo		= netdev_get_drvinfo,
+	.get_msglevel		= netdev_get_msglevel,
+	.set_msglevel		= netdev_set_msglevel,
+};
+
 
 #ifdef MODULE
 void cleanup_module(void)

@@ -10,7 +10,7 @@
 /* Sample usage: CPU_FEATURE_P(cpu.x86_capability, FPU) */
 #define CPU_FEATURE_P(CAP, FEATURE) test_bit(CAP, X86_FEATURE_##FEATURE ##_BIT)
 
-#define NCAPINTS	4	/* Currently we have 4 32-bit words worth of info */
+#define NCAPINTS	5	/* Currently we have 5 32-bit words worth of info */
 
 /* Intel-defined CPU features, CPUID level 0x00000001, word 0 */
 #define X86_FEATURE_FPU		(0*32+ 0) /* Onboard FPU */
@@ -40,8 +40,10 @@
 #define X86_FEATURE_XMM		(0*32+25) /* Streaming SIMD Extensions */
 #define X86_FEATURE_XMM2	(0*32+26) /* Streaming SIMD Extensions-2 */
 #define X86_FEATURE_SELFSNOOP	(0*32+27) /* CPU self snoop */
+#define X86_FEATURE_HT 		(0*32+28) /* Hyper-Threading */
 #define X86_FEATURE_ACC		(0*32+29) /* Automatic clock control */
 #define X86_FEATURE_IA64	(0*32+30) /* IA-64 processor */
+#define X86_FEATURE_PBE	(0*32+31) /* Pending Break Enable */
 
 /* AMD-defined CPU features, CPUID level 0x80000001, word 1 */
 /* Don't duplicate feature flags which are redundant with Intel! */
@@ -62,6 +64,44 @@
 #define X86_FEATURE_K6_MTRR	(3*32+ 1) /* AMD K6 nonstandard MTRRs */
 #define X86_FEATURE_CYRIX_ARR	(3*32+ 2) /* Cyrix ARRs (= MTRRs) */
 #define X86_FEATURE_CENTAUR_MCR	(3*32+ 3) /* Centaur MCRs (= MTRRs) */
+/* cpu types for specific tunings: */
+#define X86_FEATURE_K8          (3*32+ 4) /* Opteron, Athlon64 */
+#define X86_FEATURE_K7          (3*32+ 5) /* Athlon */
+#define X86_FEATURE_P3          (3*32+ 6) /* P3 */
+#define X86_FEATURE_P4          (3*32+ 7) /* P4 */
+
+
+/* Intel-defined CPU features, CPUID level 0x00000001, ecx, word 4 */
+#define X86_FEATURE_PNI		(4*32+ 0) /* Streaming SIMD Extensions 3 */
+#define X86_FEATURE_MWAIT	(4*32+ 3) /* Monitor-Mwait Support */
+#define X86_FEATURE_DS_CPL	(4*32+ 4) /* CPL qualified debug store */
+#define X86_FEATURE_EST	(4*32+ 7) /* Enhanced SpeedStep */
+#define X86_FEATURE_TM2	(4*32+ 8) /* Thermal monitor 2 */
+#define X86_FEATURE_CNXT_ID	(4*32+ 10) /* L1 Context ID */
+
+#define boot_cpu_has(bit)  test_bit(bit, boot_cpu_data.x86_capability)
+#define cpu_has(c, bit)            test_bit(bit, (c)->x86_capability)
+
+
+#define cpu_has(c, bit)                test_bit(bit, (c)->x86_capability)
+#define boot_cpu_has(bit)      test_bit(bit, boot_cpu_data.x86_capability)
+
+#define cpu_has_pge 1
+#define cpu_has_pse 1
+#define cpu_has_pae 1
+#define cpu_has_tsc 1
+#define cpu_has_de 1
+#define cpu_has_vme 1
+#define cpu_has_fxsr 1
+#define cpu_has_xmm 1
+#define cpu_has_apic 		boot_cpu_has(X86_FEATURE_APIC)
+#define cpu_has_ht 		boot_cpu_has(X86_FEATURE_HT) 
+#define cpu_has_mp             boot_cpu_has(X86_FEATURE_MP)
+#define cpu_has_k6_mtrr 0
+#define cpu_has_cyrix_arr 0
+#define cpu_has_centaur_mcr 0
+#define cpu_has_mmx 0
+#define cpu_has_fpu 1
 
 #endif /* __ASM_X8664_CPUFEATURE_H */
 

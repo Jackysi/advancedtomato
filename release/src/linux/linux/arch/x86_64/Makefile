@@ -19,7 +19,7 @@
 # 20010105  Andi Kleen, add IA32 compiler.
 #           ....and later removed it again....
 #
-# $Id: Makefile,v 1.1.1.4 2003/10/14 08:07:51 sparq Exp $
+# $Id: Makefile,v 1.36 2004/02/27 18:30:19 ak Exp $
 
 #
 # early bootup linking needs 32bit. You can either use real 32bit tools
@@ -46,10 +46,20 @@ CFLAGS += -fno-reorder-blocks
 CFLAGS += -finline-limit=2000
 # needed for earlier gcc 3.1
 CFLAGS += -fno-strength-reduce
+CFLAGS += -Wno-sign-compare
 #CFLAGS += -g
+ifneq ($(CONFIG_X86_REMOTE_DEBUG),y)
+CFLAGS += -fno-asynchronous-unwind-tables
+endif
+# this is needed right now for the 32bit ioctl code
+CFLAGS += $(call check_gcc,-fno-unit-at-a-time,)
 
-# prevent gcc from keeping the stack 16 byte aligned (FIXME)
-#CFLAGS += -mpreferred-stack-boundary=2
+ifdef CONFIG_MK8
+CFLAGS += $(call check_gcc,-march=k8,)
+endif
+ifdef CONFIG_MPSC
+CFLAGS += $(call check_gcc,-march=nocona,)
+endif
 
 HEAD := arch/x86_64/kernel/head.o arch/x86_64/kernel/head64.o arch/x86_64/kernel/init_task.o
 

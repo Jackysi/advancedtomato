@@ -1,6 +1,6 @@
 Linux 2.4 on the CRIS architecture
 ==================================
-$Id: README,v 1.1.1.4 2003/10/14 08:07:06 sparq Exp $
+$Id: README,v 1.7 2001/04/19 12:38:32 bjornw Exp $
 
 This is a port of Linux 2.4 to Axis Communications ETRAX 100LX embedded 
 network CPU. For more information about CRIS and ETRAX please see further
@@ -103,7 +103,7 @@ block: queued sectors max/low 9109kB/3036kB, 64 slots per queue
 ETRAX 100LX 10/100MBit ethernet v2.0 (c) 2000 Axis Communications AB
 eth0 initialized
 eth0: changed MAC to 00:40:8C:CD:00:00
-ETRAX 100LX serial-driver $Revision: 1.1.1.4 $, (c) 2000 Axis Communications AB
+ETRAX 100LX serial-driver $Revision: 1.7 $, (c) 2000 Axis Communications AB
 ttyS0 at 0xb0000060 is a builtin UART with DMA
 ttyS1 at 0xb0000068 is a builtin UART with DMA
 ttyS2 at 0xb0000070 is a builtin UART with DMA
@@ -133,7 +133,7 @@ Default gateway is 10.13.9.1
 Hostname is bbox1
 Telnetd starting, using port 23.
   using /bin/sash as shell.
-sftpd[15]: sftpd $Revision: 1.1.1.4 $ starting up
+sftpd[15]: sftpd $Revision: 1.7 $ starting up
 
 
 

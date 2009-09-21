@@ -1,4 +1,4 @@
-/*  $Id: aha1740.c,v 1.1.1.4 2003/10/14 08:08:37 sparq Exp $
+/*  $Id$
  *  1993/03/31
  *  linux/kernel/aha1740.c
  *
@@ -52,7 +52,7 @@
 #endif
 
 /*
-static const char RCSid[] = "$Header: /home/cvsroot/wrt54g/src/linux/linux/drivers/scsi/aha1740.c,v 1.1.1.4 2003/10/14 08:08:37 sparq Exp $";
+static const char RCSid[] = "$Header: /usr/src/linux/kernel/blk_drv/scsi/RCS/aha1740.c,v 1.1 1992/07/24 06:27:38 root Exp root $";
 */
 
 struct aha1740_hostdata {
@@ -316,6 +316,16 @@ int aha1740_queuecommand(Scsi_Cmnd * SCpnt, void (*done)(Scsi_Cmnd *))
 
     if(*cmd == REQUEST_SENSE)
     {
+#if 0
+	/* scsi_request_sense() provides a buffer of size 256,
+	   so there is no reason to expect equality */
+
+	if (bufflen != sizeof(SCpnt->sense_buffer))
+	{
+	    printk("Wrong buffer length supplied for request sense (%d)\n",
+		   bufflen);
+	}
+#endif	
 	SCpnt->result = 0;
 	done(SCpnt); 
 	return 0;

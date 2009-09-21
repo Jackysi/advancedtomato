@@ -125,10 +125,18 @@
 #  include <asm/io_cat68701.h>
 # elif defined(CONFIG_SH_BIGSUR)
 #  include <asm/io_bigsur.h>
+# elif defined(CONFIG_SH_HS7729PCI)
+#  include <asm/io_hs7729pci.h>
 # elif defined(CONFIG_SH_7751_SOLUTION_ENGINE)
 #  include <asm/io_7751se.h>
+# elif defined(CONFIG_SH_MOBILE_SOLUTION_ENGINE)
+#  include <asm/io_shmse.h>
 # elif defined(CONFIG_SH_ADX)
 #  include <asm/io_adx.h>
+# elif defined(CONFIG_SH_SECUREEDGE5410)
+#  include <asm/io_snapgear.h>
+# elif defined(CONFIG_SH_SH4202_MICRODEV)
+#  include <asm/io_microdev.h>
 # elif defined(CONFIG_SH_UNKNOWN)
 #  include <asm/io_unknown.h>
 # else

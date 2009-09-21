@@ -152,6 +152,7 @@ adfs_mode2atts(struct super_block *sb, struct inode *inode)
 	umode_t mode;
 	int attr;
 
+	/* FIXME: should we be able to alter a link? */
 	if (S_ISLNK(inode->i_mode))
 		return inode->u.adfs_i.attr;
 
@@ -329,6 +330,10 @@ adfs_notify_change(struct dentry *dentry, struct iattr *attr)
 		inode->i_mtime = attr->ia_mtime;
 		adfs_unix2adfs_time(inode, attr->ia_mtime);
 	}
+	/*
+	 * FIXME: should we make these == to i_mtime since we don't
+	 * have the ability to represent them in our filesystem?
+	 */
 	if (ia_valid & ATTR_ATIME)
 		inode->i_atime = attr->ia_atime;
 	if (ia_valid & ATTR_CTIME)
@@ -338,6 +343,10 @@ adfs_notify_change(struct dentry *dentry, struct iattr *attr)
 		inode->i_mode = adfs_atts2mode(sb, inode);
 	}
 
+	/*
+	 * FIXME: should we be marking this inode dirty even if
+	 * we don't have any metadata to write back?
+	 */
 	if (ia_valid & (ATTR_SIZE | ATTR_MTIME | ATTR_MODE))
 		mark_inode_dirty(inode);
 out:

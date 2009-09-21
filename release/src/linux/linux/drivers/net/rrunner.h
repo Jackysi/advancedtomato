@@ -487,7 +487,7 @@ struct cmd {
 
 
 typedef struct {
-#if BITS_PER_LONG == 64
+#if (BITS_PER_LONG == 64)
 	u64 addrlo;
 #else
 	u32 addrhi;
@@ -499,7 +499,7 @@ typedef struct {
 static inline void set_rraddr(rraddr *ra, volatile void *addr)
 {
 	unsigned long baddr = virt_to_bus((void *)addr);
-#if BITS_PER_LONG == 64
+#if (BITS_PER_LONG == 64)
 	ra->addrlo = baddr;
 #else
     /* Don't bother setting zero every time */
@@ -515,7 +515,7 @@ static inline void set_rxaddr(struct rr_regs *regs, volatile void *addr)
 #if (BITS_PER_LONG == 64) && defined(__LITTLE_ENDIAN)
 	writel(baddr & 0xffffffff, &regs->RxRingHi);
 	writel(baddr >> 32, &regs->RxRingLo);
-#elif BITS_PER_LONG == 64
+#elif (BITS_PER_LONG == 64)
 	writel(baddr >> 32, &regs->RxRingHi);
 	writel(baddr & 0xffffffff, &regs->RxRingLo);
 #else
@@ -532,7 +532,7 @@ static inline void set_infoaddr(struct rr_regs *regs, volatile void *addr)
 #if (BITS_PER_LONG == 64) && defined(__LITTLE_ENDIAN)
 	writel(baddr & 0xffffffff, &regs->InfoPtrHi);
 	writel(baddr >> 32, &regs->InfoPtrLo);
-#elif BITS_PER_LONG == 64
+#elif (BITS_PER_LONG == 64)
 	writel(baddr >> 32, &regs->InfoPtrHi);
 	writel(baddr & 0xffffffff, &regs->InfoPtrLo);
 #else

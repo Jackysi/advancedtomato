@@ -15,6 +15,7 @@
 #include <linux/smp.h>
 #include <linux/smp_lock.h>
 #include <linux/highuid.h>
+#include <linux/hugetlb.h>
 
 #include <asm/shmparam.h>
 #include <asm/uaccess.h>
@@ -29,6 +30,10 @@ arch_get_unmapped_area (struct file *filp, unsigned long addr, unsigned long len
 
 	if (len > RGN_MAP_LIMIT)
 		return -ENOMEM;
+#ifdef CONFIG_HUGETLB_PAGE
+	if (rgn_index(addr)==REGION_HPAGE)
+		addr = 0;
+#endif
 	if (!addr)
 		addr = TASK_UNMAPPED_BASE;
 
@@ -56,21 +61,20 @@ arch_get_unmapped_area (struct file *filp, unsigned long addr, unsigned long len
 }
 
 asmlinkage long
-ia64_getpriority (int which, int who, long arg2, long arg3, long arg4, long arg5, long arg6,
-		  long arg7, long stack)
+ia64_getpriority (int which, int who)
 {
-	struct pt_regs *regs = (struct pt_regs *) &stack;
 	extern long sys_getpriority (int, int);
 	long prio;
 
 	prio = sys_getpriority(which, who);
 	if (prio >= 0) {
-		regs->r8 = 0;	/* ensure negative priority is not mistaken as error code */
+		force_successful_syscall_return();
 		prio = 20 - prio;
 	}
 	return prio;
 }
 
+/* XXX obsolete, but leave it here until the old libc is gone... */
 asmlinkage unsigned long
 sys_getpagesize (void)
 {
@@ -78,11 +82,9 @@ sys_getpagesize (void)
 }
 
 asmlinkage unsigned long
-ia64_shmat (int shmid, void *shmaddr, int shmflg, long arg3, long arg4, long arg5, long arg6,
-	    long arg7, long stack)
+ia64_shmat (int shmid, void *shmaddr, int shmflg)
 {
 	extern int sys_shmat (int shmid, char *shmaddr, int shmflg, ulong *raddr);
-	struct pt_regs *regs = (struct pt_regs *) &stack;
 	unsigned long raddr;
 	int retval;
 
@@ -90,16 +92,14 @@ ia64_shmat (int shmid, void *shmaddr, int shmflg, long arg3, long arg4, long arg
 	if (retval < 0)
 		return retval;
 
-	regs->r8 = 0;	/* ensure negative addresses are not mistaken as an error code */
+	force_successful_syscall_return();
 	return raddr;
 }
 
 asmlinkage unsigned long
-ia64_brk (unsigned long brk, long arg1, long arg2, long arg3,
-	  long arg4, long arg5, long arg6, long arg7, long stack)
+ia64_brk (unsigned long brk)
 {
 	extern int vm_enough_memory (long pages);
-	struct pt_regs *regs = (struct pt_regs *) &stack;
 	unsigned long rlim, retval, newbrk, oldbrk;
 	struct mm_struct *mm = current->mm;
 
@@ -149,7 +149,7 @@ set_brk:
 out:
 	retval = mm->brk;
 	up_write(&mm->mmap_sem);
-	regs->r8 = 0;		/* ensure large retval isn't mistaken as error code */
+	force_successful_syscall_return();
 	return retval;
 }
 
@@ -226,29 +226,46 @@ out:	if (file)
  * of) files that are larger than the address space of the CPU.
  */
 asmlinkage unsigned long
-sys_mmap2 (unsigned long addr, unsigned long len, int prot, int flags, int fd, long pgoff,
-	   long arg6, long arg7, long stack)
+sys_mmap2 (unsigned long addr, unsigned long len, int prot, int flags, int fd, long pgoff)
 {
-	struct pt_regs *regs = (struct pt_regs *) &stack;
-
 	addr = do_mmap2(addr, len, prot, flags, fd, pgoff);
 	if (!IS_ERR((void *) addr))
-		regs->r8 = 0;	/* ensure large addresses are not mistaken as failures... */
+		force_successful_syscall_return();
 	return addr;
 }
 
 asmlinkage unsigned long
-sys_mmap (unsigned long addr, unsigned long len, int prot, int flags,
-	  int fd, long off, long arg6, long arg7, long stack)
+sys_mmap (unsigned long addr, unsigned long len, int prot, int flags, int fd, long off)
 {
-	struct pt_regs *regs = (struct pt_regs *) &stack;
-
 	if ((off & ~PAGE_MASK) != 0)
 		return -EINVAL;
 
 	addr = do_mmap2(addr, len, prot, flags, fd, off >> PAGE_SHIFT);
 	if (!IS_ERR((void *) addr))
-		regs->r8 = 0;	/* ensure large addresses are not mistaken as failures... */
+		force_successful_syscall_return();
+	return addr;
+}
+
+asmlinkage unsigned long
+ia64_mremap (unsigned long addr, unsigned long old_len, unsigned long new_len, unsigned long flags,
+	     unsigned long new_addr)
+{
+	extern unsigned long do_mremap (unsigned long addr,
+					unsigned long old_len,
+					unsigned long new_len,
+					unsigned long flags,
+					unsigned long new_addr);
+
+	down_write(&current->mm->mmap_sem);
+	{
+		addr = do_mremap(addr, old_len, new_len, flags, new_addr);
+	}
+	up_write(&current->mm->mmap_sem);
+
+	if (IS_ERR((void *) addr))
+		return addr;
+
+	force_successful_syscall_return();
 	return addr;
 }
 
@@ -273,6 +290,7 @@ ia64_create_module (const char *name_user, size_t size, long arg2, long arg3,
 	return addr;
 }
 
+#if 1
 /*
  * This is here for a while to keep compatibillity with the old stat()
  * call - it will be removed later once everybody migrates to the new
@@ -394,6 +412,7 @@ ia64_oldfstat (unsigned int fd, struct ia64_oldstat *statbuf)
 	return err;
 }
 
+#endif
 
 #ifndef CONFIG_PCI
 

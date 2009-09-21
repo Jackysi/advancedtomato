@@ -2359,11 +2359,13 @@ sym53c8xx_pci_init(Scsi_Host_Template *tpnt, pcidev_t pdev, ncr_device *device)
 	**    If you have a better idea, let me know.
 	*/
 /* #ifdef SCSI_NCR_IOMAPPED */
+#if 1
 	if (!(command & PCI_COMMAND_IO)) { 
 		printk(NAME53C8XX ": I/O base address (0x%lx) disabled.\n",
 			(long) io_port);
 		io_port = 0;
 	}
+#endif
 	if (!(command & PCI_COMMAND_MEMORY)) {
 		printk(NAME53C8XX ": PCI_COMMAND_MEMORY not set.\n");
 		base	= 0;
@@ -2374,6 +2376,7 @@ sym53c8xx_pci_init(Scsi_Host_Template *tpnt, pcidev_t pdev, ncr_device *device)
 	base_2	&= PCI_BASE_ADDRESS_MEM_MASK;
 
 /* #ifdef SCSI_NCR_IOMAPPED */
+#if 1
 	if (io_port && check_region (io_port, 128)) {
 		printk(NAME53C8XX ": IO region 0x%lx[0..127] is in use\n",
 			(long) io_port);
@@ -2381,6 +2384,7 @@ sym53c8xx_pci_init(Scsi_Host_Template *tpnt, pcidev_t pdev, ncr_device *device)
 	}
 	if (!io_port)
 		return -1;
+#endif
 #ifndef SCSI_NCR_IOMAPPED
 	if (!base) {
 		printk(NAME53C8XX ": MMIO base address disabled.\n");
@@ -2393,6 +2397,19 @@ sym53c8xx_pci_init(Scsi_Host_Template *tpnt, pcidev_t pdev, ncr_device *device)
 /* errors on some 895 controllers when noise on power lines is	*/
 /* too high, I donnot want to change previous ncr53c8xx driver	*/
 /* behaviour on that point (the sym53c8xx driver set this bit).	*/
+#if 0
+	/*
+	**    Set MASTER capable and PARITY bit, if not yet.
+	*/
+	if ((command & (PCI_COMMAND_MASTER | PCI_COMMAND_PARITY))
+		     != (PCI_COMMAND_MASTER | PCI_COMMAND_PARITY)) {
+		printk(NAME53C8XX ": setting%s%s...(fix-up)\n",
+		(command & PCI_COMMAND_MASTER) ? "" : " PCI_COMMAND_MASTER",
+		(command & PCI_COMMAND_PARITY) ? "" : " PCI_COMMAND_PARITY");
+		command |= (PCI_COMMAND_MASTER | PCI_COMMAND_PARITY);
+		pci_write_config_word(pdev, PCI_COMMAND, command);
+	}
+#else
 	/*
 	**    Set MASTER capable if not yet.
 	*/
@@ -2401,6 +2418,7 @@ sym53c8xx_pci_init(Scsi_Host_Template *tpnt, pcidev_t pdev, ncr_device *device)
 		command |= PCI_COMMAND_MASTER;
 		pci_write_config_word(pdev, PCI_COMMAND, command);
 	}
+#endif
 
 	/*
 	**    Fix some features according to driver setup.
@@ -2631,6 +2649,12 @@ sym53c8xx__detect(Scsi_Host_Template *tpnt, u_short ncr_chip_ids[], int chips)
 				if (!ncr_attach (tpnt, attach_count, devp))
 					attach_count++;
 			}
+#if 0	/* Restore previous behaviour of ncr53c8xx driver */
+			else if (!(driver_setup.use_nvram & 0x80))
+				printk(KERN_INFO NAME53C8XX
+				       ": 53c%s state OFF thus not attached\n",
+				       devp->chip.name);
+#endif
 			else
 				continue;
 

@@ -63,10 +63,13 @@ extern long _get_L2CR(void);
 extern void _set_L2CR(unsigned long);
 extern void giveup_fpu(struct task_struct *);
 extern void enable_kernel_fp(void);
+extern void giveup_altivec(struct task_struct *);
+extern void load_up_altivec(struct task_struct *);
 extern void cvt_fd(float *from, double *to, unsigned long *fpscr);
 extern void cvt_df(double *from, float *to, unsigned long *fpscr);
 extern int abs(int);
 extern void cacheable_memzero(void *p, unsigned int nb);
+extern void vpa_init(int cpu);
 
 struct device_node;
 
@@ -90,6 +93,7 @@ extern void dump_regs(struct pt_regs *);
 #define save_flags(flags)	__save_flags(flags)
 #define restore_flags(flags)	__restore_flags(flags)
 #define save_and_cli(flags)	__save_and_cli(flags)
+#define save_and_sti(flags)	__save_and_sti(flags)
 
 #else /* CONFIG_SMP */
 
@@ -102,11 +106,15 @@ extern void __global_restore_flags(unsigned long);
 #define save_flags(x) ((x)=__global_save_flags())
 #define restore_flags(x) __global_restore_flags(x)
 
+#define save_and_cli(x) do { save_flags(x); cli(); } while(0);
+#define save_and_sti(x) do { save_flags(x); sti(); } while(0);
+
 #endif /* !CONFIG_SMP */
 
 #define local_irq_disable()		__cli()
 #define local_irq_enable()		__sti()
 #define local_irq_save(flags)		__save_and_cli(flags)
+#define local_irq_set(flags)		__save_and_sti(flags)
 #define local_irq_restore(flags)	__restore_flags(flags)
 
 static __inline__ int __is_processor(unsigned long pv)

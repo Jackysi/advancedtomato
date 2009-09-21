@@ -8,7 +8,7 @@
  * for more details.
  *
  * Copyright (c) Harald Koerfgen, 1998
- * Copyright (c) 2001  Maciej W. Rozycki
+ * Copyright (c) 2001, 2003  Maciej W. Rozycki
  */
 #include <linux/string.h>
 #include <linux/init.h>
@@ -30,7 +30,7 @@
 
 MODULE_LICENSE("GPL");
 slot_info tc_bus[MAX_SLOT];
-static int max_tcslot;
+static int num_tcslots;
 static tcinfo *info;
 
 unsigned long system_base;
@@ -44,9 +44,10 @@ int search_tc_card(const char *name)
 	int slot;
 	slot_info *sip;
 
-	for (slot = 0; slot <= max_tcslot; slot++) {
+	for (slot = 0; slot < num_tcslots; slot++) {
 		sip = &tc_bus[slot];
-		if ((sip->flags & FREE) && (strncmp(sip->name, name, strlen(name)) == 0)) {
+		if ((sip->flags & FREE) &&
+		    (strncmp(sip->name, name, strlen(name)) == 0)) {
 			return slot;
 		}
 	}
@@ -67,7 +68,8 @@ void claim_tc_card(int slot)
 void release_tc_card(int slot)
 {
 	if (tc_bus[slot].flags & FREE) {
-		printk("release_tc_card: attempting to release a card already free\n");
+		printk("release_tc_card: "
+		       "attempting to release a card already free\n");
 		return;
 	}
 	tc_bus[slot].flags &= ~IN_USE;
@@ -92,14 +94,15 @@ unsigned long get_tc_speed(void)
 /*
  * Probing for TURBOchannel modules
  */
-static void __init tc_probe(unsigned long startaddr, unsigned long size, int max_slot)
+static void __init tc_probe(unsigned long startaddr, unsigned long size,
+			    int slots)
 {
 	int i, slot, err;
 	long offset;
 	unsigned char pattern[4];
 	unsigned char *module;
 
-	for (slot = 0; slot <= max_slot; slot++) {
+	for (slot = 0; slot < slots; slot++) {
 		module = (char *)(startaddr + slot * size);
 
 		offset = OLDCARD;
@@ -198,16 +201,16 @@ void __init tc_init(void)
 
 	switch (mips_machtype) {
 	case MACH_DS5000_200:
-		max_tcslot = 6;
+		num_tcslots = 7;
 		break;
 	case MACH_DS5000_1XX:
 	case MACH_DS5000_2X0:
 	case MACH_DS5900:
-		max_tcslot = 2;
+		num_tcslots = 3;
 		break;
 	case MACH_DS5000_XX:
 	default:
-		max_tcslot = 1;
+		num_tcslots = 2;
 		break;
 	}
 
@@ -220,22 +223,22 @@ void __init tc_init(void)
 
 		slot_size = info->slot_size << 20;
 
-		tc_probe(slot0addr, slot_size, max_tcslot);
+		tc_probe(slot0addr, slot_size, num_tcslots);
 
   		/*
   		 * All TURBOchannel DECstations have the onboard devices
- 		 * where the (max_tcslot + 1 or 2 on DS5k/xx) Option Module
+ 		 * where the (num_tcslots + 0 or 1 on DS5k/xx) Option Module
  		 * would be.
  		 */
  		if(mips_machtype == MACH_DS5000_XX)
- 			i = 2;
-		else
  			i = 1;
+		else
+ 			i = 0;
 
- 	        system_base = slot0addr + slot_size * (max_tcslot + i);
+ 	        system_base = slot0addr + slot_size * (num_tcslots + i);
 
 #ifdef TC_DEBUG
-		for (i = 0; i <= max_tcslot; i++)
+		for (i = 0; i < num_tcslots; i++)
 			if (tc_bus[i].base_addr) {
 				printk("    slot %d: ", i);
 				printk("%s %s %s\n", tc_bus[i].vendor,

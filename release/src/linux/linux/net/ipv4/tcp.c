@@ -5,7 +5,7 @@
  *
  *		Implementation of the Transmission Control Protocol(TCP).
  *
- * Version:	$Id: tcp.c,v 1.1.1.4 2003/10/14 08:09:33 sparq Exp $
+ * Version:	$Id: tcp.c,v 1.215 2001/10/31 08:17:58 davem Exp $
  *
  * Authors:	Ross Biro, <bir7@leland.Stanford.Edu>
  *		Fred N. van Kempen, <waltje@uWalt.NL.Mugnet.ORG>
@@ -252,6 +252,7 @@
 #include <linux/init.h>
 #include <linux/smp_lock.h>
 #include <linux/fs.h>
+#include <linux/random.h>
 
 #include <net/icmp.h>
 #include <net/tcp.h>
@@ -268,6 +269,8 @@ kmem_cache_t *tcp_bucket_cachep;
 kmem_cache_t *tcp_timewait_cachep;
 
 atomic_t tcp_orphan_count = ATOMIC_INIT(0);
+
+int sysctl_tcp_default_win_scale = 0;
 
 int sysctl_tcp_mem[3];
 int sysctl_tcp_wmem[3] = { 4*1024, 16*1024, 128*1024 };
@@ -542,6 +545,7 @@ int tcp_listen_start(struct sock *sk)
 	for (lopt->max_qlen_log = 6; ; lopt->max_qlen_log++)
 		if ((1<<lopt->max_qlen_log) >= sysctl_max_syn_backlog)
 			break;
+	get_random_bytes(&lopt->hash_rnd, 4);
 
 	write_lock_bh(&tp->syn_wait_lock);
 	tp->listen_opt = lopt;
@@ -1450,6 +1454,9 @@ int tcp_read_sock(struct sock *sk, read_descriptor_t *desc,
 			break;
 	}
 	tp->copied_seq = seq;
+
+	tcp_rcv_space_adjust(sk);
+
 	/* Clean up data we have read: This will do ACK frames. */
 	if (copied)
 		cleanup_rbuf(sk, copied);
@@ -1503,15 +1510,14 @@ int tcp_recvmsg(struct sock *sk, struct msghdr *msg,
 		struct sk_buff * skb;
 		u32 offset;
 
-		/* Are we at urgent data? Stop if we have read anything. */
-		if (copied && tp->urg_data && tp->urg_seq == *seq)
-			break;
-
-		if (signal_pending(current)) {
+		/* Are we at urgent data? Stop if we have read anything or have SIGURG pending. */
+		if (tp->urg_data && tp->urg_seq == *seq) {
 			if (copied)
 				break;
-			copied = timeo ? sock_intr_errno(timeo) : -EAGAIN;
-			break;
+			if (signal_pending(current)) {
+				copied = timeo ? sock_intr_errno(timeo) : -EAGAIN;
+				break;
+			}
 		}
 
 		/* Next get a buffer. */
@@ -1550,6 +1556,7 @@ int tcp_recvmsg(struct sock *sk, struct msghdr *msg,
 			    sk->state == TCP_CLOSE ||
 			    (sk->shutdown & RCV_SHUTDOWN) ||
 			    !timeo ||
+			    signal_pending(current) ||
 			    (flags & MSG_PEEK))
 				break;
 		} else {
@@ -1577,6 +1584,11 @@ int tcp_recvmsg(struct sock *sk, struct msghdr *msg,
 
 			if (!timeo) {
 				copied = -EAGAIN;
+				break;
+			}
+
+			if (signal_pending(current)) {
+				copied = sock_intr_errno(timeo);
 				break;
 			}
 		}
@@ -1702,6 +1714,8 @@ do_prequeue:
 		*seq += used;
 		copied += used;
 		len -= used;
+
+		tcp_rcv_space_adjust(sk);
 
 skip_copy:
 		if (tp->urg_data && after(tp->copied_seq,tp->urg_seq)) {
@@ -2061,7 +2075,7 @@ out:
 
 /* These states need RST on ABORT according to RFC793 */
 
-extern __inline__ int tcp_need_reset(int state)
+static inline int tcp_need_reset(int state)
 {
 	return ((1 << state) &
 	       	(TCPF_ESTABLISHED|TCPF_CLOSE_WAIT|TCPF_FIN_WAIT1|
@@ -2119,7 +2133,7 @@ int tcp_disconnect(struct sock *sk, int flags)
 	tp->packets_out = 0;
 	tp->snd_ssthresh = 0x7fffffff;
 	tp->snd_cwnd_cnt = 0;
-	tp->ca_state = TCP_CA_Open;
+	tcp_set_ca_state(tp, TCP_CA_Open);
 	tcp_clear_retrans(tp);
 	tcp_delack_init(tp);
 	tp->send_head = NULL;
@@ -2622,10 +2636,6 @@ void __init tcp_init(void)
 	sysctl_tcp_mem[0] = 768<<order;
 	sysctl_tcp_mem[1] = 1024<<order;
 	sysctl_tcp_mem[2] = 1536<<order;
-	if (sysctl_tcp_mem[2] - sysctl_tcp_mem[1] > 512)
-		sysctl_tcp_mem[1] = sysctl_tcp_mem[2] - 512;
-	if (sysctl_tcp_mem[1] - sysctl_tcp_mem[0] > 512)
-		sysctl_tcp_mem[0] = sysctl_tcp_mem[1] - 512;
 
 	if (order < 3) {
 		sysctl_tcp_wmem[2] = 64*1024;
@@ -2637,5 +2647,6 @@ void __init tcp_init(void)
 	printk(KERN_INFO "TCP: Hash tables configured (established %d bind %d)\n",
 	       tcp_ehash_size<<1, tcp_bhash_size);
 
+	(void) tcp_mib_init();
 	tcpdiag_init();
 }

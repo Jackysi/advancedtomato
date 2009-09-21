@@ -5,7 +5,6 @@
 
 #include <linux/delay.h>
 #include <linux/fb.h>
-#include <linux/sched.h>
 
 #include <asm/io.h>
 
@@ -36,6 +35,11 @@
 #define MAX_M		30
 #define MIN_N		35
 #define MAX_N		255-8
+
+static int dummy(void)
+{
+    return 0;
+}
 
 
     /*
@@ -120,8 +124,12 @@ static int aty_set_dac_514(const struct fb_info_aty *info,
 }
 
 static int aty_var_to_pll_514(const struct fb_info_aty *info, u32 vclk_per,
-			      u8 bpp, union aty_pll *pll)
+			      u8 bpp, u32 xres, union aty_pll *pll)
 {
+    /*
+     *  FIXME: use real calculations instead of using fixed values from the old
+     *	       driver
+     */
     static struct {
 	u32 limit;	/* pixlock rounding limit (arbitrary) */
 	u8 m;		/* (df<<6) | vco_div_count */
@@ -179,6 +187,7 @@ const struct aty_pll_ops aty_pll_ibm514 = {
     var_to_pll:	aty_var_to_pll_514,
     pll_to_var:	aty_pll_514_to_var,
     set_pll:	aty_set_pll_514,
+    init_pll:	(void *)dummy
 };
 
 
@@ -316,7 +325,7 @@ const struct aty_dac_ops aty_dac_att21c498 = {
      */
 
 static int aty_var_to_pll_18818(const struct fb_info_aty *info, u32 vclk_per,
-				u8 bpp, union aty_pll *pll)
+				u8 bpp, u32 xres, union aty_pll *pll)
 {
     u32 MHz100;		/* in 0.01 MHz */
     u32 program_bits;
@@ -463,6 +472,7 @@ const struct aty_pll_ops aty_pll_ati18818_1 = {
     var_to_pll:	aty_var_to_pll_18818,
     pll_to_var:	aty_pll_18818_to_var,
     set_pll:	aty_set_pll18818,
+    init_pll:	(void *)dummy
 };
 
 
@@ -471,7 +481,7 @@ const struct aty_pll_ops aty_pll_ati18818_1 = {
      */
 
 static int aty_var_to_pll_1703(const struct fb_info_aty *info, u32 vclk_per,
-			       u8 bpp, union aty_pll *pll)
+			       u8 bpp, u32 xres, union aty_pll *pll)
 {
     u32 mhz100;			/* in 0.01 MHz */
     u32 program_bits;
@@ -576,6 +586,7 @@ const struct aty_pll_ops aty_pll_stg1703 = {
     var_to_pll:	aty_var_to_pll_1703,
     pll_to_var:	aty_pll_1703_to_var,
     set_pll:	aty_set_pll_1703,
+    init_pll:	(void *)dummy
 };
 
 
@@ -584,7 +595,7 @@ const struct aty_pll_ops aty_pll_stg1703 = {
      */
 
 static int aty_var_to_pll_8398(const struct fb_info_aty *info, u32 vclk_per,
-			       u8 bpp, union aty_pll *pll)
+			       u8 bpp, u32 xres, union aty_pll *pll)
 {
     u32 tempA, tempB, fOut, longMHz100, diff, preDiff;
 
@@ -703,6 +714,7 @@ const struct aty_pll_ops aty_pll_ch8398 = {
     var_to_pll:	aty_var_to_pll_8398,
     pll_to_var:	aty_pll_8398_to_var,
     set_pll:	aty_set_pll_8398,
+    init_pll:	(void *)dummy
 };
 
 
@@ -711,7 +723,7 @@ const struct aty_pll_ops aty_pll_ch8398 = {
      */
 
 static int aty_var_to_pll_408(const struct fb_info_aty *info, u32 vclk_per,
-			      u8 bpp, union aty_pll *pll)
+			      u8 bpp, u32 xres, union aty_pll *pll)
 {
     u32 mhz100;		/* in 0.01 MHz */
     u32 program_bits;
@@ -847,6 +859,7 @@ const struct aty_pll_ops aty_pll_att20c408 = {
     var_to_pll:	aty_var_to_pll_408,
     pll_to_var:	aty_pll_408_to_var,
     set_pll:	aty_set_pll_408,
+    init_pll:	(void *)dummy
 };
 
 
@@ -866,11 +879,6 @@ static int aty_set_dac_unsupported(const struct fb_info_aty *info,
     return 0;
 }
 
-static int dummy(void)
-{
-    return 0;
-}
-
 const struct aty_dac_ops aty_dac_unsupported = {
     set_dac:	aty_set_dac_unsupported,
 };
@@ -879,5 +887,6 @@ const struct aty_pll_ops aty_pll_unsupported = {
     var_to_pll:	(void *)dummy,
     pll_to_var:	(void *)dummy,
     set_pll:	(void *)dummy,
+    init_pll:	(void *)dummy
 };
 

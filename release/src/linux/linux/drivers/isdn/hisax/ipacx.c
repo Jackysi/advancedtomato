@@ -152,7 +152,13 @@ dch_l2l1(struct PStack *st, int pr, void *arg)
 
 		case (HW_RESET | REQUEST):
 		case (HW_ENABLE | REQUEST):
-			ph_command(cs, IPACX_CMD_TIM);
+			if ((cs->dc.isac.ph_state == IPACX_IND_RES) ||
+			(cs->dc.isac.ph_state == IPACX_IND_DR) ||
+				(cs->dc.isac.ph_state == IPACX_IND_DC))
+				ph_command(cs, IPACX_CMD_TIM);
+			else
+				ph_command(cs, IPACX_CMD_RES);
+
 			break;
 
 		case (HW_INFO3 | REQUEST):

@@ -1,4 +1,4 @@
-/* $Id: isdnloop.c,v 1.1.1.4 2003/10/14 08:08:13 sparq Exp $
+/* $Id: isdnloop.c,v 1.1.4.1 2001/11/20 14:19:37 kai Exp $
  *
  * ISDN low-level module implementing a dummy loop driver.
  *
@@ -14,7 +14,7 @@
 #include <linux/init.h>
 #include "isdnloop.h"
 
-static char *revision = "$Revision: 1.1.1.4 $";
+static char *revision = "$Revision: 1.1.4.1 $";
 static char *isdnloop_id;
 
 MODULE_DESCRIPTION("ISDN4Linux: Pseudo Driver that simulates an ISDN card");

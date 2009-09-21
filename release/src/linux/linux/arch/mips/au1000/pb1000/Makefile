@@ -14,8 +14,6 @@ USE_STANDARD_AS_RULE := true
 
 O_TARGET := pb1000.o
 
-obj-y := init.o setup.o
-
-obj-$(CONFIG_PCI) += pci_fixup.o pci_ops.o
+obj-y := init.o board_setup.o irqmap.o
 
 include $(TOPDIR)/Rules.make

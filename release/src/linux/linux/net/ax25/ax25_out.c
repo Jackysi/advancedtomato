@@ -138,7 +138,7 @@ void ax25_output(ax25_cb *ax25, int paclen, struct sk_buff *skb)
 	struct sk_buff *skbn;
 	unsigned char *p;
 	int frontlen, len, fragno, ka9qfrag, first = 1;
-	long flags;
+	unsigned long flags;
 
 	if ((skb->len - 1) > paclen) {
 		if (*skb->data == AX25_P_TEXT) {

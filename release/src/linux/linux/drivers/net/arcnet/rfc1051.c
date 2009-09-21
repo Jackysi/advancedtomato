@@ -37,8 +37,8 @@
 static unsigned short type_trans(struct sk_buff *skb, struct net_device *dev);
 static void rx(struct net_device *dev, int bufnum,
 	       struct archdr *pkthdr, int length);
-static int build_header(struct sk_buff *skb, unsigned short type,
-			uint8_t daddr);
+static int build_header(struct sk_buff *skb, struct net_device *dev,
+			unsigned short type, uint8_t daddr);
 static int prepare_tx(struct net_device *dev, struct archdr *pkt, int length,
 		      int bufnum);
 
@@ -170,10 +170,9 @@ static void rx(struct net_device *dev, int bufnum,
 /*
  * Create the ARCnet hard/soft headers for RFC1051.
  */
-static int build_header(struct sk_buff *skb, unsigned short type,
-			uint8_t daddr)
+static int build_header(struct sk_buff *skb, struct net_device *dev,
+			unsigned short type, uint8_t daddr)
 {
-	struct net_device *dev = skb->dev;
 	struct arcnet_local *lp = (struct arcnet_local *) dev->priv;
 	int hdr_size = ARC_HDR_SIZE + RFC1051_HDR_SIZE;
 	struct archdr *pkt = (struct archdr *) skb_push(skb, hdr_size);
@@ -208,6 +207,10 @@ static int build_header(struct sk_buff *skb, unsigned short type,
 	/* see linux/net/ethernet/eth.c to see where I got the following */
 
 	if (dev->flags & (IFF_LOOPBACK | IFF_NOARP)) {
+		/* 
+		 * FIXME: fill in the last byte of the dest ipaddr here to better
+		 * comply with RFC1051 in "noarp" mode.
+		 */
 		pkt->hard.dest = 0;
 		return hdr_size;
 	}

@@ -12,15 +12,28 @@
  *   07-05-1996	RMK	Altered for greater number of cards.
  *   30-07-1996	RMK	Now uses generic card code.
  */
-#define MY_CARD_LIST { MANU_ATOMWIDE, PROD_ATOMWIDE_3PSERIAL }
-#define MY_NUMPORTS 3
-#define MY_BAUD_BASE (7372800 / 16)
-#define MY_BASE_ADDRESS(ec) \
-	ecard_address ((ec), ECARD_IOC, ECARD_SLOW) + (0x2000 >> 2)
-#define MY_PORT_ADDRESS(port,cardaddr) \
-	((cardaddr) + 0x200 - (port) * 0x100)
+#include <linux/ioport.h>
+#include <asm/ecard.h>
 
-#define INIT serial_card_atomwide_init
-#define EXIT serial_card_atomwide_exit
+#define MAX_PORTS       3
+
+struct serial_card_type {
+	unsigned int	num_ports;
+	unsigned int	baud_base;
+	unsigned int	type;
+	unsigned int	offset[MAX_PORTS];
+};
+
+static struct serial_card_type atomwide_type = {
+	.num_ports	= 3,
+	.baud_base	= 7372800 / 16,
+	.type		= ECARD_RES_IOCSLOW,
+	.offset 	= { 0x2800, 0x2400, 0x2000 },
+};
+
+static const struct ecard_id serial_cids[] = {
+	{ MANU_ATOMWIDE,	PROD_ATOMWIDE_3PSERIAL, &atomwide_type	},
+	{ 0xffff, 0xffff }
+};
 
 #include "serial-card.c"

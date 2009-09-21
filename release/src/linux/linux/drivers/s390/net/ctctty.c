@@ -1,5 +1,5 @@
 /*
- * $Id: ctctty.c,v 1.1.1.4 2003/10/14 08:08:34 sparq Exp $
+ * $Id: ctctty.c,v 1.11 2003/05/14 15:27:54 felfert Exp $
  *
  * CTC / ESCON network driver, tty interface.
  *
@@ -42,7 +42,7 @@ typedef struct wait_queue *wait_queue_head_t;
 #define init_waitqueue_head(x) *(x)=NULL
 #define __set_current_state(state_value) \
 	do { current->state = state_value; } while (0)
-#ifdef __SMP__
+#ifdef CONFIG_SMP
 #define set_current_state(state_value) \
 	do { __set_current_state(state_value); mb(); } while (0)
 #else
@@ -88,6 +88,7 @@ typedef struct {
   struct semaphore      write_sem;
   struct tq_struct      tq;
   struct timer_list     stoptimer;
+  struct timer_list	flowtimer;
 } ctc_tty_info;
 
 /* Description of one CTC-tty */
@@ -114,7 +115,7 @@ static char *ctc_ttyname = "ctc/" CTC_TTY_NAME "%d";
 static char *ctc_ttyname = CTC_TTY_NAME;
 #endif
 
-char *ctc_tty_revision = "$Revision: 1.1.1.4 $";
+char *ctc_tty_revision = "$Revision: 1.11 $";
 
 static __u32 ctc_tty_magic = CTC_ASYNC_MAGIC;
 static int ctc_tty_shuttingdown = 0;
@@ -163,35 +164,44 @@ ctc_tty_try_read(ctc_tty_info * info, struct sk_buff *skb)
 static int
 ctc_tty_readmodem(ctc_tty_info *info)
 {
-	int ret = 1;
+	int c;
 	struct tty_struct *tty;
+	struct sk_buff *skb;
 
-	if ((tty = info->tty)) {
-		if (info->mcr & UART_MCR_RTS) {
-			int c = TTY_FLIPBUF_SIZE - tty->flip.count;
-			struct sk_buff *skb;
-			
-			if ((c > 0) && (skb = skb_dequeue(&info->rx_queue))) {
-				int len = skb->len;
-				if (len > c)
-					len = c;
-				memcpy(tty->flip.char_buf_ptr, skb->data, len);
-				skb_pull(skb, len);
-				memset(tty->flip.flag_buf_ptr, 0, len);
-				tty->flip.count += len;
-				tty->flip.char_buf_ptr += len;
-				tty->flip.flag_buf_ptr += len;
-				tty_flip_buffer_push(tty);
-				if (skb->len > 0)
-					skb_queue_head(&info->rx_queue, skb);
-				else {
-					kfree_skb(skb);
-					ret = skb_queue_len(&info->rx_queue);
-				}
-			}
+	if (!(tty = info->tty)) 
+		return 0;
+
+	/* If the upper layer is flow blocked or just
+   	 * has no room for data we schedule a timer to 
+	 * try again later - wilder
+	 */
+	c = TTY_FLIPBUF_SIZE - tty->flip.count;
+	if ( !(info->mcr & UART_MCR_RTS) || (c <= 0) ) {
+		/* can't do any work now, wake up later */
+		mod_timer(&info->flowtimer, jiffies+(HZ/100) );
+		return 0;
+	}
+
+	if ((skb = skb_dequeue(&info->rx_queue))) {
+		int len = skb->len;
+		if (len > c)
+			len = c;
+		memcpy(tty->flip.char_buf_ptr, skb->data, len);
+		skb_pull(skb, len);
+		memset(tty->flip.flag_buf_ptr, 0, len);
+		tty->flip.count += len;
+		tty->flip.char_buf_ptr += len;
+		tty->flip.flag_buf_ptr += len;
+		tty_flip_buffer_push(tty);
+
+		if (skb->len > 0){
+			skb_queue_head(&info->rx_queue, skb);
+		}else {
+			kfree_skb(skb);
 		}
 	}
-	return ret;
+
+	return  skb_queue_len(&info->rx_queue);
 }
 
 void
@@ -234,6 +244,11 @@ ctc_tty_netif_rx(struct sk_buff *skb)
 		dev_kfree_skb(skb);
 		return;
 	}
+	if ( !(info->tty) ) {
+		dev_kfree_skb(skb);
+		return;
+        }
+
 	if (skb->len < 6) {
 		dev_kfree_skb(skb);
 		return;
@@ -244,7 +259,7 @@ ctc_tty_netif_rx(struct sk_buff *skb)
 	}
 	skb_pull(skb, sizeof(__u32));
 
-	i = *((int *)skb->data);
+	i = *((__u32 *)skb->data);
 	skb_pull(skb, sizeof(info->mcr));
 	if (i & UART_MCR_RTS) {
 		info->msr |= UART_MSR_CTS;
@@ -270,7 +285,12 @@ ctc_tty_netif_rx(struct sk_buff *skb)
 	/* Direct deliver failed or queue wasn't empty.
 	 * Queue up for later dequeueing via timer-irq.
 	 */
-	skb_queue_tail(&info->rx_queue, skb);
+	if (skb_queue_len(&info->rx_queue) < 50)
+		skb_queue_tail(&info->rx_queue, skb);
+	else {
+		kfree_skb(skb);
+		printk(KERN_DEBUG "ctctty: RX overrun\n");
+	}
 	/* Schedule dequeuing */
 	queue_task(&info->tq, &tq_immediate);
 	mark_bh(IMMEDIATE_BH);
@@ -315,6 +335,12 @@ ctc_tty_tint(ctc_tty_info * info)
 		skb_queue_head(&info->tx_queue, skb);
 		return 1;
 	}
+#if 0
+	if (skb->len > 0)
+		printk(KERN_DEBUG "tint: %d %02x\n", skb->len, *(skb->data));
+	else
+		printk(KERN_DEBUG "tint: %d STAT\n", skb->len);
+#endif
 	memcpy(skb_push(skb, sizeof(info->mcr)), &info->mcr, sizeof(info->mcr));
 	memcpy(skb_push(skb, sizeof(__u32)), &ctc_tty_magic, sizeof(__u32));
 	rc = info->netdev->hard_start_xmit(skb, info->netdev);
@@ -324,14 +350,20 @@ ctc_tty_tint(ctc_tty_info * info)
 			skb_queue_head(&info->tx_queue, skb);
 		else
 			kfree_skb(skb);
+
+	/* The connection is not up yet, try again in one second. - wilder */
+		if ( rc == -EBUSY ){ 
+			mod_timer(&info->flowtimer, jiffies+(HZ) );
+			return 0;
+		}
+
 	} else {
 		struct tty_struct *tty = info->tty;
 
 		info->flags &= ~CTC_ASYNC_TX_LINESTAT;
 		if (tty) {
-			if (wake && (tty->flags & (1 << TTY_DO_WRITE_WAKEUP)) &&
-			    tty->ldisc.write_wakeup)
-				(tty->ldisc.write_wakeup)(tty);
+			if (wake)
+				tty_wakeup(tty);
 			wake_up_interruptible(&tty->write_wait);
 		}
 	}
@@ -478,6 +510,18 @@ ctc_tty_stopdev(unsigned long data)
 	info->flags &= ~CTC_ASYNC_NETDEV_OPEN;
 }
 
+/* Run from the timer queue when we are flow blocked
+ * to kick start the bottom half - wilder */
+static void
+ctc_tty_startupbh(unsigned long data)
+{
+	ctc_tty_info *info = (ctc_tty_info *)data;
+	if (( !ctc_tty_shuttingdown) && info) {
+		queue_task(&info->tq, &tq_immediate);
+		mark_bh(IMMEDIATE_BH);
+	}
+}
+
 /*
  * This routine will shutdown a serial port; interrupts are disabled, and
  * DTR is dropped if the hangup on close termio flag is on.
@@ -571,6 +615,12 @@ ctc_tty_write_room(struct tty_struct *tty)
 
 	if (ctc_tty_paranoia_check(info, tty->device, "ctc_tty_write_room"))
 		return 0;
+
+/* wilder */
+	if (skb_queue_len(&info->tx_queue) > 10 ) {
+		return 0;
+	}
+
 	return CTC_TTY_XMIT_SIZE;
 }
 
@@ -604,10 +654,7 @@ ctc_tty_flush_buffer(struct tty_struct *tty)
 	skb_queue_purge(&info->tx_queue);
 	info->lsr |= UART_LSR_TEMT;
 	restore_flags(flags);
-	wake_up_interruptible(&tty->write_wait);
-	if ((tty->flags & (1 << TTY_DO_WRITE_WAKEUP)) &&
-	    tty->ldisc.write_wakeup)
-		(tty->ldisc.write_wakeup) (tty);
+	tty_wakeup(tty);
 }
 
 static void
@@ -1117,8 +1164,7 @@ ctc_tty_close(struct tty_struct *tty, struct file *filp)
 	ctc_tty_shutdown(info);
 	if (tty->driver.flush_buffer)
 		tty->driver.flush_buffer(tty);
-	if (tty->ldisc.flush_buffer)
-		tty->ldisc.flush_buffer(tty);
+	tty_ldisc_flush(tty);
 	spin_lock_irqsave(&ctc_tty_lock, saveflags);
 	info->tty = 0;
 	spin_unlock_irqrestore(&ctc_tty_lock, saveflags);
@@ -1256,6 +1302,9 @@ ctc_tty_init(void)
 		init_timer(&info->stoptimer);
 		info->stoptimer.function = ctc_tty_stopdev;
 		info->stoptimer.data = (unsigned long)info;
+		init_timer(&info->flowtimer);
+                info->flowtimer.function = ctc_tty_startupbh;
+                info->flowtimer.data = (unsigned long)info;
 		info->mcr = UART_MCR_RTS;
 	}
 	return 0;

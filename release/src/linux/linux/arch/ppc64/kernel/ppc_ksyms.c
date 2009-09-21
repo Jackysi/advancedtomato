@@ -78,6 +78,13 @@ int abs(int);
 extern struct pci_dev * iSeries_veth_dev;
 extern struct pci_dev * iSeries_vio_dev;
 
+#ifdef CONFIG_SHARED_MEMORY_ADDRESSING
+extern void shared_malloc(unsigned long);
+extern void shared_free(void *);
+extern int shared_task_mark(void);
+extern int shared_task_unmark(void);
+#endif
+
 EXPORT_SYMBOL(do_signal);
 EXPORT_SYMBOL(syscall_trace);
 EXPORT_SYMBOL(do_IRQ);
@@ -106,6 +113,7 @@ EXPORT_SYMBOL(pci_io_base);
 EXPORT_SYMBOL(pci_dram_offset);
 
 EXPORT_SYMBOL(find_next_zero_bit);
+EXPORT_SYMBOL(find_next_zero_le_bit);
 
 EXPORT_SYMBOL(strcpy);
 EXPORT_SYMBOL(strncpy);
@@ -124,6 +132,7 @@ EXPORT_SYMBOL(strncmp);
 EXPORT_SYMBOL(__down_interruptible);
 EXPORT_SYMBOL(__up);
 EXPORT_SYMBOL(naca);
+EXPORT_SYMBOL(systemcfg);
 EXPORT_SYMBOL(__down);
 
 /* EXPORT_SYMBOL(csum_partial); already in net/netsyms.c */
@@ -223,6 +232,12 @@ EXPORT_SYMBOL(flush_icache_range);
 EXPORT_SYMBOL(flush_icache_user_range);
 EXPORT_SYMBOL(flush_icache_page);
 EXPORT_SYMBOL(flush_dcache_page);
+#ifdef CONFIG_ALTIVEC
+#ifndef CONFIG_SMP
+EXPORT_SYMBOL(last_task_used_altivec);
+#endif /* CONFIG_SMP */
+EXPORT_SYMBOL(giveup_altivec);
+#endif /* CONFIG_ALTIVEC */
 #ifdef CONFIG_SMP
 EXPORT_SYMBOL(__global_cli);
 EXPORT_SYMBOL(__global_sti);
@@ -252,6 +267,9 @@ EXPORT_SYMBOL(rtas_proc_dir);
 EXPORT_SYMBOL(rtas_firmware_flash_list);
 EXPORT_SYMBOL(rtas_token);
 EXPORT_SYMBOL(rtas_call);
+EXPORT_SYMBOL(rtas_data_buf);
+EXPORT_SYMBOL(rtas_data_buf_lock);
+EXPORT_SYMBOL(rtas_extended_busy_delay_time);
 #endif
 
 #ifndef CONFIG_PPC_ISERIES
@@ -268,10 +286,6 @@ EXPORT_SYMBOL_NOVERS(memscan);
 EXPORT_SYMBOL_NOVERS(memcmp);
 
 EXPORT_SYMBOL(abs);
-
-#ifdef CONFIG_VT
-EXPORT_SYMBOL(screen_info);
-#endif
 
 EXPORT_SYMBOL(timer_interrupt);
 EXPORT_SYMBOL(irq_desc);
@@ -308,4 +322,11 @@ EXPORT_SYMBOL(tb_ticks_per_usec);
 #if defined(CONFIG_DUMP) || defined(CONFIG_DUMP_MODULE)
 extern void dump_send_ipi(int (*dump_ipi_callback)(struct pt_regs *));
 EXPORT_SYMBOL(dump_send_ipi);
+#endif
+
+#ifdef CONFIG_SHARED_MEMORY_ADDRESSING
+EXPORT_SYMBOL(shared_malloc);
+EXPORT_SYMBOL(shared_free);
+EXPORT_SYMBOL(shared_task_mark);
+EXPORT_SYMBOL(shared_task_unmark);
 #endif

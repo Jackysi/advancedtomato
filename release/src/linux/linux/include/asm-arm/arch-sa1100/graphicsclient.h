@@ -55,36 +55,6 @@
 
 #define _ADS_ETHERNET		0x100e0000	/* Ethernet */
 
-
-/* Extra UARTs */
-
-#define _ADS_UARTA		0x10100000	/* UART A */
-#define _ADS_UARTB		0x10120000	/* UART B */
-#define _ADS_UARTC		0x10140000	/* UART C */
-#define _ADS_UARTD		0x10160000	/* UART D */
-
-/* UART controll lines GPIOs */
-#define GPIO_GC_UART0_RTS       GPIO_GPIO15
-#define GPIO_GC_UART1_RTS	    GPIO_GPIO17
-#define GPIO_GC_UART2_RTS	    GPIO_GPIO19
-#define GPIO_GC_UART0_CTS       GPIO_GPIO14
-#define GPIO_GC_UART1_CTS       GPIO_GPIO16
-#define GPIO_GC_UART2_CTS       GPIO_GPIO17
-
-/* UART controll lines IRQs */
-#define IRQ_GC_UART0_CTS       IRQ_GPIO14
-#define IRQ_GC_UART1_CTS       IRQ_GPIO16
-#define IRQ_GC_UART2_CTS       IRQ_GPIO17
-
-#ifndef __ASSEMBLY__
-struct gc_uart_ctrl_data_t {
-  int cts_gpio;
-  int cts_prev_state;
-  struct uart_info *info;
-  struct uart_port *port;
-};
-#endif /* __ASSEMBLY__ */
-
 /* LEDs */
 
 #define ADS_LED0	GPIO_GPIO20		/* on-board D22 */

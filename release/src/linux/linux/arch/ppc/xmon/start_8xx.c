@@ -1,7 +1,4 @@
 /*
- * BK Id: SCCS/s.start_8xx.c 1.10 09/14/01 18:01:17 trini
- */
-/*
  * Copyright (C) 1996 Paul Mackerras.
  * Copyright (C) 2000 Dan Malek.
  * Quick hack of Paul's code to make XMON work on 8xx processors.  Lots
@@ -49,7 +46,7 @@ xmon_map_scc(void)
 
 	cpmp = (cpm8xx_t *)&(((immap_t *)IMAP_ADDR)->im_cpm);
 	use_screen = 0;
-	
+
 	prom_drawstring("xmon uses serial port\n");
 }
 
@@ -98,6 +95,22 @@ xmon_init_scc()
 	scc_initialized = 1;
 }
 
+#if 0
+extern int (*prom_entry)(void *);
+
+int
+xmon_exit(void)
+{
+    struct prom_args {
+	char *service;
+    } args;
+
+    for (;;) {
+	args.service = "exit";
+	(*prom_entry)(&args);
+    }
+}
+#endif
 
 void *xmon_stdin;
 void *xmon_stdout;
@@ -152,6 +165,33 @@ static char line[256];
 static char *lineptr;
 static int lineleft;
 
+#if 0
+int xmon_expect(const char *str, unsigned int timeout)
+{
+	int c;
+	unsigned int t0;
+
+	timeout *= TB_SPEED;
+	t0 = readtb();
+	do {
+		lineptr = line;
+		for (;;) {
+			c = xmon_read_poll();
+			if (c == -1) {
+				if (readtb() - t0 > timeout)
+					return 0;
+				continue;
+			}
+			if (c == '\n')
+				break;
+			if (c != '\r' && lineptr < &line[sizeof(line) - 1])
+				*lineptr++ = c;
+		}
+		*lineptr = 0;
+	} while (strstr(line, str) == NULL);
+	return 1;
+}
+#endif
 
 int
 xmon_getchar(void)

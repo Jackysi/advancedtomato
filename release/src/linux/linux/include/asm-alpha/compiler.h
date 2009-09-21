@@ -9,6 +9,14 @@
  * these tests and macros.
  */
 
+#if 0
+#define __kernel_insbl(val, shift) \
+  (((unsigned long)(val) & 0xfful) << ((shift) * 8))
+#define __kernel_inswl(val, shift) \
+  (((unsigned long)(val) & 0xfffful) << ((shift) * 8))
+#define __kernel_insql(val, shift) \
+  ((unsigned long)(val) << ((shift) * 8))
+#else
 #define __kernel_insbl(val, shift)					\
   ({ unsigned long __kir;						\
      __asm__("insbl %2,%1,%0" : "=r"(__kir) : "rI"(shift), "r"(val));	\
@@ -21,6 +29,7 @@
   ({ unsigned long __kir;						\
      __asm__("insql %2,%1,%0" : "=r"(__kir) : "rI"(shift), "r"(val));	\
      __kir; })
+#endif
 
 #if 0 && (__GNUC__ > 2 || __GNUC_MINOR__ >= 92)
 #define __kernel_extbl(val, shift)  (((val) >> (((shift) & 7) * 8)) & 0xfful)

@@ -1,5 +1,5 @@
 /*
- * $Id: tmdc.c,v 1.1.1.4 2003/10/14 08:08:07 sparq Exp $
+ * $Id: tmdc.c,v 1.23 2000/11/29 19:52:24 vojtech Exp $
  *
  *  Copyright (c) 1998-2000 Vojtech Pavlik
  *

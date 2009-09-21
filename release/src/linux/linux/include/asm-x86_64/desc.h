@@ -99,12 +99,12 @@ static inline void _set_gate(void *adr, unsigned type, unsigned long func, unsig
 
 static inline void set_intr_gate(int nr, void *func) 
 { 
-	_set_gate(&idt_table[nr], GATE_INTERRUPT, (unsigned long) func, 3, 0); 
+	_set_gate(&idt_table[nr], GATE_INTERRUPT, (unsigned long) func, 0, 0); 
 } 
 
 static inline void set_intr_gate_ist(int nr, void *func, unsigned ist) 
 { 
-	_set_gate(&idt_table[nr], GATE_INTERRUPT, (unsigned long) func, 3, ist); 
+	_set_gate(&idt_table[nr], GATE_INTERRUPT, (unsigned long) func, 0, ist); 
 } 
 
 static inline void set_system_gate(int nr, void *func) 
@@ -121,19 +121,19 @@ static inline void set_tssldt_descriptor(struct ldttss_desc *dst, unsigned long 
 	dst->base1 = PTR_MIDDLE(ptr) & 0xFF; 
 	dst->type = type;
 	dst->p = 1; 
-	dst->limit1 = 0xF;
+	dst->limit1 = (size >> 16) & 0xF;
 	dst->base2 = (PTR_MIDDLE(ptr) >> 8) & 0xFF; 
 	dst->base3 = PTR_HIGH(ptr); 
 }
 
 static inline void set_tss_desc(unsigned n, void *addr)
 { 
-	set_tssldt_descriptor((void *)&gdt_table + __CPU_DESC_INDEX(n,tss), (unsigned long)addr, DESC_TSS, sizeof(struct tss_struct)); 
+	set_tssldt_descriptor((void *)&gdt_table + __CPU_DESC_INDEX(n,tss), (unsigned long)addr, DESC_TSS, IO_BITMAP_OFFSET + IO_BITMAP_BYTES + 7); 
 } 
 
 static inline void set_ldt_desc(unsigned n, void *addr, int size)
 { 
-	set_tssldt_descriptor((void *)&gdt_table + __CPU_DESC_INDEX(n,ldt), (unsigned long)addr, DESC_LDT, size); 
+	set_tssldt_descriptor((void *)&gdt_table + __CPU_DESC_INDEX(n,ldt), (unsigned long)addr, DESC_LDT, size * 8); 
 }	
 
 /*

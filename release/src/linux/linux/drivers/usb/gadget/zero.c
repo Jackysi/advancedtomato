@@ -1,7 +1,7 @@
 /*
  * zero.c -- Gadget Zero, for USB development
  *
- * Copyright (C) 2003 David Brownell
+ * Copyright (C) 2003-2004 David Brownell
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -63,8 +63,8 @@
 // #define VERBOSE
 
 #include <linux/config.h>
-#include <linux/module.h>
 #include <linux/kernel.h>
+#include <linux/module.h>
 #include <linux/delay.h>
 #include <linux/ioport.h>
 #include <linux/sched.h>
@@ -87,10 +87,12 @@
 #include <linux/usb_ch9.h>
 #include <linux/usb_gadget.h>
 
+#include "gadget_chips.h"
+
 
 /*-------------------------------------------------------------------------*/
 
-#define DRIVER_VERSION		"Bastille Day 2003"
+#define DRIVER_VERSION		"St Patrick's Day 2004"
 
 static const char shortname [] = "zero";
 static const char longname [] = "Gadget Zero";
@@ -101,145 +103,14 @@ static const char loopback [] = "loop input to output";
 /*-------------------------------------------------------------------------*/
 
 /*
- * hardware-specific configuration, controlled by which device
- * controller driver was configured.
+ * driver assumes self-powered hardware, and
+ * has no way for users to trigger remote wakeup.
  *
- * CHIP ... hardware identifier
- * DRIVER_VERSION_NUM ... alerts the host side driver to differences
- * EP0_MAXPACKET ... controls packetization of control requests
- * EP_*_NAME ... which endpoints do we use for which purpose?
- * EP_*_NUM ... numbers for them (often limited by hardware)
- * HIGHSPEED ... define if ep0 and descriptors need high speed support
- * MAX_USB_POWER ... define if we use other than 100 mA bus current
- * SELFPOWER ... unless we can run on bus power, USB_CONFIG_ATT_SELFPOWER
- * WAKEUP ... if hardware supports remote wakeup AND we will issue the
- * 	usb_gadget_wakeup() call to initiate it, USB_CONFIG_ATT_WAKEUP
- *
- * hw_optimize(gadget) ... for any hardware tweaks we want to kick in
- * 	before we enable our endpoints
- *
- * add other defines for other portability issues, like hardware that
- * for some reason doesn't handle full speed bulk maxpacket of 64.
+ * this version autoconfigures as much as possible,
+ * which is reasonable for most "bulk-only" drivers.
  */
-
-/*
- * DRIVER_VERSION_NUM 0x0000 (?):  Martin Diehl's ezusb an21/fx code
- */
-
-/*
- * NetChip 2280, PCI based.
- *
- * This has half a dozen configurable endpoints, four with dedicated
- * DMA channels to manage their FIFOs.  It supports high speed.
- * Those endpoints can be arranged in any desired configuration.
- */
-#ifdef	CONFIG_USB_ZERO_NET2280
-#define CHIP			"net2280"
-#define DRIVER_VERSION_NUM	0x0101
-#define EP0_MAXPACKET		64
-static const char EP_OUT_NAME [] = "ep-a";
-#define EP_OUT_NUM	2
-static const char EP_IN_NAME [] = "ep-b";
-#define EP_IN_NUM	2
-#define HIGHSPEED
-/* specific hardware configs could be bus-powered */
-#define SELFPOWER USB_CONFIG_ATT_SELFPOWER
-/* supports remote wakeup, but this driver doesn't */
-
-extern int net2280_set_fifo_mode (struct usb_gadget *gadget, int mode);
-
-static inline void hw_optimize (struct usb_gadget *gadget)
-{
-	/* we can have bigger ep-a/ep-b fifos (2KB each, 4 packets
-	 * for highspeed bulk) because we're not using ep-c/ep-d.
-	 */
-	net2280_set_fifo_mode (gadget, 1);
-}
-#endif
-
-/*
- * PXA-2xx UDC:  widely used in second gen Linux-capable PDAs.
- *
- * This has fifteen fixed-function full speed endpoints, and it
- * can support all USB transfer types.
- *
- * These supports three or four configurations, with fixed numbers.
- * The hardware interprets SET_INTERFACE, net effect is that you
- * can't use altsettings or reset the interfaces independently.
- * So stick to a single interface.
- */
-#ifdef	CONFIG_USB_ZERO_PXA2XX
-#define CHIP			"pxa2xx"
-#define DRIVER_VERSION_NUM	0x0103
-#define EP0_MAXPACKET		16
-static const char EP_OUT_NAME [] = "ep12out-bulk";
-#define EP_OUT_NUM	12
-static const char EP_IN_NAME [] = "ep11in-bulk";
-#define EP_IN_NUM	11
-/* doesn't support bus-powered operation */
-#define SELFPOWER USB_CONFIG_ATT_SELFPOWER
-/* supports remote wakeup, but this driver doesn't */
-
-/* no hw optimizations to apply */
-#define hw_optimize(g) do {} while (0);
-#endif
-
-/*
- * SA-1100 UDC:  widely used in first gen Linux-capable PDAs.
- *
- * This has only two fixed function endpoints, which can only
- * be used for bulk (or interrupt) transfers.  (Plus control.)
- *
- * Since it can't flush its TX fifos without disabling the UDC,
- * the current configuration or altsettings can't change except
- * in special situations.  So this is a case of "choose it right
- * during enumeration" ...
- */
-#ifdef	CONFIG_USB_ZERO_SA1100
-#define CHIP			"sa1100"
-#define DRIVER_VERSION_NUM	0x0105
-#define EP0_MAXPACKET		8
-static const char EP_OUT_NAME [] = "ep1out-bulk";
-#define EP_OUT_NUM	1
-static const char EP_IN_NAME [] = "ep2in-bulk";
-#define EP_IN_NUM	2
-/* doesn't support bus-powered operation */
-#define SELFPOWER USB_CONFIG_ATT_SELFPOWER
-/* doesn't support remote wakeup? */
-
-/* no hw optimizations to apply */
-#define hw_optimize(g) do {} while (0);
-#endif
-
-/*-------------------------------------------------------------------------*/
-
-#ifndef EP0_MAXPACKET
-#	error Configure some USB peripheral controller driver!
-#endif
-
-/* power usage is config specific.
- * hardware that supports remote wakeup defaults to disabling it.
- */
-
-#ifndef	SELFPOWER
-/* default: say we rely on bus power */
-#define SELFPOWER	0
-/* else:
- * - SELFPOWER value must be USB_CONFIG_ATT_SELFPOWER
- * - MAX_USB_POWER may be nonzero.
- */
-#endif
-
-#ifndef	MAX_USB_POWER
-/* any hub supports this steady state bus power consumption */
-#define MAX_USB_POWER	100	/* mA */
-#endif
-
-#ifndef	WAKEUP
-/* default: this driver won't do remote wakeup */
-#define WAKEUP		0
-/* else value must be USB_CONFIG_ATT_WAKEUP */
-#endif
+static const char *EP_IN_NAME;		/* source */
+static const char *EP_OUT_NAME;		/* sink */
 
 /*-------------------------------------------------------------------------*/
 
@@ -257,6 +128,9 @@ struct zero_dev {
 	 */
 	u8			config;
 	struct usb_ep		*in_ep, *out_ep;
+
+	/* autoresume timer */
+	struct timer_list	resume;
 };
 
 #define xprintk(d,level,fmt,args...) \
@@ -264,20 +138,19 @@ struct zero_dev {
 		## args)
 
 #ifdef DEBUG
-#undef DEBUG
-#define DEBUG(dev,fmt,args...) \
+#define DBG(dev,fmt,args...) \
 	xprintk(dev , KERN_DEBUG , fmt , ## args)
 #else
-#define DEBUG(dev,fmt,args...) \
+#define DBG(dev,fmt,args...) \
 	do { } while (0)
 #endif /* DEBUG */
 
 #ifdef VERBOSE
-#define VDEBUG	DEBUG
+#define VDBG	DBG
 #else
-#define VDEBUG(dev,fmt,args...) \
+#define VDBG(dev,fmt,args...) \
 	do { } while (0)
-#endif /* DEBUG */
+#endif /* VERBOSE */
 
 #define ERROR(dev,fmt,args...) \
 	xprintk(dev , KERN_ERR , fmt , ## args)
@@ -295,8 +168,8 @@ static unsigned pattern = 0;
 /*
  * Normally the "loopback" configuration is second (index 1) so
  * it's not the default.  Here's where to change that order, to
- * work better with hosts (like Linux ... for now!) where config
- * changes are problematic.
+ * work better with hosts where config changes are problematic.
+ * Or controllers (like superh) that only support one config.
  */
 static int loopdefault = 0;
 
@@ -313,15 +186,27 @@ MODULE_PARM_DESC (pattern, "0 for default all-zeroes, 1 for mod63");
 MODULE_PARM (loopdefault, "b");
 MODULE_PARM_DESC (loopdefault, "true to have default config be loopback");
 
+/*
+ * if it's nonzero, autoresume says how many seconds to wait
+ * before trying to wake up the host after suspend.
+ */
+static unsigned autoresume = 0;
+MODULE_PARM (autoresume, "i");
+
 /*-------------------------------------------------------------------------*/
 
 /* Thanks to NetChip Technologies for donating this product ID.
  *
- * DO NOT REUSE THESE IDs with any other driver!!  Ever!!
+ * DO NOT REUSE THESE IDs with a protocol-incompatible driver!!  Ever!!
  * Instead:  allocate your own, using normal USB-IF procedures.
  */
+#ifndef	CONFIG_USB_ZERO_HNPTEST
 #define DRIVER_VENDOR_NUM	0x0525		/* NetChip */
 #define DRIVER_PRODUCT_NUM	0xa4a0		/* Linux-USB "Gadget Zero" */
+#else
+#define DRIVER_VENDOR_NUM	0x1a0a		/* OTG test device IDs */
+#define DRIVER_PRODUCT_NUM	0xbadd
+#endif
 
 /*-------------------------------------------------------------------------*/
 
@@ -343,25 +228,23 @@ MODULE_PARM_DESC (loopdefault, "true to have default config be loopback");
 #define	CONFIG_SOURCE_SINK	3
 #define	CONFIG_LOOPBACK		2
 
-static const struct usb_device_descriptor
+static struct usb_device_descriptor
 device_desc = {
 	.bLength =		sizeof device_desc,
 	.bDescriptorType =	USB_DT_DEVICE,
 
 	.bcdUSB =		__constant_cpu_to_le16 (0x0200),
 	.bDeviceClass =		USB_CLASS_VENDOR_SPEC,
-	.bMaxPacketSize0 =	EP0_MAXPACKET,
 
 	.idVendor =		__constant_cpu_to_le16 (DRIVER_VENDOR_NUM),
 	.idProduct =		__constant_cpu_to_le16 (DRIVER_PRODUCT_NUM),
-	.bcdDevice =		__constant_cpu_to_le16 (DRIVER_VERSION_NUM),
 	.iManufacturer =	STRING_MANUFACTURER,
 	.iProduct =		STRING_PRODUCT,
 	.iSerialNumber =	STRING_SERIAL,
 	.bNumConfigurations =	2,
 };
 
-static const struct usb_config_descriptor
+static struct usb_config_descriptor
 source_sink_config = {
 	.bLength =		sizeof source_sink_config,
 	.bDescriptorType =	USB_DT_CONFIG,
@@ -370,11 +253,11 @@ source_sink_config = {
 	.bNumInterfaces =	1,
 	.bConfigurationValue =	CONFIG_SOURCE_SINK,
 	.iConfiguration =	STRING_SOURCE_SINK,
-	.bmAttributes =		USB_CONFIG_ATT_ONE | SELFPOWER | WAKEUP,
-	.bMaxPower =		(MAX_USB_POWER + 1) / 2,
+	.bmAttributes =		USB_CONFIG_ATT_ONE | USB_CONFIG_ATT_SELFPOWER,
+	.bMaxPower =		1,	/* self-powered */
 };
 
-static const struct usb_config_descriptor
+static struct usb_config_descriptor
 loopback_config = {
 	.bLength =		sizeof loopback_config,
 	.bDescriptorType =	USB_DT_CONFIG,
@@ -383,8 +266,16 @@ loopback_config = {
 	.bNumInterfaces =	1,
 	.bConfigurationValue =	CONFIG_LOOPBACK,
 	.iConfiguration =	STRING_LOOPBACK,
-	.bmAttributes =		USB_CONFIG_ATT_ONE | SELFPOWER | WAKEUP,
-	.bMaxPower =		(MAX_USB_POWER + 1) / 2,
+	.bmAttributes =		USB_CONFIG_ATT_ONE | USB_CONFIG_ATT_SELFPOWER,
+	.bMaxPower =		1,	/* self-powered */
+};
+
+static struct usb_otg_descriptor
+otg_descriptor = {
+	.bLength =		sizeof otg_descriptor,
+	.bDescriptorType =	USB_DT_OTG,
+
+	.bmAttributes =		USB_OTG_SRP,
 };
 
 /* one interface in each configuration */
@@ -411,27 +302,41 @@ loopback_intf = {
 
 /* two full speed bulk endpoints; their use is config-dependent */
 
-static const struct usb_endpoint_descriptor
+static struct usb_endpoint_descriptor
 fs_source_desc = {
 	.bLength =		USB_DT_ENDPOINT_SIZE,
 	.bDescriptorType =	USB_DT_ENDPOINT,
 
-	.bEndpointAddress =	EP_IN_NUM | USB_DIR_IN,
+	.bEndpointAddress =	USB_DIR_IN,
 	.bmAttributes =		USB_ENDPOINT_XFER_BULK,
-	.wMaxPacketSize =	__constant_cpu_to_le16 (64),
 };
 
-static const struct usb_endpoint_descriptor
+static struct usb_endpoint_descriptor
 fs_sink_desc = {
 	.bLength =		USB_DT_ENDPOINT_SIZE,
 	.bDescriptorType =	USB_DT_ENDPOINT,
 
-	.bEndpointAddress =	EP_OUT_NUM,
+	.bEndpointAddress =	USB_DIR_OUT,
 	.bmAttributes =		USB_ENDPOINT_XFER_BULK,
-	.wMaxPacketSize =	__constant_cpu_to_le16 (64),
 };
 
-#ifdef	HIGHSPEED
+static const struct usb_descriptor_header *fs_source_sink_function [] = {
+	(struct usb_descriptor_header *) &otg_descriptor,
+	(struct usb_descriptor_header *) &source_sink_intf,
+	(struct usb_descriptor_header *) &fs_sink_desc,
+	(struct usb_descriptor_header *) &fs_source_desc,
+	NULL,
+};
+
+static const struct usb_descriptor_header *fs_loopback_function [] = {
+	(struct usb_descriptor_header *) &otg_descriptor,
+	(struct usb_descriptor_header *) &loopback_intf,
+	(struct usb_descriptor_header *) &fs_sink_desc,
+	(struct usb_descriptor_header *) &fs_source_desc,
+	NULL,
+};
+
+#ifdef	CONFIG_USB_GADGET_DUALSPEED
 
 /*
  * usb 2.0 devices need to expose both high speed and full speed
@@ -442,27 +347,25 @@ fs_sink_desc = {
  * for the config descriptor.
  */
 
-static const struct usb_endpoint_descriptor
+static struct usb_endpoint_descriptor
 hs_source_desc = {
 	.bLength =		USB_DT_ENDPOINT_SIZE,
 	.bDescriptorType =	USB_DT_ENDPOINT,
 
-	.bEndpointAddress =	EP_IN_NUM | USB_DIR_IN,
 	.bmAttributes =		USB_ENDPOINT_XFER_BULK,
 	.wMaxPacketSize =	__constant_cpu_to_le16 (512),
 };
 
-static const struct usb_endpoint_descriptor
+static struct usb_endpoint_descriptor
 hs_sink_desc = {
 	.bLength =		USB_DT_ENDPOINT_SIZE,
 	.bDescriptorType =	USB_DT_ENDPOINT,
 
-	.bEndpointAddress =	EP_OUT_NUM,
 	.bmAttributes =		USB_ENDPOINT_XFER_BULK,
 	.wMaxPacketSize =	__constant_cpu_to_le16 (512),
 };
 
-static const struct usb_qualifier_descriptor
+static struct usb_qualifier_descriptor
 dev_qualifier = {
 	.bLength =		sizeof dev_qualifier,
 	.bDescriptorType =	USB_DT_DEVICE_QUALIFIER,
@@ -470,10 +373,23 @@ dev_qualifier = {
 	.bcdUSB =		__constant_cpu_to_le16 (0x0200),
 	.bDeviceClass =		USB_CLASS_VENDOR_SPEC,
 
-	/* assumes ep0 uses the same value for both speeds ... */
-	.bMaxPacketSize0 =	EP0_MAXPACKET,
-
 	.bNumConfigurations =	2,
+};
+
+static const struct usb_descriptor_header *hs_source_sink_function [] = {
+	(struct usb_descriptor_header *) &otg_descriptor,
+	(struct usb_descriptor_header *) &source_sink_intf,
+	(struct usb_descriptor_header *) &hs_source_desc,
+	(struct usb_descriptor_header *) &hs_sink_desc,
+	NULL,
+};
+
+static const struct usb_descriptor_header *hs_loopback_function [] = {
+	(struct usb_descriptor_header *) &otg_descriptor,
+	(struct usb_descriptor_header *) &loopback_intf,
+	(struct usb_descriptor_header *) &hs_source_desc,
+	(struct usb_descriptor_header *) &hs_sink_desc,
+	NULL,
 };
 
 /* maxpacket and other transfer characteristics vary by speed. */
@@ -484,13 +400,14 @@ dev_qualifier = {
 /* if there's no high speed support, maxpacket doesn't change. */
 #define ep_desc(g,hs,fs) fs
 
-#endif	/* !HIGHSPEED */
+#endif	/* !CONFIG_USB_GADGET_DUALSPEED */
 
+static char				manufacturer [50];
 static char				serial [40];
 
-/* static strings, in iso 8859/1 */
+/* static strings, in UTF-8 */
 static struct usb_string		strings [] = {
-	{ STRING_MANUFACTURER, UTS_SYSNAME " " UTS_RELEASE " with " CHIP, },
+	{ STRING_MANUFACTURER, manufacturer, },
 	{ STRING_PRODUCT, longname, },
 	{ STRING_SERIAL, serial, },
 	{ STRING_LOOPBACK, loopback, },
@@ -522,60 +439,46 @@ static struct usb_gadget_strings	stringtab = {
  * device?)
  */
 static int
-config_buf (enum usb_device_speed speed,
+config_buf (struct usb_gadget *gadget,
 		u8 *buf, u8 type, unsigned index)
 {
-	int		is_source_sink;
-	const unsigned	config_len = USB_DT_CONFIG_SIZE
-				+ USB_DT_INTERFACE_SIZE
-				+ 2 * USB_DT_ENDPOINT_SIZE;
-#ifdef HIGHSPEED
-	int		hs;
+	int				is_source_sink;
+	int				len;
+	const struct usb_descriptor_header **function;
+#ifdef CONFIG_USB_GADGET_DUALSPEED
+	int				hs = (gadget->speed == USB_SPEED_HIGH);
 #endif
+
 	/* two configurations will always be index 0 and index 1 */
 	if (index > 1)
 		return -EINVAL;
-	if (config_len > USB_BUFSIZ)
-		return -EDOM;
 	is_source_sink = loopdefault ? (index == 1) : (index == 0);
 
-	/* config (or other speed config) */
-	if (is_source_sink)
-		memcpy (buf, &source_sink_config, USB_DT_CONFIG_SIZE);
-	else
-		memcpy (buf, &loopback_config, USB_DT_CONFIG_SIZE);
-	buf [1] = type;
-	((struct usb_config_descriptor *) buf)->wTotalLength
-		= __constant_cpu_to_le16 (config_len);
-	buf += USB_DT_CONFIG_SIZE;
-
-	/* one interface */
-	if (is_source_sink)
-		memcpy (buf, &source_sink_intf, USB_DT_INTERFACE_SIZE);
-	else
-		memcpy (buf, &loopback_intf, USB_DT_INTERFACE_SIZE);
-	buf += USB_DT_INTERFACE_SIZE;
-
-	/* the endpoints in that interface (at that speed) */
-#ifdef HIGHSPEED
-	hs = (speed == USB_SPEED_HIGH);
+#ifdef CONFIG_USB_GADGET_DUALSPEED
 	if (type == USB_DT_OTHER_SPEED_CONFIG)
 		hs = !hs;
-	if (hs) {
-		memcpy (buf, &hs_source_desc, USB_DT_ENDPOINT_SIZE);
-		buf += USB_DT_ENDPOINT_SIZE;
-		memcpy (buf, &hs_sink_desc, USB_DT_ENDPOINT_SIZE);
-		buf += USB_DT_ENDPOINT_SIZE;
-	} else
+	if (hs)
+		function = is_source_sink
+			? hs_source_sink_function
+			: hs_loopback_function;
+	else
 #endif
-	{
-		memcpy (buf, &fs_source_desc, USB_DT_ENDPOINT_SIZE);
-		buf += USB_DT_ENDPOINT_SIZE;
-		memcpy (buf, &fs_sink_desc, USB_DT_ENDPOINT_SIZE);
-		buf += USB_DT_ENDPOINT_SIZE;
-	}
+		function = is_source_sink
+			? fs_source_sink_function
+			: fs_loopback_function;
 
-	return config_len;
+	/* for now, don't advertise srp-only devices */
+	if (!gadget->is_otg)
+		function++;
+
+	len = usb_gadget_config_buf (is_source_sink
+					? &source_sink_config
+					: &loopback_config,
+			buf, USB_BUFSIZ, function);
+	if (len < 0)
+		return len;
+	((struct usb_config_descriptor *) buf)->bDescriptorType = type;
+	return len;
 }
 
 /*-------------------------------------------------------------------------*/
@@ -592,7 +495,7 @@ alloc_ep_req (struct usb_ep *ep, unsigned length)
 				&req->dma, GFP_ATOMIC);
 		if (!req->buf) {
 			usb_ep_free_request (ep, req);
-			req = 0;
+			req = NULL;
 		}
 	}
 	return req;
@@ -609,7 +512,7 @@ static void free_ep_req (struct usb_ep *ep, struct usb_request *req)
 
 /* optionally require specific source/sink data patterns  */
 
-static inline int
+static int
 check_read_data (
 	struct zero_dev		*dev,
 	struct usb_ep		*ep,
@@ -643,7 +546,7 @@ check_read_data (
 	return 0;
 }
 
-static inline void
+static void
 reinit_write_data (
 	struct zero_dev		*dev,
 	struct usb_ep		*ep,
@@ -686,7 +589,7 @@ static void source_sink_complete (struct usb_ep *ep, struct usb_request *req)
 	case -ECONNABORTED: 		/* hardware forced ep reset */
 	case -ECONNRESET:		/* request dequeued */
 	case -ESHUTDOWN:		/* disconnect from host */
-		VDEBUG (dev, "%s gone (%d), %d/%d\n", ep->name, status,
+		VDBG (dev, "%s gone (%d), %d/%d\n", ep->name, status,
 				req->actual, req->length);
 		if (ep == dev->out_ep)
 			check_read_data (dev, ep, req);
@@ -698,8 +601,10 @@ static void source_sink_complete (struct usb_ep *ep, struct usb_request *req)
 					 * buffer.
 					 */
 	default:
-		DEBUG (dev, "%s complete --> %d, %d/%d\n", ep->name,
+#if 1
+		DBG (dev, "%s complete --> %d, %d/%d\n", ep->name,
 				status, req->actual, req->length);
+#endif
 	case -EREMOTEIO:		/* short read */
 		break;
 	}
@@ -709,6 +614,7 @@ static void source_sink_complete (struct usb_ep *ep, struct usb_request *req)
 		ERROR (dev, "kill %s:  resubmit %d bytes --> %d\n",
 				ep->name, req->length, status);
 		usb_ep_set_halt (ep);
+		/* FIXME recover later ... somehow */
 	}
 }
 
@@ -720,7 +626,7 @@ source_sink_start_ep (struct usb_ep *ep, int gfp_flags)
 
 	req = alloc_ep_req (ep, buflen);
 	if (!req)
-		return 0;
+		return NULL;
 
 	memset (req->buf, 0, req->length);
 	req->complete = source_sink_complete;
@@ -734,7 +640,7 @@ source_sink_start_ep (struct usb_ep *ep, int gfp_flags)
 
 		ERROR (dev, "start %s --> %d\n", ep->name, status);
 		free_ep_req (ep, req);
-		req = 0;
+		req = NULL;
 	}
 
 	return req;
@@ -787,7 +693,7 @@ set_source_sink_config (struct zero_dev *dev, int gfp_flags)
 		break;
 	}
 	if (result == 0)
-		DEBUG (dev, "buflen %d\n", buflen);
+		DBG (dev, "buflen %d\n", buflen);
 
 	/* caller is responsible for cleanup on error */
 	return result;
@@ -898,14 +804,14 @@ set_loopback_config (struct zero_dev *dev, int gfp_flags)
 				req->complete = loopback_complete;
 				result = usb_ep_queue (ep, req, GFP_ATOMIC);
 				if (result)
-					DEBUG (dev, "%s queue req --> %d\n",
+					DBG (dev, "%s queue req --> %d\n",
 							ep->name, result);
 			} else
 				result = -ENOMEM;
 		}
 	}
 	if (result == 0)
-		DEBUG (dev, "qlen %d, buflen %d\n", qlen, buflen);
+		DBG (dev, "qlen %d, buflen %d\n", qlen, buflen);
 
 	/* caller is responsible for cleanup on error */
 	return result;
@@ -918,20 +824,21 @@ static void zero_reset_config (struct zero_dev *dev)
 	if (dev->config == 0)
 		return;
 
-	DEBUG (dev, "reset config\n");
+	DBG (dev, "reset config\n");
 
 	/* just disable endpoints, forcing completion of pending i/o.
 	 * all our completion handlers free their requests in this case.
 	 */
 	if (dev->in_ep) {
 		usb_ep_disable (dev->in_ep);
-		dev->in_ep = 0;
+		dev->in_ep = NULL;
 	}
 	if (dev->out_ep) {
 		usb_ep_disable (dev->out_ep);
-		dev->out_ep = 0;
+		dev->out_ep = NULL;
 	}
 	dev->config = 0;
+	del_timer (&dev->resume);
 }
 
 /* change our operational config.  this code must agree with the code
@@ -953,15 +860,12 @@ zero_set_config (struct zero_dev *dev, unsigned number, int gfp_flags)
 	if (number == dev->config)
 		return 0;
 
-#ifdef CONFIG_USB_ZERO_SA1100
-	if (dev->config) {
+	if (gadget_is_sa1100 (gadget) && dev->config) {
 		/* tx fifo is full, but we can't clear it...*/
 		INFO (dev, "can't change configurations\n");
 		return -ESPIPE;
 	}
-#endif
 	zero_reset_config (dev);
-	hw_optimize (gadget);
 
 	switch (number) {
 	case CONFIG_SOURCE_SINK:
@@ -1004,7 +908,7 @@ zero_set_config (struct zero_dev *dev, unsigned number, int gfp_flags)
 static void zero_setup_complete (struct usb_ep *ep, struct usb_request *req)
 {
 	if (req->status || req->actual != req->length)
-		DEBUG ((struct zero_dev *) ep->driver_data,
+		DBG ((struct zero_dev *) ep->driver_data,
 				"setup complete --> %d, %d/%d\n",
 				req->status, req->actual, req->length);
 }
@@ -1026,28 +930,33 @@ zero_setup (struct usb_gadget *gadget, const struct usb_ctrlrequest *ctrl)
 	/* usually this stores reply data in the pre-allocated ep0 buffer,
 	 * but config change events will reconfigure hardware.
 	 */
+	req->zero = 0;
 	switch (ctrl->bRequest) {
 
 	case USB_REQ_GET_DESCRIPTOR:
 		if (ctrl->bRequestType != USB_DIR_IN)
-			break;
+			goto unknown;
 		switch (ctrl->wValue >> 8) {
 
 		case USB_DT_DEVICE:
 			value = min (ctrl->wLength, (u16) sizeof device_desc);
 			memcpy (req->buf, &device_desc, value);
 			break;
-#ifdef HIGHSPEED
+#ifdef CONFIG_USB_GADGET_DUALSPEED
 		case USB_DT_DEVICE_QUALIFIER:
+			if (!gadget->is_dualspeed)
+				break;
 			value = min (ctrl->wLength, (u16) sizeof dev_qualifier);
 			memcpy (req->buf, &dev_qualifier, value);
 			break;
 
 		case USB_DT_OTHER_SPEED_CONFIG:
+			if (!gadget->is_dualspeed)
+				break;
 			// FALLTHROUGH
-#endif /* HIGHSPEED */
+#endif /* CONFIG_USB_GADGET_DUALSPEED */
 		case USB_DT_CONFIG:
-			value = config_buf (gadget->speed, req->buf,
+			value = config_buf (gadget, req->buf,
 					ctrl->wValue >> 8,
 					ctrl->wValue & 0xff);
 			if (value >= 0)
@@ -1057,7 +966,8 @@ zero_setup (struct usb_gadget *gadget, const struct usb_ctrlrequest *ctrl)
 		case USB_DT_STRING:
 			/* wIndex == language code.
 			 * this driver only handles one language, you can
-			 * add others even if they don't use iso8859/1
+			 * add string tables for other languages, using
+			 * any UTF-8 characters
 			 */
 			value = usb_gadget_get_string (&stringtab,
 					ctrl->wValue & 0xff, req->buf);
@@ -1070,14 +980,20 @@ zero_setup (struct usb_gadget *gadget, const struct usb_ctrlrequest *ctrl)
 	/* currently two configs, two speeds */
 	case USB_REQ_SET_CONFIGURATION:
 		if (ctrl->bRequestType != 0)
-			break;
+			goto unknown;
+		if (gadget->a_hnp_support)
+			DBG (dev, "HNP available\n");
+		else if (gadget->a_alt_hnp_support)
+			DBG (dev, "HNP needs a different root port\n");
+		else
+			VDBG (dev, "HNP inactive\n");
 		spin_lock (&dev->lock);
 		value = zero_set_config (dev, ctrl->wValue, GFP_ATOMIC);
 		spin_unlock (&dev->lock);
 		break;
 	case USB_REQ_GET_CONFIGURATION:
 		if (ctrl->bRequestType != USB_DIR_IN)
-			break;
+			goto unknown;
 		*(u8 *)req->buf = dev->config;
 		value = min (ctrl->wLength, (u16) 1);
 		break;
@@ -1088,7 +1004,7 @@ zero_setup (struct usb_gadget *gadget, const struct usb_ctrlrequest *ctrl)
 	 */
 	case USB_REQ_SET_INTERFACE:
 		if (ctrl->bRequestType != USB_RECIP_INTERFACE)
-			break;
+			goto unknown;
 		spin_lock (&dev->lock);
 		if (dev->config && ctrl->wIndex == 0 && ctrl->wValue == 0) {
 			u8		config = dev->config;
@@ -1108,7 +1024,7 @@ zero_setup (struct usb_gadget *gadget, const struct usb_ctrlrequest *ctrl)
 		break;
 	case USB_REQ_GET_INTERFACE:
 		if (ctrl->bRequestType != (USB_DIR_IN|USB_RECIP_INTERFACE))
-			break;
+			goto unknown;
 		if (!dev->config)
 			break;
 		if (ctrl->wIndex != 0) {
@@ -1119,8 +1035,36 @@ zero_setup (struct usb_gadget *gadget, const struct usb_ctrlrequest *ctrl)
 		value = min (ctrl->wLength, (u16) 1);
 		break;
 
+	/*
+	 * These are the same vendor-specific requests supported by
+	 * Intel's USB 2.0 compliance test devices.  We exceed that
+	 * device spec by allowing multiple-packet requests.
+	 */
+	case 0x5b:	/* control WRITE test -- fill the buffer */
+		if (ctrl->bRequestType != (USB_DIR_OUT|USB_TYPE_VENDOR))
+			goto unknown;
+		if (ctrl->wValue || ctrl->wIndex)
+			break;
+		/* just read that many bytes into the buffer */
+		if (ctrl->wLength > USB_BUFSIZ)
+			break;
+		value = ctrl->wLength;
+		break;
+	case 0x5c:	/* control READ test -- return the buffer */
+		if (ctrl->bRequestType != (USB_DIR_IN|USB_TYPE_VENDOR))
+			goto unknown;
+		if (ctrl->wValue || ctrl->wIndex)
+			break;
+		/* expect those bytes are still in the buffer; send back */
+		if (ctrl->wLength > USB_BUFSIZ
+				|| ctrl->wLength != req->length)
+			break;
+		value = ctrl->wLength;
+		break;
+
 	default:
-		VDEBUG (dev,
+unknown:
+		VDBG (dev,
 			"unknown control req%02x.%02x v%04x i%04x l%d\n",
 			ctrl->bRequestType, ctrl->bRequest,
 			ctrl->wValue, ctrl->wIndex, ctrl->wLength);
@@ -1129,9 +1073,11 @@ zero_setup (struct usb_gadget *gadget, const struct usb_ctrlrequest *ctrl)
 	/* respond with data transfer before status phase? */
 	if (value >= 0) {
 		req->length = value;
+		req->zero = value < ctrl->wLength
+				&& (value % gadget->ep0->maxpacket) == 0;
 		value = usb_ep_queue (gadget->ep0, req, GFP_ATOMIC);
 		if (value < 0) {
-			DEBUG (dev, "ep_queue --> %d\n", value);
+			DBG (dev, "ep_queue --> %d\n", value);
 			req->status = 0;
 			zero_setup_complete (gadget->ep0, req);
 		}
@@ -1161,6 +1107,21 @@ zero_disconnect (struct usb_gadget *gadget)
 	 */
 }
 
+static void
+zero_autoresume (unsigned long _dev)
+{
+	struct zero_dev	*dev = (struct zero_dev *) _dev;
+	int		status;
+
+	/* normally the host would be woken up for something
+	 * more significant than just a timer firing...
+	 */
+	if (dev->gadget->speed != USB_SPEED_UNKNOWN) {
+		status = usb_gadget_wakeup (dev->gadget);
+		DBG (dev, "wakeup --> %d\n", status);
+	}
+}
+
 /*-------------------------------------------------------------------------*/
 
 static void
@@ -1168,20 +1129,90 @@ zero_unbind (struct usb_gadget *gadget)
 {
 	struct zero_dev		*dev = get_gadget_data (gadget);
 
-	DEBUG (dev, "unbind\n");
+	DBG (dev, "unbind\n");
 
 	/* we've already been disconnected ... no i/o is active */
 	if (dev->req)
 		free_ep_req (gadget->ep0, dev->req);
+	del_timer_sync (&dev->resume);
 	kfree (dev);
-	set_gadget_data (gadget, 0);
+	set_gadget_data (gadget, NULL);
 }
 
 static int
 zero_bind (struct usb_gadget *gadget)
 {
 	struct zero_dev		*dev;
+	struct usb_ep		*ep;
 
+	/* Bulk-only drivers like this one SHOULD be able to
+	 * autoconfigure on any sane usb controller driver,
+	 * but there may also be important quirks to address.
+	 */
+	usb_ep_autoconfig_reset (gadget);
+	ep = usb_ep_autoconfig (gadget, &fs_source_desc);
+	if (!ep) {
+autoconf_fail:
+		printk (KERN_ERR "%s: can't autoconfigure on %s\n",
+			shortname, gadget->name);
+		return -ENODEV;
+	}
+	EP_IN_NAME = ep->name;
+	ep->driver_data = ep;	/* claim */
+	
+	ep = usb_ep_autoconfig (gadget, &fs_sink_desc);
+	if (!ep)
+		goto autoconf_fail;
+	EP_OUT_NAME = ep->name;
+	ep->driver_data = ep;	/* claim */
+
+
+	/*
+	 * DRIVER POLICY CHOICE:  you may want to do this differently.
+	 * One thing to avoid is reusing a bcdDevice revision code
+	 * with different host-visible configurations or behavior
+	 * restrictions -- using ep1in/ep2out vs ep1out/ep3in, etc
+	 */
+	if (gadget_is_net2280 (gadget)) {
+		device_desc.bcdDevice = __constant_cpu_to_le16 (0x0201);
+	} else if (gadget_is_pxa (gadget)) {
+		device_desc.bcdDevice = __constant_cpu_to_le16 (0x0203);
+#if 0
+	} else if (gadget_is_sh(gadget)) {
+		device_desc.bcdDevice = __constant_cpu_to_le16 (0x0204);
+		/* SH has only one configuration; see "loopdefault" */
+		device_desc.bNumConfigurations = 1;
+		/* FIXME make 1 == default.bConfigurationValue */
+#endif
+	} else if (gadget_is_sa1100 (gadget)) {
+		device_desc.bcdDevice = __constant_cpu_to_le16 (0x0205);
+	} else if (gadget_is_goku (gadget)) {
+		device_desc.bcdDevice = __constant_cpu_to_le16 (0x0206);
+	} else if (gadget_is_mq11xx (gadget)) {
+		device_desc.bcdDevice = __constant_cpu_to_le16 (0x0207);
+	} else if (gadget_is_omap (gadget)) {
+		device_desc.bcdDevice = __constant_cpu_to_le16 (0x0208);
+	} else if (gadget_is_lh7a40x(gadget)) {
+		device_desc.bcdDevice = __constant_cpu_to_le16 (0x0209);
+	} else if (gadget_is_n9604(gadget)) {
+		device_desc.bcdDevice = __constant_cpu_to_le16 (0x0210);
+	} else if (gadget_is_pxa27x(gadget)) {
+		device_desc.bcdDevice = __constant_cpu_to_le16 (0x0211);
+	} else {
+		/* gadget zero is so simple (for now, no altsettings) that
+		 * it SHOULD NOT have problems with bulk-capable hardware.
+		 * so warn about unrcognized controllers, don't panic.
+		 *
+		 * things like configuration and altsetting numbering
+		 * can need hardware-specific attention though.
+		 */
+		printk (KERN_WARNING "%s: controller '%s' not recognized\n",
+			shortname, gadget->name);
+		device_desc.bcdDevice = __constant_cpu_to_le16 (0x9999);
+	}
+
+
+	/* ok, we made sense of the hardware ... */
 	dev = kmalloc (sizeof *dev, SLAB_KERNEL);
 	if (!dev)
 		return -ENOMEM;
@@ -1201,9 +1232,49 @@ zero_bind (struct usb_gadget *gadget)
 
 	dev->req->complete = zero_setup_complete;
 
+	device_desc.bMaxPacketSize0 = gadget->ep0->maxpacket;
+
+#ifdef CONFIG_USB_GADGET_DUALSPEED
+	/* assume ep0 uses the same value for both speeds ... */
+	dev_qualifier.bMaxPacketSize0 = device_desc.bMaxPacketSize0;
+
+	/* and that all endpoints are dual-speed */
+	hs_source_desc.bEndpointAddress = fs_source_desc.bEndpointAddress;
+	hs_sink_desc.bEndpointAddress = fs_sink_desc.bEndpointAddress;
+#endif
+
+	if (gadget->is_otg) {
+		otg_descriptor.bmAttributes |= USB_OTG_HNP,
+		source_sink_config.bmAttributes |= USB_CONFIG_ATT_WAKEUP;
+		loopback_config.bmAttributes |= USB_CONFIG_ATT_WAKEUP;
+	}
+
+	if (gadget->is_otg) {
+		otg_descriptor.bmAttributes |= USB_OTG_HNP,
+		source_sink_config.bmAttributes |= USB_CONFIG_ATT_WAKEUP;
+		loopback_config.bmAttributes |= USB_CONFIG_ATT_WAKEUP;
+	}
+
+	usb_gadget_set_selfpowered (gadget);
+
+	init_timer (&dev->resume);
+	dev->resume.function = zero_autoresume;
+	dev->resume.data = (unsigned long) dev;
+	if (autoresume) {
+		source_sink_config.bmAttributes |= USB_CONFIG_ATT_WAKEUP;
+		loopback_config.bmAttributes |= USB_CONFIG_ATT_WAKEUP;
+	}
+
 	gadget->ep0->driver_data = dev;
 
 	INFO (dev, "%s, version: " DRIVER_VERSION "\n", longname);
+	INFO (dev, "using %s, OUT %s IN %s\n", gadget->name,
+		EP_OUT_NAME, EP_IN_NAME);
+
+	snprintf (manufacturer, sizeof manufacturer,
+		UTS_SYSNAME " " UTS_RELEASE " with %s",
+		gadget->name);
+
 	return 0;
 
 enomem:
@@ -1213,8 +1284,35 @@ enomem:
 
 /*-------------------------------------------------------------------------*/
 
+static void
+zero_suspend (struct usb_gadget *gadget)
+{
+	struct zero_dev		*dev = get_gadget_data (gadget);
+
+	if (gadget->speed == USB_SPEED_UNKNOWN)
+		return;
+
+	if (autoresume) {
+		mod_timer (&dev->resume, jiffies + (HZ * autoresume));
+		DBG (dev, "suspend, wakeup in %d seconds\n", autoresume);
+	} else
+		DBG (dev, "suspend\n");
+}
+
+static void
+zero_resume (struct usb_gadget *gadget)
+{
+	struct zero_dev		*dev = get_gadget_data (gadget);
+
+	DBG (dev, "resume\n");
+	del_timer (&dev->resume);
+}
+
+
+/*-------------------------------------------------------------------------*/
+
 static struct usb_gadget_driver zero_driver = {
-#ifdef HIGHSPEED
+#ifdef CONFIG_USB_GADGET_DUALSPEED
 	.speed		= USB_SPEED_HIGH,
 #else
 	.speed		= USB_SPEED_FULL,
@@ -1225,6 +1323,9 @@ static struct usb_gadget_driver zero_driver = {
 
 	.setup		= zero_setup,
 	.disconnect	= zero_disconnect,
+
+	.suspend	= zero_suspend,
+	.resume		= zero_resume,
 
 	.driver 	= {
 		.name		= (char *) shortname,

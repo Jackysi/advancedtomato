@@ -269,6 +269,45 @@ static void demod_psk48_baseband(struct sm_state *sm, struct demod_state_psk48 *
 		}
 	}
 
+#if 0
+	st->dcd_shreg <<= 1;
+	st->bit_pll += 0x4000;
+	curbit = (*buf >= 0x80);
+	if (st->last_sample ^ curbit) {
+		st->dcd_shreg |= 1;
+		st->bit_pll += pll_corr
+			[st->bit_pll < 0xa000];
+		st->dcd_sum0 += 8 * 
+			hweight8(st->dcd_shreg & 0x0c) - 
+				!!(st->dcd_shreg & 0x10);
+	}
+	st->last_sample = curbit;
+	hdlcdrv_channelbit(&sm->hdrv, st->last_sample);
+	if ((--st->dcd_time) <= 0) {
+		hdlcdrv_setdcd(&sm->hdrv, (st->dcd_sum0 + 
+					   st->dcd_sum1 + 
+					   st->dcd_sum2) < 0);
+		st->dcd_sum2 = st->dcd_sum1;
+		st->dcd_sum1 = st->dcd_sum0;
+		st->dcd_sum0 = 2; /* slight bias */
+		st->dcd_time = 240;
+	}
+	if (st->bit_pll >= 0x10000) {
+		st->bit_pll &= 0xffffu;
+		st->descram = (st->descram << 1) | curbit;
+		descx = st->descram ^ (st->descram >> 1);
+			descx ^= ((descx >> DESCRAM_TAPSH1) ^
+				  (descx >> DESCRAM_TAPSH2));
+			st->shreg >>= 1;
+			st->shreg |= (!(descx & 1)) << 16;
+			if (st->shreg & 1) {
+				hdlcdrv_putbits(&sm->hdrv, st->shreg >> 1);
+				st->shreg = 0x10000;
+			}
+			diag_trigger(sm);
+	}
+	diag_add_one(sm, ((short)(*buf - 0x80)) << 8);
+#endif
 	
 	diag_trigger(sm);
 	diag_add_constellation(sm, (vali*COS(st->phase)+ valq*SIN(st->phase)) >> 13, 

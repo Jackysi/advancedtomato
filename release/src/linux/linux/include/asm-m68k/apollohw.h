@@ -44,6 +44,17 @@ struct SCN2681 {
 
 };
 
+#if 0
+struct mc146818 {
+
+	unsigned int second1:4, second2:4, alarm_second1:4, alarm_second2:4,
+		     minute1:4, minute2:4, alarm_minute1:4, alarm_minute2:4;
+	unsigned int hours1:4, hours2:4, alarm_hours1:4, alarm_hours2:4,
+		     day_of_week1:4, day_of_week2:4, day_of_month1:4, day_of_month2:4;
+	unsigned int month1:4, month2:4, year1:4, year2:4, :16;
+
+};
+#endif
 
 struct mc146818 {
         unsigned char second, alarm_second;
@@ -89,10 +100,5 @@ extern u_long timer_physaddr;
 #define addr_xlat_map ((unsigned short *)(IO_BASE + 0x17000))
 
 #define isaIO2mem(x) (((((x) & 0x3f8)  << 7) | (((x) & 0xfc00) >> 6) | ((x) & 0x7)) + 0x40000 + IO_BASE)
-
-#define inb(addr) (*((volatile unsigned char *)(addr)))
-#define outb(val,addr) (*((volatile unsigned char *)(addr)) = (val))
-#define inw(addr) (*((volatile unsigned short *)(addr)))
-#define outw(val,addr) (*((volatile unsigned short *)(addr)) = (val))
 
 #endif

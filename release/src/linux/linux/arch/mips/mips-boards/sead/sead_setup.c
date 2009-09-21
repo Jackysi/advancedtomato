@@ -22,6 +22,7 @@
 #include <linux/sched.h>
 #include <linux/mc146818rtc.h>
 #include <linux/ioport.h>
+#include <linux/console.h>
 
 #include <asm/cpu.h>
 #include <asm/bootinfo.h>
@@ -31,11 +32,6 @@
 #include <asm/mips-boards/seadint.h>
 #include <asm/time.h>
 
-#if defined(CONFIG_SERIAL_CONSOLE) || defined(CONFIG_PROM_CONSOLE)
-extern void console_setup(char *, int *);
-char serial_console[20];
-#endif
-
 extern void mips_reboot_setup(void);
 extern void mips_time_init(void);
 extern void mips_timer_setup(struct irqaction *irq);
@@ -43,10 +39,6 @@ extern void mips_timer_setup(struct irqaction *irq);
 const char *get_system_type(void)
 {
 	return "MIPS SEAD";
-}
-
-void __init bus_error_init(void)
-{
 }
 
 void __init sead_setup(void)
@@ -58,21 +50,27 @@ void __init sead_setup(void)
 #ifdef CONFIG_SERIAL_CONSOLE
 	argptr = prom_getcmdline();
 	if ((argptr = strstr(argptr, "console=ttyS0")) == NULL) {
-		int i = 0;
+		struct console_cmdline *c = &console_cmdline[0];
 		char *s = prom_getenv("modetty0");
-		while(s[i] >= '0' && s[i] <= '9')
+		int i = 0;
+		static char options[8];
+		while (s && s[i] >= '0' && s[i] <= '9') {
+			options[i] = s[i];
 			i++;
-		strcpy(serial_console, "ttyS0,");
-		strncpy(serial_console + 6, s, i);
-		prom_printf("Config serial console: %s\n", serial_console);
-		console_setup(serial_console, NULL);
+		}
+		options[i] = 0;
+		strcpy(c->name, "ttyS");
+		c->options = s ? options : NULL;
+		c->index = 0;
+		prom_printf("Serial console: %s%d %s\n",
+			    c->name, c->index, options);
 	}
 #endif
 
 	argptr = prom_getcmdline();
 
 	if ((argptr = strstr(argptr, "nofpu")) != NULL)
-		mips_cpu.options &= ~MIPS_CPU_FPU;
+		cpu_data[0].options &= ~MIPS_CPU_FPU;
 
 	board_time_init = mips_time_init;
 	board_timer_setup = mips_timer_setup;

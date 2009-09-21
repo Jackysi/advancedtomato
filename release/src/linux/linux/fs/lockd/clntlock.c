@@ -131,6 +131,11 @@ nlmclnt_grant(struct nlm_lock *lock)
  * server crash.
  */
 
+/*
+ * Mark the locks for reclaiming.
+ * FIXME: In 2.5 we don't want to iterate through any global file_lock_list.
+ *        Maintain NLM lock reclaiming lists in the nlm_host instead.
+ */
 static
 void nlmclnt_mark_reclaim(struct nlm_host *host)
 {
@@ -183,7 +188,8 @@ nlmclnt_recovery(struct nlm_host *host, u32 newstate)
 		nlmclnt_prepare_reclaim(host, newstate);
 		nlm_get_host(host);
 		MOD_INC_USE_COUNT;
-		kernel_thread(reclaimer, host, CLONE_SIGNAL);
+		if (kernel_thread(reclaimer, host, CLONE_SIGNAL) < 0)
+			MOD_DEC_USE_COUNT;
 	}
 }
 

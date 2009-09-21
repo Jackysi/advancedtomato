@@ -1,7 +1,4 @@
 /*
- * BK Id: SCCS/s.linux_logo.h 1.7 05/17/01 18:14:24 cort
- */
-/*
  * include/asm-ppc/linux_logo.h: A linux logo to be displayed on boot
  * (pinched from the sparc port).
  *
@@ -14,7 +11,7 @@
  * (i.e. linux_logo_{red,green,blue}[0] is color 0x20)
  */
 #ifdef __KERNEL__
- 
+
 #include <linux/init.h>
 
 #define linux_logo_banner "Linux/PPC version " UTS_RELEASE

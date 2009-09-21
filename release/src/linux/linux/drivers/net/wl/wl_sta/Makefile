@@ -1,7 +1,7 @@
 #
 # Makefile for the Broadcom wl driver
 #
-# Copyright 2005, Broadcom Corporation
+# Copyright 2006, Broadcom Corporation
 # All Rights Reserved.
 # 
 # THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
@@ -9,13 +9,13 @@
 # SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
 # FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
 #
-# $Id: Makefile,v 1.4 2005/03/07 08:35:32 kanki Exp $
+# $Id: Makefile,v 1.1.1.1 2007/03/20 12:21:04 roly Exp $
 #
 
-WL_PREFIX := sta
+wl_suffix := sta
 
 CONFIG_WL_CONF := $(CONFIG_WL_STA)
 
-O_TARGET := wl_$(WL_PREFIX).o
+O_TARGET := wl_$(wl_suffix).o
 
 include ../wl_generic.mk

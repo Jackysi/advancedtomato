@@ -18,6 +18,7 @@
 #include <linux/ptrace.h>
 #include <linux/timer.h>
 #include <linux/mm.h>
+#include <linux/module.h>
 #include <linux/smp.h>
 #include <linux/smp_lock.h>
 #include <linux/spinlock.h>
@@ -34,16 +35,9 @@
 #include <asm/atomic.h>
 #include <asm/smp.h>
 #include <asm/pdc.h>
+#include <asm/pdc_chassis.h>
 
 #include "../math-emu/math-emu.h"	/* for handle_fpe() */
-
-#ifdef CONFIG_KWDB
-#include <kdb/break.h>		/* for BI2_KGDB_GDB */
-#include <kdb/kgdb_types.h>	/* for __() */
-#include <kdb/save_state.h>	/* for struct save_state */
-#include <kdb/kgdb_machine.h>	/* for pt_regs_to_ssp and ssp_to_pt_regs */
-#include <kdb/trap.h>		/* for I_BRK_INST */
-#endif /* CONFIG_KWDB */
 
 #define PRINT_USER_FAULTS /* (turn this on if you want user faults to be */
 			  /*  dumped to the console via printk)          */
@@ -65,6 +59,99 @@ static int printbinary(char *buf, unsigned long x, int nbits)
 #else
 #define RFMT "%08lx"
 #endif
+
+static int kstack_depth_to_print = 24;
+extern struct module *module_list;
+extern struct module kernel_module;
+
+static inline int kernel_text_address(unsigned long addr)
+{
+#ifdef CONFIG_MODULES
+	int retval = 0;
+	struct module *mod;
+#endif
+	extern char _stext, _etext;
+
+	if (addr >= (unsigned long) &_stext &&
+	    addr <= (unsigned long) &_etext)
+		return 1;
+
+#ifdef CONFIG_MODULES
+	for (mod = module_list; mod != &kernel_module; mod = mod->next) {
+		/* mod_bound tests for addr being inside the vmalloc'ed
+		 * module area. Of course it'd be better to test only
+		 * for the .text subset... */
+		if (mod_bound(addr, 0, mod)) {
+			retval = 1;
+			break;
+		}
+	}
+	return retval;
+#endif
+}
+
+
+void show_trace(unsigned long * stack)
+{
+	unsigned long *startstack;
+	unsigned long addr;
+	int i;
+
+	startstack = (unsigned long *)((unsigned long)stack & ~(THREAD_SIZE - 1));
+	i = 1;
+	printk("Kernel addresses on the stack:\n");
+	while (stack >= startstack) {
+		addr = *stack--;
+		if (kernel_text_address(addr)) {
+			printk(" [<" RFMT ">] ", addr);
+			if ((i & 0x03) == 0)
+				printk("\n");
+			i++;
+		}
+	}
+	printk("\n");
+}
+
+void show_trace_task(struct task_struct *tsk)
+{
+	show_trace((unsigned long *)tsk->thread.regs.ksp);
+}
+
+void show_stack(unsigned long * sp)
+{
+	unsigned long *stack;
+	int i;
+
+	/*
+	 * debugging aid: "show_stack(NULL);" prints the
+	 * back trace for this cpu.
+	 */
+	if (sp==NULL)
+		sp = (unsigned long*)&sp;
+
+	stack = sp;
+	printk("\n" KERN_CRIT "Stack Dump:\n");
+	printk(KERN_CRIT " " RFMT ":  ", (unsigned long) stack);
+	for (i=0; i < kstack_depth_to_print; i++) {
+		if (((long) stack & (THREAD_SIZE-1)) == 0)
+			break;
+		if (i && ((i & 0x03) == 0))
+			printk("\n" KERN_CRIT " " RFMT ":  ",
+				(unsigned long) stack);
+		printk(RFMT " ", *stack--);
+	}
+	printk("\n" KERN_CRIT "\n");
+	show_trace(sp);
+}
+
+/*
+ * The architecture-independent backtrace generator
+ */
+void dump_stack(void)
+{
+	show_stack(0);
+}
+
 
 void show_regs(struct pt_regs *regs)
 {
@@ -121,82 +208,6 @@ void show_regs(struct pt_regs *regs)
 }
 
 
-static void dump_stack(unsigned long from, unsigned long to, int istackflag)
-{
-	unsigned int *fromptr;
-	unsigned int *toptr;
-
-	fromptr = (unsigned int *)from;
-	toptr = (unsigned int *)to;
-
-	printk("\n");
-	printk(KERN_CRIT "Dumping %sStack from 0x%p to 0x%p:\n",
-			istackflag ? "Interrupt " : "",
-			fromptr, toptr);
-
-	while (fromptr < toptr) {
-		printk(KERN_CRIT "%04lx %08x %08x %08x %08x %08x %08x %08x %08x\n",
-		    ((unsigned long)fromptr) & 0xffff,
-		    fromptr[0], fromptr[1], fromptr[2], fromptr[3],
-		    fromptr[4], fromptr[5], fromptr[6], fromptr[7]);
-		fromptr += 8;
-	}
-}
-
-
-void show_stack(struct pt_regs *regs)
-{
-	/* If regs->sr[7] == 0, we are on a kernel stack */
-	if (regs->sr[7] == 0) {
-
-		unsigned long sp = regs->gr[30];
-		unsigned long cr30;
-		unsigned long cr31;
-		unsigned long stack_start;
-		struct pt_regs *int_regs;
-
-		cr30 = mfctl(30);
-		cr31 = mfctl(31);
-		stack_start = sp & ~(ISTACK_SIZE - 1);
-		if (stack_start == cr31) {
-		    /*
-		     * We are on the interrupt stack, get the stack
-		     * pointer from the first pt_regs structure on
-		     * the interrupt stack, so we can dump the task
-		     * stack first.
-		     */
-
-		    int_regs = (struct pt_regs *)cr31;
-		    sp = int_regs->gr[30];
-		    stack_start = sp & ~(INIT_TASK_SIZE - 1);
-		    if (stack_start != cr30) {
-			printk(KERN_CRIT "WARNING! Interrupt-Stack pointer and cr30 do not correspond!\n");
-			printk(KERN_CRIT "Dumping virtual address stack instead\n");
-			dump_stack((unsigned long)__va(stack_start), (unsigned long)__va(sp), 0);
-		    } else {
-			dump_stack(stack_start, sp, 0);
-		    };
-
-		    printk("\n\n" KERN_DEBUG "Registers at Interrupt:\n");
-		    show_regs(int_regs);
-
-		    /* Now dump the interrupt stack */
-
-		    sp = regs->gr[30];
-		    stack_start = sp & ~(ISTACK_SIZE - 1);
-		    dump_stack(stack_start,sp,1);
-		}
-		else
-		{
-		    /* Stack Dump! */
-		    printk(KERN_CRIT "WARNING! Stack pointer and cr30 do not correspond!\n");
-		    printk(KERN_CRIT "Dumping virtual address stack instead\n");
-		    dump_stack((unsigned long)__va(stack_start), (unsigned long)__va(sp), 0);
-		}
-	}
-}
-
-
 void die_if_kernel(char *str, struct pt_regs *regs, long err)
 {
 	if (user_mode(regs)) {
@@ -204,6 +215,7 @@ void die_if_kernel(char *str, struct pt_regs *regs, long err)
 		if (err == 0)
 			return; /* STFU */
 
+		/* XXX for debugging only */
 		printk(KERN_DEBUG "%s (pid %d): %s (code %ld)\n",
 			current->comm, current->pid, str, err);
 		show_regs(regs);
@@ -257,9 +269,6 @@ void handle_gdb_break(struct pt_regs *regs, int wot)
 void handle_break(unsigned iir, struct pt_regs *regs)
 {
 	struct siginfo si;
-#ifdef CONFIG_KWDB
-	struct save_state ssp;
-#endif /* CONFIG_KWDB */   
 
 	switch(iir) {
 	case 0x00:
@@ -281,26 +290,6 @@ void handle_break(unsigned iir, struct pt_regs *regs)
 		die_if_kernel("Breakpoint", regs, 0);
 		handle_gdb_break(regs, TRAP_BRKPT);
 		break;
-
-#ifdef CONFIG_KWDB
-	case KGDB_BREAK_INSN:
-		mtctl(0, 15);
-		pt_regs_to_ssp(regs, &ssp);
-		kgdb_trap(I_BRK_INST, &ssp, 1);
-		ssp_to_pt_regs(&ssp, regs);
-		break;
-
-	case KGDB_INIT_BREAK_INSN:
-		mtctl(0, 15);
-		pt_regs_to_ssp(regs, &ssp);
-		kgdb_trap(I_BRK_INST, &ssp, 1);
-		ssp_to_pt_regs(&ssp, regs);
-
-		/* Advance pcoq to skip break */
-		regs->iaoq[0] = regs->iaoq[1];
-		regs->iaoq[1] += 4;
-		break;
-#endif /* CONFIG_KWDB */
 
 	default:
 #ifdef PRINT_USER_FAULTS
@@ -330,20 +319,6 @@ static void default_trap(int code, struct pt_regs *regs)
 }
 
 void (*cpu_lpmc) (int code, struct pt_regs *regs) = default_trap;
-
-
-#ifdef CONFIG_KWDB
-int debug_call (void)
-{
-    printk (KERN_DEBUG "Debug call.\n");
-    return 0;
-}
-
-int debug_call_leaf (void)
-{
-    return 0;
-}
-#endif /* CONFIG_KWDB */
 
 
 void transfer_pim_to_trap_frame(struct pt_regs *regs)
@@ -422,7 +397,7 @@ void transfer_pim_to_trap_frame(struct pt_regs *regs)
 
 
 /*
- * This routine handles page faults.  It determines the address,
+ * This routine handles various exception codes.  It determines the address,
  * and the problem, and then passes it off to one of the appropriate
  * routines.
  */
@@ -441,10 +416,20 @@ void parisc_terminate(char *msg, struct pt_regs *regs, int code, unsigned long o
 	if (!console_drivers)
 		pdc_console_restart();
 
-	if (code == 1)
-	    transfer_pim_to_trap_frame(regs);
 
-	show_stack(regs);
+	/* Not all switch paths will gutter the processor... */
+	switch(code){
+
+	case 1:
+		transfer_pim_to_trap_frame(regs);
+		break;
+	    
+	default:
+		/* Fall through */
+		break;
+	}
+
+	show_stack((unsigned long *)regs->gr[30]);
 
 	printk("\n");
 	printk(KERN_CRIT "%s: Code=%d regs=%p (Addr=" RFMT ")\n",
@@ -458,29 +443,27 @@ void parisc_terminate(char *msg, struct pt_regs *regs, int code, unsigned long o
 	 * system will shut down immediately right here. */
 	pdc_soft_power_button(0);
 	
+	/* Gutter the processor... */
 	for(;;)
 	    ;
 }
+
 
 void handle_interruption(int code, struct pt_regs *regs)
 {
 	unsigned long fault_address = 0;
 	unsigned long fault_space = 0;
 	struct siginfo si;
-#ifdef CONFIG_KWDB
-	struct save_state ssp;
-#endif /* CONFIG_KWDB */   
-
-	if (code == 1)
-	    pdc_console_restart();  /* switch back to pdc if HPMC */
-	else
-	    sti();
-
 
 	switch(code) {
 
 	case  1:
 		/* High-priority machine check (HPMC) */
+		pdc_console_restart();  /* switch back to pdc if HPMC */
+
+		/* set up a new led state on systems shipped with a LED State panel */
+		pdc_chassis_send_status(PDC_CHASSIS_DIRECT_HPMC);
+
 		parisc_terminate("High Priority Machine Check (HPMC)",
 				regs, code, 0);
 		/* NOT REACHED */
@@ -500,6 +483,9 @@ void handle_interruption(int code, struct pt_regs *regs)
 
 	case  5:
 		/* Low-priority machine check */
+
+		pdc_chassis_send_status(PDC_CHASSIS_DIRECT_LPMC);
+
 		flush_all_caches();
 		cpu_lpmc(5, regs);
 		return;
@@ -548,11 +534,31 @@ void handle_interruption(int code, struct pt_regs *regs)
 
 		die_if_kernel("Privileged register usage", regs, code);
 		si.si_code = ILL_PRVREG;
+		/* Fall thru */
 	give_sigill:
 		si.si_signo = SIGILL;
 		si.si_errno = 0;
 		si.si_addr = (void *) regs->iaoq[0];
 		force_sig_info(SIGILL, &si, current);
+		return;
+
+	case 12:
+		/* Overflow Trap, let the userland signal handler do the cleanup */
+		si.si_signo = SIGFPE;
+		si.si_code = FPE_INTOVF;
+		si.si_addr = (void *) regs->iaoq[0];
+		force_sig_info(SIGFPE, &si, current);
+		return;
+	
+	case 13:
+		/* Conditional Trap 
+		   The condition succees in an instruction which traps on condition  */
+		si.si_signo = SIGFPE;
+		/* Set to zero, and let the userspace app figure it out from
+		   the insn pointed to by si_addr */
+		si.si_code = 0;
+		si.si_addr = (void *) regs->iaoq[0];
+		force_sig_info(SIGFPE, &si, current);
 		return;
 
 	case 14:
@@ -561,11 +567,22 @@ void handle_interruption(int code, struct pt_regs *regs)
 		handle_fpe(regs);
 		return;
 
+	case 15: 
+		/* Data TLB miss fault/Data page fault */	
+		/* Fall thru */
+	case 16:
+		/* Non-access instruction TLB miss fault */
+		/* The instruction TLB entry needed for the target address of the FIC
+		   is absent, and hardware can't find it, so we get to cleanup */
+		/* Fall thru */
 	case 17:
 		/* Non-access data TLB miss fault/Non-access data page fault */
 		/* TODO: Still need to add slow path emulation code here */
+		/* TODO: Understand what is meant by the TODO listed 
+		   above this one. (Carlos) */
 		fault_address = regs->ior;
-		parisc_terminate("Non access data tlb fault!",regs,code,fault_address);
+		fault_space = regs->isr;
+		break;
 
 	case 18:
 		/* PCXS only -- later cpu's split this into types 26,27 & 28 */
@@ -575,9 +592,8 @@ void handle_interruption(int code, struct pt_regs *regs)
 			return;
 		}
 		/* Fall Through */
-
-	case 15: /* Data TLB miss fault/Data page fault */
-	case 26: /* PCXL: Data memory access rights trap */
+	case 26: 
+		/* PCXL: Data memory access rights trap */
 		fault_address = regs->ior;
 		fault_space   = regs->isr;
 		break;
@@ -593,7 +609,6 @@ void handle_interruption(int code, struct pt_regs *regs)
 
 	case 25:
 		/* Taken branch trap */
-#ifndef CONFIG_KWDB
 		regs->gr[0] &= ~PSW_T;
 		if (regs->iasq[0])
 			handle_gdb_break(regs, TRAP_BRANCH);
@@ -601,14 +616,6 @@ void handle_interruption(int code, struct pt_regs *regs)
 		 * run.
 		 */
 		return;
-#else
-		/* Kernel debugger: */
-		mtctl(0, 15);
-		pt_regs_to_ssp(regs, &ssp);
-		kgdb_trap(I_TAKEN_BR, &ssp, 1);
-		ssp_to_pt_regs(&ssp, regs);
-		break;
-#endif /* CONFIG_KWDB */
 
 	case  7:  
 		/* Instruction access rights */
@@ -642,7 +649,6 @@ void handle_interruption(int code, struct pt_regs *regs)
 			up_read(&current->mm->mmap_sem);
 		}
 		/* Fall Through */
-
 	case 27: 
 		/* Data memory protection ID trap */
 		die_if_kernel("Protection id trap", regs, code);
@@ -676,6 +682,9 @@ void handle_interruption(int code, struct pt_regs *regs)
 			force_sig_info(SIGBUS, &si, current);
 			return;
 		}
+		
+		pdc_chassis_send_status(PDC_CHASSIS_DIRECT_PANIC);
+
 		parisc_terminate("Unexpected interruption", regs, code, 0);
 		/* NOT REACHED */
 	}
@@ -704,21 +713,15 @@ void handle_interruption(int code, struct pt_regs *regs)
 	     * The kernel should never fault on its own address space.
 	     */
 
-	    if (fault_space == 0)
-		    parisc_terminate("Kernel Fault", regs, code, fault_address);
+	    if (fault_space == 0) {
+		pdc_chassis_send_status(PDC_CHASSIS_DIRECT_PANIC);
+		parisc_terminate("Kernel Fault", regs, code, fault_address);
+		/** NOT REACHED **/
+	    }
 	}
 
-#ifdef CONFIG_KWDB
-	debug_call_leaf ();
-#endif /* CONFIG_KWDB */
-
+	local_irq_enable();
 	do_page_fault(regs, code, fault_address);
-}
-
-
-void show_trace_task(struct task_struct *tsk)
-{
-    	BUG();
 }
 
 

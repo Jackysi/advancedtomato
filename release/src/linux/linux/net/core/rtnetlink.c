@@ -303,7 +303,7 @@ rtnetlink_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh, int *errp)
 		return 0;
 
 	family = ((struct rtgenmsg*)NLMSG_DATA(nlh))->rtgen_family;
-	if (family > NPROTO) {
+	if (family >= NPROTO) {
 		*errp = -EAFNOSUPPORT;
 		return -1;
 	}
@@ -394,7 +394,7 @@ err_inval:
  * Malformed skbs with wrong lengths of messages are discarded silently.
  */
 
-extern __inline__ int rtnetlink_rcv_skb(struct sk_buff *skb)
+static inline int rtnetlink_rcv_skb(struct sk_buff *skb)
 {
 	int err;
 	struct nlmsghdr * nlh;

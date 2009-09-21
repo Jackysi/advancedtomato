@@ -69,7 +69,11 @@
 
 /* Vertex/indirect buffer size
  */
+#if 1
 #define R128_BUFFER_SIZE		16384
+#else
+#define R128_BUFFER_SIZE		(128 * 1024)
+#endif
 
 /* Byte offsets for indirect buffer data
  */

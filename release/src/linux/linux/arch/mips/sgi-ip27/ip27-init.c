@@ -13,6 +13,8 @@
 #include <linux/sched.h>
 #include <linux/mmzone.h>	/* for numnodes */
 #include <linux/mm.h>
+#include <linux/module.h>
+
 #include <asm/cpu.h>
 #include <asm/pgalloc.h>
 #include <asm/pgtable.h>
@@ -55,10 +57,14 @@ static atomic_t numstarted = ATOMIC_INIT(1);
 static int router_distance;
 nasid_t master_nasid = INVALID_NASID;
 
+EXPORT_SYMBOL(master_nasid);
+
 cnodeid_t	nasid_to_compact_node[MAX_NASIDS];
 nasid_t		compact_to_nasid_node[MAX_COMPACT_NODES];
 cnodeid_t	cpuid_to_compact_node[MAXCPUS];
 char		node_distances[MAX_COMPACT_NODES][MAX_COMPACT_NODES];
+
+EXPORT_SYMBOL(nasid_to_compact_node);
 
 hubreg_t get_region(cnodeid_t cnode)
 {
@@ -273,10 +279,21 @@ void intr_clear_all(nasid_t nasid)
 void sn_mp_setup(void)
 {
 	cnodeid_t	cnode;
+#if 0
+	cpuid_t		cpu;
+#endif
 
 	for (cnode = 0; cnode < numnodes; cnode++) {
+#if 0
+		init_platform_nodepda();
+#endif
 		intr_clear_all(COMPACT_TO_NASID_NODEID(cnode));
 	}
+#if 0
+	for (cpu = 0; cpu < maxcpus; cpu++) {
+		init_platform_pda();
+	}
+#endif
 }
 
 void per_hub_init(cnodeid_t cnode)
@@ -321,8 +338,7 @@ void per_hub_init(cnodeid_t cnode)
 			memcpy((void *)(KSEG0 + 0x100), (void *) KSEG0, 0x80);
 			memcpy((void *)(KSEG0 + 0x180), &except_vec3_generic,
 								0x100);
-			flush_cache_l1();
-			flush_cache_l2();
+			__flush_cache_all();
 		}
 #endif
 	}
@@ -349,6 +365,9 @@ void per_cpu_init(void)
 	cnodeid_t cnode = get_compact_nodeid();
 
 	TLBMISS_HANDLER_SETUP();
+#if 0
+	intr_init();
+#endif
 	clear_c0_status(ST0_IM);
 	per_hub_init(cnode);
 	cpu_time_init();
@@ -356,6 +375,9 @@ void per_cpu_init(void)
 		install_cpuintr(cpu);
 	/* Install our NMI handler if symmon hasn't installed one. */
 	install_cpu_nmi_handler(cputoslice(cpu));
+#if 0
+	install_tlbintr(cpu);
+#endif
 	set_c0_status(SRB_DEV0 | SRB_DEV1);
 	if (is_slave) {
 		load_mmu();
@@ -407,13 +429,26 @@ void __init start_secondary(void)
 	extern atomic_t smp_commenced;
 
 	CPUMASK_CLRB(boot_barrier, getcpuid());	/* needs atomicity */
+	cpu_probe();
 	per_cpu_init();
 	per_cpu_trap_init();
+#if 0
+	ecc_init();
+	bte_lateinit();
+	init_mfhi_war();
+#endif
 	local_flush_tlb_all();
-	flush_cache_l1();
-	flush_cache_l2();
+	__flush_cache_all();
 
 	local_irq_enable();
+#if 0
+	/*
+	 * Get our bogomips.
+	 */
+        calibrate_delay();
+        smp_store_cpu_info(cpuid);
+	prom_smp_finish();
+#endif
 	printk("Slave cpu booted successfully\n");
 	CPUMASK_SETB(cpu_online_map, cpu);
 	atomic_inc(&cpus_booted);
@@ -437,11 +472,14 @@ __init void allowboot(void)
 	int		num_cpus = 0;
 	cpuid_t		cpu, mycpuid = getcpuid();
 	cnodeid_t	cnode;
-	extern void	smp_bootstrap(void);
 
 	sn_mp_setup();
 	/* Master has already done per_cpu_init() */
 	install_cpuintr(smp_processor_id());
+#if 0
+	bte_lateinit();
+	ecc_init();
+#endif
 
 	replicate_kernel_text(numnodes);
 	boot_barrier = boot_cpumask;
@@ -510,6 +548,14 @@ __init void allowboot(void)
 		CPUMASK_SETB(cpu_online_map, cpu);
 		num_cpus++;
 
+		/*
+		 * Wait this cpu to start up and initialize its hub,
+		 * and discover the io devices it will control.
+		 *
+		 * XXX: We really want to fire up launch all the CPUs
+		 * at once.  We have to preserve the order of the
+		 * devices on the bridges first though.
+		 */
 		while (atomic_read(&numstarted) != num_cpus);
 	}
 
@@ -517,7 +563,17 @@ __init void allowboot(void)
 	Wait logic goes here.
 #endif
 	for (cnode = 0; cnode < numnodes; cnode++) {
+#if 0
+		if (cnodetocpu(cnode) == -1) {
+			printk("Initializing headless hub,cnode %d", cnode);
+			per_hub_init(cnode);
+		}
+#endif
 	}
+#if 0
+	cpu_io_setup();
+	init_mfhi_war();
+#endif
 	smp_num_cpus = num_cpus;
 }
 
@@ -528,12 +584,14 @@ void __init smp_boot_cpus(void)
 	init_new_context(current, &init_mm);
 	current->processor = 0;
 	init_idle();
+	/* smp_tune_scheduling();  XXX */
 	allowboot();
 }
 
 #else /* CONFIG_SMP */
 void __init start_secondary(void)
 {
+	/* XXX Why do we need this empty definition at all?  */
 }
 #endif /* CONFIG_SMP */
 
@@ -726,4 +784,94 @@ dump_topology(void)
 	}
 }
 
+#if 0
+#define		brd_widgetnum	brd_slot
+#define NODE_OFFSET_TO_KLINFO(n,off)    ((klinfo_t*) TO_NODE_CAC(n,off))
+void
+dump_klcfg(void)
+{
+	cnodeid_t       cnode;
+	int i;
+	nasid_t         nasid;
+	lboard_t        *lbptr;
+	gda_t           *gdap;
+
+	gdap = (gda_t *)GDA_ADDR(get_nasid());
+	if (gdap->g_magic != GDA_MAGIC) {
+		printk("dumpklcfg_cmd: Invalid GDA MAGIC\n");
+		return;
+	}
+
+	for (cnode = 0; cnode < MAX_COMPACT_NODES; cnode ++) {
+		nasid = gdap->g_nasidtable[cnode];
+
+		if (nasid == INVALID_NASID)
+			continue;
+
+		printk("\nDumpping klconfig Nasid %d:\n", nasid);
+
+		lbptr = KL_CONFIG_INFO(nasid);
+
+		while (lbptr) {
+			printk("    %s, Nasid %d, Module %d, widget 0x%x, partition %d, NIC 0x%x lboard 0x%lx",
+				"board name here", /* BOARD_NAME(lbptr->brd_type), */
+				lbptr->brd_nasid, lbptr->brd_module,
+				lbptr->brd_widgetnum,
+				lbptr->brd_partition,
+				(lbptr->brd_nic), lbptr);
+			if (lbptr->brd_flags & DUPLICATE_BOARD)
+				printk(" -D");
+			printk("\n");
+			for (i = 0; i < lbptr->brd_numcompts; i++) {
+				klinfo_t *kli;
+				kli = NODE_OFFSET_TO_KLINFO(NASID_GET(lbptr), lbptr->brd_compts[i]);
+				printk("        type %2d, flags 0x%04x, diagval %3d, physid %4d, virtid %2d: %s\n",
+					kli->struct_type,
+					kli->flags,
+					kli->diagval,
+					kli->physid,
+					kli->virtid,
+					"comp. name here");
+					/* COMPONENT_NAME(kli->struct_type)); */
+			}
+			lbptr = KLCF_NEXT(lbptr);
+		}
+	}
+	printk("\n");
+
+	/* Useful to print router maps also */
+
+	for (cnode = 0; cnode < MAX_COMPACT_NODES; cnode ++) {
+		klrou_t *kr;
+		int i;
+
+        	nasid = gdap->g_nasidtable[cnode];
+        	if (nasid == INVALID_NASID)
+            		continue;
+        	lbptr = KL_CONFIG_INFO(nasid);
+
+        	while (lbptr) {
+
+			lbptr = find_lboard_class(lbptr, KLCLASS_ROUTER);
+			if(!lbptr)
+				break;
+			if (!KL_CONFIG_DUPLICATE_BOARD(lbptr)) {
+				printk("%llx -> \n", lbptr->brd_nic);
+				kr = (klrou_t *)find_first_component(lbptr,
+					KLSTRUCT_ROU);
+				for (i = 1; i <= MAX_ROUTER_PORTS; i++) {
+					printk("[%d, %llx]; ",
+						kr->rou_port[i].port_nasid,
+						kr->rou_port[i].port_offset);
+				}
+				printk("\n");
+			}
+			lbptr = KLCF_NEXT(lbptr);
+        	}
+        	printk("\n");
+    	}
+
+	dump_topology();
+}
+#endif
 

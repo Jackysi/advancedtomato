@@ -1,4 +1,4 @@
-/* $Id: sbus.h,v 1.1.1.4 2003/10/14 08:09:22 sparq Exp $
+/* $Id: sbus.h,v 1.22 2000/02/18 13:50:50 davem Exp $
  * sbus.h:  Defines for the Sun SBus.
  *
  * Copyright (C) 1995 David S. Miller (davem@caip.rutgers.edu)
@@ -82,6 +82,7 @@ extern struct sbus_bus *sbus_root;
 extern __inline__ int
 sbus_is_slave(struct sbus_dev *dev)
 {
+	/* XXX Have to write this for sun4c's */
 	return 0;
 }
 
@@ -119,5 +120,16 @@ extern void sbus_unmap_sg(struct sbus_dev *, struct scatterlist *, int, int);
 /* Finally, allow explicit synchronization of streamable mappings. */
 extern void sbus_dma_sync_single(struct sbus_dev *, dma_addr_t, size_t, int);
 extern void sbus_dma_sync_sg(struct sbus_dev *, struct scatterlist *, int, int);
+
+/* Eric Brower (ebrower@usa.net)
+ * Translate SBus interrupt levels to ino values--
+ * this is used when converting sbus "interrupts" OBP 
+ * node values to "intr" node values, and is platform 
+ * dependent.  If only we could call OBP with 
+ * "sbus-intr>cpu (sbint -- ino)" from kernel...
+ * See .../drivers/sbus/sbus.c for details.
+ */
+BTFIXUPDEF_CALL(unsigned int, sbint_to_irq, struct sbus_dev *sdev, unsigned int)
+#define sbint_to_irq(sdev, sbint) BTFIXUP_CALL(sbint_to_irq)(sdev, sbint)
 
 #endif /* !(_SPARC_SBUS_H) */

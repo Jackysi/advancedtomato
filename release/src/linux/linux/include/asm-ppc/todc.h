@@ -7,12 +7,10 @@
  * Author: Mark A. Greer
  *         mgreer@mvista.com
  *
- * Copyright 2001 MontaVista Software Inc.
- *
- * This program is free software; you can redistribute  it and/or modify it
- * under  the terms of  the GNU General  Public License as published by the
- * Free Software Foundation;  either version 2 of the  License, or (at your
- * option) any later version.
+ * 2001 (c) MontaVista, Software, Inc.  This file is licensed under
+ * the terms of the GNU General Public License version 2.  This program
+ * is licensed "as is" without any warranty of any kind, whether express
+ * or implied.
  */
 
 /*
@@ -352,8 +350,8 @@ typedef struct {
 #define	TODC_TYPE_MC146818_SECONDS		0x00
 #define	TODC_TYPE_MC146818_CNTL_B		0x0a
 #define	TODC_TYPE_MC146818_CNTL_A		0x0b	/* control_a R/W regs */
-#define	TODC_TYPE_MC146818_WATCHDOG		0x0c
-#define	TODC_TYPE_MC146818_INTERRUPTS		0x0d
+#define	TODC_TYPE_MC146818_WATCHDOG		0
+#define	TODC_TYPE_MC146818_INTERRUPTS		0x0c
 #define	TODC_TYPE_MC146818_ALARM_DATE		0xff
 #define	TODC_TYPE_MC146818_ALARM_HOUR		0x05
 #define	TODC_TYPE_MC146818_ALARM_MINUTES	0x03

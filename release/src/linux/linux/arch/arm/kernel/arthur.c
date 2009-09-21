@@ -43,20 +43,48 @@ static unsigned long arthur_to_linux_signals[32] = {
 	24,	25,	26,	27,	28,	29,	30,	31
 };
 
-static unsigned long linux_to_arthur_signals[32] = {
-	0,		-1,		ARTHUR_SIGINT,	-1,
-       	ARTHUR_SIGILL,	5,		ARTHUR_SIGABRT,	7,
-	ARTHUR_SIGFPE,	9,		ARTHUR_SIGUSR1,	ARTHUR_SIGSEGV,	
-	ARTHUR_SIGUSR2,	13,		14,		ARTHUR_SIGTERM,
-	16,		17,		18,		19,
-	20,		21,		22,		23,
-	24,		25,		26,		27,
-	28,		29,		30,		31
+/*
+ * Linux to Arthur signal map.
+ */
+static unsigned long arthur_invmap[32] = {
+	[0]		= 0,
+	[SIGHUP]	= -1,
+	[SIGINT]	= ARTHUR_SIGINT,
+	[SIGQUIT]	= -1,
+	[SIGILL]	= ARTHUR_SIGILL,
+	[SIGTRAP]	= 5,
+	[SIGABRT]	= ARTHUR_SIGABRT,
+	[SIGBUS]	= 7,
+	[SIGFPE]	= ARTHUR_SIGFPE,
+	[SIGKILL]	= 9,
+	[SIGUSR1]	= ARTHUR_SIGUSR1,
+	[SIGSEGV]	= ARTHUR_SIGSEGV,	
+	[SIGUSR2]	= ARTHUR_SIGUSR2,
+	[SIGPIPE]	= 13,
+	[SIGALRM]	= 14,
+	[SIGTERM]	= ARTHUR_SIGTERM,
+	[SIGSTKFLT]	= 16,
+	[SIGCHLD]	= 17,
+	[SIGCONT]	= 18,
+	[SIGSTOP]	= 19,
+	[SIGTSTP]	= 20,
+	[SIGTTIN]	= 21,
+	[SIGTTOU]	= 22,
+	[SIGURG]	= 23,
+	[SIGXCPU]	= 24,
+	[SIGXFSZ]	= 25,
+	[SIGVTALRM]	= 26,
+	[SIGPROF]	= 27,
+	[SIGWINCH]	= 28,
+	[SIGIO]		= 29,
+	[SIGPWR]	= 30,
+	[SIGSYS]	= 31
 };
 
 static void arthur_lcall7(int nr, struct pt_regs *regs)
 {
 	struct siginfo info;
+
 	info.si_signo = SIGSWI;
 	info.si_errno = nr;
 	/* Bounce it to the emulator */
@@ -64,13 +92,13 @@ static void arthur_lcall7(int nr, struct pt_regs *regs)
 }
 
 static struct exec_domain arthur_exec_domain = {
-	"Arthur",	/* name */
-	arthur_lcall7,
-	PER_RISCOS, PER_RISCOS,
-	arthur_to_linux_signals,
-	linux_to_arthur_signals,
-	THIS_MODULE,
-	NULL		/* Nothing after this in the list. */
+	.name		= "Arthur",	/* name */
+	.handler	= arthur_lcall7,
+	.pers_low	= PER_RISCOS,
+	.pers_high	= PER_RISCOS,
+	.signal_map	= arthur_to_linux_signals,
+	.signal_invmap	= arthur_invmap,
+	.module		= THIS_MODULE,
 };
 
 /*
@@ -78,15 +106,18 @@ static struct exec_domain arthur_exec_domain = {
  * processes are using it.
  */
 
-int __init arthur_init(void)
+static int __init arthur_init(void)
 {
 	return register_exec_domain(&arthur_exec_domain);
 }
 
-void __exit arthur_exit(void)
+static void __exit arthur_exit(void)
 {
 	unregister_exec_domain(&arthur_exec_domain);
 }
 
 module_init(arthur_init);
 module_exit(arthur_exit);
+
+MODULE_AUTHOR("Philip Blundell");
+MODULE_LICENSE("GPL");

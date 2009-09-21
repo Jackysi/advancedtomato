@@ -312,6 +312,9 @@ struct cs_card {
 	/* The cs461x has a certain amount of cross channel interaction
 	   so we use a single per card lock */
 	spinlock_t lock;
+	
+	/* Keep AC97 sane */
+	spinlock_t ac97_lock;
 
 	/* mixer use count */
 	atomic_t mixer_use_cnt;
@@ -947,8 +950,8 @@ static void cs_play_setup(struct cs_state *state)
 
 struct InitStruct
 {
-    u32 long off;
-    u32 long val;
+    u32 off;
+    u32 val;
 } InitArray[] = { {0x00000040, 0x3fc0000f},
                   {0x0000004c, 0x04800000},
 
@@ -2509,6 +2512,7 @@ static int cs_ioctl(struct inode *inode, struct file *file, unsigned int cmd, un
 		return put_user(SOUND_VERSION, (int *)arg);
 
 	case SNDCTL_DSP_RESET:
+		/* FIXME: spin_lock ? */
 		if (file->f_mode & FMODE_WRITE) {
 			state = (struct cs_state *)card->states[1];
 			if(state)
@@ -3822,11 +3826,12 @@ static /*const*/ struct file_operations cs461x_fops = {
 /* Write AC97 codec registers */
 
 
-static u16 cs_ac97_get(struct ac97_codec *dev, u8 reg)
+static u16 _cs_ac97_get(struct ac97_codec *dev, u8 reg)
 {
 	struct cs_card *card = dev->private_data;
 	int count,loopcnt;
 	unsigned int tmp;
+	u16 ret;
 	
 	/*
 	 *  1. Write ACCAD = Command Address Register = 46Ch for AC97 register address
@@ -3836,7 +3841,6 @@ static u16 cs_ac97_get(struct ac97_codec *dev, u8 reg)
 	 *  5. if DCV not cleared, break and return error
 	 *  6. Read ACSTS = Status Register = 464h, check VSTS bit
 	 */
-
 
 	cs461x_peekBA0(card, BA0_ACSDA);
 
@@ -3928,7 +3932,19 @@ static u16 cs_ac97_get(struct ac97_codec *dev, u8 reg)
 		"cs46xx: cs_ac97_get() reg = 0x%x, val = 0x%x, BA0_ACCAD = 0x%x\n", 
 			reg, cs461x_peekBA0(card, BA0_ACSDA),
 			cs461x_peekBA0(card, BA0_ACCAD)));
-	return(cs461x_peekBA0(card, BA0_ACSDA));
+	ret = cs461x_peekBA0(card, BA0_ACSDA);
+	return ret;
+}
+
+static u16 cs_ac97_get(struct ac97_codec *dev, u8 reg)
+{
+	u16 ret;
+	struct cs_card *card = dev->private_data;
+	
+	spin_lock(&card->ac97_lock);
+	ret = _cs_ac97_get(dev, reg);
+	spin_unlock(&card->ac97_lock);
+	return ret;
 }
 
 static void cs_ac97_set(struct ac97_codec *dev, u8 reg, u16 val)
@@ -3937,10 +3953,13 @@ static void cs_ac97_set(struct ac97_codec *dev, u8 reg, u16 val)
 	int count;
 	int val2 = 0;
 	
+	spin_lock(&card->ac97_lock);
+	
 	if(reg == AC97_CD_VOL)
 	{
-		val2 = cs_ac97_get(dev, AC97_CD_VOL);
+		val2 = _cs_ac97_get(dev, AC97_CD_VOL);
 	}
+	
 	
 	/*
 	 *  1. Write ACCAD = Command Address Register = 46Ch for AC97 register address
@@ -3988,6 +4007,8 @@ static void cs_ac97_set(struct ac97_codec *dev, u8 reg, u16 val)
 		CS_DBGOUT(CS_ERROR, 1, printk(KERN_WARNING 
 			"cs46xx: AC'97 write problem, reg = 0x%x, val = 0x%x\n", reg, val));
 	}
+
+	spin_unlock(&card->ac97_lock);
 
 	/*
 	 *	Adjust power if the mixer is selected/deselected according
@@ -4234,9 +4255,8 @@ static int __init cs_ac97_init(struct cs_card *card)
 		"cs46xx: cs_ac97_init()+\n") );
 
 	for (num_ac97 = 0; num_ac97 < NR_AC97; num_ac97++) {
-		if ((codec = kmalloc(sizeof(struct ac97_codec), GFP_KERNEL)) == NULL)
+		if ((codec = ac97_alloc_codec()) == NULL)
 			return -ENOMEM;
-		memset(codec, 0, sizeof(struct ac97_codec));
 
 		/* initialize some basic codec information, other fields will be filled
 		   in ac97_probe_codec */
@@ -4259,10 +4279,10 @@ static int __init cs_ac97_init(struct cs_card *card)
 
 		eid = cs_ac97_get(codec, AC97_EXTENDED_ID);
 		
-		if(eid==0xFFFFFF)
+		if(eid==0xFFFF)
 		{
 			printk(KERN_WARNING "cs46xx: codec %d not present\n",num_ac97);
-			kfree(codec);
+			ac97_release_codec(codec);
 			break;
 		}
 		
@@ -4270,7 +4290,7 @@ static int __init cs_ac97_init(struct cs_card *card)
 			
 		if ((codec->dev_mixer = register_sound_mixer(&cs_mixer_fops, -1)) < 0) {
 			printk(KERN_ERR "cs46xx: couldn't register mixer!\n");
-			kfree(codec);
+			ac97_release_codec(codec);
 			break;
 		}
 		card->ac97_codec[num_ac97] = codec;
@@ -4303,7 +4323,7 @@ static void cs461x_download_image(struct cs_card *card)
     {
         offset = ClrStat[i].BA1__DestByteOffset;
         count  = ClrStat[i].BA1__SourceSize;
-        for(  temp1 = offset; temp1<(offset+count); temp1+=4 );
+        for(  temp1 = offset; temp1<(offset+count); temp1+=4 )
               writel(0, pBA1+temp1);
     }
 
@@ -5310,6 +5330,7 @@ static int __devinit cs46xx_probe(struct pci_dev *pci_dev,
 	card->irq = pci_dev->irq;
 	card->magic = CS_CARD_MAGIC;
 	spin_lock_init(&card->lock);
+	spin_lock_init(&card->ac97_lock);
 
 	pci_set_master(pci_dev);
 
@@ -5437,7 +5458,7 @@ static int __devinit cs46xx_probe(struct pci_dev *pci_dev,
 			for (j = 0; j < NR_AC97; j++)
 				if (card->ac97_codec[j] != NULL) {
 					unregister_sound_mixer(card->ac97_codec[j]->dev_mixer);
-					kfree (card->ac97_codec[j]);
+					ac97_release_codec(card->ac97_codec[j]);
 				}
 			mdelay(10 * cs_laptop_wait);
 			continue;
@@ -5594,7 +5615,7 @@ static void __devinit cs46xx_remove(struct pci_dev *pci_dev)
 	for (i = 0; i < NR_AC97; i++)
 		if (card->ac97_codec[i] != NULL) {
 			unregister_sound_mixer(card->ac97_codec[i]->dev_mixer);
-			kfree (card->ac97_codec[i]);
+			ac97_release_codec(card->ac97_codec[i]);
 		}
 	unregister_sound_dsp(card->dev_audio);
         if(card->dev_midi)

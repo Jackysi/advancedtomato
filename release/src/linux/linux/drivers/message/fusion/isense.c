@@ -9,9 +9,9 @@
  *  Written By: Steven J. Ralston
  *  (yes I wrote some of the orig. code back in 1991!)
  *  (mailto:sjralston1@netscape.net)
- *  (mailto:Pam.Delaney@lsil.com)
+ *  (mailto:mpt_linux_developer@lsil.com)
  *
- *  $Id: isense.c,v 1.1.1.4 2003/10/14 08:08:16 sparq Exp $
+ *  $Id: isense.c,v 1.34 2003/03/18 22:49:48 pdelaney Exp $
  */
 /*=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=*/
 /*
@@ -56,7 +56,7 @@
 #include <linux/errno.h>
 #include <linux/init.h>
 #include <asm/io.h>
-#if defined(__sparc__)
+#if defined (__sparc__)
 #include <linux/timer.h>
 #endif
 
@@ -66,7 +66,7 @@
 #endif
 
 #define MODULEAUTHOR "Steven J. Ralston"
-#define COPYRIGHT "Copyright (c) 2001-2002 " MODULEAUTHOR
+#define COPYRIGHT "Copyright (c) 2001-2004 " MODULEAUTHOR
 #include "mptbase.h"
 
 #include "isense.h"
@@ -89,9 +89,12 @@
 #define my_VERSION	MPT_LINUX_VERSION_COMMON
 #define MYNAM		"isense"
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,5,62)
 EXPORT_NO_SYMBOLS;
+#endif
 MODULE_AUTHOR(MODULEAUTHOR);
 MODULE_DESCRIPTION(my_NAME);
+MODULE_LICENSE("GPL");
 
 /*=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=*/
 int __init isense_init(void)

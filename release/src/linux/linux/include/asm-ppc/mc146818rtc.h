@@ -1,7 +1,4 @@
 /*
- * BK Id: SCCS/s.mc146818rtc.h 1.5 05/17/01 18:14:25 cort
- */
-/*
  * Machine dependent access functions for RTC registers.
  */
 #ifdef __KERNEL__
@@ -28,7 +25,9 @@ outb_p((addr),RTC_PORT(0)); \
 outb_p((val),RTC_PORT(1)); \
 })
 
+#ifndef RTC_IRQ
 #define RTC_IRQ 8
+#endif
 
 #endif /* __ASM_PPC_MC146818RTC_H */
 #endif /* __KERNEL__ */

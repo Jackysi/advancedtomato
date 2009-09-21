@@ -1,7 +1,4 @@
 /*
- * BK Id: SCCS/s.op-1.h 1.5 05/17/01 18:14:23 cort
- */
-/*
  * Basic one-word fraction declaration and manipulation.
  */
 
@@ -200,14 +197,14 @@
     udiv_qrnnd(_q, _r, _nh, _nl, Y##_f);		\
     R##_f = _q | (_r != 0);				\
   } while (0)
-  
-  
+
+
 /*
  * Square root algorithms:
  * We have just one right now, maybe Newton approximation
  * should be added for those machines where division is fast.
  */
- 
+
 #define _FP_SQRT_MEAT_1(R, S, T, X, q)			\
   do {							\
     while (q)						\
@@ -225,7 +222,7 @@
   } while (0)
 
 /*
- * Assembly/disassembly for converting to/from integral types.  
+ * Assembly/disassembly for converting to/from integral types.
  * No shifting or overflow handled here.
  */
 

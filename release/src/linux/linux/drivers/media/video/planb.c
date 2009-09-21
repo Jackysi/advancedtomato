@@ -28,7 +28,7 @@
     Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 */
 
-/* $Id: planb.c,v 1.1.1.4 2003/10/14 08:08:15 sparq Exp $ */
+/* $Id: planb.c,v 2.11 2002/04/03 15:57:57 mlan Exp mlan $ */
 
 #include <linux/version.h>
 #include <linux/init.h>
@@ -153,6 +153,13 @@ static inline int overlay_is_active(struct planb *);
  * patches.
  *
  *					Michel Lanners (mlan@cpu.lu)
+ */
+/* FIXME: As subsequent calls to __get_free_pages don't necessarily return
+ * contiguous pages, we need to do horrible things later on when setting
+ * up DMA, to make sure a single DMA transfer doesn't cross a page boundary.
+ * At least, I hope it's done right later on ;-) ......
+ * Anyway, there should be a way to get hold of a large buffer of contiguous
+ * pages for DMA....
  */
 static int grabbuf_alloc(struct planb *pb)
 {
@@ -421,6 +428,8 @@ static int planb_prepare_video(struct planb *pb)
 {
 	int	i, size;
 
+	/* FIXME: This is stressing kmalloc to its limits...
+		  We really should allocate smaller chunks. */
 
 	/* allocate memory for two plus alpha command buffers (size: max lines,
 	   plus 40 commands handling, plus 1 alignment), plus dummy command buf,
@@ -504,6 +513,7 @@ static void planb_prepare_close(struct planb *pb)
 
 static void planb_close_vbi(struct planb *pb)
 {
+	/* FIXME: stop running DMA */
 
 	/* Make sure the DMA controller doesn't jump here anymore */
 	tab_cmd_dbdma(pb->vbi_cbo.jumpaddr, DBDMA_NOP, 0);
@@ -514,7 +524,9 @@ static void planb_close_vbi(struct planb *pb)
 		pb->vbi_raw = 0;
 	}
 
+	/* FIXME: deallocate VBI data buffer */
 
+	/* FIXME: restart running DMA if app. */
 	return;
 }
 
@@ -522,11 +534,16 @@ static void planb_close_video(struct planb *pb)
 {
 	int i;
 
+	/* FIXME: stop running DMA */
 
 	/* Make sure the DMA controller doesn't jump here anymore */
 	tab_cmd_dbdma(pb->vid_cbo.jumpaddr, DBDMA_NOP, 0);
 	tab_cmd_dbdma(pb->vid_cbe.jumpaddr, DBDMA_NOP, 0);
 /* No clipmask jumpbuffer yet  */
+#if 0
+	tab_cmd_dbdma(pb->clip_cbo.jumpaddr, DBDMA_NOP, 0);
+	tab_cmd_dbdma(pb->clip_cbe.jumpaddr, DBDMA_NOP, 0);
+#endif
 
 	if(pb->vid_raw != 0) {
 		kfree (pb->vid_raw);
@@ -542,6 +559,7 @@ static void planb_close_video(struct planb *pb)
 	}
 	pb->rawbuf = NULL;
 
+	/* FIXME: restart running DMA if app. */
 	return;
 }
 
@@ -1016,6 +1034,35 @@ static int vgrab(struct planb *pb, struct video_mmap *mp)
 								osize, nsize);
 
 /* Do we _really_ need to clear the grab buffers?? */
+#if 0
+#ifndef PLANB_GSCANLINE
+		if(gbuf->norm_switch)
+			nsize = 0;
+		if (nsize < osize) {
+			for(i = gbuf->idx; osize > 0; i++) {
+				memset((void *)pb->rawbuf[i], 0, PAGE_SIZE);
+				osize -= PAGE_SIZE;
+			}
+		}
+		for(i = gbuf->l_fr_addr_idx; i <
+				gbuf->l_fr_addr_idx + gbuf->lnum; i++)
+			memset((void *)pb->rawbuf[i], 0, PAGE_SIZE);
+#else
+/* XXX TODO */
+/*
+		if(gbuf->norm_switch)
+			memset((void *)pb->gbuffer[fr], 0,
+					pb->gbytes_per_line * gbuf->height);
+		else {
+			if(mp->
+			for(i = 0; i < gbuf->height; i++) {
+				memset((void *)(pb->gbuffer[fr]
+					+ pb->gbytes_per_line * i
+			}
+		}
+*/
+#endif
+#endif /* if 0 */
 		gbuf->width = mp->width;
 		gbuf->height = mp->height;
 		gbuf->fmt = fmt;
@@ -1317,6 +1364,7 @@ static dbdma_cmd_ptr setup_grab_cmd(int fr, struct planb *pb)
 				virt_to_bus(pb->rawbuf[gbuf->l_fr_addr_idx
 						+ gbuf->lnum]), jump);
 			if(++gbuf->lnum > MAX_LNUM) {
+				/* FIXME: error condition! */
 				gbuf->lnum--;
 		    	}
 		    }
@@ -1387,6 +1435,7 @@ static dbdma_cmd_ptr setup_grab_cmd(int fr, struct planb *pb)
 				virt_to_bus(pb->rawbuf[gbuf->l_fr_addr_idx
 							+ gbuf->lnum]), jump);
 			if(++gbuf->lnum > MAX_LNUM) {
+				/* FIXME: error condition! */
 				gbuf->lnum--;
 			}
 			i += stepsize;

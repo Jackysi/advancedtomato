@@ -22,22 +22,22 @@
 
 #include "leds.h"
 
-#define led6_on() FRODO_CPLD_GENERAL |= FRODO_LED2
-#define led6_off() FRODO_CPLD_GENERAL &= ~FRODO_LED2
-#define led6_invert() do {						\
-		if ((FRODO_CPLD_GENERAL & FRODO_LED2))	\
-			led6_off ();						\
-		else									\
-			led6_on ();							\
+#define led6_on() frodo_cpld_set (FRODO_CPLD_GENERAL,FRODO_LED2)
+#define led6_off() frodo_cpld_clear (FRODO_CPLD_GENERAL,FRODO_LED2)
+#define led6_invert() do {											\
+		if ((frodo_cpld_read (FRODO_CPLD_GENERAL) & FRODO_LED2))	\
+			led6_off ();											\
+		else														\
+			led6_on ();												\
 	} while (0)
 
-#define led7_on() FRODO_CPLD_GENERAL |= FRODO_LED1
-#define led7_off() FRODO_CPLD_GENERAL &= ~FRODO_LED1
+#define led7_on() frodo_cpld_set (FRODO_CPLD_GENERAL,FRODO_LED1)
+#define led7_off() frodo_cpld_clear (FRODO_CPLD_GENERAL,FRODO_LED1)
 #define led7_invert() do {						\
-		if ((FRODO_CPLD_GENERAL & FRODO_LED1))	\
-			led7_off ();						\
-		else									\
-			led7_on ();							\
+		if ((frodo_cpld_read (FRODO_CPLD_GENERAL) & FRODO_LED1))	\
+			led7_off ();											\
+		else														\
+			led7_on ();												\
 	} while (0)
 
 static int claimed;

@@ -552,6 +552,35 @@ int i2o_proc_read_status(char *buf, char **start, off_t offset, int len,
 
 	version = c->status_block->i2o_version;
 	
+/* FIXME for Spec 2.0
+	if (version == 0x02) {
+		len += sprintf(buf+len,"Lowest I2O version supported: ");
+		switch(workspace[2]) {
+			case 0x00:
+				len += sprintf(buf+len,"1.0\n");
+				break;
+			case 0x01:
+				len += sprintf(buf+len,"1.5\n");
+				break;
+			case 0x02:
+				len += sprintf(buf+len,"2.0\n");
+				break;
+		}
+
+		len += sprintf(buf+len, "Highest I2O version supported: ");
+		switch(workspace[3]) {
+			case 0x00:
+				len += sprintf(buf+len,"1.0\n");
+				break;
+			case 0x01:
+				len += sprintf(buf+len,"1.5\n");
+				break;
+			case 0x02:
+				len += sprintf(buf+len,"2.0\n");
+				break;
+		}
+	}
+*/
 	len += sprintf(buf+len,"IOP ID                 : %0#5x\n", 
 				c->status_block->iop_id);
 	len += sprintf(buf+len,"Host Unit ID           : %0#6x\n",
@@ -957,6 +986,10 @@ int i2o_proc_read_drivers_stored(char *buf, char **start, off_t offset,
 			len += sprintf(buf+len, "                ");
 		}
 
+#if 0
+		if(c->i2oversion == 0x02)
+			len += sprintf(buf+len, "%-d", dst->module_state);
+#endif
 
 		len += sprintf(buf+len, "%-#7x", dst->i2o_vendor_id);
 		len += sprintf(buf+len, "%-#8x", dst->module_id);
@@ -965,6 +998,11 @@ int i2o_proc_read_drivers_stored(char *buf, char **start, off_t offset,
 		len += sprintf(buf+len, "%8d ", dst->module_size);
 		len += sprintf(buf+len, "%8d ", dst->mpb_size);
 		len += sprintf(buf+len, "0x%04x", dst->module_flags);
+#if 0
+		if(c->i2oversion == 0x02)
+			len += sprintf(buf+len, "%d",
+				       dst->notification_level);
+#endif
 		len += sprintf(buf+len, "\n");
 	}
 
@@ -1736,11 +1774,13 @@ static int print_serial_number(char *buff, int pos, u8 *serialno, int max_len)
 			break;
 
 		case I2O_SNFORMAT_WAN:			/* WAN MAC Address */
+			/* FIXME: Figure out what a WAN access address looks like?? */
 			pos += sprintf(buff+pos, "WAN Access Address");
 			break;
 
 /* plus new in v2.0 */
 		case I2O_SNFORMAT_LAN64_MAC:		/* LAN-64 MAC Address */
+			/* FIXME: Figure out what a LAN-64 address really looks like?? */
 			pos += sprintf(buff+pos, 
 						"LAN-64 MAC address @ [?:%02X:%02X:?] %02X:%02X:%02X:%02X:%02X:%02X",
 						serialno[8], serialno[9],
@@ -1760,6 +1800,7 @@ static int print_serial_number(char *buff, int pos, u8 *serialno, int max_len)
 
 		case I2O_SNFORMAT_IEEE_REG64:		/* IEEE Registered (64-bit) */
 		case I2O_SNFORMAT_IEEE_REG128:		/* IEEE Registered (128-bit) */
+			/* FIXME: Figure if this is even close?? */
 			pos += sprintf(buff+pos, 
 						"IEEE NodeName(hi,lo)=(%08Xh:%08Xh), PortName(hi,lo)=(%08Xh:%08Xh)\n",
 						*(u32*)&serialno[2],

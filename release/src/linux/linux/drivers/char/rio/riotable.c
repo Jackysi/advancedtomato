@@ -851,6 +851,9 @@ struct Map *HostMapP;
 
 		rio_dprintk (RIO_DEBUG_TABLE, "c1 p = %p, p->rioPortp = %p\n", p, p->RIOPortp);
 		PortP = p->RIOPortp[SysPort];
+#if 0
+		PortP->TtyP	= &p->channel[SysPort];
+#endif
 		rio_dprintk (RIO_DEBUG_TABLE, "Map port\n");
 
 		/*

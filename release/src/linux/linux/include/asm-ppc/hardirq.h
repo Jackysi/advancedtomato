@@ -1,6 +1,3 @@
-/*
- * BK Id: %F% %I% %G% %U% %#%
- */
 #ifdef __KERNEL__
 #ifndef __ASM_HARDIRQ_H
 #define __ASM_HARDIRQ_H
@@ -9,9 +6,9 @@
 #include <asm/smp.h>
 
 /* entry.S is sensitive to the offsets of these fields */
-/* The __last_jiffy_stamp field is needed to ensure that no decrementer 
- * interrupt is lost on SMP machines. Since on most CPUs it is in the same 
- * cache line as local_irq_count, it is cheap to access and is also used on UP 
+/* The __last_jiffy_stamp field is needed to ensure that no decrementer
+ * interrupt is lost on SMP machines. Since on most CPUs it is in the same
+ * cache line as local_irq_count, it is cheap to access and is also used on UP
  * for uniformity.
  */
 typedef struct {
@@ -69,7 +66,7 @@ static inline void release_irqlock(int cpu)
 static inline void hardirq_enter(int cpu)
 {
 	unsigned int loops = 10000000;
-	
+
 	++local_irq_count(cpu);
 	atomic_inc(&global_irq_count);
 	while (test_bit(0,&global_irq_lock)) {

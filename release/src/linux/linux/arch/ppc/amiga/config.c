@@ -1,6 +1,3 @@
-/*
- * BK Id: %F% %I% %G% %U% %#%
- */
 #define m68k_debug_device debug_device
 
 /*
@@ -346,7 +343,7 @@ static void __init amiga_identify(void)
 
   case AMI_DRACO:
     panic("No support for Draco yet");
- 
+
   default:
     panic("Unknown Amiga Model");
   }
@@ -647,7 +644,7 @@ static int amiga_hwclk(int op, struct hwclk_time *t)
 		volatile struct tod2000 *tod = TOD_2000;
 
 		tod->cntrl1 = TOD2000_CNTRL1_HOLD;
-	    
+
 		while (tod->cntrl1 & TOD2000_CNTRL1_BUSY)
 			;
 
@@ -712,13 +709,13 @@ static int amiga_set_clock_mmss (unsigned long nowtime)
 		tod->second2 = real_seconds % 10;
 		tod->minute1 = real_minutes / 10;
 		tod->minute2 = real_minutes % 10;
-		
+
 		tod->cntrl1 = TOD3000_CNTRL1_FREE;
 	} else /* if (AMIGAHW_PRESENT(A2000_CLK)) */ {
 		volatile struct tod2000 *tod = TOD_2000;
 
 		tod->cntrl1 = TOD2000_CNTRL1_HOLD;
-	    
+
 		while (tod->cntrl1 & TOD2000_CNTRL1_BUSY)
 			;
 
@@ -792,11 +789,17 @@ static void amiga_serial_putc(char c)
 void amiga_serial_console_write(struct console *co, const char *s,
 				       unsigned int count)
 {
+#if 0 /* def CONFIG_KGDB */
+	/* FIXME:APUS GDB doesn't seem to like O-packages before it is
+           properly connected with the target. */
+	__gdb_output_string (s, count);
+#else
 	while (count--) {
 		if (*s == '\n')
 			amiga_serial_putc('\r');
 		amiga_serial_putc(*s++);
 	}
+#endif
 }
 
 #ifdef CONFIG_SERIAL_CONSOLE
@@ -971,7 +974,7 @@ int get_hardware_list(char *buffer)
 		mach_get_model(model);
 	else
 		strcpy(model, "Unknown PowerPC");
-	
+
 	len += sprintf(buffer+len, "Model:\t\t%s\n", model);
 	len += get_cpuinfo(buffer+len);
 	for (mem = 0, i = 0; i < m68k_realnum_memory; i++)

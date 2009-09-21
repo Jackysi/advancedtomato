@@ -578,6 +578,7 @@ int DMAbuf_getrdbuffer(int dev, char **buf, int *len, int dontblock)
 		timeout = interruptible_sleep_on_timeout(&adev->in_sleeper,
 							 timeout);
 		if (!timeout) {
+			/* FIXME: include device name */
 			err = -EIO;
 			printk(KERN_WARNING "Sound: DMA (input) timed out - IRQ/DRQ config error?\n");
 			dma_reset_input(dev);

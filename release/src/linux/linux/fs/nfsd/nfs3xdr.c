@@ -52,7 +52,7 @@ decode_time3(u32 *p, time_t *secp)
 static inline u32 *
 decode_fh(u32 *p, struct svc_fh *fhp)
 {
-	int size;
+	unsigned int size;
 	fh_init(fhp, NFS3_FHSIZE);
 	size = ntohl(*p++);
 	if (size > NFS3_FHSIZE)
@@ -273,7 +273,7 @@ xdr_argsize_check(struct svc_rqst *rqstp, u32 *p)
 {
 	struct svc_buf	*buf = &rqstp->rq_argbuf;
 
-	return p - buf->base <= buf->buflen;
+	return p >= buf->base && p <= buf->base + buf->buflen ;
 }
 
 static inline int

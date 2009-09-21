@@ -3,7 +3,7 @@
                              -------------------
     begin                : Thu Sep 7 2000
     copyright            : (C) 2001 by Adaptec
-    email                : deanna_bonds@adaptec.com
+    email                : aacraid@adaptec.com
 
     See README.dpti for history, notes, license info, and credits
  ***************************************************************************/

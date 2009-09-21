@@ -1,4 +1,3 @@
-# $Id: Makefile,v 1.1.1.4 2003/10/14 08:07:17 sparq Exp $
 #
 # Makefile for the linux kernel.
 #
@@ -17,21 +16,24 @@ all: kernel.o head.o
 
 O_TARGET := kernel.o
 
-export-objs := ksyms.o
+export-objs := crisksyms.o
 
 obj-y   := process.o signal.o entry.o traps.o irq.o \
            ptrace.o setup.o time.o sys_cris.o shadows.o \
 	   debugport.o semaphore.o
 
-obj-$(CONFIG_MODULES)    += ksyms.o
+obj-$(CONFIG_MODULES)    += crisksyms.o
 obj-$(CONFIG_ETRAX_KGDB) += kgdb.o
 obj-$(CONFIG_ETRAX_FAST_TIMER) += fasttimer.o
+obj-$(CONFIG_ETRAX_DEBUG_INTERRUPT) += debug.o
 
 # This dependency isn't caught by mkdep.  See entry.S.
 entry.o: entryoffsets.s
 
+# We don't want debug info for the dummy entryoffsets functions, and the
+# assembler gets confused when file directives are .if 0:d out.
 entryoffsets.s: entryoffsets.c
-	$(CC) $(CFLAGS) -S -c $<
+	$(CC) $(subst -g,,$(CFLAGS)) -S -c $<
 
 clean:
 

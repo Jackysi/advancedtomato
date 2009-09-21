@@ -8,6 +8,7 @@
 
 #ifndef __s390io_h
 #define __s390io_h
+#include <linux/tqueue.h>
 
 /*
  * IRQ data structure used by I/O subroutines
@@ -36,8 +37,6 @@ typedef struct _ioinfo {
            unsigned int  ready     : 1;  /* interrupt handler registered */
            unsigned int  haltio    : 1;  /* halt_IO in process */
            unsigned int  doio      : 1;  /* do_IO in process */
-           unsigned int  doio_q    : 1;  /* do_IO queued - only possible ... */
-                                         /* ... if 'fast' is set too */
            unsigned int  w4final   : 1;  /* wait for final status, internally */
                                          /* ... used with 'fast' setting only */
            unsigned int  repall    : 1;  /* report every interrupt status */
@@ -51,13 +50,15 @@ typedef struct _ioinfo {
            unsigned int  pgid      : 1;  /* "path group ID" is valid */
            unsigned int  pgid_supp : 1;  /* "path group ID" command is supported */
            unsigned int  esid      : 1;  /* Ext. SenseID supported by HW */
-           unsigned int  rcd       : 1;  /* RCD supported by HW */
            unsigned int  repnone   : 1;  /* don't call IRQ handler on interrupt */
            unsigned int  newreq    : 1;  /* new register interface */
            unsigned int  dval      : 1;  /* device number valid */
            unsigned int  unknown   : 1;  /* unknown device - if SenseID failed */
 	   unsigned int  unfriendly: 1;  /* device is locked by someone else */
-           unsigned int  unused    : (sizeof(unsigned int)*8 - 25); /* unused */
+	   unsigned int  killio    : 1;  /* currently killing pending io */
+	   unsigned int  noio      : 1;  /* don't let drivers start io */
+	   unsigned int  notacccap : 1;  /* capable of handling DEVSTAT_NOT_ACC */
+           unsigned int  unused    : (sizeof(unsigned int)*8 - 26); /* unused */
               } __attribute__ ((packed)) flags;
         } ui;
 
@@ -65,23 +66,19 @@ typedef struct _ioinfo {
      senseid_t     senseid;       /* SenseID info */
      irq_desc_t    irq_desc;      /* irq descriptor */
      not_oper_handler_func_t nopfunc; 	/* not oper handler */		
-     __u8          ulpm;          /* logical path mask used for I/O */
      __u8          opm;           /* path mask of operational paths */
      __u16         devno;         /* device number */
      pgid_t        pgid;          /* path group ID */
      schib_t       schib;         /* subchannel information block */
      orb_t         orb;           /* operation request block */
      devstat_t     devstat;       /* device status */
-     ccw1_t       *qcpa;          /* queued channel program */
      ccw1_t        senseccw;      /* ccw for sense command */
      __u8          sense_data[32];/* buffer for basic sense */
      unsigned int  stctl;         /* accumulated status control from irb */
-     unsigned long qintparm;      /* queued interruption parameter  */
-     unsigned long qflag;         /* queued flags */
-     __u8          qlpm;          /* queued logical path mask */
      ssd_info_t    ssd_info;      /* subchannel description */
-
-   } __attribute__ ((aligned(8))) ioinfo_t;
+     struct tq_struct pver_bh;    /* path verification bottom half task */
+     atomic_t	   pver_pending;  /* != 0 if path verification for sch is pending */
+} __attribute__ ((aligned(8))) ioinfo_t;
 
 #define IOINFO_FLAGS_BUSY    0x80000000
 #define IOINFO_FLAGS_OPER    0x40000000
@@ -100,6 +97,10 @@ void * s390_get_private_data(int irq);
 #define CHSC_SEI_ACC_CHPID        1
 #define CHSC_SEI_ACC_LINKADDR     2
 #define CHSC_SEI_ACC_FULLLINKADDR 3
+
+#define CIO_PATHGONE_WAIT4INT     0x01
+#define CIO_PATHGONE_IOERR        0x02
+#define CIO_PATHGONE_DEVGONE      0x04
 
 #endif  /* __s390io_h */
 

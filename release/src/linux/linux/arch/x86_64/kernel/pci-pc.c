@@ -18,10 +18,12 @@
 #include <linux/pci.h>
 #include <linux/init.h>
 #include <linux/ioport.h>
+#include <linux/acpi.h>
 
 #include <asm/segment.h>
 #include <asm/io.h>
 #include <asm/mpspec.h>
+#include <asm/proto.h>
 
 #include "pci-x86_64.h"
 
@@ -30,6 +32,14 @@ unsigned int pci_probe = PCI_PROBE_CONF1 | PCI_PROBE_CONF2;
 int pcibios_last_bus = -1;
 struct pci_bus *pci_root_bus;
 struct pci_ops *pci_root_ops;
+
+int (*pci_config_read)(int seg, int bus, int dev, int fn, int reg, int len, u32 *value) = NULL;
+int (*pci_config_write)(int seg, int bus, int dev, int fn, int reg, int len, u32 value) = NULL;
+
+static int pci_using_acpi_prt = 0;
+
+/* XXX: not taken by all accesses currently */
+static spinlock_t pci_config_lock = SPIN_LOCK_UNLOCKED;
 
 /*
  * Direct access to PCI hardware...
@@ -43,46 +53,121 @@ struct pci_ops *pci_root_ops;
 
 #define CONFIG_CMD(dev, where)   (0x80000000 | (dev->bus->number << 16) | (dev->devfn << 8) | (where & ~3))
 
+#define PCI_CONF1_ADDRESS(bus, dev, fn, reg) \
+	(0x80000000 | (bus << 16) | (dev << 11) | (fn << 8) | (reg & ~3))
+
+static int pci_conf1_read (int seg, int bus, int dev, int fn, int reg, int len, 
+			   u32 *value) 
+{
+	unsigned long flags;
+
+	if (!value || (bus > 255) || (dev > 31) || (fn > 7) || (reg > 255))
+		return -EINVAL;
+
+	spin_lock_irqsave(&pci_config_lock, flags);
+
+	outl(PCI_CONF1_ADDRESS(bus, dev, fn, reg), 0xCF8);
+
+	switch (len) {
+	case 1:
+		*value = inb(0xCFC + (reg & 3));
+		break;
+	case 2:
+		*value = inw(0xCFC + (reg & 2));
+		break;
+	case 4:
+		*value = inl(0xCFC);
+		break;
+	}
+
+	spin_unlock_irqrestore(&pci_config_lock, flags);
+
+	return 0;
+}
+
+static int pci_conf1_write (int seg, int bus, int dev, int fn, int reg, int len, u32 value)
+{
+	unsigned long flags;
+
+	if ((bus > 255) || (dev > 31) || (fn > 7) || (reg > 255)) 
+		return -EINVAL;
+
+	spin_lock_irqsave(&pci_config_lock, flags);
+
+	outl(PCI_CONF1_ADDRESS(bus, dev, fn, reg), 0xCF8);
+
+	switch (len) {
+	case 1:
+		outb((u8)value, 0xCFC + (reg & 3));
+		break;
+	case 2:
+		outw((u16)value, 0xCFC + (reg & 2));
+		break;
+	case 4:
+		outl((u32)value, 0xCFC);
+		break;
+	}
+
+	spin_unlock_irqrestore(&pci_config_lock, flags);
+
+	return 0;
+}
+
 static int pci_conf1_read_config_byte(struct pci_dev *dev, int where, u8 *value)
 {
-	outl(CONFIG_CMD(dev,where), 0xCF8);
-	*value = inb(0xCFC + (where&3));
-	return PCIBIOS_SUCCESSFUL;
+	int result;
+	u32 data;
+
+	if (!value)
+		return -EINVAL;
+
+	result = pci_conf1_read(0, dev->bus->number, PCI_SLOT(dev->devfn),
+		 		PCI_FUNC(dev->devfn), where, 1, &data);
+
+	*value = (u8)data;
+
+	return result;
 }
 
 static int pci_conf1_read_config_word(struct pci_dev *dev, int where, u16 *value)
 {
-	outl(CONFIG_CMD(dev,where), 0xCF8);    
-	*value = inw(0xCFC + (where&2));
-	return PCIBIOS_SUCCESSFUL;    
+	int result;
+	u32 data;
+
+	if (!value)
+		return -EINVAL;
+
+	result = pci_conf1_read(0, dev->bus->number, PCI_SLOT(dev->devfn),
+		 		PCI_FUNC(dev->devfn), where, 2, &data);
+
+	*value = (u16)data;
+
+	return result;
 }
 
 static int pci_conf1_read_config_dword(struct pci_dev *dev, int where, u32 *value)
 {
-	outl(CONFIG_CMD(dev,where), 0xCF8);
-	*value = inl(0xCFC);
-	return PCIBIOS_SUCCESSFUL;    
+	return pci_conf1_read(0, dev->bus->number, PCI_SLOT(dev->devfn),
+			      PCI_FUNC(dev->devfn), where, 4, value);
+
 }
 
 static int pci_conf1_write_config_byte(struct pci_dev *dev, int where, u8 value)
 {
-	outl(CONFIG_CMD(dev,where), 0xCF8);    
-	outb(value, 0xCFC + (where&3));
-	return PCIBIOS_SUCCESSFUL;
+	return pci_conf1_write(0, dev->bus->number, PCI_SLOT(dev->devfn),
+			       PCI_FUNC(dev->devfn), where, 1, value);
 }
 
 static int pci_conf1_write_config_word(struct pci_dev *dev, int where, u16 value)
 {
-	outl(CONFIG_CMD(dev,where), 0xCF8);
-	outw(value, 0xCFC + (where&2));
-	return PCIBIOS_SUCCESSFUL;
+	return pci_conf1_write(0, dev->bus->number, PCI_SLOT(dev->devfn),
+			       PCI_FUNC(dev->devfn), where, 2, value);
 }
 
 static int pci_conf1_write_config_dword(struct pci_dev *dev, int where, u32 value)
 {
-	outl(CONFIG_CMD(dev,where), 0xCF8);
-	outl(value, 0xCFC);
-	return PCIBIOS_SUCCESSFUL;
+	return pci_conf1_write(0, dev->bus->number, PCI_SLOT(dev->devfn),
+			       PCI_FUNC(dev->devfn), where, 4, value);
 }
 
 #undef CONFIG_CMD
@@ -106,52 +191,130 @@ static struct pci_ops pci_direct_conf1 = {
 				outb(FUNC(dev->devfn), 0xCF8);					\
 				outb(dev->bus->number, 0xCFA);
 
+#define PCI_CONF2_ADDRESS(dev, reg)	(u16)(0xC000 | (dev << 8) | reg)
+
+static int pci_conf2_read (int seg, int bus, int dev, int fn, int reg, int len, u32 *value)
+{
+	unsigned long flags;
+
+	if (!value || (bus > 255) || (dev > 31) || (fn > 7) || (reg > 255))
+		return -EINVAL;
+
+	if (dev & 0x10) 
+		return PCIBIOS_DEVICE_NOT_FOUND;
+
+	spin_lock_irqsave(&pci_config_lock, flags);
+
+	outb((u8)(0xF0 | (fn << 1)), 0xCF8);
+	outb((u8)bus, 0xCFA);
+
+	switch (len) {
+	case 1:
+		*value = inb(PCI_CONF2_ADDRESS(dev, reg));
+		break;
+	case 2:
+		*value = inw(PCI_CONF2_ADDRESS(dev, reg));
+		break;
+	case 4:
+		*value = inl(PCI_CONF2_ADDRESS(dev, reg));
+		break;
+	}
+
+	outb (0, 0xCF8);
+
+	spin_unlock_irqrestore(&pci_config_lock, flags);
+
+	return 0;
+}
+
+static int pci_conf2_write (int seg, int bus, int dev, int fn, int reg, int len, u32 value)
+{
+	unsigned long flags;
+
+	if ((bus > 255) || (dev > 31) || (fn > 7) || (reg > 255)) 
+		return -EINVAL;
+
+	if (dev & 0x10) 
+		return PCIBIOS_DEVICE_NOT_FOUND;
+
+	spin_lock_irqsave(&pci_config_lock, flags);
+
+	outb((u8)(0xF0 | (fn << 1)), 0xCF8);
+	outb((u8)bus, 0xCFA);
+
+	switch (len) {
+	case 1:
+		outb ((u8)value, PCI_CONF2_ADDRESS(dev, reg));
+		break;
+	case 2:
+		outw ((u16)value, PCI_CONF2_ADDRESS(dev, reg));
+		break;
+	case 4:
+		outl ((u32)value, PCI_CONF2_ADDRESS(dev, reg));
+		break;
+	}
+
+	outb (0, 0xCF8);    
+
+	spin_unlock_irqrestore(&pci_config_lock, flags);
+
+	return 0;
+}
+
 static int pci_conf2_read_config_byte(struct pci_dev *dev, int where, u8 *value)
 {
-	SET(dev);
-	*value = inb(IOADDR(dev->devfn,where));
-	outb (0, 0xCF8);
-	return PCIBIOS_SUCCESSFUL;
+	int result;
+	u32 data;
+
+	if (!value)
+		return -EINVAL;
+
+	result = pci_conf2_read(0, dev->bus->number, PCI_SLOT(dev->devfn),
+				PCI_FUNC(dev->devfn), where, 1, &data);
+
+	*value = (u8)data;
+	
+	return result;
 }
 
 static int pci_conf2_read_config_word(struct pci_dev *dev, int where, u16 *value)
 {
-	SET(dev);
-	*value = inw(IOADDR(dev->devfn,where));
-	outb (0, 0xCF8);
-	return PCIBIOS_SUCCESSFUL;
+	int result;
+	u32 data;
+
+	if (!value)
+		return -EINVAL;
+
+	result = pci_conf2_read(0, dev->bus->number, PCI_SLOT(dev->devfn),
+				PCI_FUNC(dev->devfn), where, 2, &data);
+
+	*value = (u16)data;
+	
+	return result;
 }
 
 static int pci_conf2_read_config_dword(struct pci_dev *dev, int where, u32 *value)
 {
-	SET(dev);
-	*value = inl (IOADDR(dev->devfn,where));    
-	outb (0, 0xCF8);    
-	return PCIBIOS_SUCCESSFUL;
+	return pci_conf2_read(0, dev->bus->number, PCI_SLOT(dev->devfn),
+			      PCI_FUNC(dev->devfn), where, 4, value);
 }
 
 static int pci_conf2_write_config_byte(struct pci_dev *dev, int where, u8 value)
 {
-	SET(dev);
-	outb (value, IOADDR(dev->devfn,where));
-	outb (0, 0xCF8);    
-	return PCIBIOS_SUCCESSFUL;
+	return pci_conf2_write(0, dev->bus->number, PCI_SLOT(dev->devfn),
+			       PCI_FUNC(dev->devfn), where, 1, value);
 }
 
 static int pci_conf2_write_config_word(struct pci_dev *dev, int where, u16 value)
 {
-	SET(dev);
-	outw (value, IOADDR(dev->devfn,where));
-	outb (0, 0xCF8);    
-	return PCIBIOS_SUCCESSFUL;
+	return pci_conf2_write(0, dev->bus->number, PCI_SLOT(dev->devfn),
+			       PCI_FUNC(dev->devfn), where, 2, value);
 }
 
 static int pci_conf2_write_config_dword(struct pci_dev *dev, int where, u32 value)
 {
-	SET(dev);
-	outl (value, IOADDR(dev->devfn,where));    
-	outb (0, 0xCF8);    
-	return PCIBIOS_SUCCESSFUL;
+	return pci_conf2_write(0, dev->bus->number, PCI_SLOT(dev->devfn),
+			       PCI_FUNC(dev->devfn), where, 4, value);
 }
 
 #undef SET
@@ -244,6 +407,23 @@ static struct pci_ops * __devinit pci_check_direct(void)
 
 #endif
 
+struct pci_bus * __devinit pcibios_scan_root(int busnum)
+{
+	struct list_head *list;
+	struct pci_bus *bus;
+
+	list_for_each(list, &pci_root_buses) {
+		bus = pci_bus_b(list);
+		if (bus->number == busnum) {
+			/* Already scanned */
+			return bus;
+		}
+	}
+
+	printk("PCI: Probing PCI hardware (bus %02x)\n", busnum);
+
+	return pci_scan_bus(busnum, pci_root_ops, NULL);
+}
 
 /*
  * Several buggy motherboards address only 16 devices and mirror
@@ -387,9 +567,37 @@ void __devinit pcibios_fixup_bus(struct pci_bus *b)
 	pci_read_bridge_bases(b);
 }
 
+void __devinit pcibios_config_init(void)
+{
+	/*
+	 * Try all known PCI access methods. Note that we support using 
+	 * both PCI BIOS and direct access, with a preference for direct.
+	 */
+
+#ifdef CONFIG_PCI_DIRECT
+	if ((pci_probe & (PCI_PROBE_CONF1 | PCI_PROBE_CONF2)) 
+		&& (pci_root_ops = pci_check_direct())) {
+		if (pci_root_ops == &pci_direct_conf1) {
+			pci_config_read = pci_conf1_read;
+			pci_config_write = pci_conf1_write;
+		}
+		else {
+			pci_config_read = pci_conf2_read;
+			pci_config_write = pci_conf2_write;
+		}
+	} else
+		printk("??? no pci access\n"); 
+#endif
+
+	return;
+}
+
 void __devinit pcibios_init(void)
 {
 	struct pci_ops *dir = NULL;
+
+	if (!pci_root_ops)
+		pcibios_config_init();
 
 #ifdef CONFIG_PCI_DIRECT
 	if (pci_probe & (PCI_PROBE_CONF1 | PCI_PROBE_CONF2))
@@ -403,12 +611,18 @@ void __devinit pcibios_init(void)
 	}
 
 	printk(KERN_INFO "PCI: Probing PCI hardware\n");
-	pci_root_bus = pci_scan_bus(0, pci_root_ops, NULL);
-	
+#ifdef CONFIG_ACPI_PCI
+ 	if (!acpi_disabled && !acpi_noirq && !acpi_pci_irq_init())
+ 		pci_using_acpi_prt = 1;
+#endif
+ 	if (!pci_using_acpi_prt) {
+ 		pci_root_bus = pcibios_scan_root(0);
 	pcibios_irq_init();
 	pci_scan_mptable(); 
 	pcibios_fixup_peer_bridges();
 	pcibios_fixup_irqs();
+ 	}
+
 	pcibios_resource_survey();
 
 #ifdef CONFIG_GART_IOMMU
@@ -454,6 +668,9 @@ char * __devinit pcibios_setup(char *str)
 	} else if (!strncmp(str, "lastbus=", 8)) {
 		pcibios_last_bus = simple_strtol(str+8, NULL, 0);
 		return NULL;
+	} else if (!strncmp(str, "noacpi", 6)) {
+		acpi_disable_pci();
+		return NULL;
 	}
 	return str;
 }
@@ -469,6 +686,15 @@ int pcibios_enable_device(struct pci_dev *dev, int mask)
 
 	if ((err = pcibios_enable_resources(dev, mask)) < 0)
 		return err;
+
+#ifdef CONFIG_ACPI_PCI
+	if (!acpi_noirq && pci_using_acpi_prt) {
+		acpi_pci_irq_enable(dev);
+		return 0;
+	}
+#endif
+
 	pcibios_enable_irq(dev);
+
 	return 0;
 }

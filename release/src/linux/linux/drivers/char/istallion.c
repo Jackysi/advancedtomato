@@ -3,7 +3,7 @@
 /*
  *	istallion.c  -- stallion intelligent multiport serial driver.
  *
- *	Copyright (C) 1996-1999  Stallion Technologies (support@stallion.oz.au).
+ *	Copyright (C) 1996-1999  Stallion Technologies
  *	Copyright (C) 1994-1996  Greg Ungerer.
  *
  *	This code is loosely based on the Linux serial driver, written by
@@ -1214,8 +1214,7 @@ static void stli_close(struct tty_struct *tty, struct file *filp)
 	clear_bit(ST_TXBUSY, &portp->state);
 	clear_bit(ST_RXSTOP, &portp->state);
 	set_bit(TTY_IO_ERROR, &tty->flags);
-	if (tty->ldisc.flush_buffer)
-		(tty->ldisc.flush_buffer)(tty);
+	tty_ldisc_flush(tty);
 	set_bit(ST_DOFLUSHRX, &portp->state);
 	stli_flushbuffer(tty);
 
@@ -2297,6 +2296,9 @@ static void stli_stop(struct tty_struct *tty)
 
 	memset(&actrl, 0, sizeof(asyctrl_t));
 	actrl.txctrl = CT_STOPFLOW;
+#if 0
+	stli_cmdwait(brdp, portp, A_PORTCTRL, &actrl, sizeof(asyctrl_t), 0);
+#endif
 }
 
 /*****************************************************************************/
@@ -2328,6 +2330,9 @@ static void stli_start(struct tty_struct *tty)
 
 	memset(&actrl, 0, sizeof(asyctrl_t));
 	actrl.txctrl = CT_STARTFLOW;
+#if 0
+	stli_cmdwait(brdp, portp, A_PORTCTRL, &actrl, sizeof(asyctrl_t), 0);
+#endif
 }
 
 /*****************************************************************************/
@@ -2349,6 +2354,11 @@ static void stli_dohangup(void *arg)
 	printk(KERN_DEBUG "stli_dohangup(portp=%x)\n", (int) arg);
 #endif
 
+	/*
+	 * FIXME: There's a module removal race here: tty_hangup
+	 * calls schedule_task which will call into this
+	 * driver later.
+	 */
 	portp = (stliport_t *) arg;
 	if (portp != (stliport_t *) NULL) {
 		if (portp->tty != (struct tty_struct *) NULL) {
@@ -2466,10 +2476,7 @@ static void stli_flushbuffer(struct tty_struct *tty)
 	}
 	restore_flags(flags);
 
-	wake_up_interruptible(&tty->write_wait);
-	if ((tty->flags & (1 << TTY_DO_WRITE_WAKEUP)) &&
-	    tty->ldisc.write_wakeup)
-		(tty->ldisc.write_wakeup)(tty);
+	tty_wakeup(tty);
 }
 
 /*****************************************************************************/
@@ -2904,6 +2911,7 @@ static inline int stli_hostcmd(stlibrd_t *brdp, stliport_t *portp)
 	asynotify_t		nt;
 	unsigned long		oldsigs;
 	int			rc, donerx;
+	struct tty_ldisc	*ld;
 
 #if DEBUG
 	printk(KERN_DEBUG "stli_hostcmd(brdp=%x,channr=%d)\n",
@@ -3003,10 +3011,15 @@ static inline int stli_hostcmd(stlibrd_t *brdp, stliport_t *portp)
 			clear_bit(ST_TXBUSY, &portp->state);
 		if (nt.data & (DT_TXEMPTY | DT_TXLOW)) {
 			if (tty != (struct tty_struct *) NULL) {
-				if ((tty->flags & (1 << TTY_DO_WRITE_WAKEUP)) &&
-				    tty->ldisc.write_wakeup) {
-					(tty->ldisc.write_wakeup)(tty);
-					EBRDENABLE(brdp);
+				if ((tty->flags & (1 << TTY_DO_WRITE_WAKEUP))) {
+					ld = tty_ldisc_ref(tty);
+					if(ld) {
+						if(ld->write_wakeup) {
+							ld->write_wakeup(tty);
+							EBRDENABLE(brdp);
+						}
+						tty_ldisc_deref(ld);
+					}
 				}
 				wake_up_interruptible(&tty->write_wait);
 			}
@@ -4061,6 +4074,14 @@ static inline int stli_initecp(stlibrd_t *brdp)
 	memcpy(&sig, sigsp, sizeof(cdkecpsig_t));
 	EBRDDISABLE(brdp);
 
+#if 0
+	printk("%s(%d): sig-> magic=%x rom=%x panel=%x,%x,%x,%x,%x,%x,%x,%x\n",
+		__FILE__, __LINE__, (int) sig.magic, sig.romver, sig.panelid[0],
+		(int) sig.panelid[1], (int) sig.panelid[2],
+		(int) sig.panelid[3], (int) sig.panelid[4],
+		(int) sig.panelid[5], (int) sig.panelid[6],
+		(int) sig.panelid[7]);
+#endif
 
 	if (sig.magic != ECP_MAGIC)
 		return(-ENODEV);
@@ -4217,6 +4238,11 @@ static inline int stli_initonb(stlibrd_t *brdp)
 	memcpy(&sig, sigsp, sizeof(cdkonbsig_t));
 	EBRDDISABLE(brdp);
 
+#if 0
+	printk("%s(%d): sig-> magic=%x:%x:%x:%x romver=%x amask=%x:%x:%x\n",
+		__FILE__, __LINE__, sig.magic0, sig.magic1, sig.magic2,
+		sig.magic3, sig.romver, sig.amask0, sig.amask1, sig.amask2);
+#endif
 
 	if ((sig.magic0 != ONB_MAGIC0) || (sig.magic1 != ONB_MAGIC1) ||
 	    (sig.magic2 != ONB_MAGIC2) || (sig.magic3 != ONB_MAGIC3))
@@ -4272,6 +4298,13 @@ static int stli_startbrd(stlibrd_t *brdp)
 	hdrp = (volatile cdkhdr_t *) EBRDGETMEMPTR(brdp, CDK_CDKADDR);
 	nrdevs = hdrp->nrdevs;
 
+#if 0
+	printk("%s(%d): CDK version %d.%d.%d --> "
+		"nrdevs=%d memp=%x hostp=%x slavep=%x\n",
+		 __FILE__, __LINE__, hdrp->ver_release, hdrp->ver_modification,
+		 hdrp->ver_fix, nrdevs, (int) hdrp->memp, (int) hdrp->hostp,
+		 (int) hdrp->slavep);
+#endif
 
 	if (nrdevs < (brdp->nrports + 1)) {
 		printk(KERN_ERR "STALLION: slave failed to allocate memory for "
@@ -4515,6 +4548,26 @@ static inline int stli_eisamemprobe(stlibrd_t *brdp)
 /*****************************************************************************/
 
 /*
+ *	Find the next available board number that is free.
+ */
+
+static inline int stli_getbrdnr()
+{
+	int	i;
+
+	for (i = 0; (i < STL_MAXBRDS); i++) {
+		if (stli_brds[i] == (stlibrd_t *) NULL) {
+			if (i >= stli_nrbrds)
+				stli_nrbrds = i + 1;
+			return(i);
+		}
+	}
+	return(-1);
+}
+
+/*****************************************************************************/
+
+/*
  *	Probe around and try to find any EISA boards in system. The biggest
  *	problem here is finding out what memory address is associated with
  *	an EISA board after it is found. The registers of the ECPE and
@@ -4590,26 +4643,6 @@ static inline int stli_findeisabrds()
 	}
 
 	return(0);
-}
-
-/*****************************************************************************/
-
-/*
- *	Find the next available board number that is free.
- */
-
-static inline int stli_getbrdnr()
-{
-	int	i;
-
-	for (i = 0; (i < STL_MAXBRDS); i++) {
-		if (stli_brds[i] == (stlibrd_t *) NULL) {
-			if (i >= stli_nrbrds)
-				stli_nrbrds = i + 1;
-			return(i);
-		}
-	}
-	return(-1);
 }
 
 /*****************************************************************************/
@@ -4823,6 +4856,7 @@ static ssize_t stli_memread(struct file *fp, char *buf, size_t count, loff_t *of
 	void		*memptr;
 	stlibrd_t	*brdp;
 	int		brdnr, size, n;
+	loff_t		pos = *offp;
 
 #if DEBUG
 	printk(KERN_DEBUG "stli_memread(fp=%x,buf=%x,count=%x,offp=%x)\n",
@@ -4837,25 +4871,26 @@ static ssize_t stli_memread(struct file *fp, char *buf, size_t count, loff_t *of
 		return(-ENODEV);
 	if (brdp->state == 0)
 		return(-ENODEV);
-	if (fp->f_pos >= brdp->memsize)
+	if (pos != (unsigned)pos || pos >= brdp->memsize)
 		return(0);
 
-	size = MIN(count, (brdp->memsize - fp->f_pos));
+	size = MIN(count, (brdp->memsize - pos));
 
 	save_flags(flags);
 	cli();
 	EBRDENABLE(brdp);
 	while (size > 0) {
-		memptr = (void *) EBRDGETMEMPTR(brdp, fp->f_pos);
-		n = MIN(size, (brdp->pagesize - (((unsigned long) fp->f_pos) % brdp->pagesize)));
+		memptr = (void *) EBRDGETMEMPTR(brdp, pos);
+		n = MIN(size, (brdp->pagesize - (((unsigned long) pos) % brdp->pagesize)));
 		if (copy_to_user(buf, memptr, n)) {
 			count = -EFAULT;
 			goto out;
 		}
-		fp->f_pos += n;
+		pos += n;
 		buf += n;
 		size -= n;
 	}
+	*offp = pos;
 out:
 	EBRDDISABLE(brdp);
 	restore_flags(flags);
@@ -4878,6 +4913,7 @@ static ssize_t stli_memwrite(struct file *fp, const char *buf, size_t count, lof
 	stlibrd_t	*brdp;
 	char		*chbuf;
 	int		brdnr, size, n;
+	loff_t		pos = *offp;
 
 #if DEBUG
 	printk(KERN_DEBUG "stli_memwrite(fp=%x,buf=%x,count=%x,offp=%x)\n",
@@ -4892,26 +4928,27 @@ static ssize_t stli_memwrite(struct file *fp, const char *buf, size_t count, lof
 		return(-ENODEV);
 	if (brdp->state == 0)
 		return(-ENODEV);
-	if (fp->f_pos >= brdp->memsize)
+	if (pos != (unsigned)pos || pos >= brdp->memsize)
 		return(0);
 
 	chbuf = (char *) buf;
-	size = MIN(count, (brdp->memsize - fp->f_pos));
+	size = MIN(count, (brdp->memsize - pos));
 
 	save_flags(flags);
 	cli();
 	EBRDENABLE(brdp);
 	while (size > 0) {
-		memptr = (void *) EBRDGETMEMPTR(brdp, fp->f_pos);
-		n = MIN(size, (brdp->pagesize - (((unsigned long) fp->f_pos) % brdp->pagesize)));
+		memptr = (void *) EBRDGETMEMPTR(brdp, pos);
+		n = MIN(size, (brdp->pagesize - (((unsigned long) pos) % brdp->pagesize)));
 		if (copy_from_user(memptr, chbuf, n)) {
 			count = -EFAULT;
 			goto out;
 		}
-		fp->f_pos += n;
+		pos += n;
 		chbuf += n;
 		size -= n;
 	}
+	*offp = pos;
 out:
 	EBRDDISABLE(brdp);
 	restore_flags(flags);

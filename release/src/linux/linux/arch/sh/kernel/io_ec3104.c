@@ -36,10 +36,12 @@ static inline unsigned long port2addr(unsigned long port)
 	case 0:
 		return EC3104_ISA_BASE + port * 2;
 
+		/* XXX hack. it's unclear what to do about the serial ports */
 	case 1:
 		return EC3104_BASE + (port&0xffff) * 4;
 
 	default:
+		/* XXX PCMCIA */
 		return 0;
 	}
 }

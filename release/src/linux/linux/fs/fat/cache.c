@@ -15,7 +15,11 @@
 #include <linux/stat.h>
 #include <linux/fat_cvf.h>
 
+#if 0
+#  define PRINTK(x) printk x
+#else
 #  define PRINTK(x)
+#endif
 
 static struct fat_cache *fat_cache,cache[FAT_CACHE];
 static spinlock_t fat_cache_lock = SPIN_LOCK_UNLOCKED;

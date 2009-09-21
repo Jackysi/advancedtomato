@@ -85,6 +85,8 @@ static int full_duplex[MAX_UNITS] = { -1, -1, -1, -1, -1, -1, -1, -1 };
 #include <linux/mii.h>
 #include <linux/ethtool.h>
 #include <linux/crc32.h>
+#include <linux/delay.h>
+
 #include <asm/processor.h>	/* Processor type for cache alignment. */
 #include <asm/bitops.h>
 #include <asm/io.h>
@@ -233,15 +235,29 @@ enum intr_status_bits {
 	RxErr = 0x00000002,	/* receive error */
 };
 
-/* Bits in the NetworkConfig register. */
+/* Bits in the NetworkConfig register, W for writing, R for reading */
+/* FIXME: some names are invented by me. Marked with (name?) */
+/* If you have docs and know bit names, please fix 'em */
 enum rx_mode_bits {
-	RxModeMask = 0xe0,
-	PROM = 0x80,		/* promiscuous mode */
-	AB = 0x40,		/* accept broadcast */
-	AM = 0x20,		/* accept mutlicast */
-	ARP = 0x08,		/* receive runt pkt */
-	ALP = 0x04,		/* receive long pkt */
-	SEP = 0x02,		/* receive error pkt */
+	CR_W_ENH	= 0x02000000,	/* enhanced mode (name?) */
+	CR_W_FD		= 0x00100000,	/* full duplex */
+	CR_W_PS10	= 0x00080000,	/* 10 mbit */
+	CR_W_TXEN	= 0x00040000,	/* tx enable (name?) */
+	CR_W_PS1000	= 0x00010000,	/* 1000 mbit */
+     /* CR_W_RXBURSTMASK= 0x00000e00, Im unsure about this */
+	CR_W_RXMODEMASK	= 0x000000e0,
+	CR_W_PROM	= 0x00000080,	/* promiscuous mode */
+	CR_W_AB		= 0x00000040,	/* accept broadcast */
+	CR_W_AM		= 0x00000020,	/* accept mutlicast */
+	CR_W_ARP	= 0x00000008,	/* receive runt pkt */
+	CR_W_ALP	= 0x00000004,	/* receive long pkt */
+	CR_W_SEP	= 0x00000002,	/* receive error pkt */
+	CR_W_RXEN	= 0x00000001,	/* rx enable (unicast?) (name?) */
+
+	CR_R_TXSTOP	= 0x04000000,	/* tx stopped (name?) */
+	CR_R_FD		= 0x00100000,	/* full duplex detected */
+	CR_R_PS10	= 0x00080000,	/* 10 mbit detected */
+	CR_R_RXSTOP	= 0x00008000,	/* rx stopped (name?) */
 };
 
 /* The Tulip Rx and Tx buffer descriptors. */
@@ -375,10 +391,7 @@ enum tx_desc_control_bits {
 #define LXT1000_Full    0x200
 // 89/12/29 add, for phy specific status register, levelone phy, (end)
 
-/* for 3-in-1 case */
-#define PS10            0x00080000
-#define FD              0x00100000
-#define PS1000          0x00010000
+/* for 3-in-1 case, BMCRSR register */
 #define LinkIsUp2	0x00040000
 
 /* for PHY */
@@ -399,6 +412,12 @@ struct netdev_private {
 
 	/* Media monitoring timer. */
 	struct timer_list timer;
+
+	/* Reset timer */
+	struct timer_list reset_timer;
+	int reset_timer_armed;
+	unsigned long crvalue_sv;
+	unsigned long imrvalue_sv;
 
 	/* Frequently used values: keep some adjacent for cache effect. */
 	int flags;
@@ -435,46 +454,42 @@ static int netdev_open(struct net_device *dev);
 static void getlinktype(struct net_device *dev);
 static void getlinkstatus(struct net_device *dev);
 static void netdev_timer(unsigned long data);
+static void reset_timer(unsigned long data);
 static void tx_timeout(struct net_device *dev);
 static void init_ring(struct net_device *dev);
 static int start_tx(struct sk_buff *skb, struct net_device *dev);
-static void intr_handler(int irq, void *dev_instance, struct pt_regs *regs);
+static irqreturn_t intr_handler(int irq, void *dev_instance, struct pt_regs *regs);
 static int netdev_rx(struct net_device *dev);
 static void set_rx_mode(struct net_device *dev);
+static void __set_rx_mode(struct net_device *dev);
 static struct net_device_stats *get_stats(struct net_device *dev);
 static int mii_ioctl(struct net_device *dev, struct ifreq *rq, int cmd);
+static struct ethtool_ops netdev_ethtool_ops;
 static int netdev_close(struct net_device *dev);
 static void reset_rx_descriptors(struct net_device *dev);
+static void reset_tx_descriptors(struct net_device *dev);
 
-void stop_nic_tx(long ioaddr, long crvalue)
+static void stop_nic_rx(long ioaddr, long crvalue)
 {
-	writel(crvalue & (~0x40000), ioaddr + TCRRCR);
-
-	/* wait for tx stop */
-	{
-		int i = 0, delay = 0x1000;
-
-		while ((!(readl(ioaddr + TCRRCR) & 0x04000000)) && (i < delay)) {
-			++i;
-		}
+	int delay = 0x1000;
+	writel(crvalue & ~(CR_W_RXEN), ioaddr + TCRRCR);
+	while (--delay) {
+		if ( (readl(ioaddr + TCRRCR) & CR_R_RXSTOP) == CR_R_RXSTOP)
+			break;
 	}
 }
 
 
-void stop_nic_rx(long ioaddr, long crvalue)
+static void stop_nic_rxtx(long ioaddr, long crvalue)
 {
-	writel(crvalue & (~0x1), ioaddr + TCRRCR);
-
-	/* wait for rx stop */
-	{
-		int i = 0, delay = 0x1000;
-
-		while ((!(readl(ioaddr + TCRRCR) & 0x00008000)) && (i < delay)) {
-			++i;
-		}
+	int delay = 0x1000;
+	writel(crvalue & ~(CR_W_RXEN+CR_W_TXEN), ioaddr + TCRRCR);
+	while (--delay) {
+		if ( (readl(ioaddr + TCRRCR) & (CR_R_RXSTOP+CR_R_TXSTOP))
+					    == (CR_R_RXSTOP+CR_R_TXSTOP) )
+			break;
 	}
 }
-
 
 
 static int __devinit fealnx_init_one(struct pci_dev *pdev,
@@ -494,7 +509,7 @@ static int __devinit fealnx_init_one(struct pci_dev *pdev,
 #ifndef MODULE
 	static int printed_version;
 	if (!printed_version++)
-		printk (version);
+		printk(version);
 #endif
 	
 	card_idx++;
@@ -620,7 +635,7 @@ static int __devinit fealnx_init_one(struct pci_dev *pdev,
 		np->phys[0] = 32;
 /* 89/6/23 add, (begin) */
 		/* get phy type */
-		if (readl(dev->base_addr + PHYIDENTIFIER) == MysonPHYID)
+		if (readl(ioaddr + PHYIDENTIFIER) == MysonPHYID)
 			np->PHYType = MysonPHY;
 		else
 			np->PHYType = OtherPHY;
@@ -655,7 +670,7 @@ static int __devinit fealnx_init_one(struct pci_dev *pdev,
 		if (np->flags == HAS_MII_XCVR)
 			mdio_write(dev, np->phys[0], MII_ADVERTISE, ADVERTISE_FULL);
 		else
-			writel(ADVERTISE_FULL, dev->base_addr + ANARANLPAR);
+			writel(ADVERTISE_FULL, ioaddr + ANARANLPAR);
 		np->mii.force_media = 1;
 	}
 
@@ -666,7 +681,8 @@ static int __devinit fealnx_init_one(struct pci_dev *pdev,
 	dev->get_stats = &get_stats;
 	dev->set_multicast_list = &set_rx_mode;
 	dev->do_ioctl = &mii_ioctl;
-	dev->tx_timeout = tx_timeout;
+	dev->ethtool_ops = &netdev_ethtool_ops;
+	dev->tx_timeout = &tx_timeout;
 	dev->watchdog_timeo = TX_TIMEOUT;
 	
 	err = register_netdev(dev);
@@ -696,6 +712,7 @@ err_out_res:
 	return err;
 }
 
+
 static void __devexit fealnx_remove_one(struct pci_dev *pdev)
 {
 	struct net_device *dev = pci_get_drvdata(pdev);
@@ -716,42 +733,6 @@ static void __devexit fealnx_remove_one(struct pci_dev *pdev)
 		pci_set_drvdata(pdev, NULL);
 	} else
 		printk(KERN_ERR "fealnx: remove for unknown device\n");
-}
-
-unsigned int m80x_read_tick(void)
-/* function: Reads the Timer tick count register which decrements by 2 from  */
-/*           65536 to 0 every 1/36.414 of a second. Each 2 decrements of the *//*           count represents 838 nsec's.                                    */
-/* input   : none.                                                           */
-/* output  : none.                                                           */
-{
-	unsigned char tmp;
-	int value;
-
-	writeb((char) 0x06, 0x43);	// Command 8254 to latch T0's count
-
-	// now read the count.
-	tmp = (unsigned char) readb(0x40);
-	value = ((int) tmp) << 8;
-	tmp = (unsigned char) readb(0x40);
-	value |= (((int) tmp) & 0xff);
-	return (value);
-}
-
-
-void m80x_delay(unsigned int interval)
-/* function: to wait for a specified time.                                   */
-/* input   : interval ... the specified time.                                */
-/* output  : none.                                                           */
-{
-	unsigned int interval1, interval2, i = 0;
-
-	interval1 = m80x_read_tick();	// get initial value
-	do {
-		interval2 = m80x_read_tick();
-		if (interval1 < interval2)
-			interval1 = interval2;
-		++i;
-	} while (((interval1 - interval2) < (ushort) interval) && (i < 65535));
 }
 
 
@@ -793,7 +774,7 @@ static ulong m80x_send_cmd_to_phy(long miiport, int opcode, int phyad, int regad
 		/* high MDC */
 		miir |= MASK_MIIR_MII_MDC;
 		writel(miir, miiport);
-		m80x_delay(30);
+		udelay(30);
 
 		/* next */
 		mask >>= 1;
@@ -828,7 +809,7 @@ static int mdio_read(struct net_device *dev, int phyad, int regad)
 		/* high MDC, and wait */
 		miir |= MASK_MIIR_MII_MDC;
 		writel(miir, miiport);
-		m80x_delay((int) 30);
+		udelay(30);
 
 		/* next */
 		mask >>= 1;
@@ -870,8 +851,6 @@ static void mdio_write(struct net_device *dev, int phyad, int regad, int data)
 	/* low MDC */
 	miir &= ~MASK_MIIR_MII_MDC;
 	writel(miir, miiport);
-
-	return;
 }
 
 
@@ -891,6 +870,21 @@ static int netdev_open(struct net_device *dev)
 	writel(np->tx_ring_dma, ioaddr + TXLBA);
 
 	/* Initialize other registers. */
+	/* Configure the PCI bus bursts and FIFO thresholds.
+	   486: Set 8 longword burst.
+	   586: no burst limit.
+	   Burst length 5:3
+	   0 0 0   1
+	   0 0 1   4
+	   0 1 0   8
+	   0 1 1   16
+	   1 0 0   32
+	   1 0 1   64
+	   1 1 0   128
+	   1 1 1   256
+	   Wait the specified 50 PCI cycles after a reset by initializing
+	   Tx and Rx queues and the address filter list.
+	   FIXME (Ueimor): optimistic for alpha + posted writes ? */
 #if defined(__powerpc__) || defined(__sparc__)
 // 89/9/1 modify, 
 //   np->bcrvalue=0x04 | 0x0x38;  /* big-endian, 256 burst length */
@@ -922,7 +916,7 @@ static int netdev_open(struct net_device *dev)
 // 89/9/1 modify,
 //   np->bcrvalue=0x38;
 	np->bcrvalue = 0x10;
-	np->cralue = 0xe00;	/* rx 128 burst length */
+	np->crvalue = 0xe00;	/* rx 128 burst length */
 #warning Processor architecture undefined!
 #endif
 // 89/12/29 add,
@@ -931,7 +925,7 @@ static int netdev_open(struct net_device *dev)
 	np->imrvalue = TUNF | CNTOVF | RBU | TI | RI;
 	if (np->pci_dev->device == 0x891) {
 		np->bcrvalue |= 0x200;	/* set PROG bit */
-		np->crvalue |= 0x02000000;	/* set enhanced bit */
+		np->crvalue |= CR_W_ENH;	/* set enhanced bit */
 		np->imrvalue |= ETI;
 	}
 	writel(np->bcrvalue, ioaddr + BCR);
@@ -939,7 +933,7 @@ static int netdev_open(struct net_device *dev)
 	if (dev->if_port == 0)
 		dev->if_port = np->default_port;
 
-	writel(0, dev->base_addr + RXPDR);
+	writel(0, ioaddr + RXPDR);
 // 89/9/1 modify,
 //   np->crvalue = 0x00e40001;    /* tx store and forward, tx/rx enable */
 	np->crvalue |= 0x00e40001;	/* tx store and forward, tx/rx enable */
@@ -947,7 +941,7 @@ static int netdev_open(struct net_device *dev)
 	getlinkstatus(dev);
 	if (np->linkok)
 		getlinktype(dev);
-	set_rx_mode(dev);
+	__set_rx_mode(dev);
 
 	netif_start_queue(dev);
 
@@ -966,6 +960,11 @@ static int netdev_open(struct net_device *dev)
 
 	/* timer handler */
 	add_timer(&np->timer);
+
+	init_timer(&np->reset_timer);
+	np->reset_timer.data = (unsigned long) dev;
+	np->reset_timer.function = &reset_timer;
+	np->reset_timer_armed = 0;
 
 	return 0;
 }
@@ -987,8 +986,7 @@ static void getlinkstatus(struct net_device *dev)
 				np->linkok = 1;
 				return;
 			}
-			// delay
-			m80x_delay(100);
+			udelay(100);
 		}
 	} else {
 		for (i = 0; i < DelayTime; ++i) {
@@ -996,8 +994,7 @@ static void getlinkstatus(struct net_device *dev)
 				np->linkok = 1;
 				return;
 			}
-			// delay
-			m80x_delay(100);
+			udelay(100);
 		}
 	}
 }
@@ -1008,11 +1005,11 @@ static void getlinktype(struct net_device *dev)
 	struct netdev_private *np = dev->priv;
 
 	if (np->PHYType == MysonPHY) {	/* 3-in-1 case */
-		if (readl(dev->base_addr + TCRRCR) & FD)
+		if (readl(dev->base_addr + TCRRCR) & CR_R_FD)
 			np->duplexmode = 2;	/* full duplex */
 		else
 			np->duplexmode = 1;	/* half duplex */
-		if (readl(dev->base_addr + TCRRCR) & PS10)
+		if (readl(dev->base_addr + TCRRCR) & CR_R_PS10)
 			np->line_speed = 1;	/* 10M */
 		else
 			np->line_speed = 2;	/* 100M */
@@ -1094,19 +1091,18 @@ static void getlinktype(struct net_device *dev)
 			else
 				np->line_speed = 1;	/* 10M */
 		}
-		// chage crvalue
-		// np->crvalue&=(~PS10)&(~FD);
-		np->crvalue &= (~PS10) & (~FD) & (~PS1000);
+		np->crvalue &= (~CR_W_PS10) & (~CR_W_FD) & (~CR_W_PS1000);
 		if (np->line_speed == 1)
-			np->crvalue |= PS10;
+			np->crvalue |= CR_W_PS10;
 		else if (np->line_speed == 3)
-			np->crvalue |= PS1000;
+			np->crvalue |= CR_W_PS1000;
 		if (np->duplexmode == 2)
-			np->crvalue |= FD;
+			np->crvalue |= CR_W_FD;
 	}
 }
 
 
+/* Take lock before calling this */
 static void allocate_rx_buffers(struct net_device *dev)
 {
 	struct netdev_private *np = dev->priv;
@@ -1116,15 +1112,17 @@ static void allocate_rx_buffers(struct net_device *dev)
 		struct sk_buff *skb;
 
 		skb = dev_alloc_skb(np->rx_buf_sz);
-		np->lack_rxbuf->skbuff = skb;
-
 		if (skb == NULL)
 			break;	/* Better luck next round. */
 
+		while (np->lack_rxbuf->skbuff)
+			np->lack_rxbuf = np->lack_rxbuf->next_desc_logical;
+
 		skb->dev = dev;	/* Mark as being used by this device. */
+		np->lack_rxbuf->skbuff = skb;
 		np->lack_rxbuf->buffer = pci_map_single(np->pci_dev, skb->tail,
 			np->rx_buf_sz, PCI_DMA_FROMDEVICE);
-		np->lack_rxbuf = np->lack_rxbuf->next_desc_logical;
+		np->lack_rxbuf->status = RXOWN;
 		++np->really_rx_count;
 	}
 }
@@ -1135,22 +1133,23 @@ static void netdev_timer(unsigned long data)
 	struct net_device *dev = (struct net_device *) data;
 	struct netdev_private *np = dev->priv;
 	long ioaddr = dev->base_addr;
-	int next_tick = 10 * HZ;
 	int old_crvalue = np->crvalue;
 	unsigned int old_linkok = np->linkok;
+	unsigned long flags;
 
 	if (debug)
 		printk(KERN_DEBUG "%s: Media selection timer tick, status %8.8x "
 		       "config %8.8x.\n", dev->name, readl(ioaddr + ISR),
 		       readl(ioaddr + TCRRCR));
 
+	spin_lock_irqsave(&np->lock, flags);
+
 	if (np->flags == HAS_MII_XCVR) {
 		getlinkstatus(dev);
 		if ((old_linkok == 0) && (np->linkok == 1)) {	/* we need to detect the media type again */
 			getlinktype(dev);
 			if (np->crvalue != old_crvalue) {
-				stop_nic_tx(ioaddr, np->crvalue);
-				stop_nic_rx(ioaddr, np->crvalue & (~0x40000));
+				stop_nic_rxtx(ioaddr, np->crvalue);
 				writel(np->crvalue, ioaddr + TCRRCR);
 			}
 		}
@@ -1158,8 +1157,86 @@ static void netdev_timer(unsigned long data)
 
 	allocate_rx_buffers(dev);
 
-	np->timer.expires = RUN_AT(next_tick);
+	spin_unlock_irqrestore(&np->lock, flags);
+
+	np->timer.expires = RUN_AT(10 * HZ);
 	add_timer(&np->timer);
+}
+
+
+/* Take lock before calling */
+/* Reset chip and disable rx, tx and interrupts */
+static void reset_and_disable_rxtx(struct net_device *dev)
+{
+	long ioaddr = dev->base_addr;
+	int delay=51;
+
+	/* Reset the chip's Tx and Rx processes. */
+	stop_nic_rxtx(ioaddr, 0);
+
+	/* Disable interrupts by clearing the interrupt mask. */
+	writel(0, ioaddr + IMR);
+
+	/* Reset the chip to erase previous misconfiguration. */
+	writel(0x00000001, ioaddr + BCR);
+
+	/* Ueimor: wait for 50 PCI cycles (and flush posted writes btw). 
+	   We surely wait too long (address+data phase). Who cares? */
+	while (--delay) {
+		readl(ioaddr + BCR);
+		rmb();
+	}
+}
+
+
+/* Take lock before calling */
+/* Restore chip after reset */
+static void enable_rxtx(struct net_device *dev)
+{
+	struct netdev_private *np = dev->priv;
+	long ioaddr = dev->base_addr;
+
+	reset_rx_descriptors(dev);
+
+	writel(np->tx_ring_dma + ((char*)np->cur_tx - (char*)np->tx_ring),
+		ioaddr + TXLBA);
+	writel(np->rx_ring_dma + ((char*)np->cur_rx - (char*)np->rx_ring),
+		ioaddr + RXLBA);
+
+	writel(np->bcrvalue, ioaddr + BCR);
+
+	writel(0, ioaddr + RXPDR);
+	__set_rx_mode(dev); /* changes np->crvalue, writes it into TCRRCR */
+
+	/* Clear and Enable interrupts by setting the interrupt mask. */
+	writel(FBE | TUNF | CNTOVF | RBU | TI | RI, ioaddr + ISR);
+	writel(np->imrvalue, ioaddr + IMR);
+
+	writel(0, ioaddr + TXPDR);
+}
+
+
+static void reset_timer(unsigned long data)
+{
+	struct net_device *dev = (struct net_device *) data;
+	struct netdev_private *np = dev->priv;
+	unsigned long flags;
+
+	printk(KERN_WARNING "%s: resetting tx and rx machinery\n", dev->name);
+
+	spin_lock_irqsave(&np->lock, flags);
+	np->crvalue = np->crvalue_sv;
+	np->imrvalue = np->imrvalue_sv;
+
+	reset_and_disable_rxtx(dev);
+	/* works for me without this:
+	reset_tx_descriptors(dev); */
+	enable_rxtx(dev);
+	netif_start_queue(dev); /* FIXME: or netif_wake_queue(dev); ? */
+		
+	np->reset_timer_armed = 0;
+
+	spin_unlock_irqrestore(&np->lock, flags);
 }
 
 
@@ -1167,13 +1244,13 @@ static void tx_timeout(struct net_device *dev)
 {
 	struct netdev_private *np = dev->priv;
 	long ioaddr = dev->base_addr;
+	unsigned long flags;
 	int i;
 
 	printk(KERN_WARNING "%s: Transmit timed out, status %8.8x,"
 	       " resetting...\n", dev->name, readl(ioaddr + ISR));
 
 	{
-
 		printk(KERN_DEBUG "  Rx ring %p: ", np->rx_ring);
 		for (i = 0; i < RX_RING_SIZE; i++)
 			printk(" %8.8x", (unsigned int) np->rx_ring[i].status);
@@ -1182,46 +1259,18 @@ static void tx_timeout(struct net_device *dev)
 			printk(" %4.4x", np->tx_ring[i].status);
 		printk("\n");
 	}
+	
+	spin_lock_irqsave(&np->lock, flags);
 
-	   + dev->if_port = np->default_port;
-	/* Reinit. Gross */
+	reset_and_disable_rxtx(dev);
+	reset_tx_descriptors(dev);
+	enable_rxtx(dev);
 
-	/* Reset the chip's Tx and Rx processes. */
-	stop_nic_tx(ioaddr, 0);
-	reset_rx_descriptors(dev);
-
-	/* Disable interrupts by clearing the interrupt mask. */
-	writel(0x0000, ioaddr + IMR);
-
-	/* Reset the chip to erase previous misconfiguration. */
-	writel(0x00000001, ioaddr + BCR);
-
-	/* Ueimor: wait for 50 PCI cycles (and flush posted writes btw). 
-	   We surely wait too long (address+data phase). Who cares ? */
-	for (i = 0; i < 50; i++) {
-		readl(ioaddr + BCR);
-		rmb();
-	}
-
-	writel((np->cur_tx - np->tx_ring)*sizeof(struct fealnx_desc) +
-		np->tx_ring_dma, ioaddr + TXLBA);
-	writel((np->cur_rx - np->rx_ring)*sizeof(struct fealnx_desc) +
-		np->rx_ring_dma, ioaddr + RXLBA);
-
-	writel(np->bcrvalue, ioaddr + BCR);
-
-	writel(0, dev->base_addr + RXPDR);
-	set_rx_mode(dev);
-	/* Clear and Enable interrupts by setting the interrupt mask. */
-	writel(FBE | TUNF | CNTOVF | RBU | TI | RI, ioaddr + ISR);
-	writel(np->imrvalue, ioaddr + IMR);
-
-	writel(0, dev->base_addr + TXPDR);
+	spin_unlock_irqrestore(&np->lock, flags);
 
 	dev->trans_start = jiffies;
 	np->stats.tx_errors++;
-
-	return;
+	netif_wake_queue(dev); /* or .._start_.. ?? */
 }
 
 
@@ -1234,7 +1283,7 @@ static void init_ring(struct net_device *dev)
 	/* initialize rx variables */
 	np->rx_buf_sz = (dev->mtu <= 1500 ? PKT_BUF_SZ : dev->mtu + 32);
 	np->cur_rx = &np->rx_ring[0];
-	np->lack_rxbuf = NULL;
+	np->lack_rxbuf = np->rx_ring;
 	np->really_rx_count = 0;
 
 	/* initial rx descriptors. */
@@ -1277,6 +1326,7 @@ static void init_ring(struct net_device *dev)
 
 	for (i = 0; i < TX_RING_SIZE; i++) {
 		np->tx_ring[i].status = 0;
+		/* do we need np->tx_ring[i].control = XXX; ?? */
 		np->tx_ring[i].next_desc = np->tx_ring_dma +
 			(i + 1)*sizeof(struct fealnx_desc);
 		np->tx_ring[i].next_desc_logical = &np->tx_ring[i + 1];
@@ -1286,8 +1336,6 @@ static void init_ring(struct net_device *dev)
 	/* for the last tx descriptor */
 	np->tx_ring[i - 1].next_desc = np->tx_ring_dma;
 	np->tx_ring[i - 1].next_desc_logical = &np->tx_ring[0];
-
-	return;
 }
 
 
@@ -1323,7 +1371,7 @@ static int start_tx(struct sk_buff *skb, struct net_device *dev)
 		np->cur_tx_copy->control |= (BPT << TBSShift);	/* buffer size */
 
 		/* for the last descriptor */
-		next = (struct fealnx *) np->cur_tx_copy.next_desc_logical;
+		next = np->cur_tx_copy->next_desc_logical;
 		next->skbuff = skb;
 		next->control = TXIC | TXLD | CRCEnable | PADEnable;
 		next->control |= (skb->len << PKTSShift);	/* pkt size */
@@ -1364,51 +1412,76 @@ static int start_tx(struct sk_buff *skb, struct net_device *dev)
 }
 
 
-void free_one_rx_descriptor(struct netdev_private *np)
+/* Take lock before calling */
+/* Chip probably hosed tx ring. Clean up. */
+static void reset_tx_descriptors(struct net_device *dev)
 {
-	if (np->really_rx_count == RX_RING_SIZE)
-		np->cur_rx->status = RXOWN;
-	else {
-		np->lack_rxbuf->skbuff = np->cur_rx->skbuff;
-		np->lack_rxbuf->buffer = np->cur_rx->buffer;
-		np->lack_rxbuf->status = RXOWN;
-		++np->really_rx_count;
-		np->lack_rxbuf = np->lack_rxbuf->next_desc_logical;
+	struct netdev_private *np = dev->priv;
+	struct fealnx_desc *cur;
+	int i;
+
+	/* initialize tx variables */
+	np->cur_tx = &np->tx_ring[0];
+	np->cur_tx_copy = &np->tx_ring[0];
+	np->really_tx_count = 0;
+	np->free_tx_count = TX_RING_SIZE;
+
+	for (i = 0; i < TX_RING_SIZE; i++) {
+		cur = &np->tx_ring[i];
+		if (cur->skbuff) {
+			pci_unmap_single(np->pci_dev, cur->buffer,
+				cur->skbuff->len, PCI_DMA_TODEVICE);
+			dev_kfree_skb(cur->skbuff);
+			/* or dev_kfree_skb_irq(cur->skbuff); ? */
+			cur->skbuff = NULL;
+		}
+		cur->status = 0;
+		cur->control = 0;	/* needed? */
+		/* probably not needed. We do it for purely paranoid reasons */
+		cur->next_desc = np->tx_ring_dma +
+			(i + 1)*sizeof(struct fealnx_desc);
+		cur->next_desc_logical = &np->tx_ring[i + 1];
 	}
-	np->cur_rx = np->cur_rx->next_desc_logical;
+	/* for the last tx descriptor */
+	np->tx_ring[TX_RING_SIZE - 1].next_desc = np->tx_ring_dma;
+	np->tx_ring[TX_RING_SIZE - 1].next_desc_logical = &np->tx_ring[0];
 }
 
 
-void reset_rx_descriptors(struct net_device *dev)
+/* Take lock and stop rx before calling this */
+static void reset_rx_descriptors(struct net_device *dev)
 {
 	struct netdev_private *np = dev->priv;
-
-	stop_nic_rx(dev->base_addr, np->crvalue);
-
-	while (!(np->cur_rx->status & RXOWN))
-		free_one_rx_descriptor(np);
+	struct fealnx_desc *cur = np->cur_rx;
+	int i;
 
 	allocate_rx_buffers(dev);
 
-	writel(np->rx_ring_dma + (np->cur_rx - np->rx_ring),
+	for (i = 0; i < RX_RING_SIZE; i++) {
+		if (cur->skbuff)
+			cur->status = RXOWN;
+		cur = cur->next_desc_logical;
+	}
+
+	writel(np->rx_ring_dma + ((char*)np->cur_rx - (char*)np->rx_ring),
 		dev->base_addr + RXLBA);
-	writel(np->crvalue, dev->base_addr + TCRRCR);
 }
 
 
 /* The interrupt handler does all of the Rx thread work and cleans up
    after the Tx thread. */
-static void intr_handler(int irq, void *dev_instance, struct pt_regs *rgs)
+static irqreturn_t intr_handler(int irq, void *dev_instance, struct pt_regs *rgs)
 {
 	struct net_device *dev = (struct net_device *) dev_instance;
 	struct netdev_private *np = dev->priv;
-	long ioaddr, boguscnt = max_interrupt_work;
+	long ioaddr = dev->base_addr;
+	long boguscnt = max_interrupt_work;
 	unsigned int num_tx = 0;
+	int handled = 0;
 
-	writel(0, dev->base_addr + IMR);
+	spin_lock(&np->lock);
 
-	ioaddr = dev->base_addr;
-	np = (struct netdev_private *) dev->priv;
+	writel(0, ioaddr + IMR);
 
 	do {
 		u32 intr_status = readl(ioaddr + ISR);
@@ -1422,6 +1495,8 @@ static void intr_handler(int irq, void *dev_instance, struct pt_regs *rgs)
 
 		if (!(intr_status & np->imrvalue))
 			break;
+
+		handled = 1;
 
 // 90/1/16 delete,
 //
@@ -1447,8 +1522,11 @@ static void intr_handler(int irq, void *dev_instance, struct pt_regs *rgs)
 		if (intr_status & (RI | RBU)) {
 			if (intr_status & RI)
 				netdev_rx(dev);
-			else
+			else {
+				stop_nic_rx(ioaddr, np->crvalue);
 				reset_rx_descriptors(dev);
+				writel(np->crvalue, ioaddr + TCRRCR);
+			}				
 		}
 
 		while (np->really_tx_count) {
@@ -1466,7 +1544,7 @@ static void intr_handler(int irq, void *dev_instance, struct pt_regs *rgs)
 			if (tx_status & TXOWN)
 				break;
 
-			if (!(np->crvalue & 0x02000000)) {
+			if (!(np->crvalue & CR_W_ENH)) {
 				if (tx_status & (CSL | LC | EC | UDF | HF)) {
 					np->stats.tx_errors++;
 					if (tx_status & EC)
@@ -1515,7 +1593,7 @@ static void intr_handler(int irq, void *dev_instance, struct pt_regs *rgs)
 			netif_wake_queue(dev);
 
 		/* read transmit status for enhanced mode only */
-		if (np->crvalue & 0x02000000) {
+		if (np->crvalue & CR_W_ENH) {
 			long data;
 
 			data = readl(ioaddr + TSR);
@@ -1528,6 +1606,20 @@ static void intr_handler(int irq, void *dev_instance, struct pt_regs *rgs)
 		if (--boguscnt < 0) {
 			printk(KERN_WARNING "%s: Too much work at interrupt, "
 			       "status=0x%4.4x.\n", dev->name, intr_status);
+			if (!np->reset_timer_armed) {
+				np->reset_timer_armed = 1;
+				np->reset_timer.expires = RUN_AT(HZ/2);
+				add_timer(&np->reset_timer);
+				stop_nic_rxtx(ioaddr, 0);
+				netif_stop_queue(dev);
+				/* or netif_tx_disable(dev); ?? */
+				/* Prevent other paths from enabling tx,rx,intrs */
+				np->crvalue_sv = np->crvalue;
+				np->imrvalue_sv = np->imrvalue;
+				np->crvalue &= ~(CR_W_TXEN | CR_W_RXEN); /* or simply = 0? */
+				np->imrvalue = 0;
+			}
+
 			break;
 		}
 	} while (1);
@@ -1545,18 +1637,21 @@ static void intr_handler(int irq, void *dev_instance, struct pt_regs *rgs)
 
 	writel(np->imrvalue, ioaddr + IMR);
 
-	return;
+	spin_unlock(&np->lock);
+
+	return IRQ_RETVAL(handled);
 }
 
 
-/* This routine is logically part of the interrupt handler, but seperated
+/* This routine is logically part of the interrupt handler, but separated
    for clarity and better register allocation. */
 static int netdev_rx(struct net_device *dev)
 {
 	struct netdev_private *np = dev->priv;
+	long ioaddr = dev->base_addr;
 
 	/* If EOP is set on the next entry, it's a new packet. Send it up. */
-	while (!(np->cur_rx->status & RXOWN)) {
+	while (!(np->cur_rx->status & RXOWN) && np->cur_rx->skbuff) {
 		s32 rx_status = np->cur_rx->status;
 
 		if (np->really_rx_count == 0)
@@ -1608,11 +1703,20 @@ static int netdev_rx(struct net_device *dev)
 					np->stats.rx_length_errors++;
 
 					/* free all rx descriptors related this long pkt */
-					for (i = 0; i < desno; ++i)
-						free_one_rx_descriptor(np);
+					for (i = 0; i < desno; ++i) {
+						if (!np->cur_rx->skbuff) {
+							printk(KERN_DEBUG
+								"%s: I'm scared\n", dev->name);
+							break;
+						}
+						np->cur_rx->status = RXOWN;
+						np->cur_rx = np->cur_rx->next_desc_logical;
+					}
 					continue;
-				} else {	/* something error, need to reset this chip */
+				} else {        /* rx error, need to reset this chip */
+					stop_nic_rx(ioaddr, np->crvalue);
 					reset_rx_descriptors(dev);
+					writel(np->crvalue, ioaddr + TCRRCR);
 				}
 				break;	/* exit the while loop */
 			}
@@ -1640,7 +1744,7 @@ static int netdev_rx(struct net_device *dev)
 				skb_reserve(skb, 2);	/* 16 byte align the IP header */
 				/* Call copy + cksum if available. */
 
-#if !defined(__alpha__)
+#if ! defined(__alpha__)
 				eth_copy_and_sum(skb, 
 					np->cur_rx->skbuff->tail, pkt_len, 0);
 				skb_put(skb, pkt_len);
@@ -1651,8 +1755,6 @@ static int netdev_rx(struct net_device *dev)
 			} else {
 				skb_put(skb = np->cur_rx->skbuff, pkt_len);
 				np->cur_rx->skbuff = NULL;
-				if (np->really_rx_count == RX_RING_SIZE)
-					np->lack_rxbuf = np->cur_rx;
 				--np->really_rx_count;
 			}
 			skb->protocol = eth_type_trans(skb, dev);
@@ -1662,22 +1764,7 @@ static int netdev_rx(struct net_device *dev)
 			np->stats.rx_bytes += pkt_len;
 		}
 
-		if (np->cur_rx->skbuff == NULL) {
-			struct sk_buff *skb;
-
-			skb = dev_alloc_skb(np->rx_buf_sz);
-
-			if (skb != NULL) {
-				skb->dev = dev;	/* Mark as being used by this device. */
-				np->cur_rx->buffer = pci_map_single(np->pci_dev, skb->tail,
-					np->rx_buf_sz, PCI_DMA_FROMDEVICE);
-				np->cur_rx->skbuff = skb;
-				++np->really_rx_count;
-			}
-		}
-
-		if (np->cur_rx->skbuff != NULL)
-			free_one_rx_descriptor(np);
+		np->cur_rx = np->cur_rx->next_desc_logical;
 	}			/* end of while loop */
 
 	/*  allocate skb for rx buffers */
@@ -1701,7 +1788,20 @@ static struct net_device_stats *get_stats(struct net_device *dev)
 	return &np->stats;
 }
 
+
+/* for dev->set_multicast_list */
 static void set_rx_mode(struct net_device *dev)
+{
+	spinlock_t *lp = &((struct netdev_private *)dev->priv)->lock;
+	unsigned long flags;
+	spin_lock_irqsave(lp, flags);
+	__set_rx_mode(dev);
+	spin_unlock_irqrestore(lp, flags);
+}
+
+
+/* Take lock before calling */
+static void __set_rx_mode(struct net_device *dev)
 {
 	struct netdev_private *np = dev->priv;
 	long ioaddr = dev->base_addr;
@@ -1712,12 +1812,12 @@ static void set_rx_mode(struct net_device *dev)
 		/* Unconditionally log net taps. */
 		printk(KERN_NOTICE "%s: Promiscuous mode enabled.\n", dev->name);
 		memset(mc_filter, 0xff, sizeof(mc_filter));
-		rx_mode = PROM | AB | AM;
+		rx_mode = CR_W_PROM | CR_W_AB | CR_W_AM;
 	} else if ((dev->mc_count > multicast_filter_limit)
 		   || (dev->flags & IFF_ALLMULTI)) {
 		/* Too many to match, or accept all multicasts. */
 		memset(mc_filter, 0xff, sizeof(mc_filter));
-		rx_mode = AB | AM;
+		rx_mode = CR_W_AB | CR_W_AM;
 	} else {
 		struct dev_mc_list *mclist;
 		int i;
@@ -1725,98 +1825,88 @@ static void set_rx_mode(struct net_device *dev)
 		memset(mc_filter, 0, sizeof(mc_filter));
 		for (i = 0, mclist = dev->mc_list; mclist && i < dev->mc_count;
 		     i++, mclist = mclist->next) {
-			set_bit((ether_crc(ETH_ALEN, mclist->dmi_addr) >> 26) ^ 0x3F,
-				mc_filter);
+			unsigned int bit;
+			bit = (ether_crc(ETH_ALEN, mclist->dmi_addr) >> 26) ^ 0x3F;
+			mc_filter[bit >> 5] |= (1 << bit);
 		}
-		rx_mode = AB | AM;
+		rx_mode = CR_W_AB | CR_W_AM;
 	}
 
-	stop_nic_tx(ioaddr, np->crvalue);
-	stop_nic_rx(ioaddr, np->crvalue & (~0x40000));
+	stop_nic_rxtx(ioaddr, np->crvalue);
 
 	writel(mc_filter[0], ioaddr + MAR0);
 	writel(mc_filter[1], ioaddr + MAR1);
-	np->crvalue &= ~RxModeMask;
+	np->crvalue &= ~CR_W_RXMODEMASK;
 	np->crvalue |= rx_mode;
 	writel(np->crvalue, ioaddr + TCRRCR);
 }
 
-static int netdev_ethtool_ioctl (struct net_device *dev, void *useraddr)
+static void netdev_get_drvinfo(struct net_device *dev, struct ethtool_drvinfo *info)
 {
 	struct netdev_private *np = dev->priv;
-	u32 ethcmd;
 
-	if (copy_from_user (&ethcmd, useraddr, sizeof (ethcmd)))
-		return -EFAULT;
-
-	switch (ethcmd) {
-	case ETHTOOL_GDRVINFO: {
-		struct ethtool_drvinfo info = { ETHTOOL_GDRVINFO };
-		strcpy (info.driver, DRV_NAME);
-		strcpy (info.version, DRV_VERSION);
-		strcpy (info.bus_info, np->pci_dev->slot_name);
-		if (copy_to_user (useraddr, &info, sizeof (info)))
-			return -EFAULT;
-		return 0;
-	}
-
-	/* get settings */
-	case ETHTOOL_GSET: {
-		struct ethtool_cmd ecmd = { ETHTOOL_GSET };
-		spin_lock_irq(&np->lock);
-		mii_ethtool_gset(&np->mii, &ecmd);
-		spin_unlock_irq(&np->lock);
-		if (copy_to_user(useraddr, &ecmd, sizeof(ecmd)))
-			return -EFAULT;
-		return 0;
-	}
-	/* set settings */
-	case ETHTOOL_SSET: {
-		int r;
-		struct ethtool_cmd ecmd;
-		if (copy_from_user(&ecmd, useraddr, sizeof(ecmd)))
-			return -EFAULT;
-		spin_lock_irq(&np->lock);
-		r = mii_ethtool_sset(&np->mii, &ecmd);
-		spin_unlock_irq(&np->lock);
-		return r;
-	}
-	/* restart autonegotiation */
-	case ETHTOOL_NWAY_RST: {
-		return mii_nway_restart(&np->mii);
-	}
-	/* get link status */
-	case ETHTOOL_GLINK: {
-		struct ethtool_value edata = {ETHTOOL_GLINK};
-		edata.data = mii_link_ok(&np->mii);
-		if (copy_to_user(useraddr, &edata, sizeof(edata)))
-			return -EFAULT;
-		return 0;
-	}
-
-	/* get message-level */
-	case ETHTOOL_GMSGLVL: {
-		struct ethtool_value edata = {ETHTOOL_GMSGLVL};
-		edata.data = debug;
-		if (copy_to_user(useraddr, &edata, sizeof(edata)))
-			return -EFAULT;
-		return 0;
-	}
-	/* set message-level */
-	case ETHTOOL_SMSGLVL: {
-		struct ethtool_value edata;
-		if (copy_from_user(&edata, useraddr, sizeof(edata)))
-			return -EFAULT;
-		debug = edata.data;
-		return 0;
-	}
-	default:
-		break;
-	}
-
-	return -EOPNOTSUPP;
+	strcpy(info->driver, DRV_NAME);
+	strcpy(info->version, DRV_VERSION);
+	strcpy(info->bus_info, pci_name(np->pci_dev));
 }
 
+static int netdev_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+{
+	struct netdev_private *np = dev->priv;
+	int rc;
+
+	spin_lock_irq(&np->lock);
+	rc = mii_ethtool_gset(&np->mii, cmd);
+	spin_unlock_irq(&np->lock);
+
+	return rc;
+}
+
+static int netdev_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+{
+	struct netdev_private *np = dev->priv;
+	int rc;
+
+	spin_lock_irq(&np->lock);
+	rc = mii_ethtool_sset(&np->mii, cmd);
+	spin_unlock_irq(&np->lock);
+
+	return rc;
+}
+
+static int netdev_nway_reset(struct net_device *dev)
+{
+	struct netdev_private *np = dev->priv;
+	return mii_nway_restart(&np->mii);
+}
+
+static u32 netdev_get_link(struct net_device *dev)
+{
+	struct netdev_private *np = dev->priv;
+	return mii_link_ok(&np->mii);
+}
+
+static u32 netdev_get_msglevel(struct net_device *dev)
+{
+	return debug;
+}
+
+static void netdev_set_msglevel(struct net_device *dev, u32 value)
+{
+	debug = value;
+}
+
+static struct ethtool_ops netdev_ethtool_ops = {
+	.get_drvinfo		= netdev_get_drvinfo,
+	.get_settings		= netdev_get_settings,
+	.set_settings		= netdev_set_settings,
+	.nway_reset		= netdev_nway_reset,
+	.get_link		= netdev_get_link,
+	.get_msglevel		= netdev_get_msglevel,
+	.set_msglevel		= netdev_set_msglevel,
+	.get_sg			= ethtool_op_get_sg,
+	.get_tx_csum		= ethtool_op_get_tx_csum,
+};
 
 static int mii_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
 {
@@ -1827,14 +1917,9 @@ static int mii_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
 	if (!netif_running(dev))
 		return -EINVAL;
 
-	if (cmd == SIOCETHTOOL)
-		rc = netdev_ethtool_ioctl(dev, (void *) rq->ifr_data);
-
-	else {
-		spin_lock_irq(&np->lock);
-		rc = generic_mii_ioctl(&np->mii, data, cmd, NULL);
-		spin_unlock_irq(&np->lock);
-	}
+	spin_lock_irq(&np->lock);
+	rc = generic_mii_ioctl(&np->mii, data, cmd, NULL);
+	spin_unlock_irq(&np->lock);
 
 	return rc;
 }
@@ -1852,10 +1937,10 @@ static int netdev_close(struct net_device *dev)
 	writel(0x0000, ioaddr + IMR);
 
 	/* Stop the chip's Tx and Rx processes. */
-	stop_nic_tx(ioaddr, 0);
-	stop_nic_rx(ioaddr, 0);
+	stop_nic_rxtx(ioaddr, 0);
 
 	del_timer_sync(&np->timer);
+	del_timer_sync(&np->reset_timer);
 
 	free_irq(dev->irq, dev);
 
@@ -1886,7 +1971,7 @@ static int netdev_close(struct net_device *dev)
 	return 0;
 }
 
-static struct pci_device_id fealnx_pci_tbl[] __devinitdata = {
+static struct pci_device_id fealnx_pci_tbl[] = {
 	{0x1516, 0x0800, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0},
 	{0x1516, 0x0803, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 1},
 	{0x1516, 0x0891, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 2},
@@ -1896,17 +1981,17 @@ MODULE_DEVICE_TABLE(pci, fealnx_pci_tbl);
 
 
 static struct pci_driver fealnx_driver = {
-	name:		"fealnx",
-	id_table:	fealnx_pci_tbl,
-	probe:		fealnx_init_one,
-	remove:		__devexit_p(fealnx_remove_one),
+	.name		= "fealnx",
+	.id_table	= fealnx_pci_tbl,
+	.probe		= fealnx_init_one,
+	.remove		= __devexit_p(fealnx_remove_one),
 };
 
 static int __init fealnx_init(void)
 {
 /* when a module, this is printed whether or not devices are found in probe */
 #ifdef MODULE
-	printk (version);
+	printk(version);
 #endif
 
 	return pci_module_init(&fealnx_driver);

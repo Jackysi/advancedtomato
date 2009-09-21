@@ -1,4 +1,4 @@
-/* $Id: sys_sparc.c,v 1.1.1.4 2003/10/14 08:07:48 sparq Exp $
+/* $Id: sys_sparc.c,v 1.70 2001/04/14 01:12:02 davem Exp $
  * linux/arch/sparc/kernel/sys_sparc.c
  *
  * This file contains various random system calls that
@@ -26,6 +26,9 @@
 
 /* #define DEBUG_UNIMP_SYSCALL */
 
+/* XXX Make this per-binary type, this way we can detect the type of
+ * XXX a binary.  Every Sparc executable calls this very early on.
+ */
 asmlinkage unsigned long sys_getpagesize(void)
 {
 	return PAGE_SIZE; /* Possibly older binaries want 8192 on sun4's? */
@@ -120,7 +123,10 @@ asmlinkage int sys_ipc (uint call, int first, int second, int third, void *ptr, 
 	if (call <= SEMCTL)
 		switch (call) {
 		case SEMOP:
-			err = sys_semop (first, (struct sembuf *)ptr, second);
+			err = sys_semtimedop (first, (struct sembuf *)ptr, second, NULL);
+			goto out;
+		case SEMTIMEDOP:
+			err = sys_semtimedop (first, (struct sembuf *)ptr, second, (const struct timespec *) fifth);
 			goto out;
 		case SEMGET:
 			err = sys_semget (first, second, third);
@@ -137,7 +143,7 @@ asmlinkage int sys_ipc (uint call, int first, int second, int third, void *ptr, 
 			goto out;
 			}
 		default:
-			err = -EINVAL;
+			err = -ENOSYS;
 			goto out;
 		}
 	if (call <= MSGCTL) 
@@ -170,7 +176,7 @@ asmlinkage int sys_ipc (uint call, int first, int second, int third, void *ptr, 
 			err = sys_msgctl (first, second, (struct msqid_ds *) ptr);
 			goto out;
 		default:
-			err = -EINVAL;
+			err = -ENOSYS;
 			goto out;
 		}
 	if (call <= SHMCTL) 
@@ -202,11 +208,11 @@ asmlinkage int sys_ipc (uint call, int first, int second, int third, void *ptr, 
 			err = sys_shmctl (first, second, (struct shmid_ds *) ptr);
 			goto out;
 		default:
-			err = -EINVAL;
+			err = -ENOSYS;
 			goto out;
 		}
 	else
-		err = -EINVAL;
+		err = -ENOSYS;
 out:
 	return err;
 }
@@ -229,8 +235,7 @@ static unsigned long do_mmap2(unsigned long addr, unsigned long len,
 	len = PAGE_ALIGN(len);
 	if (ARCH_SUN4C_SUN4 &&
 	    (len > 0x20000000 ||
-	     ((flags & MAP_FIXED) &&
-	      addr < 0xe0000000 && addr + len > 0x20000000)))
+	     (addr < 0xe0000000 && addr + len > 0x20000000)))
 		goto out_putf;
 
 	/* See asm-sparc/uaccess.h */
@@ -414,6 +419,7 @@ sys_rt_sigaction(int sig, const struct sigaction *act, struct sigaction *oact,
 	struct k_sigaction new_ka, old_ka;
 	int ret;
 
+	/* XXX: Don't preclude handling different sized sigset_t's.  */
 	if (sigsetsize != sizeof(sigset_t))
 		return -EINVAL;
 

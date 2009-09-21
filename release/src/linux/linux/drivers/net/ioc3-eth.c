@@ -377,60 +377,6 @@ static void ioc3_get_eaddr_nic(struct ioc3_private *ip)
 		ip->dev->dev_addr[i - 2] = nic[i];
 }
 
-#if defined(CONFIG_IA64_SGI_SN1) || defined(CONFIG_IA64_SGI_SN2)
-/*
- * Get the ether-address on SN1 nodes
- */
-static void ioc3_get_eaddr_sn(struct ioc3_private *ip)
-{
-	int ibrick_mac_addr_get(nasid_t, char *);
-	struct ioc3 *ioc3 = ip->regs;
-	nasid_t nasid_of_ioc3;
-	char io7eaddr[20];
-	long mac;
-	int err_val;
-
-	/*
-	 * err_val = ibrick_mac_addr_get(get_nasid(), io7eaddr );
-	 * 
-	 * BAD!!  The above call uses get_nasid() and assumes that
-	 * the ioc3 pointed to by struct ioc3 is hooked up to the
-	 * cbrick that we're running on.  The proper way to make this call
-	 * is to figure out which nasid the ioc3 is connected to
-	 * and use that to call ibrick_mac_addr_get.  Below is
-	 * a hack to do just that.
-	 */
-
-	nasid_of_ioc3 = (((unsigned long)ioc3 >> 33) & ~(-1 << 8));
-	err_val = ibrick_mac_addr_get(nasid_of_ioc3, io7eaddr );
-
-
-	if (err_val) {
-		/* Couldn't read the eeprom; try OSLoadOptions. */
-		printk("WARNING: ibrick_mac_addr_get failed: %d\n", err_val);
-
-		printk("ioc3_get_eaddr: setting ethernet address to:\n -----> ");
-		ip->dev->dev_addr[0] = 0x8;
-		ip->dev->dev_addr[1] = 0x0;
-		ip->dev->dev_addr[2] = 0x69;
-		ip->dev->dev_addr[3] = 0x11;
-		ip->dev->dev_addr[4] = 0x34;
-		ip->dev->dev_addr[5] = 0x60;
-	}
-	else {
-		long simple_strtol(const char *,char **,unsigned int);
-
-		mac = simple_strtol(io7eaddr, (char **)0, 16);
-		ip->dev->dev_addr[0] = (mac >> 40) & 0xff;
-		ip->dev->dev_addr[1] = (mac >> 32) & 0xff;
-		ip->dev->dev_addr[2] = (mac >> 24) & 0xff;
-		ip->dev->dev_addr[3] = (mac >> 16) & 0xff;
-		ip->dev->dev_addr[4] = (mac >> 8) & 0xff;
-		ip->dev->dev_addr[5] = mac & 0xff;
-	}
-}
-#endif
-
 /*
  * Ok, this is hosed by design.  It's necessary to know what machine the
  * NIC is in in order to know how to read the NIC address.  We also have
@@ -441,17 +387,7 @@ static void ioc3_get_eaddr(struct ioc3_private *ip)
 	int i;
 
 
-#ifdef CONFIG_SGI_IP27
 	ioc3_get_eaddr_nic(ip);
-#elif defined(CONFIG_IA64_SGI_SN1) || defined(CONFIG_IA64_SGI_SN2)
-	/*
-	 * We should also use this code for PCI cards, no matter what host
-	 * machine but how to know that we're a PCI card?
-	 */
-	ioc3_get_eaddr_sn(ip);
-#else 
-#error No clue how to read IOC3 MAC address for this configuration.
-#endif
 
 	printk("Ethernet address is ");
 	for (i = 0; i < 6; i++) {
@@ -883,6 +819,13 @@ static void ioc3_timer(unsigned long data)
 				/* Just what we've been waiting for... */
 				ret = ioc3_set_link_modes(ip);
 				if (ret) {
+					/* Ooops, something bad happened, go to
+					 * force mode.
+					 *
+					 * XXX Broken hubs which don't support
+					 * XXX 802.3u auto-negotiation make this
+					 * XXX happen as well.
+					 */
 					goto do_force_mode;
 				}
 
@@ -959,7 +902,7 @@ static void ioc3_timer(unsigned long data)
 		if (ip->sw_bmsr & BMSR_LSTATUS) {
 			/* Force mode selection success. */
 			ioc3_display_forced_link_mode(ip);
-			ioc3_set_link_modes(ip);  
+			ioc3_set_link_modes(ip);  /* XXX error? then what? */
 			ip->timer_state = asleep;
 			restart_timer = 0;
 		} else {
@@ -1022,6 +965,7 @@ ioc3_start_auto_negotiation(struct ioc3_private *ip, struct ethtool_cmd *ep)
 	ip->sw_physid1   = mii_read(ip, MII_PHYSID1);
 	ip->sw_physid2   = mii_read(ip, MII_PHYSID2);
 
+	/* XXX Check BMSR_ANEGCAPABLE, should not be necessary though. */
 
 	ip->sw_advertise = mii_read(ip, MII_ADVERTISE);
 	if (ep == NULL || ep->autoneg == AUTONEG_ENABLE) {
@@ -1045,6 +989,13 @@ ioc3_start_auto_negotiation(struct ioc3_private *ip, struct ethtool_cmd *ep)
 			ip->sw_advertise &= ~ADVERTISE_100FULL;
 		mii_write(ip, MII_ADVERTISE, ip->sw_advertise);
 
+		/*
+		 * XXX Currently no IOC3 card I know off supports 100BaseT4,
+		 * XXX and this is because the DP83840 does not support it,
+		 * XXX changes XXX would need to be made to the tx/rx logic in
+		 * XXX the driver as well so I completely skip checking for it
+		 * XXX in the BMSR for now.
+		 */
 
 #ifdef AUTO_SWITCH_DEBUG
 		ASD(("%s: Advertising [ ", ip->dev->name));
@@ -1354,7 +1305,7 @@ static void ioc3_init(struct ioc3_private *ip)
 	               (dev->dev_addr[1] <<  8) | dev->dev_addr[0];
 	ioc3->ehar_h = ip->ehar_h;
 	ioc3->ehar_l = ip->ehar_l;
-	ioc3->ersr = 42;			
+	ioc3->ersr = 42;			/* XXX should be random */
 
 	ioc3_init_rings(ip->dev, ip, ioc3);
 
@@ -1510,11 +1461,11 @@ static int __devinit ioc3_probe(struct pci_dev *pdev,
 #endif
 
 	spin_lock_init(&ip->ioc3_lock);
+	init_timer(&ip->ioc3_timer);
 
 	ioc3_stop(ip);
 	ioc3_init(ip);
 
-	init_timer(&ip->ioc3_timer);
 	ioc3_mii_init(ip);
 
 	if (ip->phy == -1) {
@@ -1568,6 +1519,7 @@ static void __devexit ioc3_remove_one (struct pci_dev *pdev)
 	struct ioc3_private *ip = dev->priv;
 	struct ioc3 *ioc3 = ip->regs;
 
+	unregister_netdev(dev);
 	iounmap(ioc3);
 	pci_release_regions(pdev);
 	kfree(dev);
@@ -1799,9 +1751,6 @@ static int ioc3_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
 				return -EFAULT;
 			return 0;
 		} else if (ecmd.cmd == ETHTOOL_SSET) {
-			if (!capable(CAP_NET_ADMIN))
-				return -EPERM;
-
 			/* Verify the settings we care about. */
 			if (ecmd.autoneg != AUTONEG_ENABLE &&
 			    ecmd.autoneg != AUTONEG_DISABLE)

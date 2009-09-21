@@ -1,7 +1,7 @@
 /* Driver for SCM Microsystems USB-ATAPI cable
  * Header File
  *
- * $Id: shuttle_usbat.h,v 1.1.1.4 2003/10/14 08:08:52 sparq Exp $
+ * $Id: shuttle_usbat.h,v 1.5 2000/09/17 14:44:52 groovyjava Exp $
  *
  * Current development and maintenance by:
  *   (c) 2000 Robert Baruch (autophile@dol.net)

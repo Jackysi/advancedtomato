@@ -1,4 +1,4 @@
-/* $Id: plip.c,v 1.1.1.4 2003/10/14 08:08:22 sparq Exp $ */
+/* $Id: plip.c,v 1.3.6.2 1997/04/16 15:07:56 phil Exp $ */
 /* PLIP: A parallel port "network" driver for Linux. */
 /* This driver is for parallel port with 5-bit cable (LapLink (R) cable). */
 /*
@@ -1097,7 +1097,10 @@ int plip_hard_header_cache(struct neighbour *neigh,
 	
 	if ((ret = nl->orig_hard_header_cache(neigh, hh)) == 0)
 	{
-		struct ethhdr *eth = (struct ethhdr*)(((u8*)hh->hh_data) + 2);
+		struct ethhdr *eth;
+
+		eth = (struct ethhdr*)(((u8*)hh->hh_data) +
+				       HH_DATA_OFF(sizeof(*eth)));
 		plip_rewrite_address (neigh->dev, eth);
 	}
 	
@@ -1177,7 +1180,7 @@ plip_close(struct net_device *dev)
 	struct plip_local *rcv = &nl->rcv_data;
 
 	netif_stop_queue (dev);
-	DISABLE(dev->irq);
+	disable_parport_interrupts(dev);
 	synchronize_irq();
 
 	if (dev->irq == -1)

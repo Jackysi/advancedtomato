@@ -131,6 +131,52 @@ char *CUcmdnames[8] = { "NOP", "IASetup", "Configure", "MulticastList",
 #define	STAT_T		0x0008	/* Bus throttle timers loaded */
 #define	STAT_ZERO	0x0807	/* Always zero */
 
+#if 0
+static char *CUstates[8] = {
+	"idle", "suspended", "active", 0, 0, 0, 0, 0
+};
+static char *RUstates[16] = {
+	"idle", "suspended", "no resources", 0, "ready", 0, 0, 0,
+	0, 0, "no RBDs", 0, "out of RBDs", 0, 0, 0
+};
+
+static void
+i596_out_status(int status) {
+	int bad = 0;
+	char *s;
+
+	printk("status %4.4x:", status);
+	if (status == 0xffff)
+		printk(" strange..\n");
+	else {
+		if (status & STAT_CX)
+			printk("  CU done");
+		if (status & STAT_CNA)
+			printk("  CU stopped");
+		if (status & STAT_FR)
+			printk("  got a frame");
+		if (status & STAT_RNR)
+			printk("  RU stopped");
+		if (status & STAT_T)
+			printk("  throttled");
+		if (status & STAT_ZERO)
+			bad = 1;
+		s = CUstates[(status & STAT_CUS) >> 8];
+		if (!s)
+			bad = 1;
+		else
+			printk("  CU(%s)", s);
+		s = RUstates[(status & STAT_RUS) >> 4];
+		if (!s)
+			bad = 1;
+		else
+			printk("  RU(%s)", s);
+		if (bad)
+			printk("  bad status");
+		printk("\n");
+	}
+}
+#endif
 
 /* Command word bits */
 #define ACK_CX		0x8000
@@ -388,6 +434,32 @@ init_rx_bufs(struct net_device *dev, int num) {
 		lp->rx_tail->pa_next = lp->scb.pa_rfd;
 	}
 
+#if 0
+	for (i = 0; i<RX_RBD_SIZE; i++) {
+		rbd = kmalloc(sizeof(struct i596_rbd), GFP_KERNEL);
+		if (rbd) {
+			rbd->pad = 0;
+			rbd->count = 0;
+			rbd->skb = dev_alloc_skb(RX_SKB_SIZE);
+			if (!rbd->skb) {
+				printk("dev_alloc_skb failed");
+			}
+			rbd->next = rfd->rbd;
+			if (i) {
+				rfd->rbd->prev = rbd;
+				rbd->size = RX_SKB_SIZE;
+			} else {
+				rbd->size = (RX_SKB_SIZE | RBD_EL);
+				lp->rbd_tail = rbd;
+			}
+
+			rfd->rbd = rbd;
+		} else {
+			printk("Could not kmalloc rbd\n");
+		}
+	}
+	lp->rbd_tail->next = rfd->rbd;
+#endif
 	return (i);
 }
 
@@ -407,6 +479,10 @@ remove_rx_bufs(struct net_device *dev) {
 
 	lp->rx_tail = 0;
 
+#if 0
+	for (lp->rbd_list) {
+	}
+#endif
 }
 
 #define PORT_RESET              0x00    /* reset 82596 */
@@ -439,6 +515,31 @@ CLEAR_INT(void) {
 
 #define SIZE(x)	(sizeof(x)/sizeof((x)[0]))
 
+#if 0
+/* selftest or dump */
+static void
+i596_port_do(struct net_device *dev, int portcmd, char *cmdname) {
+	volatile struct i596_private *lp = dev->priv;
+	volatile u16 *outp;
+	int i, m;
+
+	memset((void *)&(lp->dump), 0, sizeof(struct i596_dump));
+	outp = &(lp->dump.dump[0]);
+
+	PORT(va_to_pa(outp), portcmd);
+	mdelay(30);             /* random, unmotivated */
+
+	printk("lp486e i82596 %s result:\n", cmdname);
+	for (m = SIZE(lp->dump.dump); m && lp->dump.dump[m-1] == 0; m--)
+		;
+	for (i = 0; i < m; i++) {
+		printk(" %04x", lp->dump.dump[i]);
+		if (i%8 == 7)
+			printk("\n");
+	}
+	printk("\n");
+}
+#endif
 
 static int
 i596_scp_setup(struct net_device *dev) {
@@ -577,6 +678,10 @@ i596_rx_one(struct net_device *dev, volatile struct i596_private *lp,
 		netif_rx(skb);
 		lp->stats.rx_packets++;
 	} else {
+#if 0
+		printk("Frame reception error status %04x\n",
+		       rfd->stat);
+#endif
 		lp->stats.rx_errors++;
 		if (rfd->stat & RFD_COLLISION)
 			lp->stats.collisions++;
@@ -609,8 +714,10 @@ i596_rx(struct net_device *dev) {
 			printk("i596_rx: NULL rfd?\n");
 			return 0;
 		}
+#if 1
 		if (rfd->stat && !(rfd->stat & (RFD_STAT_C | RFD_STAT_B)))
 			printk("SF:%p-%04x\n", rfd, rfd->stat);
+#endif
 		if (!(rfd->stat & RFD_STAT_C))
 			break;		/* next one not ready */
 		if (i596_rx_one(dev, lp, rfd, &frames))
@@ -779,7 +886,16 @@ i596_start_xmit (struct sk_buff *skb, struct net_device *dev) {
 	if (skb->len <= 0)
 		return 0;
 
-	length = (ETH_ZLEN < skb->len) ? skb->len : ETH_ZLEN;
+	length = skb->len;
+	
+	if(length < ETH_ZLEN)
+	{
+		skb = skb_padto(skb, ETH_ZLEN);
+		if(skb == NULL)
+			return 0;
+		length = ETH_ZLEN;
+	}
+	
 	dev->trans_start = jiffies;
 
 	tx_cmd = (struct tx_cmd *)
@@ -941,6 +1057,11 @@ lp486e_probe(struct net_device *dev) {
 	dev->watchdog_timeo = 5*HZ;
 	dev->tx_timeout = i596_tx_timeout;
 
+#if 0
+	/* selftest reports 0x320925ae - don't know what that means */
+	i596_port_do(dev, PORT_SELFTEST, "selftest");
+	i596_port_do(dev, PORT_DUMP, "dump");
+#endif
 	return 0;
 
 err_out_kfree:
@@ -970,6 +1091,10 @@ i596_handle_CU_completion(struct net_device *dev,
 
 		commands_done++;
 		cmd_val = cmd->command & 0x7;
+#if 0
+		printk("finished CU %s command (%d)\n",
+		       CUcmdnames[cmd_val], cmd_val);
+#endif
 		switch (cmd_val) {
 		case CmdTx:
 		{
@@ -1079,6 +1204,12 @@ i596_interrupt (int irq, void *dev_instance, struct pt_regs *regs) {
 	 *  which is not one of the values allowed by the docs.]
 	 */
 	status = lp->scb.status;
+#if 0
+	if (i596_debug) {
+		printk("%s: i596 interrupt, ", dev->name);
+		i596_out_status(status);
+	}
+#endif
 	/* Impossible, but it happens - perhaps when we get
 	   a receive interrupt but scb.pa_rfd is I596_NULL. */
 	if (status == 0xffff) {

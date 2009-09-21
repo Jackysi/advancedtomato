@@ -1,35 +1,35 @@
 /*
- *      epson1356fb.c  --  Epson SED1356 Framebuffer Driver
+ *	epson1356fb.c  --  Epson SED1356 Framebuffer Driver
  *
- * Copyright 2001, 2002 MontaVista Software Inc.
- * Author: MontaVista Software, Inc.
- *         	stevel@mvista.com or source@mvista.com
+ *	Copyright 2001, 2002, 2003 MontaVista Software Inc.
+ *	Author: MontaVista Software, Inc.
+ *		stevel@mvista.com or source@mvista.com
  *
- *  This program is free software; you can redistribute  it and/or modify it
- *  under  the terms of  the GNU General  Public License as published by the
- *  Free Software Foundation;  either version 2 of the  License, or (at your
- *  option) any later version.
+ *	This program is free software; you can redistribute  it and/or modify it
+ *	under  the terms of  the GNU General  Public License as published by the
+ *	Free Software Foundation;  either version 2 of the  License, or (at your
+ *	option) any later version.
  *
- *  THIS  SOFTWARE  IS PROVIDED   ``AS  IS'' AND   ANY  EXPRESS OR IMPLIED
- *  WARRANTIES,   INCLUDING, BUT NOT  LIMITED  TO, THE IMPLIED WARRANTIES OF
- *  MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.  IN
- *  NO  EVENT  SHALL   THE AUTHOR  BE    LIABLE FOR ANY   DIRECT, INDIRECT,
- *  INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT
- *  NOT LIMITED   TO, PROCUREMENT OF  SUBSTITUTE GOODS  OR SERVICES; LOSS OF
- *  USE, DATA,  OR PROFITS; OR  BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
- *  ANY THEORY OF LIABILITY, WHETHER IN  CONTRACT, STRICT LIABILITY, OR TORT
- *  (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
- *  THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *	THIS  SOFTWARE  IS PROVIDED   ``AS  IS'' AND   ANY  EXPRESS OR IMPLIED
+ *	WARRANTIES,   INCLUDING, BUT NOT  LIMITED  TO, THE IMPLIED WARRANTIES OF
+ *	MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.  IN
+ *	NO  EVENT  SHALL   THE AUTHOR  BE    LIABLE FOR ANY   DIRECT, INDIRECT,
+ *	INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT
+ *	NOT LIMITED   TO, PROCUREMENT OF  SUBSTITUTE GOODS  OR SERVICES; LOSS OF
+ *	USE, DATA,  OR PROFITS; OR  BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
+ *	ANY THEORY OF LIABILITY, WHETHER IN  CONTRACT, STRICT LIABILITY, OR TORT
+ *	(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
+ *	THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- *  You should have received a copy of the  GNU General Public License along
- *  with this program; if not, write  to the Free Software Foundation, Inc.,
- *  675 Mass Ave, Cambridge, MA 02139, USA.
+ *	You should have received a copy of the  GNU General Public License along
+ *	with this program; if not, write  to the Free Software Foundation, Inc.,
+ *	675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * 
- * TODO:
+ *	TODO:
  *
- *  Revision history
- *    03.12.2001  0.1   Initial release
+ *	Revision history
+ *	03.12.2001  0.1   Initial release
  *
  */
 
@@ -77,7 +77,7 @@
 
 #include <video/e1356fb.h>
 
-#ifdef CONFIG_CPU_AU1X00
+#ifdef CONFIG_SOC_AU1X00
 #include <asm/au1000.h>
 #endif
 
@@ -203,6 +203,7 @@ static struct fb_ops e1356fb_ops = {
 	fb_get_cmap:    e1356fb_get_cmap,
 	fb_set_cmap:    e1356fb_set_cmap,
 	fb_pan_display: e1356fb_pan_display,
+	fb_ioctl:	e1356fb_ioctl,
 	fb_mmap:        e1356fb_mmap,
 };
 
@@ -213,9 +214,6 @@ static struct fb_ops e1356fb_ops = {
 static struct fb_info_e1356 fb_info;
 static struct e1356fb_fix boot_fix; // boot options
 static struct e1356fb_par boot_par; // boot options
-
-static int e1356_remap_page_range(unsigned long from, phys_t phys_addr, unsigned long size, pgprot_t prot);
-
 
 /* ------------------------------------------------------------------------- 
  *                      Hardware-specific funcions
@@ -2031,17 +2029,53 @@ e1356fb_set_cmap(struct fb_cmap *cmap,
 }
 
 static int
+e1356fb_ioctl(struct inode *inode, 
+	      struct file *file, 
+	      u_int cmd,
+	      u_long arg, 
+	      int con, 
+	      struct fb_info *fb)
+{
+	struct fb_info_e1356 *info = (struct fb_info_e1356*)fb;
+	blt_info_t blt;
+	u16* src = NULL;
+	int ret=0;
+    
+	switch (cmd) {
+	case FBIO_SED1356_BITBLT:
+		if (copy_from_user(&blt, (void *)arg, sizeof(blt_info_t)))
+			return -EFAULT;
+		if (blt.src) {
+			if ((ret = verify_area(VERIFY_READ,
+					       (void*)blt.src, blt.srcsize)))
+				return ret;
+			if ((src = (u16*)kmalloc(blt.srcsize,
+						 GFP_KERNEL)) == NULL)
+				return -ENOMEM;
+			if (copy_from_user(src, (void *)blt.src, blt.srcsize))
+				return -EFAULT;
+			blt.src = src;
+		}
+		ret = doBlt(&info->current_par, info, &blt);
+		if (src)
+			kfree(src);
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	return ret;
+}
+
+
+static int
 e1356fb_mmap(struct fb_info *fb,
 	     struct file *file,
 	     struct vm_area_struct *vma)
 {
 	struct fb_info_e1356 *info = (struct fb_info_e1356*)fb;
 	unsigned int len;
-#if defined(CONFIG_64BIT_PHYS_ADDR) && defined(CONFIG_CPU_MIPS32)
-	u64 start=0, off;
-#else
-	unsigned long start=0, off;
-#endif
+	phys_t start=0, off;
 
 	if (vma->vm_pgoff > (~0UL >> PAGE_SHIFT)) {
 		DPRINTK("invalid vma->vm_pgoff\n");
@@ -2122,17 +2156,10 @@ e1356fb_mmap(struct fb_info *fb,
 	if (info->fix.mmunalign)
 		vma->vm_start += 2;
 	
-#if defined(CONFIG_64BIT_PHYS_ADDR) && defined(CONFIG_CPU_MIPS32)
-	if (e1356_remap_page_range(vma->vm_start, off,
-				vma->vm_end - vma->vm_start,
-				vma->vm_page_prot))
-		return -EAGAIN;
-#else
 	if (io_remap_page_range(vma->vm_start, off,
 				vma->vm_end - vma->vm_start,
 				vma->vm_page_prot))
 		return -EAGAIN;
-#endif
 
 	info->mmaped = 1;
 	return 0;
@@ -2296,7 +2323,7 @@ e1356fb_init(void)
 	 * Program the clocks
 	 */
 
-#ifdef CONFIG_CPU_AU1X00
+#ifdef CONFIG_SOC_AU1X00
 	if ((epfix->system == SYS_PB1000) || (epfix->system == SYS_PB1500))
 		epfix->busclk = get_au1x00_lcd_clock();
 #endif
@@ -2608,6 +2635,14 @@ e1356fb_init(void)
 	return -ENXIO;
 }
 
+/**
+ *	e1356fb_exit - Driver cleanup
+ *
+ *	Releases all resources allocated during the
+ *	course of the driver's lifetime.
+ *
+ *	FIXME - do results of fb_alloc_cmap need disposal?
+ */
 static void __exit
 e1356fb_exit (void)
 {
@@ -2762,6 +2797,11 @@ e1356fb_setup(char *options, int *ints)
 }
 
 
+/*
+ * FIXME: switching consoles could be dangerous. What if switching
+ * from a panel to a CRT/TV, or vice versa? More needs to be
+ * done here.
+ */
 static int
 e1356fb_switch_con(int con, struct fb_info *fb)
 {
@@ -3006,99 +3046,3 @@ e1356fb_hwcursor_init(struct fb_info_e1356* info)
 	printk("e1356fb: reserving 1024 bytes for the hwcursor at %p\n",
 	       fb_info.membase_virt + fb_info.fb_size);
 }
-
-#if defined(CONFIG_64BIT_PHYS_ADDR) && defined(CONFIG_CPU_MIPS32)
-
-/*
- * Return indicates whether a page was freed so caller can adjust rss
- */
-static inline void forget_pte(pte_t page)
-{
-	if (!pte_none(page)) {
-		printk("forget_pte: old mapping existed!\n");
-		BUG();
-	}
-}
-
-/*
- * maps a range of physical memory into the requested pages. the old
- * mappings are removed. any references to nonexistent pages results
- * in null mappings (currently treated as "copy-on-access")
- */
-static inline void e1356_remap_pte_range(pte_t * pte, unsigned long address, unsigned long size,
-	phys_t phys_addr, pgprot_t prot)
-{
-	unsigned long end;
-
-	address &= ~PMD_MASK;
-	end = address + size;
-	if (end > PMD_SIZE)
-		end = PMD_SIZE;
-	do {
-		struct page *page;
-		pte_t oldpage;
-		oldpage = ptep_get_and_clear(pte);
-
-		page = virt_to_page(__va(phys_addr));
-		if ((!VALID_PAGE(page)) || PageReserved(page))
- 			set_pte(pte, mk_pte_phys(phys_addr, prot));
-		forget_pte(oldpage);
-		address += PAGE_SIZE;
-		phys_addr += PAGE_SIZE;
-		pte++;
-	} while (address && (address < end));
-}
-
-static inline int e1356_remap_pmd_range(struct mm_struct *mm, pmd_t * pmd, unsigned long address, unsigned long size,
-	phys_t phys_addr, pgprot_t prot)
-{
-	unsigned long end;
-
-	address &= ~PGDIR_MASK;
-	end = address + size;
-	if (end > PGDIR_SIZE)
-		end = PGDIR_SIZE;
-	phys_addr -= address;
-	do {
-		pte_t * pte = pte_alloc(mm, pmd, address);
-		if (!pte)
-			return -ENOMEM;
-		e1356_remap_pte_range(pte, address, end - address, address + phys_addr, prot);
-		address = (address + PMD_SIZE) & PMD_MASK;
-		pmd++;
-	} while (address && (address < end));
-	return 0;
-}
-
-/*  Note: this is only safe if the mm semaphore is held when called. */
-static int e1356_remap_page_range(unsigned long from, phys_t phys_addr, unsigned long size, pgprot_t prot)
-{
-	int error = 0;
-	pgd_t * dir;
-	phys_t beg = from;
-	phys_t end = from + size;
-	struct mm_struct *mm = current->mm;
-
-	phys_addr -= from;
-	dir = pgd_offset(mm, from);
-	flush_cache_range(mm, beg, end);
-	if (from >= end)
-		BUG();
-
-	spin_lock(&mm->page_table_lock);
-	do {
-		pmd_t *pmd = pmd_alloc(mm, dir, from);
-		error = -ENOMEM;
-		if (!pmd)
-			break;
-		error = e1356_remap_pmd_range(mm, pmd, from, end - from, phys_addr + from, prot);
-		if (error)
-			break;
-		from = (from + PGDIR_SIZE) & PGDIR_MASK;
-		dir++;
-	} while (from && (from < end));
-	spin_unlock(&mm->page_table_lock);
-	flush_tlb_range(mm, beg, end);
-	return error;
-}
-#endif

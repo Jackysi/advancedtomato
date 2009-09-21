@@ -4,7 +4,7 @@
  * Copyright 2000,2001 David A. Schleef <ds@schleef.org>
  *           2000,2001 Lineo, Inc.
  *
- * $Id: sharp.c,v 1.1.1.4 2003/10/14 08:08:17 sparq Exp $
+ * $Id: sharp.c,v 1.8 2002/05/17 08:59:19 dwmw2 Exp $
  *
  * Devices supported:
  *   LH28F016SCT Symmetrical block flash memory, 2Mx8
@@ -185,6 +185,13 @@ static int sharp_probe_map(struct map_info *map,struct mtd_info *mtd)
 			mtd->erasesize = 0x10000 * width;
 			mtd->size = 0x100000 * width;
 			return width;
+#if 0
+		case 0x00000000: /* unknown */
+			/* XX - LH28F004SCT 512kx8, 8 64k blocks*/
+			mtd->erasesize = 0x10000 * width;
+			mtd->size = 0x80000 * width;
+			return width;
+#endif
 		default:
 			printk("Sort-of looks like sharp flash, 0x%08x 0x%08x\n",
 				read0,read4);
@@ -414,6 +421,7 @@ static int sharp_erase(struct mtd_info *mtd, struct erase_info *instr)
 		}
 	}
 
+	instr->state = MTD_ERASE_DONE;
 	if(instr->callback)
 		instr->callback(instr);
 

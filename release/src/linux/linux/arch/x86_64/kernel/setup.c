@@ -26,9 +26,11 @@
 #include <linux/delay.h>
 #include <linux/config.h>
 #include <linux/init.h>
+#include <linux/acpi.h>
 #include <linux/blk.h>
 #include <linux/highmem.h>
 #include <linux/bootmem.h>
+#include <linux/module.h>
 #include <asm/processor.h>
 #include <linux/console.h>
 #include <linux/seq_file.h>
@@ -46,6 +48,14 @@
 #include <asm/bootsetup.h>
 #include <asm/proto.h>
 
+int acpi_disabled;
+EXPORT_SYMBOL(acpi_disabled);
+
+int swiotlb;
+EXPORT_SYMBOL(swiotlb);
+
+extern	int phys_proc_id[NR_CPUS];
+
 /*
  * Machine setup..
  */
@@ -55,6 +65,7 @@ struct cpuinfo_x86 boot_cpu_data = {
 };
 
 unsigned long mmu_cr4_features;
+EXPORT_SYMBOL(mmu_cr4_features);
 
 /* For PCI or other memory-mapped resources */
 unsigned long pci_mem_start = 0x10000000;
@@ -76,15 +87,14 @@ unsigned char aux_device_present;
 extern int root_mountflags;
 extern char _text, _etext, _edata, _end;
 
-static int disable_x86_fxsr __initdata = 0;
-
 char command_line[COMMAND_LINE_SIZE];
 char saved_command_line[COMMAND_LINE_SIZE];
 
 struct resource standard_io_resources[] = {
 	{ "dma1", 0x00, 0x1f, IORESOURCE_BUSY },
 	{ "pic1", 0x20, 0x3f, IORESOURCE_BUSY },
-	{ "timer", 0x40, 0x5f, IORESOURCE_BUSY },
+	{ "timer0", 0x40, 0x43, IORESOURCE_BUSY },
+	{ "timer1", 0x50, 0x53, IORESOURCE_BUSY },
 	{ "keyboard", 0x60, 0x6f, IORESOURCE_BUSY },
 	{ "dma page reg", 0x80, 0x8f, IORESOURCE_BUSY },
 	{ "pic2", 0xa0, 0xbf, IORESOURCE_BUSY },
@@ -221,6 +231,8 @@ void __init setup_arch(char **cmdline_p)
 
 	e820_end_of_ram();
 
+	check_efer();
+
 	init_memory_mapping(); 
 
 #ifdef CONFIG_BLK_DEV_INITRD
@@ -259,6 +271,11 @@ void __init setup_arch(char **cmdline_p)
 	reserve_bootmem_generic(0, PAGE_SIZE);
 
 #ifdef CONFIG_SMP
+	/*
+	 * But first pinch a few for the stack/trampoline stuff
+	 * FIXME: Don't need the extra page at 4K, but need to fix
+	 * trampoline before removing it. (see the GDT stuff)
+	 */
 	reserve_bootmem_generic(PAGE_SIZE, PAGE_SIZE); 
 
 	/* Reserve SMP trampoline */
@@ -268,6 +285,12 @@ void __init setup_arch(char **cmdline_p)
 	kernel_end = round_up(__pa_symbol(&_end), PAGE_SIZE);
 	reserve_bootmem_generic(HIGH_MEMORY, kernel_end - HIGH_MEMORY);
 
+#ifdef CONFIG_ACPI_SLEEP
+	/*
+ 	 * Reserve low memory region for sleep support.
+ 	 */
+ 	acpi_reserve_bootmem();
+#endif
 #ifdef CONFIG_X86_LOCAL_APIC
 	/*
 	 * Find and reserve possible boot-time SMP configuration:
@@ -281,6 +304,17 @@ void __init setup_arch(char **cmdline_p)
 #endif
 
 	paging_init();
+#if defined(CONFIG_X86_IO_APIC)
+	extern void check_ioapic(void);
+	check_ioapic();
+#endif
+
+#ifdef CONFIG_ACPI_BOOT
+	/*
+	 * Parse the ACPI tables for possible boot-time SMP configuration.
+	 */
+	acpi_boot_init();
+#endif
 #ifdef CONFIG_X86_LOCAL_APIC
 	/*
 	 * get boot-time SMP configuration:
@@ -311,6 +345,12 @@ void __init setup_arch(char **cmdline_p)
 #ifdef CONFIG_GART_IOMMU
 	iommu_hole_init();
 #endif
+#ifdef CONFIG_SWIOTLB
+       if (!iommu_aperture && end_pfn >= 0xffffffff>>PAGE_SHIFT) { 
+              swiotlb_init();
+              swiotlb = 1;
+       }
+#endif
 
 #ifdef CONFIG_VT
 #if defined(CONFIG_VGA_CONSOLE)
@@ -322,18 +362,6 @@ void __init setup_arch(char **cmdline_p)
 
 	num_mappedpages = end_pfn;
 }
-
-#ifndef CONFIG_X86_TSC
-static int tsc_disable __initdata = 0;
-
-static int __init tsc_setup(char *str)
-{
-	tsc_disable = 1;
-	return 1;
-}
-
-__setup("notsc", tsc_setup);
-#endif
 
 static int __init get_model_name(struct cpuinfo_x86 *c)
 {
@@ -357,7 +385,6 @@ static void __init display_cacheinfo(struct cpuinfo_x86 *c)
 
 	n = cpuid_eax(0x80000000);
 
-
 	if (n >= 0x80000005) {
 		if (n >= 0x80000006) 
 			cpuid(0x80000006, &eax_2, &ebx_2, &ecx_2, &dummy); 
@@ -369,18 +396,214 @@ static void __init display_cacheinfo(struct cpuinfo_x86 *c)
 		c->x86_cache_size=(ecx>>24)+(edx>>24);	
 		if (n >= 0x80000006) {
 			printk(KERN_INFO "CPU: L2 Cache: %dK (%d bytes/line/%d way)\n",
-			       ecx_2>>16, ecx_2&0xFF, (ecx_2>>12)&0xf);
+			       ecx_2>>16, ecx_2&0xFF, 
+			       /*  use bits[15:13] as power of 2 for # of ways */
+			       1 << ((ecx>>13) & 0x7) 
+			       /* Direct and Full associative L2 are very unlikely */);
 			c->x86_cache_size = ecx_2 >> 16;
-		}		
-		printk(KERN_INFO "CPU: DTLB L1 %d 4K %d 2MB L2: %d 4K %d 2MB\n",
-		       (ebx>>16)&0xff, (eax>>16)&0xff, 
-		       (ebx_2>>16)&0xfff, (eax_2>>16)&0xfff);
-		printk(KERN_INFO "CPU: ITLB L1 %d 4K %d 2MB L2: %d 4K %d 2MB\n",
-		       ebx&0xff, (eax)&0xff, 
-		       (ebx_2)&0xfff, (eax_2)&0xfff);		
 		c->x86_tlbsize = ((ebx>>16)&0xff) + ((ebx_2>>16)&0xfff) + 
 			(ebx&0xff) + ((ebx_2)&0xfff);
 	}
+		if (n >= 0x80000007)
+			cpuid(0x80000007, &dummy, &dummy, &dummy, &c->x86_power); 
+		if (n >= 0x80000008) {
+			cpuid(0x80000008, &eax, &dummy, &dummy, &dummy); 
+			c->x86_virt_bits = (eax >> 8) & 0xff;
+			c->x86_phys_bits = eax & 0xff;
+		}
+	}
+}
+
+#define LVL_1_INST      1
+#define LVL_1_DATA      2
+#define LVL_2           3
+#define LVL_3           4
+#define LVL_TRACE       5
+
+struct _cache_table
+{
+        unsigned char descriptor;
+        char cache_type;
+        short size;
+};
+
+/* all the cache descriptor types we care about (no TLB or trace cache entries) */
+static struct _cache_table cache_table[] __initdata =
+{
+	{ 0x06, LVL_1_INST, 8 },
+	{ 0x08, LVL_1_INST, 16 },
+	{ 0x0A, LVL_1_DATA, 8 },
+	{ 0x0C, LVL_1_DATA, 16 },
+	{ 0x22, LVL_3,      512 },
+	{ 0x23, LVL_3,      1024 },
+	{ 0x25, LVL_3,      2048 },
+	{ 0x29, LVL_3,      4096 },
+	{ 0x39, LVL_2,      128 },
+	{ 0x3C, LVL_2,      256 },
+	{ 0x41, LVL_2,      128 },
+	{ 0x42, LVL_2,      256 },
+	{ 0x43, LVL_2,      512 },
+	{ 0x44, LVL_2,      1024 },
+	{ 0x45, LVL_2,      2048 },
+	{ 0x66, LVL_1_DATA, 8 },
+	{ 0x67, LVL_1_DATA, 16 },
+	{ 0x68, LVL_1_DATA, 32 },
+	{ 0x70, LVL_TRACE,  12 },
+	{ 0x71, LVL_TRACE,  16 },
+	{ 0x72, LVL_TRACE,  32 },
+	{ 0x79, LVL_2,      128 },
+	{ 0x7A, LVL_2,      256 },
+	{ 0x7B, LVL_2,      512 },
+	{ 0x7C, LVL_2,      1024 },
+	{ 0x82, LVL_2,      256 },
+	{ 0x83, LVL_2,      512 },
+	{ 0x84, LVL_2,      1024 },
+	{ 0x85, LVL_2,      2048 },
+	{ 0x00, 0, 0}
+};
+
+int select_idle_routine(struct cpuinfo_x86 *c);
+
+static void __init init_intel(struct cpuinfo_x86 *c)
+{
+	unsigned int trace = 0, l1i = 0, l1d = 0, l2 = 0, l3 = 0; /* Cache sizes */
+	char *p = NULL;
+	u32 eax, dummy;
+
+	unsigned int n;
+
+
+	select_idle_routine(c);
+	if (c->cpuid_level > 1) {
+		/* supports eax=2  call */
+		int i, j, n;
+		int regs[4];
+		unsigned char *dp = (unsigned char *)regs;
+
+		/* Number of times to iterate */
+		n = cpuid_eax(2) & 0xFF;
+
+		for ( i = 0 ; i < n ; i++ ) {
+			cpuid(2, &regs[0], &regs[1], &regs[2], &regs[3]);
+			
+			/* If bit 31 is set, this is an unknown format */
+			for ( j = 0 ; j < 3 ; j++ ) {
+				if ( regs[j] < 0 ) regs[j] = 0;
+			}
+
+			/* Byte 0 is level count, not a descriptor */
+			for ( j = 1 ; j < 16 ; j++ ) {
+				unsigned char des = dp[j];
+				unsigned char k = 0;
+
+				/* look up this descriptor in the table */
+				while (cache_table[k].descriptor != 0)
+				{
+					if (cache_table[k].descriptor == des) {
+						switch (cache_table[k].cache_type) {
+						case LVL_1_INST:
+							l1i += cache_table[k].size;
+							break;
+						case LVL_1_DATA:
+							l1d += cache_table[k].size;
+							break;
+						case LVL_2:
+							l2 += cache_table[k].size;
+							break;
+						case LVL_3:
+							l3 += cache_table[k].size;
+							break;
+						case LVL_TRACE:
+							trace += cache_table[k].size;
+							break;
+						}
+						break;
+					}
+
+					k++;
+				}
+			}
+		}
+
+		if ( trace )
+			printk (KERN_INFO "CPU: Trace cache: %dK uops", trace);
+		else if ( l1i )
+			printk (KERN_INFO "CPU: L1 I cache: %dK", l1i);
+		if ( l1d )
+			printk(", L1 D cache: %dK\n", l1d);
+		else 
+			printk("\n");
+		if ( l2 )
+			printk(KERN_INFO "CPU: L2 cache: %dK\n", l2);
+		if ( l3 )
+			printk(KERN_INFO "CPU: L3 cache: %dK\n", l3);
+
+		/*
+		 * This assumes the L3 cache is shared; it typically lives in
+		 * the northbridge.  The L1 caches are included by the L2
+		 * cache, and so should not be included for the purpose of
+		 * SMP switching weights.
+		 */
+		c->x86_cache_size = l2 ? l2 : (l1i+l1d);
+	}
+
+	if ( p )
+		strcpy(c->x86_model_id, p);
+	
+#ifdef CONFIG_SMP
+	if (test_bit(X86_FEATURE_HT, &c->x86_capability)) {		
+		int 	index_lsb, index_msb, tmp;
+		int	initial_apic_id;
+		int 	cpu = smp_processor_id();
+		u32 	ebx, ecx, edx;
+
+		cpuid(1, &eax, &ebx, &ecx, &edx);
+		smp_num_siblings = (ebx & 0xff0000) >> 16;
+
+		if (smp_num_siblings == 1) {
+			printk(KERN_INFO  "CPU: Hyper-Threading is disabled\n");
+		} else if (smp_num_siblings > 1 ) {
+			index_lsb = 0;
+			index_msb = 31;
+			/*
+			 * At this point we only support two siblings per
+			 * processor package.
+			 */
+#define NR_SIBLINGS	2
+			if (smp_num_siblings != NR_SIBLINGS) {
+				printk(KERN_WARNING "CPU: Unsupported number of the siblings %d", smp_num_siblings);
+				smp_num_siblings = 1;
+				return;
+			}
+			tmp = smp_num_siblings;
+			while ((tmp & 1) == 0) {
+				tmp >>=1 ;
+				index_lsb++;
+			}
+			tmp = smp_num_siblings;
+			while ((tmp & 0x80000000 ) == 0) {
+				tmp <<=1 ;
+				index_msb--;
+			}
+			if (index_lsb != index_msb )
+				index_msb++;
+			initial_apic_id = ebx >> 24 & 0xff;
+			phys_proc_id[cpu] = initial_apic_id >> index_msb;
+
+			printk(KERN_INFO  "CPU: Physical Processor ID: %d\n",
+                               phys_proc_id[cpu]);
+		}
+
+	}
+#endif
+
+	n = cpuid_eax(0x80000000);
+	if (n >= 0x80000008) {
+		cpuid(0x80000008, &eax, &dummy, &dummy, &dummy); 
+		c->x86_virt_bits = (eax >> 8) & 0xff;
+		c->x86_phys_bits = eax & 0xff;
+	}
+	
 }
 
 static int __init init_amd(struct cpuinfo_x86 *c)
@@ -412,6 +635,8 @@ void __init get_cpu_vendor(struct cpuinfo_x86 *c)
 
 	if (!strcmp(v, "AuthenticAMD"))
 		c->x86_vendor = X86_VENDOR_AMD;
+	else if (!strcmp(v, "GenuineIntel"))
+		c->x86_vendor = X86_VENDOR_INTEL;
 	else
 		c->x86_vendor = X86_VENDOR_UNKNOWN;
 }
@@ -422,21 +647,12 @@ struct cpu_model_info {
 	char *model_names[16];
 };
 
-int __init x86_fxsr_setup(char * s)
-{
-	disable_x86_fxsr = 1;
-	return 1;
-}
-__setup("nofxsr", x86_fxsr_setup);
-
-
-
 /*
  * This does the hard work of actually picking apart the CPU stuff...
  */
 void __init identify_cpu(struct cpuinfo_x86 *c)
 {
-	int junk, i;
+	int i;
 	u32 xlvl, tfms;
 
 	c->loops_per_jiffy = loops_per_jiffy;
@@ -460,14 +676,14 @@ void __init identify_cpu(struct cpuinfo_x86 *c)
 	/* Intel-defined flags: level 0x00000001 */
 	if ( c->cpuid_level >= 0x00000001 ) {	
 		__u32 misc;
-		cpuid(0x00000001, &tfms, &misc, &junk,
+		cpuid(0x00000001, &tfms, &misc, &c->x86_capability[4],
 		      &c->x86_capability[0]);
 		c->x86 = (tfms >> 8) & 15;
-		if (c->x86 == 0xf)
-			c->x86 += (tfms >> 20) & 0xff;
 		c->x86_model = (tfms >> 4) & 15;
-		if (c->x86_model == 0xf)
+		if (c->x86 == 0xf) { /* extended */
+			c->x86 += (tfms >> 20) & 0xff;
 			c->x86_model += ((tfms >> 16) & 0xF) << 4; 
+		}
 		c->x86_mask = tfms & 15;
 		if (c->x86_capability[0] & (1<<19)) 
 			c->x86_clflush_size = ((misc >> 8) & 0xff) * 8;
@@ -509,9 +725,12 @@ void __init identify_cpu(struct cpuinfo_x86 *c)
 			init_amd(c);
 			break;
 
+		case X86_VENDOR_INTEL:
+			init_intel(c);
+			break;
 		case X86_VENDOR_UNKNOWN:
 		default:
-			/* Not much we can do here... */
+			display_cacheinfo(c);
 			break;
 	}
 
@@ -519,18 +738,6 @@ void __init identify_cpu(struct cpuinfo_x86 *c)
 	 * The vendor-specific functions might have changed features.  Now
 	 * we do "generic changes."
 	 */
-
-	/* TSC disabled? */
-#ifndef CONFIG_X86_TSC
-	if ( tsc_disable )
-		clear_bit(X86_FEATURE_TSC, &c->x86_capability);
-#endif
-
-	/* FXSR disabled? */
-	if (disable_x86_fxsr) {
-		clear_bit(X86_FEATURE_FXSR, &c->x86_capability);
-		clear_bit(X86_FEATURE_XMM, &c->x86_capability);
-	}
 
 	/*
 	 * On SMP, boot_cpu_data holds the common feature set between
@@ -581,7 +788,7 @@ static int show_cpuinfo(struct seq_file *m, void *v)
 	        "fpu", "vme", "de", "pse", "tsc", "msr", "pae", "mce",
 	        "cx8", "apic", NULL, "sep", "mtrr", "pge", "mca", "cmov",
 	        "pat", "pse36", "pn", "clflush", NULL, "dts", "acpi", "mmx",
-	        "fxsr", "sse", "sse2", "ss", NULL, "tm", "ia64", NULL,
+	        "fxsr", "sse", "sse2", "ss", "ht", "tm", "ia64", "pbe",
 
 		/* AMD-defined */
 		NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
@@ -600,6 +807,18 @@ static int show_cpuinfo(struct seq_file *m, void *v)
 		NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
 		NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
 		NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+
+		/* Intel Defined (cpuid 1 and ecx) */
+		"pni", NULL, NULL, "monitor", "ds-cpl", NULL, NULL, "est",
+		"tm2", NULL, "cid", NULL, NULL, "cmpxchg16b", NULL, NULL,
+		NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+		NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+	};
+	static char *x86_power_flags[] = { 
+		"ts",	/* temperature sensor */
+		"fid",  /* frequency id control */
+		"vid",  /* voltage id control */
+		"ttp",  /* thermal trip */
 	};
 
 #ifdef CONFIG_SMP
@@ -630,6 +849,11 @@ static int show_cpuinfo(struct seq_file *m, void *v)
 
 	seq_printf(m, "cache size\t: %d KB\n", c->x86_cache_size);
 	
+#ifdef CONFIG_SMP
+	seq_printf(m, "physical id\t: %d\n",phys_proc_id[c - cpu_data]);
+	seq_printf(m, "siblings\t: %d\n",smp_num_siblings);
+#endif
+
 	seq_printf(m,
 	        "fpu\t\t: yes\n"
 	        "fpu_exception\t: yes\n"
@@ -654,7 +878,23 @@ static int show_cpuinfo(struct seq_file *m, void *v)
 		seq_printf(m, "TLB size\t: %d 4K pages\n", c->x86_tlbsize);
 	seq_printf(m, "clflush size\t: %d\n", c->x86_clflush_size);
 
-	seq_printf(m, "\n"); 
+	if (c->x86_phys_bits > 0) 
+	seq_printf(m, "address sizes\t: %u bits physical, %u bits virtual\n", 
+		   c->x86_phys_bits, c->x86_virt_bits);
+
+	seq_printf(m, "power management:");
+	{
+		int i;
+		for (i = 0; i < 32; i++) 
+			if (c->x86_power & (1 << i)) {
+				if (i < ARRAY_SIZE(x86_power_flags))
+					seq_printf(m, " %s", x86_power_flags[i]);
+				else
+					seq_printf(m, " [%d]", i);
+			}
+	}
+
+	seq_printf(m, "\n\n"); 
 	return 0;
 }
 

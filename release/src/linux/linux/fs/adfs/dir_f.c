@@ -421,6 +421,7 @@ adfs_f_update(struct adfs_dir *dir, struct object_info *obj)
 	 */
 	dir->bh[dir->nr_buffers - 1]->b_data[sb->s_blocksize - 1] = ret;
 
+#if 1
 	{
 	const unsigned int blocksize_bits = sb->s_blocksize_bits;
 
@@ -438,15 +439,18 @@ adfs_f_update(struct adfs_dir *dir, struct object_info *obj)
 	if (adfs_dir_checkbyte(dir) != dir->dirtail.new.dircheckbyte)
 		goto bad_dir;
 	}
+#endif
 	for (i = dir->nr_buffers - 1; i >= 0; i--)
 		mark_buffer_dirty(dir->bh[i]);
 
 	ret = 0;
 out:
 	return ret;
+#if 1
 bad_dir:
 	adfs_error(dir->sb, "whoops!  I broke a directory!");
 	return -EIO;
+#endif
 }
 
 static void

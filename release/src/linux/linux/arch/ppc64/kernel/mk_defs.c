@@ -37,9 +37,10 @@
 #include <asm/iSeries/HvLpEvent.h>
 #include <asm/prom.h>
 #include <asm/rtas.h>
+#include <asm/cputable.h>
 
 #define DEFINE(sym, val) \
-	        asm volatile("\n#define\t" #sym "\t%0" : : "i" (val))
+	asm volatile("\n#define\t" #sym "\t%0" : : "i" (val))
 
 int
 main(void)
@@ -50,29 +51,28 @@ main(void)
 	DEFINE(TASK_STRUCT_SIZE, sizeof(struct task_struct));
 	DEFINE(KSP, offsetof(struct thread_struct, ksp));
 
-        DEFINE(PACA, offsetof(struct naca_struct, paca));
-        DEFINE(PACA_SIZE, sizeof(struct paca_struct));
-
-        DEFINE(DCACHEL1LINESIZE, offsetof(struct naca_struct, dCacheL1LineSize));
-        DEFINE(DCACHEL1LOGLINESIZE, offsetof(struct naca_struct, dCacheL1LogLineSize));
-        DEFINE(DCACHEL1LINESPERPAGE, offsetof(struct naca_struct, dCacheL1LinesPerPage));
-
-        DEFINE(ICACHEL1LINESIZE, offsetof(struct naca_struct, iCacheL1LineSize));
-        DEFINE(ICACHEL1LOGLINESIZE, offsetof(struct naca_struct, iCacheL1LogLineSize));
-        DEFINE(ICACHEL1LINESPERPAGE, offsetof(struct naca_struct, iCacheL1LinesPerPage));
+	DEFINE(PACA, offsetof(struct naca_struct, paca));
 	DEFINE(SLBSIZE, offsetof(struct naca_struct, slb_size));
-	DEFINE(PLATFORM, offsetof(struct naca_struct, platform));
+	DEFINE(DCACHEL1LOGLINESIZE, offsetof(struct naca_struct, dCacheL1LogLineSize));
+	DEFINE(DCACHEL1LINESPERPAGE, offsetof(struct naca_struct, dCacheL1LinesPerPage));
+	DEFINE(ICACHEL1LOGLINESIZE, offsetof(struct naca_struct, iCacheL1LogLineSize));
+	DEFINE(ICACHEL1LINESPERPAGE, offsetof(struct naca_struct, iCacheL1LinesPerPage));
 
-        DEFINE(PACAPACAINDEX, offsetof(struct paca_struct, xPacaIndex));
-        DEFINE(PACAPROCSTART, offsetof(struct paca_struct, xProcStart));
-        DEFINE(PACAKSAVE, offsetof(struct paca_struct, xKsave));
+	DEFINE(DCACHEL1LINESIZE, offsetof(struct systemcfg, dCacheL1LineSize));
+	DEFINE(ICACHEL1LINESIZE, offsetof(struct systemcfg, iCacheL1LineSize));
+	DEFINE(PLATFORM, offsetof(struct systemcfg, platform));
+
+	DEFINE(PACA_SIZE, sizeof(struct paca_struct));
+	DEFINE(PACAPACAINDEX, offsetof(struct paca_struct, xPacaIndex));
+	DEFINE(PACAPROCSTART, offsetof(struct paca_struct, xProcStart));
+	DEFINE(PACAKSAVE, offsetof(struct paca_struct, xKsave));
 	DEFINE(PACACURRENT, offsetof(struct paca_struct, xCurrent));
-        DEFINE(PACASAVEDMSR, offsetof(struct paca_struct, xSavedMsr));
-        DEFINE(PACASTABREAL, offsetof(struct paca_struct, xStab_data.real));
-        DEFINE(PACASTABVIRT, offsetof(struct paca_struct, xStab_data.virt));
+	DEFINE(PACASAVEDMSR, offsetof(struct paca_struct, xSavedMsr));
+	DEFINE(PACASTABREAL, offsetof(struct paca_struct, xStab_data.real));
+	DEFINE(PACASTABVIRT, offsetof(struct paca_struct, xStab_data.virt));
 	DEFINE(PACASTABRR, offsetof(struct paca_struct, xStab_data.next_round_robin));
-        DEFINE(PACAR1, offsetof(struct paca_struct, xR1));
-        DEFINE(PACALPQUEUE, offsetof(struct paca_struct, lpQueuePtr));
+	DEFINE(PACAR1, offsetof(struct paca_struct, xR1));
+	DEFINE(PACALPQUEUE, offsetof(struct paca_struct, lpQueuePtr));
 	DEFINE(PACATOC, offsetof(struct paca_struct, xTOC));
 	DEFINE(PACAEXCSP, offsetof(struct paca_struct, exception_sp));
 	DEFINE(PACAHRDWINTSTACK, offsetof(struct paca_struct, xHrdIntStack));
@@ -107,18 +107,18 @@ main(void)
 	DEFINE(PACAPMCC8, offsetof(struct paca_struct, pmcc[7]));
 
 	DEFINE(PACALPPACA, offsetof(struct paca_struct, xLpPaca));
-        DEFINE(LPPACA, offsetof(struct paca_struct, xLpPaca));
-        DEFINE(PACAREGSAV, offsetof(struct paca_struct, xRegSav));
-        DEFINE(PACAEXC, offsetof(struct paca_struct, exception_stack));
-        DEFINE(PACAGUARD, offsetof(struct paca_struct, guard));
-        DEFINE(LPPACASRR0, offsetof(struct ItLpPaca, xSavedSrr0));
-        DEFINE(LPPACASRR1, offsetof(struct ItLpPaca, xSavedSrr1));
+	DEFINE(LPPACA, offsetof(struct paca_struct, xLpPaca));
+	DEFINE(PACAREGSAV, offsetof(struct paca_struct, xRegSav));
+	DEFINE(PACAEXC, offsetof(struct paca_struct, exception_stack));
+	DEFINE(PACAGUARD, offsetof(struct paca_struct, guard));
+	DEFINE(LPPACASRR0, offsetof(struct ItLpPaca, xSavedSrr0));
+	DEFINE(LPPACASRR1, offsetof(struct ItLpPaca, xSavedSrr1));
 	DEFINE(LPPACAANYINT, offsetof(struct ItLpPaca, xIntDword.xAnyInt));
 	DEFINE(LPPACADECRINT, offsetof(struct ItLpPaca, xIntDword.xFields.xDecrInt));
 	DEFINE(LPPACAPDCINT, offsetof(struct ItLpPaca, xIntDword.xFields.xPdcInt));
-        DEFINE(LPQCUREVENTPTR, offsetof(struct ItLpQueue, xSlicCurEventPtr));
-        DEFINE(LPQOVERFLOW, offsetof(struct ItLpQueue, xPlicOverflowIntPending));
-        DEFINE(LPEVENTFLAGS, offsetof(struct HvLpEvent, xFlags));
+	DEFINE(LPQCUREVENTPTR, offsetof(struct ItLpQueue, xSlicCurEventPtr));
+	DEFINE(LPQOVERFLOW, offsetof(struct ItLpQueue, xPlicOverflowIntPending));
+	DEFINE(LPEVENTFLAGS, offsetof(struct HvLpEvent, xFlags));
 	DEFINE(PROMENTRY, offsetof(struct prom_t, entry));
 
 	DEFINE(RTASBASE, offsetof(struct rtas_t, base));
@@ -131,18 +131,30 @@ main(void)
 	DEFINE(TASK_PTRACE, offsetof(struct task_struct, ptrace));
 	DEFINE(NEED_RESCHED, offsetof(struct task_struct, need_resched));
 	DEFINE(THREAD_FPR0, offsetof(struct thread_struct, fpr[0]));
+	DEFINE(THREAD_FPEXC_MODE, offsetof(struct thread_struct, fpexc_mode));
 	DEFINE(THREAD_FPSCR, offsetof(struct thread_struct, fpscr));
+#ifdef CONFIG_ALTIVEC
+	DEFINE(THREAD_VR0, offsetof(struct thread_struct, vr[0]));
+	DEFINE(THREAD_VRSAVE, offsetof(struct thread_struct, vrsave));
+	DEFINE(THREAD_VSCR, offsetof(struct thread_struct, vscr));
+#endif /* CONFIG_ALTIVEC */
 	DEFINE(THREAD_FLAGS, offsetof(struct thread_struct, flags));
 	DEFINE(PPC_FLAG_32BIT, PPC_FLAG_32BIT);
-	/* Interrupt register frame */
+	/*
+	 * Interrupt register frame
+	 */
 	DEFINE(TASK_UNION_SIZE, sizeof(union task_union));
 	DEFINE(STACK_FRAME_OVERHEAD, STACK_FRAME_OVERHEAD);
-        /* 288 = # of volatile regs, int & fp, for leaf routines */
-        /* which do not stack a frame.  See the PPC64 ABI.       */
-        DEFINE(INT_FRAME_SIZE, STACK_FRAME_OVERHEAD + sizeof(struct pt_regs) + 288);
-	/* Create extra stack space for SRR0 and SRR1 when calling prom/rtas. */
-        DEFINE(PROM_FRAME_SIZE, STACK_FRAME_OVERHEAD + sizeof(struct pt_regs) + 16 + 288);
-        DEFINE(RTAS_FRAME_SIZE, STACK_FRAME_OVERHEAD + sizeof(struct pt_regs) + 16 + 288);
+	/*
+	 * 288 = # of volatile regs, int & fp, for leaf routines
+	 * which do not stack a frame.  See the PPC64 ABI.
+	 */
+	DEFINE(INT_FRAME_SIZE, STACK_FRAME_OVERHEAD + sizeof(struct pt_regs) + 288);
+	/*
+	 * Create extra stack space for SRR0 and SRR1 when calling prom/rtas.
+	 */
+	DEFINE(PROM_FRAME_SIZE, STACK_FRAME_OVERHEAD + sizeof(struct pt_regs) + 16 + 288);
+	DEFINE(RTAS_FRAME_SIZE, STACK_FRAME_OVERHEAD + sizeof(struct pt_regs) + 16 + 288);
 	DEFINE(GPR0, STACK_FRAME_OVERHEAD+offsetof(struct pt_regs, gpr[0]));
 	DEFINE(GPR1, STACK_FRAME_OVERHEAD+offsetof(struct pt_regs, gpr[1]));
 	DEFINE(GPR2, STACK_FRAME_OVERHEAD+offsetof(struct pt_regs, gpr[2]));
@@ -157,7 +169,8 @@ main(void)
 	DEFINE(GPR21, STACK_FRAME_OVERHEAD+offsetof(struct pt_regs, gpr[21]));
 	DEFINE(GPR22, STACK_FRAME_OVERHEAD+offsetof(struct pt_regs, gpr[22]));
 	DEFINE(GPR23, STACK_FRAME_OVERHEAD+offsetof(struct pt_regs, gpr[23]));
-	/* Note: these symbols include _ because they overlap with special
+	/*
+	 * Note: these symbols include _ because they overlap with special
 	 * register names
 	 */
 	DEFINE(_NIP, STACK_FRAME_OVERHEAD+offsetof(struct pt_regs, nip));
@@ -173,11 +186,27 @@ main(void)
 	DEFINE(TRAP, STACK_FRAME_OVERHEAD+offsetof(struct pt_regs, trap));
 	DEFINE(SOFTE, STACK_FRAME_OVERHEAD+offsetof(struct pt_regs, softe));
 
-	/* These _only_ to be used with {PROM,RTAS}_FRAME_SIZE!!! */
+	/*
+	 * These _only_ to be used with {PROM,RTAS}_FRAME_SIZE!!!
+	 */
 	DEFINE(_SRR0, STACK_FRAME_OVERHEAD+sizeof(struct pt_regs));
 	DEFINE(_SRR1, STACK_FRAME_OVERHEAD+sizeof(struct pt_regs)+8);
 
 	DEFINE(CLONE_VM, CLONE_VM);
+
+	/* About the CPU features table */
+	DEFINE(CPU_SPEC_ENTRY_SIZE, sizeof(struct cpu_spec));
+	DEFINE(CPU_SPEC_PVR_MASK, offsetof(struct cpu_spec, pvr_mask));
+	DEFINE(CPU_SPEC_PVR_VALUE, offsetof(struct cpu_spec, pvr_value));
+	DEFINE(CPU_SPEC_FEATURES, offsetof(struct cpu_spec, cpu_features));
+	DEFINE(CPU_SPEC_SETUP, offsetof(struct cpu_spec, cpu_setup));
+
+	/* About the CPU features table */
+	DEFINE(CPU_SPEC_ENTRY_SIZE, sizeof(struct cpu_spec));
+	DEFINE(CPU_SPEC_PVR_MASK, offsetof(struct cpu_spec, pvr_mask));
+	DEFINE(CPU_SPEC_PVR_VALUE, offsetof(struct cpu_spec, pvr_value));
+	DEFINE(CPU_SPEC_FEATURES, offsetof(struct cpu_spec, cpu_features));
+	DEFINE(CPU_SPEC_SETUP, offsetof(struct cpu_spec, cpu_setup));
 
 	return 0;
 }

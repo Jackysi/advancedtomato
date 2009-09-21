@@ -933,8 +933,7 @@ pcwatchdog_exit (void)
 
 	release_region (pcwd_info.io_addr, pcwd_info.card_info->io_size);
 
-	if (pcwd_info.flags & PCWD_PCI_REG)
-		pci_unregister_driver (&pcwd_driver);
+	pci_unregister_driver (&pcwd_driver);
 
 	return;
 }

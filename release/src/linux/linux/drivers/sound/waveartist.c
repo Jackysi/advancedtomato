@@ -894,8 +894,13 @@ static const struct mix_ent mix_devs[SOUND_MIXER_NRDEVICES] = {
 	{ 0, 0, 0,  0 }, /* SOUND_MIXER_CD       */
 	{ 0, 0, 0,  0 }, /* SOUND_MIXER_IMIX     */
 	{ 0, 0, 0,  0 }, /* SOUND_MIXER_ALTPCM   */
+#if 0
+	{ 3, 7, 0, 10 }, /* SOUND_MIXER_RECLEV   */
+	{ 0, 0, 0,  0 }, /* SOUND_MIXER_IGAIN    */
+#else
 	{ 0, 0, 0,  0 }, /* SOUND_MIXER_RECLEV   */
 	{ 3, 7, 0,  7 }, /* SOUND_MIXER_IGAIN    */
+#endif
 	{ 0, 0, 0,  0 }, /* SOUND_MIXER_OGAIN    */
 	{ 0, 4, 1, 31 }, /* SOUND_MIXER_LINE1    */
 	{ 1, 5, 6, 31 }, /* SOUND_MIXER_LINE2    */

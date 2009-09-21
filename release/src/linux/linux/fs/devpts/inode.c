@@ -137,12 +137,12 @@ struct super_block *devpts_read_super(struct super_block *s, void *data,
 
 	if ( devpts_parse_options(data,sbi) && !silent) {
 		printk("devpts: called with bogus options\n");
-		goto fail_free;
+		goto fail_inode;
 	}
 
 	inode = new_inode(s);
 	if (!inode)
-		goto fail_free;
+		goto fail_inode;
 	inode->i_ino = 1;
 	inode->i_mtime = inode->i_atime = inode->i_ctime = CURRENT_TIME;
 	inode->i_blocks = 0;
@@ -164,6 +164,8 @@ struct super_block *devpts_read_super(struct super_block *s, void *data,
 	
 	printk("devpts: get root dentry failed\n");
 	iput(inode);
+fail_inode:
+	kfree(sbi->inodes);
 fail_free:
 	kfree(sbi);
 fail:

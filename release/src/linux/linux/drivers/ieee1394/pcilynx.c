@@ -19,6 +19,17 @@
  * Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
 
+/*
+ * Contributions:
+ *
+ * Manfred Weihs <weihs@ict.tuwien.ac.at>
+ *        reading bus info block (containing GUID) from serial 
+ *            eeprom via i2c and storing it in config ROM
+ *        Reworked code for initiating bus resets
+ *            (long, short, with or without hold-off)
+ *        Enhancements in async and iso send code
+ */
+
 #include <linux/config.h>
 #include <linux/kernel.h>
 #include <linux/slab.h>
@@ -30,6 +41,7 @@
 #include <linux/pci.h>
 #include <linux/fs.h>
 #include <linux/poll.h>
+#include <linux/irq.h>
 #include <asm/byteorder.h>
 #include <asm/atomic.h>
 #include <asm/io.h>
@@ -117,23 +129,20 @@ static int bit_unreg(struct i2c_client *client)
 }
 
 static struct i2c_algo_bit_data bit_data = {
-	NULL,
-	bit_setsda,
-	bit_setscl,
-	bit_getsda,
-	bit_getscl,
-	5, 5, 100,		/*	waits, timeout */
+	.setsda			= bit_setsda,
+	.setscl			= bit_setscl,
+	.getsda			= bit_getsda,
+	.getscl			= bit_getscl,
+	.udelay			= 5,
+	.mdelay			= 5,
+	.timeout		= 100,
 }; 
 
 static struct i2c_adapter bit_ops = {
-	"PCILynx I2C adapter",
-	0xAA, //FIXME: probably we should get an id in i2c-id.h
-	NULL,
-	NULL,
-	NULL,
-	NULL,
-	bit_reg,
-	bit_unreg,
+	.id 			= 0xAA, //FIXME: probably we should get an id in i2c-id.h
+	.client_register	= bit_reg,
+	.client_unregister	= bit_unreg,
+	.name			= "PCILynx I2C",
 };
 
 
@@ -148,6 +157,7 @@ static pcl_t alloc_pcl(struct ti_lynx *lynx)
         int i, j;
 
         spin_lock(&lynx->lock);
+        /* FIXME - use ffz() to make this readable */
         for (i = 0; i < (LOCALRAM_SIZE / 1024); i++) {
                 m = lynx->pcl_bmap[i];
                 for (j = 0; j < 8; j++) {
@@ -166,6 +176,54 @@ static pcl_t alloc_pcl(struct ti_lynx *lynx)
 }
 
 
+#if 0
+static void free_pcl(struct ti_lynx *lynx, pcl_t pclid)
+{
+        int off, bit;
+
+        off = pclid / 8;
+        bit = pclid % 8;
+
+        if (pclid < 0) {
+                return;
+        }
+
+        spin_lock(&lynx->lock);
+        if (lynx->pcl_bmap[off] & 1<<bit) {
+                lynx->pcl_bmap[off] &= ~(1<<bit);
+        } else {
+                PRINT(KERN_ERR, lynx->id, 
+                      "attempted to free unallocated PCL %d", pclid);
+        }
+        spin_unlock(&lynx->lock);
+}
+
+/* functions useful for debugging */        
+static void pretty_print_pcl(const struct ti_pcl *pcl)
+{
+        int i;
+
+        printk("PCL next %08x, userdata %08x, status %08x, remtrans %08x, nextbuf %08x\n",
+               pcl->next, pcl->user_data, pcl->pcl_status, 
+               pcl->remaining_transfer_count, pcl->next_data_buffer);
+
+        printk("PCL");
+        for (i=0; i<13; i++) {
+                printk(" c%x:%08x d%x:%08x",
+                       i, pcl->buffer[i].control, i, pcl->buffer[i].pointer);
+                if (!(i & 0x3) && (i != 12)) printk("\nPCL");
+        }
+        printk("\n");
+}
+        
+static void print_pcl(const struct ti_lynx *lynx, pcl_t pclid)
+{
+        struct ti_pcl pcl;
+
+        get_pcl(lynx, pclid, &pcl);
+        pretty_print_pcl(&pcl);
+}
+#endif
 
 
 
@@ -260,6 +318,28 @@ static int sel_phy_reg_page(struct ti_lynx *lynx, int page)
         }
 }
 
+#if 0 /* not needed at this time */
+static int sel_phy_reg_port(struct ti_lynx *lynx, int port)
+{
+        int reg;
+
+        if (port > 15) {
+                PRINT(KERN_ERR, lynx->id,
+                      "%s: PHY port %d out of range", __FUNCTION__, port);
+                return -1;
+        }
+
+        reg = get_phy_reg(lynx, 7);
+        if (reg != -1) {
+                reg &= 0xf0;
+                reg |= port;
+                set_phy_reg(lynx, 7, reg);
+                return 0;
+        } else {
+                return -1;
+        }
+}
+#endif
 
 static u32 get_phy_vendorid(struct ti_lynx *lynx)
 {
@@ -295,6 +375,8 @@ static quadlet_t generate_own_selfid(struct ti_lynx *lynx,
                 phyreg[i] = get_phy_reg(lynx, i);
         }
 
+        /* FIXME? We assume a TSB21LV03A phy here.  This code doesn't support
+           more than 3 ports on the PHY anyway. */
 
         lsid = 0x80400000 | ((phyreg[0] & 0xfc) << 22);
         lsid |= (phyreg[1] & 0x3f) << 16; /* gap count */
@@ -377,7 +459,7 @@ static void handle_selfid(struct ti_lynx *lynx, struct hpsb_host *host)
 
         if (host->in_bus_reset) return; /* in bus reset again */
 
-        if (isroot) reg_set_bits(lynx, LINK_CONTROL, LINK_CONTROL_CYCMASTER);
+        if (isroot) reg_set_bits(lynx, LINK_CONTROL, LINK_CONTROL_CYCMASTER); //FIXME: I do not think, we need this here
         reg_set_bits(lynx, LINK_CONTROL,
                      LINK_CONTROL_RCV_CMP_VALID | LINK_CONTROL_TX_ASYNC_EN
                      | LINK_CONTROL_RX_ASYNC_EN | LINK_CONTROL_CYCTIMEREN);
@@ -393,7 +475,14 @@ static void send_next(struct ti_lynx *lynx, int what)
         struct hpsb_packet *packet;
 
         d = (what == hpsb_iso ? &lynx->iso_send : &lynx->async);
+        if (!list_empty(&d->pcl_queue)) {
+                PRINT(KERN_ERR, lynx->id, "trying to queue a new packet in nonempty fifo");
+                BUG();
+        }
+
         packet = driver_packet(d->queue.next);
+        list_del(&packet->driver_list);
+        list_add_tail(&packet->driver_list, &d->pcl_queue);
 
         d->header_dma = pci_map_single(lynx->dev, packet->header,
                                        packet->header_size, PCI_DMA_TODEVICE);
@@ -407,6 +496,7 @@ static void send_next(struct ti_lynx *lynx, int what)
 
         pcl.next = PCL_NEXT_INVALID;
         pcl.async_error_next = PCL_NEXT_INVALID;
+        pcl.pcl_status = 0;
 #ifdef __BIG_ENDIAN
         pcl.buffer[0].control = packet->speed_code << 14 | packet->header_size;
 #else
@@ -473,7 +563,7 @@ static int lynx_transmit(struct hpsb_host *host, struct hpsb_packet *packet)
         spin_lock_irqsave(&d->queue_lock, flags);
 
 	list_add_tail(&packet->driver_list, &d->queue);
-	if (d->queue.next == &packet->driver_list)
+	if (list_empty(&d->pcl_queue))
                 send_next(lynx, packet->type);
 
         spin_unlock_irqrestore(&d->queue_lock, flags);
@@ -490,6 +580,7 @@ static int lynx_devctl(struct hpsb_host *host, enum devctl_cmd cmd, int arg)
         struct hpsb_packet *packet;
 	LIST_HEAD(packet_list);
         unsigned long flags;
+	int phy_reg;
 
         switch (cmd) {
         case RESET_BUS:
@@ -498,21 +589,140 @@ static int lynx_devctl(struct hpsb_host *host, enum devctl_cmd cmd, int arg)
                         break;
                 }
 
-                if (arg) {
-                        arg = 3 << 6;
-                } else {
-                        arg = 1 << 6;
-                }
+		switch (arg) {
+		case SHORT_RESET:
+			if (lynx->phyic.reg_1394a) {
+				phy_reg = get_phy_reg(lynx, 5);
+				if (phy_reg == -1) {
+					PRINT(KERN_ERR, lynx->id, "cannot reset bus, because read phy reg failed");
+					retval = -1;
+					break;
+				}
+				phy_reg |= 0x40;
 
-                retval = get_phy_reg(lynx, 1);
-                arg |= (retval == -1 ? 63 : retval);
-                retval = 0;
+				PRINT(KERN_INFO, lynx->id, "resetting bus (short bus reset) on request");
 
-                PRINT(KERN_INFO, lynx->id, "resetting bus on request");
+				lynx->selfid_size = -1;
+				lynx->phy_reg0 = -1;
+				set_phy_reg(lynx, 5, phy_reg); /* set ISBR */
+				break;
+			} else {
+				PRINT(KERN_INFO, lynx->id, "cannot do short bus reset, because of old phy");
+				/* fall through to long bus reset */
+			}
+		case LONG_RESET:
+			phy_reg = get_phy_reg(lynx, 1);
+			if (phy_reg == -1) {
+				PRINT(KERN_ERR, lynx->id, "cannot reset bus, because read phy reg failed");
+				retval = -1;
+				break;
+			}
+			phy_reg |= 0x40;
 
-                lynx->selfid_size = -1;
-                lynx->phy_reg0 = -1;
-                set_phy_reg(lynx, 1, arg);
+			PRINT(KERN_INFO, lynx->id, "resetting bus (long bus reset) on request");
+
+			lynx->selfid_size = -1;
+			lynx->phy_reg0 = -1;
+			set_phy_reg(lynx, 1, phy_reg); /* clear RHB, set IBR */
+			break;
+		case SHORT_RESET_NO_FORCE_ROOT:
+			if (lynx->phyic.reg_1394a) {
+				phy_reg = get_phy_reg(lynx, 1);
+				if (phy_reg == -1) {
+					PRINT(KERN_ERR, lynx->id, "cannot reset bus, because read phy reg failed");
+					retval = -1;
+					break;
+				}
+				if (phy_reg & 0x80) {
+					phy_reg &= ~0x80;
+					set_phy_reg(lynx, 1, phy_reg); /* clear RHB */
+				}
+
+				phy_reg = get_phy_reg(lynx, 5);
+				if (phy_reg == -1) {
+					PRINT(KERN_ERR, lynx->id, "cannot reset bus, because read phy reg failed");
+					retval = -1;
+					break;
+				}
+				phy_reg |= 0x40;
+
+				PRINT(KERN_INFO, lynx->id, "resetting bus (short bus reset, no force_root) on request");
+
+				lynx->selfid_size = -1;
+				lynx->phy_reg0 = -1;
+				set_phy_reg(lynx, 5, phy_reg); /* set ISBR */
+				break;
+			} else {
+				PRINT(KERN_INFO, lynx->id, "cannot do short bus reset, because of old phy");
+				/* fall through to long bus reset */
+			}
+		case LONG_RESET_NO_FORCE_ROOT:
+			phy_reg = get_phy_reg(lynx, 1);
+			if (phy_reg == -1) {
+				PRINT(KERN_ERR, lynx->id, "cannot reset bus, because read phy reg failed");
+				retval = -1;
+				break;
+			}
+			phy_reg &= ~0x80;
+			phy_reg |= 0x40;
+
+			PRINT(KERN_INFO, lynx->id, "resetting bus (long bus reset, no force_root) on request");
+
+			lynx->selfid_size = -1;
+			lynx->phy_reg0 = -1;
+			set_phy_reg(lynx, 1, phy_reg); /* clear RHB, set IBR */
+			break;
+		case SHORT_RESET_FORCE_ROOT:
+			if (lynx->phyic.reg_1394a) {
+				phy_reg = get_phy_reg(lynx, 1);
+				if (phy_reg == -1) {
+					PRINT(KERN_ERR, lynx->id, "cannot reset bus, because read phy reg failed");
+					retval = -1;
+					break;
+				}
+				if (!(phy_reg & 0x80)) {
+					phy_reg |= 0x80;
+					set_phy_reg(lynx, 1, phy_reg); /* set RHB */
+				}
+
+				phy_reg = get_phy_reg(lynx, 5);
+				if (phy_reg == -1) {
+					PRINT(KERN_ERR, lynx->id, "cannot reset bus, because read phy reg failed");
+					retval = -1;
+					break;
+				}
+				phy_reg |= 0x40;
+
+				PRINT(KERN_INFO, lynx->id, "resetting bus (short bus reset, force_root set) on request");
+
+				lynx->selfid_size = -1;
+				lynx->phy_reg0 = -1;
+				set_phy_reg(lynx, 5, phy_reg); /* set ISBR */
+				break;
+			} else {
+				PRINT(KERN_INFO, lynx->id, "cannot do short bus reset, because of old phy");
+				/* fall through to long bus reset */
+			}
+		case LONG_RESET_FORCE_ROOT:
+			phy_reg = get_phy_reg(lynx, 1);
+			if (phy_reg == -1) {
+				PRINT(KERN_ERR, lynx->id, "cannot reset bus, because read phy reg failed");
+				retval = -1;
+				break;
+			}
+			phy_reg |= 0xc0;
+
+			PRINT(KERN_INFO, lynx->id, "resetting bus (long bus reset, force_root set) on request");
+
+			lynx->selfid_size = -1;
+			lynx->phy_reg0 = -1;
+			set_phy_reg(lynx, 1, phy_reg); /* set IBR and RHB */
+			break;
+		default:
+			PRINT(KERN_ERR, lynx->id, "unknown argument for reset_bus command %d", arg);
+			retval = -1;
+		}
+
                 break;
 
         case GET_CYCLE_COUNTER:
@@ -545,7 +755,44 @@ static int lynx_devctl(struct hpsb_host *host, enum devctl_cmd cmd, int arg)
 		list_splice(&lynx->async.queue, &packet_list);
 		INIT_LIST_HEAD(&lynx->async.queue);
 
-                spin_unlock_irqrestore(&lynx->async.queue_lock, flags);
+                if (list_empty(&lynx->async.pcl_queue)) {
+                        spin_unlock_irqrestore(&lynx->async.queue_lock, flags);
+                        PRINTD(KERN_DEBUG, lynx->id, "no async packet in PCL to cancel");
+                } else {
+                        struct ti_pcl pcl;
+                        u32 ack;
+                        struct hpsb_packet *packet;
+
+                        PRINT(KERN_INFO, lynx->id, "cancelling async packet, that was already in PCL");
+
+                        get_pcl(lynx, lynx->async.pcl, &pcl);
+
+                        packet = driver_packet(lynx->async.pcl_queue.next);
+                        list_del(&packet->driver_list);
+
+                        pci_unmap_single(lynx->dev, lynx->async.header_dma,
+                                         packet->header_size, PCI_DMA_TODEVICE);
+                        if (packet->data_size) {
+                                pci_unmap_single(lynx->dev, lynx->async.data_dma,
+                                                 packet->data_size, PCI_DMA_TODEVICE);
+                        }
+
+                        spin_unlock_irqrestore(&lynx->async.queue_lock, flags);
+
+                        if (pcl.pcl_status & DMA_CHAN_STAT_PKTCMPL) {
+                                if (pcl.pcl_status & DMA_CHAN_STAT_SPECIALACK) {
+                                        ack = (pcl.pcl_status >> 15) & 0xf;
+                                        PRINTD(KERN_INFO, lynx->id, "special ack %d", ack);
+                                        ack = (ack == 1 ? ACKX_TIMEOUT : ACKX_SEND_ERROR);
+                                } else {
+                                        ack = (pcl.pcl_status >> 15) & 0xf;
+                                }
+                        } else {
+                                PRINT(KERN_INFO, lynx->id, "async packet was not completed");
+                                ack = ACKX_ABORTED;
+                        }
+                        hpsb_packet_sent(host, packet, ack);
+                }
 
 		while (!list_empty(&packet_list)) {
 			packet = driver_packet(packet_list.next);
@@ -636,7 +883,7 @@ static void aux_setup_pcls(struct ti_lynx *lynx)
 
 static int mem_open(struct inode *inode, struct file *file)
 {
-        int cid = minor(inode->i_rdev);
+        int cid = MINOR(inode->i_rdev);
         enum { t_rom, t_aux, t_ram } type;
         struct memdata *md;
         
@@ -758,7 +1005,7 @@ static ssize_t mem_dmaread(struct memdata *md, u32 physbuf, ssize_t count,
         DECLARE_WAITQUEUE(wait, current);
 
         count &= ~3;
-        count = MIN(count, 53196);
+        count = min(count, 53196);
         retval = count;
 
         if (reg_read(md->lynx, DMA_CHAN_CTRL(CHANNEL_LOCALBUS))
@@ -769,14 +1016,14 @@ static ssize_t mem_dmaread(struct memdata *md, u32 physbuf, ssize_t count,
         reg_write(md->lynx, LBUS_ADDR, md->type | offset);
 
         pcl = edit_pcl(md->lynx, md->lynx->dmem_pcl, &pcltmp);
-        pcl->buffer[0].control = PCL_CMD_LBUS_TO_PCI | MIN(count, 4092);
+        pcl->buffer[0].control = PCL_CMD_LBUS_TO_PCI | min(count, 4092);
         pcl->buffer[0].pointer = physbuf;
         count -= 4092;
 
         i = 0;
         while (count > 0) {
                 i++;
-                pcl->buffer[i].control = MIN(count, 4092);
+                pcl->buffer[i].control = min(count, 4092);
                 pcl->buffer[i].pointer = physbuf + i * 4092;
                 count -= 4092;
         }
@@ -818,19 +1065,15 @@ static ssize_t mem_read(struct file *file, char *buffer, size_t count,
         ssize_t retval;
         void *membase;
 
-	if (*offset != off)	/* Check for EOF before we trust wrap */
+	if (!count)
 		return 0;
-	
-	if (off + count > off)
-		return 0;
-		
-        if ((off + count) > PCILYNX_MAX_MEMORY + 1) {
-                count = PCILYNX_MAX_MEMORY + 1 - off;
-        }
-        if (count == 0) {
-                return 0;
-        }
+	if (off < 0)
+		return -EINVAL;
+	if (off > PCILYNX_MAX_MEMORY)
+                return -ENOSPC;
 
+	if (count > PCILYNX_MAX_MEMORY + 1 - off)
+		count = PCILYNX_MAX_MEMORY + 1 - off;
 
         switch (md->type) {
         case rom:
@@ -851,6 +1094,7 @@ static ssize_t mem_read(struct file *file, char *buffer, size_t count,
 
         if (count < mem_mindma) {
                 memcpy_fromio(md->lynx->mem_dma_buffer, membase+off, count);
+		off += count;
                 goto out;
         }
 
@@ -881,14 +1125,15 @@ static ssize_t mem_read(struct file *file, char *buffer, size_t count,
         if (bcount) {
                 memcpy_fromio(md->lynx->mem_dma_buffer + count - bcount,
                               membase+off, bcount);
+		off += bcount;
         }
 
  out:
         retval = copy_to_user(buffer, md->lynx->mem_dma_buffer, count);
         up(&md->lynx->mem_dma_mutex);
 
-        if (retval < 0) return retval;
-        *offset += count;
+	if (retval) return -EFAULT;
+        *offset = off;
         return count;
 }
 
@@ -897,28 +1142,36 @@ static ssize_t mem_write(struct file *file, const char *buffer, size_t count,
                          loff_t *offset)
 {
         struct memdata *md = (struct memdata *)file->private_data;
+	loff_t off = *offset;
 
-        if (((*offset) + count) > PCILYNX_MAX_MEMORY+1) {
-                count = PCILYNX_MAX_MEMORY+1 - *offset;
-        }
-        if (count == 0 || *offset > PCILYNX_MAX_MEMORY) {
-                return -ENOSPC;
-        }
+	if (!count)
+		return 0;
+	if (off < 0)
+		return -EINVAL;
+	if (off > PCILYNX_MAX_MEMORY)
+		return -ENOSPC;
 
+	if (count > PCILYNX_MAX_MEMORY + 1 - off)
+		count = PCILYNX_MAX_MEMORY + 1 - off;
+
+        /* FIXME: dereferencing pointers to PCI mem doesn't work everywhere */
         switch (md->type) {
         case aux:
-                copy_from_user(md->lynx->aux_port+(*offset), buffer, count);
+		if (copy_from_user(md->lynx->aux_port+off, buffer, count))
+			return -EFAULT;
                 break;
         case ram:
-                copy_from_user(md->lynx->local_ram+(*offset), buffer, count);
+		if (copy_from_user(md->lynx->local_ram+off, buffer, count))
+			return -EFAULT;
                 break;
         case rom:
                 /* the ROM may be writeable */
-                copy_from_user(md->lynx->local_rom+(*offset), buffer, count);
+		if (copy_from_user(md->lynx->local_rom+off, buffer, count))
+			return -EFAULT;
                 break;
         }
 
-        file->f_pos += count;
+	*offset = off + count;
         return count;
 }
 #endif /* CONFIG_IEEE1394_PCILYNX_PORTS */
@@ -940,10 +1193,10 @@ static void lynx_irq_handler(int irq, void *dev_id,
         linkint = reg_read(lynx, LINK_INT_STATUS);
         intmask = reg_read(lynx, PCI_INT_STATUS);
 
+        if (!(intmask & PCI_INT_INT_PEND)) return;
+
         PRINTD(KERN_DEBUG, lynx->id, "interrupt: 0x%08x / 0x%08x", intmask,
                linkint);
-
-        if (!(intmask & PCI_INT_INT_PEND)) return;
 
         reg_write(lynx, LINK_INT_STATUS, linkint);
         reg_write(lynx, PCI_INT_STATUS, intmask);
@@ -1043,62 +1296,96 @@ static void lynx_irq_handler(int irq, void *dev_id,
         }
 
         if (intmask & PCI_INT_DMA_HLT(CHANNEL_ASYNC_SEND)) {
-                u32 ack;
-                struct hpsb_packet *packet;
-                
+                PRINTD(KERN_DEBUG, lynx->id, "async sent");
                 spin_lock(&lynx->async.queue_lock);
 
-                ack = reg_read(lynx, DMA_CHAN_STAT(CHANNEL_ASYNC_SEND));
-
-		packet = driver_packet(lynx->async.queue.next);
-		list_del(&packet->driver_list);
-
-                pci_unmap_single(lynx->dev, lynx->async.header_dma,
-                                 packet->header_size, PCI_DMA_TODEVICE);
-                if (packet->data_size) {
-                        pci_unmap_single(lynx->dev, lynx->async.data_dma,
-                                         packet->data_size, PCI_DMA_TODEVICE);
-                }
-
-                if (!list_empty(&lynx->async.queue)) {
-                        send_next(lynx, hpsb_async);
-                }
-
-                spin_unlock(&lynx->async.queue_lock);
-
-                if (ack & DMA_CHAN_STAT_SPECIALACK) {
-                        ack = (ack >> 15) & 0xf;
-                        PRINTD(KERN_INFO, lynx->id, "special ack %d", ack);
-                        ack = (ack == 1 ? ACKX_TIMEOUT : ACKX_SEND_ERROR);
+                if (list_empty(&lynx->async.pcl_queue)) {
+                        spin_unlock(&lynx->async.queue_lock);
+                        PRINT(KERN_WARNING, lynx->id, "async dma halted, but no queued packet (maybe it was cancelled)");
                 } else {
-                        ack = (ack >> 15) & 0xf;
+                        struct ti_pcl pcl;
+                        u32 ack;
+                        struct hpsb_packet *packet;
+
+                        get_pcl(lynx, lynx->async.pcl, &pcl);
+
+                        packet = driver_packet(lynx->async.pcl_queue.next);
+                        list_del(&packet->driver_list);
+
+                        pci_unmap_single(lynx->dev, lynx->async.header_dma,
+                                         packet->header_size, PCI_DMA_TODEVICE);
+                        if (packet->data_size) {
+                                pci_unmap_single(lynx->dev, lynx->async.data_dma,
+                                                 packet->data_size, PCI_DMA_TODEVICE);
+                        }
+
+                        if (!list_empty(&lynx->async.queue)) {
+                                send_next(lynx, hpsb_async);
+                        }
+
+                        spin_unlock(&lynx->async.queue_lock);
+
+                        if (pcl.pcl_status & DMA_CHAN_STAT_PKTCMPL) {
+                                if (pcl.pcl_status & DMA_CHAN_STAT_SPECIALACK) {
+                                        ack = (pcl.pcl_status >> 15) & 0xf;
+                                        PRINTD(KERN_INFO, lynx->id, "special ack %d", ack);
+                                        ack = (ack == 1 ? ACKX_TIMEOUT : ACKX_SEND_ERROR);
+                                } else {
+                                        ack = (pcl.pcl_status >> 15) & 0xf;
+                                }
+                        } else {
+                                PRINT(KERN_INFO, lynx->id, "async packet was not completed");
+                                ack = ACKX_SEND_ERROR;
+                        }
+                        hpsb_packet_sent(host, packet, ack);
                 }
-                
-                hpsb_packet_sent(host, packet, ack);
         }
 
         if (intmask & PCI_INT_DMA_HLT(CHANNEL_ISO_SEND)) {
-                struct hpsb_packet *packet;
-
+                PRINTD(KERN_DEBUG, lynx->id, "iso sent");
                 spin_lock(&lynx->iso_send.queue_lock);
 
-		packet = driver_packet(lynx->iso_send.queue.next);
-		list_del(&packet->driver_list);
+                if (list_empty(&lynx->iso_send.pcl_queue)) {
+                        spin_unlock(&lynx->iso_send.queue_lock);
+                        PRINT(KERN_ERR, lynx->id, "iso send dma halted, but no queued packet");
+                } else {
+                        struct ti_pcl pcl;
+                        u32 ack;
+                        struct hpsb_packet *packet;
 
-                pci_unmap_single(lynx->dev, lynx->iso_send.header_dma,
-                                 packet->header_size, PCI_DMA_TODEVICE);
-                if (packet->data_size) {
-                        pci_unmap_single(lynx->dev, lynx->iso_send.data_dma,
-                                         packet->data_size, PCI_DMA_TODEVICE);
+                        get_pcl(lynx, lynx->iso_send.pcl, &pcl);
+
+                        packet = driver_packet(lynx->iso_send.pcl_queue.next);
+                        list_del(&packet->driver_list);
+
+                        pci_unmap_single(lynx->dev, lynx->iso_send.header_dma,
+                                         packet->header_size, PCI_DMA_TODEVICE);
+                        if (packet->data_size) {
+                                pci_unmap_single(lynx->dev, lynx->iso_send.data_dma,
+                                                 packet->data_size, PCI_DMA_TODEVICE);
+                        }
+
+                        if (!list_empty(&lynx->iso_send.queue)) {
+                                send_next(lynx, hpsb_iso);
+                        }
+
+                        spin_unlock(&lynx->iso_send.queue_lock);
+
+                        if (pcl.pcl_status & DMA_CHAN_STAT_PKTCMPL) {
+                                if (pcl.pcl_status & DMA_CHAN_STAT_SPECIALACK) {
+                                        ack = (pcl.pcl_status >> 15) & 0xf;
+                                        PRINTD(KERN_INFO, lynx->id, "special ack %d", ack);
+                                        ack = (ack == 1 ? ACKX_TIMEOUT : ACKX_SEND_ERROR);
+                                } else {
+                                        ack = (pcl.pcl_status >> 15) & 0xf;
+                                }
+                        } else {
+                                PRINT(KERN_INFO, lynx->id, "iso send packet was not completed");
+                                ack = ACKX_SEND_ERROR;
+                        }
+
+                        hpsb_packet_sent(host, packet, ack); //FIXME: maybe we should just use ACK_COMPLETE and ACKX_SEND_ERROR
                 }
-
-                if (!list_empty(&lynx->iso_send.queue)) {
-                        send_next(lynx, hpsb_iso);
-                }
-
-                spin_unlock(&lynx->iso_send.queue_lock);
-
-                hpsb_packet_sent(host, packet, ACK_COMPLETE);
         }
 
         if (intmask & PCI_INT_DMA_HLT(CHANNEL_ASYNC_RCV)) {
@@ -1185,6 +1472,14 @@ static void remove_card(struct pci_dev *dev)
         case have_intr:
                 reg_write(lynx, PCI_INT_ENABLE, 0);
                 free_irq(lynx->dev->irq, lynx);
+
+		/* Disable IRM Contender and LCtrl */
+		if (lynx->phyic.reg_1394a)
+			set_phy_reg(lynx, 4, ~0xc0 & get_phy_reg(lynx, 4));
+
+		/* Let all other nodes know to ignore us */
+		lynx_devctl(lynx->host, RESET_BUS, LONG_RESET_NO_FORCE_ROOT);
+
         case have_iomappings:
                 reg_set_bits(lynx, MISC_CONTROL, MISC_CONTROL_SWRESET);
                 /* Fix buggy cards with autoboot pin not tied low: */
@@ -1232,6 +1527,7 @@ static int __devinit add_card(struct pci_dev *dev,
         return error; \
         } while (0)
 
+	char irq_buf[16];
 	struct hpsb_host *host;
         struct ti_lynx *lynx; /* shortcut to currently handled device */
         struct ti_pcl pcl;
@@ -1331,12 +1627,18 @@ static int __devinit add_card(struct pci_dev *dev,
         /* Fix buggy cards with autoboot pin not tied low: */
         reg_write(lynx, DMA0_CHAN_CTRL, 0);
 
+#ifndef __sparc__
+	sprintf (irq_buf, "%d", dev->irq);
+#else
+	sprintf (irq_buf, "%s", __irq_itoa(dev->irq));
+#endif
+
         if (!request_irq(dev->irq, lynx_irq_handler, SA_SHIRQ,
                          PCILYNX_DRIVER_NAME, lynx)) {
-                PRINT(KERN_INFO, lynx->id, "allocated interrupt %d", dev->irq);
+                PRINT(KERN_INFO, lynx->id, "allocated interrupt %s", irq_buf);
                 lynx->state = have_intr;
         } else {
-                FAIL("failed to allocate shared interrupt %d", dev->irq);
+                FAIL("failed to allocate shared interrupt %s", irq_buf);
         }
 
         /* alloc_pcl return values are not checked, it is expected that the
@@ -1400,7 +1702,9 @@ static int __devinit add_card(struct pci_dev *dev,
         lynx->phy_reg0 = -1;
 
 	INIT_LIST_HEAD(&lynx->async.queue);
+	INIT_LIST_HEAD(&lynx->async.pcl_queue);
 	INIT_LIST_HEAD(&lynx->iso_send.queue);
+	INIT_LIST_HEAD(&lynx->iso_send.pcl_queue);
 
         pcl.next = pcl_bus(lynx, lynx->rcv_pcl);
         put_pcl(lynx, lynx->rcv_pcl_start, &pcl);
@@ -1492,15 +1796,17 @@ static int __devinit add_card(struct pci_dev *dev,
                   | LINK_CONTROL_RESET_TX    | LINK_CONTROL_RESET_RX);
 
         if (!lynx->phyic.reg_1394a) {
+                /* attempt to enable contender bit -FIXME- would this work
+                 * elsewhere? */
                 reg_set_bits(lynx, GPIO_CTRL_A, 0x1);
                 reg_write(lynx, GPIO_DATA_BASE + 0x3c, 0x1); 
         } else {
-                /* set the contender bit in the extended PHY register
+                /* set the contender and LCtrl bit in the extended PHY register
                  * set. (Should check that bis 0,1,2 (=0xE0) is set
                  * in register 2?)
                  */
                 i = get_phy_reg(lynx, 4);
-                if (i != -1) set_phy_reg(lynx, 4, i | 0x40);
+                if (i != -1) set_phy_reg(lynx, 4, i | 0xc0);
         }
 
 
@@ -1511,9 +1817,8 @@ static int __devinit add_card(struct pci_dev *dev,
                 i2c_adapter.algo_data = &i2c_adapter_data;
                 i2c_adapter_data.data = lynx;
 
-#ifdef CONFIG_IEEE1394_VERBOSEDEBUG
-                PRINT(KERN_DEBUG, lynx->id,"original eeprom control: %d",reg_read(lynx,SERIAL_EEPROM_CONTROL));
-#endif
+		PRINTD(KERN_DEBUG, lynx->id,"original eeprom control: %d",
+		       reg_read(lynx, SERIAL_EEPROM_CONTROL));
 
         	/* reset hardware to sane state */
         	lynx->i2c_driven_state = 0x00000070;
@@ -1556,15 +1861,16 @@ static int __devinit add_card(struct pci_dev *dev,
                         if (i2c_transfer(&i2c_adapter, msg, 2) < 0) {
                                 PRINT(KERN_ERR, lynx->id, "unable to read bus info block from i2c");
                         } else {
-#ifdef CONFIG_IEEE1394_VERBOSEDEBUG
                                 int i;
-#endif
-                                PRINT(KERN_INFO, lynx->id, "got bus info block from serial eeprom");
 
-#ifdef CONFIG_IEEE1394_VERBOSEDEBUG
-                                for (i=0; i < 5 ; i++)
-                                        PRINT(KERN_DEBUG, lynx->id, "Businfo block quadlet %i: %08x",i, be32_to_cpu(lynx->config_rom[i]));
-#endif
+                                PRINT(KERN_INFO, lynx->id, "got bus info block from serial eeprom");
+				/* FIXME: probably we shoud rewrite the max_rec, max_ROM(1394a),
+				 * generation(1394a) and link_spd(1394a) field and recalculate
+				 * the CRC */
+
+                                for (i = 0; i < 5 ; i++)
+                                        PRINTD(KERN_DEBUG, lynx->id, "Businfo block quadlet %i: %08x",
+					       i, be32_to_cpu(lynx->config_rom[i]));
 
                                 /* info_length, crc_length and 1394 magic number to check, if it is really a bus info block */
                                 if (((be32_to_cpu(lynx->config_rom[0]) & 0xffff0000) == 0x04040000) &&
@@ -1598,7 +1904,7 @@ static int __devinit add_card(struct pci_dev *dev,
 
 
 
-static size_t get_lynx_rom(struct hpsb_host *host, const quadlet_t **ptr)
+static size_t get_lynx_rom(struct hpsb_host *host, quadlet_t **ptr)
 {
         struct ti_lynx *lynx = host->hostdata;
         *ptr = lynx->config_rom;
@@ -1619,7 +1925,7 @@ static struct pci_driver lynx_pci_driver = {
         .name =     PCILYNX_DRIVER_NAME,
         .id_table = pci_table,
         .probe =    add_card,
-        .remove =   __devexit_p(remove_card),
+        .remove =   remove_card,
 };
 
 static struct hpsb_host_driver lynx_driver = {
@@ -1627,6 +1933,7 @@ static struct hpsb_host_driver lynx_driver = {
         .get_rom =         get_lynx_rom,
         .transmit_packet = lynx_transmit,
         .devctl =          lynx_devctl,
+	.isoctl =          NULL,
 };
 
 MODULE_AUTHOR("Andreas E. Bombe <andreas.bombe@munich.netsurf.de>");

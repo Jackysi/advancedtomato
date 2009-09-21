@@ -1,7 +1,7 @@
 /*
  *  linux/arch/arm/kernel/traps.c
  *
- *  Copyright (C) 1995, 1996 Russell King
+ *  Copyright (C) 1995-2002 Russell King
  *  Fragments that appear the same as linux/arch/i386/kernel/traps.c (C) Linus Torvalds
  *
  * This program is free software; you can redistribute it and/or modify
@@ -63,7 +63,16 @@ static int verify_stack(unsigned long sp)
 static void dump_mem(const char *str, unsigned long bottom, unsigned long top)
 {
 	unsigned long p = bottom & ~31;
+	mm_segment_t fs;
 	int i;
+
+	/*
+	 * We need to switch to kernel mode so that we can use __get_user
+	 * to safely read from kernel space.  Note that we now dump the
+	 * code first, just in case the backtrace kills us.
+	 */
+	fs = get_fs();
+	set_fs(KERNEL_DS);
 
 	printk("%s(0x%08lx to 0x%08lx)\n", str, bottom, top);
 
@@ -82,6 +91,8 @@ static void dump_mem(const char *str, unsigned long bottom, unsigned long top)
 		}
 		printk ("\n");
 	}
+
+	set_fs(fs);
 }
 
 static void dump_instr(struct pt_regs *regs)
@@ -89,7 +100,16 @@ static void dump_instr(struct pt_regs *regs)
 	unsigned long addr = instruction_pointer(regs);
 	const int thumb = thumb_mode(regs);
 	const int width = thumb ? 4 : 8;
+	mm_segment_t fs;
 	int i;
+
+	/*
+	 * We need to switch to kernel mode so that we can use __get_user
+	 * to safely read from kernel space.  Note that we now dump the
+	 * code first, just in case the backtrace kills us.
+	 */
+	fs = get_fs();
+	set_fs(KERNEL_DS);
 
 	printk("Code: ");
 	for (i = -4; i < 1; i++) {
@@ -108,29 +128,36 @@ static void dump_instr(struct pt_regs *regs)
 		}
 	}
 	printk("\n");
+
+	set_fs(fs);
 }
 
-static void dump_stack(struct task_struct *tsk, unsigned long sp)
+static void I_really_mean_dump_stack_so_dont_mess_with_me(struct task_struct *tsk, unsigned long sp)
 {
-	dump_mem("Stack: ", sp - 16, 8192+(unsigned long)tsk);
+	dump_mem("Stack: ", sp, 8192+(unsigned long)tsk);
 }
 
 static void dump_backtrace(struct pt_regs *regs, struct task_struct *tsk)
 {
-	unsigned int fp;
+	unsigned int fp = regs->ARM_fp;
+	char *msg = "";
 	int ok = 1;
 
-	printk("Backtrace: ");
-	fp = regs->ARM_fp;
+#ifdef CONFIG_FRAME_POINTER
 	if (!fp) {
-		printk("no frame pointer");
+		msg = "no frame pointer";
 		ok = 0;
 	} else if (verify_stack(fp)) {
-		printk("invalid frame pointer 0x%08x", fp);
+		msg = "invalid frame pointer";
 		ok = 0;
 	} else if (fp < 4096+(unsigned long)tsk)
-		printk("frame pointer underflow");
-	printk("\n");
+		msg = "frame pointer underflow";
+#else
+	msg = "not available";
+	ok = 0;
+#endif
+
+	printk("Backtrace: %s\n", msg);
 
 	if (ok)
 		c_backtrace(fp, processor_mode(regs));
@@ -143,7 +170,7 @@ static void dump_backtrace(struct pt_regs *regs, struct task_struct *tsk)
 void show_trace_task(struct task_struct *tsk)
 {
 	if (tsk != current) {
-		unsigned int fp = tsk->thread.save->fp;
+		unsigned int fp = thread_saved_fp(&tsk->thread);
 		c_backtrace(fp, 0x10);
 	}
 }
@@ -163,26 +190,13 @@ NORET_TYPE void die(const char *str, struct pt_regs *regs, int err)
 	printk("Internal error: %s: %x\n", str, err);
 	printk("CPU: %d\n", smp_processor_id());
 	show_regs(regs);
-	printk("Process %s (pid: %d, stackpage=%08lx)\n",
-		current->comm, current->pid, 4096+(unsigned long)tsk);
+	printk("Process %s (pid: %d, stack limit = 0x%p)\n",
+		current->comm, current->pid, tsk + 1);
 
 	if (!user_mode(regs) || in_interrupt()) {
-		mm_segment_t fs;
-
-		/*
-		 * We need to switch to kernel mode so that we can
-		 * use __get_user to safely read from kernel space.
-		 * Note that we now dump the code first, just in case
-		 * the backtrace kills us.
-		 */
-		fs = get_fs();
-		set_fs(KERNEL_DS);
-
-		dump_stack(tsk, (unsigned long)(regs + 1));
+		I_really_mean_dump_stack_so_dont_mess_with_me(tsk, (unsigned long)(regs + 1));
 		dump_backtrace(regs, tsk);
 		dump_instr(regs);
-
-		set_fs(fs);
 	}
 
 	spin_unlock_irq(&die_lock);
@@ -270,20 +284,11 @@ asmlinkage void do_unexp_fiq (struct pt_regs *regs)
 asmlinkage void bad_mode(struct pt_regs *regs, int reason, int proc_mode)
 {
 	unsigned int vectors = vectors_base();
-	mm_segment_t fs;
 
 	console_verbose();
 
 	printk(KERN_CRIT "Bad mode in %s handler detected: mode %s\n",
 		handler[reason], processor_modes[proc_mode]);
-
-	/*
-	 * We need to switch to kernel mode so that we can use __get_user
-	 * to safely read from kernel space.  Note that we now dump the
-	 * code first, just in case the backtrace kills us.
-	 */
-	fs = get_fs();
-	set_fs(KERNEL_DS);
 
 	/*
 	 * Dump out the vectors and stub routines.  Maybe a better solution
@@ -292,10 +297,8 @@ asmlinkage void bad_mode(struct pt_regs *regs, int reason, int proc_mode)
 	dump_mem(KERN_CRIT "Vectors: ", vectors, vectors + 0x40);
 	dump_mem(KERN_CRIT "Stubs: ", vectors + 0x200, vectors + 0x4b8);
 
-	set_fs(fs);
-
 	die("Oops", regs, 0);
-	cli();
+	local_irq_disable();
 	panic("bad mode");
 }
 
@@ -356,20 +359,7 @@ asmlinkage int arm_syscall(int no, struct pt_regs *regs)
 		return 0;
 
 	case NR(breakpoint): /* SWI BREAK_POINT */
-		/*
-		 * The PC is always left pointing at the next
-		 * instruction.  Fix this.
-		 */
-		regs->ARM_pc -= 4;
-		__ptrace_cancel_bpt(current);
-
-		info.si_signo = SIGTRAP;
-		info.si_errno = 0;
-		info.si_code  = TRAP_BRKPT;
-		info.si_addr  = (void *)instruction_pointer(regs) -
-				 (thumb_mode(regs) ? 2 : 4);
-
-		force_sig_info(SIGTRAP, &info, current);
+		ptrace_break(current, regs);
 		return regs->ARM_r0;
 
 #ifdef CONFIG_CPU_32
@@ -522,12 +512,13 @@ void abort(void)
 
 void __init trap_init(void)
 {
-	extern void __trap_init(void *);
+	extern void __trap_init(unsigned long);
+	unsigned long base = vectors_base();
 
-	__trap_init((void *)vectors_base());
-	if (vectors_base() != 0)
-		printk(KERN_DEBUG "Relocating machine vectors to 0x%08x\n",
-			vectors_base());
+	__trap_init(base);
+	if (base != 0)
+		printk(KERN_DEBUG "Relocating machine vectors to 0x%08lx\n",
+			base);
 #ifdef CONFIG_CPU_32
 	modify_domain(DOMAIN_USER, DOMAIN_CLIENT);
 #endif

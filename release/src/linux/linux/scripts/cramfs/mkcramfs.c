@@ -35,31 +35,6 @@
 
 #define PAD_SIZE 512		/* only 0 and 512 supported by kernel */
 
-#ifdef LZMA_SUPPORT
-extern int compress_lzma_7z(
-                      unsigned algo,
-                      unsigned dictionary_size,
-                      unsigned num_fast_bytes,
-                      char *data_in,
-                      unsigned size_in,
-                      char *data_out,
-                      unsigned *size_out) ;
-
-int LZMAcompress(
-        unsigned char *dest,
-        unsigned *compressed_len,
-        unsigned char *src,
-        unsigned src_len)
-{
-	if (!compress_lzma_7z(1, 1 << 20, 32, src, src_len, dest, compressed_len)) {
-		fprintf(stderr, "compress_lzma_7z() error\n");
-		return -1;
-        }
-	return 0;
-}
-int use_lzma = 0;
-#endif
-
 static const char *progname = "mkcramfs";
 
 /* N.B. If you change the disk format of cramfs, please update fs/cramfs/README. */
@@ -73,14 +48,13 @@ static void usage(int status)
 		" -h         print this help\n"
 		" -E         make all warnings errors (non-zero exit status)\n"
 		" -e edition set edition number (part of fsid)\n"
+		" -g gid     set gid on all files and dirs\n"
 		" -i file    insert a file image into the filesystem (requires >= 2.4.0)\n"
 		" -n name    set name of cramfs filesystem\n"
 		" -p         pad by %d bytes for boot code\n"
 		" -s         sort directory entries (old option, ignored)\n"
+		" -u uid     set uid on all files and dirs\n"
 		" -z         make explicit holes (requires >= 2.3.39)\n"
-#ifdef LZMA_SUPPORT
-		" -l	     use LZMA compression method\n"
-#endif
 		" dirname    root of the filesystem to be compressed\n"
 		" outfile    output file\n", progname, PAD_SIZE);
 
@@ -107,6 +81,8 @@ static int opt_holes = 0;
 static int opt_pad = 0;
 static char *opt_image = NULL;
 static char *opt_name = NULL;
+static int opt_uid = -1;
+static int opt_gid = -1;
 
 static int warn_dev, warn_gid, warn_namelen, warn_skip, warn_size, warn_uid;
 
@@ -253,10 +229,16 @@ static unsigned int parse_directory(struct entry *root_entry, const char *name, 
 		}
 		entry->mode = st.st_mode;
 		entry->size = st.st_size;
+		if (opt_uid == -1)
 		entry->uid = st.st_uid;
+		else
+			entry->uid = opt_uid;
 		if (entry->uid >= 1 << CRAMFS_UID_WIDTH)
 			warn_uid = 1;
+		if (opt_gid == -1)
 		entry->gid = st.st_gid;
+		else
+			entry->gid = opt_gid;
 		if (entry->gid >= 1 << CRAMFS_GID_WIDTH)
 			/* TODO: We ought to replace with a default
                            gid instead of truncating; otherwise there
@@ -366,8 +348,14 @@ static unsigned int write_superblock(struct entry *root, char *base, int size)
 		strncpy(super->name, "Compressed", sizeof(super->name));
 
 	super->root.mode = root->mode;
+	if (opt_uid == -1)
 	super->root.uid = root->uid;
+	else
+		super->root.uid = opt_uid;
+	if (opt_gid == -1)
 	super->root.gid = root->gid;
+	else
+		super->root.gid = opt_gid;
 	super->root.size = root->size;
 	super->root.offset = offset >> 2;
 
@@ -408,8 +396,14 @@ static unsigned int write_directory_structure(struct entry *entry, char *base, u
 			entry->dir_offset = offset;
 
 			inode->mode = entry->mode;
+			if (opt_uid == -1)
 			inode->uid = entry->uid;
+			else
+				inode->uid = opt_uid;
+			if (opt_gid == -1)
 			inode->gid = entry->gid;
+			else
+				inode->gid = opt_gid;
 			inode->size = entry->size;
 			inode->offset = 0;
 			/* Non-empty directories, regfiles and symlinks will
@@ -520,17 +514,7 @@ static unsigned int do_compress(char *base, unsigned int offset, char const *nam
 			input = blksize;
 		size -= input;
 		if (!is_zero (uncompressed, input)) {
-#ifdef LZMA_SUPPORT
-			if(use_lzma) {
-				if(LZMAcompress(base + curr, &len, uncompressed, input) < 0) {
-					exit(0);
-				}
-			}
-			else 
-				compress(base + curr, &len, uncompressed, input);
-#else
 			compress(base + curr, &len, uncompressed, input);
-#endif
 			curr += len;
 		}
 		uncompressed += input;
@@ -645,11 +629,7 @@ int main(int argc, char **argv)
 		progname = argv[0];
 
 	/* command line options */
-	while ((c = getopt(argc, argv, "hEe:i:n:psz"
-#ifdef LZMA_SUPPORT
-"l"
-#endif
-)) != EOF) {
+	while ((c = getopt(argc, argv, "hEe:g:i:n:psu:z")) != EOF) {
 		switch (c) {
 		case 'h':
 			usage(0);
@@ -658,6 +638,10 @@ int main(int argc, char **argv)
 			break;
 		case 'e':
 			opt_edition = atoi(optarg);
+			break;
+		case 'g':
+			/* file group override value */
+			opt_gid = atoi(optarg);
 			break;
 		case 'i':
 			opt_image = optarg;
@@ -678,14 +662,13 @@ int main(int argc, char **argv)
 		case 's':
 			/* old option, ignored */
 			break;
+		case 'u':
+			/* file owner override value */
+			opt_uid = atoi(optarg);
+			break;
 		case 'z':
 			opt_holes = 1;
 			break;
-#ifdef LZMA_SUPPORT
-		case 'l':
-			use_lzma = 1;
-			break;
-#endif
 		}
 	}
 
@@ -706,8 +689,14 @@ int main(int argc, char **argv)
 		exit(8);
 	}
 	root_entry->mode = st.st_mode;
+	if (opt_uid == -1)
 	root_entry->uid = st.st_uid;
+	else
+		root_entry->uid = opt_uid;
+	if (opt_gid == -1)
 	root_entry->gid = st.st_gid;
+	else
+		root_entry->gid = opt_gid;
 
 	root_entry->size = parse_directory(root_entry, dirname, &root_entry->child, &fslen_ub);
 

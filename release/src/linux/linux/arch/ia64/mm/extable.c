@@ -38,6 +38,8 @@ search_one_table (const struct exception_table_entry *first,
 register unsigned long main_gp __asm__("gp");
 #endif
 
+extern spinlock_t modlist_lock;
+
 struct exception_fixup
 search_exception_table (unsigned long addr)
 {
@@ -52,9 +54,11 @@ search_exception_table (unsigned long addr)
 	return fix;
 #else
 	struct archdata *archdata;
+	unsigned long flags;
 	struct module *mp;
 
 	/* The kernel is the last "module" -- no need to treat it special. */
+	spin_lock_irqsave(&modlist_lock, flags);
 	for (mp = module_list; mp; mp = mp->next) {
 		if (!mp->ex_table_start)
 			continue;
@@ -65,9 +69,10 @@ search_exception_table (unsigned long addr)
 					 addr, (unsigned long) archdata->gp);
 		if (entry) {
 			fix.cont = entry->cont + (unsigned long) archdata->gp;
-			return fix;
+			break;
 		}
 	}
+	spin_unlock_irqrestore(&modlist_lock, flags);
 #endif
 	return fix;
 }

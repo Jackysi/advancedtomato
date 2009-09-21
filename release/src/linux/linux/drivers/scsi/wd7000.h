@@ -1,6 +1,6 @@
 #ifndef _WD7000_H
 
-/* $Id: wd7000.h,v 1.1.1.4 2003/10/14 08:08:43 sparq Exp $
+/* $Id: $
  *
  * Header file for the WD-7000 driver for Linux
  *

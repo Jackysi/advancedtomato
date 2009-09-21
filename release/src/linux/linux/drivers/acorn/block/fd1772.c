@@ -161,6 +161,10 @@
  * some other code depends on the number of floppies... (It is defined
  * in a public header!)
  */
+#if 0
+#undef FD_MAX_UNITS
+#define	FD_MAX_UNITS	2
+#endif
 
 /* Ditto worries for Arc - DAG */
 #define FD_MAX_UNITS 4
@@ -1563,26 +1567,26 @@ static struct block_device_operations floppy_fops =
 
 int fd1772_init(void)
 {
-	int err;
-	int i;
+	int i, err;
 
 	if (!machine_is_archimedes())
 		return 0;
 
-	if (register_blkdev(MAJOR_NR, "fd", &floppy_fops)) {
+	err = register_blkdev(MAJOR_NR, "fd", &floppy_fops);
+	if (err) {
 		printk("Unable to get major %d for floppy\n", MAJOR_NR);
-		return 1;
+		goto err_out;
 	}
 
+	err = -EBUSY;
 	if (request_dma(FLOPPY_DMA, "fd1772")) {
 		printk("Unable to grab DMA%d for the floppy (1772) driver\n", FLOPPY_DMA);
-		return 1;
+		goto err_blkdev;
 	};
 
 	if (request_dma(FIQ_FD1772, "fd1772 end")) {
 		printk("Unable to grab DMA%d for the floppy (1772) driver\n", FIQ_FD1772);
-		err = 1; 
-		goto cleanup_dma;
+		goto err_dma1;
 	};
 
 	/* initialize variables */
@@ -1592,16 +1596,15 @@ int fd1772_init(void)
 	BufferDrive = BufferSide = BufferTrack = -1;
 	/* Atari uses 512 - I want to eventually cope with 1K sectors */
 	DMABuffer = (char *)kmalloc((FD1772_MAX_SECTORS+1)*512,GFP_KERNEL);
-	if (DMABuffer == NULL)
-		goto cleanup_dma;
 	TrackBuffer = DMABuffer + 512;
 #else
 	/* Allocate memory for the DMAbuffer - on the Atari this takes it
 	   out of some special memory... */
 	DMABuffer = (char *) kmalloc(2048);	/* Copes with pretty large sectors */
-	if (DMABuffer == NULL)
-		goto cleanup_dma;
 #endif
+	if (DMABuffer == NULL)
+		goto err_dma2;
+
 	enable_dma(FIQ_FD1772);	/* This inserts a call to our command end routine */
 	for (i = 0; i < FD_MAX_UNITS; i++) {
 		unit[i].track = -1;
@@ -1620,7 +1623,13 @@ int fd1772_init(void)
 	config_types();
 
 	return 0;
-cleanup_dma:
+
+ err_dma2:
+	free_dma(FIQ_FD1772);
+ err_dma1:
 	free_dma(FLOPPY_DMA);
+ err_blkdev:
+	unregister_blkdev(MAJOR_NR, &floppy_fops);
+ err_out:
 	return err;
 }

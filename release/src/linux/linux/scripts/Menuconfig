@@ -714,7 +714,7 @@ BEGIN {
 
 function parser(ifile,menu) {
 
-	while (getline <ifile) {
+	while ((getline <ifile) > 0) {
 		if ($1 == "mainmenu_option") {
 			comment_is_option = "1"
 		}
@@ -761,7 +761,7 @@ BEGIN {
 
 function parser(ifile,menu) {
 
-	while (getline <ifile) {
+	while ((getline <ifile) > 0) {
 		if ($0 ~ /^#|$MAKE|mainmenu_name/) {
 			printf("") >>menu
 		}

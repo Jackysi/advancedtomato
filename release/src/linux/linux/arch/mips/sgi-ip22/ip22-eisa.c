@@ -22,6 +22,7 @@
 #include <linux/config.h>
 #include <linux/types.h>
 #include <linux/init.h>
+#include <linux/irq.h>
 #include <linux/kernel_stat.h>
 #include <linux/signal.h>
 #include <linux/sched.h>
@@ -30,10 +31,10 @@
 #include <asm/irq.h>
 #include <asm/mipsregs.h>
 #include <asm/addrspace.h>
-#include <asm/sgi/sgint23.h>
-
-extern int EISA_bus;
-extern void do_IRQ(int irq, struct pt_regs *regs);
+#include <asm/processor.h>
+#include <asm/sgi/ioc.h>
+#include <asm/sgi/mc.h>
+#include <asm/sgi/ip22.h>
 
 #define EISA_MAX_SLOTS		  4
 #define EISA_MAX_IRQ             16
@@ -92,7 +93,7 @@ static void ip22_eisa_intr(int irq, void *dev_id, struct pt_regs *regs)
 
 	if (eisa_irq >= EISA_MAX_IRQ) {
 		/* Oops, Bad Stuff Happened... */
-		printk("eisa_irq %d out of bound\n", eisa_irq);
+		printk(KERN_ERR "eisa_irq %d out of bound\n", eisa_irq);
 
 		EISA_WRITE_8(EISA_INT2_CTRL, 0x20);
 		EISA_WRITE_8(EISA_INT1_CTRL, 0x20);
@@ -240,20 +241,26 @@ int __init ip22_eisa_init(void)
 	int i, c;
 	char *str;
 	u8 *slot_addr;
+	
+	if (!(sgimc->systemid & SGIMC_SYSID_EPRESENT)) {
+		printk(KERN_INFO "EISA: bus not present.\n");
+		return 1;
+	}
 
-	printk("EISA: Probing bus...\n");
+	printk(KERN_INFO "EISA: Probing bus...\n");
 	for (c = 0, i = 1; i <= EISA_MAX_SLOTS; i++) {
 		slot_addr =
 		    (u8 *) EISA_TO_KSEG1((0x1000 * i) +
 					 EISA_VENDOR_ID_OFFSET);
 		if ((str = decode_eisa_sig(slot_addr))) {
-			printk("EISA: slot %d : %s detected.\n", i, str);
+			printk(KERN_INFO "EISA: slot %d : %s detected.\n",
+			       i, str);
 			c++;
 		}
 	}
-	printk("EISA: Detected %d card%s.\n", c, c < 2 ? "" : "s");
+	printk(KERN_INFO "EISA: Detected %d card%s.\n", c, c < 2 ? "" : "s");
 #ifdef CONFIG_ISA
-	printk("ISA support compiled in.\n");
+	printk(KERN_INFO "ISA support compiled in.\n");
 #endif
 
 	/* Warning : BlackMagicAhead(tm).

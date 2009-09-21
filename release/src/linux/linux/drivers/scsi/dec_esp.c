@@ -150,7 +150,7 @@ int dec_esp_detect(Scsi_Host_Template * tpnt)
 		esp->dregs = 0;
 
 		/* ESP register base */
-		esp->eregs = (struct ESP_regs *) (system_base + SCSI);
+		esp->eregs = (struct ESP_regs *) (system_base + IOASIC_SCSI);
 
 		/* Set the command buffer */
 		esp->esp_command = (volatile unsigned char *) cmd_buffer;
@@ -287,11 +287,11 @@ static void scsi_dma_int(int irq, void *dev_id, struct pt_regs *regs)
 {
 	u32 scsi_next_ptr;
 
-	scsi_next_ptr = ioasic_read(SCSI_DMA_P);
+	scsi_next_ptr = ioasic_read(IO_REG_SCSI_DMA_P);
 
 	/* next page */
 	scsi_next_ptr = (((scsi_next_ptr >> 3) + PAGE_SIZE) & PAGE_MASK) << 3;
-	ioasic_write(SCSI_DMA_BP, scsi_next_ptr);
+	ioasic_write(IO_REG_SCSI_DMA_BP, scsi_next_ptr);
 	fast_iob();
 }
 
@@ -305,27 +305,27 @@ static void dma_drain(struct NCR_ESP *esp)
 	u32 nw, data0, data1, scsi_data_ptr;
 	u16 *p;
 
-	nw = ioasic_read(SCSI_SCR);
+	nw = ioasic_read(IO_REG_SCSI_SCR);
 
 	/*
 	 * Is there something in the dma buffers left?
 	 */
 	if (nw) {
-		scsi_data_ptr = ioasic_read(SCSI_DMA_P) >> 3;
+		scsi_data_ptr = ioasic_read(IO_REG_SCSI_DMA_P) >> 3;
 		p = phys_to_virt(scsi_data_ptr);
 		switch (nw) {
 		case 1:
-			data0 = ioasic_read(SCSI_SDR0);
+			data0 = ioasic_read(IO_REG_SCSI_SDR0);
 			p[0] = data0 & 0xffff;
 			break;
 		case 2:
-			data0 = ioasic_read(SCSI_SDR0);
+			data0 = ioasic_read(IO_REG_SCSI_SDR0);
 			p[0] = data0 & 0xffff;
 			p[1] = (data0 >> 16) & 0xffff;
 			break;
 		case 3:
-			data0 = ioasic_read(SCSI_SDR0);
-			data1 = ioasic_read(SCSI_SDR1);
+			data0 = ioasic_read(IO_REG_SCSI_SDR0);
+			data1 = ioasic_read(IO_REG_SCSI_SDR1);
 			p[0] = data0 & 0xffff;
 			p[1] = (data0 >> 16) & 0xffff;
 			p[2] = data1 & 0xffff;
@@ -359,22 +359,22 @@ static void dma_init_read(struct NCR_ESP *esp, u32 vaddress, int length)
 	spin_lock_irqsave(&ioasic_ssr_lock, flags);
 
 	fast_mb();
-	ioasic_ssr = ioasic_read(SSR);
+	ioasic_ssr = ioasic_read(IO_REG_SSR);
 
-	ioasic_ssr &= ~SCSI_DMA_EN;
-	ioasic_write(SSR, ioasic_ssr);
+	ioasic_ssr &= ~IO_SSR_SCSI_DMA_EN;
+	ioasic_write(IO_REG_SSR, ioasic_ssr);
 
 	fast_wmb();
-	ioasic_write(SCSI_SCR, 0);
-	ioasic_write(SCSI_DMA_P, vaddress << 3);
+	ioasic_write(IO_REG_SCSI_SCR, 0);
+	ioasic_write(IO_REG_SCSI_DMA_P, vaddress << 3);
 
 	/* prepare for next page */
 	scsi_next_ptr = ((vaddress + PAGE_SIZE) & PAGE_MASK) << 3;
-	ioasic_write(SCSI_DMA_BP, scsi_next_ptr);
+	ioasic_write(IO_REG_SCSI_DMA_BP, scsi_next_ptr);
 
-	ioasic_ssr |= (SCSI_DMA_DIR | SCSI_DMA_EN);
+	ioasic_ssr |= (IO_SSR_SCSI_DMA_DIR | IO_SSR_SCSI_DMA_EN);
 	fast_wmb();
-	ioasic_write(SSR, ioasic_ssr);
+	ioasic_write(IO_REG_SSR, ioasic_ssr);
 
 	fast_iob();
 	spin_unlock_irqrestore(&ioasic_ssr_lock, flags);
@@ -393,22 +393,22 @@ static void dma_init_write(struct NCR_ESP *esp, u32 vaddress, int length)
 	spin_lock_irqsave(&ioasic_ssr_lock, flags);
 
 	fast_mb();
-	ioasic_ssr = ioasic_read(SSR);
+	ioasic_ssr = ioasic_read(IO_REG_SSR);
 
-	ioasic_ssr &= ~(SCSI_DMA_DIR | SCSI_DMA_EN);
-	ioasic_write(SSR, ioasic_ssr);
+	ioasic_ssr &= ~(IO_SSR_SCSI_DMA_DIR | IO_SSR_SCSI_DMA_EN);
+	ioasic_write(IO_REG_SSR, ioasic_ssr);
 
 	fast_wmb();
-	ioasic_write(SCSI_SCR, 0);
-	ioasic_write(SCSI_DMA_P, vaddress << 3);
+	ioasic_write(IO_REG_SCSI_SCR, 0);
+	ioasic_write(IO_REG_SCSI_DMA_P, vaddress << 3);
 
 	/* prepare for next page */
 	scsi_next_ptr = ((vaddress + PAGE_SIZE) & PAGE_MASK) << 3;
-	ioasic_write(SCSI_DMA_BP, scsi_next_ptr);
+	ioasic_write(IO_REG_SCSI_DMA_BP, scsi_next_ptr);
 
-	ioasic_ssr |= SCSI_DMA_EN;
+	ioasic_ssr |= IO_SSR_SCSI_DMA_EN;
 	fast_wmb();
-	ioasic_write(SSR, ioasic_ssr);
+	ioasic_write(IO_REG_SSR, ioasic_ssr);
 
 	fast_iob();
 	spin_unlock_irqrestore(&ioasic_ssr_lock, flags);
@@ -431,6 +431,9 @@ static int dma_irq_p(struct NCR_ESP *esp)
 
 static int dma_ports_p(struct NCR_ESP *esp)
 {
+	/*
+	 * FIXME: what's this good for?
+	 */
 	return 1;
 }
 

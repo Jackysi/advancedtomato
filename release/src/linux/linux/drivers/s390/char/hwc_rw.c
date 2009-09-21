@@ -1732,6 +1732,14 @@ unconditional_read_1 (void)
 	read_hwcb_t *hwcb = (read_hwcb_t *) hwc_data.page;
 	int retval;
 
+#if 0
+
+	if ((!hwc_data.read_prio) && (!hwc_data.read_nonprio))
+		return -EOPNOTSUPP;
+
+	if (hwc_data.current_servc)
+		return -EBUSY;
+#endif
 
 	memset (hwcb, 0x00, PAGE_SIZE);
 	memcpy (hwcb, &read_hwcb_template, sizeof (read_hwcb_t));
@@ -2417,6 +2425,18 @@ hwc_ioctl (unsigned int cmd, unsigned long arg)
 		if (put_user (tmp.delim, (ioctl_delim_t *) arg))
 			goto fault;
 		break;
+#if 0
+
+	case TIOCHWCGINIT:
+		if (put_user (&hwc_data.init_ioctls, (hwc_ioctls_t *) arg))
+			goto fault;
+		break;
+
+	case TIOCHWCGCURR:
+		if (put_user (&hwc_data.ioctls, (hwc_ioctls_t *) arg))
+			goto fault;
+		break;
+#endif
 
 	default:
 		goto noioctlcmd;

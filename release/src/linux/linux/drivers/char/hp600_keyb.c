@@ -1,5 +1,5 @@
 /*
- *	$Id: hp600_keyb.c,v 1.1.1.4 2003/10/14 08:08:01 sparq Exp $ 
+ *	$Id$ 
  *	Copyright (C) 2000 YAEGASHI Takeshi
  *	HP600 keyboard scan routine and translation table
  *	Copyright (C) 2000 Niibe Yutaka
@@ -260,6 +260,80 @@ Japanese 109 keyboard scan code layout
 
 ****************************************************************/
 
+#if 0
+int __init hp620_keyboard_test(void)
+{
+	int i;
+	unsigned char s[18];
+	unsigned long a, b, c, d;
+
+	printk("PCCR: %04lx, PCDR: %02lx\n",
+	       ctrl_inw(0xa4000104), ctrl_inb(0xa4000124));
+	printk("PDCR: %04lx, PDDR: %02lx\n",
+	       ctrl_inw(0xa4000106), ctrl_inb(0xa4000126));
+	printk("PECR: %04lx, PEDR: %02lx\n",
+	       ctrl_inw(0xa4000108), ctrl_inb(0xa4000128));
+	printk("PFCR: %04lx, PFDR: %02lx\n",
+	       ctrl_inw(0xa400010a), ctrl_inb(0xa400012a));
+	printk("PGCR: %04lx, PGDR: %02lx\n",
+	       ctrl_inw(0xa400010c), ctrl_inb(0xa400012c));
+	printk("PHCR: %04lx, PHDR: %02lx\n",
+	       ctrl_inw(0xa400010e), ctrl_inb(0xa400012e));
+	printk("PJCR: %04lx, PJDR: %02lx\n",
+	       ctrl_inw(0xa4000110), ctrl_inb(0xa4000130));
+	printk("PKCR: %04lx, PKDR: %02lx\n",
+	       ctrl_inw(0xa4000112), ctrl_inb(0xa4000132));
+	printk("PLCR: %04lx, PLDR: %02lx\n",
+	       ctrl_inw(0xa4000114), ctrl_inb(0xa4000134));
+
+	printk("ADCSR: %02lx, ADCR: %02lx\n",
+	       ctrl_inb(0xa4000090), ctrl_inb(0xa4000092));
+
+	ctrl_inb(0xa4000004);
+	ctrl_inb(0xa4000006);
+	ctrl_inb(0xa4000008);
+	ctrl_outb(0, 0xa4000004);
+	ctrl_outb(0, 0xa4000006);
+	ctrl_outb(0, 0xa4000008);
+	ctrl_outb(0, 0xa4000090);
+	ctrl_outb(0x3b, 0xa4000090);
+
+	while(1) {
+		hp620_japanese_scan_kbd(s);
+		for(i=0; i<18; i+=2)
+			printk("%02x%02x ", s[i], s[i+1]);
+
+#if 0
+		ctrl_outb(~2, PJDR);
+		printk("%02lx%02lx ", ctrl_inb(PCDR), ctrl_inb(PFDR));
+		ctrl_outb(0xff, PJDR);
+		ctrl_outb(~1, PKDR);
+		printk("%02lx%02lx ", ctrl_inb(PCDR), ctrl_inb(PFDR));
+		ctrl_outb(~32, PKDR);
+		printk("%02lx%02lx ", ctrl_inb(PCDR), ctrl_inb(PFDR));
+		ctrl_outb(0xff, PKDR);
+#endif
+
+		printk("%02lx%02lx%02lx%02lx ", a, b, c, d);
+		if(ctrl_inb(0xa4000090)&0x80) {
+			a=ctrl_inb(0xa4000080);
+			b=ctrl_inb(0xa4000084);
+			c=ctrl_inb(0xa4000088);
+			d=ctrl_inb(0xa400008c);
+			ctrl_outb(0x3b, 0xa4000090);
+		}
+		printk("%02lx%02lx%02lx ",
+		       ctrl_inb(0xa4000004),
+		       ctrl_inb(0xa4000006),
+		       ctrl_inb(0xa4000008));
+
+		printk("\n");
+	}
+
+	return 0;
+}
+module_init(keyboard_probe);
+#endif
 
 
 MODULE_LICENSE("GPL");

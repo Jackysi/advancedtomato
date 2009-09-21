@@ -34,14 +34,14 @@ mainmenu_option next_comment
       else
          dep_tristate '  BCM57xx Gigabit Ethernet support' CONFIG_BCM57XX $CONFIG_HND
          dep_tristate '  BCM43xx 802.11 Wireless support' CONFIG_WL $CONFIG_HND
-         if [ "$CONFIG_WL" != "n" ]; then
+      if [ "$CONFIG_WL" != "n" ]; then
             choice '    Wireless feature variant' \
                "ap	CONFIG_WL_USE_AP \
-                apsta	CONFIG_WL_USE_APSTA"
-            string '    Config file for basic AP variant' \
-			CONFIG_WL_AP wlconfig_lx_router_ap
-            string '    Config file for basic STA variant' \
-			CONFIG_WL_APSTA wlconfig_lx_router_apsta
+                sta	CONFIG_WL_USE_STA \
+                apsta	CONFIG_WL_USE_APSTA \
+                ap_onchip_g	CONFIG_WL_USE_AP_ONCHIP_G \
+                sta_onchip_g	CONFIG_WL_USE_STA_ONCHIP_G \
+                apsta_onchip_g	CONFIG_WL_USE_APSTA_ONCHIP_G"
          fi
       fi
    fi

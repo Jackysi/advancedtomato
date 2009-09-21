@@ -2529,7 +2529,12 @@ static int lanai_open(struct atm_vcc *atmvcc, short vpi, int vci)
 	lvcc = lanai->vccs[vci];
 	if (atmvcc->qos.aal != ATM_AAL0 && atmvcc->qos.aal != ATM_AAL5)
 		return -EINVAL;
+#if 0
+	DPRINTK(DEV_LABEL "(itf %d): open %d.%d flags=0x%X\n",
+	    lanai->number, vpi, vci, (unsigned long) atmvcc->flags);
+#else
 	DPRINTK(DEV_LABEL "(itf %d): open %d.%d\n", lanai->number, vpi, vci);
+#endif
 	if (lvcc == NULL && (lvcc = new_lanai_vcc()) == NULL)
 		return -ENOMEM;
 	atmvcc->dev_data = lvcc;
@@ -2837,7 +2842,6 @@ static const struct atmdev_ops ops = {
 	phy_get:	NULL,
 	feedback:	NULL,
 	change_qos:	lanai_change_qos,
-	free_rx_skb:	NULL,
 	proc_read:	lanai_proc_read
 };
 

@@ -1,4 +1,12 @@
+/* This is a file to handle the "simple" NAT cases (redirect and
+   masquerade) required for the compatibility layer.
 
+   `bind to foreign address' and `getpeername' hacks are not
+   supported.
+
+   FIXME: Timing is overly simplistic.  If anyone complains, make it
+   use conntrack.
+*/
 #include <linux/config.h>
 #include <linux/netfilter.h>
 #include <linux/ip.h>
@@ -21,7 +29,11 @@ static DECLARE_LOCK(redir_lock);
 
 #include <linux/netfilter_ipv4/listhelp.h>
 
+#if 0
+#define DEBUGP printk
+#else
 #define DEBUGP(format, args...)
+#endif
 
 #ifdef CONFIG_NETFILTER_DEBUG
 #define IP_NF_ASSERT(x)							 \

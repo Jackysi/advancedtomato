@@ -18,6 +18,7 @@
  */
 static inline void map_eisa_address(unsigned long address)
 {
+  /* XXX */
   /* We've got an wired entry in the TLB.  We just need to modify it.
      fast and clean.  But since we want to get rid of wired entries
      things are a little bit more complicated ... */

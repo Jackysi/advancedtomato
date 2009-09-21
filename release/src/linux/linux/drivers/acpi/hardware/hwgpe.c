@@ -2,86 +2,100 @@
 /******************************************************************************
  *
  * Module Name: hwgpe - Low level GPE enable/disable/clear functions
- *              $Revision: 1.1.1.2 $
  *
  *****************************************************************************/
 
 /*
- *  Copyright (C) 2000, 2001 R. Byron Moore
+ * Copyright (C) 2000 - 2004, R. Byron Moore
+ * All rights reserved.
  *
- *  This program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2 of the License, or
- *  (at your option) any later version.
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions, and the following disclaimer,
+ *    without modification.
+ * 2. Redistributions in binary form must reproduce at minimum a disclaimer
+ *    substantially similar to the "NO WARRANTY" disclaimer below
+ *    ("Disclaimer") and any redistribution must be conditioned upon
+ *    including a substantially similar Disclaimer requirement for further
+ *    binary redistribution.
+ * 3. Neither the names of the above-listed copyright holders nor the names
+ *    of any contributors may be used to endorse or promote products derived
+ *    from this software without specific prior written permission.
  *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
+ * Alternatively, this software may be distributed under the terms of the
+ * GNU General Public License ("GPL") version 2 as published by the Free
+ * Software Foundation.
  *
- *  You should have received a copy of the GNU General Public License
- *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * NO WARRANTY
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR
+ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+ * HOLDERS OR CONTRIBUTORS BE LIABLE FOR SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+ * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+ * STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING
+ * IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGES.
  */
 
-#include "acpi.h"
-#include "achware.h"
-#include "acnamesp.h"
-#include "acevents.h"
+#include <acpi/acpi.h>
+#include <acpi/acevents.h>
 
 #define _COMPONENT          ACPI_HARDWARE
-	 MODULE_NAME         ("hwgpe")
+	 ACPI_MODULE_NAME    ("hwgpe")
 
 
 /******************************************************************************
  *
- * FUNCTION:    Acpi_hw_enable_gpe
+ * FUNCTION:    acpi_hw_enable_gpe
  *
- * PARAMETERS:  Gpe_number      - The GPE
+ * PARAMETERS:  gpe_event_info      - Info block for the GPE to be enabled
  *
- * RETURN:      None
+ * RETURN:      Status
  *
  * DESCRIPTION: Enable a single GPE.
  *
  ******************************************************************************/
 
-void
+acpi_status
 acpi_hw_enable_gpe (
-	u32                     gpe_number)
+	struct acpi_gpe_event_info      *gpe_event_info)
 {
-	u32                     in_byte;
-	u32                     register_index;
-	u32                     bit_mask;
+	u32                             in_byte;
+	acpi_status                     status;
 
 
-	FUNCTION_ENTRY ();
+	ACPI_FUNCTION_ENTRY ();
 
-
-	/*
-	 * Translate GPE number to index into global registers array.
-	 */
-	register_index = acpi_gbl_gpe_valid[gpe_number];
-
-	/*
-	 * Figure out the bit offset for this GPE within the target register.
-	 */
-	bit_mask = acpi_gbl_decode_to8bit [MOD_8 (gpe_number)];
 
 	/*
 	 * Read the current value of the register, set the appropriate bit
 	 * to enable the GPE, and write out the new register.
 	 */
-	in_byte = 0;
-	acpi_os_read_port (acpi_gbl_gpe_registers[register_index].enable_addr, &in_byte, 8);
-	acpi_os_write_port (acpi_gbl_gpe_registers[register_index].enable_addr,
-			   (in_byte | bit_mask), 8);
+	status = acpi_hw_low_level_read (8, &in_byte,
+			  &gpe_event_info->register_info->enable_address);
+	if (ACPI_FAILURE (status)) {
+		return (status);
+	}
+
+	/* Write with the new GPE bit enabled */
+
+	status = acpi_hw_low_level_write (8, (in_byte | gpe_event_info->bit_mask),
+			  &gpe_event_info->register_info->enable_address);
+
+	return (status);
 }
+
 
 /******************************************************************************
  *
- * FUNCTION:    Acpi_hw_enable_gpe_for_wakeup
+ * FUNCTION:    acpi_hw_enable_gpe_for_wakeup
  *
- * PARAMETERS:  Gpe_number      - The GPE
+ * PARAMETERS:  gpe_event_info      - Info block for the GPE to be enabled
  *
  * RETURN:      None
  *
@@ -92,82 +106,91 @@ acpi_hw_enable_gpe (
 
 void
 acpi_hw_enable_gpe_for_wakeup (
-	u32                     gpe_number)
+	struct acpi_gpe_event_info      *gpe_event_info)
 {
-	u32                     register_index;
-	u32                     bit_mask;
+	struct acpi_gpe_register_info   *gpe_register_info;
 
 
-	FUNCTION_ENTRY ();
+	ACPI_FUNCTION_ENTRY ();
 
 
-	/*
-	 * Translate GPE number to index into global registers array.
-	 */
-	register_index = acpi_gbl_gpe_valid[gpe_number];
+	/* Get the info block for the entire GPE register */
 
-	/*
-	 * Figure out the bit offset for this GPE within the target register.
-	 */
-	bit_mask = acpi_gbl_decode_to8bit [MOD_8 (gpe_number)];
+	gpe_register_info = gpe_event_info->register_info;
+	if (!gpe_register_info) {
+		return;
+	}
 
 	/*
-	 * Set the bit so we will not disable this when sleeping
+	 * Set the bit so we will not enable this GPE when sleeping (and disable
+	 * it upon wake)
 	 */
-	acpi_gbl_gpe_registers[register_index].wake_enable |= bit_mask;
+	gpe_register_info->wake_enable |= gpe_event_info->bit_mask;
+	gpe_event_info->flags |= (ACPI_GPE_TYPE_WAKE | ACPI_GPE_ENABLED);
 }
+
 
 /******************************************************************************
  *
- * FUNCTION:    Acpi_hw_disable_gpe
+ * FUNCTION:    acpi_hw_disable_gpe
  *
- * PARAMETERS:  Gpe_number      - The GPE
+ * PARAMETERS:  gpe_event_info      - Info block for the GPE to be disabled
  *
- * RETURN:      None
+ * RETURN:      Status
  *
  * DESCRIPTION: Disable a single GPE.
  *
  ******************************************************************************/
 
-void
+acpi_status
 acpi_hw_disable_gpe (
-	u32                     gpe_number)
+	struct acpi_gpe_event_info      *gpe_event_info)
 {
-	u32                     in_byte;
-	u32                     register_index;
-	u32                     bit_mask;
+	u32                             in_byte;
+	acpi_status                     status;
+	struct acpi_gpe_register_info   *gpe_register_info;
 
 
-	FUNCTION_ENTRY ();
+	ACPI_FUNCTION_ENTRY ();
 
 
-	/*
-	 * Translate GPE number to index into global registers array.
-	 */
-	register_index = acpi_gbl_gpe_valid[gpe_number];
+	/* Get the info block for the entire GPE register */
 
-	/*
-	 * Figure out the bit offset for this GPE within the target register.
-	 */
-	bit_mask = acpi_gbl_decode_to8bit [MOD_8 (gpe_number)];
+	gpe_register_info = gpe_event_info->register_info;
+	if (!gpe_register_info) {
+		return (AE_BAD_PARAMETER);
+	}
 
 	/*
 	 * Read the current value of the register, clear the appropriate bit,
 	 * and write out the new register value to disable the GPE.
 	 */
-	in_byte = 0;
-	acpi_os_read_port (acpi_gbl_gpe_registers[register_index].enable_addr, &in_byte, 8);
-	acpi_os_write_port (acpi_gbl_gpe_registers[register_index].enable_addr,
-			 (in_byte & ~bit_mask), 8);
+	status = acpi_hw_low_level_read (8, &in_byte,
+			  &gpe_register_info->enable_address);
+	if (ACPI_FAILURE (status)) {
+		return (status);
+	}
 
-	acpi_hw_disable_gpe_for_wakeup(gpe_number);
+	/* Write the byte with this GPE bit cleared */
+
+	status = acpi_hw_low_level_write (8, (in_byte & ~(gpe_event_info->bit_mask)),
+			  &gpe_register_info->enable_address);
+	if (ACPI_FAILURE (status)) {
+		return (status);
+	}
+
+	/* Make sure this GPE is disabled for wake, also */
+
+	acpi_hw_disable_gpe_for_wakeup (gpe_event_info);
+	return (AE_OK);
 }
+
 
 /******************************************************************************
  *
- * FUNCTION:    Acpi_hw_disable_gpe_for_wakeup
+ * FUNCTION:    acpi_hw_disable_gpe_for_wakeup
  *
- * PARAMETERS:  Gpe_number      - The GPE
+ * PARAMETERS:  gpe_event_info      - Info block for the GPE to be disabled
  *
  * RETURN:      None
  *
@@ -178,205 +201,398 @@ acpi_hw_disable_gpe (
 
 void
 acpi_hw_disable_gpe_for_wakeup (
-	u32                     gpe_number)
+	struct acpi_gpe_event_info      *gpe_event_info)
 {
-	u32                     register_index;
-	u32                     bit_mask;
+	struct acpi_gpe_register_info   *gpe_register_info;
 
 
-	FUNCTION_ENTRY ();
+	ACPI_FUNCTION_ENTRY ();
 
 
-	/*
-	 * Translate GPE number to index into global registers array.
-	 */
-	register_index = acpi_gbl_gpe_valid[gpe_number];
+	/* Get the info block for the entire GPE register */
 
-	/*
-	 * Figure out the bit offset for this GPE within the target register.
-	 */
-	bit_mask = acpi_gbl_decode_to8bit [MOD_8 (gpe_number)];
+	gpe_register_info = gpe_event_info->register_info;
+	if (!gpe_register_info) {
+		return;
+	}
 
-	/*
-	 * Clear the bit so we will disable this when sleeping
-	 */
-	acpi_gbl_gpe_registers[register_index].wake_enable &= ~bit_mask;
+	/* Clear the bit so we will disable this when sleeping */
+
+	gpe_register_info->wake_enable &= ~(gpe_event_info->bit_mask);
 }
+
 
 /******************************************************************************
  *
- * FUNCTION:    Acpi_hw_clear_gpe
+ * FUNCTION:    acpi_hw_clear_gpe
  *
- * PARAMETERS:  Gpe_number      - The GPE
+ * PARAMETERS:  gpe_event_info      - Info block for the GPE to be cleared
  *
- * RETURN:      None
+ * RETURN:      status_status
  *
- * DESCRIPTION: Clear a single GPE.
+ * DESCRIPTION: Clear the status bit for a single GPE.
  *
  ******************************************************************************/
 
-void
+acpi_status
 acpi_hw_clear_gpe (
-	u32                     gpe_number)
+	struct acpi_gpe_event_info      *gpe_event_info)
 {
-	u32                     register_index;
-	u32                     bit_mask;
+	acpi_status                     status;
 
 
-	FUNCTION_ENTRY ();
+	ACPI_FUNCTION_ENTRY ();
 
-
-	/*
-	 * Translate GPE number to index into global registers array.
-	 */
-	register_index = acpi_gbl_gpe_valid[gpe_number];
-
-	/*
-	 * Figure out the bit offset for this GPE within the target register.
-	 */
-	bit_mask = acpi_gbl_decode_to8bit [MOD_8 (gpe_number)];
 
 	/*
 	 * Write a one to the appropriate bit in the status register to
 	 * clear this GPE.
 	 */
-	acpi_os_write_port (acpi_gbl_gpe_registers[register_index].status_addr, bit_mask, 8);
+	status = acpi_hw_low_level_write (8, gpe_event_info->bit_mask,
+			  &gpe_event_info->register_info->status_address);
+
+	return (status);
 }
 
 
 /******************************************************************************
  *
- * FUNCTION:    Acpi_hw_get_gpe_status
+ * FUNCTION:    acpi_hw_get_gpe_status
  *
- * PARAMETERS:  Gpe_number      - The GPE
+ * PARAMETERS:  gpe_event_info      - Info block for the GPE to queried
+ *              event_status        - Where the GPE status is returned
  *
- * RETURN:      None
+ * RETURN:      Status
  *
  * DESCRIPTION: Return the status of a single GPE.
  *
  ******************************************************************************/
 
-void
+acpi_status
 acpi_hw_get_gpe_status (
-	u32                     gpe_number,
-	acpi_event_status       *event_status)
+	struct acpi_gpe_event_info      *gpe_event_info,
+	acpi_event_status               *event_status)
 {
-	u32                     in_byte = 0;
-	u32                     register_index = 0;
-	u32                     bit_mask = 0;
+	u32                             in_byte;
+	u8                              bit_mask;
+	struct acpi_gpe_register_info   *gpe_register_info;
+	acpi_status                     status;
+	acpi_event_status               local_event_status = 0;
 
 
-	FUNCTION_ENTRY ();
+	ACPI_FUNCTION_ENTRY ();
 
 
 	if (!event_status) {
-		return;
+		return (AE_BAD_PARAMETER);
 	}
 
-	(*event_status) = 0;
+	/* Get the info block for the entire GPE register */
 
-	/*
-	 * Translate GPE number to index into global registers array.
-	 */
-	register_index = acpi_gbl_gpe_valid[gpe_number];
+	gpe_register_info = gpe_event_info->register_info;
 
-	/*
-	 * Figure out the bit offset for this GPE within the target register.
-	 */
-	bit_mask = acpi_gbl_decode_to8bit [MOD_8 (gpe_number)];
+	/* Get the register bitmask for this GPE */
 
-	/*
-	 * Enabled?:
-	 */
-	in_byte = 0;
-	acpi_os_read_port (acpi_gbl_gpe_registers[register_index].enable_addr, &in_byte, 8);
+	bit_mask = gpe_event_info->bit_mask;
+
+	/* GPE Enabled? */
+
+	status = acpi_hw_low_level_read (8, &in_byte, &gpe_register_info->enable_address);
+	if (ACPI_FAILURE (status)) {
+		goto unlock_and_exit;
+	}
+
 	if (bit_mask & in_byte) {
-		(*event_status) |= ACPI_EVENT_FLAG_ENABLED;
+		local_event_status |= ACPI_EVENT_FLAG_ENABLED;
 	}
 
-	/*
-	 * Enabled for wake?:
-	 */
-	if (bit_mask & acpi_gbl_gpe_registers[register_index].wake_enable) {
-		(*event_status) |= ACPI_EVENT_FLAG_WAKE_ENABLED;
+	/* GPE Enabled for wake? */
+
+	if (bit_mask & gpe_register_info->wake_enable) {
+		local_event_status |= ACPI_EVENT_FLAG_WAKE_ENABLED;
 	}
 
-	/*
-	 * Set?
-	 */
-	in_byte = 0;
-	acpi_os_read_port (acpi_gbl_gpe_registers[register_index].status_addr, &in_byte, 8);
+	/* GPE active (set)? */
+
+	status = acpi_hw_low_level_read (8, &in_byte, &gpe_register_info->status_address);
+	if (ACPI_FAILURE (status)) {
+		goto unlock_and_exit;
+	}
+
 	if (bit_mask & in_byte) {
-		(*event_status) |= ACPI_EVENT_FLAG_SET;
+		local_event_status |= ACPI_EVENT_FLAG_SET;
 	}
+
+	/* Set return value */
+
+	(*event_status) = local_event_status;
+
+
+unlock_and_exit:
+	return (status);
 }
+
 
 /******************************************************************************
  *
- * FUNCTION:    Acpi_hw_disable_non_wakeup_gpes
+ * FUNCTION:    acpi_hw_disable_gpe_block
+ *
+ * PARAMETERS:  gpe_xrupt_info      - GPE Interrupt info
+ *              gpe_block           - Gpe Block info
+ *
+ * RETURN:      Status
+ *
+ * DESCRIPTION: Disable all GPEs within a GPE block
+ *
+ ******************************************************************************/
+
+acpi_status
+acpi_hw_disable_gpe_block (
+	struct acpi_gpe_xrupt_info      *gpe_xrupt_info,
+	struct acpi_gpe_block_info      *gpe_block)
+{
+	u32                             i;
+	acpi_status                     status;
+
+
+	/* Examine each GPE Register within the block */
+
+	for (i = 0; i < gpe_block->register_count; i++) {
+		/* Disable all GPEs in this register */
+
+		status = acpi_hw_low_level_write (8, 0x00,
+				 &gpe_block->register_info[i].enable_address);
+		if (ACPI_FAILURE (status)) {
+			return (status);
+		}
+	}
+
+	return (AE_OK);
+}
+
+
+/******************************************************************************
+ *
+ * FUNCTION:    acpi_hw_clear_gpe_block
+ *
+ * PARAMETERS:  gpe_xrupt_info      - GPE Interrupt info
+ *              gpe_block           - Gpe Block info
+ *
+ * RETURN:      Status
+ *
+ * DESCRIPTION: Clear status bits for all GPEs within a GPE block
+ *
+ ******************************************************************************/
+
+acpi_status
+acpi_hw_clear_gpe_block (
+	struct acpi_gpe_xrupt_info      *gpe_xrupt_info,
+	struct acpi_gpe_block_info      *gpe_block)
+{
+	u32                             i;
+	acpi_status                     status;
+
+
+	/* Examine each GPE Register within the block */
+
+	for (i = 0; i < gpe_block->register_count; i++) {
+		/* Clear status on all GPEs in this register */
+
+		status = acpi_hw_low_level_write (8, 0xFF,
+				 &gpe_block->register_info[i].status_address);
+		if (ACPI_FAILURE (status)) {
+			return (status);
+		}
+	}
+
+	return (AE_OK);
+}
+
+
+/******************************************************************************
+ *
+ * FUNCTION:    acpi_hw_prepare_gpe_block_for_sleep
+ *
+ * PARAMETERS:  gpe_xrupt_info      - GPE Interrupt info
+ *              gpe_block           - Gpe Block info
+ *
+ * RETURN:      Status
+ *
+ * DESCRIPTION: Disable all runtime GPEs and enable all wakeup GPEs -- within
+ *              a single GPE block
+ *
+ ******************************************************************************/
+
+static acpi_status
+acpi_hw_prepare_gpe_block_for_sleep (
+	struct acpi_gpe_xrupt_info      *gpe_xrupt_info,
+	struct acpi_gpe_block_info      *gpe_block)
+{
+	u32                             i;
+	struct acpi_gpe_register_info   *gpe_register_info;
+	u32                             in_value;
+	acpi_status                     status;
+
+
+	/* Get the register info for the entire GPE block */
+
+	gpe_register_info = gpe_block->register_info;
+
+	/* Examine each GPE Register within the block */
+
+	for (i = 0; i < gpe_block->register_count; i++) {
+		/*
+		 * Read the enabled/disabled status of all GPEs. We
+		 * will be using it to restore all the GPEs later.
+		 *
+		 * NOTE:  Wake GPEs are are ALL disabled at this time, so when we wake
+		 * and restore this register, they will be automatically disabled.
+		 */
+		status = acpi_hw_low_level_read (8, &in_value,
+				 &gpe_register_info->enable_address);
+		if (ACPI_FAILURE (status)) {
+			return (status);
+		}
+
+		gpe_register_info->enable = (u8) in_value;
+
+		/*
+		 * 1) Disable all runtime GPEs
+		 * 2) Enable all wakeup GPEs
+		 */
+		status = acpi_hw_low_level_write (8, gpe_register_info->wake_enable,
+				&gpe_register_info->enable_address);
+		if (ACPI_FAILURE (status)) {
+			return (status);
+		}
+
+		/* Point to next GPE register */
+
+		gpe_register_info++;
+	}
+
+	return (AE_OK);
+}
+
+
+/******************************************************************************
+ *
+ * FUNCTION:    acpi_hw_prepare_gpes_for_sleep
  *
  * PARAMETERS:  None
  *
- * RETURN:      None
+ * RETURN:      Status
  *
- * DESCRIPTION: Disable all non-wakeup GPEs
- *              Call with interrupts disabled. The interrupt handler also
- *              modifies Acpi_gbl_Gpe_registers[i].Enable, so it should not be
- *              given the chance to run until after non-wake GPEs are
+ * DESCRIPTION: Disable all runtime GPEs, enable all wake GPEs.
+ *              Called with interrupts disabled. The interrupt handler also
+ *              modifies gpe_register_info->Enable, so it should not be
+ *              given the chance to run until after the runtime GPEs are
  *              re-enabled.
  *
  ******************************************************************************/
 
-void
-acpi_hw_disable_non_wakeup_gpes (
+acpi_status
+acpi_hw_prepare_gpes_for_sleep (
 	void)
 {
-	u32                     i;
+	acpi_status                     status;
 
-	FUNCTION_ENTRY ();
 
-	for (i = 0; i < acpi_gbl_gpe_register_count; i++) {
-		/*
-		 * Read the enabled status of all GPEs. We
-		 * will be using it to restore all the GPEs later.
-		 */
-		acpi_os_read_port (acpi_gbl_gpe_registers[i].enable_addr,
-				&acpi_gbl_gpe_registers[i].enable, 8);
+	ACPI_FUNCTION_ENTRY ();
 
-		/*
-		 * Disable all GPEs but wakeup GPEs.
-		 */
-		acpi_os_write_port(acpi_gbl_gpe_registers[i].enable_addr,
-				acpi_gbl_gpe_registers[i].wake_enable, 8);
-	}
+
+	status = acpi_ev_walk_gpe_list (acpi_hw_prepare_gpe_block_for_sleep);
+	return (status);
 }
+
 
 /******************************************************************************
  *
- * FUNCTION:    Acpi_hw_enable_non_wakeup_gpes
+ * FUNCTION:    acpi_hw_restore_gpe_block_on_wake
  *
- * PARAMETERS:  None
+ * PARAMETERS:  gpe_xrupt_info      - GPE Interrupt info
+ *              gpe_block           - Gpe Block info
  *
- * RETURN:      None
+ * RETURN:      Status
  *
- * DESCRIPTION: Enable all non-wakeup GPEs we previously enabled.
+ * DESCRIPTION: Enable all runtime GPEs and disable all wake GPEs -- in one
+ *              GPE block
  *
  ******************************************************************************/
 
-void
-acpi_hw_enable_non_wakeup_gpes (
+static acpi_status
+acpi_hw_restore_gpe_block_on_wake (
+	struct acpi_gpe_xrupt_info      *gpe_xrupt_info,
+	struct acpi_gpe_block_info      *gpe_block)
+{
+	u32                             i;
+	struct acpi_gpe_register_info   *gpe_register_info;
+	acpi_status                     status;
+
+
+	/* This callback processes one entire GPE block */
+
+	/* Get the register info for the entire GPE block */
+
+	gpe_register_info = gpe_block->register_info;
+
+	/* Examine each GPE register within the block */
+
+	for (i = 0; i < gpe_block->register_count; i++) {
+		/* Clear the entire status register */
+
+		status = acpi_hw_low_level_write (8, 0xFF,
+				 &gpe_block->register_info[i].status_address);
+		if (ACPI_FAILURE (status)) {
+			return (status);
+		}
+
+		/*
+		 * Restore the GPE Enable register, which will do the following:
+		 *
+		 * 1) Disable all wakeup GPEs
+		 * 2) Enable all runtime GPEs
+		 *
+		 *  (On sleep, we saved the enabled status of all GPEs)
+		 */
+		status = acpi_hw_low_level_write (8, gpe_register_info->enable,
+				 &gpe_register_info->enable_address);
+		if (ACPI_FAILURE (status)) {
+			return (status);
+		}
+
+		/* Point to next GPE register */
+
+		gpe_register_info++;
+	}
+
+	return (AE_OK);
+}
+
+
+/******************************************************************************
+ *
+ * FUNCTION:    acpi_hw_restore_gpes_on_wake
+ *
+ * PARAMETERS:  None
+ *
+ * RETURN:      Status
+ *
+ * DESCRIPTION: Enable all runtime GPEs and disable all wake GPEs -- in all
+ *              GPE blocks
+ *
+ ******************************************************************************/
+
+acpi_status
+acpi_hw_restore_gpes_on_wake (
 	void)
 {
-	u32                     i;
+	acpi_status                     status;
 
-	FUNCTION_ENTRY ();
 
-	for (i = 0; i < acpi_gbl_gpe_register_count; i++) {
-		/*
-		 * We previously stored the enabled status of all GPEs.
-		 * Blast them back in.
-		 */
-		acpi_os_write_port(acpi_gbl_gpe_registers[i].enable_addr,
-				acpi_gbl_gpe_registers[i].enable, 8);
-	}
+	ACPI_FUNCTION_ENTRY ();
+
+
+	status = acpi_ev_walk_gpe_list (acpi_hw_restore_gpe_block_on_wake);
+	return (status);
 }

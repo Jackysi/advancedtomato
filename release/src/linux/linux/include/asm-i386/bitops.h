@@ -38,7 +38,7 @@ static __inline__ void set_bit(int nr, volatile void * addr)
 	__asm__ __volatile__( LOCK_PREFIX
 		"btsl %1,%0"
 		:"=m" (ADDR)
-		:"Ir" (nr));
+		:"Ir" (nr), "m" (ADDR));
 }
 
 /**
@@ -55,7 +55,7 @@ static __inline__ void __set_bit(int nr, volatile void * addr)
 	__asm__(
 		"btsl %1,%0"
 		:"=m" (ADDR)
-		:"Ir" (nr));
+		:"Ir" (nr), "m" (ADDR));
 }
 
 /**
@@ -73,14 +73,14 @@ static __inline__ void clear_bit(int nr, volatile void * addr)
 	__asm__ __volatile__( LOCK_PREFIX
 		"btrl %1,%0"
 		:"=m" (ADDR)
-		:"Ir" (nr));
+		:"Ir" (nr), "m" (ADDR));
 }
 #define smp_mb__before_clear_bit()	barrier()
 #define smp_mb__after_clear_bit()	barrier()
 
 /**
  * __change_bit - Toggle a bit in memory
- * @nr: the bit to set
+ * @nr: the bit to change
  * @addr: the address to start counting from
  *
  * Unlike change_bit(), this function is non-atomic and may be reordered.
@@ -92,12 +92,12 @@ static __inline__ void __change_bit(int nr, volatile void * addr)
 	__asm__ __volatile__(
 		"btcl %1,%0"
 		:"=m" (ADDR)
-		:"Ir" (nr));
+		:"Ir" (nr), "m" (ADDR));
 }
 
 /**
  * change_bit - Toggle a bit in memory
- * @nr: Bit to clear
+ * @nr: Bit to change
  * @addr: Address to start counting from
  *
  * change_bit() is atomic and may not be reordered.
@@ -109,7 +109,7 @@ static __inline__ void change_bit(int nr, volatile void * addr)
 	__asm__ __volatile__( LOCK_PREFIX
 		"btcl %1,%0"
 		:"=m" (ADDR)
-		:"Ir" (nr));
+		:"Ir" (nr), "m" (ADDR));
 }
 
 /**
@@ -127,7 +127,7 @@ static __inline__ int test_and_set_bit(int nr, volatile void * addr)
 	__asm__ __volatile__( LOCK_PREFIX
 		"btsl %2,%1\n\tsbbl %0,%0"
 		:"=r" (oldbit),"=m" (ADDR)
-		:"Ir" (nr) : "memory");
+		:"Ir" (nr), "m" (ADDR) : "memory");
 	return oldbit;
 }
 
@@ -147,13 +147,13 @@ static __inline__ int __test_and_set_bit(int nr, volatile void * addr)
 	__asm__(
 		"btsl %2,%1\n\tsbbl %0,%0"
 		:"=r" (oldbit),"=m" (ADDR)
-		:"Ir" (nr));
+		:"Ir" (nr), "m" (ADDR));
 	return oldbit;
 }
 
 /**
  * test_and_clear_bit - Clear a bit and return its old value
- * @nr: Bit to set
+ * @nr: Bit to clear
  * @addr: Address to count from
  *
  * This operation is atomic and cannot be reordered.  
@@ -166,13 +166,13 @@ static __inline__ int test_and_clear_bit(int nr, volatile void * addr)
 	__asm__ __volatile__( LOCK_PREFIX
 		"btrl %2,%1\n\tsbbl %0,%0"
 		:"=r" (oldbit),"=m" (ADDR)
-		:"Ir" (nr) : "memory");
+		:"Ir" (nr), "m" (ADDR) : "memory");
 	return oldbit;
 }
 
 /**
  * __test_and_clear_bit - Clear a bit and return its old value
- * @nr: Bit to set
+ * @nr: Bit to clear
  * @addr: Address to count from
  *
  * This operation is non-atomic and can be reordered.  
@@ -186,7 +186,7 @@ static __inline__ int __test_and_clear_bit(int nr, volatile void * addr)
 	__asm__(
 		"btrl %2,%1\n\tsbbl %0,%0"
 		:"=r" (oldbit),"=m" (ADDR)
-		:"Ir" (nr));
+		:"Ir" (nr), "m" (ADDR));
 	return oldbit;
 }
 
@@ -198,13 +198,13 @@ static __inline__ int __test_and_change_bit(int nr, volatile void * addr)
 	__asm__ __volatile__(
 		"btcl %2,%1\n\tsbbl %0,%0"
 		:"=r" (oldbit),"=m" (ADDR)
-		:"Ir" (nr) : "memory");
+		:"Ir" (nr), "m" (ADDR) : "memory");
 	return oldbit;
 }
 
 /**
  * test_and_change_bit - Change a bit and return its new value
- * @nr: Bit to set
+ * @nr: Bit to change
  * @addr: Address to count from
  *
  * This operation is atomic and cannot be reordered.  
@@ -217,10 +217,18 @@ static __inline__ int test_and_change_bit(int nr, volatile void * addr)
 	__asm__ __volatile__( LOCK_PREFIX
 		"btcl %2,%1\n\tsbbl %0,%0"
 		:"=r" (oldbit),"=m" (ADDR)
-		:"Ir" (nr) : "memory");
+		:"Ir" (nr), "m" (ADDR) : "memory");
 	return oldbit;
 }
 
+#if 0 /* Fool kernel-doc since it doesn't do macros yet */
+/**
+ * test_bit - Determine whether a bit is set
+ * @nr: bit number to test
+ * @addr: Address to start counting from
+ */
+static int test_bit(int nr, const volatile void * addr);
+#endif
 
 static __inline__ int constant_test_bit(int nr, const volatile void * addr)
 {
@@ -258,7 +266,6 @@ static __inline__ int find_first_zero_bit(void * addr, unsigned size)
 
 	if (!size)
 		return 0;
-	/* This looks at memory. Mark it volatile to tell gcc not to move it around */
 	__asm__ __volatile__(
 		"movl $-1,%%eax\n\t"
 		"xorl %%edx,%%edx\n\t"
@@ -271,7 +278,7 @@ static __inline__ int find_first_zero_bit(void * addr, unsigned size)
 		"shll $3,%%edi\n\t"
 		"addl %%edi,%%edx"
 		:"=d" (res), "=&c" (d0), "=&D" (d1), "=&a" (d2)
-		:"1" ((size + 31) >> 5), "2" (addr), "b" (addr));
+		:"1" ((size + 31) >> 5), "2" (addr), "b" (addr) : "memory");
 	return res;
 }
 
