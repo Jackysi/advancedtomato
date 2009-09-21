@@ -1,8 +1,8 @@
 #ifndef PWC_IOCTL_H
 #define PWC_IOCTL_H
 
-/* (C) 2001-2003 Nemosoft Unv.    webcam@smcc.demon.nl
-   
+/* (C) 2001-2004 Nemosoft Unv.    webcam@smcc.demon.nl
+
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
    the Free Software Foundation; either version 2 of the License, or
@@ -18,19 +18,24 @@
    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
 
-/*         This is pwc-ioctl.h belonging to PWC 8.10                        */
+/* This is pwc-ioctl.h belonging to PWC 8.12.1
+   It contains structures and defines to communicate from user space
+   directly to the driver.
+ */
 
-/* 
+/*
    Changes
-   2001/08/03  Alvarado   Added ioctl constants to access methods for 
+   2001/08/03  Alvarado   Added ioctl constants to access methods for
                           changing white balance and red/blue gains
    2002/12/15  G. H. Fernandez-Toribio   VIDIOCGREALSIZE
+   2003/12/13  Nemosft Unv. Some modifications to make interfacing to
+               PWCX easier
  */
 
 /* These are private ioctl() commands, specific for the Philips webcams.
    They contain functions not found in other webcams, and settings not
-   specified in the Video4Linux API. 
-   
+   specified in the Video4Linux API.
+
    The #define names are built up like follows:
    VIDIOC		VIDeo IOCtl prefix
          PWC		Philps WebCam
@@ -40,13 +45,21 @@
  */
 
 
+ /* Enumeration of image sizes */
+#define PSZ_SQCIF	0x00
+#define PSZ_QSIF	0x01
+#define PSZ_QCIF	0x02
+#define PSZ_SIF		0x03
+#define PSZ_CIF		0x04
+#define PSZ_VGA		0x05
+#define PSZ_MAX		6
 
 
 /* The frame rate is encoded in the video_window.flags parameter using
    the upper 16 bits, since some flags are defined nowadays. The following
    defines provide a mask and shift to filter out this value.
-   
-   In 'Snapshot' mode the camera freezes its automatic exposure and colour 
+
+   In 'Snapshot' mode the camera freezes its automatic exposure and colour
    balance controls.
  */
 #define PWC_FPS_SHIFT		16
@@ -55,14 +68,26 @@
 #define PWC_FPS_SNAPSHOT	0x00400000
 
 
+/* structure for transfering x & y coordinates */
+struct pwc_coord
+{
+	int x, y;		/* guess what */
+	int size;		/* size, or offset */
+};
 
+
+/* Used with VIDIOCPWCPROBE */
 struct pwc_probe
 {
 	char name[32];
 	int type;
 };
 
-
+struct pwc_serial
+{
+	char serial[30];	/* String with serial number. Contains terminating 0 */
+};
+	
 /* pwc_whitebalance.mode values */
 #define PWC_WB_INDOOR		0
 #define PWC_WB_OUTDOOR		1
@@ -78,7 +103,6 @@ struct pwc_probe
    otherwise undefined.
    'read_red' and 'read_blue' are read-only.
 */   
-   
 struct pwc_whitebalance
 {
 	int mode;
@@ -112,6 +136,63 @@ struct pwc_imagesize
 	int height;
 };
 
+/* Defines and structures for Motorized Pan & Tilt */
+#define PWC_MPT_PAN		0x01
+#define PWC_MPT_TILT		0x02
+#define PWC_MPT_TIMEOUT		0x04 /* for status */
+
+/* Set angles; when absolute != 0, the angle is absolute and the 
+   driver calculates the relative offset for you. This can only
+   be used with VIDIOCPWCSANGLE; VIDIOCPWCGANGLE always returns
+   absolute angles.
+ */   
+struct pwc_mpt_angles
+{
+	int absolute;		/* write-only */
+	int pan;		/* degrees * 100 */
+	int tilt;		/* degress * 100 */
+};
+
+/* Range of angles of the camera, both horizontally and vertically.
+ */
+struct pwc_mpt_range
+{
+	int pan_min, pan_max;		/* degrees * 100 */
+	int tilt_min, tilt_max;
+};
+
+struct pwc_mpt_status
+{
+	int status;
+	int time_pan;
+	int time_tilt;
+};
+
+
+/* This is used for out-of-kernel decompression. With it, you can get
+   all the necessary information to initialize and use the decompressor
+   routines in standalone applications.
+ */   
+struct pwc_video_command
+{
+	int type;		/* camera type (645, 675, 730, etc.) */
+	int release;		/* release number */
+
+        int size;		/* one of PSZ_* */
+        int alternate;
+	int command_len;	/* length of USB video command */
+	unsigned char command_buf[13];	/* Actual USB video command */
+	int bandlength;		/* >0 = compressed */
+	int frame_size;		/* Size of one (un)compressed frame */
+};
+
+/* Flags for PWCX subroutines. Not all modules honour all flags. */
+#define PWCX_FLAG_PLANAR	0x0001
+#define PWCX_FLAG_BAYER		0x0008
+
+
+/* IOCTL definitions */
+
  /* Restore user settings */
 #define VIDIOCPWCRUSER		_IO('v', 192)
  /* Save user settings */
@@ -132,16 +213,19 @@ struct pwc_imagesize
 #define VIDIOCPWCGCQUAL		_IOR('v', 195, int)
 
 
+/* Retrieve serial number of camera */
+#define VIDIOCPWCGSERIAL	_IOR('v', 198, struct pwc_serial)
+
  /* This is a probe function; since so many devices are supported, it
     becomes difficult to include all the names in programs that want to
     check for the enhanced Philips stuff. So in stead, try this PROBE;
-    it returns a structure with the original name, and the corresponding 
+    it returns a structure with the original name, and the corresponding
     Philips type.
     To use, fill the structure with zeroes, call PROBE and if that succeeds,
     compare the name with that returned from VIDIOCGCAP; they should be the
     same. If so, you can be assured it is a Philips (OEM) cam and the type
     is valid.
- */    
+ */
 #define VIDIOCPWCPROBE		_IOR('v', 199, struct pwc_probe)
 
  /* Set AGC (Automatic Gain Control); int < 0 = auto, 0..65535 = fixed */
@@ -181,5 +265,15 @@ struct pwc_imagesize
 
  /* Real image size as used by the camera; tells you whether or not there's a gray border around the image */
 #define VIDIOCPWCGREALSIZE	_IOR('v', 210, struct pwc_imagesize)
- 
+
+ /* Motorized pan & tilt functions */ 
+#define VIDIOCPWCMPTRESET	_IOW('v', 211, int)
+#define VIDIOCPWCMPTGRANGE	_IOR('v', 211, struct pwc_mpt_range)
+#define VIDIOCPWCMPTSANGLE	_IOW('v', 212, struct pwc_mpt_angles)
+#define VIDIOCPWCMPTGANGLE	_IOR('v', 212, struct pwc_mpt_angles)
+#define VIDIOCPWCMPTSTATUS	_IOR('v', 213, struct pwc_mpt_status)
+
+ /* Get the USB set-video command; needed for initializing libpwcx */
+#define VIDIOCPWCGVIDCMD	_IOR('v', 215, struct pwc_video_command)
+
 #endif

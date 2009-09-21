@@ -22,6 +22,7 @@ usbcore-objs		:= usb.o usb-debug.o hub.o
 hid-objs		:= hid-core.o
 pwc-objs		:= pwc-if.o pwc-misc.o pwc-ctrl.o pwc-uncompress.o
 auerswald-objs		:= auerbuf.o auerchain.o auerchar.o auermain.o
+pwcx-objs		:= pwcx-glue.o
 
 # Optional parts of multipart objects.
 
@@ -103,6 +104,7 @@ obj-$(CONFIG_USB_MIDI)		+= usb-midi.o
 obj-$(CONFIG_USB_IBMCAM)	+= ibmcam.o usbvideo.o ultracam.o
 obj-$(CONFIG_USB_KONICAWC)	+= konicawc.o usbvideo.o
 obj-$(CONFIG_USB_PWC)		+= pwc.o
+obj-$(CONFIG_USB_PWCX)		+= pwcx.o
 obj-$(CONFIG_USB_DC2XX)		+= dc2xx.o
 obj-$(CONFIG_USB_MDC800)	+= mdc800.o
 obj-$(CONFIG_USB_USS720)	+= uss720.o
@@ -156,5 +158,9 @@ hid.o: $(hid-objs)
 pwc.o: $(pwc-objs)
 	$(LD) -r -o $@ $(pwc-objs)
 
+pwcx.o: $(pwcx-objs)
+	$(LD) -r -o $@ $(pwcx-objs) libpwcx.lib
+
 auerswald.o: $(auerswald-objs)
 	$(LD) -r -o $@ $(auerswald-objs)
+
