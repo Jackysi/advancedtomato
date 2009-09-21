@@ -383,6 +383,8 @@ miniupnpd-install:
 
 nvram: shared
 
+prebuilt: shared
+
 vlan:
 	@$(SEP)
 	@$(MAKE) -C vlan CROSS=$(CROSS_COMPILE) STRIPTOOL=$(STRIP)

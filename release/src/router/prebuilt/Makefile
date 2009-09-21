@@ -1,10 +1,19 @@
 include ../common.mak
 
-all:
+UTILS := wl nas
+
+all: $(UTILS)
 
 clean:
+	rm -f *.o *~ $(UTILS)
 
-install:
+wl: wl_exe.o
+	$(CC) $(CCFLAGS) -o $@ $<
+
+nas: nas_exe.o
+	$(CC) $(CCFLAGS) -o $@ $< -L../shared  -L../nvram -lnvram -lshared
+
+install: all
 	install -d $(INSTALLDIR)/usr/sbin
 
 	install -m 0755 nas $(INSTALLDIR)/usr/sbin/nas
