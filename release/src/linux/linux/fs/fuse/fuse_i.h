@@ -45,6 +45,10 @@
 #  endif
 #endif
 
+#if (defined(__mips__) || defined(__arm__)) && LINUX_VERSION_CODE < KERNEL_VERSION(2,6,16)
+#define DCACHE_BUG
+#endif
+
 #include "config.h"
 #ifndef KERNEL_2_6
 #  include <linux/config.h>

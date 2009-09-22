@@ -5,7 +5,6 @@ AC_PROG_INSTALL
 
 runver=`uname -r`
 ENABLE_FUSE_MODULE=y
-KERNELCFLAGS=
 
 kernelsrc=
 kernelbuild=
@@ -87,7 +86,7 @@ if test "$ENABLE_FUSE_MODULE" = y; then
 	fi
 	AC_MSG_RESULT([$kernsrcver])
 	majver=`echo "$kernsrcver" | cut -f-2 -d.`
-	kmoduledir=${INSTALL_MOD_PATH}/lib/modules/$kernsrcver
+	kmoduledir=/lib/modules/$kernsrcver/kernel
 	AC_SUBST(kernelsrc)
 	AC_SUBST(majver)
 	AC_SUBST(kmoduledir)
@@ -164,8 +163,8 @@ if test "$ENABLE_FUSE_MODULE" = y; then
 	fi
 
 	isuml=no
+	KERNELCPPFLAGS=$CPPFLAGS
 	KERNELMAKE_PARAMS=
-	KERNELCPPFLAGS=
 	AC_MSG_CHECKING([if this is user mode linux])
 	if test -f $kernelbuild/include/linux/autoconf.h && egrep -q "^#define CONFIG_(USERMODE|UML) 1" $kernelbuild/include/linux/autoconf.h; then
 		isuml=yes
@@ -180,6 +179,8 @@ if test "$ENABLE_FUSE_MODULE" = y; then
 	AC_SUBST(KERNELCPPFLAGS)
 	AC_SUBST(KERNELCFLAGS)
 fi
+
+AC_SUBST([LD])
 
 AC_CONFIG_FILES([Makefile])
 AC_OUTPUT
