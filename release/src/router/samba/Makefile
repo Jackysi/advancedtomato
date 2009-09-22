@@ -44,7 +44,7 @@ install: all
 	$(STRIP) -s $(INSTALLDIR)$(idir)/usr/sbin/smbd
 	$(STRIP) -s $(INSTALLDIR)$(idir)/usr/sbin/nmbd
 	$(STRIP) -s $(INSTALLDIR)$(idir)/usr/bin/smbpasswd
-	$(STRIP) $(INSTALLDIR)$(idir)/usr/lib/libsmb.so
+#	$(STRIP) $(INSTALLDIR)$(idir)/usr/lib/libsmb.so
 
 clean:
 	@rm -f source/bin/*
