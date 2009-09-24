@@ -33,7 +33,7 @@
 
 #include "igmpproxy.h"
 
-int LogLevel = LOG_WARNING;
+int LogLevel = LOG_ERR;
 bool Log2Stderr = false;
 
 void my_log( int Severity, int Errno, const char *FmtSt, ... )

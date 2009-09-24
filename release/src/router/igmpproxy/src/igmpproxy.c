@@ -80,10 +80,7 @@ int main( int ArgCn, char *ArgVc[] ) {
             Log2Stderr = true;
             break;
         case 'v':
-            if (LogLevel == LOG_INFO)
-                LogLevel = LOG_DEBUG;
-            else
-                LogLevel = LOG_INFO;
+            LogLevel++;
             break;
         case 'h':
             fputs(Usage, stderr);
