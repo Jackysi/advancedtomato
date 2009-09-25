@@ -923,7 +923,7 @@ int init_main(int argc, char *argv[])
 
 			int fd = -1;
 			if (!nvram_get_int("usb_nolock")) {
-				fd = usb_lock();	// hold off automount processing
+				fd = file_lock("usb");	// hold off automount processing
 				start_usb();
 			}
 
@@ -931,7 +931,7 @@ int init_main(int argc, char *argv[])
 
 			if (nvram_get_int("usb_nolock"))
 				start_usb();
-			usb_unlock(fd);	// allow to process usb hotplug events
+			file_unlock(fd);	// allow to process usb hotplug events
 
 			start_vlan();
 			start_lan();

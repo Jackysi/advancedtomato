@@ -669,7 +669,7 @@ void hotplug_usb(void)
 			device, interface, product);
 		wait_for_stabilize(4, host);
 	}
-	int fd = usb_lock();
+	int fd = nvram_get_int("usb_nolock") ? -1 : file_lock("usb");
 
 	if (strncmp(interface, "TOMATO/", 7) == 0) {	/* web admin */
 		if (scsi_host == NULL)
@@ -695,6 +695,6 @@ void hotplug_usb(void)
 		run_nvscript("script_usbhotplug", NULL, 2);
 	}
 
-	usb_unlock(fd);
+	file_unlock(fd);
 }
 

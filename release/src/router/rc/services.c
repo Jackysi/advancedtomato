@@ -747,8 +747,13 @@ void do_start_stop_ftpd(int stop, int start, int restart)
 	mkdir_if_none(vsftpd_users);
 	mkdir_if_none("/var/run/vsftpd");
 
-	if ((fp = fopen(vsftpd_conf, "w")) == NULL)
+	/* prevent race condition between hotplug and init processes writing to config file */
+	int fd = file_lock("ftp");
+
+	if ((fp = fopen(vsftpd_conf, "w")) == NULL) {
+		file_unlock(fd);
 		return;
+	}
 
 	if (nvram_get_int("ftp_super"))
 	{
@@ -840,8 +845,10 @@ void do_start_stop_ftpd(int stop, int start, int restart)
 	fclose(fp);
 
 	/* prepare passwd file and default users */
-	if ((fp = fopen(vsftpd_passwd, "w")) == NULL)
+	if ((fp = fopen(vsftpd_passwd, "w")) == NULL) {
+		file_unlock(fd);
 		return;
+	}
 
 	fprintf(fp, /* anonymous, admin, nobody */
 		"ftp:x:0:0:ftp:%s:/sbin/nologin\n"
@@ -904,6 +911,7 @@ void do_start_stop_ftpd(int stop, int start, int restart)
 	fclose(fp);
 
 	eval("vsftpd");
+	file_unlock(fd);
 #endif
 }
 
@@ -962,8 +970,11 @@ void do_start_stop_samba(int stop, int start, int restart)
 	if (!mode || !nvram_invmatch("lan_hostname", ""))
 		return;
 
+	/* prevent race condition between hotplug and init processes writing to config file */
+	int fd = file_lock("smb");
+
 	if ((fp = fopen("/etc/smb.conf", "w")) == NULL) {
-		perror("/etc/smb.conf");
+		file_unlock(fd);
 		return;
 	}
 
@@ -1107,6 +1118,7 @@ void do_start_stop_samba(int stop, int start, int restart)
 		ret2 = eval("smbd", "-D");
 
 	if (ret1 || ret2) kill_samba(SIGTERM);
+	file_unlock(fd);
 #endif
 }
 

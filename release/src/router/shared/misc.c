@@ -462,15 +462,13 @@ int time_ok(void)
 /* Serialize using fcntl() calls 
  */
 
-int usb_lock(void)
+int file_lock(char *tag)
 {
-	if (nvram_get_int("usb_nolock"))
-		return -1;
-
-	const char fn[] = "/var/lock/usb.lock";
+	char fn[64];
 	struct flock lock;
 	int lockfd = -1;
-	
+
+	sprintf(fn, "/var/lock/%s.lock", tag);
 	if ((lockfd = open(fn, O_CREAT | O_RDWR, 0666)) < 0)
 		goto lock_error;
 
@@ -490,7 +488,7 @@ lock_error:
 	return -1;
 }
 
-void usb_unlock(int lockfd)
+void file_unlock(int lockfd)
 {
 	if (lockfd >= 0) {
 		close(lockfd);

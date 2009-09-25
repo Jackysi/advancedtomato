@@ -587,13 +587,13 @@ int is_host_mounted(int host_no, int print_parts)
 {
 	if (print_parts) web_puts("[-1,[");
 
-	int fd = usb_lock();
+	int fd = nvram_get_int("usb_nolock") ? -1 : file_lock("usb");
 	int mounted = exec_for_host(
 		host_no,
 		0x00,
 		print_parts ? EFH_PRINT : 0,
 		is_partition_mounted);
-	usb_unlock(fd);
+	file_unlock(fd);
 	
 	if (print_parts) web_puts("]]");
 
