@@ -62,15 +62,17 @@ int insmod_main(int argc UNUSED_PARAM, char **argv)
 	if (stat(filename, &st) < 0 || !S_ISREG(st.st_mode) ||
 		(fp = fopen_for_read(filename)) == NULL) {
 		/* Hmm.  Could not open it. Search /lib/modules/ */
-		int r, len;
+		int r, pos;
 		char *module_dir;
 
-		len = strlen(filename);
+		pos = strlen(filename) - 2;
 		if (get_linux_version_code() < KERNEL_VERSION(2,6,0)) {
-			if (len >= 2 && strncmp(&filename[len - 2], ".o", 2) !=0)
+			if (pos < 0) pos = 0;
+			if (strncmp(&filename[pos], ".o", 2) !=0)
 				filename = xasprintf("%s.o", filename);
 		} else {
-			if (len >= 3 && strncmp(&filename[len - 3], ".ko", 3) !=0)
+			if (--pos < 0) pos = 0;
+			if (strncmp(&filename[pos], ".ko", 3) !=0)
 				filename = xasprintf("%s.ko", filename);
 		}
 

@@ -3785,7 +3785,7 @@ int FAST_FUNC bb_init_module_24(const char *m_filename, const char *options)
 	/* Load module into memory and unzip if compressed */
 	image = xmalloc_open_zipped_read_close(m_filename, &image_size);
 	if (!image)
-		return EXIT_FAILURE;
+		return (-errno);
 
 	m_name = xstrdup(bb_basename(m_filename));
 	/* "module.o[.gz]" -> "module" */
@@ -3815,8 +3815,10 @@ int FAST_FUNC bb_init_module_24(const char *m_filename, const char *options)
 				"\twhile this kernel is version %s",
 				flag_force_load ? "warning: " : "",
 				m_name, m_strversion, uts.release);
-			if (!flag_force_load)
+			if (!flag_force_load) {
+				exit_status = ESRCH;
 				goto out;
+			}
 		}
 	}
 #endif
