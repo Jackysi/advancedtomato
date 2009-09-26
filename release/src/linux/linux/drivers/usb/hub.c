@@ -38,7 +38,7 @@ static LIST_HEAD(hub_event_list);	/* List of hubs needing servicing */
 static LIST_HEAD(hub_list);		/* List containing all of the hubs (for cleanup) */
 
 static DECLARE_WAIT_QUEUE_HEAD(khubd_wait);
-static pid_t khubd_pid = 0;			/* PID of khubd */
+static int khubd_terminated = 0;
 static DECLARE_COMPLETION(khubd_exited);
 
 #ifdef	DEBUG
@@ -405,6 +405,7 @@ static void *hub_probe(struct usb_device *dev, unsigned int i,
 	/* Delete it and then reset it */
 	list_del(&hub->event_list);
 	INIT_LIST_HEAD(&hub->event_list);
+	hub->disconnected = 1;
 	list_del(&hub->hub_list);
 	INIT_LIST_HEAD(&hub->hub_list);
 
@@ -425,7 +426,6 @@ static void hub_disconnect(struct usb_device *dev, void *ptr)
 	/* Delete it and then reset it */
 	list_del(&hub->event_list);
 	INIT_LIST_HEAD(&hub->event_list);
-	hub->disconnected = 1;
 	list_del(&hub->hub_list);
 	INIT_LIST_HEAD(&hub->hub_list);
 
@@ -934,7 +934,7 @@ loop:
 	spin_unlock_irqrestore(&hub_event_lock, flags);
 }
 
-static int usb_hub_thread(void *__hub)
+static int usb_hub_thread(void *startup)
 {
 	lock_kernel();
 
@@ -946,14 +946,23 @@ static int usb_hub_thread(void *__hub)
 	daemonize();
 	reparent_to_init();
 
+ 	/* Block all signals */
+ 	spin_lock_irq(&current->sigmask_lock);
+ 	sigfillset(&current->blocked);
+ 	recalc_sigpending(current);
+ 	spin_unlock_irq(&current->sigmask_lock);
+
 	/* Setup a nice name */
 	strcpy(current->comm, "khubd");
 
-	/* Send me a signal to get me die (for debugging) */
+ 	khubd_terminated = 0;
+ 	complete((struct completion *)startup);
+ 
+ 	/* Set khubd_terminated=1 to get me die */
 	do {
 		usb_hub_events();
-		wait_event_interruptible(khubd_wait, !list_empty(&hub_event_list)); 
-	} while (!signal_pending(current));
+ 		wait_event_interruptible(khubd_wait, !list_empty(&hub_event_list) || khubd_terminated);
+ 	} while (!khubd_terminated || !list_empty(&hub_event_list));
 
 	dbg("usb_hub_thread exiting");
 
@@ -982,17 +991,16 @@ static struct usb_driver hub_driver = {
  */
 int usb_hub_init(void)
 {
-	pid_t pid;
+	DECLARE_COMPLETION(startup);
 
 	if (usb_register(&hub_driver) < 0) {
 		err("Unable to register USB hub driver");
 		return -1;
 	}
 
-	pid = kernel_thread(usb_hub_thread, NULL,
-		CLONE_FS | CLONE_FILES | CLONE_SIGHAND);
-	if (pid >= 0) {
-		khubd_pid = pid;
+	if (kernel_thread(usb_hub_thread, &startup,
+		CLONE_FS | CLONE_FILES | CLONE_SIGHAND) >= 0) {
+		wait_for_completion(&startup);
 
 		return 0;
 	}
@@ -1006,13 +1014,11 @@ int usb_hub_init(void)
 
 void usb_hub_cleanup(void)
 {
-	int ret;
-
 	/* Kill the thread */
-	ret = kill_proc(khubd_pid, SIGTERM, 1);
+ 	khubd_terminated = 1;
+ 	wake_up(&khubd_wait);
 
-	if (ret != -ESRCH)
-		wait_for_completion(&khubd_exited);
+	wait_for_completion(&khubd_exited);
 
 	/*
 	 * Hub resources are freed for us by usb_deregister. It calls
