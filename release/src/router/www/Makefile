@@ -27,6 +27,7 @@ install:
 	for F in $(wildcard *.asp *.svg); do \
 		sed	-e "/REMOVE-BEGIN/,/REMOVE-END/d" \
 			-e "s,<script[^>]\+debug\.js[^>]\+></script>,," \
+			-e "s,<link[^>]\+href='color\.css'>,<% css(); %>," \
 			-e "s,color\.css,<% nv('web_css'); %>\.css," \
 			-e "s,<!-- / / / -->,," \
 			-e "s,\x0d,," \

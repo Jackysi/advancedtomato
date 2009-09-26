@@ -17,7 +17,7 @@
 <script type='text/javascript' src='tomato.js'></script>
 
 <!-- / / / -->
-<style tyle='text/css'>
+<style type='text/css'>
 #bs-grid {
 	width: 600px;
 }
