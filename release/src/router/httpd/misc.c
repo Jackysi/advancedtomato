@@ -620,7 +620,7 @@ void asp_usbdevices(int argc, char **argv)
 	int i = 0, attached, mounted;
 	FILE *fp;
 	char line[128];
-	char *tmp=NULL, g_usb_vendor[25], g_usb_product[20], g_usb_serial[20];
+	char *tmp=NULL, g_usb_vendor[30], g_usb_product[30], g_usb_serial[30];
 
 	web_puts("\nusbdev = [");
 
@@ -658,20 +658,20 @@ void asp_usbdevices(int argc, char **argv)
 						else if (strstr(line, "Vendor")) {
 							tmp = strtok(line, " ");
 							tmp = strtok(NULL, "\n");
-							strcpy(g_usb_vendor, tmp);
+							strncpy(g_usb_vendor, tmp, sizeof(g_usb_vendor) - 1);
 							tmp = NULL;
 						}
 						else if (strstr(line, "Product")) {
 							tmp = strtok(line, " ");
 							tmp = strtok(NULL, "\n");
-							strcpy(g_usb_product, tmp);
+							strncpy(g_usb_product, tmp, sizeof(g_usb_product) - 1);
 							tmp = NULL;
 						}
 						else if (strstr(line, "Serial Number")) {
 							tmp = strtok(line, " ");
 							tmp = strtok(NULL, " ");
 							tmp = strtok(NULL, "\n");
-							strcpy(g_usb_serial, tmp);
+							strncpy(g_usb_serial, tmp, sizeof(g_usb_serial) - 1);
 							tmp = NULL;
 						}
 					}
@@ -717,13 +717,13 @@ void asp_usbdevices(int argc, char **argv)
 				if (strstr(line, "Manufacturer")) {
 					tmp = strtok(line, "=");
 					tmp = strtok(NULL, "\n");
-					strcpy(g_usb_vendor, tmp);
+					strncpy(g_usb_vendor, tmp, sizeof(g_usb_vendor) - 1);
 					tmp = NULL;
 				}
 				else if (strstr(line, "Model")) {
 					tmp = strtok(line, "=");
 					tmp = strtok(NULL, "\n");
-					strcpy(g_usb_product, tmp);
+					strncpy(g_usb_product, tmp, sizeof(g_usb_product) - 1);
 					tmp = NULL;
 				}
 			}
