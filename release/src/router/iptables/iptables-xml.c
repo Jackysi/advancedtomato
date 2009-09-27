@@ -26,10 +26,10 @@
 /* no need to link with iptables.o */
 const char *program_name;
 const char *program_version;
-int line = 0;
 
-void
-exit_error(enum exittype status, char *msg, ...)
+#ifndef IPTABLES_MULTI
+int line = 0;
+void exit_error(enum exittype status, char *msg, ...)
 {
 	va_list args;
 
@@ -41,6 +41,7 @@ exit_error(enum exittype status, char *msg, ...)
 	/* On error paths, make sure that we don't leak memory */
 	exit(status);
 }
+#endif
 
 static void print_usage(const char *name, const char *version)
 	    __attribute__ ((noreturn));
@@ -66,7 +67,7 @@ print_usage(const char *name, const char *version)
 	exit(1);
 }
 
-int
+static int
 parse_counters(char *string, struct ipt_counters *ctr)
 {
 	if (string != NULL)
@@ -605,7 +606,7 @@ do_rule(char *pcnt, char *bcnt, int argc, char *argv[], int argvattr[])
 
 #ifdef IPTABLES_MULTI
 int
-iptables_restore_main(int argc, char *argv[])
+iptables_xml_main(int argc, char *argv[])
 #else
 int
 main(int argc, char *argv[])

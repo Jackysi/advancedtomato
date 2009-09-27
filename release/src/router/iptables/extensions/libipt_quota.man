@@ -4,4 +4,3 @@ packet.
 .BI "--quota " "bytes"
 The quota in bytes.
 .P
-KNOWN BUGS: this does not work on SMP systems.

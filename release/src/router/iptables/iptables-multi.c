@@ -6,6 +6,7 @@
 int iptables_main(int argc, char **argv);
 int iptables_save_main(int argc, char **argv);
 int iptables_restore_main(int argc, char **argv);
+//int iptables_xml_main(int argc, char **argv);
 
 int main(int argc, char **argv) {
   char *progname;
@@ -25,6 +26,9 @@ int main(int argc, char **argv) {
     if (!strcmp(progname, "iptables-restore"))
       return iptables_restore_main(argc, argv);
     
+//    if (!strcmp(progname, "iptables-xml"))
+//      return iptables_xml_main(argc, argv);
+//    
     fprintf(stderr, "iptables multi-purpose version: unknown applet name %s\n", progname);
     exit(1);
   }

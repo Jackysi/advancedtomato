@@ -6,7 +6,10 @@
 #include <getopt.h>
 #include <iptables.h>
 #include <linux/netfilter_ipv4/ip_tables.h>
-#include <linux/netfilter_ipv4/ip_nat_rule.h>
+#include <linux/netfilter/nf_nat.h>
+
+#define IPT_SNAT_OPT_SOURCE 0x01
+#define IPT_SNAT_OPT_RANDOM 0x02
 
 /* Source NAT data consists of a multi-range, indicating where to map
    to. */
@@ -24,12 +27,14 @@ help(void)
 "SNAT v%s options:\n"
 " --to-source <ipaddr>[-<ipaddr>][:port-port]\n"
 "				Address to map source to.\n"
-"				(You can use this more than once)\n\n",
+"[--random]\n"
+"\n",
 IPTABLES_VERSION);
 }
 
 static struct option opts[] = {
 	{ "to-source", 1, 0, '1' },
+	{ "random", 0, 0, '2' },
 	{ 0 }
 };
 
@@ -155,7 +160,7 @@ parse(int c, char **argv, int invert, unsigned int *flags,
 			exit_error(PARAMETER_PROBLEM,
 				   "Unexpected `!' after --to-source");
 
-		if (*flags) {
+		if (*flags & IPT_SNAT_OPT_SOURCE) {
 			if (!kernel_version)
 				get_kernel_version();
 			if (kernel_version > LINUX_VERSION(2, 6, 10))
@@ -163,7 +168,18 @@ parse(int c, char **argv, int invert, unsigned int *flags,
 					   "Multiple --to-source not supported");
 		}
 		*target = parse_to(optarg, portok, info);
-		*flags = 1;
+		/* WTF do we need this for?? */
+		if (*flags & IPT_SNAT_OPT_RANDOM)
+			info->mr.range[0].flags |= IP_NAT_RANGE_PROTO_RANDOM;
+		*flags |= IPT_SNAT_OPT_SOURCE;
+		return 1;
+
+	case '2':
+		if (*flags & IPT_SNAT_OPT_SOURCE) {
+			info->mr.range[0].flags |= IP_NAT_RANGE_PROTO_RANDOM;
+			*flags |= IPT_SNAT_OPT_RANDOM;
+		} else
+			*flags |= IPT_SNAT_OPT_RANDOM;
 		return 1;
 
 	default:
@@ -174,7 +190,7 @@ parse(int c, char **argv, int invert, unsigned int *flags,
 /* Final check; must have specfied --to-source. */
 static void final_check(unsigned int flags)
 {
-	if (!flags)
+	if (!(flags & IPT_SNAT_OPT_SOURCE))
 		exit_error(PARAMETER_PROBLEM,
 			   "You must specify --to-source");
 }
@@ -212,6 +228,8 @@ print(const struct ipt_ip *ip,
 	for (i = 0; i < info->mr.rangesize; i++) {
 		print_range(&info->mr.range[i]);
 		printf(" ");
+		if (info->mr.range[i].flags & IP_NAT_RANGE_PROTO_RANDOM)
+			printf("random ");
 	}
 }
 
@@ -226,6 +244,8 @@ save(const struct ipt_ip *ip, const struct ipt_entry_target *target)
 		printf("--to-source ");
 		print_range(&info->mr.range[i]);
 		printf(" ");
+		if (info->mr.range[i].flags & IP_NAT_RANGE_PROTO_RANDOM)
+			printf("--random ");
 	}
 }
 

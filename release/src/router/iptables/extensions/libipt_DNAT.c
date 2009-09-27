@@ -6,7 +6,10 @@
 #include <getopt.h>
 #include <iptables.h>
 #include <linux/netfilter_ipv4/ip_tables.h>
-#include <linux/netfilter_ipv4/ip_nat_rule.h>
+#include <linux/netfilter/nf_nat.h>
+
+#define IPT_DNAT_OPT_DEST 0x1
+#define IPT_DNAT_OPT_RANDOM 0x2
 
 /* Dest NAT data consists of a multi-range, indicating where to map
    to. */
@@ -24,12 +27,14 @@ help(void)
 "DNAT v%s options:\n"
 " --to-destination <ipaddr>[-<ipaddr>][:port-port]\n"
 "				Address to map destination to.\n"
-"				(You can use this more than once)\n\n",
+"[--random]\n"
+"\n",
 IPTABLES_VERSION);
 }
 
 static struct option opts[] = {
 	{ "to-destination", 1, 0, '1' },
+	{ "random", 0, 0, '2' },
 	{ 0 }
 };
 
@@ -163,9 +168,18 @@ parse(int c, char **argv, int invert, unsigned int *flags,
 					   "Multiple --to-destination not supported");
 		}
 		*target = parse_to(optarg, portok, info);
-		*flags = 1;
+		/* WTF do we need this for?? */
+		if (*flags & IPT_DNAT_OPT_RANDOM)
+			info->mr.range[0].flags |= IP_NAT_RANGE_PROTO_RANDOM;
+		*flags |= IPT_DNAT_OPT_DEST;
 		return 1;
 
+	case '2':
+		if (*flags & IPT_DNAT_OPT_DEST) {
+			info->mr.range[0].flags |= IP_NAT_RANGE_PROTO_RANDOM;
+			*flags |= IPT_DNAT_OPT_RANDOM;
+		} else
+			*flags |= IPT_DNAT_OPT_RANDOM;
 	default:
 		return 0;
 	}
@@ -212,6 +226,8 @@ print(const struct ipt_ip *ip,
 	for (i = 0; i < info->mr.rangesize; i++) {
 		print_range(&info->mr.range[i]);
 		printf(" ");
+		if (info->mr.range[i].flags & IP_NAT_RANGE_PROTO_RANDOM)
+			printf("random ");
 	}
 }
 
@@ -226,6 +242,8 @@ save(const struct ipt_ip *ip, const struct ipt_entry_target *target)
 		printf("--to-destination ");
 		print_range(&info->mr.range[i]);
 		printf(" ");
+		if (info->mr.range[i].flags & IP_NAT_RANGE_PROTO_RANDOM)
+			printf("--random ");
 	}
 }
 

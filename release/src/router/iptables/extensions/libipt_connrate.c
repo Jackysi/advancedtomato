@@ -13,7 +13,7 @@
 #include <stdlib.h>
 #include <getopt.h>
 #include <iptables.h>
-#include <linux/netfilter_ipv4/ip_conntrack.h>
+#include <linux/netfilter/nf_conntrack_common.h>
 #include <linux/netfilter_ipv4/ipt_connrate.h>
 
 /* Function which prints out usage message. */

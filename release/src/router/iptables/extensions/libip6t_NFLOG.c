@@ -35,7 +35,7 @@ static void init(struct ip6t_entry_target *t, unsigned int *nfcache)
 {
 	struct xt_nflog_info *info = (struct xt_nflog_info *)t->data;
 
-	info->group	= XT_NFLOG_DEFAULT_GROUP;
+	info->group	= 0;
 	info->threshold	= XT_NFLOG_DEFAULT_THRESHOLD;
 }
 
@@ -56,10 +56,10 @@ static int parse(int c, char **argv, int invert, unsigned int *flags,
 				   "Unexpected `!' after --nflog-group");
 
 		n = atoi(optarg);
-		if (n < 1 || n > 32)
+		if (n < 0)
 			exit_error(PARAMETER_PROBLEM,
-				   "--nflog-group has to be between 1 and 32");
-		info->group = 1 << (n - 1);
+				   "--nflog-group can not be negative");
+		info->group = n;
 		break;
 	case NFLOG_PREFIX:
 		if (*flags & NFLOG_PREFIX)
@@ -118,8 +118,8 @@ static void nflog_print(const struct xt_nflog_info *info, char *prefix)
 {
 	if (info->prefix[0] != '\0')
 		printf("%snflog-prefix \"%s\" ", prefix, info->prefix);
-	if (info->group != XT_NFLOG_DEFAULT_GROUP)
-		printf("%snflog-group %u ", prefix, ffs(info->group));
+	if (info->group)
+		printf("%snflog-group %u ", prefix, info->group);
 	if (info->len)
 		printf("%snflog-range %u ", prefix, info->len);
 	if (info->threshold != XT_NFLOG_DEFAULT_THRESHOLD)
