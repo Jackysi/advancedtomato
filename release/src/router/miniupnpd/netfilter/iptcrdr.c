@@ -340,6 +340,12 @@ delete_rule_and_commit(unsigned int index, IPTC_HANDLE h,
 	    	   logcaller, iptc_strerror(errno));
 		r = -1;
 	}
+	if (h)
+#ifdef IPTABLES_143
+		iptc_free(h);
+#else
+		iptc_free(&h);
+#endif
 	return r;
 }
 
@@ -415,21 +421,10 @@ delete_redirect_and_filter_rules(unsigned short eport, int proto)
 		if(h)
 		{
 			r = delete_rule_and_commit(index, h, miniupnpd_nat_chain, "delete_redirect_rule");
-#ifdef IPTABLES_143
-			iptc_free(h);
-#else
-			iptc_free(&h);
-#endif
 		}
-		h = iptc_init("filter");
-		if(h && (r == 0))
+		if(r == 0 && (h = iptc_init("filter")))
 		{
 			r = delete_rule_and_commit(index, h, miniupnpd_forward_chain, "delete_filter_rule");
-#ifdef IPTABLES_143
-			iptc_free(h);
-#else
-			iptc_free(&h);
-#endif
 		}
 	}
 	del_redirect_desc(eport, proto);
@@ -534,6 +529,7 @@ iptc_init_verify_and_append(const char * table, const char * miniupnpd_chain, st
 	{
 		syslog(LOG_ERR, "%s : iptc_append_entry() error : %s\n",
 		       logcaller, iptc_strerror(errno));
+		if (h)
 #ifdef IPTABLES_143
 		iptc_free(h);
 #else
@@ -549,6 +545,7 @@ iptc_init_verify_and_append(const char * table, const char * miniupnpd_chain, st
 	{
 		syslog(LOG_ERR, "%s : iptc_commit() error : %s\n",
 		       logcaller, iptc_strerror(errno));
+		if (h)
 #ifdef IPTABLES_143
 		iptc_free(h);
 #else
@@ -556,6 +553,7 @@ iptc_init_verify_and_append(const char * table, const char * miniupnpd_chain, st
 #endif
 		return -1;
 	}
+	if (h)
 #ifdef IPTABLES_143
 	iptc_free(h);
 #else
@@ -738,6 +736,11 @@ list_redirect_rule(const char * ifname)
 	if(!iptc_is_chain(miniupnpd_nat_chain, h))
 	{
 		printf("chain %s not found\n", miniupnpd_nat_chain);
+#ifdef IPTABLES_143
+		iptc_free(h);
+#else
+		iptc_free(&h);
+#endif
 		return -1;
 	}
 #ifdef IPTABLES_143
