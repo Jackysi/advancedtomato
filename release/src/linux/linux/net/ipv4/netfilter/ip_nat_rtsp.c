@@ -183,6 +183,9 @@ rtsp_mangle_tran(struct ip_conntrack* ct, enum ip_conntrack_info ctinfo,
         }
         break;
     case pb_range:
+       /**************************** wuzh modify 2006.6.26 **********************/
+      //when client_port in SETUP msg like <client_port=xx-xx>, two expect have been created
+#if 0   
         for (loport = prtspexp->loport; loport != 0; loport += 2) /* XXX: improper wrap? */
         {
             t.dst.u.udp.port = htons(loport);
@@ -198,6 +201,41 @@ rtsp_mangle_tran(struct ip_conntrack* ct, enum ip_conntrack_info ctinfo,
             rbuf1len = sprintf(rbuf1, "%hu", loport);
             rbufalen = sprintf(rbufa, "%hu-%hu", loport, loport+1);
         }
+#else
+       if(!prtspexp->isrtcpexp)
+       {
+                for (loport = prtspexp->loport; loport != 0; loport += 2) /* XXX: improper wrap? */
+               {
+                   t.dst.u.udp.port = htons(loport);
+                   if (ip_conntrack_change_expect(exp, &t) == 0)
+                   {
+                       DEBUGP("using ports %hu\n", loport);
+                       break;
+                   }
+               }
+              if (loport != 0)
+              {
+                   rbuf1len = sprintf(rbuf1, "%hu", loport);
+                   rbufalen = sprintf(rbufa, "%hu-%hu", loport, loport+1);
+              }
+       }
+       else
+       {
+              for (hiport = prtspexp->hiport; hiport != 0; hiport += 2) 
+             {
+                   t.dst.u.udp.port = htons(hiport);
+                  if (ip_conntrack_change_expect(exp, &t) == 0)
+                 {
+                       DEBUGP("using ports %hu\n", hiport);
+                       break;
+                 }
+             }
+
+               //Because of RTP expection have modified SETUP msg so exit
+              return 1;
+       }
+      /********************************************************************/
+#endif
         break;
     case pb_discon:
         for (loport = prtspexp->loport; loport != 0; loport++) /* XXX: improper wrap? */
@@ -261,6 +299,8 @@ rtsp_mangle_tran(struct ip_conntrack* ct, enum ip_conntrack_info ctinfo,
         {
             const char* pfieldend;
             uint        nextfieldoff;
+            //wuzh add 2006.6.26 the length of client IP string that will be replaced by WAN IP
+            uint        replen;
 
             pfieldend = memchr(ptran+off, ';', nextparamoff-off);
             nextfieldoff = (pfieldend == NULL) ? nextparamoff : pfieldend-ptran+1;
@@ -273,13 +313,23 @@ rtsp_mangle_tran(struct ip_conntrack* ct, enum ip_conntrack_info ctinfo,
                 }
                 if (dstact == DSTACT_STRIP || (dstact == DSTACT_AUTO && !is_stun))
                 {
+                /********************* wuzh modify 2006.6.26 *******************/
+#if 0 
                     diff = nextfieldoff-off;
                     if (!ip_nat_mangle_tcp_packet(pskb, ct, ctinfo,
                                                          off, diff, NULL, 0))
+#else
+                    off += 12;
+                    replen = (pfieldend == NULL) ? nextfieldoff-off : nextfieldoff-off-1;
+                    diff = replen - extaddrlen;
+                    if (!ip_nat_mangle_tcp_packet(pskb, ct, ctinfo,
+                                                         (ptran-ptcp)+off, replen, szextaddr, extaddrlen))
+#endif
                     {
                         /* mangle failed, all we can do is bail */
                         return 0;
                     }
+                 /************************************************************/
                     get_skb_tcpdata(*pskb, &ptcp, &tcplen);
                     ptran = ptcp+tranoff;
                     tranlen -= diff;
@@ -373,9 +423,15 @@ expected(struct sk_buff **pskb, uint hooknum, struct ip_conntrack* ct, struct ip
     u_int32_t newdstip, newsrcip, newip;
 
     struct ip_conntrack *master = master_ct(ct);
+    //wuzh add 2006.6.26
+    struct ip_ct_rtsp_expect* prtspexp;
+    u_int16_t clientport;
 
     IP_NF_ASSERT(info);
     IP_NF_ASSERT(master);
+
+    //wuzh add 2006.6.26
+    prtspexp = &ct->master->help.exp_rtsp_info;
 
     IP_NF_ASSERT(!(info->initialized & (1 << HOOK2MANIP(hooknum))));
 
@@ -383,13 +439,36 @@ expected(struct sk_buff **pskb, uint hooknum, struct ip_conntrack* ct, struct ip
     newsrcip = ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple.src.ip;
     newip = (HOOK2MANIP(hooknum) == IP_NAT_MANIP_SRC) ? newsrcip : newdstip;
 
+#if 0
     DEBUGP("newsrcip=%u.%u.%u.%u, newdstip=%u.%u.%u.%u, newip=%u.%u.%u.%u\n",
            NIPQUAD(newsrcip), NIPQUAD(newdstip), NIPQUAD(newip));
+#endif   
 
     mr.rangesize = 1;
     /* We don't want to manip the per-protocol, just the IPs. */
     mr.range[0].flags = IP_NAT_RANGE_MAP_IPS;
     mr.range[0].min_ip = mr.range[0].max_ip = newip;
+
+    /**************************** wuzh add 2006.6.26 *********************************/
+    //If two or more clients using same ports connect to RTSP server, these client_port maybe modified
+    //so the ports of RTP and RTCP destination need change to original ports
+    if (HOOK2MANIP(hooknum) == IP_NAT_MANIP_DST) 
+    {
+        mr.range[0].flags |= IP_NAT_RANGE_PROTO_SPECIFIED;
+        if(prtspexp->isrtcpexp)
+       {
+           clientport = prtspexp->hiport;
+       }
+       else
+      {
+           clientport = prtspexp->loport;
+       }
+        mr.range[0].min = mr.range[0].max
+                                = ((union ip_conntrack_manip_proto){ .udp = { htons(clientport) } });
+        DEBUGP("newsrcip=%u.%u.%u.%u, newdstip=%u.%u.%u.%u, newip=%u.%u.%u.%u client_port:%u\n",
+           NIPQUAD(newsrcip), NIPQUAD(newdstip), NIPQUAD(newip), clientport);
+    }
+    /*******************************************************************************/
 
     return ip_nat_setup_info(ct, &mr, hooknum);
 }

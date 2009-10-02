@@ -41,6 +41,8 @@ struct ip_ct_rtsp_expect
     portblock_t pbtype;     /* Type of port block that was requested */
     u_int16_t   loport;     /* Port that was requested, low or first */
     u_int16_t   hiport;     /* Port that was requested, high or second */
+    //wuzh add 2006.6.26 to distinguish RTCP expect and RTP expect
+    u_int16_t   isrtcpexp;
 #if 0
     uint        method;     /* RTSP method */
     uint        cseq;       /* CSeq from request */

@@ -237,6 +237,7 @@ rtsp_parse_transport(char* ptran, uint tranlen,
                     }
                     rc = 1;
                 }
+              
             }
 
             /*
@@ -270,6 +271,8 @@ help_out(const struct iphdr* iph, size_t pktlen,
     uint    dataoff = 0;
 
     struct ip_conntrack_expect exp;
+    //wuzh add 2006.6.26 to store RTCP expect info when the type of client_port is pb_range
+    struct ip_conntrack_expect exp_rtcp;
 
     while (dataoff < datalen)
     {
@@ -289,6 +292,54 @@ help_out(const struct iphdr* iph, size_t pktlen,
         {
             break;      /* not a valid message */
         }
+
+        /************************** wuzh add 2006.6.26 ****************************/
+        /*  If we receive a TEARDOWN msg, all expections related-to this conntrack
+          *  will be deleted!
+          */
+        if (!strncmp(pdata+cmdoff, "TEARDOWN ", 9))
+        {
+              struct list_head *exp_entry, *next;
+              struct ip_conntrack_expect *ptrexp;
+
+              DEBUGP("found a teardown message\n");
+
+              for (exp_entry = ct->sibling_list.next; exp_entry != &ct->sibling_list; exp_entry = next)
+              {
+                     next = exp_entry->next;
+                     ptrexp = list_entry(exp_entry, struct ip_conntrack_expect, expected_list);
+
+                     IP_NF_ASSERT(ptrexp->expectant == ct);
+
+                     if (ptrexp->sibling) {
+
+                            DEBUGP("destroy_expectations: deleting established %p of %p\n", ptrexp->sibling, ct);
+
+                            DUMP_TUPLE(&ptrexp->tuple);
+
+                            //ptrexp->expectant = NULL;	
+
+                            if(del_timer(&ptrexp->sibling->timeout))
+               		            ptrexp->sibling->timeout.function(ptrexp->sibling->timeout.data);
+
+                            continue;
+                     }
+
+                     if (ptrexp->expectant->helper->timeout
+                          && ! del_timer(&ptrexp->timeout)) {
+                            DEBUGP("destroy_expectations: skipping dying expectation %p of %p\n", ptrexp, ct);
+                            continue;
+                     }
+
+                     DEBUGP("destroy_expections: deleting unestablished %p of %p\n", ptrexp, ct);
+                     DUMP_TUPLE(&ptrexp->tuple);
+                     ip_conntrack_unexpect_related(ptrexp);
+              }
+
+              continue;
+     
+        }  
+        /*********************************************************************************/
 
         if (strncmp(pdata+cmdoff, "SETUP ", 6) != 0)
         {
@@ -338,10 +389,19 @@ help_out(const struct iphdr* iph, size_t pktlen,
         exp.mask.src.ip  = 0xffffffff;
         exp.tuple.dst.ip = ct->tuplehash[dir].tuple.src.ip;
         exp.mask.dst.ip  = 0xffffffff;
+
+        /**********************wuzh modify 2006.6.26 ***************************/
+#if 0
         exp.tuple.dst.u.udp.port = exp.help.exp_rtsp_info.loport;
         exp.mask.dst.u.udp.port  = (exp.help.exp_rtsp_info.pbtype == pb_range) ? 0xfffe : 0xffff;
+#else
+        exp.tuple.dst.u.udp.port = htons(exp.help.exp_rtsp_info.loport);
+        exp.mask.dst.u.udp.port  = 0xffff; 
+        exp.help.exp_rtsp_info.isrtcpexp = 0;
+#endif
         exp.tuple.dst.protonum = IPPROTO_UDP;
         exp.mask.dst.protonum  = 0xffff;
+       /********************************************************************/
 
         DEBUGP("expect_related %u.%u.%u.%u:%u-%u.%u.%u.%u:%u\n",
                 NIPQUAD(exp.tuple.src.ip),
@@ -349,6 +409,23 @@ help_out(const struct iphdr* iph, size_t pktlen,
                 NIPQUAD(exp.tuple.dst.ip),
                 ntohs(exp.tuple.dst.u.tcp.port));
 
+       /***************************** wuzh add 2006.6.26 *********************/
+       if(pb_range == exp.help.exp_rtsp_info.pbtype)
+       {
+           memcpy((void*)&exp_rtcp, (void*)&exp, sizeof(exp));
+           exp_rtcp.mask.dst.u.udp.port = 0xffff;
+           exp_rtcp.tuple.dst.u.udp.port = htons(exp.help.exp_rtsp_info.loport+1);
+           exp_rtcp.help.exp_rtsp_info.isrtcpexp = 1;
+           DEBUGP("expect_rtcp_related %u.%u.%u.%u:%u-%u.%u.%u.%u:%u\n",
+                NIPQUAD(exp_rtcp.tuple.src.ip),
+                ntohs(exp_rtcp.tuple.src.u.tcp.port),
+                NIPQUAD(exp_rtcp.tuple.dst.ip),
+                ntohs(exp_rtcp.tuple.dst.u.tcp.port));
+       }
+      /*******************************************************************/
+
+      /*************************** wuzh modify 2006.6.26 ********************/
+#if 0  
         /* pass the request off to the nat helper */
         rc = ip_conntrack_expect_related(ct, &exp);
         UNLOCK_BH(&ip_rtsp_lock);
@@ -360,6 +437,32 @@ help_out(const struct iphdr* iph, size_t pktlen,
         {
             INFOP("ip_conntrack_expect_related failed (%d)\n", rc);
         }
+#else
+        /* pass the request off to the nat helper */
+        rc = ip_conntrack_expect_related(ct, &exp);
+        if (rc == 0)
+        {
+            DEBUGP("ip_conntrack_expect_related succeeded\n");
+        }
+        else
+        {
+            INFOP("ip_conntrack_expect_related failed (%d)\n", rc);
+        }
+       if(pb_range == exp.help.exp_rtsp_info.pbtype)
+       {
+               rc = ip_conntrack_expect_related(ct, &exp_rtcp);
+               if (rc == 0)
+               {
+                   DEBUGP("ip_conntrack_expect_related rtcp succeeded\n");
+               }
+               else
+               {
+                   INFOP("ip_conntrack_expect_related rtcp failed (%d)\n", rc);
+               }
+       }
+        UNLOCK_BH(&ip_rtsp_lock);
+#endif
+       /********************************************************************/
     }
 
     return NF_ACCEPT;

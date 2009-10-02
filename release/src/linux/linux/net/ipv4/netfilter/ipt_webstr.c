@@ -145,7 +145,8 @@ static int mangle_http_header(const struct sk_buff *skb, int flags)
     if (datalen < 10)
 	return ret;	/* Not enough length, ignore it */
     if (memcmp(data, "GET ", sizeof("GET ") - 1) != 0 &&
-        memcmp(data, "POST ", sizeof("POST ") - 1) != 0)
+        memcmp(data, "POST ", sizeof("POST ") - 1) != 0 &&
+        memcmp(data, "HEAD ", sizeof("HEAD ") - 1) != 0) //zg add 2006.09.28 for cdrouter3.3 item 186(cdrouter_urlfilter_15)
 	return ret;	/* Pass it */
 
     /* COOKIE modification */
@@ -184,7 +185,8 @@ static int get_http_info(const struct sk_buff *skb, int flags, httpinfo_t *info)
     if (datalen < 10)
 	return ret;	/* Not enough length, ignore it */
     if (memcmp(data, "GET ", sizeof("GET ") - 1) != 0 &&
-        memcmp(data, "POST ", sizeof("POST ") - 1) != 0)
+        memcmp(data, "POST ", sizeof("POST ") - 1) != 0 &&
+        memcmp(data, "HEAD ", sizeof("HEAD ") - 1) != 0) //zg add 2006.09.28 for cdrouter3.3 item 186(cdrouter_urlfilter_15)
 	return ret;	/* Pass it */
 
     if (!(flags & (HTTP_HOST | HTTP_URL)))
@@ -208,18 +210,23 @@ static int get_http_info(const struct sk_buff *skb, int flags, httpinfo_t *info)
     if (!(flags & HTTP_URL))
 	return ret;
 
-    /* find the 'GET ' or 'POST ' value */
+    /* find the 'GET ' or 'POST ' or 'HEAD ' value */
     found = find_pattern2(data, datalen, "GET ",
 	    sizeof("GET ") - 1, '\r', &offset, &pathlen);
     if (!found)
 	found = find_pattern2(data, datalen, "POST ",
 		sizeof("POST ") - 1, '\r', &offset, &pathlen);
+    /******* zg add 2006.09.28 for cdrouter3.3 item 186(cdrouter_urlfilter_15) ******/
+    if (!found)
+        found = find_pattern2(data, datalen, "HEAD ",
+                sizeof("HEAD ") - 1, '\r', &offset, &pathlen);
+    /************************* zg end 2006.09.28 ****************************/
     SPARQ_LOG("GET/POST found=%d\n", found);
 
     if (!found || (pathlen -= (sizeof(" HTTP/x.x") - 1)) <= 0)/* ignor this field */
 	return ret;
 
-    ret++;	/* GET/POST found, increase the return value */
+    ret++;	/* GET/POST/HEAD found, increase the return value */
     pathlen = ((pathlen + hostlen) < BUFSIZE) ? pathlen : BUFSIZE - hostlen;
     strncpy(info->url, info->host, hostlen);
     strncpy(info->url + hostlen, data + offset, pathlen);
@@ -313,6 +320,7 @@ match(const struct sk_buff *skb,
 	    int nlen = 0, hlen = 0;
 	    char needle[BUFSIZE], *haystack = NULL;
 	    char *next;
+            char *chtemp;//zg add 2006.12.07 for CDRouter v3.3 url-filter module test
 
 	    if (info->type == IPT_WEBSTR_HOST) {
 		haystack = htinfo.host;
@@ -323,6 +331,12 @@ match(const struct sk_buff *skb,
 		hlen = htinfo.urllen;
 	    }
 	    split(needle, wordlist, next, token) {
+                /**************zg add 2006.12.07 for CDRouter v3.3 url-filter module test*****************/
+                        chtemp = strstr(needle, "://");
+                        if (NULL != chtemp)
+                                strcpy(needle, chtemp + 3);
+                /***************************zg end 2006.12.07******************/
+
 		nlen = strlen(needle);
 		SPARQ_LOG("keyword=%s, nlen=%d, hlen=%d\n", needle, nlen, hlen);
 		if (!nlen || !hlen || nlen > hlen) continue;

@@ -133,6 +133,21 @@ print_conntrack(char *buffer, struct ip_conntrack *conntrack)
 				conntrack->layer7.app_proto); 
 	#endif
 
+	#if defined(CONFIG_IP_NF_TARGET_MACSAVE) || defined(CONFIG_IP_NF_TARGET_MACSAVE_MODULE)
+	if ((*((u32 *)conntrack->macsave) != 0) || (*((u16*)(conntrack->macsave + 4)) != 0)) {
+		len += sprintf(buffer + len, "macsave=%02X:%02X:%02X:%02X:%02X:%02X ", 
+			conntrack->macsave[0], conntrack->macsave[1], conntrack->macsave[2],
+			conntrack->macsave[3], conntrack->macsave[4], conntrack->macsave[5]);
+	}
+	#endif
+	#if defined(CONFIG_IP_NF_TARGET_BCOUNT) || defined(CONFIG_IP_NF_TARGET_BCOUNT_MODULE)
+	#if 0
+	if (conntrack->bcount != 0) {
+		len += sprintf(buffer + len, "bcount=%ldK ", conntrack->bcount / 1024);
+	}
+	#endif
+	#endif
+
 	len += sprintf(buffer + len, "\n");
 
 	return len;

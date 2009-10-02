@@ -16,6 +16,7 @@ if [ "$CONFIG_IP_NF_CONNTRACK" != "n" ]; then
   dep_tristate '  Connection byte counter support' CONFIG_IP_NF_MATCH_CONNBYTES $CONFIG_IP_NF_CT_ACCT $CONFIG_IP_NF_CONNTRACK $CONFIG_IP_NF_IPTABLES
   dep_tristate '  GRE protocol support' CONFIG_IP_NF_CT_PROTO_GRE $CONFIG_IP_NF_CONNTRACK
   dep_tristate '   PPTP protocol support' CONFIG_IP_NF_PPTP $CONFIG_IP_NF_CT_PROTO_GRE
+  dep_tristate '  SIP protocol support' CONFIG_IP_NF_SIP $CONFIG_IP_NF_CONNTRACK	
   dep_tristate '  H.323 (netmeeting) support' CONFIG_IP_NF_H323 $CONFIG_IP_NF_CONNTRACK
   dep_tristate '  RTSP protocol support' CONFIG_IP_NF_RTSP $CONFIG_IP_NF_CONNTRACK
   dep_tristate '  MMS protocol support' CONFIG_IP_NF_MMS $CONFIG_IP_NF_CONNTRACK
@@ -113,6 +114,13 @@ if [ "$CONFIG_IP_NF_IPTABLES" != "n" ]; then
       else
         if [ "$CONFIG_IP_NF_PPTP" = "y" ]; then
           define_tristate CONFIG_IP_NF_NAT_PPTP $CONFIG_IP_NF_NAT
+        fi
+      fi
+      if [ "$CONFIG_IP_NF_SIP" = "m" ]; then
+       define_tristate CONFIG_IP_NF_NAT_SIP m
+      else
+        if [ "$CONFIG_IP_NF_SIP" = "y" ]; then
+          define_tristate CONFIG_IP_NF_NAT_SIP $CONFIG_IP_NF_NAT
         fi
       fi
       if [ "$CONFIG_IP_NF_CT_PROTO_GRE" = "m" ]; then

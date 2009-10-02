@@ -53,6 +53,10 @@ obj-$(CONFIG_IP_NF_PPTP) += ip_conntrack_pptp.o
 ifdef CONFIG_IP_NF_NAT_PPTP
 	export-objs += ip_conntrack_pptp.o
 endif
+obj-$(CONFIG_IP_NF_SIP) += ip_conntrack_sip.o
+ifdef CONFIG_IP_NF_NAT_SIP
+	export-objs += ip_conntrack_sip.o
+endif
 obj-$(CONFIG_IP_NF_H323) += ip_conntrack_h323.o
 ifdef CONFIG_IP_NF_NAT_H323
        export-objs += ip_conntrack_h323.o
@@ -75,6 +79,7 @@ obj-$(CONFIG_IP_NF_NAT_FTP) += ip_nat_ftp.o
 obj-$(CONFIG_IP_NF_NAT_IRC) += ip_nat_irc.o
 obj-$(CONFIG_IP_NF_NAT_PROTO_GRE) += ip_nat_proto_gre.o
 obj-$(CONFIG_IP_NF_NAT_PPTP) += ip_nat_pptp.o
+obj-$(CONFIG_IP_NF_NAT_SIP) += ip_nat_sip.o
 obj-$(CONFIG_IP_NF_NAT_H323) += ip_nat_h323.o
 obj-$(CONFIG_IP_NF_NAT_RTSP) += ip_nat_rtsp.o
 obj-$(CONFIG_IP_NF_NAT_MMS) += ip_nat_mms.o
